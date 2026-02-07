@@ -65443,16 +65443,17 @@ def _arena_top_hero_collect_items():
 arena_top_grenades = []  # 상단 영웅이 던진 수류탄
 arena_top_bananas = []   # 상단 영웅이 던진 바나나
 
-# 투기장 상단 영웅에게 지급 가능한 액티브 아이템 목록
+# 투기장 상단 영웅에게 지급 가능한 액티브 아이템 목록 (투기장 스폰 아이템과 동일)
 _ARENA_TOP_ACTIVE_ITEMS = [
     {"name": "grenade", "color": (80, 100, 80), "effect": "grenade"},
     {"name": "molotov", "color": (255, 100, 0), "effect": "molotov"},
-    {"name": "banana", "color": (255, 220, 50), "effect": "banana"},
     {"name": "flare", "color": (255, 255, 200), "effect": "flare"},
-    {"name": "smoke_grenade", "color": (150, 150, 150), "effect": "smoke_grenade"},
-    {"name": "dynamite", "color": (200, 80, 80), "effect": "dynamite"},
-    {"name": "spider_mine", "color": (120, 90, 160), "effect": "spider_mine"},
     {"name": "wall", "color": (139, 69, 19), "effect": "wall"},
+    {"name": "holy_barrier", "color": (220, 240, 255), "effect": "holy_barrier"},
+    {"name": "spider_mine", "color": (120, 90, 160), "effect": "spider_mine"},
+    {"name": "dynamite", "color": (200, 80, 80), "effect": "dynamite"},
+    {"name": "long_boost", "color": (100, 200, 255), "effect": "long_boost"},
+    {"name": "vitamin_pill", "color": (100, 200, 100), "effect": "vitamin_pill"},
 ]
 
 
@@ -65587,9 +65588,29 @@ def _apply_arena_top_item_effect(effect_name):
         # 게이지 아이템은 상단 영웅에게 의미 없음 - 소비만
         print(f"[Arena] 상단 영웅 게이지 아이템 소비")
 
+    elif effect_name == "holy_barrier":
+        # 상단 영웅 홀리베리어: 화면 하단 배리어 생성
+        try:
+            activate_holy_barrier(None, current_stage, WIDTH, HEIGHT)
+        except Exception:
+            pass
+        print(f"[Arena] 상단 영웅 홀리베리어 사용!")
+
     elif effect_name in ["long_paddle", "long_boost"]:
-        # 패들 확장은 상단 영웅에게 의미 없음 - 소비만
-        print(f"[Arena] 상단 영웅 패들 확장 아이템 소비")
+        # 상단 영웅 거대화포션: 패들 확장 효과 발동
+        try:
+            activate_long_boost()
+        except Exception:
+            pass
+        print(f"[Arena] 상단 영웅 거대화포션 사용!")
+
+    elif effect_name == "vitamin_pill":
+        # 상단 영웅 비타민약: 이동속도 증가 효과 발동
+        try:
+            activate_vitamin_pill()
+        except Exception:
+            pass
+        print(f"[Arena] 상단 영웅 비타민약 사용!")
 
     elif effect_name in ["aipill", "life_elixir", "repair_kit", "regeneration_potion", "devil_dice"]:
         # 유틸리티 아이템: 상단 영웅에게 의미 없음 - 소비만

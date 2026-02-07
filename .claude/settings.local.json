@@ -77,7 +77,11 @@
       "Bash(git -C \"d:\\\\main\\\\bosspong\" push)",
       "Bash(git show:*)",
       "Bash(where:*)",
-      "Bash(git --stat diff downtown/hero_skills.py)"
+      "Bash(git --stat diff downtown/hero_skills.py)",
+      "Bash(git -C \"d:\\\\main\\\\bosspong\" add pingfighter.py)",
+      "Bash(git -C \"d:\\\\main\\\\bosspong\" commit -m \"$\\(cat <<''EOF''\nFix: 스팀베리어 발동 중 대쉬 완전 차단\n\n- 상단/하단 영웅 대쉬 발동 조건에 스팀베리어 시전 중 체크 추가\n- 진행 중인 대쉬도 스팀베리어 시전 시 즉시 취소\n- 6개 함수에 가드 추가: should/trigger/update \\(상단+하단\\)\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C \"d:\\\\main\\\\bosspong\" add downtown/hero_skills.py pingfighter.py)",
+      "Bash(git -C \"d:\\\\main\\\\bosspong\" commit -m \"$\\(cat <<''EOF''\nFeat: 스팀베리어 종료 1초 전 점진적 해동 - 슬슬 움직이기 시작\n\n- 마지막 1초간 thaw_ratio 0→1 선형 보간으로 속도 점진 복귀\n- handle_boss/handle_player에 해동 속도 배율 적용\n- game_state에 steam_barrier_thaw_speed 추가\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")"
     ],
     "deny": [],
     "ask": [],

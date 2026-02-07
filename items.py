@@ -1944,23 +1944,18 @@ def spawn_random_item():
     except Exception:
         pass
 
-    # 투기장 모드에서 제외할 아이템 (패시브 + 전설)
-    _arena_excluded = {
-        "speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime",
-        "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt",
-        "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring",
-        "star_detector", "foul_whistle", "smartphone", "knee_pads",
-        "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger",
-        "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing",
-        "sacred_laurel", "transcendent_crown", "odins_eye", "zeus_lightning", "hades_helm",
+    # 투기장 모드에서 스폰 허용 아이템 (화이트리스트)
+    _arena_allowed = {
+        "grenade", "molotov", "flare", "wall", "holy_barrier",
+        "spider_mine", "dynamite", "long_boost", "vitamin_pill",
     }
 
     for item in ITEM_TYPES:
         if not unlocked_items.get(item["name"], False):
             continue
 
-        # 투기장 모드: 패시브/전설 아이템 스폰 차단 (액티브만 스폰)
-        if _arena_active and item["name"] in _arena_excluded:
+        # 투기장 모드: 허용 목록에 있는 아이템만 스폰
+        if _arena_active and item["name"] not in _arena_allowed:
             continue
 
         # 발토르 전용 아이템은 타 캐릭터 플레이 시 스폰하지 않음
