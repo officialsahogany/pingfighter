@@ -3615,7 +3615,8 @@ class DragonBreath(HeroSkill):
         )
         self.breath_particles = []
         self.breath_active = False
-        self.breath_hit_ball = False
+        self.breath_hit_ball = False  # 호환성용 (사용하지 않음)
+        self.breath_hit_cooldown = 0  # 공 타격 쿨다운 타이머
         self.fire_zone_spawned = False  # 화염 지대 생성 여부 (미사용, 호환성용)
         self.spawn_phase_ended = False  # 파티클 생성 단계 종료 여부
         self.fire_zone_timer = 0  # 화염지대 생성 타이머
@@ -3624,7 +3625,8 @@ class DragonBreath(HeroSkill):
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.breath_particles = []
         self.breath_active = True
-        self.breath_hit_ball = False
+        self.breath_hit_ball = False  # 호환성용
+        self.breath_hit_cooldown = 0  # 공 타격 쿨다운 초기화
         self.fire_zone_spawned = False  # 호환성용
         self.spawn_phase_ended = False  # 파티클 생성 단계 시작
         self.fire_zone_timer = 0  # 화염지대 생성 타이머 초기화
@@ -3700,6 +3702,10 @@ class DragonBreath(HeroSkill):
         elif self.active_timer <= spawn_cutoff_time:
             self.spawn_phase_ended = True  # 생성 단계 종료 표시
 
+        # 공 타격 쿨다운 감소
+        if self.breath_hit_cooldown > 0:
+            self.breath_hit_cooldown -= dt
+
         for p in self.breath_particles:
             # 딜레이가 있는 파티클은 딜레이 감소
             if p.get('delay', 0) > 0:
@@ -3712,8 +3718,8 @@ class DragonBreath(HeroSkill):
             p['size'] *= 0.985  # 더 천천히 줄어듦
             p['color_phase'] += dt
 
-            # 공과 충돌 체크 (rect 기반 - 오딘의 늪과 동일 방식)
-            if not self.breath_hit_ball and p['size'] > 3:
+            # 공과 충돌 체크 (쿨다운 기반 다중 히트 - 이펙트 전체에 타격 판정)
+            if self.breath_hit_cooldown <= 0 and p['size'] > 3:
                 # 파티클 히트박스 생성
                 particle_size = max(int(p['size']), 5)
                 particle_rect = pygame.Rect(
@@ -3724,7 +3730,7 @@ class DragonBreath(HeroSkill):
                 )
 
                 if particle_rect.colliderect(ball_rect):
-                    # 공을 화염 진행 방향으로 반사 (오딘의 늪 가시와 유사)
+                    # 공을 화염 진행 방향으로 반사 + 좌우 넉백
                     is_caster_top = getattr(self, 'caster_is_top', caster_paddle.is_top)
 
                     # 현재 속도 계산
@@ -3736,19 +3742,27 @@ class DragonBreath(HeroSkill):
                     boosted_speed = current_speed * random.uniform(1.3, 1.5)
 
                     # 화염 진행 방향으로 반사 (상단→아래, 하단→위)
-                    # 약간의 X축 랜덤 편차 추가
                     angle_offset = random.uniform(-0.3, 0.3)  # ±17도
 
                     if is_caster_top:
-                        # 상단에서 발사 → 공을 아래로 반사
                         ball.vy = abs(boosted_speed * math.cos(angle_offset))
-                        ball.vx = boosted_speed * math.sin(angle_offset)
                     else:
-                        # 하단에서 발사 → 공을 위로 반사
                         ball.vy = -abs(boosted_speed * math.cos(angle_offset))
-                        ball.vx = boosted_speed * math.sin(angle_offset)
 
-                    self.breath_hit_ball = True
+                    # 좌우 넉백: 파티클 → 공 방향으로 밀어냄
+                    dx = ball.x - p['x']
+                    knockback_strength = random.uniform(3.0, 6.0)
+                    if abs(dx) > 1:
+                        # 파티클 기준으로 공이 오른쪽이면 오른쪽으로, 왼쪽이면 왼쪽으로 넉백
+                        knockback_dir = 1 if dx > 0 else -1
+                        ball.vx = knockback_dir * knockback_strength + boosted_speed * math.sin(angle_offset)
+                    else:
+                        # 정중앙이면 랜덤 방향 넉백
+                        ball.vx = random.choice([-1, 1]) * knockback_strength + boosted_speed * math.sin(angle_offset)
+
+                    # 쿨다운 설정 (0.3초 후 다시 타격 가능)
+                    self.breath_hit_cooldown = 0.3
+                    self.breath_hit_ball = True  # 호환성용
                     game_state['ball_on_fire'] = True
 
         # 사라지는 파티클 위치 수집 (life가 0 이하이고 아직 완전히 사라지지 않은 것들)
@@ -3806,6 +3820,7 @@ class DragonBreath(HeroSkill):
         self.breath_particles = []
         self.breath_active = False
         self.breath_hit_ball = False
+        self.breath_hit_cooldown = 0
         self.fire_zone_spawned = False
         self.spawn_phase_ended = False
         self.fire_zone_timer = 0
