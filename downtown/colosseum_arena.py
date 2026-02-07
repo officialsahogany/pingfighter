@@ -1013,6 +1013,19 @@ GUARD_CAST_DURATION = 0.8     # 시전 포즈 시간
 GUARD_EXIT_DURATION = 0.5     # 퇴장 시간
 
 
+class _GuardPaddle:
+    """호위무사 위치를 패들처럼 사용하기 위한 가상 패들 객체"""
+    def __init__(self, x, y, is_top, width=60, height=30):
+        self.x = x - width // 2  # centerx → left x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.centerx = x
+        self.centery = y + height // 2
+        self.is_top = is_top
+        self.paddle_scale = 1.0
+
+
 class GuardWarriorSystem:
     """호위무사 시스템 - 4강/결승에서 패배 영웅이 승자를 돕는 시스템
 
@@ -1054,6 +1067,9 @@ class GuardWarriorSystem:
 
         # 독립 스킬 인스턴스 (메인 스킬과 충돌 방지)
         self.skill_instances = {}          # hero_id -> [skill1, skill2]
+
+        # 호위무사별 마지막 가상 패들 (스킬 이펙트 진행 중 위치 유지용)
+        self.guard_paddles = {}            # hero_id -> _GuardPaddle
 
     def setup(self, guards_top, guards_bottom, initial_delay=(10.0, 15.0)):
         """배틀 시작 시 호위무사 설정
@@ -1113,19 +1129,19 @@ class GuardWarriorSystem:
 
         game_state = self.skill_manager.game_state if self.skill_manager else {}
 
-        # 활성 호위무사 스킬 이펙트 업데이트
+        # 활성 호위무사 스킬 이펙트 업데이트 (호위무사 위치 기반)
         for hero_id, skills in self.skill_instances.items():
             # 이 호위무사가 어느 쪽인지 판별
             is_top_guard = any(g["id"] == hero_id for g in self.guard_warriors_top)
-            if is_top_guard:
-                caster = top_paddle
-                target = bottom_paddle
-            else:
-                caster = bottom_paddle
-                target = top_paddle
+            # 호위무사 가상 패들 사용 (저장된 위치)
+            guard_paddle = self.guard_paddles.get(hero_id)
+            if guard_paddle is None:
+                # 아직 등장하지 않은 호위무사는 아군 패들 사용 (폴백)
+                guard_paddle = top_paddle if is_top_guard else bottom_paddle
+            target = bottom_paddle if is_top_guard else top_paddle
             for skill in skills:
                 if skill.is_active:
-                    skill.update(dt, caster, target, ball, game_state)
+                    skill.update(dt, guard_paddle, target, ball, game_state)
 
         # 상단측 호위무사 업데이트
         self._update_side(dt, is_top=True, top_paddle=top_paddle,
@@ -1282,8 +1298,23 @@ class GuardWarriorSystem:
                     self.active_bottom = None
                     self.selected_skill_bottom = None
 
+    def _make_guard_paddle(self, is_top):
+        """현재 호위무사 위치로 가상 패들 생성"""
+        if is_top:
+            gx = self.x_top
+            gy = 120  # 상단 호위무사 Y
+        else:
+            gx = self.x_bottom
+            gy = 630  # 하단 호위무사 Y
+        gp = _GuardPaddle(gx, gy, is_top)
+        # hero_id로 저장 (스킬 이펙트 진행 중 위치 유지)
+        guard = self.active_top if is_top else self.active_bottom
+        if guard:
+            self.guard_paddles[guard["id"]] = gp
+        return gp
+
     def _activate_skill(self, is_top, top_paddle, bottom_paddle, ball):
-        """호위무사 스킬 실제 발동"""
+        """호위무사 스킬 실제 발동 (호위무사 위치에서 직접 시전)"""
         skill = self.selected_skill_top if is_top else self.selected_skill_bottom
         guard = self.active_top if is_top else self.active_bottom
         if not skill or not guard:
@@ -1291,14 +1322,10 @@ class GuardWarriorSystem:
 
         game_state = self.skill_manager.game_state if self.skill_manager else {}
 
-        # 호위무사는 아군을 도와줌
-        # is_top=True → 상단 영웅을 도와줌 → caster=상단, target=하단
-        if is_top:
-            caster_paddle = top_paddle
-            target_paddle = bottom_paddle
-        else:
-            caster_paddle = bottom_paddle
-            target_paddle = top_paddle
+        # 호위무사 위치의 가상 패들을 caster로 사용
+        guard_paddle = self._make_guard_paddle(is_top)
+        # 상대편이 target
+        target_paddle = bottom_paddle if is_top else top_paddle
 
         # 스킬에 caster_is_top 설정 (위치 계산용)
         skill.caster_is_top = is_top
@@ -1308,19 +1335,19 @@ class GuardWarriorSystem:
         if skill.is_active:
             # 이전 효과가 아직 진행 중이면 먼저 종료
             try:
-                skill._end_effect(caster_paddle, target_paddle, ball, game_state)
+                skill._end_effect(guard_paddle, target_paddle, ball, game_state)
             except Exception:
                 pass
             skill.is_active = False
 
-        result = skill.use(caster_paddle, target_paddle, ball, game_state)
+        result = skill.use(guard_paddle, target_paddle, ball, game_state)
 
         if result:
             # 상태 효과를 game_state에 적용 (try_use_skill과 동일한 로직)
             self._apply_status_effects(result, target_paddle)
 
             print(f"[Guard] {'상단' if is_top else '하단'}측 호위무사 {guard['name']} → "
-                  f"{skill.korean_name} 발동 성공!")
+                  f"{skill.korean_name} 발동 성공! (위치: x={guard_paddle.centerx:.0f})")
         else:
             print(f"[Guard] {'상단' if is_top else '하단'}측 호위무사 {guard['name']} → "
                   f"{skill.korean_name} 발동 실패")
@@ -1371,19 +1398,17 @@ class GuardWarriorSystem:
         """호위무사 캐릭터 및 스킬 이펙트 그리기"""
         game_state = self.skill_manager.game_state if self.skill_manager else {}
 
-        # 호위무사 스킬 이펙트 그리기
+        # 호위무사 스킬 이펙트 그리기 (호위무사 위치 기반)
         for hero_id, skills in self.skill_instances.items():
             is_top_guard = any(g["id"] == hero_id for g in self.guard_warriors_top)
-            if is_top_guard:
-                caster = top_paddle
-                target = bottom_paddle
-            else:
-                caster = bottom_paddle
-                target = top_paddle
+            guard_paddle = self.guard_paddles.get(hero_id)
+            if guard_paddle is None:
+                guard_paddle = top_paddle if is_top_guard else bottom_paddle
+            target = bottom_paddle if is_top_guard else top_paddle
             for skill in skills:
                 if skill.is_active and hasattr(skill, 'draw'):
                     try:
-                        skill.draw(screen, caster, target, ball, game_state)
+                        skill.draw(screen, guard_paddle, target, ball, game_state)
                     except Exception:
                         pass
 
