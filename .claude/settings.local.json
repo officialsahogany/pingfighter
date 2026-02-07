@@ -75,7 +75,9 @@
       "Bash(git -C \"d:\\\\main\\\\bosspong\" add -A)",
       "Bash(git -C \"d:\\\\main\\\\bosspong\" commit -m \"Fix: AIPaddleController에 width/height 속성 추가 - 스킬 코드에서 target_paddle.width/height 사용 시 호환성 문제 해결 - 난쟁이마술 등 여러 스킬에서 패들 좌표 계산 시 필요한 속성 Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\")",
       "Bash(git -C \"d:\\\\main\\\\bosspong\" push)",
-      "Bash(git show:*)"
+      "Bash(git show:*)",
+      "Bash(where:*)",
+      "Bash(git --stat diff downtown/hero_skills.py)"
     ],
     "deny": [],
     "ask": [],

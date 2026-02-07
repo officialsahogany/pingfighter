@@ -2980,11 +2980,23 @@ class ColosseumsArena:
                 pygame.draw.circle(fire_glow, (255, 100, 0, 100), (BALL_SIZE * 2, BALL_SIZE * 2), BALL_SIZE * 2)
                 self.screen.blit(fire_glow, (ball_x - BALL_SIZE * 2, ball_y - BALL_SIZE * 2), special_flags=pygame.BLEND_ADD)
 
+            # 성스러운 공 효과 (스팀 배리어)
+            if self.skill_manager and self.skill_manager.game_state.get('ball_holy', False):
+                holy_glow = pygame.Surface((BALL_SIZE * 5, BALL_SIZE * 5), pygame.SRCALPHA)
+                pygame.draw.circle(holy_glow, (255, 215, 80, 70), (BALL_SIZE * 5 // 2, BALL_SIZE * 5 // 2), BALL_SIZE * 5 // 2)
+                pygame.draw.circle(holy_glow, (255, 240, 180, 100), (BALL_SIZE * 5 // 2, BALL_SIZE * 5 // 2), BALL_SIZE * 2)
+                self.screen.blit(holy_glow, (ball_x - BALL_SIZE * 5 // 2, ball_y - BALL_SIZE * 5 // 2), special_flags=pygame.BLEND_ADD)
+
             # 그림자
             pygame.draw.circle(self.screen, (60, 50, 40),
                              (ball_x + 2, ball_y + 3), BALL_SIZE)
             # 공 본체
-            ball_color = (255, 200, 100) if self.skill_manager and self.skill_manager.game_state.get('ball_on_fire', False) else (255, 255, 255)
+            if self.skill_manager and self.skill_manager.game_state.get('ball_on_fire', False):
+                ball_color = (255, 200, 100)
+            elif self.skill_manager and self.skill_manager.game_state.get('ball_holy', False):
+                ball_color = (255, 240, 180)
+            else:
+                ball_color = (255, 255, 255)
             pygame.draw.circle(self.screen, ball_color,
                              (ball_x, ball_y), BALL_SIZE)
             # 하이라이트

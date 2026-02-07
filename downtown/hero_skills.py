@@ -4084,7 +4084,7 @@ class SteamBarrier(HeroSkill):
             description="증기로 방어막을 만들어 공을 반사시킨다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=20.0,
-            duration=4.0,
+            duration=6.0,
             hero_id="gear"
         )
         self.barrier_y = 0
@@ -4092,12 +4092,18 @@ class SteamBarrier(HeroSkill):
         # 중복 충돌 방지용 쿨다운 (0.3초)
         self.hit_cooldown = 0.0
         self.hit_cooldown_max = 0.3
+        # 성스러운 공 이펙트
+        self.holy_ball_active = False
+        self.holy_ball_timer = 0.0
+        self.holy_ball_duration = 4.0  # 성스러운 이펙트 지속 4초
+        self.holy_particles = []
+        self.holy_trail = []
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
-        # 배리어 위치 (홀리 베리어와 동일한 높이)
-        # 하단: 패들(710) + 15 = 725 (홀리베리어 위치)
-        # 상단: 패들(25) + 40 = 65 (보스 히트박스 하단 근처)
-        self.barrier_y = caster_paddle.y + (40 if caster_paddle.is_top else 15)
+        # 배리어 위치 (영웅 패들보다 벽 쪽으로 더 뒤에 배치)
+        # 상단: 패들(25) - 10 = 15 (패들보다 위쪽, 벽에 더 가깝게)
+        # 하단: 패들(710) + 30 = 740 (패들보다 아래쪽, 벽에 더 가깝게)
+        self.barrier_y = caster_paddle.y + (-10 if caster_paddle.is_top else 30)
         self.hit_cooldown = 0.0  # 충돌 쿨다운 초기화
         game_state['barrier_active'] = True
         game_state['barrier_y'] = self.barrier_y
@@ -4130,25 +4136,105 @@ class SteamBarrier(HeroSkill):
             p['size'] += dt * 10
         self.steam_particles = [p for p in self.steam_particles if p['life'] > 0]
 
+        # 성스러운 공 이펙트 업데이트
+        if self.holy_ball_active:
+            self.holy_ball_timer -= dt
+            # 공 주변 성스러운 파티클 생성
+            if random.random() < 0.6:
+                angle = random.uniform(0, math.pi * 2)
+                dist = random.uniform(5, 18)
+                self.holy_particles.append({
+                    'x': ball.x + math.cos(angle) * dist,
+                    'y': ball.y + math.sin(angle) * dist,
+                    'vx': math.cos(angle) * random.uniform(15, 40),
+                    'vy': math.sin(angle) * random.uniform(15, 40) - 20,
+                    'life': random.uniform(0.4, 0.8),
+                    'max_life': 0.8,
+                    'size': random.uniform(2, 5),
+                    'color_type': random.choice(['gold', 'white', 'light_gold'])
+                })
+            # 십자가 모양 빛 파티클 (간헐적)
+            if random.random() < 0.15:
+                self.holy_particles.append({
+                    'x': ball.x + random.uniform(-8, 8),
+                    'y': ball.y + random.uniform(-8, 8),
+                    'vx': 0,
+                    'vy': random.uniform(-50, -20),
+                    'life': random.uniform(0.5, 1.0),
+                    'max_life': 1.0,
+                    'size': random.uniform(3, 6),
+                    'color_type': 'cross'
+                })
+            # 궤적 저장
+            self.holy_trail.append({
+                'x': ball.x,
+                'y': ball.y,
+                'life': 0.5,
+                'max_life': 0.5,
+                'size': 10
+            })
+            if self.holy_ball_timer <= 0:
+                self.holy_ball_active = False
+                game_state['ball_holy'] = False
+
+        # 성스러운 파티클 업데이트
+        for p in self.holy_particles:
+            p['x'] += p['vx'] * dt
+            p['y'] += p['vy'] * dt
+            p['life'] -= dt
+            p['size'] *= 0.97
+        self.holy_particles = [p for p in self.holy_particles if p['life'] > 0]
+
+        # 성스러운 궤적 업데이트
+        for t in self.holy_trail:
+            t['life'] -= dt
+            t['size'] *= 0.95
+        self.holy_trail = [t for t in self.holy_trail if t['life'] > 0]
+
         # 공 배리어 충돌 체크 (쿨다운 중이 아닐 때만)
         is_top = game_state.get('barrier_owner_is_top', True)
         if self.hit_cooldown <= 0:
             if is_top:
                 # 상단 배리어: 공이 아래에서 위로 접근 (ball.y > barrier_y)
                 if ball.vy < 0 and abs(ball.y - self.barrier_y) < 20 and ball.y > self.barrier_y:
-                    ball.vy = abs(ball.vy) * 1.1
+                    ball.vy = abs(ball.vy) * 1.4
                     self.hit_cooldown = self.hit_cooldown_max  # 중복 충돌 방지
                     game_state['screen_shake'] = 10
+                    # 성스러운 이펙트 활성화
+                    self.holy_ball_active = True
+                    self.holy_ball_timer = self.holy_ball_duration
+                    game_state['ball_holy'] = True
             else:
                 # 하단 배리어: 공이 위에서 아래로 접근 (ball.y < barrier_y)
                 if ball.vy > 0 and abs(ball.y - self.barrier_y) < 20 and ball.y < self.barrier_y:
-                    ball.vy = -abs(ball.vy) * 1.1
+                    ball.vy = -abs(ball.vy) * 1.4
                     self.hit_cooldown = self.hit_cooldown_max  # 중복 충돌 방지
                     game_state['screen_shake'] = 10
+                    # 성스러운 이펙트 활성화
+                    self.holy_ball_active = True
+                    self.holy_ball_timer = self.holy_ball_duration
+                    game_state['ball_holy'] = True
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['barrier_active'] = False
         self.steam_particles = []
+        # 배리어 종료 시 성스러운 이펙트도 정리 (파티클은 자연 소멸)
+        self.holy_ball_active = False
+        self.holy_ball_timer = 0
+        game_state['ball_holy'] = False
+        self.holy_particles = []
+        self.holy_trail = []
+
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 스팀 배리어 및 성스러운 이펙트 강제 종료"""
+        super().reset_for_new_round(game_state)
+        game_state['barrier_active'] = False
+        game_state['ball_holy'] = False
+        self.steam_particles = []
+        self.holy_ball_active = False
+        self.holy_ball_timer = 0
+        self.holy_particles = []
+        self.holy_trail = []
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if self.is_active:
@@ -4199,6 +4285,79 @@ class SteamBarrier(HeroSkill):
                 pygame.draw.circle(surf, (200, 210, 220, alpha),
                                   (int(p['size']), int(p['size'])), int(p['size']))
                 screen.blit(surf, (int(p['x'] - p['size']), int(p['y'] - p['size'])))
+
+        # 성스러운 공 이펙트 그리기 (배리어 활성 여부와 무관하게 지속)
+        if self.holy_ball_active or self.holy_particles or self.holy_trail:
+            # 성스러운 궤적 그리기 (금빛 잔상)
+            for t in self.holy_trail:
+                trail_alpha = int(120 * (t['life'] / t['max_life']))
+                trail_size = max(1, int(t['size']))
+                if trail_alpha > 0 and trail_size > 0:
+                    trail_surf = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
+                    # 외곽 금빛 글로우
+                    pygame.draw.circle(trail_surf, (255, 215, 80, trail_alpha // 3),
+                                      (trail_size, trail_size), trail_size)
+                    # 내부 밝은 빛
+                    inner = max(1, trail_size // 2)
+                    pygame.draw.circle(trail_surf, (255, 240, 180, trail_alpha),
+                                      (trail_size, trail_size), inner)
+                    screen.blit(trail_surf, (int(t['x']) - trail_size, int(t['y']) - trail_size),
+                               special_flags=pygame.BLEND_ADD)
+
+            # 성스러운 파티클 그리기
+            for p in self.holy_particles:
+                p_alpha = int(200 * (p['life'] / p['max_life']))
+                p_size = max(1, int(p['size']))
+                if p_alpha <= 0 or p_size <= 0:
+                    continue
+
+                if p['color_type'] == 'gold':
+                    color = (255, 215, 80, p_alpha)
+                elif p['color_type'] == 'white':
+                    color = (255, 255, 230, p_alpha)
+                elif p['color_type'] == 'light_gold':
+                    color = (255, 230, 140, p_alpha)
+                else:
+                    # 십자가 타입 - 작은 십자 모양
+                    cross_surf = pygame.Surface((p_size * 4, p_size * 4), pygame.SRCALPHA)
+                    cx, cy = p_size * 2, p_size * 2
+                    cross_color = (255, 240, 180, p_alpha)
+                    pygame.draw.line(cross_surf, cross_color,
+                                   (cx, cy - p_size), (cx, cy + p_size), max(1, p_size // 2))
+                    pygame.draw.line(cross_surf, cross_color,
+                                   (cx - p_size, cy), (cx + p_size, cy), max(1, p_size // 2))
+                    screen.blit(cross_surf, (int(p['x']) - p_size * 2, int(p['y']) - p_size * 2),
+                               special_flags=pygame.BLEND_ADD)
+                    continue
+
+                p_surf = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(p_surf, color, (p_size, p_size), p_size)
+                screen.blit(p_surf, (int(p['x']) - p_size, int(p['y']) - p_size),
+                           special_flags=pygame.BLEND_ADD)
+
+            # 공 주변 성스러운 글로우 (ball이 있을 때)
+            if self.holy_ball_active and ball:
+                # 외부 금빛 오오라
+                glow_size = 22 + int(4 * math.sin(pygame.time.get_ticks() / 150))
+                glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surf, (255, 215, 80, 60),
+                                  (glow_size, glow_size), glow_size)
+                pygame.draw.circle(glow_surf, (255, 240, 180, 90),
+                                  (glow_size, glow_size), glow_size // 2)
+                screen.blit(glow_surf,
+                           (int(ball.x) - glow_size, int(ball.y) - glow_size),
+                           special_flags=pygame.BLEND_ADD)
+
+                # 회전하는 빛의 고리
+                ring_time = pygame.time.get_ticks() / 800
+                for i in range(6):
+                    angle = ring_time + i * (math.pi * 2 / 6)
+                    rx = ball.x + math.cos(angle) * 14
+                    ry = ball.y + math.sin(angle) * 14
+                    dot_surf = pygame.Surface((6, 6), pygame.SRCALPHA)
+                    pygame.draw.circle(dot_surf, (255, 230, 140, 150), (3, 3), 3)
+                    screen.blit(dot_surf, (int(rx) - 3, int(ry) - 3),
+                               special_flags=pygame.BLEND_ADD)
 
 
 class OilSpill(HeroSkill):
@@ -5335,6 +5494,7 @@ class HeroSkillManager:
             'screen_shake': 0,
             'shake_duration': 0,
             'ball_on_fire': False,
+            'ball_holy': False,
             'wind_force': 0,
             'barrier_active': False,
             'barrier_owner_is_top': False,
@@ -5391,8 +5551,9 @@ class HeroSkillManager:
         self.game_state['screen_shake'] = 0
         self.game_state['shake_duration'] = 0
 
-        # 공 이펙트 초기화 (드래곤 브레스 화염, 오니마루 도깨비불 등)
+        # 공 이펙트 초기화 (드래곤 브레스 화염, 오니마루 도깨비불, 스팀배리어 성스러운 이펙트 등)
         self.game_state['ball_on_fire'] = False
+        self.game_state['ball_holy'] = False
         self.game_state['dokkaebi_ball'] = False
         self.game_state['wind_force'] = 0
 
