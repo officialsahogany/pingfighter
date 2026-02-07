@@ -19216,6 +19216,7 @@ foul_whistle_pending_round_reset = False  # 반칙호루라기 발동 후 라운
 arena_top_active_item_slot = []      # 상단 영웅 액티브 아이템 리스트
 arena_top_selected_item_index = 0    # 상단 영웅 현재 선택된 아이템 인덱스
 arena_top_last_item_use_time = 0     # 상단 영웅 마지막 아이템 사용 시간
+arena_top_auto_item_timer = 0        # 상단 영웅 아이템 자동 지급 타이머 (ms)
 # 기본 액티브 쿨타임(ms) 초기값 – 캐릭터정보 화면 등에서 참조할 때 NameError 방지
 active_item_cooldown_ms = 10000
 
@@ -65442,6 +65443,50 @@ def _arena_top_hero_collect_items():
 arena_top_grenades = []  # 상단 영웅이 던진 수류탄
 arena_top_bananas = []   # 상단 영웅이 던진 바나나
 
+# 투기장 상단 영웅에게 지급 가능한 액티브 아이템 목록
+_ARENA_TOP_ACTIVE_ITEMS = [
+    {"name": "grenade", "color": (80, 100, 80), "effect": "grenade"},
+    {"name": "molotov", "color": (255, 100, 0), "effect": "molotov"},
+    {"name": "banana", "color": (255, 220, 50), "effect": "banana"},
+    {"name": "flare", "color": (255, 255, 200), "effect": "flare"},
+    {"name": "smoke_grenade", "color": (150, 150, 150), "effect": "smoke_grenade"},
+    {"name": "dynamite", "color": (200, 80, 80), "effect": "dynamite"},
+    {"name": "spider_mine", "color": (120, 90, 160), "effect": "spider_mine"},
+    {"name": "wall", "color": (139, 69, 19), "effect": "wall"},
+]
+
+
+def _arena_top_auto_equip_item():
+    """투기장 상단 영웅에게 일정 주기로 랜덤 액티브 아이템을 자동 지급"""
+    global arena_top_auto_item_timer
+
+    if not arena_mode_enabled:
+        return
+
+    # 슬롯이 가득 찼으면 지급하지 않음
+    if len(arena_top_active_item_slot) >= 3:
+        return
+
+    now_ms = pygame.time.get_ticks()
+    # 8초마다 아이템 지급
+    if now_ms - arena_top_auto_item_timer < 8000:
+        return
+
+    arena_top_auto_item_timer = now_ms
+
+    # 랜덤 액티브 아이템 선택
+    selected = random.choice(_ARENA_TOP_ACTIVE_ITEMS)
+    item_data = {
+        "name": selected["name"],
+        "color": selected["color"],
+        "effect": selected["effect"],
+        "icon": None,
+        "x": BOSS.centerx,
+        "y": BOSS.centery
+    }
+    store_arena_top_active_item(item_data)
+    print(f"[Arena] 상단 영웅 아이템 자동 지급: {selected['name']}")
+
 
 def _apply_arena_top_item_effect(effect_name):
     """투기장 상단 영웅용 아이템 효과 적용 (투사체는 아래로 향함)"""
@@ -95661,12 +95706,13 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
 
     # 상단 영웅 아이템 슬롯 초기화
     global arena_top_active_item_slot, arena_top_selected_item_index, arena_top_last_item_use_time
-    global arena_top_grenades, arena_top_bananas
+    global arena_top_grenades, arena_top_bananas, arena_top_auto_item_timer
     arena_top_active_item_slot = []
     arena_top_selected_item_index = 0
     arena_top_last_item_use_time = 0
     arena_top_grenades = []
     arena_top_bananas = []
+    arena_top_auto_item_timer = pygame.time.get_ticks()  # 아이템 자동 지급 타이머 초기화
 
     # AI 컨트롤러 리셋
     try:
@@ -95691,6 +95737,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         arena_top_active_item_slot = []
         arena_top_selected_item_index = 0
         arena_top_last_item_use_time = 0
+        arena_top_auto_item_timer = 0
         # 상단 영웅 투사체 초기화
         arena_top_grenades = []
         arena_top_bananas = []
@@ -130624,8 +130671,8 @@ def main(stage_num, new_boss_mode=False):
                 return
 
             now_ms = pygame.time.get_ticks()
-            # 상단 영웅 전용 쿨타임 (10초)
-            top_cooldown_ms = 10000
+            # 상단 영웅 전용 쿨타임 (5초)
+            top_cooldown_ms = 5000
             global_cooldown_ok = now_ms - arena_top_last_item_use_time >= top_cooldown_ms
             if not global_cooldown_ok:
                 return
@@ -131386,6 +131433,7 @@ def main(stage_num, new_boss_mode=False):
                 # ⚠️ items.update_items() 전에 호출해야 BOSS가 먼저 아이템 획득 가능
                 if arena_mode_enabled:
                     _arena_top_hero_collect_items()
+                    _arena_top_auto_equip_item()  # 상단 영웅 아이템 자동 지급
                     _update_arena_top_projectiles()  # 상단 영웅 투사체 업데이트
 
                 # 아이템 업데이트 (아이템 획득 사운드 전달)
