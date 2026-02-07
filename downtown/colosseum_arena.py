@@ -1140,6 +1140,10 @@ class GuardWarriorSystem:
             target = bottom_paddle if is_top_guard else top_paddle
             for skill in skills:
                 if skill.is_active:
+                    # 드래곤 브레스: 공을 따라다니며 화염 발사
+                    if getattr(skill, 'skill_id', '') == 'dragon_breath' and ball:
+                        guard_paddle.x = ball.x - guard_paddle.width // 2
+                        guard_paddle.centerx = ball.x
                     # caster 측 game_state 보호 (호위무사 스킬이 메인 영웅에 영향 방지)
                     caster_prefix = 'top_paddle' if is_top_guard else 'bottom_paddle'
                     saved = self._save_caster_state(game_state, caster_prefix)
@@ -1349,6 +1353,10 @@ class GuardWarriorSystem:
 
         # 호위무사 위치의 가상 패들을 caster로 사용
         guard_paddle = self._make_guard_paddle(is_top)
+        # 드래곤 브레스: 공 위치에서 발동 시작
+        if getattr(skill, 'skill_id', '') == 'dragon_breath' and ball:
+            guard_paddle.x = ball.x - guard_paddle.width // 2
+            guard_paddle.centerx = ball.x
         # 상대편이 target
         target_paddle = bottom_paddle if is_top else top_paddle
 
