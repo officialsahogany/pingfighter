@@ -1071,6 +1071,16 @@ class GuardWarriorSystem:
         # 호위무사별 마지막 가상 패들 (스킬 이펙트 진행 중 위치 유지용)
         self.guard_paddles = {}            # hero_id -> _GuardPaddle
 
+        # Y 위치 추적 (horn_charge 등에서 Y 이동 필요)
+        self.y_top = 120              # 상단 호위무사 현재 Y
+        self.y_bottom = 630           # 하단 호위무사 현재 Y
+        self._enter_x_top = 0.0      # 등장 완료 시 X 위치 (horn_charge 기준점)
+        self._enter_x_bottom = 0.0
+        self._exit_start_x_top = 0.0  # 퇴장 시작 시 X 위치
+        self._exit_start_y_top = 120.0
+        self._exit_start_x_bottom = 0.0
+        self._exit_start_y_bottom = 630.0
+
     def setup(self, guards_top, guards_bottom, initial_delay=(10.0, 15.0)):
         """배틀 시작 시 호위무사 설정
 
@@ -1093,6 +1103,8 @@ class GuardWarriorSystem:
         self.active_bottom = None
         self.phase_top = None
         self.phase_bottom = None
+        self.y_top = 120
+        self.y_bottom = 630
 
         # 호위무사 스킬 인스턴스 생성
         self._init_guard_skills()
@@ -1140,8 +1152,13 @@ class GuardWarriorSystem:
             target = bottom_paddle if is_top_guard else top_paddle
             for skill in skills:
                 if skill.is_active:
+                    skill_id = getattr(skill, 'skill_id', '')
                     # 드래곤 브레스: 공을 따라다니며 화염 발사
-                    if getattr(skill, 'skill_id', '') == 'dragon_breath' and ball:
+                    if skill_id == 'dragon_breath' and ball:
+                        guard_paddle.x = ball.x - guard_paddle.width // 2
+                        guard_paddle.centerx = ball.x
+                    # 귀신발걸음: 공을 따라다니며 오오라
+                    elif skill_id == 'demon_step' and ball:
                         guard_paddle.x = ball.x - guard_paddle.width // 2
                         guard_paddle.centerx = ball.x
                     # caster 측 game_state 보호 (호위무사 스킬이 메인 영웅에 영향 방지)
@@ -1149,6 +1166,13 @@ class GuardWarriorSystem:
                     saved = self._save_caster_state(game_state, caster_prefix)
                     skill.update(dt, guard_paddle, target, ball, game_state)
                     self._restore_caster_state(game_state, caster_prefix, saved)
+                    # 스킬별 글로벌 game_state 키 차단 (메인 영웅에 영향 방지)
+                    if skill_id == 'horn_charge':
+                        game_state['horn_charge_active'] = False
+                    elif skill_id == 'demon_step':
+                        game_state['demon_eye_active'] = False
+                        game_state.pop('ghost_step_start_top', None)
+                        game_state.pop('ghost_step_start_bottom', None)
 
         # 상단측 호위무사 업데이트
         self._update_side(dt, is_top=True, top_paddle=top_paddle,
@@ -1264,45 +1288,120 @@ class GuardWarriorSystem:
                 self.x_bottom = current_x
 
             if progress >= 1.0:
-                # 등장 완료 → 시전 단계
+                # 등장 완료 → 시전 단계 (등장 완료 X 저장)
                 if is_top:
                     self.phase_top = "casting"
                     self.anim_timer_top = 0.0
+                    self._enter_x_top = self.x_top
                 else:
                     self.phase_bottom = "casting"
                     self.anim_timer_bottom = 0.0
+                    self._enter_x_bottom = self.x_bottom
                 # 스킬 발동!
                 self._activate_skill(is_top, top_paddle, bottom_paddle, ball)
 
         elif phase == "casting":
-            # 드래곤 브레스: 시전 중 공의 X좌표를 따라감
             skill = self.selected_skill_top if is_top else self.selected_skill_bottom
-            if skill and getattr(skill, 'skill_id', '') == 'dragon_breath' and ball:
+            skill_id = getattr(skill, 'skill_id', '') if skill else ''
+
+            # === 드래곤 브레스: 시전 중 공의 X좌표를 따라감 ===
+            if skill_id == 'dragon_breath' and ball:
                 bx = max(GAME_AREA_X + 30, min(ball.x, GAME_AREA_X + GAME_AREA_WIDTH - 30))
                 if is_top:
                     self.x_top = bx
                 else:
                     self.x_bottom = bx
-                target_x = bx  # 퇴장 시작 위치도 갱신
+                target_x = bx
 
-            if timer >= GUARD_CAST_DURATION:
-                # 시전 완료 → 퇴장
+            # === 뿔 박치기: 오니마루가 직접 돌진/복귀 ===
+            elif skill_id == 'horn_charge' and skill and skill.is_active:
+                base_y = 120 if is_top else 630
+                enter_x = self._enter_x_top if is_top else self._enter_x_bottom
+                skill_target_x = getattr(skill, 'target_x', enter_x)
+                skill_impact_y = getattr(skill, 'impact_y', base_y)
+
+                if skill.phase == skill.PHASE_CHARGING:
+                    p = getattr(skill, 'charge_progress', 0) ** 2  # 이징(가속)
+                    vy = base_y + (skill_impact_y - base_y) * p
+                    vx = enter_x + (skill_target_x - enter_x) * p
+                elif skill.phase == skill.PHASE_IMPACT:
+                    vy = skill_impact_y
+                    vx = skill_target_x
+                elif skill.phase == skill.PHASE_RETURNING:
+                    p = 1 - (1 - getattr(skill, 'return_progress', 0)) ** 2  # 이징(감속)
+                    vy = skill_impact_y + (base_y - skill_impact_y) * p
+                    vx = skill_target_x + (enter_x - skill_target_x) * p
+                else:  # STUN
+                    vy = base_y
+                    vx = enter_x
+
                 if is_top:
+                    self.x_top = vx
+                    self.y_top = vy
+                else:
+                    self.x_bottom = vx
+                    self.y_bottom = vy
+                return  # 타이머 기반 퇴장 안 함 - 스킬 종료 시 자동 퇴장
+
+            # === 귀신발걸음: 무겐이 공을 따라다니며 오오라 ===
+            elif skill_id == 'demon_step' and skill and skill.is_active:
+                if ball:
+                    bx = max(GAME_AREA_X + 30, min(ball.x, GAME_AREA_X + GAME_AREA_WIDTH - 30))
+                    if is_top:
+                        self.x_top = bx
+                    else:
+                        self.x_bottom = bx
+                    target_x = bx
+
+                # 4초 후 강제 종료
+                DEMON_STEP_GUARD_DURATION = 4.0
+                if timer >= DEMON_STEP_GUARD_DURATION:
+                    skill.is_active = False
+                    skill.aura_particles = []
+                    game_state = self.skill_manager.game_state if self.skill_manager else {}
+                    game_state['demon_eye_active'] = False
+                    # 퇴장 전환
+                    if is_top:
+                        self._exit_start_x_top = self.x_top
+                        self._exit_start_y_top = self.y_top
+                        self.phase_top = "exiting"
+                        self.anim_timer_top = 0.0
+                    else:
+                        self._exit_start_x_bottom = self.x_bottom
+                        self._exit_start_y_bottom = self.y_bottom
+                        self.phase_bottom = "exiting"
+                        self.anim_timer_bottom = 0.0
+                return  # 타이머 기반 퇴장 안 함
+
+            # === 기본: 시전 시간 후 퇴장 ===
+            if timer >= GUARD_CAST_DURATION:
+                if is_top:
+                    self._exit_start_x_top = self.x_top
+                    self._exit_start_y_top = self.y_top
                     self.phase_top = "exiting"
                     self.anim_timer_top = 0.0
                 else:
+                    self._exit_start_x_bottom = self.x_bottom
+                    self._exit_start_y_bottom = self.y_bottom
                     self.phase_bottom = "exiting"
                     self.anim_timer_bottom = 0.0
 
         elif phase == "exiting":
             progress = min(1.0, timer / GUARD_EXIT_DURATION)
             eased = self._ease_in_out(progress)
-            current_x = target_x + (exit_x - target_x) * eased
+            # 퇴장 시작 위치에서 화면 밖으로 이동
+            es_x = self._exit_start_x_top if is_top else self._exit_start_x_bottom
+            es_y = self._exit_start_y_top if is_top else self._exit_start_y_bottom
+            base_y = 120 if is_top else 630
+            current_x = es_x + (exit_x - es_x) * eased
+            current_y = es_y + (base_y - es_y) * eased  # Y는 기본 위치로 복귀
 
             if is_top:
                 self.x_top = current_x
+                self.y_top = current_y
             else:
                 self.x_bottom = current_x
+                self.y_bottom = current_y
 
             if progress >= 1.0:
                 # 퇴장 완료 → 초기화
@@ -1310,19 +1409,21 @@ class GuardWarriorSystem:
                     self.phase_top = None
                     self.active_top = None
                     self.selected_skill_top = None
+                    self.y_top = 120
                 else:
                     self.phase_bottom = None
                     self.active_bottom = None
                     self.selected_skill_bottom = None
+                    self.y_bottom = 630
 
     def _make_guard_paddle(self, is_top):
         """현재 호위무사 위치로 가상 패들 생성"""
         if is_top:
             gx = self.x_top
-            gy = 120  # 상단 호위무사 Y
+            gy = self.y_top  # 추적된 Y 위치 사용
         else:
             gx = self.x_bottom
-            gy = 630  # 하단 호위무사 Y
+            gy = self.y_bottom  # 추적된 Y 위치 사용
         gp = _GuardPaddle(gx, gy, is_top)
         # hero_id로 저장 (스킬 이펙트 진행 중 위치 유지)
         guard = self.active_top if is_top else self.active_bottom
@@ -1331,7 +1432,7 @@ class GuardWarriorSystem:
         return gp
 
     # 호위무사 스킬이 game_state를 통해 메인 영웅에 영향주는 것 방지용 키 목록
-    _CASTER_STATE_KEYS = ['_locked', '_locked_x', '_locked_y', '_stunned']
+    _CASTER_STATE_KEYS = ['_locked', '_locked_x', '_locked_y', '_stunned', '_speed_boost', '_size_boost']
 
     def _save_caster_state(self, game_state, caster_prefix):
         """스킬 호출 전 caster 측 game_state 백업"""
@@ -1388,6 +1489,15 @@ class GuardWarriorSystem:
         saved = self._save_caster_state(game_state, caster_prefix)
         result = skill.use(guard_paddle, target_paddle, ball, game_state)
         self._restore_caster_state(game_state, caster_prefix, saved)
+
+        # 스킬별 글로벌 game_state 키 차단 (메인 영웅에 영향 방지)
+        skill_id = getattr(skill, 'skill_id', '')
+        if skill_id == 'horn_charge':
+            game_state['horn_charge_active'] = False
+        elif skill_id == 'demon_step':
+            game_state['demon_eye_active'] = False
+            game_state.pop('ghost_step_start_top', None)
+            game_state.pop('ghost_step_start_bottom', None)
 
         if result:
             # 상태 효과를 game_state에 적용 (try_use_skill과 동일한 로직)
@@ -1462,13 +1572,13 @@ class GuardWarriorSystem:
         # 상단측 호위무사 캐릭터
         if self.active_top and self.phase_top:
             self._draw_guard(screen, self.active_top,
-                             self.x_top + shake_x, 120 + shake_y,
+                             self.x_top + shake_x, self.y_top + shake_y,
                              is_top=True)
 
         # 하단측 호위무사 캐릭터
         if self.active_bottom and self.phase_bottom:
             self._draw_guard(screen, self.active_bottom,
-                             self.x_bottom + shake_x, 630 + shake_y,
+                             self.x_bottom + shake_x, self.y_bottom + shake_y,
                              is_top=False)
 
     def _draw_guard(self, screen, guard_hero, x, y, is_top):
@@ -1709,6 +1819,8 @@ class GuardWarriorSystem:
         self.active_bottom = None
         self.selected_skill_top = None
         self.selected_skill_bottom = None
+        self.y_top = 120
+        self.y_bottom = 630
 
         # 스킬 인스턴스 정리
         game_state = self.skill_manager.game_state if self.skill_manager else {}
