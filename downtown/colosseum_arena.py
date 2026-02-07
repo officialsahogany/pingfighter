@@ -1081,9 +1081,11 @@ class GuardWarriorSystem:
         self._exit_start_x_bottom = 0.0
         self._exit_start_y_bottom = 630.0
 
-        # 호위무사 귀신발걸음 공 충돌 (1회 발동당 1회만 허용)
-        self._guard_ghost_step_hit_top = False   # 상단 호위무사 이번 발동에서 공 충돌 완료
-        self._guard_ghost_step_hit_bottom = False  # 하단 호위무사 이번 발동에서 공 충돌 완료
+        # 호위무사 귀신발걸음 공 충돌 (1회 발동당 3회까지 허용)
+        self._guard_ghost_step_hit_top = 0       # 상단 호위무사 이번 발동 충돌 횟수
+        self._guard_ghost_step_hit_bottom = 0    # 하단 호위무사 이번 발동 충돌 횟수
+        self._guard_ghost_step_max_hits = 3      # 최대 충돌 횟수
+        self._guard_ball_cooldown = 0.0          # 연속 충돌 방지 쿨다운
 
         # 호위무사 말풍선 시스템
         self._bubble_top = None    # {'text': str, 'timer': float}
@@ -1156,8 +1158,10 @@ class GuardWarriorSystem:
 
         game_state = self.skill_manager.game_state if self.skill_manager else {}
 
-        # 🔥 호위무사 귀신발걸음 공 충돌 감지 (1회 발동당 1회만)
-        if ball:
+        # 🔥 호위무사 귀신발걸음 공 충돌 감지 (1회 발동당 3회까지)
+        if self._guard_ball_cooldown > 0:
+            self._guard_ball_cooldown -= dt
+        if ball and self._guard_ball_cooldown <= 0:
             self._check_guard_demon_step_ball_collision(ball, game_state)
 
         # 활성 호위무사 스킬 이펙트 업데이트 (호위무사 위치 기반)
@@ -1410,11 +1414,11 @@ class GuardWarriorSystem:
                     skill.aura_particles = []
                     game_state = self.skill_manager.game_state if self.skill_manager else {}
                     game_state['demon_eye_active'] = False
-                    # 공 충돌 1회 제한 플래그 리셋
+                    # 공 충돌 횟수 카운터 리셋 (1회 발동당 3회까지)
                     if is_top:
-                        self._guard_ghost_step_hit_top = False
+                        self._guard_ghost_step_hit_top = 0
                     else:
-                        self._guard_ghost_step_hit_bottom = False
+                        self._guard_ghost_step_hit_bottom = 0
                     # 퇴장 전환
                     if is_top:
                         self._exit_start_x_top = self.x_top
@@ -1487,7 +1491,7 @@ class GuardWarriorSystem:
         return gp
 
     def _check_guard_demon_step_ball_collision(self, ball, game_state):
-        """호위무사 귀신발걸음 중 공과 충돌 감지 → game_state 플래그 설정 (1회 발동당 1회만)"""
+        """호위무사 귀신발걸음 중 공과 충돌 감지 → game_state 플래그 설정 (1회 발동당 3회까지)"""
         import pygame
         GUARD_PADDLE_W, GUARD_PADDLE_H = 60, 30
 
@@ -1500,10 +1504,9 @@ class GuardWarriorSystem:
                 if skill_id != 'demon_step':
                     continue
 
-                # 이번 발동에서 이미 공을 쳤으면 스킵
-                if is_top_guard and self._guard_ghost_step_hit_top:
-                    continue
-                if not is_top_guard and self._guard_ghost_step_hit_bottom:
+                # 이번 발동에서 최대 횟수 도달했으면 스킵
+                hit_count = self._guard_ghost_step_hit_top if is_top_guard else self._guard_ghost_step_hit_bottom
+                if hit_count >= self._guard_ghost_step_max_hits:
                     continue
 
                 # 현재 호위무사 위치로 충돌 rect 생성
@@ -1525,11 +1528,12 @@ class GuardWarriorSystem:
                     if not is_top_guard and ball_vy <= 0:
                         continue
 
-                    # 충돌! 1회 제한 플래그 설정
+                    # 충돌! 횟수 증가
                     if is_top_guard:
-                        self._guard_ghost_step_hit_top = True
+                        self._guard_ghost_step_hit_top += 1
                     else:
-                        self._guard_ghost_step_hit_bottom = True
+                        self._guard_ghost_step_hit_bottom += 1
+                    self._guard_ball_cooldown = 0.3  # 연속 충돌 방지 쿨다운
 
                     hit_offset = (ball_rect.centerx - guard_rect.centerx) / (GUARD_PADDLE_W / 2)
                     game_state['guard_demon_step_ball_hit'] = {
