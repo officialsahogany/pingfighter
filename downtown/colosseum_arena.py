@@ -1081,6 +1081,11 @@ class GuardWarriorSystem:
         self._exit_start_x_bottom = 0.0
         self._exit_start_y_bottom = 630.0
 
+        # 호위무사 말풍선 시스템
+        self._bubble_top = None    # {'text': str, 'timer': float}
+        self._bubble_bottom = None
+        self._bubble_duration = 2.0  # 말풍선 표시 시간 (초)
+
     def setup(self, guards_top, guards_bottom, initial_delay=(10.0, 15.0)):
         """배틀 시작 시 호위무사 설정
 
@@ -1138,6 +1143,12 @@ class GuardWarriorSystem:
         """매 프레임 호위무사 시스템 업데이트"""
         if not self.guard_warriors_top and not self.guard_warriors_bottom:
             return
+
+        # 말풍선 타이머 감소
+        if self._bubble_top and self._bubble_top['timer'] > 0:
+            self._bubble_top['timer'] -= dt
+        if self._bubble_bottom and self._bubble_bottom['timer'] > 0:
+            self._bubble_bottom['timer'] -= dt
 
         game_state = self.skill_manager.game_state if self.skill_manager else {}
 
@@ -1518,12 +1529,13 @@ class GuardWarriorSystem:
             print(f"[Guard] {'상단' if is_top else '하단'}측 호위무사 {guard['name']} → "
                   f"{skill.korean_name} 발동 실패")
 
-        # 말풍선 정보 반환 (호출자가 표시)
-        return {
-            "guard_name": guard["name"],
-            "skill_name": skill.korean_name,
-            "is_top": is_top,
-        }
+        # 말풍선 직접 설정 (호위무사 위치에 표시)
+        bubble_text = f"{guard['name']}: {skill.korean_name}!"
+        bubble_data = {'text': bubble_text, 'timer': self._bubble_duration}
+        if is_top:
+            self._bubble_top = bubble_data
+        else:
+            self._bubble_bottom = bubble_data
 
     def _apply_status_effects(self, result, target_paddle):
         """스킬 결과에서 상태 효과를 game_state에 적용"""
@@ -1589,6 +1601,58 @@ class GuardWarriorSystem:
             self._draw_guard(screen, self.active_bottom,
                              self.x_bottom + shake_x, self.y_bottom + shake_y,
                              is_top=False)
+
+        # 호위무사 말풍선 그리기
+        self._draw_guard_bubbles(screen, shake_x, shake_y)
+
+    def _draw_guard_bubbles(self, screen, shake_x, shake_y):
+        """호위무사 스킬 발동 시 말풍선 표시"""
+        # 상단측 호위무사 말풍선
+        if (self._bubble_top and self._bubble_top['timer'] > 0
+                and self.phase_top is not None):
+            bx = self.x_top + shake_x
+            by = self.y_top + shake_y + 40  # 캐릭터 아래에 표시
+            alpha = min(255, int(self._bubble_top['timer'] / 0.3 * 255))
+            self._draw_guard_speech(screen, bx, by, self._bubble_top['text'], alpha)
+
+        # 하단측 호위무사 말풍선
+        if (self._bubble_bottom and self._bubble_bottom['timer'] > 0
+                and self.phase_bottom is not None):
+            bx = self.x_bottom + shake_x
+            by = self.y_bottom + shake_y - 45  # 캐릭터 위에 표시
+            alpha = min(255, int(self._bubble_bottom['timer'] / 0.3 * 255))
+            self._draw_guard_speech(screen, bx, by, self._bubble_bottom['text'], alpha)
+
+    def _draw_guard_speech(self, screen, x, y, text, alpha=255):
+        """호위무사 말풍선 렌더링"""
+        try:
+            font = self._get_guard_korean_font(16)
+            text_surf = font.render(text, True, (255, 255, 255))
+            tw, th = text_surf.get_size()
+
+            pad_x, pad_y = 10, 6
+            bw = tw + pad_x * 2
+            bh = th + pad_y * 2
+
+            # 화면 경계 제한
+            bx = max(GAME_AREA_X + 5, min(int(x - bw // 2), GAME_AREA_X + GAME_AREA_WIDTH - bw - 5))
+            by = int(y - bh // 2)
+
+            # 말풍선 서피스 (반투명)
+            bubble_surf = pygame.Surface((bw, bh), pygame.SRCALPHA)
+            a = min(alpha, 220)
+            pygame.draw.rect(bubble_surf, (30, 20, 50, a), bubble_surf.get_rect(), border_radius=8)
+            pygame.draw.rect(bubble_surf, (200, 170, 80, a), bubble_surf.get_rect(), width=2, border_radius=8)
+
+            # 텍스트
+            text_a_surf = text_surf.copy()
+            if alpha < 255:
+                text_a_surf.set_alpha(alpha)
+            bubble_surf.blit(text_a_surf, (pad_x, pad_y))
+
+            screen.blit(bubble_surf, (bx, by))
+        except Exception:
+            pass
 
     def _draw_guard(self, screen, guard_hero, x, y, is_top):
         """단일 호위무사 캐릭터 렌더링"""
@@ -1830,6 +1894,8 @@ class GuardWarriorSystem:
         self.selected_skill_bottom = None
         self.y_top = 120
         self.y_bottom = 630
+        self._bubble_top = None
+        self._bubble_bottom = None
 
         # 스킬 인스턴스 정리
         game_state = self.skill_manager.game_state if self.skill_manager else {}
