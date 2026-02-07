@@ -65447,8 +65447,10 @@ def _apply_arena_top_item_effect(effect_name):
     """투기장 상단 영웅용 아이템 효과 적용 (투사체는 아래로 향함)"""
     global arena_top_grenades, arena_top_bananas
 
-    if effect_name == "grenade":
-        # 상단 영웅 수류탄: BOSS 위치에서 PLAYER 방향으로 발사
+    # 투척형 아이템: BOSS → PLAYER 방향으로 투사체 발사 (수류탄 시스템 활용)
+    throwing_items = {"grenade", "molotov", "flare", "smoke_grenade", "dynamite", "spider_mine"}
+
+    if effect_name in throwing_items:
         target_x = PLAYER.centerx + random.uniform(-50, 50)
         target_y = PLAYER.centery
 
@@ -65474,10 +65476,11 @@ def _apply_arena_top_item_effect(effect_name):
             "vel_y": new_vel_y,
             "timer": 90,  # 1.5초 후 폭발
             "exploded": False,
-            "is_from_top": True
+            "is_from_top": True,
+            "projectile_type": effect_name  # 투사체 종류 구분 (색상/이펙트용)
         }
         arena_top_grenades.append(grenade)
-        print(f"[Arena] 상단 영웅 수류탄 발사! 목표: ({target_x:.0f}, {target_y:.0f})")
+        print(f"[Arena] 상단 영웅 {effect_name} 발사!")
 
         # 효과음
         try:
@@ -65511,17 +65514,45 @@ def _apply_arena_top_item_effect(effect_name):
         arena_top_bananas.append(banana)
         print(f"[Arena] 상단 영웅 바나나 투척!")
 
+    elif effect_name == "wall":
+        # 벽돌 아이템: 기존 벽 생성 함수 활용
+        try:
+            activate_wall()
+        except Exception:
+            pass
+        print(f"[Arena] 상단 영웅 벽돌 설치!")
+
+    elif effect_name == "stopwatch":
+        # 스탑워치: 공 속도 감소 효과
+        try:
+            activate_stopwatch()
+        except Exception:
+            pass
+        print(f"[Arena] 상단 영웅 스탑워치 사용!")
+
+    elif effect_name == "pandora_box":
+        # 판도라 상자: 랜덤 효과
+        try:
+            activate_pandora_box()
+        except Exception:
+            pass
+        print(f"[Arena] 상단 영웅 판도라 상자 사용!")
+
     elif effect_name in ["gauge_boost", "gauge_charge"]:
-        # 게이지 아이템은 상단 영웅에게 별 의미 없음 - 무시
-        print(f"[Arena] 상단 영웅 게이지 아이템 사용 (효과 없음)")
+        # 게이지 아이템은 상단 영웅에게 의미 없음 - 소비만
+        print(f"[Arena] 상단 영웅 게이지 아이템 소비")
 
     elif effect_name in ["long_paddle", "long_boost"]:
-        # 패들 확장은 상단 영웅에게 적용하지 않음
-        print(f"[Arena] 상단 영웅 패들 확장 아이템 사용 (효과 없음)")
+        # 패들 확장은 상단 영웅에게 의미 없음 - 소비만
+        print(f"[Arena] 상단 영웅 패들 확장 아이템 소비")
+
+    elif effect_name in ["aipill", "life_elixir", "repair_kit", "regeneration_potion", "devil_dice"]:
+        # 유틸리티 아이템: 상단 영웅에게 의미 없음 - 소비만
+        print(f"[Arena] 상단 영웅 아이템 소비: {effect_name}")
 
     else:
-        # 그 외 아이템은 로그만 출력
-        print(f"[Arena] 상단 영웅 아이템 효과 미구현: {effect_name}")
+        # 기타 아이템 소비
+        print(f"[Arena] 상단 영웅 아이템 소비: {effect_name}")
 
 
 def _update_arena_top_projectiles():
@@ -65569,7 +65600,8 @@ def _update_arena_top_projectiles():
                 knockback_dir = 1 if PLAYER.centerx > explosion_x else -1
                 player_knockback_vel = knockback_dir * 15
 
-                print(f"[Arena] 상단 영웅 수류탄 폭발! 플레이어 피격!")
+                _ptype = grenade.get("projectile_type", "grenade")
+                print(f"[Arena] 상단 영웅 {_ptype} 폭발! 플레이어 피격!")
 
             # 폭발 이펙트
             try:
@@ -65627,12 +65659,30 @@ def _update_arena_top_projectiles():
 
 def _draw_arena_top_projectiles(screen):
     """투기장 상단 영웅 투사체 그리기"""
-    # 수류탄 그리기
+    # 투사체 색상 매핑 (외곽, 내부)
+    _projectile_colors = {
+        "grenade": ((180, 50, 50), (255, 100, 100)),
+        "molotov": ((255, 120, 0), (255, 180, 50)),
+        "flare": ((255, 255, 100), (255, 255, 220)),
+        "smoke_grenade": ((120, 120, 120), (180, 180, 180)),
+        "dynamite": ((200, 50, 50), (255, 80, 80)),
+        "spider_mine": ((120, 90, 160), (180, 140, 220)),
+    }
+
+    # 수류탄/투척형 투사체 그리기
     for grenade in arena_top_grenades:
         if not grenade["exploded"]:
-            # 간단한 수류탄 모양 (빨간 원)
-            pygame.draw.circle(screen, (180, 50, 50), (int(grenade["x"]), int(grenade["y"])), 8)
-            pygame.draw.circle(screen, (255, 100, 100), (int(grenade["x"]), int(grenade["y"])), 5)
+            ptype = grenade.get("projectile_type", "grenade")
+            outer, inner = _projectile_colors.get(ptype, ((180, 50, 50), (255, 100, 100)))
+            gx, gy = int(grenade["x"]), int(grenade["y"])
+            pygame.draw.circle(screen, outer, (gx, gy), 8)
+            pygame.draw.circle(screen, inner, (gx, gy), 5)
+            # 화염병/조명탄은 추가 이펙트 (꼬리)
+            if ptype == "molotov":
+                pygame.draw.circle(screen, (255, 200, 50), (gx - int(grenade["vel_x"] * 0.3), gy - int(grenade["vel_y"] * 0.3)), 4)
+            elif ptype == "flare":
+                pygame.draw.circle(screen, (255, 255, 180), (gx, gy), 12)
+                pygame.draw.circle(screen, (255, 255, 255), (gx, gy), 6)
 
     # 바나나 그리기
     for banana in arena_top_bananas:
