@@ -131846,6 +131846,29 @@ def main(stage_num, new_boss_mode=False):
                     ball_vel[0] = ball_wrapper.vx
                     ball_vel[1] = ball_wrapper.vy
 
+                    # 👻 호위무사 귀신발걸음 공 충돌 반사 처리
+                    _guard_hit = arena_skill_manager.game_state.get('guard_demon_step_ball_hit')
+                    if _guard_hit:
+                        import math as _math
+                        _is_top_guard = _guard_hit['is_top_guard']
+                        _hit_offset = _guard_hit.get('hit_offset', 0)
+                        _current_speed = _math.hypot(ball_vel[0], ball_vel[1])
+                        _reflect_speed = max(_current_speed, 6.0)  # 최소 속도 보장
+                        # 상단 호위무사: 공을 아래로 반사 (양의 vy)
+                        # 하단 호위무사: 공을 위로 반사 (음의 vy)
+                        if _is_top_guard:
+                            ball_vel[1] = abs(_reflect_speed * 0.85)
+                        else:
+                            ball_vel[1] = -abs(_reflect_speed * 0.85)
+                        # 히트 오프셋에 따른 X축 각도 조절
+                        ball_vel[0] = _hit_offset * 4.0
+                        # 사운드 재생
+                        try:
+                            play_sound_with_volume(SOUND_HIT)
+                        except Exception:
+                            pass
+                        del arena_skill_manager.game_state['guard_demon_step_ball_hit']
+
                     # 🗡️ 환영수리검 넉백 효과 적용 (상단/하단 동일)
                     # 자연스러운 넉백: 초기속도 14.0 + 자연 감속 + 0.6초 경직
                     _kb_gs = arena_skill_manager.game_state
