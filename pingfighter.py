@@ -58100,6 +58100,10 @@ def handle_player(keys):
                 current_speed = 0
                 rolling_active = False
                 rolling_timer = 0
+            # 스팀 배리어 해동 중 (마지막 1초) - 점진적 속도 복귀
+            steam_thaw = game_state.get('steam_barrier_thaw_speed', 0.0)
+            if 0 < steam_thaw < 1.0 and not game_state.get('barrier_owner_is_top', False) and game_state.get('barrier_active', False):
+                arena_player_slow_mult *= steam_thaw
             # 둔화 체크
             if game_state.get('bottom_paddle_slowed', False):
                 arena_player_slow_mult = game_state.get('bottom_paddle_slow_amount', 0.5)
@@ -123475,6 +123479,10 @@ def handle_boss():
             if game_state.get('steam_barrier_caster_frozen', False) and game_state.get('barrier_owner_is_top', False):
                 boss_current_speed = 0
                 return  # 배리어 시전 중 이동 불가
+            # 스팀 배리어 해동 중 (마지막 1초) - 점진적 속도 복귀
+            steam_thaw = game_state.get('steam_barrier_thaw_speed', 0.0)
+            if 0 < steam_thaw < 1.0 and game_state.get('barrier_owner_is_top', False) and game_state.get('barrier_active', False):
+                arena_boss_slow_multiplier *= steam_thaw
             # 둔화 체크
             if game_state.get('top_paddle_slowed', False):
                 arena_boss_slow_multiplier = game_state.get('top_paddle_slow_amount', 0.5)

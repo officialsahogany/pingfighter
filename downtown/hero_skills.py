@@ -4131,6 +4131,16 @@ class SteamBarrier(HeroSkill):
         self.caster_center_x = caster_paddle.centerx
         self.caster_center_y = caster_paddle.centery
 
+        # === 마지막 1초: 점진적 해동 (슬슬 움직이기 시작) ===
+        thaw_duration = 1.0
+        if self.active_timer <= thaw_duration:
+            # 0.0(정지) → 1.0(정상속도) 선형 보간
+            thaw_ratio = 1.0 - (self.active_timer / thaw_duration)
+            game_state['steam_barrier_caster_frozen'] = False
+            game_state['steam_barrier_thaw_speed'] = thaw_ratio
+        else:
+            game_state['steam_barrier_thaw_speed'] = 0.0
+
         # === 종료 조건 1: 공이 시전자 패들에 닿으면 즉시 종료 ===
         ball_right = ball.x + getattr(ball, 'width', 10)
         ball_bottom = ball.y + getattr(ball, 'height', 10)
@@ -4287,6 +4297,7 @@ class SteamBarrier(HeroSkill):
         game_state['barrier_active'] = False
         # 시전자 정지 해제
         game_state['steam_barrier_caster_frozen'] = False
+        game_state['steam_barrier_thaw_speed'] = 0.0
         self.steam_particles = []
         # 배리어 종료 시 성스러운 이펙트도 정리 (파티클은 자연 소멸)
         self.holy_ball_active = False
@@ -4304,6 +4315,7 @@ class SteamBarrier(HeroSkill):
         game_state['barrier_active'] = False
         game_state['ball_holy'] = False
         game_state['steam_barrier_caster_frozen'] = False
+        game_state['steam_barrier_thaw_speed'] = 0.0
         self.steam_particles = []
         self.holy_ball_active = False
         self.holy_ball_timer = 0
@@ -5632,6 +5644,7 @@ class HeroSkillManager:
             'barrier_active': False,
             'barrier_owner_is_top': False,
             'steam_barrier_caster_frozen': False,
+            'steam_barrier_thaw_speed': 0.0,
             'has_clones': False,
             # 귀신의 눈 관련
             'demon_eye_active': False,
