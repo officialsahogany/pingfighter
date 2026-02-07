@@ -1275,6 +1275,16 @@ class GuardWarriorSystem:
                 self._activate_skill(is_top, top_paddle, bottom_paddle, ball)
 
         elif phase == "casting":
+            # 드래곤 브레스: 시전 중 공의 X좌표를 따라감
+            skill = self.selected_skill_top if is_top else self.selected_skill_bottom
+            if skill and getattr(skill, 'skill_id', '') == 'dragon_breath' and ball:
+                bx = max(GAME_AREA_X + 30, min(ball.x, GAME_AREA_X + GAME_AREA_WIDTH - 30))
+                if is_top:
+                    self.x_top = bx
+                else:
+                    self.x_bottom = bx
+                target_x = bx  # 퇴장 시작 위치도 갱신
+
             if timer >= GUARD_CAST_DURATION:
                 # 시전 완료 → 퇴장
                 if is_top:
