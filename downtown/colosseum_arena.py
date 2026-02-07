@@ -1168,10 +1168,14 @@ class GuardWarriorSystem:
                     if skill_id == 'dragon_breath' and ball:
                         guard_paddle.x = ball.x - guard_paddle.width // 2
                         guard_paddle.centerx = ball.x
-                    # 귀신발걸음: 공을 따라다니며 오오라
-                    elif skill_id == 'demon_step' and ball:
-                        guard_paddle.x = ball.x - guard_paddle.width // 2
-                        guard_paddle.centerx = ball.x
+                    # 귀신발걸음: 현재 호위무사 위치로 동기화 (X + Y)
+                    elif skill_id == 'demon_step':
+                        gx = self.x_top if is_top_guard else self.x_bottom
+                        gy = self.y_top if is_top_guard else self.y_bottom
+                        guard_paddle.x = gx - guard_paddle.width // 2
+                        guard_paddle.centerx = gx
+                        guard_paddle.y = gy
+                        guard_paddle.centery = gy + guard_paddle.height // 2
                     # caster 측 game_state 보호 (호위무사 스킬이 메인 영웅에 영향 방지)
                     caster_prefix = 'top_paddle' if is_top_guard else 'bottom_paddle'
                     saved = self._save_caster_state(game_state, caster_prefix)
@@ -1609,6 +1613,15 @@ class GuardWarriorSystem:
             for skill in skills:
                 if skill.is_active and hasattr(skill, 'draw'):
                     try:
+                        # 귀신발걸음: draw 전에 현재 호위무사 위치로 동기화
+                        skill_id = getattr(skill, 'skill_id', '')
+                        if skill_id == 'demon_step' and guard_paddle:
+                            gx = self.x_top if is_top_guard else self.x_bottom
+                            gy = self.y_top if is_top_guard else self.y_bottom
+                            guard_paddle.x = gx - guard_paddle.width // 2
+                            guard_paddle.centerx = gx
+                            guard_paddle.y = gy
+                            guard_paddle.centery = gy + guard_paddle.height // 2
                         skill.draw(screen, guard_paddle, target, ball, game_state)
                     except Exception:
                         pass
