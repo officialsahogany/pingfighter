@@ -538,9 +538,9 @@ class DemonEye(HeroSkill):
         _paddle_centerx = getattr(caster_paddle, 'centerx', 'N/A')
         print(f"[GhostStep ACTIVATE] is_top={caster_paddle.is_top}, paddle.x={_paddle_x}, paddle.centerx={_paddle_centerx}")
 
-        # 이동속도 200% 증가 (3배)
+        # 이동속도 50% 증가 (1.5배)
         speed_key = 'top_paddle_speed_boost' if caster_paddle.is_top else 'bottom_paddle_speed_boost'
-        game_state[speed_key] = 3.0  # 200% 증가 = 3배
+        game_state[speed_key] = 1.5  # 50% 증가 = 1.5배
         game_state['demon_eye_active'] = True
         game_state['demon_eye_caster_is_top'] = caster_paddle.is_top
 
@@ -574,7 +574,7 @@ class DemonEye(HeroSkill):
                 'alpha': random.randint(100, 200)
             })
 
-        print(f"[GhostStep] 귀신발걸음 발동! 이동속도 3배 + 패들 20% 확대, 1회 왕복 후 종료")
+        print(f"[GhostStep] 귀신발걸음 발동! 이동속도 1.5배 + 패들 20% 확대, 1회 왕복 후 종료")
 
         return {
             'screen_effect': ScreenEffect.FLASH,

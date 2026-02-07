@@ -18342,14 +18342,14 @@ arena_top_ghost_step_active = False      # 상단 영웅 귀신발걸음 Y축 �
 arena_top_ghost_step_original_y = 0      # 상단 영웅 원래 Y 위치
 arena_top_ghost_step_velocity = 0.0      # 상단 영웅 Y축 이동 속도
 arena_top_ghost_step_speed = 4.0         # 전진 이동 속도
-arena_top_ghost_step_return_speed = 24.0 # 복귀 이동 속도 (6배 빠르게)
+arena_top_ghost_step_return_speed = 16.8 # 복귀 이동 속도 (30% 감소: 24.0 → 16.8)
 arena_top_ghost_step_phase = 0           # 0: 전진, 1: 복귀
 
 arena_bottom_ghost_step_active = False   # 하단 영웅 귀신발걸음 Y축 이동 활성화
 arena_bottom_ghost_step_original_y = 0   # 하단 영웅 원래 Y 위치
 arena_bottom_ghost_step_velocity = 0.0   # 하단 영웅 Y축 이동 속도
 arena_bottom_ghost_step_speed = 4.0      # 전진 이동 속도
-arena_bottom_ghost_step_return_speed = 24.0 # 복귀 이동 속도 (6배 빠르게)
+arena_bottom_ghost_step_return_speed = 16.8 # 복귀 이동 속도 (30% 감소: 24.0 → 16.8)
 arena_bottom_ghost_step_phase = 0        # 0: 전진, 1: 복귀
 
 arena_bottom_dashing = False         # 하단 영웅 대쉬 중
