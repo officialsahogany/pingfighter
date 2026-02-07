@@ -58060,6 +58060,12 @@ def handle_player(keys):
                 current_speed = 0
                 rolling_active = False
                 rolling_timer = 0
+            # 스팀 배리어 시전 중 정지 (하단 패들이 시전자일 때)
+            if game_state.get('steam_barrier_caster_frozen', False) and not game_state.get('barrier_owner_is_top', False):
+                arena_player_stun_block = True
+                current_speed = 0
+                rolling_active = False
+                rolling_timer = 0
             # 둔화 체크
             if game_state.get('bottom_paddle_slowed', False):
                 arena_player_slow_mult = game_state.get('bottom_paddle_slow_amount', 0.5)
@@ -123431,6 +123437,10 @@ def handle_boss():
             if game_state.get('top_paddle_stunned', False):
                 boss_current_speed = 0
                 return  # 스턴 중에는 모든 처리 차단
+            # 스팀 배리어 시전 중 정지 (상단 패들이 시전자일 때)
+            if game_state.get('steam_barrier_caster_frozen', False) and game_state.get('barrier_owner_is_top', False):
+                boss_current_speed = 0
+                return  # 배리어 시전 중 이동 불가
             # 둔화 체크
             if game_state.get('top_paddle_slowed', False):
                 arena_boss_slow_multiplier = game_state.get('top_paddle_slow_amount', 0.5)

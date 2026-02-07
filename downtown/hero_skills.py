@@ -4098,6 +4098,11 @@ class SteamBarrier(HeroSkill):
         self.holy_ball_duration = 4.0  # 성스러운 이펙트 지속 4초
         self.holy_particles = []
         self.holy_trail = []
+        # 에너지 방출 이펙트 (시전자 주변)
+        self.energy_particles = []
+        self.energy_rings = []  # 확산 링 이펙트
+        self.caster_center_x = 0
+        self.caster_center_y = 0
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         # 배리어 위치 (영웅 패들보다 벽 쪽으로 더 뒤에 배치)
@@ -4108,12 +4113,75 @@ class SteamBarrier(HeroSkill):
         game_state['barrier_active'] = True
         game_state['barrier_y'] = self.barrier_y
         game_state['barrier_owner_is_top'] = caster_paddle.is_top
+        # 시전자 정지 (패들 이동 불가)
+        game_state['steam_barrier_caster_frozen'] = True
+        # 시전자 위치 저장 (에너지 방출 이펙트용)
+        self.caster_center_x = caster_paddle.centerx
+        self.caster_center_y = caster_paddle.centery
+        # 에너지 파티클 초기화
+        self.energy_particles = []
+        self.energy_rings = []
 
         return {
             'sound': 'steam_release'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        # 시전자 위치 업데이트 (에너지 이펙트 추적용)
+        self.caster_center_x = caster_paddle.centerx
+        self.caster_center_y = caster_paddle.centery
+
+        # === 종료 조건 1: 공이 시전자 패들에 닿으면 즉시 종료 ===
+        ball_right = ball.x + getattr(ball, 'width', 10)
+        ball_bottom = ball.y + getattr(ball, 'height', 10)
+        paddle_right = caster_paddle.x + caster_paddle.width
+        paddle_bottom = caster_paddle.y + caster_paddle.height
+        if (ball.x < paddle_right and ball_right > caster_paddle.x and
+                ball.y < paddle_bottom and ball_bottom > caster_paddle.y):
+            self.active_timer = 0  # 즉시 종료 트리거
+            return
+
+        # === 에너지 방출 파티클 생성 (시전자 주변) ===
+        # 에너지 파티클: 시전자 캐릭터 주변에서 바깥으로 방출
+        for _ in range(2):
+            if random.random() < 0.7:
+                angle = random.uniform(0, math.pi * 2)
+                start_dist = random.uniform(5, 20)
+                speed = random.uniform(30, 80)
+                self.energy_particles.append({
+                    'x': self.caster_center_x + math.cos(angle) * start_dist,
+                    'y': self.caster_center_y + math.sin(angle) * start_dist,
+                    'vx': math.cos(angle) * speed,
+                    'vy': math.sin(angle) * speed,
+                    'life': random.uniform(0.5, 1.0),
+                    'max_life': 1.0,
+                    'size': random.uniform(3, 8),
+                    'color_type': random.choice(['steam', 'gear_orange', 'gear_yellow'])
+                })
+        # 확산 링 이펙트 (주기적)
+        if random.random() < 0.08:
+            self.energy_rings.append({
+                'x': self.caster_center_x,
+                'y': self.caster_center_y,
+                'radius': 10,
+                'max_radius': random.uniform(50, 80),
+                'life': 0.6,
+                'max_life': 0.6,
+                'speed': random.uniform(80, 120)
+            })
+        # 에너지 파티클 업데이트
+        for p in self.energy_particles:
+            p['x'] += p['vx'] * dt
+            p['y'] += p['vy'] * dt
+            p['life'] -= dt
+            p['size'] *= 0.98
+        self.energy_particles = [p for p in self.energy_particles if p['life'] > 0]
+        # 확산 링 업데이트
+        for r in self.energy_rings:
+            r['radius'] += r['speed'] * dt
+            r['life'] -= dt
+        self.energy_rings = [r for r in self.energy_rings if r['life'] > 0]
+
         # 충돌 쿨다운 감소
         if self.hit_cooldown > 0:
             self.hit_cooldown -= dt
@@ -4217,6 +4285,8 @@ class SteamBarrier(HeroSkill):
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['barrier_active'] = False
+        # 시전자 정지 해제
+        game_state['steam_barrier_caster_frozen'] = False
         self.steam_particles = []
         # 배리어 종료 시 성스러운 이펙트도 정리 (파티클은 자연 소멸)
         self.holy_ball_active = False
@@ -4224,17 +4294,23 @@ class SteamBarrier(HeroSkill):
         game_state['ball_holy'] = False
         self.holy_particles = []
         self.holy_trail = []
+        # 에너지 방출 이펙트 정리
+        self.energy_particles = []
+        self.energy_rings = []
 
     def reset_for_new_round(self, game_state: dict):
         """라운드 전환 시 스팀 배리어 및 성스러운 이펙트 강제 종료"""
         super().reset_for_new_round(game_state)
         game_state['barrier_active'] = False
         game_state['ball_holy'] = False
+        game_state['steam_barrier_caster_frozen'] = False
         self.steam_particles = []
         self.holy_ball_active = False
         self.holy_ball_timer = 0
         self.holy_particles = []
         self.holy_trail = []
+        self.energy_particles = []
+        self.energy_rings = []
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if self.is_active:
@@ -4285,6 +4361,63 @@ class SteamBarrier(HeroSkill):
                 pygame.draw.circle(surf, (200, 210, 220, alpha),
                                   (int(p['size']), int(p['size'])), int(p['size']))
                 screen.blit(surf, (int(p['x'] - p['size']), int(p['y'] - p['size'])))
+
+            # === 에너지 방출 이펙트 (시전자 캐릭터 주변) ===
+            cx = int(self.caster_center_x)
+            cy = int(self.caster_center_y)
+
+            # 1) 확산 링 이펙트 (에너지 파동)
+            for r in self.energy_rings:
+                ring_alpha = int(180 * (r['life'] / r['max_life']) * fade_alpha)
+                ring_radius = int(r['radius'])
+                if ring_alpha > 0 and ring_radius > 0:
+                    ring_surf = pygame.Surface((ring_radius * 2 + 4, ring_radius * 2 + 4), pygame.SRCALPHA)
+                    rc = ring_radius + 2
+                    # 외곽 증기색 링
+                    pygame.draw.circle(ring_surf, (180, 200, 220, ring_alpha // 2),
+                                      (rc, rc), ring_radius, 2)
+                    # 내곽 주황/노란 에너지 링
+                    if ring_radius > 5:
+                        pygame.draw.circle(ring_surf, (220, 160, 60, ring_alpha),
+                                          (rc, rc), max(1, ring_radius - 3), 2)
+                    screen.blit(ring_surf, (cx - rc, cy - rc),
+                               special_flags=pygame.BLEND_ADD)
+
+            # 2) 에너지 파티클 (시전자 주변에서 방출)
+            for p in self.energy_particles:
+                p_alpha = int(200 * (p['life'] / p['max_life']) * fade_alpha)
+                p_size = max(1, int(p['size']))
+                if p_alpha <= 0 or p_size <= 0:
+                    continue
+                if p['color_type'] == 'steam':
+                    color = (180, 200, 220, p_alpha)
+                elif p['color_type'] == 'gear_orange':
+                    color = (220, 150, 50, p_alpha)
+                else:  # gear_yellow
+                    color = (240, 210, 80, p_alpha)
+                p_surf = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(p_surf, color, (p_size, p_size), p_size)
+                screen.blit(p_surf, (int(p['x']) - p_size, int(p['y']) - p_size),
+                           special_flags=pygame.BLEND_ADD)
+
+            # 3) 시전자 주변 코어 글로우 (에너지 집중 효과)
+            glow_pulse = 0.7 + 0.3 * math.sin(pygame.time.get_ticks() / 120)
+            core_alpha = int(80 * glow_pulse * fade_alpha)
+            if core_alpha > 0:
+                # 외부 주황색 오오라
+                outer_size = 35 + int(8 * math.sin(pygame.time.get_ticks() / 200))
+                outer_surf = pygame.Surface((outer_size * 2, outer_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(outer_surf, (200, 140, 40, core_alpha // 2),
+                                  (outer_size, outer_size), outer_size)
+                screen.blit(outer_surf, (cx - outer_size, cy - outer_size),
+                           special_flags=pygame.BLEND_ADD)
+                # 내부 밝은 글로우
+                inner_size = 20 + int(4 * math.sin(pygame.time.get_ticks() / 150))
+                inner_surf = pygame.Surface((inner_size * 2, inner_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(inner_surf, (240, 200, 100, core_alpha),
+                                  (inner_size, inner_size), inner_size)
+                screen.blit(inner_surf, (cx - inner_size, cy - inner_size),
+                           special_flags=pygame.BLEND_ADD)
 
         # 성스러운 공 이펙트 그리기 (배리어 활성 여부와 무관하게 지속)
         if self.holy_ball_active or self.holy_particles or self.holy_trail:
@@ -5498,6 +5631,7 @@ class HeroSkillManager:
             'wind_force': 0,
             'barrier_active': False,
             'barrier_owner_is_top': False,
+            'steam_barrier_caster_frozen': False,
             'has_clones': False,
             # 귀신의 눈 관련
             'demon_eye_active': False,
