@@ -1081,8 +1081,9 @@ class GuardWarriorSystem:
         self._exit_start_x_bottom = 0.0
         self._exit_start_y_bottom = 630.0
 
-        # 호위무사 귀신발걸음 공 충돌 쿨다운
-        self._guard_ball_cooldown = 0.0  # 중복 충돌 방지 쿨다운 (초)
+        # 호위무사 귀신발걸음 공 충돌 (1회 발동당 1회만 허용)
+        self._guard_ghost_step_hit_top = False   # 상단 호위무사 이번 발동에서 공 충돌 완료
+        self._guard_ghost_step_hit_bottom = False  # 하단 호위무사 이번 발동에서 공 충돌 완료
 
         # 호위무사 말풍선 시스템
         self._bubble_top = None    # {'text': str, 'timer': float}
@@ -1155,12 +1156,8 @@ class GuardWarriorSystem:
 
         game_state = self.skill_manager.game_state if self.skill_manager else {}
 
-        # 호위무사 귀신발걸음 공 충돌 쿨다운 감소
-        if self._guard_ball_cooldown > 0:
-            self._guard_ball_cooldown -= dt
-
-        # 🔥 호위무사 귀신발걸음 공 충돌 감지
-        if ball and self._guard_ball_cooldown <= 0:
+        # 🔥 호위무사 귀신발걸음 공 충돌 감지 (1회 발동당 1회만)
+        if ball:
             self._check_guard_demon_step_ball_collision(ball, game_state)
 
         # 활성 호위무사 스킬 이펙트 업데이트 (호위무사 위치 기반)
@@ -1413,6 +1410,11 @@ class GuardWarriorSystem:
                     skill.aura_particles = []
                     game_state = self.skill_manager.game_state if self.skill_manager else {}
                     game_state['demon_eye_active'] = False
+                    # 공 충돌 1회 제한 플래그 리셋
+                    if is_top:
+                        self._guard_ghost_step_hit_top = False
+                    else:
+                        self._guard_ghost_step_hit_bottom = False
                     # 퇴장 전환
                     if is_top:
                         self._exit_start_x_top = self.x_top
@@ -1485,7 +1487,7 @@ class GuardWarriorSystem:
         return gp
 
     def _check_guard_demon_step_ball_collision(self, ball, game_state):
-        """호위무사 귀신발걸음 중 공과 충돌 감지 → game_state 플래그 설정"""
+        """호위무사 귀신발걸음 중 공과 충돌 감지 → game_state 플래그 설정 (1회 발동당 1회만)"""
         import pygame
         GUARD_PADDLE_W, GUARD_PADDLE_H = 60, 30
 
@@ -1496,6 +1498,12 @@ class GuardWarriorSystem:
                     continue
                 skill_id = getattr(skill, 'skill_id', '')
                 if skill_id != 'demon_step':
+                    continue
+
+                # 이번 발동에서 이미 공을 쳤으면 스킵
+                if is_top_guard and self._guard_ghost_step_hit_top:
+                    continue
+                if not is_top_guard and self._guard_ghost_step_hit_bottom:
                     continue
 
                 # 현재 호위무사 위치로 충돌 rect 생성
@@ -1510,25 +1518,26 @@ class GuardWarriorSystem:
                                         getattr(ball, 'height', 20))
 
                 if guard_rect.colliderect(ball_rect):
-                    # 공이 올바른 방향으로 오는지 확인 (아군 쪽에서 오는 공만 반사)
+                    # 공이 올바른 방향으로 오는지 확인
                     ball_vy = getattr(ball, 'vy', 0)
-                    # 상단 호위무사: 위에서 아래로 내려오는 공 반사 (ball_vy > 0 → 상단 영웅을 향하는 공은 아님)
-                    # 상단 호위무사는 상단 영웅의 아군 → 아래에서 올라오는 공(ball_vy < 0)을 반사
-                    # 하단 호위무사는 하단 영웅의 아군 → 위에서 내려오는 공(ball_vy > 0)을 반사
                     if is_top_guard and ball_vy >= 0:
-                        continue  # 상단 호위무사인데 공이 아래로 가고 있으면 무시
+                        continue
                     if not is_top_guard and ball_vy <= 0:
-                        continue  # 하단 호위무사인데 공이 위로 가고 있으면 무시
+                        continue
 
-                    # 충돌 감지! game_state 플래그 설정
+                    # 충돌! 1회 제한 플래그 설정
+                    if is_top_guard:
+                        self._guard_ghost_step_hit_top = True
+                    else:
+                        self._guard_ghost_step_hit_bottom = True
+
                     hit_offset = (ball_rect.centerx - guard_rect.centerx) / (GUARD_PADDLE_W / 2)
                     game_state['guard_demon_step_ball_hit'] = {
                         'is_top_guard': is_top_guard,
-                        'hit_offset': hit_offset,  # -1.0 ~ 1.0 (좌우 각도 조절용)
+                        'hit_offset': hit_offset,
                     }
-                    self._guard_ball_cooldown = 0.5  # 0.5초 쿨다운
-                    print(f"[Guard GhostStep] 호위무사 공 충돌! is_top={is_top_guard}, offset={hit_offset:.2f}")
-                    return  # 한 프레임에 하나만 처리
+                    print(f"[Guard GhostStep] 호위무사 공 충돌 (1회)! is_top={is_top_guard}, offset={hit_offset:.2f}")
+                    return
 
     # 호위무사 스킬이 game_state를 통해 메인 영웅에 영향주는 것 방지용 키 목록
     _CASTER_STATE_KEYS = ['_locked', '_locked_x', '_locked_y', '_stunned', '_speed_boost', '_size_boost']
