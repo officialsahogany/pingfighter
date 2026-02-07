@@ -1358,8 +1358,9 @@ class GuardWarriorSystem:
                     self.y_bottom = vy
                 return  # 타이머 기반 퇴장 안 함 - 스킬 종료 시 자동 퇴장
 
-            # === 귀신발걸음: 무겐이 공을 따라다니며 오오라 ===
+            # === 귀신발걸음: 무겐이 공을 따라다니며 상대 진영으로 전진/복귀 ===
             elif skill_id == 'demon_step' and skill and skill.is_active:
+                # X축: 공을 따라감
                 if ball:
                     bx = max(GAME_AREA_X + 30, min(ball.x, GAME_AREA_X + GAME_AREA_WIDTH - 30))
                     if is_top:
@@ -1368,8 +1369,30 @@ class GuardWarriorSystem:
                         self.x_bottom = bx
                     target_x = bx
 
-                # 4초 후 강제 종료
+                # Y축: 상대 진영으로 전진(0~2초) → 복귀(2~4초)
                 DEMON_STEP_GUARD_DURATION = 4.0
+                FORWARD_DURATION = DEMON_STEP_GUARD_DURATION / 2  # 2초 전진
+                base_y = 120 if is_top else 630
+                max_y_offset = 250  # 최대 Y축 이동 거리
+                dest_y = (base_y + max_y_offset) if is_top else (base_y - max_y_offset)
+
+                if timer < FORWARD_DURATION:
+                    # 전진 페이즈: base_y → dest_y
+                    progress = timer / FORWARD_DURATION
+                    eased = self._ease_in_out(progress)
+                    current_y = base_y + (dest_y - base_y) * eased
+                else:
+                    # 복귀 페이즈: dest_y → base_y
+                    progress = min(1.0, (timer - FORWARD_DURATION) / (DEMON_STEP_GUARD_DURATION - FORWARD_DURATION))
+                    eased = self._ease_in_out(progress)
+                    current_y = dest_y + (base_y - dest_y) * eased
+
+                if is_top:
+                    self.y_top = current_y
+                else:
+                    self.y_bottom = current_y
+
+                # 4초 후 강제 종료
                 if timer >= DEMON_STEP_GUARD_DURATION:
                     skill.is_active = False
                     skill.aura_particles = []
