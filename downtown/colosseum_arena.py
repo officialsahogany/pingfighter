@@ -1388,8 +1388,8 @@ class GuardWarriorSystem:
                 DEMON_STEP_GUARD_DURATION = 4.0
                 FORWARD_DURATION = DEMON_STEP_GUARD_DURATION / 2  # 2초 전진
                 base_y = 120 if is_top else 630
-                max_y_offset = 250  # 최대 Y축 이동 거리
-                dest_y = (base_y + max_y_offset) if is_top else (base_y - max_y_offset)
+                # 상대 진영 끝까지 이동 (상단→화면 하단 700, 하단→화면 상단 50)
+                dest_y = 700 if is_top else 50
 
                 if timer < FORWARD_DURATION:
                     # 전진 페이즈: base_y → dest_y
