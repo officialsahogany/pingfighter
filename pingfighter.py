@@ -18491,6 +18491,10 @@ def arena_should_top_hero_dash() -> tuple[bool, float]:
     """
     global arena_top_dashing, arena_top_dash_cooldown, arena_top_dash_stun_timer
 
+    # 스팀 배리어 시전 중에는 대쉬 발동 불가
+    if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and arena_skill_manager.game_state.get('barrier_owner_is_top', False):
+        return False, 0.0
+
     # 대쉬 중이거나 쿨다운/후딜 중이면 발동 불가
     if arena_top_dashing or arena_top_dash_cooldown > 0 or arena_top_dash_stun_timer > 0:
         return False, 0.0
@@ -18564,6 +18568,10 @@ def arena_trigger_top_hero_dash(target_x: float) -> bool:
     global arena_top_dash_target_x, arena_top_dash_cooldown, arena_top_dash_duration_frames
     global arena_top_dash_stun_timer
 
+    # 스팀 배리어 시전 중에는 대쉬 발동 불가
+    if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and arena_skill_manager.game_state.get('barrier_owner_is_top', False):
+        return False
+
     # 대쉬 중이거나 쿨다운/후딜 중이면 발동 불가
     if arena_top_dashing or arena_top_dash_cooldown > 0 or arena_top_dash_stun_timer > 0:
         return False
@@ -18600,6 +18608,10 @@ def arena_should_bottom_hero_dash() -> tuple[bool, float]:
         (should_dash, target_x): 대쉬 발동 여부와 목표 X 좌표
     """
     global arena_bottom_dashing, arena_bottom_dash_cooldown, arena_bottom_dash_stun_timer
+
+    # 스팀 배리어 시전 중에는 대쉬 발동 불가 (하단 패들이 시전자일 때)
+    if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and not arena_skill_manager.game_state.get('barrier_owner_is_top', False):
+        return False, 0.0
 
     # 대쉬 중이거나 쿨다운/후딜 중이면 발동 불가
     if arena_bottom_dashing or arena_bottom_dash_cooldown > 0 or arena_bottom_dash_stun_timer > 0:
@@ -18674,6 +18686,10 @@ def arena_trigger_bottom_hero_dash_ai(target_x: float) -> bool:
     global arena_bottom_dash_target_x, arena_bottom_dash_cooldown
     global arena_bottom_dash_duration_frames, arena_bottom_dash_stun_timer
 
+    # 스팀 배리어 시전 중에는 대쉬 발동 불가 (하단 패들이 시전자일 때)
+    if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and not arena_skill_manager.game_state.get('barrier_owner_is_top', False):
+        return False
+
     # 🔥 귀신발걸음 활성 중에는 대쉬 발동 불가 (X축 점프 방지)
     if globals().get("arena_bottom_ghost_step_active", False):
         return False
@@ -18713,6 +18729,10 @@ def arena_trigger_bottom_hero_dash(direction: int) -> bool:
     global arena_bottom_dash_target_x, arena_bottom_dash_cooldown, arena_bottom_dash_charges
     global arena_bottom_dash_duration_frames, arena_bottom_dash_stun_timer
 
+    # 스팀 배리어 시전 중에는 대쉬 발동 불가 (하단 패들이 시전자일 때)
+    if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and not arena_skill_manager.game_state.get('barrier_owner_is_top', False):
+        return False
+
     # 🔥 귀신발걸음 활성 중에는 대쉬 발동 불가 (X축 점프 방지)
     if globals().get("arena_bottom_ghost_step_active", False):
         return False
@@ -18751,6 +18771,13 @@ def update_arena_top_hero_dash():
     """상단 영웅 대쉬 업데이트 - 보스 대쉬와 동일한 방식"""
     global arena_top_dashing, arena_top_dash_timer, arena_top_dash_cooldown
     global arena_top_dash_afterimages, arena_top_dash_stun_timer, arena_top_dash_duration_frames
+
+    # 스팀 배리어 시전 중에는 대쉬 즉시 취소
+    if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and arena_skill_manager.game_state.get('barrier_owner_is_top', False):
+        if arena_top_dashing:
+            arena_top_dashing = False
+            arena_top_dash_timer = 0
+        return False
 
     # 쿨다운 감소
     if arena_top_dash_cooldown > 0:
@@ -18831,6 +18858,13 @@ def update_arena_bottom_hero_dash():
     global arena_bottom_dashing, arena_bottom_dash_timer, arena_bottom_dash_cooldown
     global arena_bottom_dash_afterimages, arena_bottom_dash_charges, arena_bottom_dash_charge_timer
     global arena_bottom_dash_stun_timer, arena_bottom_dash_duration_frames
+
+    # 스팀 배리어 시전 중에는 대쉬 즉시 취소 (하단 패들이 시전자일 때)
+    if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and not arena_skill_manager.game_state.get('barrier_owner_is_top', False):
+        if arena_bottom_dashing:
+            arena_bottom_dashing = False
+            arena_bottom_dash_timer = 0
+        return False
 
     # 🔥 귀신발걸음 활성 중에는 대쉬 시스템 비활성화 (X축 점프 방지)
     if globals().get("arena_bottom_ghost_step_active", False):
