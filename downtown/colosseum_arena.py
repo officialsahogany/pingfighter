@@ -3249,9 +3249,11 @@ class ColosseumsArena:
             self.result_display_timer = 0
 
         elif self.state == TournamentState.VICTORY_CELEBRATION:
-            # 축하 화면 클릭 → 3초 이후부터 TOURNAMENT_END로 전환
+            # 축하 화면 클릭 → 3초 이후 바로 상금 수령 및 퇴장
             if getattr(self, 'victory_timer', 0) >= 3.0:
-                self.state = TournamentState.TOURNAMENT_END
+                self.total_winnings = self.accumulated_prize
+                self.winnings_collected = True
+                self.exit_requested = True
                 return
 
         elif self.state == TournamentState.TOURNAMENT_END:
