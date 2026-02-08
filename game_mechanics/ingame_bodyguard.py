@@ -199,11 +199,23 @@ class InGameBodyguard:
             boss_effects['puppet_x'] = gs.pop('top_paddle_locked_x', None)
             boss_effects['puppet_y'] = gs.pop('top_paddle_locked_y', None)
 
+        # ── 오니마루: 뿔 박치기 넉백 ──
+        if gs.get('horn_charge_apply_knockback'):
+            boss_effects['horn_charge_knockback'] = True
+            boss_effects['horn_charge_knockback_dir'] = gs.get('horn_charge_knockback_dir', 1)
+            boss_effects['horn_charge_knockback_vel'] = gs.get('horn_charge_knockback_vel', 73)
+            boss_effects['horn_charge_target_is_top'] = gs.get('horn_charge_target_is_top', True)
+            gs['horn_charge_apply_knockback'] = False  # 1회성 신호 소비
+
         # ── 화면 정지 효과 (달빛베기 / 도깨비불) ──
         if gs.get('dark_slash_freeze', False):
             boss_effects['freeze'] = True
         if gs.get('hell_fire_freeze', False):
             boss_effects['freeze'] = True
+
+        # ── 도깨비불 공 이펙트 ──
+        if gs.get('dokkaebi_ball', False):
+            boss_effects['dokkaebi_ball'] = True
 
         # ── 공 속도 변경 (중력제어, 달빛베기 가속, 도깨비불 등) ──
         if ball and ball.vel_changed:

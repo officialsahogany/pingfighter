@@ -86149,6 +86149,41 @@ def draw_objects():
         except Exception:
             pass
 
+        # 🔥 인게임 호위무사 도깨비불 공 이펙트 그리기
+        if globals().get('_ingame_bodyguard_dokkaebi_ball', False) and BALL:
+            _dokkaebi_time = pygame.time.get_ticks() / 1000.0
+            _ball_cx, _ball_cy = BALL.centerx, BALL.centery
+            _ball_r = BALL.width // 2
+            # 도깨비불 외곽 글로우 (청록색/푸른색 반복)
+            for i in range(4):
+                _glow_r = _ball_r + 8 + i * 6
+                _glow_alpha = int(120 - i * 25)
+                _flicker = 0.7 + 0.3 * math.sin(_dokkaebi_time * 10 + i)
+                _glow_alpha = int(_glow_alpha * _flicker)
+                _glow_surf = pygame.Surface((_glow_r * 2, _glow_r * 2), pygame.SRCALPHA)
+                _r = int(50 + 50 * math.sin(_dokkaebi_time * 5))
+                _g = int(180 + 40 * math.sin(_dokkaebi_time * 7))
+                _b = 255
+                pygame.draw.circle(_glow_surf, (_r, _g, _b, _glow_alpha), (_glow_r, _glow_r), _glow_r)
+                SCREEN.blit(_glow_surf, (_ball_cx - _glow_r, _ball_cy - _glow_r), special_flags=pygame.BLEND_ADD)
+            # 도깨비불 본체 (푸른 불꽃 모양)
+            _core_surf = pygame.Surface((_ball_r * 4, _ball_r * 4), pygame.SRCALPHA)
+            _core_cx, _core_cy = _ball_r * 2, _ball_r * 2
+            _flame_points = []
+            for angle in range(0, 360, 30):
+                _rad = math.radians(angle)
+                _dist = _ball_r * (1.2 + 0.3 * math.sin(_dokkaebi_time * 8 + angle / 30))
+                if 60 < angle < 120:
+                    _dist *= 1.5
+                _fx = _core_cx + math.sin(_rad) * _dist * 0.8
+                _fy = _core_cy - math.cos(_rad) * _dist
+                _flame_points.append((_fx, _fy))
+            if len(_flame_points) >= 3:
+                pygame.draw.polygon(_core_surf, (100, 220, 255, 200), _flame_points)
+            pygame.draw.circle(_core_surf, (200, 255, 255, 255), (_core_cx, _core_cy), int(_ball_r * 0.6))
+            pygame.draw.circle(_core_surf, (255, 255, 255, 200), (_core_cx, _core_cy - 2), int(_ball_r * 0.3))
+            SCREEN.blit(_core_surf, (_ball_cx - _ball_r * 2, _ball_cy - _ball_r * 2), special_flags=pygame.BLEND_ADD)
+
     try:
         from item_effects.foul_whistle import get_foul_whistle_instance
 
@@ -132011,12 +132046,25 @@ def main(stage_num, new_boss_mode=False):
             freeze_spawn_anim = is_ball_spawn_animation_paused()
             freeze_tooltip = game_paused and game_paused_by_tooltip  # 툴팁으로 인한 일시정지
             freeze_ingame_tutorial = is_ingame_tutorial_paused()  # 실전 튜토리얼 일시정지
-            # 달빛 베기 / 도깨비불 화면 정지 (투기장 모드)
+            # 달빛 베기 / 도깨비불 화면 정지 (투기장 모드 + 인게임 호위무사)
             freeze_dark_slash = False
             freeze_hell_fire = False
             if arena_mode_enabled and arena_skill_manager:
                 freeze_dark_slash = arena_skill_manager.game_state.get('dark_slash_freeze', False)
                 freeze_hell_fire = arena_skill_manager.game_state.get('hell_fire_freeze', False)
+            # 인게임 호위무사의 도깨비불/달빛베기 화면 정지도 포함
+            if not arena_mode_enabled:
+                try:
+                    from game_mechanics.ingame_bodyguard import get_bodyguard
+                    _bg_check = get_bodyguard()
+                    if _bg_check.active and _bg_check._skill_manager:
+                        _bg_gs = _bg_check._skill_manager.game_state
+                        if _bg_gs.get('hell_fire_freeze', False):
+                            freeze_hell_fire = True
+                        if _bg_gs.get('dark_slash_freeze', False):
+                            freeze_dark_slash = True
+                except Exception:
+                    pass
             freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim or freeze_tooltip or freeze_ingame_tutorial or freeze_dark_slash or freeze_hell_fire
 
             # 디버그: 툴팁 일시정지 상태 확인
@@ -132706,7 +132754,7 @@ def main(stage_num, new_boss_mode=False):
                     _bodyguard = get_bodyguard()
                     if _bodyguard.active:
                         _bg_fx = _bodyguard.update(
-                            1.0 / 60.0 if not freeze_now else 0.0,
+                            1.0 / 60.0 if (not freeze_now or freeze_dark_slash or freeze_hell_fire) else 0.0,
                             boss_rect=BOSS,
                             player_rect=PLAYER,
                             ball_rect=BALL,
@@ -132741,9 +132789,30 @@ def main(stage_num, new_boss_mode=False):
                                 if py is not None:
                                     BOSS.y = int(py)
                                 boss_stunned_timer = max(boss_stunned_timer, 3)
+                            # 🐂 뿔 박치기 넉백 (오니마루 호위무사)
+                            if _bg_fx.get('horn_charge_knockback'):
+                                _kb_dir = _bg_fx.get('horn_charge_knockback_dir', 1)
+                                _kb_vel = _bg_fx.get('horn_charge_knockback_vel', 73)
+                                _target_is_top = _bg_fx.get('horn_charge_target_is_top', True)
+                                # 화면 흔들림 (다이너마이트급)
+                                globals()['screen_shake_timer'] = 24
+                                globals()['screen_shake_intensity'] = 35
+                                if _target_is_top:
+                                    # 보스(상단)에게 넉백
+                                    boss_knockback_vel = _apply_boss_knockback_velocity(_kb_dir * _kb_vel)
+                                    boss_stunned_timer = max(boss_stunned_timer, 30)
+                                else:
+                                    # 플레이어(하단)에게 넉백
+                                    player_knockback_vel = _kb_dir * _kb_vel
+                                    player_stunned_timer = 30
                             # 화면 정지 (달빛베기 / 도깨비불)
                             if _bg_fx.get('freeze'):
                                 freeze_now = True
+                            # 🔥 도깨비불 공 이펙트 플래그
+                            if _bg_fx.get('dokkaebi_ball'):
+                                globals()['_ingame_bodyguard_dokkaebi_ball'] = True
+                            else:
+                                globals()['_ingame_bodyguard_dokkaebi_ball'] = False
                             # 공 속도 변경 (중력제어, 달빛베기 가속, 도깨비불 등)
                             if 'ball_vx' in _bg_fx:
                                 ball_vel[0] = _bg_fx['ball_vx']

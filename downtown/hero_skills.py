@@ -2611,6 +2611,13 @@ class HellFire(HeroSkill):
                 ball.vx = new_vx
                 ball.vy = new_vy
 
+            # 공이 상대(타겟) 방향으로 향하도록 부드러운 보정
+            # 시전자가 하단이면 위로(vy<0), 상단이면 아래로(vy>0)
+            desired_sign = 1.0 if self.caster_is_top else -1.0
+            if ball.vy * desired_sign < 0:
+                # 공이 시전자 쪽으로 돌아오고 있으면 점진적으로 보정
+                ball.vy += desired_sign * 120 * dt
+
             # 불꽃 파티클
             if random.random() < 0.5:
                 self.fire_particles.append({
