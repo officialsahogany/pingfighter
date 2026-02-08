@@ -21,7 +21,7 @@ class HeroPaddleRenderer:
         self.time += dt
 
     def update_movement(self, hero_id: str, current_x: float, dt: float):
-        """이동 상태 업데이트 - 관절 애니메이션 포함 (발토르 스타일 강화)"""
+        """이동 상태 업데이트 - 관절 애니메이션 포함 (발토르 스타일 강화 + 옆모습 전환)"""
         if hero_id not in self.hero_states:
             self.hero_states[hero_id] = {
                 "last_x": current_x,
@@ -32,26 +32,38 @@ class HeroPaddleRenderer:
                 "arm_swing": 0.0,
                 "head_tilt": 0.0,
                 "body_bob": 0.0,
+                "move_dir": 0.0,      # 이동 방향 (-1=좌, 0=정지, 1=우)
+                "side_blend": 0.0,    # 옆모습 전환 비율 (0=정면, 1=완전 옆모습)
             }
 
         state = self.hero_states[hero_id]
         # 속도 계산 (부드럽게)
         velocity = (current_x - state["last_x"]) / max(dt, 0.001)
-        state["velocity"] = velocity * 0.3 + state["velocity"] * 0.7  # 더 부드러운 반응 (0.5→0.3)
+        state["velocity"] = velocity * 0.3 + state["velocity"] * 0.7  # 더 부드러운 반응
 
         # 기울기 (이동 방향) - 완화된 조정
-        target_lean = max(-1.0, min(1.0, state["velocity"] / 200.0))  # 200으로 높임 (덜 기울어짐)
-        state["lean"] = state["lean"] * 0.85 + target_lean * 0.15  # 더 부드러운 보간 (0.75→0.85)
+        target_lean = max(-1.0, min(1.0, state["velocity"] / 200.0))
+        state["lean"] = state["lean"] * 0.85 + target_lean * 0.15
+
+        # 옆모습 전환 추적 (이동 방향 + 블렌드)
+        move_speed = abs(state["velocity"])
+        if move_speed > 25:
+            target_dir = 1.0 if state["velocity"] > 0 else -1.0
+        else:
+            target_dir = 0.0
+        state["move_dir"] = state["move_dir"] * 0.82 + target_dir * 0.18
+        # side_blend: 속도에 따라 0(정면)~1(완전 옆모습) 부드럽게 전환
+        target_side = min(1.0, move_speed / 160.0)
+        state["side_blend"] = state["side_blend"] * 0.88 + target_side * 0.12
 
         # 걷기 애니메이션 (속도에 비례)
-        move_speed = abs(state["velocity"])
         if move_speed > 5:
             # 애니메이션 속도
             state["step_phase"] += dt * 12.0
             state["shoulder_phase"] += dt * 12.0
             # 어깨 들썩임 (미세하게 - 촐싹거림 방지)
             speed_factor = min(1.0, move_speed / 150.0)
-            state["body_bob"] = math.sin(state["step_phase"] * 2) * speed_factor * 0.3  # 1.2 → 0.3 (대폭 감소)
+            state["body_bob"] = math.sin(state["step_phase"] * 2) * speed_factor * 0.3
             # 팔 스윙
             state["arm_swing"] = math.sin(state["step_phase"]) * min(1.0, move_speed / 100.0) * 1.0
             # 머리 미세 흔들림
@@ -69,7 +81,8 @@ class HeroPaddleRenderer:
         if hero_id not in self.hero_states:
             self.hero_states[hero_id] = {
                 "last_x": 0, "velocity": 0, "lean": 0, "step_phase": 0,
-                "shoulder_phase": 0, "arm_swing": 0, "head_tilt": 0, "body_bob": 0
+                "shoulder_phase": 0, "arm_swing": 0, "head_tilt": 0, "body_bob": 0,
+                "move_dir": 0.0, "side_blend": 0.0,
             }
         return self.hero_states[hero_id]
 
@@ -85,36 +98,48 @@ class HeroPaddleRenderer:
         # 이동 중일 때 다리/팔 애니메이션 강화
         leg_intensity = min(1.0, velocity / 80.0) if velocity > 5 else 0
 
+        # 옆모습 관련 값
+        side_blend = state.get("side_blend", 0)
+        move_dir = state.get("move_dir", 0)
+
+        # 옆모습일 때 걷기 모션 증폭 (side_blend에 비례하여 팔/다리 스트라이드 강화)
+        side_boost = 1.0 + side_blend * 0.6  # 최대 60% 증폭
+
         # 자연스러운 걷기: 왼팔-오른다리, 오른팔-왼다리가 함께 움직임
-        arm_intensity = arm_swing * (0.6 + leg_intensity * 0.4)
+        arm_intensity = arm_swing * (0.6 + leg_intensity * 0.4) * side_boost
 
         # 발토르 스타일 다리 스윙 (좌우 X 방향 움직임)
-        # step의 sin 값으로 왼다리/오른다리가 교대로 앞뒤로 움직임
-        leg_sway = math.sin(step) * leg_intensity * 0.8  # -0.8 ~ 0.8 범위
-        left_leg_sway = -leg_sway   # 왼다리 X 오프셋 (오른다리 반대)
-        right_leg_sway = leg_sway   # 오른다리 X 오프셋
+        leg_sway = math.sin(step) * leg_intensity * 0.8 * side_boost
+        left_leg_sway = -leg_sway
+        right_leg_sway = leg_sway
 
         # 발토르 스타일 어깨 들썩임 (팔과 함께 위아래)
         shoulder_bob = math.sin(step * 2) * leg_intensity * 0.3
 
+        # 옆모습 다리 들어올림 강화 (스트라이드 증폭)
+        leg_lift_boost = 0.8 + leg_intensity * 0.5 + side_blend * 0.4
+
         return {
-            "wave": math.sin(step) * (1.0 + leg_intensity * 0.3),
+            "wave": math.sin(step) * (1.0 + leg_intensity * 0.3) * side_boost,
             "lean": lean,
             "arm_swing": arm_swing,  # 기존 호환성 유지
-            "left_arm_swing": -math.sin(step) * arm_intensity,   # 오른다리와 함께
-            "right_arm_swing": math.sin(step) * arm_intensity,   # 왼다리와 함께
+            "left_arm_swing": -math.sin(step) * arm_intensity,
+            "right_arm_swing": math.sin(step) * arm_intensity,
             "body_bob": body_bob,
             "head_tilt": head_tilt,
-            # 다리 들어올림 (Y 방향)
-            "left_leg": max(0, math.sin(step)) * (0.8 + leg_intensity * 0.5),
-            "right_leg": max(0, -math.sin(step)) * (0.8 + leg_intensity * 0.5),
+            # 다리 들어올림 (Y 방향) - 옆모습일 때 강화
+            "left_leg": max(0, math.sin(step)) * leg_lift_boost,
+            "right_leg": max(0, -math.sin(step)) * leg_lift_boost,
             # 다리 좌우 스윙 (X 방향) - 발토르 스타일
             "left_leg_sway": left_leg_sway,
             "right_leg_sway": right_leg_sway,
             # 어깨 움직임
             "left_shoulder": math.sin(step + 0.5) * (0.4 + leg_intensity * 0.3),
             "right_shoulder": math.sin(step - 0.5) * (0.4 + leg_intensity * 0.3),
-            "shoulder_bob": shoulder_bob,  # 어깨 위아래 들썩임
+            "shoulder_bob": shoulder_bob,
+            # 옆모습 전환
+            "side_blend": side_blend,   # 0=정면/뒷모습, 1=완전 옆모습
+            "move_dir": move_dir,       # -1=좌, 0=정지, 1=우
         }
 
     def draw_hero_paddle(self, screen: pygame.Surface, hero_id: str,
@@ -149,16 +174,20 @@ class HeroPaddleRenderer:
             scale_ratio = width / 130.0 if width > 0 else 1.0  # 패들 축소 시 캐릭터도 축소
             b = max(4, int(base_b * scale_ratio))  # 최소 4 유지
             # 이동 애니메이션 (기울기 완화, 상하 움직임 최소화)
+            side_blend = anim.get("side_blend", 0)
+            move_dir = anim.get("move_dir", 0)
             anim = {
                 "wave": anim["wave"] * 0.5,
-                "lean": anim["lean"] * 0.7,  # 1.2 → 0.7 (기울기 완화)
-                "arm_swing": anim["arm_swing"] * 0.6,  # 0.9 → 0.6 (팔 흔들림 감소)
-                "body_bob": anim["body_bob"] * 0.15,  # 0.25 → 0.15 (상하 움직임 더 감소)
-                "head_tilt": anim["head_tilt"] * 0.3,  # 0.5 → 0.3 (머리 흔들림 감소)
-                "left_leg": anim["left_leg"] * 0.5,  # 0.7 → 0.5 (다리 움직임 감소)
+                "lean": anim["lean"] * 0.7,
+                "arm_swing": anim["arm_swing"] * 0.6,
+                "body_bob": anim["body_bob"] * 0.15,
+                "head_tilt": anim["head_tilt"] * 0.3,
+                "left_leg": anim["left_leg"] * 0.5,
                 "right_leg": anim["right_leg"] * 0.5,
-                "left_shoulder": anim["left_shoulder"] * 0.4,  # 0.6 → 0.4 (어깨 움직임 감소)
+                "left_shoulder": anim["left_shoulder"] * 0.4,
                 "right_shoulder": anim["right_shoulder"] * 0.4,
+                "side_blend": side_blend,
+                "move_dir": move_dir,
             }
         else:
             # 기존 미리보기 모드 (크게 표시)
@@ -184,12 +213,41 @@ class HeroPaddleRenderer:
         else:
             cy = int(y)
 
-        # 영웅별 그리기
+        # 영웅별 그리기 (옆모습 퍼스펙티브 적용)
         draw_func = getattr(self, f"_draw_{hero_id}", None)
-        if draw_func:
-            draw_func(screen, cx, cy, b, color, show_back, anim)
+        if draw_func is None:
+            draw_func = self._draw_default
+
+        side_blend = anim.get("side_blend", 0)
+        move_dir = anim.get("move_dir", 0)
+
+        if side_blend > 0.08:
+            # === 옆모습 전환: 임시 서피스에 그린 뒤 수평 압축 ===
+            # 충분히 큰 임시 서피스 생성 (캐릭터 전체를 담을 크기)
+            surf_w = int(16 * b)
+            surf_h = int(14 * b)
+            temp_surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+
+            # 임시 서피스 중심에 캐릭터 그리기
+            temp_cx = surf_w // 2
+            temp_cy = surf_h // 2 + int(1.5 * b)
+            draw_func(temp_surf, temp_cx, temp_cy, b, color, show_back, anim)
+
+            # 수평 압축 (side_blend에 비례, 최대 40% 압축)
+            squeeze = 1.0 - side_blend * 0.40
+            new_w = max(1, int(surf_w * squeeze))
+            compressed = pygame.transform.smoothscale(temp_surf, (new_w, surf_h))
+
+            # 이동 방향 반대쪽으로 살짝 오프셋 (자연스러운 무게 중심 이동)
+            dir_offset = int(move_dir * side_blend * 1.5 * b)
+
+            # 화면에 블릿
+            blit_x = cx - new_w // 2 + dir_offset
+            blit_y = cy - surf_h // 2 - int(1.5 * b)
+            screen.blit(compressed, (blit_x, blit_y))
         else:
-            self._draw_default(screen, cx, cy, b, color, show_back, anim)
+            # 정면/뒷모습 일반 그리기
+            draw_func(screen, cx, cy, b, color, show_back, anim)
 
     # =========================================================================
     # 무겐 - 귀검사 (어둠의 검객) - 동양풍 사무라이 [고퀄리티]
