@@ -2197,6 +2197,13 @@ class DwarfMagic(HeroSkill):
         self.hit_target = False
         self.shrink_timer = 0
         self.shrunk_target_is_top = None  # 축소된 타겟 기억용
+        # 축소/복원 애니메이션 상태
+        self.SHRINK_ANIM_DURATION = 0.3  # 축소 애니메이션 시간
+        self.RESTORE_ANIM_DURATION = 0.3  # 복원 애니메이션 시간
+        self.shrink_anim_timer = 0.0  # 축소 애니메이션 진행 타이머
+        self.restore_anim_timer = 0.0  # 복원 애니메이션 진행 타이머
+        self.is_shrinking = False  # 축소 애니메이션 중
+        self.is_restoring = False  # 복원 애니메이션 중
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         # 보라색 빛가루 투사체 발사
@@ -2249,15 +2256,44 @@ class DwarfMagic(HeroSkill):
 
         # ★ 핵심: shrink_timer는 is_active와 별개로 항상 처리
         # (투사체 명중 후 is_active가 False가 되어도 축소 효과는 유지되어야 함)
-        if self.hit_target and self.shrink_timer > 0:
-            self.shrink_timer -= dt
-            if self.shrink_timer <= 0:
-                # 축소 효과 해제 - 저장된 타겟 정보 사용
-                target_prefix = 'top_paddle' if self.shrunk_target_is_top else 'bottom_paddle'
-                game_state[f'{target_prefix}_shrink'] = False
-                game_state[f'{target_prefix}_shrink_scale'] = 1.0
-                self.hit_target = False
-                self.shrunk_target_is_top = None
+        if self.hit_target:
+            target_prefix = 'top_paddle' if self.shrunk_target_is_top else 'bottom_paddle'
+
+            # 축소 애니메이션 (명중 직후 0.3초)
+            if self.is_shrinking:
+                self.shrink_anim_timer += dt
+                t = min(1.0, self.shrink_anim_timer / self.SHRINK_ANIM_DURATION)
+                # Ease-out 커브: 빠르게 줄어들다 천천히 마무리
+                t_ease = 1 - (1 - t) ** 2
+                scale = 1.0 - 0.5 * t_ease  # 1.0 → 0.5
+                game_state[f'{target_prefix}_shrink_scale'] = scale
+                if t >= 1.0:
+                    self.is_shrinking = False
+                    game_state[f'{target_prefix}_shrink_scale'] = 0.5
+
+            # 축소 유지 기간 (shrink_timer 카운트다운)
+            if not self.is_shrinking and not self.is_restoring and self.shrink_timer > 0:
+                self.shrink_timer -= dt
+                if self.shrink_timer <= 0:
+                    # 복원 애니메이션 시작
+                    self.is_restoring = True
+                    self.restore_anim_timer = 0.0
+
+            # 복원 애니메이션 (효과 종료 후 0.3초)
+            if self.is_restoring:
+                self.restore_anim_timer += dt
+                t = min(1.0, self.restore_anim_timer / self.RESTORE_ANIM_DURATION)
+                # Ease-in 커브: 천천히 시작해서 빠르게 원래 크기로
+                t_ease = t ** 2
+                scale = 0.5 + 0.5 * t_ease  # 0.5 → 1.0
+                game_state[f'{target_prefix}_shrink_scale'] = scale
+                if t >= 1.0:
+                    # 복원 완료
+                    self.is_restoring = False
+                    game_state[f'{target_prefix}_shrink'] = False
+                    game_state[f'{target_prefix}_shrink_scale'] = 1.0
+                    self.hit_target = False
+                    self.shrunk_target_is_top = None
 
         # 파티클 업데이트 (is_active와 관계없이)
         for p in self.magic_particles[:]:
@@ -2305,10 +2341,14 @@ class DwarfMagic(HeroSkill):
                 self.shrink_timer = 4.0  # 4초 지속
                 self.shrunk_target_is_top = target_paddle.is_top  # 축소된 타겟 기억
 
-                # 타겟 패들 50% 축소 적용
+                # 타겟 패들 축소 애니메이션 시작 (0.3초에 걸쳐 점진적으로)
                 target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
                 game_state[f'{target_prefix}_shrink'] = True
-                game_state[f'{target_prefix}_shrink_scale'] = 0.5  # 50% 축소
+                game_state[f'{target_prefix}_shrink_scale'] = 1.0  # 애니메이션 시작: 원래 크기
+                self.is_shrinking = True
+                self.shrink_anim_timer = 0.0
+                self.is_restoring = False
+                self.restore_anim_timer = 0.0
 
                 # 명중 시 사운드 재생
                 try:
@@ -2395,6 +2435,11 @@ class DwarfMagic(HeroSkill):
         self.hit_target = False
         self.shrink_timer = 0
         self.shrunk_target_is_top = None  # 타겟 정보 초기화
+        # 축소/복원 애니메이션 초기화
+        self.shrink_anim_timer = 0.0
+        self.restore_anim_timer = 0.0
+        self.is_shrinking = False
+        self.is_restoring = False
         # 패들 축소 효과 해제
         game_state['top_paddle_shrink'] = False
         game_state['top_paddle_shrink_scale'] = 1.0
