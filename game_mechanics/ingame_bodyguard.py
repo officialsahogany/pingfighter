@@ -157,7 +157,38 @@ class InGameBodyguard:
             bottom_paddle = _PaddleProxy(pygame.Rect(380, 710, 120, 40), is_top=False)
 
         self._guard_system.update(dt, top_paddle, bottom_paddle, ball)
-        return {}
+
+        # game_state에서 보스(top_paddle) 상태 효과 추출 → pingfighter.py에 전달
+        gs = self._skill_manager.game_state
+        boss_effects = {}
+
+        # 스턴
+        if gs.pop('top_paddle_stunned', False):
+            boss_effects['stun_frames'] = 90  # 1.5초
+
+        # 둔화
+        if gs.pop('top_paddle_slowed', False):
+            boss_effects['slow'] = True
+            boss_effects['slow_amount'] = gs.pop('top_paddle_slow_amount', 0.5)
+            boss_effects['slow_frames'] = 180  # 3초
+
+        # 혼란 (조작 반전)
+        if gs.pop('top_paddle_confused', False):
+            boss_effects['confuse_frames'] = 180  # 3초
+
+        # 축소
+        if gs.pop('top_paddle_shrink', False):
+            boss_effects['shrink'] = True
+            boss_effects['shrink_scale'] = gs.pop('top_paddle_shrink_scale', 0.5)
+            boss_effects['shrink_frames'] = 180  # 3초
+
+        # 화면 효과 (흔들림/플래시)
+        for fx in self._skill_manager.screen_effects:
+            boss_effects['screen_shake'] = True
+            boss_effects['shake_intensity'] = fx.get('intensity', 15)
+        self._skill_manager.screen_effects.clear()
+
+        return boss_effects
 
     def draw(self, screen, boss_rect=None, player_rect=None, ball_rect=None):
         """호위무사 캐릭터 및 스킬 이펙트 그리기"""

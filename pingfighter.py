@@ -132705,7 +132705,7 @@ def main(stage_num, new_boss_mode=False):
                     from game_mechanics.ingame_bodyguard import get_bodyguard
                     _bodyguard = get_bodyguard()
                     if _bodyguard.active:
-                        _bodyguard.update(
+                        _bg_fx = _bodyguard.update(
                             1.0 / 60.0,
                             boss_rect=BOSS,
                             player_rect=PLAYER,
@@ -132713,6 +132713,24 @@ def main(stage_num, new_boss_mode=False):
                             ball_vx=ball_vel[0],
                             ball_vy=ball_vel[1],
                         )
+                        # 호위무사 스킬의 실제 효과를 보스에게 적용
+                        if _bg_fx:
+                            if 'stun_frames' in _bg_fx:
+                                boss_stunned_timer = max(boss_stunned_timer, _bg_fx['stun_frames'])
+                                globals()['screen_shake_timer'] = 12
+                                globals()['screen_shake_intensity'] = 15
+                            if _bg_fx.get('slow'):
+                                boss_plasma_slowed = True
+                                boss_plasma_slow_amount = _bg_fx.get('slow_amount', 0.5)
+                                boss_plasma_slow_timer = _bg_fx.get('slow_frames', 180)
+                            if 'confuse_frames' in _bg_fx:
+                                boss_confused_timer = max(boss_confused_timer, _bg_fx['confuse_frames'])
+                            if _bg_fx.get('shrink'):
+                                boss_speed_reduction_active = True
+                                boss_speed_reduction_factor = _bg_fx.get('shrink_scale', 0.5)
+                            if _bg_fx.get('screen_shake'):
+                                globals()['screen_shake_timer'] = 12
+                                globals()['screen_shake_intensity'] = _bg_fx.get('shake_intensity', 15)
                 except Exception:
                     pass
 
