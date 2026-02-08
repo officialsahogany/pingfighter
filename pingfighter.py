@@ -52331,7 +52331,7 @@ def draw_speech():
     if speech_timer > 0:
         # 보스 패들 아래쪽에 외침 풍선 표시
         bubble_x = BOSS.centerx
-        bubble_y = BOSS.bottom + 35
+        bubble_y = BOSS.bottom + 15
         shout_color = BOSS_STAGE_SHOUT_COLORS.get(current_stage, BOSS_SHOUT_COLOR)
         _draw_shout_bubble(bubble_x, bubble_y, speech_text, speech_timer, speech_max_timer, shout_color)
         speech_timer -= 1
