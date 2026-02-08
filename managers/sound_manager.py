@@ -155,7 +155,8 @@ class SoundManager:
             # 투기장 영웅 스킬 사운드
             'mooncut': 'mooncut.wav',
             'ghostwalk': 'ghostwalk.wav',
-            'horncharge': 'horncharge.wav'
+            'horncharge': 'horncharge.wav',
+            'dollcurse': 'dollcurse.wav'
         }
         
         # 사운드 파일 로드 또는 생성

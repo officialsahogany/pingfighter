@@ -3339,7 +3339,7 @@ class DollCurse(HeroSkill):
             'status_duration': self.duration,
             'screen_effect': ScreenEffect.FLASH,
             'flash_color': (180, 50, 100),
-            'sound': 'curse'
+            'sound': 'dollcurse'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
