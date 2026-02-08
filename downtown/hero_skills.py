@@ -4650,14 +4650,18 @@ class SteamBarrier(HeroSkill):
             game_state['steam_barrier_thaw_speed'] = 0.0
 
         # === 종료 조건 1: 공이 시전자 패들에 닿으면 즉시 종료 ===
-        ball_right = ball.x + getattr(ball, 'width', 10)
-        ball_bottom = ball.y + getattr(ball, 'height', 10)
-        paddle_right = caster_paddle.x + caster_paddle.width
-        paddle_bottom = caster_paddle.y + caster_paddle.height
-        if (ball.x < paddle_right and ball_right > caster_paddle.x and
-                ball.y < paddle_bottom and ball_bottom > caster_paddle.y):
-            self.active_timer = 0  # 즉시 종료 트리거
-            return
+        # (발동 후 첫 1초는 보호 시간 - 패들 충돌로 종료되지 않음)
+        grace_period = 1.0
+        elapsed = self.duration - self.active_timer
+        if elapsed >= grace_period:
+            ball_right = ball.x + getattr(ball, 'width', 10)
+            ball_bottom = ball.y + getattr(ball, 'height', 10)
+            paddle_right = caster_paddle.x + caster_paddle.width
+            paddle_bottom = caster_paddle.y + caster_paddle.height
+            if (ball.x < paddle_right and ball_right > caster_paddle.x and
+                    ball.y < paddle_bottom and ball_bottom > caster_paddle.y):
+                self.active_timer = 0  # 즉시 종료 트리거
+                return
 
         # === 에너지 방출 파티클 생성 (시전자 주변) ===
         # 에너지 파티클: 시전자 캐릭터 주변에서 바깥으로 방출
