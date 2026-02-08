@@ -2228,7 +2228,7 @@ class DwarfMagic(HeroSkill):
             'screen_effect': ScreenEffect.FLASH,
             'flash_color': (180, 100, 220),  # 보라색 플래시
             'flash_duration': 0.15,
-            'sound': 'magic_cast'
+            'sound': 'smallboyshoot'
         }
 
     def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
