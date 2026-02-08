@@ -7499,7 +7499,7 @@ def _fullscreen_flip():
             except Exception:
                 pass
 
-        # 🛡️ 인게임 호위무사 필러 아이콘 (일반 스테이지)
+        # 🛡️ 인게임 호위무사 필러 아이콘 (일반 스테이지, 투기장 UI와 동일)
         if not globals().get('arena_mode_enabled', False):
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg
@@ -7507,9 +7507,8 @@ def _fullscreen_flip():
                 if _bg.active:
                     _bg.draw_pillar_icon(
                         REAL_SCREEN,
-                        pillar_x=GAME_OFFSET_X,
-                        pillar_y=GAME_OFFSET_Y + int(580 * GAME_SCALE_FACTOR),
-                        pillar_width=int(80 * GAME_SCALE_FACTOR),
+                        game_offset_x=GAME_OFFSET_X,
+                        game_offset_y=GAME_OFFSET_Y,
                         game_scale=GAME_SCALE_FACTOR,
                     )
             except Exception:
@@ -7604,9 +7603,8 @@ def _fullscreen_update(*args, **kwargs):
                 if _bg2.active:
                     _bg2.draw_pillar_icon(
                         REAL_SCREEN,
-                        pillar_x=GAME_OFFSET_X,
-                        pillar_y=GAME_OFFSET_Y + int(580 * GAME_SCALE_FACTOR),
-                        pillar_width=int(80 * GAME_SCALE_FACTOR),
+                        game_offset_x=GAME_OFFSET_X,
+                        game_offset_y=GAME_OFFSET_Y,
                         game_scale=GAME_SCALE_FACTOR,
                     )
             except Exception:
@@ -86141,13 +86139,13 @@ def draw_objects():
         draw_plasma_wave(SCREEN)
         draw_plasma_contact_effects(SCREEN)  # 접촉 이펙트 렌더링 (굴절 + 스파크)
 
-    # 🛡️ 인게임 호위무사 캐릭터 및 이펙트 그리기 (일반 스테이지)
+    # 🛡️ 인게임 호위무사 캐릭터 및 스킬 이펙트 그리기 (일반 스테이지)
     if not arena_mode_enabled:
         try:
             from game_mechanics.ingame_bodyguard import get_bodyguard
             _bodyguard = get_bodyguard()
             if _bodyguard.active:
-                _bodyguard.draw(SCREEN)
+                _bodyguard.draw(SCREEN, boss_rect=BOSS, player_rect=PLAYER, ball_rect=BALL)
         except Exception:
             pass
 
@@ -132707,16 +132705,14 @@ def main(stage_num, new_boss_mode=False):
                     from game_mechanics.ingame_bodyguard import get_bodyguard
                     _bodyguard = get_bodyguard()
                     if _bodyguard.active:
-                        _bg_effect = _bodyguard.update(1.0 / 60.0)
-                        # 보스에게 스턴/넉백 효과 적용
-                        if _bg_effect:
-                            if 'stun_frames' in _bg_effect:
-                                boss_stunned_timer = max(boss_stunned_timer, _bg_effect['stun_frames'])
-                            if 'knockback_vel' in _bg_effect:
-                                boss_knockback_vel = _bg_effect['knockback_vel']
-                            # 화면 흔들림
-                            globals()['screen_shake_timer'] = 12
-                            globals()['screen_shake_intensity'] = 15
+                        _bodyguard.update(
+                            1.0 / 60.0,
+                            boss_rect=BOSS,
+                            player_rect=PLAYER,
+                            ball_rect=BALL,
+                            ball_vx=ball_vel[0],
+                            ball_vy=ball_vel[1],
+                        )
                 except Exception:
                     pass
 
