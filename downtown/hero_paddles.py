@@ -3217,11 +3217,19 @@ class HeroPaddleRenderer:
             pygame.draw.circle(screen, p["copper_light"], (shoulder_x - 1, shoulder_y - 1), max(1, int(0.1 * b)))
 
         # === 팔 (하나는 기계팔, 더 정교함 + 어깨 들썩임) ===
+        _weapon_swing = anim.get("weapon_swing_angle", 0)
         for side in [-1, 1]:
             shoulder_bob_offset = int(shoulder_bob * 0.3 * b)
             shoulder = (cx + side * int(1.4 * b) + lean_offset, torso_y + int(0.25 * b) + shoulder_bob_offset)
-            elbow = (shoulder[0] + side * int(0.55 * b), torso_y + int(0.95 * b))
-            wrist = (elbow[0] + side * int(0.45 * b), torso_y + int(1.6 * b))
+            # 오른팔(기계팔) 공 타격 시 안쪽으로 휘두르기
+            if side == 1 and _weapon_swing != 0:
+                swing_x = int(_weapon_swing * 4.0 * b)
+                swing_y = int(abs(_weapon_swing) * 1.5 * b)
+                elbow = (int(shoulder[0] + int(0.55 * b) + swing_x), torso_y + int(0.95 * b) - swing_y)
+                wrist = (int(elbow[0] + int(0.45 * b) + int(swing_x * 0.6)), torso_y + int(1.6 * b) - int(swing_y * 0.6))
+            else:
+                elbow = (shoulder[0] + side * int(0.55 * b), torso_y + int(0.95 * b))
+                wrist = (elbow[0] + side * int(0.45 * b), torso_y + int(1.6 * b))
 
             if side == 1:  # 오른팔 - 기계팔
                 # 상완 (피스톤 구조)
