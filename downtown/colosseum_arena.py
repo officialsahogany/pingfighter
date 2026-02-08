@@ -116,16 +116,16 @@ TOP_HEROES = [
     },
     {
         "id": "chronos",
-        "name": "크로노스",
-        "title": "시간술사",
+        "name": "키르케",
+        "title": "흑마녀",
         "style": HeroStyle.DEFENSIVE,
-        "color": (200, 170, 100),  # 황금색
+        "color": (120, 80, 160),  # 어두운 보라색
         "speed": 0.85,
         "reaction": 1.35,
         "power": 0.75,
         "accuracy": 0.98,
         "position": "top",
-        "description": "시간을 조종하여 모든 공격을 예측하는 여성 마법사"
+        "description": "금지된 흑마법으로 상대를 압도하는 암흑의 마녀"
     },
     {
         "id": "onimaru",
@@ -172,7 +172,7 @@ BOTTOM_HEROES = [
     },
     {
         "id": "gear",
-        "name": "기어",
+        "name": "마리",
         "title": "스팀펑크 메카닉",
         "style": HeroStyle.DEFENSIVE,
         "color": (140, 100, 60),  # 구리색

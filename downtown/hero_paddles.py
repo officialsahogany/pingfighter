@@ -815,10 +815,10 @@ class HeroPaddleRenderer:
                     pygame.draw.lines(screen, p["tentacle"], False, whisker_points, max(1, int(0.1 * b)))
 
     # =========================================================================
-    # 크로노스 - 시간술사 (시계/톱니바퀴 테마) [고퀄리티 업그레이드] [여성]
+    # 키르케 - 흑마녀 (흑마법/저주 테마) [고퀄리티 업그레이드] [여성]
     # =========================================================================
     def _draw_chronos(self, screen, cx, cy, b, color, show_back, anim):
-        """크로노스 - 시간술사 여성 (시간을 조종하는 여성 마법사) [고퀄리티]"""
+        """키르케 - 흑마녀 여성 (금지된 흑마법으로 상대를 압도하는 암흑의 마녀) [고퀄리티]"""
         lean = anim["lean"]
         wave = anim["wave"]
         body_bob = anim["body_bob"]
@@ -827,41 +827,41 @@ class HeroPaddleRenderer:
         torso_y = cy - int(1.5 * b) + int(body_bob * 2 * b)
         lean_offset = int(lean * 2 * b)
 
-        # 시간 왜곡 펄스
+        # 흑마법 펄스
         time_pulse = (math.sin(self.time * 1.5) + 1) * 0.5
         gear_spin = self.time * 2
 
         p = {
-            "robe": (50, 40, 70),  # 어두운 보라 로브
-            "robe_mid": (70, 55, 95),
-            "robe_light": (90, 70, 120),
-            "robe_highlight": (120, 95, 155),
+            "robe": (30, 20, 45),  # 깊은 암흑 보라 로브
+            "robe_mid": (50, 35, 70),
+            "robe_light": (70, 50, 95),
+            "robe_highlight": (100, 70, 130),
             "gold": color,
             "gold_light": tuple(min(255, c + 60) for c in color),
             "gold_mid": tuple(min(255, c + 30) for c in color),
             "gold_dark": tuple(max(0, c - 50) for c in color),
             "gold_shadow": tuple(max(0, c - 80) for c in color),
-            "skin": (230, 210, 200),
-            "skin_shadow": (200, 180, 170),
-            "eye": (180, 200, 255),
-            "eye_glow": (200, 220, 255),
-            "clock_face": (235, 225, 200),
-            "clock_rim": (200, 180, 140),
-            "gear": (180, 160, 120),
-            "gear_dark": (140, 120, 90),
-            "gear_light": (210, 190, 150),
-            "glow": (255, 220, 150),
-            "time_aura": (180, 150, 255),
-            "sand": (230, 210, 170),
-            "hair": (180, 160, 210),
-            "hair_light": (210, 190, 240),
-            "hair_mid": (160, 140, 190),
-            "lip": (190, 110, 120),
-            "lip_light": (210, 140, 145),
-            "eyelash": (60, 40, 70),
+            "skin": (215, 200, 210),  # 창백한 피부
+            "skin_shadow": (185, 170, 180),
+            "eye": (200, 50, 200),  # 보라빛 마안
+            "eye_glow": (230, 80, 255),
+            "clock_face": (200, 190, 220),  # 마법진 문양용
+            "clock_rim": (160, 140, 180),
+            "gear": (150, 120, 170),  # 마법 룬 장식
+            "gear_dark": (110, 80, 130),
+            "gear_light": (180, 155, 200),
+            "glow": (180, 80, 255),  # 흑마법 글로우
+            "time_aura": (140, 50, 200),  # 암흑 오라
+            "sand": (180, 150, 200),  # 마력 입자
+            "hair": (20, 10, 35),  # 칠흑 머리카락
+            "hair_light": (45, 30, 60),
+            "hair_mid": (30, 18, 45),
+            "lip": (160, 70, 120),
+            "lip_light": (190, 100, 145),
+            "eyelash": (20, 10, 30),
         }
 
-        # === 시간 왜곡 오라 (배경 효과) ===
+        # === 흑마법 오라 (배경 효과) ===
         aura_size = int(5 * b)
         aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
         for i in range(4):
@@ -870,7 +870,7 @@ class HeroPaddleRenderer:
             pygame.draw.circle(aura_surf, (*p["time_aura"], aura_alpha), (aura_size, aura_size), aura_r)
         screen.blit(aura_surf, (cx - aura_size + lean_offset, torso_y - int(1.2 * b) - aura_size // 2), special_flags=pygame.BLEND_ADD)
 
-        # 시간 입자 (떠다니는 모래/빛 입자)
+        # 흑마력 입자 (떠다니는 암흑 에너지)
         for i in range(8):
             particle_angle = self.time * 0.8 + i * math.pi / 4
             particle_r = int(2.5 * b + math.sin(self.time * 2 + i) * 0.3 * b)
@@ -2707,10 +2707,10 @@ class HeroPaddleRenderer:
                 pygame.draw.circle(screen, flame_color, (f_x, f_y), f_size)
 
     # =========================================================================
-    # 기어 - 스팀펑크 메카닉 (기계 팔과 톱니바퀴) [고퀄리티 업그레이드] [여성]
+    # 마리 - 스팀펑크 메카닉 (기계 팔과 톱니바퀴) [고퀄리티 업그레이드] [여성]
     # =========================================================================
     def _draw_gear(self, screen, cx, cy, b, color, show_back, anim):
-        """기어 - 스팀펑크 메카닉 여성 (증기 기관과 톱니바퀴로 무장) [고퀄리티]"""
+        """마리 - 스팀펑크 메카닉 여성 (증기 기관과 톱니바퀴로 무장한 천재 발명가) [고퀄리티]"""
         lean = anim["lean"]
         wave = anim["wave"]
         body_bob = anim["body_bob"]

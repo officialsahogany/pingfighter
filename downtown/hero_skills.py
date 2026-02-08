@@ -1952,7 +1952,7 @@ class AbyssInk(HeroSkill):
 
 
 # ============================================================================
-# 크로노스 스킬 - 시간술사 여성 (수비적)
+# 키르케 스킬 - 흑마녀 여성 (수비적)
 # ============================================================================
 class GravityControl(HeroSkill):
     """중력조절 - 공을 무겁게 만들어 계속 아래로 끌어당김"""
@@ -4580,7 +4580,7 @@ class DragonWing(HeroSkill):
 
 
 # ============================================================================
-# 기어 스킬 - 스팀펑크 메카닉 여성 (수비적)
+# 마리 스킬 - 스팀펑크 메카닉 여성 (수비적)
 # ============================================================================
 class SteamBarrier(HeroSkill):
     """스팀 배리어 - 증기 방어막 생성"""
@@ -6457,7 +6457,7 @@ class HeroSkillManager:
         self.game_state['bottom_paddle_speed_boost'] = 1.0
         self.game_state['demon_eye_active'] = False
 
-        # 난쟁이마술 (크로노스) 축소 효과 초기화
+        # 난쟁이마술 (키르케) 축소 효과 초기화
         self.game_state['top_paddle_shrink'] = False
         self.game_state['top_paddle_shrink_scale'] = 1.0
         self.game_state['bottom_paddle_shrink'] = False
