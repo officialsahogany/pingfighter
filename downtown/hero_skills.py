@@ -3,6 +3,7 @@
 
 import pygame
 import math
+import os
 import random
 from enum import Enum
 from typing import Dict, List, Optional, Tuple, Callable
@@ -2307,6 +2308,16 @@ class DwarfMagic(HeroSkill):
                 target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
                 game_state[f'{target_prefix}_shrink'] = True
                 game_state[f'{target_prefix}_shrink_scale'] = 0.5  # 50% 축소
+
+                # 명중 시 사운드 재생
+                try:
+                    if not hasattr(DwarfMagic, '_hit_sound'):
+                        hit_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sounds", "smallboyhit.wav")
+                        DwarfMagic._hit_sound = pygame.mixer.Sound(hit_path) if os.path.exists(hit_path) else None
+                    if DwarfMagic._hit_sound:
+                        DwarfMagic._hit_sound.play()
+                except Exception:
+                    pass
 
                 # 명중 시 파티클 폭발
                 for _ in range(30):
