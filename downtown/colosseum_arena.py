@@ -5027,8 +5027,8 @@ class ColosseumsArena:
 
     def _draw_loser_x(self, rect: pygame.Rect, progress: float):
         """패자에게 X 표시 그리기"""
-        # X 표시 애니메이션
-        x_size = int(min(rect.width, rect.height) * 0.6 * progress)
+        # X의 최종 크기 (progress와 독립적)
+        max_size = int(min(rect.width, rect.height) * 0.6)
         center_x = rect.centerx
         center_y = rect.centery
 
@@ -5036,18 +5036,19 @@ class ColosseumsArena:
         x_color = (255, 60, 60)
         line_width = 4
 
-        # 첫 번째 대각선 (\)
+        # 첫 번째 대각선 (\) - 0~0.5 구간에서 성장
         if progress > 0:
-            end_offset = int(x_size * min(1.0, progress * 2))
+            line1_progress = min(1.0, progress * 2)
+            end_offset = int(max_size * line1_progress)
             pygame.draw.line(self.screen, x_color,
                            (center_x - end_offset, center_y - end_offset),
                            (center_x + end_offset, center_y + end_offset),
                            line_width)
 
-        # 두 번째 대각선 (/)
+        # 두 번째 대각선 (/) - 0.5~1.0 구간에서 성장
         if progress > 0.5:
-            second_progress = (progress - 0.5) * 2
-            end_offset = int(x_size * second_progress)
+            line2_progress = (progress - 0.5) * 2
+            end_offset = int(max_size * line2_progress)
             pygame.draw.line(self.screen, x_color,
                            (center_x + end_offset, center_y - end_offset),
                            (center_x - end_offset, center_y + end_offset),
