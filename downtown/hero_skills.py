@@ -2951,7 +2951,7 @@ class PuppetControl(HeroSkill):
         return {
             'target_status': StatusEffect.PUPPET,
             'status_duration': self.duration,
-            'sound': 'strings'
+            'sound': 'tentacle'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
