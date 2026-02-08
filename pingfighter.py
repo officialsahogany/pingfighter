@@ -132700,34 +132700,56 @@ def main(stage_num, new_boss_mode=False):
                     pass
 
             # 🛡️ 인게임 호위무사 업데이트 (일반 스테이지, 투기장 아닐 때)
-            if not freeze_now and not arena_mode_enabled:
+            if not arena_mode_enabled:
                 try:
                     from game_mechanics.ingame_bodyguard import get_bodyguard
                     _bodyguard = get_bodyguard()
                     if _bodyguard.active:
                         _bg_fx = _bodyguard.update(
-                            1.0 / 60.0,
+                            1.0 / 60.0 if not freeze_now else 0.0,
                             boss_rect=BOSS,
                             player_rect=PLAYER,
                             ball_rect=BALL,
                             ball_vx=ball_vel[0],
                             ball_vy=ball_vel[1],
                         )
-                        # 호위무사 스킬의 실제 효과를 보스에게 적용
+                        # 호위무사 스킬의 실제 효과를 보스/공에 적용
                         if _bg_fx:
+                            # 스턴
                             if 'stun_frames' in _bg_fx:
                                 boss_stunned_timer = max(boss_stunned_timer, _bg_fx['stun_frames'])
                                 globals()['screen_shake_timer'] = 12
                                 globals()['screen_shake_intensity'] = 15
+                            # 둔화
                             if _bg_fx.get('slow'):
                                 boss_plasma_slowed = True
                                 boss_plasma_slow_amount = _bg_fx.get('slow_amount', 0.5)
                                 boss_plasma_slow_timer = _bg_fx.get('slow_frames', 180)
+                            # 혼란
                             if 'confuse_frames' in _bg_fx:
                                 boss_confused_timer = max(boss_confused_timer, _bg_fx['confuse_frames'])
+                            # 축소
                             if _bg_fx.get('shrink'):
                                 boss_speed_reduction_active = True
                                 boss_speed_reduction_factor = _bg_fx.get('shrink_scale', 0.5)
+                            # 꼭두각시 조종 (보스 위치 강제 고정)
+                            if _bg_fx.get('puppet'):
+                                px = _bg_fx.get('puppet_x')
+                                py = _bg_fx.get('puppet_y')
+                                if px is not None:
+                                    BOSS.centerx = int(px)
+                                if py is not None:
+                                    BOSS.y = int(py)
+                                boss_stunned_timer = max(boss_stunned_timer, 3)
+                            # 화면 정지 (달빛베기 / 도깨비불)
+                            if _bg_fx.get('freeze'):
+                                freeze_now = True
+                            # 공 속도 변경 (중력제어, 달빛베기 가속, 도깨비불 등)
+                            if 'ball_vx' in _bg_fx:
+                                ball_vel[0] = _bg_fx['ball_vx']
+                            if 'ball_vy' in _bg_fx:
+                                ball_vel[1] = _bg_fx['ball_vy']
+                            # 화면 흔들림
                             if _bg_fx.get('screen_shake'):
                                 globals()['screen_shake_timer'] = 12
                                 globals()['screen_shake_intensity'] = _bg_fx.get('shake_intensity', 15)

@@ -58,7 +58,7 @@ class _PaddleProxy:
 
 
 class _BallProxy:
-    """공 Rect + 속도를 래핑"""
+    """공 Rect + 속도를 래핑 (스킬이 수정한 속도 변경을 추적)"""
     def __init__(self, rect, vx=0, vy=0):
         self.x = rect.x
         self.y = rect.y
@@ -68,6 +68,15 @@ class _BallProxy:
         self.centery = rect.centery
         self.vx = vx
         self.vy = vy
+        # 원본 속도 저장 (스킬에 의한 변경량 추적용)
+        self._original_vx = vx
+        self._original_vy = vy
+
+    @property
+    def vel_changed(self):
+        """스킬이 공 속도를 변경했는지 확인"""
+        return (self.vx != self._original_vx or
+                self.vy != self._original_vy)
 
 
 # ============================================================================
@@ -162,6 +171,8 @@ class InGameBodyguard:
         gs = self._skill_manager.game_state
         boss_effects = {}
 
+        # ── 기본 상태 이상 ──
+
         # 스턴
         if gs.pop('top_paddle_stunned', False):
             boss_effects['stun_frames'] = 90  # 1.5초
@@ -182,7 +193,24 @@ class InGameBodyguard:
             boss_effects['shrink_scale'] = gs.pop('top_paddle_shrink_scale', 0.5)
             boss_effects['shrink_frames'] = 180  # 3초
 
-        # 화면 효과 (흔들림/플래시)
+        # ── 연화: 꼭두각시 조종 (PUPPET) ──
+        if gs.pop('top_paddle_locked', False):
+            boss_effects['puppet'] = True
+            boss_effects['puppet_x'] = gs.pop('top_paddle_locked_x', None)
+            boss_effects['puppet_y'] = gs.pop('top_paddle_locked_y', None)
+
+        # ── 화면 정지 효과 (달빛베기 / 도깨비불) ──
+        if gs.get('dark_slash_freeze', False):
+            boss_effects['freeze'] = True
+        if gs.get('hell_fire_freeze', False):
+            boss_effects['freeze'] = True
+
+        # ── 공 속도 변경 (중력제어, 달빛베기 가속, 도깨비불 등) ──
+        if ball and ball.vel_changed:
+            boss_effects['ball_vx'] = ball.vx
+            boss_effects['ball_vy'] = ball.vy
+
+        # ── 화면 효과 (흔들림/플래시) ──
         for fx in self._skill_manager.screen_effects:
             boss_effects['screen_shake'] = True
             boss_effects['shake_intensity'] = fx.get('intensity', 15)

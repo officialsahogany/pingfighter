@@ -1726,6 +1726,8 @@ class GuardWarriorSystem:
                 game_state[f'{target_prefix}_shrink_scale'] = result.get('shrink_amount', 0.5)
             elif status == StatusEffect.BLIND:
                 game_state['blind_target_is_top'] = target_paddle.is_top
+            elif status == StatusEffect.PUPPET:
+                game_state[f'{target_prefix}_locked'] = True
 
         # 화면 효과
         if 'screen_effect' in result and self.skill_manager:
