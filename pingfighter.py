@@ -18440,7 +18440,18 @@ HERO_SHOUT_COLORS = {
     "gear": (190, 130, 50),
     "kurokage": (90, 80, 120),
 }
-BOSS_SHOUT_COLOR = (200, 55, 55)  # 스테이지 보스 기본 외침 색상
+BOSS_SHOUT_COLOR = (200, 55, 55)  # 스테이지 보스 기본 외침 색상 (폴백)
+# 스테이지별 보스 외침 풍선 테마 컬러
+BOSS_STAGE_SHOUT_COLORS = {
+    1: (180, 120, 50),   # 풍악보이 - 따뜻한 황금빛 (한국 전통)
+    2: (60, 130, 55),    # 악어장군 - 진한 정글 초록
+    3: (180, 70, 150),   # 멘헤라걸 - 병적인 핑크/보라
+    4: (140, 100, 60),   # 퐁크 - 사원 갈색/황토
+    5: (50, 90, 160),    # 네메시스 - 깊은 해군 파랑
+    6: (200, 55, 55),    # 홍련 - 불꽃 빨강
+    7: (80, 140, 210),   # 테트리서 - 디지털 하늘색
+    8: (90, 60, 130),    # 아카무 리고 - 그림자 보라
+}
 
 
 def arena_show_speech_bubble(is_top: bool, skill_name: str, raw: bool = False, hero_id: str = ""):
@@ -52323,7 +52334,8 @@ def draw_speech():
         # 보스 패들 아래쪽에 외침 풍선 표시
         bubble_x = BOSS.centerx
         bubble_y = BOSS.bottom + 35
-        _draw_shout_bubble(bubble_x, bubble_y, speech_text, speech_timer, speech_max_timer, BOSS_SHOUT_COLOR)
+        shout_color = BOSS_STAGE_SHOUT_COLORS.get(current_stage, BOSS_SHOUT_COLOR)
+        _draw_shout_bubble(bubble_x, bubble_y, speech_text, speech_timer, speech_max_timer, shout_color)
         speech_timer -= 1
     else:
         speech_text = ""
