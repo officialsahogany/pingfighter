@@ -1350,19 +1350,21 @@ class HeroPaddleRenderer:
         staff_x = cx + int(2.5 * b) + lean_offset
         staff_top = head_y - int(0.5 * b)
         staff_bottom = cy + int(2.8 * b)
-        # 피벗 = 지팡이 하단(손잡이)
-        pv_x, pv_y = staff_x, staff_bottom
+        # 피벗 = 지팡이 중앙(손잡이 위치)
+        pv_x, pv_y = staff_x, (staff_top + staff_bottom) // 2
         rp = self._rotate_point
 
         # 스윙 시 회전 좌표 계산
         if swing_angle != 0:
             r_top = rp(staff_x, staff_top, pv_x, pv_y, swing_angle)
+            r_bot = rp(staff_x, staff_bottom, pv_x, pv_y, swing_angle)
             r_top_shadow = rp(staff_x + 2, staff_top + 2, pv_x, pv_y, swing_angle)
             r_bot_shadow = rp(staff_x + 2, staff_bottom + 2, pv_x, pv_y, swing_angle)
             r_top_hl = rp(staff_x - 1, staff_top, pv_x, pv_y, swing_angle)
             r_bot_hl = rp(staff_x - 1, staff_bottom, pv_x, pv_y, swing_angle)
         else:
             r_top = (staff_x, staff_top)
+            r_bot = (staff_x, staff_bottom)
             r_top_shadow = (staff_x + 2, staff_top + 2)
             r_bot_shadow = (staff_x + 2, staff_bottom + 2)
             r_top_hl = (staff_x - 1, staff_top)
@@ -1371,7 +1373,7 @@ class HeroPaddleRenderer:
         # 지팡이 그림자
         pygame.draw.line(screen, p["gold_shadow"], r_top_shadow, r_bot_shadow, max(3, int(0.3 * b)))
         # 지팡이 본체
-        pygame.draw.line(screen, p["gold_dark"], r_top, (pv_x, pv_y), max(3, int(0.28 * b)))
+        pygame.draw.line(screen, p["gold_dark"], r_top, r_bot, max(3, int(0.28 * b)))
         pygame.draw.line(screen, p["gold"], r_top_hl, r_bot_hl, max(2, int(0.18 * b)))
         # 지팡이 장식 링
         for ring_y in [staff_top + int(0.5 * b), staff_bottom - int(0.5 * b), (staff_top + staff_bottom) // 2]:
