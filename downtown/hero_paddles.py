@@ -3661,10 +3661,10 @@ class HeroPaddleRenderer:
             shoulder = (cx + side * int(1.05 * b) + lean_offset, torso_y + int(0.1 * b) + shoulder_bob_offset)
             # 오른팔(쿠나이) 공 타격 시 안쪽으로 휘두르기
             if side == 1 and _weapon_swing != 0:
-                swing_x = int(_weapon_swing * 2.5 * b)
-                swing_y = int(abs(_weapon_swing) * 0.8 * b)
+                swing_x = int(_weapon_swing * 4.0 * b)
+                swing_y = int(abs(_weapon_swing) * 1.5 * b)
                 elbow = (int(shoulder[0] + int(0.55 * b) + swing_x), torso_y + int(0.65 * b) - swing_y)
-                wrist = (int(elbow[0] + int(0.45 * b) + int(swing_x * 0.5)), torso_y + int(1.25 * b) - int(swing_y * 0.5))
+                wrist = (int(elbow[0] + int(0.45 * b) + int(swing_x * 0.6)), torso_y + int(1.25 * b) - int(swing_y * 0.6))
             else:
                 elbow = (int(shoulder[0] + side * int(0.55 * b) + arm_swing), torso_y + int(0.65 * b))
                 wrist = (int(elbow[0] + side * int(0.45 * b) + int(arm_swing * 0.5)), torso_y + int(1.25 * b))
