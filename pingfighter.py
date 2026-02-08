@@ -63411,7 +63411,7 @@ def handle_player(keys):
         # 투기장 모드: 하단 영웅 무기 휘두르기 애니메이션 트리거
         if arena_mode_enabled and arena_bottom_hero and arena_hero_paddle_renderer:
             try:
-                dur = 0.4 if arena_bottom_hero["id"] == "maria" else 0.25
+                dur = 0.8 if arena_bottom_hero["id"] == "maria" else 0.25
                 arena_hero_paddle_renderer.trigger_weapon_swing(arena_bottom_hero["id"], dur)
             except Exception:
                 pass
@@ -119648,7 +119648,7 @@ def handle_ball():
         # 투기장 모드: 하단 영웅 무기 휘두르기 애니메이션 트리거
         if arena_mode_enabled and arena_bottom_hero and arena_hero_paddle_renderer:
             try:
-                dur = 0.4 if arena_bottom_hero["id"] == "maria" else 0.25
+                dur = 0.8 if arena_bottom_hero["id"] == "maria" else 0.25
                 arena_hero_paddle_renderer.trigger_weapon_swing(arena_bottom_hero["id"], dur)
             except Exception:
                 pass
@@ -119958,7 +119958,7 @@ def handle_ball():
         # 투기장 모드: 하단 영웅 무기 휘두르기 애니메이션 트리거 (handle_ball 안전망)
         if arena_mode_enabled and arena_bottom_hero and arena_hero_paddle_renderer:
             try:
-                dur = 0.4 if arena_bottom_hero["id"] == "maria" else 0.25
+                dur = 0.8 if arena_bottom_hero["id"] == "maria" else 0.25
                 arena_hero_paddle_renderer.trigger_weapon_swing(arena_bottom_hero["id"], dur)
             except Exception:
                 pass
@@ -120425,7 +120425,7 @@ def handle_ball():
         # 투기장 모드: 상단 영웅 무기 휘두르기 애니메이션 트리거
         if arena_mode_enabled and arena_top_hero and arena_hero_paddle_renderer:
             try:
-                dur = 0.4 if arena_top_hero["id"] == "maria" else 0.25
+                dur = 0.8 if arena_top_hero["id"] == "maria" else 0.25
                 arena_hero_paddle_renderer.trigger_weapon_swing(arena_top_hero["id"], dur)
             except Exception:
                 pass
