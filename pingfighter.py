@@ -77827,6 +77827,14 @@ def _spawn_stage8_shadows(now: int) -> None:
     stage8_shadow_casting = False
     stage8_shadow_next_ready_ms = now + STAGE8_SHADOW_COOLDOWN_MS
 
+    # 그림자분신 발동 사운드 재생
+    try:
+        _kuro_spawn_path = resource_path(os.path.join("sounds", "kurokake.wav"))
+        if os.path.exists(_kuro_spawn_path):
+            pygame.mixer.Sound(_kuro_spawn_path).play()
+    except Exception:
+        pass
+
 
 def _spawn_stage8_shuriken(now: int) -> None:
     """표창 1개를 플레이어 방향으로 발사."""
@@ -78327,6 +78335,13 @@ def update_stage8_shadow_clones() -> None:
     for clone in stage8_shadow_clones:
         elapsed = now - clone["spawn_ms"]
         if elapsed >= STAGE8_SHADOW_DURATION_MS:
+            # 수명 만료 분신 소멸 사운드
+            try:
+                _kuro_out_path = resource_path(os.path.join("sounds", "kurokakeout.wav"))
+                if os.path.exists(_kuro_out_path):
+                    pygame.mixer.Sound(_kuro_out_path).play()
+            except Exception:
+                pass
             continue
 
         rect: pygame.Rect = clone["rect"]
@@ -78366,6 +78381,15 @@ def update_stage8_shadow_clones() -> None:
             dying_clone["death_start_ms"] = now
             dying_clone["rect"] = rect.copy()  # 위치 고정
             stage8_shadow_dying.append(dying_clone)
+
+            # 공 충돌 분신 소멸 사운드
+            try:
+                _kuro_out_path = resource_path(os.path.join("sounds", "kurokakeout.wav"))
+                if os.path.exists(_kuro_out_path):
+                    pygame.mixer.Sound(_kuro_out_path).play()
+            except Exception:
+                pass
+
             continue
 
         new_clones.append(clone)
