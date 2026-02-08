@@ -6404,7 +6404,7 @@ class ShadowClone(HeroSkill):
             description="그림자 분신을 소환하여 공을 반사한다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=20.0,
-            duration=6.0,
+            duration=8.0,
             hero_id="kurokage"
         )
         self.clones = []  # 활성 분신 목록
