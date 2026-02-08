@@ -852,6 +852,15 @@ class TentacleWrap(HeroSkill):
             if self.travel_progress >= 1.0:
                 self.phase = 'wrap'
                 self.wrap_timer = 0
+                # 붙잡기 사운드 재생
+                try:
+                    import os
+                    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    grab_path = os.path.join(project_root, "sounds", "grab.wav")
+                    if os.path.exists(grab_path):
+                        pygame.mixer.Sound(grab_path).play()
+                except Exception:
+                    pass
                 # 이제 둔화 적용 (60% 감소)
                 if not self.slow_applied:
                     self.slow_applied = True
@@ -2977,6 +2986,15 @@ class PuppetControl(HeroSkill):
                 self.phase = self.PHASE_PULLING
                 self.phase_timer = 0
                 game_state['target_puppeted'] = True
+                # 붙잡기 사운드 재생
+                try:
+                    import os
+                    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    grab_path = os.path.join(project_root, "sounds", "grab.wav")
+                    if os.path.exists(grab_path):
+                        pygame.mixer.Sound(grab_path).play()
+                except Exception:
+                    pass
 
         # Phase 2: 상대 끌어당기기 (1.083초, 기존 1.3초에서 20% 빠르게)
         elif self.phase == self.PHASE_PULLING:
