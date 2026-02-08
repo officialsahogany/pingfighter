@@ -6864,7 +6864,7 @@ class IllusionShuriken(HeroSkill):
         # 순차 발사 (0.4초 간격)
         if self.shurikens_spawned < self.total_shurikens:
             self.spawn_timer += dt
-            if self.spawn_timer >= 0.4:
+            if self.spawn_timer >= 0.2:
                 self.spawn_timer = 0
                 self._spawn_shuriken(caster_paddle, self.shurikens_spawned)
 
