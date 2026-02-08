@@ -6817,10 +6817,10 @@ class IllusionShuriken(HeroSkill):
         self.shurikens_spawned += 1
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
-        # 순차 발사 (0.2초 간격)
+        # 순차 발사 (0.4초 간격)
         if self.shurikens_spawned < self.total_shurikens:
             self.spawn_timer += dt
-            if self.spawn_timer >= 0.2:
+            if self.spawn_timer >= 0.4:
                 self.spawn_timer = 0
                 self._spawn_shuriken(caster_paddle, self.shurikens_spawned)
 
