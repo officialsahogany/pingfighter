@@ -3645,13 +3645,21 @@ class HeroPaddleRenderer:
                 pygame.draw.circle(screen, p["metal_bright"], (rivet_x, shoulder_rect.centery), max(1, int(0.06 * b)))
 
         # === 팔 + 쿠나이 (자연스러운 교대 모션 + 어깨 들썩임) ===
+        _weapon_swing = anim.get("weapon_swing_angle", 0)
         for side in [-1, 1]:
             current_swing = left_arm_swing if side == -1 else right_arm_swing
             arm_swing = int(current_swing * 0.5 * b)  # 각도만 살짝 흔드는 수준
             shoulder_bob_offset = int(shoulder_bob * 0.3 * b)
             shoulder = (cx + side * int(1.05 * b) + lean_offset, torso_y + int(0.1 * b) + shoulder_bob_offset)
-            elbow = (int(shoulder[0] + side * int(0.55 * b) + arm_swing), torso_y + int(0.65 * b))
-            wrist = (int(elbow[0] + side * int(0.45 * b) + int(arm_swing * 0.5)), torso_y + int(1.25 * b))
+            # 오른팔(쿠나이) 공 타격 시 안쪽으로 휘두르기
+            if side == 1 and _weapon_swing != 0:
+                swing_x = int(_weapon_swing * 2.5 * b)
+                swing_y = int(abs(_weapon_swing) * 0.8 * b)
+                elbow = (int(shoulder[0] + int(0.55 * b) + swing_x), torso_y + int(0.65 * b) - swing_y)
+                wrist = (int(elbow[0] + int(0.45 * b) + int(swing_x * 0.5)), torso_y + int(1.25 * b) - int(swing_y * 0.5))
+            else:
+                elbow = (int(shoulder[0] + side * int(0.55 * b) + arm_swing), torso_y + int(0.65 * b))
+                wrist = (int(elbow[0] + side * int(0.45 * b) + int(arm_swing * 0.5)), torso_y + int(1.25 * b))
 
             # 상완
             pygame.draw.line(screen, p["cloth_shadow"], shoulder, elbow, max(3, int(0.5 * b)))
