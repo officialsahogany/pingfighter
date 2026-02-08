@@ -92630,7 +92630,7 @@ def run_downtown_hub(next_stage_display: int) -> bool:
         }
         print(f"[DEBUG run_downtown_hub] 전역 downtown_map_seed = {downtown_map_seed}")
         print(f"[DEBUG run_downtown_hub] player_data['downtown_map_seed'] = {player_data.get('downtown_map_seed')}")
-        manager = DowntownManager(screen, academy=academy)
+        manager = DowntownManager(screen, academy=academy, arena_battle_callback=start_arena_battle)
         manager.initialize(stage_number=next_stage_display, player_data=player_data)
 
         # === 광장 초기화 후 시드 동기화 및 자동저장 ===
@@ -95726,7 +95726,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         bottom_hero: 하단 영웅 정보 (플레이어 위치)
     """
     global player_ai_enabled, _pillar_ui_enabled
-    global arena_mode_enabled, arena_top_hero, arena_bottom_hero, arena_hero_paddle_renderer
+    global arena_mode_enabled, arena_battle_result, arena_top_hero, arena_bottom_hero, arena_hero_paddle_renderer
     global arena_skill_manager, arena_skill_check_timer
     global arena_top_dashing, arena_top_dash_timer, arena_top_dash_direction
     global arena_top_dash_target_x, arena_top_dash_cooldown, arena_top_dash_afterimages
@@ -95739,6 +95739,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
 
     # 투기장 모드 활성화
     arena_mode_enabled = True
+    arena_battle_result = None  # 이전 배틀 결과 초기화 (필수!)
     arena_top_hero = top_hero
     arena_bottom_hero = bottom_hero
 
@@ -95836,6 +95837,29 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
     # 필러 UI 활성화
     _pillar_ui_enabled = True
 
+    # === 호위무사 시스템 설정 (콜로세움에서 전달한 데이터 사용) ===
+    global arena_guard_system
+    try:
+        _top_guards = globals().get('_arena_pending_top_guards', [])
+        _bottom_guards = globals().get('_arena_pending_bottom_guards', [])
+        if _top_guards or _bottom_guards:
+            from downtown.colosseum_arena import GuardWarriorSystem
+            guard_system = GuardWarriorSystem(
+                skill_manager=arena_skill_manager,
+                hero_paddle_renderer=arena_hero_paddle_renderer,
+            )
+            guard_system.setup(_top_guards, _bottom_guards)
+            arena_guard_system = guard_system
+            print(f"[Guard] start_arena_battle 호위무사 설정 완료: top={len(_top_guards)}, bottom={len(_bottom_guards)}")
+        else:
+            arena_guard_system = None
+    except Exception as e:
+        print(f"[Guard] start_arena_battle 호위무사 설정 오류: {e}")
+        arena_guard_system = None
+    # pending guard data 정리
+    globals().pop('_arena_pending_top_guards', None)
+    globals().pop('_arena_pending_bottom_guards', None)
+
     try:
         result = main(30)  # 스테이지 30 = 투기장
     finally:
@@ -95845,6 +95869,14 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         arena_bottom_hero = None
         arena_hero_paddle_renderer = None
         arena_skill_manager = None
+        arena_battle_result = None  # 배틀 결과 초기화
+        # 호위무사 시스템 초기화
+        if arena_guard_system is not None:
+            try:
+                arena_guard_system.reset()
+            except Exception:
+                pass
+            arena_guard_system = None
         # 상단 영웅 아이템 슬롯 초기화
         arena_top_active_item_slot = []
         arena_top_selected_item_index = 0
@@ -96081,7 +96113,7 @@ def show_start_screen():
             # 맵 시드 (개발자 모드: None으로 랜덤 생성)
             "downtown_map_seed": None,
         }
-        manager = DowntownManager(SCREEN, academy=academy)
+        manager = DowntownManager(SCREEN, academy=academy, arena_battle_callback=start_arena_battle)
         manager.initialize(stage_number=1, player_data=player_data)
         try:
             bgm_manager.play_downtown_bgm()
@@ -132095,7 +132127,10 @@ def main(stage_num, new_boss_mode=False):
             damage_manager.update()
                 
             if not freeze_now:
-                handle_ball()
+                _handle_ball_result = handle_ball()
+                # 투기장 모드: handle_ball() 내부에서 승부 결정 시 즉시 반환
+                if arena_mode_enabled and _handle_ball_result is not None:
+                    return _handle_ball_result
 
             # 투기장 영웅 스킬 시스템 업데이트
             # 달빛 베기 화면 정지 중에도 스킬 타이머는 진행되어야 함 (1초 후 해제)

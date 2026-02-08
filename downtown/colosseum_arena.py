@@ -2518,6 +2518,18 @@ class ColosseumsArena:
         # 실제 게임 엔진으로 배틀 실행
         try:
             if self.battle_callback:
+                # battle_callback 사용 시 호위무사 데이터를 pingfighter에 저장
+                # (start_arena_battle 내부에서 스킬 매니저 초기화 후 설정됨)
+                try:
+                    import pingfighter
+                    if self.current_round in (TournamentRound.SEMI_FINAL, TournamentRound.FINAL):
+                        pingfighter._arena_pending_top_guards = self.guard_warrior_map.get(top_hero["id"], [])
+                        pingfighter._arena_pending_bottom_guards = self.guard_warrior_map.get(bottom_hero["id"], [])
+                    else:
+                        pingfighter._arena_pending_top_guards = []
+                        pingfighter._arena_pending_bottom_guards = []
+                except Exception:
+                    pass
                 result = self.battle_callback(top_hero, bottom_hero)
             else:
                 result = self._run_real_game_battle(top_hero, bottom_hero)
