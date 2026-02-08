@@ -6818,6 +6818,7 @@ class IllusionShuriken(HeroSkill):
 
         # 수리검 투척 사운드 재생
         try:
+            import os
             project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             throw_path = os.path.join(project_root, "sounds", "shurikenthrow.wav")
             if os.path.exists(throw_path):
@@ -6896,6 +6897,7 @@ class IllusionShuriken(HeroSkill):
 
                 # 수리검 히트 사운드 재생
                 try:
+                    import os
                     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                     hit_path = os.path.join(project_root, "sounds", "shurikenhit.wav")
                     if os.path.exists(hit_path):
