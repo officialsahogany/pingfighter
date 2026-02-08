@@ -2278,11 +2278,9 @@ class ColosseumsArena:
 
     def _advance_to_next_round(self):
         """다음 라운드 진출"""
-        print(f"[Arena] _advance_to_next_round 시작 | current_round: {self.current_round}")
         if self.current_round == TournamentRound.QUARTER_FINAL:
             # 8강 → 4강
             winners = [m.winner for m in self.matches[TournamentRound.QUARTER_FINAL]]
-            print(f"[Arena] 8강 승자들: {[w.get('name', '?') if w else 'None' for w in winners]}")
 
             # === 호위무사 할당: 8강 패자 → 승자의 호위무사 ===
             for match in self.matches[TournamentRound.QUARTER_FINAL]:
@@ -2300,11 +2298,9 @@ class ColosseumsArena:
                 self._create_positioned_match(winners[2], winners[3], 1),
             ]
             self.current_round = TournamentRound.SEMI_FINAL
-            print(f"[Arena] 4강 매치 생성 완료 | current_round → SEMI_FINAL")
         elif self.current_round == TournamentRound.SEMI_FINAL:
             # 4강 → 결승
             winners = [m.winner for m in self.matches[TournamentRound.SEMI_FINAL]]
-            print(f"[Arena] 4강 승자들: {[w.get('name', '?') if w else 'None' for w in winners]}")
 
             # === 호위무사 할당: 4강 패자 → 승자의 추가 호위무사 ===
             for match in self.matches[TournamentRound.SEMI_FINAL]:
@@ -2320,7 +2316,6 @@ class ColosseumsArena:
                 self._create_positioned_match(winners[0], winners[1], 0),
             ]
             self.current_round = TournamentRound.FINAL
-            print(f"[Arena] 결승 매치 생성 완료 | current_round → FINAL")
 
     def _init_guard_warriors_for_battle(self, match: Match):
         """배틀 시작 시 호위무사 시스템 초기화"""
@@ -2399,7 +2394,6 @@ class ColosseumsArena:
                     pingfighter.arena_skill_manager.init_hero_skills(top_hero["id"], is_top=True)
                     pingfighter.arena_skill_manager.init_hero_skills(bottom_hero["id"], is_top=False)
                     pingfighter.arena_skill_check_timer = 0.0
-                    print(f"[Arena] Skills initialized: {top_hero['id']} vs {bottom_hero['id']}")
             except Exception as e:
                 print(f"Arena skill manager init error: {e}")
                 import traceback
@@ -2475,7 +2469,6 @@ class ColosseumsArena:
         self.vs_preview_progress = 0.0
         self.vs_preview_show_buttons = show_buttons
         self.state = TournamentState.VS_PREVIEW
-        print(f"[Arena] VS 미리보기 시작 (buttons={show_buttons}) | {self.selected_match.hero1['name']} vs {self.selected_match.hero2['name']}")
 
     def start_battle(self, match: Match):
         """배틀 시작 - 실제 게임 엔진 사용 (pingfighter.main 스테이지 30)"""
@@ -2483,7 +2476,6 @@ class ColosseumsArena:
 
         # 배틀 활성화 (중요: _end_battle()에서 체크하므로 반드시 설정해야 함)
         self.battle_active = True
-        print(f"[Arena] 배틀 시작! {match.hero1['name']} vs {match.hero2['name']}")
 
         # 입장료는 manager.py에서 이미 차감됨 (이중 차감 방지)
         # 첫 배틀 시작 표시만 함
@@ -2508,12 +2500,10 @@ class ColosseumsArena:
             # bet_hero가 hero1이면 순서를 바꿔서 bet_hero가 하단이 되도록
             top_hero = match.hero2
             bottom_hero = match.hero1
-            print(f"[Arena] 배치 조정: {top_hero['name']}(상단) vs {bottom_hero['name']}(하단/배팅)")
         else:
             # bet_hero가 hero2이면 그대로 (hero2가 하단)
             top_hero = match.hero1
             bottom_hero = match.hero2
-            print(f"[Arena] 배치 유지: {top_hero['name']}(상단) vs {bottom_hero['name']}(하단/배팅)")
 
         # 실제 게임 엔진으로 배틀 실행
         try:
@@ -2544,7 +2534,6 @@ class ColosseumsArena:
                 self.score_top = 5
                 self.score_bottom = 0
 
-            print(f"[Arena] 배틀 결과: result={result}, winner={winner['name']}, bet_hero={self.bet_hero['name'] if self.bet_hero else 'None'}")
             self._end_battle(winner)
 
         except Exception as e:
@@ -2651,15 +2640,12 @@ class ColosseumsArena:
         if scorer:
             # 방어 로직: 배틀이 이미 종료되었으면 점수 증가 방지
             if not self.battle_active:
-                print(f"[Arena] 경고: 배틀 종료 후 득점 시도 무시")
                 return True
 
             if scorer == "top":
                 self.score_top += 1
-                print(f"[Arena] 상단 득점! 현재 점수: {self.score_top}:{self.score_bottom}")
             else:
                 self.score_bottom += 1
-                print(f"[Arena] 하단 득점! 현재 점수: {self.score_top}:{self.score_bottom}")
 
             # 관중 흥분 이벤트 트리거
             if self.arena_pillar and hasattr(self.arena_pillar, 'trigger_excitement'):
@@ -2731,12 +2717,10 @@ class ColosseumsArena:
         if game_state.get('ghost_step_start_top', False):
             self.top_paddle.start_ghost_step()
             game_state['ghost_step_start_top'] = False  # 플래그 초기화 (한번만 발동)
-            print(f"[Arena] 상단 패들 귀신발걸음 y축 이동 시작!")
 
         if game_state.get('ghost_step_start_bottom', False):
             self.bottom_paddle.start_ghost_step()
             game_state['ghost_step_start_bottom'] = False  # 플래그 초기화
-            print(f"[Arena] 하단 패들 귀신발걸음 y축 이동 시작!")
 
         # 쿨다운 스킬 자동 사용 (AI)
         self.skill_check_timer += dt
@@ -2947,17 +2931,14 @@ class ColosseumsArena:
         if s1 >= 4 and s2 >= 4:
             if abs(s1 - s2) >= 2:
                 winner = self.selected_match.hero1 if s1 > s2 else self.selected_match.hero2
-                print(f"[Arena] 듀스 승리! {s1}:{s2} → {winner['name']}")
                 self._end_battle(winner)
                 return True
         # 일반 상황: 5점 선취
         else:
             if s1 >= WIN_SCORE:
-                print(f"[Arena] 일반 승리! {s1}:{s2} → {self.selected_match.hero1['name']}")
                 self._end_battle(self.selected_match.hero1)
                 return True
             if s2 >= WIN_SCORE:
-                print(f"[Arena] 일반 승리! {s1}:{s2} → {self.selected_match.hero2['name']}")
                 self._end_battle(self.selected_match.hero2)
                 return True
 
@@ -2967,10 +2948,8 @@ class ColosseumsArena:
         """배틀 종료 - 누적 상금 시스템"""
         # 방어 로직: 이미 종료된 배틀이면 무시
         if not self.battle_active:
-            print(f"[Arena] 경고: _end_battle 중복 호출 무시 (이미 종료됨)")
             return
 
-        print(f"[Arena] 배틀 종료! 승자: {winner.get('name', 'Unknown')} | 최종 점수: {self.score_top}:{self.score_bottom}")
         self.battle_active = False
 
         # 모든 스킬 사운드 즉시 중지
@@ -3028,7 +3007,6 @@ class ColosseumsArena:
                     score2 = 5
                 match.set_result(winner, score1, score2)
                 guard_info = f" (호위무사: {guard_count_1} vs {guard_count_2})" if guard_count_1 or guard_count_2 else ""
-                print(f"[Arena] 자동 결정: {match.hero1['name']} vs {match.hero2['name']} → 승자: {winner['name']} ({score1}:{score2}){guard_info}")
 
     def _auto_select_bet_hero_match(self):
         """배팅한 영웅이 포함된 경기를 자동 선택하고 바로 배틀 시작"""
@@ -3044,7 +3022,6 @@ class ColosseumsArena:
             if match.hero1 == self.bet_hero or match.hero2 == self.bet_hero:
                 self.selected_match = match
                 # 영웅 재선택 없이 바로 배틀 시작
-                print(f"[Arena] 자동 배틀 시작: {match.hero1['name']} vs {match.hero2['name']} (배팅 영웅: {self.bet_hero['name']})")
                 self.start_battle(match)
                 return
 
@@ -3063,7 +3040,6 @@ class ColosseumsArena:
             # 배팅한 영웅이 이 경기에 있는지 확인
             if match.hero1 == self.bet_hero or match.hero2 == self.bet_hero:
                 self.selected_match = match
-                print(f"[Arena] 다음 경기 준비: {match.hero1['name']} vs {match.hero2['name']} (배팅 영웅: {self.bet_hero['name']})")
                 return
 
     def update(self, dt: float):
@@ -3112,13 +3088,9 @@ class ColosseumsArena:
             self.result_display_timer -= 1
             if self.result_display_timer <= 0:
                 # 다음 단계 결정
-                print(f"[Arena] RESULT 타이머 종료 | bet_hero: {self.bet_hero.get('name', '?') if self.bet_hero else None}")
-                print(f"[Arena] selected_match.winner: {self.selected_match.winner.get('name', '?') if self.selected_match and self.selected_match.winner else None}")
-                print(f"[Arena] current_round: {self.current_round}")
 
                 # 배팅한 영웅이 패배했으면 토너먼트 종료
                 if self.bet_hero and self.selected_match and self.selected_match.winner != self.bet_hero:
-                    print(f"[Arena] 패배! → TOURNAMENT_END")
                     self.state = TournamentState.TOURNAMENT_END
                 elif self.current_round == TournamentRound.FINAL:
                     # 결승전 종료
@@ -3127,13 +3099,11 @@ class ColosseumsArena:
                     is_champion = final_match and final_match.winner == self.bet_hero
                     if is_champion:
                         # 우승! → 축하 연출
-                        print(f"[Arena] 우승! → VICTORY_CELEBRATION")
                         self.victory_timer = 0.0
                         self.victory_confetti = []
                         self.state = TournamentState.VICTORY_CELEBRATION
                     else:
                         # 결승 패배 → 바로 종료
-                        print(f"[Arena] 결승전 패배! → TOURNAMENT_END")
                         self.state = TournamentState.TOURNAMENT_END
                 else:
                     # 승리 - 호위무사 생포 알림 후 대진표 애니메이션
@@ -3153,10 +3123,8 @@ class ColosseumsArena:
                         current_guards = len(self.guard_warrior_map.get(self.bet_hero["id"], []))
                         self.guard_notify_total = current_guards + 1
                         self.state = TournamentState.GUARD_NOTIFY
-                        print(f"[Arena] 승리! → GUARD_NOTIFY | {bet_hero_loser['name']} 생포")
                     else:
                         # 호위무사 없으면 바로 대진표 애니메이션
-                        print(f"[Arena] 승리! → BRACKET_ANIMATION 시작")
                         self._start_bracket_animation()
 
         elif self.state == TournamentState.GUARD_NOTIFY:
@@ -3166,7 +3134,6 @@ class ColosseumsArena:
             self.guard_notify_progress = min(1.0, self.guard_notify_timer / guard_notify_duration)
             if self.guard_notify_timer >= guard_notify_duration:
                 # 알림 끝 → 대진표 애니메이션 시작
-                print(f"[Arena] GUARD_NOTIFY 완료 → BRACKET_ANIMATION 시작")
                 self._start_bracket_animation()
 
         elif self.state == TournamentState.VICTORY_CELEBRATION:
@@ -4552,7 +4519,6 @@ class ColosseumsArena:
 
     def _start_bracket_animation(self):
         """대진표 진출 애니메이션 시작"""
-        print(f"[Arena] _start_bracket_animation 시작 | current_round: {self.current_round}")
         self.bracket_anim_timer = 0.0
         self.bracket_anim_phase = 0  # 0: 패자 X 표시, 1: 승자 이동, 2: 대기 후 VS_PREVIEW 전환
         self.bracket_anim_progress = 0.0
@@ -4561,7 +4527,6 @@ class ColosseumsArena:
         current_matches = self.matches[self.current_round]
         self.bracket_anim_completed_matches = [m for m in current_matches if m.completed]
         self.bracket_anim_advancing_winners = [m.winner for m in self.bracket_anim_completed_matches if m.winner]
-        print(f"[Arena] 완료된 매치: {len(self.bracket_anim_completed_matches)}, 진출 승자: {len(self.bracket_anim_advancing_winners)}")
 
         # 다음 라운드 정보 저장
         if self.current_round == TournamentRound.QUARTER_FINAL:
@@ -4570,11 +4535,9 @@ class ColosseumsArena:
             self.bracket_anim_next_round = TournamentRound.FINAL
         else:
             self.bracket_anim_next_round = None
-        print(f"[Arena] 다음 라운드: {self.bracket_anim_next_round}")
 
         self.bracket_anim_auto_battle = True
         self.state = TournamentState.BRACKET_ANIMATION
-        print(f"[Arena] state → BRACKET_ANIMATION")
 
     def _update_bracket_animation(self, dt: float):
         """대진표 애니메이션 업데이트"""
@@ -4599,12 +4562,9 @@ class ColosseumsArena:
                 self.bracket_anim_timer = 0.0
                 self.bracket_anim_progress = 0.0
                 # 다음 라운드로 진출 (매치 생성)
-                print(f"[Arena] Phase 1 완료 → _advance_to_next_round() 호출")
                 self._advance_to_next_round()
-                print(f"[Arena] _advance_to_next_round() 완료 | current_round: {self.current_round}")
                 # 배팅한 영웅이 포함된 경기 자동 선택
                 self._prepare_next_match()
-                print(f"[Arena] _prepare_next_match() 완료 | selected_match: {self.selected_match}")
 
         elif self.bracket_anim_phase == 2:
             # 페이즈 2: 짧은 대기 후 VS_PREVIEW(버튼 모드)로 전환
@@ -4616,7 +4576,6 @@ class ColosseumsArena:
                 self.bracket_anim_timer = 0.0
 
                 # VS_PREVIEW로 전환 (버튼 포함)
-                print(f"[Arena] Phase 2 완료 → VS_PREVIEW (buttons) 전환 | current_round: {self.current_round}")
                 self._start_vs_preview(show_buttons=True)
 
     def _draw_bracket_animation(self):
