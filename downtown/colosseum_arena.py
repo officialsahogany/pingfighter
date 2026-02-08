@@ -1944,10 +1944,12 @@ class GuardWarriorSystem:
         label_text_color = (30, 30, 40)      # 이름 텍스트 (어두운색)
         arrow_color = (255, 200, 50)         # 화살표 색상 (골드)
 
-        # --- 상단 영웅의 호위무사 → 오른쪽 상단 필러 ---
+        # --- 상단 영웅의 호위무사 → 오른쪽 필러, 인게임창 상단 끝에 붙임 ---
         if right_pillar_w >= 30:
-            cx_right = right_pillar_x + right_pillar_w // 2
-            y_start_top = game_offset_y + int(80 * game_scale)
+            # 인게임창 오른쪽 끝에 붙어있는 느낌 (프레임 왼쪽 = 게임 영역 오른쪽 끝 + 4px)
+            frame_x_right = right_pillar_x + 4
+            cx_right = frame_x_right + frame_w // 2
+            y_start_top = game_offset_y + int(10 * game_scale)
             for i, guard in enumerate(self.guard_warriors_top):
                 color = guard.get("color", (150, 150, 150))
                 slot_cy = y_start_top + i * slot_h
@@ -1956,10 +1958,9 @@ class GuardWarriorSystem:
                 frame_surf = pygame.Surface((frame_w, frame_h), pygame.SRCALPHA)
                 pygame.draw.rect(frame_surf, bg_color, frame_surf.get_rect(), border_radius=8)
                 pygame.draw.rect(frame_surf, border_color, frame_surf.get_rect(), width=2, border_radius=8)
-                # 메탈릭 하이라이트 (상단 밝은 줄)
                 hl_rect = pygame.Rect(4, 3, frame_w - 8, 6)
                 pygame.draw.rect(frame_surf, (240, 242, 248, 120), hl_rect, border_radius=3)
-                screen.blit(frame_surf, (cx_right - frame_w // 2, slot_cy))
+                screen.blit(frame_surf, (frame_x_right, slot_cy))
 
                 # 영웅 캐릭터 이미지 (프레임 중앙 정렬)
                 self._draw_guard_icon_character(
@@ -1974,12 +1975,12 @@ class GuardWarriorSystem:
                     if overlay_h > 0:
                         cd_surf = pygame.Surface((frame_w, overlay_h), pygame.SRCALPHA)
                         cd_surf.fill((0, 0, 0, 150))
-                        screen.blit(cd_surf, (cx_right - frame_w // 2, slot_cy))
+                        screen.blit(cd_surf, (frame_x_right, slot_cy))
 
                 # 다음 등장 화살표 표시 (2명 이상일 때, 쿨타임 중)
                 if (len(self.guard_warriors_top) >= 2 and self.phase_top is None
                         and i == self.next_guard_top_idx % len(self.guard_warriors_top)):
-                    ax = cx_right - frame_w // 2 - 12
+                    ax = frame_x_right - 12
                     ay = slot_cy + frame_h // 2
                     pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() / 300.0)
                     a_alpha = int(160 + 80 * pulse)
@@ -2001,11 +2002,13 @@ class GuardWarriorSystem:
                 except Exception:
                     pass
 
-        # --- 하단 영웅의 호위무사 → 왼쪽 하단 필러 ---
+        # --- 하단 영웅의 호위무사 → 왼쪽 필러, 인게임창 하단 끝에 붙임 ---
         if left_pillar_w >= 30:
-            cx_left = left_pillar_w // 2
+            # 인게임창 왼쪽 끝에 붙어있는 느낌 (프레임 오른쪽 = 게임 영역 왼쪽 끝 - 4px)
+            frame_x_left = game_offset_x - frame_w - 4
+            cx_left = frame_x_left + frame_w // 2
             game_scaled_h = int(SCREEN_HEIGHT * game_scale)
-            y_end = game_offset_y + game_scaled_h - int(80 * game_scale)
+            y_end = game_offset_y + game_scaled_h - int(10 * game_scale)
             y_start_bottom = y_end - len(self.guard_warriors_bottom) * slot_h
             for i, guard in enumerate(self.guard_warriors_bottom):
                 color = guard.get("color", (150, 150, 150))
@@ -2015,10 +2018,9 @@ class GuardWarriorSystem:
                 frame_surf = pygame.Surface((frame_w, frame_h), pygame.SRCALPHA)
                 pygame.draw.rect(frame_surf, bg_color, frame_surf.get_rect(), border_radius=8)
                 pygame.draw.rect(frame_surf, border_color, frame_surf.get_rect(), width=2, border_radius=8)
-                # 메탈릭 하이라이트 (상단 밝은 줄)
                 hl_rect = pygame.Rect(4, 3, frame_w - 8, 6)
                 pygame.draw.rect(frame_surf, (240, 242, 248, 120), hl_rect, border_radius=3)
-                screen.blit(frame_surf, (cx_left - frame_w // 2, slot_cy))
+                screen.blit(frame_surf, (frame_x_left, slot_cy))
 
                 # 영웅 캐릭터 이미지 (프레임 중앙 정렬)
                 self._draw_guard_icon_character(
@@ -2033,12 +2035,12 @@ class GuardWarriorSystem:
                     if overlay_h > 0:
                         cd_surf = pygame.Surface((frame_w, overlay_h), pygame.SRCALPHA)
                         cd_surf.fill((0, 0, 0, 150))
-                        screen.blit(cd_surf, (cx_left - frame_w // 2, slot_cy))
+                        screen.blit(cd_surf, (frame_x_left, slot_cy))
 
                 # 다음 등장 화살표 표시 (2명 이상일 때, 쿨타임 중)
                 if (len(self.guard_warriors_bottom) >= 2 and self.phase_bottom is None
                         and i == self.next_guard_bottom_idx % len(self.guard_warriors_bottom)):
-                    ax = cx_left + frame_w // 2 + 2
+                    ax = frame_x_left + frame_w + 2
                     ay = slot_cy + frame_h // 2
                     pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() / 300.0)
                     a_alpha = int(160 + 80 * pulse)
