@@ -1080,14 +1080,14 @@ class GuardWarriorSystem:
         self.guard_paddles = {}            # hero_id -> _GuardPaddle
 
         # Y 위치 추적 (horn_charge 등에서 Y 이동 필요)
-        self.y_top = 120              # 상단 호위무사 현재 Y
-        self.y_bottom = 630           # 하단 호위무사 현재 Y
+        self.y_top = TOP_PADDLE_Y              # 상단 호위무사 현재 Y (영웅 패들과 동일)
+        self.y_bottom = BOTTOM_PADDLE_Y        # 하단 호위무사 현재 Y (영웅 패들과 동일)
         self._enter_x_top = 0.0      # 등장 완료 시 X 위치 (horn_charge 기준점)
         self._enter_x_bottom = 0.0
         self._exit_start_x_top = 0.0  # 퇴장 시작 시 X 위치
-        self._exit_start_y_top = 120.0
+        self._exit_start_y_top = float(TOP_PADDLE_Y)
         self._exit_start_x_bottom = 0.0
-        self._exit_start_y_bottom = 630.0
+        self._exit_start_y_bottom = float(BOTTOM_PADDLE_Y)
 
         # 호위무사 귀신발걸음 공 충돌 (1회 발동당 3회까지 허용)
         self._guard_ghost_step_hit_top = 0       # 상단 호위무사 이번 발동 충돌 횟수
@@ -1122,8 +1122,8 @@ class GuardWarriorSystem:
         self.active_bottom = None
         self.phase_top = None
         self.phase_bottom = None
-        self.y_top = 120
-        self.y_bottom = 630
+        self.y_top = TOP_PADDLE_Y
+        self.y_bottom = BOTTOM_PADDLE_Y
 
         # 호위무사 스킬 인스턴스 생성
         self._init_guard_skills()
@@ -1495,12 +1495,12 @@ class GuardWarriorSystem:
                     self.phase_top = None
                     self.active_top = None
                     self.selected_skill_top = None
-                    self.y_top = 120
+                    self.y_top = TOP_PADDLE_Y
                 else:
                     self.phase_bottom = None
                     self.active_bottom = None
                     self.selected_skill_bottom = None
-                    self.y_bottom = 630
+                    self.y_bottom = BOTTOM_PADDLE_Y
 
     def _make_guard_paddle(self, is_top):
         """현재 호위무사 위치로 가상 패들 생성"""
@@ -2061,8 +2061,8 @@ class GuardWarriorSystem:
         self.active_bottom = None
         self.selected_skill_top = None
         self.selected_skill_bottom = None
-        self.y_top = 120
-        self.y_bottom = 630
+        self.y_top = TOP_PADDLE_Y
+        self.y_bottom = BOTTOM_PADDLE_Y
         self._bubble_top = None
         self._bubble_bottom = None
 
