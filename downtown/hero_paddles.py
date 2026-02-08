@@ -152,7 +152,7 @@ class HeroPaddleRenderer:
         if swing_timer > 0 and swing_dur > 0:
             progress = 1.0 - (swing_timer / swing_dur)
             # sqrt로 빠른 공격 → 느린 복귀 커브, 최대 ~80도
-            weapon_swing_angle = math.sin(math.sqrt(progress) * math.pi) * 1.4
+            weapon_swing_angle = math.sin(math.sqrt(progress) * math.pi) * -1.4
         else:
             weapon_swing_angle = 0.0
 
