@@ -4729,13 +4729,16 @@ class SteamBarrier(HeroSkill):
         # 성스러운 공 이펙트 업데이트
         if self.holy_ball_active:
             self.holy_ball_timer -= dt
+            # 공 중심 좌표 계산 (ball.x/y는 좌상단이므로 보정)
+            ball_cx = ball.x + getattr(ball, 'width', 10) / 2
+            ball_cy = ball.y + getattr(ball, 'height', 10) / 2
             # 공 주변 성스러운 파티클 생성
             if random.random() < 0.6:
                 angle = random.uniform(0, math.pi * 2)
                 dist = random.uniform(5, 18)
                 self.holy_particles.append({
-                    'x': ball.x + math.cos(angle) * dist,
-                    'y': ball.y + math.sin(angle) * dist,
+                    'x': ball_cx + math.cos(angle) * dist,
+                    'y': ball_cy + math.sin(angle) * dist,
                     'vx': math.cos(angle) * random.uniform(15, 40),
                     'vy': math.sin(angle) * random.uniform(15, 40) - 20,
                     'life': random.uniform(0.4, 0.8),
@@ -4746,8 +4749,8 @@ class SteamBarrier(HeroSkill):
             # 십자가 모양 빛 파티클 (간헐적)
             if random.random() < 0.15:
                 self.holy_particles.append({
-                    'x': ball.x + random.uniform(-8, 8),
-                    'y': ball.y + random.uniform(-8, 8),
+                    'x': ball_cx + random.uniform(-8, 8),
+                    'y': ball_cy + random.uniform(-8, 8),
                     'vx': 0,
                     'vy': random.uniform(-50, -20),
                     'life': random.uniform(0.5, 1.0),
@@ -4757,8 +4760,8 @@ class SteamBarrier(HeroSkill):
                 })
             # 궤적 저장
             self.holy_trail.append({
-                'x': ball.x,
-                'y': ball.y,
+                'x': ball_cx,
+                'y': ball_cy,
                 'life': 0.5,
                 'max_life': 0.5,
                 'size': 10
@@ -4994,6 +4997,9 @@ class SteamBarrier(HeroSkill):
 
             # 공 주변 성스러운 글로우 (ball이 있을 때)
             if self.holy_ball_active and ball:
+                # 공 중심 좌표 (ball.x/y는 좌상단이므로 보정)
+                ball_cx = ball.x + getattr(ball, 'width', 10) / 2
+                ball_cy = ball.y + getattr(ball, 'height', 10) / 2
                 # 외부 금빛 오오라
                 glow_size = 22 + int(4 * math.sin(pygame.time.get_ticks() / 150))
                 glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
@@ -5002,15 +5008,15 @@ class SteamBarrier(HeroSkill):
                 pygame.draw.circle(glow_surf, (255, 240, 180, 90),
                                   (glow_size, glow_size), glow_size // 2)
                 screen.blit(glow_surf,
-                           (int(ball.x) - glow_size, int(ball.y) - glow_size),
+                           (int(ball_cx) - glow_size, int(ball_cy) - glow_size),
                            special_flags=pygame.BLEND_ADD)
 
                 # 회전하는 빛의 고리
                 ring_time = pygame.time.get_ticks() / 800
                 for i in range(6):
                     angle = ring_time + i * (math.pi * 2 / 6)
-                    rx = ball.x + math.cos(angle) * 14
-                    ry = ball.y + math.sin(angle) * 14
+                    rx = ball_cx + math.cos(angle) * 14
+                    ry = ball_cy + math.sin(angle) * 14
                     dot_surf = pygame.Surface((6, 6), pygame.SRCALPHA)
                     pygame.draw.circle(dot_surf, (255, 230, 140, 150), (3, 3), 3)
                     screen.blit(dot_surf, (int(rx) - 3, int(ry) - 3),
