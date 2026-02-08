@@ -2065,6 +2065,13 @@ class DowntownManager:
                                 arena_running = False
                                 running = False
 
+                                # 투기장 BGM → 광장 BGM 복구
+                                try:
+                                    import bgm_manager
+                                    bgm_manager.play_downtown_bgm()
+                                except Exception as e:
+                                    print(f"[투기장] 광장 BGM 복구 실패: {e}")
+
                         elif cancel_btn.collidepoint(mx, my):
                             show_entry_dialog = False  # 다이얼로그 닫고 계속 탐색
 
