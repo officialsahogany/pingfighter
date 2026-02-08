@@ -3000,6 +3000,15 @@ class PuppetControl(HeroSkill):
             if pull_progress >= 1.0:
                 self.phase = self.PHASE_KISSING
                 self.phase_timer = 0
+                # 뽀뽀 사운드 재생
+                try:
+                    import os
+                    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    kiss_path = os.path.join(project_root, "sounds", "kissing.wav")
+                    if os.path.exists(kiss_path):
+                        pygame.mixer.Sound(kiss_path).play()
+                except Exception:
+                    pass
 
         # Phase 3: 뽀뽀 (1초)
         elif self.phase == self.PHASE_KISSING:
