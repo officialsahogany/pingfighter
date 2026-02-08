@@ -2478,7 +2478,7 @@ class HellFire(HeroSkill):
         return {
             'screen_effect': ScreenEffect.FIRE,
             'screen_tint': (100, 200, 255),
-            'sound': 'fire_burst'
+            'sound': 'hellfire'
         }
 
     def _regenerate_glitch_lines(self):
