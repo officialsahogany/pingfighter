@@ -5115,6 +5115,15 @@ class SteamBarrier(HeroSkill):
     def _spawn_barrier_hit_flash(self, ball_x):
         """배리어 충돌 시 플래시 + 스파클 파티클 생성"""
         import random
+        # ë°°ë¦¬ì´ ì¶©ë ì¬ì´ë ì¬ì
+        try:
+            import os
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            hit_path = os.path.join(project_root, "sounds", "steambarriorhit.wav")
+            if os.path.exists(hit_path):
+                pygame.mixer.Sound(hit_path).play()
+        except Exception:
+            pass
         self.barrier_hit_flash_timer = self.barrier_hit_flash_duration
         self.barrier_hit_x = ball_x
         # 충돌 지점에서 스파클 파티클 생성 (12~18개)
