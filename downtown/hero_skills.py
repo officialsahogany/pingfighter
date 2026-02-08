@@ -5194,7 +5194,7 @@ class SteamBarrier(HeroSkill):
         self.energy_rings = []
 
         return {
-            'sound': 'steam_release'
+            'sound': 'steambarrior'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
