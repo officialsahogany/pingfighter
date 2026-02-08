@@ -3762,14 +3762,23 @@ class ColosseumsArena:
 
         # 라운드 타이틀
         round_names = {
-            TournamentRound.QUARTER_FINAL: "⚔️ 8강전 ⚔️",
-            TournamentRound.SEMI_FINAL: "⚔️ 4강전 ⚔️",
-            TournamentRound.FINAL: "👑 결승전 👑",
+            TournamentRound.QUARTER_FINAL: "8강전",
+            TournamentRound.SEMI_FINAL: "4강전",
+            TournamentRound.FINAL: "결승전",
         }
         if self.fonts and "large" in self.fonts:
             title = round_names.get(self.current_round, "배틀")
             surf, _ = self.fonts["large"].render(title, (255, 215, 0))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 15))
+            title_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
+            title_y = panel_y + 15
+            self.screen.blit(surf, (title_x, title_y))
+            icon_y = title_y + surf.get_height() // 2
+            if self.current_round == TournamentRound.FINAL:
+                self._draw_crown_icon(title_x - 14, icon_y, 14)
+                self._draw_crown_icon(title_x + surf.get_width() + 14, icon_y, 14)
+            else:
+                self._draw_sword_icon(title_x - 14, icon_y, 12)
+                self._draw_sword_icon(title_x + surf.get_width() + 14, icon_y, 12)
 
         # 승리 보상 표시
         current_prize = self.round_prizes.get(self.current_round, 0)
@@ -3840,9 +3849,11 @@ class ColosseumsArena:
 
         # 경고 문구
         if self.fonts and "small" in self.fonts:
-            warn_text = "⚠️ 패배시 누적 상금 전액 몰수!"
+            warn_text = "패배시 누적 상금 전액 몰수!"
             surf, _ = self.fonts["small"].render(warn_text, (255, 150, 100))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 265))
+            warn_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
+            self._draw_warning_icon(warn_x - 12, panel_y + 265 + surf.get_height() // 2, 10)
+            self.screen.blit(surf, (warn_x, panel_y + 265))
 
         # 포기하고 나가기 버튼
         exit_rect = pygame.Rect(panel_x + 100, panel_y + 300, 200, 40)
@@ -3881,13 +3892,19 @@ class ColosseumsArena:
         # 결과 타이틀
         if self.fonts and "large" in self.fonts:
             if is_win:
-                result_text = "🎉 승리! 🎉"
+                result_text = "-- 승리! --"
                 text_color = (255, 215, 0)
             else:
-                result_text = "💀 패배... 💀"
+                result_text = "패배..."
                 text_color = (255, 100, 100)
             surf, _ = self.fonts["large"].render(result_text, text_color)
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 20))
+            result_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
+            result_y = panel_y + 20
+            self.screen.blit(surf, (result_x, result_y))
+            if not is_win:
+                icon_y = result_y + surf.get_height() // 2
+                self._draw_skull_icon(result_x - 16, icon_y, 14)
+                self._draw_skull_icon(result_x + surf.get_width() + 16, icon_y, 14)
 
         # 승자 정보
         if self.fonts and "medium" in self.fonts:
@@ -3947,9 +3964,13 @@ class ColosseumsArena:
         # 타이틀
         if self.fonts and "large" in self.fonts:
             round_name = "4강" if self.current_round == TournamentRound.SEMI_FINAL else "결승"
-            title = f"🏆 {round_name} 진출! 🏆"
+            title = f"{round_name} 진출!"
             surf, _ = self.fonts["large"].render(title, (255, 215, 0))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 25))
+            title_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
+            self.screen.blit(surf, (title_x, panel_y + 25))
+            icon_y = panel_y + 25 + surf.get_height() // 2
+            self._draw_trophy_icon(title_x - 16, icon_y, 14)
+            self._draw_trophy_icon(title_x + surf.get_width() + 16, icon_y, 14)
 
         # 누적 상금 (크게)
         if self.fonts and "large" in self.fonts:
@@ -3977,23 +3998,29 @@ class ColosseumsArena:
 
         # 경고
         if self.fonts and "small" in self.fonts:
-            warn_text = "⚠️ 패배 시 누적 상금을 모두 잃습니다!"
+            warn_text = "패배 시 누적 상금을 모두 잃습니다!"
             surf, _ = self.fonts["small"].render(warn_text, (255, 180, 100))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 185))
+            warn_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
+            self._draw_warning_icon(warn_x - 12, panel_y + 185 + surf.get_height() // 2, 10)
+            self.screen.blit(surf, (warn_x, panel_y + 185))
 
         # 계속 버튼 (도전)
         continue_rect = pygame.Rect(panel_x + 40, panel_y + 220, 180, 50)
         pygame.draw.rect(self.screen, (80, 180, 80), continue_rect, border_radius=5)
         if self.fonts and "medium" in self.fonts:
-            surf, _ = self.fonts["medium"].render("🔥 계속 도전!", (255, 255, 255))
-            self.screen.blit(surf, (continue_rect.centerx - surf.get_width() // 2, continue_rect.y + 15))
+            surf, _ = self.fonts["medium"].render("계속 도전!", (255, 255, 255))
+            btn_text_x = continue_rect.centerx - surf.get_width() // 2
+            self._draw_fire_icon(btn_text_x - 12, continue_rect.y + 15 + surf.get_height() // 2, 12)
+            self.screen.blit(surf, (btn_text_x, continue_rect.y + 15))
 
         # 나가기 버튼 (상금 수령)
         exit_rect = pygame.Rect(panel_x + 240, panel_y + 220, 180, 50)
         pygame.draw.rect(self.screen, (100, 100, 180), exit_rect, border_radius=5)
         if self.fonts and "medium" in self.fonts:
-            surf, _ = self.fonts["medium"].render(f"💰 {self.accumulated_prize}G 수령", (255, 255, 255))
-            self.screen.blit(surf, (exit_rect.centerx - surf.get_width() // 2, exit_rect.y + 15))
+            surf, _ = self.fonts["medium"].render(f"{self.accumulated_prize}G 수령", (255, 255, 255))
+            btn_text_x = exit_rect.centerx - surf.get_width() // 2
+            self._draw_coin_icon(btn_text_x - 12, exit_rect.y + 15 + surf.get_height() // 2, 12)
+            self.screen.blit(surf, (btn_text_x, exit_rect.y + 15))
 
         # 남은 보상 미리보기
         if self.fonts and "small" in self.fonts:
@@ -4029,13 +4056,21 @@ class ColosseumsArena:
         # 타이틀
         if self.fonts and "large" in self.fonts:
             if is_champion:
-                title = "🏆 토너먼트 우승! 🏆"
+                title = "토너먼트 우승!"
                 title_color = (255, 215, 0)
             else:
-                title = "💀 결승전 패배... 💀"
+                title = "결승전 패배..."
                 title_color = (255, 100, 100)
             surf, _ = self.fonts["large"].render(title, title_color)
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 25))
+            title_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
+            self.screen.blit(surf, (title_x, panel_y + 25))
+            icon_y = panel_y + 25 + surf.get_height() // 2
+            if is_champion:
+                self._draw_trophy_icon(title_x - 16, icon_y, 14)
+                self._draw_trophy_icon(title_x + surf.get_width() + 16, icon_y, 14)
+            else:
+                self._draw_skull_icon(title_x - 16, icon_y, 14)
+                self._draw_skull_icon(title_x + surf.get_width() + 16, icon_y, 14)
 
         # 최종 우승자
         if final_match and final_match.winner and self.fonts and "medium" in self.fonts:
@@ -4468,6 +4503,98 @@ class ColosseumsArena:
                 surf, _ = self.fonts["small"].render(f"{match.score1}:{match.score2}", (255, 215, 0))
                 self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + box_h + 5))
 
+    # ====================================================================
+    # 커스텀 심볼 드로잉 (이모지 대체)
+    # ====================================================================
+    def _draw_sword_icon(self, x: int, y: int, size: int = 16, color: Tuple[int, int, int] = (255, 215, 0)):
+        """교차 검 아이콘 (⚔ 대체)"""
+        s = size // 2
+        # 검 1 (\)
+        pygame.draw.line(self.screen, color, (x - s, y - s), (x + s, y + s), 2)
+        pygame.draw.line(self.screen, color, (x - s // 2, y - s + 2), (x + s // 2, y - s + 2), 2)  # 가드
+        # 검 2 (/)
+        pygame.draw.line(self.screen, color, (x + s, y - s), (x - s, y + s), 2)
+        pygame.draw.line(self.screen, color, (x - s // 2, y + s - 2), (x + s // 2, y + s - 2), 2)  # 가드
+
+    def _draw_crown_icon(self, x: int, y: int, size: int = 16, color: Tuple[int, int, int] = (255, 215, 0)):
+        """왕관 아이콘 (👑 대체)"""
+        s = size // 2
+        # 왕관 몸체
+        points = [
+            (x - s, y + s // 2),
+            (x - s, y - s // 3),
+            (x - s // 2, y),
+            (x, y - s),
+            (x + s // 2, y),
+            (x + s, y - s // 3),
+            (x + s, y + s // 2),
+        ]
+        pygame.draw.polygon(self.screen, color, points)
+        pygame.draw.polygon(self.screen, (200, 170, 0), points, 2)
+
+    def _draw_trophy_icon(self, x: int, y: int, size: int = 16, color: Tuple[int, int, int] = (255, 215, 0)):
+        """트로피 아이콘 (🏆 대체)"""
+        s = size // 2
+        # 컵 몸체
+        pygame.draw.rect(self.screen, color, (x - s + 2, y - s, s * 2 - 4, s + 2), border_radius=3)
+        # 손잡이
+        pygame.draw.arc(self.screen, color, (x - s - 3, y - s + 2, 8, s), -1.5, 1.5, 2)
+        pygame.draw.arc(self.screen, color, (x + s - 5, y - s + 2, 8, s), 1.5, 4.5, 2)
+        # 받침대
+        pygame.draw.rect(self.screen, color, (x - s // 3, y + 2, s // 3 * 2, s // 3))
+        pygame.draw.rect(self.screen, color, (x - s // 2, y + 2 + s // 3, s, 3))
+
+    def _draw_skull_icon(self, x: int, y: int, size: int = 16, color: Tuple[int, int, int] = (255, 100, 100)):
+        """해골 아이콘 (💀 대체)"""
+        s = size // 2
+        # 머리
+        pygame.draw.circle(self.screen, color, (x, y - 2), s - 1)
+        # 턱
+        pygame.draw.rect(self.screen, color, (x - s // 2, y + s // 3, s, s // 3))
+        # 눈
+        pygame.draw.circle(self.screen, (30, 30, 30), (x - s // 3, y - 3), s // 4)
+        pygame.draw.circle(self.screen, (30, 30, 30), (x + s // 3, y - 3), s // 4)
+
+    def _draw_fire_icon(self, x: int, y: int, size: int = 14, color: Tuple[int, int, int] = (255, 150, 50)):
+        """불꽃 아이콘 (🔥 대체)"""
+        s = size // 2
+        # 외곽 불꽃
+        points = [
+            (x, y - s), (x + s // 2, y - s // 3),
+            (x + s, y + s // 2), (x + s // 3, y + s),
+            (x - s // 3, y + s), (x - s, y + s // 2),
+            (x - s // 2, y - s // 3),
+        ]
+        pygame.draw.polygon(self.screen, color, points)
+        # 내부 불꽃 (밝은 색)
+        inner = [
+            (x, y - s // 3), (x + s // 3, y),
+            (x + s // 4, y + s // 2), (x - s // 4, y + s // 2),
+            (x - s // 3, y),
+        ]
+        pygame.draw.polygon(self.screen, (255, 220, 100), inner)
+
+    def _draw_coin_icon(self, x: int, y: int, size: int = 14, color: Tuple[int, int, int] = (255, 215, 0)):
+        """동전 아이콘 (💰 대체)"""
+        s = size // 2
+        pygame.draw.circle(self.screen, color, (x, y), s)
+        pygame.draw.circle(self.screen, (200, 170, 0), (x, y), s, 2)
+        # G 텍스트
+        if self.fonts and "small" in self.fonts:
+            g_surf, _ = self.fonts["small"].render("G", (200, 170, 0))
+            self.screen.blit(g_surf, (x - g_surf.get_width() // 2, y - g_surf.get_height() // 2))
+
+    def _draw_warning_icon(self, x: int, y: int, size: int = 14, color: Tuple[int, int, int] = (255, 200, 50)):
+        """경고 삼각형 아이콘 (⚠ 대체)"""
+        s = size // 2
+        # 삼각형
+        points = [(x, y - s), (x + s, y + s), (x - s, y + s)]
+        pygame.draw.polygon(self.screen, color, points)
+        pygame.draw.polygon(self.screen, (200, 150, 0), points, 2)
+        # 느낌표
+        pygame.draw.line(self.screen, (40, 40, 40), (x, y - s // 3), (x, y + s // 4), 2)
+        pygame.draw.circle(self.screen, (40, 40, 40), (x, y + s // 2), 1)
+
     def _draw_loser_x(self, rect: pygame.Rect, progress: float):
         """패자에게 X 표시 그리기"""
         # X 표시 애니메이션
@@ -4626,9 +4753,13 @@ class ColosseumsArena:
         if self.fonts and "large" in self.fonts:
             pulse = abs(math.sin(self.animation_timer * 3)) * 0.3 + 0.7
             gold_color = (int(255 * pulse), int(215 * pulse), 0)
-            title = f"⚔️ {round_name} ⚔️"
+            title = round_name
             surf, _ = self.fonts["large"].render(title, gold_color)
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 80))
+            title_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
+            self.screen.blit(surf, (title_x, 80))
+            icon_y = 80 + surf.get_height() // 2
+            self._draw_sword_icon(title_x - 16, icon_y, 14, gold_color)
+            self._draw_sword_icon(title_x + surf.get_width() + 16, icon_y, 14, gold_color)
 
         # 영웅 1 (왼쪽에서 슬라이드 인)
         hero1_target_x = SCREEN_WIDTH // 2 - 150
