@@ -6455,6 +6455,16 @@ class ShadowClone(HeroSkill):
 
         game_state['has_shadow_clones'] = True
 
+        # 그림자분신 발동 사운드 재생
+        try:
+            import os
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            sound_path = os.path.join(project_root, "sounds", "kurokake.wav")
+            if os.path.exists(sound_path):
+                pygame.mixer.Sound(sound_path).play()
+        except Exception:
+            pass
+
         return {
             'screen_effect': ScreenEffect.FLASH,
             'flash_color': (40, 40, 60),
