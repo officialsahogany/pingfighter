@@ -132193,6 +132193,15 @@ def main(stage_num, new_boss_mode=False):
                             )
                             arena_hero_paddle_renderer.set_arm_raise_hold(_hero_id, _maria_casting)
 
+                        # 키르케(chronos) 중력조작 시전 중 지팡이 바깥쪽 펼침
+                        for _hero_id in ("chronos",):
+                            _chronos_skills = arena_skill_manager.active_skills.get(_hero_id, [])
+                            _chronos_gravity = any(
+                                s.is_active and s.skill_id == "gravity_control"
+                                for s in _chronos_skills
+                            )
+                            arena_hero_paddle_renderer.set_staff_hold_outward(_hero_id, _chronos_gravity)
+
                     # 🛡️ 호위무사 시스템 업데이트 (4강/결승)
                     if arena_guard_system:
                         try:

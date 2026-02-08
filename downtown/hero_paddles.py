@@ -108,6 +108,11 @@ class HeroPaddleRenderer:
         state = self._get_state(hero_id)
         state["arm_raise_hold"] = hold
 
+    def set_staff_hold_outward(self, hero_id: str, hold: bool):
+        """스킬 시전 중 지팡이를 바깥쪽으로 펼친 상태 유지 (키르케 중력조작 전용)"""
+        state = self._get_state(hero_id)
+        state["staff_hold_outward"] = hold
+
     def _rotate_point(self, px, py, pivot_x, pivot_y, angle):
         """점 (px, py)을 pivot 기준으로 angle(라디안)만큼 회전"""
         dx, dy = px - pivot_x, py - pivot_y
@@ -177,6 +182,10 @@ class HeroPaddleRenderer:
         # 스킬 시전 중 팔 올린 상태 유지 (연화 전용)
         if state.get("arm_raise_hold", False):
             arm_slam = -1.0
+
+        # 키르케 중력조작 시전 중 지팡이를 바깥쪽으로 펼친 상태 유지
+        if state.get("staff_hold_outward", False):
+            weapon_swing_angle = 0.7  # 스윙 반대 방향 (바깥쪽)
 
         return {
             "wave": math.sin(step) * (1.0 + leg_intensity * 0.3) * stride_boost,
