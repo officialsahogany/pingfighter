@@ -3263,14 +3263,14 @@ class ColosseumsArena:
             panel_x, panel_y = 180, 180
 
             # 영웅 1 선택 버튼 (클릭하면 VS 미리보기 후 배틀)
-            btn1_rect = pygame.Rect(panel_x + 30, panel_y + 145, 160, 100)
+            btn1_rect = pygame.Rect(panel_x + 20, panel_y + 145, 145, 100)
             if btn1_rect.collidepoint(mx, my):
                 self.bet_hero = self.selected_match.hero1
                 self._start_vs_preview()
                 return
 
             # 영웅 2 선택 버튼 (클릭하면 VS 미리보기 후 배틀)
-            btn2_rect = pygame.Rect(panel_x + 210, panel_y + 145, 160, 100)
+            btn2_rect = pygame.Rect(panel_x + 235, panel_y + 145, 145, 100)
             if btn2_rect.collidepoint(mx, my):
                 self.bet_hero = self.selected_match.hero2
                 self._start_vs_preview()
@@ -4020,7 +4020,7 @@ class ColosseumsArena:
 
         # 영웅 1 선택 버튼 (캐릭터 이미지 포함)
         hero1 = self.selected_match.hero1
-        btn1_rect = pygame.Rect(panel_x + 30, panel_y + 145, 160, 100)
+        btn1_rect = pygame.Rect(panel_x + 20, panel_y + 145, 145, 100)
         pygame.draw.rect(self.screen, hero1["color"], btn1_rect, border_radius=8)
         pygame.draw.rect(self.screen, (255, 255, 255), btn1_rect, 3, border_radius=8)
         if self.fonts:
@@ -4048,7 +4048,7 @@ class ColosseumsArena:
 
         # 영웅 2 선택 버튼 (캐릭터 이미지 포함)
         hero2 = self.selected_match.hero2
-        btn2_rect = pygame.Rect(panel_x + 210, panel_y + 145, 160, 100)
+        btn2_rect = pygame.Rect(panel_x + 235, panel_y + 145, 145, 100)
         pygame.draw.rect(self.screen, hero2["color"], btn2_rect, border_radius=8)
         pygame.draw.rect(self.screen, (255, 255, 255), btn2_rect, 3, border_radius=8)
         if self.fonts:
