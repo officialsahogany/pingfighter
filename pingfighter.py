@@ -88546,9 +88546,10 @@ def draw_objects():
     if arena_mode_enabled and arena_bottom_hero and arena_hero_paddle_renderer:
         try:
             # 이동 애니메이션 업데이트 (넉백은 PLAYER.x에 직접 적용되므로 오프셋 불필요)
+            # player_rect 대신 PLAYER 사용: player_rect는 스프라이트 바운딩 보정이 적용되어 흔들림
             arena_hero_paddle_renderer.update_movement(
                 arena_bottom_hero["id"],
-                player_rect.centerx,
+                PLAYER.centerx,
                 1/60
             )
             # 대쉬 후딜 떨림 효과 (보스와 동일)
@@ -88581,9 +88582,10 @@ def draw_objects():
             _arena_base_paddle_height = 40
             _bottom_draw_width = int(_arena_base_paddle_width * _bottom_size_boost * _bottom_shrink_scale)
             _bottom_draw_height = int(_arena_base_paddle_height * _bottom_size_boost * _bottom_shrink_scale)
-            # 하단 영웅 패들 그리기 (플레이어 위치 + 떨림 오프셋 + 뿔박치기 오프셋)
-            _final_x = player_rect.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x + _horn_charge_x_offset_bottom
-            _final_y = player_rect.centery + screen_shake_offset_y + _arena_bottom_stun_shake_y + _horn_charge_y_offset_bottom
+            # 하단 영웅 패들 그리기 (PLAYER 고정 좌표 + 떨림 오프셋 + 뿔박치기 오프셋)
+            # player_rect 대신 PLAYER 사용: player_rect는 일반 스프라이트 바운딩 보정으로 Y가 흔들림
+            _final_x = PLAYER.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x + _horn_charge_x_offset_bottom
+            _final_y = PLAYER.centery + screen_shake_offset_y + _arena_bottom_stun_shake_y + _horn_charge_y_offset_bottom
             arena_hero_paddle_renderer.draw_hero_paddle(
                 SCREEN,
                 arena_bottom_hero["id"],
