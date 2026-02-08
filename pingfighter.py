@@ -132149,8 +132149,8 @@ def main(stage_num, new_boss_mode=False):
                     return _handle_ball_result
 
             # 투기장 영웅 스킬 시스템 업데이트
-            # 달빛 베기 화면 정지 중에도 스킬 타이머는 진행되어야 함 (1초 후 해제)
-            if (not freeze_now or freeze_dark_slash) and arena_mode_enabled and arena_skill_manager:
+            # 달빛 베기/도깨비불 화면 정지 중에도 스킬 타이머는 진행되어야 함 (1초 후 해제)
+            if (not freeze_now or freeze_dark_slash or freeze_hell_fire) and arena_mode_enabled and arena_skill_manager:
                 try:
                     dt = 1.0 / 60.0  # 60fps 기준
 
