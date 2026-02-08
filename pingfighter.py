@@ -87488,7 +87488,8 @@ def draw_objects():
             SCREEN.blit(text_surface, (text_x, text_y))
 
     #  일반 스턴 및 헤드샷 시 머리 위 빙글빙글 도는 별 효과 (라그나로크가 아닌 경우만)
-    elif boss_stunned_timer > 0 or (head_shot_active and head_shot_timer > 0):
+    # 투기장에서는 _draw_arena_stun_stars()가 전용 처리하므로 중복 방지
+    elif (boss_stunned_timer > 0 or (head_shot_active and head_shot_timer > 0)) and not arena_mode_enabled:
         # 별 3개가 머리 위에서 회전
         # 시간 기반 회전 (pygame.time.get_ticks() 사용으로 즉시 회전 시작)
         current_time = pygame.time.get_ticks()
