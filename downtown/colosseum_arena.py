@@ -5224,10 +5224,10 @@ class ColosseumsArena:
                 title_color = (255, 220, 150)
                 # 그림자 효과
                 shadow_surf, _ = self.fonts["medium"].render(title_text, (80, 60, 20))
-                self.screen.blit(shadow_surf, (hero1_x - shadow_surf.get_width() // 2 + 1, hero1_y + 56))
+                self.screen.blit(shadow_surf, (hero1_x - shadow_surf.get_width() // 2 + 1, hero1_y + 46))
                 # 본 텍스트
                 surf, _ = self.fonts["medium"].render(title_text, title_color)
-                self.screen.blit(surf, (hero1_x - surf.get_width() // 2, hero1_y + 55))
+                self.screen.blit(surf, (hero1_x - surf.get_width() // 2, hero1_y + 45))
 
             # 호위무사 아이콘 (영웅1)
             h1_guards = self.guard_warrior_map.get(hero1.get("id"), [])
@@ -5293,10 +5293,10 @@ class ColosseumsArena:
                 title_color = (255, 220, 150)
                 # 그림자 효과
                 shadow_surf, _ = self.fonts["medium"].render(title_text, (80, 60, 20))
-                self.screen.blit(shadow_surf, (hero2_x - shadow_surf.get_width() // 2 + 1, hero2_y + 56))
+                self.screen.blit(shadow_surf, (hero2_x - shadow_surf.get_width() // 2 + 1, hero2_y + 46))
                 # 본 텍스트
                 surf, _ = self.fonts["medium"].render(title_text, title_color)
-                self.screen.blit(surf, (hero2_x - surf.get_width() // 2, hero2_y + 55))
+                self.screen.blit(surf, (hero2_x - surf.get_width() // 2, hero2_y + 45))
 
             # 호위무사 아이콘 (영웅2)
             h2_guards = self.guard_warrior_map.get(hero2.get("id"), [])
