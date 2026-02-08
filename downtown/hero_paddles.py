@@ -103,6 +103,11 @@ class HeroPaddleRenderer:
             state["weapon_swing_timer"] = duration
             state["weapon_swing_duration"] = duration
 
+    def set_arm_raise_hold(self, hero_id: str, hold: bool):
+        """스킬 시전 중 팔 올린 상태 유지 (연화 전용)"""
+        state = self._get_state(hero_id)
+        state["arm_raise_hold"] = hold
+
     def _rotate_point(self, px, py, pivot_x, pivot_y, angle):
         """점 (px, py)을 pivot 기준으로 angle(라디안)만큼 회전"""
         dx, dy = px - pivot_x, py - pivot_y
@@ -168,6 +173,10 @@ class HeroPaddleRenderer:
         else:
             weapon_swing_angle = 0.0
             arm_slam = 0.0
+
+        # 스킬 시전 중 팔 올린 상태 유지 (연화 전용)
+        if state.get("arm_raise_hold", False):
+            arm_slam = -1.0
 
         return {
             "wave": math.sin(step) * (1.0 + leg_intensity * 0.3) * stride_boost,

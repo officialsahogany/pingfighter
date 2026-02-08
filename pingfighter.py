@@ -132208,6 +132208,16 @@ def main(stage_num, new_boss_mode=False):
                     # 스킬 쿨다운/효과 업데이트
                     arena_skill_manager.update(dt, top_wrapper, bottom_wrapper, ball_wrapper)
 
+                    # 연화(maria) 스킬 시전 중 팔 올린 상태 유지
+                    if arena_hero_paddle_renderer:
+                        for _hero_id in ("maria",):
+                            _maria_skills = arena_skill_manager.active_skills.get(_hero_id, [])
+                            _maria_casting = any(
+                                s.is_active and s.skill_id in ("doll_curse", "puppet_control")
+                                for s in _maria_skills
+                            )
+                            arena_hero_paddle_renderer.set_arm_raise_hold(_hero_id, _maria_casting)
+
                     # 🛡️ 호위무사 시스템 업데이트 (4강/결승)
                     if arena_guard_system:
                         try:
