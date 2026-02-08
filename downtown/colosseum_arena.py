@@ -281,6 +281,7 @@ class AIPaddleController:
         self.slow_multiplier = 1.0
         self.is_confused = False  # 조작 반전
         self.paddle_scale = 1.0   # 패들 크기 배율
+        self.gravity_drift = 0.0  # 중력 드리프트 (px/s, 중력조절 스킬용)
 
         # 대쉬 시스템 (보스 대쉬와 동일한 물리 엔진)
         self.dash_active = False
@@ -433,6 +434,10 @@ class AIPaddleController:
 
         # 위치 업데이트
         self.x += self.velocity
+
+        # 중력 드리프트 적용 (중력조절 스킬)
+        if self.gravity_drift != 0:
+            self.x += self.gravity_drift * dt
 
         # 경계 체크
         self.x = max(GAME_AREA_X, min(self.x, GAME_AREA_X + GAME_AREA_WIDTH - PADDLE_WIDTH))
@@ -2627,12 +2632,14 @@ class ColosseumsArena:
         self.top_paddle.slow_multiplier = game_state.get('top_paddle_slow_amount', 1.0) if game_state.get('top_paddle_slowed', False) else 1.0
         self.top_paddle.is_confused = game_state.get('top_paddle_confused', False)
         self.top_paddle.paddle_scale = game_state.get('top_paddle_shrink_scale', 1.0) if game_state.get('top_paddle_shrink', False) else 1.0
+        self.top_paddle.gravity_drift = game_state.get('top_paddle_gravity_drift', 0.0)
 
         # 하단 패들 상태 효과
         self.bottom_paddle.is_stunned = game_state.get('bottom_paddle_stunned', False)
         self.bottom_paddle.slow_multiplier = game_state.get('bottom_paddle_slow_amount', 1.0) if game_state.get('bottom_paddle_slowed', False) else 1.0
         self.bottom_paddle.is_confused = game_state.get('bottom_paddle_confused', False)
         self.bottom_paddle.paddle_scale = game_state.get('bottom_paddle_shrink_scale', 1.0) if game_state.get('bottom_paddle_shrink', False) else 1.0
+        self.bottom_paddle.gravity_drift = game_state.get('bottom_paddle_gravity_drift', 0.0)
 
 
         # 🔥 귀신발걸음 y축 이동 트리거 처리
