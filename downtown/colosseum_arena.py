@@ -1663,44 +1663,31 @@ class GuardWarriorSystem:
         else:
             self._bubble_bottom = bubble_data
 
-    # 스킬 사운드 캐시 (클래스 레벨)
-    _skill_sound_cache = {}
-
     def _play_skill_sound(self, result):
-        """스킬 결과에서 사운드 키를 꺼내 재생"""
+        """스킬 결과에서 사운드 키를 꺼내 재생 (독립실행 모드용)"""
         if not result:
-            print(f"[SkillSound] DEBUG: result is None/empty")
             return
         sound_key = result.get('sound')
         if not sound_key:
-            print(f"[SkillSound] DEBUG: no 'sound' key in result: {list(result.keys())}")
             return
 
-        print(f"[SkillSound] DEBUG: sound_key='{sound_key}', cached={sound_key in ColosseumsArena._skill_sound_cache}")
+        if not hasattr(ColosseumsArena, '_skill_sound_cache'):
+            ColosseumsArena._skill_sound_cache = {}
 
-        # 캐시에서 사운드 가져오기 (없으면 프로젝트 루트 sounds/ 에서 로드)
         if sound_key not in ColosseumsArena._skill_sound_cache:
             try:
                 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                 filepath = os.path.join(project_root, "sounds", f"{sound_key}.wav")
-                print(f"[SkillSound] DEBUG: loading from '{filepath}', exists={os.path.exists(filepath)}")
                 if os.path.exists(filepath):
-                    snd = pygame.mixer.Sound(filepath)
-                    print(f"[SkillSound] DEBUG: loaded OK, length={snd.get_length():.2f}s")
-                    ColosseumsArena._skill_sound_cache[sound_key] = snd
+                    ColosseumsArena._skill_sound_cache[sound_key] = pygame.mixer.Sound(filepath)
                 else:
-                    print(f"[SkillSound] DEBUG: FILE NOT FOUND!")
                     ColosseumsArena._skill_sound_cache[sound_key] = None
-            except Exception as e:
-                print(f"[SkillSound] DEBUG: LOAD ERROR: {e}")
+            except Exception:
                 ColosseumsArena._skill_sound_cache[sound_key] = None
 
         sound = ColosseumsArena._skill_sound_cache.get(sound_key)
         if sound:
-            ch = sound.play()
-            print(f"[SkillSound] DEBUG: play() called, channel={ch}, volume={sound.get_volume()}")
-        else:
-            print(f"[SkillSound] DEBUG: sound is None, cannot play")
+            sound.play()
 
     def _apply_status_effects(self, result, target_paddle):
         """스킬 결과에서 상태 효과를 game_state에 적용"""
@@ -2765,8 +2752,6 @@ class ColosseumsArena:
             target_paddle,
             self.ball
         )
-        print(f"[SkillSound] DEBUG _on_ball_hit: hero={hero_id}, result={bool(result)}, keys={list(result.keys()) if result else 'None'}")
-
         # 스킬이 성공적으로 발동되면 사운드 재생 + 말풍선 표시
         if result and 'skill_korean_name' in result:
             self._play_skill_sound(result)
@@ -2787,7 +2772,6 @@ class ColosseumsArena:
                 self.bottom_paddle,
                 self.ball
             )
-            print(f"[SkillSound] DEBUG _try_cooldown TOP: result={bool(result)}, keys={list(result.keys()) if result else 'None'}")
             # 스킬 발동 시 사운드 재생 + 말풍선 표시
             if result and 'skill_korean_name' in result:
                 self._play_skill_sound(result)
@@ -2802,7 +2786,6 @@ class ColosseumsArena:
                 self.top_paddle,
                 self.ball
             )
-            print(f"[SkillSound] DEBUG _try_cooldown BOT: result={bool(result)}, keys={list(result.keys()) if result else 'None'}")
             # 스킬 발동 시 사운드 재생 + 말풍선 표시
             if result and 'skill_korean_name' in result:
                 self._play_skill_sound(result)
@@ -2973,7 +2956,7 @@ class ColosseumsArena:
         self.battle_active = False
 
         # 모든 스킬 사운드 즉시 중지
-        for snd in ColosseumsArena._skill_sound_cache.values():
+        for snd in getattr(ColosseumsArena, '_skill_sound_cache', {}).values():
             if snd:
                 snd.stop()
 
