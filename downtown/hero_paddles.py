@@ -1193,13 +1193,16 @@ class HeroPaddleRenderer:
 
         # === 팔 (로브 소매 + 어깨 들썩임) ===
         _staff_outward = anim.get("staff_hold_outward", False)
+        _deferred_raised_arm = None  # 중력조작 시 올린 팔은 머리 뒤에 그리기 위해 지연
         for side in [-1, 1]:
             shoulder_bob_offset = int(shoulder_bob * 0.3 * b)
             shoulder = (cx + side * int(1.2 * b) + lean_offset, torso_y + int(0.3 * b) + shoulder_bob_offset)
-            # 중력조작 시전 중 왼팔(지팡이 없는 손)을 머리 위로 번쩍 올림
+            # 중력조작 시전 중 왼팔(지팡이 없는 손)은 머리 위로 → 머리 뒤에 그려야 보임
             if _staff_outward and side == -1:
                 elbow = (shoulder[0] - int(0.3 * b), torso_y - int(1.8 * b))
                 wrist = (elbow[0] - int(0.2 * b), torso_y - int(3.0 * b))
+                _deferred_raised_arm = (shoulder, elbow, wrist)
+                continue
             else:
                 elbow = (shoulder[0] + side * int(0.5 * b), torso_y + int(1.0 * b))
                 wrist = (elbow[0] + side * int(0.4 * b) + int(wave * side * 0.1 * b), torso_y + int(1.6 * b))
@@ -1352,6 +1355,17 @@ class HeroPaddleRenderer:
                               (face_rect.centerx - lip_w, lip_y - lip_h // 2, lip_w * 2, lip_h))
             pygame.draw.ellipse(screen, p["lip_light"],
                               (face_rect.centerx - lip_w + 2, lip_y - lip_h // 2, lip_w * 2 - 4, lip_h - 2))
+
+        # === 중력조작 시 올린 왼팔 (머리 위에 그려야 보임) ===
+        if _deferred_raised_arm:
+            _d_shoulder, _d_elbow, _d_wrist = _deferred_raised_arm
+            pygame.draw.line(screen, p["robe"], _d_shoulder, _d_elbow, max(3, int(0.55 * b)))
+            pygame.draw.line(screen, p["robe_mid"], _d_shoulder, _d_elbow, max(2, int(0.4 * b)))
+            pygame.draw.line(screen, p["robe_mid"], _d_elbow, _d_wrist, max(3, int(0.5 * b)))
+            pygame.draw.line(screen, p["robe_light"], _d_elbow, _d_wrist, max(2, int(0.35 * b)))
+            pygame.draw.circle(screen, p["gold_dark"], _d_wrist, max(2, int(0.22 * b)))
+            pygame.draw.circle(screen, p["skin"], (_d_wrist[0], _d_wrist[1] + int(0.15 * b)), max(2, int(0.25 * b)))
+            pygame.draw.circle(screen, p["skin_shadow"], (_d_wrist[0] + 1, _d_wrist[1] + int(0.15 * b) + 1), max(2, int(0.25 * b)))
 
         # === 시간의 지팡이 (모래시계 장식, 고퀄리티 + 스윙 애니메이션) ===
         swing_angle = anim.get("weapon_swing_angle", 0)
