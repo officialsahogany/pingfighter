@@ -52367,6 +52367,9 @@ def boss_dialogue_update():
         return
     if current_stage < 1 or current_stage > 8:
         return
+    # 공 생성 애니메이션 / 서브 대기 중에는 대사 억제
+    if ball_spawn_animation_active or is_waiting_for_serve:
+        return
     try:
         mgr = get_boss_dialogue_manager()
         if mgr:
