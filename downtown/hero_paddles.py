@@ -2150,16 +2150,16 @@ class HeroPaddleRenderer:
 
             if slam_active:
                 # 기본 팔꿈치/손목 오프셋 (어깨 기준 상대좌표)
-                # 기본: 아래+바깥  올림(-1): 위+안쪽  내침(+1): 아래+안쪽
+                # 기본: 아래+바깥  올림(-1): 바깥+위 (V자)  내침(+1): 아래+안쪽
                 t = abs(arm_slam)
                 if arm_slam < 0:
-                    # 올리기: 팔꿈치가 어깨 위로, 손목은 더 위로
-                    elbow_dx = int(side * 0.45 * b * (1 - t) + side * 0.15 * b * t)
-                    elbow_dy = int(0.6 * b * (1 - t) + (-0.9 * b) * t)
-                    wrist_dx = int(side * 0.35 * b * (1 - t) + side * 0.05 * b * t)
-                    wrist_dy = int(0.5 * b * (1 - t) + (-0.5 * b) * t)
+                    # 올리기: V자 형태로 바깥+위로 (몸통 밖에서 보이도록)
+                    elbow_dx = int(side * 0.45 * b * (1 - t) + side * 1.2 * b * t)
+                    elbow_dy = int(0.6 * b * (1 - t) + (-0.7 * b) * t)
+                    wrist_dx = int(side * 0.35 * b * (1 - t) + side * 0.4 * b * t)
+                    wrist_dy = int(0.5 * b * (1 - t) + (-0.9 * b) * t)
                 else:
-                    # 내려치기: 팔꿈치 아래+안쪽, 손목 더 아래+안쪽
+                    # 내려치기: 아래+안쪽
                     elbow_dx = int(side * 0.45 * b * (1 - t) + side * 0.1 * b * t)
                     elbow_dy = int(0.6 * b * (1 - t) + 1.0 * b * t)
                     wrist_dx = int(side * 0.35 * b * (1 - t) + 0)
