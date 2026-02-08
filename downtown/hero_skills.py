@@ -2456,6 +2456,7 @@ class HellFire(HeroSkill):
         self.ball_y = ball.y
         self.original_ball_vx = ball.vx
         self.original_ball_vy = ball.vy
+        self.caster_is_top = caster_paddle.is_top
 
         # === 페이즈 1: 화면 정지 시작 ===
         self.phase = self.PHASE_FREEZE
@@ -2519,7 +2520,13 @@ class HellFire(HeroSkill):
         elif self.phase == self.PHASE_RELEASE:
             # === 정지 해제 - 가속 + 도깨비불 상태 적용 ===
             ball.vx = self.original_ball_vx * 1.3
-            ball.vy = self.original_ball_vy * 1.3
+            # 방향 강제: 캐스터 반대쪽으로 (재충돌 방지)
+            if self.caster_is_top:
+                ball.vy = abs(self.original_ball_vy) * 1.3   # 아래로 (상대 쪽)
+                ball.y = max(ball.y, 80)  # 패들에서 충분히 떨어뜨리기
+            else:
+                ball.vy = -abs(self.original_ball_vy) * 1.3  # 위로 (상대 쪽)
+                ball.y = min(ball.y, 670)  # 패들에서 충분히 떨어뜨리기
             game_state['ball_on_fire'] = True
             game_state['dokkaebi_ball'] = True
             game_state['hell_fire_phase'] = self.PHASE_ACTIVE
@@ -2527,7 +2534,7 @@ class HellFire(HeroSkill):
             self.phase = self.PHASE_ACTIVE
             self.phase_timer = 0.0
             self.dokkaebi_time = 0
-            print(f"[HellFire] RELEASE → ACTIVE 전환 (도깨비불 시작)")
+            print(f"[HellFire] RELEASE → ACTIVE (vy={ball.vy:.1f}, caster_top={self.caster_is_top})")
 
         elif self.phase == self.PHASE_ACTIVE:
             # === 도깨비불 활성 상태 (기존 로직) ===
