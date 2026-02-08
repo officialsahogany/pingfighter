@@ -4868,7 +4868,8 @@ class ColosseumsArena:
 
         # 패자 X 표시
         if h1_is_loser and is_current_round_match and self.bracket_anim_phase >= 0:
-            x_progress = min(1.0, self.bracket_anim_progress * 2)
+            # Phase 0: 애니메이션 진행, Phase 1+: 완성 상태 유지
+            x_progress = 1.0 if self.bracket_anim_phase >= 1 else min(1.0, self.bracket_anim_progress * 2)
             if x_progress > 0:
                 self._draw_loser_x(hero1_rect, x_progress)
 
@@ -4912,7 +4913,8 @@ class ColosseumsArena:
 
         # 패자 X 표시
         if h2_is_loser and is_current_round_match and self.bracket_anim_phase >= 0:
-            x_progress = min(1.0, self.bracket_anim_progress * 2)
+            # Phase 0: 애니메이션 진행, Phase 1+: 완성 상태 유지
+            x_progress = 1.0 if self.bracket_anim_phase >= 1 else min(1.0, self.bracket_anim_progress * 2)
             if x_progress > 0:
                 self._draw_loser_x(hero2_rect, x_progress)
 
