@@ -5709,7 +5709,7 @@ class OilSpill(HeroSkill):
             })
 
         return {
-            'sound': 'splash'
+            'sound': 'shootoil'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
