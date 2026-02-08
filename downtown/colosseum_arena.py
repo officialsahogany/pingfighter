@@ -181,7 +181,7 @@ BOTTOM_HEROES = [
         "power": 0.95,
         "accuracy": 0.95,
         "position": "bottom",
-        "description": "증기 기관과 톱니바퀴로 무장한 발명가"
+        "description": "증기 기관과 톱니바퀴로 무장한 천재 여성 발명가"
     },
     {
         "id": "kurokage",

@@ -2690,10 +2690,10 @@ class HeroPaddleRenderer:
                 pygame.draw.circle(screen, flame_color, (f_x, f_y), f_size)
 
     # =========================================================================
-    # 기어 - 스팀펑크 메카닉 (기계 팔과 톱니바퀴) [고퀄리티 업그레이드]
+    # 기어 - 스팀펑크 메카닉 (기계 팔과 톱니바퀴) [고퀄리티 업그레이드] [여성]
     # =========================================================================
     def _draw_gear(self, screen, cx, cy, b, color, show_back, anim):
-        """기어 - 스팀펑크 메카닉 (증기 기관과 톱니바퀴로 무장) [고퀄리티]"""
+        """기어 - 스팀펑크 메카닉 여성 (증기 기관과 톱니바퀴로 무장) [고퀄리티]"""
         lean = anim["lean"]
         wave = anim["wave"]
         body_bob = anim["body_bob"]
@@ -2725,10 +2725,14 @@ class HeroPaddleRenderer:
             "leather_mid": (95, 72, 58),
             "leather_light": (125, 95, 75),
             "leather_dark": (50, 38, 32),
-            "skin": (225, 200, 180),
-            "skin_shadow": (195, 170, 150),
-            "hair": (95, 75, 55),
-            "hair_light": (130, 105, 80),
+            "skin": (235, 210, 195),
+            "skin_shadow": (205, 180, 165),
+            "hair": (60, 30, 15),
+            "hair_light": (90, 55, 35),
+            "hair_mid": (75, 42, 25),
+            "lip": (200, 100, 100),
+            "lip_light": (220, 130, 130),
+            "eyelash": (40, 25, 15),
             "eye": (160, 210, 230),  # 고글 렌즈
             "eye_glow": (120, 200, 255),
             "steam": (230, 230, 240),
@@ -2807,8 +2811,8 @@ class HeroPaddleRenderer:
             toe_rect = (boot_rect.left + int(0.08 * b), boot_rect.bottom - int(0.2 * b), boot_rect.width - int(0.16 * b), int(0.22 * b))
             pygame.draw.rect(screen, p["metal_light"], toe_rect, border_radius=2)
 
-        # === 몸통 (스팀펑크 조끼) ===
-        chest_w, chest_h = int(3.0 * b), int(2.15 * b)
+        # === 몸통 (스팀펑크 코르셋 조끼) ===
+        chest_w, chest_h = int(2.8 * b), int(2.15 * b)
         chest_rect = pygame.Rect(cx - chest_w // 2 + lean_offset, torso_y - int(0.32 * b), chest_w, chest_h)
 
         # 조끼 그림자
@@ -2887,8 +2891,8 @@ class HeroPaddleRenderer:
         pygame.draw.line(screen, p["copper_dark"], (device_rect.right - int(0.15 * b), pipe_y),
                         (device_rect.right + int(0.2 * b), pipe_y + int(0.15 * b)), max(2, int(0.08 * b)))
 
-        # 허리 벨트 (도구 벨트)
-        belt_rect = pygame.Rect(cx - int(1.5 * b) + lean_offset, chest_rect.bottom - 4, int(3.0 * b), int(0.75 * b))
+        # 허리 벨트 (도구 벨트, 코르셋 스타일)
+        belt_rect = pygame.Rect(cx - int(1.3 * b) + lean_offset, chest_rect.bottom - 4, int(2.6 * b), int(0.75 * b))
         pygame.draw.rect(screen, p["leather_dark"], belt_rect.inflate(2, 2), border_radius=3)
         pygame.draw.rect(screen, p["leather"], belt_rect, border_radius=3)
 
@@ -3040,14 +3044,26 @@ class HeroPaddleRenderer:
         if show_back:
             pygame.draw.ellipse(screen, p["hair"], head_rect)
             pygame.draw.ellipse(screen, p["hair_light"], head_rect.inflate(-int(0.3 * b), -int(0.25 * b)))
-            # 고글 끈
-            pygame.draw.line(screen, p["leather_dark"], (head_rect.left + int(0.18 * b), head_rect.centery - int(0.05 * b)),
-                           (head_rect.right - int(0.18 * b), head_rect.centery - int(0.05 * b)), max(2, int(0.1 * b)))
-            pygame.draw.line(screen, p["leather"], (head_rect.left + int(0.2 * b), head_rect.centery - int(0.05 * b)),
-                           (head_rect.right - int(0.2 * b), head_rect.centery - int(0.05 * b)), max(1, int(0.06 * b)))
+            # 긴 머리 (뒤에서 보이는 웨이브)
+            for strand in range(6):
+                sx = head_rect.left + int(0.2 * b) + strand * int(0.3 * b)
+                sy = head_rect.centery
+                strand_len = int(2.2 * b) + int(strand % 2 * 0.3 * b)
+                wave_off = int(math.sin(self.time * 2 + strand * 0.7) * 0.1 * b)
+                hair_c = p["hair"] if strand % 2 == 0 else p["hair_light"]
+                mid_y = sy + strand_len // 2
+                pygame.draw.line(screen, hair_c, (sx, sy), (sx + wave_off, mid_y), max(2, int(0.14 * b)))
+                pygame.draw.line(screen, hair_c, (sx + wave_off, mid_y), (sx - wave_off, sy + strand_len), max(1, int(0.1 * b)))
+            # 고글 헤드밴드 끈
+            pygame.draw.line(screen, p["leather_dark"], (head_rect.left + int(0.18 * b), head_rect.centery - int(0.15 * b)),
+                           (head_rect.right - int(0.18 * b), head_rect.centery - int(0.15 * b)), max(2, int(0.1 * b)))
+            pygame.draw.line(screen, p["leather"], (head_rect.left + int(0.2 * b), head_rect.centery - int(0.15 * b)),
+                           (head_rect.right - int(0.2 * b), head_rect.centery - int(0.15 * b)), max(1, int(0.06 * b)))
         else:
-            pygame.draw.ellipse(screen, p["hair"], head_rect)
-            pygame.draw.ellipse(screen, p["hair_light"], head_rect.inflate(-int(0.35 * b), -int(0.28 * b)))
+            # 머리 (풍성한 웨이브 헤어)
+            hair_rect = head_rect.inflate(int(0.2 * b), int(0.1 * b))
+            pygame.draw.ellipse(screen, p["hair"], hair_rect)
+            pygame.draw.ellipse(screen, p["hair_light"], hair_rect.inflate(-int(0.35 * b), -int(0.28 * b)))
 
             # 얼굴
             face_rect = head_rect.inflate(-int(0.45 * b), -int(0.35 * b))
@@ -3083,28 +3099,53 @@ class HeroPaddleRenderer:
                            (face_rect.centerx - int(0.1 * b), face_rect.centery - int(0.11 * b)),
                            (face_rect.centerx + int(0.1 * b), face_rect.centery - int(0.11 * b)), max(2, int(0.06 * b)))
 
-            # 콧수염
+            # 입술 (여성)
+            lip_y = face_rect.centery + int(0.25 * b)
+            lip_w = int(0.28 * b)
+            lip_h = int(0.1 * b)
+            pygame.draw.ellipse(screen, p["lip"],
+                              (face_rect.centerx - lip_w, lip_y - lip_h // 2, lip_w * 2, lip_h))
+            pygame.draw.ellipse(screen, p["lip_light"],
+                              (face_rect.centerx - lip_w + 2, lip_y - lip_h // 2, lip_w * 2 - 4, lip_h - 2))
+
+            # 속눈썹
             for side in [-1, 1]:
-                mustache_points = [
-                    (face_rect.centerx + side * int(0.05 * b), face_rect.centery + int(0.2 * b)),
-                    (face_rect.centerx + side * int(0.25 * b), face_rect.centery + int(0.18 * b)),
-                    (face_rect.centerx + side * int(0.35 * b), face_rect.centery + int(0.22 * b)),
-                ]
-                pygame.draw.lines(screen, p["hair"], False, mustache_points, 2)
+                lash_x = face_rect.centerx + side * int(0.38 * b)
+                lash_y = face_rect.centery - int(0.1 * b) - max(4, int(0.28 * b)) - 1
+                for li in range(3):
+                    lash_angle = math.pi * 1.1 + side * (0.15 + li * 0.2)
+                    lash_len = int(0.12 * b) + li
+                    lx = lash_x + int(math.cos(lash_angle) * lash_len)
+                    ly = lash_y + int(math.sin(lash_angle) * lash_len)
+                    pygame.draw.line(screen, p["eyelash"], (lash_x, lash_y), (lx, ly), 1)
 
-            # 모자 (가죽 + 고글)
-            hat_rect = pygame.Rect(head_rect.left + int(0.08 * b), head_rect.top - int(0.12 * b),
-                                   head_rect.width - int(0.16 * b), int(0.55 * b))
-            pygame.draw.rect(screen, p["leather_dark"], hat_rect.inflate(2, 2), border_radius=3)
-            pygame.draw.rect(screen, p["leather"], hat_rect, border_radius=3)
-            pygame.draw.rect(screen, p["leather_mid"], hat_rect.inflate(-int(0.1 * b), -int(0.08 * b)), border_radius=2)
-            # 모자 밴드
-            pygame.draw.rect(screen, p["brass_dark"], (hat_rect.left + int(0.1 * b), hat_rect.bottom - int(0.12 * b), hat_rect.width - int(0.2 * b), int(0.1 * b)), border_radius=1)
+            # 긴 머리카락 (양쪽으로 흘러내리는 웨이브)
+            for side in [-1, 1]:
+                hair_base_x = head_rect.centerx + side * int(0.85 * b)
+                hair_base_y = head_rect.centery - int(0.1 * b)
+                for strand in range(4):
+                    strand_x = hair_base_x + side * int(strand * 0.12 * b)
+                    strand_top = hair_base_y + int(strand * 0.15 * b)
+                    strand_bottom = strand_top + int(1.8 * b) + int(strand * 0.2 * b)
+                    strand_w = max(2, int(0.18 * b) - strand)
+                    wave_offset = int(math.sin(self.time * 2 + strand * 0.5) * 0.08 * b)
+                    hair_color = p["hair"] if strand % 2 == 0 else p["hair_mid"]
+                    mid_x = strand_x + wave_offset + side * int(0.05 * b)
+                    mid_y = (strand_top + strand_bottom) // 2
+                    pygame.draw.line(screen, hair_color, (strand_x, strand_top), (mid_x, mid_y), strand_w)
+                    pygame.draw.line(screen, hair_color, (mid_x, mid_y), (strand_x - wave_offset, strand_bottom), max(1, strand_w - 1))
 
-            # 모자 위 고글 (올려져 있음)
+            # 고글 헤드밴드 (이마에 올려져 있음)
+            headband_y = head_rect.top + int(0.15 * b)
+            pygame.draw.rect(screen, p["leather_dark"],
+                           (head_rect.left + int(0.15 * b), headband_y, head_rect.width - int(0.3 * b), int(0.18 * b)), border_radius=2)
+            pygame.draw.rect(screen, p["leather"],
+                           (head_rect.left + int(0.17 * b), headband_y + 1, head_rect.width - int(0.34 * b), int(0.14 * b)), border_radius=2)
+
+            # 헤드밴드 위 고글 (올려져 있음)
             for side in [-1, 1]:
                 raised_goggle_x = head_rect.centerx + side * int(0.22 * b)
-                raised_goggle_y = head_rect.top + int(0.05 * b)
+                raised_goggle_y = headband_y - int(0.04 * b)
                 pygame.draw.ellipse(screen, p["copper_dark"],
                                   (raised_goggle_x - int(0.2 * b), raised_goggle_y - int(0.08 * b), int(0.4 * b), int(0.3 * b)))
                 pygame.draw.ellipse(screen, p["copper"],
