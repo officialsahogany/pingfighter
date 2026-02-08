@@ -1663,17 +1663,32 @@ class GuardWarriorSystem:
         else:
             self._bubble_bottom = bubble_data
 
+    # 스킬 사운드 캐시 (클래스 레벨)
+    _skill_sound_cache = {}
+
     def _play_skill_sound(self, result):
         """스킬 결과에서 사운드 키를 꺼내 재생"""
         if not result:
             return
         sound_key = result.get('sound')
-        if sound_key:
+        if not sound_key:
+            return
+
+        # 캐시에서 사운드 가져오기 (없으면 프로젝트 루트 sounds/ 에서 로드)
+        if sound_key not in ColosseumsArena._skill_sound_cache:
             try:
-                from managers.sound_manager import get_sound_manager
-                get_sound_manager().play_sound(sound_key, 'skill')
+                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                filepath = os.path.join(project_root, "sounds", f"{sound_key}.wav")
+                if os.path.exists(filepath):
+                    ColosseumsArena._skill_sound_cache[sound_key] = pygame.mixer.Sound(filepath)
+                else:
+                    ColosseumsArena._skill_sound_cache[sound_key] = None
             except Exception:
-                pass
+                ColosseumsArena._skill_sound_cache[sound_key] = None
+
+        sound = ColosseumsArena._skill_sound_cache.get(sound_key)
+        if sound:
+            sound.play()
 
     def _apply_status_effects(self, result, target_paddle):
         """스킬 결과에서 상태 효과를 game_state에 적용"""
@@ -2635,11 +2650,9 @@ class ColosseumsArena:
 
             # === 모든 활성 스킬 상태 리셋 (득점 시) ===
             # 스킬 사운드 즉시 중지 (라운드 전환)
-            try:
-                from managers.sound_manager import get_sound_manager
-                get_sound_manager().stop_all_skill_sounds()
-            except Exception:
-                pass
+            for snd in ColosseumsArena._skill_sound_cache.values():
+                if snd:
+                    snd.stop()
 
             if self.skill_manager:
                 self.skill_manager.reset_active_skills_for_round()
@@ -2945,11 +2958,9 @@ class ColosseumsArena:
         self.battle_active = False
 
         # 모든 스킬 사운드 즉시 중지
-        try:
-            from managers.sound_manager import get_sound_manager
-            get_sound_manager().stop_all_sounds()
-        except Exception:
-            pass
+        for snd in ColosseumsArena._skill_sound_cache.values():
+            if snd:
+                snd.stop()
 
         # 방어 로직: selected_match 체크
         if not self.selected_match:
