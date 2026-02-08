@@ -5415,6 +5415,15 @@ class OilSpill(HeroSkill):
             # 도착 시 웅덩이로 변환
             if proj['progress'] >= 1.0:
                 projectiles_to_remove.append(proj)
+                # 기름 착지 사운드 재생
+                try:
+                    import os
+                    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    oil_path = os.path.join(project_root, "sounds", "oil.wav")
+                    if os.path.exists(oil_path):
+                        pygame.mixer.Sound(oil_path).play()
+                except Exception:
+                    pass
                 # 웅덩이 생성
                 puddle_w = random.uniform(72, 108)
                 self.oil_puddles.append({
