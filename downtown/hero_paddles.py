@@ -153,18 +153,17 @@ class HeroPaddleRenderer:
             progress = 1.0 - (swing_timer / swing_dur)
             # sqrt로 빠른 공격 → 느린 복귀 커브, 최대 ~40도
             weapon_swing_angle = math.sin(math.sqrt(progress) * math.pi) * -0.7
-            # 연화 양팔 올려치기 (구간별)
-            # 0~25%: 팔 올리기 (0→-1), 25~50%: 올린 상태 유지 (-1),
-            # 50~70%: 내려치기 (-1→+1), 70~100%: 복귀 (+1→0)
-            if progress < 0.25:
-                arm_slam = -(progress / 0.25)
-            elif progress < 0.50:
+            # 연화 양팔 올려치기 (즉각적 반응)
+            # 0~15%: 빠르게 올리기, 15~35%: 짧게 유지, 35~55%: 내려치기, 55~100%: 복귀
+            if progress < 0.15:
+                arm_slam = -(progress / 0.15)
+            elif progress < 0.35:
                 arm_slam = -1.0
-            elif progress < 0.70:
-                t = (progress - 0.50) / 0.20
+            elif progress < 0.55:
+                t = (progress - 0.35) / 0.20
                 arm_slam = -1.0 + t * 2.0
             else:
-                t = (progress - 0.70) / 0.30
+                t = (progress - 0.55) / 0.45
                 arm_slam = 1.0 * (1.0 - t)
         else:
             weapon_swing_angle = 0.0
