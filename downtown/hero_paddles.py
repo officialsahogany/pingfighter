@@ -66,8 +66,8 @@ class HeroPaddleRenderer:
             # 어깨 들썩임
             speed_factor = min(1.0, move_speed / 150.0)
             state["body_bob"] = math.sin(state["step_phase"] * 2) * speed_factor * (0.3 + side_factor * 0.25)
-            # 팔 스윙 - 옆걸음 시 더 크게
-            arm_amp = min(1.0, move_speed / 100.0) * (1.0 + side_factor * 0.8)
+            # 팔 스윙 - 자연스러운 범위 내
+            arm_amp = min(1.0, move_speed / 100.0) * (1.0 + side_factor * 0.25)
             state["arm_swing"] = math.sin(state["step_phase"]) * arm_amp
             # 머리 미세 흔들림
             state["head_tilt"] = math.sin(state["step_phase"] * 1.5) * 0.3 * speed_factor
@@ -105,26 +105,26 @@ class HeroPaddleRenderer:
         side_blend = state.get("side_blend", 0)
         move_dir = state.get("move_dir", 0)
 
-        # === 옆걸음 강화: side_blend가 높을수록 팔/다리 모션 대폭 증폭 ===
-        # 팔 스윙 - 옆걸음 시 대폭 강화 (최대 2.5배)
-        arm_boost = 1.0 + side_blend * 1.5
+        # === 옆걸음 강화: 자연스러운 범위 내에서 모션 증폭 ===
+        # 팔 스윙 - 소폭 강화만 (팔이 늘어나지 않도록 제한)
+        arm_boost = 1.0 + side_blend * 0.35  # 최대 1.35배
         arm_intensity = arm_swing * (0.6 + leg_intensity * 0.4) * arm_boost
 
-        # 다리 스윙 (보폭) - 옆걸음 시 대폭 강화 (최대 2.8배)
-        stride_boost = 1.0 + side_blend * 1.8
+        # 다리 스윙 (보폭) - 적당히 강화
+        stride_boost = 1.0 + side_blend * 0.5  # 최대 1.5배
         leg_sway = math.sin(step) * leg_intensity * 0.8 * stride_boost
         left_leg_sway = -leg_sway
         right_leg_sway = leg_sway
 
-        # 어깨 들썩임 - 옆걸음 시 약간 강화
-        shoulder_boost = 1.0 + side_blend * 0.5
+        # 어깨 들썩임 - 소폭 강화
+        shoulder_boost = 1.0 + side_blend * 0.25
         shoulder_bob = math.sin(step * 2) * leg_intensity * 0.3 * shoulder_boost
 
-        # 다리 들어올림 - 옆걸음 시 더 높이 (스트라이드 강조)
-        leg_lift_boost = 0.8 + leg_intensity * 0.5 + side_blend * 0.7
+        # 다리 들어올림 - 소폭 강화
+        leg_lift_boost = 0.8 + leg_intensity * 0.5 + side_blend * 0.25
 
-        # 몸통 상하 움직임 - 옆걸음 시 약간 강화 (걷는 무게감)
-        bob_boost = 1.0 + side_blend * 0.4
+        # 몸통 상하 움직임 - 약간 강화 (걷는 무게감)
+        bob_boost = 1.0 + side_blend * 0.2
 
         return {
             "wave": math.sin(step) * (1.0 + leg_intensity * 0.3) * stride_boost,
@@ -180,26 +180,26 @@ class HeroPaddleRenderer:
             base_b = 8
             scale_ratio = width / 130.0 if width > 0 else 1.0  # 패들 축소 시 캐릭터도 축소
             b = max(4, int(base_b * scale_ratio))  # 최소 4 유지
-            # 이동 애니메이션 - side_blend에 따라 동적 스케일링
+            # 이동 애니메이션 - 패들 모드 스케일링 (자연스러운 범위 내)
             side_blend = anim.get("side_blend", 0)
             move_dir = anim.get("move_dir", 0)
-            # 옆걸음 시 팔/다리 동작 감소 폭을 줄임 (더 역동적으로)
-            motion_scale = 0.5 + side_blend * 0.5  # 정지: 0.5, 옆걸음: 최대 1.0
+            # 팔/다리 기본 감쇠 + 이동 시 소폭 복원
+            motion_scale = 0.5 + side_blend * 0.2  # 정지: 0.5, 이동: 최대 0.7
             anim = {
                 "wave": anim["wave"] * motion_scale,
                 "lean": anim["lean"] * 0.7,
-                "arm_swing": anim["arm_swing"] * motion_scale,
+                "arm_swing": anim["arm_swing"] * 0.6,
                 "left_arm_swing": anim.get("left_arm_swing", 0) * motion_scale,
                 "right_arm_swing": anim.get("right_arm_swing", 0) * motion_scale,
-                "body_bob": anim["body_bob"] * (0.15 + side_blend * 0.2),
+                "body_bob": anim["body_bob"] * (0.15 + side_blend * 0.1),
                 "head_tilt": anim["head_tilt"] * 0.3,
                 "left_leg": anim["left_leg"] * motion_scale,
                 "right_leg": anim["right_leg"] * motion_scale,
                 "left_leg_sway": anim.get("left_leg_sway", 0) * motion_scale,
                 "right_leg_sway": anim.get("right_leg_sway", 0) * motion_scale,
-                "left_shoulder": anim["left_shoulder"] * (0.4 + side_blend * 0.3),
-                "right_shoulder": anim["right_shoulder"] * (0.4 + side_blend * 0.3),
-                "shoulder_bob": anim.get("shoulder_bob", 0) * (0.4 + side_blend * 0.3),
+                "left_shoulder": anim["left_shoulder"] * 0.4,
+                "right_shoulder": anim["right_shoulder"] * 0.4,
+                "shoulder_bob": anim.get("shoulder_bob", 0) * 0.4,
                 "side_blend": side_blend,
                 "move_dir": move_dir,
             }
