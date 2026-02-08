@@ -3840,6 +3840,8 @@ class DollCurse(HeroSkill):
                         print(f"[DEBUG DollCurse] 인형 #{g_idx} SKIP (s={s:.3f} < 0.2)", flush=True)
                     continue
 
+                _dbg = (time_tick % 3000 < 20)
+                if _dbg: print(f"[DBG#{g_idx}] CP0: 서치라이트 시작", flush=True)
                 # === 등대 서치라이트 효과 (상대 영웅을 비춤) ===
                 if spawn_alpha > 0.5:  # 인형이 어느 정도 나타난 후 빛 발사
                     # 인형 눈 위치 (머리 부분)
@@ -3914,6 +3916,7 @@ class DollCurse(HeroSkill):
                                          (glow_size, glow_size), int(glow_size * 0.5))
                         screen.blit(glow_surf, (int(eye_x) - glow_size, int(eye_y) - glow_size))
 
+                if _dbg: print(f"[DBG#{g_idx}] CP1: 마법진 시작", flush=True)
                 # === 외부 마법진/보호 오라 (인형 뒤에) - 고퀄리티 업그레이드 ===
                 aura_pulse = 0.7 + 0.3 * math.sin(time_tick * 0.008 + guardian['wobble'])
                 magic_size = int(60 * s * aura_pulse)
@@ -3984,6 +3987,7 @@ class DollCurse(HeroSkill):
                 pygame.draw.ellipse(shadow_surf, (0, 0, 0, int(100 * spawn_alpha)), shadow_surf.get_rect())
                 screen.blit(shadow_surf, (gx - shadow_w // 2, gy + int(38 * s)))
 
+                if _dbg: print(f"[DBG#{g_idx}] CP2: 마법의 실 시작", flush=True)
                 # === 연화와 연결된 마법의 실 (고퀄리티 업그레이드) ===
                 caster_center_x = int(self.caster_centerx)
                 if self.caster_is_top:
@@ -4045,6 +4049,7 @@ class DollCurse(HeroSkill):
                                          (p_size, p_size), p_size)
                         screen.blit(p_surf, (px - p_size, py - p_size))
 
+                if _dbg: print(f"[DBG#{g_idx}] CP3: 인형 바디 시작", flush=True)
                 # === 고퀄리티 수호 인형 (부두 인형 스타일) ===
                 outline_c = (45, 28, 38) if flash <= 0 else (90, 60, 80)
                 # 색상 팔레트
@@ -4090,6 +4095,7 @@ class DollCurse(HeroSkill):
                     pygame.draw.ellipse(screen, cloth_shadow, (leg_cx - int(6*s), foot_y - int(2*s), int(12*s), int(8*s)))
                     pygame.draw.ellipse(screen, outline_c, (leg_cx - int(6*s), foot_y - int(2*s), int(12*s), int(8*s)), 1)
 
+                if _dbg: print(f"[DBG#{g_idx}] CP4: 다리 완료, 팔 시작", flush=True)
                 # --- 팔 (관절 있는 형태 + 손) ---
                 arm_base = cloth_dark
                 arm_wobble = math.sin(time_tick * 0.003 + g_idx * 2) * 4
@@ -4119,6 +4125,7 @@ class DollCurse(HeroSkill):
                         pygame.draw.line(screen, outline_c, (fx, hand_y + int(2*s)),
                                         (fx + int(arm_side * 1 * s), hand_y + int(6*s)), 1)
 
+                if _dbg: print(f"[DBG#{g_idx}] CP5: 팔 완료, 몸통 시작", flush=True)
                 # --- 몸통 (패치워크 바디) ---
                 body_w, body_h = int(34 * s), int(40 * s)
                 body_top = gy - int(13 * s)
@@ -4159,6 +4166,7 @@ class DollCurse(HeroSkill):
                     pygame.draw.line(screen, stitch_thread, (sx, waist_y - int(2*s)), (sx + int(2*s), waist_y + int(2*s)), 1)
                     pygame.draw.line(screen, stitch_thread, (sx + int(2*s), waist_y - int(2*s)), (sx, waist_y + int(2*s)), 1)
 
+                if _dbg: print(f"[DBG#{g_idx}] CP6: 몸통 완료, 하트핀 시작", flush=True)
                 # --- 하트 핀 (금속 핀대 + 하트 머리) ---
                 heart_x, heart_y = gx + int(5*s), gy - int(1*s)
                 heart_c = (210, 40, 70) if flash <= 0 else (255, 90, 120)
@@ -4187,6 +4195,7 @@ class DollCurse(HeroSkill):
                 pygame.draw.circle(screen, (255, 180, 200), (heart_x - int(2*s), heart_y - int(3*s)), int(2*s))
                 pygame.draw.circle(screen, (255, 220, 230), (heart_x + int(1*s), heart_y - int(4*s)), max(1, int(1*s)))
 
+                if _dbg: print(f"[DBG#{g_idx}] CP7: 하트핀 완료, 머리 시작", flush=True)
                 # --- 머리 (큰 원 + 그래디언트 레이어) ---
                 head_y = gy - int(28 * s)
                 head_r = int(19 * s)
@@ -4238,6 +4247,7 @@ class DollCurse(HeroSkill):
                         pygame.draw.line(screen, hair_c, (base_x, base_y), (mid_x, mid_y), 2)
                         pygame.draw.line(screen, hair_c, (mid_x, mid_y), (end_x, end_y), 2)
 
+                if _dbg: print(f"[DBG#{g_idx}] CP8: 머리 완료, 눈 시작", flush=True)
                 # --- 왼쪽 눈 (4홀 버튼 + 실 꿰맨 디테일) ---
                 le_x = gx - int(7 * s)
                 le_y = head_y - int(2 * s)
@@ -4298,6 +4308,7 @@ class DollCurse(HeroSkill):
                 pygame.draw.ellipse(tear_surf, tear_c, tear_surf.get_rect())
                 screen.blit(tear_surf, (re_x - int(2*s), tear_start_y))
 
+                if _dbg: print(f"[DBG#{g_idx}] CP9: 눈 완료, 입 시작", flush=True)
                 # --- 입 (꿰맨 지그재그 + 실 매듭) ---
                 mouth_y = head_y + int(8 * s)
                 mouth_c = stitch_thread
@@ -4340,6 +4351,7 @@ class DollCurse(HeroSkill):
                     pygame.draw.line(screen, stitch_dark, (t_x, t_base_y),
                                     (t_x + int(t_sway), t_base_y + t_len), 1)
 
+                if _dbg: print(f"[DBG#{g_idx}] CP10: 입+홍조+실 완료, 파티클 시작", flush=True)
                 # --- 저주 파티클 (어둡고 은은한 오라) ---
                 num_particles = 6
                 for pi in range(num_particles):
@@ -4353,6 +4365,7 @@ class DollCurse(HeroSkill):
                     p_color = [(200, 60, 110), (180, 40, 90), (220, 80, 130)][pi % 3]
                     pygame.draw.circle(p_surf, (*p_color, p_alpha), (p_size, p_size), p_size)
                     screen.blit(p_surf, (px - p_size, py - p_size))
+                if _dbg: print(f"[DBG#{g_idx}] CP11: 인형 #{g_idx} 그리기 완료!", flush=True)
 
             # [DEBUG] 수호 인형 루프 완료
             if pygame.time.get_ticks() % 2000 < 20:
