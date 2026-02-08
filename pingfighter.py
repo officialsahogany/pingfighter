@@ -132031,11 +132031,13 @@ def main(stage_num, new_boss_mode=False):
             freeze_spawn_anim = is_ball_spawn_animation_paused()
             freeze_tooltip = game_paused and game_paused_by_tooltip  # 툴팁으로 인한 일시정지
             freeze_ingame_tutorial = is_ingame_tutorial_paused()  # 실전 튜토리얼 일시정지
-            # 달빛 베기 화면 정지 (투기장 모드)
+            # 달빛 베기 / 도깨비불 화면 정지 (투기장 모드)
             freeze_dark_slash = False
+            freeze_hell_fire = False
             if arena_mode_enabled and arena_skill_manager:
                 freeze_dark_slash = arena_skill_manager.game_state.get('dark_slash_freeze', False)
-            freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim or freeze_tooltip or freeze_ingame_tutorial or freeze_dark_slash
+                freeze_hell_fire = arena_skill_manager.game_state.get('hell_fire_freeze', False)
+            freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim or freeze_tooltip or freeze_ingame_tutorial or freeze_dark_slash or freeze_hell_fire
 
             # 디버그: 툴팁 일시정지 상태 확인
             if freeze_tooltip:

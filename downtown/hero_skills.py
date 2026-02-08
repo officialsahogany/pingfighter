@@ -2410,7 +2410,14 @@ class DwarfMagic(HeroSkill):
 # 오니마루 스킬 - 지옥의 요괴무사 (공격적)
 # ============================================================================
 class HellFire(HeroSkill):
-    """도깨비불 - 공이 도깨비불처럼 변하며 자유자재로 움직임"""
+    """도깨비불 - 1초 정지 + 도깨비 얼굴 글리치 후 공이 도깨비불처럼 변하며 자유자재로 움직임"""
+
+    # 페이즈 상수
+    PHASE_NONE = 0        # 비활성
+    PHASE_FREEZE = 1      # 화면 정지 + 도깨비 얼굴 글리치 (1초)
+    PHASE_RELEASE = 2     # 정지 해제 + 가속 적용
+    PHASE_ACTIVE = 3      # 도깨비불 상태 유지
+
     def __init__(self):
         super().__init__(
             skill_id="hell_fire",
@@ -2419,101 +2426,325 @@ class HellFire(HeroSkill):
             description="공이 도깨비불로 변해 예측 불가능하게 움직인다",
             trigger=SkillTrigger.ON_BALL_HIT,
             cooldown=10.0,
-            duration=3.0,
+            duration=4.0,  # 정지 1초 + 도깨비불 3초
             hero_id="onimaru"
         )
+        # 페이즈 관리
+        self.phase = self.PHASE_NONE
+        self.phase_timer = 0.0
+        self.freeze_duration = 1.0  # 1초 정지
+
         self.fire_particles = []
         self.flame_intensity = 0
 
+        # 공 위치 (정지 중 표시용)
+        self.ball_x = 0
+        self.ball_y = 0
+
+        # 공 속도 저장 (정지 전)
+        self.original_ball_vx = 0
+        self.original_ball_vy = 0
+
+        # 도깨비 얼굴 글리치 효과용
+        self.glitch_timer = 0.0
+        self.glitch_lines = []  # 글리치 라인 오프셋
+        self.face_alpha_pulse = 0.0
+
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
-        # 공 가속 및 도깨비불 상태
-        ball.vx *= 1.3
-        ball.vy *= 1.3
-        game_state['ball_on_fire'] = True
-        game_state['dokkaebi_ball'] = True  # 도깨비불 이미지 활성화
+        # 공 위치/속도 저장 (정지 전)
+        self.ball_x = ball.x
+        self.ball_y = ball.y
+        self.original_ball_vx = ball.vx
+        self.original_ball_vy = ball.vy
+
+        # === 페이즈 1: 화면 정지 시작 ===
+        self.phase = self.PHASE_FREEZE
+        self.phase_timer = 0.0
+        self.glitch_timer = 0.0
         self.flame_intensity = 1.0
 
-        # 불꽃 파티클
+        # 화면 정지 플래그
+        game_state['hell_fire_freeze'] = True
+        game_state['hell_fire_phase'] = self.PHASE_FREEZE
+
+        # 글리치 라인 초기화
+        self._regenerate_glitch_lines()
+
         self.fire_particles = []
+
+        print(f"[HellFire] 스킬 발동! freeze=True, phase=FREEZE, ball=({ball.x:.0f},{ball.y:.0f})")
 
         return {
             'screen_effect': ScreenEffect.FIRE,
-            'screen_tint': (100, 200, 255),  # 도깨비불은 푸른빛
+            'screen_tint': (100, 200, 255),
             'sound': 'fire_burst'
         }
 
-    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
-        self.flame_intensity = max(0, self.flame_intensity - dt * 0.3)
-
-        # 🔥 도깨비불 효과: 공이 자유자재로 움직임 (불규칙한 곡선 경로)
-        # 시간 기반 사인파 + 랜덤 변동으로 예측 불가능한 움직임 생성
-        self.dokkaebi_time = getattr(self, 'dokkaebi_time', 0) + dt
-
-        # 사인파 기반 곡선 움직임 (좌우로 흔들림)
-        wave_intensity = 150  # 흔들림 강도
-        wave_speed = 8  # 흔들림 속도
-        curve_force = math.sin(self.dokkaebi_time * wave_speed) * wave_intensity * dt
-
-        # 공의 X 속도에 곡선 힘 적용
-        ball.vx += curve_force
-
-        # 간헐적으로 급격한 방향 전환 (10% 확률)
-        if random.random() < 0.10:
-            # 속도 벡터를 약간 회전
-            angle_change = random.uniform(-0.3, 0.3)  # 라디안
-            cos_a = math.cos(angle_change)
-            sin_a = math.sin(angle_change)
-            new_vx = ball.vx * cos_a - ball.vy * sin_a
-            new_vy = ball.vx * sin_a + ball.vy * cos_a
-            ball.vx = new_vx
-            ball.vy = new_vy
-
-        # 공 주변 불꽃 파티클 추가
-        if random.random() < 0.5:
-            self.fire_particles.append({
-                'x': ball.x + random.uniform(-10, 10),
-                'y': ball.y + random.uniform(-10, 10),
-                'vx': random.uniform(-30, 30),
-                'vy': random.uniform(-80, -20),
-                'life': 0.5,
-                'size': random.uniform(4, 10)
+    def _regenerate_glitch_lines(self):
+        """글리치 라인 오프셋 재생성"""
+        self.glitch_lines = []
+        for _ in range(random.randint(3, 7)):
+            self.glitch_lines.append({
+                'y_offset': random.randint(-25, 25),
+                'x_shift': random.randint(-12, 12),
+                'height': random.randint(2, 6),
+                'color_shift': random.choice([(255, 50, 50), (50, 255, 50), (50, 50, 255)]),
             })
 
-        # 파티클 업데이트
-        for p in self.fire_particles:
-            p['x'] += p['vx'] * dt
-            p['y'] += p['vy'] * dt
-            p['life'] -= dt
-            p['size'] *= 0.95
-        self.fire_particles = [p for p in self.fire_particles if p['life'] > 0]
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        self.phase_timer += dt
+
+        if self.phase == self.PHASE_FREEZE:
+            # === 화면 정지 (1초) ===
+            self.glitch_timer += dt
+
+            # 글리치 라인 주기적 재생성 (0.08초마다)
+            if self.glitch_timer % 0.08 < dt:
+                self._regenerate_glitch_lines()
+
+            # 도깨비 얼굴 알파 맥동
+            self.face_alpha_pulse = 0.5 + 0.3 * math.sin(self.glitch_timer * 12)
+            # 간헐적 플래시 (글리치 느낌)
+            if random.random() < 0.08:
+                self.face_alpha_pulse = random.uniform(0.8, 1.0)
+
+            # 정지 해제
+            if self.phase_timer >= self.freeze_duration:
+                self.phase = self.PHASE_RELEASE
+                self.phase_timer = 0.0
+                game_state['hell_fire_freeze'] = False
+                game_state['hell_fire_phase'] = self.PHASE_RELEASE
+                print(f"[HellFire] FREEZE → RELEASE 전환 (1초 정지 종료)")
+
+        elif self.phase == self.PHASE_RELEASE:
+            # === 정지 해제 - 가속 + 도깨비불 상태 적용 ===
+            ball.vx = self.original_ball_vx * 1.3
+            ball.vy = self.original_ball_vy * 1.3
+            game_state['ball_on_fire'] = True
+            game_state['dokkaebi_ball'] = True
+            game_state['hell_fire_phase'] = self.PHASE_ACTIVE
+
+            self.phase = self.PHASE_ACTIVE
+            self.phase_timer = 0.0
+            self.dokkaebi_time = 0
+            print(f"[HellFire] RELEASE → ACTIVE 전환 (도깨비불 시작)")
+
+        elif self.phase == self.PHASE_ACTIVE:
+            # === 도깨비불 활성 상태 (기존 로직) ===
+            self.flame_intensity = max(0, self.flame_intensity - dt * 0.3)
+
+            self.dokkaebi_time = getattr(self, 'dokkaebi_time', 0) + dt
+
+            # 사인파 기반 곡선 움직임
+            wave_intensity = 150
+            wave_speed = 8
+            curve_force = math.sin(self.dokkaebi_time * wave_speed) * wave_intensity * dt
+            ball.vx += curve_force
+
+            # 간헐적 급격한 방향 전환 (10% 확률)
+            if random.random() < 0.10:
+                angle_change = random.uniform(-0.3, 0.3)
+                cos_a = math.cos(angle_change)
+                sin_a = math.sin(angle_change)
+                new_vx = ball.vx * cos_a - ball.vy * sin_a
+                new_vy = ball.vx * sin_a + ball.vy * cos_a
+                ball.vx = new_vx
+                ball.vy = new_vy
+
+            # 불꽃 파티클
+            if random.random() < 0.5:
+                self.fire_particles.append({
+                    'x': ball.x + random.uniform(-10, 10),
+                    'y': ball.y + random.uniform(-10, 10),
+                    'vx': random.uniform(-30, 30),
+                    'vy': random.uniform(-80, -20),
+                    'life': 0.5,
+                    'size': random.uniform(4, 10)
+                })
+
+            # 파티클 업데이트
+            for p in self.fire_particles:
+                p['x'] += p['vx'] * dt
+                p['y'] += p['vy'] * dt
+                p['life'] -= dt
+                p['size'] *= 0.95
+            self.fire_particles = [p for p in self.fire_particles if p['life'] > 0]
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['ball_on_fire'] = False
-        game_state['dokkaebi_ball'] = False  # 도깨비불 이미지 비활성화
+        game_state['dokkaebi_ball'] = False
+        game_state['hell_fire_freeze'] = False
+        game_state['hell_fire_phase'] = self.PHASE_NONE
         self.fire_particles = []
-        self.dokkaebi_time = 0  # 타이머 리셋
+        self.dokkaebi_time = 0
+        self.phase = self.PHASE_NONE
+
+    def reset(self):
+        super().reset()
+        self.phase = self.PHASE_NONE
+        self.phase_timer = 0.0
+        self.glitch_timer = 0.0
+        self.glitch_lines = []
+        self.fire_particles = []
+        self.flame_intensity = 0
 
     def reset_for_new_round(self, game_state: dict):
-        """라운드 전환 시 지옥불 스킬 강제 종료"""
+        """라운드 전환 시 도깨비불 스킬 강제 종료"""
         super().reset_for_new_round(game_state)
         game_state['ball_on_fire'] = False
         game_state['dokkaebi_ball'] = False
+        game_state['hell_fire_freeze'] = False
+        game_state['hell_fire_phase'] = self.PHASE_NONE
+        self.phase = self.PHASE_NONE
         self.fire_particles = []
         self.flame_intensity = 0
         self.dokkaebi_time = 0
+        self.glitch_timer = 0.0
+        self.glitch_lines = []
+        print("[HellFire] 라운드 전환 - 도깨비불 초기화")
+
+    def _draw_dokkaebi_face(self, screen: pygame.Surface, bx: int, by: int):
+        """공 위에 반투명 도깨비 얼굴을 글리치하게 그리기"""
+        face_size = 50  # 얼굴 크기
+        face_surf = pygame.Surface((face_size * 2, face_size * 2), pygame.SRCALPHA)
+        cx, cy = face_size, face_size  # 중심
+
+        # 도깨비 색상 (푸른 불빛)
+        base_alpha = int(255 * self.face_alpha_pulse)
+        face_color = (80, 200, 255, min(255, int(base_alpha * 0.4)))  # 반투명
+        eye_color = (255, 100, 50, min(255, int(base_alpha * 0.7)))  # 붉은 눈
+        horn_color = (100, 220, 255, min(255, int(base_alpha * 0.5)))
+
+        # === 뿔 (2개) ===
+        # 왼쪽 뿔
+        pygame.draw.polygon(face_surf, horn_color, [
+            (cx - 18, cy - 15),
+            (cx - 24, cy - 38),
+            (cx - 10, cy - 18),
+        ])
+        # 오른쪽 뿔
+        pygame.draw.polygon(face_surf, horn_color, [
+            (cx + 18, cy - 15),
+            (cx + 24, cy - 38),
+            (cx + 10, cy - 18),
+        ])
+
+        # === 얼굴 윤곽 (둥근 사각) ===
+        pygame.draw.ellipse(face_surf, face_color,
+                           (cx - 22, cy - 16, 44, 36))
+
+        # === 눈 (무서운 삼각형 눈) ===
+        # 왼쪽 눈
+        pygame.draw.polygon(face_surf, eye_color, [
+            (cx - 16, cy - 4),
+            (cx - 6, cy - 10),
+            (cx - 6, cy + 2),
+        ])
+        # 오른쪽 눈
+        pygame.draw.polygon(face_surf, eye_color, [
+            (cx + 16, cy - 4),
+            (cx + 6, cy - 10),
+            (cx + 6, cy + 2),
+        ])
+
+        # === 입 (크게 벌린 입 - 톱니 모양) ===
+        mouth_color = (60, 180, 255, min(255, int(base_alpha * 0.6)))
+        teeth_color = (255, 255, 255, min(255, int(base_alpha * 0.5)))
+        # 입 배경
+        pygame.draw.ellipse(face_surf, mouth_color,
+                           (cx - 14, cy + 6, 28, 12))
+        # 이빨 (톱니)
+        for tx in range(-10, 11, 5):
+            pygame.draw.polygon(face_surf, teeth_color, [
+                (cx + tx - 2, cy + 6),
+                (cx + tx + 2, cy + 6),
+                (cx + tx, cy + 10),
+            ])
+
+        # === 글리치 효과 적용 ===
+        glitched_surf = pygame.Surface((face_size * 2, face_size * 2), pygame.SRCALPHA)
+
+        # 글리치 라인별 수평 이동
+        for y_line in range(face_size * 2):
+            # 기본 복사
+            glitch_offset = 0
+            for gl in self.glitch_lines:
+                if abs(y_line - (face_size + gl['y_offset'])) < gl['height']:
+                    glitch_offset = gl['x_shift']
+                    break
+
+            # 라인 복사 + 오프셋
+            if glitch_offset != 0:
+                for x_px in range(face_size * 2):
+                    src_x = x_px - glitch_offset
+                    if 0 <= src_x < face_size * 2:
+                        color = face_surf.get_at((src_x, y_line))
+                        if color[3] > 0:
+                            glitched_surf.set_at((x_px, y_line), color)
+            else:
+                # 오프셋 없으면 원본 그대로
+                glitched_surf.blit(face_surf, (0, y_line),
+                                  (0, y_line, face_size * 2, 1))
+
+        # === RGB 분리 효과 (크로마틱 어버레이션) ===
+        if random.random() < 0.4:
+            rgb_offset = random.randint(1, 3)
+            rgb_surf = pygame.Surface((face_size * 2, face_size * 2), pygame.SRCALPHA)
+            # 빨간 채널 오프셋
+            rgb_surf.blit(glitched_surf, (rgb_offset, 0))
+            rgb_surf.fill((255, 0, 0, 30), special_flags=pygame.BLEND_RGBA_MULT)
+            screen.blit(rgb_surf, (bx - face_size + rgb_offset, by - face_size),
+                       special_flags=pygame.BLEND_ADD)
+
+        # 메인 얼굴 그리기
+        screen.blit(glitched_surf, (bx - face_size, by - face_size),
+                   special_flags=pygame.BLEND_ADD)
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
-        if self.is_active:
-            # 화면 푸른 틴트 (도깨비불)
+        if not self.is_active:
+            return
+
+        bx, by = int(self.ball_x), int(self.ball_y)
+
+        # === 정지 중 이펙트 ===
+        if self.phase == self.PHASE_FREEZE:
+            # 어두운 푸른 오버레이 (맥동)
+            darkness = pygame.Surface((760, 750), pygame.SRCALPHA)
+            pulse = 0.5 + 0.3 * math.sin(self.glitch_timer * 8)
+            darkness.fill((0, 10, 30, int(180 * pulse)))
+            screen.blit(darkness, (0, 0))
+
+            # === 도깨비 얼굴 (공 위에, 반투명 + 글리치) ===
+            self._draw_dokkaebi_face(screen, bx, by)
+
+            # 공 주변 불꽃 아우라 (정지 중에도 희미하게)
+            aura_size = 25 + int(8 * math.sin(self.glitch_timer * 6))
+            aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
+            aura_alpha = int(60 * pulse)
+            pygame.draw.circle(aura_surf, (80, 200, 255, aura_alpha),
+                              (aura_size, aura_size), aura_size)
+            screen.blit(aura_surf, (bx - aura_size, by - aura_size),
+                       special_flags=pygame.BLEND_ADD)
+
+            # 간헐적 화면 글리치 라인 (화면 전체)
+            if random.random() < 0.15:
+                gy = random.randint(0, 750)
+                gh = random.randint(1, 4)
+                glitch_bar = pygame.Surface((760, gh), pygame.SRCALPHA)
+                glitch_bar.fill((80, 200, 255, random.randint(20, 60)))
+                screen.blit(glitch_bar, (random.randint(-5, 5), gy))
+
+        # === 도깨비불 활성 상태 이펙트 ===
+        elif self.phase == self.PHASE_ACTIVE:
+            # 화면 푸른 틴트
             if self.flame_intensity > 0:
                 overlay = pygame.Surface((760, 750), pygame.SRCALPHA)
-                overlay.fill((50, 150, 255, int(30 * self.flame_intensity)))  # 푸른색
+                overlay.fill((50, 150, 255, int(30 * self.flame_intensity)))
                 screen.blit(overlay, (0, 0))
 
-            # 도깨비불 파티클 (푸른색/청록색)
+            # 도깨비불 파티클
             for p in self.fire_particles:
                 if p['size'] > 1:
-                    # 도깨비불 색상 (하늘색 -> 청록색 -> 연두색)
                     life_ratio = p['life'] / 0.5
                     r = int(100 * life_ratio)
                     g = int(220 * life_ratio)
