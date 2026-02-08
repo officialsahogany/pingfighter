@@ -1644,6 +1644,8 @@ class GuardWarriorSystem:
             skill.is_active = True
 
         if result:
+            # 스킬 사운드 재생
+            self._play_skill_sound(result)
             # 상태 효과를 game_state에 적용 (try_use_skill과 동일한 로직)
             self._apply_status_effects(result, target_paddle)
 
@@ -1660,6 +1662,18 @@ class GuardWarriorSystem:
             self._bubble_top = bubble_data
         else:
             self._bubble_bottom = bubble_data
+
+    def _play_skill_sound(self, result):
+        """스킬 결과에서 사운드 키를 꺼내 재생"""
+        if not result:
+            return
+        sound_key = result.get('sound')
+        if sound_key:
+            try:
+                from managers.sound_manager import get_sound_manager
+                get_sound_manager().play_sound(sound_key, 'skill')
+            except Exception:
+                pass
 
     def _apply_status_effects(self, result, target_paddle):
         """스킬 결과에서 상태 효과를 game_state에 적용"""
@@ -2093,15 +2107,16 @@ class ColosseumsArena:
         }
         self._generate_bracket()
 
-        # 누적 상금 시스템
+        # 상금 시스템 (라운드별 고정 상금, 비누적)
         self.entry_fee = 500                    # 입장료
         self.entry_fee_paid = False             # 입장료 지불 여부
-        self.accumulated_prize = 0              # 누적 상금
-        self.round_prizes = {                   # 라운드별 보상
-            TournamentRound.QUARTER_FINAL: 500,
-            TournamentRound.SEMI_FINAL: 1000,
-            TournamentRound.FINAL: 2000,
+        self.accumulated_prize = 0              # 현재 획득 상금
+        self.round_prizes = {                   # 라운드별 상금 (이기면 이 금액을 획득)
+            TournamentRound.QUARTER_FINAL: 1000,
+            TournamentRound.SEMI_FINAL: 2000,
+            TournamentRound.FINAL: 3000,
         }
+        self.recruited_hero = None              # 우승 시 등용한 호위무사 (인게임용)
 
         # 배팅 정보
         self.selected_match: Optional[Match] = None
@@ -2726,8 +2741,9 @@ class ColosseumsArena:
             self.ball
         )
 
-        # 스킬이 성공적으로 발동되면 말풍선 표시
+        # 스킬이 성공적으로 발동되면 사운드 재생 + 말풍선 표시
         if result and 'skill_korean_name' in result:
+            self._play_skill_sound(result)
             is_top = result.get('caster_is_top', caster_paddle.is_top)
             self.show_speech_bubble(is_top, result['skill_korean_name'])
 
@@ -2745,8 +2761,9 @@ class ColosseumsArena:
                 self.bottom_paddle,
                 self.ball
             )
-            # 스킬 발동 시 말풍선 표시
+            # 스킬 발동 시 사운드 재생 + 말풍선 표시
             if result and 'skill_korean_name' in result:
+                self._play_skill_sound(result)
                 self.show_speech_bubble(True, result['skill_korean_name'])
 
         # 하단 영웅 스킬
@@ -2758,8 +2775,9 @@ class ColosseumsArena:
                 self.top_paddle,
                 self.ball
             )
-            # 스킬 발동 시 말풍선 표시
+            # 스킬 발동 시 사운드 재생 + 말풍선 표시
             if result and 'skill_korean_name' in result:
+                self._play_skill_sound(result)
                 self.show_speech_bubble(False, result['skill_korean_name'])
 
     def show_speech_bubble(self, is_top: bool, skill_name: str):
@@ -2941,17 +2959,17 @@ class ColosseumsArena:
 
         self.selected_match.set_result(winner, self.score_top, self.score_bottom)
 
-        # 누적 상금 시스템 - 승패 결과 처리
+        # 상금 시스템 - 승패 결과 처리
         if self.bet_hero:
             if winner == self.bet_hero:
-                # 승리 - 라운드 보상 누적
+                # 승리 - 해당 라운드 상금 획득 (비누적, 교체)
                 round_prize = self.round_prizes.get(self.current_round, 0)
-                self.accumulated_prize += round_prize
-                self.total_winnings = self.accumulated_prize  # 동기화
+                self.accumulated_prize = round_prize
+                self.total_winnings = round_prize
             else:
-                # 패배 - 누적 상금 전액 몰수
+                # 패배 - 입장료만 잃음
                 self.accumulated_prize = 0
-                self.total_winnings = -self.entry_fee  # 입장료만 잃음 (이미 지불했으므로)
+                self.total_winnings = -self.entry_fee
 
         # 나머지 경기 자동 결정 (랜덤)
         self._auto_decide_remaining_matches()
@@ -3249,12 +3267,29 @@ class ColosseumsArena:
             self.result_display_timer = 0
 
         elif self.state == TournamentState.VICTORY_CELEBRATION:
-            # 축하 화면 클릭 → 3초 이후 바로 상금 수령 및 퇴장
+            # 축하 화면 - 보상 선택 (3초 이후)
             if getattr(self, 'victory_timer', 0) >= 3.0:
-                self.total_winnings = self.accumulated_prize
-                self.winnings_collected = True
-                self.exit_requested = True
-                return
+                center_x = SCREEN_WIDTH // 2
+                btn_w, btn_h = 260, 55
+                btn_y = 610
+
+                # 상금 수령 버튼
+                gold_rect = pygame.Rect(center_x - btn_w - 15, btn_y, btn_w, btn_h)
+                if gold_rect.collidepoint(mx, my):
+                    prize = self.round_prizes.get(TournamentRound.FINAL, 3000)
+                    self.total_winnings = prize
+                    self.winnings_collected = True
+                    self.exit_requested = True
+                    return
+
+                # 호위무사 등용 버튼
+                hero_rect = pygame.Rect(center_x + 15, btn_y, btn_w, btn_h)
+                if hero_rect.collidepoint(mx, my):
+                    self.recruited_hero = self.bet_hero
+                    self.total_winnings = 0
+                    self.winnings_collected = True
+                    self.exit_requested = True
+                    return
 
         elif self.state == TournamentState.TOURNAMENT_END:
             # 토너먼트 종료 UI 클릭 처리 (그리기 좌표와 동일하게)
@@ -3302,14 +3337,15 @@ class ColosseumsArena:
 
             # 상금 정보 (버튼 위)
             if self.fonts and "medium" in self.fonts and btn_fade > 0.3:
-                info_alpha = int(255 * btn_fade)
-                acc_text = f"누적 상금: {self.accumulated_prize}G"
-                surf, _ = self.fonts["medium"].render(acc_text, (int(100 * btn_fade), int(255 * btn_fade), int(100 * btn_fade)))
+                # 다음 라운드 승리 시 상금
+                next_prize = self.round_prizes.get(self.current_round, 0)
+                prize_text = f"승리 시 {next_prize}G 획득!"
+                surf, _ = self.fonts["medium"].render(prize_text, (int(100 * btn_fade), int(255 * btn_fade), int(100 * btn_fade)))
                 self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, btn_y - 55))
 
                 # 경고
                 if "small" in self.fonts:
-                    warn_text = "패배 시 누적 상금을 모두 잃습니다!"
+                    warn_text = f"패배 시 입장료 {self.entry_fee}G를 잃습니다!"
                     surf, _ = self.fonts["small"].render(warn_text, (int(255 * btn_fade), int(180 * btn_fade), int(100 * btn_fade)))
                     warn_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
                     self._draw_warning_icon(warn_x - 12, btn_y - 30, 10)
@@ -3332,7 +3368,8 @@ class ColosseumsArena:
             pygame.draw.rect(btn_surf, (100, 100, 180, btn_alpha), (0, 0, btn_w, btn_h), border_radius=5)
             self.screen.blit(btn_surf, exit_rect.topleft)
             if self.fonts and "medium" in self.fonts:
-                surf, _ = self.fonts["medium"].render(f"{self.accumulated_prize}G 수령", (255, 255, 255))
+                exit_text = f"{self.accumulated_prize}G 수령" if self.accumulated_prize > 0 else "포기하고 나가기"
+                surf, _ = self.fonts["medium"].render(exit_text, (255, 255, 255))
                 btn_text_x = exit_rect.centerx - surf.get_width() // 2
                 self._draw_coin_icon(btn_text_x - 12, exit_rect.y + 15 + surf.get_height() // 2, 12)
                 self.screen.blit(surf, (btn_text_x, exit_rect.y + 15))
@@ -4357,15 +4394,50 @@ class ColosseumsArena:
                 surf.blit(alpha_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                 self.screen.blit(surf, (center_x - surf.get_width() // 2, champ_y + champ_h // 2 + 12))
 
-            # 상금
+            # "보상을 선택하세요" 안내
             if "medium" in self.fonts and text_fade > 0.6:
-                prize_text = f"획득 상금: {self.accumulated_prize}G"
-                surf, _ = self.fonts["medium"].render(prize_text, (100, 255, 100))
-                prize_alpha = int(255 * min(1.0, (text_fade - 0.6) * 3))
+                guide_alpha = int(255 * min(1.0, (text_fade - 0.6) * 3))
+                guide_text = "보상을 선택하세요!"
+                surf, _ = self.fonts["medium"].render(guide_text, (255, 215, 0))
                 alpha_s = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
-                alpha_s.fill((255, 255, 255, prize_alpha))
+                alpha_s.fill((255, 255, 255, guide_alpha))
                 surf.blit(alpha_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-                self.screen.blit(surf, (center_x - surf.get_width() // 2, 570))
+                self.screen.blit(surf, (center_x - surf.get_width() // 2, 555))
+
+        # === 보상 선택 버튼 (3초 후 표시) ===
+        if timer >= 3.0 and self.fonts:
+            btn_fade = min(1.0, (timer - 3.0) / 0.5)
+            btn_alpha = int(255 * btn_fade)
+            btn_w, btn_h = 260, 55
+            btn_y = 610
+
+            # 왼쪽: 상금 수령
+            gold_rect = pygame.Rect(center_x - btn_w - 15, btn_y, btn_w, btn_h)
+            gold_surf = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
+            pygame.draw.rect(gold_surf, (60, 140, 60, btn_alpha), (0, 0, btn_w, btn_h), border_radius=6)
+            pygame.draw.rect(gold_surf, (100, 255, 100, btn_alpha), (0, 0, btn_w, btn_h), 2, border_radius=6)
+            self.screen.blit(gold_surf, gold_rect.topleft)
+            if "medium" in self.fonts:
+                prize = self.round_prizes.get(TournamentRound.FINAL, 3000)
+                surf, _ = self.fonts["medium"].render(f"{prize}G 수령", (255, 255, 255))
+                self._draw_coin_icon(gold_rect.centerx - surf.get_width() // 2 - 14,
+                                     gold_rect.centery, 12)
+                self.screen.blit(surf, (gold_rect.centerx - surf.get_width() // 2,
+                                        gold_rect.centery - surf.get_height() // 2))
+
+            # 오른쪽: 호위무사 등용
+            hero_rect = pygame.Rect(center_x + 15, btn_y, btn_w, btn_h)
+            hero_surf = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
+            pygame.draw.rect(hero_surf, (140, 80, 40, btn_alpha), (0, 0, btn_w, btn_h), border_radius=6)
+            pygame.draw.rect(hero_surf, (255, 180, 80, btn_alpha), (0, 0, btn_w, btn_h), 2, border_radius=6)
+            self.screen.blit(hero_surf, hero_rect.topleft)
+            if "medium" in self.fonts:
+                recruit_text = f"{champion_name} 호위무사 등용"
+                surf, _ = self.fonts["medium"].render(recruit_text, (255, 220, 150))
+                self._draw_sword_icon(hero_rect.centerx - surf.get_width() // 2 - 14,
+                                      hero_rect.centery, 12, (255, 200, 100))
+                self.screen.blit(surf, (hero_rect.centerx - surf.get_width() // 2,
+                                        hero_rect.centery - surf.get_height() // 2))
 
         # === 컨페티 파티클 ===
         if intro > 0.6:
@@ -4404,11 +4476,11 @@ class ColosseumsArena:
                                                int(p['y']) - rotated.get_height() // 2))
             self.victory_confetti = alive
 
-        # === 하단 힌트 ===
-        if timer >= 3.0 and self.fonts and "small" in self.fonts:
+        # === 하단 힌트 (버튼 나오기 전) ===
+        if timer < 3.0 and timer > 1.5 and self.fonts and "small" in self.fonts:
             blink = abs(math.sin(self.animation_timer * 2)) * 155 + 100
-            surf, _ = self.fonts["small"].render("클릭하여 계속...", (int(blink), int(blink), int(blink)))
-            self.screen.blit(surf, (center_x - surf.get_width() // 2, 680))
+            surf, _ = self.fonts["small"].render("잠시 후 보상을 선택합니다...", (int(blink), int(blink), int(blink)))
+            self.screen.blit(surf, (center_x - surf.get_width() // 2, 690))
 
     def _draw_tournament_end_ui(self):
         """토너먼트 종료 UI - 누적 상금 시스템"""

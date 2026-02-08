@@ -150,7 +150,10 @@ class SoundManager:
             # 환경 사운드
             'ambient_menu': 'ambient_menu.wav',
             'ambient_battle': 'ambient_battle.wav',
-            'crowd_cheer': 'crowd_cheer.wav'
+            'crowd_cheer': 'crowd_cheer.wav',
+
+            # 투기장 영웅 스킬 사운드
+            'mooncut': 'mooncut.wav'
         }
         
         # 사운드 파일 로드 또는 생성

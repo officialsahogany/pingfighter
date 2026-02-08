@@ -263,7 +263,7 @@ class DarkSlash(HeroSkill):
             'screen_effect': ScreenEffect.FLASH,
             'flash_color': (200, 100, 255),
             'flash_duration': 0.08,
-            'sound': 'slash'
+            'sound': 'mooncut'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
