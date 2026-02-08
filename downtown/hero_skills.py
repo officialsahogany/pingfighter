@@ -2483,11 +2483,11 @@ class HellFire(HeroSkill):
     def _regenerate_glitch_lines(self):
         """글리치 라인 오프셋 재생성"""
         self.glitch_lines = []
-        for _ in range(random.randint(3, 7)):
+        for _ in range(random.randint(4, 9)):
             self.glitch_lines.append({
-                'y_offset': random.randint(-25, 25),
-                'x_shift': random.randint(-12, 12),
-                'height': random.randint(2, 6),
+                'y_offset': random.randint(-75, 75),
+                'x_shift': random.randint(-36, 36),
+                'height': random.randint(3, 12),
                 'color_shift': random.choice([(255, 50, 50), (50, 255, 50), (50, 50, 255)]),
             })
 
@@ -2605,7 +2605,7 @@ class HellFire(HeroSkill):
 
     def _draw_dokkaebi_face(self, screen: pygame.Surface, bx: int, by: int):
         """공 위에 반투명 도깨비 얼굴을 글리치하게 그리기"""
-        face_size = 50  # 얼굴 크기
+        face_size = 150  # 얼굴 크기 (3배)
         face_surf = pygame.Surface((face_size * 2, face_size * 2), pygame.SRCALPHA)
         cx, cy = face_size, face_size  # 중심
 
@@ -2618,33 +2618,33 @@ class HellFire(HeroSkill):
         # === 뿔 (2개) ===
         # 왼쪽 뿔
         pygame.draw.polygon(face_surf, horn_color, [
-            (cx - 18, cy - 15),
-            (cx - 24, cy - 38),
-            (cx - 10, cy - 18),
+            (cx - 54, cy - 45),
+            (cx - 72, cy - 114),
+            (cx - 30, cy - 54),
         ])
         # 오른쪽 뿔
         pygame.draw.polygon(face_surf, horn_color, [
-            (cx + 18, cy - 15),
-            (cx + 24, cy - 38),
-            (cx + 10, cy - 18),
+            (cx + 54, cy - 45),
+            (cx + 72, cy - 114),
+            (cx + 30, cy - 54),
         ])
 
         # === 얼굴 윤곽 (둥근 사각) ===
         pygame.draw.ellipse(face_surf, face_color,
-                           (cx - 22, cy - 16, 44, 36))
+                           (cx - 66, cy - 48, 132, 108))
 
         # === 눈 (무서운 삼각형 눈) ===
         # 왼쪽 눈
         pygame.draw.polygon(face_surf, eye_color, [
-            (cx - 16, cy - 4),
-            (cx - 6, cy - 10),
-            (cx - 6, cy + 2),
+            (cx - 48, cy - 12),
+            (cx - 18, cy - 30),
+            (cx - 18, cy + 6),
         ])
         # 오른쪽 눈
         pygame.draw.polygon(face_surf, eye_color, [
-            (cx + 16, cy - 4),
-            (cx + 6, cy - 10),
-            (cx + 6, cy + 2),
+            (cx + 48, cy - 12),
+            (cx + 18, cy - 30),
+            (cx + 18, cy + 6),
         ])
 
         # === 입 (크게 벌린 입 - 톱니 모양) ===
@@ -2652,13 +2652,13 @@ class HellFire(HeroSkill):
         teeth_color = (255, 255, 255, min(255, int(base_alpha * 0.5)))
         # 입 배경
         pygame.draw.ellipse(face_surf, mouth_color,
-                           (cx - 14, cy + 6, 28, 12))
+                           (cx - 42, cy + 18, 84, 36))
         # 이빨 (톱니)
-        for tx in range(-10, 11, 5):
+        for tx in range(-30, 33, 15):
             pygame.draw.polygon(face_surf, teeth_color, [
-                (cx + tx - 2, cy + 6),
-                (cx + tx + 2, cy + 6),
-                (cx + tx, cy + 10),
+                (cx + tx - 6, cy + 18),
+                (cx + tx + 6, cy + 18),
+                (cx + tx, cy + 30),
             ])
 
         # === 글리치 효과 적용 ===
@@ -2688,7 +2688,7 @@ class HellFire(HeroSkill):
 
         # === RGB 분리 효과 (크로마틱 어버레이션) ===
         if random.random() < 0.4:
-            rgb_offset = random.randint(1, 3)
+            rgb_offset = random.randint(3, 9)
             rgb_surf = pygame.Surface((face_size * 2, face_size * 2), pygame.SRCALPHA)
             # 빨간 채널 오프셋
             rgb_surf.blit(glitched_surf, (rgb_offset, 0))
@@ -2718,7 +2718,7 @@ class HellFire(HeroSkill):
             self._draw_dokkaebi_face(screen, bx, by)
 
             # 공 주변 불꽃 아우라 (정지 중에도 희미하게)
-            aura_size = 25 + int(8 * math.sin(self.glitch_timer * 6))
+            aura_size = 75 + int(24 * math.sin(self.glitch_timer * 6))
             aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
             aura_alpha = int(60 * pulse)
             pygame.draw.circle(aura_surf, (80, 200, 255, aura_alpha),
