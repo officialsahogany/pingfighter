@@ -153,8 +153,11 @@ class HeroPaddleRenderer:
             progress = 1.0 - (swing_timer / swing_dur)
             # sqrt로 빠른 공격 → 느린 복귀 커브, 최대 ~40도
             weapon_swing_angle = math.sin(math.sqrt(progress) * math.pi) * -0.7
+            # 연화 양팔 올려치기: 빠르게 올리고(-1) → 내리고(+1) → 복귀(0)
+            arm_slam = -math.sin(math.sqrt(progress) * math.pi * 2)
         else:
             weapon_swing_angle = 0.0
+            arm_slam = 0.0
 
         return {
             "wave": math.sin(step) * (1.0 + leg_intensity * 0.3) * stride_boost,
@@ -179,6 +182,8 @@ class HeroPaddleRenderer:
             "move_dir": move_dir,
             # 무기 스윙
             "weapon_swing_angle": weapon_swing_angle,
+            # 연화 양팔 올려치기
+            "arm_slam": arm_slam,
         }
 
     def draw_hero_paddle(self, screen: pygame.Surface, hero_id: str,
@@ -235,6 +240,7 @@ class HeroPaddleRenderer:
                 "side_blend": side_blend,
                 "move_dir": move_dir,
                 "weapon_swing_angle": anim.get("weapon_swing_angle", 0),
+                "arm_slam": anim.get("arm_slam", 0),
             }
         else:
             # 기존 미리보기 모드 (크게 표시)
@@ -2123,16 +2129,28 @@ class HeroPaddleRenderer:
                 ly = puff_y + puff_h // 2 + int(math.sin(angle) * puff_h * 0.4)
                 pygame.draw.circle(screen, p["lace"], (lx, ly), max(1, int(0.08 * b)))
 
-        # === 팔 + 마리오네트 실 (어깨 들썩임) ===
+        # === 팔 + 마리오네트 실 (어깨 들썩임 + 올려치기) ===
+        arm_slam = anim.get("arm_slam", 0)
+        # arm_slam: -1=양팔 위로, +1=양팔 아래로(내려치기), 0=기본
+        slam_offset_y = int(arm_slam * 1.2 * b)
+        # 내려치기 시 팔을 안쪽(중앙)으로 모으기
+        slam_inward = int(abs(arm_slam) * 0.3 * b) if arm_slam != 0 else 0
+
         for side in [-1, 1]:
             shoulder_bob_offset = int(shoulder_bob * 0.3 * b)
             shoulder = (cx + side * int(1.05 * b) + lean_offset, torso_y + int(0.15 * b) + shoulder_bob_offset)
-            elbow = (shoulder[0] + side * int(0.45 * b), torso_y + int(0.75 * b))
+            elbow = (shoulder[0] + side * int(0.45 * b) - side * slam_inward, torso_y + int(0.75 * b) + slam_offset_y)
             # 손 위치 (인형 조종 포즈)
-            hand_wave_x = math.sin(self.time * 2 + side) * 0.22 * b
-            hand_wave_y = math.cos(self.time * 2 + side) * 0.12 * b
-            wrist = (elbow[0] + side * int(0.35 * b) + int(hand_wave_x),
-                    torso_y + int(1.25 * b) + int(hand_wave_y))
+            if arm_slam != 0:
+                # 올려치기 중: 양손을 중앙 앞으로 모으기
+                hand_wave_x = 0
+                hand_wave_y = 0
+                wrist = (elbow[0] - side * int(0.15 * b), elbow[1] + int(0.5 * b) + slam_offset_y)
+            else:
+                hand_wave_x = math.sin(self.time * 2 + side) * 0.22 * b
+                hand_wave_y = math.cos(self.time * 2 + side) * 0.12 * b
+                wrist = (elbow[0] + side * int(0.35 * b) + int(hand_wave_x),
+                        torso_y + int(1.25 * b) + int(hand_wave_y))
 
             # 드레스 소매
             pygame.draw.line(screen, p["dress_dark"], (shoulder[0] + 1, shoulder[1] + 1), (elbow[0] + 1, elbow[1] + 1), max(3, int(0.48 * b)))
