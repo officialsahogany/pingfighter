@@ -942,6 +942,13 @@ try:
 except ImportError:
     ARENA_SKILLS_AVAILABLE = False
 
+# 투기장 영웅 상황 대사 시스템
+try:
+    from downtown.hero_dialogues import get_dialogue_manager
+except ImportError:
+    def get_dialogue_manager():
+        return None
+
 if _splash_screen:
     update_splash(0.40, "게임 로직 로딩 중...")
 
@@ -18407,16 +18414,21 @@ arena_bottom_speech_timer = 0        # 하단 영웅 말풍선 타이머
 ARENA_SPEECH_DURATION = 90           # 말풍선 표시 시간 (1.5초)
 
 
-def arena_show_speech_bubble(is_top: bool, skill_name: str):
-    """투기장 영웅 말풍선 표시"""
+def arena_show_speech_bubble(is_top: bool, skill_name: str, raw: bool = False):
+    """투기장 영웅 말풍선 표시
+
+    Args:
+        raw: True면 텍스트 그대로 표시 (대사용), False면 "!" 자동 추가 (스킬명용)
+    """
     global arena_top_speech_text, arena_top_speech_timer
     global arena_bottom_speech_text, arena_bottom_speech_timer
 
+    text = skill_name if raw else skill_name + "!"
     if is_top:
-        arena_top_speech_text = skill_name + "!"
+        arena_top_speech_text = text
         arena_top_speech_timer = ARENA_SPEECH_DURATION
     else:
-        arena_bottom_speech_text = skill_name + "!"
+        arena_bottom_speech_text = text
         arena_bottom_speech_timer = ARENA_SPEECH_DURATION
 
 # 투기장 스킬 사운드 캐시 및 재생
@@ -95587,6 +95599,11 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         except Exception:
             arena_skill_manager = None
 
+    # 영웅 상황 대사 시스템 초기화
+    _dlg_mgr = get_dialogue_manager()
+    if _dlg_mgr:
+        _dlg_mgr.reset()
+
     # ── 투기장 격리: 플레이어 캐릭터/아이템 상태를 임시 저장 후 초기화 ──
     # 1) 캐릭터 타입 저장 → 투기장에서는 "normal"로 설정 (스매셔 스킬/이펙트 차단)
     _saved_character_type = selected_character_type if 'selected_character_type' in globals() else "smasher"
@@ -132504,6 +132521,23 @@ def main(stage_num, new_boss_mode=False):
                                 arena_play_skill_sound(result)
                                 if 'skill_korean_name' in result:
                                     arena_show_speech_bubble(False, result['skill_korean_name'])
+                except Exception:
+                    pass
+
+                # 투기장 영웅 상황 대사 업데이트
+                try:
+                    _dlg = get_dialogue_manager()
+                    if _dlg and arena_top_hero and arena_bottom_hero:
+                        _dlg.update(
+                            top_hero_id=arena_top_hero["id"],
+                            bottom_hero_id=arena_bottom_hero["id"],
+                            score_top=round_losses,
+                            score_bottom=round_wins,
+                            win_goal=deuce_goal if deuce_mode else win_goal,
+                            speech_bubble_func=arena_show_speech_bubble,
+                            top_speech_timer=arena_top_speech_timer,
+                            bottom_speech_timer=arena_bottom_speech_timer,
+                        )
                 except Exception:
                     pass
 
