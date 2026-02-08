@@ -2760,6 +2760,7 @@ class HeroPaddleRenderer:
                 ], 0)
 
         # === 팔 (드래곤 비늘) - 발토르 스타일 어깨 들썩임 ===
+        _weapon_swing = anim.get("weapon_swing_angle", 0)
         for side in [-1, 1]:
             current_swing = left_arm_swing if side == -1 else right_arm_swing
             current_shoulder_bob = left_shoulder if side == -1 else right_shoulder
@@ -2767,8 +2768,15 @@ class HeroPaddleRenderer:
             # 어깨 들썩임
             shoulder_y_offset = int(current_shoulder_bob * 0.35 * b + shoulder_bob * 0.25 * b)
             shoulder = (cx + side * int(1.4 * b) + lean_offset, torso_y + int(0.25 * b) + shoulder_y_offset)
-            elbow = (shoulder[0] + side * int(0.55 * b) + arm_swing, torso_y + int(1.0 * b) + shoulder_y_offset)
-            wrist = (elbow[0] + side * int(0.45 * b) + int(arm_swing * 0.5), torso_y + int(1.6 * b) + int(shoulder_y_offset * 0.5))
+            # 오른팔 공 타격 시 안쪽으로 휘두르기
+            if side == 1 and _weapon_swing != 0:
+                swing_x = int(_weapon_swing * 2.5 * b)
+                swing_y = int(abs(_weapon_swing) * 0.8 * b)
+                elbow = (int(shoulder[0] + int(0.55 * b) + swing_x), torso_y + int(1.0 * b) + shoulder_y_offset - swing_y)
+                wrist = (int(elbow[0] + int(0.45 * b) + int(swing_x * 0.5)), torso_y + int(1.6 * b) + int(shoulder_y_offset * 0.5) - int(swing_y * 0.5))
+            else:
+                elbow = (shoulder[0] + side * int(0.55 * b) + arm_swing, torso_y + int(1.0 * b) + shoulder_y_offset)
+                wrist = (elbow[0] + side * int(0.45 * b) + int(arm_swing * 0.5), torso_y + int(1.6 * b) + int(shoulder_y_offset * 0.5))
 
             # 상완
             pygame.draw.line(screen, p["armor_shadow"], (shoulder[0] + 1, shoulder[1] + 1), (elbow[0] + 1, elbow[1] + 1), max(4, int(0.7 * b)))
