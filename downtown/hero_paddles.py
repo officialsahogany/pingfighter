@@ -2132,20 +2132,22 @@ class HeroPaddleRenderer:
         # === 팔 + 마리오네트 실 (어깨 들썩임 + 올려치기) ===
         arm_slam = anim.get("arm_slam", 0)
         # arm_slam: -1=양팔 위로, +1=양팔 아래로(내려치기), 0=기본
-        slam_offset_y = int(arm_slam * 1.2 * b)
-        # 내려치기 시 팔을 안쪽(중앙)으로 모으기
-        slam_inward = int(abs(arm_slam) * 0.3 * b) if arm_slam != 0 else 0
+        slam_active = abs(arm_slam) > 0.05
+        slam_offset_y = int(arm_slam * 3.0 * b)
+        slam_shoulder_y = int(arm_slam * 1.5 * b)
+        slam_inward = int(abs(arm_slam) * 0.5 * b) if slam_active else 0
 
         for side in [-1, 1]:
             shoulder_bob_offset = int(shoulder_bob * 0.3 * b)
-            shoulder = (cx + side * int(1.05 * b) + lean_offset, torso_y + int(0.15 * b) + shoulder_bob_offset)
-            elbow = (shoulder[0] + side * int(0.45 * b) - side * slam_inward, torso_y + int(0.75 * b) + slam_offset_y)
-            # 손 위치 (인형 조종 포즈)
-            if arm_slam != 0:
-                # 올려치기 중: 양손을 중앙 앞으로 모으기
-                hand_wave_x = 0
-                hand_wave_y = 0
-                wrist = (elbow[0] - side * int(0.15 * b), elbow[1] + int(0.5 * b) + slam_offset_y)
+            shoulder = (cx + side * int(1.05 * b) + lean_offset - side * slam_inward,
+                        torso_y + int(0.15 * b) + shoulder_bob_offset + slam_shoulder_y)
+            elbow = (shoulder[0] + side * int(0.3 * b) - side * slam_inward,
+                     shoulder[1] + int(0.6 * b) + slam_offset_y)
+            # 손 위치
+            if slam_active:
+                # 올려치기 중: 양손을 중앙으로 모으기
+                wrist = (elbow[0] - side * int(0.1 * b),
+                         elbow[1] + int(0.4 * b))
             else:
                 hand_wave_x = math.sin(self.time * 2 + side) * 0.22 * b
                 hand_wave_y = math.cos(self.time * 2 + side) * 0.12 * b
