@@ -3800,11 +3800,21 @@ class DollCurse(HeroSkill):
             screen.blit(aura_surf, (caster_center_x - aura_w // 2, caster_center_y - aura_h // 2))
 
             # 수호 인형들 (연화 좌우 150px에서 공을 막음) - 고퀄리티 부두 인형 스타일
+            # [DEBUG] 수호 인형 개수 확인
+            if hasattr(self, '_debug_guardian_count') is False or pygame.time.get_ticks() % 2000 < 20:
+                self._debug_guardian_count = True
+                print(f"[DEBUG DollCurse] guardian_dolls 개수: {len(self.guardian_dolls)}", flush=True)
+                for _di, _dg in enumerate(self.guardian_dolls):
+                    print(f"  [{_di}] x={_dg['x']:.0f} y={_dg['y']:.0f} spawn={_dg['spawn_progress']:.2f} side={_dg['side']}", flush=True)
             for g_idx, guardian in enumerate(self.guardian_dolls):
                 gx, gy = int(guardian['x']), int(guardian['y'])
                 spawn_alpha = min(1.0, guardian['spawn_progress'] * 1.5)  # 페이드인
                 base_alpha = int(255 * spawn_alpha)
                 time_tick = pygame.time.get_ticks()
+
+                # [DEBUG] 각 인형 그리기 시작
+                if time_tick % 2000 < 20:
+                    print(f"[DEBUG DollCurse] 인형 #{g_idx} 그리기: gx={gx} gy={gy} s={guardian['scale'] * spawn_alpha:.3f} spawn_alpha={spawn_alpha:.3f}", flush=True)
 
                 # 히트 플래시 효과
                 flash = guardian.get('hit_flash', 0)
@@ -3826,6 +3836,8 @@ class DollCurse(HeroSkill):
 
                 # 스폰 초기 스케일이 너무 작으면 건너뛰기 (Surface 0 크기 크래시 방지)
                 if s < 0.2:
+                    if time_tick % 2000 < 20:
+                        print(f"[DEBUG DollCurse] 인형 #{g_idx} SKIP (s={s:.3f} < 0.2)", flush=True)
                     continue
 
                 # === 등대 서치라이트 효과 (상대 영웅을 비춤) ===
@@ -4341,6 +4353,10 @@ class DollCurse(HeroSkill):
                     p_color = [(200, 60, 110), (180, 40, 90), (220, 80, 130)][pi % 3]
                     pygame.draw.circle(p_surf, (*p_color, p_alpha), (p_size, p_size), p_size)
                     screen.blit(p_surf, (px - p_size, py - p_size))
+
+            # [DEBUG] 수호 인형 루프 완료
+            if pygame.time.get_ticks() % 2000 < 20:
+                print(f"[DEBUG DollCurse] 수호 인형 루프 완료. 저주 인형 시작 (개수: {len(self.curse_dolls)})", flush=True)
 
             # 저주 인형들 (상대 영웅 주변에서 공전) - 고퀄리티 부두 인형
             time_tick = pygame.time.get_ticks()
