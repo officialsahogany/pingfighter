@@ -65454,7 +65454,6 @@ def store_arena_top_active_item(item_data):
 
     # 아이템 획득 효과 표시
     show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
-    print(f"[Arena] 상단 영웅 아이템 획득: {item_data['name']}")
 
 
 def _arena_top_hero_collect_items():
@@ -65565,7 +65564,6 @@ def _apply_arena_top_item_effect(effect_name):
             "projectile_type": effect_name  # 투사체 종류 구분 (색상/이펙트용)
         }
         arena_top_grenades.append(grenade)
-        print(f"[Arena] 상단 영웅 {effect_name} 발사!")
 
         # 효과음
         try:
@@ -65597,7 +65595,6 @@ def _apply_arena_top_item_effect(effect_name):
             "is_from_top": True
         }
         arena_top_bananas.append(banana)
-        print(f"[Arena] 상단 영웅 바나나 투척!")
 
     elif effect_name == "wall":
         # 상단 영웅 벽돌: BOSS 패들 아래(상단 진영)에 직접 설치
@@ -65615,7 +65612,6 @@ def _apply_arena_top_item_effect(effect_name):
             play_active_item_sound()
         except Exception:
             pass
-        print(f"[Arena] 상단 영웅 벽돌 설치! (BOSS 영역)")
 
     elif effect_name == "stopwatch":
         # 스탑워치: 공 속도 감소 효과
@@ -65623,7 +65619,6 @@ def _apply_arena_top_item_effect(effect_name):
             activate_stopwatch()
         except Exception:
             pass
-        print(f"[Arena] 상단 영웅 스탑워치 사용!")
 
     elif effect_name == "pandora_box":
         # 판도라 상자: 랜덤 효과
@@ -65631,11 +65626,10 @@ def _apply_arena_top_item_effect(effect_name):
             activate_pandora_box()
         except Exception:
             pass
-        print(f"[Arena] 상단 영웅 판도라 상자 사용!")
 
     elif effect_name in ["gauge_boost", "gauge_charge"]:
         # 게이지 아이템은 상단 영웅에게 의미 없음 - 소비만
-        print(f"[Arena] 상단 영웅 게이지 아이템 소비")
+        pass
 
     elif effect_name == "holy_barrier":
         # 상단 영웅 홀리베리어: 화면 하단 배리어 생성
@@ -65643,7 +65637,6 @@ def _apply_arena_top_item_effect(effect_name):
             activate_holy_barrier(None, current_stage, WIDTH, HEIGHT)
         except Exception:
             pass
-        print(f"[Arena] 상단 영웅 홀리베리어 사용!")
 
     elif effect_name in ["long_paddle", "long_boost"]:
         # 상단 영웅 거대화포션: 패들 확장 효과 발동
@@ -65651,7 +65644,6 @@ def _apply_arena_top_item_effect(effect_name):
             activate_long_boost()
         except Exception:
             pass
-        print(f"[Arena] 상단 영웅 거대화포션 사용!")
 
     elif effect_name == "vitamin_pill":
         # 상단 영웅 비타민약: 이동속도 증가 효과 발동
@@ -65659,15 +65651,14 @@ def _apply_arena_top_item_effect(effect_name):
             activate_vitamin_pill()
         except Exception:
             pass
-        print(f"[Arena] 상단 영웅 비타민약 사용!")
 
     elif effect_name in ["aipill", "life_elixir", "repair_kit", "regeneration_potion", "devil_dice"]:
         # 유틸리티 아이템: 상단 영웅에게 의미 없음 - 소비만
-        print(f"[Arena] 상단 영웅 아이템 소비: {effect_name}")
+        pass
 
     else:
         # 기타 아이템 소비
-        print(f"[Arena] 상단 영웅 아이템 소비: {effect_name}")
+        pass
 
 
 def _update_arena_top_projectiles():
@@ -65715,9 +65706,6 @@ def _update_arena_top_projectiles():
                 knockback_dir = 1 if PLAYER.centerx > explosion_x else -1
                 player_knockback_vel = knockback_dir * 15
 
-                _ptype = grenade.get("projectile_type", "grenade")
-                print(f"[Arena] 상단 영웅 {_ptype} 폭발! 플레이어 피격!")
-
             # 폭발 이펙트 (source="arena_top"으로 보스 스턴 방지, 시각 효과만)
             try:
                 trigger_grenade_style_explosion(
@@ -65749,7 +65737,6 @@ def _update_arena_top_projectiles():
             if banana_rect.colliderect(PLAYER):
                 # 미끄러짐 효과
                 player_knockback_vel = random.choice([-20, 20])
-                print("[Arena] 상단 영웅 바나나에 미끄러짐!")
                 continue  # 바나나 제거
 
             new_bananas.append(banana)
@@ -92688,7 +92675,6 @@ def run_downtown_hub(next_stage_display: int) -> bool:
 
         # 투기장 입장 시 (start_arena_battle이 이미 호출됨)
         if result and result.get('arena_entry', False):
-            print("[Arena] 투기장 배틀 시작!")
             # 맵 시드 유지 (투기장 후 돌아올 때 같은 맵 사용)
             return True  # 다음 스테이지(투기장)로 진행
 
@@ -125715,10 +125701,8 @@ def show_result(won):
     if arena_mode_enabled:
         # 이미 결과가 설정되어 있으면 중복 호출 방지
         if arena_battle_result is not None:
-            print(f"[Arena] show_result 중복 호출 무시 (이미 결과 설정됨: {arena_battle_result})")
             return
         arena_battle_result = won  # True=하단(플레이어AI) 승리, False=상단 승리
-        print(f"[Arena] show_result 호출: won={won}, arena_battle_result={arena_battle_result}")
         return
 
     stop_blacksmith_construction_sound()
@@ -130916,8 +130900,6 @@ def main(stage_num, new_boss_mode=False):
             for other_item in arena_top_active_item_slot:
                 if other_item is not None:
                     other_item["last_use"] = now_ms
-
-            print(f"[Arena] 상단 영웅 아이템 사용: {effect_name}")
 
         if arena_mode_enabled:
             _arena_top_ai_try_use_active_item()

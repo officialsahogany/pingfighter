@@ -257,8 +257,6 @@ class DarkSlash(HeroSkill):
         # 화면 정지 플래그 설정
         game_state['dark_slash_freeze'] = True
         game_state['dark_slash_phase'] = self.PHASE_SLASH
-        print(f"[DarkSlash] 스킬 발동! freeze=True, phase=SLASH, ball=({ball.x:.0f},{ball.y:.0f})")
-
         return {
             'screen_effect': ScreenEffect.FLASH,
             'flash_color': (200, 100, 255),
@@ -278,7 +276,6 @@ class DarkSlash(HeroSkill):
                 self.phase = self.PHASE_FREEZE
                 self.phase_timer = 0.0
                 game_state['dark_slash_phase'] = self.PHASE_FREEZE
-                print(f"[DarkSlash] SLASH → FREEZE 전환 (1초 정지 시작)")
 
         elif self.phase == self.PHASE_FREEZE:
             # 화면 정지 (1초)
@@ -296,7 +293,6 @@ class DarkSlash(HeroSkill):
                 self.phase_timer = 0.0
                 game_state['dark_slash_freeze'] = False
                 game_state['dark_slash_phase'] = self.PHASE_RELEASE
-                print(f"[DarkSlash] FREEZE → RELEASE 전환 (1초 정지 종료, freeze=False)")
 
         elif self.phase == self.PHASE_RELEASE:
             # 정지 해제 - Y축 돌진 위주 가속 + 반격 (Y 방향 반전)
@@ -321,7 +317,6 @@ class DarkSlash(HeroSkill):
             game_state['dark_slash_spin_strength'] = 2.2  # 더 강한 스핀으로 "꺾이는" 느낌 강화
             game_state['dark_slash_spin_direction'] = spin_direction
 
-            print(f"[DarkSlash] Y축 돌진 + 커브! vx={ball.vx:.1f}, vy={ball.vy:.1f}, spin={spin_direction}, caster_is_top={self.caster_is_top}")
 
             self.dark_slash_active = True
             game_state['dark_slash_active'] = True
@@ -379,7 +374,6 @@ class DarkSlash(HeroSkill):
         game_state['dark_slash_freeze'] = False
         game_state['dark_slash_active'] = False
         game_state['dark_slash_phase'] = self.PHASE_NONE
-        print("[DarkSlash] 라운드 전환 - 달빛 베기 초기화")
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['dark_slash_freeze'] = False
@@ -536,8 +530,6 @@ class DemonEye(HeroSkill):
         # [DEBUG] 귀신발걸음 발동 시점 X좌표 확인
         _paddle_x = getattr(caster_paddle, 'x', 'N/A')
         _paddle_centerx = getattr(caster_paddle, 'centerx', 'N/A')
-        print(f"[GhostStep ACTIVATE] is_top={caster_paddle.is_top}, paddle.x={_paddle_x}, paddle.centerx={_paddle_centerx}")
-
         # 이동속도 50% 증가 (1.5배)
         speed_key = 'top_paddle_speed_boost' if caster_paddle.is_top else 'bottom_paddle_speed_boost'
         game_state[speed_key] = 1.5  # 50% 증가 = 1.5배
@@ -552,15 +544,12 @@ class DemonEye(HeroSkill):
         # AIPaddleController는 직접 호출, PaddleWrapper는 플래그로 전달
         if hasattr(caster_paddle, 'start_ghost_step'):
             caster_paddle.start_ghost_step()
-            print(f"[GhostStep] 귀신발걸음 y축 이동 직접 호출 성공!")
         else:
             # PaddleWrapper인 경우 game_state 플래그로 전달
             if caster_paddle.is_top:
                 game_state['ghost_step_start_top'] = True
-                print(f"[GhostStep] 상단 귀신발걸음 플래그 설정!")
             else:
                 game_state['ghost_step_start_bottom'] = True
-                print(f"[GhostStep] 하단 귀신발걸음 플래그 설정!")
 
         # 오오라 파티클 초기화
         self.aura_particles = []
@@ -574,8 +563,6 @@ class DemonEye(HeroSkill):
                 'alpha': random.randint(100, 200)
             })
 
-        print(f"[GhostStep] 귀신발걸음 발동! 이동속도 1.5배 + 패들 20% 확대, 1회 왕복 후 종료")
-
         return {
             'screen_effect': ScreenEffect.FLASH,
             'flash_color': (150, 50, 200),
@@ -588,7 +575,6 @@ class DemonEye(HeroSkill):
         if game_state.get('ghost_step_force_end', False):
             game_state['ghost_step_force_end'] = False
             self.active_timer = 0  # 스킬 타이머 즉시 만료 → _end_effect 호출됨
-            print(f"[GhostStep] 1회 왕복 완료 → 스킬 강제 종료")
             return
 
         self.aura_timer += dt
@@ -608,7 +594,6 @@ class DemonEye(HeroSkill):
         game_state[size_key] = 1.0
         game_state['demon_eye_active'] = False
         self.aura_particles = []
-        print(f"[GhostStep] 귀신발걸음 종료")
 
     def reset_for_new_round(self, game_state: dict):
         """라운드 전환 시 귀신발걸음 이펙트 초기화"""
@@ -621,7 +606,6 @@ class DemonEye(HeroSkill):
         game_state['top_paddle_size_boost'] = 1.0
         game_state['bottom_paddle_size_boost'] = 1.0
         game_state['demon_eye_active'] = False
-        print("[GhostStep] 라운드 전환 - 귀신발걸음 초기화")
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if self.is_active:

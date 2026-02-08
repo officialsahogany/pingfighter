@@ -930,7 +930,6 @@ class BallSpawnAnimation:
         else:
             # 애니메이션 완료
             if not self.completed:
-                print(f"[DEBUG] 애니메이션 완료! elapsed={self.elapsed_time:.3f}s")
                 self.completed = True  # 완료 플래그 설정
             self.active = False
             self.ball_visible = True
@@ -1319,7 +1318,6 @@ def start_ball_spawn_animation(is_player_serve: bool, player_y: float, boss_y: f
     """공 생성 애니메이션 시작"""
     anim = get_ball_spawn_animation()
     anim.start(is_player_serve, player_y, boss_y)
-    print(f"[DEBUG] 애니메이션 시작 후 상태: active={anim.active}, elapsed_time={anim.elapsed_time}, TOTAL={anim.TOTAL_DURATION}")
 
 
 def update_ball_spawn_animation(dt: float):

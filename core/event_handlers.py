@@ -186,7 +186,6 @@ class EventHandlers:
         """다이얼로그 표시 이벤트 처리"""
         dialog_type = event.data.get('type')
         title = event.data.get('title')
-        print(f"다이얼로그 표시: {title} ({dialog_type})")
         
     def handle_dialog_hidden(self, event):
         """다이얼로그 숨김 이벤트 처리"""

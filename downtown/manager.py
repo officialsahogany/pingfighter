@@ -334,9 +334,7 @@ class DowntownManager:
 
         # 맵 생성 (저장된 시드가 있으면 사용, 없으면 랜덤 생성)
         saved_map_seed = self.player_data.get('downtown_map_seed', None)
-        print(f"[DEBUG 광장초기화] player_data에서 읽은 downtown_map_seed = {saved_map_seed}")
         self.downtown_map = DowntownMap(stage_number, seed=saved_map_seed)
-        print(f"[DEBUG 광장초기화] 생성된 맵 시드 = {self.downtown_map.seed}, 건물 수 = {len(self.downtown_map.buildings)}")
         # 생성된 시드를 player_data에 저장 (세이브 시 사용)
         self.player_data['downtown_map_seed'] = self.downtown_map.seed
 
