@@ -3206,7 +3206,22 @@ class HornCharge(HeroSkill):
                                          (radius + 5, radius + 5), radius, 5)
                         screen.blit(ring_surf, (int(center_x - radius - 5), int(center_y - radius - 5)))
 
-        # 스턴 별 표시는 pingfighter.py의 _draw_arena_stun_stars()에서 통합 처리 (중복 방지)
+        # 스턴 표시 (별 아이콘) - 뿔 박치기 전용
+        if self.phase == self.PHASE_STUN and self.stun_applied:
+            stun_x = target_paddle.x + 40
+            stun_y = target_paddle.y - 30
+            stun_time = self.phase_timer * 5
+
+            for i in range(3):
+                angle = stun_time + i * (2 * math.pi / 3)
+                star_x = stun_x + math.cos(angle) * 25
+                star_y = stun_y + math.sin(angle) * 10
+                # 별 모양
+                star_surf = pygame.Surface((20, 20), pygame.SRCALPHA)
+                pygame.draw.polygon(star_surf, (255, 255, 100, 200), [
+                    (10, 0), (12, 7), (20, 7), (14, 12), (16, 20), (10, 15), (4, 20), (6, 12), (0, 7), (8, 7)
+                ])
+                screen.blit(star_surf, (int(star_x - 10), int(star_y - 10)))
 
 
 # ============================================================================

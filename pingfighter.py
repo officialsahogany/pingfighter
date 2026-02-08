@@ -89643,9 +89643,11 @@ def draw_objects():
                                  (star_size * 1.5, star_size * 1.5), star_size)
                 SCREEN.blit(glow_surface, (star_x - star_size * 1.5, star_y - star_size * 1.5))
 
-        if _arena_top_stun:
+        # 뿔 박치기 활성 중에는 HornChargeSkill.draw()가 자체 별을 그리므로 중복 방지
+        _horn_active = _arena_gs.get('horn_charge_active', False)
+        if _arena_top_stun and not _horn_active:
             _draw_arena_stun_stars(BOSS, is_top=True)
-        if _arena_bot_stun:
+        if _arena_bot_stun and not _horn_active:
             _draw_arena_stun_stars(PLAYER, is_top=False)
 
         # 🐙 투기장 촉수 휘감기 둔화 이펙트 (눈물샤워와 동일한 물결 효과)
