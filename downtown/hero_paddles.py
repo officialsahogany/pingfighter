@@ -212,6 +212,8 @@ class HeroPaddleRenderer:
             "weapon_swing_angle": weapon_swing_angle,
             # 연화 양팔 올려치기
             "arm_slam": arm_slam,
+            # 키르케 중력조작 지팡이 펼침
+            "staff_hold_outward": state.get("staff_hold_outward", False),
         }
 
     def draw_hero_paddle(self, screen: pygame.Surface, hero_id: str,
@@ -1190,11 +1192,17 @@ class HeroPaddleRenderer:
             pygame.draw.circle(screen, p["gold"], (shoulder_x, shoulder_y), max(1, int(0.08 * b)))
 
         # === 팔 (로브 소매 + 어깨 들썩임) ===
+        _staff_outward = anim.get("staff_hold_outward", False)
         for side in [-1, 1]:
             shoulder_bob_offset = int(shoulder_bob * 0.3 * b)
             shoulder = (cx + side * int(1.2 * b) + lean_offset, torso_y + int(0.3 * b) + shoulder_bob_offset)
-            elbow = (shoulder[0] + side * int(0.5 * b), torso_y + int(1.0 * b))
-            wrist = (elbow[0] + side * int(0.4 * b) + int(wave * side * 0.1 * b), torso_y + int(1.6 * b))
+            # 중력조작 시전 중 왼팔(지팡이 없는 손)을 머리 위로 번쩍 올림
+            if _staff_outward and side == -1:
+                elbow = (shoulder[0] - int(0.3 * b), torso_y - int(1.8 * b))
+                wrist = (elbow[0] - int(0.2 * b), torso_y - int(3.0 * b))
+            else:
+                elbow = (shoulder[0] + side * int(0.5 * b), torso_y + int(1.0 * b))
+                wrist = (elbow[0] + side * int(0.4 * b) + int(wave * side * 0.1 * b), torso_y + int(1.6 * b))
 
             # 상완
             pygame.draw.line(screen, p["robe"], shoulder, elbow, max(3, int(0.55 * b)))
