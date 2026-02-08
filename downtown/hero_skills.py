@@ -580,7 +580,7 @@ class DemonEye(HeroSkill):
             'screen_effect': ScreenEffect.FLASH,
             'flash_color': (150, 50, 200),
             'flash_duration': 0.15,
-            'sound': 'dark_magic'
+            'sound': 'ghostwalk'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
@@ -2620,7 +2620,7 @@ class HornCharge(HeroSkill):
             'screen_effect': ScreenEffect.FLASH,
             'flash_color': (255, 100, 50),
             'flash_duration': 0.1,
-            'sound': 'charge'
+            'sound': 'horncharge'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):

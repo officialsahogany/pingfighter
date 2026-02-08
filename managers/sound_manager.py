@@ -153,7 +153,9 @@ class SoundManager:
             'crowd_cheer': 'crowd_cheer.wav',
 
             # 투기장 영웅 스킬 사운드
-            'mooncut': 'mooncut.wav'
+            'mooncut': 'mooncut.wav',
+            'ghostwalk': 'ghostwalk.wav',
+            'horncharge': 'horncharge.wav'
         }
         
         # 사운드 파일 로드 또는 생성
