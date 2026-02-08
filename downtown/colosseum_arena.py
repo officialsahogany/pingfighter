@@ -1960,8 +1960,6 @@ class GuardWarriorSystem:
                 frame_surf = pygame.Surface((frame_w, frame_h), pygame.SRCALPHA)
                 pygame.draw.rect(frame_surf, bg_color, frame_surf.get_rect(), border_radius=8)
                 pygame.draw.rect(frame_surf, border_color, frame_surf.get_rect(), width=2, border_radius=8)
-                hl_rect = pygame.Rect(4, 3, frame_w - 8, 6)
-                pygame.draw.rect(frame_surf, (240, 242, 248, 120), hl_rect, border_radius=3)
                 screen.blit(frame_surf, (frame_x_right, slot_cy))
 
                 # 영웅 캐릭터 이미지 (프레임 중앙 정렬)
@@ -2020,8 +2018,6 @@ class GuardWarriorSystem:
                 frame_surf = pygame.Surface((frame_w, frame_h), pygame.SRCALPHA)
                 pygame.draw.rect(frame_surf, bg_color, frame_surf.get_rect(), border_radius=8)
                 pygame.draw.rect(frame_surf, border_color, frame_surf.get_rect(), width=2, border_radius=8)
-                hl_rect = pygame.Rect(4, 3, frame_w - 8, 6)
-                pygame.draw.rect(frame_surf, (240, 242, 248, 120), hl_rect, border_radius=3)
                 screen.blit(frame_surf, (frame_x_left, slot_cy))
 
                 # 영웅 캐릭터 이미지 (프레임 중앙 정렬)
