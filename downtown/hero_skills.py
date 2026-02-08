@@ -2515,6 +2515,15 @@ class HellFire(HeroSkill):
                 self.phase_timer = 0.0
                 game_state['hell_fire_freeze'] = False
                 game_state['hell_fire_phase'] = self.PHASE_RELEASE
+                # 도깨비불 메인 사운드 재생
+                try:
+                    import os
+                    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    hfm_path = os.path.join(project_root, "sounds", "hellfiremain.wav")
+                    if os.path.exists(hfm_path):
+                        pygame.mixer.Sound(hfm_path).play()
+                except Exception:
+                    pass
                 print(f"[HellFire] FREEZE → RELEASE 전환 (1초 정지 종료)")
 
         elif self.phase == self.PHASE_RELEASE:
