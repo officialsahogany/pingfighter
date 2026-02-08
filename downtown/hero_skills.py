@@ -4205,7 +4205,7 @@ class DragonBreath(HeroSkill):
 
         return {
             'screen_effect': ScreenEffect.FIRE,
-            'sound': 'dragon_roar'
+            'sound': 'firebreath'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
