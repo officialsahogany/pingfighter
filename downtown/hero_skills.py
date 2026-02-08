@@ -6894,6 +6894,15 @@ class IllusionShuriken(HeroSkill):
                 # 히트!
                 shuriken['active'] = False
 
+                # 수리검 히트 사운드 재생
+                try:
+                    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    hit_path = os.path.join(project_root, "sounds", "shurikenhit.wav")
+                    if os.path.exists(hit_path):
+                        pygame.mixer.Sound(hit_path).play()
+                except Exception:
+                    pass
+
                 # 넉백 방향 결정 (수리검 X 속도 방향, 0이면 랜덤)
                 if abs(shuriken['vx']) < 10:
                     knockback_dir = random.choice([-1, 1])
