@@ -778,6 +778,8 @@ class HeroPaddleRenderer:
             pygame.draw.circle(screen, p["body_dark"], (int(bx), int(by)), max(1, barn_size // 3))
 
         # === 팔 촉수 (양쪽, 더 역동적 + 어깨 들썩임) ===
+        _weapon_swing = anim.get("weapon_swing_angle", 0)
+        _hit_react = abs(_weapon_swing) / 0.7 if _weapon_swing != 0 else 0  # 0~1 반응 강도
         for side in [-1, 1]:
             shoulder_bob_offset = int(shoulder_bob * 0.3 * b)
             shoulder = (cx + side * int(1.4 * b) + lean_offset, torso_y + int(0.2 * b) + shoulder_bob_offset)
@@ -785,9 +787,13 @@ class HeroPaddleRenderer:
             # 팔 촉수 웨이브 (8개 세그먼트)
             arm_points = []
             for seg in range(8):
-                wave_x = math.sin(self.time * 5 + seg * 0.8) * 0.25 * b * (seg / 4)
-                wave_y = math.cos(self.time * 4 + seg * 0.6) * 0.15 * b
-                ax = shoulder[0] + side * seg * int(0.28 * b) + wave_x
+                # 공 타격 시 촉수 격렬 반응 (끝으로 갈수록 증폭)
+                react_amp = _hit_react * (seg / 7) * 3.0
+                wave_x = math.sin(self.time * 5 + seg * 0.8) * (0.25 + react_amp) * b * (seg / 4)
+                wave_y = math.cos(self.time * 4 + seg * 0.6) * (0.15 + react_amp * 0.6) * b
+                # 타격 시 촉수가 안쪽으로 움츠렸다 펴지는 효과
+                retract = _hit_react * (seg / 7) * 0.5 * b * side * _weapon_swing / abs(_weapon_swing) if _weapon_swing != 0 else 0
+                ax = shoulder[0] + side * seg * int(0.28 * b) + wave_x + retract
                 ay = shoulder[1] + seg * int(0.22 * b) + wave_y
                 arm_points.append((int(ax), int(ay)))
 
