@@ -2629,11 +2629,17 @@ class ColosseumsArena:
             # 패들 충돌 체크 + 스킬 발동
             if self.ball.check_paddle_collision(self.top_paddle):
                 self._on_ball_hit(self.selected_match.hero1["id"], self.top_paddle, self.bottom_paddle)
+                # 무기 휘두르기 애니메이션 트리거
+                if self.hero_paddle_renderer:
+                    self.hero_paddle_renderer.trigger_weapon_swing(self.selected_match.hero1["id"])
                 # 관중 반응 (약한 흥분)
                 if self.arena_pillar and hasattr(self.arena_pillar, 'trigger_excitement'):
                     self.arena_pillar.trigger_excitement(intensity=0.3, duration=0.5)
             if self.ball.check_paddle_collision(self.bottom_paddle):
                 self._on_ball_hit(self.selected_match.hero2["id"], self.bottom_paddle, self.top_paddle)
+                # 무기 휘두르기 애니메이션 트리거
+                if self.hero_paddle_renderer:
+                    self.hero_paddle_renderer.trigger_weapon_swing(self.selected_match.hero2["id"])
                 # 관중 반응 (약한 흥분)
                 if self.arena_pillar and hasattr(self.arena_pillar, 'trigger_excitement'):
                     self.arena_pillar.trigger_excitement(intensity=0.3, duration=0.5)

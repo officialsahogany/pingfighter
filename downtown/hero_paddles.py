@@ -19,6 +19,10 @@ class HeroPaddleRenderer:
     def update(self, dt: float):
         """애니메이션 업데이트"""
         self.time += dt
+        # 무기 스윙 타이머 감쇠
+        for state in self.hero_states.values():
+            if state.get("weapon_swing_timer", 0) > 0:
+                state["weapon_swing_timer"] = max(0, state["weapon_swing_timer"] - dt)
 
     def update_movement(self, hero_id: str, current_x: float, dt: float):
         """이동 상태 업데이트 - 관절 애니메이션 포함 (발토르 스타일 강화 + 옆모습 전환)"""
@@ -34,6 +38,8 @@ class HeroPaddleRenderer:
                 "body_bob": 0.0,
                 "move_dir": 0.0,      # 이동 방향 (-1=좌, 0=정지, 1=우)
                 "side_blend": 0.0,    # 옆모습 전환 비율 (0=정면, 1=완전 옆모습)
+                "weapon_swing_timer": 0.0,     # 남은 스윙 시간(초)
+                "weapon_swing_duration": 0.35, # 전체 스윙 시간
             }
 
         state = self.hero_states[hero_id]
@@ -86,8 +92,23 @@ class HeroPaddleRenderer:
                 "last_x": 0, "velocity": 0, "lean": 0, "step_phase": 0,
                 "shoulder_phase": 0, "arm_swing": 0, "head_tilt": 0, "body_bob": 0,
                 "move_dir": 0.0, "side_blend": 0.0,
+                "weapon_swing_timer": 0.0, "weapon_swing_duration": 0.35,
             }
         return self.hero_states[hero_id]
+
+    def trigger_weapon_swing(self, hero_id: str, duration: float = 0.35):
+        """공 타격 시 무기 휘두르기 애니메이션 트리거"""
+        state = self._get_state(hero_id)
+        if state["weapon_swing_timer"] <= 0:
+            state["weapon_swing_timer"] = duration
+            state["weapon_swing_duration"] = duration
+
+    def _rotate_point(self, px, py, pivot_x, pivot_y, angle):
+        """점 (px, py)을 pivot 기준으로 angle(라디안)만큼 회전"""
+        dx, dy = px - pivot_x, py - pivot_y
+        cos_a, sin_a = math.cos(angle), math.sin(angle)
+        return (pivot_x + int(dx * cos_a - dy * sin_a),
+                pivot_y + int(dx * sin_a + dy * cos_a))
 
     def _get_anim(self, state: dict) -> dict:
         """애니메이션 값 계산 (발토르 스타일 걷기 모션 + 옆걸음 강화)"""
@@ -125,6 +146,15 @@ class HeroPaddleRenderer:
         # 몸통 상하 움직임 - 약간 강화 (걷는 무게감)
         bob_boost = 1.0 + side_blend * 0.2
 
+        # 무기 스윙 각도 계산
+        swing_timer = state.get("weapon_swing_timer", 0)
+        swing_dur = state.get("weapon_swing_duration", 0.35)
+        if swing_timer > 0 and swing_dur > 0:
+            progress = 1.0 - (swing_timer / swing_dur)
+            weapon_swing_angle = math.sin(progress * math.pi) * 0.6  # 최대 ~34도
+        else:
+            weapon_swing_angle = 0.0
+
         return {
             "wave": math.sin(step) * (1.0 + leg_intensity * 0.3) * stride_boost,
             "lean": lean,
@@ -146,6 +176,8 @@ class HeroPaddleRenderer:
             # 옆모습 전환
             "side_blend": side_blend,
             "move_dir": move_dir,
+            # 무기 스윙
+            "weapon_swing_angle": weapon_swing_angle,
         }
 
     def draw_hero_paddle(self, screen: pygame.Surface, hero_id: str,
@@ -201,6 +233,7 @@ class HeroPaddleRenderer:
                 "shoulder_bob": anim.get("shoulder_bob", 0) * 0.4,
                 "side_blend": side_blend,
                 "move_dir": move_dir,
+                "weapon_swing_angle": anim.get("weapon_swing_angle", 0),
             }
         else:
             # 기존 미리보기 모드 (크게 표시)
@@ -489,46 +522,70 @@ class HeroPaddleRenderer:
             pygame.draw.rect(screen, p["sash"], headband_rect, border_radius=1)
             pygame.draw.rect(screen, p["sash_knot"], headband_rect, 1, border_radius=1)
 
-        # === 귀검 (보라색 검기 - 고퀄리티 효과) ===
+        # === 귀검 (보라색 검기 - 고퀄리티 효과 + 스윙 애니메이션) ===
+        swing_angle = anim.get("weapon_swing_angle", 0)
         sword_x = cx + int(2.2 * b) + lean_offset
         sword_top = head_y - int(0.8 * b)
         sword_bottom = cy + int(2.0 * b)
+        # 피벗 = 츠바(가드) 위치 = 손잡이 상단
+        pivot_x, pivot_y = sword_x, sword_bottom
 
-        # 검기 오라 (검 주변)
-        for i in range(4):
-            aura_offset = int(math.sin(self.time * 10 + i * 0.5) * 0.15 * b)
-            aura_surf = pygame.Surface((int(b), sword_bottom - sword_top + int(b)), pygame.SRCALPHA)
-            aura_alpha = 40 - i * 10
-            for y in range(0, sword_bottom - sword_top, 3):
-                wave_x = int(0.5 * b) + int(math.sin(self.time * 8 + y * 0.05) * 0.1 * b)
-                pygame.draw.circle(aura_surf, (*p["sword_glow"], aura_alpha), (wave_x, y), 2 + i)
-            screen.blit(aura_surf, (sword_x - int(0.5 * b), sword_top), special_flags=pygame.BLEND_ADD)
+        # 스윙 시 회전 적용할 좌표 계산
+        if swing_angle != 0:
+            r = self._rotate_point
+            r_top = r(sword_x, sword_top, pivot_x, pivot_y, swing_angle)
+            r_top_shadow = r(sword_x + 2, sword_top + 2, pivot_x, pivot_y, swing_angle)
+            r_bottom_shadow = r(sword_x + 2, sword_bottom + 2, pivot_x, pivot_y, swing_angle)
+            r_blade_tip = r(sword_x, sword_top - int(0.7 * b), pivot_x, pivot_y, swing_angle)
+            r_blade_l = r(sword_x - int(0.25 * b), sword_top + int(0.1 * b), pivot_x, pivot_y, swing_angle)
+            r_blade_r = r(sword_x + int(0.25 * b), sword_top + int(0.1 * b), pivot_x, pivot_y, swing_angle)
+            r_light_top = r(sword_x, sword_top - int(0.6 * b), pivot_x, pivot_y, swing_angle)
+            r_light_bot = r(sword_x, sword_top - int(0.2 * b), pivot_x, pivot_y, swing_angle)
+            r_hl_top = r(sword_x - 1, sword_top, pivot_x, pivot_y, swing_angle)
+            r_hl_bot = r(sword_x - 1, sword_bottom, pivot_x, pivot_y, swing_angle)
+        else:
+            r_top = (sword_x, sword_top)
+            r_top_shadow = (sword_x + 2, sword_top + 2)
+            r_bottom_shadow = (sword_x + 2, sword_bottom + 2)
+            r_blade_tip = (sword_x, sword_top - int(0.7 * b))
+            r_blade_l = (sword_x - int(0.25 * b), sword_top + int(0.1 * b))
+            r_blade_r = (sword_x + int(0.25 * b), sword_top + int(0.1 * b))
+            r_light_top = (sword_x, sword_top - int(0.6 * b))
+            r_light_bot = (sword_x, sword_top - int(0.2 * b))
+            r_hl_top = (sword_x - 1, sword_top)
+            r_hl_bot = (sword_x - 1, sword_bottom)
+
+        # 검기 오라 (스윙 중이 아닐 때만 - 빠른 동작이라 생략해도 무방)
+        if swing_angle == 0:
+            for i in range(4):
+                aura_surf = pygame.Surface((int(b), sword_bottom - sword_top + int(b)), pygame.SRCALPHA)
+                aura_alpha = 40 - i * 10
+                for y in range(0, sword_bottom - sword_top, 3):
+                    wave_x = int(0.5 * b) + int(math.sin(self.time * 8 + y * 0.05) * 0.1 * b)
+                    pygame.draw.circle(aura_surf, (*p["sword_glow"], aura_alpha), (wave_x, y), 2 + i)
+                screen.blit(aura_surf, (sword_x - int(0.5 * b), sword_top), special_flags=pygame.BLEND_ADD)
 
         # 검신 그림자
-        pygame.draw.line(screen, (60, 50, 80), (sword_x + 2, sword_top + 2), (sword_x + 2, sword_bottom + 2), max(2, int(0.3 * b)))
+        pygame.draw.line(screen, (60, 50, 80), r_top_shadow, r_bottom_shadow, max(2, int(0.3 * b)))
         # 검신 본체
-        pygame.draw.line(screen, p["sword_blade"], (sword_x, sword_top), (sword_x, sword_bottom), max(2, int(0.3 * b)))
+        pygame.draw.line(screen, p["sword_blade"], r_top, (pivot_x, pivot_y), max(2, int(0.3 * b)))
         # 검신 하이라이트
-        pygame.draw.line(screen, p["sword_edge"], (sword_x - 1, sword_top), (sword_x - 1, sword_bottom), 1)
+        pygame.draw.line(screen, p["sword_edge"], r_hl_top, r_hl_bot, 1)
 
         # 검날 (더 날카롭게)
-        blade_points = [
-            (sword_x, sword_top - int(0.7 * b)),
-            (sword_x - int(0.25 * b), sword_top + int(0.1 * b)),
-            (sword_x + int(0.25 * b), sword_top + int(0.1 * b)),
-        ]
+        blade_points = [r_blade_tip, r_blade_l, r_blade_r]
         pygame.draw.polygon(screen, p["sword_blade"], blade_points)
         pygame.draw.polygon(screen, p["sword_edge"], blade_points, 1)
         # 검날 빛
-        pygame.draw.line(screen, p["sword_core"], (sword_x, sword_top - int(0.6 * b)), (sword_x, sword_top - int(0.2 * b)), 1)
+        pygame.draw.line(screen, p["sword_core"], r_light_top, r_light_bot, 1)
 
-        # 츠바 (검 가드)
+        # 츠바 (검 가드) - 피벗 위치이므로 고정
         guard_y = sword_bottom
         pygame.draw.ellipse(screen, p["sword_guard"],
                           (sword_x - int(0.35 * b), guard_y - int(0.08 * b), int(0.7 * b), int(0.16 * b)))
         pygame.draw.ellipse(screen, p["kimono_gold"],
                           (sword_x - int(0.3 * b), guard_y - int(0.05 * b), int(0.6 * b), int(0.1 * b)))
-        # 손잡이
+        # 손잡이 (고정)
         pygame.draw.rect(screen, p["sword_hilt"], (sword_x - int(0.12 * b), guard_y + int(0.05 * b), int(0.24 * b), int(0.55 * b)))
         # 손잡이 감기
         for i in range(4):
@@ -1253,67 +1310,95 @@ class HeroPaddleRenderer:
             pygame.draw.ellipse(screen, p["lip_light"],
                               (face_rect.centerx - lip_w + 2, lip_y - lip_h // 2, lip_w * 2 - 4, lip_h - 2))
 
-        # === 시간의 지팡이 (모래시계 장식, 고퀄리티) ===
+        # === 시간의 지팡이 (모래시계 장식, 고퀄리티 + 스윙 애니메이션) ===
+        swing_angle = anim.get("weapon_swing_angle", 0)
         staff_x = cx + int(2.5 * b) + lean_offset
         staff_top = head_y - int(0.5 * b)
         staff_bottom = cy + int(2.8 * b)
+        # 피벗 = 지팡이 하단(손잡이)
+        pv_x, pv_y = staff_x, staff_bottom
+        rp = self._rotate_point
+
+        # 스윙 시 회전 좌표 계산
+        if swing_angle != 0:
+            r_top = rp(staff_x, staff_top, pv_x, pv_y, swing_angle)
+            r_top_shadow = rp(staff_x + 2, staff_top + 2, pv_x, pv_y, swing_angle)
+            r_bot_shadow = rp(staff_x + 2, staff_bottom + 2, pv_x, pv_y, swing_angle)
+            r_top_hl = rp(staff_x - 1, staff_top, pv_x, pv_y, swing_angle)
+            r_bot_hl = rp(staff_x - 1, staff_bottom, pv_x, pv_y, swing_angle)
+        else:
+            r_top = (staff_x, staff_top)
+            r_top_shadow = (staff_x + 2, staff_top + 2)
+            r_bot_shadow = (staff_x + 2, staff_bottom + 2)
+            r_top_hl = (staff_x - 1, staff_top)
+            r_bot_hl = (staff_x - 1, staff_bottom)
 
         # 지팡이 그림자
-        pygame.draw.line(screen, p["gold_shadow"], (staff_x + 2, staff_top + 2), (staff_x + 2, staff_bottom + 2), max(3, int(0.3 * b)))
+        pygame.draw.line(screen, p["gold_shadow"], r_top_shadow, r_bot_shadow, max(3, int(0.3 * b)))
         # 지팡이 본체
-        pygame.draw.line(screen, p["gold_dark"], (staff_x, staff_top), (staff_x, staff_bottom), max(3, int(0.28 * b)))
-        pygame.draw.line(screen, p["gold"], (staff_x - 1, staff_top), (staff_x - 1, staff_bottom), max(2, int(0.18 * b)))
+        pygame.draw.line(screen, p["gold_dark"], r_top, (pv_x, pv_y), max(3, int(0.28 * b)))
+        pygame.draw.line(screen, p["gold"], r_top_hl, r_bot_hl, max(2, int(0.18 * b)))
         # 지팡이 장식 링
         for ring_y in [staff_top + int(0.5 * b), staff_bottom - int(0.5 * b), (staff_top + staff_bottom) // 2]:
-            pygame.draw.circle(screen, p["gold_light"], (staff_x, ring_y), max(2, int(0.18 * b)))
-            pygame.draw.circle(screen, p["gold_dark"], (staff_x, ring_y), max(2, int(0.18 * b)), 1)
+            ring_pos = rp(staff_x, ring_y, pv_x, pv_y, swing_angle) if swing_angle != 0 else (staff_x, ring_y)
+            pygame.draw.circle(screen, p["gold_light"], ring_pos, max(2, int(0.18 * b)))
+            pygame.draw.circle(screen, p["gold_dark"], ring_pos, max(2, int(0.18 * b)), 1)
 
-        # 모래시계 장식 (더 정교함)
+        # 모래시계 장식 (더 정교함) - 피벗 기준 회전
         hourglass_y = staff_top - int(0.8 * b)
         hourglass_h = int(1.0 * b)
         hourglass_w = int(0.45 * b)
+        # 모래시계 중심 회전
+        hg_cx = staff_x
+        hg_cy = hourglass_y + hourglass_h // 2
+        if swing_angle != 0:
+            r_hg = rp(hg_cx, hg_cy, pv_x, pv_y, swing_angle)
+            hg_ox, hg_oy = r_hg[0] - hg_cx, r_hg[1] - hg_cy  # 오프셋
+        else:
+            hg_ox, hg_oy = 0, 0
 
         # 모래시계 프레임
-        pygame.draw.rect(screen, p["gold_dark"], (staff_x - hourglass_w, hourglass_y - int(0.1 * b), hourglass_w * 2, hourglass_h + int(0.2 * b)), 2)
+        frame_rect = (staff_x - hourglass_w + hg_ox, hourglass_y - int(0.1 * b) + hg_oy, hourglass_w * 2, hourglass_h + int(0.2 * b))
+        pygame.draw.rect(screen, p["gold_dark"], frame_rect, 2)
         # 상단 삼각형 (유리)
         pygame.draw.polygon(screen, p["clock_face"], [
-            (staff_x - hourglass_w + 3, hourglass_y),
-            (staff_x + hourglass_w - 3, hourglass_y),
-            (staff_x, hourglass_y + hourglass_h // 2 - 2),
+            (staff_x - hourglass_w + 3 + hg_ox, hourglass_y + hg_oy),
+            (staff_x + hourglass_w - 3 + hg_ox, hourglass_y + hg_oy),
+            (staff_x + hg_ox, hourglass_y + hourglass_h // 2 - 2 + hg_oy),
         ])
         # 하단 삼각형 (유리)
         pygame.draw.polygon(screen, p["clock_face"], [
-            (staff_x, hourglass_y + hourglass_h // 2 + 2),
-            (staff_x - hourglass_w + 3, hourglass_y + hourglass_h),
-            (staff_x + hourglass_w - 3, hourglass_y + hourglass_h),
+            (staff_x + hg_ox, hourglass_y + hourglass_h // 2 + 2 + hg_oy),
+            (staff_x - hourglass_w + 3 + hg_ox, hourglass_y + hourglass_h + hg_oy),
+            (staff_x + hourglass_w - 3 + hg_ox, hourglass_y + hourglass_h + hg_oy),
         ])
         # 모래 (상단 - 비워지는 중)
         sand_level = (self.time * 0.3) % 1
         sand_top_h = int((1 - sand_level) * hourglass_h * 0.35)
         if sand_top_h > 2:
             pygame.draw.polygon(screen, p["sand"], [
-                (staff_x - int(hourglass_w * 0.6), hourglass_y + 3),
-                (staff_x + int(hourglass_w * 0.6), hourglass_y + 3),
-                (staff_x, hourglass_y + 3 + sand_top_h),
+                (staff_x - int(hourglass_w * 0.6) + hg_ox, hourglass_y + 3 + hg_oy),
+                (staff_x + int(hourglass_w * 0.6) + hg_ox, hourglass_y + 3 + hg_oy),
+                (staff_x + hg_ox, hourglass_y + 3 + sand_top_h + hg_oy),
             ])
         # 모래 (하단 - 쌓이는 중)
         sand_bot_h = int(sand_level * hourglass_h * 0.35)
         if sand_bot_h > 2:
             sand_bot_y = hourglass_y + hourglass_h - 3 - sand_bot_h
             pygame.draw.polygon(screen, p["sand"], [
-                (staff_x, sand_bot_y),
-                (staff_x - int(hourglass_w * 0.5), hourglass_y + hourglass_h - 3),
-                (staff_x + int(hourglass_w * 0.5), hourglass_y + hourglass_h - 3),
+                (staff_x + hg_ox, sand_bot_y + hg_oy),
+                (staff_x - int(hourglass_w * 0.5) + hg_ox, hourglass_y + hourglass_h - 3 + hg_oy),
+                (staff_x + int(hourglass_w * 0.5) + hg_ox, hourglass_y + hourglass_h - 3 + hg_oy),
             ])
         # 떨어지는 모래 입자
         for i in range(3):
             sand_particle_y = hourglass_y + hourglass_h // 2 + int(((self.time * 2 + i * 0.3) % 1) * hourglass_h * 0.4)
-            pygame.draw.circle(screen, p["sand"], (staff_x, int(sand_particle_y)), 1)
+            pygame.draw.circle(screen, p["sand"], (staff_x + hg_ox, int(sand_particle_y) + hg_oy), 1)
 
         # 모래시계 글로우
         glow_surf = pygame.Surface((int(1.5 * b), int(1.8 * b)), pygame.SRCALPHA)
         pygame.draw.ellipse(glow_surf, (*p["glow"], int(30 * time_pulse)), (0, 0, int(1.5 * b), int(1.8 * b)))
-        screen.blit(glow_surf, (staff_x - int(0.75 * b), hourglass_y - int(0.2 * b)), special_flags=pygame.BLEND_ADD)
+        screen.blit(glow_surf, (staff_x - int(0.75 * b) + hg_ox, hourglass_y - int(0.2 * b) + hg_oy), special_flags=pygame.BLEND_ADD)
 
     # =========================================================================
     # 오니마루 - 지옥의 요괴무사 (뿔 달린 도깨비) [고퀄리티 업그레이드]
@@ -1756,54 +1841,83 @@ class HeroPaddleRenderer:
                 ]
                 pygame.draw.polygon(screen, p["fangs"], inner_fang)
 
-        # === 금봉 (쇠몽둥이, 고퀄리티) ===
+        # === 금봉 (쇠몽둥이, 고퀄리티 + 스윙 애니메이션) ===
+        swing_angle = anim.get("weapon_swing_angle", 0)
         club_x = cx + int(2.7 * b) + lean_offset
         club_top = head_y + int(0.6 * b)
         club_bottom = cy + int(2.8 * b)
+        # 피벗 = 자루 하단(손잡이)
+        pivot_x, pivot_y = club_x, club_bottom
+
+        # 스윙 시 회전 좌표 계산
+        if swing_angle != 0:
+            r = self._rotate_point
+            r_top = r(club_x, club_top, pivot_x, pivot_y, swing_angle)
+            r_top_shadow = r(club_x + 2, club_top + 2, pivot_x, pivot_y, swing_angle)
+            r_bot_shadow = r(club_x + 2, club_bottom + 2, pivot_x, pivot_y, swing_angle)
+            r_top_hl = r(club_x - 2, club_top, pivot_x, pivot_y, swing_angle)
+            r_bot_hl = r(club_x - 2, club_bottom, pivot_x, pivot_y, swing_angle)
+        else:
+            r_top = (club_x, club_top)
+            r_top_shadow = (club_x + 2, club_top + 2)
+            r_bot_shadow = (club_x + 2, club_bottom + 2)
+            r_top_hl = (club_x - 2, club_top)
+            r_bot_hl = (club_x - 2, club_bottom)
 
         # 몽둥이 자루 그림자
-        pygame.draw.line(screen, p["club_dark"], (club_x + 2, club_top + 2), (club_x + 2, club_bottom + 2), max(3, int(0.35 * b)))
+        pygame.draw.line(screen, p["club_dark"], r_top_shadow, r_bot_shadow, max(3, int(0.35 * b)))
         # 몽둥이 자루
-        pygame.draw.line(screen, p["club"], (club_x, club_top), (club_x, club_bottom), max(3, int(0.32 * b)))
-        pygame.draw.line(screen, p["club_light"], (club_x - 2, club_top), (club_x - 2, club_bottom), max(1, int(0.15 * b)))
+        pygame.draw.line(screen, p["club"], r_top, (pivot_x, pivot_y), max(3, int(0.32 * b)))
+        pygame.draw.line(screen, p["club_light"], r_top_hl, r_bot_hl, max(1, int(0.15 * b)))
 
         # 자루 장식 링
         for ring_y in [club_top + int(0.3 * b), (club_top + club_bottom) // 2, club_bottom - int(0.3 * b)]:
-            pygame.draw.circle(screen, p["armor_gold_dark"], (club_x, ring_y), max(2, int(0.2 * b)))
-            pygame.draw.circle(screen, p["armor_gold"], (club_x, ring_y), max(1, int(0.15 * b)))
+            ring_pos = self._rotate_point(club_x, ring_y, pivot_x, pivot_y, swing_angle) if swing_angle != 0 else (club_x, ring_y)
+            pygame.draw.circle(screen, p["armor_gold_dark"], ring_pos, max(2, int(0.2 * b)))
+            pygame.draw.circle(screen, p["armor_gold"], ring_pos, max(1, int(0.15 * b)))
 
-        # 몽둥이 머리 (타원형 + 스파이크)
+        # 몽둥이 머리 (타원형 + 스파이크) - 피벗 기준 회전
         club_head_y = club_top - int(0.65 * b)
         club_head_w = int(1.0 * b)
         club_head_h = int(1.1 * b)
+        club_head_cx = club_x
+        club_head_cy = club_head_y + club_head_h // 2
+
+        # 머리 중심 회전
+        if swing_angle != 0:
+            r_head_center = self._rotate_point(club_head_cx, club_head_cy, pivot_x, pivot_y, swing_angle)
+            r_head_y = r_head_center[1] - club_head_h // 2
+            r_head_cx = r_head_center[0]
+        else:
+            r_head_center = (club_head_cx, club_head_cy)
+            r_head_y = club_head_y
+            r_head_cx = club_head_cx
 
         # 머리 그림자
         pygame.draw.ellipse(screen, p["club_dark"],
-                          (club_x - club_head_w // 2 + 2, club_head_y + 2, club_head_w, club_head_h))
+                          (r_head_cx - club_head_w // 2 + 2, r_head_y + 2, club_head_w, club_head_h))
         # 머리 본체
-        pygame.draw.ellipse(screen, p["club"], (club_x - club_head_w // 2, club_head_y, club_head_w, club_head_h))
+        pygame.draw.ellipse(screen, p["club"], (r_head_cx - club_head_w // 2, r_head_y, club_head_w, club_head_h))
         # 하이라이트
-        inner_rect = (club_x - int(club_head_w * 0.35), club_head_y + int(0.15 * b), int(club_head_w * 0.7), int(club_head_h * 0.7))
+        inner_rect = (r_head_cx - int(club_head_w * 0.35), r_head_y + int(0.15 * b), int(club_head_w * 0.7), int(club_head_h * 0.7))
         pygame.draw.ellipse(screen, p["club_light"], inner_rect)
 
         # 금속 장식
         pygame.draw.ellipse(screen, p["club_metal"],
-                          (club_x - int(club_head_w * 0.3), club_head_y + int(0.2 * b), int(club_head_w * 0.6), int(club_head_h * 0.6)))
+                          (r_head_cx - int(club_head_w * 0.3), r_head_y + int(0.2 * b), int(club_head_w * 0.6), int(club_head_h * 0.6)))
         pygame.draw.ellipse(screen, p["club_metal_light"],
-                          (club_x - int(club_head_w * 0.2), club_head_y + int(0.25 * b), int(club_head_w * 0.35), int(club_head_h * 0.4)))
+                          (r_head_cx - int(club_head_w * 0.2), r_head_y + int(0.25 * b), int(club_head_w * 0.35), int(club_head_h * 0.4)))
 
-        # 스파이크 (6개, 더 크고 날카로움)
-        club_head_cx = club_x
-        club_head_cy = club_head_y + club_head_h // 2
+        # 스파이크 (6개, 더 크고 날카로움) - 회전된 머리 중심 기준
         for i in range(6):
             angle = i * math.pi / 3 + math.pi / 6
             spike_base_r = club_head_w // 2 - 2
             spike_len = int(0.4 * b)
 
-            spike_base_x = club_head_cx + int(math.cos(angle) * spike_base_r)
-            spike_base_y = club_head_cy + int(math.sin(angle) * spike_base_r * 0.9)
-            spike_tip_x = club_head_cx + int(math.cos(angle) * (spike_base_r + spike_len))
-            spike_tip_y = club_head_cy + int(math.sin(angle) * (spike_base_r + spike_len) * 0.9)
+            spike_base_x = r_head_center[0] + int(math.cos(angle) * spike_base_r)
+            spike_base_y = r_head_center[1] + int(math.sin(angle) * spike_base_r * 0.9)
+            spike_tip_x = r_head_center[0] + int(math.cos(angle) * (spike_base_r + spike_len))
+            spike_tip_y = r_head_center[1] + int(math.sin(angle) * (spike_base_r + spike_len) * 0.9)
 
             # 스파이크 (원뿔형)
             pygame.draw.circle(screen, p["club_metal_light"], (spike_tip_x, spike_tip_y), max(2, int(0.12 * b)))
