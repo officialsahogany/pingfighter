@@ -1111,11 +1111,11 @@ class GuardWarriorSystem:
         self.guard_warriors_top = list(guards_top) if guards_top else []
         self.guard_warriors_bottom = list(guards_bottom) if guards_bottom else []
 
-        # 쿨타임 초기화 (첫 등장은 약간 더 빠르게)
+        # 쿨타임 초기화 (게이지가 꽉 찬 상태에서 시작하도록 cooldown_range[1] 사용)
         if self.guard_warriors_top:
-            self.cooldown_top = random.uniform(*initial_delay)
+            self.cooldown_top = self.cooldown_range[1]
         if self.guard_warriors_bottom:
-            self.cooldown_bottom = random.uniform(*initial_delay)
+            self.cooldown_bottom = self.cooldown_range[1]
 
         # 애니메이션 상태 초기화
         self.active_top = None
@@ -1921,13 +1921,13 @@ class GuardWarriorSystem:
 
         # 캐릭터 렌더링용 소형 서피스 크기
         char_surf_w, char_surf_h = 80, 80
-        frame_w, frame_h = 70, 70
-        slot_h = 85  # 슬롯 간격 (이름 포함)
+        frame_w, frame_h = 58, 58
+        slot_h = 100  # 슬롯 간격 (이름 포함, 겹침 방지)
 
-        # UI 색상
-        bg_color = (15, 10, 25, 200)         # 어두운 남색 배경
-        border_color = (200, 170, 80, 220)   # 금색 테두리
-        label_bg = (10, 5, 20, 200)          # 이름 배경
+        # UI 색상 (불투명 - 필러 배경과 섞이지 않도록)
+        bg_color = (15, 10, 25, 255)         # 어두운 남색 배경 (불투명)
+        border_color = (200, 170, 80, 255)   # 금색 테두리 (불투명)
+        label_bg = (10, 5, 20, 255)          # 이름 배경 (불투명)
 
         # --- 상단 영웅의 호위무사 → 오른쪽 상단 필러 ---
         if right_pillar_w >= 30:
@@ -1943,9 +1943,9 @@ class GuardWarriorSystem:
                 pygame.draw.rect(frame_surf, border_color, frame_surf.get_rect(), width=2, border_radius=8)
                 screen.blit(frame_surf, (cx_right - frame_w // 2, slot_cy))
 
-                # 영웅 캐릭터 이미지
+                # 영웅 캐릭터 이미지 (프레임 중앙 정렬)
                 self._draw_guard_icon_character(
-                    screen, guard, cx_right, slot_cy + frame_h // 2 - 5,
+                    screen, guard, cx_right, slot_cy + frame_h // 2,
                     char_surf_w, char_surf_h, facing="down"
                 )
 
@@ -1987,9 +1987,9 @@ class GuardWarriorSystem:
                 pygame.draw.rect(frame_surf, border_color, frame_surf.get_rect(), width=2, border_radius=8)
                 screen.blit(frame_surf, (cx_left - frame_w // 2, slot_cy))
 
-                # 영웅 캐릭터 이미지
+                # 영웅 캐릭터 이미지 (프레임 중앙 정렬)
                 self._draw_guard_icon_character(
-                    screen, guard, cx_left, slot_cy + frame_h // 2 - 5,
+                    screen, guard, cx_left, slot_cy + frame_h // 2,
                     char_surf_w, char_surf_h, facing="down"
                 )
 
