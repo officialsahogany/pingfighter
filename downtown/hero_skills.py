@@ -4894,6 +4894,46 @@ class SteamBarrier(HeroSkill):
         self.energy_rings = []  # 확산 링 이펙트
         self.caster_center_x = 0
         self.caster_center_y = 0
+        # 배리어 충돌 플래시 이펙트
+        self.barrier_hit_flash_timer = 0.0
+        self.barrier_hit_flash_duration = 0.4
+        self.barrier_hit_x = 0  # 충돌 지점 X
+        self.barrier_hit_particles = []  # 충돌 스파클 파티클
+        self.barrier_hit_rings = []  # 충돌 확산 링
+
+    def _spawn_barrier_hit_flash(self, ball_x):
+        """배리어 충돌 시 플래시 + 스파클 파티클 생성"""
+        import random
+        self.barrier_hit_flash_timer = self.barrier_hit_flash_duration
+        self.barrier_hit_x = ball_x
+        # 충돌 지점에서 스파클 파티클 생성 (12~18개)
+        num_particles = random.randint(12, 18)
+        for _ in range(num_particles):
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(40, 160)
+            self.barrier_hit_particles.append({
+                'x': ball_x + random.uniform(-8, 8),
+                'y': self.barrier_y + random.uniform(-4, 4),
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed,
+                'life': random.uniform(0.2, 0.5),
+                'max_life': 0.5,
+                'size': random.uniform(2, 5),
+                'color_type': random.choice(['white', 'cyan', 'gold'])
+            })
+        # 충돌 지점 확산 링 2개 생성
+        self.barrier_hit_rings.append({
+            'x': ball_x, 'y': self.barrier_y,
+            'radius': 5, 'max_radius': 60,
+            'life': 0.35, 'max_life': 0.35,
+            'color': (220, 240, 255)
+        })
+        self.barrier_hit_rings.append({
+            'x': ball_x, 'y': self.barrier_y,
+            'radius': 3, 'max_radius': 40,
+            'life': 0.25, 'max_life': 0.25,
+            'color': (180, 220, 255)
+        })
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         # 배리어 위치 (영웅 패들보다 벽 쪽으로 더 뒤에 배치)
@@ -5067,6 +5107,23 @@ class SteamBarrier(HeroSkill):
             t['size'] *= 0.95
         self.holy_trail = [t for t in self.holy_trail if t['life'] > 0]
 
+        # 배리어 충돌 플래시 이펙트 업데이트
+        if self.barrier_hit_flash_timer > 0:
+            self.barrier_hit_flash_timer -= dt
+        # 충돌 스파클 파티클 업데이트
+        for p in self.barrier_hit_particles:
+            p['x'] += p['vx'] * dt
+            p['y'] += p['vy'] * dt
+            p['life'] -= dt
+            p['size'] *= 0.96
+        self.barrier_hit_particles = [p for p in self.barrier_hit_particles if p['life'] > 0]
+        # 충돌 확산 링 업데이트
+        for r in self.barrier_hit_rings:
+            r['life'] -= dt
+            progress = 1.0 - (r['life'] / r['max_life'])
+            r['radius'] = r['max_radius'] * progress
+        self.barrier_hit_rings = [r for r in self.barrier_hit_rings if r['life'] > 0]
+
         # 공 배리어 충돌 체크 (쿨다운 중이 아닐 때만)
         is_top = game_state.get('barrier_owner_is_top', True)
         if self.hit_cooldown <= 0:
@@ -5076,6 +5133,8 @@ class SteamBarrier(HeroSkill):
                     ball.vy = abs(ball.vy) * 1.4
                     self.hit_cooldown = self.hit_cooldown_max  # 중복 충돌 방지
                     game_state['screen_shake'] = 10
+                    # 배리어 충돌 플래시 이펙트
+                    self._spawn_barrier_hit_flash(ball.x + getattr(ball, 'width', 10) / 2)
                     # 성스러운 이펙트 활성화
                     self.holy_ball_active = True
                     self.holy_ball_timer = self.holy_ball_duration
@@ -5086,6 +5145,8 @@ class SteamBarrier(HeroSkill):
                     ball.vy = -abs(ball.vy) * 1.4
                     self.hit_cooldown = self.hit_cooldown_max  # 중복 충돌 방지
                     game_state['screen_shake'] = 10
+                    # 배리어 충돌 플래시 이펙트
+                    self._spawn_barrier_hit_flash(ball.x + getattr(ball, 'width', 10) / 2)
                     # 성스러운 이펙트 활성화
                     self.holy_ball_active = True
                     self.holy_ball_timer = self.holy_ball_duration
@@ -5106,6 +5167,10 @@ class SteamBarrier(HeroSkill):
         # 에너지 방출 이펙트 정리
         self.energy_particles = []
         self.energy_rings = []
+        # 충돌 플래시 이펙트 정리
+        self.barrier_hit_flash_timer = 0.0
+        self.barrier_hit_particles = []
+        self.barrier_hit_rings = []
 
     def reset_for_new_round(self, game_state: dict):
         """라운드 전환 시 스팀 배리어 및 성스러운 이펙트 강제 종료"""
@@ -5121,6 +5186,9 @@ class SteamBarrier(HeroSkill):
         self.holy_trail = []
         self.energy_particles = []
         self.energy_rings = []
+        self.barrier_hit_flash_timer = 0.0
+        self.barrier_hit_particles = []
+        self.barrier_hit_rings = []
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if self.is_active:
@@ -5141,6 +5209,58 @@ class SteamBarrier(HeroSkill):
                 pygame.draw.line(barrier_surf, (180, 200, 220, barrier_alpha),
                                (0, 4), (760, 4), 4)
                 screen.blit(barrier_surf, (0, int(self.barrier_y) - 4))
+
+            # === 배리어 충돌 플래시 이펙트 ===
+            if self.barrier_hit_flash_timer > 0:
+                flash_ratio = self.barrier_hit_flash_timer / self.barrier_hit_flash_duration
+                # 배리어 라인 전체가 밝게 번쩍 (충돌 직후 강하게 → 빠르게 감쇄)
+                flash_alpha = int(220 * flash_ratio)
+                if flash_alpha > 0:
+                    flash_surf = pygame.Surface((760, 14), pygame.SRCALPHA)
+                    pygame.draw.line(flash_surf, (230, 245, 255, flash_alpha),
+                                   (0, 7), (760, 7), 6)
+                    screen.blit(flash_surf, (0, int(self.barrier_y) - 7),
+                               special_flags=pygame.BLEND_ADD)
+                    # 충돌 지점 주변 집중 플래시 (더 밝고 넓게)
+                    cx = int(self.barrier_hit_x)
+                    local_alpha = int(255 * flash_ratio)
+                    local_w = 120
+                    local_surf = pygame.Surface((local_w, 20), pygame.SRCALPHA)
+                    pygame.draw.ellipse(local_surf, (255, 255, 255, local_alpha),
+                                       (0, 0, local_w, 20))
+                    screen.blit(local_surf, (cx - local_w // 2, int(self.barrier_y) - 10),
+                               special_flags=pygame.BLEND_ADD)
+
+            # 충돌 확산 링 그리기
+            for r in self.barrier_hit_rings:
+                ring_alpha = int(200 * (r['life'] / r['max_life']))
+                ring_radius = max(1, int(r['radius']))
+                if ring_alpha > 0:
+                    ring_size = ring_radius * 2 + 4
+                    ring_surf = pygame.Surface((ring_size, ring_size), pygame.SRCALPHA)
+                    rc = ring_radius + 2
+                    color = r['color']
+                    pygame.draw.circle(ring_surf, (*color, ring_alpha), (rc, rc), ring_radius, 2)
+                    screen.blit(ring_surf,
+                               (int(r['x']) - rc, int(r['y']) - rc),
+                               special_flags=pygame.BLEND_ADD)
+
+            # 충돌 스파클 파티클 그리기
+            for p in self.barrier_hit_particles:
+                p_alpha = int(255 * (p['life'] / p['max_life']))
+                p_size = max(1, int(p['size']))
+                if p_alpha <= 0 or p_size <= 0:
+                    continue
+                if p['color_type'] == 'white':
+                    color = (255, 255, 255, p_alpha)
+                elif p['color_type'] == 'cyan':
+                    color = (180, 230, 255, p_alpha)
+                else:  # gold
+                    color = (255, 220, 100, p_alpha)
+                p_surf = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(p_surf, color, (p_size, p_size), p_size)
+                screen.blit(p_surf, (int(p['x']) - p_size, int(p['y']) - p_size),
+                           special_flags=pygame.BLEND_ADD)
 
             # 톱니바퀴 장식 (화면 전체에 균등 배치: 5개)
             for x in [76, 228, 380, 532, 684]:
