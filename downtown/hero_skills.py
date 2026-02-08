@@ -1955,12 +1955,12 @@ class AbyssInk(HeroSkill):
 # 키르케 스킬 - 흑마녀 여성 (수비적)
 # ============================================================================
 class GravityControl(HeroSkill):
-    """중력조절 - 공을 무겁게 만들어 계속 아래로 끌어당김"""
+    """중력가속 - 공을 무겁게 만들어 계속 아래로 끌어당김"""
     def __init__(self):
         super().__init__(
             skill_id="gravity_control",
-            name="Gravity Control",
-            korean_name="중력조절",
+            name="Gravity Accel",
+            korean_name="중력가속",
             description="중력을 조작하여 공이 계속 아래로 끌려가게 만든다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=25.0,
@@ -2019,7 +2019,7 @@ class GravityControl(HeroSkill):
             'screen_effect': ScreenEffect.FLASH,
             'flash_color': (100, 80, 180),  # 보라색 플래시
             'flash_duration': 0.2,
-            'sound': 'gravity_shift'
+            'sound': 'gravityaccel'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
