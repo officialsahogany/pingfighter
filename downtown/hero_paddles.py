@@ -247,7 +247,7 @@ class HeroPaddleRenderer:
                 "arm_swing": anim["arm_swing"] * 0.6,
                 "left_arm_swing": anim.get("left_arm_swing", 0) * motion_scale,
                 "right_arm_swing": anim.get("right_arm_swing", 0) * motion_scale,
-                "body_bob": anim["body_bob"] * (0.15 + side_blend * 0.1),
+                "body_bob": 0,
                 "head_tilt": anim["head_tilt"] * 0.3,
                 "left_leg": anim["left_leg"] * motion_scale,
                 "right_leg": anim["right_leg"] * motion_scale,
