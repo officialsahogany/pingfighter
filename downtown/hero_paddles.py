@@ -288,8 +288,8 @@ class HeroPaddleRenderer:
                 y_offset = int(3.5 * base_b)  # 고정 오프셋 (28px)
                 cy = int(y) + y_offset
             else:
-                # 하단 영웅: 발이 패들 위치(바닥)에 붙도록
-                y_offset = int(2.0 * base_b)  # 고정 오프셋 (16px)
+                # 하단 영웅: 패들 위쪽에 캐릭터 그리기
+                y_offset = int(2.0 * base_b) - 30  # 고정 오프셋 (16px - 30px = -14px)
                 cy = int(y) + y_offset
         else:
             cy = int(y)
