@@ -22924,7 +22924,6 @@ def start_orb_spawn_animation():
     _orb_spawn_animation['right_particles'] = []
     _orb_spawn_animation['ring_expand'] = 0.0
     _orb_spawn_animation['sparkles'] = []
-    print("[ORB] spawn animation start")
 
 def update_orb_spawn_animation():
     """구슬 생성 애니메이션 업데이트"""
@@ -22944,7 +22943,6 @@ def update_orb_spawn_animation():
         _orb_spawn_animation['left_alpha'] = 255
         _orb_spawn_animation['right_scale'] = 1.0
         _orb_spawn_animation['right_alpha'] = 255
-        print("🔮 구슬 생성 애니메이션 완료")
         return
 
     # === 왼쪽 구슬 (스킬 게이지) - 먼저 시작 ===
@@ -23073,7 +23071,6 @@ def start_orb_collapse_animation():
     _orb_spawn_animation['left_alpha'] = 255
     _orb_spawn_animation['right_scale'] = 1.0
     _orb_spawn_animation['right_alpha'] = 255
-    print("[ORB] collapse animation start")
 
 def update_orb_collapse_animation():
     """구슬 접기 애니메이션 업데이트"""
@@ -23113,7 +23110,6 @@ def update_orb_collapse_animation():
         _orb_spawn_animation['left_alpha'] = 0
         _orb_spawn_animation['right_scale'] = 0.0
         _orb_spawn_animation['right_alpha'] = 0
-        print("[ORB] collapse animation complete")
 
 def is_orb_collapse_animation_active():
     """구슬 접기 애니메이션 활성 여부"""
@@ -117431,9 +117427,6 @@ def handle_ball():
                 speed_scale = (MAX_BALL_SPEED * 0.85) / current_total_speed
                 ball_vel[0] *= speed_scale
                 ball_vel[1] *= speed_scale
-                # 디버그 로그 (가끔만)
-                if pygame.time.get_ticks() % 120 < 16:  # 2초마다
-                    print(f"⚠️ 속도 안전 제한: {current_total_speed:.1f} → {MAX_BALL_SPEED * 0.85:.1f}")
             
             # 하프대쉬 효과 타이머 업데이트
             if half_dash_effect_timer > 0:
@@ -127995,7 +127988,6 @@ def main(stage_num, new_boss_mode=False):
         if _DEBUG_ANIM_VERBOSE:
             print(f"[DEBUG ANIM] 애니메이션 시작 완료: +{pygame.time.get_ticks() - _debug_anim_start_time}ms")
         # 사운드는 첫 렌더링 프레임에서 재생 (아래 게임 루프에서)
-        print(f"[BALL_SPAWN] animation start - serve: {'player' if is_player_serve else 'boss'}")
     else:
         ball_spawn_animation_active = False
         ball_spawn_animation_stage_start = False
@@ -128346,7 +128338,6 @@ def main(stage_num, new_boss_mode=False):
                     wait_delay = random.randint(500, 1000)  # 0.5~1초 딜레이
                     boss_fake_move = True
                     boss_fake_start_time = pygame.time.get_ticks()
-                print(f"🎮 공 생성 애니메이션 완료 - 서브 대기 (플레이어 서브: {is_player_serve}, wait_delay: {wait_delay})")
 
                 # 스테이지 8: 공 생성 애니메이션 완료 후 보스 대화 표시
                 if current_stage == 8 and not stage8_boss_dialogue_shown:
@@ -132140,7 +132131,7 @@ def main(stage_num, new_boss_mode=False):
 
             # [DEBUG] 귀신발걸음 중 X좌표 추적 - handle_player 후
             if _gs_x_before_handle is not None and abs(PLAYER.x - _gs_x_before_handle) > 30:
-                print(f"[GhostStep X JUMP in handle_player!] before={_gs_x_before_handle}, after={PLAYER.x}, diff={PLAYER.x - _gs_x_before_handle}")
+                pass
 
             update_blacksmith_hammer_shock(keys_now)
             update_blacksmith_turret()
@@ -132447,7 +132438,7 @@ def main(stage_num, new_boss_mode=False):
                         # [DEBUG] lock 처리 후 X좌표 변화 확인
                         if _demon_eye_active_for_lock and not _demon_eye_caster_is_top_for_lock:
                             if PLAYER.x != _player_x_before_lock:
-                                print(f"[GhostStep X DEBUG] LOCK 블록에서 X 변경! before={_player_x_before_lock}, after={PLAYER.x}, skip_bottom={_skip_bottom}")
+                                pass
 
                     # 👁️ 귀신발걸음 Y축 이동 업데이트 (끝까지 전진)
                     global arena_top_ghost_step_active, arena_top_ghost_step_original_y
@@ -132470,7 +132461,6 @@ def main(stage_num, new_boss_mode=False):
                                 arena_top_ghost_step_original_y = int(BOSS.y)
                                 arena_top_ghost_step_velocity = arena_top_ghost_step_speed  # 아래로
                                 arena_top_ghost_step_phase = 0  # 전진 페이즈
-                                print(f"[GhostStep DEBUG] 상단 영웅 Y축 전진 시작! 원위치={arena_top_ghost_step_original_y}")
 
                             # 페이즈에 따른 이동
                             max_y = HEIGHT - 50  # 화면 하단 끝
@@ -132482,7 +132472,6 @@ def main(stage_num, new_boss_mode=False):
                                 else:
                                     BOSS.y = max_y
                                     arena_top_ghost_step_phase = 1  # 복귀 페이즈로 전환
-                                    print(f"[GhostStep DEBUG] 상단 영웅 끝 도달! 복귀 시작")
                             else:
                                 # 복귀 페이즈: 빠르게 위로 이동
                                 new_y = int(BOSS.y - arena_top_ghost_step_return_speed)
@@ -132497,7 +132486,6 @@ def main(stage_num, new_boss_mode=False):
                                     arena_game_state['top_paddle_speed_boost'] = 1.0
                                     arena_game_state['top_paddle_size_boost'] = 1.0
                                     arena_game_state['ghost_step_force_end'] = True
-                                    print(f"[GhostStep DEBUG] 상단 영웅 1회 왕복 완료 → 귀신발걸음 종료")
                         else:
                             # 하단 영웅 귀신발걸음 Y축 이동 (위로 전진 → 복귀 반복)
                             if not arena_bottom_ghost_step_active:
@@ -132506,7 +132494,6 @@ def main(stage_num, new_boss_mode=False):
                                 arena_bottom_ghost_step_original_y = int(PLAYER.y)
                                 arena_bottom_ghost_step_velocity = -arena_bottom_ghost_step_speed  # 위로
                                 arena_bottom_ghost_step_phase = 0  # 전진 페이즈
-                                print(f"[GhostStep DEBUG] 하단 영웅 Y축 전진 시작! 원위치Y={arena_bottom_ghost_step_original_y}")
 
                             # 페이즈에 따른 이동
                             min_y = 50  # 화면 상단 끝
@@ -132518,7 +132505,6 @@ def main(stage_num, new_boss_mode=False):
                                 else:
                                     PLAYER.y = min_y
                                     arena_bottom_ghost_step_phase = 1  # 복귀 페이즈로 전환
-                                    print(f"[GhostStep DEBUG] 하단 영웅 끝 도달! 복귀 시작")
                             else:
                                 # 복귀 페이즈: 빠르게 아래로 이동
                                 new_y = int(PLAYER.y + arena_bottom_ghost_step_return_speed)
@@ -132533,19 +132519,16 @@ def main(stage_num, new_boss_mode=False):
                                     arena_game_state['bottom_paddle_speed_boost'] = 1.0
                                     arena_game_state['bottom_paddle_size_boost'] = 1.0
                                     arena_game_state['ghost_step_force_end'] = True
-                                    print(f"[GhostStep DEBUG] 하단 영웅 1회 왕복 완료 → 귀신발걸음 종료")
                     else:
                         # 귀신발걸음 종료 시 원위치 복귀 및 상태 초기화
                         if arena_top_ghost_step_active:
                             BOSS.y = int(arena_top_ghost_step_original_y)
                             arena_top_ghost_step_active = False
                             arena_top_ghost_step_phase = 0
-                            print(f"[GhostStep DEBUG] 상단 영웅 귀신발걸음 종료, 원위치 복귀 y={BOSS.y}")
                         if arena_bottom_ghost_step_active:
                             PLAYER.y = int(arena_bottom_ghost_step_original_y)
                             arena_bottom_ghost_step_active = False
                             arena_bottom_ghost_step_phase = 0
-                            print(f"[GhostStep DEBUG] 하단 영웅 귀신발걸음 종료, 원위치 복귀 y={PLAYER.y}")
 
                     # 드래곤 브레스 화염 지대 생성 처리 (여러 개 - 파티클 소멸 지점마다)
                     _dragon_fire_list = arena_skill_manager.game_state.get('spawn_dragon_fire_zones', [])
