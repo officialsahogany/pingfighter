@@ -7485,6 +7485,22 @@ def _fullscreen_flip():
             except Exception:
                 pass
 
+        # 🛡️ 인게임 호위무사 필러 아이콘 (일반 스테이지)
+        if not arena_mode_enabled:
+            try:
+                from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg
+                _bg = _get_bg()
+                if _bg.active:
+                    _bg.draw_pillar_icon(
+                        REAL_SCREEN,
+                        pillar_x=GAME_OFFSET_X,
+                        pillar_y=GAME_OFFSET_Y + int(580 * GAME_SCALE_FACTOR),
+                        pillar_width=int(80 * GAME_SCALE_FACTOR),
+                        game_scale=GAME_SCALE_FACTOR,
+                    )
+            except Exception:
+                pass
+
         # 좌표계 디버그 (F4 토글) - 히트박스 & 마우스 위치
         if globals().get('COORDINATE_DEBUG_MODE', False):
             _draw_coordinate_debug(REAL_SCREEN)
@@ -7563,6 +7579,22 @@ def _fullscreen_update(*args, **kwargs):
                     game_offset_y=GAME_OFFSET_Y,
                     game_scale=GAME_SCALE_FACTOR,
                 )
+            except Exception:
+                pass
+
+        # 🛡️ 인게임 호위무사 필러 아이콘 (일반 스테이지)
+        if not arena_mode_enabled:
+            try:
+                from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg2
+                _bg2 = _get_bg2()
+                if _bg2.active:
+                    _bg2.draw_pillar_icon(
+                        REAL_SCREEN,
+                        pillar_x=GAME_OFFSET_X,
+                        pillar_y=GAME_OFFSET_Y + int(580 * GAME_SCALE_FACTOR),
+                        pillar_width=int(80 * GAME_SCALE_FACTOR),
+                        game_scale=GAME_SCALE_FACTOR,
+                    )
             except Exception:
                 pass
 
@@ -58695,9 +58727,22 @@ def handle_player(keys):
         down_pressed_raw = down_pressed_raw or bool(_mb_all[2])
     except Exception:
         pass
+    # 🛡️ 투기장 모드: 실제 플레이어 입력 완전 차단 (관람 모드)
+    # AI가 생성한 입력만 사용하고, 마우스/키보드에서 오는 실제 입력은 모두 무시
+    if arena_mode_enabled:
+        space_pressed_raw = False
+        down_pressed_raw = False
+        up_pressed_raw = False
+        _mouse_left_fire = False
     # 좌우 이동은 공용 헬퍼로 처리하여 IME/레이아웃 변환과 스캔코드까지 포괄
     left_pressed_raw = is_move_left_pressed(keys)
     right_pressed_raw = is_move_right_pressed(keys)
+    # 🛡️ 투기장 모드: 좌우 이동도 실제 키보드 입력 차단 (AI 스냅샷만 사용)
+    if arena_mode_enabled and not player_ai_enabled:
+        # player_ai_enabled가 True면 keys가 이미 AI wrapper이므로 OK
+        # 그렇지 않은 비정상 상태에서도 입력 차단
+        left_pressed_raw = False
+        right_pressed_raw = False
     # 간헐적으로 초기 프레임에서 키 상태가 비어있는 WIN+IME 조합을 대비해 한 번 더 리프레시
     if not left_pressed_raw and not right_pressed_raw:
         try:
@@ -58763,33 +58808,35 @@ def handle_player(keys):
     # 마우스 버튼을 Space/Down으로 항상 병합 (스킴 무관) - 코만도 입력용
     # 단, 마우스 우클릭을 먼저 누르고 방향키를 누르면 대시 발동 안 됨
     # 필러 영역 위에서는 마우스 좌클릭을 무시
-    try:
-        mb = pygame.mouse.get_pressed()
-        _mouse_left_fire2 = bool(mb[0])
-        # 필러 영역 체크 (코만도 캐릭터일 때만)
-        if _mouse_left_fire2 and selected_character_type == "soldier":
-            try:
-                raw_mx, raw_my = _original_mouse_get_pos()
-                surf_ox, surf_oy = _player_gauge_surface_left_screen_pos
-                pillar_w = int(250 * GAME_SCALE_FACTOR)
-                pillar_h = int(650 * GAME_SCALE_FACTOR)
-                if surf_ox <= raw_mx <= surf_ox + pillar_w and surf_oy <= raw_my <= surf_oy + pillar_h:
-                    _mouse_left_fire2 = False
-            except:
-                pass
-        space_pressed_raw = space_pressed_raw or _mouse_left_fire2
-        _mouse_right_for_dash = bool(mb[2])
-        # 마우스 우클릭이 눌려있고 방향키가 안 눌려있으면 락 설정
-        # (방향키를 먼저 누르고 우클릭을 눌러야 대시 발동)
-        if _mouse_right_for_dash and not left_pressed_raw and not right_pressed_raw:
-            if not down_pressed_raw:  # 우클릭이 처음 눌린 순간
-                globals()['dash_down_first_lock'] = True
-        # 마우스 우클릭을 떼면 락 해제
-        elif not _mouse_right_for_dash and not down_pressed_raw:
-            globals()['dash_down_first_lock'] = False
-        down_pressed_raw = down_pressed_raw or _mouse_right_for_dash
-    except Exception:
-        pass
+    # 🛡️ 투기장 모드에서는 마우스 입력 병합도 차단
+    if not arena_mode_enabled:
+        try:
+            mb = pygame.mouse.get_pressed()
+            _mouse_left_fire2 = bool(mb[0])
+            # 필러 영역 체크 (코만도 캐릭터일 때만)
+            if _mouse_left_fire2 and selected_character_type == "soldier":
+                try:
+                    raw_mx, raw_my = _original_mouse_get_pos()
+                    surf_ox, surf_oy = _player_gauge_surface_left_screen_pos
+                    pillar_w = int(250 * GAME_SCALE_FACTOR)
+                    pillar_h = int(650 * GAME_SCALE_FACTOR)
+                    if surf_ox <= raw_mx <= surf_ox + pillar_w and surf_oy <= raw_my <= surf_oy + pillar_h:
+                        _mouse_left_fire2 = False
+                except:
+                    pass
+            space_pressed_raw = space_pressed_raw or _mouse_left_fire2
+            _mouse_right_for_dash = bool(mb[2])
+            # 마우스 우클릭이 눌려있고 방향키가 안 눌려있으면 락 설정
+            # (방향키를 먼저 누르고 우클릭을 눌러야 대시 발동)
+            if _mouse_right_for_dash and not left_pressed_raw and not right_pressed_raw:
+                if not down_pressed_raw:  # 우클릭이 처음 눌린 순간
+                    globals()['dash_down_first_lock'] = True
+            # 마우스 우클릭을 떼면 락 해제
+            elif not _mouse_right_for_dash and not down_pressed_raw:
+                globals()['dash_down_first_lock'] = False
+            down_pressed_raw = down_pressed_raw or _mouse_right_for_dash
+        except Exception:
+            pass
 
     # 입력 스냅샷이 유효하면 스냅샷을 우선 사용하되, AI 모드는 실제 키 상태도 병합해 누락 방지
     if 'INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID:
@@ -85886,6 +85933,16 @@ def draw_objects():
         draw_plasma_wave(SCREEN)
         draw_plasma_contact_effects(SCREEN)  # 접촉 이펙트 렌더링 (굴절 + 스파크)
 
+    # 🛡️ 인게임 호위무사 캐릭터 및 이펙트 그리기 (일반 스테이지)
+    if not arena_mode_enabled:
+        try:
+            from game_mechanics.ingame_bodyguard import get_bodyguard
+            _bodyguard = get_bodyguard()
+            if _bodyguard.active:
+                _bodyguard.draw(SCREEN)
+        except Exception:
+            pass
+
     try:
         from item_effects.foul_whistle import get_foul_whistle_instance
 
@@ -92571,6 +92628,18 @@ def run_downtown_hub(next_stage_display: int) -> bool:
         # 맵 시드 동기화 (세이브 시 사용)
         downtown_map_seed = manager.player_data.get('downtown_map_seed', None)
 
+        # 호위무사 등용 데이터 동기화 (투기장 우승 후)
+        _recruited = manager.player_data.get('recruited_heroes', [])
+        if _recruited:
+            try:
+                from game_mechanics.ingame_bodyguard import get_bodyguard
+                _latest_guard = _recruited[-1]  # 가장 최근 등용한 영웅
+                bodyguard = get_bodyguard()
+                bodyguard.setup(_latest_guard)
+                print(f"[Bodyguard] 호위무사 동기화 완료: {_latest_guard.get('name')}")
+            except Exception as _bg_err:
+                print(f"[Bodyguard] 호위무사 동기화 실패: {_bg_err}")
+
         pygame.event.get()  # 남은 이벤트 정리
 
         # 저장 NPC를 통해 저장 후 메인메뉴로 복귀하는 경우
@@ -95631,6 +95700,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
     global arena_bottom_dash_target_x, arena_bottom_dash_cooldown, arena_bottom_dash_afterimages
     global arena_bottom_dash_charges, arena_bottom_dash_charge_timer
     global arena_bottom_dash_duration_frames, arena_bottom_dash_stun_timer
+    global selected_character_type, selected_item_index, last_item_use_time
 
     # 투기장 모드 활성화
     arena_mode_enabled = True
@@ -95676,9 +95746,28 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         except Exception:
             arena_skill_manager = None
 
+    # ── 투기장 격리: 플레이어 캐릭터/아이템 상태를 임시 저장 후 초기화 ──
+    # 1) 캐릭터 타입 저장 → 투기장에서는 "normal"로 설정 (스매셔 스킬/이펙트 차단)
+    _saved_character_type = selected_character_type if 'selected_character_type' in globals() else "smasher"
+
+    # 2) 플레이어 액티브 아이템 슬롯 임시 저장 후 비움 (투기장 하단 영웅이 사용 못하게)
+    _saved_active_item_slot = list(active_item_slot)
+    _saved_selected_item_index = selected_item_index
+    _saved_last_item_use_time = last_item_use_time
+    active_item_slot.clear()
+
+    # 3) 패시브 아이템 장착 효과 임시 해제 (투기장 영웅에게 적용되지 않도록)
+    #    장착 슬롯 정보를 임시 저장하고 해제한 뒤 sync
+    _saved_equipped_slots = {}
+    for _p_item in passive_item_list:
+        if isinstance(_p_item, dict) and _p_item.get("_equipped_slot"):
+            _saved_equipped_slots[id(_p_item)] = _p_item["_equipped_slot"]
+            _p_item["_equipped_slot"] = None
+    sync_equipped_passive_effects()  # 모든 패시브 플래그를 False로 리셋
+
     # AI 플레이 모드 활성화 (양쪽 모두 AI)
     player_ai_enabled = True
-    apply_character_selection("smasher")  # 기본 캐릭터
+    apply_character_selection("normal")  # 투기장 전용 - 캐릭터 스킬/이펙트 비활성화
 
     # 투기장 패들 크기 통일 (양쪽 모두 AI이므로 BOSS와 동일한 130x40으로 설정)
     global PADDLE_BASE_WIDTH, PADDLE_BASE_HEIGHT, PADDLE_WIDTH, PADDLE_HEIGHT
@@ -95734,6 +95823,27 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         PADDLE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
         PADDLE_HEIGHT = DEFAULT_PADDLE_BASE_HEIGHT
         PLAYER.size = (PADDLE_WIDTH, PADDLE_HEIGHT)
+
+        # ── 투기장 격리 해제: 플레이어 상태 복원 ──
+        # 1) AI 자동조종 해제 (⚠️ 필수! 없으면 다음 스테이지에서 AI가 계속 조종)
+        player_ai_enabled = False
+
+        # 2) 캐릭터 타입 복원
+        apply_character_selection(_saved_character_type)
+
+        # 3) 플레이어 액티브 아이템 슬롯 복원
+        active_item_slot.clear()
+        active_item_slot.extend(_saved_active_item_slot)
+        globals()['selected_item_index'] = _saved_selected_item_index
+        globals()['last_item_use_time'] = _saved_last_item_use_time
+
+        # 4) 패시브 아이템 장착 상태 복원 후 효과 재적용
+        for _p_item in passive_item_list:
+            if isinstance(_p_item, dict):
+                _saved_slot = _saved_equipped_slots.get(id(_p_item))
+                if _saved_slot:
+                    _p_item["_equipped_slot"] = _saved_slot
+        sync_equipped_passive_effects()  # 패시브 효과 재활성화
 
     return result
 
@@ -125943,6 +126053,12 @@ def show_result(won):
         #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
         acceleration_skill_level = 0
         acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
+        # 호위무사 시스템 초기화 (게임 오버 시)
+        try:
+            from game_mechanics.ingame_bodyguard import get_bodyguard
+            get_bodyguard().reset()
+        except Exception:
+            pass
         # 인게임 골드 초기화 (게임 오버 시)
         reset_ingame_gold()
         # 리커버리 이동속도 보너스 초기화
@@ -127922,6 +128038,12 @@ def main(stage_num, new_boss_mode=False):
             #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
             acceleration_skill_level = 0
             acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
+            # 호위무사 시스템 초기화 (ESC 메뉴 복귀 시)
+            try:
+                from game_mechanics.ingame_bodyguard import get_bodyguard
+                get_bodyguard().reset()
+            except Exception:
+                pass
             # 인게임 골드 초기화 (ESC 메뉴 복귀 시)
             reset_ingame_gold()
             # 리커버리 이동속도 보너스 초기화
@@ -130038,6 +130160,12 @@ def main(stage_num, new_boss_mode=False):
                     #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
                     acceleration_skill_level = 0
                     acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
+                    # 호위무사 시스템 초기화 (강제 종료 시)
+                    try:
+                        from game_mechanics.ingame_bodyguard import get_bodyguard
+                        get_bodyguard().reset()
+                    except Exception:
+                        pass
                     # 인게임 골드 초기화 (강제 종료 시)
                     reset_ingame_gold()
                     # 리커버리 이동속도 보너스 초기화
@@ -130572,6 +130700,9 @@ def main(stage_num, new_boss_mode=False):
             """AI가 쿨타임이 끝난 첫 번째 액티브 아이템을 자동 사용."""
             global selected_item_index, last_item_use_time, special_gauge, special_ready
             if not player_ai_enabled or not active_item_slot:
+                return
+            # 투기장 모드에서는 플레이어 액티브 아이템 사용 차단
+            if arena_mode_enabled:
                 return
             if aipill_active:
                 return
@@ -132457,6 +132588,25 @@ def main(stage_num, new_boss_mode=False):
                                 # 말풍선 표시
                                 if 'skill_korean_name' in result:
                                     arena_show_speech_bubble(False, result['skill_korean_name'])
+                except Exception:
+                    pass
+
+            # 🛡️ 인게임 호위무사 업데이트 (일반 스테이지, 투기장 아닐 때)
+            if not freeze_now and not arena_mode_enabled:
+                try:
+                    from game_mechanics.ingame_bodyguard import get_bodyguard
+                    _bodyguard = get_bodyguard()
+                    if _bodyguard.active:
+                        _bg_effect = _bodyguard.update(1.0 / 60.0)
+                        # 보스에게 스턴/넉백 효과 적용
+                        if _bg_effect:
+                            if 'stun_frames' in _bg_effect:
+                                boss_stunned_timer = max(boss_stunned_timer, _bg_effect['stun_frames'])
+                            if 'knockback_vel' in _bg_effect:
+                                boss_knockback_vel = _bg_effect['knockback_vel']
+                            # 화면 흔들림
+                            globals()['screen_shake_timer'] = 12
+                            globals()['screen_shake_intensity'] = 15
                 except Exception:
                     pass
 
