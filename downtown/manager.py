@@ -2051,6 +2051,18 @@ class DowntownManager:
                                 # 결과 처리
                                 result = arena.get_result()
                                 self.player_data['gold'] = self.player_data.get('gold', 0) + result['winnings']
+                                # 호위무사 등용 처리
+                                if result.get('recruited_hero'):
+                                    if 'recruited_heroes' not in self.player_data:
+                                        self.player_data['recruited_heroes'] = []
+                                    hero = result['recruited_hero']
+                                    self.player_data['recruited_heroes'].append({
+                                        'id': hero.get('id'),
+                                        'name': hero.get('name'),
+                                        'color': hero.get('color'),
+                                        'title': hero.get('title', ''),
+                                    })
+                                    print(f"[Arena] 호위무사 등용: {hero.get('name')}")
                                 arena_running = False
                                 running = False
 

@@ -3959,15 +3959,14 @@ class ColosseumsArena:
         # 승리 보상 표시
         current_prize = self.round_prizes.get(self.current_round, 0)
         if self.fonts and "medium" in self.fonts:
-            prize_text = f"승리 보상: +{current_prize}G"
+            prize_text = f"승리 시 {current_prize}G 획득!"
             surf, _ = self.fonts["medium"].render(prize_text, (100, 255, 100))
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 55))
 
-        # 누적 상금 표시
+        # 패배 시 경고
         if self.fonts and "small" in self.fonts:
-            acc_text = f"현재 누적 상금: {self.accumulated_prize}G"
-            color = (255, 215, 0) if self.accumulated_prize > 0 else (180, 180, 180)
-            surf, _ = self.fonts["small"].render(acc_text, color)
+            warn_text = f"패배 시 입장료 {self.entry_fee}G를 잃습니다"
+            surf, _ = self.fonts["small"].render(warn_text, (255, 180, 100))
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 85))
 
         # 안내 문구
@@ -4033,14 +4032,9 @@ class ColosseumsArena:
 
         # 포기하고 나가기 버튼
         exit_rect = pygame.Rect(panel_x + 100, panel_y + 300, 200, 40)
-        exit_color = (100, 80, 80) if self.accumulated_prize > 0 else (60, 60, 60)
-        pygame.draw.rect(self.screen, exit_color, exit_rect, border_radius=5)
+        pygame.draw.rect(self.screen, (60, 60, 60), exit_rect, border_radius=5)
         if self.fonts and "small" in self.fonts:
-            if self.accumulated_prize > 0:
-                exit_text = f"상금 수령하고 나가기 ({self.accumulated_prize}G)"
-            else:
-                exit_text = "포기하고 나가기"
-            surf, _ = self.fonts["small"].render(exit_text, (255, 200, 200))
+            surf, _ = self.fonts["small"].render("포기하고 나가기", (255, 200, 200))
             self.screen.blit(surf, (exit_rect.centerx - surf.get_width() // 2, exit_rect.y + 12))
 
     def _draw_result_ui(self):
@@ -4097,18 +4091,22 @@ class ColosseumsArena:
         if self.fonts and "medium" in self.fonts:
             if is_win:
                 round_prize = self.round_prizes.get(self.current_round, 0)
-                profit_text = f"+{round_prize}G 획득!"
+                profit_text = f"{round_prize}G 획득!"
                 profit_color = (100, 255, 100)
             else:
-                profit_text = "누적 상금 전액 몰수!"
+                profit_text = f"입장료 {self.entry_fee}G를 잃었습니다!"
                 profit_color = (255, 100, 100)
             surf, _ = self.fonts["medium"].render(profit_text, profit_color)
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 140))
 
-        # 누적 상금 표시
+        # 현재 상금 표시
         if self.fonts and "large" in self.fonts:
-            acc_text = f"누적 상금: {self.accumulated_prize}G"
-            color = (255, 215, 0) if self.accumulated_prize > 0 else (150, 150, 150)
+            if self.accumulated_prize > 0:
+                acc_text = f"현재 상금: {self.accumulated_prize}G"
+                color = (255, 215, 0)
+            else:
+                acc_text = "상금 없음"
+                color = (150, 150, 150)
             surf, _ = self.fonts["large"].render(acc_text, color)
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 185))
 
@@ -4483,78 +4481,40 @@ class ColosseumsArena:
             self.screen.blit(surf, (center_x - surf.get_width() // 2, 690))
 
     def _draw_tournament_end_ui(self):
-        """토너먼트 종료 UI - 누적 상금 시스템"""
+        """토너먼트 종료 UI - 패배 시"""
         # 반투명 오버레이
         overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 200))
         self.screen.blit(overlay, (0, 0))
 
-        # 결승전 결과 확인
-        final_matches = self.matches.get(TournamentRound.FINAL, [])
-        final_match = final_matches[0] if final_matches else None
-        is_champion = final_match and final_match.winner == self.bet_hero
-
         # 패널
         panel_x, panel_y = 180, 180
         panel_w, panel_h = 400, 340
         pygame.draw.rect(self.screen, (35, 40, 50), (panel_x, panel_y, panel_w, panel_h), border_radius=10)
-        border_color = (255, 215, 0) if is_champion else (255, 80, 80)
-        pygame.draw.rect(self.screen, border_color, (panel_x, panel_y, panel_w, panel_h), 3, border_radius=10)
+        pygame.draw.rect(self.screen, (255, 80, 80), (panel_x, panel_y, panel_w, panel_h), 3, border_radius=10)
 
         # 타이틀
         if self.fonts and "large" in self.fonts:
-            if is_champion:
-                title = "토너먼트 우승!"
-                title_color = (255, 215, 0)
-            else:
-                title = "결승전 패배..."
-                title_color = (255, 100, 100)
+            title = "패배..."
+            title_color = (255, 100, 100)
             surf, _ = self.fonts["large"].render(title, title_color)
             title_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
             self.screen.blit(surf, (title_x, panel_y + 25))
             icon_y = panel_y + 25 + surf.get_height() // 2
-            if is_champion:
-                self._draw_trophy_icon(title_x - 16, icon_y, 14)
-                self._draw_trophy_icon(title_x + surf.get_width() + 16, icon_y, 14)
-            else:
-                self._draw_skull_icon(title_x - 16, icon_y, 14)
-                self._draw_skull_icon(title_x + surf.get_width() + 16, icon_y, 14)
+            self._draw_skull_icon(title_x - 16, icon_y, 14)
+            self._draw_skull_icon(title_x + surf.get_width() + 16, icon_y, 14)
 
-        # 최종 우승자
-        if final_match and final_match.winner and self.fonts and "medium" in self.fonts:
-            winner_text = f"우승자: {final_match.winner['name']}"
-            surf, _ = self.fonts["medium"].render(winner_text, final_match.winner["color"])
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 75))
-
-        # 최종 획득 금액
+        # 손실 표시
         if self.fonts and "large" in self.fonts:
-            if is_champion:
-                # 우승 - 누적 상금 표시
-                profit_text = f"획득 상금: {self.accumulated_prize}G"
-                color = (100, 255, 100)
-            else:
-                # 패배 - 입장료만 잃음
-                profit_text = f"손실: -{self.entry_fee}G"
-                color = (255, 100, 100)
-            surf, _ = self.fonts["large"].render(profit_text, color)
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 130))
-
-        # 보상 상세
-        if is_champion and self.fonts and "small" in self.fonts:
-            detail = f"(8강 +500G + 4강 +1000G + 결승 +2000G = {self.accumulated_prize}G)"
-            surf, _ = self.fonts["small"].render(detail, (180, 180, 180))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 175))
+            profit_text = f"입장료 {self.entry_fee}G를 잃었습니다"
+            surf, _ = self.fonts["large"].render(profit_text, (255, 100, 100))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 100))
 
         # 메시지
         if self.fonts and "medium" in self.fonts:
-            if is_champion:
-                msg = "축하합니다! 완벽한 승리!"
-                msg_color = (255, 215, 0)
-            else:
-                msg = "다음에 다시 도전하세요!"
-                msg_color = (200, 200, 200)
-            surf, _ = self.fonts["medium"].render(msg, msg_color)
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 220))
+            msg = "다음에 다시 도전하세요!"
+            surf, _ = self.fonts["medium"].render(msg, (200, 200, 200))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 160))
 
         # 나가기 버튼
         exit_rect = pygame.Rect(panel_x + 100, panel_y + 270, 200, 50)
@@ -5400,7 +5360,8 @@ class ColosseumsArena:
         return {
             "winnings": self.total_winnings,
             "final_gold": self.player_gold + self.total_winnings,
-            "completed": self.state == TournamentState.TOURNAMENT_END,
+            "completed": self.state in (TournamentState.TOURNAMENT_END, TournamentState.VICTORY_CELEBRATION),
+            "recruited_hero": getattr(self, 'recruited_hero', None),
         }
 
 
