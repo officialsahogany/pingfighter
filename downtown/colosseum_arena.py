@@ -208,6 +208,7 @@ class TournamentState(Enum):
     BRACKET_VIEW = "bracket_view"      # 대진표 보기
     SELECT_MATCH = "select_match"      # 경기 선택
     BETTING = "betting"                # 배팅
+    VS_PREVIEW = "vs_preview"            # 배틀 전 VS 매치업 미리보기
     BATTLE = "battle"                  # AI 배틀 진행
     RESULT = "result"                  # 경기 결과
     ROUND_END = "round_end"            # 라운드 종료 (계속/나가기 선택)
@@ -2416,6 +2417,13 @@ class ColosseumsArena:
             except Exception:
                 pass
 
+    def _start_vs_preview(self):
+        """VS 매치업 미리보기 시작 (배틀 전 2초간 표시)"""
+        self.vs_preview_timer = 0.0
+        self.vs_preview_progress = 0.0
+        self.state = TournamentState.VS_PREVIEW
+        print(f"[Arena] VS 미리보기 시작 | {self.selected_match.hero1['name']} vs {self.selected_match.hero2['name']}")
+
     def start_battle(self, match: Match):
         """배틀 시작 - 실제 게임 엔진 사용 (pingfighter.main 스테이지 30)"""
         self.selected_match = match
@@ -3004,7 +3012,16 @@ class ColosseumsArena:
                     dt
                 )
 
-        if self.state == TournamentState.BATTLE:
+        if self.state == TournamentState.VS_PREVIEW:
+            # VS 매치업 미리보기 (2초)
+            self.vs_preview_timer += dt
+            vs_preview_duration = 2.0
+            self.vs_preview_progress = min(1.0, self.vs_preview_timer / vs_preview_duration)
+            if self.vs_preview_timer >= vs_preview_duration:
+                # VS 미리보기 완료 → 실제 배틀 시작
+                self.start_battle(self.selected_match)
+
+        elif self.state == TournamentState.BATTLE:
             self.update_battle(dt)
         elif self.state == TournamentState.RESULT:
             self.result_display_timer -= 1
@@ -3130,18 +3147,18 @@ class ColosseumsArena:
             # 단순화된 배팅 UI - 영웅 클릭시 바로 배틀 시작
             panel_x, panel_y = 180, 180
 
-            # 영웅 1 선택 버튼 (클릭하면 바로 배틀)
+            # 영웅 1 선택 버튼 (클릭하면 VS 미리보기 후 배틀)
             btn1_rect = pygame.Rect(panel_x + 30, panel_y + 145, 160, 100)
             if btn1_rect.collidepoint(mx, my):
                 self.bet_hero = self.selected_match.hero1
-                self.start_battle(self.selected_match)
+                self._start_vs_preview()
                 return
 
-            # 영웅 2 선택 버튼 (클릭하면 바로 배틀)
+            # 영웅 2 선택 버튼 (클릭하면 VS 미리보기 후 배틀)
             btn2_rect = pygame.Rect(panel_x + 210, panel_y + 145, 160, 100)
             if btn2_rect.collidepoint(mx, my):
                 self.bet_hero = self.selected_match.hero2
-                self.start_battle(self.selected_match)
+                self._start_vs_preview()
                 return
 
             # 포기하고 나가기 버튼
@@ -3164,9 +3181,9 @@ class ColosseumsArena:
             # 계속 도전 버튼
             continue_rect = pygame.Rect(panel_x + 40, panel_y + 220, 180, 50)
             if continue_rect.collidepoint(mx, my):
-                # 선택한 영웅으로 바로 배틀 시작
+                # 선택한 영웅으로 VS 미리보기 후 배틀 시작
                 if self.selected_match:
-                    self.start_battle(self.selected_match)
+                    self._start_vs_preview()
                 return
 
             # 상금 수령하고 나가기 버튼
@@ -3189,7 +3206,9 @@ class ColosseumsArena:
 
     def draw(self):
         """메인 그리기"""
-        if self.state == TournamentState.BATTLE:
+        if self.state == TournamentState.VS_PREVIEW:
+            self._draw_vs_preview()
+        elif self.state == TournamentState.BATTLE:
             self._draw_battle()
         elif self.state == TournamentState.GUARD_NOTIFY:
             self._draw_guard_notification()
@@ -3197,6 +3216,17 @@ class ColosseumsArena:
             self._draw_bracket_animation()
         else:
             self._draw_bracket()
+
+    def _draw_vs_preview(self):
+        """VS 매치업 미리보기 그리기 (배틀 전 표시)"""
+        # 배경 그리기
+        self.screen.fill((25, 28, 35))
+
+        # _draw_vs_matchup_animation 재사용 (progress 임시 설정)
+        saved_progress = getattr(self, 'bracket_anim_progress', 0.0)
+        self.bracket_anim_progress = self.vs_preview_progress
+        self._draw_vs_matchup_animation()
+        self.bracket_anim_progress = saved_progress
 
     def _draw_battle(self):
         """배틀 화면 그리기"""
