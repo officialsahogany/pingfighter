@@ -5163,6 +5163,8 @@ class SteamBarrier(HeroSkill):
         self.break_flash_duration = 0.35
         self.break_rings = []  # 파괴 충격파 링
         self.break_barrier_y = 0  # 파괴 시점의 배리어 Y 위치 저장
+        # 배리어 메인 사운드 (종료 시 정지용)
+        self._barrier_sound = None
 
     def _spawn_barrier_hit_flash(self, ball_x):
         """배리어 충돌 시 플래시 + 스파클 파티클 생성"""
@@ -5314,8 +5316,21 @@ class SteamBarrier(HeroSkill):
         self.energy_particles = []
         self.energy_rings = []
 
+        # 배리어 사운드 직접 재생 (종료 시 정지 가능하도록)
+        try:
+            if self._barrier_sound is None:
+                import os
+                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                snd_path = os.path.join(project_root, "sounds", "steambarrior.wav")
+                if os.path.exists(snd_path):
+                    self._barrier_sound = pygame.mixer.Sound(snd_path)
+            if self._barrier_sound:
+                self._barrier_sound.play()
+        except Exception:
+            pass
+
         return {
-            'sound': 'steambarrior'
+            'sound': None  # 직접 재생하므로 외부 재생 불필요
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
@@ -5514,6 +5529,9 @@ class SteamBarrier(HeroSkill):
                     game_state['ball_holy'] = True
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        # 배리어 사운드 정지
+        if self._barrier_sound:
+            self._barrier_sound.stop()
         # 파괴 이펙트 생성 (정리 전에 호출!)
         self._spawn_break_effect()
         game_state['barrier_active'] = False
@@ -5538,6 +5556,9 @@ class SteamBarrier(HeroSkill):
     def reset_for_new_round(self, game_state: dict):
         """라운드 전환 시 스팀 배리어 및 성스러운 이펙트 강제 종료"""
         super().reset_for_new_round(game_state)
+        # 배리어 사운드 정지
+        if self._barrier_sound:
+            self._barrier_sound.stop()
         game_state['barrier_active'] = False
         game_state['ball_holy'] = False
         game_state['steam_barrier_caster_frozen'] = False
