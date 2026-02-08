@@ -5014,7 +5014,7 @@ class SteamBarrier(HeroSkill):
 
 
 class OilSpill(HeroSkill):
-    """기름 투척 - 기름 덩어리를 던져 적 진영 바닥에 웅덩이 생성"""
+    """기름 투척 - 기름 덩어리를 던져 적 진영 바닥에 웅덩이 생성 [고퀄리티]"""
     def __init__(self):
         super().__init__(
             skill_id="oil_spill",
@@ -5034,6 +5034,21 @@ class OilSpill(HeroSkill):
         self.caster_is_top = False
         # 웅덩이 지속시간 (4초)
         self.puddle_duration = 4.0
+
+        # 기름 색상 팔레트
+        self._oil_colors = {
+            'deep': (22, 18, 12),          # 깊은 기름색
+            'base': (35, 30, 22),          # 기본 기름색
+            'mid': (50, 42, 30),           # 중간 톤
+            'surface': (65, 55, 38),       # 표면
+            'highlight': (90, 78, 55),     # 하이라이트
+            'sheen_1': (70, 55, 80),       # 무지개빛 반사 (보라)
+            'sheen_2': (55, 70, 65),       # 무지개빛 반사 (청록)
+            'sheen_3': (80, 70, 45),       # 무지개빛 반사 (금)
+            'bubble_base': (55, 48, 35),   # 기포 기본
+            'bubble_highlight': (100, 90, 70),  # 기포 하이라이트
+            'bubble_sheen': (120, 110, 90),     # 기포 반짝임
+        }
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.target_is_top = target_paddle.is_top
@@ -5108,16 +5123,22 @@ class OilSpill(HeroSkill):
             if proj['progress'] >= 1.0:
                 projectiles_to_remove.append(proj)
                 # 웅덩이 생성
+                puddle_w = random.uniform(72, 108)
                 self.oil_puddles.append({
                     'x': proj['target_x'],
                     'y': proj['target_y'],
-                    'width': random.uniform(72, 108),  # 20% 증가 (60-90 → 72-108)
+                    'width': puddle_w,
                     'height': random.uniform(18, 28),
                     'wobble': random.uniform(0, math.pi * 2),
                     'life': self.puddle_duration,  # 4초
                     'max_life': self.puddle_duration,
                     'alpha': 200,
-                    'splash_effect': 1.0  # 착지 스플래시 효과
+                    'splash_effect': 1.0,  # 착지 스플래시 효과
+                    'shimmer_time': 0.0,   # 표면 일렁임 타이머
+                    'shape_seed': random.uniform(0, math.pi * 2),  # 형태 시드
+                    'bubbles': [],         # 기포 리스트
+                    'bubble_timer': 0.0,   # 기포 생성 타이머
+                    'ripples': [],         # 표면 파문
                 })
 
         for proj in projectiles_to_remove:
@@ -5128,6 +5149,7 @@ class OilSpill(HeroSkill):
         for puddle in self.oil_puddles:
             puddle['wobble'] += dt * 2
             puddle['life'] -= dt
+            puddle['shimmer_time'] = puddle.get('shimmer_time', 0) + dt
 
             # 스플래시 효과 감소
             if puddle['splash_effect'] > 0:
@@ -5136,6 +5158,83 @@ class OilSpill(HeroSkill):
             # 마지막 1.5초 동안 페이드아웃
             if puddle['life'] < 1.5:
                 puddle['alpha'] = int(200 * (puddle['life'] / 1.5))
+
+            # --- 기포 시스템 ---
+            puddle['bubble_timer'] = puddle.get('bubble_timer', 0) + dt
+            bubbles = puddle.get('bubbles', [])
+
+            # 간간이 기포 생성 (0.3~0.8초 간격)
+            if puddle['bubble_timer'] > random.uniform(0.3, 0.8) and puddle['life'] > 0.5:
+                puddle['bubble_timer'] = 0
+                pw = puddle['width']
+                ph = puddle['height']
+                # 웅덩이 타원 범위 내에서 랜덤 위치
+                angle = random.uniform(0, math.pi * 2)
+                dist = random.uniform(0, 0.7)
+                bx = puddle['x'] + math.cos(angle) * pw * 0.45 * dist
+                by = puddle['y'] + math.sin(angle) * ph * 0.35 * dist
+                bubbles.append({
+                    'x': bx, 'y': by,
+                    'size': random.uniform(1.5, 4.5),
+                    'max_size': random.uniform(3.0, 6.0),
+                    'grow_speed': random.uniform(2.0, 4.0),
+                    'life': 0.0,
+                    'max_life': random.uniform(0.6, 1.4),
+                    'drift_x': random.uniform(-3, 3),
+                    'phase': 'grow',  # 'grow' -> 'idle' -> 'pop'
+                    'pop_timer': 0.0,
+                })
+
+            # 기포 업데이트
+            new_bubbles = []
+            for b in bubbles:
+                b['life'] += dt
+                b['x'] += b['drift_x'] * dt
+
+                if b['phase'] == 'grow':
+                    b['size'] = min(b['max_size'], b['size'] + b['grow_speed'] * dt)
+                    if b['size'] >= b['max_size'] * 0.9:
+                        b['phase'] = 'idle'
+                elif b['phase'] == 'idle':
+                    # 약간 흔들리며 대기
+                    b['size'] = b['max_size'] + math.sin(b['life'] * 6) * 0.5
+                    if b['life'] >= b['max_life'] * 0.8:
+                        b['phase'] = 'pop'
+                        b['pop_timer'] = 0.0
+                elif b['phase'] == 'pop':
+                    b['pop_timer'] += dt
+                    # 팽창 후 터짐 (0.15초)
+                    if b['pop_timer'] < 0.15:
+                        b['size'] = b['max_size'] * (1 + b['pop_timer'] / 0.15 * 0.4)
+                    else:
+                        continue  # 기포 제거
+
+                if b['life'] < b['max_life']:
+                    new_bubbles.append(b)
+                # 기포가 터질 때 파문 생성
+                elif b['phase'] != 'pop':
+                    ripples = puddle.get('ripples', [])
+                    ripples.append({
+                        'x': b['x'], 'y': b['y'],
+                        'radius': b['max_size'],
+                        'max_radius': b['max_size'] * 4,
+                        'alpha': 120,
+                        'life': 0.0,
+                    })
+                    puddle['ripples'] = ripples
+
+            puddle['bubbles'] = new_bubbles
+
+            # 파문 업데이트
+            ripples = puddle.get('ripples', [])
+            new_ripples = []
+            for r in ripples:
+                r['life'] += dt
+                r['radius'] += (r['max_radius'] - r['radius']) * dt * 4
+                r['alpha'] = max(0, 120 * (1 - r['life'] / 0.5))
+                if r['life'] < 0.5:
+                    new_ripples.append(r)
+            puddle['ripples'] = new_ripples
 
             # 수명 종료
             if puddle['life'] <= 0:
@@ -5220,55 +5319,179 @@ class OilSpill(HeroSkill):
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         # 발사체 그리기 (날아가는 기름 덩어리)
         for proj in self.oil_projectiles:
-            size = int(proj['size'])
-            surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-
-            # 기름 덩어리 본체 (불규칙한 원형)
-            center = size
-            wobble_offset = math.sin(proj['wobble']) * 3
-
-            # 메인 덩어리
-            pygame.draw.circle(surf, (40, 35, 25, 220), (center, center), size)
-            # 하이라이트
-            highlight_offset = int(size * 0.3)
-            pygame.draw.circle(surf, (70, 60, 45, 150),
-                             (center - highlight_offset, center - highlight_offset),
-                             int(size * 0.4))
-            # 그림자/깊이
-            pygame.draw.circle(surf, (25, 20, 15, 180),
-                             (center + int(wobble_offset), center),
-                             int(size * 0.7))
-
-            screen.blit(surf, (int(proj['x'] - size), int(proj['y'] - size)))
+            self._draw_projectile(screen, proj)
 
         # 웅덩이 그리기
         for puddle in self.oil_puddles:
-            w = int(puddle['width'] + math.sin(puddle['wobble']) * 5)
-            h = int(puddle['height'])
-            x = int(puddle['x'] - w / 2)
-            y = int(puddle['y'] - h / 2)
-            alpha = puddle['alpha']
+            self._draw_puddle(screen, puddle)
 
-            surf = pygame.Surface((w + 20, h + 20), pygame.SRCALPHA)
+    def _draw_projectile(self, screen, proj):
+        """고퀄리티 기름 발사체"""
+        size = int(proj['size'])
+        if size < 2:
+            return
+        pad = 8
+        surf = pygame.Surface((size * 2 + pad * 2, size * 2 + pad * 2), pygame.SRCALPHA)
+        center = size + pad
+        wobble_offset = math.sin(proj['wobble']) * 3
 
-            # 스플래시 효과 (착지 직후)
-            if puddle['splash_effect'] > 0:
-                splash_size = int(w * (1 + puddle['splash_effect'] * 0.5))
-                splash_alpha = int(100 * puddle['splash_effect'])
-                pygame.draw.ellipse(surf, (50, 45, 35, splash_alpha),
-                                  (10 - (splash_size - w) // 2, 10 - (splash_size - w) // 4,
-                                   splash_size, int(h * 1.3)))
+        # 글로우 (부드러운 외곽)
+        pygame.draw.circle(surf, (*self._oil_colors['mid'], 60), (center, center), size + 4)
 
-            # 기름 웅덩이 본체
-            pygame.draw.ellipse(surf, (30, 25, 20, alpha), (10, 10, w, h))
-            # 반사광 (기름 특유의 무지개빛)
-            pygame.draw.ellipse(surf, (60, 50, 40, int(alpha * 0.5)),
-                              (10 + w // 4, 10 + h // 4, w // 3, h // 3))
-            # 가장자리 하이라이트
-            pygame.draw.ellipse(surf, (80, 70, 50, int(alpha * 0.3)),
-                              (10 + w // 6, 10 + h // 6, w // 4, h // 4))
+        # 메인 덩어리 (불규칙 형태)
+        points = []
+        for angle in range(0, 360, 25):
+            rad = math.radians(angle)
+            r = size * (0.8 + 0.25 * math.sin(rad * 3 + proj['wobble']))
+            points.append((int(center + math.cos(rad) * r), int(center + math.sin(rad) * r)))
+        if len(points) >= 3:
+            pygame.draw.polygon(surf, (*self._oil_colors['base'], 230), points)
+            # 깊이감
+            inner = [(int(center + (p[0] - center) * 0.6 + wobble_offset),
+                      int(center + (p[1] - center) * 0.6)) for p in points]
+            pygame.draw.polygon(surf, (*self._oil_colors['deep'], 200), inner)
 
-            screen.blit(surf, (x - 10, y - 10))
+        # 하이라이트 (반사광)
+        hl_x = center - int(size * 0.25)
+        hl_y = center - int(size * 0.25)
+        hl_size = max(2, int(size * 0.35))
+        pygame.draw.circle(surf, (*self._oil_colors['highlight'], 140), (hl_x, hl_y), hl_size)
+        # 작은 반짝임
+        pygame.draw.circle(surf, (*self._oil_colors['bubble_sheen'], 100),
+                         (hl_x - 2, hl_y - 2), max(1, hl_size // 2))
+
+        screen.blit(surf, (int(proj['x']) - center, int(proj['y']) - center))
+
+    def _draw_puddle(self, screen, puddle):
+        """고퀄리티 기름 웅덩이"""
+        shimmer = puddle.get('shimmer_time', 0)
+        shape_seed = puddle.get('shape_seed', 0)
+        w = int(puddle['width'] + math.sin(puddle['wobble']) * 4)
+        h = int(puddle['height'])
+        alpha = puddle['alpha']
+        if alpha < 3:
+            return
+
+        pad = 16
+        surf_w = w + pad * 2
+        surf_h = h + pad * 2
+        surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+        cx, cy = surf_w // 2, surf_h // 2
+
+        # --- 착지 스플래시 ---
+        splash_eff = puddle.get('splash_effect', 0)
+        if splash_eff > 0:
+            sw = int(w * (1 + splash_eff * 0.6))
+            sh = int(h * (1 + splash_eff * 0.4))
+            sa = int(80 * splash_eff)
+            pygame.draw.ellipse(surf, (*self._oil_colors['mid'], sa),
+                              (cx - sw // 2, cy - sh // 2, sw, sh))
+
+        # --- 불규칙한 기름 웅덩이 (다층 렌더링) ---
+        # 레이어 1: 외곽 글로우
+        outer_points = self._oil_shape_points(cx, cy, w * 0.55, h * 0.55, shape_seed, shimmer, 0.12)
+        if len(outer_points) >= 3:
+            pygame.draw.polygon(surf, (*self._oil_colors['mid'], int(alpha * 0.3)), outer_points)
+
+        # 레이어 2: 메인 기름
+        main_points = self._oil_shape_points(cx, cy, w * 0.48, h * 0.48, shape_seed, shimmer, 0.08)
+        if len(main_points) >= 3:
+            pygame.draw.polygon(surf, (*self._oil_colors['base'], alpha), main_points)
+
+        # 레이어 3: 깊은 중심
+        deep_points = self._oil_shape_points(cx, cy, w * 0.32, h * 0.32, shape_seed + 1.0, shimmer, 0.05)
+        if len(deep_points) >= 3:
+            pygame.draw.polygon(surf, (*self._oil_colors['deep'], int(alpha * 0.85)), deep_points)
+
+        # --- 무지개빛 반사 (기름 특유의 iridescence) ---
+        sheen_colors = [self._oil_colors['sheen_1'], self._oil_colors['sheen_2'], self._oil_colors['sheen_3']]
+        for i, sc in enumerate(sheen_colors):
+            sx_offset = math.sin(shimmer * 1.2 + i * 2.1) * w * 0.15
+            sy_offset = math.cos(shimmer * 0.9 + i * 1.7) * h * 0.1
+            sw_ratio = 0.25 + 0.08 * math.sin(shimmer * 1.5 + i)
+            sh_ratio = 0.3 + 0.1 * math.sin(shimmer * 1.8 + i)
+            sa = int(alpha * (0.15 + 0.08 * math.sin(shimmer * 2.0 + i * 0.7)))
+            sw = max(4, int(w * sw_ratio))
+            sh_val = max(2, int(h * sh_ratio))
+            pygame.draw.ellipse(surf, (*sc, sa),
+                              (int(cx + sx_offset - sw // 2), int(cy + sy_offset - sh_val // 2), sw, sh_val))
+
+        # --- 표면 하이라이트 (큰 반사) ---
+        hl_x = cx + int(math.sin(shimmer * 0.7) * w * 0.12) - int(w * 0.08)
+        hl_y = cy - int(h * 0.12)
+        hl_w = max(3, int(w * 0.2))
+        hl_h = max(2, int(h * 0.2))
+        hl_a = int(alpha * (0.2 + 0.08 * math.sin(shimmer * 1.3)))
+        pygame.draw.ellipse(surf, (*self._oil_colors['highlight'], hl_a),
+                          (hl_x, hl_y, hl_w, hl_h))
+
+        # --- 가장자리 테두리 (점성 느낌) ---
+        edge_points = self._oil_shape_points(cx, cy, w * 0.5, h * 0.5, shape_seed, shimmer, 0.1)
+        if len(edge_points) >= 3:
+            pygame.draw.polygon(surf, (*self._oil_colors['surface'], int(alpha * 0.4)), edge_points, 2)
+
+        screen.blit(surf, (int(puddle['x'] - cx), int(puddle['y'] - cy)))
+
+        # --- 기포 (서피스 밖에서 직접 screen에 그리기) ---
+        for b in puddle.get('bubbles', []):
+            self._draw_bubble(screen, b, alpha)
+
+        # --- 파문 ---
+        for r in puddle.get('ripples', []):
+            if r['alpha'] > 3:
+                rr = max(1, int(r['radius']))
+                rs = pygame.Surface((rr * 2 + 4, rr * 2 + 4), pygame.SRCALPHA)
+                rc = rr + 2
+                ra = int(max(0, min(255, r['alpha'])))
+                pygame.draw.circle(rs, (*self._oil_colors['surface'], ra), (rc, rc), rr, 1)
+                screen.blit(rs, (int(r['x']) - rc, int(r['y']) - rc))
+
+    def _oil_shape_points(self, cx, cy, half_w, half_h, seed, time, irregularity):
+        """기름 웅덩이 불규칙 타원 꼭짓점 생성"""
+        points = []
+        for angle in range(0, 360, 18):
+            rad = math.radians(angle)
+            wobble = 1.0 + irregularity * math.sin(rad * 4 + seed + time * 0.8)
+            px = cx + int(math.cos(rad) * half_w * wobble)
+            py = cy + int(math.sin(rad) * half_h * wobble)
+            points.append((px, py))
+        return points
+
+    def _draw_bubble(self, screen, bubble, puddle_alpha):
+        """기포 하나 그리기"""
+        s = max(1, int(bubble['size']))
+        phase = bubble['phase']
+
+        if phase == 'pop' and bubble['pop_timer'] >= 0.08:
+            # 터지는 순간 - 작은 파편
+            pop_p = bubble['pop_timer'] / 0.15
+            for i in range(4):
+                angle = math.pi * 2 * i / 4 + bubble['life']
+                dist = s * 1.5 * pop_p
+                px = int(bubble['x'] + math.cos(angle) * dist)
+                py = int(bubble['y'] + math.sin(angle) * dist)
+                frag_a = int(80 * (1 - pop_p))
+                if frag_a > 3:
+                    ps = pygame.Surface((4, 4), pygame.SRCALPHA)
+                    pygame.draw.circle(ps, (*self._oil_colors['bubble_highlight'], frag_a), (2, 2), 1)
+                    screen.blit(ps, (px - 2, py - 2))
+            return
+
+        ba = int(min(255, puddle_alpha * 0.9))
+        pad = 4
+        bs = pygame.Surface((s * 2 + pad * 2, s * 2 + pad * 2), pygame.SRCALPHA)
+        bc = s + pad
+
+        # 기포 본체 (반투명 원)
+        pygame.draw.circle(bs, (*self._oil_colors['bubble_base'], int(ba * 0.6)), (bc, bc), s)
+        # 테두리 (약간 밝은 테두리로 입체감)
+        pygame.draw.circle(bs, (*self._oil_colors['bubble_highlight'], int(ba * 0.5)), (bc, bc), s, 1)
+        # 반사 하이라이트 (좌상단 작은 점)
+        if s >= 3:
+            pygame.draw.circle(bs, (*self._oil_colors['bubble_sheen'], int(ba * 0.7)),
+                             (bc - max(1, s // 3), bc - max(1, s // 3)), max(1, s // 3))
+
+        screen.blit(bs, (int(bubble['x']) - bc, int(bubble['y']) - bc))
 
 
 # ============================================================================
