@@ -2121,25 +2121,6 @@ class HeroPaddleRenderer:
         pygame.draw.rect(screen, (180, 165, 140), (belt_rect.centerx - buckle_size, belt_rect.centery - buckle_size // 2, buckle_size * 2, buckle_size), border_radius=1)
         pygame.draw.rect(screen, (220, 205, 180), (belt_rect.centerx - buckle_size + 2, belt_rect.centery - buckle_size // 2 + 1, buckle_size * 2 - 4, buckle_size - 2), border_radius=1)
 
-        # === 어깨 퍼프 (레이스 장식) ===
-        for side in [-1, 1]:
-            puff_x = cx + side * int(0.95 * b) + lean_offset
-            puff_y = torso_y - int(0.15 * b)
-            puff_w, puff_h = int(0.9 * b), int(0.8 * b)
-
-            # 퍼프 본체
-            puff_rect = pygame.Rect(puff_x - puff_w // 2, puff_y, puff_w, puff_h)
-            pygame.draw.ellipse(screen, p["dress_dark"], puff_rect.inflate(2, 2))
-            pygame.draw.ellipse(screen, p["dress_light"], puff_rect)
-            pygame.draw.ellipse(screen, p["dress_mid"], puff_rect.inflate(-int(0.2 * b), -int(0.15 * b)))
-
-            # 레이스 테두리
-            for i in range(5):
-                angle = math.pi + side * i * 0.3
-                lx = puff_x + int(math.cos(angle) * puff_w * 0.5)
-                ly = puff_y + puff_h // 2 + int(math.sin(angle) * puff_h * 0.4)
-                pygame.draw.circle(screen, p["lace"], (lx, ly), max(1, int(0.08 * b)))
-
         # === 팔 + 마리오네트 실 (어깨 들썩임 + 올려치기) ===
         arm_slam = anim.get("arm_slam", 0)
         # arm_slam: -1=양팔 위로, +1=양팔 아래로(내려치기), 0=기본
@@ -2175,6 +2156,15 @@ class HeroPaddleRenderer:
                 hand_wave_y = math.cos(self.time * 2 + side) * 0.12 * b
                 wrist = (elbow[0] + side * int(0.35 * b) + int(hand_wave_x),
                         torso_y + int(1.25 * b) + int(hand_wave_y))
+
+            # 어깨 퍼프 (레이스 장식) - 팔 방향을 따라감
+            puff_cx = (shoulder[0] + elbow[0]) // 2
+            puff_cy = (shoulder[1] + elbow[1]) // 2
+            puff_w, puff_h = int(0.9 * b), int(0.8 * b)
+            puff_rect = pygame.Rect(puff_cx - puff_w // 2, puff_cy - puff_h // 2, puff_w, puff_h)
+            pygame.draw.ellipse(screen, p["dress_dark"], puff_rect.inflate(2, 2))
+            pygame.draw.ellipse(screen, p["dress_light"], puff_rect)
+            pygame.draw.ellipse(screen, p["dress_mid"], puff_rect.inflate(-int(0.2 * b), -int(0.15 * b)))
 
             # 드레스 소매
             pygame.draw.line(screen, p["dress_dark"], (shoulder[0] + 1, shoulder[1] + 1), (elbow[0] + 1, elbow[1] + 1), max(3, int(0.48 * b)))
