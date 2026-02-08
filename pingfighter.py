@@ -18515,18 +18515,18 @@ def arena_draw_speech_bubbles():
             )
         arena_top_speech_timer -= 1
 
-    # 하단 영웅 말풍선 (플레이어 위치)
+    # 하단 영웅 말풍선 (플레이어 위치 - 패들 위에 표시)
     if arena_bottom_speech_timer > 0 and arena_bottom_speech_text:
         if arena_bottom_speech_is_skill:
             _draw_shout_bubble(
-                PLAYER.centerx, PLAYER.top - 45,
+                PLAYER.centerx, PLAYER.top - 105,
                 arena_bottom_speech_text,
                 arena_bottom_speech_timer, ARENA_SPEECH_DURATION,
                 arena_bottom_speech_color
             )
         else:
             _draw_arena_speech_bubble(
-                PLAYER.centerx, PLAYER.top - 45,
+                PLAYER.centerx, PLAYER.top - 70,
                 arena_bottom_speech_text, is_top=False
             )
         arena_bottom_speech_timer -= 1
