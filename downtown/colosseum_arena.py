@@ -1669,26 +1669,38 @@ class GuardWarriorSystem:
     def _play_skill_sound(self, result):
         """스킬 결과에서 사운드 키를 꺼내 재생"""
         if not result:
+            print(f"[SkillSound] DEBUG: result is None/empty")
             return
         sound_key = result.get('sound')
         if not sound_key:
+            print(f"[SkillSound] DEBUG: no 'sound' key in result: {list(result.keys())}")
             return
+
+        print(f"[SkillSound] DEBUG: sound_key='{sound_key}', cached={sound_key in ColosseumsArena._skill_sound_cache}")
 
         # 캐시에서 사운드 가져오기 (없으면 프로젝트 루트 sounds/ 에서 로드)
         if sound_key not in ColosseumsArena._skill_sound_cache:
             try:
                 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                 filepath = os.path.join(project_root, "sounds", f"{sound_key}.wav")
+                print(f"[SkillSound] DEBUG: loading from '{filepath}', exists={os.path.exists(filepath)}")
                 if os.path.exists(filepath):
-                    ColosseumsArena._skill_sound_cache[sound_key] = pygame.mixer.Sound(filepath)
+                    snd = pygame.mixer.Sound(filepath)
+                    print(f"[SkillSound] DEBUG: loaded OK, length={snd.get_length():.2f}s")
+                    ColosseumsArena._skill_sound_cache[sound_key] = snd
                 else:
+                    print(f"[SkillSound] DEBUG: FILE NOT FOUND!")
                     ColosseumsArena._skill_sound_cache[sound_key] = None
-            except Exception:
+            except Exception as e:
+                print(f"[SkillSound] DEBUG: LOAD ERROR: {e}")
                 ColosseumsArena._skill_sound_cache[sound_key] = None
 
         sound = ColosseumsArena._skill_sound_cache.get(sound_key)
         if sound:
-            sound.play()
+            ch = sound.play()
+            print(f"[SkillSound] DEBUG: play() called, channel={ch}, volume={sound.get_volume()}")
+        else:
+            print(f"[SkillSound] DEBUG: sound is None, cannot play")
 
     def _apply_status_effects(self, result, target_paddle):
         """스킬 결과에서 상태 효과를 game_state에 적용"""
