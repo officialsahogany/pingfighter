@@ -4026,9 +4026,10 @@ class ColosseumsArena:
             if "medium" in self.fonts:
                 surf, _ = self.fonts["medium"].render(hero1["name"], (255, 255, 255))
                 self.screen.blit(surf, (btn1_rect.centerx - surf.get_width() // 2, btn1_rect.y + 10))
-            # 영웅 칭호
+            # 영웅 칭호 - 골든 색상으로 차별화
             if "small" in self.fonts:
-                surf, _ = self.fonts["small"].render(hero1["title"], (220, 220, 220))
+                title_text = f"「{hero1['title']}」"
+                surf, _ = self.fonts["small"].render(title_text, (255, 220, 150))
                 self.screen.blit(surf, (btn1_rect.centerx - surf.get_width() // 2, btn1_rect.y + 35))
         # 캐릭터 이미지
         if self.hero_paddle_renderer:
@@ -4052,8 +4053,10 @@ class ColosseumsArena:
             if "medium" in self.fonts:
                 surf, _ = self.fonts["medium"].render(hero2["name"], (255, 255, 255))
                 self.screen.blit(surf, (btn2_rect.centerx - surf.get_width() // 2, btn2_rect.y + 10))
+            # 영웅 칭호 - 골든 색상으로 차별화
             if "small" in self.fonts:
-                surf, _ = self.fonts["small"].render(hero2["title"], (220, 220, 220))
+                title_text = f"「{hero2['title']}」"
+                surf, _ = self.fonts["small"].render(title_text, (255, 220, 150))
                 self.screen.blit(surf, (btn2_rect.centerx - surf.get_width() // 2, btn2_rect.y + 35))
         # 캐릭터 이미지
         if self.hero_paddle_renderer:
@@ -5215,8 +5218,15 @@ class ColosseumsArena:
             if "medium" in self.fonts:
                 surf, _ = self.fonts["medium"].render(hero1["name"], h1_name_color)
                 self.screen.blit(surf, (hero1_x - surf.get_width() // 2, hero1_y - 70))
-            if "small" in self.fonts:
-                surf, _ = self.fonts["small"].render(hero1["title"], (200, 200, 200))
+            # 별명(칭호) - 골든 색상 + 장식 괄호로 호위무사 이름과 차별화
+            if "medium" in self.fonts:
+                title_text = f"「{hero1['title']}」"
+                title_color = (255, 220, 150)
+                # 그림자 효과
+                shadow_surf, _ = self.fonts["medium"].render(title_text, (80, 60, 20))
+                self.screen.blit(shadow_surf, (hero1_x - shadow_surf.get_width() // 2 + 1, hero1_y + 56))
+                # 본 텍스트
+                surf, _ = self.fonts["medium"].render(title_text, title_color)
                 self.screen.blit(surf, (hero1_x - surf.get_width() // 2, hero1_y + 55))
 
             # 호위무사 아이콘 (영웅1)
@@ -5277,8 +5287,15 @@ class ColosseumsArena:
             if "medium" in self.fonts:
                 surf, _ = self.fonts["medium"].render(hero2["name"], h2_name_color)
                 self.screen.blit(surf, (hero2_x - surf.get_width() // 2, hero2_y - 70))
-            if "small" in self.fonts:
-                surf, _ = self.fonts["small"].render(hero2["title"], (200, 200, 200))
+            # 별명(칭호) - 골든 색상 + 장식 괄호로 호위무사 이름과 차별화
+            if "medium" in self.fonts:
+                title_text = f"「{hero2['title']}」"
+                title_color = (255, 220, 150)
+                # 그림자 효과
+                shadow_surf, _ = self.fonts["medium"].render(title_text, (80, 60, 20))
+                self.screen.blit(shadow_surf, (hero2_x - shadow_surf.get_width() // 2 + 1, hero2_y + 56))
+                # 본 텍스트
+                surf, _ = self.fonts["medium"].render(title_text, title_color)
                 self.screen.blit(surf, (hero2_x - surf.get_width() // 2, hero2_y + 55))
 
             # 호위무사 아이콘 (영웅2)
