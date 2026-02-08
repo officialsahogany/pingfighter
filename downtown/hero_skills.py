@@ -3800,7 +3800,7 @@ class DollCurse(HeroSkill):
             screen.blit(aura_surf, (caster_center_x - aura_w // 2, caster_center_y - aura_h // 2))
 
             # 수호 인형들 (연화 좌우 150px에서 공을 막음) - 고퀄리티 부두 인형 스타일
-            for guardian in self.guardian_dolls:
+            for g_idx, guardian in enumerate(self.guardian_dolls):
                 gx, gy = int(guardian['x']), int(guardian['y'])
                 spawn_alpha = min(1.0, guardian['spawn_progress'] * 1.5)  # 페이드인
                 base_alpha = int(255 * spawn_alpha)
