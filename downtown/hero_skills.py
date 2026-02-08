@@ -6809,6 +6809,7 @@ class IllusionShuriken(HeroSkill):
 
         # 첫 번째 수리검 즉시 발사
         self._spawn_shuriken(caster_paddle, 0)
+        game_state['kurokage_weapon_swing'] = True
 
         return {
             'sound': 'shuriken'
@@ -6879,6 +6880,7 @@ class IllusionShuriken(HeroSkill):
             if self.spawn_timer >= 0.2:
                 self.spawn_timer = 0
                 self._spawn_shuriken(caster_paddle, self.shurikens_spawned)
+                game_state['kurokage_weapon_swing'] = True
 
         # 수리검 업데이트
         for shuriken in self.shurikens:
