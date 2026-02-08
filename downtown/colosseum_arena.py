@@ -214,6 +214,7 @@ class TournamentState(Enum):
     ROUND_END = "round_end"            # 라운드 종료 (계속/나가기 선택)
     GUARD_NOTIFY = "guard_notify"              # 호위무사 생포 알림
     BRACKET_ANIMATION = "bracket_animation"  # 대진표 진출 애니메이션
+    VICTORY_CELEBRATION = "victory_celebration"  # 우승 축하 연출
     TOURNAMENT_END = "tournament_end"  # 토너먼트 종료
 
 class TournamentRound(Enum):
@@ -3062,8 +3063,19 @@ class ColosseumsArena:
                     self.state = TournamentState.TOURNAMENT_END
                 elif self.current_round == TournamentRound.FINAL:
                     # 결승전 종료
-                    print(f"[Arena] 결승전 종료! → TOURNAMENT_END")
-                    self.state = TournamentState.TOURNAMENT_END
+                    final_matches = self.matches.get(TournamentRound.FINAL, [])
+                    final_match = final_matches[0] if final_matches else None
+                    is_champion = final_match and final_match.winner == self.bet_hero
+                    if is_champion:
+                        # 우승! → 축하 연출
+                        print(f"[Arena] 우승! → VICTORY_CELEBRATION")
+                        self.victory_timer = 0.0
+                        self.victory_confetti = []
+                        self.state = TournamentState.VICTORY_CELEBRATION
+                    else:
+                        # 결승 패배 → 바로 종료
+                        print(f"[Arena] 결승전 패배! → TOURNAMENT_END")
+                        self.state = TournamentState.TOURNAMENT_END
                 else:
                     # 승리 - 호위무사 생포 알림 후 대진표 애니메이션
                     bet_hero_loser = None
@@ -3097,6 +3109,9 @@ class ColosseumsArena:
                 # 알림 끝 → 대진표 애니메이션 시작
                 print(f"[Arena] GUARD_NOTIFY 완료 → BRACKET_ANIMATION 시작")
                 self._start_bracket_animation()
+
+        elif self.state == TournamentState.VICTORY_CELEBRATION:
+            self.victory_timer += dt
 
         elif self.state == TournamentState.BRACKET_ANIMATION:
             self._update_bracket_animation(dt)
@@ -3219,6 +3234,12 @@ class ColosseumsArena:
             # 결과 화면 클릭 시 다음으로
             self.result_display_timer = 0
 
+        elif self.state == TournamentState.VICTORY_CELEBRATION:
+            # 축하 화면 클릭 → 3초 이후부터 TOURNAMENT_END로 전환
+            if getattr(self, 'victory_timer', 0) >= 3.0:
+                self.state = TournamentState.TOURNAMENT_END
+                return
+
         elif self.state == TournamentState.TOURNAMENT_END:
             # 토너먼트 종료 UI 클릭 처리 (그리기 좌표와 동일하게)
             panel_x, panel_y = 180, 180
@@ -3237,6 +3258,8 @@ class ColosseumsArena:
             self._draw_battle()
         elif self.state == TournamentState.GUARD_NOTIFY:
             self._draw_guard_notification()
+        elif self.state == TournamentState.VICTORY_CELEBRATION:
+            self._draw_victory_celebration()
         elif self.state == TournamentState.BRACKET_ANIMATION:
             self._draw_bracket_animation()
         else:
@@ -4133,6 +4156,243 @@ class ColosseumsArena:
             preview_text = "남은 보상: " + " → ".join(remaining)
             surf, _ = self.fonts["small"].render(preview_text, (150, 200, 255))
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 285))
+
+    def _draw_victory_celebration(self):
+        """우승 축하 연출 화면 - 시상식 구도"""
+        timer = getattr(self, 'victory_timer', 0.0)
+        champion = self.bet_hero
+        if not champion:
+            self.state = TournamentState.TOURNAMENT_END
+            return
+
+        champion_id = champion.get("id", "mugen")
+        champion_color = champion.get("color", (200, 200, 200))
+        champion_name = champion.get("name", "???")
+        champion_title = champion.get("title", "")
+        guards = self.guard_warrior_map.get(champion_id, [])
+
+        center_x = SCREEN_WIDTH // 2
+        # 전체 연출 진행도
+        intro = min(1.0, timer / 2.0)  # 0~2초: 등장
+        eased = self._ease_in_out(intro)
+
+        # === 배경 ===
+        self.screen.fill((15, 12, 25))
+
+        # 방사형 빛줄기 (금색)
+        if intro > 0.3:
+            ray_alpha = int(30 * min(1.0, (intro - 0.3) * 2))
+            ray_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            num_rays = 12
+            for i in range(num_rays):
+                angle = (i / num_rays) * math.pi * 2 + self.animation_timer * 0.3
+                end_x = center_x + int(math.cos(angle) * 500)
+                end_y = 350 + int(math.sin(angle) * 500)
+                pygame.draw.line(ray_surf, (255, 215, 0, ray_alpha), (center_x, 350), (end_x, end_y), 3)
+            self.screen.blit(ray_surf, (0, 0))
+
+        # 바닥 무대 (금색 그라데이션 라인)
+        stage_y = 540
+        if intro > 0.2:
+            stage_alpha = int(180 * min(1.0, (intro - 0.2) * 3))
+            stage_surf = pygame.Surface((SCREEN_WIDTH, 4), pygame.SRCALPHA)
+            for sx in range(SCREEN_WIDTH):
+                dist = abs(sx - center_x) / (SCREEN_WIDTH / 2)
+                a = int(stage_alpha * max(0, 1.0 - dist * 1.2))
+                stage_surf.set_at((sx, 0), (255, 215, 0, a))
+                stage_surf.set_at((sx, 1), (255, 215, 0, a // 2))
+                stage_surf.set_at((sx, 2), (200, 170, 0, a // 3))
+                stage_surf.set_at((sx, 3), (150, 130, 0, a // 4))
+            self.screen.blit(stage_surf, (0, stage_y))
+
+        # === 호위무사 (양옆, 챔피언보다 먼저 등장) ===
+        guard_y_target = 420
+        guard_size_w, guard_size_h = 80, 56
+
+        if guards and self.hero_paddle_renderer and intro > 0.1:
+            guard_fade = min(1.0, (intro - 0.1) * 2.5)
+            guard_eased = self._ease_in_out(guard_fade)
+
+            # 왼쪽 호위무사 (최대 1명)
+            if len(guards) >= 1:
+                g = guards[0]
+                g_target_x = center_x - 180
+                g_start_x = -100
+                gx = int(g_start_x + (g_target_x - g_start_x) * guard_eased)
+                gy = int(guard_y_target + 100 * (1 - guard_eased))
+                g_color = g.get("color", (150, 150, 150))
+
+                # 글로우
+                glow_a = int(40 * guard_fade)
+                glow_s = pygame.Surface((120, 120), pygame.SRCALPHA)
+                pygame.draw.circle(glow_s, (*g_color, glow_a), (60, 60), 55)
+                self.screen.blit(glow_s, (gx - 60, gy - 60))
+
+                self.hero_paddle_renderer.draw_hero_paddle(
+                    self.screen, g.get("id", "mugen"), gx, gy, guard_size_w, guard_size_h,
+                    facing="down", color=g_color, scale_mode="preview"
+                )
+                # 이름
+                if self.fonts and "small" in self.fonts and guard_fade > 0.5:
+                    ns, _ = self.fonts["small"].render(g.get("name", ""), (180, 180, 180))
+                    self.screen.blit(ns, (gx - ns.get_width() // 2, gy + guard_size_h // 2 + 8))
+
+            # 오른쪽 호위무사 (최대 1명)
+            if len(guards) >= 2:
+                g = guards[1]
+                g_target_x = center_x + 180
+                g_start_x = SCREEN_WIDTH + 100
+                gx = int(g_start_x + (g_target_x - g_start_x) * guard_eased)
+                gy = int(guard_y_target + 100 * (1 - guard_eased))
+                g_color = g.get("color", (150, 150, 150))
+
+                glow_s = pygame.Surface((120, 120), pygame.SRCALPHA)
+                pygame.draw.circle(glow_s, (*g_color, glow_a), (60, 60), 55)
+                self.screen.blit(glow_s, (gx - 60, gy - 60))
+
+                self.hero_paddle_renderer.draw_hero_paddle(
+                    self.screen, g.get("id", "mugen"), gx, gy, guard_size_w, guard_size_h,
+                    facing="down", color=g_color, scale_mode="preview"
+                )
+                if self.fonts and "small" in self.fonts and guard_fade > 0.5:
+                    ns, _ = self.fonts["small"].render(g.get("name", ""), (180, 180, 180))
+                    self.screen.blit(ns, (gx - ns.get_width() // 2, gy + guard_size_h // 2 + 8))
+
+        # === 챔피언 (중앙, 크게) ===
+        champ_target_y = 380
+        champ_start_y = 600
+        champ_y = int(champ_start_y + (champ_target_y - champ_start_y) * eased)
+        champ_w, champ_h = 150, 105
+
+        # 챔피언 글로우 (크고 화려하게)
+        if intro > 0.2:
+            glow_pulse = abs(math.sin(self.animation_timer * 2)) * 0.3 + 0.7
+            glow_a = int(80 * min(1.0, (intro - 0.2) * 2) * glow_pulse)
+            glow_r = 110
+            glow_s = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_s, (255, 215, 0, glow_a), (glow_r, glow_r), glow_r)
+            self.screen.blit(glow_s, (center_x - glow_r, champ_y - glow_r))
+            # 내부 캐릭터 색 글로우
+            glow_s2 = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_s2, (*champion_color, glow_a // 2), (glow_r, glow_r), glow_r - 20)
+            self.screen.blit(glow_s2, (center_x - glow_r, champ_y - glow_r))
+
+        # 챔피언 캐릭터
+        if self.hero_paddle_renderer:
+            self.hero_paddle_renderer.draw_hero_paddle(
+                self.screen, champion_id, center_x, champ_y, champ_w, champ_h,
+                facing="down", color=champion_color, scale_mode="preview"
+            )
+
+        # === 트로피 (챔피언 위, 스케일업 등장) ===
+        if intro > 0.5:
+            trophy_progress = min(1.0, (intro - 0.5) * 3)
+            trophy_eased = self._ease_in_out(trophy_progress)
+            trophy_y = champ_y - champ_h // 2 - 60
+            trophy_size = int(30 * trophy_eased)
+            if trophy_size > 3:
+                # 트로피 받침대 빛
+                sparkle_a = int(60 * trophy_eased + abs(math.sin(self.animation_timer * 4)) * 40)
+                sparkle_s = pygame.Surface((80, 80), pygame.SRCALPHA)
+                pygame.draw.circle(sparkle_s, (255, 230, 100, sparkle_a), (40, 40), 35)
+                self.screen.blit(sparkle_s, (center_x - 40, trophy_y - 40))
+                self._draw_trophy_icon(center_x, trophy_y, trophy_size, (255, 215, 0))
+
+        # === 타이틀 텍스트 ===
+        if intro > 0.4 and self.fonts:
+            text_fade = min(1.0, (intro - 0.4) * 2.5)
+            text_alpha = int(255 * text_fade)
+
+            # "토너먼트 우승!" (큰 금색)
+            if "large" in self.fonts:
+                pulse = abs(math.sin(self.animation_timer * 3)) * 0.3 + 0.7
+                gold = (int(255 * pulse), int(215 * pulse), 0)
+                surf, _ = self.fonts["large"].render("토너먼트 우승!", gold)
+                alpha_s = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+                alpha_s.fill((255, 255, 255, text_alpha))
+                surf.blit(alpha_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                title_x = center_x - surf.get_width() // 2
+                self.screen.blit(surf, (title_x, 80))
+                # 양쪽 트로피 아이콘
+                if text_fade > 0.5:
+                    icon_y = 80 + surf.get_height() // 2
+                    self._draw_trophy_icon(title_x - 20, icon_y, 16)
+                    self._draw_trophy_icon(title_x + surf.get_width() + 20, icon_y, 16)
+
+            # 챔피언 이름
+            if "large" in self.fonts:
+                brightness = sum(champion_color) / 3
+                name_color = champion_color if brightness > 80 else (
+                    min(255, champion_color[0] + 100),
+                    min(255, champion_color[1] + 100),
+                    min(255, champion_color[2] + 100)
+                )
+                surf, _ = self.fonts["large"].render(champion_name, name_color)
+                alpha_s = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+                alpha_s.fill((255, 255, 255, text_alpha))
+                surf.blit(alpha_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                self.screen.blit(surf, (center_x - surf.get_width() // 2, champ_y - champ_h // 2 - 30))
+
+            # 칭호
+            if "small" in self.fonts and champion_title:
+                surf, _ = self.fonts["small"].render(champion_title, (200, 200, 200))
+                alpha_s = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+                alpha_s.fill((255, 255, 255, text_alpha))
+                surf.blit(alpha_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                self.screen.blit(surf, (center_x - surf.get_width() // 2, champ_y + champ_h // 2 + 12))
+
+            # 상금
+            if "medium" in self.fonts and text_fade > 0.6:
+                prize_text = f"획득 상금: {self.accumulated_prize}G"
+                surf, _ = self.fonts["medium"].render(prize_text, (100, 255, 100))
+                prize_alpha = int(255 * min(1.0, (text_fade - 0.6) * 3))
+                alpha_s = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+                alpha_s.fill((255, 255, 255, prize_alpha))
+                surf.blit(alpha_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                self.screen.blit(surf, (center_x - surf.get_width() // 2, 570))
+
+        # === 컨페티 파티클 ===
+        if intro > 0.6:
+            confetti = getattr(self, 'victory_confetti', [])
+            # 새 파티클 생성
+            if len(confetti) < 60 and random.random() < 0.4:
+                confetti.append({
+                    'x': random.randint(50, SCREEN_WIDTH - 50),
+                    'y': random.randint(-20, 0),
+                    'vx': random.uniform(-1, 1),
+                    'vy': random.uniform(1.5, 3.5),
+                    'color': random.choice([
+                        (255, 215, 0), (255, 100, 100), (100, 200, 255),
+                        (100, 255, 100), (255, 150, 50), (200, 100, 255)
+                    ]),
+                    'size': random.randint(3, 7),
+                    'rot': random.uniform(0, math.pi * 2),
+                    'rot_speed': random.uniform(-3, 3)
+                })
+
+            # 업데이트 + 그리기
+            alive = []
+            for p in confetti:
+                p['x'] += p['vx']
+                p['y'] += p['vy']
+                p['vy'] += 0.02  # 약한 중력
+                p['rot'] += p['rot_speed'] * 0.016
+                if p['y'] < SCREEN_HEIGHT + 10:
+                    alive.append(p)
+                    # 직사각형 컨페티
+                    s = p['size']
+                    cs = pygame.Surface((s * 2, s), pygame.SRCALPHA)
+                    pygame.draw.rect(cs, p['color'], (0, 0, s * 2, s))
+                    rotated = pygame.transform.rotate(cs, math.degrees(p['rot']))
+                    self.screen.blit(rotated, (int(p['x']) - rotated.get_width() // 2,
+                                               int(p['y']) - rotated.get_height() // 2))
+            self.victory_confetti = alive
+
+        # === 하단 힌트 ===
+        if timer >= 3.0 and self.fonts and "small" in self.fonts:
+            blink = abs(math.sin(self.animation_timer * 2)) * 155 + 100
+            surf, _ = self.fonts["small"].render("클릭하여 계속...", (int(blink), int(blink), int(blink)))
+            self.screen.blit(surf, (center_x - surf.get_width() // 2, 680))
 
     def _draw_tournament_end_ui(self):
         """토너먼트 종료 UI - 누적 상금 시스템"""
