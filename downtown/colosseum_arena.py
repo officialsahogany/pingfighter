@@ -2417,12 +2417,16 @@ class ColosseumsArena:
             except Exception:
                 pass
 
-    def _start_vs_preview(self):
-        """VS 매치업 미리보기 시작 (배틀 전 2초간 표시)"""
+    def _start_vs_preview(self, show_buttons=False):
+        """VS 매치업 미리보기 시작
+        show_buttons=False: 2초 후 자동 배틀 시작 (8강 첫 배틀)
+        show_buttons=True: VS 화면 + 계속/나가기 버튼 (4강/결승 진출 후)
+        """
         self.vs_preview_timer = 0.0
         self.vs_preview_progress = 0.0
+        self.vs_preview_show_buttons = show_buttons
         self.state = TournamentState.VS_PREVIEW
-        print(f"[Arena] VS 미리보기 시작 | {self.selected_match.hero1['name']} vs {self.selected_match.hero2['name']}")
+        print(f"[Arena] VS 미리보기 시작 (buttons={show_buttons}) | {self.selected_match.hero1['name']} vs {self.selected_match.hero2['name']}")
 
     def start_battle(self, match: Match):
         """배틀 시작 - 실제 게임 엔진 사용 (pingfighter.main 스테이지 30)"""
@@ -3013,13 +3017,15 @@ class ColosseumsArena:
                 )
 
         if self.state == TournamentState.VS_PREVIEW:
-            # VS 매치업 미리보기 (2초)
+            # VS 매치업 미리보기
             self.vs_preview_timer += dt
             vs_preview_duration = 2.0
             self.vs_preview_progress = min(1.0, self.vs_preview_timer / vs_preview_duration)
-            if self.vs_preview_timer >= vs_preview_duration:
-                # VS 미리보기 완료 → 실제 배틀 시작
-                self.start_battle(self.selected_match)
+            if not getattr(self, 'vs_preview_show_buttons', False):
+                # 버튼 없는 모드: 2초 후 자동 배틀 시작
+                if self.vs_preview_timer >= vs_preview_duration:
+                    self.start_battle(self.selected_match)
+            # 버튼 있는 모드: 클릭 대기 (자동 시작 안함)
 
         elif self.state == TournamentState.BATTLE:
             self.update_battle(dt)
@@ -3170,29 +3176,29 @@ class ColosseumsArena:
                 self.exit_requested = True
                 return
 
+        elif self.state == TournamentState.VS_PREVIEW:
+            # VS 미리보기 클릭 처리 (버튼 모드일 때)
+            if getattr(self, 'vs_preview_show_buttons', False) and self.vs_preview_timer >= 1.5:
+                btn_y = 610
+                btn_w, btn_h = 180, 50
+                # 계속 도전 버튼
+                continue_rect = pygame.Rect(SCREEN_WIDTH // 2 - btn_w - 20, btn_y, btn_w, btn_h)
+                if continue_rect.collidepoint(mx, my):
+                    if self.selected_match:
+                        self.start_battle(self.selected_match)
+                    return
+
+                # 상금 수령하고 나가기 버튼
+                exit_rect = pygame.Rect(SCREEN_WIDTH // 2 + 20, btn_y, btn_w, btn_h)
+                if exit_rect.collidepoint(mx, my):
+                    self.total_winnings = self.accumulated_prize
+                    self.winnings_collected = True
+                    self.exit_requested = True
+                    return
+
         elif self.state == TournamentState.RESULT:
             # 결과 화면 클릭 시 다음으로
             self.result_display_timer = 0
-
-        elif self.state == TournamentState.ROUND_END:
-            # 라운드 종료 UI 클릭 처리 (그리기 좌표와 동일하게)
-            panel_x, panel_y = 150, 180
-
-            # 계속 도전 버튼
-            continue_rect = pygame.Rect(panel_x + 40, panel_y + 220, 180, 50)
-            if continue_rect.collidepoint(mx, my):
-                # 선택한 영웅으로 VS 미리보기 후 배틀 시작
-                if self.selected_match:
-                    self._start_vs_preview()
-                return
-
-            # 상금 수령하고 나가기 버튼
-            exit_rect = pygame.Rect(panel_x + 240, panel_y + 220, 180, 50)
-            if exit_rect.collidepoint(mx, my):
-                self.total_winnings = self.accumulated_prize
-                self.winnings_collected = True
-                self.exit_requested = True
-                return
 
         elif self.state == TournamentState.TOURNAMENT_END:
             # 토너먼트 종료 UI 클릭 처리 (그리기 좌표와 동일하게)
@@ -3227,6 +3233,51 @@ class ColosseumsArena:
         self.bracket_anim_progress = self.vs_preview_progress
         self._draw_vs_matchup_animation()
         self.bracket_anim_progress = saved_progress
+
+        # 버튼 모드: 1.5초 후 하단에 계속/나가기 버튼 페이드인
+        if getattr(self, 'vs_preview_show_buttons', False) and self.vs_preview_timer >= 1.5:
+            btn_fade = min(1.0, (self.vs_preview_timer - 1.5) / 0.5)  # 0.5초간 페이드인
+            btn_alpha = int(255 * btn_fade)
+
+            btn_y = 610
+            btn_w, btn_h = 180, 50
+
+            # 상금 정보 (버튼 위)
+            if self.fonts and "medium" in self.fonts and btn_fade > 0.3:
+                info_alpha = int(255 * btn_fade)
+                acc_text = f"누적 상금: {self.accumulated_prize}G"
+                surf, _ = self.fonts["medium"].render(acc_text, (int(100 * btn_fade), int(255 * btn_fade), int(100 * btn_fade)))
+                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, btn_y - 55))
+
+                # 경고
+                if "small" in self.fonts:
+                    warn_text = "패배 시 누적 상금을 모두 잃습니다!"
+                    surf, _ = self.fonts["small"].render(warn_text, (int(255 * btn_fade), int(180 * btn_fade), int(100 * btn_fade)))
+                    warn_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
+                    self._draw_warning_icon(warn_x - 12, btn_y - 30, 10)
+                    self.screen.blit(surf, (warn_x, btn_y - 35))
+
+            # 계속 도전 버튼
+            continue_rect = pygame.Rect(SCREEN_WIDTH // 2 - btn_w - 20, btn_y, btn_w, btn_h)
+            btn_surf = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
+            pygame.draw.rect(btn_surf, (80, 180, 80, btn_alpha), (0, 0, btn_w, btn_h), border_radius=5)
+            self.screen.blit(btn_surf, continue_rect.topleft)
+            if self.fonts and "medium" in self.fonts:
+                surf, _ = self.fonts["medium"].render("계속 도전!", (255, 255, 255))
+                btn_text_x = continue_rect.centerx - surf.get_width() // 2
+                self._draw_fire_icon(btn_text_x - 12, continue_rect.y + 15 + surf.get_height() // 2, 12)
+                self.screen.blit(surf, (btn_text_x, continue_rect.y + 15))
+
+            # 상금 수령 버튼
+            exit_rect = pygame.Rect(SCREEN_WIDTH // 2 + 20, btn_y, btn_w, btn_h)
+            btn_surf = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
+            pygame.draw.rect(btn_surf, (100, 100, 180, btn_alpha), (0, 0, btn_w, btn_h), border_radius=5)
+            self.screen.blit(btn_surf, exit_rect.topleft)
+            if self.fonts and "medium" in self.fonts:
+                surf, _ = self.fonts["medium"].render(f"{self.accumulated_prize}G 수령", (255, 255, 255))
+                btn_text_x = exit_rect.centerx - surf.get_width() // 2
+                self._draw_coin_icon(btn_text_x - 12, exit_rect.y + 15 + surf.get_height() // 2, 12)
+                self.screen.blit(surf, (btn_text_x, exit_rect.y + 15))
 
     def _draw_battle(self):
         """배틀 화면 그리기"""
@@ -4149,7 +4200,7 @@ class ColosseumsArena:
         """대진표 진출 애니메이션 시작"""
         print(f"[Arena] _start_bracket_animation 시작 | current_round: {self.current_round}")
         self.bracket_anim_timer = 0.0
-        self.bracket_anim_phase = 0  # 0: 패자 X 표시, 1: 승자 이동, 2: VS 매치업 표시, 3: 완료
+        self.bracket_anim_phase = 0  # 0: 패자 X 표시, 1: 승자 이동, 2: 대기 후 VS_PREVIEW 전환
         self.bracket_anim_progress = 0.0
 
         # 현재 라운드의 완료된 매치와 승자 수집
@@ -4202,16 +4253,7 @@ class ColosseumsArena:
                 print(f"[Arena] _prepare_next_match() 완료 | selected_match: {self.selected_match}")
 
         elif self.bracket_anim_phase == 2:
-            # 페이즈 2: VS 매치업 표시 (2초간)
-            vs_duration = 2.0
-            self.bracket_anim_progress = min(1.0, self.bracket_anim_timer / vs_duration)
-            if self.bracket_anim_timer >= vs_duration:
-                self.bracket_anim_phase = 3
-                self.bracket_anim_timer = 0.0
-                self.bracket_anim_progress = 0.0
-
-        elif self.bracket_anim_phase == 3:
-            # 페이즈 3: 짧은 대기 후 ROUND_END로 전환
+            # 페이즈 2: 짧은 대기 후 VS_PREVIEW(버튼 모드)로 전환
             wait_time = 0.3
             if self.bracket_anim_timer >= wait_time:
                 # 애니메이션 상태 초기화
@@ -4219,19 +4261,14 @@ class ColosseumsArena:
                 self.bracket_anim_progress = 0.0
                 self.bracket_anim_timer = 0.0
 
-                # ROUND_END 상태로 전환 (계속할지 선택)
-                print(f"[Arena] Phase 3 완료 → ROUND_END 전환 | current_round: {self.current_round}")
-                self.state = TournamentState.ROUND_END
+                # VS_PREVIEW로 전환 (버튼 포함)
+                print(f"[Arena] Phase 2 완료 → VS_PREVIEW (buttons) 전환 | current_round: {self.current_round}")
+                self._start_vs_preview(show_buttons=True)
 
     def _draw_bracket_animation(self):
         """대진표 진출 애니메이션 그리기"""
         # 배경
         self.screen.fill((25, 28, 35))
-
-        # 페이즈 2: VS 매치업 표시
-        if self.bracket_anim_phase == 2 and self.selected_match:
-            self._draw_vs_matchup_animation()
-            return
 
         # 라운드 진출 타이틀
         if self.fonts and "large" in self.fonts:
@@ -4901,12 +4938,16 @@ class ColosseumsArena:
                         ns, _ = self.fonts["small"].render(g_name, (180, 180, 180))
                         self.screen.blit(ns, (gx - ns.get_width() // 2, guard_y + 28))
 
-        # 하단 힌트
+        # 하단 힌트 (버튼 모드에서 버튼이 나타나기 전까지만 표시)
+        show_buttons = getattr(self, 'vs_preview_show_buttons', False)
         if self.fonts and "small" in self.fonts:
-            hint = "잠시 후 계속 여부를 선택합니다..."
-            alpha = int(abs(math.sin(self.animation_timer * 2)) * 155 + 100)
-            surf, _ = self.fonts["small"].render(hint, (alpha, alpha, alpha))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 650))
+            if show_buttons and getattr(self, 'vs_preview_timer', 0) >= 1.5:
+                pass  # 버튼이 표시되면 힌트 숨김
+            else:
+                hint = "잠시 후 배틀이 시작됩니다..." if not show_buttons else "잠시 후 계속 여부를 선택합니다..."
+                alpha = int(abs(math.sin(self.animation_timer * 2)) * 155 + 100)
+                surf, _ = self.fonts["small"].render(hint, (alpha, alpha, alpha))
+                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 650))
 
     def _ease_in_out(self, t: float) -> float:
         """이징 함수 (부드러운 시작과 끝)"""
