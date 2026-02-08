@@ -40,7 +40,7 @@ HERO_DISPLAY_INFO = {
 class _MinimalSkillManager:
     """GuardWarriorSystem이 요구하는 최소한의 skill_manager 인터페이스"""
     def __init__(self):
-        self.game_state = {}
+        self.game_state = {'is_ingame_bodyguard': True}
         self.screen_effects = []
 
 
