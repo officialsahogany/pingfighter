@@ -15,6 +15,7 @@ WINNING = "winning"
 DEUCE = "deuce"
 MATCH_POINT = "match_point"
 IN_DANGER = "in_danger"
+RETORT = "retort"  # 상대 대사에 받아치기
 
 # ── 8영웅 × 8상황 대사 데이터 ──
 HERO_DIALOGUES = {
@@ -57,6 +58,11 @@ HERO_DIALOGUES = {
             "아직 검을 놓지 않았다.",
             "어둠은 쉽게 사라지지 않는다.",
         ],
+        RETORT: [
+            "...그게 다냐.",
+            "헛소리를.",
+            "웃기는군.",
+        ],
     },
 
     # ─── 크라켄 (심해의 포식자) : 기괴하고 탐욕스러운 ───
@@ -97,6 +103,11 @@ HERO_DIALOGUES = {
         IN_DANGER: [
             "심해로 끌어들이겠어.",
             "아직 배가 고프다고...",
+        ],
+        RETORT: [
+            "크르르... 시끄럽군.",
+            "그 입부터 먹어줄까.",
+            "먹잇감이 떠드는군.",
         ],
     },
 
@@ -139,6 +150,11 @@ HERO_DIALOGUES = {
             "이 키르케가... 지다니?",
             "아직 금지 마법이 남았어.",
         ],
+        RETORT: [
+            "후후... 웃기지 마.",
+            "입만 산 건 아닌지?",
+            "하찮은 허세로군.",
+        ],
     },
 
     # ─── 오니마루 (요괴무사) : 호쾌하고 전투광 ───
@@ -179,6 +195,11 @@ HERO_DIALOGUES = {
         IN_DANGER: [
             "무사는 물러서지 않는다!",
             "지옥에서 왔다, 두렵지 않다!",
+        ],
+        RETORT: [
+            "하! 두고 보자!",
+            "그 정도로 이 오니를 꺾겠다고?",
+            "입으로 싸우는 건 관심 없다!",
         ],
     },
 
@@ -221,6 +242,11 @@ HERO_DIALOGUES = {
             "인형이 울고 있어... 싫어...",
             "아직... 실이 남았어.",
         ],
+        RETORT: [
+            "히히... 재밌는 소리~",
+            "인형들이 비웃고 있어.",
+            "그렇게 말해도... 실은 풀리지 않아.",
+        ],
     },
 
     # ─── 이그니스 (드래곤 나이트) : 열혈 전사 ───
@@ -261,6 +287,11 @@ HERO_DIALOGUES = {
         IN_DANGER: [
             "용기사는 불 속에서도 싸운다!",
             "아직 불씨가 남았다!",
+        ],
+        RETORT: [
+            "그 정도 기세론 부족해!",
+            "불꽃 앞에선 헛소리야!",
+            "하! 웃기는 소리!",
         ],
     },
 
@@ -303,6 +334,11 @@ HERO_DIALOGUES = {
             "경고: 패배 확률 상승 중...",
             "비상! 풀파워 모드 가동!",
         ],
+        RETORT: [
+            "...데이터상 근거 없는 발언이야.",
+            "감정론은 비효율적이야.",
+            "수치로 말해줄까?",
+        ],
     },
 
     # ─── 쿠로카게 (그림자 닌자) : 과묵하고 냉정한 ───
@@ -344,6 +380,11 @@ HERO_DIALOGUES = {
             "닌자는 도망치지 않는다.",
             "그림자가 사라지기 전에...",
         ],
+        RETORT: [
+            "...시끄럽군.",
+            "그림자는 말이 필요 없다.",
+            "...허세뿐이군.",
+        ],
     },
 }
 
@@ -359,6 +400,8 @@ class HeroDialogueManager:
     HERO_COOLDOWN = 720       # 영웅별 쿨다운 (12초 @ 60fps)
     GLOBAL_COOLDOWN = 180     # 글로벌 쿨다운 (3초)
     TRIGGER_CHANCE = 0.6      # 60% 발동 확률
+    RETORT_CHANCE = 0.4       # 40% 받아치기 확률
+    RETORT_DELAY = 90         # 받아치기 딜레이 (1.5초 @ 60fps)
 
     def __init__(self):
         self._hero_cd = {}          # hero_id → 남은 쿨다운 프레임
@@ -368,6 +411,7 @@ class HeroDialogueManager:
         self._started = False       # 개막 대사 출력 여부
         self._start_delay = 0       # 개막 대사 딜레이
         self._pending_top_start = False  # 상단 영웅 개막 대사 대기 중
+        self._pending_retort = None  # 대기 중인 받아치기 {hero_id, is_top, delay}
 
     def reset(self):
         """새 배틀 시작 시 초기화"""
@@ -378,6 +422,7 @@ class HeroDialogueManager:
         self._started = False
         self._start_delay = 120     # 2초 뒤 개막 대사
         self._pending_top_start = False
+        self._pending_retort = None
 
     # ── 매 프레임 호출 ──
     def update(self, top_hero_id, bottom_hero_id,
@@ -416,6 +461,16 @@ class HeroDialogueManager:
                               speech_bubble_func, top_speech_timer, force=True)
                 self._pending_top_start = False
             return
+
+        # ── 받아치기(retort) 처리 ──
+        if self._pending_retort is not None:
+            self._pending_retort["delay"] -= 1
+            if self._pending_retort["delay"] <= 0:
+                r = self._pending_retort
+                timer = top_speech_timer if r["is_top"] else bottom_speech_timer
+                self._try_say(r["hero_id"], RETORT, r["is_top"],
+                              speech_bubble_func, timer, force=True)
+                self._pending_retort = None
 
         # ── 점수 변화 감지 ──
         if score_bottom != self._prev_bot:
@@ -468,9 +523,29 @@ class HeroDialogueManager:
         s_timer = top_timer if scorer_is_top else bot_timer
         spoke = self._try_say(scorer_id, sit, scorer_is_top, fn, s_timer)
 
-        if not spoke:
+        if spoke:
+            # 득점자가 말했으면 상대가 받아칠 수 있음
+            self._schedule_retort(conceder_id, not scorer_is_top)
+        else:
             c_timer = bot_timer if scorer_is_top else top_timer
             self._try_say(conceder_id, c_sit, not scorer_is_top, fn, c_timer)
+
+    # ── 내부 : 받아치기 예약 ──
+    def _schedule_retort(self, hero_id, is_top):
+        """상대 영웅의 받아치기를 확률적으로 예약"""
+        if self._pending_retort is not None:
+            return  # 이미 대기 중인 받아치기가 있으면 무시
+        # RETORT 대사가 있는지 확인
+        lines = HERO_DIALOGUES.get(hero_id, {}).get(RETORT, [])
+        if not lines:
+            return
+        if random.random() > self.RETORT_CHANCE:
+            return  # 40% 확률
+        self._pending_retort = {
+            "hero_id": hero_id,
+            "is_top": is_top,
+            "delay": self.RETORT_DELAY,
+        }
 
     # ── 내부 : 실제 말풍선 출력 시도 ──
     def _try_say(self, hero_id, situation, is_top, fn, current_timer, force=False):
