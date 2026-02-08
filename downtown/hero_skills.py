@@ -1509,8 +1509,7 @@ class GravityControl(HeroSkill):
         self.gravity_particles = []  # 중력 이펙트 파티클
         self.distortion_lines = []  # 왜곡선
         self.pulse_timer = 0
-        self.paddle_drift_direction = 0  # 패들 중력 드리프트 방향 (-1 or 1)
-        self.paddle_drift_force = 45  # 패들에 가해지는 중력 힘 (px/s)
+        self.ball_attract_strength = 35  # 공이 상대 패들 X좌표로 끌리는 힘 (px/s²)
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         # 중력 효과 활성화
@@ -1522,14 +1521,6 @@ class GravityControl(HeroSkill):
         # 하단에서 발동 → 중력 위로 (상대 상단에게 불리)
         is_caster_top = getattr(self, 'caster_is_top', caster_paddle.is_top)
         self.gravity_direction = 1 if is_caster_top else -1  # 1=아래, -1=위
-
-        # 상대 패들 중력 드리프트 방향 (공 반대쪽으로 끌기)
-        ball_side = 1 if ball.x > target_paddle.x + getattr(target_paddle, 'width', 80) // 2 else -1
-        self.paddle_drift_direction = -ball_side  # 공 반대쪽으로 끌어당김
-
-        # 상대 패들 중력 드리프트 game_state 설정
-        target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
-        game_state[f'{target_prefix}_gravity_drift'] = self.paddle_drift_direction * self.paddle_drift_force
 
         # 초기 파티클 생성
         self.gravity_particles = []
@@ -1585,10 +1576,17 @@ class GravityControl(HeroSkill):
             else:  # 반대 방향 - 강한 중력으로 속도 감속
                 ball.vy += gravity_force  # 100% 적용 → 공이 점점 느려지다가 방향 전환
 
-        # 🧲 상대 패들 중력 드리프트 (공 반대쪽으로 끌기)
-        target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
-        drift_dir = self.paddle_drift_direction
-        game_state[f'{target_prefix}_gravity_drift'] = drift_dir * self.paddle_drift_force
+        # 🧲 공을 상대 패들의 X좌표로 끌어당기는 자력 효과
+        if hasattr(ball, 'vx') and hasattr(target_paddle, 'x'):
+            paddle_center_x = target_paddle.x + getattr(target_paddle, 'width', 80) // 2
+            dx = paddle_center_x - ball.x
+            # 거리에 비례하는 인력 (멀수록 약하게, 가까울수록 강하게)
+            if abs(dx) > 5:  # 최소 거리 이상일 때만
+                attract_dir = 1 if dx > 0 else -1
+                # 거리가 가까울수록 강하게 (최대 200px 기준 정규화)
+                proximity = min(1.0, abs(dx) / 200.0)
+                attract_force = self.ball_attract_strength * attract_dir * (0.4 + 0.6 * proximity)
+                ball.vx += attract_force * dt
 
         # 파티클 업데이트 (중력 방향으로 이동)
         for p in self.gravity_particles:
@@ -1612,24 +1610,16 @@ class GravityControl(HeroSkill):
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['gravity_control_active'] = False
-        # 패들 중력 드리프트 해제
-        game_state['top_paddle_gravity_drift'] = 0
-        game_state['bottom_paddle_gravity_drift'] = 0
         self.gravity_particles = []
         self.distortion_lines = []
-        self.paddle_drift_direction = 0
 
     def reset_for_new_round(self, game_state: dict):
         """라운드 전환 시 중력조절 효과 초기화"""
         super().reset_for_new_round(game_state)
         game_state['gravity_control_active'] = False
-        # 패들 중력 드리프트 해제
-        game_state['top_paddle_gravity_drift'] = 0
-        game_state['bottom_paddle_gravity_drift'] = 0
         self.gravity_particles = []
         self.distortion_lines = []
         self.pulse_timer = 0
-        self.paddle_drift_direction = 0
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if not self.is_active:
@@ -1687,32 +1677,39 @@ class GravityControl(HeroSkill):
             ]
             pygame.draw.polygon(screen, (150, 120, 220), arrow_points)
 
-        # 🧲 상대 패들 중력 드리프트 시각 이펙트
-        if self.paddle_drift_direction != 0:
-            drift_dir = self.paddle_drift_direction
+        # 🧲 공 ↔ 상대 패들 자력 연결 이펙트
+        if hasattr(ball, 'x') and hasattr(ball, 'y') and hasattr(target_paddle, 'x'):
             paddle_cx = target_paddle.x + getattr(target_paddle, 'width', 80) // 2
             paddle_cy = target_paddle.y + getattr(target_paddle, 'height', 20) // 2
+            bx, by = int(ball.x), int(ball.y)
 
-            # 중력 화살표 (패들 위에 드리프트 방향 표시)
-            arrow_pulse = abs(math.sin(self.pulse_timer * 5)) * 4
-            for i in range(3):
-                ax = int(paddle_cx + drift_dir * (20 + i * 18 + arrow_pulse))
-                ay = int(paddle_cy)
-                arr_alpha = max(30, 160 - i * 50)
-                arr_surf = pygame.Surface((20, 20), pygame.SRCALPHA)
-                # 드리프트 방향 화살표
-                if drift_dir > 0:
-                    pts = [(2, 5), (14, 10), (2, 15)]
-                else:
-                    pts = [(18, 5), (6, 10), (18, 15)]
-                pygame.draw.polygon(arr_surf, (140, 100, 220, arr_alpha), pts)
-                screen.blit(arr_surf, (ax - 10, ay - 10))
+            # 공과 패들 사이 자력선 (보라색 에너지 줄)
+            dist = math.hypot(paddle_cx - bx, paddle_cy - by)
+            if dist > 10:
+                num_segments = max(3, int(dist / 40))
+                for i in range(num_segments):
+                    t = i / num_segments
+                    # 보간 위치 + 사인파 흔들림
+                    mx = bx + (paddle_cx - bx) * t
+                    my = by + (paddle_cy - by) * t
+                    wave = math.sin(t * math.pi * 3 + self.pulse_timer * 8) * (8 + 6 * t)
+                    mx += wave
+                    seg_alpha = int((80 + 60 * t) * abs(math.sin(self.pulse_timer * 3 + t * 2)))
+                    seg_alpha = max(20, min(200, seg_alpha))
+                    seg_size = max(2, int(3 + 2 * t))
+                    seg_surf = pygame.Surface((seg_size * 2, seg_size * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(seg_surf, (140, 100, 220, seg_alpha),
+                                     (seg_size, seg_size), seg_size)
+                    screen.blit(seg_surf, (int(mx - seg_size), int(my - seg_size)))
 
-            # 패들 주변 중력 오라
-            aura_alpha = int(60 + 30 * abs(math.sin(self.pulse_timer * 3)))
-            aura_surf = pygame.Surface((120, 40), pygame.SRCALPHA)
-            pygame.draw.ellipse(aura_surf, (100, 70, 180, aura_alpha), (0, 0, 120, 40), 2)
-            screen.blit(aura_surf, (int(paddle_cx - 60), int(paddle_cy - 20)))
+            # 상대 패들 주변 자력 오라 (공이 끌려오는 느낌)
+            aura_pulse = abs(math.sin(self.pulse_timer * 4)) * 0.5 + 0.5
+            for r in range(2):
+                aura_r = int(25 + r * 15 + aura_pulse * 10)
+                a = max(20, int(70 - r * 25))
+                aura_s = pygame.Surface((aura_r * 2, aura_r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(aura_s, (120, 80, 200, a), (aura_r, aura_r), aura_r, 2)
+                screen.blit(aura_s, (int(paddle_cx - aura_r), int(paddle_cy - aura_r)))
 
 
 class DwarfMagic(HeroSkill):
