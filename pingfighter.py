@@ -132353,14 +132353,15 @@ def main(stage_num, new_boss_mode=False):
                         if _target_is_top:
                             # 보스(상단)에게 넉백 적용
                             boss_knockback_vel = _apply_boss_knockback_velocity(_kb_dir * _kb_vel)
-                            boss_stunned_timer = 30  # 0.5초 스턴 (하단과 동일하게 적용)
+                            # IMPACT(0.2s)+RETURNING(0.5s)=0.7s=42f → 45f로 끊김 없이 PHASE_STUN에 연결
+                            boss_stunned_timer = 45
                             globals()['horn_charge_boss_knockback_active'] = True  # 부드러운 감속용 플래그
                             print(f"🐂 [HORN CHARGE] 보스 넉백! dir={_kb_dir}, vel={boss_knockback_vel:.2f}, stun={boss_stunned_timer}")
                         else:
                             # 플레이어(하단)에게 넉백 적용 (다이너마이트와 동일)
                             _prev_player_x = PLAYER.x
                             player_knockback_vel = _kb_dir * _kb_vel
-                            player_stunned_timer = 30  # 0.5초 스턴
+                            player_stunned_timer = 45  # IMPACT+RETURNING 끝까지 커버
                             globals()['horn_charge_player_knockback_active'] = True  # 부드러운 감속용 플래그
                             print(f"🐂 [HORN CHARGE] 플레이어 넉백 적용! PLAYER.x={_prev_player_x}, dir={_kb_dir}, vel={player_knockback_vel:.2f}, stun={player_stunned_timer}")
 
@@ -132800,11 +132801,12 @@ def main(stage_num, new_boss_mode=False):
                                 if _target_is_top:
                                     # 보스(상단)에게 넉백
                                     boss_knockback_vel = _apply_boss_knockback_velocity(_kb_dir * _kb_vel)
-                                    boss_stunned_timer = max(boss_stunned_timer, 30)
+                                    # IMPACT(0.2s)+RETURNING(0.5s)=0.7s=42f → 45f로 끊김 없이 PHASE_STUN에 연결
+                                    boss_stunned_timer = max(boss_stunned_timer, 45)
                                 else:
                                     # 플레이어(하단)에게 넉백
                                     player_knockback_vel = _kb_dir * _kb_vel
-                                    player_stunned_timer = 30
+                                    player_stunned_timer = 45
                             # 화면 정지 (달빛베기 / 도깨비불)
                             if _bg_fx.get('freeze'):
                                 freeze_now = True
