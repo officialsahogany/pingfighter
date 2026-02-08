@@ -6546,6 +6546,17 @@ class ShadowClone(HeroSkill):
                     }
                     self.dying_clones.append(dying_clone)
                     clone['active'] = False
+
+                    # 분신 소멸 사운드 재생
+                    try:
+                        import os
+                        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                        sound_path = os.path.join(project_root, "sounds", "kurokakeout.wav")
+                        if os.path.exists(sound_path):
+                            pygame.mixer.Sound(sound_path).play()
+                    except Exception:
+                        pass
+
                     continue
 
             new_clones.append(clone)
@@ -6556,6 +6567,7 @@ class ShadowClone(HeroSkill):
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['has_shadow_clones'] = False
         # 남아있는 활성 분신들을 dying_clones로 이동 (소멸 애니메이션 재생)
+        had_active = False
         for clone in self.clones:
             if clone['active']:
                 dying_clone = {
@@ -6564,7 +6576,19 @@ class ShadowClone(HeroSkill):
                     'id': clone['id'],
                 }
                 self.dying_clones.append(dying_clone)
+                had_active = True
         self.clones = []
+
+        # 분신 소멸 사운드 재생 (활성 분신이 있었을 때만)
+        if had_active:
+            try:
+                import os
+                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                sound_path = os.path.join(project_root, "sounds", "kurokakeout.wav")
+                if os.path.exists(sound_path):
+                    pygame.mixer.Sound(sound_path).play()
+            except Exception:
+                pass
 
     def reset_for_new_round(self, game_state: dict):
         """라운드 전환 시 그림자분신 강제 초기화"""
