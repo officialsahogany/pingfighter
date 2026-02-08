@@ -2212,6 +2212,7 @@ class DwarfMagic(HeroSkill):
         self.hit_target = False
         self.shrink_timer = 0
         self.magic_particles = []
+        game_state['chronos_cast_pose_timer'] = 0.5  # 0.5초간 시전 포즈
 
         # 발사 시 빛가루 파티클 생성
         for _ in range(20):
@@ -6459,6 +6460,21 @@ class ShadowClone(HeroSkill):
                 'spawn_time': 0.0,
                 'active': True,
                 'id': i,
+                # 이동 애니메이션 상태 (개별 관절 모션)
+                'anim_state': {
+                    "last_x": self.spawn_x,
+                    "velocity": 0.0,
+                    "lean": 0.0,
+                    "step_phase": random.uniform(0, math.pi * 2),  # 분신마다 다른 위상
+                    "shoulder_phase": 0.0,
+                    "arm_swing": 0.0,
+                    "head_tilt": 0.0,
+                    "body_bob": 0.0,
+                    "move_dir": 0.0,
+                    "side_blend": 0.0,
+                    "weapon_swing_timer": 0.0,
+                    "weapon_swing_duration": 0.25,
+                },
             }
             self.clones.append(clone)
 
@@ -6531,6 +6547,41 @@ class ShadowClone(HeroSkill):
                     clone['vx'] = (clone['vx'] / speed) * 12.0
                 elif speed < 6.0:
                     clone['vx'] = 6.0 if clone['vx'] >= 0 else -6.0
+
+            # 분신 이동 애니메이션 상태 업데이트
+            anim_state = clone['anim_state']
+            current_x = float(rect.centerx)
+            anim_velocity = (current_x - anim_state["last_x"]) / max(dt, 0.001)
+            anim_state["velocity"] = anim_velocity * 0.3 + anim_state["velocity"] * 0.7
+
+            target_lean = max(-1.0, min(1.0, anim_state["velocity"] / 200.0))
+            anim_state["lean"] = anim_state["lean"] * 0.85 + target_lean * 0.15
+
+            move_speed = abs(anim_state["velocity"])
+            if move_speed > 25:
+                target_dir = 1.0 if anim_state["velocity"] > 0 else -1.0
+            else:
+                target_dir = 0.0
+            anim_state["move_dir"] = anim_state["move_dir"] * 0.82 + target_dir * 0.18
+            target_side = min(1.0, move_speed / 160.0)
+            anim_state["side_blend"] = anim_state["side_blend"] * 0.88 + target_side * 0.12
+
+            side_factor = anim_state["side_blend"]
+            if move_speed > 5:
+                step_speed = 12.0 + side_factor * 4.0
+                anim_state["step_phase"] += dt * step_speed
+                anim_state["shoulder_phase"] += dt * step_speed
+                speed_factor = min(1.0, move_speed / 150.0)
+                anim_state["body_bob"] = math.sin(anim_state["step_phase"] * 2) * speed_factor * (0.3 + side_factor * 0.25)
+                arm_amp = min(1.0, move_speed / 100.0) * (1.0 + side_factor * 0.25)
+                anim_state["arm_swing"] = math.sin(anim_state["step_phase"]) * arm_amp
+                anim_state["head_tilt"] = math.sin(anim_state["step_phase"] * 1.5) * 0.3 * speed_factor
+            else:
+                anim_state["body_bob"] *= 0.9
+                anim_state["arm_swing"] *= 0.9
+                anim_state["head_tilt"] *= 0.9
+
+            anim_state["last_x"] = current_x
 
             # 공과 충돌 체크 (등장 애니메이션 후에만) - Stage 8 방식
             if ball is not None and clone['spawn_time'] >= self.EMERGE_DURATION:
@@ -6667,6 +6718,10 @@ class ShadowClone(HeroSkill):
             shadow_color = (70, 60, 100)
 
             try:
+                # 분신 개별 이동 애니메이션: 렌더러 상태를 임시 교체
+                original_state = renderer.hero_states.get("kurokage")
+                renderer.hero_states["kurokage"] = clone['anim_state']
+
                 renderer.draw_hero_paddle(
                     temp_surf,
                     "kurokage",
@@ -6678,10 +6733,22 @@ class ShadowClone(HeroSkill):
                     shadow_color,
                     "preview"
                 )
+
+                # 렌더러 상태 복원
+                if original_state is not None:
+                    renderer.hero_states["kurokage"] = original_state
+                else:
+                    renderer.hero_states.pop("kurokage", None)
+
                 temp_surf.set_alpha(alpha)
                 screen.blit(temp_surf, (x - char_width // 2, y - char_height + 15))
 
             except Exception as e:
+                # 에러 시 렌더러 상태 복원
+                if original_state is not None:
+                    renderer.hero_states["kurokage"] = original_state
+                else:
+                    renderer.hero_states.pop("kurokage", None)
                 self._draw_fallback_clone(screen, x, y, alpha)
         else:
             self._draw_fallback_clone(screen, x, y, alpha)
