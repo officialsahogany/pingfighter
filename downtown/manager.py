@@ -604,10 +604,11 @@ class DowntownManager:
         if animal_result:
             npc_type, reaction = animal_result
             # 강아지 상호작용 - 짖는 소리 재생
-            if npc_type.value == "dog" and self.dog_bark_sound:
+            npc_type_str = npc_type.value if hasattr(npc_type, 'value') else npc_type
+            if npc_type_str == "dog" and self.dog_bark_sound:
                 self.dog_bark_sound.play()
             # 고양이 상호작용 - 야옹 소리 재생
-            elif npc_type.value == "cat" and self.cat_meow_sound:
+            elif npc_type_str == "cat" and self.cat_meow_sound:
                 self.cat_meow_sound.play()
 
     def _handle_interaction_or_talk(self):
