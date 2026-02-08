@@ -740,35 +740,38 @@ class TentacleWrap(HeroSkill):
         caster_cx, caster_torso_y, caster_cy, _ = self._get_hero_body_position(caster_paddle, b)
         target_cx, target_torso_y, target_cy, _ = self._get_hero_body_position(target_paddle, b)
 
-        # 촉수 생성 - 크라켄의 어깨/팔 영역에서 시작
+        # 촉수 생성 - 크라켄의 다리 촉수(발)에서 시작
         self.tentacles = []
-
-        # 크라켄 어깨 위치 오프셋 (hero_paddles.py 기준: shoulder = cx ± 1.4*b, torso_y + 0.2*b)
-        shoulder_offset_x = int(1.4 * b)  # ≈ 11
-        shoulder_offset_y = int(0.2 * b)  # ≈ 2
 
         # 방향 (상단이면 아래로, 하단이면 위로 뻗어나감)
         direction = 1 if caster_paddle.is_top else -1
 
-        # 촉수 시작 위치: 크라켄의 어깨/팔 영역
-        tentacle_origins = [
-            # 왼쪽 어깨/팔 촉수들
-            {'base_offset_x': -shoulder_offset_x - 5, 'base_offset_y': shoulder_offset_y, 'type': 'shoulder'},
-            {'base_offset_x': -shoulder_offset_x + 3, 'base_offset_y': shoulder_offset_y + 8, 'type': 'arm'},
-            {'base_offset_x': -int(0.4 * b), 'base_offset_y': shoulder_offset_y + 12, 'type': 'body'},
-            # 오른쪽 어깨/팔 촉수들
-            {'base_offset_x': int(0.4 * b), 'base_offset_y': shoulder_offset_y + 12, 'type': 'body'},
-            {'base_offset_x': shoulder_offset_x - 3, 'base_offset_y': shoulder_offset_y + 8, 'type': 'arm'},
-            {'base_offset_x': shoulder_offset_x + 5, 'base_offset_y': shoulder_offset_y, 'type': 'shoulder'},
-        ]
+        # 촉수 시작 위치: 크라켄의 다리 촉수 끝에서 발사
+        # hero_paddles.py _draw_kraken 기준:
+        #   hip_y = torso_y + 1.8*b, tentacle_positions = [-1.8, -1.1, -0.4, 0.4, 1.1, 1.8]
+        #   base_x = cx + int(side * 0.4 * b)
+        leg_positions = [-1.8, -1.1, -0.4, 0.4, 1.1, 1.8]
+        hip_offset_y = int(1.8 * b)   # 엉덩이 위치 (torso 기준)
+        leg_extend_y = int(1.2 * b)   # 다리 중간~끝 발사점
+
+        tentacle_origins = []
+        for side in leg_positions:
+            tentacle_origins.append({
+                'base_offset_x': int(side * 0.4 * b),
+                'base_offset_y': hip_offset_y + leg_extend_y,
+                'type': 'leg',
+            })
 
         for i, origin in enumerate(tentacle_origins):
             # 약간의 랜덤 변동으로 자연스러움 추가
             offset_x = origin['base_offset_x'] + random.uniform(-2, 2)
-            offset_y = origin['base_offset_y'] * direction + random.uniform(-1, 1) * direction
+            # 다리는 항상 torso 아래에 있으므로 direction 곱하지 않음
+            # (hero_paddles.py에서 다리는 facing과 무관하게 항상 아래로 그려짐)
+            offset_y = origin['base_offset_y'] + random.uniform(-1, 1)
 
-            # 촉수마다 고유한 특성
-            thickness_base = 7 if origin['type'] == 'shoulder' else (6 if origin['type'] == 'arm' else 5)
+            # 촉수마다 고유한 특성 (다리 촉수: 바깥쪽이 굵고 안쪽이 가늘다)
+            leg_idx = abs(i - 2.5)  # 0.5(안쪽) ~ 2.5(바깥쪽)
+            thickness_base = int(5 + leg_idx * 0.8)
 
             self.tentacles.append({
                 'start_x': caster_cx + offset_x,
