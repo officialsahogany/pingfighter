@@ -113946,8 +113946,8 @@ def reset_round(is_stage_start=False):
     drive_global_cooldown = 0
     last_space_press_time = 0
 
-    # 날씨 이벤트 체크 (라운드 시작 시) - 주니어/프로 리그에서는 비활성화
-    if ai_mode != "junior":
+    # 날씨 이벤트 체크 (라운드 시작 시) - 주니어/프로 리그 및 투기장에서는 비활성화
+    if ai_mode != "junior" and current_stage != 30:
         weather_result = check_weather_event_on_round_start()
         if weather_result["started"]:
             if DEBUG_WEATHER:
@@ -127244,6 +127244,8 @@ def main(stage_num, new_boss_mode=False):
         BOSS_COLOR = (212, 175, 85)  # 금색 (투기장 테마)
         # 투기장 BGM 재생
         bgm_manager.play_stage_bgm(30)
+        # 투기장에서는 날씨 이벤트 비활성화 - 진입 시 기존 날씨 초기화
+        reset_weather_state()
     elif stage_num == 50:  # Stage 50 (튜토리얼)
         # 튜토리얼용 배경 Surface 생성
         CURRENT_BG = pygame.Surface((WIDTH, HEIGHT))
