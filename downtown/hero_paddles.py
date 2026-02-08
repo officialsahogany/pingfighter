@@ -92,11 +92,11 @@ class HeroPaddleRenderer:
                 "last_x": 0, "velocity": 0, "lean": 0, "step_phase": 0,
                 "shoulder_phase": 0, "arm_swing": 0, "head_tilt": 0, "body_bob": 0,
                 "move_dir": 0.0, "side_blend": 0.0,
-                "weapon_swing_timer": 0.0, "weapon_swing_duration": 0.35,
+                "weapon_swing_timer": 0.0, "weapon_swing_duration": 0.25,
             }
         return self.hero_states[hero_id]
 
-    def trigger_weapon_swing(self, hero_id: str, duration: float = 0.35):
+    def trigger_weapon_swing(self, hero_id: str, duration: float = 0.25):
         """공 타격 시 무기 휘두르기 애니메이션 트리거"""
         state = self._get_state(hero_id)
         if state.get("weapon_swing_timer", 0) <= 0:
@@ -146,12 +146,13 @@ class HeroPaddleRenderer:
         # 몸통 상하 움직임 - 약간 강화 (걷는 무게감)
         bob_boost = 1.0 + side_blend * 0.2
 
-        # 무기 스윙 각도 계산
+        # 무기 스윙 각도 계산 (빠르게 휘두르고 천천히 복귀)
         swing_timer = state.get("weapon_swing_timer", 0)
-        swing_dur = state.get("weapon_swing_duration", 0.35)
+        swing_dur = state.get("weapon_swing_duration", 0.25)
         if swing_timer > 0 and swing_dur > 0:
             progress = 1.0 - (swing_timer / swing_dur)
-            weapon_swing_angle = math.sin(progress * math.pi) * 0.6  # 최대 ~34도
+            # sqrt로 빠른 공격 → 느린 복귀 커브, 최대 ~80도
+            weapon_swing_angle = math.sin(math.sqrt(progress) * math.pi) * 1.4
         else:
             weapon_swing_angle = 0.0
 
