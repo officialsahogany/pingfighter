@@ -6816,6 +6816,15 @@ class IllusionShuriken(HeroSkill):
         })
         self.shurikens_spawned += 1
 
+        # 수리검 투척 사운드 재생
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            throw_path = os.path.join(project_root, "sounds", "shurikenthrow.wav")
+            if os.path.exists(throw_path):
+                pygame.mixer.Sound(throw_path).play()
+        except Exception:
+            pass
+
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         # 순차 발사 (0.4초 간격)
         if self.shurikens_spawned < self.total_shurikens:
