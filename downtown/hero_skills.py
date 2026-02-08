@@ -2590,33 +2590,71 @@ class HellFire(HeroSkill):
             print(f"[HellFire] RELEASE → ACTIVE (vy={ball.vy:.1f}, caster_top={self.caster_is_top})")
 
         elif self.phase == self.PHASE_ACTIVE:
-            # === 도깨비불 활성 상태 (기존 로직) ===
+            # === 도깨비불 활성 상태 - 도깨비가 장난치는 듯한 불규칙 궤도 ===
             self.flame_intensity = max(0, self.flame_intensity - dt * 0.3)
 
             self.dokkaebi_time = getattr(self, 'dokkaebi_time', 0) + dt
+            t = self.dokkaebi_time
 
-            # 사인파 기반 곡선 움직임
-            wave_intensity = 150
-            wave_speed = 8
-            curve_force = math.sin(self.dokkaebi_time * wave_speed) * wave_intensity * dt
-            ball.vx += curve_force
+            # 현재 공 속력 보존 (궤도만 변경, 속력은 유지)
+            speed = math.sqrt(ball.vx ** 2 + ball.vy ** 2)
+            if speed < 1:
+                speed = 200  # 최소 속력 보장
 
-            # 간헐적 급격한 방향 전환 (10% 확률)
-            if random.random() < 0.10:
-                angle_change = random.uniform(-0.3, 0.3)
-                cos_a = math.cos(angle_change)
-                sin_a = math.sin(angle_change)
-                new_vx = ball.vx * cos_a - ball.vy * sin_a
-                new_vy = ball.vx * sin_a + ball.vy * cos_a
-                ball.vx = new_vx
-                ball.vy = new_vy
+            # --- 패턴 1: ∞ 팔자(리사주) 궤도 ---
+            # sin(t)과 sin(2t)의 조합으로 8자 궤도 생성
+            lissajous_fx = math.sin(t * 4.0) * 280 * dt
+            lissajous_fy = math.sin(t * 8.0) * 140 * dt
+            ball.vx += lissajous_fx
+            ball.vy += lissajous_fy
+
+            # --- 패턴 2: 빙글빙글 나선 회전 ---
+            # 일정 속도로 진행 방향을 회전시킴 (도깨비가 빙글빙글 도는 느낌)
+            spin_speed = 2.5 + math.sin(t * 1.3) * 1.5  # 가변 회전 속도
+            spin_angle = spin_speed * dt
+            cos_s = math.cos(spin_angle)
+            sin_s = math.sin(spin_angle)
+            vx_rot = ball.vx * cos_s - ball.vy * sin_s
+            vy_rot = ball.vx * sin_s + ball.vy * cos_s
+            ball.vx = vx_rot
+            ball.vy = vy_rot
+
+            # --- 패턴 3: 돌발 장난 (도깨비의 변덕) ---
+            # 갑자기 방향을 확 틀거나 잠깐 느려졌다 돌진
+            if random.random() < 0.04:
+                # 급반전: 진행 방향을 60~120도 확 틀기
+                big_angle = random.uniform(1.0, 2.1)  # ~60~120도
+                if random.random() < 0.5:
+                    big_angle = -big_angle
+                cos_b = math.cos(big_angle)
+                sin_b = math.sin(big_angle)
+                ball.vx = ball.vx * cos_b - ball.vy * sin_b
+                ball.vy = ball.vx * sin_b + ball.vy * cos_b
+            elif random.random() < 0.03:
+                # 순간 가속 돌진 (도깨비가 놀래키듯이)
+                burst = random.uniform(1.3, 1.8)
+                ball.vx *= burst
+                ball.vy *= burst
+
+            # 속력 범위 제한 (너무 빠르거나 느려지지 않도록)
+            cur_speed = math.sqrt(ball.vx ** 2 + ball.vy ** 2)
+            min_speed = speed * 0.7
+            max_speed = speed * 1.6
+            if cur_speed > max_speed and cur_speed > 0:
+                scale = max_speed / cur_speed
+                ball.vx *= scale
+                ball.vy *= scale
+            elif cur_speed < min_speed and cur_speed > 0:
+                scale = min_speed / cur_speed
+                ball.vx *= scale
+                ball.vy *= scale
 
             # 인게임 호위무사 전용: 공이 상대(보스) 방향으로 향하도록 부드러운 보정
-            # (투기장에서는 기존대로 랜덤 궤도 유지)
+            # (투기장에서는 기존대로 제멋대로 궤도 유지)
             if game_state.get('is_ingame_bodyguard', False):
                 desired_sign = 1.0 if self.caster_is_top else -1.0
                 if ball.vy * desired_sign < 0:
-                    ball.vy += desired_sign * 120 * dt
+                    ball.vy += desired_sign * 150 * dt
 
             # 불꽃 파티클
             if random.random() < 0.5:
