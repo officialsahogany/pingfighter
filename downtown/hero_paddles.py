@@ -106,9 +106,8 @@ class HeroPaddleRenderer:
         move_dir = state.get("move_dir", 0)
 
         # === 옆걸음 강화: 자연스러운 범위 내에서 모션 증폭 ===
-        # 팔 스윙 - 소폭 강화만 (팔이 늘어나지 않도록 제한)
-        arm_boost = 1.0 + side_blend * 0.35  # 최대 1.35배
-        arm_intensity = arm_swing * (0.6 + leg_intensity * 0.4) * arm_boost
+        # 팔 스윙 - 각도만 살짝 흔드는 수준 (길어지지 않도록 최소화)
+        arm_intensity = arm_swing * (0.4 + leg_intensity * 0.3)
 
         # 다리 스윙 (보폭) - 적당히 강화
         stride_boost = 1.0 + side_blend * 0.5  # 최대 1.5배
@@ -405,11 +404,10 @@ class HeroPaddleRenderer:
             # 왼팔(-1)은 left_arm_swing, 오른팔(1)은 right_arm_swing 사용
             current_swing = left_arm_swing if side == -1 else right_arm_swing
             current_shoulder_bob = left_shoulder if side == -1 else right_shoulder
-            arm_swing = int(current_swing * 2.5 * b)
+            arm_swing = int(current_swing * 0.5 * b)  # 각도만 살짝 흔드는 수준
             # 어깨 들썩임 (Y 위치 변화)
             shoulder_y_offset = int(current_shoulder_bob * 0.3 * b + shoulder_bob * 0.2 * b)
             shoulder = (cx + side * int(1.2 * b) + lean_offset, torso_y + int(0.1 * b) + shoulder_y_offset)
-            # 팔이 앞뒤로 흔들리도록 X 위치 조정 (양팔이 반대 방향)
             elbow = (shoulder[0] + side * int(0.5 * b) + arm_swing, torso_y + int(0.8 * b) + shoulder_y_offset)
             wrist = (elbow[0] + side * int(0.4 * b) + int(arm_swing * 0.5), torso_y + int(1.4 * b) + int(shoulder_y_offset * 0.5))
             # 상완 (기모노 소매)
@@ -1560,7 +1558,7 @@ class HeroPaddleRenderer:
         for side in [-1, 1]:
             current_swing = left_arm_swing if side == -1 else right_arm_swing
             current_shoulder_bob = left_shoulder if side == -1 else right_shoulder
-            arm_swing = int(current_swing * 2.5 * b)
+            arm_swing = int(current_swing * 0.5 * b)  # 각도만 살짝 흔드는 수준
             # 어깨 들썩임
             shoulder_y_offset = int(current_shoulder_bob * 0.35 * b + shoulder_bob * 0.25 * b)
             shoulder = (cx + side * int(1.5 * b) + lean_offset, torso_y + int(0.25 * b) + shoulder_y_offset)
@@ -2577,7 +2575,7 @@ class HeroPaddleRenderer:
         for side in [-1, 1]:
             current_swing = left_arm_swing if side == -1 else right_arm_swing
             current_shoulder_bob = left_shoulder if side == -1 else right_shoulder
-            arm_swing = int(current_swing * 2.5 * b)
+            arm_swing = int(current_swing * 0.5 * b)  # 각도만 살짝 흔드는 수준
             # 어깨 들썩임
             shoulder_y_offset = int(current_shoulder_bob * 0.35 * b + shoulder_bob * 0.25 * b)
             shoulder = (cx + side * int(1.4 * b) + lean_offset, torso_y + int(0.25 * b) + shoulder_y_offset)
@@ -3461,11 +3459,11 @@ class HeroPaddleRenderer:
         # === 팔 + 쿠나이 (자연스러운 교대 모션 + 어깨 들썩임) ===
         for side in [-1, 1]:
             current_swing = left_arm_swing if side == -1 else right_arm_swing
-            arm_swing = int(current_swing * 3 * b)
+            arm_swing = int(current_swing * 0.5 * b)  # 각도만 살짝 흔드는 수준
             shoulder_bob_offset = int(shoulder_bob * 0.3 * b)
             shoulder = (cx + side * int(1.05 * b) + lean_offset, torso_y + int(0.1 * b) + shoulder_bob_offset)
-            elbow = (int(shoulder[0] + side * int(0.55 * b) + arm_swing * 0.5), torso_y + int(0.65 * b))
-            wrist = (int(elbow[0] + side * int(0.45 * b) + arm_swing * 0.3), torso_y + int(1.25 * b))
+            elbow = (int(shoulder[0] + side * int(0.55 * b) + arm_swing), torso_y + int(0.65 * b))
+            wrist = (int(elbow[0] + side * int(0.45 * b) + int(arm_swing * 0.5)), torso_y + int(1.25 * b))
 
             # 상완
             pygame.draw.line(screen, p["cloth_shadow"], shoulder, elbow, max(3, int(0.5 * b)))
