@@ -803,13 +803,33 @@ class SoundManager:
         sound_name = sound_map.get(special_type, 'boss_special')
         self.play_sound(sound_name, 'boss', position)
         
+    def stop_all_skill_sounds(self):
+        """모든 스킬 관련 사운드 즉시 중지 (배틀 종료/라운드 전환 시 사용)"""
+        # skill 전용 채널 중지
+        if 'skill' in self.channels:
+            self.channels['skill'].stop()
+        # 풀 채널 전체 중지 (스킬 사운드가 풀 채널로 재생될 수 있음)
+        for ch in self.pool_channels:
+            ch.stop()
+        self.next_pool_channel = 0
+
+    def stop_all_sounds(self):
+        """모든 사운드 채널 즉시 중지 (배틀 결과 확정 시 사용)"""
+        # 모든 명명 채널 중지
+        for ch in self.channels.values():
+            ch.stop()
+        # 모든 풀 채널 중지
+        for ch in self.pool_channels:
+            ch.stop()
+        self.next_pool_channel = 0
+
     def cleanup(self):
         """정리"""
         # 페이드 아웃 후 정지
         if self.current_music:
             pygame.mixer.music.fadeout(1000)
             pygame.time.wait(1000)
-        
+
         self.stop_music()
         pygame.mixer.quit()
 

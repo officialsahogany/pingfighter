@@ -2619,6 +2619,13 @@ class ColosseumsArena:
                 self.arena_pillar.trigger_excitement(intensity=1.0, duration=2.5)
 
             # === 모든 활성 스킬 상태 리셋 (득점 시) ===
+            # 스킬 사운드 즉시 중지 (라운드 전환)
+            try:
+                from managers.sound_manager import get_sound_manager
+                get_sound_manager().stop_all_skill_sounds()
+            except Exception:
+                pass
+
             if self.skill_manager:
                 self.skill_manager.reset_active_skills_for_round()
 
@@ -2918,6 +2925,13 @@ class ColosseumsArena:
 
         print(f"[Arena] 배틀 종료! 승자: {winner.get('name', 'Unknown')} | 최종 점수: {self.score_top}:{self.score_bottom}")
         self.battle_active = False
+
+        # 모든 스킬 사운드 즉시 중지
+        try:
+            from managers.sound_manager import get_sound_manager
+            get_sound_manager().stop_all_sounds()
+        except Exception:
+            pass
 
         # 방어 로직: selected_match 체크
         if not self.selected_match:
