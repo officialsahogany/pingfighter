@@ -211,6 +211,7 @@ class TournamentState(Enum):
     BATTLE = "battle"                  # AI 배틀 진행
     RESULT = "result"                  # 경기 결과
     ROUND_END = "round_end"            # 라운드 종료 (계속/나가기 선택)
+    GUARD_NOTIFY = "guard_notify"              # 호위무사 생포 알림
     BRACKET_ANIMATION = "bracket_animation"  # 대진표 진출 애니메이션
     TOURNAMENT_END = "tournament_end"  # 토너먼트 종료
 
@@ -3022,9 +3023,39 @@ class ColosseumsArena:
                     print(f"[Arena] 결승전 종료! → TOURNAMENT_END")
                     self.state = TournamentState.TOURNAMENT_END
                 else:
-                    # 승리 - 대진표 애니메이션 먼저 실행
-                    print(f"[Arena] 승리! → BRACKET_ANIMATION 시작")
-                    self._start_bracket_animation()
+                    # 승리 - 호위무사 생포 알림 후 대진표 애니메이션
+                    bet_hero_loser = None
+                    if self.bet_hero and self.selected_match:
+                        match = self.selected_match
+                        if match.winner == self.bet_hero:
+                            bet_hero_loser = match.hero1 if match.winner == match.hero2 else match.hero2
+
+                    if bet_hero_loser:
+                        # 호위무사 생포 알림 먼저 표시
+                        self.guard_notify_hero = bet_hero_loser
+                        self.guard_notify_owner = self.bet_hero
+                        self.guard_notify_timer = 0.0
+                        self.guard_notify_progress = 0.0
+                        # 호위무사 수: 기존 + 이번에 생포한 1명
+                        current_guards = len(self.guard_warrior_map.get(self.bet_hero["id"], []))
+                        self.guard_notify_total = current_guards + 1
+                        self.state = TournamentState.GUARD_NOTIFY
+                        print(f"[Arena] 승리! → GUARD_NOTIFY | {bet_hero_loser['name']} 생포")
+                    else:
+                        # 호위무사 없으면 바로 대진표 애니메이션
+                        print(f"[Arena] 승리! → BRACKET_ANIMATION 시작")
+                        self._start_bracket_animation()
+
+        elif self.state == TournamentState.GUARD_NOTIFY:
+            # 호위무사 생포 알림 (2.5초)
+            self.guard_notify_timer += dt
+            guard_notify_duration = 2.5
+            self.guard_notify_progress = min(1.0, self.guard_notify_timer / guard_notify_duration)
+            if self.guard_notify_timer >= guard_notify_duration:
+                # 알림 끝 → 대진표 애니메이션 시작
+                print(f"[Arena] GUARD_NOTIFY 완료 → BRACKET_ANIMATION 시작")
+                self._start_bracket_animation()
+
         elif self.state == TournamentState.BRACKET_ANIMATION:
             self._update_bracket_animation(dt)
 
@@ -3160,6 +3191,8 @@ class ColosseumsArena:
         """메인 그리기"""
         if self.state == TournamentState.BATTLE:
             self._draw_battle()
+        elif self.state == TournamentState.GUARD_NOTIFY:
+            self._draw_guard_notification()
         elif self.state == TournamentState.BRACKET_ANIMATION:
             self._draw_bracket_animation()
         else:
@@ -4051,13 +4084,8 @@ class ColosseumsArena:
         """대진표 진출 애니메이션 시작"""
         print(f"[Arena] _start_bracket_animation 시작 | current_round: {self.current_round}")
         self.bracket_anim_timer = 0.0
-        self.bracket_anim_phase = 0  # 0: 패자 X 표시, 1: 승자 이동, 2: 호위무사 알림, 3: VS 매치업 표시, 4: 완료
+        self.bracket_anim_phase = 0  # 0: 패자 X 표시, 1: 승자 이동, 2: VS 매치업 표시, 3: 완료
         self.bracket_anim_progress = 0.0
-
-        # 호위무사 합류 알림 상태
-        self.guard_notify_hero = None      # 새로 합류한 호위무사 영웅 dict
-        self.guard_notify_owner = None     # 호위무사의 주인 (bet_hero) dict
-        self.guard_notify_total = 0        # 주인의 현재 총 호위무사 수
 
         # 현재 라운드의 완료된 매치와 승자 수집
         current_matches = self.matches[self.current_round]
@@ -4097,19 +4125,10 @@ class ColosseumsArena:
             # 페이즈 1: 승자 캐릭터 이동 애니메이션
             self.bracket_anim_progress = min(1.0, self.bracket_anim_timer / phase_duration)
             if self.bracket_anim_timer >= phase_duration:
+                self.bracket_anim_phase = 2
                 self.bracket_anim_timer = 0.0
                 self.bracket_anim_progress = 0.0
-
-                # _advance_to_next_round() 전에 bet_hero 매치의 패자 기록
-                bet_hero_loser = None
-                if self.bet_hero:
-                    for match in self.bracket_anim_completed_matches:
-                        if match.winner and (match.hero1 == self.bet_hero or match.hero2 == self.bet_hero):
-                            if match.winner == self.bet_hero:
-                                bet_hero_loser = match.hero1 if match.winner == match.hero2 else match.hero2
-                            break
-
-                # 다음 라운드로 진출 (매치 생성 + 호위무사 할당)
+                # 다음 라운드로 진출 (매치 생성)
                 print(f"[Arena] Phase 1 완료 → _advance_to_next_round() 호출")
                 self._advance_to_next_round()
                 print(f"[Arena] _advance_to_next_round() 완료 | current_round: {self.current_round}")
@@ -4117,49 +4136,26 @@ class ColosseumsArena:
                 self._prepare_next_match()
                 print(f"[Arena] _prepare_next_match() 완료 | selected_match: {self.selected_match}")
 
-                # 호위무사 알림 페이즈로 진입할지 결정
-                if bet_hero_loser and self.bet_hero:
-                    self.guard_notify_hero = bet_hero_loser
-                    self.guard_notify_owner = self.bet_hero
-                    self.guard_notify_total = len(self.guard_warrior_map.get(self.bet_hero["id"], []))
-                    self.bracket_anim_phase = 2  # 호위무사 알림 페이즈
-                    print(f"[Arena] Phase 2: 호위무사 알림 | {bet_hero_loser['name']} → {self.bet_hero['name']}")
-                else:
-                    self.guard_notify_hero = None
-                    self.bracket_anim_phase = 3  # 호위무사 없으면 VS 매치업으로 건너뜀
-
         elif self.bracket_anim_phase == 2:
-            # 페이즈 2: 호위무사 합류 알림 (2.5초)
-            guard_notify_duration = 2.5
-            self.bracket_anim_progress = min(1.0, self.bracket_anim_timer / guard_notify_duration)
-            if self.bracket_anim_timer >= guard_notify_duration:
-                self.bracket_anim_phase = 3  # VS 매치업으로
+            # 페이즈 2: VS 매치업 표시 (2초간)
+            vs_duration = 2.0
+            self.bracket_anim_progress = min(1.0, self.bracket_anim_timer / vs_duration)
+            if self.bracket_anim_timer >= vs_duration:
+                self.bracket_anim_phase = 3
                 self.bracket_anim_timer = 0.0
                 self.bracket_anim_progress = 0.0
 
         elif self.bracket_anim_phase == 3:
-            # 페이즈 3: VS 매치업 표시 (2초간) [기존 Phase 2]
-            vs_duration = 2.0
-            self.bracket_anim_progress = min(1.0, self.bracket_anim_timer / vs_duration)
-            if self.bracket_anim_timer >= vs_duration:
-                self.bracket_anim_phase = 4
-                self.bracket_anim_timer = 0.0
-                self.bracket_anim_progress = 0.0
-
-        elif self.bracket_anim_phase == 4:
-            # 페이즈 4: 짧은 대기 후 ROUND_END로 전환 [기존 Phase 3]
+            # 페이즈 3: 짧은 대기 후 ROUND_END로 전환
             wait_time = 0.3
             if self.bracket_anim_timer >= wait_time:
                 # 애니메이션 상태 초기화
                 self.bracket_anim_phase = 0
                 self.bracket_anim_progress = 0.0
                 self.bracket_anim_timer = 0.0
-                # 호위무사 알림 상태 초기화
-                self.guard_notify_hero = None
-                self.guard_notify_owner = None
 
                 # ROUND_END 상태로 전환 (계속할지 선택)
-                print(f"[Arena] Phase 4 완료 → ROUND_END 전환 | current_round: {self.current_round}")
+                print(f"[Arena] Phase 3 완료 → ROUND_END 전환 | current_round: {self.current_round}")
                 self.state = TournamentState.ROUND_END
 
     def _draw_bracket_animation(self):
@@ -4167,13 +4163,8 @@ class ColosseumsArena:
         # 배경
         self.screen.fill((25, 28, 35))
 
-        # 페이즈 2: 호위무사 합류 알림
-        if self.bracket_anim_phase == 2 and self.guard_notify_hero:
-            self._draw_guard_notification()
-            return
-
-        # 페이즈 3: VS 매치업 표시 (기존 Phase 2)
-        if self.bracket_anim_phase == 3 and self.selected_match:
+        # 페이즈 2: VS 매치업 표시
+        if self.bracket_anim_phase == 2 and self.selected_match:
             self._draw_vs_matchup_animation()
             return
 
@@ -4204,13 +4195,13 @@ class ColosseumsArena:
                 self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 700))
 
     def _draw_guard_notification(self):
-        """호위무사 합류 알림 애니메이션"""
+        """호위무사 생포 알림 애니메이션"""
         guard = self.guard_notify_hero
         owner = self.guard_notify_owner
         if not guard or not owner:
             return
 
-        progress = self.bracket_anim_progress  # 0.0 ~ 1.0 over 2.5s
+        progress = getattr(self, 'guard_notify_progress', 0.0)  # 0.0 ~ 1.0 over 2.5s
 
         # 배경
         self.screen.fill((25, 28, 35))
@@ -4281,8 +4272,8 @@ class ColosseumsArena:
 
             # 메인 알림 메시지
             if "medium" in self.fonts:
-                msg1 = f"{guard_name}이(가) 호위무사가 되었습니다!"
-                msg2 = "이후 전투에서 함께 싸워줍니다!"
+                msg1 = f"{guard_name}을(를) 생포했습니다!"
+                msg2 = "호위무사가 되어 함께 싸워줍니다!"
 
                 gold_color = (255, 215, 0)
 
