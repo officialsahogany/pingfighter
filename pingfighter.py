@@ -18413,23 +18413,52 @@ arena_bottom_speech_text = ""        # 하단 영웅 말풍선 텍스트
 arena_bottom_speech_timer = 0        # 하단 영웅 말풍선 타이머
 ARENA_SPEECH_DURATION = 90           # 말풍선 표시 시간 (1.5초)
 
+# 스킬/대화 말풍선 구분용
+arena_top_speech_is_skill = False
+arena_bottom_speech_is_skill = False
+arena_top_speech_color = (200, 60, 60)
+arena_bottom_speech_color = (200, 60, 60)
 
-def arena_show_speech_bubble(is_top: bool, skill_name: str, raw: bool = False):
+# 영웅별 외침 풍선 테마 컬러
+HERO_SHOUT_COLORS = {
+    "mugen": (130, 60, 190),
+    "kraken": (40, 130, 150),
+    "chronos": (130, 80, 170),
+    "onimaru": (200, 50, 70),
+    "maria": (180, 100, 150),
+    "ignis": (220, 100, 40),
+    "gear": (190, 130, 50),
+    "kurokage": (90, 80, 120),
+}
+BOSS_SHOUT_COLOR = (200, 55, 55)  # 스테이지 보스 기본 외침 색상
+
+
+def arena_show_speech_bubble(is_top: bool, skill_name: str, raw: bool = False, hero_id: str = ""):
     """투기장 영웅 말풍선 표시
 
     Args:
-        raw: True면 텍스트 그대로 표시 (대사용), False면 "!" 자동 추가 (스킬명용)
+        raw: True면 텍스트 그대로 표시 (대사=둥근 말풍선), False면 "!" 추가 (스킬=외침 풍선)
+        hero_id: 영웅 ID (외침 풍선 테마 색상용)
     """
     global arena_top_speech_text, arena_top_speech_timer
     global arena_bottom_speech_text, arena_bottom_speech_timer
+    global arena_top_speech_is_skill, arena_bottom_speech_is_skill
+    global arena_top_speech_color, arena_bottom_speech_color
 
     text = skill_name if raw else skill_name + "!"
+    is_skill = not raw
+    color = HERO_SHOUT_COLORS.get(hero_id, (200, 60, 60))
+
     if is_top:
         arena_top_speech_text = text
         arena_top_speech_timer = ARENA_SPEECH_DURATION
+        arena_top_speech_is_skill = is_skill
+        arena_top_speech_color = color
     else:
         arena_bottom_speech_text = text
         arena_bottom_speech_timer = ARENA_SPEECH_DURATION
+        arena_bottom_speech_is_skill = is_skill
+        arena_bottom_speech_color = color
 
 # 투기장 스킬 사운드 캐시 및 재생
 _arena_skill_sound_cache = {}
@@ -18467,27 +18496,39 @@ def arena_stop_all_skill_sounds():
 
 
 def arena_draw_speech_bubbles():
-    """투기장 영웅 말풍선 그리기"""
+    """투기장 영웅 말풍선 그리기 (스킬=외침풍선, 대화=둥근말풍선)"""
     global arena_top_speech_timer, arena_bottom_speech_timer
 
     # 상단 영웅 말풍선 (보스 위치)
     if arena_top_speech_timer > 0 and arena_top_speech_text:
-        _draw_arena_speech_bubble(
-            BOSS.centerx,
-            BOSS.bottom + 15,
-            arena_top_speech_text,
-            is_top=True
-        )
+        if arena_top_speech_is_skill:
+            _draw_shout_bubble(
+                BOSS.centerx, BOSS.bottom + 15,
+                arena_top_speech_text,
+                arena_top_speech_timer, ARENA_SPEECH_DURATION,
+                arena_top_speech_color
+            )
+        else:
+            _draw_arena_speech_bubble(
+                BOSS.centerx, BOSS.bottom + 15,
+                arena_top_speech_text, is_top=True
+            )
         arena_top_speech_timer -= 1
 
     # 하단 영웅 말풍선 (플레이어 위치)
     if arena_bottom_speech_timer > 0 and arena_bottom_speech_text:
-        _draw_arena_speech_bubble(
-            PLAYER.centerx,
-            PLAYER.top - 45,
-            arena_bottom_speech_text,
-            is_top=False
-        )
+        if arena_bottom_speech_is_skill:
+            _draw_shout_bubble(
+                PLAYER.centerx, PLAYER.top - 45,
+                arena_bottom_speech_text,
+                arena_bottom_speech_timer, ARENA_SPEECH_DURATION,
+                arena_bottom_speech_color
+            )
+        else:
+            _draw_arena_speech_bubble(
+                PLAYER.centerx, PLAYER.top - 45,
+                arena_bottom_speech_text, is_top=False
+            )
         arena_bottom_speech_timer -= 1
 
 
@@ -18558,6 +18599,110 @@ def _draw_arena_speech_bubble(x: float, y: float, text: str, is_top: bool):
 
     except Exception as e:
         pass  # 오류 시 무시
+
+
+def _draw_shout_bubble(x, y, text, timer, max_timer, theme_color):
+    """외침 풍선 (스킬 발동용) - 뾰족한 별/톱니 모양 말풍선
+    Args:
+        x: 중심 X 좌표
+        y: 상단 Y 좌표
+        text: 표시할 텍스트
+        timer: 남은 타이머 (프레임)
+        max_timer: 최대 타이머 (팝업 애니메이션 계산용)
+        theme_color: 배경 테마 색상 (R, G, B)
+    """
+    try:
+        font = FontStyle.menu()
+        text_surface = font.render(text, True, WHITE)
+        text_w = text_surface.get_width()
+        text_h = text_surface.get_height()
+
+        # 말풍선 내부 사이즈
+        pad_x, pad_y = 22, 14
+        inner_w = text_w + pad_x * 2
+        inner_h = text_h + pad_y * 2
+
+        # 팝업 스케일 애니메이션 (등장 시 1.3→1.0 축소)
+        elapsed = max_timer - timer
+        if elapsed < 8:
+            scale = 1.0 + (1.0 - elapsed / 8.0) * 0.3
+        else:
+            scale = 1.0
+
+        # 서페이스 생성 (스파이크 여유 포함)
+        spike_len = 14
+        surf_w = int((inner_w + spike_len * 2) * scale) + 8
+        surf_h = int((inner_h + spike_len * 2) * scale) + 8
+        bubble_surface = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+        cx = surf_w // 2
+        cy = surf_h // 2
+
+        # Starburst 다각형 생성
+        num_spikes = 12
+        outer_rx = (inner_w / 2 + spike_len) * scale
+        outer_ry = (inner_h / 2 + spike_len) * scale
+        inner_rx = (inner_w / 2) * scale
+        inner_ry = (inner_h / 2) * scale
+
+        points = []
+        for i in range(num_spikes * 2):
+            angle = 2 * math.pi * i / (num_spikes * 2) - math.pi / 2
+            # 스파이크 길이에 약간의 변화 (자연스러운 느낌)
+            variation = 1.0 + 0.12 * math.sin(i * 2.7)
+            if i % 2 == 0:  # 뾰족한 끝
+                px = cx + math.cos(angle) * outer_rx * variation
+                py = cy + math.sin(angle) * outer_ry * variation
+            else:  # 안쪽 골
+                px = cx + math.cos(angle) * inner_rx
+                py = cy + math.sin(angle) * inner_ry
+            points.append((px, py))
+
+        # 그림자
+        shadow_pts = [(p[0] + 3, p[1] + 3) for p in points]
+        pygame.draw.polygon(bubble_surface, (0, 0, 0, 70), shadow_pts)
+
+        # 메인 채우기 (테마 색상)
+        pygame.draw.polygon(bubble_surface, theme_color, points)
+
+        # 안쪽 밝은 영역 (하이라이트)
+        hl_color = (min(255, theme_color[0] + 50),
+                    min(255, theme_color[1] + 50),
+                    min(255, theme_color[2] + 50), 90)
+        hl_rx = inner_rx * 0.8
+        hl_ry = inner_ry * 0.6
+        hl_pts = []
+        for i in range(num_spikes * 2):
+            angle = 2 * math.pi * i / (num_spikes * 2) - math.pi / 2
+            r = hl_rx if i % 2 == 0 else hl_rx * 0.85
+            ry = hl_ry if i % 2 == 0 else hl_ry * 0.85
+            hl_pts.append((cx + math.cos(angle) * r, cy + math.sin(angle) * ry))
+        pygame.draw.polygon(bubble_surface, hl_color, hl_pts)
+
+        # 테두리 (어두운 색)
+        border_color = (max(0, theme_color[0] - 60),
+                        max(0, theme_color[1] - 60),
+                        max(0, theme_color[2] - 60))
+        pygame.draw.polygon(bubble_surface, border_color, points, 3)
+
+        # 텍스트: 검정 외곽선 + 흰색 본문
+        tx = int(cx - text_w / 2)
+        ty = int(cy - text_h / 2)
+        for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2),
+                        (-1, -1), (1, -1), (-1, 1), (1, 1)]:
+            outline = font.render(text, True, (0, 0, 0))
+            bubble_surface.blit(outline, (tx + dx, ty + dy))
+        bubble_surface.blit(font.render(text, True, WHITE), (tx, ty))
+
+        # 살짝 흔들림 애니메이션
+        float_offset = math.sin(timer * 0.15) * 2
+
+        # 화면에 그리기
+        blit_x = int(x - surf_w // 2)
+        blit_y = int(y + float_offset)
+        blit_x = max(5, min(blit_x, INTERNAL_WIDTH - surf_w - 5))
+        SCREEN.blit(bubble_surface, (blit_x, blit_y))
+    except Exception:
+        pass
 
 
 def arena_should_top_hero_dash() -> tuple[bool, float]:
@@ -21500,6 +21645,7 @@ def clear_alchemy_notices():
 # 전역변수
 speech_text = ""
 speech_timer = 0  # 말풍선 표시 시간 (타이머)
+speech_max_timer = 0  # 말풍선 최대 시간 (팝업 애니메이션용)
 # === Stage 5 화염탄 전역 변수 ===
 fireballs = []  # [(pos, vel), ...] 여러 발의 화염탄을 관리
 fireball_cooldown = 5000      # ms 단위 쿨타임
@@ -52157,86 +52303,19 @@ def draw_shaking_screen():
             screen_shake_offset_x = 0
             screen_shake_offset_y = 0
 def show_speech(text, duration=60):
-    global speech_timer, speech_text
+    global speech_timer, speech_text, speech_max_timer
     speech_timer = duration
+    speech_max_timer = duration
     speech_text = text
 def draw_speech():
     global speech_timer, speech_text
     if speech_timer > 0:
-        # 만화 스타일 말풍선 그리기
-        # 픽셀 폰트
-        font = FontStyle.menu()  # 28pt 픽셀 폰트
-        text_surface = font.render(speech_text, True, BLACK)
-        # 말풍선 크기 계산 (패딩 포함)
-        padding = 20
-        bubble_width = text_surface.get_width() + padding * 2
-        bubble_height = text_surface.get_height() + padding * 1.5
-        # 말풍선 위치 (보스 아래쪽에 - 화면 안에 보이도록)
-        bubble_x = BOSS.centerx - bubble_width // 2
-        bubble_y = BOSS.bottom + 20  # 보스 아래에 위치
-        # 말풍선 표면 생성 (투명도 지원)
-        bubble_surface = pygame.Surface((bubble_width + 10, bubble_height + 20), pygame.SRCALPHA)
-        # 1. 그림자 효과
-        shadow_offset = 4
-        shadow_rect = pygame.Rect(shadow_offset, shadow_offset, bubble_width, bubble_height)
-        pygame.draw.rect(bubble_surface, (0, 0, 0, 80), shadow_rect, border_radius=15)
-        # 2. 메인 말풍선 (둥근 모서리)
-        main_rect = pygame.Rect(0, 0, bubble_width, bubble_height)
-        pygame.draw.rect(bubble_surface, WHITE, main_rect, border_radius=15)
-        # 3. 만화 스타일 테두리 (두껍고 검은색)
-        border_width = 3
-        pygame.draw.rect(bubble_surface, BLACK, main_rect, border_width, border_radius=15)
-        # 4. 말풍선 꼬리 (위쪽 보스를 향해)
-        tail_points = [
-            (bubble_width // 2 - 20, 2),              # 왼쪽 점
-            (bubble_width // 2, 2),                    # 중간 점  
-            (bubble_width // 2 - 30, -15)             # 위 대각선 끝점 (보스 방향)
-        ]
-        # 꼬리 그림자
-        shadow_tail = [(p[0] + shadow_offset, p[1] + shadow_offset) for p in tail_points]
-        pygame.draw.polygon(bubble_surface, (0, 0, 0, 80), shadow_tail)
-        # 꼬리 메인
-        pygame.draw.polygon(bubble_surface, WHITE, tail_points)
-        # 꼬리 테두리
-        pygame.draw.polygon(bubble_surface, BLACK, tail_points, border_width)
-        # 5. 내부 하이라이트 효과 (만화 느낌)
-        highlight_rect = pygame.Rect(10, 5, bubble_width - 20, 8)
-        highlight_surface = pygame.Surface((highlight_rect.width, highlight_rect.height), pygame.SRCALPHA)
-        pygame.draw.rect(highlight_surface, (255, 255, 255, 100), highlight_surface.get_rect(), border_radius=BORDER_WIDTH)
-        bubble_surface.blit(highlight_surface, highlight_rect)
-        # 6. 작은 반짝임 효과 (만화 스타일)
-        if speech_timer % HALF_SECOND_FRAMES < 15:  # 깜빡임 효과
-            sparkle_size = 8
-            sparkle_x = bubble_width - 25
-            sparkle_y = 10
-            # 십자 반짝임
-            pygame.draw.line(bubble_surface, (255, 255, 200), 
-                           (sparkle_x - sparkle_size, sparkle_y), 
-                           (sparkle_x + sparkle_size, sparkle_y), 2)
-            pygame.draw.line(bubble_surface, (255, 255, 200), 
-                           (sparkle_x, sparkle_y - sparkle_size), 
-                           (sparkle_x, sparkle_y + sparkle_size), 2)
-            # 대각선 반짝임
-            pygame.draw.line(bubble_surface, (255, 255, 150), 
-                           (sparkle_x - sparkle_size//2, sparkle_y - sparkle_size//2), 
-                           (sparkle_x + sparkle_size//2, sparkle_y + sparkle_size//2), 1)
-            pygame.draw.line(bubble_surface, (255, 255, 150), 
-                           (sparkle_x - sparkle_size//2, sparkle_y + sparkle_size//2), 
-                           (sparkle_x + sparkle_size//2, sparkle_y - sparkle_size//2), 1)
-        # 7. 텍스트 그리기 (약간의 그림자 효과)
-        # 텍스트 그림자
-        text_shadow = font.render(speech_text, True, (50, 50, 50))
-        bubble_surface.blit(text_shadow, (padding + 1, padding - 2))
-        # 메인 텍스트
-        bubble_surface.blit(text_surface, (padding, padding - 3))
-        # 8. 애니메이션 효과 (살짝 위아래로 움직임)
-        float_offset = math.sin(speech_timer * 0.1) * 2
-        # 화면에 최종 그리기
-        SCREEN.blit(bubble_surface, (bubble_x - 5, bubble_y + float_offset))
-        #  타이머 감소
+        # 보스 패들 아래쪽에 외침 풍선 표시
+        bubble_x = BOSS.centerx
+        bubble_y = BOSS.bottom + 35
+        _draw_shout_bubble(bubble_x, bubble_y, speech_text, speech_timer, speech_max_timer, BOSS_SHOUT_COLOR)
         speech_timer -= 1
     else:
-        #  시간이 끝나면 말풍선 제거
         speech_text = ""
 # === 대쉬 스피릿 레이저 시스템 함수들 ===
 def create_laser_evaporation_effect(laser):
@@ -119500,7 +119579,7 @@ def handle_ball():
                     # 스킬 사운드 재생 + 말풍선 표시
                     arena_play_skill_sound(result)
                     if 'skill_korean_name' in result:
-                        arena_show_speech_bubble(False, result['skill_korean_name'])
+                        arena_show_speech_bubble(False, result['skill_korean_name'], hero_id=hero_id)
             except Exception:
                 pass
 
@@ -120277,7 +120356,7 @@ def handle_ball():
                     # 스킬 사운드 재생 + 말풍선 표시
                     arena_play_skill_sound(result)
                     if 'skill_korean_name' in result:
-                        arena_show_speech_bubble(True, result['skill_korean_name'])
+                        arena_show_speech_bubble(True, result['skill_korean_name'], hero_id=hero_id)
             except Exception:
                 pass
 
@@ -132506,7 +132585,7 @@ def main(stage_num, new_boss_mode=False):
                                 # 스킬 사운드 재생 + 말풍선 표시
                                 arena_play_skill_sound(result)
                                 if 'skill_korean_name' in result:
-                                    arena_show_speech_bubble(True, result['skill_korean_name'])
+                                    arena_show_speech_bubble(True, result['skill_korean_name'], hero_id=hero_id)
                         # 하단 영웅 ON_COOLDOWN 스킬
                         if arena_bottom_hero:
                             hero_id = arena_bottom_hero["id"]
@@ -132520,7 +132599,7 @@ def main(stage_num, new_boss_mode=False):
                                 # 스킬 사운드 재생 + 말풍선 표시
                                 arena_play_skill_sound(result)
                                 if 'skill_korean_name' in result:
-                                    arena_show_speech_bubble(False, result['skill_korean_name'])
+                                    arena_show_speech_bubble(False, result['skill_korean_name'], hero_id=hero_id)
                 except Exception:
                     pass
 
