@@ -132006,14 +132006,18 @@ def main(stage_num, new_boss_mode=False):
                             )
                             arena_hero_paddle_renderer.set_arm_raise_hold(_hero_id, _maria_casting)
 
-                        # 키르케(chronos) 중력조작 시전 중 지팡이 바깥쪽 펼침
+                        # 키르케(chronos) 시전 포즈 (중력조작 or 난쟁이마술 등)
                         for _hero_id in ("chronos",):
                             _chronos_skills = arena_skill_manager.active_skills.get(_hero_id, [])
                             _chronos_gravity = any(
                                 s.is_active and s.skill_id == "gravity_control"
                                 for s in _chronos_skills
                             )
-                            arena_hero_paddle_renderer.set_staff_hold_outward(_hero_id, _chronos_gravity)
+                            # 난쟁이마술 등 짧은 시전 포즈 타이머
+                            _cast_timer = arena_skill_manager.game_state.get('chronos_cast_pose_timer', 0)
+                            if _cast_timer > 0:
+                                arena_skill_manager.game_state['chronos_cast_pose_timer'] = _cast_timer - dt
+                            arena_hero_paddle_renderer.set_staff_hold_outward(_hero_id, _chronos_gravity or _cast_timer > 0)
 
                         # 쿠로카게 수리검 발사 시 무기 휘두르기
                         if arena_skill_manager.game_state.get('kurokage_weapon_swing'):
