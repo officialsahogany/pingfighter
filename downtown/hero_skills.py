@@ -5111,6 +5111,17 @@ class SteamBarrier(HeroSkill):
         self.barrier_hit_x = 0  # 충돌 지점 X
         self.barrier_hit_particles = []  # 충돌 스파클 파티클
         self.barrier_hit_rings = []  # 충돌 확산 링
+        # 배리어 파괴(깨지는) 이펙트
+        self.break_active = False
+        self.break_timer = 0.0
+        self.break_duration = 1.2  # 파괴 이펙트 지속 시간
+        self.break_shards = []  # 배리어 파편 (직사각형 조각)
+        self.break_gear_fragments = []  # 톱니바퀴 파편
+        self.break_steam_burst = []  # 증기 폭발 파티클
+        self.break_flash_timer = 0.0
+        self.break_flash_duration = 0.35
+        self.break_rings = []  # 파괴 충격파 링
+        self.break_barrier_y = 0  # 파괴 시점의 배리어 Y 위치 저장
 
     def _spawn_barrier_hit_flash(self, ball_x):
         """배리어 충돌 시 플래시 + 스파클 파티클 생성"""
@@ -5154,6 +5165,95 @@ class SteamBarrier(HeroSkill):
             'life': 0.25, 'max_life': 0.25,
             'color': (180, 220, 255)
         })
+
+    def _spawn_break_effect(self):
+        """배리어 파괴 시 깨지는 이펙트 생성 (파편 + 톱니바퀴 + 증기 폭발)"""
+        import random
+        self.break_active = True
+        self.break_timer = self.break_duration
+        self.break_barrier_y = self.barrier_y
+        self.break_flash_timer = self.break_flash_duration
+
+        # 파괴 사운드 재생
+        try:
+            import os
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            break_path = os.path.join(project_root, "sounds", "steambarriorbreak.wav")
+            if os.path.exists(break_path):
+                pygame.mixer.Sound(break_path).play()
+        except Exception:
+            pass
+
+        # === 1) 배리어 파편 (직사각형 조각들이 사방으로 튕겨나감) ===
+        num_shards = random.randint(28, 36)
+        for i in range(num_shards):
+            sx = random.uniform(10, 750)
+            sy = self.barrier_y + random.uniform(-4, 4)
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(80, 280)
+            vx = math.cos(angle) * speed * 0.6
+            vy = math.sin(angle) * speed
+            center_offset = (sx - 380) / 380
+            vx += center_offset * random.uniform(40, 100)
+            self.break_shards.append({
+                'x': sx, 'y': sy,
+                'vx': vx, 'vy': vy,
+                'width': random.uniform(6, 18),
+                'height': random.uniform(2, 6),
+                'angle': random.uniform(0, math.pi * 2),
+                'angular_vel': random.uniform(-12, 12),
+                'life': random.uniform(0.7, 1.2),
+                'max_life': 1.2,
+                'gravity': random.uniform(200, 400),
+                'color_type': random.choice(['metal', 'metal', 'metal', 'cyan', 'copper'])
+            })
+
+        # === 2) 톱니바퀴 파편 (5개 기어 위치에서 각각 3~5조각) ===
+        gear_positions = [76, 228, 380, 532, 684]
+        for gx in gear_positions:
+            num_gear_parts = random.randint(3, 5)
+            for _ in range(num_gear_parts):
+                angle = random.uniform(0, math.pi * 2)
+                speed = random.uniform(60, 200)
+                self.break_gear_fragments.append({
+                    'x': gx + random.uniform(-8, 8),
+                    'y': self.barrier_y + random.uniform(-8, 8),
+                    'vx': math.cos(angle) * speed,
+                    'vy': math.sin(angle) * speed,
+                    'size': random.uniform(4, 10),
+                    'angle': random.uniform(0, math.pi * 2),
+                    'angular_vel': random.uniform(-15, 15),
+                    'life': random.uniform(0.8, 1.2),
+                    'max_life': 1.2,
+                    'gravity': random.uniform(180, 350),
+                    'teeth': random.randint(4, 8)
+                })
+
+        # === 3) 증기 폭발 (대량의 증기 파티클) ===
+        num_steam = random.randint(20, 30)
+        for _ in range(num_steam):
+            sx = random.uniform(20, 740)
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(40, 150)
+            self.break_steam_burst.append({
+                'x': sx,
+                'y': self.barrier_y + random.uniform(-6, 6),
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed,
+                'life': random.uniform(0.5, 1.0),
+                'max_life': 1.0,
+                'size': random.uniform(12, 30),
+                'expand_rate': random.uniform(15, 40)
+            })
+
+        # === 4) 충격파 링 (3개, 좌/중/우에서 확산) ===
+        for rx in [190, 380, 570]:
+            self.break_rings.append({
+                'x': rx, 'y': self.barrier_y,
+                'radius': 5, 'max_radius': random.uniform(80, 120),
+                'life': 0.5, 'max_life': 0.5,
+                'color': random.choice([(220, 240, 255), (200, 220, 240), (180, 200, 220)])
+            })
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         # 배리어 위치 (영웅 패들보다 벽 쪽으로 더 뒤에 배치)
@@ -5373,6 +5473,8 @@ class SteamBarrier(HeroSkill):
                     game_state['ball_holy'] = True
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        # 파괴 이펙트 생성 (정리 전에 호출!)
+        self._spawn_break_effect()
         game_state['barrier_active'] = False
         # 시전자 정지 해제
         game_state['steam_barrier_caster_frozen'] = False
@@ -5409,6 +5511,14 @@ class SteamBarrier(HeroSkill):
         self.barrier_hit_flash_timer = 0.0
         self.barrier_hit_particles = []
         self.barrier_hit_rings = []
+        # 파괴 이펙트 정리
+        self.break_active = False
+        self.break_timer = 0.0
+        self.break_shards = []
+        self.break_gear_fragments = []
+        self.break_steam_burst = []
+        self.break_flash_timer = 0.0
+        self.break_rings = []
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if self.is_active:
@@ -5568,6 +5678,156 @@ class SteamBarrier(HeroSkill):
                                   (inner_size, inner_size), inner_size)
                 screen.blit(inner_surf, (cx - inner_size, cy - inner_size),
                            special_flags=pygame.BLEND_ADD)
+
+        # === 배리어 파괴(깨지는) 이펙트 (배리어 비활성화 후에도 지속) ===
+        if self.break_active:
+            dt_break = 1.0 / 60.0  # 프레임 기반 델타타임 (60fps 가정)
+
+            # 파괴 플래시 업데이트 & 렌더링
+            if self.break_flash_timer > 0:
+                self.break_flash_timer -= dt_break
+                flash_ratio = max(0, self.break_flash_timer / self.break_flash_duration)
+                # 배리어 전체 라인 밝은 플래시 (강하게)
+                flash_alpha = int(255 * flash_ratio)
+                if flash_alpha > 0:
+                    flash_surf = pygame.Surface((760, 20), pygame.SRCALPHA)
+                    pygame.draw.line(flash_surf, (255, 255, 255, flash_alpha),
+                                   (0, 10), (760, 10), 10)
+                    screen.blit(flash_surf, (0, int(self.break_barrier_y) - 10),
+                               special_flags=pygame.BLEND_ADD)
+
+            # 충격파 링 업데이트 & 렌더링
+            for r in self.break_rings[:]:
+                r['life'] -= dt_break
+                if r['life'] <= 0:
+                    self.break_rings.remove(r)
+                    continue
+                progress = 1.0 - (r['life'] / r['max_life'])
+                r['radius'] = r['max_radius'] * progress
+                ring_alpha = int(200 * (r['life'] / r['max_life']))
+                ring_radius = max(1, int(r['radius']))
+                if ring_alpha > 0:
+                    ring_size = ring_radius * 2 + 4
+                    ring_surf = pygame.Surface((ring_size, ring_size), pygame.SRCALPHA)
+                    rc = ring_radius + 2
+                    color = r['color']
+                    pygame.draw.circle(ring_surf, (*color, ring_alpha), (rc, rc), ring_radius, 2)
+                    screen.blit(ring_surf,
+                               (int(r['x']) - rc, int(r['y']) - rc),
+                               special_flags=pygame.BLEND_ADD)
+
+            # 배리어 파편 업데이트 & 렌더링
+            for s in self.break_shards[:]:
+                s['x'] += s['vx'] * dt_break
+                s['y'] += s['vy'] * dt_break
+                s['vy'] += s['gravity'] * dt_break  # 중력 적용
+                s['angle'] += s['angular_vel'] * dt_break
+                s['life'] -= dt_break
+                if s['life'] <= 0:
+                    self.break_shards.remove(s)
+                    continue
+                life_ratio = s['life'] / s['max_life']
+                s_alpha = int(255 * life_ratio)
+                if s_alpha <= 0:
+                    continue
+                # 파편 색상
+                if s['color_type'] == 'metal':
+                    color = (180, 200, 220, s_alpha)
+                elif s['color_type'] == 'cyan':
+                    color = (160, 220, 255, s_alpha)
+                else:  # copper
+                    color = (200, 140, 60, s_alpha)
+                # 회전된 직사각형 파편 그리기
+                w = max(2, int(s['width'] * (0.5 + 0.5 * life_ratio)))
+                h = max(1, int(s['height'] * (0.5 + 0.5 * life_ratio)))
+                shard_surf = pygame.Surface((w + 4, h + 4), pygame.SRCALPHA)
+                # 중심 기준 4개 꼭짓점 회전
+                cx_s, cy_s = (w + 4) / 2, (h + 4) / 2
+                cos_a = math.cos(s['angle'])
+                sin_a = math.sin(s['angle'])
+                hw, hh = w / 2, h / 2
+                points = []
+                for dx, dy in [(-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)]:
+                    rx = cx_s + dx * cos_a - dy * sin_a
+                    ry = cy_s + dx * sin_a + dy * cos_a
+                    points.append((rx, ry))
+                pygame.draw.polygon(shard_surf, color, points)
+                # 파편 테두리 (밝은 하이라이트)
+                edge_alpha = min(255, int(s_alpha * 0.6))
+                if edge_alpha > 0:
+                    edge_color = (255, 255, 255, edge_alpha)
+                    pygame.draw.polygon(shard_surf, edge_color, points, 1)
+                screen.blit(shard_surf,
+                           (int(s['x']) - (w + 4) // 2, int(s['y']) - (h + 4) // 2),
+                           special_flags=pygame.BLEND_ADD)
+
+            # 톱니바퀴 파편 업데이트 & 렌더링
+            for g in self.break_gear_fragments[:]:
+                g['x'] += g['vx'] * dt_break
+                g['y'] += g['vy'] * dt_break
+                g['vy'] += g['gravity'] * dt_break
+                g['angle'] += g['angular_vel'] * dt_break
+                g['life'] -= dt_break
+                if g['life'] <= 0:
+                    self.break_gear_fragments.remove(g)
+                    continue
+                life_ratio = g['life'] / g['max_life']
+                g_alpha = int(220 * life_ratio)
+                if g_alpha <= 0:
+                    continue
+                sz = max(2, int(g['size'] * (0.6 + 0.4 * life_ratio)))
+                gear_surf = pygame.Surface((sz * 2 + 4, sz * 2 + 4), pygame.SRCALPHA)
+                gc = sz + 2
+                # 미니 톱니바퀴 그리기 (회전 적용)
+                teeth = g['teeth']
+                for i in range(teeth):
+                    t_angle = g['angle'] + i * (math.pi * 2 / teeth)
+                    inner = sz * 0.5
+                    outer = sz
+                    x1 = gc + math.cos(t_angle) * inner
+                    y1 = gc + math.sin(t_angle) * inner
+                    x2 = gc + math.cos(t_angle) * outer
+                    y2 = gc + math.sin(t_angle) * outer
+                    pygame.draw.line(gear_surf, (160, 120, 80, g_alpha),
+                                   (x1, y1), (x2, y2), max(1, sz // 3))
+                pygame.draw.circle(gear_surf, (180, 140, 90, g_alpha), (gc, gc), max(1, int(sz * 0.5)))
+                pygame.draw.circle(gear_surf, (120, 90, 50, g_alpha), (gc, gc), max(1, int(sz * 0.3)))
+                screen.blit(gear_surf,
+                           (int(g['x']) - gc, int(g['y']) - gc))
+
+            # 증기 폭발 파티클 업데이트 & 렌더링
+            for p in self.break_steam_burst[:]:
+                p['x'] += p['vx'] * dt_break
+                p['y'] += p['vy'] * dt_break
+                p['vx'] *= 0.96  # 감속
+                p['vy'] *= 0.96
+                p['size'] += p['expand_rate'] * dt_break  # 팽창
+                p['life'] -= dt_break
+                if p['life'] <= 0:
+                    self.break_steam_burst.remove(p)
+                    continue
+                life_ratio = p['life'] / p['max_life']
+                p_alpha = int(120 * life_ratio)
+                p_size = max(1, int(p['size']))
+                if p_alpha <= 0:
+                    continue
+                steam_surf = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(steam_surf, (210, 220, 230, p_alpha),
+                                  (p_size, p_size), p_size)
+                # 내부 밝은 코어
+                inner_s = max(1, p_size // 2)
+                inner_alpha = min(255, int(p_alpha * 1.3))
+                pygame.draw.circle(steam_surf, (240, 245, 250, inner_alpha),
+                                  (p_size, p_size), inner_s)
+                screen.blit(steam_surf,
+                           (int(p['x']) - p_size, int(p['y']) - p_size))
+
+            # 타이머 업데이트 및 완료 체크
+            self.break_timer -= dt_break
+            if (self.break_timer <= 0 and not self.break_shards
+                    and not self.break_gear_fragments and not self.break_steam_burst
+                    and not self.break_rings):
+                self.break_active = False
 
         # 성스러운 공 이펙트 그리기 (배리어 활성 여부와 무관하게 지속)
         if self.holy_ball_active or self.holy_particles or self.holy_trail:
