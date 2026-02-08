@@ -949,6 +949,13 @@ except ImportError:
     def get_dialogue_manager():
         return None
 
+# 스테이지 보스 상황 대사 시스템
+try:
+    from downtown.boss_dialogues import get_boss_dialogue_manager
+except ImportError:
+    def get_boss_dialogue_manager():
+        return None
+
 if _splash_screen:
     update_splash(0.40, "게임 로직 로딩 중...")
 
@@ -17956,6 +17963,9 @@ angle_correction_strength = 0.02 # 각도 보정 강도 (점진적으로 적용)
 clock = pygame.time.Clock()
 speech_timer = 0
 speech_text = ""
+boss_dialogue_timer = 0
+boss_dialogue_text = ""
+boss_dialogue_max_timer = 0
 tear_particles = []  # 눈물 파티클 리스트
 # 사운드 초기화 (macOS 호환성 개선)
 AUDIO_DISABLED = False
@@ -52317,6 +52327,48 @@ def draw_speech():
         speech_timer -= 1
     else:
         speech_text = ""
+
+def show_boss_dialogue(text, duration=90):
+    """보스 대사 말풍선 표시 (스킬 외침과 별도 채널)"""
+    global boss_dialogue_timer, boss_dialogue_text, boss_dialogue_max_timer
+    boss_dialogue_timer = duration
+    boss_dialogue_max_timer = duration
+    boss_dialogue_text = text
+
+def draw_boss_dialogue():
+    """보스 대사 말풍선 그리기 (둥근 말풍선 스타일)"""
+    global boss_dialogue_timer, boss_dialogue_text
+    if boss_dialogue_timer > 0:
+        # 스킬 외침이 활성 중이면 대사 숨김
+        if speech_timer > 0:
+            boss_dialogue_timer -= 1
+            return
+        _draw_arena_speech_bubble(BOSS.centerx, BOSS.bottom + 15,
+                                  boss_dialogue_text, is_top=True)
+        boss_dialogue_timer -= 1
+    else:
+        boss_dialogue_text = ""
+
+def boss_dialogue_update():
+    """보스 대사 매 프레임 업데이트 (스테이지 1~8 전용)"""
+    if arena_mode_enabled:
+        return
+    if current_stage < 1 or current_stage > 8:
+        return
+    try:
+        mgr = get_boss_dialogue_manager()
+        if mgr:
+            mgr.update(
+                stage=current_stage,
+                player_score=round_wins,
+                boss_score=round_losses,
+                win_goal=deuce_goal if deuce_mode else win_goal,
+                speech_timer=speech_timer,
+                show_dialogue_func=show_boss_dialogue,
+            )
+    except Exception:
+        pass
+
 # === 대쉬 스피릿 레이저 시스템 함수들 ===
 def create_laser_evaporation_effect(laser):
     """레이저가 사라질 때 수증기 증발 효과 생성"""
@@ -92229,6 +92281,9 @@ def draw_objects():
     # UI 요소들은 화면 흔들림 영향을 받지 않도록 메인 루프에서 별도로 그림
     # 말풍선 그리기 (항상 그려야 함)
     draw_speech()
+    # 스테이지 보스 대사 말풍선 그리기
+    if not arena_mode_enabled:
+        draw_boss_dialogue()
     # 투기장 영웅 말풍선 그리기
     if arena_mode_enabled:
         arena_draw_speech_bubbles()
@@ -126608,6 +126663,14 @@ def main(stage_num, new_boss_mode=False):
     player_score = 0  # 플레이어 점수 초기화
     boss_score = 0    # 보스 점수 초기화
 
+    # 보스 대사 매니저 초기화 (스테이지 전환 시)
+    try:
+        _bdm = get_boss_dialogue_manager()
+        if _bdm:
+            _bdm.reset(stage=current_stage)
+    except Exception:
+        pass
+
     # 보스 게이지 초기화 (스테이지 전환 시)
     global boss_special_gauge, displayed_boss_gauge, boss_special_ready, boss_special_waiting
     boss_special_gauge = 0
@@ -133946,6 +134009,7 @@ def get_legacy_game_loop_hooks() -> LegacyHooks:
             draw_score()
             draw_stage8_boss_gauge_bar()
             draw_stage7_boss_gauge_bar()
+            boss_dialogue_update()
         except Exception as render_err:
             if __debug__:
                 print(f"[WARN] legacy render hook error: {render_err}")
