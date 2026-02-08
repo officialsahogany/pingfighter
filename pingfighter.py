@@ -92293,8 +92293,9 @@ def draw_objects():
     # UI 요소들은 화면 흔들림 영향을 받지 않도록 메인 루프에서 별도로 그림
     # 말풍선 그리기 (항상 그려야 함)
     draw_speech()
-    # 스테이지 보스 대사 말풍선 그리기
+    # 스테이지 보스 대사 업데이트 + 말풍선 그리기
     if not arena_mode_enabled:
+        boss_dialogue_update()
         draw_boss_dialogue()
     # 투기장 영웅 말풍선 그리기
     if arena_mode_enabled:
