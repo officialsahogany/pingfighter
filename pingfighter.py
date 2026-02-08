@@ -7020,7 +7020,7 @@ def _draw_pillar_ui(screen, renderer):
 
     # 액티브 아이템 슬롯 - 게임 화면 하단 필러에서 오른쪽으로 가로 배치
     # 투기장 모드에서는 액티브 아이템 슬롯 UI 숨김
-    if not arena_mode_enabled:
+    if not globals().get('arena_mode_enabled', False):
         try:
             active_items = globals().get('active_item_slot', [])
             selected_idx = globals().get('selected_item_index', 0)
@@ -7099,7 +7099,7 @@ def _draw_pillar_ui(screen, renderer):
         pass
 
     # 오른쪽 필러 - 대쉬 토큰 표시 (인게임에서만, 투기장 모드 제외)
-    if _is_ingame and not arena_mode_enabled:
+    if _is_ingame and not globals().get('arena_mode_enabled', False):
       try:
         if _player_gauge_surface is not None:
             # 오른쪽 필러 위치 계산 (REAL_SCREEN 기준)
@@ -7125,7 +7125,7 @@ def _draw_pillar_ui(screen, renderer):
         pass
 
     # 왼쪽 필러 - 플레이어 게이지바 + 수치 표시 (인게임에서만, 투기장 모드 제외)
-    if _is_ingame and not arena_mode_enabled:
+    if _is_ingame and not globals().get('arena_mode_enabled', False):
       try:
         if _player_gauge_surface_left is not None:
             # 왼쪽 필러 위치 계산 (REAL_SCREEN 기준)
@@ -7474,7 +7474,7 @@ def _fullscreen_flip():
             _draw_pillar_ui(REAL_SCREEN, pillar_renderer)
 
         # 🛡️ 호위무사 아이콘 UI (필러 배경 위에 그리기)
-        if arena_mode_enabled and arena_guard_system:
+        if globals().get('arena_mode_enabled', False) and arena_guard_system:
             try:
                 arena_guard_system.draw_guard_icons(
                     REAL_SCREEN,
@@ -7486,7 +7486,7 @@ def _fullscreen_flip():
                 pass
 
         # 🛡️ 인게임 호위무사 필러 아이콘 (일반 스테이지)
-        if not arena_mode_enabled:
+        if not globals().get('arena_mode_enabled', False):
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg
                 _bg = _get_bg()
@@ -7571,7 +7571,7 @@ def _fullscreen_update(*args, **kwargs):
             _draw_pillar_ui(REAL_SCREEN, pillar_renderer)
 
         # 🛡️ 호위무사 아이콘 UI (필러 배경 위에 그리기)
-        if arena_mode_enabled and arena_guard_system:
+        if globals().get('arena_mode_enabled', False) and arena_guard_system:
             try:
                 arena_guard_system.draw_guard_icons(
                     REAL_SCREEN,
@@ -7583,7 +7583,7 @@ def _fullscreen_update(*args, **kwargs):
                 pass
 
         # 🛡️ 인게임 호위무사 필러 아이콘 (일반 스테이지)
-        if not arena_mode_enabled:
+        if not globals().get('arena_mode_enabled', False):
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg2
                 _bg2 = _get_bg2()
@@ -140321,4 +140321,4 @@ if __name__ == "__main__":
         try:
             input()
         except:
-            pass    
+            pass     
