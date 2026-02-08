@@ -4795,14 +4795,19 @@ class ColosseumsArena:
             # 호위무사 아이콘 (영웅1)
             h1_guards = self.guard_warrior_map.get(hero1.get("id"), [])
             if h1_guards and self.hero_paddle_renderer:
-                guard_start_x = hero1_x - (len(h1_guards) * 30) // 2
-                guard_y = hero1_y + 80
+                guard_spacing = 60
+                guard_start_x = hero1_x - (len(h1_guards) * guard_spacing) // 2
+                guard_y = hero1_y + 90
                 for gi, g in enumerate(h1_guards):
-                    gx = guard_start_x + gi * 30
+                    gx = guard_start_x + gi * guard_spacing + guard_spacing // 2
                     self.hero_paddle_renderer.draw_hero_paddle(
-                        self.screen, g.get("id", "mugen"), gx + 15, guard_y, 28, 20,
+                        self.screen, g.get("id", "mugen"), gx, guard_y, 56, 40,
                         facing="down", color=g.get("color", (150, 150, 150)), scale_mode="preview"
                     )
+                    if "small" in self.fonts:
+                        g_name = g.get("name", "")
+                        ns, _ = self.fonts["small"].render(g_name, (180, 180, 180))
+                        self.screen.blit(ns, (gx - ns.get_width() // 2, guard_y + 28))
 
         # VS (중앙, 스케일 애니메이션)
         vs_scale = min(1.0, progress * 3) if progress < 0.5 else 1.0
@@ -4852,14 +4857,19 @@ class ColosseumsArena:
             # 호위무사 아이콘 (영웅2)
             h2_guards = self.guard_warrior_map.get(hero2.get("id"), [])
             if h2_guards and self.hero_paddle_renderer:
-                guard_start_x = hero2_x - (len(h2_guards) * 30) // 2
-                guard_y = hero2_y + 80
+                guard_spacing = 60
+                guard_start_x = hero2_x - (len(h2_guards) * guard_spacing) // 2
+                guard_y = hero2_y + 90
                 for gi, g in enumerate(h2_guards):
-                    gx = guard_start_x + gi * 30
+                    gx = guard_start_x + gi * guard_spacing + guard_spacing // 2
                     self.hero_paddle_renderer.draw_hero_paddle(
-                        self.screen, g.get("id", "mugen"), gx + 15, guard_y, 28, 20,
+                        self.screen, g.get("id", "mugen"), gx, guard_y, 56, 40,
                         facing="down", color=g.get("color", (150, 150, 150)), scale_mode="preview"
                     )
+                    if "small" in self.fonts:
+                        g_name = g.get("name", "")
+                        ns, _ = self.fonts["small"].render(g_name, (180, 180, 180))
+                        self.screen.blit(ns, (gx - ns.get_width() // 2, guard_y + 28))
 
         # 하단 힌트
         if self.fonts and "small" in self.fonts:
