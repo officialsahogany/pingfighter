@@ -18419,6 +18419,40 @@ def arena_show_speech_bubble(is_top: bool, skill_name: str):
         arena_bottom_speech_text = skill_name + "!"
         arena_bottom_speech_timer = ARENA_SPEECH_DURATION
 
+# 투기장 스킬 사운드 캐시 및 재생
+_arena_skill_sound_cache = {}
+
+def arena_play_skill_sound(result):
+    """투기장 스킬 결과에서 사운드 키를 꺼내 재생"""
+    global _arena_skill_sound_cache
+    if not result:
+        return
+    sound_key = result.get('sound')
+    if not sound_key:
+        return
+
+    if sound_key not in _arena_skill_sound_cache:
+        try:
+            filepath = resource_path(os.path.join("sounds", f"{sound_key}.wav"))
+            if os.path.exists(filepath):
+                _arena_skill_sound_cache[sound_key] = pygame.mixer.Sound(filepath)
+            else:
+                _arena_skill_sound_cache[sound_key] = None
+                print(f"[SkillSound] 파일 없음: {filepath}")
+        except Exception as e:
+            _arena_skill_sound_cache[sound_key] = None
+            print(f"[SkillSound] 로드 오류: {e}")
+
+    snd = _arena_skill_sound_cache.get(sound_key)
+    if snd:
+        snd.play()
+
+def arena_stop_all_skill_sounds():
+    """투기장 스킬 사운드 전체 중지"""
+    for snd in _arena_skill_sound_cache.values():
+        if snd:
+            snd.stop()
+
 
 def arena_draw_speech_bubbles():
     """투기장 영웅 말풍선 그리기"""
@@ -48143,6 +48177,7 @@ def go_to_next_round():
     # 🎭 투기장 영웅 스킬 초기화 (라운드 전환 시 활성 스킬 강제 종료)
     if arena_mode_enabled and arena_skill_manager:
         try:
+            arena_stop_all_skill_sounds()
             arena_skill_manager.reset_active_skills_for_round()
             # 🔮 난쟁이마술 등으로 축소된 패들 크기 원래대로 복원 (130x40)
             if PLAYER.width != 130 or PLAYER.height != 40:
@@ -113749,6 +113784,7 @@ def reset_round(is_stage_start=False):
     # 🎭 투기장 영웅 스킬 초기화 (라운드 전환 시 활성 스킬 강제 종료)
     if arena_mode_enabled and arena_skill_manager:
         try:
+            arena_stop_all_skill_sounds()
             arena_skill_manager.reset_active_skills_for_round()
             # 🔮 난쟁이마술 등으로 축소된 패들 크기 원래대로 복원 (130x40)
             if PLAYER.width != 130 or PLAYER.height != 40:
@@ -119602,7 +119638,8 @@ def handle_ball():
                     # 공 속도 변경 반영
                     ball_vel[0] = ball_wrapper.vx
                     ball_vel[1] = ball_wrapper.vy
-                    # 말풍선 표시
+                    # 스킬 사운드 재생 + 말풍선 표시
+                    arena_play_skill_sound(result)
                     if 'skill_korean_name' in result:
                         arena_show_speech_bubble(False, result['skill_korean_name'])
             except Exception:
@@ -120363,7 +120400,8 @@ def handle_ball():
                     # 공 속도 변경 반영
                     ball_vel[0] = ball_wrapper.vx
                     ball_vel[1] = ball_wrapper.vy
-                    # 말풍선 표시
+                    # 스킬 사운드 재생 + 말풍선 표시
+                    arena_play_skill_sound(result)
                     if 'skill_korean_name' in result:
                         arena_show_speech_bubble(True, result['skill_korean_name'])
             except Exception:
@@ -132572,7 +132610,8 @@ def main(stage_num, new_boss_mode=False):
                             if result:
                                 ball_vel[0] = ball_wrapper.vx
                                 ball_vel[1] = ball_wrapper.vy
-                                # 말풍선 표시
+                                # 스킬 사운드 재생 + 말풍선 표시
+                                arena_play_skill_sound(result)
                                 if 'skill_korean_name' in result:
                                     arena_show_speech_bubble(True, result['skill_korean_name'])
                         # 하단 영웅 ON_COOLDOWN 스킬
@@ -132585,7 +132624,8 @@ def main(stage_num, new_boss_mode=False):
                             if result:
                                 ball_vel[0] = ball_wrapper.vx
                                 ball_vel[1] = ball_wrapper.vy
-                                # 말풍선 표시
+                                # 스킬 사운드 재생 + 말풍선 표시
+                                arena_play_skill_sound(result)
                                 if 'skill_korean_name' in result:
                                     arena_show_speech_bubble(False, result['skill_korean_name'])
                 except Exception:

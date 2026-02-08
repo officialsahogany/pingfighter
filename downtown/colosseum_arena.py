@@ -2765,6 +2765,7 @@ class ColosseumsArena:
             target_paddle,
             self.ball
         )
+        print(f"[SkillSound] DEBUG _on_ball_hit: hero={hero_id}, result={bool(result)}, keys={list(result.keys()) if result else 'None'}")
 
         # 스킬이 성공적으로 발동되면 사운드 재생 + 말풍선 표시
         if result and 'skill_korean_name' in result:
@@ -2786,6 +2787,7 @@ class ColosseumsArena:
                 self.bottom_paddle,
                 self.ball
             )
+            print(f"[SkillSound] DEBUG _try_cooldown TOP: result={bool(result)}, keys={list(result.keys()) if result else 'None'}")
             # 스킬 발동 시 사운드 재생 + 말풍선 표시
             if result and 'skill_korean_name' in result:
                 self._play_skill_sound(result)
@@ -2800,6 +2802,7 @@ class ColosseumsArena:
                 self.top_paddle,
                 self.ball
             )
+            print(f"[SkillSound] DEBUG _try_cooldown BOT: result={bool(result)}, keys={list(result.keys()) if result else 'None'}")
             # 스킬 발동 시 사운드 재생 + 말풍선 표시
             if result and 'skill_korean_name' in result:
                 self._play_skill_sound(result)
