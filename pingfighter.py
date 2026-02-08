@@ -87041,18 +87041,40 @@ def draw_objects():
             _top_draw_width = int(_arena_base_paddle_width_top * _top_size_boost * _top_shrink_scale)
             _top_draw_height = int(_arena_base_paddle_height_top * _top_size_boost * _top_shrink_scale)
             # 상단 영웅 패들 그리기 (보스 위치 + 떨림 오프셋 + 뿔박치기 오프셋)
-            arena_hero_paddle_renderer.draw_hero_paddle(
-                SCREEN,
-                arena_top_hero["id"],
-                BOSS.centerx + screen_shake_offset_x + _arena_top_stun_shake_x + _horn_charge_x_offset_top,
-                BOSS.centery + screen_shake_offset_y + _arena_top_stun_shake_y + _horn_charge_y_offset_top,
-                _top_draw_width,
-                _top_draw_height,
-                facing="down",
-                color=arena_top_hero["color"],
-                scale_mode="paddle",
-                stun_effect=(arena_top_dash_stun_timer > 0)  # 후딜 틴트 효과
-            )
+            _top_final_x = BOSS.centerx + screen_shake_offset_x + _arena_top_stun_shake_x + _horn_charge_x_offset_top
+            _top_final_y = BOSS.centery + screen_shake_offset_y + _arena_top_stun_shake_y + _horn_charge_y_offset_top
+            if _boss_hologram_should_draw:
+                if _boss_hologram_active:
+                    # 홀로그램 물질화 효과: 임시 서피스에 그린 후 효과 적용
+                    _arena_holo_size = 200
+                    _arena_holo_surf = pygame.Surface((_arena_holo_size, _arena_holo_size), pygame.SRCALPHA)
+                    arena_hero_paddle_renderer.draw_hero_paddle(
+                        _arena_holo_surf,
+                        arena_top_hero["id"],
+                        _arena_holo_size // 2, _arena_holo_size // 2,
+                        _top_draw_width,
+                        _top_draw_height,
+                        facing="down",
+                        color=arena_top_hero["color"],
+                        scale_mode="paddle",
+                        stun_effect=(arena_top_dash_stun_timer > 0)
+                    )
+                    _arena_holo_surf = apply_hologram_materialize_effect(_arena_holo_surf, _boss_hologram_progress, _hologram_time_now)
+                    SCREEN.blit(_arena_holo_surf, (int(_top_final_x) - _arena_holo_size // 2, int(_top_final_y) - _arena_holo_size // 2))
+                else:
+                    # 완전히 물질화됨 - 정상 그리기
+                    arena_hero_paddle_renderer.draw_hero_paddle(
+                        SCREEN,
+                        arena_top_hero["id"],
+                        _top_final_x,
+                        _top_final_y,
+                        _top_draw_width,
+                        _top_draw_height,
+                        facing="down",
+                        color=arena_top_hero["color"],
+                        scale_mode="paddle",
+                        stun_effect=(arena_top_dash_stun_timer > 0)
+                    )
 
             # 🔥 뿔 박치기 착지 충격파 이펙트 렌더링
             if arena_skill_manager:
@@ -88586,19 +88608,40 @@ def draw_objects():
             # player_rect 대신 PLAYER 사용: player_rect는 일반 스프라이트 바운딩 보정으로 Y가 흔들림
             _final_x = PLAYER.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x + _horn_charge_x_offset_bottom
             _final_y = PLAYER.centery + screen_shake_offset_y + _arena_bottom_stun_shake_y + _horn_charge_y_offset_bottom
-            arena_hero_paddle_renderer.draw_hero_paddle(
-                SCREEN,
-                arena_bottom_hero["id"],
-                _final_x,
-                _final_y,
-                _bottom_draw_width,
-                _bottom_draw_height,
-                facing="up",
-                color=arena_bottom_hero["color"],
-                scale_mode="paddle",
-                stun_effect=(arena_bottom_dash_stun_timer > 0)  # 후딜 틴트 효과
-            )
+            if _player_hologram_should_draw:
+                if _player_hologram_active:
+                    # 홀로그램 물질화 효과: 임시 서피스에 그린 후 효과 적용
+                    _arena_holo_size_btm = 200
+                    _arena_holo_surf_btm = pygame.Surface((_arena_holo_size_btm, _arena_holo_size_btm), pygame.SRCALPHA)
+                    arena_hero_paddle_renderer.draw_hero_paddle(
+                        _arena_holo_surf_btm,
+                        arena_bottom_hero["id"],
+                        _arena_holo_size_btm // 2, _arena_holo_size_btm // 2,
+                        _bottom_draw_width,
+                        _bottom_draw_height,
+                        facing="up",
+                        color=arena_bottom_hero["color"],
+                        scale_mode="paddle",
+                        stun_effect=(arena_bottom_dash_stun_timer > 0)
+                    )
+                    _arena_holo_surf_btm = apply_hologram_materialize_effect(_arena_holo_surf_btm, _player_hologram_progress, _hologram_time_now)
+                    SCREEN.blit(_arena_holo_surf_btm, (int(_final_x) - _arena_holo_size_btm // 2, int(_final_y) - _arena_holo_size_btm // 2))
+                else:
+                    # 완전히 물질화됨 - 정상 그리기
+                    arena_hero_paddle_renderer.draw_hero_paddle(
+                        SCREEN,
+                        arena_bottom_hero["id"],
+                        _final_x,
+                        _final_y,
+                        _bottom_draw_width,
+                        _bottom_draw_height,
+                        facing="up",
+                        color=arena_bottom_hero["color"],
+                        scale_mode="paddle",
+                        stun_effect=(arena_bottom_dash_stun_timer > 0)
+                    )
 
+            # 홀로그램 미표시 중에도 투기장 모드이므로 기본 패들 숨김
             _arena_paddle_drawn = True
         except Exception as e:
             pass
