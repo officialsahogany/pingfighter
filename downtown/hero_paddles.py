@@ -99,7 +99,7 @@ class HeroPaddleRenderer:
     def trigger_weapon_swing(self, hero_id: str, duration: float = 0.35):
         """공 타격 시 무기 휘두르기 애니메이션 트리거"""
         state = self._get_state(hero_id)
-        if state["weapon_swing_timer"] <= 0:
+        if state.get("weapon_swing_timer", 0) <= 0:
             state["weapon_swing_timer"] = duration
             state["weapon_swing_duration"] = duration
 

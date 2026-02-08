@@ -119637,6 +119637,13 @@ def handle_ball():
         game_vars.ball.last_hit_by = "player"
         update_ball_rally("player")
 
+        # 투기장 모드: 하단 영웅 무기 휘두르기 애니메이션 트리거
+        if arena_mode_enabled and arena_bottom_hero and arena_hero_paddle_renderer:
+            try:
+                arena_hero_paddle_renderer.trigger_weapon_swing(arena_bottom_hero["id"])
+            except Exception:
+                pass
+
         # 투기장 모드: 하단 영웅(플레이어 위치) ON_BALL_HIT 스킬 발동
         if arena_mode_enabled and arena_skill_manager and arena_bottom_hero:
             try:
@@ -120398,6 +120405,13 @@ def handle_ball():
 
         # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
         update_ball_rally("boss")
+
+        # 투기장 모드: 상단 영웅 무기 휘두르기 애니메이션 트리거
+        if arena_mode_enabled and arena_top_hero and arena_hero_paddle_renderer:
+            try:
+                arena_hero_paddle_renderer.trigger_weapon_swing(arena_top_hero["id"])
+            except Exception:
+                pass
 
         # 투기장 모드: 상단 영웅(보스 위치) ON_BALL_HIT 스킬 발동
         if arena_mode_enabled and arena_skill_manager and arena_top_hero:
