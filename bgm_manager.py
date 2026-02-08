@@ -124,12 +124,18 @@ class BGMManager:
                 os.path.join("bgm", "defeat.ogg"),
                 os.path.join("bgm", "defeat.wav"),
             ],
-            # 투기장(콜로세움) BGM - 2곡 중 랜덤 선택
+            # 투기장(콜로세움) BGM - 4곡 중 랜덤 선택
             'colosseum1': [
                 os.path.join("bgm", "coloseum1.wav"),
             ],
             'colosseum2': [
                 os.path.join("bgm", "coloseum2.wav"),
+            ],
+            'colosseum3': [
+                os.path.join("bgm", "coloseum3.wav"),
+            ],
+            'colosseum4': [
+                os.path.join("bgm", "coloseum4.wav"),
             ],
         }
         self.is_initialized = False
@@ -387,7 +393,7 @@ class BGMManager:
         elif stage_num == 8:
             self.play_bgm('stage8')
         elif stage_num == 30:  # 투기장 (콜로세움) - 2곡 중 랜덤
-            colosseum_bgm = random.choice(['colosseum1', 'colosseum2'])
+            colosseum_bgm = random.choice(['colosseum1', 'colosseum2', 'colosseum3', 'colosseum4'])
             self.play_bgm(colosseum_bgm)
         elif stage_num == 50:  # 튜토리얼
             self.play_bgm('tutorial')
