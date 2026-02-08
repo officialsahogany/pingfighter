@@ -1057,6 +1057,10 @@ class GuardWarriorSystem:
         self.cooldown_bottom = 0.0
         self.cooldown_range = (20.0, 30.0)  # 20~30초 랜덤
 
+        # 다음 등장할 호위무사 인덱스 (2명일 때 화살표 표시용)
+        self.next_guard_top_idx = 0
+        self.next_guard_bottom_idx = 0
+
         # 등장 애니메이션 상태 (상단측)
         self.active_top = None             # 현재 등장 중인 호위무사 hero dict
         self.phase_top = None              # "entering" / "casting" / "exiting" / None
@@ -1114,8 +1118,10 @@ class GuardWarriorSystem:
         # 쿨타임 초기화 (게이지가 꽉 찬 상태에서 시작하도록 cooldown_range[1] 사용)
         if self.guard_warriors_top:
             self.cooldown_top = self.cooldown_range[1]
+            self.next_guard_top_idx = random.randint(0, len(self.guard_warriors_top) - 1)
         if self.guard_warriors_bottom:
             self.cooldown_bottom = self.cooldown_range[1]
+            self.next_guard_bottom_idx = random.randint(0, len(self.guard_warriors_bottom) - 1)
 
         # 애니메이션 상태 초기화
         self.active_top = None
@@ -1249,8 +1255,15 @@ class GuardWarriorSystem:
         if not guards:
             return
 
-        # 결승전: 2명 중 1명 랜덤 / 4강: 1명 고정
-        guard = random.choice(guards)
+        # 미리 선택된 호위무사 사용 (UI 화살표로 표시된 대상)
+        if is_top:
+            idx = self.next_guard_top_idx % len(guards)
+            guard = guards[idx]
+            self.next_guard_top_idx = random.randint(0, len(guards) - 1)
+        else:
+            idx = self.next_guard_bottom_idx % len(guards)
+            guard = guards[idx]
+            self.next_guard_bottom_idx = random.randint(0, len(guards) - 1)
 
         # 스킬 2개 중 1개 랜덤 선택
         skills = self.skill_instances.get(guard["id"], [])
@@ -1924,10 +1937,12 @@ class GuardWarriorSystem:
         frame_w, frame_h = 58, 58
         slot_h = 100  # 슬롯 간격 (이름 포함, 겹침 방지)
 
-        # UI 색상 (불투명 - 필러 배경과 섞이지 않도록)
-        bg_color = (15, 10, 25, 255)         # 어두운 남색 배경 (불투명)
-        border_color = (200, 170, 80, 255)   # 금색 테두리 (불투명)
-        label_bg = (10, 5, 20, 255)          # 이름 배경 (불투명)
+        # UI 색상 (메탈릭 실버/화이트)
+        bg_color = (210, 215, 225, 255)      # 메탈릭 실버 배경
+        border_color = (170, 175, 190, 255)  # 연한 메탈릭 테두리
+        label_bg = (185, 190, 200, 255)      # 이름 배경 (메탈릭)
+        label_text_color = (30, 30, 40)      # 이름 텍스트 (어두운색)
+        arrow_color = (255, 200, 50)         # 화살표 색상 (골드)
 
         # --- 상단 영웅의 호위무사 → 오른쪽 상단 필러 ---
         if right_pillar_w >= 30:
@@ -1937,10 +1952,13 @@ class GuardWarriorSystem:
                 color = guard.get("color", (150, 150, 150))
                 slot_cy = y_start_top + i * slot_h
 
-                # 배경 프레임 (어두운 배경 + 금색 테두리)
+                # 배경 프레임 (메탈릭 실버)
                 frame_surf = pygame.Surface((frame_w, frame_h), pygame.SRCALPHA)
                 pygame.draw.rect(frame_surf, bg_color, frame_surf.get_rect(), border_radius=8)
                 pygame.draw.rect(frame_surf, border_color, frame_surf.get_rect(), width=2, border_radius=8)
+                # 메탈릭 하이라이트 (상단 밝은 줄)
+                hl_rect = pygame.Rect(4, 3, frame_w - 8, 6)
+                pygame.draw.rect(frame_surf, (240, 242, 248, 120), hl_rect, border_radius=3)
                 screen.blit(frame_surf, (cx_right - frame_w // 2, slot_cy))
 
                 # 영웅 캐릭터 이미지 (프레임 중앙 정렬)
@@ -1958,10 +1976,22 @@ class GuardWarriorSystem:
                         cd_surf.fill((0, 0, 0, 150))
                         screen.blit(cd_surf, (cx_right - frame_w // 2, slot_cy))
 
+                # 다음 등장 화살표 표시 (2명 이상일 때, 쿨타임 중)
+                if (len(self.guard_warriors_top) >= 2 and self.phase_top is None
+                        and i == self.next_guard_top_idx % len(self.guard_warriors_top)):
+                    ax = cx_right - frame_w // 2 - 12
+                    ay = slot_cy + frame_h // 2
+                    pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() / 300.0)
+                    a_alpha = int(160 + 80 * pulse)
+                    arrow_s = pygame.Surface((10, 14), pygame.SRCALPHA)
+                    ac = (*arrow_color[:3], a_alpha)
+                    pygame.draw.polygon(arrow_s, ac, [(10, 7), (0, 0), (0, 14)])
+                    screen.blit(arrow_s, (ax, ay - 7))
+
                 # 이름 표시 (한글 폰트)
                 try:
                     name = guard.get("name", "?")
-                    name_surf = name_font.render(name, True, (255, 230, 170))
+                    name_surf = name_font.render(name, True, label_text_color)
                     name_rect = name_surf.get_rect(centerx=cx_right, top=slot_cy + frame_h + 2)
                     bg_rect = name_rect.inflate(8, 4)
                     bg_s = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
@@ -1981,10 +2011,13 @@ class GuardWarriorSystem:
                 color = guard.get("color", (150, 150, 150))
                 slot_cy = y_start_bottom + i * slot_h
 
-                # 배경 프레임 (어두운 배경 + 금색 테두리)
+                # 배경 프레임 (메탈릭 실버)
                 frame_surf = pygame.Surface((frame_w, frame_h), pygame.SRCALPHA)
                 pygame.draw.rect(frame_surf, bg_color, frame_surf.get_rect(), border_radius=8)
                 pygame.draw.rect(frame_surf, border_color, frame_surf.get_rect(), width=2, border_radius=8)
+                # 메탈릭 하이라이트 (상단 밝은 줄)
+                hl_rect = pygame.Rect(4, 3, frame_w - 8, 6)
+                pygame.draw.rect(frame_surf, (240, 242, 248, 120), hl_rect, border_radius=3)
                 screen.blit(frame_surf, (cx_left - frame_w // 2, slot_cy))
 
                 # 영웅 캐릭터 이미지 (프레임 중앙 정렬)
@@ -2002,10 +2035,22 @@ class GuardWarriorSystem:
                         cd_surf.fill((0, 0, 0, 150))
                         screen.blit(cd_surf, (cx_left - frame_w // 2, slot_cy))
 
+                # 다음 등장 화살표 표시 (2명 이상일 때, 쿨타임 중)
+                if (len(self.guard_warriors_bottom) >= 2 and self.phase_bottom is None
+                        and i == self.next_guard_bottom_idx % len(self.guard_warriors_bottom)):
+                    ax = cx_left + frame_w // 2 + 2
+                    ay = slot_cy + frame_h // 2
+                    pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() / 300.0)
+                    a_alpha = int(160 + 80 * pulse)
+                    arrow_s = pygame.Surface((10, 14), pygame.SRCALPHA)
+                    ac = (*arrow_color[:3], a_alpha)
+                    pygame.draw.polygon(arrow_s, ac, [(0, 7), (10, 0), (10, 14)])
+                    screen.blit(arrow_s, (ax, ay - 7))
+
                 # 이름 표시 (한글 폰트)
                 try:
                     name = guard.get("name", "?")
-                    name_surf = name_font.render(name, True, (255, 230, 170))
+                    name_surf = name_font.render(name, True, label_text_color)
                     name_rect = name_surf.get_rect(centerx=cx_left, top=slot_cy + frame_h + 2)
                     bg_rect = name_rect.inflate(8, 4)
                     bg_s = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
@@ -2063,6 +2108,8 @@ class GuardWarriorSystem:
         self.selected_skill_bottom = None
         self.y_top = TOP_PADDLE_Y
         self.y_bottom = BOTTOM_PADDLE_Y
+        self.next_guard_top_idx = 0
+        self.next_guard_bottom_idx = 0
         self._bubble_top = None
         self._bubble_bottom = None
 
