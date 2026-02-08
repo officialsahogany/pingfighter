@@ -5769,6 +5769,12 @@ class HeroSkillManager:
         self.game_state['bottom_paddle_shrink'] = False
         self.game_state['bottom_paddle_shrink_scale'] = 1.0
 
+        # 촉수 휘감기 (크라켄) 둔화 이펙트 초기화
+        self.game_state['tentacle_wrap_active'] = False
+        self.game_state['tentacle_wrap_target_is_top'] = False
+        self.game_state['top_paddle_tentacle_slowed'] = False
+        self.game_state['bottom_paddle_tentacle_slowed'] = False
+
         # 쿠로카게 그림자분신 초기화
         self.game_state['has_shadow_clones'] = False
 
