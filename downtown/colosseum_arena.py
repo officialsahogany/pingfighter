@@ -4051,8 +4051,13 @@ class ColosseumsArena:
         """대진표 진출 애니메이션 시작"""
         print(f"[Arena] _start_bracket_animation 시작 | current_round: {self.current_round}")
         self.bracket_anim_timer = 0.0
-        self.bracket_anim_phase = 0  # 0: 패자 X 표시, 1: 승자 이동, 2: VS 매치업 표시, 3: 완료
+        self.bracket_anim_phase = 0  # 0: 패자 X 표시, 1: 승자 이동, 2: 호위무사 알림, 3: VS 매치업 표시, 4: 완료
         self.bracket_anim_progress = 0.0
+
+        # 호위무사 합류 알림 상태
+        self.guard_notify_hero = None      # 새로 합류한 호위무사 영웅 dict
+        self.guard_notify_owner = None     # 호위무사의 주인 (bet_hero) dict
+        self.guard_notify_total = 0        # 주인의 현재 총 호위무사 수
 
         # 현재 라운드의 완료된 매치와 승자 수집
         current_matches = self.matches[self.current_round]
@@ -4092,10 +4097,19 @@ class ColosseumsArena:
             # 페이즈 1: 승자 캐릭터 이동 애니메이션
             self.bracket_anim_progress = min(1.0, self.bracket_anim_timer / phase_duration)
             if self.bracket_anim_timer >= phase_duration:
-                self.bracket_anim_phase = 2
                 self.bracket_anim_timer = 0.0
                 self.bracket_anim_progress = 0.0
-                # 다음 라운드로 진출 (매치 생성)
+
+                # _advance_to_next_round() 전에 bet_hero 매치의 패자 기록
+                bet_hero_loser = None
+                if self.bet_hero:
+                    for match in self.bracket_anim_completed_matches:
+                        if match.winner and (match.hero1 == self.bet_hero or match.hero2 == self.bet_hero):
+                            if match.winner == self.bet_hero:
+                                bet_hero_loser = match.hero1 if match.winner == match.hero2 else match.hero2
+                            break
+
+                # 다음 라운드로 진출 (매치 생성 + 호위무사 할당)
                 print(f"[Arena] Phase 1 완료 → _advance_to_next_round() 호출")
                 self._advance_to_next_round()
                 print(f"[Arena] _advance_to_next_round() 완료 | current_round: {self.current_round}")
@@ -4103,26 +4117,49 @@ class ColosseumsArena:
                 self._prepare_next_match()
                 print(f"[Arena] _prepare_next_match() 완료 | selected_match: {self.selected_match}")
 
+                # 호위무사 알림 페이즈로 진입할지 결정
+                if bet_hero_loser and self.bet_hero:
+                    self.guard_notify_hero = bet_hero_loser
+                    self.guard_notify_owner = self.bet_hero
+                    self.guard_notify_total = len(self.guard_warrior_map.get(self.bet_hero["id"], []))
+                    self.bracket_anim_phase = 2  # 호위무사 알림 페이즈
+                    print(f"[Arena] Phase 2: 호위무사 알림 | {bet_hero_loser['name']} → {self.bet_hero['name']}")
+                else:
+                    self.guard_notify_hero = None
+                    self.bracket_anim_phase = 3  # 호위무사 없으면 VS 매치업으로 건너뜀
+
         elif self.bracket_anim_phase == 2:
-            # 페이즈 2: VS 매치업 표시 (2초간)
-            vs_duration = 2.0
-            self.bracket_anim_progress = min(1.0, self.bracket_anim_timer / vs_duration)
-            if self.bracket_anim_timer >= vs_duration:
-                self.bracket_anim_phase = 3
+            # 페이즈 2: 호위무사 합류 알림 (2.5초)
+            guard_notify_duration = 2.5
+            self.bracket_anim_progress = min(1.0, self.bracket_anim_timer / guard_notify_duration)
+            if self.bracket_anim_timer >= guard_notify_duration:
+                self.bracket_anim_phase = 3  # VS 매치업으로
                 self.bracket_anim_timer = 0.0
                 self.bracket_anim_progress = 0.0
 
         elif self.bracket_anim_phase == 3:
-            # 페이즈 3: 짧은 대기 후 ROUND_END로 전환
+            # 페이즈 3: VS 매치업 표시 (2초간) [기존 Phase 2]
+            vs_duration = 2.0
+            self.bracket_anim_progress = min(1.0, self.bracket_anim_timer / vs_duration)
+            if self.bracket_anim_timer >= vs_duration:
+                self.bracket_anim_phase = 4
+                self.bracket_anim_timer = 0.0
+                self.bracket_anim_progress = 0.0
+
+        elif self.bracket_anim_phase == 4:
+            # 페이즈 4: 짧은 대기 후 ROUND_END로 전환 [기존 Phase 3]
             wait_time = 0.3
             if self.bracket_anim_timer >= wait_time:
                 # 애니메이션 상태 초기화
                 self.bracket_anim_phase = 0
                 self.bracket_anim_progress = 0.0
                 self.bracket_anim_timer = 0.0
+                # 호위무사 알림 상태 초기화
+                self.guard_notify_hero = None
+                self.guard_notify_owner = None
 
                 # ROUND_END 상태로 전환 (계속할지 선택)
-                print(f"[Arena] Phase 3 완료 → ROUND_END 전환 | current_round: {self.current_round}")
+                print(f"[Arena] Phase 4 완료 → ROUND_END 전환 | current_round: {self.current_round}")
                 self.state = TournamentState.ROUND_END
 
     def _draw_bracket_animation(self):
@@ -4130,8 +4167,13 @@ class ColosseumsArena:
         # 배경
         self.screen.fill((25, 28, 35))
 
-        # 페이즈 2: VS 매치업 표시
-        if self.bracket_anim_phase == 2 and self.selected_match:
+        # 페이즈 2: 호위무사 합류 알림
+        if self.bracket_anim_phase == 2 and self.guard_notify_hero:
+            self._draw_guard_notification()
+            return
+
+        # 페이즈 3: VS 매치업 표시 (기존 Phase 2)
+        if self.bracket_anim_phase == 3 and self.selected_match:
             self._draw_vs_matchup_animation()
             return
 
@@ -4160,6 +4202,123 @@ class ColosseumsArena:
                 alpha = int(abs(math.sin(self.animation_timer * 2)) * 155 + 100)
                 surf, _ = self.fonts["small"].render(hint, (alpha, alpha, alpha))
                 self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 700))
+
+    def _draw_guard_notification(self):
+        """호위무사 합류 알림 애니메이션"""
+        guard = self.guard_notify_hero
+        owner = self.guard_notify_owner
+        if not guard or not owner:
+            return
+
+        progress = self.bracket_anim_progress  # 0.0 ~ 1.0 over 2.5s
+
+        # 배경
+        self.screen.fill((25, 28, 35))
+
+        # 반투명 다크 오버레이 (페이드인)
+        overlay_alpha = int(min(180, 220 * min(1.0, progress * 3)))
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((10, 5, 20, overlay_alpha))
+        self.screen.blit(overlay, (0, 0))
+
+        center_x = SCREEN_WIDTH // 2
+
+        # 호위무사 영웅 이미지 (아래에서 슬라이드 업)
+        target_y = SCREEN_HEIGHT // 2 - 30
+        start_y = SCREEN_HEIGHT // 2 + 100
+        slide_progress = self._ease_in_out(min(1.0, progress * 2.5))
+        hero_y = int(start_y + (target_y - start_y) * slide_progress)
+
+        # 글로우 효과 (호위무사 색상)
+        guard_color = guard.get("color", (150, 150, 150))
+        glow_alpha = int(60 + abs(math.sin(self.animation_timer * 3)) * 40)
+        glow_radius = 80
+        glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, (*guard_color, glow_alpha), (glow_radius, glow_radius), glow_radius)
+        self.screen.blit(glow_surf, (center_x - glow_radius, hero_y - glow_radius))
+
+        # 영웅 캐릭터 이미지
+        if self.hero_paddle_renderer:
+            guard_id = guard.get("id", "mugen")
+            self.hero_paddle_renderer.draw_hero_paddle(
+                self.screen, guard_id, center_x, hero_y, 120, 84,
+                facing="down", color=guard_color, scale_mode="preview"
+            )
+        else:
+            pygame.draw.circle(self.screen, guard_color, (center_x, hero_y), 40)
+            pygame.draw.circle(self.screen, (255, 255, 255), (center_x, hero_y), 40, 2)
+
+        # 텍스트 (페이드인, progress > 0.2)
+        text_alpha = max(0, min(255, int((progress - 0.2) * 4 * 255)))
+
+        if text_alpha > 0 and self.fonts:
+            guard_name = guard.get("name", "???")
+            guard_title = guard.get("title", "")
+
+            # 밝기 보정
+            brightness = sum(guard_color) / 3
+            name_color = guard_color if brightness > 80 else (
+                min(255, guard_color[0] + 100),
+                min(255, guard_color[1] + 100),
+                min(255, guard_color[2] + 100)
+            )
+
+            # 이름 (큰 글씨)
+            if "large" in self.fonts:
+                surf, _ = self.fonts["large"].render(guard_name, name_color)
+                alpha_surf = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+                alpha_surf.fill((255, 255, 255, text_alpha))
+                surf.blit(alpha_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                self.screen.blit(surf, (center_x - surf.get_width() // 2, hero_y - 80))
+
+            # 칭호 (작은 글씨)
+            if "small" in self.fonts and guard_title:
+                surf, _ = self.fonts["small"].render(guard_title, (200, 200, 200))
+                alpha_surf = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+                alpha_surf.fill((255, 255, 255, text_alpha))
+                surf.blit(alpha_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                self.screen.blit(surf, (center_x - surf.get_width() // 2, hero_y + 60))
+
+            # 메인 알림 메시지
+            if "medium" in self.fonts:
+                msg1 = f"{guard_name}이(가) 호위무사가 되었습니다!"
+                msg2 = "이후 전투에서 함께 싸워줍니다!"
+
+                gold_color = (255, 215, 0)
+
+                surf1, _ = self.fonts["medium"].render(msg1, gold_color)
+                alpha_surf1 = pygame.Surface(surf1.get_size(), pygame.SRCALPHA)
+                alpha_surf1.fill((255, 255, 255, text_alpha))
+                surf1.blit(alpha_surf1, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                self.screen.blit(surf1, (center_x - surf1.get_width() // 2, hero_y + 100))
+
+                surf2, _ = self.fonts["medium"].render(msg2, gold_color)
+                alpha_surf2 = pygame.Surface(surf2.get_size(), pygame.SRCALPHA)
+                alpha_surf2.fill((255, 255, 255, text_alpha))
+                surf2.blit(alpha_surf2, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                self.screen.blit(surf2, (center_x - surf2.get_width() // 2, hero_y + 130))
+
+            # 호위무사 카운트
+            if "small" in self.fonts and self.guard_notify_total > 0:
+                count_msg = f"현재 호위무사: {self.guard_notify_total}명"
+                surf, _ = self.fonts["small"].render(count_msg, (180, 180, 180))
+                alpha_surf = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+                alpha_surf.fill((255, 255, 255, text_alpha))
+                surf.blit(alpha_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                self.screen.blit(surf, (center_x - surf.get_width() // 2, hero_y + 165))
+
+        # 장식 파티클 (궤도 도는 금색 스파크)
+        if progress > 0.3:
+            particle_count = int((progress - 0.3) * 10)
+            for i in range(min(particle_count, 6)):
+                angle = self.animation_timer * 2 + i * (math.pi * 2 / 6)
+                dist = 100 + math.sin(self.animation_timer * 3 + i) * 20
+                px = center_x + int(math.cos(angle) * dist)
+                py = hero_y + int(math.sin(angle) * dist * 0.6)
+                spark_alpha = int(100 + abs(math.sin(self.animation_timer * 5 + i)) * 100)
+                spark_surf = pygame.Surface((8, 8), pygame.SRCALPHA)
+                pygame.draw.circle(spark_surf, (255, 215, 0, spark_alpha), (4, 4), 3)
+                self.screen.blit(spark_surf, (px - 4, py - 4))
 
     def _draw_animated_bracket(self):
         """애니메이션이 적용된 대진표 그리기"""
@@ -4511,6 +4670,18 @@ class ColosseumsArena:
                 surf, _ = self.fonts["small"].render(hero1["title"], (200, 200, 200))
                 self.screen.blit(surf, (hero1_x - surf.get_width() // 2, hero1_y + 55))
 
+            # 호위무사 아이콘 (영웅1)
+            h1_guards = self.guard_warrior_map.get(hero1.get("id"), [])
+            if h1_guards and self.hero_paddle_renderer:
+                guard_start_x = hero1_x - (len(h1_guards) * 30) // 2
+                guard_y = hero1_y + 80
+                for gi, g in enumerate(h1_guards):
+                    gx = guard_start_x + gi * 30
+                    self.hero_paddle_renderer.draw_hero_paddle(
+                        self.screen, g.get("id", "mugen"), gx + 15, guard_y, 28, 20,
+                        facing="down", color=g.get("color", (150, 150, 150)), scale_mode="preview"
+                    )
+
         # VS (중앙, 스케일 애니메이션)
         vs_scale = min(1.0, progress * 3) if progress < 0.5 else 1.0
         if self.fonts and "large" in self.fonts and vs_scale > 0.1:
@@ -4555,6 +4726,18 @@ class ColosseumsArena:
             if "small" in self.fonts:
                 surf, _ = self.fonts["small"].render(hero2["title"], (200, 200, 200))
                 self.screen.blit(surf, (hero2_x - surf.get_width() // 2, hero2_y + 55))
+
+            # 호위무사 아이콘 (영웅2)
+            h2_guards = self.guard_warrior_map.get(hero2.get("id"), [])
+            if h2_guards and self.hero_paddle_renderer:
+                guard_start_x = hero2_x - (len(h2_guards) * 30) // 2
+                guard_y = hero2_y + 80
+                for gi, g in enumerate(h2_guards):
+                    gx = guard_start_x + gi * 30
+                    self.hero_paddle_renderer.draw_hero_paddle(
+                        self.screen, g.get("id", "mugen"), gx + 15, guard_y, 28, 20,
+                        facing="down", color=g.get("color", (150, 150, 150)), scale_mode="preview"
+                    )
 
         # 하단 힌트
         if self.fonts and "small" in self.fonts:
