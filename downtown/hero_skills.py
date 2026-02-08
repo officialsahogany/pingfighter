@@ -6423,12 +6423,14 @@ class ShadowClone(HeroSkill):
 
         self.caster_facing = "down" if caster_paddle.is_top else "up"
 
-        # 분신 3~4개 생성 (좌우로 벌어지며 등장)
-        clone_count = random.randint(3, 4)
+        # 분신 3~5개 생성 (좌우로 벌어지며 등장)
+        clone_count = random.randint(3, 5)
         if clone_count == 3:
             offsets = [-120, 0, 120]  # 3개: 좌, 중앙, 우
-        else:
+        elif clone_count == 4:
             offsets = [-150, -50, 50, 150]  # 4개: 좌좌, 좌, 우, 우우
+        else:
+            offsets = [-160, -80, 0, 80, 160]  # 5개: 좌좌, 좌, 중앙, 우, 우우
         self.clones = []
         self.dying_clones = []
 
@@ -6790,7 +6792,7 @@ class IllusionShuriken(HeroSkill):
         self.shurikens = []
         self.spawn_timer = 0
         self.shurikens_spawned = 0
-        self.total_shurikens = random.randint(3, 5)  # 3~5개 랜덤
+        self.total_shurikens = random.randint(4, 6)  # 4~6개 랜덤
         self.knockback_applied = False
         self.hit_effects = []
 
@@ -6808,13 +6810,12 @@ class IllusionShuriken(HeroSkill):
         total = self.total_shurikens
 
         # 부채꼴 형태로 각도 분배 (-60도 ~ +60도 범위)
-        # 예: 3개 → -45, 0, +45 / 4개 → -45, -15, +15, +45 / 5개 → -50, -25, 0, +25, +50
-        if total == 3:
-            angles_deg = [-45, 0, 45]
-        elif total == 4:
+        if total == 4:
             angles_deg = [-50, -17, 17, 50]
-        else:  # 5개
+        elif total == 5:
             angles_deg = [-55, -28, 0, 28, 55]
+        else:  # 6개
+            angles_deg = [-58, -35, -12, 12, 35, 58]
 
         # 인덱스에 해당하는 각도 선택 (약간의 랜덤 추가)
         base_angle_deg = angles_deg[index] if index < len(angles_deg) else 0
