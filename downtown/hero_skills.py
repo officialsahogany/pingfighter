@@ -3824,6 +3824,10 @@ class DollCurse(HeroSkill):
                 scale = guardian['scale'] * spawn_alpha
                 s = scale  # 축약
 
+                # 스폰 초기 스케일이 너무 작으면 건너뛰기 (Surface 0 크기 크래시 방지)
+                if s < 0.2:
+                    continue
+
                 # === 등대 서치라이트 효과 (상대 영웅을 비춤) ===
                 if spawn_alpha > 0.5:  # 인형이 어느 정도 나타난 후 빛 발사
                     # 인형 눈 위치 (머리 부분)
@@ -3963,7 +3967,7 @@ class DollCurse(HeroSkill):
                 screen.blit(magic_surf, (gx - mc, gy - mc))
 
                 # === 그림자 (입체감) ===
-                shadow_w, shadow_h = int(40 * s), int(12 * s)
+                shadow_w, shadow_h = max(1, int(40 * s)), max(1, int(12 * s))
                 shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
                 pygame.draw.ellipse(shadow_surf, (0, 0, 0, int(100 * spawn_alpha)), shadow_surf.get_rect())
                 screen.blit(shadow_surf, (gx - shadow_w // 2, gy + int(38 * s)))
@@ -4148,7 +4152,7 @@ class DollCurse(HeroSkill):
                 heart_c = (210, 40, 70) if flash <= 0 else (255, 90, 120)
                 heart_glow_c = (255, 60, 100)
                 # 핀 글로우 (은은한 발광)
-                hg_size = int(12 * s)
+                hg_size = max(1, int(12 * s))
                 hg_surf = pygame.Surface((hg_size * 2, hg_size * 2), pygame.SRCALPHA)
                 hg_pulse = 0.6 + 0.4 * math.sin(time_tick * 0.005 + g_idx)
                 pygame.draw.circle(hg_surf, (*heart_glow_c, int(35 * hg_pulse)),
@@ -4261,7 +4265,7 @@ class DollCurse(HeroSkill):
                 x_c = (220, 50, 80) if flash <= 0 else (255, 110, 145)
                 # 눈 글로우 (저주 발광)
                 eye_pulse = 0.6 + 0.4 * math.sin(time_tick * 0.007 + g_idx)
-                eg_size = int(10 * s)
+                eg_size = max(1, int(10 * s))
                 eg_surf = pygame.Surface((eg_size * 2, eg_size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(eg_surf, (255, 40, 80, int(50 * eye_pulse)),
                                   (eg_size, eg_size), eg_size)
@@ -4278,7 +4282,7 @@ class DollCurse(HeroSkill):
                 # 눈물 자국 (오른쪽 눈 아래)
                 tear_start_y = re_y + x_sz + int(2*s)
                 tear_c = (180, 50, 80, 100)
-                tear_surf = pygame.Surface((int(4*s), int(10*s)), pygame.SRCALPHA)
+                tear_surf = pygame.Surface((max(1, int(4*s)), max(1, int(10*s))), pygame.SRCALPHA)
                 pygame.draw.ellipse(tear_surf, tear_c, tear_surf.get_rect())
                 screen.blit(tear_surf, (re_x - int(2*s), tear_start_y))
 
@@ -4309,7 +4313,7 @@ class DollCurse(HeroSkill):
 
                 # --- 볼 홍조 ---
                 blush_alpha = int(90 * spawn_alpha)
-                bw, bh = int(10*s), int(6*s)
+                bw, bh = max(1, int(10*s)), max(1, int(6*s))
                 blush_surf = pygame.Surface((bw, bh), pygame.SRCALPHA)
                 pygame.draw.ellipse(blush_surf, (210, 90, 110, blush_alpha), blush_surf.get_rect())
                 screen.blit(blush_surf, (gx - int(18*s), head_y + int(3*s)))
