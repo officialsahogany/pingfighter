@@ -48371,6 +48371,24 @@ def go_to_next_round():
             arena_guard_system.reset_active_skills()
         except Exception:
             pass
+    # 🛡️ 인게임 호위무사 활성 스킬 리셋 (라운드 전환 시)
+    if not arena_mode_enabled:
+        try:
+            from game_mechanics.ingame_bodyguard import get_bodyguard
+            _bg_round_reset = get_bodyguard()
+            if _bg_round_reset.active:
+                _bg_round_reset.reset_active_skills()
+                # 도깨비불 공 이펙트 플래그 초기화
+                globals()['_ingame_bodyguard_dokkaebi_ball'] = False
+                if _bg_round_reset._skill_manager:
+                    _bg_round_reset._skill_manager.game_state['dokkaebi_ball'] = False
+                    _bg_round_reset._skill_manager.game_state['ball_on_fire'] = False
+                    _bg_round_reset._skill_manager.game_state['hell_fire_freeze'] = False
+                    _bg_round_reset._skill_manager.game_state['dark_slash_freeze'] = False
+                    _bg_round_reset._skill_manager.game_state['horn_charge_active'] = False
+                    _bg_round_reset._skill_manager.game_state['horn_charge_apply_knockback'] = False
+        except Exception:
+            pass
 
     #  수류탄 관련 초기화
     grenades.clear()  # 날아가는 수류탄 제거
@@ -113840,6 +113858,23 @@ def reset_round(is_stage_start=False):
     if arena_mode_enabled and arena_guard_system:
         try:
             arena_guard_system.reset_active_skills()
+        except Exception:
+            pass
+    # 🛡️ 인게임 호위무사 활성 스킬 리셋 (두 번째 라운드 전환)
+    if not arena_mode_enabled:
+        try:
+            from game_mechanics.ingame_bodyguard import get_bodyguard
+            _bg_round_reset = get_bodyguard()
+            if _bg_round_reset.active:
+                _bg_round_reset.reset_active_skills()
+                globals()['_ingame_bodyguard_dokkaebi_ball'] = False
+                if _bg_round_reset._skill_manager:
+                    _bg_round_reset._skill_manager.game_state['dokkaebi_ball'] = False
+                    _bg_round_reset._skill_manager.game_state['ball_on_fire'] = False
+                    _bg_round_reset._skill_manager.game_state['hell_fire_freeze'] = False
+                    _bg_round_reset._skill_manager.game_state['dark_slash_freeze'] = False
+                    _bg_round_reset._skill_manager.game_state['horn_charge_active'] = False
+                    _bg_round_reset._skill_manager.game_state['horn_charge_apply_knockback'] = False
         except Exception:
             pass
 
