@@ -125,7 +125,7 @@ TOP_HEROES = [
         "power": 0.75,
         "accuracy": 0.98,
         "position": "top",
-        "description": "시간을 조종하여 모든 공격을 예측하는 자"
+        "description": "시간을 조종하여 모든 공격을 예측하는 여성 마법사"
     },
     {
         "id": "onimaru",

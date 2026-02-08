@@ -815,10 +815,10 @@ class HeroPaddleRenderer:
                     pygame.draw.lines(screen, p["tentacle"], False, whisker_points, max(1, int(0.1 * b)))
 
     # =========================================================================
-    # 크로노스 - 시간술사 (시계/톱니바퀴 테마) [고퀄리티 업그레이드]
+    # 크로노스 - 시간술사 (시계/톱니바퀴 테마) [고퀄리티 업그레이드] [여성]
     # =========================================================================
     def _draw_chronos(self, screen, cx, cy, b, color, show_back, anim):
-        """크로노스 - 시간술사 (시간을 조종하는 마법사) [고퀄리티]"""
+        """크로노스 - 시간술사 여성 (시간을 조종하는 여성 마법사) [고퀄리티]"""
         lean = anim["lean"]
         wave = anim["wave"]
         body_bob = anim["body_bob"]
@@ -841,8 +841,8 @@ class HeroPaddleRenderer:
             "gold_mid": tuple(min(255, c + 30) for c in color),
             "gold_dark": tuple(max(0, c - 50) for c in color),
             "gold_shadow": tuple(max(0, c - 80) for c in color),
-            "skin": (200, 185, 170),
-            "skin_shadow": (170, 155, 140),
+            "skin": (230, 210, 200),
+            "skin_shadow": (200, 180, 170),
             "eye": (180, 200, 255),
             "eye_glow": (200, 220, 255),
             "clock_face": (235, 225, 200),
@@ -853,8 +853,12 @@ class HeroPaddleRenderer:
             "glow": (255, 220, 150),
             "time_aura": (180, 150, 255),
             "sand": (230, 210, 170),
-            "beard": (220, 220, 230),
-            "beard_shadow": (180, 180, 195),
+            "hair": (180, 160, 210),
+            "hair_light": (210, 190, 240),
+            "hair_mid": (160, 140, 190),
+            "lip": (190, 110, 120),
+            "lip_light": (210, 140, 145),
+            "eyelash": (60, 40, 70),
         }
 
         # === 시간 왜곡 오라 (배경 효과) ===
@@ -926,8 +930,8 @@ class HeroPaddleRenderer:
         pygame.draw.circle(screen, p["gold"], (int(pendulum_x), int(pendulum_y)), max(3, int(0.3 * b)))
         pygame.draw.circle(screen, p["gold_light"], (int(pendulum_x - 1), int(pendulum_y - 1)), max(1, int(0.15 * b)))
 
-        # === 몸통 (톱니바퀴 장식 로브) ===
-        chest_w, chest_h = int(3.0 * b), int(2.2 * b)
+        # === 몸통 (톱니바퀴 장식 로브, 여성 실루엣) ===
+        chest_w, chest_h = int(2.8 * b), int(2.2 * b)
         chest_rect = pygame.Rect(cx - chest_w // 2 + lean_offset, torso_y - int(0.3 * b), chest_w, chest_h)
 
         # 몸통 그림자
@@ -989,8 +993,8 @@ class HeroPaddleRenderer:
                 pygame.draw.circle(screen, p["gear_light"], (tx, ty), max(1, int(0.06 * b)))
             pygame.draw.circle(screen, p["gear"], (sg_cx, sg_cy), max(1, int(0.12 * b)))
 
-        # === 허리띠 (시계 장식) ===
-        belt_rect = pygame.Rect(cx - int(1.4 * b) + lean_offset, chest_rect.bottom - 3, int(2.8 * b), int(0.8 * b))
+        # === 허리띠 (시계 장식, 슬림) ===
+        belt_rect = pygame.Rect(cx - int(1.2 * b) + lean_offset, chest_rect.bottom - 3, int(2.4 * b), int(0.8 * b))
         pygame.draw.rect(screen, p["gold_shadow"], belt_rect, border_radius=3)
         pygame.draw.rect(screen, p["gold_dark"], belt_rect.inflate(-2, -2), border_radius=2)
         # 벨트 버클 (시계)
@@ -1127,19 +1131,38 @@ class HeroPaddleRenderer:
             ])
             # 프레임
             pygame.draw.rect(screen, p["gold_dark"], (hg_cx - int(0.28 * b), hg_cy - int(0.38 * b), int(0.56 * b), int(0.76 * b)), 1)
+            # 후드 아래로 흘러나오는 긴 머리카락 (뒷모습)
+            for strand in range(5):
+                sx = head_rect.left + int(0.25 * b) + strand * int(0.25 * b)
+                sy = head_rect.bottom - int(0.1 * b)
+                strand_len = int(1.8 * b) + int(strand % 2 * 0.25 * b)
+                wave_off = int(math.sin(self.time * 1.8 + strand * 0.8) * 0.08 * b)
+                h_color = p["hair"] if strand % 2 == 0 else p["hair_light"]
+                mid_y = sy + strand_len // 2
+                pygame.draw.line(screen, h_color, (sx, sy), (sx + wave_off, mid_y), max(2, int(0.12 * b)))
+                pygame.draw.line(screen, h_color, (sx + wave_off, mid_y), (sx - wave_off, sy + strand_len), max(1, int(0.08 * b)))
         else:
-            # 정면 - 얼굴
+            # 정면 - 얼굴 (여성)
             face_rect = head_rect.inflate(-int(0.6 * b), -int(0.5 * b))
             face_rect.move_ip(0, int(0.25 * b))
             # 얼굴 그림자
             pygame.draw.ellipse(screen, p["skin_shadow"], face_rect.inflate(2, 2))
             pygame.draw.ellipse(screen, p["skin"], face_rect)
-            # 주름 (나이든 느낌)
-            for i in range(2):
-                wrinkle_y = face_rect.top + int(0.25 * b) + i * int(0.2 * b)
-                pygame.draw.arc(screen, p["skin_shadow"],
-                              (face_rect.centerx - int(0.4 * b), wrinkle_y, int(0.8 * b), int(0.15 * b)),
-                              0, math.pi, 1)
+
+            # 후드 아래로 흘러나오는 긴 머리카락 (양쪽)
+            for side in [-1, 1]:
+                hair_base_x = face_rect.centerx + side * int(0.45 * b)
+                hair_base_y = face_rect.top + int(0.1 * b)
+                for strand in range(3):
+                    sx = hair_base_x + side * int(strand * 0.08 * b)
+                    sy_top = hair_base_y + int(strand * 0.1 * b)
+                    sy_bot = sy_top + int(1.6 * b) + int(strand * 0.15 * b)
+                    sw = max(2, int(0.14 * b) - strand)
+                    wave_off = int(math.sin(self.time * 1.8 + strand * 0.6) * 0.06 * b)
+                    h_color = p["hair"] if strand % 2 == 0 else p["hair_light"]
+                    mid_y = (sy_top + sy_bot) // 2
+                    pygame.draw.line(screen, h_color, (sx, sy_top), (sx + wave_off, mid_y), sw)
+                    pygame.draw.line(screen, h_color, (sx + wave_off, mid_y), (sx - wave_off, sy_bot), max(1, sw - 1))
 
             # 시간의 눈 (시계 무늬 홍채, 더 정교함)
             eye_y = face_rect.centery - int(0.05 * b)
@@ -1168,32 +1191,26 @@ class HeroPaddleRenderer:
                 # 하이라이트
                 pygame.draw.circle(screen, (255, 255, 255), (eye_x - 1, eye_y - 1), max(1, eye_r // 3))
 
+                # 속눈썹 (여성)
+                for li in range(3):
+                    lash_angle = math.pi * 1.1 + side * (0.15 + li * 0.2)
+                    lash_len = int(0.1 * b) + li
+                    lx = eye_x + int(math.cos(lash_angle) * lash_len)
+                    ly = (eye_y - eye_r - 1) + int(math.sin(lash_angle) * lash_len)
+                    pygame.draw.line(screen, p["eyelash"], (eye_x, eye_y - eye_r - 1), (lx, ly), 1)
+
             # 콧대
             pygame.draw.line(screen, p["skin_shadow"], (face_rect.centerx, eye_y + int(0.1 * b)),
                            (face_rect.centerx, face_rect.bottom - int(0.3 * b)), 1)
 
-            # 긴 수염 (더 상세)
-            beard_top_y = face_rect.bottom - int(0.25 * b)
-            beard_points = [
-                (face_rect.centerx - int(0.35 * b), beard_top_y),
-                (face_rect.centerx + int(0.35 * b), beard_top_y),
-                (face_rect.centerx + int(0.25 * b), beard_top_y + int(0.4 * b)),
-                (face_rect.centerx, beard_top_y + int(0.8 * b) + int(wave * 0.1 * b)),
-                (face_rect.centerx - int(0.25 * b), beard_top_y + int(0.4 * b)),
-            ]
-            pygame.draw.polygon(screen, p["beard_shadow"], beard_points)
-            # 수염 하이라이트
-            beard_inner = [
-                (face_rect.centerx - int(0.25 * b), beard_top_y + int(0.05 * b)),
-                (face_rect.centerx + int(0.25 * b), beard_top_y + int(0.05 * b)),
-                (face_rect.centerx, beard_top_y + int(0.6 * b) + int(wave * 0.08 * b)),
-            ]
-            pygame.draw.polygon(screen, p["beard"], beard_inner)
-            # 수염 결
-            for i in range(3):
-                bx = face_rect.centerx + (i - 1) * int(0.12 * b)
-                pygame.draw.line(screen, p["beard_shadow"], (bx, beard_top_y + int(0.1 * b)),
-                               (bx, beard_top_y + int(0.5 * b)), 1)
+            # 입술 (여성)
+            lip_y = face_rect.bottom - int(0.18 * b)
+            lip_w = int(0.22 * b)
+            lip_h = int(0.08 * b)
+            pygame.draw.ellipse(screen, p["lip"],
+                              (face_rect.centerx - lip_w, lip_y - lip_h // 2, lip_w * 2, lip_h))
+            pygame.draw.ellipse(screen, p["lip_light"],
+                              (face_rect.centerx - lip_w + 2, lip_y - lip_h // 2, lip_w * 2 - 4, lip_h - 2))
 
         # === 시간의 지팡이 (모래시계 장식, 고퀄리티) ===
         staff_x = cx + int(2.5 * b) + lean_offset
