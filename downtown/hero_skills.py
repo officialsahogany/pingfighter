@@ -1427,6 +1427,15 @@ class AbyssInk(HeroSkill):
                 self.splash_timer = 0
                 self._init_splash_droplets()
                 self._trail_particles = []
+                # 먹물 펼침 사운드 재생
+                try:
+                    import os
+                    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    ink_path = os.path.join(project_root, "sounds", "abyssink.wav")
+                    if os.path.exists(ink_path):
+                        pygame.mixer.Sound(ink_path).play()
+                except Exception:
+                    pass
 
         elif self.phase == 'splash':
             self.splash_timer += dt
