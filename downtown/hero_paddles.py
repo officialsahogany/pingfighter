@@ -2761,6 +2761,7 @@ class HeroPaddleRenderer:
 
         # === 팔 (드래곤 비늘) - 발토르 스타일 어깨 들썩임 ===
         _weapon_swing = anim.get("weapon_swing_angle", 0)
+        _right_wrist = None  # 불꽃 효과 위치 추적용
         for side in [-1, 1]:
             current_swing = left_arm_swing if side == -1 else right_arm_swing
             current_shoulder_bob = left_shoulder if side == -1 else right_shoulder
@@ -2770,10 +2771,10 @@ class HeroPaddleRenderer:
             shoulder = (cx + side * int(1.4 * b) + lean_offset, torso_y + int(0.25 * b) + shoulder_y_offset)
             # 오른팔 공 타격 시 안쪽으로 휘두르기
             if side == 1 and _weapon_swing != 0:
-                swing_x = int(_weapon_swing * 2.5 * b)
-                swing_y = int(abs(_weapon_swing) * 0.8 * b)
+                swing_x = int(_weapon_swing * 4.0 * b)
+                swing_y = int(abs(_weapon_swing) * 1.5 * b)
                 elbow = (int(shoulder[0] + int(0.55 * b) + swing_x), torso_y + int(1.0 * b) + shoulder_y_offset - swing_y)
-                wrist = (int(elbow[0] + int(0.45 * b) + int(swing_x * 0.5)), torso_y + int(1.6 * b) + int(shoulder_y_offset * 0.5) - int(swing_y * 0.5))
+                wrist = (int(elbow[0] + int(0.45 * b) + int(swing_x * 0.6)), torso_y + int(1.6 * b) + int(shoulder_y_offset * 0.5) - int(swing_y * 0.6))
             else:
                 elbow = (shoulder[0] + side * int(0.55 * b) + arm_swing, torso_y + int(1.0 * b) + shoulder_y_offset)
                 wrist = (elbow[0] + side * int(0.45 * b) + int(arm_swing * 0.5), torso_y + int(1.6 * b) + int(shoulder_y_offset * 0.5))
@@ -2807,6 +2808,10 @@ class HeroPaddleRenderer:
                 claw_tip_y = claw_y + claw_len
                 pygame.draw.line(screen, p["horn"], wrist, (claw_x, claw_y), max(2, int(0.08 * b)))
                 pygame.draw.line(screen, p["horn_light"], (claw_x, claw_y), (claw_tip_x, claw_tip_y), max(1, int(0.05 * b)))
+
+            # 오른손 wrist 저장 (불꽃 효과 위치용)
+            if side == 1:
+                _right_wrist = wrist
 
         # === 드래곤 헬멧 (더 정교함) ===
         head_y = torso_y - int(3.2 * b)
@@ -2915,8 +2920,12 @@ class HeroPaddleRenderer:
                 pygame.draw.circle(screen, p["armor_shadow"], (nostril_x, nostril_y), max(1, int(0.04 * b)))
 
         # === 불꽃 효과 (손 주변, 더 화려함) ===
-        flame_x = cx + int(2.4 * b) + lean_offset
-        flame_y = torso_y + int(1.2 * b)
+        if _right_wrist:
+            flame_x = _right_wrist[0]
+            flame_y = _right_wrist[1] - int(0.4 * b)
+        else:
+            flame_x = cx + int(2.4 * b) + lean_offset
+            flame_y = torso_y + int(1.2 * b)
 
         # 불꽃 오라
         flame_aura = pygame.Surface((int(1.5 * b), int(2 * b)), pygame.SRCALPHA)
