@@ -2580,9 +2580,9 @@ class HornCharge(HeroSkill):
         # 예측 위치 계산 (현재 위치 + 속도 * 시간)
         predicted_x = current_target_x + target_velocity_x * charge_duration
 
-        # 게임 영역 경계 제한 (80 ~ 680)
-        GAME_LEFT = 80
-        GAME_RIGHT = 680
+        # 게임 영역 경계 제한 (투기장: 0 ~ 760)
+        GAME_LEFT = 0
+        GAME_RIGHT = 760
         predicted_x = max(GAME_LEFT + target_paddle.width // 2,
                          min(GAME_RIGHT - target_paddle.width // 2, predicted_x))
 
@@ -5500,9 +5500,9 @@ class OilSpill(HeroSkill):
 class ShadowClone(HeroSkill):
     """그림자분신 - 아카무 리고 스타일 분신 (Stage 8 방식으로 구현)"""
 
-    # 게임 영역 경계
-    GAME_LEFT = 80
-    GAME_RIGHT = 680
+    # 게임 영역 경계 (투기장: 필러 없이 전체 760px 사용)
+    GAME_LEFT = 0
+    GAME_RIGHT = 760
 
     # 분신 상수 (Stage 8과 동일하게)
     CLONE_WIDTH = 80       # 충돌 판정 너비
@@ -5837,9 +5837,9 @@ class ShadowClone(HeroSkill):
 class IllusionShuriken(HeroSkill):
     """환영수리검 - 3개의 수리검을 순차 발사, 벽에서 튕기고 넉백 유발"""
 
-    # 게임 영역 경계 (760x750 화면, 게임 플레이 영역: 80~680)
-    GAME_LEFT = 80
-    GAME_RIGHT = 680
+    # 게임 영역 경계 (투기장: 필러 없이 전체 760px 사용)
+    GAME_LEFT = 0
+    GAME_RIGHT = 760
     GAME_TOP = 0
     GAME_BOTTOM = 750
     SHURIKEN_SIZE = 18  # 수리검 반지름
