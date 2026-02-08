@@ -4652,7 +4652,7 @@ class DragonBreath(HeroSkill):
             korean_name="드래곤 브레스",
             description="용의 화염을 뿜어 공을 타격하고 가속시킨다",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=12.0,
+            cooldown=15.0,
             duration=3.5,  # 파티클 페이드아웃 시간 포함 (발사 1.2초 + 페이드 2.3초)
             hero_id="ignis"
         )
