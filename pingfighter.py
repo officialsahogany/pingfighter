@@ -63408,6 +63408,14 @@ def handle_player(keys):
         # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
         update_ball_rally("player")
 
+        # 투기장 모드: 하단 영웅 무기 휘두르기 애니메이션 트리거
+        if arena_mode_enabled and arena_bottom_hero and arena_hero_paddle_renderer:
+            try:
+                dur = 0.4 if arena_bottom_hero["id"] == "maria" else 0.25
+                arena_hero_paddle_renderer.trigger_weapon_swing(arena_bottom_hero["id"], dur)
+            except Exception:
+                pass
+
         # 인게임 골드 획득 (랠리 성공 시)
         rally_gold = calculate_rally_gold()
         add_ingame_gold(rally_gold, BALL.centerx, BALL.centery)
@@ -119947,6 +119955,13 @@ def handle_ball():
         # handle_ball이 handle_player보다 먼저 실행되므로, 여기서 쿨다운을 설정하면
         # handle_player가 게이지 충전을 할 수 없음. 플래그만 설정하고 쿨다운은 handle_player에서 설정
         player_collision_handled = True
+        # 투기장 모드: 하단 영웅 무기 휘두르기 애니메이션 트리거 (handle_ball 안전망)
+        if arena_mode_enabled and arena_bottom_hero and arena_hero_paddle_renderer:
+            try:
+                dur = 0.4 if arena_bottom_hero["id"] == "maria" else 0.25
+                arena_hero_paddle_renderer.trigger_weapon_swing(arena_bottom_hero["id"], dur)
+            except Exception:
+                pass
         #  handle_ball에서는 게이지 충전하지 않음 (handle_player에서만 처리)
         # 튜토리얼 스테이지 50에서 플레이어가 조교의 공을 받아쳤을 때 처리
         if current_stage == 50 and tutorial_dash_counter_active:
