@@ -2596,21 +2596,22 @@ class HellFire(HeroSkill):
             self.dokkaebi_time = getattr(self, 'dokkaebi_time', 0) + dt
             t = self.dokkaebi_time
 
+            # 초반 0.5초는 보호 시간 (상대쪽으로 직진 후 점점 장난 시작)
+            ramp = min(1.0, t / 0.5)  # 0→1 (0.5초에 걸쳐 점진적 전환)
+
             # 현재 공 속력 보존 (궤도만 변경, 속력은 유지)
             speed = math.sqrt(ball.vx ** 2 + ball.vy ** 2)
             if speed < 1:
-                speed = 200  # 최소 속력 보장
+                speed = 200
 
             # --- 패턴 1: ∞ 팔자(리사주) 궤도 ---
-            # sin(t)과 sin(2t)의 조합으로 8자 궤도 생성
-            lissajous_fx = math.sin(t * 4.0) * 280 * dt
-            lissajous_fy = math.sin(t * 8.0) * 140 * dt
+            lissajous_fx = math.sin(t * 4.0) * 200 * dt * ramp
+            lissajous_fy = math.sin(t * 8.0) * 80 * dt * ramp
             ball.vx += lissajous_fx
             ball.vy += lissajous_fy
 
             # --- 패턴 2: 빙글빙글 나선 회전 ---
-            # 일정 속도로 진행 방향을 회전시킴 (도깨비가 빙글빙글 도는 느낌)
-            spin_speed = 2.5 + math.sin(t * 1.3) * 1.5  # 가변 회전 속도
+            spin_speed = (1.5 + math.sin(t * 1.3) * 1.0) * ramp  # ramp로 점진적 시작
             spin_angle = spin_speed * dt
             cos_s = math.cos(spin_angle)
             sin_s = math.sin(spin_angle)
@@ -2619,27 +2620,26 @@ class HellFire(HeroSkill):
             ball.vx = vx_rot
             ball.vy = vy_rot
 
-            # --- 패턴 3: 돌발 장난 (도깨비의 변덕) ---
-            # 갑자기 방향을 확 틀거나 잠깐 느려졌다 돌진
-            if random.random() < 0.04:
-                # 급반전: 진행 방향을 60~120도 확 틀기
-                big_angle = random.uniform(1.0, 2.1)  # ~60~120도
-                if random.random() < 0.5:
-                    big_angle = -big_angle
-                cos_b = math.cos(big_angle)
-                sin_b = math.sin(big_angle)
-                ball.vx = ball.vx * cos_b - ball.vy * sin_b
-                ball.vy = ball.vx * sin_b + ball.vy * cos_b
-            elif random.random() < 0.03:
-                # 순간 가속 돌진 (도깨비가 놀래키듯이)
-                burst = random.uniform(1.3, 1.8)
-                ball.vx *= burst
-                ball.vy *= burst
+            # --- 패턴 3: 돌발 장난 (보호 시간 이후에만) ---
+            if ramp >= 1.0:
+                if random.random() < 0.04:
+                    big_angle = random.uniform(0.8, 1.6)  # ~45~90도
+                    if random.random() < 0.5:
+                        big_angle = -big_angle
+                    cos_b = math.cos(big_angle)
+                    sin_b = math.sin(big_angle)
+                    old_vx = ball.vx
+                    ball.vx = old_vx * cos_b - ball.vy * sin_b
+                    ball.vy = old_vx * sin_b + ball.vy * cos_b
+                elif random.random() < 0.03:
+                    burst = random.uniform(1.2, 1.5)
+                    ball.vx *= burst
+                    ball.vy *= burst
 
-            # 속력 범위 제한 (너무 빠르거나 느려지지 않도록)
+            # 속력 범위 제한
             cur_speed = math.sqrt(ball.vx ** 2 + ball.vy ** 2)
             min_speed = speed * 0.7
-            max_speed = speed * 1.6
+            max_speed = speed * 1.5
             if cur_speed > max_speed and cur_speed > 0:
                 scale = max_speed / cur_speed
                 ball.vx *= scale
@@ -2650,7 +2650,6 @@ class HellFire(HeroSkill):
                 ball.vy *= scale
 
             # 인게임 호위무사 전용: 공이 상대(보스) 방향으로 향하도록 부드러운 보정
-            # (투기장에서는 기존대로 제멋대로 궤도 유지)
             if game_state.get('is_ingame_bodyguard', False):
                 desired_sign = 1.0 if self.caster_is_top else -1.0
                 if ball.vy * desired_sign < 0:
