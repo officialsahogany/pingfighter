@@ -113424,6 +113424,8 @@ def draw_field():
         # 스테이지30: 투기장 (콜로세움) 애니메이션 배경
         elapsed_ms = clock.get_time() if 'clock' in globals() else 16
         dt = elapsed_ms / 1000.0
+        # 라운드 전환(공 서브 애니메이션) 중에는 신의심판 타이머 동결
+        animated_bg_stage30.judgment_logic_paused = is_ball_spawn_animation_paused()
         animated_bg_stage30.update(dt)
         animated_bg_stage30.draw(
             SCREEN,

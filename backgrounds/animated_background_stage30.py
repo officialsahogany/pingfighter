@@ -146,6 +146,7 @@ class AnimatedBackgroundStage30:
         self.judgment_lightning_stun_bottom = False
         self.judgment_lightning_stun_timer = 0.0
         self.judgment_lightning_active = False
+        self.judgment_logic_paused = False  # 라운드 전환 시 judgment 타이머 일시정지
 
         # 페이즈 지속시간 (초)
         self.MERGE_DURATION = 2.0
@@ -426,10 +427,14 @@ class AnimatedBackgroundStage30:
     def _update_gods_judgment(self, dt):
         """신의심판 이벤트 상태 업데이트"""
         if self.judgment_phase == self.JUDGMENT_IDLE:
-            if self.judgment_enabled:
+            if self.judgment_enabled and not self.judgment_logic_paused:
                 self.judgment_cooldown -= dt
                 if self.judgment_cooldown <= 0:
                     self.trigger_gods_judgment()
+            return
+
+        # 라운드 전환 중에는 페이즈 타이머 동결 (애니메이션 일시정지)
+        if self.judgment_logic_paused:
             return
 
         self.judgment_timer += dt
