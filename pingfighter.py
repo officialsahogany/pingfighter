@@ -17567,62 +17567,44 @@ def update_btn_hover_effects(dt=1/60):
     global _btn_hover_glow_timer, _btn_hover_particles
     _btn_hover_glow_timer += dt
     for p in _btn_hover_particles:
-        p['life'] -= dt
-        # ease-out: 시간이 지날수록 속도 감소
-        ease = max(0.0, p['life'] / p['max_life'])
-        p['x'] += p['vx'] * ease * dt
-        p['y'] += p['vy'] * ease * dt
+        p['life'] -= dt; p['x'] += p['vx'] * dt; p['y'] += p['vy'] * dt
+        p['alpha'] = max(0, p['alpha'] - 400 * dt)
     _btn_hover_particles = [p for p in _btn_hover_particles if p['life'] > 0]
 
 def spawn_hover_particles(rx, ry, rw, rh):
     global _btn_hover_particles
     import random as _r
-    # 각 코너에서 2개씩 = 8개 (기존 28개 → 8개로 감소)
-    corners = [(rx, ry), (rx+rw, ry), (rx, ry+rh), (rx+rw, ry+rh)]
-    for cx, cy in corners:
-        for _ in range(2):
-            angle = _r.uniform(0, 6.283)
-            speed = _r.uniform(8, 20)
-            _btn_hover_particles.append({
-                'x': cx + _r.uniform(-3, 3), 'y': cy + _r.uniform(-3, 3),
-                'vx': math.cos(angle) * speed, 'vy': math.sin(angle) * speed,
-                'life': _r.uniform(0.3, 0.6), 'max_life': 0.6,
-                'color': (200, 220, 255),
-            })
+    for t in range(8):
+        f = t / 7
+        _btn_hover_particles.append({'x': rx+rw*f, 'y': ry, 'vx': _r.uniform(-15,15), 'vy': _r.uniform(-40,-15), 'alpha': 255.0, 'life': _r.uniform(0.25,0.5), 'color': (200,220,255)})
+        _btn_hover_particles.append({'x': rx+rw*f, 'y': ry+rh, 'vx': _r.uniform(-15,15), 'vy': _r.uniform(15,40), 'alpha': 255.0, 'life': _r.uniform(0.25,0.5), 'color': (200,220,255)})
+    for t in range(6):
+        f = t / 5
+        _btn_hover_particles.append({'x': rx, 'y': ry+rh*f, 'vx': _r.uniform(-40,-15), 'vy': _r.uniform(-15,15), 'alpha': 255.0, 'life': _r.uniform(0.25,0.5), 'color': (200,220,255)})
+        _btn_hover_particles.append({'x': rx+rw, 'y': ry+rh*f, 'vx': _r.uniform(15,40), 'vy': _r.uniform(-15,15), 'alpha': 255.0, 'life': _r.uniform(0.25,0.5), 'color': (200,220,255)})
 
 def draw_btn_hover_border(scr, rx, ry, rw, rh, color=(200,220,255)):
     t = _btn_hover_glow_timer
-    pulse = 0.7 + 0.3 * math.sin(t * 2.5)
-    # 밝은 색상 계산 (버튼 배경과 동일 색상일 때도 보이도록)
-    bright = (min(255, color[0] + 120), min(255, color[1] + 120), min(255, color[2] + 120))
-    # 글로우 (밝은 색상으로)
-    gs = pygame.Surface((rw + 16, rh + 16), pygame.SRCALPHA)
-    pygame.draw.rect(gs, (*bright, int(60 * pulse)), (0, 0, rw + 16, rh + 16), border_radius=10)
-    scr.blit(gs, (rx - 8, ry - 8))
-    # 보더 - WHITE (어떤 배경에서도 확실히 보임)
-    bs = pygame.Surface((rw + 6, rh + 6), pygame.SRCALPHA)
-    pygame.draw.rect(bs, (255, 255, 255, int(180 * pulse)), (0, 0, rw + 6, rh + 6), 2, border_radius=8)
-    scr.blit(bs, (rx - 3, ry - 3))
-    # 코너 악센트 - WHITE
-    ln = int(14 + 5 * pulse)
-    la = int(220 * pulse)
-    cs = pygame.Surface((rw + 6, rh + 6), pygame.SRCALPHA)
-    cc = (255, 255, 255, la)
-    for cx, cy, dx, dy in [(0,0,1,1),(rw+5,0,-1,1),(0,rh+5,1,-1),(rw+5,rh+5,-1,-1)]:
-        pygame.draw.line(cs, cc, (cx, cy), (cx + ln * dx, cy), 2)
-        pygame.draw.line(cs, cc, (cx, cy), (cx, cy + ln * dy), 2)
-    scr.blit(cs, (rx - 3, ry - 3))
-    # 파티클 (스무스 페이드아웃)
+    pulse = 0.6 + 0.4 * abs(math.sin(t * 4.0))
+    al = int(120 * pulse)
+    gs = pygame.Surface((rw+12, rh+12), pygame.SRCALPHA)
+    pygame.draw.rect(gs, (*color, al//3), (0,0,rw+12,rh+12), border_radius=10)
+    scr.blit(gs, (rx-6, ry-6))
+    bs = pygame.Surface((rw+4, rh+4), pygame.SRCALPHA)
+    pygame.draw.rect(bs, (*color, al), (0,0,rw+4,rh+4), 2, border_radius=10)
+    scr.blit(bs, (rx-2, ry-2))
+    ln = int(14 + 4 * pulse); la = int(200 * pulse)
+    lsf = pygame.Surface((rw+20, rh+20), pygame.SRCALPHA)
+    ox, oy = 10, 10
+    for c, he, ve in [((ox,oy),(ox+ln,oy),(ox,oy+ln)),((ox+rw,oy),(ox+rw-ln,oy),(ox+rw,oy+ln)),((ox,oy+rh),(ox+ln,oy+rh),(ox,oy+rh-ln)),((ox+rw,oy+rh),(ox+rw-ln,oy+rh),(ox+rw,oy+rh-ln))]:
+        pygame.draw.line(lsf, (*color, la), c, he, 2)
+        pygame.draw.line(lsf, (*color, la), c, ve, 2)
+    scr.blit(lsf, (rx-10, ry-10))
     for p in _btn_hover_particles:
-        ratio = max(0.0, p['life'] / p['max_life'])
-        ease = ratio * ratio
-        pa = int(200 * ease)
-        if pa < 3:
-            continue
-        sz = max(1, int(2.5 * ease + 0.5))
-        ps = pygame.Surface((sz * 2 + 2, sz * 2 + 2), pygame.SRCALPHA)
-        pygame.draw.circle(ps, (*p['color'], pa), (sz + 1, sz + 1), sz)
-        scr.blit(ps, (int(p['x']) - sz - 1, int(p['y']) - sz - 1))
+        if p['alpha'] > 5:
+            ps = pygame.Surface((4,4), pygame.SRCALPHA)
+            pygame.draw.circle(ps, (*p['color'], int(p['alpha'])), (2,2), 2)
+            scr.blit(ps, (int(p['x'])-2, int(p['y'])-2))
 
 def check_btn_hover(hover_id, rect, mouse_pos):
     global _btn_hover_prev_id

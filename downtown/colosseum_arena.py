@@ -3183,10 +3183,8 @@ class ColosseumsArena:
 
         # 호버 라인 파티클 업데이트
         for p in self.hover_line_particles:
-            p['life'] -= dt
-            ease = max(0.0, p['life'] / p['max_life'])
-            p['x'] += p['vx'] * ease * dt
-            p['y'] += p['vy'] * ease * dt
+            p['life'] -= dt; p['x'] += p['vx'] * dt; p['y'] += p['vy'] * dt
+            p['alpha'] = max(0, p['alpha'] - 400 * dt)
         self.hover_line_particles = [p for p in self.hover_line_particles if p['life'] > 0]
 
         # 시각 효과 업데이트
@@ -3645,61 +3643,49 @@ class ColosseumsArena:
                 pass
 
     def _spawn_hover_line_particles(self, rx: int, ry: int, rw: int, rh: int):
-        """호버 진입 시 코너에서 파티클 생성 (간결하고 고급스럽게)"""
+        """호버 진입 시 테두리에서 파티클 생성"""
         import random as _rand
-        corners = [(rx, ry), (rx + rw, ry), (rx, ry + rh), (rx + rw, ry + rh)]
-        for cx, cy in corners:
-            for _ in range(2):
-                angle = _rand.uniform(0, 6.283)
-                speed = _rand.uniform(8, 20)
-                self.hover_line_particles.append({
-                    'x': cx + _rand.uniform(-3, 3),
-                    'y': cy + _rand.uniform(-3, 3),
-                    'vx': math.cos(angle) * speed,
-                    'vy': math.sin(angle) * speed,
-                    'life': _rand.uniform(0.3, 0.6),
-                    'max_life': 0.6,
-                    'color': (200, 220, 255),
-                })
+        for t in range(8):
+            f = t / 7
+            self.hover_line_particles.append({'x': rx+rw*f, 'y': ry, 'vx': _rand.uniform(-15,15), 'vy': _rand.uniform(-40,-15), 'alpha': 255.0, 'life': _rand.uniform(0.25,0.5), 'color': (200,220,255)})
+            self.hover_line_particles.append({'x': rx+rw*f, 'y': ry+rh, 'vx': _rand.uniform(-15,15), 'vy': _rand.uniform(15,40), 'alpha': 255.0, 'life': _rand.uniform(0.25,0.5), 'color': (200,220,255)})
+        for t in range(6):
+            f = t / 5
+            self.hover_line_particles.append({'x': rx, 'y': ry+rh*f, 'vx': _rand.uniform(-40,-15), 'vy': _rand.uniform(-15,15), 'alpha': 255.0, 'life': _rand.uniform(0.25,0.5), 'color': (200,220,255)})
+            self.hover_line_particles.append({'x': rx+rw, 'y': ry+rh*f, 'vx': _rand.uniform(15,40), 'vy': _rand.uniform(-15,15), 'alpha': 255.0, 'life': _rand.uniform(0.25,0.5), 'color': (200,220,255)})
 
     def _draw_hover_border(self, rect_x: int, rect_y: int, rect_w: int, rect_h: int,
                            color: Tuple[int, int, int] = (200, 220, 255)):
-        """호버 시 빛나는 테두리 + 코너 라인 이펙트 (간결하고 고급스럽게)"""
+        """호버 시 빛나는 테두리 + 코너 라인 이펙트"""
         t = self.hover_glow_timer
-        pulse = 0.7 + 0.3 * math.sin(t * 2.5)
-        bright = (min(255, color[0] + 120), min(255, color[1] + 120), min(255, color[2] + 120))
+        pulse = 0.6 + 0.4 * abs(math.sin(t * 4.0))
+        al = int(120 * pulse)
 
-        # 글로우 (밝은 색상)
-        glow_surf = pygame.Surface((rect_w + 16, rect_h + 16), pygame.SRCALPHA)
-        pygame.draw.rect(glow_surf, (*bright, int(60 * pulse)), (0, 0, rect_w + 16, rect_h + 16), border_radius=10)
-        self.screen.blit(glow_surf, (rect_x - 8, rect_y - 8))
+        # 글로우
+        glow_surf = pygame.Surface((rect_w + 12, rect_h + 12), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (*color, al // 3), (0, 0, rect_w + 12, rect_h + 12), border_radius=10)
+        self.screen.blit(glow_surf, (rect_x - 6, rect_y - 6))
 
-        # 보더 - WHITE
-        border_surf = pygame.Surface((rect_w + 6, rect_h + 6), pygame.SRCALPHA)
-        pygame.draw.rect(border_surf, (255, 255, 255, int(180 * pulse)), (0, 0, rect_w + 6, rect_h + 6), 2, border_radius=8)
-        self.screen.blit(border_surf, (rect_x - 3, rect_y - 3))
+        # 보더
+        border_surf = pygame.Surface((rect_w + 4, rect_h + 4), pygame.SRCALPHA)
+        pygame.draw.rect(border_surf, (*color, al), (0, 0, rect_w + 4, rect_h + 4), 2, border_radius=10)
+        self.screen.blit(border_surf, (rect_x - 2, rect_y - 2))
 
-        # 코너 악센트 - WHITE
-        ln = int(14 + 5 * pulse)
-        la = int(220 * pulse)
-        cs = pygame.Surface((rect_w + 6, rect_h + 6), pygame.SRCALPHA)
-        cc = (255, 255, 255, la)
-        for cx, cy, dx, dy in [(0,0,1,1),(rect_w+5,0,-1,1),(0,rect_h+5,1,-1),(rect_w+5,rect_h+5,-1,-1)]:
-            pygame.draw.line(cs, cc, (cx, cy), (cx + ln * dx, cy), 2)
-            pygame.draw.line(cs, cc, (cx, cy), (cx, cy + ln * dy), 2)
-        self.screen.blit(cs, (rect_x - 3, rect_y - 3))
+        # 코너 라인 악센트
+        ln = int(14 + 4 * pulse); la = int(200 * pulse)
+        lsf = pygame.Surface((rect_w + 20, rect_h + 20), pygame.SRCALPHA)
+        ox, oy = 10, 10
+        for c, he, ve in [((ox,oy),(ox+ln,oy),(ox,oy+ln)),((ox+rect_w,oy),(ox+rect_w-ln,oy),(ox+rect_w,oy+ln)),((ox,oy+rect_h),(ox+ln,oy+rect_h),(ox,oy+rect_h-ln)),((ox+rect_w,oy+rect_h),(ox+rect_w-ln,oy+rect_h),(ox+rect_w,oy+rect_h-ln))]:
+            pygame.draw.line(lsf, (*color, la), c, he, 2)
+            pygame.draw.line(lsf, (*color, la), c, ve, 2)
+        self.screen.blit(lsf, (rect_x - 10, rect_y - 10))
 
-        # 파티클 (스무스 페이드아웃)
+        # 파티클
         for p in self.hover_line_particles:
-            ratio = max(0.0, p['life'] / p['max_life'])
-            ease = ratio * ratio
-            pa = int(200 * ease)
-            if pa < 3:
-                continue
-            sz = max(1, int(2.5 * ease + 0.5))
-            ps = pygame.Surface((sz * 2 + 2, sz * 2 + 2), pygame.SRCALPHA)
-            pygame.draw.circle(ps, (*p['color'], pa), (sz + 1, sz + 1), sz)
-            self.screen.blit(ps, (int(p['x']) - sz - 1, int(p['y']) - sz - 1))
+            if p['alpha'] > 5:
+                ps = pygame.Surface((4, 4), pygame.SRCALPHA)
+                pygame.draw.circle(ps, (*p['color'], int(p['alpha'])), (2, 2), 2)
+                self.screen.blit(ps, (int(p['x']) - 2, int(p['y']) - 2))
 
     def draw(self):
         """메인 그리기"""
