@@ -134,7 +134,11 @@ def draw_metallic_score(surface, p_score, b_score, x, y, w, h, frame, boss_name=
         # 20% 축소: 64 -> 51, 18 -> 14
         font = pygame.font.SysFont("Arial", 51, bold=True)
         small_font = pygame.font.SysFont("Arial", 14, bold=True)
-        label_font = pygame.font.SysFont("Arial", 16, bold=True)
+        # 한글 영웅 이름 렌더링을 위해 NanumSquareB 사용
+        try:
+            label_font = pygame.font.Font("NanumSquareB.ttf", 14)
+        except:
+            label_font = pygame.font.SysFont("Arial", 16, bold=True)
     except:
         font = pygame.font.Font(None, 58)
         small_font = pygame.font.Font(None, 18)
