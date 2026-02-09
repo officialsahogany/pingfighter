@@ -97,6 +97,9 @@ class AnimatedBackgroundStage30:
         self.JUDGMENT_EARTHQUAKE = 4  # 4초: 지진 효과
         self.JUDGMENT_RETURN = 5      # 3초: 원래 크기로 복귀
         self.JUDGMENT_HOLE_FADE = 6   # 1.5초: 구멍이 부스러기로 사라짐
+        self.JUDGMENT_BOLT_THROW = 7      # 0.6초: 번개 투척 모션
+        self.JUDGMENT_BOLT_FLIGHT = 8     # 0.8초: 번개 투사체 비행
+        self.JUDGMENT_BOLT_EXPLOSION = 9  # 1.5초: 감전 폭발
 
         self.judgment_phase = self.JUDGMENT_IDLE
         self.judgment_timer = 0.0
@@ -120,6 +123,29 @@ class AnimatedBackgroundStage30:
         self.judgment_hole_fade_scale = 0.0  # 구멍 페이드 시 스케일 (RETURN 종료 시 설정)
         self.judgment_bolt_sparks = []       # 번개 스파크 파티클
         self.judgment_bolt_intensity = 0.0   # 번개 발광 강도 (0~1)
+        # 번개의 분노 (Lightning variant) 상태
+        self.judgment_variant = 'earthquake'  # 'earthquake' 또는 'lightning'
+        self.judgment_bolt_hidden = False     # 던진 후 손에서 번개 숨김
+        self.judgment_bolt_thrown = False
+        self.judgment_bolt_proj_x = 0.0       # 투사체 현재 위치
+        self.judgment_bolt_proj_y = 0.0
+        self.judgment_bolt_proj_start_x = 0.0 # 투척 시작점 (손 위치)
+        self.judgment_bolt_proj_start_y = 0.0
+        self.judgment_bolt_proj_target_x = 0.0  # 착탄점
+        self.judgment_bolt_proj_target_y = 0.0
+        self.judgment_bolt_proj_angle = 0.0     # 투사체 회전 각도
+        self.judgment_bolt_proj_trail = []      # 투사체 트레일 파티클
+        self.judgment_explosion_x = 0.0
+        self.judgment_explosion_y = 0.0
+        self.judgment_explosion_radius = 0.0
+        self.judgment_explosion_max_radius = 300.0
+        self.judgment_explosion_sparks = []
+        self.judgment_explosion_flash_alpha = 0
+        self.judgment_explosion_ring_alpha = 0
+        self.judgment_lightning_stun_top = False
+        self.judgment_lightning_stun_bottom = False
+        self.judgment_lightning_stun_timer = 0.0
+        self.judgment_lightning_active = False
 
         # 페이즈 지속시간 (초)
         self.MERGE_DURATION = 2.0
@@ -128,6 +154,9 @@ class AnimatedBackgroundStage30:
         self.EARTHQUAKE_DURATION = 5.2
         self.RETURN_DURATION = 3.0
         self.HOLE_FADE_DURATION = 1.5
+        self.BOLT_THROW_DURATION = 0.6
+        self.BOLT_FLIGHT_DURATION = 0.8
+        self.BOLT_EXPLOSION_DURATION = 1.5
 
         # 프리렌더
         self._prerender_floor()
@@ -364,6 +393,16 @@ class AnimatedBackgroundStage30:
         self.judgment_quake_sound_playing = False
         self.judgment_bolt_sparks = []
         self.judgment_bolt_intensity = 0.0
+        # 번개의 분노 상태 초기화
+        self.judgment_variant = random.choice(['earthquake', 'lightning'])
+        self.judgment_bolt_hidden = False
+        self.judgment_bolt_thrown = False
+        self.judgment_bolt_proj_trail = []
+        self.judgment_explosion_sparks = []
+        self.judgment_lightning_stun_top = False
+        self.judgment_lightning_stun_bottom = False
+        self.judgment_lightning_stun_timer = 0.0
+        self.judgment_lightning_active = False
         # 합체 파티클 (심플한 대리석 먼지)
         cx = self.GAME_AREA_X + self.GAME_AREA_WIDTH // 2
         cy = self.height // 2
@@ -489,9 +528,42 @@ class AnimatedBackgroundStage30:
                 sp['size'] = max(0, sp['size'] - dt * 2)
             self.judgment_bolt_sparks = [sp for sp in self.judgment_bolt_sparks if sp['life'] > 0]
             if progress >= 1.0:
-                self.judgment_phase = self.JUDGMENT_SLAM
-                self.judgment_timer = 0.0
-                self.judgment_bolt_intensity = 1.0  # 슬램 시작 시 최대 강도
+                if self.judgment_variant == 'lightning':
+                    # 번개의 분노: 투척 페이즈로
+                    self.judgment_phase = self.JUDGMENT_BOLT_THROW
+                    self.judgment_timer = 0.0
+                    self.judgment_bolt_intensity = 1.0
+                    # 오른손 위치 계산 (투사체 시작점)
+                    s = self.judgment_scale
+                    r_sh_x = cx + int(10 * s)
+                    r_sh_y = cy - int(19 * s)
+                    ul = int(10 * s)
+                    fl = int(10 * s)
+                    ra_ang = math.radians(-80)
+                    ra_eb = -0.5
+                    r_elb = (r_sh_x + int(ul * math.sin(ra_ang)),
+                             r_sh_y + int(ul * math.cos(ra_ang)))
+                    fa_r = ra_ang + ra_eb
+                    r_hand = (r_elb[0] + int(fl * math.sin(fa_r)),
+                              r_elb[1] + int(fl * math.cos(fa_r)))
+                    self.judgment_bolt_proj_start_x = float(r_hand[0])
+                    self.judgment_bolt_proj_start_y = float(r_hand[1])
+                    self.judgment_bolt_proj_x = self.judgment_bolt_proj_start_x
+                    self.judgment_bolt_proj_y = self.judgment_bolt_proj_start_y
+                    # 랜덤 착탄점 (위 또는 아래, X는 게임영역 내 랜덤)
+                    target_x = random.uniform(self.GAME_AREA_X + 60,
+                                              self.GAME_AREA_END_X - 60)
+                    if random.random() < 0.5:
+                        target_y = random.uniform(40, 200)    # 상단 (보스 쪽)
+                    else:
+                        target_y = random.uniform(550, 710)   # 하단 (플레이어 쪽)
+                    self.judgment_bolt_proj_target_x = target_x
+                    self.judgment_bolt_proj_target_y = target_y
+                else:
+                    # 땅의 분노: 기존 슬램
+                    self.judgment_phase = self.JUDGMENT_SLAM
+                    self.judgment_timer = 0.0
+                    self.judgment_bolt_intensity = 1.0
 
         elif self.judgment_phase == self.JUDGMENT_SLAM:
             # 0.5초간 내려치기
@@ -578,6 +650,144 @@ class AnimatedBackgroundStage30:
                 self.judgment_shake_intensity = 0.0
                 self.judgment_slam_debris.clear()
                 self.judgment_dust_rain.clear()
+
+        elif self.judgment_phase == self.JUDGMENT_BOLT_THROW:
+            # 0.6초: 오른팔 투척 모션
+            progress = min(1.0, self.judgment_timer / self.BOLT_THROW_DURATION)
+            # 팔 애니메이션: 와인드업 → 투척
+            if progress < 0.4:
+                # 와인드업: 팔 살짝 더 뒤로
+                wind_p = progress / 0.4
+                self.judgment_right_arm_progress = 1.0 + wind_p * 0.15
+                self.judgment_left_arm_progress = 1.0
+            else:
+                # 투척: 팔 앞으로 스윙
+                throw_p = (progress - 0.4) / 0.6
+                self.judgment_right_arm_progress = 1.15 - throw_p * 1.7
+                self.judgment_left_arm_progress = max(0, 1.0 - throw_p * 1.5)
+            # 40% 시점에서 번개 분리
+            if progress >= 0.4 and not self.judgment_bolt_thrown:
+                self.judgment_bolt_thrown = True
+                self.judgment_bolt_hidden = True
+                self.judgment_bolt_proj_angle = 0.0
+            # 번개 강도 감소
+            if self.judgment_bolt_thrown:
+                self.judgment_bolt_intensity = max(0, 1.0 - (progress - 0.4) * 2.5)
+            else:
+                self.judgment_bolt_intensity = 1.0
+            # 기존 스파크 정리
+            for sp in self.judgment_bolt_sparks:
+                sp['x'] += sp['vx'] * dt * 60
+                sp['y'] += sp['vy'] * dt * 60
+                sp['life'] -= dt
+            self.judgment_bolt_sparks = [sp for sp in self.judgment_bolt_sparks if sp['life'] > 0]
+            if progress >= 1.0:
+                self.judgment_phase = self.JUDGMENT_BOLT_FLIGHT
+                self.judgment_timer = 0.0
+                self.judgment_bolt_intensity = 0.0
+                self.judgment_bolt_sparks.clear()
+
+        elif self.judgment_phase == self.JUDGMENT_BOLT_FLIGHT:
+            # 0.8초: 번개 투사체 비행
+            progress = min(1.0, self.judgment_timer / self.BOLT_FLIGHT_DURATION)
+            # ease-in-out
+            if progress < 0.5:
+                ease = 2 * progress * progress
+            else:
+                ease = 1.0 - (-2 * progress + 2) ** 2 / 2
+            # 위치 보간 (포물선 아크)
+            sx, sy = self.judgment_bolt_proj_start_x, self.judgment_bolt_proj_start_y
+            tx, ty = self.judgment_bolt_proj_target_x, self.judgment_bolt_proj_target_y
+            arc_height = -120 * math.sin(progress * math.pi)
+            self.judgment_bolt_proj_x = sx + (tx - sx) * ease
+            self.judgment_bolt_proj_y = sy + (ty - sy) * ease + arc_height
+            # 회전
+            self.judgment_bolt_proj_angle += dt * 720
+            # 트레일 파티클
+            if random.random() < 0.7:
+                self.judgment_bolt_proj_trail.append({
+                    'x': self.judgment_bolt_proj_x + random.uniform(-4, 4),
+                    'y': self.judgment_bolt_proj_y + random.uniform(-4, 4),
+                    'vx': random.uniform(-1, 1),
+                    'vy': random.uniform(-1, 1),
+                    'size': random.uniform(1.5, 3.5),
+                    'life': random.uniform(0.15, 0.4),
+                    'color': random.choice([
+                        (255, 240, 140), (255, 220, 80),
+                        (200, 200, 255), (180, 180, 255),
+                    ]),
+                })
+            for p in self.judgment_bolt_proj_trail:
+                p['x'] += p['vx'] * dt * 60
+                p['y'] += p['vy'] * dt * 60
+                p['life'] -= dt
+                p['size'] = max(0, p['size'] - dt * 5)
+            self.judgment_bolt_proj_trail = [p for p in self.judgment_bolt_proj_trail if p['life'] > 0]
+            # 팔 원위치
+            arm_fold = min(1.0, progress * 2.0)
+            self.judgment_left_arm_progress = 0.0
+            self.judgment_right_arm_progress = max(0, -0.5 + arm_fold * 0.5)
+            if progress >= 1.0:
+                self.judgment_phase = self.JUDGMENT_BOLT_EXPLOSION
+                self.judgment_timer = 0.0
+                self.judgment_explosion_x = self.judgment_bolt_proj_target_x
+                self.judgment_explosion_y = self.judgment_bolt_proj_target_y
+                self.judgment_explosion_radius = 0.0
+                self.judgment_explosion_flash_alpha = 255
+                self.judgment_explosion_ring_alpha = 255
+                self.judgment_bolt_proj_trail.clear()
+                self.judgment_lightning_active = True
+                self.judgment_shake_intensity = 0.5
+
+        elif self.judgment_phase == self.JUDGMENT_BOLT_EXPLOSION:
+            # 1.5초: 감전 폭발 (반경 0→300px 확장)
+            progress = min(1.0, self.judgment_timer / self.BOLT_EXPLOSION_DURATION)
+            ease = 1.0 - (1.0 - progress) ** 3
+            self.judgment_explosion_radius = self.judgment_explosion_max_radius * ease
+            # 플래시 빠르게 감소
+            self.judgment_explosion_flash_alpha = max(0, int(255 * (1.0 - progress * 4)))
+            self.judgment_explosion_ring_alpha = max(0, int(255 * (1.0 - progress)))
+            # 화면 흔들림 감소
+            if progress < 0.5:
+                self.judgment_shake_intensity = 0.5 * (1.0 - progress * 2)
+            else:
+                self.judgment_shake_intensity = 0.0
+            # 전기 아크 스파크 생성
+            if progress < 0.8:
+                ex, ey = self.judgment_explosion_x, self.judgment_explosion_y
+                r = max(1, self.judgment_explosion_radius)
+                for _ in range(3):
+                    angle = random.uniform(0, math.pi * 2)
+                    dist = random.uniform(0, r)
+                    self.judgment_explosion_sparks.append({
+                        'x': ex + math.cos(angle) * dist,
+                        'y': ey + math.sin(angle) * dist,
+                        'vx': math.cos(angle) * random.uniform(1, 4),
+                        'vy': math.sin(angle) * random.uniform(1, 4),
+                        'size': random.uniform(1, 3),
+                        'life': random.uniform(0.2, 0.5),
+                        'color': random.choice([
+                            (180, 180, 255), (200, 200, 255), (255, 255, 255),
+                            (255, 240, 140), (160, 160, 255),
+                        ]),
+                    })
+            for sp in self.judgment_explosion_sparks:
+                sp['x'] += sp['vx'] * dt * 60
+                sp['y'] += sp['vy'] * dt * 60
+                sp['life'] -= dt
+            self.judgment_explosion_sparks = [sp for sp in self.judgment_explosion_sparks if sp['life'] > 0]
+            # 스턴 타이머
+            if self.judgment_lightning_stun_timer > 0:
+                self.judgment_lightning_stun_timer -= dt
+            if progress >= 1.0:
+                self.judgment_phase = self.JUDGMENT_RETURN
+                self.judgment_timer = 0.0
+                self.judgment_shake_intensity = 0.0
+                self.judgment_explosion_sparks.clear()
+                self.judgment_lightning_active = False
+                self.judgment_slam_progress = 0.0
+                self.judgment_left_arm_progress = 0.0
+                self.judgment_right_arm_progress = 0.0
 
         elif self.judgment_phase == self.JUDGMENT_RETURN:
             # 3초간 땅속으로 다시 들어감 (무게감 있게)
@@ -727,15 +937,41 @@ class AnimatedBackgroundStage30:
                 self.judgment_hole_fade_scale = 0.0
                 self.judgment_hole_crumble.clear()
                 self.judgment_cooldown = random.uniform(50.0, 60.0)
+                # 번개 상태 초기화
+                self.judgment_variant = 'earthquake'
+                self.judgment_bolt_hidden = False
+                self.judgment_bolt_thrown = False
+                self.judgment_bolt_proj_trail.clear()
+                self.judgment_explosion_sparks.clear()
+                self.judgment_lightning_active = False
+                self.judgment_lightning_stun_top = False
+                self.judgment_lightning_stun_bottom = False
+                self.judgment_lightning_stun_timer = 0.0
+                self.judgment_bolt_intensity = 0.0
 
     def get_judgment_shake_offset(self):
         """신의심판 화면 흔들림 오프셋 반환 (정글지진의 1.5배 강도)"""
-        if self.judgment_phase != self.JUDGMENT_EARTHQUAKE and self.judgment_phase != self.JUDGMENT_SLAM:
+        if self.judgment_phase not in (self.JUDGMENT_EARTHQUAKE, self.JUDGMENT_SLAM,
+                                       self.JUDGMENT_BOLT_EXPLOSION, self.JUDGMENT_RETURN):
             return (0, 0)
-        intensity = 16 * self.judgment_shake_intensity  # 12px → 16px (+30%)
+        if self.judgment_shake_intensity <= 0:
+            return (0, 0)
+        intensity = 16 * self.judgment_shake_intensity
         ox = (random.random() - 0.5) * intensity * 2
         oy = (random.random() - 0.5) * intensity * 2
         return (int(ox), int(oy))
+
+    def get_lightning_explosion_info(self):
+        """번개 폭발 정보 반환 (pingfighter.py 스턴 판정용)"""
+        if self.judgment_phase == self.JUDGMENT_BOLT_EXPLOSION and self.judgment_variant == 'lightning':
+            return {
+                'active': True,
+                'x': self.judgment_explosion_x,
+                'y': self.judgment_explosion_y,
+                'radius': self.judgment_explosion_radius,
+                'max_radius': self.judgment_explosion_max_radius,
+            }
+        return {'active': False}
 
     def is_judgment_earthquake_active(self):
         """신의심판 지진 효과 활성화 여부"""
@@ -752,7 +988,8 @@ class AnimatedBackgroundStage30:
 
     def get_judgment_phase_name(self):
         """현재 페이즈 이름 (디버그용)"""
-        names = {0: "IDLE", 1: "MERGE", 2: "ARM_RAISE", 3: "SLAM", 4: "EARTHQUAKE", 5: "RETURN", 6: "HOLE_FADE"}
+        names = {0: "IDLE", 1: "MERGE", 2: "ARM_RAISE", 3: "SLAM", 4: "EARTHQUAKE",
+                 5: "RETURN", 6: "HOLE_FADE", 7: "BOLT_THROW", 8: "BOLT_FLIGHT", 9: "BOLT_EXPLOSION"}
         return names.get(self.judgment_phase, "UNKNOWN")
 
     def _draw_judgment_overlay(self, screen, offset_x=0, offset_y=0):
@@ -958,6 +1195,88 @@ class AnimatedBackgroundStage30:
             if a > 10:
                 sz = max(1, int(d['size']))
                 pygame.draw.circle(screen, (180, 165, 140), (dx, dy), sz)
+
+        # ── 번개 투사체 (BOLT_THROW / BOLT_FLIGHT 페이즈) ──
+        if self.judgment_phase in (self.JUDGMENT_BOLT_THROW, self.JUDGMENT_BOLT_FLIGHT) and self.judgment_bolt_thrown:
+            bx = int(self.judgment_bolt_proj_x) + offset_x
+            by = int(self.judgment_bolt_proj_y) + offset_y
+            ang = math.radians(self.judgment_bolt_proj_angle)
+            # 글로우 (반투명 파란 원)
+            glow_r = 16
+            glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (120, 120, 255, 50), (glow_r, glow_r), glow_r)
+            pygame.draw.circle(glow_surf, (180, 180, 255, 80), (glow_r, glow_r), glow_r // 2)
+            screen.blit(glow_surf, (bx - glow_r, by - glow_r), special_flags=pygame.BLEND_ADD)
+            # 회전 지그재그 번개 (투사체)
+            cos_a, sin_a = math.cos(ang), math.sin(ang)
+            bolt_len = 18
+            zigzag_pts = [
+                (0, -bolt_len * 0.5),
+                (-3, -bolt_len * 0.25), (2, -bolt_len * 0.05),
+                (-2, bolt_len * 0.15), (1, bolt_len * 0.35), (-1, bolt_len * 0.5),
+            ]
+            rotated = []
+            for zx, zy in zigzag_pts:
+                rx = bx + int(zx * cos_a - zy * sin_a)
+                ry = by + int(zx * sin_a + zy * cos_a)
+                rotated.append((rx, ry))
+            # 외곽 글로우 라인 (파란)
+            if len(rotated) >= 2:
+                pygame.draw.lines(screen, (100, 100, 255), False, rotated, 3)
+                pygame.draw.lines(screen, (200, 200, 255), False, rotated, 1)
+            # 중심 밝은 코어
+            pygame.draw.circle(screen, (255, 255, 255), (bx, by), 3)
+            pygame.draw.circle(screen, (200, 220, 255), (bx, by), 5, 1)
+            # 트레일 파티클
+            for tp in self.judgment_bolt_proj_trail:
+                tx, ty = int(tp['x']) + offset_x, int(tp['y']) + offset_y
+                ts = max(1, int(tp['size'] * min(1.0, tp['life'] * 4)))
+                pygame.draw.circle(screen, tp['color'], (tx, ty), ts)
+
+        # ── 감전 폭발 (BOLT_EXPLOSION 페이즈) ──
+        if self.judgment_phase == self.JUDGMENT_BOLT_EXPLOSION:
+            ex = int(self.judgment_explosion_x) + offset_x
+            ey = int(self.judgment_explosion_y) + offset_y
+            r = max(1, int(self.judgment_explosion_radius))
+            ring_a = self.judgment_explosion_ring_alpha
+            # 확장 전기 링
+            if ring_a > 10 and r > 3:
+                ring_surf = pygame.Surface((r * 2 + 4, r * 2 + 4), pygame.SRCALPHA)
+                ring_cx, ring_cy = r + 2, r + 2
+                a1 = min(255, ring_a)
+                a2 = min(180, int(ring_a * 0.6))
+                pygame.draw.circle(ring_surf, (120, 120, 255, a2), (ring_cx, ring_cy), r, max(1, r // 8))
+                pygame.draw.circle(ring_surf, (200, 200, 255, a1), (ring_cx, ring_cy), max(1, r - 2), max(1, r // 12))
+                screen.blit(ring_surf, (ex - r - 2, ey - r - 2))
+            # 방사형 전기 아크 (폭발 중심에서 바깥으로)
+            arc_count = min(8, int(self.judgment_explosion_radius / 30))
+            for i in range(arc_count):
+                a_ang = (math.pi * 2 / max(1, arc_count)) * i + self.judgment_timer * 3
+                arc_len = r * random.uniform(0.5, 1.0)
+                pts = [(ex, ey)]
+                segs = random.randint(3, 5)
+                for j in range(1, segs + 1):
+                    frac = j / segs
+                    px = ex + int(math.cos(a_ang) * arc_len * frac + random.uniform(-6, 6))
+                    py = ey + int(math.sin(a_ang) * arc_len * frac + random.uniform(-6, 6))
+                    pts.append((px, py))
+                if len(pts) >= 2:
+                    arc_alpha = min(255, int(ring_a * 0.8))
+                    if arc_alpha > 20:
+                        pygame.draw.lines(screen, (180, 180, 255), False, pts, 1)
+            # 스파크 파티클
+            for sp in self.judgment_explosion_sparks:
+                sx, sy = int(sp['x']) + offset_x, int(sp['y']) + offset_y
+                ss = max(1, int(sp['size'] * min(1.0, sp['life'] * 4)))
+                pygame.draw.circle(screen, sp['color'], (sx, sy), ss)
+            # 임팩트 플래시
+            if self.judgment_explosion_flash_alpha > 10:
+                fa = min(200, self.judgment_explosion_flash_alpha)
+                flash_size = max(10, int(r * 0.6))
+                fl_surf = pygame.Surface((flash_size * 2, flash_size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(fl_surf, (200, 200, 255, fa), (flash_size, flash_size), flash_size)
+                pygame.draw.circle(fl_surf, (255, 255, 255, min(255, fa + 30)), (flash_size, flash_size), flash_size // 3)
+                screen.blit(fl_surf, (ex - flash_size, ey - flash_size), special_flags=pygame.BLEND_ADD)
 
         # ── 충격 플래시 (단순 전체 플래시) ──
         if self.judgment_flash_alpha > 0:
@@ -1274,7 +1593,15 @@ class AnimatedBackgroundStage30:
         pygame.draw.circle(screen, marble_mid, ra_hand, fist_r)
         pygame.draw.circle(screen, marble_dark, ra_hand, fist_r, lw)
 
-        # ── 번개 (오른손에 항상 들고 있음) ──
+        # ── 번개 (오른손에 들고 있음, 투척 후 숨김) ──
+        if self.judgment_bolt_hidden:
+            # 번개 투척 후: 스파크 파티클만 그리고 번개는 숨김
+            for sp in self.judgment_bolt_sparks:
+                sx, sy = int(sp['x']), int(sp['y'])
+                sp_size = max(1, int(sp['size'] * min(1.0, sp['life'] * 3)))
+                if sp_size > 0:
+                    pygame.draw.circle(screen, sp['color'], (sx, sy), sp_size)
+            return
         # 팔 방향에 맞춰 번개 각도 회전
         bolt_angle = fore_angle_r  # 전완 각도를 따라감
         bolt_x, bolt_y = ra_hand

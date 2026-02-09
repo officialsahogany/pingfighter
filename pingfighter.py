@@ -52632,11 +52632,17 @@ _judgment_quake_sound_playing = False
 _judgment_ball_speed_backup = None
 _judgment_prev_earthquake_active = False
 _judgment_prev_phase = 0  # IDLE
+_judgment_lightning_stun_applied = False  # 번개 스턴이 이미 적용되었는지
+_judgment_lightning_stun_top_timer = 0.0   # 상단 영웅 전기 스턴 타이머
+_judgment_lightning_stun_bottom_timer = 0.0  # 하단 영웅 전기 스턴 타이머
+_judgment_lightning_stun_type = False  # 현재 스턴이 번개 타입인지 (비주얼 분기용)
 
 def handle_gods_judgment():
-    """투기장 신의심판 이벤트 처리 - 공 랜덤 이동 + 영웅 속도 감소"""
+    """투기장 신의심판 이벤트 처리 - 공 랜덤 이동 + 영웅 속도 감소 + 번개 스턴"""
     global ball_vel, _judgment_quake_sound_playing, _judgment_ball_speed_backup
     global _judgment_prev_earthquake_active, _judgment_prev_phase, PLAYER_SPEED
+    global _judgment_lightning_stun_applied, _judgment_lightning_stun_top_timer
+    global _judgment_lightning_stun_bottom_timer, _judgment_lightning_stun_type
 
     if current_stage != 30 or animated_bg_stage30 is None:
         return
@@ -52702,6 +52708,47 @@ def handle_gods_judgment():
         max_speed = 15.0
         ball_vel[0] = max(-max_speed, min(max_speed, ball_vel[0]))
         ball_vel[1] = max(-max_speed, min(max_speed, ball_vel[1]))
+
+    # ── 번개의 분노: 폭발 시 스턴 판정 ──
+    if bg.judgment_variant == 'lightning':
+        explosion_info = bg.get_lightning_explosion_info()
+        # BOLT_EXPLOSION 시작 순간 스턴 적용
+        if explosion_info['active'] and not _judgment_lightning_stun_applied:
+            _judgment_lightning_stun_applied = True
+            _judgment_lightning_stun_type = True
+            ex, ey = explosion_info['x'], explosion_info['y']
+            stun_radius = explosion_info['max_radius']
+            show_fade_text("신의 심판: 번개의 분노")
+            # 상단 영웅 (보스) 거리 판정
+            top_dist = math.hypot(BOSS.centerx - ex, BOSS.centery - ey)
+            if top_dist <= stun_radius:
+                if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
+                    arena_skill_manager.game_state['top_paddle_stunned'] = True
+                _judgment_lightning_stun_top_timer = 2.0
+            # 하단 영웅 (플레이어) 거리 판정
+            bot_dist = math.hypot(PLAYER.centerx - ex, PLAYER.centery - ey)
+            if bot_dist <= stun_radius:
+                if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
+                    arena_skill_manager.game_state['bottom_paddle_stunned'] = True
+                _judgment_lightning_stun_bottom_timer = 2.0
+        # 스턴 타이머 카운트다운 (매 프레임)
+        dt = 1.0 / 60.0
+        if _judgment_lightning_stun_top_timer > 0:
+            _judgment_lightning_stun_top_timer -= dt
+            if _judgment_lightning_stun_top_timer <= 0:
+                _judgment_lightning_stun_top_timer = 0.0
+                if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
+                    arena_skill_manager.game_state['top_paddle_stunned'] = False
+        if _judgment_lightning_stun_bottom_timer > 0:
+            _judgment_lightning_stun_bottom_timer -= dt
+            if _judgment_lightning_stun_bottom_timer <= 0:
+                _judgment_lightning_stun_bottom_timer = 0.0
+                if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
+                    arena_skill_manager.game_state['bottom_paddle_stunned'] = False
+        # 이벤트 종료 시 리셋
+        if not bg.is_judgment_active():
+            _judgment_lightning_stun_applied = False
+            _judgment_lightning_stun_type = False
 
 
 def draw_shaking_screen():
@@ -90118,11 +90165,61 @@ def draw_objects():
                                  (star_size * 1.5, star_size * 1.5), star_size)
                 SCREEN.blit(glow_surface, (star_x - star_size * 1.5, star_y - star_size * 1.5))
 
+        def _draw_arena_electric_stun(target_rect, is_top):
+            """투기장 번개 스턴 전기 이펙트 (파란 전기 아크 + 깜빡임)"""
+            current_time = pygame.time.get_ticks()
+            cx, cy = target_rect.centerx, target_rect.centery
+            offset_y_e = 20 if is_top else -20
+            cy += offset_y_e
+            # 전기 아크 (랜덤 지그재그 라인)
+            arc_count = 4
+            for i in range(arc_count):
+                angle = (current_time * 0.5 + i * 90) % 360
+                angle_rad = math.radians(angle)
+                start_r = 8
+                end_r = 22
+                sx = cx + start_r * math.cos(angle_rad)
+                sy = cy + start_r * math.sin(angle_rad) * 0.6
+                ex = cx + end_r * math.cos(angle_rad)
+                ey = cy + end_r * math.sin(angle_rad) * 0.6
+                # 지그재그 2~3세그먼트
+                pts = [(int(sx), int(sy))]
+                segs = random.randint(2, 3)
+                for j in range(1, segs):
+                    frac = j / segs
+                    mx = sx + (ex - sx) * frac + random.uniform(-4, 4)
+                    my = sy + (ey - sy) * frac + random.uniform(-3, 3)
+                    pts.append((int(mx), int(my)))
+                pts.append((int(ex), int(ey)))
+                # 깜빡이는 색상
+                blink = (current_time // 60) % 3
+                if blink == 0:
+                    col = (120, 120, 255)
+                elif blink == 1:
+                    col = (200, 200, 255)
+                else:
+                    col = (255, 255, 255)
+                pygame.draw.lines(SCREEN, col, False, pts, 1)
+            # 중앙 글로우
+            if (current_time // 100) % 2 == 0:
+                glow_s = pygame.Surface((30, 30), pygame.SRCALPHA)
+                pygame.draw.circle(glow_s, (100, 100, 255, 40), (15, 15), 15)
+                pygame.draw.circle(glow_s, (180, 180, 255, 60), (15, 15), 8)
+                SCREEN.blit(glow_s, (cx - 15, cy - 15), special_flags=pygame.BLEND_ADD)
+
         # 뿔 박치기 포함 모든 스턴을 _draw_arena_stun_stars()로 통합 처리
+        # 번개 스턴일 때는 전기 이펙트로 대체
+        _is_lightning_stun = _judgment_lightning_stun_type
         if _arena_top_stun:
-            _draw_arena_stun_stars(BOSS, is_top=True)
+            if _is_lightning_stun and _judgment_lightning_stun_top_timer > 0:
+                _draw_arena_electric_stun(BOSS, is_top=True)
+            else:
+                _draw_arena_stun_stars(BOSS, is_top=True)
         if _arena_bot_stun:
-            _draw_arena_stun_stars(PLAYER, is_top=False)
+            if _is_lightning_stun and _judgment_lightning_stun_bottom_timer > 0:
+                _draw_arena_electric_stun(PLAYER, is_top=False)
+            else:
+                _draw_arena_stun_stars(PLAYER, is_top=False)
 
         # 🐙 투기장 촉수 휘감기 둔화 이펙트 (눈물샤워와 동일한 물결 효과)
         _tentacle_wrap_active = _arena_gs.get('tentacle_wrap_active', False)
