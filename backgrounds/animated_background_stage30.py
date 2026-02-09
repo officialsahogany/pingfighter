@@ -574,17 +574,6 @@ class AnimatedBackgroundStage30:
         # ── 동적 제우스 석상 그리기 ──
         self._draw_judgment_statue_scaled(screen, cx, cy, s)
 
-        # ── 은은한 글로우 링 (성장/합체 중) ──
-        if self.judgment_phase in (self.JUDGMENT_MERGE, self.JUDGMENT_ARM_RAISE):
-            pulse = 0.5 + 0.5 * math.sin(self.time * 3.0)
-            ring_r = int(30 * s)
-            ring_a = int(25 * pulse)
-            if ring_r > 5 and ring_a > 3:
-                ring_s = pygame.Surface((ring_r * 2 + 4, ring_r * 2 + 4), pygame.SRCALPHA)
-                rc = ring_r + 2
-                pygame.draw.circle(ring_s, (220, 200, 150, ring_a), (rc, rc), ring_r, max(1, int(2 * s)))
-                screen.blit(ring_s, (cx - rc, cy - rc), special_flags=pygame.BLEND_ADD)
-
         # ── 슬램 파편 (심플 원형) ──
         for d in self.judgment_slam_debris:
             dx, dy = int(d['x']) + offset_x, int(d['y']) + offset_y
@@ -599,17 +588,6 @@ class AnimatedBackgroundStage30:
             if a > 10:
                 sz = max(1, int(d['size']))
                 pygame.draw.circle(screen, (180, 165, 140), (dx, dy), sz)
-
-        # ── RETURN 페이즈: 수축 링 ──
-        if self.judgment_phase == self.JUDGMENT_RETURN:
-            ret_progress = min(1.0, self.judgment_timer / self.RETURN_DURATION)
-            ring_r = int(40 * s * (1.0 - ret_progress))
-            ring_a = int(40 * (1.0 - ret_progress))
-            if ring_r > 5 and ring_a > 3:
-                ring_s = pygame.Surface((ring_r * 2 + 4, ring_r * 2 + 4), pygame.SRCALPHA)
-                rc = ring_r + 2
-                pygame.draw.circle(ring_s, (200, 185, 150, ring_a), (rc, rc), ring_r, max(1, int(2 * s)))
-                screen.blit(ring_s, (cx - rc, cy - rc), special_flags=pygame.BLEND_ADD)
 
         # ── 충격 플래시 (단순 전체 플래시) ──
         if self.judgment_flash_alpha > 0:
