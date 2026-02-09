@@ -8489,7 +8489,7 @@ def get_max_gauge():
       (일반 스테이지에서 튜토리얼 잔여 상태가 영향을 주지 않도록 가드)
     """
     # 튜토리얼(Stage 50) 여부 가드
-    is_tutorial = (current_stage == 50)
+    is_tutorial = (globals().get('current_stage', 0) == 50)
 
     if is_tutorial:
         # 우선순위: Chapter 4 > Chapter 3 > Chapter 2 > Chapter 1
