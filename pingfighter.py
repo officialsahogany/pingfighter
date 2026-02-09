@@ -58880,6 +58880,12 @@ def handle_player(keys):
     arena_player_slow_mult = 1.0
     arena_player_speed_boost_only = 1.0  # 속도 부스트 전용 (감속도 제외)
     arena_player_confused = False
+    # ⚡ 번개의 분노 스턴 (독립 메커니즘 - 다른 스킬이 paddle_stunned 덮어써도 적용)
+    if _judgment_lightning_stun_bottom_timer > 0:
+        arena_player_stun_block = True
+        current_speed = 0
+        rolling_active = False
+        rolling_timer = 0
     if arena_mode_enabled and arena_skill_manager:
         try:
             game_state = arena_skill_manager.game_state
@@ -90254,18 +90260,17 @@ def draw_objects():
                 SCREEN.blit(glow_s, (cx - 15, cy - 15), special_flags=pygame.BLEND_ADD)
 
         # 뿔 박치기 포함 모든 스턴을 _draw_arena_stun_stars()로 통합 처리
-        # 번개 스턴일 때는 전기 이펙트로 대체
-        _is_lightning_stun = _judgment_lightning_stun_type
-        if _arena_top_stun:
-            if _is_lightning_stun and _judgment_lightning_stun_top_timer > 0:
-                _draw_arena_electric_stun(BOSS, is_top=True)
-            else:
-                _draw_arena_stun_stars(BOSS, is_top=True)
-        if _arena_bot_stun:
-            if _is_lightning_stun and _judgment_lightning_stun_bottom_timer > 0:
-                _draw_arena_electric_stun(PLAYER, is_top=False)
-            else:
-                _draw_arena_stun_stars(PLAYER, is_top=False)
+        # 번개 스턴일 때는 전기 이펙트로 대체 (타이머 직접 체크 - 다른 스킬의 stun 리셋과 독립)
+        _lightning_top_active = _judgment_lightning_stun_top_timer > 0
+        _lightning_bot_active = _judgment_lightning_stun_bottom_timer > 0
+        if _lightning_top_active:
+            _draw_arena_electric_stun(BOSS, is_top=True)
+        elif _arena_top_stun:
+            _draw_arena_stun_stars(BOSS, is_top=True)
+        if _lightning_bot_active:
+            _draw_arena_electric_stun(PLAYER, is_top=False)
+        elif _arena_bot_stun:
+            _draw_arena_stun_stars(PLAYER, is_top=False)
 
         # 🐙 투기장 촉수 휘감기 둔화 이펙트 (눈물샤워와 동일한 물결 효과)
         _tentacle_wrap_active = _arena_gs.get('tentacle_wrap_active', False)
@@ -124514,6 +124519,10 @@ def handle_boss():
     # 🏟️ 투기장 영웅 스킬 상태 효과 적용 (상단 패들 = 보스)
     arena_boss_slow_multiplier = 1.0
     arena_boss_confused = False
+    # ⚡ 번개의 분노 스턴 (독립 메커니즘 - 다른 스킬이 paddle_stunned 덮어써도 적용)
+    if _judgment_lightning_stun_top_timer > 0:
+        boss_current_speed = 0
+        return  # 번개 스턴 중 모든 처리 차단
     if arena_mode_enabled and arena_skill_manager:
         try:
             game_state = arena_skill_manager.game_state
