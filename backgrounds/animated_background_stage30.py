@@ -624,6 +624,68 @@ class AnimatedBackgroundStage30:
             screen.set_clip(pygame.Rect(0, 0, screen.get_width(), ground_y))
             self._draw_judgment_statue_scaled(screen, cx + rise_shake_x, cy + rise_y, s)
             screen.set_clip(old_clip)
+
+            # ── 지면 구멍/함몰 효과 (클리핑 해제 후 지면 위에 그림) ──
+            sand_dark = (125, 105, 75)
+            sand_shadow = (105, 85, 60)
+            sand = (155, 130, 95)
+            sand_light = (175, 150, 115)
+            hole_dark = (75, 60, 42)
+            lw_g = max(1, int(s))
+
+            # 구멍 안쪽 어둠 (석상 주변 타원형 구멍)
+            hole_w = int(22 * s)
+            hole_h = int(8 * s)
+            if hole_w > 4 and hole_h > 2:
+                hole_surf = pygame.Surface((hole_w, hole_h), pygame.SRCALPHA)
+                pygame.draw.ellipse(hole_surf, (*hole_dark, 160), (0, 0, hole_w, hole_h))
+                screen.blit(hole_surf, (cx + rise_shake_x - hole_w // 2,
+                                        ground_y - hole_h // 3))
+
+            # 구멍 테두리 (솟아오른 땅 가장자리 - 불규칙 폴리곤)
+            edge_pts = [
+                (cx - int(14 * s), ground_y + int(2 * s)),
+                (cx - int(13 * s), ground_y - int(1 * s)),
+                (cx - int(10 * s), ground_y - int(3 * s)),
+                (cx - int(6 * s), ground_y - int(1 * s)),
+                (cx - int(3 * s), ground_y - int(3 * s)),
+                (cx + int(3 * s), ground_y - int(2 * s)),
+                (cx + int(7 * s), ground_y - int(3 * s)),
+                (cx + int(11 * s), ground_y - int(1 * s)),
+                (cx + int(13 * s), ground_y - int(2 * s)),
+                (cx + int(14 * s), ground_y + int(2 * s)),
+                (cx + int(12 * s), ground_y + int(3 * s)),
+                (cx, ground_y + int(4 * s)),
+                (cx - int(12 * s), ground_y + int(3 * s)),
+            ]
+            pygame.draw.polygon(screen, sand_dark, edge_pts)
+            # 테두리 윗면 하이라이트
+            pygame.draw.lines(screen, sand_light, False, edge_pts[:10], lw_g)
+            # 테두리 아랫면 그림자
+            pygame.draw.lines(screen, sand_shadow, False, edge_pts[9:], lw_g)
+
+            # 구멍 안쪽 내벽 (석상 양쪽에 어두운 호)
+            inner_w = int(18 * s)
+            inner_h = int(6 * s)
+            if inner_w > 4 and inner_h > 2:
+                pygame.draw.arc(screen, hole_dark,
+                                (cx + rise_shake_x - inner_w // 2,
+                                 ground_y - inner_h // 3,
+                                 inner_w, inner_h),
+                                0.2, math.pi - 0.2, lw_g)
+
+            # 먼지 구름 (구멍 경계에서 피어오르는 느낌)
+            sink_ratio = min(1.0, rise_y / (60.0 * s)) if s > 0 else 0
+            if sink_ratio > 0.05:
+                dust_alpha = int(80 * min(1.0, sink_ratio * 2))
+                dust_w = int(26 * s)
+                dust_h = int(5 * s)
+                if dust_w > 4 and dust_h > 2:
+                    dust_surf = pygame.Surface((dust_w, dust_h), pygame.SRCALPHA)
+                    pygame.draw.ellipse(dust_surf, (180, 160, 130, dust_alpha),
+                                        (0, 0, dust_w, dust_h))
+                    screen.blit(dust_surf, (cx + rise_shake_x - dust_w // 2,
+                                            ground_y - dust_h))
         else:
             self._draw_judgment_statue_scaled(screen, cx, cy, s)
 
