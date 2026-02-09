@@ -667,11 +667,37 @@ class AnimatedBackgroundStage30:
                 throw_p = (progress - 0.4) / 0.6
                 self.judgment_right_arm_progress = 1.15 - throw_p * 1.7
                 self.judgment_left_arm_progress = max(0, 1.0 - throw_p * 1.5)
-            # 40% 시점에서 번개 분리
+            # 40% 시점에서 번개 분리 (실제 팔 위치에서 번개 끝 계산)
             if progress >= 0.4 and not self.judgment_bolt_thrown:
                 self.judgment_bolt_thrown = True
                 self.judgment_bolt_hidden = True
-                self.judgment_bolt_proj_angle = 0.0
+                # 현재 팔 각도로 번개 끝(tip) 위치 계산
+                s = self.judgment_scale
+                r_sh_x = cx + int(10 * s)
+                r_sh_y = cy - int(19 * s)
+                ul = int(10 * s)
+                fl = int(10 * s)
+                ra_base = math.radians(-60)
+                ra_raised = math.radians(-80)
+                ra_ang = ra_base + (ra_raised - ra_base) * self.judgment_right_arm_progress
+                ra_eb = -0.5
+                r_elb = (r_sh_x + int(ul * math.sin(ra_ang)),
+                         r_sh_y + int(ul * math.cos(ra_ang)))
+                fa_r = ra_ang + ra_eb
+                r_hand = (r_elb[0] + int(fl * math.sin(fa_r)),
+                          r_elb[1] + int(fl * math.cos(fa_r)))
+                # 번개 끝점 (손에서 전완 방향으로 bolt_len만큼 연장)
+                bolt_len = int(18 * s)
+                bdir_x = math.sin(fa_r)
+                bdir_y = math.cos(fa_r)
+                tip_x = r_hand[0] + bolt_len * bdir_x
+                tip_y = r_hand[1] + bolt_len * bdir_y
+                # 투사체 시작점 = 번개 끝, 각도 = 전완 방향
+                self.judgment_bolt_proj_start_x = float(tip_x)
+                self.judgment_bolt_proj_start_y = float(tip_y)
+                self.judgment_bolt_proj_x = float(tip_x)
+                self.judgment_bolt_proj_y = float(tip_y)
+                self.judgment_bolt_proj_angle = math.degrees(fa_r)
             # 번개 강도 감소
             if self.judgment_bolt_thrown:
                 self.judgment_bolt_intensity = max(0, 1.0 - (progress - 0.4) * 2.5)
@@ -704,8 +730,15 @@ class AnimatedBackgroundStage30:
             arc_height = -120 * math.sin(progress * math.pi)
             self.judgment_bolt_proj_x = sx + (tx - sx) * ease
             self.judgment_bolt_proj_y = sy + (ty - sy) * ease + arc_height
-            # 회전
-            self.judgment_bolt_proj_angle += dt * 720
+            # 번개 방향: 진행 방향을 따라감
+            dx = tx - sx
+            dy = ty - sy
+            target_angle = math.degrees(math.atan2(dx, dy))
+            # 현재 각도에서 목표 각도로 부드럽게 보간
+            angle_diff = target_angle - self.judgment_bolt_proj_angle
+            while angle_diff > 180: angle_diff -= 360
+            while angle_diff < -180: angle_diff += 360
+            self.judgment_bolt_proj_angle += angle_diff * min(1.0, dt * 5)
             # 트레일 파티클
             if random.random() < 0.7:
                 self.judgment_bolt_proj_trail.append({
