@@ -552,13 +552,13 @@ class AnimatedBackgroundStage30:
                     self.judgment_bolt_proj_start_y = float(r_hand[1])
                     self.judgment_bolt_proj_x = self.judgment_bolt_proj_start_x
                     self.judgment_bolt_proj_y = self.judgment_bolt_proj_start_y
-                    # 랜덤 착탄점 (위 또는 아래, X는 게임영역 내 랜덤)
+                    # 착탄점: 상단 또는 하단 끝 (X는 게임영역 내 랜덤)
                     target_x = random.uniform(self.GAME_AREA_X + 60,
                                               self.GAME_AREA_END_X - 60)
                     if random.random() < 0.5:
-                        target_y = random.uniform(40, 200)    # 상단 (보스 쪽)
+                        target_y = 25.0     # 상단 끝 (보스 패들 라인)
                     else:
-                        target_y = random.uniform(550, 710)   # 하단 (플레이어 쪽)
+                        target_y = 720.0    # 하단 끝 (플레이어 패들 라인)
                     self.judgment_bolt_proj_target_x = target_x
                     self.judgment_bolt_proj_target_y = target_y
                 else:
@@ -717,28 +717,19 @@ class AnimatedBackgroundStage30:
                 print(f"[신의심판] BOLT_THROW → BOLT_FLIGHT 전환 (시작:{self.judgment_bolt_proj_start_x:.0f},{self.judgment_bolt_proj_start_y:.0f} → 목표:{self.judgment_bolt_proj_target_x:.0f},{self.judgment_bolt_proj_target_y:.0f})")
 
         elif self.judgment_phase == self.JUDGMENT_BOLT_FLIGHT:
-            # 0.8초: 번개 투사체 비행
+            # 0.8초: 번개 투사체 직선 비행 (창 던지기)
             progress = min(1.0, self.judgment_timer / self.BOLT_FLIGHT_DURATION)
-            # ease-in-out
-            if progress < 0.5:
-                ease = 2 * progress * progress
-            else:
-                ease = 1.0 - (-2 * progress + 2) ** 2 / 2
-            # 위치 보간 (포물선 아크)
+            # ease-in: 빠르게 가속 (창 던지기 느낌)
+            ease = progress * progress * (3.0 - 2.0 * progress)  # smoothstep
+            # 직선 비행 (아크 없음)
             sx, sy = self.judgment_bolt_proj_start_x, self.judgment_bolt_proj_start_y
             tx, ty = self.judgment_bolt_proj_target_x, self.judgment_bolt_proj_target_y
-            arc_height = -120 * math.sin(progress * math.pi)
             self.judgment_bolt_proj_x = sx + (tx - sx) * ease
-            self.judgment_bolt_proj_y = sy + (ty - sy) * ease + arc_height
-            # 번개 방향: 진행 방향을 따라감
+            self.judgment_bolt_proj_y = sy + (ty - sy) * ease
+            # 번개 방향: 진행 방향 고정 (창처럼 일직선)
             dx = tx - sx
             dy = ty - sy
-            target_angle = math.degrees(math.atan2(dx, dy))
-            # 현재 각도에서 목표 각도로 부드럽게 보간
-            angle_diff = target_angle - self.judgment_bolt_proj_angle
-            while angle_diff > 180: angle_diff -= 360
-            while angle_diff < -180: angle_diff += 360
-            self.judgment_bolt_proj_angle += angle_diff * min(1.0, dt * 5)
+            self.judgment_bolt_proj_angle = math.degrees(math.atan2(dx, dy))
             # 트레일 파티클
             if random.random() < 0.7:
                 self.judgment_bolt_proj_trail.append({
