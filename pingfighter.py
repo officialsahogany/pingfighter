@@ -48769,6 +48769,12 @@ def go_to_next_round():
     fire_zones.clear()  # 모든 화염 지대 제거
     molotovs.clear()    # 날아가는 화염병도 제거
 
+    # ⚡ 번개의 분노 스턴 타이머 초기화 (라운드 전환 시)
+    _judgment_lightning_stun_top_timer = 0.0
+    _judgment_lightning_stun_bottom_timer = 0.0
+    _judgment_lightning_stun_applied = False
+    _judgment_lightning_stun_type = False
+
     # 🎭 투기장 영웅 스킬 초기화 (라운드 전환 시 활성 스킬 강제 종료)
     if arena_mode_enabled and arena_skill_manager:
         try:
@@ -114534,6 +114540,12 @@ def reset_round(is_stage_start=False):
     # 화염 효과음 관련 코드 제거됨 (SOUND_FLAME 사용 안 함)
     fire_zones.clear()  # 모든 화염 지대 제거
     molotovs.clear()    # 날아가는 화염병도 제거
+
+    # ⚡ 번개의 분노 스턴 타이머 초기화 (라운드 전환 시)
+    _judgment_lightning_stun_top_timer = 0.0
+    _judgment_lightning_stun_bottom_timer = 0.0
+    _judgment_lightning_stun_applied = False
+    _judgment_lightning_stun_type = False
 
     # 🎭 투기장 영웅 스킬 초기화 (라운드 전환 시 활성 스킬 강제 종료)
     if arena_mode_enabled and arena_skill_manager:

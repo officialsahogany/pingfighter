@@ -3201,6 +3201,8 @@ class HornCharge(HeroSkill):
         game_state['horn_charge_y_offset'] = 0
         game_state['horn_charge_x_offset'] = 0
         game_state['horn_charge_apply_knockback'] = False
+        game_state['horn_charge_impact_shockwave'] = None  # 착지 충격파 이펙트 초기화
+        game_state['horn_charge_explosion'] = None  # 폭발 파티클 초기화
         game_state['top_paddle_stunned'] = False
         game_state['bottom_paddle_stunned'] = False
         self.phase = self.PHASE_CHARGING
@@ -7607,6 +7609,10 @@ class HeroSkillManager:
 
         # 쿠로카게 그림자분신 초기화
         self.game_state['has_shadow_clones'] = False
+
+        # 오니마루 뿔 박치기 착지 충격파/폭발 이펙트 초기화
+        self.game_state['horn_charge_impact_shockwave'] = None
+        self.game_state['horn_charge_explosion'] = None
 
     def update(self, dt: float, top_paddle, bottom_paddle, ball):
         """스킬 업데이트"""
