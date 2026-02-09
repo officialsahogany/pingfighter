@@ -58776,7 +58776,7 @@ def handle_player(keys):
     global tutorial_power_reminder_active, tutorial_power_reminder_timer
     global tutorial_power_left_done, tutorial_power_center_done, tutorial_power_right_done
 
-    legacy_state = LEGACY_STATE
+    legacy_state = globals().get("LEGACY_STATE")
     rolling_state = getattr(legacy_state, "rolling", None) if legacy_state else None
 
     _rolling_attr_map = {
