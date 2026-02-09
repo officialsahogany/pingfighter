@@ -3222,7 +3222,7 @@ class HornCharge(HeroSkill):
 
             for paddle in paddles_to_draw:
                 sx = paddle.x + paddle.width // 2
-                sy = paddle.y - 30 if paddle.is_top else paddle.y + paddle.height + 20
+                sy = paddle.y - 15 if paddle.is_top else paddle.y + paddle.height + 20
                 for i in range(3):
                     angle = stun_time + i * (2 * math.pi / 3)
                     star_x = sx + math.cos(angle) * 25
