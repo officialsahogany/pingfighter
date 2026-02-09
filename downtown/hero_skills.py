@@ -4,6 +4,8 @@
 import pygame
 import math
 import os
+_sin = math.sin
+_cos = math.cos
 import random
 from enum import Enum
 from typing import Dict, List, Optional, Tuple, Callable
@@ -255,10 +257,10 @@ class DarkSlash(HeroSkill):
             speed = random.uniform(150, 500)
             offset = random.uniform(-30, 30)
             self.slash_sparks.append({
-                'x': self.ball_x + math.cos(self.slash_angle + math.pi/2) * offset,
-                'y': self.ball_y + math.sin(self.slash_angle + math.pi/2) * offset,
-                'vx': math.cos(spread_angle + math.pi/2) * speed * random.choice([-1, 1]),
-                'vy': math.sin(spread_angle + math.pi/2) * speed * random.choice([-1, 1]),
+                'x': self.ball_x + _cos(self.slash_angle + math.pi/2) * offset,
+                'y': self.ball_y + _sin(self.slash_angle + math.pi/2) * offset,
+                'vx': _cos(spread_angle + math.pi/2) * speed * random.choice([-1, 1]),
+                'vy': _sin(spread_angle + math.pi/2) * speed * random.choice([-1, 1]),
                 'life': random.uniform(0.5, 1.5),
                 'max_life': random.uniform(0.5, 1.5),
                 'size': random.uniform(2, 5),
@@ -410,7 +412,7 @@ class DarkSlash(HeroSkill):
             if self.phase == self.PHASE_FREEZE:
                 darkness = _get_fullscreen_surface()
                 # 맥동하는 어둠
-                pulse = 0.6 + 0.2 * math.sin(self.freeze_flash_timer * 8)
+                pulse = 0.6 + 0.2 * _sin(self.freeze_flash_timer * 8)
                 darkness.fill((5, 0, 20, int(200 * pulse)))
                 screen.blit(darkness, (0, 0))
 
@@ -441,10 +443,10 @@ class DarkSlash(HeroSkill):
                 slash_length = 200 * self.slash_progress
 
                 # 시작점과 끝점 (대각선)
-                start_x = bx - math.cos(self.slash_angle) * slash_length
-                start_y = by - math.sin(self.slash_angle) * slash_length
-                end_x = bx + math.cos(self.slash_angle) * slash_length
-                end_y = by + math.sin(self.slash_angle) * slash_length
+                start_x = bx - _cos(self.slash_angle) * slash_length
+                start_y = by - _sin(self.slash_angle) * slash_length
+                end_x = bx + _cos(self.slash_angle) * slash_length
+                end_y = by + _sin(self.slash_angle) * slash_length
 
                 # 글로우 레이어 (보라색/흰색)
                 for glow in range(5):
@@ -476,13 +478,13 @@ class DarkSlash(HeroSkill):
             if self.phase == self.PHASE_FREEZE:
                 # 베기 자국 (지속)
                 slash_length = 200
-                start_x = bx - math.cos(self.slash_angle) * slash_length
-                start_y = by - math.sin(self.slash_angle) * slash_length
-                end_x = bx + math.cos(self.slash_angle) * slash_length
-                end_y = by + math.sin(self.slash_angle) * slash_length
+                start_x = bx - _cos(self.slash_angle) * slash_length
+                start_y = by - _sin(self.slash_angle) * slash_length
+                end_x = bx + _cos(self.slash_angle) * slash_length
+                end_y = by + _sin(self.slash_angle) * slash_length
 
                 # 잔상 글로우
-                pulse = 0.7 + 0.3 * math.sin(self.freeze_flash_timer * 10)
+                pulse = 0.7 + 0.3 * _sin(self.freeze_flash_timer * 10)
                 for glow in range(3):
                     glow_surf = _get_fullscreen_surface()
                     alpha = max(0, min(255, int((120 - glow * 40) * pulse)))
@@ -603,7 +605,7 @@ class DemonEye(HeroSkill):
         for p in self.aura_particles:
             p['angle'] += p['speed'] * dt
             # 반짝임 효과
-            p['alpha'] = int(150 + 50 * math.sin(self.aura_timer * 5 + p['angle']))
+            p['alpha'] = int(150 + 50 * _sin(self.aura_timer * 5 + p['angle']))
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         # 이동속도 원래대로
@@ -634,7 +636,7 @@ class DemonEye(HeroSkill):
             paddle_cy = caster_paddle.centery
 
             # === 오오라 이펙트 (패들 주변 회전하는 보라색 기운) ===
-            pulse = 1 + 0.15 * math.sin(self.aura_timer * 6)
+            pulse = 1 + 0.15 * _sin(self.aura_timer * 6)
 
             # 외곽 글로우 (큰 원)
             glow_radius = int(60 * pulse)
@@ -649,8 +651,8 @@ class DemonEye(HeroSkill):
 
             # 회전하는 오오라 파티클
             for p in self.aura_particles:
-                px = paddle_cx + math.cos(p['angle']) * p['radius'] * pulse
-                py = paddle_cy + math.sin(p['angle']) * p['radius'] * pulse
+                px = paddle_cx + _cos(p['angle']) * p['radius'] * pulse
+                py = paddle_cy + _sin(p['angle']) * p['radius'] * pulse
 
                 # 파티클 글로우
                 p_size = int(p['size'] * pulse)
@@ -667,7 +669,7 @@ class DemonEye(HeroSkill):
             # 귀신 눈 이펙트 (패들 위/아래)
             eye_x = paddle_cx
             eye_y = paddle_cy + (35 if caster_paddle.is_top else -35)
-            eye_pulse = 1 + 0.3 * math.sin(self.aura_timer * 8)
+            eye_pulse = 1 + 0.3 * _sin(self.aura_timer * 8)
 
             # 눈 외곽 글로우
             eye_glow_size = int(20 * eye_pulse)
@@ -970,7 +972,7 @@ class TentacleWrap(HeroSkill):
 
     def _draw_bioluminescence(self, screen, x, y, phase, intensity=1.0):
         """생물 발광 효과"""
-        pulse = (math.sin(phase) + 1) * 0.5 * intensity
+        pulse = (_sin(phase) + 1) * 0.5 * intensity
         if pulse < 0.3:
             return
 
@@ -1017,7 +1019,7 @@ class TentacleWrap(HeroSkill):
                 ctrl1_y = start_y + direction * 30
 
                 # 제어점 2: 중간 지점 (물결 효과)
-                mid_wave = math.sin(self.time * 3 + t['wave_offset']) * 30
+                mid_wave = _sin(self.time * 3 + t['wave_offset']) * 30
                 ctrl2_x = (start_x + current_end_x) / 2 + mid_wave
                 ctrl2_y = (start_y + current_end_y) / 2
 
@@ -1032,8 +1034,8 @@ class TentacleWrap(HeroSkill):
                     y = self._cubic_bezier(seg_t, start_y, ctrl1_y, ctrl2_y, current_end_y)
 
                     # 추가 물결 효과 (촉수가 살아있는 느낌)
-                    wave_amp = 8 * math.sin(seg_t * math.pi)  # 중간이 가장 강함
-                    wave = math.sin(seg_t * math.pi * 3 + t['wave_offset'] + self.time * 4) * wave_amp
+                    wave_amp = 8 * _sin(seg_t * math.pi)  # 중간이 가장 강함
+                    wave = _sin(seg_t * math.pi * 3 + t['wave_offset'] + self.time * 4) * wave_amp
                     x += wave
 
                     points.append((int(x), int(y)))
@@ -1059,9 +1061,9 @@ class TentacleWrap(HeroSkill):
 
                         # 촉수 끝 끝단 (약간 갈라진 형태)
                         for finger in range(3):
-                            f_angle = (finger - 1) * 0.4 + math.sin(self.time * 5 + finger) * 0.2
+                            f_angle = (finger - 1) * 0.4 + _sin(self.time * 5 + finger) * 0.2
                             f_len = int(8 + t['thickness'])
-                            fx = end_x + int(math.cos(f_angle + math.pi/2 * direction) * f_len)
+                            fx = end_x + int(_cos(f_angle + math.pi/2 * direction) * f_len)
                             fy = end_y + int(direction * f_len * 0.8)
                             pygame.draw.line(screen, self.colors['tentacle_outer'],
                                            (int(end_x), int(end_y)), (int(fx), int(fy)),
@@ -1105,8 +1107,8 @@ class TentacleWrap(HeroSkill):
                         y = self._cubic_bezier(local_t, start_y, ctrl1_y, mid_y, target_y)
 
                         # 물결 효과
-                        wave_amp = 10 * math.sin(local_t * math.pi)
-                        wave = math.sin(local_t * math.pi * 2 + t['wave_offset'] + self.time * 3) * wave_amp
+                        wave_amp = 10 * _sin(local_t * math.pi)
+                        wave = _sin(local_t * math.pi * 2 + t['wave_offset'] + self.time * 3) * wave_amp
                         x += wave
                     else:
                         # 후반부: 타겟 주위를 코일링
@@ -1117,13 +1119,13 @@ class TentacleWrap(HeroSkill):
                         # 반경이 점점 줄어듦 (조여드는 효과)
                         current_radius = wrap_radius * (1 - local_t * 0.4)
                         # 높이 변화 (나선형으로 위아래로 감쌈)
-                        height_offset = math.sin(local_t * coil_turns * math.pi * 2) * 15
+                        height_offset = _sin(local_t * coil_turns * math.pi * 2) * 15
 
-                        x = target_x + current_radius * math.cos(coil_angle)
-                        y = target_y + current_radius * 0.5 * math.sin(coil_angle) + height_offset
+                        x = target_x + current_radius * _cos(coil_angle)
+                        y = target_y + current_radius * 0.5 * _sin(coil_angle) + height_offset
 
                         # 타겟이 움직이면 따라가는 미세한 지연
-                        x += math.sin(self.time * 4 + idx) * 3
+                        x += _sin(self.time * 4 + idx) * 3
 
                     points.append((int(x), int(y)))
 
@@ -1151,7 +1153,7 @@ class TentacleWrap(HeroSkill):
 
             # === 타겟 주변 구속 효과 ===
             # 조여드는 에너지 링
-            ring_pulse = (math.sin(self.time * 5) + 1) * 0.5
+            ring_pulse = (_sin(self.time * 5) + 1) * 0.5
             ring_radius = int(35 + ring_pulse * 10)
 
             # 다층 링 효과
@@ -1169,10 +1171,10 @@ class TentacleWrap(HeroSkill):
             slime_points = 8
             for i in range(slime_points):
                 angle = (i / slime_points) * math.pi * 2 + self.time * 0.5
-                slime_dist = 25 + math.sin(self.time * 3 + i) * 5
-                slime_x = target_x + math.cos(angle) * slime_dist
-                slime_y = target_y + math.sin(angle) * slime_dist * 0.6
-                slime_size = int(3 + math.sin(self.time * 4 + i * 0.5) * 2)
+                slime_dist = 25 + _sin(self.time * 3 + i) * 5
+                slime_x = target_x + _cos(angle) * slime_dist
+                slime_y = target_y + _sin(angle) * slime_dist * 0.6
+                slime_size = int(3 + _sin(self.time * 4 + i * 0.5) * 2)
 
                 slime_surf = pygame.Surface((slime_size * 2 + 4, slime_size * 2 + 4), pygame.SRCALPHA)
                 pygame.draw.circle(slime_surf, (*self.colors['slime'], 120),
@@ -1298,8 +1300,8 @@ class AbyssInk(HeroSkill):
                 'size': random.uniform(3, 9),
                 'alpha': 255,
                 'gravity': random.uniform(50, 120),
-                'vx': math.cos(angle) * speed,
-                'vy': math.sin(angle) * speed,
+                'vx': _cos(angle) * speed,
+                'vy': _sin(angle) * speed,
             })
 
     def _init_ink_pool(self):
@@ -1310,8 +1312,8 @@ class AbyssInk(HeroSkill):
             angle = random.uniform(0, math.pi * 2)
             dist = random.uniform(0, 0.75)
             self.ink_blobs.append({
-                'x': self.splash_center_x + math.cos(angle) * self.splash_max_radius * self.splash_width_scale * dist,
-                'y': self.splash_center_y + math.sin(angle) * self.splash_max_radius * dist,
+                'x': self.splash_center_x + _cos(angle) * self.splash_max_radius * self.splash_width_scale * dist,
+                'y': self.splash_center_y + _sin(angle) * self.splash_max_radius * dist,
                 'size': random.uniform(35, 85),
                 'alpha': 220,
                 'wobble': random.uniform(0, math.pi * 2),
@@ -1324,8 +1326,8 @@ class AbyssInk(HeroSkill):
             angle = random.uniform(0, math.pi * 2)
             dist = random.uniform(0.3, 1.0)
             self.ink_blobs.append({
-                'x': self.splash_center_x + math.cos(angle) * self.splash_max_radius * self.splash_width_scale * dist,
-                'y': self.splash_center_y + math.sin(angle) * self.splash_max_radius * dist,
+                'x': self.splash_center_x + _cos(angle) * self.splash_max_radius * self.splash_width_scale * dist,
+                'y': self.splash_center_y + _sin(angle) * self.splash_max_radius * dist,
                 'size': random.uniform(8, 22),
                 'alpha': 180,
                 'wobble': random.uniform(0, math.pi * 2),
@@ -1340,8 +1342,8 @@ class AbyssInk(HeroSkill):
             angle = random.uniform(0, math.pi * 2)
             dist = random.uniform(0, 0.6)
             self.ink_bubbles.append({
-                'x': self.splash_center_x + math.cos(angle) * self.splash_max_radius * self.splash_width_scale * dist,
-                'y': self.splash_center_y + math.sin(angle) * self.splash_max_radius * dist,
+                'x': self.splash_center_x + _cos(angle) * self.splash_max_radius * self.splash_width_scale * dist,
+                'y': self.splash_center_y + _sin(angle) * self.splash_max_radius * dist,
                 'size': random.uniform(3, 7),
                 'life': random.uniform(0.5, 1.5),
                 'max_life': random.uniform(0.5, 1.5),
@@ -1481,8 +1483,8 @@ class AbyssInk(HeroSkill):
                     # 기포 재생성
                     angle = random.uniform(0, math.pi * 2)
                     dist = random.uniform(0, 0.6)
-                    bubble['x'] = self.splash_center_x + math.cos(angle) * self.splash_max_radius * self.splash_width_scale * dist
-                    bubble['y'] = self.splash_center_y + math.sin(angle) * self.splash_max_radius * dist
+                    bubble['x'] = self.splash_center_x + _cos(angle) * self.splash_max_radius * self.splash_width_scale * dist
+                    bubble['y'] = self.splash_center_y + _sin(angle) * self.splash_max_radius * dist
                     bubble['size'] = random.uniform(3, 7)
                     bubble['life'] = bubble['max_life']
                     bubble['drift_x'] = random.uniform(-10, 10)
@@ -1546,8 +1548,8 @@ class AbyssInk(HeroSkill):
                     self.dissolve_fragments.append({
                         'x': blob['x'] + random.uniform(-10, 10),
                         'y': blob['y'] + random.uniform(-10, 10),
-                        'vx': math.cos(angle) * speed,
-                        'vy': math.sin(angle) * speed - random.uniform(10, 30),
+                        'vx': _cos(angle) * speed,
+                        'vy': _sin(angle) * speed - random.uniform(10, 30),
                         'size': blob['size'] / num_frags * random.uniform(0.5, 1.2),
                         'alpha': min(255, blob['alpha']),
                         'rotation': random.uniform(0, 360),
@@ -1562,8 +1564,8 @@ class AbyssInk(HeroSkill):
         for _ in range(num_wisps):
             angle = random.uniform(0, math.pi * 2)
             dist = random.uniform(0, 0.7)
-            wx = self.splash_center_x + math.cos(angle) * self.splash_max_radius * self.splash_width_scale * dist
-            wy = self.splash_center_y + math.sin(angle) * self.splash_max_radius * dist
+            wx = self.splash_center_x + _cos(angle) * self.splash_max_radius * self.splash_width_scale * dist
+            wy = self.splash_center_y + _sin(angle) * self.splash_max_radius * dist
             self.dissolve_wisps.append({
                 'x': wx,
                 'y': wy,
@@ -1686,18 +1688,18 @@ class AbyssInk(HeroSkill):
 
         # 안정적인 먹물 덩어리 (미리 생성된 파티클 사용)
         for pb in self._proj_blobs:
-            ox = pb['offset_x'] + math.sin(pb['phase']) * 3
-            oy = pb['offset_y'] + math.cos(pb['phase'] * 0.7) * 3
-            s = int(pb['size'] + math.sin(pb['phase'] * 1.3) * 2)
+            ox = pb['offset_x'] + _sin(pb['phase']) * 3
+            oy = pb['offset_y'] + _cos(pb['phase'] * 0.7) * 3
+            s = int(pb['size'] + _sin(pb['phase'] * 1.3) * 2)
             # 회전 적용
             rot_rad = math.radians(self._proj_rotation)
-            rx = ox * math.cos(rot_rad) - oy * math.sin(rot_rad)
-            ry = ox * math.sin(rot_rad) + oy * math.cos(rot_rad)
+            rx = ox * _cos(rot_rad) - oy * _sin(rot_rad)
+            ry = ox * _sin(rot_rad) + oy * _cos(rot_rad)
             pygame.draw.circle(proj_surf, (*self.colors['ink_core'], 220),
                              (int(cx + rx), int(cy + ry)), s)
 
         # 코어 (발광 중심)
-        core_pulse = 10 + math.sin(self._proj_rotation * 0.05) * 3
+        core_pulse = 10 + _sin(self._proj_rotation * 0.05) * 3
         pygame.draw.circle(proj_surf, (*self.colors['ink_deep'], 255), (cx, cy), int(core_pulse))
         pygame.draw.circle(proj_surf, (*self.colors['ink_glow'], 120), (cx, cy), int(core_pulse + 4))
 
@@ -1737,9 +1739,9 @@ class AbyssInk(HeroSkill):
             points = []
             for angle in range(0, 360, 12):
                 rad = math.radians(angle)
-                wobble = 0.82 + 0.18 * math.sin(rad * 5 + self.splash_timer * 12 + layer_i * 0.5)
-                px = scx + int(math.cos(rad) * wr * scale * wobble)
-                py = scy + int(math.sin(rad) * hr * scale * wobble)
+                wobble = 0.82 + 0.18 * _sin(rad * 5 + self.splash_timer * 12 + layer_i * 0.5)
+                px = scx + int(_cos(rad) * wr * scale * wobble)
+                py = scy + int(_sin(rad) * hr * scale * wobble)
                 points.append((px, py))
             if len(points) >= 3:
                 pygame.draw.polygon(splash_surf, (*color, alpha), points)
@@ -1748,9 +1750,9 @@ class AbyssInk(HeroSkill):
         border_points = []
         for angle in range(0, 360, 10):
             rad = math.radians(angle)
-            wobble = 0.85 + 0.15 * math.sin(rad * 5 + self.splash_timer * 12)
-            px = scx + int(math.cos(rad) * wr * wobble)
-            py = scy + int(math.sin(rad) * hr * wobble)
+            wobble = 0.85 + 0.15 * _sin(rad * 5 + self.splash_timer * 12)
+            px = scx + int(_cos(rad) * wr * wobble)
+            py = scy + int(_sin(rad) * hr * wobble)
             border_points.append((px, py))
         if len(border_points) >= 3:
             pygame.draw.polygon(splash_surf, (*self.colors['ink_glow'], 180), border_points, 3)
@@ -1778,7 +1780,7 @@ class AbyssInk(HeroSkill):
         gcx, gcy = wr + 20, hr + 20
 
         # 부드러운 외곽 글로우 (타원)
-        pulse = 1.0 + 0.03 * math.sin(self.ink_shimmer_time * 2)
+        pulse = 1.0 + 0.03 * _sin(self.ink_shimmer_time * 2)
         pygame.draw.ellipse(glow_surf, (*self.colors['ink_outer'], 35),
                            (int(gcx - wr * pulse), int(gcy - hr * pulse),
                             int(wr * 2 * pulse), int(hr * 2 * pulse)))
@@ -1794,8 +1796,8 @@ class AbyssInk(HeroSkill):
         # --- 메인 먹물 블롭들 ---
         for blob in self.ink_blobs:
             if blob['alpha'] > 5:
-                pulse_mod = 1.0 + 0.06 * math.sin(blob['pulse_phase'])
-                size = int(blob['size'] * pulse_mod + math.sin(blob['wobble']) * 5)
+                pulse_mod = 1.0 + 0.06 * _sin(blob['pulse_phase'])
+                size = int(blob['size'] * pulse_mod + _sin(blob['wobble']) * 5)
                 if size < 2:
                     continue
 
@@ -1807,10 +1809,10 @@ class AbyssInk(HeroSkill):
                 points_inner = []
                 for angle in range(0, 360, 30):
                     rad = math.radians(angle)
-                    r_out = size * (0.75 + 0.3 * math.sin(rad * 3 + blob['shape_seed'] + blob['wobble'] * 0.5))
+                    r_out = size * (0.75 + 0.3 * _sin(rad * 3 + blob['shape_seed'] + blob['wobble'] * 0.5))
                     r_in = r_out * 0.7
-                    points_outer.append((c + int(math.cos(rad) * r_out), c + int(math.sin(rad) * r_out)))
-                    points_inner.append((c + int(math.cos(rad) * r_in), c + int(math.sin(rad) * r_in)))
+                    points_outer.append((c + int(_cos(rad) * r_out), c + int(_sin(rad) * r_out)))
+                    points_inner.append((c + int(_cos(rad) * r_in), c + int(_sin(rad) * r_in)))
 
                 a = int(max(0, min(255, blob['alpha'])))
                 if len(points_outer) >= 3:
@@ -1822,10 +1824,10 @@ class AbyssInk(HeroSkill):
                     pygame.draw.polygon(surf, (*self.colors['ink_deep'], int(a * 0.8)), points_inner)
 
                     # 표면 반사 (작은 하이라이트)
-                    shimmer_x = c + int(math.sin(self.ink_shimmer_time * 1.5 + blob['shape_seed']) * size * 0.3)
+                    shimmer_x = c + int(_sin(self.ink_shimmer_time * 1.5 + blob['shape_seed']) * size * 0.3)
                     shimmer_y = c - int(size * 0.2)
                     shimmer_size = max(2, int(size * 0.15))
-                    shimmer_a = int(40 + 25 * math.sin(self.ink_shimmer_time * 2.5 + blob['shape_seed']))
+                    shimmer_a = int(40 + 25 * _sin(self.ink_shimmer_time * 2.5 + blob['shape_seed']))
                     pygame.draw.circle(surf, (*self.colors['ink_shimmer'], shimmer_a),
                                      (shimmer_x, shimmer_y), shimmer_size)
 
@@ -1852,7 +1854,7 @@ class AbyssInk(HeroSkill):
             confusion_surf = pygame.Surface((wr * 2 + 20, hr * 2 + 20), pygame.SRCALPHA)
             ccx, ccy = wr + 10, hr + 10
             # 맥동하는 외곽선
-            pulse_a = int(30 + 20 * math.sin(self.ink_shimmer_time * 3))
+            pulse_a = int(30 + 20 * _sin(self.ink_shimmer_time * 3))
             pygame.draw.ellipse(confusion_surf, (*self.colors['ink_glow'], pulse_a),
                                (10, 10, wr * 2, hr * 2), 2)
             screen.blit(confusion_surf, (int(self.splash_center_x - ccx), int(self.splash_center_y - ccy)))
@@ -1867,15 +1869,15 @@ class AbyssInk(HeroSkill):
         wr = self.splash_max_radius * self.splash_width_scale
         hr = self.splash_max_radius
 
-        prev_x = self.splash_center_x + math.cos(base_angle) * wr * 0.5
-        prev_y = self.splash_center_y + math.sin(base_angle) * hr * 0.5
+        prev_x = self.splash_center_x + _cos(base_angle) * wr * 0.5
+        prev_y = self.splash_center_y + _sin(base_angle) * hr * 0.5
 
         for seg in range(tendril['segments']):
             t = (seg + 1) / tendril['segments']
-            seg_angle = base_angle + math.sin(wobble + seg * 0.8) * 0.3
+            seg_angle = base_angle + _sin(wobble + seg * 0.8) * 0.3
             dist = (0.5 + t * 0.5) * length
-            nx = self.splash_center_x + math.cos(seg_angle) * wr * dist
-            ny = self.splash_center_y + math.sin(seg_angle) * hr * dist
+            nx = self.splash_center_x + _cos(seg_angle) * wr * dist
+            ny = self.splash_center_y + _sin(seg_angle) * hr * dist
 
             seg_width = max(1, int(width * (1.0 - t * 0.7)))
             alpha = int(180 * (1.0 - t * 0.6))
@@ -1928,9 +1930,9 @@ class AbyssInk(HeroSkill):
             rot_rad = math.radians(frag['rotation'])
             for angle_i in range(0, 360, 45):
                 rad = math.radians(angle_i)
-                r = s * (0.6 + 0.4 * math.sin(rad * 2 + frag['shape_seed']))
-                px = math.cos(rad + rot_rad) * r
-                py = math.sin(rad + rot_rad) * r
+                r = s * (0.6 + 0.4 * _sin(rad * 2 + frag['shape_seed']))
+                px = _cos(rad + rot_rad) * r
+                py = _sin(rad + rot_rad) * r
                 points.append((int(fc + px), int(fc + py)))
 
             if len(points) >= 3:
@@ -2120,7 +2122,7 @@ class GravityControl(HeroSkill):
         for line in self.distortion_lines:
             points = []
             for x in range(80, 680, 10):
-                wave_y = line['y'] + math.sin(x * line['frequency'] + line['phase']) * line['amplitude']
+                wave_y = line['y'] + _sin(x * line['frequency'] + line['phase']) * line['amplitude']
                 points.append((x, int(wave_y)))
             if len(points) > 1:
                 surf = pygame.Surface((600, 30), pygame.SRCALPHA)
@@ -2146,7 +2148,7 @@ class GravityControl(HeroSkill):
         # 공 주변 중력 오라
         if hasattr(ball, 'x') and hasattr(ball, 'y'):
             # 펄스 효과
-            pulse = abs(math.sin(self.pulse_timer * 4)) * 0.5 + 0.5
+            pulse = abs(_sin(self.pulse_timer * 4)) * 0.5 + 0.5
             for i in range(3):
                 radius = int(20 + i * 12 + pulse * 8)
                 alpha = int(60 - i * 15)
@@ -2155,7 +2157,7 @@ class GravityControl(HeroSkill):
                 screen.blit(surf, (int(ball.x - radius), int(ball.y - radius)))
 
             # 하향 화살표 표시
-            arrow_y_offset = int(math.sin(self.pulse_timer * 6) * 5)
+            arrow_y_offset = int(_sin(self.pulse_timer * 6) * 5)
             arrow_points = [
                 (int(ball.x), int(ball.y + 25 + arrow_y_offset)),
                 (int(ball.x - 8), int(ball.y + 15 + arrow_y_offset)),
@@ -2178,9 +2180,9 @@ class GravityControl(HeroSkill):
                     # 보간 위치 + 사인파 흔들림
                     mx = bx + (paddle_cx - bx) * t
                     my = by + (paddle_cy - by) * t
-                    wave = math.sin(t * math.pi * 3 + self.pulse_timer * 8) * (8 + 6 * t)
+                    wave = _sin(t * math.pi * 3 + self.pulse_timer * 8) * (8 + 6 * t)
                     mx += wave
-                    seg_alpha = int((80 + 60 * t) * abs(math.sin(self.pulse_timer * 3 + t * 2)))
+                    seg_alpha = int((80 + 60 * t) * abs(_sin(self.pulse_timer * 3 + t * 2)))
                     seg_alpha = max(20, min(200, seg_alpha))
                     seg_size = max(2, int(3 + 2 * t))
                     seg_surf = pygame.Surface((seg_size * 2, seg_size * 2), pygame.SRCALPHA)
@@ -2189,7 +2191,7 @@ class GravityControl(HeroSkill):
                     screen.blit(seg_surf, (int(mx - seg_size), int(my - seg_size)))
 
             # 상대 패들 주변 자력 오라 (공이 끌려오는 느낌)
-            aura_pulse = abs(math.sin(self.pulse_timer * 4)) * 0.5 + 0.5
+            aura_pulse = abs(_sin(self.pulse_timer * 4)) * 0.5 + 0.5
             for r in range(2):
                 aura_r = int(25 + r * 15 + aura_pulse * 10)
                 a = max(20, int(70 - r * 25))
@@ -2567,7 +2569,7 @@ class HellFire(HeroSkill):
                 self._regenerate_glitch_lines()
 
             # 도깨비 얼굴 알파 맥동
-            self.face_alpha_pulse = 0.5 + 0.3 * math.sin(self.glitch_timer * 12)
+            self.face_alpha_pulse = 0.5 + 0.3 * _sin(self.glitch_timer * 12)
             # 간헐적 플래시 (글리치 느낌)
             if random.random() < 0.08:
                 self.face_alpha_pulse = random.uniform(0.8, 1.0)
@@ -2624,16 +2626,16 @@ class HellFire(HeroSkill):
                 speed = 200
 
             # --- 패턴 1: ∞ 팔자(리사주) 궤도 ---
-            lissajous_fx = math.sin(t * 4.0) * 200 * dt * ramp
-            lissajous_fy = math.sin(t * 8.0) * 80 * dt * ramp
+            lissajous_fx = _sin(t * 4.0) * 200 * dt * ramp
+            lissajous_fy = _sin(t * 8.0) * 80 * dt * ramp
             ball.vx += lissajous_fx
             ball.vy += lissajous_fy
 
             # --- 패턴 2: 빙글빙글 나선 회전 ---
-            spin_speed = (1.5 + math.sin(t * 1.3) * 1.0) * ramp  # ramp로 점진적 시작
+            spin_speed = (1.5 + _sin(t * 1.3) * 1.0) * ramp  # ramp로 점진적 시작
             spin_angle = spin_speed * dt
-            cos_s = math.cos(spin_angle)
-            sin_s = math.sin(spin_angle)
+            cos_s = _cos(spin_angle)
+            sin_s = _sin(spin_angle)
             vx_rot = ball.vx * cos_s - ball.vy * sin_s
             vy_rot = ball.vx * sin_s + ball.vy * cos_s
             ball.vx = vx_rot
@@ -2645,8 +2647,8 @@ class HellFire(HeroSkill):
                     big_angle = random.uniform(0.8, 1.6)  # ~45~90도
                     if random.random() < 0.5:
                         big_angle = -big_angle
-                    cos_b = math.cos(big_angle)
-                    sin_b = math.sin(big_angle)
+                    cos_b = _cos(big_angle)
+                    sin_b = _sin(big_angle)
                     old_vx = ball.vx
                     ball.vx = old_vx * cos_b - ball.vy * sin_b
                     ball.vy = old_vx * sin_b + ball.vy * cos_b
@@ -2839,7 +2841,7 @@ class HellFire(HeroSkill):
         if self.phase == self.PHASE_FREEZE:
             # 어두운 푸른 오버레이 (맥동)
             darkness = _get_fullscreen_surface()
-            pulse = 0.5 + 0.3 * math.sin(self.glitch_timer * 8)
+            pulse = 0.5 + 0.3 * _sin(self.glitch_timer * 8)
             darkness.fill((0, 10, 30, int(180 * pulse)))
             screen.blit(darkness, (0, 0))
 
@@ -2847,7 +2849,7 @@ class HellFire(HeroSkill):
             self._draw_dokkaebi_face(screen, bx, by)
 
             # 공 주변 불꽃 아우라 (정지 중에도 희미하게)
-            aura_size = 75 + int(24 * math.sin(self.glitch_timer * 6))
+            aura_size = 75 + int(24 * _sin(self.glitch_timer * 6))
             aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
             aura_alpha = int(60 * pulse)
             pygame.draw.circle(aura_surf, (80, 200, 255, aura_alpha),
@@ -3083,8 +3085,8 @@ class HornCharge(HeroSkill):
                     game_state['horn_charge_impact_shockwave']['particles'].append({
                         'x': self.target_x,
                         'y': self.impact_y,
-                        'vx': math.cos(angle) * speed,
-                        'vy': math.sin(angle) * speed,
+                        'vx': _cos(angle) * speed,
+                        'vy': _sin(angle) * speed,
                         'life': random.randint(8, 15),  # 짧은 수명 (0.2초 내)
                         'size': random.randint(4, 8)
                     })
@@ -3437,7 +3439,7 @@ class PuppetControl(HeroSkill):
         for h in self.kiss_hearts:
             h['y'] += h['vy'] * dt
             h['wobble'] += dt * 5
-            h['x'] += math.sin(h['wobble']) * 20 * dt
+            h['x'] += _sin(h['wobble']) * 20 * dt
             h['life'] -= dt * 0.8
         self.kiss_hearts = [h for h in self.kiss_hearts if h['life'] > 0]
 
@@ -3497,7 +3499,7 @@ class PuppetControl(HeroSkill):
                 if self.phase == self.PHASE_EXTENDING:
                     wave_strength *= self.string_extend_progress
 
-                wave = math.sin(prog * math.pi * 3 + s['wave']) * wave_strength
+                wave = _sin(prog * math.pi * 3 + s['wave']) * wave_strength
 
                 x = string_start_x + (end_x - string_start_x) * prog + wave
                 y = hand_y + (end_y - hand_y) * prog
@@ -3545,8 +3547,8 @@ class PuppetControl(HeroSkill):
             for _ in range(3):
                 angle = random.uniform(0, math.pi * 2)
                 length = random.uniform(20, 40)
-                end_x = center_x + math.cos(angle) * length
-                end_y = center_y + math.sin(angle) * length
+                end_x = center_x + _cos(angle) * length
+                end_y = center_y + _sin(angle) * length
                 pygame.draw.line(screen, (255, 200, 220, 100),
                                (int(center_x), int(center_y)),
                                (int(end_x), int(end_y)), 1)
@@ -3654,8 +3656,8 @@ class DollCurse(HeroSkill):
             angle = (i / 3) * math.pi * 2 + random.uniform(-0.3, 0.3)
             distance = random.uniform(40, 80)
             self.curse_dolls.append({
-                'x': target_cx + math.cos(angle) * distance,
-                'y': target_torso_y + math.sin(angle) * distance,
+                'x': target_cx + _cos(angle) * distance,
+                'y': target_torso_y + _sin(angle) * distance,
                 'base_angle': angle,
                 'distance': distance,
                 'rotation': random.uniform(0, 360),
@@ -3736,10 +3738,10 @@ class DollCurse(HeroSkill):
 
             # 상대 영웅 이미지 중심 기준 공전 (hero_paddles.py와 동기화)
             target_cx, target_torso_y, _, _ = self._get_hero_body_position(target_paddle)
-            float_y = math.sin(doll['float_offset']) * 8  # 위아래 둥실둥실
-            doll['x'] = target_cx + math.cos(doll['base_angle']) * doll['distance']
-            doll['y'] = target_torso_y + math.sin(doll['base_angle']) * doll['distance'] * 0.5 + float_y
-            doll['rotation'] += math.sin(doll['wobble']) * 3
+            float_y = _sin(doll['float_offset']) * 8  # 위아래 둥실둥실
+            doll['x'] = target_cx + _cos(doll['base_angle']) * doll['distance']
+            doll['y'] = target_torso_y + _sin(doll['base_angle']) * doll['distance'] * 0.5 + float_y
+            doll['rotation'] += _sin(doll['wobble']) * 3
 
         # 수호 인형 업데이트 (바닥에서 솟아오르며 연화 좌우에서 공 막기)
         for guardian in self.guardian_dolls:
@@ -3756,7 +3758,7 @@ class DollCurse(HeroSkill):
             else:
                 # 솟아오르기 완료 후: 위아래 둥실둥실 흔들림
                 guardian['wobble'] += dt * 4
-                float_y = math.sin(guardian['wobble']) * 5
+                float_y = _sin(guardian['wobble']) * 5
                 guardian['y'] = guardian['target_y'] + float_y
 
             # 히트 플래시 감소
@@ -3811,8 +3813,8 @@ class DollCurse(HeroSkill):
                 angle = random.uniform(0, math.pi * 2)
                 dist = random.uniform(5, 25)  # 캐릭터 크기에 맞게 범위 조정
                 self.flame_particles.append({
-                    'x': caster_center_x + math.cos(angle) * dist,
-                    'y': caster_center_y + math.sin(angle) * dist * 0.8,
+                    'x': caster_center_x + _cos(angle) * dist,
+                    'y': caster_center_y + _sin(angle) * dist * 0.8,
                     'vx': random.uniform(-10, 10),
                     # 파티클이 캐릭터 주변에서 위아래로 흩날리도록
                     'vy': random.uniform(-25, 25),
@@ -3890,7 +3892,7 @@ class DollCurse(HeroSkill):
             aura_w, aura_h = 70, 60  # 캐릭터 크기에 맞게
             aura_surf = pygame.Surface((aura_w, aura_h), pygame.SRCALPHA)
             # 외부 오라 (진한 빨간색, 펄스 효과)
-            pulse = 0.7 + 0.3 * math.sin(pygame.time.get_ticks() * 0.008)
+            pulse = 0.7 + 0.3 * _sin(pygame.time.get_ticks() * 0.008)
             alpha = int(50 * pulse)
             pygame.draw.ellipse(aura_surf, (220, 60, 100, alpha), (0, 0, aura_w, aura_h))
             # 내부 오라 (더 밝은 색)
@@ -3967,7 +3969,7 @@ class DollCurse(HeroSkill):
                         p4 = (end_x + perp_x * beam_width_end, end_y + perp_y * beam_width_end)
 
                         # 빛 펄스 효과
-                        light_pulse = 0.6 + 0.4 * math.sin(time_tick * 0.006 + guardian['wobble'])
+                        light_pulse = 0.6 + 0.4 * _sin(time_tick * 0.006 + guardian['wobble'])
                         light_alpha = int(40 * spawn_alpha * light_pulse)
 
                         # 빛 서피스 생성 (전체 화면 크기, 캐시 재사용)
@@ -4001,7 +4003,7 @@ class DollCurse(HeroSkill):
                         screen.blit(glow_surf, (int(eye_x) - glow_size, int(eye_y) - glow_size))
 
                 # === 외부 마법진/보호 오라 (인형 뒤에) - 고퀄리티 업그레이드 ===
-                aura_pulse = 0.7 + 0.3 * math.sin(time_tick * 0.008 + guardian['wobble'])
+                aura_pulse = 0.7 + 0.3 * _sin(time_tick * 0.008 + guardian['wobble'])
                 magic_size = int(60 * s * aura_pulse)
                 magic_surf = pygame.Surface((magic_size * 2 + 20, magic_size * 2 + 20), pygame.SRCALPHA)
                 mc = magic_size + 10  # 마법진 중심
@@ -4022,15 +4024,15 @@ class DollCurse(HeroSkill):
                 for ri in range(6):
                     rune_angle = rune_rotation + ri * (math.pi / 3)
                     rune_dist = magic_size * 0.7
-                    rx = mc + int(math.cos(rune_angle) * rune_dist)
-                    ry = mc + int(math.sin(rune_angle) * rune_dist)
+                    rx = mc + int(_cos(rune_angle) * rune_dist)
+                    ry = mc + int(_sin(rune_angle) * rune_dist)
                     # 작은 삼각형 룬
                     tri_size = int(6 * s)
                     tri_points = []
                     for ti in range(3):
                         ta = rune_angle + ti * (math.pi * 2 / 3)
-                        tri_points.append((rx + int(math.cos(ta) * tri_size),
-                                         ry + int(math.sin(ta) * tri_size)))
+                        tri_points.append((rx + int(_cos(ta) * tri_size),
+                                         ry + int(_sin(ta) * tri_size)))
                     pygame.draw.polygon(magic_surf, (255, 150, 180, int(100 * spawn_alpha * aura_pulse)),
                                       tri_points)
                     pygame.draw.polygon(magic_surf, (220, 100, 140, int(150 * spawn_alpha)),
@@ -4042,10 +4044,10 @@ class DollCurse(HeroSkill):
                 for si in range(5):
                     outer_angle = -math.pi/2 + si * (math.pi * 2 / 5) + rune_rotation * 0.5
                     inner_angle = outer_angle + math.pi / 5
-                    star_points.append((mc + int(math.cos(outer_angle) * star_size),
-                                       mc + int(math.sin(outer_angle) * star_size)))
-                    star_points.append((mc + int(math.cos(inner_angle) * star_size * 0.4),
-                                       mc + int(math.sin(inner_angle) * star_size * 0.4)))
+                    star_points.append((mc + int(_cos(outer_angle) * star_size),
+                                       mc + int(_sin(outer_angle) * star_size)))
+                    star_points.append((mc + int(_cos(inner_angle) * star_size * 0.4),
+                                       mc + int(_sin(inner_angle) * star_size * 0.4)))
                 pygame.draw.polygon(magic_surf, (255, 120, 160, int(40 * spawn_alpha * aura_pulse)),
                                   star_points)
                 pygame.draw.polygon(magic_surf, (220, 90, 130, int(80 * spawn_alpha)),
@@ -4056,9 +4058,9 @@ class DollCurse(HeroSkill):
                 for di in range(num_dots):
                     dot_angle = rune_rotation * 1.5 + di * (math.pi * 2 / num_dots)
                     dot_dist = magic_size * 0.92
-                    dot_x = mc + int(math.cos(dot_angle) * dot_dist)
-                    dot_y = mc + int(math.sin(dot_angle) * dot_dist)
-                    dot_size = int(3 * s * (0.7 + 0.3 * math.sin(time_tick * 0.01 + di)))
+                    dot_x = mc + int(_cos(dot_angle) * dot_dist)
+                    dot_y = mc + int(_sin(dot_angle) * dot_dist)
+                    dot_size = int(3 * s * (0.7 + 0.3 * _sin(time_tick * 0.01 + di)))
                     pygame.draw.circle(magic_surf, (255, 180, 200, int(120 * spawn_alpha)),
                                      (dot_x, dot_y), dot_size)
 
@@ -4085,8 +4087,8 @@ class DollCurse(HeroSkill):
                     t_end_x = gx + thread_offset // 3
 
                     # 흔들림 애니메이션
-                    sway1 = math.sin(time_tick * 0.003 + thread_i * 0.8) * 20
-                    sway2 = math.sin(time_tick * 0.004 + thread_i * 1.2 + 1) * 15
+                    sway1 = _sin(time_tick * 0.003 + thread_i * 0.8) * 20
+                    sway2 = _sin(time_tick * 0.004 + thread_i * 1.2 + 1) * 15
 
                     # 베지어 곡선 포인트들
                     ctrl1_x = t_start_x + int(sway1)
@@ -4123,7 +4125,7 @@ class DollCurse(HeroSkill):
                     # 실 위의 마법 파티클 (중간 지점에)
                     if thread_offset == 0 and len(points) > 7:
                         particle_idx = 7
-                        p_pulse = 0.6 + 0.4 * math.sin(time_tick * 0.008 + thread_i)
+                        p_pulse = 0.6 + 0.4 * _sin(time_tick * 0.008 + thread_i)
                         p_size = int(4 * p_pulse)
                         px, py = points[particle_idx]
                         p_surf = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
@@ -4178,7 +4180,7 @@ class DollCurse(HeroSkill):
 
                 # --- 팔 (관절 있는 형태 + 손) ---
                 arm_base = cloth_dark
-                arm_wobble = math.sin(time_tick * 0.003 + g_idx * 2) * 4
+                arm_wobble = _sin(time_tick * 0.003 + g_idx * 2) * 4
                 for arm_side in [-1, 1]:
                     ax = gx + int(arm_side * 20 * s)
                     ay = gy - int(3 * s) + int(arm_wobble * arm_side)
@@ -4252,7 +4254,7 @@ class DollCurse(HeroSkill):
                 # 핀 글로우 (은은한 발광)
                 hg_size = max(1, int(12 * s))
                 hg_surf = pygame.Surface((hg_size * 2, hg_size * 2), pygame.SRCALPHA)
-                hg_pulse = 0.6 + 0.4 * math.sin(time_tick * 0.005 + g_idx)
+                hg_pulse = 0.6 + 0.4 * _sin(time_tick * 0.005 + g_idx)
                 pygame.draw.circle(hg_surf, (*heart_glow_c, int(35 * hg_pulse)),
                                   (hg_size, hg_size), hg_size)
                 screen.blit(hg_surf, (heart_x - hg_size, heart_y - hg_size))
@@ -4291,11 +4293,11 @@ class DollCurse(HeroSkill):
                 for ai in range(0, 24):
                     a = math.radians(ai * 15)
                     if ai % 2 == 0:
-                        ox1 = gx + int(math.cos(a) * (head_r + 1))
-                        oy1 = head_y + int(math.sin(a) * (head_r + 1))
+                        ox1 = gx + int(_cos(a) * (head_r + 1))
+                        oy1 = head_y + int(_sin(a) * (head_r + 1))
                         a2 = math.radians((ai + 1) * 15)
-                        ox2 = gx + int(math.cos(a2) * (head_r + 1))
-                        oy2 = head_y + int(math.sin(a2) * (head_r + 1))
+                        ox2 = gx + int(_cos(a2) * (head_r + 1))
+                        oy2 = head_y + int(_sin(a2) * (head_r + 1))
                         pygame.draw.line(screen, stitch_dark, (ox1, oy1), (ox2, oy2), 1)
 
                 # --- 머리카락 (긴 실 가닥 + 곡선) ---
@@ -4305,7 +4307,7 @@ class DollCurse(HeroSkill):
                 # 상단 짧은 가닥 (5가닥)
                 for hi in range(-2, 3):
                     hx = gx + int(hi * 5 * s)
-                    sway = math.sin(time_tick * 0.004 + hi * 0.7) * 3
+                    sway = _sin(time_tick * 0.004 + hi * 0.7) * 3
                     h_len = int((10 + abs(hi) * 2) * s)
                     pygame.draw.line(screen, hair_c, (hx, hair_top + int(2*s)),
                                     (int(hx + sway), hair_top - h_len), 2)
@@ -4316,7 +4318,7 @@ class DollCurse(HeroSkill):
                     for hi in range(2):
                         base_x = gx + int(side * (head_r - 3*s)) + int(hi * side * 3 * s)
                         base_y = head_y + int(3 * s)
-                        sway = math.sin(time_tick * 0.003 + hi + side * 2) * 4
+                        sway = _sin(time_tick * 0.003 + hi + side * 2) * 4
                         mid_x = base_x + int(side * 5 * s) + int(sway * 0.5)
                         mid_y = base_y + int(12 * s)
                         end_x = base_x + int(side * 3 * s) + int(sway)
@@ -4362,7 +4364,7 @@ class DollCurse(HeroSkill):
                 x_sz = int(5 * s)
                 x_c = (220, 50, 80) if flash <= 0 else (255, 110, 145)
                 # 눈 글로우 (저주 발광)
-                eye_pulse = 0.6 + 0.4 * math.sin(time_tick * 0.007 + g_idx)
+                eye_pulse = 0.6 + 0.4 * _sin(time_tick * 0.007 + g_idx)
                 eg_size = max(1, int(10 * s))
                 eg_surf = pygame.Surface((eg_size * 2, eg_size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(eg_surf, (255, 40, 80, int(50 * eye_pulse)),
@@ -4403,7 +4405,7 @@ class DollCurse(HeroSkill):
                 pygame.draw.circle(screen, mouth_c, (gx - int(12*s), mouth_y), max(1, int(1.5*s)))
                 pygame.draw.circle(screen, mouth_c, (gx + int(12*s), mouth_y), max(1, int(1.5*s)))
                 # 매듭에서 늘어진 실
-                m_sway = math.sin(time_tick * 0.004 + g_idx) * 3
+                m_sway = _sin(time_tick * 0.004 + g_idx) * 3
                 pygame.draw.line(screen, stitch_dark, (gx - int(12*s), mouth_y),
                                 (gx - int(15*s) + int(m_sway), mouth_y + int(8*s)), 1)
                 pygame.draw.line(screen, stitch_dark, (gx + int(12*s), mouth_y),
@@ -4421,7 +4423,7 @@ class DollCurse(HeroSkill):
                 for ti in range(3):
                     t_x = gx + int((-10 + ti * 10) * s)
                     t_base_y = gy + int(24 * s)
-                    t_sway = math.sin(time_tick * 0.004 + ti + g_idx) * 4
+                    t_sway = _sin(time_tick * 0.004 + ti + g_idx) * 4
                     t_len = int((6 + ti * 3) * s)
                     pygame.draw.line(screen, stitch_dark, (t_x, t_base_y),
                                     (t_x + int(t_sway), t_base_y + t_len), 1)
@@ -4430,11 +4432,11 @@ class DollCurse(HeroSkill):
                 num_particles = 6
                 for pi in range(num_particles):
                     p_angle = (time_tick * 0.002 + pi * (math.pi * 2 / num_particles)) % (math.pi * 2)
-                    p_dist = int(48 * s) + math.sin(time_tick * 0.004 + pi * 1.3) * 10
-                    px = gx + int(math.cos(p_angle) * p_dist)
-                    py = gy + int(math.sin(p_angle) * p_dist * 0.6)
-                    p_size = max(1, int(3 * s * (0.4 + 0.6 * math.sin(time_tick * 0.006 + pi))))
-                    p_alpha = max(0, min(255, int(140 * spawn_alpha * (0.4 + 0.6 * math.sin(time_tick * 0.005 + pi)))))
+                    p_dist = int(48 * s) + _sin(time_tick * 0.004 + pi * 1.3) * 10
+                    px = gx + int(_cos(p_angle) * p_dist)
+                    py = gy + int(_sin(p_angle) * p_dist * 0.6)
+                    p_size = max(1, int(3 * s * (0.4 + 0.6 * _sin(time_tick * 0.006 + pi))))
+                    p_alpha = max(0, min(255, int(140 * spawn_alpha * (0.4 + 0.6 * _sin(time_tick * 0.005 + pi)))))
                     p_surf = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
                     p_color = [(200, 60, 110), (180, 40, 90), (220, 80, 130)][pi % 3]
                     pygame.draw.circle(p_surf, (*p_color, p_alpha), (p_size, p_size), p_size)
@@ -4458,7 +4460,7 @@ class DollCurse(HeroSkill):
                 c_stitch_dk = (120, 38, 55)
 
                 # === 저주 오라 (인형 뒤, 그래디언트) ===
-                aura_pulse = 0.6 + 0.4 * math.sin(time_tick * 0.006 + doll_idx)
+                aura_pulse = 0.6 + 0.4 * _sin(time_tick * 0.006 + doll_idx)
                 aura_size = int(35 * s * aura_pulse)
                 if aura_size > 0:
                     aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
@@ -4477,7 +4479,7 @@ class DollCurse(HeroSkill):
                 # === 마리오네트 실 (머리 위로 수렴하는 3가닥) ===
                 thread_top_y = dy - int(50 * s)
                 for ti, tx_off in enumerate([-5, 0, 5]):
-                    t_sway = math.sin(time_tick * 0.004 + ti * 1.2 + doll_idx) * 4
+                    t_sway = _sin(time_tick * 0.004 + ti * 1.2 + doll_idx) * 4
                     # 실 시작 (머리 상단)
                     t_start = (dx + int(tx_off * s * 0.5), dy - int(16 * s))
                     # 실 중간 (흔들림)
@@ -4511,7 +4513,7 @@ class DollCurse(HeroSkill):
                 # --- 팔 (흔들리는) ---
                 arm_y_base = dy - int(4 * s)
                 for arm_side in [-1, 1]:
-                    a_sway = math.sin(time_tick * 0.005 + arm_side + doll_idx) * 3
+                    a_sway = _sin(time_tick * 0.005 + arm_side + doll_idx) * 3
                     ax = dx + int(arm_side * 11 * s)
                     aw, ah = int(7*s), int(15*s)
                     pygame.draw.ellipse(screen, c_dark,
@@ -4583,11 +4585,11 @@ class DollCurse(HeroSkill):
                 for ai in range(0, 18):
                     a = math.radians(ai * 20)
                     if ai % 2 == 0:
-                        ox1 = dx + int(math.cos(a) * (head_r + 1))
-                        oy1 = head_y + int(math.sin(a) * (head_r + 1))
+                        ox1 = dx + int(_cos(a) * (head_r + 1))
+                        oy1 = head_y + int(_sin(a) * (head_r + 1))
                         a2 = math.radians((ai + 1) * 20)
-                        ox2 = dx + int(math.cos(a2) * (head_r + 1))
-                        oy2 = head_y + int(math.sin(a2) * (head_r + 1))
+                        ox2 = dx + int(_cos(a2) * (head_r + 1))
+                        oy2 = head_y + int(_sin(a2) * (head_r + 1))
                         pygame.draw.line(screen, c_stitch_dk, (ox1, oy1), (ox2, oy2), 1)
 
                 # --- 머리카락 (상단 + 측면 가닥) ---
@@ -4597,19 +4599,19 @@ class DollCurse(HeroSkill):
                 for hi in range(-2, 3):
                     hhx = dx + int(hi * 4 * s)
                     h_len = int((7 + abs(hi) * 1.5) * s)
-                    sway = math.sin(time_tick * 0.004 + hi * 0.8 + doll_idx) * 2
+                    sway = _sin(time_tick * 0.004 + hi * 0.8 + doll_idx) * 2
                     pygame.draw.line(screen, hair_c, (hhx, h_top + int(2*s)),
                                     (int(hhx + sway), h_top - h_len), 2)
                 # 측면 긴 머리
                 for side in [-1, 1]:
                     b_x = dx + int(side * (head_r - 2*s))
                     b_y = head_y + int(2*s)
-                    sway = math.sin(time_tick * 0.003 + side + doll_idx) * 3
+                    sway = _sin(time_tick * 0.003 + side + doll_idx) * 3
                     pygame.draw.line(screen, hair_c, (b_x, b_y),
                                     (b_x + int(side * 3*s) + int(sway), b_y + int(14*s)), 2)
 
                 # --- X 눈 (저주 글로우 + 매듭점) ---
-                eye_pulse = 0.6 + 0.4 * math.sin(time_tick * 0.008 + doll_idx)
+                eye_pulse = 0.6 + 0.4 * _sin(time_tick * 0.008 + doll_idx)
                 for eye_side in [-1, 1]:
                     ex = dx + int(eye_side * 5 * s)
                     ey = head_y - int(1 * s)
@@ -4658,18 +4660,18 @@ class DollCurse(HeroSkill):
                 for ti in range(2):
                     tx = dx + int((-4 + ti * 8) * s)
                     t_base = dy + int(18 * s)
-                    t_sw = math.sin(time_tick * 0.005 + ti + doll_idx) * 3
+                    t_sw = _sin(time_tick * 0.005 + ti + doll_idx) * 3
                     pygame.draw.line(screen, c_stitch_dk, (tx, t_base),
                                     (tx + int(t_sw), t_base + int(5*s)), 1)
 
                 # --- 저주 파티클 ---
                 for pi in range(4):
                     p_angle = (time_tick * 0.003 + pi * 1.57 + doll_idx) % (math.pi * 2)
-                    p_dist = int(25 * s) + math.sin(time_tick * 0.005 + pi) * 5
-                    px = dx + int(math.cos(p_angle) * p_dist)
-                    py = dy + int(math.sin(p_angle) * p_dist * 0.6)
-                    p_size = max(1, int(2 * s * (0.5 + 0.5 * math.sin(time_tick * 0.006 + pi))))
-                    p_alpha = max(0, min(255, int(110 * (0.4 + 0.6 * math.sin(time_tick * 0.005 + pi)))))
+                    p_dist = int(25 * s) + _sin(time_tick * 0.005 + pi) * 5
+                    px = dx + int(_cos(p_angle) * p_dist)
+                    py = dy + int(_sin(p_angle) * p_dist * 0.6)
+                    p_size = max(1, int(2 * s * (0.5 + 0.5 * _sin(time_tick * 0.006 + pi))))
+                    p_alpha = max(0, min(255, int(110 * (0.4 + 0.6 * _sin(time_tick * 0.005 + pi)))))
                     p_surf = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
                     pc = [(200, 50, 100), (180, 35, 85), (220, 70, 120)][pi % 3]
                     pygame.draw.circle(p_surf, (*pc, p_alpha), (p_size, p_size), p_size)
@@ -4845,9 +4847,9 @@ class DragonBreath(HeroSkill):
                     angle_offset = random.uniform(-0.3, 0.3)  # ±17도
 
                     if is_caster_top:
-                        ball.vy = abs(boosted_speed * math.cos(angle_offset))
+                        ball.vy = abs(boosted_speed * _cos(angle_offset))
                     else:
-                        ball.vy = -abs(boosted_speed * math.cos(angle_offset))
+                        ball.vy = -abs(boosted_speed * _cos(angle_offset))
 
                     # 좌우 넉백: 파티클 → 공 방향으로 밀어냄
                     dx = ball.x - p['x']
@@ -4855,10 +4857,10 @@ class DragonBreath(HeroSkill):
                     if abs(dx) > 1:
                         # 파티클 기준으로 공이 오른쪽이면 오른쪽으로, 왼쪽이면 왼쪽으로 넉백
                         knockback_dir = 1 if dx > 0 else -1
-                        ball.vx = knockback_dir * knockback_strength + boosted_speed * math.sin(angle_offset)
+                        ball.vx = knockback_dir * knockback_strength + boosted_speed * _sin(angle_offset)
                     else:
                         # 정중앙이면 랜덤 방향 넉백
-                        ball.vx = random.choice([-1, 1]) * knockback_strength + boosted_speed * math.sin(angle_offset)
+                        ball.vx = random.choice([-1, 1]) * knockback_strength + boosted_speed * _sin(angle_offset)
 
                     # 쿨다운 설정 (0.3초 후 다시 타격 가능)
                     self.breath_hit_cooldown = 0.3
@@ -4973,22 +4975,22 @@ class DragonBreath(HeroSkill):
                         r, g, b = 80, 20, 10
                         alpha = int(60 * life_ratio)
                     elif layer == 1:  # 외부 - 빨강
-                        r = int(200 + 55 * math.sin(phase * math.pi))
-                        g = int(40 + 30 * math.sin(phase * math.pi * 2))
+                        r = int(200 + 55 * _sin(phase * math.pi))
+                        g = int(40 + 30 * _sin(phase * math.pi * 2))
                         b = 0
                         alpha = int(120 * life_ratio)
                     elif layer == 2:  # 중간 - 주황
                         r = 255
-                        g = int(100 + 80 * math.sin(phase * math.pi * 1.5))
-                        b = int(20 * math.sin(phase * math.pi))
+                        g = int(100 + 80 * _sin(phase * math.pi * 1.5))
+                        b = int(20 * _sin(phase * math.pi))
                         alpha = int(180 * life_ratio)
                     elif layer == 3:  # 내부 - 밝은 노랑
                         r = 255
-                        g = int(200 + 55 * math.sin(phase * math.pi * 2))
-                        b = int(50 + 100 * math.sin(phase * math.pi))
+                        g = int(200 + 55 * _sin(phase * math.pi * 2))
+                        b = int(50 + 100 * _sin(phase * math.pi))
                         alpha = int(200 * life_ratio)
                     else:  # 핵심 - 흰색
-                        r, g, b = 255, 255, int(200 + 55 * math.sin(phase * math.pi))
+                        r, g, b = 255, 255, int(200 + 55 * _sin(phase * math.pi))
                         alpha = int(220 * life_ratio)
 
                     # 색상값 클램핑
@@ -5009,8 +5011,8 @@ class DragonBreath(HeroSkill):
                             pygame.draw.circle(surf, (r, g, b, grad_alpha), (center, center), gr)
 
                         # 흔들림 효과 (레이어별 다른 흔들림)
-                        wobble_x = math.sin(phase * 10 + layer) * (2 + layer * 0.5)
-                        wobble_y = math.cos(phase * 8 + layer * 0.7) * (1.5 + layer * 0.3)
+                        wobble_x = _sin(phase * 10 + layer) * (2 + layer * 0.5)
+                        wobble_y = _cos(phase * 8 + layer * 0.7) * (1.5 + layer * 0.3)
 
                         screen.blit(surf, (int(p['x'] - center + wobble_x), int(p['y'] - center + wobble_y)), special_flags=pygame.BLEND_ADD)
 
@@ -5245,8 +5247,8 @@ class SteamBarrier(HeroSkill):
             self.barrier_hit_particles.append({
                 'x': ball_x + random.uniform(-8, 8),
                 'y': self.barrier_y + random.uniform(-4, 4),
-                'vx': math.cos(angle) * speed,
-                'vy': math.sin(angle) * speed,
+                'vx': _cos(angle) * speed,
+                'vy': _sin(angle) * speed,
                 'life': random.uniform(0.2, 0.5),
                 'max_life': 0.5,
                 'size': random.uniform(2, 5),
@@ -5291,8 +5293,8 @@ class SteamBarrier(HeroSkill):
             sy = self.barrier_y + random.uniform(-4, 4)
             angle = random.uniform(0, math.pi * 2)
             speed = random.uniform(80, 280)
-            vx = math.cos(angle) * speed * 0.6
-            vy = math.sin(angle) * speed
+            vx = _cos(angle) * speed * 0.6
+            vy = _sin(angle) * speed
             center_offset = (sx - 380) / 380
             vx += center_offset * random.uniform(40, 100)
             self.break_shards.append({
@@ -5318,8 +5320,8 @@ class SteamBarrier(HeroSkill):
                 self.break_gear_fragments.append({
                     'x': gx + random.uniform(-8, 8),
                     'y': self.barrier_y + random.uniform(-8, 8),
-                    'vx': math.cos(angle) * speed,
-                    'vy': math.sin(angle) * speed,
+                    'vx': _cos(angle) * speed,
+                    'vy': _sin(angle) * speed,
                     'size': random.uniform(4, 10),
                     'angle': random.uniform(0, math.pi * 2),
                     'angular_vel': random.uniform(-15, 15),
@@ -5338,8 +5340,8 @@ class SteamBarrier(HeroSkill):
             self.break_steam_burst.append({
                 'x': sx,
                 'y': self.barrier_y + random.uniform(-6, 6),
-                'vx': math.cos(angle) * speed,
-                'vy': math.sin(angle) * speed,
+                'vx': _cos(angle) * speed,
+                'vy': _sin(angle) * speed,
                 'life': random.uniform(0.5, 1.0),
                 'max_life': 1.0,
                 'size': random.uniform(12, 30),
@@ -5427,10 +5429,10 @@ class SteamBarrier(HeroSkill):
                 start_dist = random.uniform(5, 20)
                 speed = random.uniform(30, 80)
                 self.energy_particles.append({
-                    'x': self.caster_center_x + math.cos(angle) * start_dist,
-                    'y': self.caster_center_y + math.sin(angle) * start_dist,
-                    'vx': math.cos(angle) * speed,
-                    'vy': math.sin(angle) * speed,
+                    'x': self.caster_center_x + _cos(angle) * start_dist,
+                    'y': self.caster_center_y + _sin(angle) * start_dist,
+                    'vx': _cos(angle) * speed,
+                    'vy': _sin(angle) * speed,
                     'life': random.uniform(0.5, 1.0),
                     'max_life': 1.0,
                     'size': random.uniform(3, 8),
@@ -5493,10 +5495,10 @@ class SteamBarrier(HeroSkill):
                 angle = random.uniform(0, math.pi * 2)
                 dist = random.uniform(5, 18)
                 self.holy_particles.append({
-                    'x': ball_cx + math.cos(angle) * dist,
-                    'y': ball_cy + math.sin(angle) * dist,
-                    'vx': math.cos(angle) * random.uniform(15, 40),
-                    'vy': math.sin(angle) * random.uniform(15, 40) - 20,
+                    'x': ball_cx + _cos(angle) * dist,
+                    'y': ball_cy + _sin(angle) * dist,
+                    'vx': _cos(angle) * random.uniform(15, 40),
+                    'vy': _sin(angle) * random.uniform(15, 40) - 20,
                     'life': random.uniform(0.4, 0.8),
                     'max_life': 0.8,
                     'size': random.uniform(2, 5),
@@ -5649,7 +5651,7 @@ class SteamBarrier(HeroSkill):
                 fade_alpha = 1.0
 
             # 배리어 라인 알파 (펄스 효과 + 페이드아웃)
-            base_alpha = int(150 + 50 * math.sin(pygame.time.get_ticks() / 100))
+            base_alpha = int(150 + 50 * _sin(pygame.time.get_ticks() / 100))
             barrier_alpha = int(base_alpha * fade_alpha)
 
             # 메인 배리어 라인 (화면 전체 너비 0~760)
@@ -5722,10 +5724,10 @@ class SteamBarrier(HeroSkill):
                     angle = math.radians(i * 360 / teeth + pygame.time.get_ticks() / 50)
                     inner = 8
                     outer = 12
-                    x1 = 15 + math.cos(angle) * inner
-                    y1 = 15 + math.sin(angle) * inner
-                    x2 = 15 + math.cos(angle) * outer
-                    y2 = 15 + math.sin(angle) * outer
+                    x1 = 15 + _cos(angle) * inner
+                    y1 = 15 + _sin(angle) * inner
+                    x2 = 15 + _cos(angle) * outer
+                    y2 = 15 + _sin(angle) * outer
                     pygame.draw.line(gear_surf, (140, 100, 60, gear_alpha), (x1, y1), (x2, y2), 3)
                 pygame.draw.circle(gear_surf, (160, 120, 80, gear_alpha), (15, 15), 8)
                 pygame.draw.circle(gear_surf, (100, 80, 50, gear_alpha), (15, 15), 4)
@@ -5780,18 +5782,18 @@ class SteamBarrier(HeroSkill):
                            special_flags=pygame.BLEND_ADD)
 
             # 3) 시전자 주변 코어 글로우 (에너지 집중 효과)
-            glow_pulse = 0.7 + 0.3 * math.sin(pygame.time.get_ticks() / 120)
+            glow_pulse = 0.7 + 0.3 * _sin(pygame.time.get_ticks() / 120)
             core_alpha = int(80 * glow_pulse * fade_alpha)
             if core_alpha > 0:
                 # 외부 주황색 오오라
-                outer_size = 35 + int(8 * math.sin(pygame.time.get_ticks() / 200))
+                outer_size = 35 + int(8 * _sin(pygame.time.get_ticks() / 200))
                 outer_surf = pygame.Surface((outer_size * 2, outer_size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(outer_surf, (200, 140, 40, core_alpha // 2),
                                   (outer_size, outer_size), outer_size)
                 screen.blit(outer_surf, (cx - outer_size, cy - outer_size),
                            special_flags=pygame.BLEND_ADD)
                 # 내부 밝은 글로우
-                inner_size = 20 + int(4 * math.sin(pygame.time.get_ticks() / 150))
+                inner_size = 20 + int(4 * _sin(pygame.time.get_ticks() / 150))
                 inner_surf = pygame.Surface((inner_size * 2, inner_size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(inner_surf, (240, 200, 100, core_alpha),
                                   (inner_size, inner_size), inner_size)
@@ -5862,8 +5864,8 @@ class SteamBarrier(HeroSkill):
                 shard_surf = pygame.Surface((w + 4, h + 4), pygame.SRCALPHA)
                 # 중심 기준 4개 꼭짓점 회전
                 cx_s, cy_s = (w + 4) / 2, (h + 4) / 2
-                cos_a = math.cos(s['angle'])
-                sin_a = math.sin(s['angle'])
+                cos_a = _cos(s['angle'])
+                sin_a = _sin(s['angle'])
                 hw, hh = w / 2, h / 2
                 points = []
                 for dx, dy in [(-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)]:
@@ -5903,10 +5905,10 @@ class SteamBarrier(HeroSkill):
                     t_angle = g['angle'] + i * (math.pi * 2 / teeth)
                     inner = sz * 0.5
                     outer = sz
-                    x1 = gc + math.cos(t_angle) * inner
-                    y1 = gc + math.sin(t_angle) * inner
-                    x2 = gc + math.cos(t_angle) * outer
-                    y2 = gc + math.sin(t_angle) * outer
+                    x1 = gc + _cos(t_angle) * inner
+                    y1 = gc + _sin(t_angle) * inner
+                    x2 = gc + _cos(t_angle) * outer
+                    y2 = gc + _sin(t_angle) * outer
                     pygame.draw.line(gear_surf, (160, 120, 80, g_alpha),
                                    (x1, y1), (x2, y2), max(1, sz // 3))
                 pygame.draw.circle(gear_surf, (180, 140, 90, g_alpha), (gc, gc), max(1, int(sz * 0.5)))
@@ -6003,7 +6005,7 @@ class SteamBarrier(HeroSkill):
                 ball_cx = ball.x + getattr(ball, 'width', 10) / 2
                 ball_cy = ball.y + getattr(ball, 'height', 10) / 2
                 # 외부 금빛 오오라
-                glow_size = 22 + int(4 * math.sin(pygame.time.get_ticks() / 150))
+                glow_size = 22 + int(4 * _sin(pygame.time.get_ticks() / 150))
                 glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(glow_surf, (255, 215, 80, 60),
                                   (glow_size, glow_size), glow_size)
@@ -6017,8 +6019,8 @@ class SteamBarrier(HeroSkill):
                 ring_time = pygame.time.get_ticks() / 800
                 for i in range(6):
                     angle = ring_time + i * (math.pi * 2 / 6)
-                    rx = ball_cx + math.cos(angle) * 14
-                    ry = ball_cy + math.sin(angle) * 14
+                    rx = ball_cx + _cos(angle) * 14
+                    ry = ball_cy + _sin(angle) * 14
                     dot_surf = pygame.Surface((6, 6), pygame.SRCALPHA)
                     pygame.draw.circle(dot_surf, (255, 230, 140, 150), (3, 3), 3)
                     screen.blit(dot_surf, (int(rx) - 3, int(ry) - 3),
@@ -6126,10 +6128,10 @@ class OilSpill(HeroSkill):
             arc_height = 150  # 포물선 높이
             if self.caster_is_top:
                 # 위에서 아래로
-                proj['y'] = start_y + (proj['target_y'] - start_y) * t + math.sin(t * math.pi) * arc_height
+                proj['y'] = start_y + (proj['target_y'] - start_y) * t + _sin(t * math.pi) * arc_height
             else:
                 # 아래에서 위로
-                proj['y'] = start_y + (proj['target_y'] - start_y) * t - math.sin(t * math.pi) * arc_height
+                proj['y'] = start_y + (proj['target_y'] - start_y) * t - _sin(t * math.pi) * arc_height
 
             # 도착 시 웅덩이로 변환
             if proj['progress'] >= 1.0:
@@ -6192,8 +6194,8 @@ class OilSpill(HeroSkill):
                 # 웅덩이 타원 범위 내에서 랜덤 위치
                 angle = random.uniform(0, math.pi * 2)
                 dist = random.uniform(0, 0.7)
-                bx = puddle['x'] + math.cos(angle) * pw * 0.45 * dist
-                by = puddle['y'] + math.sin(angle) * ph * 0.35 * dist
+                bx = puddle['x'] + _cos(angle) * pw * 0.45 * dist
+                by = puddle['y'] + _sin(angle) * ph * 0.35 * dist
                 bubbles.append({
                     'x': bx, 'y': by,
                     'size': random.uniform(1.5, 4.5),
@@ -6218,7 +6220,7 @@ class OilSpill(HeroSkill):
                         b['phase'] = 'idle'
                 elif b['phase'] == 'idle':
                     # 약간 흔들리며 대기
-                    b['size'] = b['max_size'] + math.sin(b['life'] * 6) * 0.5
+                    b['size'] = b['max_size'] + _sin(b['life'] * 6) * 0.5
                     if b['life'] >= b['max_life'] * 0.8:
                         b['phase'] = 'pop'
                         b['pop_timer'] = 0.0
@@ -6354,7 +6356,7 @@ class OilSpill(HeroSkill):
         pad = 8
         surf = pygame.Surface((size * 2 + pad * 2, size * 2 + pad * 2), pygame.SRCALPHA)
         center = size + pad
-        wobble_offset = math.sin(proj['wobble']) * 3
+        wobble_offset = _sin(proj['wobble']) * 3
 
         # 글로우 (부드러운 외곽)
         pygame.draw.circle(surf, (*self._oil_colors['mid'], 60), (center, center), size + 4)
@@ -6363,8 +6365,8 @@ class OilSpill(HeroSkill):
         points = []
         for angle in range(0, 360, 25):
             rad = math.radians(angle)
-            r = size * (0.8 + 0.25 * math.sin(rad * 3 + proj['wobble']))
-            points.append((int(center + math.cos(rad) * r), int(center + math.sin(rad) * r)))
+            r = size * (0.8 + 0.25 * _sin(rad * 3 + proj['wobble']))
+            points.append((int(center + _cos(rad) * r), int(center + _sin(rad) * r)))
         if len(points) >= 3:
             pygame.draw.polygon(surf, (*self._oil_colors['base'], 230), points)
             # 깊이감
@@ -6387,7 +6389,7 @@ class OilSpill(HeroSkill):
         """고퀄리티 기름 웅덩이"""
         shimmer = puddle.get('shimmer_time', 0)
         shape_seed = puddle.get('shape_seed', 0)
-        w = int(puddle['width'] + math.sin(puddle['wobble']) * 4)
+        w = int(puddle['width'] + _sin(puddle['wobble']) * 4)
         h = int(puddle['height'])
         alpha = puddle['alpha']
         if alpha < 3:
@@ -6427,22 +6429,22 @@ class OilSpill(HeroSkill):
         # --- 무지개빛 반사 (기름 특유의 iridescence) ---
         sheen_colors = [self._oil_colors['sheen_1'], self._oil_colors['sheen_2'], self._oil_colors['sheen_3']]
         for i, sc in enumerate(sheen_colors):
-            sx_offset = math.sin(shimmer * 1.2 + i * 2.1) * w * 0.15
-            sy_offset = math.cos(shimmer * 0.9 + i * 1.7) * h * 0.1
-            sw_ratio = 0.25 + 0.08 * math.sin(shimmer * 1.5 + i)
-            sh_ratio = 0.3 + 0.1 * math.sin(shimmer * 1.8 + i)
-            sa = int(alpha * (0.15 + 0.08 * math.sin(shimmer * 2.0 + i * 0.7)))
+            sx_offset = _sin(shimmer * 1.2 + i * 2.1) * w * 0.15
+            sy_offset = _cos(shimmer * 0.9 + i * 1.7) * h * 0.1
+            sw_ratio = 0.25 + 0.08 * _sin(shimmer * 1.5 + i)
+            sh_ratio = 0.3 + 0.1 * _sin(shimmer * 1.8 + i)
+            sa = int(alpha * (0.15 + 0.08 * _sin(shimmer * 2.0 + i * 0.7)))
             sw = max(4, int(w * sw_ratio))
             sh_val = max(2, int(h * sh_ratio))
             pygame.draw.ellipse(surf, (*sc, sa),
                               (int(cx + sx_offset - sw // 2), int(cy + sy_offset - sh_val // 2), sw, sh_val))
 
         # --- 표면 하이라이트 (큰 반사) ---
-        hl_x = cx + int(math.sin(shimmer * 0.7) * w * 0.12) - int(w * 0.08)
+        hl_x = cx + int(_sin(shimmer * 0.7) * w * 0.12) - int(w * 0.08)
         hl_y = cy - int(h * 0.12)
         hl_w = max(3, int(w * 0.2))
         hl_h = max(2, int(h * 0.2))
-        hl_a = int(alpha * (0.2 + 0.08 * math.sin(shimmer * 1.3)))
+        hl_a = int(alpha * (0.2 + 0.08 * _sin(shimmer * 1.3)))
         pygame.draw.ellipse(surf, (*self._oil_colors['highlight'], hl_a),
                           (hl_x, hl_y, hl_w, hl_h))
 
@@ -6472,9 +6474,9 @@ class OilSpill(HeroSkill):
         points = []
         for angle in range(0, 360, 18):
             rad = math.radians(angle)
-            wobble = 1.0 + irregularity * math.sin(rad * 4 + seed + time * 0.8)
-            px = cx + int(math.cos(rad) * half_w * wobble)
-            py = cy + int(math.sin(rad) * half_h * wobble)
+            wobble = 1.0 + irregularity * _sin(rad * 4 + seed + time * 0.8)
+            px = cx + int(_cos(rad) * half_w * wobble)
+            py = cy + int(_sin(rad) * half_h * wobble)
             points.append((px, py))
         return points
 
@@ -6489,8 +6491,8 @@ class OilSpill(HeroSkill):
             for i in range(4):
                 angle = math.pi * 2 * i / 4 + bubble['life']
                 dist = s * 1.5 * pop_p
-                px = int(bubble['x'] + math.cos(angle) * dist)
-                py = int(bubble['y'] + math.sin(angle) * dist)
+                px = int(bubble['x'] + _cos(angle) * dist)
+                py = int(bubble['y'] + _sin(angle) * dist)
                 frag_a = int(80 * (1 - pop_p))
                 if frag_a > 3:
                     ps = pygame.Surface((4, 4), pygame.SRCALPHA)
@@ -6695,10 +6697,10 @@ class ShadowClone(HeroSkill):
                 anim_state["step_phase"] += dt * step_speed
                 anim_state["shoulder_phase"] += dt * step_speed
                 speed_factor = min(1.0, move_speed / 150.0)
-                anim_state["body_bob"] = math.sin(anim_state["step_phase"] * 2) * speed_factor * (0.3 + side_factor * 0.25)
+                anim_state["body_bob"] = _sin(anim_state["step_phase"] * 2) * speed_factor * (0.3 + side_factor * 0.25)
                 arm_amp = min(1.0, move_speed / 100.0) * (1.0 + side_factor * 0.25)
-                anim_state["arm_swing"] = math.sin(anim_state["step_phase"]) * arm_amp
-                anim_state["head_tilt"] = math.sin(anim_state["step_phase"] * 1.5) * 0.3 * speed_factor
+                anim_state["arm_swing"] = _sin(anim_state["step_phase"]) * arm_amp
+                anim_state["head_tilt"] = _sin(anim_state["step_phase"] * 1.5) * 0.3 * speed_factor
             else:
                 anim_state["body_bob"] *= 0.9
                 anim_state["arm_swing"] *= 0.9
@@ -6818,7 +6820,7 @@ class ShadowClone(HeroSkill):
         emerge_progress = min(1.0, spawn_time / self.EMERGE_DURATION)
 
         # 폴짝 모션 (위아래)
-        hop = int(4 * math.sin(spawn_time * 5))
+        hop = int(4 * _sin(spawn_time * 5))
 
         alpha = int(200 * emerge_progress)
         x = rect.centerx
@@ -6906,8 +6908,8 @@ class ShadowClone(HeroSkill):
 
         # 글리치 효과 (떨림 + 색상 분리)
         glitch_intensity = death_progress * 15
-        glitch_x = int(math.sin(dying['death_time'] * 35) * glitch_intensity)
-        glitch_y = int(math.cos(dying['death_time'] * 28) * glitch_intensity * 0.5)
+        glitch_x = int(_sin(dying['death_time'] * 35) * glitch_intensity)
+        glitch_y = int(_cos(dying['death_time'] * 28) * glitch_intensity * 0.5)
 
         char_width = 150
         char_height = 120
@@ -7029,12 +7031,12 @@ class IllusionShuriken(HeroSkill):
         # 방향 계산: caster_is_top이면 아래로(+Y), 아니면 위로(-Y)
         if self.caster_is_top:
             # 상단에서 하단으로 발사
-            vy = speed * math.cos(angle_rad)
-            vx = speed * math.sin(angle_rad)
+            vy = speed * _cos(angle_rad)
+            vx = speed * _sin(angle_rad)
         else:
             # 하단에서 상단으로 발사
-            vy = -speed * math.cos(angle_rad)
-            vx = speed * math.sin(angle_rad)
+            vy = -speed * _cos(angle_rad)
+            vx = speed * _sin(angle_rad)
 
         # 패들 중앙에서 발사
         spawn_x = caster_paddle.x + caster_paddle.width // 2
@@ -7310,17 +7312,17 @@ class IllusionShuriken(HeroSkill):
             if slash_alpha > 20:
                 for angle_offset in [0, 90]:  # X자 형태
                     angle_rad = math.radians(slash_angle + angle_offset)
-                    x1 = ex + math.cos(angle_rad) * slash_length
-                    y1 = ey + math.sin(angle_rad) * slash_length
-                    x2 = ex - math.cos(angle_rad) * slash_length
-                    y2 = ey - math.sin(angle_rad) * slash_length
+                    x1 = ex + _cos(angle_rad) * slash_length
+                    y1 = ey + _sin(angle_rad) * slash_length
+                    x2 = ex - _cos(angle_rad) * slash_length
+                    y2 = ey - _sin(angle_rad) * slash_length
                     # 메인 슬래시
                     slash_surf = pygame.Surface((int(slash_length * 2 + 10), int(slash_length * 2 + 10)), pygame.SRCALPHA)
                     center = int(slash_length + 5)
-                    lx1 = center + math.cos(angle_rad) * slash_length
-                    ly1 = center + math.sin(angle_rad) * slash_length
-                    lx2 = center - math.cos(angle_rad) * slash_length
-                    ly2 = center - math.sin(angle_rad) * slash_length
+                    lx1 = center + _cos(angle_rad) * slash_length
+                    ly1 = center + _sin(angle_rad) * slash_length
+                    lx2 = center - _cos(angle_rad) * slash_length
+                    ly2 = center - _sin(angle_rad) * slash_length
                     # 글로우 효과
                     pygame.draw.line(slash_surf, (180, 120, 255, slash_alpha // 2),
                                    (lx1, ly1), (lx2, ly2), 6)
@@ -7366,10 +7368,10 @@ class IllusionShuriken(HeroSkill):
         # 4개의 날
         for i in range(4):
             angle = math.radians(rotation + i * 90)
-            x1 = center + math.cos(angle) * 4
-            y1 = center + math.sin(angle) * 4
-            x2 = center + math.cos(angle) * shuriken_size
-            y2 = center + math.sin(angle) * shuriken_size
+            x1 = center + _cos(angle) * 4
+            y1 = center + _sin(angle) * 4
+            x2 = center + _cos(angle) * shuriken_size
+            y2 = center + _sin(angle) * shuriken_size
 
             # 날 색상 (보라빛 금속)
             blade_color = (130, 110, 170, alpha)
@@ -7377,9 +7379,9 @@ class IllusionShuriken(HeroSkill):
 
             pygame.draw.polygon(surf, blade_color, [
                 (center, center),
-                (x1 + math.cos(angle + 0.4) * 7, y1 + math.sin(angle + 0.4) * 7),
+                (x1 + _cos(angle + 0.4) * 7, y1 + _sin(angle + 0.4) * 7),
                 (x2, y2),
-                (x1 + math.cos(angle - 0.4) * 7, y1 + math.sin(angle - 0.4) * 7)
+                (x1 + _cos(angle - 0.4) * 7, y1 + _sin(angle - 0.4) * 7)
             ])
 
             # 날 가장자리 하이라이트
@@ -7638,7 +7640,7 @@ class HeroSkillManager:
                 skill.update(dt, caster_paddle, target_paddle, ball, self.game_state)
 
         # 화면 효과 업데이트
-        self.screen_effects = [e for e in self.screen_effects if e.get('duration', 0) > 0]
+        self.screen_effects[:] = [e for e in self.screen_effects if e.get('duration', 0) > 0]
         for effect in self.screen_effects:
             effect['duration'] -= dt
 

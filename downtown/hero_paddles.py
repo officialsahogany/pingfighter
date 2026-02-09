@@ -7,6 +7,8 @@
 import pygame
 import math
 from typing import Dict, Tuple, Optional
+_sin = math.sin
+_cos = math.cos
 
 
 class HeroPaddleRenderer:
@@ -83,12 +85,12 @@ class HeroPaddleRenderer:
             state["shoulder_phase"] += dt * step_speed
             # 어깨 들썩임
             speed_factor = min(1.0, move_speed / 150.0)
-            state["body_bob"] = math.sin(state["step_phase"] * 2) * speed_factor * (0.3 + side_factor * 0.25)
+            state["body_bob"] = _sin(state["step_phase"] * 2) * speed_factor * (0.3 + side_factor * 0.25)
             # 팔 스윙 - 자연스러운 범위 내
             arm_amp = min(1.0, move_speed / 100.0) * (1.0 + side_factor * 0.25)
-            state["arm_swing"] = math.sin(state["step_phase"]) * arm_amp
+            state["arm_swing"] = _sin(state["step_phase"]) * arm_amp
             # 머리 미세 흔들림
-            state["head_tilt"] = math.sin(state["step_phase"] * 1.5) * 0.3 * speed_factor
+            state["head_tilt"] = _sin(state["step_phase"] * 1.5) * 0.3 * speed_factor
         else:
             # 정지 시 부드럽게 감쇠
             state["body_bob"] *= 0.9
@@ -128,7 +130,7 @@ class HeroPaddleRenderer:
     def _rotate_point(self, px, py, pivot_x, pivot_y, angle):
         """점 (px, py)을 pivot 기준으로 angle(라디안)만큼 회전"""
         dx, dy = px - pivot_x, py - pivot_y
-        cos_a, sin_a = math.cos(angle), math.sin(angle)
+        cos_a, sin_a = _cos(angle), _sin(angle)
         return (pivot_x + int(dx * cos_a - dy * sin_a),
                 pivot_y + int(dx * sin_a + dy * cos_a))
 
@@ -154,13 +156,13 @@ class HeroPaddleRenderer:
 
         # 다리 스윙 (보폭) - 적당히 강화
         stride_boost = 1.0 + side_blend * 0.5  # 최대 1.5배
-        leg_sway = math.sin(step) * leg_intensity * 0.8 * stride_boost
+        leg_sway = _sin(step) * leg_intensity * 0.8 * stride_boost
         left_leg_sway = -leg_sway
         right_leg_sway = leg_sway
 
         # 어깨 들썩임 - 소폭 강화
         shoulder_boost = 1.0 + side_blend * 0.25
-        shoulder_bob = math.sin(step * 2) * leg_intensity * 0.3 * shoulder_boost
+        shoulder_bob = _sin(step * 2) * leg_intensity * 0.3 * shoulder_boost
 
         # 다리 들어올림 - 소폭 강화
         leg_lift_boost = 0.8 + leg_intensity * 0.5 + side_blend * 0.25
@@ -174,7 +176,7 @@ class HeroPaddleRenderer:
         if swing_timer > 0 and swing_dur > 0:
             progress = 1.0 - (swing_timer / swing_dur)
             # sqrt로 빠른 공격 → 느린 복귀 커브, 최대 ~40도
-            weapon_swing_angle = math.sin(math.sqrt(progress) * math.pi) * -0.7
+            weapon_swing_angle = _sin(math.sqrt(progress) * math.pi) * -0.7
             # 연화 양팔 올려치기 (즉각적 반응)
             # 0~15%: 빠르게 올리기, 15~35%: 짧게 유지, 35~55%: 내려치기, 55~100%: 복귀
             if progress < 0.15:
@@ -200,22 +202,22 @@ class HeroPaddleRenderer:
             weapon_swing_angle = 0.7  # 스윙 반대 방향 (바깥쪽)
 
         return {
-            "wave": math.sin(step) * (1.0 + leg_intensity * 0.3) * stride_boost,
+            "wave": _sin(step) * (1.0 + leg_intensity * 0.3) * stride_boost,
             "lean": lean,
             "arm_swing": arm_swing,
-            "left_arm_swing": -math.sin(step) * arm_intensity,
-            "right_arm_swing": math.sin(step) * arm_intensity,
+            "left_arm_swing": -_sin(step) * arm_intensity,
+            "right_arm_swing": _sin(step) * arm_intensity,
             "body_bob": body_bob * bob_boost,
             "head_tilt": head_tilt,
             # 다리 들어올림 (Y 방향)
-            "left_leg": max(0, math.sin(step)) * leg_lift_boost,
-            "right_leg": max(0, -math.sin(step)) * leg_lift_boost,
+            "left_leg": max(0, _sin(step)) * leg_lift_boost,
+            "right_leg": max(0, -_sin(step)) * leg_lift_boost,
             # 다리 좌우 스윙 (X 방향)
             "left_leg_sway": left_leg_sway,
             "right_leg_sway": right_leg_sway,
             # 어깨 움직임
-            "left_shoulder": math.sin(step + 0.5) * (0.4 + leg_intensity * 0.3) * shoulder_boost,
-            "right_shoulder": math.sin(step - 0.5) * (0.4 + leg_intensity * 0.3) * shoulder_boost,
+            "left_shoulder": _sin(step + 0.5) * (0.4 + leg_intensity * 0.3) * shoulder_boost,
+            "right_shoulder": _sin(step - 0.5) * (0.4 + leg_intensity * 0.3) * shoulder_boost,
             "shoulder_bob": shoulder_bob,
             # 옆모습 전환
             "side_blend": side_blend,
@@ -243,7 +245,7 @@ class HeroPaddleRenderer:
         # 후딜 상태일 때 색상 변경 (보라색 틴트)
         if stun_effect:
             # 보라색 틴트 적용 (원래 색상에 보라색 혼합)
-            pulse = 0.6 + 0.4 * math.sin(pygame.time.get_ticks() * 0.02)
+            pulse = 0.6 + 0.4 * _sin(pygame.time.get_ticks() * 0.02)
             r = int(color[0] * 0.5 + 180 * pulse * 0.5)
             g = int(color[1] * 0.3 + 120 * pulse * 0.3)
             b_color = int(color[2] * 0.5 + 200 * pulse * 0.5)
@@ -366,7 +368,7 @@ class HeroPaddleRenderer:
         }
 
         # === 귀기 오라 (뒤에서 발산) ===
-        aura_pulse = 0.7 + 0.3 * math.sin(self.time * 4)
+        aura_pulse = 0.7 + 0.3 * _sin(self.time * 4)
         for i in range(3):
             aura_size = int((2.5 + i * 0.5) * b * aura_pulse)
             aura_surf = self._get_surface(aura_size * 2, aura_size * 2)
@@ -380,7 +382,7 @@ class HeroPaddleRenderer:
         side_blend = anim.get("side_blend", 0)
         move_dir = anim.get("move_dir", 0)
         hakama_inertia = -move_dir * side_blend * 0.45 * b  # 두꺼운 천: 관성 약간 약하게
-        hakama_sway = math.sin(self.time * 2.8) * side_blend * 0.25 * b  # 느린 출렁임 (무거운 천)
+        hakama_sway = _sin(self.time * 2.8) * side_blend * 0.25 * b  # 느린 출렁임 (무거운 천)
         hakama_wave_boost = 1.0 + side_blend * 1.5
 
         # 하카마 그림자
@@ -547,7 +549,7 @@ class HeroPaddleRenderer:
             for side in [-1, 1]:
                 eye_x = face_rect.centerx + side * int(0.25 * b)
                 # 눈 글로우
-                glow_pulse = 0.8 + 0.2 * math.sin(self.time * 6 + side)
+                glow_pulse = 0.8 + 0.2 * _sin(self.time * 6 + side)
                 glow_surf = self._get_surface(int(0.4 * b), int(0.3 * b))
                 pygame.draw.ellipse(glow_surf, (*p["eye_glow"], int(80 * glow_pulse)), (0, 0, int(0.4 * b), int(0.3 * b)))
                 screen.blit(glow_surf, (eye_x - int(0.2 * b), eye_y - int(0.15 * b)), special_flags=pygame.BLEND_ADD)
@@ -619,7 +621,7 @@ class HeroPaddleRenderer:
                 aura_surf = self._get_surface(int(b), sword_bottom - sword_top + int(b))
                 aura_alpha = 40 - i * 10
                 for y in range(0, sword_bottom - sword_top, 3):
-                    wave_x = int(0.5 * b) + int(math.sin(self.time * 8 + y * 0.05) * 0.1 * b)
+                    wave_x = int(0.5 * b) + int(_sin(self.time * 8 + y * 0.05) * 0.1 * b)
                     pygame.draw.circle(aura_surf, (*p["sword_glow"], aura_alpha), (wave_x, y), 2 + i)
                 screen.blit(aura_surf, (sword_x - int(0.5 * b), sword_top), special_flags=pygame.BLEND_ADD)
 
@@ -668,8 +670,8 @@ class HeroPaddleRenderer:
         lean_offset = int(lean * 2 * b)
 
         # 심해 생물 발광 펄스
-        biolum_pulse = (math.sin(self.time * 2) + 1) * 0.5
-        water_shimmer = math.sin(self.time * 4) * 0.3
+        biolum_pulse = (_sin(self.time * 2) + 1) * 0.5
+        water_shimmer = _sin(self.time * 4) * 0.3
 
         p = {
             "body": color,
@@ -707,7 +709,7 @@ class HeroPaddleRenderer:
 
         # === 물방울 파티클 효과 ===
         for i in range(6):
-            drop_x = cx + int(math.sin(self.time * 2 + i * 1.2) * 2.5 * b) + lean_offset
+            drop_x = cx + int(_sin(self.time * 2 + i * 1.2) * 2.5 * b) + lean_offset
             drop_y = torso_y - int(2 * b) + int((self.time * 0.5 + i * 0.3) % 1 * 4 * b)
             drop_alpha = int(150 * (1 - ((self.time * 0.5 + i * 0.3) % 1)))
             drop_size = max(1, int(0.12 * b))
@@ -727,7 +729,7 @@ class HeroPaddleRenderer:
             for seg in range(8):
                 seg_y = hip_y + seg * int(0.4 * b)
                 wave_amp = 0.4 * (seg / 4)  # 끝으로 갈수록 진폭 증가
-                seg_x = base_x + int(math.sin(self.time * 4 + i * 0.8 + seg * 0.6) * wave_amp * b)
+                seg_x = base_x + int(_sin(self.time * 4 + i * 0.8 + seg * 0.6) * wave_amp * b)
                 points.append((int(seg_x), int(seg_y)))
 
             # 촉수 그리기 (두께 변화)
@@ -773,7 +775,7 @@ class HeroPaddleRenderer:
             for col in range(5):
                 spot_x = chest_rect.left + int((col + 0.5) * 0.55 * b)
                 spot_y = chest_rect.top + int(0.5 * b) + row * int(0.5 * b)
-                spot_offset = math.sin(self.time * 3 + col + row) * 0.05 * b
+                spot_offset = _sin(self.time * 3 + col + row) * 0.05 * b
                 pygame.draw.ellipse(screen, p["body_dark"],
                     (int(spot_x + spot_offset), int(spot_y), max(2, int(0.25 * b)), max(1, int(0.15 * b))))
 
@@ -781,7 +783,7 @@ class HeroPaddleRenderer:
         slime_y = chest_rect.bottom - int(0.3 * b)
         for i in range(4):
             slime_x = chest_rect.left + int(0.4 * b) + i * int(0.6 * b)
-            drip_length = int(math.sin(self.time * 2 + i) * 0.2 * b + 0.3 * b)
+            drip_length = int(_sin(self.time * 2 + i) * 0.2 * b + 0.3 * b)
             pygame.draw.line(screen, p["slime"], (int(slime_x), int(slime_y)),
                            (int(slime_x), int(slime_y + drip_length)), max(1, int(0.08 * b)))
 
@@ -810,8 +812,8 @@ class HeroPaddleRenderer:
             for seg in range(8):
                 # 공 타격 시 촉수 격렬 반응 (끝으로 갈수록 증폭)
                 react_amp = _hit_react * (seg / 7) * 3.0
-                wave_x = math.sin(self.time * 5 + seg * 0.8) * (0.25 + react_amp) * b * (seg / 4)
-                wave_y = math.cos(self.time * 4 + seg * 0.6) * (0.15 + react_amp * 0.6) * b
+                wave_x = _sin(self.time * 5 + seg * 0.8) * (0.25 + react_amp) * b * (seg / 4)
+                wave_y = _cos(self.time * 4 + seg * 0.6) * (0.15 + react_amp * 0.6) * b
                 # 타격 시 촉수가 안쪽으로 움츠렸다 펴지는 효과
                 retract = _hit_react * (seg / 7) * 0.5 * b * side * _weapon_swing / abs(_weapon_swing) if _weapon_swing != 0 else 0
                 ax = shoulder[0] + side * seg * int(0.28 * b) + wave_x + retract
@@ -838,7 +840,7 @@ class HeroPaddleRenderer:
                 for finger in range(3):
                     f_angle = (finger - 1) * 0.4 + side * 0.5
                     f_len = int(0.35 * b)
-                    fx = end_x + int(math.cos(self.time * 3 + finger) * f_len * 0.3 + f_angle * f_len)
+                    fx = end_x + int(_cos(self.time * 3 + finger) * f_len * 0.3 + f_angle * f_len)
                     fy = end_y + int(f_len * 0.8)
                     pygame.draw.line(screen, p["tentacle"], (int(end_x), int(end_y)), (int(fx), int(fy)), max(2, int(0.15 * b)))
 
@@ -925,7 +927,7 @@ class HeroPaddleRenderer:
                 pygame.draw.ellipse(screen, p["eye"], (eye_x - eye_w // 2, eye_y - eye_h // 2, eye_w, eye_h))
 
                 # 동공 (가로로 긴 형태, 움직임)
-                pupil_move = math.sin(self.time * 2) * 0.05 * b
+                pupil_move = _sin(self.time * 2) * 0.05 * b
                 pupil_w, pupil_h = int(0.35 * b), int(0.2 * b)
                 pygame.draw.ellipse(screen, p["eye_pupil"],
                                    (eye_x - pupil_w // 2 + int(pupil_move), eye_y - pupil_h // 2, pupil_w, pupil_h))
@@ -970,7 +972,7 @@ class HeroPaddleRenderer:
                 # 촉수 웨이브
                 whisker_points = []
                 for seg in range(4):
-                    wx = whisker_x + int(math.sin(self.time * 6 + i + seg) * 0.1 * b)
+                    wx = whisker_x + int(_sin(self.time * 6 + i + seg) * 0.1 * b)
                     wy = whisker_y + seg * int(0.2 * b)
                     whisker_points.append((int(wx), int(wy)))
                 if len(whisker_points) >= 2:
@@ -990,7 +992,7 @@ class HeroPaddleRenderer:
         lean_offset = int(lean * 2 * b)
 
         # 흑마법 펄스
-        time_pulse = (math.sin(self.time * 1.5) + 1) * 0.5
+        time_pulse = (_sin(self.time * 1.5) + 1) * 0.5
         gear_spin = self.time * 2
 
         p = {
@@ -1035,10 +1037,10 @@ class HeroPaddleRenderer:
         # 흑마력 입자 (떠다니는 암흑 에너지)
         for i in range(8):
             particle_angle = self.time * 0.8 + i * math.pi / 4
-            particle_r = int(2.5 * b + math.sin(self.time * 2 + i) * 0.3 * b)
-            px = cx + int(math.cos(particle_angle) * particle_r) + lean_offset
-            py = torso_y - int(0.5 * b) + int(math.sin(particle_angle * 2 + self.time) * 0.8 * b)
-            particle_alpha = int(100 + 50 * math.sin(self.time * 3 + i))
+            particle_r = int(2.5 * b + _sin(self.time * 2 + i) * 0.3 * b)
+            px = cx + int(_cos(particle_angle) * particle_r) + lean_offset
+            py = torso_y - int(0.5 * b) + int(_sin(particle_angle * 2 + self.time) * 0.8 * b)
+            particle_alpha = int(100 + 50 * _sin(self.time * 3 + i))
             particle_surf = self._get_surface(int(0.3 * b), int(0.3 * b))
             pygame.draw.circle(particle_surf, (*p["sand"], particle_alpha), (int(0.15 * b), int(0.15 * b)), max(1, int(0.1 * b)))
             screen.blit(particle_surf, (int(px - 0.15 * b), int(py - 0.15 * b)))
@@ -1049,7 +1051,7 @@ class HeroPaddleRenderer:
         move_dir = anim.get("move_dir", 0)
         robe_drift = -move_dir * side_blend * 0.7 * b  # 가벼운 로브: 관성 강하게
         # 이중 사인파로 유령 같은 불규칙 흔들림
-        robe_ghost = (math.sin(self.time * 3.2) * 0.2 + math.sin(self.time * 5.1) * 0.1) * side_blend * b
+        robe_ghost = (_sin(self.time * 3.2) * 0.2 + _sin(self.time * 5.1) * 0.1) * side_blend * b
         robe_wave_boost = 1.0 + side_blend * 2.5  # 로브는 가벼워서 물결 증폭 크게
 
         rb_drift = int(robe_drift + robe_ghost)
@@ -1085,12 +1087,12 @@ class HeroPaddleRenderer:
             pygame.draw.circle(screen, p["clock_face"], (int(clock_x), int(clock_y)), clock_r - 1)
             # 시계 바늘
             hand_angle = self.time * (2 + i)
-            hx = clock_x + int(math.cos(hand_angle) * clock_r * 0.6)
-            hy = clock_y + int(math.sin(hand_angle) * clock_r * 0.6)
+            hx = clock_x + int(_cos(hand_angle) * clock_r * 0.6)
+            hy = clock_y + int(_sin(hand_angle) * clock_r * 0.6)
             pygame.draw.line(screen, p["gold_dark"], (int(clock_x), int(clock_y)), (int(hx), int(hy)), 1)
 
         # 시계추 (로브 아래에 흔들림) - 더 정교함
-        pendulum_swing = math.sin(self.time * 2) * 0.5
+        pendulum_swing = _sin(self.time * 2) * 0.5
         pendulum_x = cx + lean_offset + int(pendulum_swing * b)
         pendulum_y = cy + int(2.8 * b)
         chain_segments = 5
@@ -1141,9 +1143,9 @@ class HeroPaddleRenderer:
             t1_angle = angle - 0.15
             t2_angle = angle + 0.15
             points = [
-                (gear_cx + int(math.cos(t1_angle) * inner_r), gear_cy + int(math.sin(t1_angle) * inner_r)),
-                (gear_cx + int(math.cos(angle) * outer_r), gear_cy + int(math.sin(angle) * outer_r)),
-                (gear_cx + int(math.cos(t2_angle) * inner_r), gear_cy + int(math.sin(t2_angle) * inner_r)),
+                (gear_cx + int(_cos(t1_angle) * inner_r), gear_cy + int(_sin(t1_angle) * inner_r)),
+                (gear_cx + int(_cos(angle) * outer_r), gear_cy + int(_sin(angle) * outer_r)),
+                (gear_cx + int(_cos(t2_angle) * inner_r), gear_cy + int(_sin(t2_angle) * inner_r)),
             ]
             pygame.draw.polygon(screen, p["gear"], points)
             pygame.draw.polygon(screen, p["gear_dark"], points, 1)
@@ -1161,8 +1163,8 @@ class HeroPaddleRenderer:
             sg_cy = gear_cy + int(offset_y * b)
             for i in range(6):
                 angle = -gear_spin * 1.5 + i * math.pi / 3
-                tx = sg_cx + int(math.cos(angle) * small_gear_r)
-                ty = sg_cy + int(math.sin(angle) * small_gear_r)
+                tx = sg_cx + int(_cos(angle) * small_gear_r)
+                ty = sg_cy + int(_sin(angle) * small_gear_r)
                 pygame.draw.circle(screen, p["gear_light"], (tx, ty), max(1, int(0.06 * b)))
             pygame.draw.circle(screen, p["gear"], (sg_cx, sg_cy), max(1, int(0.12 * b)))
 
@@ -1179,16 +1181,16 @@ class HeroPaddleRenderer:
         for i in range(4):
             num_angle = -math.pi / 2 + i * math.pi / 2
             num_r = int(0.16 * b)
-            nx = buckle_cx + int(math.cos(num_angle) * num_r)
-            ny = buckle_cy + int(math.sin(num_angle) * num_r)
+            nx = buckle_cx + int(_cos(num_angle) * num_r)
+            ny = buckle_cy + int(_sin(num_angle) * num_r)
             pygame.draw.circle(screen, p["gold_dark"], (int(nx), int(ny)), 1)
         # 시계 바늘
         hour_angle = self.time * 0.5 - math.pi / 2
         min_angle = self.time * 3 - math.pi / 2
         pygame.draw.line(screen, p["gold_dark"], (buckle_cx, buckle_cy),
-                        (buckle_cx + int(math.cos(hour_angle) * 0.12 * b), buckle_cy + int(math.sin(hour_angle) * 0.12 * b)), 2)
+                        (buckle_cx + int(_cos(hour_angle) * 0.12 * b), buckle_cy + int(_sin(hour_angle) * 0.12 * b)), 2)
         pygame.draw.line(screen, p["gold_shadow"], (buckle_cx, buckle_cy),
-                        (buckle_cx + int(math.cos(min_angle) * 0.18 * b), buckle_cy + int(math.sin(min_angle) * 0.18 * b)), 1)
+                        (buckle_cx + int(_cos(min_angle) * 0.18 * b), buckle_cy + int(_sin(min_angle) * 0.18 * b)), 1)
 
         # === 어깨 장식 (시계 모양, 더 정교함) ===
         for side in [-1, 1]:
@@ -1207,10 +1209,10 @@ class HeroPaddleRenderer:
                 mark_angle = -math.pi / 2 + i * math.pi / 6
                 mark_r = shoulder_r - 5 if i % 3 == 0 else shoulder_r - 4
                 mark_len = 3 if i % 3 == 0 else 2
-                mx1 = shoulder_x + int(math.cos(mark_angle) * (mark_r - mark_len))
-                my1 = shoulder_y + int(math.sin(mark_angle) * (mark_r - mark_len))
-                mx2 = shoulder_x + int(math.cos(mark_angle) * mark_r)
-                my2 = shoulder_y + int(math.sin(mark_angle) * mark_r)
+                mx1 = shoulder_x + int(_cos(mark_angle) * (mark_r - mark_len))
+                my1 = shoulder_y + int(_sin(mark_angle) * (mark_r - mark_len))
+                mx2 = shoulder_x + int(_cos(mark_angle) * mark_r)
+                my2 = shoulder_y + int(_sin(mark_angle) * mark_r)
                 pygame.draw.line(screen, p["gold_dark"], (mx1, my1), (mx2, my2), 1)
 
             # 시계 바늘
@@ -1219,13 +1221,13 @@ class HeroPaddleRenderer:
             sec_angle = self.time * 6 * side - math.pi / 2
             # 시침
             pygame.draw.line(screen, p["gold_dark"], (shoulder_x, shoulder_y),
-                           (shoulder_x + int(math.cos(hour_angle) * (shoulder_r - 8)), shoulder_y + int(math.sin(hour_angle) * (shoulder_r - 8))), 2)
+                           (shoulder_x + int(_cos(hour_angle) * (shoulder_r - 8)), shoulder_y + int(_sin(hour_angle) * (shoulder_r - 8))), 2)
             # 분침
             pygame.draw.line(screen, p["gold_shadow"], (shoulder_x, shoulder_y),
-                           (shoulder_x + int(math.cos(min_angle) * (shoulder_r - 5)), shoulder_y + int(math.sin(min_angle) * (shoulder_r - 5))), 1)
+                           (shoulder_x + int(_cos(min_angle) * (shoulder_r - 5)), shoulder_y + int(_sin(min_angle) * (shoulder_r - 5))), 1)
             # 초침 (빨간색 느낌)
             pygame.draw.line(screen, (200, 150, 100), (shoulder_x, shoulder_y),
-                           (shoulder_x + int(math.cos(sec_angle) * (shoulder_r - 4)), shoulder_y + int(math.sin(sec_angle) * (shoulder_r - 4))), 1)
+                           (shoulder_x + int(_cos(sec_angle) * (shoulder_r - 4)), shoulder_y + int(_sin(sec_angle) * (shoulder_r - 4))), 1)
             # 중심 점
             pygame.draw.circle(screen, p["gold"], (shoulder_x, shoulder_y), max(1, int(0.08 * b)))
 
@@ -1318,7 +1320,7 @@ class HeroPaddleRenderer:
                 sx = head_rect.left + int(0.25 * b) + strand * int(0.25 * b)
                 sy = head_rect.bottom - int(0.1 * b)
                 strand_len = int(1.8 * b) + int(strand % 2 * 0.25 * b)
-                wave_off = int(math.sin(self.time * 1.8 + strand * 0.8) * 0.08 * b)
+                wave_off = int(_sin(self.time * 1.8 + strand * 0.8) * 0.08 * b)
                 h_color = p["hair"] if strand % 2 == 0 else p["hair_light"]
                 mid_y = sy + strand_len // 2
                 pygame.draw.line(screen, h_color, (sx, sy), (sx + wave_off, mid_y), max(2, int(0.12 * b)))
@@ -1340,7 +1342,7 @@ class HeroPaddleRenderer:
                     sy_top = hair_base_y + int(strand * 0.1 * b)
                     sy_bot = sy_top + int(1.6 * b) + int(strand * 0.15 * b)
                     sw = max(2, int(0.14 * b) - strand)
-                    wave_off = int(math.sin(self.time * 1.8 + strand * 0.6) * 0.06 * b)
+                    wave_off = int(_sin(self.time * 1.8 + strand * 0.6) * 0.06 * b)
                     h_color = p["hair"] if strand % 2 == 0 else p["hair_light"]
                     mid_y = (sy_top + sy_bot) // 2
                     pygame.draw.line(screen, h_color, (sx, sy_top), (sx + wave_off, mid_y), sw)
@@ -1364,10 +1366,10 @@ class HeroPaddleRenderer:
                 # 시계 바늘 홍채
                 needle_angle1 = self.time * 4
                 needle_angle2 = self.time * 1.5
-                n1x = eye_x + int(math.cos(needle_angle1) * eye_r * 0.6)
-                n1y = eye_y + int(math.sin(needle_angle1) * eye_r * 0.6)
-                n2x = eye_x + int(math.cos(needle_angle2) * eye_r * 0.4)
-                n2y = eye_y + int(math.sin(needle_angle2) * eye_r * 0.4)
+                n1x = eye_x + int(_cos(needle_angle1) * eye_r * 0.6)
+                n1y = eye_y + int(_sin(needle_angle1) * eye_r * 0.6)
+                n2x = eye_x + int(_cos(needle_angle2) * eye_r * 0.4)
+                n2y = eye_y + int(_sin(needle_angle2) * eye_r * 0.4)
                 pygame.draw.line(screen, p["gold_dark"], (eye_x, eye_y), (n1x, n1y), 1)
                 pygame.draw.line(screen, p["gold_shadow"], (eye_x, eye_y), (n2x, n2y), 1)
                 # 하이라이트
@@ -1377,8 +1379,8 @@ class HeroPaddleRenderer:
                 for li in range(3):
                     lash_angle = math.pi * 1.1 + side * (0.15 + li * 0.2)
                     lash_len = int(0.1 * b) + li
-                    lx = eye_x + int(math.cos(lash_angle) * lash_len)
-                    ly = (eye_y - eye_r - 1) + int(math.sin(lash_angle) * lash_len)
+                    lx = eye_x + int(_cos(lash_angle) * lash_len)
+                    ly = (eye_y - eye_r - 1) + int(_sin(lash_angle) * lash_len)
                     pygame.draw.line(screen, p["eyelash"], (eye_x, eye_y - eye_r - 1), (lx, ly), 1)
 
             # 콧대
@@ -1520,8 +1522,8 @@ class HeroPaddleRenderer:
         lean_offset = int(lean * 2 * b)
 
         # 분노 펄스 (눈/오라 효과)
-        rage_pulse = (math.sin(self.time * 3) + 1) * 0.5
-        breath_cycle = math.sin(self.time * 1.5) * 0.1
+        rage_pulse = (_sin(self.time * 3) + 1) * 0.5
+        breath_cycle = _sin(self.time * 1.5) * 0.1
 
         p = {
             "skin": color,  # 붉은 피부
@@ -1571,7 +1573,7 @@ class HeroPaddleRenderer:
 
         # 불꽃 파티클 (어깨 주변)
         for i in range(5):
-            flame_x = cx + int(math.sin(self.time * 4 + i * 1.3) * 1.8 * b) + lean_offset
+            flame_x = cx + int(_sin(self.time * 4 + i * 1.3) * 1.8 * b) + lean_offset
             flame_y = torso_y - int(0.5 * b) - int(((self.time * 2 + i * 0.4) % 1) * 1.5 * b)
             flame_alpha = int(180 * (1 - ((self.time * 2 + i * 0.4) % 1)))
             flame_size = max(1, int(0.15 * b * (1 - ((self.time * 2 + i * 0.4) % 1))))
@@ -1679,8 +1681,8 @@ class HeroPaddleRenderer:
         for i in range(8):
             angle = i * math.pi / 4 + self.time * 0.5
             t_r = int(0.2 * b) + i * int(0.03 * b)
-            tx = tattoo_cx + int(math.cos(angle) * t_r * 0.8)
-            ty = tattoo_cy + int(math.sin(angle) * t_r * 0.6)
+            tx = tattoo_cx + int(_cos(angle) * t_r * 0.8)
+            ty = tattoo_cy + int(_sin(angle) * t_r * 0.6)
             pygame.draw.circle(screen, p["tattoo"], (tx, ty), max(1, int(0.04 * b)))
 
         # 허리 천 (호피무늬 + 금장식)
@@ -1721,12 +1723,12 @@ class HeroPaddleRenderer:
                 spike_base_w = int(0.15 * b)
 
                 # 스파이크 꼭짓점
-                spike_tip_x = shoulder_x + int(math.cos(spike_angle) * (shoulder_r + spike_len))
-                spike_tip_y = shoulder_y + int(math.sin(spike_angle) * (shoulder_r + spike_len))
-                spike_base1_x = shoulder_x + int(math.cos(spike_angle + 0.3) * shoulder_r)
-                spike_base1_y = shoulder_y + int(math.sin(spike_angle + 0.3) * shoulder_r)
-                spike_base2_x = shoulder_x + int(math.cos(spike_angle - 0.3) * shoulder_r)
-                spike_base2_y = shoulder_y + int(math.sin(spike_angle - 0.3) * shoulder_r)
+                spike_tip_x = shoulder_x + int(_cos(spike_angle) * (shoulder_r + spike_len))
+                spike_tip_y = shoulder_y + int(_sin(spike_angle) * (shoulder_r + spike_len))
+                spike_base1_x = shoulder_x + int(_cos(spike_angle + 0.3) * shoulder_r)
+                spike_base1_y = shoulder_y + int(_sin(spike_angle + 0.3) * shoulder_r)
+                spike_base2_x = shoulder_x + int(_cos(spike_angle - 0.3) * shoulder_r)
+                spike_base2_y = shoulder_y + int(_sin(spike_angle - 0.3) * shoulder_r)
 
                 # 스파이크 그리기
                 spike_points = [(spike_base1_x, spike_base1_y), (spike_tip_x, spike_tip_y), (spike_base2_x, spike_base2_y)]
@@ -1841,7 +1843,7 @@ class HeroPaddleRenderer:
             # 머리카락 줄기 (더 많이)
             for i in range(9):
                 hx = head_rect.centerx + (i - 4) * int(0.25 * b)
-                wave_off = math.sin(self.time * 2 + i) * 0.05 * b
+                wave_off = _sin(self.time * 2 + i) * 0.05 * b
                 pygame.draw.line(screen, p["hair_highlight"],
                                (hx, head_rect.top + int(0.15 * b)),
                                (hx + (i - 4) * int(0.12 * b) + int(wave_off), head_rect.bottom - int(0.05 * b)), 2)
@@ -2011,10 +2013,10 @@ class HeroPaddleRenderer:
             spike_base_r = club_head_w // 2 - 2
             spike_len = int(0.4 * b)
 
-            spike_base_x = r_head_center[0] + int(math.cos(angle) * spike_base_r)
-            spike_base_y = r_head_center[1] + int(math.sin(angle) * spike_base_r * 0.9)
-            spike_tip_x = r_head_center[0] + int(math.cos(angle) * (spike_base_r + spike_len))
-            spike_tip_y = r_head_center[1] + int(math.sin(angle) * (spike_base_r + spike_len) * 0.9)
+            spike_base_x = r_head_center[0] + int(_cos(angle) * spike_base_r)
+            spike_base_y = r_head_center[1] + int(_sin(angle) * spike_base_r * 0.9)
+            spike_tip_x = r_head_center[0] + int(_cos(angle) * (spike_base_r + spike_len))
+            spike_tip_y = r_head_center[1] + int(_sin(angle) * (spike_base_r + spike_len) * 0.9)
 
             # 스파이크 (원뿔형)
             pygame.draw.circle(screen, p["club_metal_light"], (spike_tip_x, spike_tip_y), max(2, int(0.12 * b)))
@@ -2035,8 +2037,8 @@ class HeroPaddleRenderer:
         lean_offset = int(lean * 2 * b)
 
         # 기묘한 분위기 펄스
-        eerie_pulse = (math.sin(self.time * 1.5) + 1) * 0.5
-        string_sway = math.sin(self.time * 2.5) * 0.15
+        eerie_pulse = (_sin(self.time * 1.5) + 1) * 0.5
+        string_sway = _sin(self.time * 2.5) * 0.15
 
         p = {
             "dress": color,
@@ -2085,7 +2087,7 @@ class HeroPaddleRenderer:
         side_blend = anim.get("side_blend", 0)
         move_dir = anim.get("move_dir", 0)
         skirt_inertia = -move_dir * side_blend * 0.6 * b  # 이동 반대쪽으로 치마가 밀려남
-        skirt_flow = math.sin(self.time * 4.0) * side_blend * 0.3 * b  # 부드러운 넘실거림
+        skirt_flow = _sin(self.time * 4.0) * side_blend * 0.3 * b  # 부드러운 넘실거림
         skirt_wave_boost = 1.0 + side_blend * 2.0  # 이동 시 물결 증폭
 
         dress_points = [
@@ -2123,7 +2125,7 @@ class HeroPaddleRenderer:
             layer_phase = layer * 0.3  # 위→아래로 물결 전파 효과
             for seg in range(segments + 1):
                 fx = cx - frill_w + int(seg * frill_w * 2 / segments) + lean_offset + layer_sway
-                fy = frill_y + int(math.sin(seg * 0.8 + self.time * 3 - layer_phase) * frill_wave_amp * b)
+                fy = frill_y + int(_sin(seg * 0.8 + self.time * 3 - layer_phase) * frill_wave_amp * b)
                 frill_points.append((fx, fy))
 
             for seg in range(len(frill_points) - 1):
@@ -2244,8 +2246,8 @@ class HeroPaddleRenderer:
                 wrist = (elbow[0] + wrist_dx, elbow[1] + wrist_dy)
             else:
                 elbow = (shoulder[0] + side * int(0.45 * b), torso_y + int(0.75 * b))
-                hand_wave_x = math.sin(self.time * 2 + side) * 0.22 * b
-                hand_wave_y = math.cos(self.time * 2 + side) * 0.12 * b
+                hand_wave_x = _sin(self.time * 2 + side) * 0.22 * b
+                hand_wave_y = _cos(self.time * 2 + side) * 0.12 * b
                 wrist = (elbow[0] + side * int(0.35 * b) + int(hand_wave_x),
                         torso_y + int(1.25 * b) + int(hand_wave_y))
 
@@ -2282,8 +2284,8 @@ class HeroPaddleRenderer:
             for finger in range(5):
                 finger_angle = -0.4 + finger * 0.2 + side * 0.3
                 finger_len = int(0.18 * b) if finger == 2 else int(0.14 * b)
-                fx = wrist[0] + int(math.cos(finger_angle + self.time * 0.5) * finger_len)
-                fy = wrist[1] + int(math.sin(finger_angle) * finger_len) + int(0.1 * b)
+                fx = wrist[0] + int(_cos(finger_angle + self.time * 0.5) * finger_len)
+                fy = wrist[1] + int(_sin(finger_angle) * finger_len) + int(0.1 * b)
                 pygame.draw.line(screen, p["skin"], wrist, (fx, fy), max(1, int(0.06 * b)))
 
             # === 마리오네트 실 (손가락에서 인형으로) ===
@@ -2295,7 +2297,7 @@ class HeroPaddleRenderer:
                 string_start_x = wrist[0] + (j - 2) * int(0.06 * b)
                 string_start_y = wrist[1] + int(0.12 * b)
                 target_x = puppet_base_x + (j - 2) * int(0.12 * b)
-                target_y = puppet_base_y - int(0.35 * b) + int(math.sin(self.time * 3 + j) * 0.05 * b)
+                target_y = puppet_base_y - int(0.35 * b) + int(_sin(self.time * 3 + j) * 0.05 * b)
 
                 # 실 흔들림 (곡선)
                 mid_x = (string_start_x + target_x) // 2 + int(string_sway * b * (j - 2))
@@ -2307,9 +2309,9 @@ class HeroPaddleRenderer:
         # === 마리오네트 인형 (양쪽 아래, 더 상세) ===
         for side in [-1, 1]:
             puppet_x = cx + side * int(1.95 * b) + lean_offset
-            puppet_bob = math.sin(self.time * 3 + side * 2) * 0.25 * b
+            puppet_bob = _sin(self.time * 3 + side * 2) * 0.25 * b
             puppet_y = torso_y + int(2.1 * b) + int(puppet_bob)
-            puppet_tilt = math.sin(self.time * 2.5 + side) * 0.15
+            puppet_tilt = _sin(self.time * 2.5 + side) * 0.15
 
             # 인형 그림자
             shadow_surf = self._get_surface(int(0.8 * b), int(0.4 * b))
@@ -2319,7 +2321,7 @@ class HeroPaddleRenderer:
             # 인형 다리 (관절)
             for leg_side in [-1, 1]:
                 leg_x = puppet_x + leg_side * int(0.1 * b)
-                leg_phase = math.sin(self.time * 4 + leg_side + side) * 0.1 * b
+                leg_phase = _sin(self.time * 4 + leg_side + side) * 0.1 * b
                 # 허벅지
                 pygame.draw.line(screen, p["puppet_dark"], (leg_x, puppet_y + int(0.35 * b)),
                                (leg_x + int(leg_phase), puppet_y + int(0.55 * b)), max(2, int(0.1 * b)))
@@ -2338,7 +2340,7 @@ class HeroPaddleRenderer:
             # 인형 팔 (관절)
             for arm_side in [-1, 1]:
                 arm_x = puppet_x + arm_side * int(0.2 * b)
-                arm_wave = math.sin(self.time * 5 + arm_side * side) * 0.08 * b
+                arm_wave = _sin(self.time * 5 + arm_side * side) * 0.08 * b
                 pygame.draw.line(screen, p["puppet_dark"], (arm_x, puppet_y + int(0.1 * b)),
                                (arm_x + arm_side * int(0.15 * b) + int(arm_wave), puppet_y + int(0.3 * b)), max(1, int(0.06 * b)))
                 # 손
@@ -2379,7 +2381,7 @@ class HeroPaddleRenderer:
         # 긴 머리카락 (양쪽으로 늘어짐, 물결)
         for side in [-1, 1]:
             hair_x = head_rect.centerx + side * int(0.75 * b)
-            hair_wave = math.sin(self.time * 2 + side) * 0.08 * b
+            hair_wave = _sin(self.time * 2 + side) * 0.08 * b
 
             # 머리카락 여러 가닥
             for strand in range(3):
@@ -2397,14 +2399,14 @@ class HeroPaddleRenderer:
             # 머리카락 결
             for i in range(7):
                 hx = head_rect.left + int(0.25 * b) + i * int(0.25 * b)
-                wave_off = math.sin(self.time * 1.5 + i * 0.5) * 0.03 * b
+                wave_off = _sin(self.time * 1.5 + i * 0.5) * 0.03 * b
                 pygame.draw.line(screen, p["hair_highlight"],
                                (hx, head_rect.top + int(0.15 * b)),
                                (hx + int(wave_off), head_rect.bottom - int(0.1 * b)), 2)
             # 리본 (뒤에서 보이는 꼬리)
             ribbon_tail_y = head_rect.top + int(0.4 * b)
             for side in [-1, 1]:
-                tail_wave = math.sin(self.time * 3 + side) * 0.1 * b
+                tail_wave = _sin(self.time * 3 + side) * 0.1 * b
                 tail_points = [
                     (head_rect.centerx + side * int(0.1 * b), ribbon_tail_y),
                     (head_rect.centerx + side * int(0.4 * b) + int(tail_wave), ribbon_tail_y + int(0.8 * b)),
@@ -2454,9 +2456,9 @@ class HeroPaddleRenderer:
                 for lash in range(3):
                     lash_angle = -0.5 + lash * 0.25 + side * 0.3
                     lash_len = int(0.08 * b)
-                    lx = eye_x + side * int(0.05 * b) + int(math.cos(lash_angle) * eye_w * 0.4)
+                    lx = eye_x + side * int(0.05 * b) + int(_cos(lash_angle) * eye_w * 0.4)
                     ly = eye_y - int(eye_h * 0.4)
-                    pygame.draw.line(screen, p["hair"], (lx, ly), (lx + int(math.cos(lash_angle - 0.5) * lash_len), ly - lash_len), 1)
+                    pygame.draw.line(screen, p["hair"], (lx, ly), (lx + int(_cos(lash_angle - 0.5) * lash_len), ly - lash_len), 1)
 
             # 코
             pygame.draw.line(screen, p["skin_shadow"],
@@ -2472,7 +2474,7 @@ class HeroPaddleRenderer:
             # 앞머리 (물결)
             for i in range(7):
                 hx = face_rect.left + int(0.1 * b) + i * int(0.22 * b)
-                strand_wave = math.sin(self.time * 2 + i * 0.8) * 0.02 * b
+                strand_wave = _sin(self.time * 2 + i * 0.8) * 0.02 * b
                 pygame.draw.line(screen, p["hair"],
                                (hx, head_rect.top + int(0.12 * b)),
                                (hx + (i - 3) * int(0.04 * b) + int(strand_wave), face_rect.top + int(0.25 * b)), 2)
@@ -2484,7 +2486,7 @@ class HeroPaddleRenderer:
             ribbon_y = head_rect.top - int(0.05 * b)
             # 리본 꼬리
             for side in [-1, 1]:
-                tail_wave = math.sin(self.time * 2.5 + side) * 0.08 * b
+                tail_wave = _sin(self.time * 2.5 + side) * 0.08 * b
                 tail_points = [
                     (head_rect.centerx + side * int(0.2 * b), ribbon_y + int(0.3 * b)),
                     (head_rect.centerx + side * int(0.55 * b) + int(tail_wave), ribbon_y + int(0.7 * b)),
@@ -2535,8 +2537,8 @@ class HeroPaddleRenderer:
         lean_offset = int(lean * 2 * b)
 
         # 불꽃 펄스
-        flame_pulse = (math.sin(self.time * 4) + 1) * 0.5
-        heat_wave = math.sin(self.time * 6) * 0.1
+        flame_pulse = (_sin(self.time * 4) + 1) * 0.5
+        heat_wave = _sin(self.time * 6) * 0.1
 
         p = {
             "armor": color,
@@ -2578,7 +2580,7 @@ class HeroPaddleRenderer:
 
         # 불씨 파티클
         for i in range(8):
-            ember_x = cx + int(math.sin(self.time * 3 + i * 1.1) * 2 * b) + lean_offset
+            ember_x = cx + int(_sin(self.time * 3 + i * 1.1) * 2 * b) + lean_offset
             ember_y = torso_y + int(1 * b) - int(((self.time * 1.5 + i * 0.3) % 1) * 3 * b)
             ember_alpha = int(200 * (1 - ((self.time * 1.5 + i * 0.3) % 1)))
             ember_size = max(1, int(0.1 * b * (1 - ((self.time * 1.5 + i * 0.3) % 1))))
@@ -2588,8 +2590,8 @@ class HeroPaddleRenderer:
             screen.blit(ember_surf, (int(ember_x) - ember_size * 2, int(ember_y) - ember_size * 2), special_flags=pygame.BLEND_ADD)
 
         # === 망토 (드래곤 날개처럼 펄럭임) ===
-        cape_wave = math.sin(self.time * 3) * 0.25
-        cape_wave2 = math.sin(self.time * 4.5) * 0.15
+        cape_wave = _sin(self.time * 3) * 0.25
+        cape_wave2 = _sin(self.time * 4.5) * 0.15
 
         # 망토 그림자
         cape_shadow_points = [
@@ -2621,7 +2623,7 @@ class HeroPaddleRenderer:
         # 망토 주름
         for i in range(5):
             fold_x = cx + (i - 2) * int(0.4 * b) + lean_offset
-            fold_wave = math.sin(self.time * 3 + i * 0.5) * 0.1 * b
+            fold_wave = _sin(self.time * 3 + i * 0.5) * 0.1 * b
             fold_start = (fold_x, torso_y - int(0.3 * b))
             fold_end = (fold_x + int(fold_wave) + int((i - 2) * cape_wave * 0.3 * b), cy + int(2.5 * b))
             pygame.draw.line(screen, p["cape_light"], fold_start, fold_end, 1)
@@ -2853,9 +2855,9 @@ class HeroPaddleRenderer:
             for i in range(5):
                 claw_angle = side * (0.2 + i * 0.18) - 0.3
                 claw_len = int(0.25 * b) if i == 2 else int(0.18 * b)
-                claw_x = wrist[0] + int(math.cos(claw_angle) * 0.35 * b)
-                claw_y = wrist[1] + int(math.sin(claw_angle + math.pi / 2) * 0.25 * b) + int(0.18 * b)
-                claw_tip_x = claw_x + int(math.cos(claw_angle) * claw_len)
+                claw_x = wrist[0] + int(_cos(claw_angle) * 0.35 * b)
+                claw_y = wrist[1] + int(_sin(claw_angle + math.pi / 2) * 0.25 * b) + int(0.18 * b)
+                claw_tip_x = claw_x + int(_cos(claw_angle) * claw_len)
                 claw_tip_y = claw_y + claw_len
                 pygame.draw.line(screen, p["horn"], wrist, (claw_x, claw_y), max(2, int(0.08 * b)))
                 pygame.draw.line(screen, p["horn_light"], (claw_x, claw_y), (claw_tip_x, claw_tip_y), max(1, int(0.05 * b)))
@@ -2987,8 +2989,8 @@ class HeroPaddleRenderer:
         for i in range(8):
             f_angle = self.time * 6 + i * 0.7
             f_radius = 0.35 * b * (0.5 + (i % 3) * 0.2)
-            f_x = flame_x + int(math.cos(f_angle) * f_radius)
-            f_y = flame_y - int(0.4 * b) + int(math.sin(f_angle * 2) * 0.25 * b) - i * int(0.18 * b)
+            f_x = flame_x + int(_cos(f_angle) * f_radius)
+            f_y = flame_y - int(0.4 * b) + int(_sin(f_angle * 2) * 0.25 * b) - i * int(0.18 * b)
             f_size = max(2, int(0.22 * b) - i)
 
             if f_size > 0:
@@ -3019,7 +3021,7 @@ class HeroPaddleRenderer:
         lean_offset = int(lean * 2 * b)
 
         # 기계 작동 펄스
-        mech_pulse = (math.sin(self.time * 4) + 1) * 0.5
+        mech_pulse = (_sin(self.time * 4) + 1) * 0.5
         gear_spin = self.time * 3
 
         p = {
@@ -3102,8 +3104,8 @@ class HeroPaddleRenderer:
             knee_gear_r = int(0.18 * b)
             for tooth in range(8):
                 angle = gear_spin * side + tooth * math.pi / 4
-                gx = knee_cx + int(math.cos(angle) * knee_gear_r)
-                gy = knee_cy + int(math.sin(angle) * knee_gear_r * 0.8)
+                gx = knee_cx + int(_cos(angle) * knee_gear_r)
+                gy = knee_cy + int(_sin(angle) * knee_gear_r * 0.8)
                 pygame.draw.circle(screen, p["brass"], (gx, gy), max(1, int(0.05 * b)))
             pygame.draw.circle(screen, p["brass_dark"], (knee_cx, knee_cy), max(2, int(0.12 * b)))
             pygame.draw.circle(screen, p["brass"], (knee_cx, knee_cy), max(1, int(0.08 * b)))
@@ -3168,16 +3170,16 @@ class HeroPaddleRenderer:
         # 게이지 눈금
         for i in range(8):
             mark_angle = -math.pi / 2 + i * math.pi / 4
-            mx1 = gauge_cx + int(math.cos(mark_angle) * (gauge_r - 4))
-            my1 = gauge_cy + int(math.sin(mark_angle) * (gauge_r - 4))
-            mx2 = gauge_cx + int(math.cos(mark_angle) * (gauge_r - 6))
-            my2 = gauge_cy + int(math.sin(mark_angle) * (gauge_r - 6))
+            mx1 = gauge_cx + int(_cos(mark_angle) * (gauge_r - 4))
+            my1 = gauge_cy + int(_sin(mark_angle) * (gauge_r - 4))
+            mx2 = gauge_cx + int(_cos(mark_angle) * (gauge_r - 6))
+            my2 = gauge_cy + int(_sin(mark_angle) * (gauge_r - 6))
             pygame.draw.line(screen, p["copper_dark"], (mx1, my1), (mx2, my2), 1)
         # 게이지 바늘
-        needle_angle = math.sin(self.time * 2) * 0.8 - math.pi / 4
+        needle_angle = _sin(self.time * 2) * 0.8 - math.pi / 4
         needle_len = gauge_r - 5
-        nx = gauge_cx + int(math.cos(needle_angle) * needle_len)
-        ny = gauge_cy + int(math.sin(needle_angle) * needle_len)
+        nx = gauge_cx + int(_cos(needle_angle) * needle_len)
+        ny = gauge_cy + int(_sin(needle_angle) * needle_len)
         pygame.draw.line(screen, p["gauge_red"], (gauge_cx, gauge_cy), (nx, ny), 2)
         pygame.draw.circle(screen, p["brass_dark"], (gauge_cx, gauge_cy), max(1, int(0.05 * b)))
 
@@ -3192,8 +3194,8 @@ class HeroPaddleRenderer:
             inner_r = aux_r * 0.7
             outer_r = aux_r
             pygame.draw.line(screen, p["gear_dark"],
-                           (aux_cx + int(math.cos(angle) * inner_r), aux_cy + int(math.sin(angle) * inner_r)),
-                           (aux_cx + int(math.cos(angle) * outer_r), aux_cy + int(math.sin(angle) * outer_r)), 2)
+                           (aux_cx + int(_cos(angle) * inner_r), aux_cy + int(_sin(angle) * inner_r)),
+                           (aux_cx + int(_cos(angle) * outer_r), aux_cy + int(_sin(angle) * outer_r)), 2)
         pygame.draw.circle(screen, p["gear"], (aux_cx, aux_cy), int(aux_r * 0.6))
         pygame.draw.circle(screen, p["gear_light"], (aux_cx, aux_cy), int(aux_r * 0.4))
         pygame.draw.circle(screen, p["brass_dark"], (aux_cx, aux_cy), max(1, int(0.05 * b)))
@@ -3246,8 +3248,8 @@ class HeroPaddleRenderer:
             # 어깨 리벳
             for i in range(4):
                 rivet_angle = math.pi + side * (0.3 + i * 0.35)
-                rx = shoulder_x + int(math.cos(rivet_angle) * (shoulder_w * 0.35))
-                ry = shoulder_y + int(math.sin(rivet_angle) * (shoulder_h * 0.25))
+                rx = shoulder_x + int(_cos(rivet_angle) * (shoulder_w * 0.35))
+                ry = shoulder_y + int(_sin(rivet_angle) * (shoulder_h * 0.25))
                 pygame.draw.circle(screen, p["rivet"], (rx, ry), max(1, int(0.04 * b)))
 
             # 톱니바퀴 장식 (회전)
@@ -3257,10 +3259,10 @@ class HeroPaddleRenderer:
                 angle = gear_spin * side + i * 2 * math.pi / tooth_count
                 inner_r = gear_r * 0.65
                 outer_r = gear_r
-                gx_inner = shoulder_x + int(math.cos(angle) * inner_r)
-                gy_inner = shoulder_y + int(math.sin(angle) * inner_r)
-                gx_outer = shoulder_x + int(math.cos(angle) * outer_r)
-                gy_outer = shoulder_y + int(math.sin(angle) * outer_r)
+                gx_inner = shoulder_x + int(_cos(angle) * inner_r)
+                gy_inner = shoulder_y + int(_sin(angle) * inner_r)
+                gx_outer = shoulder_x + int(_cos(angle) * outer_r)
+                gy_outer = shoulder_y + int(_sin(angle) * outer_r)
                 pygame.draw.line(screen, p["brass_dark"], (gx_inner, gy_inner), (gx_outer, gy_outer), max(2, int(0.08 * b)))
 
             pygame.draw.circle(screen, p["copper_dark"], (shoulder_x, shoulder_y), max(3, int(0.25 * b)))
@@ -3304,8 +3306,8 @@ class HeroPaddleRenderer:
                 # 조인트 톱니
                 for i in range(6):
                     angle = gear_spin * 2 + i * math.pi / 3
-                    jx = elbow[0] + int(math.cos(angle) * 0.22 * b)
-                    jy = elbow[1] + int(math.sin(angle) * 0.22 * b)
+                    jx = elbow[0] + int(_cos(angle) * 0.22 * b)
+                    jy = elbow[1] + int(_sin(angle) * 0.22 * b)
                     pygame.draw.circle(screen, p["brass"], (jx, jy), max(1, int(0.04 * b)))
                 pygame.draw.circle(screen, p["brass_dark"], elbow, max(2, int(0.12 * b)))
                 pygame.draw.circle(screen, p["brass"], elbow, max(1, int(0.08 * b)))
@@ -3328,15 +3330,15 @@ class HeroPaddleRenderer:
                 pygame.draw.circle(screen, p["metal_light"], (wrist[0] - 2, wrist[1] - 2), max(1, int(0.15 * b)))
 
                 # 손가락 (집게, 4개)
-                finger_grip = math.sin(self.time * 4) * 0.12
+                finger_grip = _sin(self.time * 4) * 0.12
                 for i in range(4):
                     finger_angle = 0.25 + i * 0.25 + finger_grip
                     finger_len = int(0.45 * b) if i == 1 or i == 2 else int(0.35 * b)
-                    fx1 = wrist[0] + int(math.cos(finger_angle) * 0.2 * b)
-                    fy1 = wrist[1] + int(math.sin(finger_angle) * 0.15 * b) + int(0.1 * b)
-                    fx2 = fx1 + int(math.cos(finger_angle + 0.2) * finger_len * 0.6)
+                    fx1 = wrist[0] + int(_cos(finger_angle) * 0.2 * b)
+                    fy1 = wrist[1] + int(_sin(finger_angle) * 0.15 * b) + int(0.1 * b)
+                    fx2 = fx1 + int(_cos(finger_angle + 0.2) * finger_len * 0.6)
                     fy2 = fy1 + int(finger_len * 0.4)
-                    fx3 = fx2 + int(math.cos(finger_angle + 0.1) * finger_len * 0.4)
+                    fx3 = fx2 + int(_cos(finger_angle + 0.1) * finger_len * 0.4)
                     fy3 = fy2 + int(finger_len * 0.3)
                     # 손가락 세그먼트
                     pygame.draw.line(screen, p["copper_dark"], (wrist[0], wrist[1] + int(0.08 * b)), (fx1, fy1), max(2, int(0.1 * b)))
@@ -3371,7 +3373,7 @@ class HeroPaddleRenderer:
                 sx = head_rect.left + int(0.2 * b) + strand * int(0.3 * b)
                 sy = head_rect.centery
                 strand_len = int(2.2 * b) + int(strand % 2 * 0.3 * b)
-                wave_off = int(math.sin(self.time * 2 + strand * 0.7) * 0.1 * b)
+                wave_off = int(_sin(self.time * 2 + strand * 0.7) * 0.1 * b)
                 hair_c = p["hair"] if strand % 2 == 0 else p["hair_light"]
                 mid_y = sy + strand_len // 2
                 pygame.draw.line(screen, hair_c, (sx, sy), (sx + wave_off, mid_y), max(2, int(0.14 * b)))
@@ -3437,8 +3439,8 @@ class HeroPaddleRenderer:
                 for li in range(3):
                     lash_angle = math.pi * 1.1 + side * (0.15 + li * 0.2)
                     lash_len = int(0.12 * b) + li
-                    lx = lash_x + int(math.cos(lash_angle) * lash_len)
-                    ly = lash_y + int(math.sin(lash_angle) * lash_len)
+                    lx = lash_x + int(_cos(lash_angle) * lash_len)
+                    ly = lash_y + int(_sin(lash_angle) * lash_len)
                     pygame.draw.line(screen, p["eyelash"], (lash_x, lash_y), (lx, ly), 1)
 
             # 긴 머리카락 (양쪽으로 흘러내리는 웨이브)
@@ -3450,7 +3452,7 @@ class HeroPaddleRenderer:
                     strand_top = hair_base_y + int(strand * 0.15 * b)
                     strand_bottom = strand_top + int(1.8 * b) + int(strand * 0.2 * b)
                     strand_w = max(2, int(0.18 * b) - strand)
-                    wave_offset = int(math.sin(self.time * 2 + strand * 0.5) * 0.08 * b)
+                    wave_offset = int(_sin(self.time * 2 + strand * 0.5) * 0.08 * b)
                     hair_color = p["hair"] if strand % 2 == 0 else p["hair_mid"]
                     mid_x = strand_x + wave_offset + side * int(0.05 * b)
                     mid_y = (strand_top + strand_bottom) // 2
@@ -3481,7 +3483,7 @@ class HeroPaddleRenderer:
         for burst in range(2):
             burst_offset = burst * int(0.5 * b)
             for i in range(5):
-                sx = steam_base_x + int(math.sin(self.time * 6 + i + burst) * 0.2 * b)
+                sx = steam_base_x + int(_sin(self.time * 6 + i + burst) * 0.2 * b)
                 sy = steam_base_y - burst_offset - i * int(0.22 * b) - int((self.time * 2.5) % 1 * 0.4 * b)
                 steam_size = max(1, int((0.18 - i * 0.03) * b))
                 steam_alpha = max(0, int(120 - i * 25 - ((self.time * 2.5) % 1) * 50))
@@ -3544,7 +3546,7 @@ class HeroPaddleRenderer:
         }
 
         # === 그림자 오라 (닌술 에너지) ===
-        shadow_pulse = math.sin(self.time * 3) * 0.15 + 0.85
+        shadow_pulse = _sin(self.time * 3) * 0.15 + 0.85
         aura_size = int(5.5 * b * shadow_pulse)
         aura_surf = self._get_surface(aura_size * 2, aura_size * 2)
         # 다중 레이어 그림자 오라
@@ -3560,7 +3562,7 @@ class HeroPaddleRenderer:
         for i in range(6):
             particle_phase = (self.time * 2 + i * 1.2) % 4
             particle_y = torso_y + int(2.5 * b) - int(particle_phase * 0.8 * b)
-            particle_x = cx + lean_offset + int(math.sin(self.time * 3 + i * 1.5) * 0.8 * b)
+            particle_x = cx + lean_offset + int(_sin(self.time * 3 + i * 1.5) * 0.8 * b)
             particle_alpha = int(60 * (1 - particle_phase / 4))
             particle_size = int(0.3 * b * (1 - particle_phase / 6))
             if particle_size > 0 and particle_alpha > 0:
@@ -3569,8 +3571,8 @@ class HeroPaddleRenderer:
                 screen.blit(ps, (particle_x - particle_size, particle_y - particle_size))
 
         # === 스카프 (다중 레이어 펄럭임) ===
-        scarf_wave = math.sin(self.time * 4) * 0.35
-        scarf_wave2 = math.sin(self.time * 5 + 1) * 0.25
+        scarf_wave = _sin(self.time * 4) * 0.35
+        scarf_wave2 = _sin(self.time * 5 + 1) * 0.25
         # 스카프 레이어 1 (뒤)
         scarf_back = [
             (cx + int(0.25 * b) + lean_offset, torso_y - int(0.85 * b)),
@@ -3696,8 +3698,8 @@ class HeroPaddleRenderer:
         # 수리검 날 (4개)
         for i in range(4):
             angle = i * math.pi / 2 + shuriken_rotation
-            sx = shuriken_x + int(math.cos(angle) * 0.28 * b)
-            sy = shuriken_y + int(math.sin(angle) * 0.28 * b)
+            sx = shuriken_x + int(_cos(angle) * 0.28 * b)
+            sy = shuriken_y + int(_sin(angle) * 0.28 * b)
             # 각 날
             pygame.draw.line(screen, p["shuriken"], (shuriken_x, shuriken_y), (sx, sy), max(2, int(0.08 * b)))
             pygame.draw.line(screen, p["shuriken_edge"], (shuriken_x, shuriken_y), (sx, sy), 1)
@@ -3805,7 +3807,7 @@ class HeroPaddleRenderer:
             for i in range(3):
                 tail_base_y = head_rect.bottom - int(0.15 * b)
                 tail_end_y = tail_base_y + int(0.45 * b) + i * int(0.2 * b)
-                tail_wave = math.sin(self.time * 5 + i * 0.8) * 0.25
+                tail_wave = _sin(self.time * 5 + i * 0.8) * 0.25
                 tail_x_offset = (i - 1) * int(0.15 * b)
                 tail_color = p["cloth"] if i == 1 else p["cloth_dark"]
                 pygame.draw.line(screen, tail_color,
@@ -3827,8 +3829,8 @@ class HeroPaddleRenderer:
             # 소용돌이 문양
             for i in range(3):
                 angle = i * 2 * math.pi / 3 + self.time
-                sx = emblem_x + int(math.cos(angle) * 0.08 * b)
-                sy = emblem_y + int(math.sin(angle) * 0.08 * b)
+                sx = emblem_x + int(_cos(angle) * 0.08 * b)
+                sy = emblem_y + int(_sin(angle) * 0.08 * b)
                 pygame.draw.line(screen, p["metal_light"], (emblem_x, emblem_y), (sx, sy), 1)
 
             # 눈 (날카로운 눈빛 - 다중 레이어 글로우)

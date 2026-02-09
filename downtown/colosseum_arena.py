@@ -5,6 +5,8 @@ import pygame
 import random
 import math
 import sys
+_sin = math.sin
+_cos = math.cos
 import os
 import time
 from enum import Enum
@@ -833,7 +835,7 @@ class ArenaBall:
 
         # 실제 게임과 동일한 초기 속도
         angle = random.uniform(-0.4, 0.4)
-        self.vx = BALL_BASE_SPEED * math.sin(angle)
+        self.vx = BALL_BASE_SPEED * _sin(angle)
         self.vy = BALL_BASE_SPEED * direction
         self.visible = True
         self.trail = []
@@ -973,8 +975,8 @@ class BallSpawnAnimation:
             dist = random.uniform(100, 200)
             speed = random.uniform(80, 150)
             self.particles.append({
-                'x': self.center_x + math.cos(angle) * dist,
-                'y': self.center_y + math.sin(angle) * dist,
+                'x': self.center_x + _cos(angle) * dist,
+                'y': self.center_y + _sin(angle) * dist,
                 'angle': angle,
                 'speed': speed,
                 'size': random.uniform(2, 5),
@@ -1049,9 +1051,9 @@ class BallSpawnAnimation:
 
             # 색상 (노랑 ~ 주황 ~ 흰색)
             hue = p['color_shift'] + self.timer * 0.5
-            r = int(200 + 55 * math.sin(hue))
-            g = int(180 + 75 * math.sin(hue + 1))
-            b = int(100 + 100 * math.sin(hue + 2))
+            r = int(200 + 55 * _sin(hue))
+            g = int(180 + 75 * _sin(hue + 1))
+            b = int(100 + 100 * _sin(hue + 2))
 
             size = int(p['size'])
             if size > 0:
@@ -1062,7 +1064,7 @@ class BallSpawnAnimation:
 
         # 중앙 글로우
         if self.phase >= 1:
-            glow_size = 40 + int(20 * math.sin(self.timer * 10))
+            glow_size = 40 + int(20 * _sin(self.timer * 10))
             glow_surf = _get_arena_surface(glow_size * 2, glow_size * 2)
             for r in range(glow_size, 0, -5):
                 alpha = int(30 * self.ball_alpha / 255 * (r / glow_size))
@@ -2067,7 +2069,7 @@ class GuardWarriorSystem:
                         and i == self.next_guard_top_idx % len(self.guard_warriors_top)):
                     ax = frame_x_right - 12
                     ay = slot_cy + frame_h // 2
-                    pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() / 300.0)
+                    pulse = 0.5 + 0.5 * _sin(pygame.time.get_ticks() / 300.0)
                     a_alpha = int(160 + 80 * pulse)
                     arrow_s = _get_arena_surface(10, 14)
                     ac = (*arrow_color[:3], a_alpha)
@@ -2125,7 +2127,7 @@ class GuardWarriorSystem:
                         and i == self.next_guard_bottom_idx % len(self.guard_warriors_bottom)):
                     ax = frame_x_left + frame_w + 2
                     ay = slot_cy + frame_h // 2
-                    pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() / 300.0)
+                    pulse = 0.5 + 0.5 * _sin(pygame.time.get_ticks() / 300.0)
                     a_alpha = int(160 + 80 * pulse)
                     arrow_s = _get_arena_surface(10, 14)
                     ac = (*arrow_color[:3], a_alpha)
@@ -2237,6 +2239,7 @@ class ColosseumsArena:
         self.fonts = fonts
         self.player_gold = player_gold
         self.battle_callback = battle_callback  # 실제 게임 엔진 사용 콜백
+        self._text_cache: Dict[tuple, tuple] = {}  # (font_key, text, color) → (surf, rect)
 
         # 토너먼트 상태
         self.state = TournamentState.BRACKET_VIEW
@@ -2392,6 +2395,19 @@ class ColosseumsArena:
         self.guard_skill_instances = {}      # hero_id -> [skill1, skill2]
         # GuardWarriorSystem 인스턴스
         self.guard_system = None
+
+    def _render_text(self, font_key: str, text: str, color: tuple):
+        """정적 텍스트 렌더링 캐시 (매 프레임 동일 텍스트 재렌더링 방지)"""
+        key = (font_key, text, color)
+        cached = self._text_cache.get(key)
+        if cached is not None:
+            return cached
+        font = self.fonts.get(font_key)
+        if font is None:
+            return None, None
+        surf, rect = font.render(text, color)
+        self._text_cache[key] = (surf, rect)
+        return surf, rect
 
     def _generate_bracket(self):
         """8강 대진표 생성 - 모든 영웅 자유 매칭 (상단/하단 구분 없음)
@@ -3062,7 +3078,7 @@ class ColosseumsArena:
 
             # 애니메이션 (살짝 흔들림)
             timer = self.top_speech_timer if is_top else self.bottom_speech_timer
-            float_offset = math.sin(timer * 0.15) * 2
+            float_offset = _sin(timer * 0.15) * 2
 
             # 화면에 그리기
             self.screen.blit(bubble_surface, (bubble_x, bubble_y + float_offset))
@@ -3214,7 +3230,7 @@ class ColosseumsArena:
         for p in self.hover_line_particles:
             p['life'] -= dt; p['x'] += p['vx'] * dt; p['y'] += p['vy'] * dt
             p['alpha'] = max(0, p['alpha'] - 200 * dt)
-        self.hover_line_particles = [p for p in self.hover_line_particles if p['life'] > 0]
+        self.hover_line_particles[:] = [p for p in self.hover_line_particles if p['life'] > 0]
 
         # 시각 효과 업데이트
         if self.arena_background:
@@ -3314,7 +3330,7 @@ class ColosseumsArena:
                 p['x'] += p['vx']
                 p['y'] += p['vy']
                 p['alpha'] = max(0, p['alpha'] - 0.8)
-            self.perk_particles = [p for p in self.perk_particles if p['alpha'] > 0]
+            self.perk_particles[:] = [p for p in self.perk_particles if p['alpha'] > 0]
             if self.perk_anim_phase == "appearing":
                 # 슬라이드-인 이징
                 easing = 0.12
@@ -3687,7 +3703,7 @@ class ColosseumsArena:
                            color: Tuple[int, int, int] = (200, 220, 255)):
         """호버 시 빛나는 테두리 + 코너 라인 이펙트"""
         t = self.hover_glow_timer
-        pulse = 0.6 + 0.4 * abs(math.sin(t * 4.0))
+        pulse = 0.6 + 0.4 * abs(_sin(t * 4.0))
         al = int(120 * pulse)
 
         # 글로우
@@ -3778,7 +3794,7 @@ class ColosseumsArena:
             pygame.draw.rect(btn_surf, cont_bg, (0, 0, btn_w, btn_h), border_radius=5)
             self.screen.blit(btn_surf, continue_rect.topleft)
             if self.fonts and "medium" in self.fonts:
-                surf, _ = self.fonts["medium"].render("계속 도전!", (255, 255, 255))
+                surf, _ = self._render_text("medium", "계속 도전!", (255, 255, 255))
                 btn_text_x = continue_rect.centerx - surf.get_width() // 2
                 self._draw_fire_icon(btn_text_x - 12, continue_rect.y + 15 + surf.get_height() // 2, 12)
                 self.screen.blit(surf, (btn_text_x, continue_rect.y + 15))
@@ -4037,21 +4053,21 @@ class ColosseumsArena:
             angle = current_time * rotation_speed + (i * 2 * math.pi / num_questions)
 
             # 물음표 위치 계산 (원형 궤도)
-            x = center_x + orbit_radius * math.cos(angle)
-            y = center_y + orbit_radius * math.sin(angle) * 0.5  # Y축은 타원형으로
+            x = center_x + orbit_radius * _cos(angle)
+            y = center_y + orbit_radius * _sin(angle) * 0.5  # Y축은 타원형으로
 
             # 물음표 크기 변화 (앞뒤 구분)
-            size_factor = 0.8 + 0.2 * math.sin(angle)
+            size_factor = 0.8 + 0.2 * _sin(angle)
 
             # 물음표 색상 (깜빡이는 효과)
-            if math.sin(current_time * 0.01 + i) > 0:
+            if _sin(current_time * 0.01 + i) > 0:
                 color = (255, 255, 100)  # 밝은 노란색
             else:
                 color = (255, 200, 50)   # 어두운 노란색
 
             # 물음표 그리기 (폰트가 있으면 사용, 없으면 원으로 대체)
             if self.fonts and "medium" in self.fonts:
-                question_text, _ = self.fonts["medium"].render("?", color)
+                question_text, _ = self._render_text("medium", "?", color)
                 # 크기 조절
                 scaled_width = int(question_text.get_width() * size_factor)
                 scaled_height = int(question_text.get_height() * size_factor)
@@ -4059,7 +4075,7 @@ class ColosseumsArena:
                     scaled_question = pygame.transform.scale(question_text, (scaled_width, scaled_height))
                     question_rect = scaled_question.get_rect(center=(int(x), int(y)))
                     # 그림자
-                    shadow_text, _ = self.fonts["medium"].render("?", (50, 50, 0))
+                    shadow_text, _ = self._render_text("medium", "?", (50, 50, 0))
                     scaled_shadow = pygame.transform.scale(shadow_text, (scaled_width, scaled_height))
                     shadow_rect = scaled_shadow.get_rect(center=(int(x + 2), int(y + 2)))
                     self.screen.blit(scaled_shadow, shadow_rect)
@@ -4169,9 +4185,9 @@ class ColosseumsArena:
 
         # 타이틀
         if self.fonts and "large" in self.fonts:
-            title = f"8강 대진표"
-            surf, _ = self.fonts["large"].render(title, (255, 215, 0))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 30))
+            surf, _ = self._render_text("large", "8강 대진표", (255, 215, 0))
+            if surf:
+                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 30))
 
         # 대진표 그리기
         self._draw_tournament_bracket()
@@ -4274,8 +4290,9 @@ class ColosseumsArena:
         pygame.draw.circle(self.screen, (60, 65, 75), (vs_x, vs_y), 16)
         pygame.draw.circle(self.screen, (100, 105, 115), (vs_x, vs_y), 16, 2)
         if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render("VS", (255, 215, 0))
-            self.screen.blit(surf, (vs_x - surf.get_width() // 2, vs_y - surf.get_height() // 2))
+            surf, _ = self._render_text("small", "VS", (255, 215, 0))
+            if surf:
+                self.screen.blit(surf, (vs_x - surf.get_width() // 2, vs_y - surf.get_height() // 2))
 
         # === 영웅 2 (오른쪽 하단 삼각형) ===
         h2_color = match.hero2["color"]
@@ -4444,8 +4461,9 @@ class ColosseumsArena:
 
         # VS
         if self.fonts and "large" in self.fonts:
-            surf, _ = self.fonts["large"].render("VS", (255, 100, 100))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 175))
+            surf, _ = self._render_text("large", "VS", (255, 100, 100))
+            if surf:
+                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 175))
 
         # 영웅 2 선택 버튼 (캐릭터 이미지 포함)
         hero2 = self.selected_match.hero2
@@ -4493,7 +4511,7 @@ class ColosseumsArena:
             pygame.draw.rect(self.screen, (255, 180, 180), exit_rect, 2, border_radius=5)
         if self.fonts and "small" in self.fonts:
             exit_text_color = (255, 230, 230) if exit_hovered else (255, 200, 200)
-            surf, _ = self.fonts["small"].render("포기하고 나가기", exit_text_color)
+            surf, _ = self._render_text("small", "포기하고 나가기", exit_text_color)
             self.screen.blit(surf, (exit_rect.centerx - surf.get_width() // 2, exit_rect.y + 12))
 
     def _draw_result_ui(self):
@@ -4647,7 +4665,7 @@ class ColosseumsArena:
         if rc_hovered:
             pygame.draw.rect(self.screen, (150, 255, 150), continue_rect, 2, border_radius=5)
         if self.fonts and "medium" in self.fonts:
-            surf, _ = self.fonts["medium"].render("계속 도전!", (255, 255, 255))
+            surf, _ = self._render_text("medium", "계속 도전!", (255, 255, 255))
             btn_text_x = continue_rect.centerx - surf.get_width() // 2
             self._draw_fire_icon(btn_text_x - 12, continue_rect.y + 15 + surf.get_height() // 2, 12)
             self.screen.blit(surf, (btn_text_x, continue_rect.y + 15))
@@ -4708,8 +4726,8 @@ class ColosseumsArena:
             num_rays = 12
             for i in range(num_rays):
                 angle = (i / num_rays) * math.pi * 2 + self.animation_timer * 0.3
-                end_x = center_x + int(math.cos(angle) * 500)
-                end_y = 350 + int(math.sin(angle) * 500)
+                end_x = center_x + int(_cos(angle) * 500)
+                end_y = 350 + int(_sin(angle) * 500)
                 pygame.draw.line(ray_surf, (255, 215, 0, ray_alpha), (center_x, 350), (end_x, end_y), 3)
             self.screen.blit(ray_surf, (0, 0))
 
@@ -4788,7 +4806,7 @@ class ColosseumsArena:
 
         # 챔피언 글로우 (크고 화려하게)
         if intro > 0.2:
-            glow_pulse = abs(math.sin(self.animation_timer * 2)) * 0.3 + 0.7
+            glow_pulse = abs(_sin(self.animation_timer * 2)) * 0.3 + 0.7
             glow_a = int(80 * min(1.0, (intro - 0.2) * 2) * glow_pulse)
             glow_r = 110
             glow_s = _get_arena_surface(glow_r * 2, glow_r * 2)
@@ -4814,7 +4832,7 @@ class ColosseumsArena:
             trophy_size = int(30 * trophy_eased)
             if trophy_size > 3:
                 # 트로피 받침대 빛
-                sparkle_a = int(60 * trophy_eased + abs(math.sin(self.animation_timer * 4)) * 40)
+                sparkle_a = int(60 * trophy_eased + abs(_sin(self.animation_timer * 4)) * 40)
                 sparkle_s = _get_arena_surface(80, 80)
                 pygame.draw.circle(sparkle_s, (255, 230, 100, sparkle_a), (40, 40), 35)
                 self.screen.blit(sparkle_s, (center_x - 40, trophy_y - 40))
@@ -4827,7 +4845,7 @@ class ColosseumsArena:
 
             # "토너먼트 우승!" (큰 금색)
             if "large" in self.fonts:
-                pulse = abs(math.sin(self.animation_timer * 3)) * 0.3 + 0.7
+                pulse = abs(_sin(self.animation_timer * 3)) * 0.3 + 0.7
                 gold = (int(255 * pulse), int(215 * pulse), 0)
                 surf, _ = self.fonts["large"].render("토너먼트 우승!", gold)
                 alpha_s = _get_arena_surface(*surf.get_size())
@@ -4946,18 +4964,22 @@ class ColosseumsArena:
                 p['rot'] += p['rot_speed'] * 0.016
                 if p['y'] < SCREEN_HEIGHT + 10:
                     alive.append(p)
-                    # 직사각형 컨페티
+                    # 직사각형 컨페티 (회전된 폴리곤 직접 그리기)
                     s = p['size']
-                    cs = _get_arena_surface(s * 2, s)
-                    pygame.draw.rect(cs, p['color'], (0, 0, s * 2, s))
-                    rotated = pygame.transform.rotate(cs, math.degrees(p['rot']))
-                    self.screen.blit(rotated, (int(p['x']) - rotated.get_width() // 2,
-                                               int(p['y']) - rotated.get_height() // 2))
+                    cx, cy = p['x'], p['y']
+                    a = p['rot']
+                    ca, sa = _cos(a), _sin(a)
+                    hw, hh = s, s * 0.5
+                    pygame.draw.polygon(self.screen, p['color'], (
+                        (cx - hw * ca + hh * sa, cy - hw * sa - hh * ca),
+                        (cx + hw * ca + hh * sa, cy + hw * sa - hh * ca),
+                        (cx + hw * ca - hh * sa, cy + hw * sa + hh * ca),
+                        (cx - hw * ca - hh * sa, cy - hw * sa + hh * ca)))
             self.victory_confetti = alive
 
         # === 하단 힌트 (버튼 나오기 전) ===
         if timer < 3.0 and timer > 1.5 and self.fonts and "small" in self.fonts:
-            blink = abs(math.sin(self.animation_timer * 2)) * 155 + 100
+            blink = abs(_sin(self.animation_timer * 2)) * 155 + 100
             surf, _ = self.fonts["small"].render("잠시 후 보상을 선택합니다...", (int(blink), int(blink), int(blink)))
             self.screen.blit(surf, (center_x - surf.get_width() // 2, 690))
 
@@ -5007,7 +5029,7 @@ class ColosseumsArena:
         if end_exit_hovered:
             pygame.draw.rect(self.screen, (180, 210, 255), exit_rect, 2, border_radius=5)
         if self.fonts and "medium" in self.fonts:
-            surf, _ = self.fonts["medium"].render("투기장 나가기", (255, 255, 255))
+            surf, _ = self._render_text("medium", "투기장 나가기", (255, 255, 255))
             self.screen.blit(surf, (exit_rect.centerx - surf.get_width() // 2, exit_rect.y + 15))
 
     # ========================================================================
@@ -5067,8 +5089,8 @@ class ColosseumsArena:
             speed = random.uniform(4, 12)
             self.perk_particles.append({
                 'x': card_cx, 'y': card_cy,
-                'vx': math.cos(angle) * speed,
-                'vy': math.sin(angle) * speed,
+                'vx': _cos(angle) * speed,
+                'vy': _sin(angle) * speed,
                 'size': random.uniform(3, 8),
                 'alpha': 255,
                 'color': selected_perk["icon_color"]
@@ -5122,8 +5144,8 @@ class ColosseumsArena:
                 frac = t / 19.0
                 angle = base_angle + frac * math.pi * 1.5
                 dist = r * ss * (0.15 + frac * 0.7)
-                px = cx + int(math.cos(angle) * dist)
-                py = cy + int(math.sin(angle) * dist)
+                px = cx + int(_cos(angle) * dist)
+                py = cy + int(_sin(angle) * dist)
                 points.append((px, py))
             if len(points) >= 2:
                 alpha = 200 - i * 30
@@ -5160,8 +5182,8 @@ class ColosseumsArena:
             for t in range(25):
                 frac = t / 24.0
                 angle = flip * (frac * math.pi - math.pi / 2)
-                px = cx + int(math.cos(angle) * ring_r)
-                py = cy + int(math.sin(angle) * ring_r * flip)
+                px = cx + int(_cos(angle) * ring_r)
+                py = cy + int(_sin(angle) * ring_r * flip)
                 points.append((px, py))
             if len(points) >= 2:
                 pygame.draw.lines(surf, (*color, 220), False, points, max(2, int(3 * ss / 3)))
@@ -5173,10 +5195,10 @@ class ColosseumsArena:
                     points[-1][1] - points[-2][1],
                     points[-1][0] - points[-2][0]
                 )
-                a1 = (end[0] - int(math.cos(arr_angle - 0.5) * arr_size),
-                      end[1] - int(math.sin(arr_angle - 0.5) * arr_size))
-                a2 = (end[0] - int(math.cos(arr_angle + 0.5) * arr_size),
-                      end[1] - int(math.sin(arr_angle + 0.5) * arr_size))
+                a1 = (end[0] - int(_cos(arr_angle - 0.5) * arr_size),
+                      end[1] - int(_sin(arr_angle - 0.5) * arr_size))
+                a2 = (end[0] - int(_cos(arr_angle + 0.5) * arr_size),
+                      end[1] - int(_sin(arr_angle + 0.5) * arr_size))
                 pygame.draw.polygon(surf, (*color, 230), [end, a1, a2])
 
     def _draw_perk_icon_command(self, surf, cx, cy, r, ss):
@@ -5309,7 +5331,7 @@ class ColosseumsArena:
 
             # 6단계 외곽 글로우 (선택 시, 스테이지 스타일)
             if is_selected:
-                glow_intensity = int(30 + 25 * math.sin(self.perk_frame_count * 0.12))
+                glow_intensity = int(30 + 25 * _sin(self.perk_frame_count * 0.12))
                 glow_color = (
                     min(255, perk["icon_color"][0] + glow_intensity),
                     min(255, perk["icon_color"][1] + glow_intensity),
@@ -5329,7 +5351,7 @@ class ColosseumsArena:
                 border_width = 3
             elif is_hovered:
                 # 호버 시 밝은 배경 + 아이콘 색상 테두리
-                hover_pulse = 0.6 + 0.4 * abs(math.sin(self.hover_glow_timer * 4.0))
+                hover_pulse = 0.6 + 0.4 * abs(_sin(self.hover_glow_timer * 4.0))
                 hover_glow_a = int(60 * hover_pulse)
                 for offset in range(4, 0, -1):
                     glow_rect = pygame.Rect(offset, offset,
@@ -5499,7 +5521,7 @@ class ColosseumsArena:
 
             title = f"{round_name} 진출!"
             # 타이틀 펄스 효과
-            pulse = abs(math.sin(self.animation_timer * 3)) * 0.3 + 0.7
+            pulse = abs(_sin(self.animation_timer * 3)) * 0.3 + 0.7
             gold_color = (int(255 * pulse), int(215 * pulse), 0)
             surf, _ = self.fonts["large"].render(title, gold_color)
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 30))
@@ -5511,7 +5533,7 @@ class ColosseumsArena:
         if self.fonts and "small" in self.fonts:
             if self.bracket_anim_phase < 2:
                 hint = "잠시 후 다음 매치가 시작됩니다..."
-                alpha = int(abs(math.sin(self.animation_timer * 2)) * 155 + 100)
+                alpha = int(abs(_sin(self.animation_timer * 2)) * 155 + 100)
                 surf, _ = self.fonts["small"].render(hint, (alpha, alpha, alpha))
                 self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 700))
 
@@ -5543,7 +5565,7 @@ class ColosseumsArena:
 
         # 글로우 효과 (호위무사 색상)
         guard_color = guard.get("color", (150, 150, 150))
-        glow_alpha = int(60 + abs(math.sin(self.animation_timer * 3)) * 40)
+        glow_alpha = int(60 + abs(_sin(self.animation_timer * 3)) * 40)
         glow_radius = 80
         glow_surf = _get_arena_surface(glow_radius * 2, glow_radius * 2)
         pygame.draw.circle(glow_surf, (*guard_color, glow_alpha), (glow_radius, glow_radius), glow_radius)
@@ -5624,10 +5646,10 @@ class ColosseumsArena:
             particle_count = int((progress - 0.3) * 10)
             for i in range(min(particle_count, 6)):
                 angle = self.animation_timer * 2 + i * (math.pi * 2 / 6)
-                dist = 100 + math.sin(self.animation_timer * 3 + i) * 20
-                px = center_x + int(math.cos(angle) * dist)
-                py = hero_y + int(math.sin(angle) * dist * 0.6)
-                spark_alpha = int(100 + abs(math.sin(self.animation_timer * 5 + i)) * 100)
+                dist = 100 + _sin(self.animation_timer * 3 + i) * 20
+                px = center_x + int(_cos(angle) * dist)
+                py = hero_y + int(_sin(angle) * dist * 0.6)
+                spark_alpha = int(100 + abs(_sin(self.animation_timer * 5 + i)) * 100)
                 spark_surf = _get_arena_surface(8, 8)
                 pygame.draw.circle(spark_surf, (255, 215, 0, spark_alpha), (4, 4), 3)
                 self.screen.blit(spark_surf, (px - 4, py - 4))
@@ -5755,8 +5777,9 @@ class ColosseumsArena:
         pygame.draw.circle(self.screen, (60, 65, 75), (vs_x, vs_y), 16)
         pygame.draw.circle(self.screen, (100, 105, 115), (vs_x, vs_y), 16, 2)
         if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render("VS", (255, 215, 0))
-            self.screen.blit(surf, (vs_x - surf.get_width() // 2, vs_y - surf.get_height() // 2))
+            surf, _ = self._render_text("small", "VS", (255, 215, 0))
+            if surf:
+                self.screen.blit(surf, (vs_x - surf.get_width() // 2, vs_y - surf.get_height() // 2))
 
         # === 영웅 2 (오른쪽 하단 삼각형) ===
         hero2 = match.hero2
@@ -5796,7 +5819,7 @@ class ColosseumsArena:
         if match.completed and match.winner and is_current_round_match:
             winner_rect = hero1_rect if match.winner == hero1 else hero2_rect
             if self.bracket_anim_phase >= 0:
-                glow_alpha = int(abs(math.sin(self.animation_timer * 4)) * 100 + 50)
+                glow_alpha = int(abs(_sin(self.animation_timer * 4)) * 100 + 50)
                 glow_surface = _get_arena_surface(winner_rect.width + 6, winner_rect.height + 6)
                 pygame.draw.rect(glow_surface, (255, 215, 0, glow_alpha),
                                (0, 0, winner_rect.width + 6, winner_rect.height + 6),
@@ -5887,7 +5910,7 @@ class ColosseumsArena:
         pygame.draw.circle(self.screen, (200, 170, 0), (x, y), s, 2)
         # G 텍스트
         if self.fonts and "small" in self.fonts:
-            g_surf, _ = self.fonts["small"].render("G", (200, 170, 0))
+            g_surf, _ = self._render_text("small", "G", (200, 170, 0))
             self.screen.blit(g_surf, (x - g_surf.get_width() // 2, y - g_surf.get_height() // 2))
 
     def _draw_warning_icon(self, x: int, y: int, size: int = 14, color: Tuple[int, int, int] = (255, 200, 50)):
@@ -6025,7 +6048,7 @@ class ColosseumsArena:
     def _draw_moving_winner(self, winner: dict, x: int, y: int, progress: float):
         """이동 중인 승자 표시 (캐릭터 아이콘 포함)"""
         # 글로우 효과
-        glow_radius = 40 + int(abs(math.sin(self.animation_timer * 5)) * 10)
+        glow_radius = 40 + int(abs(_sin(self.animation_timer * 5)) * 10)
         glow_alpha = int(100 + progress * 100)
 
         glow_surface = _get_arena_surface(glow_radius * 2, glow_radius * 2)
@@ -6077,7 +6100,7 @@ class ColosseumsArena:
 
         # 타이틀
         if self.fonts and "large" in self.fonts:
-            pulse = abs(math.sin(self.animation_timer * 3)) * 0.3 + 0.7
+            pulse = abs(_sin(self.animation_timer * 3)) * 0.3 + 0.7
             gold_color = (int(255 * pulse), int(215 * pulse), 0)
             title = round_name
             surf, _ = self.fonts["large"].render(title, gold_color)
@@ -6094,7 +6117,7 @@ class ColosseumsArena:
         hero1_y = SCREEN_HEIGHT // 2
 
         # 글로우 효과
-        glow_alpha = int(80 + abs(math.sin(self.animation_timer * 4)) * 50)
+        glow_alpha = int(80 + abs(_sin(self.animation_timer * 4)) * 50)
         glow_surf = _get_arena_surface(160, 160)
         pygame.draw.circle(glow_surf, (*hero1["color"], glow_alpha), (80, 80), 70)
         self.screen.blit(glow_surf, (hero1_x - 80, hero1_y - 80))
@@ -6145,7 +6168,7 @@ class ColosseumsArena:
         # VS (중앙, 스케일 애니메이션)
         vs_scale = min(1.0, progress * 3) if progress < 0.5 else 1.0
         if self.fonts and "large" in self.fonts and vs_scale > 0.1:
-            vs_color = (255, int(100 + abs(math.sin(self.animation_timer * 5)) * 100), 100)
+            vs_color = (255, int(100 + abs(_sin(self.animation_timer * 5)) * 100), 100)
             surf, _ = self.fonts["large"].render("VS", vs_color)
             # 스케일 적용
             if vs_scale < 1.0:
@@ -6218,7 +6241,7 @@ class ColosseumsArena:
                 pass  # 버튼이 표시되면 힌트 숨김
             else:
                 hint = "잠시 후 배틀이 시작됩니다..." if not show_buttons else "잠시 후 계속 여부를 선택합니다..."
-                alpha = int(abs(math.sin(self.animation_timer * 2)) * 155 + 100)
+                alpha = int(abs(_sin(self.animation_timer * 2)) * 155 + 100)
                 surf, _ = self.fonts["small"].render(hint, (alpha, alpha, alpha))
                 self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 650))
 

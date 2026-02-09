@@ -3230,7 +3230,7 @@ def is_blacksmith_skill_available(skill_name: str) -> bool:
         if not has_blacksmith_hammer_shock_perk():
             return False
         # 디바인스톤 체크
-        divine_state = globals().get("blacksmith_divine_stone_state")
+        divine_state = blacksmith_divine_stone_state
         if divine_state is None:
             return False
         return True
@@ -3240,8 +3240,8 @@ def is_blacksmith_skill_available(skill_name: str) -> bool:
 def get_blacksmith_skill_cooldown_remaining(skill_name: str) -> float:
     """발토르 스킬의 남은 쿨타임 비율 반환 (0.0 ~ 1.0)"""
     if skill_name == "hammer_shock":
-        cooldown_timer = globals().get("blacksmith_hammer_shock_cooldown_timer", 0)
-        cooldown_total = globals().get("blacksmith_hammer_shock_cooldown_total", 1)
+        cooldown_timer = blacksmith_hammer_shock_cooldown_timer
+        cooldown_total = blacksmith_hammer_shock_cooldown_total
         if cooldown_total <= 0:
             cooldown_total = 1
         if cooldown_timer <= 0:
@@ -3255,22 +3255,22 @@ def _check_player_has_debuff() -> bool:
     # 전역 변수들 참조
     try:
         # 스턴 관련 (확실한 디버프)
-        if globals().get('player_stunned_timer', 0) > 0:
+        if player_stunned_timer > 0:
             return True
-        if globals().get('player_missile_stunned_timer', 0) > 0:
+        if player_missile_stunned_timer > 0:
             return True
         # 스테이지5 네메시스 레이저 감전 (player_stunned)
-        if globals().get('player_stunned', False):
+        if player_stunned:
             return True
         # 슬로우 관련 (확실한 디버프)
-        if globals().get('player_slow_timer', 0) > 0:
+        if player_slow_timer > 0:
             return True
-        if globals().get('spider_mine_slow_active', False):
+        if spider_mine_slow_active:
             return True
         # 화상 관련 (확실한 디버프)
-        if globals().get('player_burn_timer', 0) > 0:
+        if player_burn_timer > 0:
             return True
-        if globals().get('player_burn_effect', False):
+        if player_burn_effect:
             return True
         # 넉백은 클렌즈 조건에서 제외 (짧은 물리 효과이므로)
     except:
@@ -4422,7 +4422,7 @@ def _draw_blacksmith_skill_icons(surface: pygame.Surface, orb_center_x: int, orb
     min_cost = level_costs.get(1, 100)  # 최소 비용 (1단계)
 
     # 디바인스톤 존재 여부
-    divine_state = globals().get("blacksmith_divine_stone_state")
+    divine_state = blacksmith_divine_stone_state
     has_divine_stone = divine_state is not None
 
     # 쿨타임 확인
@@ -6983,7 +6983,7 @@ def _get_scaled_screen():
     global SCREEN, GAME_SCALE_FACTOR, GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT
 
     # 성능 측정
-    if globals().get('VALTHOR_PERF_DEBUG', False):
+    if VALTHOR_PERF_DEBUG:
         valthor_perf_start("screen_scale")
 
     # 스케일 비율이 1.0이면 스케일링 건너뛰기
@@ -6994,7 +6994,7 @@ def _get_scaled_screen():
         # 성능은 약간 느리지만 1.04x 정도 스케일에서는 무시할 수준
         result = pygame.transform.smoothscale(SCREEN, (GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT))
 
-    if globals().get('VALTHOR_PERF_DEBUG', False):
+    if VALTHOR_PERF_DEBUG:
         valthor_perf_end("screen_scale")
 
     return result
@@ -7121,10 +7121,10 @@ def _draw_diablo_hud_frame(screen):
         # === 우측 토큰 프레임 - 제거됨 (구슬 자체에 프레임 있음) ===
 
         # === 하단 액티브 아이템 슬롯 프레임 ===
-        slot_rects = globals().get('_pillar_active_item_slot_rects', [])
+        slot_rects = _pillar_active_item_slot_rects
         # 투기장 모드면 아레나 스킬 슬롯 rect 사용
         if not slot_rects:
-            _arena_data = globals().get('_arena_skill_slot_data', [])
+            _arena_data = _arena_skill_slot_data
             if _arena_data:
                 slot_rects = [pair[0] for pair in _arena_data]
 
@@ -7167,46 +7167,46 @@ def _draw_pillar_ui(screen, renderer):
     global _pillar_ui_enabled, _arena_skill_tooltip_active
 
     # 성능 측정
-    if globals().get('VALTHOR_PERF_DEBUG', False):
+    if VALTHOR_PERF_DEBUG:
         valthor_perf_start("pillar_ui")
 
     # 인게임 상태 플래그 (구슬만 숨기고, 액티브 아이템/골드 HUD는 유지)
-    _is_ingame = globals().get('_is_ingame_active', False)
+    _is_ingame = _is_ingame_active
 
     # 필러 UI가 비활성화 상태면 그리지 않음
     if not _pillar_ui_enabled:
-        if globals().get('VALTHOR_PERF_DEBUG', False):
+        if VALTHOR_PERF_DEBUG:
             valthor_perf_end("pillar_ui")
         return
 
     # 상단 필러 - 스코어 표시
     try:
         # 듀스 모드에서는 deuce_wins/deuce_losses 사용 (전체 점수 포함)
-        if globals().get('deuce_mode', False):
-            p_score = globals().get('deuce_wins', 0)
-            b_score = globals().get('deuce_losses', 0)
+        if deuce_mode:
+            p_score = deuce_wins
+            b_score = deuce_losses
         else:
-            p_score = globals().get('round_wins', 0)
-            b_score = globals().get('round_losses', 0)
+            p_score = round_wins
+            b_score = round_losses
         renderer.draw_top_pillar_score(screen, player_score=p_score, boss_score=b_score)
     except Exception:
         pass
 
     # 액티브 아이템 슬롯 - 게임 화면 하단 필러에서 오른쪽으로 가로 배치
     # 투기장 모드에서는 액티브 아이템 슬롯 UI 숨김
-    if not globals().get('arena_mode_enabled', False):
+    if not arena_mode_enabled:
         try:
-            active_items = globals().get('active_item_slot', [])
-            selected_idx = globals().get('selected_item_index', 0)
-            cooldown = globals().get('active_item_cooldown_ms', 10000)
-            round_start = globals().get('round_start_time', None)
-            alchemy_notices_list = globals().get('alchemy_notices', None)
+            active_items = active_item_slot
+            selected_idx = selected_item_index
+            cooldown = active_item_cooldown_ms
+            round_start = round_start_time
+            alchemy_notices_list = alchemy_notices
             # 스킬/패시브 보너스를 포함한 실제 슬롯 수 가져오기
-            effective_slots_func = globals().get('get_effective_max_item_slots')
+            effective_slots_func = get_effective_max_item_slots
             if effective_slots_func:
                 max_item_slots = effective_slots_func()
             else:
-                max_item_slots = globals().get('MAX_ITEM_SLOTS', 3)
+                max_item_slots = MAX_ITEM_SLOTS
 
             slot_rects = renderer.draw_left_pillar_ui(
                 screen,
@@ -7230,8 +7230,8 @@ def _draw_pillar_ui(screen, renderer):
         # 투기장 모드: 하단 영웅 스킬 아이콘 표시
         _arena_skill_slot_data = []
         try:
-            _bottom_hero = globals().get('arena_bottom_hero')
-            _skill_mgr = globals().get('arena_skill_manager')
+            _bottom_hero = arena_bottom_hero
+            _skill_mgr = arena_skill_manager
             if _bottom_hero and _skill_mgr:
                 _hero_id = _bottom_hero.get('id')
                 _hero_color = _bottom_hero.get('color', (200, 200, 200))
@@ -7255,7 +7255,7 @@ def _draw_pillar_ui(screen, renderer):
             global _gold_hud_cache, _gold_hud_cached_value, _gold_hud_scaled_cache
 
             # 현재 골드 값 계산
-            current_gold = globals().get('downtown_gold', 0) + globals().get('ingame_gold', 0)
+            current_gold = downtown_gold + ingame_gold
 
             # 캐시 히트 체크 (골드 값이 바뀌면 재생성)
             if _gold_hud_cache is None or _gold_hud_cached_value != current_gold:
@@ -7292,7 +7292,7 @@ def _draw_pillar_ui(screen, renderer):
         pass
 
     # 오른쪽 필러 - 대쉬 토큰 표시 (인게임에서만, 투기장 모드 제외)
-    if _is_ingame and not globals().get('arena_mode_enabled', False):
+    if _is_ingame and not arena_mode_enabled:
       try:
         if _player_gauge_surface is not None:
             # 오른쪽 필러 위치 계산 (REAL_SCREEN 기준)
@@ -7318,7 +7318,7 @@ def _draw_pillar_ui(screen, renderer):
         pass
 
     # 왼쪽 필러 - 플레이어 게이지바 + 수치 표시 (인게임에서만, 투기장 모드 제외)
-    if _is_ingame and not globals().get('arena_mode_enabled', False):
+    if _is_ingame and not arena_mode_enabled:
       try:
         if _player_gauge_surface_left is not None:
             # 왼쪽 필러 위치 계산 (REAL_SCREEN 기준)
@@ -7466,7 +7466,7 @@ def _draw_pillar_ui(screen, renderer):
     # 광폭화 인디케이터 그리기 (신화모드 광폭화 보스)
     try:
         # 신화모드 광폭화 보스 활성화 여부 체크
-        is_rage_active = globals().get('enraged_boss_active', False)
+        is_rage_active = enraged_boss_active
 
         # 필러 렌더러에 광폭화 상태 설정
         if renderer is not None:
@@ -7580,9 +7580,9 @@ def _draw_pillar_ui(screen, renderer):
         pass
 
     # 투기장 영웅 스킬 툴팁 그리기 (REAL_SCREEN) - 인게임 + 아레나 모드에서만
-    if _is_ingame and globals().get('arena_mode_enabled', False):
+    if _is_ingame and arena_mode_enabled:
       try:
-        _arena_slot_data = globals().get('_arena_skill_slot_data', [])
+        _arena_slot_data = _arena_skill_slot_data
         if _arena_slot_data:
             mouse_pos = _original_mouse_get_pos()
             hovered_skill = None
@@ -7602,7 +7602,7 @@ def _draw_pillar_ui(screen, renderer):
                         _tooltip_forced_pause = not _tooltip_prev_game_paused
                         game_paused = True
                         game_paused_by_tooltip = True
-                _hero_color = globals().get('arena_bottom_hero', {}).get('color', (200, 200, 200))
+                _hero_color = (arena_bottom_hero or {}).get('color', (200, 200, 200))
                 _draw_arena_skill_tooltip(screen, hovered_skill, hovered_rect, _hero_color)
             else:
                 if _arena_skill_tooltip_active:
@@ -7626,7 +7626,7 @@ def _draw_pillar_ui(screen, renderer):
             _arena_skill_tooltip_active = False
 
     # 성능 측정 종료
-    if globals().get('VALTHOR_PERF_DEBUG', False):
+    if VALTHOR_PERF_DEBUG:
         valthor_perf_end("pillar_ui")
 
 
@@ -7661,11 +7661,11 @@ def _fullscreen_flip():
         # 필러 배경 그리기
         if pillar_renderer is not None:
             # 성능 측정
-            if globals().get('VALTHOR_PERF_DEBUG', False):
+            if VALTHOR_PERF_DEBUG:
                 valthor_perf_start("pillar_draw")
             # 필러 배경 먼저 그리기 (상하좌우 여백 모두 포함)
             pillar_renderer.draw(REAL_SCREEN)
-            if globals().get('VALTHOR_PERF_DEBUG', False):
+            if VALTHOR_PERF_DEBUG:
                 valthor_perf_end("pillar_draw")
         else:
             # 필러 렌더러 없을 때만 전체 화면 단색 채우기
@@ -7713,7 +7713,7 @@ def _fullscreen_flip():
             _draw_pillar_ui(REAL_SCREEN, pillar_renderer)
 
         # 🛡️ 호위무사 아이콘 UI (필러 배경 위에 그리기)
-        if globals().get('arena_mode_enabled', False) and arena_guard_system:
+        if arena_mode_enabled and arena_guard_system:
             try:
                 arena_guard_system.draw_guard_icons(
                     REAL_SCREEN,
@@ -7725,7 +7725,7 @@ def _fullscreen_flip():
                 pass
 
         # 🛡️ 인게임 호위무사 필러 아이콘 (일반 스테이지, 투기장 UI와 동일)
-        if not globals().get('arena_mode_enabled', False):
+        if not arena_mode_enabled:
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg
                 _bg = _get_bg()
@@ -7740,7 +7740,7 @@ def _fullscreen_flip():
                 pass
 
         # 좌표계 디버그 (F4 토글) - 히트박스 & 마우스 위치
-        if globals().get('COORDINATE_DEBUG_MODE', False):
+        if COORDINATE_DEBUG_MODE:
             _draw_coordinate_debug(REAL_SCREEN)
 
         # 실전 튜토리얼 오버레이 (필러 UI 위에 그리기)
@@ -7809,7 +7809,7 @@ def _fullscreen_update(*args, **kwargs):
             _draw_pillar_ui(REAL_SCREEN, pillar_renderer)
 
         # 🛡️ 호위무사 아이콘 UI (필러 배경 위에 그리기)
-        if globals().get('arena_mode_enabled', False) and arena_guard_system:
+        if arena_mode_enabled and arena_guard_system:
             try:
                 arena_guard_system.draw_guard_icons(
                     REAL_SCREEN,
@@ -7821,7 +7821,7 @@ def _fullscreen_update(*args, **kwargs):
                 pass
 
         # 🛡️ 인게임 호위무사 필러 아이콘 (일반 스테이지)
-        if not globals().get('arena_mode_enabled', False):
+        if not arena_mode_enabled:
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg2
                 _bg2 = _get_bg2()
@@ -7836,7 +7836,7 @@ def _fullscreen_update(*args, **kwargs):
                 pass
 
         # 좌표계 디버그 (F4 토글) - 히트박스 & 마우스 위치
-        if globals().get('COORDINATE_DEBUG_MODE', False):
+        if COORDINATE_DEBUG_MODE:
             _draw_coordinate_debug(REAL_SCREEN)
 
         # 실전 튜토리얼 오버레이 (필러 UI 위에 그리기)
@@ -8222,8 +8222,8 @@ def draw_valthor_perf_overlay(surface: pygame.Surface) -> None:
             y_offset += 20
 
         # 토르쉴드 배치 상태 표시
-        umbrella_open = globals().get("blacksmith_umbrella_open", False)
-        anim_timer = globals().get("blacksmith_umbrella_anim_timer", 0)
+        umbrella_open = blacksmith_umbrella_open
+        anim_timer = blacksmith_umbrella_anim_timer
         if umbrella_open or anim_timer > 0:
             shield_status = f"THOR SHIELD: OPEN (anim={anim_timer})"
             shield_color = (255, 200, 100)
@@ -8489,19 +8489,19 @@ def get_max_gauge():
       (일반 스테이지에서 튜토리얼 잔여 상태가 영향을 주지 않도록 가드)
     """
     # 튜토리얼(Stage 50) 여부 가드
-    is_tutorial = (globals().get('current_stage', None) == 50)
+    is_tutorial = (current_stage == 50)
 
     if is_tutorial:
         # 우선순위: Chapter 4 > Chapter 3 > Chapter 2 > Chapter 1
         if 'tutorial_current_chapter' in globals():
-            current_chapter = globals().get('tutorial_current_chapter', 0)
+            current_chapter = tutorial_current_chapter
             if current_chapter == 4:
                 # Chapter 4는 무조건 500 반환 (다른 변수 무시)
                 return 500
 
         # Chapter 3 임시 오버라이드 (300)
         if ('tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None and
-            ('tutorial_current_chapter' not in globals() or globals().get('tutorial_current_chapter', 0) < 4)):
+            ('tutorial_current_chapter' not in globals() or tutorial_current_chapter < 4)):
             return tutorial_drive_chapter_max_gauge
 
         # Chapter 2 (DASH) - 300
@@ -8532,8 +8532,8 @@ def get_max_gauge():
         base_max = int(base_max * multipliers['skill_gauge'])
 
     # 옵티머스: 스테이지 진행 중 최대 게이지가 서서히 감소
-    if globals().get("selected_character_type") == "optimus":
-        scale = float(globals().get("optimus_max_scale", 1.0))
+    if selected_character_type == "optimus":
+        scale = float(optimus_max_scale)
         base_max = int(base_max * max(0.0, scale))
 
     return int(base_max * ANGEL_GAUGE_MULT)
@@ -10048,7 +10048,7 @@ def grant_soldier_weapon_degraded(weapon_name: str) -> bool:
         print(f"🎳 볼링트랩 즉시 지급 (노후화 상태)")
     elif weapon_name == "suicide_drone":
         # 자폭드론 탄약 초기화
-        globals()["soldier_drone_ammo"] = globals().get("SUICIDE_DRONE_MAX_AMMO", 4)
+        globals()["soldier_drone_ammo"] = SUICIDE_DRONE_MAX_AMMO
         globals()["suicide_drone_active"] = False
         globals()["suicide_drone_rect"] = None
         globals()["suicide_drone_player_lock"] = None
@@ -12671,7 +12671,7 @@ def apply_instant_skill_effect(skill_id: str) -> bool:
         # 풀게이징: 스페셜 게이지 최대 충전 + 대쉬 토큰 전부 충전 + 아이템 쿨타임 초기화
         try:
             # 1. 스페셜 게이지 최대치로 충전
-            current_max = get_max_gauge() if 'get_max_gauge' in dir() else globals().get("special_gauge_max", 500)
+            current_max = get_max_gauge() if 'get_max_gauge' in dir() else special_gauge_max
             old_gauge = special_gauge
             special_gauge = current_max
             pass  # print(f"[InstantSkill] 풀게이징! 스페셜 게이지 {old_gauge} → {special_gauge} (max={current_max})")  # 디버그 비활성화
@@ -14891,7 +14891,7 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
     global runtime_skill_levels
 
     # Get current character type
-    character_type = globals().get("selected_character_type", "normal")
+    character_type = selected_character_type
 
     # Get available choices
     choices = get_runtime_skill_choices(character_type, exclude_instant=exclude_instant)
@@ -14902,7 +14902,7 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         return None
 
     # AI 플레이 모드일 때 자동으로 랜덤 선택
-    if globals().get("player_ai_enabled", False):
+    if player_ai_enabled:
         import random as _rand
         random_choice = _rand.choice(choices)
         selected_result = random_choice.get("id", "")
@@ -15467,7 +15467,7 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         try:
             # 실제 전역 변수 참조
             # 캐릭터별 기본 이동속도 (MAX_SPEED 대신 캐릭터별 값 사용)
-            char_type = globals().get("selected_character_type", "ufo_player")
+            char_type = selected_character_type
             if char_type == "optimus":
                 actual_player_speed = OPTIMUS_BASE_MAX_SPEED
             elif char_type == "blacksmith":
@@ -15477,14 +15477,14 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
             else:
                 actual_player_speed = MAX_SPEED
             actual_paddle_width = PLAYER.width if PLAYER else 80
-            current_stg = globals().get("current_stage", 1)
-            r_wins = globals().get("round_wins", 0)
-            r_losses = globals().get("round_losses", 0)
+            current_stg = current_stage
+            r_wins = round_wins
+            r_losses = round_losses
             # 신속 스킬 보너스
-            swiftness_bonus = globals().get("runtime_swiftness_bonus", 0)
+            swiftness_bonus = runtime_swiftness_bonus
             # 특수 게이지
-            special_gauge_val = globals().get("special_gauge", 0)
-            special_gauge_max_val = globals().get("special_gauge_max", 400)
+            special_gauge_val = special_gauge
+            special_gauge_max_val = special_gauge_max
         except:
             actual_player_speed = 5
             actual_paddle_width = 80
@@ -17318,10 +17318,10 @@ def align_player_to_floor(scale_override: float | None = None) -> None:
 
 def _get_bulkup_scale() -> float:
     """벌크업슈트 옵션(몸집 크기 %)을 반영한 배율을 계산한다."""
-    if not globals().get("bulkup_obtained", False):
+    if not bulkup_obtained:
         return 1.0
     try:
-        pct = float(globals().get("bulkup_body_size_pct", 8))
+        pct = float(bulkup_body_size_pct)
     except (TypeError, ValueError):
         pct = 10
     return 1.0 + pct / 100.0
@@ -17332,7 +17332,7 @@ def apply_equipment_paddle_modifiers() -> None:
     global CURRENT_PADDLE_EFFECTIVE_SCALE, PADDLE_WIDTH, PADDLE_HEIGHT
 
     # 투기장 모드에서는 패들 크기를 BOSS와 동일하게 고정 (130x40)
-    if globals().get("arena_mode_enabled", False):
+    if arena_mode_enabled:
         ARENA_PADDLE_WIDTH = 130
         ARENA_PADDLE_HEIGHT = 40
         PADDLE_WIDTH = ARENA_PADDLE_WIDTH
@@ -17342,7 +17342,7 @@ def apply_equipment_paddle_modifiers() -> None:
         PLAYER.size = (ARENA_PADDLE_WIDTH, ARENA_PADDLE_HEIGHT)
         PLAYER.centerx = prev_centerx
         # 귀신발걸음 Y축 이동 중에는 Y좌표 덮어쓰기 스킵
-        if not globals().get("arena_bottom_ghost_step_active", False):
+        if not arena_bottom_ghost_step_active:
             PLAYER.bottom = HEIGHT - 40 + ARENA_PADDLE_HEIGHT // 2
         PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
         return
@@ -17352,8 +17352,8 @@ def apply_equipment_paddle_modifiers() -> None:
     bulk_up_bonus = get_bulk_up_scale() - 1.0  # 런타임 스킬 벌크업
     mecha_bulk_bonus = 0.0
     gauge_scale = 1.0
-    if globals().get("selected_character_type") == "optimus":
-        gauge_scale = globals().get("optimus_gauge_scale", 1.0)
+    if selected_character_type == "optimus":
+        gauge_scale = optimus_gauge_scale
         mecha_bulk_bonus = get_mecha_bulk_scale() - 1.0  # 메카벌크 스킬
     combined_bulk_scale = 1.0 + bulkup_bonus + bulk_up_bonus + mecha_bulk_bonus
     effective_scale = CURRENT_PADDLE_SIZE_SCALE * ANGEL_PADDLE_SCALE * gauge_scale * combined_bulk_scale
@@ -17738,7 +17738,7 @@ def apply_serve_result(serve_result):
 
     # 옵티머스: 서브 직후 1초간 수동 충전 금지(플레이어/보스 서브 모두)
     try:
-        if globals().get("selected_character_type") == "optimus":
+        if selected_character_type == "optimus":
             optimus_charge_block_until_ms = pygame.time.get_ticks() + 1000
     except Exception:
         pass
@@ -19311,7 +19311,7 @@ def arena_trigger_bottom_hero_dash_ai(target_x: float) -> bool:
         return False
 
     # 🔥 귀신발걸음 활성 중에는 대쉬 발동 불가 (X축 점프 방지)
-    if globals().get("arena_bottom_ghost_step_active", False):
+    if arena_bottom_ghost_step_active:
         return False
 
     # 대쉬 중이거나 쿨다운/후딜 중이면 발동 불가
@@ -19354,7 +19354,7 @@ def arena_trigger_bottom_hero_dash(direction: int) -> bool:
         return False
 
     # 🔥 귀신발걸음 활성 중에는 대쉬 발동 불가 (X축 점프 방지)
-    if globals().get("arena_bottom_ghost_step_active", False):
+    if arena_bottom_ghost_step_active:
         return False
 
     # 대쉬 중이거나 쿨다운/후딜 중이면 발동 불가
@@ -19487,7 +19487,7 @@ def update_arena_bottom_hero_dash():
         return False
 
     # 🔥 귀신발걸음 활성 중에는 대쉬 시스템 비활성화 (X축 점프 방지)
-    if globals().get("arena_bottom_ghost_step_active", False):
+    if arena_bottom_ghost_step_active:
         # 대쉬 중이었다면 즉시 종료
         if arena_bottom_dashing:
             arena_bottom_dashing = False
@@ -19882,7 +19882,7 @@ def _get_active_item_slot_rects():
     (pillar에서 이미 REAL_SCREEN 좌표로 그려지므로 스케일 변환 불필요)
     """
     # pillar에서 저장한 좌표 사용 (이미 REAL_SCREEN 기준 좌표)
-    pillar_rects = globals().get('_pillar_active_item_slot_rects')
+    pillar_rects = _pillar_active_item_slot_rects
     if pillar_rects:
         return pillar_rects
 
@@ -19977,10 +19977,10 @@ def _draw_coordinate_debug(screen):
 
         # === 2. 스매셔 스킬 아이콘 히트박스 (청록색) ===
         try:
-            if globals().get('selected_character_type') == 'smasher':
-                skill_rects = globals().get('_smasher_skill_icon_rects', {})
-                surf_pos = globals().get('_player_gauge_surface_left_screen_pos', (0, 0))
-                sf = globals().get('GAME_SCALE_FACTOR', 1.0)
+            if selected_character_type == 'smasher':
+                skill_rects = _smasher_skill_icon_rects
+                surf_pos = _player_gauge_surface_left_screen_pos
+                sf = GAME_SCALE_FACTOR
 
                 for skill_name, local_rect in skill_rects.items():
                     # 로컬 좌표를 스크린 좌표로 변환
@@ -20011,7 +20011,7 @@ def _draw_coordinate_debug(screen):
             f"[F4] Coordinate Debug Mode",
             f"Mouse: ({raw_mouse_x}, {raw_mouse_y})",
             f"Item Slots: {len(slot_rects)}",
-            f"Scale: {globals().get('GAME_SCALE_FACTOR', 1.0):.2f}x",
+            f"Scale: {GAME_SCALE_FACTOR:.2f}x",
         ]
         panel_y = 10
         for line in info_lines:
@@ -20942,7 +20942,7 @@ def _reset_roll_bonuses_to_default():
 def get_player_stun_resist_pct() -> float:
     """방탄모자 등으로 누적된 스턴 저항(0~100)을 반환."""
     try:
-        return max(0.0, min(100.0, float(globals().get("bulletproof_hat_resist_pct", 0))))
+        return max(0.0, min(100.0, float(bulletproof_hat_resist_pct)))
     except Exception:
         return 0.0
 
@@ -20950,7 +20950,7 @@ def get_player_stun_resist_pct() -> float:
 def get_player_knockback_resist_pct() -> float:
     """가시투구 등으로 누적된 넉백 저항(0~100)을 반환."""
     try:
-        return max(0.0, min(100.0, float(globals().get("spiked_helmet_knockback_resist_pct", 0))))
+        return max(0.0, min(100.0, float(spiked_helmet_knockback_resist_pct)))
     except Exception:
         return 0.0
 
@@ -21262,7 +21262,7 @@ def apply_roll_bonuses_from_equipped():
             val = _get_roll_value(item, "stun_resist_pct")
             if val is None:
                 val = 50
-            globals()["bulletproof_hat_resist_pct"] = max(globals().get("bulletproof_hat_resist_pct", 0), val)
+            globals()["bulletproof_hat_resist_pct"] = max(bulletproof_hat_resist_pct, val)
         elif name == "spiked_helmet":
             val = _get_roll_value(item, "knockback_resist_pct")
             if val is None:
@@ -21271,8 +21271,8 @@ def apply_roll_bonuses_from_equipped():
                     val = rng.get("max", 100)
                 except Exception:
                     val = 100
-            globals()["spiked_helmet_knockback_resist_pct"] = max(globals().get("spiked_helmet_knockback_resist_pct", 0), val)
-            _kb_debug(f"equip calc spiked_helmet -> {globals().get('spiked_helmet_knockback_resist_pct')}")
+            globals()["spiked_helmet_knockback_resist_pct"] = max(spiked_helmet_knockback_resist_pct, val)
+            _kb_debug(f"equip calc spiked_helmet -> {spiked_helmet_knockback_resist_pct}")
         elif name == "bulkup":
             val = _get_roll_value(item, "body_size_pct")
             if val is not None:
@@ -21300,7 +21300,7 @@ def apply_roll_bonuses_from_equipped():
         pass
     try:
         from item_effects.foul_whistle import get_foul_whistle_instance
-        get_foul_whistle_instance().negate_chance = globals().get("foul_whistle_negate_chance_pct", 0) / 100.0
+        get_foul_whistle_instance().negate_chance = foul_whistle_negate_chance_pct / 100.0
     except Exception:
         pass
 
@@ -21367,7 +21367,7 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
     elif name == "bulletproof_hat":
         val = _get_roll_value(item, "stun_resist_pct")
         if val is not None:
-            globals()["bulletproof_hat_resist_pct"] = max(globals().get("bulletproof_hat_resist_pct", 0), val)
+            globals()["bulletproof_hat_resist_pct"] = max(bulletproof_hat_resist_pct, val)
     elif name == "spiked_helmet":
         val = _get_roll_value(item, "knockback_resist_pct")
         # 롤 정보가 비어있다면 최소/최대값을 기본으로 채워 넣어 버그 상황에서도 저항이 적용되도록 한다.
@@ -21377,12 +21377,12 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
                 val = rng.get("max", 100)
             except Exception:
                 val = 100
-        globals()["spiked_helmet_knockback_resist_pct"] = max(globals().get("spiked_helmet_knockback_resist_pct", 0), val)
-        _kb_debug(f"roll apply spiked_helmet -> {globals().get('spiked_helmet_knockback_resist_pct')}")
+        globals()["spiked_helmet_knockback_resist_pct"] = max(spiked_helmet_knockback_resist_pct, val)
+        _kb_debug(f"roll apply spiked_helmet -> {spiked_helmet_knockback_resist_pct}")
     elif name == "spiked_helmet":
         val = _get_roll_value(item, "knockback_resist_pct")
         if val is not None:
-            globals()["spiked_helmet_knockback_resist_pct"] = max(globals().get("spiked_helmet_knockback_resist_pct", 0), val)
+            globals()["spiked_helmet_knockback_resist_pct"] = max(spiked_helmet_knockback_resist_pct, val)
     elif name == "bluetooth_ring":
         val = _get_roll_value(item, "gauge_gain_pct")
         if val is not None:
@@ -21423,7 +21423,7 @@ def apply_roll_bonuses_from_item(item: dict) -> None:
 def apply_dashgear_distance(base_timer: float) -> float:
     """대쉬기어 롤 옵션을 반영한 대쉬 타이머(프레임)를 반환한다."""
     if dashgear_obtained:
-        return base_timer * (1 + globals().get("dashgear_distance_bonus_pct", 10) / 100.0)
+        return base_timer * (1 + dashgear_distance_bonus_pct / 100.0)
     return float(base_timer)
 
 
@@ -21442,13 +21442,13 @@ def _get_odin_dash_distance_mult() -> float:
 
 def apply_spikeboots_afterdelay(frames: int) -> int:
     if spikeboots_obtained:
-        frames = int(frames * (1 - globals().get("spikeboots_afterdelay_reduction_pct", 30) / 100))
+        frames = int(frames * (1 - spikeboots_afterdelay_reduction_pct / 100))
     return max(1, frames)
 
 
 def apply_spikeboots_cooldown(frames: int) -> int:
     if spikeboots_obtained:
-        frames = int(frames * (1 - globals().get("spikeboots_cooldown_reduction_pct", 15) / 100))
+        frames = int(frames * (1 - spikeboots_cooldown_reduction_pct / 100))
     return max(1, frames)
 
 
@@ -21464,14 +21464,14 @@ def apply_gold_digger_gauge_bonus(gauge_gain: int) -> int:
     if not is_gold_digger_equipped():
         return gauge_gain
 
-    bonus_pct = globals().get("gold_digger_bonus_pct", 50)
+    bonus_pct = gold_digger_bonus_pct
     boosted = int(gauge_gain * (1 + bonus_pct / 100.0))
     return boosted
 
 
 def ensure_equipment_state():
     """전역 장비 슬롯 상태를 초기화/반환."""
-    state = globals().get("_equipment_slots_state")
+    state = _equipment_slots_state
     if not state or not isinstance(state, dict):
         state = {d["key"]: None for d in EQUIPMENT_SLOT_DEFINITIONS}
         globals()["_equipment_slots_state"] = state
@@ -21629,7 +21629,7 @@ def sync_equipped_passive_effects():
         whistle = get_foul_whistle_instance()
         if foul_active:
             whistle.activate()
-            whistle.negate_chance = globals().get("foul_whistle_negate_chance_pct", 7) / 100.0
+            whistle.negate_chance = foul_whistle_negate_chance_pct / 100.0
         else:
             whistle.deactivate()
     except Exception:
@@ -21640,7 +21640,7 @@ def sync_equipped_passive_effects():
         from item_effects.bluetooth_ring import activate_bluetooth_ring, deactivate_bluetooth_ring
 
         if "bluetooth_ring" in equipped_names:
-            activate_bluetooth_ring({"current_stage": globals().get("current_stage")}, globals().get("current_stage", 1))
+            activate_bluetooth_ring({"current_stage": current_stage}, current_stage)
         else:
             deactivate_bluetooth_ring()
     except Exception:
@@ -21652,11 +21652,11 @@ def sync_equipped_passive_effects():
 
         if "fuel_pouch" in equipped_names:
             fuel_state = {
-                "max_gauge": globals().get("special_gauge_max", 0),
-                "gauge": globals().get("special_gauge", 0),
-                "current_stage": globals().get("current_stage", 1),
+                "max_gauge": special_gauge_max,
+                "gauge": special_gauge,
+                "current_stage": current_stage,
             }
-            activate_fuel_pouch(fuel_state, globals().get("current_stage", 1))
+            activate_fuel_pouch(fuel_state, current_stage)
             if "get_max_gauge" in globals():
                 globals()["special_gauge_max"] = get_max_gauge()
         else:
@@ -21669,7 +21669,7 @@ def sync_equipped_passive_effects():
         from item_effects.technical_vest import activate_technical_vest, deactivate_technical_vest
 
         if "technical_vest" in equipped_names:
-            activate_technical_vest({"current_stage": globals().get("current_stage", 1)}, globals().get("current_stage", 1))
+            activate_technical_vest({"current_stage": current_stage}, current_stage)
         else:
             deactivate_technical_vest()
     except Exception:
@@ -21680,7 +21680,7 @@ def sync_equipped_passive_effects():
         smartphone = get_smartphone_instance()
         if smartphone:
             if "smartphone" in equipped_names:
-                smartphone.activate({"current_stage": globals().get("current_stage", 1), "active_items": active_item_slot}, globals().get("current_stage", 1))
+                smartphone.activate({"current_stage": current_stage, "active_items": active_item_slot}, current_stage)
             else:
                 smartphone.active = False
     except Exception:
@@ -21724,7 +21724,7 @@ def sync_equipped_passive_effects():
     except Exception:
         legendary_manager = None
     if legendary_manager:
-        gs = {"current_stage": globals().get("current_stage", 1)}
+        gs = {"current_stage": current_stage}
         # 전설 획득 애니메이션 진행 중인지 확인
         legendary_anim_active = False
         try:
@@ -23056,7 +23056,7 @@ _STAGE7_SUPER_PARTICLE_MAX = 60  # 최대 개수 감소 (140→60)
 
 def spawn_stage7_super_particles(boss_rect: pygame.Rect) -> None:
     """보스 주변에 어두운 불꽃 파티클을 소량 생성한다."""
-    if current_stage != 7 or not globals().get('stage7_super_active', False):
+    if current_stage != 7 or not stage7_super_active:
         return
     # 최적화: 파티클 수 제한 체크 먼저
     if len(stage7_super_particles) >= _STAGE7_SUPER_PARTICLE_MAX:
@@ -23110,7 +23110,7 @@ def draw_stage7_super_particles(surface: pygame.Surface) -> None:
 def spawn_stage8_superspeed_dark_particles(boss_rect: pygame.Rect) -> None:
     """극정호신 발동 중 보스 주변에 어두운 불꽃 파티클을 생성한다."""
     global stage8_superspeed_dark_particles
-    if current_stage != 8 or not globals().get('stage8_superspeed_active', False):
+    if current_stage != 8 or not stage8_superspeed_active:
         return
     # 3~5개씩 생성 (더 많은 파티클)
     count = random.randint(3, 5)
@@ -23200,7 +23200,7 @@ stage8_superspeed_trail_frame_counter = 0  # 잔상 생성 프레임 카운터
 def spawn_stage8_superspeed_movement_trail(boss_rect: pygame.Rect, boss_image: pygame.Surface) -> None:
     """극정호신 발동 중 보스 움직임 잔상 생성."""
     global stage8_superspeed_movement_trail, stage8_superspeed_trail_frame_counter
-    if current_stage != 8 or not globals().get('stage8_superspeed_active', False):
+    if current_stage != 8 or not stage8_superspeed_active:
         return
     stage8_superspeed_trail_frame_counter += 1
     if stage8_superspeed_trail_frame_counter < STAGE8_SUPERSPEED_TRAIL_SPAWN_INTERVAL:
@@ -23803,7 +23803,7 @@ def _pop_stage7_ui_pause():
 
 def _is_stage7_ui_paused() -> bool:
     """UI로 게임이 정지된 상태인지(탭/ESC/정지) 판단."""
-    return bool(globals().get("game_paused", False) or stage7_ui_pause_depth > 0)
+    return bool(game_paused or stage7_ui_pause_depth > 0)
 
 MARINE_COLORS = {
     "helmet": (50, 64, 110),
@@ -23864,7 +23864,7 @@ OPTIMUS_EMBLEM_RADIUS = 9  # 추가 -20% 축소 (11 * 0.8 ≈ 9)
 
 def _compute_optimus_base_width() -> int:
     """게이지 스케일을 제외한 현재 기준 패들 너비(장비/리그/메카벌크/벌크업 배율 반영)를 반환."""
-    angel_scale = globals().get("ANGEL_PADDLE_SCALE", 1.0)
+    angel_scale = ANGEL_PADDLE_SCALE
     # 벌크업 관련 보너스 합산 방식 적용
     bulkup_bonus = _get_bulkup_scale() - 1.0
     bulk_up_bonus = get_bulk_up_scale() - 1.0
@@ -23876,17 +23876,17 @@ def _compute_optimus_base_width() -> int:
 
 def get_optimus_gauge_ratio() -> float:
     """옵티머스 배터리 잔량(0~1). 다른 캐릭터는 1.0을 반환."""
-    if globals().get("selected_character_type") != "optimus":
+    if selected_character_type != "optimus":
         return 1.0
-    max_gauge = max(1.0, float(globals().get("special_gauge_max", OPTIMUS_MAX_GAUGE)))
-    gauge_for_scale = float(globals().get("displayed_gauge", special_gauge))
+    max_gauge = max(1.0, float(special_gauge_max))
+    gauge_for_scale = float(displayed_gauge)
     return max(0.0, min(1.0, gauge_for_scale / max_gauge))
 
 
 def _recalculate_optimus_gauge_scale() -> None:
     """게이지 잔량에 따라 옵티머스 패들 스케일을 갱신한다."""
     global optimus_gauge_scale, optimus_drained
-    if globals().get("selected_character_type") != "optimus":
+    if selected_character_type != "optimus":
         optimus_gauge_scale = 1.0
         optimus_drained = False
         return
@@ -23912,7 +23912,7 @@ def reset_optimus_energy(full_gauge: bool = True) -> None:
     global optimus_mech_arm_upgrade_complete, optimus_mech_arm_particles
     global optimus_paddle_upgrade_active, optimus_paddle_upgrade_timer
     global optimus_paddle_upgrade_complete, optimus_paddle_upgrade_particles
-    if globals().get("selected_character_type") != "optimus":
+    if selected_character_type != "optimus":
         return
 
     _stop_optimus_charge_sound()
@@ -23971,7 +23971,7 @@ def reset_optimus_energy(full_gauge: bool = True) -> None:
 
 def _freeze_optimus_energy_timers() -> None:
     """일시정지/정보창 등 메인 루프가 멈춘 동안 옵티머스 게이지 감소 타이머를 현재 시각으로 고정."""
-    if globals().get("selected_character_type") != "optimus":
+    if selected_character_type != "optimus":
         return
     global optimus_last_gauge_tick_ms, optimus_max_decay_last_ms
     now = pygame.time.get_ticks()
@@ -23995,7 +23995,7 @@ def update_optimus_energy() -> None:
     global optimus_paddle_upgrade_complete, optimus_paddle_upgrade_particles
     global aipill_active
 
-    if globals().get("selected_character_type") != "optimus":
+    if selected_character_type != "optimus":
         return
 
     current_round_marker = round_start_time if "round_start_time" in globals() else None
@@ -24008,7 +24008,7 @@ def update_optimus_energy() -> None:
     # Tab 캐릭터정보창은 별도 프리즈 가드(_freeze_optimus_energy_timers)로 보호된다.
     # 공 생성 애니메이션 중에도 배터리 소모/최대치 감소를 중단한다.
     # 또한 애니메이션이 막 완료되었을 때도 타임스탬프를 리셋하여 누적 시간이 적용되지 않도록 한다.
-    if globals().get("game_paused", False) or is_ball_spawn_animation_paused():
+    if game_paused or is_ball_spawn_animation_paused():
         optimus_last_gauge_tick_ms = now
         optimus_max_decay_last_ms = now
         return
@@ -24120,7 +24120,7 @@ def update_optimus_energy() -> None:
             # (게이지 기반 스킬 트리거는 스타포인트 시스템으로 대체됨)
 
     # 충전 중에는 기본 배터리 소모를 일시 정지
-    if not globals().get("optimus_charge_active", False):
+    if not optimus_charge_active:
         # 메카체인 스킬 적용: 게이지 감소율 감소
         drain_reduction = get_mecha_chain_drain_reduction()
         effective_drain_rate = OPTIMUS_GAUGE_DRAIN_PER_SEC * (1.0 - drain_reduction)
@@ -24149,7 +24149,7 @@ def update_optimus_energy() -> None:
         pass
     special_ready = special_gauge >= 350
     # 외부 패들 크기 변형(롱패들 등)을 보존하기 위해 현재 게이지 스케일 기준 기대 크기 대비 배율을 계산
-    angel_scale = globals().get("ANGEL_PADDLE_SCALE", 1.0)
+    angel_scale = ANGEL_PADDLE_SCALE
     # 벌크업 관련 보너스 합산 방식 적용
     bulkup_bonus = _get_bulkup_scale() - 1.0
     bulk_up_bonus = get_bulk_up_scale() - 1.0
@@ -24488,9 +24488,9 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
     # 팔 스윙 + 패들(플라즈마 블레이드)
     left_swing_ratio = right_swing_ratio = 0.0
     try:
-        left_timer = globals().get("optimus_arm_swing_left_timer", 0)
-        right_timer = globals().get("optimus_arm_swing_right_timer", 0)
-        duration = globals().get("OPTIMUS_ARM_SWING_DURATION", 32) or 1
+        left_timer = optimus_arm_swing_left_timer
+        right_timer = optimus_arm_swing_right_timer
+        duration = OPTIMUS_ARM_SWING_DURATION or 1
         # 진행형 스윙: 0→1까지만 증가, 끝에서 다시 앞으로 튀지 않도록 0으로 즉시 리셋
         left_swing_ratio = 1.0 - (left_timer / duration) if left_timer > 0 else 0.0
         right_swing_ratio = 1.0 - (right_timer / duration) if right_timer > 0 else 0.0
@@ -24521,14 +24521,14 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
         
         # ========== 오른팔 옵티머스 암 로직 (early return) ==========
         if side > 0:
-            cs_state = globals().get("optimus_arm_state", "idle")
+            cs_state = optimus_arm_state
             if cs_state != "idle":
                 # 옵티머스 암 활성화 시 오른팔을 보스 방향으로 확장
-                cs_arm_length = globals().get("optimus_arm_length", 0)
-                cs_target_x = globals().get("optimus_arm_target_x", 0)
-                cs_target_y = globals().get("optimus_arm_target_y", 0)
-                cs_start_ms = globals().get("optimus_arm_start_ms", 0)
-                cs_grabbed = globals().get("optimus_arm_grabbed_boss", False)
+                cs_arm_length = optimus_arm_length
+                cs_target_x = optimus_arm_target_x
+                cs_target_y = optimus_arm_target_y
+                cs_start_ms = optimus_arm_start_ms
+                cs_grabbed = optimus_arm_grabbed_boss
                 now_ms = pygame.time.get_ticks()
                 
                 # 강화된 기계손 색상
@@ -24537,7 +24537,7 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
                 arm_glow_color = (120, 235, 255)    # 시안
                 
                 # 플레이어 화면 위치 가져오기
-                player_rect = globals().get("PLAYER")
+                player_rect = PLAYER
                 if player_rect:
                     # 타겟까지의 화면 거리 계산
                     screen_shoulder_x = player_rect.centerx + (shoulder[0] - MECHA_CENTER_X)
@@ -24740,10 +24740,10 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
         # 왼팔 사이버 전자 탁구채 (15도 오른쪽 회전)
         if side < 0:
             # 궁극의 탁구채 강화 상태 체크
-            paddle_upgraded = globals().get("optimus_paddle_upgrade_complete", False)
-            paddle_anim_active = globals().get("optimus_paddle_upgrade_active", False)
-            paddle_anim_timer = globals().get("optimus_paddle_upgrade_timer", 0)
-            paddle_particles = globals().get("optimus_paddle_upgrade_particles", [])
+            paddle_upgraded = optimus_paddle_upgrade_complete
+            paddle_anim_active = optimus_paddle_upgrade_active
+            paddle_anim_timer = optimus_paddle_upgrade_timer
+            paddle_particles = optimus_paddle_upgrade_particles
             paddle_anim_now = pygame.time.get_ticks()
             paddle_anim_duration = 2000  # 2초 강화 애니메이션
 
@@ -24979,10 +24979,10 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
             fist_cx, fist_cy = wrist_int[0] + 8, wrist_int[1] + 4
 
             # 기계손 강화 상태 체크
-            mech_arm_upgraded = globals().get("optimus_mech_arm_upgrade_complete", False)
-            mech_arm_anim_active = globals().get("optimus_mech_arm_upgrade_active", False)
-            mech_arm_timer = globals().get("optimus_mech_arm_upgrade_timer", 0)
-            mech_arm_particles = globals().get("optimus_mech_arm_particles", [])
+            mech_arm_upgraded = optimus_mech_arm_upgrade_complete
+            mech_arm_anim_active = optimus_mech_arm_upgrade_active
+            mech_arm_timer = optimus_mech_arm_upgrade_timer
+            mech_arm_particles = optimus_mech_arm_particles
             anim_now = pygame.time.get_ticks()
             anim_duration = 2000  # 2초 강화 애니메이션
 
@@ -25237,14 +25237,14 @@ def create_smasher_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
 
     global smasher_hit_pose_timer, smasher_shield_raise_timer, smasher_left_raise_timer
 
-    hit_pose_duration = globals().get("SMASHER_HIT_POSE_DURATION", 0)
-    hit_pose_timer_value = globals().get("smasher_hit_pose_timer", 0)
+    hit_pose_duration = SMASHER_HIT_POSE_DURATION
+    hit_pose_timer_value = smasher_hit_pose_timer
     hit_pose_ratio = 0.0
     if hit_pose_duration > 0:
         hit_pose_ratio = max(0.0, min(1.0, hit_pose_timer_value / hit_pose_duration))
 
-    shield_raise_duration = globals().get("SMASHER_SHIELD_RAISE_DURATION", 0)
-    shield_raise_timer_value = globals().get("smasher_shield_raise_timer", 0)
+    shield_raise_duration = SMASHER_SHIELD_RAISE_DURATION
+    shield_raise_timer_value = smasher_shield_raise_timer
     shield_raise_strength = 0.0
     if shield_raise_duration > 0 and shield_raise_timer_value > 0:
         normalized = 1.0 - (shield_raise_timer_value / shield_raise_duration)
@@ -25256,8 +25256,8 @@ def create_smasher_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
         shield_raise_strength = max(0.0, min(1.0, shield_raise_strength))
         shield_raise_strength = shield_raise_strength ** 0.7
 
-    left_raise_duration = globals().get("SMASHER_LEFT_RAISE_DURATION", 0)
-    left_raise_timer_value = globals().get("smasher_left_raise_timer", 0)
+    left_raise_duration = SMASHER_LEFT_RAISE_DURATION
+    left_raise_timer_value = smasher_left_raise_timer
     left_raise_strength = 0.0
     if left_raise_duration > 0 and left_raise_timer_value > 0:
         normalized = 1.0 - (left_raise_timer_value / left_raise_duration)
@@ -26001,7 +26001,7 @@ def can_use_optimus_arm() -> bool:
     global optimus_arm_available, optimus_arm_cooldown_until_ms, optimus_arm_state
 
     # 옵티머스가 아니면 불가
-    if globals().get("selected_character_type") != "optimus":
+    if selected_character_type != "optimus":
         return False
 
     # 👁 오딘의 눈 변신 상태에서는 옵티머스 암 사용 불가
@@ -26022,7 +26022,7 @@ def can_use_optimus_arm() -> bool:
         return False
     
     # 게이지 부족하면 불가
-    current_gauge = globals().get("special_gauge", 0)
+    current_gauge = special_gauge
     if current_gauge < OPTIMUS_ARM_GAUGE_COST:
         return False
     
@@ -26038,13 +26038,13 @@ def start_optimus_arm() -> bool:
         return False
     
     # 게이지 소모
-    special_gauge = globals().get("special_gauge", 0)
+    special_gauge = special_gauge
     special_gauge = max(0, special_gauge - OPTIMUS_ARM_GAUGE_COST)
     globals()["special_gauge"] = special_gauge
     globals()["displayed_gauge"] = special_gauge
     
     # 보스 위치 저장 (시전 시점)
-    boss_rect = globals().get("BOSS")
+    boss_rect = BOSS
     if boss_rect:
         optimus_arm_target_x = boss_rect.centerx
         optimus_arm_target_y = boss_rect.centery
@@ -26080,8 +26080,8 @@ def update_optimus_arm() -> None:
 
     now_ms = pygame.time.get_ticks()
     elapsed_ms = now_ms - optimus_arm_start_ms
-    player_rect = globals().get("PLAYER")
-    boss_rect = globals().get("BOSS")
+    player_rect = PLAYER
+    boss_rect = BOSS
     
     if optimus_arm_state == "windup":
         # 0.5초 동안 팔 젖히기
@@ -26172,7 +26172,7 @@ def update_optimus_arm() -> None:
                 })
         else:
             # 던지기 완료 - 보스 스턴
-            boss_stunned_timer = globals().get("boss_stunned_timer", 0)
+            boss_stunned_timer = boss_stunned_timer
             stun_frames = int(OPTIMUS_ARM_THROW_STUN_MS / 1000 * 60)
             globals()["boss_stunned_timer"] = max(boss_stunned_timer, stun_frames)
 
@@ -26360,12 +26360,12 @@ def draw_optimus_arm_skill_ui(surface: pygame.Surface) -> None:
     _optimus_arm_ui_debug_counter = globals().get("_optimus_arm_ui_debug_counter", 0) + 1
     if _optimus_arm_ui_debug_counter % 60 == 1:  # 1초마다 출력
         char_type = globals().get("selected_character_type", "unknown")
-        mech_complete = globals().get("optimus_mech_arm_upgrade_complete", False)
+        mech_complete = optimus_mech_arm_upgrade_complete
         print(f"[DEBUG] draw_optimus_arm_skill_ui 호출됨 - char:{char_type}, mech_arm:{mech_complete}, HEIGHT:{HEIGHT}")
     globals()["_optimus_arm_ui_debug_counter"] = _optimus_arm_ui_debug_counter
     
     # 옵티머스가 아니면 표시 안 함
-    if globals().get("selected_character_type") != "optimus":
+    if selected_character_type != "optimus":
         return
     
     # 옵티머스 암 해금 여부 체크 (스테이지 클리어 선택으로 해금)
@@ -26439,7 +26439,7 @@ def draw_optimus_arm_skill_ui(surface: pygame.Surface) -> None:
         pass
     
     # 게이지 부족 표시
-    current_gauge = globals().get("special_gauge", 0)
+    current_gauge = special_gauge
     if current_gauge < OPTIMUS_ARM_GAUGE_COST and cooldown_ratio <= 0:
         try:
             warn_font = pygame.font.Font(None, 14)
@@ -26460,7 +26460,7 @@ def draw_optimus_arm(surface: pygame.Surface) -> None:
     if optimus_arm_state == "idle":
         return
 
-    player_rect = globals().get("PLAYER")
+    player_rect = PLAYER
     if not player_rect:
         return
 
@@ -28210,12 +28210,12 @@ def _draw_blacksmith_upper(
     except NameError:
         manual_timer_active = False
     if manual_timer_active and hammer_amount > 0.0:
-        exponent = globals().get("BLACKSMITH_TURRET_MANUAL_SWING_EXPONENT", 1.0)
+        exponent = BLACKSMITH_TURRET_MANUAL_SWING_EXPONENT
         if exponent <= 0.0:
             exponent = 1.0
         if exponent != 1.0:
             hammer_amount = math.pow(hammer_amount, exponent if exponent > 0 else 1.0)
-        offset = globals().get("BLACKSMITH_TURRET_MANUAL_SWING_OFFSET", 0.0)
+        offset = BLACKSMITH_TURRET_MANUAL_SWING_OFFSET
         if offset != 0.0:
             hammer_amount = min(1.0, max(0.0, hammer_amount + offset))
     if umbrella_pose_active:
@@ -28945,7 +28945,7 @@ def _draw_blacksmith_umbrella_overlay(
         )
         # 강화 디바인스톤 여부에 따라 토르쉴드 색상 팔레트를 변경
         try:
-            divine_state = globals().get("blacksmith_divine_stone_state")
+            divine_state = blacksmith_divine_stone_state
             reinforced_divine = bool(divine_state and divine_state.get("reinforced", False))
         except Exception:
             reinforced_divine = False
@@ -29269,7 +29269,7 @@ def _draw_blacksmith_umbrella_overlay(
     damage_stage = max(0, min(len(BLACKSMITH_UMBRELLA_CRACK_SEGMENTS), BLACKSMITH_UMBRELLA_GAUGE_MAX - gauge_value))
 
     if damage_stage > 0:
-        flash_timer = globals().get("blacksmith_umbrella_damage_flash_timer", 0)
+        flash_timer = blacksmith_umbrella_damage_flash_timer
         flash_frames = BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES if BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES > 0 else 1
         flash_strength = max(0.0, min(1.0, flash_timer / flash_frames))
 
@@ -29437,7 +29437,7 @@ def create_blacksmith_paddle_umbrella(progress: float) -> pygame.Surface:
     except NameError:
         divine_active = False
     try:
-        divine_state = globals().get("blacksmith_divine_stone_state")
+        divine_state = blacksmith_divine_stone_state
         reinforced_divine = bool(divine_state and divine_state.get("reinforced", False))
     except Exception:
         reinforced_divine = False
@@ -29900,17 +29900,17 @@ def _capture_blacksmith_blueprints_for_round() -> dict | None:
     except Exception:
         # 컨트롤러 동기화 실패 시 전역 값을 사용 (예: 초기화 지연/예외 상황)
         try:
-            if globals().get("blacksmith_turret_blueprint_active") and not globals().get("blacksmith_turret_active"):
-                rect = globals().get("blacksmith_turret_blueprint_rect")
+            if blacksmith_turret_blueprint_active and not blacksmith_turret_active:
+                rect = blacksmith_turret_blueprint_rect
                 cache["turret"] = {
                     "rect": rect.copy() if hasattr(rect, "copy") else rect,
-                    "progress": int(globals().get("blacksmith_turret_build_progress", 0)),
+                    "progress": int(blacksmith_turret_build_progress),
                 }
-            if globals().get("blacksmith_divine_blueprint_active") and globals().get("blacksmith_divine_stone_state") is None:
-                rect = globals().get("blacksmith_divine_blueprint_rect")
+            if blacksmith_divine_blueprint_active and blacksmith_divine_stone_state is None:
+                rect = blacksmith_divine_blueprint_rect
                 cache["divine"] = {
                     "rect": rect.copy() if hasattr(rect, "copy") else rect,
-                    "progress": int(globals().get("blacksmith_divine_build_progress", 0)),
+                    "progress": int(blacksmith_divine_build_progress),
                 }
         except Exception:
             return None
@@ -30220,7 +30220,7 @@ def handle_blacksmith_turret_input(down_pressed, down_just_pressed, force_bluepr
                             "shield_hits": 0,
                             "shield_ripple_effects": [],
                         }
-                        stage_value = globals().get("current_stage")
+                        stage_value = current_stage
                         if stage_value is not None:
                             blacksmith_divine_stage_owner = stage_value
                         divine_runtime.state = blacksmith_divine_stone_state
@@ -31245,7 +31245,7 @@ def _blacksmith_hammer_shock_effective_stage(frames: int, gauge: float) -> int:
 
     # 디바인쉴드 과부하 중에는 1단계까지만 (강화 디바인스톤 한정)
     try:
-        divine_state = globals().get("blacksmith_divine_stone_state")
+        divine_state = blacksmith_divine_stone_state
         if divine_state:
             overheat = int(divine_state.get("shield_overheat", 0)) > 0
             if overheat:
@@ -31326,7 +31326,7 @@ def release_blacksmith_hammer_shock():
         "stage": stage,
         "life": int(1.5 * FPS),
         "rotation": 0.0,
-        "_last_update_frame": globals().get("frame_counter", 0),
+        "_last_update_frame": frame_counter,
         "_last_update_ms": current_ticks,
     }
     blacksmith_hammer_shock_projectiles.append(projectile)
@@ -31411,8 +31411,8 @@ def _debug_blacksmith_hammer_cooldown() -> None:
 def _handle_blacksmith_hammer_rock_collision(proj: dict) -> None:
     """Destroy Stage 2 crisis rocks that collide with a hammer projectile."""
 
-    animated_bg = globals().get("animated_bg_stage2")
-    if globals().get("current_stage") != 2 or animated_bg is None:
+    animated_bg = animated_bg_stage2
+    if current_stage != 2 or animated_bg is None:
         return
 
     rocks = getattr(animated_bg, "crisis_rocks", None)
@@ -31455,7 +31455,7 @@ def _handle_blacksmith_hammer_tetro_collision(proj: dict) -> None:
     - 발사체는 계속 진행(폭발 없음).
     """
     try:
-        if globals().get('current_stage') != 7:
+        if current_stage != 7:
             return
         if 'stage7_tetrominoes' not in globals() or not stage7_tetrominoes:
             return
@@ -31586,12 +31586,12 @@ def _handle_ak47_tetro_collisions() -> None:
     - 히트 시 해당 탄환은 소모되며, 미노의 해당 셀만 제거한다.
     - 벽 생성물(wall_generated)은 충돌 리스트에서 해당 셀을 즉시 제거하여 유령 충돌을 방지한다.
     """
-    if globals().get("current_stage") != 7:
+    if current_stage != 7:
         return
     if 'stage7_tetrominoes' not in globals() or not stage7_tetrominoes:
         return
     # 코만도 + AK-47 활성 상태가 아니면 스킵
-    if globals().get("selected_character_type") != "soldier":
+    if selected_character_type != "soldier":
         return
     try:
         ak47 = get_ak47_instance()
@@ -31683,7 +31683,7 @@ def _evaporate_single_guard_cell(block: dict, cell: dict, *, bullet_dx: float = 
             # 스타 포인트(황금 블럭) 드랍 처리 복제
             try:
                 if block.get("golden"):
-                    tps = globals().get("trade_point_system")
+                    tps = trade_point_system
                     # 마지막 제거된 셀 위치를 사용
                     cx, cy = cell["rect"].centerx, cell["rect"].centery
                     if tps is not None and hasattr(tps, "spawn_star"):
@@ -31713,7 +31713,7 @@ def _evaporate_single_guard_cell(block: dict, cell: dict, *, bullet_dx: float = 
 def _destroy_stage2_rock_for_blacksmith(rock: dict) -> None:
     """Apply shared destruction effects when hammer projectiles break rocks."""
 
-    animated_bg = globals().get("animated_bg_stage2")
+    animated_bg = animated_bg_stage2
     if animated_bg is not None:
         try:
             animated_bg.destroy_rock(rock)
@@ -31732,7 +31732,7 @@ def _destroy_stage2_rock_for_blacksmith(rock: dict) -> None:
         pass
 
     if rock.get("is_golden", False):
-        trade_points = globals().get("trade_point_system")
+        trade_points = trade_point_system
         if trade_points is not None:
             rock_x = rock.get("x", 0)
             rock_y = rock.get("fall_y", rock.get("y", 0))
@@ -32416,11 +32416,11 @@ def _update_boss_crack_stuck_state(can_move: bool, boss_rect: pygame.Rect):
         boss_crack_stuck_timer = 0
         return
 
-    if globals().get("boss_knockback_timer", 0) > 0:
+    if boss_knockback_timer > 0:
         boss_crack_stuck_timer = 0
         return
 
-    recent_hit_time = globals().get("boss_crack_recent_hit_time", 0)
+    recent_hit_time = boss_crack_recent_hit_time
     if current_time - recent_hit_time < BLACKSMITH_GROUND_CRACK_STUCK_CLEAR_DELAY_MS:
         boss_crack_stuck_timer = 0
         return
@@ -32464,7 +32464,7 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
     debug_enabled = ENABLE_CRACK_TIMING_DEBUG
     now_ms = pygame.time.get_ticks() if debug_enabled else 0
     if debug_enabled:
-        last_hit = globals().get("boss_crack_recent_hit_time", 0)
+        last_hit = boss_crack_recent_hit_time
         delta_ms = now_ms - last_hit if last_hit else None
         print(f"[CRACK DEBUG] hit_start t={now_ms}Δ{delta_ms} seg={segments_remaining}/{segments_total} len={current_length:.1f}")
 
@@ -32549,7 +32549,7 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
 
     # Apply knockback to the boss
     try:
-        current_timer = globals().get("boss_knockback_timer", 0)
+        current_timer = boss_knockback_timer
         knockback_frames = max(1, BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAMES + segments_break * BLACKSMITH_GROUND_CRACK_BOSS_KNOCKBACK_FRAME_BONUS)
         globals()["boss_knockback_timer"] = knockback_frames
         delta_x = boss_rect.centerx - crack_center_x
@@ -32574,7 +32574,7 @@ def _handle_boss_crack_hit(crack: dict, boss_rect: pygame.Rect):
         globals()["boss_knockback_offset_x"] = 0
         globals()["boss_knockback_offset_y"] = 0
 
-        boss_obj = globals().get("BOSS")
+        boss_obj = BOSS
         if boss_obj is not None:
             # 즉시 밀기 거리도 2배로 증대해 체감 이동 거리를 정확히 2배 수준으로 맞춘다.
             push_distance = _scale_knockback(BLACKSMITH_GROUND_CRACK_BOSS_IMMEDIATE_PUSH) * 2.0
@@ -32648,7 +32648,7 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
 
     # Stage 7: 폭발 반경 내 모든 테트로미노를 증발 처리
     try:
-        if globals().get('current_stage') == 7:
+        if current_stage == 7:
             radius_sq = radius * radius
             if 'stage7_tetrominoes' in globals() and stage7_tetrominoes:
                 for mino in list(stage7_tetrominoes):
@@ -32823,11 +32823,11 @@ def _trigger_blacksmith_hammer_shock_explosion(stage: int, centerx: float, cente
             )
 
             try:
-                globals()["boss_stunned_timer"] = max(globals().get("boss_stunned_timer", 0), stun_frames)
+                globals()["boss_stunned_timer"] = max(boss_stunned_timer, stun_frames)
             except Exception:
                 pass
 
-            current_stage_value = globals().get("current_stage")
+            current_stage_value = current_stage
             if current_stage_value in boss_health_stages:
                 damage = _blacksmith_hammer_shock_damage_for_stage(stage)
                 if damage > 0:
@@ -33140,7 +33140,7 @@ def update_blacksmith_hammer_shock(keys):
                     trigger_boss_knockback(slash_rect.centerx, slash_rect.centery)
                     # 검기 전용: 기존보다 더 빠르고 멀리 넉백되도록 즉시 추가 밀기 적용
                     try:
-                        boss_obj = globals().get("BOSS")
+                        boss_obj = BOSS
                         if boss_obj is not None:
                             hit_center_x = slash_rect.centerx
                             boss_center_x = boss_obj.centerx
@@ -33164,7 +33164,7 @@ def update_blacksmith_hammer_shock(keys):
                 try:
                     stun_frames = int(0.3 * FPS)
                     globals()["boss_stunned_timer"] = max(
-                        globals().get("boss_stunned_timer", 0),
+                        boss_stunned_timer,
                         stun_frames,
                     )
                 except Exception:
@@ -33874,7 +33874,7 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
     rect = divine_state["rect"]
     # 스테이지 진입 직후 중앙으로 스냅되는 문제 보정: 1프레임 동안 저장된 X로 강제 위치 고정
     try:
-        lock = globals().get("blacksmith_persist_lock_pos")
+        lock = blacksmith_persist_lock_pos
         if lock and lock.get("divine_x") is not None:
             saved_x = int(lock["divine_x"])
             rect.centerx = max(rect.width // 2, min(WIDTH - rect.width // 2, saved_x))
@@ -33965,10 +33965,10 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
             try:
                 ball_owner = getattr(game_vars.ball, "last_hit_by", None)
             except Exception:
-                ball_owner = globals().get("last_hit_by", None)
+                ball_owner = last_hit_by
             # 이전 공 위치 가져오기
-            prev_x = globals().get("ball_prev_x", BALL.x)
-            prev_y = globals().get("ball_prev_y", BALL.y)
+            prev_x = ball_prev_x
+            prev_y = ball_prev_y
             for wall in walls:
                 # 플레이어가 친 공(서브 포함)에 대해서는 건물 보호용(group_id) 벽돌은 디바인스톤을 막지 않는다.
                 if ball_owner == "player" and wall.get("group_id") is not None:
@@ -33988,8 +33988,8 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
             wall_blocked = False
 
         # 디바인스톤 충돌 체크: 현재 충돌 또는 관통
-        prev_x = globals().get("ball_prev_x", BALL.x)
-        prev_y = globals().get("ball_prev_y", BALL.y)
+        prev_x = ball_prev_x
+        prev_y = ball_prev_y
         divine_collision = hit_rect.colliderect(BALL) or _line_intersects_rect_divine(
             prev_x + BALL.width//2, prev_y + BALL.height//2,
             BALL.centerx, BALL.centery, hit_rect
@@ -34006,7 +34006,7 @@ def update_blacksmith_divine_stone(divine_runtime=None, *, auto_sync=True, auto_
             except Exception:
                 ball_owner = None
             if not ball_owner:
-                ball_owner = globals().get("last_hit_by", "player")
+                ball_owner = last_hit_by
 
             if ball_owner == "player":
                 try:
@@ -34502,7 +34502,7 @@ def _blacksmith_fire_turret_projectile(turret_runtime, turret_state, *, overdriv
     turret_rect = turret_state.get("rect")
     # 스테이지 진입 직후 중앙으로 스냅되는 문제 보정: 1프레임 동안 저장된 X로 강제 위치 고정
     try:
-        lock = globals().get("blacksmith_persist_lock_pos")
+        lock = blacksmith_persist_lock_pos
         if lock and lock.get("turret_x") is not None and turret_rect is not None:
             saved_x = int(lock["turret_x"])
             turret_rect.centerx = max(turret_rect.width // 2, min(WIDTH - turret_rect.width // 2, saved_x))
@@ -34716,7 +34716,7 @@ def draw_blacksmith_overheat_overlay(surface: pygame.Surface) -> None:
         return
 
     duration = max(1, BLACKSMITH_TURRET_OVERHEAT_DURATION)
-    frame_value = float(globals().get("frame_counter", 0))
+    frame_value = float(frame_counter)
     pulse = 0.5 + 0.5 * math.sin(frame_value * 0.25)
     intensity = 0.45 + 0.55 * pulse
 
@@ -35040,10 +35040,10 @@ def update_blacksmith_turret():
         try:
             ball_owner = getattr(game_vars.ball, "last_hit_by", None)
         except Exception:
-            ball_owner = globals().get("last_hit_by", None)
+            ball_owner = last_hit_by
         # 이전 공 위치 가져오기
-        prev_x = globals().get("ball_prev_x", BALL.x)
-        prev_y = globals().get("ball_prev_y", BALL.y)
+        prev_x = ball_prev_x
+        prev_y = ball_prev_y
         for wall in walls:
             # 플레이어가 친 공(서브 포함)에 대해서는 건물 보호용(group_id) 벽돌은 포탑을 막지 않는다.
             if ball_owner == "player" and wall.get("group_id") is not None:
@@ -35063,8 +35063,8 @@ def update_blacksmith_turret():
         wall_blocked = False
 
     # 포탑 충돌 체크: 현재 충돌 또는 관통
-    prev_x = globals().get("ball_prev_x", BALL.x)
-    prev_y = globals().get("ball_prev_y", BALL.y)
+    prev_x = ball_prev_x
+    prev_y = ball_prev_y
     turret_collision = turret_hit_rect.colliderect(BALL) or _line_intersects_rect_turret(
         prev_x + BALL.width//2, prev_y + BALL.height//2,
         BALL.centerx, BALL.centery, turret_hit_rect
@@ -35077,7 +35077,7 @@ def update_blacksmith_turret():
             # 디바인쉴드 활성 중에는 포탑 체력이 감소하지 않는다.
             shield_active = False
             try:
-                divine_state = globals().get("blacksmith_divine_stone_state")
+                divine_state = blacksmith_divine_stone_state
                 shield_active = bool(divine_state and divine_state.get("shield_active", False))
             except Exception:
                 shield_active = False
@@ -35234,7 +35234,7 @@ def update_blacksmith_turret():
 
     projectiles = turret_runtime.projectiles
     if blacksmith_turret_state and blacksmith_turret_state.get("overheat_timer", 0) > 0 and turret_rect:
-        frame_value = float(globals().get("frame_counter", 0))
+        frame_value = float(frame_counter)
         pulse = 0.5 + 0.5 * math.sin(frame_value * 0.32)
         aura_surface = pygame.Surface((turret_rect.width + 22, turret_rect.height + 24), pygame.SRCALPHA)
         aura_surface.fill((255, 70, 40, int(80 + 120 * pulse)))
@@ -35365,7 +35365,7 @@ def update_blacksmith_turret():
                         screen_shake_timer = max(screen_shake_timer, 8)
                         screen_shake_intensity = max(screen_shake_intensity, intensity)
                 try:
-                    current_star_timer = globals().get("boss_stunned_timer", 0)
+                    current_star_timer = boss_stunned_timer
                     current_star_timer = max(current_star_timer, stun_frames)
                     globals()["boss_stunned_timer"] = current_star_timer
                     globals()["boss_stun_timer"] = 0
@@ -35408,7 +35408,7 @@ def update_blacksmith_turret():
 
             # Stage 7: 포탑 미사일 ↔ 테트로/가드 충돌 → 미사일 폭발 + 대상 파괴
             if (
-                globals().get('current_stage') == 7
+                current_stage == 7
                 and 'stage7_tetrominoes' in globals()
             ):
                 tetro_hit = None
@@ -35511,7 +35511,7 @@ def update_blacksmith_turret():
 
         turret_runtime.projectiles = new_projectiles
 
-    missile_img = globals().get("BLACKSMITH_TURRET_MISSILE_IMG")
+    missile_img = BLACKSMITH_TURRET_MISSILE_IMG
     if missile_img is not None:
         try:
             missile_img.set_alpha(255 if turret_runtime.projectiles else 0)
@@ -36047,7 +36047,7 @@ def draw_blacksmith_turret_elements(surface):
         # 보스/플레이어 패들의 위치에 따른 방향 편향(좌우 기울기용)
         direction_factor = 0.0
         try:
-            player_obj = globals().get("PLAYER")
+            player_obj = PLAYER
             if player_obj is not None:
                 dx = player_obj.centerx - cx
                 direction_factor = max(-1.0, min(1.0, dx / max(1.0, sx_val(80))))
@@ -36855,7 +36855,7 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
     rect = divine_state["rect"]
     # 첫 프레임에서도 위치가 중앙으로 스냅되는 것을 막기 위해 드로잉 단계에서도 X 락을 1회 적용한다.
     try:
-        lock = globals().get("blacksmith_persist_lock_pos")
+        lock = blacksmith_persist_lock_pos
         if lock and lock.get("divine_x") is not None:
             saved_x = int(lock["divine_x"])
             rect.centerx = max(rect.width // 2, min(WIDTH - rect.width // 2, saved_x))
@@ -36876,7 +36876,7 @@ def draw_blacksmith_divine_stone(surface, divine_state=None):
     draw_width = width + padding_x * 2
     draw_height = height + padding_top + padding_bottom
     structure_surface = _get_divine_stone_structure_surface(draw_width, draw_height)  # 성능 최적화: 캐싱
-    frame_value = float(globals().get("frame_counter", 0))
+    frame_value = float(frame_counter)
     deploy_frames = max(1, BLACKSMITH_DIVINE_DEPLOY_FRAMES)
     deploy_timer = min(deploy_frames, int(divine_state.get("deploy_timer", deploy_frames)))
     base_ratio = deploy_timer / deploy_frames
@@ -38667,7 +38667,7 @@ def blacksmith_start_divine_stone():
         return False
 
     global blacksmith_divine_stage_owner
-    stage_value = globals().get("current_stage")
+    stage_value = current_stage
     if stage_value is not None:
         blacksmith_divine_stage_owner = stage_value
 
@@ -39728,7 +39728,7 @@ def draw_energy_ball(surface: pygame.Surface, cx: int, cy: int, radius: int) -> 
     intensity_level = get_display_intensity_level()
 
     # 부스트차징 활성화 시 무지개색 적용
-    boost_active = globals().get("boost_charging_active", False)
+    boost_active = boost_charging_active
     if boost_active:
         # 무지개색 계산 (HSV to RGB)
         current_time = pygame.time.get_ticks()
@@ -40564,15 +40564,15 @@ def get_blacksmith_build_speed_level() -> int:
 def is_blacksmith_divine_stone_active() -> bool:
     """디바인스톤이 건설되어 필드에 남아있는지 여부를 반환한다."""
 
-    owner_stage = globals().get("blacksmith_divine_stage_owner")
-    current_stage_value = globals().get("current_stage")
+    owner_stage = blacksmith_divine_stage_owner
+    current_stage_value = current_stage
     if owner_stage is not None and current_stage_value is not None and owner_stage != current_stage_value:
         return False
 
-    if _is_divine_state_active(globals().get("blacksmith_divine_stone_state")):
+    if _is_divine_state_active(blacksmith_divine_stone_state):
         return True
 
-    controller = globals().get("BLACKSMITH_CONTROLLER")
+    controller = BLACKSMITH_CONTROLLER
     if controller is None:
         return False
 
@@ -40590,9 +40590,9 @@ def get_blacksmith_umbrella_recover_interval_frames() -> int:
     if is_blacksmith_divine_stone_active():
         # 강화 여부까지 확인하여 단계별 회복 주기 적용
         try:
-            state = globals().get("blacksmith_divine_stone_state")
+            state = blacksmith_divine_stone_state
             if not _is_divine_state_active(state):
-                controller = globals().get("BLACKSMITH_CONTROLLER")
+                controller = BLACKSMITH_CONTROLLER
                 try:
                     state = controller.state.divine.state if controller is not None else None
                 except AttributeError:
@@ -40618,10 +40618,10 @@ def get_blacksmith_umbrella_gauge_gain() -> int:
     if is_blacksmith_divine_stone_active():
         # 디바인스톤이 활성화된 경우, 강화 여부에 따라 게이지 획득량을 달리 적용한다.
         try:
-            state = globals().get("blacksmith_divine_stone_state")
+            state = blacksmith_divine_stone_state
             # 전역 상태가 비어 있으면 컨트롤러 런타임 상태를 참조
             if not _is_divine_state_active(state):
-                controller = globals().get("BLACKSMITH_CONTROLLER")
+                controller = BLACKSMITH_CONTROLLER
                 try:
                     state = controller.state.divine.state if controller is not None else None
                 except AttributeError:
@@ -40675,7 +40675,7 @@ def _spawn_blacksmith_divine_slash_from_shield(swing_direction: int) -> None:
         return
 
     # 디바인스톤이 실제 필드에 존재하고 강화된 상태인지 확인
-    state = globals().get("blacksmith_divine_stone_state")
+    state = blacksmith_divine_stone_state
     if not _is_divine_state_active(state):
         return
     if not bool(state.get("reinforced", False)):
@@ -40690,8 +40690,8 @@ def _spawn_blacksmith_divine_slash_from_shield(swing_direction: int) -> None:
     # 강화디바인스톤이 필드에 있고 발토르가 플레이 중일 때
     # 게이지가 40 미만이면 검기를 발사하지 않는다.
     try:
-        if globals().get("selected_character_type") == "blacksmith":
-            current_gauge = float(globals().get("special_gauge", 0))
+        if selected_character_type == "blacksmith":
+            current_gauge = float(special_gauge)
             if current_gauge < BLACKSMITH_DIVINE_SLASH_GAUGE_COST:
                 return
     except Exception:
@@ -40754,7 +40754,7 @@ def _spawn_blacksmith_divine_slash_from_shield(swing_direction: int) -> None:
     blacksmith_divine_slash_projectiles.append(projectile)
 
     # 발토르가 플레이 중이고 검기가 실제로 발사될 때 게이지 40 소모
-    if globals().get("selected_character_type") == "blacksmith":
+    if selected_character_type == "blacksmith":
         try:
             consume_special_gauge(BLACKSMITH_DIVINE_SLASH_GAUGE_COST)
         except Exception:
@@ -41097,7 +41097,7 @@ def check_divine_shield_ball_collision():
 
     # 디바인쉴드 활성 확인
     try:
-        divine_state = globals().get("blacksmith_divine_stone_state")
+        divine_state = blacksmith_divine_stone_state
         if divine_state is None or not divine_state.get("shield_active", False):
             return False
     except Exception:
@@ -42402,7 +42402,7 @@ def _capture_blacksmith_structures_for_persist() -> dict | None:
             pass
 
     # 디바인 스톤 상태 스냅샷 (필드에 존재할 때만)
-    divine_state = state.divine.state or globals().get("blacksmith_divine_stone_state")
+    divine_state = state.divine.state or blacksmith_divine_stone_state
     if _is_divine_state_active(divine_state):
         dstate = dict(divine_state)
         if dstate.get("rect") is not None:
@@ -43482,11 +43482,11 @@ class SupplyAircraft:
         firearm_names = {"bazooka", "ak47", "net_gun", "fire_support", "suicide_drone", "bowling_trap"}
 
         # 정확한 화기 인벤토리를 읽어 중복 드랍을 방지
-        controller = globals().get("soldier_controller")
+        controller = soldier_controller
         if controller is not None and hasattr(controller, "weapons"):
             soldier_weapon_list = list(controller.weapons)
         else:
-            soldier_weapon_list = globals().get("soldier_weapons", [])
+            soldier_weapon_list = soldier_weapons
         owned_firearm_count = len({w for w in soldier_weapon_list if w in firearm_names})
         firearm_penalty = max(0.25, 1.0 - 0.25 * owned_firearm_count)  # 0.25씩 감소, 최소 25%
 
@@ -45921,23 +45921,23 @@ def update_suicide_drone(keys, manual_trigger_edge: bool, mouse_pressed_edge: bo
     suicide_drone_rect.clamp_ip(pygame.Rect(0, 0, WIDTH, HEIGHT))
 
     # 로터 애니메이션
-    globals()['suicide_drone_rotor_angle'] = (globals().get('suicide_drone_rotor_angle', 0.0) + suicide_drone_rotor_speed) % 360
+    globals()['suicide_drone_rotor_angle'] = (suicide_drone_rotor_angle + suicide_drone_rotor_speed) % 360
 
     # 플레이어는 제자리 고정
     if suicide_drone_player_lock:
         PLAYER.centerx, PLAYER.centery = suicide_drone_player_lock
 
-    if globals().get('suicide_drone_grace_timer', 0) > 0:
+    if suicide_drone_grace_timer > 0:
         globals()['suicide_drone_grace_timer'] -= 1
 
     # 수동 폭발 입력 (에지 트리거 + 그레이스 이후)
-    if globals().get('suicide_drone_grace_timer', 0) <= 0 and (manual_trigger_edge or mouse_pressed_edge):
+    if suicide_drone_grace_timer <= 0 and (manual_trigger_edge or mouse_pressed_edge):
         _detonate_suicide_drone("manual")
         return
 
     # 보스 충돌 시 즉시 폭발
     try:
-        if globals().get('suicide_drone_grace_timer', 0) <= 0 and suicide_drone_rect.colliderect(BOSS):
+        if suicide_drone_grace_timer <= 0 and suicide_drone_rect.colliderect(BOSS):
             _detonate_suicide_drone("boss_hit")
             return
     except Exception:
@@ -45945,7 +45945,7 @@ def update_suicide_drone(keys, manual_trigger_edge: bool, mouse_pressed_edge: bo
 
     # 공과 충돌 시: 공 속도/각도 부채꼴 가속 후 폭발
     try:
-        if globals().get('suicide_drone_grace_timer', 0) <= 0 and suicide_drone_rect.colliderect(BALL):
+        if suicide_drone_grace_timer <= 0 and suicide_drone_rect.colliderect(BALL):
             # 원래 속도 백업 (보스 반격 시 복원용)
             original_speed = math.hypot(ball_vel[0], ball_vel[1]) if ball_vel else 0.0
             suicide_drone_ball_speed_backup = original_speed
@@ -45973,7 +45973,7 @@ def update_suicide_drone(keys, manual_trigger_edge: bool, mouse_pressed_edge: bo
 
     # 보스 뒷벽(상단) 충돌 시 폭발: 공 실점 라인과 동일하게 화면 상단에 닿으면 폭발
     try:
-        if globals().get('suicide_drone_grace_timer', 0) <= 0 and suicide_drone_rect.top <= 0:
+        if suicide_drone_grace_timer <= 0 and suicide_drone_rect.top <= 0:
             _detonate_suicide_drone("boss_back_wall")
             return
     except Exception:
@@ -48622,7 +48622,7 @@ def go_to_next_round():
 
     # Stage 8: 플레이어가 3점 이상이면 다음 라운드에 한 번만 연출 예약
     if current_stage == 8 and round_wins >= 3:
-        if not globals().get("stage8_awaken_intro_done", False) and not globals().get("stage8_awaken_intro_pending", False):
+        if not stage8_awaken_intro_done and not stage8_awaken_intro_pending:
             globals()["stage8_awaken_intro_pending"] = True
             globals()["stage8_awaken_intro_done"] = False
             globals()["stage8_awaken_freeze_end_ms"] = pygame.time.get_ticks() + 3000
@@ -50913,7 +50913,7 @@ def _find_blacksmith_building_under_player() -> tuple[pygame.Rect, str] | None:
     candidates: list[tuple[pygame.Rect, str]] = []
 
     # 포탑 본체 (머리/포신까지 포함한 확장 히트박스 사용)
-    if globals().get("blacksmith_turret_active") and globals().get("blacksmith_turret_state"):
+    if blacksmith_turret_active and blacksmith_turret_state:
         turret_state = globals()["blacksmith_turret_state"]
         turret_rect = turret_state.get("rect")
         hp = turret_state.get("hp", 0)
@@ -50935,7 +50935,7 @@ def _find_blacksmith_building_under_player() -> tuple[pygame.Rect, str] | None:
                 candidates.append((turret_hit_rect, "turret"))
 
     # 디바인스톤 본체 (강화 시 사용되는 확장 히트박스를 공유)
-    if globals().get("blacksmith_divine_stone_state") is not None:
+    if blacksmith_divine_stone_state is not None:
         stone_state = globals()["blacksmith_divine_stone_state"]
         stone_rect = stone_state.get("rect")
         hp = stone_state.get("hp", 0)
@@ -50989,7 +50989,7 @@ def _create_blacksmith_building_shield(
         # - 세로 길이는 약간 줄이되, 윗/옆 벽이 매끄럽게 이어지도록 구성한다.
         thickness = max(4, int(wall_height * 0.9))
         try:
-            ball_r = int(globals().get("BALL_RADIUS", 8))
+            ball_r = int(BALL_RADIUS)
         except Exception:
             ball_r = 8
 
@@ -51090,7 +51090,7 @@ def activate_wall():
             # 토르의 망치가 있으면 벽돌 길이만 증가 (설치 시간은 동일하게 유지)
         if master_obtained:
             wall_install_timer = HALF_SECOND_FRAMES  # 0.5초 (30프레임)
-            bonus_pct = globals().get("master_wall_length_pct", 30)
+            bonus_pct = master_wall_length_pct
             wall_width = int(80 * (1 + bonus_pct / 100.0))
             print(f"  !  +{bonus_pct}%,  0.5 ( {len(walls)})")
         else:
@@ -58305,7 +58305,7 @@ def handle_player(keys):
     ball_y = ball_centery
 
     # 👁 오딘의 눈 부활/죽음 애니메이션 중에는 플레이어 입력 처리 건너뛰기
-    if globals().get('odins_eye_revival_anim_active', False) or globals().get('odins_eye_death_anim_active', False):
+    if odins_eye_revival_anim_active or odins_eye_death_anim_active:
         return
 
     # 👁 오딘의 눈 페널티: 대쉬 토큰 1개 고정
@@ -58343,7 +58343,7 @@ def handle_player(keys):
             or player_stunned
             or half_dash_used_flag
             or long_boost_active  # 거대화포션 중에는 강제 이동 방지를 위해 충전 비활성화
-            or globals().get("is_waiting_for_serve", False)  # 서브 준비/안내 중 선입력 차단
+            or is_waiting_for_serve  # 서브 준비/안내 중 선입력 차단
             or block_active  # 서브 직후 금지 시간
         ):
             optimus_charge_active = False
@@ -58439,7 +58439,7 @@ def handle_player(keys):
                 "[OPT_CHARGE_DEBUG]"
                 f" down={down_held}"
                 f" active={optimus_charge_active}"
-                f" drained={globals().get('optimus_drained', False)}"
+                f" drained={optimus_drained}"
                 f" rolling={rolling_active}"
                 f" stun={rolling_stun_timer>0 or player_stunned}"
                 f" serve_wait={is_waiting_for_serve}"
@@ -58476,8 +58476,8 @@ def handle_player(keys):
             rolling_active
             or rolling_stun_timer > 0
             or player_stunned
-            or globals().get("is_waiting_for_serve", False)
-            or globals().get("is_player_serve", False)
+            or is_waiting_for_serve
+            or is_player_serve
             or power_smashing_freeze_active
             or power_smashing_parabola_active
         ):
@@ -58778,7 +58778,7 @@ def handle_player(keys):
     global tutorial_power_reminder_active, tutorial_power_reminder_timer
     global tutorial_power_left_done, tutorial_power_center_done, tutorial_power_right_done
 
-    legacy_state = globals().get("LEGACY_STATE")
+    legacy_state = LEGACY_STATE
     rolling_state = getattr(legacy_state, "rolling", None) if legacy_state else None
 
     _rolling_attr_map = {
@@ -58824,7 +58824,7 @@ def handle_player(keys):
         is_player_moving = abs(current_speed) > 0 or rolling_active
         update_recovery_speed_boost(PLAYER.centerx, PLAYER.centery, is_player_moving)
 
-    optimus_drain_locked = globals().get("optimus_drained", False)
+    optimus_drain_locked = optimus_drained
     if optimus_drain_locked:
         current_speed = 0
         rolling_active = False
@@ -58876,7 +58876,7 @@ def handle_player(keys):
                 PLAYER.height = target_height
                 PLAYER.centerx = center_x
                 # 귀신발걸음 Y축 이동 중에는 Y좌표 고정 스킵
-                if not globals().get("arena_bottom_ghost_step_active", False):
+                if not arena_bottom_ghost_step_active:
                     PLAYER.bottom = 750  # 하단 패들 bottom 위치 고정! (HEIGHT)
                 # 🔮 이동속도 50% 감소 (축소된 패들 페널티)
                 arena_player_slow_mult *= 0.5
@@ -58888,7 +58888,7 @@ def handle_player(keys):
                     PLAYER.height = 40
                     PLAYER.centerx = center_x
                     # 귀신발걸음 Y축 이동 중에는 Y좌표 고정 스킵
-                    if not globals().get("arena_bottom_ghost_step_active", False):
+                    if not arena_bottom_ghost_step_active:
                         PLAYER.bottom = 750  # 하단 패들 bottom 위치 고정!
         except Exception as e:
             print(f"[Arena] Player status effect error: {e}")
@@ -58923,29 +58923,29 @@ def handle_player(keys):
                 "special_ready": special_ready,
                 "special_gauge": special_gauge,
                 "special_max": special_gauge_max,
-                "build_menu_active": globals().get("blacksmith_build_menu_active", False),
+                "build_menu_active": blacksmith_build_menu_active,
                 "rolling_active": get_roll("rolling_active"),
                 "rolling_stun": get_roll("rolling_stun_timer"),
                 "rolling_charges": get_roll("rolling_charges"),
                 # 발토르 추가 정보
-                "umbrella_open": globals().get("blacksmith_umbrella_open", False),
-                "turret_active": globals().get("blacksmith_turret_active", False),
-                "turret_overdrive_ready": bool(globals().get("blacksmith_turret_state", {}).get("overdrive_ready", False)) if globals().get("blacksmith_turret_state") else False,
-                "turret_rect": globals().get("blacksmith_turret_state", {}).get("rect") if globals().get("blacksmith_turret_state") else None,
-                "turret_level": int(globals().get("blacksmith_turret_state", {}).get("level", 1)) if globals().get("blacksmith_turret_state") else 1,
-                "turret_level_max": globals().get("BLACKSMITH_TURRET_MAX_LEVEL", 3),
-                "build_radius": globals().get("BLACKSMITH_TURRET_BUILD_RADIUS", 80),
-                "blueprint_active": globals().get("blacksmith_turret_blueprint_active", False),
-                "build_progress": globals().get("blacksmith_turret_build_progress", 0),
-                "build_needed": globals().get("BLACKSMITH_TURRET_BUILD_TIME", 0),
-                "divine_active": globals().get("blacksmith_divine_stone_state") is not None,
-                "divine_blueprint_active": globals().get("blacksmith_divine_blueprint_active", False),
-                "divine_build_progress": globals().get("blacksmith_divine_build_progress", 0),
-                "divine_build_needed": globals().get("BLACKSMITH_DIVINE_BUILD_TIME", 0),
-                "divine_rect": globals().get("blacksmith_divine_stone_state", {}).get("rect") if globals().get("blacksmith_divine_stone_state") else None,
-                "divine_reinforced": bool(globals().get("blacksmith_divine_stone_state", {}).get("reinforced", False)) if globals().get("blacksmith_divine_stone_state") else False,
-                "divine_shield_ready": bool(globals().get("blacksmith_divine_stone_state", {}).get("shield_ready", False)) if globals().get("blacksmith_divine_stone_state") else False,
-                "divine_blueprint_rect": globals().get("blacksmith_divine_blueprint_rect") if 'blacksmith_divine_blueprint_rect' in globals() else None,
+                "umbrella_open": blacksmith_umbrella_open,
+                "turret_active": blacksmith_turret_active,
+                "turret_overdrive_ready": bool((blacksmith_turret_state or {}).get("overdrive_ready", False)) if blacksmith_turret_state else False,
+                "turret_rect": (blacksmith_turret_state or {}).get("rect") if blacksmith_turret_state else None,
+                "turret_level": int((blacksmith_turret_state or {}).get("level", 1)) if blacksmith_turret_state else 1,
+                "turret_level_max": BLACKSMITH_TURRET_MAX_LEVEL,
+                "build_radius": BLACKSMITH_TURRET_BUILD_RADIUS,
+                "blueprint_active": blacksmith_turret_blueprint_active,
+                "build_progress": blacksmith_turret_build_progress,
+                "build_needed": BLACKSMITH_TURRET_BUILD_TIME,
+                "divine_active": blacksmith_divine_stone_state is not None,
+                "divine_blueprint_active": blacksmith_divine_blueprint_active,
+                "divine_build_progress": blacksmith_divine_build_progress,
+                "divine_build_needed": BLACKSMITH_DIVINE_BUILD_TIME,
+                "divine_rect": (blacksmith_divine_stone_state or {}).get("rect") if blacksmith_divine_stone_state else None,
+                "divine_reinforced": bool((blacksmith_divine_stone_state or {}).get("reinforced", False)) if blacksmith_divine_stone_state else False,
+                "divine_shield_ready": bool((blacksmith_divine_stone_state or {}).get("shield_ready", False)) if blacksmith_divine_stone_state else False,
+                "divine_blueprint_rect": blacksmith_divine_blueprint_rect if 'blacksmith_divine_blueprint_rect' in globals() else None,
                 "current_stage": current_stage,
             }
             # 발토르 AI가 청사진을 요구하면 메뉴 없이 즉시 배치
@@ -59074,7 +59074,7 @@ def handle_player(keys):
         next_consecutive = get_roll("rolling_consecutive_count") + 1
         consecutive_discount = 0.5 ** max(0, next_consecutive - 1)
         discounted_cost = int(base_gauge_cost * consecutive_discount)
-        if globals().get("selected_character_type") == "optimus":
+        if selected_character_type == "optimus":
             discounted_cost = int(discounted_cost * 0.2)  # 80% 할인
         battery_bonus = get_runtime_skill_bonus("dash_battery_pack")
         required_gauge = max(10, int(discounted_cost * (1 - battery_bonus)))
@@ -59179,7 +59179,7 @@ def handle_player(keys):
         current_charges = max(0, charges_available - 1)
         set_roll("rolling_charges", current_charges)
 
-        token_states_local = list(globals().get("token_states", []))
+        token_states_local = list(token_states)
         if token_states_local and len(token_states_local) > 0:
             for idx in range(min(len(token_states_local), max_charges) - 1, -1, -1):
                 if token_states_local[idx]:
@@ -59243,7 +59243,7 @@ def handle_player(keys):
 
         # 연속 대쉬 카운트 및 튜토리얼 진행
         # 하프대쉬 여부 먼저 저장 (플래그 리셋 전)
-        _was_half_dash = globals().get("half_dash_used_flag", False)
+        _was_half_dash = half_dash_used_flag
         if _was_half_dash:
             set_roll("rolling_consecutive_count", 1)
             globals()["half_dash_used_flag"] = False
@@ -59252,12 +59252,12 @@ def handle_player(keys):
 
         if (
             current_stage == 50
-            and globals().get("tutorial_current_chapter") == 2
-            and globals().get("tutorial_consecutive_dash_count", 0) < 1
+            and tutorial_current_chapter == 2
+            and tutorial_consecutive_dash_count < 1
             and get_roll("rolling_consecutive_count") >= 2
         ):
             globals()["tutorial_consecutive_dash_count"] = (
-                globals().get("tutorial_consecutive_dash_count", 0) + 1
+                tutorial_consecutive_dash_count + 1
             )
             print(
                 f"튜토리얼: 연속대쉬 성공! {globals()['tutorial_consecutive_dash_count']}/1"
@@ -59300,7 +59300,7 @@ def handle_player(keys):
 
         # 부스트차징 발동 체크 (대쉬기어 보유 시) - 즉시 토큰 충전!
         if dashgear_obtained and _next_charge_idx >= 0:
-            boost_chance = globals().get("dashgear_boost_charge_pct", 8) / 100.0
+            boost_chance = dashgear_boost_charge_pct / 100.0
             roll_result = random.random()
             if roll_result < boost_chance:
                 # 부스트차징 발동! - 토큰 즉시 충전 (연속대쉬 중 추가 대쉬 가능)
@@ -59399,7 +59399,7 @@ def handle_player(keys):
     def _is_down_pressed_any(keys_seq) -> bool:
         try:
             if is_move_down_pressed(keys_seq):
-                if os.environ.get("PINGF_CHARGE_DEBUG", "0").lower() not in ("0", "false", "off") and globals().get("selected_character_type") == "optimus":
+                if os.environ.get("PINGF_CHARGE_DEBUG", "0").lower() not in ("0", "false", "off") and selected_character_type == "optimus":
                     print("[OPT_CHARGE_DEBUG] down_detect=move_down_pressed true")
                 return True
             # 한글 자모 키코드도 런타임 조회해 포함 (pygame.key.key_code가 0~len(keys_seq) 범위 값을 줄 때만)
@@ -59409,10 +59409,10 @@ def handle_player(keys):
                 except Exception:
                     code = None
                 if code is not None and code >= 0 and code < len(keys_seq) and keys_seq[code]:
-                    if os.environ.get("PINGF_CHARGE_DEBUG", "0").lower() not in ("0", "false", "off") and globals().get("selected_character_type") == "optimus":
+                    if os.environ.get("PINGF_CHARGE_DEBUG", "0").lower() not in ("0", "false", "off") and selected_character_type == "optimus":
                         print(f"[OPT_CHARGE_DEBUG] down_detect=hangul sym={sym} code={code}")
                     return True
-            if os.environ.get("PINGF_CHARGE_DEBUG", "0").lower() not in ("0", "false", "off") and globals().get("selected_character_type") == "optimus":
+            if os.environ.get("PINGF_CHARGE_DEBUG", "0").lower() not in ("0", "false", "off") and selected_character_type == "optimus":
                 print(f"[OPT_CHARGE_DEBUG] down_detect=false len={len(keys_seq)} code_candidates={[pygame.key.key_code(s) for s in ('ㄴ','ᄂ') if hasattr(pygame.key,'key_code')]}")
         except Exception:
             pass
@@ -60243,7 +60243,7 @@ def handle_player(keys):
             PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
             pass  # print(f"🔧 [STUN] 감속이동: {old_x:.1f} → {PLAYER.x:.1f} (vel={player_knockback_vel:.2f}, timer={player_stunned_timer})")  # 디버그 비활성화
         # 감속 (뿔박치기는 더 부드러운 감속 적용)
-        if globals().get('horn_charge_player_knockback_active', False):
+        if horn_charge_player_knockback_active:
             player_knockback_vel *= 0.92  # 부드러운 감속 (0.85 → 0.92)
             if abs(player_knockback_vel) < 0.5:
                 globals()['horn_charge_player_knockback_active'] = False
@@ -60547,7 +60547,7 @@ def handle_player(keys):
 
             # === 연속대쉬 조기 발동: 대쉬 시작 후 고정 시간이 지나면 연속대쉬 허용 ===
             # 대쉬 거리 보너스와 무관하게 동일한 타이밍에 연속대쉬 가능 (밀리초 기준)
-            _elapsed_ms = pygame.time.get_ticks() - globals().get("_dash_start_time", 0)
+            _elapsed_ms = pygame.time.get_ticks() - _dash_start_time
             if _elapsed_ms >= CONSECUTIVE_DASH_START_DELAY_MS and rolling_timer_value > 0:
                 # 연속대쉬 조건 체크 (토큰, 방향키+아래키)
                 _early_base_charges = 1
@@ -60562,7 +60562,7 @@ def handle_player(keys):
                     _early_left = is_move_left_pressed(keys) or MOVE_EVENT_LEFT
                     _early_right = is_move_right_pressed(keys) or MOVE_EVENT_RIGHT
 
-                    if _early_left and down_pressed and not globals().get('dash_down_first_lock', False):
+                    if _early_left and down_pressed and not dash_down_first_lock:
                         # 현재 대쉬 즉시 종료하고 연속 왼쪽 대쉬 시작
                         _rolling_set("rolling_timer", 0)
                         _rolling_set("rolling_active", False)
@@ -60574,7 +60574,7 @@ def handle_player(keys):
                         except Exception:
                             pass
                         # 연속대쉬는 stun 블록에서 처리됨
-                    elif _early_right and down_pressed and not globals().get('dash_down_first_lock', False):
+                    elif _early_right and down_pressed and not dash_down_first_lock:
                         # 현재 대쉬 즉시 종료하고 연속 오른쪽 대쉬 시작
                         _rolling_set("rolling_timer", 0)
                         _rolling_set("rolling_active", False)
@@ -60625,7 +60625,7 @@ def handle_player(keys):
                     final_stun_time = max(1, base_stun_time - stun_reduction)  # 최소 1프레임
 
                     # 하프대쉬 패널티: 통제불능 시간 1.5배 (_current_dash_is_half 사용 - 대쉬 종료까지 유지되는 플래그)
-                    _is_half = globals().get("_current_dash_is_half", False)
+                    _is_half = _current_dash_is_half
                     if _is_half:
                         final_stun_time = int(final_stun_time * 1.5)
 
@@ -60760,7 +60760,7 @@ def handle_player(keys):
                                 # 부스트차징 플래그 초기화
                                 _token_charge_states[charge_idx]["boost_charging"] = False
                             # 부스트차징 토큰 인덱스만 초기화 (boost_charging_active는 타이머가 남아있으면 유지)
-                            if globals().get("boost_charging_token_idx") == charge_idx:
+                            if boost_charging_token_idx == charge_idx:
                                 globals()["boost_charging_token_idx"] = -1
                             # 충전 완료 플래시 타이머 설정 (반짝임 효과)
                             while len(_token_flash_timers) <= charge_idx:
@@ -60894,7 +60894,7 @@ def handle_player(keys):
                             # 부스트차징 플래그 리셋
                             _token_charge_states[charge_idx]["boost_charging"] = False
                             # 부스트차징 토큰 인덱스만 초기화 (boost_charging_active는 타이머가 남아있으면 유지)
-                            if globals().get("boost_charging_token_idx") == charge_idx:
+                            if boost_charging_token_idx == charge_idx:
                                 globals()["boost_charging_token_idx"] = -1
                         # 충전 완료 플래시 타이머 설정 (반짝임 효과)
                         while len(_token_flash_timers) <= charge_idx:
@@ -60967,7 +60967,7 @@ def handle_player(keys):
             # token_states에서 실제 토큰 수 계산 (동기화 문제 방지)
             rolling_charges_value = sum(1 for s in token_states if s) if 'token_states' in globals() else _rolling_get("rolling_charges")
             # 연속대쉬 시간 조건: 대쉬 시작 후 0.3초 경과해야 연속대쉬 가능 (도약 스킬 유무와 무관하게 동일 타이밍)
-            _stun_elapsed_ms = pygame.time.get_ticks() - globals().get("_dash_start_time", 0)
+            _stun_elapsed_ms = pygame.time.get_ticks() - _dash_start_time
             if max_charges > 1 and rolling_charges_value > 0 and not half_dash_used_in_sequence and _stun_elapsed_ms >= CONSECUTIVE_DASH_START_DELAY_MS:
                 #  연속 대쉬 할인을 고려한 실제 게이지 요구량 계산
                 base_gauge_cost = 140  # 대시 기본 비용: 160 → 140
@@ -61006,7 +61006,7 @@ def handle_player(keys):
                 # token_states에서 실제 토큰 수 계산 (동기화 문제 방지)
                 current_charges = sum(1 for s in token_states if s) if 'token_states' in globals() else get_roll("rolling_charges")
 
-                if left_before_down and down_pressed and not globals().get('dash_down_first_lock', False) and current_charges > 0:
+                if left_before_down and down_pressed and not dash_down_first_lock and current_charges > 0:
                     # 후딜 상태에서 왼쪽 대쉬 실행 (아래키 + 왼쪽키 필요)
                     # 연속대쉬는 키를 계속 누르고 있어도 발동됨 (백업본 0123 로직 복원)
                     _start_dash(-1)
@@ -61148,7 +61148,7 @@ def handle_player(keys):
 
                         # 부스트차징 발동 체크 (대쉬기어 보유 시) - 후딜 왼쪽 연속대쉬 - 즉시 토큰 충전!
                         if dashgear_obtained:
-                            boost_chance = globals().get("dashgear_boost_charge_pct", 8) / 100.0
+                            boost_chance = dashgear_boost_charge_pct / 100.0
                             if random.random() < boost_chance:
                                 # 부스트차징 발동! - 토큰 즉시 충전 (연속대쉬 중 추가 대쉬 가능)
                                 if _next_charge_idx < len(token_states):
@@ -61270,7 +61270,7 @@ def handle_player(keys):
                     #     special_ready = False
                     if DEBUG_MODE:
                         print(f"    대쉬! (연속: {get_roll('rolling_consecutive_count')}, 토큰: {get_roll('rolling_charges')}, 게이지: {special_gauge})")
-                elif right_before_down and down_pressed and not globals().get('dash_down_first_lock', False) and current_charges > 0:
+                elif right_before_down and down_pressed and not dash_down_first_lock and current_charges > 0:
                     # 후딜 상태에서 오른쪽 대쉬 실행 (아래키 + 오른쪽키 필요)
                     # 연속대쉬는 키를 계속 누르고 있어도 발동됨 (백업본 0123 로직 복원)
                     _start_dash(1)
@@ -61412,7 +61412,7 @@ def handle_player(keys):
 
                         # 부스트차징 발동 체크 (대쉬기어 보유 시) - 후딜 오른쪽 연속대쉬 - 즉시 토큰 충전!
                         if dashgear_obtained:
-                            boost_chance = globals().get("dashgear_boost_charge_pct", 8) / 100.0
+                            boost_chance = dashgear_boost_charge_pct / 100.0
                             if random.random() < boost_chance:
                                 # 부스트차징 발동! - 토큰 즉시 충전 (연속대쉬 중 추가 대쉬 가능)
                                 if _next_charge_idx < len(token_states):
@@ -61614,7 +61614,7 @@ def handle_player(keys):
                             # 부스트차징 플래그 리셋
                             _token_charge_states[charge_index]["boost_charging"] = False
                             # 부스트차징 토큰 인덱스만 초기화 (boost_charging_active는 타이머가 남아있으면 유지)
-                            if globals().get("boost_charging_token_idx") == charge_index:
+                            if boost_charging_token_idx == charge_index:
                                 globals()["boost_charging_token_idx"] = -1
 
                         # 충전 완료 플래시 타이머 설정 (반짝임 효과)
@@ -61790,11 +61790,11 @@ def handle_player(keys):
                 print(f"[DASH_CANCEL_DEBUG] rolling_active={rolling_active}, rolling_timer={rolling_timer}, threshold={DASH_CANCEL_THRESHOLD}")
                 print(f"  -> can_cancel={_can_cancel_into_dash}, can_use_rolling={can_use_rolling}, can_use_half={can_use_half_dash}")
                 print(f"  -> rolling_charges={rolling_charges}, rolling_stun_timer={rolling_stun_timer}")
-            if HALF_DASH_ENABLED and down_pressed and not globals().get('dash_down_first_lock', False) and can_use_half_dash and _can_cancel_into_dash:
+            if HALF_DASH_ENABLED and down_pressed and not dash_down_first_lock and can_use_half_dash and _can_cancel_into_dash:
                 # 현재 방향키가 눌려 있고 ↓가 눌려 있으면 "방향+↓ 하프대쉬" 시도로 간주한다.
                 left_before_down_half = (is_move_left_pressed(keys) or MOVE_EVENT_LEFT)
                 right_before_down_half = (is_move_right_pressed(keys) or MOVE_EVENT_RIGHT)
-                if (left_before_down_half or right_before_down_half) and not globals().get('dash_down_first_lock', False):
+                if (left_before_down_half or right_before_down_half) and not dash_down_first_lock:
                     # 게이지 계산
                     base_gauge_cost = 140
 
@@ -62106,7 +62106,7 @@ def handle_player(keys):
 
             # 대쉬 감속 구간 캔슬: rolling_active 중이어도 감속 후반부(timer <= DASH_CANCEL_THRESHOLD)면 연속 대쉬 허용
             _can_cancel_normal = not rolling_active or (rolling_active and rolling_timer <= DASH_CANCEL_THRESHOLD)
-            if down_pressed and not globals().get('dash_down_first_lock', False) and can_use_rolling and _has_token_or_unlimited and _can_cancel_normal:
+            if down_pressed and not dash_down_first_lock and can_use_rolling and _has_token_or_unlimited and _can_cancel_normal:
                 #  연속 대쉬 할인을 고려한 실제 게이지 요구량 계산
                 base_gauge_cost = 140  # 대시 기본 비용: 160 → 140
 
@@ -62142,7 +62142,7 @@ def handle_player(keys):
                 # 🔧 버그 수정: 캐시된 방향키 상태 사용 (키 상태 변화로 인한 대쉬 무시 방지)
                 left_before_down = _cached_left_for_dash
                 right_before_down = _cached_right_for_dash
-                if left_before_down and down_pressed and not globals().get('dash_down_first_lock', False) and rolling_charges > 0 and not optimus_drain_locked and globals().get('dash_key_released_since_last', True):
+                if left_before_down and down_pressed and not dash_down_first_lock and rolling_charges > 0 and not optimus_drain_locked and dash_key_released_since_last:
                     # 아래키 + 왼쪽 - 대쉬 실행
                     # 🔧 버그 수정: 일반 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
@@ -62302,7 +62302,7 @@ def handle_player(keys):
 
                         # 부스트차징 발동 체크 (대쉬기어 보유 시) - 왼쪽 대쉬
                         if dashgear_obtained:
-                            boost_chance = globals().get("dashgear_boost_charge_pct", 8) / 100.0
+                            boost_chance = dashgear_boost_charge_pct / 100.0
                             if random.random() < boost_chance:
                                 # 부스트차징 발동! - 해당 토큰의 쿨타임 90% 할인
                                 boosted_timer = max(6, int(base_timer * 0.1))  # 90% 할인
@@ -62404,7 +62404,7 @@ def handle_player(keys):
                 # 🔧 버그 수정: elif를 if로 변경 - 왼쪽 대쉬와 독립적으로 오른쪽 대쉬 조건 체크
                 # (이전에는 elif라서 rolling_charge_timer > 0이면 오른쪽 대쉬가 항상 무시됨)
                 # 대쉬 감속 구간 캔슬 적용 (왼쪽 대쉬와 동일)
-                if right_before_down and down_pressed and not globals().get('dash_down_first_lock', False) and rolling_charges > 0 and not optimus_drain_locked and _can_cancel_normal and globals().get('dash_key_released_since_last', True):
+                if right_before_down and down_pressed and not dash_down_first_lock and rolling_charges > 0 and not optimus_drain_locked and _can_cancel_normal and dash_key_released_since_last:
                     # 아래키 + 오른쪽 - 대쉬 실행
                     # 🔧 버그 수정: 일반 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
@@ -62564,7 +62564,7 @@ def handle_player(keys):
 
                         # 부스트차징 발동 체크 (대쉬기어 보유 시) - 오른쪽 대쉬
                         if dashgear_obtained:
-                            boost_chance = globals().get("dashgear_boost_charge_pct", 8) / 100.0
+                            boost_chance = dashgear_boost_charge_pct / 100.0
                             if random.random() < boost_chance:
                                 # 부스트차징 발동! - 해당 토큰의 쿨타임 90% 할인
                                 boosted_timer = max(6, int(base_timer * 0.1))  # 90% 할인
@@ -62756,13 +62756,13 @@ def handle_player(keys):
                 # 옵티머스 충전 중/방금 해제 후에는 좌우 이동 입력을 완전히 차단
                 if selected_character_type == "optimus":
                     now_ms_local = pygame.time.get_ticks()
-                    lock_until = globals().get("optimus_charge_lock_until_ms", 0)
+                    lock_until = optimus_charge_lock_until_ms
                     # 통제불능 시간 경과 시 타임스탬프 정리
                     if lock_until and now_ms_local >= lock_until:
                         optimus_charge_lock_until_ms = 0
                         lock_until = 0
                     optimus_movement_locked = (
-                        globals().get("optimus_charge_active", False)
+                        optimus_charge_active
                         or (lock_until and now_ms_local < lock_until)
                     )
                     if optimus_movement_locked:
@@ -63514,7 +63514,7 @@ def handle_player(keys):
             _optimus_arm_mb = pygame.mouse.get_pressed()
             if _optimus_arm_mb and _optimus_arm_mb[0]:  # 좌클릭
                 # 이전 프레임에 클릭이 없었고 지금 클릭이 있으면 발동
-                if not globals().get("_optimus_arm_mb_prev", False):
+                if not _optimus_arm_mb_prev:
                     if can_use_optimus_arm():
                         start_optimus_arm()
                 globals()["_optimus_arm_mb_prev"] = True
@@ -64614,7 +64614,7 @@ def handle_player(keys):
             
             #  블루투스링 게이지 충전량 증가 적용
             if is_bluetooth_ring_active():
-                bt_bonus = globals().get("bluetooth_ring_gain_pct", 15)
+                bt_bonus = bluetooth_ring_gain_pct
                 total_gauge_gain = int(total_gauge_gain * (1 + bt_bonus / 100.0))
                 print(f"   +{bt_bonus}%: {total_gauge_gain}")
 
@@ -64941,7 +64941,7 @@ def spawn_quest_tablet():
     import random as _rand
 
     # 플레이어 위치 가져오기
-    player = globals().get("PLAYER")
+    player = PLAYER
     player_cx = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2  # 기본값: 중앙
     if player is not None:
         player_cx = player.x + player.width // 2
@@ -65012,13 +65012,13 @@ def update_quest_tablets(dt_frames=1):
             tablet["spawn_immunity"] -= dt_frames
 
     # 플레이어 패들 충돌 감지
-    player = globals().get("PLAYER")
+    player = PLAYER
     if player is None:
         _update_tablet_effects(dt_frames)
         return
 
     player_rect = pygame.Rect(player.x, player.y, player.width, player.height)
-    is_dashing = globals().get("rolling_active", False)
+    is_dashing = rolling_active
 
     tablets_to_remove = []
     for tablet in quest_tablet_active_list:
@@ -65032,7 +65032,7 @@ def update_quest_tablets(dt_frames=1):
                 _add_tablet_effect(tablet["x"], tablet["y"], "destroy")
                 # 돌 파괴 사운드 재생
                 try:
-                    sfx = globals().get("SOUND_STONEBREAK_MEDIUM")
+                    sfx = SOUND_STONEBREAK_MEDIUM
                     if sfx:
                         play_sound_with_volume(sfx)
                 except:
@@ -65049,7 +65049,7 @@ def update_quest_tablets(dt_frames=1):
                 print(f"📜 [석판] 석판 수집! ({quest_tablets_collected}/{quest_tablets_target})")
                 # 효과음
                 try:
-                    sfx = globals().get("SOUND_ITEM_GET")
+                    sfx = SOUND_ITEM_GET
                     if sfx:
                         sfx.play()
                 except:
@@ -65469,7 +65469,7 @@ def save_game_progress(stage_number: int) -> bool:
                 # 자폭드론 탄환
                 try:
                     weapon_ammo_states["suicide_drone"] = {
-                        "ammo": globals().get("soldier_drone_ammo", 0),
+                        "ammo": soldier_drone_ammo,
                     }
                 except Exception:
                     pass
@@ -65981,7 +65981,7 @@ def apply_health_boss_damage(amount: int, *, source: str = "unknown", trigger_fl
             global stage6_boss_hit_timer, stage6_boss_hit_flash
             stage6_boss_hit_timer = max(stage6_boss_hit_timer, HALF_SECOND_FRAMES)
             stage6_boss_hit_flash = True
-            sound = globals().get("SOUND_STAGE6_BOSS_HIT")
+            sound = SOUND_STAGE6_BOSS_HIT
             if sound:
                 sound.play()
         except Exception:
@@ -66707,7 +66707,7 @@ def store_passive_item(item_data):
             items.dashholder_count = getattr(items, "dashholder_count", 0) + 1
         except Exception:
             pass
-        globals()["dashholder_count"] = globals().get("dashholder_count", 0) + 1
+        globals()["dashholder_count"] = dashholder_count + 1
         print("!     !")
         # 아이템 획득 효과 표시 (옛날 버전)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
@@ -67064,7 +67064,7 @@ def store_passive_item(item_data):
         ensure_passive_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
         # 롤 옵션 값 가져오기
-        bonus_pct = globals().get("gold_digger_bonus_pct", 50)
+        bonus_pct = gold_digger_bonus_pct
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
         print(f"⛏️ 골드디거 획득! 골드 획득량 +{bonus_pct}% 증가!")
     else:
@@ -67554,7 +67554,7 @@ def handle_wall():
                     # 넉백 세기(백업값 복구: 40)
                     power = 40.0
                     # 넉백 타이머 설정 (즉시 넉백 적용을 위해 필수)
-                    boss_knockback_timer = max(globals().get("boss_knockback_timer", 0), 36)
+                    boss_knockback_timer = max(boss_knockback_timer, 36)
                     boss_knockback_vel = _apply_boss_knockback_velocity(direction * power)
                     # 대쉬/후딜 상태 강제 해제 (넉백 즉시 적용)
                     globals()["boss_dashing"] = False
@@ -72447,8 +72447,8 @@ def check_skill_hover_for_tutorial():
         return
 
     # 스킬 아이콘 호버 체크 (스매셔만)
-    if globals().get('selected_character_type') == 'smasher':
-        scale_factor = globals().get('GAME_SCALE_FACTOR', 1.0)
+    if selected_character_type == 'smasher':
+        scale_factor = GAME_SCALE_FACTOR
         hovered_skill = _check_smasher_skill_tooltip(None, scale_factor)
         current_time = pygame.time.get_ticks()
 
@@ -74585,7 +74585,7 @@ def update_stage7_gauge_charge(is_active: bool) -> None:
 
     # 초인테트리서 발동 중에는 충전을 정지 (드레인만 수행)
     # 단, 광폭화 모드에서는 초인테트리서 중에도 충전 계속!
-    if globals().get('stage7_super_active', False) and not is_berserk:
+    if stage7_super_active and not is_berserk:
         stage7_gauge_last_update_ms = now
         stage7_gauge_charge_progress = 0.0
         return
@@ -74937,7 +74937,7 @@ def update_stage7_guard_blocks(now: int | None = None) -> None:
                         if xs and ys:
                             cx = int(sum(xs) / len(xs))
                             cy = int(sum(ys) / len(ys))
-                            tps = globals().get("trade_point_system")
+                            tps = trade_point_system
                             if tps is not None and hasattr(tps, "spawn_star"):
                                 tps.spawn_star(cx, cy, "rainbow_tetro")
                 except Exception:
@@ -75080,7 +75080,7 @@ def update_stage7_guard_skill(now: int | None = None) -> None:
         return
 
     # 테트로미노 스킬이 게이지를 예약 중이면, 테트로미노가 쓸 50을 먼저 확보하도록 가드 스폰을 잠시 보류
-    if globals().get('stage7_tetro_reserve', False) and boss_special_gauge < STAGE7_TETRO_GAUGE_COST:
+    if stage7_tetro_reserve and boss_special_gauge < STAGE7_TETRO_GAUGE_COST:
         # 0.5초 뒤 재확인
         stage7_guard_next_trigger_ms = now + 500
         return
@@ -76993,7 +76993,7 @@ def _maybe_drop_star_for_tetro(mino: dict) -> None:
             return
         cx = int(sum(xs) / len(xs))
         cy = int(sum(ys) / len(ys))
-        tps = globals().get("trade_point_system")
+        tps = trade_point_system
         if tps is not None and hasattr(tps, "spawn_star"):
             tps.spawn_star(cx, cy, "rainbow_tetro")
             mino["star_dropped"] = True
@@ -77037,7 +77037,7 @@ def stage7_tetromino_explode(mino: dict, *, now: int | None = None) -> None:
         if dist <= radius:
             direction = -1 if player_cx < cx else 1
             # 초인 모드일 때 넉백 2배
-            super_active = bool(globals().get('stage7_super_active', False) or mino.get('super'))
+            super_active = bool(stage7_super_active or mino.get('super'))
             knock_scale = 2.0 if super_active else 1.0
             knock = apply_knockback_resist((STAGE7_TETRO_EXPLOSION_KNOCKBACK * knock_scale) * direction)
             # 스턴: 기본 0.5초, 초인 시 1.0초
@@ -77073,7 +77073,7 @@ def enforce_player_blocking_by_installed_tetro() -> None:
     if current_stage != 7 or not stage7_tetrominoes:
         return
     try:
-        dash_like = bool(globals().get('rolling_active', False) or globals().get('is_half_dash_active', False))
+        dash_like = bool(rolling_active or is_half_dash_active)
     except Exception:
         dash_like = False
     player_rect = pygame.Rect(PLAYER.x, PLAYER.y, PLAYER.width, PLAYER.height)
@@ -77346,7 +77346,7 @@ def draw_stage7_boss_gauge_bar():
             )
 
     # 초인 상태임을 나타내는 '타오르는' 임펙트 (게이지 내부 불꽃 애니메이션)
-    if globals().get('stage7_super_active', False):
+    if stage7_super_active:
         try:
             flame_surface = pygame.Surface((gauge_width - 2, gauge_height - 2), pygame.SRCALPHA)
             cx_local = (gauge_width - 2) // 2
@@ -79697,7 +79697,7 @@ def draw_player_gauge():
     - 우측 하단: 세로 직사각형 대쉬 토큰 (오른쪽으로 쌓임)
     """
     # === 인게임 상태가 아니면 그리지 않음 (승리화면, 광장, 메인메뉴 등) ===
-    if not globals().get('_is_ingame_active', False):
+    if not _is_ingame_active:
         return  # 인게임이 아니면 구슬 표시 안 함
 
     # === 구슬 상태 확인 (접기 중이거나 완료 상태면 그리지 않음) ===
@@ -81849,7 +81849,7 @@ def draw_player_gauge():
                     weapon_available = bool(net_gun_instance and getattr(net_gun_instance, "ammo_count", 0) > 0)
                 elif weapon == "suicide_drone":
                     # 탄약이 있거나 이미 띄워진 드론이 있으면 사용 가능 표시
-                    weapon_available = bool(globals().get("soldier_drone_ammo", 0) > 0 or globals().get("suicide_drone_active", False))
+                    weapon_available = bool(soldier_drone_ammo > 0 or suicide_drone_active)
 
                 # 현재 선택/호버 상태에 따라 테두리 강조
                 is_current = (idx == soldier_controller.current_index)
@@ -81918,8 +81918,8 @@ def draw_player_gauge():
                             except Exception:
                                 detail = ""
                         elif weapon == "suicide_drone":
-                            ammo = globals().get("soldier_drone_ammo", 0)
-                            active = globals().get("suicide_drone_active", False)
+                            ammo = soldier_drone_ammo
+                            active = suicide_drone_active
                             if active:
                                 detail = "발진 중"
                             else:
@@ -82980,7 +82980,7 @@ def draw_player_gauge():
             SCREEN.blit(glow_surface, (orb_center_x - orb_radius - 15, orb_center_y - orb_radius - 15))
 
             # === 부스트차징 타이머 감소 (공 무지개색 효과 지속시간) ===
-            _boost_timer = globals().get("boost_charging_timer", 0)
+            _boost_timer = boost_charging_timer
             if _boost_timer > 0:
                 globals()["boost_charging_timer"] = _boost_timer - 1
                 if _boost_timer - 1 <= 0:
@@ -83056,7 +83056,7 @@ def draw_player_gauge():
                     SCREEN.blit(flash_surface, (orb_center_x - flash_size - 2, orb_center_y - flash_size - 2))
 
         # === 통제불능 상태 이펙트 (rolling_stun_timer > 0) ===
-        _stun_timer = globals().get("rolling_stun_timer", 0)
+        _stun_timer = rolling_stun_timer
         if _stun_timer > 0:
             # 모든 이펙트를 구슬 중심 기준으로 직접 그림
             stun_cx = orb_center_x
@@ -83182,7 +83182,7 @@ def draw_player_gauge():
             sensor_orb_y = orb_center_y - orb_radius - sensor_orb_radius - 35  # 대쉬 구슬 위 35px 간격
 
             # 쿨타임 진행률 계산
-            sensor_cooldown = globals().get("danger_sensor_cooldown_ms", 15000)
+            sensor_cooldown = danger_sensor_cooldown_ms
             current_time_sensor = pygame.time.get_ticks()
             if not hasattr(handle_ball, 'danger_sensor_last_activation_time'):
                 handle_ball.danger_sensor_last_activation_time = 0
@@ -83793,7 +83793,7 @@ def draw_player_gauge():
         tokens_bottom = sensor_token_y + sensor_token_radius
         
         # 쿨타임 진행률 계산 (패시브 롤 옵션 기반 13~20초)
-        sensor_cooldown = globals().get("danger_sensor_cooldown_ms", 15000)
+        sensor_cooldown = danger_sensor_cooldown_ms
         current_time = pygame.time.get_ticks()
         
         # danger_sensor_last_activation_time 초기화
@@ -83909,15 +83909,15 @@ def draw_player_gauge():
     # === 발토르 토르쉴드 게이지 패널: 우측 하단 대쉬 토큰 아래에 배치 ===
     umbrella_panel_bottom = tokens_bottom
     if selected_character_type == "blacksmith":
-        gauge_value = max(0, min(BLACKSMITH_UMBRELLA_GAUGE_MAX, globals().get("blacksmith_umbrella_gauge", BLACKSMITH_UMBRELLA_GAUGE_MAX)))
+        gauge_value = max(0, min(BLACKSMITH_UMBRELLA_GAUGE_MAX, blacksmith_umbrella_gauge))
         gauge_max = BLACKSMITH_UMBRELLA_GAUGE_MAX
         recharge_frames = max(1, get_blacksmith_umbrella_recover_interval_frames())
-        recharge_progress = globals().get("blacksmith_umbrella_recharge_progress", 0)
+        recharge_progress = blacksmith_umbrella_recharge_progress
         recharge_ratio = 0.0
-        if gauge_value < gauge_max and not globals().get("blacksmith_umbrella_open", False):
+        if gauge_value < gauge_max and not blacksmith_umbrella_open:
             recharge_ratio = max(0.0, min(1.0, recharge_progress / recharge_frames))
         flash_frames = max(1, BLACKSMITH_UMBRELLA_DAMAGE_FLASH_FRAMES)
-        flash_timer = globals().get("blacksmith_umbrella_damage_flash_timer", 0)
+        flash_timer = blacksmith_umbrella_damage_flash_timer
         flash_strength = max(0.0, min(1.0, flash_timer / flash_frames)) if flash_timer > 0 else 0.0
         danger_ratio = 1.0 if gauge_value == 0 else 0.6 if gauge_value == 1 else 0.0
 
@@ -83925,9 +83925,9 @@ def draw_player_gauge():
         reinforced_divine = False
         if divine_active:
             try:
-                state = globals().get("blacksmith_divine_stone_state")
+                state = blacksmith_divine_stone_state
                 if not _is_divine_state_active(state):
-                    controller = globals().get("BLACKSMITH_CONTROLLER")
+                    controller = BLACKSMITH_CONTROLLER
                     try:
                         state = controller.state.divine.state if controller is not None else None
                     except AttributeError:
@@ -86693,7 +86693,7 @@ def draw_objects():
             pass
 
         # 🔥 인게임 호위무사 도깨비불 공 이펙트 그리기
-        if globals().get('_ingame_bodyguard_dokkaebi_ball', False) and BALL:
+        if _ingame_bodyguard_dokkaebi_ball and BALL:
             _dokkaebi_time = pygame.time.get_ticks() / 1000.0
             _ball_cx, _ball_cy = BALL.centerx, BALL.centery
             _ball_r = BALL.width // 2
@@ -87031,7 +87031,7 @@ def draw_objects():
     elif current_stage == 7:
         boss_img_prescaled = True
         global stage7_prev_x, stage7_lean_value
-        boss_obj = globals().get("BOSS")
+        boss_obj = BOSS
         boss_x = getattr(boss_obj, "x", None) if boss_obj is not None else None
         now_ms_for_pose = pygame.time.get_ticks()
 
@@ -87049,7 +87049,7 @@ def draw_objects():
             target_lean = math.sin(pygame.time.get_ticks() * 0.004) * 0.25
 
         # 초인 인트로 포즈 동안에는 기울기(lean) 고정
-        if globals().get('stage7_super_intro_until_ms', 0) > now_ms_for_pose:
+        if stage7_super_intro_until_ms > now_ms_for_pose:
             stage7_lean_value = 0.0
         else:
             stage7_lean_value = (stage7_lean_value * 0.72) + (target_lean * 0.28)
@@ -87063,7 +87063,7 @@ def draw_objects():
             frame_index = center_index
         else:
             # 인트로 포즈 동안에는 중앙 프레임 고정
-            if globals().get('stage7_super_intro_until_ms', 0) > now_ms_for_pose:
+            if stage7_super_intro_until_ms > now_ms_for_pose:
                 frame_index = center_index
             else:
                 frame_index = center_index + int(round(stage7_lean_value * max_offset))
@@ -87558,7 +87558,7 @@ def draw_objects():
         apply_plasma_effect_to_boss(rotated_boss)
 
     # === 🔒 보스 대쉬 후딜(통제불능) 상태 이펙트 (플레이어와 동일) ===
-    _boss_stun_timer_draw = globals().get("boss_dash_stun_timer", 0)
+    _boss_stun_timer_draw = boss_dash_stun_timer
     _boss_dash_stun_shake_x = 0
     _boss_dash_stun_shake_y = 0
     if _boss_stun_timer_draw > 0:
@@ -87650,8 +87650,8 @@ def draw_objects():
                     draw_with_shake(_boss_final_surf, (boss_rect.x + _boss_dash_stun_shake_x, boss_rect.y + bob_offset + _boss_dash_stun_shake_y))
             # Stage 7 초인 인트로(0.6초) 동안: 양팔 벌린 포효 오버레이 + 매서운 표정
             try:
-                if current_stage == 7 and globals().get('stage7_super_intro_until_ms', 0) > pygame.time.get_ticks():
-                    rem = globals().get('stage7_super_intro_until_ms', 0) - pygame.time.get_ticks()
+                if current_stage == 7 and stage7_super_intro_until_ms > pygame.time.get_ticks():
+                    rem = stage7_super_intro_until_ms - pygame.time.get_ticks()
                     rem = max(0, min(600, rem))
                     prog = 1.0 - (rem / 600.0)  # 0→1
                     # 팔: 양쪽으로 뻗는 광선형 라인
@@ -88463,7 +88463,7 @@ def draw_objects():
             player_rect.y += delta_y
         # 옵티머스: 충전 해제 후 0.5초 동안 패들 흔들림 적용
         if selected_character_type == "optimus":
-            if globals().get("optimus_charge_shake_until_ms", 0) > pygame.time.get_ticks():
+            if optimus_charge_shake_until_ms > pygame.time.get_ticks():
                 jitter = 3
                 player_rect.x += random.randint(-jitter, jitter)
                 player_rect.y += random.randint(-jitter, jitter)
@@ -89168,17 +89168,17 @@ def draw_objects():
     # 옵티머스 수동 충전 시 전신을 타고 흐르는 전기 오버레이 적용
     if (
         selected_character_type == "optimus"
-        and globals().get("optimus_charge_active", False)
+        and optimus_charge_active
     ):
         rotated_player = apply_optimus_charge_overlay(rotated_player, time_now)
 
     # 🔴 대쉬 불가능 상태 체크 (게이지 부족 + 토큰 없음)
     _dash_warn_blink_active = False
     try:
-        _dash_charges = globals().get("rolling_charges", 1)
-        _dash_stun = globals().get("rolling_stun_timer", 0)
-        _is_rolling = globals().get("rolling_active", False)
-        _is_serving = globals().get("is_waiting_for_serve", False)
+        _dash_charges = rolling_charges
+        _dash_stun = rolling_stun_timer
+        _is_rolling = rolling_active
+        _is_serving = is_waiting_for_serve
 
         # 대쉬부스트 활성화 여부 확인 (토큰 무제한 모드)
         _dash_unlimited = False
@@ -89191,7 +89191,7 @@ def draw_objects():
         _no_token = _dash_charges <= 0 and not _dash_unlimited
 
         # 게이지 부족 여부 확인 - 모든 할인 적용
-        _base_dash_cost = globals().get("ROLLING_GAUGE_COST", 140)
+        _base_dash_cost = ROLLING_GAUGE_COST
         try:
             # 악마의 주사위 배율
             if globals().get("is_devil_dice_active") and callable(globals().get("is_devil_dice_active")):
@@ -89199,11 +89199,11 @@ def draw_objects():
                     _devil_mults = globals().get("get_devil_dice_multipliers", lambda: {})()
                     _base_dash_cost = int(_base_dash_cost * _devil_mults.get("dash_cost", 1.0))
             # 연속 대쉬 할인
-            _consec = globals().get("rolling_consecutive_count", 0)
+            _consec = rolling_consecutive_count
             _consec_discount = 0.5 ** max(0, _consec)
             _base_dash_cost = int(_base_dash_cost * _consec_discount)
             # 옵티머스는 대쉬 비용 80% 할인
-            if globals().get("selected_character_type") == "optimus":
+            if selected_character_type == "optimus":
                 _base_dash_cost = int(_base_dash_cost * 0.2)
             # 배터리팩 스킬 할인
             _battery_bonus = 0
@@ -89235,7 +89235,7 @@ def draw_objects():
         # 대쉬 불가능: 게이지 부족 OR 토큰 없음 (둘 중 하나라도 부족하면 대쉬 불가)
         # 단, 하프대쉬가 가능하면 (게이지 부족 + 토큰 있음 + 하프대쉬 시스템 활성화) 경고 안 함
         _half_dash_ok = False
-        if _gauge_low and not _no_token and globals().get("HALF_DASH_ENABLED", False):
+        if _gauge_low and not _no_token and HALF_DASH_ENABLED:
             _half_dash_ok = True  # 하프대쉬 가능
         # 대쉬 중이거나 서브 대기 중에는 깜빡임 효과 미적용
         _cannot_dash = (_gauge_low and not _half_dash_ok) or _no_token  # 게이지 부족(하프대쉬 불가) 또는 토큰 없음
@@ -89278,10 +89278,10 @@ def draw_objects():
                     _odins_eye_dark_paddle_drawn = True  # 기존 패들도 숨기기 위해 True
                 else:
                     # 플레이어 x 속도 계산 (움직임 애니메이션용)
-                    _player_vx = globals().get("player_velocity_x", 0)
+                    _player_vx = player_velocity_x
                     if _player_vx == 0:
                         # player_velocity_x가 없으면 이전 위치와 비교
-                        _prev_x = globals().get("_odins_prev_player_x", PLAYER.centerx)
+                        _prev_x = _odins_prev_player_x
                         _player_vx = PLAYER.centerx - _prev_x
                     globals()["_odins_prev_player_x"] = PLAYER.centerx
 
@@ -89451,7 +89451,7 @@ def draw_objects():
             if is_player_in_magnetic_projectile():
                 bright_ufo = apply_magnetic_distortion(bright_ufo)
             # 🔒 대쉬 통제불능 상태 효과 (어둡게 + 떨림)
-            _stun_timer_draw = globals().get("rolling_stun_timer", 0)
+            _stun_timer_draw = rolling_stun_timer
             if _stun_timer_draw > 0:
                 # 어두운 보라색 틴트
                 _stun_tint = pygame.Surface(bright_ufo.get_size(), pygame.SRCALPHA)
@@ -89510,7 +89510,7 @@ def draw_objects():
             if current_stage == 4 and is_player_in_magnetic_projectile():
                 player_to_draw = apply_magnetic_distortion(player_to_draw)
             # 🔒 대쉬 통제불능 상태 효과 (어둡게 + 떨림)
-            _stun_timer_draw = globals().get("rolling_stun_timer", 0)
+            _stun_timer_draw = rolling_stun_timer
             if _stun_timer_draw > 0:
                 _stun_tint = pygame.Surface(player_to_draw.get_size(), pygame.SRCALPHA)
                 _stun_pulse = 0.6 + 0.4 * math.sin(time_now * 0.02)
@@ -89589,7 +89589,7 @@ def draw_objects():
         if current_stage == 4 and is_player_in_magnetic_projectile():
             player_to_draw = apply_magnetic_distortion(player_to_draw)
         # 🔒 대쉬 통제불능 상태 효과 (어둡게 + 떨림)
-        _stun_timer_draw = globals().get("rolling_stun_timer", 0)
+        _stun_timer_draw = rolling_stun_timer
         if _stun_timer_draw > 0:
             _stun_tint = pygame.Surface(player_to_draw.get_size(), pygame.SRCALPHA)
             _stun_pulse = 0.6 + 0.4 * math.sin(time_now * 0.02)
@@ -89691,7 +89691,7 @@ def draw_objects():
         local_timer = player_missile_stunned_timer if player_missile_stunned_timer > 0 else player_stunned_timer
         rotation_angle = (18 - min(18, local_timer)) * 20  # 회전 각도(느슨)
 
-        suppress_stars_until = globals().get("player_stun_star_suppress_until_ms", 0)
+        suppress_stars_until = player_stun_star_suppress_until_ms
         show_stars = pygame.time.get_ticks() >= suppress_stars_until
         if show_stars:
             # 별 3개가 머리 위에서 회전 (보스 스턴 별과 동일 스타일)
@@ -89728,8 +89728,8 @@ def draw_objects():
             
         # 스턴 텍스트 표시 (초인 테트로 폭발 유발 스턴 동안은 숨김)
         try:
-            hide_until = globals().get('player_stun_text_hidden_until_ms', 0)
-            suppress_text = bool(globals().get('player_stun_text_suppress', False))
+            hide_until = player_stun_text_hidden_until_ms
+            suppress_text = bool(player_stun_text_suppress)
         except Exception:
             hide_until = 0
             suppress_text = False
@@ -92007,7 +92007,7 @@ def draw_objects():
             cx, cy = suicide_drone_rect.center
             r = suicide_drone_rect.width // 2
             current_time = pygame.time.get_ticks()
-            rotor_angle = globals().get('suicide_drone_rotor_angle', 0.0)
+            rotor_angle = suicide_drone_rotor_angle
 
             # === 그림자 (지면에 투영) ===
             shadow_y = min(cy + 40, HEIGHT - 10)
@@ -92178,7 +92178,7 @@ def draw_objects():
                 SCREEN.blit(wave_surface, (antenna_x - wave_radius - 5, antenna_top_y - wave_radius - 5))
 
             # === 속도선 효과 (이동 중일 때) ===
-            drone_vel = globals().get('suicide_drone_vel', [0, 0])
+            drone_vel = suicide_drone_vel
             speed = math.hypot(drone_vel[0], drone_vel[1]) if drone_vel else 0
 
             if speed > 3:
@@ -93314,7 +93314,7 @@ def init_stage_choice_overlay(background_surface: pygame.Surface) -> None:
     global stage_choice_particles, stage_choice_background
 
     # 현재 캐릭터 타입 확인
-    character_type = globals().get("selected_character_type", "normal")
+    character_type = selected_character_type
 
     # 사용 가능한 선택지 가져오기
     stage_clear_choices_list = get_available_stage_choices(character_type)
@@ -93701,7 +93701,7 @@ def show_stage_clear_choices() -> str | None:
     global stage_clear_choices_list, stage_clear_choices_shown
 
     # 현재 캐릭터 타입 확인
-    character_type = globals().get("selected_character_type", "normal")
+    character_type = selected_character_type
 
     # 사용 가능한 선택지 가져오기
     stage_clear_choices_list = get_available_stage_choices(character_type)
@@ -96244,7 +96244,7 @@ def show_victory_screen(stage_cleared, reward):
                 if not game_should_exit:
                     # 스테이지 전환 직전 스냅샷(옵션)
                     # 이미 이전 경로에서 캡처한 값이 있으면 덮어쓰지 않는다.
-                    if BLACKSMITH_PERSIST_STRUCTURES and globals().get("blacksmith_persist_structures") is None:
+                    if BLACKSMITH_PERSIST_STRUCTURES and blacksmith_persist_structures is None:
                         try:
                             globals()["blacksmith_persist_structures"] = _capture_blacksmith_structures_for_persist()
                         except Exception:
@@ -96252,7 +96252,7 @@ def show_victory_screen(stage_cleared, reward):
                     effects_manager.clear_all_effects()
                     globals()["blacksmith_divine_stone_state"] = None
                     globals()["blacksmith_divine_stage_owner"] = None
-                    controller = globals().get("BLACKSMITH_CONTROLLER")
+                    controller = BLACKSMITH_CONTROLLER
                     if controller is not None:
                         controller.state.divine.state = None
                     reset_damage_manager()
@@ -96409,7 +96409,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
             arena_skill_manager = None
 
     # 투기장 퍽 효과 적용
-    _arena_perk_obj = globals().get('_arena_pending_perk_data', None)
+    _arena_perk_obj = _arena_pending_perk_data
     if _arena_perk_obj:
         apply_arena_perks_for_battle(_arena_perk_obj, top_hero["id"], bottom_hero["id"])
     else:
@@ -96478,8 +96478,8 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
     # === 호위무사 시스템 설정 (콜로세움에서 전달한 데이터 사용) ===
     global arena_guard_system
     try:
-        _top_guards = globals().get('_arena_pending_top_guards', [])
-        _bottom_guards = globals().get('_arena_pending_bottom_guards', [])
+        _top_guards = _arena_pending_top_guards
+        _bottom_guards = _arena_pending_bottom_guards
         if _top_guards or _bottom_guards:
             from downtown.colosseum_arena import GuardWarriorSystem
             guard_system = GuardWarriorSystem(
@@ -96605,7 +96605,7 @@ def show_start_screen():
     reset_damage_manager()
     globals()["blacksmith_divine_stone_state"] = None
     globals()["blacksmith_divine_stage_owner"] = None
-    controller = globals().get("BLACKSMITH_CONTROLLER")
+    controller = BLACKSMITH_CONTROLLER
     if controller is not None:
         controller.state.divine.state = None
         controller.state.turret.state = None  # 포탑 상태도 초기화
@@ -96637,7 +96637,7 @@ def show_start_screen():
     stop_blacksmith_hammer_charge_sound()
     stop_blacksmith_hammer_charge_sound()
     stop_blacksmith_hammer_charge_sound()
-    blacksmith_hammer_last_update_frame = globals().get("frame_counter", 0)
+    blacksmith_hammer_last_update_frame = frame_counter
     blacksmith_hammer_last_update_ms = pygame.time.get_ticks()
     blacksmith_hammer_cooldown_remainder_ms = 0.0
     blacksmith_hammer_cooldown_debug_bucket = -1
@@ -98357,7 +98357,7 @@ def draw_tutorial_serve_reminder():
     if not tutorial_serve_reminder_active:
         return
 
-    current_chapter = globals().get('tutorial_current_chapter', 0)
+    current_chapter = tutorial_current_chapter
     if isinstance(current_chapter, int):
         if current_chapter <= 1:
             return
@@ -109264,7 +109264,7 @@ def apply_selected_items(
         assign_item_prefix(item_data, force=True)
         apply_roll_bonuses_from_item(item_data)
         if item_name == "spiked_helmet":
-            _kb_debug(f"apply_selected_items: helmet roll={item_data.get('rolled_options')}, resist={globals().get('spiked_helmet_knockback_resist_pct')}")
+            _kb_debug(f"apply_selected_items: helmet roll={item_data.get('rolled_options')}, resist={spiked_helmet_knockback_resist_pct}")
             # 가시투구는 즉시 장착 처리(장비 슬롯 반영) 후 다음 아이템으로
             store_passive_item(item_data)
             continue
@@ -110843,7 +110843,7 @@ def play_stage_intro_video(
     tracer = _IntroInputTracer("video_intro", enabled=True)
     prev_focus = _is_window_focused()
     last_surface: pygame.Surface | None = None
-    ai_mode_active = bool(globals().get("player_ai_enabled", False))
+    ai_mode_active = bool(player_ai_enabled)
     ai_min_watch_ms = 0  # AI는 바로 스킵 가능
     ai_auto_skip_ms = 600  # 자동 스킵 시도 시각(0.6초 이후)
     intro_start_ms = pygame.time.get_ticks()
@@ -117272,7 +117272,7 @@ def handle_ball():
             flame_trail_active = False
             # Stage 6: 홍련폭염 종료 시, 가드 성공이 있었으면 50% 확률로 스타포인트 1개 드랍
             try:
-                if current_stage == 6 and globals().get('stage6_hongryun_guarded_during_inferno', False):
+                if current_stage == 6 and stage6_hongryun_guarded_during_inferno:
                     globals()['stage6_hongryun_guarded_during_inferno'] = False
                     if random.random() < 0.5:
                         if 'trade_point_system' in globals() and trade_point_system:
@@ -117567,7 +117567,7 @@ def handle_ball():
         # 쿨타임 체크 (패시브 롤 옵션 기반 13~20초)
         if not hasattr(handle_ball, 'danger_sensor_last_activation_time'):
             handle_ball.danger_sensor_last_activation_time = 0
-        cooldown_ms = globals().get("danger_sensor_cooldown_ms", 15000)
+        cooldown_ms = danger_sensor_cooldown_ms
         # 쿨타임 중이면 위험감지센서만 비활성화하고 공 이동은 계속
         sensor_can_activate = current_time - handle_ball.danger_sensor_last_activation_time >= cooldown_ms
         # 공의 예상 위치 계산
@@ -117805,7 +117805,7 @@ def handle_ball():
     rock_hit = False  # 바위 충돌 플래그 초기화
 
     # 👁 오딘의 눈 부활/죽음 애니메이션 중에는 공 물리 멈춤
-    if globals().get('odins_eye_revival_anim_active', False) or globals().get('odins_eye_death_anim_active', False):
+    if odins_eye_revival_anim_active or odins_eye_death_anim_active:
         return  # 애니메이션 중에는 물리 업데이트 전체 스킵
 
     # 이전 프레임 공 위치 저장 (관통 충돌 검사용)
@@ -117936,7 +117936,7 @@ def handle_ball():
             # 디바인스톤(건설형): 보스 공 하강 시 15~25초 랜덤 쿨다운 번개 요격 + 위로 재발사
             try:
                 if is_blacksmith_divine_stone_active() and not (stopwatch_active and stopwatch_timer > 0):
-                    divine_state = globals().get("blacksmith_divine_stone_state") or BLACKSMITH_CONTROLLER.state.divine.state
+                    divine_state = blacksmith_divine_stone_state or BLACKSMITH_CONTROLLER.state.divine.state
                     if divine_state and divine_state.get("hp", 0) > 0:
                         # 초기 필드 세팅
                         if "lightning_cd" not in divine_state:
@@ -117947,7 +117947,7 @@ def handle_ball():
                         try:
                             ball_owner = getattr(game_vars.ball, "last_hit_by", None)
                         except Exception:
-                            ball_owner = globals().get("last_hit_by", None)
+                            ball_owner = last_hit_by
                         cond_owner = (ball_owner == "boss")
                         cond_descend = (actual_vel_y > 0)
                         cond_position = (BALL.centery >= HEIGHT * 0.5)
@@ -118134,13 +118134,13 @@ def handle_ball():
                             base_charge = 30  # 발토르 기본 충전량
                         else:
                             base_charge = 60  # 스매셔/기타 기본 충전량
-                        bonus_pct = globals().get("knee_pads_charge_pct", 50)
+                        bonus_pct = knee_pads_charge_pct
                         charge_amount = base_charge * (bonus_pct / 100.0)
                         
                         # 블루투스링 효과 적용 (있을 경우)
                         import items
                         if items.bluetooth_ring_obtained:
-                            bonus_pct = globals().get("bluetooth_ring_gain_pct", 15)
+                            bonus_pct = bluetooth_ring_gain_pct
                             charge_amount *= (1 + bonus_pct / 100.0)
                             # print(f"[DEBUG 킥차져] 블루투스링 보너스 적용: +{bonus_pct}%")  # 디버그 비활성화
 
@@ -118222,7 +118222,7 @@ def handle_ball():
             # 벽돌 충돌 체크 (매 스텝마다)
             wall_hit = False
             # 건물 보호형 벽돌(group_id가 있는 경우)은 플레이어가 친 공(서브공 포함)에는 맞지 않도록 처리한다.
-            ball_owner = globals().get("last_hit_by", None)
+            ball_owner = last_hit_by
             for wall in walls[:]:  # 리스트 복사본으로 순회
                 # 플레이어가 친 공이라면 건물 보호용(group_id가 있는) 벽돌은 스킵
                 group_id = wall.get("group_id")
@@ -118423,12 +118423,12 @@ def handle_ball():
                             base_gauge_gain = 60  # 스매셔: 게이지 충전 60 (콤보 보너스로 보완)
                         if base_gauge_gain > 0:
                             # 충전가방: 현재 게이지 획득량(블루투스링 등 적용)을 기반으로 추가 충전
-                            bonus_pct = globals().get("chargebag_bonus_pct", 20)
+                            bonus_pct = chargebag_bonus_pct
                             # 패들 히트 기준 게이지 획득량을 재계산해 보너스를 맞춰준다.
                             current_gain_tmp = base_gauge_gain
                             try:
                                 if is_bluetooth_ring_active():
-                                    bt_bonus = globals().get("bluetooth_ring_gain_pct", 15)
+                                    bt_bonus = bluetooth_ring_gain_pct
                                     current_gain_tmp = int(current_gain_tmp * (1 + bt_bonus / 100.0))
                             except Exception:
                                 pass
@@ -118452,7 +118452,7 @@ def handle_ball():
                     for cell in guard_block["cells"]:
                         if BALL.colliderect(cell["rect"]):
                             # 파워스매싱 중에는 관통: 반사/위치 보정 없이 가드 블록 증발 처리
-                            if globals().get('power_smashing_parabola_active', False):
+                            if power_smashing_parabola_active:
                                 destroy_stage7_guard_block(guard_block, by_player=(last_hit_by == "player"))
                                 try:
                                     create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=False)
@@ -118541,7 +118541,7 @@ def handle_ball():
                             prev_rect = pygame.Rect(old_x, old_y, BALL.width, BALL.height)
 
                             # 파워스매싱 중에는 관통: 반사/위치 보정 없이 미노를 증발
-                            if globals().get('power_smashing_parabola_active', False):
+                            if power_smashing_parabola_active:
                                 try:
                                     mino["hit_flash_duration"] = 130
                                     mino["hit_flash_until"] = pygame.time.get_ticks() + 130
@@ -118609,7 +118609,7 @@ def handle_ball():
                 for blocks in (stage7_tetro_wall_left, stage7_tetro_wall_right):
                     for cell_rect in list(blocks):
                         if BALL.colliderect(cell_rect):
-                            if globals().get('power_smashing_parabola_active', False):
+                            if power_smashing_parabola_active:
                                 # 관통: 반사/위치 보정 없이 해당 덩어리 제거
                                 try:
                                     blocks.remove(cell_rect)
@@ -119281,11 +119281,11 @@ def handle_ball():
                 base_gauge_gain = 60  # 스매셔: 게이지 충전 60
             if base_gauge_gain > 0:
                 # 충전가방은 현재 게이지 획득량(블루투스링 등 적용)에 롤 보너스를 곱해 추가 충전
-                bonus_pct = globals().get("chargebag_bonus_pct", 20)
+                bonus_pct = chargebag_bonus_pct
                 current_gain_tmp = base_gauge_gain
                 try:
                     if is_bluetooth_ring_active():
-                        bt_bonus = globals().get("bluetooth_ring_gain_pct", 15)
+                        bt_bonus = bluetooth_ring_gain_pct
                         current_gain_tmp = int(current_gain_tmp * (1 + bt_bonus / 100.0))
                 except Exception:
                     pass
@@ -119322,11 +119322,11 @@ def handle_ball():
                 base_gauge_gain = 60  # 스매셔: 게이지 충전 60
             if base_gauge_gain > 0:
                 # 충전가방은 현재 게이지 획득량(블루투스링 등 적용)에 롤 보너스를 곱해 추가 충전
-                bonus_pct = globals().get("chargebag_bonus_pct", 20)
+                bonus_pct = chargebag_bonus_pct
                 current_gain_tmp = base_gauge_gain
                 try:
                     if is_bluetooth_ring_active():
-                        bt_bonus = globals().get("bluetooth_ring_gain_pct", 15)
+                        bt_bonus = bluetooth_ring_gain_pct
                         current_gain_tmp = int(current_gain_tmp * (1 + bt_bonus / 100.0))
                 except Exception:
                     pass
@@ -119436,7 +119436,7 @@ def handle_ball():
         return  # 이미 승부가 결정됨 - 중복 득점 방지
     # 쿠로미가 공을 먹은 상태에서는 승패 판정 안함
     # 👁 오딘의 눈 죽음/부활 애니메이션 중 또는 변신 상태에서 공이 비정상 위치일 때 점수 처리 안함
-    odins_eye_anim_blocking_score = globals().get('odins_eye_death_anim_active', False) or globals().get('odins_eye_revival_anim_active', False)
+    odins_eye_anim_blocking_score = odins_eye_death_anim_active or odins_eye_revival_anim_active
     # 공이 화면 밖(-50 이하)에 있으면 점수 처리 안함 (애니메이션 중 공 위치)
     ball_offscreen_hidden = BALL.centerx < -50 or BALL.centery < -50
     # 👁 오딘의 눈 변신 상태(penalty_active)에서도 플레이어 득점은 정상 처리
@@ -119948,7 +119948,7 @@ def handle_ball():
     except Exception:
         pass
     # 👁 오딘의 눈 죽음/부활 애니메이션 중에는 점수 처리 안함
-    odins_eye_anim_blocking_loss = globals().get('odins_eye_death_anim_active', False) or globals().get('odins_eye_revival_anim_active', False)
+    odins_eye_anim_blocking_loss = odins_eye_death_anim_active or odins_eye_revival_anim_active
     # 공이 화면 밖(-50 이하)에 있으면 패배 처리 안함 (애니메이션 중 공 위치)
     ball_offscreen_hidden_loss = BALL.centerx < -50 or BALL.centery < -50
     if BALL.bottom >= HEIGHT and not rock_hit and not stopwatch_active and not ball_in_kuromi and not bowling_trap_holding and not ball_spawn_animation_active and not odins_eye_anim_blocking_loss and not ball_offscreen_hidden_loss:
@@ -120196,7 +120196,7 @@ def handle_ball():
             if not _ingame_tutorial_score_frozen and not (_ingame_tutorial_active and not _ingame_tutorial_completed):
                 round_losses += 1
                 # 📜 퀘스트 추적: 보스 득점 기록
-                globals()['quest_stage_boss_score'] = globals().get('quest_stage_boss_score', 0) + 1
+                globals()['quest_stage_boss_score'] = quest_stage_boss_score + 1
             # 🔧 플레이어가 죽었을 때 대시 상태 완전 초기화 (다음 라운드 버그 방지)
             rolling_active = False
             rolling_timer = 0
@@ -120749,7 +120749,7 @@ def handle_ball():
             
             #  블루투스링 게이지 충전량 증가 적용
             if is_bluetooth_ring_active():
-                bt_bonus = globals().get("bluetooth_ring_gain_pct", 15)
+                bt_bonus = bluetooth_ring_gain_pct
                 total_gauge_gain = int(total_gauge_gain * (1 + bt_bonus / 100.0))
                 if DEBUG_HANDLE_BALL_VERBOSE:
                     print(f"   +{bt_bonus}%: {total_gauge_gain}")
@@ -121279,9 +121279,9 @@ def handle_ball():
             screen_shake_intensity = 8  # 중간 강도 흔들림
         
         # 스마트폰 보정/락이 남아있으면 보스 충돌 직전 해제하여 정상 반사 보장
-        if globals().get('stopwatch_forced_upward', False):
+        if stopwatch_forced_upward:
             globals()['stopwatch_forced_upward'] = False
-        if globals().get('stopwatch_upward_lock_timer', 0) > 0:
+        if stopwatch_upward_lock_timer > 0:
             globals()['stopwatch_upward_lock_timer'] = 0
 
         # 상모돌리기 활성화 시 보스 패들 충돌 시 종료
@@ -121922,7 +121922,7 @@ def _boss_try_emergency_dash() -> bool:
         return False
 
     # 보스가 스턴 상태일 때 대쉬 불가
-    if globals().get("boss_stunned_timer", 0) > 0:
+    if boss_stunned_timer > 0:
         return False
 
     # 스테이지 설정에서 대쉬가 비활성화된 경우 즉시 종료
@@ -122244,7 +122244,7 @@ def handle_boss_pro():
     if current_stage == 7:
         try:
             now_ms = pygame.time.get_ticks()
-            if globals().get('stage7_super_intro_until_ms', 0) > now_ms:
+            if stage7_super_intro_until_ms > now_ms:
                 boss_current_speed = 0
                 return
         except Exception:
@@ -122273,7 +122273,7 @@ def handle_boss_pro():
             globals()['horn_charge_boss_knockback_active'] = False
 
         # 감속 (뿔박치기는 더 부드러운 감속 적용)
-        if globals().get('horn_charge_boss_knockback_active', False):
+        if horn_charge_boss_knockback_active:
             boss_knockback_vel *= 0.92  # 부드러운 감속 (0.85 → 0.92)
             if abs(boss_knockback_vel) < 0.5:
                 globals()['horn_charge_boss_knockback_active'] = False
@@ -122419,7 +122419,7 @@ def handle_boss_pro():
     enhanced_deceleration = config["decel"]
 
     # 🏟️ 투기장 모드: BOSS 능력치를 PLAYER와 동일하게 설정 (공정성)
-    if globals().get("arena_mode_enabled", False):
+    if arena_mode_enabled:
         enhanced_max_speed = 7.0       # PLAYER MAX_SPEED
         enhanced_acceleration = 0.4    # PLAYER ACCELERATION
         enhanced_deceleration = 0.4    # PLAYER DECELERATION
@@ -122603,7 +122603,7 @@ def handle_boss_champion():
     if current_stage == 7:
         try:
             now_ms = pygame.time.get_ticks()
-            if globals().get('stage7_super_intro_until_ms', 0) > now_ms:
+            if stage7_super_intro_until_ms > now_ms:
                 boss_current_speed = 0
                 return
         except Exception:
@@ -122632,7 +122632,7 @@ def handle_boss_champion():
             globals()['horn_charge_boss_knockback_active'] = False
 
         # 감속 (뿔박치기는 더 부드러운 감속 적용)
-        if globals().get('horn_charge_boss_knockback_active', False):
+        if horn_charge_boss_knockback_active:
             boss_knockback_vel *= 0.92  # 부드러운 감속 (0.85 → 0.92)
             if abs(boss_knockback_vel) < 0.5:
                 globals()['horn_charge_boss_knockback_active'] = False
@@ -122744,7 +122744,7 @@ def handle_boss_champion():
     enhanced_deceleration = config["decel"]
 
     # 🏟️ 투기장 모드: BOSS 능력치를 PLAYER와 동일하게 설정 (공정성)
-    if globals().get("arena_mode_enabled", False):
+    if arena_mode_enabled:
         enhanced_max_speed = 7.0       # PLAYER MAX_SPEED
         enhanced_acceleration = 0.4    # PLAYER ACCELERATION
         enhanced_deceleration = 0.4    # PLAYER DECELERATION
@@ -122979,7 +122979,7 @@ def handle_boss_mythic():
     if current_stage == 7:
         try:
             now_ms = pygame.time.get_ticks()
-            if globals().get('stage7_super_intro_until_ms', 0) > now_ms:
+            if stage7_super_intro_until_ms > now_ms:
                 boss_current_speed = 0
                 return
         except Exception:
@@ -123153,7 +123153,7 @@ def handle_boss_mythic():
     enhanced_deceleration = config["decel"]
 
     # 🏟️ 투기장 모드: BOSS 능력치를 PLAYER와 동일하게 설정 (공정성)
-    if globals().get("arena_mode_enabled", False):
+    if arena_mode_enabled:
         enhanced_max_speed = 7.0       # PLAYER MAX_SPEED
         enhanced_acceleration = 0.4    # PLAYER ACCELERATION
         enhanced_deceleration = 0.4    # PLAYER DECELERATION
@@ -123472,7 +123472,7 @@ def handle_boss_junior():
     if current_stage == 7:
         try:
             now_ms = pygame.time.get_ticks()
-            if globals().get('stage7_super_intro_until_ms', 0) > now_ms:
+            if stage7_super_intro_until_ms > now_ms:
                 boss_current_speed = 0
                 return
         except Exception:
@@ -123602,7 +123602,7 @@ def handle_boss_junior():
     enhanced_deceleration = config["decel"]
 
     # 🏟️ 투기장 모드: BOSS 능력치를 PLAYER와 동일하게 설정 (공정성)
-    if globals().get("arena_mode_enabled", False):
+    if arena_mode_enabled:
         enhanced_max_speed = 7.0       # PLAYER MAX_SPEED
         enhanced_acceleration = 0.4    # PLAYER ACCELERATION
         enhanced_deceleration = 0.4    # PLAYER DECELERATION
@@ -123993,7 +123993,7 @@ def record_skill_usage(success=False):
 def record_character_skill_usage():
     """각 캐릭터 고유 액션을 스킬 사용으로 반영"""
     # 스매셔는 드라이브/파워스매시 분기에서 이미 기록됨
-    if globals().get("selected_character_type") == "smasher":
+    if selected_character_type == "smasher":
         return
     record_skill_usage(success=True)
 def record_dash_usage(success=False):
@@ -124496,7 +124496,7 @@ def handle_boss():
                 BOSS.height = target_height
                 BOSS.centerx = center_x
                 # 귀신발걸음 Y축 이동 중에는 Y좌표 고정 스킵
-                if not globals().get("arena_top_ghost_step_active", False):
+                if not arena_top_ghost_step_active:
                     BOSS.y = 25  # 상단 패들 Y 위치 고정! (BOSS_Y 상수값)
                 # 🔮 이동속도 50% 감소 (축소된 패들 페널티)
                 arena_boss_slow_multiplier *= 0.5
@@ -124508,7 +124508,7 @@ def handle_boss():
                     BOSS.height = 40
                     BOSS.centerx = center_x
                     # 귀신발걸음 Y축 이동 중에는 Y좌표 고정 스킵
-                    if not globals().get("arena_top_ghost_step_active", False):
+                    if not arena_top_ghost_step_active:
                         BOSS.y = 25  # 상단 패들 Y 위치 고정!
         except Exception as e:
             print(f"[Arena] Boss status effect error: {e}")
@@ -125400,7 +125400,7 @@ def handle_boss():
         enhanced_instant_stop = config["instant_stop"]
 
     # 🏟️ 투기장 모드: BOSS 능력치를 PLAYER와 동일하게 설정 (공정성)
-    if globals().get("arena_mode_enabled", False):
+    if arena_mode_enabled:
         enhanced_max_speed = 7.0       # PLAYER MAX_SPEED
         enhanced_accel = 0.4           # PLAYER ACCELERATION
         enhanced_decel = 0.4           # PLAYER DECELERATION
@@ -126748,7 +126748,7 @@ def show_result(won):
             gacha.gacha_available_items_template = available_items
         # 캡처 순서 중요: 스테이지 클리어 직후, 정리(cleanup) 전에 스냅샷을 저장해야
         # 디바인스톤의 이전 X 좌표가 유실되지 않는다.
-        if BLACKSMITH_PERSIST_STRUCTURES and globals().get("blacksmith_persist_structures") is None:
+        if BLACKSMITH_PERSIST_STRUCTURES and blacksmith_persist_structures is None:
             try:
                 globals()["blacksmith_persist_structures"] = _capture_blacksmith_structures_for_persist()
             except Exception:
@@ -126758,7 +126758,7 @@ def show_result(won):
         reset_damage_manager()
         globals()["blacksmith_divine_stone_state"] = None
         globals()["blacksmith_divine_stage_owner"] = None
-        controller = globals().get("BLACKSMITH_CONTROLLER")
+        controller = BLACKSMITH_CONTROLLER
         if controller is not None:
             controller.state.divine.state = None
 
@@ -126921,7 +126921,7 @@ def show_result(won):
         globals()["blacksmith_persist_structures"] = None
         globals()["blacksmith_persist_lock_pos"] = None
         globals()["blacksmith_round_blueprint_cache"] = None
-        controller = globals().get("BLACKSMITH_CONTROLLER")
+        controller = BLACKSMITH_CONTROLLER
         if controller is not None:
             controller.reset()
 
@@ -127182,6 +127182,10 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_power_counter_active, tutorial_power_reminder_active, tutorial_power_reminder_timer  # Chapter 4 알림
     global blacksmith_down_hold_frames, blacksmith_build_menu_active, blacksmith_divine_stone_state
     global blacksmith_divine_stage_owner
+    global arena_top_ghost_step_active, arena_top_ghost_step_original_y, arena_top_ghost_step_velocity
+    global arena_bottom_ghost_step_active, arena_bottom_ghost_step_original_y, arena_bottom_ghost_step_velocity
+    global arena_top_ghost_step_phase, arena_bottom_ghost_step_phase
+    global arena_top_ghost_step_return_speed, arena_bottom_ghost_step_return_speed
     global tutorial_pending_chapter_title
     # 튜토리얼 관련 추가 전역 선언(이 함수 내에서 할당하므로 사전에 명시)
     global tutorial_dialogue_shown, tutorial_practice_mode, tutorial_serve_instruction_shown, tutorial_boss_returned
@@ -127393,7 +127397,7 @@ def main(stage_num, new_boss_mode=False):
 
     # 스테이지 진입 시 옵티머스 배터리를 항상 풀 충전 (라운드 사이에는 유지)
     try:
-        if globals().get("selected_character_type") == "optimus":
+        if selected_character_type == "optimus":
             reset_optimus_energy(full_gauge=True)
     except Exception:
         pass
@@ -127544,7 +127548,7 @@ def main(stage_num, new_boss_mode=False):
     else:
         # 런타임이 비어있으면(복원 실패 등) preserve 플래그로 한 번 더 시도
         if preserve_divine_runtime:
-            divine_state = globals().get("blacksmith_divine_stone_state") or dstate_current
+            divine_state = blacksmith_divine_stone_state or dstate_current
             if _is_divine_state_active(divine_state):
                 rect = divine_state.get("rect")
                 if rect is not None:
@@ -128940,7 +128944,7 @@ def main(stage_num, new_boss_mode=False):
             globals()["blacksmith_persist_structures"] = None
             globals()["blacksmith_persist_lock_pos"] = None
             globals()["blacksmith_round_blueprint_cache"] = None
-            controller = globals().get("BLACKSMITH_CONTROLLER")
+            controller = BLACKSMITH_CONTROLLER
             if controller is not None:
                 controller.reset()
 
@@ -129106,7 +129110,7 @@ def main(stage_num, new_boss_mode=False):
 
         # F4키로 좌표계 디버그 토글 (히트박스, 마우스 위치 시각화)
         if keys[pygame.K_F4] and not getattr(main, 'keyF4_pressed', False):
-            globals()['COORDINATE_DEBUG_MODE'] = not globals().get('COORDINATE_DEBUG_MODE', False)
+            globals()['COORDINATE_DEBUG_MODE'] = not COORDINATE_DEBUG_MODE
             # 디버그 카운터 리셋 (켤 때마다 새로 출력)
             if globals()['COORDINATE_DEBUG_MODE']:
                 globals()['_item_slot_debug_count'] = 0
@@ -129433,7 +129437,7 @@ def main(stage_num, new_boss_mode=False):
         if nine_just_pressed and is_admin_mode_enabled():
             print("[ADMIN] 관리자 모드: 3-0 승리!")
             # 스테이지 강제 스킵 시에도 건축물 X좌표 스냅샷을 즉시 확보한다.
-            if BLACKSMITH_PERSIST_STRUCTURES and globals().get("blacksmith_persist_structures") is None:
+            if BLACKSMITH_PERSIST_STRUCTURES and blacksmith_persist_structures is None:
                 try:
                     globals()["blacksmith_persist_structures"] = _capture_blacksmith_structures_for_persist()
                 except Exception:
@@ -129498,7 +129502,7 @@ def main(stage_num, new_boss_mode=False):
             if space_just_pressed:
                 # 강화디바인스톤 • 디바인쉴드 발동 입력 처리 (SPACE 또는 좌클릭)
                 try:
-                    divine_state = globals().get("blacksmith_divine_stone_state") or BLACKSMITH_CONTROLLER.state.divine.state
+                    divine_state = blacksmith_divine_stone_state or BLACKSMITH_CONTROLLER.state.divine.state
                 except Exception:
                     divine_state = None
 
@@ -129786,7 +129790,7 @@ def main(stage_num, new_boss_mode=False):
             # ↓ 선입력 락: 방향키 없이 ↓가 먼저 눌리면 락 활성화, ↓를 떼면 해제
             # 마우스 우클릭을 먼저 누르고 있는 상태에서 방향키를 누르면 대시 발동 안 됨
             try:
-                _old_lock = globals().get('dash_down_first_lock', False)
+                _old_lock = dash_down_first_lock
                 if down_just_pressed and not current_left_state and not current_right_state:
                     dash_down_first_lock = True
                 # 마우스 우클릭이 이미 눌려있는 상태에서 방향키가 처음 눌리면 락 유지
@@ -130593,7 +130597,7 @@ def main(stage_num, new_boss_mode=False):
                     if _odins_manager:
                         _odins_skill = _odins_manager.get_item("odins_eye")
                         if _odins_skill and _odins_skill.active and _odins_skill.is_transformed():
-                            _current_gauge = globals().get("special_gauge", 0)
+                            _current_gauge = special_gauge
                             if _odins_skill.can_use_dark_swamp(_current_gauge):
                                 # 게이지 소모
                                 globals()["special_gauge"] = max(0, _current_gauge - _odins_skill.dark_swamp_cost)
@@ -130660,7 +130664,7 @@ def main(stage_num, new_boss_mode=False):
                                 charge_amount = get_emergency_charge_amount()
                                 current_max = get_max_gauge() if 'get_max_gauge' in dir() else special_gauge_max
                                 charge_value = int(current_max * charge_amount)
-                                old_gauge = globals().get("special_gauge", 0)
+                                old_gauge = special_gauge
                                 globals()["special_gauge"] = min(current_max, old_gauge + charge_value)
                                 globals()["emergency_charge_used_this_stage"] = True
                                 emergency_tap.mark_activated(current_time)
@@ -130677,7 +130681,7 @@ def main(stage_num, new_boss_mode=False):
                                         "size": random.randint(3, 8),
                                         "color": random.choice([(255, 255, 100), (100, 200, 255), (255, 180, 50)])
                                     })
-                                print(f"⚡ [Optimus] 비상충전 발동! {old_gauge} → {globals().get('special_gauge', 0)} (+{charge_value}, {int(charge_amount*100)}%) [max={current_max}]")
+                                print(f"⚡ [Optimus] 비상충전 발동! {old_gauge} → {special_gauge} (+{charge_value}, {int(charge_amount*100)}%) [max={current_max}]")
                             else:
                                 print("⚠️ [Optimus] 비상충전 이미 사용됨 (스테이지당 1회)")
                     continue
@@ -132457,7 +132461,7 @@ def main(stage_num, new_boss_mode=False):
                                 is_deuce = globals().get('odins_eye_death_anim_is_deuce', False)
                                 if is_deuce:
                                     # 듀스 모드 패배
-                                    globals()['deuce_losses'] = globals().get('deuce_losses', 0) + 1
+                                    globals()['deuce_losses'] = deuce_losses + 1
                                     if arena_mode_enabled and arena_top_hero:
                                         boss_name = arena_top_hero.get("name", "보스")
                                     else:
@@ -132466,7 +132470,7 @@ def main(stage_num, new_boss_mode=False):
                                         stage8_boss_sprite.trigger_victory()
                                     stop_dash_delay_sound()
                                     show_winner_text(boss_name)
-                                    show_score(SCREEN, globals().get('deuce_wins', 0), globals().get('deuce_losses', 0), WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
+                                    show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
                                                player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
                                                boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else None)
                                     if selected_character_type == "soldier":
@@ -132488,8 +132492,8 @@ def main(stage_num, new_boss_mode=False):
                                         go_to_next_round()
                                 else:
                                     # 일반 모드 패배
-                                    globals()['round_losses'] = globals().get('round_losses', 0) + 1
-                                    globals()['quest_stage_boss_score'] = globals().get('quest_stage_boss_score', 0) + 1
+                                    globals()['round_losses'] = round_losses + 1
+                                    globals()['quest_stage_boss_score'] = quest_stage_boss_score + 1
                                     if arena_mode_enabled and arena_top_hero:
                                         boss_name = arena_top_hero.get("name", "보스")
                                     else:
@@ -132499,7 +132503,7 @@ def main(stage_num, new_boss_mode=False):
                                     stop_dash_delay_sound()
                                     show_winner_text(boss_name)
                                     # 👁 점수 표시 추가 (누락되었던 부분)
-                                    show_score(SCREEN, globals().get('round_wins', 0), globals().get('round_losses', 0), WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
+                                    show_score(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
                                                player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
                                                boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else None)
                                     if selected_character_type == "soldier":
@@ -132559,7 +132563,7 @@ def main(stage_num, new_boss_mode=False):
                                 globals()["boss_knockback_timer"] = 24  # 0.4초 (감속 시간)
 
                                 # 스턴 적용 (1초)
-                                current_stun = globals().get("boss_stunned_timer", 0)
+                                current_stun = boss_stunned_timer
                                 globals()["boss_stunned_timer"] = max(current_stun, boss_collision['stun_duration'])
 
                                 # 👁 어둠 파편 이펙트 생성
@@ -132691,7 +132695,7 @@ def main(stage_num, new_boss_mode=False):
 
                                             # 블루투스링 게이지 충전량 증가 적용
                                             if is_bluetooth_ring_active():
-                                                _bt_bonus = globals().get("bluetooth_ring_gain_pct", 15)
+                                                _bt_bonus = bluetooth_ring_gain_pct
                                                 _laurel_total_gain = int(_laurel_total_gain * (1 + _bt_bonus / 100.0))
 
                                             # 악마의 주사위 패들 게이지 충전량 배율 적용
@@ -132868,7 +132872,7 @@ def main(stage_num, new_boss_mode=False):
                         _stop_optimus_charge_sound()
 
             # [DEBUG] 귀신발걸음 중 X좌표 추적 - handle_player 전
-            _gs_x_before_handle = PLAYER.x if globals().get("arena_bottom_ghost_step_active", False) else None
+            _gs_x_before_handle = PLAYER.x if arena_bottom_ghost_step_active else None
 
             if not freeze_now:
                 handle_player(keys_now)
@@ -133011,13 +133015,13 @@ def main(stage_num, new_boss_mode=False):
                     if _kb_gs.get('top_paddle_knockback', False):
                         _kb_dir = _kb_gs.get('top_paddle_knockback_dir', 1)
                         globals()['boss_knockback_vel'] = _kb_dir * 14.0  # 초기 속도 14.0
-                        globals()['boss_stunned_timer'] = max(globals().get('boss_stunned_timer', 0), 36)  # 0.6초 경직
+                        globals()['boss_stunned_timer'] = max(boss_stunned_timer, 36)  # 0.6초 경직
                         _kb_gs['top_paddle_knockback'] = False  # 플래그 리셋
                     # 하단 패들 (플레이어) 넉백
                     if _kb_gs.get('bottom_paddle_knockback', False):
                         _kb_dir = _kb_gs.get('bottom_paddle_knockback_dir', 1)
                         globals()['player_knockback_vel'] = _kb_dir * 14.0  # 초기 속도 14.0
-                        globals()['player_stunned_timer'] = max(globals().get('player_stunned_timer', 0), 36)  # 0.6초 경직
+                        globals()['player_stunned_timer'] = max(player_stunned_timer, 36)  # 0.6초 경직
                         _kb_gs['bottom_paddle_knockback'] = False  # 플래그 리셋
 
                     # ⚔️ 달빛 베기 커브 효과 적용 (스매셔 드라이브처럼 굴곡)
@@ -133204,17 +133208,11 @@ def main(stage_num, new_boss_mode=False):
                                 pass
 
                     # 👁️ 귀신발걸음 Y축 이동 업데이트 (끝까지 전진)
-                    global arena_top_ghost_step_active, arena_top_ghost_step_original_y
-                    global arena_top_ghost_step_velocity
-                    global arena_bottom_ghost_step_active, arena_bottom_ghost_step_original_y
-                    global arena_bottom_ghost_step_velocity
 
                     _demon_eye_active = arena_game_state.get('demon_eye_active', False)
                     _demon_eye_caster_is_top = arena_game_state.get('demon_eye_caster_is_top', True)
 
                     if _demon_eye_active:
-                        global arena_top_ghost_step_phase, arena_bottom_ghost_step_phase
-                        global arena_top_ghost_step_return_speed, arena_bottom_ghost_step_return_speed
 
                         if _demon_eye_caster_is_top:
                             # 상단 영웅 귀신발걸음 Y축 이동 (아래로 전진 → 복귀 반복)
@@ -133612,7 +133610,7 @@ def main(stage_num, new_boss_mode=False):
                     fire_support_weapon.update(
                         boss_rect=pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height),
                         ball_rect=pygame.Rect(BALL.x, BALL.y, BALL.width, BALL.height),
-                        last_hit_by=globals().get("last_hit_by", "player"),
+                        last_hit_by=last_hit_by,
                         create_explosion=lambda ex, ey: trigger_grenade_style_explosion(
                             ex,
                             ey,
@@ -136432,8 +136430,8 @@ def show_character_info(background_surface=None):
     def gather_stats():
         """현재 능력치 및 기준값을 수집."""
         # 투기장 모드: 영웅 중심 스탯 반환
-        if current_stage == 30 and globals().get("arena_mode_enabled", False):
-            hero = globals().get("arena_bottom_hero")
+        if current_stage == 30 and arena_mode_enabled:
+            hero = arena_bottom_hero
             hero_speed_attr = hero.get("speed", 1.0) if hero else 1.0
             base_speed = 5.0  # MAX_SPEED (투기장 하단 영웅 기본 이속)
             perk_speed_mult = globals().get("arena_perk_speed_mult_bottom", 1.0)
@@ -136486,7 +136484,7 @@ def show_character_info(background_surface=None):
                               "max_hint": 30.0, "unit": "%"})
             return stats
 
-        char_type = globals().get("selected_character_type", "normal")
+        char_type = selected_character_type
         # 캐릭터별 기본 이동속도: 옵티머스는 자체 상수(OPTIMUS_BASE_MAX_SPEED) 사용
         if char_type == "blacksmith":
             base_max_speed = 4.0
@@ -136531,7 +136529,7 @@ def show_character_info(background_surface=None):
         except Exception:
             skill_speed_boost = 0.0
         # 🏃 신속 스킬 보너스 반영 (레벨당 4% 이동속도 증가)
-        swiftness_bonus = globals().get("runtime_swiftness_bonus", 0)
+        swiftness_bonus = runtime_swiftness_bonus
         move_speed = (base_max_speed + skill_speed_boost) * speed_multiplier * (1.0 + swiftness_bonus)
         if char_type == "optimus":
             move_speed *= get_optimus_gauge_ratio()
@@ -136623,7 +136621,7 @@ def show_character_info(background_surface=None):
                 return 0, 0  # 옵티머스는 히트로 게이지를 얻지 않음
             if (
                 "tutorial_current_chapter" in globals()
-                and globals().get("tutorial_current_chapter") == 4
+                and tutorial_current_chapter == 4
             ):
                 return 500, 500
             if (
@@ -136642,7 +136640,7 @@ def show_character_info(background_surface=None):
                     pass
             elif char_type == "blacksmith":
                 try:
-                    if globals().get("blacksmith_umbrella_open", False):
+                    if blacksmith_umbrella_open:
                         base_gain = int(get_blacksmith_umbrella_gauge_gain())
                     else:
                         base_gain = 30
@@ -136658,10 +136656,10 @@ def show_character_info(background_surface=None):
                 if is_bluetooth_ring_active():
                     # 블루투스링 롤 옵션(기본 15%) 반영
                     try:
-                        bonus_pct = globals().get("bluetooth_ring_gain_pct", 15)
+                        bonus_pct = bluetooth_ring_gain_pct
                         current_gain = int(current_gain * (1 + bonus_pct / 100.0))
                     except Exception:
-                        bt_bonus = globals().get("bluetooth_ring_gain_pct", 15)
+                        bt_bonus = bluetooth_ring_gain_pct
                         current_gain = int(current_gain * (1 + bt_bonus / 100.0))
             except Exception:
                 pass
@@ -136753,7 +136751,7 @@ def show_character_info(background_surface=None):
                 pass
 
             try:
-                consecutive_count = int(globals().get("rolling_consecutive_count", 0))
+                consecutive_count = int(rolling_consecutive_count)
             except Exception:
                 consecutive_count = 0
             consecutive_discount = 0.5 ** max(0, consecutive_count)
@@ -137630,8 +137628,8 @@ def show_character_info(background_surface=None):
         draw.rect((20, 24, 40), panel_rect)
         draw.rect((100, 150, 255), panel_rect, 3)
         # 투기장 모드: 영웅 이름 + 칭호 표시
-        if current_stage == 30 and globals().get("arena_mode_enabled", False):
-            _hero = globals().get("arena_bottom_hero")
+        if current_stage == 30 and arena_mode_enabled:
+            _hero = arena_bottom_hero
             if _hero:
                 _hero_color = _hero.get("color", WHITE)
                 title_surface = font_title.render(_hero.get("name", "???"), True, _hero_color)
@@ -137652,7 +137650,7 @@ def show_character_info(background_surface=None):
             SCREEN.blit(title_surface, title_rect)
 
         # 투기장 모드 판별 (일찍 체크 — 쓰레기통, 장비슬롯, 인벤토리 숨김용)
-        _is_arena_early = current_stage == 30 and globals().get("arena_mode_enabled", False)
+        _is_arena_early = current_stage == 30 and arena_mode_enabled
 
         # 🗑️ 쓰레기통 아이콘 (우측 상단) - 투기장에서는 숨김
         trash_rect = pygame.Rect(0, 0, 0, 0)  # 기본값
