@@ -91,29 +91,25 @@ def _menu_update_hover(dt: float = 1/60):
     global _menu_hover_glow_timer, _menu_hover_particles
     _menu_hover_glow_timer += dt
     for p in _menu_hover_particles:
-        p["x"] += p["vx"] * dt * 60
-        p["y"] += p["vy"] * dt * 60
         p["life"] -= dt
+        ease = max(0.0, p["life"] / p["max_life"])
+        p["x"] += p["vx"] * ease * dt
+        p["y"] += p["vy"] * ease * dt
     _menu_hover_particles = [p for p in _menu_hover_particles if p["life"] > 0]
 
 def _menu_spawn_particles(rx, ry, rw, rh):
     import random as _r
-    for _ in range(12):
-        edge = _r.randint(0, 3)
-        if edge == 0:
-            x, y = _r.randint(rx, rx+rw), ry
-        elif edge == 1:
-            x, y = _r.randint(rx, rx+rw), ry+rh
-        elif edge == 2:
-            x, y = rx, _r.randint(ry, ry+rh)
-        else:
-            x, y = rx+rw, _r.randint(ry, ry+rh)
-        _menu_hover_particles.append({
-            "x": x, "y": y,
-            "vx": _r.uniform(-0.5, 0.5), "vy": _r.uniform(-0.8, -0.2),
-            "life": _r.uniform(0.25, 0.5), "max_life": 0.5,
-            "color": (0, 255, 255),
-        })
+    # 코너 4곳에서 2개씩 = 8개
+    for cx, cy in [(rx, ry), (rx+rw, ry), (rx, ry+rh), (rx+rw, ry+rh)]:
+        for _ in range(2):
+            angle = _r.uniform(0, 6.283)
+            speed = _r.uniform(8, 20)
+            _menu_hover_particles.append({
+                "x": cx + _r.uniform(-3, 3), "y": cy + _r.uniform(-3, 3),
+                "vx": math.cos(angle) * speed, "vy": math.sin(angle) * speed,
+                "life": _r.uniform(0.3, 0.6), "max_life": 0.6,
+                "color": (0, 255, 255),
+            })
 
 def _menu_check_hover(hover_id: str, rect: pygame.Rect, mpos, play_sound_fn=None) -> bool:
     global _menu_hover_prev_id
@@ -127,38 +123,35 @@ def _menu_check_hover(hover_id: str, rect: pygame.Rect, mpos, play_sound_fn=None
     return False
 
 def _menu_draw_hover_border(scr, rx, ry, rw, rh, color=(0, 255, 255)):
-    pulse = 0.6 + 0.4 * abs(math.sin(_menu_hover_glow_timer * 4.0))
-    # 외곽 글로우
-    glow = pygame.Surface((rw + 12, rh + 12), pygame.SRCALPHA)
-    a = int(40 * pulse)
-    pygame.draw.rect(glow, (*color, a), (0, 0, rw + 12, rh + 12), border_radius=12)
-    scr.blit(glow, (rx - 6, ry - 6))
-    # 메인 보더
-    a2 = int(180 * pulse)
-    border_surf = pygame.Surface((rw + 4, rh + 4), pygame.SRCALPHA)
-    pygame.draw.rect(border_surf, (*color, a2), (0, 0, rw + 4, rh + 4), 2, border_radius=10)
-    scr.blit(border_surf, (rx - 2, ry - 2))
-    # 코너 라인
-    ln = int(12 + 6 * pulse)
-    ca = int(220 * pulse)
+    pulse = 0.7 + 0.3 * math.sin(_menu_hover_glow_timer * 2.5)
+    # 소프트 글로우
+    glow = pygame.Surface((rw + 16, rh + 16), pygame.SRCALPHA)
+    pygame.draw.rect(glow, (*color, int(18 * pulse)), (0, 0, rw + 16, rh + 16), border_radius=12)
+    scr.blit(glow, (rx - 8, ry - 8))
+    # 얇은 보더 (1px)
+    bs = pygame.Surface((rw + 4, rh + 4), pygame.SRCALPHA)
+    pygame.draw.rect(bs, (*color, int(70 * pulse)), (0, 0, rw + 4, rh + 4), 1, border_radius=8)
+    scr.blit(bs, (rx - 2, ry - 2))
+    # 코너 악센트 (1px)
+    ln = int(10 + 3 * pulse)
+    la = int(100 * pulse)
     cs = pygame.Surface((rw + 4, rh + 4), pygame.SRCALPHA)
-    cc = (*color, ca)
-    pygame.draw.line(cs, cc, (0, 0), (ln, 0), 2)
-    pygame.draw.line(cs, cc, (0, 0), (0, ln), 2)
-    pygame.draw.line(cs, cc, (rw + 3, 0), (rw + 3 - ln, 0), 2)
-    pygame.draw.line(cs, cc, (rw + 3, 0), (rw + 3, ln), 2)
-    pygame.draw.line(cs, cc, (0, rh + 3), (ln, rh + 3), 2)
-    pygame.draw.line(cs, cc, (0, rh + 3), (0, rh + 3 - ln), 2)
-    pygame.draw.line(cs, cc, (rw + 3, rh + 3), (rw + 3 - ln, rh + 3), 2)
-    pygame.draw.line(cs, cc, (rw + 3, rh + 3), (rw + 3, rh + 3 - ln), 2)
+    cc = (*color, la)
+    for cx, cy, dx, dy in [(0,0,1,1),(rw+3,0,-1,1),(0,rh+3,1,-1),(rw+3,rh+3,-1,-1)]:
+        pygame.draw.line(cs, cc, (cx, cy), (cx + ln * dx, cy), 1)
+        pygame.draw.line(cs, cc, (cx, cy), (cx, cy + ln * dy), 1)
     scr.blit(cs, (rx - 2, ry - 2))
     # 파티클
     for p in _menu_hover_particles:
-        pa = int(200 * (p["life"] / p["max_life"]))
-        sz = max(1, int(3 * (p["life"] / p["max_life"])))
-        ps = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
-        pygame.draw.circle(ps, (*p["color"], pa), (sz, sz), sz)
-        scr.blit(ps, (int(p["x"] - sz), int(p["y"] - sz)))
+        ratio = max(0.0, p["life"] / p["max_life"])
+        ease = ratio * ratio
+        pa = int(80 * ease)
+        if pa < 2:
+            continue
+        sz = max(1, int(1.5 * ease + 0.5))
+        ps = pygame.Surface((sz * 2 + 2, sz * 2 + 2), pygame.SRCALPHA)
+        pygame.draw.circle(ps, (*p["color"], pa), (sz + 1, sz + 1), sz)
+        scr.blit(ps, (int(p["x"]) - sz - 1, int(p["y"]) - sz - 1))
 
 def _menu_reset_hover():
     global _menu_hover_prev_id, _menu_hover_particles
