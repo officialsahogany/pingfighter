@@ -52661,7 +52661,7 @@ def handle_gods_judgment():
         # 공 속도 백업
         _judgment_ball_speed_backup = ball_vel.copy()
         # 화면 중앙 텍스트
-        show_fade_text("신의심판!")
+        show_fade_text("신의 심판: 땅의 분노")
 
     # 지진 종료 순간
     if was_eq and not is_eq:
@@ -140381,7 +140381,7 @@ def show_quick_character_selection():
         right_enabled = selected_index < len(characters) - 1
         draw_direction_indicator(
             left_center_x,
-            "left",
+            "left", 
             enabled=left_enabled,
             pressed=keys[pygame.K_LEFT] or keys[pygame.K_a],
         )
