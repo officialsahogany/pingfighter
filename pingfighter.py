@@ -25228,6 +25228,10 @@ def _create_mecha_paddle_surface(palette: dict, step_phase: float = 0.0) -> pyga
 
     return surface
 
+# === 스매셔 히트/방패/왼팔 연출 상수 (create_smasher_paddle_surface보다 먼저 정의 필요) ===
+SMASHER_HIT_POSE_DURATION = 8  # 공을 칠 때 왼팔 히트 포즈 유지 프레임 수
+SMASHER_SHIELD_RAISE_DURATION = 18  # 오른쪽 타격 시 방패 들어올리기 연출 시간
+SMASHER_LEFT_RAISE_DURATION = 18  # 왼쪽 타격 시 왼팔 들어올리기 연출 시간
 
 def create_smasher_paddle_surface(step_phase: float = 0.0) -> pygame.Surface:
     surface = pygame.Surface((250, 120), pygame.SRCALPHA)
@@ -40789,13 +40793,8 @@ smasher_walking_active = False
 smasher_walking_timer = 0
 SMASHER_WALKING_CYCLE = 30
 
-SMASHER_HIT_POSE_DURATION = 8  # 공을 칠 때 왼팔 히트 포즈 유지 프레임 수
 smasher_hit_pose_timer = 0
-
-SMASHER_SHIELD_RAISE_DURATION = 18  # 오른쪽 타격 시 방패 들어올리기 연출 시간
 smasher_shield_raise_timer = 0
-
-SMASHER_LEFT_RAISE_DURATION = 18  # 왼쪽 타격 시 왼팔 들어올리기 연출 시간
 smasher_left_raise_timer = 0
 
 smasher_pending_contact_offset = None  # 파워스매싱 발사 시점용 애니메이션 보류 오프셋
