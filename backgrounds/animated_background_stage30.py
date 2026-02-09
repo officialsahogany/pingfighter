@@ -448,37 +448,39 @@ class AnimatedBackgroundStage30:
             self.judgment_right_arm_progress = ease
             # 발 흔들림 (사인파)
             self.judgment_feet_swing = math.sin(self.judgment_timer * 5.0) * 0.3 * ease
-            # ── 번개 충전 이펙트 ──
-            # 발광 강도: 기본 상승 + 주기적 번쩍임 (후반부에 더 자주/강하게)
-            base_intensity = ease * 0.6
-            flash_freq = 4.0 + ease * 12.0  # 4Hz → 16Hz (점점 빨라짐)
-            flash_wave = max(0, math.sin(self.judgment_timer * flash_freq * math.pi))
-            flash_boost = flash_wave * ease * 0.4
-            self.judgment_bolt_intensity = min(1.0, base_intensity + flash_boost)
-            # 스파크 파티클 생성 (팔이 올라갈수록 더 많이)
+            # ── 번개 충전 이펙트 (팔 다 올린 후 70%부터만 발동) ──
             s = self.judgment_scale
-            # 오른손 대략적 위치 계산 (번개가 있는 손)
-            r_shoulder_x = cx + int(10 * s)
-            r_shoulder_y = cy - int(19 * s)
-            spark_rate = int(ease * 3) + (1 if random.random() < ease * 0.5 else 0)
-            for _ in range(spark_rate):
-                # 번개 중심부 주변에서 스파크 방출
-                spark_cx = r_shoulder_x + random.uniform(-15 * s, 5 * s)
-                spark_cy = r_shoulder_y + random.uniform(-20 * s, -5 * s)
-                angle = random.uniform(0, math.pi * 2)
-                speed = random.uniform(1.5, 5.0) * s
-                self.judgment_bolt_sparks.append({
-                    'x': spark_cx,
-                    'y': spark_cy,
-                    'vx': math.cos(angle) * speed,
-                    'vy': math.sin(angle) * speed,
-                    'size': random.uniform(1.0, 2.5) * s * 0.4,
-                    'life': random.uniform(0.2, 0.6),
-                    'color': random.choice([
-                        (255, 240, 140), (255, 220, 80),
-                        (255, 255, 200), (220, 200, 60),
-                    ]),
-                })
+            if progress > 0.7:
+                # 70~100% 구간을 0~1로 재매핑
+                charge_p = (progress - 0.7) / 0.3
+                base_intensity = charge_p * 0.7
+                flash_freq = 6.0 + charge_p * 14.0  # 6Hz → 20Hz
+                flash_wave = max(0, math.sin(self.judgment_timer * flash_freq * math.pi))
+                flash_boost = flash_wave * charge_p * 0.3
+                self.judgment_bolt_intensity = min(1.0, base_intensity + flash_boost)
+                # 스파크 파티클 생성
+                r_shoulder_x = cx + int(10 * s)
+                r_shoulder_y = cy - int(19 * s)
+                spark_rate = int(charge_p * 3) + (1 if random.random() < charge_p * 0.5 else 0)
+                for _ in range(spark_rate):
+                    spark_cx = r_shoulder_x + random.uniform(-15 * s, 5 * s)
+                    spark_cy = r_shoulder_y + random.uniform(-20 * s, -5 * s)
+                    angle = random.uniform(0, math.pi * 2)
+                    speed = random.uniform(1.5, 5.0) * s
+                    self.judgment_bolt_sparks.append({
+                        'x': spark_cx,
+                        'y': spark_cy,
+                        'vx': math.cos(angle) * speed,
+                        'vy': math.sin(angle) * speed,
+                        'size': random.uniform(1.0, 2.5) * s * 0.4,
+                        'life': random.uniform(0.2, 0.6),
+                        'color': random.choice([
+                            (255, 240, 140), (255, 220, 80),
+                            (255, 255, 200), (220, 200, 60),
+                        ]),
+                    })
+            else:
+                self.judgment_bolt_intensity = 0.0
             # 스파크 파티클 업데이트
             for sp in self.judgment_bolt_sparks:
                 sp['x'] += sp['vx'] * dt * 60
@@ -1294,26 +1296,8 @@ class AnimatedBackgroundStage30:
 
         intensity = self.judgment_bolt_intensity  # 0~1 발광 강도
 
-        # ── 발광 중일 때: 광역 글로우 오라 ──
+        # ── 발광 중일 때: 미니 전기 아크만 (파티클 스타일) ──
         if intensity > 0.1:
-            bolt_mid_x = (bolt_x + segs[-1][0]) // 2
-            bolt_mid_y = (bolt_y + segs[-1][1]) // 2
-            # 큰 글로우 원 (반투명)
-            glow_r = int((12 + 10 * intensity) * s)
-            if glow_r > 2:
-                glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
-                glow_alpha = int(40 * intensity)
-                pygame.draw.circle(glow_surf, (255, 230, 100, glow_alpha),
-                                   (glow_r, glow_r), glow_r)
-                # 내부 더 밝은 코어
-                core_r = max(1, int(glow_r * 0.5))
-                core_alpha = int(60 * intensity)
-                pygame.draw.circle(glow_surf, (255, 245, 180, core_alpha),
-                                   (glow_r, glow_r), core_r)
-                screen.blit(glow_surf,
-                            (bolt_mid_x - glow_r, bolt_mid_y - glow_r),
-                            special_flags=pygame.BLEND_ADD)
-
             # 미니 전기 아크 (번개에서 갈라져 나오는 작은 전류)
             arc_count = int(intensity * 3)
             for _ in range(arc_count):
@@ -1380,17 +1364,6 @@ class AnimatedBackgroundStage30:
         mid = segs[len(segs) // 2]
         mid_r = max(1, lw + int(intensity * 2 * s))
         pygame.draw.circle(screen, (255, 240, 180), mid, mid_r)
-        # 손 주변 발광 (번개 에너지가 손에서 빛남)
-        if intensity > 0.2:
-            hand_glow_r = max(1, int((4 + 5 * intensity) * s))
-            hand_glow_surf = pygame.Surface((hand_glow_r * 2, hand_glow_r * 2), pygame.SRCALPHA)
-            hand_alpha = int(30 * intensity)
-            pygame.draw.circle(hand_glow_surf, (255, 235, 120, hand_alpha),
-                               (hand_glow_r, hand_glow_r), hand_glow_r)
-            screen.blit(hand_glow_surf,
-                        (ra_hand[0] - hand_glow_r, ra_hand[1] - hand_glow_r),
-                        special_flags=pygame.BLEND_ADD)
-
         # ── 스파크 파티클 드로잉 ──
         for sp in self.judgment_bolt_sparks:
             sx, sy = int(sp['x']), int(sp['y'])
