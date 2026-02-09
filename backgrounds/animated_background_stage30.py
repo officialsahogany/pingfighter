@@ -1656,113 +1656,243 @@ class AnimatedBackgroundStage30:
         pygame.draw.circle(screen, marble_mid, ra_hand, fist_r)
         pygame.draw.circle(screen, marble_dark, ra_hand, fist_r, lw)
 
-        # ── 번개 (오른손에 들고 있음, 투척 후 숨김) ──
-        if self.judgment_bolt_hidden:
-            # 번개 투척 후: 스파크 파티클만 그리고 번개는 숨김
+        # ── 오른손 무기 (variant에 따라 번개 또는 해머) ──
+        if self.judgment_variant == 'lightning':
+            # ══════ 번개 (오른손에 들고 있음, 투척 후 숨김) ══════
+            if self.judgment_bolt_hidden:
+                for sp in self.judgment_bolt_sparks:
+                    sx, sy = int(sp['x']), int(sp['y'])
+                    sp_size = max(1, int(sp['size'] * min(1.0, sp['life'] * 3)))
+                    if sp_size > 0:
+                        pygame.draw.circle(screen, sp['color'], (sx, sy), sp_size)
+                return
+            bolt_angle = fore_angle_r
+            bolt_x, bolt_y = ra_hand
+            bolt_len = int(18 * s)
+            bdir_x = math.sin(bolt_angle)
+            bdir_y = math.cos(bolt_angle)
+            perp_x, perp_y = bdir_y, -bdir_x
+            zigzag = [
+                (0, 0),
+                (-3, 0.25), (2, 0.4), (-2, 0.6), (1, 0.78), (-1, 1.0),
+            ]
+            segs = []
+            for zx, zt in zigzag:
+                px = bolt_x + int(zx * s * perp_x) + int(bolt_len * zt * bdir_x)
+                py = bolt_y + int(zx * s * perp_y) + int(bolt_len * zt * bdir_y)
+                segs.append((px, py))
+
+            intensity = self.judgment_bolt_intensity
+
+            if intensity > 0.1:
+                arc_count = int(intensity * 3)
+                for _ in range(arc_count):
+                    seg_idx = random.randint(0, len(segs) - 1)
+                    ax, ay = segs[seg_idx]
+                    arc_angle = random.uniform(0, math.pi * 2)
+                    arc_len = random.uniform(3, 8) * s * intensity
+                    arc_pts = [(ax, ay)]
+                    for step in range(2):
+                        arc_angle += random.uniform(-0.8, 0.8)
+                        step_len = arc_len * (0.5 + step * 0.3)
+                        nx = arc_pts[-1][0] + int(math.cos(arc_angle) * step_len)
+                        ny = arc_pts[-1][1] + int(math.sin(arc_angle) * step_len)
+                        arc_pts.append((nx, ny))
+                    arc_col = (255, int(220 + random.random() * 35),
+                               int(80 + random.random() * 80))
+                    for ai in range(len(arc_pts) - 1):
+                        pygame.draw.line(screen, arc_col, arc_pts[ai], arc_pts[ai + 1], 1)
+
+            base_glow_w = max(1, int(3 * s))
+            glow_w = base_glow_w + int(intensity * 2 * s)
+            glow_r_val = min(255, 180 + int(75 * intensity))
+            glow_g_val = min(255, 150 + int(80 * intensity))
+            glow_b_val = min(255, 60 + int(80 * intensity))
+            for i in range(len(segs) - 1):
+                pygame.draw.line(screen, (glow_r_val, glow_g_val, glow_b_val),
+                                 segs[i], segs[i + 1], glow_w)
+            core_r_val = min(255, 212 + int(43 * intensity))
+            core_g_val = min(255, 175 + int(70 * intensity))
+            core_b_val = min(255, 85 + int(115 * intensity))
+            bolt_core_w = lw + int(intensity * s)
+            for i in range(len(segs) - 1):
+                pygame.draw.line(screen, (core_r_val, core_g_val, core_b_val),
+                                 segs[i], segs[i + 1], bolt_core_w)
+            if intensity > 0.6:
+                white_a = intensity - 0.6
+                white_col = (min(255, int(200 + 55 * white_a * 2.5)),
+                             min(255, int(200 + 55 * white_a * 2.5)),
+                             min(255, int(180 + 75 * white_a * 2.5)))
+                for i in range(len(segs) - 1):
+                    pygame.draw.line(screen, white_col, segs[i], segs[i + 1], max(1, lw - 1))
+
+            tip = segs[-1]
+            sl = max(1, int((3 + 3 * intensity) * s))
+            spark_col = (min(255, int(212 + 43 * intensity)),
+                         min(255, int(175 + 80 * intensity)),
+                         min(255, int(85 + 100 * intensity)))
+            pygame.draw.line(screen, spark_col, (tip[0] - sl, tip[1]), (tip[0] + sl, tip[1]), 1)
+            pygame.draw.line(screen, spark_col, (tip[0], tip[1] - sl), (tip[0], tip[1] + sl), 1)
+            if intensity > 0.3:
+                dsl = max(1, int(sl * 0.7))
+                pygame.draw.line(screen, spark_col,
+                                 (tip[0] - dsl, tip[1] - dsl), (tip[0] + dsl, tip[1] + dsl), 1)
+                pygame.draw.line(screen, spark_col,
+                                 (tip[0] + dsl, tip[1] - dsl), (tip[0] - dsl, tip[1] + dsl), 1)
+            mid = segs[len(segs) // 2]
+            mid_r = max(1, lw + int(intensity * 2 * s))
+            pygame.draw.circle(screen, (255, 240, 180), mid, mid_r)
             for sp in self.judgment_bolt_sparks:
                 sx, sy = int(sp['x']), int(sp['y'])
                 sp_size = max(1, int(sp['size'] * min(1.0, sp['life'] * 3)))
                 if sp_size > 0:
                     pygame.draw.circle(screen, sp['color'], (sx, sy), sp_size)
-            return
-        # 팔 방향에 맞춰 번개 각도 회전
-        bolt_angle = fore_angle_r  # 전완 각도를 따라감
-        bolt_x, bolt_y = ra_hand
-        bolt_len = int(18 * s)
-        # 번개 방향: 손에서 전완 반대방향(손 연장선)으로 뻗음
-        bdir_x = math.sin(bolt_angle)
-        bdir_y = math.cos(bolt_angle)
-        # 지그재그 번개 세그먼트 (손 기준 전완 연장 방향)
-        perp_x, perp_y = bdir_y, -bdir_x  # 수직 방향
-        zigzag = [
-            (0, 0),
-            (-3, 0.25), (2, 0.4), (-2, 0.6), (1, 0.78), (-1, 1.0),
-        ]
-        segs = []
-        for zx, zt in zigzag:
-            px = bolt_x + int(zx * s * perp_x) + int(bolt_len * zt * bdir_x)
-            py = bolt_y + int(zx * s * perp_y) + int(bolt_len * zt * bdir_y)
-            segs.append((px, py))
+                    if sp_size > 1:
+                        pygame.draw.circle(screen, (255, 255, 220),
+                                           (sx, sy), max(1, sp_size - 1))
+        else:
+            # ══════ 고대 토르 해머 (땅의 분노 전용) ══════
+            hammer_angle = fore_angle_r
+            hx, hy = ra_hand
+            handle_len = int(18 * s)
+            hdir_x = math.sin(hammer_angle)
+            hdir_y = math.cos(hammer_angle)
+            perp_hx, perp_hy = hdir_y, -hdir_x  # 수직 방향
 
-        intensity = self.judgment_bolt_intensity  # 0~1 발광 강도
+            # 핸들 끝점 (해머 헤드 중심)
+            tip_x = hx + int(handle_len * hdir_x)
+            tip_y = hy + int(handle_len * hdir_y)
 
-        # ── 발광 중일 때: 미니 전기 아크만 (파티클 스타일) ──
-        if intensity > 0.1:
-            # 미니 전기 아크 (번개에서 갈라져 나오는 작은 전류)
-            arc_count = int(intensity * 3)
-            for _ in range(arc_count):
-                # 번개 세그먼트 중 랜덤 지점에서 시작
-                seg_idx = random.randint(0, len(segs) - 1)
-                ax, ay = segs[seg_idx]
-                arc_angle = random.uniform(0, math.pi * 2)
-                arc_len = random.uniform(3, 8) * s * intensity
-                # 2~3 세그먼트 미니 지그재그
-                arc_pts = [(ax, ay)]
-                for step in range(2):
-                    arc_angle += random.uniform(-0.8, 0.8)
-                    step_len = arc_len * (0.5 + step * 0.3)
-                    nx = arc_pts[-1][0] + int(math.cos(arc_angle) * step_len)
-                    ny = arc_pts[-1][1] + int(math.sin(arc_angle) * step_len)
-                    arc_pts.append((nx, ny))
-                arc_col = (255, int(220 + random.random() * 35),
-                           int(80 + random.random() * 80))
-                for ai in range(len(arc_pts) - 1):
-                    pygame.draw.line(screen, arc_col, arc_pts[ai], arc_pts[ai + 1], 1)
+            # ── 핸들 색상 ──
+            wood = (120, 90, 55)
+            wood_dark = (95, 70, 40)
+            leather = (85, 65, 40)
+            iron = (100, 90, 75)
+            iron_light = (140, 125, 105)
+            iron_dark = (70, 60, 50)
+            iron_edge = (55, 48, 38)
 
-        # 외곽 글로우 (강도에 따라 두께/밝기 증가)
-        base_glow_w = max(1, int(3 * s))
-        glow_w = base_glow_w + int(intensity * 2 * s)
-        glow_r_val = min(255, 180 + int(75 * intensity))
-        glow_g_val = min(255, 150 + int(80 * intensity))
-        glow_b_val = min(255, 60 + int(80 * intensity))
-        for i in range(len(segs) - 1):
-            pygame.draw.line(screen, (glow_r_val, glow_g_val, glow_b_val),
-                             segs[i], segs[i + 1], glow_w)
-        # 핵심 번개 (강도에 따라 더 밝은 색)
-        core_r_val = min(255, 212 + int(43 * intensity))
-        core_g_val = min(255, 175 + int(70 * intensity))
-        core_b_val = min(255, 85 + int(115 * intensity))
-        bolt_core_w = lw + int(intensity * s)
-        for i in range(len(segs) - 1):
-            pygame.draw.line(screen, (core_r_val, core_g_val, core_b_val),
-                             segs[i], segs[i + 1], bolt_core_w)
-        # 초고강도일 때 중앙 백색 라인
-        if intensity > 0.6:
-            white_a = intensity - 0.6
-            white_col = (min(255, int(200 + 55 * white_a * 2.5)),
-                         min(255, int(200 + 55 * white_a * 2.5)),
-                         min(255, int(180 + 75 * white_a * 2.5)))
-            for i in range(len(segs) - 1):
-                pygame.draw.line(screen, white_col, segs[i], segs[i + 1], max(1, lw - 1))
+            intensity = self.judgment_bolt_intensity
 
-        # 스파크 (번개 끝 - 강도에 따라 크기 변화)
-        tip = segs[-1]
-        sl = max(1, int((3 + 3 * intensity) * s))
-        spark_col = (min(255, int(212 + 43 * intensity)),
-                     min(255, int(175 + 80 * intensity)),
-                     min(255, int(85 + 100 * intensity)))
-        pygame.draw.line(screen, spark_col, (tip[0] - sl, tip[1]), (tip[0] + sl, tip[1]), 1)
-        pygame.draw.line(screen, spark_col, (tip[0], tip[1] - sl), (tip[0], tip[1] + sl), 1)
-        # 대각선 스파크 (강도 높을 때)
-        if intensity > 0.3:
-            dsl = max(1, int(sl * 0.7))
-            pygame.draw.line(screen, spark_col,
-                             (tip[0] - dsl, tip[1] - dsl), (tip[0] + dsl, tip[1] + dsl), 1)
-            pygame.draw.line(screen, spark_col,
-                             (tip[0] + dsl, tip[1] - dsl), (tip[0] - dsl, tip[1] + dsl), 1)
-        # 중간 빛 점 (강도에 따라 크기 변화)
-        mid = segs[len(segs) // 2]
-        mid_r = max(1, lw + int(intensity * 2 * s))
-        pygame.draw.circle(screen, (255, 240, 180), mid, mid_r)
-        # ── 스파크 파티클 드로잉 ──
-        for sp in self.judgment_bolt_sparks:
-            sx, sy = int(sp['x']), int(sp['y'])
-            sp_size = max(1, int(sp['size'] * min(1.0, sp['life'] * 3)))
-            if sp_size > 0:
-                pygame.draw.circle(screen, sp['color'], (sx, sy), sp_size)
-                if sp_size > 1:
-                    pygame.draw.circle(screen, (255, 255, 220),
-                                       (sx, sy), max(1, sp_size - 1))
+            # ── 핸들 (나무 자루) ──
+            handle_w = max(2, int(2.5 * s))
+            # 핸들 그림자 (약간 오프셋)
+            pygame.draw.line(screen, wood_dark,
+                             (hx + 1, hy + 1), (tip_x + 1, tip_y + 1), handle_w)
+            # 핸들 본체
+            pygame.draw.line(screen, wood, (hx, hy), (tip_x, tip_y), handle_w)
+            # 핸들 하이라이트 (얇은 선)
+            hl_offset = max(1, int(0.5 * s))
+            hhl_x1 = hx - int(hl_offset * perp_hx)
+            hhl_y1 = hy - int(hl_offset * perp_hy)
+            hhl_x2 = tip_x - int(hl_offset * perp_hx)
+            hhl_y2 = tip_y - int(hl_offset * perp_hy)
+            pygame.draw.line(screen, (145, 115, 75), (hhl_x1, hhl_y1), (hhl_x2, hhl_y2), 1)
+
+            # ── 가죽 밴드 (핸들 25%, 50%, 75%) ──
+            band_w = max(1, int(1.5 * s))
+            band_half = max(1, int(1.8 * s))
+            for t in (0.25, 0.50, 0.75):
+                bx = hx + int(handle_len * t * hdir_x)
+                by = hy + int(handle_len * t * hdir_y)
+                b1 = (bx - int(band_half * perp_hx), by - int(band_half * perp_hy))
+                b2 = (bx + int(band_half * perp_hx), by + int(band_half * perp_hy))
+                pygame.draw.line(screen, leather, b1, b2, band_w)
+
+            # ── 해머 헤드 (직사각형 블록) ──
+            head_half_w = int(7 * s)   # 좌우 폭
+            head_half_h = int(2.5 * s)  # 진행방향 두께 (절반)
+            # 해머 헤드 4 꼭짓점
+            # 헤드 중심은 핸들 끝에서 약간 더 앞 (+1*s)
+            hcx = tip_x + int(1 * s * hdir_x)
+            hcy = tip_y + int(1 * s * hdir_y)
+            h_pts = [
+                (hcx - int(head_half_w * perp_hx) - int(head_half_h * hdir_x),
+                 hcy - int(head_half_w * perp_hy) - int(head_half_h * hdir_y)),
+                (hcx + int(head_half_w * perp_hx) - int(head_half_h * hdir_x),
+                 hcy + int(head_half_w * perp_hy) - int(head_half_h * hdir_y)),
+                (hcx + int(head_half_w * perp_hx) + int(head_half_h * hdir_x),
+                 hcy + int(head_half_w * perp_hy) + int(head_half_h * hdir_y)),
+                (hcx - int(head_half_w * perp_hx) + int(head_half_h * hdir_x),
+                 hcy - int(head_half_w * perp_hy) + int(head_half_h * hdir_y)),
+            ]
+            # 본체
+            pygame.draw.polygon(screen, iron, h_pts)
+            # 테두리
+            pygame.draw.polygon(screen, iron_dark, h_pts, max(1, int(s)))
+
+            # ── 해머 헤드 상면 하이라이트 (윗면 밝게) ──
+            hl_pts = [h_pts[0], h_pts[1],
+                      (h_pts[1][0] + int(0.5 * s * hdir_x),
+                       h_pts[1][1] + int(0.5 * s * hdir_y)),
+                      (h_pts[0][0] + int(0.5 * s * hdir_x),
+                       h_pts[0][1] + int(0.5 * s * hdir_y))]
+            pygame.draw.polygon(screen, iron_light, hl_pts)
+
+            # ── 양 끝 경사면 (bevel) ──
+            bevel_d = int(1.5 * s)
+            # 왼쪽 끝 경사
+            lbevel = [
+                h_pts[0], h_pts[3],
+                (h_pts[3][0] + int(bevel_d * perp_hx),
+                 h_pts[3][1] + int(bevel_d * perp_hy)),
+                (h_pts[0][0] + int(bevel_d * perp_hx),
+                 h_pts[0][1] + int(bevel_d * perp_hy)),
+            ]
+            pygame.draw.polygon(screen, iron_edge, lbevel)
+            # 오른쪽 끝 경사
+            rbevel = [
+                h_pts[1], h_pts[2],
+                (h_pts[2][0] - int(bevel_d * perp_hx),
+                 h_pts[2][1] - int(bevel_d * perp_hy)),
+                (h_pts[1][0] - int(bevel_d * perp_hx),
+                 h_pts[1][1] - int(bevel_d * perp_hy)),
+            ]
+            pygame.draw.polygon(screen, iron_edge, rbevel)
+
+            # ── 룬 문양 (헤드 중앙에 고대 각인) ──
+            rune_col = (160, 145, 120)
+            # 수직 룬 라인
+            r1 = (hcx - int(1 * s * perp_hx), hcy - int(1 * s * perp_hy))
+            r2 = (hcx + int(1 * s * perp_hx), hcy + int(1 * s * perp_hy))
+            pygame.draw.line(screen, rune_col, r1, r2, 1)
+            # 대각 룬 가지
+            r_mid = ((r1[0] + r2[0]) // 2, (r1[1] + r2[1]) // 2)
+            r_branch = (r_mid[0] + int(1.5 * s * hdir_x) + int(1 * s * perp_hx),
+                        r_mid[1] + int(1.5 * s * hdir_y) + int(1 * s * perp_hy))
+            pygame.draw.line(screen, rune_col, r_mid, r_branch, 1)
+
+            # ── 핸들-헤드 연결부 장식 (금속 칼라) ──
+            collar_w = max(1, int(1.5 * s))
+            collar_half = max(2, int(3 * s))
+            c1 = (tip_x - int(collar_half * perp_hx), tip_y - int(collar_half * perp_hy))
+            c2 = (tip_x + int(collar_half * perp_hx), tip_y + int(collar_half * perp_hy))
+            pygame.draw.line(screen, iron_light, c1, c2, collar_w)
+
+            # ── 대지 에너지 글로우 (intensity에 따라) ──
+            if intensity > 0.1:
+                # 해머 헤드 주변 갈색/주황 글로우
+                glow_r = int(head_half_w * s * 0.3 + intensity * 6 * s)
+                glow_col = (min(255, int(160 + 80 * intensity)),
+                            min(255, int(100 + 60 * intensity)),
+                            min(255, int(30 + 40 * intensity)))
+                glow_surf = pygame.Surface((glow_r * 2 + 4, glow_r * 2 + 4), pygame.SRCALPHA)
+                glow_alpha = min(120, int(40 + 80 * intensity))
+                pygame.draw.circle(glow_surf, (*glow_col, glow_alpha),
+                                   (glow_r + 2, glow_r + 2), glow_r)
+                screen.blit(glow_surf, (hcx - glow_r - 2, hcy - glow_r - 2),
+                            special_flags=pygame.BLEND_ADD)
+                # 미니 대지 파티클 (돌 파편 흩날림)
+                for _ in range(int(intensity * 2)):
+                    p_angle = random.uniform(0, math.pi * 2)
+                    p_dist = random.uniform(2, head_half_w * 0.8) * s
+                    px = hcx + int(math.cos(p_angle) * p_dist)
+                    py = hcy + int(math.sin(p_angle) * p_dist)
+                    p_size = max(1, int(random.uniform(0.5, 1.5) * s))
+                    p_col = random.choice([
+                        (180, 140, 80), (160, 120, 60), (200, 160, 90),
+                    ])
+                    pygame.draw.circle(screen, p_col, (px, py), p_size)
 
     def set_crowd_excitement(self, level):
         """관중 흥분도 설정 (0.0 ~ 1.0)"""
