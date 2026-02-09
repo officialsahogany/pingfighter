@@ -2636,13 +2636,11 @@ class HellFire(HeroSkill):
                     ball.vx *= burst
                     ball.vy *= burst
 
-            # === vy 역전 방지 (시전자 쪽으로 되돌아가는 자살골 방지) ===
-            # 공은 항상 상대 방향으로 진행해야 함
-            # caster_is_top=True → vy > 0 (아래로), caster_is_top=False → vy < 0 (위로)
-            desired_vy_sign = 1.0 if self.caster_is_top else -1.0
-            if ball.vy * desired_vy_sign < 0:
-                # vy가 시전자 방향으로 역전됨 → 강제로 상대 방향으로 반전
-                ball.vy = abs(ball.vy) * desired_vy_sign * 0.5
+            # === 인게임 호위무사: 초반 1초만 상대 방향 보호, 이후 자유 이동 ===
+            if game_state.get('is_ingame_bodyguard', False) and t < 1.0:
+                desired_vy_sign = 1.0 if self.caster_is_top else -1.0
+                if ball.vy * desired_vy_sign < 0:
+                    ball.vy = abs(ball.vy) * desired_vy_sign * 0.3
 
             # Y축 속도 감쇠 (도깨비불이 X축으로 노는 느낌, Y축은 천천히 진행)
             abs_vx = abs(ball.vx)
