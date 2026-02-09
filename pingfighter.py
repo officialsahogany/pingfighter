@@ -7121,10 +7121,10 @@ def _draw_diablo_hud_frame(screen):
         # === 우측 토큰 프레임 - 제거됨 (구슬 자체에 프레임 있음) ===
 
         # === 하단 액티브 아이템 슬롯 프레임 ===
-        slot_rects = _pillar_active_item_slot_rects
+        slot_rects = globals().get('_pillar_active_item_slot_rects')
         # 투기장 모드면 아레나 스킬 슬롯 rect 사용
         if not slot_rects:
-            _arena_data = _arena_skill_slot_data
+            _arena_data = globals().get('_arena_skill_slot_data')
             if _arena_data:
                 slot_rects = [pair[0] for pair in _arena_data]
 
@@ -7582,7 +7582,7 @@ def _draw_pillar_ui(screen, renderer):
     # 투기장 영웅 스킬 툴팁 그리기 (REAL_SCREEN) - 인게임 + 아레나 모드에서만
     if _is_ingame and arena_mode_enabled:
       try:
-        _arena_slot_data = _arena_skill_slot_data
+        _arena_slot_data = globals().get('_arena_skill_slot_data')
         if _arena_slot_data:
             mouse_pos = _original_mouse_get_pos()
             hovered_skill = None
@@ -19882,7 +19882,7 @@ def _get_active_item_slot_rects():
     (pillar에서 이미 REAL_SCREEN 좌표로 그려지므로 스케일 변환 불필요)
     """
     # pillar에서 저장한 좌표 사용 (이미 REAL_SCREEN 기준 좌표)
-    pillar_rects = _pillar_active_item_slot_rects
+    pillar_rects = globals().get('_pillar_active_item_slot_rects')
     if pillar_rects:
         return pillar_rects
 
