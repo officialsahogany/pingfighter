@@ -2272,8 +2272,6 @@ class ColosseumsArena:
         self.bracket_anim_x_delay = 0.6       # 순차 X 매치 간 딜레이
         self.bracket_anim_x_duration = 0.5    # 개별 X 애니메이션 시간
         self.bracket_anim_x_sound_played = set()
-        self.bracket_anim_float_texts = []
-        self.bracket_anim_float_triggered = set()
         self.bracket_anim_match_positions = {}
 
         # 투기장 퍽 시스템
@@ -5409,17 +5407,6 @@ class ColosseumsArena:
         self.bracket_anim_x_delay = 0.6       # 매치 간 딜레이 (초)
         self.bracket_anim_x_duration = 0.5    # 개별 X 애니메이션 시간 (초)
         self.bracket_anim_x_sound_played = set()
-        self.bracket_anim_float_texts = []
-        self.bracket_anim_float_triggered = set()
-
-        # 매치 위치 정보 (플로팅 텍스트용)
-        if self.current_round == TournamentRound.QUARTER_FINAL:
-            pos_list = [(60, 530), (195, 530), (430, 530), (565, 530)]
-        elif self.current_round == TournamentRound.SEMI_FINAL:
-            pos_list = [(127, 310), (497, 310)]
-        else:
-            pos_list = [(312, 80)]
-        self.bracket_anim_match_positions = {i: p for i, p in enumerate(pos_list)}
 
         self.bracket_anim_auto_battle = True
         self.state = TournamentState.BRACKET_ANIMATION
@@ -5444,33 +5431,6 @@ class ColosseumsArena:
                 if self.bracket_anim_timer >= x_start and i not in self.bracket_anim_x_sound_played:
                     self.bracket_anim_x_sound_played.add(i)
                     self._play_bracket_sound("swing", 0.5)
-
-                # X 중간 시점에 플로팅 텍스트 생성
-                if self.bracket_anim_timer >= x_start + x_dur * 0.5 and i not in self.bracket_anim_float_triggered:
-                    self.bracket_anim_float_triggered.add(i)
-                    pos = self.bracket_anim_match_positions.get(i)
-                    if pos and match.winner:
-                        mx, my = pos
-                        box_w = 120
-                        box_h = 140
-                        loser = match.hero2 if match.winner == match.hero1 else match.hero1
-                        winner = match.winner
-                        if loser == match.hero1:
-                            lx, ly = mx + 25, my + 55
-                            wx, wy = mx + box_w - 25, my + box_h - 55
-                        else:
-                            lx, ly = mx + box_w - 25, my + box_h - 55
-                            wx, wy = mx + 25, my + 55
-                        self.bracket_anim_float_texts.append({
-                            'x': lx, 'y': ly - 10,
-                            'text': f'{loser.get("name", "?")} 탈락',
-                            'color': (255, 80, 80), 'timer': 0.0, 'duration': 1.4
-                        })
-                        self.bracket_anim_float_texts.append({
-                            'x': wx, 'y': wy - 10,
-                            'text': f'{winner.get("name", "?")} 승리!',
-                            'color': (255, 215, 0), 'timer': 0.0, 'duration': 1.4
-                        })
 
             if self.bracket_anim_timer >= total_phase0:
                 self.bracket_anim_phase = 1
@@ -5499,14 +5459,6 @@ class ColosseumsArena:
                 self.bracket_anim_timer = 0.0
                 self._start_vs_preview(show_buttons=True)
 
-        # 플로팅 텍스트 업데이트 (모든 페이즈에서)
-        for ft in getattr(self, 'bracket_anim_float_texts', []):
-            ft['timer'] += dt
-        self.bracket_anim_float_texts = [
-            ft for ft in getattr(self, 'bracket_anim_float_texts', [])
-            if ft['timer'] < ft['duration']
-        ]
-
     def _draw_bracket_animation(self):
         """대진표 진출 애니메이션 그리기"""
         # 배경
@@ -5529,21 +5481,6 @@ class ColosseumsArena:
 
         # 대진표 그리기 (애니메이션 효과 포함)
         self._draw_animated_bracket()
-
-        # 플로팅 텍스트 (탈락/승리)
-        for ft in getattr(self, 'bracket_anim_float_texts', []):
-            if ft['timer'] < ft['duration'] and self.fonts and "small" in self.fonts:
-                t = ft['timer'] / ft['duration']
-                alpha = max(0, int(255 * (1.0 - t * t)))  # ease-out 페이드
-                y_offset = int(ft['timer'] * 35)  # 35px/sec 상승
-                surf, _ = self.fonts["small"].render(ft['text'], ft['color'])
-                alpha_surf = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
-                alpha_surf.fill((255, 255, 255, alpha))
-                surf.blit(alpha_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-                self.screen.blit(surf, (
-                    ft['x'] - surf.get_width() // 2,
-                    ft['y'] - y_offset
-                ))
 
         # 진행 표시
         if self.fonts and "small" in self.fonts:
