@@ -111,7 +111,7 @@ class AnimatedBackgroundStage30:
         self.judgment_feet_swing = 0.0          # 발 흔들림 각도 (라디안)
         self.judgment_shake_intensity = 0.0
         self.judgment_flash_alpha = 0
-        self.judgment_cooldown = random.uniform(50.0, 60.0)  # 첫 발동 쿨타임
+        self.judgment_cooldown = random.uniform(50.0, 100.0)  # 첫 발동 쿨타임
         self.judgment_enabled = False  # pingfighter.py에서 True로 설정
         self.judgment_merge_particles = []
         self.judgment_slam_debris = []
@@ -965,7 +965,7 @@ class AnimatedBackgroundStage30:
                 self.judgment_scale = 1.0
                 self.judgment_hole_fade_scale = 0.0
                 self.judgment_hole_crumble.clear()
-                self.judgment_cooldown = random.uniform(50.0, 60.0)
+                self.judgment_cooldown = random.uniform(60.0, 90.0)
                 # 번개 상태 초기화
                 self.judgment_variant = 'earthquake'
                 self.judgment_bolt_hidden = False
