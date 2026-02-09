@@ -2049,36 +2049,49 @@ class HeroPaddleRenderer:
         screen.blit(aura_surf, (cx - aura_size + lean_offset, torso_y - int(0.8 * b) - aura_size // 2), special_flags=pygame.BLEND_ADD)
 
         # === 드레스 하단 (고딕 빅토리안 프릴) ===
+        # 치마 넘실거림 - 이동 시 관성으로 반대쪽으로 흔들림
+        side_blend = anim.get("side_blend", 0)
+        move_dir = anim.get("move_dir", 0)
+        skirt_inertia = -move_dir * side_blend * 0.6 * b  # 이동 반대쪽으로 치마가 밀려남
+        skirt_flow = math.sin(self.time * 4.0) * side_blend * 0.3 * b  # 부드러운 넘실거림
+        skirt_wave_boost = 1.0 + side_blend * 2.0  # 이동 시 물결 증폭
+
         dress_points = [
             (cx - int(1.3 * b) + lean_offset, torso_y + int(1.65 * b)),
             (cx + int(1.3 * b) + lean_offset, torso_y + int(1.65 * b)),
-            (cx + int(2.0 * b) + lean_offset + int(wave * 0.18 * b), cy + int(3.0 * b)),
-            (cx - int(2.0 * b) + lean_offset - int(wave * 0.18 * b), cy + int(3.0 * b)),
+            (cx + int(2.0 * b) + lean_offset + int(wave * 0.18 * skirt_wave_boost * b) + int(skirt_inertia + skirt_flow), cy + int(3.0 * b)),
+            (cx - int(2.0 * b) + lean_offset - int(wave * 0.18 * skirt_wave_boost * b) + int(skirt_inertia + skirt_flow), cy + int(3.0 * b)),
         ]
         # 드레스 그림자
         shadow_points = [(p[0] + 2, p[1] + 2) for p in dress_points]
         pygame.draw.polygon(screen, p["dress_shadow"], shadow_points)
         pygame.draw.polygon(screen, p["dress"], dress_points)
 
-        # 드레스 세로 주름
+        # 드레스 세로 주름 (이동 시 관성으로 주름이 비스듬히 흔들림)
         for i in range(7):
-            fold_x = cx + (i - 3) * int(0.4 * b) + lean_offset
+            fold_shift = int((skirt_inertia + skirt_flow) * (i - 3) * 0.08)
+            fold_x = cx + (i - 3) * int(0.4 * b) + lean_offset + fold_shift
             fold_top = torso_y + int(1.7 * b)
-            fold_bot = cy + int(2.8 * b) + int(wave * 0.05 * (i - 3) * b)
+            fold_bot = cy + int(2.8 * b) + int(wave * 0.05 * (i - 3) * skirt_wave_boost * b)
             pygame.draw.line(screen, p["dress_mid"], (fold_x, fold_top), (fold_x, fold_bot), 1)
 
-        # 프릴 레이어 (5단계)
+        # 프릴 레이어 (5단계) - 아래 레이어일수록 넘실거림 강화 (천 물리)
         for layer in range(5):
             frill_y = torso_y + int(1.85 * b) + layer * int(0.32 * b)
             frill_w = int(1.35 * b) + layer * int(0.15 * b)
             wave_offset = int(wave * 0.03 * layer * b)
+            # 아래 레이어일수록 관성 영향이 더 강함
+            layer_factor = 1.0 + layer * 0.25
+            layer_sway = int((skirt_inertia + skirt_flow) * layer_factor)
 
-            # 프릴 물결 패턴
+            # 프릴 물결 패턴 (이동 시 진폭 증폭 + 레이어별 위상 차이)
             frill_points = []
             segments = 12
+            frill_wave_amp = 0.08 + side_blend * 0.14  # 정지: 0.08, 이동: 최대 0.22
+            layer_phase = layer * 0.3  # 위→아래로 물결 전파 효과
             for seg in range(segments + 1):
-                fx = cx - frill_w + int(seg * frill_w * 2 / segments) + lean_offset
-                fy = frill_y + int(math.sin(seg * 0.8 + self.time * 3) * 0.08 * b)
+                fx = cx - frill_w + int(seg * frill_w * 2 / segments) + lean_offset + layer_sway
+                fy = frill_y + int(math.sin(seg * 0.8 + self.time * 3 - layer_phase) * frill_wave_amp * b)
                 frill_points.append((fx, fy))
 
             for seg in range(len(frill_points) - 1):
@@ -2087,7 +2100,7 @@ class HeroPaddleRenderer:
             # 레이스 장식
             if layer % 2 == 0:
                 pygame.draw.arc(screen, p["dress_light"],
-                              (cx - frill_w + lean_offset + wave_offset, frill_y - int(0.05 * b), frill_w * 2, int(0.35 * b)),
+                              (cx - frill_w + lean_offset + wave_offset + layer_sway, frill_y - int(0.05 * b), frill_w * 2, int(0.35 * b)),
                               math.radians(180), math.radians(360), 2)
 
         # 발끝 (발레 슈즈)
