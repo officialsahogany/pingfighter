@@ -50,6 +50,51 @@ sys.modules.setdefault("pingfighter", sys.modules[__name__])
  
 # 스플래시 화면 비활성화
 _splash_screen = None
+
+# ============================================================
+# 0.1 globals()['var'] 로만 생성되던 변수 – 모듈 레벨 기본값 선언
+#     (globals().get → 직접 참조 최적화 후 NameError 방지)
+# ============================================================
+_arena_skill_slot_data = None
+_gauge_debug_count = 0
+_ingame_bodyguard_dokkaebi_ball = False
+_is_ingame_active = False
+_odins_prev_player_x = 0
+_optimus_arm_mb_prev = True
+_optimus_arm_ui_debug_counter = 0
+_optimus_ui_debug_cnt = 0
+blacksmith_persist_lock_pos = {}
+blacksmith_persist_structures = {}
+blacksmith_round_blueprint_cache = None
+boost_charging_token_idx = 0
+bulkup_body_size_pct = 0
+bulletproof_hat_resist_pct = 0
+horn_charge_boss_knockback_active = False
+horn_charge_player_knockback_active = False
+spiked_helmet_knockback_resist_pct = 0
+stage7_gauge_charge_progress = 0.0
+stage7_gauge_last_update_ms = 0
+stage7_guard_next_trigger_ms = 0
+stage7_persistent_boss_gauge = 0
+stage7_super_drain_progress = 0.0
+stage7_super_intro_until_ms = 0
+stage7_super_last_update_ms = 0
+stage7_tetro_reserve = False
+stage8_awaken_freeze_end_ms = 0
+stage8_awaken_intro_done = False
+stage8_awaken_intro_pending = False
+stage8_awakened = False
+stage8_boss_dialogue_shown = False
+suicide_drone_player_lock = None
+suicide_drone_rect = None
+_arena_prev_boss_x = 0
+_arena_prev_player_x = 0
+_equipment_slots_state = None
+_item_slot_debug_count = 0
+_last_cursor_visible_state = None
+_pillar_active_item_slot_rects = None
+nemesis_shake_x = 0
+nemesis_shake_y = 0
 # if __name__ == "__main__":
 #     from splash_screen import show_splash, update_splash
 #     _splash_screen = show_splash()
