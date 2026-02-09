@@ -8532,8 +8532,8 @@ def get_max_gauge():
         base_max = int(base_max * multipliers['skill_gauge'])
 
     # 옵티머스: 스테이지 진행 중 최대 게이지가 서서히 감소
-    if selected_character_type == "optimus":
-        scale = float(optimus_max_scale)
+    if globals().get('selected_character_type') == "optimus":
+        scale = float(globals().get('optimus_max_scale', 1.0))
         base_max = int(base_max * max(0.0, scale))
 
     return int(base_max * ANGEL_GAUGE_MULT)
