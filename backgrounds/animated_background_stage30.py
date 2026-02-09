@@ -669,58 +669,78 @@ class AnimatedBackgroundStage30:
         lw = max(1, int(s))
         thick = max(1, int(2 * s))
 
-        # ── 디그다 스타일 흙 마운드 (석상이 땅에서 솟아나온 느낌) ──
+        # ── 흙 마운드 (석상이 모래바닥에서 솟아나온 느낌) ──
         ground_y = cy + int(2 * s)
         sand = (155, 130, 95)
         sand_dark = (125, 105, 75)
         sand_light = (175, 150, 115)
         sand_shadow = (105, 85, 60)
 
-        # 1) 가장 바깥 흙 마운드 (넓은 타원 - 그림자)
-        mound_w = int(28 * s)
-        mound_h = int(7 * s)
-        if mound_w > 6 and mound_h > 2:
-            pygame.draw.ellipse(screen, sand_shadow,
-                                (cx - mound_w // 2, ground_y - mound_h // 3,
-                                 mound_w, mound_h))
-
-        # 2) 중간 마운드 (메인 흙 색상)
-        mid_w = int(24 * s)
-        mid_h = int(6 * s)
-        if mid_w > 4 and mid_h > 2:
-            pygame.draw.ellipse(screen, sand_dark,
-                                (cx - mid_w // 2, ground_y - mid_h // 2,
-                                 mid_w, mid_h))
-
-        # 3) 안쪽 마운드 (밝은 흙 - 솟아오른 부분)
-        inner_w = int(18 * s)
-        inner_h = int(5 * s)
-        if inner_w > 3 and inner_h > 2:
-            pygame.draw.ellipse(screen, sand,
-                                (cx - inner_w // 2, ground_y - inner_h // 2,
-                                 inner_w, inner_h))
-
-        # 4) 상단 하이라이트 (빛 받는 윗면)
-        hl_w = int(14 * s)
-        hl_h = int(3 * s)
-        if hl_w > 3 and hl_h > 1:
-            hl_surface = pygame.Surface((hl_w, hl_h), pygame.SRCALPHA)
-            pygame.draw.ellipse(hl_surface, (*sand_light, 140),
-                                (0, 0, hl_w, hl_h))
-            screen.blit(hl_surface, (cx - hl_w // 2, ground_y - inner_h // 2 - int(1 * s)))
-
-        # 5) 작은 흙 덩어리 (마운드 주변에 튀어나온 자갈)
-        clumps = [
-            (-14, 2, 2.0), (-10, 4, 1.5), (10, 3, 2.0),
-            (14, 2, 1.5), (-6, 3, 1.2), (7, 4, 1.3),
+        # 1) 불규칙 흙 마운드 (울퉁불퉁한 폴리곤 - 디그다 스타일)
+        mound_pts = [
+            (cx - int(16 * s), ground_y + int(3 * s)),
+            (cx - int(14 * s), ground_y - int(1 * s)),
+            (cx - int(11 * s), ground_y - int(3 * s)),
+            (cx - int(7 * s), ground_y - int(2 * s)),
+            (cx - int(4 * s), ground_y - int(4 * s)),
+            (cx, ground_y - int(3 * s)),
+            (cx + int(5 * s), ground_y - int(4 * s)),
+            (cx + int(8 * s), ground_y - int(2 * s)),
+            (cx + int(12 * s), ground_y - int(3 * s)),
+            (cx + int(15 * s), ground_y - int(1 * s)),
+            (cx + int(16 * s), ground_y + int(3 * s)),
         ]
-        for clx, cly, csz in clumps:
-            px = cx + int(clx * s)
-            py = ground_y + int(cly * s)
-            r = max(1, int(csz * s * 0.4))
-            pygame.draw.circle(screen, sand_dark, (px, py), r)
+        pygame.draw.polygon(screen, sand_dark, mound_pts)
+        # 마운드 윗면 하이라이트 (밝은 능선)
+        hl_pts = [
+            (cx - int(11 * s), ground_y - int(3 * s)),
+            (cx - int(4 * s), ground_y - int(4 * s)),
+            (cx, ground_y - int(3 * s)),
+            (cx + int(5 * s), ground_y - int(4 * s)),
+            (cx + int(12 * s), ground_y - int(3 * s)),
+            (cx + int(8 * s), ground_y - int(2 * s)),
+            (cx, ground_y - int(2 * s)),
+            (cx - int(7 * s), ground_y - int(2 * s)),
+        ]
+        pygame.draw.polygon(screen, sand, hl_pts)
+        # 마운드 하단 그림자 (바닥과의 경계)
+        pygame.draw.lines(screen, sand_shadow, False, [
+            (cx - int(15 * s), ground_y + int(2 * s)),
+            (cx - int(8 * s), ground_y + int(3 * s)),
+            (cx, ground_y + int(2 * s)),
+            (cx + int(9 * s), ground_y + int(3 * s)),
+            (cx + int(15 * s), ground_y + int(2 * s)),
+        ], lw)
+
+        # 2) 몸통 주변 솟아오른 흙 테두리 (석상과 땅 사이 경계)
+        rim_pts = [
+            (cx - int(10 * s), ground_y),
+            (cx - int(8 * s), ground_y - int(2 * s)),
+            (cx - int(5 * s), ground_y - int(1 * s)),
+            (cx - int(2 * s), ground_y - int(3 * s)),
+            (cx + int(2 * s), ground_y - int(2 * s)),
+            (cx + int(5 * s), ground_y - int(3 * s)),
+            (cx + int(8 * s), ground_y - int(1 * s)),
+            (cx + int(10 * s), ground_y),
+        ]
+        pygame.draw.lines(screen, sand_light, False, rim_pts, lw)
+
+        # 3) 주변 잔해/자갈 (이집트 석상처럼 흩어진 돌 파편)
+        rubble = [
+            (-18, 5, 2.5, sand_dark), (-15, 3, 1.8, sand_shadow),
+            (-12, 6, 1.5, sand), (-20, 4, 1.2, sand_shadow),
+            (13, 5, 2.0, sand_dark), (17, 3, 2.2, sand_shadow),
+            (19, 6, 1.3, sand), (15, 7, 1.6, sand_dark),
+            (-8, 5, 1.0, sand), (9, 6, 1.0, sand),
+            (-22, 6, 1.0, sand_shadow), (22, 5, 1.0, sand_shadow),
+        ]
+        for rx, ry, rsz, rcol in rubble:
+            px = cx + int(rx * s)
+            py = ground_y + int(ry * s)
+            r = max(1, int(rsz * s * 0.35))
+            pygame.draw.circle(screen, rcol, (px, py), r)
             if r > 1:
-                pygame.draw.circle(screen, sand_light, (px, py - 1), max(1, r - 1))
+                pygame.draw.circle(screen, sand_light, (px - 1, py - 1), max(1, r - 1))
 
         # ── 상체 메인 바디 (자연스러운 파단면 하단) ──
         torso_pts = [
