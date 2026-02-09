@@ -18414,6 +18414,82 @@ ARENA_DASH_COOLDOWN_MAX = 900        # 대쉬 쿨다운 최대 (15초)
 ARENA_DASH_CHARGE_TIME = 180         # 대쉬 충전 시간 (3초)
 ARENA_DASH_STUN_FRAMES = 30          # 대쉬 후딜 시간 (프레임) - 보스와 동일 (0.5초)
 
+# 투기장 퍽 효과 멀티플라이어
+arena_perk_speed_mult_top = 1.0      # 상단 영웅 이속 배율
+arena_perk_speed_mult_bottom = 1.0   # 하단 영웅 이속 배율
+arena_perk_dash_cd_mult_top = 1.0    # 상단 영웅 대쉬쿨 배율
+arena_perk_dash_cd_mult_bottom = 1.0
+arena_perk_skill_cd_mult_top = 1.0   # 상단 영웅 스킬쿨 배율
+arena_perk_skill_cd_mult_bottom = 1.0
+arena_perk_guard_cd_mult_top = 1.0   # 상단 호위무사쿨 배율
+arena_perk_guard_cd_mult_bottom = 1.0
+
+def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
+    """배틀 시작 시 hero_perks에서 멀티플라이어 계산 후 전역 변수에 반영"""
+    global arena_perk_speed_mult_top, arena_perk_speed_mult_bottom
+    global arena_perk_dash_cd_mult_top, arena_perk_dash_cd_mult_bottom
+    global arena_perk_skill_cd_mult_top, arena_perk_skill_cd_mult_bottom
+    global arena_perk_guard_cd_mult_top, arena_perk_guard_cd_mult_bottom
+
+    # 초기화
+    arena_perk_speed_mult_top = 1.0
+    arena_perk_speed_mult_bottom = 1.0
+    arena_perk_dash_cd_mult_top = 1.0
+    arena_perk_dash_cd_mult_bottom = 1.0
+    arena_perk_skill_cd_mult_top = 1.0
+    arena_perk_skill_cd_mult_bottom = 1.0
+    arena_perk_guard_cd_mult_top = 1.0
+    arena_perk_guard_cd_mult_bottom = 1.0
+
+    if not arena_obj or not hasattr(arena_obj, 'get_hero_perk_multipliers'):
+        return
+
+    # 상단 영웅 퍽
+    top_mults = arena_obj.get_hero_perk_multipliers(top_hero_id)
+    arena_perk_speed_mult_top = top_mults["move_speed"]
+    arena_perk_dash_cd_mult_top = top_mults["dash_cooldown"]
+    arena_perk_skill_cd_mult_top = top_mults["skill_cooldown"]
+    arena_perk_guard_cd_mult_top = top_mults["guard_cooldown"]
+
+    # 하단 영웅 퍽
+    bottom_mults = arena_obj.get_hero_perk_multipliers(bottom_hero_id)
+    arena_perk_speed_mult_bottom = bottom_mults["move_speed"]
+    arena_perk_dash_cd_mult_bottom = bottom_mults["dash_cooldown"]
+    arena_perk_skill_cd_mult_bottom = bottom_mults["skill_cooldown"]
+    arena_perk_guard_cd_mult_bottom = bottom_mults["guard_cooldown"]
+
+    # 스킬 매니저 game_state에 퍽 멀티플라이어 전달
+    if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
+        arena_skill_manager.game_state['perk_skill_cd_mult_top'] = arena_perk_skill_cd_mult_top
+        arena_skill_manager.game_state['perk_skill_cd_mult_bottom'] = arena_perk_skill_cd_mult_bottom
+
+    # 호위무사 시스템에 쿨타임 멀티플라이어 전달
+    if arena_guard_system and hasattr(arena_guard_system, 'guard_cd_mult_top'):
+        arena_guard_system.guard_cd_mult_top = arena_perk_guard_cd_mult_top
+        arena_guard_system.guard_cd_mult_bottom = arena_perk_guard_cd_mult_bottom
+
+    print(f"[ArenaPerk] 상단({top_hero_id}): 이속x{arena_perk_speed_mult_top:.2f} "
+          f"대쉬쿨x{arena_perk_dash_cd_mult_top:.2f} 스킬쿨x{arena_perk_skill_cd_mult_top:.2f} "
+          f"호위쿨x{arena_perk_guard_cd_mult_top:.2f}")
+    print(f"[ArenaPerk] 하단({bottom_hero_id}): 이속x{arena_perk_speed_mult_bottom:.2f} "
+          f"대쉬쿨x{arena_perk_dash_cd_mult_bottom:.2f} 스킬쿨x{arena_perk_skill_cd_mult_bottom:.2f} "
+          f"호위쿨x{arena_perk_guard_cd_mult_bottom:.2f}")
+
+def reset_arena_perks():
+    """배틀 종료 시 퍽 멀티플라이어 초기화"""
+    global arena_perk_speed_mult_top, arena_perk_speed_mult_bottom
+    global arena_perk_dash_cd_mult_top, arena_perk_dash_cd_mult_bottom
+    global arena_perk_skill_cd_mult_top, arena_perk_skill_cd_mult_bottom
+    global arena_perk_guard_cd_mult_top, arena_perk_guard_cd_mult_bottom
+    arena_perk_speed_mult_top = 1.0
+    arena_perk_speed_mult_bottom = 1.0
+    arena_perk_dash_cd_mult_top = 1.0
+    arena_perk_dash_cd_mult_bottom = 1.0
+    arena_perk_skill_cd_mult_top = 1.0
+    arena_perk_skill_cd_mult_bottom = 1.0
+    arena_perk_guard_cd_mult_top = 1.0
+    arena_perk_guard_cd_mult_bottom = 1.0
+
 # 투기장 영웅 말풍선 시스템
 arena_top_speech_text = ""           # 상단 영웅 말풍선 텍스트
 arena_top_speech_timer = 0           # 상단 영웅 말풍선 타이머
@@ -19083,8 +19159,8 @@ def update_arena_top_hero_dash():
     if arena_top_dash_timer <= 0:
         arena_top_dashing = False
         arena_top_dash_stun_timer = ARENA_DASH_STUN_FRAMES  # 후딜 타이머 설정
-        # 쿨타임 설정 (10~15초 랜덤) - 대쉬 종료 후 설정
-        arena_top_dash_cooldown = random.randint(ARENA_DASH_COOLDOWN_MIN, ARENA_DASH_COOLDOWN_MAX)
+        # 쿨타임 설정 (10~15초 랜덤) - 대쉬 종료 후 설정 + 퍽 적용
+        arena_top_dash_cooldown = int(random.randint(ARENA_DASH_COOLDOWN_MIN, ARENA_DASH_COOLDOWN_MAX) * arena_perk_dash_cd_mult_top)
         # 후딜 사운드 시작 (보스와 동일)
         try:
             play_dash_delay_sound()
@@ -19185,8 +19261,8 @@ def update_arena_bottom_hero_dash():
     if arena_bottom_dash_timer <= 0:
         arena_bottom_dashing = False
         arena_bottom_dash_stun_timer = ARENA_DASH_STUN_FRAMES  # 후딜 타이머 설정
-        # 쿨타임 설정 (10~15초 랜덤) - 대쉬 종료 후 설정
-        arena_bottom_dash_cooldown = random.randint(ARENA_DASH_COOLDOWN_MIN, ARENA_DASH_COOLDOWN_MAX)
+        # 쿨타임 설정 (10~15초 랜덤) - 대쉬 종료 후 설정 + 퍽 적용
+        arena_bottom_dash_cooldown = int(random.randint(ARENA_DASH_COOLDOWN_MIN, ARENA_DASH_COOLDOWN_MAX) * arena_perk_dash_cd_mult_bottom)
         # 후딜 사운드 시작 (보스와 동일)
         try:
             play_dash_delay_sound()
@@ -62377,6 +62453,10 @@ def handle_player(keys):
                             if arena_player_speed_boost_only > 1.0:
                                 adjusted_acceleration *= arena_player_speed_boost_only
                                 adjusted_max_speed *= arena_player_speed_boost_only
+                            # 🏟️ 투기장 퍽: 이동속도 증가 (질풍각)
+                            if arena_perk_speed_mult_bottom != 1.0 and arena_mode_enabled:
+                                adjusted_acceleration *= arena_perk_speed_mult_bottom
+                                adjusted_max_speed *= arena_perk_speed_mult_bottom
                             # 즉시 속도 제한
                             if arena_player_slow_mult != 1.0 or arena_player_speed_boost_only > 1.0:
                                 if current_speed > adjusted_max_speed:
@@ -95802,6 +95882,13 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         except Exception:
             arena_skill_manager = None
 
+    # 투기장 퍽 효과 적용
+    _arena_perk_obj = globals().get('_arena_pending_perk_data', None)
+    if _arena_perk_obj:
+        apply_arena_perks_for_battle(_arena_perk_obj, top_hero["id"], bottom_hero["id"])
+    else:
+        reset_arena_perks()
+
     # 영웅 상황 대사 시스템 초기화
     _dlg_mgr = get_dialogue_manager()
     if _dlg_mgr:
@@ -95874,6 +95961,9 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
                 hero_paddle_renderer=arena_hero_paddle_renderer,
             )
             guard_system.setup(_top_guards, _bottom_guards)
+            # 호위무사 퍽 멀티플라이어 적용
+            guard_system.guard_cd_mult_top = arena_perk_guard_cd_mult_top
+            guard_system.guard_cd_mult_bottom = arena_perk_guard_cd_mult_bottom
             arena_guard_system = guard_system
             print(f"[Guard] start_arena_battle 호위무사 설정 완료: top={len(_top_guards)}, bottom={len(_bottom_guards)}")
         else:
@@ -95881,9 +95971,10 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
     except Exception as e:
         print(f"[Guard] start_arena_battle 호위무사 설정 오류: {e}")
         arena_guard_system = None
-    # pending guard data 정리
+    # pending data 정리
     globals().pop('_arena_pending_top_guards', None)
     globals().pop('_arena_pending_bottom_guards', None)
+    globals().pop('_arena_pending_perk_data', None)
 
     try:
         result = main(30)  # 스테이지 30 = 투기장
@@ -95895,6 +95986,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         arena_hero_paddle_renderer = None
         arena_skill_manager = None
         arena_battle_result = None  # 배틀 결과 초기화
+        reset_arena_perks()  # 퍽 멀티플라이어 초기화
         # 호위무사 시스템 초기화
         if arena_guard_system is not None:
             try:
@@ -124772,6 +124864,10 @@ def handle_boss():
                 enhanced_max_speed *= arena_speed_boost
         except:
             pass
+    # 🏟️ 투기장 퍽: 이동속도 증가 (질풍각) - 상단 영웅
+    if arena_perk_speed_mult_top != 1.0 and arena_mode_enabled:
+        enhanced_accel *= arena_perk_speed_mult_top
+        enhanced_max_speed *= arena_perk_speed_mult_top
     if slow_multiplier != 1.0:
         enhanced_accel *= slow_multiplier
         enhanced_max_speed *= slow_multiplier

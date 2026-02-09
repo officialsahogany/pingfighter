@@ -213,6 +213,7 @@ class TournamentState(Enum):
     RESULT = "result"                  # 경기 결과
     ROUND_END = "round_end"            # 라운드 종료 (계속/나가기 선택)
     GUARD_NOTIFY = "guard_notify"              # 호위무사 생포 알림
+    PERK_SELECT = "perk_select"                # 투기장 퍽 선택 화면
     BRACKET_ANIMATION = "bracket_animation"  # 대진표 진출 애니메이션
     VICTORY_CELEBRATION = "victory_celebration"  # 우승 축하 연출
     TOURNAMENT_END = "tournament_end"  # 토너먼트 종료
@@ -221,6 +222,44 @@ class TournamentRound(Enum):
     QUARTER_FINAL = "8강"
     SEMI_FINAL = "4강"
     FINAL = "결승"
+
+# ============================================================================
+# 투기장 퍽 시스템
+# ============================================================================
+ARENA_PERK_POOL = [
+    {
+        "id": "swift_foot",
+        "name": "질풍각",
+        "description": "이동속도 15% 증가",
+        "icon_color": (100, 220, 255),   # 하늘색 (바람)
+        "effect_type": "move_speed",
+        "value": 0.15,
+    },
+    {
+        "id": "quick_reflex",
+        "name": "순발력",
+        "description": "대쉬 쿨타임 15% 감소",
+        "icon_color": (255, 180, 50),    # 주황 (번개)
+        "effect_type": "dash_cooldown",
+        "value": 0.15,
+    },
+    {
+        "id": "spirit_flow",
+        "name": "영기순환",
+        "description": "스킬 쿨타임 10% 감소",
+        "icon_color": (180, 100, 255),   # 보라 (마법)
+        "effect_type": "skill_cooldown",
+        "value": 0.10,
+    },
+    {
+        "id": "command",
+        "name": "호령",
+        "description": "호위무사 쿨타임 10% 감소",
+        "icon_color": (255, 100, 100),   # 빨강 (권위)
+        "effect_type": "guard_cooldown",
+        "value": 0.10,
+    },
+]
 
 # ============================================================================
 # 토너먼트 매치
@@ -1057,6 +1096,10 @@ class GuardWarriorSystem:
         self.cooldown_bottom = 0.0
         self.cooldown_range = (20.0, 30.0)  # 20~30초 랜덤
 
+        # 퍽 멀티플라이어 (호위무사 쿨타임 감소)
+        self.guard_cd_mult_top = 1.0
+        self.guard_cd_mult_bottom = 1.0
+
         # 다음 등장할 호위무사 인덱스 (2명일 때 화살표 표시용)
         self.next_guard_top_idx = 0
         self.next_guard_bottom_idx = 0
@@ -1268,8 +1311,9 @@ class GuardWarriorSystem:
         # 스킬 2개 중 1개 랜덤 선택
         skills = self.skill_instances.get(guard["id"], [])
         if not skills:
-            # 스킬이 없으면 다음 쿨타임 설정 후 리턴
-            next_cd = random.uniform(*self.cooldown_range)
+            # 스킬이 없으면 다음 쿨타임 설정 후 리턴 (퍽 적용)
+            cd_mult = self.guard_cd_mult_top if is_top else self.guard_cd_mult_bottom
+            next_cd = random.uniform(*self.cooldown_range) * cd_mult
             if is_top:
                 self.cooldown_top = next_cd
             else:
@@ -1296,8 +1340,9 @@ class GuardWarriorSystem:
             self.side_bottom = side
             self.selected_skill_bottom = skill
 
-        # 다음 쿨타임 설정
-        next_cd = random.uniform(*self.cooldown_range)
+        # 다음 쿨타임 설정 (퍽 적용)
+        cd_mult = self.guard_cd_mult_top if is_top else self.guard_cd_mult_bottom
+        next_cd = random.uniform(*self.cooldown_range) * cd_mult
         if is_top:
             self.cooldown_top = next_cd
         else:
@@ -2210,6 +2255,13 @@ class ColosseumsArena:
         self.bracket_anim_next_round = None    # 다음 라운드 정보
         self.bracket_anim_auto_battle = False  # 애니메이션 후 자동 배틀 진행 여부
 
+        # 투기장 퍽 시스템
+        self.hero_perks: Dict[str, list] = {}   # {hero_id: [perk_dict, ...]}
+        self.perk_selected_index = 0             # 현재 선택된 퍽 인덱스 (0~3)
+        self.perk_anim_timer = 0.0               # 퍽 선택 애니메이션 타이머
+        self.perk_anim_phase = "appearing"       # "appearing" / "active" / "selected"
+        self.perk_selected_id = None             # 선택 확정된 퍽 ID
+
         # 시각 효과 (배경/필러)
         self.arena_background = None
         self.arena_pillar = None
@@ -2344,6 +2396,10 @@ class ColosseumsArena:
                 self._create_positioned_match(winners[0], winners[1], 0),
                 self._create_positioned_match(winners[2], winners[3], 1),
             ]
+            # AI 4강 진출자에게 랜덤 퍽 1개씩 부여 (배팅 영웅 제외)
+            for w in winners:
+                if w and (not self.bet_hero or w["id"] != self.bet_hero["id"]):
+                    self._assign_ai_perks(w, 1)
             self.current_round = TournamentRound.SEMI_FINAL
         elif self.current_round == TournamentRound.SEMI_FINAL:
             # 4강 → 결승
@@ -2362,6 +2418,10 @@ class ColosseumsArena:
             self.matches[TournamentRound.FINAL] = [
                 self._create_positioned_match(winners[0], winners[1], 0),
             ]
+            # AI 결승 진출자에게 추가 랜덤 퍽 1개 부여 (배팅 영웅 제외)
+            for w in winners:
+                if w and (not self.bet_hero or w["id"] != self.bet_hero["id"]):
+                    self._assign_ai_perks(w, 1)
             self.current_round = TournamentRound.FINAL
 
     def _init_guard_warriors_for_battle(self, match: Match):
@@ -2565,6 +2625,8 @@ class ColosseumsArena:
                     else:
                         pingfighter._arena_pending_top_guards = []
                         pingfighter._arena_pending_bottom_guards = []
+                    # 퍽 데이터를 pingfighter에 전달
+                    pingfighter._arena_pending_perk_data = self
                 except Exception:
                     pass
                 result = self.battle_callback(top_hero, bottom_hero)
@@ -3171,8 +3233,8 @@ class ColosseumsArena:
                         self.guard_notify_total = current_guards + 1
                         self.state = TournamentState.GUARD_NOTIFY
                     else:
-                        # 호위무사 없으면 바로 대진표 애니메이션
-                        self._start_bracket_animation()
+                        # 호위무사 없으면 퍽 선택으로
+                        self._start_perk_select()
 
         elif self.state == TournamentState.GUARD_NOTIFY:
             # 호위무사 생포 알림 (2.5초)
@@ -3180,8 +3242,18 @@ class ColosseumsArena:
             guard_notify_duration = 2.5
             self.guard_notify_progress = min(1.0, self.guard_notify_timer / guard_notify_duration)
             if self.guard_notify_timer >= guard_notify_duration:
-                # 알림 끝 → 대진표 애니메이션 시작
-                self._start_bracket_animation()
+                # 알림 끝 → 퍽 선택 화면
+                self._start_perk_select()
+
+        elif self.state == TournamentState.PERK_SELECT:
+            self.perk_anim_timer += dt
+            if self.perk_anim_phase == "appearing":
+                if self.perk_anim_timer >= 0.6:
+                    self.perk_anim_phase = "active"
+            elif self.perk_anim_phase == "selected":
+                if self.perk_anim_timer >= 0.8:
+                    # 퍽 선택 완료 → 대진표 애니메이션
+                    self._start_bracket_animation()
 
         elif self.state == TournamentState.VICTORY_CELEBRATION:
             self.victory_timer += dt
@@ -3195,8 +3267,19 @@ class ColosseumsArena:
             if event.key == pygame.K_ESCAPE:
                 if self.state == TournamentState.BATTLE:
                     return False  # 배틀 중에는 나갈 수 없음
+                if self.state == TournamentState.PERK_SELECT:
+                    return False  # 퍽 선택 중에는 나갈 수 없음
                 self.exit_requested = True
                 return True
+
+            # 퍽 선택 키보드 처리
+            if self.state == TournamentState.PERK_SELECT and self.perk_anim_phase == "active":
+                if event.key == pygame.K_LEFT:
+                    self.perk_selected_index = max(0, self.perk_selected_index - 1)
+                elif event.key == pygame.K_RIGHT:
+                    self.perk_selected_index = min(len(ARENA_PERK_POOL) - 1, self.perk_selected_index + 1)
+                elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                    self._confirm_perk_selection()
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:  # 좌클릭
@@ -3207,6 +3290,20 @@ class ColosseumsArena:
     def _handle_click(self, pos: Tuple[int, int]):
         """클릭 처리"""
         mx, my = pos
+
+        # 퍽 선택 클릭 처리
+        if self.state == TournamentState.PERK_SELECT and self.perk_anim_phase == "active":
+            card_w, card_h = 150, 200
+            card_gap = 12
+            total_w = card_w * 4 + card_gap * 3
+            start_x = (SCREEN_WIDTH - total_w) // 2
+            card_y = 140
+            for i in range(len(ARENA_PERK_POOL)):
+                x = start_x + i * (card_w + card_gap)
+                if x <= mx <= x + card_w and card_y <= my <= card_y + card_h:
+                    self.perk_selected_index = i
+                    self._confirm_perk_selection()
+                    return
 
         if self.state in [TournamentState.BRACKET_VIEW, TournamentState.SELECT_MATCH]:
             box_w, box_h = 120, 140  # 대각선 레이아웃 크기
@@ -3350,6 +3447,8 @@ class ColosseumsArena:
             self._draw_battle()
         elif self.state == TournamentState.GUARD_NOTIFY:
             self._draw_guard_notification()
+        elif self.state == TournamentState.PERK_SELECT:
+            self._draw_perk_select()
         elif self.state == TournamentState.VICTORY_CELEBRATION:
             self._draw_victory_celebration()
         elif self.state == TournamentState.BRACKET_ANIMATION:
@@ -4566,6 +4665,326 @@ class ColosseumsArena:
         if self.fonts and "medium" in self.fonts:
             surf, _ = self.fonts["medium"].render("투기장 나가기", (255, 255, 255))
             self.screen.blit(surf, (exit_rect.centerx - surf.get_width() // 2, exit_rect.y + 15))
+
+    # ========================================================================
+    # 투기장 퍽 선택 시스템
+    # ========================================================================
+    def _start_perk_select(self):
+        """퍽 선택 화면 시작"""
+        self.perk_selected_index = 0
+        self.perk_anim_timer = 0.0
+        self.perk_anim_phase = "appearing"
+        self.perk_selected_id = None
+        self.state = TournamentState.PERK_SELECT
+        print(f"[Perk] 퍽 선택 시작 (라운드: {self.current_round.value})")
+
+    def _confirm_perk_selection(self):
+        """퍽 선택 확정"""
+        if self.perk_selected_index < 0 or self.perk_selected_index >= len(ARENA_PERK_POOL):
+            return
+        selected_perk = ARENA_PERK_POOL[self.perk_selected_index]
+        self.perk_selected_id = selected_perk["id"]
+
+        # 배팅 영웅에게 퍽 추가
+        if self.bet_hero:
+            hero_id = self.bet_hero["id"]
+            if hero_id not in self.hero_perks:
+                self.hero_perks[hero_id] = []
+            self.hero_perks[hero_id].append(dict(selected_perk))
+            print(f"[Perk] {self.bet_hero['name']}에게 '{selected_perk['name']}' 퍽 부여! "
+                  f"(총 {len(self.hero_perks[hero_id])}개)")
+
+        # 선택 애니메이션 시작
+        self.perk_anim_phase = "selected"
+        self.perk_anim_timer = 0.0
+
+    def _assign_ai_perks(self, hero: Dict, count: int):
+        """AI 영웅에게 랜덤 퍽 부여"""
+        hero_id = hero["id"]
+        if hero_id not in self.hero_perks:
+            self.hero_perks[hero_id] = []
+        for _ in range(count):
+            perk = random.choice(ARENA_PERK_POOL)
+            self.hero_perks[hero_id].append(dict(perk))
+        print(f"[Perk] AI {hero['name']}에게 랜덤 퍽 {count}개 부여: "
+              f"{[p['name'] for p in self.hero_perks[hero_id]]}")
+
+    def get_hero_perk_multipliers(self, hero_id: str) -> Dict[str, float]:
+        """영웅의 퍽에서 멀티플라이어 계산"""
+        perks = self.hero_perks.get(hero_id, [])
+        mults = {
+            "move_speed": 1.0,
+            "dash_cooldown": 1.0,
+            "skill_cooldown": 1.0,
+            "guard_cooldown": 1.0,
+        }
+        for perk in perks:
+            etype = perk["effect_type"]
+            val = perk["value"]
+            if etype == "move_speed":
+                mults["move_speed"] += val          # +15% → 1.15
+            elif etype == "dash_cooldown":
+                mults["dash_cooldown"] -= val       # -15% → 0.85
+            elif etype == "skill_cooldown":
+                mults["skill_cooldown"] -= val      # -10% → 0.90
+            elif etype == "guard_cooldown":
+                mults["guard_cooldown"] -= val      # -10% → 0.90
+        return mults
+
+    def _draw_perk_icon_swift_foot(self, surf, cx, cy, r, ss):
+        """질풍각 아이콘 - 바람 소용돌이"""
+        color = (100, 220, 255)
+        # 소용돌이 곡선 3개
+        for i in range(3):
+            points = []
+            base_angle = i * (2 * math.pi / 3)
+            for t in range(20):
+                frac = t / 19.0
+                angle = base_angle + frac * math.pi * 1.5
+                dist = r * ss * (0.15 + frac * 0.7)
+                px = cx + int(math.cos(angle) * dist)
+                py = cy + int(math.sin(angle) * dist)
+                points.append((px, py))
+            if len(points) >= 2:
+                alpha = 200 - i * 30
+                pygame.draw.lines(surf, (*color, alpha), False, points, max(2, int(3 * ss / 3)))
+        # 중심 원
+        pygame.draw.circle(surf, (*color, 220), (cx, cy), max(2, int(r * ss * 0.15)))
+
+    def _draw_perk_icon_quick_reflex(self, surf, cx, cy, r, ss):
+        """순발력 아이콘 - 번개 볼트"""
+        color = (255, 180, 50)
+        s = r * ss
+        # 번개 모양 폴리곤
+        bolt_points = [
+            (cx - int(s * 0.15), cy - int(s * 0.8)),
+            (cx + int(s * 0.3), cy - int(s * 0.8)),
+            (cx + int(s * 0.05), cy - int(s * 0.15)),
+            (cx + int(s * 0.35), cy - int(s * 0.15)),
+            (cx - int(s * 0.1), cy + int(s * 0.8)),
+            (cx + int(s * 0.1), cy + int(s * 0.15)),
+            (cx - int(s * 0.2), cy + int(s * 0.15)),
+        ]
+        pygame.draw.polygon(surf, (*color, 230), bolt_points)
+        # 외곽선
+        pygame.draw.polygon(surf, (255, 220, 100, 180), bolt_points, max(1, int(2 * ss / 3)))
+
+    def _draw_perk_icon_spirit_flow(self, surf, cx, cy, r, ss):
+        """영기순환 아이콘 - 순환 고리"""
+        color = (180, 100, 255)
+        s = r * ss
+        ring_r = int(s * 0.55)
+        # 두 개의 반원 화살표
+        for flip in [1, -1]:
+            points = []
+            for t in range(25):
+                frac = t / 24.0
+                angle = flip * (frac * math.pi - math.pi / 2)
+                px = cx + int(math.cos(angle) * ring_r)
+                py = cy + int(math.sin(angle) * ring_r * flip)
+                points.append((px, py))
+            if len(points) >= 2:
+                pygame.draw.lines(surf, (*color, 220), False, points, max(2, int(3 * ss / 3)))
+            # 화살표 머리
+            if points:
+                end = points[-1]
+                arr_size = int(s * 0.2)
+                arr_angle = math.atan2(
+                    points[-1][1] - points[-2][1],
+                    points[-1][0] - points[-2][0]
+                )
+                a1 = (end[0] - int(math.cos(arr_angle - 0.5) * arr_size),
+                      end[1] - int(math.sin(arr_angle - 0.5) * arr_size))
+                a2 = (end[0] - int(math.cos(arr_angle + 0.5) * arr_size),
+                      end[1] - int(math.sin(arr_angle + 0.5) * arr_size))
+                pygame.draw.polygon(surf, (*color, 230), [end, a1, a2])
+
+    def _draw_perk_icon_command(self, surf, cx, cy, r, ss):
+        """호령 아이콘 - 방패 + 삼각 문양"""
+        color = (255, 100, 100)
+        s = r * ss
+        # 방패 외곽 (둥근 오각형 모양)
+        shield_points = [
+            (cx, cy - int(s * 0.75)),
+            (cx + int(s * 0.6), cy - int(s * 0.4)),
+            (cx + int(s * 0.5), cy + int(s * 0.3)),
+            (cx, cy + int(s * 0.75)),
+            (cx - int(s * 0.5), cy + int(s * 0.3)),
+            (cx - int(s * 0.6), cy - int(s * 0.4)),
+        ]
+        pygame.draw.polygon(surf, (*color, 60), shield_points)
+        pygame.draw.polygon(surf, (*color, 220), shield_points, max(2, int(3 * ss / 3)))
+        # 안쪽 삼각형 (위를 가리키는 ▲)
+        tri_s = int(s * 0.3)
+        tri_points = [
+            (cx, cy - tri_s),
+            (cx + int(tri_s * 0.87), cy + int(tri_s * 0.5)),
+            (cx - int(tri_s * 0.87), cy + int(tri_s * 0.5)),
+        ]
+        pygame.draw.polygon(surf, (255, 200, 200, 200), tri_points)
+
+    def _draw_perk_icon(self, surface, perk_id, cx, cy, size):
+        """퍽 아이콘 (3x 슈퍼샘플링으로 깨짐 방지)"""
+        ss = 3
+        hi = size * ss
+        icon_surf = pygame.Surface((hi, hi), pygame.SRCALPHA)
+        center = hi // 2
+        r = size // 2
+
+        draw_funcs = {
+            "swift_foot": self._draw_perk_icon_swift_foot,
+            "quick_reflex": self._draw_perk_icon_quick_reflex,
+            "spirit_flow": self._draw_perk_icon_spirit_flow,
+            "command": self._draw_perk_icon_command,
+        }
+        func = draw_funcs.get(perk_id)
+        if func:
+            func(icon_surf, center, center, r, ss)
+
+        # smoothscale로 축소 → 안티앨리어싱 적용
+        result = pygame.transform.smoothscale(icon_surf, (size, size))
+        surface.blit(result, (cx - size // 2, cy - size // 2))
+
+    def _draw_perk_select(self):
+        """퍽 선택 화면 그리기"""
+        self.screen.fill((20, 22, 30))
+
+        # 타이틀
+        if self.fonts and "large" in self.fonts:
+            title = "퍽 선택"
+            pulse = 0.8 + 0.2 * abs(math.sin(self.perk_anim_timer * 3))
+            gold = (int(255 * pulse), int(215 * pulse), 0)
+            surf, _ = self.fonts["large"].render(title, gold)
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 40))
+
+        # 부제 (현재 보유 퍽 수)
+        if self.fonts and "small" in self.fonts:
+            owned_count = len(self.hero_perks.get(self.bet_hero["id"], [])) if self.bet_hero else 0
+            round_name = self.current_round.value
+            subtitle = f"{round_name} 승리! 퍽을 선택하세요 (보유: {owned_count}개)"
+            surf, _ = self.fonts["small"].render(subtitle, (200, 200, 220))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 80))
+
+        # 4개 카드 그리기
+        card_w, card_h = 150, 200
+        card_gap = 12
+        total_w = card_w * 4 + card_gap * 3
+        start_x = (SCREEN_WIDTH - total_w) // 2
+        card_y = 140
+
+        for i, perk in enumerate(ARENA_PERK_POOL):
+            # 등장 애니메이션
+            if self.perk_anim_phase == "appearing":
+                progress = min(1.0, self.perk_anim_timer / 0.6)
+                # 각 카드가 순서대로 나타남
+                card_progress = max(0.0, min(1.0, (progress - i * 0.1) / 0.4))
+                ease = 1.0 - (1.0 - card_progress) ** 3  # ease-out cubic
+                card_alpha = int(255 * ease)
+                y_offset = int(30 * (1.0 - ease))
+            elif self.perk_anim_phase == "selected":
+                if i == self.perk_selected_index:
+                    # 선택된 카드: 위로 올라가면서 밝아짐
+                    progress = min(1.0, self.perk_anim_timer / 0.8)
+                    card_alpha = 255
+                    y_offset = int(-20 * progress)
+                else:
+                    # 비선택 카드: 페이드 아웃
+                    progress = min(1.0, self.perk_anim_timer / 0.5)
+                    card_alpha = int(255 * (1.0 - progress))
+                    y_offset = 0
+            else:
+                card_alpha = 255
+                y_offset = 0
+
+            if card_alpha <= 0:
+                continue
+
+            x = start_x + i * (card_w + card_gap)
+            y = card_y + y_offset
+
+            # 카드 서피스
+            card_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+
+            # 선택 여부에 따른 색상
+            is_selected = (i == self.perk_selected_index and self.perk_anim_phase == "active")
+            if is_selected:
+                # 선택된 카드: 밝은 테두리 + 배경
+                bg_color = (50, 55, 80, min(card_alpha, 240))
+                border_color = (*perk["icon_color"], min(card_alpha, 255))
+                border_w = 3
+            else:
+                bg_color = (35, 38, 55, min(card_alpha, 200))
+                border_color = (80, 85, 100, min(card_alpha, 150))
+                border_w = 2
+
+            # 배경
+            pygame.draw.rect(card_surf, bg_color, (0, 0, card_w, card_h), border_radius=12)
+            pygame.draw.rect(card_surf, border_color, (0, 0, card_w, card_h), border_w, border_radius=12)
+
+            # 선택 시 글로우
+            if is_selected:
+                glow_surf = pygame.Surface((card_w + 10, card_h + 10), pygame.SRCALPHA)
+                glow_pulse = 0.5 + 0.5 * abs(math.sin(self.perk_anim_timer * 4))
+                glow_alpha = int(40 * glow_pulse)
+                pygame.draw.rect(glow_surf, (*perk["icon_color"], glow_alpha),
+                               (0, 0, card_w + 10, card_h + 10), border_radius=14)
+                self.screen.blit(glow_surf, (x - 5, y - 5))
+
+            # 아이콘 배경 원
+            icon_size = 56
+            icon_cx = card_w // 2
+            icon_cy = 55
+            pygame.draw.circle(card_surf, (*perk["icon_color"], min(card_alpha, 40)),
+                             (icon_cx, icon_cy), icon_size // 2 + 4)
+            pygame.draw.circle(card_surf, (*perk["icon_color"], min(card_alpha, 100)),
+                             (icon_cx, icon_cy), icon_size // 2 + 4, 2)
+
+            # 퍽 아이콘 (슈퍼샘플링)
+            icon_temp = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
+            self._draw_perk_icon(icon_temp, perk["id"], icon_size // 2, icon_size // 2, icon_size)
+            if card_alpha < 255:
+                icon_temp.set_alpha(card_alpha)
+            card_surf.blit(icon_temp, (icon_cx - icon_size // 2, icon_cy - icon_size // 2))
+
+            # 퍽 이름
+            if self.fonts and "medium" in self.fonts:
+                name_surf, _ = self.fonts["medium"].render(perk["name"], (255, 255, 255))
+                if card_alpha < 255:
+                    name_surf.set_alpha(card_alpha)
+                card_surf.blit(name_surf, (card_w // 2 - name_surf.get_width() // 2, 95))
+
+            # 퍽 설명
+            if self.fonts and "small" in self.fonts:
+                desc_surf, _ = self.fonts["small"].render(perk["description"], (*perk["icon_color"],))
+                if card_alpha < 255:
+                    desc_surf.set_alpha(card_alpha)
+                card_surf.blit(desc_surf, (card_w // 2 - desc_surf.get_width() // 2, 125))
+
+            # 선택 표시 (▼)
+            if is_selected:
+                indicator_y = card_h - 35
+                tri_size = 8
+                tri_points = [
+                    (card_w // 2, indicator_y + tri_size),
+                    (card_w // 2 - tri_size, indicator_y),
+                    (card_w // 2 + tri_size, indicator_y),
+                ]
+                pygame.draw.polygon(card_surf, (*perk["icon_color"], min(card_alpha, 220)), tri_points)
+
+                # SPACE 안내
+                if self.fonts and "small" in self.fonts:
+                    guide_surf, _ = self.fonts["small"].render("SPACE", (200, 200, 220))
+                    if card_alpha < 255:
+                        guide_surf.set_alpha(card_alpha)
+                    card_surf.blit(guide_surf, (card_w // 2 - guide_surf.get_width() // 2, card_h - 25))
+
+            self.screen.blit(card_surf, (x, y))
+
+        # 하단 조작 안내
+        if self.perk_anim_phase == "active" and self.fonts and "small" in self.fonts:
+            guide = "← → 선택  |  SPACE 확정"
+            guide_surf, _ = self.fonts["small"].render(guide, (150, 150, 170))
+            self.screen.blit(guide_surf, (SCREEN_WIDTH // 2 - guide_surf.get_width() // 2, 380))
 
     def _start_bracket_animation(self):
         """대진표 진출 애니메이션 시작"""

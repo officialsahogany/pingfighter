@@ -106,7 +106,13 @@ class HeroSkill:
         if not self.can_use():
             return {}
 
-        self.current_cooldown = self.cooldown
+        # 퍽 쿨타임 감소 적용 (game_state에서 상단/하단별 멀티플라이어 참조)
+        is_top = getattr(self, 'caster_is_top', True)
+        if is_top:
+            skill_cd_mult = game_state.get('perk_skill_cd_mult_top', 1.0)
+        else:
+            skill_cd_mult = game_state.get('perk_skill_cd_mult_bottom', 1.0)
+        self.current_cooldown = self.cooldown * skill_cd_mult
         if self.duration > 0:
             self.is_active = True
             self.active_timer = self.duration
