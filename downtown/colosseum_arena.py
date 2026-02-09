@@ -77,6 +77,21 @@ except ImportError:
     WEATHER_EVENT_AVAILABLE = False
     weather_module = None
 
+# 호버 사운드 로드
+_hover_sound = None
+def _load_hover_sound():
+    global _hover_sound
+    if _hover_sound is not None:
+        return
+    try:
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        path = os.path.join(base, "sounds", "button_hover.wav")
+        if os.path.exists(path):
+            _hover_sound = pygame.mixer.Sound(path)
+            _hover_sound.set_volume(0.4)
+    except Exception:
+        _hover_sound = None
+
 # ============================================================================
 # 영웅 데이터
 # ============================================================================
@@ -3612,6 +3627,22 @@ class ColosseumsArena:
                 self.hover_btn_id = "end_exit"
                 if old_btn != "end_exit":
                     self._spawn_hover_line_particles(exit_rect.x, exit_rect.y, exit_rect.w, exit_rect.h)
+
+        # 호버 상태가 변했으면 사운드 재생
+        new_hover = (self.hover_perk_index, self.hover_match_index, self.hover_btn_id)
+        old_hover = (old_perk, old_match, old_btn)
+        if new_hover != old_hover and (self.hover_perk_index >= 0 or self.hover_match_index >= 0 or self.hover_btn_id):
+            self._play_hover_sound()
+
+    def _play_hover_sound(self):
+        """호버 사운드 재생"""
+        global _hover_sound
+        _load_hover_sound()
+        if _hover_sound:
+            try:
+                _hover_sound.play()
+            except Exception:
+                pass
 
     def _spawn_hover_line_particles(self, rx: int, ry: int, rw: int, rh: int):
         """호버 진입 시 사각형 테두리를 따라 라인 파티클 생성"""

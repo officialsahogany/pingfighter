@@ -17553,6 +17553,71 @@ def play_button_click_sound():
     play_sound_with_volume(SOUND_BUTTON_CLICK)
 
 
+# ========================================================================
+# 공용 버튼 호버 이펙트 시스템
+# ========================================================================
+_btn_hover_glow_timer = 0.0
+_btn_hover_particles = []
+_btn_hover_prev_id = ""
+
+def update_btn_hover_effects(dt=1/60):
+    global _btn_hover_glow_timer, _btn_hover_particles
+    _btn_hover_glow_timer += dt
+    for p in _btn_hover_particles:
+        p['life'] -= dt; p['x'] += p['vx'] * dt; p['y'] += p['vy'] * dt
+        p['alpha'] = max(0, p['alpha'] - 400 * dt)
+    _btn_hover_particles = [p for p in _btn_hover_particles if p['life'] > 0]
+
+def spawn_hover_particles(rx, ry, rw, rh):
+    global _btn_hover_particles
+    import random as _r
+    for t in range(8):
+        f = t / 7
+        _btn_hover_particles.append({'x': rx+rw*f, 'y': ry, 'vx': _r.uniform(-15,15), 'vy': _r.uniform(-40,-15), 'alpha': 255.0, 'life': _r.uniform(0.25,0.5), 'color': (200,220,255)})
+        _btn_hover_particles.append({'x': rx+rw*f, 'y': ry+rh, 'vx': _r.uniform(-15,15), 'vy': _r.uniform(15,40), 'alpha': 255.0, 'life': _r.uniform(0.25,0.5), 'color': (200,220,255)})
+    for t in range(6):
+        f = t / 5
+        _btn_hover_particles.append({'x': rx, 'y': ry+rh*f, 'vx': _r.uniform(-40,-15), 'vy': _r.uniform(-15,15), 'alpha': 255.0, 'life': _r.uniform(0.25,0.5), 'color': (200,220,255)})
+        _btn_hover_particles.append({'x': rx+rw, 'y': ry+rh*f, 'vx': _r.uniform(15,40), 'vy': _r.uniform(-15,15), 'alpha': 255.0, 'life': _r.uniform(0.25,0.5), 'color': (200,220,255)})
+
+def draw_btn_hover_border(scr, rx, ry, rw, rh, color=(200,220,255)):
+    t = _btn_hover_glow_timer
+    pulse = 0.6 + 0.4 * abs(math.sin(t * 4.0))
+    al = int(120 * pulse)
+    gs = pygame.Surface((rw+12, rh+12), pygame.SRCALPHA)
+    pygame.draw.rect(gs, (*color, al//3), (0,0,rw+12,rh+12), border_radius=10)
+    scr.blit(gs, (rx-6, ry-6))
+    bs = pygame.Surface((rw+4, rh+4), pygame.SRCALPHA)
+    pygame.draw.rect(bs, (*color, al), (0,0,rw+4,rh+4), 2, border_radius=10)
+    scr.blit(bs, (rx-2, ry-2))
+    ln = int(14 + 4 * pulse); la = int(200 * pulse)
+    lsf = pygame.Surface((rw+20, rh+20), pygame.SRCALPHA)
+    ox, oy = 10, 10
+    for c, he, ve in [((ox,oy),(ox+ln,oy),(ox,oy+ln)),((ox+rw,oy),(ox+rw-ln,oy),(ox+rw,oy+ln)),((ox,oy+rh),(ox+ln,oy+rh),(ox,oy+rh-ln)),((ox+rw,oy+rh),(ox+rw-ln,oy+rh),(ox+rw,oy+rh-ln))]:
+        pygame.draw.line(lsf, (*color, la), c, he, 2)
+        pygame.draw.line(lsf, (*color, la), c, ve, 2)
+    scr.blit(lsf, (rx-10, ry-10))
+    for p in _btn_hover_particles:
+        if p['alpha'] > 5:
+            ps = pygame.Surface((4,4), pygame.SRCALPHA)
+            pygame.draw.circle(ps, (*p['color'], int(p['alpha'])), (2,2), 2)
+            scr.blit(ps, (int(p['x'])-2, int(p['y'])-2))
+
+def check_btn_hover(hover_id, rect, mouse_pos):
+    global _btn_hover_prev_id
+    if rect.collidepoint(mouse_pos):
+        if _btn_hover_prev_id != hover_id:
+            _btn_hover_prev_id = hover_id
+            play_button_hover_sound()
+            spawn_hover_particles(rect.x, rect.y, rect.w, rect.h)
+        return True
+    return False
+
+def reset_btn_hover():
+    global _btn_hover_prev_id, _btn_hover_particles
+    _btn_hover_prev_id = ""
+    _btn_hover_particles = []
+
 def play_notification_sound():
     """요청 완료 알림 사운드 재생"""
     pass  # item_pickup.wav 중복 재생 방지로 비활성화
@@ -93273,8 +93338,11 @@ def show_stage_clear_choices() -> str | None:
         level_font = pygame.font.Font(None, 20)
         desc_font = pygame.font.Font(None, 18)
 
+    reset_btn_hover()
+
     while stage_clear_choices_active:
         frame_count += 1
+        update_btn_hover_effects()
 
         # 배경 그리기 (게임 화면 유지)
         SCREEN.blit(base_background, (0, 0))
@@ -93325,6 +93393,22 @@ def show_stage_clear_choices() -> str | None:
         title_surface.set_alpha(title_alpha)
         title_rect = title_surface.get_rect(center=(WIDTH // 2, vertical_y - 70 - title_y_offset))
         SCREEN.blit(title_surface, title_rect)
+
+        # 마우스 호버 체크 (active 상태)
+        if phase == "active":
+            _sc_mpos = pygame.mouse.get_pos()
+            for _ci in range(3):
+                _cx = start_x + _ci * (card_width + card_gap)
+                _cy = vertical_y
+                if _ci == 0:
+                    _cx += card_offsets[0]
+                elif _ci == 2:
+                    _cx -= card_offsets[2]
+                if _ci == 1:
+                    _cy += card_offsets[1]
+                _crect = pygame.Rect(_cx, _cy, card_width, card_height)
+                if check_btn_hover(f"sc_{_ci}", _crect, _sc_mpos):
+                    stage_clear_selected_index = _ci
 
         # 3개의 카드 렌더링
         for i, choice in enumerate(stage_clear_choices_list):
@@ -93439,6 +93523,10 @@ def show_stage_clear_choices() -> str | None:
             draw_y = card_y_anim - (scaled_height - card_height) // 2
             SCREEN.blit(card_surface, (draw_x, draw_y))
 
+            # 호버 보더 이펙트 (선택된 카드, active 상태)
+            if is_selected and phase == "active":
+                draw_btn_hover_border(SCREEN, draw_x, draw_y, scaled_width, scaled_height, choice["icon_color"])
+
         # 조작 안내
         if phase == "active":
             hint_y = vertical_y + card_height + 55
@@ -93497,28 +93585,6 @@ def show_stage_clear_choices() -> str | None:
                                     'alpha': 255,
                                     'color': selected_choice["icon_color"]
                                 })
-
-                elif event.type == pygame.MOUSEMOTION:
-                    mx, my = event.pos
-                    for i in range(3):
-                        cx = start_x + i * (card_width + card_gap)
-                        cy = vertical_y
-                        if i == 0:
-                            cx += card_offsets[0]
-                        elif i == 2:
-                            cx -= card_offsets[2]
-                        if i == 1:
-                            cy += card_offsets[1]
-                        crect = pygame.Rect(cx, cy, card_width, card_height)
-                        if crect.collidepoint(mx, my):
-                            if stage_clear_selected_index != i:
-                                stage_clear_selected_index = i
-                                try:
-                                    if sound_effects.get("MENU_SELECT"):
-                                        sound_effects["MENU_SELECT"].play()
-                                except Exception:
-                                    pass
-                            break
 
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     mx, my = event.pos
@@ -94712,7 +94778,9 @@ def show_victory_screen(stage_cleared, reward):
         body_font = FontStyle.body()
         info_font = FontStyle.small()
 
+        reset_btn_hover()
         while True:
+            update_btn_hover_effects()
             SCREEN.blit(base_surface, (0, 0))
             overlay.fill((0, 0, 0, 200))
             SCREEN.blit(overlay, (0, 0))
@@ -94733,6 +94801,13 @@ def show_victory_screen(stage_cleared, reward):
                 bonus_rect = bonus_surface.get_rect(center=(panel_rect.centerx, panel_rect.top + 150))
                 SCREEN.blit(bonus_surface, bonus_rect)
 
+            # 마우스 호버 체크
+            _rr_mpos = pygame.mouse.get_pos()
+            if check_btn_hover("rr_yes", yes_rect, _rr_mpos):
+                selection = 0
+            elif check_btn_hover("rr_no", no_rect, _rr_mpos):
+                selection = 1
+
             # 버튼 렌더링
             yes_color = (0, 220, 255) if selection == 0 else (60, 80, 110)
             no_color = (255, 120, 120) if selection == 1 else (60, 80, 110)
@@ -94746,6 +94821,12 @@ def show_victory_screen(stage_cleared, reward):
             SCREEN.blit(yes_text, yes_text.get_rect(center=yes_rect.center))
             SCREEN.blit(no_text, no_text.get_rect(center=no_rect.center))
 
+            # 호버 보더
+            if selection == 0:
+                draw_btn_hover_border(SCREEN, yes_rect.x, yes_rect.y, yes_rect.w, yes_rect.h, (0, 220, 255))
+            else:
+                draw_btn_hover_border(SCREEN, no_rect.x, no_rect.y, no_rect.w, no_rect.h, (255, 120, 120))
+
             pygame.display.flip()
             confirmation_clock.tick(60)
 
@@ -94756,15 +94837,11 @@ def show_victory_screen(stage_cleared, reward):
                 if event.type == pygame.KEYDOWN:
                     if event.key in [pygame.K_LEFT, pygame.K_a, pygame.K_RIGHT, pygame.K_d]:
                         selection = 1 - selection
+                        play_button_hover_sound()
                     elif event.key in [pygame.K_SPACE, pygame.K_RETURN]:
                         return selection == 0
                     elif event.key == pygame.K_ESCAPE:
                         return False
-                elif event.type == pygame.MOUSEMOTION:
-                    if yes_rect.collidepoint(event.pos):
-                        selection = 0
-                    elif no_rect.collidepoint(event.pos):
-                        selection = 1
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if yes_rect.collidepoint(event.pos):
                         return True
@@ -94784,8 +94861,11 @@ def show_victory_screen(stage_cleared, reward):
     transition_overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
     transition_overlay.fill((0, 0, 0))
 
+    reset_btn_hover()
+
     while True:
         frame_count += 1
+        update_btn_hover_effects()
         if gold_hud_glow_timer > 0:
             gold_hud_glow_timer -= 1
         glow_intensity = abs(math.sin(frame_count * 0.05)) * 50  # 부드러운 글로우 효과
@@ -95348,6 +95428,13 @@ def show_victory_screen(stage_cleared, reward):
                 (rest_rect, "복귀", 2)
             ]
         
+        # 마우스 호버 체크 (애니메이션 완료 시만)
+        _vic_mouse_pos = pygame.mouse.get_pos()
+        if animation_complete and choice_ui_state['ui_shown']:
+            for rect, _t, idx in buttons:
+                if check_btn_hover(f"vic_{idx}", rect, _vic_mouse_pos):
+                    selected = idx
+
         # 애니메이션 및 선택지 UI 완료 여부에 따라 버튼 표시 방식 변경
         if animation_complete and choice_ui_state['ui_shown']:
             # 애니메이션 완료 시 버튼 표시
@@ -95396,6 +95483,10 @@ def show_victory_screen(stage_cleared, reward):
                 button_text = font_button.render(text, True, text_color)
                 text_rect = button_text.get_rect(center=rect.center)
                 SCREEN.blit(button_text, text_rect)
+
+                # 호버 보더 이펙트 (선택된 버튼, 트랜지션 중 아님)
+                if is_selected and not transition_highlight:
+                    draw_btn_hover_border(SCREEN, rect.x, rect.y, rect.w, rect.h, (255, 215, 50))
         else:
             # 애니메이션 중에는 버튼 비활성화 상태로 표시
             for rect, text, idx in buttons:
@@ -95486,13 +95577,6 @@ def show_victory_screen(stage_cleared, reward):
                             elif selected == 2:
                                 confirm_rest(stage_cleared, reward)
                                 return
-            elif event.type == pygame.MOUSEMOTION and animation_complete and choice_ui_state['ui_shown']:
-                # 마우스 오버 시 버튼 하이라이트
-                mx, my = event.pos
-                for rect, _text, idx in buttons:
-                    if rect.collidepoint(mx, my):
-                        selected = idx
-                        break
             elif event.type == pygame.MOUSEBUTTONDOWN and animation_complete and choice_ui_state['ui_shown']:
                 if event.button == 1:
                     mx, my = event.pos
@@ -95765,10 +95849,20 @@ def confirm_rest(stage_cleared, reward):
     yes_rect = pygame.Rect(game_center_x - 130, 420, 100, LARGE_SIZE)
     no_rect = pygame.Rect(game_center_x + 30, 420, 100, LARGE_SIZE)
     selected = 0
+    reset_btn_hover()
     while True:
+        update_btn_hover_effects()
         SCREEN.fill((30, 0, 0))
         ui_manager.draw_centered_text("이번 회차에서 획득한 메달의 70%만 가져갈 수 있습니다.", 26, -50)
         ui_manager.draw_centered_text("괜찮으시겠습니까?", 30, 0)
+
+        # 마우스 호버 체크
+        _cr_mpos = pygame.mouse.get_pos()
+        if check_btn_hover("cr_yes", yes_rect, _cr_mpos):
+            selected = 0
+        elif check_btn_hover("cr_no", no_rect, _cr_mpos):
+            selected = 1
+
         yes_color = YELLOW if selected == 0 else (100, 180, 100)
         no_color = YELLOW if selected == 1 else (180, 100, 100)
         draw.rect(yes_color, yes_rect)
@@ -95777,6 +95871,13 @@ def confirm_rest(stage_cleared, reward):
         no_text = font_small.render("아니오", True, BLACK)
         SCREEN.blit(yes_text, (yes_rect.centerx - yes_text.get_width() // 2, yes_rect.centery - yes_text.get_height() // 2))
         SCREEN.blit(no_text, (no_rect.centerx - no_text.get_width() // 2, no_rect.centery - no_text.get_height() // 2))
+
+        # 호버 보더 이펙트
+        if selected == 0:
+            draw_btn_hover_border(SCREEN, yes_rect.x, yes_rect.y, yes_rect.w, yes_rect.h, (100, 180, 100))
+        else:
+            draw_btn_hover_border(SCREEN, no_rect.x, no_rect.y, no_rect.w, no_rect.h, (180, 100, 100))
+
         pygame.display.flip()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -95785,6 +95886,7 @@ def confirm_rest(stage_cleared, reward):
             elif event.type == pygame.KEYDOWN:
                 if event.key in [pygame.K_LEFT, pygame.K_a, pygame.K_RIGHT, pygame.K_d]:
                     selected = (selected + 1) % 2
+                    play_button_hover_sound()
                 elif event.key == pygame.K_SPACE:
                     if selected == 0:
                         earned = int(session_medal_earned * 0.7)
@@ -95802,12 +95904,6 @@ def confirm_rest(stage_cleared, reward):
                         # 인자 다시 넘겨주기
                         show_victory_screen(stage_cleared, reward)
                         return
-            elif event.type == pygame.MOUSEMOTION:
-                mx, my = event.pos
-                if yes_rect.collidepoint(mx, my):
-                    selected = 0
-                elif no_rect.collidepoint(mx, my):
-                    selected = 1
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mx, my = event.pos
                 if yes_rect.collidepoint(mx, my):
@@ -96392,27 +96488,30 @@ def show_tutorial_dialog():
         # 버튼 그리기
         buttons = [(yes_button, "예", 0), (no_button, "아니오", 1)]
         
+        update_btn_hover_effects()
         for button_rect, text, index in buttons:
             # 선택된 버튼 강조
             if selected == index:
+                # 호버 테두리 이펙트
+                draw_btn_hover_border(SCREEN, button_rect.x, button_rect.y, button_rect.w, button_rect.h, (0, 255, 255))
                 # 글로우 효과
                 for i in range(3):
                     glow_alpha = int(60 * (1 - i / 3))
                     glow_rect = button_rect.inflate(i * 4, i * 4)
-                    pygame.draw.rect(SCREEN, (0, 255, 255, glow_alpha), glow_rect, 
+                    pygame.draw.rect(SCREEN, (0, 255, 255, glow_alpha), glow_rect,
                                    border_radius=10)
-                
+
                 # 버튼 배경
                 button_color = (0, 150, 200)
                 border_color = (0, 255, 255)
                 text_color = WHITE
-                
+
                 # 펄스 효과
                 pulse = abs(math.sin(animation_timer * 3)) * 10
                 button_rect_pulsed = button_rect.inflate(pulse, pulse // 2)
-                pygame.draw.rect(SCREEN, button_color, button_rect_pulsed, 
+                pygame.draw.rect(SCREEN, button_color, button_rect_pulsed,
                                border_radius=10)
-                pygame.draw.rect(SCREEN, border_color, button_rect_pulsed, 
+                pygame.draw.rect(SCREEN, border_color, button_rect_pulsed,
                                width=3, border_radius=10)
             else:
                 # 일반 버튼
@@ -96465,14 +96564,10 @@ def show_tutorial_dialog():
             if event.type == pygame.MOUSEMOTION:
                 mouse_pos = event.pos
                 # 마우스 호버 체크
-                if yes_button.collidepoint(mouse_pos):
-                    if selected != 0:
-                        selected = 0
-                        play_button_hover_sound()
-                elif no_button.collidepoint(mouse_pos):
-                    if selected != 1:
-                        selected = 1
-                        play_button_hover_sound()
+                if check_btn_hover("tut_yes", yes_button, mouse_pos):
+                    selected = 0
+                elif check_btn_hover("tut_no", no_button, mouse_pos):
+                    selected = 1
             
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = event.pos
@@ -106469,16 +106564,27 @@ def show_developer_stage_select():
         rect = pygame.Rect(x, y, button_width, button_height)
         stage_buttons.append((rect, i + 1))
     selected_index = 0  # 현재 선택된 버튼 인덱스
+    reset_btn_hover()
     while True:
+        update_btn_hover_effects()
         SCREEN.fill((10, 10, 40))
         ui_manager.draw_centered_text("개발자 스테이지 선택", 40, -250)
         ui_manager.draw_centered_text("←↑↓→ 또는 WASD로 이동, SPACE로 선택", 24, -200)
+
+        # 마우스 호버 체크
+        _ds_mpos = pygame.mouse.get_pos()
+        for _di, (_dr, _dn) in enumerate(stage_buttons):
+            if check_btn_hover(f"ds_{_di}", _dr, _ds_mpos):
+                selected_index = _di
+
         # 버튼 그리기
         for idx, (rect, num) in enumerate(stage_buttons):
             color = YELLOW if idx == selected_index else (180, 220, 255)
             draw.rect(color, rect)
             label = font.render(f"Stage {num}", True, BLACK)
             SCREEN.blit(label, (rect.centerx - label.get_width() // 2, rect.centery - label.get_height() // 2))
+            if idx == selected_index:
+                draw_btn_hover_border(SCREEN, rect.x, rect.y, rect.w, rect.h, (255, 215, 50))
         pygame.display.flip()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -134409,8 +134515,10 @@ def show_pause_menu():
                 action()
             return None
 
+        reset_btn_hover()
         while True:
             _freeze_optimus_energy_timers()
+            update_btn_hover_effects()
             # 현재 게임 화면을 배경으로 사용
             draw_field()
             draw_shaking_screen()
@@ -134423,10 +134531,17 @@ def show_pause_menu():
             title_text = font_large.render("일시정지", True, WHITE)
             title_rect = title_text.get_rect(center=(center_x, start_y - 60))
             SCREEN.blit(title_text, title_rect)
+            # 마우스 호버 체크
+            mouse_pos = pygame.mouse.get_pos()
+            for i, rect in enumerate(buttons):
+                if check_btn_hover(f"pause_{i}", rect, mouse_pos):
+                    selected = i
             # 버튼들 그리기
             for i, (rect, item) in enumerate(zip(buttons, menu_items)):
                 text = item[0]
-                if i == selected:
+                is_hover = (i == selected)
+                if is_hover:
+                    draw_btn_hover_border(SCREEN, rect.x, rect.y, rect.w, rect.h, (100, 150, 255))
                     # 선택된 버튼
                     draw.rect((100, 150, 255), rect)
                     draw.rect(WHITE, rect, 3)
@@ -138476,7 +138591,9 @@ def show_item_management_menu(item_list, selected_index, item_type):
         discard_rect = pygame.Rect(center_x - button_width - button_spacing // 2, start_y, button_width, button_height)
         cancel_rect = pygame.Rect(center_x + button_spacing // 2, start_y, button_width, button_height)
         selected = 1  # 0: 버리기, 1: 취소 (기본값은 취소)
+    reset_btn_hover()
     while True:
+        update_btn_hover_effects()
         # 현재 게임 화면을 배경으로 사용
         draw_field()
         draw_shaking_screen()
@@ -138601,6 +138718,13 @@ def show_item_management_menu(item_list, selected_index, item_type):
         else:
             buttons = [discard_rect, cancel_rect]
             button_texts = ["버리기", "취소"]
+
+        # 마우스 호버 체크
+        _im_mpos = pygame.mouse.get_pos()
+        for _bi, _br in enumerate(buttons):
+            if check_btn_hover(f"im_{_bi}", _br, _im_mpos):
+                selected = _bi
+
         for i, (rect, text) in enumerate(zip(buttons, button_texts)):
             if i == selected:
                 # 선택된 버튼
@@ -138615,6 +138739,11 @@ def show_item_management_menu(item_list, selected_index, item_type):
             text_surface = font_medium.render(text, True, text_color)
             text_rect = text_surface.get_rect(center=rect.center)
             SCREEN.blit(text_surface, text_rect)
+
+            # 호버 보더 이펙트
+            if i == selected:
+                _hc = (255, 100, 100) if i == 0 else (100, 150, 255)
+                draw_btn_hover_border(SCREEN, rect.x, rect.y, rect.w, rect.h, _hc)
         pygame.display.flip()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -138636,11 +138765,13 @@ def show_item_management_menu(item_list, selected_index, item_type):
                         selected = (selected - 1) % 3
                     else:
                         selected = 0
+                    play_button_hover_sound()
                 elif event.key == pygame.K_RIGHT:
                     if is_sensor_item:
                         selected = (selected + 1) % 3
                     else:
                         selected = 1
+                    play_button_hover_sound()
                 elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
                     if selected == 0:  # 버리기
                         # 아이템 제거
@@ -138834,7 +138965,9 @@ def show_surrender_confirm():
     yes_rect = pygame.Rect(center_x - button_width - button_spacing // 2, start_y, button_width, button_height)
     no_rect = pygame.Rect(center_x + button_spacing // 2, start_y, button_width, button_height)
     selected = 0  # 0: 예, 1: 아니오 (기본값은 예)
+    reset_btn_hover()
     while True:
+        update_btn_hover_effects()
         # 현재 게임 화면을 배경으로 사용
         draw_field()
         draw_shaking_screen()
@@ -138850,17 +138983,22 @@ def show_surrender_confirm():
         warning_text = font_medium.render(f"획득한 메달의 50%만 받을 수 있습니다", True, (255, 200, 200))
         warning_rect = warning_text.get_rect(center=(center_x, start_y - 40))
         SCREEN.blit(warning_text, warning_rect)
-        # 버튼들 그리기
+        # 마우스 호버 체크
+        mouse_pos = pygame.mouse.get_pos()
         buttons = [yes_rect, no_rect]
         button_texts = ["예", "아니오"]
+        for i, rect in enumerate(buttons):
+            if check_btn_hover(f"surrender_{i}", rect, mouse_pos):
+                selected = i
+        # 버튼들 그리기
         for i, (rect, text) in enumerate(zip(buttons, button_texts)):
             if i == selected:
-                # 선택된 버튼
-                draw.rect((255, 100, 100) if i == 0 else (100, 150, 255), rect)
+                hover_color = (255, 100, 100) if i == 0 else (100, 150, 255)
+                draw_btn_hover_border(SCREEN, rect.x, rect.y, rect.w, rect.h, hover_color)
+                draw.rect(hover_color, rect)
                 draw.rect(WHITE, rect, 3)
                 text_color = BLACK
             else:
-                # 선택되지 않은 버튼
                 draw.rect((50, 50, 50), rect)
                 draw.rect((150, 150, 150), rect, 2)
                 text_color = WHITE
@@ -138877,8 +139015,10 @@ def show_surrender_confirm():
                     return False
                 elif event.key == pygame.K_LEFT:
                     selected = 0
+                    play_button_hover_sound()
                 elif event.key == pygame.K_RIGHT:
                     selected = 1
+                    play_button_hover_sound()
                 elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
                     return selected == 0  # 예를 선택했으면 True
             if event.type == pygame.MOUSEBUTTONDOWN:
@@ -139032,10 +139172,12 @@ def show_character_item_manager():
     font_small = get_font(18)          # 18pt 픽셀 폰트
     
     clock = pygame.time.Clock()
-    
+    reset_btn_hover()
+
     while True:
         dt = clock.tick(60)
-        
+        update_btn_hover_effects()
+
         # 전설 아이템 애니메이션 업데이트
         for item in legendary_items:
             if "item_obj" in item:
@@ -139065,6 +139207,7 @@ def show_character_item_manager():
             (255, 100, 100) if selected_main_tab == 3 else (80, 40, 40),  # 전설 - 빨간색
         ]
         
+        mpos = pygame.mouse.get_pos()
         for i, (name, color) in enumerate(zip(tab_names, tab_colors)):
             tab_rect = pygame.Rect(start_x + i * (tab_width + tab_spacing), tab_y, tab_width, tab_height)
             draw.rect(color, tab_rect)
@@ -139072,7 +139215,11 @@ def show_character_item_manager():
             tab_text = font_medium.render(name, True, WHITE)
             tab_text_rect = tab_text.get_rect(center=tab_rect.center)
             SCREEN.blit(tab_text, tab_text_rect)
-        
+            if check_btn_hover(f"tab_{i}", tab_rect, mpos):
+                pass  # hover state tracked
+            if i == selected_main_tab:
+                draw_btn_hover_border(SCREEN, tab_rect.x, tab_rect.y, tab_rect.w, tab_rect.h, color)
+
         # 선택된 탭에 따른 내용 표시
         if selected_main_tab == 0:  # 캐릭터 탭
             # 캐릭터 카드들 표시
@@ -139290,18 +139437,21 @@ def show_stage_selection(show_character_hint=True):
     font_small = get_font(18)
     
     clock = pygame.time.Clock()
-    
+
+    reset_btn_hover()
+
     while True:
         clock.tick(60)
-        
+        update_btn_hover_effects()
+
         # 배경
         SCREEN.fill((10, 10, 40))
-        
+
         # 제목
         title_text = font_large.render("스테이지 선택", True, WHITE)
         title_rect = title_text.get_rect(center=(WIDTH // 2, 80))
         SCREEN.blit(title_text, title_rect)
-        
+
         # 현재 캐릭터 표시 또는 안내 텍스트
         if show_character_hint:
             char_text = font_medium.render(f"선택된 캐릭터: {get_character_name(selected_character_type)}", True, WHITE)
@@ -139369,6 +139519,23 @@ def show_stage_selection(show_character_hint=True):
             desc_rect = desc_text.get_rect(center=(card_rect.centerx, card_rect.y + 110))
             SCREEN.blit(desc_text, desc_rect)
         
+        # 마우스 호버 체크 + 호버 보더
+        mpos = pygame.mouse.get_pos()
+        for i, stage in enumerate(stages):
+            row = i // cards_per_row
+            col_in_row = i - row * cards_per_row
+            cards_in_row = min(cards_per_row, len(stages) - row * cards_per_row)
+            row_total_w = cards_in_row * card_width + (cards_in_row - 1) * card_spacing if cards_in_row > 0 else card_width
+            sx = (WIDTH - row_total_w) // 2
+            cx = sx + col_in_row * (card_width + card_spacing)
+            cy = start_y + row * (card_height + card_spacing)
+            cr = pygame.Rect(cx, cy, card_width, card_height)
+            if check_btn_hover(f"stg_{i}", cr, mpos):
+                if selected_index != i:
+                    selected_index = i
+            if i == selected_index:
+                draw_btn_hover_border(SCREEN, cx, cy, card_width, card_height, stage["color"])
+
         # 안내 메시지
         if show_character_hint:
             info_text = "방향키로 스테이지 선택, SPACE로 시작, ESC로 돌아가기"
@@ -139408,23 +139575,6 @@ def show_stage_selection(show_character_hint=True):
                     play_button_hover_sound()
 
         
-            if event.type == pygame.MOUSEMOTION:
-                # 마우스 오버 시 해당 카드로 하이라이트 이동
-                mx, my = event.pos
-                for i, stage in enumerate(stages):
-                    row = i // cards_per_row
-                    col_in_row = i - row * cards_per_row
-                    cards_in_row = min(cards_per_row, len(stages) - row * cards_per_row)
-                    row_total_width = cards_in_row * card_width + (cards_in_row - 1) * card_spacing if cards_in_row > 0 else card_width
-                    start_x = (WIDTH - row_total_width) // 2
-                    card_x = start_x + col_in_row * (card_width + card_spacing)
-                    card_y = start_y + row * (card_height + card_spacing)
-                    card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
-                    if card_rect.collidepoint(mx, my):
-                        if selected_index != i:
-                            selected_index = i
-                            # hover 사운드는 과도한 소음 방지를 위해 생략 또는 조건부 재생 가능
-                        break
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 # 좌클릭으로 스테이지 확정
                 mx, my = event.pos
