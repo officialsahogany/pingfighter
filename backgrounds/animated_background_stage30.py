@@ -521,19 +521,46 @@ class AnimatedBackgroundStage30:
                 self.judgment_dust_rain.clear()
 
         elif self.judgment_phase == self.JUDGMENT_RETURN:
-            # 3초간 원래 크기로 복귀
+            # 3초간 땅속으로 다시 들어감 (MERGE의 역순)
             progress = min(1.0, self.judgment_timer / self.RETURN_DURATION)
-            ease = progress ** 2  # ease-in
-            self.judgment_scale = self.judgment_target_scale - (self.judgment_target_scale - 1.0) * ease
+            ease = progress ** 2  # ease-in (처음 느리다가 점점 빠르게)
+            # 스케일 유지, 석상 하강 (0 → 120px 아래로)
+            sink_depth = 120.0 * self.judgment_scale  # 스케일에 비례한 깊이
+            self.judgment_rise_offset = sink_depth * ease
             # 팔 원래 위치로
             self.judgment_slam_progress = 1.0 - ease
             self.judgment_left_arm_progress = 0.0
             self.judgment_right_arm_progress = 0.0
+            # 하강 중 흙/돌 파편 생성
+            if random.random() < 0.3:
+                ground_y = cy + 10
+                s = self.judgment_scale
+                self.judgment_rise_debris.append({
+                    'x': cx + random.uniform(-12 * s, 12 * s),
+                    'y': ground_y + random.uniform(-4, 2),
+                    'vx': random.uniform(-1.5, 1.5),
+                    'vy': random.uniform(0.5, 3),
+                    'size': random.randint(1, 3),
+                    'life': random.uniform(0.5, 1.2),
+                    'color': random.choice([
+                        (155, 130, 95), (125, 105, 75),
+                        (130, 120, 108), (160, 150, 135)
+                    ]),
+                })
+            # 하강 파편 업데이트
+            for d in self.judgment_rise_debris:
+                d['x'] += d['vx'] * dt * 60
+                d['y'] += d['vy'] * dt * 60
+                d['vy'] += 4 * dt
+                d['life'] -= dt
+            self.judgment_rise_debris = [d for d in self.judgment_rise_debris if d['life'] > 0]
             if progress >= 1.0:
                 self.judgment_phase = self.JUDGMENT_IDLE
                 self.judgment_timer = 0.0
                 self.judgment_scale = 1.0
                 self.judgment_slam_progress = 0.0
+                self.judgment_rise_offset = 0.0
+                self.judgment_rise_debris.clear()
                 self.judgment_cooldown = random.uniform(50.0, 60.0)
 
     def get_judgment_shake_offset(self):
@@ -582,12 +609,12 @@ class AnimatedBackgroundStage30:
             sz = p['size']
             pygame.draw.circle(screen, col, (px, py), sz)
 
-        # ── 동적 제우스 석상 그리기 (상승 중 지면 클리핑) ──
+        # ── 동적 제우스 석상 그리기 (상승/하강 중 지면 클리핑) ──
         rise_y = int(self.judgment_rise_offset)
-        # 흔들림 (상승 중에만)
+        # 흔들림 (상승/하강 중에만, 강도 제한)
         rise_shake_x = 0
         if rise_y > 2:
-            wobble = rise_y / 40.0  # 깊을수록 강하게 흔들림
+            wobble = min(1.0, rise_y / 40.0)  # 최대 1.0 제한
             rise_shake_x = int(math.sin(self.time * 15) * 3 * wobble * s)
 
         if rise_y > 2:
@@ -640,23 +667,17 @@ class AnimatedBackgroundStage30:
         gold_light = self.colors['gold_light']
         lw = max(1, int(s))
 
-        # ── 돌 받침 (땅에 묻힌 느낌의 거친 석조) ──
-        base_pts = [
-            (cx - int(12 * s), cy + int(6 * s)), (cx + int(12 * s), cy + int(6 * s)),
-            (cx + int(10 * s), cy - int(2 * s)), (cx - int(10 * s), cy - int(2 * s))
-        ]
-        pygame.draw.polygon(screen, marble_shadow, base_pts)
-        pygame.draw.line(screen, marble_dark,
-                         (cx - int(12 * s), cy + int(6 * s)),
-                         (cx + int(12 * s), cy + int(6 * s)), lw)
-        pygame.draw.line(screen, gold,
-                         (cx - int(10 * s), cy + int(1 * s)),
-                         (cx + int(10 * s), cy + int(1 * s)), lw)
-
-        # ── 상체 ──
+        # ── 상체 (하단이 부서진 돌 느낌 - 땅에서 파묻혀 나온 형태) ──
         torso_pts = [
-            (cx - int(7 * s), cy - int(8 * s)),
-            (cx + int(7 * s), cy - int(8 * s)),
+            # 하단 들쭉날쭉 (부서진 돌)
+            (cx - int(8 * s), cy - int(5 * s)),
+            (cx - int(5 * s), cy - int(8 * s)),
+            (cx - int(2 * s), cy - int(4 * s)),
+            (cx + int(1 * s), cy - int(7 * s)),
+            (cx + int(4 * s), cy - int(3 * s)),
+            (cx + int(7 * s), cy - int(6 * s)),
+            (cx + int(9 * s), cy - int(4 * s)),
+            # 상단 (어깨)
             (cx + int(10 * s), cy - int(18 * s)),
             (cx - int(10 * s), cy - int(18 * s)),
         ]
@@ -666,6 +687,10 @@ class AnimatedBackgroundStage30:
         pygame.draw.line(screen, marble_dark,
                          (cx - int(9 * s), cy - int(17 * s)),
                          (cx + int(5 * s), cy - int(10 * s)), max(1, int(2 * s)))
+        # 부서진 하단부 금 라인 (균열 느낌)
+        pygame.draw.line(screen, marble_shadow,
+                         (cx - int(3 * s), cy - int(5 * s)),
+                         (cx + int(2 * s), cy - int(6 * s)), lw)
 
         # ── 팔 ──
         self._draw_judgment_arms(screen, cx, cy, s, marble, marble_mid, marble_dark, gold, gold_light)
