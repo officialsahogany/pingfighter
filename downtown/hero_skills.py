@@ -2571,15 +2571,15 @@ class HellFire(HeroSkill):
                 print(f"[HellFire] FREEZE → RELEASE 전환 (1초 정지 종료)")
 
         elif self.phase == self.PHASE_RELEASE:
-            # === 정지 해제 - 가속 + 도깨비불 상태 적용 ===
-            ball.vx = self.original_ball_vx * 1.3
-            # 방향 강제: 캐스터 반대쪽으로 (재충돌 방지)
+            # === 정지 해제 - 도깨비불 상태 적용 (Y축 완만하게) ===
+            ball.vx = self.original_ball_vx * 1.2
+            # 방향 강제: 캐스터 반대쪽으로 (Y속도는 완만하게 - 궤도 감상 시간 확보)
             if self.caster_is_top:
-                ball.vy = abs(self.original_ball_vy) * 1.3   # 아래로 (상대 쪽)
-                ball.y = max(ball.y, 80)  # 패들에서 충분히 떨어뜨리기
+                ball.vy = abs(self.original_ball_vy) * 0.7   # 아래로 (느리게)
+                ball.y = max(ball.y, 80)
             else:
-                ball.vy = -abs(self.original_ball_vy) * 1.3  # 위로 (상대 쪽)
-                ball.y = min(ball.y, 670)  # 패들에서 충분히 떨어뜨리기
+                ball.vy = -abs(self.original_ball_vy) * 0.7  # 위로 (느리게)
+                ball.y = min(ball.y, 670)
             game_state['ball_on_fire'] = True
             game_state['dokkaebi_ball'] = True
             game_state['hell_fire_phase'] = self.PHASE_ACTIVE
@@ -2635,6 +2635,13 @@ class HellFire(HeroSkill):
                     burst = random.uniform(1.2, 1.5)
                     ball.vx *= burst
                     ball.vy *= burst
+
+            # Y축 속도 감쇠 (도깨비불이 X축으로 노는 느낌, Y축은 천천히 진행)
+            # |vy|가 |vx|보다 크면 vy를 점진적으로 줄여서 횡이동 비중 높임
+            abs_vx = abs(ball.vx)
+            abs_vy = abs(ball.vy)
+            if abs_vy > abs_vx * 1.2:
+                ball.vy *= (1.0 - 0.8 * dt)  # vy 감쇠
 
             # 속력 범위 제한
             cur_speed = math.sqrt(ball.vx ** 2 + ball.vy ** 2)
@@ -3205,22 +3212,27 @@ class HornCharge(HeroSkill):
                                          (radius + 5, radius + 5), radius, 5)
                         screen.blit(ring_surf, (int(center_x - radius - 5), int(center_y - radius - 5)))
 
-        # 스턴 표시 (별 아이콘) - 뿔 박치기 전용
+        # 스턴 표시 (별 아이콘) - 뿔 박치기 전용 (타겟 + 시전자 모두)
         if self.phase == self.PHASE_STUN and self.stun_applied:
-            stun_x = target_paddle.x + 40
-            stun_y = target_paddle.y - 30
             stun_time = self.phase_timer * 5
 
-            for i in range(3):
-                angle = stun_time + i * (2 * math.pi / 3)
-                star_x = stun_x + math.cos(angle) * 25
-                star_y = stun_y + math.sin(angle) * 10
-                # 별 모양
-                star_surf = pygame.Surface((20, 20), pygame.SRCALPHA)
-                pygame.draw.polygon(star_surf, (255, 255, 100, 200), [
-                    (10, 0), (12, 7), (20, 7), (14, 12), (16, 20), (10, 15), (4, 20), (6, 12), (0, 7), (8, 7)
-                ])
-                screen.blit(star_surf, (int(star_x - 10), int(star_y - 10)))
+            # 타겟과 시전자 모두에게 별 표시
+            paddles_to_draw = [target_paddle]
+            if self.caster_stun_applied:
+                paddles_to_draw.append(caster_paddle)
+
+            for paddle in paddles_to_draw:
+                sx = paddle.x + paddle.width // 2
+                sy = paddle.y - 30 if not paddle.is_top else paddle.y + paddle.height + 20
+                for i in range(3):
+                    angle = stun_time + i * (2 * math.pi / 3)
+                    star_x = sx + math.cos(angle) * 25
+                    star_y = sy + math.sin(angle) * 10
+                    star_surf = pygame.Surface((20, 20), pygame.SRCALPHA)
+                    pygame.draw.polygon(star_surf, (255, 255, 100, 200), [
+                        (10, 0), (12, 7), (20, 7), (14, 12), (16, 20), (10, 15), (4, 20), (6, 12), (0, 7), (8, 7)
+                    ])
+                    screen.blit(star_surf, (int(star_x - 10), int(star_y - 10)))
 
 
 # ============================================================================
