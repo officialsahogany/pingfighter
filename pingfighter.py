@@ -52783,20 +52783,7 @@ def handle_gods_judgment():
                     arena_skill_manager.game_state['bottom_paddle_stunned'] = True
                 _judgment_lightning_stun_bottom_timer = 2.0
                 print(f"[신의심판] 하단 영웅 감전 스턴! 거리:{bot_dist:.0f}")
-        # 스턴 타이머 카운트다운 (매 프레임)
-        dt = 1.0 / 60.0
-        if _judgment_lightning_stun_top_timer > 0:
-            _judgment_lightning_stun_top_timer -= dt
-            if _judgment_lightning_stun_top_timer <= 0:
-                _judgment_lightning_stun_top_timer = 0.0
-                if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
-                    arena_skill_manager.game_state['top_paddle_stunned'] = False
-        if _judgment_lightning_stun_bottom_timer > 0:
-            _judgment_lightning_stun_bottom_timer -= dt
-            if _judgment_lightning_stun_bottom_timer <= 0:
-                _judgment_lightning_stun_bottom_timer = 0.0
-                if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
-                    arena_skill_manager.game_state['bottom_paddle_stunned'] = False
+        # 스턴 타이머 카운트다운은 이동 코드에서 직접 처리 (gate 조건과 무관하게 항상 실행)
         # 이벤트 종료 시 리셋
         if not bg.is_judgment_active():
             _judgment_lightning_stun_applied = False
@@ -58888,10 +58875,16 @@ def handle_player(keys):
     arena_player_confused = False
     # ⚡ 번개의 분노 스턴 (독립 메커니즘 - 다른 스킬이 paddle_stunned 덮어써도 적용)
     if _judgment_lightning_stun_bottom_timer > 0:
-        arena_player_stun_block = True
-        current_speed = 0
-        rolling_active = False
-        rolling_timer = 0
+        _judgment_lightning_stun_bottom_timer -= 1.0 / 60.0
+        if _judgment_lightning_stun_bottom_timer <= 0:
+            _judgment_lightning_stun_bottom_timer = 0.0
+            if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
+                arena_skill_manager.game_state['bottom_paddle_stunned'] = False
+        else:
+            arena_player_stun_block = True
+            current_speed = 0
+            rolling_active = False
+            rolling_timer = 0
     if arena_mode_enabled and arena_skill_manager:
         try:
             game_state = arena_skill_manager.game_state
@@ -124535,8 +124528,14 @@ def handle_boss():
     arena_boss_confused = False
     # ⚡ 번개의 분노 스턴 (독립 메커니즘 - 다른 스킬이 paddle_stunned 덮어써도 적용)
     if _judgment_lightning_stun_top_timer > 0:
-        boss_current_speed = 0
-        return  # 번개 스턴 중 모든 처리 차단
+        _judgment_lightning_stun_top_timer -= 1.0 / 60.0
+        if _judgment_lightning_stun_top_timer <= 0:
+            _judgment_lightning_stun_top_timer = 0.0
+            if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
+                arena_skill_manager.game_state['top_paddle_stunned'] = False
+        else:
+            boss_current_speed = 0
+            return  # 번개 스턴 중 모든 처리 차단
     if arena_mode_enabled and arena_skill_manager:
         try:
             game_state = arena_skill_manager.game_state
