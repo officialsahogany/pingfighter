@@ -112,6 +112,8 @@ class AnimatedBackgroundStage30:
         self.judgment_merge_particles = []
         self.judgment_slam_debris = []
         self.judgment_dust_rain = []
+        self.judgment_rise_debris = []       # 상승 시 떨어지는 흙/돌
+        self.judgment_rise_offset = 0.0      # 석상 상승 오프셋 (양수=아래에 묻힘)
         self.judgment_quake_sound_playing = False
 
         # 페이즈 지속시간 (초)
@@ -243,8 +245,7 @@ class AnimatedBackgroundStage30:
         self._draw_zeus_statue(self.arena_surface, center_x, center_y)
 
     def _draw_zeus_statue(self, surface, cx, cy):
-        """고대 제우스 석상 - 깔끔한 픽셀아트 스타일"""
-        # 색상 (대리석 4톤 + 금 2톤만 사용)
+        """고대 제우스 석상 - 상반신 비석 스타일 (하반신은 땅속에 묻힘)"""
         marble = (185, 175, 160)
         marble_mid = (160, 150, 135)
         marble_dark = (130, 120, 108)
@@ -252,33 +253,19 @@ class AnimatedBackgroundStage30:
         gold = self.colors['gold']
         gold_light = self.colors['gold_light']
 
-        # ── 그림자 ──
-        shadow_surf = pygame.Surface((50, 14), pygame.SRCALPHA)
-        pygame.draw.ellipse(shadow_surf, (40, 35, 25, 50), (0, 0, 50, 14))
-        surface.blit(shadow_surf, (cx - 25, cy + 16))
-
-        # ── 받침대 (2단, 간결) ──
-        pygame.draw.rect(surface, marble_shadow, (cx - 18, cy + 13, 36, 6))
-        pygame.draw.line(surface, marble_mid, (cx - 18, cy + 13), (cx + 17, cy + 13), 1)
-        pygame.draw.rect(surface, marble_mid, (cx - 14, cy + 4, 28, 10))
-        pygame.draw.line(surface, marble, (cx - 14, cy + 4), (cx + 13, cy + 4), 1)
-        pygame.draw.line(surface, gold, (cx - 14, cy + 8), (cx + 13, cy + 8), 1)
-
-        # ── 하체 토가 ──
-        robe_pts = [(cx - 9, cy + 4), (cx + 9, cy + 4),
-                    (cx + 7, cy - 8), (cx - 7, cy - 8)]
-        pygame.draw.polygon(surface, marble, robe_pts)
-        pygame.draw.line(surface, marble_dark, (cx - 3, cy + 3), (cx - 2, cy - 7), 1)
-        pygame.draw.line(surface, marble_dark, (cx + 3, cy + 3), (cx + 4, cy - 7), 1)
-        pygame.draw.line(surface, marble_mid, (cx, cy + 3), (cx + 1, cy - 7), 1)
+        # ── 돌 받침 (땅에 묻힌 느낌의 거친 석조) ──
+        base_pts = [(cx - 12, cy + 6), (cx + 12, cy + 6),
+                    (cx + 10, cy - 2), (cx - 10, cy - 2)]
+        pygame.draw.polygon(surface, marble_shadow, base_pts)
+        pygame.draw.line(surface, marble_dark, (cx - 12, cy + 6), (cx + 12, cy + 6), 1)
+        pygame.draw.line(surface, gold, (cx - 10, cy + 1), (cx + 10, cy + 1), 1)
 
         # ── 상체 ──
-        torso_pts = [(cx - 7, cy - 8), (cx + 7, cy - 8),
+        torso_pts = [(cx - 7, cy - 2), (cx + 7, cy - 2),
                      (cx + 10, cy - 18), (cx - 10, cy - 18)]
         pygame.draw.polygon(surface, marble, torso_pts)
         pygame.draw.polygon(surface, marble_dark, torso_pts, 1)
-        # 토가 드레이프 (한 줄만)
-        pygame.draw.line(surface, marble_dark, (cx - 9, cy - 17), (cx + 5, cy - 10), 2)
+        pygame.draw.line(surface, marble_dark, (cx - 9, cy - 17), (cx + 5, cy - 4), 2)
 
         # ── 왼팔 (아래) ──
         pygame.draw.line(surface, marble, (cx - 10, cy - 16), (cx - 14, cy - 6), 3)
@@ -292,11 +279,9 @@ class AnimatedBackgroundStage30:
         head_y = cy - 23
         pygame.draw.circle(surface, marble, (cx, head_y), 6)
         pygame.draw.circle(surface, marble_dark, (cx, head_y), 6, 1)
-        # 수염
         beard_pts = [(cx - 3, head_y + 4), (cx + 3, head_y + 4),
                      (cx + 1, head_y + 8), (cx - 1, head_y + 8)]
         pygame.draw.polygon(surface, marble_mid, beard_pts)
-        # 머리카락
         pygame.draw.arc(surface, marble_dark,
                         (cx - 7, head_y - 7, 14, 10), 0.3, math.pi - 0.3, 2)
 
@@ -372,6 +357,8 @@ class AnimatedBackgroundStage30:
         self.judgment_merge_particles = []
         self.judgment_slam_debris = []
         self.judgment_dust_rain = []
+        self.judgment_rise_debris = []
+        self.judgment_rise_offset = 40.0  # 초기 매몰 깊이 (40px 아래)
         self.judgment_quake_sound_playing = False
         # 합체 파티클 (심플한 대리석 먼지)
         cx = self.GAME_AREA_X + self.GAME_AREA_WIDTH // 2
@@ -406,20 +393,48 @@ class AnimatedBackgroundStage30:
         cy = self.height // 2
 
         if self.judgment_phase == self.JUDGMENT_MERGE:
-            # 2초간 1x → 4x 성장 (ease-out)
+            # 2초간 1x → 4x 성장 + 상승 (ease-out)
             progress = min(1.0, self.judgment_timer / self.MERGE_DURATION)
             ease = 1.0 - (1.0 - progress) ** 3  # ease-out cubic
             self.judgment_scale = 1.0 + (self.judgment_target_scale - 1.0) * ease
+            # 석상 상승 (40→0, 땅에서 올라옴)
+            self.judgment_rise_offset = 40.0 * (1.0 - ease)
             # 합체 파티클 이동 (중심으로 수렴)
             for p in self.judgment_merge_particles:
                 lerp_speed = dt * 2.2 * p['speed']
                 p['x'] += (p['tx'] - p['x']) * lerp_speed
                 p['y'] += (p['ty'] - p['y']) * lerp_speed
                 p['alpha'] = max(0, p['alpha'] - dt * 30)
+            # 상승 중 떨어지는 흙/돌 파편
+            if self.judgment_rise_offset > 2:
+                ground_y = cy + 10
+                s = self.judgment_scale
+                for _ in range(2):
+                    self.judgment_rise_debris.append({
+                        'x': cx + random.uniform(-12 * s, 12 * s),
+                        'y': ground_y + random.uniform(-4, 2),
+                        'vx': random.uniform(-1.5, 1.5),
+                        'vy': random.uniform(0.5, 3),
+                        'size': random.randint(1, 3),
+                        'life': random.uniform(0.5, 1.2),
+                        'color': random.choice([
+                            (155, 130, 95), (125, 105, 75),
+                            (130, 120, 108), (160, 150, 135)
+                        ]),
+                    })
+            # 상승 파편 업데이트 (중력)
+            for d in self.judgment_rise_debris:
+                d['x'] += d['vx'] * dt * 60
+                d['y'] += d['vy'] * dt * 60
+                d['vy'] += 4 * dt  # 중력
+                d['life'] -= dt
+            self.judgment_rise_debris = [d for d in self.judgment_rise_debris if d['life'] > 0]
             if progress >= 1.0:
                 self.judgment_phase = self.JUDGMENT_ARM_RAISE
                 self.judgment_timer = 0.0
                 self.judgment_merge_particles.clear()
+                self.judgment_rise_offset = 0.0
+                self.judgment_rise_debris.clear()
 
         elif self.judgment_phase == self.JUDGMENT_ARM_RAISE:
             # 2초간 팔 올리기 + 발 흔들기
@@ -571,8 +586,29 @@ class AnimatedBackgroundStage30:
             sz = p['size']
             pygame.draw.circle(screen, col, (px, py), sz)
 
-        # ── 동적 제우스 석상 그리기 ──
-        self._draw_judgment_statue_scaled(screen, cx, cy, s)
+        # ── 동적 제우스 석상 그리기 (상승 중 지면 클리핑) ──
+        rise_y = int(self.judgment_rise_offset)
+        # 흔들림 (상승 중에만)
+        rise_shake_x = 0
+        if rise_y > 2:
+            wobble = rise_y / 40.0  # 깊을수록 강하게 흔들림
+            rise_shake_x = int(math.sin(self.time * 15) * 3 * wobble * s)
+
+        if rise_y > 2:
+            # 지면 레벨 아래 클리핑 (석상 하반신 숨김)
+            ground_y = cy + 10
+            old_clip = screen.get_clip()
+            screen.set_clip(pygame.Rect(0, 0, screen.get_width(), ground_y))
+            self._draw_judgment_statue_scaled(screen, cx + rise_shake_x, cy + rise_y, s)
+            screen.set_clip(old_clip)
+        else:
+            self._draw_judgment_statue_scaled(screen, cx, cy, s)
+
+        # ── 상승 파편 (떨어지는 흙/돌) ──
+        for d in self.judgment_rise_debris:
+            dx, dy = int(d['x']) + offset_x, int(d['y']) + offset_y
+            ds = max(1, int(d['size'] * min(1, d['life'] * 2)))
+            pygame.draw.circle(screen, d['color'], (dx, dy), ds)
 
         # ── 슬램 파편 (심플 원형) ──
         for d in self.judgment_slam_debris:
