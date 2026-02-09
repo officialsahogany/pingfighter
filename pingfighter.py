@@ -96633,6 +96633,43 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
 
     return result
 
+
+def start_arena_dev():
+    """개발 메뉴에서 투기장 바로 진입 (입장료 무료)"""
+    import pygame.freetype
+    from downtown.colosseum_arena import ColosseumsArena
+
+    screen = SCREEN
+    # freetype 폰트 딕셔너리 생성
+    fonts = {}
+    try:
+        font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+        fonts['large'] = pygame.freetype.Font(font_path, 32)
+        fonts['medium'] = pygame.freetype.Font(font_path, 24)
+        fonts['small'] = pygame.freetype.Font(font_path, 16)
+    except Exception:
+        fonts['large'] = pygame.freetype.SysFont(None, 32)
+        fonts['medium'] = pygame.freetype.SysFont(None, 24)
+        fonts['small'] = pygame.freetype.SysFont(None, 16)
+
+    arena = ColosseumsArena(screen, fonts, 999999, battle_callback=start_arena_battle)
+    arena.entry_fee_paid = True  # 입장료 무료
+
+    clock_arena = pygame.time.Clock()
+    arena_active = True
+    while arena_active:
+        dt = clock_arena.tick(60) / 1000.0
+        for ev in pygame.event.get():
+            if ev.type == pygame.QUIT:
+                pygame.quit()
+                raise SystemExit
+            if arena.handle_event(ev):
+                arena_active = False
+        arena.update(dt)
+        arena.draw()
+        pygame.display.flip()
+
+
 def show_start_screen():
     global passive_item_list, active_item_slot, selected_item_index, MAX_ITEM_SLOTS
     global chargebag_obtained, spikeboots_obtained, dashgear_obtained
@@ -96895,6 +96932,8 @@ def show_start_screen():
     ctx.start_local_multiplayer = start_local_multiplayer
     # 투기장 배틀 콜백 추가
     ctx.start_arena_battle = start_arena_battle
+    # 개발 메뉴 투기장 바로가기
+    ctx.start_arena_dev = start_arena_dev
 
     # 메인 메뉴 진입 시 pillar_renderer 스테이지 0으로 설정 (바로크 액자용)
     if pillar_renderer is not None:

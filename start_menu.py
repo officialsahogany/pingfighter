@@ -651,7 +651,7 @@ def _show_multiplayer_menu(ctx: MenuContext, state: MenuState) -> bool:
 
 def _show_dev_test_menu(ctx: MenuContext, state: MenuState) -> bool:
     """메인 메뉴 하위 개발/테스트 묶음."""
-    options = ["AI 플레이", "테스트메뉴", "뒤로"]
+    options = ["AI 플레이", "투기장", "테스트메뉴", "뒤로"]
     selected = 0
     clock = pygame.time.Clock()
     while True:
@@ -676,6 +676,9 @@ def _show_dev_test_menu(ctx: MenuContext, state: MenuState) -> bool:
                     choice = options[selected]
                     if choice == "AI 플레이":
                         return _run_ai_play_flow(ctx)
+                    if choice == "투기장":
+                        ctx.start_arena_dev()
+                        return True
                     if choice == "테스트메뉴":
                         ctx.start_test_mode()
                         return True
@@ -685,8 +688,8 @@ def _show_dev_test_menu(ctx: MenuContext, state: MenuState) -> bool:
             if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
                 mx, my = ev.pos
                 menu_y = height // 2
-                item_w = 220
-                spacing = 24
+                item_w = 160
+                spacing = 16
                 total_w = len(options) * item_w + (len(options) - 1) * spacing
                 start_x = (width - total_w) // 2
                 for idx, opt in enumerate(options):
@@ -695,6 +698,9 @@ def _show_dev_test_menu(ctx: MenuContext, state: MenuState) -> bool:
                         selected = idx
                         if opt == "AI 플레이":
                             return _run_ai_play_flow(ctx)
+                        if opt == "투기장":
+                            ctx.start_arena_dev()
+                            return True
                         if opt == "테스트메뉴":
                             ctx.start_test_mode()
                             return True
@@ -709,8 +715,8 @@ def _show_dev_test_menu(ctx: MenuContext, state: MenuState) -> bool:
         title = font_title.render("개발 테스트", True, (200, 230, 255))
         screen.blit(title, title.get_rect(center=(width // 2, height // 2 - 130)))
 
-        item_w = 220
-        spacing = 24
+        item_w = 160
+        spacing = 16
         total_w = len(options) * item_w + (len(options) - 1) * spacing
         start_x = (width - total_w) // 2
         for idx, opt in enumerate(options):
@@ -722,8 +728,8 @@ def _show_dev_test_menu(ctx: MenuContext, state: MenuState) -> bool:
             pygame.draw.rect(screen, (140, 200, 255), rect, 2 if is_sel else 1, border_radius=12)
             label_surface = font_item.render(opt, True, (255, 255, 255))
             screen.blit(label_surface, label_surface.get_rect(center=rect.center))
-            if is_sel and opt in ("AI 플레이", "테스트메뉴"):
-                hint = "AI 대전 시작" if opt == "AI 플레이" else "테스트/디버그 메뉴"
+            if is_sel and opt in ("AI 플레이", "투기장", "테스트메뉴"):
+                hint = "AI 대전 시작" if opt == "AI 플레이" else "투기장 바로 입장 (무료)" if opt == "투기장" else "테스트/디버그 메뉴"
                 hint_surf = ctx.FontStyle.tiny().render(hint, True, (210, 220, 255))
                 screen.blit(hint_surf, hint_surf.get_rect(center=(rect.centerx, rect.bottom + 24)))
 
