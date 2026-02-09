@@ -15,6 +15,18 @@ class HeroPaddleRenderer:
     def __init__(self):
         self.hero_states: Dict[str, dict] = {}
         self.time = 0.0
+        self._surface_cache: Dict[Tuple[int, int], pygame.Surface] = {}
+
+    def _get_surface(self, w: int, h: int) -> pygame.Surface:
+        """크기별 SRCALPHA Surface 캐시 재사용 (매 프레임 재생성 방지)"""
+        w = max(4, ((w + 3) // 4) * 4)
+        h = max(4, ((h + 3) // 4) * 4)
+        key = (w, h)
+        if key not in self._surface_cache:
+            self._surface_cache[key] = pygame.Surface((w, h), pygame.SRCALPHA)
+        else:
+            self._surface_cache[key].fill((0, 0, 0, 0))
+        return self._surface_cache[key]
 
     def update(self, dt: float):
         """애니메이션 업데이트"""
@@ -357,7 +369,7 @@ class HeroPaddleRenderer:
         aura_pulse = 0.7 + 0.3 * math.sin(self.time * 4)
         for i in range(3):
             aura_size = int((2.5 + i * 0.5) * b * aura_pulse)
-            aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
+            aura_surf = self._get_surface(aura_size * 2, aura_size * 2)
             aura_alpha = int(25 - i * 8)
             pygame.draw.ellipse(aura_surf, (*p["aura"], aura_alpha), (0, 0, aura_size * 2, aura_size * 2))
             screen.blit(aura_surf, (cx - aura_size + lean_offset, torso_y - aura_size + int(0.5 * b)), special_flags=pygame.BLEND_ADD)
@@ -536,7 +548,7 @@ class HeroPaddleRenderer:
                 eye_x = face_rect.centerx + side * int(0.25 * b)
                 # 눈 글로우
                 glow_pulse = 0.8 + 0.2 * math.sin(self.time * 6 + side)
-                glow_surf = pygame.Surface((int(0.4 * b), int(0.3 * b)), pygame.SRCALPHA)
+                glow_surf = self._get_surface(int(0.4 * b), int(0.3 * b))
                 pygame.draw.ellipse(glow_surf, (*p["eye_glow"], int(80 * glow_pulse)), (0, 0, int(0.4 * b), int(0.3 * b)))
                 screen.blit(glow_surf, (eye_x - int(0.2 * b), eye_y - int(0.15 * b)), special_flags=pygame.BLEND_ADD)
                 # 눈 본체
@@ -604,7 +616,7 @@ class HeroPaddleRenderer:
         # 검기 오라 (스윙 중이 아닐 때만 - 빠른 동작이라 생략해도 무방)
         if swing_angle == 0:
             for i in range(4):
-                aura_surf = pygame.Surface((int(b), sword_bottom - sword_top + int(b)), pygame.SRCALPHA)
+                aura_surf = self._get_surface(int(b), sword_bottom - sword_top + int(b))
                 aura_alpha = 40 - i * 10
                 for y in range(0, sword_bottom - sword_top, 3):
                     wave_x = int(0.5 * b) + int(math.sin(self.time * 8 + y * 0.05) * 0.1 * b)
@@ -686,7 +698,7 @@ class HeroPaddleRenderer:
 
         # === 배경 심해 오라 (물속 느낌) ===
         aura_size = int(6 * b)
-        aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
+        aura_surf = self._get_surface(aura_size * 2, aura_size * 2)
         for i in range(3):
             aura_alpha = int(20 - i * 6)
             aura_r = int((2.5 - i * 0.6) * b)
@@ -699,7 +711,7 @@ class HeroPaddleRenderer:
             drop_y = torso_y - int(2 * b) + int((self.time * 0.5 + i * 0.3) % 1 * 4 * b)
             drop_alpha = int(150 * (1 - ((self.time * 0.5 + i * 0.3) % 1)))
             drop_size = max(1, int(0.12 * b))
-            drop_surf = pygame.Surface((drop_size * 4, drop_size * 4), pygame.SRCALPHA)
+            drop_surf = self._get_surface(drop_size * 4, drop_size * 4)
             pygame.draw.circle(drop_surf, (*p["water_drop"], drop_alpha), (drop_size * 2, drop_size * 2), drop_size)
             screen.blit(drop_surf, (int(drop_x) - drop_size * 2, int(drop_y) - drop_size * 2))
 
@@ -867,7 +879,7 @@ class HeroPaddleRenderer:
             by = head_rect.centery + int(by_off * b)
             glow_size = int(0.15 * b * (0.7 + biolum_pulse * 0.3))
             # 발광 글로우
-            glow_surf = pygame.Surface((int(0.6 * b), int(0.6 * b)), pygame.SRCALPHA)
+            glow_surf = self._get_surface(int(0.6 * b), int(0.6 * b))
             pygame.draw.circle(glow_surf, (*p["biolum"], int(60 * biolum_pulse)),
                              (int(0.3 * b), int(0.3 * b)), int(0.25 * b))
             screen.blit(glow_surf, (int(bx - 0.3 * b), int(by - 0.3 * b)), special_flags=pygame.BLEND_ADD)
@@ -900,7 +912,7 @@ class HeroPaddleRenderer:
                 for glow_layer in range(3):
                     glow_size = int((1.2 - glow_layer * 0.3) * b)
                     glow_alpha = int(40 - glow_layer * 12)
-                    glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+                    glow_surf = self._get_surface(glow_size, glow_size)
                     pygame.draw.circle(glow_surf, (*p["eye_glow"], glow_alpha),
                                      (glow_size // 2, glow_size // 2), glow_size // 2)
                     screen.blit(glow_surf, (eye_x - glow_size // 2, eye_y - glow_size // 2),
@@ -1013,7 +1025,7 @@ class HeroPaddleRenderer:
 
         # === 흑마법 오라 (배경 효과) ===
         aura_size = int(5 * b)
-        aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
+        aura_surf = self._get_surface(aura_size * 2, aura_size * 2)
         for i in range(4):
             aura_alpha = int(25 - i * 6)
             aura_r = int((2.2 - i * 0.4) * b)
@@ -1027,7 +1039,7 @@ class HeroPaddleRenderer:
             px = cx + int(math.cos(particle_angle) * particle_r) + lean_offset
             py = torso_y - int(0.5 * b) + int(math.sin(particle_angle * 2 + self.time) * 0.8 * b)
             particle_alpha = int(100 + 50 * math.sin(self.time * 3 + i))
-            particle_surf = pygame.Surface((int(0.3 * b), int(0.3 * b)), pygame.SRCALPHA)
+            particle_surf = self._get_surface(int(0.3 * b), int(0.3 * b))
             pygame.draw.circle(particle_surf, (*p["sand"], particle_alpha), (int(0.15 * b), int(0.15 * b)), max(1, int(0.1 * b)))
             screen.blit(particle_surf, (int(px - 0.15 * b), int(py - 0.15 * b)))
 
@@ -1115,7 +1127,7 @@ class HeroPaddleRenderer:
         gear_r = int(0.65 * b)
 
         # 톱니바퀴 글로우
-        glow_surf = pygame.Surface((int(1.8 * b), int(1.8 * b)), pygame.SRCALPHA)
+        glow_surf = self._get_surface(int(1.8 * b), int(1.8 * b))
         pygame.draw.circle(glow_surf, (*p["glow"], int(40 * time_pulse)), (int(0.9 * b), int(0.9 * b)), int(0.8 * b))
         screen.blit(glow_surf, (gear_cx - int(0.9 * b), gear_cy - int(0.9 * b)), special_flags=pygame.BLEND_ADD)
 
@@ -1341,7 +1353,7 @@ class HeroPaddleRenderer:
                 eye_r = max(2, int(0.18 * b))
 
                 # 눈 글로우
-                glow_surf = pygame.Surface((int(0.6 * b), int(0.6 * b)), pygame.SRCALPHA)
+                glow_surf = self._get_surface(int(0.6 * b), int(0.6 * b))
                 pygame.draw.circle(glow_surf, (*p["eye_glow"], int(50 * time_pulse)), (int(0.3 * b), int(0.3 * b)), int(0.25 * b))
                 screen.blit(glow_surf, (eye_x - int(0.3 * b), eye_y - int(0.3 * b)), special_flags=pygame.BLEND_ADD)
 
@@ -1481,7 +1493,7 @@ class HeroPaddleRenderer:
             pygame.draw.circle(screen, p["sand"], (staff_x + hg_ox, int(sand_particle_y) + hg_oy), 1)
 
         # 모래시계 글로우
-        glow_surf = pygame.Surface((int(1.5 * b), int(1.8 * b)), pygame.SRCALPHA)
+        glow_surf = self._get_surface(int(1.5 * b), int(1.8 * b))
         pygame.draw.ellipse(glow_surf, (*p["glow"], int(30 * time_pulse)), (0, 0, int(1.5 * b), int(1.8 * b)))
         screen.blit(glow_surf, (staff_x - int(0.75 * b) + hg_ox, hourglass_y - int(0.2 * b) + hg_oy), special_flags=pygame.BLEND_ADD)
 
@@ -1550,7 +1562,7 @@ class HeroPaddleRenderer:
 
         # === 지옥의 오라 (배경 효과) ===
         aura_size = int(5 * b)
-        aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
+        aura_surf = self._get_surface(aura_size * 2, aura_size * 2)
         for i in range(3):
             aura_alpha = int((20 - i * 6) * (0.7 + rage_pulse * 0.3))
             aura_r = int((2.0 - i * 0.5) * b)
@@ -1563,7 +1575,7 @@ class HeroPaddleRenderer:
             flame_y = torso_y - int(0.5 * b) - int(((self.time * 2 + i * 0.4) % 1) * 1.5 * b)
             flame_alpha = int(180 * (1 - ((self.time * 2 + i * 0.4) % 1)))
             flame_size = max(1, int(0.15 * b * (1 - ((self.time * 2 + i * 0.4) % 1))))
-            flame_surf = pygame.Surface((flame_size * 4, flame_size * 4), pygame.SRCALPHA)
+            flame_surf = self._get_surface(flame_size * 4, flame_size * 4)
             pygame.draw.circle(flame_surf, (*p["flame_inner"], flame_alpha), (flame_size * 2, flame_size * 2), flame_size)
             screen.blit(flame_surf, (int(flame_x) - flame_size * 2, int(flame_y) - flame_size * 2), special_flags=pygame.BLEND_ADD)
 
@@ -1860,7 +1872,7 @@ class HeroPaddleRenderer:
                 for glow_layer in range(3):
                     glow_r = int((1.5 - glow_layer * 0.4) * eye_r)
                     glow_alpha = int((40 - glow_layer * 12) * (0.7 + rage_pulse * 0.3))
-                    glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+                    glow_surf = self._get_surface(glow_r * 2, glow_r * 2)
                     pygame.draw.circle(glow_surf, (*p["eye_glow"], glow_alpha), (glow_r, glow_r), glow_r)
                     screen.blit(glow_surf, (eye_x - glow_r, eye_y - glow_r), special_flags=pygame.BLEND_ADD)
 
@@ -2061,7 +2073,7 @@ class HeroPaddleRenderer:
 
         # === 기묘한 오라 효과 ===
         aura_size = int(4.5 * b)
-        aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
+        aura_surf = self._get_surface(aura_size * 2, aura_size * 2)
         for i in range(3):
             aura_alpha = int((18 - i * 5) * eerie_pulse)
             aura_r = int((1.8 - i * 0.4) * b)
@@ -2300,7 +2312,7 @@ class HeroPaddleRenderer:
             puppet_tilt = math.sin(self.time * 2.5 + side) * 0.15
 
             # 인형 그림자
-            shadow_surf = pygame.Surface((int(0.8 * b), int(0.4 * b)), pygame.SRCALPHA)
+            shadow_surf = self._get_surface(int(0.8 * b), int(0.4 * b))
             pygame.draw.ellipse(shadow_surf, (0, 0, 0, 40), (0, 0, int(0.8 * b), int(0.4 * b)))
             screen.blit(shadow_surf, (puppet_x - int(0.4 * b), puppet_y + int(0.7 * b)))
 
@@ -2414,7 +2426,7 @@ class HeroPaddleRenderer:
             for side in [-1, 1]:
                 blush_x = face_rect.centerx + side * int(0.28 * b)
                 blush_y = face_rect.centery + int(0.15 * b)
-                blush_surf = pygame.Surface((int(0.25 * b), int(0.15 * b)), pygame.SRCALPHA)
+                blush_surf = self._get_surface(int(0.25 * b), int(0.15 * b))
                 pygame.draw.ellipse(blush_surf, (*p["skin_blush"][0:3], 80), (0, 0, int(0.25 * b), int(0.15 * b)))
                 screen.blit(blush_surf, (blush_x - int(0.125 * b), blush_y - int(0.075 * b)))
 
@@ -2557,7 +2569,7 @@ class HeroPaddleRenderer:
 
         # === 용의 오라 (불꽃 배경) ===
         aura_size = int(5 * b)
-        aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
+        aura_surf = self._get_surface(aura_size * 2, aura_size * 2)
         for i in range(4):
             aura_alpha = int((25 - i * 6) * (0.6 + flame_pulse * 0.4))
             aura_r = int((2.2 - i * 0.4) * b)
@@ -2570,7 +2582,7 @@ class HeroPaddleRenderer:
             ember_y = torso_y + int(1 * b) - int(((self.time * 1.5 + i * 0.3) % 1) * 3 * b)
             ember_alpha = int(200 * (1 - ((self.time * 1.5 + i * 0.3) % 1)))
             ember_size = max(1, int(0.1 * b * (1 - ((self.time * 1.5 + i * 0.3) % 1))))
-            ember_surf = pygame.Surface((ember_size * 4, ember_size * 4), pygame.SRCALPHA)
+            ember_surf = self._get_surface(ember_size * 4, ember_size * 4)
             ember_color = p["flame_core"] if i % 2 == 0 else p["flame"]
             pygame.draw.circle(ember_surf, (*ember_color, ember_alpha), (ember_size * 2, ember_size * 2), ember_size)
             screen.blit(ember_surf, (int(ember_x) - ember_size * 2, int(ember_y) - ember_size * 2), special_flags=pygame.BLEND_ADD)
@@ -2704,7 +2716,7 @@ class HeroPaddleRenderer:
 
         # 문양 글로우
         emblem_glow_size = int(1.2 * b)
-        emblem_glow = pygame.Surface((emblem_glow_size, emblem_glow_size), pygame.SRCALPHA)
+        emblem_glow = self._get_surface(emblem_glow_size, emblem_glow_size)
         pygame.draw.circle(emblem_glow, (*p["flame_edge"], int(50 * flame_pulse)), (emblem_glow_size // 2, emblem_glow_size // 2), emblem_glow_size // 2)
         screen.blit(emblem_glow, (emblem_cx - emblem_glow_size // 2, emblem_cy - emblem_glow_size // 2), special_flags=pygame.BLEND_ADD)
 
@@ -2936,7 +2948,7 @@ class HeroPaddleRenderer:
                     glow_w = int((0.6 - glow_layer * 0.15) * b)
                     glow_h = int((0.45 - glow_layer * 0.12) * b)
                     glow_alpha = int((80 - glow_layer * 25) * (0.6 + flame_pulse * 0.4))
-                    glow_surf = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+                    glow_surf = self._get_surface(glow_w, glow_h)
                     pygame.draw.ellipse(glow_surf, (*p["eye_glow"], glow_alpha), (0, 0, glow_w, glow_h))
                     screen.blit(glow_surf, (eye_x - glow_w // 2, eye_y - glow_h // 2), special_flags=pygame.BLEND_ADD)
 
@@ -2967,7 +2979,7 @@ class HeroPaddleRenderer:
             flame_y = torso_y + int(1.2 * b)
 
         # 불꽃 오라
-        flame_aura = pygame.Surface((int(1.5 * b), int(2 * b)), pygame.SRCALPHA)
+        flame_aura = self._get_surface(int(1.5 * b), int(2 * b))
         pygame.draw.ellipse(flame_aura, (*p["flame_edge"], int(40 * flame_pulse)), (0, 0, int(1.5 * b), int(2 * b)))
         screen.blit(flame_aura, (flame_x - int(0.75 * b), flame_y - int(1.5 * b)), special_flags=pygame.BLEND_ADD)
 
@@ -2983,7 +2995,7 @@ class HeroPaddleRenderer:
                 # 불꽃 글로우
                 if i < 3:
                     glow_size = f_size * 3
-                    glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+                    glow_surf = self._get_surface(glow_size, glow_size)
                     pygame.draw.circle(glow_surf, (*p["flame_mid"], 100), (glow_size // 2, glow_size // 2), glow_size // 2)
                     screen.blit(glow_surf, (f_x - glow_size // 2, f_y - glow_size // 2), special_flags=pygame.BLEND_ADD)
 
@@ -3050,7 +3062,7 @@ class HeroPaddleRenderer:
 
         # === 증기 오라 효과 ===
         aura_size = int(4 * b)
-        aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
+        aura_surf = self._get_surface(aura_size * 2, aura_size * 2)
         for i in range(3):
             aura_alpha = int((15 - i * 4) * mech_pulse)
             aura_r = int((1.6 - i * 0.4) * b)
@@ -3394,7 +3406,7 @@ class HeroPaddleRenderer:
                 # 렌즈
                 pygame.draw.circle(screen, p["eye"], (goggle_x, goggle_y), goggle_r - 2)
                 # 렌즈 글로우
-                glow_surf = pygame.Surface((goggle_r * 2, goggle_r * 2), pygame.SRCALPHA)
+                glow_surf = self._get_surface(goggle_r * 2, goggle_r * 2)
                 pygame.draw.circle(glow_surf, (*p["eye_glow"], int(40 * mech_pulse)), (goggle_r, goggle_r), goggle_r - 3)
                 screen.blit(glow_surf, (goggle_x - goggle_r, goggle_y - goggle_r), special_flags=pygame.BLEND_ADD)
                 # 반사광
@@ -3475,7 +3487,7 @@ class HeroPaddleRenderer:
                 steam_alpha = max(0, int(120 - i * 25 - ((self.time * 2.5) % 1) * 50))
 
                 if steam_size > 0 and steam_alpha > 0:
-                    steam_surf = pygame.Surface((steam_size * 3, steam_size * 3), pygame.SRCALPHA)
+                    steam_surf = self._get_surface(steam_size * 3, steam_size * 3)
                     steam_color = p["steam_hot"] if i < 2 else p["steam"]
                     pygame.draw.circle(steam_surf, (*steam_color, steam_alpha), (steam_size * 3 // 2, steam_size * 3 // 2), steam_size)
                     screen.blit(steam_surf, (sx - steam_size * 3 // 2, sy - steam_size * 3 // 2))
@@ -3534,7 +3546,7 @@ class HeroPaddleRenderer:
         # === 그림자 오라 (닌술 에너지) ===
         shadow_pulse = math.sin(self.time * 3) * 0.15 + 0.85
         aura_size = int(5.5 * b * shadow_pulse)
-        aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
+        aura_surf = self._get_surface(aura_size * 2, aura_size * 2)
         # 다중 레이어 그림자 오라
         for i in range(4):
             layer_size = aura_size - i * int(0.4 * b)
@@ -3552,7 +3564,7 @@ class HeroPaddleRenderer:
             particle_alpha = int(60 * (1 - particle_phase / 4))
             particle_size = int(0.3 * b * (1 - particle_phase / 6))
             if particle_size > 0 and particle_alpha > 0:
-                ps = pygame.Surface((particle_size * 2, particle_size * 2), pygame.SRCALPHA)
+                ps = self._get_surface(particle_size * 2, particle_size * 2)
                 pygame.draw.circle(ps, (*p["smoke"], particle_alpha), (particle_size, particle_size), particle_size)
                 screen.blit(ps, (particle_x - particle_size, particle_y - particle_size))
 
@@ -3678,7 +3690,7 @@ class HeroPaddleRenderer:
         shuriken_y = belt_rect.centery
         shuriken_rotation = self.time * 3
         # 수리검 글로우
-        shuriken_glow = pygame.Surface((int(0.8 * b), int(0.8 * b)), pygame.SRCALPHA)
+        shuriken_glow = self._get_surface(int(0.8 * b), int(0.8 * b))
         pygame.draw.circle(shuriken_glow, (*p["metal_light"], 30), (int(0.4 * b), int(0.4 * b)), int(0.35 * b))
         screen.blit(shuriken_glow, (shuriken_x - int(0.4 * b), shuriken_y - int(0.4 * b)), special_flags=pygame.BLEND_ADD)
         # 수리검 날 (4개)
@@ -3748,7 +3760,7 @@ class HeroPaddleRenderer:
                 kunai_handle = wrist
                 kunai_tip = (int(wrist[0] + int(0.75 * b)), int(wrist[1] + int(0.25 * b)))
                 # 쿠나이 글로우
-                kunai_glow = pygame.Surface((int(1.2 * b), int(0.6 * b)), pygame.SRCALPHA)
+                kunai_glow = self._get_surface(int(1.2 * b), int(0.6 * b))
                 pygame.draw.ellipse(kunai_glow, (*p["chakra_glow"], 35), (0, 0, int(1.2 * b), int(0.6 * b)))
                 screen.blit(kunai_glow, (wrist[0] - int(0.1 * b), wrist[1] - int(0.15 * b)), special_flags=pygame.BLEND_ADD)
                 # 쿠나이 본체
@@ -3840,7 +3852,7 @@ class HeroPaddleRenderer:
                 for glow_i in range(3):
                     glow_size = int((0.4 + glow_i * 0.15) * b)
                     glow_alpha = 45 - glow_i * 12
-                    glow_surf = pygame.Surface((glow_size, int(glow_size * 0.6)), pygame.SRCALPHA)
+                    glow_surf = self._get_surface(glow_size, int(glow_size * 0.6))
                     pygame.draw.ellipse(glow_surf, (*p["eye_glow"], glow_alpha), (0, 0, glow_size, int(glow_size * 0.6)))
                     screen.blit(glow_surf, (eye_x - glow_size // 2, eye_y - int(glow_size * 0.3)), special_flags=pygame.BLEND_ADD)
 
@@ -3877,7 +3889,7 @@ class HeroPaddleRenderer:
         shadow_y = cy + int(2.85 * b)
         shadow_w = int(1.8 * b) + int(abs(wave) * 0.35 * b)
         shadow_h = int(0.4 * b)
-        shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
+        shadow_surf = self._get_surface(shadow_w, shadow_h)
         # 다중 레이어 그림자
         pygame.draw.ellipse(shadow_surf, (*p["shadow_deep"], 50), (0, 0, shadow_w, shadow_h))
         pygame.draw.ellipse(shadow_surf, (*p["shadow"], 70),
@@ -3888,7 +3900,7 @@ class HeroPaddleRenderer:
         if abs(wave) > 0.3:
             afterimage_alpha = int(abs(wave) * 40)
             afterimage_offset = -int(wave * 0.5 * b)
-            afterimage_surf = pygame.Surface((int(2.5 * b), int(5 * b)), pygame.SRCALPHA)
+            afterimage_surf = self._get_surface(int(2.5 * b), int(5 * b))
             # 실루엣만 그리기 (간략화)
             pygame.draw.ellipse(afterimage_surf, (*p["shadow"], afterimage_alpha),
                               (int(0.25 * b), 0, int(2 * b), int(1.8 * b)))  # 머리

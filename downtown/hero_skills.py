@@ -33,6 +33,19 @@ except ImportError:
 # 스킬 시스템 사용 가능 플래그
 HERO_SKILLS_AVAILABLE = True
 
+# === 전체화면 Surface 캐시 (최적화) ===
+# 매 프레임 pygame.Surface((760, 750), pygame.SRCALPHA) 반복 생성 방지
+_fullscreen_surface = None
+
+def _get_fullscreen_surface():
+    """760x750 SRCALPHA Surface를 캐싱하여 재사용"""
+    global _fullscreen_surface
+    if _fullscreen_surface is None:
+        _fullscreen_surface = pygame.Surface((760, 750), pygame.SRCALPHA)
+    else:
+        _fullscreen_surface.fill((0, 0, 0, 0))
+    return _fullscreen_surface
+
 # ============================================================================
 # 스킬 발동 조건
 # ============================================================================
@@ -395,7 +408,7 @@ class DarkSlash(HeroSkill):
 
             # 어둠 오버레이 (정지 중)
             if self.phase == self.PHASE_FREEZE:
-                darkness = pygame.Surface((760, 750), pygame.SRCALPHA)
+                darkness = _get_fullscreen_surface()
                 # 맥동하는 어둠
                 pulse = 0.6 + 0.2 * math.sin(self.freeze_flash_timer * 8)
                 darkness.fill((5, 0, 20, int(200 * pulse)))
@@ -437,7 +450,7 @@ class DarkSlash(HeroSkill):
                 for glow in range(5):
                     glow_width = 12 - glow * 2
                     alpha = 200 - glow * 40
-                    glow_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
+                    glow_surf = _get_fullscreen_surface()
 
                     # 그라데이션 색상
                     if glow < 2:
@@ -471,7 +484,7 @@ class DarkSlash(HeroSkill):
                 # 잔상 글로우
                 pulse = 0.7 + 0.3 * math.sin(self.freeze_flash_timer * 10)
                 for glow in range(3):
-                    glow_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
+                    glow_surf = _get_fullscreen_surface()
                     alpha = max(0, min(255, int((120 - glow * 40) * pulse)))
                     pygame.draw.line(glow_surf, (200, 150, 255, alpha),
                                    (start_x, start_y), (end_x, end_y), 8 - glow * 2)
@@ -2099,7 +2112,7 @@ class GravityControl(HeroSkill):
             return
 
         # 어두운 보라색 오버레이 (중력장 분위기)
-        overlay = pygame.Surface((760, 750), pygame.SRCALPHA)
+        overlay = _get_fullscreen_surface()
         overlay.fill((60, 40, 100, 30))
         screen.blit(overlay, (0, 0))
 
@@ -2825,7 +2838,7 @@ class HellFire(HeroSkill):
         # === 정지 중 이펙트 ===
         if self.phase == self.PHASE_FREEZE:
             # 어두운 푸른 오버레이 (맥동)
-            darkness = pygame.Surface((760, 750), pygame.SRCALPHA)
+            darkness = _get_fullscreen_surface()
             pulse = 0.5 + 0.3 * math.sin(self.glitch_timer * 8)
             darkness.fill((0, 10, 30, int(180 * pulse)))
             screen.blit(darkness, (0, 0))
@@ -2854,7 +2867,7 @@ class HellFire(HeroSkill):
         elif self.phase == self.PHASE_ACTIVE:
             # 화면 푸른 틴트
             if self.flame_intensity > 0:
-                overlay = pygame.Surface((760, 750), pygame.SRCALPHA)
+                overlay = _get_fullscreen_surface()
                 overlay.fill((50, 150, 255, int(30 * self.flame_intensity)))
                 screen.blit(overlay, (0, 0))
 
@@ -3842,7 +3855,7 @@ class DollCurse(HeroSkill):
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if self.is_active:
             # 저주 오버레이
-            overlay = pygame.Surface((760, 750), pygame.SRCALPHA)
+            overlay = _get_fullscreen_surface()
             overlay.fill((100, 30, 60, 30))
             screen.blit(overlay, (0, 0))
 
@@ -3957,8 +3970,8 @@ class DollCurse(HeroSkill):
                         light_pulse = 0.6 + 0.4 * math.sin(time_tick * 0.006 + guardian['wobble'])
                         light_alpha = int(40 * spawn_alpha * light_pulse)
 
-                        # 빛 서피스 생성 (전체 화면 크기)
-                        light_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
+                        # 빛 서피스 생성 (전체 화면 크기, 캐시 재사용)
+                        light_surf = _get_fullscreen_surface()
 
                         # 외부 빛 (연한 빨간색)
                         points = [(int(p1[0]), int(p1[1])), (int(p2[0]), int(p2[1])),
@@ -7700,7 +7713,7 @@ class HeroSkillManager:
                 alpha = max(0, min(255, alpha))  # 유효 범위로 제한
                 if alpha <= 0:
                     continue
-                flash_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
+                flash_surf = _get_fullscreen_surface()
                 color = effect.get('color', (255, 255, 255))
                 flash_surf.fill((*color, alpha))
                 screen.blit(flash_surf, (0, 0))

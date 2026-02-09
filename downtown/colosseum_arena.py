@@ -38,6 +38,31 @@ PADDLE_HEIGHT = 12
 BALL_SIZE = 10
 WIN_SCORE = 5  # 5점 선취 승리
 
+# === Surface 캐시 (최적화) ===
+# 매 프레임 반복 생성되는 Surface를 크기별로 캐싱하여 재사용
+_arena_surface_cache = {}
+_arena_fullscreen_surface = None
+
+def _get_arena_surface(w, h):
+    """크기별 SRCALPHA Surface 캐시 재사용 (매 프레임 재생성 방지)"""
+    w = max(4, ((w + 3) // 4) * 4)
+    h = max(4, ((h + 3) // 4) * 4)
+    key = (w, h)
+    if key not in _arena_surface_cache:
+        _arena_surface_cache[key] = pygame.Surface((w, h), pygame.SRCALPHA)
+    else:
+        _arena_surface_cache[key].fill((0, 0, 0, 0))
+    return _arena_surface_cache[key]
+
+def _get_arena_fullscreen():
+    """760x750 전체화면 SRCALPHA Surface 캐싱 재사용"""
+    global _arena_fullscreen_surface
+    if _arena_fullscreen_surface is None:
+        _arena_fullscreen_surface = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+    else:
+        _arena_fullscreen_surface.fill((0, 0, 0, 0))
+    return _arena_fullscreen_surface
+
 # 물리 상수 (실제 게임과 동일)
 BALL_BASE_SPEED = 7.0       # 기본 공 속도
 BALL_MAX_SPEED = 15.0       # 최대 공 속도
@@ -771,7 +796,7 @@ class AIPaddleController:
             # 잔상 표면 생성
             trail_w = int(PADDLE_WIDTH * 0.9)
             trail_h = int(PADDLE_HEIGHT * 1.5)
-            trail_surf = pygame.Surface((trail_w, trail_h), pygame.SRCALPHA)
+            trail_surf = _get_arena_surface(trail_w, trail_h)
             pygame.draw.ellipse(trail_surf, (*color, int(alpha * 0.7)),
                                (0, 0, trail_w, trail_h))
             screen.blit(trail_surf, (int(x - trail_w // 2), int(y - trail_h // 2)))
@@ -782,7 +807,7 @@ class AIPaddleController:
             for i in range(3):
                 offset = (3 - i) * 8 * (-self.dash_direction)
                 alpha = 100 - i * 30
-                line_surface = pygame.Surface((4, PADDLE_HEIGHT), pygame.SRCALPHA)
+                line_surface = _get_arena_surface(4, PADDLE_HEIGHT)
                 line_surface.fill((255, 255, 255, alpha))
                 screen.blit(line_surface, (int(self.x + offset), int(self.y)))
 
@@ -1030,7 +1055,7 @@ class BallSpawnAnimation:
 
             size = int(p['size'])
             if size > 0:
-                surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                surf = _get_arena_surface(size * 2, size * 2)
                 alpha = min(255, int(200 * (p['size'] / 5)))
                 pygame.draw.circle(surf, (r, g, b, alpha), (size, size), size)
                 screen.blit(surf, (int(p['x']) - size, int(p['y']) - size), special_flags=pygame.BLEND_ADD)
@@ -1038,7 +1063,7 @@ class BallSpawnAnimation:
         # 중앙 글로우
         if self.phase >= 1:
             glow_size = 40 + int(20 * math.sin(self.timer * 10))
-            glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+            glow_surf = _get_arena_surface(glow_size * 2, glow_size * 2)
             for r in range(glow_size, 0, -5):
                 alpha = int(30 * self.ball_alpha / 255 * (r / glow_size))
                 pygame.draw.circle(glow_surf, (255, 220, 100, alpha), (glow_size, glow_size), r)
@@ -1052,7 +1077,7 @@ class BallSpawnAnimation:
                              (int(self.center_x) + 2, int(self.center_y) + 3), BALL_SIZE)
             # 공 본체
             ball_color = (255, 255, 255, self.ball_alpha)
-            ball_surf = pygame.Surface((BALL_SIZE * 2 + 4, BALL_SIZE * 2 + 4), pygame.SRCALPHA)
+            ball_surf = _get_arena_surface(BALL_SIZE * 2 + 4, BALL_SIZE * 2 + 4)
             pygame.draw.circle(ball_surf, ball_color, (BALL_SIZE + 2, BALL_SIZE + 2), BALL_SIZE)
             screen.blit(ball_surf, (int(self.center_x) - BALL_SIZE - 2, int(self.center_y) - BALL_SIZE - 2))
             # 하이라이트
@@ -1875,7 +1900,7 @@ class GuardWarriorSystem:
             by = int(y - bh // 2)
 
             # 말풍선 서피스 (반투명)
-            bubble_surf = pygame.Surface((bw, bh), pygame.SRCALPHA)
+            bubble_surf = _get_arena_surface(bw, bh)
             a = min(alpha, 220)
             pygame.draw.rect(bubble_surf, (30, 20, 50, a), bubble_surf.get_rect(), border_radius=8)
             pygame.draw.rect(bubble_surf, (200, 170, 80, a), bubble_surf.get_rect(), width=2, border_radius=8)
@@ -1896,7 +1921,7 @@ class GuardWarriorSystem:
         color = guard_hero.get("color", (200, 200, 200))
 
         # 글로우 효과 (반투명 원)
-        glow_surf = pygame.Surface((80, 80), pygame.SRCALPHA)
+        glow_surf = _get_arena_surface(80, 80)
         glow_alpha = 60
         # 시전 중이면 글로우 강화
         phase = self.phase_top if is_top else self.phase_bottom
@@ -1933,8 +1958,8 @@ class GuardWarriorSystem:
             name_rect = name_surf.get_rect(centerx=ix, top=iy + 28)
             # 배경 박스
             bg_rect = name_rect.inflate(8, 4)
-            bg_surf = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
-            pygame.draw.rect(bg_surf, (0, 0, 0, 150), bg_surf.get_rect(), border_radius=3)
+            bg_surf = _get_arena_surface(bg_rect.width, bg_rect.height)
+            pygame.draw.rect(bg_surf, (0, 0, 0, 150), (0, 0, bg_rect.width, bg_rect.height), border_radius=3)
             screen.blit(bg_surf, bg_rect)
             screen.blit(name_surf, name_rect)
         except Exception:
@@ -2017,9 +2042,9 @@ class GuardWarriorSystem:
                 slot_cy = y_start_top + i * slot_h
 
                 # 배경 프레임 (메탈릭 실버)
-                frame_surf = pygame.Surface((frame_w, frame_h), pygame.SRCALPHA)
-                pygame.draw.rect(frame_surf, bg_color, frame_surf.get_rect(), border_radius=8)
-                pygame.draw.rect(frame_surf, border_color, frame_surf.get_rect(), width=2, border_radius=8)
+                frame_surf = _get_arena_surface(frame_w, frame_h)
+                pygame.draw.rect(frame_surf, bg_color, (0, 0, frame_w, frame_h), border_radius=8)
+                pygame.draw.rect(frame_surf, border_color, (0, 0, frame_w, frame_h), width=2, border_radius=8)
                 screen.blit(frame_surf, (frame_x_right, slot_cy))
 
                 # 영웅 캐릭터 이미지 (프레임 중앙 정렬)
@@ -2033,7 +2058,7 @@ class GuardWarriorSystem:
                     cd_ratio = min(1.0, self.cooldown_top / self.cooldown_range[1])
                     overlay_h = int(frame_h * cd_ratio)
                     if overlay_h > 0:
-                        cd_surf = pygame.Surface((frame_w, overlay_h), pygame.SRCALPHA)
+                        cd_surf = _get_arena_surface(frame_w, overlay_h)
                         cd_surf.fill((0, 0, 0, 150))
                         screen.blit(cd_surf, (frame_x_right, slot_cy))
 
@@ -2044,7 +2069,7 @@ class GuardWarriorSystem:
                     ay = slot_cy + frame_h // 2
                     pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() / 300.0)
                     a_alpha = int(160 + 80 * pulse)
-                    arrow_s = pygame.Surface((10, 14), pygame.SRCALPHA)
+                    arrow_s = _get_arena_surface(10, 14)
                     ac = (*arrow_color[:3], a_alpha)
                     pygame.draw.polygon(arrow_s, ac, [(10, 7), (0, 0), (0, 14)])
                     screen.blit(arrow_s, (ax, ay - 7))
@@ -2055,8 +2080,8 @@ class GuardWarriorSystem:
                     name_surf = name_font.render(name, True, label_text_color)
                     name_rect = name_surf.get_rect(centerx=cx_right, top=slot_cy + frame_h + 2)
                     bg_rect = name_rect.inflate(8, 4)
-                    bg_s = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
-                    pygame.draw.rect(bg_s, label_bg, bg_s.get_rect(), border_radius=4)
+                    bg_s = _get_arena_surface(bg_rect.width, bg_rect.height)
+                    pygame.draw.rect(bg_s, label_bg, (0, 0, bg_rect.width, bg_rect.height), border_radius=4)
                     screen.blit(bg_s, bg_rect)
                     screen.blit(name_surf, name_rect)
                 except Exception:
@@ -2075,9 +2100,9 @@ class GuardWarriorSystem:
                 slot_cy = y_start_bottom + i * slot_h
 
                 # 배경 프레임 (메탈릭 실버)
-                frame_surf = pygame.Surface((frame_w, frame_h), pygame.SRCALPHA)
-                pygame.draw.rect(frame_surf, bg_color, frame_surf.get_rect(), border_radius=8)
-                pygame.draw.rect(frame_surf, border_color, frame_surf.get_rect(), width=2, border_radius=8)
+                frame_surf = _get_arena_surface(frame_w, frame_h)
+                pygame.draw.rect(frame_surf, bg_color, (0, 0, frame_w, frame_h), border_radius=8)
+                pygame.draw.rect(frame_surf, border_color, (0, 0, frame_w, frame_h), width=2, border_radius=8)
                 screen.blit(frame_surf, (frame_x_left, slot_cy))
 
                 # 영웅 캐릭터 이미지 (프레임 중앙 정렬)
@@ -2091,7 +2116,7 @@ class GuardWarriorSystem:
                     cd_ratio = min(1.0, self.cooldown_bottom / self.cooldown_range[1])
                     overlay_h = int(frame_h * cd_ratio)
                     if overlay_h > 0:
-                        cd_surf = pygame.Surface((frame_w, overlay_h), pygame.SRCALPHA)
+                        cd_surf = _get_arena_surface(frame_w, overlay_h)
                         cd_surf.fill((0, 0, 0, 150))
                         screen.blit(cd_surf, (frame_x_left, slot_cy))
 
@@ -2102,7 +2127,7 @@ class GuardWarriorSystem:
                     ay = slot_cy + frame_h // 2
                     pulse = 0.5 + 0.5 * math.sin(pygame.time.get_ticks() / 300.0)
                     a_alpha = int(160 + 80 * pulse)
-                    arrow_s = pygame.Surface((10, 14), pygame.SRCALPHA)
+                    arrow_s = _get_arena_surface(10, 14)
                     ac = (*arrow_color[:3], a_alpha)
                     pygame.draw.polygon(arrow_s, ac, [(0, 7), (10, 0), (10, 14)])
                     screen.blit(arrow_s, (ax, ay - 7))
@@ -2113,8 +2138,8 @@ class GuardWarriorSystem:
                     name_surf = name_font.render(name, True, label_text_color)
                     name_rect = name_surf.get_rect(centerx=cx_left, top=slot_cy + frame_h + 2)
                     bg_rect = name_rect.inflate(8, 4)
-                    bg_s = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
-                    pygame.draw.rect(bg_s, label_bg, bg_s.get_rect(), border_radius=4)
+                    bg_s = _get_arena_surface(bg_rect.width, bg_rect.height)
+                    pygame.draw.rect(bg_s, label_bg, (0, 0, bg_rect.width, bg_rect.height), border_radius=4)
                     screen.blit(bg_s, bg_rect)
                     screen.blit(name_surf, name_rect)
                 except Exception:
@@ -2127,7 +2152,7 @@ class GuardWarriorSystem:
         if self.hero_paddle_renderer:
             try:
                 # 소형 투명 서피스에 캐릭터를 중앙에 그림
-                char_surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+                char_surf = _get_arena_surface(surf_w, surf_h)
                 self.hero_paddle_renderer.draw_hero_paddle(
                     char_surf, guard_hero["id"],
                     surf_w // 2, surf_h // 2,
@@ -3002,7 +3027,7 @@ class ColosseumsArena:
             bubble_x = max(GAME_AREA_X + 5, min(bubble_x, GAME_AREA_X + GAME_AREA_WIDTH - bubble_width - 5))
 
             # 말풍선 표면 생성
-            bubble_surface = pygame.Surface((bubble_width + 15, bubble_height + 25), pygame.SRCALPHA)
+            bubble_surface = _get_arena_surface(bubble_width + 15, bubble_height + 25)
 
             # 그림자
             shadow_rect = pygame.Rect(3, 3, bubble_width, bubble_height)
@@ -3666,18 +3691,18 @@ class ColosseumsArena:
         al = int(120 * pulse)
 
         # 글로우
-        glow_surf = pygame.Surface((rect_w + 12, rect_h + 12), pygame.SRCALPHA)
+        glow_surf = _get_arena_surface(rect_w + 12, rect_h + 12)
         pygame.draw.rect(glow_surf, (*color, al // 3), (0, 0, rect_w + 12, rect_h + 12), border_radius=10)
         self.screen.blit(glow_surf, (rect_x - 6, rect_y - 6))
 
         # 보더
-        border_surf = pygame.Surface((rect_w + 4, rect_h + 4), pygame.SRCALPHA)
+        border_surf = _get_arena_surface(rect_w + 4, rect_h + 4)
         pygame.draw.rect(border_surf, (*color, al), (0, 0, rect_w + 4, rect_h + 4), 2, border_radius=10)
         self.screen.blit(border_surf, (rect_x - 2, rect_y - 2))
 
         # 코너 라인 악센트
         ln = int(14 + 4 * pulse); la = int(200 * pulse)
-        lsf = pygame.Surface((rect_w + 20, rect_h + 20), pygame.SRCALPHA)
+        lsf = _get_arena_surface(rect_w + 20, rect_h + 20)
         ox, oy = 10, 10
         for c, he, ve in [((ox,oy),(ox+ln,oy),(ox,oy+ln)),((ox+rect_w,oy),(ox+rect_w-ln,oy),(ox+rect_w,oy+ln)),((ox,oy+rect_h),(ox+ln,oy+rect_h),(ox,oy+rect_h-ln)),((ox+rect_w,oy+rect_h),(ox+rect_w-ln,oy+rect_h),(ox+rect_w,oy+rect_h-ln))]:
             pygame.draw.line(lsf, (*color, la), c, he, 2)
@@ -3687,7 +3712,7 @@ class ColosseumsArena:
         # 파티클
         for p in self.hover_line_particles:
             if p['alpha'] > 3:
-                ps = pygame.Surface((3, 3), pygame.SRCALPHA)
+                ps = _get_arena_surface(3, 3)
                 pygame.draw.circle(ps, (*p['color'], int(p['alpha'])), (1, 1), 1)
                 self.screen.blit(ps, (int(p['x']) - 1, int(p['y']) - 1))
 
@@ -3748,7 +3773,7 @@ class ColosseumsArena:
             continue_rect = pygame.Rect(SCREEN_WIDTH // 2 - btn_w - 20, btn_y, btn_w, btn_h)
             if cont_hovered:
                 self._draw_hover_border(continue_rect.x, continue_rect.y, continue_rect.w, continue_rect.h, (100, 255, 100))
-            btn_surf = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
+            btn_surf = _get_arena_surface(btn_w, btn_h)
             cont_bg = (100, 210, 100, btn_alpha) if cont_hovered else (80, 180, 80, btn_alpha)
             pygame.draw.rect(btn_surf, cont_bg, (0, 0, btn_w, btn_h), border_radius=5)
             self.screen.blit(btn_surf, continue_rect.topleft)
@@ -3763,7 +3788,7 @@ class ColosseumsArena:
             exit_rect = pygame.Rect(SCREEN_WIDTH // 2 + 20, btn_y, btn_w, btn_h)
             if vs_exit_hovered:
                 self._draw_hover_border(exit_rect.x, exit_rect.y, exit_rect.w, exit_rect.h, (150, 150, 255))
-            btn_surf = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
+            btn_surf = _get_arena_surface(btn_w, btn_h)
             exit_bg = (120, 120, 210, btn_alpha) if vs_exit_hovered else (100, 100, 180, btn_alpha)
             pygame.draw.rect(btn_surf, exit_bg, (0, 0, btn_w, btn_h), border_radius=5)
             self.screen.blit(btn_surf, exit_rect.topleft)
@@ -3853,7 +3878,7 @@ class ColosseumsArena:
 
                 # 스턴 표시
                 if self.top_paddle.is_stunned:
-                    stun_surf = pygame.Surface((scaled_width + 10, PADDLE_HEIGHT + 10), pygame.SRCALPHA)
+                    stun_surf = _get_arena_surface(scaled_width + 10, PADDLE_HEIGHT + 10)
                     pygame.draw.rect(stun_surf, (255, 255, 0, 100), stun_surf.get_rect(), border_radius=6)
                     self.screen.blit(stun_surf, (scaled_rect.x - 5, scaled_rect.y - 5))
 
@@ -3889,7 +3914,7 @@ class ColosseumsArena:
 
                 # 스턴 표시
                 if self.bottom_paddle.is_stunned:
-                    stun_surf = pygame.Surface((scaled_width + 10, PADDLE_HEIGHT + 10), pygame.SRCALPHA)
+                    stun_surf = _get_arena_surface(scaled_width + 10, PADDLE_HEIGHT + 10)
                     pygame.draw.rect(stun_surf, (255, 255, 0, 100), stun_surf.get_rect(), border_radius=6)
                     self.screen.blit(stun_surf, (scaled_rect.x - 5, scaled_rect.y - 5))
 
@@ -3911,20 +3936,20 @@ class ColosseumsArena:
                 if trail_alpha > 10:
                     trail_size = int(BALL_SIZE * 0.7 * alpha)
                     if trail_size > 1:
-                        trail_surf = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
+                        trail_surf = _get_arena_surface(trail_size * 2, trail_size * 2)
                         pygame.draw.circle(trail_surf, (255, 255, 200, trail_alpha),
                                           (trail_size, trail_size), trail_size)
                         self.screen.blit(trail_surf, (int(tx) + shake_x - trail_size, int(ty) + shake_y - trail_size))
 
             # 불 효과 (스킬)
             if self.skill_manager and self.skill_manager.game_state.get('ball_on_fire', False):
-                fire_glow = pygame.Surface((BALL_SIZE * 4, BALL_SIZE * 4), pygame.SRCALPHA)
+                fire_glow = _get_arena_surface(BALL_SIZE * 4, BALL_SIZE * 4)
                 pygame.draw.circle(fire_glow, (255, 100, 0, 100), (BALL_SIZE * 2, BALL_SIZE * 2), BALL_SIZE * 2)
                 self.screen.blit(fire_glow, (ball_x - BALL_SIZE * 2, ball_y - BALL_SIZE * 2), special_flags=pygame.BLEND_ADD)
 
             # 성스러운 공 효과 (스팀 배리어)
             if self.skill_manager and self.skill_manager.game_state.get('ball_holy', False):
-                holy_glow = pygame.Surface((BALL_SIZE * 5, BALL_SIZE * 5), pygame.SRCALPHA)
+                holy_glow = _get_arena_surface(BALL_SIZE * 5, BALL_SIZE * 5)
                 pygame.draw.circle(holy_glow, (255, 215, 80, 70), (BALL_SIZE * 5 // 2, BALL_SIZE * 5 // 2), BALL_SIZE * 5 // 2)
                 pygame.draw.circle(holy_glow, (255, 240, 180, 100), (BALL_SIZE * 5 // 2, BALL_SIZE * 5 // 2), BALL_SIZE * 2)
                 self.screen.blit(holy_glow, (ball_x - BALL_SIZE * 5 // 2, ball_y - BALL_SIZE * 5 // 2), special_flags=pygame.BLEND_ADD)
@@ -3950,7 +3975,7 @@ class ColosseumsArena:
             if speed > 10:
                 glow_intensity = min(1.0, (speed - 10) / 5)
                 glow_size = int(BALL_SIZE * 1.5 + glow_intensity * 5)
-                glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                glow_surf = _get_arena_surface(glow_size * 2, glow_size * 2)
                 glow_alpha = int(50 * glow_intensity)
                 pygame.draw.circle(glow_surf, (255, 200, 100, glow_alpha),
                                   (glow_size, glow_size), glow_size)
@@ -4112,7 +4137,7 @@ class ColosseumsArena:
                 cooldown_ratio = skill.current_cooldown / skill.cooldown
                 overlay_height = int(icon_size * cooldown_ratio)
                 overlay_rect = pygame.Rect(x, y + (icon_size - overlay_height), icon_size, overlay_height)
-                overlay_surf = pygame.Surface((icon_size, overlay_height), pygame.SRCALPHA)
+                overlay_surf = _get_arena_surface(icon_size, overlay_height)
                 overlay_surf.fill((0, 0, 0, 150))
                 self.screen.blit(overlay_surf, (x, y + (icon_size - overlay_height)))
 
@@ -4125,7 +4150,7 @@ class ColosseumsArena:
 
             # 활성 중 표시
             if skill.is_active:
-                glow_surf = pygame.Surface((icon_size + 4, icon_size + 4), pygame.SRCALPHA)
+                glow_surf = _get_arena_surface(icon_size + 4, icon_size + 4)
                 pygame.draw.rect(glow_surf, (255, 255, 100, 150), glow_surf.get_rect(), border_radius=6)
                 self.screen.blit(glow_surf, (x - 2, y - 2))
 
@@ -4338,7 +4363,7 @@ class ColosseumsArena:
             return
 
         # 반투명 오버레이
-        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay = _get_arena_fullscreen()
         overlay.fill((0, 0, 0, 180))
         self.screen.blit(overlay, (0, 0))
 
@@ -4477,7 +4502,7 @@ class ColosseumsArena:
             return
 
         # 반투명 오버레이
-        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay = _get_arena_fullscreen()
         overlay.fill((0, 0, 0, 180))
         self.screen.blit(overlay, (0, 0))
 
@@ -4559,7 +4584,7 @@ class ColosseumsArena:
     def _draw_round_end_ui(self):
         """라운드 종료 UI - 누적 상금 시스템"""
         # 반투명 오버레이
-        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay = _get_arena_fullscreen()
         overlay.fill((0, 0, 0, 180))
         self.screen.blit(overlay, (0, 0))
 
@@ -4679,7 +4704,7 @@ class ColosseumsArena:
         # 방사형 빛줄기 (금색)
         if intro > 0.3:
             ray_alpha = int(30 * min(1.0, (intro - 0.3) * 2))
-            ray_surf = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+            ray_surf = _get_arena_fullscreen()
             num_rays = 12
             for i in range(num_rays):
                 angle = (i / num_rays) * math.pi * 2 + self.animation_timer * 0.3
@@ -4692,7 +4717,7 @@ class ColosseumsArena:
         stage_y = 540
         if intro > 0.2:
             stage_alpha = int(180 * min(1.0, (intro - 0.2) * 3))
-            stage_surf = pygame.Surface((SCREEN_WIDTH, 4), pygame.SRCALPHA)
+            stage_surf = _get_arena_surface(SCREEN_WIDTH, 4)
             for sx in range(SCREEN_WIDTH):
                 dist = abs(sx - center_x) / (SCREEN_WIDTH / 2)
                 a = int(stage_alpha * max(0, 1.0 - dist * 1.2))
@@ -4721,7 +4746,7 @@ class ColosseumsArena:
 
                 # 글로우
                 glow_a = int(40 * guard_fade)
-                glow_s = pygame.Surface((120, 120), pygame.SRCALPHA)
+                glow_s = _get_arena_surface(120, 120)
                 pygame.draw.circle(glow_s, (*g_color, glow_a), (60, 60), 55)
                 self.screen.blit(glow_s, (gx - 60, gy - 60))
 
@@ -4743,7 +4768,7 @@ class ColosseumsArena:
                 gy = int(guard_y_target + 100 * (1 - guard_eased))
                 g_color = g.get("color", (150, 150, 150))
 
-                glow_s = pygame.Surface((120, 120), pygame.SRCALPHA)
+                glow_s = _get_arena_surface(120, 120)
                 pygame.draw.circle(glow_s, (*g_color, glow_a), (60, 60), 55)
                 self.screen.blit(glow_s, (gx - 60, gy - 60))
 
@@ -4766,11 +4791,11 @@ class ColosseumsArena:
             glow_pulse = abs(math.sin(self.animation_timer * 2)) * 0.3 + 0.7
             glow_a = int(80 * min(1.0, (intro - 0.2) * 2) * glow_pulse)
             glow_r = 110
-            glow_s = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+            glow_s = _get_arena_surface(glow_r * 2, glow_r * 2)
             pygame.draw.circle(glow_s, (255, 215, 0, glow_a), (glow_r, glow_r), glow_r)
             self.screen.blit(glow_s, (center_x - glow_r, champ_y - glow_r))
             # 내부 캐릭터 색 글로우
-            glow_s2 = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+            glow_s2 = _get_arena_surface(glow_r * 2, glow_r * 2)
             pygame.draw.circle(glow_s2, (*champion_color, glow_a // 2), (glow_r, glow_r), glow_r - 20)
             self.screen.blit(glow_s2, (center_x - glow_r, champ_y - glow_r))
 
@@ -4790,7 +4815,7 @@ class ColosseumsArena:
             if trophy_size > 3:
                 # 트로피 받침대 빛
                 sparkle_a = int(60 * trophy_eased + abs(math.sin(self.animation_timer * 4)) * 40)
-                sparkle_s = pygame.Surface((80, 80), pygame.SRCALPHA)
+                sparkle_s = _get_arena_surface(80, 80)
                 pygame.draw.circle(sparkle_s, (255, 230, 100, sparkle_a), (40, 40), 35)
                 self.screen.blit(sparkle_s, (center_x - 40, trophy_y - 40))
                 self._draw_trophy_icon(center_x, trophy_y, trophy_size, (255, 215, 0))
@@ -4805,7 +4830,7 @@ class ColosseumsArena:
                 pulse = abs(math.sin(self.animation_timer * 3)) * 0.3 + 0.7
                 gold = (int(255 * pulse), int(215 * pulse), 0)
                 surf, _ = self.fonts["large"].render("토너먼트 우승!", gold)
-                alpha_s = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+                alpha_s = _get_arena_surface(*surf.get_size())
                 alpha_s.fill((255, 255, 255, text_alpha))
                 surf.blit(alpha_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                 title_x = center_x - surf.get_width() // 2
@@ -4825,7 +4850,7 @@ class ColosseumsArena:
                     min(255, champion_color[2] + 100)
                 )
                 surf, _ = self.fonts["large"].render(champion_name, name_color)
-                alpha_s = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+                alpha_s = _get_arena_surface(*surf.get_size())
                 alpha_s.fill((255, 255, 255, text_alpha))
                 surf.blit(alpha_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                 self.screen.blit(surf, (center_x - surf.get_width() // 2, champ_y - champ_h // 2 - 30))
@@ -4833,7 +4858,7 @@ class ColosseumsArena:
             # 칭호
             if "small" in self.fonts and champion_title:
                 surf, _ = self.fonts["small"].render(champion_title, (200, 200, 200))
-                alpha_s = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+                alpha_s = _get_arena_surface(*surf.get_size())
                 alpha_s.fill((255, 255, 255, text_alpha))
                 surf.blit(alpha_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                 self.screen.blit(surf, (center_x - surf.get_width() // 2, champ_y + champ_h // 2 + 12))
@@ -4843,7 +4868,7 @@ class ColosseumsArena:
                 guide_alpha = int(255 * min(1.0, (text_fade - 0.6) * 3))
                 guide_text = "보상을 선택하세요!"
                 surf, _ = self.fonts["medium"].render(guide_text, (255, 215, 0))
-                alpha_s = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+                alpha_s = _get_arena_surface(*surf.get_size())
                 alpha_s.fill((255, 255, 255, guide_alpha))
                 surf.blit(alpha_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                 self.screen.blit(surf, (center_x - surf.get_width() // 2, 555))
@@ -4860,7 +4885,7 @@ class ColosseumsArena:
             gold_rect = pygame.Rect(center_x - btn_w - 15, btn_y, btn_w, btn_h)
             if gold_hovered:
                 self._draw_hover_border(gold_rect.x, gold_rect.y, gold_rect.w, gold_rect.h, (100, 255, 100))
-            gold_surf = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
+            gold_surf = _get_arena_surface(btn_w, btn_h)
             gold_bg = (80, 170, 80, btn_alpha) if gold_hovered else (60, 140, 60, btn_alpha)
             gold_border = (130, 255, 130, btn_alpha) if gold_hovered else (100, 255, 100, btn_alpha)
             pygame.draw.rect(gold_surf, gold_bg, (0, 0, btn_w, btn_h), border_radius=6)
@@ -4879,7 +4904,7 @@ class ColosseumsArena:
             hero_rect = pygame.Rect(center_x + 15, btn_y, btn_w, btn_h)
             if recruit_hovered:
                 self._draw_hover_border(hero_rect.x, hero_rect.y, hero_rect.w, hero_rect.h, (255, 180, 80))
-            hero_surf = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
+            hero_surf = _get_arena_surface(btn_w, btn_h)
             hero_bg = (170, 100, 50, btn_alpha) if recruit_hovered else (140, 80, 40, btn_alpha)
             hero_border = (255, 210, 110, btn_alpha) if recruit_hovered else (255, 180, 80, btn_alpha)
             pygame.draw.rect(hero_surf, hero_bg, (0, 0, btn_w, btn_h), border_radius=6)
@@ -4923,7 +4948,7 @@ class ColosseumsArena:
                     alive.append(p)
                     # 직사각형 컨페티
                     s = p['size']
-                    cs = pygame.Surface((s * 2, s), pygame.SRCALPHA)
+                    cs = _get_arena_surface(s * 2, s)
                     pygame.draw.rect(cs, p['color'], (0, 0, s * 2, s))
                     rotated = pygame.transform.rotate(cs, math.degrees(p['rot']))
                     self.screen.blit(rotated, (int(p['x']) - rotated.get_width() // 2,
@@ -4939,7 +4964,7 @@ class ColosseumsArena:
     def _draw_tournament_end_ui(self):
         """토너먼트 종료 UI - 패배 시"""
         # 반투명 오버레이
-        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay = _get_arena_fullscreen()
         overlay.fill((0, 0, 0, 200))
         self.screen.blit(overlay, (0, 0))
 
@@ -5182,7 +5207,7 @@ class ColosseumsArena:
         """퍽 아이콘 (3x 슈퍼샘플링으로 깨짐 방지)"""
         ss = 3
         hi = size * ss
-        icon_surf = pygame.Surface((hi, hi), pygame.SRCALPHA)
+        icon_surf = _get_arena_surface(hi, hi)
         center = hi // 2
         r = size // 2
 
@@ -5207,7 +5232,7 @@ class ColosseumsArena:
 
         # 반투명 오버레이 (점진적 어두워짐)
         overlay_alpha = min(160, self.perk_frame_count * 6)
-        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay = _get_arena_fullscreen()
         overlay.fill((0, 0, 20, overlay_alpha))
         self.screen.blit(overlay, (0, 0))
 
@@ -5217,7 +5242,7 @@ class ColosseumsArena:
                 ps = int(p['size'] * 2)
                 if ps < 2:
                     ps = 2
-                particle_surf = pygame.Surface((ps, ps), pygame.SRCALPHA)
+                particle_surf = _get_arena_surface(ps, ps)
                 pygame.draw.circle(particle_surf, (*p['color'], int(p['alpha'])),
                                    (ps // 2, ps // 2), max(1, ps // 2))
                 self.screen.blit(particle_surf,
@@ -5280,7 +5305,7 @@ class ColosseumsArena:
             # 카드 서피스 생성
             scaled_w = int(card_w * scale)
             scaled_h = int(card_h * scale)
-            card_surf = pygame.Surface((scaled_w, scaled_h), pygame.SRCALPHA)
+            card_surf = _get_arena_surface(scaled_w, scaled_h)
 
             # 6단계 외곽 글로우 (선택 시, 스테이지 스타일)
             if is_selected:
@@ -5295,7 +5320,7 @@ class ColosseumsArena:
                                             scaled_w - offset * 2, scaled_h - offset * 2)
                     alpha = min(card_alpha, 100 - offset * 15)
                     if alpha > 0:
-                        glow_s = pygame.Surface((scaled_w, scaled_h), pygame.SRCALPHA)
+                        glow_s = _get_arena_surface(scaled_w, scaled_h)
                         pygame.draw.rect(glow_s, (*glow_color, alpha),
                                          glow_rect, border_radius=12)
                         card_surf.blit(glow_s, (0, 0))
@@ -5311,7 +5336,7 @@ class ColosseumsArena:
                                             scaled_w - offset * 2, scaled_h - offset * 2)
                     a = min(card_alpha, hover_glow_a - offset * 12)
                     if a > 0:
-                        glow_s = pygame.Surface((scaled_w, scaled_h), pygame.SRCALPHA)
+                        glow_s = _get_arena_surface(scaled_w, scaled_h)
                         pygame.draw.rect(glow_s, (*perk["icon_color"], a),
                                          glow_rect, border_radius=12)
                         card_surf.blit(glow_s, (0, 0))
@@ -5504,7 +5529,7 @@ class ColosseumsArena:
 
         # 반투명 다크 오버레이 (페이드인)
         overlay_alpha = int(min(180, 220 * min(1.0, progress * 3)))
-        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay = _get_arena_fullscreen()
         overlay.fill((10, 5, 20, overlay_alpha))
         self.screen.blit(overlay, (0, 0))
 
@@ -5520,7 +5545,7 @@ class ColosseumsArena:
         guard_color = guard.get("color", (150, 150, 150))
         glow_alpha = int(60 + abs(math.sin(self.animation_timer * 3)) * 40)
         glow_radius = 80
-        glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+        glow_surf = _get_arena_surface(glow_radius * 2, glow_radius * 2)
         pygame.draw.circle(glow_surf, (*guard_color, glow_alpha), (glow_radius, glow_radius), glow_radius)
         self.screen.blit(glow_surf, (center_x - glow_radius, hero_y - glow_radius))
 
@@ -5553,7 +5578,7 @@ class ColosseumsArena:
             # 이름 (큰 글씨)
             if "large" in self.fonts:
                 surf, _ = self.fonts["large"].render(guard_name, name_color)
-                alpha_surf = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+                alpha_surf = _get_arena_surface(*surf.get_size())
                 alpha_surf.fill((255, 255, 255, text_alpha))
                 surf.blit(alpha_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                 self.screen.blit(surf, (center_x - surf.get_width() // 2, hero_y - 80))
@@ -5561,7 +5586,7 @@ class ColosseumsArena:
             # 칭호 (작은 글씨)
             if "small" in self.fonts and guard_title:
                 surf, _ = self.fonts["small"].render(guard_title, (200, 200, 200))
-                alpha_surf = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+                alpha_surf = _get_arena_surface(*surf.get_size())
                 alpha_surf.fill((255, 255, 255, text_alpha))
                 surf.blit(alpha_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                 self.screen.blit(surf, (center_x - surf.get_width() // 2, hero_y + 60))
@@ -5574,13 +5599,13 @@ class ColosseumsArena:
                 gold_color = (255, 215, 0)
 
                 surf1, _ = self.fonts["medium"].render(msg1, gold_color)
-                alpha_surf1 = pygame.Surface(surf1.get_size(), pygame.SRCALPHA)
+                alpha_surf1 = _get_arena_surface(*surf1.get_size())
                 alpha_surf1.fill((255, 255, 255, text_alpha))
                 surf1.blit(alpha_surf1, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                 self.screen.blit(surf1, (center_x - surf1.get_width() // 2, hero_y + 100))
 
                 surf2, _ = self.fonts["medium"].render(msg2, gold_color)
-                alpha_surf2 = pygame.Surface(surf2.get_size(), pygame.SRCALPHA)
+                alpha_surf2 = _get_arena_surface(*surf2.get_size())
                 alpha_surf2.fill((255, 255, 255, text_alpha))
                 surf2.blit(alpha_surf2, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                 self.screen.blit(surf2, (center_x - surf2.get_width() // 2, hero_y + 130))
@@ -5589,7 +5614,7 @@ class ColosseumsArena:
             if "small" in self.fonts and self.guard_notify_total > 0:
                 count_msg = f"현재 호위무사: {self.guard_notify_total}명"
                 surf, _ = self.fonts["small"].render(count_msg, (180, 180, 180))
-                alpha_surf = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+                alpha_surf = _get_arena_surface(*surf.get_size())
                 alpha_surf.fill((255, 255, 255, text_alpha))
                 surf.blit(alpha_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                 self.screen.blit(surf, (center_x - surf.get_width() // 2, hero_y + 165))
@@ -5603,7 +5628,7 @@ class ColosseumsArena:
                 px = center_x + int(math.cos(angle) * dist)
                 py = hero_y + int(math.sin(angle) * dist * 0.6)
                 spark_alpha = int(100 + abs(math.sin(self.animation_timer * 5 + i)) * 100)
-                spark_surf = pygame.Surface((8, 8), pygame.SRCALPHA)
+                spark_surf = _get_arena_surface(8, 8)
                 pygame.draw.circle(spark_surf, (255, 215, 0, spark_alpha), (4, 4), 3)
                 self.screen.blit(spark_surf, (px - 4, py - 4))
 
@@ -5772,7 +5797,7 @@ class ColosseumsArena:
             winner_rect = hero1_rect if match.winner == hero1 else hero2_rect
             if self.bracket_anim_phase >= 0:
                 glow_alpha = int(abs(math.sin(self.animation_timer * 4)) * 100 + 50)
-                glow_surface = pygame.Surface((winner_rect.width + 6, winner_rect.height + 6), pygame.SRCALPHA)
+                glow_surface = _get_arena_surface(winner_rect.width + 6, winner_rect.height + 6)
                 pygame.draw.rect(glow_surface, (255, 215, 0, glow_alpha),
                                (0, 0, winner_rect.width + 6, winner_rect.height + 6),
                                border_radius=5)
@@ -6003,7 +6028,7 @@ class ColosseumsArena:
         glow_radius = 40 + int(abs(math.sin(self.animation_timer * 5)) * 10)
         glow_alpha = int(100 + progress * 100)
 
-        glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+        glow_surface = _get_arena_surface(glow_radius * 2, glow_radius * 2)
         pygame.draw.circle(glow_surface, (*winner["color"], glow_alpha),
                          (glow_radius, glow_radius), glow_radius)
         self.screen.blit(glow_surface, (x - glow_radius, y - glow_radius))
@@ -6070,7 +6095,7 @@ class ColosseumsArena:
 
         # 글로우 효과
         glow_alpha = int(80 + abs(math.sin(self.animation_timer * 4)) * 50)
-        glow_surf = pygame.Surface((160, 160), pygame.SRCALPHA)
+        glow_surf = _get_arena_surface(160, 160)
         pygame.draw.circle(glow_surf, (*hero1["color"], glow_alpha), (80, 80), 70)
         self.screen.blit(glow_surf, (hero1_x - 80, hero1_y - 80))
 
@@ -6139,7 +6164,7 @@ class ColosseumsArena:
         hero2_y = SCREEN_HEIGHT // 2
 
         # 글로우 효과
-        glow_surf = pygame.Surface((160, 160), pygame.SRCALPHA)
+        glow_surf = _get_arena_surface(160, 160)
         pygame.draw.circle(glow_surf, (*hero2["color"], glow_alpha), (80, 80), 70)
         self.screen.blit(glow_surf, (hero2_x - 80, hero2_y - 80))
 
@@ -6272,7 +6297,7 @@ class ColosseumsArena:
 
             # 끝점에 글로우 효과
             glow_size = 6
-            glow_surface = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+            glow_surface = _get_arena_surface(glow_size * 2, glow_size * 2)
             pygame.draw.circle(glow_surface, (*highlight_color, 180), (glow_size, glow_size), glow_size)
             self.screen.blit(glow_surface, (int(current_end[0]) - glow_size, int(current_end[1]) - glow_size))
 
