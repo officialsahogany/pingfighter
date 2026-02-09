@@ -96,6 +96,7 @@ class AnimatedBackgroundStage30:
         self.JUDGMENT_SLAM = 3        # 0.5초: 내려치기
         self.JUDGMENT_EARTHQUAKE = 4  # 4초: 지진 효과
         self.JUDGMENT_RETURN = 5      # 3초: 원래 크기로 복귀
+        self.JUDGMENT_HOLE_FADE = 6   # 1.5초: 구멍이 부스러기로 사라짐
 
         self.judgment_phase = self.JUDGMENT_IDLE
         self.judgment_timer = 0.0
@@ -115,6 +116,8 @@ class AnimatedBackgroundStage30:
         self.judgment_rise_debris = []       # 상승 시 떨어지는 흙/돌
         self.judgment_rise_offset = 0.0      # 석상 상승 오프셋 (양수=아래에 묻힘)
         self.judgment_quake_sound_playing = False
+        self.judgment_hole_crumble = []      # 구멍 부스러기 파티클
+        self.judgment_hole_fade_scale = 0.0  # 구멍 페이드 시 스케일 (RETURN 종료 시 설정)
 
         # 페이즈 지속시간 (초)
         self.MERGE_DURATION = 2.0
@@ -122,6 +125,7 @@ class AnimatedBackgroundStage30:
         self.SLAM_DURATION = 0.5
         self.EARTHQUAKE_DURATION = 5.2
         self.RETURN_DURATION = 3.0
+        self.HOLE_FADE_DURATION = 1.5
 
         # 프리렌더
         self._prerender_floor()
@@ -555,12 +559,65 @@ class AnimatedBackgroundStage30:
                 d['life'] -= dt
             self.judgment_rise_debris = [d for d in self.judgment_rise_debris if d['life'] > 0]
             if progress >= 1.0:
-                self.judgment_phase = self.JUDGMENT_IDLE
+                # 구멍 페이드 페이즈로 전환 (석상은 사라지고 구멍만 남음)
+                self.judgment_phase = self.JUDGMENT_HOLE_FADE
                 self.judgment_timer = 0.0
-                self.judgment_scale = 1.0
+                self.judgment_hole_fade_scale = self.judgment_scale  # 현재 스케일 보존
                 self.judgment_slam_progress = 0.0
                 self.judgment_rise_offset = 0.0
                 self.judgment_rise_debris.clear()
+                # 초기 부스러기 파티클 생성 (구멍 테두리에서)
+                ground_y = cy + 10
+                for _ in range(15):
+                    angle = random.uniform(0, math.pi * 2)
+                    dist = random.uniform(6, 14) * self.judgment_scale
+                    self.judgment_hole_crumble.append({
+                        'x': cx + math.cos(angle) * dist,
+                        'y': ground_y + math.sin(angle) * dist * 0.4,
+                        'vx': math.cos(angle) * random.uniform(0.3, 1.2),
+                        'vy': random.uniform(-0.5, 1.5),
+                        'size': random.uniform(1.5, 3.0),
+                        'life': random.uniform(0.8, 1.5),
+                        'color': random.choice([
+                            (155, 130, 95), (125, 105, 75),
+                            (175, 150, 115), (105, 85, 60)
+                        ]),
+                    })
+
+        elif self.judgment_phase == self.JUDGMENT_HOLE_FADE:
+            # 1.5초간 구멍이 부스러기로 사라짐
+            progress = min(1.0, self.judgment_timer / self.HOLE_FADE_DURATION)
+            # 부스러기 파티클 업데이트
+            for d in self.judgment_hole_crumble:
+                d['x'] += d['vx'] * dt * 60
+                d['y'] += d['vy'] * dt * 60
+                d['vy'] += 2 * dt  # 약한 중력
+                d['life'] -= dt
+                d['size'] = max(0, d['size'] - dt * 1.5)  # 점점 작아짐
+            self.judgment_hole_crumble = [d for d in self.judgment_hole_crumble if d['life'] > 0]
+            # 추가 부스러기 생성 (페이드 중반까지)
+            if progress < 0.6 and random.random() < 0.4:
+                ground_y = cy + 10
+                fade_s = self.judgment_hole_fade_scale * (1.0 - progress)
+                angle = random.uniform(0, math.pi * 2)
+                dist = random.uniform(4, 10) * fade_s
+                self.judgment_hole_crumble.append({
+                    'x': cx + math.cos(angle) * dist,
+                    'y': ground_y + math.sin(angle) * dist * 0.3,
+                    'vx': math.cos(angle) * random.uniform(0.2, 0.8),
+                    'vy': random.uniform(-0.3, 1.0),
+                    'size': random.uniform(1.0, 2.5),
+                    'life': random.uniform(0.5, 1.0),
+                    'color': random.choice([
+                        (155, 130, 95), (125, 105, 75), (105, 85, 60)
+                    ]),
+                })
+            if progress >= 1.0:
+                self.judgment_phase = self.JUDGMENT_IDLE
+                self.judgment_timer = 0.0
+                self.judgment_scale = 1.0
+                self.judgment_hole_fade_scale = 0.0
+                self.judgment_hole_crumble.clear()
                 self.judgment_cooldown = random.uniform(50.0, 60.0)
 
     def get_judgment_shake_offset(self):
@@ -587,7 +644,7 @@ class AnimatedBackgroundStage30:
 
     def get_judgment_phase_name(self):
         """현재 페이즈 이름 (디버그용)"""
-        names = {0: "IDLE", 1: "MERGE", 2: "ARM_RAISE", 3: "SLAM", 4: "EARTHQUAKE", 5: "RETURN"}
+        names = {0: "IDLE", 1: "MERGE", 2: "ARM_RAISE", 3: "SLAM", 4: "EARTHQUAKE", 5: "RETURN", 6: "HOLE_FADE"}
         return names.get(self.judgment_phase, "UNKNOWN")
 
     def _draw_judgment_overlay(self, screen, offset_x=0, offset_y=0):
@@ -608,6 +665,58 @@ class AnimatedBackgroundStage30:
             col = p['color']
             sz = p['size']
             pygame.draw.circle(screen, col, (px, py), sz)
+
+        # ── 구멍 페이드 페이즈 (석상 없이 구멍만 사라짐) ──
+        if self.judgment_phase == self.JUDGMENT_HOLE_FADE:
+            ground_y = cy + 10
+            fade_progress = min(1.0, self.judgment_timer / self.HOLE_FADE_DURATION)
+            fade_s = self.judgment_hole_fade_scale * (1.0 - fade_progress)
+            fade_alpha = int(200 * (1.0 - fade_progress))
+
+            if fade_s > 0.3 and fade_alpha > 5:
+                hole_dark = (75, 60, 42)
+                sand_dark = (125, 105, 75)
+                sand_shadow = (105, 85, 60)
+                sand_light = (175, 150, 115)
+                lw_g = max(1, int(fade_s))
+
+                # 줄어드는 구멍 (투명도 감소)
+                hole_w = int(22 * fade_s)
+                hole_h = int(8 * fade_s)
+                if hole_w > 3 and hole_h > 1:
+                    hole_surf = pygame.Surface((hole_w, hole_h), pygame.SRCALPHA)
+                    pygame.draw.ellipse(hole_surf, (*hole_dark, min(160, fade_alpha)),
+                                        (0, 0, hole_w, hole_h))
+                    screen.blit(hole_surf, (cx - hole_w // 2, ground_y - hole_h // 3))
+
+                # 줄어드는 테두리
+                edge_pts = [
+                    (cx - int(14 * fade_s), ground_y + int(2 * fade_s)),
+                    (cx - int(13 * fade_s), ground_y - int(1 * fade_s)),
+                    (cx - int(10 * fade_s), ground_y - int(3 * fade_s)),
+                    (cx - int(3 * fade_s), ground_y - int(3 * fade_s)),
+                    (cx + int(3 * fade_s), ground_y - int(2 * fade_s)),
+                    (cx + int(10 * fade_s), ground_y - int(3 * fade_s)),
+                    (cx + int(13 * fade_s), ground_y - int(2 * fade_s)),
+                    (cx + int(14 * fade_s), ground_y + int(2 * fade_s)),
+                    (cx, ground_y + int(3 * fade_s)),
+                ]
+                if len(edge_pts) >= 3:
+                    edge_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+                    col_a = (*sand_dark, min(200, fade_alpha))
+                    pygame.draw.polygon(edge_surf, col_a, edge_pts)
+                    screen.blit(edge_surf, (0, 0))
+
+            # 부스러기 파티클
+            crumble_hl = (175, 150, 115)
+            for d in self.judgment_hole_crumble:
+                dx, dy = int(d['x']) + offset_x, int(d['y']) + offset_y
+                ds = max(1, int(d['size'] * min(1, d['life'])))
+                if ds > 0:
+                    pygame.draw.circle(screen, d['color'], (dx, dy), ds)
+                    if ds > 1:
+                        pygame.draw.circle(screen, crumble_hl, (dx - 1, dy - 1), max(1, ds - 1))
+            return  # HOLE_FADE에서는 석상/기타 이펙트 불필요
 
         # ── 동적 제우스 석상 그리기 (상승/하강 중 지면 클리핑) ──
         rise_y = int(self.judgment_rise_offset)
