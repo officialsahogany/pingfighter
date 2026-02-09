@@ -52646,9 +52646,9 @@ def handle_gods_judgment():
     prev_phase = _judgment_prev_phase
     _judgment_prev_phase = cur_phase
 
-    # MERGE 시작 순간: "신의심판 발동!" 텍스트
+    # MERGE 시작 순간: "신의심판 발동!" 텍스트 (화면 중앙)
     if cur_phase == bg.JUDGMENT_MERGE and prev_phase == bg.JUDGMENT_IDLE:
-        show_speech("신의심판 발동!", duration=120)
+        show_fade_text("신의심판 발동!")
 
     is_eq = bg.is_judgment_earthquake_active()
     was_eq = _judgment_prev_earthquake_active
@@ -52664,8 +52664,8 @@ def handle_gods_judgment():
             pass
         # 공 속도 백업
         _judgment_ball_speed_backup = ball_vel.copy()
-        # 스피치 표시
-        show_speech("신의심판!", duration=240)
+        # 화면 중앙 텍스트
+        show_fade_text("신의심판!")
 
     # 지진 종료 순간
     if was_eq and not is_eq:
