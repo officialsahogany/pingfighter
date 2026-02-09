@@ -136583,6 +136583,159 @@ def show_character_info(background_surface=None):
     skill_drag_start_y = [0]  # 드래그 시작 y 좌표
     skill_scroll_start = [0]  # 드래그 시작 시 스크롤 위치
 
+    def _draw_arena_perk_icon_standalone(surface, perk_id, cx, cy, size):
+        """투기장 퍽 아이콘 (3x 슈퍼샘플링, 독립형)"""
+        ss = 3
+        hi = size * ss
+        icon_surf = pygame.Surface((hi, hi), pygame.SRCALPHA)
+        center = hi // 2
+        r = size // 2
+
+        if perk_id == "swift_foot":
+            color = (100, 220, 255)
+            for i in range(3):
+                points = []
+                base_angle = i * (2 * math.pi / 3)
+                for t in range(20):
+                    frac = t / 19.0
+                    angle = base_angle + frac * math.pi * 1.5
+                    dist = r * ss * (0.15 + frac * 0.7)
+                    px = center + int(math.cos(angle) * dist)
+                    py = center + int(math.sin(angle) * dist)
+                    points.append((px, py))
+                if len(points) >= 2:
+                    alpha = 200 - i * 30
+                    pygame.draw.lines(icon_surf, (*color, alpha), False, points, max(2, int(3 * ss / 3)))
+            pygame.draw.circle(icon_surf, (*color, 220), (center, center), max(2, int(r * ss * 0.15)))
+        elif perk_id == "quick_reflex":
+            color = (255, 180, 50)
+            s = r * ss
+            bolt_points = [
+                (center - int(s * 0.15), center - int(s * 0.8)),
+                (center + int(s * 0.3), center - int(s * 0.8)),
+                (center + int(s * 0.05), center - int(s * 0.15)),
+                (center + int(s * 0.35), center - int(s * 0.15)),
+                (center - int(s * 0.1), center + int(s * 0.8)),
+                (center + int(s * 0.1), center + int(s * 0.15)),
+                (center - int(s * 0.2), center + int(s * 0.15)),
+            ]
+            pygame.draw.polygon(icon_surf, (*color, 230), bolt_points)
+            pygame.draw.polygon(icon_surf, (255, 220, 100, 180), bolt_points, max(1, int(2 * ss / 3)))
+        elif perk_id == "spirit_flow":
+            color = (180, 100, 255)
+            s = r * ss
+            ring_r = int(s * 0.55)
+            for flip in [1, -1]:
+                points = []
+                for t in range(25):
+                    frac = t / 24.0
+                    angle = flip * (frac * math.pi - math.pi / 2)
+                    px = center + int(math.cos(angle) * ring_r)
+                    py = center + int(math.sin(angle) * ring_r * flip)
+                    points.append((px, py))
+                if len(points) >= 2:
+                    pygame.draw.lines(icon_surf, (*color, 220), False, points, max(2, int(3 * ss / 3)))
+                if points:
+                    end = points[-1]
+                    arr_size = int(s * 0.2)
+                    arr_angle = math.atan2(points[-1][1] - points[-2][1], points[-1][0] - points[-2][0])
+                    a1 = (end[0] - int(math.cos(arr_angle - 0.5) * arr_size),
+                          end[1] - int(math.sin(arr_angle - 0.5) * arr_size))
+                    a2 = (end[0] - int(math.cos(arr_angle + 0.5) * arr_size),
+                          end[1] - int(math.sin(arr_angle + 0.5) * arr_size))
+                    pygame.draw.polygon(icon_surf, (*color, 230), [end, a1, a2])
+        elif perk_id == "command":
+            color = (255, 100, 100)
+            s = r * ss
+            shield_points = [
+                (center, center - int(s * 0.75)),
+                (center + int(s * 0.6), center - int(s * 0.4)),
+                (center + int(s * 0.5), center + int(s * 0.3)),
+                (center, center + int(s * 0.75)),
+                (center - int(s * 0.5), center + int(s * 0.3)),
+                (center - int(s * 0.6), center - int(s * 0.4)),
+            ]
+            pygame.draw.polygon(icon_surf, (*color, 60), shield_points)
+            pygame.draw.polygon(icon_surf, (*color, 220), shield_points, max(2, int(3 * ss / 3)))
+            tri_s = int(s * 0.3)
+            tri_points = [
+                (center, center - tri_s),
+                (center + int(tri_s * 0.87), center + int(tri_s * 0.5)),
+                (center - int(tri_s * 0.87), center + int(tri_s * 0.5)),
+            ]
+            pygame.draw.polygon(icon_surf, (255, 200, 200, 200), tri_points)
+
+        result = pygame.transform.smoothscale(icon_surf, (size, size))
+        surface.blit(result, (cx - size // 2, cy - size // 2))
+
+    def _draw_arena_perks_mini(area_rect, mouse_pos):
+        """투기장 퍽을 런타임 스킬 미니 그리드 스타일로 표시"""
+        # 영역 배경
+        pygame.draw.rect(SCREEN, (24, 30, 48), area_rect, border_radius=8)
+        pygame.draw.rect(SCREEN, (90, 130, 200), area_rect, 2, border_radius=8)
+
+        # 제목
+        title_surf = stats_tiny_font.render("퍽", True, WHITE)
+        SCREEN.blit(title_surf, (area_rect.x + 8, area_rect.y + 4))
+
+        perks = arena_active_hero_perks
+        if not perks:
+            empty_text = stats_tiny_font.render("퍽 없음", True, (120, 120, 140))
+            empty_rect = empty_text.get_rect(center=(area_rect.centerx, area_rect.centery + 10))
+            SCREEN.blit(empty_text, empty_rect)
+            return None
+
+        # 그리드 설정 (런타임 스킬과 동일 스타일)
+        cols = 4
+        box_size = 44
+        box_margin = 5
+        grid_start_x = area_rect.x + (area_rect.width - (cols * box_size + (cols - 1) * box_margin)) // 2
+        grid_start_y = area_rect.y + 24
+
+        hover_perk = None
+        for idx, perk_data in enumerate(perks):
+            col = idx % cols
+            row = idx // cols
+            box_x = grid_start_x + col * (box_size + box_margin)
+            box_y = grid_start_y + row * (box_size + box_margin)
+            box_rect = pygame.Rect(box_x, box_y, box_size, box_size)
+
+            icon_color = perk_data.get("icon_color", (200, 200, 200))
+            is_hovered = box_rect.collidepoint(mouse_pos)
+            if is_hovered:
+                hover_perk = perk_data
+                bg_color = (50, 55, 75)
+                border_width = 2
+            else:
+                bg_color = (30, 35, 50)
+                border_width = 1
+
+            pygame.draw.rect(SCREEN, bg_color, box_rect, border_radius=6)
+            pygame.draw.rect(SCREEN, icon_color, box_rect, border_width, border_radius=6)
+
+            # 아이콘 배경 그라데이션
+            icon_area_height = box_size - 2
+            icon_surface = pygame.Surface((box_size - 4, icon_area_height), pygame.SRCALPHA)
+            base_r, base_g, base_b = icon_color
+            dark_color = (max(0, base_r - 60), max(0, base_g - 60), max(0, base_b - 60))
+            for j in range(icon_area_height):
+                ratio = j / icon_area_height
+                cr = int(dark_color[0] + (base_r - dark_color[0]) * (1 - ratio * 0.5))
+                cg = int(dark_color[1] + (base_g - dark_color[1]) * (1 - ratio * 0.5))
+                cb = int(dark_color[2] + (base_b - dark_color[2]) * (1 - ratio * 0.5))
+                pygame.draw.line(icon_surface, (cr, cg, cb, 200), (0, j), (box_size - 4, j))
+            SCREEN.blit(icon_surface, (box_x + 2, box_y + 1))
+
+            # 퍽 아이콘 그리기
+            icon_draw_size = box_size - 6
+            _draw_arena_perk_icon_standalone(
+                SCREEN, perk_data.get("id", ""),
+                box_x + box_size // 2, box_y + box_size // 2,
+                icon_draw_size
+            )
+
+        return hover_perk
+
     def draw_runtime_skills_mini(area_rect, mouse_pos, scroll_offset):
         """
         캐릭터 정보창 내 런타임 스킬 미니 그리드 표시
@@ -137063,77 +137216,96 @@ def show_character_info(background_surface=None):
             title_rect = title_surface.get_rect(left=panel_rect.x + 28, top=panel_rect.y + 18)
             SCREEN.blit(title_surface, title_rect)
 
-        # 🗑️ 쓰레기통 아이콘 (우측 상단) - 아이템 드래그 앤 드롭으로 버리기
-        trash_size = 48
-        trash_rect = pygame.Rect(panel_rect.right - trash_size - 20, panel_rect.y + 12, trash_size, trash_size)
-        # 드래그 중인 아이템이 있을 때 쓰레기통 강조 표시
-        is_dragging = dragging_item is not None or active_dragging is not None
-        trash_hover = trash_rect.collidepoint(mouse_pos) if mouse_pos else False
-        if is_dragging and trash_hover:
-            # 드래그 중 + 쓰레기통 위에 있을 때 - 빨간색 강조
-            trash_bg_color = (120, 40, 40)
-            trash_border_color = (255, 100, 100)
-        elif is_dragging:
-            # 드래그 중 - 쓰레기통 활성화 표시
-            trash_bg_color = (60, 50, 50)
-            trash_border_color = (200, 150, 150)
-        else:
-            # 기본 상태
-            trash_bg_color = (40, 44, 60)
-            trash_border_color = (100, 110, 130)
-        pygame.draw.rect(SCREEN, trash_bg_color, trash_rect, border_radius=10)
-        pygame.draw.rect(SCREEN, trash_border_color, trash_rect, 2, border_radius=10)
-        # 쓰레기통 아이콘 그리기
-        trash_cx, trash_cy = trash_rect.centerx, trash_rect.centery
-        # 쓰레기통 몸체
-        body_w, body_h = 22, 24
-        body_rect = pygame.Rect(trash_cx - body_w // 2, trash_cy - body_h // 2 + 4, body_w, body_h)
-        pygame.draw.rect(SCREEN, (180, 180, 190) if is_dragging else (140, 140, 150), body_rect, border_radius=3)
-        # 쓰레기통 뚜껑
-        lid_w, lid_h = 26, 6
-        lid_rect = pygame.Rect(trash_cx - lid_w // 2, trash_cy - body_h // 2 - 2, lid_w, lid_h)
-        pygame.draw.rect(SCREEN, (200, 200, 210) if is_dragging else (160, 160, 170), lid_rect, border_radius=2)
-        # 뚜껑 손잡이
-        handle_w, handle_h = 8, 4
-        pygame.draw.rect(SCREEN, (220, 220, 230) if is_dragging else (180, 180, 190),
-                        (trash_cx - handle_w // 2, lid_rect.y - handle_h + 1, handle_w, handle_h), border_radius=1)
-        # 쓰레기통 세로 줄무늬
-        for i in range(3):
-            line_x = body_rect.x + 5 + i * 6
-            pygame.draw.line(SCREEN, (120, 120, 130), (line_x, body_rect.y + 4), (line_x, body_rect.bottom - 4), 1)
+        # 투기장 모드 판별 (일찍 체크 — 쓰레기통, 장비슬롯, 인벤토리 숨김용)
+        _is_arena_early = current_stage == 30 and globals().get("arena_mode_enabled", False)
+
+        # 🗑️ 쓰레기통 아이콘 (우측 상단) - 투기장에서는 숨김
+        trash_rect = pygame.Rect(0, 0, 0, 0)  # 기본값
+        trash_hover = False
+        if not _is_arena_early:
+            trash_size = 48
+            trash_rect = pygame.Rect(panel_rect.right - trash_size - 20, panel_rect.y + 12, trash_size, trash_size)
+            # 드래그 중인 아이템이 있을 때 쓰레기통 강조 표시
+            is_dragging = dragging_item is not None or active_dragging is not None
+            trash_hover = trash_rect.collidepoint(mouse_pos) if mouse_pos else False
+            if is_dragging and trash_hover:
+                trash_bg_color = (120, 40, 40)
+                trash_border_color = (255, 100, 100)
+            elif is_dragging:
+                trash_bg_color = (60, 50, 50)
+                trash_border_color = (200, 150, 150)
+            else:
+                trash_bg_color = (40, 44, 60)
+                trash_border_color = (100, 110, 130)
+            pygame.draw.rect(SCREEN, trash_bg_color, trash_rect, border_radius=10)
+            pygame.draw.rect(SCREEN, trash_border_color, trash_rect, 2, border_radius=10)
+            # 쓰레기통 아이콘 그리기
+            trash_cx, trash_cy = trash_rect.centerx, trash_rect.centery
+            body_w, body_h = 22, 24
+            body_rect = pygame.Rect(trash_cx - body_w // 2, trash_cy - body_h // 2 + 4, body_w, body_h)
+            pygame.draw.rect(SCREEN, (180, 180, 190) if is_dragging else (140, 140, 150), body_rect, border_radius=3)
+            lid_w, lid_h = 26, 6
+            lid_rect = pygame.Rect(trash_cx - lid_w // 2, trash_cy - body_h // 2 - 2, lid_w, lid_h)
+            pygame.draw.rect(SCREEN, (200, 200, 210) if is_dragging else (160, 160, 170), lid_rect, border_radius=2)
+            handle_w, handle_h = 8, 4
+            pygame.draw.rect(SCREEN, (220, 220, 230) if is_dragging else (180, 180, 190),
+                            (trash_cx - handle_w // 2, lid_rect.y - handle_h + 1, handle_w, handle_h), border_radius=1)
+            for i in range(3):
+                line_x = body_rect.x + 5 + i * 6
+                pygame.draw.line(SCREEN, (120, 120, 130), (line_x, body_rect.y + 4), (line_x, body_rect.bottom - 4), 1)
 
         # 레이아웃 영역
-        bottom_area_height = 220
-        bottom_area = pygame.Rect(panel_rect.x + 20, panel_rect.bottom - bottom_area_height - 12, panel_rect.width - 40, bottom_area_height)
-        content_top = panel_rect.y + 70
-        content_bottom = bottom_area.y - 12
-        content_height = max(120, content_bottom - content_top)
-        left_area = pygame.Rect(panel_rect.x + 24, content_top, panel_rect.width // 2 - 32, content_height)
-        right_area = pygame.Rect(panel_rect.x + panel_rect.width // 2 + 8, content_top, panel_rect.width // 2 - 32, content_height)
-        # 하단 인벤토리 영역(액티브 1줄 + 패시브 2줄 스크롤)
-        pygame.draw.rect(SCREEN, (16, 18, 30), bottom_area, border_radius=12)
-        pygame.draw.rect(SCREEN, (80, 120, 180), bottom_area, 2, border_radius=12)
-        active_area_height = min(74, bottom_area.height // 3 + 10)
-        # 액티브 영역을 살짝 내려 텍스트와 겹치게 유지
-        active_area = pygame.Rect(bottom_area.x + 12, bottom_area.y + 24, bottom_area.width - 24, active_area_height)
-        # 패시브 영역을 더 위로 올려(기준선 12px 감소) 스크롤/그리드 위치를 높인다.
-        passive_area_y = active_area.bottom + 6 - 12
-        passive_area_height = max(60, bottom_area.bottom - passive_area_y - 10)
-        passive_area = pygame.Rect(bottom_area.x + 12, passive_area_y, bottom_area.width - 24, passive_area_height)
+        if _is_arena_early:
+            # 투기장: 하단 인벤토리 숨기고 콘텐츠 영역 확대
+            content_top = panel_rect.y + 70
+            content_height = max(120, panel_rect.bottom - content_top - 20)
+            left_area = pygame.Rect(panel_rect.x + 24, content_top, panel_rect.width // 2 - 32, content_height)
+            right_area = pygame.Rect(panel_rect.x + panel_rect.width // 2 + 8, content_top, panel_rect.width // 2 - 32, content_height)
+            bottom_area = pygame.Rect(0, 0, 0, 0)
+            active_area = pygame.Rect(0, 0, 0, 0)
+            passive_area = pygame.Rect(0, 0, 0, 0)
+        else:
+            bottom_area_height = 220
+            bottom_area = pygame.Rect(panel_rect.x + 20, panel_rect.bottom - bottom_area_height - 12, panel_rect.width - 40, bottom_area_height)
+            content_top = panel_rect.y + 70
+            content_bottom = bottom_area.y - 12
+            content_height = max(120, content_bottom - content_top)
+            left_area = pygame.Rect(panel_rect.x + 24, content_top, panel_rect.width // 2 - 32, content_height)
+            right_area = pygame.Rect(panel_rect.x + panel_rect.width // 2 + 8, content_top, panel_rect.width // 2 - 32, content_height)
+            # 하단 인벤토리 영역(액티브 1줄 + 패시브 2줄 스크롤)
+            pygame.draw.rect(SCREEN, (16, 18, 30), bottom_area, border_radius=12)
+            pygame.draw.rect(SCREEN, (80, 120, 180), bottom_area, 2, border_radius=12)
+            active_area_height = min(74, bottom_area.height // 3 + 10)
+            # 액티브 영역을 살짝 내려 텍스트와 겹치게 유지
+            active_area = pygame.Rect(bottom_area.x + 12, bottom_area.y + 24, bottom_area.width - 24, active_area_height)
+            # 패시브 영역을 더 위로 올려(기준선 12px 감소) 스크롤/그리드 위치를 높인다.
+            passive_area_y = active_area.bottom + 6 - 12
+            passive_area_height = max(60, bottom_area.bottom - passive_area_y - 10)
+            passive_area = pygame.Rect(bottom_area.x + 12, passive_area_y, bottom_area.width - 24, passive_area_height)
 
-        # 좌측: 인체형 장비 슬롯 (캐릭터 미리보기 제거, 전체 영역 사용)
-        equipment_area = pygame.Rect(left_area.x, left_area.y, left_area.width, left_area.height)
-        slot_rects, slot_hover = draw_equipment_slots(equipment_area, slot_state, mouse_pos=mouse_pos)
+        _is_arena = _is_arena_early
+
+        # 좌측: 인체형 장비 슬롯 (투기장에서는 숨김)
+        if not _is_arena:
+            equipment_area = pygame.Rect(left_area.x, left_area.y, left_area.width, left_area.height)
+            slot_rects, slot_hover = draw_equipment_slots(equipment_area, slot_state, mouse_pos=mouse_pos)
+        else:
+            slot_rects, slot_hover = {}, None
 
         # 우측: 런타임 스킬 + 능력치 패널
         stats_list = gather_stats()
         skill_area = pygame.Rect(right_area.x, right_area.y, right_area.width, int(right_area.height * 0.42))
         stats_area = pygame.Rect(right_area.x, skill_area.bottom + 10, right_area.width, right_area.bottom - skill_area.bottom - 10)
 
-        # 런타임 스킬 미니 그리드 표시
-        skill_hover, skill_max_scroll, skill_clip_rect = draw_runtime_skills_mini(
-            skill_area, mouse_pos, runtime_skill_scroll_y[0]
-        )
+        # 런타임 스킬 / 투기장 퍽 미니 그리드 표시
+        if _is_arena:
+            arena_perk_hover = _draw_arena_perks_mini(skill_area, mouse_pos)
+            skill_hover, skill_max_scroll, skill_clip_rect = None, 0, None
+        else:
+            arena_perk_hover = None
+            skill_hover, skill_max_scroll, skill_clip_rect = draw_runtime_skills_mini(
+                skill_area, mouse_pos, runtime_skill_scroll_y[0]
+            )
 
         draw.rect((28, 32, 52), stats_area, 0, 10)
         draw.rect((90, 130, 200), stats_area, 2, 10)
@@ -137176,60 +137348,46 @@ def show_character_info(background_surface=None):
             SCREEN.blit(value_surface, (stats_area.right - value_surface.get_width() - 14, line_y))
             line_y += line_gap
 
-        # 투기장 퍽 표시 (stage 30 = 투기장 배틀)
-        if current_stage == 30 and arena_active_hero_perks:
-            line_y += 4
-            # 구분선
-            pygame.draw.line(SCREEN, (80, 90, 120),
-                             (stats_area.x + 10, line_y),
-                             (stats_area.right - 10, line_y), 1)
-            line_y += 6
-            perk_title_s = stats_font.render("퍽", True, (255, 220, 100))
-            SCREEN.blit(perk_title_s, (stats_area.x + 14, line_y))
-            line_y += line_gap
-            for perk_data in arena_active_hero_perks:
-                if line_y + line_gap > stats_area.bottom - 4:
-                    break  # 영역 초과 방지
-                p_color = perk_data.get('icon_color', (200, 200, 200))
-                p_name = perk_data.get('name', '?')
-                p_desc = perk_data.get('description', '')
-                name_s = stats_font.render(p_name, True, p_color)
-                desc_s = stats_tiny_font.render(p_desc, True, (170, 180, 210))
-                SCREEN.blit(name_s, (stats_area.x + 14, line_y))
-                SCREEN.blit(desc_s, (stats_area.x + 14 + name_s.get_width() + 6, line_y + 2))
-                line_y += line_gap
+        # (투기장 퍽은 상단 퍽 아이콘 그리드에서 표시됨)
 
-        # 인벤토리 영역 (상단 액티브 1줄 + 패시브 2줄 스크롤)
-        active_hover, active_rects = draw_active_row(
-            active_item_slot, active_area, mouse_pos,
-            label_font=item_font_small, tiny_font=item_font_tiny
-        )
-        bag_rects, bag_hover, bag_scroll = draw_bag_grid(
-            bag_items,
-            passive_area,
-            mouse_pos,
-            drag_item=dragging_item,
-            max_rows=PASSIVE_VISIBLE_ROWS,
-            start_row=passive_scroll_row,
-            title="PASSIVE",
-            label_font=item_font_small,
-            tiny_font=item_font_tiny,
-        )
-        passive_scroll_row = bag_scroll.get("start_row", passive_scroll_row)
-        passive_scroll_max = bag_scroll.get("max_scroll", 0)
-        scroll_track = bag_scroll.get("track_rect")
-        scroll_thumb = bag_scroll.get("thumb_rect")
+        # 인벤토리 영역 (투기장에서는 숨김)
+        if not _is_arena:
+            active_hover, active_rects = draw_active_row(
+                active_item_slot, active_area, mouse_pos,
+                label_font=item_font_small, tiny_font=item_font_tiny
+            )
+            bag_rects, bag_hover, bag_scroll = draw_bag_grid(
+                bag_items,
+                passive_area,
+                mouse_pos,
+                drag_item=dragging_item,
+                max_rows=PASSIVE_VISIBLE_ROWS,
+                start_row=passive_scroll_row,
+                title="PASSIVE",
+                label_font=item_font_small,
+                tiny_font=item_font_tiny,
+            )
+            passive_scroll_row = bag_scroll.get("start_row", passive_scroll_row)
+            passive_scroll_max = bag_scroll.get("max_scroll", 0)
+            scroll_track = bag_scroll.get("track_rect")
+            scroll_thumb = bag_scroll.get("thumb_rect")
+        else:
+            active_hover, active_rects = None, []
+            bag_rects, bag_hover, bag_scroll = [], None, {}
+            passive_scroll_max = 0
+            scroll_track = None
+            scroll_thumb = None
 
-        # 드래그 프리뷰 (액티브)
-        if active_dragging:
+        # 드래그 프리뷰 (액티브) - 투기장에서는 불필요
+        if not _is_arena and active_dragging:
             icon = active_dragging["item"].get("icon") or get_item_icon(active_dragging["item"].get("name"))
             if icon:
                 preview_icon = pygame.transform.scale(icon, (54, 54))
                 SCREEN.blit(preview_icon, (mouse_pos[0] - 27, mouse_pos[1] - 27))
                 pygame.draw.rect(SCREEN, (180, 200, 255), (mouse_pos[0] - 27, mouse_pos[1] - 27, 54, 54), 1)
 
-        # 드래그 프리뷰 (패시브)
-        if dragging_item:
+        # 드래그 프리뷰 (패시브) - 투기장에서는 불필요
+        if not _is_arena and dragging_item:
             icon = dragging_item["item"].get("icon") or get_item_icon(dragging_item["item"].get("name"))
             if icon:
                 preview_icon = pygame.transform.scale(icon, (54, 54))
@@ -137239,6 +137397,26 @@ def show_character_info(background_surface=None):
         # 런타임 스킬 툴팁 (아이템 툴팁보다 먼저 그려 레이어 문제 예방)
         if skill_hover:
             draw_skill_tooltip_mini(skill_hover, mouse_pos[0], mouse_pos[1])
+
+        # 투기장 퍽 아이콘 호버 툴팁
+        if arena_perk_hover:
+            _pp = arena_perk_hover
+            _pp_name = _pp.get("name", "?")
+            _pp_desc = _pp.get("description", "")
+            _pp_color = _pp.get("icon_color", (200, 200, 200))
+            _tip_font = get_font(14, style="bold")
+            _tip_desc_font = get_font(12, style="regular")
+            _name_surf = _tip_font.render(_pp_name, True, _pp_color)
+            _desc_surf = _tip_desc_font.render(_pp_desc, True, (200, 210, 230))
+            _tip_w = max(_name_surf.get_width(), _desc_surf.get_width()) + 20
+            _tip_h = _name_surf.get_height() + _desc_surf.get_height() + 16
+            _tip_x = min(mouse_pos[0] + 12, SCREEN.get_width() - _tip_w - 4)
+            _tip_y = max(mouse_pos[1] - _tip_h - 8, 4)
+            _tip_rect = pygame.Rect(_tip_x, _tip_y, _tip_w, _tip_h)
+            pygame.draw.rect(SCREEN, (20, 24, 40), _tip_rect, border_radius=6)
+            pygame.draw.rect(SCREEN, _pp_color, _tip_rect, 2, border_radius=6)
+            SCREEN.blit(_name_surf, (_tip_x + 10, _tip_y + 6))
+            SCREEN.blit(_desc_surf, (_tip_x + 10, _tip_y + 6 + _name_surf.get_height() + 4))
 
         # 툴팁
         hover_info = slot_hover or active_hover or bag_hover
