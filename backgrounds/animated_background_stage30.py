@@ -963,31 +963,40 @@ class AnimatedBackgroundStage30:
         pygame.draw.circle(screen, marble_mid, ra_hand, fist_r)
         pygame.draw.circle(screen, marble_dark, ra_hand, fist_r, lw)
 
-        # ── 번개 (기본 상태일 때만) ──
-        if self.judgment_slam_progress < 0.3 and self.judgment_left_arm_progress < 0.5:
-            bolt_x, bolt_y = ra_hand[0], ra_hand[1] - int(3 * s)
-            bolt_len = int(18 * s)
-            segs = [
-                (bolt_x, bolt_y),
-                (bolt_x - int(3 * s), bolt_y - int(bolt_len * 0.25)),
-                (bolt_x + int(2 * s), bolt_y - int(bolt_len * 0.4)),
-                (bolt_x - int(2 * s), bolt_y - int(bolt_len * 0.6)),
-                (bolt_x + int(1 * s), bolt_y - int(bolt_len * 0.78)),
-                (bolt_x - int(1 * s), bolt_y - bolt_len),
-            ]
-            # 외곽 글로우
-            glow_w = max(1, int(3 * s))
-            for i in range(len(segs) - 1):
-                pygame.draw.line(screen, (180, 150, 60), segs[i], segs[i + 1], glow_w)
-            # 핵심 번개
-            for i in range(len(segs) - 1):
-                pygame.draw.line(screen, gold_light, segs[i], segs[i + 1], lw)
-            # 스파크
-            tip = segs[-1]
-            sl = max(1, int(3 * s))
-            pygame.draw.line(screen, gold_light, (tip[0] - sl, tip[1]), (tip[0] + sl, tip[1]), 1)
-            pygame.draw.line(screen, gold_light, (tip[0], tip[1] - sl), (tip[0], tip[1] + sl), 1)
-            pygame.draw.circle(screen, (255, 240, 180), (bolt_x, bolt_y - bolt_len // 2), lw)
+        # ── 번개 (오른손에 항상 들고 있음) ──
+        # 팔 방향에 맞춰 번개 각도 회전
+        bolt_angle = fore_angle_r  # 전완 각도를 따라감
+        bolt_x, bolt_y = ra_hand
+        bolt_len = int(18 * s)
+        # 번개 방향: 손에서 전완 반대방향(손 연장선)으로 뻗음
+        bdir_x = math.sin(bolt_angle)
+        bdir_y = math.cos(bolt_angle)
+        # 지그재그 번개 세그먼트 (손 기준 전완 연장 방향)
+        perp_x, perp_y = bdir_y, -bdir_x  # 수직 방향
+        zigzag = [
+            (0, 0),
+            (-3, 0.25), (2, 0.4), (-2, 0.6), (1, 0.78), (-1, 1.0),
+        ]
+        segs = []
+        for zx, zt in zigzag:
+            px = bolt_x + int(zx * s * perp_x) + int(bolt_len * zt * bdir_x)
+            py = bolt_y + int(zx * s * perp_y) + int(bolt_len * zt * bdir_y)
+            segs.append((px, py))
+        # 외곽 글로우
+        glow_w = max(1, int(3 * s))
+        for i in range(len(segs) - 1):
+            pygame.draw.line(screen, (180, 150, 60), segs[i], segs[i + 1], glow_w)
+        # 핵심 번개
+        for i in range(len(segs) - 1):
+            pygame.draw.line(screen, gold_light, segs[i], segs[i + 1], lw)
+        # 스파크 (번개 끝)
+        tip = segs[-1]
+        sl = max(1, int(3 * s))
+        pygame.draw.line(screen, gold_light, (tip[0] - sl, tip[1]), (tip[0] + sl, tip[1]), 1)
+        pygame.draw.line(screen, gold_light, (tip[0], tip[1] - sl), (tip[0], tip[1] + sl), 1)
+        # 중간 빛 점
+        mid = segs[len(segs) // 2]
+        pygame.draw.circle(screen, (255, 240, 180), mid, lw)
 
     def set_crowd_excitement(self, level):
         """관중 흥분도 설정 (0.0 ~ 1.0)"""
