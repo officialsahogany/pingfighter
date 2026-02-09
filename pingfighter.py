@@ -3109,6 +3109,10 @@ _rage_indicator_tooltip_active = False  # 광폭화 툴팁이 현재 표시 중�
 _rage_tooltip_prev_game_paused = False  # 툴팁 표시 전 게임 일시정지 상태
 _rage_tooltip_forced_pause = False      # 툴팁으로 인한 강제 일시정지 여부
 
+# 투기장 영웅 스킬 툴팁 관련 변수
+_arena_skill_tooltip_active = False     # 아레나 스킬 툴팁이 현재 표시 중인지
+_arena_skill_tooltip_fonts = None       # 아레나 스킬 툴팁 폰트 캐시
+
 # 퀘스트 엠블럼 툴팁 관련 변수
 _quest_emblem_tooltip_active = False    # 퀘스트 툴팁이 현재 표시 중인지
 _quest_tooltip_prev_game_paused = False # 툴팁 표시 전 게임 일시정지 상태
@@ -4669,6 +4673,157 @@ def _check_smasher_skill_tooltip(mouse_pos: tuple, scale_factor: float = 1.0) ->
                 return skill_data
 
     return None
+
+
+def _draw_arena_skill_tooltip(surface: pygame.Surface, skill, slot_rect, hero_color: tuple):
+    """투기장 영웅 스킬 툴팁 그리기 (스매셔 스킬 툴팁과 동일 폼)
+
+    Args:
+        surface: 그릴 Surface (REAL_SCREEN)
+        skill: HeroSkill 인스턴스
+        slot_rect: 슬롯 pygame.Rect (위치 참조용)
+        hero_color: 영웅 색상 tuple (R, G, B)
+    """
+    global _arena_skill_tooltip_fonts
+
+    # freetype 폰트 캐싱 (최초 1회만 로드)
+    if _arena_skill_tooltip_fonts is None:
+        import pygame.freetype as freetype_module
+        try:
+            title_font = freetype_module.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 16)
+            normal_font = freetype_module.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 12)
+            small_font = freetype_module.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
+        except:
+            title_font = freetype_module.SysFont("malgun gothic", 16)
+            normal_font = freetype_module.SysFont("malgun gothic", 12)
+            small_font = freetype_module.SysFont("malgun gothic", 10)
+        _arena_skill_tooltip_fonts = (title_font, normal_font, small_font)
+
+    title_font, normal_font, small_font = _arena_skill_tooltip_fonts
+
+    # 툴팁 크기
+    tooltip_width = 300
+    padding = 12
+
+    # === 콘텐츠 미리 계산 (높이 결정용) ===
+    header_height = 36
+    y_offset = padding  # 스킬명 (헤더 안)
+    y_offset += header_height + 6  # 헤더 아래 여백
+
+    # 쿨타임 행
+    y_offset += 22
+
+    # 설명 줄바꿈 계산
+    description = getattr(skill, 'description', '') or ''
+    max_text_width = tooltip_width - padding * 2
+    desc_lines = []
+    current_line = ""
+    for char in description:
+        test_line = current_line + char
+        test_surface, test_rect = normal_font.render(test_line, (255, 255, 255))
+        if test_rect.width <= max_text_width:
+            current_line = test_line
+        else:
+            if current_line:
+                desc_lines.append(current_line)
+            current_line = char
+    if current_line:
+        desc_lines.append(current_line)
+    desc_lines = desc_lines[:4]  # 최대 4줄
+
+    y_offset += len(desc_lines) * 18
+    y_offset += 6  # 설명 아래 여백
+
+    # 지속시간 행 (duration > 0 and < 999)
+    duration = getattr(skill, 'duration', 0)
+    show_duration = duration > 0 and duration < 999
+    if show_duration:
+        y_offset += 18
+
+    tooltip_height = y_offset + padding
+
+    # === 툴팁 위치 (슬롯 위쪽) ===
+    tooltip_x = slot_rect.centerx - tooltip_width // 2
+    tooltip_y = slot_rect.y - tooltip_height - 8
+
+    # 화면 경계 확인
+    screen_width, screen_height = surface.get_size()
+    if tooltip_x < 10:
+        tooltip_x = 10
+    if tooltip_x + tooltip_width > screen_width - 10:
+        tooltip_x = screen_width - tooltip_width - 10
+    if tooltip_y < 10:
+        tooltip_y = slot_rect.y + slot_rect.height + 8  # 아래로 표시
+
+    # === 툴팁 Surface 생성 ===
+    tooltip_surface = pygame.Surface((tooltip_width, tooltip_height), pygame.SRCALPHA)
+
+    # 배경 (스매셔와 동일)
+    tooltip_surface.fill((20, 25, 35, 230))
+
+    # 외곽선 (영웅 색상)
+    r, g, b = hero_color[:3]
+    pygame.draw.rect(tooltip_surface, (r, g, b), (0, 0, tooltip_width, tooltip_height), 2, border_radius=8)
+
+    # 상단 헤더 바
+    pygame.draw.rect(tooltip_surface, (r, g, b, 60), (2, 2, tooltip_width - 4, header_height), border_radius=6)
+
+    y_pos = padding
+
+    # === 스킬명 (헤더 좌측) ===
+    skill_name_text = getattr(skill, 'korean_name', '') or getattr(skill, 'name', '???')
+    name_surface, name_rect = title_font.render(skill_name_text, (255, 255, 255))
+    tooltip_surface.blit(name_surface, (padding, y_pos))
+
+    # 발동 조건 라벨 (헤더 우측)
+    from downtown.hero_skills import SkillTrigger
+    trigger = getattr(skill, 'trigger', None)
+    if trigger == SkillTrigger.ON_BALL_HIT:
+        trigger_text = "타격 발동"
+        trigger_color = (100, 200, 255)
+    elif trigger == SkillTrigger.ON_COOLDOWN:
+        trigger_text = "자동 발동"
+        trigger_color = (255, 180, 80)
+    else:
+        trigger_text = "패시브"
+        trigger_color = (150, 255, 150)
+    trigger_surface, trigger_rect = title_font.render(trigger_text, trigger_color)
+    trigger_x = tooltip_width - padding - trigger_rect.width
+    tooltip_surface.blit(trigger_surface, (trigger_x, y_pos))
+
+    y_pos += header_height + 6
+
+    # === 쿨타임 표시 ===
+    cooldown = getattr(skill, 'cooldown', 0)
+    current_cd = getattr(skill, 'current_cooldown', 0)
+    if current_cd > 0:
+        cd_text = f"쿨타임: {current_cd:.1f}초"
+        cd_color = (255, 180, 80)
+    else:
+        cd_text = f"쿨타임: {cooldown}초"
+        cd_color = (180, 180, 180)
+    cd_surface, cd_rect = small_font.render(cd_text, cd_color)
+    cd_x = tooltip_width - padding - cd_rect.width
+    tooltip_surface.blit(cd_surface, (cd_x, y_pos + 2))
+
+    y_pos += 22
+
+    # === 설명 ===
+    for line in desc_lines:
+        line_surface, line_rect = normal_font.render(line, (220, 220, 220))
+        tooltip_surface.blit(line_surface, (padding, y_pos))
+        y_pos += 18
+
+    y_pos += 6
+
+    # === 지속시간 (해당되는 경우) ===
+    if show_duration:
+        dur_text = f"지속시간: {duration}초"
+        dur_surface, dur_rect = small_font.render(dur_text, (100, 255, 100))
+        tooltip_surface.blit(dur_surface, (padding, y_pos))
+
+    # 최종 렌더링
+    surface.blit(tooltip_surface, (tooltip_x, tooltip_y))
 
 
 def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
@@ -6967,6 +7122,11 @@ def _draw_diablo_hud_frame(screen):
 
         # === 하단 액티브 아이템 슬롯 프레임 ===
         slot_rects = globals().get('_pillar_active_item_slot_rects', [])
+        # 투기장 모드면 아레나 스킬 슬롯 rect 사용
+        if not slot_rects:
+            _arena_data = globals().get('_arena_skill_slot_data', [])
+            if _arena_data:
+                slot_rects = [pair[0] for pair in _arena_data]
 
         if slot_rects and len(slot_rects) > 0:
             # 모든 슬롯을 감싸는 영역 계산
@@ -7004,7 +7164,7 @@ def _draw_pillar_ui(screen, renderer):
         screen: 그릴 surface (REAL_SCREEN)
         renderer: PillarBackgroundRenderer 인스턴스
     """
-    global _pillar_ui_enabled
+    global _pillar_ui_enabled, _arena_skill_tooltip_active
 
     # 성능 측정
     if globals().get('VALTHOR_PERF_DEBUG', False):
@@ -7067,6 +7227,25 @@ def _draw_pillar_ui(screen, renderer):
             traceback.print_exc()
             globals()['_pillar_active_item_slot_rects'] = []
     else:
+        # 투기장 모드: 하단 영웅 스킬 아이콘 표시
+        _arena_skill_slot_data = []
+        try:
+            _bottom_hero = globals().get('arena_bottom_hero')
+            _skill_mgr = globals().get('arena_skill_manager')
+            if _bottom_hero and _skill_mgr:
+                _hero_id = _bottom_hero.get('id')
+                _hero_color = _bottom_hero.get('color', (200, 200, 200))
+                _hero_skills = _skill_mgr.active_skills.get(_hero_id, [])
+                if _hero_skills:
+                    _arena_skill_slot_data = renderer.draw_arena_skill_slots(
+                        screen,
+                        skills=_hero_skills,
+                        hero_color=_hero_color,
+                        icon_size=(42, 42)
+                    )
+        except Exception as e:
+            pass
+        globals()['_arena_skill_slot_data'] = _arena_skill_slot_data
         globals()['_pillar_active_item_slot_rects'] = []
 
     # 왼쪽 필러 상단 - 인게임 골드 HUD 표시 (2배 크기)
@@ -7222,7 +7401,7 @@ def _draw_pillar_ui(screen, renderer):
                     if _smasher_tooltip_pause_start > 0:
                         _smasher_tooltip_pause_accumulated += pygame.time.get_ticks() - _smasher_tooltip_pause_start
                         _smasher_tooltip_pause_start = 0
-                    if game_paused_by_tooltip and _tooltip_forced_pause and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
+                    if game_paused_by_tooltip and _tooltip_forced_pause and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active and not _arena_skill_tooltip_active:
                         game_paused = _tooltip_prev_game_paused
                         game_paused_by_tooltip = False
                         _tooltip_forced_pause = False
@@ -7241,7 +7420,7 @@ def _draw_pillar_ui(screen, renderer):
                 if _smasher_tooltip_pause_start > 0:
                     _smasher_tooltip_pause_accumulated += pygame.time.get_ticks() - _smasher_tooltip_pause_start
                     _smasher_tooltip_pause_start = 0
-                if game_paused_by_tooltip and _tooltip_forced_pause and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
+                if game_paused_by_tooltip and _tooltip_forced_pause and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active and not _arena_skill_tooltip_active:
                     game_paused = _tooltip_prev_game_paused
                     game_paused_by_tooltip = False
                     _tooltip_forced_pause = False
@@ -7275,7 +7454,7 @@ def _draw_pillar_ui(screen, renderer):
         else:
             if _odin_swamp_tooltip_active:
                 _odin_swamp_tooltip_active = False
-                if game_paused_by_tooltip and _tooltip_forced_pause and not _smasher_skill_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
+                if game_paused_by_tooltip and _tooltip_forced_pause and not _smasher_skill_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active and not _arena_skill_tooltip_active:
                     game_paused = _tooltip_prev_game_paused
                     game_paused_by_tooltip = False
                     _tooltip_forced_pause = False
@@ -7316,7 +7495,7 @@ def _draw_pillar_ui(screen, renderer):
                     # 툴팁 비활성화 - 게임 재개
                     if _rage_indicator_tooltip_active:
                         _rage_indicator_tooltip_active = False
-                        if game_paused_by_tooltip and _rage_tooltip_forced_pause and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active:
+                        if game_paused_by_tooltip and _rage_tooltip_forced_pause and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active and not _arena_skill_tooltip_active:
                             game_paused = _rage_tooltip_prev_game_paused
                             game_paused_by_tooltip = False
                             _rage_tooltip_forced_pause = False
@@ -7324,7 +7503,7 @@ def _draw_pillar_ui(screen, renderer):
                 # 광폭화 비활성 시 툴팁 상태 초기화
                 if _rage_indicator_tooltip_active:
                     _rage_indicator_tooltip_active = False
-                    if game_paused_by_tooltip and _rage_tooltip_forced_pause and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active:
+                    if game_paused_by_tooltip and _rage_tooltip_forced_pause and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active and not _arena_skill_tooltip_active:
                         game_paused = _rage_tooltip_prev_game_paused
                         game_paused_by_tooltip = False
                         _rage_tooltip_forced_pause = False
@@ -7383,7 +7562,7 @@ def _draw_pillar_ui(screen, renderer):
                     if _quest_emblem_tooltip_active:
                         _quest_emblem_tooltip_active = False
                         # 다른 툴팁이 활성 중이 아니면 즉시 게임 재개
-                        if not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active:
+                        if not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _arena_skill_tooltip_active:
                             if _quest_tooltip_forced_pause:
                                 game_paused = _quest_tooltip_prev_game_paused
                             game_paused_by_tooltip = False
@@ -7392,13 +7571,59 @@ def _draw_pillar_ui(screen, renderer):
                 # 퀘스트 없을 때 툴팁 상태 초기화
                 if _quest_emblem_tooltip_active:
                     _quest_emblem_tooltip_active = False
-                    if not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active:
+                    if not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _arena_skill_tooltip_active:
                         if _quest_tooltip_forced_pause:
                             game_paused = _quest_tooltip_prev_game_paused
                         game_paused_by_tooltip = False
                         _quest_tooltip_forced_pause = False
     except Exception:
         pass
+
+    # 투기장 영웅 스킬 툴팁 그리기 (REAL_SCREEN) - 인게임 + 아레나 모드에서만
+    if _is_ingame and globals().get('arena_mode_enabled', False):
+      try:
+        _arena_slot_data = globals().get('_arena_skill_slot_data', [])
+        if _arena_slot_data:
+            mouse_pos = _original_mouse_get_pos()
+            hovered_skill = None
+            hovered_rect = None
+            for rect_skill_pair in _arena_slot_data:
+                rect, skill = rect_skill_pair
+                if rect.collidepoint(mouse_pos):
+                    hovered_skill = skill
+                    hovered_rect = rect
+                    break
+
+            if hovered_skill:
+                if not _arena_skill_tooltip_active:
+                    _arena_skill_tooltip_active = True
+                    if not game_paused_by_tooltip:
+                        _tooltip_prev_game_paused = game_paused
+                        _tooltip_forced_pause = not _tooltip_prev_game_paused
+                        game_paused = True
+                        game_paused_by_tooltip = True
+                _hero_color = globals().get('arena_bottom_hero', {}).get('color', (200, 200, 200))
+                _draw_arena_skill_tooltip(screen, hovered_skill, hovered_rect, _hero_color)
+            else:
+                if _arena_skill_tooltip_active:
+                    _arena_skill_tooltip_active = False
+                    if game_paused_by_tooltip and _tooltip_forced_pause and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
+                        game_paused = _tooltip_prev_game_paused
+                        game_paused_by_tooltip = False
+                        _tooltip_forced_pause = False
+        else:
+            if _arena_skill_tooltip_active:
+                _arena_skill_tooltip_active = False
+                if game_paused_by_tooltip and _tooltip_forced_pause and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
+                    game_paused = _tooltip_prev_game_paused
+                    game_paused_by_tooltip = False
+                    _tooltip_forced_pause = False
+      except Exception:
+        _arena_skill_tooltip_active = False
+    else:
+        # 아레나 모드가 아닐 때 상태 초기화
+        if _arena_skill_tooltip_active:
+            _arena_skill_tooltip_active = False
 
     # 성능 측정 종료
     if globals().get('VALTHOR_PERF_DEBUG', False):
@@ -19703,7 +19928,7 @@ def _reset_active_item_hover_state() -> None:
     _active_item_tooltip_body = ""
 
     # 다른 툴팁이 활성화 중이면 일시정지 상태를 건드리지 않음
-    if _smasher_skill_tooltip_active or _odin_swamp_tooltip_active or _rage_indicator_tooltip_active:
+    if _smasher_skill_tooltip_active or _odin_swamp_tooltip_active or _rage_indicator_tooltip_active or _arena_skill_tooltip_active:
         return
 
     if game_paused_by_tooltip and _tooltip_forced_pause and game_paused:
@@ -19843,7 +20068,7 @@ def _update_active_item_hover_state(now_ms: int) -> None:
         _active_item_tooltip_ready = False
         # 기존 툴팁 일시정지를 해제하고 새로운 타이머 시작
         # (오딘의 늪/스매셔 스킬 툴팁 활성 시에는 건드리지 않음)
-        if game_paused_by_tooltip and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active:
+        if game_paused_by_tooltip and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active and not _arena_skill_tooltip_active:
             game_paused = _tooltip_prev_game_paused
             game_paused_by_tooltip = False
             _tooltip_forced_pause = False

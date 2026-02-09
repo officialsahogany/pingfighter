@@ -151,6 +151,11 @@ class PillarBackgroundRenderer:
         self._quest_has_tablet_quest = False       # 석판 퀘스트 활성 여부
         self._create_quest_parchment_icon()      # 양피지 아이콘 생성
 
+        # === 🎮 투기장 영웅 스킬 아이콘 캐시 ===
+        self._arena_skill_icon_cache = {}      # {(skill_id, w, h): Surface}
+        self._arena_prev_cooldowns = {}        # {slot_index: prev_cooldown} - 쿨다운 완료 감지용
+        self._arena_cooldown_flash = {}        # {slot_index: flash_start_time_ms}
+
         # === 🔧 액티브 아이템 슬롯 UI 최적화용 캐시 ===
         # 폰트 캐시 (매 프레임 로딩 방지)
         self._slot_font_small = None   # 카운트다운용 (size 20)
@@ -1806,6 +1811,167 @@ class PillarBackgroundRenderer:
 
         # 슬롯 rect 리스트 반환 (클릭/호버 감지용)
         return slot_rects
+
+    def draw_arena_skill_slots(self, screen, skills, hero_color, icon_size=(42, 42)):
+        """투기장 모드: 하단 영웅 스킬 아이콘 2개를 필러 하단에 표시
+
+        Args:
+            screen: 그릴 Surface (REAL_SCREEN)
+            skills: list of HeroSkill 인스턴스 (2개)
+            hero_color: 영웅 색상 tuple (R, G, B)
+            icon_size: 아이콘 크기 (기본 42x42, active item과 동일)
+
+        Returns:
+            list of (pygame.Rect, HeroSkill): 슬롯 rect + 스킬 인스턴스 쌍 (호버/툴팁 감지용)
+        """
+        import math
+        from downtown.hero_skill_icons import get_skill_icon
+
+        SLOT_W, SLOT_H = icon_size
+        slot_margin = 4   # 슬롯 간 여백 (스킬 2개라 좀 더 넓게)
+        box_padding = 4
+
+        max_slots = min(len(skills), 2)
+        if max_slots == 0:
+            return []
+
+        # 박스 크기 계산
+        box_inner_width = max_slots * SLOT_W + (max_slots - 1) * slot_margin
+        box_width = box_inner_width + box_padding * 2
+        box_height = SLOT_H + box_padding * 2
+
+        # 위치: draw_left_pillar_ui()와 동일
+        box_y = self.game_offset_y + self.game_height + 14
+        game_area_right = self.game_offset_x + self.game_width
+        box_x = self.game_offset_x + (self.game_width - box_width) // 2
+
+        # 경계 체크
+        if box_x < self.game_offset_x:
+            box_x = self.game_offset_x
+        if box_x + box_width > game_area_right:
+            box_x = game_area_right - box_width
+
+        # 박스 배경 (draw_left_pillar_ui와 동일 스타일)
+        box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+        box_surface.fill((15, 15, 25, 180))
+        pygame.draw.rect(box_surface, (70, 70, 90), (0, 0, box_width, box_height), 1, border_radius=3)
+        screen.blit(box_surface, (box_x, box_y))
+
+        slot_start_x = box_x + box_padding
+        slot_start_y = box_y + box_padding
+        current_time = pygame.time.get_ticks()
+
+        slot_results = []
+
+        for i in range(max_slots):
+            skill = skills[i]
+            x = slot_start_x + i * (SLOT_W + slot_margin)
+            y = slot_start_y
+
+            # 슬롯 배경
+            slot_bg_key = (SLOT_W, SLOT_H, 120)
+            if slot_bg_key not in self._slot_bg_cache:
+                slot_bg = pygame.Surface((SLOT_W, SLOT_H), pygame.SRCALPHA)
+                slot_bg.fill((0, 0, 0, 120))
+                self._slot_bg_cache[slot_bg_key] = slot_bg
+            screen.blit(self._slot_bg_cache[slot_bg_key], (x, y))
+
+            # 스킬 아이콘 그리기
+            icon_cache_key = (skill.skill_id, SLOT_W, SLOT_H)
+            if icon_cache_key not in self._arena_skill_icon_cache:
+                base_icon = get_skill_icon(skill.skill_id, 32)
+                if base_icon:
+                    scaled = pygame.transform.smoothscale(base_icon, (SLOT_W, SLOT_H))
+                    self._arena_skill_icon_cache[icon_cache_key] = scaled
+                else:
+                    self._arena_skill_icon_cache[icon_cache_key] = None
+
+            cached_icon = self._arena_skill_icon_cache[icon_cache_key]
+            if cached_icon:
+                screen.blit(cached_icon, (x, y))
+
+            # 쿨타임 오버레이
+            prev_cd = self._arena_prev_cooldowns.get(i, 0)
+
+            if skill.current_cooldown > 0 and skill.cooldown > 0:
+                cooldown_ratio = min(1.0, skill.current_cooldown / skill.cooldown)
+                overlay_height = int(SLOT_H * cooldown_ratio)
+                if overlay_height > 0:
+                    overlay_key = (SLOT_W, overlay_height, 180)
+                    if overlay_key not in self._overlay_cache:
+                        ov = pygame.Surface((SLOT_W, overlay_height), pygame.SRCALPHA)
+                        ov.fill((0, 0, 0, 180))
+                        self._overlay_cache[overlay_key] = ov
+                    screen.blit(self._overlay_cache[overlay_key], (x, y))
+
+                # 남은 초 표시
+                cd_text = str(int(skill.current_cooldown) + 1)
+                if self._slot_font_small:
+                    text_surf = self._slot_font_small.render(cd_text, True, (255, 255, 255))
+                    text_rect = text_surf.get_rect(center=(x + SLOT_W // 2, y + SLOT_H // 2))
+                    screen.blit(text_surf, text_rect)
+
+                # 쿨다운 중이면 플래시 추적 제거
+                if i in self._arena_cooldown_flash:
+                    del self._arena_cooldown_flash[i]
+
+            else:
+                # 쿨다운 완료 감지 (이전 > 0 → 현재 ≤ 0)
+                if prev_cd > 0:
+                    self._arena_cooldown_flash[i] = current_time
+
+                # 쿨다운 완료 플래시 (400ms)
+                if i in self._arena_cooldown_flash:
+                    flash_start = self._arena_cooldown_flash[i]
+                    flash_elapsed = current_time - flash_start
+                    if flash_elapsed < 400:
+                        progress = flash_elapsed / 400.0
+                        if progress < 0.2:
+                            pulse = progress / 0.2
+                        else:
+                            pulse = 1.0 - ((progress - 0.2) / 0.8)
+                        flash_alpha = int(max(0, min(255, pulse * 255)))
+                        flash_surface = pygame.Surface((SLOT_W, SLOT_H), pygame.SRCALPHA)
+                        flash_surface.fill((255, 255, 220, flash_alpha))
+                        screen.blit(flash_surface, (x, y))
+                        # 글로우 테두리
+                        glow_alpha = int(max(0, min(255, pulse * 200)))
+                        glow_rect = (x - 2, y - 2, SLOT_W + 4, SLOT_H + 4)
+                        glow_surf = pygame.Surface((SLOT_W + 4, SLOT_H + 4), pygame.SRCALPHA)
+                        pygame.draw.rect(glow_surf, (255, 230, 100, glow_alpha),
+                                         (0, 0, SLOT_W + 4, SLOT_H + 4), 3, border_radius=4)
+                        screen.blit(glow_surf, (x - 2, y - 2))
+                    else:
+                        del self._arena_cooldown_flash[i]
+
+            # 쿨다운 상태 저장 (다음 프레임 비교용)
+            self._arena_prev_cooldowns[i] = skill.current_cooldown
+
+            # 스킬 활성 중 표시 (금색 글로우 펄스)
+            if skill.is_active:
+                anim_time = current_time / 1000.0
+                pulse = math.sin(anim_time * 4) * 0.3 + 0.7
+                alpha = int(150 * pulse)
+                glow_surf = pygame.Surface((SLOT_W + 4, SLOT_H + 4), pygame.SRCALPHA)
+                pygame.draw.rect(glow_surf, (255, 255, 100, alpha),
+                                 (0, 0, SLOT_W + 4, SLOT_H + 4), 3, border_radius=4)
+                screen.blit(glow_surf, (x - 2, y - 2))
+            elif skill.can_use():
+                # 사용 가능 - 영웅 색상 테두리
+                border_surf = pygame.Surface((SLOT_W + 4, SLOT_H + 4), pygame.SRCALPHA)
+                r, g, b = hero_color[:3]
+                pygame.draw.rect(border_surf, (r, g, b, 180),
+                                 (0, 0, SLOT_W + 4, SLOT_H + 4), 2, border_radius=3)
+                screen.blit(border_surf, (x - 2, y - 2))
+            else:
+                # 쿨다운 중 - 어두운 테두리
+                pygame.draw.rect(screen, (60, 60, 80),
+                                 (x, y, SLOT_W, SLOT_H), 1, border_radius=2)
+
+            # rect + skill 쌍 저장
+            slot_results.append((pygame.Rect(x, y, SLOT_W, SLOT_H), skill))
+
+        return slot_results
 
     def draw_right_pillar_ui(self, screen, player_score=0, boss_score=0,
                              boss_gauge=0, boss_gauge_max=500,
