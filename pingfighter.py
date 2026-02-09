@@ -17593,23 +17593,25 @@ def spawn_hover_particles(rx, ry, rw, rh):
 def draw_btn_hover_border(scr, rx, ry, rw, rh, color=(200,220,255)):
     t = _btn_hover_glow_timer
     pulse = 0.7 + 0.3 * math.sin(t * 2.5)
-    # 글로우
-    gs = pygame.Surface((rw + 14, rh + 14), pygame.SRCALPHA)
-    pygame.draw.rect(gs, (*color, int(50 * pulse)), (0, 0, rw + 14, rh + 14), border_radius=10)
-    scr.blit(gs, (rx - 7, ry - 7))
-    # 보더 (2px)
-    bs = pygame.Surface((rw + 4, rh + 4), pygame.SRCALPHA)
-    pygame.draw.rect(bs, (*color, int(160 * pulse)), (0, 0, rw + 4, rh + 4), 2, border_radius=8)
-    scr.blit(bs, (rx - 2, ry - 2))
-    # 코너 악센트 (2px)
-    ln = int(12 + 4 * pulse)
-    la = int(200 * pulse)
-    cs = pygame.Surface((rw + 4, rh + 4), pygame.SRCALPHA)
-    cc = (*color, la)
-    for cx, cy, dx, dy in [(0,0,1,1),(rw+3,0,-1,1),(0,rh+3,1,-1),(rw+3,rh+3,-1,-1)]:
+    # 밝은 색상 계산 (버튼 배경과 동일 색상일 때도 보이도록)
+    bright = (min(255, color[0] + 120), min(255, color[1] + 120), min(255, color[2] + 120))
+    # 글로우 (밝은 색상으로)
+    gs = pygame.Surface((rw + 16, rh + 16), pygame.SRCALPHA)
+    pygame.draw.rect(gs, (*bright, int(60 * pulse)), (0, 0, rw + 16, rh + 16), border_radius=10)
+    scr.blit(gs, (rx - 8, ry - 8))
+    # 보더 - WHITE (어떤 배경에서도 확실히 보임)
+    bs = pygame.Surface((rw + 6, rh + 6), pygame.SRCALPHA)
+    pygame.draw.rect(bs, (255, 255, 255, int(180 * pulse)), (0, 0, rw + 6, rh + 6), 2, border_radius=8)
+    scr.blit(bs, (rx - 3, ry - 3))
+    # 코너 악센트 - WHITE
+    ln = int(14 + 5 * pulse)
+    la = int(220 * pulse)
+    cs = pygame.Surface((rw + 6, rh + 6), pygame.SRCALPHA)
+    cc = (255, 255, 255, la)
+    for cx, cy, dx, dy in [(0,0,1,1),(rw+5,0,-1,1),(0,rh+5,1,-1),(rw+5,rh+5,-1,-1)]:
         pygame.draw.line(cs, cc, (cx, cy), (cx + ln * dx, cy), 2)
         pygame.draw.line(cs, cc, (cx, cy), (cx, cy + ln * dy), 2)
-    scr.blit(cs, (rx - 2, ry - 2))
+    scr.blit(cs, (rx - 3, ry - 3))
     # 파티클 (스무스 페이드아웃)
     for p in _btn_hover_particles:
         ratio = max(0.0, p['life'] / p['max_life'])

@@ -3667,26 +3667,27 @@ class ColosseumsArena:
         """호버 시 빛나는 테두리 + 코너 라인 이펙트 (간결하고 고급스럽게)"""
         t = self.hover_glow_timer
         pulse = 0.7 + 0.3 * math.sin(t * 2.5)
+        bright = (min(255, color[0] + 120), min(255, color[1] + 120), min(255, color[2] + 120))
 
-        # 글로우
-        glow_surf = pygame.Surface((rect_w + 14, rect_h + 14), pygame.SRCALPHA)
-        pygame.draw.rect(glow_surf, (*color, int(50 * pulse)), (0, 0, rect_w + 14, rect_h + 14), border_radius=10)
-        self.screen.blit(glow_surf, (rect_x - 7, rect_y - 7))
+        # 글로우 (밝은 색상)
+        glow_surf = pygame.Surface((rect_w + 16, rect_h + 16), pygame.SRCALPHA)
+        pygame.draw.rect(glow_surf, (*bright, int(60 * pulse)), (0, 0, rect_w + 16, rect_h + 16), border_radius=10)
+        self.screen.blit(glow_surf, (rect_x - 8, rect_y - 8))
 
-        # 보더 (2px)
-        border_surf = pygame.Surface((rect_w + 4, rect_h + 4), pygame.SRCALPHA)
-        pygame.draw.rect(border_surf, (*color, int(160 * pulse)), (0, 0, rect_w + 4, rect_h + 4), 2, border_radius=8)
-        self.screen.blit(border_surf, (rect_x - 2, rect_y - 2))
+        # 보더 - WHITE
+        border_surf = pygame.Surface((rect_w + 6, rect_h + 6), pygame.SRCALPHA)
+        pygame.draw.rect(border_surf, (255, 255, 255, int(180 * pulse)), (0, 0, rect_w + 6, rect_h + 6), 2, border_radius=8)
+        self.screen.blit(border_surf, (rect_x - 3, rect_y - 3))
 
-        # 코너 악센트 (2px)
-        ln = int(12 + 4 * pulse)
-        la = int(200 * pulse)
-        cs = pygame.Surface((rect_w + 4, rect_h + 4), pygame.SRCALPHA)
-        cc = (*color, la)
-        for cx, cy, dx, dy in [(0,0,1,1),(rect_w+3,0,-1,1),(0,rect_h+3,1,-1),(rect_w+3,rect_h+3,-1,-1)]:
+        # 코너 악센트 - WHITE
+        ln = int(14 + 5 * pulse)
+        la = int(220 * pulse)
+        cs = pygame.Surface((rect_w + 6, rect_h + 6), pygame.SRCALPHA)
+        cc = (255, 255, 255, la)
+        for cx, cy, dx, dy in [(0,0,1,1),(rect_w+5,0,-1,1),(0,rect_h+5,1,-1),(rect_w+5,rect_h+5,-1,-1)]:
             pygame.draw.line(cs, cc, (cx, cy), (cx + ln * dx, cy), 2)
             pygame.draw.line(cs, cc, (cx, cy), (cx, cy + ln * dy), 2)
-        self.screen.blit(cs, (rect_x - 2, rect_y - 2))
+        self.screen.blit(cs, (rect_x - 3, rect_y - 3))
 
         # 파티클 (스무스 페이드아웃)
         for p in self.hover_line_particles:
