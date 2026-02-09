@@ -21471,7 +21471,7 @@ def apply_gold_digger_gauge_bonus(gauge_gain: int) -> int:
 
 def ensure_equipment_state():
     """전역 장비 슬롯 상태를 초기화/반환."""
-    state = _equipment_slots_state
+    state = globals().get("_equipment_slots_state")
     if not state or not isinstance(state, dict):
         state = {d["key"]: None for d in EQUIPMENT_SLOT_DEFINITIONS}
         globals()["_equipment_slots_state"] = state
