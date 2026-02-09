@@ -96402,6 +96402,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
     global arena_top_dash_duration_frames, arena_top_dash_stun_timer
     global arena_bottom_dashing, arena_bottom_dash_timer, arena_bottom_dash_direction
     global arena_bottom_dash_target_x, arena_bottom_dash_cooldown, arena_bottom_dash_afterimages
+    global ai_mode
     global arena_bottom_dash_charges, arena_bottom_dash_charge_timer
     global arena_bottom_dash_duration_frames, arena_bottom_dash_stun_timer
     global selected_character_type, selected_item_index, last_item_use_time
@@ -96411,6 +96412,12 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
     arena_battle_result = None  # 이전 배틀 결과 초기화 (필수!)
     arena_top_hero = top_hero
     arena_bottom_hero = bottom_hero
+
+    # ── 투기장 공 속도 일관성 보장 ──
+    # ai_mode에 따라 공 속도가 달라지므로, 투기장에서는 고정값 사용
+    # (개발자 모드/신화모드 등 진입 경로에 관계없이 동일한 공 속도)
+    _saved_ai_mode = ai_mode
+    ai_mode = "junior"  # 투기장 전용 공 속도 (느린 템포)
 
     # 투기장 대쉬 변수 초기화 (보스 대쉬와 동일한 구조)
     arena_top_dashing = False
@@ -96597,6 +96604,9 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         PLAYER.size = (PADDLE_WIDTH, PADDLE_HEIGHT)
 
         # ── 투기장 격리 해제: 플레이어 상태 복원 ──
+        # 0) ai_mode 복원 (투기장에서 junior로 고정했던 것을 원래 값으로)
+        ai_mode = _saved_ai_mode
+
         # 1) AI 자동조종 해제 (⚠️ 필수! 없으면 다음 스테이지에서 AI가 계속 조종)
         player_ai_enabled = False
 
