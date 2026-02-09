@@ -364,28 +364,37 @@ class HeroPaddleRenderer:
 
         # === 다리 (하카마 스타일 - 디테일 강화) ===
         hip_y = torso_y + int(2.0 * b)
+        # 하카마 넘실거림 - 무거운 천의 둔중한 관성
+        side_blend = anim.get("side_blend", 0)
+        move_dir = anim.get("move_dir", 0)
+        hakama_inertia = -move_dir * side_blend * 0.45 * b  # 두꺼운 천: 관성 약간 약하게
+        hakama_sway = math.sin(self.time * 2.8) * side_blend * 0.25 * b  # 느린 출렁임 (무거운 천)
+        hakama_wave_boost = 1.0 + side_blend * 1.5
+
         # 하카마 그림자
+        hk_drift = int(hakama_inertia + hakama_sway)
         hakama_shadow = [
             (cx - int(1.25 * b) + lean_offset + 2, hip_y - int(0.15 * b) + 2),
             (cx + int(1.25 * b) + lean_offset + 2, hip_y - int(0.15 * b) + 2),
-            (cx + int(1.55 * b) + lean_offset + int(wave * 0.2 * b) + 2, cy + int(2.85 * b) + 2),
-            (cx - int(1.55 * b) + lean_offset - int(wave * 0.2 * b) + 2, cy + int(2.85 * b) + 2),
+            (cx + int(1.55 * b) + lean_offset + int(wave * 0.2 * hakama_wave_boost * b) + hk_drift + 2, cy + int(2.85 * b) + 2),
+            (cx - int(1.55 * b) + lean_offset - int(wave * 0.2 * hakama_wave_boost * b) + hk_drift + 2, cy + int(2.85 * b) + 2),
         ]
         pygame.draw.polygon(screen, (20, 15, 30), hakama_shadow)
         # 하카마 본체
         hakama_points = [
             (cx - int(1.2 * b) + lean_offset, hip_y - int(0.2 * b)),
             (cx + int(1.2 * b) + lean_offset, hip_y - int(0.2 * b)),
-            (cx + int(1.5 * b) + lean_offset + int(wave * 0.2 * b), cy + int(2.8 * b)),
-            (cx - int(1.5 * b) + lean_offset - int(wave * 0.2 * b), cy + int(2.8 * b)),
+            (cx + int(1.5 * b) + lean_offset + int(wave * 0.2 * hakama_wave_boost * b) + hk_drift, cy + int(2.8 * b)),
+            (cx - int(1.5 * b) + lean_offset - int(wave * 0.2 * hakama_wave_boost * b) + hk_drift, cy + int(2.8 * b)),
         ]
         pygame.draw.polygon(screen, p["kimono"], hakama_points)
-        # 하카마 주름 (5개)
+        # 하카마 주름 (5개) - 관성 방향으로 주름 기울어짐
         for i in range(5):
+            fold_drift = int((hakama_inertia + hakama_sway) * (i - 2) * 0.1)
             fx = cx + (i - 2) * int(0.45 * b) + lean_offset
-            fold_wave = int(wave * 0.08 * b * (1 + abs(i - 2) * 0.2))
+            fold_wave = int(wave * 0.08 * hakama_wave_boost * b * (1 + abs(i - 2) * 0.2))
             pygame.draw.line(screen, p["kimono_light"],
-                           (fx, hip_y + int(0.1 * b)), (fx + fold_wave, cy + int(2.6 * b)), 1)
+                           (fx, hip_y + int(0.1 * b)), (fx + fold_wave + fold_drift, cy + int(2.6 * b)), 1)
         # 하카마 허리 주름
         pygame.draw.line(screen, p["kimono_light"],
                         (cx - int(1.1 * b) + lean_offset, hip_y - int(0.1 * b)),
@@ -1023,20 +1032,30 @@ class HeroPaddleRenderer:
             screen.blit(particle_surf, (int(px - 0.15 * b), int(py - 0.15 * b)))
 
         # === 로브 하단 (시계추 장식) ===
+        # 로브 넘실거림 - 유령 같은 신비로운 흘러내림
+        side_blend = anim.get("side_blend", 0)
+        move_dir = anim.get("move_dir", 0)
+        robe_drift = -move_dir * side_blend * 0.7 * b  # 가벼운 로브: 관성 강하게
+        # 이중 사인파로 유령 같은 불규칙 흔들림
+        robe_ghost = (math.sin(self.time * 3.2) * 0.2 + math.sin(self.time * 5.1) * 0.1) * side_blend * b
+        robe_wave_boost = 1.0 + side_blend * 2.5  # 로브는 가벼워서 물결 증폭 크게
+
+        rb_drift = int(robe_drift + robe_ghost)
         robe_points = [
             (cx - int(1.4 * b) + lean_offset, torso_y + int(1.6 * b)),
             (cx + int(1.4 * b) + lean_offset, torso_y + int(1.6 * b)),
-            (cx + int(2.0 * b) + lean_offset + int(wave * 0.25 * b), cy + int(3.2 * b)),
-            (cx - int(2.0 * b) + lean_offset - int(wave * 0.25 * b), cy + int(3.2 * b)),
+            (cx + int(2.0 * b) + lean_offset + int(wave * 0.25 * robe_wave_boost * b) + rb_drift, cy + int(3.2 * b)),
+            (cx - int(2.0 * b) + lean_offset - int(wave * 0.25 * robe_wave_boost * b) + rb_drift, cy + int(3.2 * b)),
         ]
         pygame.draw.polygon(screen, p["robe"], robe_points)
 
-        # 로브 주름 디테일
+        # 로브 주름 디테일 (유령처럼 비대칭으로 흔들림)
         for i in range(5):
+            fold_shift = int((robe_drift + robe_ghost) * (i - 2) * 0.12)
             fold_x = cx + (i - 2) * int(0.5 * b) + lean_offset
             fold_top_y = torso_y + int(1.8 * b)
             fold_bot_y = cy + int(3.0 * b)
-            pygame.draw.line(screen, p["robe_mid"], (fold_x, fold_top_y), (fold_x + int(wave * 0.05 * b), fold_bot_y), 1)
+            pygame.draw.line(screen, p["robe_mid"], (fold_x, fold_top_y), (fold_x + int(wave * 0.05 * robe_wave_boost * b) + fold_shift, fold_bot_y), 1)
 
         # 로브 금색 테두리 (이중선)
         pygame.draw.line(screen, p["gold_dark"], robe_points[0], robe_points[3], max(2, int(0.12 * b)))
@@ -1044,9 +1063,10 @@ class HeroPaddleRenderer:
         pygame.draw.line(screen, p["gold_dark"], robe_points[1], robe_points[2], max(2, int(0.12 * b)))
         pygame.draw.line(screen, p["gold"], robe_points[1], robe_points[2], max(1, int(0.06 * b)))
 
-        # 로브 하단 시계 패턴
+        # 로브 하단 시계 패턴 (넘실거림 연동)
         for i in range(3):
-            clock_x = cx + (i - 1) * int(0.9 * b) + lean_offset
+            clock_drift = int((robe_drift + robe_ghost) * (0.5 + i * 0.2))
+            clock_x = cx + (i - 1) * int(0.9 * b) + lean_offset + clock_drift
             clock_y = cy + int(2.4 * b)
             clock_r = max(2, int(0.25 * b))
             pygame.draw.circle(screen, p["gold_dark"], (int(clock_x), int(clock_y)), clock_r)
