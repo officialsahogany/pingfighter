@@ -211,9 +211,6 @@ class AnimatedBackgroundStage30:
         # 작은 원 (내부)
         pygame.draw.circle(self.arena_surface, gold, (center_x, center_y), 50, 2)
 
-        # 중앙 제우스 석상
-        self._draw_zeus_statue(self.arena_surface, center_x, center_y)
-
         # ===== 코너 장식 (로마 스타일) - 게임 영역 기준 =====
         corner_size = 25
         corners = [
@@ -238,6 +235,12 @@ class AnimatedBackgroundStage30:
         pygame.draw.line(self.arena_surface, gold,
                         (self.GAME_AREA_END_X - 15, self.height - 70),
                         (self.GAME_AREA_END_X - 15 + corner_size, self.height - 70), 2)
+
+        # 석상 없는 버전 저장 (신의심판용 - 바닥 라인 보존)
+        self.arena_surface_no_statue = self.arena_surface.copy()
+
+        # 중앙 제우스 석상 (평상시용)
+        self._draw_zeus_statue(self.arena_surface, center_x, center_y)
 
     def _draw_zeus_statue(self, surface, cx, cy):
         """고대 제우스 석상 - 깔끔한 픽셀아트 스타일"""
@@ -558,16 +561,6 @@ class AnimatedBackgroundStage30:
         cy = self.height // 2 + offset_y
         s = self.judgment_scale
 
-        # 정적 석상 위를 모래색으로 부드럽게 덮기
-        if s > 1.0:
-            cover_r = int(55 * max(1.2, s))
-            cover_alpha = min(255, int(255 * (s - 1.0) / 0.5))
-            if cover_alpha > 0 and cover_r > 5:
-                sand = self.colors['sand']
-                cover_s = pygame.Surface((cover_r * 2, cover_r * 2), pygame.SRCALPHA)
-                pygame.draw.circle(cover_s, (*sand, cover_alpha), (cover_r, cover_r), cover_r)
-                screen.blit(cover_s, (cx - cover_r, cy - cover_r))
-
         # ── 합체 파티클 (심플 대리석 먼지) ──
         for p in self.judgment_merge_particles:
             px, py = int(p['x']) + offset_x, int(p['y']) + offset_y
@@ -844,15 +837,15 @@ class AnimatedBackgroundStage30:
             color = (200, 175, 140)
             pygame.draw.circle(screen, color, (px, py), size)
 
-        # 경기장 라인 (중앙선, 중앙원)
+        # 경기장 라인 (중앙선, 중앙원) - 신의심판 중에는 석상 없는 버전 사용
+        arena = self.arena_surface_no_statue if self.judgment_phase != self.JUDGMENT_IDLE else self.arena_surface
         if scale_x != 1.0 or scale_y != 1.0:
             scaled_arena = pygame.transform.scale(
-                self.arena_surface,
-                (int(self.width * scale_x), int(self.height * scale_y))
+                arena, (int(self.width * scale_x), int(self.height * scale_y))
             )
             screen.blit(scaled_arena, (offset_x, offset_y))
         else:
-            screen.blit(self.arena_surface, (offset_x, offset_y))
+            screen.blit(arena, (offset_x, offset_y))
 
         # 신의심판 이벤트 오버레이 (동적 석상)
         if self.judgment_phase != self.JUDGMENT_IDLE:
