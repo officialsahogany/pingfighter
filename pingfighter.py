@@ -136955,7 +136955,7 @@ def show_character_info(background_surface=None):
                              (stats_area.x + 10, line_y),
                              (stats_area.right - 10, line_y), 1)
             line_y += 6
-            perk_title_s = stats_font.render("투기장 퍽", True, (255, 220, 100))
+            perk_title_s = stats_font.render("퍽", True, (255, 220, 100))
             SCREEN.blit(perk_title_s, (stats_area.x + 14, line_y))
             line_y += line_gap
             for perk_data in arena_active_hero_perks:
