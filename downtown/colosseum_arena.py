@@ -2269,6 +2269,12 @@ class ColosseumsArena:
         self.bracket_anim_advancing_winners = []  # 진출하는 승자 목록 (선 이동용)
         self.bracket_anim_next_round = None    # 다음 라운드 정보
         self.bracket_anim_auto_battle = False  # 애니메이션 후 자동 배틀 진행 여부
+        self.bracket_anim_x_delay = 0.6       # 순차 X 매치 간 딜레이
+        self.bracket_anim_x_duration = 0.5    # 개별 X 애니메이션 시간
+        self.bracket_anim_x_sound_played = set()
+        self.bracket_anim_float_texts = []
+        self.bracket_anim_float_triggered = set()
+        self.bracket_anim_match_positions = {}
 
         # 투기장 퍽 시스템
         self.hero_perks: Dict[str, list] = {}   # {hero_id: [perk_dict, ...]}
@@ -5399,6 +5405,22 @@ class ColosseumsArena:
         else:
             self.bracket_anim_next_round = None
 
+        # 순차 X 애니메이션 상태
+        self.bracket_anim_x_delay = 0.6       # 매치 간 딜레이 (초)
+        self.bracket_anim_x_duration = 0.5    # 개별 X 애니메이션 시간 (초)
+        self.bracket_anim_x_sound_played = set()
+        self.bracket_anim_float_texts = []
+        self.bracket_anim_float_triggered = set()
+
+        # 매치 위치 정보 (플로팅 텍스트용)
+        if self.current_round == TournamentRound.QUARTER_FINAL:
+            pos_list = [(60, 530), (195, 530), (430, 530), (565, 530)]
+        elif self.current_round == TournamentRound.SEMI_FINAL:
+            pos_list = [(127, 310), (497, 310)]
+        else:
+            pos_list = [(312, 80)]
+        self.bracket_anim_match_positions = {i: p for i, p in enumerate(pos_list)}
+
         self.bracket_anim_auto_battle = True
         self.state = TournamentState.BRACKET_ANIMATION
 
@@ -5406,19 +5428,58 @@ class ColosseumsArena:
         """대진표 애니메이션 업데이트"""
         self.bracket_anim_timer += dt
 
-        # 애니메이션 속도 설정
-        phase_duration = 1.5  # 각 페이즈 지속 시간 (초)
-
         if self.bracket_anim_phase == 0:
-            # 페이즈 0: 패자 X 표시 애니메이션
-            self.bracket_anim_progress = min(1.0, self.bracket_anim_timer / phase_duration)
-            if self.bracket_anim_timer >= phase_duration:
+            # 페이즈 0: 왼쪽부터 순차적으로 X 표시
+            num = len(self.bracket_anim_completed_matches)
+            delay = self.bracket_anim_x_delay
+            x_dur = self.bracket_anim_x_duration
+            total_phase0 = num * delay + x_dur + 0.6
+
+            self.bracket_anim_progress = min(1.0, self.bracket_anim_timer / total_phase0)
+
+            # 각 매치별 사운드 + 플로팅 텍스트 트리거
+            for i, match in enumerate(self.bracket_anim_completed_matches):
+                x_start = i * delay
+                # X 시작 시 사운드 재생
+                if self.bracket_anim_timer >= x_start and i not in self.bracket_anim_x_sound_played:
+                    self.bracket_anim_x_sound_played.add(i)
+                    self._play_bracket_sound("swing", 0.5)
+
+                # X 중간 시점에 플로팅 텍스트 생성
+                if self.bracket_anim_timer >= x_start + x_dur * 0.5 and i not in self.bracket_anim_float_triggered:
+                    self.bracket_anim_float_triggered.add(i)
+                    pos = self.bracket_anim_match_positions.get(i)
+                    if pos and match.winner:
+                        mx, my = pos
+                        box_w = 120
+                        box_h = 140
+                        loser = match.hero2 if match.winner == match.hero1 else match.hero1
+                        winner = match.winner
+                        if loser == match.hero1:
+                            lx, ly = mx + 25, my + 55
+                            wx, wy = mx + box_w - 25, my + box_h - 55
+                        else:
+                            lx, ly = mx + box_w - 25, my + box_h - 55
+                            wx, wy = mx + 25, my + 55
+                        self.bracket_anim_float_texts.append({
+                            'x': lx, 'y': ly - 10,
+                            'text': f'{loser.get("name", "?")} 탈락',
+                            'color': (255, 80, 80), 'timer': 0.0, 'duration': 1.4
+                        })
+                        self.bracket_anim_float_texts.append({
+                            'x': wx, 'y': wy - 10,
+                            'text': f'{winner.get("name", "?")} 승리!',
+                            'color': (255, 215, 0), 'timer': 0.0, 'duration': 1.4
+                        })
+
+            if self.bracket_anim_timer >= total_phase0:
                 self.bracket_anim_phase = 1
                 self.bracket_anim_timer = 0.0
                 self.bracket_anim_progress = 0.0
 
         elif self.bracket_anim_phase == 1:
             # 페이즈 1: 승자 캐릭터 이동 애니메이션
+            phase_duration = 1.5
             self.bracket_anim_progress = min(1.0, self.bracket_anim_timer / phase_duration)
             if self.bracket_anim_timer >= phase_duration:
                 self.bracket_anim_phase = 2
@@ -5433,13 +5494,18 @@ class ColosseumsArena:
             # 페이즈 2: 짧은 대기 후 VS_PREVIEW(버튼 모드)로 전환
             wait_time = 0.3
             if self.bracket_anim_timer >= wait_time:
-                # 애니메이션 상태 초기화
                 self.bracket_anim_phase = 0
                 self.bracket_anim_progress = 0.0
                 self.bracket_anim_timer = 0.0
-
-                # VS_PREVIEW로 전환 (버튼 포함)
                 self._start_vs_preview(show_buttons=True)
+
+        # 플로팅 텍스트 업데이트 (모든 페이즈에서)
+        for ft in getattr(self, 'bracket_anim_float_texts', []):
+            ft['timer'] += dt
+        self.bracket_anim_float_texts = [
+            ft for ft in getattr(self, 'bracket_anim_float_texts', [])
+            if ft['timer'] < ft['duration']
+        ]
 
     def _draw_bracket_animation(self):
         """대진표 진출 애니메이션 그리기"""
@@ -5463,6 +5529,21 @@ class ColosseumsArena:
 
         # 대진표 그리기 (애니메이션 효과 포함)
         self._draw_animated_bracket()
+
+        # 플로팅 텍스트 (탈락/승리)
+        for ft in getattr(self, 'bracket_anim_float_texts', []):
+            if ft['timer'] < ft['duration'] and self.fonts and "small" in self.fonts:
+                t = ft['timer'] / ft['duration']
+                alpha = max(0, int(255 * (1.0 - t * t)))  # ease-out 페이드
+                y_offset = int(ft['timer'] * 35)  # 35px/sec 상승
+                surf, _ = self.fonts["small"].render(ft['text'], ft['color'])
+                alpha_surf = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
+                alpha_surf.fill((255, 255, 255, alpha))
+                surf.blit(alpha_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                self.screen.blit(surf, (
+                    ft['x'] - surf.get_width() // 2,
+                    ft['y'] - y_offset
+                ))
 
         # 진행 표시
         if self.fonts and "small" in self.fonts:
@@ -5631,12 +5712,34 @@ class ColosseumsArena:
         # 연결선 그리기 (애니메이션 효과 포함)
         self._draw_animated_bracket_lines()
 
+    def _get_per_match_x_progress(self, match_idx: int, round_type: TournamentRound) -> float:
+        """매치별 순차 X 애니메이션 진행도 계산"""
+        if self.bracket_anim_phase >= 1:
+            return 1.0
+        # 라운드 내 순서
+        if round_type == TournamentRound.QUARTER_FINAL:
+            order = match_idx
+        elif round_type == TournamentRound.SEMI_FINAL:
+            order = match_idx - 4
+        else:
+            order = 0
+        delay = getattr(self, 'bracket_anim_x_delay', 0.6)
+        dur = getattr(self, 'bracket_anim_x_duration', 0.5)
+        x_start = order * delay
+        elapsed = self.bracket_anim_timer - x_start
+        if elapsed <= 0:
+            return 0.0
+        return min(1.0, elapsed / dur)
+
     def _draw_animated_match_box(self, match: Match, x: int, y: int, match_idx: int, round_type: TournamentRound):
         """애니메이션이 적용된 매치 박스 그리기 (대각선 레이아웃)"""
         box_w, box_h = 120, 140  # 대각선 레이아웃 크기
 
         # 현재 라운드의 완료된 매치인지 확인
         is_current_round_match = (round_type == self.current_round)
+
+        # 매치별 개별 X 진행도
+        per_match_xp = self._get_per_match_x_progress(match_idx, round_type) if is_current_round_match else 0.0
 
         # 박스 배경
         if match.completed:
@@ -5656,7 +5759,7 @@ class ColosseumsArena:
         h1_alpha = 255
 
         if h1_is_loser and is_current_round_match and self.bracket_anim_phase >= 0:
-            h1_alpha = int(255 * (1.0 - self.bracket_anim_progress * 0.5))
+            h1_alpha = int(255 * (1.0 - per_match_xp * 0.5))
 
         h1_color = hero1["color"]
         hero1_name = hero1.get("name", "???")
@@ -5681,10 +5784,8 @@ class ColosseumsArena:
 
         # 패자 X 표시
         if h1_is_loser and is_current_round_match and self.bracket_anim_phase >= 0:
-            # Phase 0: 애니메이션 진행, Phase 1+: 완성 상태 유지
-            x_progress = 1.0 if self.bracket_anim_phase >= 1 else min(1.0, self.bracket_anim_progress * 2)
-            if x_progress > 0:
-                self._draw_loser_x(hero1_rect, x_progress)
+            if per_match_xp > 0:
+                self._draw_loser_x(hero1_rect, per_match_xp)
 
         # === VS (중앙 원) ===
         vs_x = x + box_w // 2
@@ -5701,7 +5802,7 @@ class ColosseumsArena:
         h2_alpha = 255
 
         if h2_is_loser and is_current_round_match and self.bracket_anim_phase >= 0:
-            h2_alpha = int(255 * (1.0 - self.bracket_anim_progress * 0.5))
+            h2_alpha = int(255 * (1.0 - per_match_xp * 0.5))
 
         h2_color = hero2["color"]
         hero2_name = hero2.get("name", "???")
@@ -5726,10 +5827,8 @@ class ColosseumsArena:
 
         # 패자 X 표시
         if h2_is_loser and is_current_round_match and self.bracket_anim_phase >= 0:
-            # Phase 0: 애니메이션 진행, Phase 1+: 완성 상태 유지
-            x_progress = 1.0 if self.bracket_anim_phase >= 1 else min(1.0, self.bracket_anim_progress * 2)
-            if x_progress > 0:
-                self._draw_loser_x(hero2_rect, x_progress)
+            if per_match_xp > 0:
+                self._draw_loser_x(hero2_rect, per_match_xp)
 
         # 승자 하이라이트 효과
         if match.completed and match.winner and is_current_round_match:
@@ -5839,6 +5938,25 @@ class ColosseumsArena:
         # 느낌표
         pygame.draw.line(self.screen, (40, 40, 40), (x, y - s // 3), (x, y + s // 4), 2)
         pygame.draw.circle(self.screen, (40, 40, 40), (x, y + s // 2), 1)
+
+    def _play_bracket_sound(self, sound_key: str, volume: float = 0.5):
+        """대진표 애니메이션용 사운드 재생"""
+        if not hasattr(ColosseumsArena, '_skill_sound_cache'):
+            ColosseumsArena._skill_sound_cache = {}
+        if sound_key not in ColosseumsArena._skill_sound_cache:
+            try:
+                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                filepath = os.path.join(project_root, "sounds", f"{sound_key}.wav")
+                if os.path.exists(filepath):
+                    ColosseumsArena._skill_sound_cache[sound_key] = pygame.mixer.Sound(filepath)
+                else:
+                    ColosseumsArena._skill_sound_cache[sound_key] = None
+            except Exception:
+                ColosseumsArena._skill_sound_cache[sound_key] = None
+        sound = ColosseumsArena._skill_sound_cache.get(sound_key)
+        if sound:
+            sound.set_volume(volume)
+            sound.play()
 
     def _draw_loser_x(self, rect: pygame.Rect, progress: float):
         """패자에게 X 표시 그리기"""
