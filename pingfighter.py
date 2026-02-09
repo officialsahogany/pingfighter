@@ -52646,10 +52646,6 @@ def handle_gods_judgment():
     prev_phase = _judgment_prev_phase
     _judgment_prev_phase = cur_phase
 
-    # MERGE 시작 순간: "신의심판 발동!" 텍스트 (화면 중앙)
-    if cur_phase == bg.JUDGMENT_MERGE and prev_phase == bg.JUDGMENT_IDLE:
-        show_fade_text("신의심판 발동!")
-
     is_eq = bg.is_judgment_earthquake_active()
     was_eq = _judgment_prev_earthquake_active
     _judgment_prev_earthquake_active = is_eq
