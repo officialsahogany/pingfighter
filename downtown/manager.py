@@ -51,6 +51,76 @@ try:
 
 except Exception as e:
     print(f"Warning: Could not setup ingame function import: {e}")
+
+# ── 광장 호버 보더 이펙트 시스템 ──
+_dt_hover_timer = 0.0
+_dt_hover_particles = []
+_dt_hover_prev_id = ""
+
+def _dt_hover_sound():
+    try:
+        snd_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sounds", "button_hover.wav")
+        if not hasattr(_dt_hover_sound, '_snd'):
+            _dt_hover_sound._snd = pygame.mixer.Sound(snd_path) if os.path.exists(snd_path) else None
+            if _dt_hover_sound._snd: _dt_hover_sound._snd.set_volume(0.4)
+        if _dt_hover_sound._snd: _dt_hover_sound._snd.play()
+    except Exception: pass
+
+def _dt_update_hover(dt=1/60):
+    global _dt_hover_timer, _dt_hover_particles
+    _dt_hover_timer += dt
+    for p in _dt_hover_particles:
+        p['life'] -= dt; p['x'] += p['vx'] * dt; p['y'] += p['vy'] * dt
+        p['alpha'] = max(0, p['alpha'] - 200 * dt)
+    _dt_hover_particles = [p for p in _dt_hover_particles if p['life'] > 0]
+
+def _dt_spawn_particles(rx, ry, rw, rh):
+    import random as _r
+    for t in range(8):
+        f = t / 7
+        _dt_hover_particles.append({'x': rx+rw*f, 'y': ry, 'vx': _r.uniform(-10,10), 'vy': _r.uniform(-25,-10), 'alpha': 120.0, 'life': _r.uniform(0.3,0.55), 'color': (200,220,255)})
+        _dt_hover_particles.append({'x': rx+rw*f, 'y': ry+rh, 'vx': _r.uniform(-10,10), 'vy': _r.uniform(10,25), 'alpha': 120.0, 'life': _r.uniform(0.3,0.55), 'color': (200,220,255)})
+    for t in range(6):
+        f = t / 5
+        _dt_hover_particles.append({'x': rx, 'y': ry+rh*f, 'vx': _r.uniform(-25,-10), 'vy': _r.uniform(-10,10), 'alpha': 120.0, 'life': _r.uniform(0.3,0.55), 'color': (200,220,255)})
+        _dt_hover_particles.append({'x': rx+rw, 'y': ry+rh*f, 'vx': _r.uniform(10,25), 'vy': _r.uniform(-10,10), 'alpha': 120.0, 'life': _r.uniform(0.3,0.55), 'color': (200,220,255)})
+
+def _dt_check_hover(hover_id, rect, mouse_pos):
+    global _dt_hover_prev_id
+    if rect.collidepoint(mouse_pos):
+        if _dt_hover_prev_id != hover_id:
+            _dt_hover_prev_id = hover_id
+            _dt_hover_sound()
+            _dt_spawn_particles(rect.x, rect.y, rect.w, rect.h)
+        return True
+    return False
+
+def _dt_draw_hover_border(scr, rx, ry, rw, rh, color=(200,220,255)):
+    pulse = 0.6 + 0.4 * abs(math.sin(_dt_hover_timer * 4.0))
+    al = int(120 * pulse)
+    gs = pygame.Surface((rw+12, rh+12), pygame.SRCALPHA)
+    pygame.draw.rect(gs, (*color, al//3), (0,0,rw+12,rh+12), border_radius=10)
+    scr.blit(gs, (rx-6, ry-6))
+    bs = pygame.Surface((rw+4, rh+4), pygame.SRCALPHA)
+    pygame.draw.rect(bs, (*color, al), (0,0,rw+4,rh+4), 2, border_radius=10)
+    scr.blit(bs, (rx-2, ry-2))
+    ln = int(14 + 4 * pulse); la = int(200 * pulse)
+    lsf = pygame.Surface((rw+20, rh+20), pygame.SRCALPHA)
+    ox, oy = 10, 10
+    for c, he, ve in [((ox,oy),(ox+ln,oy),(ox,oy+ln)),((ox+rw,oy),(ox+rw-ln,oy),(ox+rw,oy+ln)),((ox,oy+rh),(ox+ln,oy+rh),(ox,oy+rh-ln)),((ox+rw,oy+rh),(ox+rw-ln,oy+rh),(ox+rw,oy+rh-ln))]:
+        pygame.draw.line(lsf, (*color, la), c, he, 2)
+        pygame.draw.line(lsf, (*color, la), c, ve, 2)
+    scr.blit(lsf, (rx-10, ry-10))
+    for p in _dt_hover_particles:
+        if p['alpha'] > 3:
+            ps = pygame.Surface((3,3), pygame.SRCALPHA)
+            pygame.draw.circle(ps, (*p['color'], int(p['alpha'])), (1,1), 1)
+            scr.blit(ps, (int(p['x'])-1, int(p['y'])-1))
+
+def _dt_reset_hover():
+    global _dt_hover_prev_id, _dt_hover_particles
+    _dt_hover_prev_id = ""
+    _dt_hover_particles = []
     def _import_ingame_functions():
         return (lambda *args, **kwargs: None), (lambda *args, **kwargs: None)
 
@@ -1286,12 +1356,16 @@ class DowntownManager:
 
         # 마우스 위치 확인
         mouse_pos = pygame.mouse.get_pos()
+        _dt_update_hover()
+
+        # 호버 체크
+        yes_hover = _dt_check_hover("bld_yes", pygame.Rect(yes_button_x, buttons_y, button_width, button_height), mouse_pos)
+        no_hover = _dt_check_hover("bld_no", pygame.Rect(no_button_x, buttons_y, button_width, button_height), mouse_pos)
 
         # 예 버튼
         self.dialog_yes_rect = pygame.Rect(yes_button_x, buttons_y, button_width, button_height)
-        yes_hover = self.dialog_yes_rect.collidepoint(mouse_pos)
         if yes_hover:
-            yes_bg_color = (60, 180, 90)  # 호버 시 밝은 초록
+            yes_bg_color = (60, 180, 90)
             yes_border_color = (140, 255, 140)
             yes_text_color = (255, 255, 255)
         else:
@@ -1306,12 +1380,13 @@ class DowntownManager:
         yes_text_x = yes_button_x + (button_width - yes_rect.width) // 2
         yes_text_y = buttons_y + (button_height - yes_rect.height) // 2
         self.screen.blit(yes_surface, (yes_text_x, yes_text_y))
+        if yes_hover:
+            _dt_draw_hover_border(self.screen, self.dialog_yes_rect.x, self.dialog_yes_rect.y, self.dialog_yes_rect.w, self.dialog_yes_rect.h, (100, 255, 100))
 
         # 아니오 버튼
         self.dialog_no_rect = pygame.Rect(no_button_x, buttons_y, button_width, button_height)
-        no_hover = self.dialog_no_rect.collidepoint(mouse_pos)
         if no_hover:
-            no_bg_color = (220, 80, 80)  # 호버 시 밝은 빨강
+            no_bg_color = (220, 80, 80)
             no_border_color = (255, 140, 140)
             no_text_color = (255, 255, 255)
         else:
@@ -1326,6 +1401,8 @@ class DowntownManager:
         no_text_x = no_button_x + (button_width - no_rect.width) // 2
         no_text_y = buttons_y + (button_height - no_rect.height) // 2
         self.screen.blit(no_surface, (no_text_x, no_text_y))
+        if no_hover:
+            _dt_draw_hover_border(self.screen, self.dialog_no_rect.x, self.dialog_no_rect.y, self.dialog_no_rect.w, self.dialog_no_rect.h, (255, 100, 100))
 
     def _draw_save_dialog(self):
         """저장 NPC 다이얼로그 그리기"""
@@ -1370,12 +1447,16 @@ class DowntownManager:
 
         # 마우스 위치 확인
         mouse_pos = pygame.mouse.get_pos()
+        _dt_update_hover()
+
+        # 호버 체크
+        yes_hover = _dt_check_hover("save_yes", pygame.Rect(yes_button_x, buttons_y, button_width, button_height), mouse_pos)
+        no_hover = _dt_check_hover("save_no", pygame.Rect(no_button_x, buttons_y, button_width, button_height), mouse_pos)
 
         # 예 버튼
         self.save_dialog_yes_rect = pygame.Rect(yes_button_x, buttons_y, button_width, button_height)
-        yes_hover = self.save_dialog_yes_rect.collidepoint(mouse_pos)
         if yes_hover:
-            yes_bg_color = (80, 100, 180)  # 호버 시 밝은 파랑
+            yes_bg_color = (80, 100, 180)
             yes_border_color = (140, 160, 255)
         else:
             yes_bg_color = (60, 80, 150)
@@ -1388,10 +1469,11 @@ class DowntownManager:
         yes_text_x = yes_button_x + (button_width - yes_rect.width) // 2
         yes_text_y = buttons_y + (button_height - yes_rect.height) // 2
         self.screen.blit(yes_surface, (yes_text_x, yes_text_y))
+        if yes_hover:
+            _dt_draw_hover_border(self.screen, self.save_dialog_yes_rect.x, self.save_dialog_yes_rect.y, self.save_dialog_yes_rect.w, self.save_dialog_yes_rect.h, (100, 120, 200))
 
         # 아니오 버튼
         self.save_dialog_no_rect = pygame.Rect(no_button_x, buttons_y, button_width, button_height)
-        no_hover = self.save_dialog_no_rect.collidepoint(mouse_pos)
         if no_hover:
             no_bg_color = (100, 80, 80)  # 호버 시 밝은 회색빨강
             no_border_color = (180, 140, 140)
@@ -1406,6 +1488,8 @@ class DowntownManager:
         no_text_x = no_button_x + (button_width - no_rect.width) // 2
         no_text_y = buttons_y + (button_height - no_rect.height) // 2
         self.screen.blit(no_surface, (no_text_x, no_text_y))
+        if no_hover:
+            _dt_draw_hover_border(self.screen, self.save_dialog_no_rect.x, self.save_dialog_no_rect.y, self.save_dialog_no_rect.w, self.save_dialog_no_rect.h, (140, 100, 100))
 
     def _draw_stage_info(self):
         """스테이지 정보 표시"""
@@ -2126,12 +2210,19 @@ class DowntownManager:
 
         # 버튼
         can_enter = player_gold >= admission_fee
-        entry_color = (80, 180, 80) if can_enter else (60, 60, 60)
         entry_btn = pygame.Rect(250, 420, 120, 45)
+        cancel_btn = pygame.Rect(390, 420, 120, 45)
+
+        _dt_update_hover()
+        _col_mpos = pygame.mouse.get_pos()
+        entry_hover = _dt_check_hover("col_entry", entry_btn, _col_mpos)
+        cancel_hover = _dt_check_hover("col_cancel", cancel_btn, _col_mpos)
+
+        entry_color = (100, 200, 100) if (can_enter and entry_hover) else ((80, 180, 80) if can_enter else (60, 60, 60))
         pygame.draw.rect(self.screen, entry_color, entry_btn, border_radius=5)
 
-        cancel_btn = pygame.Rect(390, 420, 120, 45)
-        pygame.draw.rect(self.screen, (180, 80, 80), cancel_btn, border_radius=5)
+        cancel_color = (220, 100, 100) if cancel_hover else (180, 80, 80)
+        pygame.draw.rect(self.screen, cancel_color, cancel_btn, border_radius=5)
 
         if self._freetype_fonts and "medium" in self._freetype_fonts:
             text_color = (255, 255, 255) if can_enter else (100, 100, 100)
@@ -2140,6 +2231,11 @@ class DowntownManager:
 
             cancel_text, _ = self._freetype_fonts["medium"].render("나가기", (255, 255, 255))
             self.screen.blit(cancel_text, (cancel_btn.centerx - cancel_text.get_width() // 2, cancel_btn.y + 12))
+
+        if entry_hover and can_enter:
+            _dt_draw_hover_border(self.screen, entry_btn.x, entry_btn.y, entry_btn.w, entry_btn.h, (100, 255, 100))
+        if cancel_hover:
+            _dt_draw_hover_border(self.screen, cancel_btn.x, cancel_btn.y, cancel_btn.w, cancel_btn.h, (255, 100, 100))
 
     def _show_placeholder(self, building_type):
         """건물 내부 표시 (광장 스타일 확장 - 플레이어 이동, 문 출입, 광장과 동일한 키 조작)"""
@@ -2369,8 +2465,10 @@ class DowntownManager:
         # 취소 버튼
         cancel_btn = pygame.Rect(dialog_x + 30, menu_start_y + (menu_item_height + menu_item_spacing) * 2, dialog_width - 60, 50)
 
+        _dt_reset_hover()
         while running:
             dt = clock.tick(60) / 1000.0
+            _dt_update_hover(dt)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -2386,15 +2484,15 @@ class DowntownManager:
                     elif event.key == pygame.K_DOWN:
                         selected = (selected + 1) % 3
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
-                        if selected == 0:  # 1회 뽑기
+                        if selected == 0:
                             if current_gold >= self.gacha_cost and remaining_count > 0:
                                 result = "single"
                                 running = False
-                        elif selected == 1:  # 연속 뽑기
-                            if max_multi_count >= 2:  # 최소 2회 이상이어야 연속 뽑기 가능
+                        elif selected == 1:
+                            if max_multi_count >= 2:
                                 result = "multi"
                                 running = False
-                        else:  # 취소
+                        else:
                             running = False
                             result = None
 
@@ -2412,14 +2510,14 @@ class DowntownManager:
                         running = False
                         result = None
 
-                if event.type == pygame.MOUSEMOTION:
-                    mx, my = event.pos
-                    if single_btn.collidepoint(mx, my):
-                        selected = 0
-                    elif multi_btn.collidepoint(mx, my):
-                        selected = 1
-                    elif cancel_btn.collidepoint(mx, my):
-                        selected = 2
+            # 마우스 호버 체크
+            _gacha_mpos = pygame.mouse.get_pos()
+            if _dt_check_hover("gacha_0", single_btn, _gacha_mpos):
+                selected = 0
+            elif _dt_check_hover("gacha_1", multi_btn, _gacha_mpos):
+                selected = 1
+            elif _dt_check_hover("gacha_2", cancel_btn, _gacha_mpos):
+                selected = 2
 
             # 배경 그리기 (현재 인테리어)
             interior.draw(self.screen)
@@ -2543,6 +2641,14 @@ class DowntownManager:
                 cancel_surf, cancel_rect = font_medium.render("취소", (255, 255, 255))
                 self.screen.blit(cancel_surf, (cancel_btn.centerx - cancel_rect.width // 2, cancel_btn.centery - cancel_rect.height // 2))
 
+            # 호버 보더
+            if selected == 0:
+                _dt_draw_hover_border(self.screen, single_btn.x, single_btn.y, single_btn.w, single_btn.h, (0, 200, 255))
+            elif selected == 1:
+                _dt_draw_hover_border(self.screen, multi_btn.x, multi_btn.y, multi_btn.w, multi_btn.h, (255, 200, 0))
+            elif selected == 2:
+                _dt_draw_hover_border(self.screen, cancel_btn.x, cancel_btn.y, cancel_btn.w, cancel_btn.h, (200, 80, 80))
+
             pygame.display.flip()
 
         # 이벤트 클리어
@@ -2650,8 +2756,10 @@ class DowntownManager:
 
         selected = 0  # 0: 예, 1: 아니오
 
+        _dt_reset_hover()
         while running:
             dt = clock.tick(60) / 1000.0
+            _dt_update_hover(dt)
 
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -2665,12 +2773,11 @@ class DowntownManager:
                     elif event.key in (pygame.K_LEFT, pygame.K_RIGHT):
                         selected = 1 - selected
                     elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
-                        if selected == 0:  # 예
-                            # 골드 및 횟수 체크
+                        if selected == 0:
                             if current_gold >= self.gacha_cost and remaining_count > 0:
                                 result = True
                             running = False
-                        else:  # 아니오
+                        else:
                             running = False
                             result = False
 
@@ -2684,12 +2791,12 @@ class DowntownManager:
                         running = False
                         result = False
 
-                if event.type == pygame.MOUSEMOTION:
-                    mx, my = event.pos
-                    if yes_btn.collidepoint(mx, my):
-                        selected = 0
-                    elif no_btn.collidepoint(mx, my):
-                        selected = 1
+            # 마우스 호버 체크
+            _gc_mpos = pygame.mouse.get_pos()
+            if _dt_check_hover("gc_yes", yes_btn, _gc_mpos):
+                selected = 0
+            elif _dt_check_hover("gc_no", no_btn, _gc_mpos):
+                selected = 1
 
             # 배경 그리기 (현재 인테리어)
             interior.draw(self.screen)
@@ -2766,6 +2873,12 @@ class DowntownManager:
             if font_medium:
                 no_surf, no_rect = font_medium.render("아니오", (255, 255, 255))
                 self.screen.blit(no_surf, (no_btn.centerx - no_rect.width // 2, no_btn.centery - no_rect.height // 2))
+
+            # 호버 보더
+            if selected == 0:
+                _dt_draw_hover_border(self.screen, yes_btn.x, yes_btn.y, yes_btn.w, yes_btn.h, (100, 255, 150))
+            else:
+                _dt_draw_hover_border(self.screen, no_btn.x, no_btn.y, no_btn.w, no_btn.h, (255, 100, 100))
 
             pygame.display.flip()
 

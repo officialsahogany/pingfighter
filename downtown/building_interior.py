@@ -31,6 +31,78 @@ except ImportError:  # pragma: no cover - fallback for direct execution
     from downtown.pachinko_game import PachinkoGameUI  # type: ignore
 
 
+# ── 건물 내부 호버 보더 이펙트 시스템 ──
+_bi_hover_timer = 0.0
+_bi_hover_particles = []
+_bi_hover_prev_id = ""
+
+def _bi_hover_sound():
+    import os
+    try:
+        snd_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sounds", "button_hover.wav")
+        if not hasattr(_bi_hover_sound, '_snd'):
+            _bi_hover_sound._snd = pygame.mixer.Sound(snd_path) if os.path.exists(snd_path) else None
+            if _bi_hover_sound._snd: _bi_hover_sound._snd.set_volume(0.4)
+        if _bi_hover_sound._snd: _bi_hover_sound._snd.play()
+    except Exception: pass
+
+def _bi_update_hover(dt=1/60):
+    global _bi_hover_timer, _bi_hover_particles
+    _bi_hover_timer += dt
+    for p in _bi_hover_particles:
+        p['life'] -= dt; p['x'] += p['vx'] * dt; p['y'] += p['vy'] * dt
+        p['alpha'] = max(0, p['alpha'] - 200 * dt)
+    _bi_hover_particles = [p for p in _bi_hover_particles if p['life'] > 0]
+
+def _bi_spawn_particles(rx, ry, rw, rh):
+    import random as _r
+    for t in range(8):
+        f = t / 7
+        _bi_hover_particles.append({'x': rx+rw*f, 'y': ry, 'vx': _r.uniform(-10,10), 'vy': _r.uniform(-25,-10), 'alpha': 120.0, 'life': _r.uniform(0.3,0.55), 'color': (200,220,255)})
+        _bi_hover_particles.append({'x': rx+rw*f, 'y': ry+rh, 'vx': _r.uniform(-10,10), 'vy': _r.uniform(10,25), 'alpha': 120.0, 'life': _r.uniform(0.3,0.55), 'color': (200,220,255)})
+    for t in range(6):
+        f = t / 5
+        _bi_hover_particles.append({'x': rx, 'y': ry+rh*f, 'vx': _r.uniform(-25,-10), 'vy': _r.uniform(-10,10), 'alpha': 120.0, 'life': _r.uniform(0.3,0.55), 'color': (200,220,255)})
+        _bi_hover_particles.append({'x': rx+rw, 'y': ry+rh*f, 'vx': _r.uniform(10,25), 'vy': _r.uniform(-10,10), 'alpha': 120.0, 'life': _r.uniform(0.3,0.55), 'color': (200,220,255)})
+
+def _bi_check_hover(hover_id, rect, mouse_pos):
+    global _bi_hover_prev_id
+    if rect.collidepoint(mouse_pos):
+        if _bi_hover_prev_id != hover_id:
+            _bi_hover_prev_id = hover_id
+            _bi_hover_sound()
+            _bi_spawn_particles(rect.x, rect.y, rect.w, rect.h)
+        return True
+    return False
+
+def _bi_draw_hover_border(scr, rx, ry, rw, rh, color=(200,220,255)):
+    pulse = 0.6 + 0.4 * abs(math.sin(_bi_hover_timer * 4.0))
+    al = int(120 * pulse)
+    gs = pygame.Surface((rw+12, rh+12), pygame.SRCALPHA)
+    pygame.draw.rect(gs, (*color, al//3), (0,0,rw+12,rh+12), border_radius=10)
+    scr.blit(gs, (rx-6, ry-6))
+    bs = pygame.Surface((rw+4, rh+4), pygame.SRCALPHA)
+    pygame.draw.rect(bs, (*color, al), (0,0,rw+4,rh+4), 2, border_radius=10)
+    scr.blit(bs, (rx-2, ry-2))
+    ln = int(14 + 4 * pulse); la = int(200 * pulse)
+    lsf = pygame.Surface((rw+20, rh+20), pygame.SRCALPHA)
+    ox, oy = 10, 10
+    for c, he, ve in [((ox,oy),(ox+ln,oy),(ox,oy+ln)),((ox+rw,oy),(ox+rw-ln,oy),(ox+rw,oy+ln)),((ox,oy+rh),(ox+ln,oy+rh),(ox,oy+rh-ln)),((ox+rw,oy+rh),(ox+rw-ln,oy+rh),(ox+rw,oy+rh-ln))]:
+        pygame.draw.line(lsf, (*color, la), c, he, 2)
+        pygame.draw.line(lsf, (*color, la), c, ve, 2)
+    scr.blit(lsf, (rx-10, ry-10))
+    for p in _bi_hover_particles:
+        if p['alpha'] > 3:
+            ps = pygame.Surface((3,3), pygame.SRCALPHA)
+            pygame.draw.circle(ps, (*p['color'], int(p['alpha'])), (1,1), 1)
+            scr.blit(ps, (int(p['x'])-1, int(p['y'])-1))
+
+def _bi_reset_hover():
+    global _bi_hover_prev_id, _bi_hover_particles
+    _bi_hover_prev_id = ""
+    _bi_hover_particles = []
+
+
 # =============================================================================
 # 건물 내부 NPC
 # =============================================================================
@@ -6706,6 +6778,7 @@ class BuildingInterior:
     def _draw_exchange_menu(self, screen):
         """환전 메뉴창 그리기 - SF 스타일 (가로 스크롤바)"""
         import math
+        _bi_update_hover()
 
         # 메뉴 크기 및 위치 (화면 중앙)
         menu_w, menu_h = 340, 270
@@ -6786,6 +6859,9 @@ class BuildingInterior:
         if font_small:
             txt_surf, txt_rect = font_small.render("★ → G", TEXT_CYAN if self.exchange_direction == 0 else TEXT_WHITE)
             screen.blit(txt_surf, (left_btn.centerx - txt_rect.width // 2, left_btn.centery - txt_rect.height // 2))
+        mouse_pos = pygame.mouse.get_pos()
+        if _bi_check_hover("exch_left", left_btn, mouse_pos):
+            _bi_draw_hover_border(screen, left_btn.x, left_btn.y, left_btn.w, left_btn.h, (100, 200, 255))
 
         # 오른쪽 버튼 (골드 → 스타포인트)
         btn_color = HIGHLIGHT if self.exchange_direction == 1 else BTN_BG
@@ -6795,6 +6871,8 @@ class BuildingInterior:
         if font_small:
             txt_surf, txt_rect = font_small.render("G → ★", TEXT_GOLD if self.exchange_direction == 1 else TEXT_WHITE)
             screen.blit(txt_surf, (right_btn.centerx - txt_rect.width // 2, right_btn.centery - txt_rect.height // 2))
+        if _bi_check_hover("exch_right", right_btn, mouse_pos):
+            _bi_draw_hover_border(screen, right_btn.x, right_btn.y, right_btn.w, right_btn.h, (255, 210, 100))
 
         # === 개선된 슬라이더 UI ===
         slider_y = menu_y + 135
@@ -6933,10 +7011,13 @@ class BuildingInterior:
         if font_medium:
             btn_surf, btn_rect = font_medium.render("환전하기", btn_text_color)
             screen.blit(btn_surf, (confirm_btn.centerx - btn_rect.width // 2, confirm_btn.centery - btn_rect.height // 2))
+        if _bi_check_hover("exch_confirm", confirm_btn, mouse_pos):
+            _bi_draw_hover_border(screen, confirm_btn.x, confirm_btn.y, confirm_btn.w, confirm_btn.h, (100, 255, 150))
 
     def _draw_deposit_menu(self, screen):
         """예금 메뉴창 그리기 - SF 스타일 (2탭 구조)"""
         import math
+        _bi_update_hover()
 
         # 메뉴 크기 및 위치 (화면 중앙, 더 넓은 메뉴)
         menu_w, menu_h = 420, 340
@@ -6999,6 +7080,9 @@ class BuildingInterior:
         if font_small:
             txt_surf, txt_rect = font_small.render("예금/출금", TEXT_GREEN if self.deposit_tab == 0 else TEXT_WHITE)
             screen.blit(txt_surf, (tab1_btn.centerx - txt_rect.width // 2, tab1_btn.centery - txt_rect.height // 2))
+        mouse_pos = pygame.mouse.get_pos()
+        if _bi_check_hover("dep_tab1", tab1_btn, mouse_pos):
+            _bi_draw_hover_border(screen, tab1_btn.x, tab1_btn.y, tab1_btn.w, tab1_btn.h, (100, 255, 150))
 
         # 설명 탭
         tab2_color = TAB_ACTIVE if self.deposit_tab == 1 else TAB_INACTIVE
@@ -7009,6 +7093,8 @@ class BuildingInterior:
         if font_small:
             txt_surf, txt_rect = font_small.render("시스템 설명", TEXT_CYAN if self.deposit_tab == 1 else TEXT_WHITE)
             screen.blit(txt_surf, (tab2_btn.centerx - txt_rect.width // 2, tab2_btn.centery - txt_rect.height // 2))
+        if _bi_check_hover("dep_tab2", tab2_btn, mouse_pos):
+            _bi_draw_hover_border(screen, tab2_btn.x, tab2_btn.y, tab2_btn.w, tab2_btn.h, (100, 200, 255))
 
         # 구분선
         pygame.draw.line(screen, BORDER_GLOW, (menu_x + 15, tab_y + tab_h + 8), (menu_x + menu_w - 15, tab_y + tab_h + 8), 1)
@@ -7038,6 +7124,8 @@ class BuildingInterior:
             if font_small:
                 txt_surf, txt_rect = font_small.render("예금하기", TEXT_GREEN if not self.withdraw_mode else TEXT_WHITE)
                 screen.blit(txt_surf, (deposit_btn.centerx - txt_rect.width // 2, deposit_btn.centery - txt_rect.height // 2))
+            if _bi_check_hover("dep_deposit", deposit_btn, mouse_pos):
+                _bi_draw_hover_border(screen, deposit_btn.x, deposit_btn.y, deposit_btn.w, deposit_btn.h, (100, 255, 150))
 
             # 출금 버튼
             btn_color = HIGHLIGHT if self.withdraw_mode else BTN_BG
@@ -7047,6 +7135,8 @@ class BuildingInterior:
             if font_small:
                 txt_surf, txt_rect = font_small.render("출금하기", TEXT_GOLD if self.withdraw_mode else TEXT_WHITE)
                 screen.blit(txt_surf, (withdraw_btn.centerx - txt_rect.width // 2, withdraw_btn.centery - txt_rect.height // 2))
+            if _bi_check_hover("dep_withdraw", withdraw_btn, mouse_pos):
+                _bi_draw_hover_border(screen, withdraw_btn.x, withdraw_btn.y, withdraw_btn.w, withdraw_btn.h, (255, 210, 100))
 
             # === 금액 슬라이더 ===
             slider_y = menu_y + 160
@@ -7132,6 +7222,9 @@ class BuildingInterior:
                     btn_text = "예금하기"
                     btn_surf, btn_rect = font_medium.render(btn_text, TEXT_GREEN)
                     screen.blit(btn_surf, (confirm_btn.centerx - btn_rect.width // 2, confirm_btn.centery - btn_rect.height // 2))
+            dep_color = (255, 210, 100) if self.withdraw_mode else (100, 255, 150)
+            if _bi_check_hover("dep_confirm", confirm_btn, mouse_pos):
+                _bi_draw_hover_border(screen, confirm_btn.x, confirm_btn.y, confirm_btn.w, confirm_btn.h, dep_color)
 
         else:
             # === 설명 탭 ===
@@ -8324,6 +8417,7 @@ class BuildingInterior:
 
     def _draw_academy_dialog(self, screen):
         """학장 아르카나와의 대화창 그리기"""
+        _bi_update_hover()
         # 대화창 크기 및 위치
         dialog_w, dialog_h = 320, 180
         dialog_x = (SCREEN_WIDTH - dialog_w) // 2
@@ -8398,6 +8492,8 @@ class BuildingInterior:
             yes_color = TEXT_WHITE if yes_selected else TEXT_PURPLE
             yes_surf, yes_rect = font_medium.render("예", yes_color)
             screen.blit(yes_surf, (yes_btn.centerx - yes_rect.width // 2, yes_btn.centery - yes_rect.height // 2))
+        if _bi_check_hover("acad_yes", yes_btn, mouse_pos):
+            _bi_draw_hover_border(screen, yes_btn.x, yes_btn.y, yes_btn.w, yes_btn.h, (180, 100, 255))
 
         # 아니오 버튼
         no_hover = no_btn.collidepoint(mouse_pos)
@@ -8409,6 +8505,8 @@ class BuildingInterior:
             no_color = TEXT_WHITE if no_selected else TEXT_PURPLE
             no_surf, no_rect = font_medium.render("아니오", no_color)
             screen.blit(no_surf, (no_btn.centerx - no_rect.width // 2, no_btn.centery - no_rect.height // 2))
+        if _bi_check_hover("acad_no", no_btn, mouse_pos):
+            _bi_draw_hover_border(screen, no_btn.x, no_btn.y, no_btn.w, no_btn.h, (180, 100, 255))
 
         # 선택 힌트
         if font_small:
@@ -8419,6 +8517,7 @@ class BuildingInterior:
     def _draw_crane_confirm_dialog(self, screen):
         """크레인 게임 확인 다이얼로그 그리기"""
         import math
+        _bi_update_hover()
 
         # 대화창 크기 및 위치
         dialog_w, dialog_h = 320, 180
@@ -8512,6 +8611,8 @@ class BuildingInterior:
             yes_color = TEXT_WHITE if yes_selected else TEXT_YELLOW
             yes_surf, yes_rect = font_medium.render("예", yes_color)
             screen.blit(yes_surf, (yes_btn.centerx - yes_rect.width // 2, yes_btn.centery - yes_rect.height // 2))
+        if _bi_check_hover("crane_yes", yes_btn, mouse_pos):
+            _bi_draw_hover_border(screen, yes_btn.x, yes_btn.y, yes_btn.w, yes_btn.h, (255, 220, 100))
 
         # 아니오 버튼
         no_hover = no_btn.collidepoint(mouse_pos)
@@ -8523,6 +8624,8 @@ class BuildingInterior:
             no_color = TEXT_WHITE if no_selected else TEXT_YELLOW
             no_surf, no_rect = font_medium.render("아니오", no_color)
             screen.blit(no_surf, (no_btn.centerx - no_rect.width // 2, no_btn.centery - no_rect.height // 2))
+        if _bi_check_hover("crane_no", no_btn, mouse_pos):
+            _bi_draw_hover_border(screen, no_btn.x, no_btn.y, no_btn.w, no_btn.h, (255, 220, 100))
 
         # 선택 힌트
         if font_small:
@@ -9323,6 +9426,7 @@ class BuildingInterior:
     def _draw_bank_menu(self, screen):
         """은행 메뉴창 그리기 - SF 스타일 (마우스 호버 효과 포함)"""
         import math
+        _bi_update_hover()
 
         # 메뉴 크기 및 위치 (화면 중앙)
         menu_w, menu_h = 220, 180
@@ -9444,9 +9548,14 @@ class BuildingInterior:
                 item_surf, _ = font_small.render(item, text_color)
                 screen.blit(item_surf, (item_rect.x + 40, item_rect.y + 8))
 
+            # 호버 보더 이펙트
+            if is_hovered and _bi_check_hover(f"bank_{i}", item_rect, mouse_pos):
+                _bi_draw_hover_border(screen, item_rect.x, item_rect.y, item_rect.w, item_rect.h, (100, 200, 255))
+
     def _draw_tavern_menu(self, screen):
         """선술집 메뉴 그리기 - 따뜻한 중세 판타지 스타일"""
         import math
+        _bi_update_hover()
 
         # 메뉴 크기 및 위치 (화면 중앙)
         menu_w, menu_h = 300, 300
@@ -9597,6 +9706,10 @@ class BuildingInterior:
                     effect_surf, _ = font_small.render(effect, effect_color)
                     screen.blit(effect_surf, (item_rect.x + 55, item_rect.y + 22))
 
+            # 호버 보더 이펙트
+            if is_hovered and _bi_check_hover(f"tavern_{i}", item_rect, mouse_pos):
+                _bi_draw_hover_border(screen, item_rect.x, item_rect.y, item_rect.w, item_rect.h, (255, 210, 100))
+
         # 메시지 표시 (구매 결과 등)
         if self.tavern_message and self.tavern_message_timer > 0:
             msg_w = 280
@@ -9615,6 +9728,7 @@ class BuildingInterior:
     def _draw_quest_menu(self, screen):
         """퀘스트 메뉴 그리기 - 의뢰 목록 및 상세 보기"""
         import math
+        _bi_update_hover()
 
         # 색상 (따뜻한 선술집 테마 + 퀘스트 강조색)
         BG_WOOD = (55, 40, 28)
@@ -9755,6 +9869,10 @@ class BuildingInterior:
                 reward_surf, _ = font_small.render(reward_text, TEXT_GOLD)
                 screen.blit(reward_surf, (item_rect.x + 30, item_rect.y + 28))
 
+            # 호버 보더 이펙트
+            if is_hovered and _bi_check_hover(f"quest_{i}", item_rect, mouse_pos):
+                _bi_draw_hover_border(screen, item_rect.x, item_rect.y, item_rect.w, item_rect.h, (255, 210, 100))
+
         # 하단 안내 텍스트
         if font_small:
             help_text = "Enter: 상세보기 / ESC: 닫기"
@@ -9858,6 +9976,8 @@ class BuildingInterior:
             btn_color = TEXT_WHITE if can_accept else TEXT_DIM
             btn_surf, btn_rect = font_small.render(btn_text, btn_color)
             screen.blit(btn_surf, (accept_btn_x + (btn_w - btn_rect.width) // 2, btn_y + 8))
+        if can_accept and _bi_check_hover("quest_accept", accept_btn_rect, mouse_pos):
+            _bi_draw_hover_border(screen, accept_btn_rect.x, accept_btn_rect.y, accept_btn_rect.w, accept_btn_rect.h, (100, 255, 100))
 
         # 취소 버튼
         cancel_btn_x = menu_x + menu_w // 2 + btn_gap // 2
@@ -9876,6 +9996,8 @@ class BuildingInterior:
         if font_small:
             cancel_surf, cancel_rect = font_small.render("취소", TEXT_WHITE)
             screen.blit(cancel_surf, (cancel_btn_x + (btn_w - cancel_rect.width) // 2, btn_y + 8))
+        if _bi_check_hover("quest_cancel", cancel_btn_rect, mouse_pos):
+            _bi_draw_hover_border(screen, cancel_btn_rect.x, cancel_btn_rect.y, cancel_btn_rect.w, cancel_btn_rect.h, (255, 100, 100))
 
         # 퀘스트 상태 메시지
         if quest["active"]:
@@ -16561,6 +16683,7 @@ class BuildingInterior:
     def _draw_enhancement_menu(self, screen):
         """강화 메뉴 그리기 (헤파이토스 메인 메뉴)"""
         import math
+        _bi_update_hover()
 
         # 색상
         BG_DARK = (28, 22, 18)
@@ -16602,6 +16725,8 @@ class BuildingInterior:
             btn_surf, _ = font_small.render("강화하기", TEXT_WHITE)
             screen.blit(btn_surf, (enhance_btn.centerx - btn_surf.get_width() // 2,
                                    enhance_btn.centery - btn_surf.get_height() // 2))
+        if _bi_check_hover("enh_enhance", enhance_btn, mouse_pos):
+            _bi_draw_hover_border(screen, enhance_btn.x, enhance_btn.y, enhance_btn.w, enhance_btn.h, (255, 210, 100))
 
         # 나가기 버튼
         exit_btn = pygame.Rect(menu_x + 20, menu_y + 95, menu_w - 40, 30)
@@ -16612,6 +16737,8 @@ class BuildingInterior:
             btn_surf, _ = font_small.render("나가기", (180, 170, 150))
             screen.blit(btn_surf, (exit_btn.centerx - btn_surf.get_width() // 2,
                                    exit_btn.centery - btn_surf.get_height() // 2))
+        if _bi_check_hover("enh_exit", exit_btn, mouse_pos):
+            _bi_draw_hover_border(screen, exit_btn.x, exit_btn.y, exit_btn.w, exit_btn.h, (200, 160, 80))
 
     def _draw_enhancement_item_select(self, screen):
         """강화 아이템 선택창 그리기"""
@@ -17006,6 +17133,7 @@ class BuildingInterior:
     def _draw_enhancement_confirm(self, screen):
         """강화 확인창 그리기"""
         from .constants import MAX_ENHANCEMENT_LEVEL
+        _bi_update_hover()
 
         # 색상
         BG_DARK = (28, 24, 20)
@@ -17112,6 +17240,8 @@ class BuildingInterior:
             yes_surf, _ = font_small.render("예", TEXT_WHITE)
             screen.blit(yes_surf, (yes_btn.centerx - yes_surf.get_width() // 2,
                                    yes_btn.centery - yes_surf.get_height() // 2))
+        if _bi_check_hover("enhc_yes", yes_btn, mouse_pos):
+            _bi_draw_hover_border(screen, yes_btn.x, yes_btn.y, yes_btn.w, yes_btn.h, (100, 255, 100))
 
         # 아니오 버튼
         no_btn = pygame.Rect(dialog_x + dialog_w // 2 + 15, btn_y, btn_w, btn_h)
@@ -17123,6 +17253,8 @@ class BuildingInterior:
             no_surf, _ = font_small.render("아니오", TEXT_WHITE)
             screen.blit(no_surf, (no_btn.centerx - no_surf.get_width() // 2,
                                   no_btn.centery - no_surf.get_height() // 2))
+        if _bi_check_hover("enhc_no", no_btn, mouse_pos):
+            _bi_draw_hover_border(screen, no_btn.x, no_btn.y, no_btn.w, no_btn.h, (255, 100, 100))
 
     def _draw_enhancement_animation(self, screen):
         """강화 애니메이션 그리기 (고퀄리티 대장간 망치질)"""
