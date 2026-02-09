@@ -17593,31 +17593,31 @@ def spawn_hover_particles(rx, ry, rw, rh):
 def draw_btn_hover_border(scr, rx, ry, rw, rh, color=(200,220,255)):
     t = _btn_hover_glow_timer
     pulse = 0.7 + 0.3 * math.sin(t * 2.5)
-    # 소프트 글로우
-    gs = pygame.Surface((rw + 16, rh + 16), pygame.SRCALPHA)
-    pygame.draw.rect(gs, (*color, int(35 * pulse)), (0, 0, rw + 16, rh + 16), border_radius=12)
-    scr.blit(gs, (rx - 8, ry - 8))
-    # 보더 (1px)
+    # 글로우
+    gs = pygame.Surface((rw + 14, rh + 14), pygame.SRCALPHA)
+    pygame.draw.rect(gs, (*color, int(50 * pulse)), (0, 0, rw + 14, rh + 14), border_radius=10)
+    scr.blit(gs, (rx - 7, ry - 7))
+    # 보더 (2px)
     bs = pygame.Surface((rw + 4, rh + 4), pygame.SRCALPHA)
-    pygame.draw.rect(bs, (*color, int(120 * pulse)), (0, 0, rw + 4, rh + 4), 1, border_radius=8)
+    pygame.draw.rect(bs, (*color, int(160 * pulse)), (0, 0, rw + 4, rh + 4), 2, border_radius=8)
     scr.blit(bs, (rx - 2, ry - 2))
-    # 코너 악센트 (1px)
-    ln = int(10 + 4 * pulse)
-    la = int(160 * pulse)
+    # 코너 악센트 (2px)
+    ln = int(12 + 4 * pulse)
+    la = int(200 * pulse)
     cs = pygame.Surface((rw + 4, rh + 4), pygame.SRCALPHA)
     cc = (*color, la)
     for cx, cy, dx, dy in [(0,0,1,1),(rw+3,0,-1,1),(0,rh+3,1,-1),(rw+3,rh+3,-1,-1)]:
-        pygame.draw.line(cs, cc, (cx, cy), (cx + ln * dx, cy), 1)
-        pygame.draw.line(cs, cc, (cx, cy), (cx, cy + ln * dy), 1)
+        pygame.draw.line(cs, cc, (cx, cy), (cx + ln * dx, cy), 2)
+        pygame.draw.line(cs, cc, (cx, cy), (cx, cy + ln * dy), 2)
     scr.blit(cs, (rx - 2, ry - 2))
     # 파티클 (스무스 페이드아웃)
     for p in _btn_hover_particles:
         ratio = max(0.0, p['life'] / p['max_life'])
         ease = ratio * ratio
-        pa = int(150 * ease)
+        pa = int(200 * ease)
         if pa < 3:
             continue
-        sz = max(1, int(2.0 * ease + 0.5))
+        sz = max(1, int(2.5 * ease + 0.5))
         ps = pygame.Surface((sz * 2 + 2, sz * 2 + 2), pygame.SRCALPHA)
         pygame.draw.circle(ps, (*p['color'], pa), (sz + 1, sz + 1), sz)
         scr.blit(ps, (int(p['x']) - sz - 1, int(p['y']) - sz - 1))
