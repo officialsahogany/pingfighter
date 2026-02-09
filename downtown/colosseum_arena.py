@@ -5337,7 +5337,7 @@ class ColosseumsArena:
 
         h1_color = hero1["color"]
         hero1_name = hero1.get("name", "???")
-        hero1_rect = pygame.Rect(x + 5, y + 5, 55, 70)
+        hero1_rect = pygame.Rect(x + 25 - 30, y + 55 - 30, 60, 60)
         # 이름 색상 밝기 보정 (너무 어두우면 밝게)
         h1_brightness = sum(h1_color) / 3
         h1_base_color = h1_color if h1_brightness > 80 else (min(255, h1_color[0] + 100), min(255, h1_color[1] + 100), min(255, h1_color[2] + 100))
@@ -5382,7 +5382,7 @@ class ColosseumsArena:
 
         h2_color = hero2["color"]
         hero2_name = hero2.get("name", "???")
-        hero2_rect = pygame.Rect(x + box_w - 60, y + box_h - 75, 55, 70)
+        hero2_rect = pygame.Rect(x + box_w - 25 - 30, y + box_h - 55 - 30, 60, 60)
         # 이름 색상 밝기 보정 (너무 어두우면 밝게)
         h2_brightness = sum(h2_color) / 3
         h2_base_color = h2_color if h2_brightness > 80 else (min(255, h2_color[0] + 100), min(255, h2_color[1] + 100), min(255, h2_color[2] + 100))
