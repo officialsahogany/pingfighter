@@ -87,6 +87,40 @@ class AnimatedBackgroundStage30:
         # 제우스 석상 번개 위치 (애니메이션용)
         self.zeus_bolt_tip = None
 
+        # ========================================
+        # 신의심판 (God's Judgment) 이벤트 시스템
+        # ========================================
+        self.JUDGMENT_IDLE = 0
+        self.JUDGMENT_MERGE = 1       # 2초: 동상 합체 + 4배 성장
+        self.JUDGMENT_ARM_RAISE = 2   # 2초: 팔 올리기 + 발 흔들기
+        self.JUDGMENT_SLAM = 3        # 0.5초: 내려치기
+        self.JUDGMENT_EARTHQUAKE = 4  # 4초: 지진 효과
+        self.JUDGMENT_RETURN = 5      # 3초: 원래 크기로 복귀
+
+        self.judgment_phase = self.JUDGMENT_IDLE
+        self.judgment_timer = 0.0
+        self.judgment_scale = 1.0
+        self.judgment_target_scale = 4.0
+        self.judgment_left_arm_progress = 0.0   # 0=아래, 1=위
+        self.judgment_right_arm_progress = 0.0  # 0=번개들기, 1=주먹위
+        self.judgment_slam_progress = 0.0       # 0=위, 1=내려침
+        self.judgment_feet_swing = 0.0          # 발 흔들림 각도 (라디안)
+        self.judgment_shake_intensity = 0.0
+        self.judgment_flash_alpha = 0
+        self.judgment_cooldown = random.uniform(50.0, 60.0)  # 첫 발동 쿨타임
+        self.judgment_enabled = False  # pingfighter.py에서 True로 설정
+        self.judgment_merge_particles = []
+        self.judgment_slam_debris = []
+        self.judgment_dust_rain = []
+        self.judgment_quake_sound_playing = False
+
+        # 페이즈 지속시간 (초)
+        self.MERGE_DURATION = 2.0
+        self.ARM_RAISE_DURATION = 2.0
+        self.SLAM_DURATION = 0.5
+        self.EARTHQUAKE_DURATION = 4.0
+        self.RETURN_DURATION = 3.0
+
         # 프리렌더
         self._prerender_floor()
         self._prerender_arena()
@@ -340,6 +374,428 @@ class AnimatedBackgroundStage30:
                 particle['y'] < 70 or particle['y'] > self.height - 70):
                 self.dust_particles[i] = self._create_dust_particle()
 
+        # 신의심판 이벤트 업데이트
+        self._update_gods_judgment(dt)
+
+    # ========================================
+    # 신의심판 이벤트 메서드
+    # ========================================
+    def trigger_gods_judgment(self):
+        """신의심판 이벤트 시작"""
+        if self.judgment_phase != self.JUDGMENT_IDLE:
+            return False
+        self.judgment_phase = self.JUDGMENT_MERGE
+        self.judgment_timer = 0.0
+        self.judgment_scale = 1.0
+        self.judgment_left_arm_progress = 0.0
+        self.judgment_right_arm_progress = 0.0
+        self.judgment_slam_progress = 0.0
+        self.judgment_feet_swing = 0.0
+        self.judgment_flash_alpha = 0
+        self.judgment_merge_particles = []
+        self.judgment_slam_debris = []
+        self.judgment_dust_rain = []
+        self.judgment_quake_sound_playing = False
+        # 합체 파티클 생성
+        cx = self.GAME_AREA_X + self.GAME_AREA_WIDTH // 2
+        cy = self.height // 2
+        for i in range(12):
+            angle = random.uniform(0, math.pi * 2)
+            dist = random.uniform(150, 280)
+            self.judgment_merge_particles.append({
+                'x': cx + math.cos(angle) * dist,
+                'y': cy + math.sin(angle) * dist,
+                'tx': cx + random.uniform(-15, 15),
+                'ty': cy + random.uniform(-20, 10),
+                'size': random.uniform(8, 20),
+                'alpha': 200,
+                'speed': random.uniform(0.6, 1.0),
+            })
+        return True
+
+    def _update_gods_judgment(self, dt):
+        """신의심판 이벤트 상태 업데이트"""
+        if self.judgment_phase == self.JUDGMENT_IDLE:
+            if self.judgment_enabled:
+                self.judgment_cooldown -= dt
+                if self.judgment_cooldown <= 0:
+                    self.trigger_gods_judgment()
+            return
+
+        self.judgment_timer += dt
+        cx = self.GAME_AREA_X + self.GAME_AREA_WIDTH // 2
+        cy = self.height // 2
+
+        if self.judgment_phase == self.JUDGMENT_MERGE:
+            # 2초간 1x → 4x 성장 (ease-out)
+            progress = min(1.0, self.judgment_timer / self.MERGE_DURATION)
+            ease = 1.0 - (1.0 - progress) ** 3  # ease-out cubic
+            self.judgment_scale = 1.0 + (self.judgment_target_scale - 1.0) * ease
+            # 합체 파티클 이동
+            for p in self.judgment_merge_particles:
+                p['x'] += (p['tx'] - p['x']) * dt * 2.0 * p['speed']
+                p['y'] += (p['ty'] - p['y']) * dt * 2.0 * p['speed']
+                p['size'] *= (1.0 - dt * 0.3)
+            if progress >= 1.0:
+                self.judgment_phase = self.JUDGMENT_ARM_RAISE
+                self.judgment_timer = 0.0
+                self.judgment_merge_particles.clear()
+
+        elif self.judgment_phase == self.JUDGMENT_ARM_RAISE:
+            # 2초간 팔 올리기 + 발 흔들기
+            progress = min(1.0, self.judgment_timer / self.ARM_RAISE_DURATION)
+            ease = 1.0 - (1.0 - progress) ** 2  # ease-out quad
+            self.judgment_left_arm_progress = ease
+            self.judgment_right_arm_progress = ease
+            # 발 흔들림 (사인파)
+            self.judgment_feet_swing = math.sin(self.judgment_timer * 5.0) * 0.3 * ease
+            if progress >= 1.0:
+                self.judgment_phase = self.JUDGMENT_SLAM
+                self.judgment_timer = 0.0
+
+        elif self.judgment_phase == self.JUDGMENT_SLAM:
+            # 0.5초간 내려치기
+            progress = min(1.0, self.judgment_timer / self.SLAM_DURATION)
+            ease = progress ** 2  # ease-in (빠르게 내려침)
+            self.judgment_slam_progress = ease
+            self.judgment_left_arm_progress = 1.0 - ease
+            self.judgment_right_arm_progress = 1.0 - ease
+            self.judgment_feet_swing = 0
+            # 충격 플래시 (내려치는 순간)
+            if progress > 0.8:
+                self.judgment_flash_alpha = int(180 * ((progress - 0.8) / 0.2))
+            if progress >= 1.0:
+                self.judgment_phase = self.JUDGMENT_EARTHQUAKE
+                self.judgment_timer = 0.0
+                self.judgment_flash_alpha = 255
+                self.judgment_shake_intensity = 1.0
+                # 슬램 파편 생성
+                for i in range(20):
+                    angle = random.uniform(0, math.pi * 2)
+                    speed = random.uniform(2, 8)
+                    self.judgment_slam_debris.append({
+                        'x': float(cx), 'y': float(cy + 40 * self.judgment_scale),
+                        'vx': math.cos(angle) * speed,
+                        'vy': math.sin(angle) * speed - random.uniform(2, 5),
+                        'size': random.uniform(3, 8),
+                        'life': random.uniform(0.5, 1.5),
+                        'color': random.choice([
+                            (185, 175, 160), (160, 150, 135),
+                            (130, 120, 108), (212, 175, 85)
+                        ])
+                    })
+
+        elif self.judgment_phase == self.JUDGMENT_EARTHQUAKE:
+            # 4초간 지진
+            progress = min(1.0, self.judgment_timer / self.EARTHQUAKE_DURATION)
+            # 플래시 빠르게 감소
+            self.judgment_flash_alpha = max(0, int(255 * (1.0 - progress * 3)))
+            # 흔들림 강도 (시작 강하고 점차 감소, 마지막 1초에 급감)
+            if progress < 0.75:
+                self.judgment_shake_intensity = 1.0 - progress * 0.3
+            else:
+                fade = (progress - 0.75) / 0.25
+                self.judgment_shake_intensity = 0.775 * (1.0 - fade)
+            # 팔은 내려친 상태 유지
+            self.judgment_slam_progress = 1.0
+            self.judgment_left_arm_progress = 0.0
+            self.judgment_right_arm_progress = 0.0
+            # 먼지 비 생성
+            if random.random() < 0.4:
+                self.judgment_dust_rain.append({
+                    'x': random.uniform(self.GAME_AREA_X + 10, self.GAME_AREA_END_X - 10),
+                    'y': random.uniform(0, 50),
+                    'vy': random.uniform(2, 5),
+                    'size': random.uniform(1, 3),
+                    'alpha': random.randint(60, 120),
+                    'life': random.uniform(1.0, 2.5),
+                })
+            # 슬램 파편 업데이트
+            for d in self.judgment_slam_debris:
+                d['x'] += d['vx'] * dt * 60
+                d['y'] += d['vy'] * dt * 60
+                d['vy'] += 5 * dt  # 중력
+                d['life'] -= dt
+            self.judgment_slam_debris = [d for d in self.judgment_slam_debris if d['life'] > 0]
+            # 먼지 비 업데이트
+            for d in self.judgment_dust_rain:
+                d['y'] += d['vy'] * dt * 60
+                d['life'] -= dt
+            self.judgment_dust_rain = [d for d in self.judgment_dust_rain if d['life'] > 0 and d['y'] < self.height]
+            if progress >= 1.0:
+                self.judgment_phase = self.JUDGMENT_RETURN
+                self.judgment_timer = 0.0
+                self.judgment_shake_intensity = 0.0
+                self.judgment_slam_debris.clear()
+                self.judgment_dust_rain.clear()
+
+        elif self.judgment_phase == self.JUDGMENT_RETURN:
+            # 3초간 원래 크기로 복귀
+            progress = min(1.0, self.judgment_timer / self.RETURN_DURATION)
+            ease = progress ** 2  # ease-in
+            self.judgment_scale = self.judgment_target_scale - (self.judgment_target_scale - 1.0) * ease
+            # 팔 원래 위치로
+            self.judgment_slam_progress = 1.0 - ease
+            self.judgment_left_arm_progress = 0.0
+            self.judgment_right_arm_progress = 0.0
+            if progress >= 1.0:
+                self.judgment_phase = self.JUDGMENT_IDLE
+                self.judgment_timer = 0.0
+                self.judgment_scale = 1.0
+                self.judgment_slam_progress = 0.0
+                self.judgment_cooldown = random.uniform(50.0, 60.0)
+
+    def get_judgment_shake_offset(self):
+        """신의심판 화면 흔들림 오프셋 반환 (정글지진의 1.5배 강도)"""
+        if self.judgment_phase != self.JUDGMENT_EARTHQUAKE and self.judgment_phase != self.JUDGMENT_SLAM:
+            return (0, 0)
+        intensity = 12 * self.judgment_shake_intensity  # 8px → 12px (1.5배)
+        ox = (random.random() - 0.5) * intensity * 2
+        oy = (random.random() - 0.5) * intensity * 2
+        return (int(ox), int(oy))
+
+    def is_judgment_earthquake_active(self):
+        """신의심판 지진 효과 활성화 여부"""
+        return self.judgment_phase == self.JUDGMENT_EARTHQUAKE
+
+    def is_judgment_active(self):
+        """신의심판 이벤트 진행 중 여부"""
+        return self.judgment_phase != self.JUDGMENT_IDLE
+
+    def is_judgment_slam_impact(self):
+        """슬램이 바닥에 충돌하는 순간인지 (사운드 타이밍용)"""
+        return (self.judgment_phase == self.JUDGMENT_SLAM and
+                self.judgment_timer / self.SLAM_DURATION > 0.9)
+
+    def get_judgment_phase_name(self):
+        """현재 페이즈 이름 (디버그용)"""
+        names = {0: "IDLE", 1: "MERGE", 2: "ARM_RAISE", 3: "SLAM", 4: "EARTHQUAKE", 5: "RETURN"}
+        return names.get(self.judgment_phase, "UNKNOWN")
+
+    def _draw_judgment_overlay(self, screen, offset_x=0, offset_y=0):
+        """신의심판 이벤트 비주얼 오버레이"""
+        if self.judgment_phase == self.JUDGMENT_IDLE:
+            return
+
+        cx = self.GAME_AREA_X + self.GAME_AREA_WIDTH // 2 + offset_x
+        cy = self.height // 2 + offset_y
+        s = self.judgment_scale
+
+        # 정적 석상 위를 덮기 위한 모래색 커버 (스케일 > 1.2일 때만)
+        if s > 1.2:
+            cover_r = int(55 * s)
+            sand = self.colors['sand']
+            pygame.draw.circle(screen, sand, (cx, cy), cover_r)
+
+        # 합체 파티클 (MERGE 페이즈)
+        for p in self.judgment_merge_particles:
+            px, py = int(p['x']) + offset_x, int(p['y']) + offset_y
+            ps = max(1, int(p['size']))
+            alpha = max(0, min(255, int(p['alpha'])))
+            psurf = pygame.Surface((ps * 2, ps * 2), pygame.SRCALPHA)
+            pygame.draw.circle(psurf, (185, 175, 160, alpha), (ps, ps), ps)
+            screen.blit(psurf, (px - ps, py - ps))
+            # 금색 글로우
+            if ps > 3:
+                gsurf = pygame.Surface((ps * 4, ps * 4), pygame.SRCALPHA)
+                pygame.draw.circle(gsurf, (212, 175, 85, alpha // 3), (ps * 2, ps * 2), ps * 2)
+                screen.blit(gsurf, (px - ps * 2, py - ps * 2), special_flags=pygame.BLEND_ADD)
+
+        # 동적 제우스 석상 그리기
+        self._draw_judgment_statue_scaled(screen, cx, cy, s)
+
+        # 에너지 글로우 (성장/합체 중)
+        if self.judgment_phase in (self.JUDGMENT_MERGE, self.JUDGMENT_ARM_RAISE):
+            glow_r = int(40 * s)
+            glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+            pulse = 0.5 + 0.5 * math.sin(self.time * 6)
+            for r in range(glow_r, 0, -3):
+                alpha = int(20 * (r / glow_r) * pulse)
+                if alpha > 0:
+                    pygame.draw.circle(glow_surf, (212, 175, 85, alpha), (glow_r, glow_r), r)
+            screen.blit(glow_surf, (cx - glow_r, cy - glow_r), special_flags=pygame.BLEND_ADD)
+
+        # 슬램 파편
+        for d in self.judgment_slam_debris:
+            dx, dy = int(d['x']) + offset_x, int(d['y']) + offset_y
+            ds = max(1, int(d['size'] * d['life']))
+            pygame.draw.circle(screen, d['color'], (dx, dy), ds)
+
+        # 먼지 비
+        for d in self.judgment_dust_rain:
+            dx, dy = int(d['x']) + offset_x, int(d['y']) + offset_y
+            ds = max(1, int(d['size']))
+            alpha = max(0, min(255, int(d['alpha'] * min(1, d['life']))))
+            pygame.draw.circle(screen, (180, 160, 130), (dx, dy), ds)
+
+        # 충격 플래시 (슬램/지진 시작)
+        if self.judgment_flash_alpha > 0:
+            flash_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            flash_surf.fill((255, 240, 200, min(255, self.judgment_flash_alpha)))
+            screen.blit(flash_surf, (offset_x, offset_y))
+
+    def _draw_judgment_statue_scaled(self, screen, cx, cy, scale):
+        """신의심판 동안 스케일된 제우스 석상 그리기"""
+        s = scale
+        marble = (185, 175, 160)
+        marble_mid = (160, 150, 135)
+        marble_dark = (130, 120, 108)
+        marble_shadow = (105, 95, 85)
+        pedestal_col = (115, 105, 92)
+        pedestal_light = (135, 125, 112)
+        gold = self.colors['gold']
+        gold_light = self.colors['gold_light']
+
+        # 발 흔들림 적용 (하체 오프셋)
+        feet_ox = int(math.sin(self.judgment_feet_swing) * 8 * s) if s > 1.5 else 0
+
+        # ── 그림자 ──
+        sw, sh = int(50 * s), int(14 * s)
+        if sw > 2 and sh > 2:
+            shadow_s = pygame.Surface((sw, sh), pygame.SRCALPHA)
+            pygame.draw.ellipse(shadow_s, (40, 35, 25, 50), (0, 0, sw, sh))
+            screen.blit(shadow_s, (cx - sw // 2, cy + int(16 * s)))
+
+        # ── 받침대 ──
+        pw = int(17 * s)
+        pygame.draw.rect(screen, pedestal_col,
+                         (cx - pw + feet_ox, cy + int(12 * s), pw * 2, max(1, int(7 * s))))
+        pygame.draw.line(screen, pedestal_light,
+                         (cx - pw + feet_ox, cy + int(12 * s)),
+                         (cx + pw - 1 + feet_ox, cy + int(12 * s)), max(1, int(s)))
+        # 금색 장식
+        pygame.draw.rect(screen, pedestal_light,
+                         (cx - int(13 * s) + feet_ox, cy + int(4 * s), int(26 * s), max(1, int(9 * s))))
+        pygame.draw.line(screen, gold,
+                         (cx - int(13 * s) + feet_ox, cy + int(8 * s)),
+                         (cx + int(12 * s) + feet_ox, cy + int(8 * s)), max(1, int(s)))
+
+        # ── 하체 토가 (발 흔들림 적용) ──
+        robe_pts = [
+            (cx - int(9 * s) + feet_ox, cy + int(4 * s)),
+            (cx + int(9 * s) + feet_ox, cy + int(4 * s)),
+            (cx + int(7 * s), cy - int(8 * s)),
+            (cx - int(7 * s), cy - int(8 * s)),
+        ]
+        pygame.draw.polygon(screen, marble, robe_pts)
+        pygame.draw.line(screen, marble_dark,
+                         (cx - int(3 * s), cy + int(3 * s)),
+                         (cx - int(2 * s), cy - int(7 * s)), max(1, int(s)))
+        pygame.draw.line(screen, marble_dark,
+                         (cx + int(3 * s), cy + int(3 * s)),
+                         (cx + int(4 * s), cy - int(7 * s)), max(1, int(s)))
+
+        # ── 상체 ──
+        torso_pts = [
+            (cx - int(7 * s), cy - int(8 * s)),
+            (cx + int(7 * s), cy - int(8 * s)),
+            (cx + int(10 * s), cy - int(18 * s)),
+            (cx - int(10 * s), cy - int(18 * s)),
+        ]
+        pygame.draw.polygon(screen, marble, torso_pts)
+        pygame.draw.polygon(screen, marble_dark, torso_pts, max(1, int(s)))
+        # 토가 드레이프
+        pygame.draw.line(screen, marble_mid,
+                         (cx - int(9 * s), cy - int(17 * s)),
+                         (cx + int(5 * s), cy - int(10 * s)), max(1, int(2 * s)))
+
+        # ── 팔 그리기 ──
+        self._draw_judgment_arms(screen, cx, cy, s, marble, marble_mid, marble_dark, gold, gold_light)
+
+        # ── 머리 ──
+        head_y = cy - int(23 * s)
+        head_r = max(2, int(6 * s))
+        pygame.draw.circle(screen, marble, (cx, head_y), head_r)
+        pygame.draw.circle(screen, marble_dark, (cx, head_y), head_r, max(1, int(s)))
+        # 수염
+        br = int(3 * s)
+        beard_pts = [
+            (cx - br, head_y + int(4 * s)),
+            (cx + br, head_y + int(4 * s)),
+            (cx + int(1 * s), head_y + int(8 * s)),
+            (cx - int(1 * s), head_y + int(8 * s)),
+        ]
+        pygame.draw.polygon(screen, marble_mid, beard_pts)
+        # 머리카락
+        pygame.draw.arc(screen, marble_dark,
+                        (cx - int(7 * s), head_y - int(7 * s), int(14 * s), int(10 * s)),
+                        0.3, math.pi - 0.3, max(1, int(2 * s)))
+        # 월계관
+        wreath_color = (155, 150, 95)
+        wreath_light = (175, 170, 110)
+        wr = int(7 * s)
+        for angle_deg in range(-70, 71, 25):
+            a = math.radians(angle_deg - 90)
+            lx = cx + int(wr * math.cos(a))
+            ly = head_y + int(wr * math.sin(a))
+            pygame.draw.circle(screen, wreath_color, (lx, ly), max(1, int(s)))
+            if angle_deg % 50 == 0:
+                pygame.draw.circle(screen, wreath_light, (lx, ly), max(1, int(s)))
+
+    def _draw_judgment_arms(self, screen, cx, cy, s, marble, marble_mid, marble_dark, gold, gold_light):
+        """신의심판 석상의 팔 그리기 (애니메이션 적용)"""
+        arm_w = max(1, int(3 * s))
+
+        # 어깨 위치
+        l_shoulder = (cx - int(10 * s), cy - int(16 * s))
+        r_shoulder = (cx + int(10 * s), cy - int(16 * s))
+        arm_len = int(18 * s)
+
+        # 왼팔 각도: 기본(아래) → 올린 상태 → 내려침
+        # 기본: ~140도(아래), 올림: ~-80도(위), 내려침: ~160도(아래 강타)
+        la_base = math.radians(140)   # 아래로 향함
+        la_raised = math.radians(-80)  # 위로 향함
+        la_slammed = math.radians(170) # 강타 (아래로 더 깊게)
+
+        if self.judgment_slam_progress > 0:
+            # 내려치기 중
+            la_angle = la_raised + (la_slammed - la_raised) * self.judgment_slam_progress
+        else:
+            la_angle = la_base + (la_raised - la_base) * self.judgment_left_arm_progress
+
+        la_end = (l_shoulder[0] + int(arm_len * math.sin(la_angle)),
+                  l_shoulder[1] + int(arm_len * math.cos(la_angle)))
+        pygame.draw.line(screen, marble, l_shoulder, la_end, arm_w)
+        # 주먹
+        fist_r = max(2, int(3 * s))
+        pygame.draw.circle(screen, marble_mid, la_end, fist_r)
+
+        # 오른팔 각도: 기본(위 번개) → 올린 상태 → 내려침
+        ra_base = math.radians(-60)    # 위로 번개 들고
+        ra_raised = math.radians(-80)  # 위로 더 올림
+        ra_slammed = math.radians(170) # 강타
+
+        if self.judgment_slam_progress > 0:
+            ra_angle = ra_raised + (ra_slammed - ra_raised) * self.judgment_slam_progress
+        else:
+            ra_angle = ra_base + (ra_raised - ra_base) * self.judgment_right_arm_progress
+
+        ra_end = (r_shoulder[0] + int(arm_len * math.sin(ra_angle)),
+                  r_shoulder[1] + int(arm_len * math.cos(ra_angle)))
+        pygame.draw.line(screen, marble, r_shoulder, ra_end, arm_w)
+        # 주먹
+        pygame.draw.circle(screen, marble_mid, ra_end, fist_r)
+
+        # 번개 (기본 상태일 때만, 슬램 진행 중이면 숨김)
+        if self.judgment_slam_progress < 0.3 and self.judgment_left_arm_progress < 0.5:
+            bolt_x = ra_end[0]
+            bolt_y = ra_end[1] - int(3 * s)
+            bolt_len = int(18 * s)
+            segs = [
+                (bolt_x, bolt_y),
+                (bolt_x - int(3 * s), bolt_y - int(bolt_len * 0.28)),
+                (bolt_x + int(2 * s), bolt_y - int(bolt_len * 0.39)),
+                (bolt_x - int(2 * s), bolt_y - int(bolt_len * 0.61)),
+                (bolt_x + int(1 * s), bolt_y - int(bolt_len * 0.78)),
+                (bolt_x - int(1 * s), bolt_y - bolt_len),
+            ]
+            for i in range(len(segs) - 1):
+                pygame.draw.line(screen, gold, segs[i], segs[i + 1], max(1, int(2 * s)))
+            tip = segs[-1]
+            spark_len = max(1, int(3 * s))
+            pygame.draw.line(screen, gold_light, (tip[0] - spark_len, tip[1]), (tip[0] + spark_len, tip[1]), 1)
+            pygame.draw.line(screen, gold_light, (tip[0], tip[1] - spark_len), (tip[0], tip[1] + spark_len), 1)
+
     def set_crowd_excitement(self, level):
         """관중 흥분도 설정 (0.0 ~ 1.0)"""
         self.crowd_noise_level = max(0.0, min(1.0, level))
@@ -375,8 +831,12 @@ class AnimatedBackgroundStage30:
         else:
             screen.blit(self.arena_surface, (offset_x, offset_y))
 
-        # 제우스 번개 글로우 애니메이션
-        self._draw_zeus_bolt_glow(screen, scale_x, scale_y, offset_x, offset_y)
+        # 신의심판 이벤트 오버레이 (동적 석상)
+        if self.judgment_phase != self.JUDGMENT_IDLE:
+            self._draw_judgment_overlay(screen, offset_x, offset_y)
+        else:
+            # 제우스 번개 글로우 애니메이션 (평상시에만)
+            self._draw_zeus_bolt_glow(screen, scale_x, scale_y, offset_x, offset_y)
 
         # 횃불
         self._draw_torches(screen, scale_x, scale_y, offset_x, offset_y)

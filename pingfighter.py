@@ -52400,6 +52400,89 @@ def force_end_quake_on_player_hit():
             stage=current_stage,
             ball_speed=math.hypot(ball_vel[0], ball_vel[1]),
         )
+# ========================================
+# 신의심판 (God's Judgment) 이벤트 핸들러
+# ========================================
+_judgment_quake_sound_playing = False
+_judgment_ball_speed_backup = None
+_judgment_prev_earthquake_active = False
+_judgment_prev_phase = 0  # IDLE
+
+def handle_gods_judgment():
+    """투기장 신의심판 이벤트 처리 - 공 랜덤 이동 + 영웅 속도 감소"""
+    global ball_vel, _judgment_quake_sound_playing, _judgment_ball_speed_backup
+    global _judgment_prev_earthquake_active, _judgment_prev_phase, PLAYER_SPEED
+
+    if current_stage != 30 or animated_bg_stage30 is None:
+        return
+
+    bg = animated_bg_stage30
+    cur_phase = bg.judgment_phase
+    prev_phase = _judgment_prev_phase
+    _judgment_prev_phase = cur_phase
+
+    # MERGE 시작 순간: "신의심판 발동!" 텍스트
+    if cur_phase == bg.JUDGMENT_MERGE and prev_phase == bg.JUDGMENT_IDLE:
+        show_speech("신의심판 발동!", duration=120)
+
+    is_eq = bg.is_judgment_earthquake_active()
+    was_eq = _judgment_prev_earthquake_active
+    _judgment_prev_earthquake_active = is_eq
+
+    # 지진 시작 순간
+    if is_eq and not was_eq:
+        # 사운드 재생
+        try:
+            SOUND_QUAKE.play(loops=-1)
+            _judgment_quake_sound_playing = True
+        except Exception:
+            pass
+        # 공 속도 백업
+        _judgment_ball_speed_backup = ball_vel.copy()
+        # 스피치 표시
+        show_speech("신의심판!", duration=240)
+
+    # 지진 종료 순간
+    if was_eq and not is_eq:
+        # 사운드 정지
+        try:
+            if _judgment_quake_sound_playing:
+                SOUND_QUAKE.stop()
+                _judgment_quake_sound_playing = False
+        except Exception:
+            pass
+        # 공 속도 복원
+        if _judgment_ball_speed_backup is not None:
+            ball_vel[0] = _judgment_ball_speed_backup[0]
+            ball_vel[1] = _judgment_ball_speed_backup[1]
+            _judgment_ball_speed_backup = None
+        # 속도 정상화 확인
+        speed = math.hypot(ball_vel[0], ball_vel[1])
+        if speed < BALL_BASE_SPEED * 0.85:
+            direction = pygame.math.Vector2(ball_vel)
+            if direction.length_squared() == 0:
+                direction = pygame.math.Vector2(0, 1)
+            else:
+                direction = direction.normalize()
+            ball_vel[0] = direction.x * BALL_BASE_SPEED
+            ball_vel[1] = direction.y * BALL_BASE_SPEED
+
+    # 지진 중: 공 랜덤 이동 (정글지진의 2배 강도)
+    if is_eq:
+        # 정글지진: ±3 * 0.8 = ±2.4 (X), ±2 * 0.8 = ±1.6 (Y)
+        # 신의심판: ±6 * 0.8 = ±4.8 (X), ±4 * 0.8 = ±3.2 (Y) → 2배
+        JUDGMENT_SHAKE_SCALE = 0.8
+        shake_x = random.uniform(-6, 6) * JUDGMENT_SHAKE_SCALE
+        shake_y = random.uniform(-4, 4) * JUDGMENT_SHAKE_SCALE
+        ball_vel[0] += shake_x
+        ball_vel[1] += shake_y
+
+        # 최대 속도 제한
+        max_speed = 10.0
+        ball_vel[0] = max(-max_speed, min(max_speed, ball_vel[0]))
+        ball_vel[1] = max(-max_speed, min(max_speed, ball_vel[1]))
+
+
 def draw_shaking_screen():
     """정글지진 시 화면 흔들림 효과 (더 효율적인 방식)"""
     global screen_shake_offset_x, screen_shake_offset_y, grenade_shake_timer, bazooka_screen_shake_timer
@@ -52418,7 +52501,15 @@ def draw_shaking_screen():
                 screen_shake_offset_x += earthquake_offset_x
                 screen_shake_offset_y += earthquake_offset_y
             return  # 발구르기 흔들림이 있으면 다른 흔들림 무시
-    
+
+    # Stage 30 신의심판 화면 흔들림
+    if current_stage == 30 and animated_bg_stage30 is not None:
+        jox, joy = animated_bg_stage30.get_judgment_shake_offset()
+        if jox != 0 or joy != 0:
+            screen_shake_offset_x = jox
+            screen_shake_offset_y = joy
+            return  # 신의심판 흔들림이 있으면 다른 흔들림 무시
+
     if quake_active:
         # Stage 2 정글지진일 때 earthquake_offset을 screen_shake_offset에 통합
         if current_stage == 2 and animated_bg_stage2 is not None:
@@ -62535,6 +62626,11 @@ def handle_player(keys):
                             if arena_perk_speed_mult_bottom != 1.0 and arena_mode_enabled:
                                 adjusted_acceleration *= arena_perk_speed_mult_bottom
                                 adjusted_max_speed *= arena_perk_speed_mult_bottom
+                            # 🏟️ 투기장 신의심판: 이동속도 -50%
+                            if arena_mode_enabled and current_stage == 30 and animated_bg_stage30 is not None:
+                                if animated_bg_stage30.is_judgment_earthquake_active():
+                                    adjusted_acceleration *= 0.5
+                                    adjusted_max_speed *= 0.5
                             # 즉시 속도 제한
                             if arena_player_slow_mult != 1.0 or arena_player_speed_boost_only > 1.0:
                                 if current_speed > adjusted_max_speed:
@@ -96085,6 +96181,12 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
     globals().pop('_arena_pending_bottom_guards', None)
     globals().pop('_arena_pending_perk_data', None)
 
+    # 신의심판 이벤트 활성화
+    if animated_bg_stage30 is not None:
+        animated_bg_stage30.judgment_enabled = True
+        animated_bg_stage30.judgment_cooldown = random.uniform(50.0, 60.0)
+        animated_bg_stage30.judgment_phase = animated_bg_stage30.JUDGMENT_IDLE
+
     try:
         result = main(30)  # 스테이지 30 = 투기장
     finally:
@@ -96096,6 +96198,19 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         arena_skill_manager = None
         arena_battle_result = None  # 배틀 결과 초기화
         reset_arena_perks()  # 퍽 멀티플라이어 초기화
+        # 신의심판 이벤트 초기화
+        if animated_bg_stage30 is not None:
+            animated_bg_stage30.judgment_enabled = False
+            animated_bg_stage30.judgment_phase = animated_bg_stage30.JUDGMENT_IDLE
+            animated_bg_stage30.judgment_scale = 1.0
+        # 신의심판 사운드 정지
+        global _judgment_quake_sound_playing
+        if _judgment_quake_sound_playing:
+            try:
+                SOUND_QUAKE.stop()
+            except Exception:
+                pass
+            _judgment_quake_sound_playing = False
         # 호위무사 시스템 초기화
         if arena_guard_system is not None:
             try:
@@ -125007,6 +125122,11 @@ def handle_boss():
     if arena_perk_speed_mult_top != 1.0 and arena_mode_enabled:
         enhanced_accel *= arena_perk_speed_mult_top
         enhanced_max_speed *= arena_perk_speed_mult_top
+    # 🏟️ 투기장 신의심판: 상단 영웅 이동속도 -50%
+    if arena_mode_enabled and current_stage == 30 and animated_bg_stage30 is not None:
+        if animated_bg_stage30.is_judgment_earthquake_active():
+            enhanced_accel *= 0.5
+            enhanced_max_speed *= 0.5
     if slow_multiplier != 1.0:
         enhanced_accel *= slow_multiplier
         enhanced_max_speed *= slow_multiplier
@@ -131631,6 +131751,7 @@ def main(stage_num, new_boss_mode=False):
                 # handle_balloon()  # Stage 1 보스 풍선파티 스킬 제거됨
                 handle_spinning_top()  # Stage 1 보스 팽이치기 스킬
                 handle_quake()
+                handle_gods_judgment()  # Stage 30 투기장 신의심판 이벤트
                 # Stage 2 악어장군 물대포 스킬 발동 및 업데이트
                 if current_stage == 2:
                     # 물대포 발동 체크: 정글지진 발동 후 발동
