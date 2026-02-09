@@ -14770,9 +14770,11 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
     # Card hitbox rectangles for mouse interaction
     card_rects = []
     hovered_index = -1  # Currently hovered card index
+    reset_btn_hover()
 
     while active:
         frame_count += 1
+        update_btn_hover_effects()
 
         # Update card hitbox rectangles based on current positions (4개 카드)
         card_rects = []
@@ -14800,8 +14802,10 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         hovered_index = -1
         if phase == "active":
             for i, rect in enumerate(card_rects):
-                if rect.collidepoint(mouse_pos):
+                if check_btn_hover(f"rsk_{i}", rect, mouse_pos):
                     hovered_index = i
+                    if selected_index != i:
+                        selected_index = i
                     break
 
         # 튜토리얼 진행 중인지 먼저 확인 (이벤트 처리 전에)
@@ -14836,13 +14840,6 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
                                     phase = "selected"
                                     frame_count = 0
                                 break
-            elif event.type == pygame.MOUSEMOTION:
-                # Update selection based on hover (튜토리얼 완료 후에만)
-                if phase == "active" and not tutorial_in_progress:
-                    for i, rect in enumerate(card_rects):
-                        if rect.collidepoint(event.pos):
-                            selected_index = i
-                            break
             elif event.type == pygame.KEYDOWN:
                 if phase == "active":
                     if tutorial_in_progress:
@@ -14857,8 +14854,10 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
                         # 튜토리얼 완료: 정상적인 스킬 선택
                         if event.key == pygame.K_LEFT:
                             selected_index = (selected_index - 1) % num_cards
+                            play_button_hover_sound()
                         elif event.key == pygame.K_RIGHT:
                             selected_index = (selected_index + 1) % num_cards
+                            play_button_hover_sound()
                         elif event.key in (pygame.K_RETURN, pygame.K_SPACE, pygame.K_z):
                             # 스킬 선택
                             if selected_index < len(choices):
@@ -15115,6 +15114,10 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
             final_x = int(card_x - (scaled_width - card_width) // 2)
             final_y = int(card_y_anim - (scaled_height - card_height) // 2)
             SCREEN.blit(card_surface, (final_x, final_y))
+
+            # 호버 보더 효과
+            if is_selected and phase == "active":
+                draw_btn_hover_border(SCREEN, final_x, final_y, scaled_width, scaled_height, icon_color)
 
             # === 튜토리얼 카드 강조 효과 ===
             try:
