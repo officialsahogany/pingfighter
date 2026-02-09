@@ -240,154 +240,89 @@ class AnimatedBackgroundStage30:
                         (self.GAME_AREA_END_X - 15 + corner_size, self.height - 70), 2)
 
     def _draw_zeus_statue(self, surface, cx, cy):
-        """고대 제우스 석상 - 고전 그리스 조각상 스타일 (고급 디테일)"""
-        # 색상 팔레트 (청동+대리석 혼합)
-        marble = (190, 180, 165)
-        marble_hi = (210, 200, 185)
-        marble_mid = (165, 155, 140)
-        marble_dark = (135, 125, 112)
-        marble_shadow = (108, 98, 88)
-        bronze = (160, 130, 85)
-        bronze_hi = (185, 155, 105)
-        bronze_dk = (120, 95, 60)
-        pedestal = (118, 108, 95)
-        ped_hi = (140, 130, 115)
-        ped_dk = (90, 82, 72)
+        """고대 제우스 석상 - 깔끔한 픽셀아트 스타일"""
+        # 색상 (대리석 4톤 + 금 2톤만 사용)
+        marble = (185, 175, 160)
+        marble_mid = (160, 150, 135)
+        marble_dark = (130, 120, 108)
+        marble_shadow = (105, 95, 85)
         gold = self.colors['gold']
         gold_light = self.colors['gold_light']
 
-        # ── 그림자 (부드러운 타원) ──
-        for i in range(3):
-            sh_w, sh_h = 52 - i * 6, 14 - i * 2
-            sh_a = 30 + i * 15
-            sh_s = pygame.Surface((sh_w, sh_h), pygame.SRCALPHA)
-            pygame.draw.ellipse(sh_s, (35, 30, 22, sh_a), (0, 0, sh_w, sh_h))
-            surface.blit(sh_s, (cx - sh_w // 2, cy + 15 + i))
+        # ── 그림자 ──
+        shadow_surf = pygame.Surface((50, 14), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (40, 35, 25, 50), (0, 0, 50, 14))
+        surface.blit(shadow_surf, (cx - 25, cy + 16))
 
-        # ── 3단 받침대 (클래식 기둥 양식) ──
-        # 1단 (최하단) - 넓은 베이스
-        pygame.draw.rect(surface, ped_dk, (cx - 20, cy + 16, 40, 5))
-        pygame.draw.line(surface, ped_hi, (cx - 20, cy + 16), (cx + 19, cy + 16), 1)
-        # 2단 (중간)
-        pygame.draw.rect(surface, pedestal, (cx - 17, cy + 10, 34, 7))
-        pygame.draw.line(surface, ped_hi, (cx - 17, cy + 10), (cx + 16, cy + 10), 1)
-        pygame.draw.line(surface, ped_dk, (cx - 17, cy + 16), (cx + 16, cy + 16), 1)
-        # 3단 (상단) - 좁은 대좌
-        pygame.draw.rect(surface, ped_hi, (cx - 13, cy + 3, 26, 8))
-        pygame.draw.line(surface, marble_mid, (cx - 13, cy + 3), (cx + 12, cy + 3), 1)
-        # 금색 트림 2줄
-        pygame.draw.line(surface, gold, (cx - 15, cy + 9), (cx + 14, cy + 9), 1)
-        pygame.draw.line(surface, bronze_hi, (cx - 13, cy + 6), (cx + 12, cy + 6), 1)
-        # 받침대 면 그라데이션 (미세한 음영)
-        pygame.draw.line(surface, ped_dk, (cx - 20, cy + 20), (cx + 19, cy + 20), 1)
+        # ── 받침대 (2단, 간결) ──
+        pygame.draw.rect(surface, marble_shadow, (cx - 18, cy + 13, 36, 6))
+        pygame.draw.line(surface, marble_mid, (cx - 18, cy + 13), (cx + 17, cy + 13), 1)
+        pygame.draw.rect(surface, marble_mid, (cx - 14, cy + 4, 28, 10))
+        pygame.draw.line(surface, marble, (cx - 14, cy + 4), (cx + 13, cy + 4), 1)
+        pygame.draw.line(surface, gold, (cx - 14, cy + 8), (cx + 13, cy + 8), 1)
 
-        # ── 하체 토가 (곡선 드레이프) ──
-        robe_pts = [
-            (cx - 10, cy + 3), (cx + 10, cy + 3),
-            (cx + 8, cy - 3), (cx + 7, cy - 7),
-            (cx - 7, cy - 7), (cx - 8, cy - 3),
-        ]
+        # ── 하체 토가 ──
+        robe_pts = [(cx - 9, cy + 4), (cx + 9, cy + 4),
+                    (cx + 7, cy - 8), (cx - 7, cy - 8)]
         pygame.draw.polygon(surface, marble, robe_pts)
-        # 토가 주름 (곡선감)
-        pygame.draw.line(surface, marble_dark, (cx - 5, cy + 2), (cx - 4, cy - 6), 1)
-        pygame.draw.line(surface, marble_dark, (cx + 1, cy + 2), (cx + 2, cy - 6), 1)
-        pygame.draw.line(surface, marble_dark, (cx + 5, cy + 2), (cx + 5, cy - 6), 1)
-        pygame.draw.line(surface, marble_hi, (cx - 2, cy + 1), (cx - 1, cy - 5), 1)
-        # 허리 벨트
-        pygame.draw.line(surface, bronze, (cx - 7, cy - 7), (cx + 7, cy - 7), 1)
-        pygame.draw.line(surface, bronze_hi, (cx - 6, cy - 8), (cx + 6, cy - 8), 1)
+        pygame.draw.line(surface, marble_dark, (cx - 3, cy + 3), (cx - 2, cy - 7), 1)
+        pygame.draw.line(surface, marble_dark, (cx + 3, cy + 3), (cx + 4, cy - 7), 1)
+        pygame.draw.line(surface, marble_mid, (cx, cy + 3), (cx + 1, cy - 7), 1)
 
-        # ── 상체 (넓은 어깨, 가슴 디테일) ──
-        torso_pts = [
-            (cx - 7, cy - 8), (cx + 7, cy - 8),
-            (cx + 11, cy - 16), (cx + 10, cy - 19),
-            (cx - 10, cy - 19), (cx - 11, cy - 16),
-        ]
+        # ── 상체 ──
+        torso_pts = [(cx - 7, cy - 8), (cx + 7, cy - 8),
+                     (cx + 10, cy - 18), (cx - 10, cy - 18)]
         pygame.draw.polygon(surface, marble, torso_pts)
-        # 근육 라인 (가슴 중앙선 + 어깨)
-        pygame.draw.line(surface, marble_mid, (cx, cy - 9), (cx, cy - 17), 1)
-        pygame.draw.line(surface, marble_mid, (cx - 4, cy - 15), (cx - 8, cy - 18), 1)
-        pygame.draw.line(surface, marble_mid, (cx + 4, cy - 15), (cx + 8, cy - 18), 1)
-        # 토가 사선 드레이프 (왼어깨→오른허리)
-        pygame.draw.line(surface, marble_dark, (cx - 10, cy - 18), (cx + 4, cy - 10), 2)
-        pygame.draw.line(surface, marble_mid, (cx - 8, cy - 17), (cx + 5, cy - 9), 1)
-        # 목
-        pygame.draw.line(surface, marble, (cx - 2, cy - 19), (cx - 2, cy - 22), 2)
-        pygame.draw.line(surface, marble, (cx + 1, cy - 19), (cx + 1, cy - 22), 2)
+        pygame.draw.polygon(surface, marble_dark, torso_pts, 1)
+        # 토가 드레이프 (한 줄만)
+        pygame.draw.line(surface, marble_dark, (cx - 9, cy - 17), (cx + 5, cy - 10), 2)
 
-        # ── 왼팔 (아래로, 팔꿈치 굴곡) ──
-        pygame.draw.line(surface, marble, (cx - 11, cy - 17), (cx - 14, cy - 10), 3)
-        pygame.draw.line(surface, marble_mid, (cx - 14, cy - 10), (cx - 13, cy - 4), 2)
-        pygame.draw.circle(surface, marble_dark, (cx - 13, cy - 3), 2)  # 주먹
+        # ── 왼팔 (아래) ──
+        pygame.draw.line(surface, marble, (cx - 10, cy - 16), (cx - 14, cy - 6), 3)
+        pygame.draw.line(surface, marble_mid, (cx - 14, cy - 6), (cx - 13, cy - 2), 2)
 
-        # ── 오른팔 (위로, 번개 파지) ──
-        pygame.draw.line(surface, marble, (cx + 11, cy - 17), (cx + 14, cy - 24), 3)
-        pygame.draw.line(surface, marble_mid, (cx + 14, cy - 24), (cx + 13, cy - 30), 2)
-        pygame.draw.circle(surface, marble_dark, (cx + 13, cy - 31), 2)  # 주먹
+        # ── 오른팔 (위로 번개) ──
+        pygame.draw.line(surface, marble, (cx + 10, cy - 16), (cx + 13, cy - 28), 3)
+        pygame.draw.circle(surface, marble_mid, (cx + 13, cy - 29), 2)
 
-        # ── 머리 (얼굴 디테일) ──
-        head_y = cy - 25
-        # 머리 본체
+        # ── 머리 ──
+        head_y = cy - 23
         pygame.draw.circle(surface, marble, (cx, head_y), 6)
-        # 얼굴 윤곽 하이라이트
-        pygame.draw.arc(surface, marble_hi, (cx - 5, head_y - 5, 10, 10), 0.5, 2.6, 1)
-        # 눈 라인
-        pygame.draw.line(surface, marble_dark, (cx - 3, head_y - 1), (cx - 1, head_y - 1), 1)
-        pygame.draw.line(surface, marble_dark, (cx + 1, head_y - 1), (cx + 3, head_y - 1), 1)
-        # 코
-        pygame.draw.line(surface, marble_mid, (cx, head_y - 1), (cx, head_y + 1), 1)
-        # 수염 (풍성한 삼각형)
-        beard_pts = [
-            (cx - 4, head_y + 3), (cx + 4, head_y + 3),
-            (cx + 2, head_y + 9), (cx, head_y + 10), (cx - 2, head_y + 9),
-        ]
+        pygame.draw.circle(surface, marble_dark, (cx, head_y), 6, 1)
+        # 수염
+        beard_pts = [(cx - 3, head_y + 4), (cx + 3, head_y + 4),
+                     (cx + 1, head_y + 8), (cx - 1, head_y + 8)]
         pygame.draw.polygon(surface, marble_mid, beard_pts)
-        pygame.draw.line(surface, marble_dark, (cx - 1, head_y + 4), (cx - 1, head_y + 8), 1)
-        pygame.draw.line(surface, marble_dark, (cx + 1, head_y + 4), (cx + 1, head_y + 8), 1)
-        # 머리카락 (볼륨감)
+        # 머리카락
         pygame.draw.arc(surface, marble_dark,
-                        (cx - 7, head_y - 7, 14, 10), 0.2, math.pi - 0.2, 2)
-        pygame.draw.arc(surface, marble_shadow,
-                        (cx - 8, head_y - 8, 16, 11), 0.3, math.pi - 0.3, 1)
+                        (cx - 7, head_y - 7, 14, 10), 0.3, math.pi - 0.3, 2)
 
-        # ── 월계관 (잎사귀 모양) ──
-        wreath = (140, 145, 80)
-        wreath_hi = (170, 175, 105)
-        wreath_dk = (110, 115, 60)
-        for angle_deg in range(-80, 81, 18):
+        # ── 월계관 ──
+        wreath_color = (155, 150, 95)
+        wreath_light = (175, 170, 110)
+        for angle_deg in range(-70, 71, 25):
             a = math.radians(angle_deg - 90)
-            lx = cx + int(8 * math.cos(a))
+            lx = cx + int(7 * math.cos(a))
             ly = head_y + int(7 * math.sin(a))
-            # 잎 모양 (타원)
-            leaf_a = a + math.pi / 2
-            dx, dy = int(2 * math.cos(leaf_a)), int(2 * math.sin(leaf_a))
-            pygame.draw.line(surface, wreath, (lx - dx, ly - dy), (lx + dx, ly + dy), 1)
-            pygame.draw.circle(surface, wreath_hi if angle_deg % 36 == 0 else wreath, (lx, ly), 1)
+            pygame.draw.circle(surface, wreath_color, (lx, ly), 1)
+            if angle_deg % 50 == 0:
+                pygame.draw.circle(surface, wreath_light, (lx, ly), 1)
 
-        # ── 번개 (지그재그 + 글로우) ──
-        bolt_x, bolt_y = cx + 13, cy - 33
+        # ── 번개 ──
+        bolt_x = cx + 13
+        bolt_y = cy - 31
         bolt_segs = [
-            (bolt_x, bolt_y),
-            (bolt_x - 3, bolt_y - 4),
-            (bolt_x + 2, bolt_y - 7),
-            (bolt_x - 2, bolt_y - 10),
-            (bolt_x + 1, bolt_y - 13),
-            (bolt_x - 1, bolt_y - 17),
+            (bolt_x, bolt_y), (bolt_x - 3, bolt_y - 5),
+            (bolt_x + 2, bolt_y - 7), (bolt_x - 2, bolt_y - 11),
+            (bolt_x + 1, bolt_y - 14), (bolt_x - 1, bolt_y - 18),
         ]
-        # 외곽 글로우
         for i in range(len(bolt_segs) - 1):
-            pygame.draw.line(surface, (180, 150, 60), bolt_segs[i], bolt_segs[i + 1], 3)
-        # 핵심 번개
-        for i in range(len(bolt_segs) - 1):
-            pygame.draw.line(surface, gold_light, bolt_segs[i], bolt_segs[i + 1], 1)
-        # 스파크 (십자)
+            pygame.draw.line(surface, gold, bolt_segs[i], bolt_segs[i + 1], 2)
         tip = bolt_segs[-1]
         pygame.draw.line(surface, gold_light, (tip[0] - 3, tip[1]), (tip[0] + 3, tip[1]), 1)
         pygame.draw.line(surface, gold_light, (tip[0], tip[1] - 3), (tip[0], tip[1] + 2), 1)
-        # 작은 광점
-        pygame.draw.circle(surface, (255, 240, 180), (bolt_x - 1, bolt_y - 10), 1)
 
-        self.zeus_bolt_tip = (bolt_x - 1, bolt_y - 10)
+        self.zeus_bolt_tip = (bolt_x - 1, bolt_y - 12)
 
     def update(self, dt, ball_x=None, ball_y=None):
         """업데이트"""
@@ -435,67 +370,22 @@ class AnimatedBackgroundStage30:
         self.judgment_slam_debris = []
         self.judgment_dust_rain = []
         self.judgment_quake_sound_playing = False
-        # 합체 파티클 생성 (석조 파편 + 에너지 위스프)
+        # 합체 파티클 (심플한 대리석 먼지)
         cx = self.GAME_AREA_X + self.GAME_AREA_WIDTH // 2
         cy = self.height // 2
-        # 석조 파편 (불규칙 다각형)
-        for i in range(8):
+        marble_colors = [(185, 175, 160), (160, 150, 135), (130, 120, 108)]
+        for i in range(18):
             angle = random.uniform(0, math.pi * 2)
-            dist = random.uniform(120, 250)
-            # 파편 꼭짓점 (3~5각형)
-            n_verts = random.randint(3, 5)
-            verts = []
-            frag_size = random.uniform(6, 14)
-            for v in range(n_verts):
-                va = (v / n_verts) * math.pi * 2 + random.uniform(-0.4, 0.4)
-                vr = frag_size * random.uniform(0.5, 1.0)
-                verts.append((math.cos(va) * vr, math.sin(va) * vr))
-            col_idx = random.randint(0, 2)
-            colors = [(190, 180, 165), (165, 155, 140), (140, 130, 115)]
+            dist = random.uniform(80, 220)
             self.judgment_merge_particles.append({
-                'type': 'stone',
                 'x': cx + math.cos(angle) * dist,
                 'y': cy + math.sin(angle) * dist,
-                'tx': cx + random.uniform(-10, 10),
-                'ty': cy + random.uniform(-15, 5),
-                'verts': verts,
-                'color': colors[col_idx],
-                'alpha': 220,
-                'speed': random.uniform(0.8, 1.2),
-                'rot': random.uniform(0, math.pi * 2),
-                'rot_speed': random.uniform(-3, 3),
-            })
-        # 에너지 위스프 (곡선 빛 줄기)
-        for i in range(10):
-            angle = random.uniform(0, math.pi * 2)
-            dist = random.uniform(100, 220)
-            self.judgment_merge_particles.append({
-                'type': 'wisp',
-                'x': cx + math.cos(angle) * dist,
-                'y': cy + math.sin(angle) * dist,
-                'tx': cx + random.uniform(-8, 8),
-                'ty': cy + random.uniform(-12, 4),
-                'prev_x': cx + math.cos(angle) * (dist + 10),
-                'prev_y': cy + math.sin(angle) * (dist + 10),
+                'tx': cx + random.uniform(-12, 12),
+                'ty': cy + random.uniform(-10, 5),
                 'alpha': random.randint(120, 200),
-                'speed': random.uniform(1.0, 1.6),
-                'width': random.uniform(1.0, 2.5),
-                'color_type': random.choice(['warm', 'bronze', 'white']),
-            })
-        # 미세 광점 (시머 스파클)
-        for i in range(15):
-            angle = random.uniform(0, math.pi * 2)
-            dist = random.uniform(60, 200)
-            self.judgment_merge_particles.append({
-                'type': 'spark',
-                'x': cx + math.cos(angle) * dist,
-                'y': cy + math.sin(angle) * dist,
-                'tx': cx + random.uniform(-20, 20),
-                'ty': cy + random.uniform(-25, 10),
-                'alpha': random.randint(150, 255),
-                'speed': random.uniform(1.2, 2.0),
-                'size': random.uniform(0.5, 1.5),
-                'flicker': random.uniform(0, math.pi * 2),
+                'speed': random.uniform(0.8, 1.5),
+                'size': random.randint(1, 3),
+                'color': random.choice(marble_colors),
             })
         return True
 
@@ -517,22 +407,12 @@ class AnimatedBackgroundStage30:
             progress = min(1.0, self.judgment_timer / self.MERGE_DURATION)
             ease = 1.0 - (1.0 - progress) ** 3  # ease-out cubic
             self.judgment_scale = 1.0 + (self.judgment_target_scale - 1.0) * ease
-            # 합체 파티클 이동 (타입별 처리)
+            # 합체 파티클 이동 (중심으로 수렴)
             for p in self.judgment_merge_particles:
-                old_x, old_y = p['x'], p['y']
                 lerp_speed = dt * 2.2 * p['speed']
                 p['x'] += (p['tx'] - p['x']) * lerp_speed
                 p['y'] += (p['ty'] - p['y']) * lerp_speed
-                if p['type'] == 'stone':
-                    p['rot'] += p['rot_speed'] * dt
-                    p['alpha'] = max(0, p['alpha'] - dt * 30)
-                elif p['type'] == 'wisp':
-                    p['prev_x'] = old_x
-                    p['prev_y'] = old_y
-                    p['alpha'] = max(0, p['alpha'] - dt * 20)
-                elif p['type'] == 'spark':
-                    p['flicker'] += dt * 12
-                    p['alpha'] = max(0, p['alpha'] - dt * 25)
+                p['alpha'] = max(0, p['alpha'] - dt * 30)
             if progress >= 1.0:
                 self.judgment_phase = self.JUDGMENT_ARM_RAISE
                 self.judgment_timer = 0.0
@@ -670,7 +550,7 @@ class AnimatedBackgroundStage30:
         return names.get(self.judgment_phase, "UNKNOWN")
 
     def _draw_judgment_overlay(self, screen, offset_x=0, offset_y=0):
-        """신의심판 이벤트 비주얼 오버레이 (프리미엄)"""
+        """신의심판 이벤트 비주얼 오버레이 (깔끔한 스타일)"""
         if self.judgment_phase == self.JUDGMENT_IDLE:
             return
 
@@ -678,10 +558,9 @@ class AnimatedBackgroundStage30:
         cy = self.height // 2 + offset_y
         s = self.judgment_scale
 
-        # 정적 석상 위를 부드럽게 덮기 (스케일에 비례하는 알파 페이드)
+        # 정적 석상 위를 모래색으로 부드럽게 덮기
         if s > 1.0:
             cover_r = int(55 * max(1.2, s))
-            # s=1.0→알파0, s=1.5→알파255 (매끄러운 전환)
             cover_alpha = min(255, int(255 * (s - 1.0) / 0.5))
             if cover_alpha > 0 and cover_r > 5:
                 sand = self.colors['sand']
@@ -689,344 +568,167 @@ class AnimatedBackgroundStage30:
                 pygame.draw.circle(cover_s, (*sand, cover_alpha), (cover_r, cover_r), cover_r)
                 screen.blit(cover_s, (cx - cover_r, cy - cover_r))
 
-        # ── 합체 파티클 (MERGE 페이즈) ──
+        # ── 합체 파티클 (심플 대리석 먼지) ──
         for p in self.judgment_merge_particles:
             px, py = int(p['x']) + offset_x, int(p['y']) + offset_y
             alpha = max(0, min(255, int(p['alpha'])))
-            if alpha <= 0:
+            if alpha <= 5:
                 continue
-
-            if p['type'] == 'stone':
-                # 석조 파편: 회전하는 불규칙 다각형
-                rot = p['rot']
-                cos_r, sin_r = math.cos(rot), math.sin(rot)
-                pts = []
-                for vx, vy in p['verts']:
-                    rx = vx * cos_r - vy * sin_r
-                    ry = vx * sin_r + vy * cos_r
-                    pts.append((px + int(rx), py + int(ry)))
-                if len(pts) >= 3:
-                    col = p['color']
-                    faded = (col[0], col[1], col[2], alpha)
-                    # 파편 그리기 (알파 포함)
-                    frag_sz = max(int(max(abs(v[0]) for v in p['verts'])) * 2 + 4, 8)
-                    frag_surf = pygame.Surface((frag_sz * 2, frag_sz * 2), pygame.SRCALPHA)
-                    shifted = [(x - px + frag_sz, y - py + frag_sz) for x, y in pts]
-                    pygame.draw.polygon(frag_surf, faded, shifted)
-                    # 밝은 모서리 하이라이트
-                    hi_col = (min(255, col[0] + 30), min(255, col[1] + 25), min(255, col[2] + 20), alpha // 2)
-                    pygame.draw.polygon(frag_surf, hi_col, shifted, 1)
-                    screen.blit(frag_surf, (px - frag_sz, py - frag_sz))
-
-            elif p['type'] == 'wisp':
-                # 에너지 위스프: 빛 줄기 트레일
-                prev_x = int(p['prev_x']) + offset_x
-                prev_y = int(p['prev_y']) + offset_y
-                w = max(1, int(p['width']))
-                if p['color_type'] == 'warm':
-                    col = (220, 190, 130, alpha)
-                elif p['color_type'] == 'bronze':
-                    col = (185, 155, 105, alpha)
-                else:
-                    col = (240, 235, 220, alpha)
-                # 트레일 (이전 위치 → 현재 위치)
-                trail_surf = pygame.Surface((abs(px - prev_x) + 20, abs(py - prev_y) + 20), pygame.SRCALPHA)
-                t_ox = min(px, prev_x) - 10
-                t_oy = min(py, prev_y) - 10
-                pygame.draw.line(trail_surf, col,
-                                 (prev_x - t_ox, prev_y - t_oy),
-                                 (px - t_ox, py - t_oy), w)
-                # 앞부분 밝은 점
-                tip_col = (min(255, col[0] + 35), min(255, col[1] + 30), min(255, col[2] + 25), min(255, alpha))
-                pygame.draw.circle(trail_surf, tip_col, (px - t_ox, py - t_oy), max(1, w))
-                screen.blit(trail_surf, (t_ox, t_oy))
-
-            elif p['type'] == 'spark':
-                # 미세 광점: 깜빡이는 작은 빛
-                flicker = 0.5 + 0.5 * math.sin(p['flicker'])
-                sa = int(alpha * flicker)
-                if sa > 10:
-                    sz = max(1, int(p['size'] * (0.5 + flicker * 0.5)))
-                    spark_col = (245, 235, 210, sa)
-                    if sz <= 1:
-                        screen.set_at((px, py), (245, 235, 210))
-                    else:
-                        sp_s = pygame.Surface((sz * 4, sz * 4), pygame.SRCALPHA)
-                        pygame.draw.circle(sp_s, spark_col, (sz * 2, sz * 2), sz)
-                        # 십자 광선
-                        line_col = (255, 248, 230, sa // 2)
-                        pygame.draw.line(sp_s, line_col, (sz * 2 - sz * 2, sz * 2), (sz * 2 + sz * 2, sz * 2), 1)
-                        pygame.draw.line(sp_s, line_col, (sz * 2, sz * 2 - sz * 2), (sz * 2, sz * 2 + sz * 2), 1)
-                        screen.blit(sp_s, (px - sz * 2, py - sz * 2), special_flags=pygame.BLEND_ADD)
+            col = p['color']
+            sz = p['size']
+            pygame.draw.circle(screen, col, (px, py), sz)
 
         # ── 동적 제우스 석상 그리기 ──
         self._draw_judgment_statue_scaled(screen, cx, cy, s)
 
-        # ── 오라 이펙트 (성장/합체 중) ──
+        # ── 은은한 글로우 링 (성장/합체 중) ──
         if self.judgment_phase in (self.JUDGMENT_MERGE, self.JUDGMENT_ARM_RAISE):
-            pulse = 0.5 + 0.5 * math.sin(self.time * 4.5)
-            # 방사형 라이트 레이 (원형 배치)
-            ray_count = 12
-            for i in range(ray_count):
-                ray_angle = (i / ray_count) * math.pi * 2 + self.time * 0.8
-                inner_r = int(20 * s)
-                outer_r = int((35 + 10 * pulse) * s)
-                x1 = cx + int(inner_r * math.cos(ray_angle))
-                y1 = cy + int(inner_r * math.sin(ray_angle))
-                x2 = cx + int(outer_r * math.cos(ray_angle))
-                y2 = cy + int(outer_r * math.sin(ray_angle))
-                ray_alpha = int(40 * pulse)
-                if ray_alpha > 5:
-                    ray_s = pygame.Surface((abs(x2 - x1) + 10, abs(y2 - y1) + 10), pygame.SRCALPHA)
-                    ro = (min(x1, x2) - 5, min(y1, y2) - 5)
-                    pygame.draw.line(ray_s, (230, 210, 160, ray_alpha),
-                                     (x1 - ro[0], y1 - ro[1]), (x2 - ro[0], y2 - ro[1]),
-                                     max(1, int(1.5 * s)))
-                    screen.blit(ray_s, ro, special_flags=pygame.BLEND_ADD)
-            # 내부 코어 글로우 (은은한 백색~금색)
-            core_r = int(15 * s)
-            if core_r > 2:
-                core_s = pygame.Surface((core_r * 2, core_r * 2), pygame.SRCALPHA)
-                for r in range(core_r, 0, -2):
-                    a = int(18 * (r / core_r) * pulse)
-                    if a > 0:
-                        pygame.draw.circle(core_s, (240, 230, 210, a), (core_r, core_r), r)
-                screen.blit(core_s, (cx - core_r, cy - core_r), special_flags=pygame.BLEND_ADD)
-
-        # ── 슬램 파편 (불규칙 형태) ──
-        for d in self.judgment_slam_debris:
-            dx, dy = int(d['x']) + offset_x, int(d['y']) + offset_y
-            ds = max(1, int(d['size'] * min(1, d['life'])))
-            # 파편을 작은 사각형으로
-            col = d['color']
-            a = max(0, min(255, int(255 * d['life'])))
-            if ds <= 2:
-                pygame.draw.circle(screen, col, (dx, dy), ds)
-            else:
-                dsf = pygame.Surface((ds * 2, ds * 2), pygame.SRCALPHA)
-                rect_pts = [(ds - ds // 2, ds - ds), (ds + ds // 2, ds - ds // 3),
-                            (ds + ds // 3, ds + ds // 2), (ds - ds, ds + ds // 3)]
-                pygame.draw.polygon(dsf, (*col, a), rect_pts)
-                screen.blit(dsf, (dx - ds, dy - ds))
-
-        # ── 먼지 비 (세로 줄기) ──
-        for d in self.judgment_dust_rain:
-            dx, dy = int(d['x']) + offset_x, int(d['y']) + offset_y
-            a = max(0, min(255, int(d['alpha'] * min(1, d['life']))))
-            if a > 5:
-                # 수직 줄기 형태
-                streak_len = max(2, int(d['vy'] * 1.5))
-                ds = pygame.Surface((3, streak_len + 2), pygame.SRCALPHA)
-                pygame.draw.line(ds, (190, 170, 145, a), (1, 0), (1, streak_len), 1)
-                pygame.draw.line(ds, (170, 150, 125, a // 2), (2, 1), (2, streak_len - 1), 1)
-                screen.blit(ds, (dx - 1, dy - streak_len // 2))
-
-        # ── RETURN 페이즈: 수축 에너지 링 ──
-        if self.judgment_phase == self.JUDGMENT_RETURN:
-            ret_progress = min(1.0, self.judgment_timer / self.RETURN_DURATION)
-            ring_r = int((50 + 30 * (1.0 - ret_progress)) * s)
-            ring_a = int(60 * (1.0 - ret_progress))
+            pulse = 0.5 + 0.5 * math.sin(self.time * 3.0)
+            ring_r = int(30 * s)
+            ring_a = int(25 * pulse)
             if ring_r > 5 and ring_a > 3:
                 ring_s = pygame.Surface((ring_r * 2 + 4, ring_r * 2 + 4), pygame.SRCALPHA)
                 rc = ring_r + 2
-                # 외곽 링
-                pygame.draw.circle(ring_s, (210, 195, 160, ring_a), (rc, rc), ring_r, max(1, int(2 * s)))
-                # 내부 링 (더 밝게)
-                inner_r = int(ring_r * 0.6)
-                if inner_r > 3:
-                    pygame.draw.circle(ring_s, (235, 225, 200, ring_a // 2), (rc, rc), inner_r, max(1, int(2 * s)))
+                pygame.draw.circle(ring_s, (220, 200, 150, ring_a), (rc, rc), ring_r, max(1, int(2 * s)))
                 screen.blit(ring_s, (cx - rc, cy - rc), special_flags=pygame.BLEND_ADD)
 
-        # ── 충격 플래시 (방사형 그라데이션) ──
+        # ── 슬램 파편 (심플 원형) ──
+        for d in self.judgment_slam_debris:
+            dx, dy = int(d['x']) + offset_x, int(d['y']) + offset_y
+            ds = max(1, int(d['size'] * min(1, d['life'])))
+            col = d['color']
+            pygame.draw.circle(screen, col, (dx, dy), ds)
+
+        # ── 먼지 비 (작은 점) ──
+        for d in self.judgment_dust_rain:
+            dx, dy = int(d['x']) + offset_x, int(d['y']) + offset_y
+            a = max(0, min(255, int(d['alpha'] * min(1, d['life']))))
+            if a > 10:
+                sz = max(1, int(d['size']))
+                pygame.draw.circle(screen, (180, 165, 140), (dx, dy), sz)
+
+        # ── RETURN 페이즈: 수축 링 ──
+        if self.judgment_phase == self.JUDGMENT_RETURN:
+            ret_progress = min(1.0, self.judgment_timer / self.RETURN_DURATION)
+            ring_r = int(40 * s * (1.0 - ret_progress))
+            ring_a = int(40 * (1.0 - ret_progress))
+            if ring_r > 5 and ring_a > 3:
+                ring_s = pygame.Surface((ring_r * 2 + 4, ring_r * 2 + 4), pygame.SRCALPHA)
+                rc = ring_r + 2
+                pygame.draw.circle(ring_s, (200, 185, 150, ring_a), (rc, rc), ring_r, max(1, int(2 * s)))
+                screen.blit(ring_s, (cx - rc, cy - rc), special_flags=pygame.BLEND_ADD)
+
+        # ── 충격 플래시 (단순 전체 플래시) ──
         if self.judgment_flash_alpha > 0:
-            fa = min(255, self.judgment_flash_alpha)
+            fa = min(180, self.judgment_flash_alpha)
             flash_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-            # 중앙에서 방사형으로 밝아지는 플래시
-            flash_r = int(self.width * 0.7)
-            for r in range(flash_r, 0, -8):
-                ring_a = int(fa * (r / flash_r) * 0.6)
-                if ring_a > 0:
-                    pygame.draw.circle(flash_surf, (255, 245, 220, ring_a), (cx - offset_x, cy - offset_y), r)
+            flash_surf.fill((255, 245, 220, fa))
             screen.blit(flash_surf, (offset_x, offset_y), special_flags=pygame.BLEND_ADD)
 
     def _draw_judgment_statue_scaled(self, screen, cx, cy, scale):
-        """신의심판 동안 스케일된 제우스 석상 (고급 디테일)"""
+        """신의심판 동안 스케일된 제우스 석상 (정적 석상과 동일한 깔끔한 스타일)"""
         s = scale
-        marble = (190, 180, 165)
-        marble_hi = (210, 200, 185)
-        marble_mid = (165, 155, 140)
-        marble_dark = (135, 125, 112)
-        marble_shadow = (108, 98, 88)
-        bronze = (160, 130, 85)
-        bronze_hi = (185, 155, 105)
-        ped = (118, 108, 95)
-        ped_hi = (140, 130, 115)
-        ped_dk = (90, 82, 72)
+        # 정적 석상과 동일한 4톤 대리석 + 금 2톤
+        marble = (185, 175, 160)
+        marble_mid = (160, 150, 135)
+        marble_dark = (130, 120, 108)
+        marble_shadow = (105, 95, 85)
         gold = self.colors['gold']
         gold_light = self.colors['gold_light']
-        lw = max(1, int(s))  # 기본 라인 굵기
+        lw = max(1, int(s))
 
-        # 발 흔들림 (하체 오프셋)
-        feet_ox = int(math.sin(self.judgment_feet_swing) * 8 * s) if s > 1.5 else 0
-        # 호흡/미세 흔들림 (살아있는 느낌)
-        if s > 1.5 and self.judgment_phase in (self.JUDGMENT_ARM_RAISE, self.JUDGMENT_EARTHQUAKE):
-            breath = math.sin(self.time * 2.5) * 0.5 * s
-            cy = cy + int(breath)
+        # 발 흔들림
+        feet_ox = int(math.sin(self.judgment_feet_swing) * 6 * s) if s > 1.5 else 0
 
-        # ── 그림자 (다중 레이어) ──
-        for layer in range(3):
-            sw = int((54 - layer * 8) * s)
-            sh = int((16 - layer * 3) * s)
-            sa = 25 + layer * 18
-            if sw > 2 and sh > 2:
-                ss = pygame.Surface((sw, sh), pygame.SRCALPHA)
-                pygame.draw.ellipse(ss, (35, 30, 22, sa), (0, 0, sw, sh))
-                screen.blit(ss, (cx - sw // 2, cy + int((16 + layer) * s)))
+        # ── 그림자 ──
+        sw = int(50 * s)
+        sh = int(14 * s)
+        if sw > 2 and sh > 2:
+            ss = pygame.Surface((sw, sh), pygame.SRCALPHA)
+            pygame.draw.ellipse(ss, (40, 35, 25, 50), (0, 0, sw, sh))
+            screen.blit(ss, (cx - sw // 2 + feet_ox, cy + int(16 * s)))
 
-        # ── 3단 받침대 ──
-        # 1단 (최하단)
-        bw1 = int(20 * s)
-        bh1 = max(1, int(5 * s))
-        by1 = cy + int(16 * s)
-        pygame.draw.rect(screen, ped_dk, (cx - bw1 + feet_ox, by1, bw1 * 2, bh1))
-        pygame.draw.line(screen, ped_hi, (cx - bw1 + feet_ox, by1), (cx + bw1 - 1 + feet_ox, by1), lw)
-        pygame.draw.line(screen, ped_dk, (cx - bw1 + feet_ox, by1 + bh1 - 1),
-                         (cx + bw1 - 1 + feet_ox, by1 + bh1 - 1), lw)
-        # 2단
-        bw2 = int(17 * s)
-        bh2 = max(1, int(7 * s))
-        by2 = cy + int(10 * s)
-        pygame.draw.rect(screen, ped, (cx - bw2 + feet_ox, by2, bw2 * 2, bh2))
-        pygame.draw.line(screen, ped_hi, (cx - bw2 + feet_ox, by2), (cx + bw2 - 1 + feet_ox, by2), lw)
-        # 3단 (대좌)
-        bw3 = int(13 * s)
-        bh3 = max(1, int(8 * s))
-        by3 = cy + int(3 * s)
-        pygame.draw.rect(screen, ped_hi, (cx - bw3 + feet_ox, by3, bw3 * 2, bh3))
-        pygame.draw.line(screen, marble_mid, (cx - bw3 + feet_ox, by3), (cx + bw3 - 1 + feet_ox, by3), lw)
-        # 금색 트림
-        pygame.draw.line(screen, gold, (cx - int(15 * s) + feet_ox, cy + int(9 * s)),
-                         (cx + int(14 * s) + feet_ox, cy + int(9 * s)), lw)
-        pygame.draw.line(screen, bronze_hi, (cx - bw3 + feet_ox, cy + int(6 * s)),
-                         (cx + bw3 - 1 + feet_ox, cy + int(6 * s)), lw)
+        # ── 받침대 (2단, 정적 석상과 동일) ──
+        pygame.draw.rect(screen, marble_shadow,
+                         (cx - int(18 * s) + feet_ox, cy + int(13 * s), int(36 * s), max(1, int(6 * s))))
+        pygame.draw.line(screen, marble_mid,
+                         (cx - int(18 * s) + feet_ox, cy + int(13 * s)),
+                         (cx + int(17 * s) + feet_ox, cy + int(13 * s)), lw)
+        pygame.draw.rect(screen, marble_mid,
+                         (cx - int(14 * s) + feet_ox, cy + int(4 * s), int(28 * s), max(1, int(10 * s))))
+        pygame.draw.line(screen, marble,
+                         (cx - int(14 * s) + feet_ox, cy + int(4 * s)),
+                         (cx + int(13 * s) + feet_ox, cy + int(4 * s)), lw)
+        pygame.draw.line(screen, gold,
+                         (cx - int(14 * s) + feet_ox, cy + int(8 * s)),
+                         (cx + int(13 * s) + feet_ox, cy + int(8 * s)), lw)
 
-        # ── 하체 토가 (곡선 드레이프, 발 흔들림) ──
+        # ── 하체 토가 ──
         robe_pts = [
-            (cx - int(10 * s) + feet_ox, cy + int(3 * s)),
-            (cx + int(10 * s) + feet_ox, cy + int(3 * s)),
-            (cx + int(8 * s) + feet_ox // 2, cy - int(3 * s)),
-            (cx + int(7 * s), cy - int(7 * s)),
-            (cx - int(7 * s), cy - int(7 * s)),
-            (cx - int(8 * s) + feet_ox // 2, cy - int(3 * s)),
+            (cx - int(9 * s) + feet_ox, cy + int(4 * s)),
+            (cx + int(9 * s) + feet_ox, cy + int(4 * s)),
+            (cx + int(7 * s), cy - int(8 * s)),
+            (cx - int(7 * s), cy - int(8 * s)),
         ]
         pygame.draw.polygon(screen, marble, robe_pts)
-        # 주름선 (곡선감)
-        for fold_x in [-5, 0, 1, 5]:
-            col = marble_dark if fold_x in [-5, 5] else marble_mid
-            x1 = cx + int(fold_x * s) + feet_ox // 2
-            x2 = cx + int((fold_x + 0.5) * s)
-            pygame.draw.line(screen, col, (x1, cy + int(2 * s)), (x2, cy - int(6 * s)), lw)
-        # 허리 벨트
-        pygame.draw.line(screen, bronze, (cx - int(7 * s), cy - int(7 * s)),
-                         (cx + int(7 * s), cy - int(7 * s)), max(1, int(1.5 * s)))
-        pygame.draw.line(screen, bronze_hi, (cx - int(6 * s), cy - int(8 * s)),
-                         (cx + int(6 * s), cy - int(8 * s)), lw)
+        # 주름 (정적 석상과 동일하게 3줄만)
+        pygame.draw.line(screen, marble_dark,
+                         (cx - int(3 * s) + feet_ox // 2, cy + int(3 * s)),
+                         (cx - int(2 * s), cy - int(7 * s)), lw)
+        pygame.draw.line(screen, marble_dark,
+                         (cx + int(3 * s) + feet_ox // 2, cy + int(3 * s)),
+                         (cx + int(4 * s), cy - int(7 * s)), lw)
+        pygame.draw.line(screen, marble_mid,
+                         (cx + feet_ox // 2, cy + int(3 * s)),
+                         (cx + int(1 * s), cy - int(7 * s)), lw)
 
-        # ── 상체 (넓은 어깨, 근육) ──
+        # ── 상체 ──
         torso_pts = [
             (cx - int(7 * s), cy - int(8 * s)),
             (cx + int(7 * s), cy - int(8 * s)),
-            (cx + int(11 * s), cy - int(16 * s)),
-            (cx + int(10 * s), cy - int(19 * s)),
-            (cx - int(10 * s), cy - int(19 * s)),
-            (cx - int(11 * s), cy - int(16 * s)),
+            (cx + int(10 * s), cy - int(18 * s)),
+            (cx - int(10 * s), cy - int(18 * s)),
         ]
         pygame.draw.polygon(screen, marble, torso_pts)
-        # 근육 라인
-        pygame.draw.line(screen, marble_mid, (cx, cy - int(9 * s)), (cx, cy - int(17 * s)), lw)
-        # 가슴 아치
-        if s >= 2:
-            pygame.draw.arc(screen, marble_mid,
-                            (cx - int(5 * s), cy - int(16 * s), int(5 * s), int(4 * s)),
-                            0.2, math.pi - 0.2, lw)
-            pygame.draw.arc(screen, marble_mid,
-                            (cx, cy - int(16 * s), int(5 * s), int(4 * s)),
-                            0.2, math.pi - 0.2, lw)
-        # 어깨 하이라이트
-        pygame.draw.line(screen, marble_hi, (cx - int(10 * s), cy - int(19 * s)),
-                         (cx + int(10 * s), cy - int(19 * s)), lw)
-        # 토가 사선 드레이프
-        pygame.draw.line(screen, marble_dark, (cx - int(10 * s), cy - int(18 * s)),
-                         (cx + int(4 * s), cy - int(10 * s)), max(1, int(2 * s)))
-        pygame.draw.line(screen, marble_mid, (cx - int(8 * s), cy - int(17 * s)),
-                         (cx + int(5 * s), cy - int(9 * s)), lw)
-        # 목
-        nw = max(1, int(2.5 * s))
-        pygame.draw.line(screen, marble, (cx - int(2 * s), cy - int(19 * s)),
-                         (cx - int(2 * s), cy - int(22 * s)), nw)
-        pygame.draw.line(screen, marble_hi, (cx + int(1 * s), cy - int(19 * s)),
-                         (cx + int(1 * s), cy - int(22 * s)), nw)
+        pygame.draw.polygon(screen, marble_dark, torso_pts, lw)
+        # 토가 드레이프 (한 줄만)
+        pygame.draw.line(screen, marble_dark,
+                         (cx - int(9 * s), cy - int(17 * s)),
+                         (cx + int(5 * s), cy - int(10 * s)), max(1, int(2 * s)))
 
         # ── 팔 ──
         self._draw_judgment_arms(screen, cx, cy, s, marble, marble_mid, marble_dark, gold, gold_light)
 
-        # ── 머리 (고급 디테일) ──
-        head_y = cy - int(25 * s)
+        # ── 머리 ──
+        head_y = cy - int(23 * s)
         head_r = max(2, int(6 * s))
-        # 머리 본체
         pygame.draw.circle(screen, marble, (cx, head_y), head_r)
-        # 하이라이트 아크
-        if head_r > 3:
-            pygame.draw.arc(screen, marble_hi,
-                            (cx - head_r + 1, head_y - head_r + 1, head_r * 2 - 2, head_r * 2 - 2),
-                            0.4, 2.7, lw)
-        # 눈 (스케일 ≥ 2일 때 디테일)
-        if s >= 1.5:
-            ey = head_y - int(1 * s)
-            pygame.draw.line(screen, marble_dark, (cx - int(3 * s), ey), (cx - int(1 * s), ey), lw)
-            pygame.draw.line(screen, marble_dark, (cx + int(1 * s), ey), (cx + int(3 * s), ey), lw)
-            # 코
-            pygame.draw.line(screen, marble_mid, (cx, ey), (cx, head_y + int(1 * s)), lw)
-        # 수염 (풍성)
-        br = int(4 * s)
+        pygame.draw.circle(screen, marble_dark, (cx, head_y), head_r, lw)
+        # 수염
         beard_pts = [
-            (cx - br, head_y + int(3 * s)),
-            (cx + br, head_y + int(3 * s)),
-            (cx + int(2 * s), head_y + int(9 * s)),
-            (cx, head_y + int(10 * s)),
-            (cx - int(2 * s), head_y + int(9 * s)),
+            (cx - int(3 * s), head_y + int(4 * s)),
+            (cx + int(3 * s), head_y + int(4 * s)),
+            (cx + int(1 * s), head_y + int(8 * s)),
+            (cx - int(1 * s), head_y + int(8 * s)),
         ]
         pygame.draw.polygon(screen, marble_mid, beard_pts)
-        # 수염 텍스처
-        pygame.draw.line(screen, marble_dark, (cx - int(1 * s), head_y + int(4 * s)),
-                         (cx - int(1 * s), head_y + int(8 * s)), lw)
-        pygame.draw.line(screen, marble_dark, (cx + int(1 * s), head_y + int(4 * s)),
-                         (cx + int(1 * s), head_y + int(8 * s)), lw)
-        # 머리카락 (볼륨)
+        # 머리카락
         hr = int(7 * s)
         pygame.draw.arc(screen, marble_dark,
                         (cx - hr, head_y - hr, hr * 2, int(10 * s)),
-                        0.2, math.pi - 0.2, max(1, int(2 * s)))
-        if s >= 2:
-            pygame.draw.arc(screen, marble_shadow,
-                            (cx - hr - lw, head_y - hr - lw, hr * 2 + lw * 2, int(11 * s)),
-                            0.3, math.pi - 0.3, lw)
+                        0.3, math.pi - 0.3, max(1, int(2 * s)))
 
-        # ── 월계관 (잎사귀 형태) ──
-        wreath = (140, 145, 80)
-        wreath_hi = (170, 175, 105)
-        wr = int(8 * s)
-        for angle_deg in range(-80, 81, 16):
+        # ── 월계관 ──
+        wreath_color = (155, 150, 95)
+        wreath_light = (175, 170, 110)
+        wr = int(7 * s)
+        for angle_deg in range(-70, 71, 25):
             a = math.radians(angle_deg - 90)
             lx = cx + int(wr * math.cos(a))
-            ly = head_y + int((wr - int(s)) * math.sin(a))
-            # 잎사귀 (방향성 타원)
-            leaf_a = a + math.pi / 2
-            leaf_len = max(1, int(2.5 * s))
-            dx_l, dy_l = int(leaf_len * math.cos(leaf_a)), int(leaf_len * math.sin(leaf_a))
-            col = wreath_hi if angle_deg % 32 == 0 else wreath
-            pygame.draw.line(screen, col, (lx - dx_l, ly - dy_l), (lx + dx_l, ly + dy_l), lw)
-            pygame.draw.circle(screen, wreath_hi if angle_deg % 48 == 0 else wreath, (lx, ly), lw)
+            ly = head_y + int(wr * math.sin(a))
+            pygame.draw.circle(screen, wreath_color, (lx, ly), lw)
+            if angle_deg % 50 == 0:
+                pygame.draw.circle(screen, wreath_light, (lx, ly), lw)
 
     def _draw_judgment_arms(self, screen, cx, cy, s, marble, marble_mid, marble_dark, gold, gold_light):
         """신의심판 석상의 팔 (상완+전완 2세그먼트, 애니메이션)"""
@@ -1036,9 +738,9 @@ class AnimatedBackgroundStage30:
         fore_len = int(10 * s)
         lw = max(1, int(s))
 
-        # 어깨 위치
-        l_shoulder = (cx - int(11 * s), cy - int(17 * s))
-        r_shoulder = (cx + int(11 * s), cy - int(17 * s))
+        # 어깨 위치 (상체 토가와 일치)
+        l_shoulder = (cx - int(10 * s), cy - int(18 * s))
+        r_shoulder = (cx + int(10 * s), cy - int(18 * s))
 
         # ── 왼팔 ──
         la_base = math.radians(140)
