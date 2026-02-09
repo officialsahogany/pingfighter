@@ -656,75 +656,195 @@ class AnimatedBackgroundStage30:
             screen.blit(flash_surf, (offset_x, offset_y), special_flags=pygame.BLEND_ADD)
 
     def _draw_judgment_statue_scaled(self, screen, cx, cy, scale):
-        """신의심판 동안 스케일된 제우스 석상 (정적 석상과 동일한 깔끔한 스타일)"""
+        """신의심판 동안 스케일된 제우스 석상 (고퀄리티 상반신)"""
         s = scale
-        # 정적 석상과 동일한 4톤 대리석 + 금 2톤
         marble = (185, 175, 160)
+        marble_light = (200, 192, 178)
         marble_mid = (160, 150, 135)
         marble_dark = (130, 120, 108)
         marble_shadow = (105, 95, 85)
+        earth_dark = (85, 70, 50)
         gold = self.colors['gold']
         gold_light = self.colors['gold_light']
         lw = max(1, int(s))
+        thick = max(1, int(2 * s))
 
-        # ── 상체 (하단이 부서진 돌 느낌 - 땅에서 파묻혀 나온 형태) ──
+        # ── 지면 파손 효과 (갈라진 땅 + 파편) ──
+        ground_y = cy + int(2 * s)
+        # 방사형 균열
+        cracks = [(-11, 16, 2.7), (-5, 12, 3.2), (2, 14, 3.6), (8, 11, 0.2), (13, 15, 0.5)]
+        for cox, clen, cang in cracks:
+            sx = cx + int(cox * s)
+            ex = sx + int(clen * s * math.cos(cang))
+            ey = ground_y + int(abs(clen * s * math.sin(cang)))
+            pygame.draw.line(screen, earth_dark, (sx, ground_y), (ex, ey), lw)
+        # 석상 주변 자갈/파편
+        rubble = [(-15, 2, 2.5), (-10, 3, 1.5), (-4, 1, 2), (6, 2, 1.8), (12, 3, 2.2), (16, 1, 1.5)]
+        for rx, ry, rsz in rubble:
+            px = cx + int(rx * s)
+            py = ground_y + int(ry * s)
+            r = max(1, int(rsz * s * 0.4))
+            pygame.draw.circle(screen, marble_shadow, (px, py), r)
+            if r > 1:
+                pygame.draw.circle(screen, marble_dark, (px, py), r, 1)
+
+        # ── 상체 메인 바디 (자연스러운 파단면 하단) ──
         torso_pts = [
-            # 하단 들쭉날쭉 (부서진 돌)
-            (cx - int(8 * s), cy - int(5 * s)),
-            (cx - int(5 * s), cy - int(8 * s)),
-            (cx - int(2 * s), cy - int(4 * s)),
-            (cx + int(1 * s), cy - int(7 * s)),
-            (cx + int(4 * s), cy - int(3 * s)),
-            (cx + int(7 * s), cy - int(6 * s)),
-            (cx + int(9 * s), cy - int(4 * s)),
-            # 상단 (어깨)
-            (cx + int(10 * s), cy - int(18 * s)),
-            (cx - int(10 * s), cy - int(18 * s)),
+            # 하단 파단면 (넓은 곡선 + 자연스러운 돌 깨짐)
+            (cx - int(9 * s), cy - int(2 * s)),
+            (cx - int(6 * s), cy - int(5 * s)),
+            (cx - int(3 * s), cy - int(1 * s)),
+            (cx, cy - int(4 * s)),
+            (cx + int(4 * s), cy),
+            (cx + int(7 * s), cy - int(3 * s)),
+            (cx + int(9 * s), cy - int(1 * s)),
+            # 옆구리 (허리 곡선)
+            (cx + int(8 * s), cy - int(8 * s)),
+            # 어깨 (넓게)
+            (cx + int(11 * s), cy - int(16 * s)),
+            (cx + int(10 * s), cy - int(19 * s)),
+            (cx - int(10 * s), cy - int(19 * s)),
+            (cx - int(11 * s), cy - int(16 * s)),
+            # 왼쪽 옆구리
+            (cx - int(8 * s), cy - int(8 * s)),
         ]
         pygame.draw.polygon(screen, marble, torso_pts)
         pygame.draw.polygon(screen, marble_dark, torso_pts, lw)
-        # 토가 드레이프 (한 줄만)
+
+        # ── 토가 주름 (여러 줄 - 깊이감) ──
+        # 메인 드레이프 (어깨→허리 대각선)
         pygame.draw.line(screen, marble_dark,
-                         (cx - int(9 * s), cy - int(17 * s)),
-                         (cx + int(5 * s), cy - int(10 * s)), max(1, int(2 * s)))
-        # 부서진 하단부 금 라인 (균열 느낌)
+                         (cx - int(9 * s), cy - int(18 * s)),
+                         (cx + int(5 * s), cy - int(6 * s)), thick)
+        # 보조 주름
+        pygame.draw.line(screen, marble_mid,
+                         (cx - int(7 * s), cy - int(15 * s)),
+                         (cx + int(2 * s), cy - int(5 * s)), lw)
+        pygame.draw.line(screen, marble_mid,
+                         (cx + int(3 * s), cy - int(17 * s)),
+                         (cx + int(7 * s), cy - int(7 * s)), lw)
+
+        # ── 가슴 근육 음영 ──
+        chest_w = int(8 * s)
+        chest_h = int(5 * s)
+        if chest_w > 3 and chest_h > 2:
+            pygame.draw.arc(screen, marble_dark,
+                            (cx - int(8 * s), cy - int(17 * s), chest_w, chest_h),
+                            -0.2, math.pi * 0.7, lw)
+            pygame.draw.arc(screen, marble_dark,
+                            (cx + int(1 * s), cy - int(17 * s), chest_w, chest_h),
+                            math.pi * 0.3, math.pi * 1.2, lw)
+
+        # ── 복부 중앙선 ──
+        pygame.draw.line(screen, marble_mid,
+                         (cx, cy - int(12 * s)), (cx, cy - int(5 * s)), lw)
+
+        # ── 허리 띠 (금색 새시) ──
+        belt_y = cy - int(7 * s)
+        pygame.draw.line(screen, gold,
+                         (cx - int(7 * s), belt_y),
+                         (cx + int(7 * s), belt_y), thick)
+        # 버클
+        br = max(1, int(1.5 * s))
+        pygame.draw.circle(screen, gold_light, (cx, belt_y), br)
+        pygame.draw.circle(screen, gold, (cx, belt_y), br, 1)
+
+        # ── 파단면 하이라이트 (깨진 돌 단면의 밝은 부분) ──
+        pygame.draw.line(screen, marble_light,
+                         (cx - int(6 * s), cy - int(5 * s)),
+                         (cx - int(3 * s), cy - int(1 * s)), lw)
+        pygame.draw.line(screen, marble_light,
+                         (cx + int(4 * s), cy),
+                         (cx + int(7 * s), cy - int(3 * s)), lw)
+        # 파단면 그림자 (아래쪽)
         pygame.draw.line(screen, marble_shadow,
-                         (cx - int(3 * s), cy - int(5 * s)),
-                         (cx + int(2 * s), cy - int(6 * s)), lw)
+                         (cx - int(3 * s), cy - int(1 * s)),
+                         (cx, cy - int(4 * s)), lw)
+        pygame.draw.line(screen, marble_shadow,
+                         (cx, cy - int(4 * s)),
+                         (cx + int(4 * s), cy), lw)
+
+        # ── 목 ──
+        neck_w = max(2, int(3 * s))
+        pygame.draw.line(screen, marble,
+                         (cx, cy - int(19 * s)),
+                         (cx, cy - int(22 * s)), neck_w)
+        pygame.draw.line(screen, marble_mid,
+                         (cx + int(1 * s), cy - int(19 * s)),
+                         (cx + int(1 * s), cy - int(21 * s)), lw)
 
         # ── 팔 ──
         self._draw_judgment_arms(screen, cx, cy, s, marble, marble_mid, marble_dark, gold, gold_light)
 
         # ── 머리 ──
-        head_y = cy - int(23 * s)
+        head_y = cy - int(24 * s)
         head_r = max(2, int(6 * s))
         pygame.draw.circle(screen, marble, (cx, head_y), head_r)
         pygame.draw.circle(screen, marble_dark, (cx, head_y), head_r, lw)
-        # 수염
+        # 이목구비 (눈, 코 힌트)
+        eye_y = head_y - int(1 * s)
+        if s >= 2:
+            # 눈 (작은 음영)
+            pygame.draw.line(screen, marble_dark,
+                             (cx - int(3 * s), eye_y),
+                             (cx - int(1 * s), eye_y), lw)
+            pygame.draw.line(screen, marble_dark,
+                             (cx + int(1 * s), eye_y),
+                             (cx + int(3 * s), eye_y), lw)
+            # 코 (세로 음영)
+            pygame.draw.line(screen, marble_mid,
+                             (cx, eye_y + int(1 * s)),
+                             (cx, eye_y + int(3 * s)), lw)
+        # 수염 (풍성한 삼각형)
         beard_pts = [
-            (cx - int(3 * s), head_y + int(4 * s)),
-            (cx + int(3 * s), head_y + int(4 * s)),
-            (cx + int(1 * s), head_y + int(8 * s)),
-            (cx - int(1 * s), head_y + int(8 * s)),
+            (cx - int(4 * s), head_y + int(4 * s)),
+            (cx + int(4 * s), head_y + int(4 * s)),
+            (cx + int(2 * s), head_y + int(9 * s)),
+            (cx, head_y + int(10 * s)),
+            (cx - int(2 * s), head_y + int(9 * s)),
         ]
         pygame.draw.polygon(screen, marble_mid, beard_pts)
-        # 머리카락
+        pygame.draw.polygon(screen, marble_dark, beard_pts, lw)
+        # 수염 결
+        pygame.draw.line(screen, marble_dark,
+                         (cx - int(1 * s), head_y + int(5 * s)),
+                         (cx - int(1 * s), head_y + int(8 * s)), lw)
+        pygame.draw.line(screen, marble_dark,
+                         (cx + int(1 * s), head_y + int(5 * s)),
+                         (cx + int(2 * s), head_y + int(8 * s)), lw)
+        # 머리카락 (풍성한 곱슬)
         hr = int(7 * s)
         pygame.draw.arc(screen, marble_dark,
                         (cx - hr, head_y - hr, hr * 2, int(10 * s)),
-                        0.3, math.pi - 0.3, max(1, int(2 * s)))
+                        0.2, math.pi - 0.2, thick)
+        # 머리카락 볼륨 (추가 아크)
+        if s >= 2:
+            pygame.draw.arc(screen, marble_shadow,
+                            (cx - hr - int(1 * s), head_y - hr - int(1 * s),
+                             hr * 2 + int(2 * s), int(8 * s)),
+                            0.4, math.pi - 0.4, lw)
 
-        # ── 월계관 ──
-        wreath_color = (155, 150, 95)
-        wreath_light = (175, 170, 110)
-        wr = int(7 * s)
-        for angle_deg in range(-70, 71, 25):
+        # ── 월계관 (잎사귀 형태) ──
+        wreath_color = (145, 140, 85)
+        wreath_light = (170, 165, 105)
+        wreath_gold = (190, 175, 90)
+        wr = int(8 * s)
+        for angle_deg in range(-80, 81, 20):
             a = math.radians(angle_deg - 90)
             lx = cx + int(wr * math.cos(a))
             ly = head_y + int(wr * math.sin(a))
-            pygame.draw.circle(screen, wreath_color, (lx, ly), lw)
-            if angle_deg % 50 == 0:
-                pygame.draw.circle(screen, wreath_light, (lx, ly), lw)
+            # 잎사귀 방향 (바깥쪽)
+            leaf_a = a + math.pi * 0.5
+            leaf_len = max(1, int(3 * s))
+            ex = lx + int(leaf_len * math.cos(leaf_a))
+            ey = ly + int(leaf_len * math.sin(leaf_a))
+            pygame.draw.line(screen, wreath_color, (lx, ly), (ex, ey), lw)
+            pygame.draw.circle(screen, wreath_light, (lx, ly), max(1, int(0.8 * s)))
+        # 월계관 정수리 보석
+        top_y = head_y - int(7 * s)
+        pygame.draw.circle(screen, wreath_gold, (cx, top_y), max(1, int(1.5 * s)))
+        if s >= 2:
+            pygame.draw.circle(screen, gold_light, (cx, top_y), max(1, int(1.5 * s)), 1)
 
     def _draw_judgment_arms(self, screen, cx, cy, s, marble, marble_mid, marble_dark, gold, gold_light):
         """신의심판 석상의 팔 (상완+전완 2세그먼트, 애니메이션)"""
@@ -734,9 +854,9 @@ class AnimatedBackgroundStage30:
         fore_len = int(10 * s)
         lw = max(1, int(s))
 
-        # 어깨 위치 (상체 토가와 일치)
-        l_shoulder = (cx - int(10 * s), cy - int(18 * s))
-        r_shoulder = (cx + int(10 * s), cy - int(18 * s))
+        # 어깨 위치 (상체와 일치)
+        l_shoulder = (cx - int(10 * s), cy - int(19 * s))
+        r_shoulder = (cx + int(10 * s), cy - int(19 * s))
 
         # ── 왼팔 ──
         la_base = math.radians(140)
