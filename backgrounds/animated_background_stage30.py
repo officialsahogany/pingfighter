@@ -238,11 +238,7 @@ class AnimatedBackgroundStage30:
                         (self.GAME_AREA_END_X - 15, self.height - 70),
                         (self.GAME_AREA_END_X - 15 + corner_size, self.height - 70), 2)
 
-        # 석상 없는 버전 저장 (신의심판용 - 바닥 라인 보존)
-        self.arena_surface_no_statue = self.arena_surface.copy()
-
-        # 중앙 제우스 석상 (평상시용)
-        self._draw_zeus_statue(self.arena_surface, center_x, center_y)
+        # (평소 석상 없음 - 신의심판 시에만 동적으로 등장)
 
     def _draw_zeus_statue(self, surface, cx, cy):
         """고대 제우스 석상 - 상반신 비석 스타일 (하반신은 땅속에 묻힘)"""
@@ -644,50 +640,18 @@ class AnimatedBackgroundStage30:
         gold_light = self.colors['gold_light']
         lw = max(1, int(s))
 
-        # 발 흔들림
-        feet_ox = int(math.sin(self.judgment_feet_swing) * 6 * s) if s > 1.5 else 0
-
-        # ── 그림자 ──
-        sw = int(50 * s)
-        sh = int(14 * s)
-        if sw > 2 and sh > 2:
-            ss = pygame.Surface((sw, sh), pygame.SRCALPHA)
-            pygame.draw.ellipse(ss, (40, 35, 25, 50), (0, 0, sw, sh))
-            screen.blit(ss, (cx - sw // 2 + feet_ox, cy + int(16 * s)))
-
-        # ── 받침대 (2단, 정적 석상과 동일) ──
-        pygame.draw.rect(screen, marble_shadow,
-                         (cx - int(18 * s) + feet_ox, cy + int(13 * s), int(36 * s), max(1, int(6 * s))))
-        pygame.draw.line(screen, marble_mid,
-                         (cx - int(18 * s) + feet_ox, cy + int(13 * s)),
-                         (cx + int(17 * s) + feet_ox, cy + int(13 * s)), lw)
-        pygame.draw.rect(screen, marble_mid,
-                         (cx - int(14 * s) + feet_ox, cy + int(4 * s), int(28 * s), max(1, int(10 * s))))
-        pygame.draw.line(screen, marble,
-                         (cx - int(14 * s) + feet_ox, cy + int(4 * s)),
-                         (cx + int(13 * s) + feet_ox, cy + int(4 * s)), lw)
-        pygame.draw.line(screen, gold,
-                         (cx - int(14 * s) + feet_ox, cy + int(8 * s)),
-                         (cx + int(13 * s) + feet_ox, cy + int(8 * s)), lw)
-
-        # ── 하체 토가 ──
-        robe_pts = [
-            (cx - int(9 * s) + feet_ox, cy + int(4 * s)),
-            (cx + int(9 * s) + feet_ox, cy + int(4 * s)),
-            (cx + int(7 * s), cy - int(8 * s)),
-            (cx - int(7 * s), cy - int(8 * s)),
+        # ── 돌 받침 (땅에 묻힌 느낌의 거친 석조) ──
+        base_pts = [
+            (cx - int(12 * s), cy + int(6 * s)), (cx + int(12 * s), cy + int(6 * s)),
+            (cx + int(10 * s), cy - int(2 * s)), (cx - int(10 * s), cy - int(2 * s))
         ]
-        pygame.draw.polygon(screen, marble, robe_pts)
-        # 주름 (정적 석상과 동일하게 3줄만)
+        pygame.draw.polygon(screen, marble_shadow, base_pts)
         pygame.draw.line(screen, marble_dark,
-                         (cx - int(3 * s) + feet_ox // 2, cy + int(3 * s)),
-                         (cx - int(2 * s), cy - int(7 * s)), lw)
-        pygame.draw.line(screen, marble_dark,
-                         (cx + int(3 * s) + feet_ox // 2, cy + int(3 * s)),
-                         (cx + int(4 * s), cy - int(7 * s)), lw)
-        pygame.draw.line(screen, marble_mid,
-                         (cx + feet_ox // 2, cy + int(3 * s)),
-                         (cx + int(1 * s), cy - int(7 * s)), lw)
+                         (cx - int(12 * s), cy + int(6 * s)),
+                         (cx + int(12 * s), cy + int(6 * s)), lw)
+        pygame.draw.line(screen, gold,
+                         (cx - int(10 * s), cy + int(1 * s)),
+                         (cx + int(10 * s), cy + int(1 * s)), lw)
 
         # ── 상체 ──
         torso_pts = [
@@ -851,8 +815,8 @@ class AnimatedBackgroundStage30:
             color = (200, 175, 140)
             pygame.draw.circle(screen, color, (px, py), size)
 
-        # 경기장 라인 (중앙선, 중앙원) - 신의심판 중에는 석상 없는 버전 사용
-        arena = self.arena_surface_no_statue if self.judgment_phase != self.JUDGMENT_IDLE else self.arena_surface
+        # 경기장 라인 (중앙선, 중앙원)
+        arena = self.arena_surface
         if scale_x != 1.0 or scale_y != 1.0:
             scaled_arena = pygame.transform.scale(
                 arena, (int(self.width * scale_x), int(self.height * scale_y))
@@ -864,9 +828,6 @@ class AnimatedBackgroundStage30:
         # 신의심판 이벤트 오버레이 (동적 석상)
         if self.judgment_phase != self.JUDGMENT_IDLE:
             self._draw_judgment_overlay(screen, offset_x, offset_y)
-        else:
-            # 제우스 번개 글로우 애니메이션 (평상시에만)
-            self._draw_zeus_bolt_glow(screen, scale_x, scale_y, offset_x, offset_y)
 
         # 횃불
         self._draw_torches(screen, scale_x, scale_y, offset_x, offset_y)
