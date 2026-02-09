@@ -304,7 +304,7 @@ class HUDDisplay:
         display_stage = self.STAGE_SWAP_MAP.get(self.current_stage, self.current_stage)
         return self.BOSS_NAMES.get(display_stage, "보스")
 
-    def show_score(self, player_score, ai_score):
+    def show_score(self, player_score, ai_score, player_name=None, boss_name=None):
         """KBO 프리미엄 야구 전광판 스타일 점수판"""
 
         # 키 이벤트 큐 비우기 - 대쉬 버그 방지
@@ -330,7 +330,8 @@ class HUDDisplay:
         for alpha in range(0, 256, 18):
             self._draw_kbo_scoreboard(player_score, ai_score, board_x, board_y,
                                       board_width, board_height, inner_x, inner_y,
-                                      inner_w, inner_h, animation_timer, alpha)
+                                      inner_w, inner_h, animation_timer, alpha,
+                                      player_name=player_name, boss_name=boss_name)
             pygame.display.flip()
             clock.tick(60)
             animation_timer += 1
@@ -339,14 +340,16 @@ class HUDDisplay:
         for _ in range(90):
             self._draw_kbo_scoreboard(player_score, ai_score, board_x, board_y,
                                       board_width, board_height, inner_x, inner_y,
-                                      inner_w, inner_h, animation_timer, 255)
+                                      inner_w, inner_h, animation_timer, 255,
+                                      player_name=player_name, boss_name=boss_name)
             pygame.display.flip()
             clock.tick(60)
             animation_timer += 1
 
     def _draw_kbo_scoreboard(self, player_score, ai_score, board_x, board_y,
                               board_width, board_height, inner_x, inner_y,
-                              inner_w, inner_h, animation_timer, alpha):
+                              inner_w, inner_h, animation_timer, alpha,
+                              player_name=None, boss_name=None):
         """KBO 스타일 점수판 그리기"""
         # 배경 그리기
         if self.draw_field_func:
@@ -396,7 +399,8 @@ class HUDDisplay:
         board_surface.blit(p_icon, p_icon_rect)
 
         # 플레이어 이름 (작은 폰트 사용 - 긴 이름 겹침 방지)
-        p_name = self.font_medium.render("플레이어", True, (100, 180, 255))
+        p_display_name = player_name if player_name else "플레이어"
+        p_name = self.font_medium.render(p_display_name, True, (100, 180, 255))
         board_surface.blit(p_name, (header_x + 85, header_y + 18))
 
         # 보스 로고 (빨간색 원) - 글로우 효과 추가
@@ -416,8 +420,8 @@ class HUDDisplay:
         board_surface.blit(b_icon, b_icon_rect)
 
         # 보스 이름 - 현재 스테이지 보스 이름 표시 (작은 폰트 사용 - 긴 이름 겹침 방지)
-        boss_name = self.get_boss_name()
-        b_name = self.font_medium.render(boss_name, True, (255, 120, 120))
+        b_display_name = boss_name if boss_name else self.get_boss_name()
+        b_name = self.font_medium.render(b_display_name, True, (255, 120, 120))
         b_name_rect = b_name.get_rect(right=header_x + header_w - 85, top=header_y + 18)
         board_surface.blit(b_name, b_name_rect)
 
@@ -650,7 +654,7 @@ def set_hud_stage(stage):
         _hud_display.set_stage(stage)
 
 # 호환성을 위한 래퍼 함수들
-def show_score(screen, player_score, ai_score, width=600, height=750, draw_field_func=None, draw_objects_func=None, current_stage=None):
+def show_score(screen, player_score, ai_score, width=600, height=750, draw_field_func=None, draw_objects_func=None, current_stage=None, player_name=None, boss_name=None):
     """점수 표시 (호환성 래퍼)"""
     global _hud_display
     if _hud_display is None:
@@ -668,7 +672,7 @@ def show_score(screen, player_score, ai_score, width=600, height=750, draw_field
         # 스테이지가 전달되면 업데이트
         if current_stage is not None:
             _hud_display.set_stage(current_stage)
-    _hud_display.show_score(player_score, ai_score)
+    _hud_display.show_score(player_score, ai_score, player_name=player_name, boss_name=boss_name)
 
 def draw_medal_score(screen, medal_score, width=600, height=750):
     """메달 점수 표시 (호환성 래퍼)"""

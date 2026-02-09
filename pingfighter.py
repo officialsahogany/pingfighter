@@ -118979,8 +118979,14 @@ def handle_ball():
                 pass
             print(f" [ ]  ! deuce_wins: {deuce_wins}, round_wins: {round_wins}")
             stop_dash_delay_sound()  # 점수판 표시 전 후딜 사운드 중지
-            show_winner_text("플레이어")
-            show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage)
+            # 투기장 모드: 영웅 이름 사용
+            if arena_mode_enabled and arena_bottom_hero:
+                show_winner_text(arena_bottom_hero.get("name", "Player"))
+            else:
+                show_winner_text("플레이어")
+            show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
+                       player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
+                       boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else None)
             # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
@@ -119090,8 +119096,14 @@ def handle_ball():
                 print("[Stage5 네메시스] 보조 보스 전기 스킬 다음 라운드 발동 예약!")
 
             stop_dash_delay_sound()  # 점수판 표시 전 후딜 사운드 중지
-            show_winner_text("플레이어")
-            show_score(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage)
+            # 투기장 모드: 영웅 이름 사용
+            if arena_mode_enabled and arena_bottom_hero:
+                show_winner_text(arena_bottom_hero.get("name", "Player"))
+            else:
+                show_winner_text("플레이어")
+            show_score(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
+                       player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
+                       boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else None)
             # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
@@ -119141,7 +119153,9 @@ def handle_ball():
             return
         elif result == "deuce_started" or result == "deuce_restart":
             # 듀스 시작/재시작 시 점수 표시 업데이트
-            show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage)
+            show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
+                       player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
+                       boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else None)
             # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
@@ -119558,13 +119572,19 @@ def handle_ball():
             if try_trigger_foul_whistle("deuce"):
                 return
 
-            boss_name = get_boss_name(current_stage, "보스")
+            # 투기장 모드: 상단 영웅 이름 사용
+            if arena_mode_enabled and arena_top_hero:
+                boss_name = arena_top_hero.get("name", "보스")
+            else:
+                boss_name = get_boss_name(current_stage, "보스")
             # Stage 8에서 보스가 라운드 이길 때 아카무 리고 승리 애니메이션 (show_winner_text 전에 트리거)
             if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
                 stage8_boss_sprite.trigger_victory()
             stop_dash_delay_sound()  # 점수판 표시 전 후딜 사운드 중지
             show_winner_text(boss_name)
-            show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage)
+            show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
+                       player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
+                       boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else None)
             # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
@@ -119671,13 +119691,19 @@ def handle_ball():
             # ️ GameState 동기화 및 이벤트 발생
             game_state.round_losses = round_losses
             emit_event(EventType.ROUND_LOSE, {'stage': current_stage, 'score': round_losses})
-            boss_name = get_boss_name(current_stage, "보스")
+            # 투기장 모드: 상단 영웅 이름 사용
+            if arena_mode_enabled and arena_top_hero:
+                boss_name = arena_top_hero.get("name", "보스")
+            else:
+                boss_name = get_boss_name(current_stage, "보스")
             # Stage 8에서 보스가 라운드 이길 때 아카무 리고 승리 애니메이션 (show_winner_text 전에 트리거)
             if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
                 stage8_boss_sprite.trigger_victory()
             stop_dash_delay_sound()  # 점수판 표시 전 후딜 사운드 중지
             show_winner_text(boss_name)
-            show_score(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage)
+            show_score(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
+                       player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
+                       boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else None)
             # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
@@ -119710,7 +119736,9 @@ def handle_ball():
             return
         elif result == "deuce_started" or result == "deuce_restart":
             # 듀스 시작/재시작 시 점수 표시 업데이트
-            show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage)
+            show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
+                       player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
+                       boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else None)
             # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
@@ -131887,12 +131915,17 @@ def main(stage_num, new_boss_mode=False):
                                 if is_deuce:
                                     # 듀스 모드 패배
                                     globals()['deuce_losses'] = globals().get('deuce_losses', 0) + 1
-                                    boss_name = get_boss_name(current_stage, "보스")
+                                    if arena_mode_enabled and arena_top_hero:
+                                        boss_name = arena_top_hero.get("name", "보스")
+                                    else:
+                                        boss_name = get_boss_name(current_stage, "보스")
                                     if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
                                         stage8_boss_sprite.trigger_victory()
                                     stop_dash_delay_sound()
                                     show_winner_text(boss_name)
-                                    show_score(SCREEN, globals().get('deuce_wins', 0), globals().get('deuce_losses', 0), WIDTH, HEIGHT, draw_field, draw_objects, current_stage)
+                                    show_score(SCREEN, globals().get('deuce_wins', 0), globals().get('deuce_losses', 0), WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
+                                               player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
+                                               boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else None)
                                     if selected_character_type == "soldier":
                                         draw_soldier_weapon_ui(SCREEN)
                                     draw_score()
@@ -131914,13 +131947,18 @@ def main(stage_num, new_boss_mode=False):
                                     # 일반 모드 패배
                                     globals()['round_losses'] = globals().get('round_losses', 0) + 1
                                     globals()['quest_stage_boss_score'] = globals().get('quest_stage_boss_score', 0) + 1
-                                    boss_name = get_boss_name(current_stage, "보스")
+                                    if arena_mode_enabled and arena_top_hero:
+                                        boss_name = arena_top_hero.get("name", "보스")
+                                    else:
+                                        boss_name = get_boss_name(current_stage, "보스")
                                     if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
                                         stage8_boss_sprite.trigger_victory()
                                     stop_dash_delay_sound()
                                     show_winner_text(boss_name)
                                     # 👁 점수 표시 추가 (누락되었던 부분)
-                                    show_score(SCREEN, globals().get('round_wins', 0), globals().get('round_losses', 0), WIDTH, HEIGHT, draw_field, draw_objects, current_stage)
+                                    show_score(SCREEN, globals().get('round_wins', 0), globals().get('round_losses', 0), WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
+                                               player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
+                                               boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else None)
                                     if selected_character_type == "soldier":
                                         draw_soldier_weapon_ui(SCREEN)
                                     draw_score()
