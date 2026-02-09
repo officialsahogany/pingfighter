@@ -525,31 +525,82 @@ class AnimatedBackgroundStage30:
                 self.judgment_dust_rain.clear()
 
         elif self.judgment_phase == self.JUDGMENT_RETURN:
-            # 3초간 땅속으로 다시 들어감 (MERGE의 역순)
+            # 3초간 땅속으로 다시 들어감 (무게감 있게)
             progress = min(1.0, self.judgment_timer / self.RETURN_DURATION)
-            ease = progress ** 2  # ease-in (처음 느리다가 점점 빠르게)
-            # 스케일 유지, 석상 하강 (0 → 120px 아래로)
-            sink_depth = 120.0 * self.judgment_scale  # 스케일에 비례한 깊이
+            # 커스텀 이징: 초반 빠르게 빨려들어가다 중반 잠깐 멈칫, 후반 천천히 가라앉기
+            if progress < 0.15:
+                # 0~15%: 초반 흡입 (ease-out cubic, 빠르게 시작)
+                local_p = progress / 0.15
+                ease = 0.35 * (1.0 - (1.0 - local_p) ** 3)
+            elif progress < 0.5:
+                # 15~50%: 중속 하강 (linear)
+                local_p = (progress - 0.15) / 0.35
+                ease = 0.35 + 0.35 * local_p
+            else:
+                # 50~100%: 느리게 가라앉기 (ease-out quad)
+                local_p = (progress - 0.5) / 0.5
+                ease = 0.7 + 0.3 * (1.0 - (1.0 - local_p) ** 2)
+            # 스케일 점진적 축소 (4x → 3.6x, 멀어지는 느낌)
+            scale_shrink = 1.0 - 0.1 * ease
+            self.judgment_scale = self.judgment_target_scale * scale_shrink
+            s = self.judgment_scale
+            # 석상 하강 (0 → 120px 아래로)
+            sink_depth = 120.0 * self.judgment_target_scale
             self.judgment_rise_offset = sink_depth * ease
-            # 팔 원래 위치로
-            self.judgment_slam_progress = 1.0 - ease
+            # 팔 원래 위치로 (하강 초반에 빠르게)
+            arm_fold = min(1.0, progress * 2.5)
+            self.judgment_slam_progress = 1.0 - arm_fold
             self.judgment_left_arm_progress = 0.0
             self.judgment_right_arm_progress = 0.0
-            # 하강 중 흙/돌 파편 생성
-            if random.random() < 0.3:
-                ground_y = cy + 10
-                s = self.judgment_scale
+            # 초반 미세 흔들림 (무게감)
+            if progress < 0.3:
+                shake_p = 1.0 - progress / 0.3
+                self.judgment_shake_intensity = 0.15 * shake_p
+            else:
+                self.judgment_shake_intensity = 0.0
+            # 하강 중 흙/돌 파편 생성 (상승보다 더 많이)
+            ground_y = cy + 10
+            # 진행도에 따른 파편량 (초반 많고 후반 줄어듦)
+            debris_rate = max(0, 3 - int(progress * 4))  # 3→2→1→0개
+            for _ in range(debris_rate):
                 self.judgment_rise_debris.append({
-                    'x': cx + random.uniform(-12 * s, 12 * s),
-                    'y': ground_y + random.uniform(-4, 2),
-                    'vx': random.uniform(-1.5, 1.5),
-                    'vy': random.uniform(0.5, 3),
+                    'x': cx + random.uniform(-14 * s, 14 * s),
+                    'y': ground_y + random.uniform(-3, 2),
+                    'vx': random.uniform(-2.0, 2.0),
+                    'vy': random.uniform(0.3, 2.5),
                     'size': random.randint(1, 3),
-                    'life': random.uniform(0.5, 1.2),
+                    'life': random.uniform(0.4, 1.0),
                     'color': random.choice([
                         (155, 130, 95), (125, 105, 75),
                         (130, 120, 108), (160, 150, 135)
                     ]),
+                })
+            # 큰 흙덩이 (초반에만, 무게에 의해 밀려나는 느낌)
+            if progress < 0.4 and random.random() < 0.15:
+                side = random.choice([-1, 1])
+                self.judgment_rise_debris.append({
+                    'x': cx + side * random.uniform(8 * s, 16 * s),
+                    'y': ground_y + random.uniform(-2, 1),
+                    'vx': side * random.uniform(1.5, 3.5),
+                    'vy': random.uniform(-1.5, 0.5),
+                    'size': random.randint(3, 5),
+                    'life': random.uniform(0.8, 1.5),
+                    'color': random.choice([
+                        (125, 105, 75), (105, 85, 60)
+                    ]),
+                })
+            # 구멍 안으로 빨려드는 먼지 파티클 (중반 이후)
+            if progress > 0.2 and random.random() < 0.25:
+                angle = random.uniform(0, math.pi * 2)
+                dist = random.uniform(16, 28) * s
+                self.judgment_rise_debris.append({
+                    'x': cx + math.cos(angle) * dist,
+                    'y': ground_y + math.sin(angle) * dist * 0.3,
+                    'vx': -math.cos(angle) * random.uniform(0.8, 2.0),
+                    'vy': random.uniform(0.2, 1.0),
+                    'size': random.randint(1, 2),
+                    'life': random.uniform(0.3, 0.7),
+                    'color': (180, 160, 130),
                 })
             # 하강 파편 업데이트
             for d in self.judgment_rise_debris:
@@ -562,9 +613,11 @@ class AnimatedBackgroundStage30:
                 # 구멍 페이드 페이즈로 전환 (석상은 사라지고 구멍만 남음)
                 self.judgment_phase = self.JUDGMENT_HOLE_FADE
                 self.judgment_timer = 0.0
-                self.judgment_hole_fade_scale = self.judgment_scale  # 현재 스케일 보존
+                self.judgment_hole_fade_scale = self.judgment_target_scale  # 원래 스케일 기준
                 self.judgment_slam_progress = 0.0
                 self.judgment_rise_offset = 0.0
+                self.judgment_shake_intensity = 0.0
+                self.judgment_scale = self.judgment_target_scale  # 스케일 복원
                 self.judgment_rise_debris.clear()
                 # 초기 부스러기 파티클 생성 (구멍 테두리에서)
                 ground_y = cy + 10
@@ -720,11 +773,19 @@ class AnimatedBackgroundStage30:
 
         # ── 동적 제우스 석상 그리기 (상승/하강 중 지면 클리핑) ──
         rise_y = int(self.judgment_rise_offset)
-        # 흔들림 (상승/하강 중에만, 강도 제한)
+        is_sinking = self.judgment_phase == self.JUDGMENT_RETURN
+        # 흔들림 (상승/하강 중에만)
         rise_shake_x = 0
         if rise_y > 2:
-            wobble = min(1.0, rise_y / 40.0)  # 최대 1.0 제한
-            rise_shake_x = int(math.sin(self.time * 15) * 3 * wobble * s)
+            if is_sinking:
+                # 하강: 느리고 무거운 좌우 흔들림 (저주파, 감쇠)
+                sink_progress = min(1.0, self.judgment_timer / self.RETURN_DURATION) if self.RETURN_DURATION > 0 else 0
+                wobble_decay = max(0, 1.0 - sink_progress * 1.5)  # 빠르게 감쇠
+                rise_shake_x = int(math.sin(self.time * 8) * 2 * wobble_decay * s)
+            else:
+                # 상승: 빠른 흔들림
+                wobble = min(1.0, rise_y / 40.0)
+                rise_shake_x = int(math.sin(self.time * 15) * 3 * wobble * s)
 
         if rise_y > 2:
             # 지면 레벨 아래 클리핑 (석상 하반신 숨김)
@@ -785,7 +846,9 @@ class AnimatedBackgroundStage30:
 
             # 먼지 구름 (구멍 경계에서 피어오르는 느낌)
             sink_ratio = min(1.0, rise_y / (60.0 * s)) if s > 0 else 0
+            is_sinking = self.judgment_phase == self.JUDGMENT_RETURN
             if sink_ratio > 0.05:
+                # 기본 먼지 구름 (상승/하강 공통)
                 dust_alpha = int(80 * min(1.0, sink_ratio * 2))
                 dust_w = int(26 * s)
                 dust_h = int(5 * s)
@@ -795,6 +858,28 @@ class AnimatedBackgroundStage30:
                                         (0, 0, dust_w, dust_h))
                     screen.blit(dust_surf, (cx + rise_shake_x - dust_w // 2,
                                             ground_y - dust_h))
+                # 하강 전용: 추가 먼지/흡입 효과
+                if is_sinking:
+                    # 넓은 먼지 구름 (구멍 주변에 확산)
+                    wide_alpha = int(50 * min(1.0, sink_ratio * 1.5))
+                    wide_w = int(36 * s)
+                    wide_h = int(7 * s)
+                    if wide_w > 4 and wide_h > 2:
+                        wide_surf = pygame.Surface((wide_w, wide_h), pygame.SRCALPHA)
+                        pygame.draw.ellipse(wide_surf, (170, 150, 120, wide_alpha),
+                                            (0, 0, wide_w, wide_h))
+                        screen.blit(wide_surf, (cx + rise_shake_x - wide_w // 2,
+                                                ground_y - wide_h + int(2 * s)))
+                    # 깊은 함몰부 그림자 강화 (하강할수록 진해짐)
+                    deep_alpha = int(100 * min(1.0, sink_ratio))
+                    deep_w = int(16 * s)
+                    deep_h = int(5 * s)
+                    if deep_w > 3 and deep_h > 1:
+                        deep_surf = pygame.Surface((deep_w, deep_h), pygame.SRCALPHA)
+                        pygame.draw.ellipse(deep_surf, (55, 42, 28, deep_alpha),
+                                            (0, 0, deep_w, deep_h))
+                        screen.blit(deep_surf, (cx + rise_shake_x - deep_w // 2,
+                                                ground_y - deep_h // 2))
         else:
             self._draw_judgment_statue_scaled(screen, cx, cy, s)
 
