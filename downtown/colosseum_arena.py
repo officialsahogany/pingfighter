@@ -3590,6 +3590,29 @@ class ColosseumsArena:
                     if old_btn != "recruit":
                         self._spawn_hover_line_particles(hero_rect.x, hero_rect.y, hero_rect.w, hero_rect.h)
 
+        # 라운드 종료 (계속/수령) 버튼 호버
+        elif self.state == TournamentState.ROUND_END:
+            panel_x, panel_y = 150, 180
+            cont_rect = pygame.Rect(panel_x + 40, panel_y + 220, 180, 50)
+            exit_rect = pygame.Rect(panel_x + 240, panel_y + 220, 180, 50)
+            if cont_rect.collidepoint(mx, my):
+                self.hover_btn_id = "round_continue"
+                if old_btn != "round_continue":
+                    self._spawn_hover_line_particles(cont_rect.x, cont_rect.y, cont_rect.w, cont_rect.h)
+            elif exit_rect.collidepoint(mx, my):
+                self.hover_btn_id = "round_exit"
+                if old_btn != "round_exit":
+                    self._spawn_hover_line_particles(exit_rect.x, exit_rect.y, exit_rect.w, exit_rect.h)
+
+        # 토너먼트 종료 (패배) 나가기 버튼 호버
+        elif self.state == TournamentState.TOURNAMENT_END:
+            panel_x, panel_y = 180, 180
+            exit_rect = pygame.Rect(panel_x + 100, panel_y + 270, 200, 50)
+            if exit_rect.collidepoint(mx, my):
+                self.hover_btn_id = "end_exit"
+                if old_btn != "end_exit":
+                    self._spawn_hover_line_particles(exit_rect.x, exit_rect.y, exit_rect.w, exit_rect.h)
+
     def _spawn_hover_line_particles(self, rx: int, ry: int, rw: int, rh: int):
         """호버 진입 시 사각형 테두리를 따라 라인 파티클 생성"""
         import random as _rand
@@ -3716,9 +3739,13 @@ class ColosseumsArena:
                     self.screen.blit(surf, (warn_x, btn_y - 35))
 
             # 계속 도전 버튼
+            cont_hovered = (self.hover_btn_id == "continue")
             continue_rect = pygame.Rect(SCREEN_WIDTH // 2 - btn_w - 20, btn_y, btn_w, btn_h)
+            if cont_hovered:
+                self._draw_hover_border(continue_rect.x, continue_rect.y, continue_rect.w, continue_rect.h, (100, 255, 100))
             btn_surf = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
-            pygame.draw.rect(btn_surf, (80, 180, 80, btn_alpha), (0, 0, btn_w, btn_h), border_radius=5)
+            cont_bg = (100, 210, 100, btn_alpha) if cont_hovered else (80, 180, 80, btn_alpha)
+            pygame.draw.rect(btn_surf, cont_bg, (0, 0, btn_w, btn_h), border_radius=5)
             self.screen.blit(btn_surf, continue_rect.topleft)
             if self.fonts and "medium" in self.fonts:
                 surf, _ = self.fonts["medium"].render("계속 도전!", (255, 255, 255))
@@ -3727,9 +3754,13 @@ class ColosseumsArena:
                 self.screen.blit(surf, (btn_text_x, continue_rect.y + 15))
 
             # 상금 수령 버튼
+            vs_exit_hovered = (self.hover_btn_id == "vs_exit")
             exit_rect = pygame.Rect(SCREEN_WIDTH // 2 + 20, btn_y, btn_w, btn_h)
+            if vs_exit_hovered:
+                self._draw_hover_border(exit_rect.x, exit_rect.y, exit_rect.w, exit_rect.h, (150, 150, 255))
             btn_surf = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
-            pygame.draw.rect(btn_surf, (100, 100, 180, btn_alpha), (0, 0, btn_w, btn_h), border_radius=5)
+            exit_bg = (120, 120, 210, btn_alpha) if vs_exit_hovered else (100, 100, 180, btn_alpha)
+            pygame.draw.rect(btn_surf, exit_bg, (0, 0, btn_w, btn_h), border_radius=5)
             self.screen.blit(btn_surf, exit_rect.topleft)
             if self.fonts and "medium" in self.fonts:
                 exit_text = f"{self.accumulated_prize}G 수령" if self.accumulated_prize > 0 else "포기하고 나가기"
@@ -4168,11 +4199,23 @@ class ColosseumsArena:
     def _draw_match_box(self, match: Match, x: int, y: int, match_idx: int):
         """매치 박스 그리기 (대각선 분할 레이아웃)"""
         box_w, box_h = 120, 140  # 약간 낮은 박스
+        is_hovered = (self.hover_match_index == match_idx and not match.completed)
+
+        # 호버 시 테두리 이펙트 (박스 뒤에)
+        if is_hovered:
+            self._draw_hover_border(x, y, box_w, box_h, (255, 215, 100))
 
         # 박스 배경
-        bg_color = (45, 50, 60) if not match.completed else (35, 55, 45)
+        if is_hovered:
+            bg_color = (55, 62, 80)
+        elif match.completed:
+            bg_color = (35, 55, 45)
+        else:
+            bg_color = (45, 50, 60)
+        border_color = (255, 215, 100) if is_hovered else (100, 105, 115)
+        border_width = 2
         pygame.draw.rect(self.screen, bg_color, (x, y, box_w, box_h), border_radius=8)
-        pygame.draw.rect(self.screen, (100, 105, 115), (x, y, box_w, box_h), 2, border_radius=8)
+        pygame.draw.rect(self.screen, border_color, (x, y, box_w, box_h), border_width, border_radius=8)
 
         # 대각선 (왼쪽 하단 → 오른쪽 상단)
         pygame.draw.line(self.screen, (80, 85, 95), (x + 5, y + box_h - 5), (x + box_w - 5, y + 5), 2)
@@ -4342,8 +4385,15 @@ class ColosseumsArena:
         # 영웅 1 선택 버튼 (캐릭터 이미지 포함)
         hero1 = self.selected_match.hero1
         btn1_rect = pygame.Rect(panel_x + 20, panel_y + 145, 145, 100)
-        pygame.draw.rect(self.screen, hero1["color"], btn1_rect, border_radius=8)
-        pygame.draw.rect(self.screen, (255, 255, 255), btn1_rect, 3, border_radius=8)
+        h1_hovered = (self.hover_btn_id == "hero1")
+        if h1_hovered:
+            self._draw_hover_border(btn1_rect.x, btn1_rect.y, btn1_rect.w, btn1_rect.h, hero1["color"])
+            bright_color = tuple(min(255, c + 30) for c in hero1["color"])
+            pygame.draw.rect(self.screen, bright_color, btn1_rect, border_radius=8)
+        else:
+            pygame.draw.rect(self.screen, hero1["color"], btn1_rect, border_radius=8)
+        btn1_border = (255, 255, 200) if h1_hovered else (255, 255, 255)
+        pygame.draw.rect(self.screen, btn1_border, btn1_rect, 3, border_radius=8)
         if self.fonts:
             # 영웅 이름
             if "medium" in self.fonts:
@@ -4370,8 +4420,15 @@ class ColosseumsArena:
         # 영웅 2 선택 버튼 (캐릭터 이미지 포함)
         hero2 = self.selected_match.hero2
         btn2_rect = pygame.Rect(panel_x + 235, panel_y + 145, 145, 100)
-        pygame.draw.rect(self.screen, hero2["color"], btn2_rect, border_radius=8)
-        pygame.draw.rect(self.screen, (255, 255, 255), btn2_rect, 3, border_radius=8)
+        h2_hovered = (self.hover_btn_id == "hero2")
+        if h2_hovered:
+            self._draw_hover_border(btn2_rect.x, btn2_rect.y, btn2_rect.w, btn2_rect.h, hero2["color"])
+            bright_color = tuple(min(255, c + 30) for c in hero2["color"])
+            pygame.draw.rect(self.screen, bright_color, btn2_rect, border_radius=8)
+        else:
+            pygame.draw.rect(self.screen, hero2["color"], btn2_rect, border_radius=8)
+        btn2_border = (255, 255, 200) if h2_hovered else (255, 255, 255)
+        pygame.draw.rect(self.screen, btn2_border, btn2_rect, 3, border_radius=8)
         if self.fonts:
             if "medium" in self.fonts:
                 surf, _ = self.fonts["medium"].render(hero2["name"], (255, 255, 255))
@@ -4399,9 +4456,14 @@ class ColosseumsArena:
 
         # 포기하고 나가기 버튼
         exit_rect = pygame.Rect(panel_x + 100, panel_y + 300, 200, 40)
-        pygame.draw.rect(self.screen, (60, 60, 60), exit_rect, border_radius=5)
+        exit_hovered = (self.hover_btn_id == "exit")
+        exit_bg = (80, 70, 70) if exit_hovered else (60, 60, 60)
+        pygame.draw.rect(self.screen, exit_bg, exit_rect, border_radius=5)
+        if exit_hovered:
+            pygame.draw.rect(self.screen, (255, 180, 180), exit_rect, 2, border_radius=5)
         if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render("포기하고 나가기", (255, 200, 200))
+            exit_text_color = (255, 230, 230) if exit_hovered else (255, 200, 200)
+            surf, _ = self.fonts["small"].render("포기하고 나가기", exit_text_color)
             self.screen.blit(surf, (exit_rect.centerx - surf.get_width() // 2, exit_rect.y + 12))
 
     def _draw_result_ui(self):
@@ -4546,8 +4608,14 @@ class ColosseumsArena:
             self.screen.blit(surf, (warn_x, panel_y + 185))
 
         # 계속 버튼 (도전)
+        rc_hovered = (self.hover_btn_id == "round_continue")
         continue_rect = pygame.Rect(panel_x + 40, panel_y + 220, 180, 50)
-        pygame.draw.rect(self.screen, (80, 180, 80), continue_rect, border_radius=5)
+        if rc_hovered:
+            self._draw_hover_border(continue_rect.x, continue_rect.y, continue_rect.w, continue_rect.h, (100, 255, 100))
+        rc_bg = (100, 210, 100) if rc_hovered else (80, 180, 80)
+        pygame.draw.rect(self.screen, rc_bg, continue_rect, border_radius=5)
+        if rc_hovered:
+            pygame.draw.rect(self.screen, (150, 255, 150), continue_rect, 2, border_radius=5)
         if self.fonts and "medium" in self.fonts:
             surf, _ = self.fonts["medium"].render("계속 도전!", (255, 255, 255))
             btn_text_x = continue_rect.centerx - surf.get_width() // 2
@@ -4555,8 +4623,14 @@ class ColosseumsArena:
             self.screen.blit(surf, (btn_text_x, continue_rect.y + 15))
 
         # 나가기 버튼 (상금 수령)
+        re_hovered = (self.hover_btn_id == "round_exit")
         exit_rect = pygame.Rect(panel_x + 240, panel_y + 220, 180, 50)
-        pygame.draw.rect(self.screen, (100, 100, 180), exit_rect, border_radius=5)
+        if re_hovered:
+            self._draw_hover_border(exit_rect.x, exit_rect.y, exit_rect.w, exit_rect.h, (150, 150, 255))
+        re_bg = (120, 120, 210) if re_hovered else (100, 100, 180)
+        pygame.draw.rect(self.screen, re_bg, exit_rect, border_radius=5)
+        if re_hovered:
+            pygame.draw.rect(self.screen, (180, 180, 255), exit_rect, 2, border_radius=5)
         if self.fonts and "medium" in self.fonts:
             surf, _ = self.fonts["medium"].render(f"{self.accumulated_prize}G 수령", (255, 255, 255))
             btn_text_x = exit_rect.centerx - surf.get_width() // 2
@@ -4777,10 +4851,15 @@ class ColosseumsArena:
             btn_y = 610
 
             # 왼쪽: 상금 수령
+            gold_hovered = (self.hover_btn_id == "gold")
             gold_rect = pygame.Rect(center_x - btn_w - 15, btn_y, btn_w, btn_h)
+            if gold_hovered:
+                self._draw_hover_border(gold_rect.x, gold_rect.y, gold_rect.w, gold_rect.h, (100, 255, 100))
             gold_surf = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
-            pygame.draw.rect(gold_surf, (60, 140, 60, btn_alpha), (0, 0, btn_w, btn_h), border_radius=6)
-            pygame.draw.rect(gold_surf, (100, 255, 100, btn_alpha), (0, 0, btn_w, btn_h), 2, border_radius=6)
+            gold_bg = (80, 170, 80, btn_alpha) if gold_hovered else (60, 140, 60, btn_alpha)
+            gold_border = (130, 255, 130, btn_alpha) if gold_hovered else (100, 255, 100, btn_alpha)
+            pygame.draw.rect(gold_surf, gold_bg, (0, 0, btn_w, btn_h), border_radius=6)
+            pygame.draw.rect(gold_surf, gold_border, (0, 0, btn_w, btn_h), 2, border_radius=6)
             self.screen.blit(gold_surf, gold_rect.topleft)
             if "medium" in self.fonts:
                 prize = self.round_prizes.get(TournamentRound.FINAL, 3000)
@@ -4791,10 +4870,15 @@ class ColosseumsArena:
                                         gold_rect.centery - surf.get_height() // 2))
 
             # 오른쪽: 호위무사 등용
+            recruit_hovered = (self.hover_btn_id == "recruit")
             hero_rect = pygame.Rect(center_x + 15, btn_y, btn_w, btn_h)
+            if recruit_hovered:
+                self._draw_hover_border(hero_rect.x, hero_rect.y, hero_rect.w, hero_rect.h, (255, 180, 80))
             hero_surf = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
-            pygame.draw.rect(hero_surf, (140, 80, 40, btn_alpha), (0, 0, btn_w, btn_h), border_radius=6)
-            pygame.draw.rect(hero_surf, (255, 180, 80, btn_alpha), (0, 0, btn_w, btn_h), 2, border_radius=6)
+            hero_bg = (170, 100, 50, btn_alpha) if recruit_hovered else (140, 80, 40, btn_alpha)
+            hero_border = (255, 210, 110, btn_alpha) if recruit_hovered else (255, 180, 80, btn_alpha)
+            pygame.draw.rect(hero_surf, hero_bg, (0, 0, btn_w, btn_h), border_radius=6)
+            pygame.draw.rect(hero_surf, hero_border, (0, 0, btn_w, btn_h), 2, border_radius=6)
             self.screen.blit(hero_surf, hero_rect.topleft)
             if "medium" in self.fonts:
                 recruit_text = f"{champion_name} 호위무사 등용"
@@ -4884,8 +4968,14 @@ class ColosseumsArena:
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 160))
 
         # 나가기 버튼
+        end_exit_hovered = (self.hover_btn_id == "end_exit")
         exit_rect = pygame.Rect(panel_x + 100, panel_y + 270, 200, 50)
-        pygame.draw.rect(self.screen, (80, 120, 180), exit_rect, border_radius=5)
+        if end_exit_hovered:
+            self._draw_hover_border(exit_rect.x, exit_rect.y, exit_rect.w, exit_rect.h, (130, 170, 255))
+        exit_bg = (100, 140, 210) if end_exit_hovered else (80, 120, 180)
+        pygame.draw.rect(self.screen, exit_bg, exit_rect, border_radius=5)
+        if end_exit_hovered:
+            pygame.draw.rect(self.screen, (180, 210, 255), exit_rect, 2, border_radius=5)
         if self.fonts and "medium" in self.fonts:
             surf, _ = self.fonts["medium"].render("투기장 나가기", (255, 255, 255))
             self.screen.blit(surf, (exit_rect.centerx - surf.get_width() // 2, exit_rect.y + 15))
