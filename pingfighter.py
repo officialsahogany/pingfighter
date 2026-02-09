@@ -58223,6 +58223,7 @@ def handle_player(keys):
     global blacksmith_blocking_skill_timer, blacksmith_blocking_bonus_pending
     global blacksmith_blocking_bonus_ready, blacksmith_blocking_bonus_window_timer
     global fire_support_radio_loop_active
+    global _judgment_lightning_stun_bottom_timer
     global blacksmith_trail_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
@@ -124543,6 +124544,7 @@ def handle_boss():
     global boss_throwing, boss_throw_timer  #  Stage 5 화염탄 관련 변수
     global ball_vel, boss_special_gauge
     global ragnarok_shock_playing  #  라그나로크 전기 감전 사운드 상태
+    global _judgment_lightning_stun_top_timer
     global boss_stunned_timer, boss_knockback_vel  #  화염병 스턴 관련 변수
     global stopwatch_active, stopwatch_timer  # ️ 스탑워치 관련 변수
     global whip_deactivation_active, boss_stunned_after_whip  #  상모돌리기 강제 해제 관련 변수
