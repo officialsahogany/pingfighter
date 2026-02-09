@@ -3670,17 +3670,17 @@ class ColosseumsArena:
 
         # 소프트 글로우 (매우 투명)
         glow_surf = pygame.Surface((rect_w + 16, rect_h + 16), pygame.SRCALPHA)
-        pygame.draw.rect(glow_surf, (*color, int(18 * pulse)), (0, 0, rect_w + 16, rect_h + 16), border_radius=12)
+        pygame.draw.rect(glow_surf, (*color, int(35 * pulse)), (0, 0, rect_w + 16, rect_h + 16), border_radius=12)
         self.screen.blit(glow_surf, (rect_x - 8, rect_y - 8))
 
-        # 얇은 보더 (1px)
+        # 보더 (1px)
         border_surf = pygame.Surface((rect_w + 4, rect_h + 4), pygame.SRCALPHA)
-        pygame.draw.rect(border_surf, (*color, int(70 * pulse)), (0, 0, rect_w + 4, rect_h + 4), 1, border_radius=8)
+        pygame.draw.rect(border_surf, (*color, int(120 * pulse)), (0, 0, rect_w + 4, rect_h + 4), 1, border_radius=8)
         self.screen.blit(border_surf, (rect_x - 2, rect_y - 2))
 
-        # 코너 악센트 (1px, 짧고 투명)
-        ln = int(10 + 3 * pulse)
-        la = int(100 * pulse)
+        # 코너 악센트 (1px)
+        ln = int(10 + 4 * pulse)
+        la = int(160 * pulse)
         cs = pygame.Surface((rect_w + 4, rect_h + 4), pygame.SRCALPHA)
         cc = (*color, la)
         for cx, cy, dx, dy in [(0,0,1,1),(rect_w+3,0,-1,1),(0,rect_h+3,1,-1),(rect_w+3,rect_h+3,-1,-1)]:
@@ -3688,14 +3688,14 @@ class ColosseumsArena:
             pygame.draw.line(cs, cc, (cx, cy), (cx, cy + ln * dy), 1)
         self.screen.blit(cs, (rect_x - 2, rect_y - 2))
 
-        # 파티클 (작고 투명하게 페이드아웃)
+        # 파티클 (스무스 페이드아웃)
         for p in self.hover_line_particles:
             ratio = max(0.0, p['life'] / p['max_life'])
-            ease = ratio * ratio  # quadratic ease-out
-            pa = int(80 * ease)
-            if pa < 2:
+            ease = ratio * ratio
+            pa = int(150 * ease)
+            if pa < 3:
                 continue
-            sz = max(1, int(1.5 * ease + 0.5))
+            sz = max(1, int(2.0 * ease + 0.5))
             ps = pygame.Surface((sz * 2 + 2, sz * 2 + 2), pygame.SRCALPHA)
             pygame.draw.circle(ps, (*p['color'], pa), (sz + 1, sz + 1), sz)
             self.screen.blit(ps, (int(p['x']) - sz - 1, int(p['y']) - sz - 1))
