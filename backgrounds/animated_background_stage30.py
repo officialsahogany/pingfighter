@@ -120,7 +120,7 @@ class AnimatedBackgroundStage30:
         self.MERGE_DURATION = 2.0
         self.ARM_RAISE_DURATION = 2.0
         self.SLAM_DURATION = 0.5
-        self.EARTHQUAKE_DURATION = 4.0
+        self.EARTHQUAKE_DURATION = 5.2
         self.RETURN_DURATION = 3.0
 
         # 프리렌더
@@ -544,7 +544,7 @@ class AnimatedBackgroundStage30:
         """신의심판 화면 흔들림 오프셋 반환 (정글지진의 1.5배 강도)"""
         if self.judgment_phase != self.JUDGMENT_EARTHQUAKE and self.judgment_phase != self.JUDGMENT_SLAM:
             return (0, 0)
-        intensity = 12 * self.judgment_shake_intensity  # 8px → 12px (1.5배)
+        intensity = 16 * self.judgment_shake_intensity  # 12px → 16px (+30%)
         ox = (random.random() - 0.5) * intensity * 2
         oy = (random.random() - 0.5) * intensity * 2
         return (int(ox), int(oy))

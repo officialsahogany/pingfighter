@@ -52694,16 +52694,16 @@ def handle_gods_judgment():
 
     # 지진 중: 공 랜덤 이동 (정글지진의 2배 강도)
     if is_eq:
-        # 정글지진: ±3 * 0.8 = ±2.4 (X), ±2 * 0.8 = ±1.6 (Y)
-        # 신의심판: ±6 * 0.8 = ±4.8 (X), ±4 * 0.8 = ±3.2 (Y) → 2배
+        # 신의심판: 공 폭력적 움직임 (+50% 강화)
+        # 기존 ±4.8/±3.2 → ±7.2/±4.8
         JUDGMENT_SHAKE_SCALE = 0.8
-        shake_x = random.uniform(-6, 6) * JUDGMENT_SHAKE_SCALE
-        shake_y = random.uniform(-4, 4) * JUDGMENT_SHAKE_SCALE
+        shake_x = random.uniform(-9, 9) * JUDGMENT_SHAKE_SCALE
+        shake_y = random.uniform(-6, 6) * JUDGMENT_SHAKE_SCALE
         ball_vel[0] += shake_x
         ball_vel[1] += shake_y
 
-        # 최대 속도 제한
-        max_speed = 10.0
+        # 최대 속도 제한 (증가)
+        max_speed = 15.0
         ball_vel[0] = max(-max_speed, min(max_speed, ball_vel[0]))
         ball_vel[1] = max(-max_speed, min(max_speed, ball_vel[1]))
 
