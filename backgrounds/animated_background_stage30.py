@@ -462,7 +462,7 @@ class AnimatedBackgroundStage30:
             if progress >= 1.0:
                 self.judgment_phase = self.JUDGMENT_EARTHQUAKE
                 self.judgment_timer = 0.0
-                self.judgment_flash_alpha = 255
+                self.judgment_flash_alpha = 180
                 self.judgment_shake_intensity = 1.0
                 # 슬램 파편 생성
                 for i in range(20):
@@ -484,7 +484,7 @@ class AnimatedBackgroundStage30:
             # 4초간 지진
             progress = min(1.0, self.judgment_timer / self.EARTHQUAKE_DURATION)
             # 플래시 빠르게 감소
-            self.judgment_flash_alpha = max(0, int(255 * (1.0 - progress * 3)))
+            self.judgment_flash_alpha = max(0, int(180 * (1.0 - progress * 8)))
             # 흔들림 강도 (시작 강하고 점차 감소, 마지막 1초에 급감)
             if progress < 0.75:
                 self.judgment_shake_intensity = 1.0 - progress * 0.3
