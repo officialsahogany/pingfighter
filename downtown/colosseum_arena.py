@@ -2703,8 +2703,13 @@ class ColosseumsArena:
             else:
                 result = self._run_real_game_battle(top_hero, bottom_hero)
 
-            # 결과 처리: True = 하단(플레이어 AI/배팅 영웅) 승리, False = 상단 승리
-            if result:
+            # 결과 처리: True = 하단 승리, False = 상단 승리, None = ESC 나가기
+            if result is None:
+                # ESC 나가기 → 토너먼트 종료
+                self.battle_active = False
+                self.exit_requested = True
+                return
+            elif result:
                 winner = bottom_hero  # 하단 승리 = 배팅한 영웅 승리
                 self.score_top = 0
                 self.score_bottom = 5

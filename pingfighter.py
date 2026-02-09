@@ -96632,6 +96632,9 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
                     _p_item["_equipped_slot"] = _saved_slot
         sync_equipped_passive_effects()  # 패시브 효과 재활성화
 
+    # ESC 나가기 시 "main_menu" 문자열 반환 → boolean이 아니면 None (배틀 취소)
+    if result is not True and result is not False:
+        result = None
     return result
 
 
