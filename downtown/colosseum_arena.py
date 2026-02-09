@@ -3184,7 +3184,7 @@ class ColosseumsArena:
         # 호버 라인 파티클 업데이트
         for p in self.hover_line_particles:
             p['life'] -= dt; p['x'] += p['vx'] * dt; p['y'] += p['vy'] * dt
-            p['alpha'] = max(0, p['alpha'] - 400 * dt)
+            p['alpha'] = max(0, p['alpha'] - 200 * dt)
         self.hover_line_particles = [p for p in self.hover_line_particles if p['life'] > 0]
 
         # 시각 효과 업데이트
@@ -3647,12 +3647,12 @@ class ColosseumsArena:
         import random as _rand
         for t in range(8):
             f = t / 7
-            self.hover_line_particles.append({'x': rx+rw*f, 'y': ry, 'vx': _rand.uniform(-15,15), 'vy': _rand.uniform(-40,-15), 'alpha': 255.0, 'life': _rand.uniform(0.25,0.5), 'color': (200,220,255)})
-            self.hover_line_particles.append({'x': rx+rw*f, 'y': ry+rh, 'vx': _rand.uniform(-15,15), 'vy': _rand.uniform(15,40), 'alpha': 255.0, 'life': _rand.uniform(0.25,0.5), 'color': (200,220,255)})
+            self.hover_line_particles.append({'x': rx+rw*f, 'y': ry, 'vx': _rand.uniform(-10,10), 'vy': _rand.uniform(-25,-10), 'alpha': 120.0, 'life': _rand.uniform(0.3,0.55), 'color': (200,220,255)})
+            self.hover_line_particles.append({'x': rx+rw*f, 'y': ry+rh, 'vx': _rand.uniform(-10,10), 'vy': _rand.uniform(10,25), 'alpha': 120.0, 'life': _rand.uniform(0.3,0.55), 'color': (200,220,255)})
         for t in range(6):
             f = t / 5
-            self.hover_line_particles.append({'x': rx, 'y': ry+rh*f, 'vx': _rand.uniform(-40,-15), 'vy': _rand.uniform(-15,15), 'alpha': 255.0, 'life': _rand.uniform(0.25,0.5), 'color': (200,220,255)})
-            self.hover_line_particles.append({'x': rx+rw, 'y': ry+rh*f, 'vx': _rand.uniform(15,40), 'vy': _rand.uniform(-15,15), 'alpha': 255.0, 'life': _rand.uniform(0.25,0.5), 'color': (200,220,255)})
+            self.hover_line_particles.append({'x': rx, 'y': ry+rh*f, 'vx': _rand.uniform(-25,-10), 'vy': _rand.uniform(-10,10), 'alpha': 120.0, 'life': _rand.uniform(0.3,0.55), 'color': (200,220,255)})
+            self.hover_line_particles.append({'x': rx+rw, 'y': ry+rh*f, 'vx': _rand.uniform(10,25), 'vy': _rand.uniform(-10,10), 'alpha': 120.0, 'life': _rand.uniform(0.3,0.55), 'color': (200,220,255)})
 
     def _draw_hover_border(self, rect_x: int, rect_y: int, rect_w: int, rect_h: int,
                            color: Tuple[int, int, int] = (200, 220, 255)):
@@ -3682,10 +3682,10 @@ class ColosseumsArena:
 
         # 파티클
         for p in self.hover_line_particles:
-            if p['alpha'] > 5:
-                ps = pygame.Surface((4, 4), pygame.SRCALPHA)
-                pygame.draw.circle(ps, (*p['color'], int(p['alpha'])), (2, 2), 2)
-                self.screen.blit(ps, (int(p['x']) - 2, int(p['y']) - 2))
+            if p['alpha'] > 3:
+                ps = pygame.Surface((3, 3), pygame.SRCALPHA)
+                pygame.draw.circle(ps, (*p['color'], int(p['alpha'])), (1, 1), 1)
+                self.screen.blit(ps, (int(p['x']) - 1, int(p['y']) - 1))
 
     def draw(self):
         """메인 그리기"""

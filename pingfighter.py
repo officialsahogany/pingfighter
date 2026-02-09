@@ -17568,7 +17568,7 @@ def update_btn_hover_effects(dt=1/60):
     _btn_hover_glow_timer += dt
     for p in _btn_hover_particles:
         p['life'] -= dt; p['x'] += p['vx'] * dt; p['y'] += p['vy'] * dt
-        p['alpha'] = max(0, p['alpha'] - 400 * dt)
+        p['alpha'] = max(0, p['alpha'] - 200 * dt)
     _btn_hover_particles = [p for p in _btn_hover_particles if p['life'] > 0]
 
 def spawn_hover_particles(rx, ry, rw, rh):
@@ -17576,12 +17576,12 @@ def spawn_hover_particles(rx, ry, rw, rh):
     import random as _r
     for t in range(8):
         f = t / 7
-        _btn_hover_particles.append({'x': rx+rw*f, 'y': ry, 'vx': _r.uniform(-15,15), 'vy': _r.uniform(-40,-15), 'alpha': 255.0, 'life': _r.uniform(0.25,0.5), 'color': (200,220,255)})
-        _btn_hover_particles.append({'x': rx+rw*f, 'y': ry+rh, 'vx': _r.uniform(-15,15), 'vy': _r.uniform(15,40), 'alpha': 255.0, 'life': _r.uniform(0.25,0.5), 'color': (200,220,255)})
+        _btn_hover_particles.append({'x': rx+rw*f, 'y': ry, 'vx': _r.uniform(-10,10), 'vy': _r.uniform(-25,-10), 'alpha': 120.0, 'life': _r.uniform(0.3,0.55), 'color': (200,220,255)})
+        _btn_hover_particles.append({'x': rx+rw*f, 'y': ry+rh, 'vx': _r.uniform(-10,10), 'vy': _r.uniform(10,25), 'alpha': 120.0, 'life': _r.uniform(0.3,0.55), 'color': (200,220,255)})
     for t in range(6):
         f = t / 5
-        _btn_hover_particles.append({'x': rx, 'y': ry+rh*f, 'vx': _r.uniform(-40,-15), 'vy': _r.uniform(-15,15), 'alpha': 255.0, 'life': _r.uniform(0.25,0.5), 'color': (200,220,255)})
-        _btn_hover_particles.append({'x': rx+rw, 'y': ry+rh*f, 'vx': _r.uniform(15,40), 'vy': _r.uniform(-15,15), 'alpha': 255.0, 'life': _r.uniform(0.25,0.5), 'color': (200,220,255)})
+        _btn_hover_particles.append({'x': rx, 'y': ry+rh*f, 'vx': _r.uniform(-25,-10), 'vy': _r.uniform(-10,10), 'alpha': 120.0, 'life': _r.uniform(0.3,0.55), 'color': (200,220,255)})
+        _btn_hover_particles.append({'x': rx+rw, 'y': ry+rh*f, 'vx': _r.uniform(10,25), 'vy': _r.uniform(-10,10), 'alpha': 120.0, 'life': _r.uniform(0.3,0.55), 'color': (200,220,255)})
 
 def draw_btn_hover_border(scr, rx, ry, rw, rh, color=(200,220,255)):
     t = _btn_hover_glow_timer
@@ -17601,10 +17601,10 @@ def draw_btn_hover_border(scr, rx, ry, rw, rh, color=(200,220,255)):
         pygame.draw.line(lsf, (*color, la), c, ve, 2)
     scr.blit(lsf, (rx-10, ry-10))
     for p in _btn_hover_particles:
-        if p['alpha'] > 5:
-            ps = pygame.Surface((4,4), pygame.SRCALPHA)
-            pygame.draw.circle(ps, (*p['color'], int(p['alpha'])), (2,2), 2)
-            scr.blit(ps, (int(p['x'])-2, int(p['y'])-2))
+        if p['alpha'] > 3:
+            ps = pygame.Surface((3,3), pygame.SRCALPHA)
+            pygame.draw.circle(ps, (*p['color'], int(p['alpha'])), (1,1), 1)
+            scr.blit(ps, (int(p['x'])-1, int(p['y'])-1))
 
 def check_btn_hover(hover_id, rect, mouse_pos):
     global _btn_hover_prev_id

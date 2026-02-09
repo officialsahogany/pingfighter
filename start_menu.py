@@ -92,19 +92,19 @@ def _menu_update_hover(dt: float = 1/60):
     _menu_hover_glow_timer += dt
     for p in _menu_hover_particles:
         p["life"] -= dt; p["x"] += p["vx"] * dt; p["y"] += p["vy"] * dt
-        p["alpha"] = max(0, p["alpha"] - 400 * dt)
+        p["alpha"] = max(0, p["alpha"] - 200 * dt)
     _menu_hover_particles = [p for p in _menu_hover_particles if p["life"] > 0]
 
 def _menu_spawn_particles(rx, ry, rw, rh):
     import random as _r
     for t in range(8):
         f = t / 7
-        _menu_hover_particles.append({"x": rx+rw*f, "y": ry, "vx": _r.uniform(-15,15), "vy": _r.uniform(-40,-15), "alpha": 255.0, "life": _r.uniform(0.25,0.5), "color": (0,255,255)})
-        _menu_hover_particles.append({"x": rx+rw*f, "y": ry+rh, "vx": _r.uniform(-15,15), "vy": _r.uniform(15,40), "alpha": 255.0, "life": _r.uniform(0.25,0.5), "color": (0,255,255)})
+        _menu_hover_particles.append({"x": rx+rw*f, "y": ry, "vx": _r.uniform(-10,10), "vy": _r.uniform(-25,-10), "alpha": 120.0, "life": _r.uniform(0.3,0.55), "color": (0,255,255)})
+        _menu_hover_particles.append({"x": rx+rw*f, "y": ry+rh, "vx": _r.uniform(-10,10), "vy": _r.uniform(10,25), "alpha": 120.0, "life": _r.uniform(0.3,0.55), "color": (0,255,255)})
     for t in range(6):
         f = t / 5
-        _menu_hover_particles.append({"x": rx, "y": ry+rh*f, "vx": _r.uniform(-40,-15), "vy": _r.uniform(-15,15), "alpha": 255.0, "life": _r.uniform(0.25,0.5), "color": (0,255,255)})
-        _menu_hover_particles.append({"x": rx+rw, "y": ry+rh*f, "vx": _r.uniform(15,40), "vy": _r.uniform(-15,15), "alpha": 255.0, "life": _r.uniform(0.25,0.5), "color": (0,255,255)})
+        _menu_hover_particles.append({"x": rx, "y": ry+rh*f, "vx": _r.uniform(-25,-10), "vy": _r.uniform(-10,10), "alpha": 120.0, "life": _r.uniform(0.3,0.55), "color": (0,255,255)})
+        _menu_hover_particles.append({"x": rx+rw, "y": ry+rh*f, "vx": _r.uniform(10,25), "vy": _r.uniform(-10,10), "alpha": 120.0, "life": _r.uniform(0.3,0.55), "color": (0,255,255)})
 
 def _menu_check_hover(hover_id: str, rect: pygame.Rect, mpos, play_sound_fn=None) -> bool:
     global _menu_hover_prev_id
@@ -134,10 +134,10 @@ def _menu_draw_hover_border(scr, rx, ry, rw, rh, color=(0, 255, 255)):
         pygame.draw.line(lsf, (*color, la), c, ve, 2)
     scr.blit(lsf, (rx-10, ry-10))
     for p in _menu_hover_particles:
-        if p["alpha"] > 5:
-            ps = pygame.Surface((4,4), pygame.SRCALPHA)
-            pygame.draw.circle(ps, (*p["color"], int(p["alpha"])), (2,2), 2)
-            scr.blit(ps, (int(p["x"])-2, int(p["y"])-2))
+        if p["alpha"] > 3:
+            ps = pygame.Surface((3,3), pygame.SRCALPHA)
+            pygame.draw.circle(ps, (*p["color"], int(p["alpha"])), (1,1), 1)
+            scr.blit(ps, (int(p["x"])-1, int(p["y"])-1))
 
 def _menu_reset_hover():
     global _menu_hover_prev_id, _menu_hover_particles
