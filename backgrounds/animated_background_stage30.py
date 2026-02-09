@@ -395,6 +395,7 @@ class AnimatedBackgroundStage30:
         self.judgment_bolt_intensity = 0.0
         # 번개의 분노 상태 초기화
         self.judgment_variant = random.choice(['earthquake', 'lightning'])
+        print(f"[신의심판] 변형 선택: {self.judgment_variant}")
         self.judgment_bolt_hidden = False
         self.judgment_bolt_thrown = False
         self.judgment_bolt_proj_trail = []
@@ -533,6 +534,7 @@ class AnimatedBackgroundStage30:
                     self.judgment_phase = self.JUDGMENT_BOLT_THROW
                     self.judgment_timer = 0.0
                     self.judgment_bolt_intensity = 1.0
+                    print(f"[신의심판] ARM_RAISE → BOLT_THROW 전환")
                     # 오른손 위치 계산 (투사체 시작점)
                     s = self.judgment_scale
                     r_sh_x = cx + int(10 * s)
@@ -686,6 +688,7 @@ class AnimatedBackgroundStage30:
                 self.judgment_timer = 0.0
                 self.judgment_bolt_intensity = 0.0
                 self.judgment_bolt_sparks.clear()
+                print(f"[신의심판] BOLT_THROW → BOLT_FLIGHT 전환 (시작:{self.judgment_bolt_proj_start_x:.0f},{self.judgment_bolt_proj_start_y:.0f} → 목표:{self.judgment_bolt_proj_target_x:.0f},{self.judgment_bolt_proj_target_y:.0f})")
 
         elif self.judgment_phase == self.JUDGMENT_BOLT_FLIGHT:
             # 0.8초: 번개 투사체 비행
@@ -714,7 +717,7 @@ class AnimatedBackgroundStage30:
                     'life': random.uniform(0.15, 0.4),
                     'color': random.choice([
                         (255, 240, 140), (255, 220, 80),
-                        (200, 200, 255), (180, 180, 255),
+                        (230, 200, 110), (212, 175, 85),
                     ]),
                 })
             for p in self.judgment_bolt_proj_trail:
@@ -738,6 +741,7 @@ class AnimatedBackgroundStage30:
                 self.judgment_bolt_proj_trail.clear()
                 self.judgment_lightning_active = True
                 self.judgment_shake_intensity = 0.5
+                print(f"[신의심판] BOLT_FLIGHT → BOLT_EXPLOSION 전환 (폭발 위치:{self.judgment_explosion_x:.0f},{self.judgment_explosion_y:.0f})")
 
         elif self.judgment_phase == self.JUDGMENT_BOLT_EXPLOSION:
             # 1.5초: 감전 폭발 (반경 0→300px 확장)
@@ -767,8 +771,8 @@ class AnimatedBackgroundStage30:
                         'size': random.uniform(1, 3),
                         'life': random.uniform(0.2, 0.5),
                         'color': random.choice([
-                            (180, 180, 255), (200, 200, 255), (255, 255, 255),
-                            (255, 240, 140), (160, 160, 255),
+                            (255, 240, 140), (255, 220, 80), (255, 255, 200),
+                            (230, 200, 110), (212, 175, 85),
                         ]),
                     })
             for sp in self.judgment_explosion_sparks:
@@ -788,6 +792,7 @@ class AnimatedBackgroundStage30:
                 self.judgment_slam_progress = 0.0
                 self.judgment_left_arm_progress = 0.0
                 self.judgment_right_arm_progress = 0.0
+                print(f"[신의심판] BOLT_EXPLOSION → RETURN 전환")
 
         elif self.judgment_phase == self.JUDGMENT_RETURN:
             # 3초간 땅속으로 다시 들어감 (무게감 있게)
@@ -1197,37 +1202,60 @@ class AnimatedBackgroundStage30:
                 pygame.draw.circle(screen, (180, 165, 140), (dx, dy), sz)
 
         # ── 번개 투사체 (BOLT_THROW / BOLT_FLIGHT 페이즈) ──
+        # 동상 손의 번개와 동일한 금색 지그재그 스타일
         if self.judgment_phase in (self.JUDGMENT_BOLT_THROW, self.JUDGMENT_BOLT_FLIGHT) and self.judgment_bolt_thrown:
             bx = int(self.judgment_bolt_proj_x) + offset_x
             by = int(self.judgment_bolt_proj_y) + offset_y
             ang = math.radians(self.judgment_bolt_proj_angle)
-            # 글로우 (반투명 파란 원)
-            glow_r = 16
-            glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (120, 120, 255, 50), (glow_r, glow_r), glow_r)
-            pygame.draw.circle(glow_surf, (180, 180, 255, 80), (glow_r, glow_r), glow_r // 2)
-            screen.blit(glow_surf, (bx - glow_r, by - glow_r), special_flags=pygame.BLEND_ADD)
-            # 회전 지그재그 번개 (투사체)
+            ps = self.judgment_scale  # 동상 스케일 (4x)
+            bolt_len = int(18 * ps)   # 동상 번개와 동일한 길이
             cos_a, sin_a = math.cos(ang), math.sin(ang)
-            bolt_len = 18
-            zigzag_pts = [
-                (0, -bolt_len * 0.5),
-                (-3, -bolt_len * 0.25), (2, -bolt_len * 0.05),
-                (-2, bolt_len * 0.15), (1, bolt_len * 0.35), (-1, bolt_len * 0.5),
+            # 수직 방향
+            perp_cos, perp_sin = -sin_a, cos_a
+            # 동상 번개와 동일한 지그재그 패턴
+            zigzag = [
+                (0, 0),
+                (-3, 0.25), (2, 0.4), (-2, 0.6), (1, 0.78), (-1, 1.0),
             ]
-            rotated = []
-            for zx, zy in zigzag_pts:
-                rx = bx + int(zx * cos_a - zy * sin_a)
-                ry = by + int(zx * sin_a + zy * cos_a)
-                rotated.append((rx, ry))
-            # 외곽 글로우 라인 (파란)
-            if len(rotated) >= 2:
-                pygame.draw.lines(screen, (100, 100, 255), False, rotated, 3)
-                pygame.draw.lines(screen, (200, 200, 255), False, rotated, 1)
-            # 중심 밝은 코어
-            pygame.draw.circle(screen, (255, 255, 255), (bx, by), 3)
-            pygame.draw.circle(screen, (200, 220, 255), (bx, by), 5, 1)
-            # 트레일 파티클
+            bolt_segs = []
+            for zx, zt in zigzag:
+                rx = bx + int(zx * ps * perp_cos) + int(bolt_len * zt * cos_a)
+                ry = by + int(zx * ps * perp_sin) + int(bolt_len * zt * sin_a)
+                bolt_segs.append((rx, ry))
+            # 글로우 (금색 반투명)
+            glow_r = int(12 * ps)
+            glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (180, 150, 60, 40), (glow_r, glow_r), glow_r)
+            pygame.draw.circle(glow_surf, (212, 175, 85, 70), (glow_r, glow_r), glow_r // 2)
+            screen.blit(glow_surf, (bx - glow_r, by - glow_r), special_flags=pygame.BLEND_ADD)
+            # 외곽 글로우 (동상 번개와 동일한 금색 두께)
+            glow_w = max(1, int(3 * ps))
+            for i in range(len(bolt_segs) - 1):
+                pygame.draw.line(screen, (180, 150, 60), bolt_segs[i], bolt_segs[i + 1], glow_w)
+            # 핵심 번개 코어 (금색)
+            core_w = max(1, int(1.5 * ps))
+            for i in range(len(bolt_segs) - 1):
+                pygame.draw.line(screen, (230, 200, 110), bolt_segs[i], bolt_segs[i + 1], core_w)
+            # 중심 백색 라인
+            for i in range(len(bolt_segs) - 1):
+                pygame.draw.line(screen, (255, 245, 200), bolt_segs[i], bolt_segs[i + 1], max(1, int(ps * 0.5)))
+            # 미니 전기 아크 (비행 중 갈라지는 전류)
+            for _ in range(2):
+                seg_idx = random.randint(0, len(bolt_segs) - 1)
+                ax, ay = bolt_segs[seg_idx]
+                arc_a = random.uniform(0, math.pi * 2)
+                arc_len = random.uniform(4, 10) * ps
+                arc_pts = [(ax, ay)]
+                for step in range(2):
+                    arc_a += random.uniform(-0.8, 0.8)
+                    sl = arc_len * (0.5 + step * 0.3)
+                    nx = arc_pts[-1][0] + int(math.cos(arc_a) * sl)
+                    ny = arc_pts[-1][1] + int(math.sin(arc_a) * sl)
+                    arc_pts.append((nx, ny))
+                arc_col = (255, int(220 + random.random() * 35), int(80 + random.random() * 80))
+                for ai in range(len(arc_pts) - 1):
+                    pygame.draw.line(screen, arc_col, arc_pts[ai], arc_pts[ai + 1], 1)
+            # 트레일 파티클 (금색)
             for tp in self.judgment_bolt_proj_trail:
                 tx, ty = int(tp['x']) + offset_x, int(tp['y']) + offset_y
                 ts = max(1, int(tp['size'] * min(1.0, tp['life'] * 4)))
@@ -1239,17 +1267,17 @@ class AnimatedBackgroundStage30:
             ey = int(self.judgment_explosion_y) + offset_y
             r = max(1, int(self.judgment_explosion_radius))
             ring_a = self.judgment_explosion_ring_alpha
-            # 확장 전기 링
+            # 확장 전기 링 (금색 외곽 + 백색 내곽)
             if ring_a > 10 and r > 3:
                 ring_surf = pygame.Surface((r * 2 + 4, r * 2 + 4), pygame.SRCALPHA)
                 ring_cx, ring_cy = r + 2, r + 2
                 a1 = min(255, ring_a)
                 a2 = min(180, int(ring_a * 0.6))
-                pygame.draw.circle(ring_surf, (120, 120, 255, a2), (ring_cx, ring_cy), r, max(1, r // 8))
-                pygame.draw.circle(ring_surf, (200, 200, 255, a1), (ring_cx, ring_cy), max(1, r - 2), max(1, r // 12))
+                pygame.draw.circle(ring_surf, (212, 175, 85, a2), (ring_cx, ring_cy), r, max(1, r // 8))
+                pygame.draw.circle(ring_surf, (255, 240, 180, a1), (ring_cx, ring_cy), max(1, r - 2), max(1, r // 12))
                 screen.blit(ring_surf, (ex - r - 2, ey - r - 2))
-            # 방사형 전기 아크 (폭발 중심에서 바깥으로)
-            arc_count = min(8, int(self.judgment_explosion_radius / 30))
+            # 방사형 전기 아크 (금색 + 백색 번개)
+            arc_count = min(10, int(self.judgment_explosion_radius / 25))
             for i in range(arc_count):
                 a_ang = (math.pi * 2 / max(1, arc_count)) * i + self.judgment_timer * 3
                 arc_len = r * random.uniform(0.5, 1.0)
@@ -1257,25 +1285,36 @@ class AnimatedBackgroundStage30:
                 segs = random.randint(3, 5)
                 for j in range(1, segs + 1):
                     frac = j / segs
-                    px = ex + int(math.cos(a_ang) * arc_len * frac + random.uniform(-6, 6))
-                    py = ey + int(math.sin(a_ang) * arc_len * frac + random.uniform(-6, 6))
+                    px = ex + int(math.cos(a_ang) * arc_len * frac + random.uniform(-8, 8))
+                    py = ey + int(math.sin(a_ang) * arc_len * frac + random.uniform(-8, 8))
                     pts.append((px, py))
                 if len(pts) >= 2:
                     arc_alpha = min(255, int(ring_a * 0.8))
                     if arc_alpha > 20:
-                        pygame.draw.lines(screen, (180, 180, 255), False, pts, 1)
+                        arc_col = random.choice([(255, 220, 80), (230, 200, 110), (255, 245, 200)])
+                        pygame.draw.lines(screen, arc_col, False, pts, max(1, int(self.judgment_scale * 0.5)))
             # 스파크 파티클
             for sp in self.judgment_explosion_sparks:
                 sx, sy = int(sp['x']) + offset_x, int(sp['y']) + offset_y
                 ss = max(1, int(sp['size'] * min(1.0, sp['life'] * 4)))
                 pygame.draw.circle(screen, sp['color'], (sx, sy), ss)
-            # 임팩트 플래시
+            # 착탄 지점 번개볼트 잔상 (초반에만)
+            if self.judgment_timer < 0.5:
+                bolt_fade = max(0, 1.0 - self.judgment_timer / 0.5)
+                bolt_h = int(40 * self.judgment_scale * bolt_fade)
+                if bolt_h > 3:
+                    for zx, zt in [(-3,0.2),(2,0.4),(-2,0.6),(1,0.8),(-1,1.0)]:
+                        px = ex + int(zx * self.judgment_scale * bolt_fade)
+                        py = ey - int(bolt_h * zt)
+                        pygame.draw.circle(screen, (255, 240, 140, int(200 * bolt_fade)),
+                                           (px, py), max(1, int(2 * bolt_fade)))
+            # 임팩트 플래시 (금색)
             if self.judgment_explosion_flash_alpha > 10:
                 fa = min(200, self.judgment_explosion_flash_alpha)
                 flash_size = max(10, int(r * 0.6))
                 fl_surf = pygame.Surface((flash_size * 2, flash_size * 2), pygame.SRCALPHA)
-                pygame.draw.circle(fl_surf, (200, 200, 255, fa), (flash_size, flash_size), flash_size)
-                pygame.draw.circle(fl_surf, (255, 255, 255, min(255, fa + 30)), (flash_size, flash_size), flash_size // 3)
+                pygame.draw.circle(fl_surf, (212, 175, 85, fa), (flash_size, flash_size), flash_size)
+                pygame.draw.circle(fl_surf, (255, 245, 200, min(255, fa + 30)), (flash_size, flash_size), flash_size // 3)
                 screen.blit(fl_surf, (ex - flash_size, ey - flash_size), special_flags=pygame.BLEND_ADD)
 
         # ── 충격 플래시 (단순 전체 플래시) ──

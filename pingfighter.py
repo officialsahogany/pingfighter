@@ -52719,18 +52719,21 @@ def handle_gods_judgment():
             ex, ey = explosion_info['x'], explosion_info['y']
             stun_radius = explosion_info['max_radius']
             show_fade_text("신의 심판: 번개의 분노")
+            print(f"[신의심판] 번개 폭발 스턴 판정! 폭발위치:({ex:.0f},{ey:.0f}) 반경:{stun_radius:.0f}")
             # 상단 영웅 (보스) 거리 판정
             top_dist = math.hypot(BOSS.centerx - ex, BOSS.centery - ey)
             if top_dist <= stun_radius:
                 if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
                     arena_skill_manager.game_state['top_paddle_stunned'] = True
                 _judgment_lightning_stun_top_timer = 2.0
+                print(f"[신의심판] 상단 영웅 감전 스턴! 거리:{top_dist:.0f}")
             # 하단 영웅 (플레이어) 거리 판정
             bot_dist = math.hypot(PLAYER.centerx - ex, PLAYER.centery - ey)
             if bot_dist <= stun_radius:
                 if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
                     arena_skill_manager.game_state['bottom_paddle_stunned'] = True
                 _judgment_lightning_stun_bottom_timer = 2.0
+                print(f"[신의심판] 하단 영웅 감전 스턴! 거리:{bot_dist:.0f}")
         # 스턴 타이머 카운트다운 (매 프레임)
         dt = 1.0 / 60.0
         if _judgment_lightning_stun_top_timer > 0:
