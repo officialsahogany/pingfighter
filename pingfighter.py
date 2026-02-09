@@ -18423,6 +18423,7 @@ arena_perk_skill_cd_mult_top = 1.0   # 상단 영웅 스킬쿨 배율
 arena_perk_skill_cd_mult_bottom = 1.0
 arena_perk_guard_cd_mult_top = 1.0   # 상단 호위무사쿨 배율
 arena_perk_guard_cd_mult_bottom = 1.0
+arena_active_hero_perks = []         # TAB 표시용: 플레이어(하단) 영웅 보유 퍽 목록
 
 def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     """배틀 시작 시 hero_perks에서 멀티플라이어 계산 후 전역 변수에 반영"""
@@ -18430,6 +18431,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     global arena_perk_dash_cd_mult_top, arena_perk_dash_cd_mult_bottom
     global arena_perk_skill_cd_mult_top, arena_perk_skill_cd_mult_bottom
     global arena_perk_guard_cd_mult_top, arena_perk_guard_cd_mult_bottom
+    global arena_active_hero_perks
 
     # 초기화
     arena_perk_speed_mult_top = 1.0
@@ -18468,6 +18470,12 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
         arena_guard_system.guard_cd_mult_top = arena_perk_guard_cd_mult_top
         arena_guard_system.guard_cd_mult_bottom = arena_perk_guard_cd_mult_bottom
 
+    # TAB 표시용: 하단(플레이어) 영웅 퍽 데이터 저장
+    if arena_obj and hasattr(arena_obj, 'hero_perks'):
+        arena_active_hero_perks = list(arena_obj.hero_perks.get(bottom_hero_id, []))
+    else:
+        arena_active_hero_perks = []
+
     print(f"[ArenaPerk] 상단({top_hero_id}): 이속x{arena_perk_speed_mult_top:.2f} "
           f"대쉬쿨x{arena_perk_dash_cd_mult_top:.2f} 스킬쿨x{arena_perk_skill_cd_mult_top:.2f} "
           f"호위쿨x{arena_perk_guard_cd_mult_top:.2f}")
@@ -18481,6 +18489,7 @@ def reset_arena_perks():
     global arena_perk_dash_cd_mult_top, arena_perk_dash_cd_mult_bottom
     global arena_perk_skill_cd_mult_top, arena_perk_skill_cd_mult_bottom
     global arena_perk_guard_cd_mult_top, arena_perk_guard_cd_mult_bottom
+    global arena_active_hero_perks
     arena_perk_speed_mult_top = 1.0
     arena_perk_speed_mult_bottom = 1.0
     arena_perk_dash_cd_mult_top = 1.0
@@ -18489,6 +18498,7 @@ def reset_arena_perks():
     arena_perk_skill_cd_mult_bottom = 1.0
     arena_perk_guard_cd_mult_top = 1.0
     arena_perk_guard_cd_mult_bottom = 1.0
+    arena_active_hero_perks = []
 
 # 투기장 영웅 말풍선 시스템
 arena_top_speech_text = ""           # 상단 영웅 말풍선 텍스트
@@ -136936,6 +136946,29 @@ def show_character_info(background_surface=None):
             SCREEN.blit(label_surface, (stats_area.x + 14, line_y))
             SCREEN.blit(value_surface, (stats_area.right - value_surface.get_width() - 14, line_y))
             line_y += line_gap
+
+        # 투기장 퍽 표시 (stage 30 = 투기장 배틀)
+        if current_stage == 30 and arena_active_hero_perks:
+            line_y += 4
+            # 구분선
+            pygame.draw.line(SCREEN, (80, 90, 120),
+                             (stats_area.x + 10, line_y),
+                             (stats_area.right - 10, line_y), 1)
+            line_y += 6
+            perk_title_s = stats_font.render("투기장 퍽", True, (255, 220, 100))
+            SCREEN.blit(perk_title_s, (stats_area.x + 14, line_y))
+            line_y += line_gap
+            for perk_data in arena_active_hero_perks:
+                if line_y + line_gap > stats_area.bottom - 4:
+                    break  # 영역 초과 방지
+                p_color = perk_data.get('icon_color', (200, 200, 200))
+                p_name = perk_data.get('name', '?')
+                p_desc = perk_data.get('description', '')
+                name_s = stats_font.render(p_name, True, p_color)
+                desc_s = stats_tiny_font.render(p_desc, True, (170, 180, 210))
+                SCREEN.blit(name_s, (stats_area.x + 14, line_y))
+                SCREEN.blit(desc_s, (stats_area.x + 14 + name_s.get_width() + 6, line_y + 2))
+                line_y += line_gap
 
         # 인벤토리 영역 (상단 액티브 1줄 + 패시브 2줄 스크롤)
         active_hover, active_rects = draw_active_row(

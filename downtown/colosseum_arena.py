@@ -2261,6 +2261,9 @@ class ColosseumsArena:
         self.perk_anim_timer = 0.0               # 퍽 선택 애니메이션 타이머
         self.perk_anim_phase = "appearing"       # "appearing" / "active" / "selected"
         self.perk_selected_id = None             # 선택 확정된 퍽 ID
+        self.perk_card_offsets = [0, 0, 0, 0]    # 슬라이드-인 오프셋
+        self.perk_particles = []                  # 파티클 효과
+        self.perk_frame_count = 0                 # 애니메이션 프레임 카운터
 
         # 시각 효과 (배경/필러)
         self.arena_background = None
@@ -3247,11 +3250,23 @@ class ColosseumsArena:
 
         elif self.state == TournamentState.PERK_SELECT:
             self.perk_anim_timer += dt
+            self.perk_frame_count += 1
+            # 파티클 업데이트
+            for p in self.perk_particles:
+                p['x'] += p['vx']
+                p['y'] += p['vy']
+                p['alpha'] = max(0, p['alpha'] - 0.8)
+            self.perk_particles = [p for p in self.perk_particles if p['alpha'] > 0]
             if self.perk_anim_phase == "appearing":
-                if self.perk_anim_timer >= 0.6:
+                # 슬라이드-인 이징
+                easing = 0.12
+                for k in range(4):
+                    self.perk_card_offsets[k] += (0 - self.perk_card_offsets[k]) * easing
+                if all(abs(o) < 3 for o in self.perk_card_offsets):
+                    self.perk_card_offsets = [0, 0, 0, 0]
                     self.perk_anim_phase = "active"
             elif self.perk_anim_phase == "selected":
-                if self.perk_anim_timer >= 0.8:
+                if self.perk_frame_count > 25:
                     # 퍽 선택 완료 → 대진표 애니메이션
                     self._start_bracket_animation()
 
@@ -3293,11 +3308,11 @@ class ColosseumsArena:
 
         # 퍽 선택 클릭 처리
         if self.state == TournamentState.PERK_SELECT and self.perk_anim_phase == "active":
-            card_w, card_h = 150, 200
-            card_gap = 12
+            card_w, card_h = 170, 105
+            card_gap = 10
             total_w = card_w * 4 + card_gap * 3
             start_x = (SCREEN_WIDTH - total_w) // 2
-            card_y = 140
+            card_y = SCREEN_HEIGHT // 2 - card_h // 2
             for i in range(len(ARENA_PERK_POOL)):
                 x = start_x + i * (card_w + card_gap)
                 if x <= mx <= x + card_w and card_y <= my <= card_y + card_h:
@@ -4675,6 +4690,22 @@ class ColosseumsArena:
         self.perk_anim_timer = 0.0
         self.perk_anim_phase = "appearing"
         self.perk_selected_id = None
+        self.perk_frame_count = 0
+        # 슬라이드-인 오프셋: 카드0=왼쪽에서, 카드1,2=아래에서, 카드3=오른쪽에서
+        self.perk_card_offsets = [-400.0, 500.0, 500.0, 400.0]
+        # 초기 파티클 (40개)
+        self.perk_particles = []
+        for _ in range(40):
+            self.perk_particles.append({
+                'x': random.uniform(0, SCREEN_WIDTH),
+                'y': random.uniform(0, SCREEN_HEIGHT),
+                'vx': random.uniform(-1.5, 1.5),
+                'vy': random.uniform(-3, -0.5),
+                'size': random.uniform(2, 6),
+                'alpha': random.randint(100, 220),
+                'color': random.choice([(100, 200, 255), (255, 220, 100),
+                                        (150, 255, 150), (255, 150, 200)])
+            })
         self.state = TournamentState.PERK_SELECT
         print(f"[Perk] 퍽 선택 시작 (라운드: {self.current_round.value})")
 
@@ -4694,9 +4725,29 @@ class ColosseumsArena:
             print(f"[Perk] {self.bet_hero['name']}에게 '{selected_perk['name']}' 퍽 부여! "
                   f"(총 {len(self.hero_perks[hero_id])}개)")
 
+        # 파티클 폭발 (선택 카드 중심에서)
+        card_w, card_h = 170, 105
+        card_gap = 10
+        total_w = card_w * 4 + card_gap * 3
+        sx = (SCREEN_WIDTH - total_w) // 2
+        vy = SCREEN_HEIGHT // 2 - card_h // 2
+        card_cx = sx + self.perk_selected_index * (card_w + card_gap) + card_w // 2
+        card_cy = vy + card_h // 2
+        for _ in range(60):
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(4, 12)
+            self.perk_particles.append({
+                'x': card_cx, 'y': card_cy,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed,
+                'size': random.uniform(3, 8),
+                'alpha': 255,
+                'color': selected_perk["icon_color"]
+            })
+
         # 선택 애니메이션 시작
         self.perk_anim_phase = "selected"
-        self.perk_anim_timer = 0.0
+        self.perk_frame_count = 0
 
     def _assign_ai_perks(self, hero: Dict, count: int):
         """AI 영웅에게 랜덤 퍽 부여"""
@@ -4846,145 +4897,165 @@ class ColosseumsArena:
         surface.blit(result, (cx - size // 2, cy - size // 2))
 
     def _draw_perk_select(self):
-        """퍽 선택 화면 그리기"""
-        self.screen.fill((20, 22, 30))
+        """퍽 선택 화면 그리기 (스테이지 인게임 퍽 UI 스타일)"""
+        # 배경 (어두운 배경)
+        self.screen.fill((15, 18, 28))
 
-        # 타이틀
-        if self.fonts and "large" in self.fonts:
-            title = "퍽 선택"
-            pulse = 0.8 + 0.2 * abs(math.sin(self.perk_anim_timer * 3))
-            gold = (int(255 * pulse), int(215 * pulse), 0)
-            surf, _ = self.fonts["large"].render(title, gold)
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 40))
+        # 반투명 오버레이 (점진적 어두워짐)
+        overlay_alpha = min(160, self.perk_frame_count * 6)
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 20, overlay_alpha))
+        self.screen.blit(overlay, (0, 0))
 
-        # 부제 (현재 보유 퍽 수)
-        if self.fonts and "small" in self.fonts:
-            owned_count = len(self.hero_perks.get(self.bet_hero["id"], [])) if self.bet_hero else 0
-            round_name = self.current_round.value
-            subtitle = f"{round_name} 승리! 퍽을 선택하세요 (보유: {owned_count}개)"
-            surf, _ = self.fonts["small"].render(subtitle, (200, 200, 220))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 80))
+        # 파티클 렌더링
+        for p in self.perk_particles:
+            if p['alpha'] > 0:
+                ps = int(p['size'] * 2)
+                if ps < 2:
+                    ps = 2
+                particle_surf = pygame.Surface((ps, ps), pygame.SRCALPHA)
+                pygame.draw.circle(particle_surf, (*p['color'], int(p['alpha'])),
+                                   (ps // 2, ps // 2), max(1, ps // 2))
+                self.screen.blit(particle_surf,
+                                 (int(p['x'] - p['size']), int(p['y'] - p['size'])))
 
-        # 4개 카드 그리기
-        card_w, card_h = 150, 200
-        card_gap = 12
+        # 카드 설정 (스테이지 스타일: 가로형, 4장)
+        card_w, card_h = 170, 105
+        icon_size = 52
+        card_gap = 10
         total_w = card_w * 4 + card_gap * 3
         start_x = (SCREEN_WIDTH - total_w) // 2
-        card_y = 140
+        vertical_y = SCREEN_HEIGHT // 2 - card_h // 2
 
+        # 타이틀 (골드, 스테이지 스타일)
+        if self.fonts and "large" in self.fonts:
+            title_alpha = min(255, self.perk_frame_count * 10)
+            title_y_offset = max(0, 40 - self.perk_frame_count * 2)
+            title = "강화를 선택하세요"
+            title_surf, _ = self.fonts["large"].render(title, (255, 220, 100))
+            title_surf.set_alpha(title_alpha)
+            tx = SCREEN_WIDTH // 2 - title_surf.get_width() // 2
+            ty = vertical_y - 70 - title_y_offset
+            self.screen.blit(title_surf, (tx, ty))
+
+        # 4개의 카드 렌더링 (스테이지 스타일: 아이콘 왼쪽 + 텍스트 오른쪽)
         for i, perk in enumerate(ARENA_PERK_POOL):
-            # 등장 애니메이션
-            if self.perk_anim_phase == "appearing":
-                progress = min(1.0, self.perk_anim_timer / 0.6)
-                # 각 카드가 순서대로 나타남
-                card_progress = max(0.0, min(1.0, (progress - i * 0.1) / 0.4))
-                ease = 1.0 - (1.0 - card_progress) ** 3  # ease-out cubic
-                card_alpha = int(255 * ease)
-                y_offset = int(30 * (1.0 - ease))
-            elif self.perk_anim_phase == "selected":
-                if i == self.perk_selected_index:
-                    # 선택된 카드: 위로 올라가면서 밝아짐
-                    progress = min(1.0, self.perk_anim_timer / 0.8)
-                    card_alpha = 255
-                    y_offset = int(-20 * progress)
-                else:
-                    # 비선택 카드: 페이드 아웃
-                    progress = min(1.0, self.perk_anim_timer / 0.5)
-                    card_alpha = int(255 * (1.0 - progress))
-                    y_offset = 0
+            # 카드 위치 계산 (슬라이드-인 적용)
+            base_x = start_x + i * (card_w + card_gap)
+            base_y = vertical_y
+            if i == 0:
+                card_x = base_x + self.perk_card_offsets[0]
+                card_y_anim = base_y
+            elif i == 1:
+                card_x = base_x
+                card_y_anim = base_y + self.perk_card_offsets[1]
+            elif i == 2:
+                card_x = base_x
+                card_y_anim = base_y + self.perk_card_offsets[2]
             else:
-                card_alpha = 255
-                y_offset = 0
+                card_x = base_x + self.perk_card_offsets[3]
+                card_y_anim = base_y
+
+            is_selected = (i == self.perk_selected_index and
+                           self.perk_anim_phase in ("active", "selected"))
+
+            # 선택 완료 애니메이션
+            scale = 1.0
+            card_alpha = 255
+            if self.perk_anim_phase == "selected":
+                if i == self.perk_selected_index:
+                    scale = 1.0 + self.perk_frame_count * 0.015
+                else:
+                    card_alpha = max(0, 255 - self.perk_frame_count * 12)
 
             if card_alpha <= 0:
                 continue
 
-            x = start_x + i * (card_w + card_gap)
-            y = card_y + y_offset
+            # 카드 서피스 생성
+            scaled_w = int(card_w * scale)
+            scaled_h = int(card_h * scale)
+            card_surf = pygame.Surface((scaled_w, scaled_h), pygame.SRCALPHA)
 
-            # 카드 서피스
-            card_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
-
-            # 선택 여부에 따른 색상
-            is_selected = (i == self.perk_selected_index and self.perk_anim_phase == "active")
+            # 6단계 외곽 글로우 (선택 시, 스테이지 스타일)
             if is_selected:
-                # 선택된 카드: 밝은 테두리 + 배경
-                bg_color = (50, 55, 80, min(card_alpha, 240))
-                border_color = (*perk["icon_color"], min(card_alpha, 255))
-                border_w = 3
+                glow_intensity = int(30 + 25 * math.sin(self.perk_frame_count * 0.12))
+                glow_color = (
+                    min(255, perk["icon_color"][0] + glow_intensity),
+                    min(255, perk["icon_color"][1] + glow_intensity),
+                    min(255, perk["icon_color"][2] + glow_intensity)
+                )
+                for offset in range(6, 0, -1):
+                    glow_rect = pygame.Rect(offset, offset,
+                                            scaled_w - offset * 2, scaled_h - offset * 2)
+                    alpha = min(card_alpha, 100 - offset * 15)
+                    if alpha > 0:
+                        glow_s = pygame.Surface((scaled_w, scaled_h), pygame.SRCALPHA)
+                        pygame.draw.rect(glow_s, (*glow_color, alpha),
+                                         glow_rect, border_radius=12)
+                        card_surf.blit(glow_s, (0, 0))
+                bg_color = (40, 50, 90, min(card_alpha, 250))
+                border_color = perk["icon_color"]
+                border_width = 3
             else:
-                bg_color = (35, 38, 55, min(card_alpha, 200))
-                border_color = (80, 85, 100, min(card_alpha, 150))
-                border_w = 2
+                bg_color = (25, 30, 50, min(card_alpha, 220))
+                border_color = (60, 70, 90)
+                border_width = 2
 
-            # 배경
-            pygame.draw.rect(card_surf, bg_color, (0, 0, card_w, card_h), border_radius=12)
-            pygame.draw.rect(card_surf, border_color, (0, 0, card_w, card_h), border_w, border_radius=12)
+            # 카드 배경
+            card_rect = pygame.Rect(0, 0, scaled_w, scaled_h)
+            pygame.draw.rect(card_surf, bg_color, card_rect, border_radius=12)
+            pygame.draw.rect(card_surf, border_color, card_rect, border_width, border_radius=12)
 
-            # 선택 시 글로우
-            if is_selected:
-                glow_surf = pygame.Surface((card_w + 10, card_h + 10), pygame.SRCALPHA)
-                glow_pulse = 0.5 + 0.5 * abs(math.sin(self.perk_anim_timer * 4))
-                glow_alpha = int(40 * glow_pulse)
-                pygame.draw.rect(glow_surf, (*perk["icon_color"], glow_alpha),
-                               (0, 0, card_w + 10, card_h + 10), border_radius=14)
-                self.screen.blit(glow_surf, (x - 5, y - 5))
+            # 아이콘 (왼쪽, 스테이지 스타일)
+            icon_margin = 10
+            icon_scaled = int(icon_size * scale)
+            icon_rect = pygame.Rect(icon_margin, (scaled_h - icon_scaled) // 2,
+                                    icon_scaled, icon_scaled)
+            # 아이콘 어두운 배경
+            pygame.draw.rect(card_surf, (30, 35, 50, min(card_alpha, 230)),
+                             icon_rect, border_radius=10)
+            pygame.draw.rect(card_surf, (*perk["icon_color"], min(card_alpha, 180)),
+                             icon_rect, 2, border_radius=10)
+            # 퍽 아이콘 (SSAA)
+            icon_draw_size = icon_scaled - 8
+            if icon_draw_size > 4:
+                self._draw_perk_icon(card_surf, perk["id"],
+                                     icon_rect.x + icon_scaled // 2,
+                                     icon_rect.y + icon_scaled // 2,
+                                     icon_draw_size)
 
-            # 아이콘 배경 원
-            icon_size = 56
-            icon_cx = card_w // 2
-            icon_cy = 55
-            pygame.draw.circle(card_surf, (*perk["icon_color"], min(card_alpha, 40)),
-                             (icon_cx, icon_cy), icon_size // 2 + 4)
-            pygame.draw.circle(card_surf, (*perk["icon_color"], min(card_alpha, 100)),
-                             (icon_cx, icon_cy), icon_size // 2 + 4, 2)
-
-            # 퍽 아이콘 (슈퍼샘플링)
-            icon_temp = pygame.Surface((icon_size, icon_size), pygame.SRCALPHA)
-            self._draw_perk_icon(icon_temp, perk["id"], icon_size // 2, icon_size // 2, icon_size)
-            if card_alpha < 255:
-                icon_temp.set_alpha(card_alpha)
-            card_surf.blit(icon_temp, (icon_cx - icon_size // 2, icon_cy - icon_size // 2))
+            # 텍스트 (오른쪽, 스테이지 스타일)
+            text_x = icon_margin + icon_scaled + 12
 
             # 퍽 이름
             if self.fonts and "medium" in self.fonts:
                 name_surf, _ = self.fonts["medium"].render(perk["name"], (255, 255, 255))
                 if card_alpha < 255:
                     name_surf.set_alpha(card_alpha)
-                card_surf.blit(name_surf, (card_w // 2 - name_surf.get_width() // 2, 95))
+                name_y = int(18 * scale)
+                card_surf.blit(name_surf, (text_x, name_y))
 
-            # 퍽 설명
-            if self.fonts and "small" in self.fonts:
-                desc_surf, _ = self.fonts["small"].render(perk["description"], (*perk["icon_color"],))
-                if card_alpha < 255:
-                    desc_surf.set_alpha(card_alpha)
-                card_surf.blit(desc_surf, (card_w // 2 - desc_surf.get_width() // 2, 125))
-
-            # 선택 표시 (▼)
-            if is_selected:
-                indicator_y = card_h - 35
-                tri_size = 8
-                tri_points = [
-                    (card_w // 2, indicator_y + tri_size),
-                    (card_w // 2 - tri_size, indicator_y),
-                    (card_w // 2 + tri_size, indicator_y),
-                ]
-                pygame.draw.polygon(card_surf, (*perk["icon_color"], min(card_alpha, 220)), tri_points)
-
-                # SPACE 안내
+                # 퍽 설명 (이름 아래)
                 if self.fonts and "small" in self.fonts:
-                    guide_surf, _ = self.fonts["small"].render("SPACE", (200, 200, 220))
+                    desc_surf, _ = self.fonts["small"].render(
+                        perk["description"], (170, 180, 210))
                     if card_alpha < 255:
-                        guide_surf.set_alpha(card_alpha)
-                    card_surf.blit(guide_surf, (card_w // 2 - guide_surf.get_width() // 2, card_h - 25))
+                        desc_surf.set_alpha(card_alpha)
+                    desc_y = name_y + name_surf.get_height() + int(10 * scale)
+                    card_surf.blit(desc_surf, (text_x, desc_y))
 
-            self.screen.blit(card_surf, (x, y))
+            # 카드 그리기 (스케일 보정)
+            draw_x = card_x - (scaled_w - card_w) // 2
+            draw_y = card_y_anim - (scaled_h - card_h) // 2
+            self.screen.blit(card_surf, (int(draw_x), int(draw_y)))
 
-        # 하단 조작 안내
+        # 하단 조작 안내 (스테이지 스타일)
         if self.perk_anim_phase == "active" and self.fonts and "small" in self.fonts:
-            guide = "← → 선택  |  SPACE 확정"
-            guide_surf, _ = self.fonts["small"].render(guide, (150, 150, 170))
-            self.screen.blit(guide_surf, (SCREEN_WIDTH // 2 - guide_surf.get_width() // 2, 380))
+            hint_y = vertical_y + card_h + 55
+            hint = "← → 선택  |  SPACE 확정"
+            hint_surf, _ = self.fonts["small"].render(hint, (130, 140, 170))
+            hx = SCREEN_WIDTH // 2 - hint_surf.get_width() // 2
+            self.screen.blit(hint_surf, (hx, hint_y))
 
     def _start_bracket_animation(self):
         """대진표 진출 애니메이션 시작"""
