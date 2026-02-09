@@ -17590,7 +17590,14 @@ def spawn_hover_particles(rx, ry, rw, rh):
                 'color': (200, 220, 255),
             })
 
+_dbg_hover_log_timer = 0.0
 def draw_btn_hover_border(scr, rx, ry, rw, rh, color=(200,220,255)):
+    global _dbg_hover_log_timer
+    _dbg_hover_log_timer += 1
+    if _dbg_hover_log_timer % 120 == 1:
+        print(f"[HOVER_DBG] draw_btn_hover_border called! pos=({rx},{ry}) size=({rw},{rh}) color={color} timer={_btn_hover_glow_timer:.2f} particles={len(_btn_hover_particles)}")
+    # DEBUG: 빨간 테두리로 함수 호출 확인 (잘 보이면 함수는 호출됨)
+    pygame.draw.rect(scr, (255, 0, 0), (rx - 3, ry - 3, rw + 6, rh + 6), 3)
     t = _btn_hover_glow_timer
     pulse = 0.7 + 0.3 * math.sin(t * 2.5)
     # 글로우
@@ -17627,6 +17634,7 @@ def check_btn_hover(hover_id, rect, mouse_pos):
     if rect.collidepoint(mouse_pos):
         if _btn_hover_prev_id != hover_id:
             _btn_hover_prev_id = hover_id
+            print(f"[HOVER_DBG] check_btn_hover NEW hover: id={hover_id} rect={rect} mouse={mouse_pos}")
             play_button_hover_sound()
             spawn_hover_particles(rect.x, rect.y, rect.w, rect.h)
         return True
