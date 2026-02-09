@@ -669,79 +669,58 @@ class AnimatedBackgroundStage30:
         lw = max(1, int(s))
         thick = max(1, int(2 * s))
 
-        # ── 지면 파손 효과 (고퀄리티 균열 + 파여진 땅) ──
+        # ── 디그다 스타일 흙 마운드 (석상이 땅에서 솟아나온 느낌) ──
         ground_y = cy + int(2 * s)
-        crack_dark = (70, 55, 38)
-        crack_mid = (90, 75, 55)
-        earth_mid = (100, 85, 60)
+        sand = (155, 130, 95)
+        sand_dark = (125, 105, 75)
+        sand_light = (175, 150, 115)
+        sand_shadow = (105, 85, 60)
 
-        # 석상 주변 파여진 땅 음영 (어두운 타원)
-        if s > 1.5:
-            dw, dh = int(24 * s), int(6 * s)
-            if dw > 4 and dh > 2:
-                dig_s = pygame.Surface((dw, dh), pygame.SRCALPHA)
-                pygame.draw.ellipse(dig_s, (45, 35, 25, 35), (0, 0, dw, dh))
-                screen.blit(dig_s, (cx - dw // 2, ground_y - int(1 * s)))
+        # 1) 가장 바깥 흙 마운드 (넓은 타원 - 그림자)
+        mound_w = int(28 * s)
+        mound_h = int(7 * s)
+        if mound_w > 6 and mound_h > 2:
+            pygame.draw.ellipse(screen, sand_shadow,
+                                (cx - mound_w // 2, ground_y - mound_h // 3,
+                                 mound_w, mound_h))
 
-        # 방사형 균열 (다중 세그먼트 + 분기 + 감소 두께)
-        crack_paths = [
-            # 각 경로: [(x오프셋, y오프셋), ...] ground_y 기준
-            [(-10, 0), (-14, 3), (-19, 7), (-25, 10), (-28, 15)],
-            [(-6, 0), (-8, 4), (-12, 8), (-10, 14)],
-            [(0, 0), (2, 5), (-1, 10), (3, 16)],
-            [(7, 0), (11, 3), (16, 7), (20, 12)],
-            [(11, 0), (16, 2), (22, 6), (25, 11), (27, 16)],
-        ]
-        # 분기 균열 (메인 경로에서 갈라짐)
-        branch_data = [
-            # (메인균열idx, 세그먼트idx, 분기x, 분기y)
-            (0, 2, -22, 13), (0, 1, -17, 9),
-            (1, 1, -11, 10), (2, 2, 4, 13),
-            (3, 1, 14, 8), (4, 2, 25, 10),
-            (4, 1, 19, 7),
-        ]
-        for path in crack_paths:
-            seg_count = len(path)
-            for i in range(seg_count - 1):
-                x1 = cx + int(path[i][0] * s)
-                y1 = ground_y + int(path[i][1] * s)
-                x2 = cx + int(path[i + 1][0] * s)
-                y2 = ground_y + int(path[i + 1][1] * s)
-                # 두께: 중심 가까울수록 두꺼움
-                w = max(1, int((seg_count - i) * s * 0.35))
-                pygame.draw.line(screen, crack_dark, (x1, y1), (x2, y2), w)
-                # 균열 하이라이트 (한쪽 가장자리 밝은 선)
-                if w > 1:
-                    pygame.draw.line(screen, crack_mid,
-                                     (x1 + lw, y1 - lw), (x2 + lw, y2 - lw), 1)
-        # 분기 균열 렌더링
-        for mi, si, bx, by in branch_data:
-            if mi < len(crack_paths) and si < len(crack_paths[mi]):
-                src = crack_paths[mi][si]
-                sx = cx + int(src[0] * s)
-                sy = ground_y + int(src[1] * s)
-                ex = cx + int(bx * s)
-                ey = ground_y + int(by * s)
-                pygame.draw.line(screen, crack_mid, (sx, sy), (ex, ey), lw)
+        # 2) 중간 마운드 (메인 흙 색상)
+        mid_w = int(24 * s)
+        mid_h = int(6 * s)
+        if mid_w > 4 and mid_h > 2:
+            pygame.draw.ellipse(screen, sand_dark,
+                                (cx - mid_w // 2, ground_y - mid_h // 2,
+                                 mid_w, mid_h))
 
-        # 균열 주변 자갈/돌 파편 (다양한 크기 + 형태)
-        rubble = [
-            (-18, 4, 3, marble_shadow), (-13, 6, 2, marble_dark),
-            (-8, 2, 2.5, marble_shadow), (-5, 8, 1.5, earth_mid),
-            (4, 3, 2, marble_shadow), (9, 7, 1.8, marble_dark),
-            (14, 5, 2.5, earth_mid), (19, 3, 2, marble_shadow),
-            (23, 8, 1.5, marble_dark), (-22, 9, 1.8, earth_mid),
-            (26, 5, 2, marble_shadow), (-3, 12, 1.2, earth_mid),
+        # 3) 안쪽 마운드 (밝은 흙 - 솟아오른 부분)
+        inner_w = int(18 * s)
+        inner_h = int(5 * s)
+        if inner_w > 3 and inner_h > 2:
+            pygame.draw.ellipse(screen, sand,
+                                (cx - inner_w // 2, ground_y - inner_h // 2,
+                                 inner_w, inner_h))
+
+        # 4) 상단 하이라이트 (빛 받는 윗면)
+        hl_w = int(14 * s)
+        hl_h = int(3 * s)
+        if hl_w > 3 and hl_h > 1:
+            hl_surface = pygame.Surface((hl_w, hl_h), pygame.SRCALPHA)
+            pygame.draw.ellipse(hl_surface, (*sand_light, 140),
+                                (0, 0, hl_w, hl_h))
+            screen.blit(hl_surface, (cx - hl_w // 2, ground_y - inner_h // 2 - int(1 * s)))
+
+        # 5) 작은 흙 덩어리 (마운드 주변에 튀어나온 자갈)
+        clumps = [
+            (-14, 2, 2.0), (-10, 4, 1.5), (10, 3, 2.0),
+            (14, 2, 1.5), (-6, 3, 1.2), (7, 4, 1.3),
         ]
-        for rx, ry, rsz, rcol in rubble:
-            px = cx + int(rx * s)
-            py = ground_y + int(ry * s)
-            r = max(1, int(rsz * s * 0.4))
-            pygame.draw.circle(screen, rcol, (px, py), r)
+        for clx, cly, csz in clumps:
+            px = cx + int(clx * s)
+            py = ground_y + int(cly * s)
+            r = max(1, int(csz * s * 0.4))
+            pygame.draw.circle(screen, sand_dark, (px, py), r)
             if r > 1:
-                # 하이라이트 (돌 윗면 밝은 점)
-                pygame.draw.circle(screen, marble_mid, (px - 1, py - 1), max(1, r - 1))
-                pygame.draw.circle(screen, marble_dark, (px, py), r, 1)
+                pygame.draw.circle(screen, sand_light, (px, py - 1), max(1, r - 1))
 
         # ── 상체 메인 바디 (자연스러운 파단면 하단) ──
         torso_pts = [
