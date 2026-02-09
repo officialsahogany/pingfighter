@@ -96640,13 +96640,21 @@ def start_arena_dev():
     from downtown.colosseum_arena import ColosseumsArena
 
     screen = SCREEN
-    # freetype 폰트 딕셔너리 생성
+    # freetype 폰트 딕셔너리 생성 (downtown/manager.py와 동일한 로직)
     fonts = {}
+    font = None
+    pixel_font_path = resource_path("PFStardust.ttf")
+    fallback_font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+    if os.path.exists(pixel_font_path):
+        font = pixel_font_path
+    elif os.path.exists(fallback_font_path):
+        font = fallback_font_path
+    elif os.path.exists("C:/Windows/Fonts/malgun.ttf"):
+        font = "C:/Windows/Fonts/malgun.ttf"
     try:
-        font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
-        fonts['large'] = pygame.freetype.Font(font_path, 32)
-        fonts['medium'] = pygame.freetype.Font(font_path, 24)
-        fonts['small'] = pygame.freetype.Font(font_path, 16)
+        fonts['large'] = pygame.freetype.Font(font, 32)
+        fonts['medium'] = pygame.freetype.Font(font, 24)
+        fonts['small'] = pygame.freetype.Font(font, 16)
     except Exception:
         fonts['large'] = pygame.freetype.SysFont(None, 32)
         fonts['medium'] = pygame.freetype.SysFont(None, 24)
