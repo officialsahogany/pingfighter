@@ -17590,14 +17590,7 @@ def spawn_hover_particles(rx, ry, rw, rh):
                 'color': (200, 220, 255),
             })
 
-_dbg_hover_log_timer = 0.0
 def draw_btn_hover_border(scr, rx, ry, rw, rh, color=(200,220,255)):
-    global _dbg_hover_log_timer
-    _dbg_hover_log_timer += 1
-    if _dbg_hover_log_timer % 120 == 1:
-        print(f"[HOVER_DBG] draw_btn_hover_border called! pos=({rx},{ry}) size=({rw},{rh}) color={color} timer={_btn_hover_glow_timer:.2f} particles={len(_btn_hover_particles)}")
-    # DEBUG: 빨간 테두리로 함수 호출 확인 (잘 보이면 함수는 호출됨)
-    pygame.draw.rect(scr, (255, 0, 0), (rx - 3, ry - 3, rw + 6, rh + 6), 3)
     t = _btn_hover_glow_timer
     pulse = 0.7 + 0.3 * math.sin(t * 2.5)
     # 글로우
@@ -17634,7 +17627,6 @@ def check_btn_hover(hover_id, rect, mouse_pos):
     if rect.collidepoint(mouse_pos):
         if _btn_hover_prev_id != hover_id:
             _btn_hover_prev_id = hover_id
-            print(f"[HOVER_DBG] check_btn_hover NEW hover: id={hover_id} rect={rect} mouse={mouse_pos}")
             play_button_hover_sound()
             spawn_hover_particles(rect.x, rect.y, rect.w, rect.h)
         return True
@@ -96519,27 +96511,19 @@ def show_tutorial_dialog():
         for button_rect, text, index in buttons:
             # 선택된 버튼 강조
             if selected == index:
-                # 호버 테두리 이펙트
-                draw_btn_hover_border(SCREEN, button_rect.x, button_rect.y, button_rect.w, button_rect.h, (0, 255, 255))
-                # 글로우 효과
-                for i in range(3):
-                    glow_alpha = int(60 * (1 - i / 3))
-                    glow_rect = button_rect.inflate(i * 4, i * 4)
-                    pygame.draw.rect(SCREEN, (0, 255, 255, glow_alpha), glow_rect,
-                                   border_radius=10)
-
-                # 버튼 배경
+                # 버튼 배경 먼저
                 button_color = (0, 150, 200)
                 border_color = (0, 255, 255)
                 text_color = WHITE
 
-                # 펄스 효과
                 pulse = abs(math.sin(animation_timer * 3)) * 10
                 button_rect_pulsed = button_rect.inflate(pulse, pulse // 2)
                 pygame.draw.rect(SCREEN, button_color, button_rect_pulsed,
                                border_radius=10)
                 pygame.draw.rect(SCREEN, border_color, button_rect_pulsed,
                                width=3, border_radius=10)
+                # 호버 테두리 이펙트 (버튼 위에)
+                draw_btn_hover_border(SCREEN, button_rect.x, button_rect.y, button_rect.w, button_rect.h, (0, 255, 255))
             else:
                 # 일반 버튼
                 button_color = (40, 50, 60)
@@ -134568,11 +134552,12 @@ def show_pause_menu():
                 text = item[0]
                 is_hover = (i == selected)
                 if is_hover:
-                    draw_btn_hover_border(SCREEN, rect.x, rect.y, rect.w, rect.h, (100, 150, 255))
-                    # 선택된 버튼
+                    # 선택된 버튼 배경 먼저
                     draw.rect((100, 150, 255), rect)
                     draw.rect(WHITE, rect, 3)
                     text_color = BLACK
+                    # 호버 보더 (버튼 위에)
+                    draw_btn_hover_border(SCREEN, rect.x, rect.y, rect.w, rect.h, (100, 150, 255))
                 else:
                     # 선택되지 않은 버튼
                     draw.rect((50, 50, 50), rect)
@@ -139199,7 +139184,6 @@ def show_surrender_confirm():
         for i, (rect, text) in enumerate(zip(buttons, button_texts)):
             if i == selected:
                 hover_color = (255, 100, 100) if i == 0 else (100, 150, 255)
-                draw_btn_hover_border(SCREEN, rect.x, rect.y, rect.w, rect.h, hover_color)
                 draw.rect(hover_color, rect)
                 draw.rect(WHITE, rect, 3)
                 text_color = BLACK
@@ -139210,6 +139194,9 @@ def show_surrender_confirm():
             text_surface = font_medium.render(text, True, text_color)
             text_rect = text_surface.get_rect(center=rect.center)
             SCREEN.blit(text_surface, text_rect)
+            if i == selected:
+                hover_color = (255, 100, 100) if i == 0 else (100, 150, 255)
+                draw_btn_hover_border(SCREEN, rect.x, rect.y, rect.w, rect.h, hover_color)
         pygame.display.flip()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
