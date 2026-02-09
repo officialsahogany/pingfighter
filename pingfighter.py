@@ -135840,6 +135840,61 @@ def show_character_info(background_surface=None):
 
     def gather_stats():
         """현재 능력치 및 기준값을 수집."""
+        # 투기장 모드: 영웅 중심 스탯 반환
+        if current_stage == 30 and globals().get("arena_mode_enabled", False):
+            hero = globals().get("arena_bottom_hero")
+            hero_speed_attr = hero.get("speed", 1.0) if hero else 1.0
+            base_speed = 5.0  # MAX_SPEED (투기장 하단 영웅 기본 이속)
+            perk_speed_mult = globals().get("arena_perk_speed_mult_bottom", 1.0)
+            current_speed = base_speed * perk_speed_mult
+
+            base_paddle = 130.0  # ARENA_PADDLE_WIDTH
+            current_paddle = base_paddle
+
+            # 대쉬 거리: 15프레임 × 40px/프레임 × 0.7 보정 = 420px
+            base_dash_dist = 15.0 * 40.0 * 0.7
+            current_dash_dist = base_dash_dist
+
+            # 대쉬 후딜: 30프레임 / 60fps = 0.5초
+            base_stun = 30.0 / 60.0
+            current_stun = base_stun
+
+            # 대쉬 쿨타임: 10~15초 평균 12.5초
+            cd_min = globals().get("ARENA_DASH_COOLDOWN_MIN", 600)
+            cd_max = globals().get("ARENA_DASH_COOLDOWN_MAX", 900)
+            base_cd_s = ((cd_min + cd_max) / 2.0) / 60.0
+            perk_dash_cd_mult = globals().get("arena_perk_dash_cd_mult_bottom", 1.0)
+            current_cd_s = base_cd_s * perk_dash_cd_mult
+
+            # 스킬 쿨타임 배율
+            perk_skill_cd_mult = globals().get("arena_perk_skill_cd_mult_bottom", 1.0)
+            # 호위무사 쿨타임 배율
+            perk_guard_cd_mult = globals().get("arena_perk_guard_cd_mult_bottom", 1.0)
+
+            stats = [
+                {"label": "이동속도", "base": base_speed, "current": current_speed,
+                 "max_hint": 7.0, "unit": "x"},
+                {"label": "패들크기", "base": base_paddle, "current": current_paddle,
+                 "max_hint": 200.0, "unit": "px"},
+                {"label": "대쉬거리", "base": base_dash_dist, "current": current_dash_dist,
+                 "max_hint": 480.0, "unit": "px"},
+                {"label": "대쉬후딜", "base": base_stun, "current": current_stun,
+                 "max_hint": 1.2, "unit": "초", "higher_is_better": False},
+                {"label": "대쉬쿨타임", "base": base_cd_s, "current": current_cd_s,
+                 "max_hint": 15.0, "unit": "초", "higher_is_better": False},
+            ]
+            # 스킬 쿨타임 퍽이 있으면 표시
+            if perk_skill_cd_mult != 1.0:
+                reduction_pct = int((1.0 - perk_skill_cd_mult) * 100)
+                stats.append({"label": "스킬쿨감소", "base": 0, "current": reduction_pct,
+                              "max_hint": 30.0, "unit": "%"})
+            # 호위무사 쿨타임 퍽이 있으면 표시
+            if perk_guard_cd_mult != 1.0:
+                reduction_pct = int((1.0 - perk_guard_cd_mult) * 100)
+                stats.append({"label": "호위쿨감소", "base": 0, "current": reduction_pct,
+                              "max_hint": 30.0, "unit": "%"})
+            return stats
+
         char_type = globals().get("selected_character_type", "normal")
         # 캐릭터별 기본 이동속도: 옵티머스는 자체 상수(OPTIMUS_BASE_MAX_SPEED) 사용
         if char_type == "blacksmith":
@@ -136830,9 +136885,27 @@ def show_character_info(background_surface=None):
         panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
         draw.rect((20, 24, 40), panel_rect)
         draw.rect((100, 150, 255), panel_rect, 3)
-        title_surface = font_title.render("캐릭터 정보", True, WHITE)
-        title_rect = title_surface.get_rect(left=panel_rect.x + 28, top=panel_rect.y + 18)
-        SCREEN.blit(title_surface, title_rect)
+        # 투기장 모드: 영웅 이름 + 칭호 표시
+        if current_stage == 30 and globals().get("arena_mode_enabled", False):
+            _hero = globals().get("arena_bottom_hero")
+            if _hero:
+                _hero_color = _hero.get("color", WHITE)
+                title_surface = font_title.render(_hero.get("name", "???"), True, _hero_color)
+                title_rect = title_surface.get_rect(left=panel_rect.x + 28, top=panel_rect.y + 14)
+                SCREEN.blit(title_surface, title_rect)
+                _title_text = _hero.get("title", "")
+                if _title_text:
+                    _sub = font_small.render(_title_text, True, (180, 180, 200))
+                    SCREEN.blit(_sub, (title_rect.right + 10,
+                                       title_rect.y + title_rect.height - _sub.get_height()))
+            else:
+                title_surface = font_title.render("캐릭터 정보", True, WHITE)
+                title_rect = title_surface.get_rect(left=panel_rect.x + 28, top=panel_rect.y + 18)
+                SCREEN.blit(title_surface, title_rect)
+        else:
+            title_surface = font_title.render("캐릭터 정보", True, WHITE)
+            title_rect = title_surface.get_rect(left=panel_rect.x + 28, top=panel_rect.y + 18)
+            SCREEN.blit(title_surface, title_rect)
 
         # 🗑️ 쓰레기통 아이콘 (우측 상단) - 아이템 드래그 앤 드롭으로 버리기
         trash_size = 48

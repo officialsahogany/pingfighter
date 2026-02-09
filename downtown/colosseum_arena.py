@@ -2265,6 +2265,13 @@ class ColosseumsArena:
         self.perk_particles = []                  # 파티클 효과
         self.perk_frame_count = 0                 # 애니메이션 프레임 카운터
 
+        # 마우스 호버 상태
+        self.hover_perk_index = -1               # 퍽 카드 호버 인덱스 (-1 = 없음)
+        self.hover_match_index = -1              # 대진표 매치 박스 호버 인덱스 (-1 = 없음)
+        self.hover_btn_id = ""                   # 버튼 호버 ID
+        self.hover_line_particles = []           # 호버 시 라인 파티클 이펙트
+        self.hover_glow_timer = 0.0              # 호버 글로우 펄스 타이머
+
         # 시각 효과 (배경/필러)
         self.arena_background = None
         self.arena_pillar = None
@@ -3157,6 +3164,15 @@ class ColosseumsArena:
     def update(self, dt: float):
         """메인 업데이트"""
         self.animation_timer += dt
+        self.hover_glow_timer += dt
+
+        # 호버 라인 파티클 업데이트
+        for p in self.hover_line_particles:
+            p['life'] -= dt
+            p['x'] += p['vx'] * dt
+            p['y'] += p['vy'] * dt
+            p['alpha'] = max(0, p['alpha'] - 400 * dt)
+        self.hover_line_particles = [p for p in self.hover_line_particles if p['life'] > 0]
 
         # 시각 효과 업데이트
         if self.arena_background:
@@ -3295,6 +3311,9 @@ class ColosseumsArena:
                     self.perk_selected_index = min(len(ARENA_PERK_POOL) - 1, self.perk_selected_index + 1)
                 elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
                     self._confirm_perk_selection()
+
+        elif event.type == pygame.MOUSEMOTION:
+            self._update_hover(event.pos)
 
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:  # 좌클릭
@@ -3453,6 +3472,196 @@ class ColosseumsArena:
                 self.winnings_collected = True
                 self.exit_requested = True
                 return
+
+    def _update_hover(self, pos: Tuple[int, int]):
+        """마우스 호버 상태 업데이트"""
+        mx, my = pos
+        old_perk = self.hover_perk_index
+        old_match = self.hover_match_index
+        old_btn = self.hover_btn_id
+
+        self.hover_perk_index = -1
+        self.hover_match_index = -1
+        self.hover_btn_id = ""
+
+        # 퍽 선택 화면 호버
+        if self.state == TournamentState.PERK_SELECT and self.perk_anim_phase == "active":
+            card_w, card_h = 170, 105
+            card_gap = 10
+            total_w = card_w * 4 + card_gap * 3
+            start_x = (SCREEN_WIDTH - total_w) // 2
+            card_y = SCREEN_HEIGHT // 2 - card_h // 2
+            for i in range(len(ARENA_PERK_POOL)):
+                x = start_x + i * (card_w + card_gap)
+                if x <= mx <= x + card_w and card_y <= my <= card_y + card_h:
+                    self.hover_perk_index = i
+                    if old_perk != i:
+                        self._spawn_hover_line_particles(x, card_y, card_w, card_h)
+                    break
+
+        # 대진표 매치 박스 호버
+        elif self.state in [TournamentState.BRACKET_VIEW, TournamentState.SELECT_MATCH]:
+            box_w, box_h = 120, 140
+            # 8강
+            y_base = 530
+            x_positions = [60, 195, 430, 565]
+            for i, match in enumerate(self.matches[TournamentRound.QUARTER_FINAL]):
+                if match.completed:
+                    continue
+                x = x_positions[i]
+                if x <= mx <= x + box_w and y_base <= my <= y_base + box_h:
+                    self.hover_match_index = i
+                    if old_match != i:
+                        self._spawn_hover_line_particles(x, y_base, box_w, box_h)
+                    break
+            # 4강
+            if self.hover_match_index == -1:
+                y_semi = 310
+                x_semi = [127, 497]
+                for i, match in enumerate(self.matches.get(TournamentRound.SEMI_FINAL, [])):
+                    if match.completed:
+                        continue
+                    x = x_semi[i]
+                    if x <= mx <= x + box_w and y_semi <= my <= y_semi + box_h:
+                        self.hover_match_index = i + 4
+                        if old_match != i + 4:
+                            self._spawn_hover_line_particles(x, y_semi, box_w, box_h)
+                        break
+            # 결승
+            if self.hover_match_index == -1:
+                y_final = 80
+                x_final = 312
+                for match in self.matches.get(TournamentRound.FINAL, []):
+                    if match.completed:
+                        continue
+                    if x_final <= mx <= x_final + box_w and y_final <= my <= y_final + box_h:
+                        self.hover_match_index = 6
+                        if old_match != 6:
+                            self._spawn_hover_line_particles(x_final, y_final, box_w, box_h)
+                        break
+
+        # 배팅 UI 버튼 호버
+        elif self.state == TournamentState.BETTING:
+            panel_x, panel_y = 180, 180
+            btn1_rect = pygame.Rect(panel_x + 20, panel_y + 145, 145, 100)
+            btn2_rect = pygame.Rect(panel_x + 235, panel_y + 145, 145, 100)
+            exit_rect = pygame.Rect(panel_x + 100, panel_y + 300, 200, 40)
+            if btn1_rect.collidepoint(mx, my):
+                self.hover_btn_id = "hero1"
+                if old_btn != "hero1":
+                    self._spawn_hover_line_particles(btn1_rect.x, btn1_rect.y, btn1_rect.w, btn1_rect.h)
+            elif btn2_rect.collidepoint(mx, my):
+                self.hover_btn_id = "hero2"
+                if old_btn != "hero2":
+                    self._spawn_hover_line_particles(btn2_rect.x, btn2_rect.y, btn2_rect.w, btn2_rect.h)
+            elif exit_rect.collidepoint(mx, my):
+                self.hover_btn_id = "exit"
+
+        # VS 미리보기 버튼 호버
+        elif self.state == TournamentState.VS_PREVIEW:
+            if getattr(self, 'vs_preview_show_buttons', False) and getattr(self, 'vs_preview_timer', 0) >= 1.5:
+                btn_y = 610
+                btn_w, btn_h = 180, 50
+                continue_rect = pygame.Rect(SCREEN_WIDTH // 2 - btn_w - 20, btn_y, btn_w, btn_h)
+                exit_rect = pygame.Rect(SCREEN_WIDTH // 2 + 20, btn_y, btn_w, btn_h)
+                if continue_rect.collidepoint(mx, my):
+                    self.hover_btn_id = "continue"
+                    if old_btn != "continue":
+                        self._spawn_hover_line_particles(continue_rect.x, continue_rect.y, continue_rect.w, continue_rect.h)
+                elif exit_rect.collidepoint(mx, my):
+                    self.hover_btn_id = "vs_exit"
+                    if old_btn != "vs_exit":
+                        self._spawn_hover_line_particles(exit_rect.x, exit_rect.y, exit_rect.w, exit_rect.h)
+
+        # 우승 축하 보상 버튼 호버
+        elif self.state == TournamentState.VICTORY_CELEBRATION:
+            if getattr(self, 'victory_timer', 0) >= 3.0:
+                center_x = SCREEN_WIDTH // 2
+                btn_w, btn_h = 260, 55
+                btn_y = 610
+                gold_rect = pygame.Rect(center_x - btn_w - 15, btn_y, btn_w, btn_h)
+                hero_rect = pygame.Rect(center_x + 15, btn_y, btn_w, btn_h)
+                if gold_rect.collidepoint(mx, my):
+                    self.hover_btn_id = "gold"
+                    if old_btn != "gold":
+                        self._spawn_hover_line_particles(gold_rect.x, gold_rect.y, gold_rect.w, gold_rect.h)
+                elif hero_rect.collidepoint(mx, my):
+                    self.hover_btn_id = "recruit"
+                    if old_btn != "recruit":
+                        self._spawn_hover_line_particles(hero_rect.x, hero_rect.y, hero_rect.w, hero_rect.h)
+
+    def _spawn_hover_line_particles(self, rx: int, ry: int, rw: int, rh: int):
+        """호버 진입 시 사각형 테두리를 따라 라인 파티클 생성"""
+        import random as _rand
+        edges = []
+        # 상단 변
+        for t in range(8):
+            frac = t / 7
+            edges.append((rx + rw * frac, ry, _rand.uniform(-15, 15), _rand.uniform(-40, -15)))
+        # 하단 변
+        for t in range(8):
+            frac = t / 7
+            edges.append((rx + rw * frac, ry + rh, _rand.uniform(-15, 15), _rand.uniform(15, 40)))
+        # 좌측 변
+        for t in range(6):
+            frac = t / 5
+            edges.append((rx, ry + rh * frac, _rand.uniform(-40, -15), _rand.uniform(-15, 15)))
+        # 우측 변
+        for t in range(6):
+            frac = t / 5
+            edges.append((rx + rw, ry + rh * frac, _rand.uniform(15, 40), _rand.uniform(-15, 15)))
+
+        for ex, ey, vx, vy in edges:
+            self.hover_line_particles.append({
+                'x': ex, 'y': ey,
+                'vx': vx, 'vy': vy,
+                'alpha': 255.0,
+                'life': _rand.uniform(0.25, 0.5),
+                'color': (200, 220, 255)
+            })
+
+    def _draw_hover_border(self, rect_x: int, rect_y: int, rect_w: int, rect_h: int,
+                           color: Tuple[int, int, int] = (200, 220, 255)):
+        """호버 시 빛나는 테두리 + 코너 라인 이펙트"""
+        t = self.hover_glow_timer
+        pulse = 0.6 + 0.4 * abs(math.sin(t * 4.0))
+        alpha = int(120 * pulse)
+
+        # 외곽 글로우 레이어
+        glow_surf = pygame.Surface((rect_w + 12, rect_h + 12), pygame.SRCALPHA)
+        glow_rect = pygame.Rect(0, 0, rect_w + 12, rect_h + 12)
+        pygame.draw.rect(glow_surf, (*color, alpha // 3), glow_rect, border_radius=10)
+        self.screen.blit(glow_surf, (rect_x - 6, rect_y - 6))
+
+        # 밝은 테두리
+        border_surf = pygame.Surface((rect_w + 4, rect_h + 4), pygame.SRCALPHA)
+        border_rect = pygame.Rect(0, 0, rect_w + 4, rect_h + 4)
+        pygame.draw.rect(border_surf, (*color, alpha), border_rect, 2, border_radius=10)
+        self.screen.blit(border_surf, (rect_x - 2, rect_y - 2))
+
+        # 코너 하이라이트 라인 (좌상, 우상, 좌하, 우하)
+        line_len = int(14 + 4 * pulse)
+        line_alpha = int(200 * pulse)
+        line_surf = pygame.Surface((rect_w + 20, rect_h + 20), pygame.SRCALPHA)
+        ox, oy = 10, 10
+        corners = [
+            ((ox, oy), (ox + line_len, oy), (ox, oy + line_len)),                                    # 좌상
+            ((ox + rect_w, oy), (ox + rect_w - line_len, oy), (ox + rect_w, oy + line_len)),          # 우상
+            ((ox, oy + rect_h), (ox + line_len, oy + rect_h), (ox, oy + rect_h - line_len)),          # 좌하
+            ((ox + rect_w, oy + rect_h), (ox + rect_w - line_len, oy + rect_h), (ox + rect_w, oy + rect_h - line_len)),  # 우하
+        ]
+        for corner, h_end, v_end in corners:
+            pygame.draw.line(line_surf, (*color, line_alpha), corner, h_end, 2)
+            pygame.draw.line(line_surf, (*color, line_alpha), corner, v_end, 2)
+        self.screen.blit(line_surf, (rect_x - 10, rect_y - 10))
+
+        # 호버 라인 파티클 렌더링
+        for p in self.hover_line_particles:
+            if p['alpha'] > 5:
+                pa = int(p['alpha'])
+                ps = pygame.Surface((4, 4), pygame.SRCALPHA)
+                pygame.draw.circle(ps, (*p['color'], pa), (2, 2), 2)
+                self.screen.blit(ps, (int(p['x']) - 2, int(p['y']) - 2))
 
     def draw(self):
         """메인 그리기"""
@@ -4958,6 +5167,8 @@ class ColosseumsArena:
 
             is_selected = (i == self.perk_selected_index and
                            self.perk_anim_phase in ("active", "selected"))
+            is_hovered = (i == self.hover_perk_index and
+                          self.perk_anim_phase == "active" and not is_selected)
 
             # 선택 완료 애니메이션
             scale = 1.0
@@ -4996,6 +5207,22 @@ class ColosseumsArena:
                 bg_color = (40, 50, 90, min(card_alpha, 250))
                 border_color = perk["icon_color"]
                 border_width = 3
+            elif is_hovered:
+                # 호버 시 밝은 배경 + 아이콘 색상 테두리
+                hover_pulse = 0.6 + 0.4 * abs(math.sin(self.hover_glow_timer * 4.0))
+                hover_glow_a = int(60 * hover_pulse)
+                for offset in range(4, 0, -1):
+                    glow_rect = pygame.Rect(offset, offset,
+                                            scaled_w - offset * 2, scaled_h - offset * 2)
+                    a = min(card_alpha, hover_glow_a - offset * 12)
+                    if a > 0:
+                        glow_s = pygame.Surface((scaled_w, scaled_h), pygame.SRCALPHA)
+                        pygame.draw.rect(glow_s, (*perk["icon_color"], a),
+                                         glow_rect, border_radius=12)
+                        card_surf.blit(glow_s, (0, 0))
+                bg_color = (35, 42, 70, min(card_alpha, 240))
+                border_color = tuple(min(255, c + 40) for c in perk["icon_color"])
+                border_width = 2
             else:
                 bg_color = (25, 30, 50, min(card_alpha, 220))
                 border_color = (60, 70, 90)
@@ -5048,6 +5275,11 @@ class ColosseumsArena:
             draw_x = card_x - (scaled_w - card_w) // 2
             draw_y = card_y_anim - (scaled_h - card_h) // 2
             self.screen.blit(card_surf, (int(draw_x), int(draw_y)))
+
+            # 호버 테두리 이펙트 (카드 위에 오버레이)
+            if is_hovered:
+                self._draw_hover_border(int(draw_x), int(draw_y), scaled_w, scaled_h,
+                                        perk["icon_color"])
 
         # 하단 조작 안내 (스테이지 스타일)
         if self.perk_anim_phase == "active" and self.fonts and "small" in self.fonts:
