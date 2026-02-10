@@ -4684,6 +4684,11 @@ class ColosseumsArena:
             pygame.draw.rect(self.screen, bg_color, (x, y, icon_size, icon_size), border_radius=5)
             pygame.draw.rect(self.screen, (80, 80, 80), (x, y, icon_size, icon_size), 2, border_radius=5)
 
+            # 스킬 아이콘 이미지
+            icon = _get_hero_skill_icon(skill.skill_id, icon_size)
+            if icon:
+                self.screen.blit(icon, (x, y))
+
             # 쿨타임 오버레이
             if skill.current_cooldown > 0:
                 cooldown_ratio = skill.current_cooldown / skill.cooldown
@@ -4965,19 +4970,38 @@ class ColosseumsArena:
                 surf, _ = self.fonts["small"].render(f"[{style_text}]", (150, 150, 160))
                 self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 175))
 
-            # 스킬 2개 표시 (어떤 스킬이 있는지 미리보기)
+            # 스킬 2개 표시 (아이콘 + 이름 + 설명)
             from downtown.hero_skills import HERO_SKILLS
             hero_skills = HERO_SKILLS.get(hero["id"], [])
-            skill_y = card_y + 205
+            skill_y = card_y + 200
             for si, skill in enumerate(hero_skills):
                 skill_bg = (50, 55, 65)
-                pygame.draw.rect(self.screen, skill_bg, (cx + 10, skill_y, card_w - 20, 40), border_radius=5)
-                pygame.draw.rect(self.screen, (70, 75, 85), (cx + 10, skill_y, card_w - 20, 40), 1, border_radius=5)
+                skill_h = 52
+                pygame.draw.rect(self.screen, skill_bg, (cx + 8, skill_y, card_w - 16, skill_h), border_radius=5)
+                pygame.draw.rect(self.screen, (70, 75, 85), (cx + 8, skill_y, card_w - 16, skill_h), 1, border_radius=5)
+                # 스킬 아이콘
+                icon = _get_hero_skill_icon(skill.skill_id, 24)
+                icon_x = cx + 14
+                icon_y = skill_y + 5
+                if icon:
+                    self.screen.blit(icon, (icon_x, icon_y))
+                else:
+                    pygame.draw.rect(self.screen, (60, 60, 70), (icon_x, icon_y, 24, 24), border_radius=4)
+                # 스킬 이름
                 if self.fonts and "small" in self.fonts:
                     label = f"{'A' if si == 0 else 'B'}: {skill.korean_name}"
-                    surf, _ = self.fonts["small"].render(label, (200, 200, 210))
-                    self.screen.blit(surf, (cx + 20, skill_y + 12))
-                skill_y += 48
+                    surf, _ = self.fonts["small"].render(label, (210, 210, 220))
+                    self.screen.blit(surf, (icon_x + 30, skill_y + 5))
+                # 스킬 설명 (1줄)
+                if self.fonts and "small" in self.fonts:
+                    desc = getattr(skill, 'description', '')
+                    # 카드 너비에 맞게 자르기
+                    max_chars = 14
+                    if len(desc) > max_chars:
+                        desc = desc[:max_chars] + ".."
+                    surf, _ = self.fonts["small"].render(desc, (140, 140, 150))
+                    self.screen.blit(surf, (icon_x + 30, skill_y + 24))
+                skill_y += skill_h + 5
 
         # 하단 안내
         if self.fonts and "small" in self.fonts:
@@ -5014,14 +5038,15 @@ class ColosseumsArena:
         if len(hero_skills) < 2:
             return
 
-        card_w, card_h = 220, 200
-        gap = 60
+        card_w, card_h = 240, 280
+        gap = 40
         card1_x = SCREEN_WIDTH // 2 - gap // 2 - card_w
         card2_x = SCREEN_WIDTH // 2 + gap // 2
-        card_y = 180
+        card_y = 140
 
         for si, (skill, cx) in enumerate([(hero_skills[0], card1_x), (hero_skills[1], card2_x)]):
             is_selected = (si == self.skill_reveal_result)
+            is_faded = (self.skill_reveal_phase == "selected" and not is_selected)
 
             if self.skill_reveal_phase == "rolling":
                 # 롤링 중: 빠르게 번갈아 하이라이트
@@ -5043,31 +5068,84 @@ class ColosseumsArena:
             pygame.draw.rect(self.screen, bg, (cx, card_y, card_w, card_h), border_radius=10)
             pygame.draw.rect(self.screen, border, (cx, card_y, card_w, card_h), 2, border_radius=10)
 
+            alpha_mod = 60 if is_faded else 255
+
             # 스킬 라벨
             label = "A" if si == 0 else "B"
             if self.fonts and "medium" in self.fonts:
-                surf, _ = self.fonts["medium"].render(label, (180, 180, 50))
-                self.screen.blit(surf, (cx + 15, card_y + 15))
+                label_alpha = 80 if is_faded else 180
+                surf, _ = self.fonts["medium"].render(label, (label_alpha, label_alpha, 50))
+                self.screen.blit(surf, (cx + 15, card_y + 12))
+
+            # 스킬 아이콘 (중앙 상단)
+            icon = _get_hero_skill_icon(skill.skill_id, 48)
+            icon_x = cx + card_w // 2 - 24
+            icon_y = card_y + 30
+            if icon:
+                if is_faded:
+                    faded_icon = icon.copy()
+                    faded_icon.set_alpha(80)
+                    self.screen.blit(faded_icon, (icon_x, icon_y))
+                else:
+                    self.screen.blit(icon, (icon_x, icon_y))
+            else:
+                pygame.draw.rect(self.screen, (60, 60, 70), (icon_x, icon_y, 48, 48), border_radius=8)
 
             # 스킬 이름
             if self.fonts and "medium" in self.fonts:
-                alpha_mod = 255 if (self.skill_reveal_phase != "selected" or is_selected) else 80
                 color = (alpha_mod, alpha_mod, alpha_mod)
                 surf, _ = self.fonts["medium"].render(skill.korean_name, color)
-                self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 60))
+                self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 90))
 
-            # 스킬 설명
+            # 발동 조건
             if self.fonts and "small" in self.fonts:
-                desc = getattr(skill, 'description', '')[:20]
-                alpha_mod = 200 if (self.skill_reveal_phase != "selected" or is_selected) else 60
-                surf, _ = self.fonts["small"].render(desc, (alpha_mod, alpha_mod, alpha_mod))
-                self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 100))
+                trigger_text = ""
+                trigger_color = (100, 100, 100)
+                trigger_val = getattr(skill, 'trigger', None)
+                if trigger_val:
+                    from downtown.hero_skills import SkillTrigger
+                    if trigger_val == SkillTrigger.ON_BALL_HIT:
+                        trigger_text = "타격 발동"
+                        trigger_color = (100, 150, 255) if not is_faded else (50, 75, 128)
+                    elif trigger_val == SkillTrigger.ON_COOLDOWN:
+                        trigger_text = "자동 발동"
+                        trigger_color = (255, 180, 80) if not is_faded else (128, 90, 40)
+                    else:
+                        trigger_text = "패시브"
+                        trigger_color = (100, 200, 100) if not is_faded else (50, 100, 50)
+                if trigger_text:
+                    cd_text = f"{trigger_text} | 쿨타임 {int(skill.cooldown)}초"
+                    surf, _ = self.fonts["small"].render(cd_text, trigger_color)
+                    self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 118))
+
+            # 스킬 설명 (2줄까지)
+            if self.fonts and "small" in self.fonts:
+                desc = getattr(skill, 'description', '')
+                desc_color = (min(200, alpha_mod), min(200, alpha_mod), min(200, alpha_mod))
+                max_line = 18
+                lines = []
+                while desc and len(lines) < 2:
+                    if len(desc) <= max_line:
+                        lines.append(desc)
+                        break
+                    lines.append(desc[:max_line])
+                    desc = desc[max_line:]
+                for li, line in enumerate(lines):
+                    surf, _ = self.fonts["small"].render(line, desc_color)
+                    self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 145 + li * 20))
+
+            # 지속시간
+            if skill.duration and skill.duration > 0 and skill.duration < 999:
+                if self.fonts and "small" in self.fonts:
+                    dur_color = (100, 200, 100) if not is_faded else (50, 100, 50)
+                    surf, _ = self.fonts["small"].render(f"지속: {skill.duration:.1f}초", dur_color)
+                    self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 195))
 
             # 선택됨 마크
             if self.skill_reveal_phase == "selected" and is_selected:
                 if self.fonts and "large" in self.fonts:
                     surf, _ = self.fonts["large"].render("SELECTED", (100, 255, 100))
-                    self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 150))
+                    self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 230))
 
         # 하단 안내
         if self.skill_reveal_phase == "selected":
@@ -5136,17 +5214,33 @@ class ColosseumsArena:
                     80, 55, facing="down", color=hero["color"], scale_mode="preview"
                 )
 
-            # 스킬 2개 미리보기
+            # 스킬 2개 미리보기 (아이콘 + 이름 + 설명)
             hero_skills = HERO_SKILLS.get(hero["id"], [])
-            skill_y = cell_y + 145
+            skill_y = cell_y + 140
             for si, skill in enumerate(hero_skills):
                 skill_bg = (45, 48, 55)
-                pygame.draw.rect(self.screen, skill_bg, (cx + 8, skill_y, cell_w - 16, 35), border_radius=4)
+                skill_h = 48
+                pygame.draw.rect(self.screen, skill_bg, (cx + 6, skill_y, cell_w - 12, skill_h), border_radius=4)
+                # 스킬 아이콘
+                icon = _get_hero_skill_icon(skill.skill_id, 20)
+                if icon:
+                    self.screen.blit(icon, (cx + 10, skill_y + 4))
+                else:
+                    pygame.draw.rect(self.screen, (55, 58, 65), (cx + 10, skill_y + 4, 20, 20), border_radius=3)
+                # 스킬 이름
                 if self.fonts and "small" in self.fonts:
                     label = f"{'A' if si == 0 else 'B'}: {skill.korean_name}"
-                    surf, _ = self.fonts["small"].render(label, (180, 180, 190))
-                    self.screen.blit(surf, (cx + 15, skill_y + 10))
-                skill_y += 42
+                    surf, _ = self.fonts["small"].render(label, (190, 190, 200))
+                    self.screen.blit(surf, (cx + 34, skill_y + 4))
+                # 짧은 설명
+                if self.fonts and "small" in self.fonts:
+                    desc = getattr(skill, 'description', '')
+                    max_chars = 10
+                    if len(desc) > max_chars:
+                        desc = desc[:max_chars] + ".."
+                    surf, _ = self.fonts["small"].render(desc, (130, 130, 140))
+                    self.screen.blit(surf, (cx + 34, skill_y + 23))
+                skill_y += skill_h + 4
 
             # 스타일 표시
             style_names = {"aggressive": "공격형", "defensive": "수비형", "balanced": "균형형", "tricky": "트릭형"}
