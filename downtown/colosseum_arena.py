@@ -3579,24 +3579,32 @@ class ColosseumsArena:
                 self.state = TournamentState.HERO_SELECT
 
         elif self.state == TournamentState.SKILL_REVEAL:
-            # 스킬 랜덤 선택 연출 (2초)
+            # 스킬 랜덤 선택 연출 (감속 롤링 1.8초 + 확정 표시 1.2초)
             self.skill_reveal_timer += dt
-            if self.skill_reveal_phase == "rolling" and self.skill_reveal_timer >= 1.0:
+            if self.skill_reveal_phase == "rolling" and self.skill_reveal_timer >= 1.8:
                 self.skill_reveal_phase = "selected"
-            elif self.skill_reveal_phase == "selected" and self.skill_reveal_timer >= 2.0:
-                if self.skill_reveal_target == (self.player_hero or {}).get("id"):
-                    self._prepare_prison_candidates()
-                    self.state = TournamentState.PRISON_SELECT
-                    self.skill_reveal_phase = "done"
+                self.skill_reveal_selected_timer = 0.0
+                self._skill_reveal_particles = []  # 선택 이펙트 파티클 초기화
+            elif self.skill_reveal_phase == "selected":
+                self.skill_reveal_selected_timer = getattr(self, 'skill_reveal_selected_timer', 0) + dt
+                if self.skill_reveal_timer >= 3.0:
+                    if self.skill_reveal_target == (self.player_hero or {}).get("id"):
+                        self._prepare_prison_candidates()
+                        self.state = TournamentState.PRISON_SELECT
+                        self.skill_reveal_phase = "done"
 
         elif self.state == TournamentState.GUARD_SKILL_REVEAL:
-            # 호위무사 스킬 랜덤 선택 연출 (2초)
+            # 호위무사 스킬 랜덤 선택 연출 (감속 롤링 1.8초 + 확정 표시 1.2초)
             self.skill_reveal_timer += dt
-            if self.skill_reveal_phase == "rolling" and self.skill_reveal_timer >= 1.0:
+            if self.skill_reveal_phase == "rolling" and self.skill_reveal_timer >= 1.8:
                 self.skill_reveal_phase = "selected"
-            elif self.skill_reveal_phase == "selected" and self.skill_reveal_timer >= 2.0:
-                self._finalize_setup_and_start()
-                self.skill_reveal_phase = "done"
+                self.skill_reveal_selected_timer = 0.0
+                self._skill_reveal_particles = []
+            elif self.skill_reveal_phase == "selected":
+                self.skill_reveal_selected_timer = getattr(self, 'skill_reveal_selected_timer', 0) + dt
+                if self.skill_reveal_timer >= 3.0:
+                    self._finalize_setup_and_start()
+                    self.skill_reveal_phase = "done"
 
         elif self.state == TournamentState.VS_PREVIEW:
             # VS 매치업 미리보기
@@ -5042,7 +5050,7 @@ class ColosseumsArena:
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 440))
 
     def _draw_skill_reveal(self):
-        """스킬 랜덤 선택 연출 UI"""
+        """스킬 랜덤 선택 연출 UI (감속 롤링 + 선택 이펙트)"""
         self.screen.fill((25, 28, 35))
 
         target_id = self.skill_reveal_target
@@ -5050,6 +5058,9 @@ class ColosseumsArena:
         hero = self.player_guard if is_guard else self.player_hero
         if not hero:
             return
+
+        timer = self.skill_reveal_timer
+        phase = self.skill_reveal_phase
 
         # 타이틀
         title = f"{'호위무사' if is_guard else '영웅'} 스킬 결정!"
@@ -5077,29 +5088,113 @@ class ColosseumsArena:
         card2_x = SCREEN_WIDTH // 2 + gap // 2
         card_y = 140
 
+        # === 감속 롤링: 처음 빠르게 → 점점 느리게 ===
+        rolling_duration = 1.8
+        if phase == "rolling":
+            t_norm = min(1.0, timer / rolling_duration)
+            # ease-out cubic: 빠르게 시작 → 서서히 감속
+            eased = 1.0 - (1.0 - t_norm) ** 3
+            # 총 전환 횟수 (최대 ~18회 전환)
+            total_ticks = eased * 18
+            highlight_idx = int(total_ticks) % 2
+            # 마지막 0.3초: 선택될 카드에 고정
+            if t_norm > 0.83:
+                highlight_idx = self.skill_reveal_result
+
+        # === 선택 이펙트 파티클 생성/업데이트 ===
+        sel_timer = getattr(self, 'skill_reveal_selected_timer', 0)
+        particles = getattr(self, '_skill_reveal_particles', [])
+
+        if phase == "selected":
+            # 파티클 생성 (매 프레임 2~3개)
+            sel_cx = card1_x if self.skill_reveal_result == 0 else card2_x
+            for _ in range(3):
+                # 카드 테두리를 따라 랜덤 위치에서 파티클 생성
+                side = random.randint(0, 3)  # 0=상, 1=우, 2=하, 3=좌
+                if side == 0:
+                    px, py = random.uniform(sel_cx, sel_cx + card_w), card_y
+                elif side == 1:
+                    px, py = sel_cx + card_w, random.uniform(card_y, card_y + card_h)
+                elif side == 2:
+                    px, py = random.uniform(sel_cx, sel_cx + card_w), card_y + card_h
+                else:
+                    px, py = sel_cx, random.uniform(card_y, card_y + card_h)
+                particles.append({
+                    'x': px, 'y': py,
+                    'vx': random.uniform(-1.5, 1.5),
+                    'vy': random.uniform(-2.5, -0.5),
+                    'life': 1.0,
+                    'size': random.uniform(2, 5),
+                    'color': random.choice([
+                        (100, 255, 100), (150, 255, 150), (200, 255, 100),
+                        (255, 255, 150), (80, 200, 80)
+                    ])
+                })
+            # 파티클 업데이트
+            for p in particles:
+                p['x'] += p['vx']
+                p['y'] += p['vy']
+                p['life'] -= 0.03
+                p['size'] *= 0.97
+            particles[:] = [p for p in particles if p['life'] > 0]
+            self._skill_reveal_particles = particles
+
         for si, (skill, cx) in enumerate([(hero_skills[0], card1_x), (hero_skills[1], card2_x)]):
             is_selected = (si == self.skill_reveal_result)
-            is_faded = (self.skill_reveal_phase == "selected" and not is_selected)
+            is_faded = (phase == "selected" and not is_selected)
 
-            if self.skill_reveal_phase == "rolling":
-                # 롤링 중: 빠르게 번갈아 하이라이트
-                highlight_idx = int(self.skill_reveal_timer * 6) % 2
+            if phase == "rolling":
                 is_highlight = (si == highlight_idx)
-                bg = (70, 75, 90) if is_highlight else (40, 44, 55)
-                border = (200, 200, 100) if is_highlight else (60, 65, 75)
-            elif self.skill_reveal_phase == "selected":
-                if is_selected:
-                    bg = (60, 80, 50)
-                    border = (100, 255, 100)
+                # 하이라이트 강도 (전환 시 부드러운 전환)
+                if is_highlight:
+                    bg = (70, 75, 90)
+                    border = (200, 200, 100)
+                    border_w = 2
                 else:
-                    bg = (30, 30, 35)
-                    border = (50, 50, 55)
+                    bg = (40, 44, 55)
+                    border = (60, 65, 75)
+                    border_w = 1
+            elif phase == "selected":
+                if is_selected:
+                    # 펄스 글로우
+                    pulse = 0.6 + 0.4 * abs(_sin(sel_timer * 4))
+                    g_val = int(180 + 75 * pulse)
+                    bg = (40, int(60 + 30 * pulse), 35)
+                    border = (80, g_val, 80)
+                    border_w = 3
+                else:
+                    # 탈락 카드: 어둡게 + 축소 느낌
+                    bg = (25, 25, 30)
+                    border = (40, 40, 45)
+                    border_w = 1
             else:
                 bg = (40, 44, 55)
                 border = (60, 65, 75)
+                border_w = 1
 
+            # 선택된 카드 글로우 오라 (배경 레이어)
+            if phase == "selected" and is_selected:
+                glow_pulse = 0.5 + 0.5 * abs(_sin(sel_timer * 3))
+                glow_alpha = int(40 + 30 * glow_pulse)
+                glow_expand = int(6 + 4 * glow_pulse)
+                glow_surf = _get_arena_surface(card_w + glow_expand * 2, card_h + glow_expand * 2)
+                glow_color = (80, 255, 80, glow_alpha)
+                pygame.draw.rect(glow_surf, glow_color,
+                                 (0, 0, card_w + glow_expand * 2, card_h + glow_expand * 2),
+                                 border_radius=14)
+                self.screen.blit(glow_surf, (cx - glow_expand, card_y - glow_expand))
+
+            # 카드 배경
             pygame.draw.rect(self.screen, bg, (cx, card_y, card_w, card_h), border_radius=10)
-            pygame.draw.rect(self.screen, border, (cx, card_y, card_w, card_h), 2, border_radius=10)
+            pygame.draw.rect(self.screen, border, (cx, card_y, card_w, card_h), border_w, border_radius=10)
+
+            # 선택 카드 추가 내부 테두리 (이중 보더)
+            if phase == "selected" and is_selected:
+                inner_pulse = 0.3 + 0.7 * abs(_sin(sel_timer * 5))
+                inner_color = (100, int(200 + 55 * inner_pulse), 100)
+                pygame.draw.rect(self.screen, inner_color,
+                                 (cx + 3, card_y + 3, card_w - 6, card_h - 6),
+                                 1, border_radius=8)
 
             alpha_mod = 60 if is_faded else 255
 
@@ -5174,17 +5269,42 @@ class ColosseumsArena:
                     surf, _ = self.fonts["small"].render(f"지속: {skill.duration:.1f}초", dur_color)
                     self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 195))
 
-            # 선택됨 마크
-            if self.skill_reveal_phase == "selected" and is_selected:
+            # 선택됨 마크 (페이드인 + 글로우)
+            if phase == "selected" and is_selected:
+                mark_alpha = min(1.0, sel_timer * 2.0)
                 if self.fonts and "large" in self.fonts:
-                    surf, _ = self.fonts["large"].render("SELECTED", (100, 255, 100))
+                    glow_text_pulse = 0.7 + 0.3 * abs(_sin(sel_timer * 3))
+                    r = int(80 + 175 * glow_text_pulse * mark_alpha)
+                    g = int(220 + 35 * glow_text_pulse * mark_alpha)
+                    b = int(80 + 175 * glow_text_pulse * mark_alpha)
+                    surf, _ = self.fonts["large"].render("SELECTED", (r, g, b))
+                    alpha_s = _get_arena_surface(*surf.get_size())
+                    alpha_s.fill((255, 255, 255, int(255 * mark_alpha)))
+                    surf.blit(alpha_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                     self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 230))
 
+        # === 파티클 렌더링 (최상위) ===
+        if phase == "selected" and particles:
+            for p in particles:
+                a = max(0, min(255, int(255 * p['life'])))
+                sz = max(1, int(p['size']))
+                ps = _get_arena_surface(sz * 2, sz * 2)
+                pc = (*p['color'][:3], a)
+                pygame.draw.circle(ps, pc, (sz, sz), sz)
+                self.screen.blit(ps, (int(p['x']) - sz, int(p['y']) - sz))
+
         # 하단 안내
-        if self.skill_reveal_phase == "selected":
+        if phase == "rolling":
             if self.fonts and "small" in self.fonts:
-                surf, _ = self.fonts["small"].render("클릭하여 계속", (150, 150, 160))
-                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 420))
+                dot_count = int(timer * 3) % 4
+                dots = "." * dot_count
+                surf, _ = self.fonts["small"].render(f"스킬 결정 중{dots}", (150, 150, 160))
+                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 440))
+        elif phase == "selected":
+            if self.fonts and "small" in self.fonts:
+                hint_alpha = min(200, int(sel_timer * 200))
+                surf, _ = self.fonts["small"].render("클릭하여 계속", (hint_alpha, hint_alpha, hint_alpha + 20))
+                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 440))
 
     def _draw_prison_select(self):
         """감옥 호위무사 선택 UI"""
