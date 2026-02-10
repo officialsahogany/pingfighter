@@ -130,6 +130,88 @@ def _load_hover_sound():
         _hover_sound = None
 
 # ============================================================================
+# 이집트 파피루스 테마 색상 팔레트
+# ============================================================================
+EGYPT_THEME = {
+    # 배경
+    "bg_dark":           (42, 30, 20),
+    "bg_medium":         (62, 48, 32),
+    "bg_light":          (85, 68, 45),
+    "bg_panel":          (72, 56, 38),
+
+    # 파피루스 질감
+    "papyrus_base":      (180, 155, 110),
+    "papyrus_light":     (210, 185, 140),
+    "papyrus_dark":      (140, 115, 75),
+    "papyrus_grain":     (120, 98, 62),
+
+    # 금/청동 금속
+    "gold_bright":       (255, 215, 50),
+    "gold_medium":       (218, 175, 32),
+    "gold_dark":         (170, 130, 20),
+    "gold_pale":         (255, 230, 140),
+    "bronze":            (180, 120, 60),
+
+    # 이집트 보석 색상
+    "lapis_lazuli":      (38, 97, 156),
+    "lapis_light":       (80, 140, 200),
+    "turquoise":         (64, 176, 166),
+    "turquoise_light":   (100, 210, 200),
+    "carnelian":         (180, 50, 30),
+    "carnelian_light":   (220, 90, 60),
+    "malachite":         (50, 150, 80),
+    "malachite_light":   (80, 200, 110),
+    "sand":              (220, 195, 150),
+
+    # UI 상태
+    "hover_glow":        (255, 220, 100),
+    "selected_glow":     (100, 200, 160),
+    "selected_border":   (80, 180, 150),
+
+    # 텍스트
+    "text_title":        (255, 215, 50),
+    "text_subtitle":     (210, 185, 140),
+    "text_body":         (200, 180, 140),
+    "text_hint":         (150, 130, 95),
+    "text_disabled":     (100, 85, 60),
+    "text_white":        (240, 230, 210),
+
+    # 대진표 선
+    "bracket_line":      (140, 115, 75),
+    "bracket_highlight": (255, 215, 50),
+
+    # 오버레이
+    "overlay_dark":      (20, 15, 8),
+    "overlay_warm":      (30, 20, 10),
+
+    # 버튼
+    "btn_continue":      (50, 130, 70),
+    "btn_continue_hover":(70, 160, 90),
+    "btn_exit":          (38, 75, 130),
+    "btn_exit_hover":    (55, 100, 165),
+    "btn_danger":        (130, 40, 25),
+    "btn_danger_hover":  (165, 55, 35),
+
+    # 카드
+    "card_bg":           (55, 42, 28),
+    "card_bg_hover":     (70, 55, 38),
+    "card_bg_completed": (45, 55, 35),
+    "card_border":       (140, 115, 75),
+    "card_border_hover": (218, 175, 32),
+    "card_diagonal":     (120, 98, 62),
+
+    # 스킬/VS/감옥
+    "skill_bg":          (50, 40, 28),
+    "skill_border":      (100, 85, 60),
+    "vs_circle_bg":      (72, 56, 38),
+    "vs_circle_border":  (140, 115, 75),
+    "prison_bar":        (100, 80, 50),
+    "prison_bar_hover":  (160, 130, 70),
+}
+
+ET = EGYPT_THEME  # 짧은 별칭
+
+# ============================================================================
 # 영웅 데이터
 # ============================================================================
 class HeroStyle(Enum):
@@ -4265,6 +4347,277 @@ class ColosseumsArena:
                 pygame.draw.circle(ps, (*p['color'], int(p['alpha'])), (1, 1), 1)
                 self.screen.blit(ps, (int(p['x']) - 1, int(p['y']) - 1))
 
+    # ================================================================
+    # 이집트 파피루스 테마 헬퍼 메서드
+    # ================================================================
+
+    def _draw_papyrus_bg(self, surface=None, rect=None):
+        """파피루스 질감 배경 그리기 (캐시 활용)"""
+        if surface is None:
+            surface = self.screen
+        if rect is None:
+            rect = (0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+        rx, ry, rw, rh = rect
+
+        # 캐시된 텍스처가 없으면 생성
+        cache_key = (rw, rh)
+        if not hasattr(self, '_papyrus_cache') or getattr(self, '_papyrus_cache_key', None) != cache_key:
+            tex = pygame.Surface((rw, rh), pygame.SRCALPHA)
+            # 수평 결 라인 (파피루스 느낌)
+            rng = random.Random(42)  # 고정 시드로 일관성
+            for i in range(40):
+                ly = rng.randint(0, rh - 1)
+                alpha = rng.randint(12, 30)
+                lx_start = rng.randint(0, rw // 6)
+                lx_end = rw - rng.randint(0, rw // 6)
+                pygame.draw.line(tex, (*ET["papyrus_grain"], alpha),
+                                 (lx_start, ly), (lx_end, ly), 1)
+            # 에이징 밴드 (넓은 어두운 줄)
+            for _ in range(4):
+                by = rng.randint(0, rh - 8)
+                bh = rng.randint(4, 12)
+                band = pygame.Surface((rw, bh), pygame.SRCALPHA)
+                band.fill((*ET["papyrus_grain"], rng.randint(8, 18)))
+                tex.blit(band, (0, by))
+            # 작은 스펙클
+            for _ in range(6):
+                sx, sy = rng.randint(0, rw - 1), rng.randint(0, rh - 1)
+                pygame.draw.circle(tex, (*ET["papyrus_dark"], rng.randint(15, 30)),
+                                   (sx, sy), rng.randint(1, 3))
+            self._papyrus_cache = tex
+            self._papyrus_cache_key = cache_key
+
+        surface.blit(self._papyrus_cache, (rx, ry))
+
+    def _draw_egyptian_border(self, surface, rect, color=None, width=2, pattern=True):
+        """금색 이집트 패턴 테두리"""
+        if color is None:
+            color = ET["gold_medium"]
+        x, y, w, h = rect
+        pygame.draw.rect(surface, color, (x, y, w, h), width)
+
+        if pattern:
+            # 상하 스텝 패턴
+            step_size = 4
+            gap = 10
+            for px in range(x + 8, x + w - 8, gap):
+                # 상단
+                pygame.draw.rect(surface, ET["gold_dark"],
+                                 (px, y + width, step_size, step_size))
+                # 하단
+                pygame.draw.rect(surface, ET["gold_dark"],
+                                 (px, y + h - width - step_size, step_size, step_size))
+            # 좌우 스텝 패턴
+            for py in range(y + 8, y + h - 8, gap):
+                pygame.draw.rect(surface, ET["gold_dark"],
+                                 (x + width, py, step_size, step_size))
+                pygame.draw.rect(surface, ET["gold_dark"],
+                                 (x + w - width - step_size, py, step_size, step_size))
+            # 코너 피라미드 장식
+            tri_s = 6
+            corners = [
+                (x + 3, y + 3, 1, 1), (x + w - 3, y + 3, -1, 1),
+                (x + 3, y + h - 3, 1, -1), (x + w - 3, y + h - 3, -1, -1),
+            ]
+            for cx, cy, dx, dy in corners:
+                pts = [(cx, cy), (cx + tri_s * dx, cy), (cx, cy + tri_s * dy)]
+                pygame.draw.polygon(surface, ET["gold_bright"], pts)
+
+    def _draw_egyptian_card(self, x, y, w, h, is_hover=False, is_selected=False, is_completed=False):
+        """이집트 스타일 카드 (파피루스 질감 + 금색 보더)"""
+        if is_completed:
+            bg = ET["card_bg_completed"]
+        elif is_hover:
+            bg = ET["card_bg_hover"]
+        else:
+            bg = ET["card_bg"]
+        pygame.draw.rect(self.screen, bg, (x, y, w, h), border_radius=6)
+
+        # 파피루스 결 텍스처 (카드 내부)
+        grain_surf = _get_arena_surface(w, h)
+        rng = random.Random(x * 31 + y * 17)
+        for i in range(12):
+            ly = rng.randint(0, h - 1)
+            alpha = rng.randint(10, 22)
+            pygame.draw.line(grain_surf, (*ET["papyrus_grain"], alpha),
+                             (2, ly), (w - 2, ly), 1)
+        self.screen.blit(grain_surf, (x, y))
+
+        # 보더
+        if is_selected:
+            border_color = ET["selected_border"]
+            border_w = 2
+        elif is_hover:
+            border_color = ET["card_border_hover"]
+            border_w = 2
+        else:
+            border_color = ET["card_border"]
+            border_w = 1
+
+        pygame.draw.rect(self.screen, border_color, (x, y, w, h), border_w, border_radius=6)
+
+        # 호버 시 글로우
+        if is_hover:
+            glow = _get_arena_surface(w + 8, h + 8)
+            pygame.draw.rect(glow, (*ET["hover_glow"], 35), (0, 0, w + 8, h + 8), border_radius=8)
+            self.screen.blit(glow, (x - 4, y - 4))
+
+    def _draw_egyptian_title(self, text, y, color=None):
+        """이집트 스타일 타이틀 (호루스의 눈 장식 + 수평선)"""
+        if color is None:
+            color = ET["gold_bright"]
+        if not self.fonts or "large" not in self.fonts:
+            return
+        surf, _ = self.fonts["large"].render(text, color)
+        tx = SCREEN_WIDTH // 2 - surf.get_width() // 2
+        self.screen.blit(surf, (tx, y))
+
+        # 양쪽 호루스의 눈 장식
+        eye_size = 12
+        for side in [-1, 1]:
+            ex = tx - 24 if side == -1 else tx + surf.get_width() + 12
+            ey = y + surf.get_height() // 2
+            self._draw_eye_of_horus(self.screen, ex, ey, eye_size, ET["gold_medium"])
+
+        # 수평선 (양쪽으로 페이드)
+        line_y = y + surf.get_height() + 4
+        line_surf = _get_arena_surface(SCREEN_WIDTH, 2)
+        center = SCREEN_WIDTH // 2
+        left_end = tx - 30
+        right_end = tx + surf.get_width() + 30
+        for lx in range(0, SCREEN_WIDTH):
+            if lx < left_end:
+                dist = (left_end - lx) / max(1, left_end)
+                a = int(40 * max(0, 1 - dist * 2))
+            elif lx > right_end:
+                dist = (lx - right_end) / max(1, SCREEN_WIDTH - right_end)
+                a = int(40 * max(0, 1 - dist * 2))
+            else:
+                a = 40
+            if a > 0:
+                line_surf.set_at((lx, 0), (*ET["gold_dark"], a))
+                line_surf.set_at((lx, 1), (*ET["gold_dark"], a // 2))
+        self.screen.blit(line_surf, (0, line_y))
+
+    def _draw_egyptian_separator(self, y, width=400, color=None):
+        """이집트 장식 구분선"""
+        if color is None:
+            color = ET["gold_dark"]
+        cx = SCREEN_WIDTH // 2
+        half = width // 2
+
+        sep_surf = _get_arena_surface(width, 8)
+        # 중앙 다이아몬드
+        diamond_pts = [(half, 0), (half + 4, 4), (half, 8), (half - 4, 4)]
+        pygame.draw.polygon(sep_surf, (*ET["gold_bright"], 180), diamond_pts)
+        # 양쪽 라인 (페이드)
+        for lx in range(0, half - 6):
+            dist = lx / max(1, half - 6)
+            a = int(80 * dist)
+            sep_surf.set_at((lx, 3), (*color, a))
+            sep_surf.set_at((lx, 4), (*color, a))
+            sep_surf.set_at((width - 1 - lx, 3), (*color, a))
+            sep_surf.set_at((width - 1 - lx, 4), (*color, a))
+        # 양끝 연꽃 삼각형
+        tri_s = 5
+        for side_x in [4, width - 4]:
+            dx = 1 if side_x < half else -1
+            pts = [(side_x, 4), (side_x + tri_s * dx, 1), (side_x + tri_s * dx, 7)]
+            pygame.draw.polygon(sep_surf, (*ET["gold_medium"], 140), pts)
+
+        self.screen.blit(sep_surf, (cx - half, y))
+
+    def _draw_egyptian_button(self, rect, text, is_hovered=False, btn_type="continue",
+                              text_color=None):
+        """이집트 스타일 버튼"""
+        colors = {
+            "continue": (ET["btn_continue"], ET["btn_continue_hover"], ET["malachite_light"]),
+            "exit": (ET["btn_exit"], ET["btn_exit_hover"], ET["lapis_light"]),
+            "danger": (ET["btn_danger"], ET["btn_danger_hover"], ET["carnelian_light"]),
+        }
+        base, hover, border_c = colors.get(btn_type, colors["continue"])
+        bg = hover if is_hovered else base
+
+        if is_hovered:
+            self._draw_hover_border(rect.x, rect.y, rect.w, rect.h, border_c)
+
+        pygame.draw.rect(self.screen, bg, rect, border_radius=5)
+        pygame.draw.rect(self.screen, border_c, rect, 2, border_radius=5)
+
+        # 양끝 피라미드 삼각 장식
+        tri_s = 5
+        mid_y = rect.centery
+        # 좌
+        pts_l = [(rect.x + 6, mid_y), (rect.x + 6 + tri_s, mid_y - tri_s),
+                 (rect.x + 6 + tri_s, mid_y + tri_s)]
+        pygame.draw.polygon(self.screen, ET["gold_dark"], pts_l)
+        # 우
+        pts_r = [(rect.right - 6, mid_y), (rect.right - 6 - tri_s, mid_y - tri_s),
+                 (rect.right - 6 - tri_s, mid_y + tri_s)]
+        pygame.draw.polygon(self.screen, ET["gold_dark"], pts_r)
+
+        if text_color is None:
+            text_color = ET["text_white"]
+        if self.fonts and "medium" in self.fonts:
+            surf, _ = self.fonts["medium"].render(text, text_color)
+            self.screen.blit(surf, (rect.centerx - surf.get_width() // 2,
+                                    rect.centery - surf.get_height() // 2))
+
+    def _draw_egyptian_panel(self, x, y, w, h, border_color=None):
+        """이집트 스타일 패널 (파피루스 내부 + 이중 보더 + 코너 장식)"""
+        if border_color is None:
+            border_color = ET["gold_medium"]
+        # 배경
+        pygame.draw.rect(self.screen, ET["bg_panel"], (x, y, w, h), border_radius=8)
+        # 파피루스 결
+        grain = _get_arena_surface(w, h)
+        rng = random.Random(x + y * 7)
+        for i in range(10):
+            ly = rng.randint(0, h - 1)
+            pygame.draw.line(grain, (*ET["papyrus_grain"], rng.randint(10, 22)),
+                             (4, ly), (w - 4, ly), 1)
+        self.screen.blit(grain, (x, y))
+        # 외곽 보더
+        pygame.draw.rect(self.screen, border_color, (x, y, w, h), 3, border_radius=8)
+        # 내부 보더 (3px 안쪽)
+        inner_surf = _get_arena_surface(w - 6, h - 6)
+        pygame.draw.rect(inner_surf, (*ET["gold_dark"], 80),
+                         (0, 0, w - 6, h - 6), 1, border_radius=6)
+        self.screen.blit(inner_surf, (x + 3, y + 3))
+        # 코너 스카라베 장식 (원 + 날개)
+        for cx, cy in [(x + 8, y + 8), (x + w - 8, y + 8),
+                       (x + 8, y + h - 8), (x + w - 8, y + h - 8)]:
+            cs = _get_arena_surface(16, 16)
+            pygame.draw.circle(cs, (*ET["gold_dark"], 120), (8, 8), 4)
+            pygame.draw.arc(cs, (*ET["gold_medium"], 100),
+                            (1, 2, 14, 12), 0.3, 2.8, 1)
+            self.screen.blit(cs, (cx - 8, cy - 8))
+
+    def _draw_eye_of_horus(self, surface, cx, cy, size, color=None):
+        """호루스의 눈 (간략화)"""
+        if color is None:
+            color = ET["gold_medium"]
+        s = max(4, size)
+        hw = s  # 눈 반폭
+        hh = s // 2  # 눈 반높이
+        # 아몬드형 눈 외곽
+        pts = [
+            (cx - hw, cy),
+            (cx - hw // 2, cy - hh),
+            (cx + hw // 3, cy - hh),
+            (cx + hw, cy),
+            (cx + hw // 3, cy + hh),
+            (cx - hw // 2, cy + hh),
+        ]
+        pygame.draw.polygon(surface, color, pts, 1)
+        # 동공
+        pygame.draw.circle(surface, color, (cx, cy), max(1, s // 4))
+        # 눈물 라인 (아래로)
+        pygame.draw.line(surface, color, (cx, cy + hh), (cx + s // 3, cy + hh + s // 2), 1)
+        # 눈썹 곡선
+        pygame.draw.arc(surface, color, (cx - hw, cy - hh - s // 3, hw * 2, s // 2),
+                        0.3, 2.8, 1)
+
     def draw(self):
         """메인 그리기"""
         if self.state == TournamentState.VS_PREVIEW:
@@ -4762,14 +5115,12 @@ class ColosseumsArena:
 
     def _draw_bracket(self):
         """대진표 화면 그리기"""
-        # 배경
-        self.screen.fill((25, 28, 35))
+        # 배경 (이집트 파피루스)
+        self.screen.fill(ET["bg_dark"])
+        self._draw_papyrus_bg()
 
-        # 타이틀
-        if self.fonts and "large" in self.fonts:
-            surf, _ = self._render_text("large", "8강 대진표", (255, 215, 0))
-            if surf:
-                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 30))
+        # 타이틀 (이집트 스타일)
+        self._draw_egyptian_title("8강 대진표", 30)
 
         # 대진표 그리기
         self._draw_tournament_bracket()
@@ -4825,8 +5176,8 @@ class ColosseumsArena:
         self._draw_bracket_lines()
 
     def _draw_match_box(self, match: Match, x: int, y: int, match_idx: int):
-        """매치 박스 그리기 (대각선 분할 레이아웃)"""
-        box_w, box_h = 120, 140  # 약간 낮은 박스
+        """매치 박스 그리기 (대각선 분할 레이아웃) - 이집트 파피루스 테마"""
+        box_w, box_h = 120, 140
 
         # ========== 비공개 매치 표시 ==========
         if not self.initial_setup_done and self.current_round == TournamentRound.QUARTER_FINAL:
@@ -4835,51 +5186,52 @@ class ColosseumsArena:
                 # 매치 공개 애니메이션 중
                 if self.state == TournamentState.MATCH_REVEAL and self.match_reveal_index == match_idx:
                     progress = min(1.0, self.match_reveal_timer / 0.8)
-                    alpha = int(255 * progress)
-                    bg_color = (int(30 + 15 * progress), int(30 + 20 * progress), int(40 + 20 * progress))
+                    bg_r, bg_g, bg_b = ET["card_bg"]
+                    bg_color = (int(bg_r + 15 * progress), int(bg_g + 15 * progress), int(bg_b + 10 * progress))
                     pygame.draw.rect(self.screen, bg_color, (x, y, box_w, box_h), border_radius=8)
-                    pygame.draw.rect(self.screen, (200, 180, int(80 * progress)), (x, y, box_w, box_h), 2, border_radius=8)
+                    pygame.draw.rect(self.screen, (*ET["gold_medium"][:2], int(80 * progress)), (x, y, box_w, box_h), 2, border_radius=8)
                     if self.fonts and "medium" in self.fonts:
-                        surf, _ = self.fonts["medium"].render("?", (200, 200, int(100 + 155 * progress)))
+                        surf, _ = self.fonts["medium"].render("?", ET["gold_pale"])
                         self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + box_h // 2 - surf.get_height() // 2))
                     return
                 # 비공개 상태
                 if is_hovered:
-                    self._draw_hover_border(x, y, box_w, box_h, (180, 160, 80))
-                bg = (38, 40, 50) if is_hovered else (28, 30, 38)
+                    self._draw_hover_border(x, y, box_w, box_h, ET["hover_glow"])
+                bg = ET["card_bg_hover"] if is_hovered else ET["card_bg"]
                 pygame.draw.rect(self.screen, bg, (x, y, box_w, box_h), border_radius=8)
-                border = (120, 110, 70) if is_hovered else (60, 60, 70)
+                border = ET["bronze"] if is_hovered else ET["card_border"]
                 pygame.draw.rect(self.screen, border, (x, y, box_w, box_h), 2, border_radius=8)
-                # 자물쇠/물음표 표시
                 cx, cy = x + box_w // 2, y + box_h // 2
                 if self.fonts and "large" in self.fonts:
-                    surf, _ = self.fonts["large"].render("?", (100, 95, 70) if not is_hovered else (200, 190, 120))
+                    q_color = ET["gold_pale"] if is_hovered else ET["text_disabled"]
+                    surf, _ = self.fonts["large"].render("?", q_color)
                     self.screen.blit(surf, (cx - surf.get_width() // 2, cy - surf.get_height() // 2))
                 if self.fonts and "small" in self.fonts:
-                    surf, _ = self.fonts["small"].render("클릭하여 공개", (80, 80, 90) if not is_hovered else (160, 155, 110))
+                    h_color = ET["gold_pale"] if is_hovered else ET["text_hint"]
+                    surf, _ = self.fonts["small"].render("클릭하여 공개", h_color)
                     self.screen.blit(surf, (cx - surf.get_width() // 2, cy + 30))
                 return
 
         is_hovered = (self.hover_match_index == match_idx and not match.completed)
 
-        # 호버 시 테두리 이펙트 (박스 뒤에)
+        # 호버 시 테두리 이펙트
         if is_hovered:
-            self._draw_hover_border(x, y, box_w, box_h, (255, 215, 100))
+            self._draw_hover_border(x, y, box_w, box_h, ET["hover_glow"])
 
-        # 박스 배경
+        # 박스 배경 (이집트 팔레트)
         if is_hovered:
-            bg_color = (55, 62, 80)
+            bg_color = ET["card_bg_hover"]
         elif match.completed:
-            bg_color = (35, 55, 45)
+            bg_color = ET["card_bg_completed"]
         else:
-            bg_color = (45, 50, 60)
-        border_color = (255, 215, 100) if is_hovered else (100, 105, 115)
+            bg_color = ET["card_bg"]
+        border_color = ET["card_border_hover"] if is_hovered else ET["card_border"]
         border_width = 2
         pygame.draw.rect(self.screen, bg_color, (x, y, box_w, box_h), border_radius=8)
         pygame.draw.rect(self.screen, border_color, (x, y, box_w, box_h), border_width, border_radius=8)
 
         # 대각선 (왼쪽 하단 → 오른쪽 상단)
-        pygame.draw.line(self.screen, (80, 85, 95), (x + 5, y + box_h - 5), (x + box_w - 5, y + 5), 2)
+        pygame.draw.line(self.screen, ET["card_diagonal"], (x + 5, y + box_h - 5), (x + box_w - 5, y + 5), 2)
 
         # === 영웅 1 (왼쪽 상단 삼각형) ===
         h1_color = match.hero1["color"]
@@ -4899,13 +5251,13 @@ class ColosseumsArena:
                 facing="down", color=h1_color, scale_mode="preview"
             )
 
-        # === VS (중앙 원) ===
+        # === VS (중앙 원) - 이집트 ===
         vs_x = x + box_w // 2
         vs_y = y + box_h // 2
-        pygame.draw.circle(self.screen, (60, 65, 75), (vs_x, vs_y), 16)
-        pygame.draw.circle(self.screen, (100, 105, 115), (vs_x, vs_y), 16, 2)
+        pygame.draw.circle(self.screen, ET["vs_circle_bg"], (vs_x, vs_y), 16)
+        pygame.draw.circle(self.screen, ET["vs_circle_border"], (vs_x, vs_y), 16, 2)
         if self.fonts and "small" in self.fonts:
-            surf, _ = self._render_text("small", "VS", (255, 215, 0))
+            surf, _ = self._render_text("small", "VS", ET["gold_bright"])
             if surf:
                 self.screen.blit(surf, (vs_x - surf.get_width() // 2, vs_y - surf.get_height() // 2))
 
@@ -4930,17 +5282,17 @@ class ColosseumsArena:
         # 결과 표시
         if match.completed and match.winner:
             if self.fonts and "small" in self.fonts:
-                surf, _ = self.fonts["small"].render(f"{match.score1}:{match.score2}", (255, 215, 0))
+                surf, _ = self.fonts["small"].render(f"{match.score1}:{match.score2}", ET["gold_bright"])
                 self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + box_h + 5))
 
     def _draw_empty_match_box(self, x: int, y: int, label: str):
-        """빈 매치 박스"""
-        box_w, box_h = 120, 140  # 대각선 레이아웃과 동일한 크기
-        pygame.draw.rect(self.screen, (35, 38, 45), (x, y, box_w, box_h), border_radius=8)
-        pygame.draw.rect(self.screen, (60, 65, 75), (x, y, box_w, box_h), 2, border_radius=8)
+        """빈 매치 박스 - 이집트 테마"""
+        box_w, box_h = 120, 140
+        pygame.draw.rect(self.screen, ET["bg_medium"], (x, y, box_w, box_h), border_radius=8)
+        pygame.draw.rect(self.screen, ET["card_border"], (x, y, box_w, box_h), 2, border_radius=8)
 
         if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render(label, (100, 100, 100))
+            surf, _ = self.fonts["small"].render(label, ET["text_disabled"])
             self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + box_h // 2 - surf.get_height() // 2))
 
     # ========================================================================
@@ -5051,7 +5403,8 @@ class ColosseumsArena:
 
     def _draw_skill_reveal(self):
         """스킬 랜덤 선택 연출 UI (감속 롤링 + 선택 이펙트)"""
-        self.screen.fill((25, 28, 35))
+        self.screen.fill(ET["bg_dark"])
+        self._draw_papyrus_bg()
 
         target_id = self.skill_reveal_target
         is_guard = (self.state == TournamentState.GUARD_SKILL_REVEAL)
@@ -5064,9 +5417,7 @@ class ColosseumsArena:
 
         # 타이틀
         title = f"{'호위무사' if is_guard else '영웅'} 스킬 결정!"
-        if self.fonts and "large" in self.fonts:
-            surf, _ = self.fonts["large"].render(title, (255, 215, 80))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 40))
+        self._draw_egyptian_title(title, 40)
 
         # 영웅 이름
         if self.fonts and "medium" in self.fonts:
@@ -5147,25 +5498,24 @@ class ColosseumsArena:
                 is_highlight = (si == highlight_idx)
                 # 하이라이트 강도 (전환 시 부드러운 전환)
                 if is_highlight:
-                    bg = (70, 75, 90)
-                    border = (200, 200, 100)
+                    bg = ET["card_bg_hover"]
+                    border = ET["gold_medium"]
                     border_w = 2
                 else:
-                    bg = (40, 44, 55)
-                    border = (60, 65, 75)
+                    bg = ET["card_bg"]
+                    border = ET["card_border"]
                     border_w = 1
             elif phase == "selected":
                 if is_selected:
                     # 펄스 글로우
                     pulse = 0.6 + 0.4 * abs(_sin(sel_timer * 4))
-                    g_val = int(180 + 75 * pulse)
-                    bg = (40, int(60 + 30 * pulse), 35)
-                    border = (80, g_val, 80)
+                    bg = (35, int(55 + 25 * pulse), int(55 + 20 * pulse))
+                    border = (64, int(160 + 60 * pulse), int(150 + 50 * pulse))
                     border_w = 3
                 else:
                     # 탈락 카드: 어둡게 + 축소 느낌
-                    bg = (25, 25, 30)
-                    border = (40, 40, 45)
+                    bg = ET["bg_dark"]
+                    border = (50, 40, 28)
                     border_w = 1
             else:
                 bg = (40, 44, 55)
@@ -5408,8 +5758,8 @@ class ColosseumsArena:
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, cell_y + cell_h + 15))
 
     def _draw_bracket_lines(self):
-        """대진표 연결선 (대각선 레이아웃 box_h=140 기준)"""
-        line_color = (100, 105, 115)
+        """대진표 연결선 (대각선 레이아웃 box_h=140 기준) - 이집트 테마"""
+        line_color = ET["bracket_line"]
 
         # 8강 박스 중심 x좌표 (box_w=120 기준)
         q1_x, q2_x, q3_x, q4_x = 120, 255, 490, 625
@@ -5447,10 +5797,10 @@ class ColosseumsArena:
         pygame.draw.line(self.screen, line_color, (f_x, y_mid2), (f_x, y_f_bottom), 2)
 
     def _draw_match_selection_hint(self):
-        """경기 선택 힌트"""
+        """경기 선택 힌트 - 이집트 테마"""
         if self.fonts and "small" in self.fonts:
             hint = "관전할 경기를 클릭하세요"
-            surf, _ = self.fonts["small"].render(hint, (180, 180, 180))
+            surf, _ = self.fonts["small"].render(hint, ET["text_subtitle"])
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 700))
 
     def _draw_betting_ui(self):
@@ -5460,14 +5810,13 @@ class ColosseumsArena:
 
         # 반투명 오버레이
         overlay = _get_arena_fullscreen()
-        overlay.fill((0, 0, 0, 180))
+        overlay.fill((*ET["overlay_dark"], 180))
         self.screen.blit(overlay, (0, 0))
 
         # 배팅 패널
         panel_x, panel_y = 180, 180
         panel_w, panel_h = 400, 355
-        pygame.draw.rect(self.screen, (35, 40, 50), (panel_x, panel_y, panel_w, panel_h), border_radius=10)
-        pygame.draw.rect(self.screen, (255, 215, 0), (panel_x, panel_y, panel_w, panel_h), 3, border_radius=10)
+        self._draw_egyptian_panel(panel_x, panel_y, panel_w, panel_h)
 
         # 라운드 타이틀
         round_names = {
@@ -5477,7 +5826,7 @@ class ColosseumsArena:
         }
         if self.fonts and "large" in self.fonts:
             title = round_names.get(self.current_round, "배틀")
-            surf, _ = self.fonts["large"].render(title, (255, 215, 0))
+            surf, _ = self.fonts["large"].render(title, ET["gold_bright"])
             title_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
             title_y = panel_y + 15
             self.screen.blit(surf, (title_x, title_y))
@@ -5493,19 +5842,19 @@ class ColosseumsArena:
         current_prize = self.round_prizes.get(self.current_round, 0)
         if self.fonts and "medium" in self.fonts:
             prize_text = f"승리 시 {current_prize}G 획득!"
-            surf, _ = self.fonts["medium"].render(prize_text, (100, 255, 100))
+            surf, _ = self.fonts["medium"].render(prize_text, ET["malachite_light"])
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 55))
 
         # 패배 시 경고
         if self.fonts and "small" in self.fonts:
             warn_text = f"패배 시 입장료 {self.entry_fee}G를 잃습니다"
-            surf, _ = self.fonts["small"].render(warn_text, (255, 180, 100))
+            surf, _ = self.fonts["small"].render(warn_text, ET["gold_pale"])
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 85))
 
         # 안내 문구
         if self.fonts and "small" in self.fonts:
             hint = "승리할 영웅을 선택하세요!"
-            surf, _ = self.fonts["small"].render(hint, (200, 200, 200))
+            surf, _ = self.fonts["small"].render(hint, ET["text_body"])
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 115))
 
         # 영웅 1 선택 버튼 (캐릭터 이미지 포함)
@@ -5540,7 +5889,7 @@ class ColosseumsArena:
 
         # VS
         if self.fonts and "large" in self.fonts:
-            surf, _ = self._render_text("large", "VS", (255, 100, 100))
+            surf, _ = self._render_text("large", "VS", ET["carnelian_light"])
             if surf:
                 self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 175))
 
@@ -5576,7 +5925,7 @@ class ColosseumsArena:
         # 경고 문구
         if self.fonts and "small" in self.fonts:
             warn_text = "패배시 누적 상금 전액 몰수!"
-            surf, _ = self.fonts["small"].render(warn_text, (255, 150, 100))
+            surf, _ = self.fonts["small"].render(warn_text, ET["carnelian_light"])
             warn_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
             self._draw_warning_icon(warn_x - 12, panel_y + 265 + surf.get_height() // 2, 10)
             self.screen.blit(surf, (warn_x, panel_y + 265))
@@ -5584,12 +5933,12 @@ class ColosseumsArena:
         # 포기하고 나가기 버튼
         exit_rect = pygame.Rect(panel_x + 100, panel_y + 300, 200, 40)
         exit_hovered = (self.hover_btn_id == "exit")
-        exit_bg = (80, 70, 70) if exit_hovered else (60, 60, 60)
+        exit_bg = ET["btn_danger_hover"] if exit_hovered else ET["btn_danger"]
         pygame.draw.rect(self.screen, exit_bg, exit_rect, border_radius=5)
         if exit_hovered:
-            pygame.draw.rect(self.screen, (255, 180, 180), exit_rect, 2, border_radius=5)
+            pygame.draw.rect(self.screen, ET["carnelian_light"], exit_rect, 2, border_radius=5)
         if self.fonts and "small" in self.fonts:
-            exit_text_color = (255, 230, 230) if exit_hovered else (255, 200, 200)
+            exit_text_color = ET["text_white"] if exit_hovered else ET["text_body"]
             surf, _ = self._render_text("small", "포기하고 나가기", exit_text_color)
             self.screen.blit(surf, (exit_rect.centerx - surf.get_width() // 2, exit_rect.y + 12))
 
@@ -5600,7 +5949,7 @@ class ColosseumsArena:
 
         # 반투명 오버레이
         overlay = _get_arena_fullscreen()
-        overlay.fill((0, 0, 0, 180))
+        overlay.fill((*ET["overlay_dark"], 180))
         self.screen.blit(overlay, (0, 0))
 
         winner = self.selected_match.winner
@@ -5609,20 +5958,19 @@ class ColosseumsArena:
         # 결과 패널
         panel_x, panel_y = 180, 200
         panel_w, panel_h = 400, 320
-        pygame.draw.rect(self.screen, (35, 40, 50), (panel_x, panel_y, panel_w, panel_h), border_radius=10)
-
-        # 테두리 색상 (승리: 금색, 패배: 빨강)
-        border_color = (255, 215, 0) if is_win else (255, 80, 80)
-        pygame.draw.rect(self.screen, border_color, (panel_x, panel_y, panel_w, panel_h), 3, border_radius=10)
+        if is_win:
+            self._draw_egyptian_panel(panel_x, panel_y, panel_w, panel_h)
+        else:
+            self._draw_egyptian_panel(panel_x, panel_y, panel_w, panel_h, border_color=ET["carnelian"])
 
         # 결과 타이틀
         if self.fonts and "large" in self.fonts:
             if is_win:
                 result_text = "-- 승리! --"
-                text_color = (255, 215, 0)
+                text_color = ET["gold_bright"]
             else:
                 result_text = "패배..."
-                text_color = (255, 100, 100)
+                text_color = ET["carnelian_light"]
             surf, _ = self.fonts["large"].render(result_text, text_color)
             result_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
             result_y = panel_y + 20
@@ -5640,7 +5988,7 @@ class ColosseumsArena:
 
             # 스코어
             score_text = f"{self.selected_match.score1} : {self.selected_match.score2}"
-            surf, _ = self.fonts["medium"].render(score_text, (200, 200, 200))
+            surf, _ = self.fonts["medium"].render(score_text, ET["text_body"])
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 95))
 
         # 보상/손실 표시
@@ -5648,10 +5996,10 @@ class ColosseumsArena:
             if is_win:
                 round_prize = self.round_prizes.get(self.current_round, 0)
                 profit_text = f"{round_prize}G 획득!"
-                profit_color = (100, 255, 100)
+                profit_color = ET["malachite_light"]
             else:
                 profit_text = f"입장료 {self.entry_fee}G를 잃었습니다!"
-                profit_color = (255, 100, 100)
+                profit_color = ET["carnelian_light"]
             surf, _ = self.fonts["medium"].render(profit_text, profit_color)
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 140))
 
@@ -5659,43 +6007,42 @@ class ColosseumsArena:
         if self.fonts and "large" in self.fonts:
             if self.accumulated_prize > 0:
                 acc_text = f"현재 상금: {self.accumulated_prize}G"
-                color = (255, 215, 0)
+                color = ET["gold_bright"]
             else:
                 acc_text = "상금 없음"
-                color = (150, 150, 150)
+                color = ET["text_disabled"]
             surf, _ = self.fonts["large"].render(acc_text, color)
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 185))
 
         # 패배시 추가 메시지
         if not is_win and self.fonts and "small" in self.fonts:
             lose_msg = f"입장료 {self.entry_fee}G를 잃었습니다..."
-            surf, _ = self.fonts["small"].render(lose_msg, (200, 150, 150))
+            surf, _ = self.fonts["small"].render(lose_msg, ET["carnelian_light"])
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 230))
 
         # 안내
         if self.fonts and "small" in self.fonts:
             hint = "클릭하여 계속"
-            surf, _ = self.fonts["small"].render(hint, (150, 150, 150))
+            surf, _ = self.fonts["small"].render(hint, ET["text_hint"])
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 280))
 
     def _draw_round_end_ui(self):
         """라운드 종료 UI - 누적 상금 시스템"""
         # 반투명 오버레이
         overlay = _get_arena_fullscreen()
-        overlay.fill((0, 0, 0, 180))
+        overlay.fill((*ET["overlay_dark"], 180))
         self.screen.blit(overlay, (0, 0))
 
         # 패널
         panel_x, panel_y = 150, 180
         panel_w, panel_h = 460, 340
-        pygame.draw.rect(self.screen, (35, 40, 50), (panel_x, panel_y, panel_w, panel_h), border_radius=10)
-        pygame.draw.rect(self.screen, (255, 215, 0), (panel_x, panel_y, panel_w, panel_h), 3, border_radius=10)
+        self._draw_egyptian_panel(panel_x, panel_y, panel_w, panel_h)
 
         # 타이틀
         if self.fonts and "large" in self.fonts:
             round_name = "4강" if self.current_round == TournamentRound.SEMI_FINAL else "결승"
             title = f"{round_name} 진출!"
-            surf, _ = self.fonts["large"].render(title, (255, 215, 0))
+            surf, _ = self.fonts["large"].render(title, ET["gold_bright"])
             title_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
             self.screen.blit(surf, (title_x, panel_y + 25))
             icon_y = panel_y + 25 + surf.get_height() // 2
@@ -5705,14 +6052,14 @@ class ColosseumsArena:
         # 누적 상금 (크게)
         if self.fonts and "large" in self.fonts:
             acc_text = f"누적 상금: {self.accumulated_prize}G"
-            surf, _ = self.fonts["large"].render(acc_text, (100, 255, 100))
+            surf, _ = self.fonts["large"].render(acc_text, ET["malachite_light"])
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 75))
 
         # 다음 라운드 보상 정보
         if self.fonts and "medium" in self.fonts:
             next_prize = self.round_prizes.get(self.current_round, 0)
             next_text = f"다음 라운드 보상: +{next_prize}G"
-            surf, _ = self.fonts["medium"].render(next_text, (180, 180, 255))
+            surf, _ = self.fonts["medium"].render(next_text, ET["lapis_light"])
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 120))
 
         # 선택한 영웅 정보
@@ -5729,7 +6076,7 @@ class ColosseumsArena:
         # 경고
         if self.fonts and "small" in self.fonts:
             warn_text = "패배 시 누적 상금을 모두 잃습니다!"
-            surf, _ = self.fonts["small"].render(warn_text, (255, 180, 100))
+            surf, _ = self.fonts["small"].render(warn_text, ET["gold_pale"])
             warn_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
             self._draw_warning_icon(warn_x - 12, panel_y + 185 + surf.get_height() // 2, 10)
             self.screen.blit(surf, (warn_x, panel_y + 185))
@@ -5739,12 +6086,12 @@ class ColosseumsArena:
         continue_rect = pygame.Rect(panel_x + 40, panel_y + 220, 180, 50)
         if rc_hovered:
             self._draw_hover_border(continue_rect.x, continue_rect.y, continue_rect.w, continue_rect.h, (100, 255, 100))
-        rc_bg = (100, 210, 100) if rc_hovered else (80, 180, 80)
+        rc_bg = ET["btn_continue_hover"] if rc_hovered else ET["btn_continue"]
         pygame.draw.rect(self.screen, rc_bg, continue_rect, border_radius=5)
         if rc_hovered:
-            pygame.draw.rect(self.screen, (150, 255, 150), continue_rect, 2, border_radius=5)
+            pygame.draw.rect(self.screen, ET["malachite_light"], continue_rect, 2, border_radius=5)
         if self.fonts and "medium" in self.fonts:
-            surf, _ = self._render_text("medium", "계속 도전!", (255, 255, 255))
+            surf, _ = self._render_text("medium", "계속 도전!", ET["text_white"])
             btn_text_x = continue_rect.centerx - surf.get_width() // 2
             self._draw_fire_icon(btn_text_x - 12, continue_rect.y + 15 + surf.get_height() // 2, 12)
             self.screen.blit(surf, (btn_text_x, continue_rect.y + 15))
@@ -5754,12 +6101,12 @@ class ColosseumsArena:
         exit_rect = pygame.Rect(panel_x + 240, panel_y + 220, 180, 50)
         if re_hovered:
             self._draw_hover_border(exit_rect.x, exit_rect.y, exit_rect.w, exit_rect.h, (150, 150, 255))
-        re_bg = (120, 120, 210) if re_hovered else (100, 100, 180)
+        re_bg = ET["btn_exit_hover"] if re_hovered else ET["btn_exit"]
         pygame.draw.rect(self.screen, re_bg, exit_rect, border_radius=5)
         if re_hovered:
-            pygame.draw.rect(self.screen, (180, 180, 255), exit_rect, 2, border_radius=5)
+            pygame.draw.rect(self.screen, ET["lapis_light"], exit_rect, 2, border_radius=5)
         if self.fonts and "medium" in self.fonts:
-            surf, _ = self.fonts["medium"].render(f"{self.accumulated_prize}G 수령", (255, 255, 255))
+            surf, _ = self.fonts["medium"].render(f"{self.accumulated_prize}G 수령", ET["text_white"])
             btn_text_x = exit_rect.centerx - surf.get_width() // 2
             self._draw_coin_icon(btn_text_x - 12, exit_rect.y + 15 + surf.get_height() // 2, 12)
             self.screen.blit(surf, (btn_text_x, exit_rect.y + 15))
@@ -5773,7 +6120,7 @@ class ColosseumsArena:
             else:
                 remaining = [f"결승: +{self.round_prizes[TournamentRound.FINAL]}G"]
             preview_text = "남은 보상: " + " → ".join(remaining)
-            surf, _ = self.fonts["small"].render(preview_text, (150, 200, 255))
+            surf, _ = self.fonts["small"].render(preview_text, ET["lapis_light"])
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 285))
 
     def _draw_victory_celebration(self):
@@ -6066,19 +6413,18 @@ class ColosseumsArena:
         """토너먼트 종료 UI - 패배 시"""
         # 반투명 오버레이
         overlay = _get_arena_fullscreen()
-        overlay.fill((0, 0, 0, 200))
+        overlay.fill((*ET["overlay_dark"], 200))
         self.screen.blit(overlay, (0, 0))
 
         # 패널
         panel_x, panel_y = 180, 180
         panel_w, panel_h = 400, 340
-        pygame.draw.rect(self.screen, (35, 40, 50), (panel_x, panel_y, panel_w, panel_h), border_radius=10)
-        pygame.draw.rect(self.screen, (255, 80, 80), (panel_x, panel_y, panel_w, panel_h), 3, border_radius=10)
+        self._draw_egyptian_panel(panel_x, panel_y, panel_w, panel_h, border_color=ET["carnelian"])
 
         # 타이틀
         if self.fonts and "large" in self.fonts:
             title = "패배..."
-            title_color = (255, 100, 100)
+            title_color = ET["carnelian_light"]
             surf, _ = self.fonts["large"].render(title, title_color)
             title_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
             self.screen.blit(surf, (title_x, panel_y + 25))
@@ -6089,13 +6435,13 @@ class ColosseumsArena:
         # 손실 표시
         if self.fonts and "large" in self.fonts:
             profit_text = f"입장료 {self.entry_fee}G를 잃었습니다"
-            surf, _ = self.fonts["large"].render(profit_text, (255, 100, 100))
+            surf, _ = self.fonts["large"].render(profit_text, ET["carnelian_light"])
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 100))
 
         # 메시지
         if self.fonts and "medium" in self.fonts:
             msg = "다음에 다시 도전하세요!"
-            surf, _ = self.fonts["medium"].render(msg, (200, 200, 200))
+            surf, _ = self.fonts["medium"].render(msg, ET["text_body"])
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 160))
 
         # 나가기 버튼
@@ -6103,12 +6449,12 @@ class ColosseumsArena:
         exit_rect = pygame.Rect(panel_x + 100, panel_y + 270, 200, 50)
         if end_exit_hovered:
             self._draw_hover_border(exit_rect.x, exit_rect.y, exit_rect.w, exit_rect.h, (130, 170, 255))
-        exit_bg = (100, 140, 210) if end_exit_hovered else (80, 120, 180)
+        exit_bg = ET["btn_exit_hover"] if end_exit_hovered else ET["btn_exit"]
         pygame.draw.rect(self.screen, exit_bg, exit_rect, border_radius=5)
         if end_exit_hovered:
-            pygame.draw.rect(self.screen, (180, 210, 255), exit_rect, 2, border_radius=5)
+            pygame.draw.rect(self.screen, ET["lapis_light"], exit_rect, 2, border_radius=5)
         if self.fonts and "medium" in self.fonts:
-            surf, _ = self._render_text("medium", "투기장 나가기", (255, 255, 255))
+            surf, _ = self._render_text("medium", "투기장 나가기", ET["text_white"])
             self.screen.blit(surf, (exit_rect.centerx - surf.get_width() // 2, exit_rect.y + 15))
 
     # ========================================================================
@@ -7377,13 +7723,13 @@ class ColosseumsArena:
             if per_match_xp > 0:
                 self._draw_loser_x(hero1_rect, per_match_xp)
 
-        # === VS (중앙 원) ===
+        # === VS (중앙 원) - 이집트 ===
         vs_x = x + box_w // 2
         vs_y = y + box_h // 2
-        pygame.draw.circle(self.screen, (60, 65, 75), (vs_x, vs_y), 16)
-        pygame.draw.circle(self.screen, (100, 105, 115), (vs_x, vs_y), 16, 2)
+        pygame.draw.circle(self.screen, ET["vs_circle_bg"], (vs_x, vs_y), 16)
+        pygame.draw.circle(self.screen, ET["vs_circle_border"], (vs_x, vs_y), 16, 2)
         if self.fonts and "small" in self.fonts:
-            surf, _ = self._render_text("small", "VS", (255, 215, 0))
+            surf, _ = self._render_text("small", "VS", ET["gold_bright"])
             if surf:
                 self.screen.blit(surf, (vs_x - surf.get_width() // 2, vs_y - surf.get_height() // 2))
 
@@ -7435,7 +7781,7 @@ class ColosseumsArena:
         # 결과 표시 (스코어)
         if match.completed and match.winner:
             if self.fonts and "small" in self.fonts:
-                surf, _ = self.fonts["small"].render(f"{match.score1}:{match.score2}", (255, 215, 0))
+                surf, _ = self.fonts["small"].render(f"{match.score1}:{match.score2}", ET["gold_bright"])
                 self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + box_h + 5))
 
     # ====================================================================
