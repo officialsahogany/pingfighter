@@ -7113,7 +7113,7 @@ def clear_ui_overlay():
     _ui_overlay_items = []
 
 def _draw_guard_hover_tooltip(target_screen, hover_info):
-    """호위무사 아이콘 호버 시 쿨타임 툴팁 표시 (REAL_SCREEN에 직접 그리기)"""
+    """호위무사 아이콘 호버 시 쿨타임 + 스킬 정보 툴팁 표시 (REAL_SCREEN에 직접 그리기)"""
     if not hover_info:
         return
     try:
@@ -7122,8 +7122,11 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
         _gh_cd = hover_info["cooldown"]
         _gh_phase = hover_info["phase"]
         _gh_next = hover_info.get("is_next", False)
+        _gh_skill = hover_info.get("skill", None)
         _gh_font = get_font(13, style="bold")
         _gh_small = get_font(11, style="regular")
+        _gh_tiny = get_font(10, style="regular")
+
         # 상태 텍스트
         if _gh_phase is not None:
             _status = "전투 중"
@@ -7134,29 +7137,99 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
         else:
             _status = "대기 중"
             _status_color = (180, 220, 255)
+
+        # 스킬 설명 줄바꿈 준비
+        _skill_desc_lines = []
+        _skill_name = ""
+        _skill_icon = None
+        if _gh_skill:
+            _skill_name = getattr(_gh_skill, 'korean_name', '') or getattr(_gh_skill, 'name', '')
+            _skill_desc = getattr(_gh_skill, 'description', '') or ''
+            # 아이콘 가져오기
+            try:
+                from downtown.hero_skill_icons import get_skill_icon
+                _skill_icon = get_skill_icon(getattr(_gh_skill, 'skill_id', ''), 18)
+            except Exception:
+                _skill_icon = None
+            # 설명 줄바꿈 (최대 너비 기반)
+            _max_desc_w = 170
+            _cur_line = ""
+            for ch in _skill_desc:
+                _test = _cur_line + ch
+                _test_s = _gh_tiny.render(_test, True, (200, 200, 200))
+                if _test_s.get_width() <= _max_desc_w:
+                    _cur_line = _test
+                else:
+                    if _cur_line:
+                        _skill_desc_lines.append(_cur_line)
+                    _cur_line = ch
+            if _cur_line:
+                _skill_desc_lines.append(_cur_line)
+            _skill_desc_lines = _skill_desc_lines[:3]
+
+        # 레이아웃 계산
         _n_surf = _gh_font.render(_gh_name, True, _gh_color)
         _s_surf = _gh_small.render(_status, True, _status_color)
         _lines = [_n_surf, _s_surf]
         if _gh_next:
             _nx_surf = _gh_small.render("▶ 다음 출격", True, (255, 200, 50))
             _lines.append(_nx_surf)
+
         _tw = max(s.get_width() for s in _lines) + 20
-        _tw = max(_tw, 120)
+        # 스킬이 있으면 너비 확보
+        if _gh_skill and _skill_name:
+            _sn_surf = _gh_small.render(_skill_name, True, (255, 255, 255))
+            _tw = max(_tw, _sn_surf.get_width() + 34 + 20)  # 아이콘(18) + 간격(6) + 패딩
+            for dl in _skill_desc_lines:
+                _dl_surf = _gh_tiny.render(dl, True, (200, 200, 200))
+                _tw = max(_tw, _dl_surf.get_width() + 20)
+        _tw = max(_tw, 140)
+
         _th = sum(s.get_height() for s in _lines) + 4 * len(_lines) + 8
+        # 스킬 영역 높이 추가
+        if _gh_skill and _skill_name:
+            _th += 4  # 구분선 여백
+            _th += 22  # 스킬 이름 행
+            _th += len(_skill_desc_lines) * 14 + 4  # 설명 행들
+
         if hover_info["side"] == "bottom":
             _tx = max(4, hover_info["screen_x"] - _tw)
         else:
             _tx = hover_info["screen_x"]
         _ty = hover_info["screen_y"]
         _ty = max(4, min(_ty, target_screen.get_height() - _th - 4))
+
         _tip_bg = pygame.Surface((_tw, _th), pygame.SRCALPHA)
         pygame.draw.rect(_tip_bg, (16, 20, 36, 230), (0, 0, _tw, _th), border_radius=8)
         pygame.draw.rect(_tip_bg, (*_gh_color, 200), (0, 0, _tw, _th), 2, border_radius=8)
         target_screen.blit(_tip_bg, (_tx, _ty))
+
         _cy = _ty + 6
         for _ls in _lines:
             target_screen.blit(_ls, (_tx + 10, _cy))
             _cy += _ls.get_height() + 4
+
+        # 스킬 정보 섹션
+        if _gh_skill and _skill_name:
+            _cy += 2
+            # 구분선
+            pygame.draw.line(target_screen, (*_gh_color[:3], 80),
+                           (_tx + 8, _cy), (_tx + _tw - 8, _cy), 1)
+            _cy += 4
+            # 스킬 아이콘 + 이름
+            if _skill_icon:
+                target_screen.blit(_skill_icon, (_tx + 8, _cy))
+                _sn_surf = _gh_small.render(_skill_name, True, (255, 230, 150))
+                target_screen.blit(_sn_surf, (_tx + 30, _cy + 1))
+            else:
+                _sn_surf = _gh_small.render(_skill_name, True, (255, 230, 150))
+                target_screen.blit(_sn_surf, (_tx + 10, _cy + 1))
+            _cy += 20
+            # 설명 텍스트
+            for dl in _skill_desc_lines:
+                _dl_surf = _gh_tiny.render(dl, True, (200, 195, 180))
+                target_screen.blit(_dl_surf, (_tx + 10, _cy))
+                _cy += 14
     except Exception:
         pass
 

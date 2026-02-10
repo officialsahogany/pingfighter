@@ -2274,6 +2274,8 @@ class GuardWarriorSystem:
                 if mouse_pos:
                     _fr = pygame.Rect(frame_x_right, slot_cy, frame_w, frame_h)
                     if _fr.collidepoint(mouse_pos):
+                        # 선택된 스킬 정보 포함
+                        _guard_skills = self.skill_instances.get(guard["id"], [])
                         hover_info = {
                             "name": guard.get("name", "?"),
                             "color": guard.get("color", (200, 200, 200)),
@@ -2283,6 +2285,7 @@ class GuardWarriorSystem:
                             "side": "top",
                             "screen_x": frame_x_right + frame_w + 8,
                             "screen_y": slot_cy,
+                            "skill": _guard_skills[0] if _guard_skills else None,
                         }
 
         # --- 하단 영웅의 호위무사 → 왼쪽 필러, 인게임창 하단 끝에 붙임 ---
@@ -2347,6 +2350,8 @@ class GuardWarriorSystem:
                 if mouse_pos:
                     _fr = pygame.Rect(frame_x_left, slot_cy, frame_w, frame_h)
                     if _fr.collidepoint(mouse_pos):
+                        # 선택된 스킬 정보 포함
+                        _guard_skills = self.skill_instances.get(guard["id"], [])
                         hover_info = {
                             "name": guard.get("name", "?"),
                             "color": guard.get("color", (200, 200, 200)),
@@ -2356,6 +2361,7 @@ class GuardWarriorSystem:
                             "side": "bottom",
                             "screen_x": frame_x_left - 8,
                             "screen_y": slot_cy,
+                            "skill": _guard_skills[0] if _guard_skills else None,
                         }
 
         return hover_info
@@ -5715,31 +5721,23 @@ class ColosseumsArena:
                     80, 55, facing="down", color=hero["color"], scale_mode="preview"
                 )
 
-            # 스킬 2개 미리보기 (아이콘 + 이름 + 설명)
+            # 스킬 2개 미리보기 (아이콘 + 이름만)
             hero_skills = HERO_SKILLS.get(hero["id"], [])
             skill_y = cell_y + 140
             for si, skill in enumerate(hero_skills):
-                skill_h = 48
+                skill_h = 26
                 pygame.draw.rect(self.screen, ET["skill_bg"], (cx + 6, skill_y, cell_w - 12, skill_h), border_radius=4)
                 # 스킬 아이콘
-                icon = _get_hero_skill_icon(skill.skill_id, 20)
+                icon = _get_hero_skill_icon(skill.skill_id, 18)
                 if icon:
                     self.screen.blit(icon, (cx + 10, skill_y + 4))
                 else:
-                    pygame.draw.rect(self.screen, ET["bg_medium"], (cx + 10, skill_y + 4, 20, 20), border_radius=3)
+                    pygame.draw.rect(self.screen, ET["bg_medium"], (cx + 10, skill_y + 4, 18, 18), border_radius=3)
                 # 스킬 이름
                 if self.fonts and "small" in self.fonts:
                     label = f"{'A' if si == 0 else 'B'}: {skill.korean_name}"
                     surf, _ = self.fonts["small"].render(label, ET["text_body"])
-                    self.screen.blit(surf, (cx + 34, skill_y + 4))
-                # 짧은 설명
-                if self.fonts and "small" in self.fonts:
-                    desc = getattr(skill, 'description', '')
-                    max_chars = 10
-                    if len(desc) > max_chars:
-                        desc = desc[:max_chars] + ".."
-                    surf, _ = self.fonts["small"].render(desc, ET["text_hint"])
-                    self.screen.blit(surf, (cx + 34, skill_y + 23))
+                    self.screen.blit(surf, (cx + 32, skill_y + 5))
                 skill_y += skill_h + 4
 
             # 스타일 표시
