@@ -4720,7 +4720,7 @@ class ColosseumsArena:
             shake_x, shake_y = self.skill_manager.get_screen_shake()
 
         # 배경
-        self.screen.fill((20, 25, 30))
+        self.screen.fill(ET["bg_dark"])
 
         # 콜로세움 배경 사용 (가능한 경우)
         if self.arena_background:
@@ -6484,8 +6484,8 @@ class ColosseumsArena:
                 'vy': random.uniform(-3, -0.5),
                 'size': random.uniform(2, 6),
                 'alpha': random.randint(100, 220),
-                'color': random.choice([(100, 200, 255), (255, 220, 100),
-                                        (150, 255, 150), (255, 150, 200)])
+                'color': random.choice([ET["lapis_light"], ET["gold_bright"],
+                                        ET["malachite_light"], ET["turquoise_light"]])
             })
         self.state = TournamentState.PERK_SELECT
         print(f"[Perk] 퍽 선택 시작 (라운드: {self.current_round.value})")
@@ -7449,9 +7449,9 @@ class ColosseumsArena:
 
             # === 능력치 바 (3개) ===
             stats = [
-                ("속도", guard.get("speed", 1.0), (100, 200, 255)),
-                ("파워", guard.get("power", 1.0), (255, 120, 100)),
-                ("정확", guard.get("accuracy", 0.85), (120, 255, 120)),
+                ("속도", guard.get("speed", 1.0), ET["lapis_light"]),
+                ("파워", guard.get("power", 1.0), ET["carnelian_light"]),
+                ("정확", guard.get("accuracy", 0.85), ET["malachite_light"]),
             ]
             bar_y_start = draw_y + 282
             bar_w = card_w - 40
@@ -7671,15 +7671,15 @@ class ColosseumsArena:
 
         # 박스 배경
         if match.completed:
-            bg_color = (35, 55, 45)
+            bg_color = ET["card_bg_completed"]
         else:
-            bg_color = (45, 50, 60)
+            bg_color = ET["card_bg"]
 
         pygame.draw.rect(self.screen, bg_color, (x, y, box_w, box_h), border_radius=8)
-        pygame.draw.rect(self.screen, (100, 105, 115), (x, y, box_w, box_h), 2, border_radius=8)
+        pygame.draw.rect(self.screen, ET["card_border"], (x, y, box_w, box_h), 2, border_radius=8)
 
         # 대각선 (왼쪽 하단 → 오른쪽 상단)
-        pygame.draw.line(self.screen, (80, 85, 95), (x + 5, y + box_h - 5), (x + box_w - 5, y + 5), 2)
+        pygame.draw.line(self.screen, ET["card_diagonal"], (x + 5, y + box_h - 5), (x + box_w - 5, y + 5), 2)
 
         # === 영웅 1 (왼쪽 상단 삼각형) ===
         hero1 = match.hero1
