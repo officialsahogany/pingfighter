@@ -113899,6 +113899,10 @@ def draw_score():
             draw_ice_crystal_scoreboard(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, current_stage, bottom_hero_name, top_hero_name)
         else:
             draw_ice_crystal_scoreboard(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, current_stage)
+
+    # 투기장 배속 버튼 (draw_score 호출 시 자동으로 그려짐)
+    draw_arena_speed_buttons()
+
 def draw_laser_cannon_gauge():
     """ 레이저 캐논 쿨타임 게이지바 (야마토포 스타일)"""
     if current_stage != 6:
@@ -135108,7 +135112,6 @@ def get_legacy_game_loop_hooks() -> LegacyHooks:
             draw_neutralize_particles(SCREEN)
             draw_overlay_ui()
             draw_score()
-            draw_arena_speed_buttons()
             draw_stage8_boss_gauge_bar()
             draw_stage7_boss_gauge_bar()
             boss_dialogue_update()
