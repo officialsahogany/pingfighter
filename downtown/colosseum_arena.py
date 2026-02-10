@@ -1196,7 +1196,10 @@ class GuardWarriorSystem:
         # 쿨타임
         self.cooldown_top = 0.0
         self.cooldown_bottom = 0.0
-        self.cooldown_range = (20.0, 30.0)  # 20~30초 랜덤
+        self.cooldown_max_top = 30.0       # 현재 쿨타임 최대값 (게이지 표시용)
+        self.cooldown_max_bottom = 30.0
+        self.cooldown_range = (20.0, 30.0)  # 스킬 없을 때 폴백용
+        self.GUARD_CD_PENALTY = 1.2        # 호위무사 스킬 쿨타임 +20% 페널티
 
         # 퍽 멀티플라이어 (호위무사 쿨타임 감소)
         self.guard_cd_mult_top = 1.0
@@ -1263,12 +1266,10 @@ class GuardWarriorSystem:
         self.guard_warriors_bottom = list(guards_bottom) if guards_bottom else []
         self.skill_selections = skill_selections or {}
 
-        # 쿨타임 초기화 (게이지가 꽉 찬 상태에서 시작하도록 cooldown_range[1] 사용)
+        # 다음 호위무사 인덱스 설정
         if self.guard_warriors_top:
-            self.cooldown_top = self.cooldown_range[1]
             self.next_guard_top_idx = random.randint(0, len(self.guard_warriors_top) - 1)
         if self.guard_warriors_bottom:
-            self.cooldown_bottom = self.cooldown_range[1]
             self.next_guard_bottom_idx = random.randint(0, len(self.guard_warriors_bottom) - 1)
 
         # 애니메이션 상태 초기화
@@ -1279,8 +1280,20 @@ class GuardWarriorSystem:
         self.y_top = TOP_PADDLE_Y
         self.y_bottom = BOTTOM_PADDLE_Y
 
-        # 호위무사 스킬 인스턴스 생성
+        # 호위무사 스킬 인스턴스 생성 (쿨타임 계산 전에 먼저 생성해야 함)
         self._init_guard_skills()
+
+        # 쿨타임 초기화: 첫 등장 호위무사의 스킬 쿨타임 * 1.2 기반
+        if self.guard_warriors_top:
+            first_guard = self.guard_warriors_top[self.next_guard_top_idx % len(self.guard_warriors_top)]
+            initial_cd = self._get_guard_cooldown(first_guard["id"])
+            self.cooldown_top = initial_cd
+            self.cooldown_max_top = initial_cd
+        if self.guard_warriors_bottom:
+            first_guard = self.guard_warriors_bottom[self.next_guard_bottom_idx % len(self.guard_warriors_bottom)]
+            initial_cd = self._get_guard_cooldown(first_guard["id"])
+            self.cooldown_bottom = initial_cd
+            self.cooldown_max_bottom = initial_cd
 
         guard_names_top = [g["name"] for g in self.guard_warriors_top]
         guard_names_bottom = [g["name"] for g in self.guard_warriors_bottom]
@@ -1312,6 +1325,13 @@ class GuardWarriorSystem:
                 except Exception as e:
                     print(f"[Guard] 스킬 인스턴스 생성 실패 ({hero_id}): {e}")
                     self.skill_instances[hero_id] = []
+
+    def _get_guard_cooldown(self, guard_id):
+        """호위무사의 쿨타임 계산: 배정된 스킬 쿨타임 * 1.2 (20% 페널티)"""
+        skills = self.skill_instances.get(guard_id, [])
+        if skills:
+            return skills[0].cooldown * self.GUARD_CD_PENALTY
+        return random.uniform(*self.cooldown_range)
 
     def update(self, dt, top_paddle, bottom_paddle, ball):
         """매 프레임 호위무사 시스템 업데이트"""
@@ -1422,13 +1442,15 @@ class GuardWarriorSystem:
         # 스킬 2개 중 1개 랜덤 선택
         skills = self.skill_instances.get(guard["id"], [])
         if not skills:
-            # 스킬이 없으면 다음 쿨타임 설정 후 리턴 (퍽 적용)
+            # 스킬이 없으면 폴백 쿨타임 설정 후 리턴 (퍽 적용)
             cd_mult = self.guard_cd_mult_top if is_top else self.guard_cd_mult_bottom
             next_cd = random.uniform(*self.cooldown_range) * cd_mult
             if is_top:
                 self.cooldown_top = next_cd
+                self.cooldown_max_top = next_cd
             else:
                 self.cooldown_bottom = next_cd
+                self.cooldown_max_bottom = next_cd
             return
         skill = random.choice(skills)
 
@@ -1451,16 +1473,21 @@ class GuardWarriorSystem:
             self.side_bottom = side
             self.selected_skill_bottom = skill
 
-        # 다음 쿨타임 설정 (퍽 적용)
+        # 다음 쿨타임 설정: 다음 호위무사의 스킬 쿨타임 * 1.2 * 퍽 보정
         cd_mult = self.guard_cd_mult_top if is_top else self.guard_cd_mult_bottom
-        next_cd = random.uniform(*self.cooldown_range) * cd_mult
+        next_guard_idx = self.next_guard_top_idx if is_top else self.next_guard_bottom_idx
+        next_guard = guards[next_guard_idx % len(guards)]
+        base_cd = self._get_guard_cooldown(next_guard["id"])
+        next_cd = base_cd * cd_mult
         if is_top:
             self.cooldown_top = next_cd
+            self.cooldown_max_top = next_cd
         else:
             self.cooldown_bottom = next_cd
+            self.cooldown_max_bottom = next_cd
 
         print(f"[Guard] {'상단' if is_top else '하단'}측 호위무사 {guard['name']} 등장! "
-              f"스킬: {skill.korean_name} | 방향: {side}")
+              f"스킬: {skill.korean_name} | 방향: {side} | 다음 쿨타임: {next_cd:.1f}초")
 
     def _update_animation(self, dt, is_top, top_paddle, bottom_paddle, ball):
         """호위무사 등장/시전/퇴장 애니메이션"""
@@ -2129,7 +2156,7 @@ class GuardWarriorSystem:
 
                 # 쿨타임 어둡게 오버레이
                 if self.phase_top is None and self.cooldown_top > 0:
-                    cd_ratio = min(1.0, self.cooldown_top / self.cooldown_range[1])
+                    cd_ratio = min(1.0, self.cooldown_top / self.cooldown_max_top) if self.cooldown_max_top > 0 else 0
                     overlay_h = int(frame_h * cd_ratio)
                     if overlay_h > 0:
                         cd_surf = _get_arena_surface(frame_w, overlay_h)
@@ -2202,7 +2229,7 @@ class GuardWarriorSystem:
 
                 # 쿨타임 어둡게 오버레이
                 if self.phase_bottom is None and self.cooldown_bottom > 0:
-                    cd_ratio = min(1.0, self.cooldown_bottom / self.cooldown_range[1])
+                    cd_ratio = min(1.0, self.cooldown_bottom / self.cooldown_max_bottom) if self.cooldown_max_bottom > 0 else 0
                     overlay_h = int(frame_h * cd_ratio)
                     if overlay_h > 0:
                         cd_surf = _get_arena_surface(frame_w, overlay_h)
