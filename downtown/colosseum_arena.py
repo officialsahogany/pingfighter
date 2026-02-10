@@ -6464,10 +6464,10 @@ class ColosseumsArena:
                 self.bracket_anim_progress = 0.0
                 self.bracket_anim_timer = 0.0
 
-                # 결승 진출 시: 양측 모두 호위무사 1명만 참가
-                if self.current_round == TournamentRound.FINAL and self.bet_hero:
-                    # AI 상대 호위무사를 1명으로 랜덤 축소
-                    self._trim_opponent_guards_for_final()
+                # 1영웅 1호위무사 체제: 매 라운드 진출 시 호위무사 선택
+                if self.bet_hero and self.current_round in (TournamentRound.SEMI_FINAL, TournamentRound.FINAL):
+                    # AI 호위무사를 1명으로 축소
+                    self._trim_all_ai_guards()
 
                     # 플레이어 호위무사 2명 이상이면 선택 화면
                     if len(self.guard_warrior_map.get(self.bet_hero["id"], [])) >= 2:
@@ -6635,7 +6635,7 @@ class ColosseumsArena:
     }
 
     def _start_guard_select(self):
-        """결승 호위무사 선택 화면 시작"""
+        """호위무사 선택 화면 시작 (매 라운드 진출 시)"""
         bet_id = self.bet_hero["id"] if self.bet_hero else ""
         guards = self.guard_warrior_map.get(bet_id, [])
         self.guard_select_guards = list(guards)
@@ -6644,6 +6644,8 @@ class ColosseumsArena:
         self.guard_select_timer = 0.0
         self.guard_select_skill_hover = None
         self._guard_skill_icon_rects = []
+        # 기존(index 0) vs 신규(마지막 = 방금 생포된 호위무사) 구분
+        self.guard_select_new_idx = len(guards) - 1 if guards else 0
         self.guard_select_particles = []
         # 초기 파티클
         for _ in range(30):
@@ -6661,23 +6663,22 @@ class ColosseumsArena:
         print(f"[Guard] 호위무사 선택 시작 (후보 {len(guards)}명: "
               f"{[g['name'] for g in guards]})")
 
-    def _trim_opponent_guards_for_final(self):
-        """결승전 AI 상대 호위무사를 1명으로 랜덤 축소"""
-        final_matches = self.matches.get(TournamentRound.FINAL, [])
-        if not final_matches or not self.bet_hero:
+    def _trim_all_ai_guards(self):
+        """모든 AI 영웅 호위무사를 1명으로 랜덤 축소 (bet_hero 제외)"""
+        if not self.bet_hero:
             return
-        match = final_matches[0]
-        opponent = match.hero2 if match.hero1 == self.bet_hero else match.hero1
-        if not opponent:
-            return
-        opp_id = opponent["id"]
-        opp_guards = self.guard_warrior_map.get(opp_id, [])
-        if len(opp_guards) >= 2:
-            chosen = random.choice(opp_guards)
-            self.guard_warrior_map[opp_id] = [chosen]
-            print(f"[Guard] AI 상대 호위무사 축소: {opponent['name']} → "
-                  f"{chosen['name']} 선택 (탈락: "
-                  f"{[g['name'] for g in opp_guards if g != chosen]})")
+        bet_id = self.bet_hero["id"]
+        current_matches = self.matches.get(self.current_round, [])
+        for match in current_matches:
+            for hero in [match.hero1, match.hero2]:
+                if not hero or hero["id"] == bet_id:
+                    continue
+                hero_id = hero["id"]
+                guards = self.guard_warrior_map.get(hero_id, [])
+                if len(guards) >= 2:
+                    chosen = random.choice(guards)
+                    self.guard_warrior_map[hero_id] = [chosen]
+                    print(f"[Guard] AI 호위무사 축소: {hero['name']} → {chosen['name']}")
 
     def _confirm_guard_select(self, index: int):
         """호위무사 선택 확정"""
@@ -6686,12 +6687,21 @@ class ColosseumsArena:
             return
         selected = guards[index]
         bet_id = self.bet_hero["id"] if self.bet_hero else ""
+        new_idx = getattr(self, 'guard_select_new_idx', len(guards) - 1)
+
+        # 신규 호위무사 선택 시 스킬 리롤
+        if index == new_idx:
+            self.hero_selected_skills[selected["id"]] = random.randint(0, 1)
+            print(f"[Guard] 신규 호위무사 선택 → 스킬 리롤: {selected['name']} "
+                  f"(스킬 인덱스: {self.hero_selected_skills[selected['id']]})")
+        else:
+            print(f"[Guard] 기존 호위무사 유지: {selected['name']} (스킬 유지)")
 
         # 선택한 호위무사만 남기기
+        dropped = [g['name'] for i, g in enumerate(guards) if i != index]
         self.guard_warrior_map[bet_id] = [selected]
         self.guard_select_chosen = index
-        print(f"[Guard] 호위무사 선택 완료: {selected['name']} "
-              f"(탈락: {guards[1 - index]['name']})")
+        print(f"[Guard] 호위무사 선택 완료: {selected['name']} (탈락: {dropped})")
 
         # VS_PREVIEW로 전환
         self._start_vs_preview(show_buttons=True)
@@ -6755,8 +6765,11 @@ class ColosseumsArena:
         if self.fonts and "large" in self.fonts and title_fade > 0:
             title_alpha = int(255 * title_fade)
 
-            # 메인 타이틀
-            title_text = "결승전 호위무사 선택"
+            # 메인 타이틀 (라운드별 동적)
+            if self.current_round == TournamentRound.SEMI_FINAL:
+                title_text = "4강 호위무사 선택"
+            else:
+                title_text = "결승전 호위무사 선택"
             surf, _ = self.fonts["large"].render(title_text, (255, 215, 80))
             alpha_s = _get_arena_surface(*surf.get_size())
             alpha_s.fill((255, 255, 255, title_alpha))
@@ -6765,7 +6778,10 @@ class ColosseumsArena:
 
             # 서브 타이틀
             if "medium" in self.fonts:
-                sub = "결승전에 데려갈 호위무사를 선택하세요"
+                if self.current_round == TournamentRound.SEMI_FINAL:
+                    sub = "4강에 데려갈 호위무사를 선택하세요"
+                else:
+                    sub = "결승전에 데려갈 호위무사를 선택하세요"
                 surf2, _ = self.fonts["medium"].render(sub, (200, 200, 220))
                 alpha_s2 = _get_arena_surface(*surf2.get_size())
                 alpha_s2.fill((255, 255, 255, int(title_alpha * 0.7)))
@@ -6847,6 +6863,24 @@ class ColosseumsArena:
             pygame.draw.rect(card_surf, (*border_color, 200),
                              (0, 0, card_w, card_h), border_w, border_radius=8)
             self.screen.blit(card_surf, (draw_x, draw_y))
+
+            # "기존"/"신규" 뱃지
+            new_idx = getattr(self, 'guard_select_new_idx', 1)
+            if self.fonts and "small" in self.fonts and slide > 0.5:
+                if idx == new_idx:
+                    badge_text, badge_color = "신규", (255, 180, 80)
+                else:
+                    badge_text, badge_color = "기존", (100, 180, 255)
+                badge_surf, _ = self.fonts["small"].render(badge_text, badge_color)
+                badge_bg = _get_arena_surface(badge_surf.get_width() + 10, badge_surf.get_height() + 4)
+                badge_bg.fill((0, 0, 0, 160))
+                pygame.draw.rect(badge_bg, (*badge_color, 120),
+                                 (0, 0, badge_bg.get_width(), badge_bg.get_height()),
+                                 1, border_radius=4)
+                bx = draw_x + card_w - badge_bg.get_width() - 6
+                by = draw_y + 6
+                self.screen.blit(badge_bg, (bx, by))
+                self.screen.blit(badge_surf, (bx + 5, by + 2))
 
             # 호버 시 글로우
             if is_hover or is_chosen:
@@ -6986,7 +7020,10 @@ class ColosseumsArena:
 
         # 라운드 표기
         if self.fonts and "small" in self.fonts:
-            round_text = "FINAL ROUND"
+            if self.current_round == TournamentRound.SEMI_FINAL:
+                round_text = "SEMI FINAL"
+            else:
+                round_text = "FINAL ROUND"
             rs, _ = self.fonts["small"].render(round_text, (255, 215, 80))
             self.screen.blit(rs, (center_x - rs.get_width() // 2, 650))
 
@@ -7597,22 +7634,19 @@ class ColosseumsArena:
                 surf, _ = self.fonts["medium"].render(title_text, title_color)
                 self.screen.blit(surf, (hero1_x - surf.get_width() // 2, hero1_y + 45))
 
-            # 호위무사 아이콘 (영웅1)
+            # 호위무사 아이콘 (영웅1) - 1명만 표시
             h1_guards = self.guard_warrior_map.get(hero1.get("id"), [])
             if h1_guards and self.hero_paddle_renderer:
-                guard_spacing = 60
-                guard_start_x = hero1_x - (len(h1_guards) * guard_spacing) // 2
+                g = h1_guards[0]
                 guard_y = hero1_y + 90
-                for gi, g in enumerate(h1_guards):
-                    gx = guard_start_x + gi * guard_spacing + guard_spacing // 2
-                    self.hero_paddle_renderer.draw_hero_paddle(
-                        self.screen, g.get("id", "mugen"), gx, guard_y, 56, 40,
-                        facing="down", color=g.get("color", (150, 150, 150)), scale_mode="preview"
-                    )
-                    if "small" in self.fonts:
-                        g_name = g.get("name", "")
-                        ns, _ = self.fonts["small"].render(g_name, (180, 180, 180))
-                        self.screen.blit(ns, (gx - ns.get_width() // 2, guard_y + 28))
+                self.hero_paddle_renderer.draw_hero_paddle(
+                    self.screen, g.get("id", "mugen"), hero1_x, guard_y, 56, 40,
+                    facing="down", color=g.get("color", (150, 150, 150)), scale_mode="preview"
+                )
+                if "small" in self.fonts:
+                    g_name = g.get("name", "")
+                    ns, _ = self.fonts["small"].render(g_name, (180, 180, 180))
+                    self.screen.blit(ns, (hero1_x - ns.get_width() // 2, guard_y + 28))
 
         # VS (중앙, 스케일 애니메이션)
         vs_scale = min(1.0, progress * 3) if progress < 0.5 else 1.0
@@ -7666,22 +7700,19 @@ class ColosseumsArena:
                 surf, _ = self.fonts["medium"].render(title_text, title_color)
                 self.screen.blit(surf, (hero2_x - surf.get_width() // 2, hero2_y + 45))
 
-            # 호위무사 아이콘 (영웅2)
+            # 호위무사 아이콘 (영웅2) - 1명만 표시
             h2_guards = self.guard_warrior_map.get(hero2.get("id"), [])
             if h2_guards and self.hero_paddle_renderer:
-                guard_spacing = 60
-                guard_start_x = hero2_x - (len(h2_guards) * guard_spacing) // 2
+                g = h2_guards[0]
                 guard_y = hero2_y + 90
-                for gi, g in enumerate(h2_guards):
-                    gx = guard_start_x + gi * guard_spacing + guard_spacing // 2
-                    self.hero_paddle_renderer.draw_hero_paddle(
-                        self.screen, g.get("id", "mugen"), gx, guard_y, 56, 40,
-                        facing="down", color=g.get("color", (150, 150, 150)), scale_mode="preview"
-                    )
-                    if "small" in self.fonts:
-                        g_name = g.get("name", "")
-                        ns, _ = self.fonts["small"].render(g_name, (180, 180, 180))
-                        self.screen.blit(ns, (gx - ns.get_width() // 2, guard_y + 28))
+                self.hero_paddle_renderer.draw_hero_paddle(
+                    self.screen, g.get("id", "mugen"), hero2_x, guard_y, 56, 40,
+                    facing="down", color=g.get("color", (150, 150, 150)), scale_mode="preview"
+                )
+                if "small" in self.fonts:
+                    g_name = g.get("name", "")
+                    ns, _ = self.fonts["small"].render(g_name, (180, 180, 180))
+                    self.screen.blit(ns, (hero2_x - ns.get_width() // 2, guard_y + 28))
 
         # 하단 힌트 (버튼 모드에서 버튼이 나타나기 전까지만 표시)
         show_buttons = getattr(self, 'vs_preview_show_buttons', False)
