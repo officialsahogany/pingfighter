@@ -133173,7 +133173,7 @@ def main(stage_num, new_boss_mode=False):
             # 달빛 베기/도깨비불 화면 정지 중에도 스킬 타이머는 진행되어야 함 (1초 후 해제)
             if (not freeze_now or freeze_dark_slash or freeze_hell_fire) and arena_mode_enabled and arena_skill_manager:
                 try:
-                    dt = 1.0 / 60.0  # 60fps 기준
+                    dt = (1.0 / 60.0) * arena_speed_multiplier  # 배속 적용
 
                     # 🎯 패들 속도 추적 (뿔 박치기 위치 예측용)
                     _prev_player_x = globals().get("_arena_prev_player_x", PLAYER.centerx)
