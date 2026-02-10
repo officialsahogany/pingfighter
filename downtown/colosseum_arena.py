@@ -5011,38 +5011,38 @@ class ColosseumsArena:
                 surf, _ = self.fonts["small"].render(f"[{style_text}]", (150, 150, 160))
                 self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 175))
 
-            # 스킬 2개 표시 (아이콘 + 이름 + 설명)
+            # 스킬 2개 표시 (아이콘 + 이름만, 설명은 스킬 연출에서 표시)
             from downtown.hero_skills import HERO_SKILLS
             hero_skills = HERO_SKILLS.get(hero["id"], [])
             skill_y = card_y + 200
             for si, skill in enumerate(hero_skills):
                 skill_bg = (50, 55, 65)
-                skill_h = 52
+                skill_h = 32
                 pygame.draw.rect(self.screen, skill_bg, (cx + 8, skill_y, card_w - 16, skill_h), border_radius=5)
                 pygame.draw.rect(self.screen, (70, 75, 85), (cx + 8, skill_y, card_w - 16, skill_h), 1, border_radius=5)
                 # 스킬 아이콘
                 icon = _get_hero_skill_icon(skill.skill_id, 24)
                 icon_x = cx + 14
-                icon_y = skill_y + 5
+                icon_y_pos = skill_y + 4
                 if icon:
-                    self.screen.blit(icon, (icon_x, icon_y))
+                    self.screen.blit(icon, (icon_x, icon_y_pos))
                 else:
-                    pygame.draw.rect(self.screen, (60, 60, 70), (icon_x, icon_y, 24, 24), border_radius=4)
+                    pygame.draw.rect(self.screen, (60, 60, 70), (icon_x, icon_y_pos, 24, 24), border_radius=4)
                 # 스킬 이름
                 if self.fonts and "small" in self.fonts:
                     label = f"{'A' if si == 0 else 'B'}: {skill.korean_name}"
                     surf, _ = self.fonts["small"].render(label, (210, 210, 220))
-                    self.screen.blit(surf, (icon_x + 30, skill_y + 5))
-                # 스킬 설명 (1줄)
-                if self.fonts and "small" in self.fonts:
-                    desc = getattr(skill, 'description', '')
-                    # 카드 너비에 맞게 자르기
-                    max_chars = 14
-                    if len(desc) > max_chars:
-                        desc = desc[:max_chars] + ".."
-                    surf, _ = self.fonts["small"].render(desc, (140, 140, 150))
-                    self.screen.blit(surf, (icon_x + 30, skill_y + 24))
+                    self.screen.blit(surf, (icon_x + 30, skill_y + 8))
                 skill_y += skill_h + 5
+
+        # VS 텍스트 (두 카드 사이 중앙)
+        vs_x = card1_x + card_w + gap // 2
+        vs_y = card_y + card_h // 2
+        if self.fonts and "large" in self.fonts:
+            pulse = 0.7 + 0.3 * abs(_sin(self.animation_timer * 3))
+            vs_color = (255, int(100 + 100 * pulse), 80)
+            vs_surf, _ = self.fonts["large"].render("VS", vs_color)
+            self.screen.blit(vs_surf, (vs_x - vs_surf.get_width() // 2, vs_y - vs_surf.get_height() // 2))
 
         # 하단 안내
         if self.fonts and "small" in self.fonts:
