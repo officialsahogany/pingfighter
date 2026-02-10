@@ -2628,6 +2628,7 @@ class ColosseumsArena:
 
         # === 호위무사 시스템 ===
         self.guard_warrior_map = {}          # hero_id -> [guard hero dicts] (토너먼트 전체 누적)
+        self.former_guards = []              # 교체되어 탈락한 호위무사 목록 (우승 연출용)
         self.guard_warriors_top = []         # 현재 배틀 상단 영웅의 호위무사들
         self.guard_warriors_bottom = []      # 현재 배틀 하단 영웅의 호위무사들
         # 쿨타임
@@ -6183,21 +6184,33 @@ class ColosseumsArena:
         # === 호위무사 (양옆, 챔피언보다 먼저 등장) ===
         guard_y_target = 420
         guard_size_w, guard_size_h = 80, 56
+        former = getattr(self, 'former_guards', [])
+        # 현재 호위무사(왼쪽) + 전 호위무사들(오른쪽, 반투명)
+        all_display_guards = []  # (guard_dict, is_former)
+        for g in guards:
+            all_display_guards.append((g, False))
+        for g in former:
+            # 현재 호위무사와 중복 제거
+            if g not in guards:
+                all_display_guards.append((g, True))
 
-        if guards and self.hero_paddle_renderer and intro > 0.1:
+        if all_display_guards and self.hero_paddle_renderer and intro > 0.1:
             guard_fade = min(1.0, (intro - 0.1) * 2.5)
             guard_eased = self._ease_in_out(guard_fade)
 
-            # 왼쪽 호위무사 (최대 1명)
-            if len(guards) >= 1:
-                g = guards[0]
+            # 배치: 현재 호위무사 왼쪽, 전 호위무사들 오른쪽
+            current_guards = [(g, f) for g, f in all_display_guards if not f]
+            former_guards_list = [(g, f) for g, f in all_display_guards if f]
+
+            # 왼쪽: 현재 호위무사
+            if current_guards:
+                g, _ = current_guards[0]
                 g_target_x = center_x - 180
                 g_start_x = -100
                 gx = int(g_start_x + (g_target_x - g_start_x) * guard_eased)
                 gy = int(guard_y_target + 100 * (1 - guard_eased))
                 g_color = g.get("color", (150, 150, 150))
 
-                # 글로우
                 glow_a = int(40 * guard_fade)
                 glow_s = _get_arena_surface(120, 120)
                 pygame.draw.circle(glow_s, (*g_color, glow_a), (60, 60), 55)
@@ -6207,31 +6220,48 @@ class ColosseumsArena:
                     self.screen, g.get("id", "mugen"), gx, gy, guard_size_w, guard_size_h,
                     facing="down", color=g_color, scale_mode="preview"
                 )
-                # 이름
                 if self.fonts and "small" in self.fonts and guard_fade > 0.5:
                     ns, _ = self.fonts["small"].render(g.get("name", ""), ET["text_body"])
                     self.screen.blit(ns, (gx - ns.get_width() // 2, gy + guard_size_h // 2 + 8))
 
-            # 오른쪽 호위무사 (최대 1명)
-            if len(guards) >= 2:
-                g = guards[1]
-                g_target_x = center_x + 180
-                g_start_x = SCREEN_WIDTH + 100
-                gx = int(g_start_x + (g_target_x - g_start_x) * guard_eased)
-                gy = int(guard_y_target + 100 * (1 - guard_eased))
-                g_color = g.get("color", (150, 150, 150))
+            # 오른쪽: 전 호위무사들 (반투명, 약간 뒤쪽에 배치)
+            if former_guards_list:
+                former_count = len(former_guards_list)
+                for fi, (g, _) in enumerate(former_guards_list):
+                    # 오른쪽에 간격두고 배치
+                    g_target_x = center_x + 150 + fi * 80
+                    g_start_x = SCREEN_WIDTH + 100
+                    gx = int(g_start_x + (g_target_x - g_start_x) * guard_eased)
+                    gy = int(guard_y_target + 20 + 100 * (1 - guard_eased))
+                    g_color = g.get("color", (150, 150, 150))
 
-                glow_s = _get_arena_surface(120, 120)
-                pygame.draw.circle(glow_s, (*g_color, glow_a), (60, 60), 55)
-                self.screen.blit(glow_s, (gx - 60, gy - 60))
+                    # 반투명 서피스에 렌더링
+                    ghost_w, ghost_h = guard_size_w + 40, guard_size_h + 60
+                    ghost_surf = _get_arena_surface(ghost_w, ghost_h)
+                    ghost_cx, ghost_cy = ghost_w // 2, ghost_h // 2 - 10
 
-                self.hero_paddle_renderer.draw_hero_paddle(
-                    self.screen, g.get("id", "mugen"), gx, gy, guard_size_w, guard_size_h,
-                    facing="down", color=g_color, scale_mode="preview"
-                )
-                if self.fonts and "small" in self.fonts and guard_fade > 0.5:
-                    ns, _ = self.fonts["small"].render(g.get("name", ""), ET["text_body"])
-                    self.screen.blit(ns, (gx - ns.get_width() // 2, gy + guard_size_h // 2 + 8))
+                    # 글로우 (약하게)
+                    glow_a_f = int(20 * guard_fade)
+                    pygame.draw.circle(ghost_surf, (*g_color, glow_a_f),
+                                       (ghost_cx, ghost_cy), 45)
+
+                    self.hero_paddle_renderer.draw_hero_paddle(
+                        ghost_surf, g.get("id", "mugen"), ghost_cx, ghost_cy,
+                        int(guard_size_w * 0.85), int(guard_size_h * 0.85),
+                        facing="down", color=g_color, scale_mode="preview"
+                    )
+
+                    # 이름
+                    if self.fonts and "small" in self.fonts and guard_fade > 0.5:
+                        ns, _ = self.fonts["small"].render(g.get("name", ""), ET["text_hint"])
+                        ghost_surf.blit(ns, (ghost_cx - ns.get_width() // 2,
+                                             ghost_cy + int(guard_size_h * 0.85) // 2 + 6))
+
+                    # 반투명 적용 (100/255 ≈ 40% 불투명)
+                    alpha_mask = _get_arena_surface(ghost_w, ghost_h)
+                    alpha_mask.fill((255, 255, 255, 100))
+                    ghost_surf.blit(alpha_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                    self.screen.blit(ghost_surf, (gx - ghost_cx, gy - ghost_cy + 10))
 
         # === 챔피언 (중앙, 크게) ===
         champ_target_y = 380
@@ -7157,11 +7187,14 @@ class ColosseumsArena:
         bet_id = self.bet_hero["id"] if self.bet_hero else ""
         new_idx = getattr(self, 'guard_select_new_idx', len(guards) - 1)
 
-        # 선택한 호위무사만 남기기
-        dropped = [g['name'] for i, g in enumerate(guards) if i != index]
+        # 선택한 호위무사만 남기기 (탈락한 호위무사는 기록)
+        dropped_guards = [g for i, g in enumerate(guards) if i != index]
+        for dg in dropped_guards:
+            if dg not in self.former_guards:
+                self.former_guards.append(dg)
         self.guard_warrior_map[bet_id] = [selected]
         self.guard_select_chosen = index
-        print(f"[Guard] 호위무사 선택 완료: {selected['name']} (탈락: {dropped})")
+        print(f"[Guard] 호위무사 선택 완료: {selected['name']} (탈락: {[g['name'] for g in dropped_guards]})")
 
         # 신규 호위무사 선택 시 → 스킬 랜덤 롤링 연출 (8강과 동일)
         if index == new_idx:
