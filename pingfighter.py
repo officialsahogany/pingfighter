@@ -7567,7 +7567,7 @@ def _draw_pillar_ui(screen, renderer):
                     if _smasher_tooltip_pause_start > 0:
                         _smasher_tooltip_pause_accumulated += pygame.time.get_ticks() - _smasher_tooltip_pause_start
                         _smasher_tooltip_pause_start = 0
-                    if game_paused_by_tooltip and _tooltip_forced_pause and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active and not _arena_skill_tooltip_active:
+                    if game_paused_by_tooltip and _tooltip_forced_pause and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
                         game_paused = _tooltip_prev_game_paused
                         game_paused_by_tooltip = False
                         _tooltip_forced_pause = False
@@ -7586,7 +7586,7 @@ def _draw_pillar_ui(screen, renderer):
                 if _smasher_tooltip_pause_start > 0:
                     _smasher_tooltip_pause_accumulated += pygame.time.get_ticks() - _smasher_tooltip_pause_start
                     _smasher_tooltip_pause_start = 0
-                if game_paused_by_tooltip and _tooltip_forced_pause and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active and not _arena_skill_tooltip_active:
+                if game_paused_by_tooltip and _tooltip_forced_pause and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
                     game_paused = _tooltip_prev_game_paused
                     game_paused_by_tooltip = False
                     _tooltip_forced_pause = False
@@ -7620,7 +7620,7 @@ def _draw_pillar_ui(screen, renderer):
         else:
             if _odin_swamp_tooltip_active:
                 _odin_swamp_tooltip_active = False
-                if game_paused_by_tooltip and _tooltip_forced_pause and not _smasher_skill_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active and not _arena_skill_tooltip_active:
+                if game_paused_by_tooltip and _tooltip_forced_pause and not _smasher_skill_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
                     game_paused = _tooltip_prev_game_paused
                     game_paused_by_tooltip = False
                     _tooltip_forced_pause = False
@@ -7661,7 +7661,7 @@ def _draw_pillar_ui(screen, renderer):
                     # 툴팁 비활성화 - 게임 재개
                     if _rage_indicator_tooltip_active:
                         _rage_indicator_tooltip_active = False
-                        if game_paused_by_tooltip and _rage_tooltip_forced_pause and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active and not _arena_skill_tooltip_active:
+                        if game_paused_by_tooltip and _rage_tooltip_forced_pause and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active:
                             game_paused = _rage_tooltip_prev_game_paused
                             game_paused_by_tooltip = False
                             _rage_tooltip_forced_pause = False
@@ -7669,7 +7669,7 @@ def _draw_pillar_ui(screen, renderer):
                 # 광폭화 비활성 시 툴팁 상태 초기화
                 if _rage_indicator_tooltip_active:
                     _rage_indicator_tooltip_active = False
-                    if game_paused_by_tooltip and _rage_tooltip_forced_pause and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active and not _arena_skill_tooltip_active:
+                    if game_paused_by_tooltip and _rage_tooltip_forced_pause and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active:
                         game_paused = _rage_tooltip_prev_game_paused
                         game_paused_by_tooltip = False
                         _rage_tooltip_forced_pause = False
@@ -7728,7 +7728,7 @@ def _draw_pillar_ui(screen, renderer):
                     if _quest_emblem_tooltip_active:
                         _quest_emblem_tooltip_active = False
                         # 다른 툴팁이 활성 중이 아니면 즉시 게임 재개
-                        if not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _arena_skill_tooltip_active:
+                        if not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active:
                             if _quest_tooltip_forced_pause:
                                 game_paused = _quest_tooltip_prev_game_paused
                             game_paused_by_tooltip = False
@@ -7737,7 +7737,7 @@ def _draw_pillar_ui(screen, renderer):
                 # 퀘스트 없을 때 툴팁 상태 초기화
                 if _quest_emblem_tooltip_active:
                     _quest_emblem_tooltip_active = False
-                    if not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _arena_skill_tooltip_active:
+                    if not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active:
                         if _quest_tooltip_forced_pause:
                             game_paused = _quest_tooltip_prev_game_paused
                         game_paused_by_tooltip = False
@@ -7761,29 +7761,13 @@ def _draw_pillar_ui(screen, renderer):
                     break
 
             if hovered_skill:
-                if not _arena_skill_tooltip_active:
-                    _arena_skill_tooltip_active = True
-                    if not game_paused_by_tooltip:
-                        _tooltip_prev_game_paused = game_paused
-                        _tooltip_forced_pause = not _tooltip_prev_game_paused
-                        game_paused = True
-                        game_paused_by_tooltip = True
+                _arena_skill_tooltip_active = True
                 _hero_color = (arena_bottom_hero or {}).get('color', (200, 200, 200))
                 _draw_arena_skill_tooltip(screen, hovered_skill, hovered_rect, _hero_color)
             else:
-                if _arena_skill_tooltip_active:
-                    _arena_skill_tooltip_active = False
-                    if game_paused_by_tooltip and _tooltip_forced_pause and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
-                        game_paused = _tooltip_prev_game_paused
-                        game_paused_by_tooltip = False
-                        _tooltip_forced_pause = False
-        else:
-            if _arena_skill_tooltip_active:
                 _arena_skill_tooltip_active = False
-                if game_paused_by_tooltip and _tooltip_forced_pause and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _rage_indicator_tooltip_active and not _quest_emblem_tooltip_active:
-                    game_paused = _tooltip_prev_game_paused
-                    game_paused_by_tooltip = False
-                    _tooltip_forced_pause = False
+        else:
+            _arena_skill_tooltip_active = False
       except Exception:
         _arena_skill_tooltip_active = False
     else:
@@ -20104,7 +20088,7 @@ def _reset_active_item_hover_state() -> None:
     _active_item_tooltip_body = ""
 
     # 다른 툴팁이 활성화 중이면 일시정지 상태를 건드리지 않음
-    if _smasher_skill_tooltip_active or _odin_swamp_tooltip_active or _rage_indicator_tooltip_active or _arena_skill_tooltip_active:
+    if _smasher_skill_tooltip_active or _odin_swamp_tooltip_active or _rage_indicator_tooltip_active:
         return
 
     if game_paused_by_tooltip and _tooltip_forced_pause and game_paused:
@@ -20244,7 +20228,7 @@ def _update_active_item_hover_state(now_ms: int) -> None:
         _active_item_tooltip_ready = False
         # 기존 툴팁 일시정지를 해제하고 새로운 타이머 시작
         # (오딘의 늪/스매셔 스킬 툴팁 활성 시에는 건드리지 않음)
-        if game_paused_by_tooltip and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active and not _arena_skill_tooltip_active:
+        if game_paused_by_tooltip and not _smasher_skill_tooltip_active and not _odin_swamp_tooltip_active and not _quest_emblem_tooltip_active:
             game_paused = _tooltip_prev_game_paused
             game_paused_by_tooltip = False
             _tooltip_forced_pause = False

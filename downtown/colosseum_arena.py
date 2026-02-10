@@ -2101,15 +2101,17 @@ class GuardWarriorSystem:
         self._draw_guard_bubbles(screen, shake_x, shake_y)
 
     def _draw_guard_bubbles(self, screen, shake_x, shake_y):
-        """호위무사 스킬 발동 시 말풍선 표시 (영웅과 동일 스타일)"""
+        """호위무사 스킬 발동 시 외침 풍선 표시 (영웅 스킬 발동과 동일한 스타버스트 스타일)"""
         # 상단측 호위무사 말풍선 (캐릭터 아래)
         if (self._bubble_top and self._bubble_top['timer'] > 0
                 and self.phase_top is not None):
             bx = self.x_top + shake_x
-            by = self.y_top + shake_y + PADDLE_HEIGHT + 10
+            by = self.y_top + shake_y + 15
             timer = self._bubble_top['timer']
-            self._draw_guard_speech(screen, bx, by, self._bubble_top['text'],
-                                    is_top=True, timer=timer)
+            guard = self.active_top
+            theme = guard.get("color", (200, 100, 60)) if guard else (200, 100, 60)
+            self._draw_guard_shout_bubble(screen, bx, by, self._bubble_top['text'],
+                                          timer, theme)
 
         # 하단측 호위무사 말풍선 (캐릭터 위)
         if (self._bubble_bottom and self._bubble_bottom['timer'] > 0
@@ -2117,11 +2119,13 @@ class GuardWarriorSystem:
             bx = self.x_bottom + shake_x
             by = self.y_bottom + shake_y - 50
             timer = self._bubble_bottom['timer']
-            self._draw_guard_speech(screen, bx, by, self._bubble_bottom['text'],
-                                    is_top=False, timer=timer)
+            guard = self.active_bottom
+            theme = guard.get("color", (200, 100, 60)) if guard else (200, 100, 60)
+            self._draw_guard_shout_bubble(screen, bx, by, self._bubble_bottom['text'],
+                                          timer, theme)
 
-    def _draw_guard_speech(self, screen, x, y, text, is_top=True, timer=1.0):
-        """호위무사 말풍선 렌더링 (영웅 말풍선과 동일 스타일)"""
+    def _draw_guard_shout_bubble(self, screen, x, y, text, timer, theme_color):
+        """호위무사 외침 풍선 렌더링 (뾰족한 스타버스트 - 영웅 스킬 발동과 동일)"""
         try:
             import os, sys
             font = pygame.font.Font(None, 24)
@@ -2132,74 +2136,111 @@ class GuardWarriorSystem:
                     base = os.path.dirname(os.path.dirname(__file__))
                 font_candidates = [
                     os.path.join(base, "fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"),
-                    os.path.join(base, "fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Regular.ttf"),
-                    os.path.join(base, "fonts", "프리텐다드", "public", "static", "Pretendard-Bold.otf"),
                     os.path.join(base, "fonts", "NanumSquareB.ttf"),
                 ]
-                for font_path in font_candidates:
-                    if os.path.exists(font_path):
-                        font = pygame.font.Font(font_path, 20)
+                for fp in font_candidates:
+                    if os.path.exists(fp):
+                        font = pygame.font.Font(fp, 20)
                         break
             except Exception:
                 pass
 
-            text_surface = font.render(text, True, (0, 0, 0))
+            text_surface = font.render(text, True, (255, 255, 255))
+            text_w = text_surface.get_width()
+            text_h = text_surface.get_height()
 
-            # 말풍선 크기 계산
-            padding = 12
-            bubble_width = text_surface.get_width() + padding * 2
-            bubble_height = text_surface.get_height() + padding
+            # 내부 사이즈
+            pad_x, pad_y = 22, 14
+            inner_w = text_w + pad_x * 2
+            inner_h = text_h + pad_y * 2
 
-            # 말풍선 위치
-            bubble_x = int(x - bubble_width // 2)
-            bubble_y = int(y)
+            # 팝업 스케일 애니메이션 (등장 시 1.3 → 1.0)
+            max_timer = self._bubble_duration
+            elapsed = max_timer - timer
+            if elapsed < 0.15:
+                scale = 1.0 + (1.0 - elapsed / 0.15) * 0.3
+            else:
+                scale = 1.0
 
-            # 화면 경계 체크
-            bubble_x = max(GAME_AREA_X + 5, min(bubble_x, GAME_AREA_X + GAME_AREA_WIDTH - bubble_width - 5))
+            # 서피스 생성 (스파이크 여유)
+            spike_len = 14
+            surf_w = int((inner_w + spike_len * 2) * scale) + 8
+            surf_h = int((inner_h + spike_len * 2) * scale) + 8
+            bubble_surface = _get_arena_surface(surf_w, surf_h)
+            cx = surf_w // 2
+            cy = surf_h // 2
 
-            # 말풍선 표면 생성
-            bubble_surface = _get_arena_surface(bubble_width + 15, bubble_height + 25)
+            # 스타버스트 다각형 (12개 뾰족한 끝)
+            num_spikes = 12
+            outer_rx = (inner_w / 2 + spike_len) * scale
+            outer_ry = (inner_h / 2 + spike_len) * scale
+            inner_rx = (inner_w / 2) * scale
+            inner_ry = (inner_h / 2) * scale
+
+            points = []
+            for i in range(num_spikes * 2):
+                angle = 2 * math.pi * i / (num_spikes * 2) - math.pi / 2
+                variation = 1.0 + 0.12 * _sin(i * 2.7)
+                if i % 2 == 0:
+                    px = cx + math.cos(angle) * outer_rx * variation
+                    py = cy + math.sin(angle) * outer_ry * variation
+                else:
+                    px = cx + math.cos(angle) * inner_rx
+                    py = cy + math.sin(angle) * inner_ry
+                points.append((px, py))
 
             # 그림자
-            shadow_rect = pygame.Rect(3, 3, bubble_width, bubble_height)
-            pygame.draw.rect(bubble_surface, (0, 0, 0, 60), shadow_rect, border_radius=10)
+            shadow_pts = [(p[0] + 3, p[1] + 3) for p in points]
+            pygame.draw.polygon(bubble_surface, (0, 0, 0, 70), shadow_pts)
 
-            # 메인 말풍선 (흰색)
-            main_rect = pygame.Rect(0, 0, bubble_width, bubble_height)
-            pygame.draw.rect(bubble_surface, (255, 255, 255), main_rect, border_radius=10)
-            pygame.draw.rect(bubble_surface, (50, 50, 50), main_rect, 2, border_radius=10)
+            # 메인 채우기 (테마 색상)
+            pygame.draw.polygon(bubble_surface, theme_color, points)
 
-            # 말풍선 꼬리 (위/아래 방향)
-            if is_top:
-                # 상단 호위무사: 꼬리가 위쪽 (캐릭터를 향함)
-                tail_points = [
-                    (bubble_width // 2 - 8, 2),
-                    (bubble_width // 2 + 8, 2),
-                    (bubble_width // 2, -12)
-                ]
-            else:
-                # 하단 호위무사: 꼬리가 아래쪽 (캐릭터를 향함)
-                tail_points = [
-                    (bubble_width // 2 - 8, bubble_height - 2),
-                    (bubble_width // 2 + 8, bubble_height - 2),
-                    (bubble_width // 2, bubble_height + 12)
-                ]
+            # 안쪽 하이라이트
+            hl_color = (min(255, theme_color[0] + 50),
+                        min(255, theme_color[1] + 50),
+                        min(255, theme_color[2] + 50), 90)
+            hl_rx = inner_rx * 0.8
+            hl_ry = inner_ry * 0.6
+            hl_pts = []
+            for i in range(num_spikes * 2):
+                angle = 2 * math.pi * i / (num_spikes * 2) - math.pi / 2
+                r = hl_rx if i % 2 == 0 else hl_rx * 0.85
+                ry = hl_ry if i % 2 == 0 else hl_ry * 0.85
+                hl_pts.append((cx + math.cos(angle) * r, cy + math.sin(angle) * ry))
+            pygame.draw.polygon(bubble_surface, hl_color, hl_pts)
 
-            pygame.draw.polygon(bubble_surface, (255, 255, 255), tail_points)
-            pygame.draw.polygon(bubble_surface, (50, 50, 50), tail_points, 2)
+            # 테두리 (어두운 색)
+            border_color = (max(0, theme_color[0] - 60),
+                            max(0, theme_color[1] - 60),
+                            max(0, theme_color[2] - 60))
+            pygame.draw.polygon(bubble_surface, border_color, points, 3)
 
-            # 텍스트 그리기
-            bubble_surface.blit(text_surface, (padding, padding // 2))
+            # 텍스트: 검정 외곽선 + 흰색 본문
+            tx = int(cx - text_w / 2)
+            ty = int(cy - text_h / 2)
+            for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2),
+                            (-1, -1), (1, -1), (-1, 1), (1, 1)]:
+                outline = font.render(text, True, (0, 0, 0))
+                bubble_surface.blit(outline, (tx + dx, ty + dy))
+            bubble_surface.blit(font.render(text, True, (255, 255, 255)), (tx, ty))
 
-            # 살짝 흔들림 애니메이션
+            # 흔들림 애니메이션
             float_offset = _sin(timer * 5.0) * 2
 
-            screen.blit(bubble_surface, (bubble_x, bubble_y + float_offset))
+            # 화면에 그리기
+            blit_x = int(x - surf_w // 2)
+            blit_y = int(y + float_offset)
+            blit_x = max(GAME_AREA_X + 5, min(blit_x, GAME_AREA_X + GAME_AREA_WIDTH - surf_w - 5))
+            screen.blit(bubble_surface, (blit_x, blit_y))
         except Exception:
             pass
 
+    # 인게임 영웅 렌더링 기준 너비 (pingfighter.py _arena_base_paddle_width와 동일)
+    _GUARD_RENDER_WIDTH = 130
+
     def _draw_guard(self, screen, guard_hero, x, y, is_top):
-        """단일 호위무사 캐릭터 렌더링"""
+        """단일 호위무사 캐릭터 렌더링 (영웅과 동일 크기)"""
         ix, iy = int(x), int(y)
         color = guard_hero.get("color", (200, 200, 200))
 
@@ -2213,7 +2254,7 @@ class GuardWarriorSystem:
         pygame.draw.circle(glow_surf, (*color, glow_alpha), (40, 40), 40)
         screen.blit(glow_surf, (ix - 40, iy - 40))
 
-        # 영웅 캐릭터 그리기
+        # 영웅 캐릭터 그리기 (인게임 영웅과 동일한 130 기준 너비 사용)
         if self.hero_paddle_renderer:
             facing = "down" if is_top else "up"
             try:
@@ -2221,7 +2262,7 @@ class GuardWarriorSystem:
                     screen,
                     guard_hero["id"],
                     ix, iy,
-                    PADDLE_WIDTH, PADDLE_HEIGHT,  # 영웅 패들과 동일 크기
+                    self._GUARD_RENDER_WIDTH, PADDLE_HEIGHT,
                     facing=facing,
                     color=color,
                     scale_mode="paddle"
@@ -2233,20 +2274,6 @@ class GuardWarriorSystem:
             # 폴백: 간단한 원형 + 테두리
             pygame.draw.circle(screen, color, (ix, iy), 20)
             pygame.draw.circle(screen, (255, 255, 255), (ix, iy), 20, 2)
-
-        # 호위무사 이름 표시
-        try:
-            name_font = self._get_guard_korean_font(14)
-            name_surf = name_font.render(guard_hero.get("name", "?"), True, (255, 255, 255))
-            name_rect = name_surf.get_rect(centerx=ix, top=iy + 28)
-            # 배경 박스
-            bg_rect = name_rect.inflate(8, 4)
-            bg_surf = _get_arena_surface(bg_rect.width, bg_rect.height)
-            pygame.draw.rect(bg_surf, (0, 0, 0, 150), (0, 0, bg_rect.width, bg_rect.height), border_radius=3)
-            screen.blit(bg_surf, bg_rect)
-            screen.blit(name_surf, name_rect)
-        except Exception:
-            pass
 
     def _get_guard_korean_font(self, size=14):
         """호위무사 UI용 한글 폰트 (캐싱)"""
