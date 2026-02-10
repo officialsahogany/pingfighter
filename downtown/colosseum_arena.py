@@ -4648,7 +4648,8 @@ class ColosseumsArena:
     def _draw_vs_preview(self):
         """VS 매치업 미리보기 그리기 (배틀 전 표시)"""
         # 배경 그리기
-        self.screen.fill((25, 28, 35))
+        self.screen.fill(ET["bg_dark"])
+        self._draw_papyrus_bg()
 
         # _draw_vs_matchup_animation 재사용 (progress 임시 설정)
         saved_progress = getattr(self, 'bracket_anim_progress', 0.0)
@@ -5475,8 +5476,8 @@ class ColosseumsArena:
                     'life': 1.0,
                     'size': random.uniform(2, 5),
                     'color': random.choice([
-                        (100, 255, 100), (150, 255, 150), (200, 255, 100),
-                        (255, 255, 150), (80, 200, 80)
+                        (255, 215, 50), (100, 210, 200), (218, 175, 32),
+                        (64, 176, 166), (255, 230, 140)
                     ])
                 })
             # 파티클 업데이트
@@ -5516,8 +5517,8 @@ class ColosseumsArena:
                     border = (50, 40, 28)
                     border_w = 1
             else:
-                bg = (40, 44, 55)
-                border = (60, 65, 75)
+                bg = ET["card_bg"]
+                border = ET["card_border"]
                 border_w = 1
 
             # 선택된 카드 글로우 오라 (배경 레이어)
@@ -5526,7 +5527,7 @@ class ColosseumsArena:
                 glow_alpha = int(40 + 30 * glow_pulse)
                 glow_expand = int(6 + 4 * glow_pulse)
                 glow_surf = _get_arena_surface(card_w + glow_expand * 2, card_h + glow_expand * 2)
-                glow_color = (80, 255, 80, glow_alpha)
+                glow_color = (*ET["turquoise"], glow_alpha)
                 pygame.draw.rect(glow_surf, glow_color,
                                  (0, 0, card_w + glow_expand * 2, card_h + glow_expand * 2),
                                  border_radius=14)
@@ -5539,7 +5540,7 @@ class ColosseumsArena:
             # 선택 카드 추가 내부 테두리 (이중 보더)
             if phase == "selected" and is_selected:
                 inner_pulse = 0.3 + 0.7 * abs(_sin(sel_timer * 5))
-                inner_color = (100, int(200 + 55 * inner_pulse), 100)
+                inner_color = (64, int(170 + 40 * inner_pulse), int(160 + 40 * inner_pulse))
                 pygame.draw.rect(self.screen, inner_color,
                                  (cx + 3, card_y + 3, card_w - 6, card_h - 6),
                                  1, border_radius=8)
@@ -5550,7 +5551,7 @@ class ColosseumsArena:
             label = "A" if si == 0 else "B"
             if self.fonts and "medium" in self.fonts:
                 label_alpha = 80 if is_faded else 180
-                surf, _ = self.fonts["medium"].render(label, (label_alpha, label_alpha, 50))
+                surf, _ = self.fonts["medium"].render(label, (label_alpha, int(label_alpha * 0.85), 30))
                 self.screen.blit(surf, (cx + 15, card_y + 12))
 
             # 스킬 아이콘 (중앙 상단)
@@ -5565,7 +5566,7 @@ class ColosseumsArena:
                 else:
                     self.screen.blit(icon, (icon_x, icon_y))
             else:
-                pygame.draw.rect(self.screen, (60, 60, 70), (icon_x, icon_y, 48, 48), border_radius=8)
+                pygame.draw.rect(self.screen, ET["bg_medium"], (icon_x, icon_y, 48, 48), border_radius=8)
 
             # 스킬 이름
             if self.fonts and "medium" in self.fonts:
@@ -5582,13 +5583,13 @@ class ColosseumsArena:
                     from downtown.hero_skills import SkillTrigger
                     if trigger_val == SkillTrigger.ON_BALL_HIT:
                         trigger_text = "타격 발동"
-                        trigger_color = (100, 150, 255) if not is_faded else (50, 75, 128)
+                        trigger_color = ET["lapis_light"] if not is_faded else (40, 70, 100)
                     elif trigger_val == SkillTrigger.ON_COOLDOWN:
                         trigger_text = "자동 발동"
-                        trigger_color = (255, 180, 80) if not is_faded else (128, 90, 40)
+                        trigger_color = ET["gold_pale"] if not is_faded else (128, 115, 70)
                     else:
                         trigger_text = "패시브"
-                        trigger_color = (100, 200, 100) if not is_faded else (50, 100, 50)
+                        trigger_color = ET["malachite_light"] if not is_faded else (40, 100, 55)
                 if trigger_text:
                     cd_text = f"{trigger_text} | 쿨타임 {int(skill.cooldown)}초"
                     surf, _ = self.fonts["small"].render(cd_text, trigger_color)
@@ -5613,7 +5614,7 @@ class ColosseumsArena:
             # 지속시간
             if skill.duration and skill.duration > 0 and skill.duration < 999:
                 if self.fonts and "small" in self.fonts:
-                    dur_color = (100, 200, 100) if not is_faded else (50, 100, 50)
+                    dur_color = ET["malachite_light"] if not is_faded else (40, 100, 55)
                     surf, _ = self.fonts["small"].render(f"지속: {skill.duration:.1f}초", dur_color)
                     self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 195))
 
@@ -5622,9 +5623,9 @@ class ColosseumsArena:
                 mark_alpha = min(1.0, sel_timer * 2.0)
                 if self.fonts and "large" in self.fonts:
                     glow_text_pulse = 0.7 + 0.3 * abs(_sin(sel_timer * 3))
-                    r = int(80 + 175 * glow_text_pulse * mark_alpha)
-                    g = int(220 + 35 * glow_text_pulse * mark_alpha)
-                    b = int(80 + 175 * glow_text_pulse * mark_alpha)
+                    r = int(100 + 155 * glow_text_pulse * mark_alpha)
+                    g = int(200 + 40 * glow_text_pulse * mark_alpha)
+                    b = int(80 + 120 * glow_text_pulse * mark_alpha)
                     surf, _ = self.fonts["large"].render("SELECTED", (r, g, b))
                     alpha_s = _get_arena_surface(*surf.get_size())
                     alpha_s.fill((255, 255, 255, int(255 * mark_alpha)))
@@ -5646,7 +5647,7 @@ class ColosseumsArena:
             if self.fonts and "small" in self.fonts:
                 dot_count = int(timer * 3) % 4
                 dots = "." * dot_count
-                surf, _ = self.fonts["small"].render(f"스킬 결정 중{dots}", (150, 150, 160))
+                surf, _ = self.fonts["small"].render(f"스킬 결정 중{dots}", ET["text_hint"])
                 self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 440))
         elif phase == "selected":
             if self.fonts and "small" in self.fonts:
@@ -6139,7 +6140,15 @@ class ColosseumsArena:
         eased = self._ease_in_out(intro)
 
         # === 배경 ===
-        self.screen.fill((15, 12, 25))
+        self.screen.fill((25, 18, 10))
+
+        # 피라미드 실루엣
+        pyr_surf = _get_arena_fullscreen()
+        for px, pw, ph in [(150, 200, 120), (500, 160, 100), (80, 100, 65)]:
+            pts = [(px, 540), (px + pw // 2, 540 - ph), (px + pw, 540)]
+            pygame.draw.polygon(pyr_surf, (*ET["gold_dark"], 15), pts)
+            pygame.draw.polygon(pyr_surf, (*ET["gold_dark"], 25), pts, 1)
+        self.screen.blit(pyr_surf, (0, 0))
 
         # 방사형 빛줄기 (금색)
         if intro > 0.3:
@@ -6196,7 +6205,7 @@ class ColosseumsArena:
                 )
                 # 이름
                 if self.fonts and "small" in self.fonts and guard_fade > 0.5:
-                    ns, _ = self.fonts["small"].render(g.get("name", ""), (180, 180, 180))
+                    ns, _ = self.fonts["small"].render(g.get("name", ""), ET["text_body"])
                     self.screen.blit(ns, (gx - ns.get_width() // 2, gy + guard_size_h // 2 + 8))
 
             # 오른쪽 호위무사 (최대 1명)
@@ -6217,7 +6226,7 @@ class ColosseumsArena:
                     facing="down", color=g_color, scale_mode="preview"
                 )
                 if self.fonts and "small" in self.fonts and guard_fade > 0.5:
-                    ns, _ = self.fonts["small"].render(g.get("name", ""), (180, 180, 180))
+                    ns, _ = self.fonts["small"].render(g.get("name", ""), ET["text_body"])
                     self.screen.blit(ns, (gx - ns.get_width() // 2, gy + guard_size_h // 2 + 8))
 
         # === 챔피언 (중앙, 크게) ===
@@ -6297,7 +6306,7 @@ class ColosseumsArena:
 
             # 칭호
             if "small" in self.fonts and champion_title:
-                surf, _ = self.fonts["small"].render(champion_title, (200, 200, 200))
+                surf, _ = self.fonts["small"].render(champion_title, ET["text_body"])
                 alpha_s = _get_arena_surface(*surf.get_size())
                 alpha_s.fill((255, 255, 255, text_alpha))
                 surf.blit(alpha_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
@@ -6326,8 +6335,8 @@ class ColosseumsArena:
             if gold_hovered:
                 self._draw_hover_border(gold_rect.x, gold_rect.y, gold_rect.w, gold_rect.h, (100, 255, 100))
             gold_surf = _get_arena_surface(btn_w, btn_h)
-            gold_bg = (80, 170, 80, btn_alpha) if gold_hovered else (60, 140, 60, btn_alpha)
-            gold_border = (130, 255, 130, btn_alpha) if gold_hovered else (100, 255, 100, btn_alpha)
+            gold_bg = (*ET["btn_continue_hover"], btn_alpha) if gold_hovered else (*ET["btn_continue"], btn_alpha)
+            gold_border = (*ET["malachite_light"], btn_alpha) if gold_hovered else (*ET["malachite_light"], btn_alpha)
             pygame.draw.rect(gold_surf, gold_bg, (0, 0, btn_w, btn_h), border_radius=6)
             pygame.draw.rect(gold_surf, gold_border, (0, 0, btn_w, btn_h), 2, border_radius=6)
             self.screen.blit(gold_surf, gold_rect.topleft)
@@ -6345,8 +6354,8 @@ class ColosseumsArena:
             if recruit_hovered:
                 self._draw_hover_border(hero_rect.x, hero_rect.y, hero_rect.w, hero_rect.h, (255, 180, 80))
             hero_surf = _get_arena_surface(btn_w, btn_h)
-            hero_bg = (170, 100, 50, btn_alpha) if recruit_hovered else (140, 80, 40, btn_alpha)
-            hero_border = (255, 210, 110, btn_alpha) if recruit_hovered else (255, 180, 80, btn_alpha)
+            hero_bg = (200, 140, 70, btn_alpha) if recruit_hovered else (*ET["bronze"], btn_alpha)
+            hero_border = (*ET["gold_pale"], btn_alpha) if recruit_hovered else (*ET["gold_pale"], btn_alpha)
             pygame.draw.rect(hero_surf, hero_bg, (0, 0, btn_w, btn_h), border_radius=6)
             pygame.draw.rect(hero_surf, hero_border, (0, 0, btn_w, btn_h), 2, border_radius=6)
             self.screen.blit(hero_surf, hero_rect.topleft)
@@ -6369,8 +6378,8 @@ class ColosseumsArena:
                     'vx': random.uniform(-1, 1),
                     'vy': random.uniform(1.5, 3.5),
                     'color': random.choice([
-                        (255, 215, 0), (255, 100, 100), (100, 200, 255),
-                        (100, 255, 100), (255, 150, 50), (200, 100, 255)
+                        (255, 215, 50), (220, 90, 60), (80, 140, 200),
+                        (64, 176, 166), (80, 200, 110), (220, 195, 150)
                     ]),
                     'size': random.randint(3, 7),
                     'rot': random.uniform(0, math.pi * 2),
@@ -6942,7 +6951,8 @@ class ColosseumsArena:
     def _draw_bracket_animation(self):
         """대진표 진출 애니메이션 그리기"""
         # 배경
-        self.screen.fill((25, 28, 35))
+        self.screen.fill(ET["bg_dark"])
+        self._draw_papyrus_bg()
 
         # 라운드 진출 타이틀
         if self.fonts and "large" in self.fonts:
@@ -6955,7 +6965,7 @@ class ColosseumsArena:
             title = f"{round_name} 진출!"
             # 타이틀 펄스 효과
             pulse = abs(_sin(self.animation_timer * 3)) * 0.3 + 0.7
-            gold_color = (int(255 * pulse), int(215 * pulse), 0)
+            gold_color = (int(ET["gold_bright"][0] * pulse), int(ET["gold_bright"][1] * pulse), int(ET["gold_bright"][2] * pulse))
             surf, _ = self.fonts["large"].render(title, gold_color)
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 30))
 
@@ -6967,7 +6977,7 @@ class ColosseumsArena:
             if self.bracket_anim_phase < 2:
                 hint = "잠시 후 다음 매치가 시작됩니다..."
                 alpha = int(abs(_sin(self.animation_timer * 2)) * 155 + 100)
-                surf, _ = self.fonts["small"].render(hint, (alpha, alpha, alpha))
+                surf, _ = self.fonts["small"].render(hint, (alpha, int(alpha * 0.9), int(alpha * 0.7)))
                 self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 700))
 
     def _draw_guard_notification(self):
@@ -6980,12 +6990,12 @@ class ColosseumsArena:
         progress = getattr(self, 'guard_notify_progress', 0.0)  # 0.0 ~ 1.0 over 2.5s
 
         # 배경
-        self.screen.fill((25, 28, 35))
+        self.screen.fill(ET["bg_dark"])
 
         # 반투명 다크 오버레이 (페이드인)
         overlay_alpha = int(min(180, 220 * min(1.0, progress * 3)))
         overlay = _get_arena_fullscreen()
-        overlay.fill((10, 5, 20, overlay_alpha))
+        overlay.fill((*ET["overlay_warm"], overlay_alpha))
         self.screen.blit(overlay, (0, 0))
 
         center_x = SCREEN_WIDTH // 2
@@ -7040,7 +7050,7 @@ class ColosseumsArena:
 
             # 칭호 (작은 글씨)
             if "small" in self.fonts and guard_title:
-                surf, _ = self.fonts["small"].render(guard_title, (200, 200, 200))
+                surf, _ = self.fonts["small"].render(guard_title, ET["text_subtitle"])
                 alpha_surf = _get_arena_surface(*surf.get_size())
                 alpha_surf.fill((255, 255, 255, text_alpha))
                 surf.blit(alpha_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
@@ -7051,7 +7061,7 @@ class ColosseumsArena:
                 msg1 = f"{guard_name}을(를) 생포했습니다!"
                 msg2 = "호위무사가 되어 함께 싸워줍니다!"
 
-                gold_color = (255, 215, 0)
+                gold_color = ET["gold_bright"]
 
                 surf1, _ = self.fonts["medium"].render(msg1, gold_color)
                 alpha_surf1 = _get_arena_surface(*surf1.get_size())
@@ -7068,7 +7078,7 @@ class ColosseumsArena:
             # 호위무사 카운트
             if "small" in self.fonts and self.guard_notify_total > 0:
                 count_msg = f"현재 호위무사: {self.guard_notify_total}명"
-                surf, _ = self.fonts["small"].render(count_msg, (180, 180, 180))
+                surf, _ = self.fonts["small"].render(count_msg, ET["text_body"])
                 alpha_surf = _get_arena_surface(*surf.get_size())
                 alpha_surf.fill((255, 255, 255, text_alpha))
                 surf.blit(alpha_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
@@ -7084,7 +7094,7 @@ class ColosseumsArena:
                 py = hero_y + int(_sin(angle) * dist * 0.6)
                 spark_alpha = int(100 + abs(_sin(self.animation_timer * 5 + i)) * 100)
                 spark_surf = _get_arena_surface(8, 8)
-                pygame.draw.circle(spark_surf, (255, 215, 0, spark_alpha), (4, 4), 3)
+                pygame.draw.circle(spark_surf, (*ET["gold_bright"], spark_alpha), (4, 4), 3)
                 self.screen.blit(spark_surf, (px - 4, py - 4))
 
     # ================================================================
@@ -7536,7 +7546,7 @@ class ColosseumsArena:
 
         # 툴팁 Surface
         tt = pygame.Surface((tooltip_width, tooltip_height), pygame.SRCALPHA)
-        tt.fill((20, 25, 35, 235))
+        tt.fill((*ET["bg_panel"], 235))
 
         r, g, b = hero_color[:3]
         pygame.draw.rect(tt, (r, g, b), (0, 0, tooltip_width, tooltip_height), 2, border_radius=6)
@@ -7554,11 +7564,11 @@ class ColosseumsArena:
         if self.fonts and "small" in self.fonts and HERO_SKILLS_AVAILABLE:
             trigger = getattr(skill, 'trigger', None)
             if trigger == SkillTrigger.ON_BALL_HIT:
-                trig_text, trig_color = "타격 발동", (100, 200, 255)
+                trig_text, trig_color = "타격 발동", ET["lapis_light"]
             elif trigger == SkillTrigger.ON_COOLDOWN:
-                trig_text, trig_color = "자동 발동", (255, 180, 80)
+                trig_text, trig_color = "자동 발동", ET["gold_pale"]
             else:
-                trig_text, trig_color = "패시브", (150, 255, 150)
+                trig_text, trig_color = "패시브", ET["malachite_light"]
             ts, _ = self.fonts["small"].render(trig_text, trig_color)
             tt.blit(ts, (tooltip_width - padding - ts.get_width(), y_pos + 4))
 
@@ -7568,14 +7578,14 @@ class ColosseumsArena:
         if self.fonts and "small" in self.fonts:
             cooldown = getattr(skill, 'cooldown', 0)
             cd_text = f"쿨타임: {cooldown}초"
-            cs, _ = self.fonts["small"].render(cd_text, (180, 180, 180))
+            cs, _ = self.fonts["small"].render(cd_text, ET["text_body"])
             tt.blit(cs, (tooltip_width - padding - cs.get_width(), y_pos))
         y_pos += 18
 
         # 설명
         if self.fonts and "small" in self.fonts:
             for line in desc_lines:
-                ls, _ = self.fonts["small"].render(line, (220, 220, 220))
+                ls, _ = self.fonts["small"].render(line, ET["text_white"])
                 tt.blit(ls, (padding, y_pos))
                 y_pos += 16
         y_pos += 4
@@ -7583,7 +7593,7 @@ class ColosseumsArena:
         # 지속시간
         if show_duration and self.fonts and "small" in self.fonts:
             dur_text = f"지속시간: {duration}초"
-            ds, _ = self.fonts["small"].render(dur_text, (100, 255, 100))
+            ds, _ = self.fonts["small"].render(dur_text, ET["malachite_light"])
             tt.blit(ds, (padding, y_pos))
 
         self.screen.blit(tt, (tooltip_x, tooltip_y))
@@ -8035,7 +8045,7 @@ class ColosseumsArena:
         # 타이틀
         if self.fonts and "large" in self.fonts:
             pulse = abs(_sin(self.animation_timer * 3)) * 0.3 + 0.7
-            gold_color = (int(255 * pulse), int(215 * pulse), 0)
+            gold_color = (int(ET["gold_bright"][0] * pulse), int(ET["gold_bright"][1] * pulse), int(ET["gold_bright"][2] * pulse))
             title = round_name
             surf, _ = self.fonts["large"].render(title, gold_color)
             title_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
@@ -8074,9 +8084,9 @@ class ColosseumsArena:
             # 별명(칭호) - 골든 색상 + 장식 괄호로 호위무사 이름과 차별화
             if "medium" in self.fonts:
                 title_text = f"「{hero1['title']}」"
-                title_color = (255, 220, 150)
+                title_color = ET["gold_pale"]
                 # 그림자 효과
-                shadow_surf, _ = self.fonts["medium"].render(title_text, (80, 60, 20))
+                shadow_surf, _ = self.fonts["medium"].render(title_text, ET["gold_dark"])
                 self.screen.blit(shadow_surf, (hero1_x - shadow_surf.get_width() // 2 + 1, hero1_y + 46))
                 # 본 텍스트
                 surf, _ = self.fonts["medium"].render(title_text, title_color)
@@ -8093,13 +8103,13 @@ class ColosseumsArena:
                 )
                 if "small" in self.fonts:
                     g_name = g.get("name", "")
-                    ns, _ = self.fonts["small"].render(g_name, (180, 180, 180))
+                    ns, _ = self.fonts["small"].render(g_name, ET["text_body"])
                     self.screen.blit(ns, (hero1_x - ns.get_width() // 2, guard_y + 28))
 
         # VS (중앙, 스케일 애니메이션)
         vs_scale = min(1.0, progress * 3) if progress < 0.5 else 1.0
         if self.fonts and "large" in self.fonts and vs_scale > 0.1:
-            vs_color = (255, int(100 + abs(_sin(self.animation_timer * 5)) * 100), 100)
+            vs_color = (ET["carnelian_light"][0], int(100 + abs(_sin(self.animation_timer * 5)) * 100), 60)
             surf, _ = self.fonts["large"].render("VS", vs_color)
             # 스케일 적용
             if vs_scale < 1.0:
@@ -8140,9 +8150,9 @@ class ColosseumsArena:
             # 별명(칭호) - 골든 색상 + 장식 괄호로 호위무사 이름과 차별화
             if "medium" in self.fonts:
                 title_text = f"「{hero2['title']}」"
-                title_color = (255, 220, 150)
+                title_color = ET["gold_pale"]
                 # 그림자 효과
-                shadow_surf, _ = self.fonts["medium"].render(title_text, (80, 60, 20))
+                shadow_surf, _ = self.fonts["medium"].render(title_text, ET["gold_dark"])
                 self.screen.blit(shadow_surf, (hero2_x - shadow_surf.get_width() // 2 + 1, hero2_y + 46))
                 # 본 텍스트
                 surf, _ = self.fonts["medium"].render(title_text, title_color)
@@ -8159,7 +8169,7 @@ class ColosseumsArena:
                 )
                 if "small" in self.fonts:
                     g_name = g.get("name", "")
-                    ns, _ = self.fonts["small"].render(g_name, (180, 180, 180))
+                    ns, _ = self.fonts["small"].render(g_name, ET["text_body"])
                     self.screen.blit(ns, (hero2_x - ns.get_width() // 2, guard_y + 28))
 
         # 하단 힌트 (버튼 모드에서 버튼이 나타나기 전까지만 표시)
@@ -8170,7 +8180,7 @@ class ColosseumsArena:
             else:
                 hint = "잠시 후 배틀이 시작됩니다..." if not show_buttons else "잠시 후 계속 여부를 선택합니다..."
                 alpha = int(abs(_sin(self.animation_timer * 2)) * 155 + 100)
-                surf, _ = self.fonts["small"].render(hint, (alpha, alpha, alpha))
+                surf, _ = self.fonts["small"].render(hint, (alpha, int(alpha * 0.9), int(alpha * 0.7)))
                 self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 650))
 
     def _ease_in_out(self, t: float) -> float:
@@ -8182,8 +8192,8 @@ class ColosseumsArena:
 
     def _draw_animated_bracket_lines(self):
         """애니메이션이 적용된 대진표 연결선 (대각선 레이아웃 box_h=140 기준)"""
-        base_color = (100, 105, 115)
-        highlight_color = (255, 215, 0)
+        base_color = ET["bracket_line"]
+        highlight_color = ET["bracket_highlight"]
 
         # 대각선 레이아웃 좌표 (box_w=120, box_h=140)
         q1_x, q2_x, q3_x, q4_x = 120, 255, 490, 625  # 8강 박스 중심
