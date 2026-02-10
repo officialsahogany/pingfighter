@@ -114011,24 +114011,24 @@ def draw_laser_cannon_gauge():
                      [(icon_x, icon_y - 5), (icon_x + 3, icon_y), 
                       (icon_x - 2, icon_y + 2), (icon_x + 5, icon_y + 5)], 2)
 def draw_arena_speed_buttons():
-    """투기장 배속 버튼 그리기 (1x, 2x, 3x) - 점수판 오른쪽 바깥에 배치"""
+    """투기장 배속 버튼 그리기 (1x, 2x, 3x) - 점수판 좌측 필러 상단에 배치"""
     global arena_speed_multiplier, arena_speed_btn_rects
     if not arena_mode_enabled:
         return
 
-    btn_w, btn_h = 34, 26
-    gap = 4
-    # 점수판 영역 바깥 오른쪽에 배치
-    # 점수판: x=(760-400)/2=180, w=400 → 오른쪽 끝=580
-    scoreboard_right = (WIDTH - 400) // 2 + 400 + 8  # 점수판 오른쪽 + 여백
-    start_x = scoreboard_right
-    start_y = 14
+    btn_w, btn_h = 30, 22
+    gap = 3
+    # 점수판 좌측에 배치 (점수판 x=180 왼쪽)
+    total_w = btn_w * 3 + gap * 2  # 96px
+    scoreboard_left = (WIDTH - 400) // 2  # = 180
+    start_x = scoreboard_left - total_w - 6  # 점수판 왼쪽에 여백 두고 배치
+    start_y = 16
 
     arena_speed_btn_rects = {}
     try:
-        font = get_font(15)
+        font = get_font(14)
     except Exception:
-        font = pygame.font.Font(None, 18)
+        font = pygame.font.Font(None, 16)
 
     for i, mult in enumerate([1, 2, 3]):
         x = start_x + i * (btn_w + gap)
@@ -114042,10 +114042,10 @@ def draw_arena_speed_buttons():
             text_color = (30, 20, 10)
             border_color = (255, 220, 100)
         else:
-            # 비활성 버튼: 반투명 어두운 배경
-            bg = (40, 45, 55)
-            text_color = (160, 160, 160)
-            border_color = (70, 75, 85)
+            # 비활성 버튼: 어두운 배경
+            bg = (35, 40, 55)
+            text_color = (150, 150, 160)
+            border_color = (60, 65, 80)
 
         pygame.draw.rect(SCREEN, bg, rect, border_radius=4)
         pygame.draw.rect(SCREEN, border_color, rect, 1, border_radius=4)
