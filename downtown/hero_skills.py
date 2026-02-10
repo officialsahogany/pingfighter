@@ -7408,7 +7408,11 @@ HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "maria": [PuppetControl(), DollCurse()],
     "ignis": [DragonBreath(), DragonWing()],
     "gear": [SteamBarrier(), OilSpill()],
-    "kurokage": [ShadowClone(), IllusionShuriken()]
+    "kurokage": [ShadowClone(), IllusionShuriken()],
+    # 감옥 전용 영웅 (기존 스킬 클래스 재활용)
+    "bella": [AbyssInk(), DollCurse()],
+    "leon": [HornCharge(), DarkSlash()],
+    "yuki": [SteamBarrier(), GravityControl()],
 }
 
 # 스킬 클래스 매핑 (호위무사 시스템 등에서 독립 인스턴스 생성용)
@@ -7421,6 +7425,10 @@ HERO_SKILL_CLASSES: Dict[str, list] = {
     "ignis": [DragonBreath, DragonWing],
     "gear": [SteamBarrier, OilSpill],
     "kurokage": [ShadowClone, IllusionShuriken],
+    # 감옥 전용 영웅 (기존 스킬 클래스 재활용)
+    "bella": [AbyssInk, DollCurse],
+    "leon": [HornCharge, DarkSlash],
+    "yuki": [SteamBarrier, GravityControl],
 }
 
 
@@ -7452,18 +7460,22 @@ class HeroSkillManager:
         # 영웅별 글로벌 스킬 쿨다운 (스킬 간 간격 조절)
         self.hero_global_cooldowns: Dict[str, float] = {}
 
-    def init_hero_skills(self, hero_id: str, is_top: bool = True):
+    def init_hero_skills(self, hero_id: str, is_top: bool = True, selected_skill_index: int = -1):
         """영웅 스킬 초기화
 
         Args:
             hero_id: 영웅 ID
             is_top: 상단 영웅 여부 (기본값 True)
+            selected_skill_index: 스킬 랜덤 선택 인덱스 (0 또는 1이면 해당 스킬만 활성화, -1이면 모든 스킬)
         """
         if hero_id not in self.active_skills:
             # 새 인스턴스 생성 (상태 독립)
             skills = []
             base_skills = HERO_SKILLS.get(hero_id, [])
-            for base_skill in base_skills:
+            for i, base_skill in enumerate(base_skills):
+                # selected_skill_index가 지정되면 해당 스킬만 활성화
+                if selected_skill_index >= 0 and i != selected_skill_index:
+                    continue
                 skill_class = type(base_skill)
                 new_skill = skill_class()
                 # 스킬 인스턴스에 직접 caster_is_top 저장 (화염지대 위치 계산용)

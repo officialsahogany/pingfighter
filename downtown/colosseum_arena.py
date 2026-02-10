@@ -253,6 +253,49 @@ BOTTOM_HEROES = [
 # 전체 영웅 목록 (호환성용)
 ARENA_HEROES = TOP_HEROES + BOTTOM_HEROES
 
+# 감옥 전용 영웅 (호위무사 후보 - 기존 스킬 클래스 재활용)
+PRISON_HEROES = [
+    {
+        "id": "bella",
+        "name": "벨라",
+        "title": "독화살사",
+        "style": HeroStyle.TRICKY,
+        "color": (160, 50, 180),  # 보라/독 테마
+        "speed": 1.05,
+        "reaction": 1.05,
+        "power": 0.95,
+        "accuracy": 0.88,
+        "position": "bottom",
+        "description": "독을 다루는 감옥의 사냥꾼"
+    },
+    {
+        "id": "leon",
+        "name": "리온",
+        "title": "전장의 사자",
+        "style": HeroStyle.AGGRESSIVE,
+        "color": (200, 150, 50),  # 금색/전사 테마
+        "speed": 1.25,
+        "reaction": 0.9,
+        "power": 1.2,
+        "accuracy": 0.83,
+        "position": "bottom",
+        "description": "용맹한 전장의 용병"
+    },
+    {
+        "id": "yuki",
+        "name": "유키",
+        "title": "결계술사",
+        "style": HeroStyle.DEFENSIVE,
+        "color": (100, 180, 220),  # 하늘/얼음 테마
+        "speed": 0.88,
+        "reaction": 1.3,
+        "power": 0.8,
+        "accuracy": 0.95,
+        "position": "bottom",
+        "description": "강력한 결계를 펼치는 수호자"
+    },
+]
+
 # ============================================================================
 # 토너먼트 상태
 # ============================================================================
@@ -270,6 +313,12 @@ class TournamentState(Enum):
     BRACKET_ANIMATION = "bracket_animation"  # 대진표 진출 애니메이션
     VICTORY_CELEBRATION = "victory_celebration"  # 우승 축하 연출
     TOURNAMENT_END = "tournament_end"  # 토너먼트 종료
+    # 초반 셋업 상태들
+    MATCH_REVEAL = "match_reveal"              # 매치 공개 애니메이션
+    HERO_SELECT = "hero_select"                # 영웅 선택
+    SKILL_REVEAL = "skill_reveal"              # 스킬 랜덤 선택 연출
+    PRISON_SELECT = "prison_select"            # 감옥 호위무사 선택
+    GUARD_SKILL_REVEAL = "guard_skill_reveal"  # 호위무사 스킬 연출
 
 class TournamentRound(Enum):
     QUARTER_FINAL = "8강"
@@ -1175,6 +1224,7 @@ class GuardWarriorSystem:
 
         # 독립 스킬 인스턴스 (메인 스킬과 충돌 방지)
         self.skill_instances = {}          # hero_id -> [skill1, skill2]
+        self.skill_selections = {}         # hero_id -> selected_skill_index (0 or 1)
 
         # 호위무사별 마지막 가상 패들 (스킬 이펙트 진행 중 위치 유지용)
         self.guard_paddles = {}            # hero_id -> _GuardPaddle
@@ -1200,16 +1250,18 @@ class GuardWarriorSystem:
         self._bubble_bottom = None
         self._bubble_duration = 2.0  # 말풍선 표시 시간 (초)
 
-    def setup(self, guards_top, guards_bottom, initial_delay=(10.0, 15.0)):
+    def setup(self, guards_top, guards_bottom, initial_delay=(10.0, 15.0), skill_selections=None):
         """배틀 시작 시 호위무사 설정
 
         Args:
             guards_top: 상단 영웅의 호위무사 목록
             guards_bottom: 하단 영웅의 호위무사 목록
             initial_delay: 첫 등장까지의 대기 시간 범위 (초)
+            skill_selections: {hero_id: skill_index} 스킬 선택 정보 (0 or 1)
         """
         self.guard_warriors_top = list(guards_top) if guards_top else []
         self.guard_warriors_bottom = list(guards_bottom) if guards_bottom else []
+        self.skill_selections = skill_selections or {}
 
         # 쿨타임 초기화 (게이지가 꽉 찬 상태에서 시작하도록 cooldown_range[1] 사용)
         if self.guard_warriors_top:
@@ -1235,7 +1287,7 @@ class GuardWarriorSystem:
         print(f"[Guard] 호위무사 설정 완료 | 상단: {guard_names_top} | 하단: {guard_names_bottom}")
 
     def _init_guard_skills(self):
-        """호위무사 전용 스킬 인스턴스 생성 (메인 스킬과 독립)"""
+        """호위무사 전용 스킬 인스턴스 생성 (메인 스킬과 독립, 스킬 선택 반영)"""
         self.skill_instances = {}
         all_guards = self.guard_warriors_top + self.guard_warriors_bottom
         for guard_hero in all_guards:
@@ -1244,7 +1296,13 @@ class GuardWarriorSystem:
                 try:
                     from downtown.hero_skills import HERO_SKILL_CLASSES
                     skill_classes = HERO_SKILL_CLASSES.get(hero_id, [])
-                    skills = [cls() for cls in skill_classes]
+                    selected_idx = self.skill_selections.get(hero_id, -1)
+                    skills = []
+                    for i, cls in enumerate(skill_classes):
+                        # 스킬 선택 정보가 있으면 해당 스킬만 생성
+                        if selected_idx >= 0 and i != selected_idx:
+                            continue
+                        skills.append(cls())
                     # game_state 연결 (메인 스킬 매니저와 공유)
                     game_state = self.skill_manager.game_state if self.skill_manager else {}
                     for skill in skills:
@@ -2369,6 +2427,38 @@ class ColosseumsArena:
         self.hover_line_particles = []           # 호버 시 라인 파티클 이펙트
         self.hover_glow_timer = 0.0              # 호버 글로우 펄스 타이머
 
+        # ============ 초반 셋업 시스템 (감옥 + 비공개 대진표) ============
+        self.match_revealed = [False, False, False, False]  # 4매치 공개 상태
+        self.selected_match_index = -1           # 플레이어가 선택한 매치 인덱스
+        self.initial_setup_done = False          # 초반 셋업(영웅+호위무사 선택) 완료 여부
+
+        # 감옥 시스템
+        self.prison_heroes = []                  # 감옥 영웅 3명 (셔플됨)
+        self.prison_selected = None              # 플레이어가 선택한 호위무사
+        self.hover_hero_index = -1               # 영웅 선택 호버 인덱스
+        self.hover_prison_index = -1             # 감옥 호버 인덱스
+
+        # 플레이어 선택 정보
+        self.player_hero = None                  # 플레이어가 선택한 영웅
+        self.player_hero_skill_index = -1        # 플레이어 영웅 스킬 인덱스 (0 or 1)
+        self.player_guard = None                 # 플레이어 호위무사
+        self.player_guard_skill_index = -1       # 호위무사 스킬 인덱스 (0 or 1)
+        self.opponent_hero = None                # 상대 영웅
+        self.opponent_guard = None               # 상대 호위무사
+
+        # 스킬 랜덤 선택 정보 (모든 영웅)
+        self.hero_selected_skills = {}           # {hero_id: selected_skill_index} (0 or 1)
+
+        # 스킬 연출 애니메이션
+        self.skill_reveal_timer = 0.0            # 스킬 연출 타이머
+        self.skill_reveal_phase = "rolling"      # "rolling" → "selected" → "done"
+        self.skill_reveal_target = None          # 연출 대상 (hero_id)
+        self.skill_reveal_result = -1            # 확정된 스킬 인덱스
+
+        # 매치 공개 애니메이션
+        self.match_reveal_timer = 0.0
+        self.match_reveal_index = -1
+
         # 시각 효과 (배경/필러)
         self.arena_background = None
         self.arena_pillar = None
@@ -2460,13 +2550,12 @@ class ColosseumsArena:
         return surf, rect
 
     def _generate_bracket(self):
-        """8강 대진표 생성 - 모든 영웅 자유 매칭 (상단/하단 구분 없음)
+        """8강 대진표 생성 - 모든 영웅 자유 매칭 + 감옥 영웅 배정
 
         변경사항:
-        - 기존: TOP_HEROES 4명 vs BOTTOM_HEROES 4명 고정
-        - 변경: ARENA_HEROES 8명 중 자유롭게 매칭 (무겐 vs 쿠로카게 등 가능)
-        - 각 매치에서 상단/하단 포지션은 랜덤 배정
-        - 스킬 방향은 is_top 플래그로 자동 조정됨
+        - ARENA_HEROES 8명 중 자유롭게 매칭 (4매치)
+        - PRISON_HEROES 3명 감옥 배정 (호위무사 후보)
+        - 모든 영웅에게 스킬 2개 중 1개 랜덤 배정
         """
         # 현재 시간 기반 로컬 Random 인스턴스로 완전 랜덤화 (시드 고정 문제 방지)
         local_rng = random.Random(time.time())
@@ -2494,6 +2583,14 @@ class ColosseumsArena:
             # hero1 = 상단 패들 (화면 위), hero2 = 하단 패들 (화면 아래)
             match = Match(top_hero, bottom_hero, i)
             self.matches[TournamentRound.QUARTER_FINAL].append(match)
+
+        # 감옥 영웅 3명 랜덤 셔플 배정
+        self.prison_heroes = local_rng.sample(PRISON_HEROES, len(PRISON_HEROES))
+
+        # 모든 영웅에게 스킬 2개 중 1개 랜덤 배정
+        self.hero_selected_skills = {}
+        for hero in all_heroes + self.prison_heroes:
+            self.hero_selected_skills[hero["id"]] = local_rng.randint(0, 1)
 
     def _advance_to_next_round(self):
         """다음 라운드 진출"""
@@ -2687,6 +2784,95 @@ class ColosseumsArena:
             except Exception:
                 pass
 
+    # ========================================================================
+    # 초반 셋업 메서드 (영웅 선택 → 스킬 랜덤 → 감옥 → 게임 시작)
+    # ========================================================================
+
+    def _select_hero(self, chosen_hero, opponent_hero):
+        """영웅 선택 확정 → 스킬 랜덤 선택 연출로 전환"""
+        self.player_hero = chosen_hero
+        self.opponent_hero = opponent_hero
+        self.bet_hero = chosen_hero  # 호환성: bet_hero도 설정
+
+        # 스킬 랜덤 선택 연출 시작
+        self.player_hero_skill_index = self.hero_selected_skills.get(chosen_hero["id"], 0)
+        self.skill_reveal_timer = 0.0
+        self.skill_reveal_phase = "rolling"
+        self.skill_reveal_target = chosen_hero["id"]
+        self.skill_reveal_result = self.player_hero_skill_index
+        self.state = TournamentState.SKILL_REVEAL
+
+    def _select_guard(self, guard_hero, prison_index):
+        """감옥에서 호위무사 선택 → 호위무사 스킬 랜덤 연출"""
+        self.player_guard = guard_hero
+        self.prison_selected = guard_hero
+
+        # 나머지 감옥 영웅 배정
+        remaining = [h for i, h in enumerate(self.prison_heroes) if i != prison_index]
+        if remaining:
+            self.opponent_guard = remaining[0]  # 상대 호위무사
+            # 나머지 1명은 다른 AI 매치의 호위무사로 배정 (내부 데이터만)
+
+        # 호위무사 스킬 랜덤 선택 연출 시작
+        self.player_guard_skill_index = self.hero_selected_skills.get(guard_hero["id"], 0)
+        self.skill_reveal_timer = 0.0
+        self.skill_reveal_phase = "rolling"
+        self.skill_reveal_target = guard_hero["id"]
+        self.skill_reveal_result = self.player_guard_skill_index
+        self.state = TournamentState.GUARD_SKILL_REVEAL
+
+    def _finalize_setup_and_start(self):
+        """초반 셋업 완료 → 다른 매치 자동 진행 → VS 프리뷰 → 배틀"""
+        self.initial_setup_done = True
+
+        # 선택한 매치 공개 상태 유지
+        if self.selected_match_index >= 0:
+            self.match_revealed[self.selected_match_index] = True
+
+        # 나머지 3개 매치 자동 진행 (스탯 기반)
+        for i, match in enumerate(self.matches[TournamentRound.QUARTER_FINAL]):
+            if i == self.selected_match_index:
+                continue  # 플레이어 매치는 제외
+            if not match.completed:
+                self._auto_resolve_match(match)
+                self.match_revealed[i] = True  # 결과 공개
+
+        # 호위무사 맵 설정 (플레이어 + 상대)
+        if self.player_hero and self.player_guard:
+            player_id = self.player_hero["id"]
+            if player_id not in self.guard_warrior_map:
+                self.guard_warrior_map[player_id] = []
+            self.guard_warrior_map[player_id].append(self.player_guard)
+
+        if self.opponent_hero and self.opponent_guard:
+            opponent_id = self.opponent_hero["id"]
+            if opponent_id not in self.guard_warrior_map:
+                self.guard_warrior_map[opponent_id] = []
+            self.guard_warrior_map[opponent_id].append(self.opponent_guard)
+
+        # VS 프리뷰 시작
+        self._start_vs_preview()
+
+    def _auto_resolve_match(self, match):
+        """스탯 기반으로 매치 승패 자동 결정 (AI 시뮬레이션)"""
+        h1 = match.hero1
+        h2 = match.hero2
+        # 종합 전투력 계산
+        h1_power = h1["speed"] + h1["power"] + h1["accuracy"] + h1["reaction"]
+        h2_power = h2["speed"] + h2["power"] + h2["accuracy"] + h2["reaction"]
+        # 랜덤 변동 추가
+        h1_score = h1_power + random.uniform(-0.8, 0.8)
+        h2_score = h2_power + random.uniform(-0.8, 0.8)
+
+        if h1_score >= h2_score:
+            winner = h1
+            score1, score2 = 5, random.randint(1, 4)
+        else:
+            winner = h2
+            score1, score2 = random.randint(1, 4), 5
+
+        match.set_result(winner, score1, score2)
+
     def _start_vs_preview(self, show_buttons=False):
         """VS 매치업 미리보기 시작
         show_buttons=False: 2초 후 자동 배틀 시작 (8강 첫 배틀)
@@ -2716,8 +2902,8 @@ class ColosseumsArena:
         # 배속 리셋 (매 경기 1x로 초기화)
         self.speed_multiplier = 1
 
-        # === 호위무사 초기화 (4강/결승만) ===
-        if self.current_round in (TournamentRound.SEMI_FINAL, TournamentRound.FINAL):
+        # === 호위무사 초기화 (초반 셋업 완료 시 8강부터, 아니면 4강/결승만) ===
+        if self.initial_setup_done or self.current_round in (TournamentRound.SEMI_FINAL, TournamentRound.FINAL):
             self._init_guard_warriors_for_battle(match)
         else:
             self.guard_warriors_top = []
@@ -2742,7 +2928,7 @@ class ColosseumsArena:
                 # (start_arena_battle 내부에서 스킬 매니저 초기화 후 설정됨)
                 try:
                     import pingfighter
-                    if self.current_round in (TournamentRound.SEMI_FINAL, TournamentRound.FINAL):
+                    if self.initial_setup_done or self.current_round in (TournamentRound.SEMI_FINAL, TournamentRound.FINAL):
                         pingfighter._arena_pending_top_guards = self.guard_warrior_map.get(top_hero["id"], [])
                         pingfighter._arena_pending_bottom_guards = self.guard_warrior_map.get(bottom_hero["id"], [])
                     else:
@@ -2750,6 +2936,8 @@ class ColosseumsArena:
                         pingfighter._arena_pending_bottom_guards = []
                     # 퍽 데이터를 pingfighter에 전달
                     pingfighter._arena_pending_perk_data = self
+                    # 스킬 선택 정보 전달
+                    pingfighter._arena_pending_skill_selections = self.hero_selected_skills
                 except Exception:
                     pass
                 result = self.battle_callback(top_hero, bottom_hero)
@@ -3318,7 +3506,35 @@ class ColosseumsArena:
                     dt
                 )
 
-        if self.state == TournamentState.VS_PREVIEW:
+        # ======== 초반 셋업 상태 업데이트 ========
+        if self.state == TournamentState.MATCH_REVEAL:
+            # 매치 공개 애니메이션 (0.8초)
+            self.match_reveal_timer += dt
+            if self.match_reveal_timer >= 0.8:
+                if self.match_reveal_index >= 0:
+                    self.match_revealed[self.match_reveal_index] = True
+                self.state = TournamentState.HERO_SELECT
+
+        elif self.state == TournamentState.SKILL_REVEAL:
+            # 스킬 랜덤 선택 연출 (2초)
+            self.skill_reveal_timer += dt
+            if self.skill_reveal_phase == "rolling" and self.skill_reveal_timer >= 1.0:
+                self.skill_reveal_phase = "selected"
+            elif self.skill_reveal_phase == "selected" and self.skill_reveal_timer >= 2.0:
+                if self.skill_reveal_target == (self.player_hero or {}).get("id"):
+                    self.state = TournamentState.PRISON_SELECT
+                    self.skill_reveal_phase = "done"
+
+        elif self.state == TournamentState.GUARD_SKILL_REVEAL:
+            # 호위무사 스킬 랜덤 선택 연출 (2초)
+            self.skill_reveal_timer += dt
+            if self.skill_reveal_phase == "rolling" and self.skill_reveal_timer >= 1.0:
+                self.skill_reveal_phase = "selected"
+            elif self.skill_reveal_phase == "selected" and self.skill_reveal_timer >= 2.0:
+                self._finalize_setup_and_start()
+                self.skill_reveal_phase = "done"
+
+        elif self.state == TournamentState.VS_PREVIEW:
             # VS 매치업 미리보기
             self.vs_preview_timer += dt
             vs_preview_duration = 2.0
@@ -3425,6 +3641,10 @@ class ColosseumsArena:
                     return False  # 퍽 선택 중에는 나갈 수 없음
                 if self.state == TournamentState.GUARD_SELECT:
                     return False  # 호위무사 선택 중에는 나갈 수 없음
+                if self.state in (TournamentState.MATCH_REVEAL, TournamentState.HERO_SELECT,
+                                  TournamentState.SKILL_REVEAL, TournamentState.PRISON_SELECT,
+                                  TournamentState.GUARD_SKILL_REVEAL):
+                    return False  # 초반 셋업 중에는 나갈 수 없음
                 self.exit_requested = True
                 return True
 
@@ -3510,49 +3730,119 @@ class ColosseumsArena:
         if self.state in [TournamentState.BRACKET_VIEW, TournamentState.SELECT_MATCH]:
             box_w, box_h = 120, 140  # 대각선 레이아웃 크기
 
-            # 8강 매치 클릭 체크
-            y_base = 530
-            x_positions = [60, 195, 430, 565]
+            if not self.initial_setup_done and self.current_round == TournamentRound.QUARTER_FINAL:
+                # ========== 초반 셋업: 비공개 대진표 클릭 → 매치 공개 ==========
+                y_base = 530
+                x_positions = [60, 195, 430, 565]
 
-            for i, match in enumerate(self.matches[TournamentRound.QUARTER_FINAL]):
-                if match.completed:
-                    continue
-                x = x_positions[i]
-                if x <= mx <= x + box_w and y_base <= my <= y_base + box_h:
-                    self.selected_match = match
-                    self.state = TournamentState.BETTING
-                    self.bet_amount = 100
+                for i, match in enumerate(self.matches[TournamentRound.QUARTER_FINAL]):
+                    if self.match_revealed[i]:
+                        continue  # 이미 공개된 매치는 무시
+                    x = x_positions[i]
+                    if x <= mx <= x + box_w and y_base <= my <= y_base + box_h:
+                        # 매치 공개 애니메이션 시작
+                        self.match_reveal_index = i
+                        self.match_reveal_timer = 0.0
+                        self.selected_match = match
+                        self.selected_match_index = i
+                        self.state = TournamentState.MATCH_REVEAL
+                        return
+            else:
+                # ========== 초반 셋업 완료 후: 기존 클릭 로직 (4강/결승) ==========
+                # 8강 매치 클릭 체크 (초반 셋업 완료 후에는 자동 진행)
+                y_base = 530
+                x_positions = [60, 195, 430, 565]
+
+                for i, match in enumerate(self.matches[TournamentRound.QUARTER_FINAL]):
+                    if match.completed:
+                        continue
+                    x = x_positions[i]
+                    if x <= mx <= x + box_w and y_base <= my <= y_base + box_h:
+                        self.selected_match = match
+                        self.state = TournamentState.BETTING
+                        self.bet_amount = 100
+                        return
+
+                # 4강 매치 클릭 체크
+                y_semi = 310
+                x_semi = [127, 497]
+
+                for i, match in enumerate(self.matches.get(TournamentRound.SEMI_FINAL, [])):
+                    if match.completed:
+                        continue
+                    x = x_semi[i]
+                    if x <= mx <= x + box_w and y_semi <= my <= y_semi + box_h:
+                        # 4강/결승에서는 플레이어 영웅이 포함된 매치만 직접 플레이
+                        if self.player_hero and (match.hero1 == self.player_hero or match.hero2 == self.player_hero):
+                            self.selected_match = match
+                            self.bet_hero = self.player_hero
+                            self._start_vs_preview()
+                        return
+
+                # 결승 매치 클릭 체크
+                y_final = 80
+                x_final = 312
+
+                for match in self.matches.get(TournamentRound.FINAL, []):
+                    if match.completed:
+                        continue
+                    if x_final <= mx <= x_final + box_w and y_final <= my <= y_final + box_h:
+                        if self.player_hero and (match.hero1 == self.player_hero or match.hero2 == self.player_hero):
+                            self.selected_match = match
+                            self.bet_hero = self.player_hero
+                            self._start_vs_preview()
+                        return
+
+        elif self.state == TournamentState.HERO_SELECT:
+            # ========== 영웅 선택 UI 클릭 ==========
+            panel_x = 130
+            card_w, card_h = 200, 320
+            gap = 40
+            card1_x = panel_x + 25
+            card2_x = panel_x + 25 + card_w + gap
+            card_y = 100  # _draw_hero_select()와 동일
+
+            # 영웅 1 선택
+            if card1_x <= mx <= card1_x + card_w and card_y <= my <= card_y + card_h:
+                self._select_hero(self.selected_match.hero1, self.selected_match.hero2)
+                return
+
+            # 영웅 2 선택
+            if card2_x <= mx <= card2_x + card_w and card_y <= my <= card_y + card_h:
+                self._select_hero(self.selected_match.hero2, self.selected_match.hero1)
+                return
+
+        elif self.state == TournamentState.SKILL_REVEAL:
+            # 스킬 연출 중 클릭하면 스킵 (phase가 selected일 때)
+            if self.skill_reveal_phase == "selected":
+                if self.skill_reveal_target == (self.player_hero or {}).get("id"):
+                    # 플레이어 영웅 스킬 확정 → 감옥 선택으로
+                    self.state = TournamentState.PRISON_SELECT
+                elif self.skill_reveal_target == (self.player_guard or {}).get("id"):
+                    # 호위무사 스킬 확정 → VS 프리뷰로
+                    self._finalize_setup_and_start()
+
+        elif self.state == TournamentState.PRISON_SELECT:
+            # ========== 감옥 호위무사 선택 UI 클릭 ==========
+            cell_w, cell_h = 160, 260
+            gap = 20
+            total_w = cell_w * 3 + gap * 2
+            start_x = (SCREEN_WIDTH - total_w) // 2
+            cell_y = 110  # _draw_prison_select()와 동일
+
+            for i, prison_hero in enumerate(self.prison_heroes):
+                cx = start_x + i * (cell_w + gap)
+                if cx <= mx <= cx + cell_w and cell_y <= my <= cell_y + cell_h:
+                    self._select_guard(prison_hero, i)
                     return
 
-            # 4강 매치 클릭 체크
-            y_semi = 310
-            x_semi = [127, 497]
-
-            for i, match in enumerate(self.matches.get(TournamentRound.SEMI_FINAL, [])):
-                if match.completed:
-                    continue
-                x = x_semi[i]
-                if x <= mx <= x + box_w and y_semi <= my <= y_semi + box_h:
-                    self.selected_match = match
-                    self.state = TournamentState.BETTING
-                    self.bet_amount = 100
-                    return
-
-            # 결승 매치 클릭 체크
-            y_final = 80
-            x_final = 312
-
-            for match in self.matches.get(TournamentRound.FINAL, []):
-                if match.completed:
-                    continue
-                if x_final <= mx <= x_final + box_w and y_final <= my <= y_final + box_h:
-                    self.selected_match = match
-                    self.state = TournamentState.BETTING
-                    self.bet_amount = 100
-                    return
+        elif self.state == TournamentState.GUARD_SKILL_REVEAL:
+            # 호위무사 스킬 연출 중 클릭하면 스킵
+            if self.skill_reveal_phase == "selected":
+                self._finalize_setup_and_start()
 
         elif self.state == TournamentState.BETTING:
-            # 배팅 UI 클릭 처리 (그리기 좌표와 동일하게)
+            # 배팅 UI 클릭 처리 (4강/결승에서 사용)
             panel_x, panel_y = 200, 200
             panel_w, panel_h = 360, 400
 
@@ -3675,6 +3965,42 @@ class ColosseumsArena:
                     if sr['rect'].collidepoint(mx, my):
                         self.guard_select_skill_hover = sr
                         break
+
+        # 영웅 선택 화면 호버
+        if self.state == TournamentState.HERO_SELECT:
+            panel_x = 130
+            card_w, card_h = 200, 320
+            gap = 40
+            card1_x = panel_x + 25
+            card2_x = panel_x + 25 + card_w + gap
+            card_y = 100  # _draw_hero_select()와 동일
+            old_hero_hover = self.hover_hero_index
+            self.hover_hero_index = -1
+            if card1_x <= mx <= card1_x + card_w and card_y <= my <= card_y + card_h:
+                self.hover_hero_index = 0
+                if old_hero_hover != 0:
+                    self._spawn_hover_line_particles(card1_x, card_y, card_w, card_h)
+            elif card2_x <= mx <= card2_x + card_w and card_y <= my <= card_y + card_h:
+                self.hover_hero_index = 1
+                if old_hero_hover != 1:
+                    self._spawn_hover_line_particles(card2_x, card_y, card_w, card_h)
+
+        # 감옥 호위무사 선택 화면 호버
+        elif self.state == TournamentState.PRISON_SELECT:
+            cell_w, cell_h = 160, 260
+            gap = 20
+            total_w = cell_w * 3 + gap * 2
+            start_x = (SCREEN_WIDTH - total_w) // 2
+            cell_y = 110  # _draw_prison_select()와 동일
+            old_prison_hover = self.hover_prison_index
+            self.hover_prison_index = -1
+            for i in range(len(self.prison_heroes)):
+                cx = start_x + i * (cell_w + gap)
+                if cx <= mx <= cx + cell_w and cell_y <= my <= cell_y + cell_h:
+                    self.hover_prison_index = i
+                    if old_prison_hover != i:
+                        self._spawn_hover_line_particles(cx, cell_y, cell_w, cell_h)
+                    break
 
         # 퍽 선택 화면 호버
         if self.state == TournamentState.PERK_SELECT and self.perk_anim_phase == "active":
@@ -3882,6 +4208,14 @@ class ColosseumsArena:
             self._draw_victory_celebration()
         elif self.state == TournamentState.BRACKET_ANIMATION:
             self._draw_bracket_animation()
+        elif self.state == TournamentState.MATCH_REVEAL:
+            self._draw_bracket()  # 대진표 + 공개 애니메이션
+        elif self.state == TournamentState.HERO_SELECT:
+            self._draw_hero_select()
+        elif self.state in (TournamentState.SKILL_REVEAL, TournamentState.GUARD_SKILL_REVEAL):
+            self._draw_skill_reveal()
+        elif self.state == TournamentState.PRISON_SELECT:
+            self._draw_prison_select()
         else:
             self._draw_bracket()
 
@@ -4415,6 +4749,39 @@ class ColosseumsArena:
     def _draw_match_box(self, match: Match, x: int, y: int, match_idx: int):
         """매치 박스 그리기 (대각선 분할 레이아웃)"""
         box_w, box_h = 120, 140  # 약간 낮은 박스
+
+        # ========== 비공개 매치 표시 ==========
+        if not self.initial_setup_done and self.current_round == TournamentRound.QUARTER_FINAL:
+            if not self.match_revealed[match_idx]:
+                is_hovered = (self.hover_match_index == match_idx)
+                # 매치 공개 애니메이션 중
+                if self.state == TournamentState.MATCH_REVEAL and self.match_reveal_index == match_idx:
+                    progress = min(1.0, self.match_reveal_timer / 0.8)
+                    alpha = int(255 * progress)
+                    bg_color = (int(30 + 15 * progress), int(30 + 20 * progress), int(40 + 20 * progress))
+                    pygame.draw.rect(self.screen, bg_color, (x, y, box_w, box_h), border_radius=8)
+                    pygame.draw.rect(self.screen, (200, 180, int(80 * progress)), (x, y, box_w, box_h), 2, border_radius=8)
+                    if self.fonts and "medium" in self.fonts:
+                        surf, _ = self.fonts["medium"].render("?", (200, 200, int(100 + 155 * progress)))
+                        self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + box_h // 2 - surf.get_height() // 2))
+                    return
+                # 비공개 상태
+                if is_hovered:
+                    self._draw_hover_border(x, y, box_w, box_h, (180, 160, 80))
+                bg = (38, 40, 50) if is_hovered else (28, 30, 38)
+                pygame.draw.rect(self.screen, bg, (x, y, box_w, box_h), border_radius=8)
+                border = (120, 110, 70) if is_hovered else (60, 60, 70)
+                pygame.draw.rect(self.screen, border, (x, y, box_w, box_h), 2, border_radius=8)
+                # 자물쇠/물음표 표시
+                cx, cy = x + box_w // 2, y + box_h // 2
+                if self.fonts and "large" in self.fonts:
+                    surf, _ = self.fonts["large"].render("?", (100, 95, 70) if not is_hovered else (200, 190, 120))
+                    self.screen.blit(surf, (cx - surf.get_width() // 2, cy - surf.get_height() // 2))
+                if self.fonts and "small" in self.fonts:
+                    surf, _ = self.fonts["small"].render("클릭하여 공개", (80, 80, 90) if not is_hovered else (160, 155, 110))
+                    self.screen.blit(surf, (cx - surf.get_width() // 2, cy + 30))
+                return
+
         is_hovered = (self.hover_match_index == match_idx and not match.completed)
 
         # 호버 시 테두리 이펙트 (박스 뒤에)
@@ -4497,6 +4864,269 @@ class ColosseumsArena:
         if self.fonts and "small" in self.fonts:
             surf, _ = self.fonts["small"].render(label, (100, 100, 100))
             self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + box_h // 2 - surf.get_height() // 2))
+
+    # ========================================================================
+    # 초반 셋업 UI 메서드
+    # ========================================================================
+
+    def _draw_hero_select(self):
+        """영웅 선택 UI (2명 중 1명 선택)"""
+        self.screen.fill((25, 28, 35))
+
+        if not self.selected_match:
+            return
+
+        # 타이틀
+        if self.fonts and "large" in self.fonts:
+            surf, _ = self.fonts["large"].render("영웅을 선택하세요", (255, 215, 80))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 30))
+
+        # 두 영웅 카드
+        hero1 = self.selected_match.hero1
+        hero2 = self.selected_match.hero2
+        card_w, card_h = 200, 320
+        gap = 40
+        panel_x = 130
+        card1_x = panel_x + 25
+        card2_x = panel_x + 25 + card_w + gap
+        card_y = 100
+
+        for idx, (hero, cx) in enumerate([(hero1, card1_x), (hero2, card2_x)]):
+            # 호버 체크
+            is_hovered = (self.hover_hero_index == idx)
+
+            # 카드 배경
+            bg = (55, 60, 75) if is_hovered else (40, 44, 55)
+            border = (255, 215, 80) if is_hovered else (80, 85, 95)
+            pygame.draw.rect(self.screen, bg, (cx, card_y, card_w, card_h), border_radius=10)
+            pygame.draw.rect(self.screen, border, (cx, card_y, card_w, card_h), 2, border_radius=10)
+
+            # 영웅 색상 바
+            color_bar = pygame.Surface((card_w - 20, 6), pygame.SRCALPHA)
+            color_bar.fill((*hero["color"], 180))
+            self.screen.blit(color_bar, (cx + 10, card_y + 10))
+
+            # 영웅 이름
+            if self.fonts and "medium" in self.fonts:
+                h_color = hero["color"]
+                brightness = sum(h_color) / 3
+                name_color = h_color if brightness > 80 else (min(255, h_color[0]+100), min(255, h_color[1]+100), min(255, h_color[2]+100))
+                surf, _ = self.fonts["medium"].render(hero["name"], name_color)
+                self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 25))
+
+            # 영웅 칭호
+            if self.fonts and "small" in self.fonts:
+                surf, _ = self.fonts["small"].render(hero.get("title", ""), (180, 180, 190))
+                self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 50))
+
+            # 영웅 캐릭터 렌더링
+            if self.hero_paddle_renderer:
+                self.hero_paddle_renderer.draw_hero_paddle(
+                    self.screen, hero["id"], cx + card_w // 2, card_y + 120,
+                    100, 70, facing="down", color=hero["color"], scale_mode="preview"
+                )
+
+            # 스타일 표시
+            style_names = {"aggressive": "공격형", "defensive": "수비형", "balanced": "균형형", "tricky": "트릭형"}
+            style_text = style_names.get(hero["style"].value, "???")
+            if self.fonts and "small" in self.fonts:
+                surf, _ = self.fonts["small"].render(f"[{style_text}]", (150, 150, 160))
+                self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 175))
+
+            # 스킬 2개 표시 (어떤 스킬이 있는지 미리보기)
+            from downtown.hero_skills import HERO_SKILLS
+            hero_skills = HERO_SKILLS.get(hero["id"], [])
+            skill_y = card_y + 205
+            for si, skill in enumerate(hero_skills):
+                skill_bg = (50, 55, 65)
+                pygame.draw.rect(self.screen, skill_bg, (cx + 10, skill_y, card_w - 20, 40), border_radius=5)
+                pygame.draw.rect(self.screen, (70, 75, 85), (cx + 10, skill_y, card_w - 20, 40), 1, border_radius=5)
+                if self.fonts and "small" in self.fonts:
+                    label = f"{'A' if si == 0 else 'B'}: {skill.korean_name}"
+                    surf, _ = self.fonts["small"].render(label, (200, 200, 210))
+                    self.screen.blit(surf, (cx + 20, skill_y + 12))
+                skill_y += 48
+
+        # 하단 안내
+        if self.fonts and "small" in self.fonts:
+            surf, _ = self.fonts["small"].render("스킬은 2개 중 1개가 랜덤으로 결정됩니다", (120, 120, 130))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 440))
+
+    def _draw_skill_reveal(self):
+        """스킬 랜덤 선택 연출 UI"""
+        self.screen.fill((25, 28, 35))
+
+        target_id = self.skill_reveal_target
+        is_guard = (self.state == TournamentState.GUARD_SKILL_REVEAL)
+        hero = self.player_guard if is_guard else self.player_hero
+        if not hero:
+            return
+
+        # 타이틀
+        title = f"{'호위무사' if is_guard else '영웅'} 스킬 결정!"
+        if self.fonts and "large" in self.fonts:
+            surf, _ = self.fonts["large"].render(title, (255, 215, 80))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 40))
+
+        # 영웅 이름
+        if self.fonts and "medium" in self.fonts:
+            h_color = hero["color"]
+            brightness = sum(h_color) / 3
+            name_color = h_color if brightness > 80 else (min(255, h_color[0]+100), min(255, h_color[1]+100), min(255, h_color[2]+100))
+            surf, _ = self.fonts["medium"].render(f"{hero['name']} - {hero.get('title', '')}", name_color)
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 90))
+
+        # 스킬 카드 2개
+        from downtown.hero_skills import HERO_SKILLS
+        hero_skills = HERO_SKILLS.get(target_id, [])
+        if len(hero_skills) < 2:
+            return
+
+        card_w, card_h = 220, 200
+        gap = 60
+        card1_x = SCREEN_WIDTH // 2 - gap // 2 - card_w
+        card2_x = SCREEN_WIDTH // 2 + gap // 2
+        card_y = 180
+
+        for si, (skill, cx) in enumerate([(hero_skills[0], card1_x), (hero_skills[1], card2_x)]):
+            is_selected = (si == self.skill_reveal_result)
+
+            if self.skill_reveal_phase == "rolling":
+                # 롤링 중: 빠르게 번갈아 하이라이트
+                highlight_idx = int(self.skill_reveal_timer * 6) % 2
+                is_highlight = (si == highlight_idx)
+                bg = (70, 75, 90) if is_highlight else (40, 44, 55)
+                border = (200, 200, 100) if is_highlight else (60, 65, 75)
+            elif self.skill_reveal_phase == "selected":
+                if is_selected:
+                    bg = (60, 80, 50)
+                    border = (100, 255, 100)
+                else:
+                    bg = (30, 30, 35)
+                    border = (50, 50, 55)
+            else:
+                bg = (40, 44, 55)
+                border = (60, 65, 75)
+
+            pygame.draw.rect(self.screen, bg, (cx, card_y, card_w, card_h), border_radius=10)
+            pygame.draw.rect(self.screen, border, (cx, card_y, card_w, card_h), 2, border_radius=10)
+
+            # 스킬 라벨
+            label = "A" if si == 0 else "B"
+            if self.fonts and "medium" in self.fonts:
+                surf, _ = self.fonts["medium"].render(label, (180, 180, 50))
+                self.screen.blit(surf, (cx + 15, card_y + 15))
+
+            # 스킬 이름
+            if self.fonts and "medium" in self.fonts:
+                alpha_mod = 255 if (self.skill_reveal_phase != "selected" or is_selected) else 80
+                color = (alpha_mod, alpha_mod, alpha_mod)
+                surf, _ = self.fonts["medium"].render(skill.korean_name, color)
+                self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 60))
+
+            # 스킬 설명
+            if self.fonts and "small" in self.fonts:
+                desc = getattr(skill, 'description', '')[:20]
+                alpha_mod = 200 if (self.skill_reveal_phase != "selected" or is_selected) else 60
+                surf, _ = self.fonts["small"].render(desc, (alpha_mod, alpha_mod, alpha_mod))
+                self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 100))
+
+            # 선택됨 마크
+            if self.skill_reveal_phase == "selected" and is_selected:
+                if self.fonts and "large" in self.fonts:
+                    surf, _ = self.fonts["large"].render("SELECTED", (100, 255, 100))
+                    self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 150))
+
+        # 하단 안내
+        if self.skill_reveal_phase == "selected":
+            if self.fonts and "small" in self.fonts:
+                surf, _ = self.fonts["small"].render("클릭하여 계속", (150, 150, 160))
+                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 420))
+
+    def _draw_prison_select(self):
+        """감옥 호위무사 선택 UI"""
+        self.screen.fill((25, 28, 35))
+
+        # 타이틀
+        if self.fonts and "large" in self.fonts:
+            surf, _ = self.fonts["large"].render("호위무사를 등용하세요", (255, 215, 80))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 30))
+
+        if self.fonts and "small" in self.fonts:
+            surf, _ = self.fonts["small"].render("감옥에 갇힌 영웅 중 1명을 호위무사로 선택합니다", (140, 140, 150))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 65))
+
+        # 감옥 셀 3개
+        cell_w, cell_h = 160, 260
+        gap = 20
+        total_w = cell_w * 3 + gap * 2
+        start_x = (SCREEN_WIDTH - total_w) // 2
+        cell_y = 110
+
+        from downtown.hero_skills import HERO_SKILLS
+
+        for i, hero in enumerate(self.prison_heroes):
+            cx = start_x + i * (cell_w + gap)
+            is_hovered = (self.hover_prison_index == i)
+
+            # 감옥 셀 배경
+            bg = (50, 45, 55) if is_hovered else (35, 32, 40)
+            border = (200, 170, 80) if is_hovered else (70, 65, 75)
+            pygame.draw.rect(self.screen, bg, (cx, cell_y, cell_w, cell_h), border_radius=8)
+            pygame.draw.rect(self.screen, border, (cx, cell_y, cell_w, cell_h), 2, border_radius=8)
+
+            # 철창 패턴 (상단)
+            bar_color = (80, 75, 90) if not is_hovered else (120, 110, 80)
+            for bx in range(cx + 15, cx + cell_w - 10, 20):
+                pygame.draw.line(self.screen, bar_color, (bx, cell_y), (bx, cell_y + 12), 2)
+
+            # 색상 바
+            color_bar = pygame.Surface((cell_w - 20, 4), pygame.SRCALPHA)
+            color_bar.fill((*hero["color"], 150))
+            self.screen.blit(color_bar, (cx + 10, cell_y + 18))
+
+            # 영웅 이름 + 칭호
+            if self.fonts and "medium" in self.fonts:
+                h_color = hero["color"]
+                brightness = sum(h_color) / 3
+                name_color = h_color if brightness > 80 else (min(255, h_color[0]+100), min(255, h_color[1]+100), min(255, h_color[2]+100))
+                surf, _ = self.fonts["medium"].render(hero["name"], name_color)
+                self.screen.blit(surf, (cx + cell_w // 2 - surf.get_width() // 2, cell_y + 28))
+
+            if self.fonts and "small" in self.fonts:
+                surf, _ = self.fonts["small"].render(hero.get("title", ""), (160, 160, 170))
+                self.screen.blit(surf, (cx + cell_w // 2 - surf.get_width() // 2, cell_y + 50))
+
+            # 영웅 캐릭터
+            if self.hero_paddle_renderer:
+                self.hero_paddle_renderer.draw_hero_paddle(
+                    self.screen, hero["id"], cx + cell_w // 2, cell_y + 105,
+                    80, 55, facing="down", color=hero["color"], scale_mode="preview"
+                )
+
+            # 스킬 2개 미리보기
+            hero_skills = HERO_SKILLS.get(hero["id"], [])
+            skill_y = cell_y + 145
+            for si, skill in enumerate(hero_skills):
+                skill_bg = (45, 48, 55)
+                pygame.draw.rect(self.screen, skill_bg, (cx + 8, skill_y, cell_w - 16, 35), border_radius=4)
+                if self.fonts and "small" in self.fonts:
+                    label = f"{'A' if si == 0 else 'B'}: {skill.korean_name}"
+                    surf, _ = self.fonts["small"].render(label, (180, 180, 190))
+                    self.screen.blit(surf, (cx + 15, skill_y + 10))
+                skill_y += 42
+
+            # 스타일 표시
+            style_names = {"aggressive": "공격형", "defensive": "수비형", "balanced": "균형형", "tricky": "트릭형"}
+            style_text = style_names.get(hero["style"].value, "???")
+            if self.fonts and "small" in self.fonts:
+                surf, _ = self.fonts["small"].render(f"[{style_text}]", (130, 130, 140))
+                self.screen.blit(surf, (cx + cell_w // 2 - surf.get_width() // 2, cell_y + cell_h - 25))
+
+        # 하단 안내
+        if self.fonts and "small" in self.fonts:
+            surf, _ = self.fonts["small"].render("스킬은 2개 중 1개가 랜덤으로 결정됩니다", (120, 120, 130))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, cell_y + cell_h + 15))
 
     def _draw_bracket_lines(self):
         """대진표 연결선 (대각선 레이아웃 box_h=140 기준)"""

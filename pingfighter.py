@@ -96516,13 +96516,19 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         print(f"Hero paddle renderer init error: {e}")
         arena_hero_paddle_renderer = None
 
-    # 영웅 스킬 시스템 초기화
+    # 영웅 스킬 시스템 초기화 (스킬 선택 정보 반영)
+    try:
+        _skill_selections = _arena_pending_skill_selections
+    except NameError:
+        _skill_selections = {}
     if ARENA_SKILLS_AVAILABLE:
         try:
             arena_skill_manager = get_skill_manager()
             arena_skill_manager.reset()
-            arena_skill_manager.init_hero_skills(top_hero["id"], is_top=True)
-            arena_skill_manager.init_hero_skills(bottom_hero["id"], is_top=False)
+            top_skill_idx = _skill_selections.get(top_hero["id"], -1)
+            bottom_skill_idx = _skill_selections.get(bottom_hero["id"], -1)
+            arena_skill_manager.init_hero_skills(top_hero["id"], is_top=True, selected_skill_index=top_skill_idx)
+            arena_skill_manager.init_hero_skills(bottom_hero["id"], is_top=False, selected_skill_index=bottom_skill_idx)
             arena_skill_check_timer = 0.0
         except Exception:
             arena_skill_manager = None
@@ -96605,7 +96611,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
                 skill_manager=arena_skill_manager,
                 hero_paddle_renderer=arena_hero_paddle_renderer,
             )
-            guard_system.setup(_top_guards, _bottom_guards)
+            guard_system.setup(_top_guards, _bottom_guards, skill_selections=_skill_selections)
             # 호위무사 퍽 멀티플라이어 적용
             guard_system.guard_cd_mult_top = arena_perk_guard_cd_mult_top
             guard_system.guard_cd_mult_bottom = arena_perk_guard_cd_mult_bottom
@@ -96620,6 +96626,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
     globals().pop('_arena_pending_top_guards', None)
     globals().pop('_arena_pending_bottom_guards', None)
     globals().pop('_arena_pending_perk_data', None)
+    globals().pop('_arena_pending_skill_selections', None)
 
     # 신의심판 이벤트 활성화
     if animated_bg_stage30 is not None:
