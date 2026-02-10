@@ -5615,11 +5615,16 @@ class ColosseumsArena:
                 self.bracket_anim_progress = 0.0
                 self.bracket_anim_timer = 0.0
 
-                # 결승 진출 시 호위무사 2명 이상이면 선택 화면
-                if (self.current_round == TournamentRound.FINAL
-                        and self.bet_hero
-                        and len(self.guard_warrior_map.get(self.bet_hero["id"], [])) >= 2):
-                    self._start_guard_select()
+                # 결승 진출 시: 양측 모두 호위무사 1명만 참가
+                if self.current_round == TournamentRound.FINAL and self.bet_hero:
+                    # AI 상대 호위무사를 1명으로 랜덤 축소
+                    self._trim_opponent_guards_for_final()
+
+                    # 플레이어 호위무사 2명 이상이면 선택 화면
+                    if len(self.guard_warrior_map.get(self.bet_hero["id"], [])) >= 2:
+                        self._start_guard_select()
+                    else:
+                        self._start_vs_preview(show_buttons=True)
                 else:
                     self._start_vs_preview(show_buttons=True)
 
@@ -5806,6 +5811,24 @@ class ColosseumsArena:
         self.state = TournamentState.GUARD_SELECT
         print(f"[Guard] 호위무사 선택 시작 (후보 {len(guards)}명: "
               f"{[g['name'] for g in guards]})")
+
+    def _trim_opponent_guards_for_final(self):
+        """결승전 AI 상대 호위무사를 1명으로 랜덤 축소"""
+        final_matches = self.matches.get(TournamentRound.FINAL, [])
+        if not final_matches or not self.bet_hero:
+            return
+        match = final_matches[0]
+        opponent = match.hero2 if match.hero1 == self.bet_hero else match.hero1
+        if not opponent:
+            return
+        opp_id = opponent["id"]
+        opp_guards = self.guard_warrior_map.get(opp_id, [])
+        if len(opp_guards) >= 2:
+            chosen = random.choice(opp_guards)
+            self.guard_warrior_map[opp_id] = [chosen]
+            print(f"[Guard] AI 상대 호위무사 축소: {opponent['name']} → "
+                  f"{chosen['name']} 선택 (탈락: "
+                  f"{[g['name'] for g in opp_guards if g != chosen]})")
 
     def _confirm_guard_select(self, index: int):
         """호위무사 선택 확정"""
