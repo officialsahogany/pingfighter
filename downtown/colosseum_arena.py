@@ -255,6 +255,7 @@ class TournamentState(Enum):
     RESULT = "result"                  # 경기 결과
     ROUND_END = "round_end"            # 라운드 종료 (계속/나가기 선택)
     GUARD_NOTIFY = "guard_notify"              # 호위무사 생포 알림
+    GUARD_SELECT = "guard_select"              # 결승 호위무사 선택 화면
     PERK_SELECT = "perk_select"                # 투기장 퍽 선택 화면
     BRACKET_ANIMATION = "bracket_animation"  # 대진표 진출 애니메이션
     VICTORY_CELEBRATION = "victory_celebration"  # 우승 축하 연출
@@ -3362,6 +3363,10 @@ class ColosseumsArena:
                 # 알림 끝 → 퍽 선택 화면
                 self._start_perk_select()
 
+        elif self.state == TournamentState.GUARD_SELECT:
+            # 호위무사 선택 화면 애니메이션
+            self.guard_select_timer += dt
+
         elif self.state == TournamentState.PERK_SELECT:
             self.perk_anim_timer += dt
             self.perk_frame_count += 1
@@ -3398,8 +3403,20 @@ class ColosseumsArena:
                     return False  # 배틀 중에는 나갈 수 없음
                 if self.state == TournamentState.PERK_SELECT:
                     return False  # 퍽 선택 중에는 나갈 수 없음
+                if self.state == TournamentState.GUARD_SELECT:
+                    return False  # 호위무사 선택 중에는 나갈 수 없음
                 self.exit_requested = True
                 return True
+
+            # 호위무사 선택 키보드 처리
+            if self.state == TournamentState.GUARD_SELECT and self.guard_select_timer > 0.5:
+                if event.key == pygame.K_LEFT:
+                    self.guard_select_hover = 0
+                elif event.key == pygame.K_RIGHT:
+                    self.guard_select_hover = 1
+                elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                    if self.guard_select_hover >= 0:
+                        self._confirm_guard_select(self.guard_select_hover)
 
             # 퍽 선택 키보드 처리
             if self.state == TournamentState.PERK_SELECT and self.perk_anim_phase == "active":
@@ -3422,6 +3439,23 @@ class ColosseumsArena:
     def _handle_click(self, pos: Tuple[int, int]):
         """클릭 처리"""
         mx, my = pos
+
+        # 호위무사 선택 클릭 처리
+        if self.state == TournamentState.GUARD_SELECT and self.guard_select_timer > 0.5:
+            guards = getattr(self, 'guard_select_guards', [])
+            if len(guards) >= 2:
+                # 카드 히트박스 (좌/우)
+                card_w, card_h = 220, 340
+                gap = 60
+                left_x = SCREEN_WIDTH // 2 - gap // 2 - card_w
+                right_x = SCREEN_WIDTH // 2 + gap // 2
+                card_y = 200
+                if left_x <= mx <= left_x + card_w and card_y <= my <= card_y + card_h:
+                    self._confirm_guard_select(0)
+                    return
+                elif right_x <= mx <= right_x + card_w and card_y <= my <= card_y + card_h:
+                    self._confirm_guard_select(1)
+                    return
 
         # 퍽 선택 클릭 처리
         if self.state == TournamentState.PERK_SELECT and self.perk_anim_phase == "active":
@@ -3581,6 +3615,22 @@ class ColosseumsArena:
         self.hover_perk_index = -1
         self.hover_match_index = -1
         self.hover_btn_id = ""
+
+        # 호위무사 선택 화면 호버
+        if self.state == TournamentState.GUARD_SELECT and self.guard_select_timer > 0.5:
+            guards = getattr(self, 'guard_select_guards', [])
+            if len(guards) >= 2:
+                card_w, card_h = 220, 340
+                gap = 60
+                left_x = SCREEN_WIDTH // 2 - gap // 2 - card_w
+                right_x = SCREEN_WIDTH // 2 + gap // 2
+                card_y = 200
+                old_hover = getattr(self, 'guard_select_hover', -1)
+                self.guard_select_hover = -1
+                if left_x <= mx <= left_x + card_w and card_y <= my <= card_y + card_h:
+                    self.guard_select_hover = 0
+                elif right_x <= mx <= right_x + card_w and card_y <= my <= card_y + card_h:
+                    self.guard_select_hover = 1
 
         # 퍽 선택 화면 호버
         if self.state == TournamentState.PERK_SELECT and self.perk_anim_phase == "active":
@@ -3780,6 +3830,8 @@ class ColosseumsArena:
             self._draw_battle()
         elif self.state == TournamentState.GUARD_NOTIFY:
             self._draw_guard_notification()
+        elif self.state == TournamentState.GUARD_SELECT:
+            self._draw_guard_select()
         elif self.state == TournamentState.PERK_SELECT:
             self._draw_perk_select()
         elif self.state == TournamentState.VICTORY_CELEBRATION:
@@ -5538,13 +5590,20 @@ class ColosseumsArena:
                 self._prepare_next_match()
 
         elif self.bracket_anim_phase == 2:
-            # 페이즈 2: 짧은 대기 후 VS_PREVIEW(버튼 모드)로 전환
+            # 페이즈 2: 짧은 대기 후 전환
             wait_time = 0.3
             if self.bracket_anim_timer >= wait_time:
                 self.bracket_anim_phase = 0
                 self.bracket_anim_progress = 0.0
                 self.bracket_anim_timer = 0.0
-                self._start_vs_preview(show_buttons=True)
+
+                # 결승 진출 시 호위무사 2명 이상이면 선택 화면
+                if (self.current_round == TournamentRound.FINAL
+                        and self.bet_hero
+                        and len(self.guard_warrior_map.get(self.bet_hero["id"], [])) >= 2):
+                    self._start_guard_select()
+                else:
+                    self._start_vs_preview(show_buttons=True)
 
     def _draw_bracket_animation(self):
         """대진표 진출 애니메이션 그리기"""
@@ -5693,6 +5752,295 @@ class ColosseumsArena:
                 spark_surf = _get_arena_surface(8, 8)
                 pygame.draw.circle(spark_surf, (255, 215, 0, spark_alpha), (4, 4), 3)
                 self.screen.blit(spark_surf, (px - 4, py - 4))
+
+    # ================================================================
+    # 결승 호위무사 선택 시스템
+    # ================================================================
+    _GUARD_SKILL_NAMES = {
+        "mugen": "달빛베기", "kraken": "촉수휘감기", "chronos": "중력제어",
+        "onimaru": "지옥의 불꽃", "maria": "인형조종", "ignis": "드래곤 브레스",
+        "gear": "스팀배리어", "kurokage": "그림자분신",
+    }
+
+    def _start_guard_select(self):
+        """결승 호위무사 선택 화면 시작"""
+        bet_id = self.bet_hero["id"] if self.bet_hero else ""
+        guards = self.guard_warrior_map.get(bet_id, [])
+        self.guard_select_guards = list(guards)
+        self.guard_select_hover = -1
+        self.guard_select_chosen = -1
+        self.guard_select_timer = 0.0
+        self.guard_select_particles = []
+        # 초기 파티클
+        for _ in range(30):
+            self.guard_select_particles.append({
+                'x': random.uniform(0, SCREEN_WIDTH),
+                'y': random.uniform(0, SCREEN_HEIGHT),
+                'vx': random.uniform(-0.8, 0.8),
+                'vy': random.uniform(-1.5, -0.3),
+                'size': random.uniform(1.5, 4),
+                'alpha': random.randint(80, 180),
+                'color': random.choice([(255, 215, 100), (200, 180, 255),
+                                        (255, 200, 150), (180, 220, 255)])
+            })
+        self.state = TournamentState.GUARD_SELECT
+        print(f"[Guard] 호위무사 선택 시작 (후보 {len(guards)}명: "
+              f"{[g['name'] for g in guards]})")
+
+    def _confirm_guard_select(self, index: int):
+        """호위무사 선택 확정"""
+        guards = getattr(self, 'guard_select_guards', [])
+        if index < 0 or index >= len(guards):
+            return
+        selected = guards[index]
+        bet_id = self.bet_hero["id"] if self.bet_hero else ""
+
+        # 선택한 호위무사만 남기기
+        self.guard_warrior_map[bet_id] = [selected]
+        self.guard_select_chosen = index
+        print(f"[Guard] 호위무사 선택 완료: {selected['name']} "
+              f"(탈락: {guards[1 - index]['name']})")
+
+        # VS_PREVIEW로 전환
+        self._start_vs_preview(show_buttons=True)
+
+    def _draw_guard_select(self):
+        """결승 호위무사 선택 화면 그리기 (고급 UI)"""
+        guards = getattr(self, 'guard_select_guards', [])
+        if len(guards) < 2:
+            self._start_vs_preview(show_buttons=True)
+            return
+
+        timer = self.guard_select_timer
+        hover = getattr(self, 'guard_select_hover', -1)
+        chosen = getattr(self, 'guard_select_chosen', -1)
+        center_x = SCREEN_WIDTH // 2
+
+        # === 배경 ===
+        self.screen.fill((12, 10, 22))
+
+        # 방사형 빛줄기 (어두운 금색)
+        if timer > 0.3:
+            ray_alpha = int(15 * min(1.0, (timer - 0.3) * 2))
+            ray_surf = _get_arena_fullscreen()
+            for i in range(8):
+                angle = (i / 8) * math.pi * 2 + self.animation_timer * 0.15
+                ex = center_x + int(_cos(angle) * 500)
+                ey = 380 + int(_sin(angle) * 500)
+                pygame.draw.line(ray_surf, (255, 200, 80, ray_alpha),
+                                 (center_x, 380), (ex, ey), 2)
+            self.screen.blit(ray_surf, (0, 0))
+
+        # 파티클
+        for p in self.guard_select_particles:
+            p['x'] += p['vx']
+            p['y'] += p['vy']
+            p['alpha'] = max(0, p['alpha'] - 0.3)
+            if p['alpha'] > 0:
+                sz = max(1, int(p['size']))
+                ps = _get_arena_surface(sz * 2, sz * 2)
+                pygame.draw.circle(ps, (*p['color'], int(p['alpha'])), (sz, sz), sz)
+                self.screen.blit(ps, (int(p['x']) - sz, int(p['y']) - sz))
+        # 파티클 재생성
+        self.guard_select_particles[:] = [p for p in self.guard_select_particles if p['alpha'] > 0]
+        while len(self.guard_select_particles) < 20:
+            self.guard_select_particles.append({
+                'x': random.uniform(0, SCREEN_WIDTH),
+                'y': random.uniform(SCREEN_HEIGHT * 0.8, SCREEN_HEIGHT),
+                'vx': random.uniform(-0.8, 0.8),
+                'vy': random.uniform(-1.5, -0.3),
+                'size': random.uniform(1.5, 4),
+                'alpha': random.randint(80, 180),
+                'color': random.choice([(255, 215, 100), (200, 180, 255),
+                                        (255, 200, 150), (180, 220, 255)])
+            })
+
+        # === 타이틀 텍스트 ===
+        title_fade = min(1.0, timer * 2.0)
+        if self.fonts and "large" in self.fonts and title_fade > 0:
+            title_alpha = int(255 * title_fade)
+
+            # 메인 타이틀
+            title_text = "결승전 호위무사 선택"
+            surf, _ = self.fonts["large"].render(title_text, (255, 215, 80))
+            alpha_s = _get_arena_surface(*surf.get_size())
+            alpha_s.fill((255, 255, 255, title_alpha))
+            surf.blit(alpha_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            self.screen.blit(surf, (center_x - surf.get_width() // 2, 50))
+
+            # 서브 타이틀
+            if "medium" in self.fonts:
+                sub = "결승전에 데려갈 호위무사를 선택하세요"
+                surf2, _ = self.fonts["medium"].render(sub, (200, 200, 220))
+                alpha_s2 = _get_arena_surface(*surf2.get_size())
+                alpha_s2.fill((255, 255, 255, int(title_alpha * 0.7)))
+                surf2.blit(alpha_s2, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                self.screen.blit(surf2, (center_x - surf2.get_width() // 2, 100))
+
+        # 구분선
+        if timer > 0.2:
+            line_w = int(min(400, 400 * min(1.0, (timer - 0.2) * 3)))
+            line_alpha = int(80 * min(1.0, (timer - 0.2) * 3))
+            line_surf = _get_arena_surface(line_w, 2)
+            for lx in range(line_w):
+                dist = abs(lx - line_w // 2) / (line_w / 2)
+                a = int(line_alpha * max(0, 1.0 - dist))
+                line_surf.set_at((lx, 0), (255, 215, 80, a))
+                line_surf.set_at((lx, 1), (200, 170, 40, a // 2))
+            self.screen.blit(line_surf, (center_x - line_w // 2, 140))
+
+        # === VS 텍스트 (중앙) ===
+        if self.fonts and "large" in self.fonts and timer > 0.4:
+            vs_alpha = int(120 + 60 * abs(_sin(self.animation_timer * 2)))
+            vs_surf, _ = self.fonts["large"].render("VS", (vs_alpha, vs_alpha // 2, vs_alpha // 4))
+            self.screen.blit(vs_surf, (center_x - vs_surf.get_width() // 2, 345))
+
+        # === 영웅 카드 2장 ===
+        card_w, card_h = 220, 340
+        gap = 60
+        card_positions = [
+            (center_x - gap // 2 - card_w, 200),   # 왼쪽
+            (center_x + gap // 2, 200),              # 오른쪽
+        ]
+
+        for idx, guard in enumerate(guards[:2]):
+            cx, cy = card_positions[idx]
+            is_hover = (hover == idx)
+            is_chosen = (chosen == idx)
+
+            # 카드 등장 애니메이션
+            if idx == 0:
+                slide = min(1.0, timer * 2.0)
+                offset_x = int(-300 * (1 - self._ease_in_out(slide)))
+            else:
+                slide = min(1.0, max(0, timer - 0.15) * 2.0)
+                offset_x = int(300 * (1 - self._ease_in_out(slide)))
+
+            draw_x = cx + offset_x
+            draw_y = cy
+
+            g_color = guard.get("color", (150, 150, 150))
+            g_name = guard.get("name", "???")
+            g_title = guard.get("title", "")
+            g_id = guard.get("id", "")
+            g_skill = self._GUARD_SKILL_NAMES.get(g_id, "???")
+
+            # 밝기 보정
+            brightness = sum(g_color) / 3
+            bright_color = g_color if brightness > 80 else (
+                min(255, g_color[0] + 80),
+                min(255, g_color[1] + 80),
+                min(255, g_color[2] + 80)
+            )
+
+            # 카드 배경 (호버/선택 시 강조)
+            card_surf = _get_arena_surface(card_w, card_h)
+
+            if is_chosen:
+                # 선택된 카드 - 금색 강조
+                card_surf.fill((40, 35, 15, 220))
+                border_color = (255, 215, 80)
+                border_w = 3
+            elif is_hover:
+                # 호버 카드 - 밝은 테두리
+                pulse = 0.7 + 0.3 * abs(_sin(self.animation_timer * 4))
+                card_surf.fill((30, 28, 45, int(220 * pulse)))
+                border_color = bright_color
+                border_w = 2
+            else:
+                card_surf.fill((20, 18, 35, 200))
+                border_color = (60, 55, 80)
+                border_w = 1
+
+            pygame.draw.rect(card_surf, (*border_color, 200),
+                             (0, 0, card_w, card_h), border_w, border_radius=8)
+            self.screen.blit(card_surf, (draw_x, draw_y))
+
+            # 호버 시 글로우
+            if is_hover or is_chosen:
+                glow_color = (255, 215, 80) if is_chosen else bright_color
+                glow_a = int(40 + 20 * abs(_sin(self.animation_timer * 3)))
+                glow_surf = _get_arena_surface(card_w + 16, card_h + 16)
+                pygame.draw.rect(glow_surf, (*glow_color, glow_a),
+                                 (0, 0, card_w + 16, card_h + 16), border_radius=12)
+                self.screen.blit(glow_surf, (draw_x - 8, draw_y - 8))
+
+            # 영웅 캐릭터 이미지 (카드 상단)
+            hero_cx = draw_x + card_w // 2
+            hero_cy = draw_y + 100
+
+            # 캐릭터 뒤 글로우
+            glow_r = 60
+            glow_surf2 = _get_arena_surface(glow_r * 2, glow_r * 2)
+            g_alpha = int(50 + 25 * abs(_sin(self.animation_timer * 2 + idx)))
+            pygame.draw.circle(glow_surf2, (*g_color, g_alpha), (glow_r, glow_r), glow_r)
+            self.screen.blit(glow_surf2, (hero_cx - glow_r, hero_cy - glow_r))
+
+            if self.hero_paddle_renderer:
+                self.hero_paddle_renderer.draw_hero_paddle(
+                    self.screen, g_id, hero_cx, hero_cy, 100, 70,
+                    facing="down", color=g_color, scale_mode="preview"
+                )
+            else:
+                pygame.draw.circle(self.screen, g_color, (hero_cx, hero_cy), 35)
+                pygame.draw.circle(self.screen, (255, 255, 255), (hero_cx, hero_cy), 35, 2)
+
+            # 이름 (큰 글씨)
+            if self.fonts and "medium" in self.fonts:
+                name_surf, _ = self.fonts["medium"].render(g_name, bright_color)
+                self.screen.blit(name_surf, (hero_cx - name_surf.get_width() // 2,
+                                              draw_y + 165))
+
+            # 칭호 (작은 글씨)
+            if self.fonts and "small" in self.fonts and g_title:
+                title_surf, _ = self.fonts["small"].render(g_title, (160, 160, 180))
+                self.screen.blit(title_surf, (hero_cx - title_surf.get_width() // 2,
+                                               draw_y + 195))
+
+            # 스킬명 (금색)
+            if self.fonts and "small" in self.fonts:
+                skill_label = f"스킬: {g_skill}"
+                skill_surf, _ = self.fonts["small"].render(skill_label, (255, 220, 120))
+                self.screen.blit(skill_surf, (hero_cx - skill_surf.get_width() // 2,
+                                               draw_y + 225))
+
+            # 능력치 바 (3개)
+            stats = [
+                ("속도", guard.get("speed", 1.0), (100, 200, 255)),
+                ("파워", guard.get("power", 1.0), (255, 120, 100)),
+                ("정확", guard.get("accuracy", 0.85), (120, 255, 120)),
+            ]
+            bar_y_start = draw_y + 258
+            bar_w = card_w - 40
+            bar_x = draw_x + 20
+            for si, (stat_name, stat_val, stat_color) in enumerate(stats):
+                by = bar_y_start + si * 24
+                # 라벨
+                if self.fonts and "small" in self.fonts:
+                    ls, _ = self.fonts["small"].render(stat_name, (140, 140, 160))
+                    self.screen.blit(ls, (bar_x, by))
+                # 바 배경
+                pygame.draw.rect(self.screen, (40, 38, 55),
+                                 (bar_x + 35, by + 2, bar_w - 35, 10), border_radius=3)
+                # 바 채우기 (0.7~1.5 범위를 0~1로 정규화)
+                fill = max(0, min(1.0, (stat_val - 0.7) / 0.8))
+                fill_w = int((bar_w - 35) * fill)
+                if fill_w > 0:
+                    pygame.draw.rect(self.screen, stat_color,
+                                     (bar_x + 35, by + 2, fill_w, 10), border_radius=3)
+
+        # === 하단 안내 텍스트 ===
+        if self.fonts and "small" in self.fonts and timer > 0.6:
+            hint_alpha = int(120 + 80 * abs(_sin(self.animation_timer * 2)))
+            hint = "클릭 또는 ←→ 키로 선택"
+            hint_surf, _ = self.fonts["small"].render(hint, (hint_alpha, hint_alpha, hint_alpha))
+            self.screen.blit(hint_surf, (center_x - hint_surf.get_width() // 2, 580))
+
+        # 라운드 표기
+        if self.fonts and "small" in self.fonts:
+            round_text = "FINAL ROUND"
+            rs, _ = self.fonts["small"].render(round_text, (255, 215, 80))
+            self.screen.blit(rs, (center_x - rs.get_width() // 2, 615))
 
     def _draw_animated_bracket(self):
         """애니메이션이 적용된 대진표 그리기"""
