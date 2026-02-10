@@ -7063,8 +7063,6 @@ class ColosseumsArena:
             # 메인 알림 메시지
             if "medium" in self.fonts:
                 msg1 = f"{guard_name}을(를) 생포했습니다!"
-                msg2 = "호위무사가 되어 함께 싸워줍니다!"
-
                 gold_color = ET["gold_bright"]
 
                 surf1, _ = self.fonts["medium"].render(msg1, gold_color)
@@ -7072,12 +7070,6 @@ class ColosseumsArena:
                 alpha_surf1.fill((255, 255, 255, text_alpha))
                 surf1.blit(alpha_surf1, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                 self.screen.blit(surf1, (center_x - surf1.get_width() // 2, hero_y + 100))
-
-                surf2, _ = self.fonts["medium"].render(msg2, gold_color)
-                alpha_surf2 = _get_arena_surface(*surf2.get_size())
-                alpha_surf2.fill((255, 255, 255, text_alpha))
-                surf2.blit(alpha_surf2, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-                self.screen.blit(surf2, (center_x - surf2.get_width() // 2, hero_y + 130))
 
             # 호위무사 카운트
             if "small" in self.fonts and self.guard_notify_total > 0:
@@ -7266,9 +7258,18 @@ class ColosseumsArena:
                 surf2.blit(alpha_s2, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                 self.screen.blit(surf2, (center_x - surf2.get_width() // 2, 100))
 
+            # 경고 텍스트
+            if "small" in self.fonts:
+                warn = "전장에서는 오직 한명의 호위무사만 데려갈 수 있습니다."
+                warn_surf, _ = self.fonts["small"].render(warn, ET["carnelian_light"])
+                alpha_w = _get_arena_surface(*warn_surf.get_size())
+                alpha_w.fill((255, 255, 255, int(255 * title_fade * 0.6)))
+                warn_surf.blit(alpha_w, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                self.screen.blit(warn_surf, (center_x - warn_surf.get_width() // 2, 122))
+
         # 구분선
         if timer > 0.2:
-            self._draw_egyptian_separator(140)
+            self._draw_egyptian_separator(145)
 
         # === VS 텍스트 (중앙) ===
         if self.fonts and "large" in self.fonts and timer > 0.4:
