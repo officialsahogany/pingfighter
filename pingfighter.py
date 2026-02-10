@@ -18751,6 +18751,8 @@ player_ai_enabled = False            # 메뉴에서 AI 플레이를 켰는지 �
 
 # 투기장 모드 (콜로세움)
 arena_mode_enabled = False           # 투기장 모드 활성화 여부
+arena_speed_multiplier = 1           # 투기장 배속 배율 (1x, 2x, 3x)
+arena_speed_btn_rects = {}           # 배속 버튼 히트영역
 arena_battle_result = None           # 투기장 배틀 결과 (True=하단 승리, False=상단 승리)
 arena_top_hero = None                # 상단 영웅 정보 (보스 위치)
 arena_bottom_hero = None             # 하단 영웅 정보 (플레이어 위치)
@@ -96461,7 +96463,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         bottom_hero: 하단 영웅 정보 (플레이어 위치)
     """
     global player_ai_enabled, _pillar_ui_enabled
-    global arena_mode_enabled, arena_battle_result, arena_top_hero, arena_bottom_hero, arena_hero_paddle_renderer
+    global arena_mode_enabled, arena_speed_multiplier, arena_battle_result, arena_top_hero, arena_bottom_hero, arena_hero_paddle_renderer
     global arena_skill_manager, arena_skill_check_timer
     global arena_top_dashing, arena_top_dash_timer, arena_top_dash_direction
     global arena_top_dash_target_x, arena_top_dash_cooldown, arena_top_dash_afterimages
@@ -96475,6 +96477,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
 
     # 투기장 모드 활성화
     arena_mode_enabled = True
+    arena_speed_multiplier = 1  # 배속 리셋 (매 경기 1x)
     arena_battle_result = None  # 이전 배틀 결과 초기화 (필수!)
     arena_top_hero = top_hero
     arena_bottom_hero = bottom_hero
@@ -114003,6 +114006,45 @@ def draw_laser_cannon_gauge():
     pygame.draw.lines(SCREEN, (100, 150, 200), False,
                      [(icon_x, icon_y - 5), (icon_x + 3, icon_y), 
                       (icon_x - 2, icon_y + 2), (icon_x + 5, icon_y + 5)], 2)
+def draw_arena_speed_buttons():
+    """투기장 배속 버튼 그리기 (1x, 2x, 3x) + 클릭 처리"""
+    global arena_speed_multiplier, arena_speed_btn_rects
+    if not arena_mode_enabled:
+        return
+
+    btn_w, btn_h = 28, 22
+    gap = 3
+    # 점수판 오른쪽에 배치 (점수판은 화면 중앙 근처)
+    start_x = WIDTH // 2 + 65
+    start_y = 18
+
+    arena_speed_btn_rects = {}
+    try:
+        font = get_font(14)
+    except Exception:
+        font = pygame.font.Font(None, 16)
+
+    for i, mult in enumerate([1, 2, 3]):
+        x = start_x + i * (btn_w + gap)
+        rect = pygame.Rect(x, start_y, btn_w, btn_h)
+        arena_speed_btn_rects[mult] = rect
+
+        is_active = (arena_speed_multiplier == mult)
+        if is_active:
+            bg = (220, 180, 80)
+            text_color = (30, 25, 15)
+        else:
+            bg = (50, 55, 65)
+            text_color = (140, 140, 140)
+
+        pygame.draw.rect(SCREEN, bg, rect, border_radius=3)
+        pygame.draw.rect(SCREEN, (80, 85, 95), rect, 1, border_radius=3)
+
+        label = f"{mult}x"
+        surf = font.render(label, True, text_color)
+        SCREEN.blit(surf, (x + btn_w // 2 - surf.get_width() // 2,
+                           start_y + btn_h // 2 - surf.get_height() // 2))
+
 def draw_boss_health_bar():
     """ 메카닉 스타일 보스 체력바 (스무스 애니메이션)"""
     global boss_displayed_health, boss_damage_preview_health
@@ -129143,7 +129185,9 @@ def main(stage_num, new_boss_mode=False):
         # 프로파일러 프레임 시작
         if profiler:
             profiler.begin_frame()
-        dt_ms = clock.tick(FPS)
+        # 투기장 배속 적용: FPS 상한을 올려서 프레임 기반 물리를 가속
+        _tick_fps = FPS * arena_speed_multiplier if arena_mode_enabled else FPS
+        dt_ms = clock.tick(_tick_fps)
         now_ms = pygame.time.get_ticks()
         # 프레임 시간 캐싱 업데이트 (성능 최적화)
         global _current_frame_ticks, _frame_counter, VALTHOR_PERF_DEBUG
@@ -129329,6 +129373,27 @@ def main(stage_num, new_boss_mode=False):
                 BOSS_MAX_SPEED = int(BOSS_MAX_SPEED / enraged_boss_speed_scale)
                 enraged_boss_aura_particles = []
         main.keyF5_pressed = keys[pygame.K_F5]
+
+        # 투기장 배속 변경 (1/2/3 키 + 마우스 클릭)
+        if arena_mode_enabled:
+            if keys[pygame.K_1] and not getattr(main, '_arena_key1_pressed', False):
+                arena_speed_multiplier = 1
+            elif keys[pygame.K_2] and not getattr(main, '_arena_key2_pressed', False):
+                arena_speed_multiplier = 2
+            elif keys[pygame.K_3] and not getattr(main, '_arena_key3_pressed', False):
+                arena_speed_multiplier = 3
+            main._arena_key1_pressed = keys[pygame.K_1]
+            main._arena_key2_pressed = keys[pygame.K_2]
+            main._arena_key3_pressed = keys[pygame.K_3]
+            # 마우스 클릭으로 배속 버튼 변경
+            _mb = pygame.mouse.get_pressed()
+            if _mb[0] and not getattr(main, '_arena_mouse_pressed', False):
+                _mx, _my = pygame.mouse.get_pos()
+                for _mult, _rect in arena_speed_btn_rects.items():
+                    if _rect.collidepoint(_mx, _my):
+                        arena_speed_multiplier = _mult
+                        break
+            main._arena_mouse_pressed = _mb[0]
 
         # ] 키로 스크린샷 캡처 (필러 포함)
         global _screenshot_key_pressed
@@ -135042,6 +135107,7 @@ def get_legacy_game_loop_hooks() -> LegacyHooks:
             draw_neutralize_particles(SCREEN)
             draw_overlay_ui()
             draw_score()
+            draw_arena_speed_buttons()
             draw_stage8_boss_gauge_bar()
             draw_stage7_boss_gauge_bar()
             boss_dialogue_update()
