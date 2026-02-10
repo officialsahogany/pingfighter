@@ -1246,7 +1246,7 @@ GUARD_EXIT_DURATION = 0.5     # 퇴장 시간
 
 class _GuardPaddle:
     """호위무사 위치를 패들처럼 사용하기 위한 가상 패들 객체"""
-    def __init__(self, x, y, is_top, width=60, height=30):
+    def __init__(self, x, y, is_top, width=PADDLE_WIDTH, height=PADDLE_HEIGHT):
         self.x = x - width // 2  # centerx → left x
         self.y = y
         self.width = width
@@ -1255,6 +1255,15 @@ class _GuardPaddle:
         self.centery = y + height // 2
         self.is_top = is_top
         self.paddle_scale = 1.0
+        self.power = 1.0  # 공 반사 파워 (check_paddle_collision 호환)
+
+    def get_rect(self):
+        """패들 충돌 사각형 반환 (check_paddle_collision 호환)"""
+        return pygame.Rect(int(self.x), int(self.y), self.width, self.height)
+
+    def get_center_x(self):
+        """패들 중심 X 좌표 (check_paddle_collision 호환)"""
+        return self.centerx
 
 
 class GuardWarriorSystem:
@@ -1433,6 +1442,8 @@ class GuardWarriorSystem:
             self._guard_ball_cooldown -= dt
         if ball and self._guard_ball_cooldown <= 0:
             self._check_guard_demon_step_ball_collision(ball, game_state)
+            # 일반 호위무사 패들 충돌 감지 (등장/시전/퇴장 중 공과 물리 반사)
+            self._check_guard_general_ball_collision(ball, game_state)
 
         # 활성 호위무사 스킬 이펙트 업데이트 (호위무사 위치 기반)
         for hero_id, skills in self.skill_instances.items():
@@ -1798,7 +1809,7 @@ class GuardWarriorSystem:
     def _check_guard_demon_step_ball_collision(self, ball, game_state):
         """호위무사 귀신발걸음 중 공과 충돌 감지 → game_state 플래그 설정 (1회 발동당 3회까지)"""
         import pygame
-        GUARD_PADDLE_W, GUARD_PADDLE_H = 60, 30
+        GUARD_PADDLE_W, GUARD_PADDLE_H = PADDLE_WIDTH, PADDLE_HEIGHT
 
         for hero_id, skills in self.skill_instances.items():
             is_top_guard = any(g["id"] == hero_id for g in self.guard_warriors_top)
@@ -1847,6 +1858,49 @@ class GuardWarriorSystem:
                     }
                     print(f"[Guard GhostStep] 호위무사 공 충돌 (1회)! is_top={is_top_guard}, offset={hit_offset:.2f}")
                     return
+
+    def _check_guard_general_ball_collision(self, ball, game_state):
+        """호위무사가 화면에 보이는 동안 공과 물리 충돌 (영웅 패들과 동일)"""
+        import pygame
+        for is_top in (True, False):
+            phase = self.phase_top if is_top else self.phase_bottom
+            if phase is None:
+                continue
+            # 귀신발걸음은 전용 충돌 로직 사용 → 스킵
+            skill = self.selected_skill_top if is_top else self.selected_skill_bottom
+            if skill and getattr(skill, 'skill_id', '') == 'demon_step':
+                continue
+
+            gx = self.x_top if is_top else self.x_bottom
+            gy = self.y_top if is_top else self.y_bottom
+            guard_rect = pygame.Rect(
+                int(gx - PADDLE_WIDTH // 2), int(gy),
+                PADDLE_WIDTH, PADDLE_HEIGHT
+            )
+            ball_rect = pygame.Rect(
+                int(ball.x) - BALL_SIZE - 2,
+                int(ball.y) - BALL_SIZE - 2,
+                BALL_SIZE * 2 + 4,
+                BALL_SIZE * 2 + 4
+            )
+
+            if guard_rect.colliderect(ball_rect):
+                ball_vy = getattr(ball, 'vy', 0)
+                # 이미 맞은 방향이면 무시 (관통 방지)
+                if is_top and ball_vy < 0:
+                    continue
+                if not is_top and ball_vy > 0:
+                    continue
+
+                hit_offset = (ball_rect.centerx - guard_rect.centerx) / (PADDLE_WIDTH / 2)
+                hit_offset = max(-1.0, min(1.0, hit_offset))
+                guard = self.active_top if is_top else self.active_bottom
+                game_state['guard_general_ball_hit'] = {
+                    'is_top_guard': is_top,
+                    'hit_offset': hit_offset,
+                    'guard_id': guard["id"] if guard else None,
+                }
+                return
 
     # 호위무사 스킬이 game_state를 통해 메인 영웅에 영향주는 것 방지용 키 목록
     _CASTER_STATE_KEYS = ['_locked', '_locked_x', '_locked_y', '_stunned', '_speed_boost', '_size_boost']
@@ -1933,8 +1987,8 @@ class GuardWarriorSystem:
             print(f"[Guard] {'상단' if is_top else '하단'}측 호위무사 {guard['name']} → "
                   f"{skill.korean_name} 발동 실패")
 
-        # 말풍선 직접 설정 (호위무사 위치에 표시)
-        bubble_text = f"{guard['name']}: {skill.korean_name}!"
+        # 말풍선 직접 설정 (호위무사 위치에 표시) - 영웅과 동일하게 스킬명만
+        bubble_text = f"{skill.korean_name}!"
         bubble_data = {'text': bubble_text, 'timer': self._bubble_duration}
         if is_top:
             self._bubble_top = bubble_data
@@ -2047,51 +2101,100 @@ class GuardWarriorSystem:
         self._draw_guard_bubbles(screen, shake_x, shake_y)
 
     def _draw_guard_bubbles(self, screen, shake_x, shake_y):
-        """호위무사 스킬 발동 시 말풍선 표시"""
-        # 상단측 호위무사 말풍선
+        """호위무사 스킬 발동 시 말풍선 표시 (영웅과 동일 스타일)"""
+        # 상단측 호위무사 말풍선 (캐릭터 아래)
         if (self._bubble_top and self._bubble_top['timer'] > 0
                 and self.phase_top is not None):
             bx = self.x_top + shake_x
-            by = self.y_top + shake_y + 40  # 캐릭터 아래에 표시
-            alpha = min(255, int(self._bubble_top['timer'] / 0.3 * 255))
-            self._draw_guard_speech(screen, bx, by, self._bubble_top['text'], alpha)
+            by = self.y_top + shake_y + PADDLE_HEIGHT + 10
+            timer = self._bubble_top['timer']
+            self._draw_guard_speech(screen, bx, by, self._bubble_top['text'],
+                                    is_top=True, timer=timer)
 
-        # 하단측 호위무사 말풍선
+        # 하단측 호위무사 말풍선 (캐릭터 위)
         if (self._bubble_bottom and self._bubble_bottom['timer'] > 0
                 and self.phase_bottom is not None):
             bx = self.x_bottom + shake_x
-            by = self.y_bottom + shake_y - 45  # 캐릭터 위에 표시
-            alpha = min(255, int(self._bubble_bottom['timer'] / 0.3 * 255))
-            self._draw_guard_speech(screen, bx, by, self._bubble_bottom['text'], alpha)
+            by = self.y_bottom + shake_y - 50
+            timer = self._bubble_bottom['timer']
+            self._draw_guard_speech(screen, bx, by, self._bubble_bottom['text'],
+                                    is_top=False, timer=timer)
 
-    def _draw_guard_speech(self, screen, x, y, text, alpha=255):
-        """호위무사 말풍선 렌더링"""
+    def _draw_guard_speech(self, screen, x, y, text, is_top=True, timer=1.0):
+        """호위무사 말풍선 렌더링 (영웅 말풍선과 동일 스타일)"""
         try:
-            font = self._get_guard_korean_font(16)
-            text_surf = font.render(text, True, (255, 255, 255))
-            tw, th = text_surf.get_size()
+            import os, sys
+            font = pygame.font.Font(None, 24)
+            try:
+                if hasattr(sys, '_MEIPASS'):
+                    base = sys._MEIPASS
+                else:
+                    base = os.path.dirname(os.path.dirname(__file__))
+                font_candidates = [
+                    os.path.join(base, "fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"),
+                    os.path.join(base, "fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Regular.ttf"),
+                    os.path.join(base, "fonts", "프리텐다드", "public", "static", "Pretendard-Bold.otf"),
+                    os.path.join(base, "fonts", "NanumSquareB.ttf"),
+                ]
+                for font_path in font_candidates:
+                    if os.path.exists(font_path):
+                        font = pygame.font.Font(font_path, 20)
+                        break
+            except Exception:
+                pass
 
-            pad_x, pad_y = 10, 6
-            bw = tw + pad_x * 2
-            bh = th + pad_y * 2
+            text_surface = font.render(text, True, (0, 0, 0))
 
-            # 화면 경계 제한
-            bx = max(GAME_AREA_X + 5, min(int(x - bw // 2), GAME_AREA_X + GAME_AREA_WIDTH - bw - 5))
-            by = int(y - bh // 2)
+            # 말풍선 크기 계산
+            padding = 12
+            bubble_width = text_surface.get_width() + padding * 2
+            bubble_height = text_surface.get_height() + padding
 
-            # 말풍선 서피스 (반투명)
-            bubble_surf = _get_arena_surface(bw, bh)
-            a = min(alpha, 220)
-            pygame.draw.rect(bubble_surf, (30, 20, 50, a), bubble_surf.get_rect(), border_radius=8)
-            pygame.draw.rect(bubble_surf, (200, 170, 80, a), bubble_surf.get_rect(), width=2, border_radius=8)
+            # 말풍선 위치
+            bubble_x = int(x - bubble_width // 2)
+            bubble_y = int(y)
 
-            # 텍스트
-            text_a_surf = text_surf.copy()
-            if alpha < 255:
-                text_a_surf.set_alpha(alpha)
-            bubble_surf.blit(text_a_surf, (pad_x, pad_y))
+            # 화면 경계 체크
+            bubble_x = max(GAME_AREA_X + 5, min(bubble_x, GAME_AREA_X + GAME_AREA_WIDTH - bubble_width - 5))
 
-            screen.blit(bubble_surf, (bx, by))
+            # 말풍선 표면 생성
+            bubble_surface = _get_arena_surface(bubble_width + 15, bubble_height + 25)
+
+            # 그림자
+            shadow_rect = pygame.Rect(3, 3, bubble_width, bubble_height)
+            pygame.draw.rect(bubble_surface, (0, 0, 0, 60), shadow_rect, border_radius=10)
+
+            # 메인 말풍선 (흰색)
+            main_rect = pygame.Rect(0, 0, bubble_width, bubble_height)
+            pygame.draw.rect(bubble_surface, (255, 255, 255), main_rect, border_radius=10)
+            pygame.draw.rect(bubble_surface, (50, 50, 50), main_rect, 2, border_radius=10)
+
+            # 말풍선 꼬리 (위/아래 방향)
+            if is_top:
+                # 상단 호위무사: 꼬리가 위쪽 (캐릭터를 향함)
+                tail_points = [
+                    (bubble_width // 2 - 8, 2),
+                    (bubble_width // 2 + 8, 2),
+                    (bubble_width // 2, -12)
+                ]
+            else:
+                # 하단 호위무사: 꼬리가 아래쪽 (캐릭터를 향함)
+                tail_points = [
+                    (bubble_width // 2 - 8, bubble_height - 2),
+                    (bubble_width // 2 + 8, bubble_height - 2),
+                    (bubble_width // 2, bubble_height + 12)
+                ]
+
+            pygame.draw.polygon(bubble_surface, (255, 255, 255), tail_points)
+            pygame.draw.polygon(bubble_surface, (50, 50, 50), tail_points, 2)
+
+            # 텍스트 그리기
+            bubble_surface.blit(text_surface, (padding, padding // 2))
+
+            # 살짝 흔들림 애니메이션
+            float_offset = _sin(timer * 5.0) * 2
+
+            screen.blit(bubble_surface, (bubble_x, bubble_y + float_offset))
         except Exception:
             pass
 
@@ -2118,7 +2221,7 @@ class GuardWarriorSystem:
                     screen,
                     guard_hero["id"],
                     ix, iy,
-                    60, 30,  # 약간 작은 크기
+                    PADDLE_WIDTH, PADDLE_HEIGHT,  # 영웅 패들과 동일 크기
                     facing=facing,
                     color=color,
                     scale_mode="paddle"
