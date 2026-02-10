@@ -6388,9 +6388,7 @@ class ColosseumsArena:
                                              ghost_cy + int(guard_size_h * 0.85) // 2 + 6))
 
                     # 반투명 적용 (100/255 ≈ 40% 불투명)
-                    alpha_mask = _get_arena_surface(ghost_w, ghost_h)
-                    alpha_mask.fill((255, 255, 255, 100))
-                    ghost_surf.blit(alpha_mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                    ghost_surf.fill((255, 255, 255, 100), special_flags=pygame.BLEND_RGBA_MULT)
                     self.screen.blit(ghost_surf, (gx - ghost_cx, gy - ghost_cy + 10))
 
         # === 챔피언 (중앙, 크게) ===
