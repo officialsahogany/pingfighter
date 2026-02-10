@@ -7112,6 +7112,54 @@ def clear_ui_overlay():
     global _ui_overlay_items
     _ui_overlay_items = []
 
+def _draw_guard_hover_tooltip(target_screen, hover_info):
+    """호위무사 아이콘 호버 시 쿨타임 툴팁 표시 (REAL_SCREEN에 직접 그리기)"""
+    if not hover_info:
+        return
+    try:
+        _gh_name = hover_info["name"]
+        _gh_color = hover_info["color"]
+        _gh_cd = hover_info["cooldown"]
+        _gh_phase = hover_info["phase"]
+        _gh_next = hover_info.get("is_next", False)
+        _gh_font = get_font(13, style="bold")
+        _gh_small = get_font(11, style="regular")
+        # 상태 텍스트
+        if _gh_phase is not None:
+            _status = "전투 중"
+            _status_color = (120, 255, 170)
+        elif _gh_cd > 0:
+            _status = f"쿨타임: {_gh_cd:.1f}초"
+            _status_color = (255, 200, 100)
+        else:
+            _status = "대기 중"
+            _status_color = (180, 220, 255)
+        _n_surf = _gh_font.render(_gh_name, True, _gh_color)
+        _s_surf = _gh_small.render(_status, True, _status_color)
+        _lines = [_n_surf, _s_surf]
+        if _gh_next:
+            _nx_surf = _gh_small.render("▶ 다음 출격", True, (255, 200, 50))
+            _lines.append(_nx_surf)
+        _tw = max(s.get_width() for s in _lines) + 20
+        _tw = max(_tw, 120)
+        _th = sum(s.get_height() for s in _lines) + 4 * len(_lines) + 8
+        if hover_info["side"] == "bottom":
+            _tx = max(4, hover_info["screen_x"] - _tw)
+        else:
+            _tx = hover_info["screen_x"]
+        _ty = hover_info["screen_y"]
+        _ty = max(4, min(_ty, target_screen.get_height() - _th - 4))
+        _tip_bg = pygame.Surface((_tw, _th), pygame.SRCALPHA)
+        pygame.draw.rect(_tip_bg, (16, 20, 36, 230), (0, 0, _tw, _th), border_radius=8)
+        pygame.draw.rect(_tip_bg, (*_gh_color, 200), (0, 0, _tw, _th), 2, border_radius=8)
+        target_screen.blit(_tip_bg, (_tx, _ty))
+        _cy = _ty + 6
+        for _ls in _lines:
+            target_screen.blit(_ls, (_tx + 10, _cy))
+            _cy += _ls.get_height() + 4
+    except Exception:
+        pass
+
 def _render_ui_overlay(target_screen):
     """UI 오버레이를 대상 화면에 렌더링
 
@@ -7758,16 +7806,20 @@ def _fullscreen_flip():
             _draw_pillar_ui(REAL_SCREEN, pillar_renderer)
 
         # 🛡️ 호위무사 아이콘 UI (필러 배경 위에 그리기)
+        _guard_hover = None
         if arena_mode_enabled and arena_guard_system:
             try:
-                arena_guard_system.draw_guard_icons(
+                _real_mpos = _original_mouse_get_pos()
+                _guard_hover = arena_guard_system.draw_guard_icons(
                     REAL_SCREEN,
                     game_offset_x=GAME_OFFSET_X,
                     game_offset_y=GAME_OFFSET_Y,
                     game_scale=GAME_SCALE_FACTOR,
+                    mouse_pos=_real_mpos,
                 )
             except Exception:
                 pass
+        _draw_guard_hover_tooltip(REAL_SCREEN, _guard_hover)
 
         # 🛡️ 인게임 호위무사 필러 아이콘 (일반 스테이지, 투기장 UI와 동일)
         if not arena_mode_enabled:
@@ -7854,16 +7906,20 @@ def _fullscreen_update(*args, **kwargs):
             _draw_pillar_ui(REAL_SCREEN, pillar_renderer)
 
         # 🛡️ 호위무사 아이콘 UI (필러 배경 위에 그리기)
+        _guard_hover2 = None
         if arena_mode_enabled and arena_guard_system:
             try:
-                arena_guard_system.draw_guard_icons(
+                _real_mpos2 = _original_mouse_get_pos()
+                _guard_hover2 = arena_guard_system.draw_guard_icons(
                     REAL_SCREEN,
                     game_offset_x=GAME_OFFSET_X,
                     game_offset_y=GAME_OFFSET_Y,
                     game_scale=GAME_SCALE_FACTOR,
+                    mouse_pos=_real_mpos2,
                 )
             except Exception:
                 pass
+        _draw_guard_hover_tooltip(REAL_SCREEN, _guard_hover2)
 
         # 🛡️ 인게임 호위무사 필러 아이콘 (일반 스테이지)
         if not arena_mode_enabled:
@@ -137144,86 +137200,100 @@ def show_character_info(background_surface=None):
     skill_scroll_start = [0]  # 드래그 시작 시 스크롤 위치
 
     def _draw_arena_perk_icon_standalone(surface, perk_id, cx, cy, size):
-        """투기장 퍽 아이콘 (3x 슈퍼샘플링, 독립형)"""
-        ss = 3
+        """투기장 퍽 아이콘 (4x 슈퍼샘플링, 굵은 선)"""
+        ss = 4
         hi = size * ss
         icon_surf = pygame.Surface((hi, hi), pygame.SRCALPHA)
-        center = hi // 2
+        c = hi // 2
         r = size // 2
+        lw = max(3, int(ss * 1.2))  # 기본 선 굵기
 
         if perk_id == "swift_foot":
-            color = (100, 220, 255)
+            # 질풍각 — 바람 소용돌이 (3줄, 밝은 하늘색)
+            color = (120, 230, 255)
             for i in range(3):
-                points = []
-                base_angle = i * (2 * math.pi / 3)
-                for t in range(20):
-                    frac = t / 19.0
-                    angle = base_angle + frac * math.pi * 1.5
-                    dist = r * ss * (0.15 + frac * 0.7)
-                    px = center + int(math.cos(angle) * dist)
-                    py = center + int(math.sin(angle) * dist)
-                    points.append((px, py))
-                if len(points) >= 2:
-                    alpha = 200 - i * 30
-                    pygame.draw.lines(icon_surf, (*color, alpha), False, points, max(2, int(3 * ss / 3)))
-            pygame.draw.circle(icon_surf, (*color, 220), (center, center), max(2, int(r * ss * 0.15)))
+                pts = []
+                ba = i * (2 * math.pi / 3)
+                for t in range(30):
+                    f = t / 29.0
+                    a = ba + f * math.pi * 1.6
+                    d = r * ss * (0.12 + f * 0.78)
+                    pts.append((c + int(math.cos(a) * d), c + int(math.sin(a) * d)))
+                if len(pts) >= 2:
+                    pygame.draw.lines(icon_surf, (*color, 240 - i * 25), False, pts, lw + 1)
+            # 중심 원 (더 크게)
+            pygame.draw.circle(icon_surf, (*color, 250), (c, c), max(3, int(r * ss * 0.18)))
+            # 외곽 글로우
+            pygame.draw.circle(icon_surf, (*color, 60), (c, c), int(r * ss * 0.85), lw)
         elif perk_id == "quick_reflex":
-            color = (255, 180, 50)
+            # 순발력 — 번개 볼트 (굵고 밝은 노란색)
+            color = (255, 200, 60)
             s = r * ss
-            bolt_points = [
-                (center - int(s * 0.15), center - int(s * 0.8)),
-                (center + int(s * 0.3), center - int(s * 0.8)),
-                (center + int(s * 0.05), center - int(s * 0.15)),
-                (center + int(s * 0.35), center - int(s * 0.15)),
-                (center - int(s * 0.1), center + int(s * 0.8)),
-                (center + int(s * 0.1), center + int(s * 0.15)),
-                (center - int(s * 0.2), center + int(s * 0.15)),
+            bolt = [
+                (c - int(s * 0.2), c - int(s * 0.85)),
+                (c + int(s * 0.35), c - int(s * 0.85)),
+                (c + int(s * 0.05), c - int(s * 0.1)),
+                (c + int(s * 0.4), c - int(s * 0.1)),
+                (c - int(s * 0.12), c + int(s * 0.85)),
+                (c + int(s * 0.12), c + int(s * 0.1)),
+                (c - int(s * 0.25), c + int(s * 0.1)),
             ]
-            pygame.draw.polygon(icon_surf, (*color, 230), bolt_points)
-            pygame.draw.polygon(icon_surf, (255, 220, 100, 180), bolt_points, max(1, int(2 * ss / 3)))
+            # 외곽 글로우
+            pygame.draw.polygon(icon_surf, (255, 240, 150, 80), bolt)
+            for offset in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+                shifted = [(p[0] + offset[0] * 2, p[1] + offset[1] * 2) for p in bolt]
+                pygame.draw.polygon(icon_surf, (255, 255, 200, 50), shifted)
+            # 메인 볼트
+            pygame.draw.polygon(icon_surf, (*color, 250), bolt)
+            pygame.draw.polygon(icon_surf, (255, 240, 120, 200), bolt, lw)
         elif perk_id == "spirit_flow":
-            color = (180, 100, 255)
+            # 영기순환 — 순환 고리 + 화살표 (보라색)
+            color = (200, 120, 255)
             s = r * ss
-            ring_r = int(s * 0.55)
+            ring_r = int(s * 0.6)
             for flip in [1, -1]:
-                points = []
-                for t in range(25):
-                    frac = t / 24.0
-                    angle = flip * (frac * math.pi - math.pi / 2)
-                    px = center + int(math.cos(angle) * ring_r)
-                    py = center + int(math.sin(angle) * ring_r * flip)
-                    points.append((px, py))
-                if len(points) >= 2:
-                    pygame.draw.lines(icon_surf, (*color, 220), False, points, max(2, int(3 * ss / 3)))
-                if points:
-                    end = points[-1]
-                    arr_size = int(s * 0.2)
-                    arr_angle = math.atan2(points[-1][1] - points[-2][1], points[-1][0] - points[-2][0])
-                    a1 = (end[0] - int(math.cos(arr_angle - 0.5) * arr_size),
-                          end[1] - int(math.sin(arr_angle - 0.5) * arr_size))
-                    a2 = (end[0] - int(math.cos(arr_angle + 0.5) * arr_size),
-                          end[1] - int(math.sin(arr_angle + 0.5) * arr_size))
-                    pygame.draw.polygon(icon_surf, (*color, 230), [end, a1, a2])
+                pts = []
+                for t in range(30):
+                    f = t / 29.0
+                    a = flip * (f * math.pi - math.pi / 2)
+                    pts.append((c + int(math.cos(a) * ring_r), c + int(math.sin(a) * ring_r * flip)))
+                if len(pts) >= 2:
+                    pygame.draw.lines(icon_surf, (*color, 240), False, pts, lw + 1)
+                # 화살표 머리 (더 크게)
+                if pts:
+                    end = pts[-1]
+                    arr_s = int(s * 0.28)
+                    arr_a = math.atan2(pts[-1][1] - pts[-2][1], pts[-1][0] - pts[-2][0])
+                    a1 = (end[0] - int(math.cos(arr_a - 0.5) * arr_s), end[1] - int(math.sin(arr_a - 0.5) * arr_s))
+                    a2 = (end[0] - int(math.cos(arr_a + 0.5) * arr_s), end[1] - int(math.sin(arr_a + 0.5) * arr_s))
+                    pygame.draw.polygon(icon_surf, (*color, 250), [end, a1, a2])
+            # 중심 점
+            pygame.draw.circle(icon_surf, (*color, 180), (c, c), max(2, int(s * 0.1)))
         elif perk_id == "command":
-            color = (255, 100, 100)
+            # 호령 — 방패 + 삼각 문양 (빨간색)
+            color = (255, 110, 110)
             s = r * ss
-            shield_points = [
-                (center, center - int(s * 0.75)),
-                (center + int(s * 0.6), center - int(s * 0.4)),
-                (center + int(s * 0.5), center + int(s * 0.3)),
-                (center, center + int(s * 0.75)),
-                (center - int(s * 0.5), center + int(s * 0.3)),
-                (center - int(s * 0.6), center - int(s * 0.4)),
+            sh = [
+                (c, c - int(s * 0.8)),
+                (c + int(s * 0.65), c - int(s * 0.4)),
+                (c + int(s * 0.55), c + int(s * 0.35)),
+                (c, c + int(s * 0.8)),
+                (c - int(s * 0.55), c + int(s * 0.35)),
+                (c - int(s * 0.65), c - int(s * 0.4)),
             ]
-            pygame.draw.polygon(icon_surf, (*color, 60), shield_points)
-            pygame.draw.polygon(icon_surf, (*color, 220), shield_points, max(2, int(3 * ss / 3)))
-            tri_s = int(s * 0.3)
-            tri_points = [
-                (center, center - tri_s),
-                (center + int(tri_s * 0.87), center + int(tri_s * 0.5)),
-                (center - int(tri_s * 0.87), center + int(tri_s * 0.5)),
+            # 방패 채우기 (반투명)
+            pygame.draw.polygon(icon_surf, (*color, 80), sh)
+            # 방패 테두리 (굵게)
+            pygame.draw.polygon(icon_surf, (*color, 240), sh, lw + 1)
+            # 안쪽 삼각형 (밝은 색, 크게)
+            ts = int(s * 0.35)
+            tri = [
+                (c, c - ts),
+                (c + int(ts * 0.87), c + int(ts * 0.5)),
+                (c - int(ts * 0.87), c + int(ts * 0.5)),
             ]
-            pygame.draw.polygon(icon_surf, (255, 200, 200, 200), tri_points)
+            pygame.draw.polygon(icon_surf, (255, 210, 210, 230), tri)
+            pygame.draw.polygon(icon_surf, (*color, 200), tri, max(2, lw - 1))
 
         result = pygame.transform.smoothscale(icon_surf, (size, size))
         surface.blit(result, (cx - size // 2, cy - size // 2))
@@ -137968,15 +138038,23 @@ def show_character_info(background_surface=None):
             _tip_desc_font = get_font(12, style="regular")
             _name_surf = _tip_font.render(_pp_name, True, _pp_color)
             _desc_surf = _tip_desc_font.render(_pp_desc, True, (200, 210, 230))
-            _tip_w = max(_name_surf.get_width(), _desc_surf.get_width()) + 20
-            _tip_h = _name_surf.get_height() + _desc_surf.get_height() + 16
-            _tip_x = min(mouse_pos[0] + 12, SCREEN.get_width() - _tip_w - 4)
-            _tip_y = max(mouse_pos[1] - _tip_h - 8, 4)
+            _pad = 14
+            _tip_w = max(_name_surf.get_width(), _desc_surf.get_width()) + _pad * 2
+            _tip_w = max(_tip_w, 160)  # 최소 너비 보장
+            _tip_h = _name_surf.get_height() + _desc_surf.get_height() + 20
+            # 화면 범위 내에 위치 보정
+            scr_w = SCREEN.get_width()
+            _tip_x = mouse_pos[0] + 12
+            if _tip_x + _tip_w > scr_w - 4:
+                _tip_x = mouse_pos[0] - _tip_w - 8
+            _tip_x = max(4, _tip_x)
+            _tip_y = max(4, mouse_pos[1] - _tip_h - 8)
             _tip_rect = pygame.Rect(_tip_x, _tip_y, _tip_w, _tip_h)
-            pygame.draw.rect(SCREEN, (20, 24, 40), _tip_rect, border_radius=6)
-            pygame.draw.rect(SCREEN, _pp_color, _tip_rect, 2, border_radius=6)
-            SCREEN.blit(_name_surf, (_tip_x + 10, _tip_y + 6))
-            SCREEN.blit(_desc_surf, (_tip_x + 10, _tip_y + 6 + _name_surf.get_height() + 4))
+            # 배경 + 테두리
+            pygame.draw.rect(SCREEN, (16, 20, 36), _tip_rect, border_radius=8)
+            pygame.draw.rect(SCREEN, _pp_color, _tip_rect, 2, border_radius=8)
+            SCREEN.blit(_name_surf, (_tip_x + _pad, _tip_y + 8))
+            SCREEN.blit(_desc_surf, (_tip_x + _pad, _tip_y + 8 + _name_surf.get_height() + 4))
 
         # 툴팁
         hover_info = slot_hover or active_hover or bag_hover

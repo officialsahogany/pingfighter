@@ -1997,16 +1997,19 @@ class GuardWarriorSystem:
         setattr(self, cache_key, font)
         return font
 
-    def draw_guard_icons(self, screen, game_offset_x=0, game_offset_y=0, game_scale=1.0, fonts=None):
+    def draw_guard_icons(self, screen, game_offset_x=0, game_offset_y=0, game_scale=1.0, fonts=None, mouse_pos=None):
         """필러 배경(관중석) 위에 호위무사 캐릭터 이미지 UI 표시
         screen: REAL_SCREEN (전체화면 서피스)
         game_offset_x/y: 게임 영역의 REAL_SCREEN 내 오프셋
         game_scale: 게임 스케일 팩터
+        mouse_pos: REAL_SCREEN 좌표계의 마우스 위치 (호버 툴팁용)
         - 하단 영웅의 호위무사 → 왼쪽 하단 필러
         - 상단 영웅의 호위무사 → 오른쪽 상단 필러
+        Returns: hover_info dict or None
         """
         if not self.guard_warriors_top and not self.guard_warriors_bottom:
-            return
+            return None
+        hover_info = None
 
         # 필러 영역 좌표 계산 (REAL_SCREEN 좌표계)
         game_scaled_w = int(SCREEN_WIDTH * game_scale)
@@ -2089,6 +2092,21 @@ class GuardWarriorSystem:
                 except Exception:
                     pass
 
+                # 호버 체크 (마우스가 프레임 위에 있으면 툴팁 정보 반환)
+                if mouse_pos:
+                    _fr = pygame.Rect(frame_x_right, slot_cy, frame_w, frame_h)
+                    if _fr.collidepoint(mouse_pos):
+                        hover_info = {
+                            "name": guard.get("name", "?"),
+                            "color": guard.get("color", (200, 200, 200)),
+                            "cooldown": self.cooldown_top if self.phase_top is None else 0,
+                            "phase": self.phase_top,
+                            "is_next": (i == self.next_guard_top_idx % len(self.guard_warriors_top)) if len(self.guard_warriors_top) >= 2 else True,
+                            "side": "top",
+                            "screen_x": frame_x_right + frame_w + 8,
+                            "screen_y": slot_cy,
+                        }
+
         # --- 하단 영웅의 호위무사 → 왼쪽 필러, 인게임창 하단 끝에 붙임 ---
         if left_pillar_w >= 30:
             # 인게임창 왼쪽 끝에 붙어있는 느낌 (프레임 오른쪽 = 게임 영역 왼쪽 끝 - 4px)
@@ -2146,6 +2164,23 @@ class GuardWarriorSystem:
                     screen.blit(name_surf, name_rect)
                 except Exception:
                     pass
+
+                # 호버 체크 (마우스가 프레임 위에 있으면 툴팁 정보 반환)
+                if mouse_pos:
+                    _fr = pygame.Rect(frame_x_left, slot_cy, frame_w, frame_h)
+                    if _fr.collidepoint(mouse_pos):
+                        hover_info = {
+                            "name": guard.get("name", "?"),
+                            "color": guard.get("color", (200, 200, 200)),
+                            "cooldown": self.cooldown_bottom if self.phase_bottom is None else 0,
+                            "phase": self.phase_bottom,
+                            "is_next": (i == self.next_guard_bottom_idx % len(self.guard_warriors_bottom)) if len(self.guard_warriors_bottom) >= 2 else True,
+                            "side": "bottom",
+                            "screen_x": frame_x_left - 8,
+                            "screen_y": slot_cy,
+                        }
+
+        return hover_info
 
     def _draw_guard_icon_character(self, screen, guard_hero, cx, cy,
                                     surf_w, surf_h, facing="down"):
