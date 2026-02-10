@@ -52814,16 +52814,21 @@ def handle_gods_judgment():
         ball_vel[0] = max(-max_speed, min(max_speed, ball_vel[0]))
         ball_vel[1] = max(-max_speed, min(max_speed, ball_vel[1]))
 
-    # ── 번개의 분노: 폭발 시 스턴 판정 ──
+    # ── 번개의 분노: 텍스트 표시 (BOLT_THROW 시작 시) ──
     if bg.judgment_variant == 'lightning':
-        explosion_info = bg.get_lightning_explosion_info()
-        # BOLT_EXPLOSION 시작 순간 스턴 적용
-        if explosion_info['active'] and not _judgment_lightning_stun_applied:
+        # 투척 시작 순간 텍스트 표시 (consume-flag: 게임 로직 일시정지와 무관하게 안정적)
+        if bg.judgment_bolt_throw_started:
+            bg.judgment_bolt_throw_started = False
+            show_fade_text("신의 심판: 번개의 분노")
+
+        # ── 번개의 분노: 폭발 시 스턴 판정 (consume-flag 방식) ──
+        if bg.judgment_bolt_explosion_started and not _judgment_lightning_stun_applied:
+            bg.judgment_bolt_explosion_started = False
             _judgment_lightning_stun_applied = True
             _judgment_lightning_stun_type = True
-            ex, ey = explosion_info['x'], explosion_info['y']
-            stun_radius = explosion_info['max_radius']
-            show_fade_text("신의 심판: 번개의 분노")
+            ex = bg.judgment_explosion_x
+            ey = bg.judgment_explosion_y
+            stun_radius = bg.judgment_explosion_max_radius
             print(f"[신의심판] 번개 폭발 스턴 판정! 폭발위치:({ex:.0f},{ey:.0f}) 반경:{stun_radius:.0f}")
             # 상단 영웅 (보스) 거리 판정
             top_dist = math.hypot(BOSS.centerx - ex, BOSS.centery - ey)

@@ -147,6 +147,9 @@ class AnimatedBackgroundStage30:
         self.judgment_lightning_stun_timer = 0.0
         self.judgment_lightning_active = False
         self.judgment_logic_paused = False  # 라운드 전환 시 judgment 타이머 일시정지
+        # 이벤트 플래그 (핸들러에서 consume 방식으로 사용)
+        self.judgment_bolt_throw_started = False   # BOLT_THROW 진입 시 True → 핸들러가 읽고 False
+        self.judgment_bolt_explosion_started = False  # BOLT_EXPLOSION 진입 시 True → 핸들러가 읽고 False
 
         # 페이즈 지속시간 (초)
         self.MERGE_DURATION = 2.0
@@ -405,6 +408,8 @@ class AnimatedBackgroundStage30:
         self.judgment_lightning_stun_bottom = False
         self.judgment_lightning_stun_timer = 0.0
         self.judgment_lightning_active = False
+        self.judgment_bolt_throw_started = False
+        self.judgment_bolt_explosion_started = False
         # 합체 파티클 (심플한 대리석 먼지)
         cx = self.GAME_AREA_X + self.GAME_AREA_WIDTH // 2
         cy = self.height // 2
@@ -539,6 +544,7 @@ class AnimatedBackgroundStage30:
                     self.judgment_phase = self.JUDGMENT_BOLT_THROW
                     self.judgment_timer = 0.0
                     self.judgment_bolt_intensity = 1.0
+                    self.judgment_bolt_throw_started = True  # 핸들러에서 텍스트 표시용
                     print(f"[신의심판] ARM_RAISE → BOLT_THROW 전환")
                     # 오른손 위치 계산 (투사체 시작점)
                     s = self.judgment_scale
@@ -770,6 +776,7 @@ class AnimatedBackgroundStage30:
                 self.judgment_bolt_proj_trail.clear()
                 self.judgment_lightning_active = True
                 self.judgment_shake_intensity = 0.5
+                self.judgment_bolt_explosion_started = True  # 핸들러에서 스턴 판정용
                 print(f"[신의심판] BOLT_FLIGHT → BOLT_EXPLOSION 전환 (폭발 위치:{self.judgment_explosion_x:.0f},{self.judgment_explosion_y:.0f})")
 
         elif self.judgment_phase == self.JUDGMENT_BOLT_EXPLOSION:
