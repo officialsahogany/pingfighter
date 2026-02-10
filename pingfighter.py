@@ -114011,22 +114011,24 @@ def draw_laser_cannon_gauge():
                      [(icon_x, icon_y - 5), (icon_x + 3, icon_y), 
                       (icon_x - 2, icon_y + 2), (icon_x + 5, icon_y + 5)], 2)
 def draw_arena_speed_buttons():
-    """투기장 배속 버튼 그리기 (1x, 2x, 3x) + 클릭 처리"""
+    """투기장 배속 버튼 그리기 (1x, 2x, 3x) - 점수판 오른쪽 바깥에 배치"""
     global arena_speed_multiplier, arena_speed_btn_rects
     if not arena_mode_enabled:
         return
 
-    btn_w, btn_h = 28, 22
-    gap = 3
-    # 점수판 오른쪽에 배치 (점수판은 화면 중앙 근처)
-    start_x = WIDTH // 2 + 65
-    start_y = 18
+    btn_w, btn_h = 34, 26
+    gap = 4
+    # 점수판 영역 바깥 오른쪽에 배치
+    # 점수판: x=(760-400)/2=180, w=400 → 오른쪽 끝=580
+    scoreboard_right = (WIDTH - 400) // 2 + 400 + 8  # 점수판 오른쪽 + 여백
+    start_x = scoreboard_right
+    start_y = 14
 
     arena_speed_btn_rects = {}
     try:
-        font = get_font(14)
+        font = get_font(15)
     except Exception:
-        font = pygame.font.Font(None, 16)
+        font = pygame.font.Font(None, 18)
 
     for i, mult in enumerate([1, 2, 3]):
         x = start_x + i * (btn_w + gap)
@@ -114035,14 +114037,18 @@ def draw_arena_speed_buttons():
 
         is_active = (arena_speed_multiplier == mult)
         if is_active:
-            bg = (220, 180, 80)
-            text_color = (30, 25, 15)
+            # 활성 버튼: 밝은 골드 배경
+            bg = (240, 200, 60)
+            text_color = (30, 20, 10)
+            border_color = (255, 220, 100)
         else:
-            bg = (50, 55, 65)
-            text_color = (140, 140, 140)
+            # 비활성 버튼: 반투명 어두운 배경
+            bg = (40, 45, 55)
+            text_color = (160, 160, 160)
+            border_color = (70, 75, 85)
 
-        pygame.draw.rect(SCREEN, bg, rect, border_radius=3)
-        pygame.draw.rect(SCREEN, (80, 85, 95), rect, 1, border_radius=3)
+        pygame.draw.rect(SCREEN, bg, rect, border_radius=4)
+        pygame.draw.rect(SCREEN, border_color, rect, 1, border_radius=4)
 
         label = f"{mult}x"
         surf = font.render(label, True, text_color)
@@ -129190,9 +129196,7 @@ def main(stage_num, new_boss_mode=False):
         # 프로파일러 프레임 시작
         if profiler:
             profiler.begin_frame()
-        # 투기장 배속 적용: FPS 상한을 올려서 프레임 기반 물리를 가속
-        _tick_fps = FPS * arena_speed_multiplier if arena_mode_enabled else FPS
-        dt_ms = clock.tick(_tick_fps)
+        dt_ms = clock.tick(FPS)
         now_ms = pygame.time.get_ticks()
         # 프레임 시간 캐싱 업데이트 (성능 최적화)
         global _current_frame_ticks, _frame_counter, VALTHOR_PERF_DEBUG
@@ -129379,17 +129383,20 @@ def main(stage_num, new_boss_mode=False):
                 enraged_boss_aura_particles = []
         main.keyF5_pressed = keys[pygame.K_F5]
 
-        # 투기장 배속 변경 (1/2/3 키 + 마우스 클릭)
+        # 투기장 배속 변경 (1/2/3 키 + 넘패드 + 마우스 클릭)
         if arena_mode_enabled:
-            if keys[pygame.K_1] and not getattr(main, '_arena_key1_pressed', False):
+            _k1 = keys[pygame.K_1] or keys[pygame.K_KP1]
+            _k2 = keys[pygame.K_2] or keys[pygame.K_KP2]
+            _k3 = keys[pygame.K_3] or keys[pygame.K_KP3]
+            if _k1 and not getattr(main, '_arena_key1_pressed', False):
                 arena_speed_multiplier = 1
-            elif keys[pygame.K_2] and not getattr(main, '_arena_key2_pressed', False):
+            elif _k2 and not getattr(main, '_arena_key2_pressed', False):
                 arena_speed_multiplier = 2
-            elif keys[pygame.K_3] and not getattr(main, '_arena_key3_pressed', False):
+            elif _k3 and not getattr(main, '_arena_key3_pressed', False):
                 arena_speed_multiplier = 3
-            main._arena_key1_pressed = keys[pygame.K_1]
-            main._arena_key2_pressed = keys[pygame.K_2]
-            main._arena_key3_pressed = keys[pygame.K_3]
+            main._arena_key1_pressed = _k1
+            main._arena_key2_pressed = _k2
+            main._arena_key3_pressed = _k3
             # 마우스 클릭으로 배속 버튼 변경
             _mb = pygame.mouse.get_pressed()
             if _mb[0] and not getattr(main, '_arena_mouse_pressed', False):
@@ -133986,6 +133993,15 @@ def main(stage_num, new_boss_mode=False):
                 # 같은 프레임 내 즉시 반영되도록 순서를 조정한다.
                 if not (current_stage == 8 and stage8_awaken_intro_pending and pygame.time.get_ticks() < stage8_awaken_freeze_end_ms):
                     handle_boss()
+
+                # 투기장 배속: 추가 물리 반복 (2x→1회 추가, 3x→2회 추가)
+                if arena_mode_enabled and arena_speed_multiplier > 1 and not freeze_now:
+                    for _arena_extra_tick in range(arena_speed_multiplier - 1):
+                        handle_player(keys_now)
+                        _extra_ball_result = handle_ball()
+                        if arena_mode_enabled and _extra_ball_result is not None:
+                            return _extra_ball_result
+                        handle_boss()
 
                 if profiler:
                     profiler.end_section("GameLogic")
