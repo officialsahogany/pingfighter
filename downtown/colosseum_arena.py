@@ -2584,12 +2584,12 @@ class ColosseumsArena:
             match = Match(top_hero, bottom_hero, i)
             self.matches[TournamentRound.QUARTER_FINAL].append(match)
 
-        # 감옥 영웅 3명 랜덤 셔플 배정
-        self.prison_heroes = local_rng.sample(PRISON_HEROES, len(PRISON_HEROES))
+        # 감옥 영웅은 PRISON_SELECT 진입 시 대진표에서 동적으로 선정
+        self.prison_heroes = []
 
         # 모든 영웅에게 스킬 2개 중 1개 랜덤 배정
         self.hero_selected_skills = {}
-        for hero in all_heroes + self.prison_heroes:
+        for hero in all_heroes:
             self.hero_selected_skills[hero["id"]] = local_rng.randint(0, 1)
 
     def _advance_to_next_round(self):
@@ -2821,6 +2821,16 @@ class ColosseumsArena:
         self.skill_reveal_result = self.player_guard_skill_index
         self.state = TournamentState.GUARD_SKILL_REVEAL
 
+    def _prepare_prison_candidates(self):
+        """나머지 3매치에서 각 1명씩 호위무사 후보 선정"""
+        candidates = []
+        for i, match in enumerate(self.matches[TournamentRound.QUARTER_FINAL]):
+            if i == self.selected_match_index:
+                continue  # 플레이어 매치 제외
+            # 각 매치에서 랜덤 1명 선택 (같은 매치에서 2명 빠지는 것 방지)
+            candidates.append(random.choice([match.hero1, match.hero2]))
+        self.prison_heroes = candidates
+
     def _finalize_setup_and_start(self):
         """초반 셋업 완료 → 다른 매치 자동 진행 → VS 프리뷰 → 배틀"""
         self.initial_setup_done = True
@@ -2829,13 +2839,33 @@ class ColosseumsArena:
         if self.selected_match_index >= 0:
             self.match_revealed[self.selected_match_index] = True
 
-        # 나머지 3개 매치 자동 진행 (스탯 기반)
+        # 호위무사로 차출된 영웅 ID 수집
+        guard_ids = set()
+        if self.player_guard:
+            guard_ids.add(self.player_guard["id"])
+        if self.opponent_guard:
+            guard_ids.add(self.opponent_guard["id"])
+
+        # 나머지 3개 매치 자동 진행 (호위무사 차출 매치는 부전승)
         for i, match in enumerate(self.matches[TournamentRound.QUARTER_FINAL]):
             if i == self.selected_match_index:
                 continue  # 플레이어 매치는 제외
-            if not match.completed:
+            if match.completed:
+                continue
+
+            h1_drafted = match.hero1["id"] in guard_ids
+            h2_drafted = match.hero2["id"] in guard_ids
+
+            if h1_drafted and not h2_drafted:
+                # hero1이 호위무사로 차출 → hero2 부전승
+                match.set_result(match.hero2, 0, 5)
+            elif h2_drafted and not h1_drafted:
+                # hero2가 호위무사로 차출 → hero1 부전승
+                match.set_result(match.hero1, 5, 0)
+            else:
+                # 둘 다 차출 안됨 → 일반 자동 진행
                 self._auto_resolve_match(match)
-                self.match_revealed[i] = True  # 결과 공개
+            self.match_revealed[i] = True  # 결과 공개
 
         # 호위무사 맵 설정 (플레이어 + 상대)
         if self.player_hero and self.player_guard:
@@ -3522,6 +3552,7 @@ class ColosseumsArena:
                 self.skill_reveal_phase = "selected"
             elif self.skill_reveal_phase == "selected" and self.skill_reveal_timer >= 2.0:
                 if self.skill_reveal_target == (self.player_hero or {}).get("id"):
+                    self._prepare_prison_candidates()
                     self.state = TournamentState.PRISON_SELECT
                     self.skill_reveal_phase = "done"
 
@@ -3817,6 +3848,7 @@ class ColosseumsArena:
             if self.skill_reveal_phase == "selected":
                 if self.skill_reveal_target == (self.player_hero or {}).get("id"):
                     # 플레이어 영웅 스킬 확정 → 감옥 선택으로
+                    self._prepare_prison_candidates()
                     self.state = TournamentState.PRISON_SELECT
                 elif self.skill_reveal_target == (self.player_guard or {}).get("id"):
                     # 호위무사 스킬 확정 → VS 프리뷰로
