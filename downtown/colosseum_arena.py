@@ -2447,7 +2447,8 @@ class ColosseumsArena:
         self.opponent_guard = None               # 상대 호위무사
 
         # 스킬 랜덤 선택 정보 (모든 영웅)
-        self.hero_selected_skills = {}           # {hero_id: selected_skill_index} (0 or 1)
+        # hero_selected_skills는 _generate_bracket()에서 이미 초기화+배정됨
+        # 여기서 다시 {}로 덮어쓰면 안 됨!
 
         # 스킬 연출 애니메이션
         self.skill_reveal_timer = 0.0            # 스킬 연출 타이머
