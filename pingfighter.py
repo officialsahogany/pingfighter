@@ -96517,20 +96517,20 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         arena_hero_paddle_renderer = None
 
     # 영웅 스킬 시스템 초기화 (스킬 선택 정보 반영)
-    try:
-        _skill_selections = _arena_pending_skill_selections
-    except NameError:
-        _skill_selections = {}
+    # 1차: 영웅 dict에서 직접 읽기 (가장 안정적)
+    # 2차: 글로벌 변수에서 읽기 (호환성)
+    _skill_selections = globals().get('_arena_pending_skill_selections', {})
+    top_skill_idx = top_hero.get("_selected_skill_idx", _skill_selections.get(top_hero.get("id", ""), -1))
+    bottom_skill_idx = bottom_hero.get("_selected_skill_idx", _skill_selections.get(bottom_hero.get("id", ""), -1))
     if ARENA_SKILLS_AVAILABLE:
         try:
             arena_skill_manager = get_skill_manager()
             arena_skill_manager.reset()
-            top_skill_idx = _skill_selections.get(top_hero["id"], -1)
-            bottom_skill_idx = _skill_selections.get(bottom_hero["id"], -1)
             arena_skill_manager.init_hero_skills(top_hero["id"], is_top=True, selected_skill_index=top_skill_idx)
             arena_skill_manager.init_hero_skills(bottom_hero["id"], is_top=False, selected_skill_index=bottom_skill_idx)
             arena_skill_check_timer = 0.0
-        except Exception:
+        except Exception as e:
+            print(f"[Arena] skill init error: {e}")
             arena_skill_manager = None
 
     # 투기장 퍽 효과 적용

@@ -2709,14 +2709,16 @@ class ColosseumsArena:
             except Exception:
                 pingfighter.arena_hero_paddle_renderer = None
 
-            # 영웅 스킬 시스템 초기화
+            # 영웅 스킬 시스템 초기화 (스킬 선택 정보 반영)
             try:
                 from downtown.hero_skills import get_skill_manager, HERO_SKILLS_AVAILABLE
                 if HERO_SKILLS_AVAILABLE:
                     pingfighter.arena_skill_manager = get_skill_manager()
                     pingfighter.arena_skill_manager.reset()
-                    pingfighter.arena_skill_manager.init_hero_skills(top_hero["id"], is_top=True)
-                    pingfighter.arena_skill_manager.init_hero_skills(bottom_hero["id"], is_top=False)
+                    _top_idx = self.hero_selected_skills.get(top_hero["id"], -1)
+                    _bottom_idx = self.hero_selected_skills.get(bottom_hero["id"], -1)
+                    pingfighter.arena_skill_manager.init_hero_skills(top_hero["id"], is_top=True, selected_skill_index=_top_idx)
+                    pingfighter.arena_skill_manager.init_hero_skills(bottom_hero["id"], is_top=False, selected_skill_index=_bottom_idx)
                     pingfighter.arena_skill_check_timer = 0.0
             except Exception as e:
                 print(f"Arena skill manager init error: {e}")
@@ -2735,7 +2737,7 @@ class ColosseumsArena:
                             skill_manager=pingfighter.arena_skill_manager,
                             hero_paddle_renderer=pingfighter.arena_hero_paddle_renderer,
                         )
-                        guard_system.setup(top_guards, bottom_guards)
+                        guard_system.setup(top_guards, bottom_guards, skill_selections=self.hero_selected_skills)
                         pingfighter.arena_guard_system = guard_system
                         print(f"[Guard] pingfighter 호위무사 시스템 설정 완료")
                     else:
@@ -2966,10 +2968,13 @@ class ColosseumsArena:
                         pingfighter._arena_pending_bottom_guards = []
                     # 퍽 데이터를 pingfighter에 전달
                     pingfighter._arena_pending_perk_data = self
-                    # 스킬 선택 정보 전달
+                    # 스킬 선택 정보 전달 (모듈 글로벌 + 영웅 dict 직접 삽입 이중 전달)
                     pingfighter._arena_pending_skill_selections = self.hero_selected_skills
                 except Exception:
                     pass
+                # 스킬 선택 인덱스를 영웅 dict에 직접 삽입 (글로벌 변수 문제 방지)
+                top_hero["_selected_skill_idx"] = self.hero_selected_skills.get(top_hero["id"], -1)
+                bottom_hero["_selected_skill_idx"] = self.hero_selected_skills.get(bottom_hero["id"], -1)
                 result = self.battle_callback(top_hero, bottom_hero)
             else:
                 result = self._run_real_game_battle(top_hero, bottom_hero)
