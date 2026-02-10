@@ -2329,6 +2329,10 @@ class ColosseumsArena:
         self.score_top = 0
         self.score_bottom = 0
 
+        # 배속 시스템
+        self.speed_multiplier = 1  # 1x, 2x, 3x
+        self.speed_btn_rects = {}  # {multiplier: pygame.Rect}
+
         # UI 상태
         self.animation_timer = 0
         self.result_display_timer = 0
@@ -2709,6 +2713,9 @@ class ColosseumsArena:
         self.score_top = 0
         self.score_bottom = 0
 
+        # 배속 리셋 (매 경기 1x로 초기화)
+        self.speed_multiplier = 1
+
         # === 호위무사 초기화 (4강/결승만) ===
         if self.current_round in (TournamentRound.SEMI_FINAL, TournamentRound.FINAL):
             self._init_guard_warriors_for_battle(match)
@@ -2780,6 +2787,9 @@ class ColosseumsArena:
         """배틀 업데이트, 완료 시 True 반환"""
         if not self.battle_active:
             return False
+
+        # 배속 적용
+        dt *= self.speed_multiplier
 
         # === 달빛 베기 화면 정지 체크 (스킬 업데이트 전에 체크!) ===
         is_frozen = False
@@ -3418,6 +3428,15 @@ class ColosseumsArena:
                 self.exit_requested = True
                 return True
 
+            # 배틀 중 배속 변경 (1x / 2x / 3x)
+            if self.state == TournamentState.BATTLE:
+                if event.key == pygame.K_1:
+                    self.speed_multiplier = 1
+                elif event.key == pygame.K_2:
+                    self.speed_multiplier = 2
+                elif event.key == pygame.K_3:
+                    self.speed_multiplier = 3
+
             # 호위무사 선택 키보드 처리
             if self.state == TournamentState.GUARD_SELECT and self.guard_select_timer > 0.5:
                 if event.key == pygame.K_LEFT:
@@ -3449,6 +3468,13 @@ class ColosseumsArena:
     def _handle_click(self, pos: Tuple[int, int]):
         """클릭 처리"""
         mx, my = pos
+
+        # 배속 버튼 클릭 처리
+        if self.state == TournamentState.BATTLE:
+            for multiplier, rect in self.speed_btn_rects.items():
+                if rect.collidepoint(mx, my):
+                    self.speed_multiplier = multiplier
+                    return
 
         # 호위무사 선택 클릭 처리
         if self.state == TournamentState.GUARD_SELECT and self.guard_select_timer > 0.5:
@@ -4122,6 +4148,9 @@ class ColosseumsArena:
         # 점수판
         self._draw_scoreboard()
 
+        # 배속 버튼
+        self._draw_speed_buttons()
+
         # 영웅 정보
         self._draw_hero_info()
 
@@ -4195,6 +4224,37 @@ class ColosseumsArena:
                 radius = int(8 * size_factor)
                 pygame.draw.circle(self.screen, (50, 50, 0), (int(x + 2), int(y + 2)), radius)
                 pygame.draw.circle(self.screen, color, (int(x), int(y)), radius)
+
+    def _draw_speed_buttons(self):
+        """배속 버튼 그리기 (1x, 2x, 3x)"""
+        btn_w, btn_h = 28, 22
+        gap = 3
+        # 점수판(중앙 x=380, y=10, 120x50) 오른쪽에 배치
+        start_x = SCREEN_WIDTH // 2 + 65
+        start_y = 18
+
+        self.speed_btn_rects = {}
+        for i, mult in enumerate([1, 2, 3]):
+            x = start_x + i * (btn_w + gap)
+            rect = pygame.Rect(x, start_y, btn_w, btn_h)
+            self.speed_btn_rects[mult] = rect
+
+            is_active = (self.speed_multiplier == mult)
+            if is_active:
+                bg = (220, 180, 80)
+                text_color = (30, 25, 15)
+            else:
+                bg = (50, 55, 65)
+                text_color = (140, 140, 140)
+
+            pygame.draw.rect(self.screen, bg, rect, border_radius=3)
+            pygame.draw.rect(self.screen, (80, 85, 95), rect, 1, border_radius=3)
+
+            label = f"{mult}x"
+            if self.fonts and "small" in self.fonts:
+                surf, _ = self.fonts["small"].render(label, text_color)
+                self.screen.blit(surf, (x + btn_w // 2 - surf.get_width() // 2,
+                                        start_y + btn_h // 2 - surf.get_height() // 2))
 
     def _draw_scoreboard(self):
         """점수판 그리기"""
