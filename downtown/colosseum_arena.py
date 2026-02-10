@@ -401,6 +401,7 @@ class TournamentState(Enum):
     SKILL_REVEAL = "skill_reveal"              # 스킬 랜덤 선택 연출
     PRISON_SELECT = "prison_select"            # 감옥 호위무사 선택
     GUARD_SKILL_REVEAL = "guard_skill_reveal"  # 호위무사 스킬 연출
+    GUARD_SKILL_SELECT = "guard_skill_select"  # 라운드간 호위무사 스킬 선택
 
 class TournamentRound(Enum):
     QUARTER_FINAL = "8강"
@@ -3763,6 +3764,10 @@ class ColosseumsArena:
             # 호위무사 선택 화면 애니메이션
             self.guard_select_timer += dt
 
+        elif self.state == TournamentState.GUARD_SKILL_SELECT:
+            # 신규 호위무사 스킬 선택 타이머
+            self.gss_timer = getattr(self, 'gss_timer', 0) + dt
+
         elif self.state == TournamentState.PERK_SELECT:
             self.perk_anim_timer += dt
             self.perk_frame_count += 1
@@ -3799,8 +3804,8 @@ class ColosseumsArena:
                     return False  # 배틀 중에는 나갈 수 없음
                 if self.state == TournamentState.PERK_SELECT:
                     return False  # 퍽 선택 중에는 나갈 수 없음
-                if self.state == TournamentState.GUARD_SELECT:
-                    return False  # 호위무사 선택 중에는 나갈 수 없음
+                if self.state in (TournamentState.GUARD_SELECT, TournamentState.GUARD_SKILL_SELECT):
+                    return False  # 호위무사/스킬 선택 중에는 나갈 수 없음
                 if self.state in (TournamentState.MATCH_REVEAL, TournamentState.HERO_SELECT,
                                   TournamentState.SKILL_REVEAL, TournamentState.PRISON_SELECT,
                                   TournamentState.GUARD_SKILL_REVEAL):
@@ -3816,6 +3821,16 @@ class ColosseumsArena:
                     self.speed_multiplier = 2
                 elif event.key == pygame.K_3:
                     self.speed_multiplier = 3
+
+            # 호위무사 스킬 선택 키보드 처리
+            if self.state == TournamentState.GUARD_SKILL_SELECT and getattr(self, 'gss_timer', 0) > 0.3:
+                if event.key == pygame.K_LEFT:
+                    self.gss_hover = 0
+                elif event.key == pygame.K_RIGHT:
+                    self.gss_hover = 1
+                elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                    if getattr(self, 'gss_hover', -1) >= 0:
+                        self._confirm_guard_skill_select(self.gss_hover)
 
             # 호위무사 선택 키보드 처리
             if self.state == TournamentState.GUARD_SELECT and self.guard_select_timer > 0.5:
@@ -3854,6 +3869,23 @@ class ColosseumsArena:
             for multiplier, rect in self.speed_btn_rects.items():
                 if rect.collidepoint(mx, my):
                     self.speed_multiplier = multiplier
+                    return
+
+        # 호위무사 스킬 선택 클릭 처리
+        if self.state == TournamentState.GUARD_SKILL_SELECT and getattr(self, 'gss_timer', 0) > 0.3:
+            skills = getattr(self, 'gss_skills', [])
+            if len(skills) >= 2:
+                card_w, card_h = 200, 280
+                gap = 40
+                center_x = SCREEN_WIDTH // 2
+                left_x = center_x - gap // 2 - card_w
+                right_x = center_x + gap // 2
+                card_y = 230
+                if left_x <= mx <= left_x + card_w and card_y <= my <= card_y + card_h:
+                    self._confirm_guard_skill_select(0)
+                    return
+                elif right_x <= mx <= right_x + card_w and card_y <= my <= card_y + card_h:
+                    self._confirm_guard_skill_select(1)
                     return
 
         # 호위무사 선택 클릭 처리
@@ -4102,6 +4134,22 @@ class ColosseumsArena:
         self.hover_perk_index = -1
         self.hover_match_index = -1
         self.hover_btn_id = ""
+
+        # 호위무사 스킬 선택 화면 호버
+        if self.state == TournamentState.GUARD_SKILL_SELECT and getattr(self, 'gss_timer', 0) > 0.3:
+            skills = getattr(self, 'gss_skills', [])
+            if len(skills) >= 2:
+                card_w, card_h = 200, 280
+                gap = 40
+                center_x = SCREEN_WIDTH // 2
+                left_x = center_x - gap // 2 - card_w
+                right_x = center_x + gap // 2
+                card_y = 230
+                self.gss_hover = -1
+                if left_x <= mx <= left_x + card_w and card_y <= my <= card_y + card_h:
+                    self.gss_hover = 0
+                elif right_x <= mx <= right_x + card_w and card_y <= my <= card_y + card_h:
+                    self.gss_hover = 1
 
         # 호위무사 선택 화면 호버
         if self.state == TournamentState.GUARD_SELECT and self.guard_select_timer > 0.5:
@@ -4634,6 +4682,8 @@ class ColosseumsArena:
             self._draw_guard_notification()
         elif self.state == TournamentState.GUARD_SELECT:
             self._draw_guard_select()
+        elif self.state == TournamentState.GUARD_SKILL_SELECT:
+            self._draw_guard_skill_select()
         elif self.state == TournamentState.PERK_SELECT:
             self._draw_perk_select()
         elif self.state == TournamentState.VICTORY_CELEBRATION:
@@ -7159,21 +7209,47 @@ class ColosseumsArena:
         bet_id = self.bet_hero["id"] if self.bet_hero else ""
         new_idx = getattr(self, 'guard_select_new_idx', len(guards) - 1)
 
-        # 신규 호위무사 선택 시 스킬 리롤
-        if index == new_idx:
-            self.hero_selected_skills[selected["id"]] = random.randint(0, 1)
-            print(f"[Guard] 신규 호위무사 선택 → 스킬 리롤: {selected['name']} "
-                  f"(스킬 인덱스: {self.hero_selected_skills[selected['id']]})")
-        else:
-            print(f"[Guard] 기존 호위무사 유지: {selected['name']} (스킬 유지)")
-
         # 선택한 호위무사만 남기기
         dropped = [g['name'] for i, g in enumerate(guards) if i != index]
         self.guard_warrior_map[bet_id] = [selected]
         self.guard_select_chosen = index
         print(f"[Guard] 호위무사 선택 완료: {selected['name']} (탈락: {dropped})")
 
+        # 신규 호위무사 선택 시 → 스킬 선택 화면
+        if index == new_idx:
+            hero_skills = get_hero_skills(selected["id"]) if HERO_SKILLS_AVAILABLE else []
+            if len(hero_skills) >= 2:
+                self._start_guard_skill_select(selected, hero_skills)
+                return
+            else:
+                # 스킬 1개면 자동 선택
+                self.hero_selected_skills[selected["id"]] = 0
+        else:
+            print(f"[Guard] 기존 호위무사 유지: {selected['name']} (스킬 유지)")
+
         # VS_PREVIEW로 전환
+        self._start_vs_preview(show_buttons=True)
+
+    def _start_guard_skill_select(self, guard_hero, skills):
+        """신규 호위무사 스킬 선택 화면 시작"""
+        self.gss_guard = guard_hero
+        self.gss_skills = skills[:2]
+        self.gss_hover = -1
+        self.gss_chosen = -1
+        self.gss_timer = 0.0
+        self.gss_skill_hover_info = None
+        self.state = TournamentState.GUARD_SKILL_SELECT
+        print(f"[Guard] 신규 호위무사 스킬 선택 시작: {guard_hero['name']} "
+              f"(스킬: {[s.korean_name for s in skills[:2]]})")
+
+    def _confirm_guard_skill_select(self, skill_index: int):
+        """호위무사 스킬 선택 확정"""
+        guard = getattr(self, 'gss_guard', None)
+        if not guard:
+            return
+        self.hero_selected_skills[guard["id"]] = skill_index
+        skill_name = self.gss_skills[skill_index].korean_name if skill_index < len(self.gss_skills) else "?"
+        print(f"[Guard] 스킬 선택 확정: {guard['name']} → {skill_name} (인덱스: {skill_index})")
         self._start_vs_preview(show_buttons=True)
 
     def _draw_guard_select(self):
@@ -7382,10 +7458,12 @@ class ColosseumsArena:
             # === 스킬 아이콘 (2개, 필러 UI 스타일) ===
             hero_skills = get_hero_skills(g_id) if HERO_SKILLS_AVAILABLE else []
             icon_sz = 36
-            icon_gap = 10
             num_skills = min(len(hero_skills), 2)
-            icons_total_w = num_skills * icon_sz + max(0, num_skills - 1) * icon_gap
-            icons_start_x = draw_x + (card_w - icons_total_w) // 2
+            # 아이콘 + 이름을 세로 배치 (겹침 방지)
+            skill_slot_w = 80  # 각 스킬 슬롯 너비
+            skill_slot_gap = 10
+            slots_total_w = num_skills * skill_slot_w + max(0, num_skills - 1) * skill_slot_gap
+            slots_start_x = draw_x + (card_w - slots_total_w) // 2
             icons_y = draw_y + 212
 
             # "보유 스킬" 라벨
@@ -7395,7 +7473,8 @@ class ColosseumsArena:
 
             for si in range(num_skills):
                 skill = hero_skills[si]
-                ix = icons_start_x + si * (icon_sz + icon_gap)
+                slot_x = slots_start_x + si * (skill_slot_w + skill_slot_gap)
+                ix = slot_x + (skill_slot_w - icon_sz) // 2  # 아이콘 중앙 정렬
                 iy = icons_y
 
                 # 슬롯 배경 (필러 UI 동일)
@@ -7414,14 +7493,13 @@ class ColosseumsArena:
                                  (0, 0, icon_sz + 4, icon_sz + 4), 2, border_radius=3)
                 self.screen.blit(border_surf, (ix - 2, iy - 2))
 
-                # 스킬 이름 (아이콘 아래)
+                # 스킬 이름 (슬롯 중앙 기준으로 아이콘 아래)
                 if self.fonts and "small" in self.fonts:
                     sk_name = skill.korean_name if skill.korean_name else "?"
-                    # 짧은 이름만 (4자 이하)
                     if len(sk_name) > 5:
                         sk_name = sk_name[:4] + ".."
                     sn_surf, _ = self.fonts["small"].render(sk_name, ET["text_body"])
-                    self.screen.blit(sn_surf, (ix + icon_sz // 2 - sn_surf.get_width() // 2,
+                    self.screen.blit(sn_surf, (slot_x + skill_slot_w // 2 - sn_surf.get_width() // 2,
                                                 iy + icon_sz + 3))
 
                 # 호버 감지용 rect 저장
@@ -7487,6 +7565,175 @@ class ColosseumsArena:
         skill_hover_info = getattr(self, 'guard_select_skill_hover', None)
         if skill_hover_info and timer > 0.5:
             self._draw_guard_skill_tooltip(skill_hover_info)
+
+    def _draw_guard_skill_select(self):
+        """신규 호위무사 스킬 선택 화면 (2개 중 1개 선택)"""
+        guard = getattr(self, 'gss_guard', None)
+        skills = getattr(self, 'gss_skills', [])
+        hover = getattr(self, 'gss_hover', -1)
+        timer = getattr(self, 'gss_timer', 0)
+        if not guard or len(skills) < 2:
+            self._start_vs_preview(show_buttons=True)
+            return
+
+        center_x = SCREEN_WIDTH // 2
+        g_color = guard.get("color", (150, 150, 150))
+        g_name = guard.get("name", "???")
+
+        # 배경
+        self.screen.fill(ET["bg_dark"])
+        self._draw_papyrus_bg()
+
+        # 타이틀
+        self._draw_egyptian_title("스킬을 선택하세요", 40)
+
+        # 서브타이틀: 호위무사 이름
+        if self.fonts and "medium" in self.fonts:
+            brightness = sum(g_color) / 3
+            name_color = g_color if brightness > 80 else (
+                min(255, g_color[0] + 80), min(255, g_color[1] + 80), min(255, g_color[2] + 80))
+            sub_text = f"{g_name}의 스킬 2개 중 1개를 선택하세요"
+            sub_surf, _ = self.fonts["medium"].render(sub_text, ET["text_subtitle"])
+            fade = min(1.0, timer * 3)
+            alpha_s = _get_arena_surface(*sub_surf.get_size())
+            alpha_s.fill((255, 255, 255, int(255 * fade * 0.8)))
+            sub_surf.blit(alpha_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+            self.screen.blit(sub_surf, (center_x - sub_surf.get_width() // 2, 90))
+
+        # 캐릭터 이미지 (상단 중앙)
+        hero_cy = 160
+        if self.hero_paddle_renderer:
+            glow_surf = _get_arena_surface(80, 80)
+            g_alpha = int(40 + 20 * abs(_sin(self.animation_timer * 2)))
+            pygame.draw.circle(glow_surf, (*g_color, g_alpha), (40, 40), 40)
+            self.screen.blit(glow_surf, (center_x - 40, hero_cy - 40))
+            self.hero_paddle_renderer.draw_hero_paddle(
+                self.screen, guard.get("id", ""), center_x, hero_cy, 80, 55,
+                facing="down", color=g_color, scale_mode="preview"
+            )
+
+        # 구분선
+        self._draw_egyptian_separator(210)
+
+        # 스킬 카드 2장
+        card_w, card_h = 200, 280
+        gap = 40
+        card_positions = [
+            (center_x - gap // 2 - card_w, 230),
+            (center_x + gap // 2, 230),
+        ]
+
+        for si, skill in enumerate(skills[:2]):
+            cx, cy = card_positions[si]
+            is_hover = (hover == si)
+
+            # 등장 애니메이션
+            if si == 0:
+                slide = min(1.0, timer * 2.5)
+                offset_x = int(-250 * (1 - self._ease_in_out(slide)))
+            else:
+                slide = min(1.0, max(0, timer - 0.1) * 2.5)
+                offset_x = int(250 * (1 - self._ease_in_out(slide)))
+
+            dx = cx + offset_x
+            dy = cy
+
+            # 카드 배경
+            card_surf = _get_arena_surface(card_w, card_h)
+            if is_hover:
+                card_surf.fill((*ET["card_bg_hover"], 230))
+                border_c = ET["gold_bright"]
+                border_w = 2
+            else:
+                card_surf.fill((*ET["card_bg"], 200))
+                border_c = ET["card_border"]
+                border_w = 1
+            pygame.draw.rect(card_surf, (*border_c, 200),
+                             (0, 0, card_w, card_h), border_w, border_radius=8)
+            self.screen.blit(card_surf, (dx, dy))
+
+            # 호버 글로우
+            if is_hover:
+                glow_a = int(30 + 15 * abs(_sin(self.animation_timer * 4)))
+                glow_s = _get_arena_surface(card_w + 12, card_h + 12)
+                pygame.draw.rect(glow_s, (*ET["gold_bright"], glow_a),
+                                 (0, 0, card_w + 12, card_h + 12), border_radius=10)
+                self.screen.blit(glow_s, (dx - 6, dy - 6))
+
+            # 스킬 아이콘 (큰 사이즈)
+            icon_sz = 64
+            icon_x = dx + (card_w - icon_sz) // 2
+            icon_y = dy + 20
+            # 아이콘 배경
+            icon_bg = _get_arena_surface(icon_sz + 8, icon_sz + 8)
+            icon_bg.fill((0, 0, 0, 100))
+            pygame.draw.rect(icon_bg, (*g_color, 120), (0, 0, icon_sz + 8, icon_sz + 8), 2, border_radius=6)
+            self.screen.blit(icon_bg, (icon_x - 4, icon_y - 4))
+            # 아이콘 이미지
+            icon_surface = _get_hero_skill_icon(skill.skill_id, icon_sz)
+            if icon_surface:
+                self.screen.blit(icon_surface, (icon_x, icon_y))
+
+            # 스킬 이름
+            if self.fonts and "medium" in self.fonts:
+                sk_name = skill.korean_name or "?"
+                sn_surf, _ = self.fonts["medium"].render(sk_name, ET["text_title"])
+                self.screen.blit(sn_surf, (dx + card_w // 2 - sn_surf.get_width() // 2,
+                                            icon_y + icon_sz + 12))
+
+            # 발동 조건
+            if self.fonts and "small" in self.fonts and HERO_SKILLS_AVAILABLE:
+                trigger = getattr(skill, 'trigger', None)
+                if trigger == SkillTrigger.ON_BALL_HIT:
+                    trig_text, trig_color = "타격 발동", ET["lapis_light"]
+                elif trigger == SkillTrigger.ON_COOLDOWN:
+                    trig_text, trig_color = "자동 발동", ET["gold_pale"]
+                else:
+                    trig_text, trig_color = "패시브", ET["malachite_light"]
+                ts, _ = self.fonts["small"].render(trig_text, trig_color)
+                self.screen.blit(ts, (dx + card_w // 2 - ts.get_width() // 2,
+                                       icon_y + icon_sz + 34))
+
+            # 쿨타임
+            if self.fonts and "small" in self.fonts:
+                cooldown = getattr(skill, 'cooldown', 0)
+                cd_text = f"쿨타임: {cooldown}초"
+                cs, _ = self.fonts["small"].render(cd_text, ET["text_body"])
+                self.screen.blit(cs, (dx + card_w // 2 - cs.get_width() // 2,
+                                       icon_y + icon_sz + 52))
+
+            # 설명 (줄바꿈)
+            if self.fonts and "small" in self.fonts:
+                desc = getattr(skill, 'description', '') or ''
+                desc_lines = []
+                max_text_w = card_w - 20
+                cur_line = ""
+                for ch in desc:
+                    test = cur_line + ch
+                    test_s, _ = self.fonts["small"].render(test, ET["text_white"])
+                    if test_s.get_width() <= max_text_w:
+                        cur_line = test
+                    else:
+                        if cur_line:
+                            desc_lines.append(cur_line)
+                        cur_line = ch
+                if cur_line:
+                    desc_lines.append(cur_line)
+                desc_lines = desc_lines[:4]
+
+                desc_y = icon_y + icon_sz + 72
+                for dl in desc_lines:
+                    ds, _ = self.fonts["small"].render(dl, ET["text_white"])
+                    self.screen.blit(ds, (dx + 10, desc_y))
+                    desc_y += 16
+
+        # 하단 힌트
+        if self.fonts and "small" in self.fonts and timer > 0.4:
+            hint = "클릭 또는 ←→ 키로 선택"
+            hint_alpha = int(100 + 60 * abs(_sin(self.animation_timer * 2)))
+            hint_surf, _ = self.fonts["small"].render(hint,
+                (hint_alpha, int(hint_alpha * 0.85), int(hint_alpha * 0.65)))
+            self.screen.blit(hint_surf, (center_x - hint_surf.get_width() // 2, 530))
 
     def _draw_guard_skill_tooltip(self, hover_info: dict):
         """호위무사 선택 화면의 스킬 아이콘 툴팁 (pingfighter _draw_arena_skill_tooltip 동일 폼)"""
