@@ -5301,15 +5301,14 @@ class ColosseumsArena:
 
     def _draw_hero_select(self):
         """영웅 선택 UI (2명 중 1명 선택)"""
-        self.screen.fill((25, 28, 35))
+        self.screen.fill(ET["bg_dark"])
+        self._draw_papyrus_bg()
 
         if not self.selected_match:
             return
 
         # 타이틀
-        if self.fonts and "large" in self.fonts:
-            surf, _ = self.fonts["large"].render("영웅을 선택하세요", (255, 215, 80))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 30))
+        self._draw_egyptian_title("영웅을 선택하세요", 30)
 
         # 두 영웅 카드
         hero1 = self.selected_match.hero1
@@ -5326,8 +5325,8 @@ class ColosseumsArena:
             is_hovered = (self.hover_hero_index == idx)
 
             # 카드 배경
-            bg = (55, 60, 75) if is_hovered else (40, 44, 55)
-            border = (255, 215, 80) if is_hovered else (80, 85, 95)
+            bg = ET["card_bg_hover"] if is_hovered else ET["card_bg"]
+            border = ET["card_border_hover"] if is_hovered else ET["card_border"]
             pygame.draw.rect(self.screen, bg, (cx, card_y, card_w, card_h), border_radius=10)
             pygame.draw.rect(self.screen, border, (cx, card_y, card_w, card_h), 2, border_radius=10)
 
@@ -5346,7 +5345,7 @@ class ColosseumsArena:
 
             # 영웅 칭호
             if self.fonts and "small" in self.fonts:
-                surf, _ = self.fonts["small"].render(hero.get("title", ""), (180, 180, 190))
+                surf, _ = self.fonts["small"].render(hero.get("title", ""), ET["text_subtitle"])
                 self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 50))
 
             # 영웅 캐릭터 렌더링
@@ -5360,7 +5359,7 @@ class ColosseumsArena:
             style_names = {"aggressive": "공격형", "defensive": "수비형", "balanced": "균형형", "tricky": "트릭형"}
             style_text = style_names.get(hero["style"].value, "???")
             if self.fonts and "small" in self.fonts:
-                surf, _ = self.fonts["small"].render(f"[{style_text}]", (150, 150, 160))
+                surf, _ = self.fonts["small"].render(f"[{style_text}]", ET["text_hint"])
                 self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 175))
 
             # 스킬 2개 표시 (아이콘 + 이름만, 설명은 스킬 연출에서 표시)
@@ -5368,10 +5367,9 @@ class ColosseumsArena:
             hero_skills = HERO_SKILLS.get(hero["id"], [])
             skill_y = card_y + 200
             for si, skill in enumerate(hero_skills):
-                skill_bg = (50, 55, 65)
                 skill_h = 32
-                pygame.draw.rect(self.screen, skill_bg, (cx + 8, skill_y, card_w - 16, skill_h), border_radius=5)
-                pygame.draw.rect(self.screen, (70, 75, 85), (cx + 8, skill_y, card_w - 16, skill_h), 1, border_radius=5)
+                pygame.draw.rect(self.screen, ET["skill_bg"], (cx + 8, skill_y, card_w - 16, skill_h), border_radius=5)
+                pygame.draw.rect(self.screen, ET["skill_border"], (cx + 8, skill_y, card_w - 16, skill_h), 1, border_radius=5)
                 # 스킬 아이콘
                 icon = _get_hero_skill_icon(skill.skill_id, 24)
                 icon_x = cx + 14
@@ -5379,11 +5377,11 @@ class ColosseumsArena:
                 if icon:
                     self.screen.blit(icon, (icon_x, icon_y_pos))
                 else:
-                    pygame.draw.rect(self.screen, (60, 60, 70), (icon_x, icon_y_pos, 24, 24), border_radius=4)
+                    pygame.draw.rect(self.screen, ET["bg_medium"], (icon_x, icon_y_pos, 24, 24), border_radius=4)
                 # 스킬 이름
                 if self.fonts and "small" in self.fonts:
                     label = f"{'A' if si == 0 else 'B'}: {skill.korean_name}"
-                    surf, _ = self.fonts["small"].render(label, (210, 210, 220))
+                    surf, _ = self.fonts["small"].render(label, ET["text_body"])
                     self.screen.blit(surf, (icon_x + 30, skill_y + 8))
                 skill_y += skill_h + 5
 
@@ -5392,13 +5390,13 @@ class ColosseumsArena:
         vs_y = card_y + card_h // 2
         if self.fonts and "large" in self.fonts:
             pulse = 0.7 + 0.3 * abs(_sin(self.animation_timer * 3))
-            vs_color = (255, int(100 + 100 * pulse), 80)
+            vs_color = (ET["carnelian_light"][0], int(100 + 100 * pulse), 50)
             vs_surf, _ = self.fonts["large"].render("VS", vs_color)
             self.screen.blit(vs_surf, (vs_x - vs_surf.get_width() // 2, vs_y - vs_surf.get_height() // 2))
 
         # 하단 안내
         if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render("스킬은 2개 중 1개가 랜덤으로 결정됩니다", (120, 120, 130))
+            surf, _ = self.fonts["small"].render("스킬은 2개 중 1개가 랜덤으로 결정됩니다", ET["text_hint"])
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 440))
 
     def _draw_skill_reveal(self):
@@ -5658,15 +5656,14 @@ class ColosseumsArena:
 
     def _draw_prison_select(self):
         """감옥 호위무사 선택 UI"""
-        self.screen.fill((25, 28, 35))
+        self.screen.fill(ET["bg_dark"])
+        self._draw_papyrus_bg()
 
         # 타이틀
-        if self.fonts and "large" in self.fonts:
-            surf, _ = self.fonts["large"].render("호위무사를 등용하세요", (255, 215, 80))
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 30))
+        self._draw_egyptian_title("호위무사를 등용하세요", 30)
 
         if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render("감옥에 갇힌 영웅 중 1명을 호위무사로 선택합니다", (140, 140, 150))
+            surf, _ = self.fonts["small"].render("감옥에 갇힌 영웅 중 1명을 호위무사로 선택합니다", ET["text_subtitle"])
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 65))
 
         # 감옥 셀 3개
@@ -5683,13 +5680,13 @@ class ColosseumsArena:
             is_hovered = (self.hover_prison_index == i)
 
             # 감옥 셀 배경
-            bg = (50, 45, 55) if is_hovered else (35, 32, 40)
-            border = (200, 170, 80) if is_hovered else (70, 65, 75)
+            bg = ET["card_bg_hover"] if is_hovered else ET["card_bg"]
+            border = ET["gold_medium"] if is_hovered else ET["card_border"]
             pygame.draw.rect(self.screen, bg, (cx, cell_y, cell_w, cell_h), border_radius=8)
             pygame.draw.rect(self.screen, border, (cx, cell_y, cell_w, cell_h), 2, border_radius=8)
 
             # 철창 패턴 (상단)
-            bar_color = (80, 75, 90) if not is_hovered else (120, 110, 80)
+            bar_color = ET["prison_bar"] if not is_hovered else ET["prison_bar_hover"]
             for bx in range(cx + 15, cx + cell_w - 10, 20):
                 pygame.draw.line(self.screen, bar_color, (bx, cell_y), (bx, cell_y + 12), 2)
 
@@ -5707,7 +5704,7 @@ class ColosseumsArena:
                 self.screen.blit(surf, (cx + cell_w // 2 - surf.get_width() // 2, cell_y + 28))
 
             if self.fonts and "small" in self.fonts:
-                surf, _ = self.fonts["small"].render(hero.get("title", ""), (160, 160, 170))
+                surf, _ = self.fonts["small"].render(hero.get("title", ""), ET["text_subtitle"])
                 self.screen.blit(surf, (cx + cell_w // 2 - surf.get_width() // 2, cell_y + 50))
 
             # 영웅 캐릭터
@@ -5721,19 +5718,18 @@ class ColosseumsArena:
             hero_skills = HERO_SKILLS.get(hero["id"], [])
             skill_y = cell_y + 140
             for si, skill in enumerate(hero_skills):
-                skill_bg = (45, 48, 55)
                 skill_h = 48
-                pygame.draw.rect(self.screen, skill_bg, (cx + 6, skill_y, cell_w - 12, skill_h), border_radius=4)
+                pygame.draw.rect(self.screen, ET["skill_bg"], (cx + 6, skill_y, cell_w - 12, skill_h), border_radius=4)
                 # 스킬 아이콘
                 icon = _get_hero_skill_icon(skill.skill_id, 20)
                 if icon:
                     self.screen.blit(icon, (cx + 10, skill_y + 4))
                 else:
-                    pygame.draw.rect(self.screen, (55, 58, 65), (cx + 10, skill_y + 4, 20, 20), border_radius=3)
+                    pygame.draw.rect(self.screen, ET["bg_medium"], (cx + 10, skill_y + 4, 20, 20), border_radius=3)
                 # 스킬 이름
                 if self.fonts and "small" in self.fonts:
                     label = f"{'A' if si == 0 else 'B'}: {skill.korean_name}"
-                    surf, _ = self.fonts["small"].render(label, (190, 190, 200))
+                    surf, _ = self.fonts["small"].render(label, ET["text_body"])
                     self.screen.blit(surf, (cx + 34, skill_y + 4))
                 # 짧은 설명
                 if self.fonts and "small" in self.fonts:
@@ -5741,7 +5737,7 @@ class ColosseumsArena:
                     max_chars = 10
                     if len(desc) > max_chars:
                         desc = desc[:max_chars] + ".."
-                    surf, _ = self.fonts["small"].render(desc, (130, 130, 140))
+                    surf, _ = self.fonts["small"].render(desc, ET["text_hint"])
                     self.screen.blit(surf, (cx + 34, skill_y + 23))
                 skill_y += skill_h + 4
 
@@ -5749,12 +5745,12 @@ class ColosseumsArena:
             style_names = {"aggressive": "공격형", "defensive": "수비형", "balanced": "균형형", "tricky": "트릭형"}
             style_text = style_names.get(hero["style"].value, "???")
             if self.fonts and "small" in self.fonts:
-                surf, _ = self.fonts["small"].render(f"[{style_text}]", (130, 130, 140))
+                surf, _ = self.fonts["small"].render(f"[{style_text}]", ET["text_hint"])
                 self.screen.blit(surf, (cx + cell_w // 2 - surf.get_width() // 2, cell_y + cell_h - 25))
 
         # 하단 안내
         if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render("스킬은 2개 중 1개가 랜덤으로 결정됩니다", (120, 120, 130))
+            surf, _ = self.fonts["small"].render("스킬은 2개 중 1개가 랜덤으로 결정됩니다", ET["text_hint"])
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, cell_y + cell_h + 15))
 
     def _draw_bracket_lines(self):
@@ -6675,12 +6671,12 @@ class ColosseumsArena:
     def _draw_perk_select(self):
         """퍽 선택 화면 그리기 (스테이지 인게임 퍽 UI 스타일)"""
         # 배경 (어두운 배경)
-        self.screen.fill((15, 18, 28))
+        self.screen.fill(ET["bg_dark"])
 
         # 반투명 오버레이 (점진적 어두워짐)
         overlay_alpha = min(160, self.perk_frame_count * 6)
         overlay = _get_arena_fullscreen()
-        overlay.fill((0, 0, 20, overlay_alpha))
+        overlay.fill((*ET["overlay_warm"], overlay_alpha))
         self.screen.blit(overlay, (0, 0))
 
         # 파티클 렌더링
@@ -6708,7 +6704,7 @@ class ColosseumsArena:
             title_alpha = min(255, self.perk_frame_count * 10)
             title_y_offset = max(0, 40 - self.perk_frame_count * 2)
             title = "강화를 선택하세요"
-            title_surf, _ = self.fonts["large"].render(title, (255, 220, 100))
+            title_surf, _ = self.fonts["large"].render(title, ET["gold_bright"])
             title_surf.set_alpha(title_alpha)
             tx = SCREEN_WIDTH // 2 - title_surf.get_width() // 2
             ty = vertical_y - 70 - title_y_offset
@@ -6771,7 +6767,7 @@ class ColosseumsArena:
                         pygame.draw.rect(glow_s, (*glow_color, alpha),
                                          glow_rect, border_radius=12)
                         card_surf.blit(glow_s, (0, 0))
-                bg_color = (40, 50, 90, min(card_alpha, 250))
+                bg_color = (*ET["card_bg_hover"], min(card_alpha, 250))
                 border_color = perk["icon_color"]
                 border_width = 3
             elif is_hovered:
@@ -6787,12 +6783,12 @@ class ColosseumsArena:
                         pygame.draw.rect(glow_s, (*perk["icon_color"], a),
                                          glow_rect, border_radius=12)
                         card_surf.blit(glow_s, (0, 0))
-                bg_color = (35, 42, 70, min(card_alpha, 240))
+                bg_color = (*ET["card_bg_hover"], min(card_alpha, 240))
                 border_color = tuple(min(255, c + 40) for c in perk["icon_color"])
                 border_width = 2
             else:
-                bg_color = (25, 30, 50, min(card_alpha, 220))
-                border_color = (60, 70, 90)
+                bg_color = (*ET["card_bg"], min(card_alpha, 220))
+                border_color = ET["card_border"]
                 border_width = 2
 
             # 카드 배경
@@ -6806,7 +6802,7 @@ class ColosseumsArena:
             icon_rect = pygame.Rect(icon_margin, (scaled_h - icon_scaled) // 2,
                                     icon_scaled, icon_scaled)
             # 아이콘 어두운 배경
-            pygame.draw.rect(card_surf, (30, 35, 50, min(card_alpha, 230)),
+            pygame.draw.rect(card_surf, (*ET["skill_bg"], min(card_alpha, 230)),
                              icon_rect, border_radius=10)
             pygame.draw.rect(card_surf, (*perk["icon_color"], min(card_alpha, 180)),
                              icon_rect, 2, border_radius=10)
@@ -6832,7 +6828,7 @@ class ColosseumsArena:
                 # 퍽 설명 (이름 아래)
                 if self.fonts and "small" in self.fonts:
                     desc_surf, _ = self.fonts["small"].render(
-                        perk["description"], (170, 180, 210))
+                        perk["description"], ET["text_body"])
                     if card_alpha < 255:
                         desc_surf.set_alpha(card_alpha)
                     desc_y = name_y + name_surf.get_height() + int(10 * scale)
@@ -6852,7 +6848,7 @@ class ColosseumsArena:
         if self.perk_anim_phase == "active" and self.fonts and "small" in self.fonts:
             hint_y = vertical_y + card_h + 55
             hint = "← → 선택  |  SPACE 확정"
-            hint_surf, _ = self.fonts["small"].render(hint, (130, 140, 170))
+            hint_surf, _ = self.fonts["small"].render(hint, ET["text_hint"])
             hx = SCREEN_WIDTH // 2 - hint_surf.get_width() // 2
             self.screen.blit(hint_surf, (hx, hint_y))
 
@@ -7122,8 +7118,8 @@ class ColosseumsArena:
                 'vy': random.uniform(-1.5, -0.3),
                 'size': random.uniform(1.5, 4),
                 'alpha': random.randint(80, 180),
-                'color': random.choice([(255, 215, 100), (200, 180, 255),
-                                        (255, 200, 150), (180, 220, 255)])
+                'color': random.choice([ET["gold_pale"], ET["turquoise_light"],
+                                        ET["sand"], ET["lapis_light"]])
             })
         self.state = TournamentState.GUARD_SELECT
         print(f"[Guard] 호위무사 선택 시작 (후보 {len(guards)}명: "
@@ -7188,7 +7184,7 @@ class ColosseumsArena:
         self._guard_skill_icon_rects = []
 
         # === 배경 ===
-        self.screen.fill((12, 10, 22))
+        self.screen.fill(ET["bg_dark"])
 
         # 방사형 빛줄기 (어두운 금색)
         if timer > 0.3:
@@ -7198,7 +7194,7 @@ class ColosseumsArena:
                 angle = (i / 8) * math.pi * 2 + self.animation_timer * 0.15
                 ex = center_x + int(_cos(angle) * 500)
                 ey = 380 + int(_sin(angle) * 500)
-                pygame.draw.line(ray_surf, (255, 200, 80, ray_alpha),
+                pygame.draw.line(ray_surf, (*ET["gold_medium"], ray_alpha),
                                  (center_x, 380), (ex, ey), 2)
             self.screen.blit(ray_surf, (0, 0))
 
@@ -7222,25 +7218,19 @@ class ColosseumsArena:
                 'vy': random.uniform(-1.5, -0.3),
                 'size': random.uniform(1.5, 4),
                 'alpha': random.randint(80, 180),
-                'color': random.choice([(255, 215, 100), (200, 180, 255),
-                                        (255, 200, 150), (180, 220, 255)])
+                'color': random.choice([ET["gold_pale"], ET["turquoise_light"],
+                                        ET["sand"], ET["lapis_light"]])
             })
 
         # === 타이틀 텍스트 ===
         title_fade = min(1.0, timer * 2.0)
-        if self.fonts and "large" in self.fonts and title_fade > 0:
-            title_alpha = int(255 * title_fade)
-
+        if title_fade > 0:
             # 메인 타이틀 (라운드별 동적)
             if self.current_round == TournamentRound.SEMI_FINAL:
                 title_text = "4강 호위무사 선택"
             else:
                 title_text = "결승전 호위무사 선택"
-            surf, _ = self.fonts["large"].render(title_text, (255, 215, 80))
-            alpha_s = _get_arena_surface(*surf.get_size())
-            alpha_s.fill((255, 255, 255, title_alpha))
-            surf.blit(alpha_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-            self.screen.blit(surf, (center_x - surf.get_width() // 2, 50))
+            self._draw_egyptian_title(title_text, 50)
 
             # 서브 타이틀
             if "medium" in self.fonts:
@@ -7248,28 +7238,20 @@ class ColosseumsArena:
                     sub = "4강에 데려갈 호위무사를 선택하세요"
                 else:
                     sub = "결승전에 데려갈 호위무사를 선택하세요"
-                surf2, _ = self.fonts["medium"].render(sub, (200, 200, 220))
+                surf2, _ = self.fonts["medium"].render(sub, ET["text_subtitle"])
                 alpha_s2 = _get_arena_surface(*surf2.get_size())
-                alpha_s2.fill((255, 255, 255, int(title_alpha * 0.7)))
+                alpha_s2.fill((255, 255, 255, int(255 * title_fade * 0.7)))
                 surf2.blit(alpha_s2, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                 self.screen.blit(surf2, (center_x - surf2.get_width() // 2, 100))
 
         # 구분선
         if timer > 0.2:
-            line_w = int(min(400, 400 * min(1.0, (timer - 0.2) * 3)))
-            line_alpha = int(80 * min(1.0, (timer - 0.2) * 3))
-            line_surf = _get_arena_surface(line_w, 2)
-            for lx in range(line_w):
-                dist = abs(lx - line_w // 2) / (line_w / 2)
-                a = int(line_alpha * max(0, 1.0 - dist))
-                line_surf.set_at((lx, 0), (255, 215, 80, a))
-                line_surf.set_at((lx, 1), (200, 170, 40, a // 2))
-            self.screen.blit(line_surf, (center_x - line_w // 2, 140))
+            self._draw_egyptian_separator(140)
 
         # === VS 텍스트 (중앙) ===
         if self.fonts and "large" in self.fonts and timer > 0.4:
             vs_alpha = int(120 + 60 * abs(_sin(self.animation_timer * 2)))
-            vs_surf, _ = self.fonts["large"].render("VS", (vs_alpha, vs_alpha // 2, vs_alpha // 4))
+            vs_surf, _ = self.fonts["large"].render("VS", (vs_alpha, int(vs_alpha * 0.3), int(vs_alpha * 0.15)))
             self.screen.blit(vs_surf, (center_x - vs_surf.get_width() // 2, 360))
 
         # === 영웅 카드 2장 ===
@@ -7313,17 +7295,17 @@ class ColosseumsArena:
             card_surf = _get_arena_surface(card_w, card_h)
 
             if is_chosen:
-                card_surf.fill((40, 35, 15, 220))
-                border_color = (255, 215, 80)
+                card_surf.fill((*ET["card_bg_hover"], 220))
+                border_color = ET["gold_bright"]
                 border_w = 3
             elif is_hover:
                 pulse = 0.7 + 0.3 * abs(_sin(self.animation_timer * 4))
-                card_surf.fill((30, 28, 45, int(220 * pulse)))
+                card_surf.fill((*ET["card_bg"], int(220 * pulse)))
                 border_color = bright_color
                 border_w = 2
             else:
-                card_surf.fill((20, 18, 35, 200))
-                border_color = (60, 55, 80)
+                card_surf.fill((*ET["card_bg"], 200))
+                border_color = ET["card_border"]
                 border_w = 1
 
             pygame.draw.rect(card_surf, (*border_color, 200),
@@ -7334,9 +7316,9 @@ class ColosseumsArena:
             new_idx = getattr(self, 'guard_select_new_idx', 1)
             if self.fonts and "small" in self.fonts and slide > 0.5:
                 if idx == new_idx:
-                    badge_text, badge_color = "신규", (255, 180, 80)
+                    badge_text, badge_color = "신규", ET["gold_pale"]
                 else:
-                    badge_text, badge_color = "기존", (100, 180, 255)
+                    badge_text, badge_color = "기존", ET["lapis_light"]
                 badge_surf, _ = self.fonts["small"].render(badge_text, badge_color)
                 badge_bg = _get_arena_surface(badge_surf.get_width() + 10, badge_surf.get_height() + 4)
                 badge_bg.fill((0, 0, 0, 160))
@@ -7400,7 +7382,7 @@ class ColosseumsArena:
 
             # "보유 스킬" 라벨
             if self.fonts and "small" in self.fonts:
-                lbl_surf, _ = self.fonts["small"].render("보유 스킬", (140, 140, 160))
+                lbl_surf, _ = self.fonts["small"].render("보유 스킬", ET["text_hint"])
                 self.screen.blit(lbl_surf, (hero_cx - lbl_surf.get_width() // 2, icons_y - 16))
 
             for si in range(num_skills):
@@ -7430,7 +7412,7 @@ class ColosseumsArena:
                     # 짧은 이름만 (4자 이하)
                     if len(sk_name) > 5:
                         sk_name = sk_name[:4] + ".."
-                    sn_surf, _ = self.fonts["small"].render(sk_name, (200, 200, 220))
+                    sn_surf, _ = self.fonts["small"].render(sk_name, ET["text_body"])
                     self.screen.blit(sn_surf, (ix + icon_sz // 2 - sn_surf.get_width() // 2,
                                                 iy + icon_sz + 3))
 
@@ -7467,9 +7449,9 @@ class ColosseumsArena:
             for si, (stat_name, stat_val, stat_color) in enumerate(stats):
                 by = bar_y_start + si * 24
                 if self.fonts and "small" in self.fonts:
-                    ls, _ = self.fonts["small"].render(stat_name, (140, 140, 160))
+                    ls, _ = self.fonts["small"].render(stat_name, ET["text_hint"])
                     self.screen.blit(ls, (bar_x, by))
-                pygame.draw.rect(self.screen, (40, 38, 55),
+                pygame.draw.rect(self.screen, ET["bg_medium"],
                                  (bar_x + 35, by + 2, bar_w - 35, 10), border_radius=3)
                 fill = max(0, min(1.0, (stat_val - 0.7) / 0.8))
                 fill_w = int((bar_w - 35) * fill)
@@ -7481,7 +7463,7 @@ class ColosseumsArena:
         if self.fonts and "small" in self.fonts and timer > 0.6:
             hint_alpha = int(120 + 80 * abs(_sin(self.animation_timer * 2)))
             hint = "클릭 또는 ←→ 키로 선택  |  스킬 아이콘에 마우스를 올려 설명 확인"
-            hint_surf, _ = self.fonts["small"].render(hint, (hint_alpha, hint_alpha, hint_alpha))
+            hint_surf, _ = self.fonts["small"].render(hint, (hint_alpha, int(hint_alpha * 0.85), int(hint_alpha * 0.65)))
             self.screen.blit(hint_surf, (center_x - hint_surf.get_width() // 2, 620))
 
         # 라운드 표기
@@ -7490,7 +7472,7 @@ class ColosseumsArena:
                 round_text = "SEMI FINAL"
             else:
                 round_text = "FINAL ROUND"
-            rs, _ = self.fonts["small"].render(round_text, (255, 215, 80))
+            rs, _ = self.fonts["small"].render(round_text, ET["gold_medium"])
             self.screen.blit(rs, (center_x - rs.get_width() // 2, 650))
 
         # === 스킬 툴팁 (호버 중인 스킬이 있으면 최상위에 표시) ===
