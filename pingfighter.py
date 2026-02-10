@@ -127412,6 +127412,7 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_power_counter_active, tutorial_power_reminder_active, tutorial_power_reminder_timer  # Chapter 4 알림
     global blacksmith_down_hold_frames, blacksmith_build_menu_active, blacksmith_divine_stone_state
     global blacksmith_divine_stage_owner
+    global arena_speed_multiplier, arena_speed_btn_rects
     global arena_top_ghost_step_active, arena_top_ghost_step_original_y, arena_top_ghost_step_velocity
     global arena_bottom_ghost_step_active, arena_bottom_ghost_step_original_y, arena_bottom_ghost_step_velocity
     global arena_top_ghost_step_phase, arena_bottom_ghost_step_phase
