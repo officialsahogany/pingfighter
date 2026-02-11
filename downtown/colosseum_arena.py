@@ -6998,9 +6998,14 @@ class ColosseumsArena:
                         desc_surf.blit(surf, ((sk_card_w - 12) // 2 - surf.get_width() // 2, dy))
 
                 # 클립하여 펼침 효과
-                clip_surf = _get_arena_surface(sk_card_w - 12, revealed_h)
-                clip_surf.blit(desc_surf, (0, 0))
-                self.screen.blit(clip_surf, (cx + 6, desc_area_y))
+                if revealed_h >= desc_extra_h:
+                    # 완전히 펼쳐짐 - 직접 blit
+                    self.screen.blit(desc_surf, (cx + 6, desc_area_y))
+                else:
+                    # 펼침 중 - 클립 서피스로 잘라서 표시
+                    clip_surf = _get_arena_surface(sk_card_w - 12, revealed_h)
+                    clip_surf.blit(desc_surf, (0, 0))
+                    self.screen.blit(clip_surf, (cx + 6, desc_area_y))
 
                 # 두루마리 하단 장식선
                 if scroll_reveal > 0.3:
