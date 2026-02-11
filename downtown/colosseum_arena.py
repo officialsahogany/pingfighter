@@ -3643,18 +3643,18 @@ class ColosseumsArena:
     # ========================================================================
 
     def _select_hero(self, chosen_hero, opponent_hero):
-        """영웅 선택 확정 → 스킬 랜덤 선택 연출로 전환"""
+        """영웅 선택 확정 → 공격 퍼포먼스 → 스킬 랜덤 선택 연출로 전환"""
         self.player_hero = chosen_hero
         self.opponent_hero = opponent_hero
         self.bet_hero = chosen_hero  # 호환성: bet_hero도 설정
 
-        # 스킬 랜덤 선택 연출 시작
-        self.player_hero_skill_index = self.hero_selected_skills.get(chosen_hero["id"], 0)
-        self.skill_reveal_timer = 0.0
-        self.skill_reveal_phase = "rolling"
-        self.skill_reveal_target = chosen_hero["id"]
-        self.skill_reveal_result = self.player_hero_skill_index
-        self.state = TournamentState.SKILL_REVEAL
+        # 공격 퍼포먼스 애니메이션 시작
+        # (완료 후 update()에서 SKILL_REVEAL로 전환)
+        heroes = [self.selected_match.hero1, self.selected_match.hero2]
+        self._hero_select_anim_phase = "attack_motion"
+        self._hero_select_anim_index = 0 if chosen_hero == heroes[0] else 1
+        self._hero_select_anim_timer = 0.0
+        self._hero_select_swing_triggered = False
 
     def _select_guard(self, guard_hero, prison_index):
         """감옥에서 호위무사 선택 → 철창 열림 애니메이션 시작"""
@@ -4427,6 +4427,24 @@ class ColosseumsArena:
                     self.match_revealed[self.match_reveal_index] = True
                 self.state = TournamentState.HERO_SELECT
 
+        elif self.state == TournamentState.HERO_SELECT:
+            # 영웅 선택 후 공격 퍼포먼스 애니메이션 업데이트
+            anim_phase = getattr(self, '_hero_select_anim_phase', None)
+            if anim_phase == "attack_motion":
+                self._hero_select_anim_timer += dt
+                timer = self._hero_select_anim_timer
+                if timer >= 1.2:
+                    # 애니메이션 완료 → 스킬 연출로 전환
+                    self._hero_select_anim_phase = None
+                    chosen_hero = self.player_hero
+                    self.player_hero_skill_index = self.hero_selected_skills.get(
+                        chosen_hero["id"], 0)
+                    self.skill_reveal_timer = 0.0
+                    self.skill_reveal_phase = "rolling"
+                    self.skill_reveal_target = chosen_hero["id"]
+                    self.skill_reveal_result = self.player_hero_skill_index
+                    self.state = TournamentState.SKILL_REVEAL
+
         elif self.state == TournamentState.SKILL_REVEAL:
             # 스킬 랜덤 선택 연출 (감속 롤링 1.8초 + 확정 표시 1.2초)
             self.skill_reveal_timer += dt
@@ -4763,6 +4781,9 @@ class ColosseumsArena:
 
         elif self.state == TournamentState.HERO_SELECT:
             # ========== 영웅 선택 UI 클릭 ==========
+            # 애니메이션 중에는 클릭 무시
+            if getattr(self, '_hero_select_anim_phase', None):
+                return
             panel_x = 130
             card_w, card_h = 200, 320
             gap = 40
@@ -4940,22 +4961,26 @@ class ColosseumsArena:
 
         # 영웅 선택 화면 호버
         if self.state == TournamentState.HERO_SELECT:
-            panel_x = 130
-            card_w, card_h = 200, 320
-            gap = 40
-            card1_x = panel_x + 25
-            card2_x = panel_x + 25 + card_w + gap
-            card_y = 100  # _draw_hero_select()와 동일
-            old_hero_hover = self.hover_hero_index
-            self.hover_hero_index = -1
-            if card1_x <= mx <= card1_x + card_w and card_y <= my <= card_y + card_h:
-                self.hover_hero_index = 0
-                if old_hero_hover != 0:
-                    self._spawn_hover_line_particles(card1_x, card_y, card_w, card_h)
-            elif card2_x <= mx <= card2_x + card_w and card_y <= my <= card_y + card_h:
-                self.hover_hero_index = 1
-                if old_hero_hover != 1:
-                    self._spawn_hover_line_particles(card2_x, card_y, card_w, card_h)
+            # 애니메이션 중에는 호버 비활성화
+            if getattr(self, '_hero_select_anim_phase', None):
+                self.hover_hero_index = -1
+            else:
+                panel_x = 130
+                card_w, card_h = 200, 320
+                gap = 40
+                card1_x = panel_x + 25
+                card2_x = panel_x + 25 + card_w + gap
+                card_y = 100  # _draw_hero_select()와 동일
+                old_hero_hover = self.hover_hero_index
+                self.hover_hero_index = -1
+                if card1_x <= mx <= card1_x + card_w and card_y <= my <= card_y + card_h:
+                    self.hover_hero_index = 0
+                    if old_hero_hover != 0:
+                        self._spawn_hover_line_particles(card1_x, card_y, card_w, card_h)
+                elif card2_x <= mx <= card2_x + card_w and card_y <= my <= card_y + card_h:
+                    self.hover_hero_index = 1
+                    if old_hero_hover != 1:
+                        self._spawn_hover_line_particles(card2_x, card_y, card_w, card_h)
 
         # 감옥 호위무사 선택 화면 호버
         elif self.state == TournamentState.PRISON_SELECT:
@@ -6232,11 +6257,17 @@ class ColosseumsArena:
 
     def _draw_hero_select(self):
         """영웅 선택 UI (2명 중 1명 선택)"""
+        import math
         self.screen.fill(ET["bg_dark"])
         self._draw_papyrus_bg()
 
         if not self.selected_match:
             return
+
+        # 공격 퍼포먼스 애니메이션 상태
+        anim_phase = getattr(self, '_hero_select_anim_phase', None)
+        anim_idx = getattr(self, '_hero_select_anim_index', -1)
+        anim_timer = getattr(self, '_hero_select_anim_timer', 0)
 
         # 타이틀
         self._draw_egyptian_title("영웅을 선택하세요", 30)
@@ -6252,18 +6283,26 @@ class ColosseumsArena:
         card_y = 100
 
         for idx, (hero, cx) in enumerate([(hero1, card1_x), (hero2, card2_x)]):
-            # 호버 체크
-            is_hovered = (self.hover_hero_index == idx)
+            is_selected = (anim_phase and anim_idx == idx)
+            is_dimmed = (anim_phase and anim_idx != idx)
+            is_hovered = (self.hover_hero_index == idx) and not anim_phase
 
             # 카드 배경
-            bg = ET["card_bg_hover"] if is_hovered else ET["card_bg"]
-            border = ET["card_border_hover"] if is_hovered else ET["card_border"]
+            if is_dimmed:
+                bg = (35, 28, 18)
+                border = (80, 65, 42)
+            elif is_selected or is_hovered:
+                bg = ET["card_bg_hover"]
+                border = ET["gold_medium"]
+            else:
+                bg = ET["card_bg"]
+                border = ET["card_border"]
             pygame.draw.rect(self.screen, bg, (cx, card_y, card_w, card_h), border_radius=10)
             pygame.draw.rect(self.screen, border, (cx, card_y, card_w, card_h), 2, border_radius=10)
 
             # 영웅 색상 바
             color_bar = pygame.Surface((card_w - 20, 6), pygame.SRCALPHA)
-            color_bar.fill((*hero["color"], 180))
+            color_bar.fill((*hero["color"], 60 if is_dimmed else 180))
             self.screen.blit(color_bar, (cx + 10, card_y + 10))
 
             # 영웅 이름
@@ -6271,64 +6310,120 @@ class ColosseumsArena:
                 h_color = hero["color"]
                 brightness = sum(h_color) / 3
                 name_color = h_color if brightness > 80 else (min(255, h_color[0]+100), min(255, h_color[1]+100), min(255, h_color[2]+100))
+                if is_dimmed:
+                    name_color = tuple(c // 3 for c in name_color)
                 surf, _ = self.fonts["medium"].render(hero["name"], name_color)
                 self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 25))
 
             # 영웅 칭호
             if self.fonts and "small" in self.fonts:
-                surf, _ = self.fonts["small"].render(hero.get("title", ""), ET["text_subtitle"])
+                title_color = (80, 70, 50) if is_dimmed else ET["text_subtitle"]
+                surf, _ = self.fonts["small"].render(hero.get("title", ""), title_color)
                 self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 50))
 
-            # 영웅 캐릭터 렌더링
+            # ── 영웅 캐릭터 렌더링 (공격 모션 포함) ──
+            hero_offset_y = 0
+            hero_scale = 1.0
+
+            if is_selected:
+                mt = anim_timer
+                if mt < 0.2:
+                    # 뒤로 힘 모으기
+                    p = mt / 0.2
+                    hero_offset_y = int(-10 * p)
+                    hero_scale = 1.0 + 0.05 * p
+                elif mt < 0.4:
+                    # 앞으로 돌진
+                    p = (mt - 0.2) / 0.2
+                    eased = p * p
+                    hero_offset_y = int(-10 + 35 * eased)
+                    hero_scale = 1.05 + 0.15 * eased
+                else:
+                    # 임팩트 유지 + 무기 스윙 모션 (복귀 없음)
+                    hero_offset_y = 25
+                    hero_scale = 1.2
+                    if not getattr(self, '_hero_select_swing_triggered', False):
+                        self._hero_select_swing_triggered = True
+                        if self.hero_paddle_renderer:
+                            self.hero_paddle_renderer.trigger_weapon_swing(
+                                hero["id"], 0.5)
+
             if self.hero_paddle_renderer:
-                self.hero_paddle_renderer.draw_hero_paddle(
-                    self.screen, hero["id"], cx + card_w // 2, card_y + 120,
-                    100, 70, facing="down", color=hero["color"], scale_mode="preview"
-                )
+                h_w = int(100 * hero_scale)
+                h_h = int(70 * hero_scale)
+                h_cx = cx + card_w // 2
+                h_cy = card_y + 120 + hero_offset_y
+
+                if is_dimmed:
+                    dim_s = pygame.Surface((card_w, 140), pygame.SRCALPHA)
+                    self.hero_paddle_renderer.draw_hero_paddle(
+                        dim_s, hero["id"], card_w // 2, 70,
+                        100, 70, facing="down", color=hero["color"], scale_mode="preview"
+                    )
+                    dim_s.set_alpha(80)
+                    self.screen.blit(dim_s, (cx, card_y + 50))
+                else:
+                    self.hero_paddle_renderer.draw_hero_paddle(
+                        self.screen, hero["id"], h_cx, h_cy,
+                        h_w, h_h, facing="down", color=hero["color"], scale_mode="preview"
+                    )
+
+            # ── 공격 퍼포먼스 이펙트 ──
+            if is_selected and anim_timer >= 0.4:
+                flash_t = anim_timer - 0.4
+                if flash_t <= 0.3:
+                    flash_alpha = int(180 * (1.0 - flash_t / 0.3))
+                    flash_s = pygame.Surface((card_w + 40, 80), pygame.SRCALPHA)
+                    pygame.draw.ellipse(flash_s, (255, 240, 180, flash_alpha),
+                                        (0, 0, card_w + 40, 80))
+                    self.screen.blit(flash_s, (cx - 20, card_y + 120 + hero_offset_y))
 
             # 스타일 표시
             style_names = {"aggressive": "공격형", "defensive": "수비형", "balanced": "균형형", "tricky": "트릭형"}
             style_text = style_names.get(hero["style"].value, "???")
             if self.fonts and "small" in self.fonts:
-                surf, _ = self.fonts["small"].render(f"[{style_text}]", ET["text_hint"])
+                style_color = (60, 52, 35) if is_dimmed else ET["text_hint"]
+                surf, _ = self.fonts["small"].render(f"[{style_text}]", style_color)
                 self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 175))
 
-            # 스킬 2개 표시 (아이콘 + 이름만, 설명은 스킬 연출에서 표시)
+            # 스킬 2개 표시
             from downtown.hero_skills import HERO_SKILLS
             hero_skills = HERO_SKILLS.get(hero["id"], [])
             skill_y = card_y + 200
             for si, skill in enumerate(hero_skills):
                 skill_h = 32
-                pygame.draw.rect(self.screen, ET["skill_bg"], (cx + 8, skill_y, card_w - 16, skill_h), border_radius=5)
-                pygame.draw.rect(self.screen, ET["skill_border"], (cx + 8, skill_y, card_w - 16, skill_h), 1, border_radius=5)
-                # 스킬 아이콘
+                sk_bg = (30, 25, 16) if is_dimmed else ET["skill_bg"]
+                sk_border = (50, 42, 28) if is_dimmed else ET["skill_border"]
+                pygame.draw.rect(self.screen, sk_bg, (cx + 8, skill_y, card_w - 16, skill_h), border_radius=5)
+                pygame.draw.rect(self.screen, sk_border, (cx + 8, skill_y, card_w - 16, skill_h), 1, border_radius=5)
                 icon = _get_hero_skill_icon(skill.skill_id, 24)
                 icon_x = cx + 14
                 icon_y_pos = skill_y + 4
                 if icon:
-                    self.screen.blit(icon, (icon_x, icon_y_pos))
+                    if is_dimmed:
+                        dim_icon = icon.copy()
+                        dim_icon.set_alpha(60)
+                        self.screen.blit(dim_icon, (icon_x, icon_y_pos))
+                    else:
+                        self.screen.blit(icon, (icon_x, icon_y_pos))
                 else:
                     pygame.draw.rect(self.screen, ET["bg_medium"], (icon_x, icon_y_pos, 24, 24), border_radius=4)
-                # 스킬 이름
                 if self.fonts and "small" in self.fonts:
                     label = f"{'A' if si == 0 else 'B'}: {skill.korean_name}"
-                    surf, _ = self.fonts["small"].render(label, ET["text_body"])
+                    txt_color = (60, 55, 40) if is_dimmed else ET["text_body"]
+                    surf, _ = self.fonts["small"].render(label, txt_color)
                     self.screen.blit(surf, (icon_x + 30, skill_y + 8))
                 skill_y += skill_h + 5
 
-        # VS 텍스트 (두 카드 사이 중앙)
-        vs_x = card1_x + card_w + gap // 2
-        vs_y = card_y + card_h // 2
-        if self.fonts and "large" in self.fonts:
-            pulse = 0.7 + 0.3 * abs(_sin(self.animation_timer * 3))
-            vs_color = (ET["carnelian_light"][0], int(100 + 100 * pulse), 50)
-            vs_surf, _ = self.fonts["large"].render("VS", vs_color)
-            self.screen.blit(vs_surf, (vs_x - vs_surf.get_width() // 2, vs_y - vs_surf.get_height() // 2))
-
-        # 하단 안내
-        if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render("스킬은 2개 중 1개가 랜덤으로 결정됩니다", ET["text_hint"])
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 440))
+        # VS 텍스트 (애니메이션 중이 아닐 때만)
+        if not anim_phase:
+            vs_x = card1_x + card_w + gap // 2
+            vs_y = card_y + card_h // 2
+            if self.fonts and "large" in self.fonts:
+                pulse = 0.7 + 0.3 * abs(_sin(self.animation_timer * 3))
+                vs_color = (ET["carnelian_light"][0], int(100 + 100 * pulse), 50)
+                vs_surf, _ = self.fonts["large"].render("VS", vs_color)
+                self.screen.blit(vs_surf, (vs_x - vs_surf.get_width() // 2, vs_y - vs_surf.get_height() // 2))
 
     def _draw_skill_reveal(self):
         """스킬 랜덤 선택 연출 UI (감속 롤링 + 선택 이펙트)"""
