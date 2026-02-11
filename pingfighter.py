@@ -7999,6 +7999,13 @@ def _fullscreen_flip():
             except Exception:
                 pass
 
+        # 🎚️ 투기장 배속 버튼 (좌측 필러 하단, REAL_SCREEN에 직접)
+        if arena_mode_enabled:
+            try:
+                draw_arena_speed_buttons(REAL_SCREEN)
+            except Exception:
+                pass
+
         # 좌표계 디버그 (F4 토글) - 히트박스 & 마우스 위치
         if COORDINATE_DEBUG_MODE:
             _draw_coordinate_debug(REAL_SCREEN)
@@ -8121,6 +8128,13 @@ def _fullscreen_update(*args, **kwargs):
             except Exception:
                 pass
 
+        # 🎚️ 투기장 배속 버튼 (좌측 필러 하단, REAL_SCREEN에 직접)
+        if arena_mode_enabled:
+            try:
+                draw_arena_speed_buttons(REAL_SCREEN)
+            except Exception:
+                pass
+
         # 좌표계 디버그 (F4 토글) - 히트박스 & 마우스 위치
         if COORDINATE_DEBUG_MODE:
             _draw_coordinate_debug(REAL_SCREEN)
@@ -8156,6 +8170,12 @@ else:
     # 윈도우 모드에서도 커스텀 커서를 그리기 위한 래핑
     def _windowed_flip():
         """윈도우 모드에서 튜토리얼 오버레이 및 커스텀 커서 그리기 후 flip"""
+        # 투기장 배속 버튼 (윈도우 모드)
+        if arena_mode_enabled:
+            try:
+                draw_arena_speed_buttons(SCREEN)
+            except Exception:
+                pass
         # 실전 튜토리얼 오버레이 (윈도우 모드)
         try:
             _draw_ingame_tutorial()
@@ -97005,6 +97025,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         # 투기장 모드 활성화
         arena_mode_enabled = True
         arena_speed_multiplier = 1.3  # 배속 리셋 (매 경기 1.3x)
+        main._arena_tick_accumulator = 0.0  # 배속 누적기 리셋
         arena_battle_result = None  # 이전 배틀 결과 초기화 (필수!)
         arena_top_hero = top_hero
         arena_bottom_hero = bottom_hero
@@ -114445,8 +114466,8 @@ def draw_score():
         else:
             draw_ice_crystal_scoreboard(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, current_stage)
 
-    # 투기장 배속 버튼 (draw_score 호출 시 자동으로 그려짐)
-    draw_arena_speed_buttons()
+    # 투기장 배속 버튼: _fullscreen_flip / _windowed_flip에서 REAL_SCREEN에 직접 그림
+    _update_arena_speed_btn_rects()
 
 def draw_laser_cannon_gauge():
     """ 레이저 캐논 쿨타임 게이지바 (야마토포 스타일)"""
@@ -114555,62 +114576,83 @@ def draw_laser_cannon_gauge():
     pygame.draw.lines(SCREEN, (100, 150, 200), False,
                      [(icon_x, icon_y - 5), (icon_x + 3, icon_y), 
                       (icon_x - 2, icon_y + 2), (icon_x + 5, icon_y + 5)], 2)
-def draw_arena_speed_buttons():
-    """투기장 배속 버튼 그리기 (>, >>, >>>) - 좌측 필러 하단에 배치"""
-    global arena_speed_multiplier, arena_speed_btn_rects
+def _update_arena_speed_btn_rects():
+    """투기장 배속 버튼 히트영역 갱신 (게임 좌표 기준, 클릭 판정용)"""
+    global arena_speed_btn_rects
+    if not arena_mode_enabled:
+        return
+    btn_w, btn_h = 64, 20
+    gap = 3
+    start_x = (PILLAR_UI_WIDTH - btn_w) // 2
+    total_h = btn_h * 3 + gap * 2
+    start_y = HEIGHT - total_h - 12
+    arena_speed_btn_rects = {}
+    for i, (mult, _) in enumerate([(1.3, 1), (2, 2), (3, 3)]):
+        gy = start_y + i * (btn_h + gap)
+        arena_speed_btn_rects[mult] = pygame.Rect(start_x, gy, btn_w, btn_h)
+
+
+def draw_arena_speed_buttons(surface):
+    """투기장 배속 버튼 그리기 (>, >>, >>>) - 좌측 필러 하단, REAL_SCREEN에 직접"""
     if not arena_mode_enabled:
         return
 
     btn_w, btn_h = 64, 20
     gap = 3
-    # 좌측 필러 하단에 배치
-    start_x = (PILLAR_UI_WIDTH - btn_w) // 2  # 필러 중앙 정렬 (= 8)
-    total_h = btn_h * 3 + gap * 2  # 66px
-    start_y = HEIGHT - total_h - 12  # 하단 여백 12px
+    start_x = (PILLAR_UI_WIDTH - btn_w) // 2
+    total_h = btn_h * 3 + gap * 2
+    start_y = HEIGHT - total_h - 12
 
-    arena_speed_btn_rects = {}
+    # 스케일 계수 결정
+    scale = GAME_SCALE_FACTOR if _is_fullscreen_active else 1.0
 
     for i, (mult, arrow_count) in enumerate([(1.3, 1), (2, 2), (3, 3)]):
-        y = start_y + i * (btn_h + gap)
-        rect = pygame.Rect(start_x, y, btn_w, btn_h)
-        arena_speed_btn_rects[mult] = rect
+        gy = start_y + i * (btn_h + gap)
+
+        # REAL_SCREEN 좌표로 변환
+        if _is_fullscreen_active:
+            rx, ry = screen_to_real_coords(start_x, gy)
+        else:
+            rx, ry = start_x, gy
+        rw = max(1, int(btn_w * scale))
+        rh = max(1, int(btn_h * scale))
+        draw_rect = pygame.Rect(rx, ry, rw, rh)
 
         is_active = (arena_speed_multiplier == mult)
 
         if is_active:
-            bg = (50, 45, 30, 200)
+            bg_rgba = (50, 45, 30, 200)
             arrow_color = (255, 210, 60)
             border_color = (180, 150, 40)
         else:
-            bg = (25, 28, 38, 160)
+            bg_rgba = (25, 28, 38, 160)
             arrow_color = (100, 105, 115)
             border_color = (50, 55, 65)
 
         # 반투명 배경
-        btn_surf = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
-        btn_surf.fill((*bg[:3], bg[3] if len(bg) > 3 else 200))
-        SCREEN.blit(btn_surf, (start_x, y))
-        pygame.draw.rect(SCREEN, border_color, rect, 1, border_radius=2)
+        btn_surf = pygame.Surface((rw, rh), pygame.SRCALPHA)
+        btn_surf.fill(bg_rgba)
+        surface.blit(btn_surf, (rx, ry))
+        pygame.draw.rect(surface, border_color, draw_rect, 1, border_radius=2)
 
         # 화살표 삼각형 그리기 (>, >>, >>>)
-        arrow_w, arrow_h = 7, 10
-        arrow_gap = 2
-        total_arrow_w = arrow_count * arrow_w + (arrow_count - 1) * arrow_gap
-        arrow_start_x = start_x + (btn_w - total_arrow_w) // 2
-        arrow_center_y = y + btn_h // 2
+        aw = max(1, int(7 * scale))
+        ah = max(1, int(10 * scale))
+        a_gap = max(1, int(2 * scale))
+        total_arrow_w = arrow_count * aw + (arrow_count - 1) * a_gap
+        arrow_start_x = rx + (rw - total_arrow_w) // 2
+        arrow_center_y = ry + rh // 2
 
         for a in range(arrow_count):
-            ax = arrow_start_x + a * (arrow_w + arrow_gap)
-            # 삼각형: 왼쪽 상단 → 오른쪽 중앙 → 왼쪽 하단
+            ax = arrow_start_x + a * (aw + a_gap)
             points = [
-                (ax, arrow_center_y - arrow_h // 2),
-                (ax + arrow_w, arrow_center_y),
-                (ax, arrow_center_y + arrow_h // 2),
+                (ax, arrow_center_y - ah // 2),
+                (ax + aw, arrow_center_y),
+                (ax, arrow_center_y + ah // 2),
             ]
-            pygame.draw.polygon(SCREEN, arrow_color, points)
+            pygame.draw.polygon(surface, arrow_color, points)
             if is_active:
-                # 활성 시 밝은 테두리 추가
-                pygame.draw.polygon(SCREEN, (255, 240, 150), points, 1)
+                pygame.draw.polygon(surface, (255, 240, 150), points, 1)
 
 def draw_boss_health_bar():
     """ 메카닉 스타일 보스 체력바 (스무스 애니메이션)"""
@@ -134663,9 +134705,13 @@ def main(stage_num, new_boss_mode=False):
                 if not (current_stage == 8 and stage8_awaken_intro_pending and pygame.time.get_ticks() < stage8_awaken_freeze_end_ms):
                     handle_boss()
 
-                # 투기장 배속: 추가 물리 반복 (2x→1회 추가, 3x→2회 추가)
+                # 투기장 배속: 소수점 배속 지원 (1.3x→10프레임당 3회 추가, 2x→매프레임 1회, 3x→매프레임 2회)
                 if arena_mode_enabled and arena_speed_multiplier > 1 and not freeze_now:
-                    for _arena_extra_tick in range(int(arena_speed_multiplier) - 1):
+                    if not hasattr(main, '_arena_tick_accumulator'):
+                        main._arena_tick_accumulator = 0.0
+                    main._arena_tick_accumulator += arena_speed_multiplier - 1
+                    while main._arena_tick_accumulator >= 1.0:
+                        main._arena_tick_accumulator -= 1.0
                         handle_player(keys_now)
                         _extra_ball_result = handle_ball()
                         if arena_mode_enabled and _extra_ball_result is not None:
