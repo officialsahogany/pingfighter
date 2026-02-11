@@ -97115,6 +97115,13 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
                 # 호위무사 퍽 멀티플라이어 적용
                 guard_system.guard_cd_mult_top = arena_perk_guard_cd_mult_top
                 guard_system.guard_cd_mult_bottom = arena_perk_guard_cd_mult_bottom
+                # 호령 퍽: 초기 쿨다운에도 cd_mult 적용 (setup()에서는 미적용)
+                if guard_system.guard_cd_mult_top != 1.0:
+                    guard_system.cooldown_top *= guard_system.guard_cd_mult_top
+                    guard_system.cooldown_max_top = guard_system.cooldown_top
+                if guard_system.guard_cd_mult_bottom != 1.0:
+                    guard_system.cooldown_bottom *= guard_system.guard_cd_mult_bottom
+                    guard_system.cooldown_max_bottom = guard_system.cooldown_bottom
                 # 순찰명령 퍽 적용
                 guard_system.patrol_mode_top = arena_perk_guard_patrol_top
                 guard_system.patrol_mode_bottom = arena_perk_guard_patrol_bottom
