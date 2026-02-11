@@ -401,6 +401,7 @@ class TournamentState(Enum):
     SKILL_REVEAL = "skill_reveal"              # 스킬 랜덤 선택 연출
     PRISON_SELECT = "prison_select"            # 감옥 호위무사 선택
     GUARD_SKILL_REVEAL = "guard_skill_reveal"  # 호위무사 스킬 연출
+    TENACITY_RETRY = "tenacity_retry"          # 집념 퍽 재시작 연출
 
 class TournamentRound(Enum):
     QUARTER_FINAL = "8강"
@@ -411,36 +412,78 @@ class TournamentRound(Enum):
 # 투기장 퍽 시스템
 # ============================================================================
 ARENA_PERK_POOL = [
+    # === 기본 퍽 (4종) ===
     {
         "id": "swift_foot",
         "name": "질풍각",
-        "description": "이동속도 15% 증가",
+        "description": "이동속도 50% 증가",
         "icon_color": (100, 220, 255),   # 하늘색 (바람)
         "effect_type": "move_speed",
-        "value": 0.15,
+        "value": 0.50,
     },
     {
         "id": "quick_reflex",
         "name": "순발력",
-        "description": "대쉬 쿨타임 15% 감소",
+        "description": "대쉬 쿨타임 50% 감소",
         "icon_color": (255, 180, 50),    # 주황 (번개)
         "effect_type": "dash_cooldown",
-        "value": 0.15,
+        "value": 0.50,
     },
     {
         "id": "spirit_flow",
         "name": "영기순환",
-        "description": "스킬 쿨타임 10% 감소",
+        "description": "스킬 쿨타임 50% 감소",
         "icon_color": (180, 100, 255),   # 보라 (마법)
         "effect_type": "skill_cooldown",
-        "value": 0.10,
+        "value": 0.50,
     },
     {
         "id": "command",
         "name": "호령",
-        "description": "호위무사 쿨타임 10% 감소",
+        "description": "호위무사 쿨타임 50% 감소",
         "icon_color": (255, 100, 100),   # 빨강 (권위)
         "effect_type": "guard_cooldown",
+        "value": 0.50,
+    },
+    # === 신규 퍽 (5종) ===
+    {
+        "id": "shadow_step",
+        "name": "잔상술",
+        "description": "대쉬 토큰 1개 추가",
+        "icon_color": (80, 200, 180),    # 청록 (그림자)
+        "effect_type": "dash_token",
+        "value": 1,
+    },
+    {
+        "id": "storm_rush",
+        "name": "폭풍질주",
+        "description": "대쉬 거리 50% 증가",
+        "icon_color": (50, 180, 255),    # 파랑 (폭풍)
+        "effect_type": "dash_distance",
+        "value": 0.50,
+    },
+    {
+        "id": "tenacity",
+        "name": "집념",
+        "description": "패배 시 30% 확률로 재시작",
+        "icon_color": (255, 200, 60),    # 금색 (집념)
+        "effect_type": "retry_chance",
+        "value": 0.30,
+    },
+    {
+        "id": "patrol",
+        "name": "순찰명령",
+        "description": "호위무사가 진영을 순찰",
+        "icon_color": (200, 150, 80),    # 갈색 (순찰)
+        "effect_type": "guard_patrol",
+        "value": 1,
+    },
+    {
+        "id": "magic_barrier",
+        "name": "마법결계",
+        "description": "타격 시 10% 확률 6초 면역",
+        "icon_color": (120, 200, 255),   # 밝은 파랑 (결계)
+        "effect_type": "magic_immunity",
         "value": 0.10,
     },
 ]
@@ -1344,6 +1387,13 @@ class GuardWarriorSystem:
         self._bubble_bottom = None
         self._bubble_duration = 2.0  # 말풍선 표시 시간 (초)
 
+        # 순찰명령 퍽: 호위무사가 진영에 상주하며 순찰
+        self.patrol_mode_top = False
+        self.patrol_mode_bottom = False
+        self._patrol_dir_top = 1     # 순찰 이동 방향 (1: 오른쪽, -1: 왼쪽)
+        self._patrol_dir_bottom = -1
+        self._patrol_speed = 60.0    # 순찰 이동 속도 (px/s)
+
     def setup(self, guards_top, guards_bottom, initial_delay=(10.0, 15.0), skill_selections=None):
         """배틀 시작 시 호위무사 설정
 
@@ -1502,6 +1552,21 @@ class GuardWarriorSystem:
 
         # 현재 애니메이션 진행 중이면 애니메이션 처리
         phase = self.phase_top if is_top else self.phase_bottom
+
+        # 순찰 모드: 진영 내 이동 + 쿨타임 동시 진행
+        if phase == "patrolling":
+            self._update_patrol(dt, is_top)
+            # 쿨타임 감소 → 만료 시 현재 위치에서 바로 시전
+            if is_top:
+                self.cooldown_top -= dt
+                if self.cooldown_top <= 0:
+                    self._trigger_from_patrol(is_top, top_paddle, bottom_paddle, ball)
+            else:
+                self.cooldown_bottom -= dt
+                if self.cooldown_bottom <= 0:
+                    self._trigger_from_patrol(is_top, top_paddle, bottom_paddle, ball)
+            return
+
         if phase:
             self._update_animation(dt, is_top, top_paddle, bottom_paddle, ball)
             return
@@ -1779,17 +1844,98 @@ class GuardWarriorSystem:
                 self.y_bottom = current_y
 
             if progress >= 1.0:
-                # 퇴장 완료 → 초기화
-                if is_top:
-                    self.phase_top = None
-                    self.active_top = None
-                    self.selected_skill_top = None
-                    self.y_top = TOP_PADDLE_Y
+                patrol_on = self.patrol_mode_top if is_top else self.patrol_mode_bottom
+                if patrol_on:
+                    # 순찰모드: 퇴장 대신 진영 내 순찰 시작
+                    patrol_x = GAME_AREA_X + GAME_AREA_WIDTH // 2
+                    if is_top:
+                        self.phase_top = "patrolling"
+                        self.anim_timer_top = 0.0
+                        self.x_top = patrol_x
+                        self.y_top = TOP_PADDLE_Y
+                    else:
+                        self.phase_bottom = "patrolling"
+                        self.anim_timer_bottom = 0.0
+                        self.x_bottom = patrol_x
+                        self.y_bottom = BOTTOM_PADDLE_Y
                 else:
-                    self.phase_bottom = None
-                    self.active_bottom = None
-                    self.selected_skill_bottom = None
-                    self.y_bottom = BOTTOM_PADDLE_Y
+                    # 퇴장 완료 → 초기화
+                    if is_top:
+                        self.phase_top = None
+                        self.active_top = None
+                        self.selected_skill_top = None
+                        self.y_top = TOP_PADDLE_Y
+                    else:
+                        self.phase_bottom = None
+                        self.active_bottom = None
+                        self.selected_skill_bottom = None
+                        self.y_bottom = BOTTOM_PADDLE_Y
+
+    def _update_patrol(self, dt, is_top):
+        """순찰 모드: 호위무사가 진영 내에서 좌우로 이동"""
+        if is_top:
+            self.x_top += self._patrol_dir_top * self._patrol_speed * dt
+            left_bound = GAME_AREA_X + 40
+            right_bound = GAME_AREA_X + GAME_AREA_WIDTH - 40
+            if self.x_top <= left_bound:
+                self.x_top = left_bound
+                self._patrol_dir_top = 1
+            elif self.x_top >= right_bound:
+                self.x_top = right_bound
+                self._patrol_dir_top = -1
+        else:
+            self.x_bottom += self._patrol_dir_bottom * self._patrol_speed * dt
+            left_bound = GAME_AREA_X + 40
+            right_bound = GAME_AREA_X + GAME_AREA_WIDTH - 40
+            if self.x_bottom <= left_bound:
+                self.x_bottom = left_bound
+                self._patrol_dir_bottom = 1
+            elif self.x_bottom >= right_bound:
+                self.x_bottom = right_bound
+                self._patrol_dir_bottom = -1
+
+    def _trigger_from_patrol(self, is_top, top_paddle, bottom_paddle, ball):
+        """순찰 중 스킬 재시전 (입장 애니메이션 스킵)"""
+        guard = self.active_top if is_top else self.active_bottom
+        if not guard:
+            return
+
+        # 스킬 선택
+        skills = self.skill_instances.get(guard["id"], [])
+        if not skills:
+            return
+        skill = random.choice(skills)
+        if is_top:
+            self.selected_skill_top = skill
+        else:
+            self.selected_skill_bottom = skill
+
+        # 현재 위치에서 바로 시전 단계로 전환
+        if is_top:
+            self.phase_top = "casting"
+            self.anim_timer_top = 0.0
+            self._enter_x_top = self.x_top
+        else:
+            self.phase_bottom = "casting"
+            self.anim_timer_bottom = 0.0
+            self._enter_x_bottom = self.x_bottom
+
+        # 다음 쿨타임 설정
+        guards = self.guard_warriors_top if is_top else self.guard_warriors_bottom
+        cd_mult = self.guard_cd_mult_top if is_top else self.guard_cd_mult_bottom
+        base_cd = self._get_guard_cooldown(guard["id"])
+        next_cd = base_cd * cd_mult
+        if is_top:
+            self.cooldown_top = next_cd
+            self.cooldown_max_top = next_cd
+        else:
+            self.cooldown_bottom = next_cd
+            self.cooldown_max_bottom = next_cd
+
+        # 스킬 발동
+        self._activate_skill(is_top, top_paddle, bottom_paddle, ball)
+        print(f"[Guard] {'상단' if is_top else '하단'}측 호위무사 {guard['name']} 순찰 중 재시전! "
+              f"스킬: {skill.korean_name}")
 
     def _make_guard_paddle(self, is_top):
         """현재 호위무사 위치로 가상 패들 생성"""
@@ -3680,6 +3826,28 @@ class ColosseumsArena:
             self.state = TournamentState.BRACKET_VIEW
             return
 
+        # === 집념 퍽: 패배 시 확률적 재시작 ===
+        if self.bet_hero and winner != self.bet_hero:
+            hero_id = self.bet_hero["id"]
+            mults = self.get_hero_perk_multipliers(hero_id)
+            retry_chance = mults.get("retry_chance", 0.0)
+            # 집념 퍽은 토너먼트당 1회만 발동 가능
+            if retry_chance > 0 and not getattr(self, '_tenacity_used', False):
+                if random.random() < retry_chance:
+                    self._tenacity_used = True
+                    print(f"[Perk] 집념 발동! {retry_chance:.0%} 확률로 재시작!")
+                    # 매치 결과 리셋하고 재시작
+                    self.selected_match.completed = False
+                    self.selected_match.winner = None
+                    self.selected_match.score1 = 0
+                    self.selected_match.score2 = 0
+                    self.battle_active = True
+                    # 재시작 알림용 상태
+                    self.tenacity_triggered = True
+                    self.tenacity_timer = 0.0
+                    self.state = TournamentState.TENACITY_RETRY
+                    return
+
         self.selected_match.set_result(winner, self.score_top, self.score_bottom)
 
         # 상금 시스템 - 승패 결과 처리
@@ -3929,6 +4097,14 @@ class ColosseumsArena:
                 if self.perk_frame_count > 25:
                     # 퍽 선택 완료 → 대진표 애니메이션
                     self._start_bracket_animation()
+
+        elif self.state == TournamentState.TENACITY_RETRY:
+            # 집념 퍽 재시작 연출 (2초 대기 후 재시작)
+            self.tenacity_timer += dt
+            if self.tenacity_timer >= 2.0:
+                self.tenacity_triggered = False
+                # 배틀 재시작
+                self._start_battle(self.selected_match)
 
         elif self.state == TournamentState.VICTORY_CELEBRATION:
             self.victory_timer += dt
@@ -4795,6 +4971,8 @@ class ColosseumsArena:
             self._draw_skill_reveal()
         elif self.state == TournamentState.PRISON_SELECT:
             self._draw_prison_select()
+        elif self.state == TournamentState.TENACITY_RETRY:
+            self._draw_tenacity_retry()
         else:
             self._draw_bracket()
 
@@ -6744,8 +6922,16 @@ class ColosseumsArena:
     # 투기장 퍽 선택 시스템
     # ========================================================================
     def _build_perk_pool(self):
-        """현재 배팅 영웅에 맞는 퍽 풀 구성 (기본 퍽 + 미보유 스킬)"""
-        pool = list(ARENA_PERK_POOL)  # 기본 4개 퍽
+        """현재 배팅 영웅에 맞는 퍽 풀 구성 (기본 퍽 + 미보유 스킬, 이미 선택한 퍽 제외)"""
+        # 이미 보유한 퍽 ID 수집
+        owned_perk_ids = set()
+        if self.bet_hero:
+            hero_id = self.bet_hero["id"]
+            for perk in self.hero_perks.get(hero_id, []):
+                owned_perk_ids.add(perk["id"])
+
+        # 기본 퍽 풀에서 이미 보유한 것 제외
+        pool = [p for p in ARENA_PERK_POOL if p["id"] not in owned_perk_ids]
 
         # 영웅의 미선택 스킬을 퍽 옵션으로 추가
         if self.bet_hero and HERO_SKILLS_AVAILABLE:
@@ -6758,8 +6944,6 @@ class ColosseumsArena:
                 if len(skills) > other_skill_idx:
                     other_skill = skills[other_skill_idx]
                     hero_color = tuple(self.bet_hero.get("color", (200, 200, 100)))
-                    # 스킬 설명 요약 (너무 길면 카드에 안 들어감)
-                    short_desc = other_skill.korean_name
                     pool.append({
                         "id": f"skill_{other_skill.skill_id}",
                         "name": other_skill.korean_name,
@@ -6870,18 +7054,33 @@ class ColosseumsArena:
             "dash_cooldown": 1.0,
             "skill_cooldown": 1.0,
             "guard_cooldown": 1.0,
+            "dash_tokens": 0,           # 추가 대쉬 토큰 수
+            "dash_distance": 1.0,       # 대쉬 거리 배율
+            "retry_chance": 0.0,        # 패배 시 재시작 확률
+            "guard_patrol": False,      # 호위무사 순찰 모드
+            "magic_immunity": 0.0,      # 타격 시 마법 면역 확률
         }
         for perk in perks:
             etype = perk["effect_type"]
             val = perk["value"]
             if etype == "move_speed":
-                mults["move_speed"] += val          # +15% → 1.15
+                mults["move_speed"] += val
             elif etype == "dash_cooldown":
-                mults["dash_cooldown"] -= val       # -15% → 0.85
+                mults["dash_cooldown"] -= val
             elif etype == "skill_cooldown":
-                mults["skill_cooldown"] -= val      # -10% → 0.90
+                mults["skill_cooldown"] -= val
             elif etype == "guard_cooldown":
-                mults["guard_cooldown"] -= val      # -10% → 0.90
+                mults["guard_cooldown"] -= val
+            elif etype == "dash_token":
+                mults["dash_tokens"] += int(val)
+            elif etype == "dash_distance":
+                mults["dash_distance"] += val
+            elif etype == "retry_chance":
+                mults["retry_chance"] = val
+            elif etype == "guard_patrol":
+                mults["guard_patrol"] = True
+            elif etype == "magic_immunity":
+                mults["magic_immunity"] = val
         return mults
 
     def _draw_perk_icon_swift_foot(self, surf, cx, cy, r, ss):
@@ -6976,6 +7175,143 @@ class ColosseumsArena:
         ]
         pygame.draw.polygon(surf, (255, 200, 200, 200), tri_points)
 
+    def _draw_perk_icon_shadow_step(self, surf, cx, cy, r, ss):
+        """잔상술 아이콘 - 겹쳐진 그림자 (잔상 3개)"""
+        color = (80, 200, 180)
+        s = r * ss
+        # 3개의 잔상 (점점 진해짐)
+        for i in range(3):
+            offset_x = int(s * 0.25 * (2 - i))
+            alpha = 60 + i * 70  # 60, 130, 200
+            body_w = int(s * 0.3)
+            body_h = int(s * 0.6)
+            bx = cx - body_w // 2 - offset_x
+            by = cy - body_h // 2
+            pygame.draw.rect(surf, (*color, alpha), (bx, by, body_w, body_h),
+                             border_radius=max(1, int(body_w * 0.3)))
+            # 머리
+            head_r = int(s * 0.15)
+            pygame.draw.circle(surf, (*color, alpha), (bx + body_w // 2, by - head_r + 2), head_r)
+        # "+1" 텍스트 효과 (우측 상단)
+        plus_r = int(s * 0.2)
+        pygame.draw.circle(surf, (255, 255, 255, 200), (cx + int(s * 0.5), cy - int(s * 0.4)), plus_r)
+        lw = max(1, int(plus_r * 0.4))
+        px, py = cx + int(s * 0.5), cy - int(s * 0.4)
+        pygame.draw.line(surf, (80, 200, 180, 255), (px - plus_r + 2, py), (px + plus_r - 2, py), lw)
+        pygame.draw.line(surf, (80, 200, 180, 255), (px, py - plus_r + 2), (px, py + plus_r - 2), lw)
+
+    def _draw_perk_icon_storm_rush(self, surf, cx, cy, r, ss):
+        """폭풍질주 아이콘 - 화살표 + 바람 줄"""
+        color = (50, 180, 255)
+        s = r * ss
+        # 큰 화살표 (→)
+        arrow_y = cy
+        arrow_left = cx - int(s * 0.6)
+        arrow_right = cx + int(s * 0.3)
+        arrow_w = max(2, int(s * 0.2))
+        pygame.draw.line(surf, (*color, 230), (arrow_left, arrow_y), (arrow_right, arrow_y), arrow_w)
+        # 화살표 머리
+        head_s = int(s * 0.35)
+        tip_x = cx + int(s * 0.6)
+        pygame.draw.polygon(surf, (*color, 230), [
+            (tip_x, arrow_y),
+            (arrow_right, arrow_y - head_s),
+            (arrow_right, arrow_y + head_s),
+        ])
+        # 바람 줄 3개
+        for i in range(3):
+            wy = cy - int(s * 0.4) + i * int(s * 0.4)
+            w_alpha = 120 - i * 20
+            wx_start = cx - int(s * 0.7)
+            wx_end = cx - int(s * 0.2)
+            pygame.draw.line(surf, (*color, w_alpha), (wx_start, wy), (wx_end, wy), max(1, int(s * 0.06)))
+
+    def _draw_perk_icon_tenacity(self, surf, cx, cy, r, ss):
+        """집념 아이콘 - 불꽃 + 주먹"""
+        color = (255, 200, 60)
+        s = r * ss
+        # 불꽃 (아래에서 위로)
+        flame_points = [
+            (cx, cy - int(s * 0.75)),
+            (cx + int(s * 0.35), cy - int(s * 0.3)),
+            (cx + int(s * 0.2), cy + int(s * 0.1)),
+            (cx + int(s * 0.4), cy + int(s * 0.5)),
+            (cx, cy + int(s * 0.3)),
+            (cx - int(s * 0.4), cy + int(s * 0.5)),
+            (cx - int(s * 0.2), cy + int(s * 0.1)),
+            (cx - int(s * 0.35), cy - int(s * 0.3)),
+        ]
+        pygame.draw.polygon(surf, (*color, 180), flame_points)
+        # 안쪽 밝은 불꽃
+        inner_points = [
+            (cx, cy - int(s * 0.45)),
+            (cx + int(s * 0.15), cy - int(s * 0.1)),
+            (cx + int(s * 0.2), cy + int(s * 0.2)),
+            (cx, cy + int(s * 0.1)),
+            (cx - int(s * 0.2), cy + int(s * 0.2)),
+            (cx - int(s * 0.15), cy - int(s * 0.1)),
+        ]
+        pygame.draw.polygon(surf, (255, 240, 150, 200), inner_points)
+
+    def _draw_perk_icon_patrol(self, surf, cx, cy, r, ss):
+        """순찰명령 아이콘 - 방패 + 화살표 순환"""
+        color = (200, 150, 80)
+        s = r * ss
+        # 작은 방패
+        shield_s = int(s * 0.35)
+        shield_pts = [
+            (cx, cy - shield_s),
+            (cx + int(shield_s * 0.8), cy - int(shield_s * 0.4)),
+            (cx + int(shield_s * 0.6), cy + int(shield_s * 0.5)),
+            (cx, cy + shield_s),
+            (cx - int(shield_s * 0.6), cy + int(shield_s * 0.5)),
+            (cx - int(shield_s * 0.8), cy - int(shield_s * 0.4)),
+        ]
+        pygame.draw.polygon(surf, (*color, 100), shield_pts)
+        pygame.draw.polygon(surf, (*color, 220), shield_pts, max(2, int(2 * ss / 3)))
+        # 순환 화살표 (방패 주변)
+        orbit_r = int(s * 0.65)
+        arrow_pts = []
+        for t in range(20):
+            frac = t / 19.0
+            angle = -math.pi / 2 + frac * math.pi * 1.5
+            px = cx + int(_cos(angle) * orbit_r)
+            py = cy + int(_sin(angle) * orbit_r)
+            arrow_pts.append((px, py))
+        if len(arrow_pts) >= 2:
+            pygame.draw.lines(surf, (*color, 200), False, arrow_pts, max(2, int(2 * ss / 3)))
+        # 화살표 머리
+        if arrow_pts:
+            end = arrow_pts[-1]
+            arr_s = int(s * 0.18)
+            arr_angle = math.atan2(arrow_pts[-1][1] - arrow_pts[-2][1],
+                                    arrow_pts[-1][0] - arrow_pts[-2][0])
+            a1 = (end[0] - int(_cos(arr_angle - 0.6) * arr_s),
+                  end[1] - int(_sin(arr_angle - 0.6) * arr_s))
+            a2 = (end[0] - int(_cos(arr_angle + 0.6) * arr_s),
+                  end[1] - int(_sin(arr_angle + 0.6) * arr_s))
+            pygame.draw.polygon(surf, (*color, 230), [end, a1, a2])
+
+    def _draw_perk_icon_magic_barrier(self, surf, cx, cy, r, ss):
+        """마법결계 아이콘 - 반투명 보호막 원"""
+        color = (120, 200, 255)
+        s = r * ss
+        # 외곽 보호막 원
+        shield_r = int(s * 0.65)
+        pygame.draw.circle(surf, (*color, 80), (cx, cy), shield_r)
+        pygame.draw.circle(surf, (*color, 200), (cx, cy), shield_r, max(2, int(3 * ss / 3)))
+        # 안쪽 보호막 원
+        inner_r = int(s * 0.45)
+        pygame.draw.circle(surf, (*color, 60), (cx, cy), inner_r)
+        pygame.draw.circle(surf, (*color, 150), (cx, cy), inner_r, max(1, int(2 * ss / 3)))
+        # 중심 별 모양 (마법 문양)
+        star_r = int(s * 0.2)
+        for i in range(6):
+            angle = i * math.pi / 3
+            ex = cx + int(_cos(angle) * star_r)
+            ey = cy + int(_sin(angle) * star_r)
+            pygame.draw.line(surf, (200, 240, 255, 220), (cx, cy), (ex, ey), max(1, int(2 * ss / 3)))
+
     def _draw_perk_icon_skill(self, surf, cx, cy, r, ss):
         """스킬 추가 아이콘 - 검 (⚔) 모양"""
         color = (255, 220, 100)  # 골드
@@ -7019,6 +7355,11 @@ class ColosseumsArena:
             "quick_reflex": self._draw_perk_icon_quick_reflex,
             "spirit_flow": self._draw_perk_icon_spirit_flow,
             "command": self._draw_perk_icon_command,
+            "shadow_step": self._draw_perk_icon_shadow_step,
+            "storm_rush": self._draw_perk_icon_storm_rush,
+            "tenacity": self._draw_perk_icon_tenacity,
+            "patrol": self._draw_perk_icon_patrol,
+            "magic_barrier": self._draw_perk_icon_magic_barrier,
         }
         # 스킬 타입 퍽은 별(★) 아이콘으로 표시
         if perk_id.startswith("skill_"):
@@ -7031,6 +7372,32 @@ class ColosseumsArena:
         # smoothscale로 축소 → 안티앨리어싱 적용
         result = pygame.transform.smoothscale(icon_surf, (size, size))
         surface.blit(result, (cx - size // 2, cy - size // 2))
+
+    def _draw_tenacity_retry(self):
+        """집념 퍽 재시작 연출"""
+        self.screen.fill(ET["bg_dark"])
+        timer = getattr(self, 'tenacity_timer', 0.0)
+        alpha = min(255, int(timer * 200))
+
+        if self.fonts and "large" in self.fonts:
+            text = "집념 발동!"
+            # 펄스 효과
+            pulse = 1.0 + 0.1 * _sin(timer * 8)
+            surf, _ = self.fonts["large"].render(text, (255, 200, 60))
+            surf = pygame.transform.smoothscale(surf,
+                (int(surf.get_width() * pulse), int(surf.get_height() * pulse)))
+            surf.set_alpha(alpha)
+            self.screen.blit(surf,
+                (SCREEN_WIDTH // 2 - surf.get_width() // 2,
+                 SCREEN_HEIGHT // 2 - 60))
+
+        if self.fonts and "medium" in self.fonts:
+            sub_text = "재시작합니다..."
+            sub_surf, _ = self.fonts["medium"].render(sub_text, ET["gold_bright"])
+            sub_surf.set_alpha(min(255, max(0, int((timer - 0.5) * 400))))
+            self.screen.blit(sub_surf,
+                (SCREEN_WIDTH // 2 - sub_surf.get_width() // 2,
+                 SCREEN_HEIGHT // 2 + 20))
 
     def _draw_perk_select(self):
         """퍽 선택 화면 그리기 (스테이지 인게임 퍽 UI 스타일)"""

@@ -18860,6 +18860,7 @@ arena_bottom_dash_cooldown = 0       # 하단 영웅 대쉬 쿨다운 (프레임
 arena_bottom_dash_afterimages = []   # 하단 영웅 대쉬 잔상
 arena_bottom_dash_charges = 1        # 하단 영웅 대쉬 충전 (플레이어)
 arena_bottom_max_dash_charges = 1    # 하단 영웅 대쉬 최대 토큰 수 (기본 1, 퍽으로 증가 가능)
+arena_top_max_dash_charges = 1       # 상단 영웅 대쉬 최대 토큰 수 (기본 1, 퍽으로 증가 가능)
 arena_bottom_dash_charge_timer = 0   # 하단 영웅 대쉬 충전 타이머
 arena_bottom_dash_duration_frames = 15  # 하단 영웅 대쉬 지속 시간 (동적 계산됨)
 arena_bottom_dash_stun_timer = 0     # 하단 영웅 대쉬 후딜 타이머
@@ -18878,6 +18879,17 @@ arena_perk_skill_cd_mult_bottom = 1.0
 arena_perk_guard_cd_mult_top = 1.0   # 상단 호위무사쿨 배율
 arena_perk_guard_cd_mult_bottom = 1.0
 arena_active_hero_perks = []         # TAB 표시용: 플레이어(하단) 영웅 보유 퍽 목록
+# 신규 퍽 효과 변수
+arena_perk_dash_distance_mult_top = 1.0     # 상단 대쉬 거리 배율
+arena_perk_dash_distance_mult_bottom = 1.0  # 하단 대쉬 거리 배율
+arena_perk_retry_chance = 0.0               # 패배 시 재시작 확률
+arena_perk_guard_patrol_top = False          # 상단 호위무사 순찰 모드
+arena_perk_guard_patrol_bottom = False       # 하단 호위무사 순찰 모드
+arena_perk_magic_immunity_chance_top = 0.0   # 상단 마법 면역 확률
+arena_perk_magic_immunity_chance_bottom = 0.0  # 하단 마법 면역 확률
+arena_magic_immunity_timer_top = 0.0         # 상단 마법 면역 남은 시간 (초)
+arena_magic_immunity_timer_bottom = 0.0      # 하단 마법 면역 남은 시간 (초)
+ARENA_MAGIC_IMMUNITY_DURATION = 6.0          # 마법 면역 지속 시간 (초)
 
 def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     """배틀 시작 시 hero_perks에서 멀티플라이어 계산 후 전역 변수에 반영"""
@@ -18886,6 +18898,12 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     global arena_perk_skill_cd_mult_top, arena_perk_skill_cd_mult_bottom
     global arena_perk_guard_cd_mult_top, arena_perk_guard_cd_mult_bottom
     global arena_active_hero_perks
+    global arena_perk_dash_distance_mult_top, arena_perk_dash_distance_mult_bottom
+    global arena_perk_retry_chance
+    global arena_perk_guard_patrol_top, arena_perk_guard_patrol_bottom
+    global arena_perk_magic_immunity_chance_top, arena_perk_magic_immunity_chance_bottom
+    global arena_magic_immunity_timer_top, arena_magic_immunity_timer_bottom
+    global arena_bottom_max_dash_charges, arena_top_max_dash_charges
 
     # 초기화
     arena_perk_speed_mult_top = 1.0
@@ -18896,6 +18914,15 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_perk_skill_cd_mult_bottom = 1.0
     arena_perk_guard_cd_mult_top = 1.0
     arena_perk_guard_cd_mult_bottom = 1.0
+    arena_perk_dash_distance_mult_top = 1.0
+    arena_perk_dash_distance_mult_bottom = 1.0
+    arena_perk_retry_chance = 0.0
+    arena_perk_guard_patrol_top = False
+    arena_perk_guard_patrol_bottom = False
+    arena_perk_magic_immunity_chance_top = 0.0
+    arena_perk_magic_immunity_chance_bottom = 0.0
+    arena_magic_immunity_timer_top = 0.0
+    arena_magic_immunity_timer_bottom = 0.0
 
     if not arena_obj or not hasattr(arena_obj, 'get_hero_perk_multipliers'):
         return
@@ -18906,6 +18933,10 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_perk_dash_cd_mult_top = top_mults["dash_cooldown"]
     arena_perk_skill_cd_mult_top = top_mults["skill_cooldown"]
     arena_perk_guard_cd_mult_top = top_mults["guard_cooldown"]
+    arena_perk_dash_distance_mult_top = top_mults["dash_distance"]
+    arena_perk_guard_patrol_top = top_mults["guard_patrol"]
+    arena_perk_magic_immunity_chance_top = top_mults["magic_immunity"]
+    arena_top_max_dash_charges = 1 + top_mults["dash_tokens"]
 
     # 하단 영웅 퍽
     bottom_mults = arena_obj.get_hero_perk_multipliers(bottom_hero_id)
@@ -18913,16 +18944,31 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_perk_dash_cd_mult_bottom = bottom_mults["dash_cooldown"]
     arena_perk_skill_cd_mult_bottom = bottom_mults["skill_cooldown"]
     arena_perk_guard_cd_mult_bottom = bottom_mults["guard_cooldown"]
+    arena_perk_dash_distance_mult_bottom = bottom_mults["dash_distance"]
+    arena_perk_guard_patrol_bottom = bottom_mults["guard_patrol"]
+    arena_perk_magic_immunity_chance_bottom = bottom_mults["magic_immunity"]
+    arena_perk_retry_chance = bottom_mults["retry_chance"]  # 하단(플레이어)만
+    arena_bottom_max_dash_charges = 1 + bottom_mults["dash_tokens"]
 
     # 스킬 매니저 game_state에 퍽 멀티플라이어 전달
     if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
         arena_skill_manager.game_state['perk_skill_cd_mult_top'] = arena_perk_skill_cd_mult_top
         arena_skill_manager.game_state['perk_skill_cd_mult_bottom'] = arena_perk_skill_cd_mult_bottom
+        # 마법결계: 면역 확률 + 타이머 초기화
+        arena_skill_manager.game_state['magic_immunity_chance_top'] = arena_perk_magic_immunity_chance_top
+        arena_skill_manager.game_state['magic_immunity_chance_bottom'] = arena_perk_magic_immunity_chance_bottom
+        arena_skill_manager.game_state['magic_immunity_top'] = False
+        arena_skill_manager.game_state['magic_immunity_bottom'] = False
+        arena_skill_manager.game_state['magic_immunity_timer_top'] = 0.0
+        arena_skill_manager.game_state['magic_immunity_timer_bottom'] = 0.0
 
-    # 호위무사 시스템에 쿨타임 멀티플라이어 전달
+    # 호위무사 시스템에 퍽 전달
     if arena_guard_system and hasattr(arena_guard_system, 'guard_cd_mult_top'):
         arena_guard_system.guard_cd_mult_top = arena_perk_guard_cd_mult_top
         arena_guard_system.guard_cd_mult_bottom = arena_perk_guard_cd_mult_bottom
+    if arena_guard_system:
+        arena_guard_system.patrol_mode_top = arena_perk_guard_patrol_top
+        arena_guard_system.patrol_mode_bottom = arena_perk_guard_patrol_bottom
 
     # TAB 표시용: 하단(플레이어) 영웅 퍽 데이터 저장
     if arena_obj and hasattr(arena_obj, 'hero_perks'):
@@ -18935,7 +18981,8 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
           f"호위쿨x{arena_perk_guard_cd_mult_top:.2f}")
     print(f"[ArenaPerk] 하단({bottom_hero_id}): 이속x{arena_perk_speed_mult_bottom:.2f} "
           f"대쉬쿨x{arena_perk_dash_cd_mult_bottom:.2f} 스킬쿨x{arena_perk_skill_cd_mult_bottom:.2f} "
-          f"호위쿨x{arena_perk_guard_cd_mult_bottom:.2f}")
+          f"호위쿨x{arena_perk_guard_cd_mult_bottom:.2f} 대쉬토큰:{arena_bottom_max_dash_charges} "
+          f"대쉬거리x{arena_perk_dash_distance_mult_bottom:.2f} 재시작:{arena_perk_retry_chance:.0%}")
 
 def reset_arena_perks():
     """배틀 종료 시 퍽 멀티플라이어 초기화"""
@@ -18944,6 +18991,11 @@ def reset_arena_perks():
     global arena_perk_skill_cd_mult_top, arena_perk_skill_cd_mult_bottom
     global arena_perk_guard_cd_mult_top, arena_perk_guard_cd_mult_bottom
     global arena_active_hero_perks
+    global arena_perk_dash_distance_mult_top, arena_perk_dash_distance_mult_bottom
+    global arena_perk_retry_chance
+    global arena_perk_guard_patrol_top, arena_perk_guard_patrol_bottom
+    global arena_perk_magic_immunity_chance_top, arena_perk_magic_immunity_chance_bottom
+    global arena_magic_immunity_timer_top, arena_magic_immunity_timer_bottom
     arena_perk_speed_mult_top = 1.0
     arena_perk_speed_mult_bottom = 1.0
     arena_perk_dash_cd_mult_top = 1.0
@@ -18952,6 +19004,15 @@ def reset_arena_perks():
     arena_perk_skill_cd_mult_bottom = 1.0
     arena_perk_guard_cd_mult_top = 1.0
     arena_perk_guard_cd_mult_bottom = 1.0
+    arena_perk_dash_distance_mult_top = 1.0
+    arena_perk_dash_distance_mult_bottom = 1.0
+    arena_perk_retry_chance = 0.0
+    arena_perk_guard_patrol_top = False
+    arena_perk_guard_patrol_bottom = False
+    arena_perk_magic_immunity_chance_top = 0.0
+    arena_perk_magic_immunity_chance_bottom = 0.0
+    arena_magic_immunity_timer_top = 0.0
+    arena_magic_immunity_timer_bottom = 0.0
     arena_active_hero_perks = []
 
 # 투기장 영웅 말풍선 시스템
@@ -19370,9 +19431,9 @@ def arena_trigger_top_hero_dash(target_x: float) -> bool:
     arena_top_dash_direction = direction
     arena_top_dash_target_x = float(max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, target_x)))
 
-    # 보스와 동일한 동적 지속시간 계산 (거리 기반)
-    estimated_duration = dash_distance / 30.0  # 평균 속도 기반
-    arena_top_dash_duration_frames = int(max(10, min(estimated_duration, 40)))  # 10~40 프레임
+    # 보스와 동일한 동적 지속시간 계산 (거리 기반) + 대쉬 거리 퍽 적용
+    estimated_duration = (dash_distance / 30.0) * arena_perk_dash_distance_mult_top
+    arena_top_dash_duration_frames = int(max(10, min(estimated_duration, 60)))  # 10~60 프레임
     arena_top_dash_timer = arena_top_dash_duration_frames
     arena_top_dashing = True
 
@@ -19497,9 +19558,9 @@ def arena_trigger_bottom_hero_dash_ai(target_x: float) -> bool:
     arena_bottom_dash_direction = direction
     arena_bottom_dash_target_x = float(max(PADDLE_WIDTH // 2, min(WIDTH - PADDLE_WIDTH // 2, target_x)))
 
-    # 보스와 동일한 동적 지속시간 계산 (거리 기반)
-    estimated_duration = dash_distance / 30.0  # 평균 속도 기반
-    arena_bottom_dash_duration_frames = int(max(10, min(estimated_duration, 40)))  # 10~40 프레임
+    # 보스와 동일한 동적 지속시간 계산 (거리 기반) + 대쉬 거리 퍽 적용
+    estimated_duration = (dash_distance / 30.0) * arena_perk_dash_distance_mult_bottom
+    arena_bottom_dash_duration_frames = int(max(10, min(estimated_duration, 60)))  # 10~60 프레임
     arena_bottom_dash_timer = arena_bottom_dash_duration_frames
     arena_bottom_dashing = True
     arena_bottom_dash_charges -= 1  # 대쉬 토큰 소모
@@ -19544,10 +19605,10 @@ def arena_trigger_bottom_hero_dash(direction: int) -> bool:
     target_x = float(max(PADDLE_WIDTH // 2, min(WIDTH - PADDLE_WIDTH // 2, target_x)))
     arena_bottom_dash_target_x = target_x
 
-    # 보스와 동일한 동적 지속시간 계산 (거리 기반)
+    # 보스와 동일한 동적 지속시간 계산 (거리 기반) + 대쉬 거리 퍽 적용
     dash_distance = abs(target_x - PLAYER.centerx)
-    estimated_duration = dash_distance / 30.0  # 평균 속도 기반
-    arena_bottom_dash_duration_frames = int(max(10, min(estimated_duration, 40)))  # 10~40 프레임
+    estimated_duration = (dash_distance / 30.0) * arena_perk_dash_distance_mult_bottom
+    arena_bottom_dash_duration_frames = int(max(10, min(estimated_duration, 60)))  # 10~60 프레임
     arena_bottom_dash_timer = arena_bottom_dash_duration_frames
     arena_bottom_dashing = True
     arena_bottom_dash_charges -= 1
@@ -88076,6 +88137,16 @@ def draw_objects():
                         stun_effect=(arena_top_dash_stun_timer > 0)
                     )
 
+            # 마법결계 보호막 이펙트 (상단 영웅)
+            if arena_skill_manager and arena_skill_manager.game_state.get('magic_immunity_top', False):
+                _imm_timer = arena_skill_manager.game_state.get('magic_immunity_timer_top', 0.0)
+                _imm_alpha = min(180, int(80 + 100 * abs(math.sin(_imm_timer * 3))))
+                _imm_radius = max(_top_draw_width, _top_draw_height) // 2 + 12
+                _imm_surf = pygame.Surface((_imm_radius * 2 + 10, _imm_radius * 2 + 10), pygame.SRCALPHA)
+                pygame.draw.circle(_imm_surf, (100, 180, 255, _imm_alpha), (_imm_radius + 5, _imm_radius + 5), _imm_radius, 3)
+                pygame.draw.circle(_imm_surf, (150, 220, 255, _imm_alpha // 2), (_imm_radius + 5, _imm_radius + 5), _imm_radius - 4, 2)
+                SCREEN.blit(_imm_surf, (int(_top_final_x) - _imm_radius - 5, int(_top_final_y) - _imm_radius - 5))
+
             # 🔥 뿔 박치기 착지 충격파 이펙트 렌더링
             if arena_skill_manager:
                 _shockwave = arena_skill_manager.game_state.get('horn_charge_impact_shockwave')
@@ -89641,6 +89712,16 @@ def draw_objects():
                         scale_mode="paddle",
                         stun_effect=(arena_bottom_dash_stun_timer > 0)
                     )
+
+            # 마법결계 보호막 이펙트 (하단 영웅)
+            if arena_skill_manager and arena_skill_manager.game_state.get('magic_immunity_bottom', False):
+                _imm_timer = arena_skill_manager.game_state.get('magic_immunity_timer_bottom', 0.0)
+                _imm_alpha = min(180, int(80 + 100 * abs(math.sin(_imm_timer * 3))))
+                _imm_radius = max(_bottom_draw_width, _bottom_draw_height) // 2 + 12
+                _imm_surf = pygame.Surface((_imm_radius * 2 + 10, _imm_radius * 2 + 10), pygame.SRCALPHA)
+                pygame.draw.circle(_imm_surf, (100, 180, 255, _imm_alpha), (_imm_radius + 5, _imm_radius + 5), _imm_radius, 3)
+                pygame.draw.circle(_imm_surf, (150, 220, 255, _imm_alpha // 2), (_imm_radius + 5, _imm_radius + 5), _imm_radius - 4, 2)
+                SCREEN.blit(_imm_surf, (int(_final_x) - _imm_radius - 5, int(_final_y) - _imm_radius - 5))
 
             # 홀로그램 미표시 중에도 투기장 모드이므로 기본 패들 숨김
             _arena_paddle_drawn = True
@@ -120751,13 +120832,26 @@ def handle_ball():
                     bottom_wrapper, top_wrapper, ball_wrapper
                 )
                 if result:
-                    # 공 속도 변경 반영
-                    ball_vel[0] = ball_wrapper.vx
-                    ball_vel[1] = ball_wrapper.vy
-                    # 스킬 사운드 재생 + 말풍선 표시
-                    arena_play_skill_sound(result)
-                    if 'skill_korean_name' in result:
-                        arena_show_speech_bubble(False, result['skill_korean_name'], hero_id=hero_id)
+                    if result.get('blocked_by_immunity'):
+                        # 마법결계에 의해 스킬 차단됨 → "면역!" 말풍선
+                        arena_show_speech_bubble(True, '면역!', hero_id=arena_top_hero["id"] if arena_top_hero else None)
+                    else:
+                        # 공 속도 변경 반영
+                        ball_vel[0] = ball_wrapper.vx
+                        ball_vel[1] = ball_wrapper.vy
+                        # 스킬 사운드 재생 + 말풍선 표시
+                        arena_play_skill_sound(result)
+                        if 'skill_korean_name' in result:
+                            arena_show_speech_bubble(False, result['skill_korean_name'], hero_id=hero_id)
+
+                # 마법결계: 하단 영웅이 공을 쳤을 때 면역 트리거 판정
+                _imm_chance = arena_skill_manager.game_state.get('magic_immunity_chance_bottom', 0.0)
+                if _imm_chance > 0 and not arena_skill_manager.game_state.get('magic_immunity_bottom', False):
+                    if random.random() < _imm_chance:
+                        arena_skill_manager.game_state['magic_immunity_bottom'] = True
+                        arena_skill_manager.game_state['magic_immunity_timer_bottom'] = ARENA_MAGIC_IMMUNITY_DURATION
+                        arena_show_speech_bubble(False, '마법결계!', hero_id=hero_id)
+                        print(f"[마법결계] 하단 영웅 마법 면역 발동! ({ARENA_MAGIC_IMMUNITY_DURATION}초)")
             except Exception:
                 pass
 
@@ -121528,13 +121622,26 @@ def handle_ball():
                     top_wrapper, bottom_wrapper, ball_wrapper
                 )
                 if result:
-                    # 공 속도 변경 반영
-                    ball_vel[0] = ball_wrapper.vx
-                    ball_vel[1] = ball_wrapper.vy
-                    # 스킬 사운드 재생 + 말풍선 표시
-                    arena_play_skill_sound(result)
-                    if 'skill_korean_name' in result:
-                        arena_show_speech_bubble(True, result['skill_korean_name'], hero_id=hero_id)
+                    if result.get('blocked_by_immunity'):
+                        # 마법결계에 의해 스킬 차단됨 → "면역!" 말풍선
+                        arena_show_speech_bubble(False, '면역!', hero_id=arena_bottom_hero["id"] if arena_bottom_hero else None)
+                    else:
+                        # 공 속도 변경 반영
+                        ball_vel[0] = ball_wrapper.vx
+                        ball_vel[1] = ball_wrapper.vy
+                        # 스킬 사운드 재생 + 말풍선 표시
+                        arena_play_skill_sound(result)
+                        if 'skill_korean_name' in result:
+                            arena_show_speech_bubble(True, result['skill_korean_name'], hero_id=hero_id)
+
+                # 마법결계: 상단 영웅이 공을 쳤을 때 면역 트리거 판정
+                _imm_chance = arena_skill_manager.game_state.get('magic_immunity_chance_top', 0.0)
+                if _imm_chance > 0 and not arena_skill_manager.game_state.get('magic_immunity_top', False):
+                    if random.random() < _imm_chance:
+                        arena_skill_manager.game_state['magic_immunity_top'] = True
+                        arena_skill_manager.game_state['magic_immunity_timer_top'] = ARENA_MAGIC_IMMUNITY_DURATION
+                        arena_show_speech_bubble(True, '마법결계!', hero_id=hero_id)
+                        print(f"[마법결계] 상단 영웅 마법 면역 발동! ({ARENA_MAGIC_IMMUNITY_DURATION}초)")
             except Exception:
                 pass
 
@@ -133361,6 +133468,17 @@ def main(stage_num, new_boss_mode=False):
 
                     # 스킬 쿨다운/효과 업데이트
                     arena_skill_manager.update(dt, top_wrapper, bottom_wrapper, ball_wrapper)
+
+                    # 마법결계: 면역 타이머 감소
+                    for _imm_side in ('top', 'bottom'):
+                        _imm_key = f'magic_immunity_timer_{_imm_side}'
+                        _imm_t = arena_skill_manager.game_state.get(_imm_key, 0.0)
+                        if _imm_t > 0:
+                            _imm_t -= dt
+                            if _imm_t <= 0:
+                                _imm_t = 0.0
+                                arena_skill_manager.game_state[f'magic_immunity_{_imm_side}'] = False
+                            arena_skill_manager.game_state[_imm_key] = _imm_t
 
                     # 연화(maria) 스킬 시전 중 팔 올린 상태 유지
                     if arena_hero_paddle_renderer:

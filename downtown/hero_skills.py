@@ -7673,6 +7673,18 @@ class HeroSkillManager:
 
         for skill in skills:
             if skill.trigger == trigger and skill.can_use():
+                # 마법결계: 타겟에 마법 면역이 활성 상태면 스킬 차단
+                _target_side = 'top' if target_paddle.is_top else 'bottom'
+                if self.game_state.get(f'magic_immunity_{_target_side}', False):
+                    # 스킬 쿨다운 소모 (헛발)
+                    self.hero_global_cooldowns[hero_id] = self.HERO_SKILL_INTERVAL
+                    skill.current_cooldown = skill.cooldown
+                    return {
+                        'blocked_by_immunity': True,
+                        'skill_korean_name': skill.korean_name,
+                        'caster_is_top': caster_paddle.is_top
+                    }
+
                 # 타겟 패들 추적
                 self.game_state['target_is_top'] = target_paddle.is_top
 
