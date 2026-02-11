@@ -114747,15 +114747,15 @@ def _get_arena_speed_btn_layout():
         rgap = max(1, int(gap_base * scale))
         total_w = 3 * rw + 2 * rgap
 
-        # 좌측 필러 배경 중앙 (게임 영역 왼쪽 여백의 중심)
-        pillar_center_x = GAME_OFFSET_X // 2
+        # 좌측 필러 배경 왼쪽 기준 (게임 영역 왼쪽 여백의 1/3 지점)
+        pillar_center_x = GAME_OFFSET_X // 3
         # 여백이 너무 좁으면 게임 영역 내 좌측 필러 사용
         if pillar_center_x < total_w // 2 + 4:
             pillar_center_x = GAME_OFFSET_X + int(40 * scale)
 
         sx = pillar_center_x - total_w // 2
-        # 하단 배치 (게임 영역 하단에서 약간 위)
-        sy = GAME_OFFSET_Y + int(700 * scale)
+        # 하단 배치 (게임 영역 하단 근처)
+        sy = GAME_OFFSET_Y + int(730 * scale)
     else:
         # 윈도우 모드: 좌측 필러 영역 내
         rw, rh, rgap = btn_w_base, btn_h_base, gap_base
