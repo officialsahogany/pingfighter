@@ -495,57 +495,101 @@ class AnimatedBackgroundStage30:
                 pygame.draw.line(surf, papyrus_light, (fx, fy), (fx + random.randint(-1, 1), fy + fl), 1)
         random.seed()
 
-        # ===== 2. 이집트 문양 패턴 (밴드 중앙에 배치) =====
+        # ===== 2. 이집트 문양 패턴 (4종 심볼 순환 배치) =====
         pattern_spacing = 36
         band_mid = t // 2  # 밴드 중심 (9px)
+        # 심볼 종류: 0=로터스, 1=호루스의눈, 2=앙크, 3=스카라베
+
+        def draw_hiero_symbol(sx, sy, sym_type, facing):
+            """히에로글리프 심볼 그리기. facing: 'up','down','left','right'"""
+            if sym_type == 0:
+                # 로터스 (3잎 부채꼴)
+                base_angle = {'up': -90, 'down': 90, 'left': 0, 'right': 180}[facing]
+                for leaf in [-30, 0, 30]:
+                    a = math.radians(leaf + base_angle)
+                    pygame.draw.line(surf, hiero, (sx, sy),
+                                     (sx + int(5 * math.cos(a)), sy + int(5 * math.sin(a))), 1)
+                pygame.draw.circle(surf, hiero_dark, (sx, sy), 1)
+            elif sym_type == 1:
+                # 호루스의 눈 (아몬드형 눈 + 눈물방울)
+                if facing in ('up', 'down'):
+                    # 수평 눈
+                    pygame.draw.ellipse(surf, hiero, (sx - 5, sy - 2, 10, 4), 1)
+                    pygame.draw.circle(surf, hiero_dark, (sx, sy), 1)  # 동공
+                    # 눈물방울 (아래쪽 꼬리)
+                    dy = 1 if facing == 'up' else -1
+                    pygame.draw.line(surf, hiero, (sx + 2, sy + dy), (sx + 4, sy + 4 * dy), 1)
+                    pygame.draw.line(surf, hiero, (sx + 4, sy + 4 * dy), (sx + 3, sy + 5 * dy), 1)
+                else:
+                    # 수직 눈
+                    pygame.draw.ellipse(surf, hiero, (sx - 2, sy - 5, 4, 10), 1)
+                    pygame.draw.circle(surf, hiero_dark, (sx, sy), 1)
+                    dx = 1 if facing == 'left' else -1
+                    pygame.draw.line(surf, hiero, (sx + dx, sy + 2), (sx + 4 * dx, sy + 4), 1)
+                    pygame.draw.line(surf, hiero, (sx + 4 * dx, sy + 4), (sx + 5 * dx, sy + 3), 1)
+            elif sym_type == 2:
+                # 앙크 (생명의 십자가)
+                if facing in ('up', 'down'):
+                    # 수직 앙크
+                    d = -1 if facing == 'up' else 1
+                    pygame.draw.ellipse(surf, hiero, (sx - 2, sy - 5 * d, 5, 4), 1)  # 고리
+                    pygame.draw.line(surf, hiero, (sx, sy - 2 * d), (sx, sy + 5 * d), 1)  # 세로줄
+                    pygame.draw.line(surf, hiero, (sx - 3, sy), (sx + 3, sy), 1)  # 가로줄
+                else:
+                    # 수평 앙크
+                    d = -1 if facing == 'left' else 1
+                    pygame.draw.ellipse(surf, hiero, (sx - 5 * d, sy - 2, 4, 5), 1)
+                    pygame.draw.line(surf, hiero, (sx - 2 * d, sy), (sx + 5 * d, sy), 1)
+                    pygame.draw.line(surf, hiero, (sx, sy - 3), (sx, sy + 3), 1)
+            elif sym_type == 3:
+                # 스카라베 (풍뎅이 실루엣)
+                if facing in ('up', 'down'):
+                    pygame.draw.ellipse(surf, hiero_dark, (sx - 3, sy - 2, 6, 5))  # 몸통
+                    pygame.draw.ellipse(surf, hiero, (sx - 3, sy - 2, 6, 5), 1)   # 외곽선
+                    pygame.draw.circle(surf, hiero, (sx, sy - 4), 2, 1)             # 머리
+                    # 날개 (좌우 짧은 선)
+                    pygame.draw.line(surf, hiero, (sx - 3, sy - 1), (sx - 6, sy - 3), 1)
+                    pygame.draw.line(surf, hiero, (sx + 3, sy - 1), (sx + 6, sy - 3), 1)
+                else:
+                    pygame.draw.ellipse(surf, hiero_dark, (sx - 2, sy - 3, 5, 6))
+                    pygame.draw.ellipse(surf, hiero, (sx - 2, sy - 3, 5, 6), 1)
+                    dx = -1 if facing == 'left' else 1
+                    pygame.draw.circle(surf, hiero, (sx - 4 * dx, sy), 2, 1)
+                    pygame.draw.line(surf, hiero, (sx - dx, sy - 3), (sx - 3 * dx, sy - 6), 1)
+                    pygame.draw.line(surf, hiero, (sx - dx, sy + 3), (sx - 3 * dx, sy + 6), 1)
 
         # 상단 변
+        idx = 0
         for px in range(bx + 25, br - 25, pattern_spacing):
-            cy_p = by + band_mid
-            for leaf_angle in [-30, 0, 30]:
-                a = math.radians(leaf_angle - 90)
-                lx = px + int(5 * math.cos(a))
-                ly = cy_p + int(5 * math.sin(a))
-                pygame.draw.line(surf, hiero, (px, cy_p), (lx, ly), 1)
-            pygame.draw.circle(surf, hiero_dark, (px, cy_p), 1)
+            draw_hiero_symbol(px, by + band_mid, idx % 4, 'up')
+            idx += 1
+            # 심볼 사이 구분 점선
             if px + pattern_spacing // 2 < br - 25:
-                for dot in range(4):
-                    dx = px + pattern_spacing // 2 - 6 + dot * 4
-                    pygame.draw.circle(surf, hiero_dark, (dx, cy_p), 0)
+                for dot in range(3):
+                    dx = px + pattern_spacing // 2 - 4 + dot * 4
+                    pygame.draw.circle(surf, hiero_dark, (dx, by + band_mid), 0)
 
         # 하단 변
+        idx = 2  # 상단과 다른 심볼부터 시작
         for px in range(bx + 25, br - 25, pattern_spacing):
-            cy_p = bb - band_mid
-            for leaf_angle in [-30, 0, 30]:
-                a = math.radians(leaf_angle + 90)
-                lx = px + int(5 * math.cos(a))
-                ly = cy_p + int(5 * math.sin(a))
-                pygame.draw.line(surf, hiero, (px, cy_p), (lx, ly), 1)
-            pygame.draw.circle(surf, hiero_dark, (px, cy_p), 1)
+            draw_hiero_symbol(px, bb - band_mid, idx % 4, 'down')
+            idx += 1
             if px + pattern_spacing // 2 < br - 25:
-                for dot in range(4):
-                    dx = px + pattern_spacing // 2 - 6 + dot * 4
-                    pygame.draw.circle(surf, hiero_dark, (dx, cy_p), 0)
+                for dot in range(3):
+                    dx = px + pattern_spacing // 2 - 4 + dot * 4
+                    pygame.draw.circle(surf, hiero_dark, (dx, bb - band_mid), 0)
 
         # 좌측 변
+        idx = 1
         for py in range(by + 25, bb - 25, pattern_spacing):
-            cx_p = bx + band_mid
-            for leaf_angle in [-30, 0, 30]:
-                a = math.radians(leaf_angle)
-                lx = cx_p + int(5 * math.cos(a))
-                ly = py + int(5 * math.sin(a))
-                pygame.draw.line(surf, hiero, (cx_p, py), (lx, ly), 1)
-            pygame.draw.circle(surf, hiero_dark, (cx_p, py), 1)
+            draw_hiero_symbol(bx + band_mid, py, idx % 4, 'left')
+            idx += 1
 
         # 우측 변
+        idx = 3
         for py in range(by + 25, bb - 25, pattern_spacing):
-            cx_p = br - band_mid
-            for leaf_angle in [-30, 0, 30]:
-                a = math.radians(leaf_angle + 180)
-                lx = cx_p + int(5 * math.cos(a))
-                ly = py + int(5 * math.sin(a))
-                pygame.draw.line(surf, hiero, (cx_p, py), (lx, ly), 1)
-            pygame.draw.circle(surf, hiero_dark, (cx_p, py), 1)
+            draw_hiero_symbol(br - band_mid, py, idx % 4, 'right')
+            idx += 1
 
         # ===== 3. 코너 꼭지점 장식 (이중 직각 + 다이아몬드) =====
         corner_arm = 18
