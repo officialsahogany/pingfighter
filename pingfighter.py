@@ -19748,17 +19748,23 @@ def arena_trigger_top_hero_dash(target_x: float) -> bool:
         return False
 
     direction = 1 if target_x > BOSS.centerx else -1
-    dash_distance = abs(target_x - BOSS.centerx)
+    base_distance = abs(target_x - BOSS.centerx)
 
     # 최소 거리 체크
-    if dash_distance < 30:
+    if base_distance < 30:
         return False
 
-    arena_top_dash_direction = direction
-    arena_top_dash_target_x = float(max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, target_x)))
+    # 폭풍질주 퍽: 실제 대쉬 거리(px) 증가
+    dash_distance = base_distance * arena_perk_dash_distance_mult_top
+    extended_target_x = BOSS.centerx + direction * dash_distance
+    extended_target_x = float(max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, extended_target_x)))
+    dash_distance = abs(extended_target_x - BOSS.centerx)  # 경계 클램프 후 실제 거리
 
-    # 보스와 동일한 동적 지속시간 계산 (거리 기반) + 대쉬 거리 퍽 적용
-    estimated_duration = (dash_distance / 30.0) * arena_perk_dash_distance_mult_top
+    arena_top_dash_direction = direction
+    arena_top_dash_target_x = extended_target_x
+
+    # 동적 지속시간 계산 (실제 이동 거리 기반)
+    estimated_duration = dash_distance / 30.0
     arena_top_dash_duration_frames = int(max(10, min(estimated_duration, 60)))  # 10~60 프레임
     arena_top_dash_timer = arena_top_dash_duration_frames
     arena_top_dashing = True
@@ -19875,17 +19881,23 @@ def arena_trigger_bottom_hero_dash_ai(target_x: float) -> bool:
         return False
 
     direction = 1 if target_x > PLAYER.centerx else -1
-    dash_distance = abs(target_x - PLAYER.centerx)
+    base_distance = abs(target_x - PLAYER.centerx)
 
     # 최소 거리 체크
-    if dash_distance < 30:
+    if base_distance < 30:
         return False
 
-    arena_bottom_dash_direction = direction
-    arena_bottom_dash_target_x = float(max(PADDLE_WIDTH // 2, min(WIDTH - PADDLE_WIDTH // 2, target_x)))
+    # 폭풍질주 퍽: 실제 대쉬 거리(px) 증가
+    dash_distance = base_distance * arena_perk_dash_distance_mult_bottom
+    extended_target_x = PLAYER.centerx + direction * dash_distance
+    extended_target_x = float(max(PADDLE_WIDTH // 2, min(WIDTH - PADDLE_WIDTH // 2, extended_target_x)))
+    dash_distance = abs(extended_target_x - PLAYER.centerx)  # 경계 클램프 후 실제 거리
 
-    # 보스와 동일한 동적 지속시간 계산 (거리 기반) + 대쉬 거리 퍽 적용
-    estimated_duration = (dash_distance / 30.0) * arena_perk_dash_distance_mult_bottom
+    arena_bottom_dash_direction = direction
+    arena_bottom_dash_target_x = extended_target_x
+
+    # 동적 지속시간 계산 (실제 이동 거리 기반)
+    estimated_duration = dash_distance / 30.0
     arena_bottom_dash_duration_frames = int(max(10, min(estimated_duration, 60)))  # 10~60 프레임
     arena_bottom_dash_timer = arena_bottom_dash_duration_frames
     arena_bottom_dashing = True
@@ -19926,14 +19938,16 @@ def arena_trigger_bottom_hero_dash(direction: int) -> bool:
         return False
 
     arena_bottom_dash_direction = direction
-    # 대쉬 목표 = 현재 위치 + 방향 * 대쉬 거리(150px)
-    target_x = PLAYER.centerx + direction * 150
+    # 대쉬 목표 = 현재 위치 + 방향 * 대쉬 거리(150px) * 폭풍질주 퍽 멀티플라이어
+    base_dash_px = 150
+    dash_px = base_dash_px * arena_perk_dash_distance_mult_bottom
+    target_x = PLAYER.centerx + direction * dash_px
     target_x = float(max(PADDLE_WIDTH // 2, min(WIDTH - PADDLE_WIDTH // 2, target_x)))
     arena_bottom_dash_target_x = target_x
 
-    # 보스와 동일한 동적 지속시간 계산 (거리 기반) + 대쉬 거리 퍽 적용
+    # 동적 지속시간 계산 (실제 이동 거리 기반)
     dash_distance = abs(target_x - PLAYER.centerx)
-    estimated_duration = (dash_distance / 30.0) * arena_perk_dash_distance_mult_bottom
+    estimated_duration = dash_distance / 30.0
     arena_bottom_dash_duration_frames = int(max(10, min(estimated_duration, 60)))  # 10~60 프레임
     arena_bottom_dash_timer = arena_bottom_dash_duration_frames
     arena_bottom_dashing = True

@@ -668,7 +668,7 @@ ARENA_PERK_POOL = [
     {
         "id": "tenacity",
         "name": "집념",
-        "description": "패배 시 30% 확률로 재시작",
+        "description": "패배 시 30% 확률로 재시작\n(횟수 제한 없음)",
         "icon_color": (255, 200, 60),    # 금색 (집념)
         "effect_type": "retry_chance",
         "value": 0.30,
@@ -4462,15 +4462,13 @@ class ColosseumsArena:
             perks = self.hero_perks.get(hero_id, [])
             mults = self.get_hero_perk_multipliers(hero_id)
             retry_chance = mults.get("retry_chance", 0.0)
-            tenacity_used = getattr(self, '_tenacity_used', False)
             print(f"[DEBUG 집념] 패배 감지! hero_id={hero_id}, perks={[p['name'] for p in perks]}")
-            print(f"[DEBUG 집념] retry_chance={retry_chance}, _tenacity_used={tenacity_used}")
-            # 집념 퍽은 토너먼트당 1회만 발동 가능
-            if retry_chance > 0 and not tenacity_used:
+            print(f"[DEBUG 집념] retry_chance={retry_chance}")
+            # 집념 퍽: 패배 시 매번 확률 판정 (횟수 제한 없음)
+            if retry_chance > 0:
                 roll = random.random()
                 print(f"[DEBUG 집념] 확률 판정: roll={roll:.4f} < retry_chance={retry_chance} → {'발동!' if roll < retry_chance else '불발'}")
                 if roll < retry_chance:
-                    self._tenacity_used = True
                     print(f"[Perk] 집념 발동! {retry_chance:.0%} 확률로 재시작!")
                     # 매치 결과 리셋하고 재시작
                     self.selected_match.completed = False
