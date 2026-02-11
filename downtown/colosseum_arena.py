@@ -4510,11 +4510,11 @@ class ColosseumsArena:
         # 퍽 선택 클릭 처리
         if self.state == TournamentState.PERK_SELECT and self.perk_anim_phase == "active":
             num_options = len(self.current_perk_options)
-            card_w, card_h = 170, 105
+            card_w, card_h = 210, 105
             card_gap = 10
             total_w = card_w * num_options + card_gap * (num_options - 1)
             start_x = (SCREEN_WIDTH - total_w) // 2
-            card_y = SCREEN_HEIGHT // 2 - card_h // 2
+            card_y = 200
             for i in range(num_options):
                 x = start_x + i * (card_w + card_gap)
                 if x <= mx <= x + card_w and card_y <= my <= card_y + card_h:
@@ -4801,11 +4801,11 @@ class ColosseumsArena:
         # 퍽 선택 화면 호버
         if self.state == TournamentState.PERK_SELECT and self.perk_anim_phase == "active":
             num_options = len(self.current_perk_options)
-            card_w, card_h = 170, 105
+            card_w, card_h = 210, 105
             card_gap = 10
             total_w = card_w * num_options + card_gap * (num_options - 1)
             start_x = (SCREEN_WIDTH - total_w) // 2
-            card_y = SCREEN_HEIGHT // 2 - card_h // 2
+            card_y = 200
             for i in range(num_options):
                 x = start_x + i * (card_w + card_gap)
                 if x <= mx <= x + card_w and card_y <= my <= card_y + card_h:
@@ -7325,11 +7325,11 @@ class ColosseumsArena:
 
         # 파티클 폭발 (선택 카드 중심에서)
         num_options = len(self.current_perk_options)
-        card_w, card_h = 170, 105
+        card_w, card_h = 210, 105
         card_gap = 10
         total_w = card_w * num_options + card_gap * (num_options - 1)
         sx = (SCREEN_WIDTH - total_w) // 2
-        vy = SCREEN_HEIGHT // 2 - card_h // 2
+        vy = 200
         card_cx = sx + self.perk_selected_index * (card_w + card_gap) + card_w // 2
         card_cy = vy + card_h // 2
         for _ in range(60):
@@ -7803,14 +7803,14 @@ class ColosseumsArena:
                 self.screen.blit(particle_surf,
                                  (int(p['x'] - p['size']), int(p['y'] - p['size'])))
 
-        # 카드 설정 (랜덤 3장)
+        # 카드 설정 (랜덤 3장) - 가로 사이즈 확대 + 위쪽 배치
         num_options = len(self.current_perk_options)
-        card_w, card_h = 170, 105
+        card_w, card_h = 210, 105
         icon_size = 52
         card_gap = 10
         total_w = card_w * num_options + card_gap * (num_options - 1)
         start_x = (SCREEN_WIDTH - total_w) // 2
-        vertical_y = SCREEN_HEIGHT // 2 - card_h // 2
+        vertical_y = 200
 
         # 타이틀 (골드, 스테이지 스타일)
         if self.fonts and "large" in self.fonts:
@@ -7956,11 +7956,246 @@ class ColosseumsArena:
 
         # 하단 조작 안내 (스테이지 스타일)
         if self.perk_anim_phase == "active" and self.fonts and "small" in self.fonts:
-            hint_y = vertical_y + card_h + 55
+            hint_y = vertical_y + card_h + 18
             hint = "← → 선택  |  SPACE 확정"
             hint_surf, _ = self.fonts["small"].render(hint, ET["text_hint"])
             hx = SCREEN_WIDTH // 2 - hint_surf.get_width() // 2
             self.screen.blit(hint_surf, (hx, hint_y))
+
+        # ====== 설명 박스 (호버 시 퍽 설명 표시) ======
+        if self.perk_anim_phase == "active":
+            desc_box_y = vertical_y + card_h + 45
+            desc_box_w = total_w
+            desc_box_h = 55
+            desc_box_x = start_x
+
+            desc_surf = _get_arena_surface(desc_box_w, desc_box_h)
+            pygame.draw.rect(desc_surf, (*ET["card_bg"], 200),
+                             (0, 0, desc_box_w, desc_box_h), border_radius=8)
+            pygame.draw.rect(desc_surf, (*ET["card_border"], 150),
+                             (0, 0, desc_box_w, desc_box_h), 1, border_radius=8)
+
+            if (self.hover_perk_index >= 0
+                    and self.hover_perk_index < len(self.current_perk_options)):
+                hovered_perk = self.current_perk_options[self.hover_perk_index]
+                hp_color = hovered_perk.get("icon_color", (200, 200, 200))
+                # 퍽 이름 (medium, 컬러)
+                if self.fonts and "medium" in self.fonts:
+                    pn_surf, _ = self.fonts["medium"].render(
+                        hovered_perk["name"], hp_color)
+                    desc_surf.blit(pn_surf, (14, 8))
+                # 퍽 설명 (small, 밝은 회색)
+                if self.fonts and "small" in self.fonts:
+                    pd_surf, _ = self.fonts["small"].render(
+                        hovered_perk["description"], (220, 215, 200))
+                    desc_surf.blit(pd_surf, (14, 32))
+            else:
+                # 기본 안내 문구
+                if self.fonts and "small" in self.fonts:
+                    dh_surf, _ = self.fonts["small"].render(
+                        "퍽 위에 마우스를 올려 설명을 확인하세요", ET["text_hint"])
+                    dhx = desc_box_w // 2 - dh_surf.get_width() // 2
+                    dhy = desc_box_h // 2 - dh_surf.get_height() // 2
+                    desc_surf.blit(dh_surf, (dhx, dhy))
+
+            self.screen.blit(desc_surf, (desc_box_x, desc_box_y))
+
+            # ====== 내 영웅 현황 패널 ======
+            if self.bet_hero:
+                status_y = desc_box_y + desc_box_h + 15
+                panel_w = total_w
+                panel_h = 280
+                panel_x = start_x
+                panel_surf = _get_arena_surface(panel_w, panel_h)
+                pygame.draw.rect(panel_surf, (*ET["bg_panel"], 180),
+                                 (0, 0, panel_w, panel_h), border_radius=10)
+                pygame.draw.rect(panel_surf, (*ET["card_border"], 120),
+                                 (0, 0, panel_w, panel_h), 1, border_radius=10)
+
+                hero = self.bet_hero
+                hero_id = hero["id"]
+                py_cursor = 10  # 패널 내부 y 커서
+
+                # --- 영웅 이름 + 칭호 ---
+                if self.fonts and "medium" in self.fonts:
+                    hero_name_text = f"{hero['name']}  「{hero.get('title', '')}」"
+                    hn_surf, _ = self.fonts["medium"].render(
+                        hero_name_text, ET["gold_bright"])
+                    panel_surf.blit(hn_surf, (14, py_cursor))
+                    py_cursor += hn_surf.get_height() + 8
+
+                # --- 능력치 바 ---
+                stat_names = [
+                    ("속도", "speed"), ("반응", "reaction"),
+                    ("파워", "power"), ("정확", "accuracy")
+                ]
+                bar_w = 80
+                bar_h = 10
+                stat_gap_x = panel_w // 4
+                stat_base_y = py_cursor
+
+                for si, (stat_label, stat_key) in enumerate(stat_names):
+                    sx = 14 + (si % 4) * stat_gap_x
+                    sy = stat_base_y
+                    val = hero.get(stat_key, 1.0)
+
+                    # 라벨
+                    if self.fonts and "small" in self.fonts:
+                        sl_surf, _ = self.fonts["small"].render(
+                            f"{stat_label}", ET["text_body"])
+                        panel_surf.blit(sl_surf, (sx, sy))
+
+                    # 바 배경
+                    bar_x = sx
+                    bar_y = sy + 18
+                    pygame.draw.rect(panel_surf, (*ET["bg_dark"], 200),
+                                     (bar_x, bar_y, bar_w, bar_h),
+                                     border_radius=3)
+                    # 바 채움 (val 범위: 0.75~1.4 → 0~100%)
+                    fill_ratio = max(0.0, min(1.0, (val - 0.6) / 0.9))
+                    fill_w = int(bar_w * fill_ratio)
+                    if fill_w > 0:
+                        bar_color = (100, 200, 140) if val >= 1.0 else (200, 170, 80)
+                        pygame.draw.rect(panel_surf, (*bar_color, 220),
+                                         (bar_x, bar_y, fill_w, bar_h),
+                                         border_radius=3)
+                    # 수치
+                    if self.fonts and "small" in self.fonts:
+                        sv_surf, _ = self.fonts["small"].render(
+                            f"{val:.2f}", (200, 195, 180))
+                        panel_surf.blit(sv_surf, (bar_x + bar_w + 5, bar_y - 2))
+
+                py_cursor = stat_base_y + 38
+
+                # --- 구분선 ---
+                pygame.draw.line(panel_surf, (*ET["card_border"], 100),
+                                 (14, py_cursor), (panel_w - 14, py_cursor))
+                py_cursor += 10
+
+                # --- 보유 퍽 아이콘 ---
+                owned_perks = self.hero_perks.get(hero_id, [])
+                if self.fonts and "small" in self.fonts:
+                    sec_label, _ = self.fonts["small"].render(
+                        "보유 퍽", ET["text_subtitle"])
+                    panel_surf.blit(sec_label, (14, py_cursor))
+                py_cursor += 20
+
+                perk_icon_size = 28
+                perk_icon_gap = 36
+                if owned_perks:
+                    for pi, op in enumerate(owned_perks):
+                        px = 20 + pi * perk_icon_gap
+                        if px + perk_icon_size > panel_w - 10:
+                            break
+                        pcy = py_cursor + perk_icon_size // 2
+                        # 원형 배경
+                        pc = op.get("icon_color", (200, 200, 200))
+                        pygame.draw.circle(
+                            panel_surf, (*ET["skill_bg"], 220),
+                            (px + perk_icon_size // 2, pcy),
+                            perk_icon_size // 2 + 3)
+                        pygame.draw.circle(
+                            panel_surf, (*pc[:3], 150),
+                            (px + perk_icon_size // 2, pcy),
+                            perk_icon_size // 2 + 3, 2)
+                        # 퍽 아이콘 (SSAA)
+                        self._draw_perk_icon(
+                            panel_surf, op["id"],
+                            px + perk_icon_size // 2, pcy,
+                            perk_icon_size - 4)
+                else:
+                    if self.fonts and "small" in self.fonts:
+                        none_surf, _ = self.fonts["small"].render(
+                            "없음", ET["text_disabled"])
+                        panel_surf.blit(none_surf, (20, py_cursor))
+
+                py_cursor += perk_icon_size + 14
+
+                # --- 구분선 ---
+                pygame.draw.line(panel_surf, (*ET["card_border"], 100),
+                                 (14, py_cursor), (panel_w - 14, py_cursor))
+                py_cursor += 10
+
+                # --- 호위무사 + 스킬 ---
+                guards = self.guard_warrior_map.get(hero_id, [])
+                if self.fonts and "small" in self.fonts:
+                    sec_label2, _ = self.fonts["small"].render(
+                        "호위무사", ET["text_subtitle"])
+                    panel_surf.blit(sec_label2, (14, py_cursor))
+                py_cursor += 22
+
+                if guards:
+                    guard_icon_size = 36
+                    for gi, guard in enumerate(guards):
+                        gx = 20
+                        gy = py_cursor + gi * (guard_icon_size + 14)
+                        g_color = guard.get("color", (150, 150, 150))
+
+                        # 호위무사 아이콘 (컬러 원 + 이니셜)
+                        gcx = gx + guard_icon_size // 2
+                        gcy = gy + guard_icon_size // 2
+                        pygame.draw.circle(
+                            panel_surf, (*g_color[:3], 200),
+                            (gcx, gcy), guard_icon_size // 2)
+                        pygame.draw.circle(
+                            panel_surf, (255, 255, 255, 120),
+                            (gcx, gcy), guard_icon_size // 2, 2)
+
+                        # 이니셜 글자
+                        if self.fonts and "small" in self.fonts:
+                            g_name = guard.get("name", "?")
+                            init_surf, _ = self.fonts["small"].render(
+                                g_name[0], (255, 255, 255))
+                            panel_surf.blit(init_surf,
+                                            (gcx - init_surf.get_width() // 2,
+                                             gcy - init_surf.get_height() // 2))
+
+                        # 호위무사 이름
+                        name_x = gx + guard_icon_size + 10
+                        if self.fonts and "small" in self.fonts:
+                            gn_surf, _ = self.fonts["small"].render(
+                                guard.get("name", "?"), (220, 215, 200))
+                            panel_surf.blit(gn_surf, (name_x, gy + 2))
+
+                        # 호위무사 스킬
+                        guard_skill_name = ""
+                        try:
+                            g_id = guard["id"]
+                            g_skill_idx = self.hero_selected_skills.get(g_id, 0)
+                            if HERO_SKILLS_AVAILABLE:
+                                from downtown.hero_skills import HERO_SKILLS
+                                g_skills = HERO_SKILLS.get(g_id, [])
+                                if self.hero_has_both_skills.get(g_id, False):
+                                    # 두 스킬 모두 보유
+                                    skill_names = [s.korean_name for s in g_skills]
+                                    guard_skill_name = " / ".join(skill_names)
+                                elif len(g_skills) > g_skill_idx:
+                                    guard_skill_name = g_skills[g_skill_idx].korean_name
+                        except Exception:
+                            pass
+
+                        if guard_skill_name and self.fonts and "small" in self.fonts:
+                            # 스킬 아이콘 (작은 검)
+                            sk_icon_size = 14
+                            sk_x = name_x
+                            sk_y = gy + 20
+                            pygame.draw.circle(
+                                panel_surf, (*ET["lapis_light"], 180),
+                                (sk_x + sk_icon_size // 2,
+                                 sk_y + sk_icon_size // 2),
+                                sk_icon_size // 2)
+                            # 스킬 이름
+                            sk_surf, _ = self.fonts["small"].render(
+                                guard_skill_name, ET["turquoise_light"])
+                            panel_surf.blit(sk_surf,
+                                            (sk_x + sk_icon_size + 4, sk_y + 1))
+                else:
+                    if self.fonts and "small" in self.fonts:
+                        none_surf2, _ = self.fonts["small"].render(
+                            "없음", ET["text_disabled"])
+                        panel_surf.blit(none_surf2, (20, py_cursor))
+
+                self.screen.blit(panel_surf, (panel_x, status_y))
 
     def _start_bracket_animation(self):
         """대진표 진출 애니메이션 시작"""
