@@ -2894,23 +2894,25 @@ class GuardWarriorSystem:
         except Exception:
             pass
 
-    # 인게임 영웅 렌더링 기준 너비 (pingfighter.py _arena_base_paddle_width와 동일)
-    _GUARD_RENDER_WIDTH = 130
+    # 인게임 영웅 렌더링 기준 너비 130의 90% (호위무사는 영웅보다 10% 작게)
+    _GUARD_RENDER_WIDTH = 117
 
     def _draw_guard(self, screen, guard_hero, x, y, is_top):
-        """단일 호위무사 캐릭터 렌더링 (영웅과 동일 크기)"""
+        """단일 호위무사 캐릭터 렌더링 (영웅보다 10% 작은 크기)"""
         ix, iy = int(x), int(y)
         color = guard_hero.get("color", (200, 200, 200))
 
-        # 글로우 효과 (반투명 원)
-        glow_surf = _get_arena_surface(80, 80)
+        # 글로우 효과 (반투명 원, 영웅보다 10% 작게)
+        glow_r = 36  # 영웅 40의 90%
+        glow_size = glow_r * 2
+        glow_surf = _get_arena_surface(glow_size, glow_size)
         glow_alpha = 60
         # 시전 중이면 글로우 강화
         phase = self.phase_top if is_top else self.phase_bottom
         if phase == "casting":
             glow_alpha = 120
-        pygame.draw.circle(glow_surf, (*color, glow_alpha), (40, 40), 40)
-        screen.blit(glow_surf, (ix - 40, iy - 40))
+        pygame.draw.circle(glow_surf, (*color, glow_alpha), (glow_r, glow_r), glow_r)
+        screen.blit(glow_surf, (ix - glow_r, iy - glow_r))
 
         # 영웅 캐릭터 그리기 (인게임 영웅과 동일한 130 기준 너비 사용)
         if self.hero_paddle_renderer:
@@ -2926,12 +2928,12 @@ class GuardWarriorSystem:
                     scale_mode="paddle"
                 )
             except Exception:
-                # 폴백: 간단한 원형
-                pygame.draw.circle(screen, color, (ix, iy), 20)
+                # 폴백: 간단한 원형 (영웅보다 10% 작게)
+                pygame.draw.circle(screen, color, (ix, iy), 18)
         else:
-            # 폴백: 간단한 원형 + 테두리
-            pygame.draw.circle(screen, color, (ix, iy), 20)
-            pygame.draw.circle(screen, (255, 255, 255), (ix, iy), 20, 2)
+            # 폴백: 간단한 원형 + 테두리 (영웅보다 10% 작게)
+            pygame.draw.circle(screen, color, (ix, iy), 18)
+            pygame.draw.circle(screen, (255, 255, 255), (ix, iy), 18, 2)
 
     def _get_guard_korean_font(self, size=14):
         """호위무사 UI용 한글 폰트 (캐싱)"""
