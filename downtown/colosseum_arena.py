@@ -486,7 +486,7 @@ class ArenaLeafShield:
         self.leaves = []           # [{'active': bool, 'base_angle': float, 'regen_timer': int, 'type': int}]
         self.current_angle = 0.0   # 전체 회전 각도
         self.rotation_speed = 1.8  # 회전 속도 (rad/s)
-        self.orbit_radius = 170   # 궤도 반지름 (15% 축소)
+        self.orbit_radius = 196   # 궤도 반지름 (기존 170에서 15% 확대)
         self.ellipse_y = 0.3       # Y축 압축률 (전설 신성월계수와 동일)
         self.front_threshold = 30  # 패들 앞쪽 잎 충돌 무시 기준 (전설과 동일)
         self.leaf_size = 24        # 잎 그리기 크기 (3배 확대)
@@ -10268,10 +10268,20 @@ class ColosseumsArena:
                 self.screen.blit(title_surf, (hero_cx - title_surf.get_width() // 2,
                                                draw_y + 183))
 
-            # === 스킬 아이콘 (2개, 필러 UI 스타일) ===
+            # === 스킬 아이콘 ===
             hero_skills = get_hero_skills(g_id) if HERO_SKILLS_AVAILABLE else []
             icon_sz = 36
-            num_skills = min(len(hero_skills), 2)
+            new_idx = getattr(self, 'guard_select_new_idx', 1)
+            is_existing = (idx != new_idx)
+
+            # 기존 호위무사: 선택된 스킬 1개만 / 신규: 2개 모두
+            if is_existing:
+                selected_si = self.hero_selected_skills.get(g_id, 0)
+                display_skills = [hero_skills[selected_si]] if selected_si < len(hero_skills) else hero_skills[:1]
+            else:
+                display_skills = hero_skills[:2]
+
+            num_skills = len(display_skills)
             # 아이콘 + 이름을 세로 배치 (겹침 방지)
             skill_slot_w = 80  # 각 스킬 슬롯 너비
             skill_slot_gap = 10
@@ -10279,13 +10289,14 @@ class ColosseumsArena:
             slots_start_x = draw_x + (card_w - slots_total_w) // 2
             icons_y = draw_y + 212
 
-            # "보유 스킬" 라벨
+            # 라벨
             if self.fonts and "small" in self.fonts:
-                lbl_surf, _ = self.fonts["small"].render("보유 스킬", ET["text_hint"])
+                lbl_text = "장착 스킬" if is_existing else "보유 스킬"
+                lbl_surf, _ = self.fonts["small"].render(lbl_text, ET["text_hint"])
                 self.screen.blit(lbl_surf, (hero_cx - lbl_surf.get_width() // 2, icons_y - 16))
 
             for si in range(num_skills):
-                skill = hero_skills[si]
+                skill = display_skills[si]
                 slot_x = slots_start_x + si * (skill_slot_w + skill_slot_gap)
                 ix = slot_x + (skill_slot_w - icon_sz) // 2  # 아이콘 중앙 정렬
                 iy = icons_y
@@ -10315,26 +10326,7 @@ class ColosseumsArena:
                     self.screen.blit(sn_surf, (slot_x + skill_slot_w // 2 - sn_surf.get_width() // 2,
                                                 iy + icon_sz + 3))
 
-                # 호버 감지용 rect 저장
-                skill_rect = pygame.Rect(ix, iy, icon_sz, icon_sz)
-                self._guard_skill_icon_rects.append({
-                    'rect': skill_rect,
-                    'skill': skill,
-                    'hero_color': g_color,
-                    'card_idx': idx,
-                })
-
-                # 호버 글로우 표시
-                skill_hover_info = getattr(self, 'guard_select_skill_hover', None)
-                if (skill_hover_info
-                        and skill_hover_info.get('skill') is skill
-                        and skill_hover_info.get('card_idx') == idx):
-                    h_pulse = 0.6 + 0.4 * abs(_sin(self.animation_timer * 5))
-                    h_alpha = int(120 * h_pulse)
-                    h_surf = _get_arena_surface(icon_sz + 6, icon_sz + 6)
-                    pygame.draw.rect(h_surf, (255, 255, 200, h_alpha),
-                                     (0, 0, icon_sz + 6, icon_sz + 6), 2, border_radius=4)
-                    self.screen.blit(h_surf, (ix - 3, iy - 3))
+                # (스킬 호버/툴팁 비활성화 - 획득 전 정보 비공개)
 
             # (능력치 바 제거 - 스킬 룰렛 공간 확보)
 
@@ -10342,7 +10334,7 @@ class ColosseumsArena:
         if not getattr(self, '_guard_select_anim_phase', None):
             if self.fonts and "small" in self.fonts and timer > 0.6:
                 hint_alpha = int(120 + 80 * abs(_sin(self.animation_timer * 2)))
-                hint = "클릭 또는 ←→ 키로 선택  |  스킬 아이콘에 마우스를 올려 설명 확인"
+                hint = "클릭 또는 ←→ 키로 선택"
                 hint_surf, _ = self.fonts["small"].render(hint, (hint_alpha, int(hint_alpha * 0.85), int(hint_alpha * 0.65)))
                 self.screen.blit(hint_surf, (center_x - hint_surf.get_width() // 2, 620))
 
@@ -10355,10 +10347,7 @@ class ColosseumsArena:
                 rs, _ = self.fonts["small"].render(round_text, ET["gold_medium"])
                 self.screen.blit(rs, (center_x - rs.get_width() // 2, 650))
 
-        # === 스킬 툴팁 (호버 중인 스킬이 있으면 최상위에 표시) ===
-        skill_hover_info = getattr(self, 'guard_select_skill_hover', None)
-        if skill_hover_info and timer > 0.5 and not getattr(self, 'guard_confirm_showing', False):
-            self._draw_guard_skill_tooltip(skill_hover_info)
+        # 스킬 툴팁 비활성화 (획득 전 정보 비공개)
 
         # === 인라인 스킬 룰렛 (신규 호위무사 선택 후) ===
         guard_anim_phase = getattr(self, '_guard_select_anim_phase', None)
