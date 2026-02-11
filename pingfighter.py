@@ -8000,7 +8000,7 @@ def _fullscreen_flip():
                 pass
 
         # 🎚️ 투기장 배속 버튼 (좌측 필러 하단, REAL_SCREEN에 직접)
-        if arena_mode_enabled:
+        if globals().get('arena_mode_enabled', False):
             try:
                 draw_arena_speed_buttons(REAL_SCREEN)
             except Exception:
@@ -8129,7 +8129,7 @@ def _fullscreen_update(*args, **kwargs):
                 pass
 
         # 🎚️ 투기장 배속 버튼 (좌측 필러 하단, REAL_SCREEN에 직접)
-        if arena_mode_enabled:
+        if globals().get('arena_mode_enabled', False):
             try:
                 draw_arena_speed_buttons(REAL_SCREEN)
             except Exception:
@@ -8171,7 +8171,7 @@ else:
     def _windowed_flip():
         """윈도우 모드에서 튜토리얼 오버레이 및 커스텀 커서 그리기 후 flip"""
         # 투기장 배속 버튼 (윈도우 모드)
-        if arena_mode_enabled:
+        if globals().get('arena_mode_enabled', False):
             try:
                 draw_arena_speed_buttons(SCREEN)
             except Exception:
@@ -130214,13 +130214,12 @@ def main(stage_num, new_boss_mode=False):
             # 마우스 클릭으로 배속 버튼 변경 (REAL_SCREEN 좌표 사용)
             _mb = pygame.mouse.get_pressed()
             if _mb[0] and not getattr(main, '_arena_mouse_pressed', False):
+                if not arena_speed_btn_rects:
+                    _update_arena_speed_btn_rects()
                 _mx, _my = _original_mouse_get_pos()  # REAL_SCREEN 좌표
-                _debug_rects = {k: (r.x, r.y, r.w, r.h) for k, r in arena_speed_btn_rects.items()}
-                print(f"[DEBUG SPEED BTN] click=({_mx},{_my}) rects={_debug_rects} fullscreen={_is_fullscreen_active}", flush=True)
                 for _mult, _rect in arena_speed_btn_rects.items():
                     if _rect.collidepoint(_mx, _my):
                         arena_speed_multiplier = _mult
-                        print(f"[DEBUG SPEED BTN] HIT! mult={_mult}", flush=True)
                         break
             main._arena_mouse_pressed = _mb[0]
 
