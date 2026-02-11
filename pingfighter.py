@@ -127626,7 +127626,7 @@ def main(stage_num, new_boss_mode=False):
     global dashholder_obtained, dashgear_obtained, spikeboots_obtained  # 대쉬 아이템 보유 상태
     global power_smashing_direction, power_smashing_original_speed  # 파워스매싱 관련 변수
     global boss_stunned_timer, boss_knockback_vel, boss_knockback_timer  # 다이너마이트 넉백용 전역 변수
-    global arena_skill_manager, arena_skill_check_timer  # 투기장 스킬 시스템 전역 변수
+    global arena_skill_check_timer  # 투기장 스킬 시스템 전역 변수 (arena_skill_manager는 위에서 이미 선언)
     nine_just_pressed = False
     last_nine_state = False
     
