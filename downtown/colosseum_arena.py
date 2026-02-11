@@ -171,6 +171,20 @@ def _load_button_click_sound():
     except Exception:
         _button_click_sound = None
 
+_gacha_result_sound = None
+def _load_gacha_result_sound():
+    global _gacha_result_sound
+    if _gacha_result_sound is not None:
+        return
+    try:
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        path = os.path.join(base, "sounds", "gatcharesult.wav")
+        if os.path.exists(path):
+            _gacha_result_sound = pygame.mixer.Sound(path)
+            _gacha_result_sound.set_volume(0.6)
+    except Exception:
+        _gacha_result_sound = None
+
 # ============================================================================
 # 이집트 파피루스 테마 색상 팔레트
 # ============================================================================
@@ -3469,6 +3483,7 @@ class ColosseumsArena:
         self.skill_reveal_phase = "rolling"      # "rolling" → "selected" → "done"
         self.skill_reveal_target = None          # 연출 대상 (hero_id)
         self.skill_reveal_result = -1            # 확정된 스킬 인덱스
+        self._skill_reveal_last_tick_idx = -1    # 틱 사운드 추적용
 
         # 매치 공개 애니메이션
         self.match_reveal_timer = 0.0
@@ -4622,18 +4637,23 @@ class ColosseumsArena:
                     self.skill_reveal_phase = "rolling"
                     self.skill_reveal_target = chosen_hero["id"]
                     self.skill_reveal_result = self.player_hero_skill_index
+                    self._skill_reveal_last_tick_idx = -1
                     self.state = TournamentState.SKILL_REVEAL
 
         elif self.state == TournamentState.SKILL_REVEAL:
-            # 스킬 랜덤 선택 연출 (감속 롤링 1.8초 + 확정 표시 1.2초)
+            # 스킬 랜덤 선택 연출 (리얼 룰렛: 빠름→느림→빠름→매우느림 3.5초 + 확정 1.5초)
             self.skill_reveal_timer += dt
-            if self.skill_reveal_phase == "rolling" and self.skill_reveal_timer >= 1.8:
+            if self.skill_reveal_phase == "rolling" and self.skill_reveal_timer >= 3.5:
                 self.skill_reveal_phase = "selected"
                 self.skill_reveal_selected_timer = 0.0
                 self._skill_reveal_particles = []  # 선택 이펙트 파티클 초기화
+                # 최종 선택 사운드 (가챠 결과음)
+                _load_gacha_result_sound()
+                if _gacha_result_sound:
+                    _gacha_result_sound.play()
             elif self.skill_reveal_phase == "selected":
                 self.skill_reveal_selected_timer = getattr(self, 'skill_reveal_selected_timer', 0) + dt
-                if self.skill_reveal_timer >= 3.0:
+                if self.skill_reveal_timer >= 5.0:
                     if self.skill_reveal_target == (self.player_hero or {}).get("id"):
                         self._prepare_prison_candidates()
                         self.state = TournamentState.PRISON_SELECT
@@ -4668,18 +4688,23 @@ class ColosseumsArena:
                     self.skill_reveal_phase = "rolling"
                     self.skill_reveal_target = guard_hero["id"]
                     self.skill_reveal_result = self.player_guard_skill_index
+                    self._skill_reveal_last_tick_idx = -1
                     self.state = TournamentState.GUARD_SKILL_REVEAL
 
         elif self.state == TournamentState.GUARD_SKILL_REVEAL:
-            # 호위무사 스킬 랜덤 선택 연출 (감속 롤링 1.8초 + 확정 표시 1.2초)
+            # 호위무사 스킬 랜덤 선택 연출 (리얼 룰렛: 빠름→느림→빠름→매우느림 3.5초 + 확정 1.5초)
             self.skill_reveal_timer += dt
-            if self.skill_reveal_phase == "rolling" and self.skill_reveal_timer >= 1.8:
+            if self.skill_reveal_phase == "rolling" and self.skill_reveal_timer >= 3.5:
                 self.skill_reveal_phase = "selected"
                 self.skill_reveal_selected_timer = 0.0
                 self._skill_reveal_particles = []
+                # 최종 선택 사운드 (가챠 결과음)
+                _load_gacha_result_sound()
+                if _gacha_result_sound:
+                    _gacha_result_sound.play()
             elif self.skill_reveal_phase == "selected":
                 self.skill_reveal_selected_timer = getattr(self, 'skill_reveal_selected_timer', 0) + dt
-                if self.skill_reveal_timer >= 3.0:
+                if self.skill_reveal_timer >= 5.0:
                     # 초반 셋업 vs 라운드간 호위무사 교체 분기
                     if getattr(self, '_guard_skill_reveal_mid_tournament', False):
                         self._guard_skill_reveal_mid_tournament = False
@@ -6729,18 +6754,48 @@ class ColosseumsArena:
         card2_x = SCREEN_WIDTH // 2 + gap // 2
         card_y = 140
 
-        # === 감속 롤링: 처음 빠르게 → 점점 느리게 ===
-        rolling_duration = 1.8
+        # === 리얼 룰렛: 빠름→느림→빠름→매우느림 ===
+        rolling_duration = 3.5
+        highlight_idx = 0
         if phase == "rolling":
             t_norm = min(1.0, timer / rolling_duration)
-            # ease-out cubic: 빠르게 시작 → 서서히 감속
-            eased = 1.0 - (1.0 - t_norm) ** 3
-            # 총 전환 횟수 (최대 ~18회 전환)
-            total_ticks = eased * 18
-            highlight_idx = int(total_ticks) % 2
-            # 마지막 0.3초: 선택될 카드에 고정
-            if t_norm > 0.83:
+            # 4단계 속도 변화로 리얼한 룰렛 연출
+            # Phase 1 (0~28%): 빠른 시작
+            # Phase 2 (28~50%): 점점 느려짐 (멈출 것 같은 느낌)
+            # Phase 3 (50~68%): 갑자기 빨라짐! (페이크아웃)
+            # Phase 4 (68~100%): 매우 느리게 최종 선택
+            if t_norm < 0.28:
+                local_t = t_norm / 0.28
+                ticks = local_t * 9
+            elif t_norm < 0.50:
+                local_t = (t_norm - 0.28) / 0.22
+                eased = 1.0 - (1.0 - local_t) ** 2.5
+                ticks = 9 + eased * 4
+            elif t_norm < 0.68:
+                local_t = (t_norm - 0.50) / 0.18
+                ticks = 13 + local_t * 7
+            else:
+                local_t = (t_norm - 0.68) / 0.32
+                eased = 1.0 - (1.0 - local_t) ** 4
+                ticks = 20 + eased * 5
+
+            current_tick = int(ticks)
+            # 마지막 틱이 결과와 일치하도록 오프셋 보정
+            final_tick = 24  # 최대 틱 수
+            if (final_tick % 2) != self.skill_reveal_result:
+                current_tick += 1  # 1틱 오프셋으로 결과 정렬
+            highlight_idx = current_tick % 2
+
+            # 마지막 10%: 선택될 카드에 고정
+            if t_norm > 0.90:
                 highlight_idx = self.skill_reveal_result
+
+            # 틱 변경 시 호버 사운드 재생
+            if current_tick != self._skill_reveal_last_tick_idx:
+                self._skill_reveal_last_tick_idx = current_tick
+                _load_hover_sound()
+                if _hover_sound:
+                    _hover_sound.play()
 
         # === 선택 이펙트 파티클 생성/업데이트 ===
         sel_timer = getattr(self, 'skill_reveal_selected_timer', 0)
@@ -9616,6 +9671,7 @@ class ColosseumsArena:
             self.skill_reveal_phase = "rolling"
             self.skill_reveal_target = selected["id"]
             self.skill_reveal_result = self.hero_selected_skills[selected["id"]]
+            self._skill_reveal_last_tick_idx = -1
             self._guard_skill_reveal_mid_tournament = True
             self.state = TournamentState.GUARD_SKILL_REVEAL
             return
