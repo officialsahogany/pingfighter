@@ -207,6 +207,15 @@ EGYPT_THEME = {
     "vs_circle_border":  (140, 115, 75),
     "prison_bar":        (100, 80, 50),
     "prison_bar_hover":  (160, 130, 70),
+
+    # 감옥 철창 연출
+    "iron_bar":          (90, 90, 100),       # 쇠철창 기본색 (차가운 회색)
+    "iron_bar_light":    (130, 130, 145),     # 철창 하이라이트
+    "iron_bar_dark":     (50, 50, 58),        # 철창 그림자
+    "iron_bar_hover":    (120, 120, 135),     # 호버 시 철창
+    "iron_rivet":        (160, 155, 140),     # 리벳(볼트) 색상
+    "iron_rivet_dark":   (70, 68, 60),        # 리벳 그림자
+    "cell_shadow":       (15, 12, 8),         # 감옥 내부 그림자
 }
 
 ET = EGYPT_THEME  # 짧은 별칭
@@ -6405,10 +6414,90 @@ class ColosseumsArena:
                 surf, _ = self.fonts["small"].render("클릭하여 계속", (hint_alpha, hint_alpha, hint_alpha + 20))
                 self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 440))
 
+    def _draw_prison_bars_overlay(self, cx, cy, cw, ch, is_hovered):
+        """감옥 쇠철창 오버레이 - 카드 위에 철창이 덮이는 연출"""
+        import math
+        t = getattr(self, '_prison_anim_t', 0)
+
+        bar_color = ET["iron_bar_hover"] if is_hovered else ET["iron_bar"]
+        bar_light = ET["iron_bar_light"]
+        bar_dark = ET["iron_bar_dark"]
+        rivet_color = ET["iron_rivet"]
+        rivet_dark = ET["iron_rivet_dark"]
+
+        # 반투명 서피스로 철창 그리기
+        bar_surf = pygame.Surface((cw, ch), pygame.SRCALPHA)
+
+        # ── 세로 철창 바 (메인) ──
+        bar_width = 5
+        bar_spacing = 22
+        bar_margin = 8
+        for bx_local in range(bar_margin, cw - bar_margin, bar_spacing):
+            x = bx_local
+            alpha = 220 if not is_hovered else 160
+
+            # 철창 본체 (진한 색)
+            pygame.draw.line(bar_surf, (*bar_dark, alpha), (x, 0), (x, ch), bar_width + 2)
+            # 철창 본체 (메인)
+            pygame.draw.line(bar_surf, (*bar_color, alpha), (x, 0), (x, ch), bar_width)
+            # 하이라이트 (왼쪽 빛 반사)
+            pygame.draw.line(bar_surf, (*bar_light, alpha // 3), (x - 1, 0), (x - 1, ch), 1)
+
+        # ── 가로 철창 바 (상단, 중단, 하단) ──
+        h_bar_positions = [12, ch // 3, ch * 2 // 3, ch - 12]
+        h_bar_width = 4
+        for hy in h_bar_positions:
+            alpha = 200 if not is_hovered else 140
+            # 가로바 그림자
+            pygame.draw.line(bar_surf, (*bar_dark, alpha), (0, hy + 1), (cw, hy + 1), h_bar_width + 1)
+            # 가로바 본체
+            pygame.draw.line(bar_surf, (*bar_color, alpha), (0, hy), (cw, hy), h_bar_width)
+            # 하이라이트
+            pygame.draw.line(bar_surf, (*bar_light, alpha // 3), (0, hy - 1), (cw, hy - 1), 1)
+
+        # ── 리벳(볼트) - 가로/세로 교차점에 ──
+        for bx_local in range(bar_margin, cw - bar_margin, bar_spacing):
+            for hy in h_bar_positions:
+                # 리벳 그림자
+                pygame.draw.circle(bar_surf, (*rivet_dark, 200), (bx_local, hy), 4)
+                # 리벳 본체
+                pygame.draw.circle(bar_surf, (*rivet_color, 220), (bx_local, hy), 3)
+                # 리벳 하이라이트 (빛 반사 점)
+                pygame.draw.circle(bar_surf, (220, 220, 210, 120), (bx_local - 1, hy - 1), 1)
+
+        # ── 상단/하단 고정 프레임 (철창을 고정하는 두꺼운 철제 프레임) ──
+        frame_h = 10
+        frame_alpha = 230 if not is_hovered else 170
+        # 상단 프레임
+        pygame.draw.rect(bar_surf, (*bar_dark, frame_alpha), (0, 0, cw, frame_h))
+        pygame.draw.rect(bar_surf, (*bar_color, frame_alpha), (1, 1, cw - 2, frame_h - 2))
+        pygame.draw.line(bar_surf, (*bar_light, frame_alpha // 2), (2, 2), (cw - 2, 2), 1)
+        # 하단 프레임
+        pygame.draw.rect(bar_surf, (*bar_dark, frame_alpha), (0, ch - frame_h, cw, frame_h))
+        pygame.draw.rect(bar_surf, (*bar_color, frame_alpha), (1, ch - frame_h + 1, cw - 2, frame_h - 2))
+        pygame.draw.line(bar_surf, (*bar_light, frame_alpha // 2), (2, ch - frame_h + 1), (cw - 2, ch - frame_h + 1), 1)
+
+        # ── 감옥 내부 어둡게 (비네트 효과) ──
+        if not is_hovered:
+            shadow_surf = pygame.Surface((cw, ch), pygame.SRCALPHA)
+            # 좌우 가장자리 어둡게
+            for sx in range(15):
+                a = int(40 * (1 - sx / 15))
+                pygame.draw.line(shadow_surf, (0, 0, 0, a), (sx, 0), (sx, ch), 1)
+                pygame.draw.line(shadow_surf, (0, 0, 0, a), (cw - 1 - sx, 0), (cw - 1 - sx, ch), 1)
+            bar_surf.blit(shadow_surf, (0, 0))
+
+        self.screen.blit(bar_surf, (cx, cy))
+
     def _draw_prison_select(self):
         """감옥 호위무사 선택 UI"""
         self.screen.fill(ET["bg_dark"])
         self._draw_papyrus_bg()
+
+        # 애니메이션 타이머 업데이트
+        if not hasattr(self, '_prison_anim_t'):
+            self._prison_anim_t = 0
+        self._prison_anim_t += 1
 
         # 타이틀
         self._draw_egyptian_title("호위무사를 등용하세요", 30)
@@ -6430,16 +6519,19 @@ class ColosseumsArena:
             cx = start_x + i * (cell_w + gap)
             is_hovered = (self.hover_prison_index == i)
 
-            # 감옥 셀 배경
+            # ── 감옥 셀 배경 (어두운 감옥 벽) ──
             bg = ET["card_bg_hover"] if is_hovered else ET["card_bg"]
             border = ET["gold_medium"] if is_hovered else ET["card_border"]
-            pygame.draw.rect(self.screen, bg, (cx, cell_y, cell_w, cell_h), border_radius=8)
-            pygame.draw.rect(self.screen, border, (cx, cell_y, cell_w, cell_h), 2, border_radius=8)
+            pygame.draw.rect(self.screen, bg, (cx, cell_y, cell_w, cell_h), border_radius=4)
 
-            # 철창 패턴 (상단)
-            bar_color = ET["prison_bar"] if not is_hovered else ET["prison_bar_hover"]
-            for bx in range(cx + 15, cx + cell_w - 10, 20):
-                pygame.draw.line(self.screen, bar_color, (bx, cell_y), (bx, cell_y + 12), 2)
+            # 감옥 내부 벽면 질감 (돌벽 느낌 - 어두운 줄무늬)
+            if not is_hovered:
+                for wy in range(cell_y + 2, cell_y + cell_h - 2, 8):
+                    alpha_s = pygame.Surface((cell_w - 4, 1), pygame.SRCALPHA)
+                    alpha_s.fill((0, 0, 0, 15))
+                    self.screen.blit(alpha_s, (cx + 2, wy))
+
+            pygame.draw.rect(self.screen, border, (cx, cell_y, cell_w, cell_h), 2, border_radius=4)
 
             # 색상 바
             color_bar = pygame.Surface((cell_w - 20, 4), pygame.SRCALPHA)
@@ -6490,6 +6582,9 @@ class ColosseumsArena:
             if self.fonts and "small" in self.fonts:
                 surf, _ = self.fonts["small"].render(f"[{style_text}]", ET["text_hint"])
                 self.screen.blit(surf, (cx + cell_w // 2 - surf.get_width() // 2, cell_y + cell_h - 25))
+
+            # ── 쇠철창 오버레이 (카드 컨텐츠 위에 철창이 덮임) ──
+            self._draw_prison_bars_overlay(cx, cell_y, cell_w, cell_h, is_hovered)
 
         # 하단 안내
         if self.fonts and "small" in self.fonts:
