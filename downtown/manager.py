@@ -2114,6 +2114,13 @@ class DowntownManager:
                                     battle_callback=self.arena_battle_callback
                                 )
 
+                                # 투기장 대기실 BGM 재생
+                                try:
+                                    import bgm_manager
+                                    bgm_manager.play_colosseum_room_bgm()
+                                except Exception as e:
+                                    print(f"[투기장] 대기실 BGM 재생 실패: {e}")
+
                                 # 아레나 게임 루프
                                 arena_active = True
                                 while arena_active:

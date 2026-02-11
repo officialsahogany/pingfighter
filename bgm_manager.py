@@ -124,7 +124,11 @@ class BGMManager:
                 os.path.join("bgm", "defeat.ogg"),
                 os.path.join("bgm", "defeat.wav"),
             ],
-            # 투기장(콜로세움) BGM - 4곡 중 랜덤 선택
+            # 투기장(콜로세움) 대기실 BGM
+            'colosseum_room': [
+                os.path.join("bgm", "coloseumroom.mp3"),
+            ],
+            # 투기장(콜로세움) 전투 BGM - 4곡 중 랜덤 선택
             'colosseum1': [
                 os.path.join("bgm", "coloseum1.wav"),
             ],
@@ -443,6 +447,10 @@ def play_downtown_bgm():
         print("[광장 BGM] 사용 가능한 파일 없음, 기본 downtown 시도")
         bgm_manager.play_bgm('downtown')
     
+def play_colosseum_room_bgm():
+    """투기장 대기실 BGM 재생 (스킬 선택, 대진표 등)"""
+    bgm_manager.play_bgm('colosseum_room')
+
 def stop_bgm():
     """BGM 정지"""
     bgm_manager.stop_bgm()

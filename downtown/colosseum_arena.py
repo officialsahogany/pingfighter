@@ -4671,6 +4671,13 @@ class ColosseumsArena:
         self.state = TournamentState.RESULT
         self.result_display_timer = 180  # 3초
 
+        # 전투 종료 후 대기실 BGM 복구
+        try:
+            import bgm_manager
+            bgm_manager.play_colosseum_room_bgm()
+        except Exception:
+            pass
+
     def _auto_decide_remaining_matches(self):
         """현재 라운드의 나머지 경기를 랜덤으로 결정"""
         current_matches = self.matches.get(self.current_round, [])
