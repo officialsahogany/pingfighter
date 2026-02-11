@@ -4460,6 +4460,7 @@ class ColosseumsArena:
 
                 if opening_phase == "bars_opening" and timer >= 1.5:
                     self._prison_opening_phase = "attack_motion"
+                    self._prison_swing_triggered = False  # 무기 스윙 트리거 플래그 초기화
                 elif opening_phase == "attack_motion" and timer >= 2.5:
                     # 애니메이션 완료 → 호위무사 스킬 연출로 전환
                     self._prison_opening_phase = None
@@ -6746,27 +6747,27 @@ class ColosseumsArena:
             # 공격 모션 중이면 특수 처리
             if is_opening and opening_phase == "attack_motion":
                 motion_t = opening_timer - 1.5
-                if motion_t < 0.25:
+                if motion_t < 0.2:
                     # 뒤로 힘 모으기
-                    p = motion_t / 0.25
+                    p = motion_t / 0.2
                     hero_draw_offset_y = int(-12 * p)
                     hero_scale_mult = 1.0 + 0.05 * p
-                elif motion_t < 0.45:
+                elif motion_t < 0.4:
                     # 앞으로 돌진!
-                    p = (motion_t - 0.25) / 0.2
+                    p = (motion_t - 0.2) / 0.2
                     eased = p * p
                     hero_draw_offset_y = int(-12 + 42 * eased)
                     hero_scale_mult = 1.05 + 0.15 * eased
-                elif motion_t < 0.65:
-                    # 임팩트 유지
+                else:
+                    # 임팩트 유지 + 실제 무기 스윙 모션 (복귀 없음)
                     hero_draw_offset_y = 30
                     hero_scale_mult = 1.2
-                else:
-                    # 복귀
-                    p = min(1.0, (motion_t - 0.65) / 0.35)
-                    eased = 1.0 - (1.0 - p) * (1.0 - p)
-                    hero_draw_offset_y = int(30 * (1.0 - eased))
-                    hero_scale_mult = 1.2 - 0.2 * eased
+                    # 무기 스윙 트리거 (한 번만 - 실제 타격 모션 재생)
+                    if not getattr(self, '_prison_swing_triggered', False):
+                        self._prison_swing_triggered = True
+                        if self.hero_paddle_renderer:
+                            self.hero_paddle_renderer.trigger_weapon_swing(
+                                hero["id"], 0.5)
 
             if self.hero_paddle_renderer:
                 h_w = int(160 * hero_scale_mult)
@@ -6795,31 +6796,14 @@ class ColosseumsArena:
                 hero_cx = cx + cell_w // 2
                 hero_base_cy = cell_y + cell_h // 2 + 10
 
-                # 임팩트 플래시 (돌진 시)
-                if 0.4 <= motion_t <= 0.65:
-                    flash_p = (motion_t - 0.4) / 0.25
-                    flash_alpha = int(160 * (1.0 - flash_p))
-                    flash_r = int(40 + 30 * flash_p)
-                    flash_s = pygame.Surface((cell_w + 40, 80), pygame.SRCALPHA)
+                # 임팩트 플래시 (무기 스윙 시작 시 번쩍)
+                if 0.4 <= motion_t <= 0.7:
+                    flash_p = (motion_t - 0.4) / 0.3
+                    flash_alpha = int(180 * (1.0 - flash_p))
+                    flash_s = pygame.Surface((cell_w + 60, 100), pygame.SRCALPHA)
                     pygame.draw.ellipse(flash_s, (255, 240, 180, flash_alpha),
-                                        (0, 0, cell_w + 40, 80))
-                    self.screen.blit(flash_s, (cx - 20, hero_base_cy + 20))
-
-                # 슬래시 이펙트 (공격 라인)
-                if 0.35 <= motion_t <= 0.6:
-                    slash_alpha = int(200 * (1.0 - (motion_t - 0.35) / 0.25))
-                    slash_s = pygame.Surface((cell_w, cell_h), pygame.SRCALPHA)
-                    for angle_deg in [-30, 0, 30]:
-                        rad = math.radians(-90 + angle_deg)
-                        sx = cell_w // 2
-                        sy = cell_h // 2 + hero_draw_offset_y - 20
-                        ex = sx + int(55 * math.cos(rad))
-                        ey = sy + int(55 * math.sin(rad))
-                        pygame.draw.line(slash_s, (255, 255, 200, slash_alpha),
-                                         (sx, sy), (ex, ey), 3)
-                        pygame.draw.line(slash_s, (255, 200, 100, slash_alpha // 2),
-                                         (sx, sy), (ex, ey), 5)
-                    self.screen.blit(slash_s, (cx, cell_y))
+                                        (0, 0, cell_w + 60, 100))
+                    self.screen.blit(flash_s, (cx - 30, hero_base_cy + 10))
 
                 # 파편 파티클 (철창 파편)
                 particles = getattr(self, '_prison_attack_particles', [])
