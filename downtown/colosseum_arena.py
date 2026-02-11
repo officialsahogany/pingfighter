@@ -1113,8 +1113,8 @@ class AIPaddleController:
         if not self.ghost_step_active:
             return
 
-        # y축으로 이동
-        self.y += self.ghost_step_y_velocity
+        # y축으로 이동 (배속 적용: dt * 60으로 프레임 기반 속도를 시간 기반으로 변환)
+        self.y += self.ghost_step_y_velocity * dt * 60
 
         # 현재 이동 거리 계산
         current_offset = abs(self.y - self.original_y)
