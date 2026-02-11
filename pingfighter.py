@@ -134090,7 +134090,7 @@ def main(stage_num, new_boss_mode=False):
                                 arena_skill_manager.game_state[f'magic_immunity_{_imm_side}'] = False
                             arena_skill_manager.game_state[_imm_key] = _imm_t
 
-                    # 신성월계수 잎 업데이트 + 공 충돌 체크
+                    # 신성월계수 잎 업데이트 + 공 충돌 체크 (본편 SacredLaurel과 동일 반사 로직)
                     for _ls, _ls_side in ((arena_leaf_shield_top, 'top'), (arena_leaf_shield_bottom, 'bottom')):
                         if _ls and _ls.active:
                             if _ls_side == 'top':
@@ -134098,11 +134098,26 @@ def main(stage_num, new_boss_mode=False):
                             else:
                                 _ls.set_position(float(PLAYER.centerx), float(PLAYER.centery))
                             _ls.update(dt)
-                            # 공 충돌 → 반사
-                            if _ls.check_ball_collision(float(BALL.centerx), float(BALL.centery), float(BALL.width // 2)):
-                                ball_vel[1] = -ball_vel[1]
-                                # 약간의 랜덤 X 변동
-                                ball_vel[0] += random.uniform(-1.0, 1.0)
+                            # 방향 체크: 상대가 친 공만 판정 (내가 친 공은 무시)
+                            # top 잎: 아래에서 올라오는 공(ball_vel[1]<0)만 판정
+                            # bottom 잎: 위에서 내려오는 공(ball_vel[1]>0)만 판정
+                            _ls_ball_coming = (
+                                (_ls_side == 'top' and ball_vel[1] < 0) or
+                                (_ls_side == 'bottom' and ball_vel[1] > 0)
+                            )
+                            if _ls_ball_coming and _ls.check_ball_collision(float(BALL.centerx), float(BALL.centery), float(BALL.width // 2)):
+                                # 가속 + 상대 방향으로 랜덤 각도 반사 (본편과 동일)
+                                import math as _math_ls
+                                _ls_speed = _math_ls.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
+                                if _ls_speed > 0:
+                                    _ls_boost = random.uniform(1.2, 1.5)
+                                    _ls_new_speed = _ls_speed * _ls_boost
+                                    # top 잎: 아래로 반사(+90°), bottom 잎: 위로 반사(-90°)
+                                    _ls_base_angle = _math_ls.pi / 2 if _ls_side == 'top' else -_math_ls.pi / 2
+                                    _ls_angle_var = random.uniform(-_math_ls.pi / 3, _math_ls.pi / 3)
+                                    _ls_final_angle = _ls_base_angle + _ls_angle_var
+                                    ball_vel[0] = _ls_new_speed * _math_ls.cos(_ls_final_angle)
+                                    ball_vel[1] = _ls_new_speed * _math_ls.sin(_ls_final_angle)
 
                     # 연화(maria) 스킬 시전 중 팔 올린 상태 유지
                     if arena_hero_paddle_renderer:
