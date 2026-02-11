@@ -96761,6 +96761,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         globals().pop('_arena_pending_bottom_guards', None)
         globals().pop('_arena_pending_perk_data', None)
         globals().pop('_arena_pending_skill_selections', None)
+        globals().pop('_arena_pending_both_skills', None)
 
         # 신의심판 이벤트 활성화
         if animated_bg_stage30 is not None:

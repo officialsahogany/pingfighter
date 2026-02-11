@@ -2657,13 +2657,15 @@ class ColosseumsArena:
 
         # 투기장 퍽 시스템
         self.hero_perks: Dict[str, list] = {}   # {hero_id: [perk_dict, ...]}
-        self.perk_selected_index = 0             # 현재 선택된 퍽 인덱스 (0~3)
+        self.perk_selected_index = 0             # 현재 선택된 퍽 인덱스 (0~2)
         self.perk_anim_timer = 0.0               # 퍽 선택 애니메이션 타이머
         self.perk_anim_phase = "appearing"       # "appearing" / "active" / "selected"
         self.perk_selected_id = None             # 선택 확정된 퍽 ID
-        self.perk_card_offsets = [0, 0, 0, 0]    # 슬라이드-인 오프셋
+        self.perk_card_offsets = [0, 0, 0]       # 슬라이드-인 오프셋 (3장)
         self.perk_particles = []                  # 파티클 효과
         self.perk_frame_count = 0                 # 애니메이션 프레임 카운터
+        self.current_perk_options = []            # 현재 표시 중인 랜덤 3개 퍽
+        self.hero_has_both_skills: Dict[str, bool] = {}  # 영웅 양쪽 스킬 보유 여부
 
         # 마우스 호버 상태
         self.hover_perk_index = -1               # 퍽 카드 호버 인덱스 (-1 = 없음)
@@ -3217,11 +3219,16 @@ class ColosseumsArena:
                     pingfighter._arena_pending_perk_data = self
                     # 스킬 선택 정보 전달 (모듈 글로벌 + 영웅 dict 직접 삽입 이중 전달)
                     pingfighter._arena_pending_skill_selections = self.hero_selected_skills
+                    # 양쪽 스킬 보유 정보 전달
+                    pingfighter._arena_pending_both_skills = self.hero_has_both_skills
                 except Exception:
                     pass
                 # 스킬 선택 인덱스를 영웅 dict에 직접 삽입 (글로벌 변수 문제 방지)
-                top_hero["_selected_skill_idx"] = self.hero_selected_skills.get(top_hero["id"], -1)
-                bottom_hero["_selected_skill_idx"] = self.hero_selected_skills.get(bottom_hero["id"], -1)
+                # 양쪽 스킬 보유 영웅은 -1 (모든 스킬 활성화)
+                top_id = top_hero["id"]
+                bottom_id = bottom_hero["id"]
+                top_hero["_selected_skill_idx"] = -1 if self.hero_has_both_skills.get(top_id, False) else self.hero_selected_skills.get(top_id, -1)
+                bottom_hero["_selected_skill_idx"] = -1 if self.hero_has_both_skills.get(bottom_id, False) else self.hero_selected_skills.get(bottom_id, -1)
                 result = self.battle_callback(top_hero, bottom_hero)
             else:
                 result = self._run_real_game_battle(top_hero, bottom_hero)
@@ -3912,10 +3919,11 @@ class ColosseumsArena:
             if self.perk_anim_phase == "appearing":
                 # 슬라이드-인 이징
                 easing = 0.12
-                for k in range(4):
+                num_options = len(self.current_perk_options)
+                for k in range(num_options):
                     self.perk_card_offsets[k] += (0 - self.perk_card_offsets[k]) * easing
-                if all(abs(o) < 3 for o in self.perk_card_offsets):
-                    self.perk_card_offsets = [0, 0, 0, 0]
+                if all(abs(o) < 3 for o in self.perk_card_offsets[:num_options]):
+                    self.perk_card_offsets = [0] * num_options
                     self.perk_anim_phase = "active"
             elif self.perk_anim_phase == "selected":
                 if self.perk_frame_count > 25:
@@ -3969,7 +3977,7 @@ class ColosseumsArena:
                 if event.key == pygame.K_LEFT:
                     self.perk_selected_index = max(0, self.perk_selected_index - 1)
                 elif event.key == pygame.K_RIGHT:
-                    self.perk_selected_index = min(len(ARENA_PERK_POOL) - 1, self.perk_selected_index + 1)
+                    self.perk_selected_index = min(len(self.current_perk_options) - 1, self.perk_selected_index + 1)
                 elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
                     self._confirm_perk_selection()
 
@@ -4012,12 +4020,13 @@ class ColosseumsArena:
 
         # 퍽 선택 클릭 처리
         if self.state == TournamentState.PERK_SELECT and self.perk_anim_phase == "active":
+            num_options = len(self.current_perk_options)
             card_w, card_h = 170, 105
             card_gap = 10
-            total_w = card_w * 4 + card_gap * 3
+            total_w = card_w * num_options + card_gap * (num_options - 1)
             start_x = (SCREEN_WIDTH - total_w) // 2
             card_y = SCREEN_HEIGHT // 2 - card_h // 2
-            for i in range(len(ARENA_PERK_POOL)):
+            for i in range(num_options):
                 x = start_x + i * (card_w + card_gap)
                 if x <= mx <= x + card_w and card_y <= my <= card_y + card_h:
                     self.perk_selected_index = i
@@ -4302,12 +4311,13 @@ class ColosseumsArena:
 
         # 퍽 선택 화면 호버
         if self.state == TournamentState.PERK_SELECT and self.perk_anim_phase == "active":
+            num_options = len(self.current_perk_options)
             card_w, card_h = 170, 105
             card_gap = 10
-            total_w = card_w * 4 + card_gap * 3
+            total_w = card_w * num_options + card_gap * (num_options - 1)
             start_x = (SCREEN_WIDTH - total_w) // 2
             card_y = SCREEN_HEIGHT // 2 - card_h // 2
-            for i in range(len(ARENA_PERK_POOL)):
+            for i in range(num_options):
                 x = start_x + i * (card_w + card_gap)
                 if x <= mx <= x + card_w and card_y <= my <= card_y + card_h:
                     self.hover_perk_index = i
@@ -6733,6 +6743,34 @@ class ColosseumsArena:
     # ========================================================================
     # 투기장 퍽 선택 시스템
     # ========================================================================
+    def _build_perk_pool(self):
+        """현재 배팅 영웅에 맞는 퍽 풀 구성 (기본 퍽 + 미보유 스킬)"""
+        pool = list(ARENA_PERK_POOL)  # 기본 4개 퍽
+
+        # 영웅의 미선택 스킬을 퍽 옵션으로 추가
+        if self.bet_hero and HERO_SKILLS_AVAILABLE:
+            hero_id = self.bet_hero["id"]
+            # 이미 두 스킬 모두 보유하면 스킬 옵션 추가 안 함
+            if not self.hero_has_both_skills.get(hero_id, False):
+                current_skill_idx = self.hero_selected_skills.get(hero_id, 0)
+                other_skill_idx = 1 - current_skill_idx
+                skills = HERO_SKILLS.get(hero_id, [])
+                if len(skills) > other_skill_idx:
+                    other_skill = skills[other_skill_idx]
+                    hero_color = tuple(self.bet_hero.get("color", (200, 200, 100)))
+                    # 스킬 설명 요약 (너무 길면 카드에 안 들어감)
+                    short_desc = other_skill.korean_name
+                    pool.append({
+                        "id": f"skill_{other_skill.skill_id}",
+                        "name": other_skill.korean_name,
+                        "description": f"추가 스킬 획득",
+                        "icon_color": hero_color,
+                        "effect_type": "add_skill",
+                        "value": other_skill_idx,
+                    })
+
+        return pool
+
     def _start_perk_select(self):
         """퍽 선택 화면 시작"""
         self.perk_selected_index = 0
@@ -6740,8 +6778,13 @@ class ColosseumsArena:
         self.perk_anim_phase = "appearing"
         self.perk_selected_id = None
         self.perk_frame_count = 0
-        # 슬라이드-인 오프셋: 카드0=왼쪽에서, 카드1,2=아래에서, 카드3=오른쪽에서
-        self.perk_card_offsets = [-400.0, 500.0, 500.0, 400.0]
+
+        # 퍽 풀에서 랜덤 3개 선택
+        pool = self._build_perk_pool()
+        self.current_perk_options = random.sample(pool, min(3, len(pool)))
+
+        # 슬라이드-인 오프셋: 카드0=왼쪽에서, 카드1=아래에서, 카드2=오른쪽에서
+        self.perk_card_offsets = [-400.0, 500.0, 400.0]
         # 초기 파티클 (40개)
         self.perk_particles = []
         for _ in range(40):
@@ -6756,28 +6799,38 @@ class ColosseumsArena:
                                         ET["malachite_light"], ET["turquoise_light"]])
             })
         self.state = TournamentState.PERK_SELECT
-        print(f"[Perk] 퍽 선택 시작 (라운드: {self.current_round.value})")
+        print(f"[Perk] 퍽 선택 시작 (라운드: {self.current_round.value}, "
+              f"선택지: {[p['name'] for p in self.current_perk_options]})")
 
     def _confirm_perk_selection(self):
         """퍽 선택 확정"""
-        if self.perk_selected_index < 0 or self.perk_selected_index >= len(ARENA_PERK_POOL):
+        if self.perk_selected_index < 0 or self.perk_selected_index >= len(self.current_perk_options):
             return
-        selected_perk = ARENA_PERK_POOL[self.perk_selected_index]
+        selected_perk = self.current_perk_options[self.perk_selected_index]
         self.perk_selected_id = selected_perk["id"]
 
-        # 배팅 영웅에게 퍽 추가
+        # 배팅 영웅에게 퍽/스킬 적용
         if self.bet_hero:
             hero_id = self.bet_hero["id"]
-            if hero_id not in self.hero_perks:
-                self.hero_perks[hero_id] = []
-            self.hero_perks[hero_id].append(dict(selected_perk))
-            print(f"[Perk] {self.bet_hero['name']}에게 '{selected_perk['name']}' 퍽 부여! "
-                  f"(총 {len(self.hero_perks[hero_id])}개)")
+
+            if selected_perk["effect_type"] == "add_skill":
+                # 추가 스킬 획득: 영웅에게 2번째 스킬 부여
+                self.hero_has_both_skills[hero_id] = True
+                print(f"[Perk] {self.bet_hero['name']}에게 추가 스킬 '{selected_perk['name']}' 부여! "
+                      f"(양쪽 스킬 보유)")
+            else:
+                # 일반 퍽 추가
+                if hero_id not in self.hero_perks:
+                    self.hero_perks[hero_id] = []
+                self.hero_perks[hero_id].append(dict(selected_perk))
+                print(f"[Perk] {self.bet_hero['name']}에게 '{selected_perk['name']}' 퍽 부여! "
+                      f"(총 {len(self.hero_perks[hero_id])}개)")
 
         # 파티클 폭발 (선택 카드 중심에서)
+        num_options = len(self.current_perk_options)
         card_w, card_h = 170, 105
         card_gap = 10
-        total_w = card_w * 4 + card_gap * 3
+        total_w = card_w * num_options + card_gap * (num_options - 1)
         sx = (SCREEN_WIDTH - total_w) // 2
         vy = SCREEN_HEIGHT // 2 - card_h // 2
         card_cx = sx + self.perk_selected_index * (card_w + card_gap) + card_w // 2
@@ -6923,6 +6976,36 @@ class ColosseumsArena:
         ]
         pygame.draw.polygon(surf, (255, 200, 200, 200), tri_points)
 
+    def _draw_perk_icon_skill(self, surf, cx, cy, r, ss):
+        """스킬 추가 아이콘 - 검 (⚔) 모양"""
+        color = (255, 220, 100)  # 골드
+        s = r * ss
+        # 칼날 (세로 직사각형)
+        blade_w = int(s * 0.15)
+        blade_h = int(s * 0.8)
+        blade_top = cy - int(s * 0.55)
+        pygame.draw.rect(surf, (*color, 220),
+                         (cx - blade_w, blade_top, blade_w * 2, blade_h))
+        # 칼날 하이라이트
+        pygame.draw.rect(surf, (255, 255, 230, 150),
+                         (cx - blade_w // 2, blade_top, blade_w, blade_h))
+        # 가드 (가로 직사각형)
+        guard_w = int(s * 0.5)
+        guard_h = int(s * 0.12)
+        guard_y = cy + int(s * 0.15)
+        pygame.draw.rect(surf, (200, 160, 60, 220),
+                         (cx - guard_w, guard_y, guard_w * 2, guard_h),
+                         border_radius=max(1, int(guard_h * 0.4)))
+        # 손잡이
+        grip_w = int(s * 0.1)
+        grip_h = int(s * 0.3)
+        grip_y = guard_y + guard_h
+        pygame.draw.rect(surf, (160, 120, 40, 200),
+                         (cx - grip_w, grip_y, grip_w * 2, grip_h))
+        # 끝 장식 (원)
+        pommel_y = grip_y + grip_h
+        pygame.draw.circle(surf, (200, 160, 60, 220), (cx, pommel_y), int(s * 0.12))
+
     def _draw_perk_icon(self, surface, perk_id, cx, cy, size):
         """퍽 아이콘 (3x 슈퍼샘플링으로 깨짐 방지)"""
         ss = 3
@@ -6937,9 +7020,13 @@ class ColosseumsArena:
             "spirit_flow": self._draw_perk_icon_spirit_flow,
             "command": self._draw_perk_icon_command,
         }
-        func = draw_funcs.get(perk_id)
-        if func:
-            func(icon_surf, center, center, r, ss)
+        # 스킬 타입 퍽은 별(★) 아이콘으로 표시
+        if perk_id.startswith("skill_"):
+            self._draw_perk_icon_skill(icon_surf, center, center, r, ss)
+        else:
+            func = draw_funcs.get(perk_id)
+            if func:
+                func(icon_surf, center, center, r, ss)
 
         # smoothscale로 축소 → 안티앨리어싱 적용
         result = pygame.transform.smoothscale(icon_surf, (size, size))
@@ -6968,11 +7055,12 @@ class ColosseumsArena:
                 self.screen.blit(particle_surf,
                                  (int(p['x'] - p['size']), int(p['y'] - p['size'])))
 
-        # 카드 설정 (스테이지 스타일: 가로형, 4장)
+        # 카드 설정 (랜덤 3장)
+        num_options = len(self.current_perk_options)
         card_w, card_h = 170, 105
         icon_size = 52
         card_gap = 10
-        total_w = card_w * 4 + card_gap * 3
+        total_w = card_w * num_options + card_gap * (num_options - 1)
         start_x = (SCREEN_WIDTH - total_w) // 2
         vertical_y = SCREEN_HEIGHT // 2 - card_h // 2
 
@@ -6987,23 +7075,20 @@ class ColosseumsArena:
             ty = vertical_y - 70 - title_y_offset
             self.screen.blit(title_surf, (tx, ty))
 
-        # 4개의 카드 렌더링 (스테이지 스타일: 아이콘 왼쪽 + 텍스트 오른쪽)
-        for i, perk in enumerate(ARENA_PERK_POOL):
+        # 카드 렌더링 (랜덤 선택된 퍽들)
+        for i, perk in enumerate(self.current_perk_options):
             # 카드 위치 계산 (슬라이드-인 적용)
             base_x = start_x + i * (card_w + card_gap)
             base_y = vertical_y
             if i == 0:
                 card_x = base_x + self.perk_card_offsets[0]
                 card_y_anim = base_y
-            elif i == 1:
-                card_x = base_x
-                card_y_anim = base_y + self.perk_card_offsets[1]
-            elif i == 2:
-                card_x = base_x
-                card_y_anim = base_y + self.perk_card_offsets[2]
-            else:
-                card_x = base_x + self.perk_card_offsets[3]
+            elif i == num_options - 1:
+                card_x = base_x + self.perk_card_offsets[i]
                 card_y_anim = base_y
+            else:
+                card_x = base_x
+                card_y_anim = base_y + self.perk_card_offsets[i]
 
             is_selected = (i == self.perk_selected_index and
                            self.perk_anim_phase in ("active", "selected"))
