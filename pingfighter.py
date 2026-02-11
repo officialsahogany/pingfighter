@@ -19161,6 +19161,140 @@ def reset_arena_perks():
     arena_active_hero_perks = []
     arena_active_enemy_perks = []
 
+def _draw_magic_immunity_barrier(screen, center_x, center_y, base_radius, imm_timer, imm_duration):
+    """마법결계 퍽 보호막 이펙트 (보라색 결계, 클렌즈 스타일 - 생성/소멸 애니메이션 포함)"""
+    if imm_timer <= 0:
+        return
+
+    current_time = pygame.time.get_ticks()
+    elapsed = imm_duration - imm_timer  # 활성화 후 경과 시간
+
+    # === 페이드인 / 페이드아웃 알파 계산 ===
+    fade_in_dur = 0.5   # 생성 애니메이션 (0.5초)
+    fade_out_dur = 1.5  # 소멸 애니메이션 (1.5초)
+
+    if elapsed < fade_in_dur:
+        # 페이드인: 0→1 (ease-out)
+        fp = elapsed / fade_in_dur
+        alpha_mult = fp ** 0.5
+        # 확장→수축 효과
+        expand_mult = 1.0 + (1.0 - fp) * 0.6
+    elif imm_timer < fade_out_dur:
+        # 페이드아웃: 1→0
+        fp = imm_timer / fade_out_dur
+        alpha_mult = fp
+        # 약간 수축
+        expand_mult = 0.85 + 0.15 * fp
+    else:
+        alpha_mult = 1.0
+        expand_mult = 1.0
+
+    shield_r = int(base_radius * expand_mult)
+    pulse = 0.85 + 0.15 * math.sin(current_time * 0.01)
+    base_a = int(200 * alpha_mult * pulse)
+    if base_a <= 0:
+        return
+
+    sz = shield_r * 2 + 50
+    surf = pygame.Surface((sz, sz), pygame.SRCALPHA)
+    sc = sz // 2  # surface center
+
+    # ── 1. 외곽 보라색 글로우 (4겹) ──
+    for i in range(4):
+        ga = max(0, int(base_a * (0.25 - i * 0.05)))
+        gr = shield_r + 6 + i * 5
+        if ga > 0:
+            s = math.sin(current_time * 0.003 + i * 0.6)
+            r = int(140 + 40 * max(0, s))
+            g = int(50 + 30 * abs(s))
+            b = int(200 + 55 * max(0, -s))
+            pygame.draw.circle(surf, (r, g, b, ga), (sc, sc), gr, 0)
+
+    # ── 2. 메인 결계 링 (3겹, 회전 색상) ──
+    for i in range(3):
+        ra = max(0, int(base_a * (0.85 - i * 0.2)))
+        rr = shield_r + i * 3
+        th = max(1, int((3 - i) * (0.5 + 0.5 * alpha_mult)))
+        if ra > 0:
+            p = current_time * 0.007 + i * 1.0
+            r = int(160 + 60 * math.sin(p))
+            g = int(70 + 50 * math.sin(p + 2.0))
+            b = int(220 + 35 * math.sin(p + 4.0))
+            pygame.draw.circle(surf, (r, g, b, ra), (sc, sc), rr, th)
+
+    # ── 3. 내부 에너지 필드 (반투명 보라색 채우기) ──
+    ia = int(base_a * 0.1)
+    if ia > 0:
+        ip = current_time * 0.004
+        ir = int(120 + 30 * math.sin(ip))
+        ig = int(50 + 25 * math.sin(ip + 1.5))
+        ib = int(200 + 40 * math.sin(ip + 3.0))
+        pygame.draw.circle(surf, (ir, ig, ib, ia), (sc, sc), shield_r - 3, 0)
+
+    # ── 4. 마법 아크 (회전 에너지선 6개) ──
+    for ai in range(6):
+        aa = (current_time * 0.005 + ai * (math.pi / 3)) % (2 * math.pi)
+        a_alpha = int(base_a * (0.4 + 0.3 * math.sin(current_time * 0.018 + ai)))
+        if a_alpha > 0:
+            x1 = sc + int(shield_r * 0.75 * math.cos(aa))
+            y1 = sc + int(shield_r * 0.75 * math.sin(aa))
+            x2 = sc + int(shield_r * 0.85 * math.cos(aa + 0.35))
+            y2 = sc + int(shield_r * 0.85 * math.sin(aa + 0.35))
+            ar = int(180 + 75 * math.sin(current_time * 0.012 + ai))
+            ag = int(80 + 50 * math.sin(current_time * 0.016 + ai))
+            pygame.draw.line(surf, (ar, ag, 255, a_alpha), (x1, y1), (x2, y2), 2)
+
+    # ── 5. 상단 하이라이트 (빛 반사) ──
+    ha = int(base_a * 0.2)
+    if ha > 0:
+        hr = int(shield_r * 0.35)
+        pygame.draw.circle(surf, (200, 170, 255, ha), (sc, sc - int(shield_r * 0.35)), hr, 0)
+
+    # ── 6. 궤도 파티클 (8개, 보라색) ──
+    for pi in range(8):
+        pa = (current_time * 0.004 + pi * (math.pi / 4)) % (2 * math.pi)
+        pr = shield_r * (0.88 + 0.12 * math.sin(current_time * 0.007 + pi))
+        px = sc + int(pr * math.cos(pa))
+        py = sc + int(pr * math.sin(pa))
+        p_a = int(base_a * (0.5 + 0.4 * math.sin(current_time * 0.022 + pi * 0.6)))
+        psz = int(2 + 2 * math.sin(current_time * 0.013 + pi))
+        if p_a > 0 and psz > 0:
+            pb = 0.6 + 0.4 * math.sin(current_time * 0.018 + pi)
+            pygame.draw.circle(surf, (int(170 * pb), int(100 * pb), int(255 * pb), p_a), (px, py), psz)
+
+    # ── 7. 페이드인 확산 링 효과 (생성 애니메이션) ──
+    if elapsed < fade_in_dur:
+        rp = elapsed / fade_in_dur
+        # 바깥으로 퍼지는 링
+        exp_r = int(base_radius * (0.3 + rp * 1.5))
+        exp_a = int(180 * (1.0 - rp))
+        if exp_a > 0:
+            pygame.draw.circle(surf, (180, 120, 255, exp_a), (sc, sc), exp_r, 3)
+        # 안쪽 플래시
+        fl_a = int(120 * (1.0 - rp) ** 2)
+        if fl_a > 0:
+            pygame.draw.circle(surf, (200, 150, 255, fl_a), (sc, sc), int(exp_r * 0.6), 0)
+        # 빛 줄기 (8방향)
+        for ri in range(8):
+            ray_a = ri / 8 * 2 * math.pi + rp * math.pi * 0.5
+            ray_len = int(15 + rp * base_radius * 0.5)
+            ray_alpha = int(140 * (1.0 - rp))
+            if ray_alpha > 0:
+                rx = sc + int(math.cos(ray_a) * ray_len)
+                ry = sc + int(math.sin(ray_a) * ray_len)
+                pygame.draw.line(surf, (220, 180, 255, ray_alpha), (sc, sc), (rx, ry), 2)
+
+    # ── 8. 페이드아웃 수축 효과 (소멸 애니메이션) ──
+    if imm_timer < fade_out_dur:
+        fo_p = imm_timer / fade_out_dur  # 1→0
+        # 깜박이는 결계 외곽선
+        flicker = abs(math.sin(current_time * 0.03))
+        fl_a = int(80 * fo_p * flicker)
+        if fl_a > 0:
+            pygame.draw.circle(surf, (200, 140, 255, fl_a), (sc, sc), shield_r + 2, 2)
+
+    screen.blit(surf, (center_x - sc, center_y - sc))
+
 # 투기장 영웅 말풍선 시스템
 arena_top_speech_text = ""           # 상단 영웅 말풍선 텍스트
 arena_top_speech_timer = 0           # 상단 영웅 말풍선 타이머
@@ -88286,12 +88420,8 @@ def draw_objects():
             # 마법결계 보호막 이펙트 (상단 영웅)
             if arena_skill_manager and arena_skill_manager.game_state.get('magic_immunity_top', False):
                 _imm_timer = arena_skill_manager.game_state.get('magic_immunity_timer_top', 0.0)
-                _imm_alpha = min(180, int(80 + 100 * abs(math.sin(_imm_timer * 3))))
-                _imm_radius = max(_top_draw_width, _top_draw_height) // 2 + 12
-                _imm_surf = pygame.Surface((_imm_radius * 2 + 10, _imm_radius * 2 + 10), pygame.SRCALPHA)
-                pygame.draw.circle(_imm_surf, (100, 180, 255, _imm_alpha), (_imm_radius + 5, _imm_radius + 5), _imm_radius, 3)
-                pygame.draw.circle(_imm_surf, (150, 220, 255, _imm_alpha // 2), (_imm_radius + 5, _imm_radius + 5), _imm_radius - 4, 2)
-                SCREEN.blit(_imm_surf, (int(_top_final_x) - _imm_radius - 5, int(_top_final_y) - _imm_radius - 5))
+                _imm_base_r = max(_top_draw_width, _top_draw_height) // 2 + 15
+                _draw_magic_immunity_barrier(SCREEN, int(_top_final_x), int(_top_final_y), _imm_base_r, _imm_timer, ARENA_MAGIC_IMMUNITY_DURATION)
 
             # 신성월계수 잎 렌더링 (상단)
             if arena_leaf_shield_top and arena_leaf_shield_top.active:
@@ -89866,12 +89996,8 @@ def draw_objects():
             # 마법결계 보호막 이펙트 (하단 영웅)
             if arena_skill_manager and arena_skill_manager.game_state.get('magic_immunity_bottom', False):
                 _imm_timer = arena_skill_manager.game_state.get('magic_immunity_timer_bottom', 0.0)
-                _imm_alpha = min(180, int(80 + 100 * abs(math.sin(_imm_timer * 3))))
-                _imm_radius = max(_bottom_draw_width, _bottom_draw_height) // 2 + 12
-                _imm_surf = pygame.Surface((_imm_radius * 2 + 10, _imm_radius * 2 + 10), pygame.SRCALPHA)
-                pygame.draw.circle(_imm_surf, (100, 180, 255, _imm_alpha), (_imm_radius + 5, _imm_radius + 5), _imm_radius, 3)
-                pygame.draw.circle(_imm_surf, (150, 220, 255, _imm_alpha // 2), (_imm_radius + 5, _imm_radius + 5), _imm_radius - 4, 2)
-                SCREEN.blit(_imm_surf, (int(_final_x) - _imm_radius - 5, int(_final_y) - _imm_radius - 5))
+                _imm_base_r = max(_bottom_draw_width, _bottom_draw_height) // 2 + 15
+                _draw_magic_immunity_barrier(SCREEN, int(_final_x), int(_final_y), _imm_base_r, _imm_timer, ARENA_MAGIC_IMMUNITY_DURATION)
 
             # 신성월계수 잎 렌더링 (하단)
             if arena_leaf_shield_bottom and arena_leaf_shield_bottom.active:
