@@ -157,6 +157,20 @@ def _load_select_swing_sound():
     except Exception:
         _select_swing_sound = None
 
+_button_click_sound = None
+def _load_button_click_sound():
+    global _button_click_sound
+    if _button_click_sound is not None:
+        return
+    try:
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        path = os.path.join(base, "sounds", "button_click.wav")
+        if os.path.exists(path):
+            _button_click_sound = pygame.mixer.Sound(path)
+            _button_click_sound.set_volume(0.5)
+    except Exception:
+        _button_click_sound = None
+
 # ============================================================================
 # 이집트 파피루스 테마 색상 팔레트
 # ============================================================================
@@ -621,18 +635,18 @@ ARENA_PERK_POOL = [
     {
         "id": "spirit_flow",
         "name": "영기순환",
-        "description": "스킬 쿨타임 50% 감소",
+        "description": "스킬 쿨타임 30% 감소",
         "icon_color": (180, 100, 255),   # 보라 (마법)
         "effect_type": "skill_cooldown",
-        "value": 0.50,
+        "value": 0.30,
     },
     {
         "id": "command",
         "name": "호령",
-        "description": "호위무사 쿨타임 50% 감소",
+        "description": "호위무사 쿨타임 30% 감소",
         "icon_color": (255, 100, 100),   # 빨강 (권위)
         "effect_type": "guard_cooldown",
-        "value": 0.50,
+        "value": 0.30,
     },
     # === 신규 퍽 (5종) ===
     {
@@ -670,10 +684,10 @@ ARENA_PERK_POOL = [
     {
         "id": "magic_barrier",
         "name": "마법결계",
-        "description": "타격 시 10% 확률 6초 면역",
+        "description": "타격 시 15% 확률 6초 면역",
         "icon_color": (120, 200, 255),   # 밝은 파랑 (결계)
         "effect_type": "magic_immunity",
-        "value": 0.10,
+        "value": 0.15,
     },
     {
         "id": "laurel_shield",
@@ -4928,9 +4942,9 @@ class ColosseumsArena:
                     x = x_positions[i]
                     if x <= mx <= x + box_w and y_base <= my <= y_base + box_h:
                         # 매치 공개 애니메이션 시작
-                        _load_select_swing_sound()
-                        if _select_swing_sound:
-                            _select_swing_sound.play()
+                        _load_button_click_sound()
+                        if _button_click_sound:
+                            _button_click_sound.play()
                         self.match_reveal_index = i
                         self.match_reveal_timer = 0.0
                         self.selected_match = match
@@ -4997,17 +5011,17 @@ class ColosseumsArena:
 
             # 영웅 1 선택
             if card1_x <= mx <= card1_x + card_w and card_y <= my <= card_y + card_h:
-                _load_select_swing_sound()
-                if _select_swing_sound:
-                    _select_swing_sound.play()
+                _load_button_click_sound()
+                if _button_click_sound:
+                    _button_click_sound.play()
                 self._select_hero(self.selected_match.hero1, self.selected_match.hero2)
                 return
 
             # 영웅 2 선택
             if card2_x <= mx <= card2_x + card_w and card_y <= my <= card_y + card_h:
-                _load_select_swing_sound()
-                if _select_swing_sound:
-                    _select_swing_sound.play()
+                _load_button_click_sound()
+                if _button_click_sound:
+                    _button_click_sound.play()
                 self._select_hero(self.selected_match.hero2, self.selected_match.hero1)
                 return
 
@@ -5036,9 +5050,9 @@ class ColosseumsArena:
             for i, prison_hero in enumerate(self.prison_heroes):
                 cx = start_x + i * (cell_w + gap)
                 if cx <= mx <= cx + cell_w and cell_y <= my <= cell_y + cell_h:
-                    _load_select_swing_sound()
-                    if _select_swing_sound:
-                        _select_swing_sound.play()
+                    _load_button_click_sound()
+                    if _button_click_sound:
+                        _button_click_sound.play()
                     self._select_guard(prison_hero, i)
                     return
 
@@ -5058,9 +5072,9 @@ class ColosseumsArena:
             # 영웅 1 선택 버튼 (클릭하면 VS 미리보기 후 배틀)
             btn1_rect = pygame.Rect(panel_x + 20, panel_y + 145, 145, 100)
             if btn1_rect.collidepoint(mx, my):
-                _load_select_swing_sound()
-                if _select_swing_sound:
-                    _select_swing_sound.play()
+                _load_button_click_sound()
+                if _button_click_sound:
+                    _button_click_sound.play()
                 self.bet_hero = self.selected_match.hero1
                 self._start_vs_preview()
                 return
@@ -5068,9 +5082,9 @@ class ColosseumsArena:
             # 영웅 2 선택 버튼 (클릭하면 VS 미리보기 후 배틀)
             btn2_rect = pygame.Rect(panel_x + 235, panel_y + 145, 145, 100)
             if btn2_rect.collidepoint(mx, my):
-                _load_select_swing_sound()
-                if _select_swing_sound:
-                    _select_swing_sound.play()
+                _load_button_click_sound()
+                if _button_click_sound:
+                    _button_click_sound.play()
                 self.bet_hero = self.selected_match.hero2
                 self._start_vs_preview()
                 return
@@ -5078,9 +5092,9 @@ class ColosseumsArena:
             # 포기하고 나가기 버튼
             exit_rect = pygame.Rect(panel_x + 100, panel_y + 300, 200, 40)
             if exit_rect.collidepoint(mx, my):
-                _load_select_swing_sound()
-                if _select_swing_sound:
-                    _select_swing_sound.play()
+                _load_button_click_sound()
+                if _button_click_sound:
+                    _button_click_sound.play()
                 # 누적 상금을 total_winnings에 저장
                 self.total_winnings = self.accumulated_prize
                 self.winnings_collected = True
@@ -5095,9 +5109,9 @@ class ColosseumsArena:
                 # 계속 도전 버튼
                 continue_rect = pygame.Rect(SCREEN_WIDTH // 2 - btn_w - 20, btn_y, btn_w, btn_h)
                 if continue_rect.collidepoint(mx, my):
-                    _load_select_swing_sound()
-                    if _select_swing_sound:
-                        _select_swing_sound.play()
+                    _load_button_click_sound()
+                    if _button_click_sound:
+                        _button_click_sound.play()
                     if self.selected_match:
                         self.start_battle(self.selected_match)
                     return
@@ -5105,9 +5119,9 @@ class ColosseumsArena:
                 # 상금 수령하고 나가기 버튼
                 exit_rect = pygame.Rect(SCREEN_WIDTH // 2 + 20, btn_y, btn_w, btn_h)
                 if exit_rect.collidepoint(mx, my):
-                    _load_select_swing_sound()
-                    if _select_swing_sound:
-                        _select_swing_sound.play()
+                    _load_button_click_sound()
+                    if _button_click_sound:
+                        _button_click_sound.play()
                     self.total_winnings = self.accumulated_prize
                     self.winnings_collected = True
                     self.exit_requested = True
@@ -5127,9 +5141,9 @@ class ColosseumsArena:
                 # 상금 수령 버튼
                 gold_rect = pygame.Rect(center_x - btn_w - 15, btn_y, btn_w, btn_h)
                 if gold_rect.collidepoint(mx, my):
-                    _load_select_swing_sound()
-                    if _select_swing_sound:
-                        _select_swing_sound.play()
+                    _load_button_click_sound()
+                    if _button_click_sound:
+                        _button_click_sound.play()
                     prize = self.round_prizes.get(TournamentRound.FINAL, 3000)
                     self.total_winnings = prize
                     self.winnings_collected = True
@@ -5139,9 +5153,9 @@ class ColosseumsArena:
                 # 호위무사 등용 버튼
                 hero_rect = pygame.Rect(center_x + 15, btn_y, btn_w, btn_h)
                 if hero_rect.collidepoint(mx, my):
-                    _load_select_swing_sound()
-                    if _select_swing_sound:
-                        _select_swing_sound.play()
+                    _load_button_click_sound()
+                    if _button_click_sound:
+                        _button_click_sound.play()
                     self.recruited_hero = self.bet_hero
                     self.total_winnings = 0
                     self.winnings_collected = True
@@ -5153,9 +5167,9 @@ class ColosseumsArena:
             panel_x, panel_y = 180, 180
             exit_rect = pygame.Rect(panel_x + 100, panel_y + 270, 200, 50)
             if exit_rect.collidepoint(mx, my):
-                _load_select_swing_sound()
-                if _select_swing_sound:
-                    _select_swing_sound.play()
+                _load_button_click_sound()
+                if _button_click_sound:
+                    _button_click_sound.play()
                 self.total_winnings = self.accumulated_prize
                 self.winnings_collected = True
                 self.exit_requested = True
@@ -8170,9 +8184,9 @@ class ColosseumsArena:
         """퍽 선택 확정"""
         if self.perk_selected_index < 0 or self.perk_selected_index >= len(self.current_perk_options):
             return
-        _load_select_swing_sound()
-        if _select_swing_sound:
-            _select_swing_sound.play()
+        _load_button_click_sound()
+        if _button_click_sound:
+            _button_click_sound.play()
         selected_perk = self.current_perk_options[self.perk_selected_index]
         self.perk_selected_id = selected_perk["id"]
 
@@ -9574,9 +9588,9 @@ class ColosseumsArena:
         guards = getattr(self, 'guard_select_guards', [])
         if index < 0 or index >= len(guards):
             return
-        _load_select_swing_sound()
-        if _select_swing_sound:
-            _select_swing_sound.play()
+        _load_button_click_sound()
+        if _button_click_sound:
+            _button_click_sound.play()
         selected = guards[index]
         bet_id = self.bet_hero["id"] if self.bet_hero else ""
         new_idx = getattr(self, 'guard_select_new_idx', len(guards) - 1)
