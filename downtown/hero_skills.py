@@ -6978,7 +6978,7 @@ class IllusionShuriken(HeroSkill):
             korean_name="환영수리검",
             description="3~5개의 수리검을 순차 발사하여 상대를 넉백시킨다",
             trigger=SkillTrigger.ON_BALL_HIT,
-            cooldown=12.0,
+            cooldown=14.0,
             duration=999.0,  # 시간 제한 없음 - 수리검이 모두 사라질 때까지 유지
             hero_id="kurokage"
         )
