@@ -281,6 +281,9 @@ class CircularStadiumFrame:
         # 경기장 테두리 장식
         self._draw_arena_border(self._frame_surface)
 
+        # 코너 석상 얼굴 (45도 회전, 필러 바깥쪽)
+        self._draw_corner_statues(self._frame_surface)
+
     def _draw_stadium_backdrop(self, surface):
         """관중석 뒤 스타디움 배경 그리기 (고퀄리티)"""
         crowd_end_radius = max(self.game_width, self.game_height) // 2 + 25 + 5 * 28 + 20
@@ -566,6 +569,162 @@ class CircularStadiumFrame:
         pygame.draw.rect(surface, self.COLORS['stone_light'],
                         (self.game_x - 3, self.game_y - 3,
                          self.game_width + 6, self.game_height + 6), 3)
+
+    def _draw_corner_statues(self, surface):
+        """4개 코너에 이집트 파라오 석상 얼굴 (45도 회전, 필러 바깥쪽 배치)"""
+        # 석상 크기 (회전 전)
+        face_size = 50
+
+        # 게임 영역 4 코너 위치 + 회전 각도
+        # 각 석상은 게임 영역 꼭지점에서 대각선 바깥으로 배치
+        corners = [
+            # (x, y, rotation_angle) - 필러쪽 대각선 바깥
+            (self.game_x - 8, self.game_y - 8, -45),         # 좌상: 좌상 대각선
+            (self.game_x + self.game_width + 8, self.game_y - 8, 45),    # 우상: 우상 대각선
+            (self.game_x - 8, self.game_y + self.game_height + 8, -135),  # 좌하: 좌하 대각선
+            (self.game_x + self.game_width + 8, self.game_y + self.game_height + 8, 135),  # 우하: 우하 대각선
+        ]
+
+        for cx, cy, angle in corners:
+            face_surf = self._create_pharaoh_face(face_size)
+            # 회전
+            rotated = pygame.transform.rotate(face_surf, angle)
+            # 회전 후 크기가 달라지므로 중심 맞추기
+            rot_rect = rotated.get_rect(center=(cx, cy))
+            surface.blit(rotated, rot_rect.topleft)
+
+    def _create_pharaoh_face(self, size):
+        """이집트 파라오 석상 얼굴 서피스 생성 (정면, 회전 전)"""
+        surf = pygame.Surface((size, size), pygame.SRCALPHA)
+        cx = size // 2
+        cy = size // 2
+
+        # 색상
+        stone = (170, 155, 135)
+        stone_light = (195, 180, 160)
+        shadow = (120, 105, 85)
+        dark = (90, 75, 60)
+        gold = self.COLORS['gold']
+        gold_light = self.COLORS['gold_light']
+        gold_dark = self.COLORS['gold_dark']
+        eye_glow = (210, 180, 80)
+
+        s = size / 50.0  # 스케일 팩터
+
+        # ── 네메스 두건 (전체 실루엣) ──
+        # 두건 양쪽 날개 (아래로 늘어짐)
+        nemes_pts = [
+            (cx - int(18 * s), cy + int(20 * s)),     # 왼쪽 날개 끝
+            (cx - int(16 * s), cy - int(5 * s)),      # 왼쪽 머리 옆
+            (cx - int(10 * s), cy - int(18 * s)),     # 왼쪽 이마
+            (cx, cy - int(22 * s)),                    # 정수리
+            (cx + int(10 * s), cy - int(18 * s)),     # 오른쪽 이마
+            (cx + int(16 * s), cy - int(5 * s)),      # 오른쪽 머리 옆
+            (cx + int(18 * s), cy + int(20 * s)),     # 오른쪽 날개 끝
+        ]
+        pygame.draw.polygon(surf, shadow, nemes_pts)
+        pygame.draw.polygon(surf, dark, nemes_pts, 1)
+
+        # 두건 줄무늬 (가로선)
+        for stripe_y in range(int(-15 * s), int(18 * s), int(4 * s)):
+            y = cy + stripe_y
+            # 줄무늬 범위 (두건 폴리곤 안)
+            stripe_half_w = int((16 - abs(stripe_y / s) * 0.3) * s)
+            if stripe_half_w > 2:
+                pygame.draw.line(surf, dark,
+                               (cx - stripe_half_w, y), (cx + stripe_half_w, y), 1)
+
+        # ── 얼굴 (타원) ──
+        face_w = int(22 * s)
+        face_h = int(26 * s)
+        face_rect = (cx - face_w // 2, cy - face_h // 2 - int(2 * s), face_w, face_h)
+        pygame.draw.ellipse(surf, stone, face_rect)
+        pygame.draw.ellipse(surf, shadow, face_rect, 1)
+
+        # 얼굴 하이라이트 (왼쪽 볼)
+        pygame.draw.ellipse(surf, stone_light,
+                          (cx - face_w // 3, cy - face_h // 4, face_w // 3, face_h // 3))
+
+        # ── 이마 밴드 (금색) ──
+        band_y = cy - int(10 * s)
+        band_h = int(4 * s)
+        pygame.draw.rect(surf, gold,
+                        (cx - int(12 * s), band_y, int(24 * s), band_h))
+        pygame.draw.rect(surf, gold_dark,
+                        (cx - int(12 * s), band_y, int(24 * s), band_h), 1)
+        # 밴드 중앙 장식
+        pygame.draw.rect(surf, gold_light,
+                        (cx - int(3 * s), band_y, int(6 * s), band_h))
+
+        # ── 우라에우스 (코브라) ──
+        cobra_y = band_y - int(2 * s)
+        # 코브라 몸
+        pygame.draw.line(surf, gold, (cx, band_y), (cx, cobra_y - int(4 * s)), int(2 * s))
+        # 코브라 머리 (부채꼴)
+        cobra_head_y = cobra_y - int(5 * s)
+        pygame.draw.circle(surf, gold_light, (cx, cobra_head_y), int(3 * s))
+        pygame.draw.circle(surf, eye_glow, (cx - int(1 * s), cobra_head_y), int(1 * s))
+        pygame.draw.circle(surf, eye_glow, (cx + int(1 * s), cobra_head_y), int(1 * s))
+
+        # ── 눈 (이집트 아이라인 스타일) ──
+        eye_y = cy - int(1 * s)
+        eye_spacing = int(5 * s)
+        eye_w = int(5 * s)
+        eye_h = int(3 * s)
+
+        for eye_x in [cx - eye_spacing, cx + eye_spacing]:
+            # 눈 윤곽 (아몬드 형태)
+            eye_pts = [
+                (eye_x - eye_w // 2, eye_y),
+                (eye_x, eye_y - eye_h // 2),
+                (eye_x + eye_w // 2, eye_y),
+                (eye_x, eye_y + eye_h // 2),
+            ]
+            pygame.draw.polygon(surf, (250, 245, 235), eye_pts)  # 흰자
+            pygame.draw.polygon(surf, dark, eye_pts, 1)
+            # 눈동자
+            pygame.draw.circle(surf, dark, (eye_x, eye_y), max(1, int(1.5 * s)))
+            # 금빛 하이라이트
+            pygame.draw.circle(surf, eye_glow, (eye_x, eye_y), max(1, int(1 * s)))
+
+            # 이집트 아이라인 꼬리 (바깥쪽으로)
+            tail_dir = 1 if eye_x > cx else -1
+            pygame.draw.line(surf, dark,
+                           (eye_x + eye_w // 2 * tail_dir, eye_y),
+                           (eye_x + int(eye_w * 0.8) * tail_dir, eye_y + int(2 * s)), 1)
+
+        # ── 코 ──
+        nose_y = cy + int(3 * s)
+        pygame.draw.line(surf, shadow, (cx, eye_y + int(2 * s)), (cx, nose_y), 1)
+        pygame.draw.line(surf, shadow, (cx - int(1.5 * s), nose_y), (cx + int(1.5 * s), nose_y), 1)
+
+        # ── 입 ──
+        mouth_y = cy + int(7 * s)
+        pygame.draw.line(surf, dark, (cx - int(4 * s), mouth_y), (cx + int(4 * s), mouth_y), 1)
+        # 입술 하이라이트
+        pygame.draw.line(surf, shadow,
+                        (cx - int(3 * s), mouth_y + 1), (cx + int(3 * s), mouth_y + 1), 1)
+
+        # ── 턱선 강조 ──
+        chin_y = cy + int(10 * s)
+        pygame.draw.arc(surf, shadow,
+                       (cx - int(8 * s), chin_y - int(4 * s), int(16 * s), int(8 * s)),
+                       0.3, math.pi - 0.3, 1)
+
+        # ── 받침대 (목 아래 석조) ──
+        base_y = cy + int(16 * s)
+        base_w = int(20 * s)
+        base_h = int(6 * s)
+        base_pts = [
+            (cx - base_w // 2, base_y + base_h),
+            (cx + base_w // 2, base_y + base_h),
+            (cx + base_w // 2 - int(2 * s), base_y),
+            (cx - base_w // 2 + int(2 * s), base_y),
+        ]
+        pygame.draw.polygon(surf, dark, base_pts)
+        pygame.draw.polygon(surf, shadow, base_pts, 1)
+
+        return surf
 
     def trigger_excitement(self, intensity: float = 1.0, duration: float = 2.0):
         """관중 흥분 이벤트"""
