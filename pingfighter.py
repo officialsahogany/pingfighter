@@ -19911,6 +19911,7 @@ def arena_trigger_bottom_hero_dash_ai(target_x: float) -> bool:
     global arena_bottom_dash_target_x, arena_bottom_dash_cooldown
     global arena_bottom_dash_duration_frames, arena_bottom_dash_stun_timer
     global arena_bottom_dash_charges, arena_bottom_dash_charge_timer
+    global arena_storm_rush_burst_bottom, arena_storm_rush_height_bonus_bottom
 
     # 스팀 배리어 시전 중에는 대쉬 발동 불가 (하단 패들이 시전자일 때)
     if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and not arena_skill_manager.game_state.get('barrier_owner_is_top', False):
@@ -19955,11 +19956,23 @@ def arena_trigger_bottom_hero_dash_ai(target_x: float) -> bool:
     print(f"[ARENA DASH AI] 하단 대쉬 발동! charges={arena_bottom_dash_charges}→{arena_bottom_dash_charges} "
           f"dist={dash_distance:.0f} dir={direction}", flush=True)
 
-    # 대쉬 사운드 재생 (보스와 동일)
-    try:
-        play_dash_sound()
-    except Exception:
-        pass
+    # 폭풍질주 퍽: 버스트업 Lv3 효과
+    if arena_perk_dash_distance_mult_bottom > 1.0:
+        arena_storm_rush_burst_bottom = True
+        arena_storm_rush_height_bonus_bottom = int(PADDLE_HEIGHT * 2.1)
+        _spawn_storm_rush_particles(PLAYER.centerx, PLAYER.centery)
+        try:
+            play_sound_with_volume(SOUND_BURST_UP)
+        except Exception:
+            try:
+                play_dash_sound()
+            except Exception:
+                pass
+    else:
+        try:
+            play_dash_sound()
+        except Exception:
+            pass
 
     return True
 
@@ -114644,7 +114657,7 @@ def _get_arena_speed_btn_layout():
     Returns:
         (sx, sy, rw, rh, rgap) - 시작좌표, 버튼크기, 간격 (REAL_SCREEN 좌표)
     """
-    btn_w_base, btn_h_base, gap_base = 22, 16, 3
+    btn_w_base, btn_h_base, gap_base = 44, 32, 6
 
     if _is_fullscreen_active:
         scale = GAME_SCALE_FACTOR
