@@ -19465,6 +19465,7 @@ def arena_trigger_bottom_hero_dash_ai(target_x: float) -> bool:
     global arena_bottom_dashing, arena_bottom_dash_timer, arena_bottom_dash_direction
     global arena_bottom_dash_target_x, arena_bottom_dash_cooldown
     global arena_bottom_dash_duration_frames, arena_bottom_dash_stun_timer
+    global arena_bottom_dash_charges, arena_bottom_dash_charge_timer
 
     # 스팀 배리어 시전 중에는 대쉬 발동 불가 (하단 패들이 시전자일 때)
     if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and not arena_skill_manager.game_state.get('barrier_owner_is_top', False):
@@ -19476,6 +19477,10 @@ def arena_trigger_bottom_hero_dash_ai(target_x: float) -> bool:
 
     # 대쉬 중이거나 쿨다운/후딜 중이면 발동 불가
     if arena_bottom_dashing or arena_bottom_dash_cooldown > 0 or arena_bottom_dash_stun_timer > 0:
+        return False
+
+    # 대쉬 토큰이 없으면 발동 불가
+    if arena_bottom_dash_charges <= 0:
         return False
 
     direction = 1 if target_x > PLAYER.centerx else -1
@@ -19493,6 +19498,8 @@ def arena_trigger_bottom_hero_dash_ai(target_x: float) -> bool:
     arena_bottom_dash_duration_frames = int(max(10, min(estimated_duration, 40)))  # 10~40 프레임
     arena_bottom_dash_timer = arena_bottom_dash_duration_frames
     arena_bottom_dashing = True
+    arena_bottom_dash_charges -= 1  # 대쉬 토큰 소모
+    arena_bottom_dash_charge_timer = 0  # 충전 타이머 리셋 (새 토큰 충전 시작)
 
     # 대쉬 사운드 재생 (보스와 동일)
     try:
@@ -96591,7 +96598,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
     arena_bottom_dash_target_x = 0.0
     arena_bottom_dash_cooldown = 0
     arena_bottom_dash_afterimages = []
-    arena_bottom_dash_charges = 2
+    arena_bottom_dash_charges = 1  # 시작 시 1개 (스테이지 모드와 동일)
     arena_bottom_dash_charge_timer = 0
     arena_bottom_dash_duration_frames = 15
     arena_bottom_dash_stun_timer = 0
