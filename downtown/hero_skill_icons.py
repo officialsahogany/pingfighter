@@ -36,12 +36,12 @@ def _create_icon(skill_id: str) -> Optional[pygame.Surface]:
     """skill_id에 해당하는 32x32 아이콘 생성"""
     creators = {
         "dark_slash": _icon_dark_slash,
-        "demon_eye": _icon_demon_eye,
+        "demon_step": _icon_demon_eye,
         "tentacle_wrap": _icon_tentacle_wrap,
         "abyss_ink": _icon_abyss_ink,
         "gravity_control": _icon_gravity_control,
         "dwarf_magic": _icon_dwarf_magic,
-        "hellfire": _icon_hellfire,
+        "hell_fire": _icon_hellfire,
         "horn_charge": _icon_horn_charge,
         "puppet_control": _icon_puppet_control,
         "doll_curse": _icon_doll_curse,
