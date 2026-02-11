@@ -96912,6 +96912,8 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         _arena_perk_obj = _arena_pending_perk_data
         if _arena_perk_obj:
             apply_arena_perks_for_battle(_arena_perk_obj, top_hero["id"], bottom_hero["id"])
+            # 잔상술 퍽으로 증가된 최대 토큰 수를 현재 충전량에 반영
+            arena_bottom_dash_charges = arena_bottom_max_dash_charges
         else:
             reset_arena_perks()
 
