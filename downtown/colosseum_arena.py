@@ -129,6 +129,20 @@ def _load_hover_sound():
     except Exception:
         _hover_sound = None
 
+_prison_open_sound = None
+def _load_prison_open_sound():
+    global _prison_open_sound
+    if _prison_open_sound is not None:
+        return
+    try:
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        path = os.path.join(base, "sounds", "prisonopen.wav")
+        if os.path.exists(path):
+            _prison_open_sound = pygame.mixer.Sound(path)
+            _prison_open_sound.set_volume(0.5)
+    except Exception:
+        _prison_open_sound = None
+
 # ============================================================================
 # 이집트 파피루스 테마 색상 팔레트
 # ============================================================================
@@ -3668,6 +3682,9 @@ class ColosseumsArena:
 
         # 철창 열림 + 공격 모션 애니메이션 시작
         # (완료 후 update()에서 GUARD_SKILL_REVEAL로 전환)
+        _load_prison_open_sound()
+        if _prison_open_sound:
+            _prison_open_sound.play()
         self._prison_opening_phase = "bars_opening"
         self._prison_opening_index = prison_index
         self._prison_opening_timer = 0.0
