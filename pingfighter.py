@@ -133741,6 +133741,32 @@ def main(stage_num, new_boss_mode=False):
                             pass
                         del arena_skill_manager.game_state['guard_general_ball_hit']
 
+                    # 🛡️ 순찰 호위무사 패들 반사 처리 (영웅 패들과 동일한 물리)
+                    _guard_patrol_hit = arena_skill_manager.game_state.get('guard_patrol_ball_hit')
+                    if _guard_patrol_hit:
+                        import math as _math
+                        _is_top_guard = _guard_patrol_hit['is_top_guard']
+                        _hit_offset = _guard_patrol_hit.get('hit_offset', 0)
+                        _current_speed = _math.hypot(ball_vel[0], ball_vel[1])
+                        _reflect_speed = max(_current_speed * 1.03, 6.0)  # BALL_ACCELERATION 적용
+                        # 상단 호위무사: 공을 아래로 반사 / 하단 호위무사: 공을 위로 반사
+                        if _is_top_guard:
+                            ball_vel[1] = abs(_reflect_speed)
+                        else:
+                            ball_vel[1] = -abs(_reflect_speed)
+                        # 히트 오프셋에 따른 X축 각도 조절
+                        ball_vel[0] += _hit_offset * 4.0  # PADDLE_HIT_ANGLE_FACTOR
+                        # 무기 휘두르기 애니메이션 트리거
+                        _guard_patrol_id = _guard_patrol_hit.get('guard_id')
+                        if _guard_patrol_id and arena_hero_paddle_renderer:
+                            arena_hero_paddle_renderer.trigger_weapon_swing(_guard_patrol_id)
+                        # 사운드 재생
+                        try:
+                            play_sound_with_volume(SOUND_HIT)
+                        except Exception:
+                            pass
+                        del arena_skill_manager.game_state['guard_patrol_ball_hit']
+
                     # 🗡️ 환영수리검 넉백 효과 적용 (상단/하단 동일)
                     # 자연스러운 넉백: 초기속도 14.0 + 자연 감속 + 0.6초 경직
                     _kb_gs = arena_skill_manager.game_state

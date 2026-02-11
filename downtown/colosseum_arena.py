@@ -1651,6 +1651,8 @@ class GuardWarriorSystem:
             self._check_guard_demon_step_ball_collision(ball, game_state)
             # 일반 호위무사 패들 충돌 감지 (등장/시전/퇴장 중 공과 물리 반사)
             self._check_guard_general_ball_collision(ball, game_state)
+            # 순찰 호위무사 패들 충돌 감지 (반사 - 영웅 패들과 동일한 물리)
+            self._check_guard_patrol_ball_collision(ball, game_state)
 
         # 활성 호위무사 스킬 이펙트 업데이트 (호위무사 위치 기반)
         for hero_id, skills in self.skill_instances.items():
@@ -2166,8 +2168,8 @@ class GuardWarriorSystem:
         import pygame
         for is_top in (True, False):
             phase = self.phase_top if is_top else self.phase_bottom
-            if phase is None:
-                continue
+            if phase is None or phase == "patrolling":
+                continue  # 순찰 중은 전용 충돌 로직(_check_guard_patrol_ball_collision) 사용
             # 귀신발걸음은 전용 충돌 로직 사용 → 스킵
             skill = self.selected_skill_top if is_top else self.selected_skill_bottom
             if skill and getattr(skill, 'skill_id', '') == 'demon_step':
@@ -2202,6 +2204,52 @@ class GuardWarriorSystem:
                     'hit_offset': hit_offset,
                     'guard_id': guard["id"] if guard else None,
                 }
+                return
+
+    def _check_guard_patrol_ball_collision(self, ball, game_state):
+        """순찰 중인 호위무사 패들로 공을 반사 (영웅 패들과 동일한 물리)
+
+        일반 충돌(_check_guard_general_ball_collision)과 달리,
+        공이 호위무사 쪽으로 날아올 때 반대 방향으로 반사한다.
+        """
+        import pygame
+        for is_top in (True, False):
+            phase = self.phase_top if is_top else self.phase_bottom
+            if phase != "patrolling":
+                continue
+
+            gx = self.x_top if is_top else self.x_bottom
+            gy = self.y_top if is_top else self.y_bottom
+            guard_rect = pygame.Rect(
+                int(gx - PADDLE_WIDTH // 2), int(gy),
+                PADDLE_WIDTH, PADDLE_HEIGHT
+            )
+            ball_rect = pygame.Rect(
+                int(ball.x) - BALL_SIZE - 2,
+                int(ball.y) - BALL_SIZE - 2,
+                BALL_SIZE * 2 + 4,
+                BALL_SIZE * 2 + 4
+            )
+
+            if guard_rect.colliderect(ball_rect):
+                ball_vy = getattr(ball, 'vy', 0)
+                # 공이 호위무사 쪽으로 오는 방향만 반사 (관통 방지)
+                # 상단 호위무사: 공이 위로 올라오는 중 (vy < 0) → 아래로 반사
+                # 하단 호위무사: 공이 아래로 내려오는 중 (vy > 0) → 위로 반사
+                if is_top and ball_vy >= 0:
+                    continue
+                if not is_top and ball_vy <= 0:
+                    continue
+
+                hit_offset = (ball_rect.centerx - guard_rect.centerx) / (PADDLE_WIDTH / 2)
+                hit_offset = max(-1.0, min(1.0, hit_offset))
+                guard = self.active_top if is_top else self.active_bottom
+                game_state['guard_patrol_ball_hit'] = {
+                    'is_top_guard': is_top,
+                    'hit_offset': hit_offset,
+                    'guard_id': guard["id"] if guard else None,
+                }
+                self._guard_ball_cooldown = 0.15  # 연속 충돌 방지
                 return
 
     # 호위무사 스킬이 game_state를 통해 메인 영웅에 영향주는 것 방지용 키 목록
