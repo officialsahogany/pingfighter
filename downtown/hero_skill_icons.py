@@ -94,23 +94,31 @@ def _icon_dark_slash() -> pygame.Surface:
 
 
 def _icon_demon_eye() -> pygame.Surface:
-    """귀신발걸음 - 귀신 눈 + 보라 오라"""
+    """귀신발걸음 - 유령 실루엣 + 잔상 발자국 + 보라 오라"""
     s = pygame.Surface((32, 32), pygame.SRCALPHA)
-    # 배경
-    pygame.draw.circle(s, (30, 15, 50), (16, 16), 15)
-    pygame.draw.circle(s, (50, 25, 80), (16, 16), 15, 1)
-    # 귀신 눈 (타원)
-    pygame.draw.ellipse(s, (120, 60, 180), (7, 10, 18, 12))
-    pygame.draw.ellipse(s, (180, 100, 255), (7, 10, 18, 12), 2)
-    # 눈동자
-    pygame.draw.circle(s, (255, 80, 80), (16, 16), 3)
-    pygame.draw.circle(s, (255, 200, 200), (16, 15), 1)
-    # 오라 잔상 (하단 발자국)
-    for i in range(3):
-        alpha = 150 - i * 40
-        x = 10 + i * 5
-        y = 25 + i
-        pygame.draw.ellipse(s, (120, 60, 180, alpha), (x, y, 6, 3))
+    # 어두운 보라 배경
+    pygame.draw.circle(s, (25, 10, 45), (16, 16), 15)
+    pygame.draw.circle(s, (60, 30, 90), (16, 16), 15, 1)
+    # 잔상 발자국 (왼발-오른발 교대, 뒤에서 앞으로 페이드인)
+    foot_pairs = [(8, 27, 60), (14, 24, 90), (20, 21, 130)]
+    for fx, fy, fa in foot_pairs:
+        pygame.draw.ellipse(s, (140, 80, 200, fa), (fx, fy, 5, 3))
+        pygame.draw.ellipse(s, (180, 120, 240, fa // 2), (fx, fy, 5, 3), 1)
+    # 유령 실루엣 (상체 - 머리+몸통, 투명하게 겹침)
+    # 몸통 (아래로 갈수록 투명해지는 삼각형 실루엣)
+    body_pts = [(12, 18), (20, 18), (22, 12), (16, 5), (10, 12)]
+    pygame.draw.polygon(s, (160, 100, 220, 160), body_pts)
+    pygame.draw.polygon(s, (200, 140, 255, 100), body_pts, 1)
+    # 하체 흐릿한 잔상 (유령 꼬리)
+    pygame.draw.polygon(s, (130, 80, 190, 80), [(10, 17), (16, 20), (22, 17)])
+    # 귀신 눈 2개 (빨간 빛)
+    pygame.draw.circle(s, (255, 50, 50), (13, 10), 2)
+    pygame.draw.circle(s, (255, 50, 50), (19, 10), 2)
+    pygame.draw.circle(s, (255, 180, 180), (13, 10), 1)
+    pygame.draw.circle(s, (255, 180, 180), (19, 10), 1)
+    # 보라색 오라 파동 (유령 주변)
+    pygame.draw.arc(s, (140, 70, 220, 70), (6, 4, 20, 16), 0.3, 2.8, 1)
+    pygame.draw.arc(s, (100, 50, 180, 40), (4, 2, 24, 20), 0.5, 2.6, 1)
     return s
 
 
