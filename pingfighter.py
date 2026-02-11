@@ -19027,6 +19027,9 @@ def arena_play_skill_sound(result):
     global _arena_skill_sound_cache
     if not result:
         return
+    # 🔥 안전장치: 투기장 모드가 아니면 스킬 사운드 재생 차단
+    if not arena_mode_enabled:
+        return
     sound_key = result.get('sound')
     if not sound_key:
         return
@@ -96602,167 +96605,169 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
     global arena_bottom_dash_duration_frames, arena_bottom_dash_stun_timer
     global selected_character_type, selected_item_index, last_item_use_time
 
-    # 투기장 모드 활성화
-    arena_mode_enabled = True
-    arena_speed_multiplier = 1  # 배속 리셋 (매 경기 1x)
-    arena_battle_result = None  # 이전 배틀 결과 초기화 (필수!)
-    arena_top_hero = top_hero
-    arena_bottom_hero = bottom_hero
-
-    # ── 투기장 공 속도 일관성 보장 ──
-    # ai_mode에 따라 공 속도가 달라지므로, 투기장에서는 고정값 사용
-    # (개발자 모드/신화모드 등 진입 경로에 관계없이 동일한 공 속도)
+    # 🔥 모든 셋업 코드를 try/finally 안에서 실행
+    # (셋업 중 예외 발생 시 arena_mode_enabled가 True로 남아 스킬 사운드가 계속 재생되는 버그 방지)
+    # finally 블록에서 복원할 변수의 기본값 (셋업 실패 시 안전한 복원용)
     _saved_ai_mode = ai_mode
-    ai_mode = "junior"  # 투기장 전용 공 속도 (느린 템포)
-
-    # 투기장 대쉬 변수 초기화 (보스 대쉬와 동일한 구조)
-    arena_top_dashing = False
-    arena_top_dash_timer = 0
-    arena_top_dash_direction = 0
-    arena_top_dash_target_x = 0.0
-    arena_top_dash_cooldown = 0
-    arena_top_dash_afterimages = []
-    arena_top_dash_duration_frames = 15
-    arena_top_dash_stun_timer = 0
-    arena_bottom_dashing = False
-    arena_bottom_dash_timer = 0
-    arena_bottom_dash_direction = 0
-    arena_bottom_dash_target_x = 0.0
-    arena_bottom_dash_cooldown = 0
-    arena_bottom_dash_afterimages = []
-    arena_bottom_max_dash_charges = 1  # 기본 최대 1개 (퍽으로 증가 가능)
-    arena_bottom_dash_charges = arena_bottom_max_dash_charges  # 시작 시 최대치
-    arena_bottom_dash_charge_timer = 0
-    arena_bottom_dash_duration_frames = 15
-    arena_bottom_dash_stun_timer = 0
-
-    # 영웅 패들 렌더러 초기화
-    try:
-        from downtown.hero_paddles import get_hero_paddle_renderer
-        arena_hero_paddle_renderer = get_hero_paddle_renderer()
-    except Exception as e:
-        print(f"Hero paddle renderer init error: {e}")
-        arena_hero_paddle_renderer = None
-
-    # 영웅 스킬 시스템 초기화 (스킬 선택 정보 반영)
-    # 1차: 영웅 dict에서 직접 읽기 (가장 안정적)
-    # 2차: 글로벌 변수에서 읽기 (호환성)
-    _skill_selections = globals().get('_arena_pending_skill_selections', {})
-    top_skill_idx = top_hero.get("_selected_skill_idx", _skill_selections.get(top_hero.get("id", ""), -1))
-    bottom_skill_idx = bottom_hero.get("_selected_skill_idx", _skill_selections.get(bottom_hero.get("id", ""), -1))
-    if ARENA_SKILLS_AVAILABLE:
-        try:
-            arena_skill_manager = get_skill_manager()
-            arena_skill_manager.reset()
-            arena_skill_manager.init_hero_skills(top_hero["id"], is_top=True, selected_skill_index=top_skill_idx)
-            arena_skill_manager.init_hero_skills(bottom_hero["id"], is_top=False, selected_skill_index=bottom_skill_idx)
-            arena_skill_check_timer = 0.0
-        except Exception as e:
-            print(f"[Arena] skill init error: {e}")
-            arena_skill_manager = None
-
-    # 투기장 퍽 효과 적용
-    _arena_perk_obj = _arena_pending_perk_data
-    if _arena_perk_obj:
-        apply_arena_perks_for_battle(_arena_perk_obj, top_hero["id"], bottom_hero["id"])
-    else:
-        reset_arena_perks()
-
-    # 영웅 상황 대사 시스템 초기화
-    _dlg_mgr = get_dialogue_manager()
-    if _dlg_mgr:
-        _dlg_mgr.reset()
-
-    # ── 투기장 격리: 플레이어 캐릭터/아이템 상태를 임시 저장 후 초기화 ──
-    # 1) 캐릭터 타입 저장 → 투기장에서는 "normal"로 설정 (스매셔 스킬/이펙트 차단)
     _saved_character_type = selected_character_type if 'selected_character_type' in globals() else "smasher"
-
-    # 2) 플레이어 액티브 아이템 슬롯 임시 저장 후 비움 (투기장 하단 영웅이 사용 못하게)
     _saved_active_item_slot = list(active_item_slot)
     _saved_selected_item_index = selected_item_index
     _saved_last_item_use_time = last_item_use_time
-    active_item_slot.clear()
-
-    # 3) 패시브 아이템 장착 효과 임시 해제 (투기장 영웅에게 적용되지 않도록)
-    #    장착 슬롯 정보를 임시 저장하고 해제한 뒤 sync
     _saved_equipped_slots = {}
-    for _p_item in passive_item_list:
-        if isinstance(_p_item, dict) and _p_item.get("_equipped_slot"):
-            _saved_equipped_slots[id(_p_item)] = _p_item["_equipped_slot"]
-            _p_item["_equipped_slot"] = None
-    sync_equipped_passive_effects()  # 모든 패시브 플래그를 False로 리셋
-
-    # AI 플레이 모드 활성화 (양쪽 모두 AI)
-    player_ai_enabled = True
-    apply_character_selection("normal")  # 투기장 전용 - 캐릭터 스킬/이펙트 비활성화
-
-    # 투기장 패들 크기 통일 (양쪽 모두 AI이므로 BOSS와 동일한 130x40으로 설정)
-    global PADDLE_BASE_WIDTH, PADDLE_BASE_HEIGHT, PADDLE_WIDTH, PADDLE_HEIGHT
-    ARENA_PADDLE_WIDTH = 130  # BOSS 패들 너비와 동일
-    ARENA_PADDLE_HEIGHT = 40  # BOSS 패들 높이와 동일
-    PADDLE_BASE_WIDTH = ARENA_PADDLE_WIDTH
-    PADDLE_BASE_HEIGHT = ARENA_PADDLE_HEIGHT
-    PADDLE_WIDTH = ARENA_PADDLE_WIDTH
-    PADDLE_HEIGHT = ARENA_PADDLE_HEIGHT
-    PLAYER.size = (ARENA_PADDLE_WIDTH, ARENA_PADDLE_HEIGHT)
-    # 패들 위치 재조정 (바닥에 맞춤)
-    PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
-    PLAYER.bottom = HEIGHT - 40 + ARENA_PADDLE_HEIGHT // 2
-
-    # 상단 영웅 아이템 슬롯 초기화
-    global arena_top_active_item_slot, arena_top_selected_item_index, arena_top_last_item_use_time
-    global arena_top_grenades, arena_top_bananas
-    arena_top_active_item_slot = []
-    arena_top_selected_item_index = 0
-    arena_top_last_item_use_time = 0
-    arena_top_grenades = []
-    arena_top_bananas = []
-
-    # AI 컨트롤러 리셋
     try:
-        from ai.player_ai import get_player_ai_controller
-        get_player_ai_controller().on_stage_start()
-    except Exception:
-        pass
+        # 투기장 모드 활성화
+        arena_mode_enabled = True
+        arena_speed_multiplier = 1  # 배속 리셋 (매 경기 1x)
+        arena_battle_result = None  # 이전 배틀 결과 초기화 (필수!)
+        arena_top_hero = top_hero
+        arena_bottom_hero = bottom_hero
 
-    # 필러 UI 활성화
-    _pillar_ui_enabled = True
+        # ── 투기장 공 속도 일관성 보장 ──
+        # ai_mode에 따라 공 속도가 달라지므로, 투기장에서는 고정값 사용
+        # (개발자 모드/신화모드 등 진입 경로에 관계없이 동일한 공 속도)
+        ai_mode = "junior"  # 투기장 전용 공 속도 (느린 템포)
 
-    # === 호위무사 시스템 설정 (콜로세움에서 전달한 데이터 사용) ===
-    global arena_guard_system
-    try:
-        _top_guards = _arena_pending_top_guards
-        _bottom_guards = _arena_pending_bottom_guards
-        if _top_guards or _bottom_guards:
-            from downtown.colosseum_arena import GuardWarriorSystem
-            guard_system = GuardWarriorSystem(
-                skill_manager=arena_skill_manager,
-                hero_paddle_renderer=arena_hero_paddle_renderer,
-            )
-            guard_system.setup(_top_guards, _bottom_guards, skill_selections=_skill_selections)
-            # 호위무사 퍽 멀티플라이어 적용
-            guard_system.guard_cd_mult_top = arena_perk_guard_cd_mult_top
-            guard_system.guard_cd_mult_bottom = arena_perk_guard_cd_mult_bottom
-            arena_guard_system = guard_system
-            print(f"[Guard] start_arena_battle 호위무사 설정 완료: top={len(_top_guards)}, bottom={len(_bottom_guards)}")
+        # 투기장 대쉬 변수 초기화 (보스 대쉬와 동일한 구조)
+        arena_top_dashing = False
+        arena_top_dash_timer = 0
+        arena_top_dash_direction = 0
+        arena_top_dash_target_x = 0.0
+        arena_top_dash_cooldown = 0
+        arena_top_dash_afterimages = []
+        arena_top_dash_duration_frames = 15
+        arena_top_dash_stun_timer = 0
+        arena_bottom_dashing = False
+        arena_bottom_dash_timer = 0
+        arena_bottom_dash_direction = 0
+        arena_bottom_dash_target_x = 0.0
+        arena_bottom_dash_cooldown = 0
+        arena_bottom_dash_afterimages = []
+        arena_bottom_max_dash_charges = 1  # 기본 최대 1개 (퍽으로 증가 가능)
+        arena_bottom_dash_charges = arena_bottom_max_dash_charges  # 시작 시 최대치
+        arena_bottom_dash_charge_timer = 0
+        arena_bottom_dash_duration_frames = 15
+        arena_bottom_dash_stun_timer = 0
+
+        # 영웅 패들 렌더러 초기화
+        try:
+            from downtown.hero_paddles import get_hero_paddle_renderer
+            arena_hero_paddle_renderer = get_hero_paddle_renderer()
+        except Exception as e:
+            print(f"Hero paddle renderer init error: {e}")
+            arena_hero_paddle_renderer = None
+
+        # 영웅 스킬 시스템 초기화 (스킬 선택 정보 반영)
+        # 1차: 영웅 dict에서 직접 읽기 (가장 안정적)
+        # 2차: 글로벌 변수에서 읽기 (호환성)
+        _skill_selections = globals().get('_arena_pending_skill_selections', {})
+        top_skill_idx = top_hero.get("_selected_skill_idx", _skill_selections.get(top_hero.get("id", ""), -1))
+        bottom_skill_idx = bottom_hero.get("_selected_skill_idx", _skill_selections.get(bottom_hero.get("id", ""), -1))
+        if ARENA_SKILLS_AVAILABLE:
+            try:
+                arena_skill_manager = get_skill_manager()
+                arena_skill_manager.reset()
+                arena_skill_manager.init_hero_skills(top_hero["id"], is_top=True, selected_skill_index=top_skill_idx)
+                arena_skill_manager.init_hero_skills(bottom_hero["id"], is_top=False, selected_skill_index=bottom_skill_idx)
+                arena_skill_check_timer = 0.0
+            except Exception as e:
+                print(f"[Arena] skill init error: {e}")
+                arena_skill_manager = None
+
+        # 투기장 퍽 효과 적용
+        _arena_perk_obj = _arena_pending_perk_data
+        if _arena_perk_obj:
+            apply_arena_perks_for_battle(_arena_perk_obj, top_hero["id"], bottom_hero["id"])
         else:
+            reset_arena_perks()
+
+        # 영웅 상황 대사 시스템 초기화
+        _dlg_mgr = get_dialogue_manager()
+        if _dlg_mgr:
+            _dlg_mgr.reset()
+
+        # ── 투기장 격리: 플레이어 캐릭터/아이템 상태를 임시 저장 후 초기화 ──
+        # (저장 변수는 try 블록 이전에 이미 초기화됨)
+
+        # 액티브 아이템 슬롯 비움 (투기장 하단 영웅이 사용 못하게)
+        active_item_slot.clear()
+
+        # 패시브 아이템 장착 효과 임시 해제 (투기장 영웅에게 적용되지 않도록)
+        for _p_item in passive_item_list:
+            if isinstance(_p_item, dict) and _p_item.get("_equipped_slot"):
+                _saved_equipped_slots[id(_p_item)] = _p_item["_equipped_slot"]
+                _p_item["_equipped_slot"] = None
+        sync_equipped_passive_effects()  # 모든 패시브 플래그를 False로 리셋
+
+        # AI 플레이 모드 활성화 (양쪽 모두 AI)
+        player_ai_enabled = True
+        apply_character_selection("normal")  # 투기장 전용 - 캐릭터 스킬/이펙트 비활성화
+
+        # 투기장 패들 크기 통일 (양쪽 모두 AI이므로 BOSS와 동일한 130x40으로 설정)
+        global PADDLE_BASE_WIDTH, PADDLE_BASE_HEIGHT, PADDLE_WIDTH, PADDLE_HEIGHT
+        ARENA_PADDLE_WIDTH = 130  # BOSS 패들 너비와 동일
+        ARENA_PADDLE_HEIGHT = 40  # BOSS 패들 높이와 동일
+        PADDLE_BASE_WIDTH = ARENA_PADDLE_WIDTH
+        PADDLE_BASE_HEIGHT = ARENA_PADDLE_HEIGHT
+        PADDLE_WIDTH = ARENA_PADDLE_WIDTH
+        PADDLE_HEIGHT = ARENA_PADDLE_HEIGHT
+        PLAYER.size = (ARENA_PADDLE_WIDTH, ARENA_PADDLE_HEIGHT)
+        # 패들 위치 재조정 (바닥에 맞춤)
+        PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+        PLAYER.bottom = HEIGHT - 40 + ARENA_PADDLE_HEIGHT // 2
+
+        # 상단 영웅 아이템 슬롯 초기화
+        global arena_top_active_item_slot, arena_top_selected_item_index, arena_top_last_item_use_time
+        global arena_top_grenades, arena_top_bananas
+        arena_top_active_item_slot = []
+        arena_top_selected_item_index = 0
+        arena_top_last_item_use_time = 0
+        arena_top_grenades = []
+        arena_top_bananas = []
+
+        # AI 컨트롤러 리셋
+        try:
+            from ai.player_ai import get_player_ai_controller
+            get_player_ai_controller().on_stage_start()
+        except Exception:
+            pass
+
+        # 필러 UI 활성화
+        _pillar_ui_enabled = True
+
+        # === 호위무사 시스템 설정 (콜로세움에서 전달한 데이터 사용) ===
+        global arena_guard_system
+        try:
+            _top_guards = _arena_pending_top_guards
+            _bottom_guards = _arena_pending_bottom_guards
+            if _top_guards or _bottom_guards:
+                from downtown.colosseum_arena import GuardWarriorSystem
+                guard_system = GuardWarriorSystem(
+                    skill_manager=arena_skill_manager,
+                    hero_paddle_renderer=arena_hero_paddle_renderer,
+                )
+                guard_system.setup(_top_guards, _bottom_guards, skill_selections=_skill_selections)
+                # 호위무사 퍽 멀티플라이어 적용
+                guard_system.guard_cd_mult_top = arena_perk_guard_cd_mult_top
+                guard_system.guard_cd_mult_bottom = arena_perk_guard_cd_mult_bottom
+                arena_guard_system = guard_system
+                print(f"[Guard] start_arena_battle 호위무사 설정 완료: top={len(_top_guards)}, bottom={len(_bottom_guards)}")
+            else:
+                arena_guard_system = None
+        except Exception as e:
+            print(f"[Guard] start_arena_battle 호위무사 설정 오류: {e}")
             arena_guard_system = None
-    except Exception as e:
-        print(f"[Guard] start_arena_battle 호위무사 설정 오류: {e}")
-        arena_guard_system = None
-    # pending data 정리
-    globals().pop('_arena_pending_top_guards', None)
-    globals().pop('_arena_pending_bottom_guards', None)
-    globals().pop('_arena_pending_perk_data', None)
-    globals().pop('_arena_pending_skill_selections', None)
+        # pending data 정리
+        globals().pop('_arena_pending_top_guards', None)
+        globals().pop('_arena_pending_bottom_guards', None)
+        globals().pop('_arena_pending_perk_data', None)
+        globals().pop('_arena_pending_skill_selections', None)
 
-    # 신의심판 이벤트 활성화
-    if animated_bg_stage30 is not None:
-        animated_bg_stage30.judgment_enabled = True
-        animated_bg_stage30.judgment_cooldown = random.uniform(50.0, 60.0)
-        animated_bg_stage30.judgment_phase = animated_bg_stage30.JUDGMENT_IDLE
+        # 신의심판 이벤트 활성화
+        if animated_bg_stage30 is not None:
+            animated_bg_stage30.judgment_enabled = True
+            animated_bg_stage30.judgment_cooldown = random.uniform(50.0, 60.0)
+            animated_bg_stage30.judgment_phase = animated_bg_stage30.JUDGMENT_IDLE
 
-    try:
         result = main(30)  # 스테이지 30 = 투기장
     finally:
         # 투기장 모드 종료 시 초기화
@@ -127509,6 +127514,15 @@ def show_new_boss_selection_screen():
         clock.tick(60)
 def main(stage_num, new_boss_mode=False):
     display_stage_num = stage_num
+
+    # 🔥 안전장치: 투기장이 아닌 스테이지 진입 시 투기장 상태 강제 초기화
+    # (투기장 셋업 실패 등으로 arena_mode_enabled가 True로 남아있는 경우 방지)
+    global arena_mode_enabled, arena_skill_manager
+    if stage_num != 30 and arena_mode_enabled:
+        print(f"[WARNING] 스테이지 {stage_num} 진입 시 arena_mode_enabled=True 감지! 강제 초기화")
+        arena_mode_enabled = False
+        arena_skill_manager = None
+        arena_stop_all_skill_sounds()
 
     #  실시간 평가 시스템으로 변경됨
     # 메인 메뉴 BGM 정지
