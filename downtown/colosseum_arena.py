@@ -3618,7 +3618,7 @@ class ColosseumsArena:
         self.state = TournamentState.SKILL_REVEAL
 
     def _select_guard(self, guard_hero, prison_index):
-        """감옥에서 호위무사 선택 → 호위무사 스킬 랜덤 연출"""
+        """감옥에서 호위무사 선택 → 철창 열림 애니메이션 시작"""
         self.player_guard = guard_hero
         self.prison_selected = guard_hero
 
@@ -3626,15 +3626,13 @@ class ColosseumsArena:
         remaining = [h for i, h in enumerate(self.prison_heroes) if i != prison_index]
         if remaining:
             self.opponent_guard = remaining[0]  # 상대 호위무사
-            # 나머지 1명은 다른 AI 매치의 호위무사로 배정 (내부 데이터만)
 
-        # 호위무사 스킬 랜덤 선택 연출 시작
-        self.player_guard_skill_index = self.hero_selected_skills.get(guard_hero["id"], 0)
-        self.skill_reveal_timer = 0.0
-        self.skill_reveal_phase = "rolling"
-        self.skill_reveal_target = guard_hero["id"]
-        self.skill_reveal_result = self.player_guard_skill_index
-        self.state = TournamentState.GUARD_SKILL_REVEAL
+        # 철창 열림 + 공격 모션 애니메이션 시작
+        # (완료 후 update()에서 GUARD_SKILL_REVEAL로 전환)
+        self._prison_opening_phase = "bars_opening"
+        self._prison_opening_index = prison_index
+        self._prison_opening_timer = 0.0
+        self._prison_attack_particles = []
 
     def _prepare_prison_candidates(self):
         """나머지 3매치에서 각 1명씩 호위무사 후보 선정"""
@@ -4405,6 +4403,36 @@ class ColosseumsArena:
                         self.state = TournamentState.PRISON_SELECT
                         self.skill_reveal_phase = "done"
 
+        elif self.state == TournamentState.PRISON_SELECT:
+            # 철창 열림 + 공격 모션 애니메이션 업데이트
+            opening_phase = getattr(self, '_prison_opening_phase', None)
+            if opening_phase:
+                self._prison_opening_timer += dt
+                timer = self._prison_opening_timer
+
+                # 파티클 업데이트
+                particles = getattr(self, '_prison_attack_particles', [])
+                for p in particles:
+                    p['x'] += p['vx'] * dt
+                    p['y'] += p['vy'] * dt
+                    p['vy'] += 120 * dt  # 중력
+                    p['alpha'] -= 180 * dt
+                self._prison_attack_particles = [p for p in particles if p['alpha'] > 0]
+
+                if opening_phase == "bars_opening" and timer >= 1.5:
+                    self._prison_opening_phase = "attack_motion"
+                elif opening_phase == "attack_motion" and timer >= 2.5:
+                    # 애니메이션 완료 → 호위무사 스킬 연출로 전환
+                    self._prison_opening_phase = None
+                    guard_hero = self.player_guard
+                    self.player_guard_skill_index = self.hero_selected_skills.get(
+                        guard_hero["id"], 0)
+                    self.skill_reveal_timer = 0.0
+                    self.skill_reveal_phase = "rolling"
+                    self.skill_reveal_target = guard_hero["id"]
+                    self.skill_reveal_result = self.player_guard_skill_index
+                    self.state = TournamentState.GUARD_SKILL_REVEAL
+
         elif self.state == TournamentState.GUARD_SKILL_REVEAL:
             # 호위무사 스킬 랜덤 선택 연출 (감속 롤링 1.8초 + 확정 표시 1.2초)
             self.skill_reveal_timer += dt
@@ -4725,11 +4753,14 @@ class ColosseumsArena:
 
         elif self.state == TournamentState.PRISON_SELECT:
             # ========== 감옥 호위무사 선택 UI 클릭 ==========
-            cell_w, cell_h = 160, 260
-            gap = 20
+            # 애니메이션 중에는 클릭 무시
+            if getattr(self, '_prison_opening_phase', None):
+                return
+            cell_w, cell_h = 190, 220
+            gap = 15
             total_w = cell_w * 3 + gap * 2
             start_x = (SCREEN_WIDTH - total_w) // 2
-            cell_y = 110  # _draw_prison_select()와 동일
+            cell_y = 82
 
             for i, prison_hero in enumerate(self.prison_heroes):
                 cx = start_x + i * (cell_w + gap)
@@ -4888,20 +4919,24 @@ class ColosseumsArena:
 
         # 감옥 호위무사 선택 화면 호버
         elif self.state == TournamentState.PRISON_SELECT:
-            cell_w, cell_h = 160, 260
-            gap = 20
-            total_w = cell_w * 3 + gap * 2
-            start_x = (SCREEN_WIDTH - total_w) // 2
-            cell_y = 110  # _draw_prison_select()와 동일
-            old_prison_hover = self.hover_prison_index
-            self.hover_prison_index = -1
-            for i in range(len(self.prison_heroes)):
-                cx = start_x + i * (cell_w + gap)
-                if cx <= mx <= cx + cell_w and cell_y <= my <= cell_y + cell_h:
-                    self.hover_prison_index = i
-                    if old_prison_hover != i:
-                        self._spawn_hover_line_particles(cx, cell_y, cell_w, cell_h)
-                    break
+            # 애니메이션 중에는 호버 비활성화
+            if getattr(self, '_prison_opening_phase', None):
+                self.hover_prison_index = -1
+            else:
+                cell_w, cell_h = 190, 220
+                gap = 15
+                total_w = cell_w * 3 + gap * 2
+                start_x = (SCREEN_WIDTH - total_w) // 2
+                cell_y = 82
+                old_prison_hover = self.hover_prison_index
+                self.hover_prison_index = -1
+                for i in range(len(self.prison_heroes)):
+                    cx = start_x + i * (cell_w + gap)
+                    if cx <= mx <= cx + cell_w and cell_y <= my <= cell_y + cell_h:
+                        self.hover_prison_index = i
+                        if old_prison_hover != i:
+                            self._spawn_hover_line_particles(cx, cell_y, cell_w, cell_h)
+                        break
 
         # 퍽 선택 화면 호버
         if self.state == TournamentState.PERK_SELECT and self.perk_anim_phase == "active":
@@ -6510,10 +6545,12 @@ class ColosseumsArena:
                 surf, _ = self.fonts["small"].render("클릭하여 계속", (hint_alpha, hint_alpha, hint_alpha + 20))
                 self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 440))
 
-    def _draw_prison_bars_overlay(self, cx, cy, cw, ch, is_hovered):
-        """감옥 쇠철창 오버레이 - 카드 위에 철창이 덮이는 연출"""
-        import math
-        t = getattr(self, '_prison_anim_t', 0)
+    def _draw_prison_bars_overlay(self, cx, cy, cw, ch, is_hovered, open_ratio=0.0):
+        """감옥 쇠철창 오버레이 - 카드 위에 철창이 덮이는 연출
+        open_ratio: 0.0=완전 닫힘, 1.0=완전 열림 (위로 슬라이드)
+        """
+        if open_ratio >= 1.0:
+            return  # 완전히 열린 상태 - 철창 안 그림
 
         bar_color = ET["iron_bar_hover"] if is_hovered else ET["iron_bar"]
         bar_light = ET["iron_bar_light"]
@@ -6524,168 +6561,349 @@ class ColosseumsArena:
         # 반투명 서피스로 철창 그리기
         bar_surf = pygame.Surface((cw, ch), pygame.SRCALPHA)
 
+        # 열림 애니메이션 시 투명도 감소 (사라지면서 올라감)
+        fade = 1.0 - open_ratio * 0.3  # 최대 30% 투명해짐
+
         # ── 세로 철창 바 (메인) ──
-        bar_width = 5
-        bar_spacing = 22
+        bar_width = 6
+        bar_spacing = 24
         bar_margin = 8
         for bx_local in range(bar_margin, cw - bar_margin, bar_spacing):
             x = bx_local
-            alpha = 220 if not is_hovered else 160
+            alpha = int((220 if not is_hovered else 160) * fade)
 
             # 철창 본체 (진한 색)
             pygame.draw.line(bar_surf, (*bar_dark, alpha), (x, 0), (x, ch), bar_width + 2)
             # 철창 본체 (메인)
             pygame.draw.line(bar_surf, (*bar_color, alpha), (x, 0), (x, ch), bar_width)
             # 하이라이트 (왼쪽 빛 반사)
-            pygame.draw.line(bar_surf, (*bar_light, alpha // 3), (x - 1, 0), (x - 1, ch), 1)
+            pygame.draw.line(bar_surf, (*bar_light, max(0, alpha // 3)), (x - 1, 0), (x - 1, ch), 1)
 
         # ── 가로 철창 바 (상단, 중단, 하단) ──
         h_bar_positions = [12, ch // 3, ch * 2 // 3, ch - 12]
-        h_bar_width = 4
+        h_bar_width = 5
         for hy in h_bar_positions:
-            alpha = 200 if not is_hovered else 140
+            alpha = int((200 if not is_hovered else 140) * fade)
             # 가로바 그림자
             pygame.draw.line(bar_surf, (*bar_dark, alpha), (0, hy + 1), (cw, hy + 1), h_bar_width + 1)
             # 가로바 본체
             pygame.draw.line(bar_surf, (*bar_color, alpha), (0, hy), (cw, hy), h_bar_width)
             # 하이라이트
-            pygame.draw.line(bar_surf, (*bar_light, alpha // 3), (0, hy - 1), (cw, hy - 1), 1)
+            pygame.draw.line(bar_surf, (*bar_light, max(0, alpha // 3)), (0, hy - 1), (cw, hy - 1), 1)
 
         # ── 리벳(볼트) - 가로/세로 교차점에 ──
         for bx_local in range(bar_margin, cw - bar_margin, bar_spacing):
             for hy in h_bar_positions:
+                rivet_a = int(200 * fade)
                 # 리벳 그림자
-                pygame.draw.circle(bar_surf, (*rivet_dark, 200), (bx_local, hy), 4)
+                pygame.draw.circle(bar_surf, (*rivet_dark, rivet_a), (bx_local, hy), 4)
                 # 리벳 본체
-                pygame.draw.circle(bar_surf, (*rivet_color, 220), (bx_local, hy), 3)
+                pygame.draw.circle(bar_surf, (*rivet_color, min(255, rivet_a + 20)), (bx_local, hy), 3)
                 # 리벳 하이라이트 (빛 반사 점)
-                pygame.draw.circle(bar_surf, (220, 220, 210, 120), (bx_local - 1, hy - 1), 1)
+                pygame.draw.circle(bar_surf, (220, 220, 210, max(0, int(120 * fade))), (bx_local - 1, hy - 1), 1)
 
         # ── 상단/하단 고정 프레임 (철창을 고정하는 두꺼운 철제 프레임) ──
         frame_h = 10
-        frame_alpha = 230 if not is_hovered else 170
+        frame_alpha = int((230 if not is_hovered else 170) * fade)
         # 상단 프레임
         pygame.draw.rect(bar_surf, (*bar_dark, frame_alpha), (0, 0, cw, frame_h))
         pygame.draw.rect(bar_surf, (*bar_color, frame_alpha), (1, 1, cw - 2, frame_h - 2))
-        pygame.draw.line(bar_surf, (*bar_light, frame_alpha // 2), (2, 2), (cw - 2, 2), 1)
+        pygame.draw.line(bar_surf, (*bar_light, max(0, frame_alpha // 2)), (2, 2), (cw - 2, 2), 1)
         # 하단 프레임
         pygame.draw.rect(bar_surf, (*bar_dark, frame_alpha), (0, ch - frame_h, cw, frame_h))
         pygame.draw.rect(bar_surf, (*bar_color, frame_alpha), (1, ch - frame_h + 1, cw - 2, frame_h - 2))
-        pygame.draw.line(bar_surf, (*bar_light, frame_alpha // 2), (2, ch - frame_h + 1), (cw - 2, ch - frame_h + 1), 1)
+        pygame.draw.line(bar_surf, (*bar_light, max(0, frame_alpha // 2)), (2, ch - frame_h + 1), (cw - 2, ch - frame_h + 1), 1)
 
         # ── 감옥 내부 어둡게 (비네트 효과) ──
-        if not is_hovered:
+        if not is_hovered and open_ratio == 0:
             shadow_surf = pygame.Surface((cw, ch), pygame.SRCALPHA)
-            # 좌우 가장자리 어둡게
             for sx in range(15):
                 a = int(40 * (1 - sx / 15))
                 pygame.draw.line(shadow_surf, (0, 0, 0, a), (sx, 0), (sx, ch), 1)
                 pygame.draw.line(shadow_surf, (0, 0, 0, a), (cw - 1 - sx, 0), (cw - 1 - sx, ch), 1)
             bar_surf.blit(shadow_surf, (0, 0))
 
-        self.screen.blit(bar_surf, (cx, cy))
+        # ── 열림 애니메이션: 철창이 위로 슬라이드 ──
+        if open_ratio > 0:
+            shift_up = int(open_ratio * ch)
+            if ch - shift_up > 0:
+                # 클리핑: 셀 영역 내에서만 표시
+                old_clip = self.screen.get_clip()
+                self.screen.set_clip(pygame.Rect(cx, cy, cw, ch))
+                self.screen.blit(bar_surf, (cx, cy - shift_up))
+                self.screen.set_clip(old_clip)
+        else:
+            self.screen.blit(bar_surf, (cx, cy))
 
     def _draw_prison_select(self):
-        """감옥 호위무사 선택 UI"""
+        """감옥 호위무사 선택 UI - 쇠철창 감옥 연출"""
+        import math
         self.screen.fill(ET["bg_dark"])
         self._draw_papyrus_bg()
 
-        # 애니메이션 타이머 업데이트
+        # 애니메이션 타이머
         if not hasattr(self, '_prison_anim_t'):
             self._prison_anim_t = 0
         self._prison_anim_t += 1
 
+        # 철창 열림 애니메이션 상태
+        opening_phase = getattr(self, '_prison_opening_phase', None)
+        opening_idx = getattr(self, '_prison_opening_index', -1)
+        opening_timer = getattr(self, '_prison_opening_timer', 0)
+
         # 타이틀
-        self._draw_egyptian_title("호위무사를 등용하세요", 30)
+        self._draw_egyptian_title("호위무사를 등용하세요", 25)
 
         if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render("감옥에 갇힌 영웅 중 1명을 호위무사로 선택합니다", ET["text_subtitle"])
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 65))
+            surf, _ = self.fonts["small"].render(
+                "감옥에 갇힌 영웅 중 1명을 호위무사로 선택합니다", ET["text_subtitle"])
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 58))
 
-        # 감옥 셀 3개
-        cell_w, cell_h = 160, 260
-        gap = 20
+        # ── 카드 레이아웃 (새 규격) ──
+        cell_w = 190
+        cell_h = 220          # 감옥 셀 높이 (기본)
+        gap = 15
         total_w = cell_w * 3 + gap * 2
         start_x = (SCREEN_WIDTH - total_w) // 2
-        cell_y = 110
+        cell_y = 82
 
         from downtown.hero_skills import HERO_SKILLS
 
         for i, hero in enumerate(self.prison_heroes):
             cx = start_x + i * (cell_w + gap)
-            is_hovered = (self.hover_prison_index == i)
+            is_hovered = (self.hover_prison_index == i) and not opening_phase
+            is_opening = (opening_phase is not None and opening_idx == i)
+            is_dimmed = (opening_phase is not None and opening_idx != i)
 
-            # ── 감옥 셀 배경 (어두운 감옥 벽) ──
-            bg = ET["card_bg_hover"] if is_hovered else ET["card_bg"]
-            border = ET["gold_medium"] if is_hovered else ET["card_border"]
-            pygame.draw.rect(self.screen, bg, (cx, cell_y, cell_w, cell_h), border_radius=4)
+            # ── 감옥 셀 배경 (어두운 석벽) ──
+            if is_dimmed:
+                bg = (35, 28, 18)
+                border = (80, 65, 42)
+            elif is_hovered:
+                bg = ET["card_bg_hover"]
+                border = ET["gold_medium"]
+            elif is_opening:
+                bg = ET["card_bg_hover"]
+                border = ET["gold_medium"]
+            else:
+                bg = ET["card_bg"]
+                border = ET["card_border"]
 
-            # 감옥 내부 벽면 질감 (돌벽 느낌 - 어두운 줄무늬)
-            if not is_hovered:
-                for wy in range(cell_y + 2, cell_y + cell_h - 2, 8):
-                    alpha_s = pygame.Surface((cell_w - 4, 1), pygame.SRCALPHA)
-                    alpha_s.fill((0, 0, 0, 15))
-                    self.screen.blit(alpha_s, (cx + 2, wy))
+            pygame.draw.rect(self.screen, bg, (cx, cell_y, cell_w, cell_h), border_radius=6)
 
-            pygame.draw.rect(self.screen, border, (cx, cell_y, cell_w, cell_h), 2, border_radius=4)
+            # 감옥 벽면 질감 (어두운 줄무늬)
+            if not is_hovered and not is_opening:
+                for wy in range(cell_y + 3, cell_y + cell_h - 3, 7):
+                    wall_line = pygame.Surface((cell_w - 6, 1), pygame.SRCALPHA)
+                    wall_line.fill((0, 0, 0, 18 if not is_dimmed else 30))
+                    self.screen.blit(wall_line, (cx + 3, wy))
 
-            # 색상 바
-            color_bar = pygame.Surface((cell_w - 20, 4), pygame.SRCALPHA)
-            color_bar.fill((*hero["color"], 150))
-            self.screen.blit(color_bar, (cx + 10, cell_y + 18))
+            pygame.draw.rect(self.screen, border, (cx, cell_y, cell_w, cell_h), 2, border_radius=6)
 
-            # 영웅 이름 + 칭호
-            if self.fonts and "medium" in self.fonts:
-                h_color = hero["color"]
-                brightness = sum(h_color) / 3
-                name_color = h_color if brightness > 80 else (min(255, h_color[0]+100), min(255, h_color[1]+100), min(255, h_color[2]+100))
-                surf, _ = self.fonts["medium"].render(hero["name"], name_color)
-                self.screen.blit(surf, (cx + cell_w // 2 - surf.get_width() // 2, cell_y + 28))
+            # ── 영웅 캐릭터 (2배 크기: 160x110) ──
+            hero_draw_offset_y = 0
+            hero_scale_mult = 1.0
 
-            if self.fonts and "small" in self.fonts:
-                surf, _ = self.fonts["small"].render(hero.get("title", ""), ET["text_subtitle"])
-                self.screen.blit(surf, (cx + cell_w // 2 - surf.get_width() // 2, cell_y + 50))
-
-            # 영웅 캐릭터
-            if self.hero_paddle_renderer:
-                self.hero_paddle_renderer.draw_hero_paddle(
-                    self.screen, hero["id"], cx + cell_w // 2, cell_y + 105,
-                    80, 55, facing="down", color=hero["color"], scale_mode="preview"
-                )
-
-            # 스킬 2개 미리보기 (아이콘 + 이름만)
-            hero_skills = HERO_SKILLS.get(hero["id"], [])
-            skill_y = cell_y + 140
-            for si, skill in enumerate(hero_skills):
-                skill_h = 26
-                pygame.draw.rect(self.screen, ET["skill_bg"], (cx + 6, skill_y, cell_w - 12, skill_h), border_radius=4)
-                # 스킬 아이콘
-                icon = _get_hero_skill_icon(skill.skill_id, 18)
-                if icon:
-                    self.screen.blit(icon, (cx + 10, skill_y + 4))
+            # 공격 모션 중이면 특수 처리
+            if is_opening and opening_phase == "attack_motion":
+                motion_t = opening_timer - 1.5
+                if motion_t < 0.25:
+                    # 뒤로 힘 모으기
+                    p = motion_t / 0.25
+                    hero_draw_offset_y = int(-12 * p)
+                    hero_scale_mult = 1.0 + 0.05 * p
+                elif motion_t < 0.45:
+                    # 앞으로 돌진!
+                    p = (motion_t - 0.25) / 0.2
+                    eased = p * p
+                    hero_draw_offset_y = int(-12 + 42 * eased)
+                    hero_scale_mult = 1.05 + 0.15 * eased
+                elif motion_t < 0.65:
+                    # 임팩트 유지
+                    hero_draw_offset_y = 30
+                    hero_scale_mult = 1.2
                 else:
-                    pygame.draw.rect(self.screen, ET["bg_medium"], (cx + 10, skill_y + 4, 18, 18), border_radius=3)
-                # 스킬 이름
+                    # 복귀
+                    p = min(1.0, (motion_t - 0.65) / 0.35)
+                    eased = 1.0 - (1.0 - p) * (1.0 - p)
+                    hero_draw_offset_y = int(30 * (1.0 - eased))
+                    hero_scale_mult = 1.2 - 0.2 * eased
+
+            if self.hero_paddle_renderer:
+                h_w = int(160 * hero_scale_mult)
+                h_h = int(110 * hero_scale_mult)
+                hero_cx = cx + cell_w // 2
+                hero_cy = cell_y + cell_h // 2 + 10 + hero_draw_offset_y
+
+                if is_dimmed:
+                    # 디밍된 카드: 어두운 버전
+                    dim_surf = pygame.Surface((cell_w, cell_h), pygame.SRCALPHA)
+                    self.hero_paddle_renderer.draw_hero_paddle(
+                        dim_surf, hero["id"], cell_w // 2, cell_h // 2 + 10,
+                        160, 110, facing="down", color=hero["color"], scale_mode="preview"
+                    )
+                    dim_surf.set_alpha(80)
+                    self.screen.blit(dim_surf, (cx, cell_y))
+                else:
+                    self.hero_paddle_renderer.draw_hero_paddle(
+                        self.screen, hero["id"], hero_cx, hero_cy,
+                        h_w, h_h, facing="down", color=hero["color"], scale_mode="preview"
+                    )
+
+            # ── 공격 모션 이펙트 ──
+            if is_opening and opening_phase == "attack_motion":
+                motion_t = opening_timer - 1.5
+                hero_cx = cx + cell_w // 2
+                hero_base_cy = cell_y + cell_h // 2 + 10
+
+                # 임팩트 플래시 (돌진 시)
+                if 0.4 <= motion_t <= 0.65:
+                    flash_p = (motion_t - 0.4) / 0.25
+                    flash_alpha = int(160 * (1.0 - flash_p))
+                    flash_r = int(40 + 30 * flash_p)
+                    flash_s = pygame.Surface((cell_w + 40, 80), pygame.SRCALPHA)
+                    pygame.draw.ellipse(flash_s, (255, 240, 180, flash_alpha),
+                                        (0, 0, cell_w + 40, 80))
+                    self.screen.blit(flash_s, (cx - 20, hero_base_cy + 20))
+
+                # 슬래시 이펙트 (공격 라인)
+                if 0.35 <= motion_t <= 0.6:
+                    slash_alpha = int(200 * (1.0 - (motion_t - 0.35) / 0.25))
+                    slash_s = pygame.Surface((cell_w, cell_h), pygame.SRCALPHA)
+                    for angle_deg in [-30, 0, 30]:
+                        rad = math.radians(-90 + angle_deg)
+                        sx = cell_w // 2
+                        sy = cell_h // 2 + hero_draw_offset_y - 20
+                        ex = sx + int(55 * math.cos(rad))
+                        ey = sy + int(55 * math.sin(rad))
+                        pygame.draw.line(slash_s, (255, 255, 200, slash_alpha),
+                                         (sx, sy), (ex, ey), 3)
+                        pygame.draw.line(slash_s, (255, 200, 100, slash_alpha // 2),
+                                         (sx, sy), (ex, ey), 5)
+                    self.screen.blit(slash_s, (cx, cell_y))
+
+                # 파편 파티클 (철창 파편)
+                particles = getattr(self, '_prison_attack_particles', [])
+                for p in particles:
+                    pa = max(0, min(255, int(p['alpha'])))
+                    if pa > 0:
+                        ps = int(max(1, p['size']))
+                        pygame.draw.rect(self.screen, (*p['color'], pa),
+                                         (int(p['x']), int(p['y']), ps, ps))
+
+            # ── 쇠철창 오버레이 ──
+            if is_dimmed:
+                self._draw_prison_bars_overlay(cx, cell_y, cell_w, cell_h, False, 0.0)
+            elif is_opening:
+                if opening_phase == "bars_opening":
+                    # 이징 함수 적용 (천천히 시작 → 빠르게 열림)
+                    raw_ratio = min(1.0, opening_timer / 1.5)
+                    eased = raw_ratio * raw_ratio * (3.0 - 2.0 * raw_ratio)  # smoothstep
+                    self._draw_prison_bars_overlay(cx, cell_y, cell_w, cell_h, False, eased)
+                # attack_motion 중에는 철창 안 그림 (이미 열림)
+            else:
+                self._draw_prison_bars_overlay(cx, cell_y, cell_w, cell_h, is_hovered, 0.0)
+
+            # ── 호버 시: 이름 탭 + 스킬 탭 (감옥 셀 아래에 표시) ──
+            if is_hovered:
+                tab_y = cell_y + cell_h + 5
+
+                # ── 이름 탭 ──
+                name_tab_h = 52
+                # 배경
+                name_bg_s = pygame.Surface((cell_w, name_tab_h), pygame.SRCALPHA)
+                pygame.draw.rect(name_bg_s, (*ET["card_bg_hover"], 230),
+                                 (0, 0, cell_w, name_tab_h), border_radius=6)
+                self.screen.blit(name_bg_s, (cx, tab_y))
+                pygame.draw.rect(self.screen, ET["gold_medium"],
+                                 (cx, tab_y, cell_w, name_tab_h), 2, border_radius=6)
+
+                # 색상 바 (이름 탭 상단)
+                color_bar = pygame.Surface((cell_w - 16, 3), pygame.SRCALPHA)
+                color_bar.fill((*hero["color"], 180))
+                self.screen.blit(color_bar, (cx + 8, tab_y + 4))
+
+                # 영웅 이름 (큰 텍스트)
+                if self.fonts and "large" in self.fonts:
+                    h_color = hero["color"]
+                    brightness = sum(h_color) / 3
+                    name_color = h_color if brightness > 80 else tuple(
+                        min(255, c + 100) for c in h_color)
+                    surf, _ = self.fonts["large"].render(hero["name"], name_color)
+                    self.screen.blit(surf, (cx + cell_w // 2 - surf.get_width() // 2, tab_y + 10))
+
+                # 칭호 (작은 텍스트)
                 if self.fonts and "small" in self.fonts:
-                    label = f"{'A' if si == 0 else 'B'}: {skill.korean_name}"
-                    surf, _ = self.fonts["small"].render(label, ET["text_body"])
-                    self.screen.blit(surf, (cx + 32, skill_y + 5))
-                skill_y += skill_h + 4
+                    surf, _ = self.fonts["small"].render(
+                        hero.get("title", ""), ET["text_subtitle"])
+                    self.screen.blit(surf, (cx + cell_w // 2 - surf.get_width() // 2, tab_y + 33))
 
-            # 스타일 표시
-            style_names = {"aggressive": "공격형", "defensive": "수비형", "balanced": "균형형", "tricky": "트릭형"}
-            style_text = style_names.get(hero["style"].value, "???")
+                # ── 스킬 탭 ──
+                skill_tab_y = tab_y + name_tab_h + 4
+                hero_skills = HERO_SKILLS.get(hero["id"], [])
+                skill_rows = len(hero_skills)
+                skill_tab_h = skill_rows * 30 + 30  # 스킬 + 스타일 배지
+
+                skill_bg_s = pygame.Surface((cell_w, skill_tab_h), pygame.SRCALPHA)
+                pygame.draw.rect(skill_bg_s, (*ET["card_bg"], 220),
+                                 (0, 0, cell_w, skill_tab_h), border_radius=6)
+                self.screen.blit(skill_bg_s, (cx, skill_tab_y))
+                pygame.draw.rect(self.screen, ET["card_border"],
+                                 (cx, skill_tab_y, cell_w, skill_tab_h), 2, border_radius=6)
+
+                sy = skill_tab_y + 6
+                for si, skill in enumerate(hero_skills):
+                    s_h = 26
+                    pygame.draw.rect(self.screen, ET["skill_bg"],
+                                     (cx + 6, sy, cell_w - 12, s_h), border_radius=4)
+                    icon = _get_hero_skill_icon(skill.skill_id, 18)
+                    if icon:
+                        self.screen.blit(icon, (cx + 10, sy + 4))
+                    else:
+                        pygame.draw.rect(self.screen, ET["bg_medium"],
+                                         (cx + 10, sy + 4, 18, 18), border_radius=3)
+                    if self.fonts and "small" in self.fonts:
+                        label = f"{'A' if si == 0 else 'B'}: {skill.korean_name}"
+                        surf, _ = self.fonts["small"].render(label, ET["text_body"])
+                        self.screen.blit(surf, (cx + 32, sy + 5))
+                    sy += s_h + 4
+
+                # 스타일 배지
+                style_names = {
+                    "aggressive": "공격형", "defensive": "수비형",
+                    "balanced": "균형형", "tricky": "트릭형"
+                }
+                style_text = style_names.get(hero["style"].value, "???")
+                if self.fonts and "small" in self.fonts:
+                    surf, _ = self.fonts["small"].render(f"[{style_text}]", ET["text_hint"])
+                    self.screen.blit(surf, (cx + cell_w // 2 - surf.get_width() // 2, sy + 2))
+
+        # ── 철창 열림 시 파편 파티클 생성 ──
+        if opening_phase == "bars_opening" and opening_timer > 0.3:
+            import random as _rand
+            particles = getattr(self, '_prison_attack_particles', [])
+            if not hasattr(self, '_prison_attack_particles'):
+                self._prison_attack_particles = particles
+            # 프레임당 1~2개 파편 생성 (열리는 동안)
+            if _rand.random() < 0.6:
+                ocx = start_x + opening_idx * (cell_w + gap)
+                particles.append({
+                    'x': float(ocx + _rand.randint(5, cell_w - 5)),
+                    'y': float(cell_y + cell_h * (1.0 - min(1.0, opening_timer / 1.5))),
+                    'vx': _rand.uniform(-20, 20),
+                    'vy': _rand.uniform(30, 80),
+                    'alpha': 200.0,
+                    'size': _rand.uniform(2, 5),
+                    'color': (120 + _rand.randint(0, 40), 115 + _rand.randint(0, 35), 100 + _rand.randint(0, 30))
+                })
+
+        # ── 하단 안내 텍스트 ──
+        if not opening_phase:
             if self.fonts and "small" in self.fonts:
-                surf, _ = self.fonts["small"].render(f"[{style_text}]", ET["text_hint"])
-                self.screen.blit(surf, (cx + cell_w // 2 - surf.get_width() // 2, cell_y + cell_h - 25))
-
-            # ── 쇠철창 오버레이 (카드 컨텐츠 위에 철창이 덮임) ──
-            self._draw_prison_bars_overlay(cx, cell_y, cell_w, cell_h, is_hovered)
-
-        # 하단 안내
-        if self.fonts and "small" in self.fonts:
-            surf, _ = self.fonts["small"].render("스킬은 2개 중 1개가 랜덤으로 결정됩니다", ET["text_hint"])
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, cell_y + cell_h + 15))
+                surf, _ = self.fonts["small"].render(
+                    "스킬은 2개 중 1개가 랜덤으로 결정됩니다", ET["text_hint"])
+                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2,
+                                        cell_y + cell_h + 15))
 
     def _draw_bracket_lines(self):
         """대진표 연결선 (대각선 레이아웃 box_h=140 기준) - 이집트 테마"""
