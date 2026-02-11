@@ -19671,6 +19671,8 @@ def update_arena_bottom_hero_dash():
         if arena_bottom_dash_charge_timer >= ARENA_DASH_CHARGE_TIME:
             arena_bottom_dash_charges = min(arena_bottom_max_dash_charges, arena_bottom_dash_charges + 1)
             arena_bottom_dash_charge_timer = 0
+            # 충전 완료 효과음 재생
+            play_dash_charge_sound()
             print(f"[ARENA DASH CHARGE] 토큰 충전 완료! charges={arena_bottom_dash_charges}/{arena_bottom_max_dash_charges}", flush=True)
 
     # 쿨다운 감소
@@ -60920,7 +60922,8 @@ def handle_player(keys):
                     decel_factor = rolling_timer_value / 20.0
                     current_speed = _rolling_get("rolling_direction") * 40 * decel_factor
                 # 대쉬 중에도 토큰 충전 타이머 감소 (균일한 애니메이션을 위해)
-                if _charging_state["timer"] > 0 and _charging_state["index"] >= 0:
+                # 투기장 모드에서는 자체 충전 시스템 사용 (스테이지 충전 로직 스킵)
+                if _charging_state["timer"] > 0 and _charging_state["index"] >= 0 and not arena_mode_enabled:
                     _charging_state["timer"] -= 1
                     # _token_charge_states도 함께 감소 (균등 애니메이션용) - ratio 적용
                     charge_idx = _charging_state["index"]
@@ -61054,7 +61057,8 @@ def handle_player(keys):
             if _rolling_get("rolling_dash_available_timer") > 0:
                 _rolling_set("rolling_dash_available_timer", _rolling_get("rolling_dash_available_timer") - 1)
             # 스턴 중에도 토큰 충전 타이머 감소 (균일한 애니메이션을 위해)
-            if _charging_state["timer"] > 0 and _charging_state["index"] >= 0:
+            # 투기장 모드에서는 자체 충전 시스템 사용 (스테이지 충전 로직 스킵)
+            if _charging_state["timer"] > 0 and _charging_state["index"] >= 0 and not arena_mode_enabled:
                 _charging_state["timer"] -= 1
                 # _token_charge_states도 함께 감소 (균등 애니메이션용) - ratio 적용
                 charge_idx = _charging_state["index"]
@@ -61755,7 +61759,8 @@ def handle_player(keys):
                     break
 
             # 충전이 필요한 토큰이 있으면 충전 처리
-            if need_charge_index >= 0:
+            # 투기장 모드에서는 자체 충전 시스템 사용 (스테이지 충전 로직 스킵)
+            if need_charge_index >= 0 and not arena_mode_enabled:
                 # _charging_state에서 최신 값 다시 읽기 (대쉬 사용 시 설정된 값 반영)
                 charge_timer = _charging_state["timer"]
                 charge_index = _charging_state["index"]
