@@ -19501,6 +19501,9 @@ def arena_trigger_bottom_hero_dash_ai(target_x: float) -> bool:
     arena_bottom_dash_charges -= 1  # 대쉬 토큰 소모
     arena_bottom_dash_charge_timer = 0  # 충전 타이머 리셋 (새 토큰 충전 시작)
 
+    print(f"[ARENA DASH AI] 하단 대쉬 발동! charges={arena_bottom_dash_charges}→{arena_bottom_dash_charges} "
+          f"dist={dash_distance:.0f} dir={direction}", flush=True)
+
     # 대쉬 사운드 재생 (보스와 동일)
     try:
         play_dash_sound()
@@ -19667,6 +19670,7 @@ def update_arena_bottom_hero_dash():
         if arena_bottom_dash_charge_timer >= ARENA_DASH_CHARGE_TIME:
             arena_bottom_dash_charges = min(2, arena_bottom_dash_charges + 1)
             arena_bottom_dash_charge_timer = 0
+            print(f"[ARENA DASH CHARGE] 토큰 충전 완료! charges={arena_bottom_dash_charges}/2", flush=True)
 
     # 쿨다운 감소
     if arena_bottom_dash_cooldown > 0:
@@ -82607,13 +82611,29 @@ def draw_player_gauge():
         rolling_charges = arena_bottom_dash_charges
         token_states = [True] * rolling_charges + [False] * (max_tokens - rolling_charges)
         last_max_dash_tokens = max_tokens
+
+        # 디버그 로그 (1초마다 출력)
+        _arena_dbg_tick = pygame.time.get_ticks()
+        if not hasattr(update_arena_bottom_hero_dash, '_last_dbg') or _arena_dbg_tick - update_arena_bottom_hero_dash._last_dbg > 1000:
+            update_arena_bottom_hero_dash._last_dbg = _arena_dbg_tick
+            print(f"[ARENA DASH TOKEN] charges={arena_bottom_dash_charges}/{max_tokens} "
+                  f"charge_timer={arena_bottom_dash_charge_timer}/{ARENA_DASH_CHARGE_TIME} "
+                  f"cooldown={arena_bottom_dash_cooldown} stun={arena_bottom_dash_stun_timer} "
+                  f"dashing={arena_bottom_dashing}", flush=True)
+
         # 충전 중인 토큰 상태 설정
+        # 쿨다운 중에도 구슬에는 쿨다운+충전 합산 진행률을 표시
         _charging_idx = -1
+        _effective_charge_progress = 0.0
         if rolling_charges < max_tokens:
             _charging_idx = rolling_charges  # 다음 충전할 토큰 인덱스
+            # 쿨다운 + 충전 합산 진행률 계산
+            _total_wait = arena_bottom_dash_cooldown + max(0, ARENA_DASH_CHARGE_TIME - arena_bottom_dash_charge_timer)
+            _total_max = ARENA_DASH_COOLDOWN_MAX + ARENA_DASH_CHARGE_TIME  # 최대 대기 시간
+            _effective_charge_progress = max(0.0, 1.0 - (_total_wait / max(1, _total_max)))
         _charging_state["index"] = _charging_idx
-        _charging_state["timer"] = max(0, ARENA_DASH_CHARGE_TIME - arena_bottom_dash_charge_timer)
-        _charging_state["max_time"] = ARENA_DASH_CHARGE_TIME
+        _charging_state["timer"] = int((1.0 - _effective_charge_progress) * _UI_CHARGE_MAX)
+        _charging_state["max_time"] = _UI_CHARGE_MAX
         # _token_charge_states 동기화
         while len(_token_charge_states) < max_tokens:
             _token_charge_states.append({"timer": 0, "max_time": _UI_CHARGE_MAX, "ratio": 1.0})
@@ -82621,13 +82641,10 @@ def draw_player_gauge():
             if _ti < rolling_charges:
                 _token_charge_states[_ti] = {"timer": 0, "max_time": _UI_CHARGE_MAX, "ratio": 1.0}
             elif _ti == _charging_idx:
-                # 충전 중인 토큰: arena_bottom_dash_charge_timer 기반 진행률
-                _arena_charge_ratio = _UI_CHARGE_MAX / max(1, ARENA_DASH_CHARGE_TIME)
-                _arena_remaining = max(0, ARENA_DASH_CHARGE_TIME - arena_bottom_dash_charge_timer)
                 _token_charge_states[_ti] = {
-                    "timer": int(_arena_remaining * _arena_charge_ratio),
+                    "timer": int((1.0 - _effective_charge_progress) * _UI_CHARGE_MAX),
                     "max_time": _UI_CHARGE_MAX,
-                    "ratio": _arena_charge_ratio
+                    "ratio": 1.0
                 }
             else:
                 _token_charge_states[_ti] = {"timer": _UI_CHARGE_MAX, "max_time": _UI_CHARGE_MAX, "ratio": 1.0}
