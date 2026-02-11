@@ -6969,7 +6969,7 @@ class ColosseumsArena:
                     g_target_x = center_x + 150 + fi * 80
                     g_start_x = SCREEN_WIDTH + 100
                     gx = int(g_start_x + (g_target_x - g_start_x) * guard_eased)
-                    gy = int(guard_y_target - 15 + 100 * (1 - guard_eased))
+                    gy = int(guard_y_target - 25 + 100 * (1 - guard_eased))
                     g_color = g.get("color", (150, 150, 150))
 
                     # 반투명 서피스에 렌더링
