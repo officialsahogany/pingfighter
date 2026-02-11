@@ -8423,7 +8423,7 @@ class ColosseumsArena:
         if self.fonts and "large" in self.fonts:
             title_alpha = min(255, self.perk_frame_count * 10)
             title_y_offset = max(0, 40 - self.perk_frame_count * 2)
-            title = "강화를 선택하세요"
+            title = "퍽을 선택하세요"
             title_surf, _ = self.fonts["large"].render(title, ET["gold_bright"])
             title_surf.set_alpha(title_alpha)
             tx = SCREEN_WIDTH // 2 - title_surf.get_width() // 2
@@ -8604,7 +8604,7 @@ class ColosseumsArena:
             if self.bet_hero:
                 status_y = desc_box_y + desc_box_h + 15
                 panel_w = total_w
-                panel_h = 280
+                panel_h = 360
                 panel_x = start_x
                 panel_surf = _get_arena_surface(panel_w, panel_h)
                 pygame.draw.rect(panel_surf, (*ET["bg_panel"], 180),
@@ -8616,13 +8616,56 @@ class ColosseumsArena:
                 hero_id = hero["id"]
                 py_cursor = 10  # 패널 내부 y 커서
 
-                # --- 영웅 이름 + 칭호 ---
+                # --- 영웅 아이콘 + "영웅" 라벨 (가로 한 줄) ---
+                hero_icon_size = 48
+                hero_frame_w, hero_frame_h = hero_icon_size + 8, hero_icon_size + 8
+                hero_frame_rect = pygame.Rect(14, py_cursor, hero_frame_w, hero_frame_h)
+                # 프레임 배경
+                h_color = hero.get("color", (200, 200, 200))
+                pygame.draw.rect(panel_surf, (*ET["skill_bg"], 220),
+                                 hero_frame_rect, border_radius=8)
+                pygame.draw.rect(panel_surf, (*h_color[:3], 180),
+                                 hero_frame_rect, 2, border_radius=8)
+                # 영웅 캐릭터 아이콘
+                if self.hero_paddle_renderer:
+                    try:
+                        hero_icon_surf = _get_arena_surface(hero_icon_size, hero_icon_size)
+                        self.hero_paddle_renderer.draw_hero_paddle(
+                            hero_icon_surf, hero_id,
+                            hero_icon_size // 2, hero_icon_size // 2,
+                            50, 28, facing="down", color=h_color,
+                            scale_mode="preview")
+                        panel_surf.blit(hero_icon_surf,
+                                        (14 + 4, py_cursor + 4))
+                    except Exception:
+                        pygame.draw.circle(
+                            panel_surf, (*h_color[:3], 200),
+                            (14 + hero_frame_w // 2, py_cursor + hero_frame_h // 2), 16)
+                else:
+                    pygame.draw.circle(
+                        panel_surf, (*h_color[:3], 200),
+                        (14 + hero_frame_w // 2, py_cursor + hero_frame_h // 2), 16)
+
+                # "영웅" 라벨 + 이름 (아이콘 오른쪽)
+                hero_text_x = 14 + hero_frame_w + 12
                 if self.fonts and "medium" in self.fonts:
+                    hero_label_surf, _ = self.fonts["medium"].render(
+                        "영웅", ET["text_subtitle"])
+                    panel_surf.blit(hero_label_surf, (hero_text_x, py_cursor + 4))
+                if self.fonts and "small" in self.fonts:
                     hero_name_text = f"{hero['name']}  「{hero.get('title', '')}」"
-                    hn_surf, _ = self.fonts["medium"].render(
+                    hn_surf, _ = self.fonts["small"].render(
                         hero_name_text, ET["gold_bright"])
-                    panel_surf.blit(hn_surf, (14, py_cursor))
-                    py_cursor += hn_surf.get_height() + 8
+                    panel_surf.blit(hn_surf, (hero_text_x, py_cursor + 28))
+
+                # 영웅 아이콘 툴팁 rect 저장 (스크린 좌표)
+                self._perk_hero_tooltip_rect = pygame.Rect(
+                    panel_x + 14, status_y + py_cursor,
+                    hero_frame_w, hero_frame_h)
+                self._perk_hero_tooltip_name = f"{hero['name']}  「{hero.get('title', '')}」"
+                self._perk_hero_tooltip_color = h_color
+
+                py_cursor += hero_frame_h + 8
 
                 # --- 능력치 (인게임 실제 스탯) ---
                 mults = self.get_hero_perk_multipliers(hero_id)
@@ -8659,16 +8702,15 @@ class ColosseumsArena:
                     panel_surf.blit(sec_stat, (14, py_cursor))
                 py_cursor += 18
 
-                # 3열 레이아웃
-                col_w = (panel_w - 28) // 3
-                bar_w = col_w - 80
-                bar_h = 8
+                # 2열 레이아웃 (간격 축소)
+                num_cols = 2
+                col_w = (panel_w - 28) // num_cols
                 stat_base_y = py_cursor
                 for si, (label, val_str, val, max_h, higher_better) in enumerate(game_stats):
-                    col = si % 3
-                    row = si // 3
+                    col = si % num_cols
+                    row = si // num_cols
                     sx = 14 + col * col_w
-                    sy = stat_base_y + row * 28
+                    sy = stat_base_y + row * 22
 
                     if self.fonts and "small" in self.fonts:
                         sl_surf, _ = self.fonts["small"].render(
@@ -8677,11 +8719,12 @@ class ColosseumsArena:
 
                         sv_surf, _ = self.fonts["small"].render(
                             val_str, ET["gold_pale"])
+                        # 라벨 바로 옆에 값 배치 (간격 60px)
                         panel_surf.blit(sv_surf,
-                                        (sx + col_w - sv_surf.get_width() - 4, sy))
+                                        (sx + 72, sy))
 
-                rows_needed = (len(game_stats) + 2) // 3
-                py_cursor = stat_base_y + rows_needed * 28 + 4
+                rows_needed = (len(game_stats) + num_cols - 1) // num_cols
+                py_cursor = stat_base_y + rows_needed * 22 + 4
 
                 # --- 구분선 ---
                 pygame.draw.line(panel_surf, (*ET["card_border"], 100),
@@ -8743,20 +8786,20 @@ class ColosseumsArena:
                 _perk_guard_tooltips = []  # 스킬 아이콘 툴팁용 rect 수집
 
                 if guards:
-                    char_surf_w, char_surf_h = 48, 32
-                    guard_slot_h = 42
+                    char_surf_w, char_surf_h = 56, 48
+                    frame_w, frame_h = 52, 48
+                    guard_slot_h = frame_h + 8
                     for gi, guard in enumerate(guards):
                         gx = 14
                         gy = py_cursor + gi * guard_slot_h
                         g_color = guard.get("color", (150, 150, 150))
 
-                        # 호위무사 캐릭터 이미지 (hero_paddle_renderer 사용)
-                        frame_w, frame_h = 40, 32
+                        # 호위무사 캐릭터 이미지 (확대된 프레임)
                         frame_rect = pygame.Rect(gx, gy, frame_w, frame_h)
                         pygame.draw.rect(panel_surf, (*ET["skill_bg"], 200),
-                                         frame_rect, border_radius=6)
-                        pygame.draw.rect(panel_surf, (*g_color[:3], 150),
-                                         frame_rect, 1, border_radius=6)
+                                         frame_rect, border_radius=8)
+                        pygame.draw.rect(panel_surf, (*g_color[:3], 180),
+                                         frame_rect, 2, border_radius=8)
 
                         if self.hero_paddle_renderer:
                             try:
@@ -8764,29 +8807,37 @@ class ColosseumsArena:
                                 self.hero_paddle_renderer.draw_hero_paddle(
                                     char_s, guard["id"],
                                     char_surf_w // 2, char_surf_h // 2,
-                                    36, 20, facing="down", color=g_color,
+                                    44, 26, facing="down", color=g_color,
                                     scale_mode="preview")
                                 panel_surf.blit(char_s,
                                                 (gx + frame_w // 2 - char_surf_w // 2,
                                                  gy + frame_h // 2 - char_surf_h // 2))
                             except Exception:
-                                # 폴백: 컬러 원 + 이니셜
                                 pygame.draw.circle(
                                     panel_surf, (*g_color[:3], 200),
-                                    (gx + frame_w // 2, gy + frame_h // 2), 12)
+                                    (gx + frame_w // 2, gy + frame_h // 2), 16)
                         else:
                             pygame.draw.circle(
                                 panel_surf, (*g_color[:3], 200),
-                                (gx + frame_w // 2, gy + frame_h // 2), 12)
+                                (gx + frame_w // 2, gy + frame_h // 2), 16)
 
-                        # 호위무사 이름
-                        name_x = gx + frame_w + 10
-                        if self.fonts and "small" in self.fonts:
-                            gn_surf, _ = self.fonts["small"].render(
-                                guard.get("name", "?"), (220, 215, 200))
-                            panel_surf.blit(gn_surf, (name_x, gy + 2))
+                        # 호위무사 아이콘 툴팁 rect 수집 (이름 숨기고 호버 시 표시)
+                        guard_name = guard.get("name", "?")
+                        guard_title = guard.get("title", "")
+                        guard_tt_text = f"{guard_name}  「{guard_title}」" if guard_title else guard_name
+                        _perk_guard_tooltips.append({
+                            "rect": pygame.Rect(
+                                panel_x + gx, status_y + gy,
+                                frame_w, frame_h),
+                            "name": guard_tt_text,
+                            "desc": "호위무사",
+                            "color": g_color,
+                        })
 
-                        # 호위무사 스킬 아이콘
+                        # 호위무사 스킬 아이콘 (이름 대신 바로 옆에 큰 아이콘)
+                        sk_icon_sz = 32
+                        sk_x = gx + frame_w + 12
+                        sk_y = gy + (frame_h - sk_icon_sz) // 2
                         try:
                             g_id = guard["id"]
                             g_skill_idx = self.hero_selected_skills.get(g_id, 0)
@@ -8797,20 +8848,17 @@ class ColosseumsArena:
                                 skills_to_show = g_skills_list if has_both else (
                                     [g_skills_list[g_skill_idx]] if len(g_skills_list) > g_skill_idx else [])
 
-                                sk_x = name_x
-                                sk_y = gy + 20
-                                sk_icon_sz = 20
                                 for ski, skill in enumerate(skills_to_show):
-                                    icon_x = sk_x + ski * (sk_icon_sz + 30)
-                                    # 스킬 아이콘 배경
+                                    icon_x = sk_x + ski * (sk_icon_sz + 8)
+                                    # 스킬 아이콘 배경 (확대)
                                     pygame.draw.rect(
                                         panel_surf, (*g_color[:3], 120),
                                         (icon_x, sk_y, sk_icon_sz, sk_icon_sz),
-                                        border_radius=4)
+                                        border_radius=6)
                                     pygame.draw.rect(
                                         panel_surf, (*g_color[:3], 200),
                                         (icon_x, sk_y, sk_icon_sz, sk_icon_sz),
-                                        1, border_radius=4)
+                                        1, border_radius=6)
                                     # 스킬 아이콘 이미지
                                     sk_icon = _get_hero_skill_icon(
                                         skill.skill_id, sk_icon_sz)
@@ -8825,19 +8873,12 @@ class ColosseumsArena:
                                             panel_surf.blit(ini,
                                                 (icon_x + sk_icon_sz // 2 - ini.get_width() // 2,
                                                  sk_y + sk_icon_sz // 2 - ini.get_height() // 2))
-                                    # 스킬 이름 텍스트 (아이콘 옆)
-                                    if self.fonts and "small" in self.fonts:
-                                        sn_surf, _ = self.fonts["small"].render(
-                                            skill.korean_name,
-                                            ET["turquoise_light"])
-                                        panel_surf.blit(sn_surf,
-                                            (icon_x + sk_icon_sz + 3, sk_y + 2))
-                                    # 툴팁 rect 수집 (패널 좌표 → 스크린 좌표)
+                                    # 스킬 아이콘 툴팁 (스킬 이름 + 설명)
                                     _perk_guard_tooltips.append({
                                         "rect": pygame.Rect(
                                             panel_x + icon_x,
                                             status_y + sk_y,
-                                            sk_icon_sz + 60, sk_icon_sz),
+                                            sk_icon_sz, sk_icon_sz),
                                         "name": skill.korean_name,
                                         "desc": skill.description,
                                         "color": g_color,
@@ -8852,9 +8893,33 @@ class ColosseumsArena:
 
                 self.screen.blit(panel_surf, (panel_x, status_y))
 
-                # --- 스킬 아이콘 툴팁 (패널 위에 오버레이) ---
-                if _perk_guard_tooltips:
-                    mpos = pygame.mouse.get_pos()
+                # --- 툴팁 렌더링 (패널 위에 오버레이) ---
+                mpos = pygame.mouse.get_pos()
+                tooltip_shown = False
+
+                # 영웅 아이콘 툴팁
+                if (hasattr(self, '_perk_hero_tooltip_rect') and
+                        self._perk_hero_tooltip_rect.collidepoint(mpos)):
+                    tt_name = getattr(self, '_perk_hero_tooltip_name', '?')
+                    tt_color = getattr(self, '_perk_hero_tooltip_color', (200, 200, 200))
+                    tt_w, tt_h = 260, 32
+                    tt_x = min(self._perk_hero_tooltip_rect.right + 5,
+                               SCREEN_WIDTH - tt_w - 5)
+                    tt_y = self._perk_hero_tooltip_rect.y
+                    tt_surf = _get_arena_surface(tt_w, tt_h)
+                    pygame.draw.rect(tt_surf, (30, 28, 22, 240),
+                                     (0, 0, tt_w, tt_h), border_radius=6)
+                    pygame.draw.rect(tt_surf, (*tt_color[:3], 180),
+                                     (0, 0, tt_w, tt_h), 1, border_radius=6)
+                    if self.fonts and "small" in self.fonts:
+                        tn_s, _ = self.fonts["small"].render(
+                            tt_name, ET["gold_bright"])
+                        tt_surf.blit(tn_s, (8, 8))
+                    self.screen.blit(tt_surf, (tt_x, tt_y))
+                    tooltip_shown = True
+
+                # 호위무사/스킬 아이콘 툴팁
+                if not tooltip_shown and _perk_guard_tooltips:
                     for tt in _perk_guard_tooltips:
                         if tt["rect"].collidepoint(mpos):
                             tt_w, tt_h = 220, 48

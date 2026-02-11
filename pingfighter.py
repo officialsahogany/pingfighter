@@ -94157,7 +94157,7 @@ def draw_stage_choice_overlay(screen: pygame.Surface, background: pygame.Surface
     # 타이틀 (위에서 페이드인)
     title_alpha = min(255, stage_choice_overlay_frame * 12)
     title_y_offset = max(0, 30 - stage_choice_overlay_frame * 2)
-    title_text = "강화를 선택하세요"
+    title_text = "퍽을 선택하세요"
     title_surface = title_font.render(title_text, True, (255, 220, 100))
     title_surface.set_alpha(title_alpha)
     title_rect = title_surface.get_rect(center=(WIDTH // 2, vertical_y - 60 - title_y_offset))
@@ -94410,7 +94410,7 @@ def show_stage_clear_choices() -> str | None:
         # 타이틀
         title_alpha = min(255, frame_count * 10)
         title_y_offset = max(0, 40 - frame_count * 2)
-        title_text = "강화를 선택하세요"
+        title_text = "퍽을 선택하세요"
         title_surface = title_font.render(title_text, True, (255, 220, 100))
         title_surface.set_alpha(title_alpha)
         title_rect = title_surface.get_rect(center=(WIDTH // 2, vertical_y - 70 - title_y_offset))
