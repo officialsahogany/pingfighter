@@ -1990,7 +1990,7 @@ class GravityControl(HeroSkill):
             korean_name="중력가속",
             description="중력을 조작하여 공이 계속 아래로 끌려가게 만든다",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=25.0,
+            cooldown=20.0,
             duration=2.5,  # 2.5초 지속
             hero_id="chronos"
         )
@@ -3256,7 +3256,7 @@ class PuppetControl(HeroSkill):
             korean_name="꼭두각시 조종",
             description="실로 상대를 끌어와 뽀뽀한 후 돌려보낸다",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=35.0,
+            cooldown=30.0,
             duration=3.62,  # 총 3.62초: 뻗기 0.7초 + 끌기 1.083초 + 뽀뽀 1초 + 복귀 0.833초 (이동 20% 빠르게)
             hero_id="maria"
         )
@@ -4713,7 +4713,7 @@ class DragonBreath(HeroSkill):
             korean_name="드래곤 브레스",
             description="용의 화염을 뿜어 공을 타격하고 가속시킨다",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=15.0,
+            cooldown=20.0,
             duration=3.5,  # 파티클 페이드아웃 시간 포함 (발사 1.2초 + 페이드 2.3초)
             hero_id="ignis"
         )
@@ -5187,7 +5187,7 @@ class SteamBarrier(HeroSkill):
             korean_name="스팀 배리어",
             description="증기로 방어막을 만들어 공을 반사시킨다",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=20.0,
+            cooldown=25.0,
             duration=6.0,
             hero_id="gear"
         )
@@ -6038,7 +6038,7 @@ class OilSpill(HeroSkill):
             korean_name="기름 투척",
             description="기름 덩어리 2개를 던져 적 진영 바닥에 웅덩이를 만든다. 웅덩이를 밟는 동안 30% 둔화.",
             trigger=SkillTrigger.ON_BALL_HIT,
-            cooldown=15.0,
+            cooldown=12.0,
             duration=0,  # 스킬 자체는 즉시 완료, 웅덩이가 독립적으로 지속
             hero_id="gear"
         )
