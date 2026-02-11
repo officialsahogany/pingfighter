@@ -89917,10 +89917,10 @@ def draw_objects():
                     _odins_eye_dark_paddle_drawn = True  # 기존 패들도 숨기기 위해 True
                 else:
                     # 플레이어 x 속도 계산 (움직임 애니메이션용)
-                    _player_vx = player_velocity_x
+                    _player_vx = globals().get("player_velocity_x", 0)
                     if _player_vx == 0:
                         # player_velocity_x가 없으면 이전 위치와 비교
-                        _prev_x = _odins_prev_player_x
+                        _prev_x = globals().get("_odins_prev_player_x", PLAYER.centerx)
                         _player_vx = PLAYER.centerx - _prev_x
                     globals()["_odins_prev_player_x"] = PLAYER.centerx
 
