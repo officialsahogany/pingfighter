@@ -4741,7 +4741,7 @@ class ColosseumsArena:
             if self.tenacity_timer >= 2.0:
                 self.tenacity_triggered = False
                 # 배틀 재시작
-                self._start_battle(self.selected_match)
+                self.start_battle(self.selected_match)
 
         elif self.state == TournamentState.VICTORY_CELEBRATION:
             self.victory_timer += dt
@@ -7642,6 +7642,10 @@ class ColosseumsArena:
             former_guards_list = [(g, f) for g, f in all_display_guards if f]
 
             # 왼쪽: 현재 호위무사
+            # 글로우 Y 보정: preview 모드 캐릭터는 torso가 cy-1.5b에 위치,
+            # 시각적 중심이 cy보다 위쪽이므로 글로우를 위로 보정
+            guard_b = max(3, guard_size_w // 12)
+            glow_y_adj = int(guard_b * 0.75)
             if current_guards:
                 g, _ = current_guards[0]
                 g_target_x = center_x - 180
@@ -7653,7 +7657,7 @@ class ColosseumsArena:
                 glow_a = int(40 * guard_fade)
                 glow_s = _get_arena_surface(120, 120)
                 pygame.draw.circle(glow_s, (*g_color, glow_a), (60, 60), 55)
-                self.screen.blit(glow_s, (gx - 60, gy - 60))
+                self.screen.blit(glow_s, (gx - 60, gy - 60 - glow_y_adj))
 
                 self.hero_paddle_renderer.draw_hero_paddle(
                     self.screen, g.get("id", "mugen"), gx, gy, guard_size_w, guard_size_h,
@@ -7681,11 +7685,11 @@ class ColosseumsArena:
                     gy = int(guard_y_target + 100 * (1 - guard_eased))
                     g_color = g.get("color", (150, 150, 150))
 
-                    # 글로우 (약하게) - 현재 호위무사와 동일한 방식
+                    # 글로우 (약하게) - 현재 호위무사와 동일한 방식 + Y 보정
                     glow_a_f = int(20 * guard_fade)
                     glow_s = _get_arena_surface(120, 120)
                     pygame.draw.circle(glow_s, (*g_color, glow_a_f), (60, 60), 45)
-                    self.screen.blit(glow_s, (gx - 60, gy - 60))
+                    self.screen.blit(glow_s, (gx - 60, gy - 60 - glow_y_adj))
 
                     # 반투명 서피스에 영웅 렌더링 (중앙 기준)
                     ghost_surf = _get_arena_surface(surf_w, surf_h)
@@ -7712,18 +7716,20 @@ class ColosseumsArena:
         champ_y = int(champ_start_y + (champ_target_y - champ_start_y) * eased)
         champ_w, champ_h = 150, 105
 
-        # 챔피언 글로우 (크고 화려하게)
+        # 챔피언 글로우 (크고 화려하게) - Y 보정으로 캐릭터 시각적 중심에 맞춤
+        champ_b = max(3, champ_w // 12)
+        champ_glow_adj = int(champ_b * 0.75)
         if intro > 0.2:
             glow_pulse = abs(_sin(self.animation_timer * 2)) * 0.3 + 0.7
             glow_a = int(80 * min(1.0, (intro - 0.2) * 2) * glow_pulse)
             glow_r = 110
             glow_s = _get_arena_surface(glow_r * 2, glow_r * 2)
             pygame.draw.circle(glow_s, (255, 215, 0, glow_a), (glow_r, glow_r), glow_r)
-            self.screen.blit(glow_s, (center_x - glow_r, champ_y - glow_r))
+            self.screen.blit(glow_s, (center_x - glow_r, champ_y - glow_r - champ_glow_adj))
             # 내부 캐릭터 색 글로우
             glow_s2 = _get_arena_surface(glow_r * 2, glow_r * 2)
             pygame.draw.circle(glow_s2, (*champion_color, glow_a // 2), (glow_r, glow_r), glow_r - 20)
-            self.screen.blit(glow_s2, (center_x - glow_r, champ_y - glow_r))
+            self.screen.blit(glow_s2, (center_x - glow_r, champ_y - glow_r - champ_glow_adj))
 
         # 챔피언 캐릭터
         if self.hero_paddle_renderer:
