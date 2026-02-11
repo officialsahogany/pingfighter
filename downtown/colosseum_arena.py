@@ -10338,21 +10338,22 @@ class ColosseumsArena:
 
             # (능력치 바 제거 - 스킬 룰렛 공간 확보)
 
-        # === 하단 안내 텍스트 ===
-        if self.fonts and "small" in self.fonts and timer > 0.6:
-            hint_alpha = int(120 + 80 * abs(_sin(self.animation_timer * 2)))
-            hint = "클릭 또는 ←→ 키로 선택  |  스킬 아이콘에 마우스를 올려 설명 확인"
-            hint_surf, _ = self.fonts["small"].render(hint, (hint_alpha, int(hint_alpha * 0.85), int(hint_alpha * 0.65)))
-            self.screen.blit(hint_surf, (center_x - hint_surf.get_width() // 2, 620))
+        # === 하단 안내 텍스트 (스킬 룰렛 중에는 숨김) ===
+        if not getattr(self, '_guard_select_anim_phase', None):
+            if self.fonts and "small" in self.fonts and timer > 0.6:
+                hint_alpha = int(120 + 80 * abs(_sin(self.animation_timer * 2)))
+                hint = "클릭 또는 ←→ 키로 선택  |  스킬 아이콘에 마우스를 올려 설명 확인"
+                hint_surf, _ = self.fonts["small"].render(hint, (hint_alpha, int(hint_alpha * 0.85), int(hint_alpha * 0.65)))
+                self.screen.blit(hint_surf, (center_x - hint_surf.get_width() // 2, 620))
 
-        # 라운드 표기
-        if self.fonts and "small" in self.fonts:
-            if self.current_round == TournamentRound.SEMI_FINAL:
-                round_text = "SEMI FINAL"
-            else:
-                round_text = "FINAL ROUND"
-            rs, _ = self.fonts["small"].render(round_text, ET["gold_medium"])
-            self.screen.blit(rs, (center_x - rs.get_width() // 2, 650))
+            # 라운드 표기
+            if self.fonts and "small" in self.fonts:
+                if self.current_round == TournamentRound.SEMI_FINAL:
+                    round_text = "SEMI FINAL"
+                else:
+                    round_text = "FINAL ROUND"
+                rs, _ = self.fonts["small"].render(round_text, ET["gold_medium"])
+                self.screen.blit(rs, (center_x - rs.get_width() // 2, 650))
 
         # === 스킬 툴팁 (호버 중인 스킬이 있으면 최상위에 표시) ===
         skill_hover_info = getattr(self, 'guard_select_skill_hover', None)
