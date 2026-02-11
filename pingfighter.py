@@ -18858,7 +18858,8 @@ arena_bottom_dash_target_x = 0.0     # 하단 영웅 대쉬 목표 X
 arena_bottom_dash_speed = 40.0       # 하단 영웅 대쉬 속도 (보스와 동일)
 arena_bottom_dash_cooldown = 0       # 하단 영웅 대쉬 쿨다운 (프레임)
 arena_bottom_dash_afterimages = []   # 하단 영웅 대쉬 잔상
-arena_bottom_dash_charges = 2        # 하단 영웅 대쉬 충전 (플레이어)
+arena_bottom_dash_charges = 1        # 하단 영웅 대쉬 충전 (플레이어)
+arena_bottom_max_dash_charges = 1    # 하단 영웅 대쉬 최대 토큰 수 (기본 1, 퍽으로 증가 가능)
 arena_bottom_dash_charge_timer = 0   # 하단 영웅 대쉬 충전 타이머
 arena_bottom_dash_duration_frames = 15  # 하단 영웅 대쉬 지속 시간 (동적 계산됨)
 arena_bottom_dash_stun_timer = 0     # 하단 영웅 대쉬 후딜 타이머
@@ -19665,12 +19666,12 @@ def update_arena_bottom_hero_dash():
         return False
 
     # 충전 타이머 업데이트 (후딜 중에는 충전 안 함)
-    if arena_bottom_dash_charges < 2 and arena_bottom_dash_cooldown <= 0 and arena_bottom_dash_stun_timer <= 0:
+    if arena_bottom_dash_charges < arena_bottom_max_dash_charges and arena_bottom_dash_cooldown <= 0 and arena_bottom_dash_stun_timer <= 0:
         arena_bottom_dash_charge_timer += 1
         if arena_bottom_dash_charge_timer >= ARENA_DASH_CHARGE_TIME:
-            arena_bottom_dash_charges = min(2, arena_bottom_dash_charges + 1)
+            arena_bottom_dash_charges = min(arena_bottom_max_dash_charges, arena_bottom_dash_charges + 1)
             arena_bottom_dash_charge_timer = 0
-            print(f"[ARENA DASH CHARGE] 토큰 충전 완료! charges={arena_bottom_dash_charges}/2", flush=True)
+            print(f"[ARENA DASH CHARGE] 토큰 충전 완료! charges={arena_bottom_dash_charges}/{arena_bottom_max_dash_charges}", flush=True)
 
     # 쿨다운 감소
     if arena_bottom_dash_cooldown > 0:
@@ -82607,7 +82608,7 @@ def draw_player_gauge():
     global _all_tokens_full_sparkle_timer  # 완충 직후 스파클 효과용
     # === 투기장 모드: 선택한 영웅의 대쉬 쿨타임 연동 ===
     if arena_mode_enabled:
-        max_tokens = 2  # 투기장 대쉬 토큰 최대 2개
+        max_tokens = arena_bottom_max_dash_charges  # 투기장 대쉬 토큰 최대 (기본 1, 퍽으로 증가)
         rolling_charges = arena_bottom_dash_charges
         token_states = [True] * rolling_charges + [False] * (max_tokens - rolling_charges)
         last_max_dash_tokens = max_tokens
@@ -96583,7 +96584,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
     global arena_bottom_dashing, arena_bottom_dash_timer, arena_bottom_dash_direction
     global arena_bottom_dash_target_x, arena_bottom_dash_cooldown, arena_bottom_dash_afterimages
     global ai_mode
-    global arena_bottom_dash_charges, arena_bottom_dash_charge_timer
+    global arena_bottom_dash_charges, arena_bottom_max_dash_charges, arena_bottom_dash_charge_timer
     global arena_bottom_dash_duration_frames, arena_bottom_dash_stun_timer
     global selected_character_type, selected_item_index, last_item_use_time
 
@@ -96615,7 +96616,8 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
     arena_bottom_dash_target_x = 0.0
     arena_bottom_dash_cooldown = 0
     arena_bottom_dash_afterimages = []
-    arena_bottom_dash_charges = 1  # 시작 시 1개 (스테이지 모드와 동일)
+    arena_bottom_max_dash_charges = 1  # 기본 최대 1개 (퍽으로 증가 가능)
+    arena_bottom_dash_charges = arena_bottom_max_dash_charges  # 시작 시 최대치
     arena_bottom_dash_charge_timer = 0
     arena_bottom_dash_duration_frames = 15
     arena_bottom_dash_stun_timer = 0
