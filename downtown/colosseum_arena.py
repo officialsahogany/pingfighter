@@ -143,6 +143,20 @@ def _load_prison_open_sound():
     except Exception:
         _prison_open_sound = None
 
+_select_swing_sound = None
+def _load_select_swing_sound():
+    global _select_swing_sound
+    if _select_swing_sound is not None:
+        return
+    try:
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        path = os.path.join(base, "sounds", "selectswing.wav")
+        if os.path.exists(path):
+            _select_swing_sound = pygame.mixer.Sound(path)
+            _select_swing_sound.set_volume(0.5)
+    except Exception:
+        _select_swing_sound = None
+
 # ============================================================================
 # 이집트 파피루스 테마 색상 팔레트
 # ============================================================================
@@ -6530,6 +6544,9 @@ class ColosseumsArena:
                     hero_scale = 1.2
                     if not getattr(self, '_hero_select_swing_triggered', False):
                         self._hero_select_swing_triggered = True
+                        _load_select_swing_sound()
+                        if _select_swing_sound:
+                            _select_swing_sound.play()
                         if self.hero_paddle_renderer:
                             self.hero_paddle_renderer.trigger_weapon_swing(
                                 hero["id"], 0.5)
@@ -7046,6 +7063,9 @@ class ColosseumsArena:
                     # 무기 스윙 트리거 (한 번만 - 실제 타격 모션 재생)
                     if not getattr(self, '_prison_swing_triggered', False):
                         self._prison_swing_triggered = True
+                        _load_select_swing_sound()
+                        if _select_swing_sound:
+                            _select_swing_sound.play()
                         if self.hero_paddle_renderer:
                             self.hero_paddle_renderer.trigger_weapon_swing(
                                 hero["id"], 0.5)
