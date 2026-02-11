@@ -1569,7 +1569,14 @@ class GuardWarriorSystem:
         self.patrol_mode_bottom = False
         self._patrol_dir_top = 1     # 순찰 이동 방향 (1: 오른쪽, -1: 왼쪽)
         self._patrol_dir_bottom = -1
-        self._patrol_speed = 60.0    # 순찰 이동 속도 (px/s)
+        self._patrol_speed = 140.0   # 순찰 이동 속도 (px/s)
+        # 자연스러운 순찰 AI: 목표 지점 + 대기 시간
+        self._patrol_target_top = None      # 현재 목표 X 좌표
+        self._patrol_target_bottom = None
+        self._patrol_wait_top = 0.0         # 잠시 멈춤 타이머 (초)
+        self._patrol_wait_bottom = 0.0
+        self._patrol_speed_top = 140.0      # 개별 속도 (랜덤 변동)
+        self._patrol_speed_bottom = 140.0
 
     def setup(self, guards_top, guards_bottom, initial_delay=(10.0, 15.0), skill_selections=None):
         """배틀 시작 시 호위무사 설정
@@ -1859,6 +1866,12 @@ class GuardWarriorSystem:
             else:
                 self.x_bottom = current_x
 
+            # 이동 애니메이션 갱신 (걷기 모션)
+            guard = self.active_top if is_top else self.active_bottom
+            if guard and self.hero_paddle_renderer:
+                gx = self.x_top if is_top else self.x_bottom
+                self.hero_paddle_renderer.update_movement(guard["id"], gx, dt)
+
             if progress >= 1.0:
                 # 등장 완료 → 시전 단계 (등장 완료 X 저장)
                 if is_top:
@@ -1979,7 +1992,43 @@ class GuardWarriorSystem:
                         self._guard_ghost_step_hit_top = 0
                     else:
                         self._guard_ghost_step_hit_bottom = 0
-                    # 퇴장 전환
+                    # 퇴장 전환 (순찰모드면 바로 순찰, 아니면 퇴장)
+                    patrol_on = self.patrol_mode_top if is_top else self.patrol_mode_bottom
+                    if patrol_on:
+                        if is_top:
+                            self.phase_top = "patrolling"
+                            self.anim_timer_top = 0.0
+                            self.y_top = TOP_PADDLE_Y
+                        else:
+                            self.phase_bottom = "patrolling"
+                            self.anim_timer_bottom = 0.0
+                            self.y_bottom = BOTTOM_PADDLE_Y
+                    else:
+                        if is_top:
+                            self._exit_start_x_top = self.x_top
+                            self._exit_start_y_top = self.y_top
+                            self.phase_top = "exiting"
+                            self.anim_timer_top = 0.0
+                        else:
+                            self._exit_start_x_bottom = self.x_bottom
+                            self._exit_start_y_bottom = self.y_bottom
+                            self.phase_bottom = "exiting"
+                            self.anim_timer_bottom = 0.0
+                return  # 타이머 기반 퇴장 안 함
+
+            # === 기본: 시전 시간 후 퇴장 (순찰모드면 바로 순찰) ===
+            if timer >= GUARD_CAST_DURATION:
+                patrol_on = self.patrol_mode_top if is_top else self.patrol_mode_bottom
+                if patrol_on:
+                    if is_top:
+                        self.phase_top = "patrolling"
+                        self.anim_timer_top = 0.0
+                        self.y_top = TOP_PADDLE_Y
+                    else:
+                        self.phase_bottom = "patrolling"
+                        self.anim_timer_bottom = 0.0
+                        self.y_bottom = BOTTOM_PADDLE_Y
+                else:
                     if is_top:
                         self._exit_start_x_top = self.x_top
                         self._exit_start_y_top = self.y_top
@@ -1990,20 +2039,6 @@ class GuardWarriorSystem:
                         self._exit_start_y_bottom = self.y_bottom
                         self.phase_bottom = "exiting"
                         self.anim_timer_bottom = 0.0
-                return  # 타이머 기반 퇴장 안 함
-
-            # === 기본: 시전 시간 후 퇴장 ===
-            if timer >= GUARD_CAST_DURATION:
-                if is_top:
-                    self._exit_start_x_top = self.x_top
-                    self._exit_start_y_top = self.y_top
-                    self.phase_top = "exiting"
-                    self.anim_timer_top = 0.0
-                else:
-                    self._exit_start_x_bottom = self.x_bottom
-                    self._exit_start_y_bottom = self.y_bottom
-                    self.phase_bottom = "exiting"
-                    self.anim_timer_bottom = 0.0
 
         elif phase == "exiting":
             progress = min(1.0, timer / GUARD_EXIT_DURATION)
@@ -2020,6 +2055,12 @@ class GuardWarriorSystem:
             else:
                 self.x_bottom = current_x
                 self.y_bottom = current_y
+
+            # 이동 애니메이션 갱신 (걷기 모션)
+            guard = self.active_top if is_top else self.active_bottom
+            if guard and self.hero_paddle_renderer:
+                gx = self.x_top if is_top else self.x_bottom
+                self.hero_paddle_renderer.update_movement(guard["id"], gx, dt)
 
             if progress >= 1.0:
                 patrol_on = self.patrol_mode_top if is_top else self.patrol_mode_bottom
@@ -2050,27 +2091,77 @@ class GuardWarriorSystem:
                         self.y_bottom = BOTTOM_PADDLE_Y
 
     def _update_patrol(self, dt, is_top):
-        """순찰 모드: 호위무사가 진영 내에서 좌우로 이동"""
+        """순찰 모드: 호위무사가 진영 내에서 자연스럽게 랜덤 순찰"""
+        left_bound = GAME_AREA_X + 40
+        right_bound = GAME_AREA_X + GAME_AREA_WIDTH - 40
+
         if is_top:
-            self.x_top += self._patrol_dir_top * self._patrol_speed * dt
-            left_bound = GAME_AREA_X + 40
-            right_bound = GAME_AREA_X + GAME_AREA_WIDTH - 40
-            if self.x_top <= left_bound:
-                self.x_top = left_bound
-                self._patrol_dir_top = 1
-            elif self.x_top >= right_bound:
-                self.x_top = right_bound
-                self._patrol_dir_top = -1
+            # 대기 중이면 타이머 감소
+            if self._patrol_wait_top > 0:
+                self._patrol_wait_top -= dt
+                # 대기 중에도 이동 애니메이션 갱신 (정지 → 감쇠)
+                guard = self.active_top
+                if guard and self.hero_paddle_renderer:
+                    self.hero_paddle_renderer.update_movement(
+                        guard["id"], self.x_top, dt)
+                return
+
+            # 목표 없으면 새 목표 생성
+            if self._patrol_target_top is None:
+                self._patrol_target_top = random.uniform(left_bound + 20, right_bound - 20)
+                self._patrol_speed_top = random.uniform(110.0, 180.0)
+
+            # 목표를 향해 이동
+            diff = self._patrol_target_top - self.x_top
+            if abs(diff) < 3.0:
+                # 목표 도달 → 잠시 대기 후 새 목표
+                self.x_top = self._patrol_target_top
+                self._patrol_target_top = None
+                self._patrol_wait_top = random.uniform(0.4, 1.5)
+            else:
+                direction = 1 if diff > 0 else -1
+                self._patrol_dir_top = direction
+                self.x_top += direction * self._patrol_speed_top * dt
+                # 경계 클램프
+                self.x_top = max(left_bound, min(self.x_top, right_bound))
+
+            # 이동 애니메이션 갱신
+            guard = self.active_top
+            if guard and self.hero_paddle_renderer:
+                self.hero_paddle_renderer.update_movement(
+                    guard["id"], self.x_top, dt)
         else:
-            self.x_bottom += self._patrol_dir_bottom * self._patrol_speed * dt
-            left_bound = GAME_AREA_X + 40
-            right_bound = GAME_AREA_X + GAME_AREA_WIDTH - 40
-            if self.x_bottom <= left_bound:
-                self.x_bottom = left_bound
-                self._patrol_dir_bottom = 1
-            elif self.x_bottom >= right_bound:
-                self.x_bottom = right_bound
-                self._patrol_dir_bottom = -1
+            # 대기 중이면 타이머 감소
+            if self._patrol_wait_bottom > 0:
+                self._patrol_wait_bottom -= dt
+                guard = self.active_bottom
+                if guard and self.hero_paddle_renderer:
+                    self.hero_paddle_renderer.update_movement(
+                        guard["id"], self.x_bottom, dt)
+                return
+
+            # 목표 없으면 새 목표 생성
+            if self._patrol_target_bottom is None:
+                self._patrol_target_bottom = random.uniform(left_bound + 20, right_bound - 20)
+                self._patrol_speed_bottom = random.uniform(110.0, 180.0)
+
+            # 목표를 향해 이동
+            diff = self._patrol_target_bottom - self.x_bottom
+            if abs(diff) < 3.0:
+                self.x_bottom = self._patrol_target_bottom
+                self._patrol_target_bottom = None
+                self._patrol_wait_bottom = random.uniform(0.4, 1.5)
+            else:
+                direction = 1 if diff > 0 else -1
+                self._patrol_dir_bottom = direction
+                self.x_bottom += direction * self._patrol_speed_bottom * dt
+                self.x_bottom = max(left_bound, min(self.x_bottom, right_bound))
+
+            # 이동 애니메이션 갱신
+            guard = self.active_bottom
+            if guard and self.hero_paddle_renderer:
+                self.hero_paddle_renderer.update_movement(
+                    guard["id"], self.x_bottom, dt)
 
     def _trigger_from_patrol(self, is_top, top_paddle, bottom_paddle, ball):
         """순찰 중 스킬 재시전 (입장 애니메이션 스킵)"""
@@ -2736,8 +2827,8 @@ class GuardWarriorSystem:
                     char_surf_w, char_surf_h, facing="down"
                 )
 
-                # 쿨타임 어둡게 오버레이
-                if self.phase_top is None and self.cooldown_top > 0:
+                # 쿨타임 어둡게 오버레이 (대기 중 또는 순찰 중)
+                if self.phase_top in (None, "patrolling") and self.cooldown_top > 0:
                     cd_ratio = min(1.0, self.cooldown_top / self.cooldown_max_top) if self.cooldown_max_top > 0 else 0
                     overlay_h = int(frame_h * cd_ratio)
                     if overlay_h > 0:
@@ -2746,7 +2837,7 @@ class GuardWarriorSystem:
                         screen.blit(cd_surf, (frame_x_right, slot_cy))
 
                 # 다음 등장 화살표 표시 (2명 이상일 때, 쿨타임 중)
-                if (len(self.guard_warriors_top) >= 2 and self.phase_top is None
+                if (len(self.guard_warriors_top) >= 2 and self.phase_top in (None, "patrolling")
                         and i == self.next_guard_top_idx % len(self.guard_warriors_top)):
                     ax = frame_x_right - 12
                     ay = slot_cy + frame_h // 2
@@ -2812,8 +2903,8 @@ class GuardWarriorSystem:
                     char_surf_w, char_surf_h, facing="down"
                 )
 
-                # 쿨타임 어둡게 오버레이
-                if self.phase_bottom is None and self.cooldown_bottom > 0:
+                # 쿨타임 어둡게 오버레이 (대기 중 또는 순찰 중)
+                if self.phase_bottom in (None, "patrolling") and self.cooldown_bottom > 0:
                     cd_ratio = min(1.0, self.cooldown_bottom / self.cooldown_max_bottom) if self.cooldown_max_bottom > 0 else 0
                     overlay_h = int(frame_h * cd_ratio)
                     if overlay_h > 0:
@@ -2822,7 +2913,7 @@ class GuardWarriorSystem:
                         screen.blit(cd_surf, (frame_x_left, slot_cy))
 
                 # 다음 등장 화살표 표시 (2명 이상일 때, 쿨타임 중)
-                if (len(self.guard_warriors_bottom) >= 2 and self.phase_bottom is None
+                if (len(self.guard_warriors_bottom) >= 2 and self.phase_bottom in (None, "patrolling")
                         and i == self.next_guard_bottom_idx % len(self.guard_warriors_bottom)):
                     ax = frame_x_left + frame_w + 2
                     ay = slot_cy + frame_h // 2
@@ -3016,6 +3107,11 @@ class GuardWarriorSystem:
         self.next_guard_bottom_idx = 0
         self._bubble_top = None
         self._bubble_bottom = None
+        # 순찰 상태 초기화
+        self._patrol_target_top = None
+        self._patrol_target_bottom = None
+        self._patrol_wait_top = 0.0
+        self._patrol_wait_bottom = 0.0
 
         # 스킬 인스턴스 정리
         game_state = self.skill_manager.game_state if self.skill_manager else {}
