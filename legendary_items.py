@@ -3104,7 +3104,7 @@ class SacredLaurel(LegendaryItem):
         self._base_max_leaves = 6  # 기본 잎 개수 (롤 옵션으로 덮어씀)
         self.leaves = []
         self.leaf_radius = 200  # 가로 길이 400% (50 -> 100 -> 200)
-        self.leaf_size = 12  # 그림 크기
+        self.leaf_size = 30  # 그림 크기 (12 -> 30, 2.5배 확대)
         self.leaf_hitbox_size = 24  # 타격 판정 범위 (그림 크기의 2배)
         self.rotation_speed = 1.5
         self.current_angle = 0
