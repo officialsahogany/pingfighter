@@ -7233,6 +7233,63 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
     except Exception:
         pass
 
+def _draw_perk_hover_tooltip(target_screen, hover_info):
+    """퍽 아이콘 호버 시 이름 + 설명 툴팁 표시 (REAL_SCREEN에 직접 그리기)"""
+    if not hover_info or hover_info.get("type") != "perk":
+        return
+    try:
+        _p_name = hover_info["name"]
+        _p_desc = hover_info.get("description", "")
+        _p_color = hover_info.get("icon_color", (200, 200, 200))
+        _p_font = get_font(13, style="bold")
+        _p_small = get_font(11, style="regular")
+
+        _n_surf = _p_font.render(_p_name, True, _p_color)
+        # 설명 줄바꿈
+        _desc_lines = []
+        _max_w = 160
+        _cur = ""
+        for ch in _p_desc:
+            _test = _cur + ch
+            _ts = _p_small.render(_test, True, (200, 200, 200))
+            if _ts.get_width() <= _max_w:
+                _cur = _test
+            else:
+                if _cur:
+                    _desc_lines.append(_cur)
+                _cur = ch
+        if _cur:
+            _desc_lines.append(_cur)
+        _desc_lines = _desc_lines[:3]
+
+        _tw = max(_n_surf.get_width() + 20, 100)
+        for dl in _desc_lines:
+            _ds = _p_small.render(dl, True, (200, 200, 200))
+            _tw = max(_tw, _ds.get_width() + 20)
+        _th = _n_surf.get_height() + 8 + len(_desc_lines) * 16 + 8
+
+        if hover_info["side"] == "player":
+            _tx = hover_info["screen_x"]
+        else:
+            _tx = max(4, hover_info["screen_x"] - _tw)
+        _ty = hover_info["screen_y"]
+        _ty = max(4, min(_ty, target_screen.get_height() - _th - 4))
+
+        _tip_bg = pygame.Surface((_tw, _th), pygame.SRCALPHA)
+        pygame.draw.rect(_tip_bg, (16, 20, 36, 230), (0, 0, _tw, _th), border_radius=6)
+        pygame.draw.rect(_tip_bg, (*_p_color[:3], 180), (0, 0, _tw, _th), 2, border_radius=6)
+        target_screen.blit(_tip_bg, (_tx, _ty))
+
+        _cy = _ty + 5
+        target_screen.blit(_n_surf, (_tx + 10, _cy))
+        _cy += _n_surf.get_height() + 4
+        for dl in _desc_lines:
+            _ds = _p_small.render(dl, True, (200, 195, 180))
+            target_screen.blit(_ds, (_tx + 10, _cy))
+            _cy += 16
+    except Exception:
+        pass
+
 def _render_ui_overlay(target_screen):
     """UI 오버레이를 대상 화면에 렌더링
 
@@ -7876,7 +7933,29 @@ def _fullscreen_flip():
                 )
             except Exception:
                 pass
-        _draw_guard_hover_tooltip(REAL_SCREEN, _guard_hover)
+
+        # 🏅 퍽 아이콘 UI (필러 배경, 호위무사 위/아래)
+        _perk_hover = None
+        if arena_mode_enabled and arena_guard_system:
+            try:
+                _real_mpos_p = _original_mouse_get_pos()
+                _perk_hover = arena_guard_system.draw_perk_pillar_icons(
+                    REAL_SCREEN,
+                    player_perks=arena_active_hero_perks,
+                    enemy_perks=arena_active_enemy_perks,
+                    game_offset_x=GAME_OFFSET_X,
+                    game_offset_y=GAME_OFFSET_Y,
+                    game_scale=GAME_SCALE_FACTOR,
+                    mouse_pos=_real_mpos_p,
+                )
+            except Exception:
+                pass
+
+        # 호위무사 / 퍽 툴팁 (퍽 호버가 우선)
+        if _perk_hover:
+            _draw_perk_hover_tooltip(REAL_SCREEN, _perk_hover)
+        else:
+            _draw_guard_hover_tooltip(REAL_SCREEN, _guard_hover)
 
         # 🛡️ 인게임 호위무사 필러 아이콘 (일반 스테이지, 투기장 UI와 동일)
         if not arena_mode_enabled:
@@ -7976,7 +8055,28 @@ def _fullscreen_update(*args, **kwargs):
                 )
             except Exception:
                 pass
-        _draw_guard_hover_tooltip(REAL_SCREEN, _guard_hover2)
+
+        # 🏅 퍽 아이콘 UI (필러 배경, 호위무사 위/아래)
+        _perk_hover2 = None
+        if arena_mode_enabled and arena_guard_system:
+            try:
+                _real_mpos_p2 = _original_mouse_get_pos()
+                _perk_hover2 = arena_guard_system.draw_perk_pillar_icons(
+                    REAL_SCREEN,
+                    player_perks=arena_active_hero_perks,
+                    enemy_perks=arena_active_enemy_perks,
+                    game_offset_x=GAME_OFFSET_X,
+                    game_offset_y=GAME_OFFSET_Y,
+                    game_scale=GAME_SCALE_FACTOR,
+                    mouse_pos=_real_mpos_p2,
+                )
+            except Exception:
+                pass
+
+        if _perk_hover2:
+            _draw_perk_hover_tooltip(REAL_SCREEN, _perk_hover2)
+        else:
+            _draw_guard_hover_tooltip(REAL_SCREEN, _guard_hover2)
 
         # 🛡️ 인게임 호위무사 필러 아이콘 (일반 스테이지)
         if not arena_mode_enabled:
@@ -18879,6 +18979,7 @@ arena_perk_skill_cd_mult_bottom = 1.0
 arena_perk_guard_cd_mult_top = 1.0   # 상단 호위무사쿨 배율
 arena_perk_guard_cd_mult_bottom = 1.0
 arena_active_hero_perks = []         # TAB 표시용: 플레이어(하단) 영웅 보유 퍽 목록
+arena_active_enemy_perks = []        # 필러 표시용: 상대(상단) 영웅 보유 퍽 목록
 # 신규 퍽 효과 변수
 arena_perk_dash_distance_mult_top = 1.0     # 상단 대쉬 거리 배율
 arena_perk_dash_distance_mult_bottom = 1.0  # 하단 대쉬 거리 배율
@@ -18890,6 +18991,10 @@ arena_perk_magic_immunity_chance_bottom = 0.0  # 하단 마법 면역 확률
 arena_magic_immunity_timer_top = 0.0         # 상단 마법 면역 남은 시간 (초)
 arena_magic_immunity_timer_bottom = 0.0      # 하단 마법 면역 남은 시간 (초)
 ARENA_MAGIC_IMMUNITY_DURATION = 6.0          # 마법 면역 지속 시간 (초)
+arena_perk_paddle_enlarge_top = 1.0          # 상단 패들 확대 배율 (거신화 퍽)
+arena_perk_paddle_enlarge_bottom = 1.0       # 하단 패들 확대 배율 (거신화 퍽)
+arena_leaf_shield_top = None                 # 상단 신성월계수 잎 시스템 (ArenaLeafShield)
+arena_leaf_shield_bottom = None              # 하단 신성월계수 잎 시스템 (ArenaLeafShield)
 
 def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     """배틀 시작 시 hero_perks에서 멀티플라이어 계산 후 전역 변수에 반영"""
@@ -18897,13 +19002,15 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     global arena_perk_dash_cd_mult_top, arena_perk_dash_cd_mult_bottom
     global arena_perk_skill_cd_mult_top, arena_perk_skill_cd_mult_bottom
     global arena_perk_guard_cd_mult_top, arena_perk_guard_cd_mult_bottom
-    global arena_active_hero_perks
+    global arena_active_hero_perks, arena_active_enemy_perks
     global arena_perk_dash_distance_mult_top, arena_perk_dash_distance_mult_bottom
     global arena_perk_retry_chance
     global arena_perk_guard_patrol_top, arena_perk_guard_patrol_bottom
     global arena_perk_magic_immunity_chance_top, arena_perk_magic_immunity_chance_bottom
     global arena_magic_immunity_timer_top, arena_magic_immunity_timer_bottom
     global arena_bottom_max_dash_charges, arena_top_max_dash_charges
+    global arena_perk_paddle_enlarge_top, arena_perk_paddle_enlarge_bottom
+    global arena_leaf_shield_top, arena_leaf_shield_bottom
 
     # 초기화
     arena_perk_speed_mult_top = 1.0
@@ -18923,6 +19030,10 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_perk_magic_immunity_chance_bottom = 0.0
     arena_magic_immunity_timer_top = 0.0
     arena_magic_immunity_timer_bottom = 0.0
+    arena_perk_paddle_enlarge_top = 1.0
+    arena_perk_paddle_enlarge_bottom = 1.0
+    arena_leaf_shield_top = None
+    arena_leaf_shield_bottom = None
 
     if not arena_obj or not hasattr(arena_obj, 'get_hero_perk_multipliers'):
         return
@@ -18937,6 +19048,12 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_perk_guard_patrol_top = top_mults["guard_patrol"]
     arena_perk_magic_immunity_chance_top = top_mults["magic_immunity"]
     arena_top_max_dash_charges = 1 + top_mults["dash_tokens"]
+    arena_perk_paddle_enlarge_top = top_mults["paddle_enlarge"]
+    # 신성월계수 잎 (상단)
+    if top_mults["laurel_shield"] > 0:
+        from downtown.colosseum_arena import ArenaLeafShield
+        arena_leaf_shield_top = ArenaLeafShield()
+        arena_leaf_shield_top.activate(top_mults["laurel_shield"])
 
     # 하단 영웅 퍽
     bottom_mults = arena_obj.get_hero_perk_multipliers(bottom_hero_id)
@@ -18949,6 +19066,12 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_perk_magic_immunity_chance_bottom = bottom_mults["magic_immunity"]
     arena_perk_retry_chance = bottom_mults["retry_chance"]  # 하단(플레이어)만
     arena_bottom_max_dash_charges = 1 + bottom_mults["dash_tokens"]
+    arena_perk_paddle_enlarge_bottom = bottom_mults["paddle_enlarge"]
+    # 신성월계수 잎 (하단)
+    if bottom_mults["laurel_shield"] > 0:
+        from downtown.colosseum_arena import ArenaLeafShield
+        arena_leaf_shield_bottom = ArenaLeafShield()
+        arena_leaf_shield_bottom.activate(bottom_mults["laurel_shield"])
 
     # 스킬 매니저 game_state에 퍽 멀티플라이어 전달
     if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
@@ -18970,11 +19093,13 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
         arena_guard_system.patrol_mode_top = arena_perk_guard_patrol_top
         arena_guard_system.patrol_mode_bottom = arena_perk_guard_patrol_bottom
 
-    # TAB 표시용: 하단(플레이어) 영웅 퍽 데이터 저장
+    # 필러 표시용: 양쪽 영웅 퍽 데이터 저장
     if arena_obj and hasattr(arena_obj, 'hero_perks'):
         arena_active_hero_perks = list(arena_obj.hero_perks.get(bottom_hero_id, []))
+        arena_active_enemy_perks = list(arena_obj.hero_perks.get(top_hero_id, []))
     else:
         arena_active_hero_perks = []
+        arena_active_enemy_perks = []
 
     print(f"[ArenaPerk] 상단({top_hero_id}): 이속x{arena_perk_speed_mult_top:.2f} "
           f"대쉬쿨x{arena_perk_dash_cd_mult_top:.2f} 스킬쿨x{arena_perk_skill_cd_mult_top:.2f} "
@@ -18990,12 +19115,14 @@ def reset_arena_perks():
     global arena_perk_dash_cd_mult_top, arena_perk_dash_cd_mult_bottom
     global arena_perk_skill_cd_mult_top, arena_perk_skill_cd_mult_bottom
     global arena_perk_guard_cd_mult_top, arena_perk_guard_cd_mult_bottom
-    global arena_active_hero_perks
+    global arena_active_hero_perks, arena_active_enemy_perks
     global arena_perk_dash_distance_mult_top, arena_perk_dash_distance_mult_bottom
     global arena_perk_retry_chance
     global arena_perk_guard_patrol_top, arena_perk_guard_patrol_bottom
     global arena_perk_magic_immunity_chance_top, arena_perk_magic_immunity_chance_bottom
     global arena_magic_immunity_timer_top, arena_magic_immunity_timer_bottom
+    global arena_perk_paddle_enlarge_top, arena_perk_paddle_enlarge_bottom
+    global arena_leaf_shield_top, arena_leaf_shield_bottom
     arena_perk_speed_mult_top = 1.0
     arena_perk_speed_mult_bottom = 1.0
     arena_perk_dash_cd_mult_top = 1.0
@@ -19013,7 +19140,16 @@ def reset_arena_perks():
     arena_perk_magic_immunity_chance_bottom = 0.0
     arena_magic_immunity_timer_top = 0.0
     arena_magic_immunity_timer_bottom = 0.0
+    arena_perk_paddle_enlarge_top = 1.0
+    arena_perk_paddle_enlarge_bottom = 1.0
+    if arena_leaf_shield_top:
+        arena_leaf_shield_top.deactivate()
+    arena_leaf_shield_top = None
+    if arena_leaf_shield_bottom:
+        arena_leaf_shield_bottom.deactivate()
+    arena_leaf_shield_bottom = None
     arena_active_hero_perks = []
+    arena_active_enemy_perks = []
 
 # 투기장 영웅 말풍선 시스템
 arena_top_speech_text = ""           # 상단 영웅 말풍선 텍스트
@@ -88099,8 +88235,8 @@ def draw_objects():
             # 투기장 패들 크기: 기본 크기(130x40) 기준으로 계산 (BOSS.width는 변경될 수 있음)
             _arena_base_paddle_width_top = 130
             _arena_base_paddle_height_top = 40
-            _top_draw_width = int(_arena_base_paddle_width_top * _top_size_boost * _top_shrink_scale)
-            _top_draw_height = int(_arena_base_paddle_height_top * _top_size_boost * _top_shrink_scale)
+            _top_draw_width = int(_arena_base_paddle_width_top * _top_size_boost * _top_shrink_scale * arena_perk_paddle_enlarge_top)
+            _top_draw_height = int(_arena_base_paddle_height_top * _top_size_boost * _top_shrink_scale * arena_perk_paddle_enlarge_top)
             # 상단 영웅 패들 그리기 (보스 위치 + 떨림 오프셋 + 뿔박치기 오프셋)
             _top_final_x = BOSS.centerx + screen_shake_offset_x + _arena_top_stun_shake_x + _horn_charge_x_offset_top
             _top_final_y = BOSS.centery + screen_shake_offset_y + _arena_top_stun_shake_y + _horn_charge_y_offset_top
@@ -88146,6 +88282,10 @@ def draw_objects():
                 pygame.draw.circle(_imm_surf, (100, 180, 255, _imm_alpha), (_imm_radius + 5, _imm_radius + 5), _imm_radius, 3)
                 pygame.draw.circle(_imm_surf, (150, 220, 255, _imm_alpha // 2), (_imm_radius + 5, _imm_radius + 5), _imm_radius - 4, 2)
                 SCREEN.blit(_imm_surf, (int(_top_final_x) - _imm_radius - 5, int(_top_final_y) - _imm_radius - 5))
+
+            # 신성월계수 잎 렌더링 (상단)
+            if arena_leaf_shield_top and arena_leaf_shield_top.active:
+                arena_leaf_shield_top.draw(SCREEN)
 
             # 🔥 뿔 박치기 착지 충격파 이펙트 렌더링
             if arena_skill_manager:
@@ -89674,8 +89814,8 @@ def draw_objects():
             # 투기장 패들 크기: 기본 크기(130x40) 기준으로 계산 (PLAYER.width는 변경될 수 있음)
             _arena_base_paddle_width = 130
             _arena_base_paddle_height = 40
-            _bottom_draw_width = int(_arena_base_paddle_width * _bottom_size_boost * _bottom_shrink_scale)
-            _bottom_draw_height = int(_arena_base_paddle_height * _bottom_size_boost * _bottom_shrink_scale)
+            _bottom_draw_width = int(_arena_base_paddle_width * _bottom_size_boost * _bottom_shrink_scale * arena_perk_paddle_enlarge_bottom)
+            _bottom_draw_height = int(_arena_base_paddle_height * _bottom_size_boost * _bottom_shrink_scale * arena_perk_paddle_enlarge_bottom)
             # 하단 영웅 패들 그리기 (PLAYER 고정 좌표 + 떨림 오프셋 + 뿔박치기 오프셋)
             # player_rect 대신 PLAYER 사용: player_rect는 일반 스프라이트 바운딩 보정으로 Y가 흔들림
             _final_x = PLAYER.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x + _horn_charge_x_offset_bottom
@@ -89722,6 +89862,10 @@ def draw_objects():
                 pygame.draw.circle(_imm_surf, (100, 180, 255, _imm_alpha), (_imm_radius + 5, _imm_radius + 5), _imm_radius, 3)
                 pygame.draw.circle(_imm_surf, (150, 220, 255, _imm_alpha // 2), (_imm_radius + 5, _imm_radius + 5), _imm_radius - 4, 2)
                 SCREEN.blit(_imm_surf, (int(_final_x) - _imm_radius - 5, int(_final_y) - _imm_radius - 5))
+
+            # 신성월계수 잎 렌더링 (하단)
+            if arena_leaf_shield_bottom and arena_leaf_shield_bottom.active:
+                arena_leaf_shield_bottom.draw(SCREEN)
 
             # 홀로그램 미표시 중에도 투기장 모드이므로 기본 패들 숨김
             _arena_paddle_drawn = True
@@ -96785,13 +96929,16 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
 
         # 투기장 패들 크기 통일 (양쪽 모두 AI이므로 BOSS와 동일한 130x40으로 설정)
         global PADDLE_BASE_WIDTH, PADDLE_BASE_HEIGHT, PADDLE_WIDTH, PADDLE_HEIGHT
-        ARENA_PADDLE_WIDTH = 130  # BOSS 패들 너비와 동일
-        ARENA_PADDLE_HEIGHT = 40  # BOSS 패들 높이와 동일
+        ARENA_PADDLE_WIDTH = int(130 * arena_perk_paddle_enlarge_bottom)  # 거신화 퍽 적용
+        ARENA_PADDLE_HEIGHT = int(40 * arena_perk_paddle_enlarge_bottom)
         PADDLE_BASE_WIDTH = ARENA_PADDLE_WIDTH
         PADDLE_BASE_HEIGHT = ARENA_PADDLE_HEIGHT
         PADDLE_WIDTH = ARENA_PADDLE_WIDTH
         PADDLE_HEIGHT = ARENA_PADDLE_HEIGHT
         PLAYER.size = (ARENA_PADDLE_WIDTH, ARENA_PADDLE_HEIGHT)
+        # 상단(BOSS) 패들도 거신화 적용
+        BOSS.width = int(130 * arena_perk_paddle_enlarge_top)
+        BOSS.height = int(40 * arena_perk_paddle_enlarge_top)
         # 패들 위치 재조정 (바닥에 맞춤)
         PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
         PLAYER.bottom = HEIGHT - 40 + ARENA_PADDLE_HEIGHT // 2
@@ -133479,6 +133626,20 @@ def main(stage_num, new_boss_mode=False):
                                 _imm_t = 0.0
                                 arena_skill_manager.game_state[f'magic_immunity_{_imm_side}'] = False
                             arena_skill_manager.game_state[_imm_key] = _imm_t
+
+                    # 신성월계수 잎 업데이트 + 공 충돌 체크
+                    for _ls, _ls_side in ((arena_leaf_shield_top, 'top'), (arena_leaf_shield_bottom, 'bottom')):
+                        if _ls and _ls.active:
+                            if _ls_side == 'top':
+                                _ls.set_position(float(BOSS.centerx), float(BOSS.centery))
+                            else:
+                                _ls.set_position(float(PLAYER.centerx), float(PLAYER.centery))
+                            _ls.update(dt)
+                            # 공 충돌 → 반사
+                            if _ls.check_ball_collision(float(BALL.centerx), float(BALL.centery), float(BALL.width // 2)):
+                                ball_vel[1] = -ball_vel[1]
+                                # 약간의 랜덤 X 변동
+                                ball_vel[0] += random.uniform(-1.0, 1.0)
 
                     # 연화(maria) 스킬 시전 중 팔 올린 상태 유지
                     if arena_hero_paddle_renderer:

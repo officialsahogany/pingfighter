@@ -409,6 +409,147 @@ class TournamentRound(Enum):
     FINAL = "결승"
 
 # ============================================================================
+# 투기장 퍽 - 신성월계수 잎 궤도 시스템
+# ============================================================================
+class ArenaLeafShield:
+    """투기장 전용 신성월계수 잎 시스템 (간소화 버전)"""
+
+    def __init__(self, leaf_count=5):
+        self.leaf_count = leaf_count
+        self.active = False
+        self.leaves = []           # [{'active': bool, 'base_angle': float, 'regen_timer': int, 'type': int}]
+        self.current_angle = 0.0   # 전체 회전 각도
+        self.rotation_speed = 1.8  # 회전 속도 (rad/s)
+        self.orbit_radius = 80    # 궤도 반지름 (px)
+        self.ellipse_y = 0.35      # Y축 압축률 (타원)
+        self.leaf_size = 8         # 잎 그리기 크기
+        self.hitbox_size = 16      # 충돌 판정 크기
+        self.regen_delay = 600     # 잎 재생 시간 (10초 * 60fps)
+        self.owner_x = 0.0
+        self.owner_y = 0.0
+        self.particles = []        # 파괴 파티클
+
+    def activate(self, leaf_count=5):
+        self.leaf_count = leaf_count
+        self.active = True
+        self.current_angle = 0.0
+        self.leaves = []
+        self.particles = []
+        for i in range(self.leaf_count):
+            self.leaves.append({
+                'active': True,
+                'base_angle': (2 * math.pi / self.leaf_count) * i,
+                'regen_timer': 0,
+                'type': random.randint(0, 2),
+            })
+
+    def deactivate(self):
+        self.active = False
+        self.leaves = []
+        self.particles = []
+
+    def set_position(self, x, y):
+        self.owner_x = x
+        self.owner_y = y
+
+    def update(self, dt):
+        if not self.active:
+            return
+        self.current_angle += self.rotation_speed * dt
+        # 파괴된 잎 재생
+        for leaf in self.leaves:
+            if not leaf['active']:
+                leaf['regen_timer'] += 1
+                if leaf['regen_timer'] >= self.regen_delay:
+                    leaf['active'] = True
+                    leaf['regen_timer'] = 0
+                    leaf['type'] = random.randint(0, 2)
+        # 파티클 업데이트
+        for p in self.particles[:]:
+            p['x'] += p['vx']
+            p['y'] += p['vy']
+            p['life'] -= 1
+            if p['life'] <= 0:
+                self.particles.remove(p)
+
+    def check_ball_collision(self, ball_x, ball_y, ball_radius):
+        """공과 잎 충돌 체크. 충돌 시 True 반환."""
+        if not self.active:
+            return False
+        for leaf in self.leaves:
+            if not leaf['active']:
+                continue
+            angle = self.current_angle + leaf['base_angle']
+            lx = self.owner_x + _cos(angle) * self.orbit_radius
+            ly = self.owner_y + _sin(angle) * self.orbit_radius * self.ellipse_y
+            dist = math.sqrt((ball_x - lx) ** 2 + (ball_y - ly) ** 2)
+            if dist < ball_radius + self.hitbox_size:
+                self._destroy_leaf(leaf, lx, ly)
+                return True
+        return False
+
+    def _destroy_leaf(self, leaf, x, y):
+        leaf['active'] = False
+        leaf['regen_timer'] = 0
+        for _ in range(10):
+            self.particles.append({
+                'x': x, 'y': y,
+                'vx': random.uniform(-3, 3),
+                'vy': random.uniform(-3, 2),
+                'life': random.randint(15, 30),
+                'color': random.choice([
+                    (255, 215, 100), (255, 240, 150), (220, 180, 60),
+                ]),
+            })
+
+    def draw(self, screen):
+        if not self.active:
+            return
+        # 깊이 정렬
+        draw_order = []
+        for leaf in self.leaves:
+            if not leaf['active']:
+                continue
+            angle = self.current_angle + leaf['base_angle']
+            lx = self.owner_x + _cos(angle) * self.orbit_radius
+            ly = self.owner_y + _sin(angle) * self.orbit_radius * self.ellipse_y
+            depth = _sin(angle)
+            draw_order.append((depth, angle, lx, ly, leaf))
+        draw_order.sort(key=lambda x: x[0])
+
+        for depth, angle, lx, ly, leaf in draw_order:
+            depth_f = 0.6 + 0.4 * ((depth + 1) / 2)
+            sz = int(self.leaf_size * depth_f)
+            if sz < 2:
+                continue
+            # 글로우
+            glow_r = sz + 4
+            glow_s = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+            glow_a = int(40 * depth_f)
+            pygame.draw.circle(glow_s, (255, 215, 100, glow_a), (glow_r, glow_r), glow_r)
+            screen.blit(glow_s, (int(lx) - glow_r, int(ly) - glow_r))
+            # 잎 (타원)
+            leaf_w = max(2, int(sz * 1.6))
+            leaf_h = max(2, sz)
+            leaf_s = pygame.Surface((leaf_w + 2, leaf_h + 2), pygame.SRCALPHA)
+            base_g = int(180 + 60 * depth_f)
+            leaf_color = (min(255, base_g + 40), min(255, base_g), 60, int(220 * depth_f))
+            pygame.draw.ellipse(leaf_s, leaf_color, (1, 1, leaf_w, leaf_h))
+            # 회전
+            rot_angle = -math.degrees(angle)
+            rotated = pygame.transform.rotate(leaf_s, rot_angle)
+            rect = rotated.get_rect(center=(int(lx), int(ly)))
+            screen.blit(rotated, rect)
+
+        # 파티클
+        for p in self.particles:
+            a = max(0, min(255, int(255 * p['life'] / 30)))
+            ps = pygame.Surface((4, 4), pygame.SRCALPHA)
+            pygame.draw.circle(ps, (*p['color'], a), (2, 2), 2)
+            screen.blit(ps, (int(p['x']) - 2, int(p['y']) - 2))
+
+
+# ============================================================================
 # 투기장 퍽 시스템
 # ============================================================================
 ARENA_PERK_POOL = [
@@ -485,6 +626,22 @@ ARENA_PERK_POOL = [
         "icon_color": (120, 200, 255),   # 밝은 파랑 (결계)
         "effect_type": "magic_immunity",
         "value": 0.10,
+    },
+    {
+        "id": "laurel_shield",
+        "name": "신성월계수",
+        "description": "잎 5개가 영웅 주위를 회전하며 공을 방어",
+        "icon_color": (200, 180, 60),    # 금색 (월계수)
+        "effect_type": "laurel_shield",
+        "value": 5,  # 잎 개수
+    },
+    {
+        "id": "titan_body",
+        "name": "거신화",
+        "description": "패들+영웅 이미지 50% 확대",
+        "icon_color": (220, 120, 60),    # 주황 (거대화)
+        "effect_type": "paddle_enlarge",
+        "value": 0.50,  # 50% 증가
     },
 ]
 
@@ -2638,6 +2795,102 @@ class GuardWarriorSystem:
                             "screen_x": frame_x_left - 8,
                             "screen_y": slot_cy,
                             "skill": _guard_skills[0] if _guard_skills else None,
+                        }
+
+        return hover_info
+
+    def draw_perk_pillar_icons(self, screen, player_perks, enemy_perks,
+                                game_offset_x=0, game_offset_y=0, game_scale=1.0,
+                                mouse_pos=None):
+        """필러 배경 위에 획득한 퍽 아이콘 표시
+        - 플레이어 퍽 → 왼쪽 필러, 호위무사 UI 위에 위로 쌓기
+        - 상대 퍽 → 오른쪽 필러, 호위무사 UI 아래에 아래로 쌓기
+        Returns: hover_info dict or None
+        """
+        hover_info = None
+        game_scaled_w = int(SCREEN_WIDTH * game_scale)
+        game_scaled_h = int(SCREEN_HEIGHT * game_scale)
+        left_pillar_w = game_offset_x
+        right_pillar_x = game_offset_x + game_scaled_w
+        right_pillar_w = screen.get_width() - right_pillar_x
+
+        if left_pillar_w < 30 and right_pillar_w < 30:
+            return None
+
+        icon_size = 28
+        slot_gap = 32  # 아이콘 간격
+        frame_w = 58   # 호위무사 프레임 너비 (draw_guard_icons와 동일)
+        frame_h = 58
+        slot_h_guard = 100  # 호위무사 슬롯 높이
+
+        # --- 플레이어 퍽 → 왼쪽 필러, 호위무사 위에서 위로 쌓기 ---
+        if left_pillar_w >= 30 and player_perks:
+            frame_x_left = game_offset_x - frame_w - 4
+            cx_left = frame_x_left + frame_w // 2
+            # 호위무사 영역: 하단 끝에서 위로
+            y_end = game_offset_y + game_scaled_h - int(10 * game_scale)
+            n_guards = len(self.guard_warriors_bottom)
+            guard_top_y = y_end - n_guards * slot_h_guard
+            # 퍽은 호위무사 바로 위에서 위로 쌓음
+            for i, perk in enumerate(player_perks):
+                py = guard_top_y - (i + 1) * slot_gap
+                if py < game_offset_y:
+                    break
+                # 퍽 아이콘 배경 (원형)
+                bg_s = _get_arena_surface(icon_size + 6, icon_size + 6)
+                pygame.draw.circle(bg_s, (30, 30, 40, 200), ((icon_size + 6) // 2, (icon_size + 6) // 2), (icon_size + 6) // 2)
+                perk_color = perk.get("icon_color", (200, 200, 200))
+                pygame.draw.circle(bg_s, (*perk_color[:3], 120), ((icon_size + 6) // 2, (icon_size + 6) // 2), (icon_size + 6) // 2, 2)
+                screen.blit(bg_s, (cx_left - (icon_size + 6) // 2, py - (icon_size + 6) // 2))
+                # 퍽 아이콘 그리기
+                self._draw_perk_icon(screen, perk["id"], cx_left, py, icon_size)
+                # 호버 체크
+                if mouse_pos:
+                    _r = pygame.Rect(cx_left - (icon_size + 6) // 2, py - (icon_size + 6) // 2, icon_size + 6, icon_size + 6)
+                    if _r.collidepoint(mouse_pos):
+                        hover_info = {
+                            "type": "perk",
+                            "name": perk.get("name", "?"),
+                            "description": perk.get("description", ""),
+                            "icon_color": perk.get("icon_color", (200, 200, 200)),
+                            "side": "player",
+                            "screen_x": cx_left + (icon_size + 6) // 2 + 8,
+                            "screen_y": py - 10,
+                        }
+
+        # --- 상대 퍽 → 오른쪽 필러, 호위무사 아래에서 아래로 쌓기 ---
+        if right_pillar_w >= 30 and enemy_perks:
+            frame_x_right = right_pillar_x + 4
+            cx_right = frame_x_right + frame_w // 2
+            # 호위무사 영역: 상단 끝에서 아래로
+            y_start_top = game_offset_y + int(10 * game_scale)
+            n_guards_top = len(self.guard_warriors_top)
+            guard_bottom_y = y_start_top + n_guards_top * slot_h_guard
+            # 퍽은 호위무사 바로 아래에서 아래로 쌓음
+            for i, perk in enumerate(enemy_perks):
+                py = guard_bottom_y + i * slot_gap + slot_gap // 2
+                if py > game_offset_y + game_scaled_h:
+                    break
+                # 퍽 아이콘 배경 (원형)
+                bg_s = _get_arena_surface(icon_size + 6, icon_size + 6)
+                pygame.draw.circle(bg_s, (30, 30, 40, 200), ((icon_size + 6) // 2, (icon_size + 6) // 2), (icon_size + 6) // 2)
+                perk_color = perk.get("icon_color", (200, 200, 200))
+                pygame.draw.circle(bg_s, (*perk_color[:3], 120), ((icon_size + 6) // 2, (icon_size + 6) // 2), (icon_size + 6) // 2, 2)
+                screen.blit(bg_s, (cx_right - (icon_size + 6) // 2, py - (icon_size + 6) // 2))
+                # 퍽 아이콘 그리기
+                self._draw_perk_icon(screen, perk["id"], cx_right, py, icon_size)
+                # 호버 체크
+                if mouse_pos:
+                    _r = pygame.Rect(cx_right - (icon_size + 6) // 2, py - (icon_size + 6) // 2, icon_size + 6, icon_size + 6)
+                    if _r.collidepoint(mouse_pos):
+                        hover_info = {
+                            "type": "perk",
+                            "name": perk.get("name", "?"),
+                            "description": perk.get("description", ""),
+                            "icon_color": perk.get("icon_color", (200, 200, 200)),
+                            "side": "enemy",
+                            "screen_x": cx_right - (icon_size + 6) // 2 - 8,
+                            "screen_y": py - 10,
                         }
 
         return hover_info
@@ -7059,6 +7312,8 @@ class ColosseumsArena:
             "retry_chance": 0.0,        # 패배 시 재시작 확률
             "guard_patrol": False,      # 호위무사 순찰 모드
             "magic_immunity": 0.0,      # 타격 시 마법 면역 확률
+            "laurel_shield": 0,         # 신성월계수 잎 개수 (0이면 비활성)
+            "paddle_enlarge": 1.0,      # 패들 확대 배율
         }
         for perk in perks:
             etype = perk["effect_type"]
@@ -7081,6 +7336,10 @@ class ColosseumsArena:
                 mults["guard_patrol"] = True
             elif etype == "magic_immunity":
                 mults["magic_immunity"] = val
+            elif etype == "laurel_shield":
+                mults["laurel_shield"] = int(val)
+            elif etype == "paddle_enlarge":
+                mults["paddle_enlarge"] += val
         return mults
 
     def _draw_perk_icon_swift_foot(self, surf, cx, cy, r, ss):
@@ -7312,6 +7571,60 @@ class ColosseumsArena:
             ey = cy + int(_sin(angle) * star_r)
             pygame.draw.line(surf, (200, 240, 255, 220), (cx, cy), (ex, ey), max(1, int(2 * ss / 3)))
 
+    def _draw_perk_icon_laurel_shield(self, surf, cx, cy, r, ss):
+        """신성월계수 아이콘 - 잎 3개가 원형 궤도"""
+        s = r * ss
+        # 궤도 원 (점선 느낌)
+        orbit_r = int(s * 0.55)
+        pygame.draw.circle(surf, (200, 180, 60, 60), (cx, cy), orbit_r, max(1, int(1 * ss / 3)))
+        # 잎 3개 배치
+        for i in range(3):
+            angle = i * (2 * math.pi / 3) - math.pi / 2
+            lx = cx + int(_cos(angle) * orbit_r)
+            ly = cy + int(_sin(angle) * orbit_r * 0.7)
+            leaf_w = max(3, int(s * 0.25))
+            leaf_h = max(2, int(s * 0.15))
+            leaf_s = _get_arena_surface(leaf_w + 2, leaf_h + 2)
+            pygame.draw.ellipse(leaf_s, (240, 220, 80, 220), (1, 1, leaf_w, leaf_h))
+            rot = pygame.transform.rotate(leaf_s, -math.degrees(angle))
+            rect = rot.get_rect(center=(lx, ly))
+            surf.blit(rot, rect)
+        # 중심 빛
+        pygame.draw.circle(surf, (255, 240, 150, 120), (cx, cy), int(s * 0.15))
+
+    def _draw_perk_icon_titan_body(self, surf, cx, cy, r, ss):
+        """거신화 아이콘 - 위로 확대되는 몸체"""
+        color = (220, 120, 60)
+        s = r * ss
+        # 큰 몸체 실루엣 (사다리꼴)
+        bw = int(s * 0.6)
+        bh = int(s * 0.75)
+        top_w = int(bw * 0.7)
+        body_top = cy - int(bh * 0.4)
+        body_bot = cy + int(bh * 0.4)
+        pts = [
+            (cx - top_w // 2, body_top),
+            (cx + top_w // 2, body_top),
+            (cx + bw // 2, body_bot),
+            (cx - bw // 2, body_bot),
+        ]
+        pygame.draw.polygon(surf, (*color, 180), pts)
+        pygame.draw.polygon(surf, (*color, 255), pts, max(2, int(2 * ss / 3)))
+        # 머리
+        head_r = int(s * 0.2)
+        pygame.draw.circle(surf, (*color, 200), (cx, body_top - head_r + 2), head_r)
+        pygame.draw.circle(surf, (*color, 255), (cx, body_top - head_r + 2), head_r, max(1, int(2 * ss / 3)))
+        # 확대 화살표 (↑)
+        arr_x = cx + int(s * 0.45)
+        arr_bot = cy + int(s * 0.3)
+        arr_top = cy - int(s * 0.45)
+        pygame.draw.line(surf, (255, 200, 100, 220), (arr_x, arr_bot), (arr_x, arr_top), max(2, int(2 * ss / 3)))
+        pygame.draw.polygon(surf, (255, 200, 100, 220), [
+            (arr_x, arr_top - int(s * 0.1)),
+            (arr_x - int(s * 0.1), arr_top + int(s * 0.05)),
+            (arr_x + int(s * 0.1), arr_top + int(s * 0.05)),
+        ])
+
     def _draw_perk_icon_skill(self, surf, cx, cy, r, ss):
         """스킬 추가 아이콘 - 검 (⚔) 모양"""
         color = (255, 220, 100)  # 골드
@@ -7360,6 +7673,8 @@ class ColosseumsArena:
             "tenacity": self._draw_perk_icon_tenacity,
             "patrol": self._draw_perk_icon_patrol,
             "magic_barrier": self._draw_perk_icon_magic_barrier,
+            "laurel_shield": self._draw_perk_icon_laurel_shield,
+            "titan_body": self._draw_perk_icon_titan_body,
         }
         # 스킬 타입 퍽은 별(★) 아이콘으로 표시
         if perk_id.startswith("skill_"):
