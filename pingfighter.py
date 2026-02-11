@@ -19649,6 +19649,7 @@ def update_arena_bottom_hero_dash():
     global arena_bottom_dashing, arena_bottom_dash_timer, arena_bottom_dash_cooldown
     global arena_bottom_dash_afterimages, arena_bottom_dash_charges, arena_bottom_dash_charge_timer
     global arena_bottom_dash_stun_timer, arena_bottom_dash_duration_frames
+    global _all_tokens_full_sparkle_timer
 
     # 스팀 배리어 시전 중에는 대쉬 즉시 취소 (하단 패들이 시전자일 때)
     if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and not arena_skill_manager.game_state.get('barrier_owner_is_top', False):
@@ -19669,10 +19670,18 @@ def update_arena_bottom_hero_dash():
     if arena_bottom_dash_charges < arena_bottom_max_dash_charges and arena_bottom_dash_cooldown <= 0 and arena_bottom_dash_stun_timer <= 0:
         arena_bottom_dash_charge_timer += 1
         if arena_bottom_dash_charge_timer >= ARENA_DASH_CHARGE_TIME:
+            _charged_idx = arena_bottom_dash_charges  # 충전될 토큰 인덱스 (증가 전)
             arena_bottom_dash_charges = min(arena_bottom_max_dash_charges, arena_bottom_dash_charges + 1)
             arena_bottom_dash_charge_timer = 0
             # 충전 완료 효과음 재생
             play_dash_charge_sound()
+            # 충전 완료 플래시 반짝임 효과
+            while len(_token_flash_timers) <= _charged_idx:
+                _token_flash_timers.append(0)
+            _token_flash_timers[_charged_idx] = _TOKEN_FLASH_DURATION
+            # 모든 토큰 풀충전 시 화려한 반짝임 효과
+            if arena_bottom_dash_charges >= arena_bottom_max_dash_charges:
+                _all_tokens_full_sparkle_timer = _ALL_TOKENS_FULL_SPARKLE_DURATION
             print(f"[ARENA DASH CHARGE] 토큰 충전 완료! charges={arena_bottom_dash_charges}/{arena_bottom_max_dash_charges}", flush=True)
 
     # 쿨다운 감소
