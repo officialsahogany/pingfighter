@@ -4787,8 +4787,13 @@ class ColosseumsArena:
             guard_notify_duration = 2.5
             self.guard_notify_progress = min(1.0, self.guard_notify_timer / guard_notify_duration)
             if self.guard_notify_timer >= guard_notify_duration:
-                # 알림 끝 → 퍽 선택 화면
-                self._start_perk_select()
+                # 알림 끝 → 호위무사 2명 이상이면 선택 화면, 아니면 퍽 선택
+                bet_id = self.bet_hero["id"] if self.bet_hero else ""
+                guards = self.guard_warrior_map.get(bet_id, [])
+                if len(guards) >= 2:
+                    self._start_guard_select()
+                else:
+                    self._start_perk_select()
 
         elif self.state == TournamentState.GUARD_SELECT:
             # 호위무사 선택 화면 애니메이션
@@ -5112,7 +5117,8 @@ class ColosseumsArena:
                 self.skill_reveal_phase = "done"
                 if getattr(self, '_guard_skill_reveal_mid_tournament', False):
                     self._guard_skill_reveal_mid_tournament = False
-                    self._start_vs_preview(show_buttons=True)
+                    # 호위무사 스킬 연출 완료 → 퍽 선택 화면으로
+                    self._start_perk_select()
                 else:
                     self._finalize_setup_and_start()
 
@@ -9730,18 +9736,12 @@ class ColosseumsArena:
                 self.bracket_anim_progress = 0.0
                 self.bracket_anim_timer = 0.0
 
-                # 1영웅 1호위무사 체제: 매 라운드 진출 시 호위무사 선택
+                # AI 호위무사를 1명으로 축소 (4강/결승)
                 if self.bet_hero and self.current_round in (TournamentRound.SEMI_FINAL, TournamentRound.FINAL):
-                    # AI 호위무사를 1명으로 축소
                     self._trim_all_ai_guards()
 
-                    # 플레이어 호위무사 2명 이상이면 선택 화면
-                    if len(self.guard_warrior_map.get(self.bet_hero["id"], [])) >= 2:
-                        self._start_guard_select()
-                    else:
-                        self._start_vs_preview(show_buttons=True)
-                else:
-                    self._start_vs_preview(show_buttons=True)
+                # 호위무사 선택은 이미 퍽 선택 전에 완료됨 → 바로 VS_PREVIEW
+                self._start_vs_preview(show_buttons=True)
 
     def _draw_bracket_animation(self):
         """대진표 진출 애니메이션 그리기"""
@@ -9999,8 +9999,8 @@ class ColosseumsArena:
         else:
             print(f"[Guard] 기존 호위무사 유지: {selected['name']} (스킬 유지)")
 
-        # VS_PREVIEW로 전환
-        self._start_vs_preview(show_buttons=True)
+        # 퍽 선택 화면으로 전환 (호위무사 선택 → 퍽 선택 → 대진표)
+        self._start_perk_select()
 
     def _draw_guard_select(self):
         """결승 호위무사 선택 화면 그리기 (고급 UI + 스킬 아이콘/툴팁)"""
