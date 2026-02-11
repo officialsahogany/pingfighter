@@ -414,14 +414,16 @@ class TournamentRound(Enum):
 class ArenaLeafShield:
     """투기장 전용 신성월계수 잎 시스템 (간소화 버전)"""
 
-    def __init__(self, leaf_count=5):
+    def __init__(self, leaf_count=5, is_top=False):
         self.leaf_count = leaf_count
+        self.is_top = is_top       # 상단(보스) vs 하단(플레이어)
         self.active = False
         self.leaves = []           # [{'active': bool, 'base_angle': float, 'regen_timer': int, 'type': int}]
         self.current_angle = 0.0   # 전체 회전 각도
         self.rotation_speed = 1.8  # 회전 속도 (rad/s)
-        self.orbit_radius = 80    # 궤도 반지름 (px)
-        self.ellipse_y = 0.35      # Y축 압축률 (타원)
+        self.orbit_radius = 200   # 궤도 반지름 (전설 신성월계수와 동일)
+        self.ellipse_y = 0.3       # Y축 압축률 (전설 신성월계수와 동일)
+        self.front_threshold = 30  # 패들 앞쪽 잎 충돌 무시 기준 (전설과 동일)
         self.leaf_size = 8         # 잎 그리기 크기
         self.hitbox_size = 16      # 충돌 판정 크기
         self.regen_delay = 600     # 잎 재생 시간 (10초 * 60fps)
@@ -473,7 +475,9 @@ class ArenaLeafShield:
                 self.particles.remove(p)
 
     def check_ball_collision(self, ball_x, ball_y, ball_radius):
-        """공과 잎 충돌 체크. 충돌 시 True 반환."""
+        """공과 잎 충돌 체크. 충돌 시 True 반환.
+        패들 앞쪽(공이 오는 방향)에 있는 잎은 충돌 무시 (전설 신성월계수와 동일).
+        """
         if not self.active:
             return False
         for leaf in self.leaves:
@@ -482,6 +486,13 @@ class ArenaLeafShield:
             angle = self.current_angle + leaf['base_angle']
             lx = self.owner_x + _cos(angle) * self.orbit_radius
             ly = self.owner_y + _sin(angle) * self.orbit_radius * self.ellipse_y
+            # 패들 앞쪽 잎 충돌 무시 (스매셔 등 패들로 공을 맞춰야 하는 캐릭터 배려)
+            # 하단(플레이어): 잎이 패들보다 위에 있으면 앞쪽 → 무시
+            # 상단(보스): 잎이 패들보다 아래에 있으면 앞쪽 → 무시
+            if not self.is_top and ly < self.owner_y - self.front_threshold:
+                continue
+            if self.is_top and ly > self.owner_y + self.front_threshold:
+                continue
             dist = math.sqrt((ball_x - lx) ** 2 + (ball_y - ly) ** 2)
             if dist < ball_radius + self.hitbox_size:
                 self._destroy_leaf(leaf, lx, ly)

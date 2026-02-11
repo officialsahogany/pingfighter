@@ -19062,7 +19062,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     # 신성월계수 잎 (상단)
     if top_mults["laurel_shield"] > 0:
         from downtown.colosseum_arena import ArenaLeafShield
-        arena_leaf_shield_top = ArenaLeafShield()
+        arena_leaf_shield_top = ArenaLeafShield(is_top=True)
         arena_leaf_shield_top.activate(top_mults["laurel_shield"])
 
     # 하단 영웅 퍽
@@ -19080,7 +19080,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     # 신성월계수 잎 (하단)
     if bottom_mults["laurel_shield"] > 0:
         from downtown.colosseum_arena import ArenaLeafShield
-        arena_leaf_shield_bottom = ArenaLeafShield()
+        arena_leaf_shield_bottom = ArenaLeafShield(is_top=False)
         arena_leaf_shield_bottom.activate(bottom_mults["laurel_shield"])
 
     # 스킬 매니저 game_state에 퍽 멀티플라이어 전달
