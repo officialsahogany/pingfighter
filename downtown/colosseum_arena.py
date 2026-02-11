@@ -3636,10 +3636,14 @@ class ColosseumsArena:
             winners = [m.winner for m in self.matches[TournamentRound.QUARTER_FINAL]]
 
             # === 호위무사 할당: 8강 패자 → 승자의 호위무사 ===
+            bet_id = self.bet_hero["id"] if self.bet_hero else ""
             for match in self.matches[TournamentRound.QUARTER_FINAL]:
                 if match.winner:
                     loser = match.hero1 if match.winner == match.hero2 else match.hero2
                     winner_id = match.winner["id"]
+                    # bet_hero의 호위무사는 생포 알림/선택 UI에서 이미 확정됨 → 중복 추가 방지
+                    if winner_id == bet_id:
+                        continue
                     if winner_id not in self.guard_warrior_map:
                         self.guard_warrior_map[winner_id] = []
                     # 이미 생포 알림에서 추가된 경우 중복 방지
@@ -3662,10 +3666,14 @@ class ColosseumsArena:
             winners = [m.winner for m in self.matches[TournamentRound.SEMI_FINAL]]
 
             # === 호위무사 할당: 4강 패자 → 승자의 추가 호위무사 ===
+            bet_id = self.bet_hero["id"] if self.bet_hero else ""
             for match in self.matches[TournamentRound.SEMI_FINAL]:
                 if match.winner:
                     loser = match.hero1 if match.winner == match.hero2 else match.hero2
                     winner_id = match.winner["id"]
+                    # bet_hero의 호위무사는 생포 알림/선택 UI에서 이미 확정됨 → 중복 추가 방지
+                    if winner_id == bet_id:
+                        continue
                     if winner_id not in self.guard_warrior_map:
                         self.guard_warrior_map[winner_id] = []
                     # 이미 생포 알림에서 추가된 경우 중복 방지
@@ -10109,18 +10117,19 @@ class ColosseumsArena:
         title_fade = min(1.0, timer * 2.0)
         if title_fade > 0:
             # 메인 타이틀 (라운드별 동적)
+            # 다음 라운드 기준 텍스트 (현재 라운드 승리 후 선택이므로)
             if self.current_round == TournamentRound.SEMI_FINAL:
-                title_text = "4강 호위무사 선택"
-            else:
                 title_text = "결승전 호위무사 선택"
+            else:
+                title_text = "4강 호위무사 선택"
             self._draw_egyptian_title(title_text, 50)
 
             # 서브 타이틀
             if "medium" in self.fonts:
                 if self.current_round == TournamentRound.SEMI_FINAL:
-                    sub = "4강에 데려갈 호위무사를 선택하세요"
-                else:
                     sub = "결승전에 데려갈 호위무사를 선택하세요"
+                else:
+                    sub = "4강에 데려갈 호위무사를 선택하세요"
                 surf2, _ = self.fonts["medium"].render(sub, ET["text_subtitle"])
                 alpha_s2 = _get_arena_surface(*surf2.get_size())
                 alpha_s2.fill((255, 255, 255, int(255 * title_fade * 0.7)))
@@ -10335,12 +10344,12 @@ class ColosseumsArena:
                 hint_surf, _ = self.fonts["small"].render(hint, (hint_alpha, int(hint_alpha * 0.85), int(hint_alpha * 0.65)))
                 self.screen.blit(hint_surf, (center_x - hint_surf.get_width() // 2, 620))
 
-            # 라운드 표기
+            # 라운드 표기 (다음 라운드 기준)
             if self.fonts and "small" in self.fonts:
                 if self.current_round == TournamentRound.SEMI_FINAL:
-                    round_text = "SEMI FINAL"
+                    round_text = "FINAL"
                 else:
-                    round_text = "FINAL ROUND"
+                    round_text = "SEMI FINAL"
                 rs, _ = self.fonts["small"].render(round_text, ET["gold_medium"])
                 self.screen.blit(rs, (center_x - rs.get_width() // 2, 650))
 
