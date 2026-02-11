@@ -279,9 +279,9 @@ class AnimatedBackgroundStage30:
         # 희미한 원형 투기장 마킹 (고대 경기장 흔적)
         arena_mark_color = (sand_dark[0] + 5, sand_dark[1] + 5, sand_dark[2] + 5)
         pygame.draw.circle(self.floor_surface, arena_mark_color,
-                         (center_x, center_y), 250, 1)
+                         (center_x, center_y), 280, 1)
         pygame.draw.circle(self.floor_surface, arena_mark_color,
-                         (center_x, center_y), 248, 1)
+                         (center_x, center_y), 278, 1)
 
         # 바람 무늬 (미세한 곡선) - 모래 위 바람 자국
         random.seed(77)  # 일관된 패턴
@@ -388,9 +388,9 @@ class AnimatedBackgroundStage30:
 
         # ===== 코너 L자 장식 (방향 수정) =====
         corner_size = 28
-        margin = 20
-        border_y_top = 60
-        border_y_bot = self.height - 60
+        margin = 12
+        border_y_top = 12
+        border_y_bot = self.height - 12
 
         # 좌상: → ↓ (안쪽을 향함)
         tl_x, tl_y = self.GAME_AREA_X + margin, border_y_top
@@ -434,11 +434,11 @@ class AnimatedBackgroundStage30:
         gold = self.colors['gold']
         gold_dark = self.colors['gold_dark']
 
-        # 테두리 영역 (게임 영역 안쪽 12px)
-        bx = self.GAME_AREA_X + 12
-        by = 50
-        bw = self.GAME_AREA_WIDTH - 24
-        bh = self.height - 100
+        # 테두리 영역 (게임 영역 거의 꽉 차게)
+        bx = self.GAME_AREA_X + 5
+        by = 5
+        bw = self.GAME_AREA_WIDTH - 10
+        bh = self.height - 10
         br = bx + bw   # 오른쪽 끝
         bb = by + bh    # 아래쪽 끝
 
