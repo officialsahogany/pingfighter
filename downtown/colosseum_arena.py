@@ -3026,16 +3026,19 @@ class GuardWarriorSystem:
                     if _fr.collidepoint(mouse_pos):
                         # 선택된 스킬 정보 포함
                         _guard_skills = self.skill_instances.get(guard["id"], [])
+                        # 순찰/순찰입장 중에도 쿨타임 표시
+                        _cd_val = self.cooldown_top if self.phase_top in (None, "patrolling", "patrol_entering") else 0
                         hover_info = {
                             "name": guard.get("name", "?"),
                             "color": guard.get("color", (200, 200, 200)),
-                            "cooldown": self.cooldown_top if self.phase_top is None else 0,
+                            "cooldown": _cd_val,
                             "phase": self.phase_top,
                             "is_next": (i == self.next_guard_top_idx % len(self.guard_warriors_top)) if len(self.guard_warriors_top) >= 2 else True,
                             "side": "top",
                             "screen_x": frame_x_right + frame_w + 8,
                             "screen_y": slot_cy,
                             "skill": _guard_skills[0] if _guard_skills else None,
+                            "skills": list(_guard_skills),  # 모든 스킬 목록
                         }
 
         # --- 하단 영웅의 호위무사 → 왼쪽 필러, 인게임창 하단 끝에 붙임 ---
@@ -3112,16 +3115,19 @@ class GuardWarriorSystem:
                     if _fr.collidepoint(mouse_pos):
                         # 선택된 스킬 정보 포함
                         _guard_skills = self.skill_instances.get(guard["id"], [])
+                        # 순찰/순찰입장 중에도 쿨타임 표시
+                        _cd_val = self.cooldown_bottom if self.phase_bottom in (None, "patrolling", "patrol_entering") else 0
                         hover_info = {
                             "name": guard.get("name", "?"),
                             "color": guard.get("color", (200, 200, 200)),
-                            "cooldown": self.cooldown_bottom if self.phase_bottom is None else 0,
+                            "cooldown": _cd_val,
                             "phase": self.phase_bottom,
                             "is_next": (i == self.next_guard_bottom_idx % len(self.guard_warriors_bottom)) if len(self.guard_warriors_bottom) >= 2 else True,
                             "side": "bottom",
                             "screen_x": frame_x_left - 8,
                             "screen_y": slot_cy,
                             "skill": _guard_skills[0] if _guard_skills else None,
+                            "skills": list(_guard_skills),  # 모든 스킬 목록
                         }
 
         return hover_info
