@@ -1000,11 +1000,11 @@ class AIPaddleController:
         """대쉬 상태 업데이트 (보스 대쉬와 동일한 물리 엔진)"""
         now_ms = pygame.time.get_ticks()
 
-        # 잔상 효과 업데이트 (항상)
+        # 잔상 효과 업데이트 (항상, 배속 적용)
         new_afterimages = []
         for after in self.dash_afterimages:
-            after['alpha'] -= 25
-            after['life'] -= 1
+            after['alpha'] -= 25 * dt * 60
+            after['life'] -= dt * 60
             if after['alpha'] > 0 and after['life'] > 0:
                 new_afterimages.append(after)
         self.dash_afterimages = new_afterimages
@@ -1012,7 +1012,7 @@ class AIPaddleController:
         # 후딜 상태 처리
         if self.dash_stun_timer > 0:
             prev_stun = self.dash_stun_timer
-            self.dash_stun_timer -= 1
+            self.dash_stun_timer -= dt * 60
 
             # 🔊 후딜 종료 시 사운드 중지
             if prev_stun > 0 and self.dash_stun_timer <= 0:
@@ -1029,8 +1029,8 @@ class AIPaddleController:
         if not self.dash_active:
             return
 
-        # 대쉬 타이머 감소
-        self.dash_timer -= 1
+        # 대쉬 타이머 감소 (배속 적용)
+        self.dash_timer -= dt * 60
 
         # 🎮 대쉬 물리 엔진 (보스와 동일한 속도 곡선)
         # 고속 구간: dash_timer > high_phase_frames
@@ -1054,8 +1054,8 @@ class AIPaddleController:
             if len(self.dash_afterimages) > 6:
                 self.dash_afterimages.pop(0)
 
-        # 이동 적용
-        self.x += move_step
+        # 이동 적용 (배속 적용)
+        self.x += move_step * dt * 60
 
         # 목표 도달 체크
         paddle_center = self.x + PADDLE_WIDTH // 2

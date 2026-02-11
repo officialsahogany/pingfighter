@@ -2321,8 +2321,8 @@ class DwarfMagic(HeroSkill):
 
         # 파티클 업데이트 (is_active와 관계없이)
         for p in self.magic_particles[:]:
-            p['x'] += p['vx']
-            p['y'] += p['vy']
+            p['x'] += p['vx'] * dt * 60
+            p['y'] += p['vy'] * dt * 60
             p['life'] -= dt
             p['alpha'] = max(0, int(255 * (p['life'] / 1.0)))
             if p['life'] <= 0:
@@ -2331,7 +2331,7 @@ class DwarfMagic(HeroSkill):
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         # 투사체 이동
         if self.projectile_active and not self.hit_target:
-            self.projectile_y += self.projectile_vy
+            self.projectile_y += self.projectile_vy * dt * 60
 
             # 🎯 45% 유도 효과 - 타겟 패들 방향으로 추적
             target_center_x = target_paddle.x + target_paddle.width // 2
@@ -3105,10 +3105,10 @@ class HornCharge(HeroSkill):
                         ring['alpha'] = max(0, int(255 * (1 - ring['radius'] / max_radius)))
                 # 파티클 업데이트
                 for p in shockwave_data.get('particles', []):
-                    p['x'] += p['vx']
-                    p['y'] += p['vy']
-                    p['vy'] += 0.5  # 강한 중력
-                    p['life'] -= 1
+                    p['x'] += p['vx'] * dt * 60
+                    p['y'] += p['vy'] * dt * 60
+                    p['vy'] += 0.5 * dt * 60  # 강한 중력
+                    p['life'] -= dt * 60
                 # 죽은 파티클 제거
                 shockwave_data['particles'] = [p for p in shockwave_data.get('particles', []) if p['life'] > 0]
                 # 0.2초 경과 또는 모든 이펙트 완료 시 비활성화
