@@ -6942,13 +6942,14 @@ class ColosseumsArena:
                 desc_area_y = sk_card_y + base_card_h
                 revealed_h = int(desc_extra_h * scroll_reveal)
                 # 클립 서피스로 두루마리 펼침 효과
-                desc_surf = _get_arena_surface(sk_card_w - 12, desc_extra_h)
+                desc_w = sk_card_w - 4  # 넉넉한 너비로 텍스트 잘림 방지
+                desc_surf = _get_arena_surface(desc_w, desc_extra_h)
                 dy = 0
 
                 # 장식 구분선 (두루마리 가장자리)
                 line_alpha = min(200, int(255 * scroll_reveal))
                 scroll_edge_color = (*ET["gold_dark"], line_alpha)
-                pygame.draw.line(desc_surf, scroll_edge_color, (5, 0), (sk_card_w - 22, 0), 1)
+                pygame.draw.line(desc_surf, scroll_edge_color, (5, 0), (desc_w - 10, 0), 1)
                 dy += 8
 
                 # 발동 조건 + 쿨타임
@@ -6970,7 +6971,7 @@ class ColosseumsArena:
                     if trigger_text:
                         cd_text = f"{trigger_text} | 쿨타임 {int(skill.cooldown)}초"
                         surf, _ = self.fonts["small"].render(cd_text, trigger_color)
-                        desc_surf.blit(surf, ((sk_card_w - 12) // 2 - surf.get_width() // 2, dy))
+                        desc_surf.blit(surf, (desc_w // 2 - surf.get_width() // 2, dy))
                     dy += 20
 
                 # 스킬 설명 (최대 3줄)
@@ -6987,7 +6988,7 @@ class ColosseumsArena:
                         desc = desc[max_line:]
                     for line in lines:
                         surf, _ = self.fonts["small"].render(line, desc_color)
-                        desc_surf.blit(surf, ((sk_card_w - 12) // 2 - surf.get_width() // 2, dy))
+                        desc_surf.blit(surf, (desc_w // 2 - surf.get_width() // 2, dy))
                         dy += 18
 
                 # 지속시간
@@ -6995,25 +6996,25 @@ class ColosseumsArena:
                     if self.fonts and "small" in self.fonts:
                         surf, _ = self.fonts["small"].render(
                             f"지속: {skill.duration:.1f}초", ET["malachite_light"])
-                        desc_surf.blit(surf, ((sk_card_w - 12) // 2 - surf.get_width() // 2, dy))
+                        desc_surf.blit(surf, (desc_w // 2 - surf.get_width() // 2, dy))
 
                 # 클립하여 펼침 효과
                 if revealed_h >= desc_extra_h:
                     # 완전히 펼쳐짐 - 직접 blit
-                    self.screen.blit(desc_surf, (cx + 6, desc_area_y))
+                    self.screen.blit(desc_surf, (cx + 2, desc_area_y))
                 else:
                     # 펼침 중 - 클립 서피스로 잘라서 표시
-                    clip_surf = _get_arena_surface(sk_card_w - 12, revealed_h)
+                    clip_surf = _get_arena_surface(desc_w, revealed_h)
                     clip_surf.blit(desc_surf, (0, 0))
-                    self.screen.blit(clip_surf, (cx + 6, desc_area_y))
+                    self.screen.blit(clip_surf, (cx + 2, desc_area_y))
 
                 # 두루마리 하단 장식선
                 if scroll_reveal > 0.3:
                     edge_y = desc_area_y + revealed_h - 2
                     edge_alpha = min(150, int(200 * (scroll_reveal - 0.3) / 0.7))
-                    edge_s = _get_arena_surface(sk_card_w - 20, 3)
+                    edge_s = _get_arena_surface(sk_card_w - 12, 3)
                     edge_s.fill((*ET["gold_dark"], edge_alpha))
-                    self.screen.blit(edge_s, (cx + 10, edge_y))
+                    self.screen.blit(edge_s, (cx + 6, edge_y))
 
             # SELECTED 마크
             if phase == "selected" and is_selected and scroll_reveal > 0.8:
