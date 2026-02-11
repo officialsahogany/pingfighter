@@ -19044,6 +19044,12 @@ arena_perk_paddle_enlarge_top = 1.0          # 상단 패들 확대 배율 (거�
 arena_perk_paddle_enlarge_bottom = 1.0       # 하단 패들 확대 배율 (거신화 퍽)
 arena_leaf_shield_top = None                 # 상단 신성월계수 잎 시스템 (ArenaLeafShield)
 arena_leaf_shield_bottom = None              # 하단 신성월계수 잎 시스템 (ArenaLeafShield)
+# 폭풍질주 버스트업 효과 (대쉬 중 패들 높이 확대 + 이펙트)
+arena_storm_rush_burst_top = False           # 상단 폭풍질주 버스트업 활성
+arena_storm_rush_burst_bottom = False        # 하단 폭풍질주 버스트업 활성
+arena_storm_rush_height_bonus_top = 0        # 상단 버스트업 패들 높이 보너스
+arena_storm_rush_height_bonus_bottom = 0     # 하단 버스트업 패들 높이 보너스
+arena_storm_rush_particles = []              # 폭풍질주 플래시 파티클
 
 def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     """배틀 시작 시 hero_perks에서 멀티플라이어 계산 후 전역 변수에 반영"""
@@ -19733,11 +19739,41 @@ def arena_should_top_hero_dash() -> tuple[bool, float]:
     return True, predicted_x
 
 
+def _spawn_storm_rush_particles(cx, cy):
+    """폭풍질주 버스트업 플래시 파티클 생성 (버스트업 Lv3 동일)"""
+    global arena_storm_rush_particles
+    # 에너지 파티클 25개 (방사형, 밝은 흰색)
+    for i in range(25):
+        angle = (i / 25) * 2 * math.pi
+        speed = random.uniform(6, 13)
+        arena_storm_rush_particles.append([
+            cx, cy,
+            math.cos(angle) * speed, math.sin(angle) * speed,
+            45,  # life
+            random.randint(3, 9),  # size
+            (255, 255, 240),  # 밝은 흰색
+            'energy'
+        ])
+    # 전기 스파크 14개 (랜덤 각도, 푸른색)
+    for _ in range(14):
+        angle = random.uniform(0, 2 * math.pi)
+        speed = random.uniform(8, 15)
+        arena_storm_rush_particles.append([
+            cx, cy,
+            math.cos(angle) * speed, math.sin(angle) * speed,
+            29,  # life
+            random.randint(2, 4),  # size
+            (200, 220, 255),  # 전기 푸른색
+            'electric'
+        ])
+
+
 def arena_trigger_top_hero_dash(target_x: float) -> bool:
     """상단 영웅(AI) 대쉬 발동 - 보스 대쉬와 동일한 방식"""
     global arena_top_dashing, arena_top_dash_timer, arena_top_dash_direction
     global arena_top_dash_target_x, arena_top_dash_cooldown, arena_top_dash_duration_frames
     global arena_top_dash_stun_timer
+    global arena_storm_rush_burst_top, arena_storm_rush_height_bonus_top
 
     # 스팀 배리어 시전 중에는 대쉬 발동 불가
     if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and arena_skill_manager.game_state.get('barrier_owner_is_top', False):
@@ -19769,11 +19805,23 @@ def arena_trigger_top_hero_dash(target_x: float) -> bool:
     arena_top_dash_timer = arena_top_dash_duration_frames
     arena_top_dashing = True
 
-    # 대쉬 사운드 재생 (보스와 동일)
-    try:
-        play_dash_sound()
-    except Exception:
-        pass
+    # 폭풍질주 퍽: 버스트업 Lv3 효과 (패들 높이 증가 + 사운드 + 파티클)
+    if arena_perk_dash_distance_mult_top > 1.0:
+        arena_storm_rush_burst_top = True
+        arena_storm_rush_height_bonus_top = int(BOSS.height * 2.1)
+        _spawn_storm_rush_particles(BOSS.centerx, BOSS.centery)
+        try:
+            play_sound_with_volume(SOUND_BURST_UP)
+        except Exception:
+            try:
+                play_dash_sound()
+            except Exception:
+                pass
+    else:
+        try:
+            play_dash_sound()
+        except Exception:
+            pass
 
     return True
 
@@ -129860,9 +129908,7 @@ def main(stage_num, new_boss_mode=False):
         # 프로파일러 프레임 시작
         if profiler:
             profiler.begin_frame()
-        # 투기장 배속: FPS 자체를 올려서 부드러운 프레임 (추가 틱 대신)
-        _target_fps = int(FPS * arena_speed_multiplier) if arena_mode_enabled and arena_speed_multiplier > 1 else FPS
-        dt_ms = clock.tick(_target_fps)
+        dt_ms = clock.tick(FPS)
         now_ms = pygame.time.get_ticks()
         # 프레임 시간 캐싱 업데이트 (성능 최적화)
         global _current_frame_ticks, _frame_counter, VALTHOR_PERF_DEBUG
@@ -133839,7 +133885,7 @@ def main(stage_num, new_boss_mode=False):
             # 달빛 베기/도깨비불 화면 정지 중에도 스킬 타이머는 진행되어야 함 (1초 후 해제)
             if (not freeze_now or freeze_dark_slash or freeze_hell_fire) and arena_mode_enabled and arena_skill_manager:
                 try:
-                    dt = arena_speed_multiplier * dt_ms / 1000.0  # 실제 프레임 시간 × 배속 (FPS 무관 정확)
+                    dt = (1.0 / 60.0) * arena_speed_multiplier  # 배속 적용
 
                     # 🎯 패들 속도 추적 (뿔 박치기 위치 예측용)
                     _prev_player_x = globals().get("_arena_prev_player_x", PLAYER.centerx)
@@ -134737,16 +134783,11 @@ def main(stage_num, new_boss_mode=False):
                 if not (current_stage == 8 and stage8_awaken_intro_pending and pygame.time.get_ticks() < stage8_awaken_freeze_end_ms):
                     handle_boss()
 
-                # 투기장 배속 보상: 실제 FPS가 목표에 못 미치면 추가 틱으로 보정
-                # 높은 target_fps 덕분에 렌더가 빠르면 추가 틱 0 (부드러움)
-                # 렌더가 느리면 부족분만큼 추가 틱 (정확한 배속)
+                # 투기장 배속: 소수점 배속 지원 (1.3x→10프레임당 3회 추가, 2x→매프레임 1회, 3x→매프레임 2회)
                 if arena_mode_enabled and arena_speed_multiplier > 1 and not freeze_now:
                     if not hasattr(main, '_arena_tick_accumulator'):
                         main._arena_tick_accumulator = 0.0
-                    # 이번 프레임에 실행되어야 할 60fps 기준 틱 수
-                    _ticks_desired = dt_ms * FPS * arena_speed_multiplier / 1000.0
-                    # 이미 1틱은 위에서 실행함, 나머지 누적
-                    main._arena_tick_accumulator += _ticks_desired - 1.0
+                    main._arena_tick_accumulator += arena_speed_multiplier - 1
                     while main._arena_tick_accumulator >= 1.0:
                         main._arena_tick_accumulator -= 1.0
                         handle_player(keys_now)
