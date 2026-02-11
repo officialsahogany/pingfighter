@@ -7457,8 +7457,8 @@ def _draw_pillar_ui(screen, renderer):
     except Exception as e:
         pass
 
-    # 오른쪽 필러 - 대쉬 토큰 표시 (인게임에서만, 투기장 모드 제외)
-    if _is_ingame and not arena_mode_enabled:
+    # 오른쪽 필러 - 대쉬 토큰 표시 (인게임에서만, 투기장 모드 포함)
+    if _is_ingame:
       try:
         if _player_gauge_surface is not None:
             # 오른쪽 필러 위치 계산 (REAL_SCREEN 기준)
@@ -82594,39 +82594,70 @@ def draw_player_gauge():
     # 새로 증가한 토큰은 즉시 충전되도록 동기화
     global last_max_dash_tokens, rolling_charges, rolling_charge_timer, token_states, charging_token_index, max_rolling_charge_time
     global _all_tokens_full_sparkle_timer  # 완충 직후 스파클 효과용
-    #  정확한 최대 토큰 수 계산 (대쉬홀더 + 증폭 스킬)
-    base_charges = 1  # 기본 1개
-    holder_bonus = _get_dashholder_count()  # 대쉬홀더 +1개
-    amplification_bonus = get_runtime_skill_bonus("dash_amplification")
-    max_tokens = int(base_charges + holder_bonus + amplification_bonus)
-    if max_tokens < 1:
-        max_tokens = 1
-
-    # 👁 오딘의 눈 페널티: 대쉬 토큰 1개 고정
-    try:
-        legendary_manager = get_legendary_manager()
-        if legendary_manager and items.odins_eye_obtained:
-            odins_eye = legendary_manager.get_item("odins_eye")
-            if odins_eye and odins_eye.active and odins_eye.penalty_active:
-                token_limit = odins_eye.get_dash_token_limit()
-                if token_limit is not None:
-                    max_tokens = min(max_tokens, token_limit)
-                    # 현재 토큰 수도 제한
-                    if rolling_charges > max_tokens:
-                        rolling_charges = max_tokens
-                        token_states = [True] * rolling_charges
-    except Exception:
-        pass
-
-    if max_tokens > last_max_dash_tokens:
-        added = max_tokens - last_max_dash_tokens
-        rolling_charges = min(max_tokens, rolling_charges + added)
-        rolling_charge_timer = 0
+    # === 투기장 모드: 선택한 영웅의 대쉬 쿨타임 연동 ===
+    if arena_mode_enabled:
+        max_tokens = 2  # 투기장 대쉬 토큰 최대 2개
+        rolling_charges = arena_bottom_dash_charges
         token_states = [True] * rolling_charges + [False] * (max_tokens - rolling_charges)
-    elif rolling_charges > max_tokens:
-        rolling_charges = max_tokens
-        token_states = [True] * rolling_charges + [False] * (max_tokens - rolling_charges)
-    last_max_dash_tokens = max_tokens
+        last_max_dash_tokens = max_tokens
+        # 충전 중인 토큰 상태 설정
+        _charging_idx = -1
+        if rolling_charges < max_tokens:
+            _charging_idx = rolling_charges  # 다음 충전할 토큰 인덱스
+        _charging_state["index"] = _charging_idx
+        _charging_state["timer"] = max(0, ARENA_DASH_CHARGE_TIME - arena_bottom_dash_charge_timer)
+        _charging_state["max_time"] = ARENA_DASH_CHARGE_TIME
+        # _token_charge_states 동기화
+        while len(_token_charge_states) < max_tokens:
+            _token_charge_states.append({"timer": 0, "max_time": _UI_CHARGE_MAX, "ratio": 1.0})
+        for _ti in range(max_tokens):
+            if _ti < rolling_charges:
+                _token_charge_states[_ti] = {"timer": 0, "max_time": _UI_CHARGE_MAX, "ratio": 1.0}
+            elif _ti == _charging_idx:
+                # 충전 중인 토큰: arena_bottom_dash_charge_timer 기반 진행률
+                _arena_charge_ratio = _UI_CHARGE_MAX / max(1, ARENA_DASH_CHARGE_TIME)
+                _arena_remaining = max(0, ARENA_DASH_CHARGE_TIME - arena_bottom_dash_charge_timer)
+                _token_charge_states[_ti] = {
+                    "timer": int(_arena_remaining * _arena_charge_ratio),
+                    "max_time": _UI_CHARGE_MAX,
+                    "ratio": _arena_charge_ratio
+                }
+            else:
+                _token_charge_states[_ti] = {"timer": _UI_CHARGE_MAX, "max_time": _UI_CHARGE_MAX, "ratio": 1.0}
+    else:
+        #  정확한 최대 토큰 수 계산 (대쉬홀더 + 증폭 스킬)
+        base_charges = 1  # 기본 1개
+        holder_bonus = _get_dashholder_count()  # 대쉬홀더 +1개
+        amplification_bonus = get_runtime_skill_bonus("dash_amplification")
+        max_tokens = int(base_charges + holder_bonus + amplification_bonus)
+        if max_tokens < 1:
+            max_tokens = 1
+
+        # 👁 오딘의 눈 페널티: 대쉬 토큰 1개 고정
+        try:
+            legendary_manager = get_legendary_manager()
+            if legendary_manager and items.odins_eye_obtained:
+                odins_eye = legendary_manager.get_item("odins_eye")
+                if odins_eye and odins_eye.active and odins_eye.penalty_active:
+                    token_limit = odins_eye.get_dash_token_limit()
+                    if token_limit is not None:
+                        max_tokens = min(max_tokens, token_limit)
+                        # 현재 토큰 수도 제한
+                        if rolling_charges > max_tokens:
+                            rolling_charges = max_tokens
+                            token_states = [True] * rolling_charges
+        except Exception:
+            pass
+
+        if max_tokens > last_max_dash_tokens:
+            added = max_tokens - last_max_dash_tokens
+            rolling_charges = min(max_tokens, rolling_charges + added)
+            rolling_charge_timer = 0
+            token_states = [True] * rolling_charges + [False] * (max_tokens - rolling_charges)
+        elif rolling_charges > max_tokens:
+            rolling_charges = max_tokens
+            token_states = [True] * rolling_charges + [False] * (max_tokens - rolling_charges)
+        last_max_dash_tokens = max_tokens
 
     # === 전체화면 모드: 대쉬 토큰을 우측 Surface에 그림 (세로 직사각형, 가로로 쌓임) ===
     _dash_token_screen = SCREEN  # 현재 SCREEN 백업
