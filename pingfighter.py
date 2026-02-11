@@ -114576,47 +114576,63 @@ def draw_laser_cannon_gauge():
     pygame.draw.lines(SCREEN, (100, 150, 200), False,
                      [(icon_x, icon_y - 5), (icon_x + 3, icon_y), 
                       (icon_x - 2, icon_y + 2), (icon_x + 5, icon_y + 5)], 2)
+def _get_arena_speed_btn_layout():
+    """투기장 배속 버튼 레이아웃 계산 (REAL_SCREEN 좌표, 가로 정렬)
+
+    Returns:
+        (sx, sy, rw, rh, rgap) - 시작좌표, 버튼크기, 간격 (REAL_SCREEN 좌표)
+    """
+    btn_w_base, btn_h_base, gap_base = 22, 16, 3
+
+    if _is_fullscreen_active:
+        scale = GAME_SCALE_FACTOR
+        rw = max(1, int(btn_w_base * scale))
+        rh = max(1, int(btn_h_base * scale))
+        rgap = max(1, int(gap_base * scale))
+        total_w = 3 * rw + 2 * rgap
+
+        # 좌측 필러 배경 중앙 (게임 영역 왼쪽 여백의 중심)
+        pillar_center_x = GAME_OFFSET_X // 2
+        # 여백이 너무 좁으면 게임 영역 내 좌측 필러 사용
+        if pillar_center_x < total_w // 2 + 4:
+            pillar_center_x = GAME_OFFSET_X + int(40 * scale)
+
+        sx = pillar_center_x - total_w // 2
+        # 하단 배치 (게임 영역 하단에서 약간 위)
+        sy = GAME_OFFSET_Y + int(700 * scale)
+    else:
+        # 윈도우 모드: 좌측 필러 영역 내
+        rw, rh, rgap = btn_w_base, btn_h_base, gap_base
+        total_w = 3 * rw + 2 * rgap
+        sx = (PILLAR_UI_WIDTH - total_w) // 2
+        sy = HEIGHT - btn_h_base - 30
+
+    return sx, sy, rw, rh, rgap
+
+
 def _update_arena_speed_btn_rects():
-    """투기장 배속 버튼 히트영역 갱신 (게임 좌표 기준, 클릭 판정용)"""
+    """투기장 배속 버튼 히트영역 갱신 (REAL_SCREEN 좌표, 클릭 판정용)"""
     global arena_speed_btn_rects
     if not arena_mode_enabled:
         return
-    btn_w, btn_h = 64, 20
-    gap = 3
-    start_x = (PILLAR_UI_WIDTH - btn_w) // 2
-    total_h = btn_h * 3 + gap * 2
-    start_y = HEIGHT - total_h - 12
+    sx, sy, rw, rh, rgap = _get_arena_speed_btn_layout()
     arena_speed_btn_rects = {}
     for i, (mult, _) in enumerate([(1.3, 1), (2, 2), (3, 3)]):
-        gy = start_y + i * (btn_h + gap)
-        arena_speed_btn_rects[mult] = pygame.Rect(start_x, gy, btn_w, btn_h)
+        rx = sx + i * (rw + rgap)
+        arena_speed_btn_rects[mult] = pygame.Rect(rx, sy, rw, rh)
 
 
 def draw_arena_speed_buttons(surface):
-    """투기장 배속 버튼 그리기 (>, >>, >>>) - 좌측 필러 하단, REAL_SCREEN에 직접"""
+    """투기장 배속 버튼 그리기 (>, >>, >>>) - 좌측 필러 배경 위, 가로 정렬"""
     if not arena_mode_enabled:
         return
 
-    btn_w, btn_h = 64, 20
-    gap = 3
-    start_x = (PILLAR_UI_WIDTH - btn_w) // 2
-    total_h = btn_h * 3 + gap * 2
-    start_y = HEIGHT - total_h - 12
-
-    # 스케일 계수 결정
+    sx, sy, rw, rh, rgap = _get_arena_speed_btn_layout()
     scale = GAME_SCALE_FACTOR if _is_fullscreen_active else 1.0
 
     for i, (mult, arrow_count) in enumerate([(1.3, 1), (2, 2), (3, 3)]):
-        gy = start_y + i * (btn_h + gap)
-
-        # REAL_SCREEN 좌표로 변환
-        if _is_fullscreen_active:
-            rx, ry = screen_to_real_coords(start_x, gy)
-        else:
-            rx, ry = start_x, gy
-        rw = max(1, int(btn_w * scale))
-        rh = max(1, int(btn_h * scale))
-        draw_rect = pygame.Rect(rx, ry, rw, rh)
+        rx = sx + i * (rw + rgap)
+        draw_rect = pygame.Rect(rx, sy, rw, rh)
 
         is_active = (arena_speed_multiplier == mult)
 
@@ -114632,16 +114648,16 @@ def draw_arena_speed_buttons(surface):
         # 반투명 배경
         btn_surf = pygame.Surface((rw, rh), pygame.SRCALPHA)
         btn_surf.fill(bg_rgba)
-        surface.blit(btn_surf, (rx, ry))
+        surface.blit(btn_surf, (rx, sy))
         pygame.draw.rect(surface, border_color, draw_rect, 1, border_radius=2)
 
         # 화살표 삼각형 그리기 (>, >>, >>>)
-        aw = max(1, int(7 * scale))
+        aw = max(1, int(6 * scale))
         ah = max(1, int(10 * scale))
         a_gap = max(1, int(2 * scale))
         total_arrow_w = arrow_count * aw + (arrow_count - 1) * a_gap
         arrow_start_x = rx + (rw - total_arrow_w) // 2
-        arrow_center_y = ry + rh // 2
+        arrow_center_y = sy + rh // 2
 
         for a in range(arrow_count):
             ax = arrow_start_x + a * (aw + a_gap)
@@ -130031,10 +130047,10 @@ def main(stage_num, new_boss_mode=False):
             main._arena_key1_pressed = _k1
             main._arena_key2_pressed = _k2
             main._arena_key3_pressed = _k3
-            # 마우스 클릭으로 배속 버튼 변경
+            # 마우스 클릭으로 배속 버튼 변경 (REAL_SCREEN 좌표 사용)
             _mb = pygame.mouse.get_pressed()
             if _mb[0] and not getattr(main, '_arena_mouse_pressed', False):
-                _mx, _my = pygame.mouse.get_pos()
+                _mx, _my = _original_mouse_get_pos()  # REAL_SCREEN 좌표
                 for _mult, _rect in arena_speed_btn_rects.items():
                     if _rect.collidepoint(_mx, _my):
                         arena_speed_multiplier = _mult
