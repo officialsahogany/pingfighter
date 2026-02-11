@@ -442,64 +442,110 @@ class AnimatedBackgroundStage30:
         br = bx + bw   # 오른쪽 끝
         bb = by + bh    # 아래쪽 끝
 
-        # ===== 1. 다층 테두리 프레임 =====
-        # 외곽 그림자 (가장 바깥)
-        pygame.draw.rect(surf, border_outer, (bx - 2, by - 2, bw + 4, bh + 4), 2)
-        # 금동 밴드 (메인 프레임)
-        pygame.draw.rect(surf, border_mid, (bx, by, bw, bh), 3)
-        # 밝은 금 내부선
-        pygame.draw.rect(surf, border_inner, (bx + 4, by + 4, bw - 8, bh - 8), 1)
-        # 석조 내부선 (가장 안쪽)
-        pygame.draw.rect(surf, border_stone, (bx + 6, by + 6, bw - 12, bh - 12), 1)
+        # ===== 1. 다층 테두리 프레임 (두꺼운 파피루스 스타일 ~18px) =====
+        t = 18  # 테두리 총 두께
 
-        # ===== 2. 이집트 문양 패턴 (테두리 밴드 위) =====
+        # 파피루스 색상
+        papyrus = (145, 125, 85)
+        papyrus_light = (165, 145, 105)
+        papyrus_dark = (115, 95, 65)
+
+        # 파피루스 밴드 채움 (4변)
+        pygame.draw.rect(surf, papyrus, (bx, by, bw, t))
+        pygame.draw.rect(surf, papyrus, (bx, bb - t, bw, t))
+        pygame.draw.rect(surf, papyrus, (bx, by + t, t, bh - t * 2))
+        pygame.draw.rect(surf, papyrus, (br - t, by + t, t, bh - t * 2))
+
+        # 외곽 어두운 테두리 (바깥 2줄)
+        pygame.draw.rect(surf, border_outer, (bx, by, bw, bh), 2)
+        pygame.draw.rect(surf, papyrus_dark, (bx + 2, by + 2, bw - 4, bh - 4), 1)
+        # 금동 외곽선
+        pygame.draw.rect(surf, border_mid, (bx + 3, by + 3, bw - 6, bh - 6), 2)
+        # 중간 파피루스 질감선
+        pygame.draw.rect(surf, papyrus_light, (bx + 6, by + 6, bw - 12, bh - 12), 1)
+        pygame.draw.rect(surf, papyrus_dark, (bx + 9, by + 9, bw - 18, bh - 18), 1)
+        # 내부 금선 (안쪽 경계)
+        pygame.draw.rect(surf, border_mid, (bx + t - 4, by + t - 4, bw - (t - 4) * 2, bh - (t - 4) * 2), 2)
+        # 가장 안쪽 밝은 금 하이라이트
+        pygame.draw.rect(surf, border_inner, (bx + t - 1, by + t - 1, bw - (t - 1) * 2, bh - (t - 1) * 2), 1)
+
+        # 파피루스 섬유 질감 (미세한 수평/수직선)
+        random.seed(333)
+        for _ in range(40):
+            side = random.randint(0, 3)
+            if side == 0:  # 상단
+                fx = random.randint(bx + 8, br - 8)
+                fy = random.randint(by + 3, by + t - 4)
+                fl = random.randint(10, 35)
+                pygame.draw.line(surf, papyrus_light, (fx, fy), (fx + fl, fy + random.randint(-1, 1)), 1)
+            elif side == 1:  # 하단
+                fx = random.randint(bx + 8, br - 8)
+                fy = random.randint(bb - t + 3, bb - 4)
+                fl = random.randint(10, 35)
+                pygame.draw.line(surf, papyrus_light, (fx, fy), (fx + fl, fy + random.randint(-1, 1)), 1)
+            elif side == 2:  # 좌측
+                fx = random.randint(bx + 3, bx + t - 4)
+                fy = random.randint(by + t + 5, bb - t - 5)
+                fl = random.randint(10, 30)
+                pygame.draw.line(surf, papyrus_light, (fx, fy), (fx + random.randint(-1, 1), fy + fl), 1)
+            else:  # 우측
+                fx = random.randint(br - t + 3, br - 4)
+                fy = random.randint(by + t + 5, bb - t - 5)
+                fl = random.randint(10, 30)
+                pygame.draw.line(surf, papyrus_light, (fx, fy), (fx + random.randint(-1, 1), fy + fl), 1)
+        random.seed()
+
+        # ===== 2. 이집트 문양 패턴 (밴드 중앙에 배치) =====
         pattern_spacing = 36
+        band_mid = t // 2  # 밴드 중심 (9px)
 
         # 상단 변
         for px in range(bx + 25, br - 25, pattern_spacing):
-            # 로터스 꽃잎 (위로 3잎)
+            cy_p = by + band_mid
             for leaf_angle in [-30, 0, 30]:
                 a = math.radians(leaf_angle - 90)
-                lx = px + int(4 * math.cos(a))
-                ly = by + 1 + int(4 * math.sin(a))
-                pygame.draw.line(surf, hiero, (px, by + 1), (lx, ly), 1)
-            pygame.draw.circle(surf, hiero_dark, (px, by + 1), 1)
-            # 로터스 사이 점선
+                lx = px + int(5 * math.cos(a))
+                ly = cy_p + int(5 * math.sin(a))
+                pygame.draw.line(surf, hiero, (px, cy_p), (lx, ly), 1)
+            pygame.draw.circle(surf, hiero_dark, (px, cy_p), 1)
             if px + pattern_spacing // 2 < br - 25:
                 for dot in range(4):
                     dx = px + pattern_spacing // 2 - 6 + dot * 4
-                    pygame.draw.circle(surf, hiero_dark, (dx, by + 1), 0)
+                    pygame.draw.circle(surf, hiero_dark, (dx, cy_p), 0)
 
         # 하단 변
         for px in range(bx + 25, br - 25, pattern_spacing):
+            cy_p = bb - band_mid
             for leaf_angle in [-30, 0, 30]:
                 a = math.radians(leaf_angle + 90)
-                lx = px + int(4 * math.cos(a))
-                ly = bb - 1 + int(4 * math.sin(a))
-                pygame.draw.line(surf, hiero, (px, bb - 1), (lx, ly), 1)
-            pygame.draw.circle(surf, hiero_dark, (px, bb - 1), 1)
+                lx = px + int(5 * math.cos(a))
+                ly = cy_p + int(5 * math.sin(a))
+                pygame.draw.line(surf, hiero, (px, cy_p), (lx, ly), 1)
+            pygame.draw.circle(surf, hiero_dark, (px, cy_p), 1)
             if px + pattern_spacing // 2 < br - 25:
                 for dot in range(4):
                     dx = px + pattern_spacing // 2 - 6 + dot * 4
-                    pygame.draw.circle(surf, hiero_dark, (dx, bb - 1), 0)
+                    pygame.draw.circle(surf, hiero_dark, (dx, cy_p), 0)
 
         # 좌측 변
         for py in range(by + 25, bb - 25, pattern_spacing):
+            cx_p = bx + band_mid
             for leaf_angle in [-30, 0, 30]:
                 a = math.radians(leaf_angle)
-                lx = bx + 1 + int(4 * math.cos(a))
-                ly = py + int(4 * math.sin(a))
-                pygame.draw.line(surf, hiero, (bx + 1, py), (lx, ly), 1)
-            pygame.draw.circle(surf, hiero_dark, (bx + 1, py), 1)
+                lx = cx_p + int(5 * math.cos(a))
+                ly = py + int(5 * math.sin(a))
+                pygame.draw.line(surf, hiero, (cx_p, py), (lx, ly), 1)
+            pygame.draw.circle(surf, hiero_dark, (cx_p, py), 1)
 
         # 우측 변
         for py in range(by + 25, bb - 25, pattern_spacing):
+            cx_p = br - band_mid
             for leaf_angle in [-30, 0, 30]:
                 a = math.radians(leaf_angle + 180)
-                lx = br - 1 + int(4 * math.cos(a))
-                ly = py + int(4 * math.sin(a))
-                pygame.draw.line(surf, hiero, (br - 1, py), (lx, ly), 1)
-            pygame.draw.circle(surf, hiero_dark, (br - 1, py), 1)
+                lx = cx_p + int(5 * math.cos(a))
+                ly = py + int(5 * math.sin(a))
+                pygame.draw.line(surf, hiero, (cx_p, py), (lx, ly), 1)
+            pygame.draw.circle(surf, hiero_dark, (cx_p, py), 1)
 
         # ===== 3. 코너 꼭지점 장식 (이중 직각 + 다이아몬드) =====
         corner_arm = 18
