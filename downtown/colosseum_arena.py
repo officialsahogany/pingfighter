@@ -458,10 +458,10 @@ class ArenaLeafShield:
         self.leaves = []           # [{'active': bool, 'base_angle': float, 'regen_timer': int, 'type': int}]
         self.current_angle = 0.0   # 전체 회전 각도
         self.rotation_speed = 1.8  # 회전 속도 (rad/s)
-        self.orbit_radius = 200   # 궤도 반지름 (전설 신성월계수와 동일)
+        self.orbit_radius = 170   # 궤도 반지름 (15% 축소)
         self.ellipse_y = 0.3       # Y축 압축률 (전설 신성월계수와 동일)
         self.front_threshold = 30  # 패들 앞쪽 잎 충돌 무시 기준 (전설과 동일)
-        self.leaf_size = 8         # 잎 그리기 크기
+        self.leaf_size = 24        # 잎 그리기 크기 (3배 확대)
         self.hitbox_size = 16      # 충돌 판정 크기
         self.regen_delay = 600     # 잎 재생 시간 (10초 * 60fps)
         self.owner_x = 0.0
