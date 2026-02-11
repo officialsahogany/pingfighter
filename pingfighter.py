@@ -7978,10 +7978,10 @@ def _fullscreen_flip():
             except Exception:
                 pass
 
-        # 호위무사 / 퍽 툴팁 (퍽 호버가 우선)
+        # 호위무사 / 퍽 툴팁 (퍽 호버가 우선, 상대방 호위무사 툴팁은 비공개)
         if _perk_hover:
             _draw_perk_hover_tooltip(REAL_SCREEN, _perk_hover)
-        else:
+        elif _guard_hover and _guard_hover.get("side") != "top":
             _draw_guard_hover_tooltip(REAL_SCREEN, _guard_hover)
 
         # 🛡️ 인게임 호위무사 필러 아이콘 (일반 스테이지, 투기장 UI와 동일)
@@ -8110,7 +8110,7 @@ def _fullscreen_update(*args, **kwargs):
 
         if _perk_hover2:
             _draw_perk_hover_tooltip(REAL_SCREEN, _perk_hover2)
-        else:
+        elif _guard_hover2 and _guard_hover2.get("side") != "top":
             _draw_guard_hover_tooltip(REAL_SCREEN, _guard_hover2)
 
         # 🛡️ 인게임 호위무사 필러 아이콘 (일반 스테이지)
