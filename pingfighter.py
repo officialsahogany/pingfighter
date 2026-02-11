@@ -19050,6 +19050,8 @@ arena_storm_rush_burst_bottom = False        # 하단 폭풍질주 버스트업 
 arena_storm_rush_height_bonus_top = 0        # 상단 버스트업 패들 높이 보너스
 arena_storm_rush_height_bonus_bottom = 0     # 하단 버스트업 패들 높이 보너스
 arena_storm_rush_particles = []              # 폭풍질주 플래시 파티클
+arena_perk_recall_guard_top = False          # 상단 재소집령 퍽 활성
+arena_perk_recall_guard_bottom = False       # 하단 재소집령 퍽 활성
 
 def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     """배틀 시작 시 hero_perks에서 멀티플라이어 계산 후 전역 변수에 반영"""
@@ -19067,6 +19069,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     global arena_perk_paddle_enlarge_top, arena_perk_paddle_enlarge_bottom
     global arena_leaf_shield_top, arena_leaf_shield_bottom
     global arena_perk_draw_icon_func
+    global arena_perk_recall_guard_top, arena_perk_recall_guard_bottom
 
     # 아이콘 그리기 함수 저장
     if arena_obj and hasattr(arena_obj, '_draw_perk_icon'):
@@ -19096,6 +19099,8 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_perk_paddle_enlarge_bottom = 1.0
     arena_leaf_shield_top = None
     arena_leaf_shield_bottom = None
+    arena_perk_recall_guard_top = False
+    arena_perk_recall_guard_bottom = False
 
     if not arena_obj or not hasattr(arena_obj, 'get_hero_perk_multipliers'):
         return
@@ -19111,6 +19116,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_perk_magic_immunity_chance_top = top_mults["magic_immunity"]
     arena_top_max_dash_charges = 1 + top_mults["dash_tokens"]
     arena_perk_paddle_enlarge_top = top_mults["paddle_enlarge"]
+    arena_perk_recall_guard_top = top_mults["recall_guard"]
     # 신성월계수 잎 (상단)
     if top_mults["laurel_shield"] > 0:
         from downtown.colosseum_arena import ArenaLeafShield
@@ -19129,6 +19135,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_perk_retry_chance = bottom_mults["retry_chance"]  # 하단(플레이어)만
     arena_bottom_max_dash_charges = 1 + bottom_mults["dash_tokens"]
     arena_perk_paddle_enlarge_bottom = bottom_mults["paddle_enlarge"]
+    arena_perk_recall_guard_bottom = bottom_mults["recall_guard"]
     # 신성월계수 잎 (하단)
     if bottom_mults["laurel_shield"] > 0:
         from downtown.colosseum_arena import ArenaLeafShield
@@ -19191,6 +19198,7 @@ def reset_arena_perks():
     global arena_storm_rush_burst_top, arena_storm_rush_burst_bottom
     global arena_storm_rush_height_bonus_top, arena_storm_rush_height_bonus_bottom
     global arena_storm_rush_particles
+    global arena_perk_recall_guard_top, arena_perk_recall_guard_bottom
     arena_perk_speed_mult_top = 1.0
     arena_perk_speed_mult_bottom = 1.0
     arena_perk_dash_cd_mult_top = 1.0
@@ -19216,6 +19224,8 @@ def reset_arena_perks():
     if arena_leaf_shield_bottom:
         arena_leaf_shield_bottom.deactivate()
     arena_leaf_shield_bottom = None
+    arena_perk_recall_guard_top = False
+    arena_perk_recall_guard_bottom = False
     # 폭풍질주 버스트업 초기화
     arena_storm_rush_burst_top = False
     arena_storm_rush_burst_bottom = False

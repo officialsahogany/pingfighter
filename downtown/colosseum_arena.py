@@ -853,6 +853,16 @@ ARENA_PERK_POOL = [
         "effect_type": "paddle_enlarge",
         "value": 0.50,  # 50% 증가
     },
+    # === 해금 조건 퍽 ===
+    {
+        "id": "recall_guard",
+        "name": "재소집령",
+        "description": "해고했던 호위무사를 불러내어\n전투에 참가시킵니다\n(호위무사 2명)",
+        "icon_color": (200, 160, 60),    # 금빛 (명령/충성)
+        "effect_type": "recall_guard",
+        "value": 1,
+        "unlock_condition": "former_guards",  # 이전에 호위무사를 해고한 적이 있어야 함
+    },
 ]
 
 # ============================================================================
@@ -8710,8 +8720,18 @@ class ColosseumsArena:
             for perk in self.hero_perks.get(hero_id, []):
                 owned_perk_ids.add(perk["id"])
 
-        # 기본 퍽 풀에서 이미 보유한 것 제외
-        pool = [p for p in ARENA_PERK_POOL if p["id"] not in owned_perk_ids]
+        # 기본 퍽 풀에서 이미 보유한 것 제외 + 해금 조건 체크
+        pool = []
+        for p in ARENA_PERK_POOL:
+            if p["id"] in owned_perk_ids:
+                continue
+            # 해금 조건 체크
+            unlock_cond = p.get("unlock_condition")
+            if unlock_cond == "former_guards":
+                # 이전에 호위무사를 해고한 적이 있어야 함
+                if not getattr(self, 'former_guards', []):
+                    continue
+            pool.append(p)
 
         # 영웅의 미선택 스킬을 퍽 옵션으로 추가
         if self.bet_hero and HERO_SKILLS_AVAILABLE:
@@ -8789,6 +8809,25 @@ class ColosseumsArena:
                 self.hero_perks[hero_id].append(dict(selected_perk))
                 print(f"[Perk] {self.bet_hero['name']}에게 추가 스킬 '{selected_perk['name']}' 부여! "
                       f"(양쪽 스킬 보유)")
+            elif selected_perk["effect_type"] == "recall_guard":
+                # 재소집령: 해고했던 호위무사를 복귀시켜 2명으로 만듦
+                if hero_id not in self.hero_perks:
+                    self.hero_perks[hero_id] = []
+                self.hero_perks[hero_id].append(dict(selected_perk))
+                # former_guards에서 한 명을 꺼내 guard_warrior_map에 추가
+                if self.former_guards:
+                    recalled = self.former_guards.pop(0)  # 가장 먼저 해고된 호위무사
+                    if hero_id not in self.guard_warrior_map:
+                        self.guard_warrior_map[hero_id] = []
+                    self.guard_warrior_map[hero_id].append(recalled)
+                    # 복귀 호위무사 스킬 랜덤 배정
+                    self.hero_selected_skills[recalled["id"]] = random.randint(0, 1)
+                    print(f"[Perk] {self.bet_hero['name']}에게 '재소집령' 퍽 부여! "
+                          f"호위무사 '{recalled['name']}' 복귀 (총 호위무사: "
+                          f"{len(self.guard_warrior_map[hero_id])}명)")
+                else:
+                    print(f"[Perk] {self.bet_hero['name']}에게 '재소집령' 퍽 부여! "
+                          f"(복귀 가능한 호위무사 없음)")
             else:
                 # 일반 퍽 추가
                 if hero_id not in self.hero_perks:
@@ -8828,7 +8867,16 @@ class ColosseumsArena:
         if hero_id not in self.hero_perks:
             self.hero_perks[hero_id] = []
         owned_ids = {p["id"] for p in self.hero_perks[hero_id]}
-        available = [p for p in ARENA_PERK_POOL if p["id"] not in owned_ids]
+        available = []
+        for p in ARENA_PERK_POOL:
+            if p["id"] in owned_ids:
+                continue
+            # 해금 조건 체크 (AI에게도 동일하게 적용)
+            unlock_cond = p.get("unlock_condition")
+            if unlock_cond == "former_guards":
+                if not getattr(self, 'former_guards', []):
+                    continue
+            available.append(p)
 
         # 스킬 추가 퍽도 후보에 포함 (아직 양쪽 스킬 미보유 시)
         if HERO_SKILLS_AVAILABLE and not self.hero_has_both_skills.get(hero_id, False):
@@ -8860,6 +8908,17 @@ class ColosseumsArena:
                 self.hero_perks[hero_id].append(dict(perk))
                 # 스킬 퍽은 1회만 가능하므로 풀에서 제거
                 available = [p for p in available if p["effect_type"] != "add_skill"]
+            elif perk["effect_type"] == "recall_guard":
+                # 재소집령: AI도 해고된 호위무사 복귀
+                self.hero_perks[hero_id].append(dict(perk))
+                if self.former_guards:
+                    recalled = self.former_guards.pop(0)
+                    if hero_id not in self.guard_warrior_map:
+                        self.guard_warrior_map[hero_id] = []
+                    self.guard_warrior_map[hero_id].append(recalled)
+                    self.hero_selected_skills[recalled["id"]] = random.randint(0, 1)
+                owned_ids.add(perk["id"])
+                available = [p for p in available if p["id"] != perk["id"]]
             else:
                 self.hero_perks[hero_id].append(dict(perk))
                 owned_ids.add(perk["id"])
@@ -8882,6 +8941,7 @@ class ColosseumsArena:
             "magic_immunity": 0.0,      # 타격 시 마법 면역 확률
             "laurel_shield": 0,         # 신성월계수 잎 개수 (0이면 비활성)
             "paddle_enlarge": 1.0,      # 패들 확대 배율
+            "recall_guard": False,      # 재소집령 (호위무사 복귀)
         }
         for perk in perks:
             etype = perk["effect_type"]
@@ -8908,6 +8968,8 @@ class ColosseumsArena:
                 mults["laurel_shield"] = int(val)
             elif etype == "paddle_enlarge":
                 mults["paddle_enlarge"] += val
+            elif etype == "recall_guard":
+                mults["recall_guard"] = True
         return mults
 
     def _draw_perk_icon_swift_foot(self, surf, cx, cy, r, ss):
@@ -9184,6 +9246,57 @@ class ColosseumsArena:
             (arr_x + int(s * 0.1), arr_top + int(s * 0.05)),
         ])
 
+    def _draw_perk_icon_recall_guard(self, surf, cx, cy, r, ss):
+        """재소집령 아이콘 - 두 명의 전사 실루엣 (한 명은 귀환 화살표)"""
+        color = (200, 160, 60)
+        s = r * ss
+        lw = max(2, int(2 * ss / 3))
+        # 왼쪽 전사 (기존 호위무사 - 진한 색)
+        w1_x = cx - int(s * 0.3)
+        body_w = int(s * 0.25)
+        body_h = int(s * 0.45)
+        head_r = int(s * 0.13)
+        # 머리
+        pygame.draw.circle(surf, (*color, 220), (w1_x, cy - int(s * 0.3)), head_r)
+        # 몸체
+        pygame.draw.rect(surf, (*color, 200),
+                         (w1_x - body_w // 2, cy - int(s * 0.15), body_w, body_h),
+                         border_radius=max(1, int(body_w * 0.2)))
+        # 방패 (왼쪽 전사)
+        shield_w = int(s * 0.12)
+        shield_h = int(s * 0.2)
+        pygame.draw.rect(surf, (180, 140, 50, 180),
+                         (w1_x - body_w // 2 - shield_w, cy - int(s * 0.05), shield_w, shield_h),
+                         border_radius=max(1, int(shield_w * 0.3)))
+
+        # 오른쪽 전사 (복귀 호위무사 - 반투명, 귀환 중)
+        w2_x = cx + int(s * 0.3)
+        # 머리 (반투명)
+        pygame.draw.circle(surf, (*color, 130), (w2_x, cy - int(s * 0.3)), head_r)
+        # 몸체 (반투명)
+        pygame.draw.rect(surf, (*color, 120),
+                         (w2_x - body_w // 2, cy - int(s * 0.15), body_w, body_h),
+                         border_radius=max(1, int(body_w * 0.2)))
+        # 검 (오른쪽 전사)
+        sword_h = int(s * 0.3)
+        pygame.draw.line(surf, (220, 200, 100, 150),
+                         (w2_x + body_w // 2 + 2, cy - int(s * 0.15)),
+                         (w2_x + body_w // 2 + 2, cy - int(s * 0.15) - sword_h), lw)
+
+        # 귀환 화살표 (오른쪽 → 왼쪽으로 향하는 곡선 화살표)
+        arrow_y = cy + int(s * 0.45)
+        arrow_left = cx - int(s * 0.35)
+        arrow_right = cx + int(s * 0.35)
+        pygame.draw.line(surf, (255, 220, 100, 200),
+                         (arrow_right, arrow_y), (arrow_left, arrow_y), lw)
+        # 화살표 머리 (왼쪽 방향)
+        arr_s = int(s * 0.1)
+        pygame.draw.polygon(surf, (255, 220, 100, 200), [
+            (arrow_left - arr_s, arrow_y),
+            (arrow_left + arr_s, arrow_y - arr_s),
+            (arrow_left + arr_s, arrow_y + arr_s),
+        ])
+
     def _draw_perk_icon_skill(self, surf, cx, cy, r, ss):
         """스킬 추가 아이콘 - 검 (⚔) 모양"""
         color = (255, 220, 100)  # 골드
@@ -9234,6 +9347,7 @@ class ColosseumsArena:
             "magic_barrier": self._draw_perk_icon_magic_barrier,
             "laurel_shield": self._draw_perk_icon_laurel_shield,
             "titan_body": self._draw_perk_icon_titan_body,
+            "recall_guard": self._draw_perk_icon_recall_guard,
         }
         # 스킬 타입 퍽은 별(★) 아이콘으로 표시
         if perk_id.startswith("skill_"):
