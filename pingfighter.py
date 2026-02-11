@@ -18956,7 +18956,7 @@ player_ai_enabled = False            # 메뉴에서 AI 플레이를 켰는지 �
 
 # 투기장 모드 (콜로세움)
 arena_mode_enabled = False           # 투기장 모드 활성화 여부
-arena_speed_multiplier = 1.3         # 투기장 배속 배율 (1.3x, 2x, 3x)
+arena_speed_multiplier = 1           # 투기장 배속 배율 (1x, 1.5x, 2x, 3x)
 arena_speed_btn_rects = {}           # 배속 버튼 히트영역
 arena_battle_result = None           # 투기장 배틀 결과 (True=하단 승리, False=상단 승리)
 arena_top_hero = None                # 상단 영웅 정보 (보스 위치)
@@ -97180,7 +97180,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
     try:
         # 투기장 모드 활성화
         arena_mode_enabled = True
-        arena_speed_multiplier = 1.3  # 배속 리셋 (매 경기 1.3x)
+        arena_speed_multiplier = 1  # 배속 리셋 (매 경기 1x)
         main._arena_tick_accumulator = 0.0  # 배속 보상 누적기 리셋
         arena_battle_result = None  # 이전 배틀 결과 초기화 (필수!)
         arena_top_hero = top_hero
@@ -114732,6 +114732,15 @@ def draw_laser_cannon_gauge():
     pygame.draw.lines(SCREEN, (100, 150, 200), False,
                      [(icon_x, icon_y - 5), (icon_x + 3, icon_y), 
                       (icon_x - 2, icon_y + 2), (icon_x + 5, icon_y + 5)], 2)
+# 배속 버튼 옵션: (배속값, 화살표 개수, 툴팁 텍스트)
+_ARENA_SPEED_OPTIONS = [
+    (1, 1, "x1"),
+    (1.5, 2, "x1.5"),
+    (2, 3, "x2"),
+    (3, 4, "x3"),
+]
+
+
 def _get_arena_speed_btn_layout():
     """투기장 배속 버튼 레이아웃 계산 (REAL_SCREEN 좌표, 가로 정렬)
 
@@ -114739,13 +114748,13 @@ def _get_arena_speed_btn_layout():
         (sx, sy, rw, rh, rgap) - 시작좌표, 버튼크기, 간격 (REAL_SCREEN 좌표)
     """
     btn_w_base, btn_h_base, gap_base = 44, 32, 6
+    btn_count = len(_ARENA_SPEED_OPTIONS)
 
     if _is_fullscreen_active:
         scale = GAME_SCALE_FACTOR
         rw = max(1, int(btn_w_base * scale))
         rh = max(1, int(btn_h_base * scale))
         rgap = max(1, int(gap_base * scale))
-        total_w = 3 * rw + 2 * rgap
 
         # 인게임 좌측벽 기준 배치 (게임 영역 왼쪽 끝에서 시작)
         sx = GAME_OFFSET_X
@@ -114755,7 +114764,7 @@ def _get_arena_speed_btn_layout():
     else:
         # 윈도우 모드: 좌측 필러 영역 내
         rw, rh, rgap = btn_w_base, btn_h_base, gap_base
-        total_w = 3 * rw + 2 * rgap
+        total_w = btn_count * rw + (btn_count - 1) * rgap
         sx = (PILLAR_UI_WIDTH - total_w) // 2
         sy = HEIGHT - btn_h_base - 30
 
@@ -114769,29 +114778,42 @@ def _update_arena_speed_btn_rects():
         return
     sx, sy, rw, rh, rgap = _get_arena_speed_btn_layout()
     arena_speed_btn_rects = {}
-    for i, (mult, _) in enumerate([(1.3, 1), (2, 2), (3, 3)]):
+    for i, (mult, _, _tip) in enumerate(_ARENA_SPEED_OPTIONS):
         rx = sx + i * (rw + rgap)
         arena_speed_btn_rects[mult] = pygame.Rect(rx, sy, rw, rh)
 
 
 def draw_arena_speed_buttons(surface):
-    """투기장 배속 버튼 그리기 (>, >>, >>>) - 좌측 필러 배경 위, 가로 정렬"""
+    """투기장 배속 버튼 그리기 (>, >>, >>>, >>>>) + 호버 툴팁"""
     if not arena_mode_enabled:
         return
 
     sx, sy, rw, rh, rgap = _get_arena_speed_btn_layout()
     scale = GAME_SCALE_FACTOR if _is_fullscreen_active else 1.0
 
-    for i, (mult, arrow_count) in enumerate([(1.3, 1), (2, 2), (3, 3)]):
+    # 마우스 위치 (REAL_SCREEN 좌표)
+    if _is_fullscreen_active:
+        mx, my = _original_mouse_get_pos()
+    else:
+        mx, my = pygame.mouse.get_pos()
+
+    hovered_tooltip = None  # (x, y, text) 호버된 버튼의 툴팁 정보
+
+    for i, (mult, arrow_count, tip_text) in enumerate(_ARENA_SPEED_OPTIONS):
         rx = sx + i * (rw + rgap)
         draw_rect = pygame.Rect(rx, sy, rw, rh)
 
         is_active = (arena_speed_multiplier == mult)
+        is_hovered = draw_rect.collidepoint(mx, my)
 
         if is_active:
             bg_rgba = (50, 45, 30, 200)
             arrow_color = (255, 210, 60)
             border_color = (180, 150, 40)
+        elif is_hovered:
+            bg_rgba = (40, 40, 55, 200)
+            arrow_color = (180, 180, 200)
+            border_color = (100, 100, 120)
         else:
             bg_rgba = (25, 28, 38, 160)
             arrow_color = (100, 105, 115)
@@ -114803,7 +114825,7 @@ def draw_arena_speed_buttons(surface):
         surface.blit(btn_surf, (rx, sy))
         pygame.draw.rect(surface, border_color, draw_rect, 1, border_radius=2)
 
-        # 화살표 삼각형 그리기 (>, >>, >>>)
+        # 화살표 삼각형 그리기
         aw = max(1, int(6 * scale))
         ah = max(1, int(10 * scale))
         a_gap = max(1, int(2 * scale))
@@ -114821,6 +114843,30 @@ def draw_arena_speed_buttons(surface):
             pygame.draw.polygon(surface, arrow_color, points)
             if is_active:
                 pygame.draw.polygon(surface, (255, 240, 150), points, 1)
+
+        # 호버 툴팁 정보 저장
+        if is_hovered:
+            hovered_tooltip = (rx + rw // 2, sy, tip_text)
+
+    # 호버 툴팁 그리기 (버튼 위에 표시)
+    if hovered_tooltip:
+        _tx, _ty, _text = hovered_tooltip
+        _font_size = max(10, int(12 * scale))
+        try:
+            _tip_font = pygame.font.SysFont(None, _font_size)
+            _tip_surf = _tip_font.render(_text, True, (255, 255, 255))
+            _tip_w = _tip_surf.get_width() + int(8 * scale)
+            _tip_h = _tip_surf.get_height() + int(4 * scale)
+            _tip_x = _tx - _tip_w // 2
+            _tip_y = _ty - _tip_h - int(4 * scale)
+            # 배경
+            _tip_bg = pygame.Surface((_tip_w, _tip_h), pygame.SRCALPHA)
+            _tip_bg.fill((20, 20, 30, 220))
+            surface.blit(_tip_bg, (_tip_x, _tip_y))
+            pygame.draw.rect(surface, (120, 120, 140), (_tip_x, _tip_y, _tip_w, _tip_h), 1, border_radius=2)
+            surface.blit(_tip_surf, (_tip_x + int(4 * scale), _tip_y + int(2 * scale)))
+        except Exception:
+            pass
 
 def draw_boss_health_bar():
     """ 메카닉 스타일 보스 체력바 (스무스 애니메이션)"""
@@ -130193,20 +130239,24 @@ def main(stage_num, new_boss_mode=False):
                 enraged_boss_aura_particles = []
         main.keyF5_pressed = keys[pygame.K_F5]
 
-        # 투기장 배속 변경 (1/2/3 키 + 넘패드 + 마우스 클릭)
+        # 투기장 배속 변경 (1/2/3/4 키 + 넘패드 + 마우스 클릭)
         if arena_mode_enabled:
             _k1 = keys[pygame.K_1] or keys[pygame.K_KP1]
             _k2 = keys[pygame.K_2] or keys[pygame.K_KP2]
             _k3 = keys[pygame.K_3] or keys[pygame.K_KP3]
+            _k4 = keys[pygame.K_4] or keys[pygame.K_KP4]
             if _k1 and not getattr(main, '_arena_key1_pressed', False):
-                arena_speed_multiplier = 1.3
+                arena_speed_multiplier = 1
             elif _k2 and not getattr(main, '_arena_key2_pressed', False):
-                arena_speed_multiplier = 2
+                arena_speed_multiplier = 1.5
             elif _k3 and not getattr(main, '_arena_key3_pressed', False):
+                arena_speed_multiplier = 2
+            elif _k4 and not getattr(main, '_arena_key4_pressed', False):
                 arena_speed_multiplier = 3
             main._arena_key1_pressed = _k1
             main._arena_key2_pressed = _k2
             main._arena_key3_pressed = _k3
+            main._arena_key4_pressed = _k4
             # 마우스 클릭으로 배속 버튼 변경 (REAL_SCREEN 좌표 사용)
             _mb = pygame.mouse.get_pressed()
             if _mb[0] and not getattr(main, '_arena_mouse_pressed', False):

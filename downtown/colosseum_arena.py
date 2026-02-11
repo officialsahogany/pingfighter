@@ -3414,7 +3414,7 @@ class ColosseumsArena:
         self.score_bottom = 0
 
         # 배속 시스템
-        self.speed_multiplier = 1.3  # 1.3x, 2x, 3x
+        self.speed_multiplier = 1  # 1.3x, 2x, 3x
         self.speed_btn_rects = {}  # {multiplier: pygame.Rect}
 
         # UI 상태
@@ -3969,7 +3969,7 @@ class ColosseumsArena:
         self.score_bottom = 0
 
         # 배속 리셋 (매 경기 1.3x로 초기화)
-        self.speed_multiplier = 1.3
+        self.speed_multiplier = 1
 
         # === 호위무사 초기화 (초반 셋업 완료 시 8강부터, 아니면 4강/결승만) ===
         if self.initial_setup_done or self.current_round in (TournamentRound.SEMI_FINAL, TournamentRound.FINAL):
@@ -4878,13 +4878,15 @@ class ColosseumsArena:
                 self.exit_requested = True
                 return True
 
-            # 배틀 중 배속 변경 (1.3x / 2x / 3x)
+            # 배틀 중 배속 변경 (1x / 1.5x / 2x / 3x)
             if self.state == TournamentState.BATTLE:
                 if event.key == pygame.K_1:
-                    self.speed_multiplier = 1.3
+                    self.speed_multiplier = 1
                 elif event.key == pygame.K_2:
-                    self.speed_multiplier = 2
+                    self.speed_multiplier = 1.5
                 elif event.key == pygame.K_3:
+                    self.speed_multiplier = 2
+                elif event.key == pygame.K_4:
                     self.speed_multiplier = 3
 
             # 호위무사 선택 키보드 처리
@@ -6217,7 +6219,7 @@ class ColosseumsArena:
         start_y = 18
 
         self.speed_btn_rects = {}
-        for i, mult in enumerate([1.3, 2, 3]):
+        for i, mult in enumerate([1, 1.5, 2, 3]):
             x = start_x + i * (btn_w + gap)
             rect = pygame.Rect(x, start_y, btn_w, btn_h)
             self.speed_btn_rects[mult] = rect
