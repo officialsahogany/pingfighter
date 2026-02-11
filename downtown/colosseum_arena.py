@@ -3636,7 +3636,9 @@ class ColosseumsArena:
                     winner_id = match.winner["id"]
                     if winner_id not in self.guard_warrior_map:
                         self.guard_warrior_map[winner_id] = []
-                    self.guard_warrior_map[winner_id].append(loser)
+                    # 이미 생포 알림에서 추가된 경우 중복 방지
+                    if loser not in self.guard_warrior_map[winner_id]:
+                        self.guard_warrior_map[winner_id].append(loser)
                     print(f"[Guard] 호위무사 할당: {loser['name']} → {match.winner['name']}의 호위무사")
 
             # 포지션 유지: top 영웅이 hero1, bottom 영웅이 hero2
@@ -3660,7 +3662,9 @@ class ColosseumsArena:
                     winner_id = match.winner["id"]
                     if winner_id not in self.guard_warrior_map:
                         self.guard_warrior_map[winner_id] = []
-                    self.guard_warrior_map[winner_id].append(loser)
+                    # 이미 생포 알림에서 추가된 경우 중복 방지
+                    if loser not in self.guard_warrior_map[winner_id]:
+                        self.guard_warrior_map[winner_id].append(loser)
                     print(f"[Guard] 호위무사 추가 할당: {loser['name']} → {match.winner['name']}의 호위무사 (총 {len(self.guard_warrior_map[winner_id])}명)")
 
             self.matches[TournamentRound.FINAL] = [
@@ -4773,9 +4777,14 @@ class ColosseumsArena:
                         self.guard_notify_owner = self.bet_hero
                         self.guard_notify_timer = 0.0
                         self.guard_notify_progress = 0.0
-                        # 호위무사 수: 기존 + 이번에 생포한 1명
-                        current_guards = len(self.guard_warrior_map.get(self.bet_hero["id"], []))
-                        self.guard_notify_total = current_guards + 1
+                        # 생포한 호위무사를 즉시 guard_warrior_map에 추가
+                        # (호위무사 선택 화면에서 참조하기 위함)
+                        bet_id = self.bet_hero["id"]
+                        if bet_id not in self.guard_warrior_map:
+                            self.guard_warrior_map[bet_id] = []
+                        if bet_hero_loser not in self.guard_warrior_map[bet_id]:
+                            self.guard_warrior_map[bet_id].append(bet_hero_loser)
+                        self.guard_notify_total = len(self.guard_warrior_map[bet_id])
                         self.state = TournamentState.GUARD_NOTIFY
                     else:
                         # 호위무사 없으면 퍽 선택으로
