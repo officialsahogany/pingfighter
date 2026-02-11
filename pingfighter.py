@@ -88242,9 +88242,9 @@ def draw_objects():
                 # 🔮 난쟁이마술 패들 축소 체크
                 if arena_skill_manager.game_state.get('top_paddle_shrink', False):
                     _top_shrink_scale = arena_skill_manager.game_state.get('top_paddle_shrink_scale', 0.5)
-            # 투기장 패들 크기: 기본 크기(130x40) 기준으로 계산 (BOSS.width는 변경될 수 있음)
-            _arena_base_paddle_width_top = 130
-            _arena_base_paddle_height_top = 40
+            # 투기장 영웅 이미지 크기: 기본 130x40 * 1.3 = 169x52 (히트박스 별도)
+            _arena_base_paddle_width_top = 169
+            _arena_base_paddle_height_top = 52
             _top_draw_width = int(_arena_base_paddle_width_top * _top_size_boost * _top_shrink_scale * arena_perk_paddle_enlarge_top)
             _top_draw_height = int(_arena_base_paddle_height_top * _top_size_boost * _top_shrink_scale * arena_perk_paddle_enlarge_top)
             # 상단 영웅 패들 그리기 (보스 위치 + 떨림 오프셋 + 뿔박치기 오프셋)
@@ -89821,9 +89821,9 @@ def draw_objects():
                 # 🔮 난쟁이마술 패들 축소 체크
                 if arena_skill_manager.game_state.get('bottom_paddle_shrink', False):
                     _bottom_shrink_scale = arena_skill_manager.game_state.get('bottom_paddle_shrink_scale', 0.5)
-            # 투기장 패들 크기: 기본 크기(130x40) 기준으로 계산 (PLAYER.width는 변경될 수 있음)
-            _arena_base_paddle_width = 130
-            _arena_base_paddle_height = 40
+            # 투기장 영웅 이미지 크기: 기본 130x40 * 1.3 = 169x52 (히트박스 별도)
+            _arena_base_paddle_width = 169
+            _arena_base_paddle_height = 52
             _bottom_draw_width = int(_arena_base_paddle_width * _bottom_size_boost * _bottom_shrink_scale * arena_perk_paddle_enlarge_bottom)
             _bottom_draw_height = int(_arena_base_paddle_height * _bottom_size_boost * _bottom_shrink_scale * arena_perk_paddle_enlarge_bottom)
             # 하단 영웅 패들 그리기 (PLAYER 고정 좌표 + 떨림 오프셋 + 뿔박치기 오프셋)
