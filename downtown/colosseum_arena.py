@@ -648,7 +648,7 @@ ARENA_PERK_POOL = [
     {
         "id": "patrol",
         "name": "순찰명령",
-        "description": "호위무사가 진영을 순찰",
+        "description": "호위무사가 진영을 순찰하며\n다른 스킬이 해금됩니다",
         "icon_color": (200, 150, 80),    # 갈색 (순찰)
         "effect_type": "guard_patrol",
         "value": 1,
@@ -1638,44 +1638,56 @@ class GuardWarriorSystem:
         guard_names_bottom = [g["name"] for g in self.guard_warriors_bottom]
         print(f"[Guard] 호위무사 설정 완료 | 상단: {guard_names_top} | 하단: {guard_names_bottom}")
 
+    # 순찰명령 첫 등장 딜레이 (공 생성 애니메이션 후 2초)
+    PATROL_ENTRY_DELAY = 2.0
+
     def activate_patrol_immediate(self):
-        """순찰명령 퍽 활성화 시 즉시 순찰 시작 (첫 쿨타임 대기 없이)"""
-        patrol_x = GAME_AREA_X + GAME_AREA_WIDTH // 2
+        """순찰명령 퍽 활성화 시 짧은 딜레이 후 입장 애니메이션으로 등장
+        - 공 생성 애니메이션 후 2초 뒤 좌/우에서 걸어 들어옴
+        - 입장 완료 후 바로 순찰 모드 진입 (시전 단계 없이)
+        - 호위무사의 두 번째 스킬도 해금 (2개 모두 사용 가능)
+        """
+        # 순찰명령 퍽 보너스: 스킬 2개 모두 해금
+        self._unlock_patrol_skills()
         if self.patrol_mode_top and self.guard_warriors_top:
             idx = self.next_guard_top_idx % len(self.guard_warriors_top)
             guard = self.guard_warriors_top[idx]
             self.active_top = guard
-            self.phase_top = "patrolling"
+            # "patrol_entering" 단계: 딜레이 대기 → 입장 애니메이션 → 순찰
+            self.phase_top = "patrol_entering"
             self.anim_timer_top = 0.0
-            self.x_top = patrol_x
+            self.side_top = random.choice(["left", "right"])
+            start_x = (GAME_AREA_X - 60) if self.side_top == "left" else (GAME_AREA_X + GAME_AREA_WIDTH + 60)
+            self.x_top = start_x
             self.y_top = TOP_PADDLE_Y
             # 첫 스킬 쿨타임 설정
             cd_mult = self.guard_cd_mult_top
             base_cd = self._get_guard_cooldown(guard["id"])
-            self.cooldown_top = base_cd * cd_mult
+            self.cooldown_top = base_cd * cd_mult + self.PATROL_ENTRY_DELAY + GUARD_ENTER_DURATION
             self.cooldown_max_top = self.cooldown_top
             # 다음 호위무사 인덱스 갱신
             if len(self.guard_warriors_top) > 1:
                 self.next_guard_top_idx = random.randint(0, len(self.guard_warriors_top) - 1)
-            print(f"[Guard] 상단측 호위무사 {guard['name']} 즉시 순찰 시작!")
+            print(f"[Guard] 상단측 호위무사 {guard['name']} 순찰 등장 예약! ({self.PATROL_ENTRY_DELAY}초 후 입장)")
 
         if self.patrol_mode_bottom and self.guard_warriors_bottom:
             idx = self.next_guard_bottom_idx % len(self.guard_warriors_bottom)
             guard = self.guard_warriors_bottom[idx]
             self.active_bottom = guard
-            self.phase_bottom = "patrolling"
+            self.phase_bottom = "patrol_entering"
             self.anim_timer_bottom = 0.0
-            self.x_bottom = patrol_x
+            self.side_bottom = random.choice(["left", "right"])
+            start_x = (GAME_AREA_X - 60) if self.side_bottom == "left" else (GAME_AREA_X + GAME_AREA_WIDTH + 60)
+            self.x_bottom = start_x
             self.y_bottom = BOTTOM_PADDLE_Y
             # 첫 스킬 쿨타임 설정
             cd_mult = self.guard_cd_mult_bottom
             base_cd = self._get_guard_cooldown(guard["id"])
-            self.cooldown_bottom = base_cd * cd_mult
+            self.cooldown_bottom = base_cd * cd_mult + self.PATROL_ENTRY_DELAY + GUARD_ENTER_DURATION
             self.cooldown_max_bottom = self.cooldown_bottom
-            # 다음 호위무사 인덱스 갱신
             if len(self.guard_warriors_bottom) > 1:
                 self.next_guard_bottom_idx = random.randint(0, len(self.guard_warriors_bottom) - 1)
-            print(f"[Guard] 하단측 호위무사 {guard['name']} 즉시 순찰 시작!")
+            print(f"[Guard] 하단측 호위무사 {guard['name']} 순찰 등장 예약! ({self.PATROL_ENTRY_DELAY}초 후 입장)")
 
     def _init_guard_skills(self):
         """호위무사 전용 스킬 인스턴스 생성 (메인 스킬과 독립, 스킬 선택 반영)"""
@@ -1703,6 +1715,36 @@ class GuardWarriorSystem:
                 except Exception as e:
                     print(f"[Guard] 스킬 인스턴스 생성 실패 ({hero_id}): {e}")
                     self.skill_instances[hero_id] = []
+
+    def _unlock_patrol_skills(self):
+        """순찰명령 퍽: 해당 측 호위무사의 두 번째 스킬도 해금 (2개 모두 사용 가능)"""
+        from downtown.hero_skills import HERO_SKILL_CLASSES
+        game_state = self.skill_manager.game_state if self.skill_manager else {}
+
+        # 순찰 모드인 측의 호위무사만 스킬 해금
+        patrol_guards = []
+        if self.patrol_mode_top:
+            patrol_guards.extend(self.guard_warriors_top)
+        if self.patrol_mode_bottom:
+            patrol_guards.extend(self.guard_warriors_bottom)
+
+        for guard_hero in patrol_guards:
+            hero_id = guard_hero["id"]
+            current_skills = self.skill_instances.get(hero_id, [])
+            skill_classes = HERO_SKILL_CLASSES.get(hero_id, [])
+            # 이미 2개 이상이면 스킵
+            if len(current_skills) >= len(skill_classes):
+                continue
+            # 현재 가진 스킬의 클래스 확인
+            current_cls_names = {type(s).__name__ for s in current_skills}
+            for cls in skill_classes:
+                if cls.__name__ not in current_cls_names:
+                    new_skill = cls()
+                    new_skill.game_state = game_state
+                    current_skills.append(new_skill)
+                    print(f"[Guard] 순찰명령 퍽: {guard_hero['name']}({hero_id}) "
+                          f"스킬 해금 → {new_skill.korean_name}")
+            self.skill_instances[hero_id] = current_skills
 
     def _get_guard_cooldown(self, guard_id):
         """호위무사의 쿨타임 계산: 배정된 스킬 쿨타임 * 1.2 (20% 페널티)"""
@@ -1791,6 +1833,58 @@ class GuardWarriorSystem:
 
         # 현재 애니메이션 진행 중이면 애니메이션 처리
         phase = self.phase_top if is_top else self.phase_bottom
+
+        # 순찰 첫 등장: 딜레이 대기 → 입장 → 순찰
+        if phase == "patrol_entering":
+            if is_top:
+                self.anim_timer_top += dt
+                timer = self.anim_timer_top
+                self.cooldown_top -= dt
+            else:
+                self.anim_timer_bottom += dt
+                timer = self.anim_timer_bottom
+                self.cooldown_bottom -= dt
+
+            if timer < self.PATROL_ENTRY_DELAY:
+                # 아직 딜레이 대기 중 (화면에 안 보임)
+                return
+
+            # 딜레이 끝 → 입장 애니메이션 진행
+            enter_timer = timer - self.PATROL_ENTRY_DELAY
+            progress = min(1.0, enter_timer / GUARD_ENTER_DURATION)
+            eased = self._ease_in_out(progress)
+
+            side = self.side_top if is_top else self.side_bottom
+            if side == "left":
+                start_x = GAME_AREA_X - 60
+                target_x = GAME_AREA_X + GAME_AREA_WIDTH // 2
+            else:
+                start_x = GAME_AREA_X + GAME_AREA_WIDTH + 60
+                target_x = GAME_AREA_X + GAME_AREA_WIDTH // 2
+            current_x = start_x + (target_x - start_x) * eased
+
+            if is_top:
+                self.x_top = current_x
+            else:
+                self.x_bottom = current_x
+
+            # 이동 애니메이션 갱신 (걷기 모션)
+            guard = self.active_top if is_top else self.active_bottom
+            if guard and self.hero_paddle_renderer:
+                gx = self.x_top if is_top else self.x_bottom
+                self.hero_paddle_renderer.update_movement(guard["id"], gx, dt)
+
+            if progress >= 1.0:
+                # 입장 완료 → 바로 순찰 시작
+                if is_top:
+                    self.phase_top = "patrolling"
+                    self.anim_timer_top = 0.0
+                else:
+                    self.phase_bottom = "patrolling"
+                    self.anim_timer_bottom = 0.0
+                if guard:
+                    print(f"[Guard] {'상단' if is_top else '하단'}측 호위무사 {guard['name']} 순찰 시작!")
+            return
 
         # 순찰 모드: 진영 내 이동 + 쿨타임 동시 진행
         if phase == "patrolling":
@@ -2599,17 +2693,19 @@ class GuardWarriorSystem:
                     except Exception:
                         pass
 
-        # 상단측 호위무사 캐릭터
+        # 상단측 호위무사 캐릭터 (patrol_entering 딜레이 중에는 미표시)
         if self.active_top and self.phase_top:
-            self._draw_guard(screen, self.active_top,
-                             self.x_top + shake_x, self.y_top + shake_y,
-                             is_top=True)
+            if self.phase_top != "patrol_entering" or self.anim_timer_top >= self.PATROL_ENTRY_DELAY:
+                self._draw_guard(screen, self.active_top,
+                                 self.x_top + shake_x, self.y_top + shake_y,
+                                 is_top=True)
 
-        # 하단측 호위무사 캐릭터
+        # 하단측 호위무사 캐릭터 (patrol_entering 딜레이 중에는 미표시)
         if self.active_bottom and self.phase_bottom:
-            self._draw_guard(screen, self.active_bottom,
-                             self.x_bottom + shake_x, self.y_bottom + shake_y,
-                             is_top=False)
+            if self.phase_bottom != "patrol_entering" or self.anim_timer_bottom >= self.PATROL_ENTRY_DELAY:
+                self._draw_guard(screen, self.active_bottom,
+                                 self.x_bottom + shake_x, self.y_bottom + shake_y,
+                                 is_top=False)
 
         # 호위무사 말풍선 그리기
         self._draw_guard_bubbles(screen, shake_x, shake_y)
@@ -2880,17 +2976,27 @@ class GuardWarriorSystem:
                     char_surf_w, char_surf_h, facing="down"
                 )
 
-                # 쿨타임 어둡게 오버레이 (대기 중 또는 순찰 중)
-                if self.phase_top in (None, "patrolling") and self.cooldown_top > 0:
+                # 쿨타임 어둡게 오버레이 (대기 중, 순찰 중, 순찰 입장 중)
+                _cd_phases_top = (None, "patrolling", "patrol_entering")
+                if self.phase_top in _cd_phases_top and self.cooldown_top > 0:
                     cd_ratio = min(1.0, self.cooldown_top / self.cooldown_max_top) if self.cooldown_max_top > 0 else 0
                     overlay_h = int(frame_h * cd_ratio)
                     if overlay_h > 0:
                         cd_surf = _get_arena_surface(frame_w, overlay_h)
                         cd_surf.fill((0, 0, 0, 150))
                         screen.blit(cd_surf, (frame_x_right, slot_cy))
+                    # 쿨타임 숫자 표시
+                    try:
+                        cd_num_font = self._get_guard_korean_font(16)
+                        cd_seconds = max(0, int(self.cooldown_top) + 1)
+                        cd_num_surf = cd_num_font.render(str(cd_seconds), True, (255, 255, 255))
+                        cd_num_rect = cd_num_surf.get_rect(center=(frame_x_right + frame_w // 2, slot_cy + frame_h // 2))
+                        screen.blit(cd_num_surf, cd_num_rect)
+                    except Exception:
+                        pass
 
                 # 다음 등장 화살표 표시 (2명 이상일 때, 쿨타임 중)
-                if (len(self.guard_warriors_top) >= 2 and self.phase_top in (None, "patrolling")
+                if (len(self.guard_warriors_top) >= 2 and self.phase_top in _cd_phases_top
                         and i == self.next_guard_top_idx % len(self.guard_warriors_top)):
                     ax = frame_x_right - 12
                     ay = slot_cy + frame_h // 2
@@ -2956,17 +3062,27 @@ class GuardWarriorSystem:
                     char_surf_w, char_surf_h, facing="down"
                 )
 
-                # 쿨타임 어둡게 오버레이 (대기 중 또는 순찰 중)
-                if self.phase_bottom in (None, "patrolling") and self.cooldown_bottom > 0:
+                # 쿨타임 어둡게 오버레이 (대기 중, 순찰 중, 순찰 입장 중)
+                _cd_phases_bottom = (None, "patrolling", "patrol_entering")
+                if self.phase_bottom in _cd_phases_bottom and self.cooldown_bottom > 0:
                     cd_ratio = min(1.0, self.cooldown_bottom / self.cooldown_max_bottom) if self.cooldown_max_bottom > 0 else 0
                     overlay_h = int(frame_h * cd_ratio)
                     if overlay_h > 0:
                         cd_surf = _get_arena_surface(frame_w, overlay_h)
                         cd_surf.fill((0, 0, 0, 150))
                         screen.blit(cd_surf, (frame_x_left, slot_cy))
+                    # 쿨타임 숫자 표시
+                    try:
+                        cd_num_font = self._get_guard_korean_font(16)
+                        cd_seconds = max(0, int(self.cooldown_bottom) + 1)
+                        cd_num_surf = cd_num_font.render(str(cd_seconds), True, (255, 255, 255))
+                        cd_num_rect = cd_num_surf.get_rect(center=(frame_x_left + frame_w // 2, slot_cy + frame_h // 2))
+                        screen.blit(cd_num_surf, cd_num_rect)
+                    except Exception:
+                        pass
 
                 # 다음 등장 화살표 표시 (2명 이상일 때, 쿨타임 중)
-                if (len(self.guard_warriors_bottom) >= 2 and self.phase_bottom in (None, "patrolling")
+                if (len(self.guard_warriors_bottom) >= 2 and self.phase_bottom in _cd_phases_bottom
                         and i == self.next_guard_bottom_idx % len(self.guard_warriors_bottom)):
                     ax = frame_x_left + frame_w + 2
                     ay = slot_cy + frame_h // 2
