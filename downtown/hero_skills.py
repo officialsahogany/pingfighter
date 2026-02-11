@@ -1208,7 +1208,7 @@ class AbyssInk(HeroSkill):
             korean_name="심해의 먹물",
             description="심해의 먹물을 발사하여 상대의 시야를 방해하고 혼란을 준다",
             trigger=SkillTrigger.ON_BALL_HIT,
-            cooldown=22.0,
+            cooldown=15.0,
             duration=3.5,
             hero_id="kraken"
         )
@@ -2209,7 +2209,7 @@ class DwarfMagic(HeroSkill):
             korean_name="난쟁이마술",
             description="보라색 빛가루를 발사해 상대 패들을 축소시킨다",
             trigger=SkillTrigger.ON_BALL_HIT,
-            cooldown=15.0,
+            cooldown=12.0,
             duration=4.0,  # 4초 지속
             hero_id="chronos"
         )
@@ -2490,7 +2490,7 @@ class HellFire(HeroSkill):
             korean_name="도깨비불",
             description="공이 도깨비불로 변해 예측 불가능하게 움직인다",
             trigger=SkillTrigger.ON_BALL_HIT,
-            cooldown=22.0,
+            cooldown=17.0,
             duration=4.0,  # 정지 1초 + 도깨비불 3초
             hero_id="onimaru"
         )
@@ -2905,7 +2905,7 @@ class HornCharge(HeroSkill):
             korean_name="뿔 박치기",
             description="빠르게 돌진하여 상대를 밀어내고 스턴시킨다",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=30.0,
+            cooldown=25.0,
             duration=3.0,  # 돌진 0.3초 + 충돌 0.2초 + 복귀 0.5초 + 양측 스턴 1초
             hero_id="onimaru"
         )
@@ -3256,7 +3256,7 @@ class PuppetControl(HeroSkill):
             korean_name="꼭두각시 조종",
             description="실로 상대를 끌어와 뽀뽀한 후 돌려보낸다",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=32.0,
+            cooldown=35.0,
             duration=3.62,  # 총 3.62초: 뻗기 0.7초 + 끌기 1.083초 + 뽀뽀 1초 + 복귀 0.833초 (이동 20% 빠르게)
             hero_id="maria"
         )
@@ -3605,7 +3605,7 @@ class DollCurse(HeroSkill):
             korean_name="인형의 저주",
             description="저주받은 인형으로 상대의 조작을 반전시키고, 수호 인형이 공을 막는다",
             trigger=SkillTrigger.ON_BALL_HIT,
-            cooldown=20.0,
+            cooldown=18.0,
             duration=4.0,
             hero_id="maria"
         )
@@ -4713,7 +4713,7 @@ class DragonBreath(HeroSkill):
             korean_name="드래곤 브레스",
             description="용의 화염을 뿜어 공을 타격하고 가속시킨다",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=23.0,
+            cooldown=15.0,
             duration=3.5,  # 파티클 페이드아웃 시간 포함 (발사 1.2초 + 페이드 2.3초)
             hero_id="ignis"
         )
@@ -5061,7 +5061,7 @@ class DragonWing(HeroSkill):
             korean_name="용의 날개",
             description="용의 날갯짓으로 바람을 일으켜 공의 궤적을 바꾼다",
             trigger=SkillTrigger.ON_BALL_HIT,
-            cooldown=20.0,
+            cooldown=15.0,
             duration=2.5,
             hero_id="ignis"
         )
@@ -5187,7 +5187,7 @@ class SteamBarrier(HeroSkill):
             korean_name="스팀 배리어",
             description="증기로 방어막을 만들어 공을 반사시킨다",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=28.0,
+            cooldown=20.0,
             duration=6.0,
             hero_id="gear"
         )
@@ -6978,7 +6978,7 @@ class IllusionShuriken(HeroSkill):
             korean_name="환영수리검",
             description="3~5개의 수리검을 순차 발사하여 상대를 넉백시킨다",
             trigger=SkillTrigger.ON_BALL_HIT,
-            cooldown=16.0,
+            cooldown=12.0,
             duration=999.0,  # 시간 제한 없음 - 수리검이 모두 사라질 때까지 유지
             hero_id="kurokage"
         )
