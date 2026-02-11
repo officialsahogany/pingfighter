@@ -114556,49 +114556,61 @@ def draw_laser_cannon_gauge():
                      [(icon_x, icon_y - 5), (icon_x + 3, icon_y), 
                       (icon_x - 2, icon_y + 2), (icon_x + 5, icon_y + 5)], 2)
 def draw_arena_speed_buttons():
-    """투기장 배속 버튼 그리기 (1.3x, 2x, 3x) - 점수판 좌측 필러 상단에 배치"""
+    """투기장 배속 버튼 그리기 (>, >>, >>>) - 좌측 필러 하단에 배치"""
     global arena_speed_multiplier, arena_speed_btn_rects
     if not arena_mode_enabled:
         return
 
-    btn_w, btn_h = 32, 22
+    btn_w, btn_h = 64, 20
     gap = 3
-    # 점수판 좌측에 배치 (점수판 x=180 왼쪽)
-    total_w = btn_w * 3 + gap * 2  # 102px
-    scoreboard_left = (WIDTH - 400) // 2  # = 180
-    start_x = scoreboard_left - total_w - 6  # 점수판 왼쪽에 여백 두고 배치
-    start_y = 16
+    # 좌측 필러 하단에 배치
+    start_x = (PILLAR_UI_WIDTH - btn_w) // 2  # 필러 중앙 정렬 (= 8)
+    total_h = btn_h * 3 + gap * 2  # 66px
+    start_y = HEIGHT - total_h - 12  # 하단 여백 12px
 
     arena_speed_btn_rects = {}
-    try:
-        font = get_font(14)
-    except Exception:
-        font = pygame.font.Font(None, 16)
 
-    for i, mult in enumerate([1.3, 2, 3]):
-        x = start_x + i * (btn_w + gap)
-        rect = pygame.Rect(x, start_y, btn_w, btn_h)
+    for i, (mult, arrow_count) in enumerate([(1.3, 1), (2, 2), (3, 3)]):
+        y = start_y + i * (btn_h + gap)
+        rect = pygame.Rect(start_x, y, btn_w, btn_h)
         arena_speed_btn_rects[mult] = rect
 
         is_active = (arena_speed_multiplier == mult)
+
         if is_active:
-            # 활성 버튼: 밝은 골드 배경
-            bg = (240, 200, 60)
-            text_color = (30, 20, 10)
-            border_color = (255, 220, 100)
+            bg = (50, 45, 30, 200)
+            arrow_color = (255, 210, 60)
+            border_color = (180, 150, 40)
         else:
-            # 비활성 버튼: 어두운 배경
-            bg = (35, 40, 55)
-            text_color = (150, 150, 160)
-            border_color = (60, 65, 80)
+            bg = (25, 28, 38, 160)
+            arrow_color = (100, 105, 115)
+            border_color = (50, 55, 65)
 
-        pygame.draw.rect(SCREEN, bg, rect, border_radius=4)
-        pygame.draw.rect(SCREEN, border_color, rect, 1, border_radius=4)
+        # 반투명 배경
+        btn_surf = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
+        btn_surf.fill((*bg[:3], bg[3] if len(bg) > 3 else 200))
+        SCREEN.blit(btn_surf, (start_x, y))
+        pygame.draw.rect(SCREEN, border_color, rect, 1, border_radius=2)
 
-        label = f"{mult}x"
-        surf = font.render(label, True, text_color)
-        SCREEN.blit(surf, (x + btn_w // 2 - surf.get_width() // 2,
-                           start_y + btn_h // 2 - surf.get_height() // 2))
+        # 화살표 삼각형 그리기 (>, >>, >>>)
+        arrow_w, arrow_h = 7, 10
+        arrow_gap = 2
+        total_arrow_w = arrow_count * arrow_w + (arrow_count - 1) * arrow_gap
+        arrow_start_x = start_x + (btn_w - total_arrow_w) // 2
+        arrow_center_y = y + btn_h // 2
+
+        for a in range(arrow_count):
+            ax = arrow_start_x + a * (arrow_w + arrow_gap)
+            # 삼각형: 왼쪽 상단 → 오른쪽 중앙 → 왼쪽 하단
+            points = [
+                (ax, arrow_center_y - arrow_h // 2),
+                (ax + arrow_w, arrow_center_y),
+                (ax, arrow_center_y + arrow_h // 2),
+            ]
+            pygame.draw.polygon(SCREEN, arrow_color, points)
+            if is_active:
+                # 활성 시 밝은 테두리 추가
+                pygame.draw.polygon(SCREEN, (255, 240, 150), points, 1)
 
 def draw_boss_health_bar():
     """ 메카닉 스타일 보스 체력바 (스무스 애니메이션)"""
