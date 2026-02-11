@@ -97125,6 +97125,8 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
                 # 순찰명령 퍽 적용
                 guard_system.patrol_mode_top = arena_perk_guard_patrol_top
                 guard_system.patrol_mode_bottom = arena_perk_guard_patrol_bottom
+                # 순찰명령 퍽이 있으면 즉시 순찰 시작 (첫 쿨타임 대기 없이)
+                guard_system.activate_patrol_immediate()
                 arena_guard_system = guard_system
                 print(f"[Guard] start_arena_battle 호위무사 설정 완료: top={len(_top_guards)}, bottom={len(_bottom_guards)}")
             else:

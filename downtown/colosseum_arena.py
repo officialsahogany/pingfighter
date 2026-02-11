@@ -1624,6 +1624,45 @@ class GuardWarriorSystem:
         guard_names_bottom = [g["name"] for g in self.guard_warriors_bottom]
         print(f"[Guard] 호위무사 설정 완료 | 상단: {guard_names_top} | 하단: {guard_names_bottom}")
 
+    def activate_patrol_immediate(self):
+        """순찰명령 퍽 활성화 시 즉시 순찰 시작 (첫 쿨타임 대기 없이)"""
+        patrol_x = GAME_AREA_X + GAME_AREA_WIDTH // 2
+        if self.patrol_mode_top and self.guard_warriors_top:
+            idx = self.next_guard_top_idx % len(self.guard_warriors_top)
+            guard = self.guard_warriors_top[idx]
+            self.active_top = guard
+            self.phase_top = "patrolling"
+            self.anim_timer_top = 0.0
+            self.x_top = patrol_x
+            self.y_top = TOP_PADDLE_Y
+            # 첫 스킬 쿨타임 설정
+            cd_mult = self.guard_cd_mult_top
+            base_cd = self._get_guard_cooldown(guard["id"])
+            self.cooldown_top = base_cd * cd_mult
+            self.cooldown_max_top = self.cooldown_top
+            # 다음 호위무사 인덱스 갱신
+            if len(self.guard_warriors_top) > 1:
+                self.next_guard_top_idx = random.randint(0, len(self.guard_warriors_top) - 1)
+            print(f"[Guard] 상단측 호위무사 {guard['name']} 즉시 순찰 시작!")
+
+        if self.patrol_mode_bottom and self.guard_warriors_bottom:
+            idx = self.next_guard_bottom_idx % len(self.guard_warriors_bottom)
+            guard = self.guard_warriors_bottom[idx]
+            self.active_bottom = guard
+            self.phase_bottom = "patrolling"
+            self.anim_timer_bottom = 0.0
+            self.x_bottom = patrol_x
+            self.y_bottom = BOTTOM_PADDLE_Y
+            # 첫 스킬 쿨타임 설정
+            cd_mult = self.guard_cd_mult_bottom
+            base_cd = self._get_guard_cooldown(guard["id"])
+            self.cooldown_bottom = base_cd * cd_mult
+            self.cooldown_max_bottom = self.cooldown_bottom
+            # 다음 호위무사 인덱스 갱신
+            if len(self.guard_warriors_bottom) > 1:
+                self.next_guard_bottom_idx = random.randint(0, len(self.guard_warriors_bottom) - 1)
+            print(f"[Guard] 하단측 호위무사 {guard['name']} 즉시 순찰 시작!")
+
     def _init_guard_skills(self):
         """호위무사 전용 스킬 인스턴스 생성 (메인 스킬과 독립, 스킬 선택 반영)"""
         self.skill_instances = {}
