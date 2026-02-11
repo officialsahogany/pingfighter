@@ -4622,14 +4622,14 @@ class ColosseumsArena:
                 self.state = TournamentState.HERO_SELECT
 
         elif self.state == TournamentState.HERO_SELECT:
-            # 영웅 선택 후 공격 퍼포먼스 애니메이션 업데이트
+            # 영웅 선택 후 공격 퍼포먼스 + 스킬 룰렛 (같은 화면)
             anim_phase = getattr(self, '_hero_select_anim_phase', None)
             if anim_phase == "attack_motion":
                 self._hero_select_anim_timer += dt
                 timer = self._hero_select_anim_timer
                 if timer >= 1.2:
-                    # 애니메이션 완료 → 스킬 연출로 전환
-                    self._hero_select_anim_phase = None
+                    # 공격 애니 완료 → 같은 화면 하단에서 스킬 룰렛 시작
+                    self._hero_select_anim_phase = "skill_rolling"
                     chosen_hero = self.player_hero
                     self.player_hero_skill_index = self.hero_selected_skills.get(
                         chosen_hero["id"], 0)
@@ -4638,7 +4638,19 @@ class ColosseumsArena:
                     self.skill_reveal_target = chosen_hero["id"]
                     self.skill_reveal_result = self.player_hero_skill_index
                     self._skill_reveal_last_tick_idx = -1
-                    self.state = TournamentState.SKILL_REVEAL
+            elif anim_phase == "skill_rolling":
+                self.skill_reveal_timer += dt
+                if self.skill_reveal_phase == "rolling" and self.skill_reveal_timer >= 3.5:
+                    self.skill_reveal_phase = "selected"
+                    self._hero_select_anim_phase = "skill_selected"
+                    self.skill_reveal_selected_timer = 0.0
+                    self._skill_reveal_particles = []
+                    _load_gacha_result_sound()
+                    if _gacha_result_sound:
+                        _gacha_result_sound.play()
+            elif anim_phase == "skill_selected":
+                self.skill_reveal_selected_timer = getattr(self, 'skill_reveal_selected_timer', 0) + dt
+                self.skill_reveal_timer += dt
 
         elif self.state == TournamentState.SKILL_REVEAL:
             # 스킬 랜덤 선택 연출 (리얼 룰렛: 빠름→느림→빠름→매우느림 3.5초 + 확정 1.5초)
@@ -5022,8 +5034,16 @@ class ColosseumsArena:
 
         elif self.state == TournamentState.HERO_SELECT:
             # ========== 영웅 선택 UI 클릭 ==========
-            # 애니메이션 중에는 클릭 무시
-            if getattr(self, '_hero_select_anim_phase', None):
+            anim_phase = getattr(self, '_hero_select_anim_phase', None)
+            # 스킬 확정 후 클릭 → 감옥 선택으로
+            if anim_phase == "skill_selected":
+                self._hero_select_anim_phase = None
+                self.skill_reveal_phase = "done"
+                self._prepare_prison_candidates()
+                self.state = TournamentState.PRISON_SELECT
+                return
+            # 다른 애니메이션 중에는 클릭 무시
+            if anim_phase:
                 return
             panel_x = 130
             card_w, card_h = 200, 320
@@ -5773,7 +5793,7 @@ class ColosseumsArena:
             self._draw_bracket()  # 대진표 + 공개 애니메이션
         elif self.state == TournamentState.HERO_SELECT:
             self._draw_hero_select()
-        elif self.state in (TournamentState.SKILL_REVEAL, TournamentState.GUARD_SKILL_REVEAL):
+        elif self.state == TournamentState.GUARD_SKILL_REVEAL:
             self._draw_skill_reveal()
         elif self.state == TournamentState.PRISON_SELECT:
             self._draw_prison_select()
@@ -6716,6 +6736,246 @@ class ColosseumsArena:
                 vs_surf, _ = self.fonts["large"].render("VS", vs_color)
                 self.screen.blit(vs_surf, (vs_x - vs_surf.get_width() // 2, vs_y - vs_surf.get_height() // 2))
 
+        # ================================================================
+        # 하단 스킬 룰렛 (영웅 선택 후 같은 화면에서 스킬 결정)
+        # ================================================================
+        if anim_phase in ("skill_rolling", "skill_selected"):
+            self._draw_inline_skill_roulette()
+
+    def _draw_inline_skill_roulette(self):
+        """영웅 선택 화면 하단에 컴팩트 스킬 룰렛 UI"""
+        target_id = self.skill_reveal_target
+        hero = self.player_hero
+        if not hero or not target_id:
+            return
+
+        timer = self.skill_reveal_timer
+        phase = self.skill_reveal_phase  # "rolling" or "selected"
+
+        from downtown.hero_skills import HERO_SKILLS
+        hero_skills = HERO_SKILLS.get(target_id, [])
+        if len(hero_skills) < 2:
+            return
+
+        # 구분선
+        line_y = 432
+        pygame.draw.line(self.screen, ET["gold_dark"], (120, line_y), (640, line_y), 1)
+
+        # 타이틀
+        if self.fonts and "medium" in self.fonts:
+            title_surf, _ = self.fonts["medium"].render("스킬 결정!", ET["gold_medium"])
+            self.screen.blit(title_surf, (SCREEN_WIDTH // 2 - title_surf.get_width() // 2, 440))
+
+        # 컴팩트 스킬 카드 레이아웃
+        sk_card_w, sk_card_h = 200, 120
+        sk_gap = 30
+        sk_total_w = sk_card_w * 2 + sk_gap
+        sk_card1_x = (SCREEN_WIDTH - sk_total_w) // 2
+        sk_card2_x = sk_card1_x + sk_card_w + sk_gap
+        sk_card_y = 475
+
+        # === 룰렛 로직: 연속 감속 ===
+        rolling_duration = 3.5
+        highlight_idx = 0
+        if phase == "rolling":
+            t_norm = min(1.0, timer / rolling_duration)
+            eased = 1.0 - (1.0 - t_norm) ** 4
+            total_ticks = eased * 24
+            current_tick = int(total_ticks)
+            if (24 % 2) != self.skill_reveal_result:
+                current_tick += 1
+            highlight_idx = current_tick % 2
+            if t_norm > 0.90:
+                highlight_idx = self.skill_reveal_result
+            # 틱 사운드
+            if current_tick != self._skill_reveal_last_tick_idx:
+                self._skill_reveal_last_tick_idx = current_tick
+                _load_hover_sound()
+                if _hover_sound:
+                    _hover_sound.play()
+
+        # 파티클
+        sel_timer = getattr(self, 'skill_reveal_selected_timer', 0)
+        particles = getattr(self, '_skill_reveal_particles', [])
+        if phase == "selected":
+            sel_cx = sk_card1_x if self.skill_reveal_result == 0 else sk_card2_x
+            for _ in range(2):
+                side = random.randint(0, 3)
+                if side == 0:
+                    px, py = random.uniform(sel_cx, sel_cx + sk_card_w), sk_card_y
+                elif side == 1:
+                    px, py = sel_cx + sk_card_w, random.uniform(sk_card_y, sk_card_y + sk_card_h)
+                elif side == 2:
+                    px, py = random.uniform(sel_cx, sel_cx + sk_card_w), sk_card_y + sk_card_h
+                else:
+                    px, py = sel_cx, random.uniform(sk_card_y, sk_card_y + sk_card_h)
+                particles.append({
+                    'x': px, 'y': py,
+                    'vx': random.uniform(-1.2, 1.2),
+                    'vy': random.uniform(-2.0, -0.3),
+                    'life': 1.0,
+                    'size': random.uniform(2, 4),
+                    'color': random.choice([
+                        (255, 215, 50), (100, 210, 200), (218, 175, 32),
+                        (64, 176, 166), (255, 230, 140)
+                    ])
+                })
+            for p in particles:
+                p['x'] += p['vx']
+                p['y'] += p['vy']
+                p['life'] -= 0.03
+                p['size'] *= 0.97
+            particles[:] = [p for p in particles if p['life'] > 0]
+            self._skill_reveal_particles = particles
+
+        # 스킬 카드 2개 렌더링
+        for si, (skill, cx) in enumerate([(hero_skills[0], sk_card1_x), (hero_skills[1], sk_card2_x)]):
+            is_selected = (si == self.skill_reveal_result)
+            is_faded = (phase == "selected" and not is_selected)
+
+            if phase == "rolling":
+                is_highlight = (si == highlight_idx)
+                if is_highlight:
+                    bg = ET["card_bg_hover"]
+                    border = ET["gold_medium"]
+                    border_w = 2
+                else:
+                    bg = ET["card_bg"]
+                    border = ET["card_border"]
+                    border_w = 1
+            elif phase == "selected":
+                if is_selected:
+                    pulse = 0.6 + 0.4 * abs(_sin(sel_timer * 4))
+                    bg = (35, int(55 + 25 * pulse), int(55 + 20 * pulse))
+                    border = (64, int(160 + 60 * pulse), int(150 + 50 * pulse))
+                    border_w = 3
+                else:
+                    bg = ET["bg_dark"]
+                    border = (50, 40, 28)
+                    border_w = 1
+            else:
+                bg = ET["card_bg"]
+                border = ET["card_border"]
+                border_w = 1
+
+            # 글로우 오라
+            if phase == "selected" and is_selected:
+                glow_pulse = 0.5 + 0.5 * abs(_sin(sel_timer * 3))
+                glow_alpha = int(35 + 25 * glow_pulse)
+                glow_expand = int(4 + 3 * glow_pulse)
+                glow_surf = _get_arena_surface(sk_card_w + glow_expand * 2, sk_card_h + glow_expand * 2)
+                glow_color = (*ET["turquoise"], glow_alpha)
+                pygame.draw.rect(glow_surf, glow_color,
+                                 (0, 0, sk_card_w + glow_expand * 2, sk_card_h + glow_expand * 2),
+                                 border_radius=10)
+                self.screen.blit(glow_surf, (cx - glow_expand, sk_card_y - glow_expand))
+
+            # 카드 배경
+            pygame.draw.rect(self.screen, bg, (cx, sk_card_y, sk_card_w, sk_card_h), border_radius=8)
+            pygame.draw.rect(self.screen, border, (cx, sk_card_y, sk_card_w, sk_card_h), border_w, border_radius=8)
+
+            # 이중 보더
+            if phase == "selected" and is_selected:
+                inner_pulse = 0.3 + 0.7 * abs(_sin(sel_timer * 5))
+                inner_color = (64, int(170 + 40 * inner_pulse), int(160 + 40 * inner_pulse))
+                pygame.draw.rect(self.screen, inner_color,
+                                 (cx + 2, sk_card_y + 2, sk_card_w - 4, sk_card_h - 4),
+                                 1, border_radius=6)
+
+            alpha_mod = 60 if is_faded else 255
+
+            # 라벨 + 아이콘 + 이름 (한 줄)
+            label = "A" if si == 0 else "B"
+            if self.fonts and "small" in self.fonts:
+                label_alpha = 80 if is_faded else 160
+                surf, _ = self.fonts["small"].render(label, (label_alpha, int(label_alpha * 0.85), 30))
+                self.screen.blit(surf, (cx + 8, sk_card_y + 8))
+
+            icon = _get_hero_skill_icon(skill.skill_id, 28)
+            icon_x = cx + 28
+            icon_y = sk_card_y + 6
+            if icon:
+                if is_faded:
+                    faded_icon = icon.copy()
+                    faded_icon.set_alpha(80)
+                    self.screen.blit(faded_icon, (icon_x, icon_y))
+                else:
+                    self.screen.blit(icon, (icon_x, icon_y))
+
+            if self.fonts and "small" in self.fonts:
+                name_color = (alpha_mod, alpha_mod, alpha_mod)
+                surf, _ = self.fonts["small"].render(skill.korean_name, name_color)
+                self.screen.blit(surf, (icon_x + 34, sk_card_y + 12))
+
+            # 발동 조건 + 쿨타임
+            if self.fonts and "small" in self.fonts:
+                trigger_text = ""
+                trigger_color = (100, 100, 100)
+                trigger_val = getattr(skill, 'trigger', None)
+                if trigger_val:
+                    from downtown.hero_skills import SkillTrigger
+                    if trigger_val == SkillTrigger.ON_BALL_HIT:
+                        trigger_text = "타격 발동"
+                        trigger_color = ET["lapis_light"] if not is_faded else (40, 70, 100)
+                    elif trigger_val == SkillTrigger.ON_COOLDOWN:
+                        trigger_text = "자동 발동"
+                        trigger_color = ET["gold_pale"] if not is_faded else (128, 115, 70)
+                    else:
+                        trigger_text = "패시브"
+                        trigger_color = ET["malachite_light"] if not is_faded else (40, 100, 55)
+                if trigger_text:
+                    cd_text = f"{trigger_text} | 쿨타임 {int(skill.cooldown)}초"
+                    surf, _ = self.fonts["small"].render(cd_text, trigger_color)
+                    self.screen.blit(surf, (cx + sk_card_w // 2 - surf.get_width() // 2, sk_card_y + 42))
+
+            # 스킬 설명 (1줄)
+            if self.fonts and "small" in self.fonts:
+                desc = getattr(skill, 'description', '')
+                desc_color = (min(180, alpha_mod), min(180, alpha_mod), min(180, alpha_mod))
+                max_chars = 16
+                if len(desc) > max_chars:
+                    desc = desc[:max_chars] + ".."
+                surf, _ = self.fonts["small"].render(desc, desc_color)
+                self.screen.blit(surf, (cx + sk_card_w // 2 - surf.get_width() // 2, sk_card_y + 64))
+
+            # SELECTED 마크
+            if phase == "selected" and is_selected:
+                mark_alpha = min(1.0, sel_timer * 2.0)
+                if self.fonts and "medium" in self.fonts:
+                    glow_text_pulse = 0.7 + 0.3 * abs(_sin(sel_timer * 3))
+                    r = int(100 + 155 * glow_text_pulse * mark_alpha)
+                    g = int(200 + 40 * glow_text_pulse * mark_alpha)
+                    b = int(80 + 120 * glow_text_pulse * mark_alpha)
+                    surf, _ = self.fonts["medium"].render("SELECTED", (r, g, b))
+                    alpha_s = _get_arena_surface(*surf.get_size())
+                    alpha_s.fill((255, 255, 255, int(255 * mark_alpha)))
+                    surf.blit(alpha_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                    self.screen.blit(surf, (cx + sk_card_w // 2 - surf.get_width() // 2, sk_card_y + 88))
+
+        # 파티클 렌더링
+        if phase == "selected" and particles:
+            for p in particles:
+                a = max(0, min(255, int(255 * p['life'])))
+                sz = max(1, int(p['size']))
+                ps = _get_arena_surface(sz * 2, sz * 2)
+                pc = (*p['color'][:3], a)
+                pygame.draw.circle(ps, pc, (sz, sz), sz)
+                self.screen.blit(ps, (int(p['x']) - sz, int(p['y']) - sz))
+
+        # 하단 안내
+        hint_y = 610
+        if phase == "rolling":
+            if self.fonts and "small" in self.fonts:
+                dot_count = int(timer * 3) % 4
+                dots = "." * dot_count
+                surf, _ = self.fonts["small"].render(f"스킬 결정 중{dots}", ET["text_hint"])
+                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, hint_y))
+        elif phase == "selected":
+            if self.fonts and "small" in self.fonts:
+                hint_alpha = min(200, int(sel_timer * 200))
+                surf, _ = self.fonts["small"].render("클릭하여 계속", (hint_alpha, hint_alpha, hint_alpha + 20))
+                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, hint_y))
+
     def _draw_skill_reveal(self):
         """스킬 랜덤 선택 연출 UI (감속 롤링 + 선택 이펙트)"""
         self.screen.fill(ET["bg_dark"])
@@ -6754,42 +7014,22 @@ class ColosseumsArena:
         card2_x = SCREEN_WIDTH // 2 + gap // 2
         card_y = 140
 
-        # === 리얼 룰렛: 빠름→느림→빠름→매우느림 ===
+        # === 리얼 룰렛: 빠름 → 연속 감속 → 매우 느림 ===
         rolling_duration = 3.5
         highlight_idx = 0
         if phase == "rolling":
             t_norm = min(1.0, timer / rolling_duration)
-            # 4단계 속도 변화로 리얼한 룰렛 연출
-            # Phase 1 (0~28%): 빠른 시작
-            # Phase 2 (28~50%): 점점 느려짐 (멈출 것 같은 느낌)
-            # Phase 3 (50~68%): 갑자기 빨라짐! (페이크아웃)
-            # Phase 4 (68~100%): 매우 느리게 최종 선택
-            if t_norm < 0.28:
-                local_t = t_norm / 0.28
-                ticks = local_t * 9
-            elif t_norm < 0.50:
-                local_t = (t_norm - 0.28) / 0.22
-                eased = 1.0 - (1.0 - local_t) ** 2.5
-                ticks = 9 + eased * 4
-            elif t_norm < 0.68:
-                local_t = (t_norm - 0.50) / 0.18
-                ticks = 13 + local_t * 7
-            else:
-                local_t = (t_norm - 0.68) / 0.32
-                eased = 1.0 - (1.0 - local_t) ** 4
-                ticks = 20 + eased * 5
-
-            current_tick = int(ticks)
+            # ease-out quartic: 처음 빠르게 → 계속 감속 → 마지막에 매우 느림
+            eased = 1.0 - (1.0 - t_norm) ** 4
+            total_ticks = eased * 24
+            current_tick = int(total_ticks)
             # 마지막 틱이 결과와 일치하도록 오프셋 보정
-            final_tick = 24  # 최대 틱 수
-            if (final_tick % 2) != self.skill_reveal_result:
-                current_tick += 1  # 1틱 오프셋으로 결과 정렬
+            if (24 % 2) != self.skill_reveal_result:
+                current_tick += 1
             highlight_idx = current_tick % 2
-
             # 마지막 10%: 선택될 카드에 고정
             if t_norm > 0.90:
                 highlight_idx = self.skill_reveal_result
-
             # 틱 변경 시 호버 사운드 재생
             if current_tick != self._skill_reveal_last_tick_idx:
                 self._skill_reveal_last_tick_idx = current_tick
