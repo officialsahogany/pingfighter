@@ -4760,7 +4760,7 @@ class ColosseumsArena:
             gap = 15
             total_w = cell_w * 3 + gap * 2
             start_x = (SCREEN_WIDTH - total_w) // 2
-            cell_y = 82
+            cell_y = 130
 
             for i, prison_hero in enumerate(self.prison_heroes):
                 cx = start_x + i * (cell_w + gap)
@@ -4927,7 +4927,7 @@ class ColosseumsArena:
                 gap = 15
                 total_w = cell_w * 3 + gap * 2
                 start_x = (SCREEN_WIDTH - total_w) // 2
-                cell_y = 82
+                cell_y = 130
                 old_prison_hover = self.hover_prison_index
                 self.hover_prison_index = -1
                 for i in range(len(self.prison_heroes)):
@@ -6652,12 +6652,12 @@ class ColosseumsArena:
         opening_timer = getattr(self, '_prison_opening_timer', 0)
 
         # 타이틀
-        self._draw_egyptian_title("호위무사를 등용하세요", 25)
+        self._draw_egyptian_title("호위무사를 등용하세요", 35)
 
         if self.fonts and "small" in self.fonts:
             surf, _ = self.fonts["small"].render(
                 "감옥에 갇힌 영웅 중 1명을 호위무사로 선택합니다", ET["text_subtitle"])
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 58))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 72))
 
         # ── 카드 레이아웃 (새 규격) ──
         cell_w = 190
@@ -6665,7 +6665,7 @@ class ColosseumsArena:
         gap = 15
         total_w = cell_w * 3 + gap * 2
         start_x = (SCREEN_WIDTH - total_w) // 2
-        cell_y = 82
+        cell_y = 130
 
         from downtown.hero_skills import HERO_SKILLS
 
@@ -6806,67 +6806,68 @@ class ColosseumsArena:
 
             # ── 호버 시: 이름 탭 + 스킬 탭 (감옥 셀 아래에 표시) ──
             if is_hovered:
-                tab_y = cell_y + cell_h + 5
+                tab_w = 240       # 셀보다 넓은 탭
+                tab_x = cx + (cell_w - tab_w) // 2  # 셀 중앙 기준 정렬
+                tab_y = cell_y + cell_h + 10
 
-                # ── 이름 탭 ──
-                name_tab_h = 52
-                # 배경
-                name_bg_s = pygame.Surface((cell_w, name_tab_h), pygame.SRCALPHA)
-                pygame.draw.rect(name_bg_s, (*ET["card_bg_hover"], 230),
-                                 (0, 0, cell_w, name_tab_h), border_radius=6)
-                self.screen.blit(name_bg_s, (cx, tab_y))
+                # ── 이름 탭 (대형) ──
+                name_tab_h = 78
+                name_bg_s = pygame.Surface((tab_w, name_tab_h), pygame.SRCALPHA)
+                pygame.draw.rect(name_bg_s, (*ET["card_bg_hover"], 240),
+                                 (0, 0, tab_w, name_tab_h), border_radius=8)
+                self.screen.blit(name_bg_s, (tab_x, tab_y))
                 pygame.draw.rect(self.screen, ET["gold_medium"],
-                                 (cx, tab_y, cell_w, name_tab_h), 2, border_radius=6)
+                                 (tab_x, tab_y, tab_w, name_tab_h), 2, border_radius=8)
 
                 # 색상 바 (이름 탭 상단)
-                color_bar = pygame.Surface((cell_w - 16, 3), pygame.SRCALPHA)
-                color_bar.fill((*hero["color"], 180))
-                self.screen.blit(color_bar, (cx + 8, tab_y + 4))
+                color_bar = pygame.Surface((tab_w - 20, 3), pygame.SRCALPHA)
+                color_bar.fill((*hero["color"], 200))
+                self.screen.blit(color_bar, (tab_x + 10, tab_y + 5))
 
-                # 영웅 이름 (큰 텍스트)
+                # 영웅 이름 (대형 텍스트 - size 38)
                 if self.fonts and "large" in self.fonts:
                     h_color = hero["color"]
                     brightness = sum(h_color) / 3
                     name_color = h_color if brightness > 80 else tuple(
                         min(255, c + 100) for c in h_color)
-                    surf, _ = self.fonts["large"].render(hero["name"], name_color)
-                    self.screen.blit(surf, (cx + cell_w // 2 - surf.get_width() // 2, tab_y + 10))
+                    surf, _ = self.fonts["large"].render(hero["name"], name_color, size=38)
+                    self.screen.blit(surf, (tab_x + tab_w // 2 - surf.get_width() // 2, tab_y + 12))
 
-                # 칭호 (작은 텍스트)
+                # 칭호 (중형 텍스트 - size 22)
                 if self.fonts and "small" in self.fonts:
                     surf, _ = self.fonts["small"].render(
-                        hero.get("title", ""), ET["text_subtitle"])
-                    self.screen.blit(surf, (cx + cell_w // 2 - surf.get_width() // 2, tab_y + 33))
+                        hero.get("title", ""), ET["text_subtitle"], size=22)
+                    self.screen.blit(surf, (tab_x + tab_w // 2 - surf.get_width() // 2, tab_y + 48))
 
-                # ── 스킬 탭 ──
-                skill_tab_y = tab_y + name_tab_h + 4
+                # ── 스킬 탭 (확장형) ──
+                skill_tab_y = tab_y + name_tab_h + 6
                 hero_skills = HERO_SKILLS.get(hero["id"], [])
                 skill_rows = len(hero_skills)
-                skill_tab_h = skill_rows * 30 + 30  # 스킬 + 스타일 배지
+                skill_tab_h = skill_rows * 34 + 32  # 스킬 + 스타일 배지
 
-                skill_bg_s = pygame.Surface((cell_w, skill_tab_h), pygame.SRCALPHA)
-                pygame.draw.rect(skill_bg_s, (*ET["card_bg"], 220),
-                                 (0, 0, cell_w, skill_tab_h), border_radius=6)
-                self.screen.blit(skill_bg_s, (cx, skill_tab_y))
+                skill_bg_s = pygame.Surface((tab_w, skill_tab_h), pygame.SRCALPHA)
+                pygame.draw.rect(skill_bg_s, (*ET["card_bg"], 230),
+                                 (0, 0, tab_w, skill_tab_h), border_radius=8)
+                self.screen.blit(skill_bg_s, (tab_x, skill_tab_y))
                 pygame.draw.rect(self.screen, ET["card_border"],
-                                 (cx, skill_tab_y, cell_w, skill_tab_h), 2, border_radius=6)
+                                 (tab_x, skill_tab_y, tab_w, skill_tab_h), 2, border_radius=8)
 
-                sy = skill_tab_y + 6
+                sy = skill_tab_y + 7
                 for si, skill in enumerate(hero_skills):
-                    s_h = 26
+                    s_h = 28
                     pygame.draw.rect(self.screen, ET["skill_bg"],
-                                     (cx + 6, sy, cell_w - 12, s_h), border_radius=4)
-                    icon = _get_hero_skill_icon(skill.skill_id, 18)
+                                     (tab_x + 8, sy, tab_w - 16, s_h), border_radius=5)
+                    icon = _get_hero_skill_icon(skill.skill_id, 20)
                     if icon:
-                        self.screen.blit(icon, (cx + 10, sy + 4))
+                        self.screen.blit(icon, (tab_x + 13, sy + 4))
                     else:
                         pygame.draw.rect(self.screen, ET["bg_medium"],
-                                         (cx + 10, sy + 4, 18, 18), border_radius=3)
+                                         (tab_x + 13, sy + 4, 20, 20), border_radius=3)
                     if self.fonts and "small" in self.fonts:
                         label = f"{'A' if si == 0 else 'B'}: {skill.korean_name}"
-                        surf, _ = self.fonts["small"].render(label, ET["text_body"])
-                        self.screen.blit(surf, (cx + 32, sy + 5))
-                    sy += s_h + 4
+                        surf, _ = self.fonts["small"].render(label, ET["text_body"], size=18)
+                        self.screen.blit(surf, (tab_x + 38, sy + 5))
+                    sy += s_h + 6
 
                 # 스타일 배지
                 style_names = {
@@ -6876,7 +6877,7 @@ class ColosseumsArena:
                 style_text = style_names.get(hero["style"].value, "???")
                 if self.fonts and "small" in self.fonts:
                     surf, _ = self.fonts["small"].render(f"[{style_text}]", ET["text_hint"])
-                    self.screen.blit(surf, (cx + cell_w // 2 - surf.get_width() // 2, sy + 2))
+                    self.screen.blit(surf, (tab_x + tab_w // 2 - surf.get_width() // 2, sy + 2))
 
         # ── 철창 열림 시 파편 파티클 생성 ──
         if opening_phase == "bars_opening" and opening_timer > 0.3:
@@ -6897,13 +6898,7 @@ class ColosseumsArena:
                     'color': (120 + _rand.randint(0, 40), 115 + _rand.randint(0, 35), 100 + _rand.randint(0, 30))
                 })
 
-        # ── 하단 안내 텍스트 ──
-        if not opening_phase:
-            if self.fonts and "small" in self.fonts:
-                surf, _ = self.fonts["small"].render(
-                    "스킬은 2개 중 1개가 랜덤으로 결정됩니다", ET["text_hint"])
-                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2,
-                                        cell_y + cell_h + 15))
+        # (하단 안내 텍스트 제거됨)
 
     def _draw_bracket_lines(self):
         """대진표 연결선 (대각선 레이아웃 box_h=140 기준) - 이집트 테마"""
