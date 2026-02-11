@@ -134755,6 +134755,24 @@ def main(stage_num, new_boss_mode=False):
                             if _bg_fx.get('screen_shake'):
                                 globals()['screen_shake_timer'] = 12
                                 globals()['screen_shake_intensity'] = _bg_fx.get('shake_intensity', 15)
+                            # 🛡️ 순찰 호위무사 공 충돌 반사 + 사운드
+                            _bg_patrol_hit = _bg_fx.get('guard_patrol_ball_hit')
+                            if _bg_patrol_hit:
+                                import math as _math
+                                _is_top_guard = _bg_patrol_hit['is_top_guard']
+                                _hit_offset = _bg_patrol_hit.get('hit_offset', 0)
+                                _current_speed = _math.hypot(ball_vel[0], ball_vel[1])
+                                _reflect_speed = max(_current_speed * 1.03, 6.0)
+                                if _is_top_guard:
+                                    ball_vel[1] = abs(_reflect_speed)
+                                else:
+                                    ball_vel[1] = -abs(_reflect_speed)
+                                ball_vel[0] += _hit_offset * 4.0
+                                # 사운드 재생
+                                try:
+                                    play_sound_with_volume(SOUND_HIT)
+                                except Exception:
+                                    pass
                 except Exception:
                     pass
 

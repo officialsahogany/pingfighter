@@ -224,6 +224,11 @@ class InGameBodyguard:
             boss_effects['ball_vx'] = ball.vx
             boss_effects['ball_vy'] = ball.vy
 
+        # ── 순찰 호위무사 공 충돌 ──
+        _patrol_hit = gs.pop('guard_patrol_ball_hit', None)
+        if _patrol_hit:
+            boss_effects['guard_patrol_ball_hit'] = _patrol_hit
+
         # ── 화면 효과 (흔들림/플래시) ──
         for fx in self._skill_manager.screen_effects:
             boss_effects['screen_shake'] = True
