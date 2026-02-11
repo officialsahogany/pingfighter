@@ -289,6 +289,11 @@ class HeroPaddleRenderer:
         else:
             # 기존 미리보기 모드 (크게 표시)
             b = max(3, width // 12)
+            # UI/메뉴용 미리보기: lean, body_bob 감쇠 (캐릭터가 중심에서 벗어나지 않도록)
+            # lean → 수평 드리프트, body_bob → 수직 드리프트 원인
+            anim = dict(anim)
+            anim["lean"] = anim.get("lean", 0) * 0.1
+            anim["body_bob"] = 0
 
         cx = int(x)
 
