@@ -318,8 +318,8 @@ class AnimatedBackgroundStage30:
         ornate = self.colors['center_ornate']
         hiero = self.colors['hieroglyph']
 
-        line_left = self.GAME_AREA_X + 25
-        line_right = self.GAME_AREA_END_X - 25
+        line_left = self.GAME_AREA_X + 10
+        line_right = self.GAME_AREA_END_X - 10
 
         # ===== 중앙선 =====
         # 메인 중앙선 (굵은 선)
@@ -388,9 +388,9 @@ class AnimatedBackgroundStage30:
 
         # ===== 코너 L자 장식 (방향 수정) =====
         corner_size = 28
-        margin = 8
-        border_y_top = 12
-        border_y_bot = self.height - 12
+        margin = 5
+        border_y_top = 5
+        border_y_bot = self.height - 5
 
         # 좌상: → ↓ (안쪽을 향함)
         tl_x, tl_y = self.GAME_AREA_X + margin, border_y_top
@@ -434,11 +434,11 @@ class AnimatedBackgroundStage30:
         gold = self.colors['gold']
         gold_dark = self.colors['gold_dark']
 
-        # 테두리 영역 (게임 영역 가장자리에 밀착)
-        bx = self.GAME_AREA_X + 2
-        by = 5
-        bw = self.GAME_AREA_WIDTH - 4
-        bh = self.height - 10
+        # 테두리 영역 (게임 영역과 동일)
+        bx = self.GAME_AREA_X
+        by = 0
+        bw = self.GAME_AREA_WIDTH
+        bh = self.height
         br = bx + bw   # 오른쪽 끝
         bb = by + bh    # 아래쪽 끝
 
