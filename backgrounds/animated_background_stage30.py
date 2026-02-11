@@ -186,7 +186,7 @@ class AnimatedBackgroundStage30:
         self.golden_dust = []
         for _ in range(3):
             self.golden_dust.append({
-                'x': random.randint(self.GAME_AREA_X + 60, self.GAME_AREA_END_X - 60),
+                'x': random.randint(60, self.width - 60),
                 'y': random.randint(120, self.height - 120),
                 'vx': random.uniform(-0.15, 0.15),
                 'vy': random.uniform(-0.08, 0.08),
@@ -233,7 +233,7 @@ class AnimatedBackgroundStage30:
     def _create_dust_particle(self):
         """먼지 파티클 생성 - 게임 영역 내에서만"""
         return {
-            'x': random.randint(self.GAME_AREA_X + 30, self.GAME_AREA_END_X - 30),
+            'x': random.randint(30, self.width - 30),
             'y': random.randint(100, self.height - 100),
             'vx': random.uniform(-0.2, 0.2),
             'vy': random.uniform(-0.1, 0.1),
@@ -265,9 +265,9 @@ class AnimatedBackgroundStage30:
             pygame.draw.circle(self.floor_surface, color, (x, y), size)
 
         # 방사형 비네트 (가장자리 어둡게)
-        center_x = self.GAME_AREA_X + self.GAME_AREA_WIDTH // 2
+        center_x = self.width // 2
         center_y = self.height // 2
-        max_dist = math.sqrt((self.GAME_AREA_WIDTH / 2) ** 2 + (self.height / 2) ** 2)
+        max_dist = math.sqrt((self.width / 2) ** 2 + (self.height / 2) ** 2)
         vignette_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         for ring in range(12):
             radius = int(max_dist * (1.0 - ring * 0.06))
@@ -286,7 +286,7 @@ class AnimatedBackgroundStage30:
         # 바람 무늬 (미세한 곡선) - 모래 위 바람 자국
         random.seed(77)  # 일관된 패턴
         for _ in range(25):
-            sx = random.randint(self.GAME_AREA_X + 30, self.GAME_AREA_END_X - 30)
+            sx = random.randint(30, self.width - 30)
             sy = random.randint(80, self.height - 80)
             wind_shade = random.randint(-6, 6)
             wind_color = (
@@ -309,7 +309,7 @@ class AnimatedBackgroundStage30:
         """경기장 라인 프리렌더 - 이집트 프리미엄 스타일 (중앙선, 중앙원, 코너)"""
         self.arena_surface.fill((0, 0, 0, 0))
 
-        center_x = self.GAME_AREA_X + self.GAME_AREA_WIDTH // 2
+        center_x = self.width // 2
         center_y = self.height // 2
         line_color = self.colors['line']
         gold = self.colors['gold']
@@ -318,8 +318,8 @@ class AnimatedBackgroundStage30:
         ornate = self.colors['center_ornate']
         hiero = self.colors['hieroglyph']
 
-        line_left = self.GAME_AREA_X + 10
-        line_right = self.GAME_AREA_END_X - 10
+        line_left = 10
+        line_right = self.width - 10
 
         # ===== 중앙선 =====
         # 메인 중앙선 (굵은 선)
@@ -393,28 +393,28 @@ class AnimatedBackgroundStage30:
         border_y_bot = self.height - 5
 
         # 좌상: → ↓ (안쪽을 향함)
-        tl_x, tl_y = self.GAME_AREA_X + margin, border_y_top
+        tl_x, tl_y = margin, border_y_top
         pygame.draw.line(self.arena_surface, gold, (tl_x, tl_y), (tl_x + corner_size, tl_y), 2)
         pygame.draw.line(self.arena_surface, gold, (tl_x, tl_y), (tl_x, tl_y + corner_size), 2)
         pygame.draw.line(self.arena_surface, gold_dark, (tl_x + 3, tl_y + 3), (tl_x + corner_size - 3, tl_y + 3), 1)
         pygame.draw.line(self.arena_surface, gold_dark, (tl_x + 3, tl_y + 3), (tl_x + 3, tl_y + corner_size - 3), 1)
 
         # 우상: ← ↓ (안쪽을 향함)
-        tr_x, tr_y = self.GAME_AREA_END_X - margin, border_y_top
+        tr_x, tr_y = self.width - margin, border_y_top
         pygame.draw.line(self.arena_surface, gold, (tr_x, tr_y), (tr_x - corner_size, tr_y), 2)
         pygame.draw.line(self.arena_surface, gold, (tr_x, tr_y), (tr_x, tr_y + corner_size), 2)
         pygame.draw.line(self.arena_surface, gold_dark, (tr_x - 3, tr_y + 3), (tr_x - corner_size + 3, tr_y + 3), 1)
         pygame.draw.line(self.arena_surface, gold_dark, (tr_x - 3, tr_y + 3), (tr_x - 3, tr_y + corner_size - 3), 1)
 
         # 좌하: → ↑ (안쪽을 향함)
-        bl_x, bl_y = self.GAME_AREA_X + margin, border_y_bot
+        bl_x, bl_y = margin, border_y_bot
         pygame.draw.line(self.arena_surface, gold, (bl_x, bl_y), (bl_x + corner_size, bl_y), 2)
         pygame.draw.line(self.arena_surface, gold, (bl_x, bl_y), (bl_x, bl_y - corner_size), 2)
         pygame.draw.line(self.arena_surface, gold_dark, (bl_x + 3, bl_y - 3), (bl_x + corner_size - 3, bl_y - 3), 1)
         pygame.draw.line(self.arena_surface, gold_dark, (bl_x + 3, bl_y - 3), (bl_x + 3, bl_y - corner_size + 3), 1)
 
         # 우하: ← ↑ (안쪽을 향함)
-        br_x, br_y = self.GAME_AREA_END_X - margin, border_y_bot
+        br_x, br_y = self.width - margin, border_y_bot
         pygame.draw.line(self.arena_surface, gold, (br_x, br_y), (br_x - corner_size, br_y), 2)
         pygame.draw.line(self.arena_surface, gold, (br_x, br_y), (br_x, br_y - corner_size), 2)
         pygame.draw.line(self.arena_surface, gold_dark, (br_x - 3, br_y - 3), (br_x - corner_size + 3, br_y - 3), 1)
@@ -434,10 +434,10 @@ class AnimatedBackgroundStage30:
         gold = self.colors['gold']
         gold_dark = self.colors['gold_dark']
 
-        # 테두리 영역 (게임 영역과 동일)
-        bx = self.GAME_AREA_X
+        # 테두리 영역 (전체 서피스 너비 사용 - 필러가 양쪽을 자연스럽게 가림)
+        bx = 0
         by = 0
-        bw = self.GAME_AREA_WIDTH
+        bw = self.width   # 760
         bh = self.height
         br = bx + bw   # 오른쪽 끝
         bb = by + bh    # 아래쪽 끝
@@ -621,7 +621,7 @@ class AnimatedBackgroundStage30:
 
             # 범위 벗어나거나 수명 끝나면 재생성 (게임 영역 기준)
             if (particle['life'] <= 0 or
-                particle['x'] < self.GAME_AREA_X + 20 or particle['x'] > self.GAME_AREA_END_X - 20 or
+                particle['x'] < 20 or particle['x'] > self.width - 20 or
                 particle['y'] < 70 or particle['y'] > self.height - 70):
                 self.dust_particles[i] = self._create_dust_particle()
 
@@ -630,8 +630,8 @@ class AnimatedBackgroundStage30:
             gd['x'] += gd['vx']
             gd['y'] += gd['vy']
             # 영역 벗어나면 반대쪽에서 재생성
-            if gd['x'] < self.GAME_AREA_X + 50 or gd['x'] > self.GAME_AREA_END_X - 50:
-                gd['x'] = random.randint(self.GAME_AREA_X + 60, self.GAME_AREA_END_X - 60)
+            if gd['x'] < 50 or gd['x'] > self.width - 50:
+                gd['x'] = random.randint(60, self.width - 60)
                 gd['vx'] = random.uniform(-0.15, 0.15)
             if gd['y'] < 100 or gd['y'] > self.height - 100:
                 gd['y'] = random.randint(120, self.height - 120)
@@ -688,7 +688,7 @@ class AnimatedBackgroundStage30:
         self.judgment_bolt_throw_started = False
         self.judgment_bolt_explosion_started = False
         # 합체 파티클 (심플한 대리석 먼지)
-        cx = self.GAME_AREA_X + self.GAME_AREA_WIDTH // 2
+        cx = self.width // 2
         cy = self.height // 2
         marble_colors = [(185, 175, 160), (160, 150, 135), (130, 120, 108)]
         for i in range(18):
@@ -720,7 +720,7 @@ class AnimatedBackgroundStage30:
             return
 
         self.judgment_timer += dt
-        cx = self.GAME_AREA_X + self.GAME_AREA_WIDTH // 2
+        cx = self.width // 2
         cy = self.height // 2
 
         if self.judgment_phase == self.JUDGMENT_MERGE:
@@ -841,8 +841,7 @@ class AnimatedBackgroundStage30:
                     self.judgment_bolt_proj_x = self.judgment_bolt_proj_start_x
                     self.judgment_bolt_proj_y = self.judgment_bolt_proj_start_y
                     # 착탄점: 상단 또는 하단 끝 (X는 게임영역 내 랜덤)
-                    target_x = random.uniform(self.GAME_AREA_X + 60,
-                                              self.GAME_AREA_END_X - 60)
+                    target_x = random.uniform(60, self.width - 60)
                     if random.random() < 0.5:
                         target_y = 25.0     # 상단 끝 (보스 패들 라인)
                     else:
@@ -915,7 +914,7 @@ class AnimatedBackgroundStage30:
             # 먼지 비 생성
             if random.random() < 0.4:
                 self.judgment_dust_rain.append({
-                    'x': random.uniform(self.GAME_AREA_X + 10, self.GAME_AREA_END_X - 10),
+                    'x': random.uniform(10, self.width - 10),
                     'y': random.uniform(0, 50),
                     'vy': random.uniform(2, 5),
                     'size': random.uniform(1, 3),
@@ -1315,7 +1314,7 @@ class AnimatedBackgroundStage30:
         if self.judgment_phase == self.JUDGMENT_IDLE:
             return
 
-        cx = self.GAME_AREA_X + self.GAME_AREA_WIDTH // 2 + offset_x
+        cx = self.width // 2 + offset_x
         cy = self.height // 2 + offset_y
         s = self.judgment_scale
 
