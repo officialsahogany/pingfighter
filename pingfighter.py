@@ -7947,6 +7947,7 @@ def _fullscreen_flip():
                     game_offset_y=GAME_OFFSET_Y,
                     game_scale=GAME_SCALE_FACTOR,
                     mouse_pos=_real_mpos_p,
+                    draw_icon_func=arena_perk_draw_icon_func,
                 )
             except Exception:
                 pass
@@ -8069,6 +8070,7 @@ def _fullscreen_update(*args, **kwargs):
                     game_offset_y=GAME_OFFSET_Y,
                     game_scale=GAME_SCALE_FACTOR,
                     mouse_pos=_real_mpos_p2,
+                    draw_icon_func=arena_perk_draw_icon_func,
                 )
             except Exception:
                 pass
@@ -18980,6 +18982,7 @@ arena_perk_guard_cd_mult_top = 1.0   # 상단 호위무사쿨 배율
 arena_perk_guard_cd_mult_bottom = 1.0
 arena_active_hero_perks = []         # TAB 표시용: 플레이어(하단) 영웅 보유 퍽 목록
 arena_active_enemy_perks = []        # 필러 표시용: 상대(상단) 영웅 보유 퍽 목록
+arena_perk_draw_icon_func = None     # 퍽 아이콘 그리기 함수 (ColosseumsArena._draw_perk_icon)
 # 신규 퍽 효과 변수
 arena_perk_dash_distance_mult_top = 1.0     # 상단 대쉬 거리 배율
 arena_perk_dash_distance_mult_bottom = 1.0  # 하단 대쉬 거리 배율
@@ -19011,6 +19014,13 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     global arena_bottom_max_dash_charges, arena_top_max_dash_charges
     global arena_perk_paddle_enlarge_top, arena_perk_paddle_enlarge_bottom
     global arena_leaf_shield_top, arena_leaf_shield_bottom
+    global arena_perk_draw_icon_func
+
+    # 아이콘 그리기 함수 저장
+    if arena_obj and hasattr(arena_obj, '_draw_perk_icon'):
+        arena_perk_draw_icon_func = arena_obj._draw_perk_icon
+    else:
+        arena_perk_draw_icon_func = None
 
     # 초기화
     arena_perk_speed_mult_top = 1.0

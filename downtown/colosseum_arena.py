@@ -1989,9 +1989,8 @@ class GuardWarriorSystem:
             # 퇴장 시작 위치에서 화면 밖으로 이동
             es_x = self._exit_start_x_top if is_top else self._exit_start_x_bottom
             es_y = self._exit_start_y_top if is_top else self._exit_start_y_bottom
-            base_y = 120 if is_top else 630
             current_x = es_x + (exit_x - es_x) * eased
-            current_y = es_y + (base_y - es_y) * eased  # Y는 기본 위치로 복귀
+            current_y = es_y  # Y 고정: 등장할 때처럼 옆으로 걸어서 퇴장
 
             if is_top:
                 self.x_top = current_x
@@ -2801,7 +2800,7 @@ class GuardWarriorSystem:
 
     def draw_perk_pillar_icons(self, screen, player_perks, enemy_perks,
                                 game_offset_x=0, game_offset_y=0, game_scale=1.0,
-                                mouse_pos=None):
+                                mouse_pos=None, draw_icon_func=None):
         """필러 배경 위에 획득한 퍽 아이콘 표시
         - 플레이어 퍽 → 왼쪽 필러, 호위무사 UI 위에 위로 쌓기
         - 상대 퍽 → 오른쪽 필러, 호위무사 UI 아래에 아래로 쌓기
@@ -2843,7 +2842,8 @@ class GuardWarriorSystem:
                 pygame.draw.circle(bg_s, (*perk_color[:3], 120), ((icon_size + 6) // 2, (icon_size + 6) // 2), (icon_size + 6) // 2, 2)
                 screen.blit(bg_s, (cx_left - (icon_size + 6) // 2, py - (icon_size + 6) // 2))
                 # 퍽 아이콘 그리기
-                self._draw_perk_icon(screen, perk["id"], cx_left, py, icon_size)
+                if draw_icon_func:
+                    draw_icon_func(screen, perk["id"], cx_left, py, icon_size)
                 # 호버 체크
                 if mouse_pos:
                     _r = pygame.Rect(cx_left - (icon_size + 6) // 2, py - (icon_size + 6) // 2, icon_size + 6, icon_size + 6)
@@ -2878,7 +2878,8 @@ class GuardWarriorSystem:
                 pygame.draw.circle(bg_s, (*perk_color[:3], 120), ((icon_size + 6) // 2, (icon_size + 6) // 2), (icon_size + 6) // 2, 2)
                 screen.blit(bg_s, (cx_right - (icon_size + 6) // 2, py - (icon_size + 6) // 2))
                 # 퍽 아이콘 그리기
-                self._draw_perk_icon(screen, perk["id"], cx_right, py, icon_size)
+                if draw_icon_func:
+                    draw_icon_func(screen, perk["id"], cx_right, py, icon_size)
                 # 호버 체크
                 if mouse_pos:
                     _r = pygame.Rect(cx_right - (icon_size + 6) // 2, py - (icon_size + 6) // 2, icon_size + 6, icon_size + 6)
@@ -7289,13 +7290,19 @@ class ColosseumsArena:
         self.perk_frame_count = 0
 
     def _assign_ai_perks(self, hero: Dict, count: int):
-        """AI 영웅에게 랜덤 퍽 부여"""
+        """AI 영웅에게 랜덤 퍽 부여 (중복 방지)"""
         hero_id = hero["id"]
         if hero_id not in self.hero_perks:
             self.hero_perks[hero_id] = []
+        owned_ids = {p["id"] for p in self.hero_perks[hero_id]}
+        available = [p for p in ARENA_PERK_POOL if p["id"] not in owned_ids]
         for _ in range(count):
-            perk = random.choice(ARENA_PERK_POOL)
+            if not available:
+                break
+            perk = random.choice(available)
             self.hero_perks[hero_id].append(dict(perk))
+            owned_ids.add(perk["id"])
+            available = [p for p in available if p["id"] != perk["id"]]
         print(f"[Perk] AI {hero['name']}에게 랜덤 퍽 {count}개 부여: "
               f"{[p['name'] for p in self.hero_perks[hero_id]]}")
 
