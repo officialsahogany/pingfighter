@@ -7353,19 +7353,47 @@ class ColosseumsArena:
         self.perk_frame_count = 0
 
     def _assign_ai_perks(self, hero: Dict, count: int):
-        """AI 영웅에게 랜덤 퍽 부여 (중복 방지)"""
+        """AI 영웅에게 랜덤 퍽 부여 (중복 방지, 스킬 추가 퍽 포함)"""
         hero_id = hero["id"]
         if hero_id not in self.hero_perks:
             self.hero_perks[hero_id] = []
         owned_ids = {p["id"] for p in self.hero_perks[hero_id]}
         available = [p for p in ARENA_PERK_POOL if p["id"] not in owned_ids]
+
+        # 스킬 추가 퍽도 후보에 포함 (아직 양쪽 스킬 미보유 시)
+        if HERO_SKILLS_AVAILABLE and not self.hero_has_both_skills.get(hero_id, False):
+            current_skill_idx = self.hero_selected_skills.get(hero_id, 0)
+            other_skill_idx = 1 - current_skill_idx
+            try:
+                skills = HERO_SKILLS.get(hero_id, [])
+                if len(skills) > other_skill_idx:
+                    other_skill = skills[other_skill_idx]
+                    hero_color = tuple(hero.get("color", (200, 200, 100)))
+                    available.append({
+                        "id": f"skill_{other_skill.skill_id}",
+                        "name": other_skill.korean_name,
+                        "description": "추가 스킬 획득",
+                        "icon_color": hero_color,
+                        "effect_type": "add_skill",
+                        "value": other_skill_idx,
+                    })
+            except Exception:
+                pass
+
         for _ in range(count):
             if not available:
                 break
             perk = random.choice(available)
-            self.hero_perks[hero_id].append(dict(perk))
-            owned_ids.add(perk["id"])
-            available = [p for p in available if p["id"] != perk["id"]]
+            if perk["effect_type"] == "add_skill":
+                # 스킬 추가 퍽: hero_has_both_skills 설정 + hero_perks에 추가
+                self.hero_has_both_skills[hero_id] = True
+                self.hero_perks[hero_id].append(dict(perk))
+                # 스킬 퍽은 1회만 가능하므로 풀에서 제거
+                available = [p for p in available if p["effect_type"] != "add_skill"]
+            else:
+                self.hero_perks[hero_id].append(dict(perk))
+                owned_ids.add(perk["id"])
+                available = [p for p in available if p["id"] != perk["id"]]
         print(f"[Perk] AI {hero['name']}에게 랜덤 퍽 {count}개 부여: "
               f"{[p['name'] for p in self.hero_perks[hero_id]]}")
 
