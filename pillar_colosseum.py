@@ -578,11 +578,11 @@ class CircularStadiumFrame:
         # 게임 영역 4 코너 위치 + 회전 각도
         # 각 석상은 게임 영역 꼭지점에서 대각선 바깥으로 배치
         corners = [
-            # (x, y, rotation_angle) - 필러쪽 대각선 바깥
-            (self.game_x - 8, self.game_y - 8, -45),         # 좌상: 좌상 대각선
-            (self.game_x + self.game_width + 8, self.game_y - 8, 45),    # 우상: 우상 대각선
-            (self.game_x - 8, self.game_y + self.game_height + 8, -135),  # 좌하: 좌하 대각선
-            (self.game_x + self.game_width + 8, self.game_y + self.game_height + 8, 135),  # 우하: 우하 대각선
+            # (x, y, rotation_angle) - 머리가 바깥 대각선을 향함
+            (self.game_x - 8, self.game_y - 8, 45),          # 좌상: 머리→좌상
+            (self.game_x + self.game_width + 8, self.game_y - 8, -45),   # 우상: 머리→우상
+            (self.game_x - 8, self.game_y + self.game_height + 8, 135),  # 좌하: 머리→좌하
+            (self.game_x + self.game_width + 8, self.game_y + self.game_height + 8, -135),  # 우하: 머리→우하
         ]
 
         for cx, cy, angle in corners:

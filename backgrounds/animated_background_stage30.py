@@ -388,7 +388,7 @@ class AnimatedBackgroundStage30:
 
         # ===== 코너 L자 장식 (방향 수정) =====
         corner_size = 28
-        margin = 12
+        margin = 8
         border_y_top = 12
         border_y_bot = self.height - 12
 
@@ -434,10 +434,10 @@ class AnimatedBackgroundStage30:
         gold = self.colors['gold']
         gold_dark = self.colors['gold_dark']
 
-        # 테두리 영역 (게임 영역 거의 꽉 차게)
-        bx = self.GAME_AREA_X + 5
+        # 테두리 영역 (게임 영역 가장자리에 밀착)
+        bx = self.GAME_AREA_X + 2
         by = 5
-        bw = self.GAME_AREA_WIDTH - 10
+        bw = self.GAME_AREA_WIDTH - 4
         bh = self.height - 10
         br = bx + bw   # 오른쪽 끝
         bb = by + bh    # 아래쪽 끝
