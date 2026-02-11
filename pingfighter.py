@@ -97025,7 +97025,6 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         # 투기장 모드 활성화
         arena_mode_enabled = True
         arena_speed_multiplier = 1.3  # 배속 리셋 (매 경기 1.3x)
-        main._arena_tick_accumulator = 0.0  # 배속 누적기 리셋
         arena_battle_result = None  # 이전 배틀 결과 초기화 (필수!)
         arena_top_hero = top_hero
         arena_bottom_hero = bottom_hero
@@ -129846,7 +129845,9 @@ def main(stage_num, new_boss_mode=False):
         # 프로파일러 프레임 시작
         if profiler:
             profiler.begin_frame()
-        dt_ms = clock.tick(FPS)
+        # 투기장 배속: FPS 자체를 올려서 부드러운 프레임 (추가 틱 대신)
+        _target_fps = int(FPS * arena_speed_multiplier) if arena_mode_enabled and arena_speed_multiplier > 1 else FPS
+        dt_ms = clock.tick(_target_fps)
         now_ms = pygame.time.get_ticks()
         # 프레임 시간 캐싱 업데이트 (성능 최적화)
         global _current_frame_ticks, _frame_counter, VALTHOR_PERF_DEBUG
@@ -133823,7 +133824,7 @@ def main(stage_num, new_boss_mode=False):
             # 달빛 베기/도깨비불 화면 정지 중에도 스킬 타이머는 진행되어야 함 (1초 후 해제)
             if (not freeze_now or freeze_dark_slash or freeze_hell_fire) and arena_mode_enabled and arena_skill_manager:
                 try:
-                    dt = (1.0 / 60.0) * arena_speed_multiplier  # 배속 적용
+                    dt = 1.0 / 60.0  # FPS 기반 배속: tick 자체가 빨라지므로 dt는 고정
 
                     # 🎯 패들 속도 추적 (뿔 박치기 위치 예측용)
                     _prev_player_x = globals().get("_arena_prev_player_x", PLAYER.centerx)
@@ -134721,18 +134722,6 @@ def main(stage_num, new_boss_mode=False):
                 if not (current_stage == 8 and stage8_awaken_intro_pending and pygame.time.get_ticks() < stage8_awaken_freeze_end_ms):
                     handle_boss()
 
-                # 투기장 배속: 소수점 배속 지원 (1.3x→10프레임당 3회 추가, 2x→매프레임 1회, 3x→매프레임 2회)
-                if arena_mode_enabled and arena_speed_multiplier > 1 and not freeze_now:
-                    if not hasattr(main, '_arena_tick_accumulator'):
-                        main._arena_tick_accumulator = 0.0
-                    main._arena_tick_accumulator += arena_speed_multiplier - 1
-                    while main._arena_tick_accumulator >= 1.0:
-                        main._arena_tick_accumulator -= 1.0
-                        handle_player(keys_now)
-                        _extra_ball_result = handle_ball()
-                        if arena_mode_enabled and _extra_ball_result is not None:
-                            return _extra_ball_result
-                        handle_boss()
 
                 if profiler:
                     profiler.end_section("GameLogic")
