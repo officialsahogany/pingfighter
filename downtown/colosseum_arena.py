@@ -9251,13 +9251,15 @@ class ColosseumsArena:
         slide_progress = self._ease_in_out(min(1.0, progress * 2.5))
         hero_y = int(start_y + (target_y - start_y) * slide_progress)
 
-        # 글로우 효과 (호위무사 색상)
+        # 글로우 효과 (호위무사 색상) - Y 보정으로 캐릭터 시각적 중심에 맞춤
         guard_color = guard.get("color", (150, 150, 150))
         glow_alpha = int(60 + abs(_sin(self.animation_timer * 3)) * 40)
         glow_radius = 80
+        intro_b = max(3, 120 // 12)  # preview 모드 블록 크기
+        intro_glow_adj = int(intro_b * 0.75)
         glow_surf = _get_arena_surface(glow_radius * 2, glow_radius * 2)
         pygame.draw.circle(glow_surf, (*guard_color, glow_alpha), (glow_radius, glow_radius), glow_radius)
-        self.screen.blit(glow_surf, (center_x - glow_radius, hero_y - glow_radius))
+        self.screen.blit(glow_surf, (center_x - glow_radius, hero_y - glow_radius - intro_glow_adj))
 
         # 영웅 캐릭터 이미지
         if self.hero_paddle_renderer:
@@ -9630,12 +9632,14 @@ class ColosseumsArena:
             hero_cx = draw_x + card_w // 2
             hero_cy = draw_y + 90
 
-            # 캐릭터 뒤 글로우
+            # 캐릭터 뒤 글로우 - Y 보정으로 캐릭터 시각적 중심에 맞춤
+            card_b = max(3, 100 // 12)  # preview 모드 블록 크기 (w=100)
+            card_glow_adj = int(card_b * 0.75)
             glow_r = 60
             glow_surf2 = _get_arena_surface(glow_r * 2, glow_r * 2)
             g_alpha = int(50 + 25 * abs(_sin(self.animation_timer * 2 + idx)))
             pygame.draw.circle(glow_surf2, (*g_color, g_alpha), (glow_r, glow_r), glow_r)
-            self.screen.blit(glow_surf2, (hero_cx - glow_r, hero_cy - glow_r))
+            self.screen.blit(glow_surf2, (hero_cx - glow_r, hero_cy - glow_r - card_glow_adj))
 
             if self.hero_paddle_renderer:
                 self.hero_paddle_renderer.draw_hero_paddle(
