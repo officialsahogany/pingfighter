@@ -688,11 +688,11 @@ ARENA_PERK_POOL = [
         "value": 0.30,
     },
     {
-        "id": "patrol",
-        "name": "순찰명령",
-        "description": "호위무사가 진영을 순찰하며\n다른 스킬이 해금됩니다",
-        "icon_color": (200, 150, 80),    # 갈색 (순찰)
-        "effect_type": "guard_patrol",
+        "id": "extra_training",
+        "name": "추가훈련",
+        "description": "호위무사 스킬이\n한 개 더 해금됩니다",
+        "icon_color": (100, 180, 220),   # 파란색 (훈련/학습)
+        "effect_type": "guard_extra_skill",
         "value": 1,
     },
     {
@@ -1620,7 +1620,7 @@ class GuardWarriorSystem:
         self._bubble_bottom = None
         self._bubble_duration = 2.0  # 말풍선 표시 시간 (초)
 
-        # 순찰명령 퍽: 호위무사가 진영에 상주하며 순찰
+        # 순찰 모드: 호위무사가 진영에 상주하며 순찰 (기본 동작)
         self.patrol_mode_top = False
         self.patrol_mode_bottom = False
         self._patrol_dir_top = 1     # 순찰 이동 방향 (1: 오른쪽, -1: 왼쪽)
@@ -1676,21 +1676,24 @@ class GuardWarriorSystem:
             self.cooldown_bottom = initial_cd
             self.cooldown_max_bottom = initial_cd
 
+        # 호위무사가 있으면 기본적으로 순찰 모드 활성화
+        if self.guard_warriors_top:
+            self.patrol_mode_top = True
+        if self.guard_warriors_bottom:
+            self.patrol_mode_bottom = True
+
         guard_names_top = [g["name"] for g in self.guard_warriors_top]
         guard_names_bottom = [g["name"] for g in self.guard_warriors_bottom]
         print(f"[Guard] 호위무사 설정 완료 | 상단: {guard_names_top} | 하단: {guard_names_bottom}")
 
-    # 순찰명령 첫 등장 딜레이 (공 생성 애니메이션 후 2초)
+    # 순찰 모드 첫 등장 딜레이 (공 생성 애니메이션 후 2초)
     PATROL_ENTRY_DELAY = 2.0
 
     def activate_patrol_immediate(self):
-        """순찰명령 퍽 활성화 시 짧은 딜레이 후 입장 애니메이션으로 등장
+        """호위무사 순찰 모드 시작 - 짧은 딜레이 후 입장 애니메이션으로 등장
         - 공 생성 애니메이션 후 2초 뒤 좌/우에서 걸어 들어옴
         - 입장 완료 후 바로 순찰 모드 진입 (시전 단계 없이)
-        - 호위무사의 두 번째 스킬도 해금 (2개 모두 사용 가능)
         """
-        # 순찰명령 퍽 보너스: 스킬 2개 모두 해금
-        self._unlock_patrol_skills()
         if self.patrol_mode_top and self.guard_warriors_top:
             idx = self.next_guard_top_idx % len(self.guard_warriors_top)
             guard = self.guard_warriors_top[idx]
@@ -1758,19 +1761,22 @@ class GuardWarriorSystem:
                     print(f"[Guard] 스킬 인스턴스 생성 실패 ({hero_id}): {e}")
                     self.skill_instances[hero_id] = []
 
-    def _unlock_patrol_skills(self):
-        """순찰명령 퍽: 해당 측 호위무사의 두 번째 스킬도 해금 (2개 모두 사용 가능)"""
+    def unlock_extra_skills(self, is_top=None):
+        """추가훈련 퍽: 호위무사의 두 번째 스킬도 해금 (2개 모두 사용 가능)
+
+        Args:
+            is_top: True=상단측만, False=하단측만, None=양쪽 모두
+        """
         from downtown.hero_skills import HERO_SKILL_CLASSES
         game_state = self.skill_manager.game_state if self.skill_manager else {}
 
-        # 순찰 모드인 측의 호위무사만 스킬 해금
-        patrol_guards = []
-        if self.patrol_mode_top:
-            patrol_guards.extend(self.guard_warriors_top)
-        if self.patrol_mode_bottom:
-            patrol_guards.extend(self.guard_warriors_bottom)
+        target_guards = []
+        if is_top is None or is_top is True:
+            target_guards.extend(self.guard_warriors_top)
+        if is_top is None or is_top is False:
+            target_guards.extend(self.guard_warriors_bottom)
 
-        for guard_hero in patrol_guards:
+        for guard_hero in target_guards:
             hero_id = guard_hero["id"]
             current_skills = self.skill_instances.get(hero_id, [])
             skill_classes = HERO_SKILL_CLASSES.get(hero_id, [])
@@ -1784,7 +1790,7 @@ class GuardWarriorSystem:
                     new_skill = cls()
                     new_skill.game_state = game_state
                     current_skills.append(new_skill)
-                    print(f"[Guard] 순찰명령 퍽: {guard_hero['name']}({hero_id}) "
+                    print(f"[Guard] 추가훈련 퍽: {guard_hero['name']}({hero_id}) "
                           f"스킬 해금 → {new_skill.korean_name}")
             self.skill_instances[hero_id] = current_skills
 
@@ -8721,7 +8727,7 @@ class ColosseumsArena:
             "dash_tokens": 0,           # 추가 대쉬 토큰 수
             "dash_distance": 1.0,       # 대쉬 거리 배율
             "retry_chance": 0.0,        # 패배 시 재시작 확률
-            "guard_patrol": False,      # 호위무사 순찰 모드
+            "guard_extra_skill": False,  # 호위무사 추가 스킬 해금
             "magic_immunity": 0.0,      # 타격 시 마법 면역 확률
             "laurel_shield": 0,         # 신성월계수 잎 개수 (0이면 비활성)
             "paddle_enlarge": 1.0,      # 패들 확대 배율
@@ -8743,8 +8749,8 @@ class ColosseumsArena:
                 mults["dash_distance"] += val
             elif etype == "retry_chance":
                 mults["retry_chance"] = val
-            elif etype == "guard_patrol":
-                mults["guard_patrol"] = True
+            elif etype == "guard_extra_skill":
+                mults["guard_extra_skill"] = True
             elif etype == "magic_immunity":
                 mults["magic_immunity"] = val
             elif etype == "laurel_shield":
@@ -8923,44 +8929,35 @@ class ColosseumsArena:
         ]
         pygame.draw.polygon(surf, (255, 240, 150, 200), inner_points)
 
-    def _draw_perk_icon_patrol(self, surf, cx, cy, r, ss):
-        """순찰명령 아이콘 - 방패 + 화살표 순환"""
-        color = (200, 150, 80)
+    def _draw_perk_icon_extra_training(self, surf, cx, cy, r, ss):
+        """추가훈련 아이콘 - 검 두 자루 (스킬 2개 해금)"""
+        color = (100, 180, 220)
         s = r * ss
-        # 작은 방패
-        shield_s = int(s * 0.35)
-        shield_pts = [
-            (cx, cy - shield_s),
-            (cx + int(shield_s * 0.8), cy - int(shield_s * 0.4)),
-            (cx + int(shield_s * 0.6), cy + int(shield_s * 0.5)),
-            (cx, cy + shield_s),
-            (cx - int(shield_s * 0.6), cy + int(shield_s * 0.5)),
-            (cx - int(shield_s * 0.8), cy - int(shield_s * 0.4)),
-        ]
-        pygame.draw.polygon(surf, (*color, 100), shield_pts)
-        pygame.draw.polygon(surf, (*color, 220), shield_pts, max(2, int(2 * ss / 3)))
-        # 순환 화살표 (방패 주변)
-        orbit_r = int(s * 0.65)
-        arrow_pts = []
-        for t in range(20):
-            frac = t / 19.0
-            angle = -math.pi / 2 + frac * math.pi * 1.5
-            px = cx + int(_cos(angle) * orbit_r)
-            py = cy + int(_sin(angle) * orbit_r)
-            arrow_pts.append((px, py))
-        if len(arrow_pts) >= 2:
-            pygame.draw.lines(surf, (*color, 200), False, arrow_pts, max(2, int(2 * ss / 3)))
-        # 화살표 머리
-        if arrow_pts:
-            end = arrow_pts[-1]
-            arr_s = int(s * 0.18)
-            arr_angle = math.atan2(arrow_pts[-1][1] - arrow_pts[-2][1],
-                                    arrow_pts[-1][0] - arrow_pts[-2][0])
-            a1 = (end[0] - int(_cos(arr_angle - 0.6) * arr_s),
-                  end[1] - int(_sin(arr_angle - 0.6) * arr_s))
-            a2 = (end[0] - int(_cos(arr_angle + 0.6) * arr_s),
-                  end[1] - int(_sin(arr_angle + 0.6) * arr_s))
-            pygame.draw.polygon(surf, (*color, 230), [end, a1, a2])
+        lw = max(2, int(2 * ss / 3))
+        # 왼쪽 검
+        sword_h = int(s * 0.7)
+        sword_w = int(s * 0.12)
+        sx1 = cx - int(s * 0.2)
+        pygame.draw.line(surf, (*color, 220), (sx1, cy - sword_h), (sx1, cy + int(s * 0.1)), lw + 1)
+        # 왼쪽 검 가드
+        pygame.draw.line(surf, (*color, 180), (sx1 - int(s * 0.15), cy + int(s * 0.1)),
+                         (sx1 + int(s * 0.15), cy + int(s * 0.1)), lw)
+        # 왼쪽 검 손잡이
+        pygame.draw.line(surf, (*color, 150), (sx1, cy + int(s * 0.1)), (sx1, cy + int(s * 0.35)), lw)
+        # 오른쪽 검
+        sx2 = cx + int(s * 0.2)
+        pygame.draw.line(surf, (*color, 220), (sx2, cy - sword_h), (sx2, cy + int(s * 0.1)), lw + 1)
+        # 오른쪽 검 가드
+        pygame.draw.line(surf, (*color, 180), (sx2 - int(s * 0.15), cy + int(s * 0.1)),
+                         (sx2 + int(s * 0.15), cy + int(s * 0.1)), lw)
+        # 오른쪽 검 손잡이
+        pygame.draw.line(surf, (*color, 150), (sx2, cy + int(s * 0.1)), (sx2, cy + int(s * 0.35)), lw)
+        # 중앙 '+' 표시 (추가 해금)
+        plus_s = int(s * 0.15)
+        pygame.draw.line(surf, (255, 255, 255, 200), (cx - plus_s, cy + int(s * 0.5)),
+                         (cx + plus_s, cy + int(s * 0.5)), lw)
+        pygame.draw.line(surf, (255, 255, 255, 200), (cx, cy + int(s * 0.5) - plus_s),
+                         (cx, cy + int(s * 0.5) + plus_s), lw)
 
     def _draw_perk_icon_magic_barrier(self, surf, cx, cy, r, ss):
         """마법결계 아이콘 - 반투명 보호막 원"""
@@ -9082,7 +9079,7 @@ class ColosseumsArena:
             "shadow_step": self._draw_perk_icon_shadow_step,
             "storm_rush": self._draw_perk_icon_storm_rush,
             "tenacity": self._draw_perk_icon_tenacity,
-            "patrol": self._draw_perk_icon_patrol,
+            "extra_training": self._draw_perk_icon_extra_training,
             "magic_barrier": self._draw_perk_icon_magic_barrier,
             "laurel_shield": self._draw_perk_icon_laurel_shield,
             "titan_body": self._draw_perk_icon_titan_body,

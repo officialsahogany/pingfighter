@@ -19033,8 +19033,8 @@ arena_perk_draw_icon_func = None     # 퍽 아이콘 그리기 함수 (Colosseum
 arena_perk_dash_distance_mult_top = 1.0     # 상단 대쉬 거리 배율
 arena_perk_dash_distance_mult_bottom = 1.0  # 하단 대쉬 거리 배율
 arena_perk_retry_chance = 0.0               # 패배 시 재시작 확률
-arena_perk_guard_patrol_top = False          # 상단 호위무사 순찰 모드
-arena_perk_guard_patrol_bottom = False       # 하단 호위무사 순찰 모드
+arena_perk_guard_extra_skill_top = False      # 상단 호위무사 추가 스킬 해금
+arena_perk_guard_extra_skill_bottom = False   # 하단 호위무사 추가 스킬 해금
 arena_perk_magic_immunity_chance_top = 0.0   # 상단 마법 면역 확률
 arena_perk_magic_immunity_chance_bottom = 0.0  # 하단 마법 면역 확률
 arena_magic_immunity_timer_top = 0.0         # 상단 마법 면역 남은 시간 (초)
@@ -19060,7 +19060,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     global arena_active_hero_perks, arena_active_enemy_perks
     global arena_perk_dash_distance_mult_top, arena_perk_dash_distance_mult_bottom
     global arena_perk_retry_chance
-    global arena_perk_guard_patrol_top, arena_perk_guard_patrol_bottom
+    global arena_perk_guard_extra_skill_top, arena_perk_guard_extra_skill_bottom
     global arena_perk_magic_immunity_chance_top, arena_perk_magic_immunity_chance_bottom
     global arena_magic_immunity_timer_top, arena_magic_immunity_timer_bottom
     global arena_bottom_max_dash_charges, arena_top_max_dash_charges
@@ -19086,8 +19086,8 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_perk_dash_distance_mult_top = 1.0
     arena_perk_dash_distance_mult_bottom = 1.0
     arena_perk_retry_chance = 0.0
-    arena_perk_guard_patrol_top = False
-    arena_perk_guard_patrol_bottom = False
+    arena_perk_guard_extra_skill_top = False
+    arena_perk_guard_extra_skill_bottom = False
     arena_perk_magic_immunity_chance_top = 0.0
     arena_perk_magic_immunity_chance_bottom = 0.0
     arena_magic_immunity_timer_top = 0.0
@@ -19107,7 +19107,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_perk_skill_cd_mult_top = top_mults["skill_cooldown"]
     arena_perk_guard_cd_mult_top = top_mults["guard_cooldown"]
     arena_perk_dash_distance_mult_top = top_mults["dash_distance"]
-    arena_perk_guard_patrol_top = top_mults["guard_patrol"]
+    arena_perk_guard_extra_skill_top = top_mults["guard_extra_skill"]
     arena_perk_magic_immunity_chance_top = top_mults["magic_immunity"]
     arena_top_max_dash_charges = 1 + top_mults["dash_tokens"]
     arena_perk_paddle_enlarge_top = top_mults["paddle_enlarge"]
@@ -19124,7 +19124,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_perk_skill_cd_mult_bottom = bottom_mults["skill_cooldown"]
     arena_perk_guard_cd_mult_bottom = bottom_mults["guard_cooldown"]
     arena_perk_dash_distance_mult_bottom = bottom_mults["dash_distance"]
-    arena_perk_guard_patrol_bottom = bottom_mults["guard_patrol"]
+    arena_perk_guard_extra_skill_bottom = bottom_mults["guard_extra_skill"]
     arena_perk_magic_immunity_chance_bottom = bottom_mults["magic_immunity"]
     arena_perk_retry_chance = bottom_mults["retry_chance"]  # 하단(플레이어)만
     arena_bottom_max_dash_charges = 1 + bottom_mults["dash_tokens"]
@@ -19151,9 +19151,12 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     if arena_guard_system and hasattr(arena_guard_system, 'guard_cd_mult_top'):
         arena_guard_system.guard_cd_mult_top = arena_perk_guard_cd_mult_top
         arena_guard_system.guard_cd_mult_bottom = arena_perk_guard_cd_mult_bottom
+    # 추가훈련 퍽: 호위무사 추가 스킬 해금
     if arena_guard_system:
-        arena_guard_system.patrol_mode_top = arena_perk_guard_patrol_top
-        arena_guard_system.patrol_mode_bottom = arena_perk_guard_patrol_bottom
+        if arena_perk_guard_extra_skill_top:
+            arena_guard_system.unlock_extra_skills(is_top=True)
+        if arena_perk_guard_extra_skill_bottom:
+            arena_guard_system.unlock_extra_skills(is_top=False)
 
     # 필러 표시용: 양쪽 영웅 퍽 데이터 저장
     if arena_obj and hasattr(arena_obj, 'hero_perks'):
@@ -19180,7 +19183,7 @@ def reset_arena_perks():
     global arena_active_hero_perks, arena_active_enemy_perks
     global arena_perk_dash_distance_mult_top, arena_perk_dash_distance_mult_bottom
     global arena_perk_retry_chance
-    global arena_perk_guard_patrol_top, arena_perk_guard_patrol_bottom
+    global arena_perk_guard_extra_skill_top, arena_perk_guard_extra_skill_bottom
     global arena_perk_magic_immunity_chance_top, arena_perk_magic_immunity_chance_bottom
     global arena_magic_immunity_timer_top, arena_magic_immunity_timer_bottom
     global arena_perk_paddle_enlarge_top, arena_perk_paddle_enlarge_bottom
@@ -19199,8 +19202,8 @@ def reset_arena_perks():
     arena_perk_dash_distance_mult_top = 1.0
     arena_perk_dash_distance_mult_bottom = 1.0
     arena_perk_retry_chance = 0.0
-    arena_perk_guard_patrol_top = False
-    arena_perk_guard_patrol_bottom = False
+    arena_perk_guard_extra_skill_top = False
+    arena_perk_guard_extra_skill_bottom = False
     arena_perk_magic_immunity_chance_top = 0.0
     arena_perk_magic_immunity_chance_bottom = 0.0
     arena_magic_immunity_timer_top = 0.0
@@ -97325,11 +97328,13 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
                 if guard_system.guard_cd_mult_bottom != 1.0:
                     guard_system.cooldown_bottom *= guard_system.guard_cd_mult_bottom
                     guard_system.cooldown_max_bottom = guard_system.cooldown_bottom
-                # 순찰명령 퍽 적용
-                guard_system.patrol_mode_top = arena_perk_guard_patrol_top
-                guard_system.patrol_mode_bottom = arena_perk_guard_patrol_bottom
-                # 순찰명령 퍽이 있으면 즉시 순찰 시작 (첫 쿨타임 대기 없이)
+                # 순찰 모드 즉시 시작 (기본 동작)
                 guard_system.activate_patrol_immediate()
+                # 추가훈련 퍽: 호위무사 추가 스킬 해금
+                if arena_perk_guard_extra_skill_top:
+                    guard_system.unlock_extra_skills(is_top=True)
+                if arena_perk_guard_extra_skill_bottom:
+                    guard_system.unlock_extra_skills(is_top=False)
                 arena_guard_system = guard_system
                 print(f"[Guard] start_arena_battle 호위무사 설정 완료: top={len(_top_guards)}, bottom={len(_bottom_guards)}")
             else:

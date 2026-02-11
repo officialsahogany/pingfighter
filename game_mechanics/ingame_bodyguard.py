@@ -123,6 +123,8 @@ class InGameBodyguard:
                 guards_bottom=[hero_data],    # 하단(플레이어 측)에 배치
                 initial_delay=(12.0, 18.0),
             )
+            # 순찰 모드 즉시 시작 (기본 동작: 맵에서 상시 순찰)
+            self._guard_system.activate_patrol_immediate()
             print(f"[Bodyguard] 호위무사 설정 완료 (GuardWarriorSystem): "
                   f"{hero_data.get('name', '???')} (id={hero_data.get('id')})")
         except Exception as e:
