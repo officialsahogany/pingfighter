@@ -3920,6 +3920,7 @@ class ColosseumsArena:
 
     def start_battle(self, match: Match):
         """배틀 시작 - 실제 게임 엔진 사용 (pingfighter.main 스테이지 30)"""
+        print(f"[DEBUG 집념] start_battle() 호출됨! match={match.hero1.get('name','?')} vs {match.hero2.get('name','?')}")
         self.selected_match = match
 
         # 배틀 활성화 (중요: _end_battle()에서 체크하므로 반드시 설정해야 함)
@@ -4002,7 +4003,9 @@ class ColosseumsArena:
                 self.score_top = 5
                 self.score_bottom = 0
 
+            print(f"[DEBUG 집념] battle_callback 결과: result={result}, winner={winner.get('name','?')}")
             self._end_battle(winner)
+            print(f"[DEBUG 집념] _end_battle 후 state={self.state}")
 
         except Exception as e:
             print(f"Arena battle error: {e}")
@@ -4417,8 +4420,10 @@ class ColosseumsArena:
 
     def _end_battle(self, winner: Dict):
         """배틀 종료 - 누적 상금 시스템"""
+        print(f"[DEBUG 집념] _end_battle() 호출됨! winner={winner.get('name', '?')}, battle_active={self.battle_active}")
         # 방어 로직: 이미 종료된 배틀이면 무시
         if not self.battle_active:
+            print(f"[DEBUG 집념] battle_active=False → 즉시 리턴!")
             return
 
         self.battle_active = False
@@ -4435,13 +4440,22 @@ class ColosseumsArena:
             return
 
         # === 집념 퍽: 패배 시 확률적 재시작 ===
+        print(f"[DEBUG 집념] _end_battle 진입 | bet_hero={self.bet_hero.get('name') if self.bet_hero else None}, winner={winner.get('name', '?')}")
+        print(f"[DEBUG 집념] bet_hero is winner? {winner is self.bet_hero} | bet_hero == winner? {winner == self.bet_hero}")
+        print(f"[DEBUG 집념] bet_hero id={id(self.bet_hero) if self.bet_hero else 'N/A'}, winner id={id(winner)}")
         if self.bet_hero and winner != self.bet_hero:
             hero_id = self.bet_hero["id"]
+            perks = self.hero_perks.get(hero_id, [])
             mults = self.get_hero_perk_multipliers(hero_id)
             retry_chance = mults.get("retry_chance", 0.0)
+            tenacity_used = getattr(self, '_tenacity_used', False)
+            print(f"[DEBUG 집념] 패배 감지! hero_id={hero_id}, perks={[p['name'] for p in perks]}")
+            print(f"[DEBUG 집념] retry_chance={retry_chance}, _tenacity_used={tenacity_used}")
             # 집념 퍽은 토너먼트당 1회만 발동 가능
-            if retry_chance > 0 and not getattr(self, '_tenacity_used', False):
-                if random.random() < retry_chance:
+            if retry_chance > 0 and not tenacity_used:
+                roll = random.random()
+                print(f"[DEBUG 집념] 확률 판정: roll={roll:.4f} < retry_chance={retry_chance} → {'발동!' if roll < retry_chance else '불발'}")
+                if roll < retry_chance:
                     self._tenacity_used = True
                     print(f"[Perk] 집념 발동! {retry_chance:.0%} 확률로 재시작!")
                     # 매치 결과 리셋하고 재시작
@@ -4759,6 +4773,7 @@ class ColosseumsArena:
             # 집념 퍽 재시작 연출 (2초 대기 후 재시작)
             self.tenacity_timer += dt
             if self.tenacity_timer >= 2.0:
+                print(f"[DEBUG 집념] TENACITY_RETRY 2초 경과 → start_battle 호출!")
                 self.tenacity_triggered = False
                 # 배틀 재시작
                 self.start_battle(self.selected_match)
