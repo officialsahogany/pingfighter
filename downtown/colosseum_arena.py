@@ -4644,13 +4644,28 @@ class ColosseumsArena:
 
             # 호위무사 선택 키보드 처리
             if self.state == TournamentState.GUARD_SELECT and self.guard_select_timer > 0.5:
-                if event.key == pygame.K_LEFT:
-                    self.guard_select_hover = 0
-                elif event.key == pygame.K_RIGHT:
-                    self.guard_select_hover = 1
-                elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
-                    if self.guard_select_hover >= 0:
-                        self._confirm_guard_select(self.guard_select_hover)
+                # 경고 다이얼로그가 열려 있으면 다이얼로그 입력 처리
+                if getattr(self, 'guard_confirm_showing', False):
+                    if event.key == pygame.K_LEFT:
+                        self.guard_confirm_selected = 0
+                    elif event.key == pygame.K_RIGHT:
+                        self.guard_confirm_selected = 1
+                    elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                        if self.guard_confirm_selected == 0:  # 예
+                            self.guard_confirm_showing = False
+                            self._confirm_guard_select(self.guard_confirm_index)
+                        else:  # 아니오
+                            self.guard_confirm_showing = False
+                    elif event.key == pygame.K_ESCAPE:
+                        self.guard_confirm_showing = False
+                else:
+                    if event.key == pygame.K_LEFT:
+                        self.guard_select_hover = 0
+                    elif event.key == pygame.K_RIGHT:
+                        self.guard_select_hover = 1
+                    elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                        if self.guard_select_hover >= 0:
+                            self._try_guard_select(self.guard_select_hover)
 
             # 퍽 선택 키보드 처리
             if self.state == TournamentState.PERK_SELECT and self.perk_anim_phase == "active":
@@ -4683,6 +4698,24 @@ class ColosseumsArena:
 
         # 호위무사 선택 클릭 처리
         if self.state == TournamentState.GUARD_SELECT and self.guard_select_timer > 0.5:
+            # 경고 다이얼로그가 열려 있으면 다이얼로그 버튼 클릭 처리
+            if getattr(self, 'guard_confirm_showing', False):
+                dialog_w, dialog_h = 420, 200
+                dx = SCREEN_WIDTH // 2 - dialog_w // 2
+                dy = SCREEN_HEIGHT // 2 - dialog_h // 2
+                btn_w, btn_h = 100, 40
+                btn_y = dy + dialog_h - 60
+                yes_x = SCREEN_WIDTH // 2 - btn_w - 20
+                no_x = SCREEN_WIDTH // 2 + 20
+                if yes_x <= mx <= yes_x + btn_w and btn_y <= my <= btn_y + btn_h:
+                    self.guard_confirm_showing = False
+                    self._confirm_guard_select(self.guard_confirm_index)
+                    return
+                elif no_x <= mx <= no_x + btn_w and btn_y <= my <= btn_y + btn_h:
+                    self.guard_confirm_showing = False
+                    return
+                return  # 다이얼로그 외부 클릭 무시
+
             guards = getattr(self, 'guard_select_guards', [])
             if len(guards) >= 2:
                 # 카드 히트박스 (좌/우)
@@ -4692,10 +4725,10 @@ class ColosseumsArena:
                 right_x = SCREEN_WIDTH // 2 + gap // 2
                 card_y = 175
                 if left_x <= mx <= left_x + card_w and card_y <= my <= card_y + card_h:
-                    self._confirm_guard_select(0)
+                    self._try_guard_select(0)
                     return
                 elif right_x <= mx <= right_x + card_w and card_y <= my <= card_y + card_h:
-                    self._confirm_guard_select(1)
+                    self._try_guard_select(1)
                     return
 
         # 퍽 선택 클릭 처리
@@ -4937,19 +4970,33 @@ class ColosseumsArena:
 
         # 호위무사 선택 화면 호버
         if self.state == TournamentState.GUARD_SELECT and self.guard_select_timer > 0.5:
-            guards = getattr(self, 'guard_select_guards', [])
-            if len(guards) >= 2:
-                card_w, card_h = 220, 420
-                gap = 60
-                left_x = SCREEN_WIDTH // 2 - gap // 2 - card_w
-                right_x = SCREEN_WIDTH // 2 + gap // 2
-                card_y = 175
-                old_hover = getattr(self, 'guard_select_hover', -1)
-                self.guard_select_hover = -1
-                if left_x <= mx <= left_x + card_w and card_y <= my <= card_y + card_h:
-                    self.guard_select_hover = 0
-                elif right_x <= mx <= right_x + card_w and card_y <= my <= card_y + card_h:
-                    self.guard_select_hover = 1
+            # 경고 다이얼로그 열려 있으면 버튼 호버만 처리
+            if getattr(self, 'guard_confirm_showing', False):
+                dialog_w, dialog_h = 420, 200
+                dx = SCREEN_WIDTH // 2 - dialog_w // 2
+                dy = SCREEN_HEIGHT // 2 - dialog_h // 2
+                btn_w, btn_h = 100, 40
+                btn_y = dy + dialog_h - 60
+                yes_x = SCREEN_WIDTH // 2 - btn_w - 20
+                no_x = SCREEN_WIDTH // 2 + 20
+                if yes_x <= mx <= yes_x + btn_w and btn_y <= my <= btn_y + btn_h:
+                    self.guard_confirm_selected = 0
+                elif no_x <= mx <= no_x + btn_w and btn_y <= my <= btn_y + btn_h:
+                    self.guard_confirm_selected = 1
+            else:
+                guards = getattr(self, 'guard_select_guards', [])
+                if len(guards) >= 2:
+                    card_w, card_h = 220, 420
+                    gap = 60
+                    left_x = SCREEN_WIDTH // 2 - gap // 2 - card_w
+                    right_x = SCREEN_WIDTH // 2 + gap // 2
+                    card_y = 175
+                    old_hover = getattr(self, 'guard_select_hover', -1)
+                    self.guard_select_hover = -1
+                    if left_x <= mx <= left_x + card_w and card_y <= my <= card_y + card_h:
+                        self.guard_select_hover = 0
+                    elif right_x <= mx <= right_x + card_w and card_y <= my <= card_y + card_h:
+                        self.guard_select_hover = 1
 
                 # 스킬 아이콘 호버 감지
                 self.guard_select_skill_hover = None
@@ -9079,6 +9126,10 @@ class ColosseumsArena:
         # 기존(index 0) vs 신규(마지막 = 방금 생포된 호위무사) 구분
         self.guard_select_new_idx = len(guards) - 1 if guards else 0
         self.guard_select_particles = []
+        # 경고 확인 다이얼로그 상태
+        self.guard_confirm_showing = False
+        self.guard_confirm_index = -1
+        self.guard_confirm_selected = 0  # 0 = 예, 1 = 아니오
         # 초기 파티클
         for _ in range(30):
             self.guard_select_particles.append({
@@ -9111,6 +9162,18 @@ class ColosseumsArena:
                     chosen = random.choice(guards)
                     self.guard_warrior_map[hero_id] = [chosen]
                     print(f"[Guard] AI 호위무사 축소: {hero['name']} → {chosen['name']}")
+
+    def _try_guard_select(self, index: int):
+        """호위무사 선택 시도 - 신규 선택 시 경고 다이얼로그 표시"""
+        new_idx = getattr(self, 'guard_select_new_idx', -1)
+        if index == new_idx:
+            # 신규 호위무사 선택 → 경고 다이얼로그 표시
+            self.guard_confirm_showing = True
+            self.guard_confirm_index = index
+            self.guard_confirm_selected = 1  # 기본값 '아니오'
+        else:
+            # 기존 호위무사 유지 → 바로 확정
+            self._confirm_guard_select(index)
 
     def _confirm_guard_select(self, index: int):
         """호위무사 선택 확정"""
@@ -9473,8 +9536,76 @@ class ColosseumsArena:
 
         # === 스킬 툴팁 (호버 중인 스킬이 있으면 최상위에 표시) ===
         skill_hover_info = getattr(self, 'guard_select_skill_hover', None)
-        if skill_hover_info and timer > 0.5:
+        if skill_hover_info and timer > 0.5 and not getattr(self, 'guard_confirm_showing', False):
             self._draw_guard_skill_tooltip(skill_hover_info)
+
+        # === 경고 확인 다이얼로그 (최상위 오버레이) ===
+        if getattr(self, 'guard_confirm_showing', False):
+            self._draw_guard_confirm_dialog()
+
+    def _draw_guard_confirm_dialog(self):
+        """신규 호위무사 선택 시 경고 확인 다이얼로그"""
+        # 어두운 오버레이
+        overlay = _get_arena_fullscreen()
+        overlay.fill((0, 0, 0, 160))
+        self.screen.blit(overlay, (0, 0))
+
+        dialog_w, dialog_h = 420, 200
+        cx = SCREEN_WIDTH // 2
+        cy = SCREEN_HEIGHT // 2
+        dx = cx - dialog_w // 2
+        dy = cy - dialog_h // 2
+
+        # 다이얼로그 배경 패널
+        panel_surf = _get_arena_surface(dialog_w, dialog_h)
+        panel_surf.fill((*ET["bg_panel"], 240))
+        pygame.draw.rect(panel_surf, ET["gold_medium"], (0, 0, dialog_w, dialog_h), 2, border_radius=8)
+        self.screen.blit(panel_surf, (dx, dy))
+
+        if not self.fonts:
+            return
+
+        # 제목: ⚠ 경고
+        if "medium" in self.fonts:
+            title_surf, _ = self.fonts["medium"].render("경고", ET["carnelian_light"])
+            self.screen.blit(title_surf, (cx - title_surf.get_width() // 2, dy + 20))
+
+        # 본문
+        if "small" in self.fonts:
+            line1 = "신규 호위무사를 영입하면"
+            line2 = "기존 호위무사는 해고됩니다."
+            line3 = "계속하시겠습니까?"
+            s1, _ = self.fonts["small"].render(line1, ET["text_body"])
+            s2, _ = self.fonts["small"].render(line2, ET["text_body"])
+            s3, _ = self.fonts["small"].render(line3, ET["gold_pale"])
+            self.screen.blit(s1, (cx - s1.get_width() // 2, dy + 55))
+            self.screen.blit(s2, (cx - s2.get_width() // 2, dy + 78))
+            self.screen.blit(s3, (cx - s3.get_width() // 2, dy + 105))
+
+        # 버튼
+        btn_w, btn_h = 100, 40
+        btn_y = dy + dialog_h - 60
+        yes_x = cx - btn_w - 20
+        no_x = cx + 20
+        selected = getattr(self, 'guard_confirm_selected', 1)
+
+        for i, (bx, label) in enumerate([(yes_x, "예"), (no_x, "아니오")]):
+            is_sel = (selected == i)
+            if is_sel:
+                bg_color = ET["carnelian_light"] if i == 0 else ET["lapis_lazuli"]
+                border_color = ET["gold_bright"]
+            else:
+                bg_color = ET["bg_medium"]
+                border_color = ET["card_border"]
+
+            pygame.draw.rect(self.screen, bg_color, (bx, btn_y, btn_w, btn_h), border_radius=6)
+            pygame.draw.rect(self.screen, border_color, (bx, btn_y, btn_w, btn_h), 2, border_radius=6)
+
+            if "small" in self.fonts:
+                text_color = ET["text_white"] if is_sel else ET["text_hint"]
+                bs, _ = self.fonts["small"].render(label, text_color)
+                self.screen.blit(bs, (bx + btn_w // 2 - bs.get_width() // 2,
+                                      btn_y + btn_h // 2 - bs.get_height() // 2))
 
     def _draw_guard_skill_tooltip(self, hover_info: dict):
         """호위무사 선택 화면의 스킬 아이콘 툴팁 (pingfighter _draw_arena_skill_tooltip 동일 폼)"""
