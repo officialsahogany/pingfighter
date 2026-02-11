@@ -660,7 +660,7 @@ ARENA_PERK_POOL = [
     {
         "id": "storm_rush",
         "name": "폭풍질주",
-        "description": "대쉬 거리 50% 증가",
+        "description": "대쉬 거리 50% 증가\n대쉬 시 패들 크기 210% 확대",
         "icon_color": (50, 180, 255),    # 파랑 (폭풍)
         "effect_type": "dash_distance",
         "value": 0.50,

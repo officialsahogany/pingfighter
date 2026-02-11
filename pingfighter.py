@@ -19185,6 +19185,9 @@ def reset_arena_perks():
     global arena_magic_immunity_timer_top, arena_magic_immunity_timer_bottom
     global arena_perk_paddle_enlarge_top, arena_perk_paddle_enlarge_bottom
     global arena_leaf_shield_top, arena_leaf_shield_bottom
+    global arena_storm_rush_burst_top, arena_storm_rush_burst_bottom
+    global arena_storm_rush_height_bonus_top, arena_storm_rush_height_bonus_bottom
+    global arena_storm_rush_particles
     arena_perk_speed_mult_top = 1.0
     arena_perk_speed_mult_bottom = 1.0
     arena_perk_dash_cd_mult_top = 1.0
@@ -19210,6 +19213,12 @@ def reset_arena_perks():
     if arena_leaf_shield_bottom:
         arena_leaf_shield_bottom.deactivate()
     arena_leaf_shield_bottom = None
+    # 폭풍질주 버스트업 초기화
+    arena_storm_rush_burst_top = False
+    arena_storm_rush_burst_bottom = False
+    arena_storm_rush_height_bonus_top = 0
+    arena_storm_rush_height_bonus_bottom = 0
+    arena_storm_rush_particles.clear()
     arena_active_hero_perks = []
     arena_active_enemy_perks = []
 
@@ -19982,6 +19991,7 @@ def arena_trigger_bottom_hero_dash(direction: int) -> bool:
     global arena_bottom_dashing, arena_bottom_dash_timer, arena_bottom_dash_direction
     global arena_bottom_dash_target_x, arena_bottom_dash_cooldown, arena_bottom_dash_charges
     global arena_bottom_dash_duration_frames, arena_bottom_dash_stun_timer
+    global arena_storm_rush_burst_bottom, arena_storm_rush_height_bonus_bottom
 
     # 스팀 배리어 시전 중에는 대쉬 발동 불가 (하단 패들이 시전자일 때)
     if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and not arena_skill_manager.game_state.get('barrier_owner_is_top', False):
@@ -20014,11 +20024,23 @@ def arena_trigger_bottom_hero_dash(direction: int) -> bool:
     arena_bottom_dashing = True
     arena_bottom_dash_charges -= 1
 
-    # 대쉬 사운드 재생 (보스와 동일)
-    try:
-        play_dash_sound()
-    except Exception:
-        pass
+    # 폭풍질주 퍽: 버스트업 Lv3 효과
+    if arena_perk_dash_distance_mult_bottom > 1.0:
+        arena_storm_rush_burst_bottom = True
+        arena_storm_rush_height_bonus_bottom = int(PADDLE_HEIGHT * 2.1)
+        _spawn_storm_rush_particles(PLAYER.centerx, PLAYER.centery)
+        try:
+            play_sound_with_volume(SOUND_BURST_UP)
+        except Exception:
+            try:
+                play_dash_sound()
+            except Exception:
+                pass
+    else:
+        try:
+            play_dash_sound()
+        except Exception:
+            pass
 
     return True
 
@@ -20027,12 +20049,25 @@ def update_arena_top_hero_dash():
     """상단 영웅 대쉬 업데이트 - 보스 대쉬와 동일한 방식"""
     global arena_top_dashing, arena_top_dash_timer, arena_top_dash_cooldown
     global arena_top_dash_afterimages, arena_top_dash_stun_timer, arena_top_dash_duration_frames
+    global arena_storm_rush_burst_top, arena_storm_rush_height_bonus_top, arena_storm_rush_particles
+
+    # 폭풍질주 파티클 업데이트 (대쉬 상태와 무관하게 매 프레임)
+    new_particles = []
+    for p in arena_storm_rush_particles:
+        p[0] += p[2]  # x += vx
+        p[1] += p[3]  # y += vy
+        p[4] -= 1     # life -= 1
+        if p[4] > 0:
+            new_particles.append(p)
+    arena_storm_rush_particles = new_particles
 
     # 스팀 배리어 시전 중에는 대쉬 즉시 취소
     if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and arena_skill_manager.game_state.get('barrier_owner_is_top', False):
         if arena_top_dashing:
             arena_top_dashing = False
             arena_top_dash_timer = 0
+            arena_storm_rush_burst_top = False
+            arena_storm_rush_height_bonus_top = 0
         return False
 
     # 쿨다운 감소
@@ -20089,7 +20124,8 @@ def update_arena_top_hero_dash():
     arena_top_dash_afterimages.append({
         'x': BOSS.centerx, 'y': BOSS.centery,
         'width': BOSS.width, 'height': BOSS.height,
-        'alpha': 160, 'life': 10
+        'alpha': 160, 'life': 10,
+        'storm_rush': arena_storm_rush_burst_top  # 로즈골드 잔상 여부
     })
     if len(arena_top_dash_afterimages) > 6:
         arena_top_dash_afterimages.pop(0)
@@ -20097,6 +20133,8 @@ def update_arena_top_hero_dash():
     # 대쉬 종료
     if arena_top_dash_timer <= 0:
         arena_top_dashing = False
+        arena_storm_rush_burst_top = False          # 버스트업 해제
+        arena_storm_rush_height_bonus_top = 0       # 높이 보너스 초기화
         arena_top_dash_stun_timer = ARENA_DASH_STUN_FRAMES  # 후딜 타이머 설정
         # 쿨타임 설정 (10~15초 랜덤) - 대쉬 종료 후 설정 + 퍽 적용
         arena_top_dash_cooldown = int(random.randint(ARENA_DASH_COOLDOWN_MIN, ARENA_DASH_COOLDOWN_MAX) * arena_perk_dash_cd_mult_top)
@@ -20115,12 +20153,15 @@ def update_arena_bottom_hero_dash():
     global arena_bottom_dash_afterimages, arena_bottom_dash_charges, arena_bottom_dash_charge_timer
     global arena_bottom_dash_stun_timer, arena_bottom_dash_duration_frames
     global _all_tokens_full_sparkle_timer
+    global arena_storm_rush_burst_bottom, arena_storm_rush_height_bonus_bottom
 
     # 스팀 배리어 시전 중에는 대쉬 즉시 취소 (하단 패들이 시전자일 때)
     if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and not arena_skill_manager.game_state.get('barrier_owner_is_top', False):
         if arena_bottom_dashing:
             arena_bottom_dashing = False
             arena_bottom_dash_timer = 0
+            arena_storm_rush_burst_bottom = False
+            arena_storm_rush_height_bonus_bottom = 0
         return False
 
     # 🔥 귀신발걸음 활성 중에는 대쉬 시스템 비활성화 (X축 점프 방지)
@@ -20129,6 +20170,8 @@ def update_arena_bottom_hero_dash():
         if arena_bottom_dashing:
             arena_bottom_dashing = False
             arena_bottom_dash_timer = 0
+            arena_storm_rush_burst_bottom = False
+            arena_storm_rush_height_bonus_bottom = 0
         return False
 
     # 충전 타이머 업데이트 (후딜 중에는 충전 안 함)
@@ -20203,7 +20246,8 @@ def update_arena_bottom_hero_dash():
     arena_bottom_dash_afterimages.append({
         'x': PLAYER.centerx, 'y': PLAYER.centery,
         'width': PLAYER.width, 'height': PLAYER.height,
-        'alpha': 160, 'life': 10
+        'alpha': 160, 'life': 10,
+        'storm_rush': arena_storm_rush_burst_bottom  # 로즈골드 잔상 여부
     })
     if len(arena_bottom_dash_afterimages) > 6:
         arena_bottom_dash_afterimages.pop(0)
@@ -20211,6 +20255,8 @@ def update_arena_bottom_hero_dash():
     # 대쉬 종료
     if arena_bottom_dash_timer <= 0:
         arena_bottom_dashing = False
+        arena_storm_rush_burst_bottom = False          # 버스트업 해제
+        arena_storm_rush_height_bonus_bottom = 0       # 높이 보너스 초기화
         arena_bottom_dash_stun_timer = ARENA_DASH_STUN_FRAMES  # 후딜 타이머 설정
         # 쿨타임 설정 (10~15초 랜덤) - 대쉬 종료 후 설정 + 퍽 적용
         arena_bottom_dash_cooldown = int(random.randint(ARENA_DASH_COOLDOWN_MIN, ARENA_DASH_COOLDOWN_MAX) * arena_perk_dash_cd_mult_bottom)
@@ -20233,9 +20279,12 @@ def draw_arena_dash_afterimages(screen):
             width = img.get('width', BOSS.width)
             height = img.get('height', BOSS.height)
             surf = pygame.Surface((width, height), pygame.SRCALPHA)
-            color = arena_top_hero.get('color', (100, 100, 255)) if arena_top_hero else (100, 100, 255)
+            # 폭풍질주 로즈골드 잔상
+            if img.get('storm_rush'):
+                color = (255, 200, 180)  # Rose Gold
+            else:
+                color = arena_top_hero.get('color', (100, 100, 255)) if arena_top_hero else (100, 100, 255)
             surf.fill((*color, int(alpha)))
-            # center 기반으로 그리기 (보스와 동일)
             rect = surf.get_rect(center=(img['x'], img['y']))
             screen.blit(surf, rect.topleft)
 
@@ -20247,11 +20296,34 @@ def draw_arena_dash_afterimages(screen):
             width = img.get('width', PLAYER.width)
             height = img.get('height', PLAYER.height)
             surf = pygame.Surface((width, height), pygame.SRCALPHA)
-            color = arena_bottom_hero.get('color', (255, 100, 100)) if arena_bottom_hero else (255, 100, 100)
+            # 폭풍질주 로즈골드 잔상
+            if img.get('storm_rush'):
+                color = (255, 200, 180)  # Rose Gold
+            else:
+                color = arena_bottom_hero.get('color', (255, 100, 100)) if arena_bottom_hero else (255, 100, 100)
             surf.fill((*color, int(alpha)))
-            # center 기반으로 그리기 (보스와 동일)
             rect = surf.get_rect(center=(img['x'], img['y']))
             screen.blit(surf, rect.topleft)
+
+    # 폭풍질주 플래시 파티클 렌더링
+    for p in arena_storm_rush_particles:
+        p_alpha = max(0, min(255, int(255 * p[4] / 45)))
+        if p_alpha <= 0:
+            continue
+        p_size = max(1, p[5])
+        ps = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
+        p_color = p[6]
+        p_type = p[7] if len(p) > 7 else 'energy'
+        if p_type == 'electric':
+            # 전기 스파크: 선형 페이드
+            pygame.draw.circle(ps, (*p_color, p_alpha), (p_size, p_size), p_size)
+        else:
+            # 에너지: 부드러운 글로우
+            glow_alpha = max(0, p_alpha // 2)
+            pygame.draw.circle(ps, (*p_color, glow_alpha), (p_size, p_size), p_size)
+            inner = max(1, p_size // 2)
+            pygame.draw.circle(ps, (*p_color, p_alpha), (p_size, p_size), inner)
+        screen.blit(ps, (int(p[0]) - p_size, int(p[1]) - p_size))
 
 
 #  리그별 보스 능력치 보정
@@ -64367,6 +64439,9 @@ def handle_player(keys):
     if acceleration_active and acceleration_height_bonus > 0:
         # 세로 방향으로만 충돌 범위 확장 (위아래로 균등하게)
         player_collision_rect.inflate_ip(0, acceleration_height_bonus)
+    # 폭풍질주 버스트업 패들 높이 확장
+    if arena_storm_rush_burst_bottom and arena_storm_rush_height_bonus_bottom > 0:
+        player_collision_rect.inflate_ip(0, arena_storm_rush_height_bonus_bottom)
 
     scale_applied = paddle_scale_ratio if paddle_scale_ratio > 0 else 1.0
     effective_centerx = PLAYER.centerx
@@ -88502,6 +88577,9 @@ def draw_objects():
             _arena_base_paddle_height_top = 52
             _top_draw_width = int(_arena_base_paddle_width_top * _top_size_boost * _top_shrink_scale * arena_perk_paddle_enlarge_top)
             _top_draw_height = int(_arena_base_paddle_height_top * _top_size_boost * _top_shrink_scale * arena_perk_paddle_enlarge_top)
+            # 폭풍질주 버스트업: 대쉬 중 패들 높이 확대
+            if arena_storm_rush_burst_top and arena_storm_rush_height_bonus_top > 0:
+                _top_draw_height += arena_storm_rush_height_bonus_top
             # 상단 영웅 패들 그리기 (보스 위치 + 떨림 오프셋 + 뿔박치기 오프셋)
             _top_final_x = BOSS.centerx + screen_shake_offset_x + _arena_top_stun_shake_x + _horn_charge_x_offset_top
             _top_final_y = BOSS.centery + screen_shake_offset_y + _arena_top_stun_shake_y + _horn_charge_y_offset_top
@@ -90077,6 +90155,9 @@ def draw_objects():
             _arena_base_paddle_height = 52
             _bottom_draw_width = int(_arena_base_paddle_width * _bottom_size_boost * _bottom_shrink_scale * arena_perk_paddle_enlarge_bottom)
             _bottom_draw_height = int(_arena_base_paddle_height * _bottom_size_boost * _bottom_shrink_scale * arena_perk_paddle_enlarge_bottom)
+            # 폭풍질주 버스트업: 대쉬 중 패들 높이 확대
+            if arena_storm_rush_burst_bottom and arena_storm_rush_height_bonus_bottom > 0:
+                _bottom_draw_height += arena_storm_rush_height_bonus_bottom
             # 하단 영웅 패들 그리기 (PLAYER 고정 좌표 + 떨림 오프셋 + 뿔박치기 오프셋)
             # player_rect 대신 PLAYER 사용: player_rect는 일반 스프라이트 바운딩 보정으로 Y가 흔들림
             _final_x = PLAYER.centerx + screen_shake_offset_x + _arena_bottom_stun_shake_x + _horn_charge_x_offset_bottom
@@ -118186,7 +118267,10 @@ def handle_ball():
         player_collision_rect = PLAYER.copy()
         if acceleration_active and acceleration_height_bonus > 0:
             player_collision_rect.inflate_ip(0, acceleration_height_bonus)
-        
+        # 폭풍질주 버스트업 패들 높이 확장
+        if arena_storm_rush_burst_bottom and arena_storm_rush_height_bonus_bottom > 0:
+            player_collision_rect.inflate_ip(0, arena_storm_rush_height_bonus_bottom)
+
         if BALL.colliderect(player_collision_rect) and not ball_in_kuromi:
             flame_trail_active = False
             # Stage 6: 홍련폭염 종료 시, 가드 성공이 있었으면 50% 확률로 스타포인트 1개 드랍
@@ -121817,6 +121901,11 @@ def handle_ball():
     else:
         # 다른 스테이지는 원래 크기 사용 (BOSS rect 직접 사용)
         boss_hitbox_expanded = BOSS
+    # 폭풍질주 버스트업 보스 패들 높이 확장
+    if arena_storm_rush_burst_top and arena_storm_rush_height_bonus_top > 0:
+        if boss_hitbox_expanded is BOSS:
+            boss_hitbox_expanded = BOSS.copy()
+        boss_hitbox_expanded.inflate_ip(0, arena_storm_rush_height_bonus_top)
     # 스테이지8 그림자분신 연출(하강/상승) 중에는 공 충돌 무시
     stage8_shadow_intangible = False
     # 스테이지8 구름장막 대시(준비/하강/상승) 중에는 패들 판정 제거
