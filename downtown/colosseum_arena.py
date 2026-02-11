@@ -6969,7 +6969,7 @@ class ColosseumsArena:
                     g_target_x = center_x + 150 + fi * 80
                     g_start_x = SCREEN_WIDTH + 100
                     gx = int(g_start_x + (g_target_x - g_start_x) * guard_eased)
-                    gy = int(guard_y_target + 20 + 100 * (1 - guard_eased))
+                    gy = int(guard_y_target + 100 * (1 - guard_eased))
                     g_color = g.get("color", (150, 150, 150))
 
                     # 반투명 서피스에 렌더링
@@ -6996,7 +6996,7 @@ class ColosseumsArena:
 
                     # 반투명 적용 (100/255 ≈ 40% 불투명)
                     ghost_surf.fill((255, 255, 255, 100), special_flags=pygame.BLEND_RGBA_MULT)
-                    self.screen.blit(ghost_surf, (gx - ghost_cx, gy - ghost_cy + 10))
+                    self.screen.blit(ghost_surf, (gx - ghost_cx, gy - ghost_cy))
 
         # === 챔피언 (중앙, 크게) ===
         champ_target_y = 380
@@ -8254,11 +8254,15 @@ class ColosseumsArena:
         bet_id = self.bet_hero["id"] if self.bet_hero else ""
         new_idx = getattr(self, 'guard_select_new_idx', len(guards) - 1)
 
-        # 선택한 호위무사만 남기기 (탈락한 호위무사는 기록)
+        # 선택한 호위무사만 남기기 (교체된 기존 호위무사만 기록)
+        # 신규 포획 호위무사(new_idx)를 거절한 경우는 기록하지 않음
+        # (한 번도 실전 투입되지 않은 호위무사는 "교체당한" 것이 아님)
         dropped_guards = [g for i, g in enumerate(guards) if i != index]
-        for dg in dropped_guards:
-            if dg not in self.former_guards:
-                self.former_guards.append(dg)
+        for i, g in enumerate(guards):
+            if i == index:
+                continue
+            if i != new_idx and g not in self.former_guards:
+                self.former_guards.append(g)
         self.guard_warrior_map[bet_id] = [selected]
         self.guard_select_chosen = index
         print(f"[Guard] 호위무사 선택 완료: {selected['name']} (탈락: {[g['name'] for g in dropped_guards]})")
