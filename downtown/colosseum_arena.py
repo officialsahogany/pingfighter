@@ -7461,7 +7461,7 @@ class ColosseumsArena:
             self.screen.blit(surf, (exit_rect.centerx - surf.get_width() // 2, exit_rect.y + 12))
 
     def _draw_result_ui(self):
-        """결과 UI - 누적 상금 시스템"""
+        """결과 UI - 심플 & 임팩트 버전"""
         if not self.selected_match or not self.selected_match.winner:
             return
 
@@ -7472,77 +7472,153 @@ class ColosseumsArena:
 
         winner = self.selected_match.winner
         is_win = self.bet_hero == winner
+        cx = SCREEN_WIDTH // 2
 
-        # 결과 패널
-        panel_x, panel_y = 180, 200
-        panel_w, panel_h = 400, 320
         if is_win:
+            # ── 승리 화면 ──
+            # 다음 라운드 이름 결정
+            if self.current_round == TournamentRound.QUARTER_FINAL:
+                advance_text = "4강 진출!"
+            elif self.current_round == TournamentRound.SEMI_FINAL:
+                advance_text = "결승 진출!"
+            else:
+                advance_text = "우승!"
+
+            # 패널
+            panel_w, panel_h = 380, 340
+            panel_x = cx - panel_w // 2
+            panel_y = 190
             self._draw_egyptian_panel(panel_x, panel_y, panel_w, panel_h)
+
+            # "-- 승리 --" 타이틀
+            if self.fonts and "large" in self.fonts:
+                surf, _ = self.fonts["large"].render("-- 승리 --", ET["gold_bright"])
+                self.screen.blit(surf, (cx - surf.get_width() // 2, panel_y + 18))
+
+            # "~강 진출!" 텍스트 + 트로피 아이콘
+            if self.fonts and "large" in self.fonts:
+                surf, _ = self.fonts["large"].render(advance_text, ET["gold_bright"])
+                adv_x = cx - surf.get_width() // 2
+                adv_y = panel_y + 55
+                self.screen.blit(surf, (adv_x, adv_y))
+                icon_cy = adv_y + surf.get_height() // 2
+                self._draw_trophy_icon(adv_x - 16, icon_cy, 14)
+                self._draw_trophy_icon(adv_x + surf.get_width() + 16, icon_cy, 14)
+
+            # 영웅 이미지 + 호위무사 이미지
+            hero_id = self.bet_hero.get("id", "mugen") if self.bet_hero else "mugen"
+            hero_color = self.bet_hero.get("color", (200, 200, 200)) if self.bet_hero else (200, 200, 200)
+            guards = self.guard_warrior_map.get(hero_id, []) if self.bet_hero else []
+
+            hero_area_y = panel_y + 100
+            hero_w, hero_h = 90, 64
+
+            if guards:
+                # 영웅 + 호위무사 함께 표시
+                guard = guards[0]
+                guard_id = guard.get("id", "chronos")
+                guard_color = guard.get("color", (180, 180, 180))
+                guard_w, guard_h = 54, 38
+                total_w = hero_w + 12 + guard_w
+                start_x = cx - total_w // 2
+
+                # 메인 영웅 (크게)
+                if self.hero_paddle_renderer:
+                    self.hero_paddle_renderer.draw_hero_paddle(
+                        self.screen, hero_id,
+                        start_x + hero_w // 2, hero_area_y + hero_h // 2,
+                        hero_w, hero_h,
+                        facing="down", color=hero_color, scale_mode="preview"
+                    )
+                # 호위무사 (작게, 오른쪽 아래)
+                if self.hero_paddle_renderer:
+                    guard_x = start_x + hero_w + 12 + guard_w // 2
+                    guard_y = hero_area_y + hero_h - guard_h // 2
+                    self.hero_paddle_renderer.draw_hero_paddle(
+                        self.screen, guard_id,
+                        guard_x, guard_y,
+                        guard_w, guard_h,
+                        facing="down", color=guard_color, scale_mode="preview"
+                    )
+            else:
+                # 영웅만 표시 (가운데)
+                if self.hero_paddle_renderer:
+                    self.hero_paddle_renderer.draw_hero_paddle(
+                        self.screen, hero_id,
+                        cx, hero_area_y + hero_h // 2,
+                        hero_w, hero_h,
+                        facing="down", color=hero_color, scale_mode="preview"
+                    )
+
+            # 영웅 이름
+            if self.fonts and "medium" in self.fonts and self.bet_hero:
+                hero_name = self.bet_hero.get("name", "???")
+                brightness = sum(hero_color) / 3
+                name_color = hero_color if brightness > 80 else (
+                    min(255, hero_color[0] + 100),
+                    min(255, hero_color[1] + 100),
+                    min(255, hero_color[2] + 100)
+                )
+                surf, _ = self.fonts["medium"].render(hero_name, name_color)
+                self.screen.blit(surf, (cx - surf.get_width() // 2, hero_area_y + hero_h + 8))
+
+            # 골드 획득 표시
+            if self.fonts and "medium" in self.fonts:
+                round_prize = self.round_prizes.get(self.current_round, 0)
+                gold_text = f"+{round_prize}G"
+                surf, _ = self.fonts["medium"].render(gold_text, ET["malachite_light"])
+                self.screen.blit(surf, (cx - surf.get_width() // 2, panel_y + 240))
+
+            # 누적 상금
+            if self.fonts and "small" in self.fonts and self.accumulated_prize > 0:
+                acc_text = f"누적 상금: {self.accumulated_prize}G"
+                surf, _ = self.fonts["small"].render(acc_text, ET["gold_pale"])
+                self.screen.blit(surf, (cx - surf.get_width() // 2, panel_y + 270))
+
+            # 안내
+            if self.fonts and "small" in self.fonts:
+                surf, _ = self.fonts["small"].render("클릭하여 계속", ET["text_hint"])
+                self.screen.blit(surf, (cx - surf.get_width() // 2, panel_y + 305))
+
         else:
+            # ── 패배 화면 ──
+            panel_w, panel_h = 380, 250
+            panel_x = cx - panel_w // 2
+            panel_y = 230
             self._draw_egyptian_panel(panel_x, panel_y, panel_w, panel_h, border_color=ET["carnelian"])
 
-        # 결과 타이틀
-        if self.fonts and "large" in self.fonts:
-            if is_win:
-                result_text = "-- 승리! --"
-                text_color = ET["gold_bright"]
-            else:
-                result_text = "패배..."
-                text_color = ET["carnelian_light"]
-            surf, _ = self.fonts["large"].render(result_text, text_color)
-            result_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
-            result_y = panel_y + 20
-            self.screen.blit(surf, (result_x, result_y))
-            if not is_win:
-                icon_y = result_y + surf.get_height() // 2
-                self._draw_skull_icon(result_x - 16, icon_y, 14)
-                self._draw_skull_icon(result_x + surf.get_width() + 16, icon_y, 14)
-
-        # 승자 정보
-        if self.fonts and "medium" in self.fonts:
-            winner_text = f"승자: {winner['name']}"
-            surf, _ = self.fonts["medium"].render(winner_text, winner["color"])
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 65))
+            # "패배..." 타이틀 + 해골 아이콘
+            if self.fonts and "large" in self.fonts:
+                surf, _ = self.fonts["large"].render("패배...", ET["carnelian_light"])
+                title_x = cx - surf.get_width() // 2
+                title_y = panel_y + 25
+                self.screen.blit(surf, (title_x, title_y))
+                icon_y = title_y + surf.get_height() // 2
+                self._draw_skull_icon(title_x - 16, icon_y, 14)
+                self._draw_skull_icon(title_x + surf.get_width() + 16, icon_y, 14)
 
             # 스코어
-            score_text = f"{self.selected_match.score1} : {self.selected_match.score2}"
-            surf, _ = self.fonts["medium"].render(score_text, ET["text_body"])
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 95))
+            if self.fonts and "medium" in self.fonts:
+                score_text = f"{self.selected_match.score1} : {self.selected_match.score2}"
+                surf, _ = self.fonts["medium"].render(score_text, ET["text_body"])
+                self.screen.blit(surf, (cx - surf.get_width() // 2, panel_y + 75))
 
-        # 보상/손실 표시
-        if self.fonts and "medium" in self.fonts:
-            if is_win:
-                round_prize = self.round_prizes.get(self.current_round, 0)
-                profit_text = f"{round_prize}G 획득!"
-                profit_color = ET["malachite_light"]
-            else:
+            # 손실 표시
+            if self.fonts and "medium" in self.fonts:
                 profit_text = f"입장료 {self.entry_fee}G를 잃었습니다!"
-                profit_color = ET["carnelian_light"]
-            surf, _ = self.fonts["medium"].render(profit_text, profit_color)
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 140))
+                surf, _ = self.fonts["medium"].render(profit_text, ET["carnelian_light"])
+                self.screen.blit(surf, (cx - surf.get_width() // 2, panel_y + 115))
 
-        # 현재 상금 표시
-        if self.fonts and "large" in self.fonts:
-            if self.accumulated_prize > 0:
-                acc_text = f"현재 상금: {self.accumulated_prize}G"
-                color = ET["gold_bright"]
-            else:
-                acc_text = "상금 없음"
-                color = ET["text_disabled"]
-            surf, _ = self.fonts["large"].render(acc_text, color)
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 185))
+            # 추가 메시지
+            if self.fonts and "small" in self.fonts:
+                lose_msg = f"누적 상금 {self.accumulated_prize}G 몰수..."
+                surf, _ = self.fonts["small"].render(lose_msg, ET["text_disabled"])
+                self.screen.blit(surf, (cx - surf.get_width() // 2, panel_y + 155))
 
-        # 패배시 추가 메시지
-        if not is_win and self.fonts and "small" in self.fonts:
-            lose_msg = f"입장료 {self.entry_fee}G를 잃었습니다..."
-            surf, _ = self.fonts["small"].render(lose_msg, ET["carnelian_light"])
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 230))
-
-        # 안내
-        if self.fonts and "small" in self.fonts:
-            hint = "클릭하여 계속"
-            surf, _ = self.fonts["small"].render(hint, ET["text_hint"])
-            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 280))
+            # 안내
+            if self.fonts and "small" in self.fonts:
+                surf, _ = self.fonts["small"].render("클릭하여 계속", ET["text_hint"])
+                self.screen.blit(surf, (cx - surf.get_width() // 2, panel_y + 210))
 
     def _draw_round_end_ui(self):
         """라운드 종료 UI - 누적 상금 시스템"""
