@@ -130215,9 +130215,12 @@ def main(stage_num, new_boss_mode=False):
             _mb = pygame.mouse.get_pressed()
             if _mb[0] and not getattr(main, '_arena_mouse_pressed', False):
                 _mx, _my = _original_mouse_get_pos()  # REAL_SCREEN 좌표
+                _debug_rects = {k: (r.x, r.y, r.w, r.h) for k, r in arena_speed_btn_rects.items()}
+                print(f"[DEBUG SPEED BTN] click=({_mx},{_my}) rects={_debug_rects} fullscreen={_is_fullscreen_active}", flush=True)
                 for _mult, _rect in arena_speed_btn_rects.items():
                     if _rect.collidepoint(_mx, _my):
                         arena_speed_multiplier = _mult
+                        print(f"[DEBUG SPEED BTN] HIT! mult={_mult}", flush=True)
                         break
             main._arena_mouse_pressed = _mb[0]
 
