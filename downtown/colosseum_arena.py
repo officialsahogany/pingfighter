@@ -8548,25 +8548,16 @@ class ColosseumsArena:
                                      icon_rect.y + icon_scaled // 2,
                                      icon_draw_size)
 
-            # 텍스트 (오른쪽, 스테이지 스타일)
+            # 텍스트 (오른쪽, 아이콘 + 이름만)
             text_x = icon_margin + icon_scaled + 12
 
-            # 퍽 이름
+            # 퍽 이름 (세로 중앙 배치)
             if self.fonts and "medium" in self.fonts:
                 name_surf, _ = self.fonts["medium"].render(perk["name"], (255, 255, 255))
                 if card_alpha < 255:
                     name_surf.set_alpha(card_alpha)
-                name_y = int(18 * scale)
+                name_y = (scaled_h - name_surf.get_height()) // 2
                 card_surf.blit(name_surf, (text_x, name_y))
-
-                # 퍽 설명 (이름 아래)
-                if self.fonts and "small" in self.fonts:
-                    desc_surf, _ = self.fonts["small"].render(
-                        perk["description"], ET["text_body"])
-                    if card_alpha < 255:
-                        desc_surf.set_alpha(card_alpha)
-                    desc_y = name_y + name_surf.get_height() + int(10 * scale)
-                    card_surf.blit(desc_surf, (text_x, desc_y))
 
             # 카드 그리기 (스케일 보정)
             draw_x = card_x - (scaled_w - card_w) // 2
@@ -8758,6 +8749,7 @@ class ColosseumsArena:
 
                 perk_icon_size = 28
                 perk_icon_gap = 36
+                _perk_owned_tooltips = []  # 보유 퍽 툴팁용 rect 수집
                 if owned_perks:
                     for pi, op in enumerate(owned_perks):
                         px = 20 + pi * perk_icon_gap
@@ -8779,6 +8771,16 @@ class ColosseumsArena:
                             panel_surf, op["id"],
                             px + perk_icon_size // 2, pcy,
                             perk_icon_size - 4)
+                        # 툴팁 rect 수집 (패널 좌표 → 스크린 좌표)
+                        _perk_owned_tooltips.append({
+                            "rect": pygame.Rect(
+                                panel_x + px,
+                                status_y + py_cursor,
+                                perk_icon_size, perk_icon_size),
+                            "name": op.get("name", "?"),
+                            "desc": op.get("description", ""),
+                            "color": pc,
+                        })
                 else:
                     if self.fonts and "small" in self.fonts:
                         none_surf, _ = self.fonts["small"].render(
@@ -8934,6 +8936,30 @@ class ColosseumsArena:
                         tt_surf.blit(tn_s, (8, 8))
                     self.screen.blit(tt_surf, (tt_x, tt_y))
                     tooltip_shown = True
+
+                # 보유 퍽 아이콘 툴팁
+                if not tooltip_shown and _perk_owned_tooltips:
+                    for tt in _perk_owned_tooltips:
+                        if tt["rect"].collidepoint(mpos):
+                            tt_w, tt_h = 240, 48
+                            tt_x = min(tt["rect"].x + tt["rect"].w + 5,
+                                        SCREEN_WIDTH - tt_w - 5)
+                            tt_y = tt["rect"].y - 10
+                            tt_surf = _get_arena_surface(tt_w, tt_h)
+                            pygame.draw.rect(tt_surf, (30, 28, 22, 240),
+                                             (0, 0, tt_w, tt_h), border_radius=6)
+                            pygame.draw.rect(tt_surf, (*tt["color"][:3], 180),
+                                             (0, 0, tt_w, tt_h), 1, border_radius=6)
+                            if self.fonts and "small" in self.fonts:
+                                tn_s, _ = self.fonts["small"].render(
+                                    tt["name"], tt["color"])
+                                tt_surf.blit(tn_s, (8, 6))
+                                td_s, _ = self.fonts["small"].render(
+                                    tt["desc"], (200, 195, 180))
+                                tt_surf.blit(td_s, (8, 26))
+                            self.screen.blit(tt_surf, (tt_x, tt_y))
+                            tooltip_shown = True
+                            break
 
                 # 호위무사/스킬 아이콘 툴팁
                 if not tooltip_shown and _perk_guard_tooltips:
