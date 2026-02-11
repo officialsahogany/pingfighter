@@ -59,18 +59,35 @@ class AnimatedBackgroundStage30:
         self.crowd_noise_level = 0.5
         self.crowd_wave_timer = 0
 
-        # 색상 팔레트 - 로마 콜로세움 테마 (어두운 톤)
+        # 색상 팔레트 - 고대 이집트/콜로세움 프리미엄 테마
         self.colors = {
-            'sand': (155, 130, 95),           # 모래 바닥 (어둡게)
+            'sand': (155, 130, 95),           # 모래 바닥
             'sand_dark': (125, 105, 75),      # 어두운 모래
             'sand_light': (175, 150, 115),    # 밝은 모래
+            'sand_warm': (165, 140, 105),     # 따뜻한 모래 (그라데이션용)
             'stone': (140, 130, 115),         # 석조
             'stone_dark': (100, 90, 80),      # 어두운 석조
             'stone_light': (170, 160, 145),   # 밝은 석조
             'gold': (212, 175, 85),           # 금색 장식
             'gold_light': (232, 200, 120),    # 밝은 금색
+            'gold_dark': (170, 140, 60),      # 어두운 금색
             'line': (230, 210, 170),          # 라인 색상 (밝은 베이지)
             'line_glow': (255, 235, 190),     # 라인 글로우
+            # 테두리
+            'border_outer': (90, 70, 45),     # 테두리 외곽 (어두운 브론즈)
+            'border_mid': (160, 130, 70),     # 테두리 중간 (금동)
+            'border_inner': (200, 165, 80),   # 테두리 내부 (밝은 금)
+            'border_stone': (130, 115, 90),   # 테두리 석조
+            # 문양
+            'hieroglyph': (175, 145, 80),     # 히에로글리프 (흐릿한 금)
+            'hieroglyph_dark': (120, 95, 55), # 어두운 히에로글리프
+            # 석상
+            'face_stone': (170, 155, 135),    # 석상 얼굴 (밝은 대리석)
+            'face_shadow': (120, 105, 85),    # 석상 그림자
+            'face_dark': (90, 75, 60),        # 석상 깊은 그림자
+            'face_highlight': (195, 180, 160),# 석상 하이라이트
+            'eye_glow': (210, 180, 80),       # 석상 눈 금빛
+            'center_ornate': (200, 175, 100), # 중앙 장식 금
         }
 
         # 횃불 데이터
@@ -162,9 +179,32 @@ class AnimatedBackgroundStage30:
         self.BOLT_FLIGHT_DURATION = 0.8
         self.BOLT_EXPLOSION_DURATION = 1.5
 
+        # 테두리 서피스
+        self.border_surface = pygame.Surface((width, height), pygame.SRCALPHA)
+
+        # 금빛 먼지 (프리미엄 분위기)
+        self.golden_dust = []
+        for _ in range(3):
+            self.golden_dust.append({
+                'x': random.randint(self.GAME_AREA_X + 60, self.GAME_AREA_END_X - 60),
+                'y': random.randint(120, self.height - 120),
+                'vx': random.uniform(-0.15, 0.15),
+                'vy': random.uniform(-0.08, 0.08),
+                'size': random.uniform(1.5, 2.5),
+                'alpha': random.randint(15, 35),
+                'phase': random.uniform(0, math.pi * 2),
+            })
+
+        # 석상 눈 깜빡임
+        self.face_eye_positions = []  # _prerender_border에서 채워짐
+        self.eye_flicker_timer = 0.0
+        self.eye_flicker_index = -1
+        self.eye_flicker_cooldown = random.uniform(4.0, 7.0)
+
         # 프리렌더
         self._prerender_floor()
         self._prerender_arena()
+        self._prerender_border()
 
     def _init_torches(self):
         """횃불 위치 초기화 - 게임 영역 내 양쪽 가장자리에 대칭 배치"""
@@ -203,11 +243,12 @@ class AnimatedBackgroundStage30:
         }
 
     def _prerender_floor(self):
-        """바닥 프리렌더 - 모래 아레나"""
-        # 메인 모래 바닥
+        """바닥 프리렌더 - 고급 모래 아레나 (이집트 프리미엄)"""
         sand = self.colors['sand']
+        sand_dark = self.colors['sand_dark']
+        sand_warm = self.colors['sand_warm']
 
-        # 전체를 모래 색상으로 채움 (필러가 위에 그려지므로 상관없음)
+        # 전체를 모래 색상으로 채움
         self.floor_surface.fill(sand)
 
         # 모래 텍스처 - 미세한 노이즈
@@ -223,61 +264,406 @@ class AnimatedBackgroundStage30:
             size = random.randint(1, 2)
             pygame.draw.circle(self.floor_surface, color, (x, y), size)
 
-    def _prerender_arena(self):
-        """경기장 라인 프리렌더 - 중앙선과 중앙원 (게임 영역 기준)"""
-        self.arena_surface.fill((0, 0, 0, 0))
-
-        # 게임 영역 중앙 (80 + 300 = 380)
+        # 방사형 비네트 (가장자리 어둡게)
         center_x = self.GAME_AREA_X + self.GAME_AREA_WIDTH // 2
         center_y = self.height // 2
+        max_dist = math.sqrt((self.GAME_AREA_WIDTH / 2) ** 2 + (self.height / 2) ** 2)
+        vignette_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        for ring in range(12):
+            radius = int(max_dist * (1.0 - ring * 0.06))
+            alpha = int(4 + ring * 2)
+            pygame.draw.circle(vignette_surf, (40, 30, 20, alpha),
+                             (center_x, center_y), radius)
+        self.floor_surface.blit(vignette_surf, (0, 0))
 
+        # 희미한 원형 투기장 마킹 (고대 경기장 흔적)
+        arena_mark_color = (sand_dark[0] + 5, sand_dark[1] + 5, sand_dark[2] + 5)
+        pygame.draw.circle(self.floor_surface, arena_mark_color,
+                         (center_x, center_y), 250, 1)
+        pygame.draw.circle(self.floor_surface, arena_mark_color,
+                         (center_x, center_y), 248, 1)
+
+        # 바람 무늬 (미세한 곡선) - 모래 위 바람 자국
+        random.seed(77)  # 일관된 패턴
+        for _ in range(25):
+            sx = random.randint(self.GAME_AREA_X + 30, self.GAME_AREA_END_X - 30)
+            sy = random.randint(80, self.height - 80)
+            wind_shade = random.randint(-6, 6)
+            wind_color = (
+                max(0, min(255, sand[0] + wind_shade)),
+                max(0, min(255, sand[1] + wind_shade)),
+                max(0, min(255, sand[2] + wind_shade))
+            )
+            # 짧은 곡선 (3점으로 근사)
+            length = random.randint(40, 100)
+            curve = random.uniform(-15, 15)
+            mid_x = sx + length // 2
+            mid_y = sy + int(curve)
+            end_x = sx + length
+            end_y = sy + random.randint(-5, 5)
+            pygame.draw.line(self.floor_surface, wind_color, (sx, sy), (mid_x, mid_y), 1)
+            pygame.draw.line(self.floor_surface, wind_color, (mid_x, mid_y), (end_x, end_y), 1)
+        random.seed()
+
+    def _prerender_arena(self):
+        """경기장 라인 프리렌더 - 이집트 프리미엄 스타일 (중앙선, 중앙원, 코너)"""
+        self.arena_surface.fill((0, 0, 0, 0))
+
+        center_x = self.GAME_AREA_X + self.GAME_AREA_WIDTH // 2
+        center_y = self.height // 2
         line_color = self.colors['line']
         gold = self.colors['gold']
+        gold_light = self.colors['gold_light']
+        gold_dark = self.colors['gold_dark']
+        ornate = self.colors['center_ornate']
+        hiero = self.colors['hieroglyph']
+
+        line_left = self.GAME_AREA_X + 25
+        line_right = self.GAME_AREA_END_X - 25
 
         # ===== 중앙선 =====
-        # 메인 중앙선 (굵은 선) - 게임 영역 내에서만
+        # 메인 중앙선 (굵은 선)
         pygame.draw.line(self.arena_surface, line_color,
-                        (self.GAME_AREA_X + 10, center_y), (self.GAME_AREA_END_X - 10, center_y), 3)
-
-        # 중앙선 장식 (얇은 이중선)
+                        (line_left, center_y), (line_right, center_y), 3)
+        # 이중선 장식
         pygame.draw.line(self.arena_surface, gold,
-                        (self.GAME_AREA_X + 10, center_y - 6), (self.GAME_AREA_END_X - 10, center_y - 6), 1)
+                        (line_left, center_y - 6), (line_right, center_y - 6), 1)
         pygame.draw.line(self.arena_surface, gold,
-                        (self.GAME_AREA_X + 10, center_y + 6), (self.GAME_AREA_END_X - 10, center_y + 6), 1)
+                        (line_left, center_y + 6), (line_right, center_y + 6), 1)
 
-        # ===== 중앙원 =====
-        # 큰 원 (외곽)
+        # 중앙선 위 장식 점 (60px 간격)
+        for dot_x in range(line_left + 30, line_right - 30, 60):
+            # 중앙원 영역(center_x ± 90) 내부는 건너뛰기
+            if abs(dot_x - center_x) < 90:
+                continue
+            pygame.draw.circle(self.arena_surface, gold, (dot_x, center_y), 2)
+            # 위아래 이중선에도 작은 점
+            pygame.draw.circle(self.arena_surface, hiero, (dot_x, center_y - 6), 1)
+            pygame.draw.circle(self.arena_surface, hiero, (dot_x, center_y + 6), 1)
+
+        # 중앙선 양 끝 로터스 문양 (간략한 부채꼴)
+        for end_x, direction in [(line_left + 5, 1), (line_right - 5, -1)]:
+            # 작은 부채꼴 모양 (3잎)
+            for angle_offset in [-25, 0, 25]:
+                a = math.radians(90 + angle_offset * direction)
+                lx = end_x + int(6 * math.cos(a))
+                ly = center_y - int(6 * math.sin(a))
+                pygame.draw.line(self.arena_surface, ornate,
+                                (end_x, center_y), (lx, ly), 1)
+            pygame.draw.circle(self.arena_surface, gold, (end_x, center_y), 2)
+
+        # ===== 중앙원 (3중 링) =====
+        # 외곽 큰 원
         pygame.draw.circle(self.arena_surface, line_color, (center_x, center_y), 85, 3)
-
-        # 작은 원 (내부)
+        # 중간 장식 링
+        pygame.draw.circle(self.arena_surface, ornate, (center_x, center_y), 68, 1)
+        # 내부 작은 원
         pygame.draw.circle(self.arena_surface, gold, (center_x, center_y), 50, 2)
 
-        # ===== 코너 장식 (로마 스타일) - 게임 영역 기준 =====
-        corner_size = 25
-        corners = [
-            (self.GAME_AREA_X + 15, 70),                    # 좌상
-            (self.GAME_AREA_END_X - 15, 70),                # 우상
-            (self.GAME_AREA_X + 15, self.height - 70),      # 좌하
-            (self.GAME_AREA_END_X - 15, self.height - 70)   # 우하
+        # 외곽원 4방향 다이아몬드 (N/S/E/W)
+        diamond_size = 4
+        for angle_deg in [0, 90, 180, 270]:
+            a = math.radians(angle_deg)
+            dx = center_x + int(85 * math.cos(a))
+            dy = center_y + int(85 * math.sin(a))
+            diamond_pts = [
+                (dx, dy - diamond_size),
+                (dx + diamond_size, dy),
+                (dx, dy + diamond_size),
+                (dx - diamond_size, dy),
+            ]
+            pygame.draw.polygon(self.arena_surface, gold_light, diamond_pts)
+            pygame.draw.polygon(self.arena_surface, gold_dark, diamond_pts, 1)
+
+        # 외곽원 8방향 눈금 (45도 간격)
+        for angle_deg in range(0, 360, 45):
+            a = math.radians(angle_deg)
+            inner_r = 82
+            outer_r = 88
+            x1 = center_x + int(inner_r * math.cos(a))
+            y1 = center_y + int(inner_r * math.sin(a))
+            x2 = center_x + int(outer_r * math.cos(a))
+            y2 = center_y + int(outer_r * math.sin(a))
+            pygame.draw.line(self.arena_surface, gold, (x1, y1), (x2, y2), 1)
+
+        # ===== 코너 L자 장식 (방향 수정) =====
+        corner_size = 28
+        margin = 20
+        border_y_top = 60
+        border_y_bot = self.height - 60
+
+        # 좌상: → ↓ (안쪽을 향함)
+        tl_x, tl_y = self.GAME_AREA_X + margin, border_y_top
+        pygame.draw.line(self.arena_surface, gold, (tl_x, tl_y), (tl_x + corner_size, tl_y), 2)
+        pygame.draw.line(self.arena_surface, gold, (tl_x, tl_y), (tl_x, tl_y + corner_size), 2)
+        pygame.draw.line(self.arena_surface, gold_dark, (tl_x + 3, tl_y + 3), (tl_x + corner_size - 3, tl_y + 3), 1)
+        pygame.draw.line(self.arena_surface, gold_dark, (tl_x + 3, tl_y + 3), (tl_x + 3, tl_y + corner_size - 3), 1)
+
+        # 우상: ← ↓ (안쪽을 향함)
+        tr_x, tr_y = self.GAME_AREA_END_X - margin, border_y_top
+        pygame.draw.line(self.arena_surface, gold, (tr_x, tr_y), (tr_x - corner_size, tr_y), 2)
+        pygame.draw.line(self.arena_surface, gold, (tr_x, tr_y), (tr_x, tr_y + corner_size), 2)
+        pygame.draw.line(self.arena_surface, gold_dark, (tr_x - 3, tr_y + 3), (tr_x - corner_size + 3, tr_y + 3), 1)
+        pygame.draw.line(self.arena_surface, gold_dark, (tr_x - 3, tr_y + 3), (tr_x - 3, tr_y + corner_size - 3), 1)
+
+        # 좌하: → ↑ (안쪽을 향함)
+        bl_x, bl_y = self.GAME_AREA_X + margin, border_y_bot
+        pygame.draw.line(self.arena_surface, gold, (bl_x, bl_y), (bl_x + corner_size, bl_y), 2)
+        pygame.draw.line(self.arena_surface, gold, (bl_x, bl_y), (bl_x, bl_y - corner_size), 2)
+        pygame.draw.line(self.arena_surface, gold_dark, (bl_x + 3, bl_y - 3), (bl_x + corner_size - 3, bl_y - 3), 1)
+        pygame.draw.line(self.arena_surface, gold_dark, (bl_x + 3, bl_y - 3), (bl_x + 3, bl_y - corner_size + 3), 1)
+
+        # 우하: ← ↑ (안쪽을 향함)
+        br_x, br_y = self.GAME_AREA_END_X - margin, border_y_bot
+        pygame.draw.line(self.arena_surface, gold, (br_x, br_y), (br_x - corner_size, br_y), 2)
+        pygame.draw.line(self.arena_surface, gold, (br_x, br_y), (br_x, br_y - corner_size), 2)
+        pygame.draw.line(self.arena_surface, gold_dark, (br_x - 3, br_y - 3), (br_x - corner_size + 3, br_y - 3), 1)
+        pygame.draw.line(self.arena_surface, gold_dark, (br_x - 3, br_y - 3), (br_x - 3, br_y - corner_size + 3), 1)
+
+    def _prerender_border(self):
+        """인게임 장식 테두리 프리렌더 - 이집트 프리미엄 스타일"""
+        self.border_surface.fill((0, 0, 0, 0))
+        surf = self.border_surface
+
+        border_outer = self.colors['border_outer']
+        border_mid = self.colors['border_mid']
+        border_inner = self.colors['border_inner']
+        border_stone = self.colors['border_stone']
+        hiero = self.colors['hieroglyph']
+        hiero_dark = self.colors['hieroglyph_dark']
+        gold = self.colors['gold']
+        gold_dark = self.colors['gold_dark']
+
+        # 테두리 영역 (게임 영역 안쪽 12px)
+        bx = self.GAME_AREA_X + 12
+        by = 50
+        bw = self.GAME_AREA_WIDTH - 24
+        bh = self.height - 100
+        br = bx + bw   # 오른쪽 끝
+        bb = by + bh    # 아래쪽 끝
+
+        # ===== 1. 다층 테두리 프레임 =====
+        # 외곽 그림자 (가장 바깥)
+        pygame.draw.rect(surf, border_outer, (bx - 2, by - 2, bw + 4, bh + 4), 2)
+        # 금동 밴드 (메인 프레임)
+        pygame.draw.rect(surf, border_mid, (bx, by, bw, bh), 3)
+        # 밝은 금 내부선
+        pygame.draw.rect(surf, border_inner, (bx + 4, by + 4, bw - 8, bh - 8), 1)
+        # 석조 내부선 (가장 안쪽)
+        pygame.draw.rect(surf, border_stone, (bx + 6, by + 6, bw - 12, bh - 12), 1)
+
+        # ===== 2. 이집트 문양 패턴 (테두리 밴드 위) =====
+        pattern_spacing = 36
+
+        # 상단 변
+        for px in range(bx + 25, br - 25, pattern_spacing):
+            # 로터스 꽃잎 (위로 3잎)
+            for leaf_angle in [-30, 0, 30]:
+                a = math.radians(leaf_angle - 90)
+                lx = px + int(4 * math.cos(a))
+                ly = by + 1 + int(4 * math.sin(a))
+                pygame.draw.line(surf, hiero, (px, by + 1), (lx, ly), 1)
+            pygame.draw.circle(surf, hiero_dark, (px, by + 1), 1)
+            # 로터스 사이 점선
+            if px + pattern_spacing // 2 < br - 25:
+                for dot in range(4):
+                    dx = px + pattern_spacing // 2 - 6 + dot * 4
+                    pygame.draw.circle(surf, hiero_dark, (dx, by + 1), 0)
+
+        # 하단 변
+        for px in range(bx + 25, br - 25, pattern_spacing):
+            for leaf_angle in [-30, 0, 30]:
+                a = math.radians(leaf_angle + 90)
+                lx = px + int(4 * math.cos(a))
+                ly = bb - 1 + int(4 * math.sin(a))
+                pygame.draw.line(surf, hiero, (px, bb - 1), (lx, ly), 1)
+            pygame.draw.circle(surf, hiero_dark, (px, bb - 1), 1)
+            if px + pattern_spacing // 2 < br - 25:
+                for dot in range(4):
+                    dx = px + pattern_spacing // 2 - 6 + dot * 4
+                    pygame.draw.circle(surf, hiero_dark, (dx, bb - 1), 0)
+
+        # 좌측 변
+        for py in range(by + 25, bb - 25, pattern_spacing):
+            for leaf_angle in [-30, 0, 30]:
+                a = math.radians(leaf_angle)
+                lx = bx + 1 + int(4 * math.cos(a))
+                ly = py + int(4 * math.sin(a))
+                pygame.draw.line(surf, hiero, (bx + 1, py), (lx, ly), 1)
+            pygame.draw.circle(surf, hiero_dark, (bx + 1, py), 1)
+
+        # 우측 변
+        for py in range(by + 25, bb - 25, pattern_spacing):
+            for leaf_angle in [-30, 0, 30]:
+                a = math.radians(leaf_angle + 180)
+                lx = br - 1 + int(4 * math.cos(a))
+                ly = py + int(4 * math.sin(a))
+                pygame.draw.line(surf, hiero, (br - 1, py), (lx, ly), 1)
+            pygame.draw.circle(surf, hiero_dark, (br - 1, py), 1)
+
+        # ===== 3. 코너 꼭지점 장식 (이중 직각 + 다이아몬드) =====
+        corner_arm = 18
+        corners_data = [
+            (bx, by, 1, 1),       # 좌상
+            (br, by, -1, 1),      # 우상
+            (bx, bb, 1, -1),      # 좌하
+            (br, bb, -1, -1),     # 우하
+        ]
+        for cx, cy, hd, vd in corners_data:
+            # 외곽 직각선
+            pygame.draw.line(surf, gold, (cx, cy), (cx + corner_arm * hd, cy), 2)
+            pygame.draw.line(surf, gold, (cx, cy), (cx, cy + corner_arm * vd), 2)
+            # 내부 직각선
+            pygame.draw.line(surf, gold_dark,
+                           (cx + 4 * hd, cy + 4 * vd),
+                           (cx + (corner_arm - 4) * hd, cy + 4 * vd), 1)
+            pygame.draw.line(surf, gold_dark,
+                           (cx + 4 * hd, cy + 4 * vd),
+                           (cx + 4 * hd, cy + (corner_arm - 4) * vd), 1)
+            # 꼭지점 다이아몬드
+            d = 3
+            diamond = [
+                (cx, cy - d * vd),
+                (cx + d * hd, cy),
+                (cx, cy + d * vd),
+                (cx - d * hd, cy),
+            ]
+            pygame.draw.polygon(surf, self.colors['gold_light'], diamond)
+            pygame.draw.polygon(surf, gold_dark, diamond, 1)
+
+        # ===== 4. 코너 석상 얼굴 4개 =====
+        face_offset = 20  # 꼭지점에서 안쪽으로 오프셋
+        face_positions = [
+            (bx + face_offset, by + face_offset, True, True),       # 좌상: 오른쪽+아래 봄
+            (br - face_offset, by + face_offset, False, True),      # 우상: 왼쪽+아래 봄
+            (bx + face_offset, bb - face_offset, True, False),      # 좌하: 오른쪽+위 봄
+            (br - face_offset, bb - face_offset, False, False),     # 우하: 왼쪽+위 봄
         ]
 
-        for cx, cy in corners:
-            # L자 장식
-            pygame.draw.line(self.arena_surface, gold,
-                           (cx - corner_size, cy), (cx, cy), 2)
-            pygame.draw.line(self.arena_surface, gold,
-                           (cx, cy - corner_size), (cx, cy), 2)
+        self.face_eye_positions = []
+        for fx, fy, face_right, face_down in face_positions:
+            eye_pos = self._draw_corner_face(surf, fx, fy, face_right, face_down)
+            self.face_eye_positions.append(eye_pos)
 
-        # 코너 반전 (우상, 우하)
-        # 우상
-        pygame.draw.line(self.arena_surface, gold,
-                        (self.GAME_AREA_END_X - 15, 70), (self.GAME_AREA_END_X - 15 + corner_size, 70), 2)
-        # 우하
-        pygame.draw.line(self.arena_surface, gold,
-                        (self.GAME_AREA_END_X - 15, self.height - 70),
-                        (self.GAME_AREA_END_X - 15 + corner_size, self.height - 70), 2)
+    def _draw_corner_face(self, surface, cx, cy, face_right, face_down):
+        """코너 석상 얼굴 (이집트 파라오/스핑크스 스타일)
+        cx, cy: 중심 위치
+        face_right: True면 오른쪽을 향함
+        face_down: True면 아래를 향함
+        Returns: (left_eye_pos, right_eye_pos) 튜플
+        """
+        stone = self.colors['face_stone']
+        shadow = self.colors['face_shadow']
+        dark = self.colors['face_dark']
+        highlight = self.colors['face_highlight']
+        eye_glow = self.colors['eye_glow']
+        gold = self.colors['gold']
+        gold_dark = self.colors['gold_dark']
+        hiero = self.colors['hieroglyph']
 
-        # (평소 석상 없음 - 신의심판 시에만 동적으로 등장)
+        hd = 1 if face_right else -1
+        vd = 1 if face_down else -1
+
+        # ── 받침대 (사다리꼴) ──
+        base_w = 14
+        base_h = 4
+        base_top = cy + 12 * vd
+        base_pts = [
+            (cx - base_w // 2, base_top + base_h * vd),
+            (cx + base_w // 2, base_top + base_h * vd),
+            (cx + base_w // 2 - 2, base_top),
+            (cx - base_w // 2 + 2, base_top),
+        ]
+        pygame.draw.polygon(surface, shadow, base_pts)
+        pygame.draw.polygon(surface, dark, base_pts, 1)
+
+        # ── 목 ──
+        neck_w = 5
+        neck_top = cy + 8 * vd
+        neck_bot = base_top
+        pygame.draw.rect(surface, stone,
+                        (cx - neck_w // 2, min(neck_top, neck_bot),
+                         neck_w, abs(neck_bot - neck_top)))
+
+        # ── 머리 (타원형) ──
+        head_w = 12
+        head_h = 14
+        head_cy = cy
+        pygame.draw.ellipse(surface, stone,
+                          (cx - head_w // 2, head_cy - head_h // 2, head_w, head_h))
+        pygame.draw.ellipse(surface, shadow,
+                          (cx - head_w // 2, head_cy - head_h // 2, head_w, head_h), 1)
+
+        # ── 네메스 두건 (파라오 헤드클로스) ──
+        # 머리 위 삼각형
+        crown_tip = head_cy - head_h // 2 - 4 * vd
+        crown_pts = [
+            (cx - head_w // 2 - 2, head_cy - 2 * vd),
+            (cx, crown_tip),
+            (cx + head_w // 2 + 2, head_cy - 2 * vd),
+        ]
+        pygame.draw.polygon(surface, shadow, crown_pts)
+        pygame.draw.polygon(surface, dark, crown_pts, 1)
+
+        # 양쪽 날개 (두건 좌우 늘어뜨림)
+        # 왼쪽 날개
+        flap_y_start = head_cy - 1
+        flap_y_end = head_cy + 8 * vd
+        flap_pts_l = [
+            (cx - head_w // 2 - 1, flap_y_start),
+            (cx - head_w // 2 - 5, flap_y_end),
+            (cx - head_w // 2 - 2, flap_y_end),
+            (cx - head_w // 2, flap_y_start),
+        ]
+        pygame.draw.polygon(surface, shadow, flap_pts_l)
+        # 오른쪽 날개
+        flap_pts_r = [
+            (cx + head_w // 2 + 1, flap_y_start),
+            (cx + head_w // 2 + 5, flap_y_end),
+            (cx + head_w // 2 + 2, flap_y_end),
+            (cx + head_w // 2, flap_y_start),
+        ]
+        pygame.draw.polygon(surface, shadow, flap_pts_r)
+
+        # 이마 밴드 (금색 가로선)
+        band_y = head_cy - head_h // 2 + 3
+        pygame.draw.line(surface, gold,
+                        (cx - head_w // 2, band_y), (cx + head_w // 2, band_y), 2)
+        pygame.draw.line(surface, gold_dark,
+                        (cx - head_w // 2, band_y + 1), (cx + head_w // 2, band_y + 1), 1)
+
+        # 우라에우스 (코브라 - 이마 중앙 위)
+        cobra_base_y = band_y - 1
+        cobra_tip_y = cobra_base_y - 3 * vd
+        pygame.draw.line(surface, gold, (cx, cobra_base_y), (cx, cobra_tip_y), 1)
+        pygame.draw.line(surface, eye_glow, (cx - 1, cobra_tip_y), (cx + 1, cobra_tip_y), 1)
+
+        # ── 얼굴 디테일 ──
+        # 눈 (가로선 + 금빛 점)
+        eye_y = head_cy + 1
+        eye_spacing = 3
+        left_eye = (cx - eye_spacing, eye_y)
+        right_eye = (cx + eye_spacing, eye_y)
+
+        # 눈 윤곽 (이집트 아이라인 스타일)
+        pygame.draw.line(surface, dark, (left_eye[0] - 2, eye_y), (left_eye[0] + 2, eye_y), 1)
+        pygame.draw.line(surface, dark, (right_eye[0] - 2, eye_y), (right_eye[0] + 2, eye_y), 1)
+        # 금빛 눈동자
+        pygame.draw.circle(surface, eye_glow, left_eye, 1)
+        pygame.draw.circle(surface, eye_glow, right_eye, 1)
+
+        # 코
+        nose_y = head_cy + 3
+        pygame.draw.line(surface, shadow, (cx, eye_y + 1), (cx, nose_y), 1)
+
+        # 입
+        mouth_y = head_cy + 5
+        pygame.draw.line(surface, dark, (cx - 2, mouth_y), (cx + 2, mouth_y), 1)
+
+        # ── 하이라이트 ──
+        pygame.draw.circle(surface, highlight, (cx - 2, head_cy - 2), 1)
+
+        return (left_eye, right_eye)
 
     def _draw_zeus_statue(self, surface, cx, cy):
         """고대 제우스 석상 - 상반신 비석 스타일 (하반신은 땅속에 묻힘)"""
@@ -370,6 +756,29 @@ class AnimatedBackgroundStage30:
                 particle['x'] < self.GAME_AREA_X + 20 or particle['x'] > self.GAME_AREA_END_X - 20 or
                 particle['y'] < 70 or particle['y'] > self.height - 70):
                 self.dust_particles[i] = self._create_dust_particle()
+
+        # 금빛 먼지 업데이트
+        for gd in self.golden_dust:
+            gd['x'] += gd['vx']
+            gd['y'] += gd['vy']
+            # 영역 벗어나면 반대쪽에서 재생성
+            if gd['x'] < self.GAME_AREA_X + 50 or gd['x'] > self.GAME_AREA_END_X - 50:
+                gd['x'] = random.randint(self.GAME_AREA_X + 60, self.GAME_AREA_END_X - 60)
+                gd['vx'] = random.uniform(-0.15, 0.15)
+            if gd['y'] < 100 or gd['y'] > self.height - 100:
+                gd['y'] = random.randint(120, self.height - 120)
+                gd['vy'] = random.uniform(-0.08, 0.08)
+
+        # 석상 눈 깜빡임 업데이트
+        self.eye_flicker_cooldown -= dt
+        if self.eye_flicker_cooldown <= 0:
+            self.eye_flicker_index = random.randint(0, 3)
+            self.eye_flicker_timer = 0.0
+            self.eye_flicker_cooldown = random.uniform(4.0, 7.0)
+        if self.eye_flicker_index >= 0:
+            self.eye_flicker_timer += dt
+            if self.eye_flicker_timer > 0.5:
+                self.eye_flicker_index = -1
 
         # 신의심판 이벤트 업데이트
         self._update_gods_judgment(dt)
@@ -1912,7 +2321,7 @@ class AnimatedBackgroundStage30:
 
     def draw(self, screen, scale_x=1.0, scale_y=1.0, offset_x=0, offset_y=0):
         """배경 그리기"""
-        # 바닥 (모래 + 석조 프레임)
+        # 1. 바닥 (모래 + 비네트 + 바람무늬)
         if scale_x != 1.0 or scale_y != 1.0:
             scaled_floor = pygame.transform.scale(
                 self.floor_surface,
@@ -1922,16 +2331,27 @@ class AnimatedBackgroundStage30:
         else:
             screen.blit(self.floor_surface, (offset_x, offset_y))
 
-        # 먼지 파티클 (바닥 위, 라인 아래)
+        # 2. 먼지 파티클 (바닥 위)
         for particle in self.dust_particles:
             px = int(particle['x'] * scale_x + offset_x)
             py = int(particle['y'] * scale_y + offset_y)
             size = max(1, int(particle['size'] * scale_x))
-            alpha = int(particle['alpha'] * (particle['life'] / 400))
             color = (200, 175, 140)
             pygame.draw.circle(screen, color, (px, py), size)
 
-        # 경기장 라인 (중앙선, 중앙원)
+        # 3. 금빛 먼지 (프리미엄 분위기)
+        for gd in self.golden_dust:
+            gx = int(gd['x'] * scale_x + offset_x)
+            gy = int(gd['y'] * scale_y + offset_y)
+            gsize = max(1, int(gd['size'] * scale_x))
+            pulse = 0.6 + 0.4 * math.sin(self.time * 1.5 + gd['phase'])
+            galpha = int(gd['alpha'] * pulse)
+            gd_surf = pygame.Surface((gsize * 2 + 2, gsize * 2 + 2), pygame.SRCALPHA)
+            pygame.draw.circle(gd_surf, (210, 180, 80, galpha),
+                             (gsize + 1, gsize + 1), gsize)
+            screen.blit(gd_surf, (gx - gsize - 1, gy - gsize - 1))
+
+        # 4. 경기장 라인 (중앙선, 중앙원, 코너)
         arena = self.arena_surface
         if scale_x != 1.0 or scale_y != 1.0:
             scaled_arena = pygame.transform.scale(
@@ -1941,11 +2361,36 @@ class AnimatedBackgroundStage30:
         else:
             screen.blit(arena, (offset_x, offset_y))
 
-        # 신의심판 이벤트 오버레이 (동적 석상)
+        # 5. 장식 테두리 + 석상 (프리렌더)
+        if scale_x != 1.0 or scale_y != 1.0:
+            scaled_border = pygame.transform.scale(
+                self.border_surface,
+                (int(self.width * scale_x), int(self.height * scale_y))
+            )
+            screen.blit(scaled_border, (offset_x, offset_y))
+        else:
+            screen.blit(self.border_surface, (offset_x, offset_y))
+
+        # 6. 석상 눈 깜빡임 (동적)
+        if self.eye_flicker_index >= 0 and self.eye_flicker_index < len(self.face_eye_positions):
+            eyes = self.face_eye_positions[self.eye_flicker_index]
+            if eyes:
+                left_eye, right_eye = eyes
+                flicker_intensity = math.sin(self.eye_flicker_timer * math.pi * 4)
+                if flicker_intensity > 0:
+                    alpha = int(80 * flicker_intensity)
+                    glow_surf = pygame.Surface((8, 8), pygame.SRCALPHA)
+                    pygame.draw.circle(glow_surf, (210, 180, 80, alpha), (4, 4), 3)
+                    for ex, ey in [left_eye, right_eye]:
+                        sx = int(ex * scale_x + offset_x)
+                        sy = int(ey * scale_y + offset_y)
+                        screen.blit(glow_surf, (sx - 4, sy - 4), special_flags=pygame.BLEND_ADD)
+
+        # 7. 신의심판 이벤트 오버레이 (동적 석상)
         if self.judgment_phase != self.JUDGMENT_IDLE:
             self._draw_judgment_overlay(screen, offset_x, offset_y)
 
-        # 횃불
+        # 8. 횃불
         self._draw_torches(screen, scale_x, scale_y, offset_x, offset_y)
 
     def _draw_zeus_bolt_glow(self, screen, scale_x, scale_y, offset_x, offset_y):
@@ -2059,23 +2504,20 @@ class AnimatedBackgroundStage30:
                                             size * 2 // 3, size))
 
     def draw_foreground(self, screen, scale_x=1.0, scale_y=1.0, offset_x=0, offset_y=0):
-        """전경 효과 (패들/공 위에 그려짐) - 비네트 효과"""
-        # 미세한 비네트 효과 (모서리 어둡게)
-        vignette_size = 60
+        """전경 효과 (패들/공 위에 그려짐) - 알파 비네트"""
+        vignette_size = 50
+        sw = int(self.width * scale_x)
 
-        # 상단 그라데이션
+        # 상단 비네트
+        v_top = pygame.Surface((sw, vignette_size), pygame.SRCALPHA)
         for i in range(vignette_size):
-            alpha = int(40 * (1 - i / vignette_size))
-            if alpha > 0:
-                pygame.draw.line(screen, (20, 15, 10),
-                               (offset_x, offset_y + int(60 * scale_y) + i),
-                               (offset_x + int(self.width * scale_x), offset_y + int(60 * scale_y) + i))
+            alpha = int(35 * (1 - i / vignette_size))
+            pygame.draw.line(v_top, (20, 15, 10, alpha), (0, i), (sw, i))
+        screen.blit(v_top, (offset_x, offset_y + int(50 * scale_y)))
 
-        # 하단 그라데이션
-        bottom_start = offset_y + int((self.height - 60) * scale_y) - vignette_size
+        # 하단 비네트
+        v_bot = pygame.Surface((sw, vignette_size), pygame.SRCALPHA)
         for i in range(vignette_size):
-            alpha = int(40 * (i / vignette_size))
-            if alpha > 0:
-                pygame.draw.line(screen, (20, 15, 10),
-                               (offset_x, bottom_start + i),
-                               (offset_x + int(self.width * scale_x), bottom_start + i))
+            alpha = int(35 * (i / vignette_size))
+            pygame.draw.line(v_bot, (20, 15, 10, alpha), (0, i), (sw, i))
+        screen.blit(v_bot, (offset_x, offset_y + int((self.height - 50) * scale_y) - vignette_size))
