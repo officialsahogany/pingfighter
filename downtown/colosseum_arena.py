@@ -4665,11 +4665,7 @@ class ColosseumsArena:
                     _gacha_result_sound.play()
             elif self.skill_reveal_phase == "selected":
                 self.skill_reveal_selected_timer = getattr(self, 'skill_reveal_selected_timer', 0) + dt
-                if self.skill_reveal_timer >= 5.0:
-                    if self.skill_reveal_target == (self.player_hero or {}).get("id"):
-                        self._prepare_prison_candidates()
-                        self.state = TournamentState.PRISON_SELECT
-                        self.skill_reveal_phase = "done"
+                # 자동 전환 없음 - 클릭으로만 진행
 
         elif self.state == TournamentState.PRISON_SELECT:
             # 철창 열림 + 공격 모션 애니메이션 업데이트
@@ -4691,8 +4687,8 @@ class ColosseumsArena:
                     self._prison_opening_phase = "attack_motion"
                     self._prison_swing_triggered = False  # 무기 스윙 트리거 플래그 초기화
                 elif opening_phase == "attack_motion" and timer >= 2.5:
-                    # 애니메이션 완료 → 호위무사 스킬 연출로 전환
-                    self._prison_opening_phase = None
+                    # 공격 애니 완료 → 같은 화면 하단에서 스킬 룰렛 시작
+                    self._prison_opening_phase = "skill_rolling"
                     guard_hero = self.player_guard
                     self.player_guard_skill_index = self.hero_selected_skills.get(
                         guard_hero["id"], 0)
@@ -4701,28 +4697,33 @@ class ColosseumsArena:
                     self.skill_reveal_target = guard_hero["id"]
                     self.skill_reveal_result = self.player_guard_skill_index
                     self._skill_reveal_last_tick_idx = -1
-                    self.state = TournamentState.GUARD_SKILL_REVEAL
+                elif opening_phase == "skill_rolling":
+                    self.skill_reveal_timer += dt
+                    if self.skill_reveal_phase == "rolling" and self.skill_reveal_timer >= 3.5:
+                        self.skill_reveal_phase = "selected"
+                        self._prison_opening_phase = "skill_selected"
+                        self.skill_reveal_selected_timer = 0.0
+                        self._skill_reveal_particles = []
+                        _load_gacha_result_sound()
+                        if _gacha_result_sound:
+                            _gacha_result_sound.play()
+                elif opening_phase == "skill_selected":
+                    self.skill_reveal_selected_timer = getattr(self, 'skill_reveal_selected_timer', 0) + dt
+                    self.skill_reveal_timer += dt
 
         elif self.state == TournamentState.GUARD_SKILL_REVEAL:
-            # 호위무사 스킬 랜덤 선택 연출 (리얼 룰렛: 빠름→느림→빠름→매우느림 3.5초 + 확정 1.5초)
+            # 호위무사 스킬 랜덤 선택 연출 (클릭 대기 방식)
             self.skill_reveal_timer += dt
             if self.skill_reveal_phase == "rolling" and self.skill_reveal_timer >= 3.5:
                 self.skill_reveal_phase = "selected"
                 self.skill_reveal_selected_timer = 0.0
                 self._skill_reveal_particles = []
-                # 최종 선택 사운드 (가챠 결과음)
                 _load_gacha_result_sound()
                 if _gacha_result_sound:
                     _gacha_result_sound.play()
             elif self.skill_reveal_phase == "selected":
                 self.skill_reveal_selected_timer = getattr(self, 'skill_reveal_selected_timer', 0) + dt
-                if self.skill_reveal_timer >= 5.0:
-                    # 초반 셋업 vs 라운드간 호위무사 교체 분기
-                    if getattr(self, '_guard_skill_reveal_mid_tournament', False):
-                        self._guard_skill_reveal_mid_tournament = False
-                        self._start_vs_preview(show_buttons=True)
-                    else:
-                        self._finalize_setup_and_start()
+                # 자동 전환 없음 - 클릭으로만 진행
                     self.skill_reveal_phase = "done"
 
         elif self.state == TournamentState.VS_PREVIEW:
@@ -5081,8 +5082,15 @@ class ColosseumsArena:
 
         elif self.state == TournamentState.PRISON_SELECT:
             # ========== 감옥 호위무사 선택 UI 클릭 ==========
-            # 애니메이션 중에는 클릭 무시
-            if getattr(self, '_prison_opening_phase', None):
+            opening_phase = getattr(self, '_prison_opening_phase', None)
+            # 스킬 확정 후 클릭 → 다음 단계로
+            if opening_phase == "skill_selected":
+                self._prison_opening_phase = None
+                self.skill_reveal_phase = "done"
+                self._finalize_setup_and_start()
+                return
+            # 다른 애니메이션 중에는 클릭 무시
+            if opening_phase:
                 return
             cell_w, cell_h = 190, 220
             gap = 15
@@ -5100,9 +5108,14 @@ class ColosseumsArena:
                     return
 
         elif self.state == TournamentState.GUARD_SKILL_REVEAL:
-            # 호위무사 스킬 연출 중 클릭하면 스킵
+            # 호위무사 스킬 연출 중 클릭하면 진행
             if self.skill_reveal_phase == "selected":
-                self._finalize_setup_and_start()
+                self.skill_reveal_phase = "done"
+                if getattr(self, '_guard_skill_reveal_mid_tournament', False):
+                    self._guard_skill_reveal_mid_tournament = False
+                    self._start_vs_preview(show_buttons=True)
+                else:
+                    self._finalize_setup_and_start()
 
         elif self.state == TournamentState.BETTING:
             # 배팅 UI 클릭 처리 (4강/결승에서 사용)
@@ -6742,11 +6755,12 @@ class ColosseumsArena:
         if anim_phase in ("skill_rolling", "skill_selected"):
             self._draw_inline_skill_roulette()
 
-    def _draw_inline_skill_roulette(self):
-        """영웅 선택 화면 하단에 컴팩트 스킬 룰렛 UI"""
+    def _draw_inline_skill_roulette(self, base_y=432):
+        """영웅/호위무사 선택 화면 하단 스킬 룰렛 UI (큰 아이콘 + 두루마리 펼침)
+        base_y: 구분선 시작 Y좌표
+        """
         target_id = self.skill_reveal_target
-        hero = self.player_hero
-        if not hero or not target_id:
+        if not target_id:
             return
 
         timer = self.skill_reveal_timer
@@ -6758,21 +6772,31 @@ class ColosseumsArena:
             return
 
         # 구분선
-        line_y = 432
-        pygame.draw.line(self.screen, ET["gold_dark"], (120, line_y), (640, line_y), 1)
+        pygame.draw.line(self.screen, ET["gold_dark"], (120, base_y), (640, base_y), 1)
 
         # 타이틀
+        title_y = base_y + 8
         if self.fonts and "medium" in self.fonts:
             title_surf, _ = self.fonts["medium"].render("스킬 결정!", ET["gold_medium"])
-            self.screen.blit(title_surf, (SCREEN_WIDTH // 2 - title_surf.get_width() // 2, 440))
+            self.screen.blit(title_surf, (SCREEN_WIDTH // 2 - title_surf.get_width() // 2, title_y))
 
-        # 컴팩트 스킬 카드 레이아웃
-        sk_card_w, sk_card_h = 200, 120
+        # 카드 레이아웃 (큰 아이콘 중심)
+        icon_size = 72  # 3배 크기
+        sk_card_w = 200
+        base_card_h = 115  # 롤링 시: 아이콘 + 이름만
         sk_gap = 30
         sk_total_w = sk_card_w * 2 + sk_gap
         sk_card1_x = (SCREEN_WIDTH - sk_total_w) // 2
         sk_card2_x = sk_card1_x + sk_card_w + sk_gap
-        sk_card_y = 475
+        sk_card_y = title_y + 30
+
+        # 두루마리 펼침 (선택 시 카드 확장)
+        sel_timer = getattr(self, 'skill_reveal_selected_timer', 0)
+        scroll_reveal = 0.0
+        desc_extra_h = 105  # 설명 영역 최대 높이
+        if phase == "selected":
+            scroll_reveal = min(1.0, sel_timer / 0.6)  # 0.6초에 걸쳐 펼침
+        sk_card_h = base_card_h + int(desc_extra_h * scroll_reveal)
 
         # === 룰렛 로직: 연속 감속 ===
         rolling_duration = 3.5
@@ -6795,7 +6819,6 @@ class ColosseumsArena:
                     _hover_sound.play()
 
         # 파티클
-        sel_timer = getattr(self, 'skill_reveal_selected_timer', 0)
         particles = getattr(self, '_skill_reveal_particles', [])
         if phase == "selected":
             sel_cx = sk_card1_x if self.skill_reveal_result == 0 else sk_card2_x
@@ -6858,42 +6881,46 @@ class ColosseumsArena:
                 border = ET["card_border"]
                 border_w = 1
 
+            # 탈락 카드는 확장 안 함
+            cur_h = sk_card_h if (phase != "selected" or is_selected) else base_card_h
+
             # 글로우 오라
             if phase == "selected" and is_selected:
                 glow_pulse = 0.5 + 0.5 * abs(_sin(sel_timer * 3))
                 glow_alpha = int(35 + 25 * glow_pulse)
                 glow_expand = int(4 + 3 * glow_pulse)
-                glow_surf = _get_arena_surface(sk_card_w + glow_expand * 2, sk_card_h + glow_expand * 2)
+                glow_surf = _get_arena_surface(sk_card_w + glow_expand * 2, cur_h + glow_expand * 2)
                 glow_color = (*ET["turquoise"], glow_alpha)
                 pygame.draw.rect(glow_surf, glow_color,
-                                 (0, 0, sk_card_w + glow_expand * 2, sk_card_h + glow_expand * 2),
+                                 (0, 0, sk_card_w + glow_expand * 2, cur_h + glow_expand * 2),
                                  border_radius=10)
                 self.screen.blit(glow_surf, (cx - glow_expand, sk_card_y - glow_expand))
 
             # 카드 배경
-            pygame.draw.rect(self.screen, bg, (cx, sk_card_y, sk_card_w, sk_card_h), border_radius=8)
-            pygame.draw.rect(self.screen, border, (cx, sk_card_y, sk_card_w, sk_card_h), border_w, border_radius=8)
+            pygame.draw.rect(self.screen, bg, (cx, sk_card_y, sk_card_w, cur_h), border_radius=8)
+            pygame.draw.rect(self.screen, border, (cx, sk_card_y, sk_card_w, cur_h), border_w, border_radius=8)
 
             # 이중 보더
             if phase == "selected" and is_selected:
                 inner_pulse = 0.3 + 0.7 * abs(_sin(sel_timer * 5))
                 inner_color = (64, int(170 + 40 * inner_pulse), int(160 + 40 * inner_pulse))
                 pygame.draw.rect(self.screen, inner_color,
-                                 (cx + 2, sk_card_y + 2, sk_card_w - 4, sk_card_h - 4),
+                                 (cx + 2, sk_card_y + 2, sk_card_w - 4, cur_h - 4),
                                  1, border_radius=6)
 
             alpha_mod = 60 if is_faded else 255
 
-            # 라벨 + 아이콘 + 이름 (한 줄)
+            # 라벨 (좌상단)
             label = "A" if si == 0 else "B"
             if self.fonts and "small" in self.fonts:
                 label_alpha = 80 if is_faded else 160
                 surf, _ = self.fonts["small"].render(label, (label_alpha, int(label_alpha * 0.85), 30))
-                self.screen.blit(surf, (cx + 8, sk_card_y + 8))
+                self.screen.blit(surf, (cx + 10, sk_card_y + 8))
 
-            icon = _get_hero_skill_icon(skill.skill_id, 28)
-            icon_x = cx + 28
-            icon_y = sk_card_y + 6
+            # 큰 아이콘 (중앙 배치, 72px)
+            icon = _get_hero_skill_icon(skill.skill_id, icon_size)
+            icon_x = cx + sk_card_w // 2 - icon_size // 2
+            icon_y = sk_card_y + 10
             if icon:
                 if is_faded:
                     faded_icon = icon.copy()
@@ -6901,46 +6928,92 @@ class ColosseumsArena:
                     self.screen.blit(faded_icon, (icon_x, icon_y))
                 else:
                     self.screen.blit(icon, (icon_x, icon_y))
+            else:
+                pygame.draw.rect(self.screen, ET["bg_medium"],
+                                 (icon_x, icon_y, icon_size, icon_size), border_radius=8)
 
-            if self.fonts and "small" in self.fonts:
+            # 스킬 이름 (아이콘 아래 중앙)
+            if self.fonts and "medium" in self.fonts:
                 name_color = (alpha_mod, alpha_mod, alpha_mod)
-                surf, _ = self.fonts["small"].render(skill.korean_name, name_color)
-                self.screen.blit(surf, (icon_x + 34, sk_card_y + 12))
+                surf, _ = self.fonts["medium"].render(skill.korean_name, name_color)
+                self.screen.blit(surf, (cx + sk_card_w // 2 - surf.get_width() // 2, sk_card_y + 85))
 
-            # 발동 조건 + 쿨타임
-            if self.fonts and "small" in self.fonts:
-                trigger_text = ""
-                trigger_color = (100, 100, 100)
-                trigger_val = getattr(skill, 'trigger', None)
-                if trigger_val:
-                    from downtown.hero_skills import SkillTrigger
-                    if trigger_val == SkillTrigger.ON_BALL_HIT:
-                        trigger_text = "타격 발동"
-                        trigger_color = ET["lapis_light"] if not is_faded else (40, 70, 100)
-                    elif trigger_val == SkillTrigger.ON_COOLDOWN:
-                        trigger_text = "자동 발동"
-                        trigger_color = ET["gold_pale"] if not is_faded else (128, 115, 70)
-                    else:
-                        trigger_text = "패시브"
-                        trigger_color = ET["malachite_light"] if not is_faded else (40, 100, 55)
-                if trigger_text:
-                    cd_text = f"{trigger_text} | 쿨타임 {int(skill.cooldown)}초"
-                    surf, _ = self.fonts["small"].render(cd_text, trigger_color)
-                    self.screen.blit(surf, (cx + sk_card_w // 2 - surf.get_width() // 2, sk_card_y + 42))
+            # === 두루마리 펼침: 선택 확정 후 설명 영역 ===
+            if phase == "selected" and is_selected and scroll_reveal > 0.01:
+                desc_area_y = sk_card_y + base_card_h
+                revealed_h = int(desc_extra_h * scroll_reveal)
+                # 클립 서피스로 두루마리 펼침 효과
+                desc_surf = _get_arena_surface(sk_card_w - 12, desc_extra_h)
+                dy = 0
 
-            # 스킬 설명 (1줄)
-            if self.fonts and "small" in self.fonts:
-                desc = getattr(skill, 'description', '')
-                desc_color = (min(180, alpha_mod), min(180, alpha_mod), min(180, alpha_mod))
-                max_chars = 16
-                if len(desc) > max_chars:
-                    desc = desc[:max_chars] + ".."
-                surf, _ = self.fonts["small"].render(desc, desc_color)
-                self.screen.blit(surf, (cx + sk_card_w // 2 - surf.get_width() // 2, sk_card_y + 64))
+                # 장식 구분선 (두루마리 가장자리)
+                line_alpha = min(200, int(255 * scroll_reveal))
+                scroll_edge_color = (*ET["gold_dark"], line_alpha)
+                pygame.draw.line(desc_surf, scroll_edge_color, (5, 0), (sk_card_w - 22, 0), 1)
+                dy += 8
+
+                # 발동 조건 + 쿨타임
+                if self.fonts and "small" in self.fonts:
+                    trigger_text = ""
+                    trigger_color = (100, 100, 100)
+                    trigger_val = getattr(skill, 'trigger', None)
+                    if trigger_val:
+                        from downtown.hero_skills import SkillTrigger
+                        if trigger_val == SkillTrigger.ON_BALL_HIT:
+                            trigger_text = "타격 발동"
+                            trigger_color = ET["lapis_light"]
+                        elif trigger_val == SkillTrigger.ON_COOLDOWN:
+                            trigger_text = "자동 발동"
+                            trigger_color = ET["gold_pale"]
+                        else:
+                            trigger_text = "패시브"
+                            trigger_color = ET["malachite_light"]
+                    if trigger_text:
+                        cd_text = f"{trigger_text} | 쿨타임 {int(skill.cooldown)}초"
+                        surf, _ = self.fonts["small"].render(cd_text, trigger_color)
+                        desc_surf.blit(surf, ((sk_card_w - 12) // 2 - surf.get_width() // 2, dy))
+                    dy += 20
+
+                # 스킬 설명 (최대 3줄)
+                if self.fonts and "small" in self.fonts:
+                    desc = getattr(skill, 'description', '')
+                    desc_color = (180, 180, 180)
+                    max_line = 16
+                    lines = []
+                    while desc and len(lines) < 3:
+                        if len(desc) <= max_line:
+                            lines.append(desc)
+                            break
+                        lines.append(desc[:max_line])
+                        desc = desc[max_line:]
+                    for line in lines:
+                        surf, _ = self.fonts["small"].render(line, desc_color)
+                        desc_surf.blit(surf, ((sk_card_w - 12) // 2 - surf.get_width() // 2, dy))
+                        dy += 18
+
+                # 지속시간
+                if skill.duration and skill.duration > 0 and skill.duration < 999:
+                    if self.fonts and "small" in self.fonts:
+                        surf, _ = self.fonts["small"].render(
+                            f"지속: {skill.duration:.1f}초", ET["malachite_light"])
+                        desc_surf.blit(surf, ((sk_card_w - 12) // 2 - surf.get_width() // 2, dy))
+
+                # 클립하여 펼침 효과
+                clip_surf = _get_arena_surface(sk_card_w - 12, revealed_h)
+                clip_surf.blit(desc_surf, (0, 0))
+                self.screen.blit(clip_surf, (cx + 6, desc_area_y))
+
+                # 두루마리 하단 장식선
+                if scroll_reveal > 0.3:
+                    edge_y = desc_area_y + revealed_h - 2
+                    edge_alpha = min(150, int(200 * (scroll_reveal - 0.3) / 0.7))
+                    edge_s = _get_arena_surface(sk_card_w - 20, 3)
+                    edge_s.fill((*ET["gold_dark"], edge_alpha))
+                    self.screen.blit(edge_s, (cx + 10, edge_y))
 
             # SELECTED 마크
-            if phase == "selected" and is_selected:
-                mark_alpha = min(1.0, sel_timer * 2.0)
+            if phase == "selected" and is_selected and scroll_reveal > 0.8:
+                mark_alpha = min(1.0, (scroll_reveal - 0.8) / 0.2)
                 if self.fonts and "medium" in self.fonts:
                     glow_text_pulse = 0.7 + 0.3 * abs(_sin(sel_timer * 3))
                     r = int(100 + 155 * glow_text_pulse * mark_alpha)
@@ -6950,7 +7023,8 @@ class ColosseumsArena:
                     alpha_s = _get_arena_surface(*surf.get_size())
                     alpha_s.fill((255, 255, 255, int(255 * mark_alpha)))
                     surf.blit(alpha_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-                    self.screen.blit(surf, (cx + sk_card_w // 2 - surf.get_width() // 2, sk_card_y + 88))
+                    self.screen.blit(surf, (cx + sk_card_w // 2 - surf.get_width() // 2,
+                                            sk_card_y + cur_h - 24))
 
         # 파티클 렌더링
         if phase == "selected" and particles:
@@ -6963,7 +7037,7 @@ class ColosseumsArena:
                 self.screen.blit(ps, (int(p['x']) - sz, int(p['y']) - sz))
 
         # 하단 안내
-        hint_y = 610
+        hint_y = sk_card_y + sk_card_h + 15
         if phase == "rolling":
             if self.fonts and "small" in self.fonts:
                 dot_count = int(timer * 3) % 4
@@ -6972,7 +7046,7 @@ class ColosseumsArena:
                 self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, hint_y))
         elif phase == "selected":
             if self.fonts and "small" in self.fonts:
-                hint_alpha = min(200, int(sel_timer * 200))
+                hint_alpha = min(200, int(max(0, sel_timer - 0.5) * 300))
                 surf, _ = self.fonts["small"].render("클릭하여 계속", (hint_alpha, hint_alpha, hint_alpha + 20))
                 self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, hint_y))
 
@@ -7580,7 +7654,9 @@ class ColosseumsArena:
                     'color': (120 + _rand.randint(0, 40), 115 + _rand.randint(0, 35), 100 + _rand.randint(0, 30))
                 })
 
-        # (하단 안내 텍스트 제거됨)
+        # 하단 스킬 룰렛 (호위무사 선택 후 같은 화면에서 스킬 결정)
+        if opening_phase in ("skill_rolling", "skill_selected"):
+            self._draw_inline_skill_roulette(base_y=370)
 
     def _draw_bracket_lines(self):
         """대진표 연결선 (대각선 레이아웃 box_h=140 기준) - 이집트 테마"""
