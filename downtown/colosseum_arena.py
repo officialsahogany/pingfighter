@@ -8756,13 +8756,15 @@ class ColosseumsArena:
                                  hero_frame_rect, border_radius=8)
                 pygame.draw.rect(panel_surf, (*h_color[:3], 180),
                                  hero_frame_rect, 2, border_radius=8)
-                # 영웅 캐릭터 아이콘
+                # 영웅 캐릭터 아이콘 - Y 보정으로 시각적 중심 맞춤
                 if self.hero_paddle_renderer:
                     try:
                         hero_icon_surf = _get_arena_surface(hero_icon_size, hero_icon_size)
+                        _hero_b = max(3, 50 // 12)
+                        _hero_y_adj = int(_hero_b * 0.75)
                         self.hero_paddle_renderer.draw_hero_paddle(
                             hero_icon_surf, hero_id,
-                            hero_icon_size // 2, hero_icon_size // 2,
+                            hero_icon_size // 2, hero_icon_size // 2 + _hero_y_adj,
                             50, 28, facing="down", color=h_color,
                             scale_mode="preview")
                         panel_surf.blit(hero_icon_surf,
@@ -8945,9 +8947,13 @@ class ColosseumsArena:
                         if self.hero_paddle_renderer:
                             try:
                                 char_s = _get_arena_surface(char_surf_w, char_surf_h)
+                                # Y 보정: preview 모드에서 torso가 cy-1.5b에 위치하므로
+                                # 시각적 중심이 프레임 중앙보다 위쪽 → 캐릭터를 아래로 보정
+                                _icon_b = max(3, 44 // 12)
+                                _icon_y_adj = int(_icon_b * 0.75)
                                 self.hero_paddle_renderer.draw_hero_paddle(
                                     char_s, guard["id"],
-                                    char_surf_w // 2, char_surf_h // 2,
+                                    char_surf_w // 2, char_surf_h // 2 + _icon_y_adj,
                                     44, 26, facing="down", color=g_color,
                                     scale_mode="preview")
                                 panel_surf.blit(char_s,
