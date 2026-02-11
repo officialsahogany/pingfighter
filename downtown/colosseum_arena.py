@@ -3372,7 +3372,7 @@ class ColosseumsArena:
         self.score_bottom = 0
 
         # 배속 시스템
-        self.speed_multiplier = 1  # 1x, 2x, 3x
+        self.speed_multiplier = 1.3  # 1.3x, 2x, 3x
         self.speed_btn_rects = {}  # {multiplier: pygame.Rect}
 
         # UI 상태
@@ -3920,8 +3920,8 @@ class ColosseumsArena:
         self.score_top = 0
         self.score_bottom = 0
 
-        # 배속 리셋 (매 경기 1x로 초기화)
-        self.speed_multiplier = 1
+        # 배속 리셋 (매 경기 1.3x로 초기화)
+        self.speed_multiplier = 1.3
 
         # === 호위무사 초기화 (초반 셋업 완료 시 8강부터, 아니면 4강/결승만) ===
         if self.initial_setup_done or self.current_round in (TournamentRound.SEMI_FINAL, TournamentRound.FINAL):
@@ -4772,10 +4772,10 @@ class ColosseumsArena:
                 self.exit_requested = True
                 return True
 
-            # 배틀 중 배속 변경 (1x / 2x / 3x)
+            # 배틀 중 배속 변경 (1.3x / 2x / 3x)
             if self.state == TournamentState.BATTLE:
                 if event.key == pygame.K_1:
-                    self.speed_multiplier = 1
+                    self.speed_multiplier = 1.3
                 elif event.key == pygame.K_2:
                     self.speed_multiplier = 2
                 elif event.key == pygame.K_3:
@@ -6022,15 +6022,15 @@ class ColosseumsArena:
                 pygame.draw.circle(self.screen, color, (int(x), int(y)), radius)
 
     def _draw_speed_buttons(self):
-        """배속 버튼 그리기 (1x, 2x, 3x)"""
-        btn_w, btn_h = 28, 22
+        """배속 버튼 그리기 (1.3x, 2x, 3x)"""
+        btn_w, btn_h = 32, 22
         gap = 3
         # 점수판(중앙 x=380, y=10, 120x50) 오른쪽에 배치
         start_x = SCREEN_WIDTH // 2 + 65
         start_y = 18
 
         self.speed_btn_rects = {}
-        for i, mult in enumerate([1, 2, 3]):
+        for i, mult in enumerate([1.3, 2, 3]):
             x = start_x + i * (btn_w + gap)
             rect = pygame.Rect(x, start_y, btn_w, btn_h)
             self.speed_btn_rects[mult] = rect

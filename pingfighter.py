@@ -18936,7 +18936,7 @@ player_ai_enabled = False            # 메뉴에서 AI 플레이를 켰는지 �
 
 # 투기장 모드 (콜로세움)
 arena_mode_enabled = False           # 투기장 모드 활성화 여부
-arena_speed_multiplier = 1           # 투기장 배속 배율 (1x, 2x, 3x)
+arena_speed_multiplier = 1.3         # 투기장 배속 배율 (1.3x, 2x, 3x)
 arena_speed_btn_rects = {}           # 배속 버튼 히트영역
 arena_battle_result = None           # 투기장 배틀 결과 (True=하단 승리, False=상단 승리)
 arena_top_hero = None                # 상단 영웅 정보 (보스 위치)
@@ -97004,7 +97004,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
     try:
         # 투기장 모드 활성화
         arena_mode_enabled = True
-        arena_speed_multiplier = 1  # 배속 리셋 (매 경기 1x)
+        arena_speed_multiplier = 1.3  # 배속 리셋 (매 경기 1.3x)
         arena_battle_result = None  # 이전 배틀 결과 초기화 (필수!)
         arena_top_hero = top_hero
         arena_bottom_hero = bottom_hero
@@ -114556,15 +114556,15 @@ def draw_laser_cannon_gauge():
                      [(icon_x, icon_y - 5), (icon_x + 3, icon_y), 
                       (icon_x - 2, icon_y + 2), (icon_x + 5, icon_y + 5)], 2)
 def draw_arena_speed_buttons():
-    """투기장 배속 버튼 그리기 (1x, 2x, 3x) - 점수판 좌측 필러 상단에 배치"""
+    """투기장 배속 버튼 그리기 (1.3x, 2x, 3x) - 점수판 좌측 필러 상단에 배치"""
     global arena_speed_multiplier, arena_speed_btn_rects
     if not arena_mode_enabled:
         return
 
-    btn_w, btn_h = 30, 22
+    btn_w, btn_h = 32, 22
     gap = 3
     # 점수판 좌측에 배치 (점수판 x=180 왼쪽)
-    total_w = btn_w * 3 + gap * 2  # 96px
+    total_w = btn_w * 3 + gap * 2  # 102px
     scoreboard_left = (WIDTH - 400) // 2  # = 180
     start_x = scoreboard_left - total_w - 6  # 점수판 왼쪽에 여백 두고 배치
     start_y = 16
@@ -114575,7 +114575,7 @@ def draw_arena_speed_buttons():
     except Exception:
         font = pygame.font.Font(None, 16)
 
-    for i, mult in enumerate([1, 2, 3]):
+    for i, mult in enumerate([1.3, 2, 3]):
         x = start_x + i * (btn_w + gap)
         rect = pygame.Rect(x, start_y, btn_w, btn_h)
         arena_speed_btn_rects[mult] = rect
@@ -129969,7 +129969,7 @@ def main(stage_num, new_boss_mode=False):
             _k2 = keys[pygame.K_2] or keys[pygame.K_KP2]
             _k3 = keys[pygame.K_3] or keys[pygame.K_KP3]
             if _k1 and not getattr(main, '_arena_key1_pressed', False):
-                arena_speed_multiplier = 1
+                arena_speed_multiplier = 1.3
             elif _k2 and not getattr(main, '_arena_key2_pressed', False):
                 arena_speed_multiplier = 2
             elif _k3 and not getattr(main, '_arena_key3_pressed', False):
@@ -134653,7 +134653,7 @@ def main(stage_num, new_boss_mode=False):
 
                 # 투기장 배속: 추가 물리 반복 (2x→1회 추가, 3x→2회 추가)
                 if arena_mode_enabled and arena_speed_multiplier > 1 and not freeze_now:
-                    for _arena_extra_tick in range(arena_speed_multiplier - 1):
+                    for _arena_extra_tick in range(int(arena_speed_multiplier) - 1):
                         handle_player(keys_now)
                         _extra_ball_result = handle_ball()
                         if arena_mode_enabled and _extra_ball_result is not None:
