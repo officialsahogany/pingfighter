@@ -7152,42 +7152,48 @@ class ColosseumsArena:
                     ns, _ = self.fonts["small"].render(g.get("name", ""), ET["text_body"])
                     self.screen.blit(ns, (gx - ns.get_width() // 2, gy + guard_size_h // 2 + 8))
 
-            # 오른쪽: 전 호위무사들 (반투명, 약간 뒤쪽에 배치)
+            # 오른쪽: 전 호위무사들 (반투명, 현재 호위무사와 동일한 높이)
             if former_guards_list:
-                former_count = len(former_guards_list)
+                hero_w = int(guard_size_w * 0.85)
+                hero_h = int(guard_size_h * 0.85)
+                # 영웅+이름을 담을 서피스 (충분한 여유 공간)
+                surf_w = guard_size_w + 80
+                surf_h = guard_size_h + 100
+                surf_cx = surf_w // 2
+                surf_cy = surf_h // 2
+
                 for fi, (g, _) in enumerate(former_guards_list):
-                    # 오른쪽에 간격두고 배치
+                    # 오른쪽에 간격두고 배치 (gy는 현재 호위무사와 동일)
                     g_target_x = center_x + 150 + fi * 80
                     g_start_x = SCREEN_WIDTH + 100
                     gx = int(g_start_x + (g_target_x - g_start_x) * guard_eased)
-                    gy = int(guard_y_target - 25 + 100 * (1 - guard_eased))
+                    gy = int(guard_y_target + 100 * (1 - guard_eased))
                     g_color = g.get("color", (150, 150, 150))
 
-                    # 반투명 서피스에 렌더링
-                    ghost_w, ghost_h = guard_size_w + 40, guard_size_h + 60
-                    ghost_surf = _get_arena_surface(ghost_w, ghost_h)
-                    ghost_cx, ghost_cy = ghost_w // 2, ghost_h // 2 - 10
-
-                    # 글로우 (약하게)
+                    # 글로우 (약하게) - 현재 호위무사와 동일한 방식
                     glow_a_f = int(20 * guard_fade)
-                    pygame.draw.circle(ghost_surf, (*g_color, glow_a_f),
-                                       (ghost_cx, ghost_cy), 45)
+                    glow_s = _get_arena_surface(120, 120)
+                    pygame.draw.circle(glow_s, (*g_color, glow_a_f), (60, 60), 45)
+                    self.screen.blit(glow_s, (gx - 60, gy - 60))
+
+                    # 반투명 서피스에 영웅 렌더링 (중앙 기준)
+                    ghost_surf = _get_arena_surface(surf_w, surf_h)
 
                     self.hero_paddle_renderer.draw_hero_paddle(
-                        ghost_surf, g.get("id", "mugen"), ghost_cx, ghost_cy,
-                        int(guard_size_w * 0.85), int(guard_size_h * 0.85),
+                        ghost_surf, g.get("id", "mugen"), surf_cx, surf_cy,
+                        hero_w, hero_h,
                         facing="down", color=g_color, scale_mode="preview"
                     )
 
-                    # 이름
+                    # 이름 (현재 호위무사와 동일한 오프셋 사용)
                     if self.fonts and "small" in self.fonts and guard_fade > 0.5:
                         ns, _ = self.fonts["small"].render(g.get("name", ""), ET["text_hint"])
-                        ghost_surf.blit(ns, (ghost_cx - ns.get_width() // 2,
-                                             ghost_cy + int(guard_size_h * 0.85) // 2 + 6))
+                        ghost_surf.blit(ns, (surf_cx - ns.get_width() // 2,
+                                             surf_cy + guard_size_h // 2 + 8))
 
                     # 반투명 적용 (100/255 ≈ 40% 불투명)
                     ghost_surf.fill((255, 255, 255, 100), special_flags=pygame.BLEND_RGBA_MULT)
-                    self.screen.blit(ghost_surf, (gx - ghost_cx, gy - ghost_cy))
+                    self.screen.blit(ghost_surf, (gx - surf_cx, gy - surf_cy))
 
         # === 챔피언 (중앙, 크게) ===
         champ_target_y = 380
