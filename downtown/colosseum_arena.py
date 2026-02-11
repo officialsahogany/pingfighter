@@ -3790,9 +3790,9 @@ class ColosseumsArena:
 
         # ======== 초반 셋업 상태 업데이트 ========
         if self.state == TournamentState.MATCH_REVEAL:
-            # 매치 공개 애니메이션 (0.8초)
+            # 매치 공개 카드 플립 애니메이션 (1.2초)
             self.match_reveal_timer += dt
-            if self.match_reveal_timer >= 0.8:
+            if self.match_reveal_timer >= 1.2:
                 if self.match_reveal_index >= 0:
                     self.match_revealed[self.match_reveal_index] = True
                 self.state = TournamentState.HERO_SELECT
@@ -5327,16 +5327,122 @@ class ColosseumsArena:
         if not self.initial_setup_done and self.current_round == TournamentRound.QUARTER_FINAL:
             if not self.match_revealed[match_idx]:
                 is_hovered = (self.hover_match_index == match_idx)
-                # 매치 공개 애니메이션 중
+                # 매치 공개 카드 플립 애니메이션
                 if self.state == TournamentState.MATCH_REVEAL and self.match_reveal_index == match_idx:
-                    progress = min(1.0, self.match_reveal_timer / 0.8)
-                    bg_r, bg_g, bg_b = ET["card_bg"]
-                    bg_color = (int(bg_r + 15 * progress), int(bg_g + 15 * progress), int(bg_b + 10 * progress))
-                    pygame.draw.rect(self.screen, bg_color, (x, y, box_w, box_h), border_radius=8)
-                    pygame.draw.rect(self.screen, (*ET["gold_medium"][:2], int(80 * progress)), (x, y, box_w, box_h), 2, border_radius=8)
-                    if self.fonts and "medium" in self.fonts:
-                        surf, _ = self.fonts["medium"].render("?", ET["gold_pale"])
-                        self.screen.blit(surf, (x + box_w // 2 - surf.get_width() // 2, y + box_h // 2 - surf.get_height() // 2))
+                    total_duration = 1.2
+                    progress = min(1.0, self.match_reveal_timer / total_duration)
+                    # ease-in-out for smooth feel
+                    eased = 0.5 - 0.5 * math.cos(progress * math.pi)
+
+                    # 카드 플립: scale_x가 1→0→1 (0.5 지점에서 뒤→앞 전환)
+                    if eased < 0.5:
+                        t = eased / 0.5
+                        scale_x = math.cos(t * math.pi / 2)  # 1.0 → 0.0
+                        showing_front = False
+                    else:
+                        t = (eased - 0.5) / 0.5
+                        scale_x = math.sin(t * math.pi / 2)  # 0.0 → 1.0
+                        showing_front = True
+
+                    # 전체 스케일: 최대 1.4배까지 커졌다가 복귀
+                    scale_overall = 1.0 + 0.4 * math.sin(eased * math.pi)
+                    # Y 오프셋: 위로 살짝 떠오름
+                    y_lift = -35 * math.sin(eased * math.pi)
+                    # 회전: 살짝 기울어졌다가 복귀
+                    rotation = 6 * math.sin(eased * math.pi * 2)
+
+                    # === 카드 표면 생성 ===
+                    card_surf = pygame.Surface((box_w, box_h), pygame.SRCALPHA)
+
+                    if not showing_front:
+                        # 뒷면: 미스터리 "?" 카드
+                        pygame.draw.rect(card_surf, ET["card_bg"], (0, 0, box_w, box_h), border_radius=8)
+                        pygame.draw.rect(card_surf, ET["card_border"], (0, 0, box_w, box_h), 2, border_radius=8)
+                        # 이집트풍 내부 테두리
+                        inner = 6
+                        pygame.draw.rect(card_surf, ET.get("gold_dark", (120, 95, 50)),
+                                         (inner, inner, box_w - inner * 2, box_h - inner * 2), 1, border_radius=5)
+                        # "?" 심볼
+                        if self.fonts and "large" in self.fonts:
+                            q_surf, _ = self.fonts["large"].render("?", ET["gold_pale"])
+                            card_surf.blit(q_surf, (box_w // 2 - q_surf.get_width() // 2,
+                                                    box_h // 2 - q_surf.get_height() // 2))
+                    else:
+                        # 앞면: 매치 내용 공개
+                        pygame.draw.rect(card_surf, ET["card_bg"], (0, 0, box_w, box_h), border_radius=8)
+                        pygame.draw.rect(card_surf, ET["gold_bright"], (0, 0, box_w, box_h), 2, border_radius=8)
+                        # 대각선
+                        pygame.draw.line(card_surf, ET["card_diagonal"],
+                                         (5, box_h - 5), (box_w - 5, 5), 2)
+                        # 영웅1 이름 (좌상단)
+                        h1_color = match.hero1["color"]
+                        h1_brightness = sum(h1_color) / 3
+                        h1_name_color = h1_color if h1_brightness > 80 else (
+                            min(255, h1_color[0] + 100), min(255, h1_color[1] + 100), min(255, h1_color[2] + 100))
+                        if self.fonts and "small" in self.fonts:
+                            surf1, _ = self.fonts["small"].render(match.hero1.get("name", "???"), h1_name_color)
+                            card_surf.blit(surf1, (8, 8))
+                        # 영웅1 캐릭터 이미지
+                        if self.hero_paddle_renderer:
+                            self.hero_paddle_renderer.draw_hero_paddle(
+                                card_surf, match.hero1.get("id", "mugen"), 25, 55, 64, 45,
+                                facing="down", color=h1_color, scale_mode="preview"
+                            )
+                        # VS 원형
+                        vs_cx, vs_cy = box_w // 2, box_h // 2
+                        pygame.draw.circle(card_surf, ET["vs_circle_bg"], (vs_cx, vs_cy), 16)
+                        pygame.draw.circle(card_surf, ET["vs_circle_border"], (vs_cx, vs_cy), 16, 2)
+                        if self.fonts and "small" in self.fonts:
+                            vs_surf, _ = self.fonts["small"].render("VS", ET["gold_bright"])
+                            card_surf.blit(vs_surf, (vs_cx - vs_surf.get_width() // 2,
+                                                     vs_cy - vs_surf.get_height() // 2))
+                        # 영웅2 캐릭터 이미지
+                        h2_color = match.hero2["color"]
+                        h2_brightness = sum(h2_color) / 3
+                        h2_name_color = h2_color if h2_brightness > 80 else (
+                            min(255, h2_color[0] + 100), min(255, h2_color[1] + 100), min(255, h2_color[2] + 100))
+                        if self.hero_paddle_renderer:
+                            self.hero_paddle_renderer.draw_hero_paddle(
+                                card_surf, match.hero2.get("id", "chronos"), box_w - 25, box_h - 55, 64, 45,
+                                facing="down", color=h2_color, scale_mode="preview"
+                            )
+                        # 영웅2 이름 (우하단)
+                        if self.fonts and "small" in self.fonts:
+                            surf2, _ = self.fonts["small"].render(match.hero2.get("name", "???"), h2_name_color)
+                            card_surf.blit(surf2, (box_w - surf2.get_width() - 8, box_h - 22))
+
+                    # === 변환 적용 ===
+                    scaled_w = max(1, int(box_w * scale_x * scale_overall))
+                    scaled_h = max(1, int(box_h * scale_overall))
+
+                    scaled_surf = pygame.transform.smoothscale(card_surf, (scaled_w, scaled_h))
+
+                    # 회전 적용
+                    if abs(rotation) > 0.5:
+                        rotated_surf = pygame.transform.rotate(scaled_surf, rotation)
+                    else:
+                        rotated_surf = scaled_surf
+
+                    # 원래 위치 중심으로 배치
+                    center_x = x + box_w // 2
+                    center_y = y + box_h // 2 + int(y_lift)
+                    draw_x = center_x - rotated_surf.get_width() // 2
+                    draw_y = center_y - rotated_surf.get_height() // 2
+
+                    # 글로우 이펙트 (플립 중 발광)
+                    glow_alpha = int(100 * math.sin(eased * math.pi))
+                    if glow_alpha > 10:
+                        glow_pad = int(8 * scale_overall)
+                        glow_surf = pygame.Surface(
+                            (rotated_surf.get_width() + glow_pad * 2,
+                             rotated_surf.get_height() + glow_pad * 2), pygame.SRCALPHA)
+                        pygame.draw.rect(glow_surf,
+                                         (*ET["gold_bright"], glow_alpha),
+                                         (0, 0, glow_surf.get_width(), glow_surf.get_height()),
+                                         border_radius=12)
+                        self.screen.blit(glow_surf, (draw_x - glow_pad, draw_y - glow_pad))
+
+                    self.screen.blit(rotated_surf, (draw_x, draw_y))
                     return
                 # 비공개 상태
                 if is_hovered:
