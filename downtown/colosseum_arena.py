@@ -4798,7 +4798,21 @@ class ColosseumsArena:
         elif self.state == TournamentState.GUARD_SELECT:
             # 호위무사 선택 화면 애니메이션
             self.guard_select_timer += dt
-
+            # 인라인 스킬 룰렛 phase 업데이트
+            guard_anim = getattr(self, '_guard_select_anim_phase', None)
+            if guard_anim == "skill_rolling":
+                self.skill_reveal_timer += dt
+                if self.skill_reveal_phase == "rolling" and self.skill_reveal_timer >= 3.5:
+                    self.skill_reveal_phase = "selected"
+                    self._guard_select_anim_phase = "skill_selected"
+                    self.skill_reveal_selected_timer = 0.0
+                    self._skill_reveal_particles = []
+                    _load_gacha_result_sound()
+                    if _gacha_result_sound:
+                        _gacha_result_sound.play()
+            elif guard_anim == "skill_selected":
+                self.skill_reveal_selected_timer = getattr(self, 'skill_reveal_selected_timer', 0) + dt
+                self.skill_reveal_timer += dt
 
         elif self.state == TournamentState.PERK_SELECT:
             self.perk_anim_timer += dt
@@ -4866,8 +4880,17 @@ class ColosseumsArena:
 
             # 호위무사 선택 키보드 처리
             if self.state == TournamentState.GUARD_SELECT and self.guard_select_timer > 0.5:
+                # 스킬 룰렛 애니메이션 중에는 키보드 입력 무시
+                guard_anim_kb = getattr(self, '_guard_select_anim_phase', None)
+                if guard_anim_kb == "skill_selected":
+                    if event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                        self._guard_select_anim_phase = None
+                        self.skill_reveal_phase = "done"
+                        self._start_perk_select()
+                elif guard_anim_kb:
+                    pass  # 룰렛 진행 중 키 무시
                 # 경고 다이얼로그가 열려 있으면 다이얼로그 입력 처리
-                if getattr(self, 'guard_confirm_showing', False):
+                elif getattr(self, 'guard_confirm_showing', False):
                     if event.key == pygame.K_LEFT:
                         self.guard_confirm_selected = 0
                     elif event.key == pygame.K_RIGHT:
@@ -4920,6 +4943,17 @@ class ColosseumsArena:
 
         # 호위무사 선택 클릭 처리
         if self.state == TournamentState.GUARD_SELECT and self.guard_select_timer > 0.5:
+            # 인라인 스킬 룰렛 phase 처리
+            guard_anim = getattr(self, '_guard_select_anim_phase', None)
+            if guard_anim == "skill_selected":
+                # 스킬 확정 후 클릭 → 다음 단계로
+                self._guard_select_anim_phase = None
+                self.skill_reveal_phase = "done"
+                self._start_perk_select()
+                return
+            if guard_anim:
+                return  # 스킬 룰렛 애니메이션 중 클릭 무시
+
             # 경고 다이얼로그가 열려 있으면 다이얼로그 버튼 클릭 처리
             if getattr(self, 'guard_confirm_showing', False):
                 dialog_w, dialog_h = 420, 200
@@ -4941,7 +4975,7 @@ class ColosseumsArena:
             guards = getattr(self, 'guard_select_guards', [])
             if len(guards) >= 2:
                 # 카드 히트박스 (좌/우)
-                card_w, card_h = 220, 420
+                card_w, card_h = 220, 290
                 gap = 60
                 left_x = SCREEN_WIDTH // 2 - gap // 2 - card_w
                 right_x = SCREEN_WIDTH // 2 + gap // 2
@@ -5249,8 +5283,12 @@ class ColosseumsArena:
 
         # 호위무사 선택 화면 호버
         if self.state == TournamentState.GUARD_SELECT and self.guard_select_timer > 0.5:
+            # 스킬 룰렛 애니메이션 중에는 호버 비활성화
+            if getattr(self, '_guard_select_anim_phase', None):
+                self.guard_select_hover = -1
+                self.guard_select_skill_hover = None
             # 경고 다이얼로그 열려 있으면 버튼 호버만 처리
-            if getattr(self, 'guard_confirm_showing', False):
+            elif getattr(self, 'guard_confirm_showing', False):
                 dialog_w, dialog_h = 420, 200
                 dx = SCREEN_WIDTH // 2 - dialog_w // 2
                 dy = SCREEN_HEIGHT // 2 - dialog_h // 2
@@ -5265,7 +5303,7 @@ class ColosseumsArena:
             else:
                 guards = getattr(self, 'guard_select_guards', [])
                 if len(guards) >= 2:
-                    card_w, card_h = 220, 420
+                    card_w, card_h = 220, 290
                     gap = 60
                     left_x = SCREEN_WIDTH // 2 - gap // 2 - card_w
                     right_x = SCREEN_WIDTH // 2 + gap // 2
@@ -9912,6 +9950,8 @@ class ColosseumsArena:
         self.guard_confirm_showing = False
         self.guard_confirm_index = -1
         self.guard_confirm_selected = 0  # 0 = 예, 1 = 아니오
+        # 인라인 스킬 룰렛 상태 초기화
+        self._guard_select_anim_phase = None
         # 초기 파티클
         for _ in range(30):
             self.guard_select_particles.append({
@@ -9982,19 +10022,20 @@ class ColosseumsArena:
         self.guard_select_chosen = index
         print(f"[Guard] 호위무사 선택 완료: {selected['name']} (탈락: {[g['name'] for g in dropped_guards]})")
 
-        # 신규 호위무사 선택 시 → 스킬 랜덤 롤링 연출 (8강과 동일)
+        # 신규 호위무사 선택 시 → 같은 화면 하단에서 인라인 스킬 룰렛
         if index == new_idx:
             self.hero_selected_skills[selected["id"]] = random.randint(0, 1)
             print(f"[Guard] 신규 호위무사 스킬 랜덤 배정: {selected['name']} "
                   f"(스킬 인덱스: {self.hero_selected_skills[selected['id']]})")
-            # 스킬 랜덤 롤링 연출 시작
+            # 인라인 스킬 룰렛 시작 (GUARD_SELECT 화면 유지)
+            self._guard_select_anim_phase = "skill_rolling"
             self.skill_reveal_timer = 0.0
             self.skill_reveal_phase = "rolling"
             self.skill_reveal_target = selected["id"]
             self.skill_reveal_result = self.hero_selected_skills[selected["id"]]
             self._skill_reveal_last_tick_idx = -1
-            self._guard_skill_reveal_mid_tournament = True
-            self.state = TournamentState.GUARD_SKILL_REVEAL
+            self.skill_reveal_selected_timer = 0.0
+            self._skill_reveal_particles = []
             return
         else:
             print(f"[Guard] 기존 호위무사 유지: {selected['name']} (스킬 유지)")
@@ -10098,7 +10139,7 @@ class ColosseumsArena:
             self.screen.blit(vs_surf, (center_x - vs_surf.get_width() // 2, 360))
 
         # === 영웅 카드 2장 ===
-        card_w, card_h = 220, 420
+        card_w, card_h = 220, 290
         gap = 60
         card_positions = [
             (center_x - gap // 2 - card_w, 175),   # 왼쪽
@@ -10284,27 +10325,7 @@ class ColosseumsArena:
                                      (0, 0, icon_sz + 6, icon_sz + 6), 2, border_radius=4)
                     self.screen.blit(h_surf, (ix - 3, iy - 3))
 
-            # === 능력치 바 (3개) ===
-            stats = [
-                ("속도", guard.get("speed", 1.0), ET["lapis_light"]),
-                ("파워", guard.get("power", 1.0), ET["carnelian_light"]),
-                ("정확", guard.get("accuracy", 0.85), ET["malachite_light"]),
-            ]
-            bar_y_start = draw_y + 282
-            bar_w = card_w - 40
-            bar_x = draw_x + 20
-            for si, (stat_name, stat_val, stat_color) in enumerate(stats):
-                by = bar_y_start + si * 24
-                if self.fonts and "small" in self.fonts:
-                    ls, _ = self.fonts["small"].render(stat_name, ET["text_hint"])
-                    self.screen.blit(ls, (bar_x, by))
-                pygame.draw.rect(self.screen, ET["bg_medium"],
-                                 (bar_x + 35, by + 2, bar_w - 35, 10), border_radius=3)
-                fill = max(0, min(1.0, (stat_val - 0.7) / 0.8))
-                fill_w = int((bar_w - 35) * fill)
-                if fill_w > 0:
-                    pygame.draw.rect(self.screen, stat_color,
-                                     (bar_x + 35, by + 2, fill_w, 10), border_radius=3)
+            # (능력치 바 제거 - 스킬 룰렛 공간 확보)
 
         # === 하단 안내 텍스트 ===
         if self.fonts and "small" in self.fonts and timer > 0.6:
@@ -10326,6 +10347,11 @@ class ColosseumsArena:
         skill_hover_info = getattr(self, 'guard_select_skill_hover', None)
         if skill_hover_info and timer > 0.5 and not getattr(self, 'guard_confirm_showing', False):
             self._draw_guard_skill_tooltip(skill_hover_info)
+
+        # === 인라인 스킬 룰렛 (신규 호위무사 선택 후) ===
+        guard_anim_phase = getattr(self, '_guard_select_anim_phase', None)
+        if guard_anim_phase in ("skill_rolling", "skill_selected"):
+            self._draw_inline_skill_roulette(base_y=470)
 
         # === 경고 확인 다이얼로그 (최상위 오버레이) ===
         if getattr(self, 'guard_confirm_showing', False):
