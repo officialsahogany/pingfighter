@@ -4724,7 +4724,6 @@ class ColosseumsArena:
             elif self.skill_reveal_phase == "selected":
                 self.skill_reveal_selected_timer = getattr(self, 'skill_reveal_selected_timer', 0) + dt
                 # 자동 전환 없음 - 클릭으로만 진행
-                    self.skill_reveal_phase = "done"
 
         elif self.state == TournamentState.VS_PREVIEW:
             # VS 매치업 미리보기
