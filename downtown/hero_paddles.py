@@ -4900,6 +4900,15 @@ class HeroPaddleRenderer:
             pants_light = p["pants_red_light"] if side == -1 else p["pants_gold_light"]
             knee_x = leg_x + int(leg_sway_x * 0.5)
             knee_y = leg_top + int(1.0 * b) + int(sway * 0.15 * b)
+
+            # --- 킥 모션: 오른쪽 다리(앞모습) 또는 왼쪽 다리(뒷모습) ---
+            _is_kick = (side == 1 and not show_back) or (side == -1 and show_back)
+            _kick_amt = abs(weapon_swing) if _is_kick and weapon_swing != 0 else 0
+            _kick_dir = -1 if not show_back else 1  # 하단캐릭: 위로, 상단캐릭: 아래로
+            if _kick_amt > 0:
+                knee_y += int(_kick_dir * _kick_amt * 3.0 * b)
+                knee_x += int(_kick_amt * 0.8 * b * side)
+
             thigh_w = max(2, int(0.4 * b))
             pygame.draw.line(screen, pants_color,
                            (leg_x, leg_top), (knee_x, knee_y), thigh_w)
@@ -4910,6 +4919,9 @@ class HeroPaddleRenderer:
             # 정강이
             foot_x = leg_x + leg_sway_x
             foot_y = int(leg_bottom - leg_lift * 0.3 * b)
+            if _kick_amt > 0:
+                foot_x = knee_x + int(_kick_amt * 2.0 * b * side)
+                foot_y = knee_y + int(_kick_dir * _kick_amt * 2.5 * b)
             shin_w = max(2, int(0.3 * b))
             pygame.draw.line(screen, pants_color,
                            (knee_x, knee_y), (foot_x, foot_y), shin_w)
@@ -4931,6 +4943,9 @@ class HeroPaddleRenderer:
             # 뾰족한 끝
             tip_x = foot_x + side * int(0.4 * b) + int(move_dir * side_blend * 0.15 * b)
             tip_y = foot_y + int(_sin(self.time * 3 + side) * 0.08 * b)
+            if _kick_amt > 0:
+                tip_x = foot_x + int(_kick_amt * 1.0 * b * side)
+                tip_y = foot_y + int(_kick_dir * _kick_amt * 0.6 * b)
             pygame.draw.line(screen, shoe_color, (foot_x + side * int(0.15 * b), foot_y),
                            (tip_x, tip_y), max(1, int(0.12 * b)))
             # 끝 방울
@@ -4940,6 +4955,29 @@ class HeroPaddleRenderer:
                              (tip_x, tip_y + bell_bob_shoe), bell_r_shoe)
             pygame.draw.circle(screen, p["bell_shine"],
                              (tip_x - 1, tip_y + bell_bob_shoe - 1), max(1, bell_r_shoe // 2))
+
+            # --- 킥 임팩트 이펙트 ---
+            if _kick_amt > 0.3:
+                _ks = self._get_surface(int(6 * b), int(6 * b))
+                _kc_x, _kc_y = _ks.get_width() // 2, _ks.get_height() // 2
+                _k_tip_x = _kc_x + (tip_x - cx)
+                _k_tip_y = _kc_y + (tip_y - cy)
+                # 골드 임팩트 원
+                _imp_alpha = int(min(1.0, (_kick_amt - 0.3) * 3.0) * 160)
+                _imp_r = int(_kick_amt * 1.2 * b)
+                _imp_col = (255, 220, 80, _imp_alpha)
+                pygame.draw.circle(_ks, _imp_col, (_k_tip_x, _k_tip_y), _imp_r)
+                # 스피드 라인 (발 뒤쪽으로)
+                _line_alpha = int(min(1.0, (_kick_amt - 0.3) * 2.5) * 120)
+                for _li in range(5):
+                    _la = (_li - 2) * 0.15
+                    _lx1 = _k_tip_x - int(side * _kick_amt * 1.5 * b) + int(_la * 0.3 * b)
+                    _ly1 = _k_tip_y - int(_kick_dir * _kick_amt * 0.5 * b) + int(_li * 0.25 * b)
+                    _lx2 = _lx1 - int(side * _kick_amt * 1.8 * b)
+                    _ly2 = _ly1 + int(_kick_dir * 0.3 * b)
+                    _lcol = (255, 255, 255, _line_alpha - _li * 15) if _li != 2 else (255, 200, 60, _line_alpha)
+                    pygame.draw.line(_ks, _lcol, (_lx1, _ly1), (_lx2, _ly2), max(1, int(0.06 * b)))
+                screen.blit(_ks, (cx - _ks.get_width() // 2, cy - _ks.get_height() // 2))
 
         # === 몸통 (좌=빨강, 우=금 비대칭 코트) ===
         torso_w = int(2.4 * b)
