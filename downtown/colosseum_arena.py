@@ -2159,22 +2159,26 @@ class GuardWarriorSystem:
         # 현재 화면에 보이는 활성 호위무사를 빼앗음
         stolen = None
         saved_cooldown = 5.0
+        saved_cooldown_max = 5.0
         if caster_is_top and self.active_bottom:
             for g in enemy_guards:
                 if g.get("id") == self.active_bottom.get("id"):
                     stolen = g
                     saved_cooldown = max(0, self.cooldown_bottom)
+                    saved_cooldown_max = self.cooldown_max_bottom
                     break
         elif not caster_is_top and self.active_top:
             for g in enemy_guards:
                 if g.get("id") == self.active_top.get("id"):
                     stolen = g
                     saved_cooldown = max(0, self.cooldown_top)
+                    saved_cooldown_max = self.cooldown_max_top
                     break
 
         if not stolen:
             stolen = enemy_guards[0]
             saved_cooldown = 5.0
+            saved_cooldown_max = 5.0
 
         # 상대측 활성 호위무사 숨기기 (리스트에서 제거 X, 화면에서만 숨김)
         if caster_is_top:
@@ -2197,7 +2201,7 @@ class GuardWarriorSystem:
             'y': TOP_PADDLE_Y if caster_is_top else BOTTOM_PADDLE_Y,
             'phase': 'pulling',  # pulling → patrolling → done
             'cooldown': saved_cooldown,  # 쿨타임 이어받기!
-            'cooldown_max': saved_cooldown,
+            'cooldown_max': saved_cooldown_max,  # 원본 최대 쿨타임 유지 (UI 바 정확도)
             'patrol_target': None,
             'patrol_wait': 0.0,
             'patrol_speed': 140.0,
@@ -2261,6 +2265,10 @@ class GuardWarriorSystem:
         guard = self._charmed['guard']
         stolen_from_top = self._charmed['stolen_from_top']
 
+        # ★ 남은 쿨타임 보존 (초기화 전에 저장!)
+        remaining_cooldown = max(0, self._charmed.get('cooldown', 0))
+        remaining_cooldown_max = self._charmed.get('cooldown_max', 0)
+
         # ★ 독립 추적 먼저 해제
         self._charmed = None
         game_state.pop('_charmed_guard', None)
@@ -2280,11 +2288,12 @@ class GuardWarriorSystem:
                 self.anim_timer_top = 0.0
                 self.x_top = return_x
                 self.y_top = TOP_PADDLE_Y
-                # 쿨타임 설정
-                cd_mult = self.guard_cd_mult_top
-                base_cd = self._get_guard_cooldown(guard["id"])
-                self.cooldown_top = base_cd * cd_mult
-                self.cooldown_max_top = self.cooldown_top
+                # 쿨타임 이어받기 (매혹 중 남은 쿨타임 유지, 초기화 없음)
+                self.cooldown_top = remaining_cooldown
+                if remaining_cooldown_max > 0:
+                    self.cooldown_max_top = remaining_cooldown_max
+                else:
+                    self.cooldown_max_top = self._get_guard_cooldown(guard["id"]) * self.guard_cd_mult_top
                 # 순찰 인덱스 업데이트
                 for i, g in enumerate(self.guard_warriors_top):
                     if g.get("id") == guard.get("id"):
@@ -2298,11 +2307,12 @@ class GuardWarriorSystem:
                 self.anim_timer_bottom = 0.0
                 self.x_bottom = return_x
                 self.y_bottom = BOTTOM_PADDLE_Y
-                # 쿨타임 설정
-                cd_mult = self.guard_cd_mult_bottom
-                base_cd = self._get_guard_cooldown(guard["id"])
-                self.cooldown_bottom = base_cd * cd_mult
-                self.cooldown_max_bottom = self.cooldown_bottom
+                # 쿨타임 이어받기 (매혹 중 남은 쿨타임 유지, 초기화 없음)
+                self.cooldown_bottom = remaining_cooldown
+                if remaining_cooldown_max > 0:
+                    self.cooldown_max_bottom = remaining_cooldown_max
+                else:
+                    self.cooldown_max_bottom = self._get_guard_cooldown(guard["id"]) * self.guard_cd_mult_bottom
                 # 순찰 인덱스 업데이트
                 for i, g in enumerate(self.guard_warriors_bottom):
                     if g.get("id") == guard.get("id"):
