@@ -1793,6 +1793,7 @@ class _GuardPaddle:
         self.centerx = x
         self.centery = y + height // 2
         self.is_top = is_top
+        self.is_bodyguard = True  # 호위무사 패들 식별용 (해골궁수 등에서 사용)
         self.paddle_scale = 1.0
         self.power = 1.0  # 공 반사 파워 (check_paddle_collision 호환)
 
@@ -2753,6 +2754,43 @@ class GuardWarriorSystem:
             self._bubble_bottom['timer'] -= dt
 
         game_state = self.skill_manager.game_state if self.skill_manager else {}
+
+        # === 호위무사 패들 위치를 game_state에 저장 (해골궁수 등 스킬에서 참조) ===
+        guard_rects = []
+        # 활성 호위무사 (등장/시전/퇴장/순찰 중)
+        if self.phase_top is not None:
+            guard_rects.append({
+                'cx': self.x_top, 'cy': self.y_top,
+                'width': PADDLE_WIDTH, 'height': PADDLE_HEIGHT,
+                'is_top': True,
+            })
+        if self.phase_bottom is not None:
+            guard_rects.append({
+                'cx': self.x_bottom, 'cy': self.y_bottom,
+                'width': PADDLE_WIDTH, 'height': PADDLE_HEIGHT,
+                'is_top': False,
+            })
+        # 2번째 순찰 호위무사
+        if self._patrol2_top:
+            guard_rects.append({
+                'cx': self._patrol2_top['x'], 'cy': self._patrol2_top['y'],
+                'width': PADDLE_WIDTH, 'height': PADDLE_HEIGHT,
+                'is_top': True,
+            })
+        if self._patrol2_bottom:
+            guard_rects.append({
+                'cx': self._patrol2_bottom['x'], 'cy': self._patrol2_bottom['y'],
+                'width': PADDLE_WIDTH, 'height': PADDLE_HEIGHT,
+                'is_top': False,
+            })
+        # 매혹된 호위무사
+        if self._charmed:
+            guard_rects.append({
+                'cx': self._charmed['x'], 'cy': self._charmed['y'],
+                'width': PADDLE_WIDTH, 'height': PADDLE_HEIGHT,
+                'is_top': self._charmed.get('caster_is_top', True),
+            })
+        game_state['active_guard_rects'] = guard_rects
 
         # === 매혹 (Charm) 스킬 처리 ===
         self._handle_charm_requests(game_state)
