@@ -24,7 +24,7 @@ from start_menu_config import (
 # baroque frame은 pillar_background.py에서 stage 0으로 처리됨
 from pillar_background import get_pillar_renderer
 
-BASE_MENU_OPTIONS = ["경기장 입장", "멀티플레이", "개발테스트", "메달샵", "크레딧"]
+BASE_MENU_OPTIONS = ["경기장 입장", "멀티플레이", "개발테스트", "메달샵", "설정", "크레딧"]
 MENU_ICONS = {
     "경기장 입장": "▶",
     "계속하기": "▷",
@@ -34,6 +34,7 @@ MENU_ICONS = {
     "테스트메뉴": "◆",
     "개발테스트": "▣",
     "메달샵": "◆",
+    "설정": "⚙",
     "크레딧": "●",
     "개발자": "☆",
 }
@@ -309,13 +310,9 @@ def _render_menu(
     # 호버 업데이트
     _menu_update_hover()
 
-    # 가로 배열 메뉴 설정 (화면에 맞게 작은 사이즈)
-    menu_item_width = 100
-    menu_item_height = 70
-    menu_spacing = 8
-    total_width = len(current_menu_options) * menu_item_width + (len(current_menu_options) - 1) * menu_spacing
-    menu_start_x = (width - total_width) // 2
-    menu_y = height // 2 + 80  # 타이틀 아래 배치
+    # 가로 배열 메뉴 설정 (화면에 맞게 동적 사이즈)
+    menu_start_x, menu_y, menu_item_width, menu_item_height, menu_spacing = \
+        _get_horizontal_menu_rects(width, height, len(current_menu_options))
     font_menu = ctx.FontStyle.small()
     font_icon = ctx.get_font(26)
 
@@ -367,6 +364,8 @@ def _render_menu(
             display_text = "멀티"
         elif option == "메달샵":
             display_text = "메달샵"
+        elif option == "설정":
+            display_text = "설정"
         elif option == "크레딧":
             display_text = "크레딧"
         elif option == "개발자":
@@ -407,6 +406,13 @@ def _render_menu(
             except Exception:
                 desc_text = "저장된 게임 불러오기"
             desc = font_desc.render(desc_text, True, (100, 255, 150))
+            desc_rect = desc.get_rect(center=(width // 2, menu_y + menu_item_height + 35))
+            screen.blit(desc, desc_rect)
+
+        # 설정 선택 시 설명 표시
+        if idx == state.selected and option == "설정":
+            font_desc = ctx.FontStyle.tiny()
+            desc = font_desc.render("BGM/효과음 볼륨, 조작 방식 설정", True, (200, 220, 255))
             desc_rect = desc.get_rect(center=(width // 2, menu_y + menu_item_height + 35))
             screen.blit(desc, desc_rect)
 
@@ -974,6 +980,398 @@ def _hsv_to_rgb_transition(h: float, s: float, v: float) -> Tuple[int, int, int]
     return (int((r + m) * 255), int((g + m) * 255), int((b + m) * 255))
 
 
+def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
+    """메인 메뉴 설정 화면 - 볼륨/조작 설정 (show_pause_options 패턴 기반)"""
+    import bgm_manager as _bgm_mod
+    from game_state.audio import (
+        clamp_volume, get_bgm_muted, set_bgm_muted,
+        get_sfx_muted, set_sfx_muted, resolve_runtime_bgm_volume,
+        set_bgm_volume, set_sfx_volume,
+    )
+    from config.settings_system import get_settings_manager
+
+    clock = pygame.time.Clock()
+    bgm_mgr = getattr(_bgm_mod, "bgm_manager", None)
+    settings = get_settings_manager()
+
+    # 현재 값 읽기
+    current_bgm_volume = clamp_volume(
+        resolve_runtime_bgm_volume(bgm_mgr, 0.4)
+    )
+    current_sfx_volume = clamp_volume(
+        settings.get_setting("audio", "sfx_volume", 0.7)
+    )
+    bgm_muted = get_bgm_muted()
+    sfx_muted = get_sfx_muted()
+    control_scheme = settings.get_setting("controls", "control_scheme", "keyboard")
+
+    # 폰트
+    font_medium = ctx.FontStyle.body()
+    font_small = ctx.FontStyle.small()
+    font_tiny = ctx.FontStyle.tiny()
+
+    # 상태
+    current_tab = "sound"
+    focus = "bgm"  # bgm / sfx / back (sound) | scheme / back (controls)
+    selected_slider = None
+    dragging = False
+
+    running = True
+    while running:
+        dt = clock.tick(60) / 1000.0
+        state.animation_timer += dt
+
+        screen = ctx.get_screen()
+        width, height = ctx.get_dimensions()
+
+        # 메뉴 배경 렌더링
+        _update_background_layers(ctx, state, dt, screen, width, height)
+        pillar_renderer = get_pillar_renderer()
+        if pillar_renderer is not None:
+            pillar_renderer.update(dt)
+
+        # 반투명 오버레이
+        overlay = pygame.Surface((width, height), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        screen.blit(overlay, (0, 0))
+
+        # ─── 패널 ───
+        panel_width = min(600, max(500, int(width * 0.82)))
+        panel_height = 300
+        panel_x = (width - panel_width) // 2
+        panel_y = (height - panel_height) // 2
+
+        panel = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+        pygame.draw.rect(panel, (28, 30, 40, 230), (0, 0, panel_width, panel_height), border_radius=12)
+        pygame.draw.rect(panel, (0, 200, 255, 200), (1, 1, panel_width - 2, panel_height - 2), 2, border_radius=10)
+        pygame.draw.rect(panel, (38, 50, 70, 230), (0, 0, panel_width, 60), border_radius=10)
+        pygame.draw.line(panel, (0, 200, 255, 180), (14, 60), (panel_width - 14, 60), 2)
+        screen.blit(panel, (panel_x, panel_y))
+
+        # ─── 탭 ───
+        tab_w, tab_h = 120, 36
+        tabs_y = panel_y + 12
+        sound_tab_rect = pygame.Rect(panel_x + 20, tabs_y, tab_w, tab_h)
+        ctrl_tab_rect = pygame.Rect(panel_x + 20 + tab_w + 12, tabs_y, tab_w, tab_h)
+
+        for tab_rect, label, active in [
+            (sound_tab_rect, "사운드", current_tab == "sound"),
+            (ctrl_tab_rect, "컨트롤", current_tab == "controls"),
+        ]:
+            base = (70, 100, 140) if active else (50, 60, 80)
+            pygame.draw.rect(screen, base, tab_rect, border_radius=8)
+            pygame.draw.rect(screen, (0, 255, 255) if active else (140, 180, 220), tab_rect, 2, border_radius=8)
+            t = font_small.render(label, True, (255, 255, 255))
+            screen.blit(t, t.get_rect(center=tab_rect.center))
+
+        # ─── 컨텐츠 영역 ───
+        margin_x = 29
+        label_w = 140
+        slider_width = max(200, panel_width - margin_x * 2 - label_w - 120)
+        slider_x = panel_x + margin_x + label_w
+        slider_height = 10
+        handle_size = 14
+        checkbox_size = 20
+
+        content_y = panel_y + 80
+
+        if current_tab == "sound":
+            # ── BGM 볼륨 ──
+            bgm_y = content_y + 20
+            bgm_label = font_medium.render("BGM 볼륨", True, (255, 255, 255))
+            screen.blit(bgm_label, bgm_label.get_rect(left=panel_x + margin_x, centery=bgm_y + slider_height // 2))
+
+            # BGM 슬라이더 트랙
+            pygame.draw.rect(screen, (64, 66, 76), (slider_x, bgm_y, slider_width, slider_height), border_radius=6)
+            fill_color = (100, 100, 100) if bgm_muted else (0, 200, 255)
+            pygame.draw.rect(screen, fill_color, (slider_x, bgm_y, int(slider_width * current_bgm_volume), slider_height), border_radius=6)
+
+            # BGM 핸들
+            bgm_handle_x = slider_x + int(slider_width * current_bgm_volume)
+            bgm_handle_rect = pygame.Rect(bgm_handle_x - handle_size // 2, bgm_y - (handle_size - slider_height) // 2, handle_size, handle_size)
+            pygame.draw.circle(screen, (255, 255, 255) if (selected_slider == "bgm" or focus == "bgm") else (210, 210, 210),
+                               (bgm_handle_x, bgm_y + slider_height // 2), handle_size // 2)
+
+            # BGM 퍼센트
+            bgm_pct_color = (100, 100, 100) if bgm_muted else (0, 200, 255)
+            bgm_pct = font_small.render(f"{int(current_bgm_volume * 100)}%", True, bgm_pct_color)
+            screen.blit(bgm_pct, bgm_pct.get_rect(left=slider_x + slider_width + 12, centery=bgm_y + slider_height // 2))
+
+            # BGM 음소거 체크박스
+            bgm_cb_x = slider_x + slider_width + 60
+            bgm_cb_y = bgm_y + slider_height // 2 - checkbox_size // 2
+            bgm_checkbox_rect = pygame.Rect(bgm_cb_x, bgm_cb_y, checkbox_size, checkbox_size)
+            pygame.draw.rect(screen, (80, 80, 100), bgm_checkbox_rect, border_radius=4)
+            pygame.draw.rect(screen, (0, 200, 255) if bgm_muted else (150, 150, 150), bgm_checkbox_rect, 2, border_radius=4)
+            if bgm_muted:
+                pygame.draw.line(screen, (255, 80, 80), (bgm_cb_x + 4, bgm_cb_y + 4), (bgm_cb_x + checkbox_size - 4, bgm_cb_y + checkbox_size - 4), 3)
+                pygame.draw.line(screen, (255, 80, 80), (bgm_cb_x + checkbox_size - 4, bgm_cb_y + 4), (bgm_cb_x + 4, bgm_cb_y + checkbox_size - 4), 3)
+            mute_lbl = font_small.render("OFF", True, (255, 80, 80) if bgm_muted else (120, 120, 120))
+            screen.blit(mute_lbl, (bgm_cb_x + checkbox_size + 5, bgm_cb_y + 2))
+
+            # ── 효과음 볼륨 ──
+            sfx_y = content_y + 70
+            sfx_label = font_medium.render("효과음 볼륨", True, (255, 255, 255))
+            screen.blit(sfx_label, sfx_label.get_rect(left=panel_x + margin_x, centery=sfx_y + slider_height // 2))
+
+            pygame.draw.rect(screen, (64, 66, 76), (slider_x, sfx_y, slider_width, slider_height), border_radius=6)
+            sfx_fill = (100, 100, 100) if sfx_muted else (0, 255, 100)
+            pygame.draw.rect(screen, sfx_fill, (slider_x, sfx_y, int(slider_width * current_sfx_volume), slider_height), border_radius=6)
+
+            sfx_handle_x = slider_x + int(slider_width * current_sfx_volume)
+            sfx_handle_rect = pygame.Rect(sfx_handle_x - handle_size // 2, sfx_y - (handle_size - slider_height) // 2, handle_size, handle_size)
+            pygame.draw.circle(screen, (255, 255, 255) if (selected_slider == "sfx" or focus == "sfx") else (210, 210, 210),
+                               (sfx_handle_x, sfx_y + slider_height // 2), handle_size // 2)
+
+            sfx_pct_color = (100, 100, 100) if sfx_muted else (0, 255, 100)
+            sfx_pct = font_small.render(f"{int(current_sfx_volume * 100)}%", True, sfx_pct_color)
+            screen.blit(sfx_pct, sfx_pct.get_rect(left=slider_x + slider_width + 12, centery=sfx_y + slider_height // 2))
+
+            sfx_cb_x = slider_x + slider_width + 60
+            sfx_cb_y = sfx_y + slider_height // 2 - checkbox_size // 2
+            sfx_checkbox_rect = pygame.Rect(sfx_cb_x, sfx_cb_y, checkbox_size, checkbox_size)
+            pygame.draw.rect(screen, (80, 80, 100), sfx_checkbox_rect, border_radius=4)
+            pygame.draw.rect(screen, (0, 255, 100) if sfx_muted else (150, 150, 150), sfx_checkbox_rect, 2, border_radius=4)
+            if sfx_muted:
+                pygame.draw.line(screen, (255, 80, 80), (sfx_cb_x + 4, sfx_cb_y + 4), (sfx_cb_x + checkbox_size - 4, sfx_cb_y + checkbox_size - 4), 3)
+                pygame.draw.line(screen, (255, 80, 80), (sfx_cb_x + checkbox_size - 4, sfx_cb_y + 4), (sfx_cb_x + 4, sfx_cb_y + checkbox_size - 4), 3)
+            sfx_mute_lbl = font_small.render("OFF", True, (255, 80, 80) if sfx_muted else (120, 120, 120))
+            screen.blit(sfx_mute_lbl, (sfx_cb_x + checkbox_size + 5, sfx_cb_y + 2))
+
+        elif current_tab == "controls":
+            scheme_y = content_y + 20
+            scheme_label = font_medium.render("조작 방식", True, (255, 255, 255))
+            screen.blit(scheme_label, (panel_x + margin_x, scheme_y))
+
+            pill_w, pill_h = 160, 36
+            kb_rect = pygame.Rect(slider_x, scheme_y - 8, pill_w, pill_h)
+            mk_rect = pygame.Rect(slider_x + pill_w + 14, scheme_y - 8, pill_w + 20, pill_h)
+            for rect, label, is_sel in [
+                (kb_rect, "키보드만", control_scheme == "keyboard"),
+                (mk_rect, "마우스+키보드", control_scheme == "mouse_keyboard"),
+            ]:
+                col = (60, 90, 130) if is_sel else (45, 55, 70)
+                pygame.draw.rect(screen, col, rect, border_radius=18)
+                pygame.draw.rect(screen, (0, 255, 255) if is_sel else (150, 150, 150), rect, 2, border_radius=18)
+                s = font_small.render(label, True, (255, 255, 255))
+                screen.blit(s, s.get_rect(center=rect.center))
+
+        # ─── 뒤로가기 버튼 ───
+        back_w, back_h = 144, 45
+        back_x = panel_x + (panel_width - back_w) // 2
+        back_y = panel_y + panel_height - 70
+        back_rect = pygame.Rect(back_x, back_y, back_w, back_h)
+
+        mpos = pygame.mouse.get_pos()
+        button_hover = back_rect.collidepoint(mpos) or focus == "back"
+        button_color = (0, 100, 150) if button_hover else (50, 50, 50)
+        pygame.draw.rect(screen, button_color, back_rect, border_radius=8)
+        pygame.draw.rect(screen, (0, 255, 255), back_rect, 2, border_radius=8)
+        back_text = font_medium.render("뒤로가기", True, (255, 255, 255))
+        screen.blit(back_text, back_text.get_rect(center=back_rect.center))
+
+        # 힌트
+        hint = font_tiny.render("TAB: 탭 전환  |  ←→: 조절  |  ESC: 뒤로", True, (150, 180, 200))
+        screen.blit(hint, hint.get_rect(center=(width // 2, panel_y + panel_height + 20)))
+
+        pygame.display.flip()
+
+        # ─── 이벤트 처리 ───
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme)
+                pygame.quit()
+                raise SystemExit
+
+            if event.type == pygame.KEYDOWN:
+                state.idle_start_time = pygame.time.get_ticks()
+                if event.key == pygame.K_ESCAPE:
+                    _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme)
+                    return
+
+                if event.key == pygame.K_TAB:
+                    current_tab = "controls" if current_tab == "sound" else "sound"
+                    focus = "bgm" if current_tab == "sound" else "scheme"
+
+                if event.key == pygame.K_LEFT:
+                    if current_tab == "controls" and focus == "scheme":
+                        control_scheme = "keyboard"
+                    elif current_tab == "sound" and focus == "bgm":
+                        current_bgm_volume = clamp_volume(current_bgm_volume - 0.05)
+                        if not bgm_muted and bgm_mgr:
+                            bgm_mgr.volume = current_bgm_volume
+                            pygame.mixer.music.set_volume(current_bgm_volume)
+                        selected_slider = "bgm"
+                    elif current_tab == "sound" and focus == "sfx":
+                        current_sfx_volume = clamp_volume(current_sfx_volume - 0.05)
+                        set_sfx_volume(current_sfx_volume)
+                        selected_slider = "sfx"
+
+                elif event.key == pygame.K_RIGHT:
+                    if current_tab == "controls" and focus == "scheme":
+                        control_scheme = "mouse_keyboard"
+                    elif current_tab == "sound" and focus == "bgm":
+                        current_bgm_volume = clamp_volume(current_bgm_volume + 0.05)
+                        if not bgm_muted and bgm_mgr:
+                            bgm_mgr.volume = current_bgm_volume
+                            pygame.mixer.music.set_volume(current_bgm_volume)
+                        selected_slider = "bgm"
+                    elif current_tab == "sound" and focus == "sfx":
+                        current_sfx_volume = clamp_volume(current_sfx_volume + 0.05)
+                        set_sfx_volume(current_sfx_volume)
+                        selected_slider = "sfx"
+
+                elif event.key == pygame.K_UP:
+                    order = ["scheme"] if current_tab == "controls" else ["bgm", "sfx"]
+                    order.append("back")
+                    focus = order[(order.index(focus) - 1) % len(order)] if focus in order else order[0]
+
+                elif event.key == pygame.K_DOWN:
+                    order = ["scheme"] if current_tab == "controls" else ["bgm", "sfx"]
+                    order.append("back")
+                    focus = order[(order.index(focus) + 1) % len(order)] if focus in order else order[0]
+
+                elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                    if focus == "back":
+                        ctx.play_click_sound()
+                        _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme)
+                        return
+                    elif current_tab == "controls" and focus == "scheme":
+                        control_scheme = "mouse_keyboard" if control_scheme == "keyboard" else "keyboard"
+                    elif current_tab == "sound" and focus == "bgm":
+                        bgm_muted = not bgm_muted
+                        set_bgm_muted(bgm_muted)
+                        if bgm_muted:
+                            pygame.mixer.music.set_volume(0)
+                        elif bgm_mgr:
+                            bgm_mgr.volume = current_bgm_volume
+                            pygame.mixer.music.set_volume(current_bgm_volume)
+                    elif current_tab == "sound" and focus == "sfx":
+                        sfx_muted = not sfx_muted
+                        set_sfx_muted(sfx_muted)
+
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                state.idle_start_time = pygame.time.get_ticks()
+                mp = event.pos
+
+                # 탭 클릭
+                if sound_tab_rect.collidepoint(mp):
+                    current_tab = "sound"
+                    focus = "bgm"
+                    continue
+                if ctrl_tab_rect.collidepoint(mp):
+                    current_tab = "controls"
+                    focus = "scheme"
+                    continue
+
+                # 뒤로가기
+                if back_rect.collidepoint(mp):
+                    ctx.play_click_sound()
+                    _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme)
+                    return
+
+                if current_tab == "controls":
+                    if kb_rect.collidepoint(mp):
+                        control_scheme = "keyboard"
+                        continue
+                    if mk_rect.collidepoint(mp):
+                        control_scheme = "mouse_keyboard"
+                        continue
+
+                if current_tab == "sound":
+                    # BGM 음소거 체크박스
+                    if bgm_checkbox_rect.collidepoint(mp):
+                        bgm_muted = not bgm_muted
+                        set_bgm_muted(bgm_muted)
+                        if bgm_muted:
+                            pygame.mixer.music.set_volume(0)
+                        elif bgm_mgr:
+                            bgm_mgr.volume = current_bgm_volume
+                            pygame.mixer.music.set_volume(current_bgm_volume)
+                        ctx.play_click_sound()
+                        continue
+
+                    # SFX 음소거 체크박스
+                    if sfx_checkbox_rect.collidepoint(mp):
+                        sfx_muted = not sfx_muted
+                        set_sfx_muted(sfx_muted)
+                        ctx.play_click_sound()
+                        continue
+
+                    # BGM 슬라이더 클릭
+                    bgm_slider_area = pygame.Rect(slider_x, bgm_y - 10, slider_width, slider_height + 20)
+                    if bgm_slider_area.collidepoint(mp) or bgm_handle_rect.collidepoint(mp):
+                        selected_slider = "bgm"
+                        dragging = True
+                        current_bgm_volume = clamp_volume((mp[0] - slider_x) / slider_width)
+                        if not bgm_muted and bgm_mgr:
+                            bgm_mgr.volume = current_bgm_volume
+                            pygame.mixer.music.set_volume(current_bgm_volume)
+
+                    # SFX 슬라이더 클릭
+                    sfx_slider_area = pygame.Rect(slider_x, sfx_y - 10, slider_width, slider_height + 20)
+                    if sfx_slider_area.collidepoint(mp) or sfx_handle_rect.collidepoint(mp):
+                        selected_slider = "sfx"
+                        dragging = True
+                        current_sfx_volume = clamp_volume((mp[0] - slider_x) / slider_width)
+                        if not sfx_muted:
+                            set_sfx_volume(current_sfx_volume)
+
+            elif event.type == pygame.MOUSEBUTTONUP:
+                if dragging:
+                    ctx.play_click_sound()
+                dragging = False
+
+            elif event.type == pygame.MOUSEMOTION and dragging:
+                mx = event.pos[0]
+                if current_tab == "sound" and selected_slider == "bgm":
+                    current_bgm_volume = clamp_volume((mx - slider_x) / slider_width)
+                    if not bgm_muted and bgm_mgr:
+                        bgm_mgr.volume = current_bgm_volume
+                        pygame.mixer.music.set_volume(current_bgm_volume)
+                elif current_tab == "sound" and selected_slider == "sfx":
+                    current_sfx_volume = clamp_volume((mx - slider_x) / slider_width)
+                    if not sfx_muted:
+                        set_sfx_volume(current_sfx_volume)
+
+            elif event.type == pygame.MOUSEWHEEL:
+                mp = pygame.mouse.get_pos()
+                if current_tab == "sound":
+                    bgm_area = pygame.Rect(slider_x, bgm_y - 10, slider_width, slider_height + 20)
+                    sfx_area = pygame.Rect(slider_x, sfx_y - 10, slider_width, slider_height + 20)
+                    if bgm_area.collidepoint(mp) or focus == "bgm":
+                        current_bgm_volume = clamp_volume(current_bgm_volume + event.y * 0.02)
+                        if not bgm_muted and bgm_mgr:
+                            bgm_mgr.volume = current_bgm_volume
+                            pygame.mixer.music.set_volume(current_bgm_volume)
+                    elif sfx_area.collidepoint(mp) or focus == "sfx":
+                        current_sfx_volume = clamp_volume(current_sfx_volume + event.y * 0.02)
+                        if not sfx_muted:
+                            set_sfx_volume(current_sfx_volume)
+
+    _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme)
+
+
+def _save_menu_settings(settings, bgm_mgr, bgm_vol, sfx_vol, bgm_muted, sfx_muted, control_scheme):
+    """설정 값 저장"""
+    from game_state.audio import set_bgm_volume, set_sfx_volume, set_bgm_muted, set_sfx_muted
+    try:
+        set_bgm_volume(bgm_vol)
+        set_sfx_volume(sfx_vol)
+        set_bgm_muted(bgm_muted)
+        set_sfx_muted(sfx_muted)
+        if bgm_mgr:
+            bgm_mgr.volume = bgm_vol
+            if not bgm_muted:
+                pygame.mixer.music.set_volume(bgm_vol)
+        settings.set_setting("audio", "sfx_volume", sfx_vol)
+        settings.set_setting("audio", "music_volume", bgm_vol)
+        settings.set_setting("controls", "control_scheme", control_scheme)
+        settings.save_settings()
+    except Exception as e:
+        print(f"[설정 저장 오류] {e}")
+
+
 def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bool:
     if choice == "계속하기":
         # 저장된 게임 데이터 불러오기
@@ -1152,6 +1550,9 @@ def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bo
     if choice == "메달샵":
         state.locked_message_timer = ctx.two_seconds_frames
         return False
+    if choice == "설정":
+        _show_settings_screen(ctx, state)
+        return False
     if choice == "크레딧":
         ctx.show_credits_screen()
         return True
@@ -1163,9 +1564,15 @@ def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bo
 
 def _get_horizontal_menu_rects(width: int, height: int, num_options: int) -> tuple:
     """가로 메뉴 레이아웃 계산을 위한 헬퍼 함수."""
-    menu_item_width = 100
-    menu_item_height = 70
     menu_spacing = 8
+    # 버튼 수가 많을 때 자동으로 너비 축소하여 오버플로 방지
+    if num_options <= 6:
+        menu_item_width = 100
+    elif num_options == 7:
+        menu_item_width = 90
+    else:
+        menu_item_width = 80
+    menu_item_height = 70
     total_width = num_options * menu_item_width + (num_options - 1) * menu_spacing
     menu_start_x = (width - total_width) // 2
     menu_y = height // 2 + 80
