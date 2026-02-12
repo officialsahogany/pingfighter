@@ -2211,12 +2211,14 @@ class GuardWarriorSystem:
 
         game_state = self.skill_manager.game_state if self.skill_manager else {}
 
-        # 호위무사 위치의 가상 패들을 caster로 사용
-        guard_paddle = self._make_guard_paddle(caster_is_top)
-        guard_paddle.x = int(c['x']) - guard_paddle.width // 2
-        guard_paddle.centerx = int(c['x'])
-        guard_paddle.y = int(c['y'])
-        guard_paddle.centery = int(c['y']) + guard_paddle.height // 2
+        # 매혹 호위무사 위치의 가상 패들을 caster로 사용
+        gp = _GuardPaddle(c['x'], c['y'], caster_is_top)
+        gp.x = int(c['x']) - gp.width // 2
+        gp.centerx = int(c['x'])
+        gp.y = int(c['y'])
+        gp.centery = int(c['y']) + gp.height // 2
+        self.guard_paddles[guard["id"]] = gp  # 스킬 이펙트 진행 중 위치 유지
+        guard_paddle = gp
 
         # 매혹 호위무사가 caster 편으로 싸우므로, caster의 상대를 타겟으로
         target_paddle = bottom_paddle if caster_is_top else top_paddle
@@ -2353,14 +2355,17 @@ class GuardWarriorSystem:
                 is_top_guard = any(g["id"] == hero_id for g in self.guard_warriors_top)
             # 호위무사 가상 패들 사용 (저장된 위치)
             guard_paddle = self.guard_paddles.get(hero_id)
-            if guard_paddle is None:
-                guard_paddle = top_paddle if is_top_guard else bottom_paddle
             # 매혹 호위무사: 가상 패들 위치를 charmed 좌표로 갱신
-            if self._charmed and self._charmed['guard'].get("id") == hero_id and guard_paddle:
+            if self._charmed and self._charmed['guard'].get("id") == hero_id:
+                if guard_paddle is None:
+                    guard_paddle = _GuardPaddle(self._charmed['x'], self._charmed['y'], is_top_guard)
+                    self.guard_paddles[hero_id] = guard_paddle
                 guard_paddle.x = int(self._charmed['x']) - guard_paddle.width // 2
                 guard_paddle.centerx = int(self._charmed['x'])
                 guard_paddle.y = int(self._charmed['y'])
                 guard_paddle.centery = int(self._charmed['y']) + guard_paddle.height // 2
+            elif guard_paddle is None:
+                guard_paddle = top_paddle if is_top_guard else bottom_paddle
             target = bottom_paddle if is_top_guard else top_paddle
             for skill in skills:
                 if skill.is_active:
@@ -3498,25 +3503,35 @@ class GuardWarriorSystem:
 
     def _draw_guard_bubbles(self, screen, shake_x, shake_y):
         """호위무사 스킬 발동 시 외침 풍선 표시 (영웅 스킬 발동과 동일한 스타버스트 스타일)"""
+        charmed_top = self._charmed and self._charmed['caster_is_top']
+        charmed_bottom = self._charmed and not self._charmed['caster_is_top']
+
         # 상단측 호위무사 말풍선 (캐릭터 아래)
         if (self._bubble_top and self._bubble_top['timer'] > 0
-                and self.phase_top is not None):
-            bx = self.x_top + shake_x
-            by = self.y_top + shake_y + 15
+                and (self.phase_top is not None or charmed_top)):
+            # 매혹 호위무사면 저장된 좌표 사용, 아니면 일반 호위무사 좌표
+            if charmed_top and 'x' in self._bubble_top:
+                bx = self._bubble_top['x'] + shake_x
+                by = self._bubble_top['y'] + shake_y + 15
+            else:
+                bx = self.x_top + shake_x
+                by = self.y_top + shake_y + 15
             timer = self._bubble_top['timer']
-            guard = self.active_top
-            theme = guard.get("color", (200, 100, 60)) if guard else (200, 100, 60)
+            theme = self._bubble_top.get('color', (200, 100, 60))
             self._draw_guard_shout_bubble(screen, bx, by, self._bubble_top['text'],
                                           timer, theme)
 
         # 하단측 호위무사 말풍선 (캐릭터 위)
         if (self._bubble_bottom and self._bubble_bottom['timer'] > 0
-                and self.phase_bottom is not None):
-            bx = self.x_bottom + shake_x
-            by = self.y_bottom + shake_y - 50
+                and (self.phase_bottom is not None or charmed_bottom)):
+            if charmed_bottom and 'x' in self._bubble_bottom:
+                bx = self._bubble_bottom['x'] + shake_x
+                by = self._bubble_bottom['y'] + shake_y - 50
+            else:
+                bx = self.x_bottom + shake_x
+                by = self.y_bottom + shake_y - 50
             timer = self._bubble_bottom['timer']
-            guard = self.active_bottom
-            theme = guard.get("color", (200, 100, 60)) if guard else (200, 100, 60)
+            theme = self._bubble_bottom.get('color', (200, 100, 60))
             self._draw_guard_shout_bubble(screen, bx, by, self._bubble_bottom['text'],
                                           timer, theme)
 
