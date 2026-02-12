@@ -9528,23 +9528,27 @@ class BombSurprise(HeroSkill):
 # 세트 스킬 - 사막의 환술사 (트릭키)
 # ============================================================================
 class SandPrison(HeroSkill):
-    """모래감옥 - 상대의 이동 범위를 200px로 제한하는 사각형 모래 감옥"""
+    """모래감옥 - 상대의 이동 범위를 300px로 제한하는 사각형 모래 감옥 (건설/해체 애니메이션)"""
 
     GAME_LEFT = 80    # GAME_AREA_OFFSET_X (필러 영역 제외)
     GAME_RIGHT = 680   # GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH
-    PRISON_HALF_RANGE = 100  # ±100px = 200px 총 범위
-    PRISON_TOP_Y = 0         # 감옥 상단 Y (타겟에 따라 동적 설정)
-    PRISON_BOT_Y = 100       # 감옥 하단 Y (타겟에 따라 동적 설정)
+    PRISON_HALF_RANGE = 150  # ±150px = 300px 총 범위 (기존 100 → 50% 증가)
+
+    BUILD_DURATION = 1.0      # 건설 애니메이션 (초)
+    ACTIVE_DURATION = 3.2     # 실제 이동 제한 시간 (기존 4.0 → -20%)
+    DISSOLVE_DURATION = 1.0   # 해체 애니메이션 (초)
 
     def __init__(self):
+        # 총 duration = 건설 + 활성 + 해체
+        total_dur = self.BUILD_DURATION + self.ACTIVE_DURATION + self.DISSOLVE_DURATION
         super().__init__(
             skill_id="sand_prison",
             name="Sand Prison",
             korean_name="모래감옥",
-            description="상대의 이동 범위를 200px로 제한하는 모래 감옥",
+            description="상대의 이동 범위를 300px로 제한하는 모래 감옥",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=20.0,
-            duration=4.0,
+            duration=total_dur,
             hero_id="mirage"
         )
         self.prison_center_x = 380
@@ -9555,6 +9559,8 @@ class SandPrison(HeroSkill):
         self.target_is_top = False
         self._sound_loaded = False
         self._sound = None
+        self.elapsed = 0.0      # 경과 시간
+        self.phase = 'idle'     # 'building', 'active', 'dissolving', 'idle'
 
     def _load_sound(self):
         if self._sound_loaded:
@@ -9571,19 +9577,17 @@ class SandPrison(HeroSkill):
             pass
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
-        """감옥 활성화 - 상대 현재 위치 중심으로 200px 제한 (사각형 감옥)"""
+        """감옥 활성화 - 상대 현재 위치 중심으로 300px 제한 (건설 시작)"""
         self.target_is_top = target_paddle.is_top
 
-        # 상대 현재 위치를 감옥 중심으로
         opp_x = target_paddle.x + getattr(target_paddle, 'width', 80) // 2
         self.prison_center_x = opp_x
 
-        # 경계 클램핑 (감옥이 게임 영역 밖으로 나가지 않도록)
+        # 경계 클램핑
         self.prison_center_x = max(self.GAME_LEFT + self.PRISON_HALF_RANGE,
                                     min(self.GAME_RIGHT - self.PRISON_HALF_RANGE,
                                         self.prison_center_x))
 
-        # 사각형 Y범위 설정 (상단 패들 / 하단 패들에 따라)
         target_y = getattr(target_paddle, 'y', 375)
         if target_paddle.is_top:
             self.prison_y_top = max(0, target_y - 50)
@@ -9592,15 +9596,12 @@ class SandPrison(HeroSkill):
             self.prison_y_top = target_y - 50
             self.prison_y_bot = min(750, target_y + 80)
 
-        # game_state 설정
-        target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
-        game_state[f'{target_prefix}_sand_prison'] = True
-        game_state['sand_prison_center_x'] = self.prison_center_x
-        game_state['sand_prison_range'] = self.PRISON_HALF_RANGE
-        game_state['sand_prison_target_is_top'] = target_paddle.is_top
-
         self.sand_particles = []
         self.wall_alpha = 0
+        self.elapsed = 0.0
+        self.phase = 'building'
+
+        # 건설 중에는 아직 이동 제한 안 함 (game_state는 building 완료 후 설정)
 
         # 사운드
         self._load_sound()
@@ -9613,68 +9614,155 @@ class SandPrison(HeroSkill):
         return {'screen_effect': ScreenEffect.SCREEN_SHAKE}
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
-        """감옥 유지 - 상대 패들 위치 강제 클램핑 + 시각 효과"""
-        # 벽 페이드인
-        if self.wall_alpha < 200:
-            self.wall_alpha = min(200, self.wall_alpha + 400 * dt)
+        """감옥 건설/유지/해체 - 페이즈별 업데이트"""
+        self.elapsed += dt
 
         left_wall = self.prison_center_x - self.PRISON_HALF_RANGE
         right_wall = self.prison_center_x + self.PRISON_HALF_RANGE
 
-        # 상대 패들 위치 강제 클램핑
-        paddle_width = getattr(target_paddle, 'width', 80)
-        min_x = left_wall
-        max_x = right_wall - paddle_width
-        if target_paddle.x < min_x:
-            target_paddle.x = min_x
-        elif target_paddle.x > max_x:
-            target_paddle.x = max_x
+        # ── 페이즈 전환 ──
+        if self.elapsed < self.BUILD_DURATION:
+            self.phase = 'building'
+            build_progress = self.elapsed / self.BUILD_DURATION
+            # ease-out
+            self._build_progress = 1.0 - (1.0 - build_progress) ** 2.5
+            self.wall_alpha = min(200, int(200 * self._build_progress))
 
-        # 모래 파티클 생성 (사각형 범위 내)
-        py_top = self.prison_y_top
-        py_bot = self.prison_y_bot
-        if random.random() < 0.4:
-            for wall_x in [left_wall, right_wall]:
+            # 건설 중 이동 제한: 50% 이상 건설되면 시작
+            if self._build_progress >= 0.5:
+                self._set_prison_state(game_state, True)
+                self._clamp_paddle(target_paddle, left_wall, right_wall)
+
+            # 건설 파티클: 바닥에서 모래가 솟구침
+            py_bot = self.prison_y_bot
+            for _ in range(3):
+                spawn_x = random.uniform(left_wall, right_wall)
                 self.sand_particles.append({
-                    'x': wall_x + random.uniform(-4, 4),
-                    'y': random.uniform(py_top, py_bot),
-                    'vy': random.uniform(-30, -60),
-                    'alpha': random.randint(120, 220),
-                    'size': random.uniform(2, 5),
-                    'life': 1.0,
+                    'x': spawn_x,
+                    'y': py_bot + random.uniform(-5, 5),
+                    'vy': random.uniform(-60, -120) * self._build_progress,
+                    'alpha': random.randint(150, 240),
+                    'size': random.uniform(2, 6),
+                    'life': random.uniform(0.5, 1.0),
+                })
+            # 벽 기둥 건설 파티클
+            if random.random() < 0.5:
+                for wall_x in [left_wall, right_wall]:
+                    self.sand_particles.append({
+                        'x': wall_x + random.uniform(-6, 6),
+                        'y': py_bot - random.uniform(0, (py_bot - self.prison_y_top) * self._build_progress),
+                        'vy': random.uniform(-30, -70),
+                        'alpha': random.randint(130, 220),
+                        'size': random.uniform(3, 5),
+                        'life': random.uniform(0.4, 0.8),
+                    })
+
+        elif self.elapsed < self.BUILD_DURATION + self.ACTIVE_DURATION:
+            self.phase = 'active'
+            self._build_progress = 1.0
+            if self.wall_alpha < 200:
+                self.wall_alpha = 200
+
+            self._set_prison_state(game_state, True)
+            self._clamp_paddle(target_paddle, left_wall, right_wall)
+
+            # 활성 파티클 (벽면 + 바닥)
+            py_top = self.prison_y_top
+            py_bot = self.prison_y_bot
+            if random.random() < 0.4:
+                for wall_x in [left_wall, right_wall]:
+                    self.sand_particles.append({
+                        'x': wall_x + random.uniform(-4, 4),
+                        'y': random.uniform(py_top, py_bot),
+                        'vy': random.uniform(-30, -60),
+                        'alpha': random.randint(120, 220),
+                        'size': random.uniform(2, 5),
+                        'life': 1.0,
+                    })
+            if random.random() < 0.2:
+                self.sand_particles.append({
+                    'x': random.uniform(left_wall, right_wall),
+                    'y': random.uniform(py_bot - 10, py_bot),
+                    'vy': random.uniform(-20, -50),
+                    'alpha': random.randint(80, 150),
+                    'size': random.uniform(3, 6),
+                    'life': 0.8,
                 })
 
-        # 바닥 모래 솟구치는 파티클
-        if random.random() < 0.2:
-            self.sand_particles.append({
-                'x': random.uniform(left_wall, right_wall),
-                'y': random.uniform(py_bot - 10, py_bot),
-                'vy': random.uniform(-20, -50),
-                'alpha': random.randint(80, 150),
-                'size': random.uniform(3, 6),
-                'life': 0.8,
-            })
+        else:
+            self.phase = 'dissolving'
+            dissolve_elapsed = self.elapsed - self.BUILD_DURATION - self.ACTIVE_DURATION
+            dissolve_progress = min(1.0, dissolve_elapsed / self.DISSOLVE_DURATION)
+            # ease-in (처음 느리다가 빨라짐)
+            self._dissolve_progress = dissolve_progress ** 2.0
+            self.wall_alpha = max(0, int(200 * (1.0 - self._dissolve_progress)))
+
+            # 해체 시 이동 제한 해제
+            self._set_prison_state(game_state, False)
+
+            # 해체 파티클: 벽이 바닥으로 흘러내리는 모래
+            py_bot = self.prison_y_bot
+            visible_h = (self.prison_y_bot - self.prison_y_top) * (1.0 - self._dissolve_progress)
+            if visible_h > 5:
+                for _ in range(2):
+                    for wall_x in [left_wall, right_wall]:
+                        self.sand_particles.append({
+                            'x': wall_x + random.uniform(-8, 8),
+                            'y': py_bot - visible_h + random.uniform(-5, 5),
+                            'vy': random.uniform(20, 60),  # 아래로 흘러내림
+                            'alpha': random.randint(100, 200),
+                            'size': random.uniform(2, 5),
+                            'life': random.uniform(0.4, 0.8),
+                        })
+                # 바닥에 쌓이는 모래 파티클
+                if random.random() < 0.4:
+                    self.sand_particles.append({
+                        'x': random.uniform(left_wall, right_wall),
+                        'y': py_bot + random.uniform(-3, 3),
+                        'vy': random.uniform(-5, 5),
+                        'alpha': random.randint(80, 140),
+                        'size': random.uniform(3, 7),
+                        'life': random.uniform(0.6, 1.2),
+                    })
 
         # 파티클 업데이트
         for p in self.sand_particles:
             p['y'] += p['vy'] * dt
             p['life'] -= dt * 0.9
             p['alpha'] = max(0, int(p['alpha'] * max(0, p['life'])))
-
         self.sand_particles = [p for p in self.sand_particles if p['life'] > 0]
 
-    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
-        """감옥 해제"""
+    def _set_prison_state(self, game_state: dict, active: bool):
+        """game_state 감옥 플래그 설정/해제"""
         target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
-        game_state[f'{target_prefix}_sand_prison'] = False
-        game_state.pop('sand_prison_center_x', None)
-        game_state.pop('sand_prison_range', None)
-        game_state.pop('sand_prison_target_is_top', None)
+        game_state[f'{target_prefix}_sand_prison'] = active
+        if active:
+            game_state['sand_prison_center_x'] = self.prison_center_x
+            game_state['sand_prison_range'] = self.PRISON_HALF_RANGE
+            game_state['sand_prison_target_is_top'] = self.target_is_top
+        else:
+            game_state.pop('sand_prison_center_x', None)
+            game_state.pop('sand_prison_range', None)
+            game_state.pop('sand_prison_target_is_top', None)
+
+    def _clamp_paddle(self, target_paddle, left_wall, right_wall):
+        """패들 위치 강제 클램핑"""
+        paddle_width = getattr(target_paddle, 'width', 80)
+        if target_paddle.x < left_wall:
+            target_paddle.x = left_wall
+        elif target_paddle.x > right_wall - paddle_width:
+            target_paddle.x = right_wall - paddle_width
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        """감옥 해제 (duration 만료)"""
+        self._set_prison_state(game_state, False)
         self.sand_particles = []
         self.wall_alpha = 0
+        self.phase = 'idle'
+        self.elapsed = 0.0
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
-        """모래 감옥 시각 효과 (사각형 형태)"""
+        """모래 감옥 시각 효과 (건설/해체 애니메이션 포함)"""
         if not self.is_active:
             return
 
@@ -9682,35 +9770,87 @@ class SandPrison(HeroSkill):
         right_wall = self.prison_center_x + self.PRISON_HALF_RANGE
         py_top = self.prison_y_top
         py_bot = self.prison_y_bot
-        prison_h = py_bot - py_top
+        full_h = py_bot - py_top
         alpha = int(self.wall_alpha)
         floor_w = int(self.PRISON_HALF_RANGE * 2)
 
-        # 감옥 영역 바닥 (연한 모래색 사각형)
-        floor_surf = pygame.Surface((floor_w, prison_h), pygame.SRCALPHA)
-        floor_surf.fill((210, 180, 100, 22))
-        screen.blit(floor_surf, (int(left_wall), int(py_top)))
+        # 건설/해체 진행도에 따른 가시 높이 계산
+        if self.phase == 'building':
+            visible_ratio = getattr(self, '_build_progress', 0.0)
+        elif self.phase == 'dissolving':
+            visible_ratio = 1.0 - getattr(self, '_dissolve_progress', 0.0)
+        else:
+            visible_ratio = 1.0
 
-        # 모래 벽 (양쪽, 사각형 높이만큼)
-        for wall_x in [left_wall, right_wall]:
-            wall_surf = pygame.Surface((8, prison_h), pygame.SRCALPHA)
-            for y in range(0, prison_h, 3):
-                r = random.randint(185, 220)
-                g = random.randint(155, 180)
-                bv = random.randint(80, 110)
-                h = random.randint(2, 4)
-                pygame.draw.rect(wall_surf, (r, g, bv, alpha), (1, y, 6, h))
-            screen.blit(wall_surf, (int(wall_x) - 4, int(py_top)))
+        visible_h = max(0, int(full_h * visible_ratio))
+        if visible_h < 2 and alpha < 5:
+            # 파티클만 그리기
+            self._draw_particles(screen)
+            return
 
-            # 벽 글로우 (중간 높이에 하나만)
-            glow_h = 30
-            glow_surf = pygame.Surface((24, glow_h), pygame.SRCALPHA)
-            for gy in range(glow_h):
-                ga = int(alpha * 0.3 * (1 - gy / glow_h))
-                pygame.draw.line(glow_surf, (220, 190, 120, ga), (0, gy), (24, gy))
-            screen.blit(glow_surf, (int(wall_x) - 12, int(py_top + prison_h // 2 - glow_h // 2)))
+        # 벽은 바닥(py_bot)에서 위로 올라옴
+        draw_top = py_bot - visible_h
+        draw_h = visible_h
 
-        # 모래 파티클
+        # 감옥 영역 바닥 (연한 모래색)
+        if draw_h > 0:
+            floor_alpha = max(0, min(40, int(22 * visible_ratio)))
+            floor_surf = pygame.Surface((floor_w, draw_h), pygame.SRCALPHA)
+            floor_surf.fill((210, 180, 100, floor_alpha))
+            screen.blit(floor_surf, (int(left_wall), int(draw_top)))
+
+        # 모래 벽 (양쪽)
+        if draw_h > 3:
+            for wall_x in [left_wall, right_wall]:
+                wall_surf = pygame.Surface((8, draw_h), pygame.SRCALPHA)
+                for y in range(0, draw_h, 3):
+                    r = random.randint(185, 220)
+                    g = random.randint(155, 180)
+                    bv = random.randint(80, 110)
+                    h = random.randint(2, 4)
+                    pygame.draw.rect(wall_surf, (r, g, bv, alpha), (1, y, 6, h))
+                screen.blit(wall_surf, (int(wall_x) - 4, int(draw_top)))
+
+                # 벽 글로우
+                if draw_h > 20:
+                    glow_h = min(30, draw_h - 5)
+                    glow_surf = pygame.Surface((24, glow_h), pygame.SRCALPHA)
+                    for gy in range(glow_h):
+                        ga = int(alpha * 0.3 * (1 - gy / glow_h))
+                        pygame.draw.line(glow_surf, (220, 190, 120, ga), (0, gy), (24, gy))
+                    screen.blit(glow_surf, (int(wall_x) - 12, int(draw_top + draw_h // 2 - glow_h // 2)))
+
+        # 상단/하단 장식 바
+        if draw_h > 5:
+            bar_positions = []
+            if visible_ratio > 0.9:
+                bar_positions.append(draw_top)  # 상단 바 (거의 완성 시만)
+            bar_positions.append(py_bot - 5)    # 하단 바 (항상)
+            for bar_y in bar_positions:
+                bar_surf = pygame.Surface((floor_w + 8, 5), pygame.SRCALPHA)
+                for bx in range(0, floor_w + 8, 3):
+                    r = random.randint(185, 220)
+                    g = random.randint(155, 180)
+                    bv = random.randint(80, 110)
+                    pygame.draw.rect(bar_surf, (r, g, bv, alpha), (bx, 0, 3, 5))
+                screen.blit(bar_surf, (int(left_wall) - 4, int(bar_y)))
+
+        # 모서리 장식
+        if visible_ratio > 0.8:
+            corner_r = 6
+            corner_alpha = int(alpha * 0.7 * min(1.0, (visible_ratio - 0.8) / 0.2))
+            for cx_pos in [left_wall, right_wall]:
+                for cy_pos in [draw_top, py_bot]:
+                    cs = pygame.Surface((corner_r * 2, corner_r * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(cs, (200, 170, 90, corner_alpha),
+                                     (corner_r, corner_r), corner_r)
+                    screen.blit(cs, (int(cx_pos) - corner_r, int(cy_pos) - corner_r))
+
+        # 파티클
+        self._draw_particles(screen)
+
+    def _draw_particles(self, screen):
+        """모래 파티클 렌더링"""
         for p in self.sand_particles:
             a = max(0, min(255, int(p['alpha'])))
             if a > 10:
@@ -9719,29 +9859,12 @@ class SandPrison(HeroSkill):
                 pygame.draw.circle(ps, (215, 185, 105, a), (sz, sz), sz)
                 screen.blit(ps, (int(p['x'] - sz), int(p['y'] - sz)))
 
-        # 감옥 상단/하단 장식 바 (가로 벽)
-        for bar_y in [py_top, py_bot - 5]:
-            bar_surf = pygame.Surface((floor_w + 8, 5), pygame.SRCALPHA)
-            for bx in range(0, floor_w + 8, 3):
-                r = random.randint(185, 220)
-                g = random.randint(155, 180)
-                bv = random.randint(80, 110)
-                pygame.draw.rect(bar_surf, (r, g, bv, alpha), (bx, 0, 3, 5))
-            screen.blit(bar_surf, (int(left_wall) - 4, int(bar_y)))
-
-        # 모서리 장식 (4개 꼭짓점에 모래 원)
-        corner_r = max(3, int(6))
-        for cx_pos in [left_wall, right_wall]:
-            for cy_pos in [py_top, py_bot]:
-                cs = pygame.Surface((corner_r * 2, corner_r * 2), pygame.SRCALPHA)
-                pygame.draw.circle(cs, (200, 170, 90, int(alpha * 0.7)),
-                                 (corner_r, corner_r), corner_r)
-                screen.blit(cs, (int(cx_pos) - corner_r, int(cy_pos) - corner_r))
-
     def reset_for_new_round(self, game_state: dict):
         super().reset_for_new_round(game_state)
         self.sand_particles = []
         self.wall_alpha = 0
+        self.phase = 'idle'
+        self.elapsed = 0.0
         game_state['top_paddle_sand_prison'] = False
         game_state['bottom_paddle_sand_prison'] = False
         game_state.pop('sand_prison_center_x', None)
