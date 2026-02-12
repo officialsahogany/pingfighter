@@ -2007,7 +2007,8 @@ class GuardWarriorSystem:
             self._charm_start_return(game_state, caster_is_top)
 
         elif phase == 'returned':
-            self._charm_return_to_enemy(game_state)
+            return_x = phase_req.get('return_x', 380)
+            self._charm_return_to_enemy(game_state, return_x)
 
     def _provide_enemy_guard_info(self, game_state):
         """양쪽 호위무사의 현재 좌표를 game_state에 제공"""
@@ -2132,42 +2133,63 @@ class GuardWarriorSystem:
         self._charmed['phase'] = 'returning'
         print(f"[Charm] 매혹 해제! {self._charmed['guard']['name']} 복귀 중...")
 
-    def _charm_return_to_enemy(self, game_state):
-        """매혹 완전 종료: 상대 진영 복귀, 활성 호위무사 재순찰"""
+    def _charm_return_to_enemy(self, game_state, return_x=380):
+        """매혹 완전 종료: 상대 진영에 호위무사를 복귀 위치 그대로 배치 (재등장 없음)"""
         if not self._charmed:
             return
 
         guard = self._charmed['guard']
         stolen_from_top = self._charmed['stolen_from_top']
 
-        # ★ 독립 추적 먼저 해제 (_spawn_patrol_guard가 매혹 스킵 판정하지 않도록)
+        # ★ 독립 추적 먼저 해제
         self._charmed = None
         game_state.pop('_charmed_guard', None)
         game_state.pop('_charm_caster_is_top', None)
         game_state.pop('_charmed_guard_pos', None)
         game_state.pop('charm_active', None)
 
-        # 상대 호위무사를 다시 순찰 시작시킴 (리스트에 이미 있으므로 spawn만)
+        # 복귀 위치 X 클램핑
+        return_x = max(GAME_AREA_X + 40, min(return_x, GAME_AREA_X + GAME_AREA_WIDTH - 40))
+
+        # 상대 호위무사를 복귀 위치에서 바로 순찰 상태로 배치 (사라짐/재등장 없이)
         if stolen_from_top:
-            enemy_guards = self.guard_warriors_top
             self.patrol_mode_top = True
             if not self.active_top or self.phase_top is None:
-                for i, g in enumerate(enemy_guards):
+                self.active_top = guard
+                self.phase_top = "patrolling"
+                self.anim_timer_top = 0.0
+                self.x_top = return_x
+                self.y_top = TOP_PADDLE_Y
+                # 쿨타임 설정
+                cd_mult = self.guard_cd_mult_top
+                base_cd = self._get_guard_cooldown(guard["id"])
+                self.cooldown_top = base_cd * cd_mult
+                self.cooldown_max_top = self.cooldown_top
+                # 순찰 인덱스 업데이트
+                for i, g in enumerate(self.guard_warriors_top):
                     if g.get("id") == guard.get("id"):
-                        self.next_guard_top_idx = i
+                        self.next_guard_top_idx = (i + 1) % len(self.guard_warriors_top)
                         break
-                self._spawn_patrol_guard(is_top=True)
         else:
-            enemy_guards = self.guard_warriors_bottom
             self.patrol_mode_bottom = True
             if not self.active_bottom or self.phase_bottom is None:
-                for i, g in enumerate(enemy_guards):
+                self.active_bottom = guard
+                self.phase_bottom = "patrolling"
+                self.anim_timer_bottom = 0.0
+                self.x_bottom = return_x
+                self.y_bottom = BOTTOM_PADDLE_Y
+                # 쿨타임 설정
+                cd_mult = self.guard_cd_mult_bottom
+                base_cd = self._get_guard_cooldown(guard["id"])
+                self.cooldown_bottom = base_cd * cd_mult
+                self.cooldown_max_bottom = self.cooldown_bottom
+                # 순찰 인덱스 업데이트
+                for i, g in enumerate(self.guard_warriors_bottom):
                     if g.get("id") == guard.get("id"):
-                        self.next_guard_bottom_idx = i
+                        self.next_guard_bottom_idx = (i + 1) % len(self.guard_warriors_bottom)
                         break
-                self._spawn_patrol_guard(is_top=False)
 
-        print(f"[Charm] 매혹 종료! {guard['name']} 원래 진영으로 완전 복귀")
+        print(f"[Charm] 매혹 종료! {guard['name']} 원래 진영으로 완전 복귀 (x={return_x:.0f})")
         self._init_guard_skills()
 
     def _update_charmed_guard(self, dt, top_paddle, bottom_paddle, ball):

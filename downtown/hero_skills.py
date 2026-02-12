@@ -7728,10 +7728,11 @@ class Charm(HeroSkill):
             if self.return_progress >= 1.0:
                 self.charm_phase = "idle"
                 game_state.pop('charm_return_position', None)
-                # 완전 복귀 → GuardWarriorSystem에 최종 반환
+                # 완전 복귀 → GuardWarriorSystem에 최종 반환 (복귀 위치 전달)
                 game_state['charm_phase_request'] = {
                     'caster_is_top': self.charm_source_is_top,
                     'phase': 'returned',
+                    'return_x': self.return_end_x,
                 }
 
     # ------------------------------------------------------------------
