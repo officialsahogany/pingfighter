@@ -2237,28 +2237,42 @@ class GuardWarriorSystem:
         result = skill.use(guard_paddle, target_paddle, ball, game_state)
         self._restore_caster_state(game_state, caster_prefix, saved)
 
-        # 사운드 + 말풍선
+        # duration=0 스킬 (OilSpill 등)은 use()에서 is_active가 안 켜짐 → 수동 활성화
+        if result and not skill.is_active and skill.duration <= 0:
+            skill.is_active = True
+
         if result:
-            self._apply_skill_result(result, caster_is_top)
-            bubble = self._bubble_top if caster_is_top else self._bubble_bottom
-            if bubble is not None:
-                pass  # 별도 처리 없음
+            # 사운드 재생 + 상태 효과 적용 (_activate_skill과 동일)
+            self._play_skill_sound(result)
+            self._apply_status_effects(result, target_paddle)
+
+            # 스킬별 글로벌 game_state 키 차단 (메인 영웅에 영향 방지)
+            skill_id = getattr(skill, 'skill_id', '')
+            if skill_id == 'horn_charge':
+                game_state['horn_charge_active'] = False
+            elif skill_id == 'demon_step':
+                game_state['demon_eye_active'] = False
+                game_state.pop('ghost_step_start_top', None)
+                game_state.pop('ghost_step_start_bottom', None)
+
             # 말풍선 표시
-            guard_color = guard.get("color", (200, 200, 200))
+            bubble_text = f"{skill.korean_name}!"
             if caster_is_top:
-                self._bubble_top = {'text': skill.korean_name, 'timer': 1.2,
-                                    'x': c['x'], 'y': c['y'], 'color': guard_color}
+                self._bubble_top = {'text': bubble_text, 'timer': self._bubble_duration,
+                                    'x': c['x'], 'y': c['y'], 'color': guard.get("color", (200, 200, 200))}
             else:
-                self._bubble_bottom = {'text': skill.korean_name, 'timer': 1.2,
-                                       'x': c['x'], 'y': c['y'], 'color': guard_color}
+                self._bubble_bottom = {'text': bubble_text, 'timer': self._bubble_duration,
+                                       'x': c['x'], 'y': c['y'], 'color': guard.get("color", (200, 200, 200))}
+
+            print(f"[Charm] 매혹 호위무사 {guard['name']} → {skill.korean_name} 발동!")
+        else:
+            print(f"[Charm] 매혹 호위무사 {guard['name']} → {skill.korean_name} 발동 실패")
 
         # 다음 쿨타임 설정
         cd_mult = self.guard_cd_mult_top if caster_is_top else self.guard_cd_mult_bottom
         base_cd = self._get_guard_cooldown(guard["id"])
         c['cooldown'] = base_cd * cd_mult
         c['cooldown_max'] = c['cooldown']
-
-        print(f"[Charm] 매혹 호위무사 {guard['name']} → {skill.korean_name} 발동!")
 
     def _draw_charmed_guard(self, screen, shake_x, shake_y):
         """매혹된 호위무사 독립 렌더링"""
