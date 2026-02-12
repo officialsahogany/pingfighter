@@ -5546,6 +5546,21 @@ class ColosseumsArena:
                 self.ball.vx, self.ball.vy, dt
             )
 
+            # === 모래감옥 위치 강제 클램핑 (AI 이동 후 적용) ===
+            if self.skill_manager:
+                gs = self.skill_manager.game_state
+                prison_cx = gs.get('sand_prison_center_x')
+                prison_range = gs.get('sand_prison_range')
+                if prison_cx is not None and prison_range is not None:
+                    p_left = prison_cx - prison_range
+                    p_right = prison_cx + prison_range
+                    if gs.get('top_paddle_sand_prison', False):
+                        pw = getattr(self.top_paddle, 'width', 80)
+                        self.top_paddle.x = max(p_left, min(self.top_paddle.x, p_right - pw))
+                    if gs.get('bottom_paddle_sand_prison', False):
+                        pw = getattr(self.bottom_paddle, 'width', 80)
+                        self.bottom_paddle.x = max(p_left, min(self.bottom_paddle.x, p_right - pw))
+
             # 공 업데이트
             scorer = self.ball.update(dt)
 

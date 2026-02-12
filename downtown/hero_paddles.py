@@ -5311,7 +5311,7 @@ class HeroPaddleRenderer:
     # 미라쥬 - 사막의 환술사 (트릭키) [HD 버전]
     # =========================================================================
     def _draw_mirage(self, screen, cx, cy, b, color, show_back, anim):
-        """미라쥬 - 사막의 환술사 (터번+사막 로브, 수정구, 모래 파티클) [HD 버전]"""
+        """미라쥬 - 이집트 파라오 (네메스 왕관, 황금 장식, 왕홀) [HD 버전]"""
         lean = anim["lean"]
         wave = anim["wave"]
         body_bob = anim["body_bob"]
@@ -5319,309 +5319,396 @@ class HeroPaddleRenderer:
         left_arm_swing = anim.get("left_arm_swing", 0)
         right_arm_swing = anim.get("right_arm_swing", 0)
         weapon_swing = anim.get("weapon_swing_angle", 0)
-        left_leg_sway = anim.get("left_leg_sway", 0)
-        right_leg_sway = anim.get("right_leg_sway", 0)
 
-        torso_y = cy - int(1.5 * b) + int(body_bob * 1.8 * b)
+        torso_y = cy - int(1.5 * b) + int(body_bob * 2 * b)
         lean_offset = int(lean * 2 * b)
 
-        # 색상 팔레트 (사막/모래 테마)
+        t = self.time
+        gold_pulse = (_sin(t * 2.5) + 1) * 0.5
+
+        # 이집트 파라오 색상 팔레트
         p = {
-            "robe_main": (195, 170, 100),      # 메인 로브 (모래색)
-            "robe_light": (220, 195, 130),      # 로브 밝은면
-            "robe_dark": (160, 135, 75),        # 로브 어두운면
-            "robe_trim": (180, 140, 50),        # 로브 금색 장식 트림
-            "turban": (230, 210, 160),          # 터번 (밝은 모래)
-            "turban_dark": (190, 170, 120),     # 터번 그림자
-            "turban_gem": (100, 200, 220),      # 터번 보석 (청록)
-            "turban_gem_glow": (140, 230, 250), # 보석 글로우
-            "skin": (180, 140, 100),            # 피부 (갈색 톤)
-            "skin_dark": (150, 110, 75),        # 피부 그림자
-            "eye_white": (240, 235, 220),       # 눈 흰자
-            "eye_iris": (80, 180, 160),         # 눈 홍채 (청록)
-            "eye_glow": (120, 210, 190),        # 눈 빛
-            "sash": (170, 120, 40),             # 허리띠 (짙은 금)
-            "sash_light": (200, 160, 60),       # 허리띠 밝은면
-            "orb_inner": (140, 220, 210),       # 수정구 안쪽
-            "orb_outer": (80, 180, 170),        # 수정구 바깥
-            "orb_glow": (100, 200, 190, 100),   # 수정구 글로우
-            "sand_particle": (210, 185, 110),   # 모래 파티클
-            "sleeve_inner": (175, 150, 90),     # 소매 안쪽
+            "gold": (220, 185, 55),
+            "gold_light": (245, 220, 100),
+            "gold_dark": (170, 140, 30),
+            "gold_trim": (255, 230, 120),
+            "nemes_blue": (30, 60, 140),
+            "nemes_gold": (210, 180, 60),
+            "nemes_dark": (20, 40, 100),
+            "skin": (180, 140, 90),
+            "skin_light": (200, 160, 110),
+            "skin_shadow": (145, 108, 65),
+            "robe_white": (235, 230, 215),
+            "robe_shadow": (200, 195, 175),
+            "robe_fold": (180, 175, 155),
+            "collar_blue": (30, 55, 130),
+            "collar_light": (60, 100, 200),
+            "eye_line": (20, 20, 20),
+            "eye_green": (30, 160, 100),
+            "staff_gold": (230, 200, 80),
+            "staff_gem": (40, 180, 160),
+            "gem_glow": (80, 220, 200),
+            "sandal": (160, 120, 60),
+            "beard_gold": (200, 170, 45),
+            "beard_stripe": (30, 55, 120),
         }
 
-        surf = self._get_surface(int(22 * b), int(16 * b))
-        ox = surf.get_width() // 2
-        oy = surf.get_height() - int(2 * b)
+        # ─── 모래 파티클 (뒤쪽) ───
+        for i in range(4):
+            phase = t * 1.0 + i * 1.6
+            px = cx + int(_sin(phase) * 5 * b) + lean_offset
+            py = torso_y + int(_sin(phase * 0.7 + i) * 3 * b)
+            sa = int(40 + 20 * _sin(phase * 2))
+            sr = max(1, int(0.4 * b))
+            ps_surf = self._get_surface(sr * 2, sr * 2)
+            pygame.draw.circle(ps_surf, (210, 185, 110, sa), (sr, sr), sr)
+            screen.blit(ps_surf, (px - sr, py - sr))
 
-        # ─── 모래 파티클 (뒤쪽, 떠다니는 모래) ───
-        import time as _time
-        t = _time.time()
-        for i in range(5):
-            phase = t * 1.2 + i * 1.3
-            px = ox + int(math.sin(phase) * 18 * b)
-            py = oy - int(4 * b) + int(math.cos(phase * 0.7 + i) * 12 * b)
-            sa = int(60 + 30 * math.sin(phase * 2))
-            sr = max(1, int(1.5 * b))
-            sand_surf = pygame.Surface((sr * 2, sr * 2), pygame.SRCALPHA)
-            pygame.draw.circle(sand_surf, (*p["sand_particle"], sa), (sr, sr), sr)
-            surf.blit(sand_surf, (px - sr, py - sr))
+        # ─── 다리 / 샌들 ───
+        leg_base_y = cy - int(0.2 * b)
+        for side in [-1, 1]:
+            leg_x = cx + side * int(0.35 * b) + lean_offset
+            pygame.draw.line(screen, p["robe_shadow"],
+                           (leg_x, leg_base_y - int(0.6 * b)),
+                           (leg_x, leg_base_y + int(0.3 * b)),
+                           max(2, int(0.25 * b)))
+            foot_w = max(2, int(0.4 * b))
+            foot_h = max(1, int(0.15 * b))
+            pygame.draw.ellipse(screen, p["sandal"],
+                              (leg_x - foot_w // 2, leg_base_y + int(0.2 * b),
+                               foot_w, foot_h))
 
-        # ─── 바닥 그림자 (약간 떠다니는 느낌) ───
-        shadow_w = int(7 * b)
-        shadow_h = max(1, int(1.2 * b))
-        float_offset = int(math.sin(t * 2.5) * 0.8 * b)
-        shadow_surf = pygame.Surface((shadow_w, shadow_h * 2), pygame.SRCALPHA)
-        pygame.draw.ellipse(shadow_surf, (30, 25, 15, 60), (0, 0, shadow_w, shadow_h * 2))
-        surf.blit(shadow_surf, (ox - shadow_w // 2, oy + int(0.5 * b)))
-
-        # Y 오프셋 (떠다니는 효과)
-        float_y = float_offset
-
-        # ─── 로브 하단 (치맛자락, 넓게 퍼짐) ───
-        robe_bottom_y = oy + float_y - int(0.3 * b)
-        robe_mid_y = oy + float_y - int(3.5 * b)
-        robe_w_bottom = int(5.5 * b)
-        robe_w_mid = int(3.5 * b)
-
-        # 로브 뒤쪽 (보이면)
-        if show_back:
-            robe_points = [
-                (ox - robe_w_mid // 2 + lean_offset, robe_mid_y),
-                (ox + robe_w_mid // 2 + lean_offset, robe_mid_y),
-                (ox + robe_w_bottom // 2 + lean_offset + int(wave * 0.5 * b), robe_bottom_y),
-                (ox - robe_w_bottom // 2 + lean_offset - int(wave * 0.5 * b), robe_bottom_y),
-            ]
-            if len(robe_points) >= 3:
-                pygame.draw.polygon(surf, p["robe_dark"], robe_points)
-
-        # 로브 앞쪽
-        robe_front_points = [
-            (ox - robe_w_mid // 2 + lean_offset, robe_mid_y),
-            (ox + robe_w_mid // 2 + lean_offset, robe_mid_y),
-            (ox + robe_w_bottom // 2 + lean_offset + int(wave * 0.3 * b), robe_bottom_y),
-            (ox - robe_w_bottom // 2 + lean_offset - int(wave * 0.3 * b), robe_bottom_y),
+        # ─── 로브 (쉔디트 - 파라오 치마) ───
+        skirt_top = torso_y + int(1.2 * b)
+        skirt_bot = leg_base_y - int(0.3 * b)
+        skirt_w_top = int(1.4 * b)
+        skirt_w_bot = int(1.8 * b)
+        skirt_pts = [
+            (cx - skirt_w_top // 2 + lean_offset, skirt_top),
+            (cx + skirt_w_top // 2 + lean_offset, skirt_top),
+            (cx + skirt_w_bot // 2 + lean_offset + int(wave * 0.2 * b), skirt_bot),
+            (cx - skirt_w_bot // 2 + lean_offset - int(wave * 0.2 * b), skirt_bot),
         ]
-        if len(robe_front_points) >= 3:
-            pygame.draw.polygon(surf, p["robe_main"], robe_front_points)
+        pygame.draw.polygon(screen, p["robe_white"], skirt_pts)
+        # 중앙 주름선
+        pygame.draw.line(screen, p["robe_fold"],
+                        (cx + lean_offset, skirt_top + int(0.2 * b)),
+                        (cx + lean_offset, skirt_bot - int(0.1 * b)),
+                        max(1, int(0.08 * b)))
+        # 금색 허리띠
+        belt_y = skirt_top
+        belt_h = max(2, int(0.3 * b))
+        belt_w = skirt_w_top + int(0.4 * b)
+        pygame.draw.rect(screen, p["gold"],
+                        (cx - belt_w // 2 + lean_offset, belt_y, belt_w, belt_h),
+                        border_radius=max(1, int(0.1 * b)))
+        pygame.draw.rect(screen, p["gold_light"],
+                        (cx - belt_w // 2 + lean_offset, belt_y, belt_w, max(1, belt_h // 2)),
+                        border_radius=max(1, int(0.1 * b)))
+        # 허리 중앙 보석
+        gem_belt_r = max(1, int(0.12 * b))
+        pygame.draw.circle(screen, p["collar_blue"],
+                         (cx + lean_offset, belt_y + belt_h // 2), gem_belt_r)
 
-        # 로브 중앙 세로 금색 라인
-        line_x = ox + lean_offset
-        pygame.draw.line(surf, p["robe_trim"],
-                        (line_x, robe_mid_y + int(0.5 * b)),
-                        (line_x, robe_bottom_y - int(0.3 * b)),
-                        max(1, int(0.4 * b)))
+        # ─── 몸통 (상체) ───
+        torso_top = torso_y - int(0.5 * b)
+        torso_bot = skirt_top + int(0.1 * b)
+        torso_w = int(1.5 * b)
+        torso_rect = pygame.Rect(cx - torso_w // 2 + lean_offset, torso_top,
+                                  torso_w, torso_bot - torso_top)
+        pygame.draw.rect(screen, p["skin"], torso_rect,
+                        border_radius=max(1, int(0.2 * b)))
+        hl_rect = pygame.Rect(torso_rect.x + int(0.1 * b), torso_rect.y + int(0.1 * b),
+                               torso_w // 3, torso_rect.height - int(0.2 * b))
+        pygame.draw.rect(screen, p["skin_light"], hl_rect,
+                        border_radius=max(1, int(0.1 * b)))
 
-        # 로브 하단 물결 장식
-        for dx in range(-robe_w_bottom // 2, robe_w_bottom // 2, max(1, int(1.5 * b))):
-            wx = ox + dx + lean_offset
-            wy = robe_bottom_y + int(math.sin(t * 3 + dx * 0.3) * 0.5 * b)
-            trim_len = max(1, int(0.6 * b))
-            pygame.draw.line(surf, p["robe_trim"], (wx, robe_bottom_y - 1), (wx, wy + trim_len), 1)
-
-        # ─── 몸통 (상체 로브) ───
-        torso_top = oy + float_y - int(6 * b)
-        torso_bottom = robe_mid_y
-        torso_w = int(3.2 * b)
-        torso_rect = pygame.Rect(
-            ox - torso_w // 2 + lean_offset,
-            torso_top,
-            torso_w,
-            torso_bottom - torso_top
-        )
-        pygame.draw.rect(surf, p["robe_main"], torso_rect, border_radius=max(1, int(0.5 * b)))
-        # 밝은면 하이라이트
-        highlight_rect = pygame.Rect(
-            torso_rect.x + int(0.3 * b), torso_rect.y + int(0.3 * b),
-            torso_w // 3, torso_rect.height - int(0.6 * b)
-        )
-        pygame.draw.rect(surf, p["robe_light"], highlight_rect, border_radius=max(1, int(0.3 * b)))
-
-        # ─── 허리띠 (사쉬) ───
-        sash_y = oy + float_y - int(3.8 * b)
-        sash_h = max(2, int(0.8 * b))
-        sash_rect = pygame.Rect(
-            ox - torso_w // 2 - int(0.3 * b) + lean_offset,
-            sash_y,
-            torso_w + int(0.6 * b),
-            sash_h
-        )
-        pygame.draw.rect(surf, p["sash"], sash_rect, border_radius=max(1, int(0.3 * b)))
-        # 허리띠 밝은 중앙
-        sash_light_rect = pygame.Rect(sash_rect.x + int(0.5 * b), sash_rect.y,
-                                       int(1.5 * b), sash_h)
-        pygame.draw.rect(surf, p["sash_light"], sash_light_rect)
+        # ─── 칼라 / 펙토랄 (넓은 목걸이) ───
+        collar_cx = cx + lean_offset
+        collar_cy = torso_top + int(0.3 * b) + int(shoulder_bob * 0.15 * b)
+        collar_w = int(2.2 * b)
+        collar_h = int(0.9 * b)
+        collar_pts = [
+            (collar_cx - collar_w // 2, collar_cy - int(0.1 * b)),
+            (collar_cx + collar_w // 2, collar_cy - int(0.1 * b)),
+            (collar_cx + int(collar_w * 0.35), collar_cy + collar_h),
+            (collar_cx, collar_cy + collar_h + int(0.2 * b)),
+            (collar_cx - int(collar_w * 0.35), collar_cy + collar_h),
+        ]
+        pygame.draw.polygon(screen, p["gold"], collar_pts)
+        # 칼라 줄무늬
+        for i_s in range(3):
+            sy = collar_cy + int(i_s * 0.25 * b)
+            hw = int(collar_w * 0.45 * (1 - i_s * 0.15))
+            s_col = p["nemes_blue"] if i_s % 2 == 0 else p["gold_light"]
+            pygame.draw.line(screen, s_col,
+                           (collar_cx - hw, sy), (collar_cx + hw, sy),
+                           max(1, int(0.1 * b)))
+        # 중앙 보석
+        c_gem_r = max(2, int(0.15 * b))
+        pygame.draw.circle(screen, p["collar_blue"],
+                         (collar_cx, collar_cy + int(0.3 * b)), c_gem_r)
+        pygame.draw.circle(screen, p["collar_light"],
+                         (collar_cx - 1, collar_cy + int(0.3 * b) - 1),
+                         max(1, c_gem_r // 2))
 
         # ─── 어깨 ───
-        shoulder_y = torso_top + int(0.5 * b) + int(shoulder_bob * 0.3 * b)
-        shoulder_w = int(2 * b)
+        shoulder_y = torso_top + int(0.2 * b) + int(shoulder_bob * 0.2 * b)
         for side in [-1, 1]:
-            sx = ox + side * int(1.8 * b) + lean_offset
+            sx = cx + side * int(1.0 * b) + lean_offset
             sy = shoulder_y
-            # 어깨 패드
-            pad_r = max(2, int(1.1 * b))
-            pygame.draw.circle(surf, p["robe_dark"], (sx, sy), pad_r)
-            pygame.draw.circle(surf, p["robe_main"], (sx, sy), pad_r - max(1, int(0.2 * b)))
-            # 금색 장식
-            pygame.draw.circle(surf, p["robe_trim"], (sx, sy), max(1, int(0.4 * b)))
+            pad_r = max(2, int(0.35 * b))
+            pygame.draw.circle(screen, p["gold_dark"], (sx, sy), pad_r)
+            pygame.draw.circle(screen, p["gold"], (sx, sy), pad_r - 1)
 
-        # ─── 왼팔 (수정구를 들고 있음) ───
-        l_shoulder_x = ox - int(1.8 * b) + lean_offset
-        l_shoulder_y = shoulder_y + int(0.5 * b)
-        l_elbow_x = l_shoulder_x - int(1.2 * b) + int(left_arm_swing * 0.8 * b)
-        l_elbow_y = l_shoulder_y + int(2 * b)
-        l_hand_x = l_elbow_x - int(0.5 * b) + int(wave * 0.3 * b)
-        l_hand_y = l_elbow_y + int(1.5 * b)
-
-        # 소매
-        arm_thick = max(2, int(0.7 * b))
-        pygame.draw.line(surf, p["sleeve_inner"],
-                        (l_shoulder_x, l_shoulder_y),
-                        (l_elbow_x, l_elbow_y), arm_thick + 1)
-        pygame.draw.line(surf, p["robe_main"],
-                        (l_elbow_x, l_elbow_y),
-                        (l_hand_x, l_hand_y), arm_thick)
-        # 손
-        hand_r = max(2, int(0.5 * b))
-        pygame.draw.circle(surf, p["skin"], (l_hand_x, l_hand_y), hand_r)
-        pygame.draw.circle(surf, p["skin_dark"], (l_hand_x, l_hand_y), hand_r, 1)
-
-        # 수정구 (왼손 위에)
-        orb_x = l_hand_x
-        orb_y = l_hand_y - int(1.2 * b)
-        orb_r = max(3, int(1.0 * b))
-
-        # 수정구 글로우
-        glow_r = orb_r + max(2, int(0.5 * b))
-        glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
-        glow_alpha = int(40 + 20 * math.sin(t * 3))
-        pygame.draw.circle(glow_surf, (100, 200, 190, glow_alpha), (glow_r, glow_r), glow_r)
-        surf.blit(glow_surf, (orb_x - glow_r, orb_y - glow_r))
-
-        # 수정구 본체
-        pygame.draw.circle(surf, p["orb_outer"], (orb_x, orb_y), orb_r)
-        pygame.draw.circle(surf, p["orb_inner"], (orb_x, orb_y), orb_r - max(1, int(0.3 * b)))
-        # 수정구 하이라이트
-        hl_x = orb_x - int(0.3 * b)
-        hl_y = orb_y - int(0.3 * b)
-        pygame.draw.circle(surf, (200, 255, 245), (hl_x, hl_y), max(1, int(0.3 * b)))
-        # 수정구 안 소용돌이 (작은 회전선)
-        swirl_phase = t * 2
-        for s_i in range(3):
-            s_angle = swirl_phase + s_i * 2.1
-            s_r = orb_r * 0.5
-            s_x = orb_x + int(math.cos(s_angle) * s_r)
-            s_y = orb_y + int(math.sin(s_angle) * s_r)
-            pygame.draw.circle(surf, (180, 240, 230, 120), (s_x, s_y), max(1, int(0.2 * b)))
-
-        # ─── 오른팔 (타격 시 휘두르기) ───
-        r_shoulder_x = ox + int(1.8 * b) + lean_offset
-        r_shoulder_y = shoulder_y + int(0.5 * b)
-
-        # 무기 스윙 적용
-        swing_angle = weapon_swing * 0.8
-        r_elbow_x = r_shoulder_x + int(1.2 * b) + int(right_arm_swing * 0.8 * b) + int(math.sin(swing_angle) * 1.5 * b)
-        r_elbow_y = r_shoulder_y + int(2 * b) - int(abs(math.sin(swing_angle)) * 1.0 * b)
-        r_hand_x = r_elbow_x + int(0.8 * b) + int(math.sin(swing_angle) * 1.0 * b)
-        r_hand_y = r_elbow_y + int(1.5 * b) - int(abs(math.sin(swing_angle)) * 0.8 * b)
-
-        # 소매
-        pygame.draw.line(surf, p["sleeve_inner"],
-                        (r_shoulder_x, r_shoulder_y),
-                        (r_elbow_x, r_elbow_y), arm_thick + 1)
-        pygame.draw.line(surf, p["robe_main"],
-                        (r_elbow_x, r_elbow_y),
-                        (r_hand_x, r_hand_y), arm_thick)
-        # 손
-        pygame.draw.circle(surf, p["skin"], (r_hand_x, r_hand_y), hand_r)
-        pygame.draw.circle(surf, p["skin_dark"], (r_hand_x, r_hand_y), hand_r, 1)
-
-        # ─── 머리 (터번) ───
-        head_x = ox + lean_offset
-        head_y = torso_top - int(1.8 * b) + float_y
-
-        # 목
-        neck_w = max(2, int(0.6 * b))
-        pygame.draw.line(surf, p["skin"],
-                        (head_x, torso_top),
-                        (head_x, head_y + int(1.5 * b)), neck_w)
-
-        # 머리 기본
-        head_r = max(3, int(1.5 * b))
-        pygame.draw.circle(surf, p["skin"], (head_x, head_y), head_r)
-
-        # 터번 (머리 위쪽 반을 감싸는 형태)
-        turban_r = head_r + max(1, int(0.4 * b))
-        # 터번 본체
-        pygame.draw.circle(surf, p["turban"], (head_x, head_y - int(0.3 * b)), turban_r)
-        # 터번 아래쪽 자르기 (피부 노출 부분)
-        skin_rect = pygame.Rect(head_x - head_r, head_y + int(0.2 * b),
-                                head_r * 2, head_r)
-        pygame.draw.rect(surf, p["skin"], skin_rect)
-        # 터번 그림자 줄
-        pygame.draw.arc(surf, p["turban_dark"],
-                       (head_x - turban_r, head_y - turban_r - int(0.3 * b),
-                        turban_r * 2, turban_r * 2),
-                       0.3, 2.8, max(1, int(0.3 * b)))
-        # 터번 보석 (정면 중앙)
-        gem_x = head_x
-        gem_y = head_y - int(0.6 * b)
-        gem_r = max(2, int(0.4 * b))
-        pygame.draw.circle(surf, p["turban_gem"], (gem_x, gem_y), gem_r)
-        gem_glow_alpha = int(120 + 60 * math.sin(t * 4))
-        gem_glow_surf = pygame.Surface((gem_r * 4, gem_r * 4), pygame.SRCALPHA)
-        pygame.draw.circle(gem_glow_surf, (*p["turban_gem_glow"], gem_glow_alpha),
-                          (gem_r * 2, gem_r * 2), gem_r * 2)
-        surf.blit(gem_glow_surf, (gem_x - gem_r * 2, gem_y - gem_r * 2))
-        # 보석 하이라이트
-        pygame.draw.circle(surf, (220, 255, 255), (gem_x - 1, gem_y - 1), max(1, gem_r // 2))
-
-        # ─── 눈 ───
-        eye_y = head_y + int(0.2 * b)
-        eye_spacing = int(0.7 * b)
-        eye_w = max(2, int(0.5 * b))
-        eye_h = max(1, int(0.35 * b))
+        # ─── 팔 ───
+        arm_thick = max(2, int(0.22 * b))
         for side in [-1, 1]:
-            ex = head_x + side * eye_spacing
-            # 눈 흰자
-            pygame.draw.ellipse(surf, p["eye_white"],
-                              (ex - eye_w, eye_y - eye_h, eye_w * 2, eye_h * 2))
-            # 홍채 (신비로운 청록)
-            iris_r = max(1, int(0.25 * b))
-            pygame.draw.circle(surf, p["eye_iris"], (ex, eye_y), iris_r)
-            # 동공
-            pygame.draw.circle(surf, (30, 60, 50), (ex, eye_y), max(1, iris_r // 2))
-            # 눈 빛
-            pygame.draw.circle(surf, (220, 255, 245),
-                             (ex + max(1, int(0.1 * b)), eye_y - max(1, int(0.1 * b))),
-                             max(1, int(0.12 * b)))
+            s_x = cx + side * int(1.0 * b) + lean_offset
+            s_y = shoulder_y + int(0.2 * b)
+            arm_swing = left_arm_swing if side == -1 else right_arm_swing
+            e_x = s_x + side * int(0.5 * b) + int(arm_swing * 0.5 * b)
+            e_y = s_y + int(1.2 * b)
+            h_x = e_x + side * int(0.2 * b) + int(wave * 0.15 * b)
+            h_y = e_y + int(0.8 * b)
+            if side == -1 and not show_back:
+                h_y = e_y + int(0.3 * b)
+            # 팔
+            pygame.draw.line(screen, p["skin"], (s_x, s_y), (e_x, e_y), arm_thick + 1)
+            pygame.draw.line(screen, p["skin_light"], (s_x, s_y), (e_x, e_y), arm_thick)
+            pygame.draw.line(screen, p["skin"], (e_x, e_y), (h_x, h_y), arm_thick)
+            # 금 팔찌
+            br_r = max(2, int(0.15 * b))
+            pygame.draw.circle(screen, p["gold"], (e_x, e_y), br_r)
+            # 손
+            hand_r = max(2, int(0.18 * b))
+            pygame.draw.circle(screen, p["skin"], (h_x, h_y), hand_r)
 
-        # 눈 아래 페이스커버 (사막 스카프)
-        scarf_y = eye_y + int(0.5 * b)
-        scarf_points = [
-            (head_x - int(1.3 * b), scarf_y),
-            (head_x + int(1.3 * b), scarf_y),
-            (head_x + int(1.0 * b), head_y + head_r + int(0.3 * b)),
-            (head_x - int(1.0 * b), head_y + head_r + int(0.3 * b)),
-        ]
-        scarf_surf = pygame.Surface((int(3 * b), int(2 * b)), pygame.SRCALPHA)
-        adjusted = [(px - (head_x - int(1.5 * b)), py - scarf_y) for px, py in scarf_points]
-        if len(adjusted) >= 3:
-            pygame.draw.polygon(scarf_surf, (*p["turban"], 200), adjusted)
-        surf.blit(scarf_surf, (head_x - int(1.5 * b), scarf_y))
+            # 왕홀 (앙크) - 정면:왼손, 후면:오른손
+            if (side == -1 and not show_back) or (side == 1 and show_back):
+                swing_a = weapon_swing * 0.6
+                staff_bx = h_x
+                staff_by = h_y
+                staff_tx = h_x + int(_sin(swing_a) * 0.8 * b)
+                staff_ty = torso_y - int(2.5 * b) + int(weapon_swing * 0.2 * b)
+                # 왕홀 몸체
+                pygame.draw.line(screen, p["gold_dark"],
+                               (staff_bx, staff_by), (staff_tx, staff_ty),
+                               max(2, int(0.12 * b)))
+                pygame.draw.line(screen, p["staff_gold"],
+                               (staff_bx - 1, staff_by), (staff_tx - 1, staff_ty),
+                               max(1, int(0.07 * b)))
+                # 앙크 상단 (원)
+                ankh_x, ankh_y = staff_tx, staff_ty
+                ankh_r = max(2, int(0.18 * b))
+                pygame.draw.circle(screen, p["staff_gold"],
+                                 (ankh_x, ankh_y - ankh_r), ankh_r,
+                                 max(1, int(0.06 * b)))
+                # 앙크 세로선
+                pygame.draw.line(screen, p["staff_gold"],
+                               (ankh_x, ankh_y),
+                               (ankh_x, ankh_y + int(0.5 * b)),
+                               max(1, int(0.08 * b)))
+                # 앙크 가로선
+                hw = int(0.2 * b)
+                pygame.draw.line(screen, p["staff_gold"],
+                               (ankh_x - hw, ankh_y + int(0.1 * b)),
+                               (ankh_x + hw, ankh_y + int(0.1 * b)),
+                               max(1, int(0.08 * b)))
+                # 보석
+                gem_r = max(2, int(0.1 * b))
+                pygame.draw.circle(screen, p["staff_gem"],
+                                 (ankh_x, ankh_y - ankh_r), gem_r)
+                gr = gem_r + max(2, int(0.15 * b * gold_pulse))
+                gs = self._get_surface(gr * 4, gr * 4)
+                ga = int(30 + 20 * gold_pulse)
+                pygame.draw.circle(gs, (*p["gem_glow"], ga), (gr * 2, gr * 2), gr)
+                screen.blit(gs, (ankh_x - gr * 2, ankh_y - ankh_r - gr * 2),
+                           special_flags=pygame.BLEND_ADD)
+
+        # ─── 머리 ───
+        head_x = cx + lean_offset
+        head_y = torso_y - int(1.5 * b)
+        head_r = int(0.8 * b)
+
+        if not show_back:
+            # ═══ 정면 ═══
+            # 네메스 좌우 늘어뜨린 천
+            for side in [-1, 1]:
+                flap_pts = [
+                    (head_x + side * int(0.7 * b), head_y - int(0.1 * b)),
+                    (head_x + side * int(1.0 * b), head_y + int(1.2 * b)),
+                    (head_x + side * int(0.6 * b),
+                     head_y + int(1.5 * b) + int(wave * 0.1 * b)),
+                    (head_x + side * int(0.3 * b), head_y + int(0.8 * b)),
+                ]
+                pygame.draw.polygon(screen, p["nemes_gold"], flap_pts)
+                for j in range(3):
+                    sy = head_y + int(0.2 * b) + int(j * 0.35 * b)
+                    x1 = head_x + side * int(0.35 * b + j * 0.08 * b)
+                    x2 = head_x + side * int(0.75 * b + j * 0.06 * b)
+                    pygame.draw.line(screen, p["nemes_blue"],
+                                   (x1, sy), (x2, sy),
+                                   max(1, int(0.07 * b)))
+
+            # 얼굴
+            pygame.draw.circle(screen, p["skin"], (head_x, head_y), head_r)
+            pygame.draw.circle(screen, p["skin_light"],
+                             (head_x - int(0.1 * b), head_y - int(0.1 * b)),
+                             head_r - max(1, int(0.15 * b)))
+            # 네메스 상단
+            nemes_pts = [
+                (head_x - int(0.85 * b), head_y - int(0.15 * b)),
+                (head_x + int(0.85 * b), head_y - int(0.15 * b)),
+                (head_x + int(0.7 * b), head_y - int(0.7 * b)),
+                (head_x, head_y - int(0.95 * b)),
+                (head_x - int(0.7 * b), head_y - int(0.7 * b)),
+            ]
+            pygame.draw.polygon(screen, p["nemes_gold"], nemes_pts)
+            for j in range(2):
+                ny = head_y - int(0.55 * b) + int(j * 0.25 * b)
+                nw = int(0.6 * b - j * 0.1 * b)
+                pygame.draw.line(screen, p["nemes_blue"],
+                               (head_x - nw, ny), (head_x + nw, ny),
+                               max(1, int(0.07 * b)))
+            # 이마 금 밴드
+            band_y = head_y - int(0.25 * b)
+            band_w = int(0.82 * b)
+            pygame.draw.line(screen, p["gold"],
+                           (head_x - band_w, band_y),
+                           (head_x + band_w, band_y),
+                           max(2, int(0.12 * b)))
+            # 우라에우스 (코브라)
+            cobra_y = band_y - int(0.15 * b)
+            cobra_pts = [
+                (head_x, cobra_y - int(0.25 * b)),
+                (head_x - int(0.1 * b), cobra_y),
+                (head_x + int(0.1 * b), cobra_y),
+            ]
+            pygame.draw.polygon(screen, p["gold_light"], cobra_pts)
+            pygame.draw.circle(screen, (200, 50, 50),
+                             (head_x, cobra_y - int(0.12 * b)),
+                             max(1, int(0.04 * b)))
+
+            # ─── 호루스의 눈 ───
+            eye_y = head_y + int(0.1 * b)
+            for side in [-1, 1]:
+                ex = head_x + side * int(0.3 * b)
+                eye_w = max(2, int(0.22 * b))
+                eye_h = max(1, int(0.12 * b))
+                pygame.draw.ellipse(screen, (235, 230, 215),
+                                  (ex - eye_w, eye_y - eye_h,
+                                   eye_w * 2, eye_h * 2))
+                iris_r = max(1, int(0.09 * b))
+                pygame.draw.circle(screen, p["eye_green"], (ex, eye_y), iris_r)
+                pygame.draw.circle(screen, (15, 15, 15),
+                                 (ex, eye_y), max(1, iris_r // 2))
+                pygame.draw.circle(screen, (200, 255, 230),
+                                 (ex + max(1, int(0.03 * b)),
+                                  eye_y - max(1, int(0.03 * b))),
+                                 max(1, int(0.04 * b)))
+                # 아이라인 상단
+                pygame.draw.line(screen, p["eye_line"],
+                               (ex - eye_w - int(0.05 * b), eye_y - int(0.02 * b)),
+                               (ex + eye_w + int(0.05 * b), eye_y - int(0.02 * b)),
+                               max(1, int(0.06 * b)))
+                # 호루스 꼬리
+                tail_x = ex + side * int(0.25 * b)
+                tail_y = eye_y + int(0.2 * b)
+                pygame.draw.line(screen, p["eye_line"],
+                               (ex + side * eye_w, eye_y + int(0.05 * b)),
+                               (tail_x, tail_y),
+                               max(1, int(0.05 * b)))
+                pygame.draw.line(screen, p["eye_line"],
+                               (tail_x, tail_y),
+                               (tail_x, tail_y + int(0.12 * b)),
+                               max(1, int(0.04 * b)))
+
+            # 입
+            mouth_y = head_y + int(0.35 * b)
+            pygame.draw.line(screen, p["skin_shadow"],
+                           (head_x - int(0.15 * b), mouth_y),
+                           (head_x + int(0.15 * b), mouth_y), 1)
+
+            # ─── 파라오 턱수염 ───
+            beard_top_y = head_y + int(0.5 * b)
+            beard_bot_y = beard_top_y + int(0.7 * b)
+            beard_w = max(2, int(0.12 * b))
+            pygame.draw.line(screen, p["beard_gold"],
+                           (head_x, beard_top_y),
+                           (head_x, beard_bot_y), beard_w)
+            for j in range(2):
+                by = beard_top_y + int((j + 1) * 0.2 * b)
+                pygame.draw.line(screen, p["beard_stripe"],
+                               (head_x - 1, by), (head_x + 1, by), 1)
+            pygame.draw.circle(screen, p["gold_light"],
+                             (head_x, beard_bot_y), max(1, int(0.06 * b)))
+        else:
+            # ═══ 후면 ═══
+            # 네메스 뒷면 전체
+            nemes_back_pts = [
+                (head_x - int(0.85 * b), head_y - int(0.15 * b)),
+                (head_x + int(0.85 * b), head_y - int(0.15 * b)),
+                (head_x + int(0.7 * b),
+                 head_y + int(1.5 * b) + int(wave * 0.08 * b)),
+                (head_x - int(0.7 * b),
+                 head_y + int(1.5 * b) - int(wave * 0.08 * b)),
+            ]
+            pygame.draw.polygon(screen, p["nemes_gold"], nemes_back_pts)
+            for j in range(5):
+                sy = head_y + int(j * 0.3 * b)
+                w_r = 1.0 - j * 0.05
+                hw = int(0.7 * b * w_r)
+                pygame.draw.line(screen, p["nemes_blue"],
+                               (head_x - hw, sy), (head_x + hw, sy),
+                               max(1, int(0.07 * b)))
+            # 머리
+            pygame.draw.circle(screen, p["nemes_gold"],
+                             (head_x, head_y), head_r)
+            # 네메스 상단
+            nemes_pts = [
+                (head_x - int(0.85 * b), head_y - int(0.15 * b)),
+                (head_x + int(0.85 * b), head_y - int(0.15 * b)),
+                (head_x + int(0.7 * b), head_y - int(0.7 * b)),
+                (head_x, head_y - int(0.95 * b)),
+                (head_x - int(0.7 * b), head_y - int(0.7 * b)),
+            ]
+            pygame.draw.polygon(screen, p["nemes_gold"], nemes_pts)
+            for j in range(2):
+                ny = head_y - int(0.55 * b) + int(j * 0.25 * b)
+                nw = int(0.6 * b - j * 0.1 * b)
+                pygame.draw.line(screen, p["nemes_blue"],
+                               (head_x - nw, ny), (head_x + nw, ny),
+                               max(1, int(0.07 * b)))
+            # 이마 밴드
+            band_y = head_y - int(0.25 * b)
+            band_w = int(0.82 * b)
+            pygame.draw.line(screen, p["gold"],
+                           (head_x - band_w, band_y),
+                           (head_x + band_w, band_y),
+                           max(2, int(0.12 * b)))
+            # 중앙 세로선
+            pygame.draw.line(screen, p["nemes_dark"],
+                           (head_x, head_y - int(0.2 * b)),
+                           (head_x, head_y + int(1.3 * b)),
+                           max(1, int(0.05 * b)))
+
+        # ─── 목 ───
+        neck_w = max(2, int(0.25 * b))
+        pygame.draw.line(screen, p["skin"],
+                        (head_x, head_y + head_r - int(0.1 * b)),
+                        (head_x, torso_top + int(0.2 * b)), neck_w)
 
         # ─── 모래 파티클 (앞쪽) ───
-        for i in range(3):
-            phase2 = t * 1.8 + i * 2.0 + 10
-            fx = ox + int(math.sin(phase2) * 14 * b) + lean_offset
-            fy = oy + float_y - int(2 * b) + int(math.cos(phase2 * 0.8) * 8 * b)
-            fa = int(50 + 25 * math.sin(phase2 * 1.5))
-            fr = max(1, int(1.2 * b))
-            fsf = pygame.Surface((fr * 2, fr * 2), pygame.SRCALPHA)
-            pygame.draw.circle(fsf, (220, 195, 120, fa), (fr, fr), fr)
-            surf.blit(fsf, (fx - fr, fy - fr))
-
-        # 최종 블리트
-        screen.blit(surf, (cx - surf.get_width() // 2, cy - surf.get_height() + int(2 * b)))
+        for i in range(2):
+            phase2 = t * 1.5 + i * 2.5 + 5
+            fx = cx + int(_sin(phase2) * 4 * b) + lean_offset
+            fy = torso_y - int(1 * b) + int(_sin(phase2 * 0.6) * 3 * b)
+            fa = int(35 + 15 * _sin(phase2 * 1.8))
+            fr = max(1, int(0.35 * b))
+            fsf = self._get_surface(fr * 2, fr * 2)
+            pygame.draw.circle(fsf, (210, 185, 110, fa), (fr, fr), fr)
+            screen.blit(fsf, (fx - fr, fy - fr))
 
     # =========================================================================
     # 기본 폴백
