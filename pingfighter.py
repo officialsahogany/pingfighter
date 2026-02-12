@@ -134134,16 +134134,27 @@ def main(stage_num, new_boss_mode=False):
                                 (_ls_side == 'bottom' and ball_vel[1] > 0)
                             )
                             if _ls_ball_coming and _ls.check_ball_collision(float(BALL.centerx), float(BALL.centery), float(BALL.width // 2)):
-                                # 가속 + 상대 방향으로 랜덤 각도 반사 (본편과 동일)
+                                # 가속 + 상대 영웅 방향으로 반사 (약간의 랜덤 오차 포함)
                                 import math as _math_ls
                                 _ls_speed = _math_ls.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
                                 if _ls_speed > 0:
                                     _ls_boost = random.uniform(1.2, 1.5)
                                     _ls_new_speed = _ls_speed * _ls_boost
-                                    # top 잎: 아래로 반사(+90°), bottom 잎: 위로 반사(-90°)
-                                    _ls_base_angle = _math_ls.pi / 2 if _ls_side == 'top' else -_math_ls.pi / 2
-                                    _ls_angle_var = random.uniform(-_math_ls.pi / 3, _math_ls.pi / 3)
-                                    _ls_final_angle = _ls_base_angle + _ls_angle_var
+                                    # 상대 영웅 패들 중심 좌표를 향해 반사
+                                    # top 잎(보스측): 플레이어 패들을 향해 반사
+                                    # bottom 잎(플레이어측): 보스 패들을 향해 반사
+                                    if _ls_side == 'top':
+                                        _ls_target_x = float(PLAYER.centerx)
+                                        _ls_target_y = float(PLAYER.centery)
+                                    else:
+                                        _ls_target_x = float(BOSS.centerx)
+                                        _ls_target_y = float(BOSS.centery)
+                                    _ls_dx = _ls_target_x - float(BALL.centerx)
+                                    _ls_dy = _ls_target_y - float(BALL.centery)
+                                    _ls_target_angle = _math_ls.atan2(_ls_dy, _ls_dx)
+                                    # 약간의 랜덤 오차 (±15도)
+                                    _ls_angle_var = random.uniform(-_math_ls.pi / 12, _math_ls.pi / 12)
+                                    _ls_final_angle = _ls_target_angle + _ls_angle_var
                                     ball_vel[0] = _ls_new_speed * _math_ls.cos(_ls_final_angle)
                                     ball_vel[1] = _ls_new_speed * _math_ls.sin(_ls_final_angle)
 
