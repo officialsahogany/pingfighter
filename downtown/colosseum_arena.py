@@ -1795,6 +1795,9 @@ class GuardWarriorSystem:
         self._patrol_speed_top = 140.0      # 개별 속도 (랜덤 변동)
         self._patrol_speed_bottom = 140.0
 
+        # 매혹(Charm)된 호위무사 독립 추적
+        self._charmed = None  # dict or None
+
     def setup(self, guards_top, guards_bottom, initial_delay=(10.0, 15.0), skill_selections=None):
         """배틀 시작 시 호위무사 설정
 
@@ -1962,29 +1965,28 @@ class GuardWarriorSystem:
             return skills[0].cooldown * self.GUARD_CD_PENALTY
         return random.uniform(*self.cooldown_range)
 
-    # === 매혹 (Charm) 스킬 지원 (4단계 페이즈) ===
-    def _handle_charm_requests(self, game_state):
-        """벤시 '매혹' 스킬의 4단계 호위무사 빼앗기/견인/활동/반환 처리
+    # === 매혹 (Charm) 스킬 지원 (독립 추적 시스템) ===
+    # 매혹된 호위무사는 기존 guard_warriors 리스트에 넣지 않고
+    # self._charmed 딕셔너리로 완전 독립 관리한다.
+    # → 기존 호위무사와 동시 필드 존재 가능
+    # → 쿨타임 이어받기, 복귀 시 정상 반환
 
-        Phases:
-         - projectile: 발사체 발사 → 상대 호위무사 좌표를 game_state에 제공
-         - pulling:    상대 호위무사를 빼앗아 견인 중 (리스트 이동)
-         - active:     매혹된 호위무사가 아군으로 순찰
-         - returning:  매혹 해제, 호위무사 원래 진영으로 복귀 애니메이션
-         - returned:   복귀 완료, 상대 리스트에 재등록
-        """
-        # 상대 호위무사 위치 정보를 항상 제공 (발사체 타겟용)
+    def _handle_charm_requests(self, game_state):
+        """매혹 4단계 페이즈 처리"""
         self._provide_enemy_guard_info(game_state)
 
-        # 매혹된 호위무사 현재 위치 추적 (활동 페이즈용)
-        self._track_charmed_guard_pos(game_state)
+        # 매혹 호위무사 위치 추적
+        if self._charmed:
+            game_state['_charmed_guard_pos'] = {
+                'x': self._charmed['x'], 'y': self._charmed['y']
+            }
+            game_state['_charmed_guard'] = self._charmed['guard']
 
-        # 레거시 호환: charm_request (즉시 타입) → charm_end_request
+        # 레거시 호환
         charm_end = game_state.pop('charm_end_request', None)
         if charm_end:
-            self._charm_do_return_guard(game_state, charm_end['caster_is_top'])
+            self._charm_return_to_enemy(game_state)
 
-        # 4단계 페이즈 요청 처리
         phase_req = game_state.pop('charm_phase_request', None)
         if not phase_req:
             return
@@ -1993,37 +1995,28 @@ class GuardWarriorSystem:
         phase = phase_req['phase']
 
         if phase == 'projectile':
-            # 발사체 출발 → 이 단계에서는 호위무사 리스트 변동 없음
-            # _provide_enemy_guard_info()가 이미 좌표를 제공함
             print(f"[Charm] 자력 에너지 발사! 대상: {'하단' if caster_is_top else '상단'} 호위무사")
 
         elif phase == 'pulling':
-            # 발사체 도착 → 상대 호위무사를 리스트에서 빼앗아 견인 시작
             self._charm_steal_guard(game_state, caster_is_top)
 
         elif phase == 'active':
-            # 견인 완료 → 아군 순찰 모드로 등장
             self._charm_activate_guard(game_state, caster_is_top)
 
         elif phase == 'returning':
-            # 지속시간 종료 → 복귀 애니메이션 시작 (아군에서 제거, 순찰 중단)
             self._charm_start_return(game_state, caster_is_top)
 
         elif phase == 'returned':
-            # 복귀 완료 → 상대 리스트에 재등록
-            self._charm_do_return_guard(game_state, caster_is_top)
+            self._charm_return_to_enemy(game_state)
 
     def _provide_enemy_guard_info(self, game_state):
-        """양쪽 호위무사의 현재 좌표를 game_state에 제공 (Charm 발사체 타겟용)"""
-        # 하단 호위무사 정보
+        """양쪽 호위무사의 현재 좌표를 game_state에 제공"""
         if self.active_bottom and self.phase_bottom:
             game_state['_guard_info_bottom'] = {
                 'x': self.x_bottom, 'y': self.y_bottom,
                 'id': self.active_bottom.get('id')}
         elif self.guard_warriors_bottom:
             game_state['_guard_info_bottom'] = {'x': 380, 'y': BOTTOM_PADDLE_Y}
-
-        # 상단 호위무사 정보
         if self.active_top and self.phase_top:
             game_state['_guard_info_top'] = {
                 'x': self.x_top, 'y': self.y_top,
@@ -2031,23 +2024,8 @@ class GuardWarriorSystem:
         elif self.guard_warriors_top:
             game_state['_guard_info_top'] = {'x': 380, 'y': TOP_PADDLE_Y}
 
-    def _track_charmed_guard_pos(self, game_state):
-        """매혹된 호위무사의 현재 위치를 game_state에 추적"""
-        charmed = game_state.get('_charmed_guard', None)
-        if not charmed:
-            return
-        charm_caster_top = game_state.get('_charm_caster_is_top', True)
-
-        # 매혹된 호위무사가 시전자 쪽에서 순찰 중이면 위치 추적
-        if charm_caster_top:
-            if self.active_top and self.active_top.get("id") == charmed.get("id"):
-                game_state['_charmed_guard_pos'] = {'x': self.x_top, 'y': self.y_top}
-        else:
-            if self.active_bottom and self.active_bottom.get("id") == charmed.get("id"):
-                game_state['_charmed_guard_pos'] = {'x': self.x_bottom, 'y': self.y_bottom}
-
     def _charm_steal_guard(self, game_state, caster_is_top):
-        """Phase 'pulling': 상대 호위무사를 리스트에서 빼앗음 (견인 시작)"""
+        """Phase 'pulling': 상대 호위무사를 숨기고 견인 시작 (리스트에서 제거하지 않음!)"""
         if caster_is_top:
             enemy_guards = self.guard_warriors_bottom
         else:
@@ -2057,152 +2035,239 @@ class GuardWarriorSystem:
             print("[Charm] 매혹 실패 - 상대에게 호위무사가 없음")
             return
 
-        # 현재 활성 호위무사를 우선 빼앗기 (화면에 보이는 것)
+        # 현재 화면에 보이는 활성 호위무사를 빼앗음
         stolen = None
+        saved_cooldown = 5.0
         if caster_is_top and self.active_bottom:
-            for i, g in enumerate(enemy_guards):
+            for g in enemy_guards:
                 if g.get("id") == self.active_bottom.get("id"):
-                    stolen = enemy_guards.pop(i)
+                    stolen = g
+                    saved_cooldown = max(0, self.cooldown_bottom)
                     break
         elif not caster_is_top and self.active_top:
-            for i, g in enumerate(enemy_guards):
+            for g in enemy_guards:
                 if g.get("id") == self.active_top.get("id"):
-                    stolen = enemy_guards.pop(i)
+                    stolen = g
+                    saved_cooldown = max(0, self.cooldown_top)
                     break
 
         if not stolen:
-            stolen = enemy_guards.pop(0)
+            stolen = enemy_guards[0]
+            saved_cooldown = 5.0
 
-        game_state['_charmed_guard'] = stolen
-        game_state['_charm_stolen_from_top'] = not caster_is_top
-        game_state['_charm_caster_is_top'] = caster_is_top
-
-        # 상대측 순찰 호위무사 즉시 제거 (비명 없이 사라짐)
+        # 상대측 활성 호위무사 숨기기 (리스트에서 제거 X, 화면에서만 숨김)
         if caster_is_top:
             if self.active_bottom and self.active_bottom.get("id") == stolen.get("id"):
                 self.active_bottom = None
                 self.phase_bottom = None
                 self.anim_timer_bottom = 0.0
-            if not self.guard_warriors_bottom:
-                self.patrol_mode_bottom = False
         else:
             if self.active_top and self.active_top.get("id") == stolen.get("id"):
                 self.active_top = None
                 self.phase_top = None
                 self.anim_timer_top = 0.0
-            if not self.guard_warriors_top:
-                self.patrol_mode_top = False
 
-        print(f"[Charm] 견인 시작! {stolen['name']}을(를) 빼앗음")
+        # 독립 추적 딕셔너리 생성
+        self._charmed = {
+            'guard': stolen,
+            'caster_is_top': caster_is_top,
+            'stolen_from_top': not caster_is_top,
+            'x': 380.0,
+            'y': TOP_PADDLE_Y if caster_is_top else BOTTOM_PADDLE_Y,
+            'phase': 'pulling',  # pulling → patrolling → done
+            'cooldown': saved_cooldown,  # 쿨타임 이어받기!
+            'cooldown_max': saved_cooldown,
+            'patrol_target': None,
+            'patrol_wait': 0.0,
+            'patrol_speed': 140.0,
+            'skill': None,
+        }
+
+        game_state['_charmed_guard'] = stolen
+        game_state['_charm_caster_is_top'] = caster_is_top
+        print(f"[Charm] 견인 시작! {stolen['name']}을(를) 빼앗음 (쿨타임 {saved_cooldown:.1f}초 이어받기)")
 
     def _charm_activate_guard(self, game_state, caster_is_top):
-        """Phase 'active': 견인 완료, 매혹된 호위무사를 아군으로 순찰 등장"""
-        stolen = game_state.get('_charmed_guard', None)
-        if not stolen:
+        """Phase 'active': 견인 완료, 매혹 호위무사 독립 순찰 시작"""
+        if not self._charmed:
             return
 
-        # 아군 리스트에 추가
-        if caster_is_top:
-            ally_guards = self.guard_warriors_top
-        else:
-            ally_guards = self.guard_warriors_bottom
-        ally_guards.append(stolen)
+        guard = self._charmed['guard']
 
-        # 아군 순찰 모드 활성화 (즉시 등장)
+        # 순찰 위치 설정 (시전자 진영)
         if caster_is_top:
-            self.patrol_mode_top = True
-            self.next_guard_top_idx = len(ally_guards) - 1
-            self._spawn_patrol_guard(is_top=True)
+            self._charmed['y'] = TOP_PADDLE_Y
         else:
-            self.patrol_mode_bottom = True
-            self.next_guard_bottom_idx = len(ally_guards) - 1
-            self._spawn_patrol_guard(is_top=False)
+            self._charmed['y'] = BOTTOM_PADDLE_Y
+        self._charmed['x'] = random.uniform(GAME_AREA_X + 80, GAME_AREA_X + GAME_AREA_WIDTH - 80)
+        self._charmed['phase'] = 'patrolling'
+
+        # 스킬 인스턴스 준비
+        skills = self.skill_instances.get(guard["id"], [])
+        if skills:
+            self._charmed['skill'] = random.choice(skills)
 
         self._init_guard_skills()
-        print(f"[Charm] 매혹 활성! {stolen['name']}이(가) {'상단' if caster_is_top else '하단'}에서 아군으로 순찰 시작")
+        print(f"[Charm] 매혹 활성! {guard['name']}이(가) {'상단' if caster_is_top else '하단'}에서 독립 순찰 시작")
 
     def _charm_start_return(self, game_state, caster_is_top):
-        """Phase 'returning': 매혹 해제, 아군에서 제거 후 복귀 애니메이션 대기"""
-        stolen = game_state.get('_charmed_guard', None)
-        if not stolen:
+        """Phase 'returning': 매혹 해제, 복귀 애니메이션 시작"""
+        if not self._charmed:
+            return
+        self._charmed['phase'] = 'returning'
+        print(f"[Charm] 매혹 해제! {self._charmed['guard']['name']} 복귀 중...")
+
+    def _charm_return_to_enemy(self, game_state):
+        """매혹 완전 종료: 상대 진영 복귀, 활성 호위무사 재순찰"""
+        if not self._charmed:
             return
 
-        # 아군 리스트에서 제거
-        if caster_is_top:
-            ally_guards = self.guard_warriors_top
+        guard = self._charmed['guard']
+        stolen_from_top = self._charmed['stolen_from_top']
+
+        # 상대 호위무사를 다시 순찰 시작시킴 (리스트에 이미 있으므로 spawn만)
+        if stolen_from_top:
+            enemy_guards = self.guard_warriors_top
+            self.patrol_mode_top = True
+            if not self.active_top or self.phase_top is None:
+                for i, g in enumerate(enemy_guards):
+                    if g.get("id") == guard.get("id"):
+                        self.next_guard_top_idx = i
+                        break
+                self._spawn_patrol_guard(is_top=True)
         else:
-            ally_guards = self.guard_warriors_bottom
+            enemy_guards = self.guard_warriors_bottom
+            self.patrol_mode_bottom = True
+            if not self.active_bottom or self.phase_bottom is None:
+                for i, g in enumerate(enemy_guards):
+                    if g.get("id") == guard.get("id"):
+                        self.next_guard_bottom_idx = i
+                        break
+                self._spawn_patrol_guard(is_top=False)
 
-        for i, g in enumerate(ally_guards):
-            if g.get("id") == stolen.get("id"):
-                ally_guards.pop(i)
-                break
+        print(f"[Charm] 매혹 종료! {guard['name']} 원래 진영으로 완전 복귀")
 
-        # 아군측 순찰 정리 (활성 호위무사였다면 해제)
-        if caster_is_top:
-            if self.active_top and self.active_top.get("id") == stolen.get("id"):
-                self.active_top = None
-                self.phase_top = None
-            if not self.guard_warriors_top:
-                self.patrol_mode_top = False
-        else:
-            if self.active_bottom and self.active_bottom.get("id") == stolen.get("id"):
-                self.active_bottom = None
-                self.phase_bottom = None
-            if not self.guard_warriors_bottom:
-                self.patrol_mode_bottom = False
-
-        self._init_guard_skills()
-        print(f"[Charm] 매혹 해제! {stolen['name']} 복귀 애니메이션 중...")
-
-    def _charm_do_return_guard(self, game_state, caster_is_top):
-        """Phase 'returned': 복귀 완료, 상대 리스트에 재등록"""
-        stolen = game_state.pop('_charmed_guard', None)
-        stolen_from_top = game_state.pop('_charm_stolen_from_top', None)
+        # 독립 추적 해제
+        self._charmed = None
+        game_state.pop('_charmed_guard', None)
         game_state.pop('_charm_caster_is_top', None)
         game_state.pop('_charmed_guard_pos', None)
         game_state.pop('charm_active', None)
+        self._init_guard_skills()
 
-        if not stolen:
+    def _update_charmed_guard(self, dt, top_paddle, bottom_paddle, ball):
+        """매혹된 호위무사 독립 업데이트 (순찰 + 스킬 시전)"""
+        if not self._charmed or self._charmed['phase'] != 'patrolling':
             return
 
-        # 이미 아군 리스트에서 제거된 상태이므로 상대에게만 돌려줌
-        if stolen_from_top is not None:
-            if stolen_from_top:
-                enemy_guards = self.guard_warriors_top
-            else:
-                enemy_guards = self.guard_warriors_bottom
+        c = self._charmed
+        left_bound = GAME_AREA_X + 40
+        right_bound = GAME_AREA_X + GAME_AREA_WIDTH - 40
+
+        # 순찰 이동 (기존 호위무사와 동일한 패턴)
+        if c['patrol_wait'] > 0:
+            c['patrol_wait'] -= dt
         else:
-            # 폴백: caster_is_top 기반
+            if c['patrol_target'] is None:
+                c['patrol_target'] = random.uniform(left_bound + 20, right_bound - 20)
+                c['patrol_speed'] = random.uniform(110.0, 180.0)
+
+            diff = c['patrol_target'] - c['x']
+            if abs(diff) < 3.0:
+                c['x'] = c['patrol_target']
+                c['patrol_target'] = None
+                c['patrol_wait'] = random.uniform(0.4, 1.5)
+            else:
+                direction = 1 if diff > 0 else -1
+                c['x'] += direction * c['patrol_speed'] * dt
+                c['x'] = max(left_bound, min(c['x'], right_bound))
+
+        # 이동 애니메이션
+        guard = c['guard']
+        if guard and self.hero_paddle_renderer:
+            self.hero_paddle_renderer.update_movement(guard["id"], c['x'], dt)
+
+        # 쿨타임 감소 → 스킬 시전
+        c['cooldown'] -= dt
+        if c['cooldown'] <= 0:
+            self._charmed_trigger_skill(top_paddle, bottom_paddle, ball)
+
+    def _charmed_trigger_skill(self, top_paddle, bottom_paddle, ball):
+        """매혹된 호위무사가 상대를 향해 스킬 사용"""
+        if not self._charmed:
+            return
+
+        c = self._charmed
+        guard = c['guard']
+        caster_is_top = c['caster_is_top']
+
+        # 스킬 선택
+        skills = self.skill_instances.get(guard["id"], [])
+        if not skills:
+            c['cooldown'] = 8.0
+            return
+        skill = random.choice(skills)
+        c['skill'] = skill
+
+        game_state = self.skill_manager.game_state if self.skill_manager else {}
+
+        # 호위무사 위치의 가상 패들을 caster로 사용
+        guard_paddle = self._make_guard_paddle(caster_is_top)
+        guard_paddle.x = int(c['x']) - guard_paddle.width // 2
+        guard_paddle.centerx = int(c['x'])
+        guard_paddle.y = int(c['y'])
+        guard_paddle.centery = int(c['y']) + guard_paddle.height // 2
+
+        # 매혹 호위무사가 caster 편으로 싸우므로, caster의 상대를 타겟으로
+        target_paddle = bottom_paddle if caster_is_top else top_paddle
+
+        skill.caster_is_top = caster_is_top
+        skill.current_cooldown = 0
+        if skill.is_active:
+            try:
+                skill._end_effect(guard_paddle, target_paddle, ball, game_state)
+            except Exception:
+                pass
+            skill.is_active = False
+
+        caster_prefix = 'top_paddle' if caster_is_top else 'bottom_paddle'
+        saved = self._save_caster_state(game_state, caster_prefix)
+        result = skill.use(guard_paddle, target_paddle, ball, game_state)
+        self._restore_caster_state(game_state, caster_prefix, saved)
+
+        # 사운드 + 말풍선
+        if result:
+            self._apply_skill_result(result, caster_is_top)
+            bubble = self._bubble_top if caster_is_top else self._bubble_bottom
+            if bubble is not None:
+                pass  # 별도 처리 없음
+            # 말풍선 표시
+            guard_color = guard.get("color", (200, 200, 200))
             if caster_is_top:
-                enemy_guards = self.guard_warriors_bottom
+                self._bubble_top = {'text': skill.korean_name, 'timer': 1.2,
+                                    'x': c['x'], 'y': c['y'], 'color': guard_color}
             else:
-                enemy_guards = self.guard_warriors_top
+                self._bubble_bottom = {'text': skill.korean_name, 'timer': 1.2,
+                                       'x': c['x'], 'y': c['y'], 'color': guard_color}
 
-        # 이미 리스트에 있는지 중복 체크
-        existing_ids = {g.get("id") for g in enemy_guards}
-        if stolen.get("id") not in existing_ids:
-            enemy_guards.append(stolen)
+        # 다음 쿨타임 설정
+        cd_mult = self.guard_cd_mult_top if caster_is_top else self.guard_cd_mult_bottom
+        base_cd = self._get_guard_cooldown(guard["id"])
+        c['cooldown'] = base_cd * cd_mult
+        c['cooldown_max'] = c['cooldown']
 
-        # 상대 순찰 모드 복원
-        if stolen_from_top is not None:
-            is_top_restore = stolen_from_top
-        else:
-            is_top_restore = not caster_is_top
+        print(f"[Charm] 매혹 호위무사 {guard['name']} → {skill.korean_name} 발동!")
 
-        if is_top_restore:
-            self.patrol_mode_top = True
-            if not self.active_top or self.phase_top is None:
-                self.next_guard_top_idx = len(self.guard_warriors_top) - 1
-                self._spawn_patrol_guard(is_top=True)
-        else:
-            self.patrol_mode_bottom = True
-            if not self.active_bottom or self.phase_bottom is None:
-                self.next_guard_bottom_idx = len(self.guard_warriors_bottom) - 1
-                self._spawn_patrol_guard(is_top=False)
-
-        self._init_guard_skills()
-        print(f"[Charm] 매혹 종료! {stolen['name']} 원래 진영으로 완전 복귀")
+    def _draw_charmed_guard(self, screen, shake_x, shake_y):
+        """매혹된 호위무사 독립 렌더링"""
+        if not self._charmed:
+            return
+        c = self._charmed
+        if c['phase'] not in ('patrolling',):
+            return  # pulling/returning은 Charm 스킬의 draw에서 처리
+        self._draw_guard(screen, c['guard'],
+                         c['x'] + shake_x, c['y'] + shake_y,
+                         is_top=c['caster_is_top'])
 
     def _spawn_patrol_guard(self, is_top):
         """호위무사를 즉시 순찰 등장시킴"""
@@ -2211,6 +2276,18 @@ class GuardWarriorSystem:
             return
         idx = (self.next_guard_top_idx if is_top else self.next_guard_bottom_idx) % len(guards)
         guard = guards[idx]
+
+        # 매혹으로 빼앗긴 호위무사는 스킵
+        if self._charmed and self._charmed['guard'].get("id") == guard.get("id"):
+            # 다른 호위무사가 있으면 그걸로
+            for i, g in enumerate(guards):
+                if g.get("id") != guard.get("id"):
+                    guard = g
+                    idx = i
+                    break
+            else:
+                return  # 모든 호위무사가 빼앗겨서 소환 불가
+
         if is_top:
             self.active_top = guard
             self.phase_top = "patrol_entering"
@@ -2254,6 +2331,7 @@ class GuardWarriorSystem:
 
         # === 매혹 (Charm) 스킬 처리 ===
         self._handle_charm_requests(game_state)
+        self._update_charmed_guard(dt, top_paddle, bottom_paddle, ball)
 
         # 🔥 호위무사 귀신발걸음 공 충돌 감지 (1회 발동당 3회까지)
         if self._guard_ball_cooldown > 0:
@@ -2267,12 +2345,22 @@ class GuardWarriorSystem:
 
         # 활성 호위무사 스킬 이펙트 업데이트 (호위무사 위치 기반)
         for hero_id, skills in self.skill_instances.items():
-            # 이 호위무사가 어느 쪽인지 판별
-            is_top_guard = any(g["id"] == hero_id for g in self.guard_warriors_top)
+            # 매혹된 호위무사는 원래 진영이 아닌 caster 편으로 동작
+            if self._charmed and self._charmed['guard'].get("id") == hero_id:
+                is_top_guard = self._charmed['caster_is_top']
+            else:
+                # 이 호위무사가 어느 쪽인지 판별
+                is_top_guard = any(g["id"] == hero_id for g in self.guard_warriors_top)
             # 호위무사 가상 패들 사용 (저장된 위치)
             guard_paddle = self.guard_paddles.get(hero_id)
             if guard_paddle is None:
                 guard_paddle = top_paddle if is_top_guard else bottom_paddle
+            # 매혹 호위무사: 가상 패들 위치를 charmed 좌표로 갱신
+            if self._charmed and self._charmed['guard'].get("id") == hero_id and guard_paddle:
+                guard_paddle.x = int(self._charmed['x']) - guard_paddle.width // 2
+                guard_paddle.centerx = int(self._charmed['x'])
+                guard_paddle.y = int(self._charmed['y'])
+                guard_paddle.centery = int(self._charmed['y']) + guard_paddle.height // 2
             target = bottom_paddle if is_top_guard else top_paddle
             for skill in skills:
                 if skill.is_active:
@@ -2418,6 +2506,28 @@ class GuardWarriorSystem:
             idx = self.next_guard_bottom_idx % len(guards)
             guard = guards[idx]
             self.next_guard_bottom_idx = random.randint(0, len(guards) - 1)
+
+        # 매혹으로 빼앗긴 호위무사는 스킵
+        if self._charmed and self._charmed['guard'].get("id") == guard.get("id"):
+            for i, g in enumerate(guards):
+                if g.get("id") != guard.get("id"):
+                    guard = g
+                    if is_top:
+                        self.next_guard_top_idx = i
+                    else:
+                        self.next_guard_bottom_idx = i
+                    break
+            else:
+                # 모든 호위무사가 매혹 중 → 쿨타임만 재설정
+                cd_mult = self.guard_cd_mult_top if is_top else self.guard_cd_mult_bottom
+                next_cd = random.uniform(*self.cooldown_range) * cd_mult
+                if is_top:
+                    self.cooldown_top = next_cd
+                    self.cooldown_max_top = next_cd
+                else:
+                    self.cooldown_bottom = next_cd
+                    self.cooldown_max_bottom = next_cd
+                return
 
         # 스킬 2개 중 1개 랜덤 선택
         skills = self.skill_instances.get(guard["id"], [])
@@ -2740,11 +2850,26 @@ class GuardWarriorSystem:
             # 현재 호위무사와 다른 호위무사를 선택
             current_guard = self.active_top if is_top else self.active_bottom
             current_id = current_guard["id"] if current_guard else None
+            charmed_id = self._charmed['guard'].get("id") if self._charmed else None
             next_idx = (self.next_guard_top_idx if is_top else self.next_guard_bottom_idx) % len(guards)
             next_guard = guards[next_idx]
-            if next_guard.get("id") == current_id:
-                next_idx = (next_idx + 1) % len(guards)
-                next_guard = guards[next_idx]
+            if next_guard.get("id") == current_id or next_guard.get("id") == charmed_id:
+                found = False
+                for offset in range(1, len(guards)):
+                    candidate_idx = (next_idx + offset) % len(guards)
+                    candidate = guards[candidate_idx]
+                    if candidate.get("id") != current_id and candidate.get("id") != charmed_id:
+                        next_idx = candidate_idx
+                        next_guard = candidate
+                        found = True
+                        break
+                if not found:
+                    # 교대 가능한 호위무사 없음 → 현재 호위무사가 순찰 유지
+                    if is_top:
+                        self.phase_top = "patrolling"
+                    else:
+                        self.phase_bottom = "patrolling"
+                    return
             new_next = random.randint(0, len(guards) - 1)
             if is_top:
                 self.next_guard_top_idx = new_next
@@ -2887,12 +3012,22 @@ class GuardWarriorSystem:
             # 현재 호위무사와 다른 호위무사를 선택
             current_guard = self.active_top if is_top else self.active_bottom
             current_id = current_guard["id"] if current_guard else None
-            # next_guard_idx에서 시작하되, 현재와 다른 호위무사를 찾음
+            charmed_id = self._charmed['guard'].get("id") if self._charmed else None
+            # next_guard_idx에서 시작하되, 현재/매혹 중인 호위무사를 건너뜀
             next_idx = (self.next_guard_top_idx if is_top else self.next_guard_bottom_idx) % len(guards)
             next_guard = guards[next_idx]
-            if next_guard.get("id") == current_id:
-                next_idx = (next_idx + 1) % len(guards)
-                next_guard = guards[next_idx]
+            if next_guard.get("id") == current_id or next_guard.get("id") == charmed_id:
+                found = False
+                for offset in range(1, len(guards)):
+                    candidate_idx = (next_idx + offset) % len(guards)
+                    candidate = guards[candidate_idx]
+                    if candidate.get("id") != current_id and candidate.get("id") != charmed_id:
+                        next_idx = candidate_idx
+                        next_guard = candidate
+                        found = True
+                        break
+                if not found:
+                    return  # 교대 가능한 호위무사 없음
             # 다음 인덱스 갱신
             new_next = random.randint(0, len(guards) - 1)
             if is_top:
@@ -3290,7 +3425,11 @@ class GuardWarriorSystem:
 
         # 호위무사 스킬 이펙트 그리기 (호위무사 위치 기반)
         for hero_id, skills in self.skill_instances.items():
-            is_top_guard = any(g["id"] == hero_id for g in self.guard_warriors_top)
+            # 매혹된 호위무사는 caster 편으로 동작
+            if self._charmed and self._charmed['guard'].get("id") == hero_id:
+                is_top_guard = self._charmed['caster_is_top']
+            else:
+                is_top_guard = any(g["id"] == hero_id for g in self.guard_warriors_top)
             guard_paddle = self.guard_paddles.get(hero_id)
             if guard_paddle is None:
                 guard_paddle = top_paddle if is_top_guard else bottom_paddle
@@ -3324,6 +3463,9 @@ class GuardWarriorSystem:
                 self._draw_guard(screen, self.active_bottom,
                                  self.x_bottom + shake_x, self.y_bottom + shake_y,
                                  is_top=False)
+
+        # === 매혹 순찰 중 호위무사 렌더링 ===
+        self._draw_charmed_guard(screen, shake_x, shake_y)
 
         # === 매혹 견인/복귀 중 호위무사 렌더링 ===
         self._draw_charm_transitioning_guard(screen, game_state, shake_x, shake_y)
@@ -3936,6 +4078,8 @@ class GuardWarriorSystem:
         # 교대 대기열 초기화
         self._pending_swap_top = None
         self._pending_swap_bottom = None
+        # 매혹 호위무사 초기화
+        self._charmed = None
 
         # 스킬 인스턴스 정리
         game_state = self.skill_manager.game_state if self.skill_manager else {}
@@ -4538,6 +4682,12 @@ class ColosseumsArena:
         self.hero_selected_skills = {}
         for hero in all_heroes:
             self.hero_selected_skills[hero["id"]] = local_rng.randint(0, 1)
+
+        # [DEBUG] 스킬 배정 통계 로그
+        a_count = sum(1 for v in self.hero_selected_skills.values() if v == 0)
+        b_count = sum(1 for v in self.hero_selected_skills.values() if v == 1)
+        _detail = ', '.join(k + ':' + ('A' if v == 0 else 'B') for k, v in self.hero_selected_skills.items())
+        print(f"[DEBUG 스킬배정] 이번 대진표: A={a_count}명, B={b_count}명 | 상세: {{{_detail}}}")
 
     def _advance_to_next_round(self):
         """다음 라운드 진출"""
@@ -5573,6 +5723,15 @@ class ColosseumsArena:
                     self.skill_reveal_target = chosen_hero["id"]
                     self.skill_reveal_result = self.player_hero_skill_index
                     self._skill_reveal_last_tick_idx = -1
+                    # [DEBUG] 영웅 스킬 선택 결과
+                    _sk_label = "A(왼쪽)" if self.player_hero_skill_index == 0 else "B(오른쪽)"
+                    if not hasattr(ColosseumsArena, '_debug_skill_stats'):
+                        ColosseumsArena._debug_skill_stats = {"hero_A": 0, "hero_B": 0, "guard_A": 0, "guard_B": 0}
+                    ColosseumsArena._debug_skill_stats["hero_A" if self.player_hero_skill_index == 0 else "hero_B"] += 1
+                    _st = ColosseumsArena._debug_skill_stats
+                    print(f"[DEBUG 스킬결과] 영웅 {chosen_hero['name']} → 스킬 {_sk_label} 확정! "
+                          f"| 누적 영웅: A={_st['hero_A']}회 B={_st['hero_B']}회 "
+                          f"| 누적 호위: A={_st['guard_A']}회 B={_st['guard_B']}회")
             elif anim_phase == "skill_rolling":
                 self.skill_reveal_timer += dt
                 if self.skill_reveal_phase == "rolling" and self.skill_reveal_timer >= 3.5:
@@ -5632,6 +5791,15 @@ class ColosseumsArena:
                     self.skill_reveal_target = guard_hero["id"]
                     self.skill_reveal_result = self.player_guard_skill_index
                     self._skill_reveal_last_tick_idx = -1
+                    # [DEBUG] 호위무사 스킬 선택 결과
+                    _gk_label = "A(왼쪽)" if self.player_guard_skill_index == 0 else "B(오른쪽)"
+                    if not hasattr(ColosseumsArena, '_debug_skill_stats'):
+                        ColosseumsArena._debug_skill_stats = {"hero_A": 0, "hero_B": 0, "guard_A": 0, "guard_B": 0}
+                    ColosseumsArena._debug_skill_stats["guard_A" if self.player_guard_skill_index == 0 else "guard_B"] += 1
+                    _st = ColosseumsArena._debug_skill_stats
+                    print(f"[DEBUG 스킬결과] 호위무사 {guard_hero['name']} → 스킬 {_gk_label} 확정! "
+                          f"| 누적 영웅: A={_st['hero_A']}회 B={_st['hero_B']}회 "
+                          f"| 누적 호위: A={_st['guard_A']}회 B={_st['guard_B']}회")
                 elif opening_phase == "skill_rolling":
                     self.skill_reveal_timer += dt
                     if self.skill_reveal_phase == "rolling" and self.skill_reveal_timer >= 3.5:

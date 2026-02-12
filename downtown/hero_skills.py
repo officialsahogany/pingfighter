@@ -7476,6 +7476,24 @@ class Charm(HeroSkill):
         return True
 
     # ------------------------------------------------------------------
+    #  update (오버라이드: 복귀 페이즈에서 is_active가 꺼지는 것을 방지)
+    # ------------------------------------------------------------------
+    def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        # 쿨타임 감소 (base 로직 동일)
+        if self.current_cooldown > 0:
+            self.current_cooldown -= dt
+
+        if self.is_active:
+            self.active_timer -= dt
+            self._update_active_effect(dt, caster_paddle, target_paddle, ball, game_state)
+            if self.active_timer <= 0:
+                self._end_effect(caster_paddle, target_paddle, ball, game_state)
+                # _end_effect에서 returning 페이즈로 전환하며
+                # is_active=True, active_timer=1.0을 설정할 수 있음 → 그때는 꺼지면 안됨
+                if self.charm_phase != "returning":
+                    self.is_active = False
+
+    # ------------------------------------------------------------------
     #  _apply_effect  (Phase 1 시작)
     # ------------------------------------------------------------------
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
