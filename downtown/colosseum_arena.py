@@ -1777,9 +1777,10 @@ class GuardWarriorSystem:
         self._bubble_bottom = None
         self._bubble_duration = 2.0  # 말풍선 표시 시간 (초)
 
-        # 호위무사 교대 대기열 (2명 이상일 때 퇴장→입장 교대용)
-        self._pending_swap_top = None     # {"guard": hero_dict, "skill": skill_instance}
-        self._pending_swap_bottom = None
+        # 2번째 호위무사 독립 순찰 (재소집령 등으로 2명일 때)
+        # 구조: _charmed 와 동일 - {'guard': hero_dict, 'x': float, 'y': float, ...}
+        self._patrol2_top = None
+        self._patrol2_bottom = None
 
         # 순찰 모드: 호위무사가 진영에 상주하며 순찰 (기본 동작)
         self.patrol_mode_top = False
@@ -1846,6 +1847,10 @@ class GuardWarriorSystem:
         if self.guard_warriors_bottom:
             self.patrol_mode_bottom = True
 
+        # 2번째 호위무사 초기화 (2명 이상일 때)
+        self._patrol2_top = None
+        self._patrol2_bottom = None
+
         guard_names_top = [g["name"] for g in self.guard_warriors_top]
         guard_names_bottom = [g["name"] for g in self.guard_warriors_bottom]
         print(f"[Guard] 호위무사 설정 완료 | 상단: {guard_names_top} | 하단: {guard_names_bottom}")
@@ -1857,6 +1862,7 @@ class GuardWarriorSystem:
         """호위무사 순찰 모드 시작 - 짧은 딜레이 후 입장 애니메이션으로 등장
         - 공 생성 애니메이션 후 2초 뒤 좌/우에서 걸어 들어옴
         - 입장 완료 후 바로 순찰 모드 진입 (시전 단계 없이)
+        - 2명 이상이면 2번째 호위무사도 독립 순찰로 동시 등장
         """
         if self.patrol_mode_top and self.guard_warriors_top:
             idx = self.next_guard_top_idx % len(self.guard_warriors_top)
@@ -1879,6 +1885,10 @@ class GuardWarriorSystem:
                 self.next_guard_top_idx = random.randint(0, len(self.guard_warriors_top) - 1)
             print(f"[Guard] 상단측 호위무사 {guard['name']} 순찰 등장 예약! ({self.PATROL_ENTRY_DELAY}초 후 입장)")
 
+            # 2번째 호위무사 동시 등장 (2명 이상일 때)
+            if len(self.guard_warriors_top) > 1:
+                self._activate_patrol2(is_top=True, exclude_guard=guard)
+
         if self.patrol_mode_bottom and self.guard_warriors_bottom:
             idx = self.next_guard_bottom_idx % len(self.guard_warriors_bottom)
             guard = self.guard_warriors_bottom[idx]
@@ -1897,6 +1907,10 @@ class GuardWarriorSystem:
             if len(self.guard_warriors_bottom) > 1:
                 self.next_guard_bottom_idx = random.randint(0, len(self.guard_warriors_bottom) - 1)
             print(f"[Guard] 하단측 호위무사 {guard['name']} 순찰 등장 예약! ({self.PATROL_ENTRY_DELAY}초 후 입장)")
+
+            # 2번째 호위무사 동시 등장 (2명 이상일 때)
+            if len(self.guard_warriors_bottom) > 1:
+                self._activate_patrol2(is_top=False, exclude_guard=guard)
 
     def _init_guard_skills(self):
         """호위무사 전용 스킬 인스턴스 생성 (메인 스킬과 독립, 스킬 선택 반영)"""
@@ -2326,6 +2340,244 @@ class GuardWarriorSystem:
                          c['x'] + shake_x, c['y'] + shake_y,
                          is_top=c['caster_is_top'])
 
+    # === 2번째 호위무사 독립 순찰 시스템 (재소집령 등) ===
+
+    def _activate_patrol2(self, is_top, exclude_guard=None):
+        """2번째 호위무사를 독립 순찰로 활성화
+
+        Args:
+            is_top: True=상단측, False=하단측
+            exclude_guard: 1번 호위무사 (중복 방지)
+        """
+        guards = self.guard_warriors_top if is_top else self.guard_warriors_bottom
+        if len(guards) < 2:
+            return
+
+        # exclude_guard와 다른 호위무사 선택
+        exclude_id = exclude_guard["id"] if exclude_guard else None
+        guard2 = None
+        for g in guards:
+            if g["id"] != exclude_id:
+                guard2 = g
+                break
+        if not guard2:
+            return
+
+        # 스킬 선택
+        skills = self.skill_instances.get(guard2["id"], [])
+        skill = random.choice(skills) if skills else None
+
+        # 쿨타임 설정
+        cd_mult = self.guard_cd_mult_top if is_top else self.guard_cd_mult_bottom
+        base_cd = self._get_guard_cooldown(guard2["id"])
+        initial_cd = base_cd * cd_mult + self.PATROL_ENTRY_DELAY + GUARD_ENTER_DURATION + random.uniform(3.0, 6.0)
+
+        # 반대편에서 등장 (1번 호위무사와 반대 방향)
+        side1 = self.side_top if is_top else self.side_bottom
+        side2 = "right" if side1 == "left" else "left"
+        start_x = (GAME_AREA_X - 60) if side2 == "left" else (GAME_AREA_X + GAME_AREA_WIDTH + 60)
+
+        p2 = {
+            'guard': guard2,
+            'is_top': is_top,
+            'x': float(start_x),
+            'y': float(TOP_PADDLE_Y if is_top else BOTTOM_PADDLE_Y),
+            'phase': 'patrol_entering',  # patrol_entering → entering → patrolling
+            'anim_timer': 0.0,
+            'side': side2,
+            'cooldown': initial_cd,
+            'cooldown_max': initial_cd,
+            'skill': skill,
+            'patrol_target': None,
+            'patrol_wait': 0.0,
+            'patrol_speed': random.uniform(110.0, 180.0),
+        }
+
+        if is_top:
+            self._patrol2_top = p2
+        else:
+            self._patrol2_bottom = p2
+        print(f"[Guard] {'상단' if is_top else '하단'}측 2번째 호위무사 {guard2['name']} "
+              f"독립 순찰 등장 예약! ({self.PATROL_ENTRY_DELAY + random.uniform(3.0, 6.0):.1f}초 후)")
+
+    def _update_patrol2(self, dt, is_top, top_paddle, bottom_paddle, ball):
+        """2번째 호위무사 독립 업데이트 (순찰 + 스킬 시전)"""
+        p2 = self._patrol2_top if is_top else self._patrol2_bottom
+        if not p2:
+            return
+
+        phase = p2['phase']
+        p2['anim_timer'] += dt
+
+        # === patrol_entering: 딜레이 대기 → 입장 애니메이션 ===
+        if phase == 'patrol_entering':
+            p2['cooldown'] -= dt
+            if p2['anim_timer'] < self.PATROL_ENTRY_DELAY:
+                return  # 딜레이 대기 중
+
+            # 입장 애니메이션
+            enter_timer = p2['anim_timer'] - self.PATROL_ENTRY_DELAY
+            progress = min(1.0, enter_timer / GUARD_ENTER_DURATION)
+            eased = self._ease_in_out(progress)
+
+            # 첫 프레임에서 목표 X 결정
+            if '_enter_target_x' not in p2:
+                p2['_enter_target_x'] = GAME_AREA_X + GAME_AREA_WIDTH // 2 + random.uniform(-80, 80)
+            start_x = (GAME_AREA_X - 60) if p2['side'] == "left" else (GAME_AREA_X + GAME_AREA_WIDTH + 60)
+            target_x = p2['_enter_target_x']
+            p2['x'] = start_x + (target_x - start_x) * eased
+
+            # 이동 애니메이션
+            guard = p2['guard']
+            if guard and self.hero_paddle_renderer:
+                self.hero_paddle_renderer.update_movement(guard["id"], p2['x'], dt)
+
+            if progress >= 1.0:
+                p2['phase'] = 'patrolling'
+                p2['anim_timer'] = 0.0
+                print(f"[Guard] {'상단' if is_top else '하단'}측 2번째 호위무사 {guard['name']} 순찰 시작!")
+            return
+
+        # === patrolling: 순찰 + 쿨타임 ===
+        if phase == 'patrolling':
+            self._update_patrol2_movement(dt, p2)
+
+            # 쿨타임 감소 → 스킬 시전
+            p2['cooldown'] -= dt
+            if p2['cooldown'] <= 0:
+                self._patrol2_trigger_skill(is_top, top_paddle, bottom_paddle, ball)
+            return
+
+        # === casting: 스킬 시전 중 (지속 시간 후 순찰 복귀) ===
+        if phase == 'casting':
+            if p2['anim_timer'] >= GUARD_CAST_DURATION:
+                p2['phase'] = 'patrolling'
+                p2['anim_timer'] = 0.0
+                p2['y'] = float(TOP_PADDLE_Y if is_top else BOTTOM_PADDLE_Y)
+
+    def _update_patrol2_movement(self, dt, p2):
+        """2번째 호위무사 순찰 이동 (랜덤 패턴)"""
+        left_bound = GAME_AREA_X + 40
+        right_bound = GAME_AREA_X + GAME_AREA_WIDTH - 40
+
+        if p2['patrol_wait'] > 0:
+            p2['patrol_wait'] -= dt
+            # 대기 중 이동 애니메이션
+            guard = p2['guard']
+            if guard and self.hero_paddle_renderer:
+                self.hero_paddle_renderer.update_movement(guard["id"], p2['x'], dt)
+            return
+
+        if p2['patrol_target'] is None:
+            p2['patrol_target'] = random.uniform(left_bound + 20, right_bound - 20)
+            p2['patrol_speed'] = random.uniform(110.0, 180.0)
+
+        diff = p2['patrol_target'] - p2['x']
+        if abs(diff) < 3.0:
+            p2['x'] = p2['patrol_target']
+            p2['patrol_target'] = None
+            p2['patrol_wait'] = random.uniform(0.4, 1.5)
+        else:
+            direction = 1 if diff > 0 else -1
+            p2['x'] += direction * p2['patrol_speed'] * dt
+            p2['x'] = max(left_bound, min(p2['x'], right_bound))
+
+        guard = p2['guard']
+        if guard and self.hero_paddle_renderer:
+            self.hero_paddle_renderer.update_movement(guard["id"], p2['x'], dt)
+
+    def _patrol2_trigger_skill(self, is_top, top_paddle, bottom_paddle, ball):
+        """2번째 호위무사 스킬 발동"""
+        p2 = self._patrol2_top if is_top else self._patrol2_bottom
+        if not p2:
+            return
+
+        guard = p2['guard']
+        skills = self.skill_instances.get(guard["id"], [])
+        if not skills:
+            p2['cooldown'] = 8.0
+            return
+        skill = random.choice(skills)
+        p2['skill'] = skill
+
+        game_state = self.skill_manager.game_state if self.skill_manager else {}
+
+        # 가상 패들 생성
+        gp = _GuardPaddle(p2['x'], p2['y'], is_top)
+        gp.x = int(p2['x']) - gp.width // 2
+        gp.centerx = int(p2['x'])
+        gp.y = int(p2['y'])
+        gp.centery = int(p2['y']) + gp.height // 2
+        self.guard_paddles[guard["id"]] = gp
+
+        target_paddle = bottom_paddle if is_top else top_paddle
+
+        skill.caster_is_top = is_top
+        skill.current_cooldown = 0
+        if skill.is_active:
+            try:
+                skill._end_effect(gp, target_paddle, ball, game_state)
+            except Exception:
+                pass
+            skill.is_active = False
+
+        caster_prefix = 'top_paddle' if is_top else 'bottom_paddle'
+        saved = self._save_caster_state(game_state, caster_prefix)
+        result = skill.use(gp, target_paddle, ball, game_state)
+        self._restore_caster_state(game_state, caster_prefix, saved)
+
+        if result and not skill.is_active and skill.duration <= 0:
+            skill.is_active = True
+
+        if result:
+            self._play_skill_sound(result)
+            self._apply_status_effects(result, target_paddle)
+            # 글로벌 game_state 키 차단 (메인 영웅에 영향 방지)
+            skill_id = getattr(skill, 'skill_id', '')
+            if skill_id == 'horn_charge':
+                game_state['horn_charge_active'] = False
+            elif skill_id == 'demon_step':
+                game_state['demon_eye_active'] = False
+                game_state.pop('ghost_step_start_top', None)
+                game_state.pop('ghost_step_start_bottom', None)
+            # 말풍선
+            bubble_text = f"{skill.korean_name}!"
+            bubble_color = guard.get("color") or (200, 200, 200)
+            if not isinstance(bubble_color, (tuple, list)) or len(bubble_color) < 3:
+                bubble_color = (200, 200, 200)
+            if is_top:
+                self._bubble_top = {'text': bubble_text, 'timer': self._bubble_duration,
+                                    'x': p2['x'], 'y': p2['y'], 'color': bubble_color}
+            else:
+                self._bubble_bottom = {'text': bubble_text, 'timer': self._bubble_duration,
+                                       'x': p2['x'], 'y': p2['y'], 'color': bubble_color}
+            print(f"[Guard] {'상단' if is_top else '하단'}측 2번째 호위무사 {guard['name']} → {skill.korean_name} 발동!")
+        else:
+            print(f"[Guard] {'상단' if is_top else '하단'}측 2번째 호위무사 {guard['name']} → {skill.korean_name} 발동 실패")
+
+        # 시전 모드 전환
+        p2['phase'] = 'casting'
+        p2['anim_timer'] = 0.0
+
+        # 다음 쿨타임
+        cd_mult = self.guard_cd_mult_top if is_top else self.guard_cd_mult_bottom
+        base_cd = self._get_guard_cooldown(guard["id"])
+        p2['cooldown'] = base_cd * cd_mult
+        p2['cooldown_max'] = p2['cooldown']
+
+    def _draw_patrol2(self, screen, shake_x, shake_y):
+        """2번째 호위무사 렌더링"""
+        for p2 in (self._patrol2_top, self._patrol2_bottom):
+            if not p2:
+                continue
+            phase = p2['phase']
+            # patrol_entering 딜레이 중에는 미표시
+            if phase == 'patrol_entering' and p2['anim_timer'] < self.PATROL_ENTRY_DELAY:
+                continue
+            self._draw_guard(screen, p2['guard'],
+                             p2['x'] + shake_x, p2['y'] + shake_y,
+                             is_top=p2['is_top'])
+
     def _spawn_patrol_guard(self, is_top):
         """호위무사를 즉시 순찰 등장시킴"""
         guards = self.guard_warriors_top if is_top else self.guard_warriors_bottom
@@ -2419,6 +2671,25 @@ class GuardWarriorSystem:
                 guard_paddle.centerx = int(self._charmed['x'])
                 guard_paddle.y = int(self._charmed['y'])
                 guard_paddle.centery = int(self._charmed['y']) + guard_paddle.height // 2
+            # 2번째 순찰 호위무사: 가상 패들 위치를 patrol2 좌표로 갱신
+            elif (self._patrol2_top and self._patrol2_top['guard'].get("id") == hero_id):
+                p2 = self._patrol2_top
+                if guard_paddle is None:
+                    guard_paddle = _GuardPaddle(p2['x'], p2['y'], True)
+                    self.guard_paddles[hero_id] = guard_paddle
+                guard_paddle.x = int(p2['x']) - guard_paddle.width // 2
+                guard_paddle.centerx = int(p2['x'])
+                guard_paddle.y = int(p2['y'])
+                guard_paddle.centery = int(p2['y']) + guard_paddle.height // 2
+            elif (self._patrol2_bottom and self._patrol2_bottom['guard'].get("id") == hero_id):
+                p2 = self._patrol2_bottom
+                if guard_paddle is None:
+                    guard_paddle = _GuardPaddle(p2['x'], p2['y'], False)
+                    self.guard_paddles[hero_id] = guard_paddle
+                guard_paddle.x = int(p2['x']) - guard_paddle.width // 2
+                guard_paddle.centerx = int(p2['x'])
+                guard_paddle.y = int(p2['y'])
+                guard_paddle.centery = int(p2['y']) + guard_paddle.height // 2
             elif guard_paddle is None:
                 guard_paddle = top_paddle if is_top_guard else bottom_paddle
             target = bottom_paddle if is_top_guard else top_paddle
@@ -2435,6 +2706,12 @@ class GuardWarriorSystem:
                         if self._charmed and self._charmed['guard'].get("id") == hero_id:
                             gx = self._charmed['x']
                             gy = self._charmed['y']
+                        elif self._patrol2_top and self._patrol2_top['guard'].get("id") == hero_id:
+                            gx = self._patrol2_top['x']
+                            gy = self._patrol2_top['y']
+                        elif self._patrol2_bottom and self._patrol2_bottom['guard'].get("id") == hero_id:
+                            gx = self._patrol2_bottom['x']
+                            gy = self._patrol2_bottom['y']
                         else:
                             gx = self.x_top if is_top_guard else self.x_bottom
                             gy = self.y_top if is_top_guard else self.y_bottom
@@ -2466,6 +2743,12 @@ class GuardWarriorSystem:
         # 하단측 호위무사 업데이트
         self._update_side(dt, is_top=False, top_paddle=top_paddle,
                           bottom_paddle=bottom_paddle, ball=ball)
+
+        # 2번째 호위무사 독립 순찰 업데이트
+        self._update_patrol2(dt, is_top=True, top_paddle=top_paddle,
+                             bottom_paddle=bottom_paddle, ball=ball)
+        self._update_patrol2(dt, is_top=False, top_paddle=top_paddle,
+                             bottom_paddle=bottom_paddle, ball=ball)
 
     def _update_side(self, dt, is_top, top_paddle, bottom_paddle, ball):
         """한 쪽의 호위무사 업데이트"""
@@ -2835,45 +3118,7 @@ class GuardWarriorSystem:
 
             if progress >= 1.0:
                 patrol_on = self.patrol_mode_top if is_top else self.patrol_mode_bottom
-                pending = self._pending_swap_top if is_top else self._pending_swap_bottom
-
-                if pending and patrol_on:
-                    # 교대 대기: 다음 호위무사 입장 + 스킬 시전
-                    next_guard = pending["guard"]
-                    next_skill = pending["skill"]
-                    # 입장 방향 랜덤
-                    side = random.choice(["left", "right"])
-                    start_x = (GAME_AREA_X - 60) if side == "left" else (GAME_AREA_X + GAME_AREA_WIDTH + 60)
-                    if is_top:
-                        self._pending_swap_top = None
-                        self.active_top = next_guard
-                        self.phase_top = "entering"
-                        self.anim_timer_top = 0.0
-                        self.x_top = start_x
-                        self.y_top = TOP_PADDLE_Y
-                        self.side_top = side
-                        self.selected_skill_top = next_skill
-                        # 쿨타임 설정
-                        cd_mult = self.guard_cd_mult_top
-                        base_cd = self._get_guard_cooldown(next_guard["id"])
-                        self.cooldown_top = base_cd * cd_mult
-                        self.cooldown_max_top = self.cooldown_top
-                    else:
-                        self._pending_swap_bottom = None
-                        self.active_bottom = next_guard
-                        self.phase_bottom = "entering"
-                        self.anim_timer_bottom = 0.0
-                        self.x_bottom = start_x
-                        self.y_bottom = BOTTOM_PADDLE_Y
-                        self.side_bottom = side
-                        self.selected_skill_bottom = next_skill
-                        cd_mult = self.guard_cd_mult_bottom
-                        base_cd = self._get_guard_cooldown(next_guard["id"])
-                        self.cooldown_bottom = base_cd * cd_mult
-                        self.cooldown_max_bottom = self.cooldown_bottom
-                    print(f"[Guard] {'상단' if is_top else '하단'}측 교대 입장: "
-                          f"{next_guard['name']} (스킬: {next_skill.korean_name})")
-                elif patrol_on:
+                if patrol_on:
                     # 순찰모드: 퇴장 대신 진영 내 순찰 시작
                     patrol_x = GAME_AREA_X + GAME_AREA_WIDTH // 2
                     if is_top:
@@ -2889,84 +3134,20 @@ class GuardWarriorSystem:
                 else:
                     # 퇴장 완료 → 초기화
                     if is_top:
-                        self._pending_swap_top = None
                         self.phase_top = None
                         self.active_top = None
                         self.selected_skill_top = None
                         self.y_top = TOP_PADDLE_Y
                     else:
-                        self._pending_swap_bottom = None
                         self.phase_bottom = None
                         self.active_bottom = None
                         self.selected_skill_bottom = None
                         self.y_bottom = BOTTOM_PADDLE_Y
 
     def _transition_after_casting(self, is_top):
-        """시전 완료 후 전환: 순찰/교대/퇴장 판단
-
-        호위무사가 2명 이상이면 현재 호위무사를 퇴장시키고 교대 대기열에 다음 호위무사를 예약.
-        호위무사가 1명이면 바로 순찰 모드로 복귀.
-        """
+        """시전 완료 후 전환: 순찰 복귀 또는 퇴장"""
         patrol_on = self.patrol_mode_top if is_top else self.patrol_mode_bottom
-        guards = self.guard_warriors_top if is_top else self.guard_warriors_bottom
-
-        if patrol_on and len(guards) > 1:
-            # 2명 이상: 교대를 위해 퇴장
-            # 현재 호위무사와 다른 호위무사를 선택
-            current_guard = self.active_top if is_top else self.active_bottom
-            current_id = current_guard["id"] if current_guard else None
-            charmed_id = self._charmed['guard'].get("id") if self._charmed else None
-            next_idx = (self.next_guard_top_idx if is_top else self.next_guard_bottom_idx) % len(guards)
-            next_guard = guards[next_idx]
-            if next_guard.get("id") == current_id or next_guard.get("id") == charmed_id:
-                found = False
-                for offset in range(1, len(guards)):
-                    candidate_idx = (next_idx + offset) % len(guards)
-                    candidate = guards[candidate_idx]
-                    if candidate.get("id") != current_id and candidate.get("id") != charmed_id:
-                        next_idx = candidate_idx
-                        next_guard = candidate
-                        found = True
-                        break
-                if not found:
-                    # 교대 가능한 호위무사 없음 → 현재 호위무사가 순찰 유지
-                    if is_top:
-                        self.phase_top = "patrolling"
-                    else:
-                        self.phase_bottom = "patrolling"
-                    return
-            new_next = random.randint(0, len(guards) - 1)
-            if is_top:
-                self.next_guard_top_idx = new_next
-            else:
-                self.next_guard_bottom_idx = new_next
-
-            # 다음 호위무사의 스킬 선택
-            skills = self.skill_instances.get(next_guard["id"], [])
-            if skills:
-                next_skill = random.choice(skills)
-            else:
-                next_skill = None
-
-            if is_top:
-                self._pending_swap_top = {"guard": next_guard, "skill": next_skill} if next_skill else None
-                self._exit_start_x_top = self.x_top
-                self._exit_start_y_top = float(self.y_top)
-                self.phase_top = "exiting"
-                self.anim_timer_top = 0.0
-                self.y_top = TOP_PADDLE_Y
-            else:
-                self._pending_swap_bottom = {"guard": next_guard, "skill": next_skill} if next_skill else None
-                self._exit_start_x_bottom = self.x_bottom
-                self._exit_start_y_bottom = float(self.y_bottom)
-                self.phase_bottom = "exiting"
-                self.anim_timer_bottom = 0.0
-                self.y_bottom = BOTTOM_PADDLE_Y
-            cur_name = (self.active_top or {}).get("name", "?") if is_top else (self.active_bottom or {}).get("name", "?")
-            print(f"[Guard] {'상단' if is_top else '하단'}측 시전 완료 → 교대 퇴장! "
-                  f"{cur_name} → {next_guard['name']}")
-        elif patrol_on:
-            # 1명: 바로 순찰 복귀
+        if patrol_on:
             if is_top:
                 self.phase_top = "patrolling"
                 self.anim_timer_top = 0.0
@@ -2976,7 +3157,6 @@ class GuardWarriorSystem:
                 self.anim_timer_bottom = 0.0
                 self.y_bottom = BOTTOM_PADDLE_Y
         else:
-            # 순찰 모드 아님: 퇴장
             if is_top:
                 self._exit_start_x_top = self.x_top
                 self._exit_start_y_top = float(self.y_top)
@@ -3062,75 +3242,7 @@ class GuardWarriorSystem:
                     guard["id"], self.x_bottom, dt)
 
     def _trigger_from_patrol(self, is_top, top_paddle, bottom_paddle, ball):
-        """순찰 중 스킬 재시전 (입장 애니메이션 스킵)
-
-        호위무사가 2명 이상이면 다음 호위무사로 교대:
-        - 현재 호위무사를 퇴장시키고
-        - 다음 호위무사가 입장하여 스킬 사용
-        """
-        guards = self.guard_warriors_top if is_top else self.guard_warriors_bottom
-        if not guards:
-            return
-
-        # 호위무사 2명 이상: 교대 (현재 호위무사 퇴장 → 다음 호위무사 입장+시전)
-        if len(guards) > 1:
-            # 현재 호위무사와 다른 호위무사를 선택
-            current_guard = self.active_top if is_top else self.active_bottom
-            current_id = current_guard["id"] if current_guard else None
-            charmed_id = self._charmed['guard'].get("id") if self._charmed else None
-            # next_guard_idx에서 시작하되, 현재/매혹 중인 호위무사를 건너뜀
-            next_idx = (self.next_guard_top_idx if is_top else self.next_guard_bottom_idx) % len(guards)
-            next_guard = guards[next_idx]
-            if next_guard.get("id") == current_id or next_guard.get("id") == charmed_id:
-                found = False
-                for offset in range(1, len(guards)):
-                    candidate_idx = (next_idx + offset) % len(guards)
-                    candidate = guards[candidate_idx]
-                    if candidate.get("id") != current_id and candidate.get("id") != charmed_id:
-                        next_idx = candidate_idx
-                        next_guard = candidate
-                        found = True
-                        break
-                if not found:
-                    return  # 교대 가능한 호위무사 없음
-            # 다음 인덱스 갱신
-            new_next = random.randint(0, len(guards) - 1)
-            if is_top:
-                self.next_guard_top_idx = new_next
-            else:
-                self.next_guard_bottom_idx = new_next
-
-            # 다음 호위무사의 스킬 선택
-            skills = self.skill_instances.get(next_guard["id"], [])
-            if not skills:
-                return
-            skill = random.choice(skills)
-
-            # 현재 호위무사 퇴장 + 다음 호위무사를 대기열에 예약
-            if is_top:
-                self._pending_swap_top = {
-                    "guard": next_guard,
-                    "skill": skill,
-                }
-                self._exit_start_x_top = self.x_top
-                self._exit_start_y_top = float(self.y_top)
-                self.phase_top = "exiting"
-                self.anim_timer_top = 0.0
-            else:
-                self._pending_swap_bottom = {
-                    "guard": next_guard,
-                    "skill": skill,
-                }
-                self._exit_start_x_bottom = self.x_bottom
-                self._exit_start_y_bottom = float(self.y_bottom)
-                self.phase_bottom = "exiting"
-                self.anim_timer_bottom = 0.0
-            cur_name = (self.active_top or {}).get("name", "?") if is_top else (self.active_bottom or {}).get("name", "?")
-            print(f"[Guard] {'상단' if is_top else '하단'}측 호위무사 교대! "
-                  f"{cur_name} 퇴장 → {next_guard['name']} 대기 중")
-            return
-
-        # 호위무사 1명: 기존 로직 (현재 위치에서 바로 시전)
+        """순찰 중 스킬 재시전 (입장 애니메이션 스킵, 현재 위치에서 바로 시전)"""
         guard = self.active_top if is_top else self.active_bottom
         if not guard:
             return
@@ -3505,6 +3617,25 @@ class GuardWarriorSystem:
                 guard_paddle.centerx = int(self._charmed['x'])
                 guard_paddle.y = int(self._charmed['y'])
                 guard_paddle.centery = int(self._charmed['y']) + guard_paddle.height // 2
+            # 2번째 순찰 호위무사: draw 전에도 패들 위치를 patrol2 좌표로 동기화
+            elif self._patrol2_top and self._patrol2_top['guard'].get("id") == hero_id:
+                p2 = self._patrol2_top
+                if guard_paddle is None:
+                    guard_paddle = _GuardPaddle(p2['x'], p2['y'], True)
+                    self.guard_paddles[hero_id] = guard_paddle
+                guard_paddle.x = int(p2['x']) - guard_paddle.width // 2
+                guard_paddle.centerx = int(p2['x'])
+                guard_paddle.y = int(p2['y'])
+                guard_paddle.centery = int(p2['y']) + guard_paddle.height // 2
+            elif self._patrol2_bottom and self._patrol2_bottom['guard'].get("id") == hero_id:
+                p2 = self._patrol2_bottom
+                if guard_paddle is None:
+                    guard_paddle = _GuardPaddle(p2['x'], p2['y'], False)
+                    self.guard_paddles[hero_id] = guard_paddle
+                guard_paddle.x = int(p2['x']) - guard_paddle.width // 2
+                guard_paddle.centerx = int(p2['x'])
+                guard_paddle.y = int(p2['y'])
+                guard_paddle.centery = int(p2['y']) + guard_paddle.height // 2
             elif guard_paddle is None:
                 guard_paddle = top_paddle if is_top_guard else bottom_paddle
             target = bottom_paddle if is_top_guard else top_paddle
@@ -3518,6 +3649,12 @@ class GuardWarriorSystem:
                             if self._charmed and self._charmed['guard'].get("id") == hero_id:
                                 gx = self._charmed['x']
                                 gy = self._charmed['y']
+                            elif self._patrol2_top and self._patrol2_top['guard'].get("id") == hero_id:
+                                gx = self._patrol2_top['x']
+                                gy = self._patrol2_top['y']
+                            elif self._patrol2_bottom and self._patrol2_bottom['guard'].get("id") == hero_id:
+                                gx = self._patrol2_bottom['x']
+                                gy = self._patrol2_bottom['y']
                             else:
                                 gx = self.x_top if is_top_guard else self.x_bottom
                                 gy = self.y_top if is_top_guard else self.y_bottom
@@ -3542,6 +3679,12 @@ class GuardWarriorSystem:
                 self._draw_guard(screen, self.active_bottom,
                                  self.x_bottom + shake_x, self.y_bottom + shake_y,
                                  is_top=False)
+
+        # === 2번째 호위무사 렌더링 ===
+        try:
+            self._draw_patrol2(screen, shake_x, shake_y)
+        except Exception as e:
+            print(f"[Guard] patrol2 draw error: {e}")
 
         # === 매혹 순찰 중 호위무사 렌더링 ===
         try:
@@ -4176,9 +4319,9 @@ class GuardWarriorSystem:
         self._patrol_target_bottom = None
         self._patrol_wait_top = 0.0
         self._patrol_wait_bottom = 0.0
-        # 교대 대기열 초기화
-        self._pending_swap_top = None
-        self._pending_swap_bottom = None
+        # 2번째 호위무사 초기화
+        self._patrol2_top = None
+        self._patrol2_bottom = None
         # 매혹 호위무사 초기화
         self._charmed = None
 
