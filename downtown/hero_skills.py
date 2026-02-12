@@ -9132,11 +9132,8 @@ class BombSurprise(HeroSkill):
         self._attach_sound = None
         self._tick_sound = None
         self._explode_sound = None
-        # 넉백 상태
-        self._knockback_active = False
+        # 넉백/스턴 상태
         self._knockback_target = None   # 'top' or 'bottom'
-        self._knockback_dir = 0         # -1 or 1
-        self._knockback_vel = 0.0
         self._stun_applied = False
         self._stun_timer = 0.0
 
@@ -9169,10 +9166,7 @@ class BombSurprise(HeroSkill):
         self.bomb_location = 'ball'   # 처음엔 공에 부착
         self.explosion_effects = []
         self._tick_sound_cd = 0.0
-        self._knockback_active = False
         self._knockback_target = None
-        self._knockback_dir = 0
-        self._knockback_vel = 0.0
         self._stun_applied = False
         self._stun_timer = 0.0
 
@@ -9196,9 +9190,7 @@ class BombSurprise(HeroSkill):
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
-        # 넉백 물리 업데이트 (폭발 후에도 계속)
-        if self._knockback_active:
-            self._update_knockback(dt, caster_paddle, target_paddle, game_state)
+        # 넉백은 game_state 시그널로 아레나에서 처리 (bomb_kb_active)
 
         # 스턴 타이머 관리
         if self._stun_applied:
@@ -9211,7 +9203,9 @@ class BombSurprise(HeroSkill):
 
         if not self.bomb_active:
             # 폭발 후 이펙트/스턴만 남은 상태
-            if not self.explosion_effects and not self._knockback_active and not self._stun_applied:
+            prefix_kb = 'top_paddle' if self._knockback_target == 'top' else 'bottom_paddle'
+            kb_still_active = game_state.get(f'{prefix_kb}_bomb_kb_active', False)
+            if not self.explosion_effects and not kb_still_active and not self._stun_applied:
                 self.is_active = False
                 self.active_timer = 0
             return
@@ -9296,13 +9290,21 @@ class BombSurprise(HeroSkill):
         self._stun_timer = self.STUN_DURATION
         self._knockback_target = explode_target
 
-        # 넉백 (폭심지로부터 방사형 방향, 다이너마이트 동일)
+        # 넉백 (game_state 시그널 → 아레나에서 처리, 다이너마이트 동일)
         target_p = caster_paddle if (caster_paddle.is_top and explode_target == 'top') or \
                    (not caster_paddle.is_top and explode_target == 'bottom') else target_paddle
         paddle_cx = target_p.x + getattr(target_p, 'width', 80) // 2
-        self._knockback_dir = 1 if paddle_cx >= exp_x else -1
-        self._knockback_vel = self.KNOCKBACK_FORCE
-        self._knockback_active = True
+        # 폭심에서 패들 방향으로 밀어냄 (같은 위치면 랜덤)
+        dx = paddle_cx - exp_x
+        if abs(dx) < 5:
+            kb_dir = random.choice([-1, 1])
+        else:
+            kb_dir = 1 if dx > 0 else -1
+        game_state[f'{prefix}_bomb_kb_active'] = True
+        game_state[f'{prefix}_bomb_kb_dir'] = kb_dir
+        game_state[f'{prefix}_bomb_kb_vel'] = 52.0   # 다이너마이트 동일 (px/frame)
+        game_state[f'{prefix}_bomb_kb_frames'] = 18   # 넉백 프레임 수
+        self._knockback_target = explode_target
 
         # 화면 흔들림 (다이너마이트 동일)
         game_state['screen_shake'] = 35
@@ -9358,7 +9360,7 @@ class BombSurprise(HeroSkill):
             'sparks': sparks,
             'smoke_clouds': smoke_clouds,
             'secondary_waves': secondary_waves,
-            'kb_dir': self._knockback_dir,
+            'kb_dir': kb_dir,
         }]
 
         # 폭발 사운드 (grenade.wav)
@@ -9367,33 +9369,6 @@ class BombSurprise(HeroSkill):
                 self._explode_sound.play()
             except Exception:
                 pass
-
-    def _update_knockback(self, dt, caster_paddle, target_paddle, game_state):
-        """넉백 물리 (다이너마이트급 좌우 밀어냄)"""
-        if self._knockback_vel <= 0:
-            self._knockback_active = False
-            return
-
-        # 대상 패들 찾기
-        if self._knockback_target == 'top':
-            paddle = caster_paddle if caster_paddle.is_top else target_paddle
-        else:
-            paddle = target_paddle if not target_paddle.is_top else caster_paddle
-
-        # 넉백 이동
-        push = self._knockback_dir * self._knockback_vel * dt
-        paddle.x += push
-
-        # 감속
-        self._knockback_vel *= 0.92
-
-        if self._knockback_vel < 5:
-            self._knockback_vel = 0
-            self._knockback_active = False
-
-        # 경계 클램핑
-        paddle.x = max(self.GAME_LEFT, min(paddle.x,
-                       self.GAME_RIGHT - getattr(paddle, 'width', 80)))
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         self.bomb_active = False
@@ -9405,14 +9380,16 @@ class BombSurprise(HeroSkill):
         self.bomb_active = False
         self.bomb_timer = 0.0
         self.explosion_effects = []
-        self._knockback_active = False
-        self._knockback_vel = 0.0
         if self._stun_applied and self._knockback_target:
             prefix = 'top_paddle' if self._knockback_target == 'top' else 'bottom_paddle'
             game_state[f'{prefix}_stunned'] = False
+            game_state[f'{prefix}_bomb_kb_active'] = False
         self._stun_applied = False
         self._stun_timer = 0.0
         game_state['bomb_surprise_active'] = False
+        # 양쪽 넉백 시그널 정리
+        game_state['top_paddle_bomb_kb_active'] = False
+        game_state['bottom_paddle_bomb_kb_active'] = False
 
     def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         super().update(dt, caster_paddle, target_paddle, ball, game_state)

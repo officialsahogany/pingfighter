@@ -5688,6 +5688,27 @@ class ColosseumsArena:
         self.bottom_paddle.gravity_drift = game_state.get('bottom_paddle_gravity_drift', 0.0)
 
 
+        # 💣 폭탄 서프라이즈 넉백 처리 (다이너마이트 동일 - 프레임 기반)
+        for prefix, paddle in [('top_paddle', self.top_paddle), ('bottom_paddle', self.bottom_paddle)]:
+            if game_state.get(f'{prefix}_bomb_kb_active', False):
+                kb_vel = game_state.get(f'{prefix}_bomb_kb_vel', 0)
+                kb_dir = game_state.get(f'{prefix}_bomb_kb_dir', 0)
+                kb_frames = game_state.get(f'{prefix}_bomb_kb_frames', 0)
+                if kb_frames > 0 and kb_vel > 0:
+                    # 프레임 기반 넉백 (다이너마이트와 동일 방식)
+                    paddle.x += kb_dir * kb_vel * dt * 60
+                    kb_frames -= 1
+                    # 감속 (후반부 감속)
+                    if kb_frames < 6:
+                        kb_vel *= 0.75
+                    game_state[f'{prefix}_bomb_kb_vel'] = kb_vel
+                    game_state[f'{prefix}_bomb_kb_frames'] = kb_frames
+                    # 경계 클램핑
+                    paddle.x = max(GAME_AREA_X, min(paddle.x,
+                                   GAME_AREA_X + GAME_AREA_WIDTH - getattr(paddle, 'width', 80)))
+                else:
+                    game_state[f'{prefix}_bomb_kb_active'] = False
+
         # 🔥 귀신발걸음 y축 이동 트리거 처리
         if game_state.get('ghost_step_start_top', False):
             self.top_paddle.start_ghost_step()
