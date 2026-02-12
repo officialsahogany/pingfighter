@@ -5319,9 +5319,22 @@ class HeroPaddleRenderer:
         left_arm_swing = anim.get("left_arm_swing", 0)
         right_arm_swing = anim.get("right_arm_swing", 0)
         weapon_swing = anim.get("weapon_swing_angle", 0)
+        # 이동 애니메이션 파라미터 (다리 걸음/로브 관성)
+        left_leg_sway = anim.get("left_leg_sway", 0)
+        right_leg_sway = anim.get("right_leg_sway", 0)
+        left_leg_lift = anim.get("left_leg", 0)
+        right_leg_lift = anim.get("right_leg", 0)
+        side_blend = anim.get("side_blend", 0)
+        move_dir = anim.get("move_dir", 0)
 
         torso_y = cy - int(1.5 * b) + int(body_bob * 2 * b)
-        lean_offset = int(lean * 2 * b)
+        lean_offset = int(lean * 2.5 * b)
+
+        # 로브 관성 (이동 반대 방향으로 나풀거림 - 가벼운 린넨 천)
+        robe_inertia = -move_dir * side_blend * 0.5 * b
+        robe_sway = _sin(self.time * 3.2) * side_blend * 0.25 * b
+        robe_drift = int(robe_inertia + robe_sway)
+        robe_wave_boost = 1.0 + side_blend * 1.8
 
         t = self.time
         gold_pulse = (_sin(t * 2.5) + 1) * 0.5
@@ -5367,27 +5380,39 @@ class HeroPaddleRenderer:
         # ─── 다리 / 샌들 ───
         leg_base_y = cy + int(2.2 * b)
         for side in [-1, 1]:
-            leg_x = cx + side * int(0.4 * b) + lean_offset
+            # 걸음 애니메이션 (좌우 스윙 + 들어올림)
+            cur_sway = left_leg_sway if side == -1 else right_leg_sway
+            cur_lift = left_leg_lift if side == -1 else right_leg_lift
+            leg_sway_x = int(cur_sway * 0.5 * b)
+            leg_lift_y = int(cur_lift * 0.25 * b)
+
+            leg_x = cx + side * int(0.4 * b) + lean_offset + leg_sway_x
             # 허벅지 (로브 아래 살짝 보임)
+            knee_x = leg_x + int(cur_sway * 0.2 * b)
+            knee_y = leg_base_y + int(0.1 * b) - leg_lift_y
             pygame.draw.line(screen, p["robe_shadow"],
                            (leg_x, leg_base_y - int(1.0 * b)),
-                           (leg_x, leg_base_y + int(0.4 * b)),
+                           (knee_x, knee_y),
                            max(2, int(0.3 * b)))
             # 정강이
+            foot_x = knee_x + leg_sway_x
+            foot_y = leg_base_y + int(0.5 * b) - int(leg_lift_y * 0.5)
             pygame.draw.line(screen, p["skin_shadow"],
-                           (leg_x, leg_base_y + int(0.1 * b)),
-                           (leg_x, leg_base_y + int(0.6 * b)),
+                           (knee_x, knee_y),
+                           (foot_x, foot_y),
                            max(2, int(0.25 * b)))
+            # 무릎 관절
+            pygame.draw.circle(screen, p["skin"], (knee_x, knee_y), max(2, int(0.12 * b)))
             # 샌들
             foot_w = max(3, int(0.5 * b))
             foot_h = max(2, int(0.2 * b))
             pygame.draw.ellipse(screen, p["sandal"],
-                              (leg_x - foot_w // 2, leg_base_y + int(0.5 * b),
+                              (foot_x - foot_w // 2, foot_y,
                                foot_w, foot_h))
             # 샌들 끈
             pygame.draw.line(screen, p["gold_dark"],
-                           (leg_x, leg_base_y + int(0.3 * b)),
-                           (leg_x, leg_base_y + int(0.55 * b)),
+                           (foot_x, foot_y - int(0.15 * b)),
+                           (foot_x, foot_y + int(0.1 * b)),
                            max(1, int(0.06 * b)))
 
         # ─── 로브 (쉔디트 - 파라오 치마) ───
@@ -5395,40 +5420,44 @@ class HeroPaddleRenderer:
         skirt_bot = leg_base_y - int(0.5 * b)
         skirt_w_top = int(1.8 * b)
         skirt_w_bot = int(2.4 * b)
+        robe_wave = int(wave * 0.2 * robe_wave_boost * b)
         skirt_pts = [
             (cx - skirt_w_top // 2 + lean_offset, skirt_top),
             (cx + skirt_w_top // 2 + lean_offset, skirt_top),
-            (cx + skirt_w_bot // 2 + lean_offset + int(wave * 0.2 * b), skirt_bot),
-            (cx - skirt_w_bot // 2 + lean_offset - int(wave * 0.2 * b), skirt_bot),
+            (cx + skirt_w_bot // 2 + lean_offset + robe_wave + robe_drift, skirt_bot),
+            (cx - skirt_w_bot // 2 + lean_offset - robe_wave + robe_drift, skirt_bot),
         ]
         pygame.draw.polygon(screen, p["robe_white"], skirt_pts)
-        # 그림자 (로브 좌우)
+        # 그림자 (로브 좌우 - 이동 방향에 따라 변화)
         shadow_inset = int(0.15 * b)
+        # 이동 방향 반대쪽에 더 넓은 그림자
+        shadow_side = 1 if move_dir >= 0 else -1
         shadow_pts_l = [
             (cx - skirt_w_top // 2 + lean_offset + shadow_inset, skirt_top),
             (cx - skirt_w_top // 2 + lean_offset, skirt_top),
-            (cx - skirt_w_bot // 2 + lean_offset - int(wave * 0.2 * b), skirt_bot),
-            (cx - skirt_w_bot // 2 + lean_offset - int(wave * 0.2 * b) + shadow_inset + int(0.1 * b), skirt_bot),
+            (cx - skirt_w_bot // 2 + lean_offset - robe_wave + robe_drift, skirt_bot),
+            (cx - skirt_w_bot // 2 + lean_offset - robe_wave + robe_drift + shadow_inset + int(0.1 * b), skirt_bot),
         ]
         pygame.draw.polygon(screen, p["robe_shadow"], shadow_pts_l)
-        # 중앙 주름선
+        # 중앙 주름선 (이동 시 살짝 기울어짐)
+        fold_drift = int(robe_drift * 0.3)
         pygame.draw.line(screen, p["robe_fold"],
                         (cx + lean_offset, skirt_top + int(0.2 * b)),
-                        (cx + lean_offset, skirt_bot - int(0.1 * b)),
+                        (cx + lean_offset + fold_drift, skirt_bot - int(0.1 * b)),
                         max(1, int(0.08 * b)))
-        # 좌우 주름선
+        # 좌우 주름선 (이동 시 관성으로 흔들림)
         for side in [-1, 1]:
             fold_x = cx + side * int(0.5 * b) + lean_offset
-            fold_wave = int(wave * 0.1 * b * side)
+            fold_wave = int(wave * 0.12 * robe_wave_boost * b * side) + int(robe_drift * 0.4)
             pygame.draw.line(screen, p["robe_fold"],
                            (fold_x, skirt_top + int(0.4 * b)),
                            (fold_x + fold_wave, skirt_bot - int(0.2 * b)),
                            max(1, int(0.06 * b)))
-        # 로브 하단 금색 테두리
+        # 로브 하단 금색 테두리 (관성 반영)
         hem_h = max(2, int(0.15 * b))
         pygame.draw.line(screen, p["gold_dark"],
-                        (cx - skirt_w_bot // 2 + lean_offset - int(wave * 0.2 * b), skirt_bot - hem_h),
-                        (cx + skirt_w_bot // 2 + lean_offset + int(wave * 0.2 * b), skirt_bot - hem_h),
+                        (cx - skirt_w_bot // 2 + lean_offset - robe_wave + robe_drift, skirt_bot - hem_h),
+                        (cx + skirt_w_bot // 2 + lean_offset + robe_wave + robe_drift, skirt_bot - hem_h),
                         hem_h)
         # 금색 허리띠
         belt_y = skirt_top
@@ -5566,15 +5595,21 @@ class HeroPaddleRenderer:
         head_y = torso_y - int(1.5 * b)
         head_r = int(0.8 * b)
 
+        # 네메스 천 관성 (이동 반대방향으로 나풀거림)
+        nemes_drift = int(-move_dir * side_blend * 0.3 * b)
+        nemes_sway = int(_sin(self.time * 2.5) * side_blend * 0.15 * b)
+        nemes_flap = nemes_drift + nemes_sway
+
         if not show_back:
             # ═══ 정면 ═══
-            # 네메스 좌우 늘어뜨린 천
+            # 네메스 좌우 늘어뜨린 천 (이동 시 나풀거림)
             for side in [-1, 1]:
+                flap_drift = nemes_flap * (1 if side == int(move_dir) else 0.5)
                 flap_pts = [
                     (head_x + side * int(0.7 * b), head_y - int(0.1 * b)),
-                    (head_x + side * int(1.0 * b), head_y + int(1.2 * b)),
-                    (head_x + side * int(0.6 * b),
-                     head_y + int(1.5 * b) + int(wave * 0.1 * b)),
+                    (head_x + side * int(1.0 * b) + int(flap_drift * 0.3), head_y + int(1.2 * b)),
+                    (head_x + side * int(0.6 * b) + int(flap_drift),
+                     head_y + int(1.5 * b) + int(wave * 0.12 * robe_wave_boost * b)),
                     (head_x + side * int(0.3 * b), head_y + int(0.8 * b)),
                 ]
                 pygame.draw.polygon(screen, p["nemes_gold"], flap_pts)
@@ -5665,13 +5700,14 @@ class HeroPaddleRenderer:
                            (head_x - int(0.15 * b), mouth_y),
                            (head_x + int(0.15 * b), mouth_y), 1)
 
-            # ─── 파라오 턱수염 ───
+            # ─── 파라오 턱수염 (이동 시 살짝 흔들림) ───
             beard_top_y = head_y + int(0.5 * b)
             beard_bot_y = beard_top_y + int(0.7 * b)
             beard_w = max(2, int(0.12 * b))
+            beard_sway = int(nemes_flap * 0.4)
             pygame.draw.line(screen, p["beard_gold"],
                            (head_x, beard_top_y),
-                           (head_x, beard_bot_y), beard_w)
+                           (head_x + beard_sway, beard_bot_y), beard_w)
             for j in range(2):
                 by = beard_top_y + int((j + 1) * 0.2 * b)
                 pygame.draw.line(screen, p["beard_stripe"],
@@ -5680,14 +5716,14 @@ class HeroPaddleRenderer:
                              (head_x, beard_bot_y), max(1, int(0.06 * b)))
         else:
             # ═══ 후면 ═══
-            # 네메스 뒷면 전체
+            # 네메스 뒷면 전체 (이동 시 나풀거림)
             nemes_back_pts = [
                 (head_x - int(0.85 * b), head_y - int(0.15 * b)),
                 (head_x + int(0.85 * b), head_y - int(0.15 * b)),
-                (head_x + int(0.7 * b),
-                 head_y + int(1.5 * b) + int(wave * 0.08 * b)),
-                (head_x - int(0.7 * b),
-                 head_y + int(1.5 * b) - int(wave * 0.08 * b)),
+                (head_x + int(0.7 * b) + nemes_flap,
+                 head_y + int(1.5 * b) + int(wave * 0.1 * robe_wave_boost * b)),
+                (head_x - int(0.7 * b) + nemes_flap,
+                 head_y + int(1.5 * b) - int(wave * 0.1 * robe_wave_boost * b)),
             ]
             pygame.draw.polygon(screen, p["nemes_gold"], nemes_back_pts)
             for j in range(5):
@@ -5744,6 +5780,21 @@ class HeroPaddleRenderer:
             fsf = self._get_surface(fr * 2, fr * 2)
             pygame.draw.circle(fsf, (210, 185, 110, fa), (fr, fr), fr)
             screen.blit(fsf, (fx - fr, fy - fr))
+
+        # ─── 발밑 모래 먼지 (이동 시에만) ───
+        if side_blend > 0.15:
+            dust_count = int(2 + side_blend * 3)
+            for i in range(dust_count):
+                dp = t * 2.5 + i * 1.3
+                # 이동 반대 방향으로 먼지 뿌려짐
+                dx = cx + lean_offset + int(-move_dir * (1 + i * 0.8) * b) + int(_sin(dp) * 0.5 * b)
+                dy = leg_base_y + int(0.5 * b) + int(_sin(dp * 0.8) * 0.3 * b)
+                da = int(30 * side_blend * max(0, _sin(dp * 1.2)))
+                dr = max(1, int((0.3 + i * 0.08) * b))
+                if da > 5:
+                    ds = self._get_surface(dr * 2, dr * 2)
+                    pygame.draw.circle(ds, (200, 175, 120, da), (dr, dr), dr)
+                    screen.blit(ds, (dx - dr, dy - dr))
 
     # =========================================================================
     # 기본 폴백
