@@ -9742,18 +9742,22 @@ class SandPrison(HeroSkill):
 
 
 class SandVortex(HeroSkill):
-    """모래회오리 - 2개의 거대한 모래폭풍을 발사하여 상대 공을 끌어당기고 고속 발사"""
+    """모래회오리 - 2개의 거대한 모래폭풍을 발사하여 상대 공을 끌어당기고 커브 발사"""
 
     GAME_LEFT = 80    # GAME_AREA_OFFSET_X (필러 영역 제외)
     GAME_RIGHT = 680   # GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH
     GAME_TOP = 0
     GAME_BOTTOM = 750
 
-    PULL_RADIUS = 140      # 끌어당김 범위 (기존 90 → 확대)
-    CAPTURE_RADIUS = 36    # 완전 포획 범위 (기존 22 → 확대)
-    VORTEX_SPEED = 180     # 이동 속도 (기존 90 → 2배)
-    LAUNCH_SPEED = 650     # 포획 후 발사 속도
-    WOBBLE_AMPLITUDE = 80  # 지그재그 좌우 진폭 (기존 50 → 확대)
+    PULL_RADIUS = 140      # 끌어당김 범위
+    CAPTURE_RADIUS = 36    # 완전 포획 범위
+    VORTEX_SPEED = 180     # 이동 속도
+    LAUNCH_SPEED = 325     # 포획 후 발사 속도 (기존 650 → 50% 감소)
+    WOBBLE_AMPLITUDE = 80  # 지그재그 좌우 진폭
+    VORTEX_LIFETIME = 4.0  # 소용돌이 수명 (초)
+    FADE_DURATION = 1.2    # 소멸 페이드 시간 (초)
+    CURVE_DURATION = 1.5   # 커브 효과 지속시간 (초)
+    CURVE_STRENGTH = 280   # 커브 횡방향 힘
 
     def __init__(self):
         super().__init__(
@@ -9768,12 +9772,13 @@ class SandVortex(HeroSkill):
         )
         self.vortexes = []
         self.vortex_particles = []
-        self.captured_ball = False
         self.caster_is_bottom = True
         self._sound_loaded = False
         self._sound = None
         self._capture_sound_loaded = False
         self._capture_sound = None
+        # 커브 효과 추적 (발사 후 공에 횡방향 힘 적용)
+        self.curve_effects = []  # [{'timer': float, 'curve_dir': 1 or -1}]
 
     def _load_sounds(self):
         if self._sound_loaded:
@@ -9811,7 +9816,7 @@ class SandVortex(HeroSkill):
 
         self.vortexes = []
         self.vortex_particles = []
-        self.captured_ball = False
+        self.curve_effects = []
 
         # 기본 방향: 상대 쪽으로
         base_angle = -math.pi / 2 if self.caster_is_bottom else math.pi / 2
@@ -9833,10 +9838,13 @@ class SandVortex(HeroSkill):
                 'jitter_x': 0.0,                         # 미세 떨림
                 'rotation': random.uniform(0, 360),
                 'spin_speed': random.uniform(280, 400),
-                'size': 44,  # 기존 22 → 2배
+                'size': 44,
                 'alpha': 255,
                 'age': 0.0,
                 'dead': False,
+                'fading': False,       # 소멸 페이드 중
+                'has_captured': False,  # 이 소용돌이가 이미 공을 포획했는지
+                'capture_cooldown': 0.0,  # 포획 후 재포획 방지 쿨다운
             })
 
         # 사운드
@@ -9851,7 +9859,7 @@ class SandVortex(HeroSkill):
         return {}
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
-        """소용돌이 이동 + 예측불가 랜덤 X축 + 상대 공만 끌어당김"""
+        """소용돌이 이동 + 예측불가 랜덤 X축 + 상대 공만 끌어당김 + 커브 발사"""
         any_alive = False
 
         for vortex in self.vortexes:
@@ -9860,30 +9868,45 @@ class SandVortex(HeroSkill):
             any_alive = True
             vortex['age'] += dt
 
+            # ── 수명 관리: 4초 후 페이드 아웃 ──
+            fade_start = self.VORTEX_LIFETIME - self.FADE_DURATION
+            if vortex['age'] >= self.VORTEX_LIFETIME:
+                vortex['dead'] = True
+                continue
+            elif vortex['age'] >= fade_start:
+                vortex['fading'] = True
+                fade_progress = (vortex['age'] - fade_start) / self.FADE_DURATION
+                vortex['alpha'] = max(0, int(255 * (1 - fade_progress)))
+                # 페이드 중 회전 감속 + 크기 수축
+                vortex['spin_speed'] *= (1 - 0.8 * dt)
+                vortex['size'] = max(8, 44 * (1 - fade_progress * 0.6))
+
+            # 포획 쿨다운 감소
+            if vortex['capture_cooldown'] > 0:
+                vortex['capture_cooldown'] -= dt
+
             # ── 예측불가 랜덤 X축 움직임 ──
-            # 1) 주기적으로 목표 드리프트 변경
             vortex['drift_timer'] += dt
             if vortex['drift_timer'] >= vortex['drift_interval']:
                 vortex['drift_timer'] = 0.0
                 vortex['drift_interval'] = random.uniform(0.2, 0.6)
                 vortex['drift_target'] = random.uniform(-120, 120)
 
-            # 2) 드리프트를 목표값으로 부드럽게 보간
             lerp_speed = 4.0 * dt
             vortex['drift_vx'] += (vortex['drift_target'] - vortex['drift_vx']) * lerp_speed
-
-            # 3) 미세 떨림 (고주파 노이즈)
             vortex['jitter_x'] = random.uniform(-25, 25)
-
-            # 4) 기본 사인파 흔들림
             vortex['wobble_phase'] += vortex['wobble_speed'] * dt
             wobble_offset = math.sin(vortex['wobble_phase']) * self.WOBBLE_AMPLITUDE
 
-            # 최종 X 이동 = 기본vx + 사인흔들림 + 랜덤드리프트 + 미세떨림
-            final_x_move = vortex['base_vx'] + wobble_offset + vortex['drift_vx'] + vortex['jitter_x']
+            # 페이드 중이면 움직임 감속
+            speed_mult = 1.0
+            if vortex['fading']:
+                fade_progress = (vortex['age'] - fade_start) / self.FADE_DURATION
+                speed_mult = max(0.1, 1 - fade_progress * 0.7)
 
+            final_x_move = (vortex['base_vx'] + wobble_offset + vortex['drift_vx'] + vortex['jitter_x']) * speed_mult
             vortex['x'] += final_x_move * dt
-            vortex['y'] += vortex['base_vy'] * dt
+            vortex['y'] += vortex['base_vy'] * dt * speed_mult
 
             # 회전
             vortex['rotation'] += vortex['spin_speed'] * dt
@@ -9905,12 +9928,10 @@ class SandVortex(HeroSkill):
                 vortex['dead'] = True
                 continue
 
-            # ── 공과의 상호작용 (캐스터가 친 공은 무시!) ──
-            if ball and not self.captured_ball:
-                # 캐스터가 발사한 공은 소용돌이에 영향 안 받음
-                if self._is_ball_from_caster(ball):
-                    pass  # 캐스터의 공 → 무시
-                else:
+            # ── 공과의 상호작용 (캐스터가 친 공은 무시, 페이드 중/쿨다운 중이면 포획 안함) ──
+            can_capture = not vortex['has_captured'] and not vortex['fading'] and vortex['capture_cooldown'] <= 0
+            if ball and can_capture:
+                if not self._is_ball_from_caster(ball):
                     ball_x = getattr(ball, 'x', 0)
                     ball_y = getattr(ball, 'y', 0)
 
@@ -9919,7 +9940,7 @@ class SandVortex(HeroSkill):
                     dist = math.sqrt(dx * dx + dy * dy)
 
                     if dist < self.PULL_RADIUS and dist > 1:
-                        # 끌어당김 (거리가 가까울수록 강해짐)
+                        # 끌어당김
                         pull_factor = (1 - dist / self.PULL_RADIUS) ** 1.5
                         pull_strength = pull_factor * 350 * dt
                         nx = dx / dist
@@ -9932,19 +9953,22 @@ class SandVortex(HeroSkill):
                             ball.speed_x += nx * pull_strength
                             ball.speed_y += ny * pull_strength
 
-                        # 포획 범위에 들어오면 고속 발사
+                        # 포획 → 커브 발사 (소용돌이는 사라지지 않음!)
                         if dist < self.CAPTURE_RADIUS:
-                            self.captured_ball = True
-                            vortex['dead'] = True
+                            vortex['has_captured'] = True
+                            vortex['capture_cooldown'] = 2.0  # 2초 재포획 방지
 
-                            # 상대 방향으로 고속 발사 (약간의 랜덤 각도)
+                            # 상대 방향으로 커브 발사
                             if self.caster_is_bottom:
-                                launch_angle = -math.pi / 2 + random.uniform(-0.35, 0.35)
+                                launch_angle = -math.pi / 2 + random.uniform(-0.25, 0.25)
                             else:
-                                launch_angle = math.pi / 2 + random.uniform(-0.35, 0.35)
+                                launch_angle = math.pi / 2 + random.uniform(-0.25, 0.25)
 
                             launch_vx = math.cos(launch_angle) * self.LAUNCH_SPEED
                             launch_vy = math.sin(launch_angle) * self.LAUNCH_SPEED
+
+                            # 커브 방향: 소용돌이의 현재 X 움직임 방향으로 휘어짐
+                            curve_dir = 1 if (vortex['base_vx'] + vortex['drift_vx']) >= 0 else -1
 
                             if hasattr(ball, 'vx'):
                                 ball.x = vortex['x']
@@ -9956,6 +9980,12 @@ class SandVortex(HeroSkill):
                                 ball.y = vortex['y']
                                 ball.speed_x = launch_vx
                                 ball.speed_y = launch_vy
+
+                            # 커브 효과 등록 (이후 프레임에서 횡방향 힘 적용)
+                            self.curve_effects.append({
+                                'timer': self.CURVE_DURATION,
+                                'curve_dir': curve_dir,
+                            })
 
                             # 포획 사운드
                             if self._capture_sound:
@@ -9981,18 +10011,19 @@ class SandVortex(HeroSkill):
                                     'color_type': random.choice(['gold', 'sand', 'dust']),
                                 })
 
-            # ── 모래폭풍 파티클 (대량 생성으로 폭풍 느낌) ──
-            # 소용돌이 주변 회전 파티클 (밀도 높게)
-            for _ in range(4):
+            # ── 모래폭풍 파티클 (페이드 중이면 파티클 감소) ──
+            particle_count = 1 if vortex['fading'] else 4
+            for _ in range(particle_count):
                 angle = random.uniform(0, math.pi * 2)
                 dist_p = random.uniform(4, vortex['size'] * 1.2)
                 orbit_speed = random.uniform(60, 140)
+                p_alpha = max(20, int(random.randint(120, 220) * (vortex['alpha'] / 255.0)))
                 self.vortex_particles.append({
                     'x': vortex['x'] + math.cos(angle) * dist_p,
                     'y': vortex['y'] + math.sin(angle) * dist_p,
                     'vx': math.cos(angle + math.pi / 2) * orbit_speed + random.uniform(-20, 20),
                     'vy': math.sin(angle + math.pi / 2) * orbit_speed * 0.5 + vortex['base_vy'] * 0.3,
-                    'alpha': random.randint(120, 220),
+                    'alpha': p_alpha,
                     'size': random.uniform(2, 6),
                     'life': random.uniform(0.4, 0.9),
                     'max_life': 0.9,
@@ -10000,8 +10031,9 @@ class SandVortex(HeroSkill):
                     'color_type': random.choice(['sand', 'dust', 'dark']),
                 })
 
-            # 큰 먼지 덩어리 (드문 빈도, 큰 사이즈)
-            if random.random() < 0.35:
+            # 큰 먼지 덩어리
+            dust_chance = 0.1 if vortex['fading'] else 0.35
+            if random.random() < dust_chance:
                 angle = random.uniform(0, math.pi * 2)
                 dist_p = random.uniform(vortex['size'] * 0.5, vortex['size'] * 1.5)
                 self.vortex_particles.append({
@@ -10009,13 +10041,27 @@ class SandVortex(HeroSkill):
                     'y': vortex['y'] + math.sin(angle) * dist_p,
                     'vx': random.uniform(-40, 40),
                     'vy': vortex['base_vy'] * 0.2 + random.uniform(-15, 15),
-                    'alpha': random.randint(80, 160),
+                    'alpha': max(20, int(random.randint(80, 160) * (vortex['alpha'] / 255.0))),
                     'size': random.uniform(6, 12),
                     'life': random.uniform(0.5, 1.0),
                     'max_life': 1.0,
                     'burst': False,
                     'color_type': 'cloud',
                 })
+
+        # ── 커브 효과 적용 (발사된 공에 횡방향 힘) ──
+        if ball and self.curve_effects:
+            for curve in self.curve_effects:
+                curve['timer'] -= dt
+                if curve['timer'] > 0:
+                    # 시간이 지날수록 커브 약해짐
+                    fade = curve['timer'] / self.CURVE_DURATION
+                    curve_force = self.CURVE_STRENGTH * curve['curve_dir'] * fade * dt
+                    if hasattr(ball, 'vx'):
+                        ball.vx += curve_force
+                    elif hasattr(ball, 'speed_x'):
+                        ball.speed_x += curve_force
+            self.curve_effects = [c for c in self.curve_effects if c['timer'] > 0]
 
         # 파티클 업데이트
         for p in self.vortex_particles:
@@ -10029,7 +10075,7 @@ class SandVortex(HeroSkill):
 
         # 모든 소용돌이 소멸 시 조기 종료
         self.vortexes = [v for v in self.vortexes if not v['dead']]
-        if not any_alive and not self.vortex_particles:
+        if not any_alive and not self.vortex_particles and not self.curve_effects:
             self.is_active = False
             self.active_timer = 0
             game_state['has_sand_vortex'] = False
@@ -10039,11 +10085,11 @@ class SandVortex(HeroSkill):
         game_state['has_sand_vortex'] = False
         self.vortexes = []
         self.vortex_particles = []
-        self.captured_ball = False
+        self.curve_effects = []
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         """모래폭풍 비주얼 렌더링"""
-        if not self.is_active and not self.vortex_particles:
+        if not self.is_active and not self.vortex_particles and not self.curve_effects:
             return
 
         # 소용돌이 본체 (모래폭풍 스타일)
@@ -10162,7 +10208,7 @@ class SandVortex(HeroSkill):
         super().reset_for_new_round(game_state)
         self.vortexes = []
         self.vortex_particles = []
-        self.captured_ball = False
+        self.curve_effects = []
         game_state['has_sand_vortex'] = False
 
 
