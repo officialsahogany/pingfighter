@@ -7398,6 +7398,328 @@ class IllusionShuriken(HeroSkill):
 
 
 # ============================================================================
+# 벤시 스킬 - 유령 여왕 (트릭형)
+# ============================================================================
+class Charm(HeroSkill):
+    """매혹 - 상대 호위무사를 20초간 아군으로 끌어들임
+
+    - 상대 진영 호위무사를 빼앗아 아군 진영에서 순찰시킴
+    - 효과 종료 시 호위무사를 원래 진영으로 반환
+    - 라운드 전환 시에도 지속시간 동안 유지 (초기화 안 됨)
+    """
+
+    def __init__(self):
+        super().__init__(
+            skill_id="charm",
+            name="Charm",
+            korean_name="매혹",
+            description="상대 호위무사를 현혹하여 20초간 아군으로 끌어들인다",
+            trigger=SkillTrigger.ON_COOLDOWN,
+            cooldown=35.0,
+            duration=20.0,
+            hero_id="banshee"
+        )
+        # 매혹 상태 추적
+        self.charmed_guard = None       # 매혹된 호위무사 hero dict
+        self.charm_source_is_top = True  # 매혹 시전자가 상단인지
+        self.charm_particles = []        # 매혹 파티클
+        self.charm_aura_timer = 0.0      # 오라 타이머
+        self._charm_applied = False      # 호위무사 이동 완료 플래그
+
+    def can_use(self) -> bool:
+        """상대에게 호위무사가 있을 때만 사용 가능"""
+        if self.current_cooldown > 0 or self.is_active:
+            return False
+        return True
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        """매혹 효과 적용 - 상대 호위무사를 아군으로 이동"""
+        self.charm_source_is_top = getattr(self, 'caster_is_top', True)
+        self._charm_applied = False
+        self.charmed_guard = None
+        self.charm_particles = []
+        self.charm_aura_timer = 0.0
+
+        # game_state를 통해 guard_warrior_system에 매혹 요청
+        game_state['charm_request'] = {
+            'caster_is_top': self.charm_source_is_top,
+            'duration': self.duration,
+        }
+
+        return {
+            'screen_effect': ScreenEffect.FLASH,
+            'flash_color': (100, 60, 180),
+            'sound': 'dollcurse'
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        """매혹 효과 업데이트"""
+        self.charm_aura_timer += dt
+
+        # 매혹 파티클 업데이트
+        # 시전자 주변에 하트/유령빛 파티클
+        caster = caster_paddle if self.charm_source_is_top else target_paddle
+        cx = caster.x + caster.width // 2 if hasattr(caster, 'width') else caster.x
+
+        # 파티클 생성
+        if random.random() < 0.3:
+            self.charm_particles.append({
+                'x': cx + random.uniform(-40, 40),
+                'y': (50 if self.charm_source_is_top else 700) + random.uniform(-20, 20),
+                'vy': random.uniform(-30, -60) if self.charm_source_is_top else random.uniform(30, 60),
+                'vx': random.uniform(-15, 15),
+                'life': random.uniform(0.8, 1.5),
+                'max_life': 1.5,
+                'size': random.uniform(2, 5),
+            })
+
+        # 파티클 이동 및 제거
+        alive = []
+        for p in self.charm_particles:
+            p['x'] += p['vx'] * dt
+            p['y'] += p['vy'] * dt
+            p['life'] -= dt
+            if p['life'] > 0:
+                alive.append(p)
+        self.charm_particles = alive
+
+        # 매혹 상태 game_state 유지
+        game_state['charm_active'] = True
+        game_state['charm_caster_is_top'] = self.charm_source_is_top
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        """매혹 효과 종료 - 호위무사 원래 진영으로 반환"""
+        game_state['charm_active'] = False
+        game_state['charm_end_request'] = {
+            'caster_is_top': self.charm_source_is_top,
+        }
+        self.charmed_guard = None
+        self.charm_particles = []
+        self._charm_applied = False
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        """매혹 시각 효과"""
+        if not self.is_active:
+            return
+
+        # 매혹 파티클 렌더링 (핑크+시안 하트 형태)
+        for p in self.charm_particles:
+            alpha = int(200 * (p['life'] / p['max_life']))
+            size = max(1, int(p['size'] * (p['life'] / p['max_life'])))
+            # 유령빛 파티클 (핑크+시안 교대)
+            if int(p['x']) % 2 == 0:
+                color = (200, 100, 180, alpha)
+            else:
+                color = (100, 200, 240, alpha)
+            particle_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            pygame.draw.circle(particle_surf, color, (size, size), size)
+            screen.blit(particle_surf, (int(p['x'] - size), int(p['y'] - size)),
+                       special_flags=pygame.BLEND_ADD)
+
+        # 화면 상하단에 매혹 오라 바
+        pulse = (math.sin(self.charm_aura_timer * 3) + 1) * 0.5
+        bar_alpha = int(30 + 20 * pulse)
+        bar_h = 8
+        if self.charm_source_is_top:
+            # 상단 시전자: 상단에 시안 오라
+            bar_surf = pygame.Surface((760, bar_h), pygame.SRCALPHA)
+            bar_surf.fill((80, 200, 240, bar_alpha))
+            screen.blit(bar_surf, (0, 0))
+        else:
+            bar_surf = pygame.Surface((760, bar_h), pygame.SRCALPHA)
+            bar_surf.fill((80, 200, 240, bar_alpha))
+            screen.blit(bar_surf, (0, 750 - bar_h))
+
+    def reset(self):
+        """전체 리셋"""
+        super().reset()
+        self.charmed_guard = None
+        self.charm_particles = []
+        self._charm_applied = False
+        self.charm_aura_timer = 0.0
+
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 매혹은 유지 (초기화하지 않음!)"""
+        # 매혹은 라운드 전환 시에도 지속 → 아무것도 하지 않음
+        pass
+
+
+class DeadPossession(HeroSkill):
+    """망자빙의 - 투기장 영웅의 모든 스킬 중 랜덤 1개를 즉시 발동
+
+    - 쿨타임 완료 시 자동 발동
+    - 현재 존재하는 모든 영웅 스킬 풀에서 무작위 1개 선택
+    - 선택된 스킬의 _apply_effect를 그대로 실행
+    - 시각적으로 빙의 연출 (유령 실루엣 + 선택된 스킬 아이콘 표시)
+    """
+
+    def __init__(self):
+        super().__init__(
+            skill_id="dead_possession",
+            name="Dead Possession",
+            korean_name="망자빙의",
+            description="죽은 영웅의 힘을 빌려 랜덤 스킬을 발동한다",
+            trigger=SkillTrigger.ON_COOLDOWN,
+            cooldown=18.0,
+            duration=0,  # 즉발 (빙의된 스킬의 duration 사용)
+            hero_id="banshee"
+        )
+        self.possessed_skill = None      # 빙의된 스킬 인스턴스
+        self.possession_flash = 0.0      # 빙의 플래시 타이머
+        self.possession_name = ""        # 빙의된 스킬 이름 (UI용)
+        self.ghost_particles = []        # 유령 파티클
+
+    def can_use(self) -> bool:
+        """쿨타임 완료 + 빙의 스킬이 없을 때"""
+        return self.current_cooldown <= 0 and self.possessed_skill is None
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        """랜덤 스킬 선택 및 즉시 발동"""
+        # 자신의 스킬(charm, dead_possession)은 제외하고 모든 영웅 스킬 풀에서 선택
+        all_skill_classes = []
+        exclude_ids = {"charm", "dead_possession"}
+
+        for hero_id, skill_classes in HERO_SKILL_CLASSES.items():
+            if hero_id in ("banshee", "bella", "leon", "yuki"):
+                continue  # 감옥 영웅과 벤시 자신 제외
+            for cls in skill_classes:
+                # 인스턴스를 만들어서 skill_id 확인
+                temp = cls()
+                if temp.skill_id not in exclude_ids:
+                    all_skill_classes.append(cls)
+
+        if not all_skill_classes:
+            return {}
+
+        # 랜덤 선택
+        chosen_cls = random.choice(all_skill_classes)
+        self.possessed_skill = chosen_cls()
+        self.possessed_skill.caster_is_top = getattr(self, 'caster_is_top', True)
+        self.possession_name = self.possessed_skill.korean_name
+        self.possession_flash = 1.5  # 1.5초 플래시 표시
+
+        # 유령 파티클 생성
+        self.ghost_particles = []
+        caster = caster_paddle
+        cx = caster.x + caster.width // 2 if hasattr(caster, 'width') else caster.x
+        cy = 50 if getattr(self, 'caster_is_top', True) else 700
+        for _ in range(20):
+            self.ghost_particles.append({
+                'x': cx + random.uniform(-60, 60),
+                'y': cy + random.uniform(-40, 40),
+                'vx': random.uniform(-80, 80),
+                'vy': random.uniform(-100, -30) if getattr(self, 'caster_is_top', True) else random.uniform(30, 100),
+                'life': random.uniform(0.5, 1.2),
+                'max_life': 1.2,
+                'size': random.uniform(3, 8),
+            })
+
+        # 빙의된 스킬 발동
+        result = self.possessed_skill.use(caster_paddle, target_paddle, ball, game_state)
+
+        # 빙의 스킬이 지속형이면 추적
+        if self.possessed_skill.is_active and self.possessed_skill.duration > 0:
+            self.is_active = True
+            self.active_timer = self.possessed_skill.duration + 0.5  # 여유 시간
+        else:
+            # 즉발 스킬이면 짧은 표시 후 정리
+            self.is_active = True
+            self.active_timer = 1.5  # 플래시 표시 시간
+
+        # 결과에 빙의 정보 추가
+        if result is None:
+            result = {}
+        result['possession_skill_name'] = self.possession_name
+        result['screen_effect'] = ScreenEffect.FLASH
+        result['flash_color'] = (60, 180, 220)
+
+        return result
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        """빙의 스킬 효과 업데이트"""
+        # 빙의된 스킬 업데이트
+        if self.possessed_skill and self.possessed_skill.is_active:
+            self.possessed_skill.update(dt, caster_paddle, target_paddle, ball, game_state)
+            # 빙의 스킬이 끝나면 우리도 종료
+            if not self.possessed_skill.is_active:
+                self.active_timer = min(self.active_timer, 0.5)
+
+        # 플래시 타이머
+        if self.possession_flash > 0:
+            self.possession_flash -= dt
+
+        # 유령 파티클 업데이트
+        alive = []
+        for p in self.ghost_particles:
+            p['x'] += p['vx'] * dt
+            p['y'] += p['vy'] * dt
+            p['life'] -= dt
+            if p['life'] > 0:
+                alive.append(p)
+        self.ghost_particles = alive
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        """빙의 종료"""
+        if self.possessed_skill and self.possessed_skill.is_active:
+            self.possessed_skill._end_effect(caster_paddle, target_paddle, ball, game_state)
+            self.possessed_skill.is_active = False
+        self.possessed_skill = None
+        self.ghost_particles = []
+        self.possession_name = ""
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        """빙의 시각 효과"""
+        # 빙의된 스킬의 draw 호출
+        if self.possessed_skill and self.possessed_skill.is_active:
+            self.possessed_skill.draw(screen, caster_paddle, target_paddle, ball, game_state)
+
+        # 유령 파티클
+        for p in self.ghost_particles:
+            alpha = int(180 * (p['life'] / p['max_life']))
+            size = max(1, int(p['size'] * (p['life'] / p['max_life'])))
+            particle_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            pygame.draw.circle(particle_surf, (80, 200, 255, alpha), (size, size), size)
+            screen.blit(particle_surf, (int(p['x'] - size), int(p['y'] - size)),
+                       special_flags=pygame.BLEND_ADD)
+
+        # 빙의 스킬명 플래시 표시
+        if self.possession_flash > 0 and self.possession_name:
+            flash_alpha = int(min(255, self.possession_flash * 200))
+            # 화면 중앙에 스킬명 표시
+            try:
+                font = pygame.font.SysFont("malgungothic", 20, bold=True)
+                text = f"망자빙의: {self.possession_name}"
+                text_surf = font.render(text, True, (180, 240, 255))
+                text_alpha_surf = pygame.Surface(text_surf.get_size(), pygame.SRCALPHA)
+                text_alpha_surf.blit(text_surf, (0, 0))
+                text_alpha_surf.set_alpha(flash_alpha)
+                text_x = 380 - text_surf.get_width() // 2
+                text_y = 375 - text_surf.get_height() // 2
+                screen.blit(text_alpha_surf, (text_x, text_y))
+            except Exception:
+                pass
+
+    def reset(self):
+        """전체 리셋"""
+        super().reset()
+        if self.possessed_skill:
+            self.possessed_skill = None
+        self.ghost_particles = []
+        self.possession_flash = 0.0
+        self.possession_name = ""
+
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 빙의 스킬도 정리"""
+        if self.possessed_skill and self.possessed_skill.is_active:
+            self.possessed_skill.reset_for_new_round(game_state)
+        self.possessed_skill = None
+        self.is_active = False
+        self.active_timer = 0.0
+        self.ghost_particles = []
+        self.possession_flash = 0.0
+
+
+# ============================================================================
 # 영웅 스킬 매핑
 # ============================================================================
 HERO_SKILLS: Dict[str, List[HeroSkill]] = {
@@ -7409,7 +7731,7 @@ HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "ignis": [DragonBreath(), DragonWing()],
     "gear": [SteamBarrier(), OilSpill()],
     "kurokage": [ShadowClone(), IllusionShuriken()],
-    "banshee": [DollCurse(), GravityControl()],
+    "banshee": [Charm(), DeadPossession()],
     # 감옥 전용 영웅 (기존 스킬 클래스 재활용)
     "bella": [AbyssInk(), DollCurse()],
     "leon": [HornCharge(), DarkSlash()],
@@ -7426,7 +7748,7 @@ HERO_SKILL_CLASSES: Dict[str, list] = {
     "ignis": [DragonBreath, DragonWing],
     "gear": [SteamBarrier, OilSpill],
     "kurokage": [ShadowClone, IllusionShuriken],
-    "banshee": [DollCurse, GravityControl],
+    "banshee": [Charm, DeadPossession],
     # 감옥 전용 영웅 (기존 스킬 클래스 재활용)
     "bella": [AbyssInk, DollCurse],
     "leon": [HornCharge, DarkSlash],

@@ -51,6 +51,8 @@ def _create_icon(skill_id: str) -> Optional[pygame.Surface]:
         "oil_spill": _icon_oil_spill,
         "shadow_clone": _icon_shadow_clone,
         "illusion_shuriken": _icon_illusion_shuriken,
+        "charm": _icon_charm,
+        "dead_possession": _icon_dead_possession,
     }
     creator = creators.get(skill_id)
     if creator:
@@ -466,3 +468,71 @@ def _draw_shuriken(surface, cx, cy, size, color):
     ]
     if len(pts) >= 3:
         pygame.draw.polygon(surface, color, pts)
+
+
+# ===== 벤시 (banshee) 스킬 =====
+
+def _icon_charm() -> pygame.Surface:
+    """매혹 - 유령 하트 + 소용돌이 + 최면 눈"""
+    s = pygame.Surface((32, 32), pygame.SRCALPHA)
+    # 어두운 청보라 배경
+    pygame.draw.circle(s, (25, 20, 50), (16, 16), 15)
+    pygame.draw.circle(s, (50, 40, 80), (16, 16), 15, 1)
+    # 소용돌이 (최면 효과)
+    for i in range(3):
+        r = 11 - i * 3
+        start_angle = i * 1.2
+        pygame.draw.arc(s, (140, 80, 200, 180 - i * 40),
+                       (16 - r, 16 - r, r * 2, r * 2),
+                       start_angle, start_angle + 3.5, 2)
+    # 하트 (중앙, 핑크+시안 그라데이션 느낌)
+    # 하트 왼쪽 볼
+    pygame.draw.circle(s, (200, 80, 160), (13, 12), 4)
+    # 하트 오른쪽 볼
+    pygame.draw.circle(s, (180, 100, 200), (19, 12), 4)
+    # 하트 아래쪽 꼭짓점
+    pygame.draw.polygon(s, (190, 90, 180), [
+        (9, 14), (16, 22), (23, 14),
+    ])
+    # 하트 하이라이트
+    pygame.draw.circle(s, (240, 150, 210), (12, 11), 2)
+    # 유령빛 글로우
+    pygame.draw.circle(s, (100, 200, 240, 60), (16, 16), 10)
+    # 스파크
+    for px, py in [(8, 8), (24, 8), (16, 26)]:
+        pygame.draw.circle(s, (200, 220, 255), (px, py), 1)
+    return s
+
+
+def _icon_dead_possession() -> pygame.Surface:
+    """망자빙의 - 유령 실루엣 + 다중 오라 + 물음표 주사위"""
+    s = pygame.Surface((32, 32), pygame.SRCALPHA)
+    # 깊은 남색 배경
+    pygame.draw.circle(s, (15, 15, 40), (16, 16), 15)
+    pygame.draw.circle(s, (40, 50, 90), (16, 16), 15, 1)
+    # 유령 실루엣 (중앙)
+    ghost_body = [(11, 20), (10, 14), (12, 8), (16, 5), (20, 8), (22, 14), (21, 20)]
+    pygame.draw.polygon(s, (100, 160, 220, 180), ghost_body)
+    pygame.draw.polygon(s, (140, 200, 255, 120), ghost_body, 1)
+    # 유령 꼬리 (물결)
+    for i in range(3):
+        tx = 11 + i * 4
+        pygame.draw.circle(s, (80, 140, 200, 120), (tx, 22), 2)
+    # 유령 눈 (시안 글로우)
+    pygame.draw.circle(s, (80, 220, 255), (14, 12), 2)
+    pygame.draw.circle(s, (80, 220, 255), (18, 12), 2)
+    pygame.draw.circle(s, (200, 255, 255), (14, 12), 1)
+    pygame.draw.circle(s, (200, 255, 255), (18, 12), 1)
+    # 다중 색상 오라 (랜덤 스킬을 상징)
+    colors = [(200, 80, 80, 60), (80, 200, 80, 60), (80, 80, 200, 60),
+              (200, 200, 80, 60), (200, 80, 200, 60)]
+    for i, c in enumerate(colors):
+        angle = i * 1.26
+        ox = 16 + int(math.cos(angle) * 10)
+        oy = 16 + int(math.sin(angle) * 10)
+        pygame.draw.circle(s, c, (ox, oy), 3)
+    # 물음표 (랜덤 상징)
+    pygame.draw.line(s, (220, 240, 255), (14, 25), (16, 25), 2)
+    pygame.draw.line(s, (220, 240, 255), (16, 25), (16, 28), 2)
+    pygame.draw.circle(s, (220, 240, 255), (16, 30), 1)
+    return s

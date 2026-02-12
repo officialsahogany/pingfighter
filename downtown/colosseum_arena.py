@@ -1958,10 +1958,146 @@ class GuardWarriorSystem:
             return skills[0].cooldown * self.GUARD_CD_PENALTY
         return random.uniform(*self.cooldown_range)
 
+    # === 매혹 (Charm) 스킬 지원 ===
+    def _handle_charm_requests(self, game_state):
+        """벤시 '매혹' 스킬의 호위무사 빼앗기/반환 처리"""
+        # 매혹 발동 요청 처리
+        charm_req = game_state.pop('charm_request', None)
+        if charm_req:
+            caster_is_top = charm_req['caster_is_top']
+            # 상대 진영에서 호위무사 1명 빼앗기
+            if caster_is_top:
+                # 상단 시전 → 하단의 호위무사를 상단으로
+                enemy_guards = self.guard_warriors_bottom
+                ally_guards = self.guard_warriors_top
+            else:
+                # 하단 시전 → 상단의 호위무사를 하단으로
+                enemy_guards = self.guard_warriors_top
+                ally_guards = self.guard_warriors_bottom
+
+            if enemy_guards:
+                # 현재 순찰 중인 호위무사 우선, 없으면 첫 번째
+                stolen = enemy_guards.pop(0)
+                ally_guards.append(stolen)
+                game_state['_charmed_guard'] = stolen
+                game_state['_charm_stolen_from_top'] = not caster_is_top
+
+                # 상대측 순찰 호위무사 퇴장 처리
+                if caster_is_top:
+                    if self.active_bottom and self.active_bottom.get("id") == stolen.get("id"):
+                        self.phase_bottom = "exiting"
+                        self.anim_timer_bottom = 0.0
+                    if not self.guard_warriors_bottom:
+                        self.patrol_mode_bottom = False
+                else:
+                    if self.active_top and self.active_top.get("id") == stolen.get("id"):
+                        self.phase_top = "exiting"
+                        self.anim_timer_top = 0.0
+                    if not self.guard_warriors_top:
+                        self.patrol_mode_top = False
+
+                # 아군측 순찰 모드 활성화 (새 호위무사 등장)
+                if caster_is_top:
+                    self.patrol_mode_top = True
+                    if not self.active_top or self.phase_top is None:
+                        self.next_guard_top_idx = len(ally_guards) - 1
+                        self._spawn_patrol_guard(is_top=True)
+                else:
+                    self.patrol_mode_bottom = True
+                    if not self.active_bottom or self.phase_bottom is None:
+                        self.next_guard_bottom_idx = len(ally_guards) - 1
+                        self._spawn_patrol_guard(is_top=False)
+
+                # 스킬 인스턴스 재생성
+                self._init_guard_skills()
+                print(f"[Charm] 매혹! {stolen['name']}을(를) {'상단' if caster_is_top else '하단'}으로 끌어들임")
+            else:
+                print("[Charm] 매혹 실패 - 상대에게 호위무사가 없음")
+
+        # 매혹 종료 요청 처리
+        charm_end = game_state.pop('charm_end_request', None)
+        if charm_end:
+            caster_is_top = charm_end['caster_is_top']
+            stolen = game_state.pop('_charmed_guard', None)
+            stolen_from_top = game_state.pop('_charm_stolen_from_top', None)
+            if stolen and stolen_from_top is not None:
+                # 아군에서 제거
+                if caster_is_top:
+                    ally_guards = self.guard_warriors_top
+                    enemy_guards = self.guard_warriors_bottom
+                else:
+                    ally_guards = self.guard_warriors_bottom
+                    enemy_guards = self.guard_warriors_top
+
+                # 리스트에서 제거 (id로 찾기)
+                for i, g in enumerate(ally_guards):
+                    if g.get("id") == stolen.get("id"):
+                        ally_guards.pop(i)
+                        break
+
+                # 상대에게 돌려줌
+                enemy_guards.append(stolen)
+
+                # 순찰 모드 복원
+                if stolen_from_top:
+                    self.patrol_mode_top = True
+                    if not self.active_top or self.phase_top is None:
+                        self.next_guard_top_idx = len(enemy_guards) - 1
+                        self._spawn_patrol_guard(is_top=True)
+                else:
+                    self.patrol_mode_bottom = True
+                    if not self.active_bottom or self.phase_bottom is None:
+                        self.next_guard_bottom_idx = len(enemy_guards) - 1
+                        self._spawn_patrol_guard(is_top=False)
+
+                # 비어진 쪽 순찰 모드 정리
+                if caster_is_top and not self.guard_warriors_top:
+                    self.patrol_mode_top = False
+                elif not caster_is_top and not self.guard_warriors_bottom:
+                    self.patrol_mode_bottom = False
+
+                self._init_guard_skills()
+                print(f"[Charm] 매혹 종료! {stolen['name']} 원래 진영으로 복귀")
+
+    def _spawn_patrol_guard(self, is_top):
+        """매혹으로 추가된 호위무사를 즉시 순찰 등장시킴"""
+        guards = self.guard_warriors_top if is_top else self.guard_warriors_bottom
+        if not guards:
+            return
+        idx = (self.next_guard_top_idx if is_top else self.next_guard_bottom_idx) % len(guards)
+        guard = guards[idx]
+        if is_top:
+            self.active_top = guard
+            self.phase_top = "patrol_entering"
+            self.anim_timer_top = 0.0
+            self.side_top = random.choice(["left", "right"])
+            start_x = (GAME_AREA_X - 60) if self.side_top == "left" else (GAME_AREA_X + GAME_AREA_WIDTH + 60)
+            self.x_top = start_x
+            self.y_top = TOP_PADDLE_Y
+            cd_mult = self.guard_cd_mult_top
+            base_cd = self._get_guard_cooldown(guard["id"])
+            self.cooldown_top = base_cd * cd_mult + GUARD_ENTER_DURATION
+            self.cooldown_max_top = self.cooldown_top
+        else:
+            self.active_bottom = guard
+            self.phase_bottom = "patrol_entering"
+            self.anim_timer_bottom = 0.0
+            self.side_bottom = random.choice(["left", "right"])
+            start_x = (GAME_AREA_X - 60) if self.side_bottom == "left" else (GAME_AREA_X + GAME_AREA_WIDTH + 60)
+            self.x_bottom = start_x
+            self.y_bottom = BOTTOM_PADDLE_Y
+            cd_mult = self.guard_cd_mult_bottom
+            base_cd = self._get_guard_cooldown(guard["id"])
+            self.cooldown_bottom = base_cd * cd_mult + GUARD_ENTER_DURATION
+            self.cooldown_max_bottom = self.cooldown_bottom
+
     def update(self, dt, top_paddle, bottom_paddle, ball):
         """매 프레임 호위무사 시스템 업데이트"""
         if not self.guard_warriors_top and not self.guard_warriors_bottom:
-            return
+            # 매혹으로 호위무사가 임시 추가된 경우에도 체크
+            game_state = self.skill_manager.game_state if self.skill_manager else {}
+            if not game_state.get('charm_active'):
+                return
 
         # 말풍선 타이머 감소
         if self._bubble_top and self._bubble_top['timer'] > 0:
@@ -1970,6 +2106,9 @@ class GuardWarriorSystem:
             self._bubble_bottom['timer'] -= dt
 
         game_state = self.skill_manager.game_state if self.skill_manager else {}
+
+        # === 매혹 (Charm) 스킬 처리 ===
+        self._handle_charm_requests(game_state)
 
         # 🔥 호위무사 귀신발걸음 공 충돌 감지 (1회 발동당 3회까지)
         if self._guard_ball_cooldown > 0:
