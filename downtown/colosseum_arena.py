@@ -9652,7 +9652,7 @@ class ColosseumsArena:
             card_surf.fill((0, 0, 0, 0))
             # 배경 (반투명)
             inner_alpha = 200 if is_hovered else 160
-            pygame.draw.rect(card_surf, (*ET["panel_bg"], inner_alpha), (0, 0, card_w, card_h), border_radius=8)
+            pygame.draw.rect(card_surf, (*ET["bg_panel"], inner_alpha), (0, 0, card_w, card_h), border_radius=8)
             # 상단 색상 바
             bar_h = 60
             bar_color = (*bg_color, 220 if can_afford else 100)
