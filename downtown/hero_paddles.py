@@ -4975,7 +4975,7 @@ class HeroPaddleRenderer:
                     _ly1 = _k_tip_y - int(_kick_dir * _kick_amt * 0.5 * b) + int(_li * 0.25 * b)
                     _lx2 = _lx1 - int(side * _kick_amt * 1.8 * b)
                     _ly2 = _ly1 + int(_kick_dir * 0.3 * b)
-                    _lcol = (255, 255, 255, _line_alpha - _li * 15) if _li != 2 else (255, 200, 60, _line_alpha)
+                    _lcol = (255, 255, 255, max(0, _line_alpha - _li * 15)) if _li != 2 else (255, 200, 60, _line_alpha)
                     pygame.draw.line(_ks, _lcol, (_lx1, _ly1), (_lx2, _ly2), max(1, int(0.06 * b)))
                 screen.blit(_ks, (cx - _ks.get_width() // 2, cy - _ks.get_height() // 2))
 
