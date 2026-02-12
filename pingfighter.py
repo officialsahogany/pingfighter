@@ -87357,7 +87357,7 @@ def draw_objects():
                 try:
                     arena_guard_system.draw(SCREEN, top_wrapper, bottom_wrapper, ball_wrapper)
                 except Exception as _guard_draw_err:
-                    pass
+                    print(f"[Guard] draw error: {_guard_draw_err}")
             # 화면 효과 그리기 (플래시, 흔들림 등)
             arena_skill_manager.draw_screen_effects(SCREEN)
 

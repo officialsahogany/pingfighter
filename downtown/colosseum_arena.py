@@ -2102,12 +2102,27 @@ class GuardWarriorSystem:
         self._charmed['x'] = random.uniform(GAME_AREA_X + 80, GAME_AREA_X + GAME_AREA_WIDTH - 80)
         self._charmed['phase'] = 'patrolling'
 
-        # 스킬 인스턴스 준비
-        skills = self.skill_instances.get(guard["id"], [])
+        # 매혹 호위무사 스킬 인스턴스만 리셋 (다른 호위무사 활성 스킬 보호)
+        guard_id = guard["id"]
+        try:
+            from downtown.hero_skills import HERO_SKILL_CLASSES
+            skill_classes = HERO_SKILL_CLASSES.get(guard_id, [])
+            selected_idx = self.skill_selections.get(guard_id, -1)
+            new_skills = []
+            for i, cls in enumerate(skill_classes):
+                if selected_idx >= 0 and i != selected_idx:
+                    continue
+                new_skills.append(cls())
+            gs = self.skill_manager.game_state if self.skill_manager else {}
+            for sk in new_skills:
+                sk.game_state = gs
+            self.skill_instances[guard_id] = new_skills
+        except Exception as e:
+            print(f"[Charm] 매혹 스킬 인스턴스 재생성 실패: {e}")
+
+        skills = self.skill_instances.get(guard_id, [])
         if skills:
             self._charmed['skill'] = random.choice(skills)
-
-        self._init_guard_skills()
         print(f"[Charm] 매혹 활성! {guard['name']}이(가) {'상단' if caster_is_top else '하단'}에서 독립 순찰 시작")
 
     def _charm_start_return(self, game_state, caster_is_top):
@@ -2257,12 +2272,16 @@ class GuardWarriorSystem:
 
             # 말풍선 표시
             bubble_text = f"{skill.korean_name}!"
+            bubble_color = guard.get("color") or (200, 200, 200)
+            # color가 튜플/리스트가 아닐 경우 안전하게 기본값 사용
+            if not isinstance(bubble_color, (tuple, list)) or len(bubble_color) < 3:
+                bubble_color = (200, 200, 200)
             if caster_is_top:
                 self._bubble_top = {'text': bubble_text, 'timer': self._bubble_duration,
-                                    'x': c['x'], 'y': c['y'], 'color': guard.get("color", (200, 200, 200))}
+                                    'x': c['x'], 'y': c['y'], 'color': bubble_color}
             else:
                 self._bubble_bottom = {'text': bubble_text, 'timer': self._bubble_duration,
-                                       'x': c['x'], 'y': c['y'], 'color': guard.get("color", (200, 200, 200))}
+                                       'x': c['x'], 'y': c['y'], 'color': bubble_color}
 
             print(f"[Charm] 매혹 호위무사 {guard['name']} → {skill.korean_name} 발동!")
         else:
@@ -2390,8 +2409,13 @@ class GuardWarriorSystem:
                         guard_paddle.centerx = ball.x
                     # 귀신발걸음: 현재 호위무사 위치로 동기화 (X + Y)
                     elif skill_id == 'demon_step':
-                        gx = self.x_top if is_top_guard else self.x_bottom
-                        gy = self.y_top if is_top_guard else self.y_bottom
+                        # 매혹 호위무사는 charmed 좌표 사용
+                        if self._charmed and self._charmed['guard'].get("id") == hero_id:
+                            gx = self._charmed['x']
+                            gy = self._charmed['y']
+                        else:
+                            gx = self.x_top if is_top_guard else self.x_bottom
+                            gy = self.y_top if is_top_guard else self.y_bottom
                         guard_paddle.x = gx - guard_paddle.width // 2
                         guard_paddle.centerx = gx
                         guard_paddle.y = gy
@@ -3450,7 +3474,16 @@ class GuardWarriorSystem:
             else:
                 is_top_guard = any(g["id"] == hero_id for g in self.guard_warriors_top)
             guard_paddle = self.guard_paddles.get(hero_id)
-            if guard_paddle is None:
+            # 매혹 호위무사: draw 전에도 패들 위치를 charmed 좌표로 동기화
+            if self._charmed and self._charmed['guard'].get("id") == hero_id:
+                if guard_paddle is None:
+                    guard_paddle = _GuardPaddle(self._charmed['x'], self._charmed['y'], is_top_guard)
+                    self.guard_paddles[hero_id] = guard_paddle
+                guard_paddle.x = int(self._charmed['x']) - guard_paddle.width // 2
+                guard_paddle.centerx = int(self._charmed['x'])
+                guard_paddle.y = int(self._charmed['y'])
+                guard_paddle.centery = int(self._charmed['y']) + guard_paddle.height // 2
+            elif guard_paddle is None:
                 guard_paddle = top_paddle if is_top_guard else bottom_paddle
             target = bottom_paddle if is_top_guard else top_paddle
             for skill in skills:
@@ -3459,15 +3492,20 @@ class GuardWarriorSystem:
                         # 귀신발걸음: draw 전에 현재 호위무사 위치로 동기화
                         skill_id = getattr(skill, 'skill_id', '')
                         if skill_id == 'demon_step' and guard_paddle:
-                            gx = self.x_top if is_top_guard else self.x_bottom
-                            gy = self.y_top if is_top_guard else self.y_bottom
+                            # 매혹 호위무사는 charmed 좌표 사용
+                            if self._charmed and self._charmed['guard'].get("id") == hero_id:
+                                gx = self._charmed['x']
+                                gy = self._charmed['y']
+                            else:
+                                gx = self.x_top if is_top_guard else self.x_bottom
+                                gy = self.y_top if is_top_guard else self.y_bottom
                             guard_paddle.x = gx - guard_paddle.width // 2
                             guard_paddle.centerx = gx
                             guard_paddle.y = gy
                             guard_paddle.centery = gy + guard_paddle.height // 2
                         skill.draw(screen, guard_paddle, target, ball, game_state)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        print(f"[Guard] skill draw error ({getattr(skill, 'skill_id', '?')}): {e}")
 
         # 상단측 호위무사 캐릭터 (patrol_entering 딜레이 중에는 미표시)
         if self.active_top and self.phase_top:
@@ -3484,13 +3522,22 @@ class GuardWarriorSystem:
                                  is_top=False)
 
         # === 매혹 순찰 중 호위무사 렌더링 ===
-        self._draw_charmed_guard(screen, shake_x, shake_y)
+        try:
+            self._draw_charmed_guard(screen, shake_x, shake_y)
+        except Exception as e:
+            print(f"[Guard] charmed guard draw error: {e}")
 
         # === 매혹 견인/복귀 중 호위무사 렌더링 ===
-        self._draw_charm_transitioning_guard(screen, game_state, shake_x, shake_y)
+        try:
+            self._draw_charm_transitioning_guard(screen, game_state, shake_x, shake_y)
+        except Exception as e:
+            print(f"[Guard] charm transition draw error: {e}")
 
         # 호위무사 말풍선 그리기
-        self._draw_guard_bubbles(screen, shake_x, shake_y)
+        try:
+            self._draw_guard_bubbles(screen, shake_x, shake_y)
+        except Exception as e:
+            print(f"[Guard] bubble draw error: {e}")
 
     def _draw_charm_transitioning_guard(self, screen, game_state, shake_x, shake_y):
         """매혹 견인/복귀 중인 호위무사 캐릭터 렌더링"""
@@ -3552,6 +3599,9 @@ class GuardWarriorSystem:
     def _draw_guard_shout_bubble(self, screen, x, y, text, timer, theme_color):
         """호위무사 외침 풍선 렌더링 (뾰족한 스타버스트 - 영웅 스킬 발동과 동일)"""
         try:
+            # theme_color 안전 검증
+            if not isinstance(theme_color, (tuple, list)) or len(theme_color) < 3:
+                theme_color = (200, 100, 60)
             import os, sys
             font = pygame.font.Font(None, 24)
             try:
@@ -3658,8 +3708,8 @@ class GuardWarriorSystem:
             blit_y = int(y + float_offset)
             blit_x = max(GAME_AREA_X + 5, min(blit_x, GAME_AREA_X + GAME_AREA_WIDTH - surf_w - 5))
             screen.blit(bubble_surface, (blit_x, blit_y))
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[Guard] bubble render error: {e}")
 
     # 인게임 영웅 렌더링 기준 너비 130의 90% (호위무사는 영웅보다 10% 작게)
     _GUARD_RENDER_WIDTH = 117
@@ -4712,12 +4762,6 @@ class ColosseumsArena:
         for hero in all_heroes:
             self.hero_selected_skills[hero["id"]] = local_rng.randint(0, 1)
 
-        # [DEBUG] 스킬 배정 통계 로그
-        a_count = sum(1 for v in self.hero_selected_skills.values() if v == 0)
-        b_count = sum(1 for v in self.hero_selected_skills.values() if v == 1)
-        _detail = ', '.join(k + ':' + ('A' if v == 0 else 'B') for k, v in self.hero_selected_skills.items())
-        print(f"[DEBUG 스킬배정] 이번 대진표: A={a_count}명, B={b_count}명 | 상세: {{{_detail}}}")
-
     def _advance_to_next_round(self):
         """다음 라운드 진출"""
         if self.current_round == TournamentRound.QUARTER_FINAL:
@@ -5752,15 +5796,6 @@ class ColosseumsArena:
                     self.skill_reveal_target = chosen_hero["id"]
                     self.skill_reveal_result = self.player_hero_skill_index
                     self._skill_reveal_last_tick_idx = -1
-                    # [DEBUG] 영웅 스킬 선택 결과
-                    _sk_label = "A(왼쪽)" if self.player_hero_skill_index == 0 else "B(오른쪽)"
-                    if not hasattr(ColosseumsArena, '_debug_skill_stats'):
-                        ColosseumsArena._debug_skill_stats = {"hero_A": 0, "hero_B": 0, "guard_A": 0, "guard_B": 0}
-                    ColosseumsArena._debug_skill_stats["hero_A" if self.player_hero_skill_index == 0 else "hero_B"] += 1
-                    _st = ColosseumsArena._debug_skill_stats
-                    print(f"[DEBUG 스킬결과] 영웅 {chosen_hero['name']} → 스킬 {_sk_label} 확정! "
-                          f"| 누적 영웅: A={_st['hero_A']}회 B={_st['hero_B']}회 "
-                          f"| 누적 호위: A={_st['guard_A']}회 B={_st['guard_B']}회")
             elif anim_phase == "skill_rolling":
                 self.skill_reveal_timer += dt
                 if self.skill_reveal_phase == "rolling" and self.skill_reveal_timer >= 3.5:
@@ -5820,15 +5855,6 @@ class ColosseumsArena:
                     self.skill_reveal_target = guard_hero["id"]
                     self.skill_reveal_result = self.player_guard_skill_index
                     self._skill_reveal_last_tick_idx = -1
-                    # [DEBUG] 호위무사 스킬 선택 결과
-                    _gk_label = "A(왼쪽)" if self.player_guard_skill_index == 0 else "B(오른쪽)"
-                    if not hasattr(ColosseumsArena, '_debug_skill_stats'):
-                        ColosseumsArena._debug_skill_stats = {"hero_A": 0, "hero_B": 0, "guard_A": 0, "guard_B": 0}
-                    ColosseumsArena._debug_skill_stats["guard_A" if self.player_guard_skill_index == 0 else "guard_B"] += 1
-                    _st = ColosseumsArena._debug_skill_stats
-                    print(f"[DEBUG 스킬결과] 호위무사 {guard_hero['name']} → 스킬 {_gk_label} 확정! "
-                          f"| 누적 영웅: A={_st['hero_A']}회 B={_st['hero_B']}회 "
-                          f"| 누적 호위: A={_st['guard_A']}회 B={_st['guard_B']}회")
                 elif opening_phase == "skill_rolling":
                     self.skill_reveal_timer += dt
                     if self.skill_reveal_phase == "rolling" and self.skill_reveal_timer >= 3.5:
