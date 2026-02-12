@@ -8618,11 +8618,19 @@ class Mirage(HeroSkill):
         # 실제 공의 속도/크기 정보
         real_vx = ball.vx
         real_vy = ball.vy
+
+        # 캐스터 방향 보정: 공은 반드시 상대 쪽으로 날아가야 함
+        # 하단 캐스터 → 위로(vy < 0), 상단 캐스터 → 아래로(vy > 0)
+        if not self.caster_is_top and real_vy > 0:
+            real_vy = -abs(real_vy)
+        elif self.caster_is_top and real_vy < 0:
+            real_vy = abs(real_vy)
+
         ball_speed = math.sqrt(real_vx ** 2 + real_vy ** 2)
         if ball_speed < 0.1:
             return {}
 
-        # 실제 공의 각도
+        # 실제 공의 각도 (방향 보정 후)
         real_angle = math.atan2(real_vy, real_vx)
 
         # 가짜 공 2~3개 생성
