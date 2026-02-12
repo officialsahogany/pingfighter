@@ -3917,6 +3917,546 @@ class HeroPaddleRenderer:
                        (cx - int(1.25 * b) + lean_offset + afterimage_offset, head_y - int(0.2 * b)))
 
     # =========================================================================
+    # 벤시 - 유령 여왕 (저주받은 비명의 여왕) [고퀄리티]
+    # =========================================================================
+    def _draw_banshee(self, screen, cx, cy, b, color, show_back, anim):
+        """벤시 - 유령 여왕 (저주받은 비명으로 적을 공포에 빠트리는 유령) [HD 버전]"""
+        lean = anim["lean"]
+        wave = anim["wave"]
+        body_bob = anim["body_bob"]
+        shoulder_bob = anim.get("shoulder_bob", 0)
+
+        # 벤시는 떠다니므로 body_bob에 부유 효과 추가
+        float_offset = _sin(self.time * 2.0) * 0.3 * b
+        torso_y = cy - int(1.5 * b) + int(body_bob * 2 * b) + int(float_offset)
+        lean_offset = int(lean * 2 * b)
+
+        # 유령 펄스 (불규칙한 깜빡임)
+        ghost_pulse = (_sin(self.time * 1.8) + 1) * 0.5
+        wail_pulse = (_sin(self.time * 3.5) + 1) * 0.5  # 울음소리 효과
+        flicker = 0.85 + 0.15 * _sin(self.time * 7.3)  # 유령 깜빡임
+
+        p = {
+            "dress": (50, 55, 75),           # 어두운 회청색 드레스
+            "dress_light": (80, 90, 115),
+            "dress_mid": (65, 72, 95),
+            "dress_dark": (35, 38, 55),
+            "dress_shadow": (20, 22, 35),
+            "dress_edge": (90, 100, 135),     # 드레스 가장자리 (밝은 유령빛)
+            "ghost_trail": (100, 140, 180),   # 유령 꼬리 색
+            "ghost_fade": (70, 100, 140),     # 유령 꼬리 페이드
+            "gold": color,
+            "gold_light": tuple(min(255, c + 55) for c in color),
+            "gold_mid": tuple(min(255, c + 28) for c in color),
+            "gold_dark": tuple(max(0, c - 45) for c in color),
+            "gold_shadow": tuple(max(0, c - 75) for c in color),
+            "skin": (200, 210, 220),          # 창백한 유령 피부
+            "skin_shadow": (170, 180, 195),
+            "skin_glow": (210, 225, 240),     # 유령빛 피부 하이라이트
+            "skull": (220, 225, 230),         # 해골 (밝은 뼈색)
+            "skull_shadow": (180, 185, 195),
+            "skull_dark": (140, 145, 160),
+            "eye": (80, 220, 255),            # 차가운 시안 눈빛
+            "eye_glow": (100, 240, 255),
+            "eye_core": (200, 255, 255),      # 눈 중심 (매우 밝음)
+            "hair": (25, 20, 40),             # 칠흑 보라 머리카락
+            "hair_mid": (40, 32, 58),
+            "hair_light": (55, 45, 75),
+            "hair_highlight": (80, 65, 105),
+            "hair_ghost": (60, 80, 120),      # 머리카락 끝 유령빛
+            "crown": (180, 160, 100),         # 고대 왕관
+            "crown_light": (220, 200, 140),
+            "crown_gem": (80, 200, 240),      # 왕관 보석
+            "crown_gem_glow": (120, 230, 255),
+            "claw": (200, 185, 130),          # 금색 손톱/건틀릿
+            "claw_light": (230, 215, 160),
+            "claw_dark": (160, 145, 95),
+            "aura": (60, 150, 200),           # 유령 오라
+            "aura_inner": (80, 180, 230),
+            "wail": (150, 220, 255),          # 비명 이펙트
+            "wisp": (100, 180, 220),          # 도깨비불
+            "lip": (130, 100, 120),
+            "lip_light": (155, 120, 140),
+            "eyelash": (30, 25, 45),
+        }
+
+        # === 유령 오라 (배경 - 차가운 푸른빛) ===
+        aura_size = int(5.5 * b)
+        aura_surf = self._get_surface(aura_size * 2, aura_size * 2)
+        for i in range(5):
+            aura_alpha = int((30 - i * 6) * ghost_pulse * flicker)
+            aura_r = int((2.5 - i * 0.4) * b)
+            pygame.draw.circle(aura_surf, (*p["aura"], aura_alpha),
+                             (aura_size, aura_size), aura_r)
+        screen.blit(aura_surf,
+                   (cx - aura_size + lean_offset,
+                    torso_y - int(1.5 * b) - aura_size // 2),
+                   special_flags=pygame.BLEND_ADD)
+
+        # 도깨비불 (떠다니는 유령 파티클)
+        for i in range(10):
+            wisp_angle = self.time * 0.6 + i * math.pi / 5
+            wisp_r = int(2.8 * b + _sin(self.time * 1.5 + i * 1.2) * 0.5 * b)
+            wisp_x = cx + int(_cos(wisp_angle) * wisp_r) + lean_offset
+            wisp_y = torso_y - int(0.3 * b) + int(_sin(wisp_angle * 1.5 + self.time * 2) * 1.2 * b)
+            wisp_alpha = int((60 + 40 * _sin(self.time * 4 + i * 0.7)) * flicker)
+            wisp_size = max(2, int(0.15 * b + 0.05 * b * _sin(self.time * 3 + i)))
+            wisp_surf = self._get_surface(wisp_size * 4, wisp_size * 4)
+            pygame.draw.circle(wisp_surf, (*p["wisp"], wisp_alpha),
+                             (wisp_size * 2, wisp_size * 2), wisp_size)
+            # 도깨비불 코어 (더 밝게)
+            pygame.draw.circle(wisp_surf, (*p["eye_core"], int(wisp_alpha * 0.6)),
+                             (wisp_size * 2, wisp_size * 2), max(1, wisp_size // 2))
+            screen.blit(wisp_surf,
+                       (int(wisp_x - wisp_size * 2), int(wisp_y - wisp_size * 2)),
+                       special_flags=pygame.BLEND_ADD)
+
+        # === 유령 꼬리/드레스 하단 (다리 대신 - 유령이라서 아래가 흐릿하게 사라짐) ===
+        side_blend = anim.get("side_blend", 0)
+        move_dir = anim.get("move_dir", 0)
+        # 유령 꼬리 넘실거림 - 매우 가벼워서 관성이 강함
+        ghost_drift = -move_dir * side_blend * 1.0 * b
+        ghost_flow = (_sin(self.time * 2.8) * 0.3 + _sin(self.time * 4.5) * 0.15) * b
+        ghost_wave_boost = 1.0 + side_blend * 3.0
+
+        # 메인 드레스 실루엣
+        dress_points = [
+            (cx - int(1.3 * b) + lean_offset, torso_y + int(1.6 * b)),
+            (cx + int(1.3 * b) + lean_offset, torso_y + int(1.6 * b)),
+            (cx + int(1.8 * b) + lean_offset + int(wave * 0.3 * ghost_wave_boost * b) + int(ghost_drift + ghost_flow), cy + int(3.5 * b)),
+            (cx + int(0.3 * b) + lean_offset + int(wave * 0.15 * ghost_wave_boost * b) + int((ghost_drift + ghost_flow) * 0.7), cy + int(4.0 * b)),
+            (cx - int(0.3 * b) + lean_offset - int(wave * 0.15 * ghost_wave_boost * b) + int((ghost_drift + ghost_flow) * 0.7), cy + int(4.0 * b)),
+            (cx - int(1.8 * b) + lean_offset - int(wave * 0.3 * ghost_wave_boost * b) + int(ghost_drift + ghost_flow), cy + int(3.5 * b)),
+        ]
+        # 드레스 그림자
+        shadow_pts = [(px + 2, py + 2) for px, py in dress_points]
+        pygame.draw.polygon(screen, p["dress_shadow"], shadow_pts)
+        pygame.draw.polygon(screen, p["dress"], dress_points)
+
+        # 드레스 세로 주름 (찢어진 느낌)
+        for i in range(8):
+            fold_shift = int((ghost_drift + ghost_flow) * (i - 3.5) * 0.1)
+            fold_x = cx + int((i - 3.5) * 0.35 * b) + lean_offset + fold_shift
+            fold_top = torso_y + int(1.7 * b)
+            fold_bot = cy + int(3.3 * b) + int(wave * 0.08 * (i - 3.5) * ghost_wave_boost * b)
+            pygame.draw.line(screen, p["dress_mid"], (fold_x, fold_top), (fold_x, fold_bot), 1)
+
+        # 유령 꼬리 하단 (투명 그라데이션 - 여러 레이어)
+        for layer in range(6):
+            tail_y = cy + int(3.0 * b) + layer * int(0.25 * b)
+            tail_w = int(1.5 * b) - layer * int(0.12 * b)
+            layer_factor = 1.0 + layer * 0.35
+            layer_sway = int((ghost_drift + ghost_flow) * layer_factor)
+            layer_wave = int(wave * 0.1 * layer * ghost_wave_boost * b)
+            tail_alpha = max(5, int((120 - layer * 20) * flicker))
+
+            tail_surf = self._get_surface(int(tail_w * 2 + abs(layer_wave) + 4), int(0.4 * b))
+            tail_rect = (0, 0, tail_surf.get_width(), tail_surf.get_height())
+            pygame.draw.ellipse(tail_surf, (*p["ghost_trail"], tail_alpha), tail_rect)
+            screen.blit(tail_surf,
+                       (cx - tail_w + lean_offset + layer_sway + layer_wave,
+                        int(tail_y)))
+
+        # 드레스 가장자리 찢어진 조각들 (불규칙한 유령 천 조각)
+        for i in range(6):
+            tear_angle = self.time * 0.8 + i * 1.05
+            tear_base_x = cx + int((i - 2.5) * 0.55 * b) + lean_offset
+            tear_base_y = cy + int(3.0 * b)
+            tear_len = int(0.6 * b + _sin(tear_angle) * 0.2 * b)
+            tear_sway = int(_sin(self.time * 2.5 + i * 0.9) * 0.15 * b)
+            tear_drift = int((ghost_drift + ghost_flow) * (0.5 + i * 0.15))
+            tear_alpha = max(10, int((100 - i * 12) * flicker))
+            tear_surf = self._get_surface(max(4, int(0.2 * b)), max(4, tear_len))
+            pygame.draw.rect(tear_surf, (*p["dress_edge"], tear_alpha),
+                           (0, 0, tear_surf.get_width(), tear_surf.get_height()),
+                           border_radius=2)
+            screen.blit(tear_surf,
+                       (int(tear_base_x + tear_sway + tear_drift),
+                        int(tear_base_y)))
+
+        # === 몸통 (찢어진 유령 드레스, 여성 실루엣) ===
+        chest_w, chest_h = int(2.8 * b), int(2.2 * b)
+        chest_rect = pygame.Rect(cx - chest_w // 2 + lean_offset,
+                                 torso_y - int(0.3 * b), chest_w, chest_h)
+
+        # 몸통 그림자
+        shadow_rect = chest_rect.inflate(int(0.15 * b), int(0.1 * b))
+        shadow_rect.move_ip(int(0.1 * b), int(0.12 * b))
+        pygame.draw.rect(screen, (25, 28, 40), shadow_rect, border_radius=int(0.45 * b))
+
+        pygame.draw.rect(screen, p["dress"], chest_rect, border_radius=int(0.45 * b))
+        pygame.draw.rect(screen, p["dress_mid"],
+                        chest_rect.inflate(-int(0.35 * b), -int(0.25 * b)),
+                        border_radius=int(0.35 * b))
+        pygame.draw.rect(screen, p["dress_light"],
+                        chest_rect.inflate(-int(0.7 * b), -int(0.5 * b)),
+                        border_radius=int(0.25 * b))
+
+        # 몸통 찢어진 무늬 (비대칭 세로줄)
+        for i in range(4):
+            line_x = chest_rect.left + int((i + 0.8) * 0.65 * b)
+            line_top = chest_rect.top + int(0.3 * b)
+            line_bot = chest_rect.bottom - int(0.2 * b)
+            # 찢어진 듯한 불규칙 선
+            mid_y = (line_top + line_bot) // 2
+            mid_offset = int(_sin(self.time * 0.5 + i * 1.3) * 0.05 * b)
+            pygame.draw.line(screen, p["dress_edge"],
+                           (line_x, line_top),
+                           (line_x + mid_offset, mid_y), 1)
+            pygame.draw.line(screen, p["dress_dark"],
+                           (line_x + mid_offset, mid_y),
+                           (line_x, line_bot), 1)
+
+        # === 가슴 장식 (유령 보석 - 영혼의 핵) ===
+        gem_cx, gem_cy = chest_rect.centerx, chest_rect.centery - int(0.1 * b)
+        gem_r = int(0.5 * b)
+
+        # 보석 글로우
+        glow_surf = self._get_surface(int(2.0 * b), int(2.0 * b))
+        glow_alpha = int(50 * ghost_pulse + 20)
+        pygame.draw.circle(glow_surf, (*p["eye_glow"], glow_alpha),
+                         (int(1.0 * b), int(1.0 * b)), int(0.9 * b))
+        screen.blit(glow_surf,
+                   (gem_cx - int(1.0 * b), gem_cy - int(1.0 * b)),
+                   special_flags=pygame.BLEND_ADD)
+
+        # 보석 외곽 (금색 테두리)
+        pygame.draw.circle(screen, p["gold_shadow"],
+                         (gem_cx + 1, gem_cy + 1), gem_r + 2)
+        pygame.draw.circle(screen, p["gold_dark"], (gem_cx, gem_cy), gem_r + 1)
+        # 보석 본체
+        pygame.draw.circle(screen, p["crown_gem"], (gem_cx, gem_cy), gem_r)
+        pygame.draw.circle(screen, p["crown_gem_glow"],
+                         (gem_cx, gem_cy), int(gem_r * 0.7))
+        # 보석 하이라이트
+        pygame.draw.circle(screen, p["eye_core"],
+                         (gem_cx - int(0.1 * b), gem_cy - int(0.1 * b)),
+                         max(1, int(gem_r * 0.3)))
+
+        # === 허리띠 (고대 금속 벨트) ===
+        belt_rect = pygame.Rect(cx - int(1.15 * b) + lean_offset,
+                               chest_rect.bottom - 3, int(2.3 * b), int(0.7 * b))
+        pygame.draw.rect(screen, p["gold_shadow"], belt_rect, border_radius=3)
+        pygame.draw.rect(screen, p["gold_dark"], belt_rect.inflate(-2, -2), border_radius=2)
+        # 벨트 문양 (해골 모양)
+        belt_cx = belt_rect.centerx
+        belt_cy = belt_rect.centery
+        pygame.draw.circle(screen, p["gold"], (belt_cx, belt_cy), max(3, int(0.22 * b)))
+        pygame.draw.circle(screen, p["skull"],
+                         (belt_cx, belt_cy), max(2, int(0.16 * b)))
+        # 작은 해골 눈
+        for side in [-1, 1]:
+            pygame.draw.circle(screen, p["dress_dark"],
+                             (belt_cx + side * max(1, int(0.06 * b)),
+                              belt_cy - max(1, int(0.02 * b))),
+                             max(1, int(0.04 * b)))
+
+        # === 어깨 장식 (유령 견갑) ===
+        for side in [-1, 1]:
+            sp_x = cx + side * int(1.35 * b) + lean_offset
+            sp_y = torso_y - int(0.05 * b)
+            sp_r = max(4, int(0.5 * b))
+
+            # 견갑 그림자
+            pygame.draw.circle(screen, p["gold_shadow"],
+                             (sp_x + 1, sp_y + 1), sp_r + 1)
+            # 견갑 본체
+            pygame.draw.circle(screen, p["gold_dark"], (sp_x, sp_y), sp_r)
+            pygame.draw.circle(screen, p["gold"], (sp_x, sp_y), sp_r - 1)
+            # 견갑 하이라이트
+            pygame.draw.circle(screen, p["gold_light"],
+                             (sp_x - side, sp_y - 1), max(2, sp_r - 3))
+            # 견갑 보석
+            pygame.draw.circle(screen, p["crown_gem"],
+                             (sp_x, sp_y), max(2, int(0.18 * b)))
+            gem_glow_alpha = int(40 * ghost_pulse)
+            gem_glow_surf = self._get_surface(int(0.6 * b), int(0.6 * b))
+            pygame.draw.circle(gem_glow_surf, (*p["crown_gem_glow"], gem_glow_alpha),
+                             (int(0.3 * b), int(0.3 * b)), int(0.25 * b))
+            screen.blit(gem_glow_surf,
+                       (sp_x - int(0.3 * b), sp_y - int(0.3 * b)),
+                       special_flags=pygame.BLEND_ADD)
+
+        # === 팔 (로브 소매 + 금색 건틀릿/손톱) ===
+        swing_angle = anim.get("weapon_swing_angle", 0)
+        arm_slam = anim.get("arm_slam", 0)
+        for side in [-1, 1]:
+            shoulder_bob_offset = int(shoulder_bob * 0.3 * b)
+            shoulder = (cx + side * int(1.2 * b) + lean_offset,
+                       torso_y + int(0.3 * b) + shoulder_bob_offset)
+
+            # 팔 스윙: 타격 시 양팔 올려치기 (벤시 비명 공격)
+            if arm_slam != 0:
+                arm_raise = arm_slam * 1.5 * b
+                elbow = (shoulder[0] + side * int(0.3 * b),
+                        shoulder[1] - int(1.0 * b) + int(arm_raise * 0.5))
+                wrist = (elbow[0] + side * int(0.2 * b),
+                        elbow[1] - int(0.8 * b) + int(arm_raise))
+            else:
+                # 유령처럼 떠다니는 팔 (약간 벌린 자세)
+                arm_float = _sin(self.time * 2.2 + side * 1.5) * 0.08 * b
+                elbow = (shoulder[0] + side * int(0.6 * b),
+                        torso_y + int(0.9 * b) + int(arm_float))
+                wrist = (elbow[0] + side * int(0.5 * b) + int(wave * side * 0.12 * b),
+                        torso_y + int(1.5 * b) + int(arm_float * 1.3))
+
+            # 상완 (로브 소매)
+            pygame.draw.line(screen, p["dress"], shoulder, elbow,
+                           max(3, int(0.55 * b)))
+            pygame.draw.line(screen, p["dress_mid"], shoulder, elbow,
+                           max(2, int(0.4 * b)))
+            # 하완 (로브 소매)
+            pygame.draw.line(screen, p["dress_mid"], elbow, wrist,
+                           max(3, int(0.5 * b)))
+            pygame.draw.line(screen, p["dress_light"], elbow, wrist,
+                           max(2, int(0.35 * b)))
+            # 소매 끝 금색 건틀릿
+            pygame.draw.circle(screen, p["gold_dark"], wrist, max(3, int(0.28 * b)))
+            pygame.draw.circle(screen, p["gold"], wrist, max(2, int(0.22 * b)))
+            pygame.draw.circle(screen, p["gold_light"],
+                             (wrist[0] - side, wrist[1] - 1),
+                             max(1, int(0.12 * b)))
+
+            # 손톱/발톱 (3개의 금색 클로)
+            for claw_i in range(3):
+                claw_angle = (claw_i - 1) * 0.25 + side * 0.3
+                claw_len = int(0.35 * b)
+                claw_tip_x = wrist[0] + int(_cos(claw_angle + math.pi / 2) * claw_len * side)
+                claw_tip_y = wrist[1] + int(_sin(claw_angle + math.pi / 2) * claw_len) + int(0.2 * b)
+                pygame.draw.line(screen, p["claw_dark"], wrist,
+                               (claw_tip_x, claw_tip_y), max(2, int(0.08 * b)))
+                pygame.draw.line(screen, p["claw"],
+                               (wrist[0], wrist[1] + 1),
+                               (claw_tip_x, claw_tip_y), max(1, int(0.05 * b)))
+
+        # === 머리 (해골 + 왕관 + 유령 머리카락) ===
+        head_y = torso_y - int(3.0 * b)
+        head_w, head_h = int(2.4 * b), int(2.2 * b)
+        head_rect = pygame.Rect(cx - head_w // 2 + lean_offset, head_y,
+                               head_w, head_h)
+
+        if show_back:
+            # === 뒷모습 ===
+            # 뒷머리카락 (길고 흐르는)
+            for strand in range(7):
+                sx = head_rect.left + int(0.15 * b) + strand * int(0.28 * b)
+                sy = head_rect.top + int(0.3 * b)
+                strand_len = int(2.5 * b) + int((strand % 3) * 0.3 * b)
+                wave_off = int(_sin(self.time * 1.5 + strand * 0.7) * 0.12 * b)
+                h_color = p["hair"] if strand % 2 == 0 else p["hair_mid"]
+                # 3단계 곡선 머리카락
+                mid1_y = sy + strand_len // 3
+                mid2_y = sy + strand_len * 2 // 3
+                pygame.draw.line(screen, h_color,
+                               (sx, sy),
+                               (sx + wave_off, mid1_y),
+                               max(2, int(0.14 * b)))
+                pygame.draw.line(screen, h_color,
+                               (sx + wave_off, mid1_y),
+                               (sx - wave_off, mid2_y),
+                               max(2, int(0.1 * b)))
+                # 끝부분은 유령빛으로
+                end_color = p["hair_ghost"]
+                pygame.draw.line(screen, end_color,
+                               (sx - wave_off, mid2_y),
+                               (sx + int(wave_off * 0.5), sy + strand_len),
+                               max(1, int(0.07 * b)))
+
+            # 뒷머리 (둥근 형태)
+            pygame.draw.ellipse(screen, p["hair"], head_rect)
+            pygame.draw.ellipse(screen, p["hair_mid"],
+                              head_rect.inflate(-int(0.3 * b), -int(0.3 * b)))
+
+            # 왕관 뒷면
+            crown_y = head_rect.top - int(0.2 * b)
+            crown_w = int(1.8 * b)
+            crown_rect = pygame.Rect(cx - crown_w // 2 + lean_offset,
+                                    crown_y, crown_w, int(0.6 * b))
+            pygame.draw.rect(screen, p["crown"], crown_rect, border_radius=2)
+            pygame.draw.rect(screen, p["gold_dark"], crown_rect, 1, border_radius=2)
+            # 왕관 뾰족한 부분 (뒷면)
+            for i in range(5):
+                spike_x = crown_rect.left + int((i + 0.5) * crown_w / 5)
+                spike_h = int(0.35 * b) if i % 2 == 0 else int(0.5 * b)
+                pygame.draw.polygon(screen, p["crown"], [
+                    (spike_x - int(0.1 * b), crown_y),
+                    (spike_x, crown_y - spike_h),
+                    (spike_x + int(0.1 * b), crown_y),
+                ])
+        else:
+            # === 정면 ===
+            # 양옆으로 흘러내리는 긴 머리카락 (먼저 그려서 얼굴 뒤에)
+            for side in [-1, 1]:
+                hair_base_x = head_rect.centerx + side * int(0.55 * b)
+                hair_base_y = head_rect.top + int(0.15 * b)
+                for strand in range(4):
+                    sx = hair_base_x + side * int(strand * 0.1 * b)
+                    sy_top = hair_base_y + int(strand * 0.12 * b)
+                    strand_len = int(2.2 * b) + int(strand * 0.2 * b)
+                    sw = max(2, int(0.16 * b) - strand)
+                    wave_off = int(_sin(self.time * 1.6 + strand * 0.5 + side) * 0.08 * b)
+                    h_color = p["hair"] if strand % 2 == 0 else p["hair_light"]
+
+                    mid_y = sy_top + strand_len // 2
+                    pygame.draw.line(screen, h_color,
+                                   (sx, sy_top),
+                                   (sx + wave_off * side, mid_y), sw)
+                    # 끝은 유령빛으로 페이드
+                    end_color = p["hair_ghost"]
+                    pygame.draw.line(screen, end_color,
+                                   (sx + wave_off * side, mid_y),
+                                   (sx - wave_off * side, sy_top + strand_len),
+                                   max(1, sw - 1))
+
+            # 얼굴 (창백한 해골 같은 얼굴)
+            face_rect = head_rect.inflate(-int(0.5 * b), -int(0.4 * b))
+            face_rect.move_ip(0, int(0.2 * b))
+            # 얼굴 그림자
+            pygame.draw.ellipse(screen, p["skull_shadow"], face_rect.inflate(2, 2))
+            pygame.draw.ellipse(screen, p["skull"], face_rect)
+            # 볼 음영 (해골 느낌의 움푹 파인 느낌)
+            for side in [-1, 1]:
+                cheek_x = face_rect.centerx + side * int(0.25 * b)
+                cheek_y = face_rect.centery + int(0.12 * b)
+                pygame.draw.circle(screen, p["skull_shadow"],
+                                 (cheek_x, cheek_y), max(2, int(0.12 * b)))
+
+            # 금색 턱 마스크 (하관 보호대)
+            chin_y = face_rect.centery + int(0.15 * b)
+            chin_w = int(0.7 * b)
+            chin_h = int(0.45 * b)
+            chin_points = [
+                (face_rect.centerx - chin_w // 2, chin_y),
+                (face_rect.centerx + chin_w // 2, chin_y),
+                (face_rect.centerx + int(chin_w * 0.3), chin_y + chin_h),
+                (face_rect.centerx - int(chin_w * 0.3), chin_y + chin_h),
+            ]
+            pygame.draw.polygon(screen, p["gold_dark"], chin_points)
+            pygame.draw.polygon(screen, p["gold"], [
+                (chin_points[0][0] + 2, chin_points[0][1] + 1),
+                (chin_points[1][0] - 2, chin_points[1][1] + 1),
+                (chin_points[2][0] - 1, chin_points[2][1] - 1),
+                (chin_points[3][0] + 1, chin_points[3][1] - 1),
+            ])
+            # 마스크 문양 (V자 무늬)
+            v_top = chin_y + int(0.05 * b)
+            v_bot = chin_y + chin_h - int(0.08 * b)
+            pygame.draw.line(screen, p["gold_light"],
+                           (face_rect.centerx, v_top),
+                           (face_rect.centerx - int(0.12 * b), v_bot), 1)
+            pygame.draw.line(screen, p["gold_light"],
+                           (face_rect.centerx, v_top),
+                           (face_rect.centerx + int(0.12 * b), v_bot), 1)
+
+            # 유령의 눈 (시안 글로우)
+            eye_y = face_rect.centery - int(0.1 * b)
+            for side in [-1, 1]:
+                eye_x = face_rect.centerx + side * int(0.25 * b)
+                eye_r = max(2, int(0.18 * b))
+
+                # 눈 글로우 (강한 빛)
+                eye_glow_surf = self._get_surface(int(0.8 * b), int(0.8 * b))
+                eye_glow_alpha = int(80 * ghost_pulse + 40)
+                pygame.draw.circle(eye_glow_surf, (*p["eye_glow"], eye_glow_alpha),
+                                 (int(0.4 * b), int(0.4 * b)), int(0.35 * b))
+                screen.blit(eye_glow_surf,
+                           (eye_x - int(0.4 * b), eye_y - int(0.4 * b)),
+                           special_flags=pygame.BLEND_ADD)
+
+                # 눈구멍 (어두운 배경)
+                pygame.draw.circle(screen, p["dress_dark"],
+                                 (eye_x, eye_y), eye_r + 1)
+                # 눈 본체 (발광하는 시안)
+                pygame.draw.circle(screen, p["eye"], (eye_x, eye_y), eye_r)
+                # 눈 코어 (밝은 중심)
+                pygame.draw.circle(screen, p["eye_core"],
+                                 (eye_x, eye_y), max(1, eye_r // 2))
+                # 하이라이트
+                pygame.draw.circle(screen, (255, 255, 255),
+                                 (eye_x - 1, eye_y - 1),
+                                 max(1, eye_r // 3))
+
+                # 속눈썹 (여성)
+                for li in range(3):
+                    lash_angle = math.pi * 1.1 + side * (0.15 + li * 0.2)
+                    lash_len = int(0.12 * b) + li
+                    lx = eye_x + int(_cos(lash_angle) * lash_len)
+                    ly = (eye_y - eye_r - 1) + int(_sin(lash_angle) * lash_len)
+                    pygame.draw.line(screen, p["eyelash"],
+                                   (eye_x, eye_y - eye_r - 1),
+                                   (lx, ly), 1)
+
+            # 코 (미세한 선)
+            pygame.draw.line(screen, p["skull_dark"],
+                           (face_rect.centerx, eye_y + int(0.12 * b)),
+                           (face_rect.centerx, chin_y - int(0.02 * b)), 1)
+
+            # === 왕관 (고대 유령 왕관) ===
+            crown_y = head_rect.top - int(0.15 * b)
+            crown_w = int(2.0 * b)
+            crown_h = int(0.5 * b)
+            crown_rect = pygame.Rect(cx - crown_w // 2 + lean_offset,
+                                    crown_y, crown_w, crown_h)
+            # 왕관 밴드
+            pygame.draw.rect(screen, p["crown"], crown_rect, border_radius=2)
+            pygame.draw.rect(screen, p["gold_dark"], crown_rect, 1, border_radius=2)
+            # 왕관 내부 하이라이트
+            pygame.draw.rect(screen, p["crown_light"],
+                           crown_rect.inflate(-4, -2), border_radius=1)
+
+            # 왕관 뾰족한 부분 (5개)
+            for i in range(5):
+                spike_x = crown_rect.left + int((i + 0.5) * crown_w / 5)
+                spike_h = int(0.4 * b) if i % 2 == 0 else int(0.65 * b)
+                spike_pts = [
+                    (spike_x - int(0.12 * b), crown_y),
+                    (spike_x, crown_y - spike_h),
+                    (spike_x + int(0.12 * b), crown_y),
+                ]
+                pygame.draw.polygon(screen, p["crown"], spike_pts)
+                pygame.draw.polygon(screen, p["crown_light"], [
+                    (spike_pts[0][0] + 1, spike_pts[0][1]),
+                    (spike_pts[1][0], spike_pts[1][1] + 1),
+                    (spike_pts[2][0] - 1, spike_pts[2][1]),
+                ])
+                # 왕관 뾰족 끝 보석 (중앙만)
+                if i == 2:
+                    pygame.draw.circle(screen, p["crown_gem"],
+                                     (spike_x, crown_y - spike_h + int(0.08 * b)),
+                                     max(2, int(0.1 * b)))
+                    # 보석 글로우
+                    g_surf = self._get_surface(int(0.4 * b), int(0.4 * b))
+                    pygame.draw.circle(g_surf, (*p["crown_gem_glow"], int(50 * ghost_pulse)),
+                                     (int(0.2 * b), int(0.2 * b)), int(0.15 * b))
+                    screen.blit(g_surf,
+                               (spike_x - int(0.2 * b),
+                                crown_y - spike_h + int(0.08 * b) - int(0.2 * b)),
+                               special_flags=pygame.BLEND_ADD)
+
+        # === 비명 이펙트 (타격 시 무기 대신 비명 파동) ===
+        if swing_angle != 0:
+            # 타격 시 입에서 나오는 비명 파동
+            wail_progress = abs(swing_angle) / 0.7  # 0~1
+            wail_alpha = int(100 * wail_progress * flicker)
+            wail_r_base = int(1.5 * b * wail_progress)
+
+            for ring in range(3):
+                ring_r = wail_r_base + ring * int(0.4 * b)
+                ring_alpha = max(5, wail_alpha - ring * 25)
+                wail_surf_size = ring_r * 2 + 4
+                if wail_surf_size > 4:
+                    wail_surf = self._get_surface(wail_surf_size, wail_surf_size)
+                    pygame.draw.circle(wail_surf, (*p["wail"], ring_alpha),
+                                     (wail_surf_size // 2, wail_surf_size // 2),
+                                     ring_r, max(1, int(0.08 * b)))
+                    wail_cx = cx + lean_offset
+                    wail_cy = torso_y - int(1.5 * b)  # 머리 높이
+                    screen.blit(wail_surf,
+                               (wail_cx - wail_surf_size // 2,
+                                wail_cy - wail_surf_size // 2),
+                               special_flags=pygame.BLEND_ADD)
+
+    # =========================================================================
     # 기본 폴백
     # =========================================================================
     def _draw_default(self, screen, cx, cy, b, color, show_back, anim):

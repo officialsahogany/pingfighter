@@ -395,6 +395,19 @@ BOTTOM_HEROES = [
         "position": "bottom",
         "description": "어둠 속에서 나타나는 닌자 암살자"
     },
+    {
+        "id": "banshee",
+        "name": "벤시",
+        "title": "유령 여왕",
+        "style": HeroStyle.TRICKY,
+        "color": (80, 130, 160),  # 유령빛 청회색
+        "speed": 1.1,
+        "reaction": 1.15,
+        "power": 0.9,
+        "accuracy": 0.92,
+        "position": "bottom",
+        "description": "저주받은 비명으로 적을 공포에 빠트리는 유령의 여왕"
+    },
 ]
 
 # 전체 영웅 목록 (호환성용)
@@ -3743,8 +3756,8 @@ class ColosseumsArena:
         # 현재 시간 기반 로컬 Random 인스턴스로 완전 랜덤화 (시드 고정 문제 방지)
         local_rng = random.Random(time.time())
 
-        # 전체 8명 영웅을 셔플
-        all_heroes = local_rng.sample(ARENA_HEROES, len(ARENA_HEROES))
+        # 전체 영웅 중 8명을 무작위 선발 (9명 이상일 때 매 토너먼트 다른 조합)
+        all_heroes = local_rng.sample(ARENA_HEROES, min(8, len(ARENA_HEROES)))
 
         # 4개의 매치 생성 (0-1, 2-3, 4-5, 6-7 페어링)
         self.top_heroes = []

@@ -7409,6 +7409,7 @@ HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "ignis": [DragonBreath(), DragonWing()],
     "gear": [SteamBarrier(), OilSpill()],
     "kurokage": [ShadowClone(), IllusionShuriken()],
+    "banshee": [DollCurse(), GravityControl()],
     # 감옥 전용 영웅 (기존 스킬 클래스 재활용)
     "bella": [AbyssInk(), DollCurse()],
     "leon": [HornCharge(), DarkSlash()],
@@ -7425,6 +7426,7 @@ HERO_SKILL_CLASSES: Dict[str, list] = {
     "ignis": [DragonBreath, DragonWing],
     "gear": [SteamBarrier, OilSpill],
     "kurokage": [ShadowClone, IllusionShuriken],
+    "banshee": [DollCurse, GravityControl],
     # 감옥 전용 영웅 (기존 스킬 클래스 재활용)
     "bella": [AbyssInk, DollCurse],
     "leon": [HornCharge, DarkSlash],
@@ -7795,4 +7797,4 @@ try:
     from downtown.colosseum_arena import TOP_HEROES, BOTTOM_HEROES
 except ImportError:
     TOP_HEROES = [{"id": "mugen"}, {"id": "kraken"}, {"id": "chronos"}, {"id": "onimaru"}]
-    BOTTOM_HEROES = [{"id": "maria"}, {"id": "ignis"}, {"id": "gear"}, {"id": "kurokage"}]
+    BOTTOM_HEROES = [{"id": "maria"}, {"id": "ignis"}, {"id": "gear"}, {"id": "kurokage"}, {"id": "banshee"}]
