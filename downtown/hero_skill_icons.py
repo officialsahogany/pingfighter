@@ -54,7 +54,6 @@ def _create_icon(skill_id: str) -> Optional[pygame.Surface]:
         "charm": _icon_charm,
         "dead_possession": _icon_dead_possession,
         "ghost_summon": _icon_ghost_summon,
-        "mirage": _icon_mirage,
         "balloon_wall": _icon_balloon_wall,
         "bomb_surprise": _icon_bomb_surprise,
         "sand_prison": _icon_sand_prison,
@@ -581,48 +580,6 @@ def _icon_ghost_summon() -> pygame.Surface:
     # 스파클
     for px, py in [(16, 6), (6, 18), (26, 18)]:
         pygame.draw.circle(s, (180, 255, 230), (px, py), 1)
-
-    return s
-
-
-def _icon_mirage() -> pygame.Surface:
-    """신기루 - 여러 개의 공 환영 (진짜 + 가짜)"""
-    s = pygame.Surface((32, 32), pygame.SRCALPHA)
-    # 배경 원 (보라-청록 그라데이션 느낌)
-    pygame.draw.circle(s, (25, 30, 40), (16, 16), 15)
-    pygame.draw.circle(s, (70, 90, 110), (16, 16), 15, 1)
-
-    # 환영 라인 (가로 물결)
-    for y_off in [10, 16, 22]:
-        alpha = 40 + (y_off - 10) * 3
-        pygame.draw.line(s, (80, 180, 170, alpha), (4, y_off), (28, y_off), 1)
-
-    # 가짜 공 1 (왼쪽 위, 반투명)
-    pygame.draw.circle(s, (180, 200, 220, 100), (9, 11), 3)
-    pygame.draw.circle(s, (220, 240, 250, 80), (9, 11), 3, 1)
-    pygame.draw.circle(s, (255, 255, 255, 60), (8, 10), 1)
-
-    # 진짜 공 (중앙, 밝음)
-    pygame.draw.circle(s, (255, 255, 255), (16, 16), 4)
-    pygame.draw.circle(s, (200, 220, 240), (16, 16), 4, 1)
-    pygame.draw.circle(s, (255, 255, 255), (15, 15), 2)
-
-    # 가짜 공 2 (오른쪽 아래, 반투명)
-    pygame.draw.circle(s, (180, 200, 220, 100), (23, 21), 3)
-    pygame.draw.circle(s, (220, 240, 250, 80), (23, 21), 3, 1)
-    pygame.draw.circle(s, (255, 255, 255, 60), (22, 20), 1)
-
-    # 가짜 공 3 (왼쪽 아래, 더 투명)
-    pygame.draw.circle(s, (180, 200, 220, 70), (8, 22), 2)
-    pygame.draw.circle(s, (220, 240, 250, 50), (8, 22), 2, 1)
-
-    # 분산 이펙트 (방사형 점선)
-    for angle_deg in [30, 150, 210, 330]:
-        rad = math.radians(angle_deg)
-        for dist in [8, 11]:
-            px = 16 + int(math.cos(rad) * dist)
-            py = 16 + int(math.sin(rad) * dist)
-            pygame.draw.circle(s, (140, 200, 190, 80), (px, py), 1)
 
     return s
 
