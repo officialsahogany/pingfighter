@@ -5072,7 +5072,7 @@ class HeroPaddleRenderer:
             "sleeve_inner": (175, 150, 90),     # 소매 안쪽
         }
 
-        surf = self._get_surface()
+        surf = self._get_surface(int(22 * b), int(16 * b))
         ox = surf.get_width() // 2
         oy = surf.get_height() - int(2 * b)
 
