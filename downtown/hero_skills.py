@@ -8615,9 +8615,9 @@ class SkeletonArcher(HeroSkill):
             skill_id="skeleton_archer",
             name="Skeleton Archer",
             korean_name="해골 궁수",
-            description="내 진영에 해골 궁수를 소환한다. 적 영웅을 향해 화살을 쏘며, 공에 맞으면 죽는다.",
+            description="내 진영에 해골 궁수를 소환한다. 적 영웅을 향해 화살을 쏘며, 공에 맞으면 죽는다. 20% 확률로 황금 궁수 소환.",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=15.0,
+            cooldown=11.0,
             duration=999999.0,  # 사실상 무제한 (공에 맞아야 사라짐)
             hero_id="necro"
         )
@@ -8666,6 +8666,9 @@ class SkeletonArcher(HeroSkill):
             patrol_y_max = 690
             spawn_y = caster_paddle.y - 30
 
+        # 20% 확률로 황금 해골궁수 소환
+        is_golden = random.random() < 0.2
+
         archer = {
             'id': self._next_archer_id,
             'x': float(spawn_x),
@@ -8676,6 +8679,7 @@ class SkeletonArcher(HeroSkill):
             'vx': random.choice([-1, 1]) * self.ARCHER_SPEED,
             'spawn_time': 0.0,
             'alive': True,
+            'is_golden': is_golden,  # 황금 궁수 여부
             # 화살 관련
             'arrow_cooldown': random.uniform(self.ARROW_COOLDOWN_MIN, self.ARROW_COOLDOWN_MAX),
             'is_drawing': False,     # 시위 당기는 중
@@ -8700,10 +8704,11 @@ class SkeletonArcher(HeroSkill):
         except Exception:
             pass
 
+        flash_color = (255, 215, 50) if is_golden else (160, 180, 120)
         return {
             'screen_effect': ScreenEffect.FLASH,
-            'flash_color': (160, 180, 120),
-            'flash_duration': 0.1,
+            'flash_color': flash_color,
+            'flash_duration': 0.15 if is_golden else 0.1,
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
@@ -8776,11 +8781,19 @@ class SkeletonArcher(HeroSkill):
                 # 쿨타임 감소
                 archer['arrow_cooldown'] -= dt
                 if archer['arrow_cooldown'] <= 0 and target_paddle is not None:
-                    # 시위 당기기 시작 - 현재 적 위치를 저장 (유도 없음)
-                    archer['is_drawing'] = True
-                    archer['draw_timer'] = 0.0
-                    archer['draw_target_x'] = float(target_paddle.x + target_paddle.width / 2)
-                    archer['draw_target_y'] = float(target_paddle.y + target_paddle.height / 2)
+                    # 시위 당기기 시작 - 적 영웅 패들만 타겟 (호위무사 제외)
+                    # 호위무사는 game_state의 bodyguard 관련 속성이 있으므로
+                    # target_paddle이 실제 영웅 패들인지 확인
+                    target = target_paddle
+                    # 호위무사가 아닌 실제 영웅 패들 좌표 사용
+                    if hasattr(target_paddle, 'is_bodyguard') and target_paddle.is_bodyguard:
+                        # 호위무사면 발사하지 않음
+                        archer['arrow_cooldown'] = 0.5  # 0.5초 후 재시도
+                    else:
+                        archer['is_drawing'] = True
+                        archer['draw_timer'] = 0.0
+                        archer['draw_target_x'] = float(target.x + target.width / 2)
+                        archer['draw_target_y'] = float(target.y + target.height / 2)
 
                 # 이동 (시위 당기는 중에는 이동 안 함)
                 archer['x'] += archer['vx']
@@ -8819,16 +8832,18 @@ class SkeletonArcher(HeroSkill):
             if arrow['age'] > 5.0:
                 continue
 
-            # 적 패들 충돌 체크
+            # 적 영웅 패들 충돌 체크 (호위무사 제외)
             if target_paddle is not None:
-                paddle_cx = target_paddle.x + target_paddle.width / 2
-                paddle_cy = target_paddle.y + target_paddle.height / 2
-                dist = math.sqrt((arrow['x'] - paddle_cx) ** 2 + (arrow['y'] - paddle_cy) ** 2)
+                is_bodyguard = hasattr(target_paddle, 'is_bodyguard') and target_paddle.is_bodyguard
+                if not is_bodyguard:
+                    paddle_cx = target_paddle.x + target_paddle.width / 2
+                    paddle_cy = target_paddle.y + target_paddle.height / 2
+                    dist = math.sqrt((arrow['x'] - paddle_cx) ** 2 + (arrow['y'] - paddle_cy) ** 2)
 
-                if dist < (target_paddle.width / 2 + 8):
-                    # 화살 명중! → 넉백 (수리검과 동일)
-                    self._apply_arrow_hit(arrow, target_paddle, game_state)
-                    continue
+                    if dist < (target_paddle.width / 2 + 8):
+                        # 화살 명중! → 넉백 (수리검과 동일)
+                        self._apply_arrow_hit(arrow, target_paddle, game_state)
+                        continue
 
             new_arrows.append(arrow)
 
@@ -8859,7 +8874,7 @@ class SkeletonArcher(HeroSkill):
             self.active_timer = 0.0
 
     def _fire_arrow(self, archer: dict, game_state: dict):
-        """화살 발사 - 시위 당기기 시작 시 저장한 방향으로 직선 발사 (유도 없음)"""
+        """화살 발사 - 황금 궁수는 멀티플샷 3발 동시 발사"""
         dx = archer['draw_target_x'] - archer['x']
         dy = archer['draw_target_y'] - archer['y']
         dist = math.sqrt(dx ** 2 + dy ** 2)
@@ -8867,19 +8882,30 @@ class SkeletonArcher(HeroSkill):
             return
 
         # 정규화된 방향
-        nx = dx / dist
-        ny = dy / dist
+        base_angle = math.atan2(dy, dx)
+        is_golden = archer.get('is_golden', False)
 
-        arrow = {
-            'x': archer['x'],
-            'y': archer['y'],
-            'vx': nx * self.ARROW_SPEED,
-            'vy': ny * self.ARROW_SPEED,
-            'angle': math.atan2(ny, nx),
-            'age': 0.0,
-            'archer_id': archer['id'],
-        }
-        self.arrows.append(arrow)
+        if is_golden:
+            # 황금 궁수: 멀티플샷 3발 (중앙, +20도, -20도)
+            angles = [base_angle, base_angle + math.radians(20), base_angle - math.radians(20)]
+        else:
+            # 일반 궁수: 1발
+            angles = [base_angle]
+
+        for angle in angles:
+            nx = math.cos(angle)
+            ny = math.sin(angle)
+            arrow = {
+                'x': archer['x'],
+                'y': archer['y'],
+                'vx': nx * self.ARROW_SPEED,
+                'vy': ny * self.ARROW_SPEED,
+                'angle': angle,
+                'age': 0.0,
+                'archer_id': archer['id'],
+                'is_golden': is_golden,  # 황금 화살 여부
+            }
+            self.arrows.append(arrow)
 
         # 발사 사운드
         try:
@@ -9017,14 +9043,24 @@ class SkeletonArcher(HeroSkill):
         cx = surf_w // 2  # 40
         cy = 65  # 궁수 몸통 중심
 
-        # === 색상 정의 ===
-        bone_bright = (225, 218, 195, alpha)
-        bone_color = (200, 195, 170, alpha)
-        bone_shadow = (155, 145, 118, alpha)
-        bone_dark = (120, 110, 90, alpha)
-        eye_glow = (80, 255, 120, alpha)
-        eye_core = (180, 255, 200, alpha)
-        soul_color = (100, 255, 130)
+        # === 색상 정의 (황금 궁수 분기) ===
+        is_golden = archer.get('is_golden', False)
+        if is_golden:
+            bone_bright = (255, 235, 140, alpha)
+            bone_color = (240, 210, 90, alpha)
+            bone_shadow = (190, 160, 50, alpha)
+            bone_dark = (150, 120, 30, alpha)
+            eye_glow = (255, 200, 50, alpha)
+            eye_core = (255, 255, 180, alpha)
+            soul_color = (255, 220, 80)
+        else:
+            bone_bright = (225, 218, 195, alpha)
+            bone_color = (200, 195, 170, alpha)
+            bone_shadow = (155, 145, 118, alpha)
+            bone_dark = (120, 110, 90, alpha)
+            eye_glow = (80, 255, 120, alpha)
+            eye_core = (180, 255, 200, alpha)
+            soul_color = (100, 255, 130)
 
         # === 뼈 조립 애니메이션 계산 ===
         # 각 부위가 순차적으로 모여드는 오프셋
@@ -9045,8 +9081,12 @@ class SkeletonArcher(HeroSkill):
             return ox, oy
 
         # === 후드/망토 ===
-        cloak_color = (50, 45, 35, int(alpha * 0.7))
-        cloak_edge = (70, 60, 45, int(alpha * 0.5))
+        if is_golden:
+            cloak_color = (100, 70, 20, int(alpha * 0.7))
+            cloak_edge = (140, 100, 30, int(alpha * 0.5))
+        else:
+            cloak_color = (50, 45, 35, int(alpha * 0.7))
+            cloak_edge = (70, 60, 45, int(alpha * 0.5))
         co = _assemble_offset(8)
         cloak_sway = int(3 * _sin(t * 2.5))
         pygame.draw.polygon(surf, cloak_color, [
@@ -9132,8 +9172,12 @@ class SkeletonArcher(HeroSkill):
         pygame.draw.line(surf, bone_shadow, (skull_x - 5, jaw_y), (skull_x + 5, jaw_y), 1)
 
         # === 후드 ===
-        hood_color = (55, 50, 38, int(alpha * 0.8))
-        hood_edge_color = (80, 70, 50, int(alpha * 0.6))
+        if is_golden:
+            hood_color = (110, 80, 25, int(alpha * 0.8))
+            hood_edge_color = (150, 110, 35, int(alpha * 0.6))
+        else:
+            hood_color = (55, 50, 38, int(alpha * 0.8))
+            hood_edge_color = (80, 70, 50, int(alpha * 0.6))
         pygame.draw.polygon(surf, hood_color, [
             (skull_x - 11, skull_y - 5), (skull_x + 11, skull_y - 5),
             (skull_x + 8, skull_y - 12), (skull_x, skull_y - 14), (skull_x - 8, skull_y - 12),
@@ -9144,12 +9188,20 @@ class SkeletonArcher(HeroSkill):
         ], 1)
 
         # === 활과 팔 (상/하 방향 겨냥) ===
-        bow_wood = (160, 110, 55, alpha)
-        bow_dark = (120, 80, 40, alpha)
-        bow_highlight = (190, 140, 70, alpha)
-        string_color = (210, 200, 170, alpha)
-        arrow_shaft = (200, 190, 160, alpha)
-        arrowhead_color = (140, 180, 120, alpha)
+        if is_golden:
+            bow_wood = (220, 180, 60, alpha)
+            bow_dark = (180, 140, 30, alpha)
+            bow_highlight = (255, 220, 100, alpha)
+            string_color = (255, 240, 170, alpha)
+            arrow_shaft = (240, 210, 100, alpha)
+            arrowhead_color = (255, 200, 50, alpha)
+        else:
+            bow_wood = (160, 110, 55, alpha)
+            bow_dark = (120, 80, 40, alpha)
+            bow_highlight = (190, 140, 70, alpha)
+            string_color = (210, 200, 170, alpha)
+            arrow_shaft = (200, 190, 160, alpha)
+            arrowhead_color = (140, 180, 120, alpha)
 
         ao = _assemble_offset(1)
 
@@ -9299,6 +9351,14 @@ class SkeletonArcher(HeroSkill):
                 py = y - random.randint(10, 45)
                 pygame.draw.circle(screen, (*soul_color, random.randint(30, 80)),
                                  (px, py), random.randint(1, 2))
+            # 황금 궁수 전용: 빛나는 오라
+            if is_golden and random.random() < 0.15:
+                glow_angle = random.uniform(0, math.pi * 2)
+                glow_dist = random.randint(8, 18)
+                gx = x + int(math.cos(glow_angle) * glow_dist)
+                gy = y - 25 + int(math.sin(glow_angle) * glow_dist)
+                pygame.draw.circle(screen, (255, 215, 50, random.randint(30, 70)),
+                                 (gx, gy), random.randint(1, 2))
 
     def _draw_dying_archer(self, screen: pygame.Surface, dying: dict):
         """사망 애니메이션 - 뼈 파편이 물리 기반으로 사방에 흩어짐 + 영혼 이탈"""
@@ -9394,7 +9454,7 @@ class SkeletonArcher(HeroSkill):
                     pygame.draw.circle(screen, (180, 170, 140, dust_alpha), (dx, dy), 1)
 
     def _draw_arrow(self, screen: pygame.Surface, arrow: dict):
-        """화살 고퀄리티 렌더링 - 독 묻은 뼈 화살"""
+        """화살 고퀄리티 렌더링 - 일반(독) / 황금 화살"""
         x = int(arrow['x'])
         y = int(arrow['y'])
         angle = arrow['angle']
@@ -9402,28 +9462,45 @@ class SkeletonArcher(HeroSkill):
         sin_a = math.sin(angle)
         perp_cos = math.cos(angle + math.pi / 2)
         perp_sin = math.sin(angle + math.pi / 2)
+        is_golden = arrow.get('is_golden', False)
 
-        # 화살대 (뼈)
+        # 색상 분기
+        if is_golden:
+            shaft_dark = (200, 170, 50)
+            shaft_light = (255, 230, 100)
+            head_outer = (220, 180, 40)
+            head_inner = (255, 220, 80)
+            feather_color = (180, 140, 30)
+            trail_color = (255, 200, 50)
+            drip_color = (255, 220, 80)
+        else:
+            shaft_dark = (170, 162, 140)
+            shaft_light = (210, 200, 178)
+            head_outer = (100, 160, 90)
+            head_inner = (130, 200, 110)
+            feather_color = (70, 60, 50)
+            trail_color = (80, 220, 100)
+            drip_color = (80, 220, 100)
+
+        # 화살대
         tail_x = x - int(cos_a * self.ARROW_LENGTH)
         tail_y = y - int(sin_a * self.ARROW_LENGTH)
-        pygame.draw.line(screen, (170, 162, 140), (tail_x, tail_y), (x, y), 3)
-        pygame.draw.line(screen, (210, 200, 178), (tail_x, tail_y), (x, y), 1)
+        pygame.draw.line(screen, shaft_dark, (tail_x, tail_y), (x, y), 3)
+        pygame.draw.line(screen, shaft_light, (tail_x, tail_y), (x, y), 1)
 
-        # 화살촉 (독 묻은, 더 큰 삼각형)
+        # 화살촉 (삼각형)
         head_x = x + int(cos_a * 6)
         head_y = y + int(sin_a * 6)
         left_x = x + int(perp_cos * 4)
         left_y = y + int(perp_sin * 4)
         right_x = x - int(perp_cos * 4)
         right_y = y - int(perp_sin * 4)
-        # 외곽 (어두운)
-        pygame.draw.polygon(screen, (100, 160, 90), [
+        pygame.draw.polygon(screen, head_outer, [
             (head_x, head_y), (left_x, left_y), (right_x, right_y)
         ])
-        # 내부 (밝은 독 색)
         inner_head_x = x + int(cos_a * 4)
         inner_head_y = y + int(sin_a * 4)
-        pygame.draw.polygon(screen, (130, 200, 110), [
+        pygame.draw.polygon(screen, head_inner, [
             (inner_head_x, inner_head_y),
             (x + int(perp_cos * 2), y + int(perp_sin * 2)),
             (x - int(perp_cos * 2), y - int(perp_sin * 2)),
@@ -9435,11 +9512,11 @@ class SkeletonArcher(HeroSkill):
             feather_y = tail_y + int(perp_sin * 3 * side)
             back_x = tail_x - int(cos_a * 4)
             back_y = tail_y - int(sin_a * 4)
-            pygame.draw.line(screen, (70, 60, 50), (tail_x, tail_y), (feather_x, feather_y), 1)
-            pygame.draw.line(screen, (70, 60, 50), (feather_x, feather_y),
+            pygame.draw.line(screen, feather_color, (tail_x, tail_y), (feather_x, feather_y), 1)
+            pygame.draw.line(screen, feather_color, (feather_x, feather_y),
                            (back_x + int(perp_cos * side), back_y + int(perp_sin * side)), 1)
 
-        # 독 트레일 (초록빛 잔상, 5단계)
+        # 트레일 (5단계)
         for i in range(5):
             t = (i + 1) * 0.25
             tx = int(arrow['x'] - arrow['vx'] * t)
@@ -9447,13 +9524,19 @@ class SkeletonArcher(HeroSkill):
             trail_alpha = 100 - i * 20
             trail_size = max(1, 3 - i)
             if trail_alpha > 0:
-                pygame.draw.circle(screen, (80, 220, 100, trail_alpha), (tx, ty), trail_size)
+                pygame.draw.circle(screen, (*trail_color, trail_alpha), (tx, ty), trail_size)
 
-        # 독 방울 (화살촉에서 떨어짐)
+        # 황금 화살: 빛나는 글로우
+        if is_golden:
+            glow_surf = pygame.Surface((20, 20), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (255, 220, 80, 40), (10, 10), 10)
+            screen.blit(glow_surf, (x - 10, y - 10), special_flags=pygame.BLEND_ADD)
+
+        # 방울 (화살촉에서 떨어짐)
         if random.random() < 0.15:
             drip_x = head_x + random.randint(-3, 3)
             drip_y = head_y + random.randint(1, 4)
-            pygame.draw.circle(screen, (80, 220, 100, 120), (drip_x, drip_y), 1)
+            pygame.draw.circle(screen, (*drip_color, 120), (drip_x, drip_y), 1)
 
 
 # ============================================================================
