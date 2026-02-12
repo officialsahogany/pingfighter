@@ -134087,6 +134087,26 @@ def main(stage_num, new_boss_mode=False):
                     # 스킬 쿨다운/효과 업데이트
                     arena_skill_manager.update(dt, top_wrapper, bottom_wrapper, ball_wrapper)
 
+                    # 🏜️ 모래감옥: 실제 패들에 이동 범위 제한 적용
+                    _sp_gs = arena_skill_manager.game_state
+                    _sp_center = _sp_gs.get('sand_prison_center_x')
+                    _sp_range = _sp_gs.get('sand_prison_range')
+                    if _sp_center is not None and _sp_range is not None:
+                        _sp_left = _sp_center - _sp_range
+                        _sp_right = _sp_center + _sp_range
+                        if _sp_gs.get('top_paddle_sand_prison'):
+                            _sp_max = _sp_right - BOSS.width
+                            if BOSS.x < _sp_left:
+                                BOSS.x = _sp_left
+                            elif BOSS.x > _sp_max:
+                                BOSS.x = _sp_max
+                        if _sp_gs.get('bottom_paddle_sand_prison'):
+                            _sp_max = _sp_right - PLAYER.width
+                            if PLAYER.x < _sp_left:
+                                PLAYER.x = _sp_left
+                            elif PLAYER.x > _sp_max:
+                                PLAYER.x = _sp_max
+
                     # 마법결계: 면역 타이머 감소
                     for _imm_side in ('top', 'bottom'):
                         _imm_key = f'magic_immunity_timer_{_imm_side}'
@@ -134991,6 +135011,19 @@ def main(stage_num, new_boss_mode=False):
                         if arena_mode_enabled and _extra_ball_result is not None:
                             return _extra_ball_result
                         handle_boss()
+
+                # 🏜️ 모래감옥: 렌더링 직전 최종 패들 위치 클램핑 (모든 이동 처리 후)
+                if arena_mode_enabled and arena_skill_manager:
+                    _sp_gs2 = arena_skill_manager.game_state
+                    _sp_c2 = _sp_gs2.get('sand_prison_center_x')
+                    _sp_r2 = _sp_gs2.get('sand_prison_range')
+                    if _sp_c2 is not None and _sp_r2 is not None:
+                        _sp_l2 = _sp_c2 - _sp_r2
+                        _sp_r2r = _sp_c2 + _sp_r2
+                        if _sp_gs2.get('top_paddle_sand_prison'):
+                            BOSS.x = max(_sp_l2, min(_sp_r2r - BOSS.width, BOSS.x))
+                        if _sp_gs2.get('bottom_paddle_sand_prison'):
+                            PLAYER.x = max(_sp_l2, min(_sp_r2r - PLAYER.width, PLAYER.x))
 
                 if profiler:
                     profiler.end_section("GameLogic")
