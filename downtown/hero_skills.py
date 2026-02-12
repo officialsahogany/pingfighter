@@ -7457,7 +7457,7 @@ class Charm(HeroSkill):
         # --- Phase 3: 활동 ---
         self.charm_aura_timer = 0.0
         self.charm_particles = []
-        self.active_timer = 0.0      # 활동 페이즈 경과 시간
+        self.charm_elapsed = 0.0     # 활동 페이즈 경과 시간 (base active_timer와 충돌 방지)
 
         # --- Phase 4: 복귀 ---
         self.return_start_x = 0.0
@@ -7484,7 +7484,9 @@ class Charm(HeroSkill):
         self.charmed_guard = None
         self.charm_particles = []
         self.charm_aura_timer = 0.0
-        self.active_timer = 0.0
+        self.charm_elapsed = 0.0
+
+        print(f"[Charm] _apply_effect 호출! caster_is_top={self.charm_source_is_top}")
 
         # 시전자 좌표
         caster = caster_paddle if self.charm_source_is_top else target_paddle
@@ -7495,6 +7497,7 @@ class Charm(HeroSkill):
         # caster_is_top이면 상대는 bottom, 아니면 top
         enemy_side = 'bottom' if self.charm_source_is_top else 'top'
         guard_info = game_state.get(f'_guard_info_{enemy_side}', None)
+        print(f"[Charm] enemy_side={enemy_side}, guard_info={guard_info}")
         if guard_info:
             self.proj_target_x = guard_info.get('x', 380)
             self.proj_target_y = guard_info.get('y', (BOTTOM_PADDLE_Y if self.charm_source_is_top else TOP_PADDLE_Y))
@@ -7556,6 +7559,10 @@ class Charm(HeroSkill):
         self.phase_timer += dt
         self.charm_aura_timer += dt
 
+        # 디버그: 페이즈 전환 추적 (첫 프레임만)
+        if self.phase_timer < dt * 2:
+            print(f"[Charm] update: phase={self.charm_phase}, active_timer={self.active_timer:.1f}, elapsed={self.charm_elapsed:.1f}")
+
         # === Phase 1: 발사체 비행 ===
         if self.charm_phase == "projectile":
             self.proj_progress += dt * self.proj_speed
@@ -7590,6 +7597,7 @@ class Charm(HeroSkill):
 
             # 도착 → Phase 2 전환
             if self.proj_progress >= 1.0:
+                print(f"[Charm] 발사체 도착! → pulling 전환")
                 self.charm_phase = "pulling"
                 self.phase_timer = 0.0
                 self.proj_trail = []
@@ -7637,7 +7645,7 @@ class Charm(HeroSkill):
             if self.pull_progress >= 1.0:
                 self.charm_phase = "active"
                 self.phase_timer = 0.0
-                self.active_timer = 0.0
+                self.charm_elapsed = 0.0
                 self.pull_chain_particles = []
 
                 # GuardWarriorSystem에 '활동' 알림 → 아군 순찰 시작
@@ -7649,7 +7657,7 @@ class Charm(HeroSkill):
 
         # === Phase 3: 활동 (매혹된 호위무사가 아군으로 행동) ===
         elif self.charm_phase == "active":
-            self.active_timer += dt
+            self.charm_elapsed += dt
 
             # 아군 행동은 GuardWarriorSystem이 관리
             # 여기서는 시각 이펙트만 관리
@@ -7745,7 +7753,7 @@ class Charm(HeroSkill):
 
             # duration을 강제로 약간 연장 (복귀 애니메이션 재생 시간)
             self.is_active = True
-            self.remaining_duration = 1.0  # 복귀에 ~0.7초 필요
+            self.active_timer = 1.0  # 복귀에 ~0.7초 필요
         else:
             # 발사/견인 중 종료(라운드 끝 등) → 즉시 정리
             game_state['charm_end_request'] = {
@@ -7955,7 +7963,7 @@ class Charm(HeroSkill):
         self.proj_trail = []
         self.proj_orbs = []
         self.pull_chain_particles = []
-        self.active_timer = 0.0
+        self.charm_elapsed = 0.0
 
     def reset_for_new_round(self, game_state: dict):
         """라운드 전환 시 매혹은 유지 (초기화하지 않음!)"""
