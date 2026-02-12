@@ -8725,13 +8725,18 @@ class SkeletonArcher(HeroSkill):
                 new_archers.append(archer)
                 continue
 
-            # === 공과 충돌 체크 (한 대 맞으면 즉사) ===
+            # === 공과 충돌 체크 (상대가 친 공에만 즉사) ===
             if ball is not None:
+                # 내가 친 공은 무시: 캐스터가 하단이면 위로 가는 공(vy<0)은 아군 공
+                ball_from_opponent = (
+                    (not self.caster_is_top and ball.vy > 0) or
+                    (self.caster_is_top and ball.vy < 0)
+                )
                 ax, ay = archer['x'], archer['y']
                 bx = ball.x + ball.width / 2
                 by = ball.y + ball.height / 2
                 dist = math.sqrt((ax - bx) ** 2 + (ay - by) ** 2)
-                if dist < (self.ARCHER_WIDTH / 2 + ball.width / 2):
+                if ball_from_opponent and dist < (self.ARCHER_WIDTH / 2 + ball.width / 2):
                     # 궁수 사망!
                     archer['alive'] = False
                     # 뼈 파편 생성 (사방으로 튀어나감)
