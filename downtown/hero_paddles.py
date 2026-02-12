@@ -5365,24 +5365,36 @@ class HeroPaddleRenderer:
             screen.blit(ps_surf, (px - sr, py - sr))
 
         # ─── 다리 / 샌들 ───
-        leg_base_y = cy - int(0.2 * b)
+        leg_base_y = cy + int(2.2 * b)
         for side in [-1, 1]:
-            leg_x = cx + side * int(0.35 * b) + lean_offset
+            leg_x = cx + side * int(0.4 * b) + lean_offset
+            # 허벅지 (로브 아래 살짝 보임)
             pygame.draw.line(screen, p["robe_shadow"],
-                           (leg_x, leg_base_y - int(0.6 * b)),
-                           (leg_x, leg_base_y + int(0.3 * b)),
+                           (leg_x, leg_base_y - int(1.0 * b)),
+                           (leg_x, leg_base_y + int(0.4 * b)),
+                           max(2, int(0.3 * b)))
+            # 정강이
+            pygame.draw.line(screen, p["skin_shadow"],
+                           (leg_x, leg_base_y + int(0.1 * b)),
+                           (leg_x, leg_base_y + int(0.6 * b)),
                            max(2, int(0.25 * b)))
-            foot_w = max(2, int(0.4 * b))
-            foot_h = max(1, int(0.15 * b))
+            # 샌들
+            foot_w = max(3, int(0.5 * b))
+            foot_h = max(2, int(0.2 * b))
             pygame.draw.ellipse(screen, p["sandal"],
-                              (leg_x - foot_w // 2, leg_base_y + int(0.2 * b),
+                              (leg_x - foot_w // 2, leg_base_y + int(0.5 * b),
                                foot_w, foot_h))
+            # 샌들 끈
+            pygame.draw.line(screen, p["gold_dark"],
+                           (leg_x, leg_base_y + int(0.3 * b)),
+                           (leg_x, leg_base_y + int(0.55 * b)),
+                           max(1, int(0.06 * b)))
 
         # ─── 로브 (쉔디트 - 파라오 치마) ───
         skirt_top = torso_y + int(1.2 * b)
-        skirt_bot = leg_base_y - int(0.3 * b)
-        skirt_w_top = int(1.4 * b)
-        skirt_w_bot = int(1.8 * b)
+        skirt_bot = leg_base_y - int(0.5 * b)
+        skirt_w_top = int(1.8 * b)
+        skirt_w_bot = int(2.4 * b)
         skirt_pts = [
             (cx - skirt_w_top // 2 + lean_offset, skirt_top),
             (cx + skirt_w_top // 2 + lean_offset, skirt_top),
@@ -5390,15 +5402,38 @@ class HeroPaddleRenderer:
             (cx - skirt_w_bot // 2 + lean_offset - int(wave * 0.2 * b), skirt_bot),
         ]
         pygame.draw.polygon(screen, p["robe_white"], skirt_pts)
+        # 그림자 (로브 좌우)
+        shadow_inset = int(0.15 * b)
+        shadow_pts_l = [
+            (cx - skirt_w_top // 2 + lean_offset + shadow_inset, skirt_top),
+            (cx - skirt_w_top // 2 + lean_offset, skirt_top),
+            (cx - skirt_w_bot // 2 + lean_offset - int(wave * 0.2 * b), skirt_bot),
+            (cx - skirt_w_bot // 2 + lean_offset - int(wave * 0.2 * b) + shadow_inset + int(0.1 * b), skirt_bot),
+        ]
+        pygame.draw.polygon(screen, p["robe_shadow"], shadow_pts_l)
         # 중앙 주름선
         pygame.draw.line(screen, p["robe_fold"],
                         (cx + lean_offset, skirt_top + int(0.2 * b)),
                         (cx + lean_offset, skirt_bot - int(0.1 * b)),
                         max(1, int(0.08 * b)))
+        # 좌우 주름선
+        for side in [-1, 1]:
+            fold_x = cx + side * int(0.5 * b) + lean_offset
+            fold_wave = int(wave * 0.1 * b * side)
+            pygame.draw.line(screen, p["robe_fold"],
+                           (fold_x, skirt_top + int(0.4 * b)),
+                           (fold_x + fold_wave, skirt_bot - int(0.2 * b)),
+                           max(1, int(0.06 * b)))
+        # 로브 하단 금색 테두리
+        hem_h = max(2, int(0.15 * b))
+        pygame.draw.line(screen, p["gold_dark"],
+                        (cx - skirt_w_bot // 2 + lean_offset - int(wave * 0.2 * b), skirt_bot - hem_h),
+                        (cx + skirt_w_bot // 2 + lean_offset + int(wave * 0.2 * b), skirt_bot - hem_h),
+                        hem_h)
         # 금색 허리띠
         belt_y = skirt_top
-        belt_h = max(2, int(0.3 * b))
-        belt_w = skirt_w_top + int(0.4 * b)
+        belt_h = max(2, int(0.35 * b))
+        belt_w = skirt_w_top + int(0.5 * b)
         pygame.draw.rect(screen, p["gold"],
                         (cx - belt_w // 2 + lean_offset, belt_y, belt_w, belt_h),
                         border_radius=max(1, int(0.1 * b)))
@@ -5413,7 +5448,7 @@ class HeroPaddleRenderer:
         # ─── 몸통 (상체) ───
         torso_top = torso_y - int(0.5 * b)
         torso_bot = skirt_top + int(0.1 * b)
-        torso_w = int(1.5 * b)
+        torso_w = int(2.0 * b)
         torso_rect = pygame.Rect(cx - torso_w // 2 + lean_offset, torso_top,
                                   torso_w, torso_bot - torso_top)
         pygame.draw.rect(screen, p["skin"], torso_rect,

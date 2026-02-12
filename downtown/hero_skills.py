@@ -9522,8 +9522,8 @@ class BombSurprise(HeroSkill):
 class SandPrison(HeroSkill):
     """모래감옥 - 상대의 이동 범위를 200px로 제한하는 사각형 모래 감옥"""
 
-    GAME_LEFT = 0
-    GAME_RIGHT = 760
+    GAME_LEFT = 80    # GAME_AREA_OFFSET_X (필러 영역 제외)
+    GAME_RIGHT = 680   # GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH
     PRISON_HALF_RANGE = 100  # ±100px = 200px 총 범위
     PRISON_TOP_Y = 0         # 감옥 상단 Y (타겟에 따라 동적 설정)
     PRISON_BOT_Y = 100       # 감옥 하단 Y (타겟에 따라 동적 설정)
@@ -9744,8 +9744,8 @@ class SandPrison(HeroSkill):
 class SandVortex(HeroSkill):
     """모래회오리 - 2개의 모래 소용돌이를 발사하여 공을 끌어당기고 고속 발사"""
 
-    GAME_LEFT = 0
-    GAME_RIGHT = 760
+    GAME_LEFT = 80    # GAME_AREA_OFFSET_X (필러 영역 제외)
+    GAME_RIGHT = 680   # GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH
     GAME_TOP = 0
     GAME_BOTTOM = 750
 
