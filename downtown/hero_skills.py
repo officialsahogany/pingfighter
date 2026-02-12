@@ -8176,7 +8176,7 @@ class GhostSummon(HeroSkill):
 
     GHOST_WIDTH = 80
     GHOST_HEIGHT = 40
-    EMERGE_DURATION = 0.5   # 등장 애니메이션 (초)
+    EMERGE_DURATION = 0.8   # 등장 애니메이션 - 캐스터→목표 비행 (초)
     DEATH_DURATION = 0.6    # 소멸 애니메이션 (초)
 
     # 유령 소환 Y 위치 (맵 중앙 부근)
@@ -8203,21 +8203,29 @@ class GhostSummon(HeroSkill):
         self.caster_is_top = caster_paddle.is_top
         self.caster_facing = "down" if caster_paddle.is_top else "up"
 
+        # 캐스터 위치 저장 (유령이 몸에서 뿜어져 나오는 연출용)
+        self.caster_spawn_x = caster_paddle.x + getattr(caster_paddle, 'width', 80) // 2
+        self.caster_spawn_y = caster_paddle.y
+
         self.ghosts = []
         self.dying_ghosts = []
         self._ghost_particles = []
 
-        # 유령 2개를 맵 중앙에 소환
+        # 유령 2개를 캐스터 위치에서 출발 → 맵 중앙으로 이동
         for i, ghost_y in enumerate(self.GHOST_Y_POSITIONS):
-            start_x = random.randint(100, 660)
+            target_x = random.randint(100, 660)
             direction = random.choice([-1, 1])
 
+            # 초기 위치: 캐스터 몸에서 시작
             ghost_rect = pygame.Rect(0, 0, self.GHOST_WIDTH, self.GHOST_HEIGHT)
-            ghost_rect.center = (start_x, ghost_y)
+            ghost_rect.center = (int(self.caster_spawn_x), int(self.caster_spawn_y))
 
             ghost = {
                 'rect': ghost_rect,
-                'target_y': ghost_y,
+                'target_x': target_x,       # 목표 X
+                'target_y': ghost_y,         # 목표 Y
+                'start_x': float(self.caster_spawn_x),  # 출발 X (캐스터)
+                'start_y': float(self.caster_spawn_y),   # 출발 Y (캐스터)
                 'vx': random.uniform(6.0, 10.0) * direction,
                 'spawn_time': 0.0,
                 'active': True,
@@ -8273,10 +8281,29 @@ class GhostSummon(HeroSkill):
 
             rect = ghost['rect']
 
-            # 등장 애니메이션: 페이드인 + 약간의 떠오름
+            # 등장 애니메이션: 캐스터 몸에서 목표 위치로 날아감
             if ghost['spawn_time'] < self.EMERGE_DURATION:
-                # 등장 중에는 이동 없음
-                pass
+                t = ghost['spawn_time'] / self.EMERGE_DURATION
+                # ease-out 곡선 (처음 빠르게, 끝에 감속)
+                ease_t = 1.0 - (1.0 - t) ** 2.5
+                lerp_x = ghost['start_x'] + (ghost['target_x'] - ghost['start_x']) * ease_t
+                lerp_y = ghost['start_y'] + (ghost['target_y'] - ghost['start_y']) * ease_t
+                rect.center = (int(lerp_x), int(lerp_y))
+
+                # 소환 궤적 파티클 (몸에서 뿜어져 나오는 느낌)
+                if random.random() < 0.6:
+                    trail_t = random.uniform(0, t)
+                    px = ghost['start_x'] + (ghost['target_x'] - ghost['start_x']) * trail_t
+                    py = ghost['start_y'] + (ghost['target_y'] - ghost['start_y']) * trail_t
+                    self._ghost_particles.append({
+                        'x': px + random.randint(-12, 12),
+                        'y': py + random.randint(-8, 8),
+                        'vy': random.uniform(-1.0, -2.5),
+                        'alpha': random.randint(120, 200),
+                        'size': random.randint(2, 5),
+                        'life': random.uniform(0.3, 0.7),
+                        'age': 0.0,
+                    })
             else:
                 # 좌우 이동
                 move_amount = int(ghost['vx'])
@@ -8444,28 +8471,24 @@ class GhostSummon(HeroSkill):
         # 등장 시 페이드인
         emerge_progress = min(1.0, spawn_time / self.EMERGE_DURATION)
 
-        # 둥실둥실 부유 모션
-        hover = int(5 * _sin(spawn_time * 3 + ghost['id'] * math.pi))
+        # 둥실둥실 부유 모션 (크게 위아래로 + 2차 진동)
+        hover_main = 14 * _sin(spawn_time * 2.2 + ghost['id'] * math.pi)
+        hover_sub = 5 * _sin(spawn_time * 3.8 + ghost['id'] * 2.1)
+        hover = int(hover_main + hover_sub)
 
         alpha = int(180 * emerge_progress)
         x = rect.centerx
         y = rect.centery + hover
 
-        # 바닥 그림자
-        shadow_width = int(self.GHOST_WIDTH * 0.8)
+        # 바닥 그림자 (부유 높이에 따라 크기/투명도 변화)
+        shadow_scale = 1.0 - abs(hover_main) / 25.0  # 높이 올라갈수록 그림자 작아짐
+        shadow_width = int(self.GHOST_WIDTH * 0.8 * max(0.5, shadow_scale))
+        shadow_alpha = int(alpha * 0.35 * max(0.3, shadow_scale))
+        shadow_y_base = rect.centery + 20  # 그림자는 기본 Y에 고정
         shadow_surf = pygame.Surface((shadow_width, 8), pygame.SRCALPHA)
-        pygame.draw.ellipse(shadow_surf, (10, 20, 18, int(alpha * 0.4)),
+        pygame.draw.ellipse(shadow_surf, (10, 20, 18, shadow_alpha),
                           (0, 0, shadow_width, 8))
-        screen.blit(shadow_surf, (x - shadow_width // 2, y + 18))
-
-        # 유령 글로우 (외곽 발광)
-        glow_radius = 50 + int(5 * _sin(spawn_time * 4))
-        glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-        glow_alpha = int(30 * emerge_progress)
-        pygame.draw.circle(glow_surf, (80, 200, 170, glow_alpha),
-                         (glow_radius, glow_radius), glow_radius)
-        screen.blit(glow_surf, (x - glow_radius, y - glow_radius),
-                   special_flags=pygame.BLEND_ADD)
+        screen.blit(shadow_surf, (x - shadow_width // 2, shadow_y_base))
 
         # 캐릭터 렌더링
         if renderer and HERO_PADDLE_RENDERER_AVAILABLE:
