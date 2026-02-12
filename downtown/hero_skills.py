@@ -9742,18 +9742,18 @@ class SandPrison(HeroSkill):
 
 
 class SandVortex(HeroSkill):
-    """모래회오리 - 2개의 모래 소용돌이를 발사하여 공을 끌어당기고 고속 발사"""
+    """모래회오리 - 2개의 거대한 모래폭풍을 발사하여 상대 공을 끌어당기고 고속 발사"""
 
     GAME_LEFT = 80    # GAME_AREA_OFFSET_X (필러 영역 제외)
     GAME_RIGHT = 680   # GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH
     GAME_TOP = 0
     GAME_BOTTOM = 750
 
-    PULL_RADIUS = 90       # 끌어당김 범위
-    CAPTURE_RADIUS = 22    # 완전 포획 범위
-    VORTEX_SPEED = 90      # 이동 속도
+    PULL_RADIUS = 140      # 끌어당김 범위 (기존 90 → 확대)
+    CAPTURE_RADIUS = 36    # 완전 포획 범위 (기존 22 → 확대)
+    VORTEX_SPEED = 180     # 이동 속도 (기존 90 → 2배)
     LAUNCH_SPEED = 650     # 포획 후 발사 속도
-    WOBBLE_AMPLITUDE = 50  # 지그재그 좌우 진폭
+    WOBBLE_AMPLITUDE = 80  # 지그재그 좌우 진폭 (기존 50 → 확대)
 
     def __init__(self):
         super().__init__(
@@ -9793,6 +9793,16 @@ class SandVortex(HeroSkill):
         except Exception:
             pass
 
+    def _is_ball_from_caster(self, ball) -> bool:
+        """캐스터가 방금 친 공인지 판별 (캐스터 방향으로 날아가는 공 = 캐스터가 친 공)"""
+        ball_vy = getattr(ball, 'vy', None) or getattr(ball, 'speed_y', 0)
+        if self.caster_is_bottom:
+            # 캐스터가 하단 → 공이 위로 올라감(vy < 0) = 캐스터가 친 공
+            return ball_vy < 0
+        else:
+            # 캐스터가 상단 → 공이 아래로 내려감(vy > 0) = 캐스터가 친 공
+            return ball_vy > 0
+
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         """소용돌이 2개 발사 - 패들 중심에서 좌우 30도"""
         self.caster_is_bottom = not caster_paddle.is_top
@@ -9815,9 +9825,15 @@ class SandVortex(HeroSkill):
                 'base_vy': math.sin(angle) * self.VORTEX_SPEED,
                 'wobble_phase': random.uniform(0, math.pi * 2),
                 'wobble_speed': random.uniform(3.0, 4.5),
+                # 랜덤 X축 움직임용 추가 파라미터
+                'drift_vx': 0.0,                        # 현재 랜덤 드리프트 속도
+                'drift_target': random.uniform(-80, 80), # 목표 드리프트
+                'drift_timer': 0.0,                      # 드리프트 전환 타이머
+                'drift_interval': random.uniform(0.3, 0.7),  # 드리프트 변경 간격
+                'jitter_x': 0.0,                         # 미세 떨림
                 'rotation': random.uniform(0, 360),
                 'spin_speed': random.uniform(280, 400),
-                'size': 22,
+                'size': 44,  # 기존 22 → 2배
                 'alpha': 255,
                 'age': 0.0,
                 'dead': False,
@@ -9835,7 +9851,7 @@ class SandVortex(HeroSkill):
         return {}
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
-        """소용돌이 이동 + 지그재그 + 공 끌어당김"""
+        """소용돌이 이동 + 예측불가 랜덤 X축 + 상대 공만 끌어당김"""
         any_alive = False
 
         for vortex in self.vortexes:
@@ -9844,26 +9860,30 @@ class SandVortex(HeroSkill):
             any_alive = True
             vortex['age'] += dt
 
-            # 지그재그 (사인 곡선으로 좌우 흔들림)
+            # ── 예측불가 랜덤 X축 움직임 ──
+            # 1) 주기적으로 목표 드리프트 변경
+            vortex['drift_timer'] += dt
+            if vortex['drift_timer'] >= vortex['drift_interval']:
+                vortex['drift_timer'] = 0.0
+                vortex['drift_interval'] = random.uniform(0.2, 0.6)
+                vortex['drift_target'] = random.uniform(-120, 120)
+
+            # 2) 드리프트를 목표값으로 부드럽게 보간
+            lerp_speed = 4.0 * dt
+            vortex['drift_vx'] += (vortex['drift_target'] - vortex['drift_vx']) * lerp_speed
+
+            # 3) 미세 떨림 (고주파 노이즈)
+            vortex['jitter_x'] = random.uniform(-25, 25)
+
+            # 4) 기본 사인파 흔들림
             vortex['wobble_phase'] += vortex['wobble_speed'] * dt
             wobble_offset = math.sin(vortex['wobble_phase']) * self.WOBBLE_AMPLITUDE
 
-            # 이동 방향에 수직인 방향으로 흔들림 적용
-            base_vx = vortex['base_vx']
-            base_vy = vortex['base_vy']
-            speed = math.sqrt(base_vx ** 2 + base_vy ** 2)
-            if speed > 0:
-                # 수직 방향 벡터 (normalized)
-                perp_x = -base_vy / speed
-                perp_y = base_vx / speed
-            else:
-                perp_x, perp_y = 1, 0
+            # 최종 X 이동 = 기본vx + 사인흔들림 + 랜덤드리프트 + 미세떨림
+            final_x_move = vortex['base_vx'] + wobble_offset + vortex['drift_vx'] + vortex['jitter_x']
 
-            actual_vx = base_vx + perp_x * wobble_offset
-            actual_vy = base_vy + perp_y * wobble_offset * 0.3  # Y축 흔들림은 약하게
-
-            vortex['x'] += actual_vx * dt
-            vortex['y'] += base_vy * dt  # Y는 직진, X만 흔들림
+            vortex['x'] += final_x_move * dt
+            vortex['y'] += vortex['base_vy'] * dt
 
             # 회전
             vortex['rotation'] += vortex['spin_speed'] * dt
@@ -9872,100 +9892,129 @@ class SandVortex(HeroSkill):
             if vortex['x'] < self.GAME_LEFT + vortex['size']:
                 vortex['x'] = self.GAME_LEFT + vortex['size']
                 vortex['base_vx'] = abs(vortex['base_vx'])
+                vortex['drift_vx'] = abs(vortex['drift_vx'])
+                vortex['drift_target'] = abs(vortex['drift_target'])
             elif vortex['x'] > self.GAME_RIGHT - vortex['size']:
                 vortex['x'] = self.GAME_RIGHT - vortex['size']
                 vortex['base_vx'] = -abs(vortex['base_vx'])
+                vortex['drift_vx'] = -abs(vortex['drift_vx'])
+                vortex['drift_target'] = -abs(vortex['drift_target'])
 
             # 화면 밖 제거
             if vortex['y'] < -60 or vortex['y'] > 810:
                 vortex['dead'] = True
                 continue
 
-            # 공과의 상호작용
+            # ── 공과의 상호작용 (캐스터가 친 공은 무시!) ──
             if ball and not self.captured_ball:
-                ball_x = getattr(ball, 'x', 0)
-                ball_y = getattr(ball, 'y', 0)
+                # 캐스터가 발사한 공은 소용돌이에 영향 안 받음
+                if self._is_ball_from_caster(ball):
+                    pass  # 캐스터의 공 → 무시
+                else:
+                    ball_x = getattr(ball, 'x', 0)
+                    ball_y = getattr(ball, 'y', 0)
 
-                dx = vortex['x'] - ball_x
-                dy = vortex['y'] - ball_y
-                dist = math.sqrt(dx * dx + dy * dy)
+                    dx = vortex['x'] - ball_x
+                    dy = vortex['y'] - ball_y
+                    dist = math.sqrt(dx * dx + dy * dy)
 
-                if dist < self.PULL_RADIUS and dist > 1:
-                    # 끌어당김 (거리가 가까울수록 강해짐)
-                    pull_factor = (1 - dist / self.PULL_RADIUS) ** 1.5
-                    pull_strength = pull_factor * 350 * dt
-                    nx = dx / dist
-                    ny = dy / dist
-
-                    if hasattr(ball, 'vx'):
-                        ball.vx += nx * pull_strength
-                        ball.vy += ny * pull_strength
-                    elif hasattr(ball, 'speed_x'):
-                        ball.speed_x += nx * pull_strength
-                        ball.speed_y += ny * pull_strength
-
-                    # 포획 범위에 들어오면 고속 발사
-                    if dist < self.CAPTURE_RADIUS:
-                        self.captured_ball = True
-                        vortex['dead'] = True
-
-                        # 상대 방향으로 고속 발사 (약간의 랜덤 각도)
-                        if self.caster_is_bottom:
-                            launch_angle = -math.pi / 2 + random.uniform(-0.35, 0.35)
-                        else:
-                            launch_angle = math.pi / 2 + random.uniform(-0.35, 0.35)
-
-                        launch_vx = math.cos(launch_angle) * self.LAUNCH_SPEED
-                        launch_vy = math.sin(launch_angle) * self.LAUNCH_SPEED
+                    if dist < self.PULL_RADIUS and dist > 1:
+                        # 끌어당김 (거리가 가까울수록 강해짐)
+                        pull_factor = (1 - dist / self.PULL_RADIUS) ** 1.5
+                        pull_strength = pull_factor * 350 * dt
+                        nx = dx / dist
+                        ny = dy / dist
 
                         if hasattr(ball, 'vx'):
-                            ball.x = vortex['x']
-                            ball.y = vortex['y']
-                            ball.vx = launch_vx
-                            ball.vy = launch_vy
+                            ball.vx += nx * pull_strength
+                            ball.vy += ny * pull_strength
                         elif hasattr(ball, 'speed_x'):
-                            ball.x = vortex['x']
-                            ball.y = vortex['y']
-                            ball.speed_x = launch_vx
-                            ball.speed_y = launch_vy
+                            ball.speed_x += nx * pull_strength
+                            ball.speed_y += ny * pull_strength
 
-                        # 포획 사운드
-                        if self._capture_sound:
-                            try:
-                                self._capture_sound.play()
-                            except Exception:
-                                pass
+                        # 포획 범위에 들어오면 고속 발사
+                        if dist < self.CAPTURE_RADIUS:
+                            self.captured_ball = True
+                            vortex['dead'] = True
 
-                        # 포획 이펙트 파티클 버스트
-                        for _ in range(15):
-                            angle = random.uniform(0, math.pi * 2)
-                            spd = random.uniform(40, 150)
-                            self.vortex_particles.append({
-                                'x': vortex['x'],
-                                'y': vortex['y'],
-                                'vx': math.cos(angle) * spd,
-                                'vy': math.sin(angle) * spd,
-                                'alpha': 255,
-                                'size': random.uniform(3, 7),
-                                'life': 0.6,
-                                'max_life': 0.6,
-                                'burst': True,
-                            })
+                            # 상대 방향으로 고속 발사 (약간의 랜덤 각도)
+                            if self.caster_is_bottom:
+                                launch_angle = -math.pi / 2 + random.uniform(-0.35, 0.35)
+                            else:
+                                launch_angle = math.pi / 2 + random.uniform(-0.35, 0.35)
 
-            # 일반 파티클 트레일
-            if random.random() < 0.6:
+                            launch_vx = math.cos(launch_angle) * self.LAUNCH_SPEED
+                            launch_vy = math.sin(launch_angle) * self.LAUNCH_SPEED
+
+                            if hasattr(ball, 'vx'):
+                                ball.x = vortex['x']
+                                ball.y = vortex['y']
+                                ball.vx = launch_vx
+                                ball.vy = launch_vy
+                            elif hasattr(ball, 'speed_x'):
+                                ball.x = vortex['x']
+                                ball.y = vortex['y']
+                                ball.speed_x = launch_vx
+                                ball.speed_y = launch_vy
+
+                            # 포획 사운드
+                            if self._capture_sound:
+                                try:
+                                    self._capture_sound.play()
+                                except Exception:
+                                    pass
+
+                            # 포획 이펙트 파티클 버스트
+                            for _ in range(25):
+                                angle = random.uniform(0, math.pi * 2)
+                                spd = random.uniform(50, 200)
+                                self.vortex_particles.append({
+                                    'x': vortex['x'],
+                                    'y': vortex['y'],
+                                    'vx': math.cos(angle) * spd,
+                                    'vy': math.sin(angle) * spd,
+                                    'alpha': 255,
+                                    'size': random.uniform(4, 10),
+                                    'life': 0.8,
+                                    'max_life': 0.8,
+                                    'burst': True,
+                                    'color_type': random.choice(['gold', 'sand', 'dust']),
+                                })
+
+            # ── 모래폭풍 파티클 (대량 생성으로 폭풍 느낌) ──
+            # 소용돌이 주변 회전 파티클 (밀도 높게)
+            for _ in range(4):
                 angle = random.uniform(0, math.pi * 2)
-                dist_p = random.uniform(3, vortex['size'])
+                dist_p = random.uniform(4, vortex['size'] * 1.2)
+                orbit_speed = random.uniform(60, 140)
                 self.vortex_particles.append({
                     'x': vortex['x'] + math.cos(angle) * dist_p,
                     'y': vortex['y'] + math.sin(angle) * dist_p,
-                    'vx': math.cos(angle + math.pi / 2) * random.uniform(15, 35),
-                    'vy': math.sin(angle + math.pi / 2) * random.uniform(15, 35),
-                    'alpha': random.randint(130, 210),
-                    'size': random.uniform(2, 4),
-                    'life': 0.7,
-                    'max_life': 0.7,
+                    'vx': math.cos(angle + math.pi / 2) * orbit_speed + random.uniform(-20, 20),
+                    'vy': math.sin(angle + math.pi / 2) * orbit_speed * 0.5 + vortex['base_vy'] * 0.3,
+                    'alpha': random.randint(120, 220),
+                    'size': random.uniform(2, 6),
+                    'life': random.uniform(0.4, 0.9),
+                    'max_life': 0.9,
                     'burst': False,
+                    'color_type': random.choice(['sand', 'dust', 'dark']),
+                })
+
+            # 큰 먼지 덩어리 (드문 빈도, 큰 사이즈)
+            if random.random() < 0.35:
+                angle = random.uniform(0, math.pi * 2)
+                dist_p = random.uniform(vortex['size'] * 0.5, vortex['size'] * 1.5)
+                self.vortex_particles.append({
+                    'x': vortex['x'] + math.cos(angle) * dist_p,
+                    'y': vortex['y'] + math.sin(angle) * dist_p,
+                    'vx': random.uniform(-40, 40),
+                    'vy': vortex['base_vy'] * 0.2 + random.uniform(-15, 15),
+                    'alpha': random.randint(80, 160),
+                    'size': random.uniform(6, 12),
+                    'life': random.uniform(0.5, 1.0),
+                    'max_life': 1.0,
+                    'burst': False,
+                    'color_type': 'cloud',
                 })
 
         # 파티클 업데이트
@@ -9993,11 +10042,11 @@ class SandVortex(HeroSkill):
         self.captured_ball = False
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
-        """소용돌이 + 파티클 렌더링"""
+        """모래폭풍 비주얼 렌더링"""
         if not self.is_active and not self.vortex_particles:
             return
 
-        # 소용돌이 본체
+        # 소용돌이 본체 (모래폭풍 스타일)
         for vortex in self.vortexes:
             if vortex.get('dead'):
                 continue
@@ -10007,46 +10056,77 @@ class SandVortex(HeroSkill):
             rot = vortex['rotation']
             alpha = vortex['alpha']
 
-            surf_size = size * 3
+            surf_size = int(size * 3.5)
             vortex_surf = pygame.Surface((surf_size * 2, surf_size * 2), pygame.SRCALPHA)
             cx, cy = surf_size, surf_size
 
-            # 나선형 레이어 (안쪽에서 바깥으로)
-            for layer in range(6):
-                radius = size - layer * 3
-                if radius < 2:
+            # ── 1) 바깥쪽 모래구름 (반투명 대형 원들) ──
+            for i in range(8):
+                cloud_angle = math.radians(rot * 0.5 + i * 45 + vortex['age'] * 60)
+                cloud_dist = size * (0.6 + 0.4 * math.sin(vortex['age'] * 2 + i))
+                cloud_x = cx + math.cos(cloud_angle) * cloud_dist
+                cloud_y = cy + math.sin(cloud_angle) * cloud_dist
+                cloud_r = int(size * random.uniform(0.35, 0.6))
+                cloud_alpha = max(0, min(255, int(alpha * 0.25)))
+                # 따뜻한 모래색 변화
+                r_c = min(255, 180 + int(30 * math.sin(i * 0.7)))
+                g_c = min(255, 145 + int(20 * math.sin(i * 1.1)))
+                b_c = max(40, 70 + int(15 * math.sin(i * 0.5)))
+                pygame.draw.circle(vortex_surf, (r_c, g_c, b_c, cloud_alpha),
+                                 (int(cloud_x), int(cloud_y)), cloud_r)
+
+            # ── 2) 중간층 빠른 회전 나선 (여러 겹) ──
+            for layer in range(8):
+                radius = size - layer * 4
+                if radius < 4:
                     break
-                layer_alpha = max(0, min(255, alpha - layer * 35))
-                # 사막 색상 그라데이션 (바깥 = 연한 모래, 안쪽 = 진한 갈색)
-                r_c = min(255, 190 + layer * 10)
-                g_c = max(100, 160 - layer * 8)
-                b_c = max(50, 90 - layer * 8)
+                layer_alpha = max(0, min(255, int(alpha * 0.7) - layer * 20))
+                # 사막 색상 그라데이션 (바깥 = 밝은 황토, 안쪽 = 진한 갈색)
+                r_c = min(255, 200 + layer * 6)
+                g_c = max(90, 155 - layer * 7)
+                b_c = max(35, 75 - layer * 6)
                 color = (r_c, g_c, b_c, layer_alpha)
 
-                # 나선 궤적
+                # 나선 궤적 (더 촘촘하고 두꺼운 선)
                 points = []
-                angle_start = math.radians(rot + layer * 50)
-                for a_deg in range(0, 300, 12):
+                angle_start = math.radians(rot * 1.3 + layer * 40)
+                for a_deg in range(0, 420, 8):
                     rad = math.radians(a_deg) + angle_start
-                    r = radius * (1 - a_deg / 1200)
-                    if r < 1:
+                    r = radius * (1 - a_deg / 1400)
+                    if r < 2:
                         break
                     px = cx + math.cos(rad) * r
                     py = cy + math.sin(rad) * r
                     points.append((int(px), int(py)))
 
                 if len(points) > 2:
-                    pygame.draw.lines(vortex_surf, color, False, points, max(1, 3 - layer // 2))
+                    line_w = max(1, 4 - layer // 2)
+                    pygame.draw.lines(vortex_surf, color, False, points, line_w)
 
-            # 중심 빛
-            pygame.draw.circle(vortex_surf, (245, 220, 160, 200), (cx, cy), 5)
-            pygame.draw.circle(vortex_surf, (255, 240, 200, 100), (cx, cy), 9)
+            # ── 3) 내부 밝은 코어 ──
+            # 밝은 모래색 코어 (큰 글로우)
+            core_alpha = max(0, min(255, int(alpha * 0.5)))
+            pygame.draw.circle(vortex_surf, (230, 200, 130, core_alpha), (cx, cy), int(size * 0.35))
+            pygame.draw.circle(vortex_surf, (245, 225, 165, max(0, min(255, int(alpha * 0.7)))), (cx, cy), int(size * 0.2))
+            # 중심 밝은 점
+            pygame.draw.circle(vortex_surf, (255, 240, 190, min(255, int(alpha * 0.9))), (cx, cy), 6)
+
+            # ── 4) 표면 노이즈 점들 (모래알갱이 느낌) ──
+            for _ in range(12):
+                grain_angle = random.uniform(0, math.pi * 2)
+                grain_dist = random.uniform(4, size * 0.9)
+                gx = cx + math.cos(grain_angle) * grain_dist
+                gy = cy + math.sin(grain_angle) * grain_dist
+                grain_alpha = max(0, min(255, int(alpha * random.uniform(0.3, 0.7))))
+                grain_size = random.randint(1, 3)
+                pygame.draw.circle(vortex_surf, (210, 175, 95, grain_alpha),
+                                 (int(gx), int(gy)), grain_size)
 
             screen.blit(vortex_surf, (x - surf_size, y - surf_size))
 
-            # 끌어당김 범위 (매우 연한 원)
+            # 끌어당김 범위 (매우 연한 원 - 모래색)
             pull_surf = pygame.Surface((self.PULL_RADIUS * 2, self.PULL_RADIUS * 2), pygame.SRCALPHA)
-            pygame.draw.circle(pull_surf, (210, 180, 100, 12),
+            pygame.draw.circle(pull_surf, (210, 180, 100, 10),
                              (self.PULL_RADIUS, self.PULL_RADIUS), self.PULL_RADIUS, 1)
             screen.blit(pull_surf, (x - self.PULL_RADIUS, y - self.PULL_RADIUS))
 
@@ -10055,12 +10135,25 @@ class SandVortex(HeroSkill):
             a = max(0, min(255, int(p['alpha'])))
             if a > 8:
                 sz = max(1, int(p['size']))
+                color_type = p.get('color_type', 'sand')
                 if p.get('burst'):
-                    # 포획 버스트: 밝은 금색
-                    col = (255, 220, 100, a)
+                    # 포획 버스트
+                    if color_type == 'gold':
+                        col = (255, 220, 100, a)
+                    elif color_type == 'dust':
+                        col = (220, 190, 120, a)
+                    else:
+                        col = (240, 200, 110, a)
                 else:
-                    # 일반 트레일: 모래색
-                    col = (210, 180, 105, a)
+                    # 모래폭풍 파티클
+                    if color_type == 'dark':
+                        col = (160, 120, 60, a)
+                    elif color_type == 'cloud':
+                        col = (195, 170, 110, min(a, 140))
+                    elif color_type == 'dust':
+                        col = (220, 190, 120, a)
+                    else:
+                        col = (210, 180, 105, a)
                 ps = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
                 pygame.draw.circle(ps, col, (sz, sz), sz)
                 screen.blit(ps, (int(p['x'] - sz), int(p['y'] - sz)))
