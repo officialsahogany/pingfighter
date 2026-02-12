@@ -7400,12 +7400,18 @@ class IllusionShuriken(HeroSkill):
 # ============================================================================
 # 벤시 스킬 - 유령 여왕 (트릭형)
 # ============================================================================
-class Charm(HeroSkill):
-    """매혹 - 상대 호위무사를 20초간 아군으로 끌어들임
+# 호위무사 좌표 상수 (colosseum_arena 순환 import 방지)
+TOP_PADDLE_Y = 25
+BOTTOM_PADDLE_Y = 710
 
-    - 상대 진영 호위무사를 빼앗아 아군 진영에서 순찰시킴
-    - 효과 종료 시 호위무사를 원래 진영으로 반환
-    - 라운드 전환 시에도 지속시간 동안 유지 (초기화 안 됨)
+class Charm(HeroSkill):
+    """매혹 - 자력 에너지를 발사하여 상대 호위무사를 끌어들임 (20초)
+
+    4단계 연출:
+    1) projectile: 자력 에너지 탄을 상대 호위무사에게 발사
+    2) pulling:    에너지가 호위무사를 감싸고 시전자 진영으로 견인
+    3) active:     매혹된 호위무사가 아군으로 순찰·스킬 사용
+    4) returning:  지속시간 종료 후 원래 진영으로 복귀
     """
 
     def __init__(self):
@@ -7413,37 +7419,114 @@ class Charm(HeroSkill):
             skill_id="charm",
             name="Charm",
             korean_name="매혹",
-            description="상대 호위무사를 현혹하여 20초간 아군으로 끌어들인다",
+            description="자력 에너지를 발사하여 상대 호위무사를 20초간 아군으로 끌어들인다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=35.0,
             duration=20.0,
             hero_id="banshee"
         )
-        # 매혹 상태 추적
-        self.charmed_guard = None       # 매혹된 호위무사 hero dict
-        self.charm_source_is_top = True  # 매혹 시전자가 상단인지
-        self.charm_particles = []        # 매혹 파티클
-        self.charm_aura_timer = 0.0      # 오라 타이머
-        self._charm_applied = False      # 호위무사 이동 완료 플래그
+        # === 매혹 상태 ===
+        self.charmed_guard = None
+        self.charm_source_is_top = True
+        self._charm_applied = False
 
+        # === 4단계 페이즈 ===
+        self.charm_phase = "idle"  # idle / projectile / pulling / active / returning
+        self.phase_timer = 0.0
+
+        # --- Phase 1: 발사체 ---
+        self.proj_x = 0.0
+        self.proj_y = 0.0
+        self.proj_target_x = 0.0
+        self.proj_target_y = 0.0
+        self.proj_progress = 0.0
+        self.proj_speed = 2.0        # progress/초  (약 0.5초 비행)
+        self.proj_rotation = 0.0
+        self.proj_trail = []         # 자력 에너지 잔상
+        self.proj_orbs = []          # 발사체 주위 궤도 구슬
+
+        # --- Phase 2: 견인 ---
+        self.pull_start_x = 0.0
+        self.pull_start_y = 0.0
+        self.pull_end_x = 0.0
+        self.pull_end_y = 0.0
+        self.pull_progress = 0.0
+        self.pull_speed = 1.2        # progress/초  (약 0.8초 견인)
+        self.pull_chain_particles = []
+
+        # --- Phase 3: 활동 ---
+        self.charm_aura_timer = 0.0
+        self.charm_particles = []
+        self.active_timer = 0.0      # 활동 페이즈 경과 시간
+
+        # --- Phase 4: 복귀 ---
+        self.return_start_x = 0.0
+        self.return_start_y = 0.0
+        self.return_end_x = 0.0
+        self.return_end_y = 0.0
+        self.return_progress = 0.0
+        self.return_speed = 1.5      # progress/초  (약 0.7초 복귀)
+
+    # ------------------------------------------------------------------
+    #  can_use
+    # ------------------------------------------------------------------
     def can_use(self) -> bool:
-        """상대에게 호위무사가 있을 때만 사용 가능"""
         if self.current_cooldown > 0 or self.is_active:
             return False
         return True
 
+    # ------------------------------------------------------------------
+    #  _apply_effect  (Phase 1 시작)
+    # ------------------------------------------------------------------
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
-        """매혹 효과 적용 - 상대 호위무사를 아군으로 이동"""
         self.charm_source_is_top = getattr(self, 'caster_is_top', True)
         self._charm_applied = False
         self.charmed_guard = None
         self.charm_particles = []
         self.charm_aura_timer = 0.0
+        self.active_timer = 0.0
 
-        # game_state를 통해 guard_warrior_system에 매혹 요청
-        game_state['charm_request'] = {
+        # 시전자 좌표
+        caster = caster_paddle if self.charm_source_is_top else target_paddle
+        cx = caster.x + (caster.width // 2 if hasattr(caster, 'width') else 40)
+        cy = 50 if self.charm_source_is_top else 700
+
+        # 상대 호위무사 좌표를 game_state에서 가져옴
+        # caster_is_top이면 상대는 bottom, 아니면 top
+        enemy_side = 'bottom' if self.charm_source_is_top else 'top'
+        guard_info = game_state.get(f'_guard_info_{enemy_side}', None)
+        if guard_info:
+            self.proj_target_x = guard_info.get('x', 380)
+            self.proj_target_y = guard_info.get('y', (BOTTOM_PADDLE_Y if self.charm_source_is_top else TOP_PADDLE_Y))
+        else:
+            # 폴백: 상대 패들 쪽 중앙
+            self.proj_target_x = 380
+            self.proj_target_y = BOTTOM_PADDLE_Y if self.charm_source_is_top else TOP_PADDLE_Y
+
+        self.proj_x = cx
+        self.proj_y = cy
+        self.proj_progress = 0.0
+        self.proj_rotation = 0.0
+        self.proj_trail = []
+
+        # 궤도 구슬 초기화 (6개)
+        self.proj_orbs = []
+        for i in range(6):
+            self.proj_orbs.append({
+                'angle': (math.pi * 2 / 6) * i,
+                'dist': random.uniform(12, 20),
+                'speed': random.uniform(4.0, 7.0),
+                'size': random.uniform(2, 4),
+            })
+
+        # Phase 1 시작
+        self.charm_phase = "projectile"
+        self.phase_timer = 0.0
+
+        # 매혹 페이즈 시작을 GuardWarriorSystem에 알림
+        game_state['charm_phase_request'] = {
             'caster_is_top': self.charm_source_is_top,
-            'duration': self.duration,
+            'phase': 'projectile',
         }
 
         return {
@@ -7452,95 +7535,430 @@ class Charm(HeroSkill):
             'sound': 'dollcurse'
         }
 
-    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
-        """매혹 효과 업데이트"""
-        self.charm_aura_timer += dt
-
-        # 매혹 파티클 업데이트
-        # 시전자 주변에 하트/유령빛 파티클
-        caster = caster_paddle if self.charm_source_is_top else target_paddle
-        cx = caster.x + caster.width // 2 if hasattr(caster, 'width') else caster.x
-
-        # 파티클 생성
-        if random.random() < 0.3:
-            self.charm_particles.append({
-                'x': cx + random.uniform(-40, 40),
-                'y': (50 if self.charm_source_is_top else 700) + random.uniform(-20, 20),
-                'vy': random.uniform(-30, -60) if self.charm_source_is_top else random.uniform(30, 60),
-                'vx': random.uniform(-15, 15),
-                'life': random.uniform(0.8, 1.5),
-                'max_life': 1.5,
+    # ------------------------------------------------------------------
+    #  _init_pull_chain  (Phase 2 초기화)
+    # ------------------------------------------------------------------
+    def _init_pull_chain(self):
+        """견인 체인 파티클 초기화"""
+        self.pull_chain_particles = []
+        for i in range(12):
+            self.pull_chain_particles.append({
+                'offset': random.uniform(-8, 8),
+                'phase': random.uniform(0, math.pi * 2),
+                'speed': random.uniform(3, 6),
                 'size': random.uniform(2, 5),
             })
 
-        # 파티클 이동 및 제거
-        alive = []
-        for p in self.charm_particles:
-            p['x'] += p['vx'] * dt
-            p['y'] += p['vy'] * dt
-            p['life'] -= dt
-            if p['life'] > 0:
-                alive.append(p)
-        self.charm_particles = alive
+    # ------------------------------------------------------------------
+    #  _update_active_effect
+    # ------------------------------------------------------------------
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        self.phase_timer += dt
+        self.charm_aura_timer += dt
 
-        # 매혹 상태 game_state 유지
-        game_state['charm_active'] = True
-        game_state['charm_caster_is_top'] = self.charm_source_is_top
+        # === Phase 1: 발사체 비행 ===
+        if self.charm_phase == "projectile":
+            self.proj_progress += dt * self.proj_speed
+            self.proj_rotation += dt * 360
 
+            # 현재 발사체 위치
+            cur_x = self.proj_x + (self.proj_target_x - self.proj_x) * self.proj_progress
+            cur_y = self.proj_y + (self.proj_target_y - self.proj_y) * self.proj_progress
+
+            # 궤도 구슬 업데이트
+            for orb in self.proj_orbs:
+                orb['angle'] += dt * orb['speed']
+
+            # 트레일 파티클
+            if self.proj_progress > 0.05:
+                self.proj_trail.append({
+                    'x': cur_x + random.uniform(-5, 5),
+                    'y': cur_y + random.uniform(-5, 5),
+                    'size': random.uniform(3, 8),
+                    'life': 0.5,
+                    'max_life': 0.5,
+                    'color_type': random.choice(['magenta', 'cyan', 'purple']),
+                })
+
+            # 트레일 업데이트
+            alive = []
+            for t in self.proj_trail:
+                t['life'] -= dt
+                if t['life'] > 0:
+                    alive.append(t)
+            self.proj_trail = alive
+
+            # 도착 → Phase 2 전환
+            if self.proj_progress >= 1.0:
+                self.charm_phase = "pulling"
+                self.phase_timer = 0.0
+                self.proj_trail = []
+
+                # 견인 시작/끝 좌표 설정
+                self.pull_start_x = self.proj_target_x
+                self.pull_start_y = self.proj_target_y
+                # 시전자 쪽 하단/상단 순찰 위치로 이동
+                self.pull_end_x = self.proj_target_x  # X는 비슷하게 유지
+                if self.charm_source_is_top:
+                    self.pull_end_y = TOP_PADDLE_Y  # 상단 시전 → 상단으로 끌어옴
+                else:
+                    self.pull_end_y = BOTTOM_PADDLE_Y  # 하단 시전 → 하단으로 끌어옴
+                self.pull_progress = 0.0
+                self._init_pull_chain()
+
+                # GuardWarriorSystem에 '견인' 알림 → 적 호위무사 빼앗기
+                game_state['charm_phase_request'] = {
+                    'caster_is_top': self.charm_source_is_top,
+                    'phase': 'pulling',
+                }
+
+        # === Phase 2: 견인 (호위무사를 아군 진영으로 끌어옴) ===
+        elif self.charm_phase == "pulling":
+            self.pull_progress += dt * self.pull_speed
+
+            # 체인 파티클 웨이브
+            for cp in self.pull_chain_particles:
+                cp['phase'] += dt * cp['speed']
+
+            # ease-out 커브로 부드럽게
+            t = min(1.0, self.pull_progress)
+            ease_t = 1 - (1 - t) ** 3  # cubic ease-out
+
+            # 견인 중 호위무사 위치를 game_state에 알려줌
+            pull_cur_x = self.pull_start_x + (self.pull_end_x - self.pull_start_x) * ease_t
+            pull_cur_y = self.pull_start_y + (self.pull_end_y - self.pull_start_y) * ease_t
+            game_state['charm_pull_position'] = {
+                'x': pull_cur_x,
+                'y': pull_cur_y,
+                'progress': ease_t,
+            }
+
+            # 견인 완료 → Phase 3 전환
+            if self.pull_progress >= 1.0:
+                self.charm_phase = "active"
+                self.phase_timer = 0.0
+                self.active_timer = 0.0
+                self.pull_chain_particles = []
+
+                # GuardWarriorSystem에 '활동' 알림 → 아군 순찰 시작
+                game_state['charm_phase_request'] = {
+                    'caster_is_top': self.charm_source_is_top,
+                    'phase': 'active',
+                }
+                game_state.pop('charm_pull_position', None)
+
+        # === Phase 3: 활동 (매혹된 호위무사가 아군으로 행동) ===
+        elif self.charm_phase == "active":
+            self.active_timer += dt
+
+            # 아군 행동은 GuardWarriorSystem이 관리
+            # 여기서는 시각 이펙트만 관리
+            caster = caster_paddle if self.charm_source_is_top else target_paddle
+            cx = caster.x + (caster.width // 2 if hasattr(caster, 'width') else 40)
+
+            # 매혹 파티클 (하트/유령빛)
+            if random.random() < 0.25:
+                base_y = 50 if self.charm_source_is_top else 700
+                self.charm_particles.append({
+                    'x': cx + random.uniform(-50, 50),
+                    'y': base_y + random.uniform(-15, 15),
+                    'vy': random.uniform(-25, -50) if self.charm_source_is_top else random.uniform(25, 50),
+                    'vx': random.uniform(-10, 10),
+                    'life': random.uniform(0.8, 1.5),
+                    'max_life': 1.5,
+                    'size': random.uniform(2, 5),
+                    'is_heart': random.random() < 0.3,
+                })
+
+            # 파티클 업데이트
+            alive = []
+            for p in self.charm_particles:
+                p['x'] += p['vx'] * dt
+                p['y'] += p['vy'] * dt
+                p['life'] -= dt
+                if p['life'] > 0:
+                    alive.append(p)
+            self.charm_particles = alive
+
+            game_state['charm_active'] = True
+            game_state['charm_caster_is_top'] = self.charm_source_is_top
+
+        # === Phase 4: 복귀 (지속시간 종료, _end_effect에서 시작) ===
+        elif self.charm_phase == "returning":
+            self.return_progress += dt * self.return_speed
+
+            t = min(1.0, self.return_progress)
+            ease_t = 1 - (1 - t) ** 3
+
+            # 복귀 중 호위무사 위치
+            ret_x = self.return_start_x + (self.return_end_x - self.return_start_x) * ease_t
+            ret_y = self.return_start_y + (self.return_end_y - self.return_start_y) * ease_t
+            game_state['charm_return_position'] = {
+                'x': ret_x,
+                'y': ret_y,
+                'progress': ease_t,
+            }
+
+            if self.return_progress >= 1.0:
+                self.charm_phase = "idle"
+                game_state.pop('charm_return_position', None)
+                # 완전 복귀 → GuardWarriorSystem에 최종 반환
+                game_state['charm_phase_request'] = {
+                    'caster_is_top': self.charm_source_is_top,
+                    'phase': 'returned',
+                }
+
+    # ------------------------------------------------------------------
+    #  _end_effect  (Phase 4 시작 - 복귀)
+    # ------------------------------------------------------------------
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
-        """매혹 효과 종료 - 호위무사 원래 진영으로 반환"""
         game_state['charm_active'] = False
-        game_state['charm_end_request'] = {
-            'caster_is_top': self.charm_source_is_top,
-        }
-        self.charmed_guard = None
         self.charm_particles = []
-        self._charm_applied = False
 
+        if self.charm_phase == "active":
+            # 활동 중이었다면 → 복귀 페이즈
+            self.charm_phase = "returning"
+            self.phase_timer = 0.0
+            self.return_progress = 0.0
+
+            # 현재 호위무사 위치에서 원래 진영으로
+            guard_pos = game_state.get('_charmed_guard_pos', None)
+            if guard_pos:
+                self.return_start_x = guard_pos.get('x', 380)
+                self.return_start_y = guard_pos.get('y', BOTTOM_PADDLE_Y)
+            else:
+                self.return_start_x = 380
+                self.return_start_y = TOP_PADDLE_Y if self.charm_source_is_top else BOTTOM_PADDLE_Y
+
+            # 원래 진영 위치
+            if self.charm_source_is_top:
+                self.return_end_y = BOTTOM_PADDLE_Y  # 상단이 빌려왔으니 하단으로 복귀
+            else:
+                self.return_end_y = TOP_PADDLE_Y     # 하단이 빌려왔으니 상단으로 복귀
+            self.return_end_x = self.return_start_x
+
+            # GuardWarriorSystem에 '복귀 시작' 알림
+            game_state['charm_phase_request'] = {
+                'caster_is_top': self.charm_source_is_top,
+                'phase': 'returning',
+            }
+
+            # duration을 강제로 약간 연장 (복귀 애니메이션 재생 시간)
+            self.is_active = True
+            self.remaining_duration = 1.0  # 복귀에 ~0.7초 필요
+        else:
+            # 발사/견인 중 종료(라운드 끝 등) → 즉시 정리
+            game_state['charm_end_request'] = {
+                'caster_is_top': self.charm_source_is_top,
+            }
+            self.charm_phase = "idle"
+            self.charmed_guard = None
+            self._charm_applied = False
+
+    # ------------------------------------------------------------------
+    #  draw  (시각 효과 렌더링)
+    # ------------------------------------------------------------------
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
-        """매혹 시각 효과"""
         if not self.is_active:
             return
 
-        # 매혹 파티클 렌더링 (핑크+시안 하트 형태)
-        for p in self.charm_particles:
-            alpha = int(200 * (p['life'] / p['max_life']))
-            size = max(1, int(p['size'] * (p['life'] / p['max_life'])))
-            # 유령빛 파티클 (핑크+시안 교대)
-            if int(p['x']) % 2 == 0:
-                color = (200, 100, 180, alpha)
+        # === Phase 1: 자력 에너지 탄 ===
+        if self.charm_phase == "projectile":
+            self._draw_projectile(screen)
+
+        # === Phase 2: 견인 체인 ===
+        elif self.charm_phase == "pulling":
+            self._draw_pull_chain(screen, game_state)
+
+        # === Phase 3: 활동 중 매혹 오라 ===
+        elif self.charm_phase == "active":
+            self._draw_active_aura(screen, game_state)
+
+        # === Phase 4: 복귀 이펙트 ===
+        elif self.charm_phase == "returning":
+            self._draw_return_effect(screen, game_state)
+
+    def _draw_projectile(self, screen):
+        """Phase 1: 자력 에너지 발사체 렌더링"""
+        t = min(1.0, self.proj_progress)
+        cur_x = self.proj_x + (self.proj_target_x - self.proj_x) * t
+        cur_y = self.proj_y + (self.proj_target_y - self.proj_y) * t
+
+        # 트레일 파티클 렌더링
+        for tr in self.proj_trail:
+            ratio = tr['life'] / tr['max_life']
+            alpha = int(180 * ratio)
+            sz = max(1, int(tr['size'] * ratio))
+            if tr['color_type'] == 'magenta':
+                c = (220, 80, 180, alpha)
+            elif tr['color_type'] == 'cyan':
+                c = (80, 200, 240, alpha)
             else:
-                color = (100, 200, 240, alpha)
-            particle_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-            pygame.draw.circle(particle_surf, color, (size, size), size)
-            screen.blit(particle_surf, (int(p['x'] - size), int(p['y'] - size)),
-                       special_flags=pygame.BLEND_ADD)
+                c = (140, 60, 200, alpha)
+            s = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+            pygame.draw.circle(s, c, (sz, sz), sz)
+            screen.blit(s, (int(tr['x'] - sz), int(tr['y'] - sz)), special_flags=pygame.BLEND_ADD)
 
-        # 화면 상하단에 매혹 오라 바
+        # 외곽 글로우
+        glow_r = 22
+        glow_s = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+        pulse = (math.sin(self.charm_aura_timer * 8) + 1) * 0.5
+        glow_alpha = int(60 + 40 * pulse)
+        pygame.draw.circle(glow_s, (180, 60, 220, glow_alpha), (glow_r, glow_r), glow_r)
+        screen.blit(glow_s, (int(cur_x - glow_r), int(cur_y - glow_r)), special_flags=pygame.BLEND_ADD)
+
+        # 궤도 구슬
+        for orb in self.proj_orbs:
+            ox = cur_x + math.cos(orb['angle']) * orb['dist']
+            oy = cur_y + math.sin(orb['angle']) * orb['dist']
+            sz = max(1, int(orb['size']))
+            orb_s = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+            pygame.draw.circle(orb_s, (200, 100, 255, 200), (sz, sz), sz)
+            screen.blit(orb_s, (int(ox - sz), int(oy - sz)), special_flags=pygame.BLEND_ADD)
+
+        # 코어 (밝은 핑크+화이트)
+        core_r = 8
+        pygame.draw.circle(screen, (255, 180, 240), (int(cur_x), int(cur_y)), core_r)
+        pygame.draw.circle(screen, (255, 240, 255), (int(cur_x), int(cur_y)), 4)
+
+    def _draw_pull_chain(self, screen, game_state):
+        """Phase 2: 견인 체인 + 에너지 필드 렌더링"""
+        pull_pos = game_state.get('charm_pull_position', None)
+        if not pull_pos:
+            return
+        px, py = pull_pos['x'], pull_pos['y']
+        progress = pull_pos['progress']
+
+        # 시전자 위치
+        caster_y = 50 if self.charm_source_is_top else 700
+
+        # 에너지 체인 라인 (시전자 → 호위무사)
+        chain_points = 12
+        for i in range(chain_points):
+            frac = i / (chain_points - 1)
+            bx = px + (self.pull_end_x - px) * frac * 0.3
+            by = caster_y + (py - caster_y) * (1 - frac)
+
+            if i < len(self.pull_chain_particles):
+                cp = self.pull_chain_particles[i]
+                wave = math.sin(cp['phase']) * cp['offset'] * (1 - progress * 0.5)
+                bx += wave
+            alpha = int(120 + 80 * (1 - frac))
+            sz = max(1, int(3 + 2 * math.sin(self.charm_aura_timer * 4 + i)))
+            cs = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+            pygame.draw.circle(cs, (180, 80, 220, alpha), (sz, sz), sz)
+            screen.blit(cs, (int(bx - sz), int(by - sz)), special_flags=pygame.BLEND_ADD)
+
+        # 호위무사 주위 매혹 필드 (견인 중)
+        field_r = int(25 + 10 * math.sin(self.charm_aura_timer * 5))
+        field_s = pygame.Surface((field_r * 2, field_r * 2), pygame.SRCALPHA)
+        field_alpha = int(50 + 30 * (1 - progress))
+        pygame.draw.circle(field_s, (200, 80, 240, field_alpha), (field_r, field_r), field_r)
+        screen.blit(field_s, (int(px - field_r), int(py - field_r)), special_flags=pygame.BLEND_ADD)
+
+        # 나선형 에너지 링
+        ring_count = 3
+        for r in range(ring_count):
+            angle = self.charm_aura_timer * (3 + r) + r * (math.pi * 2 / ring_count)
+            ring_r = 15 + r * 5
+            rx = px + math.cos(angle) * ring_r
+            ry = py + math.sin(angle) * ring_r * 0.6
+            dot_s = pygame.Surface((6, 6), pygame.SRCALPHA)
+            pygame.draw.circle(dot_s, (255, 150, 220, 180), (3, 3), 3)
+            screen.blit(dot_s, (int(rx - 3), int(ry - 3)), special_flags=pygame.BLEND_ADD)
+
+    def _draw_active_aura(self, screen, game_state):
+        """Phase 3: 활동 중 매혹 오라 + 파티클"""
+        # 매혹 파티클 렌더링 (핑크+시안)
+        for p in self.charm_particles:
+            ratio = p['life'] / p['max_life']
+            alpha = int(200 * ratio)
+            sz = max(1, int(p['size'] * ratio))
+
+            if p.get('is_heart'):
+                # 하트 모양 (작은 점 두 개 + 아래 삼각형으로 근사)
+                heart_s = pygame.Surface((sz * 3, sz * 3), pygame.SRCALPHA)
+                hc = (255, 100, 180, alpha)
+                hs = max(1, sz)
+                pygame.draw.circle(heart_s, hc, (hs, hs), hs)
+                pygame.draw.circle(heart_s, hc, (hs * 2, hs), hs)
+                pygame.draw.polygon(heart_s, hc, [(0, hs), (hs * 3, hs), (hs + hs // 2, hs * 3)])
+                screen.blit(heart_s, (int(p['x'] - hs), int(p['y'] - hs)), special_flags=pygame.BLEND_ADD)
+            else:
+                if int(p['x'] * 7) % 2 == 0:
+                    c = (200, 100, 180, alpha)
+                else:
+                    c = (100, 200, 240, alpha)
+                ps = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+                pygame.draw.circle(ps, c, (sz, sz), sz)
+                screen.blit(ps, (int(p['x'] - sz), int(p['y'] - sz)), special_flags=pygame.BLEND_ADD)
+
+        # 매혹 오라 바 (화면 가장자리)
         pulse = (math.sin(self.charm_aura_timer * 3) + 1) * 0.5
-        bar_alpha = int(30 + 20 * pulse)
-        bar_h = 8
+        bar_alpha = int(25 + 20 * pulse)
+        bar_h = 6
+        bar_s = pygame.Surface((760, bar_h), pygame.SRCALPHA)
+        bar_s.fill((180, 80, 220, bar_alpha))
         if self.charm_source_is_top:
-            # 상단 시전자: 상단에 시안 오라
-            bar_surf = pygame.Surface((760, bar_h), pygame.SRCALPHA)
-            bar_surf.fill((80, 200, 240, bar_alpha))
-            screen.blit(bar_surf, (0, 0))
+            screen.blit(bar_s, (0, 0))
         else:
-            bar_surf = pygame.Surface((760, bar_h), pygame.SRCALPHA)
-            bar_surf.fill((80, 200, 240, bar_alpha))
-            screen.blit(bar_surf, (0, 750 - bar_h))
+            screen.blit(bar_s, (0, 750 - bar_h))
 
+        # 매혹된 호위무사 주위 오라 링
+        guard_pos = game_state.get('_charmed_guard_pos', None)
+        if guard_pos:
+            gx, gy = guard_pos['x'], guard_pos['y']
+            ring_r = int(20 + 5 * math.sin(self.charm_aura_timer * 4))
+            ring_s = pygame.Surface((ring_r * 2, ring_r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(ring_s, (200, 80, 240, 40), (ring_r, ring_r), ring_r)
+            pygame.draw.circle(ring_s, (200, 80, 240, 80), (ring_r, ring_r), ring_r, 2)
+            screen.blit(ring_s, (int(gx - ring_r), int(gy - ring_r)), special_flags=pygame.BLEND_ADD)
+
+    def _draw_return_effect(self, screen, game_state):
+        """Phase 4: 복귀 이펙트"""
+        ret_pos = game_state.get('charm_return_position', None)
+        if not ret_pos:
+            return
+        rx, ry = ret_pos['x'], ret_pos['y']
+        progress = ret_pos['progress']
+
+        # 해방 파티클 (감소하는 에너지)
+        dissipate_alpha = int(120 * (1 - progress))
+        field_r = int(20 * (1 - progress * 0.5))
+        if field_r > 0:
+            fs = pygame.Surface((field_r * 2, field_r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(fs, (140, 80, 200, dissipate_alpha), (field_r, field_r), field_r)
+            screen.blit(fs, (int(rx - field_r), int(ry - field_r)), special_flags=pygame.BLEND_ADD)
+
+        # 잔여 에너지 스파크
+        spark_count = max(1, int(4 * (1 - progress)))
+        for i in range(spark_count):
+            angle = self.charm_aura_timer * 5 + i * (math.pi * 2 / spark_count)
+            sd = 12 + 8 * (1 - progress)
+            sx = rx + math.cos(angle) * sd
+            sy = ry + math.sin(angle) * sd * 0.6
+            ss = pygame.Surface((4, 4), pygame.SRCALPHA)
+            pygame.draw.circle(ss, (220, 120, 255, dissipate_alpha), (2, 2), 2)
+            screen.blit(ss, (int(sx - 2), int(sy - 2)), special_flags=pygame.BLEND_ADD)
+
+    # ------------------------------------------------------------------
+    #  reset / reset_for_new_round
+    # ------------------------------------------------------------------
     def reset(self):
-        """전체 리셋"""
         super().reset()
         self.charmed_guard = None
         self.charm_particles = []
         self._charm_applied = False
         self.charm_aura_timer = 0.0
+        self.charm_phase = "idle"
+        self.phase_timer = 0.0
+        self.proj_trail = []
+        self.proj_orbs = []
+        self.pull_chain_particles = []
+        self.active_timer = 0.0
 
     def reset_for_new_round(self, game_state: dict):
         """라운드 전환 시 매혹은 유지 (초기화하지 않음!)"""
-        # 매혹은 라운드 전환 시에도 지속 → 아무것도 하지 않음
         pass
 
 
