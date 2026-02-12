@@ -8714,17 +8714,24 @@ class SkeletonArcher(HeroSkill):
             else:
                 # 쿨타임 감소
                 archer['arrow_cooldown'] -= dt
-                if archer['arrow_cooldown'] <= 0 and target_paddle is not None:
-                    # 시위 당기기 시작 - 적 영웅 패들만 타겟 (호위무사 제외)
-                    if hasattr(target_paddle, 'is_bodyguard') and target_paddle.is_bodyguard:
-                        # 호위무사면 발사하지 않음
-                        archer['arrow_cooldown'] = 0.5  # 0.5초 후 재시도
-                    else:
-                        # 적 영웅 패들 좌표만 사용 (호위무사 좌표 무시)
+                if archer['arrow_cooldown'] <= 0:
+                    # 시위 당기기 시작 - game_state에서 적 영웅 패들 위치 직접 참조
+                    # (target_paddle이 호위무사일 수 있으므로, 영웅 위치만 사용)
+                    enemy_key = 'hero_paddle_bottom' if self.caster_is_top else 'hero_paddle_top'
+                    hero_info = game_state.get(enemy_key)
+                    if hero_info:
+                        archer['is_drawing'] = True
+                        archer['draw_timer'] = 0.0
+                        archer['draw_target_x'] = float(hero_info['x'] + hero_info['width'] / 2)
+                        archer['draw_target_y'] = float(hero_info['y'] + hero_info['height'] / 2)
+                    elif target_paddle is not None and not getattr(target_paddle, 'is_bodyguard', False):
+                        # 폴백: game_state에 없으면 target_paddle 사용
                         archer['is_drawing'] = True
                         archer['draw_timer'] = 0.0
                         archer['draw_target_x'] = float(target_paddle.x + target_paddle.width / 2)
                         archer['draw_target_y'] = float(target_paddle.y + target_paddle.height / 2)
+                    else:
+                        archer['arrow_cooldown'] = 0.5  # 대상 없음, 재시도
 
                 # 이동 (시위 당기는 중에는 이동 안 함)
                 archer['x'] += archer['vx']
@@ -8763,35 +8770,27 @@ class SkeletonArcher(HeroSkill):
             if arrow['age'] > 5.0:
                 continue
 
-            # 적 영웅 패들 충돌 체크 (호위무사 제외 - 오직 영웅만 공격)
-            if target_paddle is not None:
-                is_bodyguard = hasattr(target_paddle, 'is_bodyguard') and target_paddle.is_bodyguard
-                if not is_bodyguard:
-                    # 호위무사 패들 영역 체크 - 호위무사 근처의 화살은 관통 (충돌 무시)
-                    hit_guard = False
-                    guard_rects = game_state.get('active_guard_rects', [])
-                    for gr in guard_rects:
-                        # 상대 진영 호위무사만 체크 (내 호위무사는 무시)
-                        guard_is_enemy = (self.caster_is_top and not gr['is_top']) or \
-                                         (not self.caster_is_top and gr['is_top'])
-                        if guard_is_enemy:
-                            gdist = math.sqrt(
-                                (arrow['x'] - gr['cx']) ** 2 +
-                                (arrow['y'] - gr['cy']) ** 2
-                            )
-                            if gdist < (gr['width'] / 2 + 8):
-                                hit_guard = True
-                                break
+            # 적 영웅 패들 충돌 체크 - game_state에서 영웅 위치 직접 참조 (호위무사 무시)
+            enemy_key = 'hero_paddle_bottom' if self.caster_is_top else 'hero_paddle_top'
+            hero_info = game_state.get(enemy_key)
+            if hero_info:
+                paddle_cx = hero_info['x'] + hero_info['width'] / 2
+                paddle_cy = hero_info['y'] + hero_info['height'] / 2
+                dist = math.sqrt((arrow['x'] - paddle_cx) ** 2 + (arrow['y'] - paddle_cy) ** 2)
 
-                    if not hit_guard:
-                        paddle_cx = target_paddle.x + target_paddle.width / 2
-                        paddle_cy = target_paddle.y + target_paddle.height / 2
-                        dist = math.sqrt((arrow['x'] - paddle_cx) ** 2 + (arrow['y'] - paddle_cy) ** 2)
+                if dist < (hero_info['width'] / 2 + 8):
+                    # 화살 명중! → 넉백 (수리검과 동일) - 영웅만 타격
+                    self._apply_arrow_hit(arrow, target_paddle, game_state)
+                    continue
+            elif target_paddle is not None and not getattr(target_paddle, 'is_bodyguard', False):
+                # 폴백: game_state에 없으면 target_paddle 사용
+                paddle_cx = target_paddle.x + target_paddle.width / 2
+                paddle_cy = target_paddle.y + target_paddle.height / 2
+                dist = math.sqrt((arrow['x'] - paddle_cx) ** 2 + (arrow['y'] - paddle_cy) ** 2)
 
-                        if dist < (target_paddle.width / 2 + 8):
-                            # 화살 명중! → 넉백 (수리검과 동일) - 영웅만 타격
-                            self._apply_arrow_hit(arrow, target_paddle, game_state)
-                            continue
+                if dist < (target_paddle.width / 2 + 8):
+                    self._apply_arrow_hit(arrow, target_paddle, game_state)
+                    continue
 
             new_arrows.append(arrow)
 
@@ -11422,6 +11421,16 @@ class HeroSkillManager:
 
     def update(self, dt: float, top_paddle, bottom_paddle, ball):
         """스킬 업데이트"""
+        # 영웅 패들 위치 저장 (해골궁수 등에서 호위무사 대신 영웅만 타겟하기 위해 사용)
+        self.game_state['hero_paddle_top'] = {
+            'x': top_paddle.x, 'y': top_paddle.y,
+            'width': top_paddle.width, 'height': top_paddle.height,
+        }
+        self.game_state['hero_paddle_bottom'] = {
+            'x': bottom_paddle.x, 'y': bottom_paddle.y,
+            'width': bottom_paddle.width, 'height': bottom_paddle.height,
+        }
+
         # 공 히스토리 저장
         self.game_state['ball_history'].append((ball.x, ball.y))
         if len(self.game_state['ball_history']) > 60:
