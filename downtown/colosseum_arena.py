@@ -2140,6 +2140,13 @@ class GuardWarriorSystem:
         guard = self._charmed['guard']
         stolen_from_top = self._charmed['stolen_from_top']
 
+        # ★ 독립 추적 먼저 해제 (_spawn_patrol_guard가 매혹 스킵 판정하지 않도록)
+        self._charmed = None
+        game_state.pop('_charmed_guard', None)
+        game_state.pop('_charm_caster_is_top', None)
+        game_state.pop('_charmed_guard_pos', None)
+        game_state.pop('charm_active', None)
+
         # 상대 호위무사를 다시 순찰 시작시킴 (리스트에 이미 있으므로 spawn만)
         if stolen_from_top:
             enemy_guards = self.guard_warriors_top
@@ -2161,13 +2168,6 @@ class GuardWarriorSystem:
                 self._spawn_patrol_guard(is_top=False)
 
         print(f"[Charm] 매혹 종료! {guard['name']} 원래 진영으로 완전 복귀")
-
-        # 독립 추적 해제
-        self._charmed = None
-        game_state.pop('_charmed_guard', None)
-        game_state.pop('_charm_caster_is_top', None)
-        game_state.pop('_charmed_guard_pos', None)
-        game_state.pop('charm_active', None)
         self._init_guard_skills()
 
     def _update_charmed_guard(self, dt, top_paddle, bottom_paddle, ball):
