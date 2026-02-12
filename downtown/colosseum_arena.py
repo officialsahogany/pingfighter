@@ -3732,6 +3732,16 @@ class ColosseumsArena:
         # GuardWarriorSystem 인스턴스
         self.guard_system = None
 
+        # ============ 관리자 영웅 선택 (F5) ============
+        self.admin_hero_select_active = False       # 관리자 영웅 선택 오버레이 활성화 여부
+        self.admin_target_match_index = -1          # 수정할 매치 인덱스 (0~3)
+        self.admin_selecting_slot = 0               # 0 = 매치 선택 중, 1 = hero1 선택 중, 2 = hero2 선택 중
+        self.admin_hero1_pick = None                # 선택된 hero1 (상단)
+        self.admin_hero2_pick = None                # 선택된 hero2 (하단)
+        self.admin_hover_index = -1                 # 호버 중인 영웅/매치 인덱스
+        self.admin_all_heroes = list(ARENA_HEROES)  # 선택 가능한 전체 영웅 목록
+        self.admin_scroll_offset = 0                # 스크롤 오프셋 (영웅 많을 때)
+
     def _render_text(self, font_key: str, text: str, color: tuple):
         """정적 텍스트 렌더링 캐시 (매 프레임 동일 텍스트 재렌더링 방지)"""
         key = (font_key, text, color)
@@ -3744,6 +3754,305 @@ class ColosseumsArena:
         surf, rect = font.render(text, color)
         self._text_cache[key] = (surf, rect)
         return surf, rect
+
+    # ========================================================================
+    # 관리자 영웅 선택 (F5) - Admin Hero Select
+    # ========================================================================
+    def _handle_admin_hero_select_event(self, event: pygame.event.Event) -> bool:
+        """관리자 영웅 선택 오버레이 이벤트 처리"""
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_ESCAPE:
+                # ESC: 단계별 뒤로가기 또는 닫기
+                if self.admin_selecting_slot == 2:
+                    # hero2 선택 중 → hero1 선택으로 복귀
+                    self.admin_selecting_slot = 1
+                    self.admin_hero2_pick = None
+                    self.admin_hover_index = -1
+                elif self.admin_selecting_slot == 1:
+                    # hero1 선택 중 → 매치 선택으로 복귀
+                    self.admin_selecting_slot = 0
+                    self.admin_hero1_pick = None
+                    self.admin_hover_index = -1
+                else:
+                    # 매치 선택 중 → 오버레이 닫기
+                    self.admin_hero_select_active = False
+                return False
+
+        elif event.type == pygame.MOUSEMOTION:
+            self._update_admin_hover(event.pos)
+
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if event.button == 1:
+                self._handle_admin_click(event.pos)
+
+        return False
+
+    def _update_admin_hover(self, pos):
+        """관리자 오버레이 마우스 호버 업데이트"""
+        mx, my = pos
+        self.admin_hover_index = -1
+
+        if self.admin_selecting_slot == 0:
+            # 매치 선택 단계: 4개 매치 버튼 호버
+            btn_w, btn_h = 140, 50
+            start_y = 280
+            for i in range(4):
+                bx = SCREEN_WIDTH // 2 - btn_w // 2
+                by = start_y + i * (btn_h + 15)
+                if bx <= mx <= bx + btn_w and by <= my <= by + btn_h:
+                    self.admin_hover_index = i
+                    break
+        else:
+            # 영웅 선택 단계: 영웅 카드 호버
+            cols = 3
+            card_w, card_h = 200, 80
+            gap_x, gap_y = 15, 12
+            total_w = cols * card_w + (cols - 1) * gap_x
+            start_x = (SCREEN_WIDTH - total_w) // 2
+            start_y = 180
+            for i, hero in enumerate(self.admin_all_heroes):
+                row = i // cols
+                col = i % cols
+                cx = start_x + col * (card_w + gap_x)
+                cy = start_y + row * (card_h + gap_y)
+                if cx <= mx <= cx + card_w and cy <= my <= cy + card_h:
+                    # 이미 선택된 hero1과 같은 영웅은 hero2 단계에서 제외
+                    if self.admin_selecting_slot == 2 and self.admin_hero1_pick:
+                        if hero["id"] == self.admin_hero1_pick["id"]:
+                            break
+                    self.admin_hover_index = i
+                    break
+
+    def _handle_admin_click(self, pos):
+        """관리자 오버레이 클릭 처리"""
+        mx, my = pos
+
+        if self.admin_selecting_slot == 0:
+            # 매치 선택 단계
+            btn_w, btn_h = 140, 50
+            start_y = 280
+            for i in range(4):
+                bx = SCREEN_WIDTH // 2 - btn_w // 2
+                by = start_y + i * (btn_h + 15)
+                if bx <= mx <= bx + btn_w and by <= my <= by + btn_h:
+                    self.admin_target_match_index = i
+                    self.admin_selecting_slot = 1  # hero1 선택으로 진행
+                    self.admin_hover_index = -1
+                    return
+        else:
+            # 영웅 선택 단계
+            cols = 3
+            card_w, card_h = 200, 80
+            gap_x, gap_y = 15, 12
+            total_w = cols * card_w + (cols - 1) * gap_x
+            start_x = (SCREEN_WIDTH - total_w) // 2
+            start_y = 180
+            for i, hero in enumerate(self.admin_all_heroes):
+                row = i // cols
+                col = i % cols
+                cx = start_x + col * (card_w + gap_x)
+                cy = start_y + row * (card_h + gap_y)
+                if cx <= mx <= cx + card_w and cy <= my <= cy + card_h:
+                    # 이미 선택된 hero1과 같은 영웅은 hero2 단계에서 제외
+                    if self.admin_selecting_slot == 2 and self.admin_hero1_pick:
+                        if hero["id"] == self.admin_hero1_pick["id"]:
+                            return
+
+                    if self.admin_selecting_slot == 1:
+                        # hero1 (상단 패들) 선택
+                        self.admin_hero1_pick = hero
+                        self.admin_selecting_slot = 2  # hero2 선택으로 진행
+                        self.admin_hover_index = -1
+                    elif self.admin_selecting_slot == 2:
+                        # hero2 (하단 패들) 선택 → 매치에 적용
+                        self.admin_hero2_pick = hero
+                        self._apply_admin_hero_selection()
+                    return
+
+    def _apply_admin_hero_selection(self):
+        """관리자가 선택한 영웅을 대진표 매치에 적용"""
+        idx = self.admin_target_match_index
+        if idx < 0 or idx >= len(self.matches[TournamentRound.QUARTER_FINAL]):
+            self.admin_hero_select_active = False
+            return
+
+        hero1 = self.admin_hero1_pick
+        hero2 = self.admin_hero2_pick
+        if not hero1 or not hero2:
+            self.admin_hero_select_active = False
+            return
+
+        match = self.matches[TournamentRound.QUARTER_FINAL][idx]
+
+        # 매치 영웅 교체
+        match.hero1 = hero1
+        match.hero2 = hero2
+
+        # top/bottom 영웅 목록도 동기화
+        if idx < len(self.top_heroes):
+            self.top_heroes[idx] = hero1
+        if idx < len(self.bottom_heroes):
+            self.bottom_heroes[idx] = hero2
+
+        # 스킬 배정 (아직 없으면 랜덤)
+        if hero1["id"] not in self.hero_selected_skills:
+            self.hero_selected_skills[hero1["id"]] = random.randint(0, 1)
+        if hero2["id"] not in self.hero_selected_skills:
+            self.hero_selected_skills[hero2["id"]] = random.randint(0, 1)
+
+        print(f"[Admin] 매치 {idx+1} 영웅 변경: {hero1['name']} vs {hero2['name']}")
+
+        # 오버레이 닫기
+        self.admin_hero_select_active = False
+
+    def _draw_admin_hero_select(self):
+        """관리자 영웅 선택 오버레이 그리기"""
+        # 반투명 어두운 배경
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        self.screen.blit(overlay, (0, 0))
+
+        # 패널 배경
+        panel_w, panel_h = 680, 650
+        panel_x = (SCREEN_WIDTH - panel_w) // 2
+        panel_y = (SCREEN_HEIGHT - panel_h) // 2
+        pygame.draw.rect(self.screen, ET["bg_medium"], (panel_x, panel_y, panel_w, panel_h), border_radius=12)
+        pygame.draw.rect(self.screen, ET["gold_medium"], (panel_x, panel_y, panel_w, panel_h), 2, border_radius=12)
+
+        # 타이틀
+        if self.fonts and "medium" in self.fonts:
+            title_text = "[관리자] 영웅 직접 배치"
+            title_color = (255, 100, 100)
+            surf, _ = self.fonts["medium"].render(title_text, title_color)
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 15))
+
+        if self.admin_selecting_slot == 0:
+            # ========== 매치 선택 단계 ==========
+            if self.fonts and "small" in self.fonts:
+                hint_text = "수정할 매치를 선택하세요 (ESC: 취소)"
+                surf, _ = self.fonts["small"].render(hint_text, ET["text_subtitle"])
+                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 50))
+
+            btn_w, btn_h = 140, 50
+            start_y = 280
+            for i in range(4):
+                match = self.matches[TournamentRound.QUARTER_FINAL][i]
+                bx = SCREEN_WIDTH // 2 - btn_w // 2
+                by = start_y + i * (btn_h + 15)
+                is_hover = (self.admin_hover_index == i)
+
+                bg_color = ET["card_bg_hover"] if is_hover else ET["card_bg"]
+                border_color = ET["gold_bright"] if is_hover else ET["card_border"]
+                pygame.draw.rect(self.screen, bg_color, (bx, by, btn_w, btn_h), border_radius=8)
+                pygame.draw.rect(self.screen, border_color, (bx, by, btn_w, btn_h), 2, border_radius=8)
+
+                if self.fonts and "small" in self.fonts:
+                    label = f"매치 {i+1}: {match.hero1['name']} vs {match.hero2['name']}"
+                    text_color = ET["gold_bright"] if is_hover else ET["text_body"]
+                    surf, _ = self.fonts["small"].render(label, text_color)
+                    self.screen.blit(surf, (bx + btn_w // 2 - surf.get_width() // 2, by + btn_h // 2 - surf.get_height() // 2))
+        else:
+            # ========== 영웅 선택 단계 ==========
+            # 현재 상태 표시
+            if self.fonts and "small" in self.fonts:
+                match_label = f"매치 {self.admin_target_match_index + 1}"
+                if self.admin_selecting_slot == 1:
+                    status_text = f"{match_label} - 상단(hero1) 영웅을 선택하세요"
+                else:
+                    h1_name = self.admin_hero1_pick["name"] if self.admin_hero1_pick else "?"
+                    status_text = f"{match_label} - 하단(hero2) 영웅을 선택하세요 (상단: {h1_name})"
+                surf, _ = self.fonts["small"].render(status_text, ET["text_subtitle"])
+                self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 50))
+
+                esc_text = "ESC: 이전 단계로"
+                surf2, _ = self.fonts["small"].render(esc_text, ET["text_hint"])
+                self.screen.blit(surf2, (SCREEN_WIDTH // 2 - surf2.get_width() // 2, panel_y + 72))
+
+            # 영웅 카드 그리드
+            cols = 3
+            card_w, card_h = 200, 80
+            gap_x, gap_y = 15, 12
+            total_w = cols * card_w + (cols - 1) * gap_x
+            start_x = (SCREEN_WIDTH - total_w) // 2
+            start_y = 180
+
+            for i, hero in enumerate(self.admin_all_heroes):
+                row = i // cols
+                col = i % cols
+                cx = start_x + col * (card_w + gap_x)
+                cy = start_y + row * (card_h + gap_y)
+
+                # hero2 선택 시 hero1과 같은 영웅은 비활성화
+                is_disabled = False
+                if self.admin_selecting_slot == 2 and self.admin_hero1_pick:
+                    if hero["id"] == self.admin_hero1_pick["id"]:
+                        is_disabled = True
+
+                is_hover = (self.admin_hover_index == i) and not is_disabled
+                is_hero1_selected = (self.admin_hero1_pick and hero["id"] == self.admin_hero1_pick["id"]
+                                     and self.admin_selecting_slot == 2)
+
+                # 카드 배경
+                if is_disabled:
+                    bg_color = (30, 25, 18)
+                    border_color = (60, 50, 35)
+                elif is_hero1_selected:
+                    bg_color = (40, 60, 40)
+                    border_color = ET["selected_border"]
+                elif is_hover:
+                    bg_color = ET["card_bg_hover"]
+                    border_color = ET["gold_bright"]
+                else:
+                    bg_color = ET["card_bg"]
+                    border_color = ET["card_border"]
+
+                pygame.draw.rect(self.screen, bg_color, (cx, cy, card_w, card_h), border_radius=8)
+                pygame.draw.rect(self.screen, border_color, (cx, cy, card_w, card_h), 2, border_radius=8)
+
+                # 영웅 색상 바
+                bar_alpha = 40 if is_disabled else 180
+                color_bar = pygame.Surface((card_w - 16, 4), pygame.SRCALPHA)
+                color_bar.fill((*hero["color"], bar_alpha))
+                self.screen.blit(color_bar, (cx + 8, cy + 6))
+
+                # 영웅 캐릭터 미리보기
+                if self.hero_paddle_renderer:
+                    preview_area = pygame.Surface((60, 50), pygame.SRCALPHA)
+                    self.hero_paddle_renderer.draw_hero_paddle(
+                        preview_area, hero["id"],
+                        30, 25, 55, 40,
+                        facing="down", color=hero["color"], scale_mode="preview"
+                    )
+                    if is_disabled:
+                        preview_area.set_alpha(50)
+                    self.screen.blit(preview_area, (cx + 5, cy + 18))
+
+                # 영웅 이름
+                if self.fonts and "small" in self.fonts:
+                    h_color = hero["color"]
+                    brightness = sum(h_color) / 3
+                    name_color = h_color if brightness > 80 else (
+                        min(255, h_color[0] + 100),
+                        min(255, h_color[1] + 100),
+                        min(255, h_color[2] + 100)
+                    )
+                    if is_disabled:
+                        name_color = tuple(c // 3 for c in name_color)
+                    surf, _ = self.fonts["small"].render(hero["name"], name_color)
+                    self.screen.blit(surf, (cx + 70, cy + 15))
+
+                # 영웅 칭호 + 스타일
+                if self.fonts and "small" in self.fonts:
+                    title_text = f"{hero.get('title', '')} ({hero['style'].value})"
+                    title_color = (60, 50, 35) if is_disabled else ET["text_hint"]
+                    surf, _ = self.fonts["small"].render(title_text, title_color)
+                    self.screen.blit(surf, (cx + 70, cy + 38))
+
+                # hero1 선택 표시
+                if is_hero1_selected:
+                    if self.fonts and "small" in self.fonts:
+                        tag_surf, _ = self.fonts["small"].render("상단", (100, 255, 100))
+                        self.screen.blit(tag_surf, (cx + card_w - tag_surf.get_width() - 10, cy + 8))
 
     def _generate_bracket(self):
         """8강 대진표 생성 - 모든 영웅 자유 매칭 + 감옥 영웅 배정
@@ -5043,7 +5352,24 @@ class ColosseumsArena:
 
     def handle_event(self, event: pygame.event.Event) -> bool:
         """이벤트 처리, 종료 시 True 반환"""
+        # ============ 관리자 영웅 선택 오버레이 이벤트 처리 ============
+        if self.admin_hero_select_active:
+            return self._handle_admin_hero_select_event(event)
+
         if event.type == pygame.KEYDOWN:
+            # F5: 관리자 영웅 선택 모드 (초반 대진표 화면에서만)
+            if event.key == pygame.K_F5:
+                if (self.state in (TournamentState.BRACKET_VIEW, TournamentState.SELECT_MATCH)
+                        and not self.initial_setup_done
+                        and self.current_round == TournamentRound.QUARTER_FINAL):
+                    self.admin_hero_select_active = True
+                    self.admin_selecting_slot = 0  # 매치 선택부터 시작
+                    self.admin_target_match_index = -1
+                    self.admin_hero1_pick = None
+                    self.admin_hero2_pick = None
+                    self.admin_hover_index = -1
+                    return False
+
             if event.key == pygame.K_ESCAPE:
                 if self.state == TournamentState.BATTLE:
                     return False  # 배틀 중에는 나갈 수 없음
@@ -6048,6 +6374,10 @@ class ColosseumsArena:
             self._draw_tenacity_retry()
         else:
             self._draw_bracket()
+
+        # 관리자 영웅 선택 오버레이 (항상 최상단에 그림)
+        if self.admin_hero_select_active:
+            self._draw_admin_hero_select()
 
     def _draw_vs_preview(self):
         """VS 매치업 미리보기 그리기 (배틀 전 표시)"""
