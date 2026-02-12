@@ -500,6 +500,19 @@ BOTTOM_HEROES = [
         "position": "bottom",
         "description": "예측 불가능한 서프라이즈로 상대를 혼란에 빠뜨리는 광대"
     },
+    {
+        "id": "mirage",
+        "name": "미라쥬",
+        "title": "사막의 환술사",
+        "style": HeroStyle.TRICKY,
+        "color": (210, 180, 100),  # 사막 모래빛 금색
+        "speed": 1.05,
+        "reaction": 0.92,
+        "power": 0.88,
+        "accuracy": 0.9,
+        "position": "bottom",
+        "description": "사막의 모래바람을 조종하여 적을 가두고 혼란시키는 환술사"
+    },
 ]
 
 # 전체 영웅 목록 (호환성용)

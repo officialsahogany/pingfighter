@@ -5031,6 +5031,322 @@ class HeroPaddleRenderer:
                              max(1, bell_r // 2))
 
     # =========================================================================
+    # 미라쥬 - 사막의 환술사 (트릭키) [HD 버전]
+    # =========================================================================
+    def _draw_mirage(self, screen, cx, cy, b, color, show_back, anim):
+        """미라쥬 - 사막의 환술사 (터번+사막 로브, 수정구, 모래 파티클) [HD 버전]"""
+        lean = anim["lean"]
+        wave = anim["wave"]
+        body_bob = anim["body_bob"]
+        shoulder_bob = anim.get("shoulder_bob", 0)
+        left_arm_swing = anim.get("left_arm_swing", 0)
+        right_arm_swing = anim.get("right_arm_swing", 0)
+        weapon_swing = anim.get("weapon_swing_angle", 0)
+        left_leg_sway = anim.get("left_leg_sway", 0)
+        right_leg_sway = anim.get("right_leg_sway", 0)
+
+        torso_y = cy - int(1.5 * b) + int(body_bob * 1.8 * b)
+        lean_offset = int(lean * 2 * b)
+
+        # 색상 팔레트 (사막/모래 테마)
+        p = {
+            "robe_main": (195, 170, 100),      # 메인 로브 (모래색)
+            "robe_light": (220, 195, 130),      # 로브 밝은면
+            "robe_dark": (160, 135, 75),        # 로브 어두운면
+            "robe_trim": (180, 140, 50),        # 로브 금색 장식 트림
+            "turban": (230, 210, 160),          # 터번 (밝은 모래)
+            "turban_dark": (190, 170, 120),     # 터번 그림자
+            "turban_gem": (100, 200, 220),      # 터번 보석 (청록)
+            "turban_gem_glow": (140, 230, 250), # 보석 글로우
+            "skin": (180, 140, 100),            # 피부 (갈색 톤)
+            "skin_dark": (150, 110, 75),        # 피부 그림자
+            "eye_white": (240, 235, 220),       # 눈 흰자
+            "eye_iris": (80, 180, 160),         # 눈 홍채 (청록)
+            "eye_glow": (120, 210, 190),        # 눈 빛
+            "sash": (170, 120, 40),             # 허리띠 (짙은 금)
+            "sash_light": (200, 160, 60),       # 허리띠 밝은면
+            "orb_inner": (140, 220, 210),       # 수정구 안쪽
+            "orb_outer": (80, 180, 170),        # 수정구 바깥
+            "orb_glow": (100, 200, 190, 100),   # 수정구 글로우
+            "sand_particle": (210, 185, 110),   # 모래 파티클
+            "sleeve_inner": (175, 150, 90),     # 소매 안쪽
+        }
+
+        surf = self._get_surface()
+        ox = surf.get_width() // 2
+        oy = surf.get_height() - int(2 * b)
+
+        # ─── 모래 파티클 (뒤쪽, 떠다니는 모래) ───
+        import time as _time
+        t = _time.time()
+        for i in range(5):
+            phase = t * 1.2 + i * 1.3
+            px = ox + int(math.sin(phase) * 18 * b)
+            py = oy - int(4 * b) + int(math.cos(phase * 0.7 + i) * 12 * b)
+            sa = int(60 + 30 * math.sin(phase * 2))
+            sr = max(1, int(1.5 * b))
+            sand_surf = pygame.Surface((sr * 2, sr * 2), pygame.SRCALPHA)
+            pygame.draw.circle(sand_surf, (*p["sand_particle"], sa), (sr, sr), sr)
+            surf.blit(sand_surf, (px - sr, py - sr))
+
+        # ─── 바닥 그림자 (약간 떠다니는 느낌) ───
+        shadow_w = int(7 * b)
+        shadow_h = max(1, int(1.2 * b))
+        float_offset = int(math.sin(t * 2.5) * 0.8 * b)
+        shadow_surf = pygame.Surface((shadow_w, shadow_h * 2), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (30, 25, 15, 60), (0, 0, shadow_w, shadow_h * 2))
+        surf.blit(shadow_surf, (ox - shadow_w // 2, oy + int(0.5 * b)))
+
+        # Y 오프셋 (떠다니는 효과)
+        float_y = float_offset
+
+        # ─── 로브 하단 (치맛자락, 넓게 퍼짐) ───
+        robe_bottom_y = oy + float_y - int(0.3 * b)
+        robe_mid_y = oy + float_y - int(3.5 * b)
+        robe_w_bottom = int(5.5 * b)
+        robe_w_mid = int(3.5 * b)
+
+        # 로브 뒤쪽 (보이면)
+        if show_back:
+            robe_points = [
+                (ox - robe_w_mid // 2 + lean_offset, robe_mid_y),
+                (ox + robe_w_mid // 2 + lean_offset, robe_mid_y),
+                (ox + robe_w_bottom // 2 + lean_offset + int(wave * 0.5 * b), robe_bottom_y),
+                (ox - robe_w_bottom // 2 + lean_offset - int(wave * 0.5 * b), robe_bottom_y),
+            ]
+            if len(robe_points) >= 3:
+                pygame.draw.polygon(surf, p["robe_dark"], robe_points)
+
+        # 로브 앞쪽
+        robe_front_points = [
+            (ox - robe_w_mid // 2 + lean_offset, robe_mid_y),
+            (ox + robe_w_mid // 2 + lean_offset, robe_mid_y),
+            (ox + robe_w_bottom // 2 + lean_offset + int(wave * 0.3 * b), robe_bottom_y),
+            (ox - robe_w_bottom // 2 + lean_offset - int(wave * 0.3 * b), robe_bottom_y),
+        ]
+        if len(robe_front_points) >= 3:
+            pygame.draw.polygon(surf, p["robe_main"], robe_front_points)
+
+        # 로브 중앙 세로 금색 라인
+        line_x = ox + lean_offset
+        pygame.draw.line(surf, p["robe_trim"],
+                        (line_x, robe_mid_y + int(0.5 * b)),
+                        (line_x, robe_bottom_y - int(0.3 * b)),
+                        max(1, int(0.4 * b)))
+
+        # 로브 하단 물결 장식
+        for dx in range(-robe_w_bottom // 2, robe_w_bottom // 2, max(1, int(1.5 * b))):
+            wx = ox + dx + lean_offset
+            wy = robe_bottom_y + int(math.sin(t * 3 + dx * 0.3) * 0.5 * b)
+            trim_len = max(1, int(0.6 * b))
+            pygame.draw.line(surf, p["robe_trim"], (wx, robe_bottom_y - 1), (wx, wy + trim_len), 1)
+
+        # ─── 몸통 (상체 로브) ───
+        torso_top = oy + float_y - int(6 * b)
+        torso_bottom = robe_mid_y
+        torso_w = int(3.2 * b)
+        torso_rect = pygame.Rect(
+            ox - torso_w // 2 + lean_offset,
+            torso_top,
+            torso_w,
+            torso_bottom - torso_top
+        )
+        pygame.draw.rect(surf, p["robe_main"], torso_rect, border_radius=max(1, int(0.5 * b)))
+        # 밝은면 하이라이트
+        highlight_rect = pygame.Rect(
+            torso_rect.x + int(0.3 * b), torso_rect.y + int(0.3 * b),
+            torso_w // 3, torso_rect.height - int(0.6 * b)
+        )
+        pygame.draw.rect(surf, p["robe_light"], highlight_rect, border_radius=max(1, int(0.3 * b)))
+
+        # ─── 허리띠 (사쉬) ───
+        sash_y = oy + float_y - int(3.8 * b)
+        sash_h = max(2, int(0.8 * b))
+        sash_rect = pygame.Rect(
+            ox - torso_w // 2 - int(0.3 * b) + lean_offset,
+            sash_y,
+            torso_w + int(0.6 * b),
+            sash_h
+        )
+        pygame.draw.rect(surf, p["sash"], sash_rect, border_radius=max(1, int(0.3 * b)))
+        # 허리띠 밝은 중앙
+        sash_light_rect = pygame.Rect(sash_rect.x + int(0.5 * b), sash_rect.y,
+                                       int(1.5 * b), sash_h)
+        pygame.draw.rect(surf, p["sash_light"], sash_light_rect)
+
+        # ─── 어깨 ───
+        shoulder_y = torso_top + int(0.5 * b) + int(shoulder_bob * 0.3 * b)
+        shoulder_w = int(2 * b)
+        for side in [-1, 1]:
+            sx = ox + side * int(1.8 * b) + lean_offset
+            sy = shoulder_y
+            # 어깨 패드
+            pad_r = max(2, int(1.1 * b))
+            pygame.draw.circle(surf, p["robe_dark"], (sx, sy), pad_r)
+            pygame.draw.circle(surf, p["robe_main"], (sx, sy), pad_r - max(1, int(0.2 * b)))
+            # 금색 장식
+            pygame.draw.circle(surf, p["robe_trim"], (sx, sy), max(1, int(0.4 * b)))
+
+        # ─── 왼팔 (수정구를 들고 있음) ───
+        l_shoulder_x = ox - int(1.8 * b) + lean_offset
+        l_shoulder_y = shoulder_y + int(0.5 * b)
+        l_elbow_x = l_shoulder_x - int(1.2 * b) + int(left_arm_swing * 0.8 * b)
+        l_elbow_y = l_shoulder_y + int(2 * b)
+        l_hand_x = l_elbow_x - int(0.5 * b) + int(wave * 0.3 * b)
+        l_hand_y = l_elbow_y + int(1.5 * b)
+
+        # 소매
+        arm_thick = max(2, int(0.7 * b))
+        pygame.draw.line(surf, p["sleeve_inner"],
+                        (l_shoulder_x, l_shoulder_y),
+                        (l_elbow_x, l_elbow_y), arm_thick + 1)
+        pygame.draw.line(surf, p["robe_main"],
+                        (l_elbow_x, l_elbow_y),
+                        (l_hand_x, l_hand_y), arm_thick)
+        # 손
+        hand_r = max(2, int(0.5 * b))
+        pygame.draw.circle(surf, p["skin"], (l_hand_x, l_hand_y), hand_r)
+        pygame.draw.circle(surf, p["skin_dark"], (l_hand_x, l_hand_y), hand_r, 1)
+
+        # 수정구 (왼손 위에)
+        orb_x = l_hand_x
+        orb_y = l_hand_y - int(1.2 * b)
+        orb_r = max(3, int(1.0 * b))
+
+        # 수정구 글로우
+        glow_r = orb_r + max(2, int(0.5 * b))
+        glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+        glow_alpha = int(40 + 20 * math.sin(t * 3))
+        pygame.draw.circle(glow_surf, (100, 200, 190, glow_alpha), (glow_r, glow_r), glow_r)
+        surf.blit(glow_surf, (orb_x - glow_r, orb_y - glow_r))
+
+        # 수정구 본체
+        pygame.draw.circle(surf, p["orb_outer"], (orb_x, orb_y), orb_r)
+        pygame.draw.circle(surf, p["orb_inner"], (orb_x, orb_y), orb_r - max(1, int(0.3 * b)))
+        # 수정구 하이라이트
+        hl_x = orb_x - int(0.3 * b)
+        hl_y = orb_y - int(0.3 * b)
+        pygame.draw.circle(surf, (200, 255, 245), (hl_x, hl_y), max(1, int(0.3 * b)))
+        # 수정구 안 소용돌이 (작은 회전선)
+        swirl_phase = t * 2
+        for s_i in range(3):
+            s_angle = swirl_phase + s_i * 2.1
+            s_r = orb_r * 0.5
+            s_x = orb_x + int(math.cos(s_angle) * s_r)
+            s_y = orb_y + int(math.sin(s_angle) * s_r)
+            pygame.draw.circle(surf, (180, 240, 230, 120), (s_x, s_y), max(1, int(0.2 * b)))
+
+        # ─── 오른팔 (타격 시 휘두르기) ───
+        r_shoulder_x = ox + int(1.8 * b) + lean_offset
+        r_shoulder_y = shoulder_y + int(0.5 * b)
+
+        # 무기 스윙 적용
+        swing_angle = weapon_swing * 0.8
+        r_elbow_x = r_shoulder_x + int(1.2 * b) + int(right_arm_swing * 0.8 * b) + int(math.sin(swing_angle) * 1.5 * b)
+        r_elbow_y = r_shoulder_y + int(2 * b) - int(abs(math.sin(swing_angle)) * 1.0 * b)
+        r_hand_x = r_elbow_x + int(0.8 * b) + int(math.sin(swing_angle) * 1.0 * b)
+        r_hand_y = r_elbow_y + int(1.5 * b) - int(abs(math.sin(swing_angle)) * 0.8 * b)
+
+        # 소매
+        pygame.draw.line(surf, p["sleeve_inner"],
+                        (r_shoulder_x, r_shoulder_y),
+                        (r_elbow_x, r_elbow_y), arm_thick + 1)
+        pygame.draw.line(surf, p["robe_main"],
+                        (r_elbow_x, r_elbow_y),
+                        (r_hand_x, r_hand_y), arm_thick)
+        # 손
+        pygame.draw.circle(surf, p["skin"], (r_hand_x, r_hand_y), hand_r)
+        pygame.draw.circle(surf, p["skin_dark"], (r_hand_x, r_hand_y), hand_r, 1)
+
+        # ─── 머리 (터번) ───
+        head_x = ox + lean_offset
+        head_y = torso_top - int(1.8 * b) + float_y
+
+        # 목
+        neck_w = max(2, int(0.6 * b))
+        pygame.draw.line(surf, p["skin"],
+                        (head_x, torso_top),
+                        (head_x, head_y + int(1.5 * b)), neck_w)
+
+        # 머리 기본
+        head_r = max(3, int(1.5 * b))
+        pygame.draw.circle(surf, p["skin"], (head_x, head_y), head_r)
+
+        # 터번 (머리 위쪽 반을 감싸는 형태)
+        turban_r = head_r + max(1, int(0.4 * b))
+        # 터번 본체
+        pygame.draw.circle(surf, p["turban"], (head_x, head_y - int(0.3 * b)), turban_r)
+        # 터번 아래쪽 자르기 (피부 노출 부분)
+        skin_rect = pygame.Rect(head_x - head_r, head_y + int(0.2 * b),
+                                head_r * 2, head_r)
+        pygame.draw.rect(surf, p["skin"], skin_rect)
+        # 터번 그림자 줄
+        pygame.draw.arc(surf, p["turban_dark"],
+                       (head_x - turban_r, head_y - turban_r - int(0.3 * b),
+                        turban_r * 2, turban_r * 2),
+                       0.3, 2.8, max(1, int(0.3 * b)))
+        # 터번 보석 (정면 중앙)
+        gem_x = head_x
+        gem_y = head_y - int(0.6 * b)
+        gem_r = max(2, int(0.4 * b))
+        pygame.draw.circle(surf, p["turban_gem"], (gem_x, gem_y), gem_r)
+        gem_glow_alpha = int(120 + 60 * math.sin(t * 4))
+        gem_glow_surf = pygame.Surface((gem_r * 4, gem_r * 4), pygame.SRCALPHA)
+        pygame.draw.circle(gem_glow_surf, (*p["turban_gem_glow"], gem_glow_alpha),
+                          (gem_r * 2, gem_r * 2), gem_r * 2)
+        surf.blit(gem_glow_surf, (gem_x - gem_r * 2, gem_y - gem_r * 2))
+        # 보석 하이라이트
+        pygame.draw.circle(surf, (220, 255, 255), (gem_x - 1, gem_y - 1), max(1, gem_r // 2))
+
+        # ─── 눈 ───
+        eye_y = head_y + int(0.2 * b)
+        eye_spacing = int(0.7 * b)
+        eye_w = max(2, int(0.5 * b))
+        eye_h = max(1, int(0.35 * b))
+        for side in [-1, 1]:
+            ex = head_x + side * eye_spacing
+            # 눈 흰자
+            pygame.draw.ellipse(surf, p["eye_white"],
+                              (ex - eye_w, eye_y - eye_h, eye_w * 2, eye_h * 2))
+            # 홍채 (신비로운 청록)
+            iris_r = max(1, int(0.25 * b))
+            pygame.draw.circle(surf, p["eye_iris"], (ex, eye_y), iris_r)
+            # 동공
+            pygame.draw.circle(surf, (30, 60, 50), (ex, eye_y), max(1, iris_r // 2))
+            # 눈 빛
+            pygame.draw.circle(surf, (220, 255, 245),
+                             (ex + max(1, int(0.1 * b)), eye_y - max(1, int(0.1 * b))),
+                             max(1, int(0.12 * b)))
+
+        # 눈 아래 페이스커버 (사막 스카프)
+        scarf_y = eye_y + int(0.5 * b)
+        scarf_points = [
+            (head_x - int(1.3 * b), scarf_y),
+            (head_x + int(1.3 * b), scarf_y),
+            (head_x + int(1.0 * b), head_y + head_r + int(0.3 * b)),
+            (head_x - int(1.0 * b), head_y + head_r + int(0.3 * b)),
+        ]
+        scarf_surf = pygame.Surface((int(3 * b), int(2 * b)), pygame.SRCALPHA)
+        adjusted = [(px - (head_x - int(1.5 * b)), py - scarf_y) for px, py in scarf_points]
+        if len(adjusted) >= 3:
+            pygame.draw.polygon(scarf_surf, (*p["turban"], 200), adjusted)
+        surf.blit(scarf_surf, (head_x - int(1.5 * b), scarf_y))
+
+        # ─── 모래 파티클 (앞쪽) ───
+        for i in range(3):
+            phase2 = t * 1.8 + i * 2.0 + 10
+            fx = ox + int(math.sin(phase2) * 14 * b) + lean_offset
+            fy = oy + float_y - int(2 * b) + int(math.cos(phase2 * 0.8) * 8 * b)
+            fa = int(50 + 25 * math.sin(phase2 * 1.5))
+            fr = max(1, int(1.2 * b))
+            fsf = pygame.Surface((fr * 2, fr * 2), pygame.SRCALPHA)
+            pygame.draw.circle(fsf, (220, 195, 120, fa), (fr, fr), fr)
+            surf.blit(fsf, (fx - fr, fy - fr))
+
+        # 최종 블리트
+        screen.blit(surf, (cx - surf.get_width() // 2, cy - surf.get_height() + int(2 * b)))
+
+    # =========================================================================
     # 기본 폴백
     # =========================================================================
     def _draw_default(self, screen, cx, cy, b, color, show_back, anim):

@@ -9305,6 +9305,534 @@ class BombSurprise(HeroSkill):
 
 
 # ============================================================================
+# 미라쥬 스킬 - 사막의 환술사 (트릭키)
+# ============================================================================
+class SandPrison(HeroSkill):
+    """모래감옥 - 상대의 이동 범위를 200px로 제한하는 모래 감옥"""
+
+    GAME_LEFT = 0
+    GAME_RIGHT = 760
+    PRISON_HALF_RANGE = 100  # ±100px = 200px 총 범위
+
+    def __init__(self):
+        super().__init__(
+            skill_id="sand_prison",
+            name="Sand Prison",
+            korean_name="모래감옥",
+            description="상대의 이동 범위를 200px로 제한하는 모래 감옥",
+            trigger=SkillTrigger.ON_COOLDOWN,
+            cooldown=20.0,
+            duration=4.0,
+            hero_id="mirage"
+        )
+        self.prison_center_x = 380
+        self.sand_particles = []
+        self.wall_alpha = 0
+        self.target_is_top = False
+        self._sound_loaded = False
+        self._sound = None
+
+    def _load_sound(self):
+        if self._sound_loaded:
+            return
+        self._sound_loaded = True
+        try:
+            import os
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            sound_path = os.path.join(project_root, "sounds", "prisonopen.wav")
+            if os.path.exists(sound_path):
+                self._sound = pygame.mixer.Sound(sound_path)
+                self._sound.set_volume(0.5)
+        except Exception:
+            pass
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        """감옥 활성화 - 상대 현재 위치 중심으로 200px 제한"""
+        self.target_is_top = target_paddle.is_top
+
+        # 상대 현재 위치를 감옥 중심으로
+        opp_x = target_paddle.x + getattr(target_paddle, 'width', 80) // 2
+        self.prison_center_x = opp_x
+
+        # 경계 클램핑 (감옥이 게임 영역 밖으로 나가지 않도록)
+        self.prison_center_x = max(self.GAME_LEFT + self.PRISON_HALF_RANGE,
+                                    min(self.GAME_RIGHT - self.PRISON_HALF_RANGE,
+                                        self.prison_center_x))
+
+        # game_state 설정
+        target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
+        game_state[f'{target_prefix}_sand_prison'] = True
+        game_state['sand_prison_center_x'] = self.prison_center_x
+        game_state['sand_prison_range'] = self.PRISON_HALF_RANGE
+        game_state['sand_prison_target_is_top'] = target_paddle.is_top
+
+        self.sand_particles = []
+        self.wall_alpha = 0
+
+        # 사운드
+        self._load_sound()
+        if self._sound:
+            try:
+                self._sound.play()
+            except Exception:
+                pass
+
+        return {'screen_effect': ScreenEffect.SCREEN_SHAKE}
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        """감옥 유지 - 상대 패들 위치 강제 클램핑 + 시각 효과"""
+        # 벽 페이드인
+        if self.wall_alpha < 200:
+            self.wall_alpha = min(200, self.wall_alpha + 400 * dt)
+
+        left_wall = self.prison_center_x - self.PRISON_HALF_RANGE
+        right_wall = self.prison_center_x + self.PRISON_HALF_RANGE
+
+        # 상대 패들 위치 강제 클램핑
+        paddle_width = getattr(target_paddle, 'width', 80)
+        min_x = left_wall
+        max_x = right_wall - paddle_width
+        if target_paddle.x < min_x:
+            target_paddle.x = min_x
+        elif target_paddle.x > max_x:
+            target_paddle.x = max_x
+
+        # 모래 파티클 생성
+        if random.random() < 0.4:
+            for wall_x in [left_wall, right_wall]:
+                self.sand_particles.append({
+                    'x': wall_x + random.uniform(-4, 4),
+                    'y': random.uniform(50, 700),
+                    'vy': random.uniform(-60, -120),
+                    'alpha': random.randint(120, 220),
+                    'size': random.uniform(2, 5),
+                    'life': 1.0,
+                })
+
+        # 바닥 모래 솟구치는 파티클
+        if random.random() < 0.2:
+            self.sand_particles.append({
+                'x': random.uniform(left_wall, right_wall),
+                'y': random.uniform(700, 750),
+                'vy': random.uniform(-40, -80),
+                'alpha': random.randint(80, 150),
+                'size': random.uniform(3, 6),
+                'life': 0.8,
+            })
+
+        # 파티클 업데이트
+        for p in self.sand_particles:
+            p['y'] += p['vy'] * dt
+            p['life'] -= dt * 0.9
+            p['alpha'] = max(0, int(p['alpha'] * max(0, p['life'])))
+
+        self.sand_particles = [p for p in self.sand_particles if p['life'] > 0]
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        """감옥 해제"""
+        target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
+        game_state[f'{target_prefix}_sand_prison'] = False
+        game_state.pop('sand_prison_center_x', None)
+        game_state.pop('sand_prison_range', None)
+        game_state.pop('sand_prison_target_is_top', None)
+        self.sand_particles = []
+        self.wall_alpha = 0
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        """모래 감옥 시각 효과"""
+        if not self.is_active:
+            return
+
+        left_wall = self.prison_center_x - self.PRISON_HALF_RANGE
+        right_wall = self.prison_center_x + self.PRISON_HALF_RANGE
+        alpha = int(self.wall_alpha)
+
+        # 감옥 영역 바닥 표시 (연한 모래색 영역)
+        floor_w = int(self.PRISON_HALF_RANGE * 2)
+        floor_surf = pygame.Surface((floor_w, 750), pygame.SRCALPHA)
+        floor_surf.fill((210, 180, 100, 18))
+        screen.blit(floor_surf, (int(left_wall), 0))
+
+        # 모래 벽 (양쪽)
+        for wall_x in [left_wall, right_wall]:
+            wall_surf = pygame.Surface((8, 750), pygame.SRCALPHA)
+            for y in range(0, 750, 3):
+                r = random.randint(185, 220)
+                g = random.randint(155, 180)
+                b = random.randint(80, 110)
+                h = random.randint(2, 4)
+                pygame.draw.rect(wall_surf, (r, g, b, alpha), (1, y, 6, h))
+            screen.blit(wall_surf, (int(wall_x) - 4, 0))
+
+            # 벽 상단 글로우
+            glow_h = 30
+            glow_surf = pygame.Surface((24, glow_h), pygame.SRCALPHA)
+            for gy in range(glow_h):
+                ga = int(alpha * 0.3 * (1 - gy / glow_h))
+                pygame.draw.line(glow_surf, (220, 190, 120, ga), (0, gy), (24, gy))
+            # 여러 높이에 글로우 배치
+            for gy_start in range(0, 750, 120):
+                screen.blit(glow_surf, (int(wall_x) - 12, gy_start))
+
+        # 모래 파티클
+        for p in self.sand_particles:
+            a = max(0, min(255, int(p['alpha'])))
+            if a > 10:
+                sz = max(1, int(p['size']))
+                ps = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+                pygame.draw.circle(ps, (215, 185, 105, a), (sz, sz), sz)
+                screen.blit(ps, (int(p['x'] - sz), int(p['y'] - sz)))
+
+        # 감옥 상단/하단 장식 바 (모래 체인 느낌)
+        for bar_y in [0, 745]:
+            bar_surf = pygame.Surface((floor_w, 5), pygame.SRCALPHA)
+            bar_surf.fill((200, 170, 90, int(alpha * 0.6)))
+            screen.blit(bar_surf, (int(left_wall), bar_y))
+
+    def reset_for_new_round(self, game_state: dict):
+        super().reset_for_new_round(game_state)
+        self.sand_particles = []
+        self.wall_alpha = 0
+        game_state['top_paddle_sand_prison'] = False
+        game_state['bottom_paddle_sand_prison'] = False
+        game_state.pop('sand_prison_center_x', None)
+        game_state.pop('sand_prison_range', None)
+        game_state.pop('sand_prison_target_is_top', None)
+
+
+class SandVortex(HeroSkill):
+    """모래회오리 - 2개의 모래 소용돌이를 발사하여 공을 끌어당기고 고속 발사"""
+
+    GAME_LEFT = 0
+    GAME_RIGHT = 760
+    GAME_TOP = 0
+    GAME_BOTTOM = 750
+
+    PULL_RADIUS = 90       # 끌어당김 범위
+    CAPTURE_RADIUS = 22    # 완전 포획 범위
+    VORTEX_SPEED = 90      # 이동 속도
+    LAUNCH_SPEED = 650     # 포획 후 발사 속도
+    WOBBLE_AMPLITUDE = 50  # 지그재그 좌우 진폭
+
+    def __init__(self):
+        super().__init__(
+            skill_id="sand_vortex",
+            name="Sand Vortex",
+            korean_name="모래회오리",
+            description="2개의 모래 소용돌이를 발사하여 공을 끌어당긴다",
+            trigger=SkillTrigger.ON_BALL_HIT,
+            cooldown=20.0,
+            duration=7.0,
+            hero_id="mirage"
+        )
+        self.vortexes = []
+        self.vortex_particles = []
+        self.captured_ball = False
+        self.caster_is_bottom = True
+        self._sound_loaded = False
+        self._sound = None
+        self._capture_sound_loaded = False
+        self._capture_sound = None
+
+    def _load_sounds(self):
+        if self._sound_loaded:
+            return
+        self._sound_loaded = True
+        try:
+            import os
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            path1 = os.path.join(project_root, "sounds", "gravityaccel.wav")
+            if os.path.exists(path1):
+                self._sound = pygame.mixer.Sound(path1)
+                self._sound.set_volume(0.4)
+            path2 = os.path.join(project_root, "sounds", "grab.wav")
+            if os.path.exists(path2):
+                self._capture_sound = pygame.mixer.Sound(path2)
+                self._capture_sound.set_volume(0.6)
+        except Exception:
+            pass
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        """소용돌이 2개 발사 - 패들 중심에서 좌우 30도"""
+        self.caster_is_bottom = not caster_paddle.is_top
+        caster_cx = caster_paddle.x + getattr(caster_paddle, 'width', 80) // 2
+        caster_y = caster_paddle.y
+
+        self.vortexes = []
+        self.vortex_particles = []
+        self.captured_ball = False
+
+        # 기본 방향: 상대 쪽으로
+        base_angle = -math.pi / 2 if self.caster_is_bottom else math.pi / 2
+
+        for angle_offset in [-math.pi / 6, math.pi / 6]:  # ±30도
+            angle = base_angle + angle_offset
+            self.vortexes.append({
+                'x': float(caster_cx),
+                'y': float(caster_y),
+                'base_vx': math.cos(angle) * self.VORTEX_SPEED,
+                'base_vy': math.sin(angle) * self.VORTEX_SPEED,
+                'wobble_phase': random.uniform(0, math.pi * 2),
+                'wobble_speed': random.uniform(3.0, 4.5),
+                'rotation': random.uniform(0, 360),
+                'spin_speed': random.uniform(280, 400),
+                'size': 22,
+                'alpha': 255,
+                'age': 0.0,
+                'dead': False,
+            })
+
+        # 사운드
+        self._load_sounds()
+        if self._sound:
+            try:
+                self._sound.play()
+            except Exception:
+                pass
+
+        game_state['has_sand_vortex'] = True
+        return {}
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        """소용돌이 이동 + 지그재그 + 공 끌어당김"""
+        any_alive = False
+
+        for vortex in self.vortexes:
+            if vortex['dead']:
+                continue
+            any_alive = True
+            vortex['age'] += dt
+
+            # 지그재그 (사인 곡선으로 좌우 흔들림)
+            vortex['wobble_phase'] += vortex['wobble_speed'] * dt
+            wobble_offset = math.sin(vortex['wobble_phase']) * self.WOBBLE_AMPLITUDE
+
+            # 이동 방향에 수직인 방향으로 흔들림 적용
+            base_vx = vortex['base_vx']
+            base_vy = vortex['base_vy']
+            speed = math.sqrt(base_vx ** 2 + base_vy ** 2)
+            if speed > 0:
+                # 수직 방향 벡터 (normalized)
+                perp_x = -base_vy / speed
+                perp_y = base_vx / speed
+            else:
+                perp_x, perp_y = 1, 0
+
+            actual_vx = base_vx + perp_x * wobble_offset
+            actual_vy = base_vy + perp_y * wobble_offset * 0.3  # Y축 흔들림은 약하게
+
+            vortex['x'] += actual_vx * dt
+            vortex['y'] += base_vy * dt  # Y는 직진, X만 흔들림
+
+            # 회전
+            vortex['rotation'] += vortex['spin_speed'] * dt
+
+            # 좌우 벽 바운스
+            if vortex['x'] < self.GAME_LEFT + vortex['size']:
+                vortex['x'] = self.GAME_LEFT + vortex['size']
+                vortex['base_vx'] = abs(vortex['base_vx'])
+            elif vortex['x'] > self.GAME_RIGHT - vortex['size']:
+                vortex['x'] = self.GAME_RIGHT - vortex['size']
+                vortex['base_vx'] = -abs(vortex['base_vx'])
+
+            # 화면 밖 제거
+            if vortex['y'] < -60 or vortex['y'] > 810:
+                vortex['dead'] = True
+                continue
+
+            # 공과의 상호작용
+            if ball and not self.captured_ball:
+                ball_x = getattr(ball, 'x', 0)
+                ball_y = getattr(ball, 'y', 0)
+
+                dx = vortex['x'] - ball_x
+                dy = vortex['y'] - ball_y
+                dist = math.sqrt(dx * dx + dy * dy)
+
+                if dist < self.PULL_RADIUS and dist > 1:
+                    # 끌어당김 (거리가 가까울수록 강해짐)
+                    pull_factor = (1 - dist / self.PULL_RADIUS) ** 1.5
+                    pull_strength = pull_factor * 350 * dt
+                    nx = dx / dist
+                    ny = dy / dist
+
+                    if hasattr(ball, 'vx'):
+                        ball.vx += nx * pull_strength
+                        ball.vy += ny * pull_strength
+                    elif hasattr(ball, 'speed_x'):
+                        ball.speed_x += nx * pull_strength
+                        ball.speed_y += ny * pull_strength
+
+                    # 포획 범위에 들어오면 고속 발사
+                    if dist < self.CAPTURE_RADIUS:
+                        self.captured_ball = True
+                        vortex['dead'] = True
+
+                        # 상대 방향으로 고속 발사 (약간의 랜덤 각도)
+                        if self.caster_is_bottom:
+                            launch_angle = -math.pi / 2 + random.uniform(-0.35, 0.35)
+                        else:
+                            launch_angle = math.pi / 2 + random.uniform(-0.35, 0.35)
+
+                        launch_vx = math.cos(launch_angle) * self.LAUNCH_SPEED
+                        launch_vy = math.sin(launch_angle) * self.LAUNCH_SPEED
+
+                        if hasattr(ball, 'vx'):
+                            ball.x = vortex['x']
+                            ball.y = vortex['y']
+                            ball.vx = launch_vx
+                            ball.vy = launch_vy
+                        elif hasattr(ball, 'speed_x'):
+                            ball.x = vortex['x']
+                            ball.y = vortex['y']
+                            ball.speed_x = launch_vx
+                            ball.speed_y = launch_vy
+
+                        # 포획 사운드
+                        if self._capture_sound:
+                            try:
+                                self._capture_sound.play()
+                            except Exception:
+                                pass
+
+                        # 포획 이펙트 파티클 버스트
+                        for _ in range(15):
+                            angle = random.uniform(0, math.pi * 2)
+                            spd = random.uniform(40, 150)
+                            self.vortex_particles.append({
+                                'x': vortex['x'],
+                                'y': vortex['y'],
+                                'vx': math.cos(angle) * spd,
+                                'vy': math.sin(angle) * spd,
+                                'alpha': 255,
+                                'size': random.uniform(3, 7),
+                                'life': 0.6,
+                                'max_life': 0.6,
+                                'burst': True,
+                            })
+
+            # 일반 파티클 트레일
+            if random.random() < 0.6:
+                angle = random.uniform(0, math.pi * 2)
+                dist_p = random.uniform(3, vortex['size'])
+                self.vortex_particles.append({
+                    'x': vortex['x'] + math.cos(angle) * dist_p,
+                    'y': vortex['y'] + math.sin(angle) * dist_p,
+                    'vx': math.cos(angle + math.pi / 2) * random.uniform(15, 35),
+                    'vy': math.sin(angle + math.pi / 2) * random.uniform(15, 35),
+                    'alpha': random.randint(130, 210),
+                    'size': random.uniform(2, 4),
+                    'life': 0.7,
+                    'max_life': 0.7,
+                    'burst': False,
+                })
+
+        # 파티클 업데이트
+        for p in self.vortex_particles:
+            p['x'] += p['vx'] * dt
+            p['y'] += p['vy'] * dt
+            p['life'] -= dt
+            ratio = max(0, p['life'] / p['max_life'])
+            p['alpha'] = int(p['alpha'] * ratio) if p.get('burst') else int(180 * ratio)
+
+        self.vortex_particles = [p for p in self.vortex_particles if p['life'] > 0]
+
+        # 모든 소용돌이 소멸 시 조기 종료
+        self.vortexes = [v for v in self.vortexes if not v['dead']]
+        if not any_alive and not self.vortex_particles:
+            self.is_active = False
+            self.active_timer = 0
+            game_state['has_sand_vortex'] = False
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        """효과 종료"""
+        game_state['has_sand_vortex'] = False
+        self.vortexes = []
+        self.vortex_particles = []
+        self.captured_ball = False
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        """소용돌이 + 파티클 렌더링"""
+        if not self.is_active and not self.vortex_particles:
+            return
+
+        # 소용돌이 본체
+        for vortex in self.vortexes:
+            if vortex.get('dead'):
+                continue
+
+            x, y = int(vortex['x']), int(vortex['y'])
+            size = vortex['size']
+            rot = vortex['rotation']
+            alpha = vortex['alpha']
+
+            surf_size = size * 3
+            vortex_surf = pygame.Surface((surf_size * 2, surf_size * 2), pygame.SRCALPHA)
+            cx, cy = surf_size, surf_size
+
+            # 나선형 레이어 (안쪽에서 바깥으로)
+            for layer in range(6):
+                radius = size - layer * 3
+                if radius < 2:
+                    break
+                layer_alpha = max(0, min(255, alpha - layer * 35))
+                # 사막 색상 그라데이션 (바깥 = 연한 모래, 안쪽 = 진한 갈색)
+                r_c = min(255, 190 + layer * 10)
+                g_c = max(100, 160 - layer * 8)
+                b_c = max(50, 90 - layer * 8)
+                color = (r_c, g_c, b_c, layer_alpha)
+
+                # 나선 궤적
+                points = []
+                angle_start = math.radians(rot + layer * 50)
+                for a_deg in range(0, 300, 12):
+                    rad = math.radians(a_deg) + angle_start
+                    r = radius * (1 - a_deg / 1200)
+                    if r < 1:
+                        break
+                    px = cx + math.cos(rad) * r
+                    py = cy + math.sin(rad) * r
+                    points.append((int(px), int(py)))
+
+                if len(points) > 2:
+                    pygame.draw.lines(vortex_surf, color, False, points, max(1, 3 - layer // 2))
+
+            # 중심 빛
+            pygame.draw.circle(vortex_surf, (245, 220, 160, 200), (cx, cy), 5)
+            pygame.draw.circle(vortex_surf, (255, 240, 200, 100), (cx, cy), 9)
+
+            screen.blit(vortex_surf, (x - surf_size, y - surf_size))
+
+            # 끌어당김 범위 (매우 연한 원)
+            pull_surf = pygame.Surface((self.PULL_RADIUS * 2, self.PULL_RADIUS * 2), pygame.SRCALPHA)
+            pygame.draw.circle(pull_surf, (210, 180, 100, 12),
+                             (self.PULL_RADIUS, self.PULL_RADIUS), self.PULL_RADIUS, 1)
+            screen.blit(pull_surf, (x - self.PULL_RADIUS, y - self.PULL_RADIUS))
+
+        # 파티클
+        for p in self.vortex_particles:
+            a = max(0, min(255, int(p['alpha'])))
+            if a > 8:
+                sz = max(1, int(p['size']))
+                if p.get('burst'):
+                    # 포획 버스트: 밝은 금색
+                    col = (255, 220, 100, a)
+                else:
+                    # 일반 트레일: 모래색
+                    col = (210, 180, 105, a)
+                ps = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+                pygame.draw.circle(ps, col, (sz, sz), sz)
+                screen.blit(ps, (int(p['x'] - sz), int(p['y'] - sz)))
+
+    def reset_for_new_round(self, game_state: dict):
+        super().reset_for_new_round(game_state)
+        self.vortexes = []
+        self.vortex_particles = []
+        self.captured_ball = False
+        game_state['has_sand_vortex'] = False
+
+
+# ============================================================================
 # 영웅 스킬 매핑
 # ============================================================================
 HERO_SKILLS: Dict[str, List[HeroSkill]] = {
@@ -9319,6 +9847,7 @@ HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "banshee": [Charm(), DeadPossession()],
     "necro": [GhostSummon(), Mirage()],
     "joker": [BalloonWall(), BombSurprise()],
+    "mirage": [SandPrison(), SandVortex()],
     # 감옥 전용 영웅 (기존 스킬 클래스 재활용)
     "bella": [AbyssInk(), DollCurse()],
     "leon": [HornCharge(), DarkSlash()],
@@ -9338,6 +9867,7 @@ HERO_SKILL_CLASSES: Dict[str, list] = {
     "banshee": [Charm, DeadPossession],
     "necro": [GhostSummon, Mirage],
     "joker": [BalloonWall, BombSurprise],
+    "mirage": [SandPrison, SandVortex],
     # 감옥 전용 영웅 (기존 스킬 클래스 재활용)
     "bella": [AbyssInk, DollCurse],
     "leon": [HornCharge, DarkSlash],
@@ -9452,6 +9982,10 @@ class HeroSkillManager:
             'steam_barrier_caster_frozen': False,
             'steam_barrier_thaw_speed': 0.0,
             'has_clones': False,
+            # 미라쥬 관련
+            'has_sand_vortex': False,
+            'top_paddle_sand_prison': False,
+            'bottom_paddle_sand_prison': False,
             # 귀신의 눈 관련
             'demon_eye_active': False,
             'demon_eye_caster_is_top': False
@@ -9483,7 +10017,9 @@ class HeroSkillManager:
                                     (hasattr(skill, 'dying_clones') and skill.dying_clones)
                 # 환영수리검: is_active=False여도 수리검이 남아있는 경우 포함
                 has_shurikens = hasattr(skill, 'shurikens') and skill.shurikens
-                if skill.is_active or has_oil_effects or has_dwarf_magic_effects or has_shadow_clones or has_shurikens:
+                # 모래회오리: is_active=False여도 소용돌이가 남아있는 경우 포함
+                has_vortexes = hasattr(skill, 'vortexes') and skill.vortexes
+                if skill.is_active or has_oil_effects or has_dwarf_magic_effects or has_shadow_clones or has_shurikens or has_vortexes:
                     skill.reset_for_new_round(self.game_state)
 
         # 추가로 game_state의 모든 효과 상태 초기화
@@ -9499,6 +10035,12 @@ class HeroSkillManager:
         self.game_state['bottom_paddle_confused'] = False
         self.game_state['bottom_paddle_locked'] = False
         self.game_state['bottom_paddle_gravity_drift'] = 0
+        self.game_state['top_paddle_sand_prison'] = False
+        self.game_state['bottom_paddle_sand_prison'] = False
+        self.game_state['has_sand_vortex'] = False
+        self.game_state.pop('sand_prison_center_x', None)
+        self.game_state.pop('sand_prison_range', None)
+        self.game_state.pop('sand_prison_target_is_top', None)
         self.game_state['target_confused'] = False
         self.game_state['target_slowed'] = False
         self.game_state['slow_amount'] = 1.0

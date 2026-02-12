@@ -57,6 +57,8 @@ def _create_icon(skill_id: str) -> Optional[pygame.Surface]:
         "mirage": _icon_mirage,
         "balloon_wall": _icon_balloon_wall,
         "bomb_surprise": _icon_bomb_surprise,
+        "sand_prison": _icon_sand_prison,
+        "sand_vortex": _icon_sand_vortex,
     }
     creator = creators.get(skill_id)
     if creator:
@@ -689,5 +691,76 @@ def _icon_bomb_surprise() -> pygame.Surface:
         sx = 16 + int(math.cos(rad) * 13)
         sy = 18 + int(math.sin(rad) * 13)
         pygame.draw.circle(s, (255, 180, 60, 120), (sx, sy), 1)
+
+    return s
+
+
+def _icon_sand_prison() -> pygame.Surface:
+    """모래감옥 - 모래 벽으로 둘러싸인 감옥"""
+    s = pygame.Surface((32, 32), pygame.SRCALPHA)
+    # 배경 (사막 톤)
+    pygame.draw.circle(s, (50, 40, 25), (16, 16), 15)
+    pygame.draw.circle(s, (100, 80, 45), (16, 16), 15, 1)
+
+    # 모래 감옥 벽 (좌우 세로 바)
+    for x in [7, 24]:
+        for y in range(5, 28, 3):
+            r = 185 + (y % 5) * 8
+            g = 155 + (y % 5) * 5
+            b = 80 + (y % 5) * 5
+            pygame.draw.rect(s, (r, g, b), (x - 1, y, 3, 2))
+    # 상하 연결 바
+    pygame.draw.line(s, (200, 170, 95), (7, 5), (24, 5), 2)
+    pygame.draw.line(s, (200, 170, 95), (7, 27), (24, 27), 2)
+
+    # 중앙에 갇힌 느낌 (작은 원)
+    pygame.draw.circle(s, (160, 130, 80, 150), (16, 16), 5, 1)
+    # 모래 파티클
+    for px, py in [(11, 10), (20, 12), (13, 22), (21, 20)]:
+        pygame.draw.circle(s, (210, 185, 110, 160), (px, py), 1)
+
+    # 쇠사슬 느낌 X 표시
+    pygame.draw.line(s, (180, 150, 80, 180), (10, 9), (22, 24), 1)
+    pygame.draw.line(s, (180, 150, 80, 180), (22, 9), (10, 24), 1)
+
+    return s
+
+
+def _icon_sand_vortex() -> pygame.Surface:
+    """모래회오리 - 나선형 모래 소용돌이 2개"""
+    s = pygame.Surface((32, 32), pygame.SRCALPHA)
+    # 배경 (사막 톤)
+    pygame.draw.circle(s, (45, 38, 22), (16, 16), 15)
+    pygame.draw.circle(s, (110, 90, 50), (16, 16), 15, 1)
+
+    # 소용돌이 2개 (좌, 우)
+    for center_x, center_y in [(11, 14), (22, 18)]:
+        # 나선형 그리기
+        for a_deg in range(0, 540, 20):
+            rad = math.radians(a_deg)
+            r = 7 * (1 - a_deg / 1080)
+            if r < 1:
+                break
+            px = center_x + int(math.cos(rad) * r)
+            py = center_y + int(math.sin(rad) * r)
+            alpha = max(60, 220 - a_deg // 3)
+            r_c = min(255, 190 + a_deg // 15)
+            g_c = max(110, 165 - a_deg // 20)
+            b_c = max(50, 90 - a_deg // 20)
+            if 0 <= px < 32 and 0 <= py < 32:
+                pygame.draw.circle(s, (r_c, g_c, b_c, alpha), (px, py), 1)
+
+        # 소용돌이 중심
+        pygame.draw.circle(s, (240, 210, 140), (center_x, center_y), 2)
+        pygame.draw.circle(s, (255, 240, 200), (center_x, center_y), 1)
+
+    # 모래 파티클 궤적
+    for px, py in [(8, 8), (25, 10), (14, 24), (19, 7), (6, 20)]:
+        pygame.draw.circle(s, (210, 185, 110, 120), (px, py), 1)
+
+    # 화살표 느낌 (상대 방향으로 나아감)
+    pygame.draw.line(s, (220, 190, 110, 180), (16, 6), (16, 3), 1)
+    pygame.draw.line(s, (220, 190, 110, 180), (14, 5), (16, 3), 1)
+    pygame.draw.line(s, (220, 190, 110, 180), (18, 5), (16, 3), 1)
 
     return s
