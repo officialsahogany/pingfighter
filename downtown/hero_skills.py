@@ -8231,20 +8231,6 @@ class GhostSummon(HeroSkill):
                 'active': True,
                 'id': i,
                 'hit_cooldown': 0.0,  # 연속 충돌 방지
-                'anim_state': {
-                    "last_x": float(self.caster_spawn_x),
-                    "velocity": 0.0,
-                    "lean": 0.0,
-                    "step_phase": random.uniform(0, math.pi * 2),
-                    "shoulder_phase": 0.0,
-                    "arm_swing": 0.0,
-                    "head_tilt": 0.0,
-                    "body_bob": 0.0,
-                    "move_dir": 0.0,
-                    "side_blend": 0.0,
-                    "weapon_swing_timer": 0.0,
-                    "weapon_swing_duration": 0.25,
-                },
             }
             self.ghosts.append(ghost)
 
@@ -8305,6 +8291,23 @@ class GhostSummon(HeroSkill):
                         'age': 0.0,
                     })
             else:
+                # 공 추적 이동 (공이 있으면 공의 X 방향으로 이동)
+                if ball is not None:
+                    ball_cx = ball.x + ball.width / 2
+                    ghost_cx = float(rect.centerx)
+                    dx = ball_cx - ghost_cx
+
+                    # 공 방향으로 가속 (부드럽게)
+                    if abs(dx) > 5:
+                        accel = 0.4 if dx > 0 else -0.4
+                        ghost['vx'] += accel
+                    else:
+                        # 공 바로 아래/위면 감속
+                        ghost['vx'] *= 0.92
+                else:
+                    # 공이 없으면 약간의 난수 이동
+                    ghost['vx'] += random.uniform(-0.2, 0.2)
+
                 # 좌우 이동
                 move_amount = int(ghost['vx'])
                 rect.x += move_amount
@@ -8312,51 +8315,15 @@ class GhostSummon(HeroSkill):
                 # 벽 충돌 (바운스)
                 if rect.left < self.GAME_LEFT:
                     rect.left = self.GAME_LEFT
-                    ghost['vx'] = abs(ghost['vx'])
+                    ghost['vx'] = abs(ghost['vx']) * 0.5
                 elif rect.right > self.GAME_RIGHT:
                     rect.right = self.GAME_RIGHT
-                    ghost['vx'] = -abs(ghost['vx'])
+                    ghost['vx'] = -abs(ghost['vx']) * 0.5
 
-                # 약간의 난수 가속
-                ghost['vx'] += random.uniform(-0.2, 0.2)
+                # 속도 제한
                 speed = abs(ghost['vx'])
                 if speed > 10.0:
                     ghost['vx'] = (ghost['vx'] / speed) * 10.0
-                elif speed < 5.0:
-                    ghost['vx'] = 5.0 if ghost['vx'] >= 0 else -5.0
-
-            # 이동 애니메이션 상태 업데이트
-            anim_state = ghost['anim_state']
-            current_x = float(rect.centerx)
-            anim_velocity = (current_x - anim_state["last_x"]) / max(dt, 0.001)
-            anim_state["velocity"] = anim_velocity * 0.3 + anim_state["velocity"] * 0.7
-
-            target_lean = max(-1.0, min(1.0, anim_state["velocity"] / 200.0))
-            anim_state["lean"] = anim_state["lean"] * 0.85 + target_lean * 0.15
-
-            move_speed = abs(anim_state["velocity"])
-            if move_speed > 25:
-                target_dir = 1.0 if anim_state["velocity"] > 0 else -1.0
-            else:
-                target_dir = 0.0
-            anim_state["move_dir"] = anim_state["move_dir"] * 0.82 + target_dir * 0.18
-            target_side = min(1.0, move_speed / 160.0)
-            anim_state["side_blend"] = anim_state["side_blend"] * 0.88 + target_side * 0.12
-
-            if move_speed > 5:
-                step_speed = 10.0 + anim_state["side_blend"] * 3.0
-                anim_state["step_phase"] += dt * step_speed
-                anim_state["shoulder_phase"] += dt * step_speed
-                speed_factor = min(1.0, move_speed / 150.0)
-                anim_state["body_bob"] = _sin(anim_state["step_phase"] * 2) * speed_factor * 0.3
-                anim_state["arm_swing"] = _sin(anim_state["step_phase"]) * min(1.0, move_speed / 100.0)
-                anim_state["head_tilt"] = _sin(anim_state["step_phase"] * 1.5) * 0.3 * speed_factor
-            else:
-                anim_state["body_bob"] *= 0.9
-                anim_state["arm_swing"] *= 0.9
-                anim_state["head_tilt"] *= 0.9
-
-            anim_state["last_x"] = current_x
 
             # 공과 충돌 체크 (등장 완료 후, 쿨다운 없을 때만)
             if ball is not None and ghost['spawn_time'] >= self.EMERGE_DURATION and ghost['hit_cooldown'] <= 0:
@@ -8490,46 +8457,8 @@ class GhostSummon(HeroSkill):
                           (0, 0, shadow_width, 8))
         screen.blit(shadow_surf, (x - shadow_width // 2, shadow_y_base))
 
-        # 캐릭터 렌더링
-        if renderer and HERO_PADDLE_RENDERER_AVAILABLE:
-            char_width = 120
-            char_height = 100
-            temp_surf = pygame.Surface((char_width, char_height), pygame.SRCALPHA)
-
-            ghost_color = (80, 180, 160)  # 유령빛 청록
-
-            try:
-                original_state = renderer.hero_states.get("necro")
-                renderer.hero_states["necro"] = ghost['anim_state']
-
-                renderer.draw_hero_paddle(
-                    temp_surf,
-                    "necro",
-                    char_width // 2,
-                    char_height - 10,
-                    100,
-                    12,
-                    self.caster_facing,
-                    ghost_color,
-                    "preview"
-                )
-
-                if original_state is not None:
-                    renderer.hero_states["necro"] = original_state
-                else:
-                    renderer.hero_states.pop("necro", None)
-
-                temp_surf.set_alpha(alpha)
-                screen.blit(temp_surf, (x - char_width // 2, y - char_height + 15))
-
-            except Exception:
-                if original_state is not None:
-                    renderer.hero_states["necro"] = original_state
-                else:
-                    renderer.hero_states.pop("necro", None)
-                self._draw_fallback_ghost(screen, x, y, alpha)
-        else:
-            self._draw_fallback_ghost(screen, x, y, alpha)
+        # 유령 캐릭터 렌더링 (항상 유령 모습)
+        self._draw_fallback_ghost(screen, x, y, alpha)
 
     def _draw_fallback_ghost(self, screen: pygame.Surface, x: int, y: int, alpha: int):
         """폴백 유령 렌더링 (캐릭터 렌더러 없을 때)"""
