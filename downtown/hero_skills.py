@@ -8165,6 +8165,618 @@ class DeadPossession(HeroSkill):
 
 
 # ============================================================================
+# 네크로 (Necro) - 강령술사 스킬
+# ============================================================================
+
+class GhostSummon(HeroSkill):
+    """유령소환 - 맵 중앙에 유령 패들 2개를 소환하여 공을 상대에게 쳐낸다"""
+
+    GAME_LEFT = 0
+    GAME_RIGHT = 760
+
+    GHOST_WIDTH = 80
+    GHOST_HEIGHT = 40
+    EMERGE_DURATION = 0.5   # 등장 애니메이션 (초)
+    DEATH_DURATION = 0.6    # 소멸 애니메이션 (초)
+
+    # 유령 소환 Y 위치 (맵 중앙 부근)
+    GHOST_Y_POSITIONS = [325, 425]
+
+    def __init__(self):
+        super().__init__(
+            skill_id="ghost_summon",
+            name="Ghost Summon",
+            korean_name="유령소환",
+            description="맵 중앙에 유령 패들 2개를 소환하여 공을 상대에게 쳐낸다",
+            trigger=SkillTrigger.ON_COOLDOWN,
+            cooldown=22.0,
+            duration=5.0,
+            hero_id="necro"
+        )
+        self.ghosts = []
+        self.dying_ghosts = []
+        self.caster_is_top = False
+        self.caster_facing = "down"
+        self._ghost_particles = []  # 유령 파티클
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        self.caster_is_top = caster_paddle.is_top
+        self.caster_facing = "down" if caster_paddle.is_top else "up"
+
+        self.ghosts = []
+        self.dying_ghosts = []
+        self._ghost_particles = []
+
+        # 유령 2개를 맵 중앙에 소환
+        for i, ghost_y in enumerate(self.GHOST_Y_POSITIONS):
+            start_x = random.randint(100, 660)
+            direction = random.choice([-1, 1])
+
+            ghost_rect = pygame.Rect(0, 0, self.GHOST_WIDTH, self.GHOST_HEIGHT)
+            ghost_rect.center = (start_x, ghost_y)
+
+            ghost = {
+                'rect': ghost_rect,
+                'target_y': ghost_y,
+                'vx': random.uniform(6.0, 10.0) * direction,
+                'spawn_time': 0.0,
+                'active': True,
+                'id': i,
+                'hit_cooldown': 0.0,  # 연속 충돌 방지
+                'anim_state': {
+                    "last_x": float(start_x),
+                    "velocity": 0.0,
+                    "lean": 0.0,
+                    "step_phase": random.uniform(0, math.pi * 2),
+                    "shoulder_phase": 0.0,
+                    "arm_swing": 0.0,
+                    "head_tilt": 0.0,
+                    "body_bob": 0.0,
+                    "move_dir": 0.0,
+                    "side_blend": 0.0,
+                    "weapon_swing_timer": 0.0,
+                    "weapon_swing_duration": 0.25,
+                },
+            }
+            self.ghosts.append(ghost)
+
+        game_state['has_ghost_summon'] = True
+
+        # 소환 사운드
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            sound_path = os.path.join(project_root, "sounds", "ghostwalk.wav")
+            if os.path.exists(sound_path):
+                pygame.mixer.Sound(sound_path).play()
+        except Exception:
+            pass
+
+        return {
+            'screen_effect': ScreenEffect.FLASH,
+            'flash_color': (60, 120, 100),
+            'flash_duration': 0.15,
+            'sound': 'ghost_summon'
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        new_ghosts = []
+
+        for ghost in self.ghosts:
+            if not ghost['active']:
+                continue
+
+            ghost['spawn_time'] += dt
+
+            # 연속 충돌 방지 쿨다운 감소
+            if ghost['hit_cooldown'] > 0:
+                ghost['hit_cooldown'] -= dt
+
+            rect = ghost['rect']
+
+            # 등장 애니메이션: 페이드인 + 약간의 떠오름
+            if ghost['spawn_time'] < self.EMERGE_DURATION:
+                # 등장 중에는 이동 없음
+                pass
+            else:
+                # 좌우 이동
+                move_amount = int(ghost['vx'])
+                rect.x += move_amount
+
+                # 벽 충돌 (바운스)
+                if rect.left < self.GAME_LEFT:
+                    rect.left = self.GAME_LEFT
+                    ghost['vx'] = abs(ghost['vx'])
+                elif rect.right > self.GAME_RIGHT:
+                    rect.right = self.GAME_RIGHT
+                    ghost['vx'] = -abs(ghost['vx'])
+
+                # 약간의 난수 가속
+                ghost['vx'] += random.uniform(-0.2, 0.2)
+                speed = abs(ghost['vx'])
+                if speed > 10.0:
+                    ghost['vx'] = (ghost['vx'] / speed) * 10.0
+                elif speed < 5.0:
+                    ghost['vx'] = 5.0 if ghost['vx'] >= 0 else -5.0
+
+            # 이동 애니메이션 상태 업데이트
+            anim_state = ghost['anim_state']
+            current_x = float(rect.centerx)
+            anim_velocity = (current_x - anim_state["last_x"]) / max(dt, 0.001)
+            anim_state["velocity"] = anim_velocity * 0.3 + anim_state["velocity"] * 0.7
+
+            target_lean = max(-1.0, min(1.0, anim_state["velocity"] / 200.0))
+            anim_state["lean"] = anim_state["lean"] * 0.85 + target_lean * 0.15
+
+            move_speed = abs(anim_state["velocity"])
+            if move_speed > 25:
+                target_dir = 1.0 if anim_state["velocity"] > 0 else -1.0
+            else:
+                target_dir = 0.0
+            anim_state["move_dir"] = anim_state["move_dir"] * 0.82 + target_dir * 0.18
+            target_side = min(1.0, move_speed / 160.0)
+            anim_state["side_blend"] = anim_state["side_blend"] * 0.88 + target_side * 0.12
+
+            if move_speed > 5:
+                step_speed = 10.0 + anim_state["side_blend"] * 3.0
+                anim_state["step_phase"] += dt * step_speed
+                anim_state["shoulder_phase"] += dt * step_speed
+                speed_factor = min(1.0, move_speed / 150.0)
+                anim_state["body_bob"] = _sin(anim_state["step_phase"] * 2) * speed_factor * 0.3
+                anim_state["arm_swing"] = _sin(anim_state["step_phase"]) * min(1.0, move_speed / 100.0)
+                anim_state["head_tilt"] = _sin(anim_state["step_phase"] * 1.5) * 0.3 * speed_factor
+            else:
+                anim_state["body_bob"] *= 0.9
+                anim_state["arm_swing"] *= 0.9
+                anim_state["head_tilt"] *= 0.9
+
+            anim_state["last_x"] = current_x
+
+            # 공과 충돌 체크 (등장 완료 후, 쿨다운 없을 때만)
+            if ball is not None and ghost['spawn_time'] >= self.EMERGE_DURATION and ghost['hit_cooldown'] <= 0:
+                ball_rect = pygame.Rect(int(ball.x), int(ball.y), int(ball.width), int(ball.height))
+
+                if rect.colliderect(ball_rect):
+                    # 공을 상대 방향으로 쳐냄
+                    hit_offset = (ball.x + ball.width / 2) - rect.centerx
+                    angle_factor = hit_offset / (self.GHOST_WIDTH / 2)
+
+                    if self.caster_is_top:
+                        # 캐스터가 상단 → 유령이 공을 아래로 (상대 쪽으로)
+                        ball.vy = abs(ball.vy) * 1.15
+                    else:
+                        # 캐스터가 하단 → 유령이 공을 위로 (상대 쪽으로)
+                        ball.vy = -abs(ball.vy) * 1.15
+
+                    ball.vx = ball.vx * 0.7 + angle_factor * 4.0
+
+                    # 충돌 쿨다운 설정 (0.3초 동안 재충돌 방지)
+                    ghost['hit_cooldown'] = 0.3
+
+                    # 타격 사운드
+                    try:
+                        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                        sound_path = os.path.join(project_root, "sounds", "shurikenhit.wav")
+                        if os.path.exists(sound_path):
+                            s = pygame.mixer.Sound(sound_path)
+                            s.set_volume(0.5)
+                            s.play()
+                    except Exception:
+                        pass
+
+            # 유령 파티클 생성 (가끔)
+            if random.random() < 0.15:
+                self._ghost_particles.append({
+                    'x': rect.centerx + random.randint(-30, 30),
+                    'y': rect.centery + random.randint(-10, 10),
+                    'vy': random.uniform(-1.5, -0.5),
+                    'alpha': random.randint(100, 180),
+                    'size': random.randint(2, 4),
+                    'life': random.uniform(0.5, 1.2),
+                    'age': 0.0,
+                })
+
+            new_ghosts.append(ghost)
+
+        self.ghosts = new_ghosts
+
+        # 파티클 업데이트
+        new_particles = []
+        for p in self._ghost_particles:
+            p['age'] += dt
+            p['y'] += p['vy']
+            p['alpha'] = int(p['alpha'] * (1.0 - p['age'] / p['life']))
+            if p['age'] < p['life'] and p['alpha'] > 5:
+                new_particles.append(p)
+        self._ghost_particles = new_particles
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        game_state['has_ghost_summon'] = False
+        # 남은 유령을 dying_ghosts로 이동
+        for ghost in self.ghosts:
+            if ghost['active']:
+                self.dying_ghosts.append({
+                    'rect': ghost['rect'].copy(),
+                    'death_time': 0.0,
+                    'id': ghost['id'],
+                })
+        self.ghosts = []
+
+    def reset_for_new_round(self, game_state: dict):
+        super().reset_for_new_round(game_state)
+        self.ghosts = []
+        self.dying_ghosts = []
+        self._ghost_particles = []
+        game_state['has_ghost_summon'] = False
+
+    def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        super().update(dt, caster_paddle, target_paddle, ball, game_state)
+        # dying_ghosts는 is_active 관계없이 항상 업데이트
+        if self.dying_ghosts:
+            new_dying = []
+            for dying in self.dying_ghosts:
+                dying['death_time'] += dt
+                if dying['death_time'] < self.DEATH_DURATION:
+                    new_dying.append(dying)
+            self.dying_ghosts = new_dying
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        renderer = get_shadow_clone_renderer() if HERO_PADDLE_RENDERER_AVAILABLE else None
+
+        # 활성 유령 그리기
+        for ghost in self.ghosts:
+            self._draw_ghost(screen, ghost, renderer)
+
+        # 소멸 중인 유령 그리기
+        for dying in self.dying_ghosts:
+            self._draw_dying_ghost(screen, dying, renderer)
+
+        # 파티클 그리기
+        for p in self._ghost_particles:
+            if p['alpha'] > 5:
+                color = (100, 200, 180, int(p['alpha']))
+                pygame.draw.circle(screen, color, (int(p['x']), int(p['y'])), p['size'])
+
+    def _draw_ghost(self, screen: pygame.Surface, ghost: dict, renderer):
+        """활성 유령 렌더링 - 반투명 유령 캐릭터"""
+        rect = ghost['rect']
+        spawn_time = ghost['spawn_time']
+
+        # 등장 시 페이드인
+        emerge_progress = min(1.0, spawn_time / self.EMERGE_DURATION)
+
+        # 둥실둥실 부유 모션
+        hover = int(5 * _sin(spawn_time * 3 + ghost['id'] * math.pi))
+
+        alpha = int(180 * emerge_progress)
+        x = rect.centerx
+        y = rect.centery + hover
+
+        # 바닥 그림자
+        shadow_width = int(self.GHOST_WIDTH * 0.8)
+        shadow_surf = pygame.Surface((shadow_width, 8), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (10, 20, 18, int(alpha * 0.4)),
+                          (0, 0, shadow_width, 8))
+        screen.blit(shadow_surf, (x - shadow_width // 2, y + 18))
+
+        # 유령 글로우 (외곽 발광)
+        glow_radius = 50 + int(5 * _sin(spawn_time * 4))
+        glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+        glow_alpha = int(30 * emerge_progress)
+        pygame.draw.circle(glow_surf, (80, 200, 170, glow_alpha),
+                         (glow_radius, glow_radius), glow_radius)
+        screen.blit(glow_surf, (x - glow_radius, y - glow_radius),
+                   special_flags=pygame.BLEND_ADD)
+
+        # 캐릭터 렌더링
+        if renderer and HERO_PADDLE_RENDERER_AVAILABLE:
+            char_width = 120
+            char_height = 100
+            temp_surf = pygame.Surface((char_width, char_height), pygame.SRCALPHA)
+
+            ghost_color = (80, 180, 160)  # 유령빛 청록
+
+            try:
+                original_state = renderer.hero_states.get("necro")
+                renderer.hero_states["necro"] = ghost['anim_state']
+
+                renderer.draw_hero_paddle(
+                    temp_surf,
+                    "necro",
+                    char_width // 2,
+                    char_height - 10,
+                    100,
+                    12,
+                    self.caster_facing,
+                    ghost_color,
+                    "preview"
+                )
+
+                if original_state is not None:
+                    renderer.hero_states["necro"] = original_state
+                else:
+                    renderer.hero_states.pop("necro", None)
+
+                temp_surf.set_alpha(alpha)
+                screen.blit(temp_surf, (x - char_width // 2, y - char_height + 15))
+
+            except Exception:
+                if original_state is not None:
+                    renderer.hero_states["necro"] = original_state
+                else:
+                    renderer.hero_states.pop("necro", None)
+                self._draw_fallback_ghost(screen, x, y, alpha)
+        else:
+            self._draw_fallback_ghost(screen, x, y, alpha)
+
+    def _draw_fallback_ghost(self, screen: pygame.Surface, x: int, y: int, alpha: int):
+        """폴백 유령 렌더링 (캐릭터 렌더러 없을 때)"""
+        ghost_color = (80, 180, 160, alpha)
+        eye_color = (140, 255, 230, alpha)
+
+        body_surf = pygame.Surface((50, 60), pygame.SRCALPHA)
+        # 유령 몸체 (둥글고 아래로 갈수록 투명)
+        pygame.draw.ellipse(body_surf, ghost_color, (5, 5, 40, 35))
+        # 아래쪽 물결 모양
+        for i in range(4):
+            wave_x = 8 + i * 10
+            wave_h = 15 + int(3 * _sin(pygame.time.get_ticks() * 0.005 + i))
+            pygame.draw.ellipse(body_surf, ghost_color,
+                              (wave_x - 5, 30, 10, wave_h))
+        # 눈 (빛나는 청록)
+        pygame.draw.circle(body_surf, eye_color, (18, 18), 3)
+        pygame.draw.circle(body_surf, eye_color, (32, 18), 3)
+        # 눈 하이라이트
+        pygame.draw.circle(body_surf, (200, 255, 245, alpha), (17, 17), 1)
+        pygame.draw.circle(body_surf, (200, 255, 245, alpha), (31, 17), 1)
+
+        screen.blit(body_surf, (x - 25, y - 50))
+
+    def _draw_dying_ghost(self, screen: pygame.Surface, dying: dict, renderer):
+        """소멸 중인 유령 (위로 떠오르며 사라짐)"""
+        death_progress = dying['death_time'] / self.DEATH_DURATION
+        base_alpha = int(180 * (1.0 - death_progress))
+
+        rect = dying['rect']
+        x = rect.centerx
+        # 위로 떠오름
+        y = rect.centery - int(40 * death_progress)
+
+        if base_alpha <= 10:
+            return
+
+        # 유령 소멸 이펙트 (위로 흩어지는 파티클)
+        num_particles = int(8 * death_progress)
+        for i in range(num_particles):
+            px = x + random.randint(-30, 30)
+            py = y - int(30 * death_progress) + random.randint(-15, 15)
+            p_alpha = int(base_alpha * 0.5 * random.uniform(0.3, 1.0))
+            if p_alpha > 10:
+                p_size = random.randint(2, 5)
+                p_color = random.choice([
+                    (80, 200, 170), (100, 220, 190), (60, 180, 150)
+                ])
+                pygame.draw.circle(screen, (*p_color, p_alpha), (px, py), p_size)
+
+        # 잔상 (폴백 스타일)
+        self._draw_fallback_ghost(screen, x, y, base_alpha)
+
+
+class Mirage(HeroSkill):
+    """신기루 - 공을 칠 때 2~3개의 가짜 공을 생성하여 상대를 속인다"""
+
+    GAME_LEFT = 0
+    GAME_RIGHT = 760
+    GAME_TOP = 0
+    GAME_BOTTOM = 750
+
+    def __init__(self):
+        super().__init__(
+            skill_id="mirage",
+            name="Mirage",
+            korean_name="신기루",
+            description="공을 칠 때 2~3개의 가짜 공을 생성하여 상대를 속인다",
+            trigger=SkillTrigger.ON_BALL_HIT,
+            cooldown=18.0,
+            duration=3.0,
+            hero_id="necro"
+        )
+        self.fake_balls = []
+        self.caster_is_top = False
+        self._spawn_particles = []  # 생성 시 이펙트
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        self.caster_is_top = caster_paddle.is_top
+        self.fake_balls = []
+        self._spawn_particles = []
+
+        if ball is None:
+            return {}
+
+        # 실제 공의 속도/크기 정보
+        real_vx = ball.vx
+        real_vy = ball.vy
+        ball_speed = math.sqrt(real_vx ** 2 + real_vy ** 2)
+        if ball_speed < 0.1:
+            return {}
+
+        # 실제 공의 각도
+        real_angle = math.atan2(real_vy, real_vx)
+
+        # 가짜 공 2~3개 생성
+        fake_count = random.randint(2, 3)
+
+        # 각도 분산: ±15~25도
+        angle_offsets = []
+        if fake_count == 2:
+            angle_offsets = [
+                random.uniform(math.radians(12), math.radians(25)),
+                random.uniform(math.radians(-25), math.radians(-12)),
+            ]
+        else:
+            angle_offsets = [
+                random.uniform(math.radians(15), math.radians(28)),
+                random.uniform(math.radians(-28), math.radians(-15)),
+                random.uniform(math.radians(-8), math.radians(8)),
+            ]
+
+        for offset in angle_offsets:
+            fake_angle = real_angle + offset
+            fake_speed = ball_speed * random.uniform(0.9, 1.1)
+
+            fake = {
+                'x': float(ball.x),
+                'y': float(ball.y),
+                'vx': math.cos(fake_angle) * fake_speed,
+                'vy': math.sin(fake_angle) * fake_speed,
+                'width': float(ball.width),
+                'height': float(ball.height),
+                'alpha': 220,
+                'age': 0.0,
+                'max_age': 3.0,
+                'trail': [],
+            }
+            self.fake_balls.append(fake)
+
+            # 생성 파티클
+            for _ in range(5):
+                self._spawn_particles.append({
+                    'x': float(ball.x) + random.randint(-5, 5),
+                    'y': float(ball.y) + random.randint(-5, 5),
+                    'vx': random.uniform(-3, 3),
+                    'vy': random.uniform(-3, 3),
+                    'alpha': 200,
+                    'age': 0.0,
+                    'size': random.randint(2, 4),
+                })
+
+        # 신기루 사운드
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            sound_path = os.path.join(project_root, "sounds", "ghostwalk.wav")
+            if os.path.exists(sound_path):
+                s = pygame.mixer.Sound(sound_path)
+                s.set_volume(0.3)
+                s.play()
+        except Exception:
+            pass
+
+        return {
+            'screen_effect': ScreenEffect.FLASH,
+            'flash_color': (80, 160, 140),
+            'flash_duration': 0.1,
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        new_fakes = []
+
+        for fake in self.fake_balls:
+            fake['age'] += dt
+
+            # 수명 초과 시 제거
+            if fake['age'] >= fake['max_age']:
+                continue
+
+            # 이동
+            fake['x'] += fake['vx']
+            fake['y'] += fake['vy']
+
+            # 벽 바운스 (좌우)
+            half_w = fake['width'] / 2
+            if fake['x'] - half_w < self.GAME_LEFT:
+                fake['x'] = self.GAME_LEFT + half_w
+                fake['vx'] = abs(fake['vx'])
+            elif fake['x'] + half_w > self.GAME_RIGHT:
+                fake['x'] = self.GAME_RIGHT - half_w
+                fake['vx'] = -abs(fake['vx'])
+
+            # 화면 밖(상하) 나가면 제거
+            if fake['y'] < self.GAME_TOP - 20 or fake['y'] > self.GAME_BOTTOM + 20:
+                continue
+
+            # 알파 점차 감소 (마지막 1초 동안 페이드아웃)
+            remaining = fake['max_age'] - fake['age']
+            if remaining < 1.0:
+                fake['alpha'] = int(220 * (remaining / 1.0))
+            else:
+                fake['alpha'] = 220
+
+            # 트레일 업데이트 (최근 5개 위치)
+            fake['trail'].append((fake['x'], fake['y'], fake['alpha']))
+            if len(fake['trail']) > 5:
+                fake['trail'] = fake['trail'][-5:]
+
+            new_fakes.append(fake)
+
+        self.fake_balls = new_fakes
+
+        # 생성 파티클 업데이트
+        new_particles = []
+        for p in self._spawn_particles:
+            p['age'] += dt
+            p['x'] += p['vx']
+            p['y'] += p['vy']
+            p['alpha'] = int(200 * max(0, 1.0 - p['age'] / 0.5))
+            if p['age'] < 0.5 and p['alpha'] > 5:
+                new_particles.append(p)
+        self._spawn_particles = new_particles
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        self.fake_balls = []
+        self._spawn_particles = []
+
+    def reset_for_new_round(self, game_state: dict):
+        super().reset_for_new_round(game_state)
+        self.fake_balls = []
+        self._spawn_particles = []
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        # 가짜 공 그리기 (실제 공과 최대한 유사하게)
+        for fake in self.fake_balls:
+            alpha = max(0, min(255, fake['alpha']))
+            if alpha <= 5:
+                continue
+
+            fx = int(fake['x'])
+            fy = int(fake['y'])
+            fw = int(fake['width'])
+            fh = int(fake['height'])
+
+            # 트레일 그리기 (짧은 잔상)
+            for i, (tx, ty, ta) in enumerate(fake['trail']):
+                trail_alpha = int(ta * 0.3 * (i + 1) / len(fake['trail']))
+                if trail_alpha > 5:
+                    trail_size = max(1, fw // 2 - 1)
+                    pygame.draw.circle(screen, (255, 255, 255, trail_alpha),
+                                     (int(tx), int(ty)), trail_size)
+
+            # 글로우 (약한 발광)
+            glow_size = fw + 6
+            glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+            glow_alpha = int(alpha * 0.25)
+            pygame.draw.circle(glow_surf, (200, 240, 230, glow_alpha),
+                             (glow_size, glow_size), glow_size)
+            screen.blit(glow_surf, (fx - glow_size, fy - glow_size),
+                       special_flags=pygame.BLEND_ADD)
+
+            # 공 본체 (실제 공과 동일하게 원형)
+            ball_surf = pygame.Surface((fw + 4, fh + 4), pygame.SRCALPHA)
+            ball_color = (255, 255, 255, alpha)
+            pygame.draw.circle(ball_surf, ball_color,
+                             (fw // 2 + 2, fh // 2 + 2), fw // 2)
+            # 하이라이트
+            highlight_alpha = int(alpha * 0.6)
+            pygame.draw.circle(ball_surf, (255, 255, 255, highlight_alpha),
+                             (fw // 2, fh // 2 - 1), max(1, fw // 4))
+            screen.blit(ball_surf, (fx - fw // 2 - 2, fy - fh // 2 - 2))
+
+        # 생성 파티클 그리기
+        for p in self._spawn_particles:
+            if p['alpha'] > 5:
+                pygame.draw.circle(screen, (140, 230, 210, int(p['alpha'])),
+                                 (int(p['x']), int(p['y'])), p['size'])
+
+
+# ============================================================================
 # 영웅 스킬 매핑
 # ============================================================================
 HERO_SKILLS: Dict[str, List[HeroSkill]] = {
@@ -8177,6 +8789,7 @@ HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "gear": [SteamBarrier(), OilSpill()],
     "kurokage": [ShadowClone(), IllusionShuriken()],
     "banshee": [Charm(), DeadPossession()],
+    "necro": [GhostSummon(), Mirage()],
     # 감옥 전용 영웅 (기존 스킬 클래스 재활용)
     "bella": [AbyssInk(), DollCurse()],
     "leon": [HornCharge(), DarkSlash()],
@@ -8194,6 +8807,7 @@ HERO_SKILL_CLASSES: Dict[str, list] = {
     "gear": [SteamBarrier, OilSpill],
     "kurokage": [ShadowClone, IllusionShuriken],
     "banshee": [Charm, DeadPossession],
+    "necro": [GhostSummon, Mirage],
     # 감옥 전용 영웅 (기존 스킬 클래스 재활용)
     "bella": [AbyssInk, DollCurse],
     "leon": [HornCharge, DarkSlash],

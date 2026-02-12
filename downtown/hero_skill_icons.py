@@ -53,6 +53,8 @@ def _create_icon(skill_id: str) -> Optional[pygame.Surface]:
         "illusion_shuriken": _icon_illusion_shuriken,
         "charm": _icon_charm,
         "dead_possession": _icon_dead_possession,
+        "ghost_summon": _icon_ghost_summon,
+        "mirage": _icon_mirage,
     }
     creator = creators.get(skill_id)
     if creator:
@@ -535,4 +537,87 @@ def _icon_dead_possession() -> pygame.Surface:
     pygame.draw.line(s, (220, 240, 255), (14, 25), (16, 25), 2)
     pygame.draw.line(s, (220, 240, 255), (16, 25), (16, 28), 2)
     pygame.draw.circle(s, (220, 240, 255), (16, 30), 1)
+    return s
+
+
+# ===== 네크로 (necro) 스킬 =====
+
+def _icon_ghost_summon() -> pygame.Surface:
+    """유령소환 - 유령 패들 2개 + 소환진"""
+    s = pygame.Surface((32, 32), pygame.SRCALPHA)
+    # 배경 원 (어두운 청록)
+    pygame.draw.circle(s, (20, 35, 30), (16, 16), 15)
+    pygame.draw.circle(s, (60, 110, 95), (16, 16), 15, 1)
+
+    # 소환진 (하단 반원)
+    pygame.draw.arc(s, (80, 180, 160, 140), (6, 20, 20, 10), 3.14, 6.28, 2)
+    # 소환진 내부 작은 원
+    pygame.draw.circle(s, (60, 150, 130, 80), (16, 24), 3, 1)
+
+    # 유령 1 (왼쪽)
+    ghost1_x, ghost1_y = 9, 10
+    pygame.draw.ellipse(s, (80, 180, 160, 180), (ghost1_x - 4, ghost1_y - 3, 8, 10))
+    # 유령1 물결 하단
+    for i in range(3):
+        wx = ghost1_x - 3 + i * 3
+        pygame.draw.ellipse(s, (80, 180, 160, 130), (wx, ghost1_y + 5, 3, 4))
+    # 유령1 눈
+    pygame.draw.circle(s, (140, 255, 230), (ghost1_x - 1, ghost1_y), 1)
+    pygame.draw.circle(s, (140, 255, 230), (ghost1_x + 2, ghost1_y), 1)
+
+    # 유령 2 (오른쪽)
+    ghost2_x, ghost2_y = 23, 10
+    pygame.draw.ellipse(s, (80, 180, 160, 180), (ghost2_x - 4, ghost2_y - 3, 8, 10))
+    for i in range(3):
+        wx = ghost2_x - 3 + i * 3
+        pygame.draw.ellipse(s, (80, 180, 160, 130), (wx, ghost2_y + 5, 3, 4))
+    pygame.draw.circle(s, (140, 255, 230), (ghost2_x - 1, ghost2_y), 1)
+    pygame.draw.circle(s, (140, 255, 230), (ghost2_x + 2, ghost2_y), 1)
+
+    # 스파클
+    for px, py in [(16, 6), (6, 18), (26, 18)]:
+        pygame.draw.circle(s, (180, 255, 230), (px, py), 1)
+
+    return s
+
+
+def _icon_mirage() -> pygame.Surface:
+    """신기루 - 여러 개의 공 환영 (진짜 + 가짜)"""
+    s = pygame.Surface((32, 32), pygame.SRCALPHA)
+    # 배경 원 (보라-청록 그라데이션 느낌)
+    pygame.draw.circle(s, (25, 30, 40), (16, 16), 15)
+    pygame.draw.circle(s, (70, 90, 110), (16, 16), 15, 1)
+
+    # 환영 라인 (가로 물결)
+    for y_off in [10, 16, 22]:
+        alpha = 40 + (y_off - 10) * 3
+        pygame.draw.line(s, (80, 180, 170, alpha), (4, y_off), (28, y_off), 1)
+
+    # 가짜 공 1 (왼쪽 위, 반투명)
+    pygame.draw.circle(s, (180, 200, 220, 100), (9, 11), 3)
+    pygame.draw.circle(s, (220, 240, 250, 80), (9, 11), 3, 1)
+    pygame.draw.circle(s, (255, 255, 255, 60), (8, 10), 1)
+
+    # 진짜 공 (중앙, 밝음)
+    pygame.draw.circle(s, (255, 255, 255), (16, 16), 4)
+    pygame.draw.circle(s, (200, 220, 240), (16, 16), 4, 1)
+    pygame.draw.circle(s, (255, 255, 255), (15, 15), 2)
+
+    # 가짜 공 2 (오른쪽 아래, 반투명)
+    pygame.draw.circle(s, (180, 200, 220, 100), (23, 21), 3)
+    pygame.draw.circle(s, (220, 240, 250, 80), (23, 21), 3, 1)
+    pygame.draw.circle(s, (255, 255, 255, 60), (22, 20), 1)
+
+    # 가짜 공 3 (왼쪽 아래, 더 투명)
+    pygame.draw.circle(s, (180, 200, 220, 70), (8, 22), 2)
+    pygame.draw.circle(s, (220, 240, 250, 50), (8, 22), 2, 1)
+
+    # 분산 이펙트 (방사형 점선)
+    for angle_deg in [30, 150, 210, 330]:
+        rad = math.radians(angle_deg)
+        for dist in [8, 11]:
+            px = 16 + int(math.cos(rad) * dist)
+            py = 16 + int(math.sin(rad) * dist)
+            pygame.draw.circle(s, (140, 200, 190, 80), (px, py), 1)
+
     return s
