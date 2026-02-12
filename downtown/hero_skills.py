@@ -8608,7 +8608,7 @@ class SkeletonArcher(HeroSkill):
     DEATH_DURATION = 0.7        # 사망 애니메이션 (뼈 파편)
 
     # 넉백 (쿠로카게 수리검과 동일)
-    KNOCKBACK_VEL = 120
+    KNOCKBACK_VEL = 150
 
     def __init__(self):
         super().__init__(
@@ -8617,7 +8617,7 @@ class SkeletonArcher(HeroSkill):
             korean_name="해골 궁수",
             description="내 진영에 해골 궁수를 소환한다. 적 영웅을 향해 화살을 쏘며, 공에 맞으면 죽는다. 20% 확률로 황금 궁수 소환.",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=11.0,
+            cooldown=7.0,
             duration=999999.0,  # 사실상 무제한 (공에 맞아야 사라짐)
             hero_id="necro"
         )
@@ -8886,11 +8886,12 @@ class SkeletonArcher(HeroSkill):
         is_golden = archer.get('is_golden', False)
 
         if is_golden:
-            # 황금 궁수: 멀티플샷 3발 (중앙, +20도, -20도)
+            # 황금 궁수: 멀티플샷 3발 (중앙, +20도, -20도) - 고정 각도
             angles = [base_angle, base_angle + math.radians(20), base_angle - math.radians(20)]
         else:
-            # 일반 궁수: 1발
-            angles = [base_angle]
+            # 일반 궁수: 1발 + 오차범위 ±15도
+            spread = math.radians(random.uniform(-15, 15))
+            angles = [base_angle + spread]
 
         for angle in angles:
             nx = math.cos(angle)
