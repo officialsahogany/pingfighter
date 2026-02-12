@@ -9587,8 +9587,8 @@ class BalloonWall(HeroSkill):
                         angle = math.atan2(ball_cy - balloon['y'], ball_cx - balloon['x'])
                         angle += random.uniform(-0.5, 0.5)
 
-                    ball.vx = math.cos(angle) * speed * 1.70
-                    ball.vy = math.sin(angle) * speed * 1.70
+                    ball.vx = math.cos(angle) * speed * 1.50
+                    ball.vy = math.sin(angle) * speed * 1.50
 
                     # 풍선 터짐
                     balloon['alive'] = False
