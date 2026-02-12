@@ -8777,6 +8777,534 @@ class Mirage(HeroSkill):
 
 
 # ============================================================================
+# 조커 (Joker) - 광대 스킬
+# ============================================================================
+
+class BalloonWall(HeroSkill):
+    """선율의 벽 - 화면 중앙에 풍선 장벽을 띄워 공의 궤적을 바꾼다"""
+
+    GAME_LEFT = 0
+    GAME_RIGHT = 760
+
+    def __init__(self):
+        super().__init__(
+            skill_id="balloon_wall",
+            name="Balloon Wall",
+            korean_name="선율의 벽",
+            description="화면 중앙에 풍선 장벽을 띄워 공의 궤적을 바꾼다",
+            trigger=SkillTrigger.ON_COOLDOWN,
+            cooldown=20.0,
+            duration=4.5,
+            hero_id="joker"
+        )
+        self.balloons = []
+        self.pop_effects = []  # 터지는 이펙트
+        self.caster_is_top = False
+
+    # 풍선 색상 팔레트
+    BALLOON_COLORS = [
+        (230, 70, 70),     # 빨강
+        (255, 200, 50),    # 노랑
+        (80, 200, 120),    # 초록
+        (70, 140, 230),    # 파랑
+        (200, 100, 220),   # 보라
+        (255, 140, 60),    # 주황
+        (255, 120, 180),   # 분홍
+    ]
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        self.caster_is_top = caster_paddle.is_top
+        self.balloons = []
+        self.pop_effects = []
+
+        # 풍선 5~7개를 중앙 영역에 배치
+        balloon_count = random.randint(5, 7)
+
+        for i in range(balloon_count):
+            color = random.choice(self.BALLOON_COLORS)
+            bx = random.randint(80, 680)
+            by = random.randint(250, 500)
+            size = random.randint(18, 28)
+
+            balloon = {
+                'x': float(bx),
+                'y': float(by),
+                'base_y': float(by),
+                'size': size,
+                'color': color,
+                'phase': random.uniform(0, math.pi * 2),
+                'alive': True,
+                'spawn_time': 0.0,
+                'string_sway': random.uniform(0, math.pi * 2),
+            }
+            self.balloons.append(balloon)
+
+        game_state['has_balloon_wall'] = True
+
+        # 풍선 등장 사운드
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            sound_path = os.path.join(project_root, "sounds", "selectswing.wav")
+            if os.path.exists(sound_path):
+                s = pygame.mixer.Sound(sound_path)
+                s.set_volume(0.4)
+                s.play()
+        except Exception:
+            pass
+
+        return {
+            'screen_effect': ScreenEffect.FLASH,
+            'flash_color': (255, 220, 100),
+            'flash_duration': 0.12,
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        for balloon in self.balloons:
+            if not balloon['alive']:
+                continue
+
+            balloon['spawn_time'] += dt
+
+            # 둥실둥실 부유
+            balloon['y'] = balloon['base_y'] + _sin(balloon['spawn_time'] * 2.0 + balloon['phase']) * 8
+            balloon['string_sway'] += dt * 1.5
+
+            # 공과 충돌 체크
+            if ball is not None and balloon['spawn_time'] > 0.3:
+                ball_cx = ball.x + ball.width / 2
+                ball_cy = ball.y + ball.height / 2
+                dist = math.sqrt((ball_cx - balloon['x']) ** 2 + (ball_cy - balloon['y']) ** 2)
+
+                if dist < balloon['size'] + ball.width / 2:
+                    # 공을 랜덤 방향으로 튕김
+                    angle = math.atan2(ball_cy - balloon['y'], ball_cx - balloon['x'])
+                    # 약간의 랜덤 편향 추가
+                    angle += random.uniform(-0.5, 0.5)
+                    speed = math.sqrt(ball.vx ** 2 + ball.vy ** 2)
+                    speed = max(speed, 5.0)  # 최소 속도 보장
+
+                    ball.vx = math.cos(angle) * speed * 1.05
+                    ball.vy = math.sin(angle) * speed * 1.05
+
+                    # 풍선 터짐
+                    balloon['alive'] = False
+                    self.pop_effects.append({
+                        'x': balloon['x'],
+                        'y': balloon['y'],
+                        'color': balloon['color'],
+                        'size': balloon['size'],
+                        'time': 0.0,
+                        'fragments': [
+                            {
+                                'x': balloon['x'],
+                                'y': balloon['y'],
+                                'vx': random.uniform(-4, 4),
+                                'vy': random.uniform(-5, 1),
+                                'size': random.randint(3, 6),
+                                'color': balloon['color'],
+                            }
+                            for _ in range(6)
+                        ],
+                    })
+
+                    # 펑 사운드
+                    try:
+                        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                        sound_path = os.path.join(project_root, "sounds", "steambarriorbreak.wav")
+                        if os.path.exists(sound_path):
+                            s = pygame.mixer.Sound(sound_path)
+                            s.set_volume(0.35)
+                            s.play()
+                    except Exception:
+                        pass
+
+        # 터지는 이펙트 업데이트
+        new_pops = []
+        for pop in self.pop_effects:
+            pop['time'] += dt
+            for frag in pop['fragments']:
+                frag['x'] += frag['vx']
+                frag['y'] += frag['vy']
+                frag['vy'] += 6 * dt  # 중력
+            if pop['time'] < 0.6:
+                new_pops.append(pop)
+        self.pop_effects = new_pops
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        game_state['has_balloon_wall'] = False
+        # 남은 풍선들 터지는 이펙트
+        for balloon in self.balloons:
+            if balloon['alive']:
+                self.pop_effects.append({
+                    'x': balloon['x'],
+                    'y': balloon['y'],
+                    'color': balloon['color'],
+                    'size': balloon['size'],
+                    'time': 0.0,
+                    'fragments': [
+                        {
+                            'x': balloon['x'],
+                            'y': balloon['y'],
+                            'vx': random.uniform(-3, 3),
+                            'vy': random.uniform(-4, 1),
+                            'size': random.randint(2, 5),
+                            'color': balloon['color'],
+                        }
+                        for _ in range(4)
+                    ],
+                })
+        self.balloons = []
+
+    def reset_for_new_round(self, game_state: dict):
+        super().reset_for_new_round(game_state)
+        self.balloons = []
+        self.pop_effects = []
+        game_state['has_balloon_wall'] = False
+
+    def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        super().update(dt, caster_paddle, target_paddle, ball, game_state)
+        # 터지는 이펙트는 is_active와 무관하게 업데이트
+        if self.pop_effects:
+            new_pops = []
+            for pop in self.pop_effects:
+                pop['time'] += dt
+                for frag in pop['fragments']:
+                    frag['x'] += frag['vx']
+                    frag['y'] += frag['vy']
+                    frag['vy'] += 6 * dt
+                if pop['time'] < 0.6:
+                    new_pops.append(pop)
+            self.pop_effects = new_pops
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        # 살아있는 풍선 그리기
+        for balloon in self.balloons:
+            if not balloon['alive']:
+                continue
+
+            bx = int(balloon['x'])
+            by = int(balloon['y'])
+            size = balloon['size']
+            color = balloon['color']
+            spawn_t = balloon['spawn_time']
+
+            # 등장 스케일 (팡 하고 커지는 느낌)
+            if spawn_t < 0.3:
+                scale = spawn_t / 0.3
+                scale = 1 - (1 - scale) ** 3  # ease-out
+                size = int(size * scale)
+                if size < 2:
+                    continue
+
+            # 풍선 본체 (타원)
+            balloon_surf = pygame.Surface((size * 2 + 4, int(size * 2.4) + 4), pygame.SRCALPHA)
+            bw = size
+            bh = int(size * 1.2)
+            # 그림자
+            pygame.draw.ellipse(balloon_surf, (*color[:3], 160),
+                              (2 + 2, 2 + 2, bw * 2, bh * 2))
+            # 본체
+            pygame.draw.ellipse(balloon_surf, color,
+                              (2, 2, bw * 2, bh * 2))
+            # 하이라이트 (반사광)
+            hl_x = size - int(size * 0.3)
+            hl_y = int(size * 0.5)
+            hl_r = max(2, size // 3)
+            lighter = tuple(min(255, c + 80) for c in color)
+            pygame.draw.circle(balloon_surf, (*lighter, 180), (hl_x, hl_y), hl_r)
+            # 꼭지점
+            knot_y = bh * 2 + 2
+            pygame.draw.circle(balloon_surf, tuple(max(0, c - 30) for c in color),
+                             (size + 2, knot_y), max(2, size // 6))
+
+            screen.blit(balloon_surf, (bx - size - 2, by - int(size * 1.2) - 2))
+
+            # 풍선 줄 (살짝 흔들리는 곡선)
+            string_sway = _sin(balloon['string_sway']) * 4
+            knot_screen_y = by + int(size * 0.2)
+            string_end_y = knot_screen_y + int(size * 1.2)
+            mid_x = bx + int(string_sway)
+            pygame.draw.line(screen, (180, 180, 180),
+                           (bx, knot_screen_y),
+                           (mid_x, (knot_screen_y + string_end_y) // 2), 1)
+            pygame.draw.line(screen, (180, 180, 180),
+                           (mid_x, (knot_screen_y + string_end_y) // 2),
+                           (bx, string_end_y), 1)
+
+        # 터지는 이펙트 그리기
+        for pop in self.pop_effects:
+            progress = pop['time'] / 0.6
+            alpha = int(255 * (1.0 - progress))
+            if alpha <= 5:
+                continue
+
+            # 원형 펑 (확장)
+            pop_r = int(pop['size'] * (1.0 + progress * 2.0))
+            pop_alpha = int(alpha * 0.4)
+            if pop_alpha > 5:
+                pop_surf = pygame.Surface((pop_r * 2, pop_r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(pop_surf, (*pop['color'], pop_alpha),
+                                 (pop_r, pop_r), pop_r, 2)
+                screen.blit(pop_surf, (int(pop['x']) - pop_r, int(pop['y']) - pop_r))
+
+            # 파편
+            for frag in pop['fragments']:
+                frag_alpha = int(alpha * 0.7)
+                if frag_alpha > 5:
+                    pygame.draw.circle(screen, (*frag['color'], frag_alpha),
+                                     (int(frag['x']), int(frag['y'])),
+                                     max(1, int(frag['size'] * (1 - progress))))
+
+
+class BombSurprise(HeroSkill):
+    """폭탄 서프라이즈 - 공에 폭탄을 부착, 타이머 후 폭발하여 스턴"""
+
+    def __init__(self):
+        super().__init__(
+            skill_id="bomb_surprise",
+            name="Bomb Surprise",
+            korean_name="폭탄 서프라이즈",
+            description="공에 폭탄을 부착! 3초 후 폭발하여 해당 진영에 스턴",
+            trigger=SkillTrigger.ON_BALL_HIT,
+            cooldown=20.0,
+            duration=3.5,
+            hero_id="joker"
+        )
+        self.bomb_active = False
+        self.bomb_timer = 0.0
+        self.bomb_max_time = 3.0
+        self.caster_is_top = False
+        self.explosion_effects = []
+        self._tick_sound_cd = 0.0
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        self.caster_is_top = caster_paddle.is_top
+        self.bomb_active = True
+        self.bomb_timer = 0.0
+        self.bomb_max_time = 3.0
+        self.explosion_effects = []
+        self._tick_sound_cd = 0.0
+
+        game_state['bomb_surprise_active'] = True
+        game_state['bomb_timer_ratio'] = 0.0
+
+        # 폭탄 부착 사운드
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            sound_path = os.path.join(project_root, "sounds", "hellfire.wav")
+            if os.path.exists(sound_path):
+                s = pygame.mixer.Sound(sound_path)
+                s.set_volume(0.4)
+                s.play()
+        except Exception:
+            pass
+
+        return {
+            'screen_effect': ScreenEffect.FLASH,
+            'flash_color': (255, 100, 50),
+            'flash_duration': 0.15,
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        if not self.bomb_active:
+            return
+
+        self.bomb_timer += dt
+        game_state['bomb_timer_ratio'] = self.bomb_timer / self.bomb_max_time
+
+        # 틱 사운드 (점점 빨라짐)
+        self._tick_sound_cd -= dt
+        tick_interval = max(0.15, 0.6 - (self.bomb_timer / self.bomb_max_time) * 0.45)
+        if self._tick_sound_cd <= 0:
+            self._tick_sound_cd = tick_interval
+            try:
+                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                sound_path = os.path.join(project_root, "sounds", "shurikenhit.wav")
+                if os.path.exists(sound_path):
+                    s = pygame.mixer.Sound(sound_path)
+                    s.set_volume(0.15)
+                    s.play()
+            except Exception:
+                pass
+
+        # 폭발!
+        if self.bomb_timer >= self.bomb_max_time and ball is not None:
+            self.bomb_active = False
+            game_state['bomb_surprise_active'] = False
+
+            # 공 위치 기준으로 어느 진영인지 판단
+            ball_cy = ball.y + ball.height / 2
+            mid_y = 375  # 화면 중앙
+
+            # 상단 진영에 있으면 상단 스턴, 하단이면 하단 스턴
+            if ball_cy < mid_y:
+                game_state['top_stunned'] = True
+                game_state['top_stun_timer'] = 1.5
+                stun_target = "top"
+            else:
+                game_state['bottom_stunned'] = True
+                game_state['bottom_stun_timer'] = 1.5
+                stun_target = "bottom"
+
+            # 폭발 이펙트
+            self.explosion_effects = [{
+                'x': float(ball.x + ball.width / 2),
+                'y': float(ball.y + ball.height / 2),
+                'time': 0.0,
+                'target': stun_target,
+            }]
+
+            # 공 속도 증가 (폭발 충격)
+            speed = math.sqrt(ball.vx ** 2 + ball.vy ** 2)
+            if speed > 0:
+                ball.vx *= 1.3
+                ball.vy *= 1.3
+
+            # 폭발 사운드
+            try:
+                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                sound_path = os.path.join(project_root, "sounds", "steambarriorbreak.wav")
+                if os.path.exists(sound_path):
+                    s = pygame.mixer.Sound(sound_path)
+                    s.set_volume(0.6)
+                    s.play()
+            except Exception:
+                pass
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        self.bomb_active = False
+        game_state['bomb_surprise_active'] = False
+        game_state.pop('bomb_timer_ratio', None)
+
+    def reset_for_new_round(self, game_state: dict):
+        super().reset_for_new_round(game_state)
+        self.bomb_active = False
+        self.bomb_timer = 0.0
+        self.explosion_effects = []
+        game_state['bomb_surprise_active'] = False
+        game_state.pop('bomb_timer_ratio', None)
+
+    def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        super().update(dt, caster_paddle, target_paddle, ball, game_state)
+        # 폭발 이펙트는 is_active와 무관하게 업데이트
+        if self.explosion_effects:
+            new_exp = []
+            for exp in self.explosion_effects:
+                exp['time'] += dt
+                if exp['time'] < 1.0:
+                    new_exp.append(exp)
+            self.explosion_effects = new_exp
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        # 폭탄 모드 공 이펙트
+        if self.bomb_active and ball is not None:
+            bx = int(ball.x + ball.width / 2)
+            by = int(ball.y + ball.height / 2)
+            progress = self.bomb_timer / self.bomb_max_time
+
+            # 공 주변 경고 원 (점점 빨개짐)
+            warn_r = int(ball.width * 1.5 + 10)
+            red_intensity = int(80 + 175 * progress)
+            warn_alpha = int(40 + 60 * progress)
+            warn_surf = pygame.Surface((warn_r * 2, warn_r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(warn_surf, (red_intensity, 40, 20, warn_alpha),
+                             (warn_r, warn_r), warn_r)
+            screen.blit(warn_surf, (bx - warn_r, by - warn_r),
+                       special_flags=pygame.BLEND_ADD)
+
+            # 폭탄 아이콘 (공 위에)
+            bomb_size = max(8, int(ball.width * 0.8))
+            # 폭탄 몸체 (검은 원)
+            pygame.draw.circle(screen, (40, 40, 40), (bx, by), bomb_size)
+            pygame.draw.circle(screen, (80, 80, 80), (bx, by), bomb_size, 1)
+            # 도화선 불꽃
+            fuse_x = bx + int(bomb_size * 0.5)
+            fuse_y = by - int(bomb_size * 0.7)
+            # 도화선 줄
+            pygame.draw.line(screen, (160, 120, 60),
+                           (bx + int(bomb_size * 0.3), by - int(bomb_size * 0.5)),
+                           (fuse_x, fuse_y), 2)
+            # 불꽃 (점멸)
+            if int(self.bomb_timer * 8) % 2 == 0:
+                spark_colors = [(255, 200, 50), (255, 140, 30), (255, 255, 100)]
+                spark_color = spark_colors[int(self.bomb_timer * 5) % 3]
+                pygame.draw.circle(screen, spark_color, (fuse_x, fuse_y - 2), 4)
+                pygame.draw.circle(screen, (255, 255, 200), (fuse_x, fuse_y - 2), 2)
+
+            # 타이머 텍스트 (카운트다운)
+            remaining = max(0, self.bomb_max_time - self.bomb_timer)
+            timer_text = f"{remaining:.1f}"
+            # 작은 숫자 표시 (공 위쪽)
+            try:
+                font = pygame.font.Font(None, 18)
+                color = (255, 255, 255) if remaining > 1.0 else (255, 80, 80)
+                text_surf = font.render(timer_text, True, color)
+                screen.blit(text_surf, (bx - text_surf.get_width() // 2,
+                                       by - bomb_size - 16))
+            except Exception:
+                pass
+
+            # 깜빡이는 경고 링 (마지막 1초)
+            if remaining < 1.0:
+                blink = int(self.bomb_timer * 12) % 2
+                if blink:
+                    ring_r = bomb_size + 4 + int(4 * _sin(self.bomb_timer * 20))
+                    pygame.draw.circle(screen, (255, 50, 30), (bx, by), ring_r, 2)
+
+        # 폭발 이펙트
+        for exp in self.explosion_effects:
+            self._draw_explosion(screen, exp)
+
+    def _draw_explosion(self, screen: pygame.Surface, exp: dict):
+        """폭발 이펙트 렌더링"""
+        ex = int(exp['x'])
+        ey = int(exp['y'])
+        progress = exp['time'] / 1.0
+        alpha = int(255 * (1.0 - progress))
+
+        if alpha <= 5:
+            return
+
+        # 폭발 원 (확장)
+        for i in range(3):
+            exp_r = int((30 + i * 20) * (0.3 + progress * 0.7))
+            exp_alpha = int(alpha * (0.6 - i * 0.15))
+            if exp_alpha > 5:
+                exp_surf = pygame.Surface((exp_r * 2, exp_r * 2), pygame.SRCALPHA)
+                colors = [(255, 200, 50), (255, 120, 30), (255, 60, 20)]
+                pygame.draw.circle(exp_surf, (*colors[i], exp_alpha),
+                                 (exp_r, exp_r), exp_r)
+                screen.blit(exp_surf, (ex - exp_r, ey - exp_r),
+                           special_flags=pygame.BLEND_ADD)
+
+        # 파편/스파크
+        num_sparks = int(12 * (1.0 - progress * 0.5))
+        for i in range(num_sparks):
+            angle = i * math.pi * 2 / num_sparks + progress * 2
+            dist = int(40 * progress + random.randint(-5, 5))
+            sx = ex + int(math.cos(angle) * dist)
+            sy = ey + int(math.sin(angle) * dist)
+            spark_alpha = int(alpha * 0.6)
+            if spark_alpha > 10:
+                spark_color = random.choice([
+                    (255, 200, 80), (255, 150, 50), (255, 100, 30)
+                ])
+                pygame.draw.circle(screen, (*spark_color, spark_alpha),
+                                 (sx, sy), random.randint(2, 4))
+
+        # 연기 (회색 원)
+        if progress > 0.3:
+            smoke_progress = (progress - 0.3) / 0.7
+            smoke_r = int(50 * smoke_progress)
+            smoke_alpha = int(80 * (1.0 - smoke_progress))
+            if smoke_alpha > 5 and smoke_r > 0:
+                smoke_surf = pygame.Surface((smoke_r * 2, smoke_r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(smoke_surf, (60, 60, 60, smoke_alpha),
+                                 (smoke_r, smoke_r), smoke_r)
+                screen.blit(smoke_surf, (ex - smoke_r, ey - smoke_r))
+
+
+# ============================================================================
 # 영웅 스킬 매핑
 # ============================================================================
 HERO_SKILLS: Dict[str, List[HeroSkill]] = {
@@ -8790,6 +9318,7 @@ HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "kurokage": [ShadowClone(), IllusionShuriken()],
     "banshee": [Charm(), DeadPossession()],
     "necro": [GhostSummon(), Mirage()],
+    "joker": [BalloonWall(), BombSurprise()],
     # 감옥 전용 영웅 (기존 스킬 클래스 재활용)
     "bella": [AbyssInk(), DollCurse()],
     "leon": [HornCharge(), DarkSlash()],
@@ -8808,6 +9337,7 @@ HERO_SKILL_CLASSES: Dict[str, list] = {
     "kurokage": [ShadowClone, IllusionShuriken],
     "banshee": [Charm, DeadPossession],
     "necro": [GhostSummon, Mirage],
+    "joker": [BalloonWall, BombSurprise],
     # 감옥 전용 영웅 (기존 스킬 클래스 재활용)
     "bella": [AbyssInk, DollCurse],
     "leon": [HornCharge, DarkSlash],

@@ -55,6 +55,8 @@ def _create_icon(skill_id: str) -> Optional[pygame.Surface]:
         "dead_possession": _icon_dead_possession,
         "ghost_summon": _icon_ghost_summon,
         "mirage": _icon_mirage,
+        "balloon_wall": _icon_balloon_wall,
+        "bomb_surprise": _icon_bomb_surprise,
     }
     creator = creators.get(skill_id)
     if creator:
@@ -619,5 +621,73 @@ def _icon_mirage() -> pygame.Surface:
             px = 16 + int(math.cos(rad) * dist)
             py = 16 + int(math.sin(rad) * dist)
             pygame.draw.circle(s, (140, 200, 190, 80), (px, py), 1)
+
+    return s
+
+
+# ===== 조커 (joker) 스킬 =====
+
+def _icon_balloon_wall() -> pygame.Surface:
+    """선율의 벽 - 컬러풀한 풍선들"""
+    s = pygame.Surface((32, 32), pygame.SRCALPHA)
+    # 배경 원 (따뜻한 톤)
+    pygame.draw.circle(s, (35, 25, 40), (16, 16), 15)
+    pygame.draw.circle(s, (100, 70, 110), (16, 16), 15, 1)
+
+    # 풍선들 (다양한 색상)
+    balloons = [
+        (8, 10, 5, (230, 70, 70)),      # 빨강
+        (16, 8, 5, (255, 200, 50)),      # 노랑
+        (24, 11, 5, (80, 200, 120)),     # 초록
+        (12, 17, 4, (70, 140, 230)),     # 파랑
+        (20, 16, 4, (200, 100, 220)),    # 보라
+    ]
+    for bx, by, br, bc in balloons:
+        # 풍선 본체
+        pygame.draw.ellipse(s, bc, (bx - br, by - int(br * 1.2), br * 2, int(br * 2.4)))
+        # 하이라이트
+        pygame.draw.circle(s, tuple(min(255, c + 60) for c in bc),
+                         (bx - 1, by - 2), max(1, br // 2))
+        # 줄
+        pygame.draw.line(s, (180, 180, 180), (bx, by + br), (bx, by + br + 4), 1)
+
+    # 꼭지점
+    for bx, by, br, bc in balloons:
+        knot_y = by + int(br * 1.0)
+        pygame.draw.circle(s, tuple(max(0, c - 40) for c in bc), (bx, knot_y), 1)
+
+    return s
+
+
+def _icon_bomb_surprise() -> pygame.Surface:
+    """폭탄 서프라이즈 - 도화선 달린 폭탄"""
+    s = pygame.Surface((32, 32), pygame.SRCALPHA)
+    # 배경 원 (위험한 빨강/주황)
+    pygame.draw.circle(s, (40, 20, 15), (16, 16), 15)
+    pygame.draw.circle(s, (120, 60, 40), (16, 16), 15, 1)
+
+    # 폭탄 몸체 (검은 원)
+    pygame.draw.circle(s, (40, 40, 40), (16, 18), 9)
+    pygame.draw.circle(s, (80, 80, 80), (16, 18), 9, 1)
+    # 하이라이트
+    pygame.draw.circle(s, (80, 80, 90), (13, 15), 3)
+
+    # 도화선
+    pygame.draw.line(s, (160, 120, 60), (20, 12), (22, 7), 2)
+    # 불꽃
+    pygame.draw.circle(s, (255, 200, 50), (23, 5), 3)
+    pygame.draw.circle(s, (255, 255, 150), (23, 5), 2)
+    pygame.draw.circle(s, (255, 140, 30), (22, 4), 2)
+
+    # 경고 느낌표
+    pygame.draw.line(s, (255, 80, 50), (8, 10), (8, 16), 2)
+    pygame.draw.circle(s, (255, 80, 50), (8, 19), 1)
+
+    # 폭발 스파크
+    for angle_deg in [0, 72, 144, 216, 288]:
+        rad = math.radians(angle_deg)
+        sx = 16 + int(math.cos(rad) * 13)
+        sy = 18 + int(math.sin(rad) * 13)
+        pygame.draw.circle(s, (255, 180, 60, 120), (sx, sy), 1)
 
     return s

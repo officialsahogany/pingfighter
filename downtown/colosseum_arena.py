@@ -487,6 +487,19 @@ BOTTOM_HEROES = [
         "position": "bottom",
         "description": "영혼을 조종하는 신비로운 강령술사"
     },
+    {
+        "id": "joker",
+        "name": "조커",
+        "title": "광대",
+        "style": HeroStyle.TRICKY,
+        "color": (220, 60, 80),  # 빨강+금 광대 테마
+        "speed": 1.15,
+        "reaction": 0.88,
+        "power": 0.95,
+        "accuracy": 0.82,
+        "position": "bottom",
+        "description": "예측 불가능한 서프라이즈로 상대를 혼란에 빠뜨리는 광대"
+    },
 ]
 
 # 전체 영웅 목록 (호환성용)

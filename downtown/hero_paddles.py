@@ -4770,6 +4770,267 @@ class HeroPaddleRenderer:
                                  max(1, pendant_size // 4))
 
     # =========================================================================
+    # 조커 - 광대 (예측 불가능한 트릭스터) [HD 버전]
+    # =========================================================================
+    def _draw_joker(self, screen, cx, cy, b, color, show_back, anim):
+        """조커 - 광대 (빨강+금 비대칭 코트, 초록 머리, 빨간 코) [HD 버전]"""
+        lean = anim["lean"]
+        wave = anim["wave"]
+        body_bob = anim["body_bob"]
+        shoulder_bob = anim.get("shoulder_bob", 0)
+        left_arm_swing = anim.get("left_arm_swing", 0)
+        right_arm_swing = anim.get("right_arm_swing", 0)
+        weapon_swing = anim.get("weapon_swing_angle", 0)
+        left_leg_sway = anim.get("left_leg_sway", 0)
+        right_leg_sway = anim.get("right_leg_sway", 0)
+
+        torso_y = cy - int(1.5 * b) + int(body_bob * 1.8 * b)
+        lean_offset = int(lean * 2 * b)
+
+        p = {
+            "coat_red": (200, 50, 60),
+            "coat_red_light": (230, 80, 90),
+            "coat_red_dark": (160, 35, 45),
+            "coat_gold": (220, 180, 50),
+            "coat_gold_light": (245, 210, 80),
+            "coat_gold_dark": (180, 140, 35),
+            "coat_purple": (130, 50, 160),
+            "pants_red": (180, 40, 50),
+            "pants_gold": (200, 160, 40),
+            "skin": (240, 210, 180),
+            "skin_shadow": (210, 180, 150),
+            "skin_blush": (255, 180, 170),
+            "hair": (60, 180, 60),
+            "hair_light": (90, 210, 90),
+            "hair_dark": (40, 140, 40),
+            "eye": (60, 60, 60),
+            "eye_pupil": (30, 30, 30),
+            "nose_red": (230, 60, 50),
+            "lip": (200, 50, 60),
+            "bell": (255, 220, 80),
+            "bell_shine": (255, 250, 180),
+            "collar": (255, 255, 255),
+            "collar_shadow": (220, 220, 230),
+            "shoe_red": (180, 40, 50),
+            "shoe_gold": (200, 160, 40),
+            "card_white": (255, 255, 255),
+            "card_red": (200, 30, 30),
+        }
+
+        # === 다리 (빨강/금 비대칭) ===
+        for side in [-1, 1]:
+            leg_x = cx + side * int(0.4 * b) + lean_offset
+            leg_top = torso_y + int(1.5 * b)
+            sway = left_leg_sway if side == -1 else right_leg_sway
+            leg_bottom = leg_top + int(1.8 * b) + int(sway * 0.3 * b)
+            leg_sway_x = int(sway * 0.4 * b)
+            leg_lift = anim.get("left_leg_lift", 0) if side == -1 else anim.get("right_leg_lift", 0)
+
+            pants_color = p["pants_red"] if side == -1 else p["pants_gold"]
+            pygame.draw.line(screen, pants_color,
+                           (leg_x, leg_top),
+                           (leg_x + leg_sway_x, int(leg_bottom - leg_lift * 0.3 * b)),
+                           max(2, int(0.35 * b)))
+            # 신발
+            shoe_color = p["shoe_red"] if side == -1 else p["shoe_gold"]
+            shoe_x = leg_x + leg_sway_x
+            shoe_y = int(leg_bottom - leg_lift * 0.3 * b)
+            shoe_w = int(0.45 * b)
+            pygame.draw.ellipse(screen, shoe_color,
+                              (shoe_x - shoe_w // 2, shoe_y - 2, shoe_w, int(0.25 * b)))
+            # 뾰족한 끝 방울
+            tip_x = shoe_x + side * int(0.3 * b)
+            pygame.draw.circle(screen, p["bell"],
+                             (tip_x, shoe_y), max(2, int(0.08 * b)))
+
+        # === 몸통 (좌=빨강, 우=금 비대칭 코트) ===
+        torso_w = int(1.5 * b)
+        torso_h = int(2.2 * b)
+
+        left_rect = (cx - torso_w // 2 + lean_offset, torso_y - int(0.2 * b),
+                    torso_w // 2, torso_h)
+        pygame.draw.rect(screen, p["coat_red"], left_rect)
+        pygame.draw.rect(screen, p["coat_red_dark"], left_rect, 1)
+
+        right_rect = (cx + lean_offset, torso_y - int(0.2 * b),
+                     torso_w // 2 + 1, torso_h)
+        pygame.draw.rect(screen, p["coat_gold"], right_rect)
+        pygame.draw.rect(screen, p["coat_gold_dark"], right_rect, 1)
+
+        # 중앙선 + 단추
+        center_x = cx + lean_offset
+        pygame.draw.line(screen, p["coat_purple"],
+                        (center_x, torso_y - int(0.2 * b)),
+                        (center_x, torso_y + torso_h - int(0.2 * b)),
+                        max(1, int(0.1 * b)))
+        for i in range(3):
+            btn_y = torso_y + int(0.3 * b) + i * int(0.55 * b)
+            btn_size = max(2, int(0.1 * b))
+            pygame.draw.circle(screen, p["bell"], (center_x, btn_y), btn_size)
+            pygame.draw.circle(screen, p["bell_shine"], (center_x - 1, btn_y - 1),
+                             max(1, btn_size // 2))
+
+        # 허리 벨트
+        belt_y = torso_y + int(1.2 * b)
+        pygame.draw.line(screen, p["coat_purple"],
+                        (cx - int(0.8 * b) + lean_offset, belt_y),
+                        (cx + int(0.8 * b) + lean_offset, belt_y),
+                        max(2, int(0.12 * b)))
+
+        # === 러플 칼라 ===
+        collar_y = torso_y - int(0.2 * b)
+        for i in range(7):
+            ruffle_angle = (i / 6) * math.pi - math.pi / 2
+            rx = cx + int(_cos(ruffle_angle) * 0.8 * b) + lean_offset
+            ry = collar_y + int(_sin(ruffle_angle) * 0.25 * b) + int(_sin(self.time * 2 + i) * 0.03 * b)
+            ruffle_size = max(3, int(0.18 * b))
+            pygame.draw.circle(screen, p["collar"], (rx, ry), ruffle_size)
+            pygame.draw.circle(screen, p["collar_shadow"], (rx, ry), ruffle_size, 1)
+
+        # === 어깨 (비대칭) ===
+        shoulder_y_pos = torso_y - int(0.05 * b) + int(shoulder_bob * b)
+        sw = int(1.6 * b)
+        pygame.draw.ellipse(screen, p["coat_red"],
+                          (cx - sw // 2 + lean_offset, shoulder_y_pos, sw // 2, int(0.4 * b)))
+        pygame.draw.ellipse(screen, p["coat_gold"],
+                          (cx + lean_offset, shoulder_y_pos, sw // 2, int(0.4 * b)))
+
+        # === 팔 ===
+        for side in [-1, 1]:
+            arm_swing_val = left_arm_swing if side == -1 else right_arm_swing
+            shoulder_x = cx + side * int(0.8 * b) + lean_offset
+            shoulder_y_arm = torso_y + int(shoulder_bob * b)
+            elbow_x = shoulder_x + side * int(0.3 * b)
+            elbow_y = shoulder_y_arm + int(1.0 * b) + int(arm_swing_val * 0.3 * b)
+            hand_x = elbow_x + side * int(0.2 * b)
+            hand_y = elbow_y + int(0.7 * b) + int(arm_swing_val * 0.2 * b)
+
+            sleeve_color = p["coat_red"] if side == -1 else p["coat_gold"]
+            pygame.draw.line(screen, sleeve_color,
+                           (shoulder_x, shoulder_y_arm), (elbow_x, elbow_y),
+                           max(2, int(0.35 * b)))
+            pygame.draw.line(screen, sleeve_color,
+                           (elbow_x, elbow_y), (hand_x, hand_y),
+                           max(2, int(0.3 * b)))
+
+            # 하얀 장갑
+            hand_size = max(2, int(0.2 * b))
+            pygame.draw.circle(screen, p["collar"], (int(hand_x), int(hand_y)), hand_size)
+
+            # 오른손에 카드
+            if (side == 1 and not show_back) or (side == -1 and show_back):
+                card_x = int(hand_x) + side * int(0.15 * b)
+                card_y = int(hand_y) - int(0.1 * b) + int(weapon_swing * 0.3 * b)
+                card_w = max(4, int(0.3 * b))
+                card_h = max(6, int(0.45 * b))
+                card_rect = (card_x - card_w // 2, card_y - card_h // 2, card_w, card_h)
+                pygame.draw.rect(screen, p["card_white"], card_rect)
+                pygame.draw.rect(screen, (100, 100, 100), card_rect, 1)
+                if card_w >= 4:
+                    pygame.draw.circle(screen, p["card_red"],
+                                     (card_x, card_y), max(1, card_w // 4))
+
+        # === 머리 ===
+        head_x = cx + lean_offset
+        head_y = torso_y - int(1.2 * b)
+        head_r = int(0.8 * b)
+
+        if not show_back:
+            # 정면
+            pygame.draw.circle(screen, p["skin"], (head_x, head_y), head_r)
+            pygame.draw.circle(screen, p["skin_shadow"], (head_x, head_y), head_r, 1)
+
+            # 볼터치
+            for side in [-1, 1]:
+                bx = head_x + side * int(0.4 * b)
+                by_c = head_y + int(0.15 * b)
+                pygame.draw.circle(screen, (*p["skin_blush"], 100),
+                                 (bx, by_c), max(2, int(0.2 * b)))
+
+            # 눈
+            eye_y = head_y - int(0.1 * b)
+            for side in [-1, 1]:
+                eye_x = head_x + side * int(0.25 * b)
+                eye_size = max(3, int(0.15 * b))
+                pygame.draw.circle(screen, (255, 255, 255), (eye_x, eye_y), eye_size)
+                pygame.draw.circle(screen, p["eye"], (eye_x, eye_y), eye_size, 1)
+                pupil_size = max(1, eye_size // 2)
+                pygame.draw.circle(screen, p["eye_pupil"], (eye_x, eye_y), pupil_size)
+                pygame.draw.circle(screen, (255, 255, 255),
+                                 (eye_x - 1, eye_y - 1), max(1, pupil_size // 2))
+
+            # 빨간 코
+            nose_y = head_y + int(0.1 * b)
+            nose_r = max(3, int(0.13 * b))
+            pygame.draw.circle(screen, p["nose_red"], (head_x, nose_y), nose_r)
+            pygame.draw.circle(screen, (255, 120, 100), (head_x - 1, nose_y - 1),
+                             max(1, nose_r // 2))
+
+            # 입 (크게 웃는 입)
+            mouth_y = head_y + int(0.3 * b)
+            mouth_w = int(0.5 * b)
+            pygame.draw.arc(screen, p["lip"],
+                          (head_x - mouth_w // 2, mouth_y - int(0.15 * b),
+                           mouth_w, int(0.3 * b)),
+                          3.3, 6.1, max(1, int(0.06 * b)))
+
+            # 초록 머리 (양쪽 + 위)
+            for side in [-1, 1]:
+                hair_x = head_x + side * int(0.6 * b)
+                hair_y = head_y - int(0.2 * b)
+                hair_points = [
+                    (head_x + side * int(0.4 * b), head_y - int(0.6 * b)),
+                    (hair_x + side * int(0.2 * b), hair_y),
+                    (hair_x, hair_y + int(0.4 * b)),
+                    (head_x + side * int(0.35 * b), head_y),
+                ]
+                pygame.draw.polygon(screen, p["hair"], hair_points)
+                pygame.draw.polygon(screen, p["hair_dark"], hair_points, 1)
+
+            top_hair = [
+                (head_x - int(0.3 * b), head_y - int(0.5 * b)),
+                (head_x, head_y - int(1.1 * b)),
+                (head_x + int(0.3 * b), head_y - int(0.5 * b)),
+            ]
+            pygame.draw.polygon(screen, p["hair"], top_hair)
+            pygame.draw.polygon(screen, p["hair_light"], top_hair, 1)
+
+        else:
+            # 뒷모습
+            pygame.draw.circle(screen, p["hair"], (head_x, head_y), head_r)
+            pygame.draw.circle(screen, p["hair_dark"], (head_x, head_y), head_r, 1)
+
+            for i in range(4):
+                strand_x = head_x + int((i - 1.5) * 0.25 * b)
+                pygame.draw.line(screen, p["hair_dark"],
+                               (strand_x, head_y - int(0.4 * b)),
+                               (strand_x + int((i - 1.5) * 0.05 * b),
+                                head_y + int(0.3 * b)), 1)
+
+            top_hair = [
+                (head_x - int(0.3 * b), head_y - int(0.5 * b)),
+                (head_x, head_y - int(1.1 * b)),
+                (head_x + int(0.3 * b), head_y - int(0.5 * b)),
+            ]
+            pygame.draw.polygon(screen, p["hair"], top_hair)
+            pygame.draw.polygon(screen, p["hair_light"], top_hair, 1)
+
+        # === 양 옆 방울 장식 ===
+        for side in [-1, 1]:
+            bell_x = head_x + side * int(0.55 * b)
+            bell_y = head_y - int(0.3 * b)
+            pygame.draw.line(screen, p["coat_purple"],
+                           (head_x + side * int(0.3 * b), head_y - int(0.5 * b)),
+                           (bell_x, bell_y), 1)
+            bell_r = max(2, int(0.1 * b))
+            bell_bob = int(_sin(self.time * 4 + side * 1.5) * 0.05 * b)
+            pygame.draw.circle(screen, p["bell"],
+                             (bell_x, bell_y + bell_bob), bell_r)
+            pygame.draw.circle(screen, p["bell_shine"],
+                             (bell_x - 1, bell_y + bell_bob - 1),
+                             max(1, bell_r // 2))
+
+    # =========================================================================
     # 기본 폴백
     # =========================================================================
     def _draw_default(self, screen, cx, cy, b, color, show_back, anim):
