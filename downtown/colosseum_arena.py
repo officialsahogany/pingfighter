@@ -502,7 +502,7 @@ BOTTOM_HEROES = [
     },
     {
         "id": "mirage",
-        "name": "미라쥬",
+        "name": "세트",
         "title": "사막의 환술사",
         "style": HeroStyle.TRICKY,
         "color": (210, 180, 100),  # 사막 모래빛 금색

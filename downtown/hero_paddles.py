@@ -5308,10 +5308,10 @@ class HeroPaddleRenderer:
                            (int(bell_end_x) + bell_r - 1, int(bell_end_y)), 1)
 
     # =========================================================================
-    # 미라쥬 - 사막의 환술사 (트릭키) [HD 버전]
+    # 세트 - 사막의 환술사 (트릭키) [HD 버전]
     # =========================================================================
     def _draw_mirage(self, screen, cx, cy, b, color, show_back, anim):
-        """미라쥬 - 이집트 파라오 (네메스 왕관, 황금 장식, 왕홀) [HD 버전]"""
+        """세트 - 이집트 파라오 (네메스 왕관, 황금 장식, 왕홀) [HD 버전]"""
         lean = anim["lean"]
         wave = anim["wave"]
         body_bob = anim["body_bob"]

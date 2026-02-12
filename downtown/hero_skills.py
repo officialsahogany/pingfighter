@@ -9525,7 +9525,7 @@ class BombSurprise(HeroSkill):
 
 
 # ============================================================================
-# 미라쥬 스킬 - 사막의 환술사 (트릭키)
+# 세트 스킬 - 사막의 환술사 (트릭키)
 # ============================================================================
 class SandPrison(HeroSkill):
     """모래감옥 - 상대의 이동 범위를 200px로 제한하는 사각형 모래 감옥"""
@@ -10370,7 +10370,7 @@ class HeroSkillManager:
             'steam_barrier_caster_frozen': False,
             'steam_barrier_thaw_speed': 0.0,
             'has_clones': False,
-            # 미라쥬 관련
+            # 세트 관련
             'has_sand_vortex': False,
             'top_paddle_sand_prison': False,
             'bottom_paddle_sand_prison': False,
