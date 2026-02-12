@@ -10682,8 +10682,9 @@ class SandVortex(HeroSkill):
     WOBBLE_AMPLITUDE = 80  # 지그재그 좌우 진폭
     VORTEX_LIFETIME = 4.0  # 소용돌이 수명 (초)
     FADE_DURATION = 1.2    # 소멸 페이드 시간 (초)
-    CURVE_DURATION = 2.0   # 커브 효과 지속시간 (초, 기존 1.5 → 증가)
-    CURVE_STRENGTH = 7.0   # 커브 횡방향 힘 (기존 4.0 → 강화)
+    CURVE_DURATION = 2.5   # 커브 효과 지속시간 (초, 기존 1.5 → 대폭 증가)
+    CURVE_STRENGTH = 18.0  # 커브 횡방향 힘 (기존 4.0 → 대폭 강화, 프레임당 ~0.3px 누적)
+    CAPTURE_BOOST = 1.6    # 포획 시 공 임팩트 부스트 (ball_impact_boost에 적용)
     GROWTH_RATE = 0.20     # 초당 크기/범위 성장률 (20%)
 
     def __init__(self):
@@ -10905,11 +10906,11 @@ class SandVortex(HeroSkill):
                                              min(self.LAUNCH_SPEED_MAX,
                                                  cur_speed * self.LAUNCH_SPEED_MULT))
 
-                            # 상대 방향으로 커브 발사
+                            # 상대 방향으로 커브 발사 (더 넓은 각도 범위)
                             if self.caster_is_bottom:
-                                launch_angle = -math.pi / 2 + random.uniform(-0.25, 0.25)
+                                launch_angle = -math.pi / 2 + random.uniform(-0.4, 0.4)
                             else:
-                                launch_angle = math.pi / 2 + random.uniform(-0.25, 0.25)
+                                launch_angle = math.pi / 2 + random.uniform(-0.4, 0.4)
 
                             launch_vx = math.cos(launch_angle) * launch_speed
                             launch_vy = math.sin(launch_angle) * launch_speed
@@ -10927,6 +10928,16 @@ class SandVortex(HeroSkill):
                                 ball.y = vortex['y']
                                 ball.speed_x = launch_vx
                                 ball.speed_y = launch_vy
+
+                            # ★ game_state를 통해 실제 BALL 객체에 위치/속도/부스트 반영
+                            game_state['sand_vortex_ball_captured'] = {
+                                'ball_x': vortex['x'],
+                                'ball_y': vortex['y'],
+                                'launch_vx': launch_vx,
+                                'launch_vy': launch_vy,
+                                'boost': self.CAPTURE_BOOST,
+                                'curve_dir': curve_dir,
+                            }
 
                             # 커브 효과 등록 (이후 프레임에서 횡방향 힘 적용)
                             self.curve_effects.append({

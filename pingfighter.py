@@ -134197,6 +134197,16 @@ def main(stage_num, new_boss_mode=False):
                     ball_vel[0] = ball_wrapper.vx
                     ball_vel[1] = ball_wrapper.vy
 
+                    # 🌪️ 모래회오리 포획: 실제 BALL 위치/속도/부스트 반영
+                    _vortex_cap = arena_skill_manager.game_state.get('sand_vortex_ball_captured')
+                    if _vortex_cap:
+                        BALL.x = int(_vortex_cap['ball_x'])
+                        BALL.y = int(_vortex_cap['ball_y'])
+                        ball_vel[0] = _vortex_cap['launch_vx']
+                        ball_vel[1] = _vortex_cap['launch_vy']
+                        ball_impact_boost = _vortex_cap['boost']
+                        del arena_skill_manager.game_state['sand_vortex_ball_captured']
+
                     # 👻 호위무사 귀신발걸음 공 충돌 반사 처리 (1회만 튕김)
                     _guard_hit = arena_skill_manager.game_state.get('guard_demon_step_ball_hit')
                     if _guard_hit:
