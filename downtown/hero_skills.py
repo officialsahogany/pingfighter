@@ -9581,8 +9581,8 @@ class BalloonWall(HeroSkill):
                     speed = math.sqrt(ball.vx ** 2 + ball.vy ** 2)
                     speed = max(speed, 5.0)  # 최소 속도 보장
 
-                    ball.vx = math.cos(angle) * speed * 1.05
-                    ball.vy = math.sin(angle) * speed * 1.05
+                    ball.vx = math.cos(angle) * speed * 1.70
+                    ball.vy = math.sin(angle) * speed * 1.70
 
                     # 풍선 터짐
                     balloon['alive'] = False
