@@ -9883,12 +9883,14 @@ class SandVortex(HeroSkill):
     PULL_RADIUS = 140      # 끌어당김 범위
     CAPTURE_RADIUS = 36    # 완전 포획 범위
     VORTEX_SPEED = 180     # 이동 속도
-    LAUNCH_SPEED = 325     # 포획 후 발사 속도 (기존 650 → 50% 감소)
+    LAUNCH_SPEED_MULT = 1.1  # 포획 후 발사 속도 = 공 현재 속도 × 배율
+    LAUNCH_SPEED_MIN = 6     # 최소 발사 속도 (px/frame)
+    LAUNCH_SPEED_MAX = 14    # 최대 발사 속도 (px/frame)
     WOBBLE_AMPLITUDE = 80  # 지그재그 좌우 진폭
     VORTEX_LIFETIME = 4.0  # 소용돌이 수명 (초)
     FADE_DURATION = 1.2    # 소멸 페이드 시간 (초)
     CURVE_DURATION = 1.5   # 커브 효과 지속시간 (초)
-    CURVE_STRENGTH = 280   # 커브 횡방향 힘
+    CURVE_STRENGTH = 4.0   # 커브 횡방향 힘 (px/frame, 기존 280→4)
 
     def __init__(self):
         super().__init__(
@@ -10089,14 +10091,22 @@ class SandVortex(HeroSkill):
                             vortex['has_captured'] = True
                             vortex['capture_cooldown'] = 2.0  # 2초 재포획 방지
 
+                            # 공 현재 속도 측정 → 상대 속도 기반 발사
+                            cur_vx = getattr(ball, 'vx', 0) or getattr(ball, 'speed_x', 0)
+                            cur_vy = getattr(ball, 'vy', 0) or getattr(ball, 'speed_y', 0)
+                            cur_speed = math.sqrt(cur_vx ** 2 + cur_vy ** 2)
+                            launch_speed = max(self.LAUNCH_SPEED_MIN,
+                                             min(self.LAUNCH_SPEED_MAX,
+                                                 cur_speed * self.LAUNCH_SPEED_MULT))
+
                             # 상대 방향으로 커브 발사
                             if self.caster_is_bottom:
                                 launch_angle = -math.pi / 2 + random.uniform(-0.25, 0.25)
                             else:
                                 launch_angle = math.pi / 2 + random.uniform(-0.25, 0.25)
 
-                            launch_vx = math.cos(launch_angle) * self.LAUNCH_SPEED
-                            launch_vy = math.sin(launch_angle) * self.LAUNCH_SPEED
+                            launch_vx = math.cos(launch_angle) * launch_speed
+                            launch_vy = math.sin(launch_angle) * launch_speed
 
                             # 커브 방향: 소용돌이의 현재 X 움직임 방향으로 휘어짐
                             curve_dir = 1 if (vortex['base_vx'] + vortex['drift_vx']) >= 0 else -1
