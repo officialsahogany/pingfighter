@@ -9105,7 +9105,9 @@ class BombSurprise(HeroSkill):
 
     GAME_LEFT = 0
     GAME_RIGHT = 760
-    KNOCKBACK_FORCE = 250   # 넉백 강도 (px)
+    EXPLOSION_RADIUS = 350  # 폭발 범위 (다이너마이트 동일)
+    KNOCKBACK_FORCE = 600   # 넉백 강도 (px/s, 다이너마이트급)
+    STUN_DURATION = 3.0     # 스턴 시간 (다이너마이트 동일)
 
     def __init__(self):
         super().__init__(
@@ -9152,10 +9154,10 @@ class BombSurprise(HeroSkill):
             if os.path.exists(path2):
                 self._tick_sound = pygame.mixer.Sound(path2)
                 self._tick_sound.set_volume(0.15)
-            path3 = os.path.join(project_root, "sounds", "steambarriorbreak.wav")
+            path3 = os.path.join(project_root, "sounds", "grenade.wav")
             if os.path.exists(path3):
                 self._explode_sound = pygame.mixer.Sound(path3)
-                self._explode_sound.set_volume(0.7)
+                self._explode_sound.set_volume(0.8)
         except Exception:
             pass
 
@@ -9268,19 +9270,17 @@ class BombSurprise(HeroSkill):
                 pass
 
     def _explode(self, caster_paddle, target_paddle, ball, game_state):
-        """폭발 처리"""
+        """폭발 처리 (다이너마이트급 범위/넉백/화면흔들림)"""
         self.bomb_active = False
         game_state['bomb_surprise_active'] = False
 
         # 폭발 위치와 피해 대상 결정
         if self.bomb_location == 'ball' and ball:
-            # 공에 붙어있을 때 폭발 → 가까운 패들에 피해
             ball_cy = ball.y + ball.height / 2
             explode_target = 'top' if ball_cy < 375 else 'bottom'
             exp_x = float(ball.x + ball.width / 2)
             exp_y = float(ball.y + ball.height / 2)
         elif self.bomb_location in ('top', 'bottom'):
-            # 패들에 붙어있을 때 폭발 → 해당 패들에 피해
             explode_target = self.bomb_location
             paddle = caster_paddle if (caster_paddle.is_top and explode_target == 'top') or \
                      (not caster_paddle.is_top and explode_target == 'bottom') else target_paddle
@@ -9289,27 +9289,79 @@ class BombSurprise(HeroSkill):
         else:
             return
 
-        # 스턴 적용 (2초)
+        # 스턴 적용 (다이너마이트 동일 3초)
         prefix = 'top_paddle' if explode_target == 'top' else 'bottom_paddle'
         game_state[f'{prefix}_stunned'] = True
         self._stun_applied = True
-        self._stun_timer = 2.0
+        self._stun_timer = self.STUN_DURATION
         self._knockback_target = explode_target
 
-        # 넉백 (좌우 랜덤 방향)
-        self._knockback_dir = random.choice([-1, 1])
+        # 넉백 (폭심지로부터 방사형 방향, 다이너마이트 동일)
+        target_p = caster_paddle if (caster_paddle.is_top and explode_target == 'top') or \
+                   (not caster_paddle.is_top and explode_target == 'bottom') else target_paddle
+        paddle_cx = target_p.x + getattr(target_p, 'width', 80) // 2
+        self._knockback_dir = 1 if paddle_cx >= exp_x else -1
         self._knockback_vel = self.KNOCKBACK_FORCE
         self._knockback_active = True
 
-        # 폭발 이펙트
+        # 화면 흔들림 (다이너마이트 동일)
+        game_state['screen_shake'] = 35
+        game_state['shake_duration'] = 0.67
+
+        # 다이너마이트급 폭발 이펙트 생성
+        particles = []
+        for _ in range(100):
+            angle = random.uniform(0, 2 * math.pi)
+            speed = random.uniform(12, 35)
+            particles.append({
+                'x': exp_x, 'y': exp_y,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed - 5,
+                'size': random.uniform(3, 14),
+                'color_type': random.choice(['fire', 'fire', 'spark', 'ember']),
+                'life': random.randint(15, 30), 'max_life': 30,
+            })
+        sparks = []
+        for _ in range(40):
+            angle = random.uniform(0, 2 * math.pi)
+            speed = random.uniform(25, 50)
+            sparks.append({
+                'x': exp_x, 'y': exp_y,
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed - 8,
+                'life': random.randint(10, 20), 'max_life': 20,
+            })
+        smoke_clouds = []
+        for _ in range(15):
+            angle = random.uniform(0, 2 * math.pi)
+            dist = random.uniform(20, 60)
+            smoke_clouds.append({
+                'x': exp_x + math.cos(angle) * dist,
+                'y': exp_y + math.sin(angle) * dist,
+                'vx': math.cos(angle) * 2,
+                'vy': -random.uniform(1, 3),
+                'size': random.uniform(20, 40),
+                'life': random.randint(20, 36), 'max_life': 36,
+            })
+        secondary_waves = [
+            {'radius': 0, 'speed': 25, 'delay': 0},
+            {'radius': 0, 'speed': 20, 'delay': 3},
+            {'radius': 0, 'speed': 15, 'delay': 6},
+        ]
+
         self.explosion_effects = [{
-            'x': exp_x,
-            'y': exp_y,
-            'time': 0.0,
+            'x': exp_x, 'y': exp_y,
+            'time': 0.0, 'max_time': 0.6,
             'target': explode_target,
+            'shockwave_radius': 0,
+            'particles': particles,
+            'sparks': sparks,
+            'smoke_clouds': smoke_clouds,
+            'secondary_waves': secondary_waves,
+            'kb_dir': self._knockback_dir,
         }]
 
-        # 폭발 사운드
+        # 폭발 사운드 (grenade.wav)
         if self._explode_sound:
             try:
                 self._explode_sound.play()
@@ -9364,12 +9416,56 @@ class BombSurprise(HeroSkill):
 
     def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         super().update(dt, caster_paddle, target_paddle, ball, game_state)
-        # 폭발 이펙트는 is_active와 무관하게 업데이트
+        # 폭발 이펙트 (다이너마이트급 파티클 물리)
         if self.explosion_effects:
             new_exp = []
             for exp in self.explosion_effects:
                 exp['time'] += dt
-                if exp['time'] < 1.2:
+                max_time = exp.get('max_time', 0.6)
+                progress = min(1.0, exp['time'] / max_time)
+
+                # 쇼크웨이브 확장
+                if exp.get('shockwave_radius', 0) < self.EXPLOSION_RADIUS:
+                    exp['shockwave_radius'] = exp.get('shockwave_radius', 0) + 30
+
+                # 2차 쇼크웨이브
+                frames_elapsed = int(exp['time'] * 60)
+                for wave in exp.get('secondary_waves', []):
+                    if frames_elapsed >= wave['delay']:
+                        wave['radius'] += wave['speed']
+
+                # 메인 파티클 물리
+                for p in exp.get('particles', [])[:]:
+                    p['x'] += p['vx']
+                    p['y'] += p['vy']
+                    p['vy'] += 0.4
+                    p['vx'] *= 0.95
+                    p['vy'] *= 0.97
+                    p['life'] -= 1
+                    p['size'] = max(0.5, p['size'] - 0.3)
+                    if p['life'] <= 0:
+                        exp['particles'].remove(p)
+
+                # 스파크 물리
+                for s in exp.get('sparks', [])[:]:
+                    s['x'] += s['vx']
+                    s['y'] += s['vy']
+                    s['vy'] += 0.8
+                    s['vx'] *= 0.92
+                    s['life'] -= 1
+                    if s['life'] <= 0:
+                        exp['sparks'].remove(s)
+
+                # 연기 구름
+                for c in exp.get('smoke_clouds', [])[:]:
+                    c['x'] += c['vx']
+                    c['y'] += c['vy']
+                    c['size'] += 0.8
+                    c['life'] -= 1
+                    if c['life'] <= 0:
+                        exp['smoke_clouds'].remove(c)
+
+                if exp['time'] < max_time:
                     new_exp.append(exp)
             self.explosion_effects = new_exp
 
@@ -9462,66 +9558,99 @@ class BombSurprise(HeroSkill):
                 pygame.draw.circle(screen, (255, 50, 25), (bx, by), ring_r, 2)
 
     def _draw_explosion(self, screen: pygame.Surface, exp: dict):
-        """폭발 이펙트 렌더링 (다이너마이트급)"""
+        """폭발 이펙트 렌더링 (다이너마이트 동일)"""
         ex = int(exp['x'])
         ey = int(exp['y'])
-        progress = exp['time'] / 1.2
-        alpha = int(255 * (1.0 - progress))
+        max_time = exp.get('max_time', 0.6)
+        progress = min(1.0, exp['time'] / max_time)
+        shockwave_radius = int(exp.get('shockwave_radius', 0))
 
-        if alpha <= 5:
-            return
+        # 연기 구름 (배경)
+        for cloud in exp.get('smoke_clouds', []):
+            life_ratio = cloud['life'] / cloud['max_life']
+            size = int(cloud['size'])
+            c_alpha = int(120 * life_ratio)
+            if size > 0 and c_alpha > 0:
+                cs = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                for i in range(3):
+                    r = size - i * size // 3
+                    if r > 0:
+                        gray = 60 + i * 25
+                        a = c_alpha // (i + 1)
+                        pygame.draw.circle(cs, (gray, gray, gray, a), (size, size), r)
+                screen.blit(cs, (int(cloud['x']) - size, int(cloud['y']) - size))
 
-        # 폭발 원 (3겹, 확장)
-        for i in range(3):
-            exp_r = int((35 + i * 25) * (0.2 + progress * 0.8))
-            exp_alpha = int(alpha * (0.7 - i * 0.18))
-            if exp_alpha > 5 and exp_r > 0:
-                exp_surf = pygame.Surface((exp_r * 2, exp_r * 2), pygame.SRCALPHA)
-                colors = [(255, 220, 60), (255, 130, 30), (255, 60, 15)]
-                pygame.draw.circle(exp_surf, (*colors[i], exp_alpha),
-                                 (exp_r, exp_r), exp_r)
-                screen.blit(exp_surf, (ex - exp_r, ey - exp_r),
-                           special_flags=pygame.BLEND_ADD)
+        # 2차 쇼크웨이브 링
+        for wave in exp.get('secondary_waves', []):
+            wr = int(wave['radius'])
+            if 0 < wr < self.EXPLOSION_RADIUS:
+                wa = int(150 * (1 - wr / self.EXPLOSION_RADIUS))
+                if wa > 0:
+                    ws = pygame.Surface((wr * 2 + 10, wr * 2 + 10), pygame.SRCALPHA)
+                    pygame.draw.circle(ws, (255, 180, 80, wa),
+                                     (wr + 5, wr + 5), wr, max(2, 8 - int(wr / 40)))
+                    screen.blit(ws, (ex - wr - 5, ey - wr - 5))
 
-        # 파편/스파크 (많고 넓게)
-        num_sparks = int(16 * (1.0 - progress * 0.4))
-        for i in range(num_sparks):
-            angle = i * math.pi * 2 / num_sparks + progress * 3
-            dist = int(55 * progress + random.randint(-8, 8))
-            sx = ex + int(math.cos(angle) * dist)
-            sy = ey + int(math.sin(angle) * dist)
-            spark_alpha = int(alpha * 0.7)
-            if spark_alpha > 10:
-                spark_color = random.choice([
-                    (255, 210, 80), (255, 160, 50), (255, 100, 25)
-                ])
-                pygame.draw.circle(screen, (*spark_color, spark_alpha),
-                                 (sx, sy), random.randint(2, 5))
+        # 메인 쇼크웨이브 (굵고 화려)
+        if shockwave_radius > 0 and progress < 0.6:
+            wave_alpha = int(220 * (1 - progress / 0.6))
+            wave_width = max(4, int(20 * (1 - progress)))
+            ws = pygame.Surface((shockwave_radius * 2 + 30, shockwave_radius * 2 + 30), pygame.SRCALPHA)
+            center = shockwave_radius + 15
+            pygame.draw.circle(ws, (255, 100, 30, wave_alpha // 3),
+                             (center, center), shockwave_radius + 8, wave_width + 8)
+            pygame.draw.circle(ws, (255, 150, 50, wave_alpha),
+                             (center, center), shockwave_radius, wave_width)
+            inner_r = max(1, shockwave_radius - 30)
+            pygame.draw.circle(ws, (255, 230, 120, wave_alpha),
+                             (center, center), inner_r, max(2, wave_width - 5))
+            screen.blit(ws, (ex - shockwave_radius - 15, ey - shockwave_radius - 15))
 
-        # 연기 (회색, 더 큼)
-        if progress > 0.25:
-            smoke_progress = (progress - 0.25) / 0.75
-            smoke_r = int(60 * smoke_progress)
-            smoke_alpha = int(100 * (1.0 - smoke_progress))
-            if smoke_alpha > 5 and smoke_r > 0:
-                smoke_surf = pygame.Surface((smoke_r * 2, smoke_r * 2), pygame.SRCALPHA)
-                pygame.draw.circle(smoke_surf, (55, 55, 55, smoke_alpha),
-                                 (smoke_r, smoke_r), smoke_r)
-                screen.blit(smoke_surf, (ex - smoke_r, ey - smoke_r))
+        # 중심 플래시 (밝고 빠르게)
+        if progress < 0.25:
+            fp = progress / 0.25
+            fr = int(150 * (1 - fp * 0.7))
+            fa = int(255 * (1 - fp))
+            fs = pygame.Surface((fr * 2 + 30, fr * 2 + 30), pygame.SRCALPHA)
+            fc = fr + 15
+            pygame.draw.circle(fs, (255, 150, 50, fa // 2), (fc, fc), fr)
+            pygame.draw.circle(fs, (255, 220, 100, fa), (fc, fc), int(fr * 0.7))
+            pygame.draw.circle(fs, (255, 255, 240, min(255, fa + 30)), (fc, fc), int(fr * 0.35))
+            screen.blit(fs, (ex - fr - 15, ey - fr - 15))
 
-        # 넉백 방향 화살표 표시 (초반에만)
-        if progress < 0.4:
-            arrow_alpha = int(200 * (1 - progress / 0.4))
-            kb_dir = exp.get('kb_dir', 0)
-            if kb_dir != 0:
-                ax = ex + kb_dir * int(50 * progress)
-                ay = ey
-                arrow_surf = pygame.Surface((20, 20), pygame.SRCALPHA)
-                pygame.draw.polygon(arrow_surf, (255, 100, 30, arrow_alpha),
-                                   [(0 if kb_dir > 0 else 20, 10),
-                                    (20 if kb_dir > 0 else 0, 0),
-                                    (20 if kb_dir > 0 else 0, 20)])
-                screen.blit(arrow_surf, (ax - 10, ay - 10))
+        # 스파크 (빠른 불꽃)
+        for spark in exp.get('sparks', []):
+            life_ratio = spark['life'] / spark['max_life']
+            intensity = 0.7 + 0.3 * math.sin(spark['life'] * 0.8)
+            sr, sg, sb = int(255 * intensity), int(220 * intensity), int(150 * intensity)
+            sa = int(255 * life_ratio)
+            if sa > 0:
+                sx, sy = int(spark['x']), int(spark['y'])
+                ss = pygame.Surface((10, 10), pygame.SRCALPHA)
+                pygame.draw.circle(ss, (sr, sg, sb, sa), (5, 5), 2)
+                screen.blit(ss, (sx - 5, sy - 5))
+
+        # 메인 파티클 (불꽃)
+        for p in exp.get('particles', []):
+            life_ratio = p['life'] / p.get('max_life', 30)
+            size = max(1, int(p['size']))
+            ct = p['color_type']
+            if ct == 'fire':
+                pr, pg, pb = 255, int(120 + 100 * life_ratio), int(30 * life_ratio)
+            elif ct == 'spark':
+                pr, pg, pb = 255, int(230 + 25 * life_ratio), int(180 + 75 * life_ratio)
+            elif ct == 'ember':
+                pr, pg, pb = int(200 + 55 * life_ratio), int(60 + 60 * life_ratio), int(20 * life_ratio)
+            else:
+                pr, pg, pb = 255, int(150 * life_ratio), int(50 * life_ratio)
+            pa = int(255 * life_ratio * life_ratio)
+            if size > 0 and pa > 0:
+                ps = pygame.Surface((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
+                pc = size + 2
+                if size > 2:
+                    pygame.draw.circle(ps, (pr, pg // 2, pb // 2, pa // 3), (pc, pc), size + 2)
+                pygame.draw.circle(ps, (pr, pg, pb, pa), (pc, pc), size)
+                screen.blit(ps, (int(p['x']) - size - 2, int(p['y']) - size - 2))
 
 
 # ============================================================================
