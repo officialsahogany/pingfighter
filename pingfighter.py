@@ -83180,14 +83180,6 @@ def draw_player_gauge():
         token_states = [True] * rolling_charges + [False] * (max_tokens - rolling_charges)
         last_max_dash_tokens = max_tokens
 
-        # 디버그 로그 (1초마다 출력)
-        _arena_dbg_tick = pygame.time.get_ticks()
-        if not hasattr(update_arena_bottom_hero_dash, '_last_dbg') or _arena_dbg_tick - update_arena_bottom_hero_dash._last_dbg > 1000:
-            update_arena_bottom_hero_dash._last_dbg = _arena_dbg_tick
-            print(f"[ARENA DASH TOKEN] charges={arena_bottom_dash_charges}/{max_tokens} "
-                  f"charge_timer={arena_bottom_dash_charge_timer}/{ARENA_DASH_CHARGE_TIME} "
-                  f"cooldown={arena_bottom_dash_cooldown} stun={arena_bottom_dash_stun_timer} "
-                  f"dashing={arena_bottom_dashing}", flush=True)
 
         # 충전 중인 토큰 상태 설정
         # 쿨다운 중에도 구슬에는 쿨다운+충전 합산 진행률을 표시
