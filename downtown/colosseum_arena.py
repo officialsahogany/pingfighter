@@ -277,6 +277,45 @@ EGYPT_THEME = {
 ET = EGYPT_THEME  # 짧은 별칭
 
 # ============================================================================
+# 투기장 난이도 설정
+# ============================================================================
+ARENA_DIFFICULTIES = [
+    {
+        "key": "normal",
+        "name": "일반",
+        "description": "표준 투기장 규칙\n5점 선취",
+        "entry_fee": 500,
+        "prize_multiplier": 1.0,
+        "ai_bonus_perks": 0,
+        "win_score": 5,
+        "color": (100, 200, 120),
+        "border_color": (60, 160, 80),
+    },
+    {
+        "key": "hard",
+        "name": "격전",
+        "description": "AI 퍽 추가 강화\n보상 1.8배",
+        "entry_fee": 1000,
+        "prize_multiplier": 1.8,
+        "ai_bonus_perks": 1,
+        "win_score": 5,
+        "color": (255, 200, 60),
+        "border_color": (200, 150, 30),
+    },
+    {
+        "key": "hell",
+        "name": "지옥",
+        "description": "AI 대폭 강화\n보상 3배 | 7점 선취",
+        "entry_fee": 2000,
+        "prize_multiplier": 3.0,
+        "ai_bonus_perks": 2,
+        "win_score": 7,
+        "color": (220, 60, 60),
+        "border_color": (170, 30, 30),
+    },
+]
+
+# ============================================================================
 # 영웅 데이터
 # ============================================================================
 class HeroStyle(Enum):
@@ -284,6 +323,33 @@ class HeroStyle(Enum):
     DEFENSIVE = "defensive"    # 수비적 - 안정적 수비, 느린 공격
     BALANCED = "balanced"      # 균형형 - 평균적인 능력치
     TRICKY = "tricky"          # 트릭형 - 예측 불가, 변칙 플레이
+
+# ============================================================================
+# 영웅 상성 시스템 (순환 상성: AGGRESSIVE > TRICKY > BALANCED > DEFENSIVE > AGGRESSIVE)
+# ============================================================================
+STYLE_MATCHUP_BONUS = 0.08  # 상성 보정값 (±8%)
+STYLE_ADVANTAGE = {
+    HeroStyle.AGGRESSIVE: HeroStyle.TRICKY,     # 공격 → 트릭: 공격 유리
+    HeroStyle.TRICKY: HeroStyle.BALANCED,        # 트릭 → 균형: 트릭 유리
+    HeroStyle.BALANCED: HeroStyle.DEFENSIVE,     # 균형 → 수비: 균형 유리
+    HeroStyle.DEFENSIVE: HeroStyle.AGGRESSIVE,   # 수비 → 공격: 수비 유리
+}
+STYLE_KOREAN_NAMES = {
+    HeroStyle.AGGRESSIVE: "공격형",
+    HeroStyle.DEFENSIVE: "수비형",
+    HeroStyle.BALANCED: "균형형",
+    HeroStyle.TRICKY: "트릭형",
+}
+
+def get_style_matchup(style_a: 'HeroStyle', style_b: 'HeroStyle') -> float:
+    """상성 보정값 반환. +bonus(유리), -bonus(불리), 0(중립/동일)"""
+    if style_a == style_b:
+        return 0.0
+    if STYLE_ADVANTAGE.get(style_a) == style_b:
+        return STYLE_MATCHUP_BONUS
+    elif STYLE_ADVANTAGE.get(style_b) == style_a:
+        return -STYLE_MATCHUP_BONUS
+    return 0.0
 
 # 상단 패들 영웅 (hero1 - 화면 위쪽)
 TOP_HEROES = [
@@ -460,6 +526,7 @@ PRISON_HEROES = [
 # 토너먼트 상태
 # ============================================================================
 class TournamentState(Enum):
+    DIFFICULTY_SELECT = "difficulty_select"  # 난이도 선택
     BRACKET_VIEW = "bracket_view"      # 대진표 보기
     SELECT_MATCH = "select_match"      # 경기 선택
     BETTING = "betting"                # 배팅
@@ -4367,8 +4434,15 @@ class ColosseumsArena:
         self._text_cache: Dict[tuple, tuple] = {}  # (font_key, text, color) → (surf, rect)
 
         # 토너먼트 상태
-        self.state = TournamentState.BRACKET_VIEW
+        self.state = TournamentState.DIFFICULTY_SELECT
         self.current_round = TournamentRound.QUARTER_FINAL
+
+        # 난이도 설정 (난이도 선택 후 업데이트됨)
+        self.difficulty = "normal"
+        self.difficulty_multiplier = 1.0
+        self.ai_bonus_perks = 0
+        self.win_score = WIN_SCORE  # 기본값 5
+        self.hover_difficulty_index = -1  # 난이도 카드 호버
 
         # 대진표 생성 - 상단/하단 영웅 그룹 분리 후 랜덤 매칭
         self.top_heroes = random.sample(TOP_HEROES, 4)  # 상단 패들 영웅 4명 랜덤
@@ -4381,7 +4455,7 @@ class ColosseumsArena:
         }
         self._generate_bracket()
 
-        # 상금 시스템 (라운드별 고정 상금, 비누적)
+        # 상금 시스템 (라운드별 누적 상금)
         self.entry_fee = 500                    # 입장료
         self.entry_fee_paid = False             # 입장료 지불 여부
         self.accumulated_prize = 0              # 현재 획득 상금
@@ -4884,6 +4958,23 @@ class ColosseumsArena:
                         tag_surf, _ = self.fonts["small"].render("상단", (100, 255, 100))
                         self.screen.blit(tag_surf, (cx + card_w - tag_surf.get_width() - 10, cy + 8))
 
+    def _select_difficulty(self, diff_index: int):
+        """난이도 선택 적용"""
+        diff = ARENA_DIFFICULTIES[diff_index]
+        self.difficulty = diff["key"]
+        self.entry_fee = diff["entry_fee"]
+        self.difficulty_multiplier = diff["prize_multiplier"]
+        self.ai_bonus_perks = diff["ai_bonus_perks"]
+        self.win_score = diff["win_score"]
+        # 상금 재계산 (기본 상금 × 난이도 배율)
+        base_prizes = {
+            TournamentRound.QUARTER_FINAL: 1000,
+            TournamentRound.SEMI_FINAL: 2000,
+            TournamentRound.FINAL: 3000,
+        }
+        self.round_prizes = {k: int(v * self.difficulty_multiplier) for k, v in base_prizes.items()}
+        self.state = TournamentState.BRACKET_VIEW
+
     def _generate_bracket(self):
         """8강 대진표 생성 - 모든 영웅 자유 매칭 + 감옥 영웅 배정
 
@@ -4957,7 +5048,7 @@ class ColosseumsArena:
             # AI 4강 진출자에게 랜덤 퍽 1개씩 부여 (배팅 영웅 제외)
             for w in winners:
                 if w and (not self.bet_hero or w["id"] != self.bet_hero["id"]):
-                    self._assign_ai_perks(w, 1)
+                    self._assign_ai_perks(w, 1 + self.ai_bonus_perks)
             self.current_round = TournamentRound.SEMI_FINAL
         elif self.current_round == TournamentRound.SEMI_FINAL:
             # 4강 → 결승
@@ -4985,7 +5076,7 @@ class ColosseumsArena:
             # AI 결승 진출자에게 추가 랜덤 퍽 1개 부여 (배팅 영웅 제외)
             for w in winners:
                 if w and (not self.bet_hero or w["id"] != self.bet_hero["id"]):
-                    self._assign_ai_perks(w, 1)
+                    self._assign_ai_perks(w, 1 + self.ai_bonus_perks)
             self.current_round = TournamentRound.FINAL
 
     def _init_guard_warriors_for_battle(self, match: Match):
@@ -5244,12 +5335,13 @@ class ColosseumsArena:
         h1_score = h1_power + random.uniform(-0.8, 0.8)
         h2_score = h2_power + random.uniform(-0.8, 0.8)
 
+        ws = self.win_score
         if h1_score >= h2_score:
             winner = h1
-            score1, score2 = 5, random.randint(1, 4)
+            score1, score2 = ws, random.randint(1, ws - 1)
         else:
             winner = h2
-            score1, score2 = random.randint(1, 4), 5
+            score1, score2 = random.randint(1, ws - 1), ws
 
         match.set_result(winner, score1, score2)
 
@@ -5342,10 +5434,10 @@ class ColosseumsArena:
             elif result:
                 winner = bottom_hero  # 하단 승리 = 배팅한 영웅 승리
                 self.score_top = 0
-                self.score_bottom = 5
+                self.score_bottom = self.win_score
             else:
                 winner = top_hero  # 상단 승리 = 배팅한 영웅 패배
-                self.score_top = 5
+                self.score_top = self.win_score
                 self.score_bottom = 0
 
             print(f"[DEBUG 집념] battle_callback 결과: result={result}, winner={winner.get('name','?')}")
@@ -5358,8 +5450,8 @@ class ColosseumsArena:
             traceback.print_exc()
             # 에러 시 랜덤 승자 결정
             winner = random.choice([match.hero1, match.hero2])
-            self.score_top = 5 if winner == match.hero1 else 0
-            self.score_bottom = 5 if winner == match.hero2 else 0
+            self.score_top = self.win_score if winner == match.hero1 else 0
+            self.score_bottom = self.win_score if winner == match.hero2 else 0
             self._end_battle(winner)
 
     def update_battle(self, dt: float = 1/60) -> bool:
@@ -5754,10 +5846,10 @@ class ColosseumsArena:
                 return True
         # 일반 상황: 5점 선취
         else:
-            if s1 >= WIN_SCORE:
+            if s1 >= self.win_score:
                 self._end_battle(self.selected_match.hero1)
                 return True
-            if s2 >= WIN_SCORE:
+            if s2 >= self.win_score:
                 self._end_battle(self.selected_match.hero2)
                 return True
 
@@ -5815,15 +5907,15 @@ class ColosseumsArena:
 
         self.selected_match.set_result(winner, self.score_top, self.score_bottom)
 
-        # 상금 시스템 - 승패 결과 처리
+        # 상금 시스템 - 승패 결과 처리 (누적식)
         if self.bet_hero:
             if winner == self.bet_hero:
-                # 승리 - 해당 라운드 상금 획득 (비누적, 교체)
+                # 승리 - 해당 라운드 상금을 누적
                 round_prize = self.round_prizes.get(self.current_round, 0)
-                self.accumulated_prize = round_prize
-                self.total_winnings = round_prize
+                self.accumulated_prize += round_prize
+                self.total_winnings = self.accumulated_prize
             else:
-                # 패배 - 입장료만 잃음
+                # 패배 - 누적 상금 몰수, 입장료만 잃음
                 self.accumulated_prize = 0
                 self.total_winnings = -self.entry_fee
 
@@ -5850,18 +5942,21 @@ class ColosseumsArena:
                 guard_count_2 = len(self.guard_warrior_map.get(match.hero2["id"], []))
                 bonus_1 = guard_count_1 * 0.05  # 호위무사 1명당 5% 보정
                 bonus_2 = guard_count_2 * 0.05
-                prob_1 = 0.5 + bonus_1 - bonus_2
+                # 상성 보너스 (hero1 기준)
+                style_bonus = get_style_matchup(match.hero1["style"], match.hero2["style"])
+                prob_1 = 0.5 + bonus_1 - bonus_2 + style_bonus
                 prob_1 = max(0.2, min(0.8, prob_1))  # 20%~80% 제한
 
                 # 보정된 확률로 승자 결정
                 winner = match.hero1 if random.random() < prob_1 else match.hero2
-                # 랜덤 스코어 (승자가 5점, 패자는 0~4점)
+                # 랜덤 스코어 (승자가 win_score점, 패자는 0~(win_score-1)점)
+                ws = self.win_score
                 if winner == match.hero1:
-                    score1 = 5
-                    score2 = random.randint(0, 4)
+                    score1 = ws
+                    score2 = random.randint(0, ws - 1)
                 else:
-                    score1 = random.randint(0, 4)
-                    score2 = 5
+                    score1 = random.randint(0, ws - 1)
+                    score2 = ws
                 match.set_result(winner, score1, score2)
                 guard_info = f" (호위무사: {guard_count_1} vs {guard_count_2})" if guard_count_1 or guard_count_2 else ""
 
@@ -6162,8 +6257,8 @@ class ColosseumsArena:
                     self.perk_anim_phase = "active"
             elif self.perk_anim_phase == "selected":
                 if self.perk_frame_count > 25:
-                    # 퍽 선택 완료 → 대진표 애니메이션
-                    self._start_bracket_animation()
+                    # 퍽 선택 완료 → 라운드 종료 (계속/수령 선택)
+                    self.state = TournamentState.ROUND_END
 
         elif self.state == TournamentState.TENACITY_RETRY:
             # 집념 퍽 재시작 연출 (2초 대기 후 재시작)
@@ -6205,6 +6300,8 @@ class ColosseumsArena:
                     return False  # 배틀 중에는 나갈 수 없음
                 if self.state == TournamentState.PERK_SELECT:
                     return False  # 퍽 선택 중에는 나갈 수 없음
+                if self.state == TournamentState.ROUND_END:
+                    return False  # 라운드 종료 선택 중에는 나갈 수 없음
                 if self.state == TournamentState.GUARD_SELECT:
                     return False  # 호위무사 선택 중에는 나갈 수 없음
                 if self.state in (TournamentState.MATCH_REVEAL, TournamentState.HERO_SELECT,
@@ -6586,7 +6683,7 @@ class ColosseumsArena:
                     _load_button_click_sound()
                     if _button_click_sound:
                         _button_click_sound.play()
-                    prize = self.round_prizes.get(TournamentRound.FINAL, 3000)
+                    prize = self.accumulated_prize  # 누적 상금 전체 수령
                     self.total_winnings = prize
                     self.winnings_collected = True
                     self.exit_requested = True
@@ -6603,6 +6700,46 @@ class ColosseumsArena:
                     self.winnings_collected = True
                     self.exit_requested = True
                     return
+
+        elif self.state == TournamentState.DIFFICULTY_SELECT:
+            # 난이도 카드 클릭
+            num = len(ARENA_DIFFICULTIES)
+            card_w, card_h = 200, 320
+            total_w = num * card_w + (num - 1) * 20
+            start_x = (SCREEN_WIDTH - total_w) // 2
+            card_y = 195
+            for i, diff in enumerate(ARENA_DIFFICULTIES):
+                cx = start_x + i * (card_w + 20)
+                card_rect = pygame.Rect(cx, card_y, card_w, card_h)
+                if card_rect.collidepoint(mx, my):
+                    if self.player_gold >= diff["entry_fee"]:
+                        _load_button_click_sound()
+                        if _button_click_sound:
+                            _button_click_sound.play()
+                        self._select_difficulty(i)
+                        return
+
+        elif self.state == TournamentState.ROUND_END:
+            # 라운드 종료 - 계속/수령 선택
+            panel_x, panel_y = 150, 180
+            continue_rect = pygame.Rect(panel_x + 40, panel_y + 220, 180, 50)
+            exit_rect = pygame.Rect(panel_x + 240, panel_y + 220, 180, 50)
+            if continue_rect.collidepoint(mx, my):
+                # 계속 도전 → 대진표 애니메이션
+                _load_button_click_sound()
+                if _button_click_sound:
+                    _button_click_sound.play()
+                self._start_bracket_animation()
+                return
+            elif exit_rect.collidepoint(mx, my):
+                # 상금 수령 후 퇴장
+                _load_button_click_sound()
+                if _button_click_sound:
+                    _button_click_sound.play()
+                self.total_winnings = self.accumulated_prize
+                self.winnings_collected = True
+                self.exit_requested = True
+                return
 
         elif self.state == TournamentState.TOURNAMENT_END:
             # 토너먼트 종료 UI 클릭 처리 (그리기 좌표와 동일하게)
@@ -6820,6 +6957,21 @@ class ColosseumsArena:
                     self.hover_btn_id = "recruit"
                     if old_btn != "recruit":
                         self._spawn_hover_line_particles(hero_rect.x, hero_rect.y, hero_rect.w, hero_rect.h)
+
+        # 난이도 선택 카드 호버
+        elif self.state == TournamentState.DIFFICULTY_SELECT:
+            self.hover_difficulty_index = -1
+            num = len(ARENA_DIFFICULTIES)
+            card_w, card_h = 200, 320
+            total_w = num * card_w + (num - 1) * 20
+            start_x = (SCREEN_WIDTH - total_w) // 2
+            card_y = 195
+            for i, diff in enumerate(ARENA_DIFFICULTIES):
+                cx = start_x + i * (card_w + 20)
+                card_rect = pygame.Rect(cx, card_y, card_w, card_h)
+                if card_rect.collidepoint(mx, my) and self.player_gold >= diff["entry_fee"]:
+                    self.hover_difficulty_index = i
+                    break
 
         # 라운드 종료 (계속/수령) 버튼 호버
         elif self.state == TournamentState.ROUND_END:
@@ -7202,6 +7354,8 @@ class ColosseumsArena:
             self._draw_prison_select()
         elif self.state == TournamentState.TENACITY_RETRY:
             self._draw_tenacity_retry()
+        elif self.state == TournamentState.DIFFICULTY_SELECT:
+            self._draw_difficulty_select()
         else:
             self._draw_bracket()
 
@@ -9403,6 +9557,153 @@ class ColosseumsArena:
                 surf, _ = self.fonts["small"].render("클릭하여 계속", ET["text_hint"])
                 self.screen.blit(surf, (cx - surf.get_width() // 2, panel_y + 210))
 
+    def _draw_difficulty_select(self):
+        """난이도 선택 UI"""
+        self.screen.fill(ET["bg_dark"])
+        self._draw_papyrus_bg()
+
+        # 타이틀
+        if self.fonts and "large" in self.fonts:
+            pulse = abs(_sin(self.animation_timer * 3)) * 0.3 + 0.7
+            gold_color = (int(ET["gold_bright"][0] * pulse), int(ET["gold_bright"][1] * pulse), int(ET["gold_bright"][2] * pulse))
+            surf, _ = self.fonts["large"].render("난이도 선택", gold_color)
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 80))
+            # 검 아이콘
+            icon_y = 80 + surf.get_height() // 2
+            title_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
+            self._draw_sword_icon(title_x - 16, icon_y, 14, gold_color)
+            self._draw_sword_icon(title_x + surf.get_width() + 16, icon_y, 14, gold_color)
+
+        # 부제목
+        if self.fonts and "medium" in self.fonts:
+            sub = "도전할 난이도를 선택하세요"
+            surf, _ = self.fonts["medium"].render(sub, ET["text_body"])
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 125))
+
+        # 보유 골드 표시
+        if self.fonts and "small" in self.fonts:
+            gold_text = f"보유 골드: {self.player_gold}G"
+            surf, _ = self.fonts["small"].render(gold_text, ET["gold_pale"])
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 155))
+
+        # 3개 난이도 카드
+        num = len(ARENA_DIFFICULTIES)
+        card_w, card_h = 200, 320
+        total_w = num * card_w + (num - 1) * 20
+        start_x = (SCREEN_WIDTH - total_w) // 2
+        card_y = 195
+
+        for i, diff in enumerate(ARENA_DIFFICULTIES):
+            cx = start_x + i * (card_w + 20)
+            is_hovered = (self.hover_difficulty_index == i)
+            can_afford = self.player_gold >= diff["entry_fee"]
+
+            # 카드 배경
+            bg_color = diff["color"] if can_afford else (80, 80, 80)
+            border_color = diff["border_color"] if can_afford else (60, 60, 60)
+            if is_hovered and can_afford:
+                # 호버 글로우
+                glow_surf = _get_arena_surface(card_w + 16, card_h + 16)
+                glow_surf.fill((0, 0, 0, 0))
+                pygame.draw.rect(glow_surf, (*diff["color"], 60), (0, 0, card_w + 16, card_h + 16), border_radius=12)
+                self.screen.blit(glow_surf, (cx - 8, card_y - 8))
+
+            # 카드 본체
+            card_surf = _get_arena_surface(card_w, card_h)
+            card_surf.fill((0, 0, 0, 0))
+            # 배경 (반투명)
+            inner_alpha = 200 if is_hovered else 160
+            pygame.draw.rect(card_surf, (*ET["panel_bg"], inner_alpha), (0, 0, card_w, card_h), border_radius=8)
+            # 상단 색상 바
+            bar_h = 60
+            bar_color = (*bg_color, 220 if can_afford else 100)
+            pygame.draw.rect(card_surf, bar_color, (0, 0, card_w, bar_h), border_radius=8)
+            pygame.draw.rect(card_surf, (0, 0, 0, 0), (0, bar_h - 8, card_w, 8))  # 하단 둥글기 제거
+            # 테두리
+            border_alpha = 255 if is_hovered else 150
+            pygame.draw.rect(card_surf, (*border_color, border_alpha), (0, 0, card_w, card_h), 2, border_radius=8)
+            self.screen.blit(card_surf, (cx, card_y))
+
+            # 난이도 이름 (큰 글씨)
+            if self.fonts and "large" in self.fonts:
+                name_color = (255, 255, 255) if can_afford else (120, 120, 120)
+                surf, _ = self.fonts["large"].render(diff["name"], name_color)
+                self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 12))
+
+            # 설명
+            if self.fonts and "small" in self.fonts:
+                desc_lines = diff["description"].split("\n")
+                desc_color = ET["text_body"] if can_afford else (100, 100, 100)
+                for j, line in enumerate(desc_lines):
+                    surf, _ = self.fonts["small"].render(line, desc_color)
+                    self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 75 + j * 20))
+
+            # 구분선
+            line_y = card_y + 130
+            pygame.draw.line(self.screen, (*ET["bracket_line"], 100), (cx + 15, line_y), (cx + card_w - 15, line_y))
+
+            # 입장료
+            if self.fonts and "medium" in self.fonts:
+                fee_color = ET["gold_bright"] if can_afford else (120, 80, 80)
+                fee_text = f"입장료: {diff['entry_fee']}G"
+                surf, _ = self.fonts["medium"].render(fee_text, fee_color)
+                self._draw_coin_icon(cx + card_w // 2 - surf.get_width() // 2 - 14, card_y + 148, 10)
+                self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 142))
+
+            # 보상 배율
+            if self.fonts and "small" in self.fonts:
+                mult_color = ET["malachite_light"] if can_afford else (80, 80, 80)
+                mult_text = f"보상 {diff['prize_multiplier']:.1f}배"
+                surf, _ = self.fonts["small"].render(mult_text, mult_color)
+                self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 175))
+
+            # 승점
+            if self.fonts and "small" in self.fonts:
+                ws_color = ET["lapis_light"] if can_afford else (80, 80, 80)
+                ws_text = f"{diff['win_score']}점 선취"
+                surf, _ = self.fonts["small"].render(ws_text, ws_color)
+                self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 197))
+
+            # AI 강화 정보
+            if diff["ai_bonus_perks"] > 0 and self.fonts and "small" in self.fonts:
+                ai_color = ET["carnelian_light"] if can_afford else (80, 80, 80)
+                ai_text = f"AI 퍽 +{diff['ai_bonus_perks']}"
+                surf, _ = self.fonts["small"].render(ai_text, ai_color)
+                self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + 219))
+
+            # 상금 미리보기
+            if self.fonts and "small" in self.fonts:
+                preview_y = card_y + 250
+                prizes_text = "상금:"
+                surf, _ = self.fonts["small"].render(prizes_text, ET["text_hint"])
+                self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, preview_y))
+                prize_details = (
+                    f"8강 {int(1000 * diff['prize_multiplier'])}G  "
+                    f"4강 {int(2000 * diff['prize_multiplier'])}G  "
+                    f"결승 {int(3000 * diff['prize_multiplier'])}G"
+                )
+                detail_color = ET["text_hint"] if can_afford else (70, 70, 70)
+                # 상금은 좁으니 2줄로
+                p1 = f"8강 {int(1000 * diff['prize_multiplier'])}G | 4강 {int(2000 * diff['prize_multiplier'])}G"
+                p2 = f"결승 {int(3000 * diff['prize_multiplier'])}G"
+                s1, _ = self.fonts["small"].render(p1, detail_color)
+                self.screen.blit(s1, (cx + card_w // 2 - s1.get_width() // 2, preview_y + 18))
+                s2, _ = self.fonts["small"].render(p2, detail_color)
+                self.screen.blit(s2, (cx + card_w // 2 - s2.get_width() // 2, preview_y + 36))
+
+            # 골드 부족 표시
+            if not can_afford and self.fonts and "small" in self.fonts:
+                lack_text = "골드 부족"
+                surf, _ = self.fonts["small"].render(lack_text, (200, 60, 60))
+                self.screen.blit(surf, (cx + card_w // 2 - surf.get_width() // 2, card_y + card_h - 25))
+
+        # 하단 ESC 힌트
+        if self.fonts and "small" in self.fonts:
+            hint = "ESC: 투기장 나가기"
+            alpha = int(abs(_sin(self.animation_timer * 2)) * 100 + 100)
+            surf, _ = self.fonts["small"].render(hint, (alpha, int(alpha * 0.9), int(alpha * 0.7)))
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 700))
+
     def _draw_round_end_ui(self):
         """라운드 종료 UI - 누적 상금 시스템"""
         # 반투명 오버레이
@@ -9432,9 +9733,13 @@ class ColosseumsArena:
             surf, _ = self.fonts["large"].render(acc_text, ET["malachite_light"])
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 75))
 
-        # 다음 라운드 보상 정보
+        # 다음 라운드 보상 정보 (현재 라운드의 다음 라운드 상금)
         if self.fonts and "medium" in self.fonts:
-            next_prize = self.round_prizes.get(self.current_round, 0)
+            if self.current_round == TournamentRound.QUARTER_FINAL:
+                next_round = TournamentRound.SEMI_FINAL
+            else:
+                next_round = TournamentRound.FINAL
+            next_prize = self.round_prizes.get(next_round, 0)
             next_text = f"다음 라운드 보상: +{next_prize}G"
             surf, _ = self.fonts["medium"].render(next_text, ET["lapis_light"])
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, panel_y + 120))
@@ -9760,7 +10065,7 @@ class ColosseumsArena:
             pygame.draw.rect(gold_surf, gold_border, (0, 0, btn_w, btn_h), 2, border_radius=6)
             self.screen.blit(gold_surf, gold_rect.topleft)
             if "medium" in self.fonts:
-                prize = self.round_prizes.get(TournamentRound.FINAL, 3000)
+                prize = self.accumulated_prize  # 누적 상금 전체 표시
                 surf, _ = self.fonts["medium"].render(f"{prize}G 수령", (255, 255, 255))
                 self._draw_coin_icon(gold_rect.centerx - surf.get_width() // 2 - 14,
                                      gold_rect.centery, 12)
@@ -12539,6 +12844,27 @@ class ColosseumsArena:
                     g_name = g.get("name", "")
                     ns, _ = self.fonts["small"].render(g_name, ET["text_body"])
                     self.screen.blit(ns, (hero2_x - ns.get_width() // 2, guard_y + 28))
+
+        # 상성 표시 (VS 텍스트 아래)
+        matchup_val = get_style_matchup(hero1["style"], hero2["style"])
+        if matchup_val != 0 and self.fonts and "small" in self.fonts:
+            matchup_y = SCREEN_HEIGHT // 2 + 30
+            if matchup_val > 0:
+                # hero1 유리
+                adv_text = f"▶ {hero1['name']} 상성 유리"
+                adv_color = (100, 255, 120)
+            else:
+                # hero2 유리
+                adv_text = f"▶ {hero2['name']} 상성 유리"
+                adv_color = (100, 255, 120)
+            surf, _ = self.fonts["small"].render(adv_text, adv_color)
+            self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, matchup_y))
+            # 상성 관계 설명
+            style1_name = STYLE_KOREAN_NAMES.get(hero1["style"], "?")
+            style2_name = STYLE_KOREAN_NAMES.get(hero2["style"], "?")
+            detail = f"({style1_name} vs {style2_name})"
+            ds, _ = self.fonts["small"].render(detail, ET["text_hint"])
+            self.screen.blit(ds, (SCREEN_WIDTH // 2 - ds.get_width() // 2, matchup_y + 18))
 
         # 하단 힌트 (버튼 모드에서 버튼이 나타나기 전까지만 표시)
         show_buttons = getattr(self, 'vs_preview_show_buttons', False)

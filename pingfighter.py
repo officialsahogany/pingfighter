@@ -97160,7 +97160,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         top_hero: 상단 영웅 정보 (보스 위치)
         bottom_hero: 하단 영웅 정보 (플레이어 위치)
     """
-    global player_ai_enabled, _pillar_ui_enabled
+    global player_ai_enabled, _pillar_ui_enabled, win_goal
     global arena_mode_enabled, arena_speed_multiplier, arena_battle_result, arena_top_hero, arena_bottom_hero, arena_hero_paddle_renderer
     global arena_skill_manager, arena_skill_check_timer
     global arena_top_dashing, arena_top_dash_timer, arena_top_dash_direction
@@ -97357,9 +97357,15 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
             animated_bg_stage30.judgment_cooldown = random.uniform(50.0, 60.0)
             animated_bg_stage30.judgment_phase = animated_bg_stage30.JUDGMENT_IDLE
 
+        # 투기장 난이도별 승점 적용
+        _saved_win_goal = win_goal
+        if _arena_perk_obj and hasattr(_arena_perk_obj, 'win_score'):
+            win_goal = _arena_perk_obj.win_score
+
         result = main(30)  # 스테이지 30 = 투기장
     finally:
         # 투기장 모드 종료 시 초기화
+        win_goal = _saved_win_goal  # 승점 복원
         arena_mode_enabled = False
         arena_top_hero = None
         arena_bottom_hero = None
