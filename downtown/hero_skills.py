@@ -10659,17 +10659,18 @@ class SandVortex(HeroSkill):
     GAME_TOP = 0
     GAME_BOTTOM = 750
 
-    PULL_RADIUS = 140      # 끌어당김 범위
-    CAPTURE_RADIUS = 36    # 완전 포획 범위
+    PULL_RADIUS = 140      # 끌어당김 범위 (기본값, 성장에 따라 증가)
+    CAPTURE_RADIUS = 36    # 완전 포획 범위 (기본값, 성장에 따라 증가)
     VORTEX_SPEED = 180     # 이동 속도
-    LAUNCH_SPEED_MULT = 1.1  # 포획 후 발사 속도 = 공 현재 속도 × 배율
-    LAUNCH_SPEED_MIN = 6     # 최소 발사 속도 (px/frame)
-    LAUNCH_SPEED_MAX = 14    # 최대 발사 속도 (px/frame)
+    LAUNCH_SPEED_MULT = 1.43  # 포획 후 발사 속도 = 공 현재 속도 × 배율 (기존 1.1 → 30% 증가)
+    LAUNCH_SPEED_MIN = 8     # 최소 발사 속도 (px/frame, 기존 6 → 30% 증가)
+    LAUNCH_SPEED_MAX = 18    # 최대 발사 속도 (px/frame, 기존 14 → 30% 증가)
     WOBBLE_AMPLITUDE = 80  # 지그재그 좌우 진폭
     VORTEX_LIFETIME = 4.0  # 소용돌이 수명 (초)
     FADE_DURATION = 1.2    # 소멸 페이드 시간 (초)
-    CURVE_DURATION = 1.5   # 커브 효과 지속시간 (초)
-    CURVE_STRENGTH = 4.0   # 커브 횡방향 힘 (px/frame, 기존 280→4)
+    CURVE_DURATION = 2.0   # 커브 효과 지속시간 (초, 기존 1.5 → 증가)
+    CURVE_STRENGTH = 7.0   # 커브 횡방향 힘 (기존 4.0 → 강화)
+    GROWTH_RATE = 0.20     # 초당 크기/범위 성장률 (20%)
 
     def __init__(self):
         super().__init__(
@@ -10750,7 +10751,9 @@ class SandVortex(HeroSkill):
                 'jitter_x': 0.0,                         # 미세 떨림
                 'rotation': random.uniform(0, 360),
                 'spin_speed': random.uniform(280, 400),
+                'base_size': 44,       # 초기 크기 (성장 기준)
                 'size': 44,
+                'growth_scale': 1.0,   # 현재 성장 배율 (1.0 = 100%)
                 'alpha': 255,
                 'age': 0.0,
                 'dead': False,
@@ -10780,6 +10783,10 @@ class SandVortex(HeroSkill):
             any_alive = True
             vortex['age'] += dt
 
+            # ── 크기 성장: 초당 20%씩 커짐 ──
+            vortex['growth_scale'] = 1.0 + self.GROWTH_RATE * vortex['age']
+            grown_size = vortex['base_size'] * vortex['growth_scale']
+
             # ── 수명 관리: 4초 후 페이드 아웃 ──
             fade_start = self.VORTEX_LIFETIME - self.FADE_DURATION
             if vortex['age'] >= self.VORTEX_LIFETIME:
@@ -10789,9 +10796,12 @@ class SandVortex(HeroSkill):
                 vortex['fading'] = True
                 fade_progress = (vortex['age'] - fade_start) / self.FADE_DURATION
                 vortex['alpha'] = max(0, int(255 * (1 - fade_progress)))
-                # 페이드 중 회전 감속 + 크기 수축
+                # 페이드 중 회전 감속 + 크기 수축 (성장한 크기 기준)
                 vortex['spin_speed'] *= (1 - 0.8 * dt)
-                vortex['size'] = max(8, 44 * (1 - fade_progress * 0.6))
+                vortex['size'] = max(8, grown_size * (1 - fade_progress * 0.6))
+            else:
+                # 페이드 전: 성장한 크기 적용
+                vortex['size'] = grown_size
 
             # 포획 쿨다운 감소
             if vortex['capture_cooldown'] > 0:
@@ -10841,6 +10851,9 @@ class SandVortex(HeroSkill):
                 continue
 
             # ── 공과의 상호작용 (캐스터가 친 공은 무시, 페이드 중/쿨다운 중이면 포획 안함) ──
+            # 성장에 따라 끌어당김/포획 범위도 비례 증가
+            scaled_pull_radius = self.PULL_RADIUS * vortex['growth_scale']
+            scaled_capture_radius = self.CAPTURE_RADIUS * vortex['growth_scale']
             can_capture = not vortex['has_captured'] and not vortex['fading'] and vortex['capture_cooldown'] <= 0
             if ball and can_capture:
                 if not self._is_ball_from_caster(ball):
@@ -10851,9 +10864,9 @@ class SandVortex(HeroSkill):
                     dy = vortex['y'] - ball_y
                     dist = math.sqrt(dx * dx + dy * dy)
 
-                    if dist < self.PULL_RADIUS and dist > 1:
-                        # 끌어당김
-                        pull_factor = (1 - dist / self.PULL_RADIUS) ** 1.5
+                    if dist < scaled_pull_radius and dist > 1:
+                        # 끌어당김 (성장된 범위 기준)
+                        pull_factor = (1 - dist / scaled_pull_radius) ** 1.5
                         pull_strength = pull_factor * 350 * dt
                         nx = dx / dist
                         ny = dy / dist
@@ -10866,7 +10879,7 @@ class SandVortex(HeroSkill):
                             ball.speed_y += ny * pull_strength
 
                         # 포획 → 커브 발사 (소용돌이는 사라지지 않음!)
-                        if dist < self.CAPTURE_RADIUS:
+                        if dist < scaled_capture_radius:
                             vortex['has_captured'] = True
                             vortex['capture_cooldown'] = 2.0  # 2초 재포획 방지
 
@@ -11090,11 +11103,12 @@ class SandVortex(HeroSkill):
 
             screen.blit(vortex_surf, (x - surf_size, y - surf_size))
 
-            # 끌어당김 범위 (매우 연한 원 - 모래색)
-            pull_surf = pygame.Surface((self.PULL_RADIUS * 2, self.PULL_RADIUS * 2), pygame.SRCALPHA)
+            # 끌어당김 범위 (매우 연한 원 - 모래색, 성장에 따라 커짐)
+            scaled_pr = int(self.PULL_RADIUS * vortex.get('growth_scale', 1.0))
+            pull_surf = pygame.Surface((scaled_pr * 2, scaled_pr * 2), pygame.SRCALPHA)
             pygame.draw.circle(pull_surf, (210, 180, 100, 10),
-                             (self.PULL_RADIUS, self.PULL_RADIUS), self.PULL_RADIUS, 1)
-            screen.blit(pull_surf, (x - self.PULL_RADIUS, y - self.PULL_RADIUS))
+                             (scaled_pr, scaled_pr), scaled_pr, 1)
+            screen.blit(pull_surf, (x - scaled_pr, y - scaled_pr))
 
         # 파티클
         for p in self.vortex_particles:
