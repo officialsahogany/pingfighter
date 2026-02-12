@@ -9574,12 +9574,18 @@ class BalloonWall(HeroSkill):
                 dist = math.sqrt((ball_cx - balloon['x']) ** 2 + (ball_cy - balloon['y']) ** 2)
 
                 if dist < balloon['size'] + ball.width / 2:
-                    # 공을 랜덤 방향으로 튕김
-                    angle = math.atan2(ball_cy - balloon['y'], ball_cx - balloon['x'])
-                    # 약간의 랜덤 편향 추가
-                    angle += random.uniform(-0.5, 0.5)
                     speed = math.sqrt(ball.vx ** 2 + ball.vy ** 2)
                     speed = max(speed, 5.0)  # 최소 속도 보장
+
+                    if random.random() < 0.80:
+                        # 80% 확률: 상대 진영 방향으로 반사
+                        # caster가 top이면 상대는 bottom(아래), bottom이면 상대는 top(위)
+                        target_angle = math.pi / 2 if self.caster_is_top else -math.pi / 2
+                        angle = target_angle + random.uniform(-math.pi / 4, math.pi / 4)
+                    else:
+                        # 20% 확률: 기존 랜덤 반사
+                        angle = math.atan2(ball_cy - balloon['y'], ball_cx - balloon['x'])
+                        angle += random.uniform(-0.5, 0.5)
 
                     ball.vx = math.cos(angle) * speed * 1.70
                     ball.vy = math.sin(angle) * speed * 1.70
