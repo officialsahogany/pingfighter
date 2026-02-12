@@ -8585,6 +8585,587 @@ class GhostSummon(HeroSkill):
 
 
 # ============================================================================
+# 네크로 (Necro) - 해골 궁수 스킬
+# ============================================================================
+
+class SkeletonArcher(HeroSkill):
+    """해골 궁수 - 내 진영에 해골 궁수를 소환. 공에 맞으면 죽고, 적을 향해 화살 발사"""
+
+    GAME_LEFT = 80
+    GAME_RIGHT = 680
+    GAME_TOP = 0
+    GAME_BOTTOM = 750
+
+    ARCHER_WIDTH = 30
+    ARCHER_HEIGHT = 50
+    ARCHER_SPEED = 3.0          # 궁수 이동 속도
+    ARROW_SPEED = 12.0          # 화살 속도
+    ARROW_LENGTH = 16           # 화살 길이
+    ARROW_DRAW_TIME = 1.0       # 시위 당기기 애니메이션 시간
+    ARROW_COOLDOWN_MIN = 2.0    # 화살 발사 쿨타임 최소
+    ARROW_COOLDOWN_MAX = 4.0    # 화살 발사 쿨타임 최대
+    EMERGE_DURATION = 0.6       # 등장 애니메이션 시간
+    DEATH_DURATION = 0.5        # 사망 애니메이션 시간
+
+    # 넉백 (쿠로카게 수리검과 동일)
+    KNOCKBACK_VEL = 120
+
+    def __init__(self):
+        super().__init__(
+            skill_id="skeleton_archer",
+            name="Skeleton Archer",
+            korean_name="해골 궁수",
+            description="내 진영에 해골 궁수를 소환한다. 적 영웅을 향해 화살을 쏘며, 공에 맞으면 죽는다.",
+            trigger=SkillTrigger.ON_COOLDOWN,
+            cooldown=30.0,
+            duration=999999.0,  # 사실상 무제한 (공에 맞아야 사라짐)
+            hero_id="necro"
+        )
+        self.archers = []           # 활성 궁수 목록
+        self.dying_archers = []     # 사망 애니메이션 중인 궁수
+        self.arrows = []            # 비행 중인 화살
+        self.arrow_particles = []   # 화살 히트 파티클
+        self.caster_is_top = False
+        self._next_archer_id = 0
+
+    def can_use(self) -> bool:
+        """중복 소환 허용 - is_active 체크 안 함"""
+        return self.current_cooldown <= 0
+
+    def use(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        """스킬 사용 - 중복 소환 허용"""
+        if not self.can_use():
+            return {}
+
+        self.caster_is_top = getattr(caster_paddle, 'is_top', False)
+
+        # 쿨타임 적용 (퍽 멀티플라이어)
+        if self.caster_is_top:
+            skill_cd_mult = game_state.get('perk_skill_cd_mult_top', 1.0)
+        else:
+            skill_cd_mult = game_state.get('perk_skill_cd_mult_bottom', 1.0)
+        self.current_cooldown = self.cooldown * skill_cd_mult
+
+        # 항상 활성 상태 유지 (궁수가 살아있는 동안)
+        self.is_active = True
+        self.active_timer = self.duration
+
+        return self._apply_effect(caster_paddle, target_paddle, ball, game_state)
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        self.caster_is_top = getattr(caster_paddle, 'is_top', False)
+
+        # 궁수 소환 위치: 내 진영 (캐스터 근처)
+        spawn_x = random.randint(self.GAME_LEFT + 40, self.GAME_RIGHT - 40)
+        if self.caster_is_top:
+            patrol_y_min = 60
+            patrol_y_max = 180
+            spawn_y = caster_paddle.y + 30
+        else:
+            patrol_y_min = 570
+            patrol_y_max = 690
+            spawn_y = caster_paddle.y - 30
+
+        archer = {
+            'id': self._next_archer_id,
+            'x': float(spawn_x),
+            'y': float(spawn_y),
+            'target_x': float(spawn_x),
+            'patrol_y_min': patrol_y_min,
+            'patrol_y_max': patrol_y_max,
+            'vx': random.choice([-1, 1]) * self.ARCHER_SPEED,
+            'spawn_time': 0.0,
+            'alive': True,
+            # 화살 관련
+            'arrow_cooldown': random.uniform(self.ARROW_COOLDOWN_MIN, self.ARROW_COOLDOWN_MAX),
+            'is_drawing': False,     # 시위 당기는 중
+            'draw_timer': 0.0,       # 시위 당기기 진행 시간
+            'draw_target_x': 0.0,    # 시위 당기기 시작 시 적 위치 저장
+            'draw_target_y': 0.0,
+            # 애니메이션
+            'body_bob': 0.0,
+            'step_phase': random.uniform(0, math.pi * 2),
+        }
+        self.archers.append(archer)
+        self._next_archer_id += 1
+
+        # 소환 사운드
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            sound_path = os.path.join(project_root, "sounds", "ghostwalk.wav")
+            if os.path.exists(sound_path):
+                s = pygame.mixer.Sound(sound_path)
+                s.set_volume(0.25)
+                s.play()
+        except Exception:
+            pass
+
+        return {
+            'screen_effect': ScreenEffect.FLASH,
+            'flash_color': (160, 180, 120),
+            'flash_duration': 0.1,
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        # --- 궁수 업데이트 ---
+        new_archers = []
+        for archer in self.archers:
+            if not archer['alive']:
+                continue
+
+            archer['spawn_time'] += dt
+
+            # 등장 애니메이션 중에는 이동/공격 안 함
+            if archer['spawn_time'] < self.EMERGE_DURATION:
+                new_archers.append(archer)
+                continue
+
+            # === 공과 충돌 체크 (한 대 맞으면 즉사) ===
+            if ball is not None:
+                ax, ay = archer['x'], archer['y']
+                bx = ball.x + ball.width / 2
+                by = ball.y + ball.height / 2
+                dist = math.sqrt((ax - bx) ** 2 + (ay - by) ** 2)
+                if dist < (self.ARCHER_WIDTH / 2 + ball.width / 2):
+                    # 궁수 사망!
+                    archer['alive'] = False
+                    self.dying_archers.append({
+                        'x': ax, 'y': ay,
+                        'death_time': 0.0,
+                    })
+                    # 사망 사운드
+                    try:
+                        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                        sound_path = os.path.join(project_root, "sounds", "shurikenhit.wav")
+                        if os.path.exists(sound_path):
+                            s = pygame.mixer.Sound(sound_path)
+                            s.set_volume(0.3)
+                            s.play()
+                    except Exception:
+                        pass
+                    continue
+
+            # === 화살 발사 로직 ===
+            if archer['is_drawing']:
+                # 시위 당기는 중 - 제자리 고정
+                archer['draw_timer'] += dt
+                if archer['draw_timer'] >= self.ARROW_DRAW_TIME:
+                    # 발사!
+                    self._fire_arrow(archer, game_state)
+                    archer['is_drawing'] = False
+                    archer['draw_timer'] = 0.0
+                    archer['arrow_cooldown'] = random.uniform(
+                        self.ARROW_COOLDOWN_MIN, self.ARROW_COOLDOWN_MAX
+                    )
+            else:
+                # 쿨타임 감소
+                archer['arrow_cooldown'] -= dt
+                if archer['arrow_cooldown'] <= 0 and target_paddle is not None:
+                    # 시위 당기기 시작 - 현재 적 위치를 저장 (유도 없음)
+                    archer['is_drawing'] = True
+                    archer['draw_timer'] = 0.0
+                    archer['draw_target_x'] = float(target_paddle.x + target_paddle.width / 2)
+                    archer['draw_target_y'] = float(target_paddle.y + target_paddle.height / 2)
+
+                # 이동 (시위 당기는 중에는 이동 안 함)
+                archer['x'] += archer['vx']
+                archer['step_phase'] += dt * 6.0
+                archer['body_bob'] = _sin(archer['step_phase']) * 2.0
+
+                # 좌우 벽 반사
+                if archer['x'] < self.GAME_LEFT + 20:
+                    archer['x'] = self.GAME_LEFT + 20
+                    archer['vx'] = abs(archer['vx'])
+                elif archer['x'] > self.GAME_RIGHT - 20:
+                    archer['x'] = self.GAME_RIGHT - 20
+                    archer['vx'] = -abs(archer['vx'])
+
+                # 가끔 방향 전환
+                if random.random() < 0.005:
+                    archer['vx'] = -archer['vx']
+
+            new_archers.append(archer)
+
+        self.archers = new_archers
+
+        # --- 화살 업데이트 ---
+        new_arrows = []
+        for arrow in self.arrows:
+            arrow['x'] += arrow['vx']
+            arrow['y'] += arrow['vy']
+            arrow['age'] += dt
+
+            # 화면 밖 제거
+            if (arrow['x'] < self.GAME_LEFT - 20 or arrow['x'] > self.GAME_RIGHT + 20 or
+                arrow['y'] < self.GAME_TOP - 20 or arrow['y'] > self.GAME_BOTTOM + 20):
+                continue
+
+            # 수명 초과 (5초)
+            if arrow['age'] > 5.0:
+                continue
+
+            # 적 패들 충돌 체크
+            if target_paddle is not None:
+                paddle_cx = target_paddle.x + target_paddle.width / 2
+                paddle_cy = target_paddle.y + target_paddle.height / 2
+                dist = math.sqrt((arrow['x'] - paddle_cx) ** 2 + (arrow['y'] - paddle_cy) ** 2)
+
+                if dist < (target_paddle.width / 2 + 8):
+                    # 화살 명중! → 넉백 (수리검과 동일)
+                    self._apply_arrow_hit(arrow, target_paddle, game_state)
+                    continue
+
+            new_arrows.append(arrow)
+
+        self.arrows = new_arrows
+
+        # --- 히트 파티클 업데이트 ---
+        new_particles = []
+        for p in self.arrow_particles:
+            p['age'] += dt
+            p['x'] += p['vx'] * dt
+            p['y'] += p['vy'] * dt
+            p['alpha'] = int(200 * max(0, 1.0 - p['age'] / p['life']))
+            if p['age'] < p['life'] and p['alpha'] > 5:
+                new_particles.append(p)
+        self.arrow_particles = new_particles
+
+        # --- 사망 애니메이션 업데이트 ---
+        new_dying = []
+        for dying in self.dying_archers:
+            dying['death_time'] += dt
+            if dying['death_time'] < self.DEATH_DURATION:
+                new_dying.append(dying)
+        self.dying_archers = new_dying
+
+        # 궁수가 전부 죽었고, 화살/파티클도 없으면 스킬 비활성화
+        if not self.archers and not self.arrows and not self.dying_archers and not self.arrow_particles:
+            self.is_active = False
+            self.active_timer = 0.0
+
+    def _fire_arrow(self, archer: dict, game_state: dict):
+        """화살 발사 - 시위 당기기 시작 시 저장한 방향으로 직선 발사 (유도 없음)"""
+        dx = archer['draw_target_x'] - archer['x']
+        dy = archer['draw_target_y'] - archer['y']
+        dist = math.sqrt(dx ** 2 + dy ** 2)
+        if dist < 1.0:
+            return
+
+        # 정규화된 방향
+        nx = dx / dist
+        ny = dy / dist
+
+        arrow = {
+            'x': archer['x'],
+            'y': archer['y'],
+            'vx': nx * self.ARROW_SPEED,
+            'vy': ny * self.ARROW_SPEED,
+            'angle': math.atan2(ny, nx),
+            'age': 0.0,
+            'archer_id': archer['id'],
+        }
+        self.arrows.append(arrow)
+
+        # 발사 사운드
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            sound_path = os.path.join(project_root, "sounds", "shurikenthrow.wav")
+            if os.path.exists(sound_path):
+                s = pygame.mixer.Sound(sound_path)
+                s.set_volume(0.3)
+                s.play()
+        except Exception:
+            pass
+
+    def _apply_arrow_hit(self, arrow: dict, target_paddle, game_state: dict):
+        """화살 명중 시 넉백 적용 (쿠로카게 수리검과 동일)"""
+        # 넉백 방향 (화살 X 속도 방향)
+        if abs(arrow['vx']) < 1:
+            knockback_dir = random.choice([-1, 1])
+        else:
+            knockback_dir = 1 if arrow['vx'] > 0 else -1
+
+        target_is_top = getattr(target_paddle, 'is_top', not self.caster_is_top)
+        target_prefix = 'top_paddle' if target_is_top else 'bottom_paddle'
+        game_state[f'{target_prefix}_knockback'] = True
+        game_state[f'{target_prefix}_knockback_dir'] = knockback_dir
+        game_state[f'{target_prefix}_knockback_vel'] = self.KNOCKBACK_VEL
+
+        # 히트 사운드
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            sound_path = os.path.join(project_root, "sounds", "shurikenhit.wav")
+            if os.path.exists(sound_path):
+                pygame.mixer.Sound(sound_path).play()
+        except Exception:
+            pass
+
+        # 히트 파티클 (뼈 파편 스타일)
+        for _ in range(12):
+            self.arrow_particles.append({
+                'x': arrow['x'],
+                'y': arrow['y'],
+                'vx': random.uniform(-200, 200),
+                'vy': random.uniform(-200, 200),
+                'alpha': 200,
+                'life': random.uniform(0.3, 0.6),
+                'age': 0.0,
+                'size': random.uniform(2, 5),
+                'color': random.choice([
+                    (220, 210, 180),  # 뼈 색
+                    (180, 170, 140),  # 어두운 뼈
+                    (200, 255, 200),  # 독 초록
+                ]),
+            })
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        pass  # 궁수가 다 죽으면 자동 비활성화
+
+    def reset_for_new_round(self, game_state: dict):
+        super().reset_for_new_round(game_state)
+        self.archers = []
+        self.dying_archers = []
+        self.arrows = []
+        self.arrow_particles = []
+
+    def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        """스킬 업데이트 - 쿨타임 + 궁수/화살 동시 관리"""
+        # 쿨타임 감소
+        if self.current_cooldown > 0:
+            self.current_cooldown -= dt
+
+        # 활성 효과 업데이트 (궁수가 존재하는 한)
+        if self.is_active:
+            self._update_active_effect(dt, caster_paddle, target_paddle, ball, game_state)
+            # active_timer는 무시 (_update_active_effect에서 자체 비활성화)
+
+        # dying_archers는 is_active 관계없이 업데이트
+        if self.dying_archers and not self.is_active:
+            new_dying = []
+            for dying in self.dying_archers:
+                dying['death_time'] += dt
+                if dying['death_time'] < self.DEATH_DURATION:
+                    new_dying.append(dying)
+            self.dying_archers = new_dying
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        # --- 활성 궁수 그리기 ---
+        for archer in self.archers:
+            self._draw_archer(screen, archer)
+
+        # --- 사망 궁수 그리기 ---
+        for dying in self.dying_archers:
+            self._draw_dying_archer(screen, dying)
+
+        # --- 화살 그리기 ---
+        for arrow in self.arrows:
+            self._draw_arrow(screen, arrow)
+
+        # --- 히트 파티클 그리기 ---
+        for p in self.arrow_particles:
+            if p['alpha'] > 5:
+                pygame.draw.circle(screen, (*p['color'], int(p['alpha'])),
+                                 (int(p['x']), int(p['y'])), int(p['size']))
+
+    def _draw_archer(self, screen: pygame.Surface, archer: dict):
+        """해골 궁수 렌더링"""
+        x = int(archer['x'])
+        y = int(archer['y'] + archer['body_bob'])
+
+        # 등장 애니메이션 (바닥에서 솟아오름)
+        emerge_progress = min(1.0, archer['spawn_time'] / self.EMERGE_DURATION)
+        if emerge_progress < 1.0:
+            y += int(30 * (1.0 - emerge_progress))
+            alpha = int(220 * emerge_progress)
+        else:
+            alpha = 220
+
+        # 시위 당기는 방향
+        if archer['is_drawing'] or True:
+            facing_right = archer.get('draw_target_x', x + 1) > x
+
+        surf = pygame.Surface((60, 70), pygame.SRCALPHA)
+        cx, cy = 30, 50  # 서피스 내 궁수 중심
+
+        # --- 몸체 (갈비뼈) ---
+        bone_color = (200, 195, 170, alpha)
+        dark_bone = (160, 150, 120, alpha)
+        # 척추
+        pygame.draw.line(surf, bone_color, (cx, cy - 30), (cx, cy + 5), 2)
+        # 갈비뼈 3쌍
+        for i, ry in enumerate([cy - 25, cy - 19, cy - 13]):
+            rib_w = 7 - i
+            pygame.draw.line(surf, dark_bone, (cx - rib_w, ry), (cx + rib_w, ry), 1)
+
+        # --- 두개골 ---
+        skull_y = cy - 35
+        pygame.draw.circle(surf, bone_color, (cx, skull_y), 8)
+        # 눈구멍 (빛나는 초록)
+        eye_color = (100, 255, 130, alpha)
+        pygame.draw.circle(surf, eye_color, (cx - 3, skull_y - 1), 2)
+        pygame.draw.circle(surf, eye_color, (cx + 3, skull_y - 1), 2)
+        # 이빨
+        pygame.draw.line(surf, dark_bone, (cx - 3, skull_y + 5), (cx + 3, skull_y + 5), 1)
+
+        # --- 다리 (뼈) ---
+        pygame.draw.line(surf, bone_color, (cx - 3, cy + 5), (cx - 6, cy + 18), 2)
+        pygame.draw.line(surf, bone_color, (cx + 3, cy + 5), (cx + 6, cy + 18), 2)
+
+        # --- 활과 팔 ---
+        if archer['is_drawing']:
+            draw_progress = min(1.0, archer['draw_timer'] / self.ARROW_DRAW_TIME)
+            bow_color = (140, 100, 60, alpha)
+            string_color = (200, 200, 180, alpha)
+            arrow_color = (220, 210, 180, alpha)
+
+            if facing_right:
+                bow_x = cx + 10
+                arm_end_x = cx + 8
+            else:
+                bow_x = cx - 10
+                arm_end_x = cx - 8
+
+            # 팔 (활 잡는 쪽)
+            pygame.draw.line(surf, bone_color, (cx, cy - 22), (arm_end_x, cy - 18), 2)
+
+            # 활 (곡선)
+            bow_top = cy - 30
+            bow_bottom = cy - 6
+            bow_mid = (bow_top + bow_bottom) // 2
+            if facing_right:
+                pygame.draw.arc(surf, bow_color,
+                              (bow_x - 3, bow_top, 10, bow_bottom - bow_top),
+                              -1.2, 1.2, 2)
+            else:
+                pygame.draw.arc(surf, bow_color,
+                              (bow_x - 7, bow_top, 10, bow_bottom - bow_top),
+                              1.9, 4.3, 2)
+
+            # 시위 (당기는 정도에 따라)
+            pull_back = int(8 * draw_progress)
+            if facing_right:
+                string_pull_x = bow_x - pull_back
+            else:
+                string_pull_x = bow_x + pull_back
+
+            pygame.draw.line(surf, string_color, (bow_x, bow_top + 2), (string_pull_x, bow_mid), 1)
+            pygame.draw.line(surf, string_color, (bow_x, bow_bottom - 2), (string_pull_x, bow_mid), 1)
+
+            # 시위 당기는 팔
+            pygame.draw.line(surf, bone_color, (cx, cy - 20), (string_pull_x, bow_mid), 2)
+
+            # 화살 (시위에 걸림)
+            if draw_progress > 0.2:
+                if facing_right:
+                    pygame.draw.line(surf, arrow_color,
+                                   (string_pull_x - 2, bow_mid),
+                                   (bow_x + 12, bow_mid), 2)
+                    # 화살촉
+                    pygame.draw.polygon(surf, (180, 180, 160, alpha), [
+                        (bow_x + 12, bow_mid),
+                        (bow_x + 9, bow_mid - 3),
+                        (bow_x + 9, bow_mid + 3),
+                    ])
+                else:
+                    pygame.draw.line(surf, arrow_color,
+                                   (string_pull_x + 2, bow_mid),
+                                   (bow_x - 12, bow_mid), 2)
+                    pygame.draw.polygon(surf, (180, 180, 160, alpha), [
+                        (bow_x - 12, bow_mid),
+                        (bow_x - 9, bow_mid - 3),
+                        (bow_x - 9, bow_mid + 3),
+                    ])
+        else:
+            # 대기 포즈 - 활을 옆으로 들고 있음
+            bow_color = (140, 100, 60, alpha)
+            if facing_right:
+                pygame.draw.line(surf, bone_color, (cx, cy - 22), (cx + 6, cy - 16), 2)
+                pygame.draw.line(surf, bow_color, (cx + 8, cy - 28), (cx + 8, cy - 8), 2)
+            else:
+                pygame.draw.line(surf, bone_color, (cx, cy - 22), (cx - 6, cy - 16), 2)
+                pygame.draw.line(surf, bow_color, (cx - 8, cy - 28), (cx - 8, cy - 8), 2)
+            # 왼팔 (자연스러운 내림)
+            pygame.draw.line(surf, bone_color, (cx, cy - 20), (cx - 5 if facing_right else cx + 5, cy - 10), 2)
+
+        # 바닥 그림자
+        shadow_surf = pygame.Surface((24, 6), pygame.SRCALPHA)
+        pygame.draw.ellipse(shadow_surf, (20, 20, 15, int(alpha * 0.3)), (0, 0, 24, 6))
+        screen.blit(shadow_surf, (x - 12, int(archer['y']) + 20))
+
+        # 궁수 블릿
+        screen.blit(surf, (x - 30, y - 50))
+
+        # 초록 소울 파티클 (가끔)
+        if random.random() < 0.1 and emerge_progress >= 1.0:
+            px = x + random.randint(-8, 8)
+            py = y - random.randint(20, 40)
+            pygame.draw.circle(screen, (100, 255, 130, random.randint(60, 120)),
+                             (px, py), random.randint(1, 3))
+
+    def _draw_dying_archer(self, screen: pygame.Surface, dying: dict):
+        """사망 애니메이션 - 뼈가 흩어지며 사라짐"""
+        progress = dying['death_time'] / self.DEATH_DURATION
+        alpha = int(220 * (1.0 - progress))
+        x = int(dying['x'])
+        y = int(dying['y'])
+
+        if alpha <= 10:
+            return
+
+        # 뼈 파편 흩어짐
+        num_bones = 6
+        for i in range(num_bones):
+            angle = (i / num_bones) * math.pi * 2 + progress * 3
+            dist = int(20 * progress)
+            bx = x + int(math.cos(angle) * dist)
+            by = y + int(math.sin(angle) * dist) - int(15 * progress)
+            bone_len = random.randint(3, 8)
+            bone_angle = angle + progress * 5
+            ex = bx + int(math.cos(bone_angle) * bone_len)
+            ey = by + int(math.sin(bone_angle) * bone_len)
+            pygame.draw.line(screen, (200, 195, 170, alpha), (bx, by), (ex, ey), 2)
+
+        # 초록 소울 이탈
+        for _ in range(3):
+            sx = x + random.randint(-10, 10)
+            sy = y - int(30 * progress) + random.randint(-10, 5)
+            pygame.draw.circle(screen, (100, 255, 130, int(alpha * 0.5)),
+                             (sx, sy), random.randint(2, 4))
+
+    def _draw_arrow(self, screen: pygame.Surface, arrow: dict):
+        """화살 렌더링"""
+        x = int(arrow['x'])
+        y = int(arrow['y'])
+        angle = arrow['angle']
+
+        # 화살대
+        tail_x = x - int(math.cos(angle) * self.ARROW_LENGTH)
+        tail_y = y - int(math.sin(angle) * self.ARROW_LENGTH)
+        pygame.draw.line(screen, (200, 195, 170), (tail_x, tail_y), (x, y), 2)
+
+        # 화살촉 (삼각형)
+        head_x = x + int(math.cos(angle) * 4)
+        head_y = y + int(math.sin(angle) * 4)
+        perp_angle = angle + math.pi / 2
+        left_x = x + int(math.cos(perp_angle) * 3)
+        left_y = y + int(math.sin(perp_angle) * 3)
+        right_x = x - int(math.cos(perp_angle) * 3)
+        right_y = y - int(math.sin(perp_angle) * 3)
+        pygame.draw.polygon(screen, (180, 180, 160), [
+            (head_x, head_y), (left_x, left_y), (right_x, right_y)
+        ])
+
+        # 독 잔상 (초록빛 트레일)
+        for i in range(3):
+            t = (i + 1) * 0.3
+            tx = int(arrow['x'] - arrow['vx'] * t)
+            ty = int(arrow['y'] - arrow['vy'] * t)
+            trail_alpha = 80 - i * 25
+            if trail_alpha > 0:
+                pygame.draw.circle(screen, (100, 255, 130, trail_alpha), (tx, ty), 2 - i // 2)
+
+
+# ============================================================================
 # 조커 (Joker) - 광대 스킬
 # ============================================================================
 
@@ -10249,7 +10830,7 @@ HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "gear": [SteamBarrier(), OilSpill()],
     "kurokage": [ShadowClone(), IllusionShuriken()],
     "banshee": [Charm(), DeadPossession()],
-    "necro": [GhostSummon()],
+    "necro": [GhostSummon(), SkeletonArcher()],
     "joker": [BalloonWall(), BombSurprise()],
     "mirage": [SandPrison(), SandVortex()],
     # 감옥 전용 영웅 (기존 스킬 클래스 재활용)
@@ -10269,7 +10850,7 @@ HERO_SKILL_CLASSES: Dict[str, list] = {
     "gear": [SteamBarrier, OilSpill],
     "kurokage": [ShadowClone, IllusionShuriken],
     "banshee": [Charm, DeadPossession],
-    "necro": [GhostSummon],
+    "necro": [GhostSummon, SkeletonArcher],
     "joker": [BalloonWall, BombSurprise],
     "mirage": [SandPrison, SandVortex],
     # 감옥 전용 영웅 (기존 스킬 클래스 재활용)

@@ -54,6 +54,7 @@ def _create_icon(skill_id: str) -> Optional[pygame.Surface]:
         "charm": _icon_charm,
         "dead_possession": _icon_dead_possession,
         "ghost_summon": _icon_ghost_summon,
+        "skeleton_archer": _icon_skeleton_archer,
         "balloon_wall": _icon_balloon_wall,
         "bomb_surprise": _icon_bomb_surprise,
         "sand_prison": _icon_sand_prison,
@@ -580,6 +581,52 @@ def _icon_ghost_summon() -> pygame.Surface:
     # 스파클
     for px, py in [(16, 6), (6, 18), (26, 18)]:
         pygame.draw.circle(s, (180, 255, 230), (px, py), 1)
+
+    return s
+
+
+def _icon_skeleton_archer() -> pygame.Surface:
+    """해골 궁수 - 활을 당기는 해골"""
+    s = pygame.Surface((32, 32), pygame.SRCALPHA)
+    # 배경 원 (어두운 녹색)
+    pygame.draw.circle(s, (20, 35, 25), (16, 16), 15)
+    pygame.draw.circle(s, (60, 90, 60), (16, 16), 15, 1)
+
+    bone = (210, 200, 175)
+    eye_green = (100, 255, 130)
+    bow_brown = (140, 100, 60)
+
+    # 두개골
+    pygame.draw.circle(s, bone, (12, 10), 5)
+    # 눈구멍 (초록빛)
+    pygame.draw.circle(s, eye_green, (10, 9), 1)
+    pygame.draw.circle(s, eye_green, (14, 9), 1)
+
+    # 척추 + 갈비뼈
+    pygame.draw.line(s, bone, (12, 15), (12, 24), 1)
+    for ry in [17, 20]:
+        pygame.draw.line(s, (180, 170, 145), (9, ry), (15, ry), 1)
+
+    # 다리
+    pygame.draw.line(s, bone, (12, 24), (10, 29), 1)
+    pygame.draw.line(s, bone, (12, 24), (14, 29), 1)
+
+    # 활 (오른쪽)
+    pygame.draw.arc(s, bow_brown, (18, 6, 8, 20), -1.2, 1.2, 2)
+
+    # 시위 (당기는 상태)
+    pygame.draw.line(s, (200, 200, 180), (22, 8), (16, 16), 1)
+    pygame.draw.line(s, (200, 200, 180), (22, 24), (16, 16), 1)
+
+    # 화살
+    pygame.draw.line(s, bone, (15, 16), (26, 16), 1)
+    # 화살촉
+    pygame.draw.polygon(s, (180, 180, 160), [(27, 16), (25, 14), (25, 18)])
+
+    # 팔 (활 잡는 쪽)
+    pygame.draw.line(s, bone, (12, 17), (19, 15), 1)
+    # 팔 (시위 당기는 쪽)
+    pygame.draw.line(s, bone, (12, 18), (16, 16), 1)
 
     return s
 
