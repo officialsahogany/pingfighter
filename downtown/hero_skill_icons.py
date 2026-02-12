@@ -630,7 +630,7 @@ def _icon_mirage() -> pygame.Surface:
 # ===== 조커 (joker) 스킬 =====
 
 def _icon_balloon_wall() -> pygame.Surface:
-    """선율의 벽 - 컬러풀한 풍선들"""
+    """익살스런파티 - 컬러풀한 풍선들"""
     s = pygame.Surface((32, 32), pygame.SRCALPHA)
     # 배경 원 (따뜻한 톤)
     pygame.draw.circle(s, (35, 25, 40), (16, 16), 15)

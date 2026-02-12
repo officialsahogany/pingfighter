@@ -8781,7 +8781,7 @@ class Mirage(HeroSkill):
 # ============================================================================
 
 class BalloonWall(HeroSkill):
-    """선율의 벽 - 화면 중앙에 풍선 장벽을 띄워 공의 궤적을 바꾼다"""
+    """익살스런파티 - 화면 중앙에 풍선 장벽을 띄워 공의 궤적을 바꾼다"""
 
     GAME_LEFT = 0
     GAME_RIGHT = 760
@@ -8790,7 +8790,7 @@ class BalloonWall(HeroSkill):
         super().__init__(
             skill_id="balloon_wall",
             name="Balloon Wall",
-            korean_name="선율의 벽",
+            korean_name="익살스런파티",
             description="화면 중앙에 풍선 장벽을 띄워 공의 궤적을 바꾼다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=20.0,
@@ -8907,10 +8907,10 @@ class BalloonWall(HeroSkill):
                         ],
                     })
 
-                    # 펑 사운드
+                    # 펑 사운드 (스테이지1 풍선 터지는 소리)
                     try:
                         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                        sound_path = os.path.join(project_root, "sounds", "steambarriorbreak.wav")
+                        sound_path = os.path.join(project_root, "sounds", "balloonboom.wav")
                         if os.path.exists(sound_path):
                             s = pygame.mixer.Sound(sound_path)
                             s.set_volume(0.35)
@@ -8932,9 +8932,11 @@ class BalloonWall(HeroSkill):
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['has_balloon_wall'] = False
-        # 남은 풍선들 터지는 이펙트
+        # 남은 풍선들 터지는 이펙트 + 사운드
+        alive_count = sum(1 for b in self.balloons if b['alive'])
         for balloon in self.balloons:
             if balloon['alive']:
+                balloon['alive'] = False
                 self.pop_effects.append({
                     'x': balloon['x'],
                     'y': balloon['y'],
@@ -8954,6 +8956,17 @@ class BalloonWall(HeroSkill):
                     ],
                 })
         self.balloons = []
+        # 남은 풍선이 있었으면 터지는 소리 재생 (1회만)
+        if alive_count > 0:
+            try:
+                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                sound_path = os.path.join(project_root, "sounds", "balloonboom.wav")
+                if os.path.exists(sound_path):
+                    s = pygame.mixer.Sound(sound_path)
+                    s.set_volume(0.35)
+                    s.play()
+            except Exception:
+                pass
 
     def reset_for_new_round(self, game_state: dict):
         super().reset_for_new_round(game_state)
