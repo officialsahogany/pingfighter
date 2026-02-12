@@ -8232,7 +8232,7 @@ class GhostSummon(HeroSkill):
                 'id': i,
                 'hit_cooldown': 0.0,  # 연속 충돌 방지
                 'anim_state': {
-                    "last_x": float(start_x),
+                    "last_x": float(self.caster_spawn_x),
                     "velocity": 0.0,
                     "lean": 0.0,
                     "step_phase": random.uniform(0, math.pi * 2),
