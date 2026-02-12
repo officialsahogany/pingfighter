@@ -5537,6 +5537,15 @@ class HeroPaddleRenderer:
             h_y = e_y + int(0.8 * b)
             if side == -1 and not show_back:
                 h_y = e_y + int(0.3 * b)
+            # 무기 스윙 시 팔 모션 (스태프 들고있는 팔)
+            is_staff_arm = (side == -1 and not show_back) or (side == 1 and show_back)
+            if is_staff_arm and weapon_swing != 0:
+                ws_x = int(weapon_swing * 4.0 * b * side)
+                ws_y = int(abs(weapon_swing) * 2.0 * b)
+                e_x += ws_x
+                e_y -= ws_y
+                h_x += int(ws_x * 0.7)
+                h_y -= int(ws_y * 0.5)
             # 팔
             pygame.draw.line(screen, p["skin"], (s_x, s_y), (e_x, e_y), arm_thick + 1)
             pygame.draw.line(screen, p["skin_light"], (s_x, s_y), (e_x, e_y), arm_thick)
@@ -5548,13 +5557,50 @@ class HeroPaddleRenderer:
             hand_r = max(2, int(0.18 * b))
             pygame.draw.circle(screen, p["skin"], (h_x, h_y), hand_r)
 
-            # 왕홀 (앙크) - 정면:왼손, 후면:오른손
+            # 왕홀 (앙크) - 정면:왼손, 후면:오른손 + 스윙 회전 모션
             if (side == -1 and not show_back) or (side == 1 and show_back):
-                swing_a = weapon_swing * 0.6
                 staff_bx = h_x
                 staff_by = h_y
-                staff_tx = h_x + int(_sin(swing_a) * 0.8 * b)
-                staff_ty = torso_y - int(2.5 * b) + int(weapon_swing * 0.2 * b)
+                raw_end_x = h_x
+                raw_end_y = torso_y - int(2.5 * b)
+                # 스윙 회전 (정면/후면 방향 보정)
+                swing_dir = -1 if show_back else 1
+                staff_angle = weapon_swing * 1.8 * swing_dir
+                if staff_angle != 0:
+                    _rot = self._rotate_point(raw_end_x, raw_end_y, staff_bx, staff_by, staff_angle)
+                    staff_tx, staff_ty = int(_rot[0]), int(_rot[1])
+                else:
+                    staff_tx, staff_ty = raw_end_x, raw_end_y
+
+                # 스윙 잔상 (황금빛 호 궤적)
+                if abs(weapon_swing) > 0.15:
+                    trail_pts = []
+                    t_steps = 5
+                    for ti in range(t_steps + 1):
+                        t_frac = ti / float(t_steps)
+                        t_ang = staff_angle * t_frac
+                        if t_ang != 0:
+                            _tr = self._rotate_point(raw_end_x, raw_end_y, staff_bx, staff_by, t_ang)
+                            trail_pts.append((int(_tr[0]), int(_tr[1])))
+                        else:
+                            trail_pts.append((raw_end_x, raw_end_y))
+                    # 바운딩 박스 계산
+                    t_all_x = [tp[0] for tp in trail_pts] + [staff_bx]
+                    t_all_y = [tp[1] for tp in trail_pts] + [staff_by]
+                    t_pad = int(0.5 * b)
+                    t_mn_x, t_mn_y = min(t_all_x) - t_pad, min(t_all_y) - t_pad
+                    t_mx_x, t_mx_y = max(t_all_x) + t_pad, max(t_all_y) + t_pad
+                    tw = max(4, t_mx_x - t_mn_x)
+                    th = max(4, t_mx_y - t_mn_y)
+                    t_surf = self._get_surface(tw, th)
+                    for ti in range(len(trail_pts) - 1):
+                        f_alpha = int(abs(weapon_swing) * 100 * ((ti + 1) / len(trail_pts)))
+                        lp1 = (trail_pts[ti][0] - t_mn_x, trail_pts[ti][1] - t_mn_y)
+                        lp2 = (trail_pts[ti + 1][0] - t_mn_x, trail_pts[ti + 1][1] - t_mn_y)
+                        pygame.draw.line(t_surf, (*p["gold_light"], f_alpha),
+                                       lp1, lp2, max(2, int(0.15 * b)))
+                    screen.blit(t_surf, (t_mn_x, t_mn_y))
+
                 # 왕홀 몸체
                 pygame.draw.line(screen, p["gold_dark"],
                                (staff_bx, staff_by), (staff_tx, staff_ty),
@@ -5589,6 +5635,19 @@ class HeroPaddleRenderer:
                 pygame.draw.circle(gs, (*p["gem_glow"], ga), (gr * 2, gr * 2), gr)
                 screen.blit(gs, (ankh_x - gr * 2, ankh_y - ankh_r - gr * 2),
                            special_flags=pygame.BLEND_ADD)
+                # 스윙 시 모래/금가루 파티클 버스트
+                if abs(weapon_swing) > 0.3:
+                    burst_n = int(abs(weapon_swing) * 6)
+                    for bi in range(burst_n):
+                        bp = self.time * 8.0 + bi * 2.1 + weapon_swing * 10
+                        bx = staff_tx + int(_sin(bp) * 1.5 * b)
+                        by = staff_ty + int(_cos(bp * 0.7) * 1.0 * b)
+                        ba = int(abs(weapon_swing) * 150 * max(0, _sin(bp * 1.5)))
+                        br = max(1, int(0.15 * b))
+                        if ba > 10:
+                            bs = self._get_surface(br * 2, br * 2)
+                            pygame.draw.circle(bs, (*p["gold_light"], ba), (br, br), br)
+                            screen.blit(bs, (bx - br, by - br))
 
         # ─── 머리 ───
         head_x = cx + lean_offset
