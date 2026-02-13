@@ -5494,6 +5494,14 @@ class ColosseumsArena:
                     if self.initial_setup_done or self.current_round in (TournamentRound.SEMI_FINAL, TournamentRound.FINAL):
                         pingfighter._arena_pending_top_guards = self.guard_warrior_map.get(top_hero["id"], [])
                         pingfighter._arena_pending_bottom_guards = self.guard_warrior_map.get(bottom_hero["id"], [])
+                        # 재소집령 디버그: 배틀 시작 시 호위무사 수 확인
+                        _top_g = pingfighter._arena_pending_top_guards
+                        _bot_g = pingfighter._arena_pending_bottom_guards
+                        _recalled = self.recalled_guard_map
+                        print(f"[Guard 재소집령] 배틀 시작 | 라운드={self.current_round} | "
+                              f"상단={[g.get('name','?') for g in _top_g]}({len(_top_g)}명) | "
+                              f"하단={[g.get('name','?') for g in _bot_g]}({len(_bot_g)}명) | "
+                              f"recalled_map={{{k: v.get('name','?') for k,v in _recalled.items()}}}")
                     else:
                         pingfighter._arena_pending_top_guards = []
                         pingfighter._arena_pending_bottom_guards = []
