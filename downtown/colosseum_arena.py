@@ -542,7 +542,7 @@ class TournamentState(Enum):
     SKILL_REVEAL = "skill_reveal"              # 스킬 랜덤 선택 연출
     PRISON_SELECT = "prison_select"            # 감옥 호위무사 선택
     GUARD_SKILL_REVEAL = "guard_skill_reveal"  # 호위무사 스킬 연출
-    TENACITY_RETRY = "tenacity_retry"          # 집념 퍽 재시작 연출
+    TENACITY_RETRY = "tenacity_retry"          # 반칙왕 퍽 재시작 연출
 
 class TournamentRound(Enum):
     QUARTER_FINAL = "8강"
@@ -891,11 +891,11 @@ ARENA_PERK_POOL = [
     },
     {
         "id": "tenacity",
-        "name": "집념",
-        "description": "패배 시 100% 확률로 재시작\n(횟수 제한 없음)",
-        "icon_color": (255, 200, 60),    # 금색 (집념)
+        "name": "반칙왕",
+        "description": "실점 시 15% 확률로 무효화\n(횟수 제한 없음)",
+        "icon_color": (255, 200, 60),    # 금색 (반칙왕)
         "effect_type": "retry_chance",
-        "value": 1.0,
+        "value": 0.15,
     },
     {
         "id": "extra_training",
@@ -5427,7 +5427,7 @@ class ColosseumsArena:
 
     def start_battle(self, match: Match):
         """배틀 시작 - 실제 게임 엔진 사용 (pingfighter.main 스테이지 30)"""
-        print(f"[DEBUG 집념] start_battle() 호출됨! match={match.hero1.get('name','?')} vs {match.hero2.get('name','?')}")
+        print(f"[DEBUG 반칙왕] start_battle() 호출됨! match={match.hero1.get('name','?')} vs {match.hero2.get('name','?')}")
         self.selected_match = match
 
         # 배틀 활성화 (중요: _end_battle()에서 체크하므로 반드시 설정해야 함)
@@ -5510,9 +5510,9 @@ class ColosseumsArena:
                 self.score_top = self.win_score
                 self.score_bottom = 0
 
-            print(f"[DEBUG 집념] battle_callback 결과: result={result}, winner={winner.get('name','?')}")
+            print(f"[DEBUG 반칙왕] battle_callback 결과: result={result}, winner={winner.get('name','?')}")
             self._end_battle(winner)
-            print(f"[DEBUG 집념] _end_battle 후 state={self.state}")
+            print(f"[DEBUG 반칙왕] _end_battle 후 state={self.state}")
 
         except Exception as e:
             print(f"Arena battle error: {e}")
@@ -5978,10 +5978,10 @@ class ColosseumsArena:
 
     def _end_battle(self, winner: Dict):
         """배틀 종료 - 누적 상금 시스템"""
-        print(f"[DEBUG 집념] _end_battle() 호출됨! winner={winner.get('name', '?')}, battle_active={self.battle_active}")
+        print(f"[DEBUG 반칙왕] _end_battle() 호출됨! winner={winner.get('name', '?')}, battle_active={self.battle_active}")
         # 방어 로직: 이미 종료된 배틀이면 무시
         if not self.battle_active:
-            print(f"[DEBUG 집념] battle_active=False → 즉시 리턴!")
+            print(f"[DEBUG 반칙왕] battle_active=False → 즉시 리턴!")
             return
 
         self.battle_active = False
@@ -5997,13 +5997,13 @@ class ColosseumsArena:
             self.state = TournamentState.BRACKET_VIEW
             return
 
-        # === 집념 퍽: 라운드 레벨로 이동됨 (pingfighter.py에서 실점 시 처리) ===
+        # === 반칙왕 퍽: 라운드 레벨로 이동됨 (pingfighter.py에서 실점 시 처리) ===
         _bet_name = self.bet_hero.get('name', '?') if self.bet_hero else None
         _win_name = winner.get('name', '?')
         if self.bet_hero and winner != self.bet_hero:
-            print(f"[집념] 배팅 영웅 '{_bet_name}' 매치 패배 (승자: '{_win_name}')")
+            print(f"[반칙왕] 배팅 영웅 '{_bet_name}' 매치 패배 (승자: '{_win_name}')")
         elif self.bet_hero:
-            print(f"[집념] 배팅 영웅 '{_bet_name}' 매치 승리!")
+            print(f"[반칙왕] 배팅 영웅 '{_bet_name}' 매치 승리!")
 
         self.selected_match.set_result(winner, self.score_top, self.score_bottom)
 
@@ -6361,10 +6361,10 @@ class ColosseumsArena:
                     self.state = TournamentState.ROUND_END
 
         elif self.state == TournamentState.TENACITY_RETRY:
-            # 집념 퍽 재시작 연출 (2초 대기 후 재시작)
+            # 반칙왕 퍽 재시작 연출 (2초 대기 후 재시작)
             self.tenacity_timer += dt
             if self.tenacity_timer >= 2.0:
-                print(f"[DEBUG 집념] TENACITY_RETRY 2초 경과 → start_battle 호출!")
+                print(f"[DEBUG 반칙왕] TENACITY_RETRY 2초 경과 → start_battle 호출!")
                 self.tenacity_triggered = False
                 # 배틀 재시작
                 self.start_battle(self.selected_match)
@@ -10694,7 +10694,7 @@ class ColosseumsArena:
             pygame.draw.line(surf, (*color, w_alpha), (wx_start, wy), (wx_end, wy), max(1, int(s * 0.06)))
 
     def _draw_perk_icon_tenacity(self, surf, cx, cy, r, ss):
-        """집념 아이콘 - 불꽃 + 주먹"""
+        """반칙왕 아이콘 - 불꽃 + 주먹"""
         color = (255, 200, 60)
         s = r * ss
         # 불꽃 (아래에서 위로)
@@ -10940,13 +10940,13 @@ class ColosseumsArena:
         surface.blit(result, (cx - size // 2, cy - size // 2))
 
     def _draw_tenacity_retry(self):
-        """집념 퍽 재시작 연출"""
+        """반칙왕 퍽 재시작 연출"""
         self.screen.fill(ET["bg_dark"])
         timer = getattr(self, 'tenacity_timer', 0.0)
         alpha = min(255, int(timer * 200))
 
         if self.fonts and "large" in self.fonts:
-            text = "집념 발동!"
+            text = "반칙왕 발동!"
             # 펄스 효과
             pulse = 1.0 + 0.1 * _sin(timer * 8)
             surf, _ = self.fonts["large"].render(text, (255, 200, 60))

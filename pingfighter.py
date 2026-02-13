@@ -122470,13 +122470,13 @@ def handle_ball():
                 round_losses += 1
                 # 📜 퀘스트 추적: 보스 득점 기록
                 globals()['quest_stage_boss_score'] = quest_stage_boss_score + 1
-                # 🔥 투기장 집념 퍽: 라운드 실점 시 무효화
+                # 🔥 투기장 반칙왕 퍽: 라운드 실점 시 무효화
                 if arena_mode_enabled and arena_perk_retry_chance > 0:
                     if random.random() < arena_perk_retry_chance:
                         round_losses -= 1
                         globals()['quest_stage_boss_score'] = max(0, quest_stage_boss_score - 1)
                         tenacity_triggered = True
-                        print(f"🔥 집념 발동! 실점 무효화 (round_losses: {round_losses})")
+                        print(f"🔥 반칙왕 발동! 실점 무효화 (round_losses: {round_losses})")
             # 🔧 플레이어가 죽었을 때 대시 상태 완전 초기화 (다음 라운드 버그 방지)
             rolling_active = False
             rolling_timer = 0
@@ -122502,7 +122502,7 @@ def handle_ball():
             pygame.event.clear(pygame.KEYUP)
             pygame.key.set_repeat()  # 키 반복 리셋
 
-            # 🔥 집념 발동 시: 반칙호루라기와 동일한 연출 (심판 + "무효!" + 파동 + 효과음)
+            # 🔥 반칙왕 발동 시: 반칙호루라기와 동일한 연출 (심판 + "무효!" + 파동 + 효과음)
             if tenacity_triggered:
                 game_state.round_losses = round_losses
                 try:
@@ -122525,7 +122525,7 @@ def handle_ball():
                     except Exception:
                         pass
                 except Exception:
-                    show_fade_text("집념 발동!")
+                    show_fade_text("반칙왕 발동!")
                     go_to_next_round()
                 return
 
@@ -128809,9 +128809,9 @@ def show_result(won):
         _bottom_name = arena_bottom_hero.get('name', '?') if arena_bottom_hero else '?'
         _top_name = arena_top_hero.get('name', '?') if arena_top_hero else '?'
         if won:
-            print(f"[DEBUG 집념] 🏆 show_result: 하단 '{_bottom_name}' 승리! (arena_battle_result=True)")
+            print(f"[DEBUG 반칙왕] 🏆 show_result: 하단 '{_bottom_name}' 승리! (arena_battle_result=True)")
         else:
-            print(f"[DEBUG 집념] 💀 show_result: 상단 '{_top_name}' 승리! 하단 '{_bottom_name}' 패배! (arena_battle_result=False)")
+            print(f"[DEBUG 반칙왕] 💀 show_result: 상단 '{_top_name}' 승리! 하단 '{_bottom_name}' 패배! (arena_battle_result=False)")
         return
 
     stop_blacksmith_construction_sound()
