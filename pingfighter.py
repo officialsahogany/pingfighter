@@ -19782,8 +19782,20 @@ def show_arena_perk_select_menu():
 
     arena_obj = arena_battle_arena_obj
     if not arena_obj or not arena_bottom_hero:
-        print("[ArenaPerk F8] arena_obj 또는 arena_bottom_hero가 없음")
-        return
+        print(f"[ArenaPerk F8] arena_obj={arena_obj}, arena_bottom_hero={arena_bottom_hero}")
+        # fallback: colosseum_arena에서 직접 가져오기
+        if not arena_obj:
+            try:
+                from downtown.colosseum_arena import ColosseumsArena
+                if hasattr(ColosseumsArena, '_active_instance') and ColosseumsArena._active_instance:
+                    arena_obj = ColosseumsArena._active_instance
+                    arena_battle_arena_obj = arena_obj
+                    print("[ArenaPerk F8] fallback으로 _active_instance 사용")
+            except Exception:
+                pass
+        if not arena_obj or not arena_bottom_hero:
+            print("[ArenaPerk F8] arena_obj 또는 arena_bottom_hero가 없음 - 복구 불가")
+            return
 
     hero_id = arena_bottom_hero["id"]
 

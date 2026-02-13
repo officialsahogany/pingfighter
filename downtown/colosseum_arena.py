@@ -4516,6 +4516,8 @@ class GuardWarriorSystem:
 # 토너먼트 시스템
 # ============================================================================
 class ColosseumsArena:
+    _active_instance = None  # F8 퍽 선택용 싱글톤 참조
+
     def __init__(self, screen: pygame.Surface, fonts: Dict, player_gold: int, battle_callback=None):
         """
         Args:
@@ -4525,6 +4527,7 @@ class ColosseumsArena:
             battle_callback: 배틀 시작 콜백 (top_hero, bottom_hero) -> bool
                             None이면 자체 물리 시스템 사용
         """
+        ColosseumsArena._active_instance = self
         self.screen = screen
         self.fonts = fonts
         self.player_gold = player_gold
@@ -5517,6 +5520,7 @@ class ColosseumsArena:
                         pingfighter._arena_pending_bottom_guards = []
                     # 퍽 데이터를 pingfighter에 전달
                     pingfighter._arena_pending_perk_data = self
+                    pingfighter.arena_battle_arena_obj = self  # F8 퍽 선택용 직접 참조
                     # 스킬 선택 정보 전달 (모듈 글로벌 + 영웅 dict 직접 삽입 이중 전달)
                     pingfighter._arena_pending_skill_selections = self.hero_selected_skills
                     # 양쪽 스킬 보유 정보 전달
