@@ -114911,8 +114911,8 @@ def draw_field():
     global psycho_bg_timer, earthquake_offset_x, earthquake_offset_y
     global special_gauge, gauge_charge_animation_timer, gauge_charge_animation_amount, special_ready
 
-    # 전체화면 모드: 필러 배경 타입 설정 (실제 그리기는 _fullscreen_flip에서)
-    if FULLSCREEN_MODE and pillar_renderer is not None:
+    # 필러 배경 타입 설정 (전체화면/창모드 모두, 실제 그리기는 _fullscreen_flip에서)
+    if _is_fullscreen_active and pillar_renderer is not None:
         # 스테이지 진입 시 동적 배경으로 전환
         if current_stage > 0 and current_stage < 50:
             pillar_renderer.set_type('dynamic')
