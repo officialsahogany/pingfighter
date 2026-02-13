@@ -98567,6 +98567,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
     _saved_selected_item_index = selected_item_index
     _saved_last_item_use_time = last_item_use_time
     _saved_equipped_slots = {}
+    _saved_win_goal = win_goal
     try:
         # 투기장 모드 활성화
         arena_mode_enabled = True
@@ -98628,7 +98629,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
                 arena_skill_manager = None
 
         # 투기장 퍽 효과 적용
-        _arena_perk_obj = _arena_pending_perk_data
+        _arena_perk_obj = globals().get('_arena_pending_perk_data', None)
         arena_battle_arena_obj = _arena_perk_obj  # F8 퍽 선택용 참조 저장
         if _arena_perk_obj:
             apply_arena_perks_for_battle(_arena_perk_obj, top_hero["id"], bottom_hero["id"])
@@ -98744,7 +98745,6 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
             animated_bg_stage30.judgment_phase = animated_bg_stage30.JUDGMENT_IDLE
 
         # 투기장 난이도별 승점 적용
-        _saved_win_goal = win_goal
         if _arena_perk_obj and hasattr(_arena_perk_obj, 'win_score'):
             win_goal = _arena_perk_obj.win_score
 
