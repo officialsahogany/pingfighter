@@ -8576,13 +8576,27 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             import time
             time.sleep(0.3)
 
-        # 네이티브 모니터 해상도
+        # 작업영역(Work Area) 크기 사용 — 작업표시줄 영역 제외
+        _work_x, _work_y = 0, 0
         if sys.platform == 'win32':
-            native = _get_native_resolution() or _get_current_resolution()
-            if native:
-                monitor_w, monitor_h = native
-            else:
-                monitor_w, monitor_h = 1920, 1080
+            try:
+                import ctypes
+                from ctypes import wintypes
+                _wa_rect = wintypes.RECT()
+                ctypes.windll.user32.SystemParametersInfoW(
+                    0x0030, 0, ctypes.byref(_wa_rect), 0)  # SPI_GETWORKAREA
+                _work_x = _wa_rect.left
+                _work_y = _wa_rect.top
+                monitor_w = _wa_rect.right - _wa_rect.left
+                monitor_h = _wa_rect.bottom - _wa_rect.top
+                print(f"[디스플레이] 작업영역: ({_work_x},{_work_y}) {monitor_w}x{monitor_h}", flush=True)
+            except Exception as _wa_err:
+                print(f"[디스플레이] 작업영역 감지 실패: {_wa_err}", flush=True)
+                native = _get_native_resolution() or _get_current_resolution()
+                if native:
+                    monitor_w, monitor_h = native
+                else:
+                    monitor_w, monitor_h = 1920, 1080
         else:
             _dinfo = pygame.display.Info()
             monitor_w, monitor_h = _dinfo.current_w, _dinfo.current_h
@@ -8590,8 +8604,8 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         FULLSCREEN_MODE = False
         _is_fullscreen_active = True
 
-        # 보더리스 윈도우 (프레임 없이 모니터 해상도로)
-        os.environ['SDL_VIDEO_WINDOW_POS'] = '0,0'
+        # 보더리스 윈도우 (프레임 없이 작업영역에 꽉 채움)
+        os.environ['SDL_VIDEO_WINDOW_POS'] = f'{_work_x},{_work_y}'
         if _current_platform == 'Darwin':
             REAL_SCREEN = _original_set_mode((monitor_w, monitor_h), pygame.NOFRAME | pygame.DOUBLEBUF)
         else:
