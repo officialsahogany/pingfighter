@@ -892,10 +892,10 @@ ARENA_PERK_POOL = [
     {
         "id": "tenacity",
         "name": "집념",
-        "description": "패배 시 80% 확률로 재시작\n(횟수 제한 없음)",
+        "description": "패배 시 100% 확률로 재시작\n(횟수 제한 없음)",
         "icon_color": (255, 200, 60),    # 금색 (집념)
         "effect_type": "retry_chance",
-        "value": 0.80,
+        "value": 1.0,
     },
     {
         "id": "extra_training",
