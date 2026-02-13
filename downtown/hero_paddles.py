@@ -97,6 +97,12 @@ class HeroPaddleRenderer:
             state["arm_swing"] *= 0.9
             state["head_tilt"] *= 0.9
 
+        # 벤시 전용: 걷기 대신 부유 모션 (날아다니는 느낌)
+        if hero_id == "banshee":
+            state["body_bob"] *= 0.15  # 걷기 바운스 거의 제거
+            state["arm_swing"] *= 0.25  # 유령은 팔을 크게 안 흔듦
+            state["head_tilt"] *= 0.3   # 머리 흔들림 최소화
+
         state["last_x"] = current_x
 
     def _get_state(self, hero_id: str) -> dict:
@@ -3994,10 +4000,11 @@ class HeroPaddleRenderer:
         body_bob = anim["body_bob"]
         shoulder_bob = anim.get("shoulder_bob", 0)
 
-        # 벤시는 떠다니므로 body_bob에 부유 효과 추가
-        float_offset = _sin(self.time * 2.0) * 0.3 * b
+        # 벤시는 떠다니며 날아다님 - 강화된 부유 효과 (다중 사인파)
+        float_offset = (_sin(self.time * 1.5) * 0.5 + _sin(self.time * 2.7) * 0.2) * b
+        horizontal_drift = _sin(self.time * 1.0) * 0.12 * b  # 수평 부유 드리프트
         torso_y = cy - int(1.5 * b) + int(body_bob * 2 * b) + int(float_offset)
-        lean_offset = int(lean * 2 * b)
+        lean_offset = int(lean * 2 * b) + int(horizontal_drift)
 
         # 유령 펄스 (불규칙한 깜빡임)
         ghost_pulse = (_sin(self.time * 1.8) + 1) * 0.5
@@ -4079,68 +4086,78 @@ class HeroPaddleRenderer:
                        (int(wisp_x - wisp_size * 2), int(wisp_y - wisp_size * 2)),
                        special_flags=pygame.BLEND_ADD)
 
-        # === 유령 꼬리/드레스 하단 (다리 대신 - 유령이라서 아래가 흐릿하게 사라짐) ===
+        # === 유령 하반신 (다리 없음 - 연기처럼 흩어지는 유령 꼬리) ===
         side_blend = anim.get("side_blend", 0)
         move_dir = anim.get("move_dir", 0)
-        # 유령 꼬리 넘실거림 - 매우 가벼워서 관성이 강함
-        ghost_drift = -move_dir * side_blend * 1.0 * b
-        ghost_flow = (_sin(self.time * 2.8) * 0.3 + _sin(self.time * 4.5) * 0.15) * b
-        ghost_wave_boost = 1.0 + side_blend * 3.0
+        ghost_drift = -move_dir * side_blend * 1.2 * b
+        ghost_flow = (_sin(self.time * 2.0) * 0.4 + _sin(self.time * 3.3) * 0.2) * b
+        ghost_wave_boost = 1.0 + side_blend * 3.5
 
-        # 메인 드레스 실루엣
+        # 1) 상체에서 아래로 좁아지며 뾰족해지는 유령 꼬리 실루엣
+        dress_top_w = int(1.3 * b)
+        tail_sway = int((ghost_drift + ghost_flow) * 0.8)
+        tail_tip_y = cy + int(4.5 * b)
         dress_points = [
-            (cx - int(1.3 * b) + lean_offset, torso_y + int(1.6 * b)),
-            (cx + int(1.3 * b) + lean_offset, torso_y + int(1.6 * b)),
-            (cx + int(1.8 * b) + lean_offset + int(wave * 0.3 * ghost_wave_boost * b) + int(ghost_drift + ghost_flow), cy + int(3.5 * b)),
-            (cx + int(0.3 * b) + lean_offset + int(wave * 0.15 * ghost_wave_boost * b) + int((ghost_drift + ghost_flow) * 0.7), cy + int(4.0 * b)),
-            (cx - int(0.3 * b) + lean_offset - int(wave * 0.15 * ghost_wave_boost * b) + int((ghost_drift + ghost_flow) * 0.7), cy + int(4.0 * b)),
-            (cx - int(1.8 * b) + lean_offset - int(wave * 0.3 * ghost_wave_boost * b) + int(ghost_drift + ghost_flow), cy + int(3.5 * b)),
+            (cx - dress_top_w + lean_offset, torso_y + int(1.6 * b)),
+            (cx + dress_top_w + lean_offset, torso_y + int(1.6 * b)),
+            (cx + int(0.7 * b) + lean_offset + int(tail_sway * 0.4), cy + int(2.8 * b)),
+            (cx + lean_offset + tail_sway, tail_tip_y),
+            (cx - int(0.7 * b) + lean_offset + int(tail_sway * 0.3), cy + int(2.8 * b)),
         ]
-        # 드레스 그림자
         shadow_pts = [(px + 2, py + 2) for px, py in dress_points]
         pygame.draw.polygon(screen, p["dress_shadow"], shadow_pts)
         pygame.draw.polygon(screen, p["dress"], dress_points)
 
-        # 드레스 세로 주름 (찢어진 느낌)
-        for i in range(8):
-            fold_shift = int((ghost_drift + ghost_flow) * (i - 3.5) * 0.1)
-            fold_x = cx + int((i - 3.5) * 0.35 * b) + lean_offset + fold_shift
+        # 2) 꼬리 세로 주름 (점점 사라지며 짧아짐)
+        for i in range(5):
+            fold_shift = int((ghost_drift + ghost_flow) * (i - 2) * 0.08)
+            fold_x = cx + int((i - 2) * 0.3 * b) + lean_offset + fold_shift
             fold_top = torso_y + int(1.7 * b)
-            fold_bot = cy + int(3.3 * b) + int(wave * 0.08 * (i - 3.5) * ghost_wave_boost * b)
+            fold_bot = cy + int(2.3 * b)
             pygame.draw.line(screen, p["dress_mid"], (fold_x, fold_top), (fold_x, fold_bot), 1)
 
-        # 유령 꼬리 하단 (투명 그라데이션 - 여러 레이어)
-        for layer in range(6):
-            tail_y = cy + int(3.0 * b) + layer * int(0.25 * b)
-            tail_w = int(1.5 * b) - layer * int(0.12 * b)
-            layer_factor = 1.0 + layer * 0.35
+        # 3) 유령 꼬리 투명 그라데이션 (아래로 갈수록 사라짐)
+        for layer in range(8):
+            tail_y = cy + int(2.6 * b) + layer * int(0.22 * b)
+            base_w = int(0.7 * b) - layer * int(0.06 * b)
+            tail_w = max(2, base_w + int(_sin(self.time * 2.5 + layer * 0.5) * 0.1 * b))
+            layer_factor = 1.0 + layer * 0.5
             layer_sway = int((ghost_drift + ghost_flow) * layer_factor)
-            layer_wave = int(wave * 0.1 * layer * ghost_wave_boost * b)
-            tail_alpha = max(5, int((120 - layer * 20) * flicker))
-
-            tail_surf = self._get_surface(int(tail_w * 2 + abs(layer_wave) + 4), int(0.4 * b))
-            tail_rect = (0, 0, tail_surf.get_width(), tail_surf.get_height())
-            pygame.draw.ellipse(tail_surf, (*p["ghost_trail"], tail_alpha), tail_rect)
+            tail_alpha = max(3, int((90 - layer * 11) * flicker))
+            tail_surf = self._get_surface(int(tail_w * 2 + 6), int(0.3 * b))
+            tail_rect_area = (0, 0, tail_surf.get_width(), tail_surf.get_height())
+            pygame.draw.ellipse(tail_surf, (*p["ghost_trail"], tail_alpha), tail_rect_area)
             screen.blit(tail_surf,
-                       (cx - tail_w + lean_offset + layer_sway + layer_wave,
-                        int(tail_y)))
+                       (cx - tail_w + lean_offset + layer_sway, int(tail_y)))
 
-        # 드레스 가장자리 찢어진 조각들 (불규칙한 유령 천 조각)
+        # 4) 에테르 가닥 (아래로 흘러내리는 유령 연기)
+        for i in range(5):
+            tendril_phase = self.time * 1.5 + i * 1.3
+            tendril_x = cx + int((i - 2) * 0.28 * b) + lean_offset
+            tendril_start_y = cy + int(3.0 * b)
+            t_sway = int(_sin(tendril_phase) * 0.3 * b) + int((ghost_drift + ghost_flow) * (0.4 + i * 0.12))
+            t_len = int(1.2 * b + _sin(self.time * 2.0 + i * 0.7) * 0.25 * b)
+            t_mid_x = tendril_x + int(t_sway * 0.5)
+            t_mid_y = tendril_start_y + t_len // 2
+            t_end_x = tendril_x + t_sway
+            t_end_y = tendril_start_y + t_len
+            pygame.draw.line(screen, p["ghost_trail"],
+                           (tendril_x, tendril_start_y),
+                           (t_mid_x, t_mid_y), max(2, int(0.09 * b)))
+            pygame.draw.line(screen, p["ghost_fade"],
+                           (t_mid_x, t_mid_y),
+                           (t_end_x, t_end_y), max(1, int(0.05 * b)))
+
+        # 5) 바닥 안개 파티클 (둥둥 떠다니는 느낌 강조)
         for i in range(6):
-            tear_angle = self.time * 0.8 + i * 1.05
-            tear_base_x = cx + int((i - 2.5) * 0.55 * b) + lean_offset
-            tear_base_y = cy + int(3.0 * b)
-            tear_len = int(0.6 * b + _sin(tear_angle) * 0.2 * b)
-            tear_sway = int(_sin(self.time * 2.5 + i * 0.9) * 0.15 * b)
-            tear_drift = int((ghost_drift + ghost_flow) * (0.5 + i * 0.15))
-            tear_alpha = max(10, int((100 - i * 12) * flicker))
-            tear_surf = self._get_surface(max(4, int(0.2 * b)), max(4, tear_len))
-            pygame.draw.rect(tear_surf, (*p["dress_edge"], tear_alpha),
-                           (0, 0, tear_surf.get_width(), tear_surf.get_height()),
-                           border_radius=2)
-            screen.blit(tear_surf,
-                       (int(tear_base_x + tear_sway + tear_drift),
-                        int(tear_base_y)))
+            mist_x = cx + int(_sin(self.time * 1.0 + i * 1.05) * 0.5 * b) + lean_offset + int(ghost_drift * 0.2)
+            mist_y = cy + int(3.8 * b) + int(i * 0.12 * b) + int(_sin(self.time * 2.0 + i * 0.6) * 0.08 * b)
+            mist_r = max(2, int((0.14 + _sin(self.time * 2.5 + i * 0.4) * 0.05) * b))
+            mist_alpha = max(3, int((35 - i * 5) * flicker))
+            mist_surf = self._get_surface(mist_r * 4, mist_r * 4)
+            pygame.draw.circle(mist_surf, (*p["ghost_fade"], mist_alpha),
+                             (mist_r * 2, mist_r * 2), mist_r)
+            screen.blit(mist_surf, (mist_x - mist_r * 2, mist_y - mist_r * 2))
 
         # === 몸통 (찢어진 유령 드레스, 여성 실루엣) ===
         chest_w, chest_h = int(2.8 * b), int(2.2 * b)
