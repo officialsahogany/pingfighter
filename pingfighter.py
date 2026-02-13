@@ -7947,30 +7947,10 @@ def _draw_pillar_ui(screen, renderer):
 
 def _fullscreen_flip():
     """전체화면 모드에서 게임 Surface를 실제 화면에 blit 후 flip"""
-    global REAL_SCREEN, SCREEN, pillar_renderer, _flip_count, _last_real_screen_size, _last_screen_size, _scale_cache_dirty
+    global REAL_SCREEN, SCREEN, pillar_renderer, _flip_count, _scale_cache_dirty
     _flip_count += 1
     _scale_cache_dirty = True  # 매 프레임 스케일 캐시 무효화
     if _is_fullscreen_active and REAL_SCREEN is not None:
-        # REAL_SCREEN 크기 변화 감지
-        current_real_size = REAL_SCREEN.get_size()
-        current_screen_size = SCREEN.get_size()
-        if _last_real_screen_size is None:
-            _last_real_screen_size = current_real_size
-            _last_screen_size = current_screen_size
-        else:
-            if current_real_size != _last_real_screen_size:
-                import traceback
-                print(f"[FULLSCREEN WARNING] REAL_SCREEN size changed! {_last_real_screen_size} -> {current_real_size}", flush=True)
-                print(f"[FULLSCREEN WARNING] REAL_SCREEN id: {id(REAL_SCREEN)}, SCREEN id: {id(SCREEN)}", flush=True)
-                traceback.print_stack()
-                _last_real_screen_size = current_real_size
-            if current_screen_size != _last_screen_size: 
-                print(f"[FULLSCREEN WARNING] SCREEN size changed! {_last_screen_size} -> {current_screen_size}", flush=True)
-                _last_screen_size = current_screen_size
-        # 처음 몇 번만 디버그 출력 - 비활성화
-        # if _flip_count <= 3:
-        #     print(f"[FLIP #{_flip_count}] REAL_SCREEN: {REAL_SCREEN.get_size()}, SCREEN: {SCREEN.get_size()}, OFFSET: ({GAME_OFFSET_X}, {GAME_OFFSET_Y})", flush=True)
-
         # 디버그용: 화면 경계 표시 (비활성화)
         show_debug_border = False
         # 필러 배경 그리기
