@@ -3070,7 +3070,7 @@ else:
         _init_monitor_w, _init_monitor_h = _init_dinfo.current_w, _init_dinfo.current_h
 
     # 게임 비율 유지하면서 필러 배경까지 포함하여 창 구성
-    _init_base_h = int(_init_monitor_h * 0.70)
+    _init_base_h = int(_init_monitor_h * 0.85)
     _init_win_scale = _init_base_h / HEIGHT
     _init_game_w = int(WIDTH * _init_win_scale)
 
@@ -8469,7 +8469,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             monitor_w, monitor_h = _dinfo.current_w, _dinfo.current_h
 
         # 게임 비율 유지하면서 필러 배경까지 포함하여 창 구성
-        base_h = int(monitor_h * 0.70)
+        base_h = int(monitor_h * 0.85)
         _win_scale = base_h / HEIGHT
         game_w = int(WIDTH * _win_scale)
 
