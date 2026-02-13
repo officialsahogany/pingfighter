@@ -91417,6 +91417,9 @@ def draw_objects():
                 _imm_base_r = max(_bottom_draw_width, _bottom_draw_height) // 2 + 15
                 _draw_magic_immunity_barrier(SCREEN, int(_final_x), int(_final_y), _imm_base_r, _imm_timer, ARENA_MAGIC_IMMUNITY_DURATION, arena_barrier_flash_bottom, arena_barrier_beam_target_bottom)
 
+            # 마법결계 차단 스킬 녹아내리는 이펙트 렌더링
+            _draw_barrier_block_effects(SCREEN)
+
             # 신성월계수 잎 렌더링 (하단)
             if arena_leaf_shield_bottom and arena_leaf_shield_bottom.active:
                 arena_leaf_shield_bottom.draw(SCREEN)
@@ -135448,6 +135451,9 @@ def main(stage_num, new_boss_mode=False):
                                 _imm_t = 0.0
                                 arena_skill_manager.game_state[f'magic_immunity_{_imm_side}'] = False
                             arena_skill_manager.game_state[_imm_key] = _imm_t
+
+                    # 마법결계: 플래시/빔/녹아내리는 이펙트 타이머 업데이트
+                    _update_barrier_block_effects(dt)
 
                     # 연화(maria) 스킬 시전 중 팔 올린 상태 유지
                     if arena_hero_paddle_renderer:
