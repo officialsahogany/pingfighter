@@ -9665,34 +9665,31 @@ class BoneBarrier(HeroSkill):
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.caster_is_top = getattr(caster_paddle, 'is_top', False)
 
-        # 진영별 Y 범위
+        # 뒷벽 Y 좌표 (영웅 뒤쪽 벽 = 공이 넘어가면 실점하는 벽)
         if self.caster_is_top:
-            y_min, y_max = 70, 340
+            new_y = 8   # 천장 쪽 (상단 영웅 뒷벽)
         else:
-            y_min, y_max = 410, 690
+            new_y = 738  # 바닥 쪽 (하단 영웅 뒷벽)
 
-        # 겹침 방지: 기존 장벽과 간격 확인하며 위치 탐색
+        # 겹침 방지: 기존 장벽과 X축 간격 확인하며 위치 탐색
         placed = False
-        new_x, new_y = 0, 0
+        new_x = 0
         for _ in range(30):
             nx = random.randint(self.GAME_LEFT + 10, self.GAME_RIGHT - self.BARRIER_WIDTH - 10)
-            ny = random.randint(y_min, y_max)
             too_close = False
             for b in self.barriers:
                 if b['alive']:
                     dx = abs((nx + self.BARRIER_WIDTH / 2) - (b['x'] + b['width'] / 2))
-                    dy = abs(ny - b['y'])
-                    if dx < self.MIN_SPACING and dy < self.MIN_SPACING:
+                    if dx < self.MIN_SPACING:
                         too_close = True
                         break
             if not too_close:
-                new_x, new_y = nx, ny
+                new_x = nx
                 placed = True
                 break
 
         if not placed:
             new_x = random.randint(self.GAME_LEFT + 10, self.GAME_RIGHT - self.BARRIER_WIDTH - 10)
-            new_y = random.randint(y_min, y_max)
 
         # 뼈 조각 생성 (조립 애니메이션용)
         num_bones = random.randint(10, 14)
@@ -9728,6 +9725,7 @@ class BoneBarrier(HeroSkill):
             'alive': True,
             'bone_segments': bone_segments,
             'spike_heights': spike_heights,
+            'is_top': self.caster_is_top,
         }
         self.barriers.append(barrier)
         self._next_id += 1
@@ -9954,22 +9952,27 @@ class BoneBarrier(HeroSkill):
                 pygame.draw.circle(screen, bone_br, (lx, y), 2)
                 pygame.draw.circle(screen, bone_dk, (lx, y), 2, 1)
 
-            # 상하 가시 스파이크
+            # 가시 스파이크 (필드 방향으로만)
             spike_heights = barrier.get('spike_heights', [])
+            is_top = barrier.get('is_top', False)
             num_spikes = len(spike_heights) if spike_heights else w // 14
             for i in range(num_spikes):
                 sx = x + int((i + 0.5) * w / max(1, num_spikes))
                 sh = spike_heights[i] if i < len(spike_heights) else 7
-                # 상단 스파이크
-                pygame.draw.polygon(screen, spike_c, [
-                    (sx - 3, y - h // 2), (sx, y - h // 2 - sh), (sx + 3, y - h // 2)])
-                pygame.draw.polygon(screen, bone_br, [
-                    (sx - 2, y - h // 2), (sx, y - h // 2 - sh + 1), (sx + 1, y - h // 2)])
-                # 하단 스파이크
-                pygame.draw.polygon(screen, spike_c, [
-                    (sx - 3, y + h // 2), (sx, y + h // 2 + sh), (sx + 3, y + h // 2)])
+                if is_top:
+                    # 상단 영웅 → 가시가 아래(필드)로 향함
+                    pygame.draw.polygon(screen, spike_c, [
+                        (sx - 3, y + h // 2), (sx, y + h // 2 + sh), (sx + 3, y + h // 2)])
+                    pygame.draw.polygon(screen, bone_br, [
+                        (sx - 2, y + h // 2), (sx, y + h // 2 + sh - 1), (sx + 1, y + h // 2)])
+                else:
+                    # 하단 영웅 → 가시가 위(필드)로 향함
+                    pygame.draw.polygon(screen, spike_c, [
+                        (sx - 3, y - h // 2), (sx, y - h // 2 - sh), (sx + 3, y - h // 2)])
+                    pygame.draw.polygon(screen, bone_br, [
+                        (sx - 2, y - h // 2), (sx, y - h // 2 - sh + 1), (sx + 1, y - h // 2)])
 
-            # 상단 하이라이트
+            # 하이라이트
             pygame.draw.line(screen, bone_br,
                            (x + 3, y - h // 2 + 1), (x + w - 3, y - h // 2 + 1), 1)
 
