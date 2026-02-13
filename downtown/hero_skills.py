@@ -8797,6 +8797,12 @@ class SkeletonArcher(HeroSkill):
                 # 시위 당기는 중 - 제자리 고정
                 archer['draw_timer'] += dt
                 if archer['draw_timer'] >= self.ARROW_DRAW_TIME:
+                    # 발사 직전 적 영웅 최종 위치 갱신 (시위 당기는 동안 이동한 적 추적)
+                    enemy_key = 'hero_paddle_bottom' if self.caster_is_top else 'hero_paddle_top'
+                    hero_info = game_state.get(enemy_key)
+                    if hero_info:
+                        archer['draw_target_x'] = float(hero_info['x'] + hero_info['width'] / 2)
+                        archer['draw_target_y'] = float(hero_info['y'] + hero_info['height'] / 2)
                     # 발사!
                     self._fire_arrow(archer, game_state)
                     archer['is_drawing'] = False
