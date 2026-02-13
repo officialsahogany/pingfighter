@@ -5540,6 +5540,13 @@ class ColosseumsArena:
             )
             return False
 
+        # [DEBUG] 폭탄 넉백 상태 체크 (is_frozen 확인용)
+        if self.skill_manager:
+            _dbg_gs = self.skill_manager.game_state
+            for _dbg_pfx in ['top_paddle', 'bottom_paddle']:
+                if _dbg_gs.get(f'{_dbg_pfx}_bomb_kb_active', False):
+                    print(f"[BombKB-DEBUG] PRE-CHECK → {_dbg_pfx} kb_active=True, is_frozen={is_frozen}, spawn_phase={self.spawn_phase}")
+
         if not is_frozen:
             # AI 패들 업데이트 (실제 게임과 동일한 파라미터)
             self.top_paddle.update(
@@ -5559,8 +5566,10 @@ class ColosseumsArena:
                         kb_vel = gs_kb.get(f'{prefix}_bomb_kb_vel', 0)
                         kb_dir = gs_kb.get(f'{prefix}_bomb_kb_dir', 0)
                         kb_frames = gs_kb.get(f'{prefix}_bomb_kb_frames', 0)
+                        print(f"[BombKB-DEBUG] APPLY → prefix={prefix}, kb_dir={kb_dir}, kb_vel={kb_vel:.1f}, kb_frames={kb_frames}, paddle_x_before={paddle.x:.1f}, stunned={paddle.is_stunned}")
                         if kb_frames > 0 and kb_vel > 0:
                             # 프레임 기반 넉백 (다이너마이트와 동일 방식)
+                            old_x = paddle.x
                             paddle.x += kb_dir * kb_vel * dt * 60
                             kb_frames -= 1
                             # 감속 (후반부 감속)
@@ -5571,8 +5580,10 @@ class ColosseumsArena:
                             # 경계 클램핑
                             paddle.x = max(GAME_AREA_X, min(paddle.x,
                                            GAME_AREA_X + GAME_AREA_WIDTH - getattr(paddle, 'width', 80)))
+                            print(f"[BombKB-DEBUG] MOVED → {old_x:.1f} → {paddle.x:.1f} (delta={paddle.x - old_x:.1f})")
                         else:
                             gs_kb[f'{prefix}_bomb_kb_active'] = False
+                            print(f"[BombKB-DEBUG] DEACTIVATED → frames={kb_frames}, vel={kb_vel:.1f}")
 
             # === 모래감옥 위치 강제 클램핑 (AI 이동 후 적용) ===
             if self.skill_manager:
