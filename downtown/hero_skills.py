@@ -7415,7 +7415,7 @@ TOP_PADDLE_Y = 25
 BOTTOM_PADDLE_Y = 710
 
 class Charm(HeroSkill):
-    """매혹 - 자력 에너지를 발사하여 상대 호위무사를 끌어들임 (20초)
+    """매혹 - 자력 에너지를 발사하여 상대 호위무사를 끌어들임 (25초)
 
     4단계 연출:
     1) projectile: 자력 에너지 탄을 상대 호위무사에게 발사
@@ -7429,10 +7429,10 @@ class Charm(HeroSkill):
             skill_id="charm",
             name="Charm",
             korean_name="매혹",
-            description="자력 에너지를 발사하여 상대 호위무사를 20초간 아군으로 끌어들인다",
+            description="자력 에너지를 발사하여 상대 호위무사를 25초간 아군으로 끌어들인다",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=35.0,
-            duration=20.0,
+            cooldown=38.0,
+            duration=25.0,
             hero_id="banshee"
         )
         # === 매혹 상태 ===
