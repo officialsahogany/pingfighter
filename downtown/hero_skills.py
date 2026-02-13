@@ -5203,7 +5203,7 @@ class SteamBarrier(HeroSkill):
             korean_name="스팀 배리어",
             description="증기로 방어막을 만들어 공을 반사시킨다",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=25.0,
+            cooldown=28.0,
             duration=6.0,
             hero_id="gear"
         )
