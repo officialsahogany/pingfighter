@@ -134309,7 +134309,49 @@ def main(stage_num, new_boss_mode=False):
             if not is_blacksmith_divine_stone_active():
                 damage_manager.clear_building("divine_stone")
             damage_manager.update()
-                
+
+            # 투기장 신성월계수 잎 공 충돌 체크 (handle_ball 이전에 실행해야 ball_vel 방향이 올바름)
+            if arena_mode_enabled and not freeze_now:
+                _arena_leaf_dt = (1.0 / 60.0) * arena_speed_multiplier
+                for _ls, _ls_side in ((arena_leaf_shield_top, 'top'), (arena_leaf_shield_bottom, 'bottom')):
+                    if _ls and _ls.active:
+                        if _ls_side == 'top':
+                            _ls.set_position(float(BOSS.centerx), float(BOSS.centery))
+                        else:
+                            _ls.set_position(float(PLAYER.centerx), float(PLAYER.centery))
+                        _ls.update(_arena_leaf_dt)
+                        # 방향 체크: 상대가 친 공만 판정 (내가 친 공은 무시)
+                        # top 잎: 아래에서 올라오는 공(ball_vel[1]<0)만 판정
+                        # bottom 잎: 위에서 내려오는 공(ball_vel[1]>0)만 판정
+                        _ls_ball_coming = (
+                            (_ls_side == 'top' and ball_vel[1] < 0) or
+                            (_ls_side == 'bottom' and ball_vel[1] > 0)
+                        )
+                        if _ls_ball_coming and _ls.check_ball_collision(float(BALL.centerx), float(BALL.centery), float(BALL.width // 2)):
+                            # 가속 + 상대 영웅 방향으로 반사 (약간의 랜덤 오차 포함)
+                            import math as _math_ls
+                            _ls_speed = _math_ls.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
+                            if _ls_speed > 0:
+                                _ls_boost = random.uniform(1.2, 1.5)
+                                _ls_new_speed = _ls_speed * _ls_boost
+                                # 상대 영웅 패들 중심 좌표를 향해 반사
+                                # top 잎(보스측): 플레이어 패들을 향해 반사
+                                # bottom 잎(플레이어측): 보스 패들을 향해 반사
+                                if _ls_side == 'top':
+                                    _ls_target_x = float(PLAYER.centerx)
+                                    _ls_target_y = float(PLAYER.centery)
+                                else:
+                                    _ls_target_x = float(BOSS.centerx)
+                                    _ls_target_y = float(BOSS.centery)
+                                _ls_dx = _ls_target_x - float(BALL.centerx)
+                                _ls_dy = _ls_target_y - float(BALL.centery)
+                                _ls_target_angle = _math_ls.atan2(_ls_dy, _ls_dx)
+                                # 약간의 랜덤 오차 (±15도)
+                                _ls_angle_var = random.uniform(-_math_ls.pi / 12, _math_ls.pi / 12)
+                                _ls_final_angle = _ls_target_angle + _ls_angle_var
+                                ball_vel[0] = _ls_new_speed * _math_ls.cos(_ls_final_angle)
+                                ball_vel[1] = _ls_new_speed * _math_ls.sin(_ls_final_angle)
+
             if not freeze_now:
                 _handle_ball_result = handle_ball()
                 # 투기장 모드: handle_ball() 내부에서 승부 결정 시 즉시 반환
@@ -134389,46 +134431,6 @@ def main(stage_num, new_boss_mode=False):
                                 _imm_t = 0.0
                                 arena_skill_manager.game_state[f'magic_immunity_{_imm_side}'] = False
                             arena_skill_manager.game_state[_imm_key] = _imm_t
-
-                    # 신성월계수 잎 업데이트 + 공 충돌 체크 (본편 SacredLaurel과 동일 반사 로직)
-                    for _ls, _ls_side in ((arena_leaf_shield_top, 'top'), (arena_leaf_shield_bottom, 'bottom')):
-                        if _ls and _ls.active:
-                            if _ls_side == 'top':
-                                _ls.set_position(float(BOSS.centerx), float(BOSS.centery))
-                            else:
-                                _ls.set_position(float(PLAYER.centerx), float(PLAYER.centery))
-                            _ls.update(dt)
-                            # 방향 체크: 상대가 친 공만 판정 (내가 친 공은 무시)
-                            # top 잎: 아래에서 올라오는 공(ball_vel[1]<0)만 판정
-                            # bottom 잎: 위에서 내려오는 공(ball_vel[1]>0)만 판정
-                            _ls_ball_coming = (
-                                (_ls_side == 'top' and ball_vel[1] < 0) or
-                                (_ls_side == 'bottom' and ball_vel[1] > 0)
-                            )
-                            if _ls_ball_coming and _ls.check_ball_collision(float(BALL.centerx), float(BALL.centery), float(BALL.width // 2)):
-                                # 가속 + 상대 영웅 방향으로 반사 (약간의 랜덤 오차 포함)
-                                import math as _math_ls
-                                _ls_speed = _math_ls.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-                                if _ls_speed > 0:
-                                    _ls_boost = random.uniform(1.2, 1.5)
-                                    _ls_new_speed = _ls_speed * _ls_boost
-                                    # 상대 영웅 패들 중심 좌표를 향해 반사
-                                    # top 잎(보스측): 플레이어 패들을 향해 반사
-                                    # bottom 잎(플레이어측): 보스 패들을 향해 반사
-                                    if _ls_side == 'top':
-                                        _ls_target_x = float(PLAYER.centerx)
-                                        _ls_target_y = float(PLAYER.centery)
-                                    else:
-                                        _ls_target_x = float(BOSS.centerx)
-                                        _ls_target_y = float(BOSS.centery)
-                                    _ls_dx = _ls_target_x - float(BALL.centerx)
-                                    _ls_dy = _ls_target_y - float(BALL.centery)
-                                    _ls_target_angle = _math_ls.atan2(_ls_dy, _ls_dx)
-                                    # 약간의 랜덤 오차 (±15도)
-                                    _ls_angle_var = random.uniform(-_math_ls.pi / 12, _math_ls.pi / 12)
-                                    _ls_final_angle = _ls_target_angle + _ls_angle_var
-                                    ball_vel[0] = _ls_new_speed * _math_ls.cos(_ls_final_angle)
-                                    ball_vel[1] = _ls_new_speed * _math_ls.sin(_ls_final_angle)
 
                     # 연화(maria) 스킬 시전 중 팔 올린 상태 유지
                     if arena_hero_paddle_renderer:

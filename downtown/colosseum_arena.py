@@ -566,7 +566,7 @@ class ArenaLeafShield:
         self.ellipse_y = 0.3       # Y축 압축률 (전설 신성월계수와 동일)
         self.front_threshold = 30  # 패들 앞쪽 잎 충돌 무시 기준 (전설과 동일)
         self.leaf_size = 24        # 잎 그리기 크기 (3배 확대)
-        self.hitbox_size = 16      # 충돌 판정 크기
+        self.hitbox_size = 35      # 충돌 판정 크기 (전설 신성월계수와 동일)
         self.regen_delay = 600     # 잎 재생 시간 (10초 * 60fps)
         self.owner_x = 0.0
         self.owner_y = 0.0
@@ -2003,6 +2003,18 @@ class GuardWarriorSystem:
                     print(f"[Guard] 스킬 인스턴스 생성 실패 ({hero_id}): {e}")
                     self.skill_instances[hero_id] = []
 
+    def _cleanup_all_active_skills(self):
+        """모든 활성 스킬의 _end_effect 호출 후 비활성화 (game_state 키 잔류 방지)"""
+        gs = self.skill_manager.game_state if self.skill_manager else {}
+        for hero_id, skills in self.skill_instances.items():
+            for skill in skills:
+                if skill.is_active:
+                    try:
+                        skill._end_effect(None, None, None, gs)
+                    except Exception:
+                        pass
+                    skill.is_active = False
+
     def unlock_extra_skills(self, is_top=None):
         """추가훈련 퍽: 호위무사의 두 번째 스킬도 해금 (2개 모두 사용 가능)
 
@@ -2188,6 +2200,17 @@ class GuardWarriorSystem:
         # 매혹 호위무사 스킬 인스턴스만 리셋 (다른 호위무사 활성 스킬 보호)
         guard_id = guard["id"]
         try:
+            gs = self.skill_manager.game_state if self.skill_manager else {}
+            # ★ 기존 스킬 인스턴스 정리 (game_state 키 잔류 방지)
+            old_skills = self.skill_instances.get(guard_id, [])
+            for old_skill in old_skills:
+                if old_skill.is_active:
+                    try:
+                        old_skill._end_effect(None, None, None, gs)
+                    except Exception:
+                        pass
+                    old_skill.is_active = False
+
             from downtown.hero_skills import HERO_SKILL_CLASSES
             skill_classes = HERO_SKILL_CLASSES.get(guard_id, [])
             selected_idx = self.skill_selections.get(guard_id, -1)
@@ -2196,7 +2219,6 @@ class GuardWarriorSystem:
                 if selected_idx >= 0 and i != selected_idx:
                     continue
                 new_skills.append(cls())
-            gs = self.skill_manager.game_state if self.skill_manager else {}
             for sk in new_skills:
                 sk.game_state = gs
             self.skill_instances[guard_id] = new_skills
@@ -2278,6 +2300,8 @@ class GuardWarriorSystem:
                         break
 
         print(f"[Charm] 매혹 종료! {guard['name']} 원래 진영으로 완전 복귀 (x={return_x:.0f})")
+        # ★ 활성 스킬 정리 후 재생성 (game_state 키 잔류 방지)
+        self._cleanup_all_active_skills()
         self._init_guard_skills()
 
     def _update_charmed_guard(self, dt, top_paddle, bottom_paddle, ball):
@@ -3552,7 +3576,8 @@ class GuardWarriorSystem:
                 return
 
     # 호위무사 스킬이 game_state를 통해 메인 영웅에 영향주는 것 방지용 키 목록
-    _CASTER_STATE_KEYS = ['_locked', '_locked_x', '_locked_y', '_stunned', '_speed_boost', '_size_boost']
+    _CASTER_STATE_KEYS = ['_locked', '_locked_x', '_locked_y', '_stunned', '_speed_boost', '_size_boost',
+                          '_sand_prison', '_confused', '_slowed', '_slow_amount', '_shrink', '_shrink_scale']
 
     def _save_caster_state(self, game_state, caster_prefix):
         """스킬 호출 전 caster 측 game_state 백업"""
