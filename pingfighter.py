@@ -2833,6 +2833,9 @@ if not pygame.display.get_init():
 else:
     # pygame은 이미 초기화됨 (스플래시에서)
     pygame.font.init()
+# freetype은 별도 초기화 필요 (스플래시가 pygame.display.init()만 호출한 경우)
+if not pygame.freetype.get_init():
+    pygame.freetype.init()
 
 # 스플래시 화면 닫기 및 메인 화면으로 전환
 if _splash_screen:
