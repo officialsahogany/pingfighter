@@ -10273,7 +10273,7 @@ class BombSurprise(HeroSkill):
                 # 2차 쇼크웨이브
                 frames_elapsed = int(exp['time'] * 60)
                 for wave in exp.get('secondary_waves', []):
-                    if frames_elapsed >= wave['delay']:
+                    if frames_elapsed >= wave['delay'] and wave['radius'] < cap:
                         wave['radius'] += wave['speed']
 
                 # 메인 파티클 물리
