@@ -1100,9 +1100,10 @@ class PillarBackgroundRenderer:
             # fallback: 4:4 이상 동점일 때만 듀스로 처리
             is_deuce = player_score >= 4 and boss_score >= 4 and player_score == boss_score
 
-        # 스코어 박스 크기
-        box_width = 140
-        box_height = 44
+        # 스코어 박스 크기 (game_scale 비례)
+        _s = self.game_width / self.original_game_width if self.original_game_width > 0 else 1.0
+        box_width = max(80, int(140 * _s))
+        box_height = max(28, int(44 * _s))
 
         # 게임 화면 상단 중앙에 배치
         box_x = self.game_offset_x + (self.game_width - box_width) // 2
@@ -1138,15 +1139,18 @@ class PillarBackgroundRenderer:
         if is_deuce:
             # ==================== 듀스 화염 버전 ====================
             self._draw_deuce_fire_score(screen, box_x, box_y, box_width, box_height,
-                                        player_score, boss_score, time_ms, sparkle_intensity)
+                                        player_score, boss_score, time_ms, sparkle_intensity,
+                                        _scale=_s)
         else:
             # ==================== 일반 버전 ====================
             self._draw_normal_score(screen, box_x, box_y, box_width, box_height,
                                     player_score, boss_score, time_ms, sparkle_intensity,
-                                    cycle_progress, sparkle_duration)
+                                    cycle_progress, sparkle_duration,
+                                    _scale=_s)
 
     def _draw_deuce_fire_score(self, screen, box_x, box_y, box_width, box_height,
-                                player_score, boss_score, time_ms, sparkle_intensity):
+                                player_score, boss_score, time_ms, sparkle_intensity,
+                                _scale=1.0):
         """듀스 상태의 이글이글 타오르는 화염 점수판 (Raging Inferno 스타일)"""
         import random
 
@@ -1296,7 +1300,8 @@ class PillarBackgroundRenderer:
 
         # === 스코어 텍스트 (화염 색상 + 글로우 + 미세 떨림) ===
         try:
-            score_font = pygame.font.Font(None, 42)
+            _font_size = max(20, int(42 * _scale))
+            score_font = pygame.font.Font(None, _font_size)
 
             # 열기로 인한 미세한 떨림
             shake_x = math.sin(time_ms * 0.02) * 1
@@ -1304,7 +1309,7 @@ class PillarBackgroundRenderer:
 
             center_x = box_x + box_width // 2 + shake_x
             center_y = box_y + box_height // 2 + shake_y
-            score_offset = 28
+            score_offset = max(16, int(28 * _scale))
 
             # 글로우 효과
             for gw in range(4, 0, -1):
@@ -1354,7 +1359,7 @@ class PillarBackgroundRenderer:
 
     def _draw_normal_score(self, screen, box_x, box_y, box_width, box_height,
                            player_score, boss_score, time_ms, sparkle_intensity,
-                           cycle_progress, sparkle_duration):
+                           cycle_progress, sparkle_duration, _scale=1.0):
         """일반 점수판"""
         # === 외곽 글로우 효과 ===
         glow_margin = 6
@@ -1413,7 +1418,8 @@ class PillarBackgroundRenderer:
 
         # === 스코어 텍스트 ===
         try:
-            score_font = pygame.font.Font(None, 36)
+            _font_size = max(18, int(36 * _scale))
+            score_font = pygame.font.Font(None, _font_size)
 
             p_color = (100, 180, 255)
             p_text = score_font.render(str(player_score), True, p_color)
@@ -1428,7 +1434,7 @@ class PillarBackgroundRenderer:
 
             center_x = box_x + box_width // 2
             center_y = box_y + box_height // 2
-            score_offset = 28
+            score_offset = max(16, int(28 * _scale))
 
             colon_rect = colon_text.get_rect(center=(center_x, center_y))
             p_rect = p_text.get_rect(center=(center_x - score_offset, center_y))
@@ -1496,9 +1502,12 @@ class PillarBackgroundRenderer:
             alchemy_notices: 연금술 알림 리스트
             max_slots: 최대 슬롯 수
         """
-        SLOT_W, SLOT_H = icon_size
-        slot_margin = 2  # 슬롯 간 여백
-        box_padding = 4  # 박스 내부 패딩
+        # game_scale 비례 크기
+        _s = self.game_width / self.original_game_width if self.original_game_width > 0 else 1.0
+        SLOT_W = max(16, int(icon_size[0] * _s))
+        SLOT_H = max(16, int(icon_size[1] * _s))
+        slot_margin = max(1, int(2 * _s))   # 슬롯 간 여백
+        box_padding = max(2, int(4 * _s))   # 박스 내부 패딩
 
         # 실제 아이템 수
         actual_item_count = len(active_items) if active_items else 0
@@ -1518,7 +1527,7 @@ class PillarBackgroundRenderer:
 
         # === 전체 너비 (메인 + 오버플로우) 기준 가운데 정렬 ===
         total_width = box_width + overflow_box_width
-        box_y = self.game_offset_y + self.game_height + 14  # +10px 아래로
+        box_y = self.game_offset_y + self.game_height + max(6, int(14 * _s))  # +14px 아래로 (스케일링)
 
         # 게임 영역 내 가운데 정렬
         game_area_right = self.game_offset_x + self.game_width
@@ -1827,9 +1836,12 @@ class PillarBackgroundRenderer:
         import math
         from downtown.hero_skill_icons import get_skill_icon
 
-        SLOT_W, SLOT_H = icon_size
-        slot_margin = 4   # 슬롯 간 여백 (스킬 2개라 좀 더 넓게)
-        box_padding = 4
+        # game_scale 비례 크기
+        _s = self.game_width / self.original_game_width if self.original_game_width > 0 else 1.0
+        SLOT_W = max(16, int(icon_size[0] * _s))
+        SLOT_H = max(16, int(icon_size[1] * _s))
+        slot_margin = max(2, int(4 * _s))   # 슬롯 간 여백 (스킬 2개라 좀 더 넓게)
+        box_padding = max(2, int(4 * _s))
 
         max_slots = min(len(skills), 2)
         if max_slots == 0:
@@ -1841,7 +1853,7 @@ class PillarBackgroundRenderer:
         box_height = SLOT_H + box_padding * 2
 
         # 위치: draw_left_pillar_ui()와 동일
-        box_y = self.game_offset_y + self.game_height + 14
+        box_y = self.game_offset_y + self.game_height + max(6, int(14 * _s))
         game_area_right = self.game_offset_x + self.game_width
         box_x = self.game_offset_x + (self.game_width - box_width) // 2
 

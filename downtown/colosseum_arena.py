@@ -4107,13 +4107,18 @@ class GuardWarriorSystem:
         if left_pillar_w < 30 and right_pillar_w < 30:
             return
 
+        # game_scale 비례 크기 (모든 디스플레이 모드에서 일관된 비율 유지)
+        _s = game_scale
+
         # 한글 폰트
-        name_font = self._get_guard_korean_font(14)
+        name_font = self._get_guard_korean_font(max(10, int(14 * _s)))
 
         # 캐릭터 렌더링용 소형 서피스 크기
-        char_surf_w, char_surf_h = 80, 80
-        frame_w, frame_h = 58, 58
-        slot_h = 100  # 슬롯 간격 (이름 포함, 겹침 방지)
+        char_surf_w = max(40, int(80 * _s))
+        char_surf_h = max(40, int(80 * _s))
+        frame_w = max(30, int(58 * _s))
+        frame_h = max(30, int(58 * _s))
+        slot_h = max(50, int(100 * _s))  # 슬롯 간격 (이름 포함, 겹침 방지)
 
         # UI 색상 (메탈릭 실버/화이트)
         bg_color = (210, 215, 225, 255)      # 메탈릭 실버 배경
@@ -4125,7 +4130,7 @@ class GuardWarriorSystem:
         # --- 상단 영웅의 호위무사 → 오른쪽 필러, 인게임창 상단 끝에 붙임 ---
         if right_pillar_w >= 30:
             # 인게임창 오른쪽 끝에 붙어있는 느낌 (프레임 왼쪽 = 게임 영역 오른쪽 끝 + 4px)
-            frame_x_right = right_pillar_x + 4
+            frame_x_right = right_pillar_x + int(4 * _s)
             cx_right = frame_x_right + frame_w // 2
             y_start_top = game_offset_y + int(10 * game_scale)
             for i, guard in enumerate(self.guard_warriors_top):
@@ -4155,7 +4160,7 @@ class GuardWarriorSystem:
                         screen.blit(cd_surf, (frame_x_right, slot_cy))
                     # 쿨타임 숫자 표시
                     try:
-                        cd_num_font = self._get_guard_korean_font(16)
+                        cd_num_font = self._get_guard_korean_font(max(10, int(16 * _s)))
                         cd_seconds = max(0, int(self.cooldown_top) + 1)
                         cd_num_surf = cd_num_font.render(str(cd_seconds), True, (255, 255, 255))
                         cd_num_rect = cd_num_surf.get_rect(center=(frame_x_right + frame_w // 2, slot_cy + frame_h // 2))
@@ -4166,14 +4171,16 @@ class GuardWarriorSystem:
                 # 다음 등장 화살표 표시 (2명 이상일 때, 쿨타임 중)
                 if (len(self.guard_warriors_top) >= 2 and self.phase_top in _cd_phases_top
                         and i == self.next_guard_top_idx % len(self.guard_warriors_top)):
-                    ax = frame_x_right - 12
+                    _aw = max(6, int(10 * _s))
+                    _ah = max(8, int(14 * _s))
+                    ax = frame_x_right - int(12 * _s)
                     ay = slot_cy + frame_h // 2
                     pulse = 0.5 + 0.5 * _sin(pygame.time.get_ticks() / 300.0)
                     a_alpha = int(160 + 80 * pulse)
-                    arrow_s = _get_arena_surface(10, 14)
+                    arrow_s = _get_arena_surface(_aw, _ah)
                     ac = (*arrow_color[:3], a_alpha)
-                    pygame.draw.polygon(arrow_s, ac, [(10, 7), (0, 0), (0, 14)])
-                    screen.blit(arrow_s, (ax, ay - 7))
+                    pygame.draw.polygon(arrow_s, ac, [(_aw, _ah // 2), (0, 0), (0, _ah)])
+                    screen.blit(arrow_s, (ax, ay - _ah // 2))
 
                 # 이름 표시 (한글 폰트)
                 try:
@@ -4212,7 +4219,7 @@ class GuardWarriorSystem:
         # --- 하단 영웅의 호위무사 → 왼쪽 필러, 인게임창 하단 끝에 붙임 ---
         if left_pillar_w >= 30:
             # 인게임창 왼쪽 끝에 붙어있는 느낌 (프레임 오른쪽 = 게임 영역 왼쪽 끝 - 4px)
-            frame_x_left = game_offset_x - frame_w - 4
+            frame_x_left = game_offset_x - frame_w - int(4 * _s)
             cx_left = frame_x_left + frame_w // 2
             game_scaled_h = int(SCREEN_HEIGHT * game_scale)
             y_end = game_offset_y + game_scaled_h - int(10 * game_scale)
@@ -4244,7 +4251,7 @@ class GuardWarriorSystem:
                         screen.blit(cd_surf, (frame_x_left, slot_cy))
                     # 쿨타임 숫자 표시
                     try:
-                        cd_num_font = self._get_guard_korean_font(16)
+                        cd_num_font = self._get_guard_korean_font(max(10, int(16 * _s)))
                         cd_seconds = max(0, int(self.cooldown_bottom) + 1)
                         cd_num_surf = cd_num_font.render(str(cd_seconds), True, (255, 255, 255))
                         cd_num_rect = cd_num_surf.get_rect(center=(frame_x_left + frame_w // 2, slot_cy + frame_h // 2))
@@ -4255,14 +4262,16 @@ class GuardWarriorSystem:
                 # 다음 등장 화살표 표시 (2명 이상일 때, 쿨타임 중)
                 if (len(self.guard_warriors_bottom) >= 2 and self.phase_bottom in _cd_phases_bottom
                         and i == self.next_guard_bottom_idx % len(self.guard_warriors_bottom)):
-                    ax = frame_x_left + frame_w + 2
+                    _aw = max(6, int(10 * _s))
+                    _ah = max(8, int(14 * _s))
+                    ax = frame_x_left + frame_w + int(2 * _s)
                     ay = slot_cy + frame_h // 2
                     pulse = 0.5 + 0.5 * _sin(pygame.time.get_ticks() / 300.0)
                     a_alpha = int(160 + 80 * pulse)
-                    arrow_s = _get_arena_surface(10, 14)
+                    arrow_s = _get_arena_surface(_aw, _ah)
                     ac = (*arrow_color[:3], a_alpha)
-                    pygame.draw.polygon(arrow_s, ac, [(0, 7), (10, 0), (10, 14)])
-                    screen.blit(arrow_s, (ax, ay - 7))
+                    pygame.draw.polygon(arrow_s, ac, [(0, _ah // 2), (_aw, 0), (_aw, _ah)])
+                    screen.blit(arrow_s, (ax, ay - _ah // 2))
 
                 # 이름 표시 (한글 폰트)
                 try:
@@ -4318,15 +4327,17 @@ class GuardWarriorSystem:
         if left_pillar_w < 30 and right_pillar_w < 30:
             return None
 
-        icon_size = 56
-        slot_gap = 64  # 아이콘 간격
-        frame_w = 58   # 호위무사 프레임 너비 (draw_guard_icons와 동일)
-        frame_h = 58
-        slot_h_guard = 100  # 호위무사 슬롯 높이
+        # game_scale 비례 크기 (모든 디스플레이 모드에서 일관된 비율 유지)
+        _s = game_scale
+        icon_size = max(20, int(40 * _s))
+        slot_gap = max(24, int(48 * _s))    # 아이콘 간격
+        frame_w = max(30, int(58 * _s))     # 호위무사 프레임 너비 (draw_guard_icons와 동일)
+        frame_h = max(30, int(58 * _s))
+        slot_h_guard = max(50, int(100 * _s))  # 호위무사 슬롯 높이
 
         # --- 플레이어 퍽 → 왼쪽 필러, 호위무사 위에서 위로 쌓기 ---
         if left_pillar_w >= 30 and player_perks:
-            frame_x_left = game_offset_x - frame_w - 4
+            frame_x_left = game_offset_x - frame_w - int(4 * _s)
             cx_left = frame_x_left + frame_w // 2
             # 호위무사 영역: 하단 끝에서 위로
             y_end = game_offset_y + game_scaled_h - int(10 * game_scale)
@@ -4362,7 +4373,7 @@ class GuardWarriorSystem:
 
         # --- 상대 퍽 → 오른쪽 필러, 호위무사 아래에서 아래로 쌓기 ---
         if right_pillar_w >= 30 and enemy_perks:
-            frame_x_right = right_pillar_x + 4
+            frame_x_right = right_pillar_x + int(4 * _s)
             cx_right = frame_x_right + frame_w // 2
             # 호위무사 영역: 상단 끝에서 아래로
             y_start_top = game_offset_y + int(10 * game_scale)
