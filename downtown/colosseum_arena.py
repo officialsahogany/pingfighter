@@ -515,51 +515,8 @@ BOTTOM_HEROES = [
     },
 ]
 
-# 전체 영웅 목록 (호환성용)
+# 전체 영웅 목록
 ARENA_HEROES = TOP_HEROES + BOTTOM_HEROES
-
-# 감옥 전용 영웅 (호위무사 후보 - 기존 스킬 클래스 재활용)
-PRISON_HEROES = [
-    {
-        "id": "bella",
-        "name": "벨라",
-        "title": "독화살사",
-        "style": HeroStyle.TRICKY,
-        "color": (160, 50, 180),  # 보라/독 테마
-        "speed": 1.05,
-        "reaction": 1.05,
-        "power": 0.95,
-        "accuracy": 0.88,
-        "position": "bottom",
-        "description": "독을 다루는 감옥의 사냥꾼"
-    },
-    {
-        "id": "leon",
-        "name": "리온",
-        "title": "전장의 사자",
-        "style": HeroStyle.AGGRESSIVE,
-        "color": (200, 150, 50),  # 금색/전사 테마
-        "speed": 1.25,
-        "reaction": 0.9,
-        "power": 1.2,
-        "accuracy": 0.83,
-        "position": "bottom",
-        "description": "용맹한 전장의 용병"
-    },
-    {
-        "id": "yuki",
-        "name": "유키",
-        "title": "결계술사",
-        "style": HeroStyle.DEFENSIVE,
-        "color": (100, 180, 220),  # 하늘/얼음 테마
-        "speed": 0.88,
-        "reaction": 1.3,
-        "power": 0.8,
-        "accuracy": 0.95,
-        "position": "bottom",
-        "description": "강력한 결계를 펼치는 수호자"
-    },
-]
 
 # ============================================================================
 # 토너먼트 상태
@@ -4617,6 +4574,7 @@ class ColosseumsArena:
         self.initial_setup_done = False          # 초반 셋업(영웅+호위무사 선택) 완료 여부
 
         # 감옥 시스템
+        self._remaining_heroes = []              # 대진표 미선발 영웅 (감옥 후보 풀)
         self.prison_heroes = []                  # 감옥 영웅 3명 (셔플됨)
         self.prison_selected = None              # 플레이어가 선택한 호위무사
         self.hover_hero_index = -1               # 영웅 선택 호버 인덱스
@@ -5063,26 +5021,29 @@ class ColosseumsArena:
         self.state = TournamentState.BRACKET_VIEW
 
     def _generate_bracket(self):
-        """8강 대진표 생성 - 모든 영웅 자유 매칭 + 감옥 영웅 배정
+        """8강 대진표 생성 - 전체 영웅 셔플 후 대진표 8명 + 감옥 후보 분배
 
-        변경사항:
-        - ARENA_HEROES 8명 중 자유롭게 매칭 (4매치)
-        - PRISON_HEROES 3명 감옥 배정 (호위무사 후보)
+        전체 ARENA_HEROES를 셔플하여:
+        - 앞 8명 → 대진표 4매치 (중복 없음)
+        - 나머지 → 감옥 호위무사 후보 (대진표와 중복 없음)
         - 모든 영웅에게 스킬 2개 중 1개 랜덤 배정
         """
         # 현재 시간 기반 로컬 Random 인스턴스로 완전 랜덤화 (시드 고정 문제 방지)
         local_rng = random.Random(time.time())
 
-        # 전체 영웅 중 8명을 무작위 선발 (9명 이상일 때 매 토너먼트 다른 조합)
-        all_heroes = local_rng.sample(ARENA_HEROES, min(8, len(ARENA_HEROES)))
+        # 전체 영웅 셔플 → 앞 8명 대진표, 나머지 감옥 후보
+        shuffled = list(ARENA_HEROES)
+        local_rng.shuffle(shuffled)
+        bracket_heroes = shuffled[:8]
+        self._remaining_heroes = shuffled[8:]  # 감옥 후보 풀 (대진표와 절대 중복 없음)
 
         # 4개의 매치 생성 (0-1, 2-3, 4-5, 6-7 페어링)
         self.top_heroes = []
         self.bottom_heroes = []
 
         for i in range(4):
-            hero_a = all_heroes[i * 2]
-            hero_b = all_heroes[i * 2 + 1]
+            hero_a = bracket_heroes[i * 2]
+            hero_b = bracket_heroes[i * 2 + 1]
 
             # 랜덤으로 상단/하단 결정
             if local_rng.random() < 0.5:
@@ -5097,12 +5058,12 @@ class ColosseumsArena:
             match = Match(top_hero, bottom_hero, i)
             self.matches[TournamentRound.QUARTER_FINAL].append(match)
 
-        # 감옥 영웅은 PRISON_SELECT 진입 시 대진표에서 동적으로 선정
+        # 감옥 영웅은 PRISON_SELECT 진입 시 _remaining_heroes에서 선정
         self.prison_heroes = []
 
-        # 모든 영웅에게 스킬 2개 중 1개 랜덤 배정
+        # 모든 영웅(대진표 + 감옥 후보)에게 스킬 2개 중 1개 랜덤 배정
         self.hero_selected_skills = {}
-        for hero in all_heroes:
+        for hero in shuffled:
             self.hero_selected_skills[hero["id"]] = local_rng.randint(0, 1)
 
     def _advance_to_next_round(self):
@@ -5350,13 +5311,11 @@ class ColosseumsArena:
         self._prison_attack_particles = []
 
     def _prepare_prison_candidates(self):
-        """PRISON_HEROES에서 3명을 호위무사 후보로 선정 (대진표 영웅과 중복 방지)"""
-        # 대진표 영웅과 겹치지 않는 전용 감옥 영웅 사용
-        self.prison_heroes = random.sample(PRISON_HEROES, min(3, len(PRISON_HEROES)))
-        # 감옥 영웅에게도 스킬 랜덤 배정
-        for hero in self.prison_heroes:
-            if hero["id"] not in self.hero_selected_skills:
-                self.hero_selected_skills[hero["id"]] = random.randint(0, 1)
+        """대진표에 포함되지 않은 나머지 영웅에서 감옥 후보 3명 선정"""
+        remaining = getattr(self, '_remaining_heroes', [])
+        # 나머지 영웅 중 3명을 감옥 후보로 선정 (대진표와 절대 중복 없음)
+        pool_size = min(3, len(remaining))
+        self.prison_heroes = random.sample(remaining, pool_size) if pool_size > 0 else []
 
     def _finalize_setup_and_start(self):
         """초반 셋업 완료 → 다른 매치 자동 진행 → VS 프리뷰 → 배틀"""

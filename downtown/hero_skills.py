@@ -8025,8 +8025,8 @@ class DeadPossession(HeroSkill):
         exclude_ids = {"charm", "dead_possession"}
 
         for hero_id, skill_classes in HERO_SKILL_CLASSES.items():
-            if hero_id in ("banshee", "bella", "leon", "yuki"):
-                continue  # 감옥 영웅과 벤시 자신 제외
+            if hero_id in ("banshee",):
+                continue  # 벤시 자신 제외
             for cls in skill_classes:
                 # 인스턴스를 만들어서 skill_id 확인
                 temp = cls()
@@ -11186,10 +11186,6 @@ HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "necro": [GhostSummon(), SkeletonArcher()],
     "joker": [BalloonWall(), BombSurprise()],
     "mirage": [SandPrison(), SandVortex()],
-    # 감옥 전용 영웅 (기존 스킬 클래스 재활용)
-    "bella": [AbyssInk(), DollCurse()],
-    "leon": [HornCharge(), DarkSlash()],
-    "yuki": [SteamBarrier(), GravityControl()],
 }
 
 # 스킬 클래스 매핑 (호위무사 시스템 등에서 독립 인스턴스 생성용)
@@ -11206,10 +11202,6 @@ HERO_SKILL_CLASSES: Dict[str, list] = {
     "necro": [GhostSummon, SkeletonArcher],
     "joker": [BalloonWall, BombSurprise],
     "mirage": [SandPrison, SandVortex],
-    # 감옥 전용 영웅 (기존 스킬 클래스 재활용)
-    "bella": [AbyssInk, DollCurse],
-    "leon": [HornCharge, DarkSlash],
-    "yuki": [SteamBarrier, GravityControl],
 }
 
 
