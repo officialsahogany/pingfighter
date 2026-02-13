@@ -8550,16 +8550,14 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         print(f"[디스플레이] 창모드 전환 완료: {actual_w}x{actual_h}", flush=True)
 
     elif mode == "fullscreen":
-        # === 전체화면으로 전환 ===
+        # === 전체화면으로 전환 (네이티브 해상도, OS 해상도 변경 없음) ===
         print("[디스플레이] 전체화면으로 전환 시작...", flush=True)
 
-        # Windows: 성능용 해상도 변경 다시 적용
+        # 시네마모드에서 전환 시 해상도 복원
         if sys.platform == 'win32' and _original_resolution:
-            target_res = _get_matching_resolution(_original_resolution[0], _original_resolution[1])
-            if target_res:
-                _change_windows_resolution(target_res[0], target_res[1])
-                import time
-                time.sleep(0.3)
+            _restore_windows_resolution()
+            import time
+            time.sleep(0.3)
 
         FULLSCREEN_MODE = True
 
@@ -8634,6 +8632,97 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         pygame.display.set_caption("PINGFIGHTER")
         _current_display_mode = "fullscreen"
         print(f"[디스플레이] 전체화면 전환 완료: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
+
+    elif mode == "cinema":
+        # === 시네마모드: OS 해상도를 낮춰서 전체화면 ===
+        print("[디스플레이] 시네마모드로 전환 시작...", flush=True)
+
+        if sys.platform == 'win32':
+            # 네이티브 해상도 저장 (복원용)
+            native_res = _get_native_resolution() or _get_current_resolution()
+            if native_res:
+                _original_resolution = native_res
+                print(f"[시네마모드] 원본 해상도 저장: {native_res[0]}x{native_res[1]}", flush=True)
+
+                # 모니터 비율에 맞는 저해상도 계산
+                target_res = _get_matching_resolution(native_res[0], native_res[1])
+                if target_res and target_res != (native_res[0], native_res[1]):
+                    print(f"[시네마모드] 해상도 변경: {native_res[0]}x{native_res[1]} → {target_res[0]}x{target_res[1]}", flush=True)
+                    _change_windows_resolution(target_res[0], target_res[1])
+                    import time
+                    time.sleep(0.3)
+                    atexit.register(_restore_windows_resolution)
+                else:
+                    print(f"[시네마모드] 매칭 해상도 없음, 네이티브로 진행", flush=True)
+
+        FULLSCREEN_MODE = True
+
+        # 해상도 변경 후 모니터 해상도 재감지
+        if _current_platform == 'Windows':
+            _monitor_res = _get_current_resolution()
+            if _monitor_res and _monitor_res[0] > 0 and _monitor_res[1] > 0:
+                FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT = _monitor_res
+            else:
+                display_info = pygame.display.Info()
+                FULLSCREEN_WIDTH = display_info.current_w
+                FULLSCREEN_HEIGHT = display_info.current_h
+        else:
+            display_info = pygame.display.Info()
+            FULLSCREEN_WIDTH = display_info.current_w
+            FULLSCREEN_HEIGHT = display_info.current_h
+
+        _fs_flags = pygame.FULLSCREEN | pygame.DOUBLEBUF if _current_platform == 'Darwin' else pygame.FULLSCREEN
+        REAL_SCREEN = _original_set_mode((FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT), _fs_flags)
+
+        if _custom_cursor_enabled:
+            pygame.mouse.set_visible(False)
+
+        actual_w, actual_h = REAL_SCREEN.get_size()
+        FULLSCREEN_WIDTH = actual_w
+        FULLSCREEN_HEIGHT = actual_h
+
+        # 스케일링 계산
+        MARGIN = 70
+        scale_y = (FULLSCREEN_HEIGHT - MARGIN * 2) / HEIGHT
+        scaled_width_check = int(WIDTH * scale_y)
+        if scaled_width_check > FULLSCREEN_WIDTH:
+            GAME_SCALE_FACTOR = FULLSCREEN_WIDTH / WIDTH
+        else:
+            GAME_SCALE_FACTOR = scale_y
+
+        GAME_SCALED_WIDTH = int(WIDTH * GAME_SCALE_FACTOR)
+        GAME_SCALED_HEIGHT = int(HEIGHT * GAME_SCALE_FACTOR)
+        GAME_OFFSET_X = (FULLSCREEN_WIDTH - GAME_SCALED_WIDTH) // 2
+        GAME_OFFSET_Y = (FULLSCREEN_HEIGHT - GAME_SCALED_HEIGHT) // 2
+
+        _set_font_scale(GAME_SCALE_FACTOR)
+
+        SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert()
+
+        pillar_renderer = init_pillar_background(
+            FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT,
+            GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT,
+            offset_x=GAME_OFFSET_X, offset_y=GAME_OFFSET_Y,
+            original_game_width=WIDTH, original_game_height=HEIGHT
+        )
+        _set_dm_fullscreen(True, SCREEN)
+
+        _is_fullscreen_active = True
+
+        pygame.display.flip = _fullscreen_flip
+        pygame.display.update = _fullscreen_update
+        pygame.mouse.get_pos = _fullscreen_mouse_get_pos
+        pygame.event.get = _fullscreen_event_get
+
+        try:
+            draw.screen = SCREEN
+            trade_point_system.screen = SCREEN
+        except Exception:
+            pass
+
+        pygame.display.set_caption("PINGFIGHTER")
+        _current_display_mode = "cinema"
+        print(f"[디스플레이] 시네마모드 전환 완료: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
 
     elif mode == "borderless":
         # === 전체창모드(보더리스 윈도우) 전환 ===
@@ -8724,7 +8813,7 @@ def is_windowed_mode() -> bool:
 
 
 def get_display_mode() -> str:
-    """현재 디스플레이 모드 반환: 'fullscreen' | 'borderless' | 'windowed'"""
+    """현재 디스플레이 모드 반환: 'fullscreen' | 'cinema' | 'windowed'"""
     return _current_display_mode
 
 
