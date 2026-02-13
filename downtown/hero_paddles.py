@@ -2037,6 +2037,11 @@ class HeroPaddleRenderer:
         wave = anim["wave"]
         body_bob = anim["body_bob"]
         shoulder_bob = anim.get("shoulder_bob", 0)
+        # 팔/어깨 교차 스윙 (무겐 스타일)
+        left_arm_swing = anim.get("left_arm_swing", 0)
+        right_arm_swing = anim.get("right_arm_swing", 0)
+        left_shoulder = anim.get("left_shoulder", 0)
+        right_shoulder = anim.get("right_shoulder", 0)
         # 다리 애니메이션 변수 추출
         left_leg_lift = anim.get("left_leg", 0)
         right_leg_lift = anim.get("right_leg", 0)
@@ -2100,9 +2105,9 @@ class HeroPaddleRenderer:
         skirt_flow = _sin(self.time * 4.0) * side_blend * 0.3 * b  # 부드러운 넘실거림
         skirt_wave_boost = 1.0 + side_blend * 2.0  # 이동 시 물결 증폭
 
-        # 다리 움직임에 따른 드레스 자락 들림 (발을 들면 해당 쪽 치마가 살짝 올라감)
-        left_hem_lift = int(left_leg_lift * 0.12 * b)
-        right_hem_lift = int(right_leg_lift * 0.12 * b)
+        # 다리 움직임에 따른 드레스 자락 들림 (발을 들면 해당 쪽 치마가 올라감)
+        left_hem_lift = int(left_leg_lift * 0.2 * b)
+        right_hem_lift = int(right_leg_lift * 0.2 * b)
 
         dress_points = [
             (cx - int(1.3 * b) + lean_offset, torso_y + int(1.65 * b)),
@@ -2156,11 +2161,11 @@ class HeroPaddleRenderer:
             # 다리별 애니메이션 오프셋 계산
             leg_lift = left_leg_lift if side == -1 else right_leg_lift
             leg_sway = left_leg_sway if side == -1 else right_leg_sway
-            foot_lift_y = int(leg_lift * 0.25 * b)   # 발 들어올림 (Y)
-            foot_sway_x = int(leg_sway * 0.45 * b)   # 발 앞뒤 스윙 (X)
+            foot_lift_y = int(leg_lift * 0.4 * b)    # 발 들어올림 (Y) - 충분한 높이
+            foot_sway_x = int(leg_sway * 0.7 * b)    # 발 앞뒤 스윙 (X) - 넓은 보폭
 
             # 들어올린 발은 살짝 앞으로 기울어짐 (발레 포인트)
-            foot_tilt = leg_lift * 0.12 * b
+            foot_tilt = leg_lift * 0.18 * b
 
             foot_x = cx + side * int(0.55 * b) + lean_offset + foot_sway_x
             foot_y = cy + int(2.6 * b) - foot_lift_y
@@ -2271,16 +2276,21 @@ class HeroPaddleRenderer:
         pygame.draw.rect(screen, (180, 165, 140), (belt_rect.centerx - buckle_size, belt_rect.centery - buckle_size // 2, buckle_size * 2, buckle_size), border_radius=1)
         pygame.draw.rect(screen, (220, 205, 180), (belt_rect.centerx - buckle_size + 2, belt_rect.centery - buckle_size // 2 + 1, buckle_size * 2 - 4, buckle_size - 2), border_radius=1)
 
-        # === 팔 + 마리오네트 실 (어깨 들썩임 + 올려치기) ===
+        # === 팔 + 마리오네트 실 (어깨 교차 들썩임 + 팔 스윙 + 올려치기) ===
         arm_slam = anim.get("arm_slam", 0)
         # arm_slam: -1=양팔 위로, +1=양팔 아래로(내려치기), 0=기본
         slam_active = abs(arm_slam) > 0.05
 
         for side in [-1, 1]:
-            shoulder_bob_offset = int(shoulder_bob * 0.3 * b)
-            # 어깨는 항상 고정 (몸통에 붙어있음)
+            # 어깨 교차 들썩임 (왼/오 각각 다르게 - 무겐 스타일)
+            current_shoulder_bob = left_shoulder if side == -1 else right_shoulder
+            shoulder_y_offset = int(current_shoulder_bob * 0.35 * b + shoulder_bob * 0.25 * b)
+            # 걸을 때 팔 교차 스윙
+            current_arm_swing = left_arm_swing if side == -1 else right_arm_swing
+            walk_arm_swing_x = int(current_arm_swing * 0.5 * b)
+
             shoulder = (cx + side * int(1.05 * b) + lean_offset,
-                        torso_y + int(0.15 * b) + shoulder_bob_offset)
+                        torso_y + int(0.15 * b) + shoulder_y_offset)
 
             if slam_active:
                 # 기본 팔꿈치/손목 오프셋 (어깨 기준 상대좌표)
@@ -2301,11 +2311,13 @@ class HeroPaddleRenderer:
                 elbow = (shoulder[0] + elbow_dx, shoulder[1] + elbow_dy)
                 wrist = (elbow[0] + wrist_dx, elbow[1] + wrist_dy)
             else:
-                elbow = (shoulder[0] + side * int(0.45 * b), torso_y + int(0.75 * b))
-                hand_wave_x = _sin(self.time * 2 + side) * 0.22 * b
-                hand_wave_y = _cos(self.time * 2 + side) * 0.12 * b
-                wrist = (elbow[0] + side * int(0.35 * b) + int(hand_wave_x),
-                        torso_y + int(1.25 * b) + int(hand_wave_y))
+                # 걸을 때: 팔 교차 스윙 + 어깨 들썩임 연동
+                elbow = (shoulder[0] + side * int(0.45 * b) + walk_arm_swing_x,
+                         torso_y + int(0.75 * b) + shoulder_y_offset)
+                hand_wave_x = _sin(self.time * 2 + side) * 0.15 * b
+                hand_wave_y = _cos(self.time * 2 + side) * 0.08 * b
+                wrist = (elbow[0] + side * int(0.35 * b) + int(walk_arm_swing_x * 0.5) + int(hand_wave_x),
+                        torso_y + int(1.25 * b) + int(shoulder_y_offset * 0.5) + int(hand_wave_y))
 
             # 어깨 퍼프 (레이스 장식) - 팔 방향을 따라감
             puff_cx = (shoulder[0] + elbow[0]) // 2
@@ -2434,7 +2446,10 @@ class HeroPaddleRenderer:
         head_w, head_h = int(2.2 * b), int(2.0 * b)
         head_rect = pygame.Rect(cx - head_w // 2 + lean_offset, head_y, head_w, head_h)
 
-        # 긴 머리카락 (양쪽으로 늘어짐, 물결)
+        # 긴 머리카락 (양쪽으로 늘어짐, 물결 + 이동 시 관성으로 흔들림)
+        hair_inertia = -move_dir * side_blend * 0.4 * b  # 이동 반대쪽으로 머리카락 밀림
+        hair_walk_sway = wave * 0.08 * b  # 걸음 주기에 따른 흔들림
+
         for side in [-1, 1]:
             hair_x = head_rect.centerx + side * int(0.75 * b)
             hair_wave = _sin(self.time * 2 + side) * 0.08 * b
@@ -2442,10 +2457,12 @@ class HeroPaddleRenderer:
             # 머리카락 여러 가닥
             for strand in range(3):
                 strand_offset = (strand - 1) * int(0.15 * b)
+                # 아래로 갈수록 관성 영향이 더 강함
+                strand_inertia = hair_inertia * (1.0 + strand * 0.3)
                 hair_points = [
                     (hair_x + strand_offset - int(0.25 * b), head_rect.centery - int(0.1 * b)),
                     (hair_x + strand_offset + int(0.25 * b), head_rect.centery),
-                    (hair_x + strand_offset + side * int(0.12 * b) + int(hair_wave), torso_y + int(1.2 * b) + strand * int(0.15 * b)),
+                    (hair_x + strand_offset + side * int(0.12 * b) + int(hair_wave + strand_inertia + hair_walk_sway), torso_y + int(1.2 * b) + strand * int(0.15 * b)),
                 ]
                 hair_color = p["hair"] if strand == 1 else p["hair_mid"]
                 pygame.draw.polygon(screen, hair_color, hair_points)
