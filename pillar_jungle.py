@@ -165,6 +165,9 @@ class MossyStoneFrame:
         self._glow_surf = pygame.Surface((30, 30), pygame.SRCALPHA)
         self._leaf_surf = pygame.Surface((50, 30), pygame.SRCALPHA)
 
+        # 낙엽 회전 캐시 (5도 단위, 사이즈별)
+        self._rotated_leaf_cache = {}
+
     def _fast_sin(self, x):
         """빠른 sin 근사"""
         idx = int((x % 6.283) * 100) % 629
@@ -1613,18 +1616,26 @@ class MossyStoneFrame:
         self._draw_fireflies(screen)
         # self._draw_inner_border(screen)  # 검은 테두리 제거
 
+    def _get_rotated_leaf(self, size, rotation):
+        """캐시된 회전 잎 서피스 반환 (5도 단위 양자화)"""
+        # 5도 단위로 양자화 (72종류 x 사이즈 수)
+        q_rot = int(rotation / 5) * 5 % 360
+        key = (size, q_rot)
+        if key not in self._rotated_leaf_cache:
+            leaf_surf = pygame.Surface((50, 30), pygame.SRCALPHA)
+            pygame.draw.ellipse(leaf_surf, self.COLORS['tropical_mid'],
+                              (0, 0, size * 2, size))
+            self._rotated_leaf_cache[key] = pygame.transform.rotate(leaf_surf, q_rot)
+        return self._rotated_leaf_cache[key]
+
     def _draw_falling_leaves(self, screen):
-        """떨어지는 잎 (최적화)"""
+        """떨어지는 잎 (회전 캐시 최적화)"""
         for leaf in self.falling_leaves:
             sway_x = self._fast_sin(leaf['sway_offset']) * 20
             x = int(leaf['x'] + sway_x)
             y = int(leaf['y'])
 
-            self._leaf_surf.fill((0, 0, 0, 0))
-            pygame.draw.ellipse(self._leaf_surf, self.COLORS['tropical_mid'],
-                              (0, 0, leaf['size'] * 2, leaf['size']))
-
-            rotated = pygame.transform.rotate(self._leaf_surf, leaf['rotation'])
+            rotated = self._get_rotated_leaf(leaf['size'], leaf['rotation'])
             rect = rotated.get_rect(center=(x, y))
             screen.blit(rotated, rect)
 
@@ -1671,6 +1682,7 @@ class MossyStoneFrame:
         # 재사용 서피스 재생성
         self._glow_surf = pygame.Surface((30, 30), pygame.SRCALPHA)
         self._leaf_surf = pygame.Surface((50, 30), pygame.SRCALPHA)
+        self._rotated_leaf_cache = {}
 
 
 # ============================================================================
@@ -2221,6 +2233,14 @@ class ThrownBanana:
         self.burst_timer = 0
         self.burst_duration = 0.4  # 터지는 애니메이션 지속 시간
 
+        # 바나나 서피스 캐시 (매 프레임 재생성 방지)
+        self._banana_surf_cache = self._create_banana_surface_base()
+        self._shadow_surf = pygame.Surface((self.size * 2, 10), pygame.SRCALPHA)
+        pygame.draw.ellipse(self._shadow_surf, (0, 0, 0, 40),
+                           (0, 0, self.size * 2, 10))
+        # 파티클 재사용 서피스 (최대 크기로 미리 생성)
+        self._particle_surf = pygame.Surface((30, 30), pygame.SRCALPHA)
+
     def update(self, dt):
         """바나나 업데이트"""
         if self.state == 'flying':
@@ -2373,55 +2393,37 @@ class ThrownBanana:
         """보스가 타겟인지"""
         return not self.target_player
 
-    def _create_banana_surface(self):
-        """현실감 있는 픽셀 아트 바나나 서피스 생성"""
+    def _create_banana_surface_base(self):
+        """바나나 서피스 1회 생성 후 캐시 (매 프레임 재생성 방지)"""
         surf_size = self.size * 2
         banana_surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
 
-        # 투명도 계산
-        if self.state == 'landed':
-            alpha = 255 - int((self.land_timer / self.land_duration) * 100)
-            if self.land_timer > self.land_duration * 0.7:
-                if int(self.land_timer * 10) % 2 == 0:
-                    alpha = 100
-        else:
-            alpha = 255
-
         # 바나나 색상 팔레트 (실제 바나나 색상)
         colors = {
-            'stem_dark': (101, 67, 33),       # 꼭지 어두운 갈색
-            'stem_mid': (139, 90, 43),        # 꼭지 중간 갈색
-            'stem_green': (154, 165, 67),     # 꼭지 녹색
-            'tip_dark': (89, 60, 31),         # 끝부분 어두운 갈색
-            'tip_mid': (51, 41, 28),          # 끝부분 검은 갈색
-            'peel_dark': (198, 156, 41),      # 껍질 어두운 노랑
-            'peel_mid': (227, 189, 52),       # 껍질 중간 노랑
-            'peel_light': (247, 220, 89),     # 껍질 밝은 노랑
-            'peel_highlight': (255, 239, 143),# 껍질 하이라이트
-            'shadow': (178, 134, 32),         # 그림자
-            'spots': (139, 105, 45),          # 바나나 반점 (익은 부분)
+            'stem_dark': (101, 67, 33),
+            'stem_mid': (139, 90, 43),
+            'stem_green': (154, 165, 67),
+            'tip_dark': (89, 60, 31),
+            'tip_mid': (51, 41, 28),
+            'peel_mid': (227, 189, 52),
+            'peel_light': (247, 220, 89),
+            'peel_highlight': (255, 239, 143),
+            'shadow': (178, 134, 32),
+            'spots': (139, 105, 45),
         }
 
-        # 바나나 크기 스케일
-        scale = self.size / 24  # 기본 24px 기준
-
-        # 픽셀 단위로 바나나 그리기 (초승달 곡선 형태)
+        scale = self.size / 24
         cx, cy = surf_size // 2, surf_size // 2
 
-        # 바나나 본체 - 부드러운 곡선 (왼쪽 위에서 오른쪽 아래로)
-        # 메인 바디 포인트 (곡선 형태)
+        # 바나나 본체 곡선
         body_points = []
         for i in range(20):
             t = i / 19
-            # 곡선 방정식 (초승달 형태)
             x = cx - 10 * scale + t * 20 * scale
-            # 위쪽 곡선
             curve_top = -8 * scale * math.sin(t * math.pi)
-            # 아래쪽은 덜 굽음
             y = cy + curve_top
             body_points.append((x, y))
 
-        # 아래쪽 곡선 (역순)
         for i in range(19, -1, -1):
             t = i / 19
             x = cx - 10 * scale + t * 20 * scale
@@ -2429,16 +2431,11 @@ class ThrownBanana:
             y = cy + curve_bottom
             body_points.append((x, y))
 
-        # 메인 바디 그리기 (그라데이션 효과)
         if len(body_points) >= 3:
-            # 그림자 레이어
             pygame.draw.polygon(banana_surf, colors['shadow'], body_points)
-
-            # 메인 색상
             inner_points = [(p[0], p[1] - 1 * scale) for p in body_points]
             pygame.draw.polygon(banana_surf, colors['peel_mid'], inner_points)
 
-            # 밝은 부분 (상단)
             highlight_points = []
             for i in range(10):
                 t = i / 9
@@ -2450,11 +2447,9 @@ class ThrownBanana:
                 x = cx - 8 * scale + t * 16 * scale
                 y = cy - 4 * scale * math.sin(t * math.pi) + 1 * scale
                 highlight_points.append((x, y))
-
             if len(highlight_points) >= 3:
                 pygame.draw.polygon(banana_surf, colors['peel_light'], highlight_points)
 
-            # 최상단 하이라이트 (빛 반사)
             top_highlight = []
             for i in range(8):
                 t = i / 7
@@ -2466,23 +2461,20 @@ class ThrownBanana:
                 x = cx - 6 * scale + t * 12 * scale
                 y = cy - 3 * scale * math.sin(t * math.pi)
                 top_highlight.append((x, y))
-
             if len(top_highlight) >= 3:
                 pygame.draw.polygon(banana_surf, colors['peel_highlight'], top_highlight)
 
-        # 왼쪽 꼭지 (줄기)
+        # 꼭지
         stem_x = cx - 11 * scale
         stem_y = cy - 2 * scale
-        # 녹색 부분
         pygame.draw.ellipse(banana_surf, colors['stem_green'],
                            (stem_x - 3 * scale, stem_y - 2 * scale, 5 * scale, 4 * scale))
-        # 갈색 꼭지
         pygame.draw.rect(banana_surf, colors['stem_dark'],
                         (stem_x - 4 * scale, stem_y - 4 * scale, 3 * scale, 3 * scale))
         pygame.draw.rect(banana_surf, colors['stem_mid'],
                         (stem_x - 3 * scale, stem_y - 3 * scale, 2 * scale, 2 * scale))
 
-        # 오른쪽 끝 (검은 부분)
+        # 끝부분
         tip_x = cx + 10 * scale
         tip_y = cy + 2 * scale
         pygame.draw.ellipse(banana_surf, colors['tip_dark'],
@@ -2490,8 +2482,8 @@ class ThrownBanana:
         pygame.draw.ellipse(banana_surf, colors['tip_mid'],
                            (tip_x, tip_y - 1 * scale, 2 * scale, 2 * scale))
 
-        # 바나나 반점 (익은 느낌) - 랜덤 위치에 작은 점들
-        random.seed(42)  # 일관된 반점 패턴
+        # 반점
+        random.seed(42)
         for _ in range(3):
             spot_t = random.uniform(0.3, 0.7)
             spot_x = cx - 6 * scale + spot_t * 12 * scale
@@ -2499,13 +2491,25 @@ class ThrownBanana:
             spot_size = random.uniform(1, 2) * scale
             pygame.draw.circle(banana_surf, colors['spots'],
                              (int(spot_x), int(spot_y)), int(spot_size))
-        random.seed()  # 시드 리셋 (다른 랜덤 로직에 영향 방지)
-
-        # 투명도 적용
-        if alpha < 255:
-            banana_surf.set_alpha(alpha)
+        random.seed()
 
         return banana_surf
+
+    def _get_banana_surface(self):
+        """캐시된 바나나 서피스 반환 (투명도만 조절)"""
+        if self.state == 'landed':
+            alpha = 255 - int((self.land_timer / self.land_duration) * 100)
+            if self.land_timer > self.land_duration * 0.7:
+                if int(self.land_timer * 10) % 2 == 0:
+                    alpha = 100
+        else:
+            alpha = 255
+
+        if alpha < 255:
+            surf = self._banana_surf_cache.copy()
+            surf.set_alpha(alpha)
+            return surf
+        return self._banana_surf_cache
 
     def is_in_game_area(self):
         """바나나가 인게임 영역 안에 있는지 (플레이어 영역 포함)"""
@@ -2525,10 +2529,10 @@ class ThrownBanana:
 
         # 터지는 상태면 파티클만 그림
         if self.state == 'bursting':
-            self._draw_burst_particles(screen, 0, 0)  # 필러 좌표계 (오프셋 없음)
+            self._draw_burst_particles(screen, 0, 0)
             return
 
-        banana_surf = self._create_banana_surface()
+        banana_surf = self._get_banana_surface()
 
         # 회전 적용 (날아갈 때만)
         if self.state == 'flying':
@@ -2536,16 +2540,12 @@ class ThrownBanana:
             rect = rotated.get_rect(center=(x, y))
             screen.blit(rotated, rect)
         else:
-            # 바닥에 있을 때는 회전 없이
             rect = banana_surf.get_rect(center=(x, y))
             screen.blit(banana_surf, rect)
 
-        # 그림자 (바닥에 있을 때)
+        # 그림자 (바닥에 있을 때) - 캐시된 서피스 재사용
         if self.state == 'landed':
-            shadow_surf = pygame.Surface((self.size * 2, 10), pygame.SRCALPHA)
-            pygame.draw.ellipse(shadow_surf, (0, 0, 0, 40),
-                              (0, 0, self.size * 2, 10))
-            screen.blit(shadow_surf, (x - self.size, y + 5))
+            screen.blit(self._shadow_surf, (x - self.size, y + 5))
 
     def draw_ingame(self, screen):
         """바나나 그리기 (인게임 화면용 - 인게임 좌표로 변환)"""
@@ -2565,7 +2565,7 @@ class ThrownBanana:
         ingame_x = int(self.x - self.game_x)
         ingame_y = int(self.y - self.game_y)
 
-        banana_surf = self._create_banana_surface()
+        banana_surf = self._get_banana_surface()
 
         # 회전 적용 (날아갈 때만)
         if self.state == 'flying':
@@ -2573,47 +2573,39 @@ class ThrownBanana:
             rect = rotated.get_rect(center=(ingame_x, ingame_y))
             screen.blit(rotated, rect)
         else:
-            # 바닥에 있을 때는 회전 없이
             rect = banana_surf.get_rect(center=(ingame_x, ingame_y))
             screen.blit(banana_surf, rect)
 
-        # 그림자 (바닥에 있을 때)
+        # 그림자 (바닥에 있을 때) - 캐시된 서피스 재사용
         if self.state == 'landed':
-            shadow_surf = pygame.Surface((self.size * 2, 10), pygame.SRCALPHA)
-            pygame.draw.ellipse(shadow_surf, (0, 0, 0, 40),
-                              (0, 0, self.size * 2, 10))
-            screen.blit(shadow_surf, (ingame_x - self.size, ingame_y + 5))
+            screen.blit(self._shadow_surf, (ingame_x - self.size, ingame_y + 5))
 
     def _draw_burst_particles(self, screen, offset_x, offset_y):
-        """터지는 파티클 그리기"""
+        """터지는 파티클 그리기 (서피스 재사용 최적화)"""
+        ps = self._particle_surf
         for p in self.burst_particles:
             px = int(p['x'] + offset_x)
             py = int(p['y'] + offset_y)
             size = p['size']
-            alpha = int(255 * (p['life'] / 0.4))  # 점점 투명해짐
+            alpha = int(255 * (p['life'] / 0.4))
             color = p['color']
 
-            # 파티클 서피스 생성
-            particle_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            # 재사용 서피스 크기 확인 후 필요시 리사이즈
+            needed = size * 2
+            if ps.get_width() < needed or ps.get_height() < needed:
+                ps = pygame.Surface((needed, needed), pygame.SRCALPHA)
+                self._particle_surf = ps
 
-            # 불규칙한 바나나 조각 모양 그리기
+            # 서피스 클리어 후 재사용
+            ps.fill((0, 0, 0, 0))
+
             if size > 5:
-                # 큰 조각: 불규칙한 다각형
-                points = []
-                num_points = random.randint(4, 6)
-                for i in range(num_points):
-                    angle = (i / num_points) * math.pi * 2 + p['rotation'] * 0.01
-                    r = size * random.uniform(0.6, 1.0)
-                    points.append((
-                        size + int(math.cos(angle) * r),
-                        size + int(math.sin(angle) * r)
-                    ))
-                pygame.draw.polygon(particle_surf, (*color, alpha), points)
+                # 큰 조각: 간소화된 원 (다각형 계산 제거)
+                pygame.draw.circle(ps, (*color, alpha), (size, size), size)
             else:
-                # 작은 조각: 원형
-                pygame.draw.circle(particle_surf, (*color, alpha), (size, size), size)
+                pygame.draw.circle(ps, (*color, alpha), (size, size), size)
 
-            screen.blit(particle_surf, (px - size, py - size))
+            screen.blit(ps, (px - size, py - size), (0, 0, needed, needed))
 
 
 class MonkeyBananaEventManager:
