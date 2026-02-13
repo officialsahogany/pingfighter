@@ -2656,6 +2656,7 @@ DEBUG_MODE = False  # 게임플레이 디버그 출력 (대쉬, 아이스, 꼬�
 DEBUG_TUTORIAL = False  # 튜토리얼 디버그 출력
 DEBUG_WEATHER = False  # 날씨 이벤트 디버그 출력
 DEBUG_BOSS = False  # 보스 AI 디버그 출력 (물대포, 쿠로미 등)
+COORDINATE_DEBUG_MODE = False  # 좌표계 디버그 모드 (F4 토글)
 
 # === 중요 상수 정의 (리팩토링 시 누락 방지) ===
 MAX_COLOR = 255
@@ -21802,7 +21803,7 @@ def _reset_active_item_hover_state() -> None:
 # 좌표계 디버그 모드 (F4 토글)
 # 액티브 아이템 슬롯 + 스매셔 스킬 히트박스 + 마우스 위치 표시
 # ============================================================
-COORDINATE_DEBUG_MODE = False  # 기본값 OFF, F4로 토글
+# COORDINATE_DEBUG_MODE는 파일 상단 디버그 설정 섹션에서 정의됨 (2659줄)
 
 
 def _draw_coordinate_debug(screen):
