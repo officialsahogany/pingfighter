@@ -3038,7 +3038,7 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     # 게임 렌더링용 Surface (기존 코드와 호환성 유지)
     # macOS: 알파 블렌딩이 제대로 작동하려면 convert_alpha() 사용
     # Windows: convert()로도 잘 작동하지만 일관성을 위해 convert_alpha() 사용
-    SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert_alpha()
+    SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert()
 
     # 필러 배경 렌더러 초기화 (실제 화면 크기 사용)
     # 스케일링된 게임 크기와 오프셋, 원본 게임 크기를 전달하여 좌표 변환이 정확히 되도록 함
@@ -3119,7 +3119,7 @@ else:
     print(f"[디스플레이] 창모드 스케일링: {GAME_SCALE_FACTOR:.2f}x ({WIDTH}x{HEIGHT} -> {GAME_SCALED_WIDTH}x{GAME_SCALED_HEIGHT})", flush=True)
 
     # 게임 렌더링용 Surface (REAL_SCREEN과 분리)
-    SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert_alpha()
+    SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert()
 
     # 필러 배경 렌더러 초기화
     from pillar_background import init_pillar_background, get_pillar_renderer
@@ -7081,8 +7081,8 @@ _pillar_ui_enabled = False
 # ============================================================
 # 스케일링 최적화: smoothscale 사용 및 캐싱
 # ============================================================
-_scaled_surface_cache = None  # 캐시된 스케일 서피스
-_scaled_surface_size = None   # 캐시된 서피스의 원본 크기
+_scaled_surface_cache = None  # 프리얼로케이트된 스케일 서피스 (재할당 방지)
+_scaled_surface_size = None   # 현재 스케일 서피스의 크기
 _scale_cache_dirty = True     # 캐시 무효화 플래그
 
 def invalidate_scale_cache():
@@ -7091,8 +7091,9 @@ def invalidate_scale_cache():
     _scale_cache_dirty = True
 
 def _get_scaled_screen():
-    """최적화된 스케일링: scale 사용 (성능 우선)"""
+    """최적화된 스케일링: 프리얼로케이트된 서피스에 scale (매 프레임 Surface 할당 방지)"""
     global SCREEN, GAME_SCALE_FACTOR, GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT
+    global _scaled_surface_cache, _scaled_surface_size
 
     # 성능 측정
     if VALTHOR_PERF_DEBUG:
@@ -7102,10 +7103,14 @@ def _get_scaled_screen():
     if GAME_SCALE_FACTOR == 1.0:
         result = SCREEN
     else:
-        # scale(nearest-neighbor)은 smoothscale(bilinear)보다 훨씬 빠름
-        # 4K 모니터 창모드에서 2.0x+ 스케일 시 smoothscale은 프레임 드랍 유발
-        # 업스케일링에서는 화질 차이가 미미하고, 픽셀아트 스타일에 scale이 더 적합
-        result = pygame.transform.scale(SCREEN, (GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT))
+        target_size = (GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT)
+        # 프리얼로케이트된 서피스가 없거나 크기 불일치 시 생성
+        if _scaled_surface_cache is None or _scaled_surface_size != target_size:
+            _scaled_surface_cache = pygame.Surface(target_size).convert()
+            _scaled_surface_size = target_size
+        # 기존 서피스에 scale (매 프레임 새 Surface 할당 없음)
+        pygame.transform.scale(SCREEN, target_size, _scaled_surface_cache)
+        result = _scaled_surface_cache
 
     if VALTHOR_PERF_DEBUG:
         valthor_perf_end("screen_scale")
@@ -8516,7 +8521,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         _set_font_scale(GAME_SCALE_FACTOR)
 
         # 게임 Surface 재생성
-        SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert_alpha()
+        SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert()
 
         # 필러 배경 초기화
         pillar_renderer = init_pillar_background(
@@ -8603,7 +8608,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
 
         _set_font_scale(GAME_SCALE_FACTOR)
 
-        SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert_alpha()
+        SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert()
 
         pillar_renderer = init_pillar_background(
             FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT,
@@ -8687,7 +8692,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
 
         _set_font_scale(GAME_SCALE_FACTOR)
 
-        SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert_alpha()
+        SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert()
 
         pillar_renderer = init_pillar_background(
             actual_w, actual_h,

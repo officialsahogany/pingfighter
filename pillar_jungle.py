@@ -156,9 +156,10 @@ class MossyStoneFrame:
         self._generate_all_elements()
         self._init_particles()
 
-        # 캐시 서피스들
-        self._static_cache = None  # 배경, 돌, 이끼, 작은 식물
-        self._foliage_cache = None  # 야자수, 몬스테라, 양치식물, 덩굴, 꽃 (정적)
+        # 캐시 서피스들 (병합된 단일 캐시)
+        self._static_cache = None
+        self._foliage_cache = None
+        self._combined_cache = None
         self._create_all_caches()
 
         # 애니메이션용 재사용 서피스
@@ -811,9 +812,18 @@ class MossyStoneFrame:
         })
 
     def _create_all_caches(self):
-        """모든 캐시 생성"""
+        """모든 캐시 생성 (정적 + 식물을 단일 서피스로 병합)"""
         self._create_static_cache()
         self._create_foliage_cache()
+        # 두 캐시를 단일 서피스로 병합 (매 프레임 2회 풀스크린 blit → 1회로 감소)
+        self._combined_cache = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
+        if self._static_cache:
+            self._combined_cache.blit(self._static_cache, (0, 0))
+        if self._foliage_cache:
+            self._combined_cache.blit(self._foliage_cache, (0, 0))
+        # 원본 캐시 메모리 해제
+        self._static_cache = None
+        self._foliage_cache = None
 
     def _create_static_cache(self):
         """정적 캐시 (배경, 정글 나무, 돌, 이끼, 작은 식물)"""
@@ -1602,14 +1612,10 @@ class MossyStoneFrame:
             self._spawn_falling_leaf()
 
     def draw(self, screen):
-        """렌더링 (최적화)"""
-        # 정적 캐시 (배경, 돌, 이끼, 작은 식물)
-        if self._static_cache:
-            screen.blit(self._static_cache, (0, 0))
-
-        # 식물 캐시 (덩굴, 양치, 야자수, 몬스테라, 꽃)
-        if self._foliage_cache:
-            screen.blit(self._foliage_cache, (0, 0))
+        """렌더링 (최적화 - 단일 캐시 blit)"""
+        # 정적 + 식물 병합 캐시 (1회 blit)
+        if self._combined_cache:
+            screen.blit(self._combined_cache, (0, 0))
 
         # 동적 요소만 그리기
         self._draw_falling_leaves(screen)
