@@ -477,15 +477,15 @@ BOTTOM_HEROES = [
     {
         "id": "necro",
         "name": "네크로",
-        "title": "강령술사",
+        "title": "해골의 여왕",
         "style": HeroStyle.TRICKY,
-        "color": (100, 180, 160),  # 유령빛 청록
+        "color": (160, 80, 200),  # 사령의 보라
         "speed": 1.1,
         "reaction": 0.9,
         "power": 0.9,
         "accuracy": 0.85,
         "position": "bottom",
-        "description": "영혼을 조종하는 신비로운 강령술사"
+        "description": "해골의 왕관을 쓴 망자들의 여왕"
     },
     {
         "id": "joker",
@@ -4318,8 +4318,8 @@ class GuardWarriorSystem:
         if left_pillar_w < 30 and right_pillar_w < 30:
             return None
 
-        icon_size = 28
-        slot_gap = 32  # 아이콘 간격
+        icon_size = 56
+        slot_gap = 64  # 아이콘 간격
         frame_w = 58   # 호위무사 프레임 너비 (draw_guard_icons와 동일)
         frame_h = 58
         slot_h_guard = 100  # 호위무사 슬롯 높이
