@@ -135829,7 +135829,7 @@ def main(stage_num, new_boss_mode=False):
                             max_y = HEIGHT - 50  # 화면 하단 끝
                             if arena_top_ghost_step_phase == 0:
                                 # 전진 페이즈: 아래로 이동
-                                new_y = int(BOSS.y + arena_top_ghost_step_speed)
+                                new_y = int(BOSS.y + arena_top_ghost_step_speed * arena_speed_multiplier)
                                 if new_y < max_y:
                                     BOSS.y = new_y
                                 else:
@@ -135837,7 +135837,7 @@ def main(stage_num, new_boss_mode=False):
                                     arena_top_ghost_step_phase = 1  # 복귀 페이즈로 전환
                             else:
                                 # 복귀 페이즈: 빠르게 위로 이동
-                                new_y = int(BOSS.y - arena_top_ghost_step_return_speed)
+                                new_y = int(BOSS.y - arena_top_ghost_step_return_speed * arena_speed_multiplier)
                                 if new_y > arena_top_ghost_step_original_y:
                                     BOSS.y = new_y
                                 else:
@@ -135862,7 +135862,7 @@ def main(stage_num, new_boss_mode=False):
                             min_y = 50  # 화면 상단 끝
                             if arena_bottom_ghost_step_phase == 0:
                                 # 전진 페이즈: 위로 이동
-                                new_y = int(PLAYER.y - arena_bottom_ghost_step_speed)
+                                new_y = int(PLAYER.y - arena_bottom_ghost_step_speed * arena_speed_multiplier)
                                 if new_y > min_y:
                                     PLAYER.y = new_y
                                 else:
@@ -135870,7 +135870,7 @@ def main(stage_num, new_boss_mode=False):
                                     arena_bottom_ghost_step_phase = 1  # 복귀 페이즈로 전환
                             else:
                                 # 복귀 페이즈: 빠르게 아래로 이동
-                                new_y = int(PLAYER.y + arena_bottom_ghost_step_return_speed)
+                                new_y = int(PLAYER.y + arena_bottom_ghost_step_return_speed * arena_speed_multiplier)
                                 if new_y < arena_bottom_ghost_step_original_y:
                                     PLAYER.y = new_y
                                 else:
