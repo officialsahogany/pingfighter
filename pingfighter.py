@@ -4792,6 +4792,25 @@ def _check_smasher_skill_tooltip(mouse_pos: tuple, scale_factor: float = 1.0) ->
     return None
 
 
+def _blit_scaled_tooltip(surface, tooltip_surface, tooltip_x, tooltip_y, tooltip_width, tooltip_height):
+    """GAME_SCALE_FACTOR에 맞게 툴팁을 확대하여 REAL_SCREEN에 blit"""
+    sf = GAME_SCALE_FACTOR
+    if sf > 1.05:  # 스케일링이 의미있는 경우만
+        new_w = int(tooltip_width * sf)
+        new_h = int(tooltip_height * sf)
+        tooltip_surface = pygame.transform.smoothscale(tooltip_surface, (new_w, new_h))
+        # 원래 중심 기준으로 재배치
+        orig_cx = tooltip_x + tooltip_width // 2
+        orig_cy = tooltip_y + tooltip_height // 2
+        tooltip_x = orig_cx - new_w // 2
+        tooltip_y = orig_cy - new_h // 2
+        # 화면 경계 클램핑
+        sw, sh = surface.get_size()
+        tooltip_x = max(5, min(tooltip_x, sw - new_w - 5))
+        tooltip_y = max(5, min(tooltip_y, sh - new_h - 5))
+    surface.blit(tooltip_surface, (tooltip_x, tooltip_y))
+
+
 def _draw_arena_skill_tooltip(surface: pygame.Surface, skill, slot_rect, hero_color: tuple):
     """투기장 영웅 스킬 툴팁 그리기 (스매셔 스킬 툴팁과 동일 폼)
 
@@ -4939,8 +4958,8 @@ def _draw_arena_skill_tooltip(surface: pygame.Surface, skill, slot_rect, hero_co
         dur_surface, dur_rect = small_font.render(dur_text, (100, 255, 100))
         tooltip_surface.blit(dur_surface, (padding, y_pos))
 
-    # 최종 렌더링
-    surface.blit(tooltip_surface, (tooltip_x, tooltip_y))
+    # 최종 렌더링 (스케일링 적용)
+    _blit_scaled_tooltip(surface, tooltip_surface, tooltip_x, tooltip_y, tooltip_width, tooltip_height)
 
 
 def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
@@ -5191,8 +5210,8 @@ def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
     effect_label_surface, effect_label_rect = small_font.render("이펙트 미리보기", (150, 150, 150))
     tooltip_surface.blit(effect_label_surface, (padding + 4, effect_y + 4))
 
-    # 툴팁 그리기
-    surface.blit(tooltip_surface, (tooltip_x, tooltip_y))
+    # 툴팁 그리기 (스케일링 적용)
+    _blit_scaled_tooltip(surface, tooltip_surface, tooltip_x, tooltip_y, tooltip_width, tooltip_height)
 
 
 
@@ -5750,8 +5769,8 @@ def _draw_odin_swamp_tooltip(surface: pygame.Surface, mouse_pos: tuple, current_
     effect_label_surface, effect_label_rect = small_font.render("이펙트 미리보기", (150, 150, 150))
     tooltip_surface.blit(effect_label_surface, (padding + 4, effect_y + 4))
 
-    # 툴팁 그리기
-    surface.blit(tooltip_surface, (tooltip_x, tooltip_y))
+    # 툴팁 그리기 (스케일링 적용)
+    _blit_scaled_tooltip(surface, tooltip_surface, tooltip_x, tooltip_y, tooltip_width, tooltip_height)
 
 
 def _draw_mouse_left_click_icon(surface: pygame.Surface, x: int, y: int, size: int = 20, highlighted: bool = False):
