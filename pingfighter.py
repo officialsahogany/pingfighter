@@ -22182,22 +22182,27 @@ def _draw_active_item_hover_tooltip_on_screen(target_screen) -> None:
     if box_y < 8:
         box_y = rect.bottom + 8  # 위로 못 가면 아래로
 
-    box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
-    box_surface.fill((16, 18, 28, 230))
-    pygame.draw.rect(box_surface, (90, 130, 200), box_surface.get_rect(), 1, border_radius=6)
+    # 그림자 포함 전체를 중간 서피스에 그린 뒤 스케일링
+    _total_w = box_width + 4
+    _total_h = box_height + 4
+    _tip_surf = pygame.Surface((_total_w, _total_h), pygame.SRCALPHA)
+
+    # 그림자
+    pygame.draw.rect(_tip_surf, (0, 0, 0, 120), (2, 2, box_width + 4, box_height + 4), border_radius=8)
+    # 본체
+    _box_inner = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+    _box_inner.fill((16, 18, 28, 230))
+    pygame.draw.rect(_box_inner, (90, 130, 200), _box_inner.get_rect(), 1, border_radius=6)
 
     y = padding
-    box_surface.blit(title_surface, (padding, y))
+    _box_inner.blit(title_surface, (padding, y))
     y += title_surface.get_height() + 6
     for surface in body_surfaces:
-        box_surface.blit(surface, (padding, y))
+        _box_inner.blit(surface, (padding, y))
         y += surface.get_height() + line_spacing
+    _tip_surf.blit(_box_inner, (0, 0))
 
-    # 가볍게 그림자 드롭
-    shadow = pygame.Surface((box_width + 4, box_height + 4), pygame.SRCALPHA)
-    pygame.draw.rect(shadow, (0, 0, 0, 120), shadow.get_rect(), border_radius=8)
-    target_screen.blit(shadow, (box_x + 2, box_y + 2))
-    target_screen.blit(box_surface, (box_x, box_y))
+    _blit_scaled_tooltip(target_screen, _tip_surf, box_x, box_y, _total_w, _total_h)
 
 
 # --- 액티브 아이템 버리기 메뉴 함수 ---
