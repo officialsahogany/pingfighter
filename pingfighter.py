@@ -8437,7 +8437,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
     global GAME_OFFSET_X, GAME_OFFSET_Y, GAME_SCALE_FACTOR
     global GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT
     global FULLSCREEN_MODE, FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT
-    global _current_display_mode
+    global _current_display_mode, _original_resolution
 
     # 하위호환: to_windowed 파라미터 지원
     if mode is None and to_windowed is not None:
