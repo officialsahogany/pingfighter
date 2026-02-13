@@ -2037,6 +2037,11 @@ class HeroPaddleRenderer:
         wave = anim["wave"]
         body_bob = anim["body_bob"]
         shoulder_bob = anim.get("shoulder_bob", 0)
+        # 다리 애니메이션 변수 추출
+        left_leg_lift = anim.get("left_leg", 0)
+        right_leg_lift = anim.get("right_leg", 0)
+        left_leg_sway = anim.get("left_leg_sway", 0)
+        right_leg_sway = anim.get("right_leg_sway", 0)
 
         torso_y = cy - int(1.5 * b) + int(body_bob * 2 * b)
         lean_offset = int(lean * 2 * b)
@@ -2095,11 +2100,15 @@ class HeroPaddleRenderer:
         skirt_flow = _sin(self.time * 4.0) * side_blend * 0.3 * b  # 부드러운 넘실거림
         skirt_wave_boost = 1.0 + side_blend * 2.0  # 이동 시 물결 증폭
 
+        # 다리 움직임에 따른 드레스 자락 들림 (발을 들면 해당 쪽 치마가 살짝 올라감)
+        left_hem_lift = int(left_leg_lift * 0.12 * b)
+        right_hem_lift = int(right_leg_lift * 0.12 * b)
+
         dress_points = [
             (cx - int(1.3 * b) + lean_offset, torso_y + int(1.65 * b)),
             (cx + int(1.3 * b) + lean_offset, torso_y + int(1.65 * b)),
-            (cx + int(2.0 * b) + lean_offset + int(wave * 0.18 * skirt_wave_boost * b) + int(skirt_inertia + skirt_flow), cy + int(3.0 * b)),
-            (cx - int(2.0 * b) + lean_offset - int(wave * 0.18 * skirt_wave_boost * b) + int(skirt_inertia + skirt_flow), cy + int(3.0 * b)),
+            (cx + int(2.0 * b) + lean_offset + int(wave * 0.18 * skirt_wave_boost * b) + int(skirt_inertia + skirt_flow), cy + int(3.0 * b) - right_hem_lift),
+            (cx - int(2.0 * b) + lean_offset - int(wave * 0.18 * skirt_wave_boost * b) + int(skirt_inertia + skirt_flow), cy + int(3.0 * b) - left_hem_lift),
         ]
         # 드레스 그림자
         shadow_points = [(p[0] + 2, p[1] + 2) for p in dress_points]
@@ -2142,19 +2151,61 @@ class HeroPaddleRenderer:
                               (cx - frill_w + lean_offset + wave_offset + layer_sway, frill_y - int(0.05 * b), frill_w * 2, int(0.35 * b)),
                               math.radians(180), math.radians(360), 2)
 
-        # 발끝 (발레 슈즈)
+        # 발끝 (발레 슈즈) - 걸음 모션 적용
         for side in [-1, 1]:
-            foot_x = cx + side * int(0.55 * b) + lean_offset
-            foot_y = cy + int(2.6 * b)
-            # 슈즈 그림자
+            # 다리별 애니메이션 오프셋 계산
+            leg_lift = left_leg_lift if side == -1 else right_leg_lift
+            leg_sway = left_leg_sway if side == -1 else right_leg_sway
+            foot_lift_y = int(leg_lift * 0.25 * b)   # 발 들어올림 (Y)
+            foot_sway_x = int(leg_sway * 0.45 * b)   # 발 앞뒤 스윙 (X)
+
+            # 들어올린 발은 살짝 앞으로 기울어짐 (발레 포인트)
+            foot_tilt = leg_lift * 0.12 * b
+
+            foot_x = cx + side * int(0.55 * b) + lean_offset + foot_sway_x
+            foot_y = cy + int(2.6 * b) - foot_lift_y
+
+            # 발목~종아리 (드레스 아래로 살짝 보이는 스타킹)
+            if foot_lift_y > int(0.03 * b):
+                ankle_x = foot_x
+                ankle_top_y = foot_y - int(0.15 * b)
+                # 스타킹 (짧은 종아리 라인)
+                pygame.draw.line(screen, p["skin_shadow"],
+                               (ankle_x, ankle_top_y),
+                               (ankle_x, foot_y - int(0.02 * b)), max(1, int(0.18 * b)))
+                pygame.draw.line(screen, p["skin"],
+                               (ankle_x - 1, ankle_top_y),
+                               (ankle_x - 1, foot_y - int(0.02 * b)), max(1, int(0.14 * b)))
+
+            # 슈즈 그림자 (바닥에 고정 - 들어올린 발은 그림자 작아짐)
+            shadow_scale = max(0.4, 1.0 - leg_lift * 0.15)
+            shadow_w = int(0.56 * b * shadow_scale)
+            shadow_x = cx + side * int(0.55 * b) + lean_offset + foot_sway_x
+            shadow_y = cy + int(2.6 * b)
             pygame.draw.ellipse(screen, (40, 35, 50),
-                              (foot_x - int(0.28 * b) + 1, foot_y + 1, int(0.56 * b), int(0.32 * b)))
-            # 슈즈
+                              (shadow_x - shadow_w // 2 + 1, shadow_y + 1, shadow_w, int(0.2 * b * shadow_scale)))
+
+            # 슈즈 본체 (발레 포인트 - 들어올릴수록 세로로 길어짐)
+            shoe_w = int(0.52 * b) - int(foot_tilt * 0.3)
+            shoe_h = int(0.3 * b) + int(foot_tilt * 0.2)
             pygame.draw.ellipse(screen, (55, 45, 65),
-                              (foot_x - int(0.26 * b), foot_y - int(0.02 * b), int(0.52 * b), int(0.3 * b)))
-            # 리본 장식
+                              (foot_x - shoe_w // 2, foot_y - int(0.02 * b), shoe_w, shoe_h))
+            # 슈즈 하이라이트
+            pygame.draw.ellipse(screen, (75, 60, 85),
+                              (foot_x - shoe_w // 2 + 2, foot_y, shoe_w - 4, shoe_h - 3), 1)
+
+            # 리본 장식 (슈즈 위)
             pygame.draw.ellipse(screen, p["ribbon"],
                               (foot_x - int(0.1 * b), foot_y - int(0.08 * b), int(0.2 * b), int(0.12 * b)))
+            # 리본 끈 (발목 감싸기 - 발레리나 스타일)
+            if foot_lift_y > int(0.02 * b):
+                ribbon_y = foot_y - int(0.12 * b)
+                pygame.draw.line(screen, p["ribbon_dark"],
+                               (foot_x - int(0.12 * b), ribbon_y),
+                               (foot_x + side * int(0.2 * b), ribbon_y - int(0.1 * b)), 1)
+                pygame.draw.line(screen, p["ribbon"],
+                               (foot_x + int(0.12 * b), ribbon_y),
+                               (foot_x - side * int(0.15 * b), ribbon_y - int(0.08 * b)), 1)
 
         # === 몸통 (빅토리안 코르셋 드레스) ===
         chest_w, chest_h = int(2.6 * b), int(2.0 * b)
