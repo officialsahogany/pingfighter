@@ -8019,24 +8019,24 @@ class Charm(HeroSkill):
 
 
 class DeadPossession(HeroSkill):
-    """망자빙의 - 투기장 영웅의 모든 스킬 중 랜덤 1개를 즉시 발동
+    """수수께끼 묘기 - 투기장 영웅의 모든 스킬 중 랜덤 1개를 즉시 발동
 
     - 쿨타임 완료 시 자동 발동
     - 현재 존재하는 모든 영웅 스킬 풀에서 무작위 1개 선택
     - 선택된 스킬의 _apply_effect를 그대로 실행
-    - 시각적으로 빙의 연출 (유령 실루엣 + 선택된 스킬 아이콘 표시)
+    - 시각적으로 묘기 연출 (랜덤박스 + 선택된 스킬 아이콘 표시)
     """
 
     def __init__(self):
         super().__init__(
-            skill_id="dead_possession",
-            name="Dead Possession",
-            korean_name="망자빙의",
-            description="죽은 영웅의 힘을 빌려 랜덤 스킬을 발동한다",
+            skill_id="riddle_trick",
+            name="Riddle Trick",
+            korean_name="수수께끼 묘기",
+            description="예측 불가능한 묘기로 랜덤 스킬을 발동한다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=18.0,
             duration=0,  # 즉발 (빙의된 스킬의 duration 사용)
-            hero_id="banshee"
+            hero_id="joker"
         )
         self.possessed_skill = None      # 빙의된 스킬 인스턴스
         self.possession_flash = 0.0      # 빙의 플래시 타이머
@@ -8049,13 +8049,13 @@ class DeadPossession(HeroSkill):
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         """랜덤 스킬 선택 및 즉시 발동"""
-        # 자신의 스킬(charm, dead_possession)은 제외하고 모든 영웅 스킬 풀에서 선택
+        # 자신의 스킬(balloon_wall, riddle_trick)은 제외하고 모든 영웅 스킬 풀에서 선택
         all_skill_classes = []
-        exclude_ids = {"charm", "dead_possession"}
+        exclude_ids = {"balloon_wall", "riddle_trick"}
 
         for hero_id, skill_classes in HERO_SKILL_CLASSES.items():
-            if hero_id in ("banshee",):
-                continue  # 벤시 자신 제외
+            if hero_id in ("joker",):
+                continue  # 조커 자신 제외
             for cls in skill_classes:
                 # 인스턴스를 만들어서 skill_id 확인
                 temp = cls()
@@ -8165,8 +8165,8 @@ class DeadPossession(HeroSkill):
             # 화면 중앙에 스킬명 표시
             try:
                 font = pygame.font.SysFont("malgungothic", 20, bold=True)
-                text = f"망자빙의: {self.possession_name}"
-                text_surf = font.render(text, True, (180, 240, 255))
+                text = f"수수께끼 묘기: {self.possession_name}"
+                text_surf = font.render(text, True, (255, 220, 100))
                 text_alpha_surf = pygame.Surface(text_surf.get_size(), pygame.SRCALPHA)
                 text_alpha_surf.blit(text_surf, (0, 0))
                 text_alpha_surf.set_alpha(flash_alpha)
@@ -11403,7 +11403,7 @@ HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "kurokage": [ShadowClone(), IllusionShuriken()],
     "banshee": [Charm(), GhostSummon()],
     "necro": [GhostSummon(), SkeletonArcher()],
-    "joker": [BalloonWall(), BombSurprise()],
+    "joker": [BalloonWall(), DeadPossession()],
     "mirage": [SandPrison(), SandVortex()],
 }
 
@@ -11419,7 +11419,7 @@ HERO_SKILL_CLASSES: Dict[str, list] = {
     "kurokage": [ShadowClone, IllusionShuriken],
     "banshee": [Charm, GhostSummon],
     "necro": [GhostSummon, SkeletonArcher],
-    "joker": [BalloonWall, BombSurprise],
+    "joker": [BalloonWall, DeadPossession],
     "mirage": [SandPrison, SandVortex],
 }
 

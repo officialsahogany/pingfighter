@@ -52,7 +52,7 @@ def _create_icon(skill_id: str) -> Optional[pygame.Surface]:
         "shadow_clone": _icon_shadow_clone,
         "illusion_shuriken": _icon_illusion_shuriken,
         "charm": _icon_charm,
-        "dead_possession": _icon_dead_possession,
+        "riddle_trick": _icon_riddle_trick,
         "ghost_summon": _icon_ghost_summon,
         "skeleton_archer": _icon_skeleton_archer,
         "balloon_wall": _icon_balloon_wall,
@@ -510,37 +510,53 @@ def _icon_charm() -> pygame.Surface:
     return s
 
 
-def _icon_dead_possession() -> pygame.Surface:
-    """망자빙의 - 유령 실루엣 + 다중 오라 + 물음표 주사위"""
+def _icon_riddle_trick() -> pygame.Surface:
+    """수수께끼 묘기 - ? 물음표 랜덤박스 (조커 테마)"""
     s = pygame.Surface((32, 32), pygame.SRCALPHA)
-    # 깊은 남색 배경
-    pygame.draw.circle(s, (15, 15, 40), (16, 16), 15)
-    pygame.draw.circle(s, (40, 50, 90), (16, 16), 15, 1)
-    # 유령 실루엣 (중앙)
-    ghost_body = [(11, 20), (10, 14), (12, 8), (16, 5), (20, 8), (22, 14), (21, 20)]
-    pygame.draw.polygon(s, (100, 160, 220, 180), ghost_body)
-    pygame.draw.polygon(s, (140, 200, 255, 120), ghost_body, 1)
-    # 유령 꼬리 (물결)
-    for i in range(3):
-        tx = 11 + i * 4
-        pygame.draw.circle(s, (80, 140, 200, 120), (tx, 22), 2)
-    # 유령 눈 (시안 글로우)
-    pygame.draw.circle(s, (80, 220, 255), (14, 12), 2)
-    pygame.draw.circle(s, (80, 220, 255), (18, 12), 2)
-    pygame.draw.circle(s, (200, 255, 255), (14, 12), 1)
-    pygame.draw.circle(s, (200, 255, 255), (18, 12), 1)
-    # 다중 색상 오라 (랜덤 스킬을 상징)
-    colors = [(200, 80, 80, 60), (80, 200, 80, 60), (80, 80, 200, 60),
-              (200, 200, 80, 60), (200, 80, 200, 60)]
-    for i, c in enumerate(colors):
-        angle = i * 1.26
-        ox = 16 + int(math.cos(angle) * 10)
-        oy = 16 + int(math.sin(angle) * 10)
-        pygame.draw.circle(s, c, (ox, oy), 3)
-    # 물음표 (랜덤 상징)
-    pygame.draw.line(s, (220, 240, 255), (14, 25), (16, 25), 2)
-    pygame.draw.line(s, (220, 240, 255), (16, 25), (16, 28), 2)
-    pygame.draw.circle(s, (220, 240, 255), (16, 30), 1)
+    # 배경 (조커 레드+골드 테마)
+    pygame.draw.circle(s, (50, 15, 25), (16, 16), 15)
+    pygame.draw.circle(s, (180, 60, 60), (16, 16), 15, 1)
+
+    # 랜덤박스 본체 (금색 상자)
+    box_color = (220, 180, 60)
+    box_dark = (160, 120, 30)
+    box_light = (255, 220, 100)
+    box_rect = (7, 11, 18, 14)
+    pygame.draw.rect(s, box_dark, box_rect, border_radius=2)
+    pygame.draw.rect(s, box_color, (8, 12, 16, 12), border_radius=1)
+    # 상자 뚜껑 (약간 열린 느낌)
+    pygame.draw.rect(s, box_light, (6, 10, 20, 4), border_radius=2)
+    pygame.draw.rect(s, box_dark, (6, 10, 20, 4), 1, border_radius=2)
+    # 상자 리본 (빨강)
+    pygame.draw.line(s, (220, 50, 60), (16, 10), (16, 24), 2)
+    pygame.draw.line(s, (220, 50, 60), (6, 12), (26, 12), 2)
+
+    # 큰 ? 물음표 (상자 위에 떠오름 - 흰색+골드 글로우)
+    # ? 곡선 부분
+    pygame.draw.arc(s, (255, 240, 120), (11, 1, 10, 10), 0.3, 3.5, 2)
+    # ? 세로 줄기
+    pygame.draw.line(s, (255, 240, 120), (16, 8), (16, 11), 2)
+    # ? 점
+    pygame.draw.circle(s, (255, 255, 200), (16, 14), 1)
+    # ? 글로우
+    glow_surf = pygame.Surface((12, 16), pygame.SRCALPHA)
+    pygame.draw.circle(glow_surf, (255, 220, 80, 40), (6, 8), 7)
+    s.blit(glow_surf, (10, 0), special_flags=pygame.BLEND_ADD)
+
+    # 다색 스파클 (랜덤 스킬 상징 - 상자에서 뿜어져 나옴)
+    sparkle_colors = [
+        (255, 100, 100),  # 빨강
+        (100, 255, 100),  # 초록
+        (100, 150, 255),  # 파랑
+        (255, 255, 100),  # 노랑
+        (255, 100, 255),  # 마젠타
+    ]
+    sparkle_pos = [(6, 5), (26, 5), (4, 16), (28, 16), (16, 27)]
+    for (px, py), c in zip(sparkle_pos, sparkle_colors):
+        pygame.draw.circle(s, (*c, 180), (px, py), 1)
+
+    # 테두리 강조
+    pygame.draw.circle(s, (255, 200, 80, 80), (16, 16), 15, 1)
     return s
 
 
