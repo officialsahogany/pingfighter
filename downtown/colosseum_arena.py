@@ -5495,6 +5495,14 @@ class ColosseumsArena:
             else:
                 result = self._run_real_game_battle(top_hero, bottom_hero)
 
+            # 디스플레이 모드 전환 시 SCREEN이 재생성될 수 있으므로 참조 갱신
+            try:
+                import pingfighter as _pf
+                if hasattr(_pf, 'SCREEN') and _pf.SCREEN is not None:
+                    self.screen = _pf.SCREEN
+            except Exception:
+                pass
+
             # 결과 처리: True = 하단 승리, False = 상단 승리, None = ESC 나가기
             if result is None:
                 # ESC 나가기 → 토너먼트 종료

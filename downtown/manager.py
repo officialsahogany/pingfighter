@@ -2126,6 +2126,15 @@ class DowntownManager:
                                 while arena_active:
                                     dt = clock.tick(60) / 1000.0
 
+                                    # 디스플레이 모드 전환 시 SCREEN 참조 갱신
+                                    try:
+                                        import pingfighter as _pf
+                                        if hasattr(_pf, 'SCREEN') and _pf.SCREEN is not None and _pf.SCREEN is not self.screen:
+                                            self.screen = _pf.SCREEN
+                                            arena.screen = _pf.SCREEN
+                                    except Exception:
+                                        pass
+
                                     for arena_event in pygame.event.get():
                                         if arena_event.type == pygame.QUIT:
                                             arena_active = False
