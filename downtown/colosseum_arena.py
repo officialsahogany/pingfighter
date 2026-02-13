@@ -2366,74 +2366,79 @@ class GuardWarriorSystem:
         skill = random.choice(skills)
         c['skill'] = skill
 
-        game_state = self.skill_manager.game_state if self.skill_manager else {}
-
-        # 매혹 호위무사 위치의 가상 패들을 caster로 사용
-        gp = _GuardPaddle(c['x'], c['y'], caster_is_top)
-        gp.x = int(c['x']) - gp.width // 2
-        gp.centerx = int(c['x'])
-        gp.y = int(c['y'])
-        gp.centery = int(c['y']) + gp.height // 2
-        self.guard_paddles[guard["id"]] = gp  # 스킬 이펙트 진행 중 위치 유지
-        guard_paddle = gp
-
-        # 매혹 호위무사가 caster 편으로 싸우므로, caster의 상대를 타겟으로
-        target_paddle = bottom_paddle if caster_is_top else top_paddle
-
-        skill.caster_is_top = caster_is_top
-        skill.current_cooldown = 0
-        if skill.is_active:
-            try:
-                skill._end_effect(guard_paddle, target_paddle, ball, game_state)
-            except Exception:
-                pass
-            skill.is_active = False
-
-        caster_prefix = 'top_paddle' if caster_is_top else 'bottom_paddle'
-        saved = self._save_caster_state(game_state, caster_prefix)
-        result = skill.use(guard_paddle, target_paddle, ball, game_state)
-        self._restore_caster_state(game_state, caster_prefix, saved)
-
-        # duration=0 스킬 (OilSpill 등)은 use()에서 is_active가 안 켜짐 → 수동 활성화
-        if result and not skill.is_active and skill.duration <= 0:
-            skill.is_active = True
-
-        if result:
-            # 사운드 재생 + 상태 효과 적용 (_activate_skill과 동일)
-            self._play_skill_sound(result)
-            self._apply_status_effects(result, target_paddle)
-
-            # 스킬별 글로벌 game_state 키 차단 (메인 영웅에 영향 방지)
-            skill_id = getattr(skill, 'skill_id', '')
-            if skill_id == 'horn_charge':
-                game_state['horn_charge_active'] = False
-            elif skill_id == 'demon_step':
-                game_state['demon_eye_active'] = False
-                game_state.pop('ghost_step_start_top', None)
-                game_state.pop('ghost_step_start_bottom', None)
-
-            # 말풍선 표시
-            bubble_text = f"{skill.korean_name}!"
-            bubble_color = guard.get("color") or (200, 200, 200)
-            # color가 튜플/리스트가 아닐 경우 안전하게 기본값 사용
-            if not isinstance(bubble_color, (tuple, list)) or len(bubble_color) < 3:
-                bubble_color = (200, 200, 200)
-            if caster_is_top:
-                self._bubble_top = {'text': bubble_text, 'timer': self._bubble_duration,
-                                    'x': c['x'], 'y': c['y'], 'color': bubble_color}
-            else:
-                self._bubble_bottom = {'text': bubble_text, 'timer': self._bubble_duration,
-                                       'x': c['x'], 'y': c['y'], 'color': bubble_color}
-
-            print(f"[Charm] 매혹 호위무사 {guard['name']} → {skill.korean_name} 발동!")
-        else:
-            print(f"[Charm] 매혹 호위무사 {guard['name']} → {skill.korean_name} 발동 실패")
-
-        # 다음 쿨타임 설정
+        # ★ 쿨타임을 먼저 설정 (예외 발생 시에도 매 프레임 재발동 방지)
         cd_mult = self.guard_cd_mult_top if caster_is_top else self.guard_cd_mult_bottom
         base_cd = self._get_guard_cooldown(guard["id"])
         c['cooldown'] = base_cd * cd_mult
         c['cooldown_max'] = c['cooldown']
+
+        try:
+            game_state = self.skill_manager.game_state if self.skill_manager else {}
+
+            # 매혹 호위무사 위치의 가상 패들을 caster로 사용
+            gp = _GuardPaddle(c['x'], c['y'], caster_is_top)
+            gp.x = int(c['x']) - gp.width // 2
+            gp.centerx = int(c['x'])
+            gp.y = int(c['y'])
+            gp.centery = int(c['y']) + gp.height // 2
+            self.guard_paddles[guard["id"]] = gp  # 스킬 이펙트 진행 중 위치 유지
+            guard_paddle = gp
+
+            # 매혹 호위무사가 caster 편으로 싸우므로, caster의 상대를 타겟으로
+            target_paddle = bottom_paddle if caster_is_top else top_paddle
+
+            skill.caster_is_top = caster_is_top
+            skill.current_cooldown = 0
+            if skill.is_active:
+                try:
+                    skill._end_effect(guard_paddle, target_paddle, ball, game_state)
+                except Exception:
+                    pass
+                skill.is_active = False
+
+            caster_prefix = 'top_paddle' if caster_is_top else 'bottom_paddle'
+            saved = self._save_caster_state(game_state, caster_prefix)
+            result = skill.use(guard_paddle, target_paddle, ball, game_state)
+            self._restore_caster_state(game_state, caster_prefix, saved)
+
+            # duration=0 스킬 (OilSpill 등)은 use()에서 is_active가 안 켜짐 → 수동 활성화
+            if result and not skill.is_active and skill.duration <= 0:
+                skill.is_active = True
+
+            if result:
+                # 사운드 재생 + 상태 효과 적용 (_activate_skill과 동일)
+                self._play_skill_sound(result)
+                self._apply_status_effects(result, target_paddle)
+
+                # 스킬별 글로벌 game_state 키 차단 (메인 영웅에 영향 방지)
+                skill_id = getattr(skill, 'skill_id', '')
+                if skill_id == 'horn_charge':
+                    game_state['horn_charge_active'] = False
+                elif skill_id == 'demon_step':
+                    game_state['demon_eye_active'] = False
+                    game_state.pop('ghost_step_start_top', None)
+                    game_state.pop('ghost_step_start_bottom', None)
+
+                # 말풍선 표시
+                bubble_text = f"{skill.korean_name}!"
+                bubble_color = guard.get("color") or (200, 200, 200)
+                # color가 튜플/리스트가 아닐 경우 안전하게 기본값 사용
+                if not isinstance(bubble_color, (tuple, list)) or len(bubble_color) < 3:
+                    bubble_color = (200, 200, 200)
+                if caster_is_top:
+                    self._bubble_top = {'text': bubble_text, 'timer': self._bubble_duration,
+                                        'x': c['x'], 'y': c['y'], 'color': bubble_color}
+                else:
+                    self._bubble_bottom = {'text': bubble_text, 'timer': self._bubble_duration,
+                                           'x': c['x'], 'y': c['y'], 'color': bubble_color}
+
+                print(f"[Charm] 매혹 호위무사 {guard['name']} → {skill.korean_name} 발동!")
+            else:
+                print(f"[Charm] 매혹 호위무사 {guard['name']} → {skill.korean_name} 발동 실패")
+        except Exception as e:
+            print(f"[Charm] 매혹 호위무사 스킬 발동 중 오류: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _draw_charmed_guard(self, screen, shake_x, shake_y):
         """매혹된 호위무사 독립 렌더링"""
@@ -2606,70 +2611,75 @@ class GuardWarriorSystem:
         skill = random.choice(skills)
         p2['skill'] = skill
 
-        game_state = self.skill_manager.game_state if self.skill_manager else {}
-
-        # 가상 패들 생성
-        gp = _GuardPaddle(p2['x'], p2['y'], is_top)
-        gp.x = int(p2['x']) - gp.width // 2
-        gp.centerx = int(p2['x'])
-        gp.y = int(p2['y'])
-        gp.centery = int(p2['y']) + gp.height // 2
-        self.guard_paddles[guard["id"]] = gp
-
-        target_paddle = bottom_paddle if is_top else top_paddle
-
-        skill.caster_is_top = is_top
-        skill.current_cooldown = 0
-        if skill.is_active:
-            try:
-                skill._end_effect(gp, target_paddle, ball, game_state)
-            except Exception:
-                pass
-            skill.is_active = False
-
-        caster_prefix = 'top_paddle' if is_top else 'bottom_paddle'
-        saved = self._save_caster_state(game_state, caster_prefix)
-        result = skill.use(gp, target_paddle, ball, game_state)
-        self._restore_caster_state(game_state, caster_prefix, saved)
-
-        if result and not skill.is_active and skill.duration <= 0:
-            skill.is_active = True
-
-        if result:
-            self._play_skill_sound(result)
-            self._apply_status_effects(result, target_paddle)
-            # 글로벌 game_state 키 차단 (메인 영웅에 영향 방지)
-            skill_id = getattr(skill, 'skill_id', '')
-            if skill_id == 'horn_charge':
-                game_state['horn_charge_active'] = False
-            elif skill_id == 'demon_step':
-                game_state['demon_eye_active'] = False
-                game_state.pop('ghost_step_start_top', None)
-                game_state.pop('ghost_step_start_bottom', None)
-            # 말풍선
-            bubble_text = f"{skill.korean_name}!"
-            bubble_color = guard.get("color") or (200, 200, 200)
-            if not isinstance(bubble_color, (tuple, list)) or len(bubble_color) < 3:
-                bubble_color = (200, 200, 200)
-            if is_top:
-                self._bubble_top = {'text': bubble_text, 'timer': self._bubble_duration,
-                                    'x': p2['x'], 'y': p2['y'], 'color': bubble_color}
-            else:
-                self._bubble_bottom = {'text': bubble_text, 'timer': self._bubble_duration,
-                                       'x': p2['x'], 'y': p2['y'], 'color': bubble_color}
-            print(f"[Guard] {'상단' if is_top else '하단'}측 2번째 호위무사 {guard['name']} → {skill.korean_name} 발동!")
-        else:
-            print(f"[Guard] {'상단' if is_top else '하단'}측 2번째 호위무사 {guard['name']} → {skill.korean_name} 발동 실패")
-
-        # 시전 모드 전환
-        p2['phase'] = 'casting'
-        p2['anim_timer'] = 0.0
-
-        # 다음 쿨타임
+        # ★ 쿨타임을 먼저 설정 (예외 발생 시에도 매 프레임 재발동 방지)
         cd_mult = self.guard_cd_mult_top if is_top else self.guard_cd_mult_bottom
         base_cd = self._get_guard_cooldown(guard["id"])
         p2['cooldown'] = base_cd * cd_mult
         p2['cooldown_max'] = p2['cooldown']
+
+        try:
+            game_state = self.skill_manager.game_state if self.skill_manager else {}
+
+            # 가상 패들 생성
+            gp = _GuardPaddle(p2['x'], p2['y'], is_top)
+            gp.x = int(p2['x']) - gp.width // 2
+            gp.centerx = int(p2['x'])
+            gp.y = int(p2['y'])
+            gp.centery = int(p2['y']) + gp.height // 2
+            self.guard_paddles[guard["id"]] = gp
+
+            target_paddle = bottom_paddle if is_top else top_paddle
+
+            skill.caster_is_top = is_top
+            skill.current_cooldown = 0
+            if skill.is_active:
+                try:
+                    skill._end_effect(gp, target_paddle, ball, game_state)
+                except Exception:
+                    pass
+                skill.is_active = False
+
+            caster_prefix = 'top_paddle' if is_top else 'bottom_paddle'
+            saved = self._save_caster_state(game_state, caster_prefix)
+            result = skill.use(gp, target_paddle, ball, game_state)
+            self._restore_caster_state(game_state, caster_prefix, saved)
+
+            if result and not skill.is_active and skill.duration <= 0:
+                skill.is_active = True
+
+            if result:
+                self._play_skill_sound(result)
+                self._apply_status_effects(result, target_paddle)
+                # 글로벌 game_state 키 차단 (메인 영웅에 영향 방지)
+                skill_id = getattr(skill, 'skill_id', '')
+                if skill_id == 'horn_charge':
+                    game_state['horn_charge_active'] = False
+                elif skill_id == 'demon_step':
+                    game_state['demon_eye_active'] = False
+                    game_state.pop('ghost_step_start_top', None)
+                    game_state.pop('ghost_step_start_bottom', None)
+                # 말풍선
+                bubble_text = f"{skill.korean_name}!"
+                bubble_color = guard.get("color") or (200, 200, 200)
+                if not isinstance(bubble_color, (tuple, list)) or len(bubble_color) < 3:
+                    bubble_color = (200, 200, 200)
+                if is_top:
+                    self._bubble_top = {'text': bubble_text, 'timer': self._bubble_duration,
+                                        'x': p2['x'], 'y': p2['y'], 'color': bubble_color}
+                else:
+                    self._bubble_bottom = {'text': bubble_text, 'timer': self._bubble_duration,
+                                           'x': p2['x'], 'y': p2['y'], 'color': bubble_color}
+                print(f"[Guard] {'상단' if is_top else '하단'}측 2번째 호위무사 {guard['name']} → {skill.korean_name} 발동!")
+            else:
+                print(f"[Guard] {'상단' if is_top else '하단'}측 2번째 호위무사 {guard['name']} → {skill.korean_name} 발동 실패")
+
+            # 시전 모드 전환
+            p2['phase'] = 'casting'
+            p2['anim_timer'] = 0.0
+        except Exception as e:
+            print(f"[Guard] 2번째 호위무사 스킬 발동 중 오류: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _draw_patrol2(self, screen, shake_x, shake_y):
         """2번째 호위무사 렌더링"""
