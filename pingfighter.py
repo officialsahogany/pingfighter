@@ -2974,72 +2974,70 @@ def _draw_custom_cursor(screen, mouse_x, mouse_y):
     screen.blit(tip_surf, (mouse_x - 3, mouse_y - 3))
 
 if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
-    # === 기본: 전체창모드(보더리스 윈도우)로 시작 ===
-    _init_work_x, _init_work_y = 0, 0
-    _init_bw, _init_bh = FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT
+    # === 기본: 창모드(필러 포함)로 시작 ===
+    _init_mon_w, _init_mon_h = FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT
     if sys.platform == 'win32':
         try:
             import ctypes as _ct_init
-            from ctypes import wintypes as _wt_init
-            _init_wa = _wt_init.RECT()
-            _ct_init.windll.user32.SystemParametersInfoW(
-                0x0030, 0, _ct_init.byref(_init_wa), 0)  # SPI_GETWORKAREA
-            _init_work_x = _init_wa.left
-            _init_work_y = _init_wa.top
-            _init_bw = _init_wa.right - _init_wa.left
-            _init_bh = _init_wa.bottom - _init_wa.top
-            print(f"[전체창모드] 작업영역: ({_init_work_x},{_init_work_y}) {_init_bw}x{_init_bh}", flush=True)
-        except Exception as _wa_e:
-            print(f"[전체창모드] 작업영역 감지 실패, 전체 해상도 사용: {_wa_e}", flush=True)
+            _init_native = None
+            try:
+                _init_native = (_ct_init.windll.user32.GetSystemMetrics(0),
+                                _ct_init.windll.user32.GetSystemMetrics(1))
+            except Exception:
+                pass
+            if _init_native and _init_native[0] > 0:
+                _init_mon_w, _init_mon_h = _init_native
+        except Exception:
+            pass
 
-    # 보더리스 윈도우 생성 (프레임 없이 작업영역에 꽉 채움)
-    os.environ['SDL_VIDEO_WINDOW_POS'] = f'{_init_work_x},{_init_work_y}'
+    # 게임 비율 유지하면서 필러 배경까지 포함하여 창 구성
+    _init_base_h = int(_init_mon_h * 0.70)
+    _init_scale = _init_base_h / HEIGHT
+    _init_game_w = int(WIDTH * _init_scale)
+    _init_pad_x = int(_init_game_w * 0.30)
+    _init_pad_y = max(int(_init_base_h * 0.065), 30)
+    _init_tw = _init_game_w + _init_pad_x * 2
+    _init_th = _init_base_h + _init_pad_y * 2
+    if _init_tw > int(_init_mon_w * 0.90):
+        _init_tw = int(_init_mon_w * 0.90)
+    if _init_th > int(_init_mon_h * 0.85):
+        _init_th = int(_init_mon_h * 0.85)
+    print(f"[창모드] 모니터 {_init_mon_w}x{_init_mon_h} → 창 {_init_tw}x{_init_th} (필러패딩 좌우{_init_pad_x}px 상하{_init_pad_y}px)", flush=True)
+
+    FULLSCREEN_MODE = False
     if _current_platform == 'Darwin':
-        REAL_SCREEN = pygame.display.set_mode((_init_bw, _init_bh), pygame.NOFRAME | pygame.DOUBLEBUF)
+        REAL_SCREEN = pygame.display.set_mode((_init_tw, _init_th), pygame.DOUBLEBUF | pygame.RESIZABLE)
     else:
-        REAL_SCREEN = pygame.display.set_mode((_init_bw, _init_bh), pygame.NOFRAME)
-    if 'SDL_VIDEO_WINDOW_POS' in os.environ:
-        del os.environ['SDL_VIDEO_WINDOW_POS']
+        REAL_SCREEN = pygame.display.set_mode((_init_tw, _init_th), pygame.RESIZABLE)
 
-    FULLSCREEN_MODE = False  # 보더리스는 전체화면이 아님
-
-    # 커스텀 커서 사용 시 시스템 커서 즉시 숨김
     if _custom_cursor_enabled:
         pygame.mouse.set_visible(False)
 
-    # 실제 생성된 화면 크기 확인
     actual_width, actual_height = REAL_SCREEN.get_size()
-    print(f"[전체창모드] 요청: {_init_bw}x{_init_bh}, 실제: {actual_width}x{actual_height}", flush=True)
-
     FULLSCREEN_WIDTH = actual_width
     FULLSCREEN_HEIGHT = actual_height
 
-    # 게임 Surface 스케일링 설정 (전체화면과 동일)
-    MARGIN = 70  # 상하 여백
-
-    scale_y = (FULLSCREEN_HEIGHT - MARGIN * 2) / HEIGHT
+    # 스케일링 계산 (필러 배경 공간 확보)
+    MARGIN = _init_pad_y
+    scale_y = (actual_height - MARGIN * 2) / HEIGHT
     scaled_width_check = int(WIDTH * scale_y)
-    if scaled_width_check > FULLSCREEN_WIDTH:
-        GAME_SCALE_FACTOR = FULLSCREEN_WIDTH / WIDTH
-        print(f"[전체창모드] 가로 기준 스케일링: {GAME_SCALE_FACTOR:.2f}x", flush=True)
+    if scaled_width_check > actual_width:
+        GAME_SCALE_FACTOR = actual_width / WIDTH
     else:
         GAME_SCALE_FACTOR = scale_y
-        print(f"[전체창모드] 세로 기준 스케일링: {GAME_SCALE_FACTOR:.2f}x", flush=True)
     GAME_SCALED_WIDTH = int(WIDTH * GAME_SCALE_FACTOR)
     GAME_SCALED_HEIGHT = int(HEIGHT * GAME_SCALE_FACTOR)
 
     set_fullscreen_font_scale(GAME_SCALE_FACTOR)
 
-    print(f"[전체창모드] 스케일링: {GAME_SCALE_FACTOR:.2f}x ({WIDTH}x{HEIGHT} -> {GAME_SCALED_WIDTH}x{GAME_SCALED_HEIGHT})", flush=True)
-
-    GAME_OFFSET_X = (FULLSCREEN_WIDTH - GAME_SCALED_WIDTH) // 2
-    GAME_OFFSET_Y = (FULLSCREEN_HEIGHT - GAME_SCALED_HEIGHT) // 2
+    GAME_OFFSET_X = (actual_width - GAME_SCALED_WIDTH) // 2
+    GAME_OFFSET_Y = (actual_height - GAME_SCALED_HEIGHT) // 2
 
     SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert_alpha()
 
     from pillar_background import init_pillar_background, get_pillar_renderer
     pillar_renderer = init_pillar_background(
-        FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT,
+        actual_width, actual_height,
         GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT,
         offset_x=GAME_OFFSET_X, offset_y=GAME_OFFSET_Y,
         original_game_width=WIDTH, original_game_height=HEIGHT
@@ -3047,7 +3045,7 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
 
     from display_manager import set_fullscreen_mode
     set_fullscreen_mode(True, SCREEN)
-    print(f"[전체창모드] 초기화 완료: {actual_width}x{actual_height}", flush=True)
+    print(f"[창모드] 초기화 완료: {actual_width}x{actual_height} (스케일 {GAME_SCALE_FACTOR:.2f}x)", flush=True)
 else:
     # 일반 창 모드
     if _current_platform == 'Darwin':
@@ -3087,7 +3085,7 @@ if FULLSCREEN_MODE:
 _original_flip = pygame.display.flip
 _original_update = pygame.display.update
 _is_fullscreen_active = FULLSCREEN_WIDTH > 0 and SCREEN is not REAL_SCREEN
-_current_display_mode = "borderless" if _is_fullscreen_active else "windowed"
+_current_display_mode = "windowed" if _is_fullscreen_active and not FULLSCREEN_MODE else "windowed"
 
 # 플레이어 게이지를 필러에 렌더링하기 위한 전역 변수
 _player_gauge_surface = None  # 게이지가 그려진 Surface (우측 - 대쉬 토큰용)
