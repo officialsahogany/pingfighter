@@ -8843,8 +8843,8 @@ class SkeletonArcher(HeroSkill):
                               f"tp.is_bodyguard={getattr(target_paddle,'is_bodyguard',False) if target_paddle else 'N/A'}")
                         archer['arrow_cooldown'] = 0.5  # 대상 없음, 재시도
 
-                # 이동 (시위 당기는 중에는 이동 안 함)
-                archer['x'] += archer['vx']
+                # 이동 (시위 당기는 중에는 이동 안 함, 배속 적용)
+                archer['x'] += archer['vx'] * dt * 60
                 archer['step_phase'] += dt * 6.0
                 archer['body_bob'] = _sin(archer['step_phase']) * 2.0
 
@@ -8867,8 +8867,8 @@ class SkeletonArcher(HeroSkill):
         # --- 화살 업데이트 ---
         new_arrows = []
         for arrow in self.arrows:
-            arrow['x'] += arrow['vx']
-            arrow['y'] += arrow['vy']
+            arrow['x'] += arrow['vx'] * dt * 60
+            arrow['y'] += arrow['vy'] * dt * 60
             arrow['age'] += dt
 
             # 화면 밖 제거
