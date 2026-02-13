@@ -8231,6 +8231,9 @@ class GhostSummon(HeroSkill):
                 'active': True,
                 'id': i,
                 'hit_cooldown': 0.0,  # 연속 충돌 방지
+                'knockback_vx': 0.0,  # 넉백 X 속도
+                'knockback_vy': 0.0,  # 넉백 Y 속도
+                'headbutt_timer': 0.0,  # 박치기 애니메이션 타이머
             }
             self.ghosts.append(ghost)
 
@@ -8325,6 +8328,26 @@ class GhostSummon(HeroSkill):
                 if speed > 10.0:
                     ghost['vx'] = (ghost['vx'] / speed) * 10.0
 
+            # 넉백 물리 적용 (공 타격 후 밀려남)
+            if abs(ghost.get('knockback_vy', 0)) > 0.5 or abs(ghost.get('knockback_vx', 0)) > 0.5:
+                rect.x += int(ghost['knockback_vx'] * dt)
+                rect.y += int(ghost['knockback_vy'] * dt)
+                # 감쇠
+                ghost['knockback_vx'] *= 0.88
+                ghost['knockback_vy'] *= 0.88
+                # 목표 Y로 복귀하는 힘
+                target_y = ghost['target_y']
+                rect.centery += int((target_y - rect.centery) * 0.05)
+            else:
+                ghost['knockback_vx'] = 0.0
+                ghost['knockback_vy'] = 0.0
+
+            # 박치기 타이머 감소
+            if ghost.get('headbutt_timer', 0) > 0:
+                ghost['headbutt_timer'] -= dt
+                if ghost['headbutt_timer'] < 0:
+                    ghost['headbutt_timer'] = 0.0
+
             # 공과 충돌 체크 (등장 완료 후, 쿨다운 없을 때만)
             if ball is not None and ghost['spawn_time'] >= self.EMERGE_DURATION and ghost['hit_cooldown'] <= 0:
                 ball_rect = pygame.Rect(int(ball.x), int(ball.y), int(ball.width), int(ball.height))
@@ -8345,6 +8368,14 @@ class GhostSummon(HeroSkill):
 
                     # 충돌 쿨다운 설정 (0.3초 동안 재충돌 방지)
                     ghost['hit_cooldown'] = 0.3
+
+                    # 유령 넉백 (공을 친 반대 방향으로 밀려남)
+                    knockback_dir = 1 if self.caster_is_top else -1  # 캐스터 쪽으로 밀림
+                    ghost['knockback_vy'] = knockback_dir * 60.0
+                    ghost['knockback_vx'] = -angle_factor * 30.0
+
+                    # 박치기 애니메이션 트리거
+                    ghost['headbutt_timer'] = 0.3  # 0.3초 동안 박치기 모션
 
                     # 타격 사운드
                     try:
@@ -8447,41 +8478,77 @@ class GhostSummon(HeroSkill):
         x = rect.centerx
         y = rect.centery + hover
 
+        # 박치기 애니메이션 오프셋
+        headbutt_timer = ghost.get('headbutt_timer', 0)
+        headbutt_offset_y = 0
+        headbutt_scale = 1.0
+        if headbutt_timer > 0:
+            # 0.3초 중: 앞 0.1초는 돌진, 뒤 0.2초는 반동 복귀
+            t = headbutt_timer / 0.3
+            if t > 0.67:
+                # 돌진 (상대 쪽으로 빠르게 전진)
+                lunge = (1.0 - t) / 0.33  # 0→1
+                lunge_dir = -1 if self.caster_is_top else 1  # 상대 방향
+                headbutt_offset_y = int(lunge_dir * lunge * -18)
+                headbutt_scale = 1.0 + lunge * 0.15  # 살짝 커짐
+            else:
+                # 반동 (원래 위치로 탄성 복귀)
+                recoil = t / 0.67  # 1→0
+                recoil_dir = 1 if self.caster_is_top else -1  # 캐스터 쪽으로
+                headbutt_offset_y = int(recoil_dir * _sin(recoil * math.pi) * 10)
+                headbutt_scale = 1.0 + recoil * 0.05
+
+        y += headbutt_offset_y
+
         # 바닥 그림자 (부유 높이에 따라 크기/투명도 변화)
-        shadow_scale = 1.0 - abs(hover_main) / 25.0  # 높이 올라갈수록 그림자 작아짐
+        shadow_scale = 1.0 - abs(hover_main) / 25.0
         shadow_width = int(self.GHOST_WIDTH * 0.8 * max(0.5, shadow_scale))
         shadow_alpha = int(alpha * 0.35 * max(0.3, shadow_scale))
-        shadow_y_base = rect.centery + 20  # 그림자는 기본 Y에 고정
+        shadow_y_base = rect.centery + 20
         shadow_surf = pygame.Surface((shadow_width, 8), pygame.SRCALPHA)
         pygame.draw.ellipse(shadow_surf, (10, 20, 18, shadow_alpha),
                           (0, 0, shadow_width, 8))
         screen.blit(shadow_surf, (x - shadow_width // 2, shadow_y_base))
 
         # 유령 캐릭터 렌더링 (항상 유령 모습)
-        self._draw_fallback_ghost(screen, x, y, alpha)
+        self._draw_fallback_ghost(screen, x, y, alpha, headbutt_scale)
 
-    def _draw_fallback_ghost(self, screen: pygame.Surface, x: int, y: int, alpha: int):
-        """폴백 유령 렌더링 (캐릭터 렌더러 없을 때)"""
+    def _draw_fallback_ghost(self, screen: pygame.Surface, x: int, y: int, alpha: int, scale: float = 1.0):
+        """유령 렌더링 - 박치기 시 스케일 변화"""
         ghost_color = (80, 180, 160, alpha)
         eye_color = (140, 255, 230, alpha)
 
-        body_surf = pygame.Surface((50, 60), pygame.SRCALPHA)
-        # 유령 몸체 (둥글고 아래로 갈수록 투명)
-        pygame.draw.ellipse(body_surf, ghost_color, (5, 5, 40, 35))
+        base_w, base_h = 50, 60
+        surf_w = int(base_w * scale)
+        surf_h = int(base_h * scale)
+        body_surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+
+        s = scale  # 스케일 축약
+        # 유령 몸체
+        pygame.draw.ellipse(body_surf, ghost_color,
+                          (int(5*s), int(5*s), int(40*s), int(35*s)))
         # 아래쪽 물결 모양
         for i in range(4):
-            wave_x = 8 + i * 10
-            wave_h = 15 + int(3 * _sin(pygame.time.get_ticks() * 0.005 + i))
+            wave_x = int((8 + i * 10) * s)
+            wave_h = int(15*s) + int(3 * _sin(pygame.time.get_ticks() * 0.005 + i))
             pygame.draw.ellipse(body_surf, ghost_color,
-                              (wave_x - 5, 30, 10, wave_h))
+                              (wave_x - int(5*s), int(30*s), int(10*s), wave_h))
         # 눈 (빛나는 청록)
-        pygame.draw.circle(body_surf, eye_color, (18, 18), 3)
-        pygame.draw.circle(body_surf, eye_color, (32, 18), 3)
+        eye_size = max(2, int(3*s))
+        pygame.draw.circle(body_surf, eye_color, (int(18*s), int(18*s)), eye_size)
+        pygame.draw.circle(body_surf, eye_color, (int(32*s), int(18*s)), eye_size)
         # 눈 하이라이트
-        pygame.draw.circle(body_surf, (200, 255, 245, alpha), (17, 17), 1)
-        pygame.draw.circle(body_surf, (200, 255, 245, alpha), (31, 17), 1)
+        pygame.draw.circle(body_surf, (200, 255, 245, alpha), (int(17*s), int(17*s)), 1)
+        pygame.draw.circle(body_surf, (200, 255, 245, alpha), (int(31*s), int(17*s)), 1)
 
-        screen.blit(body_surf, (x - 25, y - 50))
+        # 박치기 시 눈 글로우
+        if scale > 1.05:
+            bright_alpha = min(255, int(alpha * 1.5))
+            bright_eye = (200, 255, 240, bright_alpha)
+            pygame.draw.circle(body_surf, bright_eye, (int(18*s), int(18*s)), eye_size + 2)
+            pygame.draw.circle(body_surf, bright_eye, (int(32*s), int(18*s)), eye_size + 2)
+
+        screen.blit(body_surf, (x - surf_w // 2, y - surf_h + int(10*s)))
 
     def _draw_dying_ghost(self, screen: pygame.Surface, dying: dict, renderer):
         """소멸 중인 유령 (위로 떠오르며 사라짐)"""
@@ -9990,6 +10057,7 @@ class BombSurprise(HeroSkill):
         game_state[f'{prefix}_bomb_kb_dir'] = kb_dir
         game_state[f'{prefix}_bomb_kb_vel'] = 52.0   # 다이너마이트 동일 (px/frame)
         game_state[f'{prefix}_bomb_kb_frames'] = 18   # 넉백 프레임 수
+        print(f"[BombKB-DEBUG] _explode() SET → prefix={prefix}, kb_dir={kb_dir}, vel=52.0, frames=18, target={explode_target}, paddle_x={target_p.x:.1f}")
         self._knockback_target = explode_target
 
         # 화면 흔들림 (다이너마이트 동일)
