@@ -312,22 +312,47 @@ def _get_matching_resolution(original_width, original_height):
     return best_match
 
 def _setup_game_resolution():
-    """게임 시작 시 원본 해상도를 저장합니다 (전체화면 전환 시 사용).
-    창모드 시작이므로 해상도 변경은 하지 않습니다."""
+    """게임 시작 시 모니터 비율에 맞는 낮은 해상도로 변경하고, 종료 시 복원되도록 설정합니다"""
     global _original_resolution
 
     if sys.platform != 'win32':
-        return
+        return  # Windows가 아니면 스킵
 
+    # 현재 해상도 저장
     current_res = _get_current_resolution()
     if current_res is None:
         return
 
-    _original_resolution = current_res
-    print(f"[해상도] 원본 해상도 저장: {current_res[0]}x{current_res[1]} (변경 없음)")
+    # 모니터 비율에 맞는 해상도 찾기
+    target_res = _get_matching_resolution(current_res[0], current_res[1])
 
-# 게임 시작 시 원본 해상도 저장 (해상도 변경 없이)
-_setup_game_resolution()
+    if target_res is None:
+        # 매칭되는 해상도 없으면 기본값 사용 (레터박스 발생 가능)
+        target_width, target_height = 1152, 864
+        print(f"[해상도] 매칭 해상도 없음, 기본값 사용: {target_width}x{target_height}")
+    else:
+        target_width, target_height = target_res
+        print(f"[해상도] 모니터 비율 매칭: {current_res[0]}x{current_res[1]} -> {target_width}x{target_height}")
+
+    # 이미 원하는 해상도면 변경하지 않음
+    if current_res == (target_width, target_height):
+        # 복원 필요 없지만 전체화면 초기화를 위해 원본 해상도 유지
+        # (이미 낮은 해상도면 그것이 원본)
+        _original_resolution = current_res
+        print(f"[해상도] 이미 목표 해상도, 변경 없음: {current_res[0]}x{current_res[1]}")
+        return
+
+    # 해상도 변경 전 원본 저장
+    _original_resolution = current_res
+
+    # 해상도 변경
+    if _change_windows_resolution(target_width, target_height):
+        # 프로그램 종료 시 해상도 복원 등록
+        atexit.register(_restore_windows_resolution)
+
+# 게임 시작 시 해상도 설정 (Windows 전용)
+# 창모드로 시작하므로 OS 해상도 변경 불필요 (전체화면 전환 시 switch_display_mode에서 처리)
+# _setup_game_resolution()
 # ============================================================
 # 1.2 Fullscreen Mode Setup
 # ============================================================
@@ -2949,78 +2974,83 @@ def _draw_custom_cursor(screen, mouse_x, mouse_y):
     screen.blit(tip_surf, (mouse_x - 3, mouse_y - 3))
 
 if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
-    # === 기본: 창모드(필러 포함)로 시작 ===
-    _init_mon_w, _init_mon_h = FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT
-    if sys.platform == 'win32':
-        try:
-            import ctypes as _ct_init
-            _init_native = None
-            try:
-                _init_native = (_ct_init.windll.user32.GetSystemMetrics(0),
-                                _ct_init.windll.user32.GetSystemMetrics(1))
-            except Exception:
-                pass
-            if _init_native and _init_native[0] > 0:
-                _init_mon_w, _init_mon_h = _init_native
-        except Exception:
-            pass
-
-    # 게임 비율 유지하면서 필러 배경까지 포함하여 창 구성
-    _init_base_h = int(_init_mon_h * 0.70)
-    _init_scale = _init_base_h / HEIGHT
-    _init_game_w = int(WIDTH * _init_scale)
-    _init_pad_x = int(_init_game_w * 0.30)
-    _init_pad_y = max(int(_init_base_h * 0.065), 30)
-    _init_tw = _init_game_w + _init_pad_x * 2
-    _init_th = _init_base_h + _init_pad_y * 2
-    if _init_tw > int(_init_mon_w * 0.90):
-        _init_tw = int(_init_mon_w * 0.90)
-    if _init_th > int(_init_mon_h * 0.85):
-        _init_th = int(_init_mon_h * 0.85)
-    print(f"[창모드] 모니터 {_init_mon_w}x{_init_mon_h} → 창 {_init_tw}x{_init_th} (필러패딩 좌우{_init_pad_x}px 상하{_init_pad_y}px)", flush=True)
-
-    FULLSCREEN_MODE = False
+    # 플랫폼별 전체화면 플래그 설정
     if _current_platform == 'Darwin':
-        REAL_SCREEN = pygame.display.set_mode((_init_tw, _init_th), pygame.DOUBLEBUF | pygame.RESIZABLE)
+        # macOS: FULLSCREEN_DESKTOP으로 데스크탑 해상도 유지 (Retina 대응)
+        _fullscreen_flags = pygame.FULLSCREEN | pygame.DOUBLEBUF
+        print("[macOS] FULLSCREEN + DOUBLEBUF 모드 사용", flush=True)
     else:
-        REAL_SCREEN = pygame.display.set_mode((_init_tw, _init_th), pygame.RESIZABLE)
+        # Windows/Linux: 기본 FULLSCREEN
+        _fullscreen_flags = pygame.FULLSCREEN
 
+    # 전체화면 모드로 화면 생성
+    REAL_SCREEN = pygame.display.set_mode((FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT), _fullscreen_flags)
+
+    # 커스텀 커서 사용 시 시스템 커서 즉시 숨김
     if _custom_cursor_enabled:
         pygame.mouse.set_visible(False)
 
+    # 실제 생성된 화면 크기 확인 (DPI 스케일링 대응)
     actual_width, actual_height = REAL_SCREEN.get_size()
+    print(f"[전체화면] 요청: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}, 실제: {actual_width}x{actual_height}", flush=True)
+
+    # macOS에서 Retina 스케일링으로 인해 크기가 다를 수 있음
+    if _current_platform == 'Darwin' and (actual_width != FULLSCREEN_WIDTH or actual_height != FULLSCREEN_HEIGHT):
+        print(f"[macOS] Retina 스케일링 감지됨", flush=True)
+
+    # 실제 화면 크기 기준으로 오프셋 재계산
     FULLSCREEN_WIDTH = actual_width
     FULLSCREEN_HEIGHT = actual_height
 
-    # 스케일링 계산 (필러 배경 공간 확보)
-    MARGIN = _init_pad_y
-    scale_y = (actual_height - MARGIN * 2) / HEIGHT
+    # 게임 Surface 스케일링 설정
+    # 세로 기준으로 화면에 맞게 자동 스케일링 (확대/축소 모두 지원)
+    MARGIN = 70  # 상하 여백 동일
+
+    # 세로 기준으로 스케일 계산 (화면 세로에 맞춤)
+    scale_y = (FULLSCREEN_HEIGHT - MARGIN * 2) / HEIGHT
+
+    # 가로가 넘치지 않도록 체크
     scaled_width_check = int(WIDTH * scale_y)
-    if scaled_width_check > actual_width:
-        GAME_SCALE_FACTOR = actual_width / WIDTH
+    if scaled_width_check > FULLSCREEN_WIDTH:
+        # 가로가 넘치면 가로 기준으로 스케일 조정
+        scale_x = FULLSCREEN_WIDTH / WIDTH
+        GAME_SCALE_FACTOR = scale_x
+        print(f"[전체화면] 가로 기준 스케일링: {GAME_SCALE_FACTOR:.2f}x", flush=True)
     else:
+        # 세로 기준 스케일 사용
         GAME_SCALE_FACTOR = scale_y
+        print(f"[전체화면] 세로 기준 스케일링: {GAME_SCALE_FACTOR:.2f}x", flush=True)
     GAME_SCALED_WIDTH = int(WIDTH * GAME_SCALE_FACTOR)
     GAME_SCALED_HEIGHT = int(HEIGHT * GAME_SCALE_FACTOR)
 
+    # 폰트 스케일 보정 설정 (rotozoom 축소로 인한 글자 번짐 방지)
     set_fullscreen_font_scale(GAME_SCALE_FACTOR)
 
-    GAME_OFFSET_X = (actual_width - GAME_SCALED_WIDTH) // 2
-    GAME_OFFSET_Y = (actual_height - GAME_SCALED_HEIGHT) // 2
+    print(f"[전체화면] 스케일링: {GAME_SCALE_FACTOR:.2f}x ({WIDTH}x{HEIGHT} -> {GAME_SCALED_WIDTH}x{GAME_SCALED_HEIGHT})", flush=True)
 
+    GAME_OFFSET_X = (FULLSCREEN_WIDTH - GAME_SCALED_WIDTH) // 2
+    # Y 오프셋: 화면 중앙 정렬 (상하 동일 여백)
+    GAME_OFFSET_Y = (FULLSCREEN_HEIGHT - GAME_SCALED_HEIGHT) // 2
+
+    # 게임 렌더링용 Surface (기존 코드와 호환성 유지)
+    # macOS: 알파 블렌딩이 제대로 작동하려면 convert_alpha() 사용
+    # Windows: convert()로도 잘 작동하지만 일관성을 위해 convert_alpha() 사용
     SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert_alpha()
 
+    # 필러 배경 렌더러 초기화 (실제 화면 크기 사용)
+    # 스케일링된 게임 크기와 오프셋, 원본 게임 크기를 전달하여 좌표 변환이 정확히 되도록 함
     from pillar_background import init_pillar_background, get_pillar_renderer
     pillar_renderer = init_pillar_background(
-        actual_width, actual_height,
+        FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT,
         GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT,
         offset_x=GAME_OFFSET_X, offset_y=GAME_OFFSET_Y,
         original_game_width=WIDTH, original_game_height=HEIGHT
     )
 
+    # display_manager에 전체화면 모드 설정 전달
     from display_manager import set_fullscreen_mode
     set_fullscreen_mode(True, SCREEN)
-    print(f"[창모드] 초기화 완료: {actual_width}x{actual_height} (스케일 {GAME_SCALE_FACTOR:.2f}x)", flush=True)
+    print(f"[전체화면] display_manager에 전체화면 모드 설정 완료 (SCREEN Surface 전달)", flush=True)
 else:
     # 일반 창 모드
     if _current_platform == 'Darwin':
@@ -3059,8 +3089,8 @@ if FULLSCREEN_MODE:
 # 전체화면 모드에서 pygame.display.flip()을 래핑하여 SCREEN을 REAL_SCREEN에 blit
 _original_flip = pygame.display.flip
 _original_update = pygame.display.update
-_is_fullscreen_active = FULLSCREEN_WIDTH > 0 and SCREEN is not REAL_SCREEN
-_current_display_mode = "windowed" if _is_fullscreen_active and not FULLSCREEN_MODE else "windowed"
+_is_fullscreen_active = FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0
+_current_display_mode = "fullscreen" if _is_fullscreen_active else "windowed"
 
 # 플레이어 게이지를 필러에 렌더링하기 위한 전역 변수
 _player_gauge_surface = None  # 게이지가 그려진 Surface (우측 - 대쉬 토큰용)
@@ -8546,27 +8576,13 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             import time
             time.sleep(0.3)
 
-        # 작업영역(Work Area) 크기 사용 — 작업표시줄 영역 제외
-        _work_x, _work_y = 0, 0
+        # 네이티브 모니터 해상도
         if sys.platform == 'win32':
-            try:
-                import ctypes
-                from ctypes import wintypes
-                _wa_rect = wintypes.RECT()
-                ctypes.windll.user32.SystemParametersInfoW(
-                    0x0030, 0, ctypes.byref(_wa_rect), 0)  # SPI_GETWORKAREA
-                _work_x = _wa_rect.left
-                _work_y = _wa_rect.top
-                monitor_w = _wa_rect.right - _wa_rect.left
-                monitor_h = _wa_rect.bottom - _wa_rect.top
-                print(f"[디스플레이] 작업영역: ({_work_x},{_work_y}) {monitor_w}x{monitor_h}", flush=True)
-            except Exception as _wa_err:
-                print(f"[디스플레이] 작업영역 감지 실패: {_wa_err}", flush=True)
-                native = _get_native_resolution() or _get_current_resolution()
-                if native:
-                    monitor_w, monitor_h = native
-                else:
-                    monitor_w, monitor_h = 1920, 1080
+            native = _get_native_resolution() or _get_current_resolution()
+            if native:
+                monitor_w, monitor_h = native
+            else:
+                monitor_w, monitor_h = 1920, 1080
         else:
             _dinfo = pygame.display.Info()
             monitor_w, monitor_h = _dinfo.current_w, _dinfo.current_h
@@ -8574,8 +8590,8 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         FULLSCREEN_MODE = False
         _is_fullscreen_active = True
 
-        # 보더리스 윈도우 (프레임 없이 작업영역에 꽉 채움)
-        os.environ['SDL_VIDEO_WINDOW_POS'] = f'{_work_x},{_work_y}'
+        # 보더리스 윈도우 (프레임 없이 모니터 해상도로)
+        os.environ['SDL_VIDEO_WINDOW_POS'] = '0,0'
         if _current_platform == 'Darwin':
             REAL_SCREEN = _original_set_mode((monitor_w, monitor_h), pygame.NOFRAME | pygame.DOUBLEBUF)
         else:
@@ -8642,6 +8658,9 @@ def get_display_mode() -> str:
     """현재 디스플레이 모드 반환: 'fullscreen' | 'borderless' | 'windowed'"""
     return _current_display_mode
 
+
+# 게임 시작 시 창모드(필러 포함)로 전환
+switch_display_mode("windowed")
 
 # 초기 로딩 작업들을 함수로 정의 (백그라운드 스레드에서 실행)
 def _loading_task_1_init_systems():
