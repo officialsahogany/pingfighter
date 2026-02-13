@@ -7147,6 +7147,12 @@ class IllusionShuriken(HeroSkill):
                 # 히트!
                 shuriken['active'] = False
 
+                # 마법결계 면역 체크 - 면역 상태면 넉백/스턴 차단
+                _immunity_side = 'top' if self.target_is_top else 'bottom'
+                if game_state.get(f'magic_immunity_{_immunity_side}', False):
+                    # 수리검은 소멸하지만 넉백/스턴은 적용하지 않음
+                    continue
+
                 # 수리검 히트 사운드 재생
                 try:
                     import os

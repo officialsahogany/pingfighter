@@ -135325,9 +135325,16 @@ def main(stage_num, new_boss_mode=False):
                     _shuriken_gs = arena_skill_manager.game_state
                     for _paddle_prefix in ['top_paddle', 'bottom_paddle']:
                         if _shuriken_gs.get(f'{_paddle_prefix}_knockback'):
+                            _target_is_top = (_paddle_prefix == 'top_paddle')
+
+                            # 마법결계 면역 체크 (이중 안전장치)
+                            _immunity_side = 'top' if _target_is_top else 'bottom'
+                            if _shuriken_gs.get(f'magic_immunity_{_immunity_side}', False):
+                                _shuriken_gs[f'{_paddle_prefix}_knockback'] = False
+                                continue
+
                             _kb_dir = _shuriken_gs.get(f'{_paddle_prefix}_knockback_dir', 1)
                             _kb_vel = _shuriken_gs.get(f'{_paddle_prefix}_knockback_vel', 80)
-                            _target_is_top = (_paddle_prefix == 'top_paddle')
 
                             if _target_is_top:
                                 # 보스(상단)에게 넉백 적용
