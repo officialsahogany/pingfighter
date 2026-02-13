@@ -19554,6 +19554,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     global arena_perk_magic_immunity_chance_top, arena_perk_magic_immunity_chance_bottom
     global arena_magic_immunity_timer_top, arena_magic_immunity_timer_bottom
     global arena_barrier_flash_top, arena_barrier_flash_bottom
+    global arena_barrier_beam_target_top, arena_barrier_beam_target_bottom
     global arena_bottom_max_dash_charges, arena_top_max_dash_charges
     global arena_perk_paddle_enlarge_top, arena_perk_paddle_enlarge_bottom
     global arena_leaf_shield_top, arena_leaf_shield_bottom
@@ -19587,6 +19588,8 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_barrier_block_effects.clear()
     arena_barrier_flash_top = 0.0
     arena_barrier_flash_bottom = 0.0
+    arena_barrier_beam_target_top = None
+    arena_barrier_beam_target_bottom = None
     arena_perk_paddle_enlarge_top = 1.0
     arena_perk_paddle_enlarge_bottom = 1.0
     arena_leaf_shield_top = None
@@ -19686,6 +19689,7 @@ def reset_arena_perks():
     global arena_perk_magic_immunity_chance_top, arena_perk_magic_immunity_chance_bottom
     global arena_magic_immunity_timer_top, arena_magic_immunity_timer_bottom
     global arena_barrier_flash_top, arena_barrier_flash_bottom
+    global arena_barrier_beam_target_top, arena_barrier_beam_target_bottom
     global arena_perk_paddle_enlarge_top, arena_perk_paddle_enlarge_bottom
     global arena_leaf_shield_top, arena_leaf_shield_bottom
     global arena_storm_rush_burst_top, arena_storm_rush_burst_bottom
@@ -19712,6 +19716,8 @@ def reset_arena_perks():
     arena_barrier_block_effects.clear()
     arena_barrier_flash_top = 0.0
     arena_barrier_flash_bottom = 0.0
+    arena_barrier_beam_target_top = None
+    arena_barrier_beam_target_bottom = None
     arena_perk_paddle_enlarge_top = 1.0
     arena_perk_paddle_enlarge_bottom = 1.0
     if arena_leaf_shield_top:
@@ -20136,7 +20142,7 @@ def _show_arena_all_perks_owned_message():
         clock.tick(30)
 
 
-def _draw_magic_immunity_barrier(screen, center_x, center_y, base_radius, imm_timer, imm_duration, flash_timer=0.0):
+def _draw_magic_immunity_barrier(screen, center_x, center_y, base_radius, imm_timer, imm_duration, flash_timer=0.0, beam_target=None):
     """마법결계 퍽 보호막 이펙트 (보라색 결계, 클렌즈 스타일 - 생성/소멸 애니메이션 포함, 스킬 차단 시 번쩍임)"""
     if imm_timer <= 0:
         return
@@ -20313,18 +20319,74 @@ def _draw_magic_immunity_barrier(screen, center_x, center_y, base_radius, imm_ti
 
         screen.blit(fl_surf, (center_x - fl_sc, center_y - fl_sc))
 
+    # ── 10. 등대빔 효과 (스킬 차단 시 시전자 방향으로 빛줄기) ──
+    if flash_timer > 0 and beam_target is not None:
+        beam_tx, beam_ty = beam_target
+        dx = beam_tx - center_x
+        dy = beam_ty - center_y
+        dist = math.sqrt(dx * dx + dy * dy)
+        if dist > 10:
+            angle = math.atan2(dy, dx)
+            flash_prog = flash_timer / ARENA_BARRIER_FLASH_DURATION
+            fl_intensity = flash_prog ** 0.5
+            beam_len = min(dist * 0.9, 350)
+
+            # 빔 서피스 (전체 화면 크기로 생성)
+            beam_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
+
+            perp_cos = math.cos(angle + math.pi / 2)
+            perp_sin = math.sin(angle + math.pi / 2)
+            cos_a = math.cos(angle)
+            sin_a = math.sin(angle)
+
+            # 3겹 빔 (넓은 글로우 → 중간 → 좁은 코어)
+            for layer, (near_w, far_w, color, alpha_mult) in enumerate([
+                (12, 55, (160, 120, 255), 0.25),   # 넓은 외곽 글로우
+                (8, 35, (180, 150, 255), 0.4),      # 중간 빔
+                (3, 15, (230, 210, 255), 0.7),       # 밝은 코어
+            ]):
+                beam_alpha = int(alpha_mult * 255 * fl_intensity)
+                if beam_alpha <= 0:
+                    continue
+
+                # 사다리꼴 꼭짓점 (결계 근처 좁고 → 시전자 방향으로 넓어짐)
+                nl = (center_x + perp_cos * near_w, center_y + perp_sin * near_w)
+                nr = (center_x - perp_cos * near_w, center_y - perp_sin * near_w)
+                fx = center_x + cos_a * beam_len
+                fy = center_y + sin_a * beam_len
+                fl_pt = (fx + perp_cos * far_w, fy + perp_sin * far_w)
+                fr_pt = (fx - perp_cos * far_w, fy - perp_sin * far_w)
+
+                points = [(int(nl[0]), int(nl[1])), (int(fl_pt[0]), int(fl_pt[1])),
+                          (int(fr_pt[0]), int(fr_pt[1])), (int(nr[0]), int(nr[1]))]
+                pygame.draw.polygon(beam_surf, (*color, beam_alpha), points)
+
+            # 빔 끝단 원형 글로우 (시전자 위치 강조)
+            end_glow_a = int(100 * fl_intensity)
+            if end_glow_a > 0:
+                end_x = int(center_x + cos_a * beam_len)
+                end_y = int(center_y + sin_a * beam_len)
+                pygame.draw.circle(beam_surf, (200, 170, 255, end_glow_a), (end_x, end_y), 30, 0)
+                pygame.draw.circle(beam_surf, (230, 210, 255, end_glow_a // 2), (end_x, end_y), 15, 0)
+
+            screen.blit(beam_surf, (0, 0))
+
 
 def _spawn_barrier_block_effect(caster_x, caster_y, target_x, target_y,
                                  skill_name, caster_is_top, hero_color=None):
     """마법결계에 의해 차단된 스킬의 '잠깐 보였다가 녹아 사라지는' 이펙트 생성"""
     global arena_barrier_flash_top, arena_barrier_flash_bottom
+    global arena_barrier_beam_target_top, arena_barrier_beam_target_bottom
 
-    # 결계 번쩍임 트리거 (방어한 쪽)
+    # 결계 번쩍임 트리거 + 등대빔 타겟 설정 (방어한 쪽)
     if caster_is_top:
-        # 시전자가 상단이면, 방어한 건 하단
+        # 시전자가 상단이면, 방어한 건 하단 → 하단 결계가 상단 시전자를 비춤
         arena_barrier_flash_bottom = ARENA_BARRIER_FLASH_DURATION
+        arena_barrier_beam_target_bottom = (caster_x, caster_y)
     else:
+        # 시전자가 하단이면, 방어한 건 상단 → 상단 결계가 하단 시전자를 비춤
         arena_barrier_flash_top = ARENA_BARRIER_FLASH_DURATION
+        arena_barrier_beam_target_top = (caster_x, caster_y)
 
     color = hero_color if hero_color else (180, 80, 220)
     # 투사체가 시전자→타겟 방향으로 40% 정도 이동 후 녹아 사라짐
@@ -20375,12 +20437,17 @@ def _spawn_barrier_block_effect(caster_x, caster_y, target_x, target_y,
 def _update_barrier_block_effects(dt):
     """차단된 스킬 녹아내리는 이펙트 업데이트"""
     global arena_barrier_flash_top, arena_barrier_flash_bottom
+    global arena_barrier_beam_target_top, arena_barrier_beam_target_bottom
 
     # 결계 플래시 타이머 감소
     if arena_barrier_flash_top > 0:
         arena_barrier_flash_top = max(0.0, arena_barrier_flash_top - dt)
+        if arena_barrier_flash_top <= 0:
+            arena_barrier_beam_target_top = None
     if arena_barrier_flash_bottom > 0:
         arena_barrier_flash_bottom = max(0.0, arena_barrier_flash_bottom - dt)
+        if arena_barrier_flash_bottom <= 0:
+            arena_barrier_beam_target_bottom = None
 
     to_remove = []
     for eff in arena_barrier_block_effects:
@@ -89763,7 +89830,7 @@ def draw_objects():
             if arena_skill_manager and arena_skill_manager.game_state.get('magic_immunity_top', False):
                 _imm_timer = arena_skill_manager.game_state.get('magic_immunity_timer_top', 0.0)
                 _imm_base_r = max(_top_draw_width, _top_draw_height) // 2 + 15
-                _draw_magic_immunity_barrier(SCREEN, int(_top_final_x), int(_top_final_y), _imm_base_r, _imm_timer, ARENA_MAGIC_IMMUNITY_DURATION, arena_barrier_flash_top)
+                _draw_magic_immunity_barrier(SCREEN, int(_top_final_x), int(_top_final_y), _imm_base_r, _imm_timer, ARENA_MAGIC_IMMUNITY_DURATION, arena_barrier_flash_top, arena_barrier_beam_target_top)
 
             # 신성월계수 잎 렌더링 (상단)
             if arena_leaf_shield_top and arena_leaf_shield_top.active:
@@ -91342,7 +91409,7 @@ def draw_objects():
             if arena_skill_manager and arena_skill_manager.game_state.get('magic_immunity_bottom', False):
                 _imm_timer = arena_skill_manager.game_state.get('magic_immunity_timer_bottom', 0.0)
                 _imm_base_r = max(_bottom_draw_width, _bottom_draw_height) // 2 + 15
-                _draw_magic_immunity_barrier(SCREEN, int(_final_x), int(_final_y), _imm_base_r, _imm_timer, ARENA_MAGIC_IMMUNITY_DURATION, arena_barrier_flash_bottom)
+                _draw_magic_immunity_barrier(SCREEN, int(_final_x), int(_final_y), _imm_base_r, _imm_timer, ARENA_MAGIC_IMMUNITY_DURATION, arena_barrier_flash_bottom, arena_barrier_beam_target_bottom)
 
             # 신성월계수 잎 렌더링 (하단)
             if arena_leaf_shield_bottom and arena_leaf_shield_bottom.active:
@@ -122596,14 +122663,18 @@ def handle_ball():
                 )
                 if result:
                     if result.get('blocked_by_immunity'):
-                        # 마법결계에 의해 스킬 차단됨 → "면역!" 말풍선 + 녹아 사라지는 이펙트
-                        arena_show_speech_bubble(True, '면역!', hero_id=arena_top_hero["id"] if arena_top_hero else None)
-                        # 스킬이 잠깐 보였다가 녹아 사라지는 시각 효과
+                        # 마법결계에 의해 스킬 차단됨
+                        # 1. 시전자(하단)가 스킬명 말풍선 표시
+                        _blocked_skill_name = result.get('skill_korean_name', '')
+                        arena_show_speech_bubble(False, _blocked_skill_name, hero_id=arena_bottom_hero["id"] if arena_bottom_hero else None)
+                        # 2. 방어자(상단)가 "패링!" 말풍선 표시
+                        arena_show_speech_bubble(True, '패링', hero_id=arena_top_hero["id"] if arena_top_hero else None)
+                        # 3. 녹아 사라지는 이펙트 + 등대빔
                         _block_hero_color = arena_bottom_hero.get("color", (180, 80, 220)) if arena_bottom_hero else (180, 80, 220)
                         _spawn_barrier_block_effect(
                             caster_x=float(PLAYER.centerx), caster_y=float(PLAYER.centery),
                             target_x=float(BOSS.centerx), target_y=float(BOSS.centery),
-                            skill_name=result.get('skill_korean_name', ''),
+                            skill_name=_blocked_skill_name,
                             caster_is_top=False,
                             hero_color=_block_hero_color
                         )
@@ -123400,14 +123471,18 @@ def handle_ball():
                 )
                 if result:
                     if result.get('blocked_by_immunity'):
-                        # 마법결계에 의해 스킬 차단됨 → "면역!" 말풍선 + 녹아 사라지는 이펙트
-                        arena_show_speech_bubble(False, '면역!', hero_id=arena_bottom_hero["id"] if arena_bottom_hero else None)
-                        # 스킬이 잠깐 보였다가 녹아 사라지는 시각 효과
+                        # 마법결계에 의해 스킬 차단됨
+                        # 1. 시전자(상단)가 스킬명 말풍선 표시
+                        _blocked_skill_name = result.get('skill_korean_name', '')
+                        arena_show_speech_bubble(True, _blocked_skill_name, hero_id=arena_top_hero["id"] if arena_top_hero else None)
+                        # 2. 방어자(하단)가 "패링!" 말풍선 표시
+                        arena_show_speech_bubble(False, '패링', hero_id=arena_bottom_hero["id"] if arena_bottom_hero else None)
+                        # 3. 녹아 사라지는 이펙트 + 등대빔
                         _block_hero_color = arena_top_hero.get("color", (180, 80, 220)) if arena_top_hero else (180, 80, 220)
                         _spawn_barrier_block_effect(
                             caster_x=float(BOSS.centerx), caster_y=float(BOSS.centery),
                             target_x=float(PLAYER.centerx), target_y=float(PLAYER.centery),
-                            skill_name=result.get('skill_korean_name', ''),
+                            skill_name=_blocked_skill_name,
                             caster_is_top=True,
                             hero_color=_block_hero_color
                         )
