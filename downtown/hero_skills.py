@@ -3452,17 +3452,24 @@ class PuppetControl(HeroSkill):
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['target_puppeted'] = False
 
-        # 연화 고정 해제
-        caster_prefix = 'top_paddle' if caster_paddle.is_top else 'bottom_paddle'
+        # 연화 고정 해제 (None 안전)
+        if caster_paddle is not None:
+            caster_prefix = 'top_paddle' if caster_paddle.is_top else 'bottom_paddle'
+        else:
+            caster_prefix = 'top_paddle' if getattr(self, 'caster_is_top', True) else 'bottom_paddle'
         game_state[f'{caster_prefix}_locked'] = False
 
-        # 타겟 패들 고정 해제
-        target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
+        # 타겟 패들 고정 해제 (None 안전)
+        if target_paddle is not None:
+            target_prefix = 'top_paddle' if target_paddle.is_top else 'bottom_paddle'
+        else:
+            target_prefix = 'bottom_paddle' if getattr(self, 'caster_is_top', True) else 'top_paddle'
         game_state[f'{target_prefix}_locked'] = False
 
         # 상대 원래 위치로 확실히 복귀
-        target_paddle.x = self.target_original_x
-        target_paddle.y = self.target_original_y
+        if target_paddle is not None:
+            target_paddle.x = self.target_original_x
+            target_paddle.y = self.target_original_y
 
         self.strings = []
         self.kiss_hearts = []
@@ -3842,8 +3849,11 @@ class DollCurse(HeroSkill):
         target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
         game_state[f'{target_prefix}_confused'] = False
 
-        # 연화(caster) 고정 해제
-        caster_prefix = 'top_paddle' if caster_paddle.is_top else 'bottom_paddle'
+        # 연화(caster) 고정 해제 (None 안전)
+        if caster_paddle is not None:
+            caster_prefix = 'top_paddle' if caster_paddle.is_top else 'bottom_paddle'
+        else:
+            caster_prefix = 'top_paddle' if getattr(self, 'caster_is_top', True) else 'bottom_paddle'
         game_state[f'{caster_prefix}_locked'] = False
 
         self.curse_dolls = []
@@ -8106,7 +8116,10 @@ class DeadPossession(HeroSkill):
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         """빙의 종료"""
         if self.possessed_skill and self.possessed_skill.is_active:
-            self.possessed_skill._end_effect(caster_paddle, target_paddle, ball, game_state)
+            try:
+                self.possessed_skill._end_effect(caster_paddle, target_paddle, ball, game_state)
+            except Exception:
+                pass
             self.possessed_skill.is_active = False
         self.possessed_skill = None
         self.ghost_particles = []
@@ -8650,6 +8663,13 @@ class SkeletonArcher(HeroSkill):
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.caster_is_top = getattr(caster_paddle, 'is_top', False)
+        _is_guard = getattr(caster_paddle, 'is_bodyguard', False)
+        print(f"[SkeletonArcher] 소환! caster_is_top={self.caster_is_top}, is_guard={_is_guard}, "
+              f"caster=({getattr(caster_paddle,'x','?')},{getattr(caster_paddle,'y','?')}), "
+              f"target=({getattr(target_paddle,'x','?')},{getattr(target_paddle,'y','?')}), "
+              f"target.is_bodyguard={getattr(target_paddle,'is_bodyguard',False)}, "
+              f"hero_top={game_state.get('hero_paddle_top','NONE')}, "
+              f"hero_bottom={game_state.get('hero_paddle_bottom','NONE')}")
 
         # 궁수 소환 위치: 내 진영 (캐스터 근처)
         spawn_x = random.randint(self.GAME_LEFT + 40, self.GAME_RIGHT - 40)
@@ -8791,13 +8811,24 @@ class SkeletonArcher(HeroSkill):
                         archer['draw_timer'] = 0.0
                         archer['draw_target_x'] = float(hero_info['x'] + hero_info['width'] / 2)
                         archer['draw_target_y'] = float(hero_info['y'] + hero_info['height'] / 2)
+                        print(f"[SkeletonArcher] 조준(game_state)! caster_is_top={self.caster_is_top}, "
+                              f"enemy_key={enemy_key}, "
+                              f"target=({archer['draw_target_x']:.0f},{archer['draw_target_y']:.0f}), "
+                              f"target_paddle=({getattr(target_paddle,'x','?')},{getattr(target_paddle,'y','?')}), "
+                              f"tp.is_bodyguard={getattr(target_paddle,'is_bodyguard',False)}")
                     elif target_paddle is not None and not getattr(target_paddle, 'is_bodyguard', False):
                         # 폴백: game_state에 없으면 target_paddle 사용
                         archer['is_drawing'] = True
                         archer['draw_timer'] = 0.0
                         archer['draw_target_x'] = float(target_paddle.x + target_paddle.width / 2)
                         archer['draw_target_y'] = float(target_paddle.y + target_paddle.height / 2)
+                        print(f"[SkeletonArcher] 조준(폴백-target_paddle)! caster_is_top={self.caster_is_top}, "
+                              f"target=({archer['draw_target_x']:.0f},{archer['draw_target_y']:.0f}), "
+                              f"tp.is_bodyguard={getattr(target_paddle,'is_bodyguard',False)}")
                     else:
+                        print(f"[SkeletonArcher] 조준 실패! hero_info={hero_info}, "
+                              f"target_paddle={target_paddle}, "
+                              f"tp.is_bodyguard={getattr(target_paddle,'is_bodyguard',False) if target_paddle else 'N/A'}")
                         archer['arrow_cooldown'] = 0.5  # 대상 없음, 재시도
 
                 # 이동 (시위 당기는 중에는 이동 안 함)
