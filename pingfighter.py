@@ -19541,6 +19541,13 @@ arena_storm_rush_height_bonus_bottom = 0     # 하단 버스트업 패들 높이
 arena_storm_rush_particles = []              # 폭풍질주 플래시 파티클
 arena_perk_recall_guard_top = False          # 상단 재소집령 퍽 활성
 arena_perk_recall_guard_bottom = False       # 하단 재소집령 퍽 활성
+arena_perk_instant_cooldown_chance_top = 0.0   # 상단 번뜩이는 영감 확률
+arena_perk_instant_cooldown_chance_bottom = 0.0  # 하단 번뜩이는 영감 확률
+arena_flash_inspiration_timer_top = 0.0        # 상단 번뜩이는 영감 이펙트 타이머
+arena_flash_inspiration_timer_bottom = 0.0     # 하단 번뜩이는 영감 이펙트 타이머
+ARENA_FLASH_INSPIRATION_DURATION = 0.5         # 번뜩이는 영감 이펙트 지속 시간 (초)
+arena_flash_inspiration_particles_top = []     # 상단 반짝임 파티클
+arena_flash_inspiration_particles_bottom = []  # 하단 반짝임 파티클
 arena_battle_arena_obj = None                # ColosseumsArena 인스턴스 참조 (F8 퍽 선택용)
 
 def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
@@ -19562,6 +19569,9 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     global arena_leaf_shield_top, arena_leaf_shield_bottom
     global arena_perk_draw_icon_func
     global arena_perk_recall_guard_top, arena_perk_recall_guard_bottom
+    global arena_perk_instant_cooldown_chance_top, arena_perk_instant_cooldown_chance_bottom
+    global arena_flash_inspiration_timer_top, arena_flash_inspiration_timer_bottom
+    global arena_flash_inspiration_particles_top, arena_flash_inspiration_particles_bottom
 
     # 아이콘 그리기 함수 저장
     if arena_obj and hasattr(arena_obj, '_draw_perk_icon'):
@@ -19598,6 +19608,12 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_leaf_shield_bottom = None
     arena_perk_recall_guard_top = False
     arena_perk_recall_guard_bottom = False
+    arena_perk_instant_cooldown_chance_top = 0.0
+    arena_perk_instant_cooldown_chance_bottom = 0.0
+    arena_flash_inspiration_timer_top = 0.0
+    arena_flash_inspiration_timer_bottom = 0.0
+    arena_flash_inspiration_particles_top.clear()
+    arena_flash_inspiration_particles_bottom.clear()
 
     if not arena_obj or not hasattr(arena_obj, 'get_hero_perk_multipliers'):
         return
@@ -19614,6 +19630,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_top_max_dash_charges = 1 + top_mults["dash_tokens"]
     arena_perk_paddle_enlarge_top = top_mults["paddle_enlarge"]
     arena_perk_recall_guard_top = top_mults["recall_guard"]
+    arena_perk_instant_cooldown_chance_top = top_mults["instant_cooldown"]
     # 신성월계수 잎 (상단)
     if top_mults["laurel_shield"] > 0:
         from downtown.colosseum_arena import ArenaLeafShield
@@ -19633,6 +19650,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_bottom_max_dash_charges = 1 + bottom_mults["dash_tokens"]
     arena_perk_paddle_enlarge_bottom = bottom_mults["paddle_enlarge"]
     arena_perk_recall_guard_bottom = bottom_mults["recall_guard"]
+    arena_perk_instant_cooldown_chance_bottom = bottom_mults["instant_cooldown"]
     # 신성월계수 잎 (하단)
     if bottom_mults["laurel_shield"] > 0:
         from downtown.colosseum_arena import ArenaLeafShield
@@ -19650,6 +19668,9 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
         arena_skill_manager.game_state['magic_immunity_bottom'] = False
         arena_skill_manager.game_state['magic_immunity_timer_top'] = 0.0
         arena_skill_manager.game_state['magic_immunity_timer_bottom'] = 0.0
+        # 번뜩이는 영감: 즉시쿨 확률 전달
+        arena_skill_manager.game_state['instant_cooldown_chance_top'] = arena_perk_instant_cooldown_chance_top
+        arena_skill_manager.game_state['instant_cooldown_chance_bottom'] = arena_perk_instant_cooldown_chance_bottom
 
     # 호위무사 시스템에 퍽 전달
     if arena_guard_system and hasattr(arena_guard_system, 'guard_cd_mult_top'):
@@ -19698,6 +19719,9 @@ def reset_arena_perks():
     global arena_storm_rush_height_bonus_top, arena_storm_rush_height_bonus_bottom
     global arena_storm_rush_particles
     global arena_perk_recall_guard_top, arena_perk_recall_guard_bottom
+    global arena_perk_instant_cooldown_chance_top, arena_perk_instant_cooldown_chance_bottom
+    global arena_flash_inspiration_timer_top, arena_flash_inspiration_timer_bottom
+    global arena_flash_inspiration_particles_top, arena_flash_inspiration_particles_bottom
     arena_perk_speed_mult_top = 1.0
     arena_perk_speed_mult_bottom = 1.0
     arena_perk_dash_cd_mult_top = 1.0
@@ -19730,6 +19754,12 @@ def reset_arena_perks():
     arena_leaf_shield_bottom = None
     arena_perk_recall_guard_top = False
     arena_perk_recall_guard_bottom = False
+    arena_perk_instant_cooldown_chance_top = 0.0
+    arena_perk_instant_cooldown_chance_bottom = 0.0
+    arena_flash_inspiration_timer_top = 0.0
+    arena_flash_inspiration_timer_bottom = 0.0
+    arena_flash_inspiration_particles_top.clear()
+    arena_flash_inspiration_particles_bottom.clear()
     # 폭풍질주 버스트업 초기화
     arena_storm_rush_burst_top = False
     arena_storm_rush_burst_bottom = False
@@ -20085,6 +20115,8 @@ def _apply_arena_f8_perk(arena_obj, hero_id, selected_perk):
             if hero_id not in arena_obj.guard_warrior_map:
                 arena_obj.guard_warrior_map[hero_id] = []
             arena_obj.guard_warrior_map[hero_id].append(recalled)
+            # 복귀 호위무사 추적 (호위무사 선택 시 보존용)
+            arena_obj.recalled_guard_map[hero_id] = recalled
             arena_obj.hero_selected_skills[recalled["id"]] = random.randint(0, 1)
             print(f"[ArenaPerk F8] 재소집령: '{recalled['name']}' 복귀!")
         print(f"[ArenaPerk F8] {hero_id}에게 '재소집령' 퍽 부여!")
@@ -20446,6 +20478,112 @@ def _spawn_barrier_block_effect(caster_x, caster_y, target_x, target_y,
         'proj_wobble': 0.0,
     }
     arena_barrier_block_effects.append(effect)
+
+
+def _spawn_flash_inspiration_particles(is_top):
+    """번뜩이는 영감 발동 시 반짝임 파티클 생성"""
+    global arena_flash_inspiration_particles_top, arena_flash_inspiration_particles_bottom
+    particles = []
+    for _ in range(20):
+        angle = random.uniform(0, math.pi * 2)
+        speed = random.uniform(30, 90)
+        particles.append({
+            'ox': random.uniform(-15, 15),
+            'oy': random.uniform(-15, 15),
+            'vx': math.cos(angle) * speed,
+            'vy': math.sin(angle) * speed,
+            'life': random.uniform(0.3, 0.5),
+            'max_life': random.uniform(0.3, 0.5),
+            'size': random.uniform(2, 5),
+            'color_idx': random.randint(0, 2),
+        })
+    if is_top:
+        arena_flash_inspiration_particles_top = particles
+    else:
+        arena_flash_inspiration_particles_bottom = particles
+
+
+def _update_flash_inspiration(dt):
+    """번뜩이는 영감 타이머 + 파티클 업데이트"""
+    global arena_flash_inspiration_timer_top, arena_flash_inspiration_timer_bottom
+    if arena_flash_inspiration_timer_top > 0:
+        arena_flash_inspiration_timer_top = max(0.0, arena_flash_inspiration_timer_top - dt)
+    if arena_flash_inspiration_timer_bottom > 0:
+        arena_flash_inspiration_timer_bottom = max(0.0, arena_flash_inspiration_timer_bottom - dt)
+    for plist in (arena_flash_inspiration_particles_top, arena_flash_inspiration_particles_bottom):
+        to_remove = []
+        for p in plist:
+            p['life'] -= dt
+            if p['life'] <= 0:
+                to_remove.append(p)
+                continue
+            p['ox'] += p['vx'] * dt
+            p['oy'] += p['vy'] * dt
+            p['vx'] *= 0.95
+            p['vy'] *= 0.95
+        for p in to_remove:
+            plist.remove(p)
+
+
+_INSP_COLORS = [(255, 220, 100), (255, 255, 240), (255, 240, 150)]
+
+def _draw_flash_inspiration_effect(screen, cx, cy, draw_w, draw_h, timer, particles):
+    """번뜩이는 영감 반짝임 이펙트 렌더링"""
+    if timer <= 0 and not particles:
+        return
+    progress = timer / ARENA_FLASH_INSPIRATION_DURATION if ARENA_FLASH_INSPIRATION_DURATION > 0 else 0
+    base_r = max(draw_w, draw_h) // 2 + 20
+
+    if timer > 0:
+        if progress > 0.7:
+            alpha_ratio = (1.0 - progress) / 0.3
+        elif progress < 0.4:
+            alpha_ratio = progress / 0.4
+        else:
+            alpha_ratio = 1.0
+        glow_alpha = int(120 * alpha_ratio)
+        if glow_alpha > 0:
+            glow_size = base_r * 2 + 30
+            glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+            gc = glow_size // 2
+            for i in range(3):
+                r_val = base_r + 10 - i * 5
+                a = max(0, glow_alpha - i * 30)
+                pygame.draw.circle(glow_surf, (255, 220, 100, a), (gc, gc), r_val, 3)
+            inner_a = max(0, glow_alpha // 3)
+            pygame.draw.circle(glow_surf, (255, 240, 180, inner_a), (gc, gc), base_r - 5)
+            screen.blit(glow_surf, (int(cx) - gc, int(cy) - gc))
+
+        t = pygame.time.get_ticks() / 1000.0
+        star_count = 5
+        for i in range(star_count):
+            angle = t * 3 + i * (math.pi * 2 / star_count)
+            dist = base_r - 5
+            sx = int(cx + math.cos(angle) * dist)
+            sy = int(cy + math.sin(angle) * dist)
+            s_alpha = int(200 * alpha_ratio)
+            star_size = 4 + int(2 * math.sin(t * 8 + i * 1.5))
+            if s_alpha > 0 and star_size > 0:
+                star_surf = pygame.Surface((star_size * 2 + 4, star_size * 2 + 4), pygame.SRCALPHA)
+                sc = star_size + 2
+                pygame.draw.line(star_surf, (255, 255, 230, s_alpha),
+                                 (sc - star_size, sc), (sc + star_size, sc), 2)
+                pygame.draw.line(star_surf, (255, 255, 230, s_alpha),
+                                 (sc, sc - star_size), (sc, sc + star_size), 2)
+                screen.blit(star_surf, (sx - sc, sy - sc))
+
+    for p in particles:
+        ratio = p['life'] / p['max_life'] if p['max_life'] > 0 else 0
+        alpha = int(255 * ratio)
+        size = max(1, int(p['size'] * ratio))
+        color = _INSP_COLORS[p['color_idx']]
+        px = int(cx + p['ox'])
+        py = int(cy + p['oy'])
+        if alpha > 0 and size > 0:
+            p_surf = pygame.Surface((size * 2 + 2, size * 2 + 2), pygame.SRCALPHA)
+            pc = size + 1
+            pygame.draw.circle(p_surf, (*color, alpha), (pc, pc), size)
+            screen.blit(p_surf, (px - pc, py - pc))
 
 
 def _update_barrier_block_effects(dt):
@@ -89851,6 +89989,13 @@ def draw_objects():
                 _imm_base_r = max(_top_draw_width, _top_draw_height) // 2 + 15
                 _draw_magic_immunity_barrier(SCREEN, int(_top_final_x), int(_top_final_y), _imm_base_r, _imm_timer, ARENA_MAGIC_IMMUNITY_DURATION, arena_barrier_flash_top, arena_barrier_beam_target_top)
 
+            # 번뜩이는 영감 반짝임 이펙트 (상단 영웅)
+            if arena_flash_inspiration_timer_top > 0 or arena_flash_inspiration_particles_top:
+                _draw_flash_inspiration_effect(SCREEN, int(_top_final_x), int(_top_final_y),
+                                              _top_draw_width, _top_draw_height,
+                                              arena_flash_inspiration_timer_top,
+                                              arena_flash_inspiration_particles_top)
+
             # 신성월계수 잎 렌더링 (상단)
             if arena_leaf_shield_top and arena_leaf_shield_top.active:
                 arena_leaf_shield_top.draw(SCREEN)
@@ -91429,6 +91574,13 @@ def draw_objects():
                 _imm_timer = arena_skill_manager.game_state.get('magic_immunity_timer_bottom', 0.0)
                 _imm_base_r = max(_bottom_draw_width, _bottom_draw_height) // 2 + 15
                 _draw_magic_immunity_barrier(SCREEN, int(_final_x), int(_final_y), _imm_base_r, _imm_timer, ARENA_MAGIC_IMMUNITY_DURATION, arena_barrier_flash_bottom, arena_barrier_beam_target_bottom)
+
+            # 번뜩이는 영감 반짝임 이펙트 (하단 영웅)
+            if arena_flash_inspiration_timer_bottom > 0 or arena_flash_inspiration_particles_bottom:
+                _draw_flash_inspiration_effect(SCREEN, int(_final_x), int(_final_y),
+                                              _bottom_draw_width, _bottom_draw_height,
+                                              arena_flash_inspiration_timer_bottom,
+                                              arena_flash_inspiration_particles_bottom)
 
             # 마법결계 차단 스킬 녹아내리는 이펙트 렌더링
             _draw_barrier_block_effects(SCREEN)
@@ -122737,6 +122889,18 @@ def handle_ball():
                         arena_skill_manager.game_state['magic_immunity_timer_bottom'] = ARENA_MAGIC_IMMUNITY_DURATION
                         arena_show_speech_bubble(False, '마법결계!', hero_id=hero_id)
                         print(f"[마법결계] 하단 영웅 마법 면역 발동! ({ARENA_MAGIC_IMMUNITY_DURATION}초)")
+
+                # 번뜩이는 영감: 하단 영웅이 공을 쳤을 때 스킬쿨 즉시 충전 판정
+                _insp_chance = arena_skill_manager.game_state.get('instant_cooldown_chance_bottom', 0.0)
+                if _insp_chance > 0:
+                    if random.random() < _insp_chance:
+                        for _sk in arena_skill_manager.active_skills.get(hero_id, []):
+                            if _sk.current_cooldown > 0:
+                                _sk.current_cooldown = 0.0
+                        arena_flash_inspiration_timer_bottom = ARENA_FLASH_INSPIRATION_DURATION
+                        _spawn_flash_inspiration_particles(False)
+                        arena_show_speech_bubble(False, '번뜩이는 영감!', hero_id=hero_id)
+                        print(f"[번뜩이는 영감] 하단 영웅 스킬 쿨타임 즉시 충전!")
             except Exception:
                 pass
 
@@ -123545,6 +123709,18 @@ def handle_ball():
                         arena_skill_manager.game_state['magic_immunity_timer_top'] = ARENA_MAGIC_IMMUNITY_DURATION
                         arena_show_speech_bubble(True, '마법결계!', hero_id=hero_id)
                         print(f"[마법결계] 상단 영웅 마법 면역 발동! ({ARENA_MAGIC_IMMUNITY_DURATION}초)")
+
+                # 번뜩이는 영감: 상단 영웅이 공을 쳤을 때 스킬쿨 즉시 충전 판정
+                _insp_chance = arena_skill_manager.game_state.get('instant_cooldown_chance_top', 0.0)
+                if _insp_chance > 0:
+                    if random.random() < _insp_chance:
+                        for _sk in arena_skill_manager.active_skills.get(hero_id, []):
+                            if _sk.current_cooldown > 0:
+                                _sk.current_cooldown = 0.0
+                        arena_flash_inspiration_timer_top = ARENA_FLASH_INSPIRATION_DURATION
+                        _spawn_flash_inspiration_particles(True)
+                        arena_show_speech_bubble(True, '번뜩이는 영감!', hero_id=hero_id)
+                        print(f"[번뜩이는 영감] 상단 영웅 스킬 쿨타임 즉시 충전!")
             except Exception:
                 pass
 
@@ -135467,6 +135643,8 @@ def main(stage_num, new_boss_mode=False):
 
                     # 마법결계: 플래시/빔/녹아내리는 이펙트 타이머 업데이트
                     _update_barrier_block_effects(dt)
+                    # 번뜩이는 영감: 반짝임 이펙트 타이머 업데이트
+                    _update_flash_inspiration(dt)
 
                     # 연화(maria) 스킬 시전 중 팔 올린 상태 유지
                     if arena_hero_paddle_renderer:

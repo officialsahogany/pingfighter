@@ -929,6 +929,14 @@ ARENA_PERK_POOL = [
         "effect_type": "paddle_enlarge",
         "value": 0.50,  # 50% 증가
     },
+    {
+        "id": "flash_inspiration",
+        "name": "번뜩이는 영감",
+        "description": "타격 시 15% 확률로\n스킬 쿨타임 즉시 충전",
+        "icon_color": (255, 220, 100),   # 금빛 (영감/번쩍임)
+        "effect_type": "instant_cooldown",
+        "value": 0.15,
+    },
     # === 해금 조건 퍽 ===
     {
         "id": "recall_guard",
@@ -4691,6 +4699,7 @@ class ColosseumsArena:
 
         # === 호위무사 시스템 ===
         self.guard_warrior_map = {}          # hero_id -> [guard hero dicts] (토너먼트 전체 누적)
+        self.recalled_guard_map = {}         # hero_id -> guard dict (재소집령으로 복귀한 호위무사, 라운드 간 유지)
         self.former_guards = []              # 교체되어 탈락한 호위무사 목록 (우승 연출용)
         self.guard_warriors_top = []         # 현재 배틀 상단 영웅의 호위무사들
         self.guard_warriors_bottom = []      # 현재 배틀 하단 영웅의 호위무사들
@@ -10417,6 +10426,8 @@ class ColosseumsArena:
                     if hero_id not in self.guard_warrior_map:
                         self.guard_warrior_map[hero_id] = []
                     self.guard_warrior_map[hero_id].append(recalled)
+                    # 복귀 호위무사 추적 (호위무사 선택 시 보존용)
+                    self.recalled_guard_map[hero_id] = recalled
                     # 복귀 호위무사 스킬 랜덤 배정
                     self.hero_selected_skills[recalled["id"]] = random.randint(0, 1)
                     print(f"[Perk] {self.bet_hero['name']}에게 '재소집령' 퍽 부여! "
@@ -10513,6 +10524,8 @@ class ColosseumsArena:
                     if hero_id not in self.guard_warrior_map:
                         self.guard_warrior_map[hero_id] = []
                     self.guard_warrior_map[hero_id].append(recalled)
+                    # 복귀 호위무사 추적 (호위무사 선택 시 보존용)
+                    self.recalled_guard_map[hero_id] = recalled
                     self.hero_selected_skills[recalled["id"]] = random.randint(0, 1)
                 owned_ids.add(perk["id"])
                 available = [p for p in available if p["id"] != perk["id"]]
@@ -10539,6 +10552,7 @@ class ColosseumsArena:
             "laurel_shield": 0,         # 신성월계수 잎 개수 (0이면 비활성)
             "paddle_enlarge": 1.0,      # 패들 확대 배율
             "recall_guard": False,      # 재소집령 (호위무사 복귀)
+            "instant_cooldown": 0.0,    # 타격 시 스킬쿨 즉시 충전 확률
         }
         for perk in perks:
             etype = perk["effect_type"]
@@ -10567,6 +10581,8 @@ class ColosseumsArena:
                 mults["paddle_enlarge"] += val
             elif etype == "recall_guard":
                 mults["recall_guard"] = True
+            elif etype == "instant_cooldown":
+                mults["instant_cooldown"] = val
         return mults
 
     def _draw_perk_icon_swift_foot(self, surf, cx, cy, r, ss):
@@ -10894,6 +10910,46 @@ class ColosseumsArena:
             (arrow_left + arr_s, arrow_y + arr_s),
         ])
 
+    def _draw_perk_icon_flash_inspiration(self, surf, cx, cy, r, ss):
+        """번뜩이는 영감 아이콘 - 전구 + 반짝이는 빛"""
+        color = (255, 220, 100)
+        s = r * ss
+        lw = max(2, int(2 * ss / 3))
+        # 전구 유리 부분 (상단 원)
+        bulb_r = int(s * 0.35)
+        bulb_cy = cy - int(s * 0.15)
+        pygame.draw.circle(surf, (*color, 200), (cx, bulb_cy), bulb_r)
+        pygame.draw.circle(surf, (255, 255, 230, 120), (cx - int(s * 0.1), bulb_cy - int(s * 0.1)), int(bulb_r * 0.35))
+        pygame.draw.circle(surf, (*color, 255), (cx, bulb_cy), bulb_r, lw)
+        # 전구 나사산 (하단 직사각형)
+        base_w = int(s * 0.22)
+        base_h = int(s * 0.2)
+        base_top = bulb_cy + bulb_r - int(s * 0.05)
+        pygame.draw.rect(surf, (200, 170, 60, 200),
+                         (cx - base_w, base_top, base_w * 2, base_h),
+                         border_radius=max(1, int(base_w * 0.3)))
+        # 나사산 줄
+        for i in range(3):
+            ly = base_top + int(base_h * (i + 1) / 4)
+            pygame.draw.line(surf, (180, 150, 50, 150),
+                             (cx - base_w + 2, ly), (cx + base_w - 2, ly), max(1, lw // 2))
+        # 빛 방사선 (6방향)
+        for i in range(6):
+            angle = i * (math.pi / 3) + math.pi / 6
+            inner_dist = int(s * 0.5)
+            outer_dist = int(s * 0.7)
+            x1 = cx + int(_cos(angle) * inner_dist)
+            y1 = bulb_cy + int(_sin(angle) * inner_dist)
+            x2 = cx + int(_cos(angle) * outer_dist)
+            y2 = bulb_cy + int(_sin(angle) * outer_dist)
+            pygame.draw.line(surf, (255, 240, 150, 180), (x1, y1), (x2, y2), lw)
+        # 반짝이는 별 (4각 별 2개)
+        for sx, sy in [(cx - int(s * 0.55), bulb_cy - int(s * 0.4)),
+                       (cx + int(s * 0.5), bulb_cy + int(s * 0.1))]:
+            star_s = int(s * 0.12)
+            pygame.draw.line(surf, (255, 255, 200, 220), (sx - star_s, sy), (sx + star_s, sy), max(1, lw // 2))
+            pygame.draw.line(surf, (255, 255, 200, 220), (sx, sy - star_s), (sx, sy + star_s), max(1, lw // 2))
+
     def _draw_perk_icon_skill(self, surf, cx, cy, r, ss):
         """스킬 추가 아이콘 - 검 (⚔) 모양"""
         color = (255, 220, 100)  # 골드
@@ -10945,6 +11001,7 @@ class ColosseumsArena:
             "laurel_shield": self._draw_perk_icon_laurel_shield,
             "titan_body": self._draw_perk_icon_titan_body,
             "recall_guard": self._draw_perk_icon_recall_guard,
+            "flash_inspiration": self._draw_perk_icon_flash_inspiration,
         }
         # 스킬 타입 퍽은 별(★) 아이콘으로 표시
         if perk_id.startswith("skill_"):
@@ -11807,14 +11864,29 @@ class ColosseumsArena:
         """호위무사 선택 화면 시작 (매 라운드 진출 시)"""
         bet_id = self.bet_hero["id"] if self.bet_hero else ""
         guards = self.guard_warrior_map.get(bet_id, [])
-        self.guard_select_guards = list(guards)
+
+        # 재소집령으로 복귀한 호위무사는 선택 후보에서 제외 (자동 유지)
+        recalled = self.recalled_guard_map.get(bet_id)
+        if recalled:
+            selectable = [g for g in guards if g.get("id") != recalled.get("id")]
+        else:
+            selectable = list(guards)
+
+        # 선택 가능 후보가 1명 이하면 선택 화면 건너뛰기
+        if len(selectable) <= 1:
+            print(f"[Guard] 재소집령 복귀 호위무사 보존 → 선택 화면 생략 "
+                  f"(총 {len(guards)}명, 선택 가능 {len(selectable)}명)")
+            self._start_perk_select()
+            return
+
+        self.guard_select_guards = list(selectable)
         self.guard_select_hover = -1
         self.guard_select_chosen = -1
         self.guard_select_timer = 0.0
         self.guard_select_skill_hover = None
         self._guard_skill_icon_rects = []
         # 기존(index 0) vs 신규(마지막 = 방금 생포된 호위무사) 구분
-        self.guard_select_new_idx = len(guards) - 1 if guards else 0
+        self.guard_select_new_idx = len(selectable) - 1 if selectable else 0
         self.guard_select_particles = []
         # 경고 확인 다이얼로그 상태
         self.guard_confirm_showing = False
@@ -11835,11 +11907,12 @@ class ColosseumsArena:
                                         ET["sand"], ET["lapis_light"]])
             })
         self.state = TournamentState.GUARD_SELECT
-        print(f"[Guard] 호위무사 선택 시작 (후보 {len(guards)}명: "
-              f"{[g['name'] for g in guards]})")
+        print(f"[Guard] 호위무사 선택 시작 (후보 {len(selectable)}명: "
+              f"{[g['name'] for g in selectable]}, 복귀 호위무사 자동유지: "
+              f"{recalled['name'] if recalled else '없음'})")
 
     def _trim_all_ai_guards(self):
-        """모든 AI 영웅 호위무사를 1명으로 랜덤 축소 (bet_hero 제외)"""
+        """모든 AI 영웅 호위무사를 1명으로 랜덤 축소 (bet_hero 제외, 재소집령 복귀 호위무사 보존)"""
         if not self.bet_hero:
             return
         bet_id = self.bet_hero["id"]
@@ -11851,9 +11924,21 @@ class ColosseumsArena:
                 hero_id = hero["id"]
                 guards = self.guard_warrior_map.get(hero_id, [])
                 if len(guards) >= 2:
-                    chosen = random.choice(guards)
-                    self.guard_warrior_map[hero_id] = [chosen]
-                    print(f"[Guard] AI 호위무사 축소: {hero['name']} → {chosen['name']}")
+                    # 재소집령 복귀 호위무사가 있으면 보존
+                    recalled = self.recalled_guard_map.get(hero_id)
+                    if recalled:
+                        non_recalled = [g for g in guards if g.get("id") != recalled.get("id")]
+                        if non_recalled:
+                            chosen = random.choice(non_recalled)
+                            self.guard_warrior_map[hero_id] = [chosen, recalled]
+                        else:
+                            self.guard_warrior_map[hero_id] = [recalled]
+                        print(f"[Guard] AI 호위무사 축소 (복귀 보존): {hero['name']} → "
+                              f"{[g['name'] for g in self.guard_warrior_map[hero_id]]}")
+                    else:
+                        chosen = random.choice(guards)
+                        self.guard_warrior_map[hero_id] = [chosen]
+                        print(f"[Guard] AI 호위무사 축소: {hero['name']} → {chosen['name']}")
 
     def _try_guard_select(self, index: int):
         """호위무사 선택 시도 - 신규 선택 시 경고 다이얼로그 표시"""
@@ -11889,6 +11974,17 @@ class ColosseumsArena:
             if i != new_idx and g not in self.former_guards:
                 self.former_guards.append(g)
         self.guard_warrior_map[bet_id] = [selected]
+
+        # 재소집령으로 복귀한 호위무사는 선택과 무관하게 유지
+        recalled = self.recalled_guard_map.get(bet_id)
+        if recalled and recalled.get("id") != selected.get("id"):
+            self.guard_warrior_map[bet_id].append(recalled)
+            # 복귀 호위무사가 former_guards에 추가됐으면 제거
+            if recalled in self.former_guards:
+                self.former_guards.remove(recalled)
+            print(f"[Guard] 재소집령 복귀 호위무사 '{recalled['name']}' 자동 유지 "
+                  f"(총 {len(self.guard_warrior_map[bet_id])}명)")
+
         self.guard_select_chosen = index
         print(f"[Guard] 호위무사 선택 완료: {selected['name']} (탈락: {[g['name'] for g in dropped_guards]})")
 
