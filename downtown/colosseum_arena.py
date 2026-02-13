@@ -5350,14 +5350,13 @@ class ColosseumsArena:
         self._prison_attack_particles = []
 
     def _prepare_prison_candidates(self):
-        """나머지 3매치에서 각 1명씩 호위무사 후보 선정"""
-        candidates = []
-        for i, match in enumerate(self.matches[TournamentRound.QUARTER_FINAL]):
-            if i == self.selected_match_index:
-                continue  # 플레이어 매치 제외
-            # 각 매치에서 랜덤 1명 선택 (같은 매치에서 2명 빠지는 것 방지)
-            candidates.append(random.choice([match.hero1, match.hero2]))
-        self.prison_heroes = candidates
+        """PRISON_HEROES에서 3명을 호위무사 후보로 선정 (대진표 영웅과 중복 방지)"""
+        # 대진표 영웅과 겹치지 않는 전용 감옥 영웅 사용
+        self.prison_heroes = random.sample(PRISON_HEROES, min(3, len(PRISON_HEROES)))
+        # 감옥 영웅에게도 스킬 랜덤 배정
+        for hero in self.prison_heroes:
+            if hero["id"] not in self.hero_selected_skills:
+                self.hero_selected_skills[hero["id"]] = random.randint(0, 1)
 
     def _finalize_setup_and_start(self):
         """초반 셋업 완료 → 다른 매치 자동 진행 → VS 프리뷰 → 배틀"""
