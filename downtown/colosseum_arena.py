@@ -5997,10 +5997,10 @@ class ColosseumsArena:
             return
 
         # === 집념 퍽: 패배 시 확률적 재시작 ===
-        print(f"[DEBUG 집념] _end_battle 진입 | bet_hero={self.bet_hero.get('name') if self.bet_hero else None}, winner={winner.get('name', '?')}")
-        print(f"[DEBUG 집념] bet_hero is winner? {winner is self.bet_hero} | bet_hero == winner? {winner == self.bet_hero}")
-        print(f"[DEBUG 집념] bet_hero id={id(self.bet_hero) if self.bet_hero else 'N/A'}, winner id={id(winner)}")
+        _bet_name = self.bet_hero.get('name', '?') if self.bet_hero else None
+        _win_name = winner.get('name', '?')
         if self.bet_hero and winner != self.bet_hero:
+            print(f"[DEBUG 집념] ❌ 배팅 영웅 '{_bet_name}' 패배! (승자: '{_win_name}') → 집념 판정 시작")
             hero_id = self.bet_hero["id"]
             perks = self.hero_perks.get(hero_id, [])
             mults = self.get_hero_perk_multipliers(hero_id)
@@ -6024,6 +6024,12 @@ class ColosseumsArena:
                     self.tenacity_timer = 0.0
                     self.state = TournamentState.TENACITY_RETRY
                     return
+
+        else:
+            if self.bet_hero:
+                print(f"[DEBUG 집념] ✅ 배팅 영웅 '{_bet_name}' 승리! 집념 판정 불필요")
+            else:
+                print(f"[DEBUG 집념] ⚠️ bet_hero 없음! 집념 판정 건너뜀")
 
         self.selected_match.set_result(winner, self.score_top, self.score_bottom)
 

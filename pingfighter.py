@@ -128680,6 +128680,12 @@ def show_result(won):
         if arena_battle_result is not None:
             return
         arena_battle_result = won  # True=하단(플레이어AI) 승리, False=상단 승리
+        _bottom_name = arena_bottom_hero.get('name', '?') if arena_bottom_hero else '?'
+        _top_name = arena_top_hero.get('name', '?') if arena_top_hero else '?'
+        if won:
+            print(f"[DEBUG 집념] 🏆 show_result: 하단 '{_bottom_name}' 승리! (arena_battle_result=True)")
+        else:
+            print(f"[DEBUG 집념] 💀 show_result: 상단 '{_top_name}' 승리! 하단 '{_bottom_name}' 패배! (arena_battle_result=False)")
         return
 
     stop_blacksmith_construction_sound()
