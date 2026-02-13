@@ -5225,8 +5225,9 @@ class ColosseumsArena:
                 if HERO_SKILLS_AVAILABLE:
                     pingfighter.arena_skill_manager = get_skill_manager()
                     pingfighter.arena_skill_manager.reset()
-                    _top_idx = self.hero_selected_skills.get(top_hero["id"], -1)
-                    _bottom_idx = self.hero_selected_skills.get(bottom_hero["id"], -1)
+                    # 추가훈련 퍽으로 양쪽 스킬 보유 시 -1 (모든 스킬 활성화)
+                    _top_idx = -1 if self.hero_has_both_skills.get(top_hero["id"], False) else self.hero_selected_skills.get(top_hero["id"], -1)
+                    _bottom_idx = -1 if self.hero_has_both_skills.get(bottom_hero["id"], False) else self.hero_selected_skills.get(bottom_hero["id"], -1)
                     pingfighter.arena_skill_manager.init_hero_skills(top_hero["id"], is_top=True, selected_skill_index=_top_idx)
                     pingfighter.arena_skill_manager.init_hero_skills(bottom_hero["id"], is_top=False, selected_skill_index=_bottom_idx)
                     pingfighter.arena_skill_check_timer = 0.0
