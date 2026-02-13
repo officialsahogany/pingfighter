@@ -135309,6 +135309,27 @@ def main(stage_num, new_boss_mode=False):
                             elif PLAYER.x > _sp_max:
                                 PLAYER.x = _sp_max
 
+                    # 💣 폭탄 서프라이즈 넉백 처리 (AI 이동 후 적용, 최종 위치 오버라이드)
+                    _bomb_gs = arena_skill_manager.game_state
+                    for _bomb_prefix, _bomb_rect in [('top_paddle', BOSS), ('bottom_paddle', PLAYER)]:
+                        if _bomb_gs.get(f'{_bomb_prefix}_bomb_kb_active', False):
+                            _bomb_vel = _bomb_gs.get(f'{_bomb_prefix}_bomb_kb_vel', 0)
+                            _bomb_dir = _bomb_gs.get(f'{_bomb_prefix}_bomb_kb_dir', 0)
+                            _bomb_frames = _bomb_gs.get(f'{_bomb_prefix}_bomb_kb_frames', 0)
+                            if _bomb_frames > 0 and _bomb_vel > 0:
+                                # 프레임 기반 넉백 (다이너마이트와 동일 방식)
+                                _bomb_rect.x += int(_bomb_dir * _bomb_vel * dt * 60)
+                                _bomb_frames -= 1
+                                # 감속 (후반부 감속)
+                                if _bomb_frames < 6:
+                                    _bomb_vel *= 0.75
+                                _bomb_gs[f'{_bomb_prefix}_bomb_kb_vel'] = _bomb_vel
+                                _bomb_gs[f'{_bomb_prefix}_bomb_kb_frames'] = _bomb_frames
+                                # 경계 클램핑
+                                _bomb_rect.x = max(0, min(_bomb_rect.x, WIDTH - _bomb_rect.width))
+                            else:
+                                _bomb_gs[f'{_bomb_prefix}_bomb_kb_active'] = False
+
                     # 마법결계: 면역 타이머 감소
                     for _imm_side in ('top', 'bottom'):
                         _imm_key = f'magic_immunity_timer_{_imm_side}'
