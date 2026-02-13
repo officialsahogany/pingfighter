@@ -3090,7 +3090,11 @@ else:
 
     print(f"[디스플레이] 창모드: 모니터 {_init_monitor_w}x{_init_monitor_h} → 창 {_init_target_w}x{_init_target_h} (필러패딩 좌우{_init_pillar_pad_x}px 상하{_init_pillar_pad_y}px)", flush=True)
 
+    # 창을 모니터 중앙에 배치
+    os.environ['SDL_VIDEO_CENTERED'] = '1'
     REAL_SCREEN = pygame.display.set_mode((_init_target_w, _init_target_h), pygame.DOUBLEBUF | pygame.RESIZABLE)
+    if 'SDL_VIDEO_CENTERED' in os.environ:
+        del os.environ['SDL_VIDEO_CENTERED']
 
     # 커스텀 커서 사용 시 시스템 커서 즉시 숨김
     if _custom_cursor_enabled:
@@ -8495,7 +8499,11 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         FULLSCREEN_MODE = False
         _is_fullscreen_active = True  # 스케일링 파이프라인 유지 (필러 포함)
 
+        # 창을 모니터 중앙에 배치
+        os.environ['SDL_VIDEO_CENTERED'] = '1'
         REAL_SCREEN = _original_set_mode((target_w, target_h), pygame.DOUBLEBUF | pygame.RESIZABLE)
+        if 'SDL_VIDEO_CENTERED' in os.environ:
+            del os.environ['SDL_VIDEO_CENTERED']
 
         # 커스텀 커서
         if _custom_cursor_enabled:
