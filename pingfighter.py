@@ -312,46 +312,21 @@ def _get_matching_resolution(original_width, original_height):
     return best_match
 
 def _setup_game_resolution():
-    """게임 시작 시 모니터 비율에 맞는 낮은 해상도로 변경하고, 종료 시 복원되도록 설정합니다"""
+    """게임 시작 시 원본 해상도를 저장합니다 (전체화면 전환 시 사용).
+    창모드 시작이므로 해상도 변경은 하지 않습니다."""
     global _original_resolution
 
     if sys.platform != 'win32':
-        return  # Windows가 아니면 스킵
+        return
 
-    # 현재 해상도 저장
     current_res = _get_current_resolution()
     if current_res is None:
         return
 
-    # 모니터 비율에 맞는 해상도 찾기
-    target_res = _get_matching_resolution(current_res[0], current_res[1])
-
-    if target_res is None:
-        # 매칭되는 해상도 없으면 기본값 사용 (레터박스 발생 가능)
-        target_width, target_height = 1152, 864
-        print(f"[해상도] 매칭 해상도 없음, 기본값 사용: {target_width}x{target_height}")
-    else:
-        target_width, target_height = target_res
-        print(f"[해상도] 모니터 비율 매칭: {current_res[0]}x{current_res[1]} -> {target_width}x{target_height}")
-
-    # 이미 원하는 해상도면 변경하지 않음
-    if current_res == (target_width, target_height):
-        # 복원 필요 없지만 전체화면 초기화를 위해 원본 해상도 유지
-        # (이미 낮은 해상도면 그것이 원본)
-        _original_resolution = current_res
-        print(f"[해상도] 이미 목표 해상도, 변경 없음: {current_res[0]}x{current_res[1]}")
-        return
-
-    # 해상도 변경 전 원본 저장
     _original_resolution = current_res
+    print(f"[해상도] 원본 해상도 저장: {current_res[0]}x{current_res[1]} (변경 없음)")
 
-    # 해상도 변경
-    if _change_windows_resolution(target_width, target_height):
-        # 프로그램 종료 시 해상도 복원 등록
-        atexit.register(_restore_windows_resolution)
-
-# 게임 시작 시 해상도 설정 (Windows 전용)
-# 고해상도 모니터에서 성능을 위해 낮은 해상도로 변경
+# 게임 시작 시 원본 해상도 저장 (해상도 변경 없이)
 _setup_game_resolution()
 # ============================================================
 # 1.2 Fullscreen Mode Setup
