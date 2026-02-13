@@ -859,6 +859,13 @@ class TentacleWrap(HeroSkill):
 
             # 촉수가 도달하면 wrap 단계로 전환
             if self.travel_progress >= 1.0:
+                # 마법결계 면역 체크 - 도달 시점에 면역이면 촉수 튕겨냄
+                _immunity_side = 'top' if self.target_is_top else 'bottom'
+                if game_state.get(f'magic_immunity_{_immunity_side}', False):
+                    self.is_active = False
+                    self._end_effect(caster_paddle, target_paddle, ball, game_state)
+                    return
+
                 self.phase = 'wrap'
                 self.wrap_timer = 0
                 # 붙잡기 사운드 재생
@@ -9911,6 +9918,12 @@ class BombSurprise(HeroSkill):
     KNOCKBACK_FORCE = 600   # 넉백 강도 (px/s, 다이너마이트급)
     STUN_DURATION = 3.0     # 스턴 시간 (다이너마이트 동일)
 
+    # 자폭(시전자에게 폭발) 시 약화 수치
+    SELF_KNOCKBACK_SCALE = 0.30   # 넉백 30% (70% 감소)
+    SELF_STUN_DURATION = 1.5      # 스턴 1.5초
+    SELF_SCREEN_SHAKE = 12        # 화면 흔들림 약화 (정상: 35)
+    SELF_SHAKE_DURATION = 0.3     # 흔들림 시간 약화 (정상: 0.67)
+
     def __init__(self):
         super().__init__(
             skill_id="bomb_surprise",
@@ -10066,7 +10079,7 @@ class BombSurprise(HeroSkill):
                 pass
 
     def _explode(self, caster_paddle, target_paddle, ball, game_state):
-        """폭발 처리 (다이너마이트급 범위/넉백/화면흔들림)"""
+        """폭발 처리 (다이너마이트급 범위/넉백/화면흔들림, 자폭 시 약화)"""
         self.bomb_active = False
         game_state['bomb_surprise_active'] = False
 
@@ -10085,18 +10098,37 @@ class BombSurprise(HeroSkill):
         else:
             return
 
-        # 스턴 적용 (다이너마이트 동일 3초)
+        # 자폭 판별: 시전자(조커) 쪽에서 폭발했는가?
+        is_self_explosion = (
+            (self.caster_is_top and explode_target == 'top') or
+            (not self.caster_is_top and explode_target == 'bottom')
+        )
+
+        # 자폭 vs 상대폭발에 따른 수치 결정
+        if is_self_explosion:
+            stun_dur = self.SELF_STUN_DURATION         # 1.5초
+            kb_vel = 52.0 * self.SELF_KNOCKBACK_SCALE  # 15.6 (70% 감소)
+            kb_frames = 10                              # 프레임도 축소
+            shake_amt = self.SELF_SCREEN_SHAKE          # 12
+            shake_dur = self.SELF_SHAKE_DURATION        # 0.3초
+        else:
+            stun_dur = self.STUN_DURATION               # 3.0초
+            kb_vel = 52.0                               # 풀 넉백
+            kb_frames = 18
+            shake_amt = 35
+            shake_dur = 0.67
+
+        # 스턴 적용
         prefix = 'top_paddle' if explode_target == 'top' else 'bottom_paddle'
         game_state[f'{prefix}_stunned'] = True
         self._stun_applied = True
-        self._stun_timer = self.STUN_DURATION
+        self._stun_timer = stun_dur
         self._knockback_target = explode_target
 
-        # 넉백 (game_state 시그널 → 아레나에서 처리, 다이너마이트 동일)
+        # 넉백 (game_state 시그널 → 아레나에서 처리)
         target_p = caster_paddle if (caster_paddle.is_top and explode_target == 'top') or \
                    (not caster_paddle.is_top and explode_target == 'bottom') else target_paddle
         paddle_cx = target_p.x + getattr(target_p, 'width', 80) // 2
-        # 폭심에서 패들 방향으로 밀어냄 (같은 위치면 랜덤)
         dx = paddle_cx - exp_x
         if abs(dx) < 5:
             kb_dir = random.choice([-1, 1])
@@ -10104,61 +10136,89 @@ class BombSurprise(HeroSkill):
             kb_dir = 1 if dx > 0 else -1
         game_state[f'{prefix}_bomb_kb_active'] = True
         game_state[f'{prefix}_bomb_kb_dir'] = kb_dir
-        game_state[f'{prefix}_bomb_kb_vel'] = 52.0   # 다이너마이트 동일 (px/frame)
-        game_state[f'{prefix}_bomb_kb_frames'] = 18   # 넉백 프레임 수
-        print(f"[BombKB-DEBUG] _explode() SET → prefix={prefix}, kb_dir={kb_dir}, vel=52.0, frames=18, target={explode_target}, paddle_x={target_p.x:.1f}")
+        game_state[f'{prefix}_bomb_kb_vel'] = kb_vel
+        game_state[f'{prefix}_bomb_kb_frames'] = kb_frames
+        tag = "SELF" if is_self_explosion else "ENEMY"
+        print(f"[BombKB-DEBUG] _explode() [{tag}] → prefix={prefix}, kb_dir={kb_dir}, vel={kb_vel:.1f}, frames={kb_frames}, stun={stun_dur}s")
         self._knockback_target = explode_target
 
-        # 화면 흔들림 (다이너마이트 동일)
-        game_state['screen_shake'] = 35
-        game_state['shake_duration'] = 0.67
+        # 화면 흔들림
+        game_state['screen_shake'] = shake_amt
+        game_state['shake_duration'] = shake_dur
 
-        # 다이너마이트급 폭발 이펙트 생성
+        # 폭발 이펙트 생성 (자폭 시 축소)
+        if is_self_explosion:
+            n_particles = 35
+            n_sparks = 12
+            n_smoke = 5
+            particle_speed_range = (6, 18)
+            spark_speed_range = (12, 28)
+            smoke_dist_range = (10, 30)
+            exp_max_time = 0.35
+            exp_radius_cap = 180
+            secondary_waves = [
+                {'radius': 0, 'speed': 15, 'delay': 0},
+            ]
+        else:
+            n_particles = 100
+            n_sparks = 40
+            n_smoke = 15
+            particle_speed_range = (12, 35)
+            spark_speed_range = (25, 50)
+            smoke_dist_range = (20, 60)
+            exp_max_time = 0.6
+            exp_radius_cap = self.EXPLOSION_RADIUS
+            secondary_waves = [
+                {'radius': 0, 'speed': 25, 'delay': 0},
+                {'radius': 0, 'speed': 20, 'delay': 3},
+                {'radius': 0, 'speed': 15, 'delay': 6},
+            ]
+
         particles = []
-        for _ in range(100):
+        for _ in range(n_particles):
             angle = random.uniform(0, 2 * math.pi)
-            speed = random.uniform(12, 35)
+            speed = random.uniform(*particle_speed_range)
             particles.append({
                 'x': exp_x, 'y': exp_y,
                 'vx': math.cos(angle) * speed,
                 'vy': math.sin(angle) * speed - 5,
-                'size': random.uniform(3, 14),
+                'size': random.uniform(2, 10) if is_self_explosion else random.uniform(3, 14),
                 'color_type': random.choice(['fire', 'fire', 'spark', 'ember']),
-                'life': random.randint(15, 30), 'max_life': 30,
+                'life': random.randint(10, 20) if is_self_explosion else random.randint(15, 30),
+                'max_life': 20 if is_self_explosion else 30,
             })
         sparks = []
-        for _ in range(40):
+        for _ in range(n_sparks):
             angle = random.uniform(0, 2 * math.pi)
-            speed = random.uniform(25, 50)
+            speed = random.uniform(*spark_speed_range)
             sparks.append({
                 'x': exp_x, 'y': exp_y,
                 'vx': math.cos(angle) * speed,
                 'vy': math.sin(angle) * speed - 8,
-                'life': random.randint(10, 20), 'max_life': 20,
+                'life': random.randint(6, 12) if is_self_explosion else random.randint(10, 20),
+                'max_life': 12 if is_self_explosion else 20,
             })
         smoke_clouds = []
-        for _ in range(15):
+        for _ in range(n_smoke):
             angle = random.uniform(0, 2 * math.pi)
-            dist = random.uniform(20, 60)
+            dist = random.uniform(*smoke_dist_range)
             smoke_clouds.append({
                 'x': exp_x + math.cos(angle) * dist,
                 'y': exp_y + math.sin(angle) * dist,
                 'vx': math.cos(angle) * 2,
                 'vy': -random.uniform(1, 3),
-                'size': random.uniform(20, 40),
-                'life': random.randint(20, 36), 'max_life': 36,
+                'size': random.uniform(12, 25) if is_self_explosion else random.uniform(20, 40),
+                'life': random.randint(12, 22) if is_self_explosion else random.randint(20, 36),
+                'max_life': 22 if is_self_explosion else 36,
             })
-        secondary_waves = [
-            {'radius': 0, 'speed': 25, 'delay': 0},
-            {'radius': 0, 'speed': 20, 'delay': 3},
-            {'radius': 0, 'speed': 15, 'delay': 6},
-        ]
 
         self.explosion_effects = [{
             'x': exp_x, 'y': exp_y,
-            'time': 0.0, 'max_time': 0.6,
+            'time': 0.0, 'max_time': exp_max_time,
             'target': explode_target,
             'shockwave_radius': 0,
+            'shockwave_cap': exp_radius_cap,
+            'is_self_explosion': is_self_explosion,
             'particles': particles,
             'sparks': sparks,
             'smoke_clouds': smoke_clouds,
@@ -10166,9 +10226,10 @@ class BombSurprise(HeroSkill):
             'kb_dir': kb_dir,
         }]
 
-        # 폭발 사운드 (grenade.wav)
+        # 폭발 사운드 (자폭 시 볼륨 낮춤)
         if self._explode_sound:
             try:
+                self._explode_sound.set_volume(0.35 if is_self_explosion else 0.8)
                 self._explode_sound.play()
             except Exception:
                 pass
@@ -10204,8 +10265,9 @@ class BombSurprise(HeroSkill):
                 max_time = exp.get('max_time', 0.6)
                 progress = min(1.0, exp['time'] / max_time)
 
-                # 쇼크웨이브 확장
-                if exp.get('shockwave_radius', 0) < self.EXPLOSION_RADIUS:
+                # 쇼크웨이브 확장 (자폭 시 축소된 cap 사용)
+                cap = exp.get('shockwave_cap', self.EXPLOSION_RADIUS)
+                if exp.get('shockwave_radius', 0) < cap:
                     exp['shockwave_radius'] = exp.get('shockwave_radius', 0) + 30
 
                 # 2차 쇼크웨이브
@@ -10338,12 +10400,13 @@ class BombSurprise(HeroSkill):
                 pygame.draw.circle(screen, (255, 50, 25), (bx, by), ring_r, 2)
 
     def _draw_explosion(self, screen: pygame.Surface, exp: dict):
-        """폭발 이펙트 렌더링 (다이너마이트 동일)"""
+        """폭발 이펙트 렌더링 (자폭 시 약화된 버전)"""
         ex = int(exp['x'])
         ey = int(exp['y'])
         max_time = exp.get('max_time', 0.6)
         progress = min(1.0, exp['time'] / max_time)
         shockwave_radius = int(exp.get('shockwave_radius', 0))
+        radius_cap = exp.get('shockwave_cap', self.EXPLOSION_RADIUS)
 
         # 연기 구름 (배경)
         for cloud in exp.get('smoke_clouds', []):
@@ -10363,8 +10426,8 @@ class BombSurprise(HeroSkill):
         # 2차 쇼크웨이브 링
         for wave in exp.get('secondary_waves', []):
             wr = int(wave['radius'])
-            if 0 < wr < self.EXPLOSION_RADIUS:
-                wa = int(150 * (1 - wr / self.EXPLOSION_RADIUS))
+            if 0 < wr < radius_cap:
+                wa = int(150 * (1 - wr / radius_cap))
                 if wa > 0:
                     ws = pygame.Surface((wr * 2 + 10, wr * 2 + 10), pygame.SRCALPHA)
                     pygame.draw.circle(ws, (255, 180, 80, wa),
