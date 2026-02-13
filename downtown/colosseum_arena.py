@@ -11528,7 +11528,11 @@ class ColosseumsArena:
                             if HERO_SKILLS_AVAILABLE:
                                 from downtown.hero_skills import HERO_SKILLS
                                 g_skills_list = HERO_SKILLS.get(g_id, [])
-                                has_both = self.hero_has_both_skills.get(g_id, False)
+                                # 주인 영웅(hero_id)이 '추가훈련' 퍽을 보유한 경우에만 호위무사 2스킬 표시
+                                has_both = any(
+                                    p.get("effect_type") == "guard_extra_skill"
+                                    for p in self.hero_perks.get(hero_id, [])
+                                )
                                 skills_to_show = g_skills_list if has_both else (
                                     [g_skills_list[g_skill_idx]] if len(g_skills_list) > g_skill_idx else [])
 
