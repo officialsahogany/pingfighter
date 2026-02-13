@@ -19525,6 +19525,8 @@ arena_barrier_block_effects = []             # 차단된 스킬의 녹아내리�
 arena_barrier_flash_top = 0.0                # 상단 결계 번쩍임 타이머
 arena_barrier_flash_bottom = 0.0             # 하단 결계 번쩍임 타이머
 ARENA_BARRIER_FLASH_DURATION = 0.45          # 결계 번쩍임 지속 시간 (초)
+arena_barrier_beam_target_top = None         # 상단 결계 등대빔 타겟 좌표 (x, y)
+arena_barrier_beam_target_bottom = None      # 하단 결계 등대빔 타겟 좌표 (x, y)
 arena_perk_paddle_enlarge_top = 1.0          # 상단 패들 확대 배율 (거신화 퍽)
 arena_perk_paddle_enlarge_bottom = 1.0       # 하단 패들 확대 배율 (거신화 퍽)
 arena_leaf_shield_top = None                 # 상단 신성월계수 잎 시스템 (ArenaLeafShield)
@@ -135435,11 +135437,13 @@ def main(stage_num, new_boss_mode=False):
                             ball_vel[1] = -abs(_reflect_speed)
                         # 히트 오프셋에 따른 X축 각도 조절
                         ball_vel[0] += _hit_offset * 3.0
-                        # 사운드 재생
+                        # 사운드 재생 (영웅 패들과 동일)
                         try:
-                            play_sound_with_volume(SOUND_HIT)
+                            play_paddle_sound()
                         except Exception:
                             pass
+                        # ⚡ 에너지 폭발 이펙트 (영웅 패들과 동일)
+                        create_energy_explosion(BALL.centerx, BALL.centery, scale=0.8)
                         del arena_skill_manager.game_state['guard_demon_step_ball_hit']
 
                     # 🛡️ 호위무사 일반 패들 충돌 반사 처리 (등장/시전/퇴장 중)
@@ -135461,11 +135465,13 @@ def main(stage_num, new_boss_mode=False):
                         _guard_gen_id = _guard_gen_hit.get('guard_id')
                         if _guard_gen_id and arena_hero_paddle_renderer:
                             arena_hero_paddle_renderer.trigger_weapon_swing(_guard_gen_id)
-                        # 사운드 재생
+                        # 사운드 재생 (영웅 패들과 동일)
                         try:
-                            play_sound_with_volume(SOUND_HIT)
+                            play_paddle_sound()
                         except Exception:
                             pass
+                        # ⚡ 에너지 폭발 이펙트 (영웅 패들과 동일)
+                        create_energy_explosion(BALL.centerx, BALL.centery, scale=0.8)
                         del arena_skill_manager.game_state['guard_general_ball_hit']
 
                     # 🛡️ 순찰 호위무사 패들 반사 처리 (영웅 패들과 동일한 물리)
@@ -135487,11 +135493,13 @@ def main(stage_num, new_boss_mode=False):
                         _guard_patrol_id = _guard_patrol_hit.get('guard_id')
                         if _guard_patrol_id and arena_hero_paddle_renderer:
                             arena_hero_paddle_renderer.trigger_weapon_swing(_guard_patrol_id)
-                        # 사운드 재생
+                        # 사운드 재생 (영웅 패들과 동일)
                         try:
-                            play_sound_with_volume(SOUND_HIT)
+                            play_paddle_sound()
                         except Exception:
                             pass
+                        # ⚡ 에너지 폭발 이펙트 (영웅 패들과 동일)
+                        create_energy_explosion(BALL.centerx, BALL.centery, scale=0.8)
                         del arena_skill_manager.game_state['guard_patrol_ball_hit']
 
                     # 🗡️ 환영수리검 넉백 효과 적용 (상단/하단 동일)
