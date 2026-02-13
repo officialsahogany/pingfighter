@@ -19511,7 +19511,7 @@ arena_perk_magic_immunity_chance_top = 0.0   # 상단 마법 면역 확률
 arena_perk_magic_immunity_chance_bottom = 0.0  # 하단 마법 면역 확률
 arena_magic_immunity_timer_top = 0.0         # 상단 마법 면역 남은 시간 (초)
 arena_magic_immunity_timer_bottom = 0.0      # 하단 마법 면역 남은 시간 (초)
-ARENA_MAGIC_IMMUNITY_DURATION = 6.0          # 마법 면역 지속 시간 (초)
+ARENA_MAGIC_IMMUNITY_DURATION = 8.0          # 마법 면역 지속 시간 (초)
 # 마법결계 스킬 차단 시각 효과 (스킬이 잠깐 보였다가 녹아 사라지는 효과)
 arena_barrier_block_effects = []             # 차단된 스킬의 녹아내리는 이펙트 목록
 arena_barrier_flash_top = 0.0                # 상단 결계 번쩍임 타이머
