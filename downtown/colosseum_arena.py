@@ -567,7 +567,7 @@ class ArenaLeafShield:
         self.front_threshold = 30  # 패들 앞쪽 잎 충돌 무시 기준 (전설과 동일)
         self.leaf_size = 24        # 잎 그리기 크기 (3배 확대)
         self.hitbox_size = 35      # 충돌 판정 크기 (전설 신성월계수와 동일)
-        self.regen_delay = 600     # 잎 재생 시간 (10초 * 60fps)
+        self.regen_delay = 30 * 60  # 잎 재생 시간 (30초 * 60fps)
         self.owner_x = 0.0
         self.owner_y = 0.0
         self.particles = []        # 파괴 파티클

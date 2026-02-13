@@ -3114,9 +3114,9 @@ class SacredLaurel(LegendaryItem):
         self.glow_intensity = 0
         self.glow_direction = 1
         self.removal_particles = []
-        # 개별 잎 재생 시스템 (12초마다 1개씩)
+        # 개별 잎 재생 시스템 (15초마다 1개씩)
         self.leaf_regen_timer = 0
-        self.leaf_regen_delay = 12 * 60  # 12초 (60fps 기준)
+        self.leaf_regen_delay = 15 * 60  # 15초 (60fps 기준)
         # 장식 파티클 시스템 (잎 주변 꾸밈 효과)
         self.decoration_particles = []
         self.decoration_spawn_timer = 0
