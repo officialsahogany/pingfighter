@@ -2359,6 +2359,12 @@ class DwarfMagic(HeroSkill):
 
             if (paddle_left - 15 < self.projectile_x < paddle_right + 15 and
                 paddle_top - 15 < self.projectile_y < paddle_bottom + 15):
+                # 마법결계 면역 체크 - 면역 상태면 축소 효과 차단
+                _immunity_side = 'top' if target_paddle.is_top else 'bottom'
+                if game_state.get(f'magic_immunity_{_immunity_side}', False):
+                    self.projectile_active = False
+                    return
+
                 # 명중!
                 self.hit_target = True
                 self.projectile_active = False
