@@ -7406,6 +7406,10 @@ def _draw_diablo_hud_frame(screen):
         pass
 
 
+# 투기장 모드 변수 사전 선언 (로딩 중 draw 함수 참조 시 NameError 방지)
+# 실제 초기화는 아래 투기장 모드 변수 블록에서 수행됨
+arena_mode_enabled = False
+
 def _draw_pillar_ui(screen, renderer):
     """필러 UI 박스 그리기 헬퍼 함수
 
@@ -19040,6 +19044,11 @@ arena_perk_magic_immunity_chance_bottom = 0.0  # 하단 마법 면역 확률
 arena_magic_immunity_timer_top = 0.0         # 상단 마법 면역 남은 시간 (초)
 arena_magic_immunity_timer_bottom = 0.0      # 하단 마법 면역 남은 시간 (초)
 ARENA_MAGIC_IMMUNITY_DURATION = 6.0          # 마법 면역 지속 시간 (초)
+# 마법결계 스킬 차단 시각 효과 (스킬이 잠깐 보였다가 녹아 사라지는 효과)
+arena_barrier_block_effects = []             # 차단된 스킬의 녹아내리는 이펙트 목록
+arena_barrier_flash_top = 0.0                # 상단 결계 번쩍임 타이머
+arena_barrier_flash_bottom = 0.0             # 하단 결계 번쩍임 타이머
+ARENA_BARRIER_FLASH_DURATION = 0.45          # 결계 번쩍임 지속 시간 (초)
 arena_perk_paddle_enlarge_top = 1.0          # 상단 패들 확대 배율 (거신화 퍽)
 arena_perk_paddle_enlarge_bottom = 1.0       # 하단 패들 확대 배율 (거신화 퍽)
 arena_leaf_shield_top = None                 # 상단 신성월계수 잎 시스템 (ArenaLeafShield)
@@ -19065,6 +19074,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     global arena_perk_guard_extra_skill_top, arena_perk_guard_extra_skill_bottom
     global arena_perk_magic_immunity_chance_top, arena_perk_magic_immunity_chance_bottom
     global arena_magic_immunity_timer_top, arena_magic_immunity_timer_bottom
+    global arena_barrier_flash_top, arena_barrier_flash_bottom
     global arena_bottom_max_dash_charges, arena_top_max_dash_charges
     global arena_perk_paddle_enlarge_top, arena_perk_paddle_enlarge_bottom
     global arena_leaf_shield_top, arena_leaf_shield_bottom
@@ -19095,6 +19105,9 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_perk_magic_immunity_chance_bottom = 0.0
     arena_magic_immunity_timer_top = 0.0
     arena_magic_immunity_timer_bottom = 0.0
+    arena_barrier_block_effects.clear()
+    arena_barrier_flash_top = 0.0
+    arena_barrier_flash_bottom = 0.0
     arena_perk_paddle_enlarge_top = 1.0
     arena_perk_paddle_enlarge_bottom = 1.0
     arena_leaf_shield_top = None
@@ -19193,6 +19206,7 @@ def reset_arena_perks():
     global arena_perk_guard_extra_skill_top, arena_perk_guard_extra_skill_bottom
     global arena_perk_magic_immunity_chance_top, arena_perk_magic_immunity_chance_bottom
     global arena_magic_immunity_timer_top, arena_magic_immunity_timer_bottom
+    global arena_barrier_flash_top, arena_barrier_flash_bottom
     global arena_perk_paddle_enlarge_top, arena_perk_paddle_enlarge_bottom
     global arena_leaf_shield_top, arena_leaf_shield_bottom
     global arena_storm_rush_burst_top, arena_storm_rush_burst_bottom
@@ -19216,6 +19230,9 @@ def reset_arena_perks():
     arena_perk_magic_immunity_chance_bottom = 0.0
     arena_magic_immunity_timer_top = 0.0
     arena_magic_immunity_timer_bottom = 0.0
+    arena_barrier_block_effects.clear()
+    arena_barrier_flash_top = 0.0
+    arena_barrier_flash_bottom = 0.0
     arena_perk_paddle_enlarge_top = 1.0
     arena_perk_paddle_enlarge_bottom = 1.0
     if arena_leaf_shield_top:
@@ -19235,8 +19252,8 @@ def reset_arena_perks():
     arena_active_hero_perks = []
     arena_active_enemy_perks = []
 
-def _draw_magic_immunity_barrier(screen, center_x, center_y, base_radius, imm_timer, imm_duration):
-    """마법결계 퍽 보호막 이펙트 (보라색 결계, 클렌즈 스타일 - 생성/소멸 애니메이션 포함)"""
+def _draw_magic_immunity_barrier(screen, center_x, center_y, base_radius, imm_timer, imm_duration, flash_timer=0.0):
+    """마법결계 퍽 보호막 이펙트 (보라색 결계, 클렌즈 스타일 - 생성/소멸 애니메이션 포함, 스킬 차단 시 번쩍임)"""
     if imm_timer <= 0:
         return
 
@@ -19368,6 +19385,243 @@ def _draw_magic_immunity_barrier(screen, center_x, center_y, base_radius, imm_ti
             pygame.draw.circle(surf, (200, 140, 255, fl_a), (sc, sc), shield_r + 2, 2)
 
     screen.blit(surf, (center_x - sc, center_y - sc))
+
+    # ── 9. 스킬 차단 번쩍임 효과 (방어 성공 시 결계가 빛남) ──
+    if flash_timer > 0:
+        flash_prog = flash_timer / ARENA_BARRIER_FLASH_DURATION  # 1→0
+        # 밝은 백색→보라색 폭발 플래시
+        fl_intensity = flash_prog ** 0.5
+        fl_sz = shield_r * 2 + 80
+        fl_surf = pygame.Surface((fl_sz * 2, fl_sz * 2), pygame.SRCALPHA)
+        fl_sc = fl_sz
+
+        # 1차: 넓은 백색 플래시
+        w_a = int(120 * fl_intensity)
+        if w_a > 0:
+            pygame.draw.circle(fl_surf, (220, 200, 255, w_a), (fl_sc, fl_sc),
+                               int(shield_r * (1.5 + (1.0 - flash_prog) * 0.8)), 0)
+
+        # 2차: 밝은 결계 링 (두꺼운 테두리)
+        ring_a = int(200 * fl_intensity)
+        if ring_a > 0:
+            ring_r = int(shield_r * (1.0 + (1.0 - flash_prog) * 0.3))
+            ring_th = max(2, int(5 * fl_intensity))
+            pygame.draw.circle(fl_surf, (200, 160, 255, ring_a), (fl_sc, fl_sc), ring_r, ring_th)
+
+        # 3차: 방사형 빛줄기 (12방향)
+        for ri in range(12):
+            ray_angle = ri / 12 * 2 * math.pi + (1.0 - flash_prog) * math.pi * 0.3
+            ray_len = int(shield_r * (0.8 + fl_intensity * 0.6))
+            ray_a = int(160 * fl_intensity * abs(math.sin(ri * 0.8 + current_time * 0.01)))
+            if ray_a > 0:
+                rx = fl_sc + int(math.cos(ray_angle) * shield_r * 0.3)
+                ry = fl_sc + int(math.sin(ray_angle) * shield_r * 0.3)
+                rx2 = fl_sc + int(math.cos(ray_angle) * ray_len)
+                ry2 = fl_sc + int(math.sin(ray_angle) * ray_len)
+                pygame.draw.line(fl_surf, (220, 180, 255, ray_a), (rx, ry), (rx2, ry2), 2)
+
+        # 4차: 확산 링 (바깥으로 퍼지는 충격파)
+        expand_p = 1.0 - flash_prog  # 0→1
+        exp_r = int(shield_r * (1.0 + expand_p * 1.2))
+        exp_a = int(140 * fl_intensity * (1.0 - expand_p * 0.5))
+        if exp_a > 0:
+            pygame.draw.circle(fl_surf, (180, 140, 255, exp_a), (fl_sc, fl_sc), exp_r, 3)
+
+        screen.blit(fl_surf, (center_x - fl_sc, center_y - fl_sc))
+
+
+def _spawn_barrier_block_effect(caster_x, caster_y, target_x, target_y,
+                                 skill_name, caster_is_top, hero_color=None):
+    """마법결계에 의해 차단된 스킬의 '잠깐 보였다가 녹아 사라지는' 이펙트 생성"""
+    global arena_barrier_flash_top, arena_barrier_flash_bottom
+
+    # 결계 번쩍임 트리거 (방어한 쪽)
+    if caster_is_top:
+        # 시전자가 상단이면, 방어한 건 하단
+        arena_barrier_flash_bottom = ARENA_BARRIER_FLASH_DURATION
+    else:
+        arena_barrier_flash_top = ARENA_BARRIER_FLASH_DURATION
+
+    color = hero_color if hero_color else (180, 80, 220)
+    # 투사체가 시전자→타겟 방향으로 40% 정도 이동 후 녹아 사라짐
+    mid_x = caster_x + (target_x - caster_x) * 0.35
+    mid_y = caster_y + (target_y - caster_y) * 0.35
+
+    # 녹아내리는 파티클 미리 생성
+    particles = []
+    for i in range(18):
+        angle = random.uniform(0, 2 * math.pi)
+        speed = random.uniform(30, 100)
+        particles.append({
+            'x': 0.0, 'y': 0.0,
+            'vx': math.cos(angle) * speed,
+            'vy': math.sin(angle) * speed + random.uniform(-20, 20),
+            'size': random.uniform(3, 8),
+            'alpha': 255,
+            'color': (
+                min(255, color[0] + random.randint(-30, 50)),
+                min(255, color[1] + random.randint(-30, 50)),
+                min(255, color[2] + random.randint(-30, 50))
+            ),
+            'decay': random.uniform(200, 400),
+        })
+
+    effect = {
+        'caster_x': caster_x, 'caster_y': caster_y,
+        'target_x': target_x, 'target_y': target_y,
+        'mid_x': mid_x, 'mid_y': mid_y,
+        'skill_name': skill_name,
+        'caster_is_top': caster_is_top,
+        'color': color,
+        'timer': 0.0,
+        'phase': 'launch',          # 'launch' → 'dissolve'
+        'launch_duration': 0.3,     # 투사체 이동 시간 (초)
+        'dissolve_duration': 0.55,  # 녹아내리는 시간 (초)
+        'proj_x': float(caster_x),
+        'proj_y': float(caster_y),
+        'proj_size': 18.0,
+        'proj_alpha': 255,
+        'particles': particles,
+        'dissolve_started': False,
+        'proj_wobble': 0.0,
+    }
+    arena_barrier_block_effects.append(effect)
+
+
+def _update_barrier_block_effects(dt):
+    """차단된 스킬 녹아내리는 이펙트 업데이트"""
+    global arena_barrier_flash_top, arena_barrier_flash_bottom
+
+    # 결계 플래시 타이머 감소
+    if arena_barrier_flash_top > 0:
+        arena_barrier_flash_top = max(0.0, arena_barrier_flash_top - dt)
+    if arena_barrier_flash_bottom > 0:
+        arena_barrier_flash_bottom = max(0.0, arena_barrier_flash_bottom - dt)
+
+    to_remove = []
+    for eff in arena_barrier_block_effects:
+        eff['timer'] += dt
+
+        if eff['phase'] == 'launch':
+            # 투사체 이동 (시전자 → 중간 지점)
+            prog = min(1.0, eff['timer'] / eff['launch_duration'])
+            # ease-out
+            ep = 1.0 - (1.0 - prog) ** 2
+            eff['proj_x'] = eff['caster_x'] + (eff['mid_x'] - eff['caster_x']) * ep
+            eff['proj_y'] = eff['caster_y'] + (eff['mid_y'] - eff['caster_y']) * ep
+            eff['proj_alpha'] = 255
+            # 투사체 크기 펄스
+            eff['proj_size'] = 18 + 4 * math.sin(eff['timer'] * 15)
+
+            if prog >= 1.0:
+                eff['phase'] = 'dissolve'
+                eff['timer'] = 0.0
+                eff['dissolve_started'] = True
+
+        elif eff['phase'] == 'dissolve':
+            prog = min(1.0, eff['timer'] / eff['dissolve_duration'])
+            # 투사체 흔들리며 줄어듦
+            eff['proj_wobble'] = math.sin(eff['timer'] * 30) * (8 * (1.0 - prog))
+            eff['proj_size'] = max(0, 18 * (1.0 - prog ** 0.7))
+            eff['proj_alpha'] = max(0, int(255 * (1.0 - prog)))
+
+            # 파티클 업데이트
+            for p in eff['particles']:
+                p['x'] += p['vx'] * dt
+                p['y'] += p['vy'] * dt
+                p['vy'] += 50 * dt  # 약간의 중력
+                p['alpha'] = max(0, p['alpha'] - p['decay'] * dt)
+                p['size'] = max(0, p['size'] - 3 * dt)
+
+            if prog >= 1.0:
+                to_remove.append(eff)
+
+    for eff in to_remove:
+        arena_barrier_block_effects.remove(eff)
+
+
+def _draw_barrier_block_effects(screen):
+    """차단된 스킬 녹아내리는 이펙트 렌더링"""
+    for eff in arena_barrier_block_effects:
+        px = int(eff['proj_x'] + eff.get('proj_wobble', 0))
+        py = int(eff['proj_y'])
+        color = eff['color']
+        alpha = int(eff['proj_alpha'])
+
+        if eff['phase'] == 'launch':
+            # 투사체 그리기 (에너지 구체)
+            sz = int(eff['proj_size'])
+            if sz > 0 and alpha > 0:
+                surf_sz = sz * 4 + 20
+                surf = pygame.Surface((surf_sz, surf_sz), pygame.SRCALPHA)
+                sc = surf_sz // 2
+                # 외곽 글로우
+                glow_a = max(0, alpha // 3)
+                pygame.draw.circle(surf, (color[0], color[1], color[2], glow_a),
+                                   (sc, sc), sz * 2, 0)
+                # 중간 글로우
+                mid_a = max(0, alpha // 2)
+                pygame.draw.circle(surf, (min(255, color[0]+40), min(255, color[1]+40),
+                                          min(255, color[2]+40), mid_a),
+                                   (sc, sc), int(sz * 1.3), 0)
+                # 코어
+                pygame.draw.circle(surf, (min(255, color[0]+80), min(255, color[1]+80),
+                                          min(255, color[2]+80), alpha),
+                                   (sc, sc), sz, 0)
+                # 하이라이트
+                hl_a = max(0, alpha * 2 // 3)
+                pygame.draw.circle(surf, (255, 255, 255, hl_a),
+                                   (sc - sz // 3, sc - sz // 3), max(1, sz // 3), 0)
+                screen.blit(surf, (px - sc, py - sc))
+
+                # 트레일 (잔상)
+                trail_len = 5
+                for ti in range(trail_len):
+                    t_prog = (ti + 1) / trail_len
+                    t_x = px - int((px - eff['caster_x']) * t_prog * 0.3)
+                    t_y = py - int((py - eff['caster_y']) * t_prog * 0.3)
+                    t_a = max(0, int(alpha * (1.0 - t_prog) * 0.4))
+                    t_sz = max(1, int(sz * (1.0 - t_prog * 0.6)))
+                    if t_a > 0 and t_sz > 0:
+                        t_surf = pygame.Surface((t_sz * 2 + 4, t_sz * 2 + 4), pygame.SRCALPHA)
+                        pygame.draw.circle(t_surf, (color[0], color[1], color[2], t_a),
+                                           (t_sz + 2, t_sz + 2), t_sz, 0)
+                        screen.blit(t_surf, (t_x - t_sz - 2, t_y - t_sz - 2))
+
+        elif eff['phase'] == 'dissolve':
+            # 녹아내리는 투사체 (왜곡 + 축소)
+            sz = int(eff['proj_size'])
+            if sz > 0 and alpha > 0:
+                surf_sz = sz * 4 + 20
+                surf = pygame.Surface((surf_sz, surf_sz), pygame.SRCALPHA)
+                sc = surf_sz // 2
+                # 일그러진 코어
+                stretch_x = 1.0 + abs(math.sin(eff['timer'] * 20)) * 0.4
+                stretch_y = 1.0 / stretch_x
+                ex = max(1, int(sz * stretch_x))
+                ey = max(1, int(sz * stretch_y))
+                pygame.draw.ellipse(surf, (color[0], color[1], color[2], alpha),
+                                    (sc - ex, sc - ey, ex * 2, ey * 2), 0)
+                # 글로우 잔여
+                glow_a = max(0, alpha // 4)
+                pygame.draw.ellipse(surf, (min(255, color[0]+50), min(255, color[1]+50),
+                                           min(255, color[2]+50), glow_a),
+                                    (sc - ex * 2, sc - ey * 2, ex * 4, ey * 4), 0)
+                screen.blit(surf, (px - sc, py - sc))
+
+            # 파티클 그리기 (녹아 흩어지는 조각들)
+            for p in eff['particles']:
+                p_a = int(p['alpha'])
+                p_sz = max(0, int(p['size']))
+                if p_a > 0 and p_sz > 0:
+                    p_x = int(px + p['x'])
+                    p_y = int(py + p['y'])
+                    p_surf = pygame.Surface((p_sz * 2 + 4, p_sz * 2 + 4), pygame.SRCALPHA)
+                    pc = p['color']
+                    pygame.draw.circle(p_surf, (pc[0], pc[1], pc[2], p_a),
+                                       (p_sz + 2, p_sz + 2), p_sz, 0)
+                    screen.blit(p_surf, (p_x - p_sz - 2, p_y - p_sz - 2))
+
 
 # 투기장 영웅 말풍선 시스템
 arena_top_speech_text = ""           # 상단 영웅 말풍선 텍스트
@@ -88625,7 +88879,7 @@ def draw_objects():
             if arena_skill_manager and arena_skill_manager.game_state.get('magic_immunity_top', False):
                 _imm_timer = arena_skill_manager.game_state.get('magic_immunity_timer_top', 0.0)
                 _imm_base_r = max(_top_draw_width, _top_draw_height) // 2 + 15
-                _draw_magic_immunity_barrier(SCREEN, int(_top_final_x), int(_top_final_y), _imm_base_r, _imm_timer, ARENA_MAGIC_IMMUNITY_DURATION)
+                _draw_magic_immunity_barrier(SCREEN, int(_top_final_x), int(_top_final_y), _imm_base_r, _imm_timer, ARENA_MAGIC_IMMUNITY_DURATION, arena_barrier_flash_top)
 
             # 신성월계수 잎 렌더링 (상단)
             if arena_leaf_shield_top and arena_leaf_shield_top.active:
@@ -90204,7 +90458,7 @@ def draw_objects():
             if arena_skill_manager and arena_skill_manager.game_state.get('magic_immunity_bottom', False):
                 _imm_timer = arena_skill_manager.game_state.get('magic_immunity_timer_bottom', 0.0)
                 _imm_base_r = max(_bottom_draw_width, _bottom_draw_height) // 2 + 15
-                _draw_magic_immunity_barrier(SCREEN, int(_final_x), int(_final_y), _imm_base_r, _imm_timer, ARENA_MAGIC_IMMUNITY_DURATION)
+                _draw_magic_immunity_barrier(SCREEN, int(_final_x), int(_final_y), _imm_base_r, _imm_timer, ARENA_MAGIC_IMMUNITY_DURATION, arena_barrier_flash_bottom)
 
             # 신성월계수 잎 렌더링 (하단)
             if arena_leaf_shield_bottom and arena_leaf_shield_bottom.active:
@@ -121440,8 +121694,17 @@ def handle_ball():
                 )
                 if result:
                     if result.get('blocked_by_immunity'):
-                        # 마법결계에 의해 스킬 차단됨 → "면역!" 말풍선
+                        # 마법결계에 의해 스킬 차단됨 → "면역!" 말풍선 + 녹아 사라지는 이펙트
                         arena_show_speech_bubble(True, '면역!', hero_id=arena_top_hero["id"] if arena_top_hero else None)
+                        # 스킬이 잠깐 보였다가 녹아 사라지는 시각 효과
+                        _block_hero_color = arena_bottom_hero.get("color", (180, 80, 220)) if arena_bottom_hero else (180, 80, 220)
+                        _spawn_barrier_block_effect(
+                            caster_x=float(PLAYER.centerx), caster_y=float(PLAYER.centery),
+                            target_x=float(BOSS.centerx), target_y=float(BOSS.centery),
+                            skill_name=result.get('skill_korean_name', ''),
+                            caster_is_top=False,
+                            hero_color=_block_hero_color
+                        )
                     else:
                         # 공 속도 변경 반영
                         ball_vel[0] = ball_wrapper.vx
@@ -122235,8 +122498,17 @@ def handle_ball():
                 )
                 if result:
                     if result.get('blocked_by_immunity'):
-                        # 마법결계에 의해 스킬 차단됨 → "면역!" 말풍선
+                        # 마법결계에 의해 스킬 차단됨 → "면역!" 말풍선 + 녹아 사라지는 이펙트
                         arena_show_speech_bubble(False, '면역!', hero_id=arena_bottom_hero["id"] if arena_bottom_hero else None)
+                        # 스킬이 잠깐 보였다가 녹아 사라지는 시각 효과
+                        _block_hero_color = arena_top_hero.get("color", (180, 80, 220)) if arena_top_hero else (180, 80, 220)
+                        _spawn_barrier_block_effect(
+                            caster_x=float(BOSS.centerx), caster_y=float(BOSS.centery),
+                            target_x=float(PLAYER.centerx), target_y=float(PLAYER.centery),
+                            skill_name=result.get('skill_korean_name', ''),
+                            caster_is_top=True,
+                            hero_color=_block_hero_color
+                        )
                     else:
                         # 공 속도 변경 반영
                         ball_vel[0] = ball_wrapper.vx
