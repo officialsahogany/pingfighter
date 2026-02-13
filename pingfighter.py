@@ -356,7 +356,7 @@ def _setup_game_resolution():
 # ============================================================
 # 1.2 Fullscreen Mode Setup
 # ============================================================
-FULLSCREEN_MODE = True
+FULLSCREEN_MODE = False  # 창모드(필러 포함)로 시작
 FULLSCREEN_WIDTH = 0
 FULLSCREEN_HEIGHT = 0
 GAME_OFFSET_X = 0
@@ -3052,24 +3052,89 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     set_fullscreen_mode(True, SCREEN)
     print(f"[전체화면] display_manager에 전체화면 모드 설정 완료 (SCREEN Surface 전달)", flush=True)
 else:
-    # 일반 창 모드
-    if _current_platform == 'Darwin':
-        # macOS: DOUBLEBUF로 깜빡임 방지
-        REAL_SCREEN = pygame.display.set_mode((WIDTH, HEIGHT), pygame.DOUBLEBUF)
+    # === 창모드 (필러 포함) ===
+    print("[디스플레이] 창모드(필러 포함)로 시작...", flush=True)
+
+    # 네이티브 모니터 해상도 가져오기
+    if sys.platform == 'win32':
+        _win_native = _get_native_resolution() or _get_current_resolution()
+        if _win_native:
+            _init_monitor_w, _init_monitor_h = _win_native
+        else:
+            _init_monitor_w, _init_monitor_h = 1920, 1080
     else:
-        REAL_SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
-    SCREEN = REAL_SCREEN  # 창 모드에서는 동일한 Surface 사용
-    GAME_OFFSET_X = 0
-    GAME_OFFSET_Y = 0
-    pillar_renderer = None
+        _init_dinfo = pygame.display.Info()
+        _init_monitor_w, _init_monitor_h = _init_dinfo.current_w, _init_dinfo.current_h
+
+    # 게임 비율 유지하면서 필러 배경까지 포함하여 창 구성
+    _init_base_h = int(_init_monitor_h * 0.70)
+    _init_win_scale = _init_base_h / HEIGHT
+    _init_game_w = int(WIDTH * _init_win_scale)
+
+    # 필러 배경 공간 추가 (좌우 각 30%, 상하 각 6.5%)
+    _init_pillar_pad_x = int(_init_game_w * 0.30)
+    _init_pillar_pad_y = max(int(_init_base_h * 0.065), 30)
+
+    _init_target_w = _init_game_w + _init_pillar_pad_x * 2
+    _init_target_h = _init_base_h + _init_pillar_pad_y * 2
+
+    # 창이 모니터보다 크지 않도록 보정
+    if _init_target_w > int(_init_monitor_w * 0.90):
+        _init_target_w = int(_init_monitor_w * 0.90)
+    if _init_target_h > int(_init_monitor_h * 0.85):
+        _init_target_h = int(_init_monitor_h * 0.85)
+
+    print(f"[디스플레이] 창모드: 모니터 {_init_monitor_w}x{_init_monitor_h} → 창 {_init_target_w}x{_init_target_h} (필러패딩 좌우{_init_pillar_pad_x}px 상하{_init_pillar_pad_y}px)", flush=True)
+
+    if _current_platform == 'Darwin':
+        REAL_SCREEN = pygame.display.set_mode((_init_target_w, _init_target_h), pygame.DOUBLEBUF | pygame.RESIZABLE)
+    else:
+        REAL_SCREEN = pygame.display.set_mode((_init_target_w, _init_target_h), pygame.RESIZABLE)
 
     # 커스텀 커서 사용 시 시스템 커서 즉시 숨김
     if _custom_cursor_enabled:
         pygame.mouse.set_visible(False)
 
-    # display_manager에 창 모드 설정 전달
+    _init_actual_w, _init_actual_h = REAL_SCREEN.get_size()
+    FULLSCREEN_WIDTH = _init_actual_w
+    FULLSCREEN_HEIGHT = _init_actual_h
+
+    # 스케일링 계산 (필러 배경 공간 확보)
+    _init_margin = _init_pillar_pad_y
+    _init_scale_y = (_init_actual_h - _init_margin * 2) / HEIGHT
+    _init_scaled_w_check = int(WIDTH * _init_scale_y)
+    if _init_scaled_w_check > _init_actual_w:
+        GAME_SCALE_FACTOR = _init_actual_w / WIDTH
+    else:
+        GAME_SCALE_FACTOR = _init_scale_y
+
+    GAME_SCALED_WIDTH = int(WIDTH * GAME_SCALE_FACTOR)
+    GAME_SCALED_HEIGHT = int(HEIGHT * GAME_SCALE_FACTOR)
+    GAME_OFFSET_X = (_init_actual_w - GAME_SCALED_WIDTH) // 2
+    GAME_OFFSET_Y = (_init_actual_h - GAME_SCALED_HEIGHT) // 2
+
+    from pixel_font_manager import set_fullscreen_font_scale
+    set_fullscreen_font_scale(GAME_SCALE_FACTOR)
+
+    print(f"[디스플레이] 창모드 스케일링: {GAME_SCALE_FACTOR:.2f}x ({WIDTH}x{HEIGHT} -> {GAME_SCALED_WIDTH}x{GAME_SCALED_HEIGHT})", flush=True)
+
+    # 게임 렌더링용 Surface (REAL_SCREEN과 분리)
+    SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert_alpha()
+
+    # 필러 배경 렌더러 초기화
+    from pillar_background import init_pillar_background, get_pillar_renderer
+    pillar_renderer = init_pillar_background(
+        _init_actual_w, _init_actual_h,
+        GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT,
+        offset_x=GAME_OFFSET_X, offset_y=GAME_OFFSET_Y,
+        original_game_width=WIDTH, original_game_height=HEIGHT
+    )
+
+    # display_manager에 스케일링 파이프라인 설정 전달
     from display_manager import set_fullscreen_mode
-    set_fullscreen_mode(False, None)
+    set_fullscreen_mode(True, SCREEN)
+
+    print(f"[디스플레이] 창모드 시작 완료: {_init_actual_w}x{_init_actual_h}", flush=True)
 
 pygame.display.set_caption("PINGFIGHTER")
 
@@ -3089,8 +3154,9 @@ if FULLSCREEN_MODE:
 # 전체화면 모드에서 pygame.display.flip()을 래핑하여 SCREEN을 REAL_SCREEN에 blit
 _original_flip = pygame.display.flip
 _original_update = pygame.display.update
-_is_fullscreen_active = FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0
-_current_display_mode = "fullscreen" if _is_fullscreen_active else "windowed"
+# 필러 포함 창모드: FULLSCREEN_MODE=False이지만 스케일링 파이프라인 활성화
+_is_fullscreen_active = (FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0) or (pillar_renderer is not None and GAME_SCALE_FACTOR != 1.0)
+_current_display_mode = "fullscreen" if FULLSCREEN_MODE else "windowed"
 
 # 플레이어 게이지를 필러에 렌더링하기 위한 전역 변수
 _player_gauge_surface = None  # 게이지가 그려진 Surface (우측 - 대쉬 토큰용)
@@ -8658,9 +8724,6 @@ def get_display_mode() -> str:
     """현재 디스플레이 모드 반환: 'fullscreen' | 'borderless' | 'windowed'"""
     return _current_display_mode
 
-
-# 게임 시작 시 창모드(필러 포함)로 전환
-switch_display_mode("windowed")
 
 # 초기 로딩 작업들을 함수로 정의 (백그라운드 스레드에서 실행)
 def _loading_task_1_init_systems():

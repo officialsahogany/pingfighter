@@ -83,7 +83,7 @@ GAME_OFFSET_X = 0
 GAME_OFFSET_Y = 0
 
 # ============= 전체화면 설정 =============
-FULLSCREEN_MODE = True  # 전체화면 모드 활성화
+FULLSCREEN_MODE = False  # 창모드(필러 포함)로 시작
 FULLSCREEN_WIDTH = 0    # 모니터 전체 너비 (런타임에 설정)
 FULLSCREEN_HEIGHT = 0   # 모니터 전체 높이 (런타임에 설정)
 

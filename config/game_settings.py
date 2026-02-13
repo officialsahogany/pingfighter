@@ -7,7 +7,7 @@ import pygame
 from .constants import *
 
 # ============= 게임 초기 설정 =============
-FULLSCREEN_MODE = True  # 전체화면 모드 활성화
+FULLSCREEN_MODE = False  # 창모드(필러 포함)로 시작
 SOUND_ENABLED = True
 MUSIC_VOLUME = 0.7
 SFX_VOLUME = 0.8
