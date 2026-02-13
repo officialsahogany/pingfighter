@@ -8347,6 +8347,218 @@ if _is_fullscreen_active:
     pygame.event.get = _fullscreen_event_get
     print(f"[EVENT] pygame.event.get 래핑 완료", flush=True)
 
+# ============================================================
+# 디스플레이 모드 전환 (전체화면 ↔ 창모드)
+# ============================================================
+def switch_display_mode(to_windowed: bool):
+    """전체화면 ↔ 창모드 전환 (런타임)
+
+    Parameters
+    ----------
+    to_windowed : bool
+        True  → 창모드로 전환
+        False → 전체화면으로 전환
+    """
+    global REAL_SCREEN, SCREEN, pillar_renderer, _is_fullscreen_active
+    global GAME_OFFSET_X, GAME_OFFSET_Y, GAME_SCALE_FACTOR
+    global GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT
+    global FULLSCREEN_MODE, FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT
+
+    if to_windowed and not _is_fullscreen_active:
+        return  # 이미 창모드
+    if not to_windowed and _is_fullscreen_active:
+        return  # 이미 전체화면
+
+    from pillar_background import init_pillar_background, get_pillar_renderer as _get_pr
+    from display_manager import set_fullscreen_mode as _set_dm_fullscreen
+    from pixel_font_manager import set_fullscreen_font_scale as _set_font_scale
+
+    if to_windowed:
+        # === 창모드로 전환 ===
+        print("[디스플레이] 창모드로 전환 시작...", flush=True)
+
+        # Windows: 해상도 원래대로 복원
+        if sys.platform == 'win32' and _original_resolution:
+            _restore_windows_resolution()
+            import time
+            time.sleep(0.3)  # 해상도 복원 대기
+
+        # 네이티브 모니터 해상도 가져오기 (70% 계산용)
+        if sys.platform == 'win32':
+            native = _get_native_resolution() or _get_current_resolution()
+            if native:
+                monitor_w, monitor_h = native
+            else:
+                monitor_w, monitor_h = 1920, 1080
+        else:
+            _dinfo = pygame.display.Info()
+            monitor_w, monitor_h = _dinfo.current_w, _dinfo.current_h
+
+        # 게임 비율 유지하면서 모니터의 70% 크기로 창 설정
+        target_h = int(monitor_h * 0.70)
+        scale = target_h / HEIGHT
+        target_w = int(WIDTH * scale)
+
+        # 창이 모니터보다 크지 않도록 보정
+        if target_w > int(monitor_w * 0.85):
+            target_w = int(monitor_w * 0.85)
+            scale = target_w / WIDTH
+            target_h = int(HEIGHT * scale)
+
+        print(f"[디스플레이] 창모드: 모니터 {monitor_w}x{monitor_h} → 창 {target_w}x{target_h} (스케일 {scale:.2f}x)", flush=True)
+
+        # 전체화면 해제 + 새 창 생성
+        FULLSCREEN_MODE = False
+        _is_fullscreen_active = True  # 스케일링 파이프라인 유지 (필러 포함)
+
+        if _current_platform == 'Darwin':
+            REAL_SCREEN = _original_set_mode((target_w, target_h), pygame.DOUBLEBUF | pygame.RESIZABLE)
+        else:
+            REAL_SCREEN = _original_set_mode((target_w, target_h), pygame.RESIZABLE)
+
+        # 커스텀 커서
+        if _custom_cursor_enabled:
+            pygame.mouse.set_visible(False)
+
+        actual_w, actual_h = REAL_SCREEN.get_size()
+        FULLSCREEN_WIDTH = actual_w
+        FULLSCREEN_HEIGHT = actual_h
+
+        # 스케일링 계산 (전체화면과 동일한 로직, 마진 없음)
+        MARGIN = 10  # 창모드에서는 마진 최소화
+        scale_y = (actual_h - MARGIN * 2) / HEIGHT
+        scaled_width_check = int(WIDTH * scale_y)
+        if scaled_width_check > actual_w:
+            GAME_SCALE_FACTOR = actual_w / WIDTH
+        else:
+            GAME_SCALE_FACTOR = scale_y
+
+        GAME_SCALED_WIDTH = int(WIDTH * GAME_SCALE_FACTOR)
+        GAME_SCALED_HEIGHT = int(HEIGHT * GAME_SCALE_FACTOR)
+        GAME_OFFSET_X = (actual_w - GAME_SCALED_WIDTH) // 2
+        GAME_OFFSET_Y = (actual_h - GAME_SCALED_HEIGHT) // 2
+
+        _set_font_scale(GAME_SCALE_FACTOR)
+
+        # 게임 Surface 재생성
+        SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert_alpha()
+
+        # 필러 배경 초기화
+        pillar_renderer = init_pillar_background(
+            actual_w, actual_h,
+            GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT,
+            offset_x=GAME_OFFSET_X, offset_y=GAME_OFFSET_Y,
+            original_game_width=WIDTH, original_game_height=HEIGHT
+        )
+        _set_dm_fullscreen(True, SCREEN)  # 스케일링 파이프라인 유지
+
+        # flip/update/mouse/event 래핑 갱신
+        pygame.display.flip = _fullscreen_flip
+        pygame.display.update = _fullscreen_update
+        pygame.mouse.get_pos = _fullscreen_mouse_get_pos
+        pygame.event.get = _fullscreen_event_get
+
+        # DrawHelper 갱신
+        try:
+            draw.screen = SCREEN
+            trade_point_system.screen = SCREEN
+        except Exception:
+            pass
+
+        pygame.display.set_caption("PINGFIGHTER")
+        print(f"[디스플레이] 창모드 전환 완료: {actual_w}x{actual_h}", flush=True)
+
+    else:
+        # === 전체화면으로 전환 ===
+        print("[디스플레이] 전체화면으로 전환 시작...", flush=True)
+
+        # Windows: 성능용 해상도 변경 다시 적용
+        if sys.platform == 'win32' and _original_resolution:
+            target_res = _get_matching_resolution(_original_resolution[0], _original_resolution[1])
+            if target_res:
+                _change_windows_resolution(target_res[0], target_res[1])
+                import time
+                time.sleep(0.3)
+
+        FULLSCREEN_MODE = True
+
+        # 모니터 해상도 재감지
+        if _current_platform == 'Windows':
+            _monitor_res = _get_current_resolution()
+            if _monitor_res and _monitor_res[0] > 0 and _monitor_res[1] > 0:
+                FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT = _monitor_res
+            else:
+                display_info = pygame.display.Info()
+                FULLSCREEN_WIDTH = display_info.current_w
+                FULLSCREEN_HEIGHT = display_info.current_h
+        else:
+            display_info = pygame.display.Info()
+            FULLSCREEN_WIDTH = display_info.current_w
+            FULLSCREEN_HEIGHT = display_info.current_h
+
+        # 전체화면 플래그
+        if _current_platform == 'Darwin':
+            _fs_flags = pygame.FULLSCREEN | pygame.DOUBLEBUF
+        else:
+            _fs_flags = pygame.FULLSCREEN
+
+        REAL_SCREEN = _original_set_mode((FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT), _fs_flags)
+
+        if _custom_cursor_enabled:
+            pygame.mouse.set_visible(False)
+
+        actual_w, actual_h = REAL_SCREEN.get_size()
+        FULLSCREEN_WIDTH = actual_w
+        FULLSCREEN_HEIGHT = actual_h
+
+        # 스케일링 계산 (초기화 코드와 동일)
+        MARGIN = 70
+        scale_y = (FULLSCREEN_HEIGHT - MARGIN * 2) / HEIGHT
+        scaled_width_check = int(WIDTH * scale_y)
+        if scaled_width_check > FULLSCREEN_WIDTH:
+            GAME_SCALE_FACTOR = FULLSCREEN_WIDTH / WIDTH
+        else:
+            GAME_SCALE_FACTOR = scale_y
+
+        GAME_SCALED_WIDTH = int(WIDTH * GAME_SCALE_FACTOR)
+        GAME_SCALED_HEIGHT = int(HEIGHT * GAME_SCALE_FACTOR)
+        GAME_OFFSET_X = (FULLSCREEN_WIDTH - GAME_SCALED_WIDTH) // 2
+        GAME_OFFSET_Y = (FULLSCREEN_HEIGHT - GAME_SCALED_HEIGHT) // 2
+
+        _set_font_scale(GAME_SCALE_FACTOR)
+
+        SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert_alpha()
+
+        pillar_renderer = init_pillar_background(
+            FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT,
+            GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT,
+            offset_x=GAME_OFFSET_X, offset_y=GAME_OFFSET_Y,
+            original_game_width=WIDTH, original_game_height=HEIGHT
+        )
+        _set_dm_fullscreen(True, SCREEN)
+
+        _is_fullscreen_active = True
+
+        pygame.display.flip = _fullscreen_flip
+        pygame.display.update = _fullscreen_update
+        pygame.mouse.get_pos = _fullscreen_mouse_get_pos
+        pygame.event.get = _fullscreen_event_get
+
+        try:
+            draw.screen = SCREEN
+            trade_point_system.screen = SCREEN
+        except Exception:
+            pass
+
+        pygame.display.set_caption("PINGFIGHTER")
+        print(f"[디스플레이] 전체화면 전환 완료: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
+
+
+def is_windowed_mode() -> bool:
+    """현재 창모드인지 반환"""
+    return not FULLSCREEN_MODE
+
+
 # 초기 로딩 작업들을 함수로 정의 (백그라운드 스레드에서 실행)
 def _loading_task_1_init_systems():
     """로딩 작업 1: 시스템 초기화 + Surface 캐시 워밍업"""
@@ -19061,6 +19273,7 @@ arena_storm_rush_height_bonus_bottom = 0     # 하단 버스트업 패들 높이
 arena_storm_rush_particles = []              # 폭풍질주 플래시 파티클
 arena_perk_recall_guard_top = False          # 상단 재소집령 퍽 활성
 arena_perk_recall_guard_bottom = False       # 하단 재소집령 퍽 활성
+arena_battle_arena_obj = None                # ColosseumsArena 인스턴스 참조 (F8 퍽 선택용)
 
 def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     """배틀 시작 시 hero_perks에서 멀티플라이어 계산 후 전역 변수에 반영"""

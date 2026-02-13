@@ -200,6 +200,13 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
     control_scheme = settings.get_setting('controls', 'control_scheme', 'keyboard')
     modern_loop_enabled = ctx.get_modern_loop_enabled()
 
+    # 디스플레이 모드 상태
+    try:
+        from pingfighter import is_windowed_mode as _is_win_mode
+        display_mode = "windowed" if _is_win_mode() else "fullscreen"
+    except Exception:
+        display_mode = "fullscreen"
+
     # 크고 겹치지 않는 고급 레이아웃
     slider_height = 10
     handle_size = 14
@@ -258,10 +265,12 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
         current_tab = locals().get('current_tab', 'sound')  # 유지용
         # 탭 영역
         tabs_y = panel_y + 10
-        tab_w = 120
+        tab_w = 110
+        tab_gap = 10
         tab_h = 36
         sound_tab_rect = pygame.Rect(panel_x + 20, tabs_y, tab_w, tab_h)
-        ctrl_tab_rect = pygame.Rect(panel_x + 20 + tab_w + 12, tabs_y, tab_w, tab_h)
+        ctrl_tab_rect = pygame.Rect(panel_x + 20 + tab_w + tab_gap, tabs_y, tab_w, tab_h)
+        disp_tab_rect = pygame.Rect(panel_x + 20 + (tab_w + tab_gap) * 2, tabs_y, tab_w, tab_h)
         # 현재 탭 상태 유지
         if 'current_tab' not in locals():
             current_tab = 'sound'
@@ -274,6 +283,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
             ctx.screen.blit(t, t.get_rect(center=rect.center))
         _draw_tab(sound_tab_rect, '사운드', current_tab == 'sound')
         _draw_tab(ctrl_tab_rect, '컨트롤', current_tab == 'controls')
+        _draw_tab(disp_tab_rect, '디스플레이', current_tab == 'display')
 
         # 컨텐츠 렌더링 -------------------------------------------------------
         if current_tab == 'controls':
@@ -292,6 +302,29 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                 ctx.screen.blit(s, s.get_rect(center=rect.center))
             _draw_pill(kb_rect, '키보드만', control_scheme == 'keyboard', locals().get('focus','bgm') == 'scheme')
             _draw_pill(mk_rect, '마우스+키보드', control_scheme == 'mouse_keyboard', locals().get('focus','bgm') == 'scheme')
+        elif current_tab == 'display':
+            # 화면 모드 선택 (전체화면 / 창모드)
+            disp_label = font_medium.render("화면 모드", True, const.WHITE)
+            ctx.screen.blit(disp_label, (panel_x + margin_x, bgm_slider_y + slider_height // 2 - 10))
+            dpill_w, dpill_h = 160, 36
+            fs_rect = pygame.Rect(bgm_slider_x, bgm_slider_y - 8, dpill_w, dpill_h)
+            win_rect = pygame.Rect(bgm_slider_x + dpill_w + 14, bgm_slider_y - 8, dpill_w, dpill_h)
+            for _drect, _dlabel, _dsel in [
+                (fs_rect, '전체화면', display_mode == 'fullscreen'),
+                (win_rect, '창모드', display_mode == 'windowed'),
+            ]:
+                _dcol = (60, 90, 130) if _dsel else (45, 55, 70)
+                pygame.draw.rect(ctx.screen, _dcol, _drect, border_radius=18)
+                pygame.draw.rect(ctx.screen, (140, 180, 220) if _dsel else const.WHITE, _drect, 2, border_radius=18)
+                _ds = font_small.render(_dlabel, True, const.WHITE)
+                ctx.screen.blit(_ds, _ds.get_rect(center=_drect.center))
+            # 설명 텍스트
+            _desc_y = bgm_slider_y + 45
+            if display_mode == 'fullscreen':
+                _desc_t = font_small.render("전체화면으로 표시합니다", True, (150, 180, 200))
+            else:
+                _desc_t = font_small.render("모니터의 70% 크기 창으로 표시합니다", True, (150, 180, 200))
+            ctx.screen.blit(_desc_t, _desc_t.get_rect(centerx=ctx.width // 2, top=_desc_y))
         else:
             # -------- 사운드 탭 --------
             bgm_label = font_medium.render("BGM 볼륨", True, const.WHITE)
@@ -410,13 +443,28 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     # 컨트롤 스킴 저장
                     settings.set_setting('controls','control_scheme', control_scheme)
                     settings.save_settings()
+                    # 디스플레이 모드 변경 적용
+                    try:
+                        from pingfighter import switch_display_mode, is_windowed_mode
+                        _cw = is_windowed_mode()
+                        if display_mode == "windowed" and not _cw:
+                            switch_display_mode(to_windowed=True)
+                        elif display_mode == "fullscreen" and _cw:
+                            switch_display_mode(to_windowed=False)
+                    except Exception:
+                        pass
                     return
                 if event.key == pygame.K_TAB:
-                    current_tab = 'controls' if current_tab == 'sound' else 'sound'
+                    _tab_order = ['sound', 'controls', 'display']
+                    _tidx = _tab_order.index(current_tab) if current_tab in _tab_order else 0
+                    current_tab = _tab_order[(_tidx + 1) % len(_tab_order)]
+                    focus = {'sound': 'bgm', 'controls': 'scheme', 'display': 'dispmode'}.get(current_tab, 'bgm')
                 if event.key == pygame.K_LEFT:
                     if current_tab == 'controls':
                         if locals().get('focus','bgm') in ('scheme','back'):
                             control_scheme = 'keyboard'
+                    elif current_tab == 'display' and focus == 'dispmode':
+                        display_mode = 'fullscreen'
                     elif focus == "bgm":
                         current_bgm_volume = clamp_volume(current_bgm_volume - 0.05)
                         if not bgm_muted:
@@ -431,6 +479,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     if current_tab == 'controls':
                         if locals().get('focus','bgm') in ('scheme','back'):
                             control_scheme = 'mouse_keyboard'
+                    elif current_tab == 'display' and focus == 'dispmode':
+                        display_mode = 'windowed'
                     elif focus == "bgm":
                         current_bgm_volume = clamp_volume(current_bgm_volume + 0.05)
                         if not bgm_muted:
@@ -442,20 +492,40 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                             current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
                         selected_slider = "sfx"
                 elif event.key == pygame.K_UP:
-                    order = ["scheme"] if current_tab == 'controls' else ["bgm", "sfx"]
-                    order += ["back"]
-                    focus = order[(order.index(focus) - 1) % len(order)] if focus in order else "bgm"
+                    if current_tab == 'controls':
+                        order = ["scheme", "back"]
+                    elif current_tab == 'display':
+                        order = ["dispmode", "back"]
+                    else:
+                        order = ["bgm", "sfx", "back"]
+                    focus = order[(order.index(focus) - 1) % len(order)] if focus in order else order[0]
                 elif event.key == pygame.K_DOWN:
-                    order = ["scheme"] if current_tab == 'controls' else ["bgm", "sfx"]
-                    order += ["back"]
-                    focus = order[(order.index(focus) + 1) % len(order)] if focus in order else "bgm"
+                    if current_tab == 'controls':
+                        order = ["scheme", "back"]
+                    elif current_tab == 'display':
+                        order = ["dispmode", "back"]
+                    else:
+                        order = ["bgm", "sfx", "back"]
+                    focus = order[(order.index(focus) + 1) % len(order)] if focus in order else order[0]
                 elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
-                    if current_tab == 'controls' and focus == 'scheme':
+                    if current_tab == 'display' and focus == 'dispmode':
+                        display_mode = 'windowed' if display_mode == 'fullscreen' else 'fullscreen'
+                    elif current_tab == 'controls' and focus == 'scheme':
                         control_scheme = 'mouse_keyboard' if control_scheme == 'keyboard' else 'keyboard'
                     elif focus == "back":
                         ctx.play_button_click_sound()
                         current_bgm_volume = ctx.store_bgm_volume(current_bgm_volume)
                         current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
+                        # 디스플레이 모드 변경 적용
+                        try:
+                            from pingfighter import switch_display_mode, is_windowed_mode
+                            _cw = is_windowed_mode()
+                            if display_mode == "windowed" and not _cw:
+                                switch_display_mode(to_windowed=True)
+                            elif display_mode == "fullscreen" and _cw:
+                                switch_display_mode(to_windowed=False)
+                        except Exception:
+                            pass
                         return
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 # 왼쪽 버튼(1)으로만 토글/슬라이더 조작 허용
@@ -466,15 +536,31 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     # 탭 클릭 처리
                     if sound_tab_rect.collidepoint(mouse_pos):
                         current_tab = 'sound'
+                        focus = 'bgm'
                         continue
                     if ctrl_tab_rect.collidepoint(mouse_pos):
                         current_tab = 'controls'
+                        focus = 'scheme'
+                        continue
+                    if disp_tab_rect.collidepoint(mouse_pos):
+                        current_tab = 'display'
+                        focus = 'dispmode'
                         continue
 
                     if back_button_rect.collidepoint(mouse_pos):
                         ctx.play_button_click_sound()
                         current_bgm_volume = ctx.store_bgm_volume(current_bgm_volume)
                         current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
+                        # 디스플레이 모드 변경 적용
+                        try:
+                            from pingfighter import switch_display_mode, is_windowed_mode
+                            _cw = is_windowed_mode()
+                            if display_mode == "windowed" and not _cw:
+                                switch_display_mode(to_windowed=True)
+                            elif display_mode == "fullscreen" and _cw:
+                                switch_display_mode(to_windowed=False)
+                        except Exception:
+                            pass
                         return
                     # 컨트롤 탭 처리
                     if current_tab == 'controls':
@@ -483,6 +569,14 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                             continue
                         if 'mk_rect' in locals() and mk_rect.collidepoint(mouse_pos):
                             control_scheme = 'mouse_keyboard'
+                            continue
+                    # 디스플레이 탭 처리
+                    if current_tab == 'display':
+                        if 'fs_rect' in locals() and fs_rect.collidepoint(mouse_pos):
+                            display_mode = 'fullscreen'
+                            continue
+                        if 'win_rect' in locals() and win_rect.collidepoint(mouse_pos):
+                            display_mode = 'windowed'
                             continue
 
                     # BGM 체크박스 클릭 처리
