@@ -19526,7 +19526,7 @@ ARENA_MAGIC_IMMUNITY_DURATION = 8.0          # 마법 면역 지속 시간 (초)
 arena_barrier_block_effects = []             # 차단된 스킬의 녹아내리는 이펙트 목록
 arena_barrier_flash_top = 0.0                # 상단 결계 번쩍임 타이머
 arena_barrier_flash_bottom = 0.0             # 하단 결계 번쩍임 타이머
-ARENA_BARRIER_FLASH_DURATION = 0.45          # 결계 번쩍임 지속 시간 (초)
+ARENA_BARRIER_FLASH_DURATION = 0.5           # 결계 번쩍임 지속 시간 (초)
 arena_barrier_beam_target_top = None         # 상단 결계 등대빔 타겟 좌표 (x, y)
 arena_barrier_beam_target_bottom = None      # 하단 결계 등대빔 타겟 좌표 (x, y)
 arena_perk_paddle_enlarge_top = 1.0          # 상단 패들 확대 배율 (거신화 퍽)
@@ -20278,50 +20278,44 @@ def _draw_magic_immunity_barrier(screen, center_x, center_y, base_radius, imm_ti
 
     screen.blit(surf, (center_x - sc, center_y - sc))
 
-    # ── 9. 스킬 차단 번쩍임 효과 (방어 성공 시 결계가 빛남) ──
+    # ── 9. 스킬 차단 번쩍임 효과 (순간 번쩍 - 짧고 강렬하게) ──
     if flash_timer > 0:
         flash_prog = flash_timer / ARENA_BARRIER_FLASH_DURATION  # 1→0
-        # 밝은 백색→보라색 폭발 플래시
-        fl_intensity = flash_prog ** 0.5
+        # 순간 폭발형: 초반에 최대 밝기 후 급속 감쇠
+        if flash_prog > 0.7:
+            fl_intensity = 1.0
+        else:
+            fl_intensity = (flash_prog / 0.7) ** 1.5
+
         fl_sz = shield_r * 2 + 80
         fl_surf = pygame.Surface((fl_sz * 2, fl_sz * 2), pygame.SRCALPHA)
         fl_sc = fl_sz
 
-        # 1차: 넓은 백색 플래시
-        w_a = int(120 * fl_intensity)
+        # 1차: 강렬한 백색 플래시 (순간 최대)
+        w_a = int(200 * fl_intensity)
         if w_a > 0:
-            pygame.draw.circle(fl_surf, (220, 200, 255, w_a), (fl_sc, fl_sc),
-                               int(shield_r * (1.5 + (1.0 - flash_prog) * 0.8)), 0)
+            expand_p = 1.0 - flash_prog
+            flash_r = int(shield_r * (1.2 + expand_p * 0.5))
+            pygame.draw.circle(fl_surf, (240, 220, 255, w_a), (fl_sc, fl_sc), flash_r, 0)
 
         # 2차: 밝은 결계 링 (두꺼운 테두리)
-        ring_a = int(200 * fl_intensity)
+        ring_a = int(255 * fl_intensity)
         if ring_a > 0:
-            ring_r = int(shield_r * (1.0 + (1.0 - flash_prog) * 0.3))
-            ring_th = max(2, int(5 * fl_intensity))
-            pygame.draw.circle(fl_surf, (200, 160, 255, ring_a), (fl_sc, fl_sc), ring_r, ring_th)
+            ring_r = int(shield_r * (1.0 + (1.0 - flash_prog) * 0.2))
+            ring_th = max(3, int(6 * fl_intensity))
+            pygame.draw.circle(fl_surf, (220, 180, 255, ring_a), (fl_sc, fl_sc), ring_r, ring_th)
 
-        # 3차: 방사형 빛줄기 (12방향)
-        for ri in range(12):
-            ray_angle = ri / 12 * 2 * math.pi + (1.0 - flash_prog) * math.pi * 0.3
-            ray_len = int(shield_r * (0.8 + fl_intensity * 0.6))
-            ray_a = int(160 * fl_intensity * abs(math.sin(ri * 0.8 + current_time * 0.01)))
-            if ray_a > 0:
-                rx = fl_sc + int(math.cos(ray_angle) * shield_r * 0.3)
-                ry = fl_sc + int(math.sin(ray_angle) * shield_r * 0.3)
-                rx2 = fl_sc + int(math.cos(ray_angle) * ray_len)
-                ry2 = fl_sc + int(math.sin(ray_angle) * ray_len)
-                pygame.draw.line(fl_surf, (220, 180, 255, ray_a), (rx, ry), (rx2, ry2), 2)
-
-        # 4차: 확산 링 (바깥으로 퍼지는 충격파)
+        # 3차: 확산 충격파 링 (빠르게 퍼짐)
         expand_p = 1.0 - flash_prog  # 0→1
-        exp_r = int(shield_r * (1.0 + expand_p * 1.2))
-        exp_a = int(140 * fl_intensity * (1.0 - expand_p * 0.5))
+        exp_r = int(shield_r * (1.0 + expand_p * 1.5))
+        exp_a = int(180 * fl_intensity)
         if exp_a > 0:
-            pygame.draw.circle(fl_surf, (180, 140, 255, exp_a), (fl_sc, fl_sc), exp_r, 3)
+            exp_th = max(2, int(4 * fl_intensity))
+            pygame.draw.circle(fl_surf, (200, 160, 255, exp_a), (fl_sc, fl_sc), exp_r, exp_th)
 
         screen.blit(fl_surf, (center_x - fl_sc, center_y - fl_sc))
 
-    # ── 10. 등대빔 효과 (스킬 차단 시 시전자 방향으로 빛줄기) ──
+    # ── 10. 등대빔 효과 (스킬 차단 시 시전자까지 순간 번쩍 빛줄기) ──
     if flash_timer > 0 and beam_target is not None:
         beam_tx, beam_ty = beam_target
         dx = beam_tx - center_x
@@ -20329,11 +20323,17 @@ def _draw_magic_immunity_barrier(screen, center_x, center_y, base_radius, imm_ti
         dist = math.sqrt(dx * dx + dy * dy)
         if dist > 10:
             angle = math.atan2(dy, dx)
-            flash_prog = flash_timer / ARENA_BARRIER_FLASH_DURATION
-            fl_intensity = flash_prog ** 0.5
-            beam_len = min(dist * 0.9, 350)
+            flash_prog = flash_timer / ARENA_BARRIER_FLASH_DURATION  # 1→0
+            # 순간 번쩍: 초반 0.15초에 최대 밝기, 이후 급속 감쇠
+            if flash_prog > 0.7:
+                # 초반 30% 구간: 급격히 밝아짐
+                fl_intensity = ((flash_prog - 0.7) / 0.3) ** 0.3
+                fl_intensity = 0.5 + fl_intensity * 0.5
+            else:
+                # 후반 70%: 빠르게 사라짐
+                fl_intensity = (flash_prog / 0.7) ** 2.0
+            beam_len = dist  # 시전자 위치까지 완전히 도달
 
-            # 빔 서피스 (전체 화면 크기로 생성)
             beam_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
 
             perp_cos = math.cos(angle + math.pi / 2)
@@ -20341,17 +20341,16 @@ def _draw_magic_immunity_barrier(screen, center_x, center_y, base_radius, imm_ti
             cos_a = math.cos(angle)
             sin_a = math.sin(angle)
 
-            # 3겹 빔 (넓은 글로우 → 중간 → 좁은 코어)
+            # 3겹 빔 (순간 번쩍 - 높은 알파값)
             for layer, (near_w, far_w, color, alpha_mult) in enumerate([
-                (12, 55, (160, 120, 255), 0.25),   # 넓은 외곽 글로우
-                (8, 35, (180, 150, 255), 0.4),      # 중간 빔
-                (3, 15, (230, 210, 255), 0.7),       # 밝은 코어
+                (18, 70, (140, 100, 255), 0.35),    # 넓은 외곽 글로우
+                (10, 40, (180, 150, 255), 0.55),     # 중간 빔
+                (4, 18, (255, 240, 255), 0.85),      # 밝은 백색 코어
             ]):
                 beam_alpha = int(alpha_mult * 255 * fl_intensity)
                 if beam_alpha <= 0:
                     continue
 
-                # 사다리꼴 꼭짓점 (결계 근처 좁고 → 시전자 방향으로 넓어짐)
                 nl = (center_x + perp_cos * near_w, center_y + perp_sin * near_w)
                 nr = (center_x - perp_cos * near_w, center_y - perp_sin * near_w)
                 fx = center_x + cos_a * beam_len
@@ -20363,13 +20362,13 @@ def _draw_magic_immunity_barrier(screen, center_x, center_y, base_radius, imm_ti
                           (int(fr_pt[0]), int(fr_pt[1])), (int(nr[0]), int(nr[1]))]
                 pygame.draw.polygon(beam_surf, (*color, beam_alpha), points)
 
-            # 빔 끝단 원형 글로우 (시전자 위치 강조)
-            end_glow_a = int(100 * fl_intensity)
-            if end_glow_a > 0:
-                end_x = int(center_x + cos_a * beam_len)
-                end_y = int(center_y + sin_a * beam_len)
-                pygame.draw.circle(beam_surf, (200, 170, 255, end_glow_a), (end_x, end_y), 30, 0)
-                pygame.draw.circle(beam_surf, (230, 210, 255, end_glow_a // 2), (end_x, end_y), 15, 0)
+            # 시전자 위치 원형 임팩트 (빔 끝단)
+            impact_a = int(180 * fl_intensity)
+            if impact_a > 0:
+                ex, ey = int(beam_tx), int(beam_ty)
+                pygame.draw.circle(beam_surf, (180, 140, 255, impact_a // 2), (ex, ey), 40, 0)
+                pygame.draw.circle(beam_surf, (220, 200, 255, impact_a), (ex, ey), 22, 0)
+                pygame.draw.circle(beam_surf, (255, 245, 255, impact_a), (ex, ey), 10, 0)
 
             screen.blit(beam_surf, (0, 0))
 
