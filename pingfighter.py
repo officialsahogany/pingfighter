@@ -7105,9 +7105,10 @@ def _get_scaled_screen():
     if GAME_SCALE_FACTOR == 1.0:
         result = SCREEN
     else:
-        # smoothscale은 scale보다 품질이 좋음 (텍스트가 선명함)
-        # 성능은 약간 느리지만 1.04x 정도 스케일에서는 무시할 수준
-        result = pygame.transform.smoothscale(SCREEN, (GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT))
+        # scale(nearest-neighbor)은 smoothscale(bilinear)보다 훨씬 빠름
+        # 4K 모니터 창모드에서 2.0x+ 스케일 시 smoothscale은 프레임 드랍 유발
+        # 업스케일링에서는 화질 차이가 미미하고, 픽셀아트 스타일에 scale이 더 적합
+        result = pygame.transform.scale(SCREEN, (GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT))
 
     if VALTHOR_PERF_DEBUG:
         valthor_perf_end("screen_scale")
