@@ -9951,6 +9951,8 @@ class BombSurprise(HeroSkill):
         self._knockback_target = None   # 'top' or 'bottom'
         self._stun_applied = False
         self._stun_timer = 0.0
+        # 활성화 직후 vy 감지 유예 (호위무사 발동 시 프레임 간 레이스 컨디션 방지)
+        self._vy_grace_timer = 0.0
 
     def _load_sounds(self):
         if self._sound_loaded:
@@ -9988,6 +9990,12 @@ class BombSurprise(HeroSkill):
         # 공 vy 부호 추적 시작
         if ball:
             self.last_ball_vy_sign = 1 if ball.vy > 0 else (-1 if ball.vy < 0 else 0)
+
+        # 호위무사가 쿨타임 기반으로 발동할 때, 스킬 활성화와 첫 업데이트 사이에
+        # 메인 루프에서 공-패들 충돌이 처리되어 ball.vy 부호가 바뀔 수 있음.
+        # 이 유예 시간 동안은 vy 부호 변화를 무시하고 현재 값만 동기화하여
+        # 폭탄이 활성화 즉시 패들로 이동하는 버그를 방지함.
+        self._vy_grace_timer = 0.15  # 0.15초 유예
 
         game_state['bomb_surprise_active'] = True
 
@@ -10031,7 +10039,11 @@ class BombSurprise(HeroSkill):
         if ball:
             current_vy_sign = 1 if ball.vy > 0 else (-1 if ball.vy < 0 else 0)
 
-            if current_vy_sign != 0 and self.last_ball_vy_sign != 0 and current_vy_sign != self.last_ball_vy_sign:
+            # 유예 시간 중에는 vy 부호만 동기화 (전환 감지 안 함)
+            if self._vy_grace_timer > 0:
+                self._vy_grace_timer -= dt
+                self.last_ball_vy_sign = current_vy_sign
+            elif current_vy_sign != 0 and self.last_ball_vy_sign != 0 and current_vy_sign != self.last_ball_vy_sign:
                 # vy 부호가 바뀜 = 패들에 맞음
                 if current_vy_sign > 0:
                     # 위에서 아래로 전환 → 상단 패들이 공을 침
@@ -10049,7 +10061,8 @@ class BombSurprise(HeroSkill):
                     self.bomb_location = 'ball'
                     self._play_attach_sound()
 
-            self.last_ball_vy_sign = current_vy_sign
+            if self._vy_grace_timer <= 0:
+                self.last_ball_vy_sign = current_vy_sign
 
         # 틱 사운드 (점점 빨라짐)
         self._tick_sound_cd -= dt
@@ -10250,6 +10263,7 @@ class BombSurprise(HeroSkill):
             game_state[f'{prefix}_bomb_kb_active'] = False
         self._stun_applied = False
         self._stun_timer = 0.0
+        self._vy_grace_timer = 0.0
         game_state['bomb_surprise_active'] = False
         # 양쪽 넉백 시그널 정리
         game_state['top_paddle_bomb_kb_active'] = False
