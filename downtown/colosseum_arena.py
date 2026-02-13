@@ -4573,8 +4573,7 @@ class ColosseumsArena:
         self.selected_match_index = -1           # 플레이어가 선택한 매치 인덱스
         self.initial_setup_done = False          # 초반 셋업(영웅+호위무사 선택) 완료 여부
 
-        # 감옥 시스템
-        self._remaining_heroes = []              # 대진표 미선발 영웅 (감옥 후보 풀)
+        # 감옥 시스템 (_remaining_heroes는 _generate_bracket()에서 설정됨)
         self.prison_heroes = []                  # 감옥 영웅 3명 (셔플됨)
         self.prison_selected = None              # 플레이어가 선택한 호위무사
         self.hover_hero_index = -1               # 영웅 선택 호버 인덱스
