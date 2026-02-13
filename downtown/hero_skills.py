@@ -10862,7 +10862,7 @@ class SandVortex(HeroSkill):
     VORTEX_LIFETIME = 4.0  # 소용돌이 수명 (초)
     FADE_DURATION = 1.2    # 소멸 페이드 시간 (초)
     CURVE_DURATION = 2.5   # 커브 효과 지속시간 (초, 기존 1.5 → 대폭 증가)
-    CURVE_STRENGTH = 18.0  # 커브 횡방향 힘 (기존 4.0 → 대폭 강화, 프레임당 ~0.3px 누적)
+    CURVE_ROTATION_SPEED = 0.85  # 커브 회전 속도 (rad/s, 총 ~60도 호 궤적)
     CAPTURE_BOOST = 1.6    # 포획 시 공 임팩트 부스트 (ball_impact_boost에 적용)
     GROWTH_RATE = 0.20     # 초당 크기/범위 성장률 (20%)
 
@@ -11072,6 +11072,23 @@ class SandVortex(HeroSkill):
                             ball.speed_x += nx * pull_strength
                             ball.speed_y += ny * pull_strength
 
+                        # 접선 방향 힘 (공이 소용돌이를 휘감도록 궤도 회전)
+                        ball_vx_cur = getattr(ball, 'vx', 0) or getattr(ball, 'speed_x', 0)
+                        ball_vy_cur = getattr(ball, 'vy', 0) or getattr(ball, 'speed_y', 0)
+                        # 외적으로 공의 자연스러운 공전 방향 결정
+                        cross = ball_vx_cur * ny - ball_vy_cur * nx
+                        spin_dir = 1 if cross >= 0 else -1
+                        # 반지름 방향에 수직인 접선 벡터
+                        tx = -ny * spin_dir
+                        ty = nx * spin_dir
+                        tangent_strength = pull_factor * 180 * dt
+                        if hasattr(ball, 'vx'):
+                            ball.vx += tx * tangent_strength
+                            ball.vy += ty * tangent_strength
+                        elif hasattr(ball, 'speed_x'):
+                            ball.speed_x += tx * tangent_strength
+                            ball.speed_y += ty * tangent_strength
+
                         # 포획 → 커브 발사 (소용돌이는 사라지지 않음!)
                         if dist < scaled_capture_radius:
                             vortex['has_captured'] = True
@@ -11186,18 +11203,26 @@ class SandVortex(HeroSkill):
                     'color_type': 'cloud',
                 })
 
-        # ── 커브 효과 적용 (발사된 공에 횡방향 힘) ──
+        # ── 커브 효과 적용 (속도 벡터 회전으로 호 궤적 생성 - 소용돌이 휘감기) ──
         if ball and self.curve_effects:
             for curve in self.curve_effects:
                 curve['timer'] -= dt
                 if curve['timer'] > 0:
-                    # 시간이 지날수록 커브 약해짐
+                    # 시간에 따라 회전력 감소 (시전자 방향 ~30도 차이 호 궤적)
                     fade = curve['timer'] / self.CURVE_DURATION
-                    curve_force = self.CURVE_STRENGTH * curve['curve_dir'] * fade * dt
+                    rotation_rate = self.CURVE_ROTATION_SPEED * curve['curve_dir'] * fade * dt
+                    cur_vx = getattr(ball, 'vx', 0) or getattr(ball, 'speed_x', 0)
+                    cur_vy = getattr(ball, 'vy', 0) or getattr(ball, 'speed_y', 0)
+                    cos_r = math.cos(rotation_rate)
+                    sin_r = math.sin(rotation_rate)
+                    new_vx = cur_vx * cos_r - cur_vy * sin_r
+                    new_vy = cur_vx * sin_r + cur_vy * cos_r
                     if hasattr(ball, 'vx'):
-                        ball.vx += curve_force
+                        ball.vx = new_vx
+                        ball.vy = new_vy
                     elif hasattr(ball, 'speed_x'):
-                        ball.speed_x += curve_force
+                        ball.speed_x = new_vx
+                        ball.speed_y = new_vy
             self.curve_effects = [c for c in self.curve_effects if c['timer'] > 0]
 
         # 파티클 업데이트
