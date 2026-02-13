@@ -122382,10 +122382,18 @@ def handle_ball():
 
             # 튜토리얼 중이면 점수 고정 (0:0 유지)
             # 튜토리얼이 활성화되었고 아직 완료되지 않은 경우에만 점수 고정
+            tenacity_triggered = False
             if not _ingame_tutorial_score_frozen and not (_ingame_tutorial_active and not _ingame_tutorial_completed):
                 round_losses += 1
                 # 📜 퀘스트 추적: 보스 득점 기록
                 globals()['quest_stage_boss_score'] = quest_stage_boss_score + 1
+                # 🔥 투기장 집념 퍽: 라운드 실점 시 무효화
+                if arena_mode_enabled and arena_perk_retry_chance > 0:
+                    if random.random() < arena_perk_retry_chance:
+                        round_losses -= 1
+                        globals()['quest_stage_boss_score'] = max(0, quest_stage_boss_score - 1)
+                        tenacity_triggered = True
+                        print(f"🔥 집념 발동! 실점 무효화 (round_losses: {round_losses})")
             # 🔧 플레이어가 죽었을 때 대시 상태 완전 초기화 (다음 라운드 버그 방지)
             rolling_active = False
             rolling_timer = 0
@@ -122410,6 +122418,13 @@ def handle_ball():
             pygame.event.clear(pygame.KEYDOWN)
             pygame.event.clear(pygame.KEYUP)
             pygame.key.set_repeat()  # 키 반복 리셋
+
+            # 🔥 집념 발동 시: 실점 무효화 후 즉시 다음 라운드로 진행
+            if tenacity_triggered:
+                game_state.round_losses = round_losses
+                show_fade_text("집념 발동!")
+                go_to_next_round()
+                return
 
             if try_trigger_foul_whistle("round"):
                 return

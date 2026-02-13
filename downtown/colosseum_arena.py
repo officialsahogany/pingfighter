@@ -5996,40 +5996,13 @@ class ColosseumsArena:
             self.state = TournamentState.BRACKET_VIEW
             return
 
-        # === 집념 퍽: 패배 시 확률적 재시작 ===
+        # === 집념 퍽: 라운드 레벨로 이동됨 (pingfighter.py에서 실점 시 처리) ===
         _bet_name = self.bet_hero.get('name', '?') if self.bet_hero else None
         _win_name = winner.get('name', '?')
         if self.bet_hero and winner != self.bet_hero:
-            print(f"[DEBUG 집념] ❌ 배팅 영웅 '{_bet_name}' 패배! (승자: '{_win_name}') → 집념 판정 시작")
-            hero_id = self.bet_hero["id"]
-            perks = self.hero_perks.get(hero_id, [])
-            mults = self.get_hero_perk_multipliers(hero_id)
-            retry_chance = mults.get("retry_chance", 0.0)
-            print(f"[DEBUG 집념] 패배 감지! hero_id={hero_id}, perks={[p['name'] for p in perks]}")
-            print(f"[DEBUG 집념] retry_chance={retry_chance}")
-            # 집념 퍽: 패배 시 매번 확률 판정 (횟수 제한 없음)
-            if retry_chance > 0:
-                roll = random.random()
-                print(f"[DEBUG 집념] 확률 판정: roll={roll:.4f} < retry_chance={retry_chance} → {'발동!' if roll < retry_chance else '불발'}")
-                if roll < retry_chance:
-                    print(f"[Perk] 집념 발동! {retry_chance:.0%} 확률로 재시작!")
-                    # 매치 결과 리셋하고 재시작
-                    self.selected_match.completed = False
-                    self.selected_match.winner = None
-                    self.selected_match.score1 = 0
-                    self.selected_match.score2 = 0
-                    self.battle_active = True
-                    # 재시작 알림용 상태
-                    self.tenacity_triggered = True
-                    self.tenacity_timer = 0.0
-                    self.state = TournamentState.TENACITY_RETRY
-                    return
-
-        else:
-            if self.bet_hero:
-                print(f"[DEBUG 집념] ✅ 배팅 영웅 '{_bet_name}' 승리! 집념 판정 불필요")
-            else:
-                print(f"[DEBUG 집념] ⚠️ bet_hero 없음! 집념 판정 건너뜀")
+            print(f"[집념] 배팅 영웅 '{_bet_name}' 매치 패배 (승자: '{_win_name}')")
+        elif self.bet_hero:
+            print(f"[집념] 배팅 영웅 '{_bet_name}' 매치 승리!")
 
         self.selected_match.set_result(winner, self.score_top, self.score_bottom)
 
