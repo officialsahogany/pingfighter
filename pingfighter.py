@@ -19694,22 +19694,63 @@ def show_arena_perk_select_menu():
                         "value": other_skill_idx,
                     })
 
-    if not pool:
+    # 이미 보유한 퍽도 포함하여 전체 목록 구성 (보유 여부 표시용)
+    all_perks = list(ARENA_PERK_POOL)
+
+    # 영웅의 미선택 스킬을 퍽 옵션으로 추가
+    if HERO_SKILLS_AVAILABLE:
+        current_skill_idx = arena_obj.hero_selected_skills.get(hero_id, 0)
+        other_skill_idx = 1 - current_skill_idx
+        skills = HERO_SKILLS.get(hero_id, [])
+        if len(skills) > other_skill_idx:
+            other_skill = skills[other_skill_idx]
+            skill_perk_id = f"skill_{other_skill.skill_id}"
+            hero_color = tuple(arena_bottom_hero.get("color", (200, 200, 100)))
+            all_perks.append({
+                "id": skill_perk_id,
+                "name": other_skill.korean_name,
+                "description": "추가 스킬 획득",
+                "icon_color": hero_color,
+                "effect_type": "add_skill",
+                "value": other_skill_idx,
+            })
+
+    # 해금 조건 미충족 퍽 필터 (재소집령: 해고된 호위무사 없으면 제외)
+    filtered_perks = []
+    for p in all_perks:
+        unlock_cond = p.get("unlock_condition")
+        if unlock_cond == "former_guards":
+            if not getattr(arena_obj, 'former_guards', []):
+                continue
+        filtered_perks.append(p)
+
+    if not filtered_perks:
         _show_arena_all_perks_owned_message()
         return
 
-    # 3개 랜덤 선택
-    options = random.sample(pool, min(3, len(pool)))
     selected_idx = 0
+    scroll_offset = 0  # 스크롤 오프셋
     clock = pygame.time.Clock()
 
     font_title = FontStyle.subtitle()
     font_name = FontStyle.body()
     font_desc = FontStyle.small()
     font_hint = FontStyle.tiny()
+    font_owned = FontStyle.tiny()
 
     # 아이콘 그리기 함수
     draw_icon_func = arena_perk_draw_icon_func
+
+    # 그리드 레이아웃: 3열
+    cols = 3
+    card_w, card_h = 210, 150
+    card_gap_x = 12
+    card_gap_y = 12
+    grid_top = 110  # 타이틀 아래
+    grid_bottom = HEIGHT - 65  # 힌트 위
+    visible_rows = (grid_bottom - grid_top + card_gap_y) // (card_h + card_gap_y)
+    total_rows = (len(filtered_perks) + cols - 1) // cols
+    max_scroll = max(0, total_rows - visible_rows)
 
     try:
         pygame.event.clear()
@@ -19726,28 +19767,52 @@ def show_arena_perk_select_menu():
                 if event.key == pygame.K_ESCAPE:
                     return  # 취소
                 elif event.key == pygame.K_LEFT:
-                    selected_idx = (selected_idx - 1) % len(options)
+                    selected_idx = max(0, selected_idx - 1)
                 elif event.key == pygame.K_RIGHT:
-                    selected_idx = (selected_idx + 1) % len(options)
+                    selected_idx = min(len(filtered_perks) - 1, selected_idx + 1)
+                elif event.key == pygame.K_UP:
+                    selected_idx = max(0, selected_idx - cols)
+                elif event.key == pygame.K_DOWN:
+                    selected_idx = min(len(filtered_perks) - 1, selected_idx + cols)
                 elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
-                    # 퍽 확정
-                    _apply_arena_f8_perk(arena_obj, hero_id, options[selected_idx])
-                    return
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                mx, my = event.pos
-                # 카드 클릭 판정
-                num = len(options)
-                card_w, card_h = 200, 260
-                card_gap = 15
-                total_w = card_w * num + card_gap * (num - 1)
-                sx = (WIDTH - total_w) // 2
-                sy = (HEIGHT - card_h) // 2 - 20
-                for i in range(num):
-                    cx = sx + i * (card_w + card_gap)
-                    if cx <= mx <= cx + card_w and sy <= my <= sy + card_h:
-                        selected_idx = i
-                        _apply_arena_f8_perk(arena_obj, hero_id, options[selected_idx])
+                    perk = filtered_perks[selected_idx]
+                    if perk["id"] not in owned_perk_ids:
+                        _apply_arena_f8_perk(arena_obj, hero_id, perk)
                         return
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    mx, my = event.pos
+                    # 카드 클릭 판정
+                    total_grid_w = card_w * cols + card_gap_x * (cols - 1)
+                    gx = (WIDTH - total_grid_w) // 2
+                    for i, perk in enumerate(filtered_perks):
+                        row = i // cols
+                        col = i % cols
+                        vis_row = row - scroll_offset
+                        if vis_row < 0 or vis_row >= visible_rows:
+                            continue
+                        cx = gx + col * (card_w + card_gap_x)
+                        cy = grid_top + vis_row * (card_h + card_gap_y)
+                        if cx <= mx <= cx + card_w and cy <= my <= cy + card_h:
+                            if perk["id"] not in owned_perk_ids:
+                                selected_idx = i
+                                _apply_arena_f8_perk(arena_obj, hero_id, perk)
+                                return
+                            else:
+                                selected_idx = i
+                            break
+                elif event.button == 4:  # 마우스 휠 위
+                    scroll_offset = max(0, scroll_offset - 1)
+                elif event.button == 5:  # 마우스 휠 아래
+                    scroll_offset = min(max_scroll, scroll_offset + 1)
+
+        # 선택된 항목이 보이도록 스크롤 조정
+        sel_row = selected_idx // cols
+        if sel_row < scroll_offset:
+            scroll_offset = sel_row
+        elif sel_row >= scroll_offset + visible_rows:
+            scroll_offset = sel_row - visible_rows + 1
+        scroll_offset = max(0, min(max_scroll, scroll_offset))
 
         # --- 렌더링 ---
         try:
@@ -19762,74 +19827,126 @@ def show_arena_perk_select_menu():
         SCREEN.blit(overlay, (0, 0))
 
         # 타이틀
-        title_surf = font_title.render("퍽을 선택하세요", True, (255, 215, 0))
-        title_rect = title_surf.get_rect(center=(WIDTH // 2, 80))
+        title_surf = font_title.render("투기장 퍽 선택", True, (255, 215, 0))
+        title_rect = title_surf.get_rect(center=(WIDTH // 2, 45))
         SCREEN.blit(title_surf, title_rect)
 
-        # 카드 렌더링
-        num = len(options)
-        card_w, card_h = 200, 260
-        card_gap = 15
-        total_w = card_w * num + card_gap * (num - 1)
-        sx = (WIDTH - total_w) // 2
-        sy = (HEIGHT - card_h) // 2 - 20
+        # 보유 현황
+        owned_count = len(owned_perk_ids)
+        total_count = len(filtered_perks)
+        count_text = f"보유: {owned_count} / {total_count}"
+        count_surf = font_hint.render(count_text, True, (180, 180, 180))
+        count_rect = count_surf.get_rect(center=(WIDTH // 2, 80))
+        SCREEN.blit(count_surf, count_rect)
 
-        for i, perk in enumerate(options):
-            cx = sx + i * (card_w + card_gap)
+        # 카드 그리드 렌더링
+        total_grid_w = card_w * cols + card_gap_x * (cols - 1)
+        gx = (WIDTH - total_grid_w) // 2
+
+        for i, perk in enumerate(filtered_perks):
+            row = i // cols
+            col = i % cols
+            vis_row = row - scroll_offset
+            if vis_row < 0 or vis_row >= visible_rows:
+                continue
+
+            cx = gx + col * (card_w + card_gap_x)
+            cy = grid_top + vis_row * (card_h + card_gap_y)
             is_sel = (i == selected_idx)
+            is_owned = perk["id"] in owned_perk_ids
 
             # 카드 배경
-            card_rect = pygame.Rect(cx, sy, card_w, card_h)
             card_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
-            if is_sel:
+            if is_owned:
+                # 이미 보유: 어두운 배경 + 체크 표시
+                card_surf.fill((20, 20, 30, 200))
+                border_color = (80, 80, 80, 180) if not is_sel else (120, 120, 60, 255)
+                pygame.draw.rect(card_surf, border_color, (0, 0, card_w, card_h), 2, border_radius=8)
+            elif is_sel:
                 card_surf.fill((40, 40, 80, 220))
                 pygame.draw.rect(card_surf, (255, 215, 0, 255), (0, 0, card_w, card_h), 3, border_radius=8)
             else:
-                card_surf.fill((30, 30, 50, 180))
-                pygame.draw.rect(card_surf, (100, 100, 140, 200), (0, 0, card_w, card_h), 2, border_radius=8)
-            SCREEN.blit(card_surf, (cx, sy))
+                card_surf.fill((30, 30, 55, 190))
+                pygame.draw.rect(card_surf, (100, 100, 160, 200), (0, 0, card_w, card_h), 2, border_radius=8)
+            SCREEN.blit(card_surf, (cx, cy))
 
-            # 퍽 아이콘 (카드 상단)
-            icon_size = 50
+            # 퍽 아이콘
+            icon_size = 36
             icon_cx = cx + card_w // 2
-            icon_cy = sy + 55
+            icon_cy = cy + 32
             if draw_icon_func:
                 try:
                     draw_icon_func(SCREEN, perk["id"], icon_cx, icon_cy, icon_size)
                 except Exception:
-                    # 폴백: 색상 원
                     pygame.draw.circle(SCREEN, perk.get("icon_color", (200, 200, 200)), (icon_cx, icon_cy), icon_size // 2)
             else:
                 pygame.draw.circle(SCREEN, perk.get("icon_color", (200, 200, 200)), (icon_cx, icon_cy), icon_size // 2)
 
+            # 보유 시 반투명 오버레이 + 체크 표시
+            if is_owned:
+                dim_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+                dim_surf.fill((0, 0, 0, 80))
+                SCREEN.blit(dim_surf, (cx, cy))
+                # 체크 마크
+                chk_cx = cx + card_w - 18
+                chk_cy = cy + 18
+                pygame.draw.circle(SCREEN, (60, 180, 60), (chk_cx, chk_cy), 10)
+                pygame.draw.line(SCREEN, (255, 255, 255), (chk_cx - 5, chk_cy), (chk_cx - 1, chk_cy + 4), 2)
+                pygame.draw.line(SCREEN, (255, 255, 255), (chk_cx - 1, chk_cy + 4), (chk_cx + 5, chk_cy - 4), 2)
+
             # 퍽 이름
-            name_color = (255, 255, 255) if is_sel else (200, 200, 200)
-            name_surf = font_name.render(perk["name"], True, name_color)
-            name_rect = name_surf.get_rect(center=(cx + card_w // 2, sy + 105))
+            if is_owned:
+                name_color = (120, 120, 120)
+            elif is_sel:
+                name_color = (255, 255, 255)
+            else:
+                name_color = (200, 200, 200)
+            name_surf = font_desc.render(perk["name"], True, name_color)
+            name_rect = name_surf.get_rect(center=(cx + card_w // 2, cy + 68))
             SCREEN.blit(name_surf, name_rect)
 
-            # 퍽 설명 (줄바꿈 처리)
+            # 퍽 설명 (줄바꿈 처리, 짧게)
             desc_lines = perk["description"].split("\n")
-            for j, line in enumerate(desc_lines):
-                desc_color = (220, 220, 220) if is_sel else (160, 160, 160)
-                desc_surf = font_desc.render(line, True, desc_color)
-                desc_rect = desc_surf.get_rect(center=(cx + card_w // 2, sy + 140 + j * 22))
+            for j, line in enumerate(desc_lines[:2]):  # 최대 2줄
+                if is_owned:
+                    desc_color = (100, 100, 100)
+                elif is_sel:
+                    desc_color = (220, 220, 220)
+                else:
+                    desc_color = (150, 150, 150)
+                desc_surf = font_hint.render(line, True, desc_color)
+                desc_rect = desc_surf.get_rect(center=(cx + card_w // 2, cy + 92 + j * 18))
                 SCREEN.blit(desc_surf, desc_rect)
 
-            # 선택 인디케이터 (삼각형)
-            if is_sel:
-                tri_y = sy + card_h + 10
+            # "보유 중" 라벨
+            if is_owned:
+                owned_surf = font_hint.render("보유 중", True, (60, 180, 60))
+                owned_rect = owned_surf.get_rect(center=(cx + card_w // 2, cy + card_h - 16))
+                SCREEN.blit(owned_surf, owned_rect)
+
+            # 선택 인디케이터 (선택 + 미보유만)
+            if is_sel and not is_owned:
+                tri_y = cy + card_h + 4
                 tri_cx = cx + card_w // 2
                 pygame.draw.polygon(SCREEN, (255, 215, 0), [
-                    (tri_cx, tri_y + 12),
-                    (tri_cx - 8, tri_y),
-                    (tri_cx + 8, tri_y),
+                    (tri_cx, tri_y + 8),
+                    (tri_cx - 6, tri_y),
+                    (tri_cx + 6, tri_y),
                 ])
 
+        # 스크롤 인디케이터
+        if total_rows > visible_rows:
+            scroll_bar_x = gx + total_grid_w + 8
+            scroll_area_h = grid_bottom - grid_top
+            bar_h = max(20, int(scroll_area_h * visible_rows / total_rows))
+            bar_y = grid_top + int((scroll_area_h - bar_h) * scroll_offset / max_scroll) if max_scroll > 0 else grid_top
+            pygame.draw.rect(SCREEN, (60, 60, 80), (scroll_bar_x, grid_top, 4, scroll_area_h), border_radius=2)
+            pygame.draw.rect(SCREEN, (150, 150, 180), (scroll_bar_x, bar_y, 4, bar_h), border_radius=2)
+
         # 하단 힌트
-        hint_text = "← → 선택  |  SPACE 확정  |  ESC 취소"
+        hint_text = "방향키 선택  |  SPACE 확정  |  ESC 취소"
         hint_surf = font_hint.render(hint_text, True, (150, 150, 150))
-        hint_rect = hint_surf.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+        hint_rect = hint_surf.get_rect(center=(WIDTH // 2, HEIGHT - 40))
         SCREEN.blit(hint_surf, hint_rect)
 
         pygame.display.flip()
