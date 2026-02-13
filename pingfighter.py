@@ -3090,6 +3090,7 @@ if FULLSCREEN_MODE:
 _original_flip = pygame.display.flip
 _original_update = pygame.display.update
 _is_fullscreen_active = FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0
+_current_display_mode = "fullscreen" if _is_fullscreen_active else "windowed"
 
 # 플레이어 게이지를 필러에 렌더링하기 위한 전역 변수
 _player_gauge_surface = None  # 게이지가 그려진 Surface (우측 - 대쉬 토큰용)
@@ -8350,30 +8351,33 @@ if _is_fullscreen_active:
 # ============================================================
 # 디스플레이 모드 전환 (전체화면 ↔ 창모드)
 # ============================================================
-def switch_display_mode(to_windowed: bool):
-    """전체화면 ↔ 창모드 전환 (런타임)
+def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
+    """전체화면 ↔ 창모드 ↔ 전체창모드 전환 (런타임)
 
     Parameters
     ----------
-    to_windowed : bool
-        True  → 창모드로 전환
-        False → 전체화면으로 전환
+    mode : str
+        "fullscreen" | "borderless" | "windowed"
+    to_windowed : bool (하위호환)
+        True  → 창모드로 전환, False → 전체화면으로 전환
     """
     global REAL_SCREEN, SCREEN, pillar_renderer, _is_fullscreen_active
     global GAME_OFFSET_X, GAME_OFFSET_Y, GAME_SCALE_FACTOR
     global GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT
     global FULLSCREEN_MODE, FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT
+    global _current_display_mode
 
-    if to_windowed and not _is_fullscreen_active:
-        return  # 이미 창모드
-    if not to_windowed and _is_fullscreen_active:
-        return  # 이미 전체화면
+    # 하위호환: to_windowed 파라미터 지원
+    if mode is None and to_windowed is not None:
+        mode = "windowed" if to_windowed else "fullscreen"
+    if mode is None or mode == _current_display_mode:
+        return
 
     from pillar_background import init_pillar_background, get_pillar_renderer as _get_pr
     from display_manager import set_fullscreen_mode as _set_dm_fullscreen
     from pixel_font_manager import set_fullscreen_font_scale as _set_font_scale
 
-    if to_windowed:
+    if mode == "windowed":
         # === 창모드로 전환 ===
         print("[디스플레이] 창모드로 전환 시작...", flush=True)
 
@@ -8473,9 +8477,10 @@ def switch_display_mode(to_windowed: bool):
             pass
 
         pygame.display.set_caption("PINGFIGHTER")
+        _current_display_mode = "windowed"
         print(f"[디스플레이] 창모드 전환 완료: {actual_w}x{actual_h}", flush=True)
 
-    else:
+    elif mode == "fullscreen":
         # === 전체화면으로 전환 ===
         print("[디스플레이] 전체화면으로 전환 시작...", flush=True)
 
@@ -8558,12 +8563,100 @@ def switch_display_mode(to_windowed: bool):
             pass
 
         pygame.display.set_caption("PINGFIGHTER")
+        _current_display_mode = "fullscreen"
         print(f"[디스플레이] 전체화면 전환 완료: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
+
+    elif mode == "borderless":
+        # === 전체창모드(보더리스 윈도우) 전환 ===
+        print("[디스플레이] 전체창모드으로 전환 시작...", flush=True)
+
+        # Windows: 해상도 원래대로 복원 (보더리스는 네이티브 해상도 사용)
+        if sys.platform == 'win32' and _original_resolution:
+            _restore_windows_resolution()
+            import time
+            time.sleep(0.3)
+
+        # 네이티브 모니터 해상도
+        if sys.platform == 'win32':
+            native = _get_native_resolution() or _get_current_resolution()
+            if native:
+                monitor_w, monitor_h = native
+            else:
+                monitor_w, monitor_h = 1920, 1080
+        else:
+            _dinfo = pygame.display.Info()
+            monitor_w, monitor_h = _dinfo.current_w, _dinfo.current_h
+
+        FULLSCREEN_MODE = False
+        _is_fullscreen_active = True
+
+        # 보더리스 윈도우 (프레임 없이 모니터 해상도로)
+        os.environ['SDL_VIDEO_WINDOW_POS'] = '0,0'
+        if _current_platform == 'Darwin':
+            REAL_SCREEN = _original_set_mode((monitor_w, monitor_h), pygame.NOFRAME | pygame.DOUBLEBUF)
+        else:
+            REAL_SCREEN = _original_set_mode((monitor_w, monitor_h), pygame.NOFRAME)
+        # 환경변수 정리
+        if 'SDL_VIDEO_WINDOW_POS' in os.environ:
+            del os.environ['SDL_VIDEO_WINDOW_POS']
+
+        if _custom_cursor_enabled:
+            pygame.mouse.set_visible(False)
+
+        actual_w, actual_h = REAL_SCREEN.get_size()
+        FULLSCREEN_WIDTH = actual_w
+        FULLSCREEN_HEIGHT = actual_h
+
+        # 전체화면과 동일한 스케일링 (MARGIN = 70)
+        MARGIN = 70
+        scale_y = (actual_h - MARGIN * 2) / HEIGHT
+        scaled_width_check = int(WIDTH * scale_y)
+        if scaled_width_check > actual_w:
+            GAME_SCALE_FACTOR = actual_w / WIDTH
+        else:
+            GAME_SCALE_FACTOR = scale_y
+
+        GAME_SCALED_WIDTH = int(WIDTH * GAME_SCALE_FACTOR)
+        GAME_SCALED_HEIGHT = int(HEIGHT * GAME_SCALE_FACTOR)
+        GAME_OFFSET_X = (actual_w - GAME_SCALED_WIDTH) // 2
+        GAME_OFFSET_Y = (actual_h - GAME_SCALED_HEIGHT) // 2
+
+        _set_font_scale(GAME_SCALE_FACTOR)
+
+        SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert_alpha()
+
+        pillar_renderer = init_pillar_background(
+            actual_w, actual_h,
+            GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT,
+            offset_x=GAME_OFFSET_X, offset_y=GAME_OFFSET_Y,
+            original_game_width=WIDTH, original_game_height=HEIGHT
+        )
+        _set_dm_fullscreen(True, SCREEN)
+
+        pygame.display.flip = _fullscreen_flip
+        pygame.display.update = _fullscreen_update
+        pygame.mouse.get_pos = _fullscreen_mouse_get_pos
+        pygame.event.get = _fullscreen_event_get
+
+        try:
+            draw.screen = SCREEN
+            trade_point_system.screen = SCREEN
+        except Exception:
+            pass
+
+        pygame.display.set_caption("PINGFIGHTER")
+        _current_display_mode = "borderless"
+        print(f"[디스플레이] 전체창모드 전환 완료: {actual_w}x{actual_h}", flush=True)
 
 
 def is_windowed_mode() -> bool:
-    """현재 창모드인지 반환"""
-    return not FULLSCREEN_MODE
+    """현재 창모드인지 반환 (하위호환)"""
+    return _current_display_mode != "fullscreen"
+
+
+def get_display_mode() -> str:
+    """현재 디스플레이 모드 반환: 'fullscreen' | 'borderless' | 'windowed'"""
+    return _current_display_mode
 
 
 # 초기 로딩 작업들을 함수로 정의 (백그라운드 스레드에서 실행)

@@ -1012,8 +1012,8 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
 
     # 디스플레이 모드 상태
     try:
-        from pingfighter import is_windowed_mode as _is_win_mode
-        display_mode = "windowed" if _is_win_mode() else "fullscreen"
+        from pingfighter import get_display_mode as _get_dm
+        display_mode = _get_dm()
     except Exception:
         display_mode = "fullscreen"
 
@@ -1171,11 +1171,14 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
             disp_label = font_medium.render("화면 모드", True, (255, 255, 255))
             screen.blit(disp_label, (panel_x + margin_x, disp_y))
 
-            dpill_w, dpill_h = 160, 36
+            dpill_w, dpill_h = 120, 36
+            _dpill_gap = 10
             fs_rect = pygame.Rect(slider_x, disp_y - 8, dpill_w, dpill_h)
-            win_rect = pygame.Rect(slider_x + dpill_w + 14, disp_y - 8, dpill_w, dpill_h)
+            bl_rect = pygame.Rect(slider_x + dpill_w + _dpill_gap, disp_y - 8, dpill_w, dpill_h)
+            win_rect = pygame.Rect(slider_x + (dpill_w + _dpill_gap) * 2, disp_y - 8, dpill_w, dpill_h)
             for rect, label, is_sel in [
                 (fs_rect, "전체화면", display_mode == "fullscreen"),
+                (bl_rect, "전체창모드", display_mode == "borderless"),
                 (win_rect, "창모드", display_mode == "windowed"),
             ]:
                 col = (60, 90, 130) if is_sel else (45, 55, 70)
@@ -1186,10 +1189,12 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
 
             # 설명 텍스트
             desc_y = disp_y + 50
-            if display_mode == "fullscreen":
-                desc = font_tiny.render("모니터 해상도에 맞춰 전체화면으로 표시합니다", True, (150, 180, 200))
-            else:
-                desc = font_tiny.render("필러 배경 포함 창모드로 표시합니다", True, (150, 180, 200))
+            _disp_descs = {
+                "fullscreen": "모니터 해상도에 맞춰 전체화면으로 표시합니다",
+                "borderless": "모니터에 꽉 차는 프레임 없는 창으로 표시합니다",
+                "windowed": "필러 배경 포함 창모드로 표시합니다",
+            }
+            desc = font_tiny.render(_disp_descs.get(display_mode, ""), True, (150, 180, 200))
             screen.blit(desc, desc.get_rect(centerx=width // 2, top=desc_y))
 
         # ─── 뒤로가기 버튼 ───
@@ -1225,12 +1230,9 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                     _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme)
                     # 디스플레이 모드 변경 적용
                     try:
-                        from pingfighter import switch_display_mode, is_windowed_mode
-                        _currently_windowed = is_windowed_mode()
-                        if display_mode == "windowed" and not _currently_windowed:
-                            switch_display_mode(to_windowed=True)
-                        elif display_mode == "fullscreen" and _currently_windowed:
-                            switch_display_mode(to_windowed=False)
+                        from pingfighter import switch_display_mode, get_display_mode
+                        if display_mode != get_display_mode():
+                            switch_display_mode(display_mode)
                     except Exception as _e:
                         print(f"[디스플레이 전환 오류] {_e}")
                     return
@@ -1245,7 +1247,9 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                     if current_tab == "controls" and focus == "scheme":
                         control_scheme = "keyboard"
                     elif current_tab == "display" and focus == "dispmode":
-                        display_mode = "fullscreen"
+                        _dm_order = ["fullscreen", "borderless", "windowed"]
+                        _dm_idx = _dm_order.index(display_mode) if display_mode in _dm_order else 0
+                        display_mode = _dm_order[max(0, _dm_idx - 1)]
                     elif current_tab == "sound" and focus == "bgm":
                         current_bgm_volume = clamp_volume(current_bgm_volume - 0.05)
                         if not bgm_muted and bgm_mgr:
@@ -1261,7 +1265,9 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                     if current_tab == "controls" and focus == "scheme":
                         control_scheme = "mouse_keyboard"
                     elif current_tab == "display" and focus == "dispmode":
-                        display_mode = "windowed"
+                        _dm_order = ["fullscreen", "borderless", "windowed"]
+                        _dm_idx = _dm_order.index(display_mode) if display_mode in _dm_order else 0
+                        display_mode = _dm_order[min(len(_dm_order) - 1, _dm_idx + 1)]
                     elif current_tab == "sound" and focus == "bgm":
                         current_bgm_volume = clamp_volume(current_bgm_volume + 0.05)
                         if not bgm_muted and bgm_mgr:
@@ -1297,17 +1303,16 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme)
                         # 디스플레이 모드 변경 적용
                         try:
-                            from pingfighter import switch_display_mode, is_windowed_mode
-                            _currently_windowed = is_windowed_mode()
-                            if display_mode == "windowed" and not _currently_windowed:
-                                switch_display_mode(to_windowed=True)
-                            elif display_mode == "fullscreen" and _currently_windowed:
-                                switch_display_mode(to_windowed=False)
+                            from pingfighter import switch_display_mode, get_display_mode
+                            if display_mode != get_display_mode():
+                                switch_display_mode(display_mode)
                         except Exception as _e:
                             print(f"[디스플레이 전환 오류] {_e}")
                         return
                     elif current_tab == "display" and focus == "dispmode":
-                        display_mode = "windowed" if display_mode == "fullscreen" else "fullscreen"
+                        _dm_order = ["fullscreen", "borderless", "windowed"]
+                        _dm_idx = _dm_order.index(display_mode) if display_mode in _dm_order else 0
+                        display_mode = _dm_order[(_dm_idx + 1) % len(_dm_order)]
                     elif current_tab == "controls" and focus == "scheme":
                         control_scheme = "mouse_keyboard" if control_scheme == "keyboard" else "keyboard"
                     elif current_tab == "sound" and focus == "bgm":
@@ -1346,12 +1351,9 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                     _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme)
                     # 디스플레이 모드 변경 적용
                     try:
-                        from pingfighter import switch_display_mode, is_windowed_mode
-                        _currently_windowed = is_windowed_mode()
-                        if display_mode == "windowed" and not _currently_windowed:
-                            switch_display_mode(to_windowed=True)
-                        elif display_mode == "fullscreen" and _currently_windowed:
-                            switch_display_mode(to_windowed=False)
+                        from pingfighter import switch_display_mode, get_display_mode
+                        if display_mode != get_display_mode():
+                            switch_display_mode(display_mode)
                     except Exception as _e:
                         print(f"[디스플레이 전환 오류] {_e}")
                     return
@@ -1367,6 +1369,9 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                 if current_tab == "display":
                     if fs_rect.collidepoint(mp):
                         display_mode = "fullscreen"
+                        continue
+                    if bl_rect.collidepoint(mp):
+                        display_mode = "borderless"
                         continue
                     if win_rect.collidepoint(mp):
                         display_mode = "windowed"

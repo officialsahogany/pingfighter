@@ -202,8 +202,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
 
     # 디스플레이 모드 상태
     try:
-        from pingfighter import is_windowed_mode as _is_win_mode
-        display_mode = "windowed" if _is_win_mode() else "fullscreen"
+        from pingfighter import get_display_mode as _get_dm
+        display_mode = _get_dm()
     except Exception:
         display_mode = "fullscreen"
 
@@ -303,14 +303,17 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
             _draw_pill(kb_rect, '키보드만', control_scheme == 'keyboard', locals().get('focus','bgm') == 'scheme')
             _draw_pill(mk_rect, '마우스+키보드', control_scheme == 'mouse_keyboard', locals().get('focus','bgm') == 'scheme')
         elif current_tab == 'display':
-            # 화면 모드 선택 (전체화면 / 창모드)
+            # 화면 모드 선택 (전체화면 / 전체창모드 / 창모드)
             disp_label = font_medium.render("화면 모드", True, const.WHITE)
             ctx.screen.blit(disp_label, (panel_x + margin_x, bgm_slider_y + slider_height // 2 - 10))
-            dpill_w, dpill_h = 160, 36
+            dpill_w, dpill_h = 120, 36
+            _dpill_gap = 10
             fs_rect = pygame.Rect(bgm_slider_x, bgm_slider_y - 8, dpill_w, dpill_h)
-            win_rect = pygame.Rect(bgm_slider_x + dpill_w + 14, bgm_slider_y - 8, dpill_w, dpill_h)
+            bl_rect = pygame.Rect(bgm_slider_x + dpill_w + _dpill_gap, bgm_slider_y - 8, dpill_w, dpill_h)
+            win_rect = pygame.Rect(bgm_slider_x + (dpill_w + _dpill_gap) * 2, bgm_slider_y - 8, dpill_w, dpill_h)
             for _drect, _dlabel, _dsel in [
                 (fs_rect, '전체화면', display_mode == 'fullscreen'),
+                (bl_rect, '전체창모드', display_mode == 'borderless'),
                 (win_rect, '창모드', display_mode == 'windowed'),
             ]:
                 _dcol = (60, 90, 130) if _dsel else (45, 55, 70)
@@ -320,10 +323,12 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                 ctx.screen.blit(_ds, _ds.get_rect(center=_drect.center))
             # 설명 텍스트
             _desc_y = bgm_slider_y + 45
-            if display_mode == 'fullscreen':
-                _desc_t = font_small.render("전체화면으로 표시합니다", True, (150, 180, 200))
-            else:
-                _desc_t = font_small.render("필러 배경 포함 창모드로 표시합니다", True, (150, 180, 200))
+            _disp_descs = {
+                'fullscreen': "전체화면으로 표시합니다",
+                'borderless': "모니터에 꽉 차는 프레임 없는 창으로 표시합니다",
+                'windowed': "필러 배경 포함 창모드로 표시합니다",
+            }
+            _desc_t = font_small.render(_disp_descs.get(display_mode, ''), True, (150, 180, 200))
             ctx.screen.blit(_desc_t, _desc_t.get_rect(centerx=ctx.width // 2, top=_desc_y))
         else:
             # -------- 사운드 탭 --------
@@ -445,12 +450,9 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     settings.save_settings()
                     # 디스플레이 모드 변경 적용
                     try:
-                        from pingfighter import switch_display_mode, is_windowed_mode
-                        _cw = is_windowed_mode()
-                        if display_mode == "windowed" and not _cw:
-                            switch_display_mode(to_windowed=True)
-                        elif display_mode == "fullscreen" and _cw:
-                            switch_display_mode(to_windowed=False)
+                        from pingfighter import switch_display_mode, get_display_mode
+                        if display_mode != get_display_mode():
+                            switch_display_mode(display_mode)
                     except Exception:
                         pass
                     return
@@ -464,7 +466,9 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         if locals().get('focus','bgm') in ('scheme','back'):
                             control_scheme = 'keyboard'
                     elif current_tab == 'display' and focus == 'dispmode':
-                        display_mode = 'fullscreen'
+                        _dm_order = ['fullscreen', 'borderless', 'windowed']
+                        _dm_idx = _dm_order.index(display_mode) if display_mode in _dm_order else 0
+                        display_mode = _dm_order[max(0, _dm_idx - 1)]
                     elif focus == "bgm":
                         current_bgm_volume = clamp_volume(current_bgm_volume - 0.05)
                         if not bgm_muted:
@@ -480,7 +484,9 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         if locals().get('focus','bgm') in ('scheme','back'):
                             control_scheme = 'mouse_keyboard'
                     elif current_tab == 'display' and focus == 'dispmode':
-                        display_mode = 'windowed'
+                        _dm_order = ['fullscreen', 'borderless', 'windowed']
+                        _dm_idx = _dm_order.index(display_mode) if display_mode in _dm_order else 0
+                        display_mode = _dm_order[min(len(_dm_order) - 1, _dm_idx + 1)]
                     elif focus == "bgm":
                         current_bgm_volume = clamp_volume(current_bgm_volume + 0.05)
                         if not bgm_muted:
@@ -509,7 +515,9 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     focus = order[(order.index(focus) + 1) % len(order)] if focus in order else order[0]
                 elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
                     if current_tab == 'display' and focus == 'dispmode':
-                        display_mode = 'windowed' if display_mode == 'fullscreen' else 'fullscreen'
+                        _dm_order = ['fullscreen', 'borderless', 'windowed']
+                        _dm_idx = _dm_order.index(display_mode) if display_mode in _dm_order else 0
+                        display_mode = _dm_order[(_dm_idx + 1) % len(_dm_order)]
                     elif current_tab == 'controls' and focus == 'scheme':
                         control_scheme = 'mouse_keyboard' if control_scheme == 'keyboard' else 'keyboard'
                     elif focus == "back":
@@ -518,12 +526,9 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
                         # 디스플레이 모드 변경 적용
                         try:
-                            from pingfighter import switch_display_mode, is_windowed_mode
-                            _cw = is_windowed_mode()
-                            if display_mode == "windowed" and not _cw:
-                                switch_display_mode(to_windowed=True)
-                            elif display_mode == "fullscreen" and _cw:
-                                switch_display_mode(to_windowed=False)
+                            from pingfighter import switch_display_mode, get_display_mode
+                            if display_mode != get_display_mode():
+                                switch_display_mode(display_mode)
                         except Exception:
                             pass
                         return
@@ -553,12 +558,9 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
                         # 디스플레이 모드 변경 적용
                         try:
-                            from pingfighter import switch_display_mode, is_windowed_mode
-                            _cw = is_windowed_mode()
-                            if display_mode == "windowed" and not _cw:
-                                switch_display_mode(to_windowed=True)
-                            elif display_mode == "fullscreen" and _cw:
-                                switch_display_mode(to_windowed=False)
+                            from pingfighter import switch_display_mode, get_display_mode
+                            if display_mode != get_display_mode():
+                                switch_display_mode(display_mode)
                         except Exception:
                             pass
                         return
@@ -574,6 +576,9 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     if current_tab == 'display':
                         if 'fs_rect' in locals() and fs_rect.collidepoint(mouse_pos):
                             display_mode = 'fullscreen'
+                            continue
+                        if 'bl_rect' in locals() and bl_rect.collidepoint(mouse_pos):
+                            display_mode = 'borderless'
                             continue
                         if 'win_rect' in locals() and win_rect.collidepoint(mouse_pos):
                             display_mode = 'windowed'
