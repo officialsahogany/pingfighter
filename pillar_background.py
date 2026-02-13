@@ -1527,7 +1527,10 @@ class PillarBackgroundRenderer:
 
         # === 전체 너비 (메인 + 오버플로우) 기준 가운데 정렬 ===
         total_width = box_width + overflow_box_width
-        box_y = self.game_offset_y + self.game_height + max(6, int(14 * _s))  # +14px 아래로 (스케일링)
+        # 하단 필러 영역 내 세로 중앙 배치 (잘림 방지)
+        _bottom_pillar_y = self.game_offset_y + self.game_height
+        _bottom_pillar_h = self.screen_height - _bottom_pillar_y
+        box_y = _bottom_pillar_y + max(2, (_bottom_pillar_h - box_height) // 2)
 
         # 게임 영역 내 가운데 정렬
         game_area_right = self.game_offset_x + self.game_width
@@ -1852,8 +1855,10 @@ class PillarBackgroundRenderer:
         box_width = box_inner_width + box_padding * 2
         box_height = SLOT_H + box_padding * 2
 
-        # 위치: draw_left_pillar_ui()와 동일
-        box_y = self.game_offset_y + self.game_height + max(6, int(14 * _s))
+        # 위치: draw_left_pillar_ui()와 동일 - 하단 필러 영역 내 세로 중앙 배치
+        _bottom_pillar_y = self.game_offset_y + self.game_height
+        _bottom_pillar_h = self.screen_height - _bottom_pillar_y
+        box_y = _bottom_pillar_y + max(2, (_bottom_pillar_h - box_height) // 2)
         game_area_right = self.game_offset_x + self.game_width
         box_x = self.game_offset_x + (self.game_width - box_width) // 2
 
