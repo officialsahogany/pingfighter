@@ -19936,9 +19936,14 @@ def show_arena_perk_select_menu():
                             else:
                                 selected_idx = i
                             break
-                elif event.button == 4:  # 마우스 휠 위
+                elif event.button == 4:  # 마우스 휠 위 (레거시)
                     scroll_offset = max(0, scroll_offset - 1)
-                elif event.button == 5:  # 마우스 휠 아래
+                elif event.button == 5:  # 마우스 휠 아래 (레거시)
+                    scroll_offset = min(max_scroll, scroll_offset + 1)
+            elif event.type == pygame.MOUSEWHEEL:
+                if event.y > 0:  # 마우스 휠 위
+                    scroll_offset = max(0, scroll_offset - 1)
+                elif event.y < 0:  # 마우스 휠 아래
                     scroll_offset = min(max_scroll, scroll_offset + 1)
 
         # 선택된 항목이 보이도록 스크롤 조정
