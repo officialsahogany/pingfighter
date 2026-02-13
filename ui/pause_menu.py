@@ -455,8 +455,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         from pingfighter import switch_display_mode, get_display_mode
                         if display_mode != get_display_mode():
                             switch_display_mode(display_mode)
-                    except Exception:
-                        pass
+                    except Exception as _e:
+                        print(f"[디스플레이 전환 오류] {_e}")
                     return
                 if event.key == pygame.K_TAB:
                     _tab_order = ['sound', 'controls', 'display']

@@ -8550,7 +8550,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         print(f"[디스플레이] 창모드 전환 완료: {actual_w}x{actual_h}", flush=True)
 
     elif mode == "fullscreen":
-        # === 전체화면으로 전환 (네이티브 해상도, OS 해상도 변경 없음) ===
+        # === 전체화면으로 전환 (보더리스 윈도우, 네이티브 해상도) ===
         print("[디스플레이] 전체화면으로 전환 시작...", flush=True)
 
         # 시네마모드에서 전환 시 해상도 복원
@@ -8559,29 +8559,29 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             import time
             time.sleep(0.3)
 
-        FULLSCREEN_MODE = True
-
-        # 모니터 해상도 재감지
-        if _current_platform == 'Windows':
-            _monitor_res = _get_current_resolution()
-            if _monitor_res and _monitor_res[0] > 0 and _monitor_res[1] > 0:
-                FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT = _monitor_res
+        # 네이티브 모니터 해상도 감지
+        if sys.platform == 'win32':
+            native = _get_native_resolution() or _get_current_resolution()
+            if native:
+                FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT = native
             else:
-                display_info = pygame.display.Info()
-                FULLSCREEN_WIDTH = display_info.current_w
-                FULLSCREEN_HEIGHT = display_info.current_h
+                FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT = 1920, 1080
         else:
             display_info = pygame.display.Info()
             FULLSCREEN_WIDTH = display_info.current_w
             FULLSCREEN_HEIGHT = display_info.current_h
 
-        # 전체화면 플래그
-        if _current_platform == 'Darwin':
-            _fs_flags = pygame.FULLSCREEN | pygame.DOUBLEBUF
-        else:
-            _fs_flags = pygame.FULLSCREEN
+        FULLSCREEN_MODE = False
+        _is_fullscreen_active = True
 
-        REAL_SCREEN = _original_set_mode((FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT), _fs_flags)
+        # 보더리스 윈도우로 전체화면 (호환성 최적)
+        os.environ['SDL_VIDEO_WINDOW_POS'] = '0,0'
+        if _current_platform == 'Darwin':
+            REAL_SCREEN = _original_set_mode((FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT), pygame.NOFRAME | pygame.DOUBLEBUF)
+        else:
+            REAL_SCREEN = _original_set_mode((FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT), pygame.NOFRAME)
+        if 'SDL_VIDEO_WINDOW_POS' in os.environ:
+            del os.environ['SDL_VIDEO_WINDOW_POS']
 
         if _custom_cursor_enabled:
             pygame.mouse.set_visible(False)
@@ -8615,8 +8615,6 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             original_game_width=WIDTH, original_game_height=HEIGHT
         )
         _set_dm_fullscreen(True, SCREEN)
-
-        _is_fullscreen_active = True
 
         pygame.display.flip = _fullscreen_flip
         pygame.display.update = _fullscreen_update
