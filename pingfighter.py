@@ -7313,27 +7313,27 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
         _ty = hover_info["screen_y"]
         _ty = max(4, min(_ty, target_screen.get_height() - _th - 4))
 
-        _tip_bg = pygame.Surface((_tw, _th), pygame.SRCALPHA)
-        pygame.draw.rect(_tip_bg, (16, 20, 36, 230), (0, 0, _tw, _th), border_radius=8)
-        pygame.draw.rect(_tip_bg, (*_gh_color, 200), (0, 0, _tw, _th), 2, border_radius=8)
-        target_screen.blit(_tip_bg, (_tx, _ty))
+        # 중간 서피스에 그린 뒤 스케일링
+        _tip_surf = pygame.Surface((_tw, _th), pygame.SRCALPHA)
+        pygame.draw.rect(_tip_surf, (16, 20, 36, 230), (0, 0, _tw, _th), border_radius=8)
+        pygame.draw.rect(_tip_surf, (*_gh_color, 200), (0, 0, _tw, _th), 2, border_radius=8)
 
-        _cy = _ty + 6
+        _cy = 6
         for _ls in _lines:
-            target_screen.blit(_ls, (_tx + 10, _cy))
+            _tip_surf.blit(_ls, (10, _cy))
             _cy += _ls.get_height() + 4
 
         # 스킬 정보 섹션
         if _skill_entries:
             _cy += 2
             # 구분선
-            pygame.draw.line(target_screen, (*_gh_color[:3], 80),
-                           (_tx + 8, _cy), (_tx + _tw - 8, _cy), 1)
+            pygame.draw.line(_tip_surf, (*_gh_color[:3], 80),
+                           (8, _cy), (_tw - 8, _cy), 1)
             _cy += 4
             # 다중 스킬 헤더
             if len(_gh_skills) > 1:
                 _hdr_surf = _gh_tiny.render("스킬 (랜덤 발동)", True, (180, 180, 220))
-                target_screen.blit(_hdr_surf, (_tx + 10, _cy))
+                _tip_surf.blit(_hdr_surf, (10, _cy))
                 _cy += 18
             # 각 스킬 표시
             for idx, _se in enumerate(_skill_entries):
@@ -7341,18 +7341,19 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
                     _cy += 6
                 # 스킬 아이콘 + 이름
                 if _se["icon"]:
-                    target_screen.blit(_se["icon"], (_tx + 8, _cy))
+                    _tip_surf.blit(_se["icon"], (8, _cy))
                     _sn_surf = _gh_small.render(_se["name"], True, (255, 230, 150))
-                    target_screen.blit(_sn_surf, (_tx + 30, _cy + 1))
+                    _tip_surf.blit(_sn_surf, (30, _cy + 1))
                 else:
                     _sn_surf = _gh_small.render(_se["name"], True, (255, 230, 150))
-                    target_screen.blit(_sn_surf, (_tx + 10, _cy + 1))
+                    _tip_surf.blit(_sn_surf, (10, _cy + 1))
                 _cy += 20
                 # 설명 텍스트
                 for dl in _se["desc_lines"]:
                     _dl_surf = _gh_tiny.render(dl, True, (200, 195, 180))
-                    target_screen.blit(_dl_surf, (_tx + 10, _cy))
+                    _tip_surf.blit(_dl_surf, (10, _cy))
                     _cy += 14
+        _blit_scaled_tooltip(target_screen, _tip_surf, _tx, _ty, _tw, _th)
     except Exception:
         pass
 
@@ -7398,18 +7399,19 @@ def _draw_perk_hover_tooltip(target_screen, hover_info):
         _ty = hover_info["screen_y"]
         _ty = max(4, min(_ty, target_screen.get_height() - _th - 4))
 
-        _tip_bg = pygame.Surface((_tw, _th), pygame.SRCALPHA)
-        pygame.draw.rect(_tip_bg, (16, 20, 36, 230), (0, 0, _tw, _th), border_radius=6)
-        pygame.draw.rect(_tip_bg, (*_p_color[:3], 180), (0, 0, _tw, _th), 2, border_radius=6)
-        target_screen.blit(_tip_bg, (_tx, _ty))
+        # 중간 서피스에 그린 뒤 스케일링
+        _tip_surf = pygame.Surface((_tw, _th), pygame.SRCALPHA)
+        pygame.draw.rect(_tip_surf, (16, 20, 36, 230), (0, 0, _tw, _th), border_radius=6)
+        pygame.draw.rect(_tip_surf, (*_p_color[:3], 180), (0, 0, _tw, _th), 2, border_radius=6)
 
-        _cy = _ty + 5
-        target_screen.blit(_n_surf, (_tx + 10, _cy))
+        _cy = 5
+        _tip_surf.blit(_n_surf, (10, _cy))
         _cy += _n_surf.get_height() + 4
         for dl in _desc_lines:
             _ds = _p_small.render(dl, True, (200, 195, 180))
-            target_screen.blit(_ds, (_tx + 10, _cy))
+            _tip_surf.blit(_ds, (10, _cy))
             _cy += 16
+        _blit_scaled_tooltip(target_screen, _tip_surf, _tx, _ty, _tw, _th)
     except Exception:
         pass
 
