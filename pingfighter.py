@@ -8394,18 +8394,25 @@ def switch_display_mode(to_windowed: bool):
             _dinfo = pygame.display.Info()
             monitor_w, monitor_h = _dinfo.current_w, _dinfo.current_h
 
-        # 게임 비율 유지하면서 모니터의 70% 크기로 창 설정
-        target_h = int(monitor_h * 0.70)
-        scale = target_h / HEIGHT
-        target_w = int(WIDTH * scale)
+        # 게임 비율 유지하면서 필러 배경까지 포함하여 창 구성
+        base_h = int(monitor_h * 0.70)
+        _win_scale = base_h / HEIGHT
+        game_w = int(WIDTH * _win_scale)
+
+        # 필러 배경 공간 추가 (좌우 각 30%, 상하 각 6.5%)
+        _pillar_pad_x = int(game_w * 0.30)
+        _pillar_pad_y = max(int(base_h * 0.065), 30)
+
+        target_w = game_w + _pillar_pad_x * 2
+        target_h = base_h + _pillar_pad_y * 2
 
         # 창이 모니터보다 크지 않도록 보정
-        if target_w > int(monitor_w * 0.85):
-            target_w = int(monitor_w * 0.85)
-            scale = target_w / WIDTH
-            target_h = int(HEIGHT * scale)
+        if target_w > int(monitor_w * 0.90):
+            target_w = int(monitor_w * 0.90)
+        if target_h > int(monitor_h * 0.85):
+            target_h = int(monitor_h * 0.85)
 
-        print(f"[디스플레이] 창모드: 모니터 {monitor_w}x{monitor_h} → 창 {target_w}x{target_h} (스케일 {scale:.2f}x)", flush=True)
+        print(f"[디스플레이] 창모드: 모니터 {monitor_w}x{monitor_h} → 창 {target_w}x{target_h} (필러패딩 좌우{_pillar_pad_x}px 상하{_pillar_pad_y}px)", flush=True)
 
         # 전체화면 해제 + 새 창 생성
         FULLSCREEN_MODE = False
@@ -8424,8 +8431,8 @@ def switch_display_mode(to_windowed: bool):
         FULLSCREEN_WIDTH = actual_w
         FULLSCREEN_HEIGHT = actual_h
 
-        # 스케일링 계산 (전체화면과 동일한 로직, 마진 없음)
-        MARGIN = 10  # 창모드에서는 마진 최소화
+        # 스케일링 계산 (필러 배경 공간 확보)
+        MARGIN = _pillar_pad_y  # 상하 필러 마진
         scale_y = (actual_h - MARGIN * 2) / HEIGHT
         scaled_width_check = int(WIDTH * scale_y)
         if scaled_width_check > actual_w:
@@ -97629,6 +97636,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
     """
     global player_ai_enabled, _pillar_ui_enabled, win_goal
     global arena_mode_enabled, arena_speed_multiplier, arena_battle_result, arena_top_hero, arena_bottom_hero, arena_hero_paddle_renderer
+    global arena_battle_arena_obj
     global arena_skill_manager, arena_skill_check_timer
     global arena_top_dashing, arena_top_dash_timer, arena_top_dash_direction
     global arena_top_dash_target_x, arena_top_dash_cooldown, arena_top_dash_afterimages
@@ -97711,6 +97719,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
 
         # 투기장 퍽 효과 적용
         _arena_perk_obj = _arena_pending_perk_data
+        arena_battle_arena_obj = _arena_perk_obj  # F8 퍽 선택용 참조 저장
         if _arena_perk_obj:
             apply_arena_perks_for_battle(_arena_perk_obj, top_hero["id"], bottom_hero["id"])
             # 잔상술 퍽으로 증가된 최대 토큰 수를 현재 충전량에 반영
@@ -97834,6 +97843,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         # 투기장 모드 종료 시 초기화
         win_goal = _saved_win_goal  # 승점 복원
         arena_mode_enabled = False
+        arena_battle_arena_obj = None  # F8 퍽 선택용 참조 해제
         arena_top_hero = None
         arena_bottom_hero = None
         arena_hero_paddle_renderer = None

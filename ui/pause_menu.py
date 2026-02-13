@@ -323,7 +323,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
             if display_mode == 'fullscreen':
                 _desc_t = font_small.render("전체화면으로 표시합니다", True, (150, 180, 200))
             else:
-                _desc_t = font_small.render("모니터의 70% 크기 창으로 표시합니다", True, (150, 180, 200))
+                _desc_t = font_small.render("필러 배경 포함 창모드로 표시합니다", True, (150, 180, 200))
             ctx.screen.blit(_desc_t, _desc_t.get_rect(centerx=ctx.width // 2, top=_desc_y))
         else:
             # -------- 사운드 탭 --------

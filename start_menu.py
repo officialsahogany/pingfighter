@@ -1189,7 +1189,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
             if display_mode == "fullscreen":
                 desc = font_tiny.render("모니터 해상도에 맞춰 전체화면으로 표시합니다", True, (150, 180, 200))
             else:
-                desc = font_tiny.render("모니터 해상도의 70% 크기 창으로 표시합니다", True, (150, 180, 200))
+                desc = font_tiny.render("필러 배경 포함 창모드로 표시합니다", True, (150, 180, 200))
             screen.blit(desc, desc.get_rect(centerx=width // 2, top=desc_y))
 
         # ─── 뒤로가기 버튼 ───
