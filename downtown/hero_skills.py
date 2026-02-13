@@ -11720,7 +11720,11 @@ class HeroSkillManager:
                         })
 
                     # 스킬 이름 정보 추가 (말풍선용)
-                    result['skill_korean_name'] = skill.korean_name
+                    # 망자빙의 등 빙의 스킬은 발동된 스킬 이름을 표시
+                    if 'possession_skill_name' in result:
+                        result['skill_korean_name'] = result['possession_skill_name']
+                    else:
+                        result['skill_korean_name'] = skill.korean_name
                     result['caster_is_top'] = caster_paddle.is_top
 
                     return result
