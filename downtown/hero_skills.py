@@ -9611,6 +9611,391 @@ class SkeletonArcher(HeroSkill):
 
 
 # ============================================================================
+# 네크로 (Necro) - 뼈 장막 스킬
+# ============================================================================
+
+class BoneBarrier(HeroSkill):
+    """뼈 장막 - 내 진영에 날카로운 뼈 장벽을 건설한다.
+    건설 3초, 건설 중 공에 맞으면 파괴(반사 없음), 완성 후 공 1회 반사 후 파괴.
+    라운드를 넘겨도 유지, 겹쳐서 건설 불가(간격 필요).
+    """
+
+    BARRIER_WIDTH = 80
+    BARRIER_HEIGHT = 12
+    BUILD_TIME = 3.0
+    DEATH_DURATION = 0.6
+    MIN_SPACING = 110       # 장벽 간 최소 거리
+    GAME_LEFT = 80
+    GAME_RIGHT = 680
+
+    def __init__(self):
+        super().__init__(
+            skill_id="bone_barrier",
+            name="Bone Barrier",
+            korean_name="뼈 장막",
+            description="내 진영에 날카로운 뼈 장막을 건설한다. 완성 후 공을 1회 반사하고 파괴된다.",
+            trigger=SkillTrigger.ON_COOLDOWN,
+            cooldown=17.0,
+            duration=999999.0,
+            hero_id="necro"
+        )
+        self.barriers = []
+        self.dying_barriers = []
+        self.caster_is_top = False
+        self._next_id = 0
+
+    # ------------------------------------------------------------------
+    def can_use(self) -> bool:
+        return self.current_cooldown <= 0
+
+    def use(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        if not self.can_use():
+            return {}
+        self.caster_is_top = getattr(caster_paddle, 'is_top', False)
+        if self.caster_is_top:
+            skill_cd_mult = game_state.get('perk_skill_cd_mult_top', 1.0)
+        else:
+            skill_cd_mult = game_state.get('perk_skill_cd_mult_bottom', 1.0)
+        self.current_cooldown = self.cooldown * skill_cd_mult
+        self.is_active = True
+        self.active_timer = self.duration
+        return self._apply_effect(caster_paddle, target_paddle, ball, game_state)
+
+    # ------------------------------------------------------------------
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        self.caster_is_top = getattr(caster_paddle, 'is_top', False)
+
+        # 진영별 Y 범위
+        if self.caster_is_top:
+            y_min, y_max = 70, 340
+        else:
+            y_min, y_max = 410, 690
+
+        # 겹침 방지: 기존 장벽과 간격 확인하며 위치 탐색
+        placed = False
+        new_x, new_y = 0, 0
+        for _ in range(30):
+            nx = random.randint(self.GAME_LEFT + 10, self.GAME_RIGHT - self.BARRIER_WIDTH - 10)
+            ny = random.randint(y_min, y_max)
+            too_close = False
+            for b in self.barriers:
+                if b['alive']:
+                    dx = abs((nx + self.BARRIER_WIDTH / 2) - (b['x'] + b['width'] / 2))
+                    dy = abs(ny - b['y'])
+                    if dx < self.MIN_SPACING and dy < self.MIN_SPACING:
+                        too_close = True
+                        break
+            if not too_close:
+                new_x, new_y = nx, ny
+                placed = True
+                break
+
+        if not placed:
+            new_x = random.randint(self.GAME_LEFT + 10, self.GAME_RIGHT - self.BARRIER_WIDTH - 10)
+            new_y = random.randint(y_min, y_max)
+
+        # 뼈 조각 생성 (조립 애니메이션용)
+        num_bones = random.randint(10, 14)
+        bone_segments = []
+        for i in range(num_bones):
+            final_x = new_x + (i / max(1, num_bones - 1)) * self.BARRIER_WIDTH
+            final_y = new_y
+            scatter_angle = random.uniform(0, math.pi * 2)
+            scatter_dist = random.uniform(50, 120)
+            bone_segments.append({
+                'start_x': final_x + math.cos(scatter_angle) * scatter_dist,
+                'start_y': final_y + math.sin(scatter_angle) * scatter_dist,
+                'final_x': final_x,
+                'final_y': final_y,
+                'start_rot': random.uniform(0, math.pi * 2),
+                'final_rot': random.uniform(-0.15, 0.15),
+                'length': random.randint(8, 14),
+                'delay': i * 0.04 + random.uniform(0, 0.15),
+            })
+
+        # 완성 시 스파이크 높이 미리 계산 (draw 시 일관성)
+        num_spikes = self.BARRIER_WIDTH // 14
+        spike_heights = [random.randint(5, 10) for _ in range(num_spikes)]
+
+        barrier = {
+            'id': self._next_id,
+            'x': float(new_x),
+            'y': float(new_y),
+            'width': self.BARRIER_WIDTH,
+            'height': self.BARRIER_HEIGHT,
+            'build_timer': 0.0,
+            'built': False,
+            'alive': True,
+            'bone_segments': bone_segments,
+            'spike_heights': spike_heights,
+        }
+        self.barriers.append(barrier)
+        self._next_id += 1
+
+        # 소환 사운드
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            sound_path = os.path.join(project_root, "sounds", "ghostwalk.wav")
+            if os.path.exists(sound_path):
+                s = pygame.mixer.Sound(sound_path)
+                s.set_volume(0.3)
+                s.play()
+        except Exception:
+            pass
+
+        return {
+            'screen_effect': ScreenEffect.FLASH,
+            'flash_color': (180, 170, 130),
+            'flash_duration': 0.1,
+        }
+
+    # ------------------------------------------------------------------
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        new_barriers = []
+
+        for barrier in self.barriers:
+            if not barrier['alive']:
+                continue
+
+            barrier['build_timer'] += dt
+
+            # 건설 완료 체크
+            if not barrier['built'] and barrier['build_timer'] >= self.BUILD_TIME:
+                barrier['built'] = True
+                try:
+                    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    sound_path = os.path.join(project_root, "sounds", "steambarrior.wav")
+                    if os.path.exists(sound_path):
+                        s = pygame.mixer.Sound(sound_path)
+                        s.set_volume(0.4)
+                        s.play()
+                except Exception:
+                    pass
+
+            # 공 충돌 체크
+            if ball is not None:
+                bx = int(ball.x)
+                by = int(ball.y)
+                bw = int(ball.width)
+                bh = int(ball.height)
+                ball_rect = pygame.Rect(bx, by, bw, bh)
+                br_x = int(barrier['x'])
+                br_y = int(barrier['y'] - barrier['height'] / 2)
+                barrier_rect = pygame.Rect(br_x, br_y, int(barrier['width']), int(barrier['height']))
+
+                if ball_rect.colliderect(barrier_rect):
+                    if barrier['built']:
+                        # 완성된 장벽: 공 반사 후 파괴
+                        ball_cy = ball.y + ball.height / 2
+                        barrier_cy = barrier['y']
+                        if ball_cy < barrier_cy:
+                            ball.vy = -abs(ball.vy) * 1.05
+                        else:
+                            ball.vy = abs(ball.vy) * 1.05
+                        # 약간의 X 편향
+                        hit_offset = (ball.x + ball.width / 2) - (barrier['x'] + barrier['width'] / 2)
+                        ball.vx += hit_offset * 0.03
+
+                        barrier['alive'] = False
+                        self._spawn_death_fragments(barrier)
+                        try:
+                            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                            sound_path = os.path.join(project_root, "sounds", "steambarriorbreak.wav")
+                            if os.path.exists(sound_path):
+                                snd = pygame.mixer.Sound(sound_path)
+                                snd.set_volume(0.4)
+                                snd.play()
+                        except Exception:
+                            pass
+                        continue
+                    else:
+                        # 건설 중: 반사 없이 파괴
+                        barrier['alive'] = False
+                        self._spawn_death_fragments(barrier)
+                        try:
+                            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                            sound_path = os.path.join(project_root, "sounds", "shurikenhit.wav")
+                            if os.path.exists(sound_path):
+                                snd = pygame.mixer.Sound(sound_path)
+                                snd.set_volume(0.3)
+                                snd.play()
+                        except Exception:
+                            pass
+                        continue
+
+            new_barriers.append(barrier)
+
+        self.barriers = new_barriers
+
+        # 파괴 애니메이션 업데이트
+        new_dying = []
+        for d in self.dying_barriers:
+            d['death_time'] += dt
+            if d['death_time'] < self.DEATH_DURATION:
+                new_dying.append(d)
+        self.dying_barriers = new_dying
+
+    # ------------------------------------------------------------------
+    def _spawn_death_fragments(self, barrier):
+        frags = []
+        for _ in range(12):
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(60, 180)
+            frags.append({
+                'x': barrier['x'] + random.uniform(0, barrier['width']),
+                'y': barrier['y'],
+                'vx': math.cos(angle) * speed,
+                'vy': math.sin(angle) * speed - 50,
+                'rot': random.uniform(0, math.pi * 2),
+                'rot_speed': random.uniform(-12, 12),
+                'length': random.randint(4, 10),
+            })
+        self.dying_barriers.append({
+            'x': barrier['x'],
+            'y': barrier['y'],
+            'width': barrier['width'],
+            'death_time': 0.0,
+            'fragments': frags,
+        })
+
+    # ------------------------------------------------------------------
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        pass  # 장벽은 파괴될 때까지 유지
+
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 넘겨도 장벽 유지, 파괴 애니메이션만 정리"""
+        self.dying_barriers = []
+        self.is_active = bool(self.barriers)
+        self.active_timer = self.duration if self.barriers else 0.0
+
+    def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        if self.current_cooldown > 0:
+            self.current_cooldown -= dt
+        if self.is_active:
+            self._update_active_effect(dt, caster_paddle, target_paddle, ball, game_state)
+        # 파괴 애니메이션은 is_active 관계없이
+        if self.dying_barriers and not self.is_active:
+            new_dying = []
+            for d in self.dying_barriers:
+                d['death_time'] += dt
+                if d['death_time'] < self.DEATH_DURATION:
+                    new_dying.append(d)
+            self.dying_barriers = new_dying
+
+    # ------------------------------------------------------------------
+    #  렌더링
+    # ------------------------------------------------------------------
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        for barrier in self.barriers:
+            self._draw_barrier(screen, barrier)
+        for dying in self.dying_barriers:
+            self._draw_dying_barrier(screen, dying)
+
+    def _draw_barrier(self, screen, barrier):
+        x = int(barrier['x'])
+        y = int(barrier['y'])
+        w = barrier['width']
+        h = barrier['height']
+        build_progress = min(1.0, barrier['build_timer'] / self.BUILD_TIME)
+
+        bone_c = (210, 200, 175)
+        bone_dk = (160, 150, 120)
+        bone_br = (230, 225, 200)
+        bone_sh = (120, 110, 85)
+        spike_c = (200, 190, 160)
+
+        if not barrier['built']:
+            # === 건설 중: 뼈 조각들이 사방에서 날아와 조립 ===
+            for seg in barrier['bone_segments']:
+                delay_norm = seg['delay'] / self.BUILD_TIME
+                adj = max(0.0, min(1.0, (build_progress - delay_norm) / max(0.01, 1.0 - delay_norm)))
+                ease = 1.0 - (1.0 - adj) ** 3
+
+                cur_x = seg['start_x'] + (seg['final_x'] - seg['start_x']) * ease
+                cur_y = seg['start_y'] + (seg['final_y'] - seg['start_y']) * ease
+                cur_rot = seg['start_rot'] + (seg['final_rot'] - seg['start_rot']) * ease
+                alpha = int(220 * min(1.0, adj * 2.5))
+                if alpha < 10:
+                    continue
+
+                half = seg['length'] / 2
+                x1 = int(cur_x + _cos(cur_rot) * half)
+                y1 = int(cur_y + _sin(cur_rot) * half)
+                x2 = int(cur_x - _cos(cur_rot) * half)
+                y2 = int(cur_y - _sin(cur_rot) * half)
+
+                line_w = 3 if adj > 0.5 else 2
+                pygame.draw.line(screen, bone_c, (x1, y1), (x2, y2), line_w)
+                pygame.draw.circle(screen, bone_br, (x1, y1), 2)
+                pygame.draw.circle(screen, bone_dk, (x2, y2), 2)
+
+            # 조립 스파크
+            if build_progress > 0.4:
+                spark_n = int(4 * (build_progress - 0.4) / 0.6)
+                for _ in range(spark_n):
+                    sx = x + random.randint(0, w)
+                    sy = y + random.randint(-6, 6)
+                    pygame.draw.circle(screen, (200, 220, 180), (sx, sy), 1)
+        else:
+            # === 완성된 뼈 장벽 ===
+            # 그림자
+            pygame.draw.rect(screen, bone_sh,
+                           (x + 2, y - h // 2 + 2, w, h), border_radius=3)
+            # 본체
+            pygame.draw.rect(screen, bone_dk,
+                           (x, y - h // 2, w, h), border_radius=3)
+            pygame.draw.rect(screen, bone_c,
+                           (x + 1, y - h // 2 + 1, w - 2, h - 2), border_radius=2)
+
+            # 뼈 텍스처
+            for i in range(w // 12):
+                lx = x + 6 + i * 12
+                pygame.draw.line(screen, bone_dk, (lx, y - h // 2 + 2), (lx, y + h // 2 - 2), 1)
+                pygame.draw.circle(screen, bone_br, (lx, y), 2)
+                pygame.draw.circle(screen, bone_dk, (lx, y), 2, 1)
+
+            # 상하 가시 스파이크
+            spike_heights = barrier.get('spike_heights', [])
+            num_spikes = len(spike_heights) if spike_heights else w // 14
+            for i in range(num_spikes):
+                sx = x + int((i + 0.5) * w / max(1, num_spikes))
+                sh = spike_heights[i] if i < len(spike_heights) else 7
+                # 상단 스파이크
+                pygame.draw.polygon(screen, spike_c, [
+                    (sx - 3, y - h // 2), (sx, y - h // 2 - sh), (sx + 3, y - h // 2)])
+                pygame.draw.polygon(screen, bone_br, [
+                    (sx - 2, y - h // 2), (sx, y - h // 2 - sh + 1), (sx + 1, y - h // 2)])
+                # 하단 스파이크
+                pygame.draw.polygon(screen, spike_c, [
+                    (sx - 3, y + h // 2), (sx, y + h // 2 + sh), (sx + 3, y + h // 2)])
+
+            # 상단 하이라이트
+            pygame.draw.line(screen, bone_br,
+                           (x + 3, y - h // 2 + 1), (x + w - 3, y - h // 2 + 1), 1)
+
+    def _draw_dying_barrier(self, screen, dying):
+        t = dying['death_time']
+        progress = t / self.DEATH_DURATION
+        if progress >= 1.0:
+            return
+
+        for frag in dying['fragments']:
+            fx = frag['x'] + frag['vx'] * t
+            fy = frag['y'] + frag['vy'] * t + 120 * t * t
+            rot = frag['rot'] + frag['rot_speed'] * t
+
+            half = frag['length'] / 2
+            x1 = int(fx + _cos(rot) * half)
+            y1 = int(fy + _sin(rot) * half)
+            x2 = int(fx - _cos(rot) * half)
+            y2 = int(fy - _sin(rot) * half)
+
+            fade = max(0.3, 1.0 - progress)
+            c = (int(210 * fade), int(200 * fade), int(175 * fade))
+            pygame.draw.line(screen, c, (x1, y1), (x2, y2), 2)
+
+
+# ============================================================================
 # 조커 (Joker) - 광대 스킬
 # ============================================================================
 
@@ -11402,7 +11787,7 @@ HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "gear": [SteamBarrier(), OilSpill()],
     "kurokage": [ShadowClone(), IllusionShuriken()],
     "banshee": [Charm(), GhostSummon()],
-    "necro": [GhostSummon(), SkeletonArcher()],
+    "necro": [BoneBarrier(), SkeletonArcher()],
     "joker": [BalloonWall(), DeadPossession()],
     "mirage": [SandPrison(), SandVortex()],
 }
@@ -11418,7 +11803,7 @@ HERO_SKILL_CLASSES: Dict[str, list] = {
     "gear": [SteamBarrier, OilSpill],
     "kurokage": [ShadowClone, IllusionShuriken],
     "banshee": [Charm, GhostSummon],
-    "necro": [GhostSummon, SkeletonArcher],
+    "necro": [BoneBarrier, SkeletonArcher],
     "joker": [BalloonWall, DeadPossession],
     "mirage": [SandPrison, SandVortex],
 }

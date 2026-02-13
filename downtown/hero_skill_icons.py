@@ -55,6 +55,7 @@ def _create_icon(skill_id: str) -> Optional[pygame.Surface]:
         "riddle_trick": _icon_riddle_trick,
         "ghost_summon": _icon_ghost_summon,
         "skeleton_archer": _icon_skeleton_archer,
+        "bone_barrier": _icon_bone_barrier,
         "balloon_wall": _icon_balloon_wall,
         "bomb_surprise": _icon_bomb_surprise,
         "sand_prison": _icon_sand_prison,
@@ -643,6 +644,54 @@ def _icon_skeleton_archer() -> pygame.Surface:
     pygame.draw.line(s, bone, (12, 17), (19, 15), 1)
     # 팔 (시위 당기는 쪽)
     pygame.draw.line(s, bone, (12, 18), (16, 16), 1)
+
+    return s
+
+
+def _icon_bone_barrier() -> pygame.Surface:
+    """뼈 장막 - 날카로운 뼈 가시 장벽"""
+    s = pygame.Surface((32, 32), pygame.SRCALPHA)
+    # 배경 원 (어두운 보라/뼈색)
+    pygame.draw.circle(s, (25, 15, 30), (16, 16), 15)
+    pygame.draw.circle(s, (80, 60, 90), (16, 16), 15, 1)
+
+    bone = (210, 200, 175)
+    bone_dark = (160, 150, 125)
+    bone_light = (235, 225, 205)
+    purple_glow = (140, 80, 180, 100)
+
+    # 뼈 장벽 베이스 (수평 바)
+    pygame.draw.rect(s, bone_dark, (5, 17, 22, 3))
+    pygame.draw.rect(s, bone, (5, 18, 22, 2))
+    # 상단 하이라이트
+    pygame.draw.line(s, bone_light, (6, 17), (26, 17), 1)
+
+    # 뼈 가시들 (위쪽으로 솟아오름)
+    spikes = [(7, 6), (11, 4), (16, 3), (21, 5), (25, 7)]
+    for sx, top_y in spikes:
+        # 가시 몸체
+        pygame.draw.line(s, bone, (sx, 17), (sx, top_y), 2)
+        # 뾰족한 끝
+        pygame.draw.line(s, bone_light, (sx - 1, top_y + 2), (sx, top_y), 1)
+        pygame.draw.line(s, bone_light, (sx + 1, top_y + 2), (sx, top_y), 1)
+        # 마디 표시
+        mid_y = (17 + top_y) // 2
+        pygame.draw.line(s, bone_dark, (sx - 1, mid_y), (sx + 1, mid_y), 1)
+
+    # 아래쪽 작은 가시들
+    for sx, bot_y in [(8, 24), (13, 26), (19, 25), (24, 23)]:
+        pygame.draw.line(s, bone_dark, (sx, 20), (sx, bot_y), 1)
+        pygame.draw.circle(s, bone, (sx, bot_y), 1)
+
+    # 보라색 마법 기운
+    pygame.draw.circle(s, purple_glow, (10, 14), 3)
+    pygame.draw.circle(s, purple_glow, (22, 14), 3)
+    pygame.draw.circle(s, (120, 60, 160, 60), (16, 10), 2)
+
+    # 두개골 장식 (중앙)
+    pygame.draw.circle(s, bone, (16, 14), 3)
+    pygame.draw.circle(s, (30, 15, 35), (15, 13), 1)  # 왼눈
+    pygame.draw.circle(s, (30, 15, 35), (17, 13), 1)  # 오른눈
 
     return s
 
