@@ -135220,6 +135220,9 @@ def main(stage_num, new_boss_mode=False):
                             (_ls_side == 'bottom' and ball_vel[1] > 0)
                         )
                         if _ls_ball_coming and _ls.check_ball_collision(float(BALL.centerx), float(BALL.centery), float(BALL.width // 2)):
+                            # 잎 충돌 사운드 재생
+                            if SOUND_LEAF:
+                                play_sound_with_volume(SOUND_LEAF)
                             # 가속 + 상대 영웅 방향으로 반사 (약간의 랜덤 오차 포함)
                             import math as _math_ls
                             _ls_speed = _math_ls.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
