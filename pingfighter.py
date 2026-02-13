@@ -19472,6 +19472,294 @@ def reset_arena_perks():
     arena_active_hero_perks = []
     arena_active_enemy_perks = []
 
+
+def show_arena_perk_select_menu():
+    """F8 투기장 전용 퍽 선택 메뉴 (인게임 오버레이)"""
+    global arena_battle_arena_obj, arena_bottom_hero, arena_top_hero
+    global arena_perk_speed_mult_bottom, arena_perk_dash_cd_mult_bottom
+    global arena_perk_skill_cd_mult_bottom, arena_perk_guard_cd_mult_bottom
+    global arena_perk_dash_distance_mult_bottom, arena_perk_retry_chance
+    global arena_perk_guard_extra_skill_bottom, arena_perk_magic_immunity_chance_bottom
+    global arena_perk_paddle_enlarge_bottom, arena_perk_recall_guard_bottom
+    global arena_bottom_max_dash_charges, arena_bottom_dash_charges
+
+    arena_obj = arena_battle_arena_obj
+    if not arena_obj or not arena_bottom_hero:
+        print("[ArenaPerk F8] arena_obj 또는 arena_bottom_hero가 없음")
+        return
+
+    hero_id = arena_bottom_hero["id"]
+
+    # --- 퍽 풀 구성 (이미 보유한 퍽 제외) ---
+    from downtown.colosseum_arena import ARENA_PERK_POOL
+    try:
+        from downtown.hero_skills import HERO_SKILLS, HERO_SKILLS_AVAILABLE
+    except ImportError:
+        HERO_SKILLS = {}
+        HERO_SKILLS_AVAILABLE = False
+
+    owned_perk_ids = set()
+    for perk in arena_obj.hero_perks.get(hero_id, []):
+        owned_perk_ids.add(perk["id"])
+
+    pool = []
+    for p in ARENA_PERK_POOL:
+        if p["id"] in owned_perk_ids:
+            continue
+        unlock_cond = p.get("unlock_condition")
+        if unlock_cond == "former_guards":
+            if not getattr(arena_obj, 'former_guards', []):
+                continue
+        pool.append(p)
+
+    # 영웅의 미선택 스킬을 퍽 옵션으로 추가
+    if HERO_SKILLS_AVAILABLE:
+        if not arena_obj.hero_has_both_skills.get(hero_id, False):
+            current_skill_idx = arena_obj.hero_selected_skills.get(hero_id, 0)
+            other_skill_idx = 1 - current_skill_idx
+            skills = HERO_SKILLS.get(hero_id, [])
+            if len(skills) > other_skill_idx:
+                other_skill = skills[other_skill_idx]
+                skill_perk_id = f"skill_{other_skill.skill_id}"
+                if skill_perk_id not in owned_perk_ids:
+                    hero_color = tuple(arena_bottom_hero.get("color", (200, 200, 100)))
+                    pool.append({
+                        "id": skill_perk_id,
+                        "name": other_skill.korean_name,
+                        "description": "추가 스킬 획득",
+                        "icon_color": hero_color,
+                        "effect_type": "add_skill",
+                        "value": other_skill_idx,
+                    })
+
+    if not pool:
+        _show_arena_all_perks_owned_message()
+        return
+
+    # 3개 랜덤 선택
+    options = random.sample(pool, min(3, len(pool)))
+    selected_idx = 0
+    clock = pygame.time.Clock()
+
+    font_title = FontStyle.subtitle()
+    font_name = FontStyle.body()
+    font_desc = FontStyle.small()
+    font_hint = FontStyle.tiny()
+
+    # 아이콘 그리기 함수
+    draw_icon_func = arena_perk_draw_icon_func
+
+    try:
+        pygame.event.clear()
+    except Exception:
+        pass
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                import sys
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return  # 취소
+                elif event.key == pygame.K_LEFT:
+                    selected_idx = (selected_idx - 1) % len(options)
+                elif event.key == pygame.K_RIGHT:
+                    selected_idx = (selected_idx + 1) % len(options)
+                elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                    # 퍽 확정
+                    _apply_arena_f8_perk(arena_obj, hero_id, options[selected_idx])
+                    return
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                mx, my = event.pos
+                # 카드 클릭 판정
+                num = len(options)
+                card_w, card_h = 200, 260
+                card_gap = 15
+                total_w = card_w * num + card_gap * (num - 1)
+                sx = (WIDTH - total_w) // 2
+                sy = (HEIGHT - card_h) // 2 - 20
+                for i in range(num):
+                    cx = sx + i * (card_w + card_gap)
+                    if cx <= mx <= cx + card_w and sy <= my <= sy + card_h:
+                        selected_idx = i
+                        _apply_arena_f8_perk(arena_obj, hero_id, options[selected_idx])
+                        return
+
+        # --- 렌더링 ---
+        try:
+            draw_field()
+            draw_shaking_screen()
+            draw_objects()
+        except Exception:
+            pass
+
+        # 반투명 오버레이
+        overlay = get_cached_overlay(WIDTH, HEIGHT, 180)
+        SCREEN.blit(overlay, (0, 0))
+
+        # 타이틀
+        title_surf = font_title.render("퍽을 선택하세요", True, (255, 215, 0))
+        title_rect = title_surf.get_rect(center=(WIDTH // 2, 80))
+        SCREEN.blit(title_surf, title_rect)
+
+        # 카드 렌더링
+        num = len(options)
+        card_w, card_h = 200, 260
+        card_gap = 15
+        total_w = card_w * num + card_gap * (num - 1)
+        sx = (WIDTH - total_w) // 2
+        sy = (HEIGHT - card_h) // 2 - 20
+
+        for i, perk in enumerate(options):
+            cx = sx + i * (card_w + card_gap)
+            is_sel = (i == selected_idx)
+
+            # 카드 배경
+            card_rect = pygame.Rect(cx, sy, card_w, card_h)
+            card_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+            if is_sel:
+                card_surf.fill((40, 40, 80, 220))
+                pygame.draw.rect(card_surf, (255, 215, 0, 255), (0, 0, card_w, card_h), 3, border_radius=8)
+            else:
+                card_surf.fill((30, 30, 50, 180))
+                pygame.draw.rect(card_surf, (100, 100, 140, 200), (0, 0, card_w, card_h), 2, border_radius=8)
+            SCREEN.blit(card_surf, (cx, sy))
+
+            # 퍽 아이콘 (카드 상단)
+            icon_size = 50
+            icon_cx = cx + card_w // 2
+            icon_cy = sy + 55
+            if draw_icon_func:
+                try:
+                    draw_icon_func(SCREEN, perk["id"], icon_cx, icon_cy, icon_size)
+                except Exception:
+                    # 폴백: 색상 원
+                    pygame.draw.circle(SCREEN, perk.get("icon_color", (200, 200, 200)), (icon_cx, icon_cy), icon_size // 2)
+            else:
+                pygame.draw.circle(SCREEN, perk.get("icon_color", (200, 200, 200)), (icon_cx, icon_cy), icon_size // 2)
+
+            # 퍽 이름
+            name_color = (255, 255, 255) if is_sel else (200, 200, 200)
+            name_surf = font_name.render(perk["name"], True, name_color)
+            name_rect = name_surf.get_rect(center=(cx + card_w // 2, sy + 105))
+            SCREEN.blit(name_surf, name_rect)
+
+            # 퍽 설명 (줄바꿈 처리)
+            desc_lines = perk["description"].split("\n")
+            for j, line in enumerate(desc_lines):
+                desc_color = (220, 220, 220) if is_sel else (160, 160, 160)
+                desc_surf = font_desc.render(line, True, desc_color)
+                desc_rect = desc_surf.get_rect(center=(cx + card_w // 2, sy + 140 + j * 22))
+                SCREEN.blit(desc_surf, desc_rect)
+
+            # 선택 인디케이터 (삼각형)
+            if is_sel:
+                tri_y = sy + card_h + 10
+                tri_cx = cx + card_w // 2
+                pygame.draw.polygon(SCREEN, (255, 215, 0), [
+                    (tri_cx, tri_y + 12),
+                    (tri_cx - 8, tri_y),
+                    (tri_cx + 8, tri_y),
+                ])
+
+        # 하단 힌트
+        hint_text = "← → 선택  |  SPACE 확정  |  ESC 취소"
+        hint_surf = font_hint.render(hint_text, True, (150, 150, 150))
+        hint_rect = hint_surf.get_rect(center=(WIDTH // 2, HEIGHT - 50))
+        SCREEN.blit(hint_surf, hint_rect)
+
+        pygame.display.flip()
+        clock.tick(30)
+
+
+def _apply_arena_f8_perk(arena_obj, hero_id, selected_perk):
+    """F8으로 선택한 퍽을 즉시 적용"""
+    global arena_bottom_max_dash_charges, arena_bottom_dash_charges
+
+    if selected_perk["effect_type"] == "add_skill":
+        # 추가 스킬 획득
+        arena_obj.hero_has_both_skills[hero_id] = True
+        if hero_id not in arena_obj.hero_perks:
+            arena_obj.hero_perks[hero_id] = []
+        arena_obj.hero_perks[hero_id].append(dict(selected_perk))
+        # 스킬 매니저 재초기화
+        if arena_skill_manager:
+            try:
+                arena_skill_manager.init_hero_skills(hero_id, arena_obj.hero_selected_skills, arena_obj.hero_has_both_skills)
+            except Exception as e:
+                print(f"[ArenaPerk F8] 스킬 재초기화 실패: {e}")
+        print(f"[ArenaPerk F8] {hero_id}에게 추가 스킬 '{selected_perk['name']}' 부여!")
+    elif selected_perk["effect_type"] == "recall_guard":
+        # 재소집령 - hero_perks에 추가만 (배틀 중 호위무사 핫추가는 복잡하므로 다음 라운드부터 적용)
+        if hero_id not in arena_obj.hero_perks:
+            arena_obj.hero_perks[hero_id] = []
+        arena_obj.hero_perks[hero_id].append(dict(selected_perk))
+        if arena_obj.former_guards:
+            recalled = arena_obj.former_guards.pop(0)
+            if hero_id not in arena_obj.guard_warrior_map:
+                arena_obj.guard_warrior_map[hero_id] = []
+            arena_obj.guard_warrior_map[hero_id].append(recalled)
+            arena_obj.hero_selected_skills[recalled["id"]] = random.randint(0, 1)
+            print(f"[ArenaPerk F8] 재소집령: '{recalled['name']}' 복귀!")
+        print(f"[ArenaPerk F8] {hero_id}에게 '재소집령' 퍽 부여!")
+    else:
+        # 일반 퍽 추가
+        if hero_id not in arena_obj.hero_perks:
+            arena_obj.hero_perks[hero_id] = []
+        arena_obj.hero_perks[hero_id].append(dict(selected_perk))
+        print(f"[ArenaPerk F8] {hero_id}에게 '{selected_perk['name']}' 퍽 부여!")
+
+    # 퍽 멀티플라이어 재계산
+    top_hero_id = arena_top_hero["id"] if arena_top_hero else ""
+    apply_arena_perks_for_battle(arena_obj, top_hero_id, hero_id)
+
+    # 잔상술 퍽: 대쉬 토큰 수 반영
+    if selected_perk["effect_type"] == "dash_token":
+        arena_bottom_dash_charges = arena_bottom_max_dash_charges
+
+    print(f"[ArenaPerk F8] 퍽 적용 완료 (총 {len(arena_obj.hero_perks.get(hero_id, []))}개)")
+
+
+def _show_arena_all_perks_owned_message():
+    """모든 퍽을 이미 보유 중일 때 안내 메시지"""
+    font = FontStyle.body()
+    clock = pygame.time.Clock()
+    start_time = pygame.time.get_ticks()
+
+    while True:
+        elapsed = pygame.time.get_ticks() - start_time
+        if elapsed > 1500:
+            return
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                import sys
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                return
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                return
+
+        try:
+            draw_field()
+            draw_shaking_screen()
+            draw_objects()
+        except Exception:
+            pass
+
+        overlay = get_cached_overlay(WIDTH, HEIGHT, 150)
+        SCREEN.blit(overlay, (0, 0))
+
+        msg_surf = font.render("보유 가능한 퍽이 없습니다", True, (255, 200, 100))
+        msg_rect = msg_surf.get_rect(center=(WIDTH // 2, HEIGHT // 2))
+        SCREEN.blit(msg_surf, msg_rect)
+
+        pygame.display.flip()
+        clock.tick(30)
+
+
 def _draw_magic_immunity_barrier(screen, center_x, center_y, base_radius, imm_timer, imm_duration, flash_timer=0.0):
     """마법결계 퍽 보호막 이펙트 (보라색 결계, 클렌즈 스타일 - 생성/소멸 애니메이션 포함, 스킬 차단 시 번쩍임)"""
     if imm_timer <= 0:
@@ -130788,9 +131076,14 @@ def main(stage_num, new_boss_mode=False):
             show_all_runtime_skills_menu()
         main.keyF7_pressed = keys[pygame.K_F7]
 
-        # F8키: 튜토리얼(스테이지50)에서는 챕터 스킵, 일반 스테이지에서는 날씨 디버그 메뉴
+        # F8키: 투기장(스테이지30)에서는 퍽 선택, 튜토리얼(스테이지50)에서는 챕터 스킵, 그 외에는 날씨 디버그
         if keys[pygame.K_F8] and not getattr(main, 'key8_pressed', False):
-            if current_stage != 50:
+            if current_stage == 30 and arena_mode_enabled:
+                # 투기장: 퍽 선택 메뉴
+                print("[ArenaPerk F8] 퍽 선택 메뉴 열기")
+                show_arena_perk_select_menu()
+                main.key8_pressed = keys[pygame.K_F8]
+            elif current_stage != 50:
                 # 일반 스테이지: 날씨 이벤트 디버그 메뉴
                 print("🌤️ F8 키: 날씨 이벤트 디버그 메뉴")
                 show_weather_debug_menu()
