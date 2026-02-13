@@ -122498,11 +122498,31 @@ def handle_ball():
             pygame.event.clear(pygame.KEYUP)
             pygame.key.set_repeat()  # 키 반복 리셋
 
-            # 🔥 집념 발동 시: 실점 무효화 후 즉시 다음 라운드로 진행
+            # 🔥 집념 발동 시: 반칙호루라기와 동일한 연출 (심판 + "무효!" + 파동 + 효과음)
             if tenacity_triggered:
                 game_state.round_losses = round_losses
-                show_fade_text("집념 발동!")
-                go_to_next_round()
+                try:
+                    from item_effects.foul_whistle import get_foul_whistle_instance
+                    whistle = get_foul_whistle_instance()
+                    whistle.animation_active = True
+                    whistle.animation_frame = 0
+                    whistle.reset_ready = False
+                    foul_whistle_pending_round_reset = True
+                    try:
+                        if SOUND_FOUL_WHISTLE:
+                            play_sound_with_volume(SOUND_FOUL_WHISTLE, sfx_volume)
+                    except Exception:
+                        pass
+                    try:
+                        ball_vel[0] = 0
+                        ball_vel[1] = 0
+                        BALL.centerx = WIDTH // 2
+                        BALL.centery = HEIGHT // 2
+                    except Exception:
+                        pass
+                except Exception:
+                    show_fade_text("집념 발동!")
+                    go_to_next_round()
                 return
 
             if try_trigger_foul_whistle("round"):
