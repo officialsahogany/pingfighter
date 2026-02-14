@@ -10400,6 +10400,7 @@ class BalloonWall(HeroSkill):
             balloon = {
                 'x': float(bx),
                 'y': float(by),
+                'base_x': float(bx),
                 'base_y': float(by),
                 'size': size,
                 'color': color,
@@ -10407,6 +10408,14 @@ class BalloonWall(HeroSkill):
                 'alive': True,
                 'spawn_time': 0.0,
                 'string_sway': random.uniform(0, math.pi * 2),
+                # 떠다니기 속성
+                'drift_angle': random.uniform(0, math.pi * 2),
+                'drift_speed': random.uniform(12, 25),
+                'drift_wobble': random.uniform(0, math.pi * 2),
+                # 터짐 애니메이션
+                'popping': False,
+                'pop_timer': 0.0,
+                'pop_delay': 0.0,
             }
             self.balloons.append(balloon)
 
@@ -10429,14 +10438,86 @@ class BalloonWall(HeroSkill):
             'flash_duration': 0.12,
         }
 
+    def _create_pop_effect(self, balloon):
+        """풍선 터짐 이펙트 생성 (고퀄리티 - 다양한 파편 + 방사형 스파클)"""
+        frag_count = 10
+        base_color = balloon['color']
+        pop = {
+            'x': balloon['x'],
+            'y': balloon['y'],
+            'color': base_color,
+            'size': balloon['size'],
+            'time': 0.0,
+            'fragments': [
+                {
+                    'x': balloon['x'],
+                    'y': balloon['y'],
+                    'vx': random.uniform(-6, 6),
+                    'vy': random.uniform(-7, 2),
+                    'size': random.randint(3, 7),
+                    'color': base_color if random.random() > 0.3 else
+                             tuple(min(255, c + random.randint(30, 80)) for c in base_color),
+                    'rotation': random.uniform(0, math.pi * 2),
+                    'rot_speed': random.uniform(-8, 8),
+                    'shape': random.choice(['circle', 'circle', 'strip', 'triangle']),
+                }
+                for _ in range(frag_count)
+            ],
+            'ring_particles': [
+                {
+                    'angle': i * (2 * math.pi / 8),
+                    'speed': random.uniform(2.5, 5),
+                    'color': base_color,
+                    'size': random.randint(2, 4),
+                }
+                for i in range(8)
+            ],
+        }
+        self.pop_effects.append(pop)
+
+    def _play_pop_sound(self):
+        """풍선 터짐 사운드 재생"""
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            sound_path = os.path.join(project_root, "sounds", "balloonboom.wav")
+            if os.path.exists(sound_path):
+                s = pygame.mixer.Sound(sound_path)
+                s.set_volume(0.35)
+                s.play()
+        except Exception:
+            pass
+
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         for balloon in self.balloons:
-            if not balloon['alive']:
+            if not balloon['alive'] or balloon.get('popping'):
                 continue
 
             balloon['spawn_time'] += dt
 
-            # 둥실둥실 부유
+            # 유유히 떠다니는 움직임 (drift)
+            balloon['drift_wobble'] += dt * 0.8
+            balloon['drift_angle'] += _sin(balloon['drift_wobble']) * 0.6 * dt
+            dx = math.cos(balloon['drift_angle']) * balloon['drift_speed'] * dt
+            dy = math.sin(balloon['drift_angle']) * balloon['drift_speed'] * 0.5 * dt
+            balloon['base_x'] += dx
+            balloon['base_y'] += dy
+
+            # 게임 영역 경계 반사
+            if balloon['base_x'] < 100:
+                balloon['base_x'] = 100
+                balloon['drift_angle'] = math.pi - balloon['drift_angle']
+            elif balloon['base_x'] > 660:
+                balloon['base_x'] = 660
+                balloon['drift_angle'] = math.pi - balloon['drift_angle']
+            if balloon['base_y'] < 230:
+                balloon['base_y'] = 230
+                balloon['drift_angle'] = -balloon['drift_angle']
+            elif balloon['base_y'] > 520:
+                balloon['base_y'] = 520
+                balloon['drift_angle'] = -balloon['drift_angle']
+
+            # 둥실둥실 부유 (base 위치 위에 bob 애니메이션)
+            balloon['x'] = balloon['base_x'] + _sin(balloon['spawn_time'] * 1.5 + balloon['phase']) * 6
             balloon['y'] = balloon['base_y'] + _sin(balloon['spawn_time'] * 2.0 + balloon['phase']) * 8
             balloon['string_sway'] += dt * 1.5
 
@@ -10448,15 +10529,12 @@ class BalloonWall(HeroSkill):
 
                 if dist < balloon['size'] + ball.width / 2:
                     speed = math.sqrt(ball.vx ** 2 + ball.vy ** 2)
-                    speed = max(speed, 5.0)  # 최소 속도 보장
+                    speed = max(speed, 5.0)
 
                     if random.random() < 0.80:
-                        # 80% 확률: 상대 진영 방향으로 반사
-                        # caster가 top이면 상대는 bottom(아래), bottom이면 상대는 top(위)
                         target_angle = math.pi / 2 if self.caster_is_top else -math.pi / 2
                         angle = target_angle + random.uniform(-math.pi / 4, math.pi / 4)
                     else:
-                        # 20% 확률: 기존 랜덤 반사
                         angle = math.atan2(ball_cy - balloon['y'], ball_cx - balloon['x'])
                         angle += random.uniform(-0.5, 0.5)
 
@@ -10465,85 +10543,17 @@ class BalloonWall(HeroSkill):
 
                     # 풍선 터짐
                     balloon['alive'] = False
-                    self.pop_effects.append({
-                        'x': balloon['x'],
-                        'y': balloon['y'],
-                        'color': balloon['color'],
-                        'size': balloon['size'],
-                        'time': 0.0,
-                        'fragments': [
-                            {
-                                'x': balloon['x'],
-                                'y': balloon['y'],
-                                'vx': random.uniform(-4, 4),
-                                'vy': random.uniform(-5, 1),
-                                'size': random.randint(3, 6),
-                                'color': balloon['color'],
-                            }
-                            for _ in range(6)
-                        ],
-                    })
-
-                    # 펑 사운드 (스테이지1 풍선 터지는 소리)
-                    try:
-                        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                        sound_path = os.path.join(project_root, "sounds", "balloonboom.wav")
-                        if os.path.exists(sound_path):
-                            s = pygame.mixer.Sound(sound_path)
-                            s.set_volume(0.35)
-                            s.play()
-                    except Exception:
-                        pass
-
-        # 터지는 이펙트 업데이트
-        new_pops = []
-        for pop in self.pop_effects:
-            pop['time'] += dt
-            for frag in pop['fragments']:
-                frag['x'] += frag['vx']
-                frag['y'] += frag['vy']
-                frag['vy'] += 6 * dt  # 중력
-            if pop['time'] < 0.6:
-                new_pops.append(pop)
-        self.pop_effects = new_pops
+                    self._create_pop_effect(balloon)
+                    self._play_pop_sound()
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['has_balloon_wall'] = False
-        # 남은 풍선들 터지는 이펙트 + 사운드
-        alive_count = sum(1 for b in self.balloons if b['alive'])
-        for balloon in self.balloons:
-            if balloon['alive']:
-                balloon['alive'] = False
-                self.pop_effects.append({
-                    'x': balloon['x'],
-                    'y': balloon['y'],
-                    'color': balloon['color'],
-                    'size': balloon['size'],
-                    'time': 0.0,
-                    'fragments': [
-                        {
-                            'x': balloon['x'],
-                            'y': balloon['y'],
-                            'vx': random.uniform(-3, 3),
-                            'vy': random.uniform(-4, 1),
-                            'size': random.randint(2, 5),
-                            'color': balloon['color'],
-                        }
-                        for _ in range(4)
-                    ],
-                })
-        self.balloons = []
-        # 남은 풍선이 있었으면 터지는 소리 재생 (1회만)
-        if alive_count > 0:
-            try:
-                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                sound_path = os.path.join(project_root, "sounds", "balloonboom.wav")
-                if os.path.exists(sound_path):
-                    s = pygame.mixer.Sound(sound_path)
-                    s.set_volume(0.35)
-                    s.play()
-            except Exception:
-                pass
+        # 남은 풍선들을 시간차로 터지게 설정 (흔들리다가 터지는 애니메이션)
+        alive_balloons = [b for b in self.balloons if b['alive'] and not b.get('popping')]
+        for i, balloon in enumerate(alive_balloons):
+            balloon['popping'] = True
+            balloon['pop_timer'] = 0.0
+            balloon['pop_delay'] = i * 0.12  # 0.12초 간격으로 시간차 터짐
 
     def reset_for_new_round(self, game_state: dict):
         super().reset_for_new_round(game_state)
@@ -10553,7 +10563,29 @@ class BalloonWall(HeroSkill):
 
     def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         super().update(dt, caster_paddle, target_paddle, ball, game_state)
-        # 터지는 이펙트는 is_active와 무관하게 업데이트
+
+        # 터짐 대기 중인 풍선 처리 (스킬 종료 후에도 동작)
+        for balloon in self.balloons:
+            if not balloon['alive']:
+                continue
+            if balloon.get('popping'):
+                # bob 애니메이션 계속
+                balloon['spawn_time'] += dt
+                balloon['x'] = balloon.get('base_x', balloon['x']) + _sin(balloon['spawn_time'] * 1.5 + balloon['phase']) * 6
+                balloon['y'] = balloon['base_y'] + _sin(balloon['spawn_time'] * 2.0 + balloon['phase']) * 8
+                balloon['string_sway'] += dt * 1.5
+
+                if balloon.get('pop_delay', 0) > 0:
+                    balloon['pop_delay'] -= dt
+                else:
+                    balloon['pop_timer'] += dt
+                    # 0.25초간 흔들리다가 터짐
+                    if balloon['pop_timer'] >= 0.25:
+                        balloon['alive'] = False
+                        self._create_pop_effect(balloon)
+                        self._play_pop_sound()
+
+        # 터지는 이펙트 업데이트 (is_active와 무관)
         if self.pop_effects:
             new_pops = []
             for pop in self.pop_effects:
@@ -10561,8 +10593,9 @@ class BalloonWall(HeroSkill):
                 for frag in pop['fragments']:
                     frag['x'] += frag['vx']
                     frag['y'] += frag['vy']
-                    frag['vy'] += 6 * dt
-                if pop['time'] < 0.6:
+                    frag['vy'] += 8 * dt  # 중력
+                    frag['rotation'] = frag.get('rotation', 0) + frag.get('rot_speed', 0) * dt
+                if pop['time'] < 0.8:
                     new_pops.append(pop)
             self.pop_effects = new_pops
 
@@ -10581,69 +10614,179 @@ class BalloonWall(HeroSkill):
             # 등장 스케일 (팡 하고 커지는 느낌)
             if spawn_t < 0.3:
                 scale = spawn_t / 0.3
-                scale = 1 - (1 - scale) ** 3  # ease-out
+                scale = 1 - (1 - scale) ** 3  # ease-out cubic
                 size = int(size * scale)
                 if size < 2:
                     continue
 
-            # 풍선 본체 (타원)
-            balloon_surf = pygame.Surface((size * 2 + 4, int(size * 2.4) + 4), pygame.SRCALPHA)
-            bw = size
-            bh = int(size * 1.2)
-            # 그림자
-            pygame.draw.ellipse(balloon_surf, (*color[:3], 160),
-                              (2 + 2, 2 + 2, bw * 2, bh * 2))
-            # 본체
-            pygame.draw.ellipse(balloon_surf, color,
-                              (2, 2, bw * 2, bh * 2))
-            # 하이라이트 (반사광)
-            hl_x = size - int(size * 0.3)
-            hl_y = int(size * 0.5)
-            hl_r = max(2, size // 3)
-            lighter = tuple(min(255, c + 80) for c in color)
-            pygame.draw.circle(balloon_surf, (*lighter, 180), (hl_x, hl_y), hl_r)
-            # 꼭지점
-            knot_y = bh * 2 + 2
-            pygame.draw.circle(balloon_surf, tuple(max(0, c - 30) for c in color),
-                             (size + 2, knot_y), max(2, size // 6))
+            # 터지기 직전 흔들림 & 부풀어오름
+            if balloon.get('popping') and balloon.get('pop_delay', 0) <= 0:
+                pt = balloon['pop_timer']
+                wobble_freq = 25 + pt * 50
+                wobble_amp = 2 + pt * 12
+                bx += int(_sin(pt * wobble_freq) * wobble_amp)
+                inflate = 1.0 + pt * 1.2
+                size = int(size * inflate)
 
-            screen.blit(balloon_surf, (bx - size - 2, by - int(size * 1.2) - 2))
-
-            # 풍선 줄 (살짝 흔들리는 곡선)
-            string_sway = _sin(balloon['string_sway']) * 4
-            knot_screen_y = by + int(size * 0.2)
-            string_end_y = knot_screen_y + int(size * 1.2)
-            mid_x = bx + int(string_sway)
-            pygame.draw.line(screen, (180, 180, 180),
-                           (bx, knot_screen_y),
-                           (mid_x, (knot_screen_y + string_end_y) // 2), 1)
-            pygame.draw.line(screen, (180, 180, 180),
-                           (mid_x, (knot_screen_y + string_end_y) // 2),
-                           (bx, string_end_y), 1)
-
-        # 터지는 이펙트 그리기
-        for pop in self.pop_effects:
-            progress = pop['time'] / 0.6
-            alpha = int(255 * (1.0 - progress))
-            if alpha <= 5:
+            if size < 2:
                 continue
 
-            # 원형 펑 (확장)
-            pop_r = int(pop['size'] * (1.0 + progress * 2.0))
-            pop_alpha = int(alpha * 0.4)
-            if pop_alpha > 5:
-                pop_surf = pygame.Surface((pop_r * 2, pop_r * 2), pygame.SRCALPHA)
-                pygame.draw.circle(pop_surf, (*pop['color'], pop_alpha),
-                                 (pop_r, pop_r), pop_r, 2)
-                screen.blit(pop_surf, (int(pop['x']) - pop_r, int(pop['y']) - pop_r))
+            # === 글로우 (풍선 뒤에 은은한 빛) ===
+            glow_r = size + 8
+            glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (*color[:3], 18), (glow_r, glow_r), glow_r)
+            screen.blit(glow_surf, (bx - glow_r, by - glow_r))
 
-            # 파편
+            # === 풍선 본체 (고퀄리티 렌더링) ===
+            surf_w = size * 2 + 8
+            surf_h = int(size * 2.6) + 8
+            balloon_surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+            cx = surf_w // 2
+            cy = int(size * 1.2) + 3
+            bw = size
+            bh = int(size * 1.2)
+
+            # 1. 그림자 (아래쪽 오프셋)
+            shadow_color = tuple(max(0, c - 70) for c in color)
+            pygame.draw.ellipse(balloon_surf, (*shadow_color, 45),
+                              (cx - bw + 2, cy - bh + 3, bw * 2, bh * 2))
+
+            # 2. 메인 바디
+            pygame.draw.ellipse(balloon_surf, color,
+                              (cx - bw, cy - bh, bw * 2, bh * 2))
+
+            # 3. 하단 그라데이션 (어두운 영역 - 입체감)
+            darker = tuple(max(0, c - 35) for c in color)
+            grad_h = max(2, bh)
+            pygame.draw.ellipse(balloon_surf, (*darker, 60),
+                              (cx - bw + 3, cy, bw * 2 - 6, grad_h))
+
+            # 4. 상단 하이라이트 (넓은 광택)
+            lighter = tuple(min(255, c + 50) for c in color)
+            hl_w = int(bw * 1.3)
+            hl_h = int(bh * 0.65)
+            pygame.draw.ellipse(balloon_surf, (*lighter, 75),
+                              (cx - hl_w // 2, cy - bh + 2, hl_w, hl_h))
+
+            # 5. 메인 반사광 (밝은 타원)
+            spec_x = cx - int(size * 0.2)
+            spec_y = cy - int(size * 0.5)
+            spec_w = max(4, int(size * 0.45))
+            spec_h = max(3, int(size * 0.3))
+            pygame.draw.ellipse(balloon_surf, (255, 255, 255, 170),
+                              (spec_x - spec_w // 2, spec_y - spec_h // 2, spec_w, spec_h))
+
+            # 6. 작은 스페큘러 포인트 (강한 반짝임)
+            tiny_x = cx - int(size * 0.35)
+            tiny_y = cy - int(size * 0.7)
+            tiny_r = max(1, size // 6)
+            pygame.draw.circle(balloon_surf, (255, 255, 255, 220), (tiny_x, tiny_y), tiny_r)
+
+            # 7. 외곽선
+            outline_color = tuple(max(0, c - 45) for c in color)
+            pygame.draw.ellipse(balloon_surf, (*outline_color, 70),
+                              (cx - bw, cy - bh, bw * 2, bh * 2), 1)
+
+            # 8. 꼭지 (역삼각형)
+            knot_y_surf = cy + bh
+            knot_sz = max(2, size // 5)
+            knot_color = tuple(max(0, c - 40) for c in color)
+            pygame.draw.polygon(balloon_surf, knot_color, [
+                (cx - knot_sz, knot_y_surf),
+                (cx + knot_sz, knot_y_surf),
+                (cx, knot_y_surf + knot_sz + 1),
+            ])
+
+            screen.blit(balloon_surf, (bx - cx, by - cy))
+
+            # === 풍선 줄 (3구간 곡선, 자연스러운 흔들림) ===
+            string_sway = _sin(balloon['string_sway']) * 5
+            string_sway2 = _sin(balloon['string_sway'] * 1.3 + 1.0) * 3
+            str_top_y = by + int(size * 0.2) + knot_sz
+            str_len = int(size * 1.6)
+            p0 = (bx, str_top_y)
+            p1 = (bx + int(string_sway), str_top_y + str_len // 3)
+            p2 = (bx + int(string_sway2), str_top_y + 2 * str_len // 3)
+            p3 = (bx - int(string_sway * 0.3), str_top_y + str_len)
+            pygame.draw.line(screen, (200, 200, 200), p0, p1, 1)
+            pygame.draw.line(screen, (190, 190, 190), p1, p2, 1)
+            pygame.draw.line(screen, (180, 180, 180), p2, p3, 1)
+
+        # === 터지는 이펙트 그리기 (고퀄리티) ===
+        for pop in self.pop_effects:
+            progress = pop['time'] / 0.8
+            if progress >= 1.0:
+                continue
+            alpha = int(255 * (1.0 - progress))
+            px, py = int(pop['x']), int(pop['y'])
+
+            # 1. 중앙 플래시 (초기 순간 - 밝은 섬광)
+            if progress < 0.12:
+                flash_alpha = int(220 * (1 - progress / 0.12))
+                flash_r = int(pop['size'] * 1.8)
+                if flash_r > 0:
+                    flash_surf = pygame.Surface((flash_r * 2, flash_r * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(flash_surf, (255, 255, 255, flash_alpha),
+                                     (flash_r, flash_r), flash_r)
+                    screen.blit(flash_surf, (px - flash_r, py - flash_r))
+
+            # 2. 확장 버스트 링
+            ring_r = int(pop['size'] * (1.0 + progress * 3.5))
+            ring_alpha = int(alpha * 0.3)
+            if ring_alpha > 5 and ring_r > 0:
+                ring_surf = pygame.Surface((ring_r * 2, ring_r * 2), pygame.SRCALPHA)
+                ring_thick = max(1, 3 - int(progress * 4))
+                pygame.draw.circle(ring_surf, (*pop['color'], ring_alpha),
+                                 (ring_r, ring_r), ring_r, ring_thick)
+                screen.blit(ring_surf, (px - ring_r, py - ring_r))
+
+            # 3. 파편 (다양한 모양 - 원, 길쭉한 조각, 삼각형)
             for frag in pop['fragments']:
-                frag_alpha = int(alpha * 0.7)
-                if frag_alpha > 5:
-                    pygame.draw.circle(screen, (*frag['color'], frag_alpha),
-                                     (int(frag['x']), int(frag['y'])),
-                                     max(1, int(frag['size'] * (1 - progress))))
+                frag_alpha = int(alpha * 0.8)
+                if frag_alpha <= 5:
+                    continue
+                fx, fy = int(frag['x']), int(frag['y'])
+                frag_size = max(1, int(frag['size'] * (1 - progress * 0.6)))
+                fc = (*frag['color'][:3], frag_alpha)
+                shape = frag.get('shape', 'circle')
+
+                if shape == 'strip' and frag_size > 1:
+                    sw = frag_size * 3
+                    sh = max(1, frag_size)
+                    frag_surf = pygame.Surface((sw + 2, sh + 2), pygame.SRCALPHA)
+                    pygame.draw.rect(frag_surf, fc, (1, 1, sw, sh))
+                    rot_angle = math.degrees(frag.get('rotation', 0))
+                    rotated = pygame.transform.rotate(frag_surf, rot_angle)
+                    screen.blit(rotated, (fx - rotated.get_width() // 2,
+                                         fy - rotated.get_height() // 2))
+                elif shape == 'triangle' and frag_size > 1:
+                    ts = frag_size + 1
+                    t_surf = pygame.Surface((ts * 2 + 2, ts * 2 + 2), pygame.SRCALPHA)
+                    tc = ts + 1
+                    pygame.draw.polygon(t_surf, fc, [
+                        (tc, tc - ts), (tc - ts, tc + ts), (tc + ts, tc + ts),
+                    ])
+                    screen.blit(t_surf, (fx - tc, fy - tc))
+                else:
+                    if frag_size > 0:
+                        c_surf = pygame.Surface((frag_size * 2 + 2, frag_size * 2 + 2), pygame.SRCALPHA)
+                        pygame.draw.circle(c_surf, fc,
+                                         (frag_size + 1, frag_size + 1), frag_size)
+                        screen.blit(c_surf, (fx - frag_size - 1, fy - frag_size - 1))
+
+            # 4. 방사형 스파클 (8방향 작은 입자)
+            if progress < 0.4:
+                sparkle_alpha = int(160 * (1 - progress / 0.4))
+                for rp in pop.get('ring_particles', []):
+                    dist = rp['speed'] * pop['time'] * 50
+                    sx = px + int(math.cos(rp['angle']) * dist)
+                    sy = py + int(math.sin(rp['angle']) * dist)
+                    s_size = max(1, int(rp['size'] * (1 - progress * 2)))
+                    if s_size > 0:
+                        sp_surf = pygame.Surface((s_size * 2 + 2, s_size * 2 + 2), pygame.SRCALPHA)
+                        pygame.draw.circle(sp_surf, (*rp['color'][:3], sparkle_alpha),
+                                         (s_size + 1, s_size + 1), s_size)
+                        screen.blit(sp_surf, (sx - s_size - 1, sy - s_size - 1))
 
 
 class BombSurprise(HeroSkill):
