@@ -2242,6 +2242,16 @@ class GuardWarriorSystem:
         """Phase 'returning': 매혹 해제, 복귀 애니메이션 시작"""
         if not self._charmed:
             return
+        # 귀신발걸음 활성 중이면 스킬 정리
+        c = self._charmed
+        if c.get('ghost_step_active'):
+            c['ghost_step_active'] = False
+            c['y'] = c.get('ghost_step_base_y', c['y'])
+            skill = c.get('skill')
+            if skill and getattr(skill, 'skill_id', '') == 'demon_step':
+                skill.is_active = False
+                if hasattr(skill, 'aura_particles'):
+                    skill.aura_particles = []
         self._charmed['phase'] = 'returning'
         print(f"[Charm] 매혹 해제! {self._charmed['guard']['name']} 복귀 중...")
 
@@ -2320,6 +2330,57 @@ class GuardWarriorSystem:
         c = self._charmed
         left_bound = GAME_AREA_X + 40
         right_bound = GAME_AREA_X + GAME_AREA_WIDTH - 40
+
+        # === 귀신발걸음 Y축 이동 처리 (일반 순찰 대신) ===
+        if c.get('ghost_step_active'):
+            DEMON_STEP_CHARMED_DURATION = 4.0
+            FORWARD_DURATION = DEMON_STEP_CHARMED_DURATION / 2  # 2초 전진
+            c['ghost_step_timer'] += dt
+            timer = c['ghost_step_timer']
+
+            caster_is_top = c['caster_is_top']
+            base_y = c['ghost_step_base_y']
+            # 상대 진영 끝까지 이동 (상단→화면 하단 700, 하단→화면 상단 50)
+            dest_y = 700 if caster_is_top else 50
+
+            # X축: 공을 따라감
+            if ball:
+                bx = max(GAME_AREA_X + 30, min(ball.x, GAME_AREA_X + GAME_AREA_WIDTH - 30))
+                c['x'] = bx
+
+            # Y축: 전진(0~2초) → 복귀(2~4초)
+            if timer < FORWARD_DURATION:
+                progress = timer / FORWARD_DURATION
+                eased = self._ease_in_out(progress)
+                c['y'] = base_y + (dest_y - base_y) * eased
+            else:
+                progress = min(1.0, (timer - FORWARD_DURATION) / (DEMON_STEP_CHARMED_DURATION - FORWARD_DURATION))
+                eased = self._ease_in_out(progress)
+                c['y'] = dest_y + (base_y - dest_y) * eased
+
+            # 4초 후 강제 종료
+            if timer >= DEMON_STEP_CHARMED_DURATION:
+                c['ghost_step_active'] = False
+                c['ghost_step_timer'] = 0.0
+                c['ghost_step_hit_count'] = 0
+                # 스킬 비활성화
+                skill = c.get('skill')
+                if skill and getattr(skill, 'skill_id', '') == 'demon_step':
+                    skill.is_active = False
+                    if hasattr(skill, 'aura_particles'):
+                        skill.aura_particles = []
+                # Y좌표 복원
+                c['y'] = base_y
+                print(f"[Charm] 매혹 호위무사 귀신발걸음 종료, 순찰 복귀")
+
+            # 이동 애니메이션
+            guard = c['guard']
+            if guard and self.hero_paddle_renderer:
+                self.hero_paddle_renderer.update_movement(guard["id"], c['x'], dt)
+
+            # 쿨타임 감소는 귀신발걸음 중에도 계속
+            c['cooldown'] -= dt
+            return  # 귀신발걸음 중에는 순찰 이동 스킵
 
         # 순찰 이동 (기존 호위무사와 동일한 패턴)
         if c['patrol_wait'] > 0:
@@ -2418,6 +2479,11 @@ class GuardWarriorSystem:
                     game_state['demon_eye_active'] = False
                     game_state.pop('ghost_step_start_top', None)
                     game_state.pop('ghost_step_start_bottom', None)
+                    # 매혹 가드 귀신발걸음 독립 트래킹 시작
+                    c['ghost_step_active'] = True
+                    c['ghost_step_timer'] = 0.0
+                    c['ghost_step_base_y'] = c['y']
+                    c['ghost_step_hit_count'] = 0
 
                 # 말풍선 표시
                 bubble_text = f"{skill.korean_name}!"
@@ -3456,6 +3522,41 @@ class GuardWarriorSystem:
         import pygame
         GUARD_PADDLE_W, GUARD_PADDLE_H = PADDLE_WIDTH, PADDLE_HEIGHT
 
+        # --- 매혹 가드 귀신발걸음 충돌 체크 ---
+        if (self._charmed and self._charmed.get('ghost_step_active')
+                and self._charmed['phase'] == 'patrolling'):
+            c = self._charmed
+            hit_count = c.get('ghost_step_hit_count', 0)
+            if hit_count < self._guard_ghost_step_max_hits:
+                gx = c['x']
+                gy = c['y']
+                guard_rect = pygame.Rect(
+                    int(gx - GUARD_PADDLE_W // 2), int(gy),
+                    GUARD_PADDLE_W, GUARD_PADDLE_H
+                )
+                ball_rect = pygame.Rect(int(ball.x), int(ball.y),
+                                        getattr(ball, 'width', 20),
+                                        getattr(ball, 'height', 20))
+                if guard_rect.colliderect(ball_rect):
+                    ball_vy = getattr(ball, 'vy', 0)
+                    caster_is_top = c['caster_is_top']
+                    # 매혹 가드는 caster 편 → caster_is_top이면 상단 가드처럼 동작
+                    if caster_is_top and ball_vy >= 0:
+                        pass  # 공이 아래로 가는 중 → 상단 가드가 칠 수 없음
+                    elif not caster_is_top and ball_vy <= 0:
+                        pass  # 공이 위로 가는 중 → 하단 가드가 칠 수 없음
+                    else:
+                        c['ghost_step_hit_count'] = hit_count + 1
+                        self._guard_ball_cooldown = 0.3
+                        hit_offset = (ball_rect.centerx - guard_rect.centerx) / (GUARD_PADDLE_W / 2)
+                        game_state['guard_demon_step_ball_hit'] = {
+                            'is_top_guard': caster_is_top,
+                            'hit_offset': hit_offset,
+                        }
+                        print(f"[Charm GhostStep] 매혹 호위무사 공 충돌! is_top={caster_is_top}, offset={hit_offset:.2f}")
+                        return
+
+        # --- 일반 가드 귀신발걸음 충돌 체크 ---
         for hero_id, skills in self.skill_instances.items():
             is_top_guard = any(g["id"] == hero_id for g in self.guard_warriors_top)
             for skill in skills:
@@ -3463,6 +3564,10 @@ class GuardWarriorSystem:
                     continue
                 skill_id = getattr(skill, 'skill_id', '')
                 if skill_id != 'demon_step':
+                    continue
+
+                # 매혹 가드는 위에서 별도 처리 → 스킵
+                if self._charmed and self._charmed['guard'].get("id") == hero_id:
                     continue
 
                 # 이번 발동에서 최대 횟수 도달했으면 스킵
