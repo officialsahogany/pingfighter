@@ -55099,76 +55099,113 @@ def handle_gods_judgment():
             bg.judgment_sandstorm_hit_bottom = False
             print(f"[신의심판] 바람의 분노 - 하단 영웅 모래바람 스턴!")
 
-        # ── 모래 소용돌이: 접촉 시 즉시 포획 → 고속 커브 발사 → 면역 ──
-        # (지속 끌어당김 없음! 공이 소용돌이에 닿으면 즉시 포획 후 발사)
+        # ── 모래 소용돌이: 중력 끌어당김 + 포획 → 초고속 커브 발사 ──
         if bg.judgment_phase == 11:  # SANDSTORM phase
             dt = (1.0 / 60.0) * arena_speed_multiplier
-            CAPTURE_RADIUS = 55      # 접촉 포획 범위 (소용돌이 size와 비슷)
-            LAUNCH_SPEED = 14        # 발사 속도 (고정, 시원한 속도감)
-            CURVE_DURATION = 2.0     # 커브 지속시간
-            CURVE_ROTATION_SPEED = 2.5  # 커브 회전 속도 (rad/s)
-            IMMUNITY_DURATION = 1.5  # 포획 후 면역 시간 (초)
+            CAPTURE_RADIUS = 60      # 접촉 포획 범위
+            PULL_RADIUS = 180        # 중력 끌어당김 범위
+            PULL_STRENGTH = 420.0    # 끌어당김 강도 (px/s²)
+            LAUNCH_SPEED = 26        # 발사 속도 (초고속!)
+            CURVE_DURATION = 1.8     # 커브 지속시간
+            CURVE_ROTATION_SPEED = 6.0  # 커브 회전 속도 (rad/s) - 매우 강한 커브
+            SPEED_BOOST_FACTOR = 1.04  # 커브 중 매 프레임 속도 부스트 (4%)
+            MAX_BOOSTED_SPEED = 32   # 커브 중 최대 속도 제한
+            IMMUNITY_DURATION = 1.0  # 포획 후 면역 시간 (짧게 → 연속 포획 가능)
 
             # 면역 타이머 감소
             if _judgment_wind_ball_immunity > 0:
                 _judgment_wind_ball_immunity -= dt
 
             wind_info = bg.get_wind_sandstorm_info()
-            if wind_info['active'] and wind_info['storms'] and _judgment_wind_ball_immunity <= 0:
-                # 가장 가까운 포획 가능한 소용돌이 찾기
-                closest = None
-                closest_dist = float('inf')
+            if wind_info['active'] and wind_info['storms']:
+                # ── 1단계: 중력 끌어당김 (모든 활성 소용돌이가 공을 당긴다) ──
                 for storm in wind_info['storms']:
-                    if storm['has_captured'] or storm['fading'] or storm['capture_cooldown'] > 0:
+                    if storm['dead'] if 'dead' in storm else False:
                         continue
-                    d = math.hypot(storm['x'] - BALL.centerx, storm['y'] - BALL.centery)
-                    scaled_capture = CAPTURE_RADIUS * storm['growth_scale']
-                    if d < scaled_capture and d < closest_dist:
-                        closest_dist = d
-                        closest = storm
+                    if storm['fading']:
+                        continue
+                    dx = storm['x'] - BALL.centerx
+                    dy = storm['y'] - BALL.centery
+                    dist = math.hypot(dx, dy)
+                    scaled_pull = PULL_RADIUS * storm['growth_scale']
+                    if 0 < dist < scaled_pull:
+                        # 거리가 가까울수록 강하게 당김 (역제곱 느낌)
+                        pull_factor = (1.0 - dist / scaled_pull) ** 1.5
+                        pull_accel = PULL_STRENGTH * pull_factor * storm['growth_scale']
+                        # 방향 벡터 정규화
+                        nx = dx / dist
+                        ny = dy / dist
+                        ball_vel[0] += nx * pull_accel * dt
+                        ball_vel[1] += ny * pull_accel * dt
 
-                if closest is not None:
-                    storm = closest
-                    bg.set_sandstorm_captured(storm['idx'], capture_cooldown=2.0)
+                # ── 2단계: 포획 판정 (면역 아닐 때만) ──
+                if _judgment_wind_ball_immunity <= 0:
+                    closest = None
+                    closest_dist = float('inf')
+                    for storm in wind_info['storms']:
+                        if storm['has_captured'] or storm['fading'] or storm['capture_cooldown'] > 0:
+                            continue
+                        d = math.hypot(storm['x'] - BALL.centerx, storm['y'] - BALL.centery)
+                        scaled_capture = CAPTURE_RADIUS * storm['growth_scale']
+                        if d < scaled_capture and d < closest_dist:
+                            closest_dist = d
+                            closest = storm
 
-                    # 발사 방향: 소용돌이 이동 방향 기반 + 랜덤 편차
-                    move_angle = math.atan2(storm['base_vy'], storm['base_vx'])
-                    launch_angle = move_angle + random.uniform(-0.5, 0.5)
-                    launch_vx = math.cos(launch_angle) * LAUNCH_SPEED
-                    launch_vy = math.sin(launch_angle) * LAUNCH_SPEED
+                    if closest is not None:
+                        storm = closest
+                        bg.set_sandstorm_captured(storm['idx'], capture_cooldown=1.5)
 
-                    # 공을 소용돌이 중심으로 텔레포트 → 고속 발사
-                    BALL.centerx = int(storm['x'])
-                    BALL.centery = int(storm['y'])
-                    ball_vel[0] = launch_vx
-                    ball_vel[1] = launch_vy
+                        # 발사 방향: 소용돌이 이동 방향 + 랜덤 스핀 편차
+                        move_angle = math.atan2(storm['base_vy'], storm['base_vx'])
+                        launch_angle = move_angle + random.uniform(-0.8, 0.8)
+                        launch_vx = math.cos(launch_angle) * LAUNCH_SPEED
+                        launch_vy = math.sin(launch_angle) * LAUNCH_SPEED
 
-                    # 커브 효과 (발사 후 공 궤적 회전)
-                    curve_dir = 1 if (storm['base_vx'] + storm['drift_vx']) >= 0 else -1
-                    _judgment_wind_curve_effects.append({
-                        'timer': CURVE_DURATION,
-                        'curve_dir': curve_dir,
-                        'max_timer': CURVE_DURATION,
-                        'rotation_speed': CURVE_ROTATION_SPEED,
-                    })
+                        # 공을 소용돌이 중심으로 텔레포트 → 초고속 발사
+                        BALL.centerx = int(storm['x'])
+                        BALL.centery = int(storm['y'])
+                        ball_vel[0] = launch_vx
+                        ball_vel[1] = launch_vy
 
-                    # 면역 시작 (연속 포획 방지)
-                    _judgment_wind_ball_immunity = IMMUNITY_DURATION
+                        # 강력한 커브 효과 (발사 후 급격한 궤적 변화)
+                        curve_dir = random.choice([-1, 1])  # 랜덤 커브 방향 → 예측 불가
+                        _judgment_wind_curve_effects.append({
+                            'timer': CURVE_DURATION,
+                            'curve_dir': curve_dir,
+                            'max_timer': CURVE_DURATION,
+                            'rotation_speed': CURVE_ROTATION_SPEED,
+                            'speed_boost': SPEED_BOOST_FACTOR,
+                            'max_speed': MAX_BOOSTED_SPEED,
+                        })
 
-                    bg.judgment_shake_intensity = 0.3
-                    print(f"[신의심판] 모래 소용돌이 포획→발사! angle={math.degrees(launch_angle):.0f}°")
+                        # 면역 시작
+                        _judgment_wind_ball_immunity = IMMUNITY_DURATION
 
-            # ── 커브 효과 적용 (포획 후 공 속도 벡터 회전) ──
+                        # 강한 화면 흔들림
+                        bg.judgment_shake_intensity = 0.7
+                        print(f"[신의심판] 모래 소용돌이 포획→초고속 발사! angle={math.degrees(launch_angle):.0f}° speed={LAUNCH_SPEED}")
+
+            # ── 커브 효과 적용 (포획 후 공 궤적을 강하게 회전 + 가속) ──
             if _judgment_wind_curve_effects:
                 for curve in _judgment_wind_curve_effects:
                     curve['timer'] -= dt
                     if curve['timer'] > 0:
-                        fade = curve['timer'] / curve['max_timer']
+                        # 페이드: 초반에 강하고 점점 약해짐
+                        t = curve['timer'] / curve['max_timer']
+                        # 이징: 초반 급격 → 후반 부드러운 감소
+                        fade = t * t
                         rotation_rate = curve['rotation_speed'] * curve['curve_dir'] * fade * dt
                         cos_r = math.cos(rotation_rate)
                         sin_r = math.sin(rotation_rate)
                         new_vx = ball_vel[0] * cos_r - ball_vel[1] * sin_r
                         new_vy = ball_vel[0] * sin_r + ball_vel[1] * cos_r
+                        # 커브 중 속도 부스트 (공이 점점 빨라짐)
+                        cur_speed = math.hypot(new_vx, new_vy)
+                        max_spd = curve.get('max_speed', MAX_BOOSTED_SPEED)
+                        if cur_speed < max_spd:
+                            boost = curve.get('speed_boost', 1.0)
+                            new_vx *= boost
+                            new_vy *= boost
                         ball_vel[0] = new_vx
                         ball_vel[1] = new_vy
                 _judgment_wind_curve_effects = [c for c in _judgment_wind_curve_effects if c['timer'] > 0]
