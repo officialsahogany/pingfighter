@@ -20518,17 +20518,18 @@ def _spawn_flash_inspiration_particles(is_top):
     """번뜩이는 영감 발동 시 반짝임 파티클 생성"""
     global arena_flash_inspiration_particles_top, arena_flash_inspiration_particles_bottom
     particles = []
-    for _ in range(20):
+    for _ in range(30):
         angle = random.uniform(0, math.pi * 2)
-        speed = random.uniform(30, 90)
+        speed = random.uniform(40, 120)
+        life = random.uniform(0.3, 0.6)
         particles.append({
             'ox': random.uniform(-15, 15),
             'oy': random.uniform(-15, 15),
             'vx': math.cos(angle) * speed,
             'vy': math.sin(angle) * speed,
-            'life': random.uniform(0.3, 0.5),
-            'max_life': random.uniform(0.3, 0.5),
-            'size': random.uniform(2, 5),
+            'life': life,
+            'max_life': life,
+            'size': random.uniform(2, 6),
             'color_idx': random.randint(0, 2),
         })
     if is_top:
@@ -20559,7 +20560,7 @@ def _update_flash_inspiration(dt):
             plist.remove(p)
 
 
-_INSP_COLORS = [(255, 220, 100), (255, 255, 240), (255, 240, 150)]
+_INSP_COLORS = [(0, 255, 130), (120, 255, 200), (50, 255, 160)]
 
 def _draw_flash_inspiration_effect(screen, cx, cy, draw_w, draw_h, timer, particles):
     """번뜩이는 영감 반짝임 이펙트 렌더링"""
@@ -20575,17 +20576,26 @@ def _draw_flash_inspiration_effect(screen, cx, cy, draw_w, draw_h, timer, partic
             alpha_ratio = progress / 0.4
         else:
             alpha_ratio = 1.0
-        glow_alpha = int(120 * alpha_ratio)
+        glow_alpha = int(200 * alpha_ratio)
         if glow_alpha > 0:
-            glow_size = base_r * 2 + 30
+            glow_size = base_r * 2 + 50
             glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
             gc = glow_size // 2
-            for i in range(3):
-                r_val = base_r + 10 - i * 5
-                a = max(0, glow_alpha - i * 30)
-                pygame.draw.circle(glow_surf, (255, 220, 100, a), (gc, gc), r_val, 3)
-            inner_a = max(0, glow_alpha // 3)
-            pygame.draw.circle(glow_surf, (255, 240, 180, inner_a), (gc, gc), base_r - 5)
+            # 외곽 에메랄드 글로우 (4겹으로 더 강렬하게)
+            for i in range(4):
+                r_val = base_r + 15 - i * 5
+                a = max(0, glow_alpha - i * 25)
+                pygame.draw.circle(glow_surf, (0, 255, 130, a), (gc, gc), r_val, 3)
+            # 중간 에메랄드 글로우
+            mid_a = max(0, glow_alpha * 2 // 3)
+            pygame.draw.circle(glow_surf, (0, 220, 100, mid_a), (gc, gc), base_r)
+            # 내부 밝은 에메랄드 코어
+            inner_a = max(0, glow_alpha // 2)
+            pygame.draw.circle(glow_surf, (100, 255, 180, inner_a), (gc, gc), base_r - 5)
+            # 중심 백색 플래시 (순간 번쩍임)
+            if progress > 0.6:
+                flash_a = int(180 * ((progress - 0.6) / 0.4))
+                pygame.draw.circle(glow_surf, (200, 255, 220, flash_a), (gc, gc), base_r // 2)
             screen.blit(glow_surf, (int(cx) - gc, int(cy) - gc))
 
         t = pygame.time.get_ticks() / 1000.0
@@ -20600,9 +20610,9 @@ def _draw_flash_inspiration_effect(screen, cx, cy, draw_w, draw_h, timer, partic
             if s_alpha > 0 and star_size > 0:
                 star_surf = pygame.Surface((star_size * 2 + 4, star_size * 2 + 4), pygame.SRCALPHA)
                 sc = star_size + 2
-                pygame.draw.line(star_surf, (255, 255, 230, s_alpha),
+                pygame.draw.line(star_surf, (150, 255, 200, s_alpha),
                                  (sc - star_size, sc), (sc + star_size, sc), 2)
-                pygame.draw.line(star_surf, (255, 255, 230, s_alpha),
+                pygame.draw.line(star_surf, (150, 255, 200, s_alpha),
                                  (sc, sc - star_size), (sc, sc + star_size), 2)
                 screen.blit(star_surf, (sx - sc, sy - sc))
 
