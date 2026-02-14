@@ -3729,6 +3729,10 @@ class GuardWarriorSystem:
                     'hit_offset': hit_offset,
                     'guard_id': guard["id"] if guard else None,
                 }
+
+                # ON_BALL_HIT 스킬 발동 (바나나슬라이스 등)
+                if guard and self.skill_manager:
+                    self._trigger_ball_hit_skill(is_top, guard, ball, game_state)
                 return
 
     def _check_guard_patrol_ball_collision(self, ball, game_state):
@@ -3775,7 +3779,37 @@ class GuardWarriorSystem:
                     'guard_id': guard["id"] if guard else None,
                 }
                 self._guard_ball_cooldown = 0.15  # 연속 충돌 방지
+
+                # ON_BALL_HIT 스킬 발동 (바나나슬라이스 등)
+                if guard and self.skill_manager:
+                    self._trigger_ball_hit_skill(is_top, guard, ball, game_state)
                 return
+
+    def _trigger_ball_hit_skill(self, is_top, guard, ball, game_state):
+        """호위무사가 공을 칠 때 ON_BALL_HIT 스킬 발동"""
+        from downtown.hero_skills import SkillTrigger
+        skills = self.skill_instances.get(guard["id"], [])
+        if not skills:
+            return
+        # ON_BALL_HIT 스킬만 필터
+        hit_skills = [sk for sk in skills if getattr(sk, 'trigger', None) == SkillTrigger.ON_BALL_HIT]
+        if not hit_skills:
+            return
+        for skill in hit_skills:
+            if skill.current_cooldown > 0 or skill.is_active:
+                continue
+            # 호위무사 가상 패들 설정
+            guard_paddle = self._make_guard_paddle(is_top)
+            target_paddle = self._make_guard_paddle(not is_top)  # 상대쪽 가상 패들
+            skill.caster_is_top = is_top
+            # caster 측 보호
+            caster_prefix = 'top_paddle' if is_top else 'bottom_paddle'
+            saved = self._save_caster_state(game_state, caster_prefix)
+            result = skill.use(guard_paddle, target_paddle, ball, game_state)
+            self._restore_caster_state(game_state, caster_prefix, saved)
+            if result:
+                print(f"[Guard] 호위무사 {guard['name']} ON_BALL_HIT 스킬 발동: {skill.korean_name}")
+                break  # 한 번에 하나만 발동
 
     # 호위무사 스킬이 game_state를 통해 메인 영웅에 영향주는 것 방지용 키 목록
     _CASTER_STATE_KEYS = ['_locked', '_locked_x', '_locked_y', '_stunned', '_speed_boost', '_size_boost',
