@@ -2969,6 +2969,10 @@ class GuardWarriorSystem:
                 guard_paddle = top_paddle if is_top_guard else bottom_paddle
             target = bottom_paddle if is_top_guard else top_paddle
             for skill in skills:
+                # 유령소환: is_active 꺼져도 dying/particle/teleport 정리를 위해 update 필요
+                _ghost_lingering = (getattr(skill, 'skill_id', '') == 'ghost_summon'
+                                    and (skill.dying_ghosts or skill._teleport_effects
+                                         or skill._ghost_particles))
                 if skill.is_active:
                     skill_id = getattr(skill, 'skill_id', '')
                     # 드래곤 브레스: 공을 따라다니며 화염 발사
@@ -3024,6 +3028,11 @@ class GuardWarriorSystem:
                     elif skill_id == 'oil_spill':
                         if not skill.oil_projectiles and not skill.oil_puddles:
                             skill.is_active = False
+                elif _ghost_lingering:
+                    # 유령소환 잔여 이펙트 정리 (dying_ghosts, particles, teleport_effects)
+                    _fallback_paddle = guard_paddle or (top_paddle if is_top_guard else bottom_paddle)
+                    _fallback_target = target or (bottom_paddle if is_top_guard else top_paddle)
+                    skill.update(dt, _fallback_paddle, _fallback_target, ball, game_state)
 
         # 상단측 호위무사 업데이트
         self._update_side(dt, is_top=True, top_paddle=top_paddle,
@@ -4049,9 +4058,10 @@ class GuardWarriorSystem:
                 guard_paddle = top_paddle if is_top_guard else bottom_paddle
             target = bottom_paddle if is_top_guard else top_paddle
             for skill in skills:
-                # 유령소환은 is_active가 False여도 잔여 이펙트(dying, teleport)를 그려야 함
+                # 유령소환은 is_active가 False여도 잔여 이펙트(dying, teleport, particles)를 그려야 함
                 has_lingering = (getattr(skill, 'skill_id', '') == 'ghost_summon'
-                                 and (skill.dying_ghosts or skill._teleport_effects))
+                                 and (skill.dying_ghosts or skill._teleport_effects
+                                      or skill._ghost_particles))
                 if (skill.is_active or has_lingering) and hasattr(skill, 'draw'):
                     try:
                         # 귀신발걸음: draw 전에 현재 호위무사 위치로 동기화

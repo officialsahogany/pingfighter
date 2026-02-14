@@ -8208,6 +8208,7 @@ class GhostSummon(HeroSkill):
     EAT_GROW_RATE = 0.03        # 성장률 (3%)
     TELEPORT_DISAPPEAR_DUR = 0.3  # 순간이동 사라지는 시간
     TELEPORT_APPEAR_DUR = 0.4     # 순간이동 나타나는 시간
+    CONSECUTIVE_CATCH_WINDOW = 0.5  # 연속 포획 판정 시간 (초)
 
     def __init__(self):
         super().__init__(
@@ -8230,6 +8231,7 @@ class GhostSummon(HeroSkill):
         self._saved_ball_vx = 0.0   # 먹기 전 공 속도 보존
         self._saved_ball_vy = 0.0
         self._teleport_effects = []  # 순간이동 이펙트 파티클
+        self._time_since_ghost_release = 999.0  # 마지막 유령 공 발사 이후 경과 시간
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.caster_is_top = caster_paddle.is_top
@@ -8245,6 +8247,7 @@ class GhostSummon(HeroSkill):
         self._eating_ball = False
         self._eating_ghost_id = -1
         self._teleport_effects = []
+        self._time_since_ghost_release = 999.0
 
         # 유령 2개를 캐스터 위치에서 출발 → 맵 중앙으로 이동
         for i, ghost_y in enumerate(self.GHOST_Y_POSITIONS):
@@ -8294,6 +8297,7 @@ class GhostSummon(HeroSkill):
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        self._time_since_ghost_release += dt
         new_ghosts = []
 
         for ghost in self.ghosts:
@@ -8398,6 +8402,7 @@ class GhostSummon(HeroSkill):
                     ghost['eat_timer'] = 0.0
                     ghost['hit_cooldown'] = 0.5  # 발사 후 잠깐 쿨다운
                     self._eating_ball = False
+                    self._time_since_ghost_release = 0.0  # 연속 포획 판정용
                     self._eating_ghost_id = -1
 
                     # 발사 사운드
@@ -8580,15 +8585,8 @@ class GhostSummon(HeroSkill):
                 ball_rect = pygame.Rect(int(ball_cx) - bw // 2, int(ball_cy) - bh // 2, bw, bh)
 
                 if rect.colliderect(ball_rect):
-                    # 공 먹기 시작!
-                    ghost['eating'] = True
-                    ghost['eat_timer'] = 0.0
-                    ghost['eat_scale'] = 1.0
-                    ghost['eat_grow_acc'] = 0.0
-                    ghost['eat_bulge_phase'] = 0.0
-                    ghost['hit_cooldown'] = 99.0  # 먹는 동안 충돌 방지
-                    self._eating_ball = True
-                    self._eating_ghost_id = ghost['id']
+                    # 연속 포획 판정: 다른 유령이 방금 공을 발사한 직후인지 확인
+                    is_consecutive = self._time_since_ghost_release < self.CONSECUTIVE_CATCH_WINDOW
 
                     # 공 속도 저장 후 숨김 (game_state 통해 pingfighter에 전달)
                     self._saved_ball_vx = ball.vx
@@ -8596,6 +8594,38 @@ class GhostSummon(HeroSkill):
                     ball.vx = 0.0
                     ball.vy = 0.0
                     game_state['ghost_summon_ball_hidden'] = True
+                    self._eating_ball = True
+                    self._eating_ghost_id = ghost['id']
+
+                    if is_consecutive:
+                        # 연속 포획! 먹기 단계 생략 → 즉시 순간이동 후 발사
+                        ghost['eating'] = True
+                        ghost['eat_timer'] = 0.0
+                        ghost['eat_scale'] = 1.0
+                        ghost['eat_grow_acc'] = 0.0
+                        ghost['eat_bulge_phase'] = 0.0
+                        ghost['hit_cooldown'] = 99.0
+                        ghost['teleporting'] = True
+                        ghost['teleport_phase'] = 'disappear'
+                        ghost['teleport_timer'] = 0.0
+                        ghost['pre_teleport_x'] = float(rect.centerx)
+                        ghost['pre_teleport_y'] = float(rect.centery)
+                        min_x = self.GAME_LEFT + 60
+                        max_x = self.GAME_RIGHT - 60
+                        attempts = 0
+                        new_x = random.randint(int(min_x), int(max_x))
+                        while abs(new_x - rect.centerx) < 100 and attempts < 20:
+                            new_x = random.randint(int(min_x), int(max_x))
+                            attempts += 1
+                        ghost['teleport_target_x'] = float(new_x)
+                    else:
+                        # 일반 포획: 먹기 → 순간이동 → 발사 (정상 사이클)
+                        ghost['eating'] = True
+                        ghost['eat_timer'] = 0.0
+                        ghost['eat_scale'] = 1.0
+                        ghost['eat_grow_acc'] = 0.0
+                        ghost['eat_bulge_phase'] = 0.0
+                        ghost['hit_cooldown'] = 99.0
 
                     # 먹기 사운드
                     try:
@@ -8623,16 +8653,6 @@ class GhostSummon(HeroSkill):
             new_ghosts.append(ghost)
 
         self.ghosts = new_ghosts
-
-        # 파티클 업데이트
-        new_particles = []
-        for p in self._ghost_particles:
-            p['age'] += dt
-            p['y'] += p['vy']
-            p['alpha'] = int(p['alpha'] * (1.0 - p['age'] / p['life']))
-            if p['age'] < p['life'] and p['alpha'] > 5:
-                new_particles.append(p)
-        self._ghost_particles = new_particles
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['has_ghost_summon'] = False
@@ -8679,6 +8699,7 @@ class GhostSummon(HeroSkill):
         self._teleport_effects = []
         self._eating_ball = False
         self._eating_ghost_id = -1
+        self._time_since_ghost_release = 999.0
         game_state['has_ghost_summon'] = False
         game_state['ghost_summon_ball_hidden'] = False
         game_state.pop('ghost_summon_ball_release', None)
@@ -8705,6 +8726,16 @@ class GhostSummon(HeroSkill):
                 if p['age'] < p['life'] and p['alpha'] > 5:
                     new_tp.append(p)
             self._teleport_effects = new_tp
+        # 유령 파티클도 is_active 관계없이 항상 업데이트 (잔류 방지)
+        if self._ghost_particles:
+            new_particles = []
+            for p in self._ghost_particles:
+                p['age'] += dt
+                p['y'] += p['vy']
+                p['alpha'] = int(p['alpha'] * max(0, 1.0 - p['age'] / p['life']))
+                if p['age'] < p['life'] and p['alpha'] > 5:
+                    new_particles.append(p)
+            self._ghost_particles = new_particles
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         renderer = get_shadow_clone_renderer() if HERO_PADDLE_RENDERER_AVAILABLE else None
