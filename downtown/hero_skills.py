@@ -13264,6 +13264,417 @@ class SolarBolt(HeroSkill):
         self.sparks = []
 
 
+class ThunderOrb(HeroSkill):
+    """라의 뇌구 - 강력한 번개 구체를 발사, 상대 진영에서 폭발하여 범위 내 감전(스턴)
+
+    자동 발동 (쿨타임 20초). 시전자 패들에서 번개 구체를 발사하며,
+    상대 진영에 도달 시 폭발(170px). 범위 내 상대가 있으면 2초 감전.
+    감전 이펙트는 번개의 분노와 동일 (전류 아크 + 분기 전류 + 스파크).
+    """
+
+    # 구체 상수
+    ORB_SPEED = 280             # 구체 이동 속도 (px/sec)
+    ORB_RADIUS = 14             # 구체 반지름
+    EXPLOSION_RADIUS = 170      # 폭발 범위 (px)
+    EXPLOSION_DURATION = 0.4    # 폭발 애니메이션 지속 (초)
+    STUN_DURATION = 2.0         # 감전(스턴) 시간 (초)
+    TOTAL_DURATION = 6.0        # 스킬 최대 지속 시간 (안전장치)
+
+    # 상대 진영 Y 기준
+    TARGET_Y_TOP = 65           # 상단 진영 (보스 히트박스 하단)
+    TARGET_Y_BOTTOM = 690       # 하단 진영 (플레이어 패들 근처)
+
+    # 페이즈
+    PHASE_IDLE = 'idle'
+    PHASE_TRAVELING = 'traveling'
+    PHASE_EXPLODING = 'exploding'
+    PHASE_STUN = 'stun'
+
+    # 색상 (금빛 번개 테마)
+    ORB_CORE = (255, 240, 140)
+    ORB_GLOW = (255, 200, 60, 120)
+    ORB_RING = (180, 220, 255, 90)
+    EXPLOSION_COLOR = (255, 230, 100, 100)
+    EXPLOSION_RING_COLOR = (180, 220, 255)
+
+    # 감전 이펙트 색상 (번개의 분노와 동일)
+    ARC_COLORS_CORE = [(255, 255, 255), (255, 255, 230), (255, 250, 200)]
+    ARC_COLORS_OUTER = [
+        (120, 180, 255), (80, 140, 255), (160, 200, 255),
+        (255, 240, 120), (255, 220, 80),
+    ]
+
+    def __init__(self):
+        super().__init__(
+            skill_id="thunder_orb",
+            name="Thunder Orb",
+            korean_name="라의 뇌구",
+            description="강력한 번개 구체를 발사하여 상대 진영에서 폭발, 범위 내 감전",
+            trigger=SkillTrigger.ON_COOLDOWN,
+            cooldown=20.0,
+            duration=self.TOTAL_DURATION,
+            hero_id="ra"
+        )
+        self._sound_loaded = False
+        self._sound = None
+        self._explode_sound = None
+        # 런타임 상태
+        self.phase = self.PHASE_IDLE
+        self.orb_x = 0.0
+        self.orb_y = 0.0
+        self.orb_vy = 0.0           # 이동 방향 (+아래, -위)
+        self.target_y = 0.0         # 폭발 기준 Y
+        self.explosion_timer = 0.0
+        self.explosion_x = 0.0
+        self.explosion_y = 0.0
+        self.stun_timer = 0.0
+        self.stun_target_is_top = False
+        self.stun_target_rect = None  # 감전 대상 패들 rect
+        self.orb_trail = []          # 궤적 파티클
+        self.orb_sparks = []         # 구체 주변 스파크
+
+    def _load_sound(self):
+        if self._sound_loaded:
+            return
+        self._sound_loaded = True
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            # 발사 사운드
+            sound_path = os.path.join(project_root, "sounds", "devinethunder.wav")
+            if os.path.exists(sound_path):
+                self._sound = pygame.mixer.Sound(sound_path)
+                self._sound.set_volume(0.4)
+        except Exception:
+            pass
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        """번개 구체 발사"""
+        self._load_sound()
+        self.phase = self.PHASE_TRAVELING
+
+        # 시전자 패들 중심에서 발사
+        cx = caster_paddle.x + getattr(caster_paddle, 'width', 80) / 2
+        cy = caster_paddle.y + getattr(caster_paddle, 'height', 10) / 2
+
+        is_top = getattr(self, 'caster_is_top', True)
+        if is_top:
+            # 상단 → 아래로 발사
+            self.orb_vy = self.ORB_SPEED
+            self.target_y = self.TARGET_Y_BOTTOM
+        else:
+            # 하단 → 위로 발사
+            self.orb_vy = -self.ORB_SPEED
+            self.target_y = self.TARGET_Y_TOP
+
+        self.orb_x = cx
+        self.orb_y = cy
+        self.stun_target_is_top = not is_top
+        self.orb_trail = []
+        self.orb_sparks = []
+        self.explosion_timer = 0.0
+        self.stun_timer = 0.0
+
+        # 사운드
+        if self._sound:
+            try:
+                self._sound.play()
+            except Exception:
+                pass
+
+        return {
+            'screen_effect': ScreenEffect.FLASH,
+            'flash_duration': 0.1,
+            'flash_color': (255, 230, 100),
+            'shake_intensity': 3,
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        """페이즈별 업데이트"""
+        if self.phase == self.PHASE_TRAVELING:
+            self._update_traveling(dt, target_paddle, game_state)
+        elif self.phase == self.PHASE_EXPLODING:
+            self._update_exploding(dt, target_paddle, game_state)
+        elif self.phase == self.PHASE_STUN:
+            self._update_stun(dt, target_paddle, game_state)
+
+    def _update_traveling(self, dt, target_paddle, game_state):
+        """구체 이동 + 궤적 파티클"""
+        self.orb_y += self.orb_vy * dt
+
+        # 궤적 파티클 생성
+        if random.random() < 0.8:
+            self.orb_trail.append({
+                'x': self.orb_x + random.uniform(-6, 6),
+                'y': self.orb_y + random.uniform(-6, 6),
+                'life': 0.3,
+                'size': random.uniform(2, 5),
+            })
+        # 구체 주변 전기 스파크
+        if random.random() < 0.5:
+            ang = random.uniform(0, math.tau)
+            dist = random.uniform(8, 18)
+            self.orb_sparks.append({
+                'x': self.orb_x + _cos(ang) * dist,
+                'y': self.orb_y + _sin(ang) * dist,
+                'ex': self.orb_x + _cos(ang) * (dist + random.uniform(4, 10)),
+                'ey': self.orb_y + _sin(ang) * (dist + random.uniform(4, 10)),
+                'life': 0.08,
+            })
+
+        # 궤적/스파크 업데이트
+        self.orb_trail = [p for p in self.orb_trail if (p.__setitem__('life', p['life'] - dt) or True) and p['life'] > 0]  # noqa
+        for p in self.orb_trail:
+            p['size'] *= 0.95
+        self.orb_sparks = [s for s in self.orb_sparks if (s.__setitem__('life', s['life'] - dt) or True) and s['life'] > 0]
+
+        # 상대 진영 도달 체크
+        reached = False
+        if self.orb_vy < 0 and self.orb_y <= self.target_y:
+            reached = True
+        elif self.orb_vy > 0 and self.orb_y >= self.target_y:
+            reached = True
+
+        if reached:
+            self._start_explosion(target_paddle, game_state)
+
+    def _start_explosion(self, target_paddle, game_state):
+        """폭발 시작"""
+        self.phase = self.PHASE_EXPLODING
+        self.explosion_timer = self.EXPLOSION_DURATION
+        self.explosion_x = self.orb_x
+        self.explosion_y = self.orb_y
+        game_state['screen_shake'] = 12
+
+    def _update_exploding(self, dt, target_paddle, game_state):
+        """폭발 애니메이션 + 범위 판정"""
+        self.explosion_timer -= dt
+        if self.explosion_timer <= 0:
+            # 폭발 종료 → 범위 판정
+            tx = target_paddle.x + getattr(target_paddle, 'width', 80) / 2
+            ty = target_paddle.y + getattr(target_paddle, 'height', 10) / 2
+            dist = math.hypot(tx - self.explosion_x, ty - self.explosion_y)
+
+            if dist <= self.EXPLOSION_RADIUS:
+                # 범위 내 → 감전 시작
+                self.phase = self.PHASE_STUN
+                self.stun_timer = self.STUN_DURATION
+                # 스턴 적용
+                prefix = 'top_paddle' if self.stun_target_is_top else 'bottom_paddle'
+                game_state[f'{prefix}_stunned'] = True
+                # 감전 이펙트용 game_state 플래그
+                game_state[f'{prefix}_electric_stun'] = True
+                self.stun_target_rect = pygame.Rect(
+                    int(target_paddle.x), int(target_paddle.y),
+                    int(getattr(target_paddle, 'width', 80)),
+                    int(getattr(target_paddle, 'height', 10))
+                )
+            else:
+                # 범위 밖 → 스킬 종료
+                self.phase = self.PHASE_IDLE
+                self.is_active = False
+                self.active_timer = 0
+
+    def _update_stun(self, dt, target_paddle, game_state):
+        """감전 상태 업데이트"""
+        self.stun_timer -= dt
+        # 타겟 패들 위치 실시간 추적 (떨림 효과 위치용)
+        self.stun_target_rect = pygame.Rect(
+            int(target_paddle.x), int(target_paddle.y),
+            int(getattr(target_paddle, 'width', 80)),
+            int(getattr(target_paddle, 'height', 10))
+        )
+        if self.stun_timer <= 0:
+            # 감전 종료
+            prefix = 'top_paddle' if self.stun_target_is_top else 'bottom_paddle'
+            game_state[f'{prefix}_stunned'] = False
+            game_state[f'{prefix}_electric_stun'] = False
+            self.phase = self.PHASE_IDLE
+            self.is_active = False
+            self.active_timer = 0
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        """전체 비주얼 렌더링"""
+        if self.phase == self.PHASE_TRAVELING:
+            self._draw_orb(screen)
+        elif self.phase == self.PHASE_EXPLODING:
+            self._draw_explosion(screen)
+        elif self.phase == self.PHASE_STUN:
+            self._draw_electric_stun(screen)
+
+    def _draw_orb(self, screen):
+        """번개 구체 + 궤적 렌더링"""
+        ox, oy = int(self.orb_x), int(self.orb_y)
+        r = self.ORB_RADIUS
+
+        # 궤적 파티클
+        for p in self.orb_trail:
+            alpha = int(180 * (p['life'] / 0.3))
+            sz = max(1, int(p['size']))
+            s = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+            pygame.draw.circle(s, (255, 220, 100, alpha), (sz, sz), sz)
+            screen.blit(s, (int(p['x']) - sz, int(p['y']) - sz))
+
+        # 전기 스파크 (구체 주변)
+        for sp in self.orb_sparks:
+            col = random.choice(self.ARC_COLORS_CORE)
+            pygame.draw.line(screen, col, (int(sp['x']), int(sp['y'])), (int(sp['ex']), int(sp['ey'])), 1)
+
+        # 외부 글로우
+        glow_r = r + 10 + int(_sin(pygame.time.get_ticks() * 0.008) * 4)
+        glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+        pygame.draw.circle(glow_surf, self.ORB_GLOW, (glow_r, glow_r), glow_r)
+        screen.blit(glow_surf, (ox - glow_r, oy - glow_r))
+
+        # 전기 링
+        ring_r = r + 6
+        ring_surf = pygame.Surface((ring_r * 2 + 4, ring_r * 2 + 4), pygame.SRCALPHA)
+        pygame.draw.circle(ring_surf, self.ORB_RING, (ring_r + 2, ring_r + 2), ring_r, 2)
+        screen.blit(ring_surf, (ox - ring_r - 2, oy - ring_r - 2))
+
+        # 코어
+        pygame.draw.circle(screen, self.ORB_CORE, (ox, oy), r)
+        pygame.draw.circle(screen, (255, 255, 255), (ox, oy), max(1, r - 4))
+
+        # 구체 위 작은 전기 아크 (2~3개)
+        for _ in range(random.randint(2, 3)):
+            a = random.uniform(0, math.tau)
+            sr = random.uniform(r * 0.5, r * 1.5)
+            sx = ox + int(_cos(a) * sr)
+            sy = oy + int(_sin(a) * sr)
+            a2 = a + random.uniform(-0.8, 0.8)
+            er = sr + random.uniform(6, 14)
+            ex = ox + int(_cos(a2) * er)
+            ey = oy + int(_sin(a2) * er)
+            col = random.choice(self.ARC_COLORS_OUTER)
+            pygame.draw.line(screen, col, (sx, sy), (ex, ey), 1)
+
+    def _draw_explosion(self, screen):
+        """폭발 이펙트 렌더링"""
+        progress = 1.0 - (self.explosion_timer / self.EXPLOSION_DURATION)
+        cx, cy = int(self.explosion_x), int(self.explosion_y)
+        current_r = int(self.EXPLOSION_RADIUS * progress)
+
+        if current_r > 0:
+            # 범위 원 (반투명)
+            alpha = int(100 * (1.0 - progress))
+            exp_surf = pygame.Surface((current_r * 2, current_r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(exp_surf, (255, 230, 100, alpha), (current_r, current_r), current_r)
+            screen.blit(exp_surf, (cx - current_r, cy - current_r))
+
+            # 외곽 링
+            ring_alpha = int(200 * (1.0 - progress))
+            if ring_alpha > 0:
+                ring_surf = pygame.Surface((current_r * 2 + 6, current_r * 2 + 6), pygame.SRCALPHA)
+                pygame.draw.circle(ring_surf,
+                                   (self.EXPLOSION_RING_COLOR[0], self.EXPLOSION_RING_COLOR[1],
+                                    self.EXPLOSION_RING_COLOR[2], ring_alpha),
+                                   (current_r + 3, current_r + 3), current_r, 3)
+                screen.blit(ring_surf, (cx - current_r - 3, cy - current_r - 3))
+
+            # 방사형 전기 아크 (폭발 중)
+            arc_count = 4 + int(progress * 6)
+            for i in range(arc_count):
+                a = (i / arc_count) * math.tau + random.uniform(-0.3, 0.3)
+                inner_r = current_r * 0.3
+                outer_r = current_r * random.uniform(0.7, 1.0)
+                sx = cx + int(_cos(a) * inner_r)
+                sy = cy + int(_sin(a) * inner_r)
+                ex = cx + int(_cos(a) * outer_r)
+                ey = cy + int(_sin(a) * outer_r)
+                # 중간 지점 왜곡
+                mx = (sx + ex) // 2 + random.randint(-8, 8)
+                my = (sy + ey) // 2 + random.randint(-8, 8)
+                pts = [(sx, sy), (mx, my), (ex, ey)]
+                col = random.choice(self.ARC_COLORS_CORE + self.ARC_COLORS_OUTER)
+                pygame.draw.lines(screen, col, False, pts, 2)
+
+    def _draw_electric_stun(self, screen):
+        """감전 이펙트 - 번개의 분노와 동일"""
+        if not self.stun_target_rect:
+            return
+        rect = self.stun_target_rect
+        cx, cy = rect.centerx, rect.centery
+        # 오프셋 (캐릭터 몸체 중심으로)
+        offset_y = 20 if self.stun_target_is_top else -20
+        cy += offset_y
+        hw = rect.width // 2 + 5
+        hh = 28
+
+        # ── 1. 주요 전류 아크 ──
+        for _ in range(1):
+            sx = cx + random.randint(-hw // 3, hw // 3)
+            sy = cy + random.randint(-hh // 2, hh // 2)
+            arc_len = random.randint(12, 22)
+            a = random.uniform(0, math.tau)
+            ex = sx + int(_cos(a) * arc_len)
+            ey = sy + int(_sin(a) * arc_len)
+            segs = random.randint(3, 4)
+            pts = [(int(sx), int(sy))]
+            for j in range(1, segs):
+                frac = j / segs
+                mx = sx + (ex - sx) * frac + random.uniform(-2.5, 2.5)
+                my = sy + (ey - sy) * frac + random.uniform(-2, 2)
+                pts.append((int(mx), int(my)))
+            pts.append((int(ex), int(ey)))
+            if len(pts) >= 2:
+                pygame.draw.lines(screen, random.choice(self.ARC_COLORS_OUTER), False, pts, 2)
+                pygame.draw.lines(screen, random.choice(self.ARC_COLORS_CORE), False, pts, 1)
+
+        # ── 2. 분기 전류 ──
+        branch_count = random.randint(4, 7)
+        for _ in range(branch_count):
+            bx = cx + random.randint(-hw, hw)
+            by = cy + random.randint(-hh, hh)
+            b_angle = random.uniform(0, math.tau)
+            b_len = random.uniform(8, 18)
+            pts = [(int(bx), int(by))]
+            segs = random.randint(2, 4)
+            for j in range(1, segs + 1):
+                frac = j / segs
+                nx = bx + _cos(b_angle) * b_len * frac + random.uniform(-4, 4)
+                ny = by + _sin(b_angle) * b_len * frac + random.uniform(-4, 4)
+                pts.append((int(nx), int(ny)))
+            col = random.choice(self.ARC_COLORS_OUTER + self.ARC_COLORS_CORE)
+            if len(pts) >= 2:
+                pygame.draw.lines(screen, col, False, pts, 1)
+
+        # ── 3. 스파크 포인트 ──
+        spark_count = random.randint(1, 2)
+        for _ in range(spark_count):
+            sp_x = cx + random.randint(-hw, hw)
+            sp_y = cy + random.randint(-hh, hh)
+            sp_size = random.randint(1, 2)
+            sp_col = random.choice([(255, 255, 255), (255, 255, 200), (200, 230, 255)])
+            pygame.draw.circle(screen, sp_col, (sp_x, sp_y), sp_size)
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        """스킬 종료 정리"""
+        # 감전 상태 해제
+        if self.phase == self.PHASE_STUN:
+            prefix = 'top_paddle' if self.stun_target_is_top else 'bottom_paddle'
+            game_state[f'{prefix}_stunned'] = False
+            game_state[f'{prefix}_electric_stun'] = False
+        self.phase = self.PHASE_IDLE
+        self.orb_trail = []
+        self.orb_sparks = []
+        self.stun_target_rect = None
+
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 정리"""
+        # 감전 해제
+        if self.phase == self.PHASE_STUN:
+            prefix = 'top_paddle' if self.stun_target_is_top else 'bottom_paddle'
+            game_state[f'{prefix}_stunned'] = False
+            game_state[f'{prefix}_electric_stun'] = False
+        super().reset_for_new_round(game_state)
+        self.phase = self.PHASE_IDLE
+        self.orb_trail = []
+        self.orb_sparks = []
+        self.stun_timer = 0.0
+        self.explosion_timer = 0.0
+        self.stun_target_rect = None
+
+
 # ============================================================================
 # 영웅 스킬 매핑
 # ============================================================================
@@ -13281,7 +13692,7 @@ HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "joker": [BalloonWall(), DeadPossession()],
     "mirage": [SandPrison(), SandVortex()],
     "android": [BombSurprise(), GatlingBurst()],
-    "ra": [SolarBolt(), SandVortex()],  # 라의 낙뢰 + 임시 모래회오리
+    "ra": [SolarBolt(), ThunderOrb()],  # 라의 낙뢰 + 라의 뇌구
 }
 
 # 스킬 클래스 매핑 (호위무사 시스템 등에서 독립 인스턴스 생성용)
@@ -13299,7 +13710,7 @@ HERO_SKILL_CLASSES: Dict[str, list] = {
     "joker": [BalloonWall, DeadPossession],
     "mirage": [SandPrison, SandVortex],
     "android": [BombSurprise, GatlingBurst],
-    "ra": [SolarBolt, SandVortex],  # 라의 낙뢰 + 임시 모래회오리
+    "ra": [SolarBolt, ThunderOrb],  # 라의 낙뢰 + 라의 뇌구
 }
 
 
@@ -13459,12 +13870,14 @@ class HeroSkillManager:
         self.game_state['top_paddle_confused'] = False
         self.game_state['top_paddle_locked'] = False
         self.game_state['top_paddle_gravity_drift'] = 0
+        self.game_state['top_paddle_electric_stun'] = False
         self.game_state['bottom_paddle_stunned'] = False
         self.game_state['bottom_paddle_slowed'] = False
         self.game_state['bottom_paddle_slow_amount'] = 1.0
         self.game_state['bottom_paddle_confused'] = False
         self.game_state['bottom_paddle_locked'] = False
         self.game_state['bottom_paddle_gravity_drift'] = 0
+        self.game_state['bottom_paddle_electric_stun'] = False
         self.game_state['top_paddle_sand_prison'] = False
         self.game_state['bottom_paddle_sand_prison'] = False
         self.game_state['has_sand_vortex'] = False
