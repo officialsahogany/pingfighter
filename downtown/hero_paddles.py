@@ -3104,6 +3104,11 @@ class HeroPaddleRenderer:
         left_arm_swing = anim.get("left_arm_swing", 0)
         right_arm_swing = anim.get("right_arm_swing", 0)
         shoulder_bob = anim.get("shoulder_bob", 0)
+        # 다리 애니메이션 파라미터 (안드로이드 기계식 걷기 모션)
+        left_leg_lift = anim.get("left_leg", 0)
+        right_leg_lift = anim.get("right_leg", 0)
+        left_leg_sway = anim.get("left_leg_sway", 0)
+        right_leg_sway = anim.get("right_leg_sway", 0)
 
         torso_y = cy - int(1.5 * b) + int(body_bob * 2 * b)
         lean_offset = int(lean * 2 * b)
@@ -3111,6 +3116,14 @@ class HeroPaddleRenderer:
         # 기계 작동 펄스
         mech_pulse = (_sin(self.time * 4) + 1) * 0.5
         gear_spin = self.time * 3
+
+        # 다리 움직임 계산 (기계적 안드로이드 스타일 - 크게 움직임)
+        l_leg_y = int(left_leg_lift * 0.35 * b)   # Y 들어올림 (강한 리프트)
+        r_leg_y = int(right_leg_lift * 0.35 * b)
+        l_leg_x = int(left_leg_sway * 0.5 * b)    # X 좌우 스윙 (넓은 보폭)
+        r_leg_x = int(right_leg_sway * 0.5 * b)
+        # 이동 감지 (톱니바퀴 가속용)
+        leg_moving = abs(left_leg_lift) + abs(right_leg_lift) + abs(left_leg_sway) + abs(right_leg_sway)
 
         p = {
             "metal": color,
@@ -3148,6 +3161,8 @@ class HeroPaddleRenderer:
             "glass": (200, 220, 230),
             "gauge_green": (80, 200, 100),
             "gauge_red": (255, 100, 80),
+            "piston": (200, 190, 175),
+            "piston_dark": (150, 140, 125),
         }
 
         # === 증기 오라 효과 ===
@@ -3159,14 +3174,23 @@ class HeroPaddleRenderer:
             pygame.draw.circle(aura_surf, (*p["steam"], aura_alpha), (aura_size, aura_size), aura_r)
         screen.blit(aura_surf, (cx - aura_size + lean_offset, torso_y - int(0.8 * b) - aura_size // 2), special_flags=pygame.BLEND_ADD)
 
-        # === 다리 (스팀펑크 레깅스) ===
+        # === 다리 (스팀펑크 기계식 다리 - 안드로이드 걷기 모션) ===
         hip_y = torso_y + int(2.0 * b)
         for side in [-1, 1]:
-            leg_phase = int(abs(wave) * 1.5) if side == 1 else 0
-            thigh_x = cx + side * int(0.52 * b) + lean_offset
+            # 좌/우 다리별 개별 애니메이션 오프셋
+            if side == -1:
+                leg_offset_y = -l_leg_y   # 왼쪽 다리 들어올림
+                leg_offset_x = l_leg_x    # 왼쪽 다리 좌우 스윙
+                cur_leg_lift = left_leg_lift
+            else:
+                leg_offset_y = -r_leg_y   # 오른쪽 다리 들어올림
+                leg_offset_x = r_leg_x    # 오른쪽 다리 좌우 스윙
+                cur_leg_lift = right_leg_lift
+
+            thigh_x = cx + side * int(0.52 * b) + lean_offset + leg_offset_x
 
             # 허벅지 (가죽 + 금속 스트랩)
-            thigh_rect = pygame.Rect(thigh_x - int(0.44 * b), hip_y + leg_phase, int(0.88 * b), int(1.7 * b))
+            thigh_rect = pygame.Rect(thigh_x - int(0.44 * b), hip_y + leg_offset_y, int(0.88 * b), int(1.7 * b))
             pygame.draw.rect(screen, p["leather_dark"], thigh_rect.inflate(2, 2), border_radius=4)
             pygame.draw.rect(screen, p["leather"], thigh_rect, border_radius=4)
             pygame.draw.rect(screen, p["leather_mid"], thigh_rect.inflate(-int(0.12 * b), -int(0.1 * b)), border_radius=3)
@@ -3187,11 +3211,20 @@ class HeroPaddleRenderer:
             pygame.draw.rect(screen, p["copper"], knee_rect, border_radius=3)
             pygame.draw.rect(screen, p["copper_light"], knee_rect.inflate(-int(0.1 * b), -int(0.08 * b)), border_radius=2)
 
-            # 무릎 톱니바퀴
+            # 무릎 피스톤 (다리 구부릴 때 신축 - 안드로이드 느낌)
+            piston_extend = int(cur_leg_lift * 0.15 * b)
+            piston_x = knee_rect.centerx + side * int(0.25 * b)
+            piston_top = knee_rect.top - int(0.1 * b) - piston_extend
+            piston_bot = knee_rect.centery
+            pygame.draw.line(screen, p["piston_dark"], (piston_x, piston_top), (piston_x, piston_bot), max(2, int(0.07 * b)))
+            pygame.draw.line(screen, p["piston"], (piston_x + 1, piston_top), (piston_x + 1, piston_bot - 1), max(1, int(0.04 * b)))
+
+            # 무릎 톱니바퀴 (이동 시 빠르게 회전)
             knee_cx, knee_cy = knee_rect.centerx, knee_rect.centery
             knee_gear_r = int(0.18 * b)
+            gear_speed = gear_spin * (1.0 + leg_moving * 0.8)  # 이동 시 톱니 가속
             for tooth in range(8):
-                angle = gear_spin * side + tooth * math.pi / 4
+                angle = gear_speed * side + tooth * math.pi / 4
                 gx = knee_cx + int(_cos(angle) * knee_gear_r)
                 gy = knee_cy + int(_sin(angle) * knee_gear_r * 0.8)
                 pygame.draw.circle(screen, p["brass"], (gx, gy), max(1, int(0.05 * b)))
@@ -3214,6 +3247,14 @@ class HeroPaddleRenderer:
             # 부츠 발끝 금속판
             toe_rect = (boot_rect.left + int(0.08 * b), boot_rect.bottom - int(0.2 * b), boot_rect.width - int(0.16 * b), int(0.22 * b))
             pygame.draw.rect(screen, p["metal_light"], toe_rect, border_radius=2)
+
+            # 이동 시 무릎 증기 분출 효과
+            if leg_moving > 0.3:
+                steam_alpha = min(60, int(leg_moving * 20))
+                steam_size = int(0.4 * b)
+                steam_surf = self._get_surface(steam_size * 2, steam_size * 2)
+                pygame.draw.circle(steam_surf, (*p["steam"], steam_alpha), (steam_size, steam_size), steam_size)
+                screen.blit(steam_surf, (knee_cx - steam_size - side * int(0.3 * b), knee_cy - steam_size), special_flags=pygame.BLEND_ADD)
 
         # === 몸통 (스팀펑크 코르셋 조끼) ===
         chest_w, chest_h = int(2.8 * b), int(2.15 * b)
