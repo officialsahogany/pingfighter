@@ -13353,6 +13353,8 @@ class ThunderOrb(HeroSkill):
         self.orb_sparks = []         # 구체 주변 스파크
         self.energy_particles = []   # 에너지볼 떠다니는 파티클
         self.explosion_particles = []  # 폭발 파티클
+        self.orb_rotation = 0.0      # 구체 회전 각도 (도)
+        self.orb_rotation_speed = 280.0  # 회전 속도 (도/초)
 
     def _load_sound(self):
         if self._sound_loaded:
@@ -13421,8 +13423,9 @@ class ThunderOrb(HeroSkill):
             self._update_stun(dt, target_paddle, game_state)
 
     def _update_traveling(self, dt, target_paddle, game_state):
-        """구체 이동 + 궤적/에너지 파티클"""
+        """구체 이동 + 회전 + 궤적/에너지 파티클"""
         self.orb_y += self.orb_vy * dt
+        self.orb_rotation = (self.orb_rotation + self.orb_rotation_speed * dt) % 360
 
         # 궤적 파티클 생성 (파란색 에너지 테마)
         if random.random() < 0.8:
@@ -13707,8 +13710,10 @@ class ThunderOrb(HeroSkill):
                     if 0 < px < surf_size and 0 < py < surf_size:
                         pygame.draw.circle(ball_surf, (*p['color'], alpha), (px, py), max(1, sz))
 
-        # 서피스를 화면에 블릿
-        screen.blit(ball_surf, (ox - center, oy - center))
+        # 서피스를 회전 후 화면에 블릿
+        rotated = pygame.transform.rotate(ball_surf, self.orb_rotation)
+        rr = rotated.get_rect(center=(ox, oy))
+        screen.blit(rotated, rr)
 
         # === Layer 7: 전기 아크 (구체 바깥, 직접 screen에) ===
         for _ in range(random.randint(2, 4)):
