@@ -85886,9 +85886,9 @@ def draw_player_gauge():
                 _player_gauge_surface_top.fill((0, 0, 0, 0))
                 _TOP = _player_gauge_surface_top  # 단축 참조
 
-                # 구슬 위치: Surface 내 하단 (하단 구슬과 동일 위치 - blit 시 상단에 배치)
+                # 구슬 위치: Surface 내 상단 (blit 시 화면 맨 위에 오도록)
                 _top_orb_x = 80  # 하단 구슬과 동일한 X
-                _top_orb_y = _top_surf_h - orb_radius_base - 15  # 하단 구슬과 동일 위치
+                _top_orb_y = orb_radius_base + 15  # Surface 상단에 배치 (프레임+글로우 여유 포함)
 
                 # === 보라빛 색상 테마 ===
                 _top_empty_color = (30, 15, 50)
