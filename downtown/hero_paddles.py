@@ -104,7 +104,8 @@ class HeroPaddleRenderer:
             state["head_tilt"] *= 0.3   # 머리 흔들림 최소화
 
         # 원숭이왕 전용: 어슬렁거리는 원숭이 걸음 (무게감 있는 좌우 흔들림)
-        if hero_id == "monkeyking":
+        # 이동 중에만 증폭 (정지 시 0.9 감쇠와 곱해지면 1.44배로 발산하므로)
+        if hero_id == "monkeyking" and move_speed > 5:
             state["body_bob"] *= 1.8   # 강한 상하 바운스 (쿵쿵 걷는 느낌)
             state["arm_swing"] *= 1.6  # 긴 팔 크게 흔들기
             state["head_tilt"] *= 1.5  # 머리도 어슬렁 흔들림
