@@ -11329,6 +11329,31 @@ class GatlingBurst(HeroSkill):
         self._phase = 'idle'       # 'idle', 'mounting', 'firing', 'dismounting'
         self._phase_timer = 0.0    # 현재 페이즈 경과 시간
 
+    def _get_cannon_tip(self, caster_paddle):
+        """탱크 모드 캐논 총구 끝 위치 계산 (hero_paddles._draw_android_tank 기하학 동일)"""
+        pw = caster_paddle.width
+        b = max(4, int(8 * pw / 130.0))
+        cx = caster_paddle.x + pw // 2
+
+        if self.caster_is_top:
+            # 상단 영웅 (facing=down): cy = y + 28, gun_dir = +1 (아래로 발사)
+            cy = caster_paddle.y + 28
+            torso_y = cy - int(1.5 * b)
+            turret_bottom = torso_y - int(1.6 * b) + int(1.4 * b)
+            cannon_mount_y = turret_bottom + int(0.1 * b)
+            barrel_base_y = cannon_mount_y + int(1.8 * b)
+            muzzle_tip_y = barrel_base_y + int(1.6 * b)
+        else:
+            # 하단 영웅 (facing=up): cy = y - 14, gun_dir = -1 (위로 발사)
+            cy = caster_paddle.y + int(2.0 * 8) - 30
+            torso_y = cy - int(1.5 * b)
+            turret_top = torso_y - int(1.6 * b)
+            cannon_mount_y = turret_top - int(0.1 * b)
+            barrel_base_y = cannon_mount_y - int(1.8 * b)
+            muzzle_tip_y = barrel_base_y - int(1.6 * b)
+
+        return cx, muzzle_tip_y
+
     def _load_sounds(self):
         """사운드 로드"""
         if self._fire_sound is None:
@@ -11378,12 +11403,9 @@ class GatlingBurst(HeroSkill):
         }
 
     def _fire_bullet(self, caster_paddle, target_paddle, game_state):
-        """총알 한 발 발사"""
-        spawn_x = caster_paddle.x + caster_paddle.width // 2
-        if self.caster_is_top:
-            spawn_y = caster_paddle.y + caster_paddle.height + 5
-        else:
-            spawn_y = caster_paddle.y - 5
+        """총알 한 발 발사 - 탱크 캐논 총구 끝에서 발사"""
+        # 탱크 캐논 총구 끝 위치에서 발사
+        spawn_x, spawn_y = self._get_cannon_tip(caster_paddle)
 
         # 적 패들 방향으로 조준 + 랜덤 퍼짐
         enemy_key = ('hero_paddle_bottom' if self.caster_is_top
@@ -11725,76 +11747,18 @@ class GatlingBurst(HeroSkill):
                 and not self.smoke_puffs):
             return
 
-        # --- 견착 애니메이션 (거대 개틀링건 등장) ---
+        # --- 견착 단계 게이지 바 (탱크 변신 비주얼은 hero_paddles에서 처리) ---
         if self._phase == 'mounting':
             side = 'top' if self.caster_is_top else 'bottom'
             progress = game_state.get(f'gatling_mount_progress_{side}', 0.0)
-            px = caster_paddle.x + caster_paddle.width // 2
-            py = caster_paddle.y + (caster_paddle.height + 8 if self.caster_is_top
-                                    else -8)
-
-            # 개틀링건 실루엣 (아래에서 올라오는 등장 효과)
-            gun_w = int(28 * progress)
-            gun_h = int(50 * progress)
-            # 슬라이드 인: 화면 밖에서 올라옴
-            slide_offset = int(40 * (1.0 - progress))
-            if self.caster_is_top:
-                gun_cy = py + slide_offset
-            else:
-                gun_cy = py - slide_offset
-
-            if gun_w > 2 and gun_h > 4:
-                gun_surf = pygame.Surface((gun_w * 2 + 16, gun_h + 20), pygame.SRCALPHA)
-                gcx, gcy = gun_w + 8, gun_h // 2 + 10
-
-                # 기관포 본체 (진한 건메탈)
-                body_rect = pygame.Rect(gcx - gun_w // 2, gcy - gun_h // 4,
-                                        gun_w, gun_h // 2)
-                pygame.draw.rect(gun_surf, (60, 65, 75, int(220 * progress)),
-                    body_rect, border_radius=3)
-                pygame.draw.rect(gun_surf, (90, 95, 110, int(200 * progress)),
-                    body_rect.inflate(-4, -4), border_radius=2)
-
-                # 배럴 3개 (회전 효과 - 점점 빨라짐)
-                barrel_len = int(gun_h * 0.6 * progress)
-                barrel_spin = self._phase_timer * (2 + 8 * progress)
-                barrel_spread = int(4 * progress)
-                fire_dir = 1 if self.caster_is_top else -1
-                for i in range(3):
-                    angle = barrel_spin + i * math.pi * 2 / 3
-                    bx_off = int(math.cos(angle) * barrel_spread)
-                    by_off = int(math.sin(angle) * barrel_spread * 0.5)
-                    bx1 = gcx + bx_off
-                    by1 = gcy + fire_dir * (gun_h // 4) + by_off
-                    bx2 = gcx + bx_off
-                    by2 = by1 + fire_dir * barrel_len + by_off
-                    pygame.draw.line(gun_surf, (50, 52, 60, int(200 * progress)),
-                        (bx1, by1), (bx2, by2), max(2, int(3 * progress)))
-
-                # 마운트 브래킷 (어깨 연결부)
-                bracket_w = int(12 * progress)
-                pygame.draw.rect(gun_surf,
-                    (100, 105, 120, int(180 * progress)),
-                    (gcx - bracket_w // 2, gcy - gun_h // 4 - 4,
-                     bracket_w, 6), border_radius=2)
-
-                # 준비 중 LED (깜빡이는 빨간 불)
-                led_blink = (math.sin(self._phase_timer * 10) + 1) * 0.5
-                led_alpha = int(180 * progress * led_blink)
-                pygame.draw.circle(gun_surf,
-                    (255, 50, 30, led_alpha),
-                    (gcx, gcy - gun_h // 4 + 2),
-                    max(2, int(3 * progress)))
-
-                # 화면에 블릿
-                screen.blit(gun_surf,
-                    (px - gun_w - 8, int(gun_cy) - gun_h // 2 - 10))
+            # 캐논 총구 끝 위치 기준으로 게이지 바 표시
+            tip_x, tip_y = self._get_cannon_tip(caster_paddle)
 
             # "LOADING" 게이지 바
             bar_w = 40
             bar_h = 4
-            bar_x = px - bar_w // 2
-            bar_y = gun_cy + (25 if self.caster_is_top else -25)
+            bar_x = tip_x - bar_w // 2
+            bar_y = tip_y + (12 if self.caster_is_top else -12)
             # 배경
             bar_bg = pygame.Surface((bar_w + 2, bar_h + 2), pygame.SRCALPHA)
             pygame.draw.rect(bar_bg, (0, 0, 0, 120), (0, 0, bar_w + 2, bar_h + 2), border_radius=2)
