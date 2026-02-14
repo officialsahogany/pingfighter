@@ -12508,7 +12508,7 @@ class SandVortex(HeroSkill):
             korean_name="모래회오리",
             description="2개의 모래 소용돌이를 발사하여 공을 끌어당긴다",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=18.0,
+            cooldown=22.0,
             duration=7.0,
             hero_id="mirage"
         )
