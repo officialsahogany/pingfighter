@@ -1633,17 +1633,17 @@ class PillarBackgroundRenderer:
 
                 if legendary_item:
                     legendary_item.update(1 / 60.0, ui_mode=True)
-                    legend_surface = pygame.Surface(icon_size, pygame.SRCALPHA)
-                    legendary_item.draw_icon(legend_surface, 0, 0, icon_size[0])
+                    legend_surface = pygame.Surface((SLOT_W, SLOT_H), pygame.SRCALPHA)
+                    legendary_item.draw_icon(legend_surface, 0, 0, SLOT_W)
                     screen.blit(legend_surface, (x, y))
                 elif item.get("icon"):
-                    # 🔧 최적화: 스케일된 아이콘 캐시 사용
-                    scaled_icon = self._get_scaled_icon(item, icon_size)
+                    # 🔧 최적화: 스케일된 아이콘 캐시 사용 (슬롯 크기에 맞춤)
+                    scaled_icon = self._get_scaled_icon(item, (SLOT_W, SLOT_H))
                     if scaled_icon:
                         screen.blit(scaled_icon, (x, y))
             elif "icon" in item and item["icon"]:
-                # 🔧 최적화: 스케일된 아이콘 캐시 사용
-                scaled_icon = self._get_scaled_icon(item, icon_size)
+                # 🔧 최적화: 스케일된 아이콘 캐시 사용 (슬롯 크기에 맞춤)
+                scaled_icon = self._get_scaled_icon(item, (SLOT_W, SLOT_H))
                 if scaled_icon:
                     screen.blit(scaled_icon, (x, y))
             else:
