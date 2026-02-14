@@ -1139,19 +1139,51 @@ class HeroPortraitRenderer:
         hair_bright = (255, 200, 100)
         eye_color = (200, 100, 30)
         eye_hi = (255, 200, 100)
-        # Fiery background - multi-layer
-        self._soft_glow(surf, cx, int(h * 0.3), max(6, int(w * 0.45)), (200, 80, 20), 18)
-        self._soft_glow(surf, cx + int(w * 0.1), int(h * 0.2), max(4, int(w * 0.2)), (255, 120, 30), 10)
+        lip_color = (195, 145, 125)
+        lip_hi = (225, 180, 160)
+        # Fiery background - rich multi-layer radial glow
+        self._radial_glow(surf, cx, int(h * 0.3), max(8, int(w * 0.50)), (200, 80, 20), layers=5, max_alpha=22)
+        self._radial_glow(surf, cx + int(w * 0.1), int(h * 0.2), max(5, int(w * 0.25)), (255, 120, 30), layers=4, max_alpha=14)
+        self._radial_glow(surf, cx - int(w * 0.15), int(h * 0.5), max(4, int(w * 0.20)), (255, 60, 10), layers=3, max_alpha=10)
+        # Smoke wisps at bottom
+        for i in range(6):
+            sx = cx + int((i - 2.5) * w * 0.15)
+            sy = int(h * 0.88 + _sin(i * 1.3) * h * 0.04)
+            sr = max(3, int(w * 0.06 + _sin(i * 0.7) * w * 0.02))
+            pygame.draw.ellipse(surf, (80, 40, 20, 14), (sx - sr, sy - sr // 2, sr * 2, sr))
+            pygame.draw.ellipse(surf, (60, 30, 15, 8), (sx - sr + 1, sy - sr // 3, sr * 2 - 2, sr - 1))
+        # Heat shimmer effect (wavy lines rising from top)
+        for i in range(8):
+            sx = cx + int((i - 3.5) * w * 0.11)
+            for t in range(4):
+                sy = int(h * (-0.08 + t * 0.04))
+                wave_x = int(_sin(t * 2.5 + i * 1.2) * w * 0.02)
+                pygame.draw.line(surf, (255, 150, 50, 12), (sx + wave_x, sy), (sx + wave_x, sy + int(h * 0.03)), 1)
+        # Fire/ember particles around edges
+        for i in range(14):
+            angle = i * 3.14159 * 2 / 14
+            dist = int(w * 0.38 + _sin(i * 2.1) * w * 0.06)
+            px = cx + int(_cos(angle) * dist)
+            py = int(h * 0.35 + _sin(angle) * h * 0.28)
+            pr = max(1, int(b * 0.04 + (i % 3) * 0.01 * b))
+            ember_c = (255, 180, 60) if i % 3 == 0 else ((255, 120, 30) if i % 3 == 1 else (255, 220, 100))
+            pygame.draw.circle(surf, (*ember_c, 50), (px, py), pr + 1)
+            pygame.draw.circle(surf, ember_c, (px, py), pr)
         # Fiery hair coming out from under helmet - drawn BEHIND helmet
-        for i in range(10):
-            hx = cx + int((i - 4.5) * w * 0.07)
+        for i in range(12):
+            hx = cx + int((i - 5.5) * w * 0.065)
             hy_start = int(h * 0.06)
-            hy_end = int(h * -0.06) - (i % 3) * int(h * 0.05)
+            hy_end = int(h * -0.06) - (i % 3) * int(h * 0.05) - (i % 4) * int(h * 0.02)
             hair_c = hair if i % 2 == 0 else hair_lt
             sw2 = int(w * 0.035)
             pygame.draw.polygon(surf, hair_c, [(hx - sw2, hy_start), (hx, hy_end), (hx + sw2, hy_start)])
-            # Bright tip
+            # Bright flame tip with glow
             pygame.draw.line(surf, hair_bright, (hx, hy_end), (hx, hy_end + int(h * 0.03)), 1)
+            pygame.draw.line(surf, (255, 230, 150), (hx, hy_end), (hx, hy_end + int(h * 0.015)), 1)
+            # Flame streak accent
+            if i % 3 == 0:
+                fx = hx + int(_sin(i * 0.8) * w * 0.02)
+                pygame.draw.line(surf, (255, 200, 80, 60), (hx, hy_end), (fx, hy_end - int(h * 0.03)), 1)
         # Dragon helmet - detailed with gradient
         helm_pts = [(cx - int(w * 0.46), int(h * 0.50)),
                     (cx - int(w * 0.43), int(h * 0.10)),
@@ -1175,57 +1207,91 @@ class HeroPortraitRenderer:
         # Helmet specular highlight
         pygame.draw.ellipse(surf, (*helmet_hi, 45),
                             (cx - int(w * 0.15), int(h * 0.06), int(w * 0.30), int(h * 0.16)))
+        pygame.draw.ellipse(surf, (*helmet_hi, 20),
+                            (cx + int(w * 0.05), int(h * 0.12), int(w * 0.15), int(h * 0.08)))
+        # Individual scale/armor plate lines on helmet
+        for row in range(3):
+            row_y = int(h * 0.15 + row * h * 0.08)
+            for col in range(5 + row):
+                sx = cx + int((col - (5 + row) / 2.0 + 0.5) * w * 0.07)
+                pygame.draw.arc(surf, (*helmet_dk, 30),
+                                (sx - int(w * 0.03), row_y, int(w * 0.06), int(h * 0.05)),
+                                0.3, 2.8, 1)
+        # Specular highlights on individual plates
+        for i in range(4):
+            sx = cx + int((i - 1.5) * w * 0.09)
+            sy = int(h * 0.18 + (i % 2) * h * 0.06)
+            pygame.draw.ellipse(surf, (*helmet_hi, 18),
+                                (sx - int(w * 0.02), sy, int(w * 0.04), int(h * 0.02)))
         # Center ridge - gold with highlight
         ridge_w = max(1, int(b * 0.10))
         pygame.draw.line(surf, gold, (cx, int(h * -0.02)), (cx, int(h * 0.50)), ridge_w)
         pygame.draw.line(surf, gold_lt, (cx - 1, int(h * 0.0)), (cx - 1, int(h * 0.35)), 1)
+        pygame.draw.line(surf, (*gold_lt, 40), (cx + 1, int(h * 0.02)), (cx + 1, int(h * 0.30)), 1)
         # Side ridges
         for s in [-1, 1]:
             pygame.draw.line(surf, gold_dk, (cx + s * int(w * 0.20), int(h * 0.05)),
                              (cx + s * int(w * 0.40), int(h * 0.48)), max(1, int(b * 0.06)))
             pygame.draw.line(surf, gold, (cx + s * int(w * 0.21), int(h * 0.05)),
                              (cx + s * int(w * 0.39), int(h * 0.46)), 1)
-        # Visor slit for eyes - deeper with inner glow
+        # Dragon horn ridges (ring lines)
+        for s in [-1, 1]:
+            horn_bx = cx + s * int(w * 0.30)
+            horn_by = int(h * 0.15)
+            for ring in range(4):
+                ry = horn_by - int(h * 0.02 * ring)
+                rx = horn_bx + s * int(w * 0.02 * ring)
+                rw = max(2, int(w * 0.06) - ring * 2)
+                pygame.draw.arc(surf, (*gold_dk, 40),
+                                (rx - rw // 2, ry, rw, int(h * 0.03)),
+                                0.2 if s > 0 else 3.3, 2.9 if s > 0 else 6.0, 1)
+        # Visor slit for eyes - deeper with multi-layer glow
         visor_y = int(h * 0.38)
         visor_h2 = max(4, int(h * 0.09))
         visor_rect = pygame.Rect(cx - int(w * 0.32), visor_y, int(w * 0.64), visor_h2)
         pygame.draw.rect(surf, (5, 2, 2), visor_rect, border_radius=2)
-        # Visor inner glow
+        # Visor inner glow - enhanced with multiple layers
         pygame.draw.rect(surf, (30, 10, 5), (visor_rect.x + 1, visor_rect.y + 1,
                                               visor_rect.w - 2, visor_rect.h - 2), 1, border_radius=1)
-        # Eyes through visor with glow
+        pygame.draw.rect(surf, (50, 20, 8, 25), (visor_rect.x + 2, visor_rect.y + 2,
+                                                   visor_rect.w - 4, visor_rect.h - 4), 1, border_radius=1)
+        pygame.draw.line(surf, (*helmet_hi, 30), (visor_rect.x + 3, visor_rect.y),
+                         (visor_rect.x + visor_rect.w - 3, visor_rect.y), 1)
+        # Eyes through visor with deeper radial glow
         eye_sp = int(w * 0.12)
         for s in [-1, 1]:
             ex = cx + s * eye_sp
             ey = visor_y + visor_h2 // 2
-            self._soft_glow(surf, ex, ey, max(3, int(b * 0.3)), eye_color, 20)
+            self._radial_glow(surf, ex, ey, max(4, int(b * 0.35)), eye_color, layers=4, max_alpha=25)
             ir = max(2, visor_h2 // 2)
             pygame.draw.circle(surf, self._darken(eye_color, 30), (ex, ey), ir + 1)
             pygame.draw.circle(surf, eye_color, (ex, ey), ir)
             pygame.draw.circle(surf, eye_hi, (ex + s, ey - 1), max(1, ir // 2))
-        # Lower face - 4-layer shading
+            pygame.draw.circle(surf, (255, 230, 180), (ex, ey), max(1, ir // 3))
+        # Lower face - 4-layer shading with micro-detail
         lower_top = int(h * 0.48)
         face_w = int(w * 0.52)
         face_h = int(h * 0.48)
         self._face_base(surf, cx, lower_top, face_w, face_h, skin, skin_sh, skin_hi)
-        # Nose bridge + tip
-        pygame.draw.line(surf, skin_sh, (cx, int(h * 0.55)), (cx - 1, int(h * 0.63)), 1)
-        pygame.draw.circle(surf, (*skin_hi, 70), (cx, int(h * 0.58)), max(1, b // 10))
-        # Determined mouth with lip detail
+        self._face_detail(surf, cx, lower_top, face_w, face_h, skin_sh, skin_hi)
+        # Detailed nose
+        nose_y = int(h * 0.63)
+        self._nose_detail(surf, cx, nose_y, b, skin, skin_sh, skin_hi, w, h)
+        # Determined mouth with detailed lips
         mouth_y = int(h * 0.72)
-        pygame.draw.line(surf, (180, 130, 110), (cx - int(w * 0.07), mouth_y),
-                         (cx + int(w * 0.07), mouth_y), 1)
-        pygame.draw.line(surf, (*skin_sh, 60), (cx - int(w * 0.05), mouth_y + 1),
-                         (cx + int(w * 0.05), mouth_y + 1), 1)
-        # Side hair wisps - enhanced
+        self._lips(surf, cx, mouth_y, b, lip_color, lip_hi, w_frac=0.12)
+        # Side hair wisps - enhanced with more strands
         for s in [-1, 1]:
-            for j in range(4):
+            for j in range(5):
                 sx = cx + s * int(w * 0.43)
-                sy = int(h * 0.32 + j * h * 0.07)
+                sy = int(h * 0.32 + j * h * 0.06)
                 hc = hair if j % 2 == 0 else hair_lt
                 pygame.draw.line(surf, hc, (sx, sy),
                                  (sx + s * int(w * 0.09), sy + int(h * 0.08)),
                                  max(1, int(b * 0.07) - j // 2))
+            pygame.draw.line(surf, hair_bright,
+                             (cx + s * int(w * 0.48), int(h * 0.42)),
+                             (cx + s * int(w * 0.50), int(h * 0.50)), 1)
         # Helmet outline
         pygame.draw.polygon(surf, helmet_dk, helm_pts, 1)
         pygame.draw.rect(surf, (*gold, 180), (0, 0, w, h), 1, border_radius=2)
@@ -1249,9 +1315,24 @@ class HeroPortraitRenderer:
         oil = (60, 50, 40)
         cog = (170, 140, 90)
         cog_dk = (130, 105, 65)
-        # Warm background
+        cog_lt = (200, 175, 115)
+        lip_color = (170, 120, 100)
+        lip_hi = (200, 155, 140)
+        # Warm background with radial glow
         pygame.draw.rect(surf, (45, 32, 22, 85), (0, 0, w, h))
-        self._soft_glow(surf, cx, int(h * 0.4), max(5, int(w * 0.3)), (150, 100, 50), 10)
+        self._radial_glow(surf, cx, int(h * 0.4), max(7, int(w * 0.35)), (150, 100, 50), layers=5, max_alpha=14)
+        self._radial_glow(surf, cx - int(w * 0.2), int(h * 0.6), max(4, int(w * 0.20)), (130, 80, 30), layers=3, max_alpha=8)
+        # Steam/vapor wisps near edges
+        for i in range(5):
+            vx = cx + int((i - 2) * w * 0.18)
+            vy = int(h * (0.10 + _sin(i * 1.8) * 0.05))
+            vr = max(2, int(w * 0.04))
+            pygame.draw.ellipse(surf, (200, 200, 210, 10), (vx - vr, vy - vr // 2, vr * 2, vr))
+        for i in range(4):
+            vx = int(w * (0.05 + i * 0.30))
+            vy = int(h * (0.80 + _sin(i * 2.0) * 0.05))
+            vr = max(2, int(w * 0.05))
+            pygame.draw.ellipse(surf, (180, 180, 195, 8), (vx - vr, vy - vr // 2, vr * 2, vr))
         # Messy brown hair - layered with dark base
         hair_base = pygame.Rect(cx - int(w * 0.46), int(h * 0.01), int(w * 0.92), int(h * 0.50))
         pygame.draw.ellipse(surf, hair_dk, hair_base)
@@ -1271,13 +1352,19 @@ class HeroPortraitRenderer:
         face_h = int(h * 0.68)
         face_top = int(h * 0.22)
         self._face_base(surf, cx, face_top, face_w, face_h, skin, skin_sh, skin_hi)
+        self._face_detail(surf, cx, face_top, face_w, face_h, skin_sh, skin_hi)
         # Goggles on forehead - enhanced detail
         gog_y = int(h * 0.17)
         gog_h2 = max(5, int(h * 0.13))
-        # Leather strap
+        # Leather strap with texture
         pygame.draw.rect(surf, goggle_dk, (cx - int(w * 0.40), gog_y + gog_h2 // 4, int(w * 0.80), gog_h2 // 2))
         pygame.draw.line(surf, goggle, (cx - int(w * 0.40), gog_y + gog_h2 // 4),
                          (cx + int(w * 0.40), gog_y + gog_h2 // 4), 1)
+        # Strap stitch lines
+        for i in range(8):
+            stx = cx - int(w * 0.35) + i * int(w * 0.10)
+            sty = gog_y + gog_h2 // 4 + 1
+            pygame.draw.line(surf, (*goggle, 40), (stx, sty), (stx + int(w * 0.03), sty), 1)
         # Lens housings with brass rim
         for s in [-1, 1]:
             gx = cx + s * int(w * 0.12)
@@ -1291,11 +1378,15 @@ class HeroPortraitRenderer:
             pygame.draw.circle(surf, lens, (gx, gy), lr)
             pygame.draw.circle(surf, lens_hi, (gx + s, gy - 1), max(1, lr // 3))
             pygame.draw.circle(surf, (255, 255, 255, 100), (gx + s * 2, gy - 2), max(1, lr // 4))
+            # Lens flare effect (small bright spot)
+            pygame.draw.circle(surf, (255, 255, 255, 70), (gx - s, gy + 1), max(1, lr // 5))
             # Screws on housing
             for ang in [0.8, 2.3, 3.8, 5.3]:
                 scx = gx + int(_cos(ang) * (lr + 2))
                 scy = gy + int(_sin(ang) * (lr + 2))
                 pygame.draw.circle(surf, goggle_dk, (scx, scy), max(1, int(b * 0.03)))
+                # Screw slot line
+                pygame.draw.line(surf, (*goggle, 40), (scx - 1, scy), (scx + 1, scy), 1)
         # Bridge connector
         pygame.draw.line(surf, goggle, (cx - int(w * 0.04), gy),
                          (cx + int(w * 0.04), gy), max(1, int(b * 0.08)))
@@ -1312,24 +1403,27 @@ class HeroPortraitRenderer:
             by = eye_y - max(3, int(h * 0.07))
             pygame.draw.line(surf, hair, (bx - s * int(w * 0.05), by + 1),
                              (bx + s * int(w * 0.05), by), max(1, int(b * 0.09)))
-        # Round nose with highlight
-        pygame.draw.circle(surf, skin_sh, (cx, int(h * 0.56)), max(2, int(b * 0.10)))
-        pygame.draw.circle(surf, skin_hi, (cx - 1, int(h * 0.55)), max(1, int(b * 0.05)))
-        # Friendly grin
+        # Detailed nose
+        nose_y = int(h * 0.56)
+        self._nose_detail(surf, cx, nose_y, b, skin, skin_sh, skin_hi, w, h)
+        # Friendly grin with detailed lips
         mouth_y = int(h * 0.66)
-        pygame.draw.arc(surf, (160, 110, 90),
-                        (cx - int(w * 0.09), mouth_y - int(h * 0.03), int(w * 0.18), int(h * 0.09)), 3.3, 6.1, 1)
+        self._lips(surf, cx, mouth_y, b, lip_color, lip_hi, w_frac=0.13)
         # Teeth hint
         pygame.draw.line(surf, (245, 240, 230), (cx - int(w * 0.04), mouth_y + int(h * 0.01)),
                          (cx + int(w * 0.04), mouth_y + int(h * 0.01)), 1)
-        # Oil smudges - varied
+        # Oil smudges - varied with sheen highlights
         for s, ox_off, oy_off, ow, oh in [(-1, 0.18, 0.52, 0.05, 0.03),
                                             (1, 0.16, 0.55, 0.04, 0.02),
-                                            (-1, 0.22, 0.48, 0.03, 0.02)]:
+                                            (-1, 0.22, 0.48, 0.03, 0.02),
+                                            (1, 0.10, 0.60, 0.03, 0.015)]:
             ox = cx + s * int(ox_off * w)
             oy = int(oy_off * h)
             pygame.draw.ellipse(surf, (*oil, 55), (ox - int(ow * w), oy, int(ow * 2 * w), int(oh * h)))
-        # Enhanced cog decorations
+            # Oil sheen highlight
+            pygame.draw.ellipse(surf, (100, 90, 70, 20),
+                                (ox - int(ow * w * 0.4), oy, int(ow * w * 0.8), max(1, int(oh * h * 0.4))))
+        # Enhanced cog decorations with more detail
         for s in [-1, 1]:
             cog_x = cx + s * int(w * 0.30)
             cog_y = int(h * 0.40)
@@ -1343,9 +1437,43 @@ class HeroPortraitRenderer:
             # Cog body
             pygame.draw.circle(surf, cog, (cog_x, cog_y), cr)
             pygame.draw.circle(surf, cog_dk, (cog_x, cog_y), cr, 1)
+            # Inner ring detail
+            pygame.draw.circle(surf, cog_lt, (cog_x, cog_y), max(1, int(cr * 0.7)), 1)
             # Center hole
             pygame.draw.circle(surf, goggle_dk, (cog_x, cog_y), max(1, cr // 3))
             pygame.draw.circle(surf, cog, (cog_x, cog_y), max(1, cr // 4))
+        # Extra gear behind head (partially visible)
+        for s in [-1, 1]:
+            bg_x = cx + s * int(w * 0.42)
+            bg_y = int(h * 0.25)
+            bg_r = max(3, int(b * 0.20))
+            for a in range(10):
+                angle = a * 3.14159 / 5
+                tx = bg_x + int(_cos(angle) * bg_r)
+                ty = bg_y + int(_sin(angle) * bg_r)
+                pygame.draw.circle(surf, (*cog_dk, 30), (tx, ty), max(1, bg_r // 4))
+            pygame.draw.circle(surf, (*cog, 25), (bg_x, bg_y), bg_r)
+            pygame.draw.circle(surf, (*cog_dk, 20), (bg_x, bg_y), bg_r, 1)
+        # Rivets/bolts decoration on edges
+        for i in range(4):
+            ry = int(h * 0.20 + i * h * 0.18)
+            for s in [-1, 1]:
+                rx = cx + s * int(w * 0.44)
+                pygame.draw.circle(surf, goggle_dk, (rx, ry), max(1, int(b * 0.035)))
+                pygame.draw.circle(surf, (*goggle_hi, 40), (rx, ry - 1), max(1, int(b * 0.015)))
+        # Pipe/valve detail on sides
+        for s in [-1, 1]:
+            px = cx + s * int(w * 0.38)
+            pygame.draw.line(surf, goggle_dk, (px, int(h * 0.55)), (px, int(h * 0.72)), max(1, int(b * 0.05)))
+            pygame.draw.line(surf, goggle, (px + s, int(h * 0.55)), (px + s, int(h * 0.72)), 1)
+            # Valve knob
+            pygame.draw.circle(surf, goggle, (px, int(h * 0.62)), max(1, int(b * 0.04)))
+            pygame.draw.circle(surf, goggle_hi, (px, int(h * 0.61)), max(1, int(b * 0.02)))
+        # Wrench silhouette near bottom-right
+        wr_x = cx + int(w * 0.30)
+        wr_y = int(h * 0.82)
+        pygame.draw.line(surf, (*cog_dk, 30), (wr_x, wr_y), (wr_x + int(w * 0.08), wr_y - int(h * 0.06)), max(1, int(b * 0.04)))
+        pygame.draw.circle(surf, (*cog_dk, 25), (wr_x + int(w * 0.08), wr_y - int(h * 0.06)), max(1, int(b * 0.04)))
         pygame.draw.rect(surf, (*goggle, 180), (0, 0, w, h), 1, border_radius=2)
 
     # ─── 8. KUROKAGE (쿠로카게/닌자) ───
@@ -1363,9 +1491,11 @@ class HeroPortraitRenderer:
         eye_color = (180, 200, 220)
         scar = (200, 140, 130)
         scar_dk = (170, 110, 100)
-        # Dark background with shadow wisps
+        scar_lt = (220, 170, 160)
+        # Dark background with deeper radial shadow
         pygame.draw.rect(surf, (8, 6, 12, 160), (0, 0, w, h))
-        self._soft_glow(surf, cx, int(h * 0.4), max(4, int(w * 0.25)), (30, 25, 50), 10)
+        self._radial_glow(surf, cx, int(h * 0.4), max(6, int(w * 0.30)), (30, 25, 50), layers=5, max_alpha=14)
+        self._radial_glow(surf, cx + int(w * 0.15), int(h * 0.25), max(3, int(w * 0.15)), (20, 15, 40), layers=3, max_alpha=8)
         # Hood/cowl - more detailed fabric
         hood_pts = [(0, 0), (w, 0), (w, int(h * 0.6)),
                     (cx + int(w * 0.40), int(h * 0.80)),
@@ -1389,6 +1519,11 @@ class HeroPortraitRenderer:
                          (cx - int(w * 0.14), int(h * 0.50)), 1)
         pygame.draw.line(surf, cloth_lt, (cx + int(w * 0.09), int(h * 0.04)),
                          (cx + int(w * 0.14), int(h * 0.50)), 1)
+        # Fabric texture on hood (fine parallel lines)
+        for i in range(7):
+            fx1 = cx + int((i - 3) * w * 0.06)
+            pygame.draw.line(surf, (*cloth_mid, 18), (fx1, int(h * 0.05)),
+                             (fx1 + int(w * 0.02), int(h * 0.48)), 1)
         # Visible skin strip - eye area with 3-layer shading
         strip_top = int(h * 0.28)
         strip_h2 = int(h * 0.18)
@@ -1418,13 +1553,31 @@ class HeroPortraitRenderer:
         for s in [-1, 1]:
             pygame.draw.line(surf, (*cloth_mid, 60), (cx + s * int(w * 0.12), mask_top + 3),
                              (cx + s * int(w * 0.10), int(h * 0.78)), 1)
-        # Mask stitch line
-        pygame.draw.line(surf, cloth_lt, (cx - int(w * 0.25), mask_top + int(h * 0.05)),
-                         (cx + int(w * 0.25), mask_top + int(h * 0.05)), 1)
-        # Sharp piercing eyes - enhanced
+        # Mask stitch lines - more stitch marks with varying gap
+        stitch_y = mask_top + int(h * 0.05)
+        for i in range(12):
+            stx = cx - int(w * 0.23) + i * int(w * 0.04)
+            gap = 1 if i % 2 == 0 else 2
+            pygame.draw.line(surf, cloth_lt, (stx, stitch_y), (stx + int(w * 0.02), stitch_y + gap), 1)
+        # Second stitch line lower
+        stitch_y2 = mask_top + int(h * 0.15)
+        for i in range(10):
+            stx = cx - int(w * 0.20) + i * int(w * 0.04)
+            pygame.draw.line(surf, (*cloth_lt, 40), (stx, stitch_y2), (stx + int(w * 0.015), stitch_y2 + 1), 1)
+        # Subtle kanji/symbol on mask (forehead area)
+        sym_x = cx - int(w * 0.04)
+        sym_y = mask_top + int(h * 0.08)
+        pygame.draw.line(surf, (*cloth_mid, 35), (sym_x, sym_y), (sym_x + int(w * 0.08), sym_y), 1)
+        pygame.draw.line(surf, (*cloth_mid, 35), (cx, sym_y - int(h * 0.02)), (cx, sym_y + int(h * 0.04)), 1)
+        pygame.draw.line(surf, (*cloth_mid, 25), (sym_x + int(w * 0.01), sym_y + int(h * 0.01)),
+                         (sym_x + int(w * 0.07), sym_y + int(h * 0.03)), 1)
+        # Sharp piercing eyes - enhanced with glow
         eye_y = strip_top + strip_h2 // 2
         eye_sp = int(w * 0.13)
         for s in [-1, 1]:
+            # Eye glow for ninja's sharp eyes that POP
+            self._radial_glow(surf, cx + s * eye_sp, eye_y, max(3, int(b * 0.25)),
+                              eye_color, layers=3, max_alpha=18)
             self._hq_eye(surf, cx + s * eye_sp, eye_y, w, h, b,
                          eye_color, pupil_color=(15, 15, 25),
                          sclera=(240, 240, 245), sharp=True,
@@ -1435,19 +1588,49 @@ class HeroPortraitRenderer:
             by = strip_top + 1
             pygame.draw.line(surf, skin_sh, (bx - s * int(w * 0.06), by + 2),
                              (bx + s * int(w * 0.04), by - 1), max(1, int(b * 0.07)))
-        # Scar across right eye - enhanced with depth
+        # Scar across right eye - enhanced with healed skin texture
         sc_x = cx + int(w * 0.13)
+        # Scar outline (wider, rougher)
         pygame.draw.line(surf, scar_dk, (sc_x - int(w * 0.02), strip_top - int(h * 0.04)),
                          (sc_x + int(w * 0.02), strip_top + strip_h2 + int(h * 0.06)),
                          max(1, int(b * 0.07)))
+        # Scar center (lighter healed tissue)
         pygame.draw.line(surf, scar, (sc_x - int(w * 0.02) + 1, strip_top - int(h * 0.04)),
                          (sc_x + int(w * 0.02) + 1, strip_top + strip_h2 + int(h * 0.06)), 1)
-        # Shadow wisps around edges
-        for i in range(4):
-            wy = int(h * 0.15 + i * h * 0.18)
+        # Healed skin texture around scar
+        pygame.draw.line(surf, (*scar_lt, 25), (sc_x + 2, strip_top - int(h * 0.02)),
+                         (sc_x + 2, strip_top + strip_h2 + int(h * 0.04)), 1)
+        for j in range(3):
+            sy = strip_top + int(j * strip_h2 * 0.4)
+            pygame.draw.circle(surf, (*scar_dk, 18), (sc_x + 1, sy), max(1, int(b * 0.02)))
+        # Throwing star (shuriken) decoration hint near edge
+        shur_x = cx - int(w * 0.38)
+        shur_y = int(h * 0.15)
+        shur_r = max(2, int(b * 0.07))
+        for a in range(4):
+            angle = a * 3.14159 / 2 + 0.4
+            sx1 = shur_x + int(_cos(angle) * shur_r)
+            sy1 = shur_y + int(_sin(angle) * shur_r)
+            pygame.draw.line(surf, (*cloth_lt, 35), (shur_x, shur_y), (sx1, sy1), 1)
+        pygame.draw.circle(surf, (*cloth_lt, 25), (shur_x, shur_y), max(1, shur_r // 3))
+        # Hidden weapon glint (tiny metal reflection near face)
+        glint_x = cx + int(w * 0.28)
+        glint_y = int(h * 0.52)
+        pygame.draw.circle(surf, (200, 210, 220, 40), (glint_x, glint_y), max(1, int(b * 0.03)))
+        pygame.draw.circle(surf, (255, 255, 255, 25), (glint_x, glint_y - 1), max(1, int(b * 0.015)))
+        # Shadow wisps around edges - more particles
+        for i in range(7):
+            wy = int(h * 0.10 + i * h * 0.12)
             for s in [-1, 1]:
                 wx = cx + s * int(w * (0.35 + _sin(i * 1.5) * 0.05))
-                pygame.draw.circle(surf, (*cloth_dk, 30), (wx, wy), max(1, int(b * 0.08)))
+                wr = max(1, int(b * (0.06 + (i % 3) * 0.02)))
+                pygame.draw.circle(surf, (*cloth_dk, 25), (wx, wy), wr)
+        # Additional smoke/shadow particles drifting
+        for i in range(5):
+            sx = cx + int(_sin(i * 2.3) * w * 0.25)
+            sy = int(h * 0.05 + i * h * 0.20)
+            pygame.draw.ellipse(surf, (*cloth_dk, 12),
+                                (sx - int(w * 0.04), sy - int(h * 0.01), int(w * 0.08), int(h * 0.025)))
         pygame.draw.rect(surf, (*cloth_lt, 150), (0, 0, w, h), 1, border_radius=2)
 
     # ─── 9. BANSHEE (밴시/해골) ───
@@ -1467,10 +1650,28 @@ class HeroPortraitRenderer:
         eye_glow = (80, 255, 255)
         ghost_hair = (180, 200, 220)
         ghost_lt = (210, 225, 240)
-        # Dark ethereal background - layered
+        # Dark ethereal background - ghostly radial glow
         pygame.draw.rect(surf, (12, 18, 28, 150), (0, 0, w, h))
-        self._soft_glow(surf, cx, int(h * 0.35), max(6, int(w * 0.35)), eye_color, 12)
-        self._soft_glow(surf, cx - int(w * 0.1), int(h * 0.25), max(4, int(w * 0.2)), (40, 160, 200), 8)
+        self._radial_glow(surf, cx, int(h * 0.35), max(8, int(w * 0.40)), eye_color, layers=5, max_alpha=15)
+        self._radial_glow(surf, cx - int(w * 0.1), int(h * 0.25), max(5, int(w * 0.25)), (40, 160, 200), layers=4, max_alpha=10)
+        self._radial_glow(surf, cx + int(w * 0.1), int(h * 0.55), max(4, int(w * 0.18)), (30, 180, 190), layers=3, max_alpha=8)
+        # Soul energy particles (small glowing dots floating around)
+        for i in range(10):
+            angle = i * 3.14159 * 2 / 10
+            dist = int(w * 0.32 + _sin(i * 1.7) * w * 0.08)
+            px = cx + int(_cos(angle) * dist)
+            py = int(h * 0.40 + _sin(angle) * h * 0.30)
+            pr = max(1, int(b * 0.025 + (i % 3) * 0.01 * b))
+            pygame.draw.circle(surf, (*eye_color, 35), (px, py), pr + 1)
+            pygame.draw.circle(surf, (*eye_glow, 50), (px, py), pr)
+        # Ethereal fog at bottom (layered semi-transparent shapes)
+        for i in range(5):
+            fx = cx + int((i - 2) * w * 0.15)
+            fy = int(h * 0.85 + _sin(i * 1.6) * h * 0.03)
+            fw = max(4, int(w * 0.12 + _sin(i * 2.0) * w * 0.03))
+            fh = max(2, int(h * 0.06))
+            pygame.draw.ellipse(surf, (30, 80, 100, 10), (fx - fw, fy - fh // 2, fw * 2, fh))
+            pygame.draw.ellipse(surf, (20, 60, 80, 6), (fx - fw + 2, fy - fh // 3, fw * 2 - 4, fh - 1))
         # Wispy ghost hair - more strands with glow
         for i in range(8):
             hx = cx + int((i - 3.5) * w * 0.10)
@@ -1502,24 +1703,46 @@ class HeroPortraitRenderer:
         # Skull specular highlight
         pygame.draw.ellipse(surf, (*bone_hi, 50),
                             (cx - int(face_w * 0.25), face_top + int(face_h * 0.06), int(face_w * 0.4), int(face_h * 0.2)))
-        # Cracks - more detailed branching
+        # Bone texture detail (subtle roughness lines on skull surface)
+        for i in range(6):
+            tx = cx + int((i - 2.5) * face_w * 0.14)
+            ty = face_top + int(face_h * 0.10 + _sin(i * 1.5) * face_h * 0.05)
+            pygame.draw.line(surf, (*bone_sh, 14), (tx, ty), (tx + int(w * 0.02), ty + int(h * 0.08)), 1)
+        # Cracks - web-pattern hairline fractures
         c1s = (cx - int(w * 0.08), face_top + int(face_h * 0.10))
         c1m = (cx - int(w * 0.10), face_top + int(face_h * 0.28))
         c1e = (cx - int(w * 0.06), face_top + int(face_h * 0.40))
         pygame.draw.line(surf, bone_dk, c1s, c1m, 1)
         pygame.draw.line(surf, bone_dk, c1m, c1e, 1)
         pygame.draw.line(surf, bone_dk, c1m, (c1m[0] - int(w * 0.05), c1m[1] + int(h * 0.06)), 1)
+        # Branch off crack 1
+        c1b = (c1m[0] - int(w * 0.02), c1m[1] + int(h * 0.02))
+        pygame.draw.line(surf, (*bone_dk, 40), c1b, (c1b[0] + int(w * 0.04), c1b[1] + int(h * 0.03)), 1)
+        pygame.draw.line(surf, (*bone_dk, 30), c1b, (c1b[0] - int(w * 0.02), c1b[1] + int(h * 0.05)), 1)
         # Second crack on right
         c2s = (cx + int(w * 0.06), face_top + int(face_h * 0.18))
         c2e = (cx + int(w * 0.10), face_top + int(face_h * 0.35))
         pygame.draw.line(surf, bone_dk, c2s, c2e, 1)
         pygame.draw.line(surf, bone_dk, c2e, (c2e[0] + int(w * 0.03), c2e[1] + int(h * 0.04)), 1)
-        # Temporal bone ridges
+        # Third crack (hairline, top center)
+        c3s = (cx + int(w * 0.02), face_top + int(face_h * 0.05))
+        c3m = (cx + int(w * 0.04), face_top + int(face_h * 0.15))
+        pygame.draw.line(surf, (*bone_dk, 35), c3s, c3m, 1)
+        pygame.draw.line(surf, (*bone_dk, 25), c3m, (c3m[0] - int(w * 0.03), c3m[1] + int(h * 0.04)), 1)
+        # Temporal bone ridges - more defined brow/cheek bone structure
         for s in [-1, 1]:
             pygame.draw.arc(surf, (*bone_sh, 50),
                             (cx + s * int(w * 0.10) - int(w * 0.08), face_top + int(face_h * 0.15),
                              int(w * 0.16), int(face_h * 0.3)), 1.0 if s > 0 else 4.0, 2.5 if s > 0 else 5.5, 1)
-        # Eye sockets - deeper with double glow
+            # Cheekbone ridge
+            pygame.draw.arc(surf, (*bone_sh, 35),
+                            (cx + s * int(w * 0.05) - int(w * 0.06), face_top + int(face_h * 0.40),
+                             int(w * 0.12), int(face_h * 0.15)), 0.5 if s > 0 else 3.5, 2.0 if s > 0 else 5.0, 1)
+            # Brow ridge definition
+            pygame.draw.arc(surf, (*bone_deep, 30),
+                            (cx + s * int(w * 0.02) - int(w * 0.10), face_top + int(face_h * 0.20),
+                             int(w * 0.20), int(face_h * 0.08)), 0.3, 2.8, 1)
+        # Eye sockets - deeper with radial glow
         eye_y = int(h * 0.35)
         eye_sp = int(w * 0.11)
         for s in [-1, 1]:
@@ -1531,15 +1754,25 @@ class HeroPortraitRenderer:
                                 (ex - sock_w - 1, eye_y - sock_h - 1, sock_w * 2 + 2, sock_h * 2 + 2))
             pygame.draw.ellipse(surf, (20, 25, 30),
                                 (ex - sock_w, eye_y - sock_h, sock_w * 2, sock_h * 2))
-            # Double glow
-            self._soft_glow(surf, ex, eye_y, max(4, sock_w), eye_color, 30)
-            self._soft_glow(surf, ex, eye_y, max(3, sock_w // 2), eye_glow, 20)
+            # Multi-layer radial glow for eye sockets
+            self._radial_glow(surf, ex, eye_y, max(5, sock_w + 2), eye_color, layers=5, max_alpha=35)
+            self._radial_glow(surf, ex, eye_y, max(3, sock_w // 2), eye_glow, layers=3, max_alpha=25)
             # Eye orb
             ir = max(2, int(min(sock_w, sock_h) * 0.5))
             pygame.draw.circle(surf, self._darken(eye_color, 30), (ex, eye_y), ir + 1)
             pygame.draw.circle(surf, eye_color, (ex, eye_y), ir)
             pygame.draw.circle(surf, eye_glow, (ex, eye_y), max(1, ir // 2))
             pygame.draw.circle(surf, (255, 255, 255), (ex + s, eye_y - 1), max(1, ir // 3))
+        # Spectral energy wisps (thin cyan/green wavy lines emanating from skull)
+        for i in range(6):
+            wx = cx + int((i - 2.5) * w * 0.12)
+            wy_start = face_top + int(face_h * 0.15 + _sin(i * 1.8) * face_h * 0.10)
+            for t in range(3):
+                wy = wy_start - int(h * 0.05 * (t + 1))
+                wave_x = int(_sin(t * 2.0 + i * 1.5) * w * 0.03)
+                wisp_c = eye_color if i % 2 == 0 else (60, 240, 180)
+                pygame.draw.line(surf, (*wisp_c, 18 - t * 4), (wx + wave_x, wy),
+                                 (wx + wave_x + int(w * 0.01), wy - int(h * 0.03)), 1)
         # Nose cavity - deeper detail
         nose_y = int(h * 0.50)
         pygame.draw.polygon(surf, (30, 30, 25),
@@ -1550,7 +1783,13 @@ class HeroPortraitRenderer:
                             [(cx - int(w * 0.025), nose_y - int(h * 0.035)),
                              (cx + int(w * 0.025), nose_y - int(h * 0.035)),
                              (cx, nose_y + int(h * 0.025))], 1)
-        # Golden jaw mask - enhanced with engravings
+        # Teeth hints (small rectangular shapes below nose)
+        teeth_y = int(h * 0.53)
+        for i in range(5):
+            tx = cx - int(w * 0.06) + i * int(w * 0.03)
+            pygame.draw.rect(surf, (*bone_hi, 30), (tx, teeth_y, max(1, int(w * 0.02)), max(1, int(h * 0.02))))
+            pygame.draw.rect(surf, (*bone_dk, 20), (tx, teeth_y, max(1, int(w * 0.02)), max(1, int(h * 0.02))), 1)
+        # Golden jaw mask - enhanced with engrave patterns
         mask_top = int(h * 0.55)
         mask_pts = [(cx - int(w * 0.30), mask_top),
                     (cx + int(w * 0.30), mask_top),
@@ -1575,9 +1814,19 @@ class HeroPortraitRenderer:
         for s in [-1, 1]:
             pygame.draw.line(surf, gold_dk, (cx + s * int(w * 0.12), mask_top + 3),
                              (cx + s * int(w * 0.10), int(h * 0.82)), 1)
-        # Mask highlight
+        # Engrave patterns on mask (decorative curves)
+        for s in [-1, 1]:
+            pygame.draw.arc(surf, (*gold_lt, 25),
+                            (cx + s * int(w * 0.02) - int(w * 0.06), mask_top + int(h * 0.06),
+                             int(w * 0.12), int(h * 0.12)), 0.3, 2.8, 1)
+            pygame.draw.arc(surf, (*gold_dk, 20),
+                            (cx + s * int(w * 0.05) - int(w * 0.05), mask_top + int(h * 0.14),
+                             int(w * 0.10), int(h * 0.08)), 3.5, 6.0, 1)
+        # Mask highlight with more gradient depth
         pygame.draw.ellipse(surf, (*gold_hi, 30),
                             (cx - int(w * 0.10), mask_top + 2, int(w * 0.20), int(h * 0.08)))
+        pygame.draw.ellipse(surf, (*gold_hi, 15),
+                            (cx - int(w * 0.06), mask_top + int(h * 0.04), int(w * 0.12), int(h * 0.04)))
         # Rivets with highlight
         for s in [-1, 1]:
             for j in range(3):
@@ -1602,15 +1851,28 @@ class HeroPortraitRenderer:
         eye_color = (80, 240, 100)
         eye_glow = (60, 200, 80)
         dark_aura = (40, 20, 60)
-        # Dark background - layered
+        lip_color = (140, 110, 130)
+        lip_hi = (170, 145, 165)
+        # Dark background - deeper death aura with radial glow
         pygame.draw.rect(surf, (10, 6, 18, 150), (0, 0, w, h))
-        self._soft_glow(surf, cx, int(h * 0.4), max(5, int(w * 0.35)), dark_aura, 20)
-        self._soft_glow(surf, cx + int(w * 0.1), int(h * 0.3), max(3, int(w * 0.2)), (50, 30, 70), 10)
-        # Gaunt face - 4-layer shading
+        self._radial_glow(surf, cx, int(h * 0.4), max(7, int(w * 0.40)), dark_aura, layers=5, max_alpha=25)
+        self._radial_glow(surf, cx + int(w * 0.1), int(h * 0.3), max(4, int(w * 0.22)), (50, 30, 70), layers=4, max_alpha=12)
+        self._radial_glow(surf, cx - int(w * 0.1), int(h * 0.6), max(3, int(w * 0.18)), (60, 20, 80), layers=3, max_alpha=8)
+        # Dark energy tendrils from bottom
+        for i in range(6):
+            tx = cx + int((i - 2.5) * w * 0.14)
+            for t in range(4):
+                ty = int(h * (0.92 - t * 0.06))
+                wave_x = int(_sin(t * 2.0 + i * 1.5) * w * 0.03)
+                alpha = max(5, 18 - t * 4)
+                pygame.draw.line(surf, (*dark_aura, alpha), (tx + wave_x, ty),
+                                 (tx + wave_x + int(w * 0.01), ty - int(h * 0.04)), 1)
+        # Gaunt face - 4-layer shading with micro-detail
         face_w = int(w * 0.46)
         face_h = int(h * 0.72)
         face_top = int(h * 0.22)
         self._face_base(surf, cx, face_top, face_w, face_h, skin, skin_sh, skin_hi)
+        self._face_detail(surf, cx, face_top, face_w, face_h, skin_sh, skin_hi)
         # Sunken cheek shadows - deeper
         for s in [-1, 1]:
             chx = cx + s * int(w * 0.11)
@@ -1619,12 +1881,31 @@ class HeroPortraitRenderer:
                                 (chx - int(w * 0.05), chy, int(w * 0.08), int(h * 0.13)))
             pygame.draw.ellipse(surf, (*skin_sh, 50),
                                 (chx - int(w * 0.04), chy + int(h * 0.02), int(w * 0.06), int(h * 0.08)))
+            # Deeper inner shadow for gaunt look
+            pygame.draw.ellipse(surf, (*self._darken(skin_deep, 15), 35),
+                                (chx - int(w * 0.03), chy + int(h * 0.03), int(w * 0.04), int(h * 0.06)))
         # Facial lines - gaunt aging
         for s in [-1, 1]:
             pygame.draw.line(surf, (*skin_sh, 60),
                              (cx + s * int(w * 0.06), int(h * 0.50)),
                              (cx + s * int(w * 0.08), int(h * 0.62)), 1)
-        # Bone crown - enhanced
+        # Veins/dark lines on face (necrotic look)
+        for s in [-1, 1]:
+            vx = cx + s * int(w * 0.16)
+            vy = int(h * 0.32)
+            pygame.draw.line(surf, (*self._darken(skin_deep, 10), 25), (vx, vy),
+                             (vx + s * int(w * 0.04), vy + int(h * 0.08)), 1)
+            pygame.draw.line(surf, (*self._darken(skin_deep, 10), 18), (vx + s * int(w * 0.02), vy + int(h * 0.03)),
+                             (vx + s * int(w * 0.06), vy + int(h * 0.06)), 1)
+            pygame.draw.line(surf, (*self._darken(skin_deep, 8), 20),
+                             (cx + s * int(w * 0.08), int(h * 0.48)),
+                             (cx + s * int(w * 0.12), int(h * 0.56)), 1)
+        # Gaunt jawline definition
+        for s in [-1, 1]:
+            pygame.draw.line(surf, (*skin_deep, 30),
+                             (cx + s * int(w * 0.20), int(h * 0.45)),
+                             (cx + s * int(w * 0.10), int(h * 0.82)), 1)
+        # Bone crown - enhanced with more detail
         crown_y = int(h * 0.08)
         crown_h2 = int(h * 0.18)
         crown_w = int(w * 0.52)
@@ -1705,21 +1986,39 @@ class HeroPortraitRenderer:
         face_white = (240, 235, 230)
         face_sh = (215, 210, 205)
         face_hi = (250, 248, 245)
-        hat_red = (200, 40, 40)
-        hat_red_lt = (230, 70, 60)
-        hat_gold = (230, 200, 80)
-        hat_gold_lt = (250, 225, 120)
-        hat_dk = (160, 25, 25)
-        nose_red = (220, 50, 50)
-        lip_red = (200, 40, 40)
+        hat_red = (210, 30, 30)
+        hat_red_lt = (240, 65, 55)
+        hat_gold = (240, 210, 70)
+        hat_gold_lt = (255, 235, 120)
+        hat_dk = (160, 20, 20)
+        nose_red = (230, 45, 45)
+        lip_red = (210, 35, 35)
+        lip_hi = (255, 120, 120)
         eye_color = (60, 140, 200)
         star_c = (255, 220, 60)
-        # Colorful background
+        purple_mk = (100, 40, 140)
+        # Colorful background with radial glow
         pygame.draw.rect(surf, (45, 18, 48, 85), (0, 0, w, h))
-        self._soft_glow(surf, cx, int(h * 0.4), max(5, int(w * 0.3)), (150, 50, 100), 10)
-        # Jester hat - enhanced with shading
+        self._radial_glow(surf, cx, int(h * 0.4), max(8, int(w * 0.38)), (150, 50, 100), 5, 14)
+        self._radial_glow(surf, cx, int(h * 0.3), max(5, int(w * 0.22)), (200, 60, 120), 3, 8)
+        # Confetti / card symbol particles floating
+        for i in range(8):
+            px = int(w * (0.08 + (i * 0.13) % 0.88))
+            py = int(h * (0.05 + (i * 0.17 + 0.03) % 0.90))
+            pr = max(1, int(b * 0.03))
+            cc = [(255, 80, 80), (80, 200, 255), (255, 220, 60), (120, 255, 120),
+                  (255, 150, 50), (200, 80, 200), (80, 255, 200), (255, 200, 80)][i % 8]
+            if i % 3 == 0:
+                pygame.draw.polygon(surf, (*cc, 50),
+                                    [(px, py - pr), (px + pr, py), (px, py + pr), (px - pr, py)])
+            elif i % 3 == 1:
+                pygame.draw.circle(surf, (*cc, 45), (px, py), pr)
+            else:
+                pygame.draw.circle(surf, (*cc, 40), (px - pr // 2, py - pr // 2), pr)
+                pygame.draw.circle(surf, (*cc, 40), (px + pr // 2, py - pr // 2), pr)
+        # Jester hat - enhanced with shading and stripes
         hat_y = int(h * 0.15)
-        # Left horn (red)
+        # Left horn (red) with stripe pattern
         left_pts = [(cx - int(w * 0.36), hat_y + int(h * 0.12)),
                     (cx - int(w * 0.48), int(h * -0.06)),
                     (cx - int(w * 0.15), hat_y)]
@@ -1727,8 +2026,13 @@ class HeroPortraitRenderer:
         pygame.draw.polygon(surf, hat_red_lt, [(cx - int(w * 0.32), hat_y + int(h * 0.08)),
                                                 (cx - int(w * 0.42), int(h * 0.0)),
                                                 (cx - int(w * 0.22), hat_y + int(h * 0.02))], 0)
+        for si in range(3):
+            sy = hat_y + int(h * 0.02) - si * int(h * 0.04)
+            pygame.draw.line(surf, (*hat_dk, 45),
+                             (cx - int(w * 0.20) - si * int(w * 0.06), sy),
+                             (cx - int(w * 0.24) - si * int(w * 0.06), sy - int(h * 0.03)), 1)
         pygame.draw.polygon(surf, hat_dk, left_pts, 1)
-        # Right horn (gold)
+        # Right horn (gold) with stripe pattern
         right_pts = [(cx + int(w * 0.36), hat_y + int(h * 0.12)),
                      (cx + int(w * 0.48), int(h * -0.06)),
                      (cx + int(w * 0.15), hat_y)]
@@ -1736,47 +2040,86 @@ class HeroPortraitRenderer:
         pygame.draw.polygon(surf, hat_gold_lt, [(cx + int(w * 0.22), hat_y + int(h * 0.02)),
                                                  (cx + int(w * 0.42), int(h * 0.0)),
                                                  (cx + int(w * 0.32), hat_y + int(h * 0.08))], 0)
+        for si in range(3):
+            sy = hat_y + int(h * 0.02) - si * int(h * 0.04)
+            pygame.draw.line(surf, (190, 160, 30, 45),
+                             (cx + int(w * 0.20) + si * int(w * 0.06), sy),
+                             (cx + int(w * 0.24) + si * int(w * 0.06), sy - int(h * 0.03)), 1)
         pygame.draw.polygon(surf, (190, 160, 50), right_pts, 1)
+        # Hat horn curve definition (inner edge highlight)
+        pygame.draw.line(surf, (*hat_red_lt, 50),
+                         (cx - int(w * 0.18), hat_y + int(h * 0.01)),
+                         (cx - int(w * 0.44), int(h * -0.02)), 1)
+        pygame.draw.line(surf, (*hat_gold_lt, 50),
+                         (cx + int(w * 0.18), hat_y + int(h * 0.01)),
+                         (cx + int(w * 0.44), int(h * -0.02)), 1)
         # Hat band - gold with detail
         band_rect = pygame.Rect(cx - int(w * 0.36), hat_y, int(w * 0.72), max(3, int(h * 0.055)))
         pygame.draw.rect(surf, hat_gold, band_rect)
         pygame.draw.line(surf, hat_gold_lt, (band_rect.x, band_rect.y),
                          (band_rect.right, band_rect.y), 1)
-        # Bells on tips - enhanced
+        pygame.draw.line(surf, (190, 160, 40), (band_rect.x, band_rect.bottom - 1),
+                         (band_rect.right, band_rect.bottom - 1), 1)
+        # Bells on tips - enhanced with shine and clapper
         for bx, by in [(cx - int(w * 0.48), int(h * -0.06)), (cx + int(w * 0.48), int(h * -0.06))]:
-            bell_r = max(2, int(b * 0.11))
+            bell_r = max(2, int(b * 0.12))
+            pygame.draw.circle(surf, (140, 120, 20), (bx, by), bell_r + 1)
             pygame.draw.circle(surf, hat_gold, (bx, by), bell_r)
-            pygame.draw.circle(surf, hat_gold_lt, (bx - 1, by - 1), max(1, bell_r // 2))
-            pygame.draw.circle(surf, (180, 150, 40), (bx, by + bell_r // 2), max(1, bell_r // 3))
+            pygame.draw.circle(surf, hat_gold_lt, (bx - 1, by - 1), max(1, bell_r * 2 // 3))
+            pygame.draw.circle(surf, (255, 245, 180), (bx - 1, by - 1), max(1, bell_r // 3))
+            pygame.draw.circle(surf, (160, 130, 30), (bx, by + bell_r // 2), max(1, bell_r // 3))
+            pygame.draw.circle(surf, (120, 100, 20), (bx, by + bell_r - 1), max(1, bell_r // 4))
             pygame.draw.circle(surf, (160, 130, 30), (bx, by), bell_r, 1)
-        # White painted face - 4-layer
+            pygame.draw.line(surf, (140, 115, 25), (bx - bell_r // 2, by + bell_r // 3),
+                             (bx + bell_r // 2, by + bell_r // 3), 1)
+        # White painted face - multi-layer with face detail
         face_w = int(w * 0.55)
         face_h = int(h * 0.65)
         face_top = int(h * 0.22)
         self._face_base(surf, cx, face_top, face_w, face_h, face_white, face_sh, face_hi)
-        # Left eye - diamond makeup + hq_eye
+        self._face_detail(surf, cx, face_top, face_w, face_h, face_sh, face_hi)
+        # Face paint - curving smile lines
+        for s in [-1, 1]:
+            sl_x1 = cx + s * int(face_w * 0.12)
+            sl_y1 = face_top + int(face_h * 0.52)
+            sl_x2 = cx + s * int(face_w * 0.28)
+            sl_y2 = face_top + int(face_h * 0.72)
+            pygame.draw.line(surf, (*lip_red, 55), (sl_x1, sl_y1), (sl_x2, sl_y2), 1)
+        # Teardrop under left eye
+        td_x = cx - int(w * 0.11)
+        td_y = int(h * 0.49)
+        td_r = max(1, int(b * 0.04))
+        pygame.draw.circle(surf, (40, 80, 180, 80), (td_x, td_y), td_r)
+        pygame.draw.line(surf, (40, 80, 180, 60), (td_x, td_y + td_r),
+                         (td_x, td_y + td_r + max(1, int(h * 0.02))), 1)
+        # Eye makeup - colored eye shadow
         eye_y = int(h * 0.42)
         eye_sp = int(w * 0.11)
         ex_l = cx - eye_sp
         sw = max(3, int(w * 0.07))
         sh = max(2, int(h * 0.05))
-        # Blue diamond around left eye
-        pygame.draw.polygon(surf, (60, 100, 180, 60),
-                            [(ex_l, eye_y - sh - 3), (ex_l + sw + 2, eye_y),
-                             (ex_l, eye_y + sh + 3), (ex_l - sw - 2, eye_y)])
+        # Purple eye shadow around left eye
+        pygame.draw.ellipse(surf, (*purple_mk, 30),
+                            (ex_l - sw - 2, eye_y - sh - 2, (sw + 2) * 2, (sh + 2) * 2))
+        # Blue diamond around left eye (bigger, more vivid)
+        dm_pts = [(ex_l, eye_y - sh - 4), (ex_l + sw + 3, eye_y),
+                  (ex_l, eye_y + sh + 4), (ex_l - sw - 3, eye_y)]
+        pygame.draw.polygon(surf, (50, 90, 200, 70), dm_pts)
+        pygame.draw.polygon(surf, (80, 120, 220), dm_pts, 1)
         self._hq_eye(surf, ex_l, eye_y, w, h, b, eye_color,
                      pupil_color=(20, 20, 30), lid_color=(60, 40, 80))
         # Right eye - star makeup + hq_eye
         ex_r = cx + eye_sp
-        star_r = max(3, int(b * 0.32))
-        # Star shape
+        pygame.draw.ellipse(surf, (*purple_mk, 30),
+                            (ex_r - sw - 2, eye_y - sh - 2, (sw + 2) * 2, (sh + 2) * 2))
+        star_r = max(3, int(b * 0.35))
         star_pts = []
         for p in range(10):
             angle = p * 3.14159 / 5 - 3.14159 / 2
             r = star_r if p % 2 == 0 else star_r * 0.4
             star_pts.append((ex_r + int(_cos(angle) * r), eye_y + int(_sin(angle) * r)))
         if len(star_pts) >= 3:
-            pygame.draw.polygon(surf, (*star_c, 80), star_pts)
+            pygame.draw.polygon(surf, (*star_c, 90), star_pts)
             pygame.draw.polygon(surf, star_c, star_pts, 1)
         self._hq_eye(surf, ex_r, eye_y, w, h, b, eye_color,
                      pupil_color=(20, 20, 30), lid_color=(60, 40, 80))
@@ -1787,27 +2130,50 @@ class HeroPortraitRenderer:
             pygame.draw.arc(surf, (60, 40, 80),
                             (bx - int(w * 0.06), by - int(h * 0.04), int(w * 0.12), int(h * 0.07)),
                             0.3, 2.8, max(1, int(b * 0.07)))
-        # Red nose - shiny
+        # Big, shiny red clown nose with strong highlight
         nose_y = int(h * 0.53)
-        nose_r = max(2, int(b * 0.15))
+        nose_r = max(3, int(b * 0.18))
+        pygame.draw.circle(surf, self._darken(nose_red, 30), (cx, nose_y + 1), nose_r + 1)
         pygame.draw.circle(surf, nose_red, (cx, nose_y), nose_r)
-        pygame.draw.circle(surf, (240, 80, 80), (cx - 1, nose_y - 1), max(1, nose_r // 2))
-        pygame.draw.circle(surf, (255, 120, 120), (cx - 1, nose_y - 1), max(1, nose_r // 4))
-        # Wide grinning red mouth - enhanced
+        pygame.draw.circle(surf, (240, 75, 75), (cx - 1, nose_y - 1), max(1, int(nose_r * 0.7)))
+        pygame.draw.circle(surf, (255, 140, 140), (cx - 1, nose_y - 2), max(1, nose_r // 2))
+        pygame.draw.circle(surf, (255, 200, 200), (cx - 1, nose_y - 2), max(1, nose_r // 3))
+        pygame.draw.circle(surf, self._darken(nose_red, 40), (cx, nose_y), nose_r, 1)
+        # Wide menacing grin with more teeth
         mouth_y = int(h * 0.65)
-        mouth_w = int(w * 0.20)
+        mouth_w = int(w * 0.22)
+        pygame.draw.arc(surf, self._darken(lip_red, 30),
+                        (cx - mouth_w - 1, mouth_y - int(h * 0.07), (mouth_w + 1) * 2, int(h * 0.16)),
+                        3.2, 6.2, max(2, int(b * 0.10)))
         pygame.draw.arc(surf, lip_red,
                         (cx - mouth_w, mouth_y - int(h * 0.06), mouth_w * 2, int(h * 0.14)),
                         3.3, 6.1, max(1, int(b * 0.09)))
-        # Grin corners curving up
+        pygame.draw.line(surf, self._darken(lip_red, 20),
+                         (cx - int(mouth_w * 0.85), mouth_y - int(h * 0.01)),
+                         (cx + int(mouth_w * 0.85), mouth_y - int(h * 0.01)), 1)
         for s in [-1, 1]:
             pygame.draw.arc(surf, lip_red,
-                            (cx + s * mouth_w - int(w * 0.03), mouth_y - int(h * 0.05),
-                             int(w * 0.06), int(h * 0.07)),
-                            0.5 if s == 1 else 2.0, 2.0 if s == 1 else 3.5, 1)
-        # Teeth hint in grin
-        pygame.draw.line(surf, (250, 248, 240), (cx - int(mouth_w * 0.5), mouth_y + int(h * 0.01)),
-                         (cx + int(mouth_w * 0.5), mouth_y + int(h * 0.01)), 1)
+                            (cx + s * mouth_w - int(w * 0.04), mouth_y - int(h * 0.06),
+                             int(w * 0.08), int(h * 0.08)),
+                            0.5 if s == 1 else 2.0, 2.0 if s == 1 else 3.5, max(1, int(b * 0.06)))
+        # Multiple teeth in grin
+        teeth_y = mouth_y + int(h * 0.005)
+        teeth_w = int(mouth_w * 0.7)
+        teeth_h = max(2, int(h * 0.025))
+        pygame.draw.rect(surf, (250, 248, 240), (cx - teeth_w, teeth_y, teeth_w * 2, teeth_h))
+        for i in range(1, 6):
+            tx = cx - teeth_w + int(i * teeth_w * 2 / 6)
+            pygame.draw.line(surf, (220, 215, 200), (tx, teeth_y), (tx, teeth_y + teeth_h), 1)
+        pygame.draw.line(surf, (255, 252, 248), (cx - teeth_w + 1, teeth_y),
+                         (cx + teeth_w - 1, teeth_y), 1)
+        # Ruffled collar hint at bottom
+        collar_y = int(h * 0.88)
+        for i in range(5):
+            rx = cx - int(w * 0.28) + int(i * w * 0.14)
+            rr = max(2, int(b * 0.10))
+            pygame.draw.circle(surf, (230, 225, 220), (rx, collar_y), rr)
+            pygame.draw.circle(surf, face_hi, (rx - 1, collar_y - 1), max(1, rr // 2))
+            pygame.draw.circle(surf, face_sh, (rx, collar_y), rr, 1)
         pygame.draw.rect(surf, (*hat_gold, 180), (0, 0, w, h), 1, border_radius=2)
 
     # ─── 12. MIRAGE (미라지/사막환술사) ───
@@ -1825,14 +2191,26 @@ class HeroPortraitRenderer:
         eye_glow = (240, 200, 80)
         shimmer = (255, 230, 150)
         jewel = (180, 40, 40)
-        # Sandy/warm background - layered
+        # Sandy/warm background - layered with radial glow
         pygame.draw.rect(surf, (55, 38, 22, 105), (0, 0, w, h))
-        # Heat shimmer effect - enhanced
-        for i in range(5):
-            sy = int(h * (0.15 + i * 0.18))
+        self._radial_glow(surf, cx, int(h * 0.40), max(8, int(w * 0.45)), (180, 140, 60), 5, 12)
+        self._radial_glow(surf, cx, int(h * 0.35), max(5, int(w * 0.28)), (220, 180, 80), 3, 8)
+        # Heat shimmer / mirage distortion (wavy horizontal lines)
+        for i in range(7):
+            sy = int(h * (0.10 + i * 0.13))
             sw2 = int(w * 0.5 + _sin(i * 1.4) * w * 0.12)
-            self._soft_glow(surf, cx + int(_sin(i * 2.0) * w * 0.05), sy,
-                            max(3, sw2 // 3), shimmer, 6)
+            sx_off = int(_sin(i * 2.0) * w * 0.05)
+            self._soft_glow(surf, cx + sx_off, sy, max(3, sw2 // 3), shimmer, 6)
+            # Wavy heat distortion lines
+            for dx in range(-int(w * 0.3), int(w * 0.3), max(2, int(w * 0.08))):
+                lx = cx + dx + int(_sin(sy * 0.1 + dx * 0.2) * 2)
+                pygame.draw.line(surf, (*shimmer, 12), (lx, sy - 1), (lx + max(1, int(w * 0.04)), sy), 1)
+        # Sand particles (tiny golden dots)
+        for i in range(10):
+            spx = int(w * (0.06 + (i * 0.11) % 0.88))
+            spy = int(h * (0.04 + (i * 0.13 + 0.07) % 0.90))
+            spr = max(1, int(b * 0.02))
+            pygame.draw.circle(surf, (*shimmer, 35 + (i * 7) % 25), (spx, spy), spr)
         # Turban/headwrap - enhanced with depth
         turban_pts = [(cx - int(w * 0.42), int(h * 0.25)),
                       (cx - int(w * 0.36), int(h * 0.02)),
@@ -1855,12 +2233,28 @@ class HeroPortraitRenderer:
         # Turban highlight
         pygame.draw.ellipse(surf, (*wrap_hi, 45),
                             (cx - int(w * 0.14), int(h * 0.03), int(w * 0.28), int(h * 0.10)))
-        # Jewel on turban center
+        # Jewel on turban center - faceted with chain detail
         jewel_y = int(h * 0.10)
-        jr = max(2, int(b * 0.09))
+        jr = max(2, int(b * 0.10))
+        # Jewel glow
+        self._radial_glow(surf, cx, jewel_y, max(3, jr * 2), (220, 60, 60), 3, 18)
+        # Jewel base
+        pygame.draw.circle(surf, self._darken(jewel, 15), (cx, jewel_y), jr + 1)
         pygame.draw.circle(surf, jewel, (cx, jewel_y), jr)
-        pygame.draw.circle(surf, (220, 80, 70), (cx - 1, jewel_y - 1), max(1, jr // 2))
+        # Facet lines
+        pygame.draw.line(surf, (230, 90, 80, 50), (cx - jr // 2, jewel_y - jr // 2),
+                         (cx + jr // 2, jewel_y + jr // 2), 1)
+        pygame.draw.line(surf, (230, 90, 80, 50), (cx + jr // 2, jewel_y - jr // 2),
+                         (cx - jr // 2, jewel_y + jr // 2), 1)
+        # Jewel highlight
+        pygame.draw.circle(surf, (240, 100, 90), (cx - 1, jewel_y - 1), max(1, jr // 2))
+        pygame.draw.circle(surf, (255, 160, 150), (cx - 1, jewel_y - 1), max(1, jr // 3))
         pygame.draw.circle(surf, self._darken(jewel, 30), (cx, jewel_y), jr, 1)
+        # Chain links from jewel
+        for s in [-1, 1]:
+            for ci in range(3):
+                chain_x = cx + s * (jr + 1 + ci * max(2, int(w * 0.03)))
+                pygame.draw.circle(surf, (235, 215, 100), (chain_x, jewel_y), max(1, int(b * 0.02)))
         # Visible face strip - eyes area with shading
         face_w2 = int(w * 0.52)
         face_h2 = int(h * 0.28)
@@ -1886,9 +2280,9 @@ class HeroPortraitRenderer:
             by = eye_y - max(3, int(h * 0.07))
             pygame.draw.line(surf, skin_sh, (bx - s * int(w * 0.04), by + 1),
                              (bx + s * int(w * 0.05), by - 1), max(1, int(b * 0.08)))
-        # Nose bridge
-        pygame.draw.line(surf, skin_sh, (cx, int(h * 0.40)), (cx, int(h * 0.48)), 1)
-        pygame.draw.circle(surf, (*skin_hi, 60), (cx, int(h * 0.42)), max(1, b // 10))
+        # Nose bridge - detailed
+        nose_y = int(h * 0.46)
+        self._nose_detail(surf, cx, nose_y, b, skin, skin_sh, skin_hi, w, h)
         # Face wrap - enhanced with gradient
         wrap_top = int(h * 0.48)
         wrap_pts = [(cx - int(w * 0.43), wrap_top),
@@ -1914,6 +2308,21 @@ class HeroPortraitRenderer:
         pygame.draw.ellipse(surf, (*wrap_hi, 28),
                             (cx - int(w * 0.14), wrap_top + int(h * 0.04), int(w * 0.28), int(h * 0.12)))
         pygame.draw.polygon(surf, wrap_dk, wrap_pts, 1)
+        # Magical geometric glyphs floating
+        for i in range(4):
+            gx = int(w * (0.10 + i * 0.25))
+            gy = int(h * (0.08 + (i * 0.23) % 0.80))
+            gs = max(2, int(b * 0.06))
+            gc = (*shimmer, 30 + (i * 10) % 20)
+            # Small triangle glyphs
+            pygame.draw.polygon(surf, gc,
+                                [(gx, gy - gs), (gx + gs, gy + gs // 2), (gx - gs, gy + gs // 2)], 1)
+        # Golden dust particles around face
+        for i in range(6):
+            dpx = cx + int(_sin(i * 1.1) * w * 0.28)
+            dpy = int(h * 0.28 + i * h * 0.08)
+            dpr = max(1, int(b * 0.02))
+            pygame.draw.circle(surf, (*shimmer, 40 + (i * 8) % 30), (dpx, dpy), dpr)
         pygame.draw.rect(surf, (*eye_glow, 150), (0, 0, w, h), 1, border_radius=2)
 
     # ─── 13. RA (라/태양신) ───
@@ -1931,9 +2340,23 @@ class HeroPortraitRenderer:
         eye_glow = (255, 200, 60)
         blue = (40, 80, 180)
         blue_lt = (70, 120, 220)
-        # Radiant background - multi-layer sun rays
-        self._soft_glow(surf, cx, int(h * 0.35), max(6, int(w * 0.45)), (200, 150, 30), 22)
-        self._soft_glow(surf, cx, int(h * 0.30), max(4, int(w * 0.25)), (255, 180, 40), 10)
+        # Radiant background - rich multi-layer sun glow with ray beams
+        self._radial_glow(surf, cx, int(h * 0.35), max(10, int(w * 0.50)), (200, 150, 30), 6, 25)
+        self._radial_glow(surf, cx, int(h * 0.30), max(6, int(w * 0.30)), (255, 180, 40), 4, 15)
+        self._radial_glow(surf, cx, int(h * 0.25), max(4, int(w * 0.18)), (255, 220, 80), 3, 10)
+        # Sun ray beams radiating from behind head
+        for i in range(12):
+            angle = i * 3.14159 * 2 / 12
+            rx1 = cx + int(_cos(angle) * w * 0.15)
+            ry1 = int(h * 0.30) + int(_sin(angle) * h * 0.12)
+            rx2 = cx + int(_cos(angle) * w * 0.50)
+            ry2 = int(h * 0.30) + int(_sin(angle) * h * 0.45)
+            pygame.draw.line(surf, (255, 200, 60, 18), (rx1, ry1), (rx2, ry2), 1)
+        # Golden sand/dust particles
+        for i in range(8):
+            dpx = int(w * (0.05 + (i * 0.14) % 0.90))
+            dpy = int(h * (0.03 + (i * 0.15 + 0.05) % 0.92))
+            pygame.draw.circle(surf, (255, 220, 80, 30 + (i * 9) % 25), (dpx, dpy), max(1, int(b * 0.02)))
         # Egyptian hawk helmet - enhanced
         helm_pts = [(cx - int(w * 0.48), int(h * 0.55)),
                     (cx - int(w * 0.46), int(h * 0.08)),
@@ -1965,21 +2388,32 @@ class HeroPortraitRenderer:
             sh2 = max(2, int(h * 0.035))
             sc = blue if i % 2 == 0 else gold_lt
             pygame.draw.rect(surf, sc, (cx - sw2, sy, sw2 * 2, sh2))
-        # Center cobra/uraeus - detailed
+        # Center cobra/uraeus - detailed with scales
         cobra_x = cx
         cobra_pts = [(cobra_x - int(w * 0.035), int(h * 0.10)),
                      (cobra_x, int(h * -0.06)),
                      (cobra_x + int(w * 0.035), int(h * 0.10))]
         pygame.draw.polygon(surf, gold_lt, cobra_pts)
-        # Cobra hood flare
+        # Cobra hood flare (wider)
         pygame.draw.polygon(surf, gold,
-                            [(cobra_x - int(w * 0.04), int(h * 0.02)),
+                            [(cobra_x - int(w * 0.05), int(h * 0.02)),
                              (cobra_x, int(h * -0.06)),
-                             (cobra_x + int(w * 0.04), int(h * 0.02))])
-        # Cobra eye
-        pygame.draw.circle(surf, (200, 40, 40), (cobra_x, int(h * 0.01)), max(1, int(b * 0.06)))
-        pygame.draw.circle(surf, (240, 80, 70), (cobra_x, int(h * 0.0)), max(1, int(b * 0.03)))
-        # Golden face plate - with multi-layer shading
+                             (cobra_x + int(w * 0.05), int(h * 0.02))])
+        # Cobra scale texture
+        for sc in range(3):
+            scy = int(h * 0.03 + sc * h * 0.02)
+            scw = max(1, int(w * 0.02 - sc * w * 0.003))
+            pygame.draw.arc(surf, (*gold_dk, 40),
+                            (cobra_x - scw, scy, scw * 2, max(2, int(h * 0.015))),
+                            0.0, 3.14, 1)
+        # Cobra jeweled eyes (two tiny gems)
+        for s in [-1, 1]:
+            ce_x = cobra_x + s * max(1, int(w * 0.015))
+            ce_y = int(h * 0.01)
+            pygame.draw.circle(surf, (200, 30, 30), (ce_x, ce_y), max(1, int(b * 0.04)))
+            pygame.draw.circle(surf, (240, 80, 70), (ce_x, ce_y), max(1, int(b * 0.02)))
+            pygame.draw.circle(surf, (255, 140, 120), (ce_x, ce_y - 1), max(1, int(b * 0.01)))
+        # Golden face plate - with multi-layer shading and specular
         face_w = int(w * 0.42)
         face_h = int(h * 0.55)
         face_top = int(h * 0.32)
@@ -1992,6 +2426,17 @@ class HeroPortraitRenderer:
         pygame.draw.ellipse(surf, (*metal_hi, 40),
                             (cx - int(face_w * 0.25), face_top + int(face_h * 0.05),
                              int(face_w * 0.45), int(face_h * 0.20)))
+        # Additional specular highlights on face plate
+        pygame.draw.ellipse(surf, (*gold_hi, 25),
+                            (cx - int(face_w * 0.12), face_top + int(face_h * 0.08),
+                             int(face_w * 0.22), int(face_h * 0.10)))
+        # Left side shadow (depth)
+        pygame.draw.ellipse(surf, (*metal_dk, 25),
+                            (fr.x + 1, face_top + int(face_h * 0.15), int(face_w * 0.18), int(face_h * 0.40)))
+        # Right rim light
+        pygame.draw.ellipse(surf, (*metal_hi, 18),
+                            (fr.x + int(face_w * 0.78), face_top + int(face_h * 0.20),
+                             int(face_w * 0.15), int(face_h * 0.30)))
         # Eye of Horus markings - enhanced
         eye_y = int(h * 0.45)
         eye_sp = int(w * 0.10)
@@ -2022,7 +2467,7 @@ class HeroPortraitRenderer:
                                 (ex - ew + 1, eye_y - eh + 1, (ew - 1) * 2, (eh - 1) * 2))
             # Iris with glow
             ir = max(2, int(min(ew, eh) * 0.6))
-            self._soft_glow(surf, ex, eye_y, max(3, ir * 2), eye_glow, 25)
+            self._radial_glow(surf, ex, eye_y, max(4, ir * 3), eye_glow, 4, 28)
             pygame.draw.circle(surf, self._darken(eye_color, 30), (ex, eye_y), ir + 1)
             pygame.draw.circle(surf, eye_color, (ex, eye_y), ir)
             pygame.draw.circle(surf, self._lighten(eye_color, 30), (ex, eye_y), max(1, ir * 2 // 3))
@@ -2040,6 +2485,31 @@ class HeroPortraitRenderer:
         pygame.draw.polygon(surf, gold, chin_pts)
         pygame.draw.polygon(surf, gold_dk, chin_pts, 1)
         pygame.draw.line(surf, gold_lt, (cx, chin_y), (cx, int(h * 0.90)), 1)
+        # Wing feather texture on helmet sides
+        for s in [-1, 1]:
+            for fi in range(4):
+                fx = cx + s * int(w * 0.35 + fi * w * 0.03)
+                fy = int(h * 0.15 + fi * h * 0.08)
+                flen = int(h * 0.06)
+                pygame.draw.line(surf, (*gold_dk, 35),
+                                 (fx, fy), (fx + s * max(1, int(w * 0.02)), fy + flen), 1)
+                pygame.draw.line(surf, (*gold_lt, 20),
+                                 (fx + s, fy + 1), (fx + s + s * max(1, int(w * 0.01)), fy + flen - 1), 1)
+        # Scarab/ankh symbol hint on forehead
+        ankh_y = int(h * 0.16)
+        ankh_r = max(1, int(b * 0.04))
+        pygame.draw.circle(surf, (*blue_lt, 50), (cx, ankh_y), ankh_r)
+        pygame.draw.line(surf, (*blue_lt, 40), (cx, ankh_y + ankh_r), (cx, ankh_y + ankh_r + max(1, int(h * 0.02))), 1)
+        pygame.draw.line(surf, (*blue_lt, 40), (cx - ankh_r, ankh_y + ankh_r + 1),
+                         (cx + ankh_r, ankh_y + ankh_r + 1), 1)
+        # Hieroglyphic detail marks on helmet sides
+        for s in [-1, 1]:
+            hx = cx + s * int(w * 0.28)
+            for hi in range(3):
+                hy = int(h * 0.20 + hi * h * 0.06)
+                pygame.draw.line(surf, (*gold_dk, 30), (hx, hy), (hx + s * max(1, int(w * 0.03)), hy), 1)
+                pygame.draw.line(surf, (*gold_dk, 25), (hx + s * max(1, int(w * 0.01)), hy),
+                                 (hx + s * max(1, int(w * 0.01)), hy + max(1, int(h * 0.02))), 1)
         # Helmet outline
         pygame.draw.polygon(surf, gold_dk, helm_pts, 1)
         pygame.draw.rect(surf, (*gold, 200), (0, 0, w, h), 1, border_radius=2)
@@ -2069,10 +2539,24 @@ class HeroPortraitRenderer:
             pygame.draw.line(surf, (25, 35, 55, 20), (i, 0), (i, h), 1)
         for i in range(0, h, max(2, h // 10)):
             pygame.draw.line(surf, (25, 35, 55, 20), (0, i), (w, i), 1)
-        # Background circuit traces (decorative)
-        for tx, ty in [(int(w * 0.10), int(h * 0.15)), (int(w * 0.85), int(h * 0.70))]:
+        # Deep tech radial glow
+        self._radial_glow(surf, cx, int(h * 0.40), max(8, int(w * 0.40)), (30, 80, 140), 5, 10)
+        self._radial_glow(surf, cx, int(h * 0.35), max(5, int(w * 0.25)), (50, 120, 200), 3, 6)
+        # Background circuit traces (more branches)
+        for tx, ty in [(int(w * 0.10), int(h * 0.15)), (int(w * 0.85), int(h * 0.70)),
+                       (int(w * 0.08), int(h * 0.60)), (int(w * 0.80), int(h * 0.20))]:
             pygame.draw.line(surf, (30, 50, 70, 35), (tx, ty), (tx + int(w * 0.12), ty), 1)
             pygame.draw.line(surf, (30, 50, 70, 35), (tx + int(w * 0.12), ty), (tx + int(w * 0.12), ty + int(h * 0.10)), 1)
+            # Extra branch
+            pygame.draw.line(surf, (25, 45, 65, 28), (tx + int(w * 0.06), ty), (tx + int(w * 0.06), ty - int(h * 0.05)), 1)
+            # Node dot
+            pygame.draw.circle(surf, (40, 70, 100, 40), (tx + int(w * 0.06), ty - int(h * 0.05)), max(1, int(b * 0.02)))
+        # Holographic scan lines (thin colored horizontal)
+        for sy in range(0, h, max(3, h // 20)):
+            a = max(0, 8 - abs(sy - h // 2) * 16 // h)
+            if a > 0:
+                sc = (50, 180, 255, a) if sy % 6 < 3 else (100, 255, 180, a)
+                pygame.draw.line(surf, sc, (0, sy), (w, sy), 1)
         # Head shape - angular/mechanical with beveled edges
         head_w = int(w * 0.60)
         head_h = int(h * 0.75)
@@ -2130,15 +2614,14 @@ class HeroPortraitRenderer:
             pygame.draw.line(surf, (30, 50, 80, a), (visor_rect.left + 1, vy), (visor_rect.right - 1, vy), 1)
         # Visor trim highlight on top edge
         pygame.draw.line(surf, metal_lt, (visor_rect.left + 2, visor_rect.top), (visor_rect.right - 2, visor_rect.top), 1)
-        # LED blue eyes with layered glow
+        # LED blue eyes with rich radial glow
         eye_sp = int(w * 0.12)
         for s in [-1, 1]:
             ex = cx + s * eye_sp
             ey = visor_y + visor_h // 2
-            # Outer glow halo (large, dim)
-            self._soft_glow(surf, ex, ey, max(6, int(b * 0.55)), led_blue, 18)
-            # Mid glow
-            self._soft_glow(surf, ex, ey, max(4, int(b * 0.35)), led_glow, 25)
+            # Deep radial glow
+            self._radial_glow(surf, ex, ey, max(8, int(b * 0.65)), led_blue, 5, 22)
+            self._radial_glow(surf, ex, ey, max(5, int(b * 0.40)), led_glow, 3, 30)
             # LED iris ring
             led_r = max(2, visor_h // 3)
             pygame.draw.circle(surf, led_blue, (ex, ey), led_r + 1)
@@ -2152,11 +2635,11 @@ class HeroPortraitRenderer:
             pygame.draw.circle(surf, (240, 248, 255), (ex + s, ey - 1), max(1, led_r // 4))
             # Scan line through eye (horizontal)
             pygame.draw.line(surf, (*led_blue, 60), (ex - led_r - 1, ey), (ex + led_r + 1, ey), 1)
-        # Circuit patterns on cheek plates - enhanced
+        # Circuit patterns on cheek plates - enhanced with more branches
         for s in [-1, 1]:
             cpx = cx + s * int(w * 0.20)
             cpy = head_top + int(head_h * 0.58)
-            # Main horizontal trace
+            # Main horizontal trace (double line)
             pygame.draw.line(surf, circuit_dk, (cpx, cpy), (cpx + s * int(w * 0.10), cpy), 1)
             pygame.draw.line(surf, circuit, (cpx, cpy - 1), (cpx + s * int(w * 0.10), cpy - 1), 1)
             # Vertical branch
@@ -2165,13 +2648,38 @@ class HeroPortraitRenderer:
             # Diagonal branch
             pygame.draw.line(surf, circuit_dk, (cpx + s * int(w * 0.10), cpy),
                              (cpx + s * int(w * 0.13), cpy + int(h * 0.05)), 1)
+            # Extra horizontal branch
+            v2x = cpx + s * int(w * 0.03)
+            v2y = cpy + int(h * 0.06)
+            pygame.draw.line(surf, circuit, (v2x, v2y), (v2x + s * int(w * 0.06), v2y), 1)
+            # Extra vertical sub-branch
+            pygame.draw.line(surf, circuit_dk, (v2x + s * int(w * 0.06), v2y),
+                             (v2x + s * int(w * 0.06), v2y + int(h * 0.04)), 1)
             # Circuit nodes with glow
             for nx, ny in [(cpx, cpy), (cpx + s * int(w * 0.05), cpy),
                            (cpx + s * int(w * 0.10), cpy), (vx, cpy + int(h * 0.12)),
-                           (cpx + s * int(w * 0.13), cpy + int(h * 0.05))]:
+                           (cpx + s * int(w * 0.13), cpy + int(h * 0.05)),
+                           (v2x + s * int(w * 0.06), v2y),
+                           (v2x + s * int(w * 0.06), v2y + int(h * 0.04))]:
                 nr = max(1, int(b * 0.04))
                 pygame.draw.circle(surf, circuit, (nx, ny), nr + 1)
                 pygame.draw.circle(surf, led_white, (nx, ny), nr)
+            # Status LED indicators on temple/cheek
+            for li, (lx_off, ly_off, lc) in enumerate([(0.16, 0.40, (50, 255, 100)),
+                                                         (0.16, 0.44, (255, 200, 50)),
+                                                         (0.16, 0.48, (50, 200, 255))]):
+                lx = cx + s * int(w * lx_off)
+                ly = head_top + int(head_h * ly_off)
+                pygame.draw.circle(surf, (*lc, 60), (lx, ly), max(1, int(b * 0.025)))
+            # Data stream / binary hints (tiny marks)
+            for di in range(3):
+                dx = cpx + s * int(w * (0.02 + di * 0.03))
+                dy = cpy - int(h * 0.04)
+                pygame.draw.rect(surf, (*circuit, 25), (dx, dy, max(1, int(w * 0.01)), max(1, int(h * 0.01))))
+        # Additional panel seam lines
+        for py_frac in [0.38, 0.68]:
+            py2 = head_top + int(head_h * py_frac)
+            pygame.draw.line(surf, (100, 105, 115), (cx - head_w // 4, py2), (cx + head_w // 4, py2), 1)
         # Nose sensor - small LED indicator
         nose_y = head_top + int(head_h * 0.60)
         nose_w = max(2, int(w * 0.03))
@@ -2195,8 +2703,8 @@ class HeroPortraitRenderer:
         # Horizontal slat
         pygame.draw.line(surf, (60, 65, 75), (cx - grille_w // 2 + 1, mouth_y + grille_h // 2),
                          (cx + grille_w // 2 - 1, mouth_y + grille_h // 2), 1)
-        # Blue LED glow behind grille
-        self._soft_glow(surf, cx, mouth_y + grille_h // 2, max(3, grille_w // 3), led_blue, 12)
+        # Blue LED glow behind grille (richer)
+        self._radial_glow(surf, cx, mouth_y + grille_h // 2, max(4, grille_w // 3), led_blue, 3, 16)
         # Antenna/sensor on top - enhanced
         ant_x = cx + int(w * 0.15)
         ant_base = head_top + int(head_h * 0.02)
@@ -2205,9 +2713,15 @@ class HeroPortraitRenderer:
         pygame.draw.line(surf, metal_dk, (ant_x - 1, ant_base), (ant_x - 1, ant_tip), 1)
         pygame.draw.line(surf, metal, (ant_x, ant_base), (ant_x, ant_tip), max(1, int(b * 0.05)))
         pygame.draw.line(surf, metal_lt, (ant_x + 1, ant_base), (ant_x + 1, ant_tip), 1)
-        # Antenna tip orb with glow
+        # Antenna tip orb with rich glow + signal wave arcs
         orb_r = max(2, int(b * 0.07))
-        self._soft_glow(surf, ant_x, ant_tip, max(4, int(b * 0.20)), led_blue, 22)
+        self._radial_glow(surf, ant_x, ant_tip, max(5, int(b * 0.25)), led_blue, 4, 25)
+        # Signal wave arcs
+        for wi in range(3):
+            wr = max(3, int(b * 0.10) + wi * max(2, int(b * 0.06)))
+            pygame.draw.arc(surf, (*led_blue, max(3, 20 - wi * 6)),
+                            (ant_x - wr, ant_tip - wr, wr * 2, wr * 2),
+                            0.8, 2.3, 1)
         pygame.draw.circle(surf, led_blue, (ant_x, ant_tip), orb_r)
         pygame.draw.circle(surf, led_glow, (ant_x, ant_tip), max(1, orb_r * 2 // 3))
         pygame.draw.circle(surf, led_white, (ant_x - 1, ant_tip - 1), max(1, orb_r // 3))
@@ -2221,8 +2735,34 @@ class HeroPortraitRenderer:
             pygame.draw.rect(surf, metal_lt, (ear_x - ear_w // 2, ear_y, ear_w, ear_h), 1, border_radius=1)
             # Small LED on ear sensor
             pygame.draw.circle(surf, led_blue, (ear_x, ear_y + ear_h // 2), max(1, int(b * 0.03)))
+        # Cooling vent detail on sides of head
+        for s in [-1, 1]:
+            vent_x = cx + s * (head_w // 2 - int(w * 0.04))
+            vent_y = head_top + int(head_h * 0.55)
+            for vi in range(3):
+                vy = vent_y + vi * max(2, int(h * 0.02))
+                vw = max(2, int(w * 0.04))
+                pygame.draw.line(surf, (80, 85, 95), (vent_x - vw // 2, vy), (vent_x + vw // 2, vy), 1)
+        # Metal surface reflections (specular streaks)
+        pygame.draw.line(surf, (*metal_hi, 20),
+                         (cx + int(w * 0.08), head_top + int(head_h * 0.08)),
+                         (cx + int(w * 0.12), head_top + int(head_h * 0.25)), 1)
         # Head edge outline
         pygame.draw.polygon(surf, metal_dk, head_pts, 1)
+        # HUD overlay - corner brackets
+        br_len = max(2, int(w * 0.06))
+        br_c = (*led_blue, 40)
+        for (hx, hy, sx, sy) in [(2, 2, 1, 1), (w - 3, 2, -1, 1),
+                                   (2, h - 3, 1, -1), (w - 3, h - 3, -1, -1)]:
+            pygame.draw.line(surf, br_c, (hx, hy), (hx + sx * br_len, hy), 1)
+            pygame.draw.line(surf, br_c, (hx, hy), (hx, hy + sy * br_len), 1)
+        # Crosshair around eyes (subtle HUD element)
+        for s in [-1, 1]:
+            ex = cx + s * eye_sp
+            ey = visor_y + visor_h // 2
+            cr = max(3, int(b * 0.15))
+            pygame.draw.arc(surf, (*led_blue, 20),
+                            (ex - cr, ey - cr, cr * 2, cr * 2), 0.0, 6.28, 1)
         # Border with tech glow
         pygame.draw.rect(surf, (*led_blue, 140), (0, 0, w, h), 1, border_radius=2)
         # Corner LED dots
@@ -2246,11 +2786,26 @@ class HeroPortraitRenderer:
         crown_hi = (255, 245, 160)
         eye_color = (220, 190, 40)
         eye_hi = (255, 240, 120)
-        # Warm golden background with layered glow
+        # Warm golden background with rich layered radial glow
         pygame.draw.rect(surf, (45, 30, 12, 100), (0, 0, w, h))
-        # Inner warm radial glow
-        self._soft_glow(surf, cx, int(h * 0.40), max(8, int(w * 0.50)), (200, 150, 40), 12)
-        self._soft_glow(surf, cx, int(h * 0.40), max(6, int(w * 0.35)), (220, 170, 50), 10)
+        # Rich radial golden glow
+        self._radial_glow(surf, cx, int(h * 0.40), max(10, int(w * 0.55)), (200, 150, 40), 5, 15)
+        self._radial_glow(surf, cx, int(h * 0.40), max(7, int(w * 0.38)), (220, 170, 50), 4, 12)
+        self._radial_glow(surf, cx, int(h * 0.35), max(5, int(w * 0.25)), (240, 200, 80), 3, 8)
+        # Golden fire aura particles
+        for i in range(6):
+            fpx = cx + int(_sin(i * 1.2) * w * 0.32)
+            fpy = int(h * 0.08 + i * h * 0.12)
+            fpr = max(1, int(b * 0.03))
+            fc = (255, 200 - i * 10, 40 + i * 10, 30 + (i * 7) % 20)
+            pygame.draw.circle(surf, fc, (fpx, fpy), fpr)
+        # Cloud / nimbus hints at edges
+        for ci in range(3):
+            clx = int(w * (0.05 + ci * 0.35))
+            cly = int(h * 0.85 + (ci % 2) * h * 0.05)
+            clr = max(3, int(b * 0.08))
+            pygame.draw.circle(surf, (255, 250, 240, 15), (clx, cly), clr)
+            pygame.draw.circle(surf, (255, 250, 240, 10), (clx + clr, cly - 1), max(2, int(clr * 0.7)))
         # Fur mass (top and sides of head) - multi-layer with depth
         fur_rect = pygame.Rect(cx - int(w * 0.46), int(h * 0.05), int(w * 0.92), int(h * 0.65))
         pygame.draw.ellipse(surf, fur_dk, fur_rect.inflate(2, 2))
@@ -2267,6 +2822,13 @@ class HeroPortraitRenderer:
             pygame.draw.ellipse(surf, fur_lt, (tx - tw // 2, ty, tw, th))
             # Inner bright tip
             pygame.draw.ellipse(surf, (*fur_hi, 50), (tx - tw // 3, ty + 1, int(tw * 0.6), int(th * 0.5)))
+            # Individual hair strand lines
+            for hi2 in range(3):
+                hx1 = tx - tw // 3 + hi2 * max(1, tw // 4)
+                hy1 = ty + int(th * 0.2)
+                hx2 = hx1 + max(1, int(w * 0.005))
+                hy2 = ty + int(th * 0.7)
+                pygame.draw.line(surf, (*fur_dk, 20), (hx1, hy1), (hx2, hy2), 1)
         # Fur dark shading at sides - deeper
         for s in [-1, 1]:
             pygame.draw.ellipse(surf, fur_dk, (cx + s * int(w * 0.30) - int(w * 0.09), int(h * 0.12),
@@ -2288,13 +2850,28 @@ class HeroPortraitRenderer:
             pygame.draw.circle(surf, skin, (ear_x, ear_y), inner_r)
             # Inner ear shadow (deeper pink)
             pygame.draw.circle(surf, (215, 170, 135), (ear_x + s, ear_y + 1), max(1, int(inner_r * 0.6)))
+            # Inner ear deep shadow (ear canal hint)
+            pygame.draw.circle(surf, (190, 145, 110), (ear_x + s, ear_y + 2), max(1, int(inner_r * 0.35)))
             # Inner ear highlight
             pygame.draw.circle(surf, (*skin_hi, 50), (ear_x - s, ear_y - 1), max(1, int(inner_r * 0.35)))
+            # Ear rim light
+            pygame.draw.arc(surf, (*fur_lt, 30),
+                            (ear_x - ear_r, ear_y - ear_r, ear_r * 2, ear_r * 2),
+                            0.5 if s == 1 else 2.5, 2.5 if s == 1 else 4.5, 1)
         # Monkey face - using _face_base for multi-layer shading
         face_w = int(w * 0.48)
         face_h = int(h * 0.55)
         face_top = int(h * 0.28)
         self._face_base(surf, cx, face_top, face_w, face_h, skin, skin_sh, skin_hi)
+        self._face_detail(surf, cx, face_top, face_w, face_h, skin_sh, skin_hi)
+        # Fur texture lines on cheeks (fine whisker-like marks)
+        for s in [-1, 1]:
+            for fi in range(3):
+                fx1 = cx + s * int(face_w * (0.22 + fi * 0.06))
+                fy1 = face_top + int(face_h * 0.45)
+                fx2 = fx1 + s * max(1, int(w * 0.02))
+                fy2 = fy1 + max(1, int(h * 0.03))
+                pygame.draw.line(surf, (*fur_dk, 25), (fx1, fy1), (fx2, fy2), 1)
         # Extra cheek warmth (reddish blush)
         for s in [-1, 1]:
             pygame.draw.ellipse(surf, (230, 160, 130, 25),
@@ -2318,20 +2895,29 @@ class HeroPortraitRenderer:
                          (band_rect.x + int(band_w * 0.60), band_y + 1), 1)
         # Crown outline
         pygame.draw.rect(surf, crown_dk, band_rect, 1, border_radius=2)
-        # Crown center gem - ruby with highlight layers
-        gem_r = max(2, int(b * 0.10))
+        # Crown center gem - ruby with highlight layers and glow
+        gem_r = max(2, int(b * 0.11))
         gem_x = cx
         gem_y = band_y + band_h // 2
-        pygame.draw.circle(surf, (160, 30, 30), (gem_x, gem_y), gem_r + 1)
+        self._radial_glow(surf, gem_x, gem_y, max(3, gem_r * 2), (220, 50, 50), 3, 15)
+        pygame.draw.circle(surf, (150, 25, 25), (gem_x, gem_y), gem_r + 1)
         pygame.draw.circle(surf, (200, 50, 50), (gem_x, gem_y), gem_r)
-        pygame.draw.circle(surf, (230, 90, 90), (gem_x - 1, gem_y - 1), max(1, gem_r // 2))
-        pygame.draw.circle(surf, (255, 150, 150), (gem_x - 1, gem_y - 1), max(1, gem_r // 3))
-        # Side gems on crown
+        # Gem facet lines
+        pygame.draw.line(surf, (220, 80, 80, 50), (gem_x - gem_r // 2, gem_y - gem_r // 2),
+                         (gem_x + gem_r // 2, gem_y + gem_r // 2), 1)
+        pygame.draw.circle(surf, (235, 100, 100), (gem_x - 1, gem_y - 1), max(1, gem_r // 2))
+        pygame.draw.circle(surf, (255, 160, 160), (gem_x - 1, gem_y - 1), max(1, gem_r // 3))
+        # Crown engravings (tiny marks between gems)
+        for ei in range(3):
+            ex2 = cx - int(band_w * 0.35) + int(ei * band_w * 0.35)
+            pygame.draw.line(surf, (*crown_dk, 35), (ex2, gem_y - 1), (ex2 + max(1, int(w * 0.02)), gem_y - 1), 1)
+        # Side gems on crown (more ornate)
         for i, dx_frac in enumerate([-0.30, -0.15, 0.15, 0.30]):
             gx = cx + int(dx_frac * band_w)
-            sr = max(1, int(b * 0.04))
-            pygame.draw.circle(surf, crown_lt, (gx, gem_y), sr + 1)
-            pygame.draw.circle(surf, crown_hi, (gx, gem_y), sr)
+            sr = max(1, int(b * 0.045))
+            pygame.draw.circle(surf, self._darken(crown_lt, 15), (gx, gem_y), sr + 1)
+            pygame.draw.circle(surf, crown_lt, (gx, gem_y), sr)
+            pygame.draw.circle(surf, crown_hi, (gx - 1, gem_y - 1), max(1, sr // 2))
         # Fiery golden eyes using _hq_eye
         eye_y = int(h * 0.42)
         eye_sp = int(w * 0.10)
@@ -2354,50 +2940,78 @@ class HeroPortraitRenderer:
                             0.3, 2.8, max(2, int(b * 0.08)))
             pygame.draw.arc(surf, self._mix(fur_dk, fur, 0.5), (bx - bw, by - bh - 1, bw * 2, bh * 2),
                             0.5, 2.6, max(1, int(b * 0.05)))
-        # Flat monkey nose - enhanced with bridge and nostrils
+        # Monkey nose - use nose_detail base then override with flat monkey shape
         nose_y = int(h * 0.53)
         nose_w = max(4, int(w * 0.07))
         nose_h = max(3, int(h * 0.05))
-        # Nose bridge line
-        pygame.draw.line(surf, skin_sh, (cx, eye_y + int(h * 0.04)), (cx, nose_y), 1)
-        # Nose body
-        pygame.draw.ellipse(surf, skin_sh, (cx - nose_w, nose_y, nose_w * 2, nose_h * 2))
+        # Bridge detail from nose_detail
+        self._nose_detail(surf, cx, nose_y, b, skin, skin_sh, skin_hi, w, h)
+        # Override with flat monkey nose shape on top
+        pygame.draw.ellipse(surf, skin_sh, (cx - nose_w, nose_y - 1, nose_w * 2, nose_h * 2 + 1))
         pygame.draw.ellipse(surf, skin, (cx - nose_w + 1, nose_y, nose_w * 2 - 2, int(nose_h * 1.5)))
-        # Nostrils with depth
+        # Wide flat nostrils (monkey-specific)
         for s in [-1, 1]:
-            nx = cx + s * max(2, nose_w // 2)
+            nx = cx + s * max(2, int(nose_w * 0.6))
             ny = nose_y + nose_h
-            pygame.draw.circle(surf, (160, 120, 90), (nx, ny), max(1, int(b * 0.05)))
-            pygame.draw.circle(surf, (140, 100, 70), (nx + s, ny), max(1, int(b * 0.03)))
+            pygame.draw.circle(surf, (150, 110, 80), (nx, ny), max(1, int(b * 0.055)))
+            pygame.draw.circle(surf, (130, 90, 60), (nx + s, ny), max(1, int(b * 0.03)))
+            # Nostril inner shadow
+            pygame.draw.circle(surf, (110, 75, 50), (nx + s, ny + 1), max(1, int(b * 0.02)))
         # Nose highlight
-        pygame.draw.ellipse(surf, (*skin_hi, 40), (cx - int(nose_w * 0.4), nose_y + 1,
+        pygame.draw.ellipse(surf, (*skin_hi, 45), (cx - int(nose_w * 0.4), nose_y + 1,
                                                     int(nose_w * 0.8), int(nose_h * 0.8)))
-        # Mischievous wide grin - enhanced with teeth detail
+        # Mischievous wide grin - lips base then teeth/fangs
         mouth_y = int(h * 0.65)
         mouth_w = int(w * 0.15)
-        # Mouth outline (darker)
+        lip_color = (170, 120, 80)
+        lip_hi2 = (210, 170, 130)
+        self._lips(surf, cx, mouth_y, b, lip_color, lip_hi2, w_frac=0.15)
+        # Wider grin arc on top
         pygame.draw.arc(surf, (140, 90, 60), (cx - mouth_w - 1, mouth_y - int(h * 0.02) - 1,
                         mouth_w * 2 + 2, int(h * 0.09)),
                         3.3, 6.1, max(2, int(b * 0.08)))
-        pygame.draw.arc(surf, (170, 120, 80), (cx - mouth_w, mouth_y - int(h * 0.02), mouth_w * 2, int(h * 0.08)),
-                        3.3, 6.1, max(1, int(b * 0.07)))
+        # Mischievous expression lines (raised corners)
+        for s in [-1, 1]:
+            pygame.draw.line(surf, (*skin_sh, 40),
+                             (cx + s * int(mouth_w * 0.9), mouth_y - 1),
+                             (cx + s * int(mouth_w * 1.1), mouth_y - int(h * 0.02)), 1)
         # Teeth showing in grin - individual teeth
         teeth_y = mouth_y + int(h * 0.01)
         teeth_w = int(mouth_w * 0.9)
         teeth_h = max(2, int(h * 0.025))
         pygame.draw.rect(surf, (250, 245, 235), (cx - teeth_w // 2, teeth_y, teeth_w, teeth_h))
-        # Tooth dividers
-        num_teeth = 4
+        # Tooth dividers (more teeth)
+        num_teeth = 5
         for i in range(1, num_teeth):
             tx = cx - teeth_w // 2 + int(i * teeth_w / num_teeth)
             pygame.draw.line(surf, (220, 210, 200), (tx, teeth_y), (tx, teeth_y + teeth_h), 1)
         # Teeth highlight
         pygame.draw.rect(surf, (255, 252, 248, 40), (cx - teeth_w // 2, teeth_y, teeth_w, max(1, teeth_h // 2)))
-        # Canine fangs at edges
+        # Prominent canine fangs at edges
         for s in [-1, 1]:
             fx = cx + s * (teeth_w // 2 + 1)
+            fang_h = teeth_h + max(2, int(h * 0.015))
             pygame.draw.polygon(surf, (248, 243, 230),
-                                [(fx, teeth_y), (fx + s * max(1, int(w * 0.01)), teeth_y + teeth_h + 1), (fx, teeth_y + teeth_h)])
+                                [(fx - max(1, int(w * 0.005)), teeth_y),
+                                 (fx + s * max(1, int(w * 0.01)), teeth_y + fang_h),
+                                 (fx + max(1, int(w * 0.005)), teeth_y)])
+            pygame.draw.polygon(surf, (235, 228, 215),
+                                [(fx - max(1, int(w * 0.005)), teeth_y),
+                                 (fx + s * max(1, int(w * 0.01)), teeth_y + fang_h),
+                                 (fx + max(1, int(w * 0.005)), teeth_y)], 1)
+        # Mischievous raised eyebrow marks
+        for s in [-1, 1]:
+            rbx = cx + s * eye_sp
+            rby = eye_y - max(5, int(h * 0.10))
+            pygame.draw.line(surf, (*fur_dk, 30),
+                             (rbx - s * max(1, int(w * 0.01)), rby),
+                             (rbx + s * max(1, int(w * 0.03)), rby - max(1, int(h * 0.01))), 1)
+        # Ruyi Jingu Bang (staff) silhouette hint at edge
+        staff_x = int(w * 0.88)
+        pygame.draw.line(surf, (*crown_dk, 30), (staff_x, int(h * 0.10)), (staff_x, int(h * 0.85)), max(1, int(b * 0.04)))
+        pygame.draw.line(surf, (*crown_lt, 20), (staff_x - 1, int(h * 0.10)), (staff_x - 1, int(h * 0.85)), 1)
+        # Staff tip ornament
+        pygame.draw.circle(surf, (*crown, 35), (staff_x, int(h * 0.08)), max(1, int(b * 0.04)))
         # Chin tuft of fur - multi-layer
         pygame.draw.ellipse(surf, fur_dk, (cx - int(w * 0.07), int(h * 0.77), int(w * 0.14), int(h * 0.14)))
         pygame.draw.ellipse(surf, fur_lt, (cx - int(w * 0.06), int(h * 0.78), int(w * 0.12), int(h * 0.12)))
