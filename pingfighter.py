@@ -50863,10 +50863,24 @@ def go_to_next_round():
     fire_zones.clear()  # 모든 화염 지대 제거
     molotovs.clear()    # 날아가는 화염병도 제거
 
-    # ⚡ 번개의 분노 스턴 타이머 초기화 (라운드 전환 시)
+    # ⚡ 신의심판 강제 초기화 (라운드 전환 시 진행 중인 이벤트 즉시 종료)
+    if current_stage == 30 and animated_bg_stage30 is not None:
+        if animated_bg_stage30.is_judgment_active():
+            print(f"[신의심판] 라운드 전환으로 강제 초기화 (페이즈: {animated_bg_stage30.get_judgment_phase_name()})")
+            animated_bg_stage30.reset_judgment()
+            # 지진 사운드 정지
+            if _judgment_quake_sound_playing:
+                try:
+                    SOUND_QUAKE.stop()
+                except Exception:
+                    pass
+    _judgment_quake_sound_playing = False
+    _judgment_ball_speed_backup = None
+    _judgment_prev_earthquake_active = False
+    _judgment_prev_phase = 0
+    _judgment_lightning_stun_applied = False
     _judgment_lightning_stun_top_timer = 0.0
     _judgment_lightning_stun_bottom_timer = 0.0
-    _judgment_lightning_stun_applied = False
     _judgment_lightning_stun_type = False
 
     # 🎭 투기장 영웅 스킬 초기화 (라운드 전환 시 활성 스킬 강제 종료)
@@ -116994,10 +117008,24 @@ def reset_round(is_stage_start=False):
     fire_zones.clear()  # 모든 화염 지대 제거
     molotovs.clear()    # 날아가는 화염병도 제거
 
-    # ⚡ 번개의 분노 스턴 타이머 초기화 (라운드 전환 시)
+    # ⚡ 신의심판 강제 초기화 (라운드 전환 시 진행 중인 이벤트 즉시 종료)
+    if current_stage == 30 and animated_bg_stage30 is not None:
+        if animated_bg_stage30.is_judgment_active():
+            print(f"[신의심판] 라운드 전환으로 강제 초기화 (페이즈: {animated_bg_stage30.get_judgment_phase_name()})")
+            animated_bg_stage30.reset_judgment()
+            # 지진 사운드 정지
+            if _judgment_quake_sound_playing:
+                try:
+                    SOUND_QUAKE.stop()
+                except Exception:
+                    pass
+    _judgment_quake_sound_playing = False
+    _judgment_ball_speed_backup = None
+    _judgment_prev_earthquake_active = False
+    _judgment_prev_phase = 0
+    _judgment_lightning_stun_applied = False
     _judgment_lightning_stun_top_timer = 0.0
     _judgment_lightning_stun_bottom_timer = 0.0
-    _judgment_lightning_stun_applied = False
     _judgment_lightning_stun_type = False
 
     # 🎭 투기장 영웅 스킬 초기화 (라운드 전환 시 활성 스킬 강제 종료)

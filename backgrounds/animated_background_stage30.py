@@ -1405,6 +1405,43 @@ class AnimatedBackgroundStage30:
         """신의심판 이벤트 진행 중 여부"""
         return self.judgment_phase != self.JUDGMENT_IDLE
 
+    def reset_judgment(self):
+        """신의심판 이벤트 강제 초기화 (라운드 전환 시 호출)"""
+        self.judgment_phase = self.JUDGMENT_IDLE
+        self.judgment_timer = 0.0
+        self.judgment_scale = 1.0
+        self.judgment_left_arm_progress = 0.0
+        self.judgment_right_arm_progress = 0.0
+        self.judgment_slam_progress = 0.0
+        self.judgment_feet_swing = 0.0
+        self.judgment_shake_intensity = 0.0
+        self.judgment_flash_alpha = 0
+        self.judgment_rise_offset = 0.0
+        self.judgment_hole_fade_scale = 0.0
+        self.judgment_bolt_intensity = 0.0
+        self.judgment_quake_sound_playing = False
+        # 파티클 정리
+        self.judgment_merge_particles.clear()
+        self.judgment_slam_debris.clear()
+        self.judgment_dust_rain.clear()
+        self.judgment_rise_debris.clear()
+        self.judgment_hole_crumble.clear()
+        self.judgment_bolt_sparks.clear()
+        self.judgment_bolt_proj_trail.clear()
+        self.judgment_explosion_sparks.clear()
+        # 번개 상태 초기화
+        self.judgment_variant = 'earthquake'
+        self.judgment_bolt_hidden = False
+        self.judgment_bolt_thrown = False
+        self.judgment_lightning_stun_top = False
+        self.judgment_lightning_stun_bottom = False
+        self.judgment_lightning_stun_timer = 0.0
+        self.judgment_lightning_active = False
+        self.judgment_bolt_throw_started = False
+        self.judgment_bolt_explosion_started = False
+        # 쿨타임 리셋 (다음 라운드에서 새로 카운트)
+        self.judgment_cooldown = random.uniform(50.0, 100.0)
+
     def is_judgment_slam_impact(self):
         """슬램이 바닥에 충돌하는 순간인지 (사운드 타이밍용)"""
         return (self.judgment_phase == self.JUDGMENT_SLAM and
