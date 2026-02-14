@@ -7595,24 +7595,40 @@ def _draw_pillar_ui(screen, renderer):
             traceback.print_exc()
             globals()['_pillar_active_item_slot_rects'] = []
     else:
-        # 투기장 모드: 하단 영웅 스킬 아이콘 표시
+        # 투기장 모드: 통합 쿨타임 큐 UI (영웅 + 호위무사)
         _arena_skill_slot_data = []
+        _drew_queue_ui = False
         try:
-            _bottom_hero = arena_bottom_hero
-            _skill_mgr = arena_skill_manager
-            if _bottom_hero and _skill_mgr:
-                _hero_id = _bottom_hero.get('id')
-                _hero_color = _bottom_hero.get('color', (200, 200, 200))
-                _hero_skills = _skill_mgr.active_skills.get(_hero_id, [])
-                if _hero_skills:
-                    _arena_skill_slot_data = renderer.draw_arena_skill_slots(
-                        screen,
-                        skills=_hero_skills,
-                        hero_color=_hero_color,
-                        icon_size=(42, 42)
-                    )
-        except Exception as e:
+            from downtown.colosseum_arena import ColosseumsArena as _CArena
+            _arena_inst = getattr(_CArena, '_active_instance', None)
+            if _arena_inst and getattr(_arena_inst, '_use_queue_ui', False):
+                _arena_inst.draw_cooldown_queue(
+                    surface=screen,
+                    skill_mgr=arena_skill_manager,
+                    guard_sys=arena_guard_system,
+                )
+                _drew_queue_ui = True
+        except Exception:
             pass
+
+        # 큐 UI가 비활성이면 기존 스킬 슬롯 표시
+        if not _drew_queue_ui:
+            try:
+                _bottom_hero = arena_bottom_hero
+                _skill_mgr = arena_skill_manager
+                if _bottom_hero and _skill_mgr:
+                    _hero_id = _bottom_hero.get('id')
+                    _hero_color = _bottom_hero.get('color', (200, 200, 200))
+                    _hero_skills = _skill_mgr.active_skills.get(_hero_id, [])
+                    if _hero_skills:
+                        _arena_skill_slot_data = renderer.draw_arena_skill_slots(
+                            screen,
+                            skills=_hero_skills,
+                            hero_color=_hero_color,
+                            icon_size=(42, 42)
+                        )
+            except Exception:
+                pass
         globals()['_arena_skill_slot_data'] = _arena_skill_slot_data
         globals()['_pillar_active_item_slot_rects'] = []
 
@@ -50978,7 +50994,7 @@ def go_to_next_round():
     global _judgment_prev_phase, _judgment_lightning_stun_applied
     global _judgment_lightning_stun_top_timer, _judgment_lightning_stun_bottom_timer, _judgment_lightning_stun_type
     global _judgment_wind_stun_applied, _judgment_wind_stun_top_timer, _judgment_wind_stun_bottom_timer
-    global _judgment_wind_curve_effects
+    global _judgment_wind_curve_effects, _judgment_wind_ball_immunity
     if current_stage == 30 and animated_bg_stage30 is not None:
         if animated_bg_stage30.is_judgment_active():
             print(f"[신의심판] 라운드 전환으로 강제 초기화 (페이즈: {animated_bg_stage30.get_judgment_phase_name()})")
@@ -51001,6 +51017,7 @@ def go_to_next_round():
     _judgment_wind_stun_top_timer = 0.0
     _judgment_wind_stun_bottom_timer = 0.0
     _judgment_wind_curve_effects = []
+    _judgment_wind_ball_immunity = 0.0
 
     # 🎭 투기장 영웅 스킬 초기화 (라운드 전환 시 활성 스킬 강제 종료)
     if arena_mode_enabled and arena_skill_manager:
@@ -54912,6 +54929,7 @@ _judgment_wind_stun_applied = False   # 바람 스턴이 이미 적용되었는�
 _judgment_wind_stun_top_timer = 0.0    # 상단 바람 스턴 타이머
 _judgment_wind_stun_bottom_timer = 0.0 # 하단 바람 스턴 타이머
 _judgment_wind_curve_effects = []      # 모래 소용돌이 포획 후 커브 효과 리스트
+_judgment_wind_ball_immunity = 0.0     # 포획 후 재포획 면역 타이머 (초)
 
 def handle_gods_judgment():
     """투기장 신의심판 이벤트 처리 - 공 랜덤 이동 + 영웅 속도 감소 + 번개/바람 스턴"""
@@ -54920,7 +54938,7 @@ def handle_gods_judgment():
     global _judgment_lightning_stun_applied, _judgment_lightning_stun_top_timer
     global _judgment_lightning_stun_bottom_timer, _judgment_lightning_stun_type
     global _judgment_wind_stun_applied, _judgment_wind_stun_top_timer, _judgment_wind_stun_bottom_timer
-    global _judgment_wind_curve_effects
+    global _judgment_wind_curve_effects, _judgment_wind_ball_immunity
 
     if current_stage != 30 or animated_bg_stage30 is None:
         return
@@ -55054,94 +55072,64 @@ def handle_gods_judgment():
             bg.judgment_sandstorm_hit_bottom = False
             print(f"[신의심판] 바람의 분노 - 하단 영웅 모래바람 스턴!")
 
-        # ── 모래 소용돌이: 가장 가까운 1개만 공 끌어당김/포획/커브 발사 ──
+        # ── 모래 소용돌이: 접촉 시 즉시 포획 → 고속 커브 발사 → 면역 ──
+        # (지속 끌어당김 없음! 공이 소용돌이에 닿으면 즉시 포획 후 발사)
         if bg.judgment_phase == 11:  # SANDSTORM phase
             dt = (1.0 / 60.0) * arena_speed_multiplier
-            PULL_RADIUS = 200
-            CAPTURE_RADIUS = 36
-            LAUNCH_SPEED_MULT = 1.43
-            LAUNCH_SPEED_MIN = 8
-            LAUNCH_SPEED_MAX = 18
-            CURVE_DURATION = 2.5
-            CURVE_ROTATION_SPEED = 3.0
+            CAPTURE_RADIUS = 55      # 접촉 포획 범위 (소용돌이 size와 비슷)
+            LAUNCH_SPEED = 14        # 발사 속도 (고정, 시원한 속도감)
+            CURVE_DURATION = 2.0     # 커브 지속시간
+            CURVE_ROTATION_SPEED = 2.5  # 커브 회전 속도 (rad/s)
+            IMMUNITY_DURATION = 1.5  # 포획 후 면역 시간 (초)
+
+            # 면역 타이머 감소
+            if _judgment_wind_ball_immunity > 0:
+                _judgment_wind_ball_immunity -= dt
 
             wind_info = bg.get_wind_sandstorm_info()
-            if wind_info['active'] and wind_info['storms']:
-                # ── 가장 가까운 소용돌이 1개만 선택 (4개 동시 상쇄 방지) ──
+            if wind_info['active'] and wind_info['storms'] and _judgment_wind_ball_immunity <= 0:
+                # 가장 가까운 포획 가능한 소용돌이 찾기
                 closest = None
                 closest_dist = float('inf')
                 for storm in wind_info['storms']:
+                    if storm['has_captured'] or storm['fading'] or storm['capture_cooldown'] > 0:
+                        continue
                     d = math.hypot(storm['x'] - BALL.centerx, storm['y'] - BALL.centery)
-                    if d < closest_dist:
+                    scaled_capture = CAPTURE_RADIUS * storm['growth_scale']
+                    if d < scaled_capture and d < closest_dist:
                         closest_dist = d
                         closest = storm
 
                 if closest is not None:
                     storm = closest
-                    can_capture = (not storm['has_captured'] and
-                                   not storm['fading'] and
-                                   storm['capture_cooldown'] <= 0)
-                    growth = storm['growth_scale']
-                    scaled_pull = PULL_RADIUS * growth
-                    scaled_capture = CAPTURE_RADIUS * growth
+                    bg.set_sandstorm_captured(storm['idx'], capture_cooldown=2.0)
 
-                    dx = storm['x'] - BALL.centerx
-                    dy = storm['y'] - BALL.centery
-                    dist = closest_dist
+                    # 발사 방향: 소용돌이 이동 방향 기반 + 랜덤 편차
+                    move_angle = math.atan2(storm['base_vy'], storm['base_vx'])
+                    launch_angle = move_angle + random.uniform(-0.5, 0.5)
+                    launch_vx = math.cos(launch_angle) * LAUNCH_SPEED
+                    launch_vy = math.sin(launch_angle) * LAUNCH_SPEED
 
-                    if dist < scaled_pull and dist > 1:
-                        nx = dx / dist
-                        ny = dy / dist
+                    # 공을 소용돌이 중심으로 텔레포트 → 고속 발사
+                    BALL.centerx = int(storm['x'])
+                    BALL.centery = int(storm['y'])
+                    ball_vel[0] = launch_vx
+                    ball_vel[1] = launch_vy
 
-                        # ── 끌어당김 (구심력) ──
-                        pull_factor = (1 - dist / scaled_pull) ** 0.8
-                        pull_strength = pull_factor * 700 * dt
-                        ball_vel[0] += nx * pull_strength
-                        ball_vel[1] += ny * pull_strength
+                    # 커브 효과 (발사 후 공 궤적 회전)
+                    curve_dir = 1 if (storm['base_vx'] + storm['drift_vx']) >= 0 else -1
+                    _judgment_wind_curve_effects.append({
+                        'timer': CURVE_DURATION,
+                        'curve_dir': curve_dir,
+                        'max_timer': CURVE_DURATION,
+                        'rotation_speed': CURVE_ROTATION_SPEED,
+                    })
 
-                        # ── 접선 방향 힘 (궤도 회전, U턴 효과) ──
-                        cross = ball_vel[0] * ny - ball_vel[1] * nx
-                        spin_dir = 1 if cross >= 0 else -1
-                        tx = -ny * spin_dir
-                        ty = nx * spin_dir
-                        tangent_strength = pull_factor * 600 * dt
-                        ball_vel[0] += tx * tangent_strength
-                        ball_vel[1] += ty * tangent_strength
+                    # 면역 시작 (연속 포획 방지)
+                    _judgment_wind_ball_immunity = IMMUNITY_DURATION
 
-                        # ── 포획 → 커브 발사 ──
-                        if dist < scaled_capture and can_capture:
-                            bg.set_sandstorm_captured(storm['idx'], capture_cooldown=2.0)
-
-                            cur_speed = math.hypot(ball_vel[0], ball_vel[1])
-                            launch_speed = max(LAUNCH_SPEED_MIN,
-                                               min(LAUNCH_SPEED_MAX,
-                                                   cur_speed * LAUNCH_SPEED_MULT))
-
-                            # 발사: 소용돌이 진행 방향 기반 (±40도 랜덤)
-                            base_vy = storm['base_vy']
-                            if base_vy < 0:
-                                launch_angle = -math.pi / 2 + random.uniform(-0.4, 0.4)
-                            else:
-                                launch_angle = math.pi / 2 + random.uniform(-0.4, 0.4)
-
-                            launch_vx = math.cos(launch_angle) * launch_speed
-                            launch_vy = math.sin(launch_angle) * launch_speed
-
-                            BALL.centerx = int(storm['x'])
-                            BALL.centery = int(storm['y'])
-                            ball_vel[0] = launch_vx
-                            ball_vel[1] = launch_vy
-
-                            curve_dir = 1 if (storm['base_vx'] + storm['drift_vx']) >= 0 else -1
-                            _judgment_wind_curve_effects.append({
-                                'timer': CURVE_DURATION,
-                                'curve_dir': curve_dir,
-                                'max_timer': CURVE_DURATION,
-                                'rotation_speed': CURVE_ROTATION_SPEED,
-                            })
-
-                            bg.judgment_shake_intensity = 0.3
-                            print(f"[신의심판] 모래 소용돌이 공 포획! 커브 발사 (dir={curve_dir})")
+                    bg.judgment_shake_intensity = 0.3
+                    print(f"[신의심판] 모래 소용돌이 포획→발사! angle={math.degrees(launch_angle):.0f}°")
 
             # ── 커브 효과 적용 (포획 후 공 속도 벡터 회전) ──
             if _judgment_wind_curve_effects:
@@ -55162,6 +55150,7 @@ def handle_gods_judgment():
         if not bg.is_judgment_active():
             _judgment_wind_stun_applied = False
             _judgment_wind_curve_effects = []
+            _judgment_wind_ball_immunity = 0.0
 
 
 def draw_shaking_screen():
@@ -117489,7 +117478,7 @@ def reset_round(is_stage_start=False):
     global _judgment_prev_phase, _judgment_lightning_stun_applied
     global _judgment_lightning_stun_top_timer, _judgment_lightning_stun_bottom_timer, _judgment_lightning_stun_type
     global _judgment_wind_stun_applied, _judgment_wind_stun_top_timer, _judgment_wind_stun_bottom_timer
-    global _judgment_wind_curve_effects
+    global _judgment_wind_curve_effects, _judgment_wind_ball_immunity
     if current_stage == 30 and animated_bg_stage30 is not None:
         if animated_bg_stage30.is_judgment_active():
             print(f"[신의심판] 라운드 전환으로 강제 초기화 (페이즈: {animated_bg_stage30.get_judgment_phase_name()})")
@@ -117512,6 +117501,7 @@ def reset_round(is_stage_start=False):
     _judgment_wind_stun_top_timer = 0.0
     _judgment_wind_stun_bottom_timer = 0.0
     _judgment_wind_curve_effects = []
+    _judgment_wind_ball_immunity = 0.0
 
     # 🎭 투기장 영웅 스킬 초기화 (라운드 전환 시 활성 스킬 강제 종료)
     if arena_mode_enabled and arena_skill_manager:
