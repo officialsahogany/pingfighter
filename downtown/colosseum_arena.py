@@ -4327,6 +4327,12 @@ class GuardWarriorSystem:
         sound = ColosseumsArena._skill_sound_cache.get(sound_key)
         if sound:
             sound.play()
+            # pingfighter의 패들 사운드 중복 방지 플래그 설정
+            try:
+                import pingfighter as _pf
+                _pf._arena_skill_sound_this_frame = True
+            except Exception:
+                pass
 
     def _apply_status_effects(self, result, target_paddle):
         """스킬 결과에서 상태 효과를 game_state에 적용"""
