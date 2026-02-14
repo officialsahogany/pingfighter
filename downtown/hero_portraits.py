@@ -1919,6 +1919,10 @@ class HeroPortraitRenderer:
                             (cx - int(crown_w * 0.3), crown_y + 2, int(crown_w * 0.6), crown_h2 // 3))
         # Crown outline
         pygame.draw.rect(surf, bone_dk, crown_rect, 1, border_radius=2)
+        # Crown segment lines
+        for i in range(6):
+            seg_x = crown_rect.left + int((i + 0.5) * crown_w / 6)
+            pygame.draw.line(surf, (*bone_dk, 30), (seg_x, crown_y + 2), (seg_x, crown_y + crown_h2 - 2), 1)
         # Crown spikes with detail
         for i in range(5):
             sx = crown_rect.left + int((i + 0.5) * crown_w / 5)
@@ -1930,11 +1934,38 @@ class HeroPortraitRenderer:
             pygame.draw.polygon(surf, bone_dk, spike_pts, 1)
             # Center line on spike
             pygame.draw.line(surf, bone_lt, (sx, crown_y - spike_h), (sx, crown_y), 1)
+            # Jewel facet on center spike
+            if i == 2:
+                jy = crown_y - int(spike_h * 0.5)
+                jr = max(1, int(b * 0.05))
+                pygame.draw.circle(surf, (80, 220, 100, 60), (sx, jy), jr + 1)
+                pygame.draw.circle(surf, eye_color, (sx, jy), jr)
+                pygame.draw.circle(surf, (150, 255, 170), (sx, jy - 1), max(1, jr // 2))
+        # Ethereal flame wisps around crown
+        for i in range(5):
+            fx = crown_rect.left + int((i + 0.5) * crown_w / 5)
+            fy = crown_y - int(h * 0.02)
+            for t in range(3):
+                fy2 = fy - int(h * 0.02 * (t + 1))
+                fwave = int(_sin(t * 2.5 + i * 1.3) * w * 0.01)
+                pygame.draw.line(surf, (*eye_glow, max(5, 15 - t * 4)), (fx + fwave, fy2),
+                                 (fx + fwave, fy2 - int(h * 0.02)), 1)
+        # Bone/skull motifs on crown sides
+        for s in [-1, 1]:
+            sx = cx + s * int(crown_w * 0.35)
+            sy = crown_y + crown_h2 // 2
+            mr = max(1, int(b * 0.06))
+            pygame.draw.circle(surf, bone_dk, (sx, sy), mr)
+            pygame.draw.circle(surf, bone, (sx, sy), mr - 1)
+            pygame.draw.circle(surf, bone_dk, (sx - max(1, mr // 3), sy - max(1, mr // 4)), max(1, mr // 4))
+            pygame.draw.circle(surf, bone_dk, (sx + max(1, mr // 3), sy - max(1, mr // 4)), max(1, mr // 4))
         # Crown skull emblem - detailed
         emb_y = crown_y + crown_h2 // 2
         emb_r = max(2, int(b * 0.13))
         pygame.draw.circle(surf, bone_dk, (cx, emb_y), emb_r)
         pygame.draw.circle(surf, bone, (cx, emb_y), emb_r - 1)
+        # Inner glow on emblem
+        pygame.draw.circle(surf, (*eye_glow, 15), (cx, emb_y), emb_r + 2)
         # Tiny eye sockets on emblem
         for s in [-1, 1]:
             pygame.draw.circle(surf, bone_dk, (cx + s * max(1, emb_r // 3), emb_y - max(1, emb_r // 4)),
@@ -1957,26 +1988,37 @@ class HeroPortraitRenderer:
             by = eye_y - max(3, int(h * 0.07))
             pygame.draw.line(surf, skin_sh, (bx - s * int(w * 0.02), by + 1),
                              (bx + s * int(w * 0.06), by - 2), 1)
-        # Pointed nose
+        # Detailed pointed nose
         nose_y = int(h * 0.55)
-        pygame.draw.line(surf, skin_sh, (cx, int(h * 0.46)), (cx - 1, nose_y), 1)
-        pygame.draw.line(surf, skin_sh, (cx, int(h * 0.46)), (cx + 1, nose_y), 1)
-        pygame.draw.circle(surf, (*skin_hi, 50), (cx, int(h * 0.50)), max(1, b // 10))
-        # Grim mouth - corners down
+        self._nose_detail(surf, cx, nose_y, b, skin, skin_sh, skin_hi, w, h)
+        # Grim mouth with detailed lips - corners down
         mouth_y = int(h * 0.66)
-        pygame.draw.line(surf, (130, 100, 120), (cx - int(w * 0.07), mouth_y),
-                         (cx + int(w * 0.07), mouth_y), 1)
+        self._lips(surf, cx, mouth_y, b, lip_color, lip_hi, w_frac=0.10)
+        # Downturned mouth corners (grim expression)
         for s in [-1, 1]:
-            pygame.draw.line(surf, (130, 100, 120), (cx + s * int(w * 0.07), mouth_y),
-                             (cx + s * int(w * 0.08), mouth_y + 2), 1)
-        # Lip shadow
-        pygame.draw.line(surf, (*skin_sh, 50), (cx - int(w * 0.05), mouth_y + 1),
-                         (cx + int(w * 0.05), mouth_y + 1), 1)
-        # Death aura particles
+            pygame.draw.line(surf, self._darken(lip_color, 30),
+                             (cx + s * int(w * 0.10), mouth_y),
+                             (cx + s * int(w * 0.12), mouth_y + 3), 1)
+            pygame.draw.line(surf, (*skin_sh[:3], 30),
+                             (cx + s * int(w * 0.11), mouth_y + 1),
+                             (cx + s * int(w * 0.12), mouth_y + 3), 1)
+        # Death aura particles - enhanced (more count, size variety)
+        for i in range(12):
+            ax = cx + int(_sin(i * 1.2 + 0.3) * w * 0.35)
+            ay = int(h * 0.15 + i * h * 0.06)
+            r = max(1, int(b * (0.04 + (i % 3) * 0.02)))
+            alpha = max(10, 30 - i * 2)
+            pygame.draw.circle(surf, (*dark_aura, alpha), (ax, ay), r)
+        # Extra small floating particles for depth
+        for i in range(8):
+            sx = cx + int(_cos(i * 2.1) * w * 0.42)
+            sy = int(h * 0.1 + i * h * 0.10)
+            pygame.draw.circle(surf, (*dark_aura, 12), (sx, sy), max(1, int(b * 0.025)))
+        # Necrotic energy motes near face edges
         for i in range(5):
-            ax = cx + int(_sin(i * 1.5) * w * 0.3)
-            ay = int(h * 0.2 + i * h * 0.12)
-            pygame.draw.circle(surf, (*dark_aura, 25), (ax, ay), max(1, int(b * 0.06)))
+            mx = cx + int(_sin(i * 3.0) * w * 0.28)
+            my = int(h * 0.35 + i * h * 0.08)
+            pygame.draw.circle(surf, (*eye_glow, 15), (mx, my), max(1, int(b * 0.03)))
         pygame.draw.rect(surf, (*eye_glow, 150), (0, 0, w, h), 1, border_radius=2)
 
     # ─── 11. JOKER (조커/광대) ───
