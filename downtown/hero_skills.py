@@ -11253,6 +11253,12 @@ class GatlingBurst(HeroSkill):
         game_state[f'{caster_prefix}_slow_amount'] = 1.0
         self._phase = 'idle'
         self._phase_timer = 0.0
+        # 모든 이펙트 즉시 제거 (잔류 방지)
+        self.bullets = []
+        self.hit_particles = []
+        self.muzzle_flashes = []
+        self.shell_casings = []
+        self.smoke_puffs = []
 
     def reset_for_new_round(self, game_state: dict):
         super().reset_for_new_round(game_state)
