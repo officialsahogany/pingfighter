@@ -14344,8 +14344,8 @@ class BananaSlice(HeroSkill):
 class WildRoar(HeroSkill):
     """야생의 포효 - 충격파를 펼쳐 공이 닿으면 속도 80% 증가 반사"""
 
-    SHOCKWAVE_RADIUS = 200      # 충격파 최대 반경 (px)
-    SHOCKWAVE_GROW_TIME = 0.25  # 충격파 확장 시간 (초)
+    SHOCKWAVE_RADIUS = 240      # 충격파 최대 반경 (px) (+20%)
+    SHOCKWAVE_GROW_TIME = 0.18  # 충격파 확장 시간 (초) (더 빠르게)
     BALL_SPEED_BOOST = 1.8      # 공 속도 배율 (80% 증가)
 
     def __init__(self):
@@ -14401,9 +14401,9 @@ class WildRoar(HeroSkill):
         if ball and not self.is_active and self.current_cooldown <= 0:
             ball_cy = ball.y + getattr(ball, 'height', 10) / 2
             if self.caster_is_top:
-                self._ball_in_range = (ball.vy < 0 and ball_cy < 320)
+                self._ball_in_range = (ball.vy < 0 and ball_cy < 380)
             else:
-                self._ball_in_range = (ball.vy > 0 and ball_cy > 430)
+                self._ball_in_range = (ball.vy > 0 and ball_cy > 370)
         else:
             self._ball_in_range = False
         super().update(dt, caster_paddle, target_paddle, ball, game_state)
