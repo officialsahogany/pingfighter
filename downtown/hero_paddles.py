@@ -8377,10 +8377,17 @@ class HeroPaddleRenderer:
             (ant_x + int(0.1 * b) - 3, ant_y - int(0.6 * b) - 3),
             special_flags=pygame.BLEND_ADD)
 
-        # === 주포 (개틀링 캐논) ===
+        # === 주포 (개틀링 캐논) - 발사 방향 전환 ===
+        # gun_dir: 상단 영웅(show_back)은 아래로(+1), 하단 영웅은 위로(-1)
+        gun_dir = 1 if show_back else -1
+
         cannon_mount_x = cx
-        cannon_mount_y = turret_rect.top - int(0.1 * b)
         mount_r = max(4, int(0.35 * b))
+        # 포 마운트 위치 (포탑의 발사 방향 가장자리)
+        if gun_dir < 0:
+            cannon_mount_y = turret_rect.top - int(0.1 * b)
+        else:
+            cannon_mount_y = turret_rect.bottom + int(0.1 * b)
 
         # 포 마운트
         pygame.draw.circle(screen, p["cannon_dark"],
@@ -8393,7 +8400,10 @@ class HeroPaddleRenderer:
         # 배럴 가드
         guard_w = int(0.6 * b)
         guard_h = int(0.7 * b)
-        guard_y = cannon_mount_y - guard_h - int(0.1 * b)
+        if gun_dir < 0:
+            guard_y = cannon_mount_y - guard_h - int(0.1 * b)
+        else:
+            guard_y = cannon_mount_y + int(0.1 * b)
         guard_rect = pygame.Rect(
             cannon_mount_x - guard_w // 2, guard_y,
             guard_w, guard_h)
@@ -8414,17 +8424,18 @@ class HeroPaddleRenderer:
                     (guard_rect.right - int(0.06 * b), slit_y),
                     max(1, int(0.03 * b)))
 
-        # 3연장 회전 배럴
+        # 3연장 회전 배럴 (발사 방향으로 연장)
         barrel_len = int(0.7 * b)
         barrel_spread = int(0.14 * b)
+        barrel_edge = guard_rect.top if gun_dir < 0 else guard_rect.bottom
         for i in range(3):
             angle = barrel_spin + i * math.pi * 2 / 3
             bx_off = int(_cos(angle) * barrel_spread)
             by_off = int(_sin(angle) * barrel_spread * 0.5)
             bx1 = cannon_mount_x + bx_off
-            by1 = guard_rect.top - int(0.05 * b) + by_off
+            by1 = barrel_edge + gun_dir * int(-0.05 * b) + by_off
             bx2 = cannon_mount_x + bx_off
-            by2 = guard_rect.top - barrel_len + by_off
+            by2 = barrel_edge + gun_dir * (-barrel_len) + by_off
             pygame.draw.line(screen, p["cannon_barrel"],
                 (bx1, by1), (bx2, by2),
                 max(2, int(0.1 * b)))
@@ -8440,14 +8451,14 @@ class HeroPaddleRenderer:
         pygame.draw.circle(led_surf_gun,
             (*p["led_red"], min(255, gun_led_a)), (4, 4), 3)
         screen.blit(led_surf_gun,
-            (cannon_mount_x - 4, cannon_mount_y - mount_r - 4),
+            (cannon_mount_x - 4, cannon_mount_y + gun_dir * mount_r - 4),
             special_flags=pygame.BLEND_ADD)
 
         # 🔫 발사 시 총구 화염
         if is_firing:
             flash_sz = int(0.5 * b + 0.2 * b * _sin(t * 30))
             flash_cx = cannon_mount_x
-            flash_cy = guard_rect.top - barrel_len - int(0.1 * b)
+            flash_cy = barrel_edge + gun_dir * (-barrel_len - int(0.1 * b))
             fl_surf = self._get_surface(flash_sz * 3, flash_sz * 3)
             fl_a = int(160 + 80 * _sin(t * 25))
             pygame.draw.circle(fl_surf, (255, 200, 50, min(255, fl_a)),
