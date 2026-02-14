@@ -3531,11 +3531,27 @@ class GuardWarriorSystem:
         if not guard:
             return
 
-        # 스킬 선택
+        # 스킬 선택 (커스텀 can_use 조건 확인 후 가능한 스킬 우선)
         skills = self.skill_instances.get(guard["id"], [])
         if not skills:
             return
-        skill = random.choice(skills)
+
+        # 가상 패들로 스킬 상태 갱신 → can_use 조건 확인
+        guard_paddle = self._make_guard_paddle(is_top)
+        target_paddle = bottom_paddle if is_top else top_paddle
+        game_state = self.skill_manager.game_state if self.skill_manager else {}
+        usable = []
+        for sk in skills:
+            sk.caster_is_top = is_top
+            sk.current_cooldown = 0
+            try:
+                sk.update(0.016, guard_paddle, target_paddle, ball, game_state)
+            except Exception:
+                pass
+            if sk.can_use():
+                usable.append(sk)
+
+        skill = random.choice(usable) if usable else random.choice(skills)
         if is_top:
             self.selected_skill_top = skill
         else:
@@ -3814,6 +3830,12 @@ class GuardWarriorSystem:
             except Exception:
                 pass
             skill.is_active = False
+
+        # 커스텀 can_use()가 있는 스킬은 update()로 상태 갱신 필요 (예: WildRoar의 _ball_in_range)
+        try:
+            skill.update(0.016, guard_paddle, target_paddle, ball, game_state)
+        except Exception:
+            pass
 
         # caster 측 game_state 보호 (호위무사 스킬이 메인 영웅에 영향 방지)
         caster_prefix = 'top_paddle' if is_top else 'bottom_paddle'
