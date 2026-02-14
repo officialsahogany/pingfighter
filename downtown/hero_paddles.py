@@ -8586,10 +8586,11 @@ class HeroPaddleRenderer:
             "crown_light": (255, 235, 100),
             "crown_gem": (180, 30, 30),
             "crown_gem_light": (230, 70, 70),
-            # 장식
-            "armband_gold": (220, 185, 50),
-            "cape_red": (170, 40, 35),
-            "cape_dark": (120, 25, 25),
+            # 엉덩이/피부 (원숭이 특유의 붉은 엉덩이)
+            "butt_red": (210, 90, 75),
+            "butt_pink": (235, 140, 120),
+            # 젖꼭지
+            "nipple": (175, 120, 85),
         }
 
         # ─── 꼬리 (몸 뒤에 그림) ───
@@ -8642,33 +8643,6 @@ class HeroPaddleRenderer:
         pygame.draw.circle(screen, p["fur_dark"], (t4x, t4y), tip_r + 1)
         pygame.draw.circle(screen, p["fur_gold"], (t4x, t4y), tip_r)
 
-        # ─── 짧은 망토 (왕의 상징 - 등 뒤) ───
-        if show_back:
-            cape_top_y = torso_y - int(0.6 * b)
-            cape_bot_y = torso_y + int(1.0 * b)
-            cape_w_top = int(1.6 * b)
-            cape_w_bot = int(2.0 * b)
-            cape_wave = int(wave * 0.15 * b) + int(tail_drift * 0.3)
-            cape_pts = [
-                (cx - cape_w_top // 2 + lean_offset, cape_top_y),
-                (cx + cape_w_top // 2 + lean_offset, cape_top_y),
-                (cx + cape_w_bot // 2 + lean_offset + cape_wave, cape_bot_y),
-                (cx - cape_w_bot // 2 + lean_offset - cape_wave, cape_bot_y),
-            ]
-            pygame.draw.polygon(screen, p["cape_red"], cape_pts)
-            # 망토 테두리
-            pygame.draw.lines(screen, p["crown_gold"], False,
-                            [cape_pts[0], cape_pts[1]], max(1, int(0.08 * b)))
-            # 망토 주름
-            for fi in range(3):
-                fr = (fi + 1) / 4.0
-                fx1 = int(cape_pts[0][0] + (cape_pts[3][0] - cape_pts[0][0]) * fr)
-                fy1 = int(cape_pts[0][1] + (cape_pts[3][1] - cape_pts[0][1]) * fr)
-                fx2 = int(cape_pts[1][0] + (cape_pts[2][0] - cape_pts[1][0]) * fr)
-                fy2 = int(cape_pts[1][1] + (cape_pts[2][1] - cape_pts[1][1]) * fr)
-                pygame.draw.line(screen, p["cape_dark"], (fx1, fy1), (fx2, fy2),
-                               max(1, int(0.04 * b)))
-
         # ─── 다리 (짧고 굵은 유인원 다리, 구부러진 자세) ───
         hip_y = torso_y + int(1.5 * b)
         for side_idx, side in enumerate([-1, 1]):
@@ -8709,6 +8683,13 @@ class HeroPaddleRenderer:
                            (knee_x, knee_y), (ankle_x, ankle_y), shin_thick + 1)
             pygame.draw.line(screen, p["fur_gold"],
                            (knee_x, knee_y), (ankle_x, ankle_y), shin_thick)
+            # 다리 털 결
+            shin_mid_x = (knee_x + ankle_x) // 2
+            shin_mid_y = (knee_y + ankle_y) // 2
+            pygame.draw.line(screen, p["fur_dark"],
+                           (shin_mid_x - int(0.05 * b), shin_mid_y),
+                           (shin_mid_x + int(0.05 * b), shin_mid_y + int(0.04 * b)),
+                           max(1, int(0.03 * b)))
 
             # 발 (넓고 납작한 유인원 발)
             foot_w = max(4, int(0.55 * b))
@@ -8755,24 +8736,29 @@ class HeroPaddleRenderer:
         # 몸통 외곽선
         pygame.draw.polygon(screen, p["fur_dark"], chest_pts, max(1, int(0.06 * b)))
 
-        # 가슴 근육 디테일 (정면)
+        # 가슴/배 디테일 (정면)
         if not show_back:
-            # 배 (밝은 크림색 - 원숭이 특유의 밝은 배)
+            # 배 (밝은 크림색 - 원숭이 특유의 밝은 배, 털이 없는 부분)
             belly_cx = cx + lean_offset
-            belly_cy = torso_y + int(0.5 * b)
+            belly_cy = torso_y + int(0.4 * b)
             belly_w = int(1.3 * b)
-            belly_h = int(1.4 * b)
+            belly_h = int(1.5 * b)
             belly_rect = pygame.Rect(belly_cx - belly_w // 2, belly_cy,
                                       belly_w, belly_h)
             pygame.draw.ellipse(screen, p["belly"], belly_rect)
-            # 배 그림자
+            # 배 아래쪽 그림자 (볼록한 느낌)
             belly_shadow_rect = pygame.Rect(belly_cx - belly_w // 2 + int(0.1 * b),
                                              belly_cy + belly_h // 2,
                                              belly_w - int(0.2 * b),
                                              belly_h // 3)
             pygame.draw.ellipse(screen, p["belly_shadow"], belly_shadow_rect)
+            # 배꼽
+            navel_x = belly_cx
+            navel_y = belly_cy + int(0.7 * b)
+            navel_r = max(1, int(0.05 * b))
+            pygame.draw.circle(screen, p["belly_shadow"], (navel_x, navel_y), navel_r)
 
-            # 가슴 근육 라인
+            # 가슴 근육 라인 + 젖꼭지
             for side in [-1, 1]:
                 pec_x = cx + side * int(0.35 * b) + lean_offset
                 pec_y = torso_y + int(0.1 * b)
@@ -8781,43 +8767,91 @@ class HeroPaddleRenderer:
                 pygame.draw.arc(screen, p["fur_dark"],
                               (pec_x - pec_w // 2, pec_y, pec_w, pec_h),
                               0, 3.14, max(1, int(0.04 * b)))
+                # 젖꼭지 (원숭이 가슴)
+                nip_x = pec_x + side * int(0.05 * b)
+                nip_y = pec_y + int(0.25 * b)
+                pygame.draw.circle(screen, p["nipple"], (nip_x, nip_y),
+                                 max(1, int(0.04 * b)))
+
+            # 가슴~배 경계 털 라인
+            for fi in range(3):
+                fy = belly_cy + int(fi * 0.15 * b)
+                fw = int(0.55 * b - fi * 0.08 * b)
+                pygame.draw.line(screen, p["fur_orange"],
+                               (belly_cx - fw, fy), (belly_cx + fw, fy),
+                               max(1, int(0.03 * b)))
+
         else:
-            # 등 (후면 - 척추 라인 + 근육 디테일)
+            # 등 (후면 - 척추 라인 + 등 털 질감)
             spine_x = cx + lean_offset
-            for si in range(4):
-                sy = chest_top + int(si * 0.5 * b) + int(0.2 * b)
-                sw = int((1.0 - si * 0.1) * b)
-                pygame.draw.line(screen, p["fur_dark"],
-                               (spine_x - sw // 2, sy), (spine_x + sw // 2, sy),
-                               max(1, int(0.04 * b)))
             # 척추 중앙선
             pygame.draw.line(screen, p["fur_deep"],
                            (spine_x, chest_top + int(0.2 * b)),
                            (spine_x, chest_bot - int(0.2 * b)),
                            max(1, int(0.04 * b)))
+            # 등 근육 / 털 무늬 (V자 패턴)
+            for si in range(5):
+                sy = chest_top + int(si * 0.4 * b) + int(0.2 * b)
+                sw = int((0.8 - si * 0.06) * b)
+                pygame.draw.line(screen, p["fur_dark"],
+                               (spine_x - sw, sy), (spine_x, sy + int(0.15 * b)),
+                               max(1, int(0.04 * b)))
+                pygame.draw.line(screen, p["fur_dark"],
+                               (spine_x + sw, sy), (spine_x, sy + int(0.15 * b)),
+                               max(1, int(0.04 * b)))
+            # 견갑골 (어깨뼈) 디테일
+            for side in [-1, 1]:
+                sb_x = spine_x + side * int(0.5 * b)
+                sb_y = chest_top + int(0.5 * b)
+                sb_w = int(0.4 * b)
+                sb_h = int(0.5 * b)
+                pygame.draw.ellipse(screen, p["fur_dark"],
+                                  (sb_x - sb_w // 2, sb_y, sb_w, sb_h), 1)
 
-        # 어깨 근육 (양쪽 둥근 근육)
+            # 빨간 엉덩이 (원숭이 특유 - 후면에서만 보임)
+            butt_cx = spine_x
+            butt_cy = chest_bot + int(0.2 * b)
+            butt_w = int(1.2 * b)
+            butt_h = int(0.7 * b)
+            butt_rect = pygame.Rect(butt_cx - butt_w // 2, butt_cy, butt_w, butt_h)
+            pygame.draw.ellipse(screen, p["butt_red"], butt_rect)
+            # 엉덩이 하이라이트 (윤기)
+            butt_hl_rect = pygame.Rect(butt_cx - butt_w // 4, butt_cy + int(0.05 * b),
+                                        butt_w // 2, butt_h // 2)
+            pygame.draw.ellipse(screen, p["butt_pink"], butt_hl_rect)
+            # 엉덩이 가운데 홈
+            pygame.draw.line(screen, p["face_shadow"],
+                           (butt_cx, butt_cy + int(0.08 * b)),
+                           (butt_cx, butt_cy + butt_h - int(0.1 * b)),
+                           max(1, int(0.04 * b)))
+
+        # 어깨 근육 (양쪽 둥근 근육 - 알몸 원숭이 어깨)
         shoulder_y_pos = chest_top + int(0.15 * b) + int(shoulder_bob * 0.25 * b)
         for side in [-1, 1]:
             sx = cx + side * int(1.15 * b) + lean_offset
             sy = shoulder_y_pos
-            # 어깨 근육 (큰 원)
+            # 어깨 근육 (큰 원 - 두꺼운 털)
             sh_r = max(3, int(0.38 * b))
+            pygame.draw.circle(screen, p["fur_deep"], (sx, sy), sh_r + 2)
             pygame.draw.circle(screen, p["fur_dark"], (sx, sy), sh_r + 1)
             pygame.draw.circle(screen, p["fur_gold"], (sx, sy), sh_r)
             # 어깨 하이라이트
             pygame.draw.circle(screen, p["fur_light"],
                              (sx - side * int(0.05 * b), sy - int(0.08 * b)),
                              max(1, sh_r // 2))
-            # 금 완장 (왕의 장식)
-            band_y = sy + int(0.3 * b)
-            band_w = max(3, int(0.3 * b))
-            pygame.draw.line(screen, p["armband_gold"],
-                           (sx - band_w, band_y), (sx + band_w, band_y),
-                           max(2, int(0.1 * b)))
-            pygame.draw.line(screen, p["crown_light"],
-                           (sx - band_w, band_y - 1), (sx + band_w, band_y - 1),
-                           max(1, int(0.04 * b)))
+            # 어깨 위 솟은 털 다발 (야생 느낌)
+            for fi in range(3):
+                tuft_angle = -0.6 + fi * 0.6 + side * 0.3
+                tuft_len = int(0.22 * b) + int(fi % 2 * 0.08 * b)
+                tuft_sway = int(_sin(t * 2.0 + fi * 1.0 + side) * 0.03 * b * side_blend)
+                tx = sx + int(_sin(tuft_angle) * tuft_len) + tuft_sway
+                ty = sy - int(_cos(tuft_angle) * tuft_len)
+                pygame.draw.line(screen, p["fur_orange"],
+                               (sx, sy - int(0.1 * b)), (tx, ty),
+                               max(1, int(0.06 * b)))
+                # 털 끝 밝은 점
+                pygame.draw.circle(screen, p["fur_light"], (tx, ty),
+                                 max(1, int(0.03 * b)))
 
         # ─── 양팔 (매우 긴 원숭이 팔 - 무릎 아래까지 늘어짐) ───
         arm_thick = max(2, int(0.26 * b))
@@ -8871,13 +8905,22 @@ class HeroPaddleRenderer:
             pygame.draw.circle(screen, p["fur_dark"], (int(elbow_x), int(elbow_y)), e_r + 1)
             pygame.draw.circle(screen, p["fur_gold"], (int(elbow_x), int(elbow_y)), e_r)
 
-            # 아랫팔 (약간 가늘어짐)
+            # 아랫팔 (약간 가늘어짐 + 팔 털 질감)
             pygame.draw.line(screen, p["fur_deep"],
                            (int(elbow_x), int(elbow_y)),
                            (int(wrist_x), int(wrist_y)), arm_thick + 1)
             pygame.draw.line(screen, p["fur_gold"],
                            (int(elbow_x), int(elbow_y)),
                            (int(wrist_x), int(wrist_y)), arm_thick)
+            # 팔 털 결 (2~3개 짧은 선)
+            for fi in range(2):
+                fr = 0.3 + fi * 0.35
+                fx1 = int(elbow_x + (wrist_x - elbow_x) * fr)
+                fy1 = int(elbow_y + (wrist_y - elbow_y) * fr)
+                pygame.draw.line(screen, p["fur_dark"],
+                               (fx1 - int(0.06 * b), fy1),
+                               (fx1 + int(0.06 * b), fy1 + int(0.05 * b)),
+                               max(1, int(0.03 * b)))
 
             # 손 (큰 원숭이 손 - 주먹 또는 펼친 손바닥)
             hand_r = max(3, int(0.22 * b))
