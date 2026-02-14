@@ -10929,6 +10929,7 @@ class SandPrison(HeroSkill):
         self.prison_y_top = 0
         self.prison_y_bot = 100
         self.sand_particles = []
+        self.body_particles = []   # 시전자 몸 → 감옥 방향 모래 가루
         self.wall_alpha = 0
         self.target_is_top = False
         self._sound_loaded = False
@@ -10971,6 +10972,7 @@ class SandPrison(HeroSkill):
             self.prison_y_bot = min(750, target_y + 80)
 
         self.sand_particles = []
+        self.body_particles = []
         self.wall_alpha = 0
         self.elapsed = 0.0
         self.phase = 'building'
@@ -11030,6 +11032,41 @@ class SandPrison(HeroSkill):
                         'size': random.uniform(3, 5),
                         'life': random.uniform(0.4, 0.8),
                     })
+
+            # ── 시전자 몸에서 감옥 방향으로 흐르는 모래 가루 ──
+            caster_cx = caster_paddle.x + getattr(caster_paddle, 'width', 80) // 2
+            caster_cy = getattr(caster_paddle, 'y', 375)
+            prison_mid_y = (self.prison_y_top + py_bot) * 0.5
+            # 건설 초반에 더 많이, 후반에 줄어듦
+            spawn_count = max(1, int(4 * (1.0 - self._build_progress * 0.6)))
+            for _ in range(spawn_count):
+                # 몸 주변 랜덤 오프셋에서 출발
+                start_x = caster_cx + random.uniform(-12, 12)
+                start_y = caster_cy + random.uniform(-8, 8)
+                # 도착점: 감옥 벽 또는 감옥 내부 랜덤 지점
+                if random.random() < 0.6:
+                    # 벽 쪽으로
+                    dest_x = random.choice([left_wall, right_wall]) + random.uniform(-6, 6)
+                else:
+                    # 감옥 영역 내부
+                    dest_x = random.uniform(left_wall, right_wall)
+                dest_y = random.uniform(self.prison_y_top, py_bot)
+                # 이동 시간
+                travel_time = random.uniform(0.5, 0.9)
+                dx = dest_x - start_x
+                dy = dest_y - start_y
+                init_alpha = random.randint(160, 240)
+                self.body_particles.append({
+                    'x': start_x,
+                    'y': start_y,
+                    'vx': dx / travel_time,
+                    'vy': dy / travel_time,
+                    'alpha': init_alpha,
+                    'init_alpha': init_alpha,
+                    'size': random.uniform(1.5, 4.0),
+                    'life': travel_time,
+                    'max_life': travel_time,
+                })
 
         elif self.elapsed < self.BUILD_DURATION + self.ACTIVE_DURATION:
             self.phase = 'active'
@@ -11106,6 +11143,26 @@ class SandPrison(HeroSkill):
             p['alpha'] = max(0, int(p['alpha'] * max(0, p['life'])))
         self.sand_particles = [p for p in self.sand_particles if p['life'] > 0]
 
+        # 몸 → 감옥 파티클 업데이트
+        for p in self.body_particles:
+            p['x'] += p['vx'] * dt
+            p['y'] += p['vy'] * dt
+            p['life'] -= dt
+            # 도착에 가까워질수록 서서히 투명해짐
+            progress = 1.0 - max(0, p['life'] / p['max_life'])
+            # 출발 시 밝아지다가 → 중간 유지 → 도착 즈음 사라짐
+            if progress < 0.2:
+                fade = progress / 0.2
+            elif progress > 0.75:
+                fade = (1.0 - progress) / 0.25
+            else:
+                fade = 1.0
+            p['alpha'] = max(0, int(p['init_alpha'] * fade))
+            # 도착 근처에서 크기 줄어듦
+            if progress > 0.8:
+                p['size'] = max(0.5, p['size'] * 0.95)
+        self.body_particles = [p for p in self.body_particles if p['life'] > 0]
+
     def _set_prison_state(self, game_state: dict, active: bool):
         """game_state 감옥 플래그 설정/해제"""
         target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
@@ -11131,6 +11188,7 @@ class SandPrison(HeroSkill):
         """감옥 해제 (duration 만료)"""
         self._set_prison_state(game_state, False)
         self.sand_particles = []
+        self.body_particles = []
         self.wall_alpha = 0
         self.phase = 'idle'
         self.elapsed = 0.0
@@ -11159,6 +11217,7 @@ class SandPrison(HeroSkill):
         visible_h = max(0, int(full_h * visible_ratio))
         if visible_h < 2 and alpha < 5:
             # 파티클만 그리기
+            self._draw_body_particles(screen)
             self._draw_particles(screen)
             return
 
@@ -11220,6 +11279,9 @@ class SandPrison(HeroSkill):
                                      (corner_r, corner_r), corner_r)
                     screen.blit(cs, (int(cx_pos) - corner_r, int(cy_pos) - corner_r))
 
+        # 몸 → 감옥 모래 가루 파티클
+        self._draw_body_particles(screen)
+
         # 파티클
         self._draw_particles(screen)
 
@@ -11233,9 +11295,38 @@ class SandPrison(HeroSkill):
                 pygame.draw.circle(ps, (215, 185, 105, a), (sz, sz), sz)
                 screen.blit(ps, (int(p['x'] - sz), int(p['y'] - sz)))
 
+    def _draw_body_particles(self, screen):
+        """시전자 몸 → 감옥 방향 모래 가루 파티클 렌더링"""
+        for p in self.body_particles:
+            a = max(0, min(255, int(p['alpha'])))
+            if a > 10:
+                sz = max(1, int(p['size']))
+                progress = 1.0 - max(0, p['life'] / p['max_life'])
+                # 색상: 밝은 금모래에서 어두운 모래색으로 변화
+                r = int(230 - 30 * progress)
+                g = int(200 - 25 * progress)
+                bv = int(110 - 20 * progress)
+                ps = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+                pygame.draw.circle(ps, (r, g, bv, a), (sz, sz), sz)
+                screen.blit(ps, (int(p['x'] - sz), int(p['y'] - sz)))
+                # 꼬리 잔상 (이동 방향 반대편에 작은 점)
+                if sz > 1 and progress < 0.8:
+                    tail_sz = max(1, sz - 1)
+                    tail_a = max(0, a // 3)
+                    ts = pygame.Surface((tail_sz * 2, tail_sz * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(ts, (r, g, bv, tail_a), (tail_sz, tail_sz), tail_sz)
+                    # 꼬리 위치 = 속도 반대 방향으로 약간 뒤
+                    spd = (p['vx'] ** 2 + p['vy'] ** 2) ** 0.5
+                    if spd > 1:
+                        tail_off_x = -p['vx'] / spd * sz * 1.5
+                        tail_off_y = -p['vy'] / spd * sz * 1.5
+                        screen.blit(ts, (int(p['x'] + tail_off_x - tail_sz),
+                                         int(p['y'] + tail_off_y - tail_sz)))
+
     def reset_for_new_round(self, game_state: dict):
         super().reset_for_new_round(game_state)
         self.sand_particles = []
+        self.body_particles = []
         self.wall_alpha = 0
         self.phase = 'idle'
         self.elapsed = 0.0
