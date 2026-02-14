@@ -12918,6 +12918,299 @@ class SandVortex(HeroSkill):
 
 
 # ============================================================================
+# 라 (Ra) - 태양의 매 전용 스킬
+# ============================================================================
+class SolarBolt(HeroSkill):
+    """라의 낙뢰 - 공이 자신에게 향할 때 번개로 타격하여 반사시킨다 (디바인쉴드 번개 요격과 동일)
+
+    자동 발동 (쿨타임 15초). 공이 시전자 쪽으로 내려오고 있을 때 발동되며,
+    번개가 시전자 패들에서 공까지 이어지며 공을 상대 방향으로 반사시킨다.
+    """
+
+    LIGHTNING_DISPLAY = 0.12    # 번개 표시 시간 (초)
+    EXPLOSION_DISPLAY = 0.22    # 폭발 표시 시간 (초)
+    EFFECT_DURATION = 0.5       # 전체 이펙트 지속 시간 (초)
+    SPARK_COUNT = 14            # 스파크 파티클 수
+
+    # 라 테마 컬러 (태양 금빛)
+    CORE_COLOR = (255, 230, 100)        # 금빛 코어
+    GLOW_COLOR = (255, 200, 50, 110)    # 금빛 글로우
+    EXPLOSION_CORE = (255, 240, 150)    # 폭발 코어
+    EXPLOSION_INNER = (255, 255, 220)   # 폭발 내부
+    EXPLOSION_RING = (255, 200, 80)     # 폭발 링
+    SPARK_COLOR = (255, 220, 100)       # 스파크
+    SPARK_CORE = (255, 255, 200)        # 스파크 코어
+
+    def __init__(self):
+        super().__init__(
+            skill_id="solar_bolt",
+            name="Solar Bolt",
+            korean_name="라의 낙뢰",
+            description="태양의 번개로 공을 강타하여 반대 방향으로 반사시킨다",
+            trigger=SkillTrigger.ON_COOLDOWN,
+            cooldown=15.0,
+            duration=self.EFFECT_DURATION,
+            hero_id="ra"
+        )
+        self._sound_loaded = False
+        self._sound = None
+        # 이펙트 데이터
+        self.lightning_path = None
+        self.lightning_branches = []
+        self.lightning_ttl = 0.0
+        self.explosion_ttl = 0.0
+        self.explosion_center = (0, 0)
+        self.sparks = []
+
+    def _load_sound(self):
+        if self._sound_loaded:
+            return
+        self._sound_loaded = True
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            sound_path = os.path.join(project_root, "sounds", "devinethunder.wav")
+            if os.path.exists(sound_path):
+                self._sound = pygame.mixer.Sound(sound_path)
+                self._sound.set_volume(0.5)
+        except Exception:
+            pass
+
+    def _check_ball_conditions(self, caster_paddle, ball) -> bool:
+        """공이 시전자 쪽으로 향하고 있는지 확인"""
+        is_top = getattr(self, 'caster_is_top', True)
+        ball_cy = ball.y + getattr(ball, 'height', 10) / 2
+        if is_top:
+            # 상단 시전자: 공이 위로 향하고(vy < 0) 상단 절반에 있을 때
+            return ball.vy < 0 and ball_cy <= 375
+        else:
+            # 하단 시전자: 공이 아래로 향하고(vy > 0) 하단 절반에 있을 때
+            return ball.vy > 0 and ball_cy >= 375
+
+    def use(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        """조건 충족 시에만 발동 (공이 시전자에게 향하고 있을 때)"""
+        if not self.can_use():
+            return {}
+        # 공이 시전자 쪽으로 향하고 있지 않으면 발동하지 않음 (쿨타임 소모 안 함)
+        if not self._check_ball_conditions(caster_paddle, ball):
+            return {}
+        # 조건 충족 → 부모 use() 호출 (쿨타임 설정 + _apply_effect)
+        return super().use(caster_paddle, target_paddle, ball, game_state)
+
+    def _gen_lightning(self, start_xy, end_xy):
+        """프로시저럴 번개 경로 생성 (디바인쉴드와 동일)"""
+        sx, sy = start_xy
+        ex, ey = end_xy
+        pts = [(int(sx), int(sy)), (int(ex), int(ey))]
+
+        def subdivide(points, disp):
+            if disp < 6:
+                return points
+            out = [points[0]]
+            for i in range(len(points) - 1):
+                x1, y1 = points[i]
+                x2, y2 = points[i + 1]
+                mx = (x1 + x2) / 2
+                my = (y1 + y2) / 2
+                dx = x2 - x1
+                dy = y2 - y1
+                length = math.hypot(dx, dy) or 1.0
+                nx = -dy / length
+                ny = dx / length
+                offset = random.uniform(-disp, disp)
+                mx += nx * offset
+                my += ny * offset
+                out.append((int(mx), int(my)))
+                out.append((x2, y2))
+            return subdivide(out, disp * 0.55)
+
+        main = subdivide(pts, max(12.0, math.hypot(ex - sx, ey - sy) * 0.08))
+
+        branches = []
+        if len(main) > 4:
+            branch_count = 1 if random.random() < 0.6 else 2
+            for _ in range(branch_count):
+                idx = random.randrange(len(main) // 2, len(main) - 1)
+                bx, by = main[idx]
+                dirx = ex - bx
+                diry = ey - by
+                blen = max(18, int(math.hypot(dirx, diry) * 0.25))
+                ang = math.atan2(diry, dirx) + random.uniform(-0.6, 0.6)
+                ex2 = int(bx + _cos(ang) * blen)
+                ey2 = int(by + _sin(ang) * blen)
+                branches.append(subdivide([(bx, by), (ex2, ey2)], max(8.0, blen * 0.12)))
+        return main, branches
+
+    def _spawn_sparks(self, x, y):
+        """번개 충돌 스파크 생성"""
+        for _ in range(self.SPARK_COUNT):
+            ang = random.uniform(0, math.tau)
+            spd = random.uniform(3.0, 7.0)
+            self.sparks.append({
+                'x': float(x), 'y': float(y),
+                'vx': _cos(ang) * spd,
+                'vy': _sin(ang) * spd,
+                'life': random.uniform(0.23, 0.4),
+                'size': random.uniform(1.5, 3.0)
+            })
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        """번개로 공을 타격하여 반사"""
+        self._load_sound()
+
+        # 시전자 패들 중심 좌표
+        cx = caster_paddle.x + getattr(caster_paddle, 'width', 80) / 2
+        cy = caster_paddle.y + getattr(caster_paddle, 'height', 10) / 2
+        # 공 중심 좌표
+        bx = ball.x + getattr(ball, 'width', 10) / 2
+        by = ball.y + getattr(ball, 'height', 10) / 2
+
+        # 번개 경로 생성
+        main, branches = self._gen_lightning((int(cx), int(cy)), (int(bx), int(by)))
+        self.lightning_path = main
+        self.lightning_branches = branches
+        self.lightning_ttl = self.LIGHTNING_DISPLAY
+        self.explosion_ttl = self.EXPLOSION_DISPLAY
+        self.explosion_center = (int(bx), int(by))
+        self._spawn_sparks(bx, by)
+
+        # 사운드 재생
+        if self._sound:
+            try:
+                self._sound.play()
+            except Exception:
+                pass
+
+        # 공 반사 (디바인쉴드와 동일한 로직)
+        is_top = getattr(self, 'caster_is_top', True)
+        step_speed = max(1.0, math.hypot(ball.vx, ball.vy))
+        if is_top:
+            # 상단 시전자 → 공을 아래로 반사
+            base_angle = math.pi / 2
+        else:
+            # 하단 시전자 → 공을 위로 반사
+            base_angle = -math.pi / 2
+        rand_offset = random.uniform(-math.pi / 4, math.pi / 4)
+        nvx = _cos(base_angle + rand_offset) * step_speed
+        nvy = _sin(base_angle + rand_offset) * step_speed
+
+        # 최소 속도 보장
+        if is_top:
+            if nvy <= 1.0:
+                nvy = 1.0
+        else:
+            if nvy >= -1.0:
+                nvy = -1.0
+
+        ball.vx = nvx
+        ball.vy = nvy
+
+        return {
+            'screen_effect': ScreenEffect.FLASH,
+            'flash_duration': 0.15,
+            'flash_color': (255, 230, 100),
+            'shake_intensity': 6,
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        """이펙트 타이머 및 파티클 업데이트"""
+        # 번개 TTL
+        if self.lightning_ttl > 0:
+            self.lightning_ttl = max(0.0, self.lightning_ttl - dt)
+            if self.lightning_ttl <= 0:
+                self.lightning_path = None
+                self.lightning_branches = []
+        # 폭발 TTL
+        if self.explosion_ttl > 0:
+            self.explosion_ttl = max(0.0, self.explosion_ttl - dt)
+        # 스파크 물리 업데이트
+        kept = []
+        for p in self.sparks:
+            p['x'] += p['vx']
+            p['y'] += p['vy']
+            p['vy'] += 0.08  # 중력
+            p['life'] -= dt
+            if p['life'] > 0:
+                kept.append(p)
+        self.sparks = kept
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        """이펙트 종료 정리"""
+        self.lightning_path = None
+        self.lightning_branches = []
+        self.lightning_ttl = 0.0
+        self.explosion_ttl = 0.0
+        self.sparks = []
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        """번개 + 폭발 + 스파크 렌더링"""
+        # 번개 렌더링
+        if self.lightning_ttl > 0 and self.lightning_path and len(self.lightning_path) >= 2:
+            all_pts = list(self.lightning_path)
+            for br in self.lightning_branches:
+                all_pts.extend(br)
+            if all_pts:
+                min_x = min(p[0] for p in all_pts)
+                max_x = max(p[0] for p in all_pts)
+                min_y = min(p[1] for p in all_pts)
+                max_y = max(p[1] for p in all_pts)
+                margin = 18
+                w = max(2, (max_x - min_x) + margin * 2)
+                h = max(2, (max_y - min_y) + margin * 2)
+                offx, offy = min_x - margin, min_y - margin
+                glow_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+                def _off(pts):
+                    return [(px - offx, py - offy) for (px, py) in pts]
+                # 글로우 레이어 (두꺼운 금빛)
+                pygame.draw.lines(glow_surf, self.GLOW_COLOR, False, _off(self.lightning_path), 6)
+                for br in self.lightning_branches:
+                    if len(br) >= 2:
+                        pygame.draw.lines(glow_surf, self.GLOW_COLOR, False, _off(br), 4)
+                screen.blit(glow_surf, (offx, offy))
+                # 코어 레이어 (밝은 금빛)
+                pygame.draw.lines(screen, self.CORE_COLOR, False, self.lightning_path, 2)
+                for br in self.lightning_branches:
+                    if len(br) >= 2:
+                        pygame.draw.lines(screen, self.CORE_COLOR, False, br, 1)
+
+        # 폭발 렌더링
+        if self.explosion_ttl > 0:
+            cx, cy = self.explosion_center
+            life_ratio = self.explosion_ttl / self.EXPLOSION_DISPLAY
+            r = int(8 + (1 - life_ratio) * 36)
+            alpha = int(220 * life_ratio)
+            if alpha > 0 and r > 0:
+                core_surf = pygame.Surface((r * 4, r * 4), pygame.SRCALPHA)
+                core_color = (self.EXPLOSION_CORE[0], self.EXPLOSION_CORE[1], self.EXPLOSION_CORE[2], alpha)
+                inner_color = (self.EXPLOSION_INNER[0], self.EXPLOSION_INNER[1], self.EXPLOSION_INNER[2], int(alpha * 0.6))
+                pygame.draw.circle(core_surf, core_color, (r * 2, r * 2), int(r * 0.6))
+                pygame.draw.circle(core_surf, inner_color, (r * 2, r * 2), int(r * 0.35))
+                screen.blit(core_surf, (cx - r * 2, cy - r * 2), special_flags=pygame.BLEND_ADD)
+                ring_alpha = int(180 * life_ratio)
+                if ring_alpha > 0 and r > 4:
+                    ring_color = (self.EXPLOSION_RING[0], self.EXPLOSION_RING[1], self.EXPLOSION_RING[2], ring_alpha)
+                    ring_surf = pygame.Surface((r * 2 + 6, r * 2 + 6), pygame.SRCALPHA)
+                    pygame.draw.circle(ring_surf, ring_color, (r + 3, r + 3), r, 2)
+                    screen.blit(ring_surf, (cx - r - 3, cy - r - 3))
+
+        # 스파크 렌더링
+        for p in self.sparks:
+            s = max(1, int(p['size']))
+            ex = int(p['x'] + p['vx'] * 0.6)
+            ey = int(p['y'] + p['vy'] * 0.6)
+            pygame.draw.line(screen, self.SPARK_COLOR, (int(p['x']), int(p['y'])), (ex, ey), 1)
+            pygame.draw.circle(screen, self.SPARK_CORE, (int(p['x']), int(p['y'])), max(1, s // 2))
+
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 이펙트 정리"""
+        super().reset_for_new_round(game_state)
+        self.lightning_path = None
+        self.lightning_branches = []
+        self.lightning_ttl = 0.0
+        self.explosion_ttl = 0.0
+        self.sparks = []
+
+
+# ============================================================================
 # 영웅 스킬 매핑
 # ============================================================================
 HERO_SKILLS: Dict[str, List[HeroSkill]] = {
@@ -12934,7 +13227,7 @@ HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "joker": [BalloonWall(), DeadPossession()],
     "mirage": [SandPrison(), SandVortex()],
     "android": [BombSurprise(), GatlingBurst()],
-    "ra": [SandPrison(), SandVortex()],  # TODO: 라 전용 스킬 추가 예정 (임시로 세트 스킬 사용)
+    "ra": [SolarBolt(), SandVortex()],  # 라의 낙뢰 + 임시 모래회오리
 }
 
 # 스킬 클래스 매핑 (호위무사 시스템 등에서 독립 인스턴스 생성용)
@@ -12952,7 +13245,7 @@ HERO_SKILL_CLASSES: Dict[str, list] = {
     "joker": [BalloonWall, DeadPossession],
     "mirage": [SandPrison, SandVortex],
     "android": [BombSurprise, GatlingBurst],
-    "ra": [SandPrison, SandVortex],  # TODO: 라 전용 스킬 추가 예정
+    "ra": [SolarBolt, SandVortex],  # 라의 낙뢰 + 임시 모래회오리
 }
 
 
