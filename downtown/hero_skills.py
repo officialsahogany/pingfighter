@@ -14396,10 +14396,10 @@ class WildRoar(HeroSkill):
 
             if approaching and 0 < dist_to_ball <= self._trigger_distance:
                 self._ball_in_range = True
-                # 거리 기반 부스트 계산: 가까울수록 100%, 멀수록 30%
+                # 거리 기반 부스트: 가까움 3.6x(260%) ↔ 멀음 2.6x(160%)
                 t = max(0, min(1, (self._trigger_distance - self.TRIGGER_DIST_MIN)
                                / (self.TRIGGER_DIST_MAX - self.TRIGGER_DIST_MIN)))
-                self._actual_boost = self.BALL_SPEED_BOOST * (1.0 - t * 0.7)
+                self._actual_boost = self.BALL_SPEED_BOOST - t * (self.BALL_SPEED_BOOST - 2.6)
             else:
                 self._ball_in_range = False
         else:
