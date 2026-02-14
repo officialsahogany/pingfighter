@@ -6399,18 +6399,22 @@ class HeroPaddleRenderer:
         side_blend = anim.get("side_blend", 0)
         move_dir = anim.get("move_dir", 0)
 
-        torso_y = cy - int(1.5 * b) + int(body_bob * 2 * b)
+        # 부양 효과 (느린 사인파로 위아래 천천히 떠다님)
+        hover_offset = int(_sin(self.time * 1.8) * 0.4 * b)
+        torso_y = cy - int(1.5 * b) + hover_offset
         lean_offset = int(lean * 2.5 * b)
 
-        # 날개 관성 + 펄럭임 (이동 시 날개 펄럭임 강화)
+        # 날개 관성 + 펄럭임
         wing_inertia = -move_dir * side_blend * 0.5 * b
-        wing_sway = _sin(self.time * 2.8) * side_blend * 0.25 * b
+        wing_sway = _sin(self.time * 2.2) * side_blend * 0.2 * b
         cape_drift = int(wing_inertia + wing_sway)
-        cape_wave_boost = 1.0 + side_blend * 1.5
-        # 날개 펄럭임 (이동 시 활발, 정지 시 미세)
-        wing_speed = 6.0 + side_blend * 8.0  # 정지:6, 이동:최대14
-        wing_amp = 0.15 + side_blend * 0.6   # 정지:미세, 이동:크게
+        cape_wave_boost = 1.0 + side_blend * 1.2
+        # 날개 펄럭임 (정지: 아주 느린 호흡, 이동: 부드러운 활공)
+        wing_speed = 2.5 + side_blend * 2.5   # 정지:2.5, 이동:최대5
+        wing_amp = 0.12 + side_blend * 0.35    # 정지:미세, 이동:적당
         wing_flap = _sin(self.time * wing_speed) * wing_amp
+        # 날개 2차 모션 (끝부분 지연 웨이브)
+        wing_flap2 = _sin(self.time * wing_speed * 0.8 - 0.6) * wing_amp * 0.6
 
         t = self.time
         sun_pulse = (_sin(t * 3.0) + 1) * 0.5
@@ -6465,81 +6469,175 @@ class HeroPaddleRenderer:
             pygame.draw.circle(ps_surf, glow_col, (sr, sr), sr)
             screen.blit(ps_surf, (px - sr, py - sr))
 
-        # ─── 독수리 날개 (등 뒤, 양쪽으로 펼쳐짐 - 이동 시 펄럭임) ───
-        wing_origin_y = torso_y - int(0.2 * b)
+        # ─── 독수리 날개 (등 뒤, 양쪽 - 3관절 다층 구조) ───
         wing_origin_x = cx + lean_offset
-        # 날개 Y 오프셋 (펄럭임)
-        wing_y_offset = int(wing_flap * 1.5 * b)
-        # 뒷날개 깃털 끝의 추가 흔들림
-        wing_tip_wave = _sin(self.time * wing_speed * 1.3 + 0.5) * wing_amp * 0.7
+        wing_origin_y = torso_y - int(0.2 * b)
+        # 1차 플랩 (어깨~중간)
+        w_flap1 = int(wing_flap * 1.5 * b)
+        # 2차 플랩 (중간~끝, 지연)
+        w_flap2 = int(wing_flap2 * 2.0 * b)
 
         for side in [-1, 1]:
-            # 날개 관절 포인트들 (어깨 → 중간 → 끝)
-            w_shoulder_x = wing_origin_x + side * int(0.8 * b)
-            w_shoulder_y = wing_origin_y
-            # 중간 관절 (펄럭임에 따라 위아래)
-            w_mid_x = wing_origin_x + side * int(2.2 * b)
-            w_mid_y = wing_origin_y - int(0.5 * b) + wing_y_offset
-            # 날개 끝 (더 크게 흔들림)
-            w_tip_x = wing_origin_x + side * int(3.5 * b) + int(cape_drift * 0.5 * side)
-            w_tip_y = wing_origin_y + int(0.3 * b) + int(wing_y_offset * 1.6) + int(wing_tip_wave * b)
+            # ── 관절 좌표 (어깨 → 팔꿈치 → 손목 → 끝) ──
+            w_sh_x = wing_origin_x + side * int(0.8 * b)
+            w_sh_y = wing_origin_y
+            w_elb_x = wing_origin_x + side * int(2.0 * b)
+            w_elb_y = wing_origin_y - int(0.4 * b) + w_flap1
+            w_wri_x = wing_origin_x + side * int(3.2 * b) + int(cape_drift * 0.3 * side)
+            w_wri_y = wing_origin_y + int(0.1 * b) + w_flap1 + w_flap2
+            w_tip_x = wing_origin_x + side * int(4.0 * b) + int(cape_drift * 0.6 * side)
+            w_tip_y = wing_origin_y + int(0.5 * b) + int(w_flap1 * 1.2) + int(w_flap2 * 1.4)
 
-            # === 뒤쪽 날개 (큰 면적 - 먼저 그림) ===
-            # 날개 메인 면
-            wing_pts = [
-                (w_shoulder_x, w_shoulder_y),
-                (w_mid_x, w_mid_y),
-                (w_tip_x, w_tip_y),
-                (w_tip_x - side * int(0.3 * b), w_tip_y + int(0.8 * b)),
-                (w_mid_x - side * int(0.2 * b), w_mid_y + int(1.2 * b) + int(wing_y_offset * 0.3)),
-                (w_shoulder_x, wing_origin_y + int(1.5 * b)),
+            # 날개 아랫가장자리 (덮개깃 하단)
+            w_sh_bot_y = wing_origin_y + int(1.6 * b)
+            w_elb_bot_y = w_elb_y + int(1.4 * b) + int(w_flap1 * 0.2)
+            w_wri_bot_y = w_wri_y + int(1.0 * b) + int(w_flap2 * 0.15)
+
+            # ═══ 1) 날개 그림자 (깊이감) ═══
+            shadow_off = int(0.08 * b)
+            shd_pts = [
+                (w_sh_x + shadow_off, w_sh_y + shadow_off),
+                (w_elb_x + shadow_off, w_elb_y + shadow_off),
+                (w_wri_x + shadow_off, w_wri_y + shadow_off),
+                (w_tip_x + shadow_off, w_tip_y + shadow_off),
+                (w_wri_x + shadow_off, w_wri_bot_y + shadow_off),
+                (w_elb_x + shadow_off, w_elb_bot_y + shadow_off),
+                (w_sh_x + shadow_off, w_sh_bot_y + shadow_off),
             ]
-            pygame.draw.polygon(screen, p["feather_brown"], wing_pts)
+            shd_surf = self._get_surface(int(5 * b), int(4 * b))
+            # 오프셋 맞추기
+            sx_min = min(sp[0] for sp in shd_pts) - int(0.5 * b)
+            sy_min = min(sp[1] for sp in shd_pts) - int(0.5 * b)
+            shd_local = [(sx - sx_min, sy - sy_min) for sx, sy in shd_pts]
+            if len(shd_local) >= 3:
+                sw = max(sp[0] for sp in shd_local) + int(0.5 * b)
+                sh = max(sp[1] for sp in shd_local) + int(0.5 * b)
+                shd_surf = self._get_surface(max(4, sw), max(4, sh))
+                pygame.draw.polygon(shd_surf, (40, 25, 10, 35), shd_local)
+                screen.blit(shd_surf, (sx_min, sy_min))
 
-            # 깃털 줄무늬 (날개 면을 가로지르는 선들)
-            for j in range(5):
-                ratio = (j + 1) / 6.0
-                # 어깨→끝 사이 보간
-                fx1 = int(w_shoulder_x + (w_mid_x - w_shoulder_x) * ratio)
-                fy1 = int(w_shoulder_y + (w_mid_y - w_shoulder_y) * ratio) - int(0.05 * b)
-                fx2 = int(w_shoulder_x + (w_mid_x - w_shoulder_x) * ratio)
-                fy2 = int((wing_origin_y + int(1.5 * b)) + ((w_mid_y + int(1.2 * b)) - (wing_origin_y + int(1.5 * b))) * ratio)
-                f_col = p["feather_light"] if j % 2 == 0 else p["feather_tip"]
-                pygame.draw.line(screen, f_col, (fx1, fy1), (fx2, fy2), max(1, int(0.07 * b)))
+            # ═══ 2) 큰덮개깃 (날개 안쪽 넓은 면 - 밝은 갈색) ═══
+            covert_pts = [
+                (w_sh_x, w_sh_y + int(0.3 * b)),
+                (w_elb_x - side * int(0.1 * b), w_elb_y + int(0.3 * b)),
+                (w_wri_x - side * int(0.2 * b), w_wri_y + int(0.25 * b)),
+                (w_wri_x - side * int(0.3 * b), w_wri_bot_y),
+                (w_elb_x - side * int(0.15 * b), w_elb_bot_y),
+                (w_sh_x, w_sh_bot_y),
+            ]
+            pygame.draw.polygon(screen, p["feather_light"], covert_pts)
+            # 덮개깃 줄무늬 (3줄)
+            for ci in range(3):
+                cr = (ci + 1) / 4.0
+                cx1 = int(w_sh_x + (w_elb_x - w_sh_x) * cr)
+                cy1 = int((w_sh_y + int(0.3 * b)) + (w_elb_y + int(0.3 * b) - w_sh_y - int(0.3 * b)) * cr)
+                cx2 = cx1
+                cy2 = int(w_sh_bot_y + (w_elb_bot_y - w_sh_bot_y) * cr)
+                pygame.draw.line(screen, p["feather_tip"], (cx1, cy1), (cx2, cy2),
+                               max(1, int(0.06 * b)))
 
-            # 비행깃 (날개 끝 긴 깃털들 - 5~6줄기)
-            for fi in range(6):
-                f_ratio = fi / 5.0
-                # 날개 뒷가장자리를 따라 분포
-                f_base_x = int(w_mid_x + (w_tip_x - w_mid_x) * f_ratio)
-                f_base_y = int(w_mid_y + (w_tip_y - w_mid_y) * f_ratio)
-                # 깃털 방향 (아래쪽으로, 끝으로 갈수록 더 길게)
-                f_len = int((0.6 + f_ratio * 0.5) * b)
-                f_angle_offset = int(_sin(t * wing_speed * 0.8 + fi * 0.5) * 0.08 * b)
-                f_end_x = f_base_x - side * int(0.15 * b * f_ratio)
-                f_end_y = f_base_y + f_len + f_angle_offset
-                # 깃털 본체
+            # ═══ 3) 날개 윗면 (주요 면 - 갈색) ═══
+            main_pts = [
+                (w_sh_x, w_sh_y),
+                (w_elb_x, w_elb_y),
+                (w_wri_x, w_wri_y),
+                (w_tip_x, w_tip_y),
+                (w_wri_x, w_wri_y + int(0.3 * b)),
+                (w_elb_x, w_elb_y + int(0.35 * b)),
+                (w_sh_x, w_sh_y + int(0.35 * b)),
+            ]
+            pygame.draw.polygon(screen, p["feather_brown"], main_pts)
+            # 하이라이트 (윗면 상단 테두리)
+            pygame.draw.line(screen, p["feather_tip"],
+                           (w_sh_x, w_sh_y), (w_elb_x, w_elb_y),
+                           max(1, int(0.06 * b)))
+            pygame.draw.line(screen, p["feather_tip"],
+                           (w_elb_x, w_elb_y), (w_wri_x, w_wri_y),
+                           max(1, int(0.05 * b)))
+
+            # ═══ 4) 중간덮개깃 줄 (날개 면 가로 패턴) ═══
+            for mi in range(4):
+                mr = (mi + 1) / 5.0
+                # 상단 엣지 보간
+                t_x = int(w_sh_x + (w_wri_x - w_sh_x) * mr)
+                t_y = int(w_sh_y + (w_wri_y - w_sh_y) * mr) + int(0.15 * b)
+                # 하단 엣지 보간
+                b_x = int(w_sh_x + (w_wri_x - w_sh_x) * mr) - side * int(0.1 * b)
+                b_y = int(w_sh_bot_y + (w_wri_bot_y - w_sh_bot_y) * mr)
+                row_col = p["feather_white"] if mi % 3 == 0 else p["feather_light"]
+                pygame.draw.line(screen, row_col, (t_x, t_y), (b_x, b_y),
+                               max(1, int(0.05 * b)))
+
+            # ═══ 5) 비행깃 (Primary feathers - 날개 끝 긴 깃털들) ═══
+            prim_count = 8
+            for fi in range(prim_count):
+                fr = fi / float(prim_count - 1)
+                # 날개 뒷가장자리 (손목→끝) 보간
+                fb_x = int(w_wri_x + (w_tip_x - w_wri_x) * fr)
+                fb_y = int(w_wri_y + (w_tip_y - w_wri_y) * fr)
+                # 깃털 길이 (안쪽 짧게, 끝쪽 길게)
+                f_len = int((0.8 + fr * 0.7) * b)
+                # 개별 깃털 흔들림 (느린 파동)
+                f_wave = int(_sin(t * 1.8 + fi * 0.4) * 0.04 * b)
+                # 끝점
+                fe_x = fb_x - side * int(0.2 * b * fr)
+                fe_y = fb_y + f_len + f_wave
+                # 깃털 폭 (두꺼운 선 → 가는 선)
+                f_thick = max(2, int(0.12 * b * (1.0 - fr * 0.3)))
+                f_thin = max(1, int(0.05 * b))
+                # 깃털 외곽 (어두운 테두리)
                 pygame.draw.line(screen, p["feather_dark"],
-                               (f_base_x, f_base_y), (f_end_x, f_end_y),
-                               max(1, int(0.08 * b)))
-                # 깃털 중심 밝은 줄
+                               (fb_x, fb_y), (fe_x, fe_y), f_thick)
+                # 깃털 내부 (밝은 갈색)
                 pygame.draw.line(screen, p["feather_tip"],
-                               (f_base_x, f_base_y), (f_end_x, f_end_y),
-                               max(1, int(0.04 * b)))
+                               (fb_x, fb_y), (fe_x, fe_y), f_thin)
+                # 깃털 끝 하이라이트 (맨 끝 밝은 점)
+                pygame.draw.circle(screen, p["feather_white"],
+                                 (fe_x, fe_y), max(1, int(0.04 * b)))
 
-            # 날개 뼈대 선 (어깨→중간→끝)
-            pygame.draw.line(screen, p["feather_dark"],
-                           (w_shoulder_x, w_shoulder_y), (w_mid_x, w_mid_y),
-                           max(2, int(0.1 * b)))
-            pygame.draw.line(screen, p["feather_dark"],
-                           (w_mid_x, w_mid_y), (w_tip_x, w_tip_y),
-                           max(1, int(0.07 * b)))
-            # 관절 포인트
-            pygame.draw.circle(screen, p["gold_dark"],
-                             (w_shoulder_x, w_shoulder_y), max(2, int(0.1 * b)))
+            # ═══ 6) 차깃 (Secondary feathers - 팔꿈치~손목) ═══
+            sec_count = 6
+            for si in range(sec_count):
+                sr_val = si / float(sec_count - 1)
+                sb_x = int(w_elb_x + (w_wri_x - w_elb_x) * sr_val)
+                sb_y = int(w_elb_y + (w_wri_y - w_elb_y) * sr_val) + int(0.25 * b)
+                s_len = int((0.6 + sr_val * 0.3) * b)
+                s_wave = int(_sin(t * 1.5 + si * 0.5 + 1.0) * 0.03 * b)
+                se_x = sb_x - side * int(0.1 * b * sr_val)
+                se_y = sb_y + s_len + s_wave
+                s_thick = max(2, int(0.1 * b))
+                pygame.draw.line(screen, p["feather_brown"],
+                               (sb_x, sb_y), (se_x, se_y), s_thick)
+                pygame.draw.line(screen, p["feather_light"],
+                               (sb_x, sb_y), (se_x, se_y), max(1, int(0.04 * b)))
 
-        # ─── 다리 / 샌들 (정지 상태 - 이동 시에도 다리는 가만히) ───
-        leg_base_y = cy + int(2.2 * b)
+            # ═══ 7) 날개 뼈대 + 관절 (금장식) ═══
+            # 뼈대
+            bone_w1 = max(2, int(0.1 * b))
+            bone_w2 = max(2, int(0.08 * b))
+            bone_w3 = max(1, int(0.06 * b))
+            pygame.draw.line(screen, p["feather_dark"],
+                           (w_sh_x, w_sh_y), (w_elb_x, w_elb_y), bone_w1)
+            pygame.draw.line(screen, p["feather_dark"],
+                           (w_elb_x, w_elb_y), (w_wri_x, w_wri_y), bone_w2)
+            pygame.draw.line(screen, p["feather_dark"],
+                           (w_wri_x, w_wri_y), (w_tip_x, w_tip_y), bone_w3)
+            # 뼈대 하이라이트
+            pygame.draw.line(screen, p["feather_light"],
+                           (w_sh_x, w_sh_y - 1), (w_elb_x, w_elb_y - 1),
+                           max(1, int(0.04 * b)))
+            # 관절 금장식
+            jnt_r1 = max(2, int(0.12 * b))
+            jnt_r2 = max(2, int(0.1 * b))
+            pygame.draw.circle(screen, p["gold_dark"], (w_sh_x, w_sh_y), jnt_r1)
+            pygame.draw.circle(screen, p["gold"], (w_sh_x, w_sh_y), max(1, jnt_r1 - 1))
+            pygame.draw.circle(screen, p["gold_dark"], (w_elb_x, w_elb_y), jnt_r2)
+            pygame.draw.circle(screen, p["gold"], (w_elb_x, w_elb_y), max(1, jnt_r2 - 1))
+            # 손목 작은 관절
+            pygame.draw.circle(screen, p["gold_dark"], (w_wri_x, w_wri_y), max(1, int(0.07 * b)))
+
+        # ─── 다리 / 샌들 (정지 상태 - 부양에 맞춰 같이 떠오름) ───
+        leg_base_y = cy + int(2.2 * b) + hover_offset
         for side in [-1, 1]:
             leg_x = cx + side * int(0.4 * b) + lean_offset
             knee_x = leg_x
