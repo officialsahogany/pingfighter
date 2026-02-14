@@ -13624,18 +13624,8 @@ class ThunderOrb(HeroSkill):
             hy = center + _sin(ang) * hex_r
             hex_pts.append((int(hx), int(hy)))
 
-        # 프레임 내부 채움 (반투명 어두운 파랑)
+        # 프레임 내부 채움 (반투명 어두운 파랑, 테두리 없음)
         pygame.draw.polygon(ball_surf, (15, 25, 60, 120), hex_pts)
-        # 프레임 테두리 (밝은 파랑, 두꺼운 선)
-        pygame.draw.polygon(ball_surf, (60, 120, 220, 200), hex_pts, 3)
-        # 내부 테두리 (더 밝은 파랑, 가는 선)
-        hex_inner_pts = []
-        for i in range(6):
-            ang = math.radians(60 * i - 90)
-            hx = center + _cos(ang) * (hex_r - 3)
-            hy = center + _sin(ang) * (hex_r - 3)
-            hex_inner_pts.append((int(hx), int(hy)))
-        pygame.draw.polygon(ball_surf, (80, 160, 255, 100), hex_inner_pts, 1)
 
         # 꼭짓점 밝은 점
         for hx, hy in hex_pts:
