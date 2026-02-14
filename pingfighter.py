@@ -92515,7 +92515,7 @@ def draw_objects():
         _thunder_bot_electric = _arena_gs.get('bottom_paddle_electric_stun', False)
         if _lightning_top_active or _thunder_top_electric:
             _draw_arena_electric_stun(BOSS, is_top=True)
-        elif _arena_top_stun:
+        elif _arena_top_stun or boss_stunned_timer > 0:
             _draw_arena_stun_stars(BOSS, is_top=True)
         if _lightning_bot_active or _thunder_bot_electric:
             _draw_arena_electric_stun(PLAYER, is_top=False)
