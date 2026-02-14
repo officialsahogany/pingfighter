@@ -12605,7 +12605,7 @@ class SandVortex(HeroSkill):
             path1 = os.path.join(project_root, "sounds", "windstorm.wav")
             if os.path.exists(path1):
                 self._sound = pygame.mixer.Sound(path1)
-                self._sound.set_volume(0.4)
+                self._sound.set_volume(0.8)
             path2 = os.path.join(project_root, "sounds", "grab.wav")
             if os.path.exists(path2):
                 self._capture_sound = pygame.mixer.Sound(path2)
