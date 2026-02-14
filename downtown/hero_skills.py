@@ -13383,11 +13383,11 @@ class ThunderOrb(HeroSkill):
     감전 이펙트는 번개의 분노와 동일 (전류 아크 + 분기 전류 + 스파크).
     """
 
-    # 구체 상수
-    ORB_SPEED = 280             # 구체 이동 속도 (px/sec)
-    ORB_RADIUS = 14             # 구체 반지름
+    # 구체 상수 (에너지볼과 동일 사이즈/속도)
+    ORB_SPEED = 420             # 구체 이동 속도 (px/sec) - BALL_BASE_SPEED 7.0 * 60fps
+    ORB_RADIUS = 10             # 구체 반지름 - BALL_SIZE = 10
     EXPLOSION_RADIUS = 170      # 폭발 범위 (px)
-    EXPLOSION_DURATION = 0.4    # 폭발 애니메이션 지속 (초)
+    EXPLOSION_DURATION = 0.2    # 폭발 애니메이션 지속 (초) - 2배 빠르게
     STUN_DURATION = 2.0         # 감전(스턴) 시간 (초)
     TOTAL_DURATION = 6.0        # 스킬 최대 지속 시간 (안전장치)
 
@@ -13401,12 +13401,17 @@ class ThunderOrb(HeroSkill):
     PHASE_EXPLODING = 'exploding'
     PHASE_STUN = 'stun'
 
-    # 색상 (금빛 번개 테마)
-    ORB_CORE = (255, 240, 140)
-    ORB_GLOW = (255, 200, 60, 120)
-    ORB_RING = (180, 220, 255, 90)
-    EXPLOSION_COLOR = (255, 230, 100, 100)
-    EXPLOSION_RING_COLOR = (180, 220, 255)
+    # 에너지볼 색상 (라이트닝 마스터 전기 투사체와 동일)
+    ORB_CORE_COLOR = (255, 255, 255)        # 밝은 흰색 코어
+    ORB_INNER_COLOR = (100, 180, 255)       # 밝은 파란색 내부
+    ORB_OUTER_COLOR = (30, 100, 200)        # 진한 파란색 외부
+    ORB_RING_COLOR = (80, 160, 255)         # 회전 고리 색상
+    ORB_PARTICLE_COLORS = [
+        (200, 230, 255), (150, 200, 255),
+        (100, 180, 255), (255, 255, 255),
+    ]
+    EXPLOSION_COLOR = (100, 180, 255, 100)
+    EXPLOSION_RING_COLOR = (80, 160, 255)
 
     # 감전 이펙트 색상 (번개의 분노와 동일)
     ARC_COLORS_CORE = [(255, 255, 255), (255, 255, 230), (255, 250, 200)]
@@ -13443,6 +13448,8 @@ class ThunderOrb(HeroSkill):
         self.stun_target_rect = None  # 감전 대상 패들 rect
         self.orb_trail = []          # 궤적 파티클
         self.orb_sparks = []         # 구체 주변 스파크
+        self.energy_particles = []   # 에너지볼 떠다니는 파티클
+        self.explosion_particles = []  # 폭발 파티클
 
     def _load_sound(self):
         if self._sound_loaded:
@@ -13482,6 +13489,8 @@ class ThunderOrb(HeroSkill):
         self.stun_target_is_top = not is_top
         self.orb_trail = []
         self.orb_sparks = []
+        self.energy_particles = []
+        self.explosion_particles = []
         self.explosion_timer = 0.0
         self.stun_timer = 0.0
 
@@ -13509,21 +13518,21 @@ class ThunderOrb(HeroSkill):
             self._update_stun(dt, target_paddle, game_state)
 
     def _update_traveling(self, dt, target_paddle, game_state):
-        """구체 이동 + 궤적 파티클"""
+        """구체 이동 + 궤적/에너지 파티클"""
         self.orb_y += self.orb_vy * dt
 
-        # 궤적 파티클 생성
+        # 궤적 파티클 생성 (파란색 에너지 테마)
         if random.random() < 0.8:
             self.orb_trail.append({
-                'x': self.orb_x + random.uniform(-6, 6),
-                'y': self.orb_y + random.uniform(-6, 6),
+                'x': self.orb_x + random.uniform(-5, 5),
+                'y': self.orb_y + random.uniform(-5, 5),
                 'life': 0.3,
-                'size': random.uniform(2, 5),
+                'size': random.uniform(1.5, 4),
             })
         # 구체 주변 전기 스파크
         if random.random() < 0.5:
             ang = random.uniform(0, math.tau)
-            dist = random.uniform(8, 18)
+            dist = random.uniform(8, 16)
             self.orb_sparks.append({
                 'x': self.orb_x + _cos(ang) * dist,
                 'y': self.orb_y + _sin(ang) * dist,
@@ -13531,12 +13540,33 @@ class ThunderOrb(HeroSkill):
                 'ey': self.orb_y + _sin(ang) * (dist + random.uniform(4, 10)),
                 'life': 0.08,
             })
+        # 에너지볼 떠다니는 파티클 생성
+        if random.random() < 0.4:
+            r = self.ORB_RADIUS
+            ang = random.uniform(0, math.tau)
+            d = r * random.uniform(0.9, 1.5)
+            self.energy_particles.append({
+                'rx': _cos(ang) * d, 'ry': _sin(ang) * d,
+                'vx': random.uniform(-0.5, 0.5),
+                'vy': random.uniform(-1.5, -0.5),
+                'life': random.randint(20, 40), 'max_life': 40,
+                'size': random.uniform(0.4, 1.0),
+                'color': random.choice(self.ORB_PARTICLE_COLORS),
+            })
 
-        # 궤적/스파크 업데이트
+        # 궤적/스파크/에너지 파티클 업데이트
         self.orb_trail = [p for p in self.orb_trail if (p.__setitem__('life', p['life'] - dt) or True) and p['life'] > 0]  # noqa
         for p in self.orb_trail:
             p['size'] *= 0.95
         self.orb_sparks = [s for s in self.orb_sparks if (s.__setitem__('life', s['life'] - dt) or True) and s['life'] > 0]
+        new_ep = []
+        for p in self.energy_particles:
+            p['rx'] += p['vx']
+            p['ry'] += p['vy']
+            p['life'] -= 1
+            if p['life'] > 0:
+                new_ep.append(p)
+        self.energy_particles = new_ep[-20:]  # 최대 20개
 
         # 상대 진영 도달 체크
         reached = False
@@ -13554,7 +13584,19 @@ class ThunderOrb(HeroSkill):
         self.explosion_timer = self.EXPLOSION_DURATION
         self.explosion_x = self.orb_x
         self.explosion_y = self.orb_y
-        game_state['screen_shake'] = 12
+        game_state['screen_shake'] = 16
+        # 폭발 파티클 생성 (방사형)
+        self.explosion_particles = []
+        for _ in range(30):
+            ang = random.uniform(0, math.tau)
+            spd = random.uniform(150, 500)
+            self.explosion_particles.append({
+                'x': self.orb_x, 'y': self.orb_y,
+                'vx': _cos(ang) * spd, 'vy': _sin(ang) * spd,
+                'life': random.uniform(0.15, 0.35),
+                'size': random.uniform(1, 3),
+                'color': random.choice(self.ORB_PARTICLE_COLORS),
+            })
 
     def _update_exploding(self, dt, target_paddle, game_state):
         """폭발 애니메이션 + 범위 판정"""
@@ -13613,91 +13655,236 @@ class ThunderOrb(HeroSkill):
             self._draw_electric_stun(screen)
 
     def _draw_orb(self, screen):
-        """번개 구체 + 궤적 렌더링"""
+        """에너지볼 스타일 렌더링 (라이트닝 마스터 전기 투사체와 동일)"""
         ox, oy = int(self.orb_x), int(self.orb_y)
         r = self.ORB_RADIUS
+        t = pygame.time.get_ticks()
 
-        # 궤적 파티클
+        # ── 궤적 파티클 (파란색) ──
         for p in self.orb_trail:
             alpha = int(180 * (p['life'] / 0.3))
             sz = max(1, int(p['size']))
-            s = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
-            pygame.draw.circle(s, (255, 220, 100, alpha), (sz, sz), sz)
-            screen.blit(s, (int(p['x']) - sz, int(p['y']) - sz))
+            ts = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+            pygame.draw.circle(ts, (100, 180, 255, alpha), (sz, sz), sz)
+            screen.blit(ts, (int(p['x']) - sz, int(p['y']) - sz))
 
-        # 전기 스파크 (구체 주변)
+        # ── 전기 스파크 ──
         for sp in self.orb_sparks:
             col = random.choice(self.ARC_COLORS_CORE)
-            pygame.draw.line(screen, col, (int(sp['x']), int(sp['y'])), (int(sp['ex']), int(sp['ey'])), 1)
+            pygame.draw.line(screen, col,
+                             (int(sp['x']), int(sp['y'])),
+                             (int(sp['ex']), int(sp['ey'])), 1)
 
-        # 외부 글로우
-        glow_r = r + 10 + int(_sin(pygame.time.get_ticks() * 0.008) * 4)
-        glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
-        pygame.draw.circle(glow_surf, self.ORB_GLOW, (glow_r, glow_r), glow_r)
-        screen.blit(glow_surf, (ox - glow_r, oy - glow_r))
+        # ── 서피스 크기 ──
+        surf_size = r * 6 + 20
+        ball_surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+        center = surf_size // 2
 
-        # 전기 링
-        ring_r = r + 6
-        ring_surf = pygame.Surface((ring_r * 2 + 4, ring_r * 2 + 4), pygame.SRCALPHA)
-        pygame.draw.circle(ring_surf, self.ORB_RING, (ring_r + 2, ring_r + 2), ring_r, 2)
-        screen.blit(ring_surf, (ox - ring_r - 2, oy - ring_r - 2))
+        # 펄스 효과
+        pulse = _sin(t * 0.005) * 0.12 + 1.0
+        pulse2 = _sin(t * 0.0075) * 0.08 + 1.0
 
-        # 코어
-        pygame.draw.circle(screen, self.ORB_CORE, (ox, oy), r)
-        pygame.draw.circle(screen, (255, 255, 255), (ox, oy), max(1, r - 4))
+        # === Layer 1: 외부 글로우 ===
+        for i in range(3):
+            glow_r = int(r * (0.8 - i * 0.11) * pulse)
+            glow_a = int(8 - i * 2)
+            if glow_a > 0 and glow_r > 0:
+                pygame.draw.circle(ball_surf, (*self.ORB_OUTER_COLOR, glow_a),
+                                   (center, center), glow_r)
 
-        # 구체 위 작은 전기 아크 (2~3개)
-        for _ in range(random.randint(2, 3)):
+        # === Layer 2: 회전하는 자기장 고리 (3개) ===
+        ring1_angle = (t * 0.18) % 360
+        ring2_angle = (360 - (t * 0.12) % 360)
+        ring3_angle = (t * 0.15) % 360
+        ring1_tilt = 20 + _sin(t * 0.002) * 10
+        ring2_tilt = 45 + _sin(t * 0.0015 + 1) * 12
+        ring3_tilt = 70 + _sin(t * 0.001 + 2) * 8
+        ring_data = [(ring1_angle, ring1_tilt), (ring2_angle, ring2_tilt), (ring3_angle, ring3_tilt)]
+
+        for ring_idx, (ring_rot, ring_tilt) in enumerate(ring_data):
+            ring_radius = r * (1.16 + ring_idx * 0.11)
+            tilt_rad = math.radians(ring_tilt)
+
+            # 고리 위의 점들
+            num_pts = 24
+            ring_pts = []
+            for i in range(num_pts):
+                angle = math.radians(ring_rot + i * (360 / num_pts))
+                x_off = _cos(angle) * ring_radius
+                y_off = _sin(angle) * ring_radius * _cos(tilt_rad)
+                z_depth = _sin(angle) * _sin(tilt_rad)
+                depth_f = (z_depth + 1) / 2
+                px = center + x_off
+                py = center + y_off
+                pt_size = max(1, int(1.7 + depth_f * 1.3))
+                pt_alpha = int(15 + depth_f * 35)
+                br, bg, bb = self.ORB_RING_COLOR
+                cr = int(min(255, br * 0.3 + depth_f * br * 0.7 + ring_idx * 5))
+                cg = int(min(255, bg * 0.3 + depth_f * bg * 0.7 + ring_idx * 10))
+                cb = int(min(255, bb * 0.3 + depth_f * bb * 0.7))
+                pygame.draw.circle(ball_surf, (cr, cg, cb, pt_alpha), (int(px), int(py)), pt_size)
+                ring_pts.append((int(px), int(py)))
+
+            # 고리 연결선
+            if len(ring_pts) > 2:
+                for i in range(len(ring_pts)):
+                    start = ring_pts[i]
+                    end = ring_pts[(i + 1) % len(ring_pts)]
+                    pygame.draw.line(ball_surf, (*self.ORB_RING_COLOR, 10), start, end, 1)
+
+        # === Layer 3: 내부 에너지 구체 ===
+        outer_glow = int(r * 0.36 * pulse2)
+        pygame.draw.circle(ball_surf, (*self.ORB_INNER_COLOR, 25), (center, center), outer_glow)
+        mid_glow = int(r * 0.29 * pulse)
+        mid_col = tuple(int(c * 0.8 + 50) for c in self.ORB_INNER_COLOR)
+        pygame.draw.circle(ball_surf, (*mid_col, 40), (center, center), mid_glow)
+        inner_sph = int(r * 0.26)
+        inner_col = tuple(int(min(255, c * 0.7 + 80)) for c in self.ORB_INNER_COLOR)
+        pygame.draw.circle(ball_surf, (*inner_col, 60), (center, center), inner_sph)
+
+        # === Layer 4: 밝은 코어 ===
+        core_sz = int(r * 0.18)
+        core_glow_col = tuple(int(min(255, c * 0.5 + 128)) for c in self.ORB_RING_COLOR)
+        pygame.draw.circle(ball_surf, (*core_glow_col, 80), (center, center), core_sz + 2)
+        pygame.draw.circle(ball_surf, (*self.ORB_CORE_COLOR, 150), (center, center), core_sz)
+        pygame.draw.circle(ball_surf, (255, 255, 255, 200), (center, center), max(2, core_sz // 2))
+
+        # === Layer 5: 상단 하이라이트 ===
+        hl_x = center - int(r * 0.11)
+        hl_y = center - int(r * 0.11)
+        hl_sz = max(1, int(r * 0.07))
+        pygame.draw.circle(ball_surf, (255, 255, 255, 80), (hl_x, hl_y), hl_sz)
+
+        # === Layer 6: 떠다니는 에너지 파티클 ===
+        for p in self.energy_particles:
+            if p['life'] > 0:
+                alpha = int(200 * (p['life'] / p['max_life']))
+                sz = int(p['size'] * (p['life'] / p['max_life']))
+                if alpha > 0 and sz > 0:
+                    px = int(center + p['rx'])
+                    py = int(center + p['ry'])
+                    if 0 < px < surf_size and 0 < py < surf_size:
+                        pygame.draw.circle(ball_surf, (*p['color'], alpha), (px, py), max(1, sz))
+
+        # 서피스를 화면에 블릿
+        screen.blit(ball_surf, (ox - center, oy - center))
+
+        # === Layer 7: 전기 아크 (구체 바깥, 직접 screen에) ===
+        for _ in range(random.randint(2, 4)):
             a = random.uniform(0, math.tau)
-            sr = random.uniform(r * 0.5, r * 1.5)
+            sr = random.uniform(r * 0.5, r * 1.3)
             sx = ox + int(_cos(a) * sr)
             sy = oy + int(_sin(a) * sr)
             a2 = a + random.uniform(-0.8, 0.8)
-            er = sr + random.uniform(6, 14)
+            er = sr + random.uniform(5, 12)
             ex = ox + int(_cos(a2) * er)
             ey = oy + int(_sin(a2) * er)
             col = random.choice(self.ARC_COLORS_OUTER)
             pygame.draw.line(screen, col, (sx, sy), (ex, ey), 1)
 
     def _draw_explosion(self, screen):
-        """폭발 이펙트 렌더링"""
+        """폭발 이펙트 렌더링 (고퀄리티 업그레이드)"""
         progress = 1.0 - (self.explosion_timer / self.EXPLOSION_DURATION)
         cx, cy = int(self.explosion_x), int(self.explosion_y)
         current_r = int(self.EXPLOSION_RADIUS * progress)
+        dt = 1.0 / 60.0
 
-        if current_r > 0:
-            # 범위 원 (반투명)
-            alpha = int(100 * (1.0 - progress))
-            exp_surf = pygame.Surface((current_r * 2, current_r * 2), pygame.SRCALPHA)
-            pygame.draw.circle(exp_surf, (255, 230, 100, alpha), (current_r, current_r), current_r)
-            screen.blit(exp_surf, (cx - current_r, cy - current_r))
+        # 폭발 파티클 업데이트 & 렌더링
+        new_ep = []
+        for p in self.explosion_particles:
+            p['x'] += p['vx'] * dt
+            p['y'] += p['vy'] * dt
+            p['life'] -= dt
+            if p['life'] > 0:
+                new_ep.append(p)
+                alpha = int(220 * (p['life'] / 0.35))
+                sz = max(1, int(p['size'] * (p['life'] / 0.35)))
+                if alpha > 0 and sz > 0:
+                    ps = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(ps, (*p['color'], alpha), (sz, sz), sz)
+                    screen.blit(ps, (int(p['x']) - sz, int(p['y']) - sz))
+        self.explosion_particles = new_ep
 
-            # 외곽 링
-            ring_alpha = int(200 * (1.0 - progress))
-            if ring_alpha > 0:
-                ring_surf = pygame.Surface((current_r * 2 + 6, current_r * 2 + 6), pygame.SRCALPHA)
-                pygame.draw.circle(ring_surf,
-                                   (self.EXPLOSION_RING_COLOR[0], self.EXPLOSION_RING_COLOR[1],
-                                    self.EXPLOSION_RING_COLOR[2], ring_alpha),
-                                   (current_r + 3, current_r + 3), current_r, 3)
-                screen.blit(ring_surf, (cx - current_r - 3, cy - current_r - 3))
+        if current_r <= 0:
+            return
 
-            # 방사형 전기 아크 (폭발 중)
-            arc_count = 4 + int(progress * 6)
-            for i in range(arc_count):
-                a = (i / arc_count) * math.tau + random.uniform(-0.3, 0.3)
-                inner_r = current_r * 0.3
-                outer_r = current_r * random.uniform(0.7, 1.0)
-                sx = cx + int(_cos(a) * inner_r)
-                sy = cy + int(_sin(a) * inner_r)
-                ex = cx + int(_cos(a) * outer_r)
-                ey = cy + int(_sin(a) * outer_r)
-                # 중간 지점 왜곡
-                mx = (sx + ex) // 2 + random.randint(-8, 8)
-                my = (sy + ey) // 2 + random.randint(-8, 8)
-                pts = [(sx, sy), (mx, my), (ex, ey)]
-                col = random.choice(self.ARC_COLORS_CORE + self.ARC_COLORS_OUTER)
-                pygame.draw.lines(screen, col, False, pts, 2)
+        # === 초기 플래시 (progress < 0.3) ===
+        if progress < 0.3:
+            flash_a = int(180 * (1.0 - progress / 0.3))
+            flash_r = int(current_r * 0.6)
+            if flash_r > 0 and flash_a > 0:
+                fs = pygame.Surface((flash_r * 2, flash_r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(fs, (255, 255, 255, flash_a), (flash_r, flash_r), flash_r)
+                screen.blit(fs, (cx - flash_r, cy - flash_r))
+
+        # === 다중 충격파 링 (3개, 시간차) ===
+        ring_colors = [(100, 180, 255), (150, 200, 255), (80, 160, 255)]
+        for ring_idx in range(3):
+            ring_delay = ring_idx * 0.12
+            ring_prog = max(0.0, progress - ring_delay)
+            if ring_prog <= 0:
+                continue
+            ring_r = int(self.EXPLOSION_RADIUS * min(1.0, ring_prog * 1.3))
+            ring_a = int((180 - ring_idx * 40) * (1.0 - min(1.0, ring_prog)))
+            ring_w = max(1, 3 - ring_idx)
+            if ring_r > 0 and ring_a > 0:
+                rs = pygame.Surface((ring_r * 2 + 6, ring_r * 2 + 6), pygame.SRCALPHA)
+                rc = ring_colors[ring_idx]
+                pygame.draw.circle(rs, (*rc, ring_a), (ring_r + 3, ring_r + 3), ring_r, ring_w)
+                screen.blit(rs, (cx - ring_r - 3, cy - ring_r - 3))
+
+        # === 내부 채우기 원 (반투명 파란색) ===
+        fill_a = int(60 * (1.0 - progress))
+        if fill_a > 0:
+            fill_r = int(current_r * 0.8)
+            if fill_r > 0:
+                fs = pygame.Surface((fill_r * 2, fill_r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(fs, (30, 100, 200, fill_a), (fill_r, fill_r), fill_r)
+                screen.blit(fs, (cx - fill_r, cy - fill_r))
+
+        # === 번개 웹 패턴 (방사형 + 원형 연결) ===
+        arc_count = 8 + int(progress * 8)
+        web_pts = []
+        for i in range(arc_count):
+            a = (i / arc_count) * math.tau + random.uniform(-0.2, 0.2)
+            # 방사형 전기 아크
+            inner_r = current_r * 0.15
+            outer_r = current_r * random.uniform(0.8, 1.1)
+            sx = cx + int(_cos(a) * inner_r)
+            sy = cy + int(_sin(a) * inner_r)
+            ex = cx + int(_cos(a) * outer_r)
+            ey = cy + int(_sin(a) * outer_r)
+            # 지그재그 중간점 2개
+            f1, f2 = 0.33, 0.66
+            mx1 = int(sx + (ex - sx) * f1 + random.randint(-12, 12))
+            my1 = int(sy + (ey - sy) * f1 + random.randint(-12, 12))
+            mx2 = int(sx + (ex - sx) * f2 + random.randint(-10, 10))
+            my2 = int(sy + (ey - sy) * f2 + random.randint(-10, 10))
+            pts = [(sx, sy), (mx1, my1), (mx2, my2), (ex, ey)]
+            col = random.choice(self.ARC_COLORS_CORE + self.ARC_COLORS_OUTER)
+            # 외부 글로우
+            pygame.draw.lines(screen, (*col[:3], 80) if len(col) == 3 else col, False, pts, 3)
+            # 코어
+            pygame.draw.lines(screen, (255, 255, 255), False, pts, 1)
+            web_pts.append((ex, ey))
+
+        # 외곽 점들 끼리 원형 연결 (번개 웹)
+        if len(web_pts) >= 3:
+            for i in range(0, len(web_pts) - 1, 2):
+                if random.random() < 0.6:
+                    p1 = web_pts[i]
+                    p2 = web_pts[(i + 1) % len(web_pts)]
+                    mx = (p1[0] + p2[0]) // 2 + random.randint(-6, 6)
+                    my = (p1[1] + p2[1]) // 2 + random.randint(-6, 6)
+                    col = random.choice(self.ARC_COLORS_OUTER)
+                    pygame.draw.lines(screen, col, False, [p1, (mx, my), p2], 1)
+
+        # === 중심 코어 글로우 (페이드아웃) ===
+        core_a = int(200 * (1.0 - progress))
+        if core_a > 0:
+            core_r = max(2, int(8 * (1.0 - progress)))
+            pygame.draw.circle(screen, (200, 230, 255, core_a), (cx, cy), core_r)
+            pygame.draw.circle(screen, (255, 255, 255, min(255, core_a + 50)), (cx, cy), max(1, core_r // 2))
 
     def _draw_electric_stun(self, screen):
         """감전 이펙트 - 번개의 분노와 동일"""
@@ -13768,6 +13955,8 @@ class ThunderOrb(HeroSkill):
         self.phase = self.PHASE_IDLE
         self.orb_trail = []
         self.orb_sparks = []
+        self.energy_particles = []
+        self.explosion_particles = []
         self.stun_target_rect = None
 
     def reset_for_new_round(self, game_state: dict):
@@ -13781,6 +13970,8 @@ class ThunderOrb(HeroSkill):
         self.phase = self.PHASE_IDLE
         self.orb_trail = []
         self.orb_sparks = []
+        self.energy_particles = []
+        self.explosion_particles = []
         self.stun_timer = 0.0
         self.explosion_timer = 0.0
         self.stun_target_rect = None
