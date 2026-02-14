@@ -14510,7 +14510,7 @@ class WildRoar(HeroSkill):
                         pass
 
         game_state['screen_shake'] = 12 if not self.ball_reflected else 20
-        return {}
+        return {'reflected': self.ball_reflected}
 
     # ------------------------------------------------------------------
     # 업데이트
