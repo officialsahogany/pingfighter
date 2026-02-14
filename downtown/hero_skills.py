@@ -14554,7 +14554,7 @@ class WildRoar(HeroSkill):
         self._sounds_loaded = True
         try:
             project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            roar_path = os.path.join(project_root, "sounds", "horncharge.wav")
+            roar_path = os.path.join(project_root, "sounds", "monkeyshouting.wav")
             if os.path.exists(roar_path):
                 self._roar_sound = pygame.mixer.Sound(roar_path)
                 self._roar_sound.set_volume(0.7)
