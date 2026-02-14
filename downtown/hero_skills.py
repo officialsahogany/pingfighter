@@ -8509,7 +8509,7 @@ class GhostSummon(HeroSkill):
             else:
                 # 공 추적 이동 (공이 있고 보이면 공의 X 방향으로 이동)
                 if ball is not None and getattr(ball, 'visible', True):
-                    ball_cx = ball.x + ball.width / 2
+                    ball_cx = ball.x + getattr(ball, 'width', 0) / 2
                     ghost_cx = float(rect.centerx)
                     dx = ball_cx - ghost_cx
 
