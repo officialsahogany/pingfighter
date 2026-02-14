@@ -616,10 +616,11 @@ class HeroPaddleRenderer:
         weapon_swing = anim.get("weapon_swing_angle", 0)
         arm_thick = max(2, int(0.22 * b))
 
-        # 카타나 기준점 (몸 오른쪽, 약간 기울어진 대각선)
+        # 카타나 기준점 (정면: 오른쪽, 뒷모습: 왼쪽 = 캐릭터 앞쪽으로)
         grip_cx = cx + lean_offset
-        # 기울기: 살짝 오른쪽 위 → 왼쪽 아래 (검도 중단자세 느낌)
-        tilt_x = 0.35   # X 기울기
+        # 뒷모습이면 검 X좌표와 기울기를 반전 (캐릭터 앞쪽으로 이동)
+        _sword_side = -1 if show_back else 1
+        tilt_x = 0.35 * _sword_side   # X 기울기 (뒷모습이면 반전)
         tilt_y = 0.94   # Y 기울기 (거의 수직)
 
         # 자루 전체 길이
@@ -627,7 +628,7 @@ class HeroPaddleRenderer:
         tsuka_len = int(1.0 * b)   # 손잡이
 
         # 츠바(가드) 위치 = 그립 중심
-        guard_x = grip_cx + int(0.4 * b)
+        guard_x = grip_cx + int(0.4 * b) * _sword_side
         guard_y = torso_y + int(0.8 * b)
 
         # 칼끝 (위쪽) / 카시라 (아래쪽) 좌표
@@ -665,8 +666,8 @@ class HeroPaddleRenderer:
         r_g_top = _rp(g_top_x, g_top_y)
         r_g_bot = _rp(g_bot_x, g_bot_y)
 
-        # 카타나 곡률
-        curve_amount = int(0.12 * b)
+        # 카타나 곡률 (뒷모습이면 반전)
+        curve_amount = int(0.12 * b) * _sword_side
 
         # === 스윙 잔상 (보라 검기 궤적) ===
         if abs(weapon_swing) > 0.15:
@@ -750,8 +751,8 @@ class HeroPaddleRenderer:
         tip_raw_x = blade_top_x + int(kissaki_len * tilt_x)
         tip_raw_y = blade_top_y - int(kissaki_len * tilt_y)
         r_tip = _rp(tip_raw_x, tip_raw_y)
-        r_tip_l = _rp(blade_top_x - int(0.15 * b), blade_top_y)
-        r_tip_r = _rp(blade_top_x + int(0.08 * b), blade_top_y)
+        r_tip_l = _rp(blade_top_x - int(0.15 * b) * _sword_side, blade_top_y)
+        r_tip_r = _rp(blade_top_x + int(0.08 * b) * _sword_side, blade_top_y)
         pygame.draw.polygon(screen, p["sword_blade"], [r_tip, r_tip_l, r_tip_r])
         pygame.draw.polygon(screen, p["sword_edge"], [r_tip, r_tip_l, r_tip_r], 1)
 
