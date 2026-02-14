@@ -14440,7 +14440,7 @@ class WildRoar(HeroSkill):
                 'fade_alpha': 1.0,          # 개별 페이드 (1.0=보임, 0.0=사라짐)
                 'reached_max': False,       # 최대 반경 도달 여부
                 'linger_timer': 0.0,        # 최대 반경 후 유지 시간
-                'linger_delay': 0.25 + i * 0.1,  # 안쪽 링부터 먼저 페이드 시작
+                'linger_delay': 0.05 + i * 0.04,  # 빠른 순차 페이드 (잔존 방지)
             })
 
         # 초기 에너지 스파크 생성
@@ -14475,7 +14475,41 @@ class WildRoar(HeroSkill):
             except Exception:
                 pass
 
-        game_state['screen_shake'] = 12
+        # ── 즉시 반사: 발동 순간 바로 공 반사 (프레임 딜레이 없음) ──
+        if ball:
+            ball_cx = ball.x + getattr(ball, 'width', 10) / 2
+            ball_cy = ball.y + getattr(ball, 'height', 10) / 2
+            dx = ball_cx - self._cx
+            dy = ball_cy - self._cy
+            dist = math.sqrt(dx * dx + dy * dy)
+
+            if dist < self.SHOCKWAVE_RADIUS and dist > 1:
+                self.ball_reflected = True
+                boost = self._actual_boost
+                speed = math.sqrt(ball.vx ** 2 + ball.vy ** 2)
+                # 법선벡터 기반 반사 + ±30도 랜덤
+                nx = dx / dist
+                ny = dy / dist
+                dot = ball.vx * nx + ball.vy * ny
+                rvx = ball.vx - 2 * dot * nx
+                rvy = ball.vy - 2 * dot * ny
+                r_len = math.sqrt(rvx ** 2 + rvy ** 2)
+                if r_len > 0:
+                    angle = math.atan2(rvy, rvx)
+                    angle += random.uniform(-0.523, 0.523)
+                    ball.vx = _cos(angle) * speed * boost
+                    ball.vy = _sin(angle) * speed * boost
+                else:
+                    ball.vy = -ball.vy * boost
+                    ball.vx = ball.vx * boost
+                self._create_impact(ball_cx, ball_cy)
+                if self._hit_sound:
+                    try:
+                        self._hit_sound.play()
+                    except Exception:
+                        pass
+
+        game_state['screen_shake'] = 12 if not self.ball_reflected else 20
         return {}
 
     # ------------------------------------------------------------------
@@ -14510,7 +14544,7 @@ class WildRoar(HeroSkill):
         grow = min(1.0, self.shockwave_timer / self.SHOCKWAVE_GROW_TIME)
         self.shockwave_radius = self.SHOCKWAVE_RADIUS * grow
 
-        # 링 이펙트 확장 + 개별 페이드아웃
+        # 링 이펙트 확장 + 빠른 페이드아웃 (충돌 없음 - 비주얼 전용)
         all_faded = True
         for ring in self.ring_effects:
             ring['timer'] += dt
@@ -14518,19 +14552,14 @@ class WildRoar(HeroSkill):
             if elapsed > 0:
                 progress = min(1.0, elapsed / 0.2)
                 ring['radius'] = ring['max_radius'] * progress
-                # 최대 반경 도달 확인
                 if progress >= 1.0:
                     ring['reached_max'] = True
-            # 페이드아웃 처리 (반사 후 빠르게 / 자연 소멸은 순차적으로)
+            # 최대 반경 도달 후 즉시 빠르게 페이드 (잔존 방지)
             if ring['reached_max']:
                 ring['linger_timer'] += dt
-                if self.ball_reflected:
-                    # 반사 완료 시: 모든 링 빠르게 페이드 (0.2초)
-                    ring['fade_alpha'] = max(0, ring['fade_alpha'] - dt / 0.2)
-                else:
-                    # 자연 소멸: 안쪽 링부터 순차 페이드 시작
-                    if ring['linger_timer'] > ring['linger_delay']:
-                        ring['fade_alpha'] = max(0, ring['fade_alpha'] - dt / 0.35)
+                # 안쪽 링부터 빠르게 페이드 (0.08초 대기 후 0.15초 소멸)
+                if ring['linger_timer'] > ring.get('linger_delay', 0.08):
+                    ring['fade_alpha'] = max(0, ring['fade_alpha'] - dt / 0.15)
             if ring['fade_alpha'] > 0:
                 all_faded = False
 
@@ -14542,61 +14571,6 @@ class WildRoar(HeroSkill):
                 sp['life'] -= dt
                 if sp['life'] <= 0:
                     self.energy_sparks.remove(sp)
-
-        # --- 공과 링 충돌 체크 (원형 법선 반사) ---
-        if not self.ball_reflected and ball:
-            ball_cx = ball.x + getattr(ball, 'width', 10) / 2
-            ball_cy = ball.y + getattr(ball, 'height', 10) / 2
-            dx = ball_cx - self._cx
-            dy = ball_cy - self._cy
-            dist = math.sqrt(dx * dx + dy * dy)
-
-            approaching = ((self.caster_is_top and ball.vy < 0) or
-                           (not self.caster_is_top and ball.vy > 0))
-
-            if approaching:
-                BAND = 30
-                hit = False
-                for ring in self.ring_effects:
-                    ring_r = ring['radius']
-                    if ring_r < 10:
-                        continue
-                    if abs(dist - ring_r) < BAND:
-                        hit = True
-                        break
-                if hit:
-                    self.ball_reflected = True
-                    boost = self._actual_boost
-                    # 원형 표면 법선벡터 기반 반사
-                    speed = math.sqrt(ball.vx ** 2 + ball.vy ** 2)
-                    if dist > 1:
-                        # 법선벡터: 충격파 중심 → 공 방향 (바깥쪽)
-                        nx = dx / dist
-                        ny = dy / dist
-                        # 반사: V' = V - 2(V·N)N
-                        dot = ball.vx * nx + ball.vy * ny
-                        rvx = ball.vx - 2 * dot * nx
-                        rvy = ball.vy - 2 * dot * ny
-                        # 반사 방향 정규화 + 랜덤 편향 (±30도)
-                        r_len = math.sqrt(rvx ** 2 + rvy ** 2)
-                        if r_len > 0:
-                            angle = math.atan2(rvy, rvx)
-                            angle += random.uniform(-0.523, 0.523)  # ±30도(rad)
-                            ball.vx = _cos(angle) * speed * boost
-                            ball.vy = _sin(angle) * speed * boost
-                        else:
-                            ball.vy = -ball.vy * boost
-                            ball.vx = ball.vx * boost
-                    else:
-                        ball.vy = -ball.vy * boost
-                        ball.vx = ball.vx * boost
-                    self._create_impact(ball_cx, ball_cy)
-                    game_state['screen_shake'] = max(8, int(20 * boost / self.BALL_SPEED_BOOST))
-                    if self._hit_sound:
-                        try:
-                            self._hit_sound.play()
-                        except Exception:
-                            pass
 
         # 임팩트 파티클 업데이트
         for p in self.impact_particles[:]:
