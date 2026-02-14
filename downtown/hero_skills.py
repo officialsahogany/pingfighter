@@ -13341,7 +13341,8 @@ class ThunderOrb(HeroSkill):
 
     # 구체 상수 (에너지볼과 동일 사이즈/속도)
     ORB_SPEED = 420             # 구체 이동 속도 (px/sec) - BALL_BASE_SPEED 7.0 * 60fps
-    ORB_RADIUS = 10             # 구체 반지름 - BALL_SIZE = 10
+    ORB_RADIUS = 10             # 구체 물리 반지름 - BALL_SIZE = 10
+    ORB_VISUAL_RADIUS = 30      # 구체 시각 반지름 (에너지볼 렌더링용)
     EXPLOSION_RADIUS = 170      # 폭발 범위 (px)
     EXPLOSION_DURATION = 0.2    # 폭발 애니메이션 지속 (초) - 2배 빠르게
     STUN_DURATION = 2.0         # 감전(스턴) 시간 (초)
@@ -13488,7 +13489,8 @@ class ThunderOrb(HeroSkill):
         # 구체 주변 전기 스파크
         if random.random() < 0.5:
             ang = random.uniform(0, math.tau)
-            dist = random.uniform(8, 16)
+            vr = self.ORB_VISUAL_RADIUS
+            dist = random.uniform(vr * 0.6, vr * 1.1)
             self.orb_sparks.append({
                 'x': self.orb_x + _cos(ang) * dist,
                 'y': self.orb_y + _sin(ang) * dist,
@@ -13498,9 +13500,9 @@ class ThunderOrb(HeroSkill):
             })
         # 에너지볼 떠다니는 파티클 생성
         if random.random() < 0.4:
-            r = self.ORB_RADIUS
+            vr = self.ORB_VISUAL_RADIUS
             ang = random.uniform(0, math.tau)
-            d = r * random.uniform(0.9, 1.5)
+            d = vr * random.uniform(0.9, 1.5)
             self.energy_particles.append({
                 'rx': _cos(ang) * d, 'ry': _sin(ang) * d,
                 'vx': random.uniform(-0.5, 0.5),
@@ -13613,7 +13615,7 @@ class ThunderOrb(HeroSkill):
     def _draw_orb(self, screen):
         """에너지볼 스타일 렌더링 (라이트닝 마스터 전기 투사체와 동일)"""
         ox, oy = int(self.orb_x), int(self.orb_y)
-        r = self.ORB_RADIUS
+        vr = self.ORB_VISUAL_RADIUS  # 시각 반지름 (30)
         t = pygame.time.get_ticks()
 
         # ── 궤적 파티클 (파란색) ──
@@ -13631,8 +13633,8 @@ class ThunderOrb(HeroSkill):
                              (int(sp['x']), int(sp['y'])),
                              (int(sp['ex']), int(sp['ey'])), 1)
 
-        # ── 서피스 크기 ──
-        surf_size = r * 6 + 20
+        # ── 서피스 크기 (시각 반지름 기준) ──
+        surf_size = vr * 6 + 20
         ball_surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
         center = surf_size // 2
 
@@ -13642,7 +13644,7 @@ class ThunderOrb(HeroSkill):
 
         # === Layer 1: 외부 글로우 ===
         for i in range(3):
-            glow_r = int(r * (0.8 - i * 0.11) * pulse)
+            glow_r = int(vr * (0.8 - i * 0.11) * pulse)
             glow_a = int(8 - i * 2)
             if glow_a > 0 and glow_r > 0:
                 pygame.draw.circle(ball_surf, (*self.ORB_OUTER_COLOR, glow_a),
@@ -13658,7 +13660,7 @@ class ThunderOrb(HeroSkill):
         ring_data = [(ring1_angle, ring1_tilt), (ring2_angle, ring2_tilt), (ring3_angle, ring3_tilt)]
 
         for ring_idx, (ring_rot, ring_tilt) in enumerate(ring_data):
-            ring_radius = r * (1.16 + ring_idx * 0.11)
+            ring_radius = vr * (1.16 + ring_idx * 0.11)
             tilt_rad = math.radians(ring_tilt)
 
             # 고리 위의 점들
@@ -13689,26 +13691,26 @@ class ThunderOrb(HeroSkill):
                     pygame.draw.line(ball_surf, (*self.ORB_RING_COLOR, 10), start, end, 1)
 
         # === Layer 3: 내부 에너지 구체 ===
-        outer_glow = int(r * 0.36 * pulse2)
+        outer_glow = int(vr * 0.36 * pulse2)
         pygame.draw.circle(ball_surf, (*self.ORB_INNER_COLOR, 25), (center, center), outer_glow)
-        mid_glow = int(r * 0.29 * pulse)
+        mid_glow = int(vr * 0.29 * pulse)
         mid_col = tuple(int(c * 0.8 + 50) for c in self.ORB_INNER_COLOR)
         pygame.draw.circle(ball_surf, (*mid_col, 40), (center, center), mid_glow)
-        inner_sph = int(r * 0.26)
+        inner_sph = int(vr * 0.26)
         inner_col = tuple(int(min(255, c * 0.7 + 80)) for c in self.ORB_INNER_COLOR)
         pygame.draw.circle(ball_surf, (*inner_col, 60), (center, center), inner_sph)
 
         # === Layer 4: 밝은 코어 ===
-        core_sz = int(r * 0.18)
+        core_sz = int(vr * 0.18)
         core_glow_col = tuple(int(min(255, c * 0.5 + 128)) for c in self.ORB_RING_COLOR)
         pygame.draw.circle(ball_surf, (*core_glow_col, 80), (center, center), core_sz + 2)
         pygame.draw.circle(ball_surf, (*self.ORB_CORE_COLOR, 150), (center, center), core_sz)
         pygame.draw.circle(ball_surf, (255, 255, 255, 200), (center, center), max(2, core_sz // 2))
 
         # === Layer 5: 상단 하이라이트 ===
-        hl_x = center - int(r * 0.11)
-        hl_y = center - int(r * 0.11)
-        hl_sz = max(1, int(r * 0.07))
+        hl_x = center - int(vr * 0.11)
+        hl_y = center - int(vr * 0.11)
+        hl_sz = max(1, int(vr * 0.07))
         pygame.draw.circle(ball_surf, (255, 255, 255, 80), (hl_x, hl_y), hl_sz)
 
         # === Layer 6: 떠다니는 에너지 파티클 ===
@@ -13728,11 +13730,11 @@ class ThunderOrb(HeroSkill):
         # === Layer 7: 전기 아크 (구체 바깥, 직접 screen에) ===
         for _ in range(random.randint(2, 4)):
             a = random.uniform(0, math.tau)
-            sr = random.uniform(r * 0.5, r * 1.3)
+            sr = random.uniform(vr * 0.5, vr * 1.3)
             sx = ox + int(_cos(a) * sr)
             sy = oy + int(_sin(a) * sr)
             a2 = a + random.uniform(-0.8, 0.8)
-            er = sr + random.uniform(5, 12)
+            er = sr + random.uniform(6, 14)
             ex = ox + int(_cos(a2) * er)
             ey = oy + int(_sin(a2) * er)
             col = random.choice(self.ARC_COLORS_OUTER)
