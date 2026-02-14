@@ -90026,7 +90026,7 @@ def draw_objects():
                         color=arena_top_hero["color"],
                         scale_mode="paddle",
                         stun_effect=(arena_top_dash_stun_timer > 0),
-                        electric_stun=(_judgment_lightning_stun_top_timer > 0)
+                        electric_stun=(_judgment_lightning_stun_top_timer > 0 or (arena_skill_manager and arena_skill_manager.game_state.get('top_paddle_electric_stun', False)))
                     )
                     _arena_holo_surf = apply_hologram_materialize_effect(_arena_holo_surf, _boss_hologram_progress, _hologram_time_now)
                     SCREEN.blit(_arena_holo_surf, (int(_top_final_x) - _arena_holo_size // 2, int(_top_final_y) - _arena_holo_size // 2))
@@ -90043,7 +90043,7 @@ def draw_objects():
                         color=arena_top_hero["color"],
                         scale_mode="paddle",
                         stun_effect=(arena_top_dash_stun_timer > 0),
-                        electric_stun=(_judgment_lightning_stun_top_timer > 0)
+                        electric_stun=(_judgment_lightning_stun_top_timer > 0 or (arena_skill_manager and arena_skill_manager.game_state.get('top_paddle_electric_stun', False)))
                     )
 
             # 마법결계 보호막 이펙트 (상단 영웅)
@@ -91614,7 +91614,7 @@ def draw_objects():
                         color=arena_bottom_hero["color"],
                         scale_mode="paddle",
                         stun_effect=(arena_bottom_dash_stun_timer > 0),
-                        electric_stun=(_judgment_lightning_stun_bottom_timer > 0)
+                        electric_stun=(_judgment_lightning_stun_bottom_timer > 0 or (arena_skill_manager and arena_skill_manager.game_state.get('bottom_paddle_electric_stun', False)))
                     )
                     _arena_holo_surf_btm = apply_hologram_materialize_effect(_arena_holo_surf_btm, _player_hologram_progress, _hologram_time_now)
                     SCREEN.blit(_arena_holo_surf_btm, (int(_final_x) - _arena_holo_size_btm // 2, int(_final_y) - _arena_holo_size_btm // 2))
@@ -91631,7 +91631,7 @@ def draw_objects():
                         color=arena_bottom_hero["color"],
                         scale_mode="paddle",
                         stun_effect=(arena_bottom_dash_stun_timer > 0),
-                        electric_stun=(_judgment_lightning_stun_bottom_timer > 0)
+                        electric_stun=(_judgment_lightning_stun_bottom_timer > 0 or (arena_skill_manager and arena_skill_manager.game_state.get('bottom_paddle_electric_stun', False)))
                     )
 
             # 마법결계 보호막 이펙트 (하단 영웅)
@@ -92500,11 +92500,14 @@ def draw_objects():
         # 번개 스턴일 때는 전기 이펙트로 대체 (타이머 직접 체크 - 다른 스킬의 stun 리셋과 독립)
         _lightning_top_active = _judgment_lightning_stun_top_timer > 0
         _lightning_bot_active = _judgment_lightning_stun_bottom_timer > 0
-        if _lightning_top_active:
+        # 천둥뇌구 감전 스턴도 전기 이펙트로 대체 (별 이펙트 비활성)
+        _thunder_top_electric = _arena_gs.get('top_paddle_electric_stun', False)
+        _thunder_bot_electric = _arena_gs.get('bottom_paddle_electric_stun', False)
+        if _lightning_top_active or _thunder_top_electric:
             _draw_arena_electric_stun(BOSS, is_top=True)
         elif _arena_top_stun:
             _draw_arena_stun_stars(BOSS, is_top=True)
-        if _lightning_bot_active:
+        if _lightning_bot_active or _thunder_bot_electric:
             _draw_arena_electric_stun(PLAYER, is_top=False)
         elif _arena_bot_stun:
             _draw_arena_stun_stars(PLAYER, is_top=False)
