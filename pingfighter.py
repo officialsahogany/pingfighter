@@ -3166,6 +3166,7 @@ _current_display_mode = "fullscreen" if FULLSCREEN_MODE else "windowed"
 # 플레이어 게이지를 필러에 렌더링하기 위한 전역 변수
 _player_gauge_surface = None  # 게이지가 그려진 Surface (우측 - 대쉬 토큰용)
 _player_gauge_surface_left = None  # 좌측 필러 Surface (게이지바 + 수치)
+_player_gauge_surface_top = None   # 우측 상단 필러 Surface (상단영웅 대쉬 토큰용)
 _player_gauge_rect = None     # 게이지 영역 (x, y, w, h)
 _player_gauge_surface_left_screen_pos = (0, 0)  # 좌측 필러 Surface의 화면 좌표 (툴팁용)
 
@@ -7693,6 +7694,25 @@ def _draw_pillar_ui(screen, renderer):
             else:
                 screen.blit(_player_gauge_surface, (pillar_x, pillar_y))
       except Exception as e:
+        pass
+
+    # 오른쪽 필러 상단 - 상단영웅 대쉬 토큰 구슬 (투기장 모드, 하단 구슬과 대칭)
+    if _is_ingame:
+      try:
+        if _player_gauge_surface_top is not None:
+            # 하단 구슬과 동일한 X 위치
+            top_pillar_x = GAME_OFFSET_X + GAME_SCALED_WIDTH + int(25 * GAME_SCALE_FACTOR)
+            # Y 위치: 게임 영역 맨 상단 + 10px (하단은 맨 하단 - 10px이므로 대칭)
+            top_pillar_y = GAME_OFFSET_Y + 10
+
+            if GAME_SCALE_FACTOR != 1.0:
+                top_scaled_w = int(_player_gauge_surface_top.get_width() * GAME_SCALE_FACTOR)
+                top_scaled_h = int(_player_gauge_surface_top.get_height() * GAME_SCALE_FACTOR)
+                top_scaled = pygame.transform.scale(_player_gauge_surface_top, (top_scaled_w, top_scaled_h))
+                screen.blit(top_scaled, (top_pillar_x, top_pillar_y))
+            else:
+                screen.blit(_player_gauge_surface_top, (top_pillar_x, top_pillar_y))
+      except Exception:
         pass
 
     # 왼쪽 필러 - 플레이어 게이지바 + 수치 표시 (인게임에서만, 투기장 모드 제외)
@@ -85838,7 +85858,8 @@ def draw_player_gauge():
             border_color = (220, 180, 255) if sensor_charge_progress >= 1.0 else (100, 60, 140)
             pygame.draw.circle(SCREEN, border_color, (sensor_orb_x, sensor_orb_y), sensor_orb_radius, 2)
 
-        # === 투기장 모드: 상단 영웅 대쉬 토큰 구슬 (우측 상단) ===
+        # === 투기장 모드: 상단 영웅 대쉬 토큰 구슬 → 별도 Surface에 그림 (우측 맨 상단 배치용) ===
+        global _player_gauge_surface_top
         if arena_mode_enabled and not _skip_right_orb_drawing:
             try:
                 _top_max_tokens = arena_top_max_dash_charges
@@ -85848,30 +85869,35 @@ def draw_player_gauge():
                 if not arena_top_dashing and arena_top_dash_cooldown <= 0 and arena_top_dash_stun_timer <= 0:
                     _top_available = _top_max_tokens  # 대쉬 가능
                 else:
-                    # 쿨다운 진행률 계산
                     if arena_top_dash_cooldown > 0:
                         _top_cd_max = int(ARENA_DASH_COOLDOWN_MAX * arena_perk_dash_cd_mult_top)
                         _top_charge_progress = max(0.0, 1.0 - (arena_top_dash_cooldown / max(1, _top_cd_max)))
                     elif arena_top_dash_stun_timer > 0:
-                        _top_charge_progress = 0.0  # 스턴 중
+                        _top_charge_progress = 0.0
                     elif arena_top_dashing:
-                        _top_charge_progress = 0.0  # 대쉬 중
+                        _top_charge_progress = 0.0
 
                 # 구슬 크기: 하단 구슬과 동일
                 _top_orb_radius = orb_radius
-                # 구슬 위치: 하단 구슬과 대칭 (동일 X축, Y는 상단에서 동일 간격)
-                _top_orb_x = orb_center_x
-                _top_orb_y = orb_radius_base + 15  # 하단: surface_height - orb_radius_base - 15 와 대칭
+                # 별도 Surface 생성 (하단 Surface와 동일 크기)
+                _top_surf_w = surface_width   # 240
+                _top_surf_h = surface_height  # 320
+                _player_gauge_surface_top = pygame.Surface((_top_surf_w, _top_surf_h), pygame.SRCALPHA)
+                _player_gauge_surface_top.fill((0, 0, 0, 0))
+                _TOP = _player_gauge_surface_top  # 단축 참조
+
+                # 구슬 위치: Surface 내 하단 (하단 구슬과 동일 위치 - blit 시 상단에 배치)
+                _top_orb_x = 80  # 하단 구슬과 동일한 X
+                _top_orb_y = _top_surf_h - orb_radius_base - 15  # 하단 구슬과 동일 위치
 
                 # === 보라빛 색상 테마 ===
-                _top_empty_color = (30, 15, 50)       # 어두운 보라색 배경
-                _top_full_color = (140, 60, 200)       # 밝은 보라색 (채워진 상태)
-                _top_glow_color = (180, 120, 255)      # 글로우 색상
+                _top_empty_color = (30, 15, 50)
+                _top_full_color = (140, 60, 200)
                 _top_frame_dark = (25, 15, 40)
                 _top_frame_light = (70, 40, 100)
                 _top_frame_highlight = (120, 80, 160)
 
-                # === 1. 외곽 글로우 (보라빛 - 하단 구슬과 동일 크기) ===
+                # === 1. 외곽 글로우 ===
                 _tg_pulse = 0.6 + 0.4 * math.sin(time_now * 0.0035)
                 _tg_glow_surf = pygame.Surface((_top_orb_radius * 2 + 50, _top_orb_radius * 2 + 50), pygame.SRCALPHA)
                 for _tgi in range(4):
@@ -85879,52 +85905,47 @@ def draw_player_gauge():
                     _tg_a = int(20 * _tg_pulse * (4 - _tgi) / 4)
                     pygame.draw.circle(_tg_glow_surf, (140, 60, 200, _tg_a),
                                      (_top_orb_radius + 25, _top_orb_radius + 25), _tg_r)
-                SCREEN.blit(_tg_glow_surf, (_top_orb_x - _top_orb_radius - 25, _top_orb_y - _top_orb_radius - 25))
+                _TOP.blit(_tg_glow_surf, (_top_orb_x - _top_orb_radius - 25, _top_orb_y - _top_orb_radius - 25))
 
-                # === 2. 그림자 + 프레임 (하단 구슬과 동일 스케일) ===
-                # 그림자
-                _top_fw = 10  # 프레임 두께 (하단 구슬과 동일)
+                # === 2. 그림자 + 프레임 ===
+                _top_fw = 10
                 for _tsi in range(4):
                     _tsr = _top_orb_radius + _top_fw + 3 - _tsi
                     _tsa = 50 - _tsi * 12
-                    pygame.draw.circle(SCREEN, (10, 5, 15, _tsa), (_top_orb_x + 3, _top_orb_y + 3), _tsr)
-                # 외곽 프레임
-                pygame.draw.circle(SCREEN, _top_frame_dark, (_top_orb_x, _top_orb_y), _top_orb_radius + _top_fw)
-                pygame.draw.circle(SCREEN, _top_frame_light, (_top_orb_x, _top_orb_y), _top_orb_radius + _top_fw, 4)
-                pygame.draw.circle(SCREEN, _top_frame_highlight, (_top_orb_x, _top_orb_y), _top_orb_radius + _top_fw, 2)
-                pygame.draw.circle(SCREEN, (60, 35, 70), (_top_orb_x, _top_orb_y), _top_orb_radius + _top_fw - 4, 2)
-                pygame.draw.circle(SCREEN, (110, 80, 130), (_top_orb_x, _top_orb_y), _top_orb_radius + _top_fw - 5, 1)
-                # 베벨 효과
+                    pygame.draw.circle(_TOP, (10, 5, 15, _tsa), (_top_orb_x + 3, _top_orb_y + 3), _tsr)
+                pygame.draw.circle(_TOP, _top_frame_dark, (_top_orb_x, _top_orb_y), _top_orb_radius + _top_fw)
+                pygame.draw.circle(_TOP, _top_frame_light, (_top_orb_x, _top_orb_y), _top_orb_radius + _top_fw, 4)
+                pygame.draw.circle(_TOP, _top_frame_highlight, (_top_orb_x, _top_orb_y), _top_orb_radius + _top_fw, 2)
+                pygame.draw.circle(_TOP, (60, 35, 70), (_top_orb_x, _top_orb_y), _top_orb_radius + _top_fw - 4, 2)
+                pygame.draw.circle(_TOP, (110, 80, 130), (_top_orb_x, _top_orb_y), _top_orb_radius + _top_fw - 5, 1)
                 _top_bevel = (_top_orb_x - _top_orb_radius - _top_fw + 2, _top_orb_y - _top_orb_radius - _top_fw + 2,
                              (_top_orb_radius + _top_fw - 2) * 2, (_top_orb_radius + _top_fw - 2) * 2)
-                pygame.draw.arc(SCREEN, (180, 160, 200, 180), _top_bevel, math.radians(200), math.radians(340), 3)
-                pygame.draw.arc(SCREEN, (20, 12, 25, 160), _top_bevel, math.radians(20), math.radians(160), 3)
-                # 스터드 (8개 - 보라색 보석)
+                pygame.draw.arc(_TOP, (180, 160, 200, 180), _top_bevel, math.radians(200), math.radians(340), 3)
+                pygame.draw.arc(_TOP, (20, 12, 25, 160), _top_bevel, math.radians(20), math.radians(160), 3)
                 _top_n_studs = 8
                 for _tsi in range(_top_n_studs):
                     _tsa = _tsi * (math.pi * 2 / _top_n_studs) - math.pi / 2
                     _tsd = _top_orb_radius + _top_fw // 2
                     _tsx = int(_top_orb_x + math.cos(_tsa) * _tsd)
                     _tsy = int(_top_orb_y + math.sin(_tsa) * _tsd)
-                    pygame.draw.circle(SCREEN, (40, 25, 50, 255), (_tsx, _tsy), 6)
-                    pygame.draw.circle(SCREEN, (100, 70, 120, 255), (_tsx, _tsy), 5)
-                    pygame.draw.circle(SCREEN, (150, 110, 180, 255), (_tsx, _tsy), 4)
-                    pygame.draw.circle(SCREEN, (120, 40, 180, 255), (_tsx, _tsy), 3)
-                    pygame.draw.circle(SCREEN, (180, 80, 240, 255), (_tsx, _tsy), 2)
-                    pygame.draw.circle(SCREEN, (220, 180, 255, 200), (_tsx - 1, _tsy - 1), 1)
-                # 내부 테두리
-                pygame.draw.circle(SCREEN, (15, 10, 20), (_top_orb_x, _top_orb_y), _top_orb_radius + 2, 2)
-                pygame.draw.circle(SCREEN, (60, 40, 70), (_top_orb_x, _top_orb_y), _top_orb_radius + 1, 1)
+                    pygame.draw.circle(_TOP, (40, 25, 50, 255), (_tsx, _tsy), 6)
+                    pygame.draw.circle(_TOP, (100, 70, 120, 255), (_tsx, _tsy), 5)
+                    pygame.draw.circle(_TOP, (150, 110, 180, 255), (_tsx, _tsy), 4)
+                    pygame.draw.circle(_TOP, (120, 40, 180, 255), (_tsx, _tsy), 3)
+                    pygame.draw.circle(_TOP, (180, 80, 240, 255), (_tsx, _tsy), 2)
+                    pygame.draw.circle(_TOP, (220, 180, 255, 200), (_tsx - 1, _tsy - 1), 1)
+                pygame.draw.circle(_TOP, (15, 10, 20), (_top_orb_x, _top_orb_y), _top_orb_radius + 2, 2)
+                pygame.draw.circle(_TOP, (60, 40, 70), (_top_orb_x, _top_orb_y), _top_orb_radius + 1, 1)
 
-                # === 3. 구슬 배경 (어두운 보라색 그라데이션) ===
+                # === 3. 구슬 배경 ===
                 for _tbr in range(_top_orb_radius, 0, -2):
                     _tb_ratio = _tbr / _top_orb_radius
                     _tb_r = int(_top_empty_color[0] + 15 * (1 - _tb_ratio))
                     _tb_g = int(_top_empty_color[1] + 8 * (1 - _tb_ratio))
                     _tb_b = int(_top_empty_color[2] + 20 * (1 - _tb_ratio))
-                    pygame.draw.circle(SCREEN, (_tb_r, _tb_g, _tb_b), (_top_orb_x, _top_orb_y), _tbr)
+                    pygame.draw.circle(_TOP, (_tb_r, _tb_g, _tb_b), (_top_orb_x, _top_orb_y), _tbr)
 
-                # === 4. 내부 파티클 (보라빛 스파클 - 하단 구슬과 동일 개수) ===
+                # === 4. 내부 파티클 ===
                 _top_sparkle = pygame.Surface((_top_orb_radius * 2, _top_orb_radius * 2), pygame.SRCALPHA)
                 for _tpi in range(10):
                     _tpa = time_now * 0.0012 + _tpi * 0.63
@@ -85934,34 +85955,29 @@ def draw_player_gauge():
                     _tp_alpha = int(50 + 35 * abs(math.sin(_tpa * 1.2)))
                     _tp_size = 1 + int(abs(math.sin(_tpa * 0.4)))
                     if 0 < _tppx < _top_orb_radius * 2 and 0 < _tppy < _top_orb_radius * 2:
-                        _tdx = _tppx - _top_orb_radius
-                        _tdy = _tppy - _top_orb_radius
-                        if _tdx * _tdx + _tdy * _tdy < (_top_orb_radius - 5) * (_top_orb_radius - 5):
+                        _tdx2 = _tppx - _top_orb_radius
+                        _tdy2 = _tppy - _top_orb_radius
+                        if _tdx2 * _tdx2 + _tdy2 * _tdy2 < (_top_orb_radius - 5) * (_top_orb_radius - 5):
                             pygame.draw.circle(_top_sparkle, (180, 120, 255, _tp_alpha), (_tppx, _tppy), _tp_size)
-                SCREEN.blit(_top_sparkle, (_top_orb_x - _top_orb_radius, _top_orb_y - _top_orb_radius))
+                _TOP.blit(_top_sparkle, (_top_orb_x - _top_orb_radius, _top_orb_y - _top_orb_radius))
 
-                # === 5. 섹터별 토큰 상태 그리기 (하단 구슬과 동일 해상도) ===
+                # === 5. 섹터별 토큰 상태 ===
                 _top_sector_angle = 360.0 / max(1, _top_max_tokens)
-                _top_start_offset = -90  # 12시 방향
-
+                _top_start_offset = -90
                 for _ti in range(_top_max_tokens):
                     _ts_start_deg = _top_start_offset + _ti * _top_sector_angle
                     _ts_end_deg = _top_start_offset + (_ti + 1) * _top_sector_angle
                     _ts_start_rad = math.radians(_ts_start_deg)
                     _ts_end_rad = math.radians(_ts_end_deg)
-
-                    _ts_num_points = 32  # 하단 구슬과 동일
-                    _ts_points = [(_top_orb_x, _top_orb_y)]  # 중심점
+                    _ts_num_points = 32
+                    _ts_points = [(_top_orb_x, _top_orb_y)]
                     for _tj in range(_ts_num_points + 1):
                         _ts_angle = _ts_start_rad + (_ts_end_rad - _ts_start_rad) * _tj / _ts_num_points
                         _ts_px = _top_orb_x + (_top_orb_radius - 4) * math.cos(_ts_angle)
                         _ts_py = _top_orb_y + (_top_orb_radius - 4) * math.sin(_ts_angle)
                         _ts_points.append((_ts_px, _ts_py))
-
                     if _ti < _top_available:
-                        # 가득 찬 섹터 (밝은 보라색)
-                        pygame.draw.polygon(SCREEN, _top_full_color, _ts_points)
-                        # 하이라이트 (3 레이어 - 하단 구슬과 동일)
+                        pygame.draw.polygon(_TOP, _top_full_color, _ts_points)
                         for _tl in range(3):
                             _tl_ratio = 0.3 + _tl * 0.15
                             _tl_pts = [(_top_orb_x, _top_orb_y)]
@@ -85971,11 +85987,10 @@ def draw_player_gauge():
                                 _ts_py = _top_orb_y + (_top_orb_radius * _tl_ratio) * math.sin(_ts_angle)
                                 _tl_pts.append((_ts_px, _ts_py))
                             _tl_alpha = 80 - _tl * 20
-                            _tl_surf = pygame.Surface((surface_width, surface_height), pygame.SRCALPHA)
+                            _tl_surf = pygame.Surface((_top_surf_w, _top_surf_h), pygame.SRCALPHA)
                             pygame.draw.polygon(_tl_surf, (200, 160, 255, _tl_alpha), _tl_pts)
-                            SCREEN.blit(_tl_surf, (0, 0))
+                            _TOP.blit(_tl_surf, (0, 0))
                     elif _top_charge_progress > 0 and _ti == _top_available:
-                        # 충전 중인 섹터 (아래에서 위로 차오름)
                         _tc_color = (50 + int(90 * _top_charge_progress),
                                     25 + int(35 * _top_charge_progress),
                                     80 + int(120 * _top_charge_progress))
@@ -85998,18 +86013,17 @@ def draw_player_gauge():
                             _tc_charge_pts.insert(0, (_tc_charge_pts[0][0], _tc_clip_y))
                             _tc_charge_pts.append((_tc_charge_pts[-1][0], _tc_clip_y))
                         if len(_tc_charge_pts) >= 3:
-                            pygame.draw.polygon(SCREEN, _tc_color, _tc_charge_pts)
+                            pygame.draw.polygon(_TOP, _tc_color, _tc_charge_pts)
 
-                # === 6. 분할선 (금색 - 하단 구슬과 동일 12세그먼트) ===
+                # === 6. 분할선 ===
                 if _top_max_tokens > 1:
-                    _td_surf = pygame.Surface((surface_width, surface_height), pygame.SRCALPHA)
+                    _td_surf = pygame.Surface((_top_surf_w, _top_surf_h), pygame.SRCALPHA)
                     for _ti in range(_top_max_tokens):
                         _td_angle_deg = _top_start_offset + _ti * _top_sector_angle
                         _td_angle_rad = math.radians(_td_angle_deg)
                         _td_length = _top_orb_radius - 8
                         _td_end_x = _top_orb_x + _td_length * math.cos(_td_angle_rad)
                         _td_end_y = _top_orb_y + _td_length * math.sin(_td_angle_rad)
-                        # 분할선 (12 세그먼트 - 하단 구슬과 동일)
                         for _ts in range(12):
                             _ts_s = _ts / 12
                             _ts_e = (_ts + 1) / 12
@@ -86021,16 +86035,14 @@ def draw_player_gauge():
                             _ts_cr = 1.0 - _ts / 12
                             _ts_gold = (int(160 + 40 * _ts_cr), int(120 + 30 * _ts_cr), int(60 + 20 * _ts_cr))
                             pygame.draw.line(_td_surf, (*_ts_gold, 200), (_ts_x1, _ts_y1), (_ts_x2, _ts_y2), _ts_thick)
-                        # 끝 장식 (덩굴 끝 - 하단 구슬과 동일)
                         pygame.draw.circle(_td_surf, (200, 160, 80, 180), (int(_td_end_x), int(_td_end_y)), 3)
                         pygame.draw.circle(_td_surf, (255, 220, 140, 150), (int(_td_end_x), int(_td_end_y)), 2)
-                    SCREEN.blit(_td_surf, (0, 0))
-                    # 중앙 장식 (하단 구슬과 동일 크기)
-                    pygame.draw.circle(SCREEN, (180, 140, 70), (_top_orb_x, _top_orb_y), 6)
-                    pygame.draw.circle(SCREEN, (220, 180, 100), (_top_orb_x, _top_orb_y), 4)
-                    pygame.draw.circle(SCREEN, (255, 220, 150), (_top_orb_x, _top_orb_y), 2)
+                    _TOP.blit(_td_surf, (0, 0))
+                    pygame.draw.circle(_TOP, (180, 140, 70), (_top_orb_x, _top_orb_y), 6)
+                    pygame.draw.circle(_TOP, (220, 180, 100), (_top_orb_x, _top_orb_y), 4)
+                    pygame.draw.circle(_TOP, (255, 220, 150), (_top_orb_x, _top_orb_y), 2)
 
-                # === 7. 글래스 하이라이트 (하단 구슬과 동일 스타일) ===
+                # === 7. 글래스 하이라이트 ===
                 _tg_hl_surf = pygame.Surface((_top_orb_radius * 2 + 4, _top_orb_radius * 2 + 4), pygame.SRCALPHA)
                 pygame.draw.ellipse(_tg_hl_surf, (255, 255, 255, 30),
                                    (8, 5, _top_orb_radius + 10, _top_orb_radius // 2))
@@ -86040,55 +86052,52 @@ def draw_player_gauge():
                                    (18, 14, _top_orb_radius // 2, _top_orb_radius // 4))
                 pygame.draw.circle(_tg_hl_surf, (255, 255, 255, 130), (_top_orb_radius // 3, _top_orb_radius // 3), 3)
                 pygame.draw.circle(_tg_hl_surf, (255, 255, 255, 90), (_top_orb_radius // 3 + 1, _top_orb_radius // 3 + 1), 2)
-                # 하단 림 효과 (보라빛)
                 _tg_rim_surf = pygame.Surface((_top_orb_radius * 2 + 4, _top_orb_radius * 2 + 4), pygame.SRCALPHA)
                 pygame.draw.arc(_tg_rim_surf, (200, 150, 255, 35), (2, 2, _top_orb_radius * 2, _top_orb_radius * 2),
                                math.radians(30), math.radians(150), 2)
-                SCREEN.blit(_tg_hl_surf, (_top_orb_x - _top_orb_radius - 2, _top_orb_y - _top_orb_radius - 2))
-                SCREEN.blit(_tg_rim_surf, (_top_orb_x - _top_orb_radius - 2, _top_orb_y - _top_orb_radius - 2))
+                _TOP.blit(_tg_hl_surf, (_top_orb_x - _top_orb_radius - 2, _top_orb_y - _top_orb_radius - 2))
+                _TOP.blit(_tg_rim_surf, (_top_orb_x - _top_orb_radius - 2, _top_orb_y - _top_orb_radius - 2))
 
-                # === 8. 볼트 장식 (대각선 4방향 - 보라색 보석, 하단과 동일 크기) ===
+                # === 8. 볼트 장식 ===
                 _tb_angles = [math.radians(a) for a in [315, 45, 225, 135]]
-                _tb_bolt_surf = pygame.Surface((surface_width, surface_height), pygame.SRCALPHA)
+                _tb_bolt_surf = pygame.Surface((_top_surf_w, _top_surf_h), pygame.SRCALPHA)
                 for _tba in _tb_angles:
                     _tbx = int(_top_orb_x + math.cos(_tba) * (_top_orb_radius + 5))
                     _tby = int(_top_orb_y + math.sin(_tba) * (_top_orb_radius + 5))
-                    # 볼트 마운트
                     pygame.draw.circle(_tb_bolt_surf, (40, 25, 50, 255), (_tbx, _tby), 6)
                     pygame.draw.circle(_tb_bolt_surf, (100, 70, 120, 255), (_tbx, _tby), 5)
                     pygame.draw.circle(_tb_bolt_surf, (150, 110, 180, 255), (_tbx, _tby), 4)
-                    # 보라색 보석
                     pygame.draw.circle(_tb_bolt_surf, (140, 40, 200, 255), (_tbx, _tby), 3)
                     pygame.draw.circle(_tb_bolt_surf, (200, 80, 255, 255), (_tbx, _tby), 2)
-                    # 하이라이트
                     pygame.draw.circle(_tb_bolt_surf, (230, 190, 255, 160), (_tbx - 1, _tby - 1), 1)
-                SCREEN.blit(_tb_bolt_surf, (0, 0))
+                _TOP.blit(_tb_bolt_surf, (0, 0))
 
-                # === 9. 펄스 글로우 효과 (토큰 보유 시) ===
+                # === 9. 펄스 글로우 ===
                 if _top_available > 0:
                     _tg_pulse2 = 0.5 + 0.5 * math.sin(time_now * 0.004)
                     _tg_glow_alpha = int(50 * _tg_pulse2)
                     _tg_glow2_surf = pygame.Surface((_top_orb_radius * 2 + 30, _top_orb_radius * 2 + 30), pygame.SRCALPHA)
                     pygame.draw.circle(_tg_glow2_surf, (180, 80, 255, _tg_glow_alpha),
                                      (_top_orb_radius + 15, _top_orb_radius + 15), _top_orb_radius + 12)
-                    SCREEN.blit(_tg_glow2_surf, (_top_orb_x - _top_orb_radius - 15, _top_orb_y - _top_orb_radius - 15))
+                    _TOP.blit(_tg_glow2_surf, (_top_orb_x - _top_orb_radius - 15, _top_orb_y - _top_orb_radius - 15))
 
-                # === 10. 토큰 카운트 텍스트 (하단 구슬과 동일 폰트 크기) ===
+                # === 10. 토큰 카운트 텍스트 ===
                 try:
                     _top_count_text = f"{_top_available}/{_top_max_tokens}"
                     _top_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 16)
                     _top_text_surf, _ = _top_font.render(_top_count_text, (255, 255, 255))
                     _top_text_rect = _top_text_surf.get_rect(center=(_top_orb_x, _top_orb_y))
-                    # 그림자 (더 진하게 - 하단 구슬과 동일)
                     _top_shadow_surf, _ = _top_font.render(_top_count_text, (0, 0, 0))
                     for _tdx, _tdy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                         _top_s_rect = _top_shadow_surf.get_rect(center=(_top_orb_x + _tdx, _top_orb_y + _tdy))
-                        SCREEN.blit(_top_shadow_surf, _top_s_rect)
-                    SCREEN.blit(_top_text_surf, _top_text_rect)
+                        _TOP.blit(_top_shadow_surf, _top_s_rect)
+                    _TOP.blit(_top_text_surf, _top_text_rect)
                 except Exception:
                     pass
             except Exception as e:
-                pass  # 상단 영웅 토큰 구슬 그리기 실패 시 무시
+                _player_gauge_surface_top = None  # 실패 시 None으로
+        else:
+            _player_gauge_surface_top = None  # 투기장 모드가 아니면 None
 
         # 전체화면 모드에서는 기존 원형 토큰 그리기 스킵
         # SCREEN 복원 후 함수 끝으로 점프하기 위해 플래그 설정
