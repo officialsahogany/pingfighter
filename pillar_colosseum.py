@@ -129,6 +129,17 @@ class CircularStadiumFrame:
         self.excitement_level = 0.0
         self.excitement_timer = 0.0
 
+        # 관중 반응 상태
+        self._boo_active = False
+        self._boo_timer = 0.0
+        self._boo_intensity = 0.0
+        self._gasp_active = False
+        self._gasp_timer = 0.0
+        self._gasp_intensity = 0.0
+        self._standing_ovation_active = False
+        self._standing_ovation_timer = 0.0
+        self._momentum_level = 0.0
+
         # 관중 데이터 생성
         self.crowd_list = []
         self._generate_crowd()
@@ -920,6 +931,10 @@ class CircularStadiumFrame:
 
         return surf
 
+    # ============================================================
+    # 관중 반응 시스템 (Crowd Reaction System)
+    # ============================================================
+
     def trigger_excitement(self, intensity: float = 1.0, duration: float = 2.0):
         """관중 흥분 이벤트"""
         self.excitement_level = min(1.0, intensity)
@@ -929,6 +944,40 @@ class CircularStadiumFrame:
         """관중 웨이브"""
         self._wave_active = True
         self._wave_angle = 0.0
+
+    def trigger_boo(self, duration: float = 1.5):
+        """관중 야유 (일방적 전개 시)"""
+        self._boo_active = True
+        self._boo_timer = duration
+        self._boo_intensity = 1.0
+
+    def trigger_gasp(self, duration: float = 1.0):
+        """관중 탄식/경악 (역전 시, 클로즈 매치)"""
+        self._gasp_active = True
+        self._gasp_timer = duration
+        self._gasp_intensity = 1.0
+
+    def trigger_standing_ovation(self, duration: float = 3.0):
+        """기립박수 (결승전, 역전승 등 극적인 상황)"""
+        self.excitement_level = 1.0
+        self.excitement_timer = duration
+        self._standing_ovation_active = True
+        self._standing_ovation_timer = duration
+        self._wave_active = True
+        self._wave_angle = 0.0
+
+    def get_momentum_level(self) -> float:
+        """현재 관중 모멘텀 레벨 반환 (0.0 ~ 1.0)
+        배틀에서 패들 속도 보너스 등에 활용"""
+        return self._momentum_level
+
+    def add_momentum(self, amount: float):
+        """모멘텀 축적 (랠리마다 조금씩 쌓임)"""
+        self._momentum_level = min(1.0, self._momentum_level + amount)
+
+    def reset_momentum(self):
+        """모멘텀 리셋 (득점 시)"""
+        self._momentum_level = max(0, self._momentum_level - 0.3)
 
     def update(self, dt: float, player_rect=None):
         """업데이트"""
@@ -949,6 +998,32 @@ class CircularStadiumFrame:
                 self._wave_active = False
                 self._wave_angle = 0.0
 
+        # 야유 상태 업데이트
+        if self._boo_active:
+            self._boo_timer -= dt
+            self._boo_intensity = max(0, self._boo_timer / 1.5)
+            if self._boo_timer <= 0:
+                self._boo_active = False
+                self._boo_intensity = 0
+
+        # 탄식 상태 업데이트
+        if self._gasp_active:
+            self._gasp_timer -= dt
+            self._gasp_intensity = max(0, self._gasp_timer / 1.0)
+            if self._gasp_timer <= 0:
+                self._gasp_active = False
+                self._gasp_intensity = 0
+
+        # 기립박수 상태 업데이트
+        if self._standing_ovation_active:
+            self._standing_ovation_timer -= dt
+            if self._standing_ovation_timer <= 0:
+                self._standing_ovation_active = False
+
+        # 모멘텀 자연 감소 (서서히)
+        if self._momentum_level > 0:
+            self._momentum_level = max(0, self._momentum_level - dt * 0.05)
+
     def draw(self, screen: pygame.Surface):
         """프레임 그리기"""
         # 캐시된 석조 배경
@@ -957,6 +1032,10 @@ class CircularStadiumFrame:
 
         # 관중 그리기 (캐시된 서피스 blit)
         is_excited = self.excitement_level > 0.3
+        is_booing = self._boo_active
+        is_gasping = self._gasp_active
+        is_standing = self._standing_ovation_active
+        high_momentum = self._momentum_level > 0.7
 
         for i, person in enumerate(self.crowd_list):
             x, y = person['x'], person['y']
@@ -973,9 +1052,28 @@ class CircularStadiumFrame:
 
             # 흥분 / 웨이브
             arm_up = False
-            if is_excited:
-                draw_y += int(5 * math.sin(self.time * 5 + anim_offset))
-                arm_up = math.sin(self.time * 3 + anim_offset) > 0.2
+
+            if is_standing:
+                # 기립박수: 모든 관중이 일어나서 팔을 들고 율동
+                draw_y -= 6  # 일어선 효과
+                draw_y += int(3 * math.sin(self.time * 6 + anim_offset))
+                arm_up = True
+            elif is_excited or high_momentum:
+                bounce_amp = 5 if is_excited else 3
+                bounce_freq = 5 if is_excited else 3.5
+                draw_y += int(bounce_amp * math.sin(self.time * bounce_freq + anim_offset))
+                threshold = 0.2 if is_excited else 0.5
+                arm_up = math.sin(self.time * 3 + anim_offset) > threshold
+            elif is_booing:
+                # 야유: 좌우로 빠르게 흔들림 (화난 동작)
+                boo_shake = self._boo_intensity * 4 * math.sin(self.time * 12 + anim_offset)
+                draw_x += boo_shake
+                arm_up = False  # 팔 내림 (화난 상태)
+            elif is_gasping:
+                # 탄식: 순간적으로 몸이 뒤로 젖혀짐
+                gasp_lean = self._gasp_intensity * 3
+                draw_y += gasp_lean
+                arm_up = self._gasp_intensity > 0.5  # 초반엔 팔 올림 (놀람)
 
             if self._wave_active:
                 angle_diff = abs(person['angle'] - self._wave_angle)
@@ -989,11 +1087,13 @@ class CircularStadiumFrame:
             screen.blit(surf, (int(draw_x) - cache['offset_x'],
                                int(draw_y) - cache['offset_y']))
 
-        # 횃불 그리기
+        # 횃불 그리기 (모멘텀 높으면 불꽃이 더 밝게)
         self._draw_torches(screen)
 
     def _draw_torches(self, screen):
-        """횃불 그리기"""
+        """횃불 그리기 (모멘텀에 따라 불꽃 크기 변화)"""
+        momentum_boost = 1.0 + self._momentum_level * 0.6  # 최대 1.6배 불꽃
+
         for torch in self.torches:
             tx, ty = torch['x'], torch['y']
             phase = torch['phase']
@@ -1006,12 +1106,16 @@ class CircularStadiumFrame:
             pygame.draw.rect(screen, self.COLORS['torch_holder'],
                             (tx - 4, ty, 8, 20))
 
-            # 불꽃 크기 변화
-            flame_size = 8 + int(3 * math.sin(self.time * 8 + phase))
-            flame_height = 12 + int(4 * math.sin(self.time * 10 + phase))
+            # 불꽃 크기 변화 (모멘텀 반영)
+            flame_size = int((8 + int(3 * math.sin(self.time * 8 + phase))) * momentum_boost)
+            flame_height = int((12 + int(4 * math.sin(self.time * 10 + phase))) * momentum_boost)
 
             # 불꽃 글로우 (캐시된 서피스 재사용)
             screen.blit(self._torch_glow_surface, (tx - 20, ty - flame_height - 10), special_flags=pygame.BLEND_ADD)
+
+            # 모멘텀 높을 때 추가 글로우
+            if self._momentum_level > 0.5:
+                screen.blit(self._torch_glow_surface, (tx - 20, ty - flame_height - 15), special_flags=pygame.BLEND_ADD)
 
             # 불꽃
             flame_points = [

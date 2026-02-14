@@ -65142,6 +65142,15 @@ def handle_player(keys):
                             if arena_perk_speed_mult_bottom != 1.0 and arena_mode_enabled:
                                 adjusted_acceleration *= arena_perk_speed_mult_bottom
                                 adjusted_max_speed *= arena_perk_speed_mult_bottom
+                            # 🏟️ 투기장 관중 모멘텀 버프: 최대 +10% 이속
+                            if arena_mode_enabled and current_stage == 30 and pillar_renderer is not None:
+                                _m_bg = pillar_renderer.get_colosseum_bg() if pillar_renderer else None
+                                if _m_bg and hasattr(_m_bg, 'get_momentum_level'):
+                                    _momentum = _m_bg.get_momentum_level()
+                                    if _momentum > 0.3:
+                                        _m_bonus = 1.0 + _momentum * 0.1  # 최대 1.1배
+                                        adjusted_acceleration *= _m_bonus
+                                        adjusted_max_speed *= _m_bonus
                             # 🏟️ 투기장 신의심판: 이동속도 -50%
                             if arena_mode_enabled and current_stage == 30 and animated_bg_stage30 is not None:
                                 if animated_bg_stage30.is_judgment_earthquake_active():
@@ -98707,6 +98716,212 @@ def confirm_rest(stage_cleared, reward):
                     return
 
 # ============================================================================
+# 투기장 관중 반응 시스템 (Crowd Reaction System for Arena Mode)
+# ============================================================================
+_arena_crowd_rally_count = 0
+_arena_crowd_last_hit_by = ""
+_arena_crowd_prev_score_diff = 0
+_arena_crowd_sound_timer = 0
+_arena_crowd_sound_cache = {}
+
+
+def _arena_crowd_on_hit(pillar_renderer, hit_by: str):
+    """투기장 모드에서 패들 히트 시 관중 반응 (pingfighter.py 메인 루프용)
+
+    Args:
+        pillar_renderer: PillarBackground 인스턴스
+        hit_by: "top" 또는 "bottom"
+    """
+    global _arena_crowd_rally_count, _arena_crowd_last_hit_by
+
+    bg = pillar_renderer.get_colosseum_bg() if pillar_renderer else None
+    if not bg:
+        return
+
+    # 랠리 카운트 업데이트
+    if _arena_crowd_last_hit_by != "" and _arena_crowd_last_hit_by != hit_by:
+        _arena_crowd_rally_count += 1
+    _arena_crowd_last_hit_by = hit_by
+
+    rally = _arena_crowd_rally_count
+
+    # 모멘텀 축적
+    if hasattr(bg, 'add_momentum'):
+        bg.add_momentum(0.05)
+
+    # 랠리 길이에 따른 관중 반응
+    if rally < 3:
+        bg.trigger_excitement(intensity=0.2, duration=0.4)
+    elif rally < 6:
+        bg.trigger_excitement(intensity=0.5, duration=0.6)
+        if hasattr(bg, 'add_momentum'):
+            bg.add_momentum(0.03)
+    elif rally < 10:
+        bg.trigger_excitement(intensity=0.8, duration=1.0)
+        _arena_play_crowd_sound("cheer_medium")
+    else:
+        bg.trigger_excitement(intensity=1.0, duration=1.5)
+        if rally % 5 == 0:
+            bg.trigger_wave()
+        _arena_play_crowd_sound("cheer_loud")
+
+
+def _arena_crowd_on_score(pillar_renderer, scorer: str, wins: int, losses: int):
+    """투기장 모드에서 득점 시 관중 반응 (pingfighter.py 메인 루프용)
+
+    Args:
+        pillar_renderer: PillarBackground 인스턴스
+        scorer: "top" (상단 영웅 득점) 또는 "bottom" (하단 영웅 득점)
+        wins: 현재 하단(플레이어) 라운드 승리 수
+        losses: 현재 하단(플레이어) 라운드 패배 수
+    """
+    global _arena_crowd_rally_count, _arena_crowd_last_hit_by, _arena_crowd_prev_score_diff
+
+    bg = pillar_renderer.get_colosseum_bg() if pillar_renderer else None
+    if not bg:
+        return
+
+    # 하단 영웅 기준 점수
+    s_bottom = wins
+    s_top = losses
+    prev_diff = _arena_crowd_prev_score_diff
+    curr_diff = s_bottom - s_top
+
+    was_long_rally = _arena_crowd_rally_count >= 8
+    lead_changed = (prev_diff > 0 and curr_diff < 0) or (prev_diff < 0 and curr_diff > 0)
+    is_close_match = s_bottom >= 3 and s_top >= 3 and abs(curr_diff) <= 1
+    is_deuce = s_bottom >= 4 and s_top >= 4 and s_bottom == s_top
+    is_domination = abs(curr_diff) >= 3
+    win_score = 5  # 기본 승리 점수
+    try:
+        if arena_battle_arena_obj and hasattr(arena_battle_arena_obj, 'win_score'):
+            win_score = arena_battle_arena_obj.win_score
+    except Exception:
+        pass
+    is_match_point = (s_bottom == win_score - 1 or s_top == win_score - 1)
+
+    if was_long_rally:
+        if hasattr(bg, 'trigger_standing_ovation'):
+            bg.trigger_standing_ovation(duration=3.0)
+        _arena_play_crowd_sound("standing_ovation")
+    elif lead_changed:
+        if hasattr(bg, 'trigger_gasp'):
+            bg.trigger_gasp(duration=1.2)
+        bg.trigger_excitement(intensity=1.0, duration=2.0)
+        _arena_play_crowd_sound("gasp")
+    elif is_deuce:
+        bg.trigger_excitement(intensity=1.0, duration=2.5)
+        bg.trigger_wave()
+        _arena_play_crowd_sound("cheer_loud")
+    elif is_match_point and is_close_match:
+        bg.trigger_excitement(intensity=1.0, duration=3.0)
+        _arena_play_crowd_sound("cheer_loud")
+    elif is_domination:
+        if hasattr(bg, 'trigger_boo'):
+            bg.trigger_boo(duration=1.5)
+        _arena_play_crowd_sound("boo")
+    elif is_close_match:
+        bg.trigger_excitement(intensity=0.7, duration=1.5)
+        _arena_play_crowd_sound("cheer_medium")
+    else:
+        bg.trigger_excitement(intensity=0.6, duration=1.5)
+        _arena_play_crowd_sound("cheer_short")
+
+    # 모멘텀 리셋
+    if hasattr(bg, 'reset_momentum'):
+        bg.reset_momentum()
+
+    # 상태 업데이트
+    _arena_crowd_prev_score_diff = curr_diff
+    _arena_crowd_rally_count = 0
+    _arena_crowd_last_hit_by = ""
+
+
+def _arena_play_crowd_sound(sound_type: str):
+    """투기장 관중 사운드 재생 (프로시저럴 합성)"""
+    global _arena_crowd_sound_timer, _arena_crowd_sound_cache
+    try:
+        current_time = pygame.time.get_ticks()
+        if current_time - _arena_crowd_sound_timer < 300:
+            return
+        _arena_crowd_sound_timer = current_time
+
+        if sound_type in _arena_crowd_sound_cache:
+            sound = _arena_crowd_sound_cache[sound_type]
+            if sound:
+                sound.play()
+            return
+
+        sound = _arena_synthesize_crowd_sound(sound_type)
+        _arena_crowd_sound_cache[sound_type] = sound
+        if sound:
+            sound.play()
+    except Exception:
+        pass
+
+
+def _arena_synthesize_crowd_sound(sound_type: str):
+    """관중 사운드 프로시저럴 합성 (화이트 노이즈 + 엔벨로프)"""
+    try:
+        import numpy as np
+    except ImportError:
+        return None
+    try:
+        sample_rate = 22050
+        params = {
+            "cheer_short": (0.4, 0.15, 0.05, 0.35, 5),
+            "cheer_medium": (0.8, 0.2, 0.1, 0.6, 5),
+            "cheer_loud": (1.2, 0.25, 0.15, 0.8, 5),
+            "boo": (1.0, 0.18, 0.1, 0.7, 8),
+            "gasp": (0.5, 0.2, 0.02, 0.45, 3),
+            "standing_ovation": (2.0, 0.25, 0.3, 1.2, 5),
+        }
+        if sound_type not in params:
+            return None
+        duration, volume, attack, decay, kernel_size = params[sound_type]
+        num_samples = int(sample_rate * duration)
+        t = np.linspace(0, duration, num_samples, dtype=np.float32)
+
+        # 화이트 노이즈
+        noise = np.random.uniform(-1, 1, num_samples).astype(np.float32)
+
+        # 로우패스 필터
+        kernel = np.ones(kernel_size, dtype=np.float32) / kernel_size
+        filtered = np.convolve(noise, kernel, mode='same').astype(np.float32)
+
+        # 음색 추가
+        if sound_type in ("cheer_medium", "cheer_loud", "standing_ovation"):
+            filtered += np.sin(2 * np.pi * 120 * t).astype(np.float32) * 0.15
+            filtered += np.sin(2 * np.pi * 300 * t).astype(np.float32) * 0.08
+        if sound_type == "boo":
+            filtered += np.sin(2 * np.pi * 80 * t).astype(np.float32) * 0.2
+
+        # 엔벨로프
+        envelope = np.ones(num_samples, dtype=np.float32)
+        atk = int(sample_rate * attack)
+        dec = int(sample_rate * decay)
+        if atk > 0:
+            envelope[:atk] = np.linspace(0, 1, atk, dtype=np.float32)
+        dec_start = num_samples - dec
+        if dec > 0 and dec_start > 0:
+            envelope[dec_start:] = np.linspace(1, 0, num_samples - dec_start, dtype=np.float32)
+
+        result = np.clip(filtered * envelope * volume, -1.0, 1.0)
+        result_int16 = (result * 32767).astype(np.int16)
+        return pygame.mixer.Sound(buffer=result_int16.tobytes())
+    except Exception:
+        return None
+
+
+def _arena_crowd_reset():
+    """투기장 관중 상태 초기화 (배틀 시작/종료 시)"""
+    global _arena_crowd_rally_count, _arena_crowd_last_hit_by, _arena_crowd_prev_score_diff
+    _arena_crowd_rally_count = 0
+    _arena_crowd_last_hit_by = ""
+    _arena_crowd_prev_score_diff = 0
+
+
+# ============================================================================
 # 투기장 배틀 시작 함수 (모듈 레벨 - downtown/manager.py에서 호출)
 # ============================================================================
 def start_arena_battle(top_hero: dict, bottom_hero: dict):
@@ -98748,6 +98963,9 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         arena_battle_result = None  # 이전 배틀 결과 초기화 (필수!)
         arena_top_hero = top_hero
         arena_bottom_hero = bottom_hero
+
+        # 투기장 관중 반응 상태 초기화
+        _arena_crowd_reset()
 
         # ── 투기장 공 속도 일관성 보장 ──
         # ai_mode에 따라 공 속도가 달라지므로, 투기장에서는 고정값 사용
@@ -122211,9 +122429,9 @@ def handle_ball():
             if current_stage == 1 and pillar_renderer is not None:
                 pillar_renderer.trigger_stadium_excitement(1.8)
 
-            # 스테이지 30 (투기장): 관중 흥분 트리거
+            # 스테이지 30 (투기장): 관중 반응 시스템
             if current_stage == 30 and pillar_renderer is not None:
-                pillar_renderer.trigger_colosseum_excitement(1.0, 2.5)
+                _arena_crowd_on_score(pillar_renderer, "bottom", round_wins, round_losses)
             # 🔧 라운드 승리 시 즉시 대시 상태 초기화 (윈도우 버그 방지)
             rolling_active = False
             rolling_timer = 0
@@ -122868,6 +123086,10 @@ def handle_ball():
             pygame.event.clear(pygame.KEYUP)
             pygame.key.set_repeat()  # 키 반복 리셋
 
+            # 스테이지 30 (투기장): 관중 반응 시스템 (상단 영웅 득점)
+            if current_stage == 30 and pillar_renderer is not None:
+                _arena_crowd_on_score(pillar_renderer, "top", round_wins, round_losses)
+
             # 🔥 반칙왕 발동 시: 반칙호루라기와 동일한 연출 (심판 + "무효!" + 파동 + 효과음)
             if tenacity_triggered:
                 game_state.round_losses = round_losses
@@ -123015,6 +123237,10 @@ def handle_ball():
         last_hit_by = "player"
         game_vars.ball.last_hit_by = "player"
         update_ball_rally("player")
+
+        # 투기장 모드: 관중 반응 (하단 영웅 히트)
+        if arena_mode_enabled and current_stage == 30 and pillar_renderer is not None:
+            _arena_crowd_on_hit(pillar_renderer, "bottom")
 
         # 투기장 모드: 하단 영웅 무기 휘두르기 애니메이션 트리거
         if arena_mode_enabled and arena_bottom_hero and arena_hero_paddle_renderer:
@@ -123840,6 +124066,10 @@ def handle_ball():
 
         # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
         update_ball_rally("boss")
+
+        # 투기장 모드: 관중 반응 (상단 영웅 히트)
+        if arena_mode_enabled and current_stage == 30 and pillar_renderer is not None:
+            _arena_crowd_on_hit(pillar_renderer, "top")
 
         # 투기장 모드: 상단 영웅 무기 휘두르기 애니메이션 트리거
         if arena_mode_enabled and arena_top_hero and arena_hero_paddle_renderer:
@@ -128218,6 +128448,15 @@ def handle_boss():
     if arena_perk_speed_mult_top != 1.0 and arena_mode_enabled:
         enhanced_accel *= arena_perk_speed_mult_top
         enhanced_max_speed *= arena_perk_speed_mult_top
+    # 🏟️ 투기장 관중 모멘텀 버프 - 상단 영웅: 최대 +10% 이속
+    if arena_mode_enabled and current_stage == 30 and pillar_renderer is not None:
+        _m_bg = pillar_renderer.get_colosseum_bg() if pillar_renderer else None
+        if _m_bg and hasattr(_m_bg, 'get_momentum_level'):
+            _momentum = _m_bg.get_momentum_level()
+            if _momentum > 0.3:
+                _m_bonus = 1.0 + _momentum * 0.1  # 최대 1.1배
+                enhanced_accel *= _m_bonus
+                enhanced_max_speed *= _m_bonus
     # 🏟️ 투기장 신의심판: 상단 영웅 이동속도 -50%
     if arena_mode_enabled and current_stage == 30 and animated_bg_stage30 is not None:
         if animated_bg_stage30.is_judgment_earthquake_active():
