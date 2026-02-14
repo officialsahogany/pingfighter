@@ -6419,12 +6419,12 @@ class HeroPaddleRenderer:
         state["wing_blend_smooth"] = wing_blend
         # 날개 펄럭임 (정지: 아주 느린 호흡, 이동: 활공 +20%)
         # 고정 주파수 사인파 (속도에 따라 주파수가 변하지 않음 → 떨림 방지)
-        idle_flap = _sin(self.time * 2.5) * 0.12     # 정지 상태 고정 호흡
-        move_flap = _sin(self.time * 6.0) * 0.47     # 이동 상태 고정 날갯짓 (기존5*1.2=6)
+        idle_flap = _sin(self.time * 2.5) * 0.138    # 정지 호흡 (+15%)
+        move_flap = _sin(self.time * 6.0) * 0.54     # 이동 날갯짓 (+15%)
         wing_flap = idle_flap * (1.0 - wing_blend) + move_flap * wing_blend
         # 날개 2차 모션 (끝부분 지연 - 같은 블렌드 방식)
-        idle_flap2 = _sin(self.time * 2.0 - 0.6) * 0.07
-        move_flap2 = _sin(self.time * 4.8 - 0.6) * 0.28
+        idle_flap2 = _sin(self.time * 2.0 - 0.6) * 0.08
+        move_flap2 = _sin(self.time * 4.8 - 0.6) * 0.322
         wing_flap2 = idle_flap2 * (1.0 - wing_blend) + move_flap2 * wing_blend
 
         t = self.time
@@ -7252,17 +7252,8 @@ class HeroPaddleRenderer:
         gatling_recoil = anim.get('gatling_recoil', 0)
         gatling_mounting = anim.get('gatling_mounting', False)
         mount_progress = anim.get('gatling_mount_progress', 0.0)
-
-        # 견착/발사 활성 상태 및 무릎 굽히기 진행도
-        is_gatling_active = gatling_mounting or gatling_firing
-        kneel_progress = mount_progress if gatling_mounting else (1.0 if gatling_firing else 0.0)
-
-        # 🔫 견착/발사 중: 한쪽 무릎 굽히고 어깨에 기관포 견착 자세
-        if is_gatling_active and kneel_progress > 0:
-            # 무릎 굽히면서 몸체 크게 낮아짐
-            torso_y += int(kneel_progress * b * 0.4)
-            # 기관포 쪽(오른쪽)으로 살짝 기울기
-            lean_offset += int(kneel_progress * b * 0.15)
+        gatling_dismounting = anim.get('gatling_dismounting', False)
+        dismount_progress = anim.get('gatling_dismount_progress', 0.0)
 
         # 🔫 반동: 발사 시 몸체 미세 진동 (recoil 값 + 고주파 떨림)
         if gatling_firing:
