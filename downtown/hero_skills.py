@@ -12990,7 +12990,7 @@ class SolarBolt(HeroSkill):
             korean_name="라의 낙뢰",
             description="태양의 번개로 공을 강타하여 반대 방향으로 반사시킨다",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=15.0,
+            cooldown=12.0,
             duration=self.EFFECT_DURATION,
             hero_id="ra"
         )
