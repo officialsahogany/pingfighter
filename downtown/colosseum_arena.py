@@ -4326,7 +4326,6 @@ class GuardWarriorSystem:
 
         sound = ColosseumsArena._skill_sound_cache.get(sound_key)
         if sound:
-            print(f"[SoundTrace:Guard] {sound_key} from _play_skill_sound")
             sound.play()
             # pingfighter의 패들 사운드 중복 방지 플래그 설정
             try:
@@ -6835,12 +6834,9 @@ class ColosseumsArena:
         self._crowd_last_hit_by = ""
 
     def _play_crowd_sound(self, sound_type: str):
-        """관중 사운드 재생 (프로시저럴 합성 - 화이트 노이즈 기반)
-
-        Args:
-            sound_type: "cheer_short", "cheer_medium", "cheer_loud",
-                       "boo", "gasp", "standing_ovation"
-        """
+        """관중 사운드 재생 (프로시저럴 합성) - 비활성화: 사각사각 소음 이슈"""
+        # 화이트 노이즈 기반 합성 사운드가 패들 타격음에 섞여 이상하게 들림
+        return
         try:
             # 쿨타임 체크 (0.3초)
             current_time = pygame.time.get_ticks()
@@ -6852,7 +6848,6 @@ class ColosseumsArena:
             if sound_type in self._crowd_sound_cache:
                 sound = self._crowd_sound_cache[sound_type]
                 if sound:
-                    print(f"[SoundTrace:Crowd] {sound_type}")
                     sound.play()
                 return
 
@@ -6860,7 +6855,6 @@ class ColosseumsArena:
             sound = self._synthesize_crowd_sound(sound_type)
             self._crowd_sound_cache[sound_type] = sound
             if sound:
-                print(f"[SoundTrace:Crowd] {sound_type} (new)")
                 sound.play()
         except Exception as e:
             print(f"[CrowdSound] 사운드 재생 실패: {e}")

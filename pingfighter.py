@@ -18291,24 +18291,11 @@ def store_bgm_volume(value: float) -> float:
     return bgm_volume
 
 
-_sound_id_to_name = {}  # 디버그용 사운드 ID→이름 맵
-
 def play_sound_with_volume(sound, volume=None):
     """효과음을 지정된 볼륨으로 재생"""
     global sfx_volume
     if not sound:
         return None
-    # 투기장 디버그: 모든 사운드 추적
-    if arena_mode_enabled:
-        if not _sound_id_to_name:
-            for _k, _v in globals().items():
-                if _k.startswith('SOUND_') and hasattr(_v, 'play'):
-                    _sound_id_to_name[id(_v)] = _k
-        _sn = _sound_id_to_name.get(id(sound), '?')
-        import traceback as _tb
-        _fr = _tb.extract_stack(limit=3)
-        _caller = next((f"{f.name}:{f.lineno}" for f in reversed(_fr) if 'pingfighter' in f.filename and f.name != 'play_sound_with_volume'), '?')
-        print(f"[SoundTrace] {_sn} from {_caller}")
     if volume is None:
         volume = sfx_volume
     sound.set_volume(volume)
@@ -18634,7 +18621,6 @@ def play_paddle_sound():
     global _arena_skill_sound_this_frame
     # 투기장 모드: 이번 프레임에서 스킬 사운드가 이미 재생되었으면 패들 사운드 스킵
     if arena_mode_enabled and _arena_skill_sound_this_frame:
-        print(f"[SoundDebug] play_paddle_sound 스킵: 스킬 사운드가 이미 재생됨")
         return
     play_sound_with_volume(SOUND_PADDLE)
 
@@ -20931,7 +20917,6 @@ def arena_play_skill_sound(result):
         return False
     sound_key = result.get('sound')
     if not sound_key:
-        print(f"[SoundDebug] 스킬 발동했으나 사운드 키 없음: skill={result.get('skill_korean_name', '?')}")
         return False
 
     if sound_key not in _arena_skill_sound_cache:
@@ -20941,20 +20926,15 @@ def arena_play_skill_sound(result):
                 _arena_skill_sound_cache[sound_key] = pygame.mixer.Sound(filepath)
             else:
                 _arena_skill_sound_cache[sound_key] = None
-                print(f"[SkillSound] 파일 없음: {filepath}")
         except Exception as e:
             _arena_skill_sound_cache[sound_key] = None
-            print(f"[SkillSound] 로드 오류: {e}")
 
     snd = _arena_skill_sound_cache.get(sound_key)
     if snd:
-        print(f"[SoundDebug] 스킬 사운드 재생: key={sound_key}, skill={result.get('skill_korean_name', '?')}")
         snd.play()
         _arena_skill_sound_this_frame = True  # 이번 프레임에서 패들 사운드 스킵
         return True
-    else:
-        print(f"[SoundDebug] 스킬 사운드 로드 실패: key={sound_key}")
-        return False
+    return False
 
 def arena_stop_all_skill_sounds():
     """투기장 스킬 사운드 전체 중지"""
@@ -99026,26 +99006,10 @@ def _arena_crowd_on_score(pillar_renderer, scorer: str, wins: int, losses: int):
 
 
 def _arena_play_crowd_sound(sound_type: str):
-    """투기장 관중 사운드 재생 (프로시저럴 합성)"""
-    global _arena_crowd_sound_timer, _arena_crowd_sound_cache
-    try:
-        current_time = pygame.time.get_ticks()
-        if current_time - _arena_crowd_sound_timer < 300:
-            return
-        _arena_crowd_sound_timer = current_time
-
-        if sound_type in _arena_crowd_sound_cache:
-            sound = _arena_crowd_sound_cache[sound_type]
-            if sound:
-                sound.play()
-            return
-
-        sound = _arena_synthesize_crowd_sound(sound_type)
-        _arena_crowd_sound_cache[sound_type] = sound
-        if sound:
-            sound.play()
-    except Exception:
-        pass
+    """투기장 관중 사운드 재생 (프로시저럴 합성) - 비활성화: 사각사각 소음 이슈"""
+    # 화이트 노이즈 기반 합성 사운드가 패들 타격음에 섞여 이상하게 들림
+    # 관중 시각 이펙트(흥분도, 웨이브)는 유지하되 사운드만 비활성화
+    return
 
 
 def _arena_synthesize_crowd_sound(sound_type: str):
