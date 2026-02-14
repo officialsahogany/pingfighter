@@ -4983,15 +4983,15 @@ class HeroPaddleRenderer:
                         node_sz = max(1, int(0.05 * b))
                         pygame.draw.circle(screen, p["bone_joint"], (sx1, sy1), node_sz)
 
-                # 셉터 상단 섬뜩한 해골 장식
+                # 셉터 상단 섬뜩한 대형 해골 장식
                 skull_top_x = int(staff_top_x)
-                skull_top_y = int(staff_top_y)
-                skull_sz = max(4, int(0.38 * b))
+                skull_top_y = int(staff_top_y) - int(0.3 * b)  # 해골 중심을 위로 올림
+                skull_sz = max(6, int(0.65 * b))
 
                 # 해골 주변 사령 오라 (넓고 불안한 보라빛)
-                for aura_i in range(3):
-                    aura_r = skull_sz + int((4 + aura_i * 3) + 4 * soul_pulse)
-                    aura_a = int((28 - aura_i * 8) * flicker)
+                for aura_i in range(4):
+                    aura_r = skull_sz + int((5 + aura_i * 4) + 5 * soul_pulse)
+                    aura_a = int((35 - aura_i * 8) * flicker)
                     aura_s = self._get_surface(aura_r * 4, aura_r * 4)
                     pygame.draw.circle(aura_s, (*p["orb_glow"], max(0, aura_a)),
                                      (aura_r * 2, aura_r * 2), aura_r)
@@ -5001,94 +5001,94 @@ class HeroPaddleRenderer:
 
                 # 두개골 본체 (위쪽 둥근 머리 + 아래쪽 턱)
                 cranium_w = int(skull_sz * 2.0)
-                cranium_h = int(skull_sz * 1.6)
+                cranium_h = int(skull_sz * 1.7)
                 jaw_h = int(skull_sz * 0.7)
 
                 # 두개골 그림자
                 pygame.draw.ellipse(screen, p["skull_shadow"],
-                                  (skull_top_x - cranium_w // 2 + 1,
-                                   skull_top_y - cranium_h // 2 + 1,
+                                  (skull_top_x - cranium_w // 2 + 2,
+                                   skull_top_y - cranium_h // 2 + 2,
                                    cranium_w, cranium_h))
                 # 두개골 메인
                 pygame.draw.ellipse(screen, p["skull_white"],
                                   (skull_top_x - cranium_w // 2,
                                    skull_top_y - cranium_h // 2,
                                    cranium_w, cranium_h))
-                # 두개골 하이라이트 (이마)
+                # 두개골 하이라이트 (이마 광택)
                 pygame.draw.ellipse(screen, p["skull_light"],
                                   (skull_top_x - cranium_w // 4,
                                    skull_top_y - cranium_h // 2 + 1,
                                    cranium_w // 2, cranium_h // 3))
 
-                # 관자놀이 음영 (양쪽)
+                # 관자놀이 음영 (양쪽 깊은 홈)
                 for tside in [-1, 1]:
-                    temple_x = skull_top_x + tside * int(skull_sz * 0.6)
+                    temple_x = skull_top_x + tside * int(skull_sz * 0.65)
                     pygame.draw.ellipse(screen, p["skull_shadow"],
-                                      (temple_x - int(skull_sz * 0.2),
-                                       skull_top_y - int(skull_sz * 0.1),
-                                       int(skull_sz * 0.4), int(skull_sz * 0.5)))
+                                      (temple_x - int(skull_sz * 0.25),
+                                       skull_top_y - int(skull_sz * 0.15),
+                                       int(skull_sz * 0.5), int(skull_sz * 0.6)))
 
-                # 광대뼈 돌출 (양쪽)
+                # 광대뼈 돌출 (양쪽 뾰족하게)
                 for cside in [-1, 1]:
-                    cheek_x = skull_top_x + cside * int(skull_sz * 0.65)
-                    cheek_y = skull_top_y + int(skull_sz * 0.15)
-                    cheek_w = max(2, int(skull_sz * 0.35))
-                    cheek_h = max(2, int(skull_sz * 0.25))
+                    cheek_x = skull_top_x + cside * int(skull_sz * 0.7)
+                    cheek_y = skull_top_y + int(skull_sz * 0.2)
+                    cheek_w = max(3, int(skull_sz * 0.4))
+                    cheek_h = max(3, int(skull_sz * 0.3))
                     pygame.draw.ellipse(screen, p["skull_shadow"],
                                       (cheek_x - cheek_w // 2, cheek_y - cheek_h // 2,
                                        cheek_w, cheek_h))
 
-                # 눈구멍 (크고 깊은 삼각형 + 타원 복합)
+                # 눈구멍 (크고 깊고 무서운)
                 eye_y = skull_top_y - int(skull_sz * 0.05)
                 for meside in [-1, 1]:
                     ex = skull_top_x + meside * int(skull_sz * 0.38)
-                    ew = max(3, int(skull_sz * 0.35))
-                    eh = max(3, int(skull_sz * 0.32))
-                    # 눈구멍 외곽 (위가 좁고 아래가 넓은 역오각형)
+                    ew = max(4, int(skull_sz * 0.38))
+                    eh = max(4, int(skull_sz * 0.35))
+                    # 눈구멍 외곽 (위 좁고 아래 넓은 오각형)
                     eye_pts = [
-                        (ex - int(ew * 0.3), eye_y - int(eh * 0.5)),
-                        (ex + int(ew * 0.3), eye_y - int(eh * 0.5)),
-                        (ex + int(ew * 0.55), eye_y + int(eh * 0.1)),
-                        (ex, eye_y + int(eh * 0.6)),
-                        (ex - int(ew * 0.55), eye_y + int(eh * 0.1)),
+                        (ex - int(ew * 0.35), eye_y - int(eh * 0.55)),
+                        (ex + int(ew * 0.35), eye_y - int(eh * 0.55)),
+                        (ex + int(ew * 0.6), eye_y + int(eh * 0.15)),
+                        (ex, eye_y + int(eh * 0.65)),
+                        (ex - int(ew * 0.6), eye_y + int(eh * 0.15)),
                     ]
                     pygame.draw.polygon(screen, p["skull_cavity"], eye_pts)
                     pygame.draw.polygon(screen, (20, 5, 30), eye_pts, 1)
 
                     # 보라빛 영혼의 불꽃 (눈 안에서 타오르는)
-                    flame_sz = max(2, int(skull_sz * 0.18 + skull_sz * 0.06 * soul_pulse))
-                    flame_flicker_x = int(_sin(self.time * 7.0 + meside * 2.0) * skull_sz * 0.04)
-                    flame_flicker_y = int(_sin(self.time * 9.0 + meside * 1.5) * skull_sz * 0.03)
+                    flame_sz = max(3, int(skull_sz * 0.2 + skull_sz * 0.08 * soul_pulse))
+                    flame_flicker_x = int(_sin(self.time * 7.0 + meside * 2.0) * skull_sz * 0.05)
+                    flame_flicker_y = int(_sin(self.time * 9.0 + meside * 1.5) * skull_sz * 0.04)
                     flame_cx = ex + flame_flicker_x
                     flame_cy = eye_y + flame_flicker_y
 
                     # 외곽 글로우
-                    eye_gl_sz = flame_sz + int(2 + 2 * soul_pulse)
+                    eye_gl_sz = flame_sz + int(3 + 3 * soul_pulse)
                     egs = self._get_surface(eye_gl_sz * 4, eye_gl_sz * 4)
-                    eye_gl_a = int(65 + 45 * soul_pulse)
+                    eye_gl_a = int(70 + 50 * soul_pulse)
                     pygame.draw.circle(egs, (*p["eye_glow"], max(0, eye_gl_a)),
                                      (eye_gl_sz * 2, eye_gl_sz * 2), eye_gl_sz)
                     screen.blit(egs, (flame_cx - eye_gl_sz * 2, flame_cy - eye_gl_sz * 2),
                                special_flags=pygame.BLEND_ADD)
-                    # 불꽃 코어
+                    # 불꽃 코어 (밝은 점)
                     pygame.draw.circle(screen, p["eye_core"],
-                                     (flame_cx, flame_cy), max(1, flame_sz // 2))
+                                     (flame_cx, flame_cy), max(2, flame_sz // 2))
                     # 위로 타오르는 불꽃 꼬리
-                    flame_tip_y = flame_cy - int(flame_sz * 1.2) + flame_flicker_y
+                    flame_tip_y = flame_cy - int(flame_sz * 1.5) + flame_flicker_y
                     pygame.draw.line(screen, p["eye_glow"],
                                    (flame_cx, flame_cy),
                                    (flame_cx + flame_flicker_x, flame_tip_y),
-                                   max(1, flame_sz // 3))
+                                   max(1, flame_sz // 2))
 
                 # 코 구멍 (역삼각형, 깊은 구멍)
-                nose_y = skull_top_y + int(skull_sz * 0.3)
-                nose_w = max(2, int(skull_sz * 0.18))
-                nose_h = max(2, int(skull_sz * 0.2))
+                nose_y = skull_top_y + int(skull_sz * 0.32)
+                nose_w = max(3, int(skull_sz * 0.2))
+                nose_h = max(3, int(skull_sz * 0.22))
                 pygame.draw.polygon(screen, p["skull_cavity"], [
                     (skull_top_x - nose_w, nose_y - int(nose_h * 0.3)),
                     (skull_top_x + nose_w, nose_y - int(nose_h * 0.3)),
-                    (skull_top_x + int(nose_w * 0.6), nose_y + nose_h),
-                    (skull_top_x - int(nose_w * 0.6), nose_y + nose_h),
+                    (skull_top_x + int(nose_w * 0.5), nose_y + nose_h),
+                    (skull_top_x - int(nose_w * 0.5), nose_y + nose_h),
                 ])
                 # 코 중간 뼈 (비중격)
                 pygame.draw.line(screen, p["skull_dark"],
@@ -5096,67 +5096,75 @@ class HeroPaddleRenderer:
                                (skull_top_x, nose_y + int(nose_h * 0.8)), 1)
 
                 # 이마 균열 (섬뜩한 갈라진 금)
-                crack_start_x = skull_top_x - int(skull_sz * 0.08)
-                crack_start_y = skull_top_y - int(skull_sz * 0.55)
-                crack_color = (100, 85, 78)
+                crack_start_x = skull_top_x - int(skull_sz * 0.1)
+                crack_start_y = skull_top_y - int(skull_sz * 0.6)
+                crack_color = (90, 75, 65)
                 crack_pts = [
                     (crack_start_x, crack_start_y),
-                    (crack_start_x + int(skull_sz * 0.05), crack_start_y + int(skull_sz * 0.2)),
-                    (crack_start_x - int(skull_sz * 0.08), crack_start_y + int(skull_sz * 0.35)),
-                    (crack_start_x + int(skull_sz * 0.03), crack_start_y + int(skull_sz * 0.5)),
+                    (crack_start_x + int(skull_sz * 0.06), crack_start_y + int(skull_sz * 0.22)),
+                    (crack_start_x - int(skull_sz * 0.1), crack_start_y + int(skull_sz * 0.4)),
+                    (crack_start_x + int(skull_sz * 0.04), crack_start_y + int(skull_sz * 0.55)),
                 ]
                 if len(crack_pts) >= 2:
-                    pygame.draw.lines(screen, crack_color, False, crack_pts, 1)
+                    pygame.draw.lines(screen, crack_color, False, crack_pts, max(1, b // 12))
                 # 갈라짐 분기
                 pygame.draw.line(screen, crack_color,
                                crack_pts[1],
-                               (crack_pts[1][0] + int(skull_sz * 0.12),
-                                crack_pts[1][1] + int(skull_sz * 0.08)), 1)
+                               (crack_pts[1][0] + int(skull_sz * 0.15),
+                                crack_pts[1][1] + int(skull_sz * 0.1)), max(1, b // 12))
+                # 두 번째 분기 (오른쪽 이마)
+                crack2_x = skull_top_x + int(skull_sz * 0.2)
+                crack2_y = skull_top_y - int(skull_sz * 0.5)
+                pygame.draw.lines(screen, crack_color, False, [
+                    (crack2_x, crack2_y),
+                    (crack2_x + int(skull_sz * 0.08), crack2_y + int(skull_sz * 0.18)),
+                    (crack2_x - int(skull_sz * 0.04), crack2_y + int(skull_sz * 0.3)),
+                ], max(1, b // 14))
 
-                # 턱뼈 (분리된 하악골)
-                jaw_y = skull_top_y + int(skull_sz * 0.5)
-                jaw_w = int(skull_sz * 0.75)
-                jaw_bob = int(_sin(self.time * 1.8) * skull_sz * 0.03)
+                # 턱뼈 (분리된 하악골 - 미세하게 벌어짐)
+                jaw_y = skull_top_y + int(skull_sz * 0.55)
+                jaw_w = int(skull_sz * 0.8)
+                jaw_bob = int(_sin(self.time * 1.8) * skull_sz * 0.04)
                 # 턱 본체
                 jaw_pts = [
                     (skull_top_x - jaw_w, jaw_y + jaw_bob),
                     (skull_top_x + jaw_w, jaw_y + jaw_bob),
-                    (skull_top_x + int(jaw_w * 0.7), jaw_y + jaw_h + jaw_bob),
-                    (skull_top_x - int(jaw_w * 0.7), jaw_y + jaw_h + jaw_bob),
+                    (skull_top_x + int(jaw_w * 0.65), jaw_y + jaw_h + jaw_bob),
+                    (skull_top_x - int(jaw_w * 0.65), jaw_y + jaw_h + jaw_bob),
                 ]
                 pygame.draw.polygon(screen, p["skull_shadow"], jaw_pts)
                 jaw_inner = [
                     (skull_top_x - jaw_w + 1, jaw_y + jaw_bob + 1),
                     (skull_top_x + jaw_w - 1, jaw_y + jaw_bob + 1),
-                    (skull_top_x + int(jaw_w * 0.65), jaw_y + jaw_h + jaw_bob - 1),
-                    (skull_top_x - int(jaw_w * 0.65), jaw_y + jaw_h + jaw_bob - 1),
+                    (skull_top_x + int(jaw_w * 0.6), jaw_y + jaw_h + jaw_bob - 1),
+                    (skull_top_x - int(jaw_w * 0.6), jaw_y + jaw_h + jaw_bob - 1),
                 ]
                 pygame.draw.polygon(screen, p["skull_white"], jaw_inner)
 
-                # 이빨 (위턱 + 아래턱, 삐뚤빼뚤)
+                # 이빨 (위턱 + 아래턱, 삐뚤빼뚤하고 날카로운)
                 teeth_y_upper = jaw_y + jaw_bob - 1
-                teeth_y_lower = jaw_y + jaw_bob + 1
+                teeth_y_lower = jaw_y + jaw_bob + 2
                 teeth_w = int(jaw_w * 0.85)
-                num_teeth = max(3, int(skull_sz * 0.4))
+                num_teeth = max(4, int(skull_sz * 0.45))
                 tooth_gap = teeth_w * 2 / num_teeth if num_teeth > 0 else teeth_w
                 for ti in range(num_teeth):
                     tx = skull_top_x - teeth_w + int((ti + 0.5) * tooth_gap)
-                    # 위 이빨 (아래로 삐죽)
-                    tooth_h = max(2, int(skull_sz * 0.12 + _sin(ti * 1.7) * skull_sz * 0.04))
-                    tooth_w_half = max(1, int(tooth_gap * 0.3))
+                    # 위 이빨 (아래로 삐죽, 불규칙)
+                    tooth_h = max(2, int(skull_sz * 0.14 + _sin(ti * 1.7) * skull_sz * 0.05))
+                    tooth_w_half = max(1, int(tooth_gap * 0.32))
                     pygame.draw.polygon(screen, p["skull_light"], [
                         (tx - tooth_w_half, teeth_y_upper),
                         (tx + tooth_w_half, teeth_y_upper),
-                        (tx + int(tooth_w_half * 0.4), teeth_y_upper + tooth_h),
-                        (tx - int(tooth_w_half * 0.4), teeth_y_upper + tooth_h),
+                        (tx + int(tooth_w_half * 0.3), teeth_y_upper + tooth_h),
+                        (tx - int(tooth_w_half * 0.3), teeth_y_upper + tooth_h),
                     ])
                     # 아래 이빨 (위로 삐죽)
-                    btooth_h = max(1, int(skull_sz * 0.08 + _sin(ti * 2.3) * skull_sz * 0.03))
+                    btooth_h = max(2, int(skull_sz * 0.1 + _sin(ti * 2.3) * skull_sz * 0.04))
                     pygame.draw.polygon(screen, p["skull_light"], [
                         (tx - tooth_w_half, teeth_y_lower + 1),
                         (tx + tooth_w_half, teeth_y_lower + 1),
-                        (tx + int(tooth_w_half * 0.3), teeth_y_lower - btooth_h),
-                        (tx - int(tooth_w_half * 0.3), teeth_y_lower - btooth_h),
+                        (tx + int(tooth_w_half * 0.25), teeth_y_lower - btooth_h),
+                        (tx - int(tooth_w_half * 0.25), teeth_y_lower - btooth_h),
                     ])
 
                 # 이빨 사이 어두운 틈
@@ -5166,11 +5174,11 @@ class HeroPaddleRenderer:
                                    (gap_x, teeth_y_upper - 1),
                                    (gap_x, teeth_y_lower + 2), 1)
 
-                # 두개골 테두리 (뼈 음영)
+                # 두개골 테두리 (뼈 음영 강조)
                 pygame.draw.ellipse(screen, p["skull_dark"],
                                   (skull_top_x - cranium_w // 2,
                                    skull_top_y - cranium_h // 2,
-                                   cranium_w, cranium_h), 1)
+                                   cranium_w, cranium_h), max(1, b // 10))
 
         # === 목걸이 (해골 체인) ===
         neck_y = torso_y - int(0.15 * b)
