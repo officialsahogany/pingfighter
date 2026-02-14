@@ -321,6 +321,9 @@ class HeroPaddleRenderer:
         else:
             cy = int(y)
 
+        # 영웅 상태 플래그를 anim에 전달 (스킬 연동 등)
+        anim['gatling_firing'] = state.get('gatling_firing', False)
+
         # 영웅별 그리기 (팔/다리 동작으로 자연스러운 옆걸음 표현)
         draw_func = getattr(self, f"_draw_{hero_id}", None)
         if draw_func:
@@ -6342,11 +6345,12 @@ class HeroPaddleRenderer:
         lean_offset = int(lean * 2.5 * b)
 
         t = self.time
-        # LED 펄스 (사이언 계열 빛)
-        led_pulse = (_sin(t * 3) + 1) * 0.5
-        reactor_pulse = (_sin(t * 4.5) + 1) * 0.5
-        # 기관포 배럴 회전 (idle 시에도 살짝)
-        barrel_spin = t * 2.0
+        gatling_firing = anim.get('gatling_firing', False)
+        # LED 펄스 (사이언 계열 빛) - 발사 시 더 빠르게
+        led_pulse = (_sin(t * (8 if gatling_firing else 3)) + 1) * 0.5
+        reactor_pulse = (_sin(t * (12 if gatling_firing else 4.5)) + 1) * 0.5
+        # 기관포 배럴 회전 (idle: 느리게, 발사: 빠르게)
+        barrel_spin = t * (18.0 if gatling_firing else 2.0)
 
         # 로봇 색상 팔레트
         p = {
@@ -6897,14 +6901,30 @@ class HeroPaddleRenderer:
                     pygame.draw.circle(screen, p["cannon_dark"],
                         (bx2, by2), max(1, int(0.05 * b)))
 
-                # 배럴 회전부 LED (빨간색)
+                # 배럴 회전부 LED (빨간색 - 발사 시 더 밝게)
                 led_surf_gun = self._get_surface(8, 8)
-                gun_led_a = int(60 + 50 * _sin(t * 5))
+                gun_led_a = int((120 + 100 * _sin(t * 15)) if gatling_firing else (60 + 50 * _sin(t * 5)))
                 pygame.draw.circle(led_surf_gun,
-                    (*p["led_red"], gun_led_a), (4, 4), 3)
+                    (*p["led_red"], min(255, gun_led_a)), (4, 4), 3)
                 screen.blit(led_surf_gun,
                     (mount_cx - 4, mount_cy - mount_r - 2),
                     special_flags=pygame.BLEND_ADD)
+
+                # 🔫 개틀링 버스트 발사 시 총구 화염 이펙트
+                if gatling_firing:
+                    flash_sz = int(0.4 * b + 0.15 * b * _sin(t * 30))
+                    flash_cx = mount_cx
+                    flash_cy = guard_rect.bottom + barrel_len + int(0.15 * b)
+                    # 노랑-주황 총구 화염
+                    fl_surf = self._get_surface(flash_sz * 3, flash_sz * 3)
+                    fl_a = int(140 + 80 * _sin(t * 25))
+                    pygame.draw.circle(fl_surf, (255, 200, 50, min(255, fl_a)),
+                        (flash_sz * 3 // 2, flash_sz * 3 // 2), flash_sz)
+                    pygame.draw.circle(fl_surf, (255, 120, 20, min(255, fl_a - 30)),
+                        (flash_sz * 3 // 2, flash_sz * 3 // 2), max(1, flash_sz * 2 // 3))
+                    screen.blit(fl_surf,
+                        (flash_cx - flash_sz * 3 // 2, flash_cy - flash_sz * 3 // 2),
+                        special_flags=pygame.BLEND_ADD)
 
         # === 머리 (로봇 헤드 - 바이저 + 안테나) ===
         head_y = torso_y - int(3.1 * b)

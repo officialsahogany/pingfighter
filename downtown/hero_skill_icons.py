@@ -58,6 +58,7 @@ def _create_icon(skill_id: str) -> Optional[pygame.Surface]:
         "bone_barrier": _icon_bone_barrier,
         "balloon_wall": _icon_balloon_wall,
         "bomb_surprise": _icon_bomb_surprise,
+        "gatling_burst": _icon_gatling_burst,
         "sand_prison": _icon_sand_prison,
         "sand_vortex": _icon_sand_vortex,
     }
@@ -760,6 +761,47 @@ def _icon_bomb_surprise() -> pygame.Surface:
         sx = 16 + int(math.cos(rad) * 13)
         sy = 18 + int(math.sin(rad) * 13)
         pygame.draw.circle(s, (255, 180, 60, 120), (sx, sy), 1)
+
+    return s
+
+
+def _icon_gatling_burst() -> pygame.Surface:
+    """개틀링 버스트 - 회전하는 기관포 + 총알"""
+    s = pygame.Surface((32, 32), pygame.SRCALPHA)
+    # 배경 원 (건메탈 다크)
+    pygame.draw.circle(s, (30, 35, 45), (16, 16), 15)
+    pygame.draw.circle(s, (80, 90, 110), (16, 16), 15, 1)
+
+    # 기관포 본체 (가로 배치)
+    pygame.draw.rect(s, (60, 65, 75), (6, 13, 16, 8), border_radius=2)
+    pygame.draw.rect(s, (90, 95, 105), (7, 14, 14, 6), border_radius=1)
+
+    # 총열 3개
+    for dy in [-2, 0, 2]:
+        pygame.draw.line(s, (50, 52, 58), (22, 17 + dy), (29, 17 + dy), 2)
+        # 총구 끝 점
+        pygame.draw.circle(s, (40, 42, 48), (29, 17 + dy), 1)
+
+    # 회전부 (원형)
+    pygame.draw.circle(s, (75, 78, 85), (22, 17), 4)
+    pygame.draw.circle(s, (100, 105, 115), (22, 17), 3)
+    pygame.draw.circle(s, (65, 68, 78), (22, 17), 2)
+
+    # 머즐 플래쉬 (오른쪽 끝)
+    pygame.draw.circle(s, (255, 200, 80, 180), (30, 17), 3)
+    pygame.draw.circle(s, (255, 255, 200, 200), (30, 17), 2)
+
+    # 총알 궤적 (3발)
+    for i, (bx, by) in enumerate([(28, 10), (26, 7), (30, 13)]):
+        pygame.draw.circle(s, (255, 230, 100), (bx, by), 2)
+        pygame.draw.circle(s, (255, 255, 200), (bx, by), 1)
+        # 궤적 선
+        pygame.draw.line(s, (255, 200, 80, 100),
+                        (bx - 3, by + 2), (bx, by), 1)
+
+    # LED 표시 (빨간색)
+    pygame.draw.circle(s, (255, 50, 30), (8, 15), 2)
+    pygame.draw.circle(s, (255, 150, 100), (8, 15), 1)
 
     return s
 
