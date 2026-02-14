@@ -8698,6 +8698,7 @@ class HeroPaddleRenderer:
         pygame.draw.circle(screen, p["fur_gold"], (t4x, t4y), tip_r)
 
         # ─── 다리 (짧고 굵은 유인원 다리, 구부러진 자세) ───
+        roar_pose = anim.get("roar_pose", False)
         hip_y = torso_y + int(1.5 * b)
         for side_idx, side in enumerate([-1, 1]):
             leg_sway = left_leg_sway if side == -1 else right_leg_sway
