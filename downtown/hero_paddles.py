@@ -5937,14 +5937,14 @@ class HeroPaddleRenderer:
             shoulder_x = cx + side * int(1.0 * b) + lean_offset
             shoulder_y_arm = torso_top + int(0.3 * b) + int(shoulder_bob * 0.5 * b)
 
-            # 전방 팔(카드 손) 공 타격 시 안쪽으로 휘두르기 (쿠로카게 스타일)
+            # 전방 팔(카드 손) 공 타격 시 바라보는 방향으로 펀치
             if side == _front_side and weapon_swing != 0:
-                swing_x = int(weapon_swing * 4.0 * b)
-                swing_y = int(abs(weapon_swing) * 1.5 * b)
-                elbow_x = shoulder_x + side * int(0.4 * b) + swing_x
-                elbow_y = shoulder_y_arm + int(1.1 * b) - swing_y
-                hand_x = elbow_x + side * int(0.25 * b) + int(swing_x * 0.6)
-                hand_y = elbow_y + int(0.8 * b) - int(swing_y * 0.6)
+                forward_dir = 1 if not show_back else -1  # 바라보는 방향 (아래=1, 위=-1)
+                punch_fwd = int(abs(weapon_swing) * 4.0 * b)
+                elbow_x = shoulder_x + side * int(0.4 * b)
+                elbow_y = shoulder_y_arm + int(1.1 * b) + forward_dir * int(punch_fwd * 0.4)
+                hand_x = elbow_x + side * int(0.15 * b)
+                hand_y = elbow_y + int(0.3 * b) + forward_dir * int(punch_fwd * 0.7)
             else:
                 elbow_x = shoulder_x + side * int(0.4 * b) + int(arm_swing_val * 0.3 * b * side)
                 elbow_y = shoulder_y_arm + int(1.1 * b) + int(arm_swing_val * 0.3 * b)
