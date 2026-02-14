@@ -178,7 +178,7 @@ class AnimatedBackgroundStage30:
         self.HOLE_FADE_DURATION = 1.5
         self.BOLT_THROW_DURATION = 0.6
         self.BOLT_FLIGHT_DURATION = 0.8
-        self.BOLT_EXPLOSION_DURATION = 1.5
+        self.BOLT_EXPLOSION_DURATION = 1.05  # 1.5 * 0.7 (-30% 단축)
 
         # 테두리 서피스
         self.border_surface = pygame.Surface((width, height), pygame.SRCALPHA)
