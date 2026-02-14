@@ -14320,7 +14320,7 @@ class WildRoar(HeroSkill):
     SHOCKWAVE_GROW_TIME = 0.09  # 충격파 확장 시간 (초) (2x 더 빠르게)
     BALL_SPEED_BOOST = 3.6      # 공 속도 배율 (260% 증가) - 가장 가까울 때 기준
     ROAR_FREEZE_TIME = 0.6      # 포효 시 이동 불가 시간 (초)
-    TRIGGER_DIST_MIN = 80       # 발동 최소 거리 (px) - 가까울수록 공속 빠름
+    TRIGGER_DIST_MIN = 150      # 발동 최소 거리 (px) - 가까울수록 공속 빠름
     TRIGGER_DIST_MAX = 230      # 발동 최대 거리 (px) - 멀수록 공속 -70%
 
     def __init__(self):
