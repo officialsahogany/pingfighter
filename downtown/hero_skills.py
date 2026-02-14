@@ -14423,9 +14423,13 @@ class WildRoar(HeroSkill):
                 'radius': 0.0,
                 'max_radius': self.SHOCKWAVE_RADIUS * (0.35 + i * 0.13),
                 'alpha': 255 - i * 30,
-                'delay': i * 0.025,   # 더 빠른 연쇄 (0.1→0.025)
+                'delay': i * 0.025,   # 더 빠른 연쇄
                 'timer': 0.0,
-                'thickness': max(2, 5 - i),  # 안쪽 링일수록 두꺼움
+                'thickness': max(2, 5 - i),
+                'fade_alpha': 1.0,          # 개별 페이드 (1.0=보임, 0.0=사라짐)
+                'reached_max': False,       # 최대 반경 도달 여부
+                'linger_timer': 0.0,        # 최대 반경 후 유지 시간
+                'linger_delay': 0.25 + i * 0.1,  # 안쪽 링부터 먼저 페이드 시작
             })
 
         # 초기 에너지 스파크 생성
@@ -14475,12 +14479,29 @@ class WildRoar(HeroSkill):
         grow = min(1.0, self.shockwave_timer / self.SHOCKWAVE_GROW_TIME)
         self.shockwave_radius = self.SHOCKWAVE_RADIUS * grow
 
-        # 링 이펙트 확장 (2x 더 빠르게: 0.4 → 0.2)
+        # 링 이펙트 확장 + 개별 페이드아웃
+        all_faded = True
         for ring in self.ring_effects:
             ring['timer'] += dt
             elapsed = ring['timer'] - ring['delay']
             if elapsed > 0:
-                ring['radius'] = ring['max_radius'] * min(1.0, elapsed / 0.2)
+                progress = min(1.0, elapsed / 0.2)
+                ring['radius'] = ring['max_radius'] * progress
+                # 최대 반경 도달 확인
+                if progress >= 1.0:
+                    ring['reached_max'] = True
+            # 페이드아웃 처리 (반사 후 빠르게 / 자연 소멸은 순차적으로)
+            if ring['reached_max']:
+                ring['linger_timer'] += dt
+                if self.ball_reflected:
+                    # 반사 완료 시: 모든 링 빠르게 페이드 (0.2초)
+                    ring['fade_alpha'] = max(0, ring['fade_alpha'] - dt / 0.2)
+                else:
+                    # 자연 소멸: 안쪽 링부터 순차 페이드 시작
+                    if ring['linger_timer'] > ring['linger_delay']:
+                        ring['fade_alpha'] = max(0, ring['fade_alpha'] - dt / 0.35)
+            if ring['fade_alpha'] > 0:
+                all_faded = False
 
         # 에너지 스파크 업데이트
         if hasattr(self, 'energy_sparks'):
@@ -14491,7 +14512,7 @@ class WildRoar(HeroSkill):
                 if sp['life'] <= 0:
                     self.energy_sparks.remove(sp)
 
-        # --- 공과 충격파 충돌 체크 ---
+        # --- 공과 링 충돌 체크 (링 반경 밴드 방식) ---
         if not self.ball_reflected and ball:
             ball_cx = ball.x + getattr(ball, 'width', 10) / 2
             ball_cy = ball.y + getattr(ball, 'height', 10) / 2
@@ -14502,17 +14523,28 @@ class WildRoar(HeroSkill):
             approaching = ((self.caster_is_top and ball.vy < 0) or
                            (not self.caster_is_top and ball.vy > 0))
 
-            if dist < self.shockwave_radius and approaching:
-                self.ball_reflected = True
-                ball.vy = -ball.vy * self.BALL_SPEED_BOOST
-                ball.vx = ball.vx * self.BALL_SPEED_BOOST
-                self._create_impact(ball_cx, ball_cy)
-                game_state['screen_shake'] = 20
-                if self._hit_sound:
-                    try:
-                        self._hit_sound.play()
-                    except Exception:
-                        pass
+            if approaching:
+                # 각 링의 현재 반경에서 ±30px 밴드 내에 공이 있으면 반사
+                BAND = 30
+                hit = False
+                for ring in self.ring_effects:
+                    ring_r = ring['radius']
+                    if ring_r < 10:
+                        continue
+                    if abs(dist - ring_r) < BAND:
+                        hit = True
+                        break
+                if hit:
+                    self.ball_reflected = True
+                    ball.vy = -ball.vy * self.BALL_SPEED_BOOST
+                    ball.vx = ball.vx * self.BALL_SPEED_BOOST
+                    self._create_impact(ball_cx, ball_cy)
+                    game_state['screen_shake'] = 20
+                    if self._hit_sound:
+                        try:
+                            self._hit_sound.play()
+                        except Exception:
+                            pass
 
         # 임팩트 파티클 업데이트
         for p in self.impact_particles[:]:
@@ -14522,8 +14554,8 @@ class WildRoar(HeroSkill):
             if p['life'] <= 0:
                 self.impact_particles.remove(p)
 
-        # 반사 완료 + 이펙트 종료 → 스킬 종료
-        if self.ball_reflected and not self.impact_particles:
+        # 스킬 종료: 모든 링 페이드 완료 + 파티클 없음
+        if all_faded and not self.impact_particles:
             self.active_timer = 0
 
     def _create_impact(self, x: float, y: float):
@@ -14575,7 +14607,6 @@ class WildRoar(HeroSkill):
             return
 
         cx, cy = int(self._cx), int(self._cy)
-        fade = max(0.0, 1.0 - self.shockwave_timer / self.duration)
 
         # ── 발동 플래시 (화면 전체 번쩍) ──
         flash_a = int(getattr(self, 'flash_alpha', 0))
@@ -14586,33 +14617,39 @@ class WildRoar(HeroSkill):
 
         # ── 충격파 영역 (반투명 금색 원 + 에너지 방사 라인) ──
         if self.shockwave_radius > 10 and not self.ball_reflected:
-            r = int(self.shockwave_radius)
-            zone_surf = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
-            # 다중 글로우 레이어 (cleanse 스타일)
-            for gi, ga in [(r, 25), (int(r * 0.7), 35), (int(r * 0.4), 45)]:
-                if gi > 0:
-                    pygame.draw.circle(zone_surf, (255, 200, 50, int(ga * fade)),
-                                       (r, r), gi)
-            # 방사 라인 (더 촘촘하게)
-            for angle_deg in range(0, 360, 15):
-                rad = math.radians(angle_deg)
-                inner_r = int(r * 0.15)
-                outer_r = int(r * 0.95)
-                lx1 = r + int(_cos(rad) * inner_r)
-                ly1 = r + int(_sin(rad) * inner_r)
-                lx2 = r + int(_cos(rad) * outer_r)
-                ly2 = r + int(_sin(rad) * outer_r)
-                pygame.draw.line(zone_surf, (255, 220, 100, int(30 * fade)),
-                                 (lx1, ly1), (lx2, ly2), 2)
-            screen.blit(zone_surf, (cx - r, cy - r))
+            # 가장 바깥 링의 fade_alpha를 사용
+            outer_fade = 1.0
+            if self.ring_effects:
+                outer_fade = self.ring_effects[-1].get('fade_alpha', 1.0)
+            if outer_fade > 0.01:
+                r = int(self.shockwave_radius)
+                zone_surf = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+                af = outer_fade
+                for gi, ga in [(r, 25), (int(r * 0.7), 35), (int(r * 0.4), 45)]:
+                    if gi > 0:
+                        pygame.draw.circle(zone_surf, (255, 200, 50, int(ga * af)),
+                                           (r, r), gi)
+                for angle_deg in range(0, 360, 15):
+                    rad = math.radians(angle_deg)
+                    inner_r = int(r * 0.15)
+                    outer_r = int(r * 0.95)
+                    lx1 = r + int(_cos(rad) * inner_r)
+                    ly1 = r + int(_sin(rad) * inner_r)
+                    lx2 = r + int(_cos(rad) * outer_r)
+                    ly2 = r + int(_sin(rad) * outer_r)
+                    pygame.draw.line(zone_surf, (255, 220, 100, int(30 * af)),
+                                     (lx1, ly1), (lx2, ly2), 2)
+                screen.blit(zone_surf, (cx - r, cy - r))
 
-        # ── 충격파 링 (cleanse 스타일 다중 글로우 레이어) ──
+        # ── 충격파 링 (개별 페이드아웃 적용) ──
         for ring in self.ring_effects:
             r = int(ring['radius'])
             if r < 5:
                 continue
-            ring_fade = fade if not self.ball_reflected else 0.25
-            alpha = int(ring['alpha'] * ring_fade)
+            rf = ring.get('fade_alpha', 1.0)
+            if rf <= 0.01:
+                continue
+            alpha = int(ring['alpha'] * rf)
             if alpha <= 0:
                 continue
             thickness = ring.get('thickness', 3)
