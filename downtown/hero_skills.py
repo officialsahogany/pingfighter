@@ -13987,7 +13987,7 @@ class BananaSlice(HeroSkill):
         self.prepare_timer = 0.0
         self.prepare_display_x = 0.0
         self.prepare_display_y = 0.0
-        self._pending_target_x = 380.0
+        self._pending_target_xs = [380.0]
         self.projectiles = []
         self.landed_bananas = []
         self.target_slipping = False
@@ -14045,27 +14045,42 @@ class BananaSlice(HeroSkill):
             self.prepare_display_y = caster_paddle.y + caster_paddle.height + 10
         else:
             self.prepare_display_y = caster_paddle.y - 10
-        self._pending_target_x = target_paddle.x + target_paddle.width // 2
+        # 상대 진영 x축 0~760 중 랜덤 2곳에 바나나 투척
+        self._pending_target_xs = self._generate_random_landing_positions(2)
         self._load_sounds()
         return {}
 
+    def _generate_random_landing_positions(self, count: int) -> list:
+        """게임 영역(0~760) 내 랜덤 착지 위치 생성 (최소 간격 보장)"""
+        margin = 40
+        min_gap = 120  # 두 바나나 사이 최소 간격
+        positions = []
+        for _ in range(count):
+            for _attempt in range(20):
+                x = random.randint(margin, self.GAME_RIGHT - margin)
+                if all(abs(x - px) >= min_gap for px in positions):
+                    break
+            positions.append(x)
+        return positions
+
     def _execute_throw(self, caster_paddle):
-        """준비 동작 완료 후 실제 투척"""
+        """준비 동작 완료 후 바나나 2개 투척 (각각 랜덤 위치)"""
         start_x = self.prepare_display_x
         start_y = self.prepare_display_y
-        dx = self._pending_target_x - start_x
-        if abs(dx) > 1:
-            vel_x = (dx / abs(dx)) * min(abs(dx) * 2, self.THROW_SPEED * 0.3)
-        else:
-            vel_x = 0.0
         vel_y = self.THROW_SPEED if self.caster_is_top else -self.THROW_SPEED
-        self.projectiles.append({
-            'x': float(start_x), 'y': float(start_y),
-            'vel_x': vel_x, 'vel_y': vel_y,
-            'rotation': 0.0,
-            'rotation_speed': random.uniform(480, 900) * random.choice([-1, 1]),
-            'active': True,
-        })
+        for target_x in self._pending_target_xs:
+            dx = target_x - start_x
+            if abs(dx) > 1:
+                vel_x = (dx / abs(dx)) * min(abs(dx) * 2, self.THROW_SPEED * 0.3)
+            else:
+                vel_x = 0.0
+            self.projectiles.append({
+                'x': float(start_x), 'y': float(start_y),
+                'vel_x': vel_x, 'vel_y': vel_y,
+                'rotation': 0.0,
+                'rotation_speed': random.uniform(480, 900) * random.choice([-1, 1]),
+                'active': True,
+            })
         self._play_throw_sound()
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
