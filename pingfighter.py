@@ -18618,6 +18618,12 @@ def play_wall_sound():
 
 def play_paddle_sound():
     """패들 충돌 사운드 재생"""
+    import traceback
+    if arena_mode_enabled:
+        # 투기장 모드에서 호출 추적 (사운드 중복 디버그)
+        caller = traceback.extract_stack(limit=3)
+        for frame in caller[:-1]:
+            print(f"[SoundDebug] play_paddle_sound 호출원: {frame.filename.split('/')[-1]}:{frame.lineno} in {frame.name}")
     play_sound_with_volume(SOUND_PADDLE)
 
 def play_button_hover_sound():
@@ -20903,16 +20909,17 @@ def arena_show_speech_bubble(is_top: bool, skill_name: str, raw: bool = False, h
 _arena_skill_sound_cache = {}
 
 def arena_play_skill_sound(result):
-    """투기장 스킬 결과에서 사운드 키를 꺼내 재생"""
+    """투기장 스킬 결과에서 사운드 키를 꺼내 재생. 재생 성공 시 True 반환."""
     global _arena_skill_sound_cache
     if not result:
-        return
+        return False
     # 🔥 안전장치: 투기장 모드가 아니면 스킬 사운드 재생 차단
     if not arena_mode_enabled:
-        return
+        return False
     sound_key = result.get('sound')
     if not sound_key:
-        return
+        print(f"[SoundDebug] 스킬 발동했으나 사운드 키 없음: skill={result.get('skill_korean_name', '?')}")
+        return False
 
     if sound_key not in _arena_skill_sound_cache:
         try:
@@ -20928,7 +20935,12 @@ def arena_play_skill_sound(result):
 
     snd = _arena_skill_sound_cache.get(sound_key)
     if snd:
+        print(f"[SoundDebug] 스킬 사운드 재생: key={sound_key}, skill={result.get('skill_korean_name', '?')}")
         snd.play()
+        return True
+    else:
+        print(f"[SoundDebug] 스킬 사운드 로드 실패: key={sound_key}")
+        return False
 
 def arena_stop_all_skill_sounds():
     """투기장 스킬 사운드 전체 중지"""
@@ -66664,6 +66676,8 @@ def handle_player(keys):
             print("!")
         # 사운드 쿨다운이 없을 때만 사운드 재생 (쿠로미가 공을 먹는 중이 아닐 때만)
         if player_sound_cooldown <= 0 and not ball_in_kuromi:
+            if arena_mode_enabled:
+                print(f"[SoundDebug] handle_player에서 패들 사운드 재생 (player_sound_cooldown={player_sound_cooldown})")
             play_paddle_sound()
             player_sound_cooldown = 20  # 약 0.33초 쿨다운
             if DEBUG_HANDLE_PLAYER_VERBOSE:
@@ -123372,7 +123386,8 @@ def handle_ball():
                         ball_vel[0] = ball_wrapper.vx
                         ball_vel[1] = ball_wrapper.vy
                         # 스킬 사운드 재생 + 말풍선 표시
-                        arena_play_skill_sound(result)
+                        _skill_sound_played = arena_play_skill_sound(result)
+                        print(f"[SoundDebug] 하단 ON_BALL_HIT 스킬 발동: hero={hero_id}, skill={result.get('skill_korean_name','?')}, sound={result.get('sound','없음')}, played={_skill_sound_played}, player_handled={player_collision_handled}")
                         if 'skill_korean_name' in result:
                             arena_show_speech_bubble(False, result['skill_korean_name'], hero_id=hero_id)
 
@@ -123618,6 +123633,8 @@ def handle_ball():
         # handle_player에서 이미 사운드를 재생하므로 여기서는 재생하지 않음
         # handle_player에서 놓친 충돌의 경우에만 사운드 재생 (쿠로미가 공을 먹는 중이 아닐 때만)
         if not player_collision_handled and player_sound_cooldown <= 0 and not ball_in_kuromi:
+            if arena_mode_enabled:
+                print(f"[SoundDebug] 하단 패들 일반 사운드 재생 (play_paddle_sound) - 스킬 사운드와 중복 가능!")
             play_paddle_sound()
             player_sound_cooldown = 20  # 약 0.33초 쿨다운
             if DEBUG_HANDLE_BALL_VERBOSE:
@@ -124201,7 +124218,8 @@ def handle_ball():
                         ball_vel[0] = ball_wrapper.vx
                         ball_vel[1] = ball_wrapper.vy
                         # 스킬 사운드 재생 + 말풍선 표시
-                        arena_play_skill_sound(result)
+                        _skill_sound_played = arena_play_skill_sound(result)
+                        print(f"[SoundDebug] 상단 ON_BALL_HIT 스킬 발동: hero={hero_id}, skill={result.get('skill_korean_name','?')}, sound={result.get('sound','없음')}, played={_skill_sound_played}")
                         if 'skill_korean_name' in result:
                             arena_show_speech_bubble(True, result['skill_korean_name'], hero_id=hero_id)
 
@@ -124707,6 +124725,8 @@ def handle_ball():
             elif current_stage == 2 and speed_defense_active:
                 play_sound_with_volume(SOUND_DEFENSE_HIT)
             else:
+                if arena_mode_enabled:
+                    print(f"[SoundDebug] 상단 패들(보스) 일반 사운드 재생 (play_paddle_sound) - 스킬 사운드와 중복 가능!")
                 play_paddle_sound()
         if ball_vel[0] != 0:
             direction = math.copysign(1, ball_vel[0])
