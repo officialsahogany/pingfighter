@@ -14572,11 +14572,13 @@ class WildRoar(HeroSkill):
                         dot = ball.vx * nx + ball.vy * ny
                         rvx = ball.vx - 2 * dot * nx
                         rvy = ball.vy - 2 * dot * ny
-                        # 반사 방향 정규화 후 부스트 속도 적용
+                        # 반사 방향 정규화 + 랜덤 편향 (±30도)
                         r_len = math.sqrt(rvx ** 2 + rvy ** 2)
                         if r_len > 0:
-                            ball.vx = (rvx / r_len) * speed * boost
-                            ball.vy = (rvy / r_len) * speed * boost
+                            angle = math.atan2(rvy, rvx)
+                            angle += random.uniform(-0.523, 0.523)  # ±30도(rad)
+                            ball.vx = _cos(angle) * speed * boost
+                            ball.vy = _sin(angle) * speed * boost
                         else:
                             ball.vy = -ball.vy * boost
                             ball.vx = ball.vx * boost
