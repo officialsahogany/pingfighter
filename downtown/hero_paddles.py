@@ -8378,8 +8378,9 @@ class HeroPaddleRenderer:
             special_flags=pygame.BLEND_ADD)
 
         # === 주포 (개틀링 캐논) - 발사 방향 전환 ===
-        # gun_dir: 상단 영웅(show_back)은 아래로(+1), 하단 영웅은 위로(-1)
-        gun_dir = 1 if show_back else -1
+        # show_back=True: 하단 영웅(위를 바라봄) → 위로 발사(-1)
+        # show_back=False: 상단 영웅(아래를 바라봄) → 아래로 발사(+1)
+        gun_dir = -1 if show_back else 1
 
         cannon_mount_x = cx
         mount_r = max(4, int(0.35 * b))
