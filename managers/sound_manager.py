@@ -152,9 +152,10 @@ class SoundManager:
             'ambient_battle': 'ambient_battle.wav',
             'crowd_cheer': 'crowd_cheer.wav',
 
-            # 투기장 영웅 스킬 사운드
+            # 투기장 영웅 스킬 사운드 (hero_skills.py에서 직접 로드하므로 여기서는 제외)
+            # ghostwalk, mooncut, horncharge, dollcurse 등은
+            # hero_skills.py와 colosseum_arena.py에서 필요 시 직접 로드함
             'mooncut': 'mooncut.wav',
-            'ghostwalk': 'ghostwalk.wav',
             'horncharge': 'horncharge.wav',
             'dollcurse': 'dollcurse.wav'
         }

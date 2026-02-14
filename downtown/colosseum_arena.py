@@ -3838,6 +3838,13 @@ class GuardWarriorSystem:
         """스킬 결과에서 사운드 키를 꺼내 재생 (독립실행 모드용)"""
         if not result:
             return
+        # 투기장 배틀 중이 아니면 사운드 재생 차단
+        try:
+            import pingfighter as _pf_snd
+            if not getattr(_pf_snd, 'arena_mode_enabled', False):
+                return
+        except Exception:
+            pass
         sound_key = result.get('sound')
         if not sound_key:
             return
