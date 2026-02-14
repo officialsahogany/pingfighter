@@ -821,6 +821,12 @@ class AnimatedBackgroundStage30:
             self.judgment_scale = 1.0 + (self.judgment_target_scale - 1.0) * ease
             # 석상 상승 (40→0, 땅에서 올라옴)
             self.judgment_rise_offset = 40.0 * (1.0 - ease)
+            # 상승 중 화면 흔들림 (초반 강하고 후반 약해짐, 땅을 뚫고 올라오는 진동)
+            if progress < 0.8:
+                self.judgment_shake_intensity = 0.2 * (1.0 - progress * 0.8)
+            else:
+                fade_p = (progress - 0.8) / 0.2
+                self.judgment_shake_intensity = 0.2 * 0.36 * (1.0 - fade_p)
             # 합체 파티클 이동 (중심으로 수렴)
             for p in self.judgment_merge_particles:
                 lerp_speed = dt * 2.2 * p['speed']
@@ -854,6 +860,7 @@ class AnimatedBackgroundStage30:
             if progress >= 1.0:
                 self.judgment_phase = self.JUDGMENT_ARM_RAISE
                 self.judgment_timer = 0.0
+                self.judgment_shake_intensity = 0.0
                 self.judgment_merge_particles.clear()
                 self.judgment_rise_offset = 0.0
                 self.judgment_rise_debris.clear()
@@ -1225,12 +1232,14 @@ class AnimatedBackgroundStage30:
             self.judgment_slam_progress = 1.0 - arm_fold
             self.judgment_left_arm_progress = 0.0
             self.judgment_right_arm_progress = 0.0
-            # 초반 미세 흔들림 (무게감)
-            if progress < 0.3:
-                shake_p = 1.0 - progress / 0.3
-                self.judgment_shake_intensity = 0.15 * shake_p
+            # 하강 중 화면 흔들림 (전체 구간, 초반 강하고 후반 약해짐)
+            if progress < 0.5:
+                # 초반~중반: 강한 진동 (무게감 있는 하강)
+                self.judgment_shake_intensity = 0.25 * (1.0 - progress * 0.6)
             else:
-                self.judgment_shake_intensity = 0.0
+                # 후반: 점차 약해지며 사라짐
+                fade_p = (progress - 0.5) / 0.5
+                self.judgment_shake_intensity = 0.25 * 0.7 * (1.0 - fade_p)
             # 하강 중 흙/돌 파편 생성 (상승보다 더 많이)
             ground_y = cy + 10
             # 진행도에 따른 파편량 (초반 많고 후반 줄어듦)
