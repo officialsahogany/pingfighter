@@ -7595,24 +7595,18 @@ def _draw_pillar_ui(screen, renderer):
             traceback.print_exc()
             globals()['_pillar_active_item_slot_rects'] = []
     else:
-        # 투기장 모드: 통합 쿨타임 큐 UI (영웅 + 호위무사)
+        # 투기장 모드: 기존 스킬 슬롯 표시 (큐 UI가 비활성이면)
         _arena_skill_slot_data = []
-        _drew_queue_ui = False
+        _skip_old_skill_ui = False
         try:
             from downtown.colosseum_arena import ColosseumsArena as _CArena
             _arena_inst = getattr(_CArena, '_active_instance', None)
             if _arena_inst and getattr(_arena_inst, '_use_queue_ui', False):
-                _arena_inst.draw_cooldown_queue(
-                    surface=screen,
-                    skill_mgr=arena_skill_manager,
-                    guard_sys=arena_guard_system,
-                )
-                _drew_queue_ui = True
+                _skip_old_skill_ui = True
         except Exception:
             pass
 
-        # 큐 UI가 비활성이면 기존 스킬 슬롯 표시
-        if not _drew_queue_ui:
+        if not _skip_old_skill_ui:
             try:
                 _bottom_hero = arena_bottom_hero
                 _skill_mgr = arena_skill_manager
@@ -8083,29 +8077,46 @@ def _fullscreen_flip():
         if pillar_renderer is not None:
             _draw_pillar_ui(REAL_SCREEN, pillar_renderer)
 
+        # 🎯 통합 쿨타임 큐 UI (왼쪽 필러, 영웅+호위무사)
+        _skip_guard_icons = False
+        if arena_mode_enabled:
+            try:
+                from downtown.colosseum_arena import ColosseumsArena as _CA
+                _arena_inst = getattr(_CA, '_active_instance', None)
+                if _arena_inst and getattr(_arena_inst, '_use_queue_ui', False):
+                    _skip_guard_icons = True
+                    # 왼쪽 필러 영역 좌표 (REAL_SCREEN 기준)
+                    _pil_x = 0
+                    _pil_w = GAME_OFFSET_X if GAME_OFFSET_X > 0 else 80
+                    _pil_y = GAME_OFFSET_Y
+                    _pil_h = GAME_SCALED_HEIGHT if GAME_SCALED_HEIGHT > 0 else 750
+                    _arena_inst.draw_cooldown_queue(
+                        surface=REAL_SCREEN,
+                        skill_mgr=arena_skill_manager,
+                        guard_sys=arena_guard_system,
+                        pillar_x=_pil_x,
+                        pillar_w=_pil_w,
+                        pillar_y=_pil_y,
+                        pillar_h=_pil_h,
+                    )
+            except Exception:
+                pass
+
         # 🛡️ 호위무사 아이콘 UI (필러 배경 위에 그리기)
         # 쿨타임 큐 UI 활성화 시 기존 아이콘 비활성화
         _guard_hover = None
-        if arena_mode_enabled and arena_guard_system:
-            _skip_guard_icons = False
+        if arena_mode_enabled and arena_guard_system and not _skip_guard_icons:
             try:
-                from downtown.colosseum_arena import ColosseumsArena as _CA
-                if hasattr(_CA, '_active_instance') and _CA._active_instance:
-                    _skip_guard_icons = getattr(_CA._active_instance, '_use_queue_ui', False)
+                _real_mpos = _original_mouse_get_pos()
+                _guard_hover = arena_guard_system.draw_guard_icons(
+                    REAL_SCREEN,
+                    game_offset_x=GAME_OFFSET_X,
+                    game_offset_y=GAME_OFFSET_Y,
+                    game_scale=GAME_SCALE_FACTOR,
+                    mouse_pos=_real_mpos,
+                )
             except Exception:
                 pass
-            if not _skip_guard_icons:
-                try:
-                    _real_mpos = _original_mouse_get_pos()
-                    _guard_hover = arena_guard_system.draw_guard_icons(
-                        REAL_SCREEN,
-                        game_offset_x=GAME_OFFSET_X,
-                        game_offset_y=GAME_OFFSET_Y,
-                        game_scale=GAME_SCALE_FACTOR,
-                        mouse_pos=_real_mpos,
-                    )
-                except Exception:
-                    pass
 
         # 🏅 퍽 아이콘 UI (필러 배경, 호위무사 위/아래)
         _perk_hover = None
@@ -8243,29 +8254,45 @@ def _fullscreen_update(*args, **kwargs):
         if pillar_renderer is not None:
             _draw_pillar_ui(REAL_SCREEN, pillar_renderer)
 
+        # 🎯 통합 쿨타임 큐 UI (왼쪽 필러, 영웅+호위무사) - fullscreen
+        _skip_guard_icons2 = False
+        if arena_mode_enabled:
+            try:
+                from downtown.colosseum_arena import ColosseumsArena as _CA2
+                _arena_inst2 = getattr(_CA2, '_active_instance', None)
+                if _arena_inst2 and getattr(_arena_inst2, '_use_queue_ui', False):
+                    _skip_guard_icons2 = True
+                    _pil_x2 = 0
+                    _pil_w2 = GAME_OFFSET_X if GAME_OFFSET_X > 0 else 80
+                    _pil_y2 = GAME_OFFSET_Y
+                    _pil_h2 = GAME_SCALED_HEIGHT if GAME_SCALED_HEIGHT > 0 else 750
+                    _arena_inst2.draw_cooldown_queue(
+                        surface=REAL_SCREEN,
+                        skill_mgr=arena_skill_manager,
+                        guard_sys=arena_guard_system,
+                        pillar_x=_pil_x2,
+                        pillar_w=_pil_w2,
+                        pillar_y=_pil_y2,
+                        pillar_h=_pil_h2,
+                    )
+            except Exception:
+                pass
+
         # 🛡️ 호위무사 아이콘 UI (필러 배경 위에 그리기)
         # 쿨타임 큐 UI 활성화 시 기존 아이콘 비활성화
         _guard_hover2 = None
-        if arena_mode_enabled and arena_guard_system:
-            _skip_guard_icons2 = False
+        if arena_mode_enabled and arena_guard_system and not _skip_guard_icons2:
             try:
-                from downtown.colosseum_arena import ColosseumsArena as _CA2
-                if hasattr(_CA2, '_active_instance') and _CA2._active_instance:
-                    _skip_guard_icons2 = getattr(_CA2._active_instance, '_use_queue_ui', False)
+                _real_mpos2 = _original_mouse_get_pos()
+                _guard_hover2 = arena_guard_system.draw_guard_icons(
+                    REAL_SCREEN,
+                    game_offset_x=GAME_OFFSET_X,
+                    game_offset_y=GAME_OFFSET_Y,
+                    game_scale=GAME_SCALE_FACTOR,
+                    mouse_pos=_real_mpos2,
+                )
             except Exception:
                 pass
-            if not _skip_guard_icons2:
-                try:
-                    _real_mpos2 = _original_mouse_get_pos()
-                    _guard_hover2 = arena_guard_system.draw_guard_icons(
-                        REAL_SCREEN,
-                        game_offset_x=GAME_OFFSET_X,
-                        game_offset_y=GAME_OFFSET_Y,
-                        game_scale=GAME_SCALE_FACTOR,
-                        mouse_pos=_real_mpos2,
-                    )
-                except Exception:
-                    pass
 
         # 🏅 퍽 아이콘 UI (필러 배경, 호위무사 위/아래)
         _perk_hover2 = None

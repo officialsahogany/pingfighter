@@ -9190,10 +9190,22 @@ class ColosseumsArena:
                 self.screen.blit(surf, (x + icon_size // 2 - surf.get_width() // 2,
                                        y + icon_size + 2))
 
-    def _draw_cooldown_queue(self):
-        """통합 쿨타임 큐 UI - 왼쪽 필러에 영웅+호위무사를 쿨타임 순으로 세로 나열"""
+    def draw_cooldown_queue(self, surface=None, skill_mgr=None, guard_sys=None,
+                           pillar_x=0, pillar_w=80, pillar_y=0, pillar_h=750):
+        """통합 쿨타임 큐 UI - 왼쪽 필러에 영웅+호위무사를 쿨타임 순으로 세로 나열
+
+        Args:
+            surface: 그릴 pygame.Surface (None이면 self.screen)
+            skill_mgr: HeroSkillManager (None이면 self.skill_manager)
+            guard_sys: GuardWarriorSystem (None이면 self.guard_system)
+            pillar_x: 왼쪽 필러 시작 X (REAL_SCREEN 좌표)
+            pillar_w: 왼쪽 필러 너비
+            pillar_y: 왼쪽 필러 시작 Y (REAL_SCREEN 좌표)
+            pillar_h: 왼쪽 필러 높이
+        """
         if not self.selected_match:
             return
+        draw_surface = surface or self.screen
 
         # 지연 초기화: HeroPortraitRenderer
         if self._portrait_renderer is None:
@@ -9203,13 +9215,16 @@ class ColosseumsArena:
             except Exception:
                 return
 
+        _sk_mgr = skill_mgr or self.skill_manager
+        _gd_sys = guard_sys or self.guard_system
+
         # === 1. 데이터 수집 ===
         entries = []
         # 영웅 스킬
-        if self.skill_manager:
+        if _sk_mgr:
             for hero, side in [(self.selected_match.hero1, "top"), (self.selected_match.hero2, "bottom")]:
                 hero_id = hero["id"]
-                hero_skills = self.skill_manager.active_skills.get(hero_id, [])
+                hero_skills = _sk_mgr.active_skills.get(hero_id, [])
                 for sk in hero_skills:
                     entries.append({
                         "hero_id": hero_id,
@@ -9225,9 +9240,9 @@ class ColosseumsArena:
                     })
 
         # 호위무사 스킬
-        if self.guard_system:
+        if _gd_sys:
             try:
-                guard_entries = self.guard_system.get_all_cooldown_entries()
+                guard_entries = _gd_sys.get_all_cooldown_entries()
                 entries.extend(guard_entries)
             except Exception:
                 pass
@@ -9243,13 +9258,15 @@ class ColosseumsArena:
         ))
 
         # === 3. 레이아웃 계산 ===
-        card_w = 70
-        card_h = 45
-        card_gap = 3
-        margin_x = 5
+        # 필러 크기에 비례한 카드 크기
+        _scale = pillar_w / 80.0  # 기준 80px 대비 스케일
+        card_w = max(40, int(70 * _scale))
+        card_h = max(28, int(45 * _scale))
+        card_gap = max(2, int(3 * _scale))
+        margin_x = max(2, int(5 * _scale))
         total_h = len(entries) * (card_h + card_gap) - card_gap
-        start_y = max(30, (SCREEN_HEIGHT - total_h) // 2)
-        card_x = margin_x
+        start_y = pillar_y + max(int(30 * _scale), (pillar_h - total_h) // 2)
+        card_x = pillar_x + margin_x
 
         # 폰트 (작은 크기)
         small_font = self.fonts.get("small") if self.fonts else None
@@ -9396,13 +9413,17 @@ class ColosseumsArena:
                 pygame.draw.rect(card_surf, (60, 60, 70, 150),
                                  (0, 0, card_w, card_h), 1, border_radius=4)
 
-            self.screen.blit(card_surf, (card_x, draw_y))
+            draw_surface.blit(card_surf, (card_x, draw_y))
 
         # 오래된 position 키 정리
         active_keys = {e["key"] for e in entries}
         stale_keys = [k for k in self._queue_positions if k not in active_keys]
         for k in stale_keys:
             del self._queue_positions[k]
+
+    def _draw_cooldown_queue(self):
+        """내부 호출용 래퍼 (독립 실행 모드)"""
+        self.draw_cooldown_queue()
 
     def _draw_bracket(self):
         """대진표 화면 그리기"""
