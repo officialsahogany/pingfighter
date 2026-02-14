@@ -55027,7 +55027,7 @@ def handle_gods_judgment():
             bg.judgment_sandstorm_hit_bottom = False
             print(f"[신의심판] 바람의 분노 - 하단 영웅 모래바람 스턴!")
 
-        # ── 모래 소용돌이: 공 끌어당김 + 포획 + 커브 발사 (모래회오리 세트와 동일) ──
+        # ── 모래 소용돌이: 가장 가까운 1개만 공 끌어당김/포획/커브 발사 ──
         if bg.judgment_phase == 11:  # SANDSTORM phase
             dt = (1.0 / 60.0) * arena_speed_multiplier
             PULL_RADIUS = 200
@@ -55035,27 +55035,32 @@ def handle_gods_judgment():
             LAUNCH_SPEED_MULT = 1.43
             LAUNCH_SPEED_MIN = 8
             LAUNCH_SPEED_MAX = 18
-            CAPTURE_BOOST = 1.6
             CURVE_DURATION = 2.5
             CURVE_ROTATION_SPEED = 3.0
 
             wind_info = bg.get_wind_sandstorm_info()
-            if wind_info['active']:
+            if wind_info['active'] and wind_info['storms']:
+                # ── 가장 가까운 소용돌이 1개만 선택 (4개 동시 상쇄 방지) ──
+                closest = None
+                closest_dist = float('inf')
                 for storm in wind_info['storms']:
-                    # 포획 불가 조건: 이미 포획됨, 페이드 중, 쿨다운 중
+                    d = math.hypot(storm['x'] - BALL.centerx, storm['y'] - BALL.centery)
+                    if d < closest_dist:
+                        closest_dist = d
+                        closest = storm
+
+                if closest is not None:
+                    storm = closest
                     can_capture = (not storm['has_captured'] and
                                    not storm['fading'] and
                                    storm['capture_cooldown'] <= 0)
-
-                    # 성장에 따라 범위 비례 증가
                     growth = storm['growth_scale']
                     scaled_pull = PULL_RADIUS * growth
                     scaled_capture = CAPTURE_RADIUS * growth
 
-                    # 공과 소용돌이 거리
                     dx = storm['x'] - BALL.centerx
                     dy = storm['y'] - BALL.centery
-                    dist = math.hypot(dx, dy)
+                    dist = closest_dist
 
                     if dist < scaled_pull and dist > 1:
                         nx = dx / dist
@@ -55078,34 +55083,28 @@ def handle_gods_judgment():
 
                         # ── 포획 → 커브 발사 ──
                         if dist < scaled_capture and can_capture:
-                            # 포획 상태 설정
                             bg.set_sandstorm_captured(storm['idx'], capture_cooldown=2.0)
 
-                            # 공 현재 속도 측정
                             cur_speed = math.hypot(ball_vel[0], ball_vel[1])
                             launch_speed = max(LAUNCH_SPEED_MIN,
                                                min(LAUNCH_SPEED_MAX,
                                                    cur_speed * LAUNCH_SPEED_MULT))
 
-                            # 발사 각도: 소용돌이 진행 방향 기반 (±40도 랜덤)
+                            # 발사: 소용돌이 진행 방향 기반 (±40도 랜덤)
                             base_vy = storm['base_vy']
                             if base_vy < 0:
-                                # 위로 이동 중 → 위쪽으로 발사
                                 launch_angle = -math.pi / 2 + random.uniform(-0.4, 0.4)
                             else:
-                                # 아래로 이동 중 → 아래쪽으로 발사
                                 launch_angle = math.pi / 2 + random.uniform(-0.4, 0.4)
 
                             launch_vx = math.cos(launch_angle) * launch_speed
                             launch_vy = math.sin(launch_angle) * launch_speed
 
-                            # 공 위치를 소용돌이 중심으로 텔레포트
                             BALL.centerx = int(storm['x'])
                             BALL.centery = int(storm['y'])
                             ball_vel[0] = launch_vx
                             ball_vel[1] = launch_vy
 
-                            # 커브 방향: 소용돌이 X 이동 방향
                             curve_dir = 1 if (storm['base_vx'] + storm['drift_vx']) >= 0 else -1
                             _judgment_wind_curve_effects.append({
                                 'timer': CURVE_DURATION,
@@ -55114,7 +55113,6 @@ def handle_gods_judgment():
                                 'rotation_speed': CURVE_ROTATION_SPEED,
                             })
 
-                            # 포획 시 화면 흔들림
                             bg.judgment_shake_intensity = 0.3
                             print(f"[신의심판] 모래 소용돌이 공 포획! 커브 발사 (dir={curve_dir})")
 
