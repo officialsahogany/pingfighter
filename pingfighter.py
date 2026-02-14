@@ -21437,6 +21437,7 @@ def arena_trigger_bottom_hero_dash(direction: int) -> bool:
     arena_bottom_dash_timer = arena_bottom_dash_duration_frames
     arena_bottom_dashing = True
     arena_bottom_dash_charges -= 1
+    arena_bottom_dash_charge_timer = 0  # 충전 타이머 리셋 (새 토큰 충전 시작)
 
     # 폭풍질주 퍽: 버스트업 Lv3 효과
     if arena_perk_dash_distance_mult_bottom > 1.0:
