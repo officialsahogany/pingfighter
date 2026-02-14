@@ -3287,6 +3287,25 @@ class GuardWarriorSystem:
                     self.y_bottom = vy
                 return  # 타이머 기반 퇴장 안 함 - 스킬 종료 시 자동 퇴장
 
+            # === 게틀링 버스트: 탱크 모드 중 현재 위치 고정, 스킬 끝날 때까지 대기 ===
+            elif skill_id == 'gatling_burst' and skill and skill.is_active:
+                # 게틀링 버스트 활성 상태 → 현재 위치에서 대기 (타이머 기반 퇴장 안 함)
+                return
+
+            elif skill_id == 'gatling_burst' and skill and not skill.is_active:
+                # 게틀링 버스트 종료 → 퇴장 전환
+                if is_top:
+                    self._exit_start_x_top = self.x_top
+                    self._exit_start_y_top = self.y_top
+                    self.phase_top = "exiting"
+                    self.anim_timer_top = 0.0
+                else:
+                    self._exit_start_x_bottom = self.x_bottom
+                    self._exit_start_y_bottom = self.y_bottom
+                    self.phase_bottom = "exiting"
+                    self.anim_timer_bottom = 0.0
+                return
+
             # === 촉수 휘감기: 크라켄이 촉수휘감기가 끝날 때까지 대기 후 퇴장 ===
             elif skill_id == 'tentacle_wrap' and skill and skill.is_active:
                 # 촉수휘감기 활성 상태 → 현재 위치에서 대기 (타이머 기반 퇴장 안 함)
