@@ -221,47 +221,143 @@ def _icon_dwarf_magic() -> pygame.Surface:
 # ===== 오니마루 (onimaru) 스킬 =====
 
 def _icon_hellfire() -> pygame.Surface:
-    """도깨비불 - 청록색 도깨비불"""
+    """도깨비불 - 섬뜩한 청록 도깨비불 (고퀄리티)"""
     s = pygame.Surface((32, 32), pygame.SRCALPHA)
-    # 배경
-    pygame.draw.circle(s, (15, 30, 35), (16, 16), 15)
-    pygame.draw.circle(s, (30, 60, 70), (16, 16), 15, 1)
-    # 도깨비불 본체 (청록)
-    flame_points = [(16, 6), (20, 12), (22, 18), (20, 24), (16, 26), (12, 24), (10, 18), (12, 12)]
-    pygame.draw.polygon(s, (40, 160, 200), flame_points)
-    pygame.draw.polygon(s, (60, 200, 240), flame_points, 2)
-    # 내부 밝은 코어
-    inner_points = [(16, 10), (18, 14), (19, 18), (17, 22), (15, 22), (13, 18), (14, 14)]
-    pygame.draw.polygon(s, (100, 220, 255), inner_points)
-    # 도깨비 눈 (작은 점 2개)
-    pygame.draw.circle(s, (255, 100, 100), (14, 16), 1)
-    pygame.draw.circle(s, (255, 100, 100), (18, 16), 1)
+
+    # 배경 (깊은 남색 그라데이션 효과)
+    pygame.draw.circle(s, (8, 18, 28), (16, 16), 15)
+    pygame.draw.circle(s, (12, 25, 38), (16, 17), 13)
+    pygame.draw.circle(s, (20, 45, 55), (16, 16), 15, 1)
+
+    # 외곽 유령 오라 (은은한 청록 발광)
+    pygame.draw.circle(s, (30, 100, 120, 40), (16, 14), 13, 1)
+    pygame.draw.circle(s, (20, 80, 100, 25), (16, 14), 14, 1)
+
+    # 도깨비불 바깥 화염 실루엣 (넓은 외곽 불꽃)
+    outer_flame = [(16, 3), (21, 8), (23, 13), (24, 18), (22, 23),
+                   (19, 26), (16, 27), (13, 26), (10, 23),
+                   (8, 18), (9, 13), (11, 8)]
+    pygame.draw.polygon(s, (20, 90, 110, 120), outer_flame)
+    pygame.draw.polygon(s, (30, 120, 150, 180), outer_flame, 1)
+
+    # 도깨비불 본체 (메인 청록 불꽃)
+    flame_points = [(16, 5), (20, 10), (22, 16), (21, 21),
+                    (18, 25), (16, 26), (14, 25), (11, 21),
+                    (10, 16), (12, 10)]
+    pygame.draw.polygon(s, (35, 150, 190), flame_points)
+
+    # 중간 레이어 (밝은 청록)
+    mid_flame = [(16, 8), (19, 12), (20, 17), (19, 22),
+                 (16, 24), (13, 22), (12, 17), (13, 12)]
+    pygame.draw.polygon(s, (60, 190, 230), mid_flame)
+
+    # 내부 밝은 코어 (가장 밝은 중심부)
+    inner_core = [(16, 11), (18, 14), (18, 18), (17, 22),
+                  (15, 22), (14, 18), (14, 14)]
+    pygame.draw.polygon(s, (120, 230, 255), inner_core)
+
+    # 중심 하이라이트 (백열 코어)
+    pygame.draw.ellipse(s, (180, 245, 255, 200), (14, 14, 5, 7))
+    pygame.draw.ellipse(s, (220, 255, 255, 140), (15, 16, 3, 4))
+
+    # 도깨비 얼굴 (무서운 표정)
+    # 눈 - 붉은 빛 (외곽 발광 + 동공)
+    pygame.draw.circle(s, (255, 60, 40, 180), (13, 15), 3)
+    pygame.draw.circle(s, (255, 60, 40, 180), (19, 15), 3)
+    pygame.draw.circle(s, (255, 120, 80), (13, 15), 2)
+    pygame.draw.circle(s, (255, 120, 80), (19, 15), 2)
+    pygame.draw.circle(s, (255, 220, 180), (13, 15), 1)
+    pygame.draw.circle(s, (255, 220, 180), (19, 15), 1)
+
+    # 입 - 섬뜩한 미소
+    mouth_pts = [(13, 20), (14, 21), (16, 22), (18, 21), (19, 20)]
+    pygame.draw.lines(s, (255, 80, 60, 200), False, mouth_pts, 1)
+
+    # 불꽃 끝자락 스파크 (위쪽 흩날리는 불씨)
+    sparks = [(14, 4), (19, 5), (11, 7), (22, 8), (8, 12), (24, 11)]
+    for i, (sx, sy) in enumerate(sparks):
+        alpha = 200 - i * 25
+        pygame.draw.circle(s, (80, 220, 255, alpha), (sx, sy), 1)
+
+    # 외곽 테두리 (발광 효과)
+    pygame.draw.polygon(s, (50, 180, 220), flame_points, 1)
+
     return s
 
 
 def _icon_horn_charge() -> pygame.Surface:
-    """뿔 박치기 - 붉은 뿔 돌진"""
+    """뿔 박치기 - 오니의 뿔 돌진 (고퀄리티)"""
     s = pygame.Surface((32, 32), pygame.SRCALPHA)
-    # 배경
-    pygame.draw.circle(s, (50, 15, 20), (16, 16), 15)
-    pygame.draw.circle(s, (80, 30, 35), (16, 16), 15, 1)
-    # 뿔 (삼각형, 위를 향함)
-    horn_points = [(16, 4), (20, 18), (12, 18)]
-    pygame.draw.polygon(s, (200, 60, 60), horn_points)
-    pygame.draw.polygon(s, (240, 100, 80), horn_points, 2)
-    # 뿔 디테일 줄무늬
-    pygame.draw.line(s, (180, 50, 40), (14, 12), (18, 12), 1)
-    pygame.draw.line(s, (180, 50, 40), (15, 9), (17, 9), 1)
-    # 충격파 라인
-    for i in range(3):
-        y = 20 + i * 3
-        w = 6 + i * 3
-        alpha = 200 - i * 50
-        pygame.draw.line(s, (255, 180, 60, alpha), (16 - w, y), (16 + w, y), 1)
-    # 이동선
-    pygame.draw.line(s, (255, 200, 100, 150), (8, 24), (8, 28), 1)
-    pygame.draw.line(s, (255, 200, 100, 150), (16, 24), (16, 28), 1)
-    pygame.draw.line(s, (255, 200, 100, 150), (24, 24), (24, 28), 1)
+
+    # 배경 (진한 암적색 그라데이션)
+    pygame.draw.circle(s, (45, 10, 15), (16, 16), 15)
+    pygame.draw.circle(s, (55, 15, 18), (16, 17), 13)
+    pygame.draw.circle(s, (90, 30, 35), (16, 16), 15, 1)
+
+    # 속도선 (뿔 뒤쪽 잔상 - 돌진감 표현)
+    speed_lines = [
+        ((6, 20), (6, 28), 120),
+        ((10, 21), (10, 28), 150),
+        ((22, 21), (22, 28), 150),
+        ((26, 20), (26, 28), 120),
+        ((16, 22), (16, 29), 100),
+    ]
+    for (x1, y1), (x2, y2), alpha in speed_lines:
+        pygame.draw.line(s, (255, 200, 100, alpha), (x1, y1), (x2, y2), 1)
+
+    # 오니 머리 실루엣 (뿔의 기반)
+    # 이마/머리 부분 (둥근 윤곽)
+    pygame.draw.ellipse(s, (120, 40, 40), (9, 13, 14, 12))
+    pygame.draw.ellipse(s, (150, 50, 45), (10, 14, 12, 10))
+
+    # 왼쪽 뿔 (곡선형, 바깥으로 휘어짐)
+    left_horn = [(11, 14), (7, 6), (5, 3), (9, 8), (12, 13)]
+    pygame.draw.polygon(s, (180, 55, 40), left_horn)
+    # 뿔 하이라이트 (빛 반사)
+    pygame.draw.line(s, (230, 120, 80), (10, 13), (7, 7), 2)
+    pygame.draw.line(s, (255, 160, 100), (9, 11), (7, 6), 1)
+    # 뿔 끝 발광
+    pygame.draw.circle(s, (255, 200, 120, 180), (5, 3), 2)
+    pygame.draw.circle(s, (255, 255, 180, 100), (5, 3), 1)
+
+    # 오른쪽 뿔 (곡선형, 바깥으로 휘어짐)
+    right_horn = [(21, 14), (25, 6), (27, 3), (23, 8), (20, 13)]
+    pygame.draw.polygon(s, (180, 55, 40), right_horn)
+    # 뿔 하이라이트
+    pygame.draw.line(s, (230, 120, 80), (22, 13), (25, 7), 2)
+    pygame.draw.line(s, (255, 160, 100), (23, 11), (25, 6), 1)
+    # 뿔 끝 발광
+    pygame.draw.circle(s, (255, 200, 120, 180), (27, 3), 2)
+    pygame.draw.circle(s, (255, 255, 180, 100), (27, 3), 1)
+
+    # 뿔 줄무늬 디테일 (좌)
+    pygame.draw.line(s, (140, 35, 25), (10, 12), (8, 8), 1)
+    pygame.draw.line(s, (140, 35, 25), (9, 10), (8, 7), 1)
+    # 뿔 줄무늬 디테일 (우)
+    pygame.draw.line(s, (140, 35, 25), (22, 12), (24, 8), 1)
+    pygame.draw.line(s, (140, 35, 25), (23, 10), (24, 7), 1)
+
+    # 오니 눈 (분노의 노란 눈)
+    pygame.draw.circle(s, (255, 200, 40), (13, 18), 2)
+    pygame.draw.circle(s, (255, 200, 40), (19, 18), 2)
+    pygame.draw.circle(s, (255, 255, 150), (13, 18), 1)
+    pygame.draw.circle(s, (255, 255, 150), (19, 18), 1)
+
+    # 충격파 / 임팩트 이펙트 (하단 부채꼴 확산)
+    for i in range(4):
+        y = 22 + i * 2
+        w = 4 + i * 4
+        alpha = 220 - i * 45
+        pygame.draw.line(s, (255, 160, 40, alpha), (16 - w, y), (16 + w, y), 1)
+
+    # 돌진 바람 이펙트 (양옆 사선)
+    pygame.draw.line(s, (255, 180, 80, 100), (4, 16), (2, 20), 1)
+    pygame.draw.line(s, (255, 180, 80, 100), (28, 16), (30, 20), 1)
+
+    # 분노 오라 (머리 주변 붉은 발광)
+    pygame.draw.arc(s, (255, 60, 30, 60), (6, 10, 20, 12), 0.3, 2.8, 1)
+    pygame.draw.arc(s, (255, 40, 20, 35), (4, 8, 24, 16), 0.5, 2.6, 1)
+
     return s
 
 
