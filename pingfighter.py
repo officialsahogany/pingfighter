@@ -7237,9 +7237,9 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
         _gh_phase = hover_info["phase"]
         _gh_next = hover_info.get("is_next", False)
         _gh_skill = hover_info.get("skill", None)
-        _gh_font = get_font(13, style="bold")
-        _gh_small = get_font(11, style="regular")
-        _gh_tiny = get_font(10, style="regular")
+        _gh_font = get_font(20, style="bold")
+        _gh_small = get_font(17, style="regular")
+        _gh_tiny = get_font(15, style="regular")
 
         _gh_skills = hover_info.get("skills", [_gh_skill] if _gh_skill else [])
 
@@ -7271,11 +7271,11 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
             _sk_icon = None
             try:
                 from downtown.hero_skill_icons import get_skill_icon
-                _sk_icon = get_skill_icon(getattr(_sk, 'skill_id', ''), 18)
+                _sk_icon = get_skill_icon(getattr(_sk, 'skill_id', ''), 27)
             except Exception:
                 pass
             # 설명 줄바꿈 (최대 너비 기반)
-            _max_desc_w = 170
+            _max_desc_w = 255
             _desc_lines = []
             _cur_line = ""
             for ch in _sk_desc:
@@ -7304,24 +7304,24 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
         # 스킬이 있으면 너비 확보
         for _se in _skill_entries:
             _sn_surf = _gh_small.render(_se["name"], True, (255, 255, 255))
-            _tw = max(_tw, _sn_surf.get_width() + 34 + 20)
+            _tw = max(_tw, _sn_surf.get_width() + 51 + 20)
             for dl in _se["desc_lines"]:
                 _dl_surf = _gh_tiny.render(dl, True, (200, 200, 200))
                 _tw = max(_tw, _dl_surf.get_width() + 20)
-        _tw = max(_tw, 140)
+        _tw = max(_tw, 210)
 
-        _th = sum(s.get_height() for s in _lines) + 4 * len(_lines) + 8
+        _th = sum(s.get_height() for s in _lines) + 6 * len(_lines) + 12
         # 스킬 영역 높이 추가 (여러 스킬)
         if len(_gh_skills) > 1:
             # 다중 스킬: "스킬 (랜덤 발동)" 헤더
-            _th += 4 + 18
+            _th += 6 + 27
         for idx, _se in enumerate(_skill_entries):
             if idx == 0:
-                _th += 4  # 구분선 여백
+                _th += 6  # 구분선 여백
             else:
-                _th += 6  # 스킬 간 여백
-            _th += 22  # 스킬 이름 행
-            _th += len(_se["desc_lines"]) * 14 + 4  # 설명 행들
+                _th += 9  # 스킬 간 여백
+            _th += 33  # 스킬 이름 행
+            _th += len(_se["desc_lines"]) * 21 + 6  # 설명 행들
 
         if hover_info["side"] == "bottom":
             _tx = max(4, hover_info["screen_x"] - _tw)
@@ -7335,41 +7335,41 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
         pygame.draw.rect(_tip_surf, (16, 20, 36, 230), (0, 0, _tw, _th), border_radius=8)
         pygame.draw.rect(_tip_surf, (*_gh_color, 200), (0, 0, _tw, _th), 2, border_radius=8)
 
-        _cy = 6
+        _cy = 8
         for _ls in _lines:
-            _tip_surf.blit(_ls, (10, _cy))
-            _cy += _ls.get_height() + 4
+            _tip_surf.blit(_ls, (12, _cy))
+            _cy += _ls.get_height() + 6
 
         # 스킬 정보 섹션
         if _skill_entries:
-            _cy += 2
+            _cy += 3
             # 구분선
             pygame.draw.line(_tip_surf, (*_gh_color[:3], 80),
-                           (8, _cy), (_tw - 8, _cy), 1)
-            _cy += 4
+                           (10, _cy), (_tw - 10, _cy), 1)
+            _cy += 6
             # 다중 스킬 헤더
             if len(_gh_skills) > 1:
                 _hdr_surf = _gh_tiny.render("스킬 (랜덤 발동)", True, (180, 180, 220))
-                _tip_surf.blit(_hdr_surf, (10, _cy))
-                _cy += 18
+                _tip_surf.blit(_hdr_surf, (12, _cy))
+                _cy += 27
             # 각 스킬 표시
             for idx, _se in enumerate(_skill_entries):
                 if idx > 0:
-                    _cy += 6
+                    _cy += 9
                 # 스킬 아이콘 + 이름
                 if _se["icon"]:
-                    _tip_surf.blit(_se["icon"], (8, _cy))
+                    _tip_surf.blit(_se["icon"], (10, _cy))
                     _sn_surf = _gh_small.render(_se["name"], True, (255, 230, 150))
-                    _tip_surf.blit(_sn_surf, (30, _cy + 1))
+                    _tip_surf.blit(_sn_surf, (42, _cy + 2))
                 else:
                     _sn_surf = _gh_small.render(_se["name"], True, (255, 230, 150))
-                    _tip_surf.blit(_sn_surf, (10, _cy + 1))
-                _cy += 20
+                    _tip_surf.blit(_sn_surf, (12, _cy + 2))
+                _cy += 30
                 # 설명 텍스트
                 for dl in _se["desc_lines"]:
                     _dl_surf = _gh_tiny.render(dl, True, (200, 195, 180))
-                    _tip_surf.blit(_dl_surf, (10, _cy))
-                    _cy += 14
+                    _tip_surf.blit(_dl_surf, (12, _cy))
+                    _cy += 21
         _blit_scaled_tooltip(target_screen, _tip_surf, _tx, _ty, _tw, _th)
     except Exception:
         pass
