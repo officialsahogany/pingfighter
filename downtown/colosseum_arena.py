@@ -2586,7 +2586,11 @@ class GuardWarriorSystem:
         else:
             c['cooldown'] -= dt
             if c['cooldown'] <= 0:
-                self._charmed_trigger_skill(top_paddle, bottom_paddle, ball)
+                # 야생의 포효: 공이 호위무사 패들 근처에 도달할 때까지 대기
+                if self._check_wild_roar_ball_proximity(
+                        _charm_guard["id"], c['caster_is_top'],
+                        c['x'], c['y'], ball, dt, top_paddle, bottom_paddle):
+                    self._charmed_trigger_skill(top_paddle, bottom_paddle, ball)
 
     def _charmed_trigger_skill(self, top_paddle, bottom_paddle, ball):
         """매혹된 호위무사가 상대를 향해 스킬 사용"""
@@ -2640,6 +2644,12 @@ class GuardWarriorSystem:
                 except Exception:
                     pass
                 skill.is_active = False
+
+            # 야생의 포효: update()로 _ball_in_range 상태 갱신 (can_use 조건)
+            try:
+                skill.update(0.016, guard_paddle, target_paddle, ball, game_state)
+            except Exception:
+                pass
 
             caster_prefix = 'top_paddle' if caster_is_top else 'bottom_paddle'
             saved = self._save_caster_state(game_state, caster_prefix)
@@ -2830,7 +2840,13 @@ class GuardWarriorSystem:
                 # 싱글 스킬: 기존 단일 쿨타임
                 p2['cooldown'] -= dt
                 if p2['cooldown'] <= 0:
-                    self._patrol2_trigger_skill(is_top, top_paddle, bottom_paddle, ball)
+                    # 야생의 포효: 공이 호위무사 패들 근처에 도달할 때까지 대기
+                    guard = p2.get('guard')
+                    guard_id = guard["id"] if guard else ""
+                    if self._check_wild_roar_ball_proximity(
+                            guard_id, is_top, p2['x'], p2['y'],
+                            ball, dt, top_paddle, bottom_paddle):
+                        self._patrol2_trigger_skill(is_top, top_paddle, bottom_paddle, ball)
             return
 
         # === casting: 스킬 시전 중 (지속 시간 후 순찰 복귀) ===
@@ -2920,6 +2936,12 @@ class GuardWarriorSystem:
                 except Exception:
                     pass
                 skill.is_active = False
+
+            # 야생의 포효: update()로 _ball_in_range 상태 갱신 (can_use 조건)
+            try:
+                skill.update(0.016, gp, target_paddle, ball, game_state)
+            except Exception:
+                pass
 
             caster_prefix = 'top_paddle' if is_top else 'bottom_paddle'
             saved = self._save_caster_state(game_state, caster_prefix)
@@ -3303,11 +3325,23 @@ class GuardWarriorSystem:
                 if is_top:
                     self.cooldown_top -= dt
                     if self.cooldown_top <= 0:
-                        self._trigger_from_patrol(is_top, top_paddle, bottom_paddle, ball)
+                        # 야생의 포효: 공이 호위무사 패들 근처에 도달할 때까지 대기
+                        guard = self.active_top
+                        gx, gy = self.x_top, self.y_top
+                        if not guard or self._check_wild_roar_ball_proximity(
+                                guard["id"], is_top, gx, gy,
+                                ball, dt, top_paddle, bottom_paddle):
+                            self._trigger_from_patrol(is_top, top_paddle, bottom_paddle, ball)
                 else:
                     self.cooldown_bottom -= dt
                     if self.cooldown_bottom <= 0:
-                        self._trigger_from_patrol(is_top, top_paddle, bottom_paddle, ball)
+                        # 야생의 포효: 공이 호위무사 패들 근처에 도달할 때까지 대기
+                        guard = self.active_bottom
+                        gx, gy = self.x_bottom, self.y_bottom
+                        if not guard or self._check_wild_roar_ball_proximity(
+                                guard["id"], is_top, gx, gy,
+                                ball, dt, top_paddle, bottom_paddle):
+                            self._trigger_from_patrol(is_top, top_paddle, bottom_paddle, ball)
             return
 
         if phase:
@@ -3788,6 +3822,18 @@ class GuardWarriorSystem:
                 skill.update(0.016, guard_paddle, target_paddle, ball, game_state)
             except Exception:
                 pass
+            # 야생의 포효가 선택됐지만 공이 범위 밖 → 다른 준비된 스킬로 교체
+            if getattr(skill, 'skill_id', '') == 'wild_roar' and not skill.can_use():
+                skill_cds = self.guard_skill_cooldowns.get(guard["id"], [])
+                fallback = None
+                for i, sk in enumerate(skills):
+                    if sk != skill and i < len(skill_cds) and skill_cds[i] <= 0:
+                        fallback = (i, sk)
+                        break
+                if fallback:
+                    skill_idx, skill = fallback
+                else:
+                    return  # 다른 스킬도 없음 → 대기
         else:
             # 싱글 스킬: 기존 로직 (can_use 조건 확인 후 가능한 스킬 우선)
             guard_paddle = self._make_guard_paddle(is_top)
@@ -3856,6 +3902,43 @@ class GuardWarriorSystem:
         if guard:
             self.guard_paddles[guard["id"]] = gp
         return gp
+
+    # === 야생의 포효 (WildRoar) 호위무사 공 접근 감지 ===
+
+    def _get_wild_roar_skill(self, guard_id):
+        """호위무사의 야생의 포효 스킬 인스턴스 반환 (없으면 None)"""
+        skills = self.skill_instances.get(guard_id, [])
+        for sk in skills:
+            if getattr(sk, 'skill_id', '') == 'wild_roar':
+                return sk
+        return None
+
+    def _check_wild_roar_ball_proximity(self, guard_id, is_top, gx, gy,
+                                         ball, dt, top_paddle, bottom_paddle):
+        """야생의 포효 공 접근 감지 업데이트.
+
+        Returns True if:
+          - 해당 호위무사에 야생의 포효가 없음 (일반 스킬 → 바로 발동)
+          - 공이 호위무사 패들 범위 내에 도달 (발동 가능)
+        Returns False if:
+          - 야생의 포효가 있지만 공이 아직 접근하지 않음 (대기 필요)
+        """
+        wild_roar = self._get_wild_roar_skill(guard_id)
+        if not wild_roar or not ball:
+            return True  # WildRoar 아님 → 정상 진행
+
+        # 호위무사 위치로 가상 패들 생성
+        gp = _GuardPaddle(gx, gy, is_top)
+        self.guard_paddles[guard_id] = gp
+        target_paddle = bottom_paddle if is_top else top_paddle
+        game_state = self.skill_manager.game_state if self.skill_manager else {}
+        wild_roar.caster_is_top = is_top
+        wild_roar.current_cooldown = 0  # 호위무사 자체 쿨타임 사용
+        try:
+            wild_roar.update(dt, gp, target_paddle, ball, game_state)
+        except Exception:
+            pass
+        return getattr(wild_roar, '_ball_in_range', False)
 
     def _check_guard_demon_step_ball_collision(self, ball, game_state):
         """호위무사 귀신발걸음 중 공과 충돌 감지 → game_state 플래그 설정 (1회 발동당 3회까지)"""
@@ -4186,6 +4269,21 @@ class GuardWarriorSystem:
             print(f"[Guard] {'상단' if is_top else '하단'}측 호위무사 {guard['name']} → "
                   f"{skill.korean_name} 발동 성공! (위치: x={guard_paddle.centerx:.0f})")
         else:
+            # 야생의 포효: 공이 범위 밖이면 순찰 모드로 전환하여 대기
+            if skill_id == 'wild_roar':
+                if is_top:
+                    self.phase_top = "patrolling"
+                    self.anim_timer_top = 0.0
+                    self.cooldown_top = 0  # 매 프레임 proximity 체크
+                    self.cooldown_max_top = max(0.01, self.cooldown_max_top)
+                else:
+                    self.phase_bottom = "patrolling"
+                    self.anim_timer_bottom = 0.0
+                    self.cooldown_bottom = 0
+                    self.cooldown_max_bottom = max(0.01, self.cooldown_max_bottom)
+                print(f"[Guard] {'상단' if is_top else '하단'}측 호위무사 {guard['name']} → "
+                      f"야생의 포효 공 미접근, 순찰 대기 전환")
+                return
             print(f"[Guard] {'상단' if is_top else '하단'}측 호위무사 {guard['name']} → "
                   f"{skill.korean_name} 발동 실패")
 
