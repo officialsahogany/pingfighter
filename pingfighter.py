@@ -92417,39 +92417,29 @@ def draw_objects():
                 (255, 240, 120), (255, 220, 80),
             ]
 
-            # ── 1. 주요 전류 아크 (몸을 관통하는 굵은 번개) ──
-            main_arc_count = 3
+            # ── 1. 주요 전류 아크 (짧은 미세 전류) ──
+            main_arc_count = 1
             for i in range(main_arc_count):
-                # 시작/끝점: 몸의 좌우 또는 상하 랜덤 지점
-                if random.random() < 0.6:
-                    # 좌우 관통
-                    sx = cx - hw + random.randint(-3, 5)
-                    sy = cy + random.randint(-hh, hh)
-                    ex = cx + hw + random.randint(-5, 3)
-                    ey = cy + random.randint(-hh, hh)
-                else:
-                    # 상하 관통
-                    sx = cx + random.randint(-hw, hw)
-                    sy = cy - hh + random.randint(-3, 5)
-                    ex = cx + random.randint(-hw, hw)
-                    ey = cy + hh + random.randint(-5, 3)
+                # 시작점: 몸 중심 근처 랜덤
+                sx = cx + random.randint(-hw // 3, hw // 3)
+                sy = cy + random.randint(-hh // 2, hh // 2)
+                # 끝점: 시작점에서 짧은 거리
+                arc_len = random.randint(12, 22)
+                a = random.uniform(0, math.pi * 2)
+                ex = sx + int(math.cos(a) * arc_len)
+                ey = sy + int(math.sin(a) * arc_len)
 
-                # 지그재그 세그먼트 (4~6개로 찌릿찌릿)
-                segs = random.randint(4, 6)
+                segs = random.randint(3, 4)
                 pts = [(int(sx), int(sy))]
                 for j in range(1, segs):
                     frac = j / segs
-                    jitter_x = random.uniform(-8, 8)
-                    jitter_y = random.uniform(-6, 6)
-                    mx = sx + (ex - sx) * frac + jitter_x
-                    my = sy + (ey - sy) * frac + jitter_y
+                    mx = sx + (ex - sx) * frac + random.uniform(-2.5, 2.5)
+                    my = sy + (ey - sy) * frac + random.uniform(-2, 2)
                     pts.append((int(mx), int(my)))
                 pts.append((int(ex), int(ey)))
 
-                # 외곽선 (넓은 전기 글로우)
                 if len(pts) >= 2:
                     pygame.draw.lines(SCREEN, random.choice(_arc_colors_outer), False, pts, 2)
-                    # 코어 (밝은 중심)
                     pygame.draw.lines(SCREEN, random.choice(_arc_colors_core), False, pts, 1)
 
             # ── 2. 분기 전류 (주 전류에서 갈라지는 작은 번개) ──
@@ -92470,12 +92460,12 @@ def draw_objects():
                 if len(pts) >= 2:
                     pygame.draw.lines(SCREEN, col, False, pts, 1)
 
-            # ── 3. 스파크 포인트 (튀는 전기 불꽃) ──
-            spark_count = random.randint(3, 6)
+            # ── 3. 스파크 포인트 (튀는 전기 불꽃, 축소) ──
+            spark_count = random.randint(1, 2)
             for _ in range(spark_count):
                 sp_x = cx + random.randint(-hw, hw)
                 sp_y = cy + random.randint(-hh, hh)
-                sp_size = random.randint(1, 3)
+                sp_size = random.randint(1, 2)
                 sp_col = random.choice([(255, 255, 255), (255, 255, 200), (200, 230, 255)])
                 pygame.draw.circle(SCREEN, sp_col, (sp_x, sp_y), sp_size)
 
