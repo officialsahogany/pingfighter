@@ -13276,7 +13276,7 @@ class ThunderOrb(HeroSkill):
     """
 
     # 구체 상수 (에너지볼과 동일 사이즈/속도)
-    ORB_SPEED = 420             # 구체 이동 속도 (px/sec) - BALL_BASE_SPEED 7.0 * 60fps
+    ORB_SPEED = 504             # 구체 이동 속도 (px/sec) - 420 * 1.2 (20% 증가)
     ORB_RADIUS = 10             # 구체 물리 반지름 - BALL_SIZE = 10
     ORB_VISUAL_RADIUS = 30      # 구체 시각 반지름 (에너지볼 렌더링용)
     EXPLOSION_RADIUS = 170      # 폭발 범위 (px)
@@ -13635,6 +13635,31 @@ class ThunderOrb(HeroSkill):
         inner_sph = int(vr * 0.26)
         inner_col = tuple(int(min(255, c * 0.7 + 80)) for c in self.ORB_INNER_COLOR)
         pygame.draw.circle(ball_surf, (*inner_col, 160), (center, center), inner_sph)
+
+        # === Layer 3.5: 회전하는 에너지 줄기 (swirling energy wisps) ===
+        num_wisps = 5
+        for wi in range(num_wisps):
+            base_ang = math.radians((t * 0.25 + wi * (360 / num_wisps)) % 360)
+            wisp_r = vr * (0.35 + 0.15 * _sin(t * 0.004 + wi * 1.3))
+            # 줄기 궤적 (6개 점으로 부드러운 곡선)
+            wisp_pts = []
+            for si in range(6):
+                seg_ang = base_ang + si * 0.35
+                seg_r = wisp_r + si * vr * 0.08
+                wx = center + _cos(seg_ang) * seg_r
+                wy = center + _sin(seg_ang) * seg_r
+                wisp_pts.append((int(wx), int(wy)))
+            # 글로우 (두껍고 반투명)
+            if len(wisp_pts) > 1:
+                wisp_alpha = int(100 + 40 * _sin(t * 0.006 + wi))
+                wisp_col_g = (130, 200, 255, wisp_alpha)
+                wisp_col_c = (200, 235, 255, min(255, wisp_alpha + 60))
+                pygame.draw.lines(ball_surf, wisp_col_g, False, wisp_pts, 3)
+                pygame.draw.lines(ball_surf, wisp_col_c, False, wisp_pts, 1)
+                # 줄기 끝에 밝은 점
+                ex, ey = wisp_pts[-1]
+                if 0 < ex < surf_size and 0 < ey < surf_size:
+                    pygame.draw.circle(ball_surf, (220, 240, 255, min(255, wisp_alpha + 80)), (ex, ey), 2)
 
         # === Layer 4: 밝은 코어 ===
         core_sz = int(vr * 0.18)
