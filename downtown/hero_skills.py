@@ -13478,17 +13478,29 @@ class ThunderOrb(HeroSkill):
         self.explosion_timer = self.EXPLOSION_DURATION
         self.explosion_x = self.orb_x
         self.explosion_y = self.orb_y
-        game_state['screen_shake'] = 16
-        # 폭발 파티클 생성 (방사형)
+        game_state['screen_shake'] = 22
+        # 폭발 파티클 생성 (방사형 - 대형 + 소형)
         self.explosion_particles = []
-        for _ in range(30):
+        # 대형 파티클 (밝은 에너지 파편)
+        for _ in range(20):
             ang = random.uniform(0, math.tau)
-            spd = random.uniform(150, 500)
+            spd = random.uniform(200, 600)
             self.explosion_particles.append({
                 'x': self.orb_x, 'y': self.orb_y,
                 'vx': _cos(ang) * spd, 'vy': _sin(ang) * spd,
-                'life': random.uniform(0.15, 0.35),
-                'size': random.uniform(1, 3),
+                'life': random.uniform(0.2, 0.45),
+                'size': random.uniform(2, 5),
+                'color': random.choice([(200, 230, 255), (255, 255, 255), (150, 210, 255)]),
+            })
+        # 소형 스파크 파티클
+        for _ in range(35):
+            ang = random.uniform(0, math.tau)
+            spd = random.uniform(300, 800)
+            self.explosion_particles.append({
+                'x': self.orb_x, 'y': self.orb_y,
+                'vx': _cos(ang) * spd, 'vy': _sin(ang) * spd,
+                'life': random.uniform(0.1, 0.3),
+                'size': random.uniform(1, 2.5),
                 'color': random.choice(self.ORB_PARTICLE_COLORS),
             })
 
@@ -13702,7 +13714,7 @@ class ThunderOrb(HeroSkill):
             pygame.draw.line(screen, col, (sx, sy), (ex, ey), 1)
 
     def _draw_explosion(self, screen):
-        """폭발 이펙트 렌더링 (고퀄리티 업그레이드)"""
+        """폭발 이펙트 렌더링 (강력한 전기 폭발)"""
         progress = 1.0 - (self.explosion_timer / self.EXPLOSION_DURATION)
         cx, cy = int(self.explosion_x), int(self.explosion_y)
         current_r = int(self.EXPLOSION_RADIUS * progress)
@@ -13713,97 +13725,141 @@ class ThunderOrb(HeroSkill):
         for p in self.explosion_particles:
             p['x'] += p['vx'] * dt
             p['y'] += p['vy'] * dt
+            p['vx'] *= 0.97  # 감속
+            p['vy'] *= 0.97
             p['life'] -= dt
             if p['life'] > 0:
                 new_ep.append(p)
-                alpha = int(220 * (p['life'] / 0.35))
-                sz = max(1, int(p['size'] * (p['life'] / 0.35)))
+                life_ratio = p['life'] / 0.45
+                alpha = min(255, int(255 * life_ratio))
+                sz = max(1, int(p['size'] * max(0.3, life_ratio)))
                 if alpha > 0 and sz > 0:
-                    ps = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
-                    pygame.draw.circle(ps, (*p['color'], alpha), (sz, sz), sz)
-                    screen.blit(ps, (int(p['x']) - sz, int(p['y']) - sz))
+                    ps = pygame.Surface((sz * 2 + 4, sz * 2 + 4), pygame.SRCALPHA)
+                    pc = sz + 2
+                    # 파티클 글로우
+                    pygame.draw.circle(ps, (*p['color'][:3], alpha // 3), (pc, pc), sz + 2)
+                    pygame.draw.circle(ps, (*p['color'][:3], alpha), (pc, pc), sz)
+                    screen.blit(ps, (int(p['x']) - pc, int(p['y']) - pc))
         self.explosion_particles = new_ep
 
         if current_r <= 0:
             return
 
-        # === 초기 플래시 (progress < 0.3) ===
-        if progress < 0.3:
-            flash_a = int(180 * (1.0 - progress / 0.3))
-            flash_r = int(current_r * 0.6)
+        # === 초기 플래시 (progress < 0.4) - 더 크고 밝게 ===
+        if progress < 0.4:
+            flash_f = 1.0 - progress / 0.4
+            # 외곽 넓은 글로우
+            flash_r_outer = int(current_r * 0.9)
+            flash_a_outer = int(80 * flash_f)
+            if flash_r_outer > 0 and flash_a_outer > 0:
+                fs = pygame.Surface((flash_r_outer * 2, flash_r_outer * 2), pygame.SRCALPHA)
+                pygame.draw.circle(fs, (100, 180, 255, flash_a_outer), (flash_r_outer, flash_r_outer), flash_r_outer)
+                screen.blit(fs, (cx - flash_r_outer, cy - flash_r_outer))
+            # 중심 백색 플래시
+            flash_r = int(current_r * 0.5)
+            flash_a = int(220 * flash_f)
             if flash_r > 0 and flash_a > 0:
                 fs = pygame.Surface((flash_r * 2, flash_r * 2), pygame.SRCALPHA)
                 pygame.draw.circle(fs, (255, 255, 255, flash_a), (flash_r, flash_r), flash_r)
                 screen.blit(fs, (cx - flash_r, cy - flash_r))
 
-        # === 다중 충격파 링 (3개, 시간차) ===
-        ring_colors = [(100, 180, 255), (150, 200, 255), (80, 160, 255)]
-        for ring_idx in range(3):
-            ring_delay = ring_idx * 0.12
+        # === 다중 충격파 링 (5개, 시간차) - 더 두껍고 밝게 ===
+        ring_colors = [
+            (100, 180, 255), (150, 210, 255), (80, 160, 255),
+            (180, 220, 255), (60, 140, 240),
+        ]
+        for ring_idx in range(5):
+            ring_delay = ring_idx * 0.07
             ring_prog = max(0.0, progress - ring_delay)
             if ring_prog <= 0:
                 continue
-            ring_r = int(self.EXPLOSION_RADIUS * min(1.0, ring_prog * 1.3))
-            ring_a = int((180 - ring_idx * 40) * (1.0 - min(1.0, ring_prog)))
-            ring_w = max(1, 3 - ring_idx)
+            ring_r = int(self.EXPLOSION_RADIUS * min(1.0, ring_prog * 1.4))
+            ring_a = int((220 - ring_idx * 30) * (1.0 - min(1.0, ring_prog)))
+            ring_w = max(1, 4 - ring_idx)
             if ring_r > 0 and ring_a > 0:
-                rs = pygame.Surface((ring_r * 2 + 6, ring_r * 2 + 6), pygame.SRCALPHA)
-                rc = ring_colors[ring_idx]
-                pygame.draw.circle(rs, (*rc, ring_a), (ring_r + 3, ring_r + 3), ring_r, ring_w)
-                screen.blit(rs, (cx - ring_r - 3, cy - ring_r - 3))
+                rs = pygame.Surface((ring_r * 2 + 10, ring_r * 2 + 10), pygame.SRCALPHA)
+                rc = ring_colors[ring_idx % len(ring_colors)]
+                rsc = ring_r + 5
+                # 글로우 링 (두꺼운 외곽)
+                if ring_w >= 2:
+                    pygame.draw.circle(rs, (*rc, ring_a // 3), (rsc, rsc), ring_r + 2, ring_w + 2)
+                # 메인 링
+                pygame.draw.circle(rs, (*rc, ring_a), (rsc, rsc), ring_r, ring_w)
+                screen.blit(rs, (cx - rsc, cy - rsc))
 
-        # === 내부 채우기 원 (반투명 파란색) ===
-        fill_a = int(60 * (1.0 - progress))
-        if fill_a > 0:
-            fill_r = int(current_r * 0.8)
-            if fill_r > 0:
-                fs = pygame.Surface((fill_r * 2, fill_r * 2), pygame.SRCALPHA)
-                pygame.draw.circle(fs, (30, 100, 200, fill_a), (fill_r, fill_r), fill_r)
-                screen.blit(fs, (cx - fill_r, cy - fill_r))
+        # === 내부 에너지 필드 (다층 채우기) ===
+        # 외곽 글로우
+        fill_a1 = int(50 * (1.0 - progress))
+        if fill_a1 > 0:
+            fill_r1 = int(current_r * 0.9)
+            if fill_r1 > 0:
+                fs = pygame.Surface((fill_r1 * 2, fill_r1 * 2), pygame.SRCALPHA)
+                pygame.draw.circle(fs, (20, 80, 180, fill_a1), (fill_r1, fill_r1), fill_r1)
+                screen.blit(fs, (cx - fill_r1, cy - fill_r1))
+        # 내부 밝은 영역
+        fill_a2 = int(90 * (1.0 - progress))
+        if fill_a2 > 0:
+            fill_r2 = int(current_r * 0.5)
+            if fill_r2 > 0:
+                fs = pygame.Surface((fill_r2 * 2, fill_r2 * 2), pygame.SRCALPHA)
+                pygame.draw.circle(fs, (60, 140, 230, fill_a2), (fill_r2, fill_r2), fill_r2)
+                screen.blit(fs, (cx - fill_r2, cy - fill_r2))
 
-        # === 번개 웹 패턴 (방사형 + 원형 연결) ===
-        arc_count = 8 + int(progress * 8)
+        # === 번개 웹 패턴 (방사형 + 원형 연결) - 더 많고 굵게 ===
+        arc_count = 12 + int(progress * 10)
         web_pts = []
         for i in range(arc_count):
-            a = (i / arc_count) * math.tau + random.uniform(-0.2, 0.2)
-            # 방사형 전기 아크
-            inner_r = current_r * 0.15
-            outer_r = current_r * random.uniform(0.8, 1.1)
+            a = (i / arc_count) * math.tau + random.uniform(-0.15, 0.15)
+            inner_r = current_r * 0.1
+            outer_r = current_r * random.uniform(0.85, 1.15)
             sx = cx + int(_cos(a) * inner_r)
             sy = cy + int(_sin(a) * inner_r)
             ex = cx + int(_cos(a) * outer_r)
             ey = cy + int(_sin(a) * outer_r)
-            # 지그재그 중간점 2개
-            f1, f2 = 0.33, 0.66
-            mx1 = int(sx + (ex - sx) * f1 + random.randint(-12, 12))
-            my1 = int(sy + (ey - sy) * f1 + random.randint(-12, 12))
-            mx2 = int(sx + (ex - sx) * f2 + random.randint(-10, 10))
-            my2 = int(sy + (ey - sy) * f2 + random.randint(-10, 10))
-            pts = [(sx, sy), (mx1, my1), (mx2, my2), (ex, ey)]
-            col = random.choice(self.ARC_COLORS_CORE + self.ARC_COLORS_OUTER)
-            # 외부 글로우
-            pygame.draw.lines(screen, (*col[:3], 80) if len(col) == 3 else col, False, pts, 3)
-            # 코어
+            # 지그재그 중간점 3개
+            pts = [(sx, sy)]
+            for seg in range(3):
+                f = (seg + 1) / 4.0
+                jitter = int(14 * (1.0 - f * 0.3))
+                mx = int(sx + (ex - sx) * f + random.randint(-jitter, jitter))
+                my = int(sy + (ey - sy) * f + random.randint(-jitter, jitter))
+                pts.append((mx, my))
+            pts.append((ex, ey))
+            # 외부 글로우 (두꺼운 파란색)
+            glow_col = random.choice(self.ARC_COLORS_OUTER)
+            pygame.draw.lines(screen, (*glow_col[:3], 100) if len(glow_col) == 3 else glow_col, False, pts, 4)
+            # 중간 밝은 선
+            mid_col = random.choice(self.ARC_COLORS_CORE)
+            pygame.draw.lines(screen, mid_col, False, pts, 2)
+            # 코어 (밝은 흰색)
             pygame.draw.lines(screen, (255, 255, 255), False, pts, 1)
             web_pts.append((ex, ey))
 
-        # 외곽 점들 끼리 원형 연결 (번개 웹)
+        # 외곽 점들 원형 연결 (번개 웹) - 더 많은 연결
         if len(web_pts) >= 3:
-            for i in range(0, len(web_pts) - 1, 2):
-                if random.random() < 0.6:
+            for i in range(len(web_pts)):
+                if random.random() < 0.7:
                     p1 = web_pts[i]
                     p2 = web_pts[(i + 1) % len(web_pts)]
-                    mx = (p1[0] + p2[0]) // 2 + random.randint(-6, 6)
-                    my = (p1[1] + p2[1]) // 2 + random.randint(-6, 6)
-                    col = random.choice(self.ARC_COLORS_OUTER)
-                    pygame.draw.lines(screen, col, False, [p1, (mx, my), p2], 1)
+                    mx = (p1[0] + p2[0]) // 2 + random.randint(-8, 8)
+                    my = (p1[1] + p2[1]) // 2 + random.randint(-8, 8)
+                    col = random.choice(self.ARC_COLORS_CORE)
+                    pygame.draw.lines(screen, col, False, [p1, (mx, my), p2], 2)
+                    pygame.draw.lines(screen, (255, 255, 255, 180), False, [p1, (mx, my), p2], 1)
 
-        # === 중심 코어 글로우 (페이드아웃) ===
-        core_a = int(200 * (1.0 - progress))
+        # === 중심 코어 글로우 (밝고 크게) ===
+        core_f = 1.0 - progress
+        core_a = int(255 * core_f)
         if core_a > 0:
-            core_r = max(2, int(8 * (1.0 - progress)))
-            pygame.draw.circle(screen, (200, 230, 255, core_a), (cx, cy), core_r)
-            pygame.draw.circle(screen, (255, 255, 255, min(255, core_a + 50)), (cx, cy), max(1, core_r // 2))
+            # 외곽 글로우
+            core_r3 = max(3, int(18 * core_f))
+            pygame.draw.circle(screen, (80, 160, 255, core_a // 2), (cx, cy), core_r3)
+            # 내부 밝은 코어
+            core_r2 = max(2, int(12 * core_f))
+            pygame.draw.circle(screen, (200, 230, 255, core_a), (cx, cy), core_r2)
+            # 중심 백색
+            core_r1 = max(1, int(6 * core_f))
+            pygame.draw.circle(screen, (255, 255, 255, min(255, core_a + 30)), (cx, cy), core_r1)
 
     def _draw_electric_stun(self, screen):
         """감전 이펙트 - 번개의 분노와 동일"""
