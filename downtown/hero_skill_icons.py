@@ -1065,70 +1065,57 @@ def _icon_solar_bolt() -> pygame.Surface:
 
 
 def _icon_thunder_orb() -> pygame.Surface:
-    """천둥 뇌구 - 육각형 프레임 + 에너지 구체 + 번개 아크"""
+    """천둥 뇌구 - 전기 구체 + 방전 아크"""
     s = pygame.Surface((32, 32), pygame.SRCALPHA)
-    cx, cy = 16, 16
+    # 배경 (어두운 남보라 - 전기 테마)
+    pygame.draw.circle(s, (15, 12, 40), (16, 16), 15)
+    pygame.draw.circle(s, (40, 30, 80), (16, 16), 15, 1)
 
-    # 배경 (어두운 남색)
-    pygame.draw.circle(s, (10, 8, 30), (cx, cy), 15)
+    # 외부 전기장 글로우
+    pygame.draw.circle(s, (80, 140, 255, 30), (16, 16), 12)
+    pygame.draw.circle(s, (120, 180, 255, 50), (16, 16), 9)
 
-    # === 육각형 프레임 ===
-    hex_r = 13  # 육각형 외접원 반지름
-    hex_pts = []
-    for i in range(6):
-        ang = math.radians(60 * i - 90)  # 꼭짓점이 위에서 시작
-        hx = cx + math.cos(ang) * hex_r
-        hy = cy + math.sin(ang) * hex_r
-        hex_pts.append((int(hx), int(hy)))
+    # 구체 본체 (밝은 전기색 그라데이션)
+    pygame.draw.circle(s, (60, 120, 220), (16, 16), 7)
+    pygame.draw.circle(s, (100, 170, 255), (16, 16), 6)
+    pygame.draw.circle(s, (160, 210, 255), (16, 16), 4)
+    # 코어 (흰색 밝은 중심)
+    pygame.draw.circle(s, (220, 240, 255), (16, 16), 2)
+    pygame.draw.circle(s, (255, 255, 255), (16, 15), 1)
 
-    # 육각형 외곽 글로우 (진한 파랑)
-    pygame.draw.polygon(s, (20, 40, 100, 60), hex_pts)
-    # 육각형 테두리 (밝은 파랑)
-    pygame.draw.polygon(s, (60, 110, 200), hex_pts, 2)
-    # 육각형 내부 밝은 테두리
-    hex_inner_pts = []
-    for i in range(6):
-        ang = math.radians(60 * i - 90)
-        hx = cx + math.cos(ang) * (hex_r - 2)
-        hy = cy + math.sin(ang) * (hex_r - 2)
-        hex_inner_pts.append((int(hx), int(hy)))
-    pygame.draw.polygon(s, (40, 80, 160, 80), hex_inner_pts, 1)
+    # 하이라이트 (좌상단)
+    pygame.draw.circle(s, (200, 230, 255, 180), (14, 13), 2)
 
-    # === 에너지 구체 (중앙) ===
-    # 외부 글로우
-    pygame.draw.circle(s, (40, 100, 200, 40), (cx, cy), 8)
-    pygame.draw.circle(s, (80, 160, 255, 60), (cx, cy), 6)
-    # 구체 본체
-    pygame.draw.circle(s, (120, 190, 255), (cx, cy), 5)
-    pygame.draw.circle(s, (180, 220, 255), (cx, cy), 4)
-    pygame.draw.circle(s, (220, 240, 255), (cx, cy), 3)
-    # 밝은 코어
-    pygame.draw.circle(s, (245, 250, 255), (cx, cy), 2)
-    pygame.draw.circle(s, (255, 255, 255), (cx, cy - 1), 1)
+    # 방전 아크 6개 (구체에서 바깥으로)
+    arc_angles = [30, 90, 150, 210, 270, 330]
+    for angle_deg in arc_angles:
+        rad = math.radians(angle_deg)
+        # 시작점 (구체 표면)
+        sx = 16 + int(math.cos(rad) * 7)
+        sy = 16 + int(math.sin(rad) * 7)
+        # 중간 지그재그
+        mid_rad = math.radians(angle_deg + 15)
+        mx = 16 + int(math.cos(mid_rad) * 10)
+        my = 16 + int(math.sin(mid_rad) * 10)
+        # 끝점
+        end_rad = math.radians(angle_deg - 5)
+        ex = 16 + int(math.cos(end_rad) * 13)
+        ey = 16 + int(math.sin(end_rad) * 13)
+        # 아크 글로우
+        if all(0 <= v < 32 for v in [sx, sy, mx, my, ex, ey]):
+            pygame.draw.line(s, (100, 180, 255, 120), (sx, sy), (mx, my), 2)
+            pygame.draw.line(s, (100, 180, 255, 120), (mx, my), (ex, ey), 2)
+            # 아크 코어
+            pygame.draw.line(s, (200, 230, 255), (sx, sy), (mx, my), 1)
+            pygame.draw.line(s, (200, 230, 255), (mx, my), (ex, ey), 1)
 
-    # === 구체에서 육각형 꼭짓점으로 번개 아크 6개 ===
-    for i, (hx, hy) in enumerate(hex_pts):
-        # 구체 표면 시작점
-        ang = math.radians(60 * i - 90)
-        sx = cx + int(math.cos(ang) * 5)
-        sy = cy + int(math.sin(ang) * 5)
-        # 중간 지그재그점 (살짝 어긋남)
-        mid_ang = math.radians(60 * i - 90 + 12)
-        mid_r = hex_r * 0.6
-        mx = cx + int(math.cos(mid_ang) * mid_r)
-        my = cy + int(math.sin(mid_ang) * mid_r)
-        # 아크 글로우 (두꺼운 반투명)
-        pygame.draw.line(s, (60, 130, 255, 100), (sx, sy), (mx, my), 2)
-        pygame.draw.line(s, (60, 130, 255, 100), (mx, my), (hx, hy), 2)
-        # 아크 코어 (가는 밝은 선)
-        pygame.draw.line(s, (180, 220, 255), (sx, sy), (mx, my), 1)
-        pygame.draw.line(s, (180, 220, 255), (mx, my), (hx, hy), 1)
-
-    # 꼭짓점 스파크 (3개만)
-    for i in [0, 2, 4]:
-        px, py = hex_pts[i]
+    # 끝점 스파크
+    for angle_deg in [30, 150, 270]:
+        rad = math.radians(angle_deg - 5)
+        px = 16 + int(math.cos(rad) * 13)
+        py = 16 + int(math.sin(rad) * 13)
         if 0 <= px < 32 and 0 <= py < 32:
-            pygame.draw.circle(s, (200, 230, 255), (px, py), 1)
+            pygame.draw.circle(s, (180, 220, 255), (px, py), 1)
 
     return s
 
