@@ -9298,6 +9298,8 @@ class ColosseumsArena:
 
             # --- 카드 = 얼굴 초상화 전체 ---
             card_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+            # 불투명 배경 (초상화가 반투명이라 필러 배경이 비치는 것 방지)
+            card_surf.fill((15, 12, 20, 255))
 
             # 얼굴 초상화 (카드 전체를 채움)
             try:
