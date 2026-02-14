@@ -164,6 +164,7 @@ class AnimatedBackgroundStage30:
         self.judgment_lightning_stun_timer = 0.0
         self.judgment_lightning_active = False
         self.judgment_logic_paused = False  # 라운드 전환 시 judgment 타이머 일시정지
+        self.judgment_text_display_paused = False  # show_fade_text 중 judgment 타이머 일시정지
         # 이벤트 플래그 (핸들러에서 consume 방식으로 사용)
         self.judgment_bolt_throw_started = False   # BOLT_THROW 진입 시 True → 핸들러가 읽고 False
         self.judgment_bolt_explosion_started = False  # BOLT_EXPLOSION 진입 시 True → 핸들러가 읽고 False
@@ -805,8 +806,8 @@ class AnimatedBackgroundStage30:
                     self.trigger_gods_judgment()
             return
 
-        # 라운드 전환 중에는 페이즈 타이머 동결 (애니메이션 일시정지)
-        if self.judgment_logic_paused:
+        # 라운드 전환 또는 텍스트 표시 중에는 페이즈 타이머 동결 (애니메이션 일시정지)
+        if self.judgment_logic_paused or self.judgment_text_display_paused:
             return
 
         self.judgment_timer += dt

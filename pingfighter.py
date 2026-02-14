@@ -54799,8 +54799,10 @@ def handle_gods_judgment():
             pass
         # 공 속도 백업
         _judgment_ball_speed_backup = ball_vel.copy()
-        # 화면 중앙 텍스트
+        # 화면 중앙 텍스트 (텍스트 표시 중 judgment 타이머 일시정지)
+        bg.judgment_text_display_paused = True
         show_fade_text("신의 심판: 땅의 분노")
+        bg.judgment_text_display_paused = False
 
     # 지진 종료 순간
     if was_eq and not is_eq:
@@ -54844,10 +54846,12 @@ def handle_gods_judgment():
 
     # ── 번개의 분노: 텍스트 표시 (BOLT_THROW 시작 시) ──
     if bg.judgment_variant == 'lightning':
-        # 투척 시작 순간 텍스트 표시 (consume-flag: 게임 로직 일시정지와 무관하게 안정적)
+        # 투척 시작 순간 텍스트 표시 (텍스트 표시 중 judgment 타이머 일시정지)
         if bg.judgment_bolt_throw_started:
             bg.judgment_bolt_throw_started = False
+            bg.judgment_text_display_paused = True
             show_fade_text("신의 심판: 번개의 분노")
+            bg.judgment_text_display_paused = False
 
         # ── 번개의 분노: 폭발 시 스턴 판정 (consume-flag 방식) ──
         if bg.judgment_bolt_explosion_started and not _judgment_lightning_stun_applied:
@@ -98795,6 +98799,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
             animated_bg_stage30.judgment_enabled = False
             animated_bg_stage30.judgment_phase = animated_bg_stage30.JUDGMENT_IDLE
             animated_bg_stage30.judgment_scale = 1.0
+            animated_bg_stage30.judgment_text_display_paused = False
         # 신의심판 사운드 정지
         global _judgment_quake_sound_playing
         if _judgment_quake_sound_playing:
