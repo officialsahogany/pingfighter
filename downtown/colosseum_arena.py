@@ -1873,6 +1873,10 @@ class GuardWarriorSystem:
         self.skill_instances = {}          # hero_id -> [skill1, skill2]
         self.skill_selections = {}         # hero_id -> selected_skill_index (0 or 1)
 
+        # 스킬별 독립 쿨타임 추적 (추가훈련 2스킬 동시 관리용)
+        self.guard_skill_cooldowns = {}      # {guard_id: [cd_skill_0, cd_skill_1, ...]}
+        self.guard_skill_cooldowns_max = {}  # {guard_id: [max_cd_0, max_cd_1, ...]} UI 표시용
+
         # 호위무사별 마지막 가상 패들 (스킬 이펙트 진행 중 위치 유지용)
         self.guard_paddles = {}            # hero_id -> _GuardPaddle
 
@@ -1955,11 +1959,17 @@ class GuardWarriorSystem:
             initial_cd = self._get_guard_cooldown(first_guard["id"])
             self.cooldown_top = initial_cd
             self.cooldown_max_top = initial_cd
+            # 듀얼 스킬 쿨다운 초기화
+            if self._has_dual_skills(first_guard["id"]):
+                self._init_dual_skill_cooldowns(first_guard["id"], 1.0)
         if self.guard_warriors_bottom:
             first_guard = self.guard_warriors_bottom[self.next_guard_bottom_idx % len(self.guard_warriors_bottom)]
             initial_cd = self._get_guard_cooldown(first_guard["id"])
             self.cooldown_bottom = initial_cd
             self.cooldown_max_bottom = initial_cd
+            # 듀얼 스킬 쿨다운 초기화
+            if self._has_dual_skills(first_guard["id"]):
+                self._init_dual_skill_cooldowns(first_guard["id"], 1.0)
 
         # 호위무사가 있으면 기본적으로 순찰 모드 활성화
         if self.guard_warriors_top:
@@ -2000,6 +2010,11 @@ class GuardWarriorSystem:
             base_cd = self._get_guard_cooldown(guard["id"])
             self.cooldown_top = base_cd * cd_mult + self.PATROL_ENTRY_DELAY + GUARD_ENTER_DURATION
             self.cooldown_max_top = self.cooldown_top
+            # 듀얼 스킬 쿨다운 초기화
+            if self._has_dual_skills(guard["id"]):
+                self._init_dual_skill_cooldowns(
+                    guard["id"], cd_mult,
+                    extra_delay=self.PATROL_ENTRY_DELAY + GUARD_ENTER_DURATION)
             # 다음 호위무사 인덱스 갱신
             if len(self.guard_warriors_top) > 1:
                 self.next_guard_top_idx = random.randint(0, len(self.guard_warriors_top) - 1)
@@ -2024,6 +2039,11 @@ class GuardWarriorSystem:
             base_cd = self._get_guard_cooldown(guard["id"])
             self.cooldown_bottom = base_cd * cd_mult + self.PATROL_ENTRY_DELAY + GUARD_ENTER_DURATION
             self.cooldown_max_bottom = self.cooldown_bottom
+            # 듀얼 스킬 쿨다운 초기화
+            if self._has_dual_skills(guard["id"]):
+                self._init_dual_skill_cooldowns(
+                    guard["id"], cd_mult,
+                    extra_delay=self.PATROL_ENTRY_DELAY + GUARD_ENTER_DURATION)
             if len(self.guard_warriors_bottom) > 1:
                 self.next_guard_bottom_idx = random.randint(0, len(self.guard_warriors_bottom) - 1)
             print(f"[Guard] 하단측 호위무사 {guard['name']} 순찰 등장 예약! ({self.PATROL_ENTRY_DELAY}초 후 입장)")
@@ -2054,6 +2074,9 @@ class GuardWarriorSystem:
                     for skill in skills:
                         skill.game_state = game_state
                     self.skill_instances[hero_id] = skills
+                    # 스킬별 독립 쿨타임 초기화 (0으로 시작, 첫 등장 시 실제값으로 설정됨)
+                    self.guard_skill_cooldowns[hero_id] = [0.0] * len(skills)
+                    self.guard_skill_cooldowns_max[hero_id] = [0.0] * len(skills)
                     print(f"[Guard] {guard_hero['name']}({hero_id}) 스킬 인스턴스 생성: {[s.korean_name for s in skills]}")
                 except Exception as e:
                     print(f"[Guard] 스킬 인스턴스 생성 실패 ({hero_id}): {e}")
@@ -2103,6 +2126,16 @@ class GuardWarriorSystem:
                     print(f"[Guard] 추가훈련 퍽: {guard_hero['name']}({hero_id}) "
                           f"스킬 해금 → {new_skill.korean_name}")
             self.skill_instances[hero_id] = current_skills
+            # 새 스킬의 독립 쿨타임 동기화
+            cds = self.guard_skill_cooldowns.get(hero_id, [])
+            cds_max = self.guard_skill_cooldowns_max.get(hero_id, [])
+            while len(cds) < len(current_skills):
+                new_sk = current_skills[len(cds)]
+                initial_cd = new_sk.cooldown * self.GUARD_CD_PENALTY
+                cds.append(initial_cd)
+                cds_max.append(initial_cd)
+            self.guard_skill_cooldowns[hero_id] = cds
+            self.guard_skill_cooldowns_max[hero_id] = cds_max
 
     def _get_guard_cooldown(self, guard_id):
         """호위무사의 쿨타임 계산: 배정된 스킬 쿨타임 * 1.2 (20% 페널티)"""
@@ -2110,6 +2143,84 @@ class GuardWarriorSystem:
         if skills:
             return skills[0].cooldown * self.GUARD_CD_PENALTY
         return random.uniform(*self.cooldown_range)
+
+    # === 듀얼 스킬 독립 쿨타임 헬퍼 메서드 ===
+
+    def _has_dual_skills(self, guard_id):
+        """호위무사가 2개 이상 스킬을 보유하고 독립 쿨타임 관리 중인지 확인"""
+        return len(self.guard_skill_cooldowns.get(guard_id, [])) > 1
+
+    def _tick_guard_skill_cooldowns(self, dt, guard_id):
+        """스킬별 독립 쿨타임 감소 (모든 페이즈에서 호출)"""
+        skill_cds = self.guard_skill_cooldowns.get(guard_id)
+        if skill_cds:
+            for i in range(len(skill_cds)):
+                skill_cds[i] -= dt
+
+    def _any_skill_ready(self, guard_id):
+        """쿨다운 완료된 스킬이 있는지 확인"""
+        skill_cds = self.guard_skill_cooldowns.get(guard_id, [])
+        return any(cd <= 0 for cd in skill_cds)
+
+    def _select_ready_skill(self, guard_id, skills):
+        """쿨다운이 완료된 스킬 선택 (가장 오래 대기한 스킬 우선)
+
+        Returns: (skill_index, skill_instance)
+        """
+        skill_cds = self.guard_skill_cooldowns.get(guard_id, [])
+        if len(skill_cds) > 1 and len(skills) > 1:
+            ready = [(i, skills[i]) for i in range(min(len(skills), len(skill_cds)))
+                     if skill_cds[i] <= 0]
+            if ready:
+                # 가장 오래 대기한(쿨다운이 가장 낮은) 스킬 선택
+                idx, skill = min(ready, key=lambda x: skill_cds[x[0]])
+                return idx, skill
+        # 폴백: 랜덤
+        idx = random.randrange(len(skills))
+        return idx, skills[idx]
+
+    def _reset_skill_cooldown(self, guard_id, skill_idx, cd_mult):
+        """사용한 스킬의 쿨다운만 리셋 (다른 스킬 쿨다운은 유지)"""
+        skill_cds = self.guard_skill_cooldowns.get(guard_id, [])
+        skill_cds_max = self.guard_skill_cooldowns_max.get(guard_id, [])
+        skills = self.skill_instances.get(guard_id, [])
+        if skill_idx < len(skill_cds) and skill_idx < len(skills):
+            new_cd = skills[skill_idx].cooldown * self.GUARD_CD_PENALTY * cd_mult
+            skill_cds[skill_idx] = new_cd
+            if skill_idx < len(skill_cds_max):
+                skill_cds_max[skill_idx] = new_cd
+
+    def _sync_guard_cooldown_to_main(self, is_top, guard_id):
+        """스킬별 쿨다운 → 메인 cooldown_top/bottom 동기화 (UI 표시용)"""
+        skill_cds = self.guard_skill_cooldowns.get(guard_id, [])
+        skill_cds_max = self.guard_skill_cooldowns_max.get(guard_id, [])
+        if not skill_cds:
+            return
+        # 가장 빨리 준비되는 스킬 기준으로 동기화
+        min_idx = min(range(len(skill_cds)), key=lambda i: skill_cds[i])
+        min_cd = max(0.0, skill_cds[min_idx])
+        max_cd = skill_cds_max[min_idx] if min_idx < len(skill_cds_max) else 30.0
+        if is_top:
+            self.cooldown_top = min_cd
+            if max_cd > 0:
+                self.cooldown_max_top = max_cd
+        else:
+            self.cooldown_bottom = min_cd
+            if max_cd > 0:
+                self.cooldown_max_bottom = max_cd
+
+    def _init_dual_skill_cooldowns(self, guard_id, cd_mult, extra_delay=0.0):
+        """듀얼 스킬 쿨다운 초기 설정 (순찰 시작/재소집 등)"""
+        skills = self.skill_instances.get(guard_id, [])
+        skill_cds = self.guard_skill_cooldowns.get(guard_id, [])
+        skill_cds_max = self.guard_skill_cooldowns_max.get(guard_id, [])
+        if len(skill_cds) > 1:
+            for i in range(len(skill_cds)):
+                if i < len(skills):
+                    base = skills[i].cooldown * self.GUARD_CD_PENALTY * cd_mult + extra_delay
+                    skill_cds[i] = base
+                    if i < len(skill_cds_max):
+                        skill_cds_max[i] = base
 
     # === 매혹 (Charm) 스킬 지원 (독립 추적 시스템) ===
     # 매혹된 호위무사는 기존 guard_warriors 리스트에 넣지 않고
@@ -2376,6 +2487,12 @@ class GuardWarriorSystem:
             return
 
         c = self._charmed
+        # 듀얼 스킬: 모든 상태에서 스킬별 쿨다운 tick
+        _charm_guard = c['guard']
+        _charm_dual = _charm_guard and self._has_dual_skills(_charm_guard["id"])
+        if _charm_dual:
+            self._tick_guard_skill_cooldowns(dt, _charm_guard["id"])
+
         left_bound = GAME_AREA_X + 40
         right_bound = GAME_AREA_X + GAME_AREA_WIDTH - 40
 
@@ -2426,8 +2543,9 @@ class GuardWarriorSystem:
             if guard and self.hero_paddle_renderer:
                 self.hero_paddle_renderer.update_movement(guard["id"], c['x'], dt)
 
-            # 쿨타임 감소는 귀신발걸음 중에도 계속
-            c['cooldown'] -= dt
+            # 쿨타임 감소는 귀신발걸음 중에도 계속 (듀얼은 상단에서 이미 tick됨)
+            if not _charm_dual:
+                c['cooldown'] -= dt
             return  # 귀신발걸음 중에는 순찰 이동 스킵
 
         # 순찰 이동 (기존 호위무사와 동일한 패턴)
@@ -2454,9 +2572,17 @@ class GuardWarriorSystem:
             self.hero_paddle_renderer.update_movement(guard["id"], c['x'], dt)
 
         # 쿨타임 감소 → 스킬 시전
-        c['cooldown'] -= dt
-        if c['cooldown'] <= 0:
-            self._charmed_trigger_skill(top_paddle, bottom_paddle, ball)
+        if _charm_dual:
+            # 듀얼 스킬: 상단에서 이미 tick됨, 체크만
+            if self._any_skill_ready(_charm_guard["id"]):
+                self._charmed_trigger_skill(top_paddle, bottom_paddle, ball)
+            skill_cds = self.guard_skill_cooldowns.get(_charm_guard["id"], [])
+            if skill_cds:
+                c['cooldown'] = max(0, min(skill_cds))
+        else:
+            c['cooldown'] -= dt
+            if c['cooldown'] <= 0:
+                self._charmed_trigger_skill(top_paddle, bottom_paddle, ball)
 
     def _charmed_trigger_skill(self, top_paddle, bottom_paddle, ball):
         """매혹된 호위무사가 상대를 향해 스킬 사용"""
@@ -2467,19 +2593,25 @@ class GuardWarriorSystem:
         guard = c['guard']
         caster_is_top = c['caster_is_top']
 
-        # 스킬 선택
+        # 스킬 선택 (듀얼: 쿨다운 기반 / 싱글: 랜덤)
         skills = self.skill_instances.get(guard["id"], [])
         if not skills:
             c['cooldown'] = 8.0
             return
-        skill = random.choice(skills)
+        skill_idx, skill = self._select_ready_skill(guard["id"], skills)
         c['skill'] = skill
 
         # ★ 쿨타임을 먼저 설정 (예외 발생 시에도 매 프레임 재발동 방지)
         cd_mult = self.guard_cd_mult_top if caster_is_top else self.guard_cd_mult_bottom
-        base_cd = self._get_guard_cooldown(guard["id"])
-        c['cooldown'] = base_cd * cd_mult
-        c['cooldown_max'] = c['cooldown']
+        if self._has_dual_skills(guard["id"]):
+            self._reset_skill_cooldown(guard["id"], skill_idx, cd_mult)
+            skill_cds = self.guard_skill_cooldowns.get(guard["id"], [])
+            c['cooldown'] = max(0, min(skill_cds)) if skill_cds else 8.0
+            c['cooldown_max'] = max(skill_cds) if skill_cds else c['cooldown']
+        else:
+            base_cd = self._get_guard_cooldown(guard["id"])
+            c['cooldown'] = base_cd * cd_mult
+            c['cooldown_max'] = c['cooldown']
 
         try:
             game_state = self.skill_manager.game_state if self.skill_manager else {}
@@ -2599,7 +2731,11 @@ class GuardWarriorSystem:
         # 쿨타임 설정
         cd_mult = self.guard_cd_mult_top if is_top else self.guard_cd_mult_bottom
         base_cd = self._get_guard_cooldown(guard2["id"])
-        initial_cd = base_cd * cd_mult + self.PATROL_ENTRY_DELAY + GUARD_ENTER_DURATION + random.uniform(3.0, 6.0)
+        extra_delay = self.PATROL_ENTRY_DELAY + GUARD_ENTER_DURATION + random.uniform(3.0, 6.0)
+        initial_cd = base_cd * cd_mult + extra_delay
+        # 듀얼 스킬 쿨다운 초기화
+        if self._has_dual_skills(guard2["id"]):
+            self._init_dual_skill_cooldowns(guard2["id"], cd_mult, extra_delay=extra_delay)
 
         # 반대편에서 등장 (1번 호위무사와 반대 방향)
         side1 = self.side_top if is_top else self.side_bottom
@@ -2638,9 +2774,16 @@ class GuardWarriorSystem:
         phase = p2['phase']
         p2['anim_timer'] += dt
 
+        # 듀얼 스킬: 모든 페이즈에서 스킬별 쿨다운 tick (캐스팅 중에도 다른 스킬 쿨다운 진행)
+        _p2_guard = p2['guard']
+        _p2_dual = _p2_guard and self._has_dual_skills(_p2_guard["id"])
+        if _p2_dual:
+            self._tick_guard_skill_cooldowns(dt, _p2_guard["id"])
+
         # === patrol_entering: 딜레이 대기 → 입장 애니메이션 ===
         if phase == 'patrol_entering':
-            p2['cooldown'] -= dt
+            if not _p2_dual:
+                p2['cooldown'] -= dt
             if p2['anim_timer'] < self.PATROL_ENTRY_DELAY:
                 return  # 딜레이 대기 중
 
@@ -2671,10 +2814,19 @@ class GuardWarriorSystem:
         if phase == 'patrolling':
             self._update_patrol2_movement(dt, p2)
 
-            # 쿨타임 감소 → 스킬 시전
-            p2['cooldown'] -= dt
-            if p2['cooldown'] <= 0:
-                self._patrol2_trigger_skill(is_top, top_paddle, bottom_paddle, ball)
+            if _p2_dual:
+                # 듀얼 스킬: 쿨다운은 상단에서 이미 tick됨, 여기서는 체크만
+                if self._any_skill_ready(_p2_guard["id"]):
+                    self._patrol2_trigger_skill(is_top, top_paddle, bottom_paddle, ball)
+                # UI 동기화
+                skill_cds = self.guard_skill_cooldowns.get(_p2_guard["id"], [])
+                if skill_cds:
+                    p2['cooldown'] = max(0, min(skill_cds))
+            else:
+                # 싱글 스킬: 기존 단일 쿨타임
+                p2['cooldown'] -= dt
+                if p2['cooldown'] <= 0:
+                    self._patrol2_trigger_skill(is_top, top_paddle, bottom_paddle, ball)
             return
 
         # === casting: 스킬 시전 중 (지속 시간 후 순찰 복귀) ===
@@ -2726,14 +2878,22 @@ class GuardWarriorSystem:
         if not skills:
             p2['cooldown'] = 8.0
             return
-        skill = random.choice(skills)
+        # 듀얼 스킬: 쿨다운 기반 선택 / 싱글: 랜덤
+        skill_idx, skill = self._select_ready_skill(guard["id"], skills)
         p2['skill'] = skill
 
         # ★ 쿨타임을 먼저 설정 (예외 발생 시에도 매 프레임 재발동 방지)
         cd_mult = self.guard_cd_mult_top if is_top else self.guard_cd_mult_bottom
-        base_cd = self._get_guard_cooldown(guard["id"])
-        p2['cooldown'] = base_cd * cd_mult
-        p2['cooldown_max'] = p2['cooldown']
+        if self._has_dual_skills(guard["id"]):
+            # 듀얼 스킬: 사용한 스킬만 리셋
+            self._reset_skill_cooldown(guard["id"], skill_idx, cd_mult)
+            skill_cds = self.guard_skill_cooldowns.get(guard["id"], [])
+            p2['cooldown'] = max(0, min(skill_cds)) if skill_cds else 8.0
+            p2['cooldown_max'] = max(skill_cds) if skill_cds else p2['cooldown']
+        else:
+            base_cd = self._get_guard_cooldown(guard["id"])
+            p2['cooldown'] = base_cd * cd_mult
+            p2['cooldown_max'] = p2['cooldown']
 
         try:
             game_state = self.skill_manager.game_state if self.skill_manager else {}
@@ -2847,6 +3007,8 @@ class GuardWarriorSystem:
             base_cd = self._get_guard_cooldown(guard["id"])
             self.cooldown_top = base_cd * cd_mult + GUARD_ENTER_DURATION
             self.cooldown_max_top = self.cooldown_top
+            if self._has_dual_skills(guard["id"]):
+                self._init_dual_skill_cooldowns(guard["id"], cd_mult, extra_delay=GUARD_ENTER_DURATION)
         else:
             self.active_bottom = guard
             self.phase_bottom = "patrol_entering"
@@ -2859,6 +3021,8 @@ class GuardWarriorSystem:
             base_cd = self._get_guard_cooldown(guard["id"])
             self.cooldown_bottom = base_cd * cd_mult + GUARD_ENTER_DURATION
             self.cooldown_max_bottom = self.cooldown_bottom
+            if self._has_dual_skills(guard["id"]):
+                self._init_dual_skill_cooldowns(guard["id"], cd_mult, extra_delay=GUARD_ENTER_DURATION)
 
     def update(self, dt, top_paddle, bottom_paddle, ball):
         """매 프레임 호위무사 시스템 업데이트"""
@@ -3054,6 +3218,18 @@ class GuardWarriorSystem:
         if not guards:
             return
 
+        # === 듀얼 스킬 독립 쿨타임: 모든 페이즈에서 스킬별 쿨다운 감소 ===
+        _dual_guard = self.active_top if is_top else self.active_bottom
+        if not _dual_guard:
+            # 대기 중(phase=None): 다음 등장할 호위무사 기준
+            _next_idx = self.next_guard_top_idx if is_top else self.next_guard_bottom_idx
+            _dual_guard = guards[_next_idx % len(guards)]
+        _dual_mode = False
+        if _dual_guard and self._has_dual_skills(_dual_guard["id"]):
+            _dual_mode = True
+            self._tick_guard_skill_cooldowns(dt, _dual_guard["id"])
+            self._sync_guard_cooldown_to_main(is_top, _dual_guard["id"])
+
         # 현재 애니메이션 진행 중이면 애니메이션 처리
         phase = self.phase_top if is_top else self.phase_bottom
 
@@ -3062,11 +3238,13 @@ class GuardWarriorSystem:
             if is_top:
                 self.anim_timer_top += dt
                 timer = self.anim_timer_top
-                self.cooldown_top -= dt
+                if not _dual_mode:
+                    self.cooldown_top -= dt
             else:
                 self.anim_timer_bottom += dt
                 timer = self.anim_timer_bottom
-                self.cooldown_bottom -= dt
+                if not _dual_mode:
+                    self.cooldown_bottom -= dt
 
             if timer < self.PATROL_ENTRY_DELAY:
                 # 아직 딜레이 대기 중 (화면에 안 보임)
@@ -3112,30 +3290,41 @@ class GuardWarriorSystem:
         # 순찰 모드: 진영 내 이동 + 쿨타임 동시 진행
         if phase == "patrolling":
             self._update_patrol(dt, is_top)
-            # 쿨타임 감소 → 만료 시 현재 위치에서 바로 시전
-            if is_top:
-                self.cooldown_top -= dt
-                if self.cooldown_top <= 0:
+            if _dual_mode:
+                # 듀얼 스킬: 독립 쿨다운 체크 (상단에서 이미 tick됨)
+                if self._any_skill_ready(_dual_guard["id"]):
                     self._trigger_from_patrol(is_top, top_paddle, bottom_paddle, ball)
             else:
-                self.cooldown_bottom -= dt
-                if self.cooldown_bottom <= 0:
-                    self._trigger_from_patrol(is_top, top_paddle, bottom_paddle, ball)
+                # 싱글 스킬: 기존 단일 쿨타임
+                if is_top:
+                    self.cooldown_top -= dt
+                    if self.cooldown_top <= 0:
+                        self._trigger_from_patrol(is_top, top_paddle, bottom_paddle, ball)
+                else:
+                    self.cooldown_bottom -= dt
+                    if self.cooldown_bottom <= 0:
+                        self._trigger_from_patrol(is_top, top_paddle, bottom_paddle, ball)
             return
 
         if phase:
             self._update_animation(dt, is_top, top_paddle, bottom_paddle, ball)
+            # 듀얼 스킬: 캐스팅/퇴장 중에도 쿨다운은 상단에서 이미 tick됨
             return
 
-        # 쿨타임 감소
-        if is_top:
-            self.cooldown_top -= dt
-            if self.cooldown_top <= 0:
-                self._trigger(is_top=True)
+        # 쿨타임 감소 (비순찰 대기 모드)
+        if _dual_mode:
+            # 듀얼 스킬: 독립 쿨다운 체크 (상단에서 이미 tick됨)
+            if self._any_skill_ready(_dual_guard["id"]):
+                self._trigger(is_top)
         else:
-            self.cooldown_bottom -= dt
-            if self.cooldown_bottom <= 0:
-                self._trigger(is_top=False)
+            if is_top:
+                self.cooldown_top -= dt
+                if self.cooldown_top <= 0:
+                    self._trigger(is_top=True)
+            else:
+                self.cooldown_bottom -= dt
+                if self.cooldown_bottom <= 0:
+                    self._trigger(is_top=False)
 
     def _trigger(self, is_top):
         """호위무사 등장 트리거"""
@@ -3175,7 +3364,7 @@ class GuardWarriorSystem:
                     self.cooldown_max_bottom = next_cd
                 return
 
-        # 스킬 2개 중 1개 랜덤 선택
+        # 스킬 선택 (듀얼 스킬이면 쿨다운 기반, 아니면 랜덤)
         skills = self.skill_instances.get(guard["id"], [])
         if not skills:
             # 스킬이 없으면 폴백 쿨타임 설정 후 리턴 (퍽 적용)
@@ -3188,7 +3377,7 @@ class GuardWarriorSystem:
                 self.cooldown_bottom = next_cd
                 self.cooldown_max_bottom = next_cd
             return
-        skill = random.choice(skills)
+        skill_idx, skill = self._select_ready_skill(guard["id"], skills)
 
         # 등장 방향 랜덤
         side = random.choice(["left", "right"])
@@ -3209,18 +3398,25 @@ class GuardWarriorSystem:
             self.side_bottom = side
             self.selected_skill_bottom = skill
 
-        # 다음 쿨타임 설정: 다음 호위무사의 스킬 쿨타임 * 1.2 * 퍽 보정
+        # 다음 쿨타임 설정
         cd_mult = self.guard_cd_mult_top if is_top else self.guard_cd_mult_bottom
-        next_guard_idx = self.next_guard_top_idx if is_top else self.next_guard_bottom_idx
-        next_guard = guards[next_guard_idx % len(guards)]
-        base_cd = self._get_guard_cooldown(next_guard["id"])
-        next_cd = base_cd * cd_mult
-        if is_top:
-            self.cooldown_top = next_cd
-            self.cooldown_max_top = next_cd
+        if self._has_dual_skills(guard["id"]):
+            # 듀얼 스킬: 사용한 스킬만 쿨타임 리셋, 나머지는 계속 감소
+            self._reset_skill_cooldown(guard["id"], skill_idx, cd_mult)
+            self._sync_guard_cooldown_to_main(is_top, guard["id"])
+            next_cd = min(max(0, cd) for cd in self.guard_skill_cooldowns.get(guard["id"], [0]))
         else:
-            self.cooldown_bottom = next_cd
-            self.cooldown_max_bottom = next_cd
+            # 싱글 스킬: 기존 로직 (다음 호위무사 기준)
+            next_guard_idx = self.next_guard_top_idx if is_top else self.next_guard_bottom_idx
+            next_guard = guards[next_guard_idx % len(guards)]
+            base_cd = self._get_guard_cooldown(next_guard["id"])
+            next_cd = base_cd * cd_mult
+            if is_top:
+                self.cooldown_top = next_cd
+                self.cooldown_max_top = next_cd
+            else:
+                self.cooldown_bottom = next_cd
+                self.cooldown_max_bottom = next_cd
 
         print(f"[Guard] {'상단' if is_top else '하단'}측 호위무사 {guard['name']} 등장! "
               f"스킬: {skill.korean_name} | 방향: {side} | 다음 쿨타임: {next_cd:.1f}초")
@@ -3565,22 +3761,37 @@ class GuardWarriorSystem:
         if not skills:
             return
 
-        # 가상 패들로 스킬 상태 갱신 → can_use 조건 확인
-        guard_paddle = self._make_guard_paddle(is_top)
-        target_paddle = bottom_paddle if is_top else top_paddle
-        game_state = self.skill_manager.game_state if self.skill_manager else {}
-        usable = []
-        for sk in skills:
-            sk.caster_is_top = is_top
-            sk.current_cooldown = 0
+        # 듀얼 스킬: 쿨다운 기반 선택 / 싱글 스킬: can_use 기반 선택
+        if self._has_dual_skills(guard["id"]):
+            skill_idx, skill = self._select_ready_skill(guard["id"], skills)
+            # can_use 체크도 병행 (스킬 상태 갱신)
+            guard_paddle = self._make_guard_paddle(is_top)
+            target_paddle = bottom_paddle if is_top else top_paddle
+            game_state = self.skill_manager.game_state if self.skill_manager else {}
+            skill.caster_is_top = is_top
+            skill.current_cooldown = 0
             try:
-                sk.update(0.016, guard_paddle, target_paddle, ball, game_state)
+                skill.update(0.016, guard_paddle, target_paddle, ball, game_state)
             except Exception:
                 pass
-            if sk.can_use():
-                usable.append(sk)
+        else:
+            # 싱글 스킬: 기존 로직 (can_use 조건 확인 후 가능한 스킬 우선)
+            guard_paddle = self._make_guard_paddle(is_top)
+            target_paddle = bottom_paddle if is_top else top_paddle
+            game_state = self.skill_manager.game_state if self.skill_manager else {}
+            usable = []
+            for sk in skills:
+                sk.caster_is_top = is_top
+                sk.current_cooldown = 0
+                try:
+                    sk.update(0.016, guard_paddle, target_paddle, ball, game_state)
+                except Exception:
+                    pass
+                if sk.can_use():
+                    usable.append(sk)
+            skill = random.choice(usable) if usable else random.choice(skills)
+            skill_idx = skills.index(skill) if skill in skills else 0
 
-        skill = random.choice(usable) if usable else random.choice(skills)
         if is_top:
             self.selected_skill_top = skill
         else:
@@ -3598,14 +3809,19 @@ class GuardWarriorSystem:
 
         # 다음 쿨타임 설정
         cd_mult = self.guard_cd_mult_top if is_top else self.guard_cd_mult_bottom
-        base_cd = self._get_guard_cooldown(guard["id"])
-        next_cd = base_cd * cd_mult
-        if is_top:
-            self.cooldown_top = next_cd
-            self.cooldown_max_top = next_cd
+        if self._has_dual_skills(guard["id"]):
+            # 듀얼 스킬: 사용한 스킬만 쿨타임 리셋
+            self._reset_skill_cooldown(guard["id"], skill_idx, cd_mult)
+            self._sync_guard_cooldown_to_main(is_top, guard["id"])
         else:
-            self.cooldown_bottom = next_cd
-            self.cooldown_max_bottom = next_cd
+            base_cd = self._get_guard_cooldown(guard["id"])
+            next_cd = base_cd * cd_mult
+            if is_top:
+                self.cooldown_top = next_cd
+                self.cooldown_max_top = next_cd
+            else:
+                self.cooldown_bottom = next_cd
+                self.cooldown_max_bottom = next_cd
 
         # 스킬 발동
         self._activate_skill(is_top, top_paddle, bottom_paddle, ball)
