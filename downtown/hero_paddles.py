@@ -6409,12 +6409,23 @@ class HeroPaddleRenderer:
         wing_sway = _sin(self.time * 2.2) * side_blend * 0.2 * b
         cape_drift = int(wing_inertia + wing_sway)
         cape_wave_boost = 1.0 + side_blend * 1.2
-        # 날개 펄럭임 (정지: 아주 느린 호흡, 이동: 부드러운 활공)
-        wing_speed = 2.5 + side_blend * 2.5   # 정지:2.5, 이동:최대5
-        wing_amp = 0.12 + side_blend * 0.35    # 정지:미세, 이동:적당
-        wing_flap = _sin(self.time * wing_speed) * wing_amp
-        # 날개 2차 모션 (끝부분 지연 웨이브)
-        wing_flap2 = _sin(self.time * wing_speed * 0.8 - 0.6) * wing_amp * 0.6
+        # 날개용 side_blend 스무딩 (데드존 + 부드러운 전환)
+        # side_blend < 0.25 구간은 0 취급 → 미세 이동 시 떨림 방지
+        wing_blend_raw = max(0.0, (side_blend - 0.25) / 0.75) if side_blend > 0.25 else 0.0
+        # hero_states에 부드러운 날개 블렌드 저장/보간
+        state = self._get_state("ra")
+        prev_wing_blend = state.get("wing_blend_smooth", 0.0)
+        wing_blend = prev_wing_blend * 0.92 + wing_blend_raw * 0.08  # 매우 부드러운 보간
+        state["wing_blend_smooth"] = wing_blend
+        # 날개 펄럭임 (정지: 아주 느린 호흡, 이동: 활공 +20%)
+        # 고정 주파수 사인파 (속도에 따라 주파수가 변하지 않음 → 떨림 방지)
+        idle_flap = _sin(self.time * 2.5) * 0.12     # 정지 상태 고정 호흡
+        move_flap = _sin(self.time * 6.0) * 0.47     # 이동 상태 고정 날갯짓 (기존5*1.2=6)
+        wing_flap = idle_flap * (1.0 - wing_blend) + move_flap * wing_blend
+        # 날개 2차 모션 (끝부분 지연 - 같은 블렌드 방식)
+        idle_flap2 = _sin(self.time * 2.0 - 0.6) * 0.07
+        move_flap2 = _sin(self.time * 4.8 - 0.6) * 0.28
+        wing_flap2 = idle_flap2 * (1.0 - wing_blend) + move_flap2 * wing_blend
 
         t = self.time
         sun_pulse = (_sin(t * 3.0) + 1) * 0.5
