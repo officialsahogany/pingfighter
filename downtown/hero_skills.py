@@ -13298,7 +13298,7 @@ class ThunderOrb(HeroSkill):
 
     # 에너지볼 색상 (라이트닝 마스터 전기 투사체와 동일)
     ORB_CORE_COLOR = (255, 255, 255)        # 밝은 흰색 코어
-    ORB_INNER_COLOR = (100, 180, 255)       # 밝은 파란색 내부
+    ORB_INNER_COLOR = (200, 230, 255)       # 하얀빛 내부 (흰색에 가까운 연한 블루)
     ORB_OUTER_COLOR = (30, 100, 200)        # 진한 파란색 외부
     ORB_RING_COLOR = (80, 160, 255)         # 회전 고리 색상
     ORB_PARTICLE_COLORS = [
