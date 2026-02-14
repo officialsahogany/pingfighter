@@ -9258,21 +9258,19 @@ class ColosseumsArena:
         ))
 
         # === 3. 레이아웃 계산 ===
-        # 필러 크기에 비례한 카드 크기
-        _scale = pillar_w / 80.0  # 기준 80px 대비 스케일
-        card_w = max(40, int(70 * _scale))
-        card_h = max(28, int(45 * _scale))
-        card_gap = max(2, int(3 * _scale))
-        margin_x = max(2, int(5 * _scale))
+        # 카드 크기: 가로가 긴 직사각형 (얼굴 전체가 카드)
+        _scale = pillar_w / 80.0
+        card_w = max(20, int(28 * _scale))   # 기존 대비 60% 축소
+        card_h = max(10, int(9 * _scale))    # 기존 대비 80% 축소
+        card_gap = max(1, int(2 * _scale))
+        margin_x = max(1, int(3 * _scale))
         total_h = len(entries) * (card_h + card_gap) - card_gap
-        start_y = pillar_y + max(int(30 * _scale), (pillar_h - total_h) // 2)
+        start_y = pillar_y + max(int(20 * _scale), (pillar_h - total_h) // 2)
         card_x = pillar_x + margin_x
 
-        # 폰트 (작은 크기)
-        small_font = self.fonts.get("small") if self.fonts else None
-
         # dt 계산 (스무스 애니메이션용)
-        dt = 1.0 / 60.0  # 기본 60fps 가정
+        dt = 1.0 / 60.0
+        ticks = pygame.time.get_ticks()
 
         # === 4. 각 카드 그리기 ===
         for idx, entry in enumerate(entries):
@@ -9294,124 +9292,50 @@ class ColosseumsArena:
             is_ready = cd_rem <= 0 and not is_active
             side = entry["side"]
 
-            # --- 카드 배경 ---
-            card_rect = pygame.Rect(card_x, draw_y, card_w, card_h)
-            # 배경색 (상태에 따라)
-            if is_active:
-                bg_color = (40, 35, 20, 220)
-            elif is_ready:
-                bg_color = (35, 40, 50, 230)
-            else:
-                bg_color = (25, 25, 30, 210)
-
+            # --- 카드 = 얼굴 초상화 전체 ---
             card_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
-            pygame.draw.rect(card_surf, bg_color, (0, 0, card_w, card_h), border_radius=4)
 
-            # 진영 표시 (왼쪽 얇은 줄)
-            side_color = (200, 80, 80) if side == "top" else (80, 130, 200)
-            pygame.draw.rect(card_surf, side_color, (0, 2, 3, card_h - 4), border_radius=1)
-
-            # --- 순번 배지 ---
-            badge_w = 10
-            badge_x = 4
-            badge_cy = card_h // 2
-            num_text = str(idx + 1)
-            if small_font:
-                try:
-                    num_surf, _ = small_font.render(num_text, (200, 200, 200))
-                    card_surf.blit(num_surf, (badge_x + badge_w // 2 - num_surf.get_width() // 2,
-                                             badge_cy - num_surf.get_height() // 2))
-                except Exception:
-                    pass
-
-            # --- 얼굴 초상화 ---
-            portrait_x = badge_x + badge_w + 2
-            portrait_w = 28
-            portrait_h = card_h - 6
-            portrait_y = 3
+            # 얼굴 초상화 (카드 전체를 채움)
             try:
-                portrait = self._portrait_renderer.render_portrait(hero_id, hero_color, portrait_w, portrait_h)
-                card_surf.blit(portrait, (portrait_x, portrait_y))
-                # 초상화 테두리
-                pygame.draw.rect(card_surf, (80, 80, 90, 180),
-                                 (portrait_x, portrait_y, portrait_w, portrait_h), 1, border_radius=2)
+                portrait = self._portrait_renderer.render_portrait(hero_id, hero_color, card_w, card_h)
+                card_surf.blit(portrait, (0, 0))
             except Exception:
-                # 폴백: 색상 원
-                pygame.draw.rect(card_surf, hero_color,
-                                 (portrait_x, portrait_y, portrait_w, portrait_h), border_radius=2)
+                pygame.draw.rect(card_surf, hero_color, (0, 0, card_w, card_h), border_radius=2)
 
-            # --- 정보 영역 ---
-            info_x = portrait_x + portrait_w + 3
-            info_w = card_w - info_x - 2
-
-            # 이름 (1줄)
-            if small_font:
-                try:
-                    name = entry["hero_name"]
-                    if len(name) > 3:
-                        name = name[:3]
-                    name_surf, _ = small_font.render(name, (220, 220, 220))
-                    card_surf.blit(name_surf, (info_x, 3))
-                except Exception:
-                    pass
-
-            # 쿨타임 바 + 숫자
-            bar_y = card_h - 16
-            bar_h = 6
-            bar_w_max = info_w - 2
-
+            # --- 쿨타임 명암 오버레이 (얼굴 위에 직접 표시) ---
             if is_active:
-                # 활성 중 - 황금 바
-                pygame.draw.rect(card_surf, (180, 160, 60), (info_x, bar_y, bar_w_max, bar_h), border_radius=2)
-            elif is_ready:
-                # 준비 완료 - 밝은 바
-                pygame.draw.rect(card_surf, (60, 180, 100), (info_x, bar_y, bar_w_max, bar_h), border_radius=2)
-            else:
-                # 쿨타임 중 - 회색 바 + 채우기
-                pygame.draw.rect(card_surf, (40, 40, 45), (info_x, bar_y, bar_w_max, bar_h), border_radius=2)
-                if cd_max > 0:
-                    fill_ratio = 1.0 - min(1.0, cd_rem / cd_max)
-                    fill_w = int(bar_w_max * fill_ratio)
-                    if fill_w > 0:
-                        fill_color = tuple(int(c * 0.6) for c in hero_color[:3])
-                        pygame.draw.rect(card_surf, fill_color,
-                                         (info_x, bar_y, fill_w, bar_h), border_radius=2)
-
-                # 쿨타임 숫자
-                if small_font and cd_rem > 0:
-                    try:
-                        cd_text = str(int(cd_rem) + 1)
-                        cd_surf, _ = small_font.render(cd_text, (180, 180, 180))
-                        card_surf.blit(cd_surf, (info_x + bar_w_max // 2 - cd_surf.get_width() // 2,
-                                                bar_y - cd_surf.get_height() - 1))
-                    except Exception:
-                        pass
-
-            # 쿨타임 어둡게 오버레이 (쿨타임 중인 카드)
-            if cd_rem > 0 and not is_active:
-                overlay = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
-                overlay.fill((0, 0, 0, 80))
-                card_surf.blit(overlay, (0, 0))
+                # 스킬 발동 중: 밝은 황금빛 오버레이 + 펄스
+                pulse = 0.5 + 0.5 * _sin(ticks / 150.0)
+                glow_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+                glow_surf.fill((255, 200, 60, int(50 * pulse)))
+                card_surf.blit(glow_surf, (0, 0))
+            elif not is_ready and cd_max > 0:
+                # 쿨타임 중: 아래→위로 밝아지는 명암 (cd_ratio = 0이면 완전 어둡, 1이면 밝음)
+                cd_ratio = 1.0 - min(1.0, cd_rem / cd_max)  # 0=쿨타임 시작, 1=준비 완료
+                # 어두운 오버레이가 위에서 아래로 걷힘
+                dark_h = max(0, int(card_h * (1.0 - cd_ratio)))
+                if dark_h > 0:
+                    dark_surf = pygame.Surface((card_w, dark_h), pygame.SRCALPHA)
+                    dark_surf.fill((0, 0, 0, 140))
+                    card_surf.blit(dark_surf, (0, 0))
 
             # --- 테두리 ---
             if is_active:
-                # 활성 중: 황금 글로우
-                ticks = pygame.time.get_ticks()
                 pulse = 0.7 + 0.3 * _sin(ticks / 200.0)
-                glow_alpha = int(200 * pulse)
-                pygame.draw.rect(card_surf, (255, 220, 80, glow_alpha),
-                                 (0, 0, card_w, card_h), 2, border_radius=4)
+                pygame.draw.rect(card_surf, (255, 220, 80, int(220 * pulse)),
+                                 (0, 0, card_w, card_h), 2, border_radius=2)
             elif is_ready:
-                # 준비 완료: 밝은 테두리
-                ticks = pygame.time.get_ticks()
                 pulse = 0.6 + 0.4 * _sin(ticks / 350.0)
-                glow_alpha = int(180 * pulse)
-                pygame.draw.rect(card_surf, (100, 220, 150, glow_alpha),
-                                 (0, 0, card_w, card_h), 1, border_radius=4)
+                pygame.draw.rect(card_surf, (100, 220, 150, int(160 * pulse)),
+                                 (0, 0, card_w, card_h), 1, border_radius=2)
             else:
-                # 쿨타임 중: 어두운 테두리
-                pygame.draw.rect(card_surf, (60, 60, 70, 150),
-                                 (0, 0, card_w, card_h), 1, border_radius=4)
+                pygame.draw.rect(card_surf, (50, 50, 60, 120),
+                                 (0, 0, card_w, card_h), 1, border_radius=2)
+
+            # 진영 표시 (왼쪽 얇은 줄)
+            _sc = max(1, int(2 * _scale))
+            side_color = (220, 70, 70) if side == "top" else (70, 120, 220)
+            pygame.draw.rect(card_surf, (*side_color, 180), (0, 1, _sc, card_h - 2))
 
             draw_surface.blit(card_surf, (card_x, draw_y))
 
