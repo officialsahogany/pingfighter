@@ -53831,12 +53831,9 @@ def activate_quake(animated_bg=None):
         last_quake_time = pygame.time.get_ticks()
         if enraged_boss_active:
             water_cannon_quake_delay = random.randint(WATER_CANNON_AFTER_QUAKE_MIN // 2, WATER_CANNON_AFTER_QUAKE_MAX // 2)
-            print(f"🔥💦 광폭화 물대포 {water_cannon_quake_delay/1000:.1f}초 후 발동 예정 (쿨타임 50% 감소)")
         else:
             water_cannon_quake_delay = random.randint(WATER_CANNON_AFTER_QUAKE_MIN, WATER_CANNON_AFTER_QUAKE_MAX)
-            print(f"💦 물대포 {water_cannon_quake_delay/1000:.1f}초 후 발동 예정")
 
-    print(f" activate_quake ! quake_duration={quake_duration}, animated_bg={animated_bg is not None}")
     quake_active = True
     quake_timer = quake_duration
     quake_rng = random.Random(random.randrange(1 << 30))
@@ -53943,7 +53940,6 @@ def activate_water_cannon():
     # 발동 성공 시 last_quake_time 리셋 (다음 정글지진까지 발동 안 함)
     last_quake_time = 0
 
-    print(f"💦 물대포 차징 시작! 0.5초 대기 후 발사, 목표 바위: ({water_cannon_target_x}, {water_cannon_target_y})")
     return True
 
 

@@ -2551,8 +2551,6 @@ class HellFire(HeroSkill):
 
         self.fire_particles = []
 
-        print(f"[HellFire] 스킬 발동! freeze=True, phase=FREEZE, ball=({ball.x:.0f},{ball.y:.0f})")
-
         return {
             'screen_effect': ScreenEffect.FIRE,
             'screen_tint': (100, 200, 255),
@@ -2602,7 +2600,6 @@ class HellFire(HeroSkill):
                         pygame.mixer.Sound(hfm_path).play()
                 except Exception:
                     pass
-                print(f"[HellFire] FREEZE → RELEASE 전환 (1초 정지 종료)")
 
         elif self.phase == self.PHASE_RELEASE:
             # === 정지 해제 - 도깨비불 상태 적용 (Y축 완만하게) ===
@@ -2621,7 +2618,6 @@ class HellFire(HeroSkill):
             self.phase = self.PHASE_ACTIVE
             self.phase_timer = 0.0
             self.dokkaebi_time = 0
-            print(f"[HellFire] RELEASE → ACTIVE (vy={ball.vy:.1f}, caster_top={self.caster_is_top})")
 
         elif self.phase == self.PHASE_ACTIVE:
             # === 도깨비불 활성 상태 - 도깨비가 장난치는 듯한 불규칙 궤도 ===
@@ -2745,7 +2741,6 @@ class HellFire(HeroSkill):
         self.dokkaebi_time = 0
         self.glitch_timer = 0.0
         self.glitch_lines = []
-        print("[HellFire] 라운드 전환 - 도깨비불 초기화")
 
     def _draw_dokkaebi_face(self, screen: pygame.Surface, bx: int, by: int):
         """공 위에 반투명 도깨비 얼굴을 글리치하게 그리기"""
@@ -3061,7 +3056,6 @@ class HornCharge(HeroSkill):
                     'y': self.impact_y,
                     'trigger': True
                 }
-                print(f"🐂 [HORN CHARGE] 착지 완료! target_x={self.target_x}, impact_y={self.impact_y}")
 
         elif self.phase == self.PHASE_IMPACT:
             # 충돌 + 넉백 (0.2초)
@@ -3138,7 +3132,6 @@ class HornCharge(HeroSkill):
                 game_state['horn_charge_knockback_vel'] = 73  # 30% 감소 (104 → 73)
                 game_state['horn_charge_target_is_top'] = self.target_is_top
                 self.knockback_applied = True
-                print(f"🐂 [HORN CHARGE] IMPACT 페이즈 진입 - 넉백 신호 전송! dir={self.knockback_dir}, vel=73, target_is_top={self.target_is_top}")
 
             # 충돌 페이즈 종료 → 복귀
             if self.phase_timer >= 0.2:
@@ -9078,12 +9071,6 @@ class SkeletonArcher(HeroSkill):
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.caster_is_top = getattr(caster_paddle, 'is_top', False)
         _is_guard = getattr(caster_paddle, 'is_bodyguard', False)
-        print(f"[SkeletonArcher] 소환! caster_is_top={self.caster_is_top}, is_guard={_is_guard}, "
-              f"caster=({getattr(caster_paddle,'x','?')},{getattr(caster_paddle,'y','?')}), "
-              f"target=({getattr(target_paddle,'x','?')},{getattr(target_paddle,'y','?')}), "
-              f"target.is_bodyguard={getattr(target_paddle,'is_bodyguard',False)}, "
-              f"hero_top={game_state.get('hero_paddle_top','NONE')}, "
-              f"hero_bottom={game_state.get('hero_paddle_bottom','NONE')}")
 
         # 궁수 소환 위치: 내 진영 (캐스터 근처)
         spawn_x = random.randint(self.GAME_LEFT + 40, self.GAME_RIGHT - 40)
@@ -9220,24 +9207,13 @@ class SkeletonArcher(HeroSkill):
                         archer['draw_timer'] = 0.0
                         archer['draw_target_x'] = float(hero_info['x'] + hero_info['width'] / 2)
                         archer['draw_target_y'] = float(hero_info['y'] + hero_info['height'] / 2)
-                        print(f"[SkeletonArcher] 조준(game_state)! caster_is_top={self.caster_is_top}, "
-                              f"enemy_key={enemy_key}, "
-                              f"target=({archer['draw_target_x']:.0f},{archer['draw_target_y']:.0f}), "
-                              f"target_paddle=({getattr(target_paddle,'x','?')},{getattr(target_paddle,'y','?')}), "
-                              f"tp.is_bodyguard={getattr(target_paddle,'is_bodyguard',False)}")
                     elif target_paddle is not None and not getattr(target_paddle, 'is_bodyguard', False):
                         # 폴백: game_state에 없으면 target_paddle 사용
                         archer['is_drawing'] = True
                         archer['draw_timer'] = 0.0
                         archer['draw_target_x'] = float(target_paddle.x + target_paddle.width / 2)
                         archer['draw_target_y'] = float(target_paddle.y + target_paddle.height / 2)
-                        print(f"[SkeletonArcher] 조준(폴백-target_paddle)! caster_is_top={self.caster_is_top}, "
-                              f"target=({archer['draw_target_x']:.0f},{archer['draw_target_y']:.0f}), "
-                              f"tp.is_bodyguard={getattr(target_paddle,'is_bodyguard',False)}")
                     else:
-                        print(f"[SkeletonArcher] 조준 실패! hero_info={hero_info}, "
-                              f"target_paddle={target_paddle}, "
-                              f"tp.is_bodyguard={getattr(target_paddle,'is_bodyguard',False) if target_paddle else 'N/A'}")
                         archer['arrow_cooldown'] = 0.5  # 대상 없음, 재시도
 
                 # 이동 (시위 당기는 중에는 이동 안 함, 배속 적용)
@@ -10913,7 +10889,6 @@ class BombSurprise(HeroSkill):
         game_state[f'{prefix}_bomb_kb_vel'] = kb_vel
         game_state[f'{prefix}_bomb_kb_frames'] = kb_frames
         tag = "SELF" if is_self_explosion else "ENEMY"
-        print(f"[BombKB-DEBUG] _explode() [{tag}] → prefix={prefix}, kb_dir={kb_dir}, vel={kb_vel:.1f}, frames={kb_frames}, stun={stun_dur}s")
         self._knockback_target = explode_target
 
         # 화면 흔들림
