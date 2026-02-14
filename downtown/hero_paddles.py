@@ -4964,6 +4964,21 @@ class HeroPaddleRenderer:
                     staff_top_x = hand_x + side * int(0.1 * b)
                     staff_top_y = torso_y - int(2.5 * b)
 
+                # 지팡이 주위 검은 기운 (뼈 셉터를 감싸는 어둠)
+                for di in range(4):
+                    dt_val = (di + 0.5) / 4.0
+                    dark_x = int(staff_bottom_x + (staff_top_x - staff_bottom_x) * dt_val)
+                    dark_y = int(staff_bottom_y + (staff_top_y - staff_bottom_y) * dt_val)
+                    dark_sway_x = int(_sin(self.time * 1.5 + di * 1.8) * 0.2 * b)
+                    dark_sway_y = int(_cos(self.time * 1.2 + di * 2.1) * 0.1 * b)
+                    dark_sz = max(3, int(0.15 * b + 0.05 * b * _sin(self.time * 2.0 + di)))
+                    dark_a = int((35 + 20 * _sin(self.time * 2.8 + di * 0.9)) * flicker)
+                    ds = self._get_surface(dark_sz * 4, dark_sz * 4)
+                    pygame.draw.circle(ds, (8, 2, 15, max(0, dark_a)),
+                                     (dark_sz * 2, dark_sz * 2), dark_sz)
+                    screen.blit(ds, (dark_x + dark_sway_x - dark_sz * 2,
+                                    dark_y + dark_sway_y - dark_sz * 2))
+
                 # 뼈 셉터 몸체 (척추뼈 모양)
                 seg_count = 8
                 for seg in range(seg_count):
@@ -4988,16 +5003,27 @@ class HeroPaddleRenderer:
                 skull_top_y = int(staff_top_y) - int(0.3 * b)  # 해골 중심을 위로 올림
                 skull_sz = max(6, int(0.65 * b))
 
-                # 해골 주변 사령 오라 (넓고 불안한 보라빛)
+                # 해골 주변 검은 기운 (어둠의 안개)
                 for aura_i in range(4):
-                    aura_r = skull_sz + int((5 + aura_i * 4) + 5 * soul_pulse)
-                    aura_a = int((35 - aura_i * 8) * flicker)
+                    aura_r = skull_sz + int((5 + aura_i * 4) + 4 * soul_pulse)
+                    aura_a = int((40 - aura_i * 9) * flicker)
                     aura_s = self._get_surface(aura_r * 4, aura_r * 4)
-                    pygame.draw.circle(aura_s, (*p["orb_glow"], max(0, aura_a)),
+                    pygame.draw.circle(aura_s, (5, 0, 10, max(0, aura_a)),
                                      (aura_r * 2, aura_r * 2), aura_r)
                     screen.blit(aura_s,
-                               (skull_top_x - aura_r * 2, skull_top_y - aura_r * 2),
-                               special_flags=pygame.BLEND_ADD)
+                               (skull_top_x - aura_r * 2, skull_top_y - aura_r * 2))
+                # 검은 기운 회오리 파티클 (해골 주위를 감도는)
+                for wi in range(5):
+                    wisp_angle = self.time * 1.2 + wi * math.pi * 2 / 5
+                    wisp_r = skull_sz + int(3 + 4 * _sin(self.time * 0.8 + wi))
+                    wisp_x = skull_top_x + int(_cos(wisp_angle) * wisp_r)
+                    wisp_y = skull_top_y + int(_sin(wisp_angle) * wisp_r * 0.7)
+                    wisp_sz = max(2, int(0.12 * b + 0.04 * b * _sin(self.time * 2.5 + wi)))
+                    wisp_a = int((50 + 25 * _sin(self.time * 3.0 + wi * 1.2)) * flicker)
+                    ws = self._get_surface(wisp_sz * 4, wisp_sz * 4)
+                    pygame.draw.circle(ws, (8, 2, 15, max(0, wisp_a)),
+                                     (wisp_sz * 2, wisp_sz * 2), wisp_sz)
+                    screen.blit(ws, (wisp_x - wisp_sz * 2, wisp_y - wisp_sz * 2))
 
                 # 두개골 본체 (위쪽 둥근 머리 + 아래쪽 턱)
                 cranium_w = int(skull_sz * 2.0)
@@ -5055,30 +5081,26 @@ class HeroPaddleRenderer:
                     pygame.draw.polygon(screen, p["skull_cavity"], eye_pts)
                     pygame.draw.polygon(screen, (20, 5, 30), eye_pts, 1)
 
-                    # 보라빛 영혼의 불꽃 (눈 안에서 타오르는)
+                    # 어둠의 눈빛 (검은 불꽃 + 작은 보라 점)
                     flame_sz = max(3, int(skull_sz * 0.2 + skull_sz * 0.08 * soul_pulse))
                     flame_flicker_x = int(_sin(self.time * 7.0 + meside * 2.0) * skull_sz * 0.05)
                     flame_flicker_y = int(_sin(self.time * 9.0 + meside * 1.5) * skull_sz * 0.04)
                     flame_cx = ex + flame_flicker_x
                     flame_cy = eye_y + flame_flicker_y
 
-                    # 외곽 글로우
-                    eye_gl_sz = flame_sz + int(3 + 3 * soul_pulse)
-                    egs = self._get_surface(eye_gl_sz * 4, eye_gl_sz * 4)
-                    eye_gl_a = int(70 + 50 * soul_pulse)
-                    pygame.draw.circle(egs, (*p["eye_glow"], max(0, eye_gl_a)),
-                                     (eye_gl_sz * 2, eye_gl_sz * 2), eye_gl_sz)
-                    screen.blit(egs, (flame_cx - eye_gl_sz * 2, flame_cy - eye_gl_sz * 2),
-                               special_flags=pygame.BLEND_ADD)
-                    # 불꽃 코어 (밝은 점)
+                    # 검은 연기 (눈구멍에서 피어오르는)
+                    smoke_sz = flame_sz + int(2 + 2 * soul_pulse)
+                    sms = self._get_surface(smoke_sz * 4, smoke_sz * 4)
+                    smoke_a = int(55 + 30 * soul_pulse)
+                    pygame.draw.circle(sms, (10, 3, 18, max(0, smoke_a)),
+                                     (smoke_sz * 2, smoke_sz * 2), smoke_sz)
+                    screen.blit(sms, (flame_cx - smoke_sz * 2, flame_cy - smoke_sz * 2))
+                    # 눈동자 코어 (작은 보라빛 점)
+                    core_sz = max(1, flame_sz // 3)
+                    pygame.draw.circle(screen, p["eye_glow"],
+                                     (flame_cx, flame_cy), core_sz)
                     pygame.draw.circle(screen, p["eye_core"],
-                                     (flame_cx, flame_cy), max(2, flame_sz // 2))
-                    # 위로 타오르는 불꽃 꼬리
-                    flame_tip_y = flame_cy - int(flame_sz * 1.5) + flame_flicker_y
-                    pygame.draw.line(screen, p["eye_glow"],
-                                   (flame_cx, flame_cy),
-                                   (flame_cx + flame_flicker_x, flame_tip_y),
-                                   max(1, flame_sz // 2))
+                                     (flame_cx, flame_cy), max(1, core_sz // 2))
 
                 # 코 구멍 (역삼각형, 깊은 구멍)
                 nose_y = skull_top_y + int(skull_sz * 0.32)
