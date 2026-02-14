@@ -92479,14 +92479,6 @@ def draw_objects():
                 sp_col = random.choice([(255, 255, 255), (255, 255, 200), (200, 230, 255)])
                 pygame.draw.circle(SCREEN, sp_col, (sp_x, sp_y), sp_size)
 
-            # ── 4. 전기 글로우 오버레이 (펄스) ──
-            pulse = 0.5 + 0.5 * math.sin(current_time * 0.015)
-            glow_alpha = int(35 * pulse)
-            glow_w, glow_h = hw * 2 + 16, hh * 2 + 16
-            glow_s = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
-            pygame.draw.ellipse(glow_s, (120, 180, 255, glow_alpha), (0, 0, glow_w, glow_h))
-            pygame.draw.ellipse(glow_s, (200, 230, 255, glow_alpha + 10), (glow_w // 4, glow_h // 4, glow_w // 2, glow_h // 2))
-            SCREEN.blit(glow_s, (cx - glow_w // 2, cy - glow_h // 2), special_flags=pygame.BLEND_ADD)
 
         # 뿔 박치기 포함 모든 스턴을 _draw_arena_stun_stars()로 통합 처리
         # 번개 스턴일 때는 전기 이펙트로 대체 (타이머 직접 체크 - 다른 스킬의 stun 리셋과 독립)
