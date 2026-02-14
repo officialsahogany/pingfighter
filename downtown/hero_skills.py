@@ -14356,18 +14356,18 @@ class BananaSlice(HeroSkill):
 
 
 class WildRoar(HeroSkill):
-    """야생의 포효 - 충격파를 펼쳐 공이 닿으면 속도 80% 증가 반사"""
+    """야생의 포효 - 충격파를 펼쳐 공이 닿으면 260% 가속 반사"""
 
-    SHOCKWAVE_RADIUS = 240      # 충격파 최대 반경 (px) (+20%)
-    SHOCKWAVE_GROW_TIME = 0.18  # 충격파 확장 시간 (초) (더 빠르게)
-    BALL_SPEED_BOOST = 1.8      # 공 속도 배율 (80% 증가)
+    SHOCKWAVE_RADIUS = 360      # 충격파 최대 반경 (px) (1.5x 확대)
+    SHOCKWAVE_GROW_TIME = 0.09  # 충격파 확장 시간 (초) (2x 더 빠르게)
+    BALL_SPEED_BOOST = 3.6      # 공 속도 배율 (260% 증가)
 
     def __init__(self):
         super().__init__(
             skill_id="wild_roar",
             name="Wild Roar",
             korean_name="야생의 포효",
-            description="포효 충격파에 공이 닿으면 80% 가속 반사",
+            description="포효 충격파에 공이 닿으면 260% 가속 반사",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=23.0,
             duration=1.8,
@@ -14433,6 +14433,8 @@ class WildRoar(HeroSkill):
         self._ball_in_range = False
         self.ring_effects = []
         self.impact_particles = []
+        self.flash_alpha = 200        # 발동 시 플래시 효과
+        self.energy_sparks = []       # 확장 중 에너지 스파크
 
         self._cx = caster_paddle.x + caster_paddle.width // 2
         if self.caster_is_top:
@@ -14440,13 +14442,31 @@ class WildRoar(HeroSkill):
         else:
             self._cy = caster_paddle.y
 
-        for i in range(4):
+        # 6개 링 (cleanse 스타일 다중 레이어)
+        for i in range(6):
             self.ring_effects.append({
                 'radius': 0.0,
-                'max_radius': self.SHOCKWAVE_RADIUS * (0.5 + i * 0.18),
-                'alpha': 220 - i * 35,
-                'delay': i * 0.1,
+                'max_radius': self.SHOCKWAVE_RADIUS * (0.35 + i * 0.13),
+                'alpha': 255 - i * 30,
+                'delay': i * 0.025,   # 더 빠른 연쇄 (0.1→0.025)
                 'timer': 0.0,
+                'thickness': max(2, 5 - i),  # 안쪽 링일수록 두꺼움
+            })
+
+        # 초기 에너지 스파크 생성
+        for _ in range(16):
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(300, 900)
+            self.energy_sparks.append({
+                'x': self._cx, 'y': self._cy,
+                'vx': _cos(angle) * speed,
+                'vy': _sin(angle) * speed,
+                'size': random.uniform(2, 5),
+                'life': random.uniform(0.15, 0.35),
+                'color': random.choice([
+                    (255, 220, 60), (255, 180, 30), (255, 255, 150),
+                    (255, 140, 20), (255, 200, 100),
+                ]),
             })
 
         self._load_sounds()
@@ -14456,7 +14476,7 @@ class WildRoar(HeroSkill):
             except Exception:
                 pass
 
-        game_state['screen_shake'] = 8
+        game_state['screen_shake'] = 12
         return {}
 
     # ------------------------------------------------------------------
@@ -14464,6 +14484,10 @@ class WildRoar(HeroSkill):
     # ------------------------------------------------------------------
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         self.shockwave_timer += dt
+
+        # 플래시 페이드
+        if hasattr(self, 'flash_alpha') and self.flash_alpha > 0:
+            self.flash_alpha = max(0, self.flash_alpha - dt * 800)
 
         # 충격파 중심 (패들 따라감)
         self._cx = caster_paddle.x + caster_paddle.width // 2
@@ -14476,12 +14500,21 @@ class WildRoar(HeroSkill):
         grow = min(1.0, self.shockwave_timer / self.SHOCKWAVE_GROW_TIME)
         self.shockwave_radius = self.SHOCKWAVE_RADIUS * grow
 
-        # 링 이펙트 확장
+        # 링 이펙트 확장 (2x 더 빠르게: 0.4 → 0.2)
         for ring in self.ring_effects:
             ring['timer'] += dt
             elapsed = ring['timer'] - ring['delay']
             if elapsed > 0:
-                ring['radius'] = ring['max_radius'] * min(1.0, elapsed / 0.4)
+                ring['radius'] = ring['max_radius'] * min(1.0, elapsed / 0.2)
+
+        # 에너지 스파크 업데이트
+        if hasattr(self, 'energy_sparks'):
+            for sp in self.energy_sparks[:]:
+                sp['x'] += sp['vx'] * dt
+                sp['y'] += sp['vy'] * dt
+                sp['life'] -= dt
+                if sp['life'] <= 0:
+                    self.energy_sparks.remove(sp)
 
         # --- 공과 충격파 충돌 체크 ---
         if not self.ball_reflected and ball:
@@ -14499,7 +14532,7 @@ class WildRoar(HeroSkill):
                 ball.vy = -ball.vy * self.BALL_SPEED_BOOST
                 ball.vx = ball.vx * self.BALL_SPEED_BOOST
                 self._create_impact(ball_cx, ball_cy)
-                game_state['screen_shake'] = 15
+                game_state['screen_shake'] = 20
                 if self._hit_sound:
                     try:
                         self._hit_sound.play()
@@ -14519,22 +14552,25 @@ class WildRoar(HeroSkill):
             self.active_timer = 0
 
     def _create_impact(self, x: float, y: float):
-        """반사 임팩트 파티클"""
+        """반사 임팩트 파티클 (cleanse 스타일 강화)"""
         colors = [
-            (255, 200, 50), (255, 160, 30), (255, 240, 100),
-            (255, 100, 30), (255, 255, 200),
+            (255, 220, 60), (255, 180, 30), (255, 255, 120),
+            (255, 130, 20), (255, 255, 200), (255, 240, 80),
         ]
-        for _ in range(24):
+        # 메인 폭발 파티클 (40개)
+        for _ in range(40):
             angle = random.uniform(0, math.pi * 2)
-            speed = random.uniform(200, 700)
+            speed = random.uniform(300, 1000)
             self.impact_particles.append({
                 'x': x, 'y': y,
                 'vx': _cos(angle) * speed,
                 'vy': _sin(angle) * speed,
-                'size': random.uniform(2, 7),
+                'size': random.uniform(3, 9),
                 'color': random.choice(colors),
-                'life': random.uniform(0.3, 0.7),
+                'life': random.uniform(0.3, 0.8),
             })
+        # 임팩트 플래시
+        self.flash_alpha = 255
 
     # ------------------------------------------------------------------
     # 종료 / 리셋
@@ -14542,6 +14578,8 @@ class WildRoar(HeroSkill):
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         self.ring_effects = []
         self.impact_particles = []
+        self.energy_sparks = []
+        self.flash_alpha = 0
 
     def reset_for_new_round(self, game_state: dict):
         super().reset_for_new_round(game_state)
@@ -14551,6 +14589,8 @@ class WildRoar(HeroSkill):
         self._ball_in_range = False
         self.ring_effects = []
         self.impact_particles = []
+        self.energy_sparks = []
+        self.flash_alpha = 0
 
     # ------------------------------------------------------------------
     # 렌더링
@@ -14562,58 +14602,100 @@ class WildRoar(HeroSkill):
         cx, cy = int(self._cx), int(self._cy)
         fade = max(0.0, 1.0 - self.shockwave_timer / self.duration)
 
-        # 충격파 영역 (반투명 금색 원 + 방사 라인)
+        # ── 발동 플래시 (화면 전체 번쩍) ──
+        flash_a = int(getattr(self, 'flash_alpha', 0))
+        if flash_a > 5:
+            flash_surf = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
+            flash_surf.fill((255, 240, 180, min(flash_a, 120)))
+            screen.blit(flash_surf, (0, 0))
+
+        # ── 충격파 영역 (반투명 금색 원 + 에너지 방사 라인) ──
         if self.shockwave_radius > 10 and not self.ball_reflected:
             r = int(self.shockwave_radius)
             zone_surf = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
-            zone_alpha = int(35 * fade)
-            pygame.draw.circle(zone_surf, (255, 180, 40, zone_alpha), (r, r), r)
-            for angle_deg in range(0, 360, 30):
+            # 다중 글로우 레이어 (cleanse 스타일)
+            for gi, ga in [(r, 25), (int(r * 0.7), 35), (int(r * 0.4), 45)]:
+                if gi > 0:
+                    pygame.draw.circle(zone_surf, (255, 200, 50, int(ga * fade)),
+                                       (r, r), gi)
+            # 방사 라인 (더 촘촘하게)
+            for angle_deg in range(0, 360, 15):
                 rad = math.radians(angle_deg)
-                inner_r = int(r * 0.3)
-                outer_r = int(r * 0.9)
+                inner_r = int(r * 0.15)
+                outer_r = int(r * 0.95)
                 lx1 = r + int(_cos(rad) * inner_r)
                 ly1 = r + int(_sin(rad) * inner_r)
                 lx2 = r + int(_cos(rad) * outer_r)
                 ly2 = r + int(_sin(rad) * outer_r)
-                pygame.draw.line(zone_surf, (255, 200, 80, int(20 * fade)),
-                                 (lx1, ly1), (lx2, ly2), 1)
+                pygame.draw.line(zone_surf, (255, 220, 100, int(30 * fade)),
+                                 (lx1, ly1), (lx2, ly2), 2)
             screen.blit(zone_surf, (cx - r, cy - r))
 
-        # 충격파 링
+        # ── 충격파 링 (cleanse 스타일 다중 글로우 레이어) ──
         for ring in self.ring_effects:
             r = int(ring['radius'])
             if r < 5:
                 continue
-            ring_fade = fade if not self.ball_reflected else 0.3
+            ring_fade = fade if not self.ball_reflected else 0.25
             alpha = int(ring['alpha'] * ring_fade)
             if alpha <= 0:
                 continue
-            ring_surf = pygame.Surface((r * 2 + 6, r * 2 + 6), pygame.SRCALPHA)
-            pygame.draw.circle(ring_surf, (255, 200, 50, alpha),
-                               (r + 3, r + 3), r, 3)
-            pygame.draw.circle(ring_surf, (255, 240, 120, alpha // 2),
-                               (r + 3, r + 3), r, 1)
-            screen.blit(ring_surf, (cx - r - 3, cy - r - 3))
+            thickness = ring.get('thickness', 3)
+            pad = thickness + 8
+            ring_surf = pygame.Surface((r * 2 + pad * 2, r * 2 + pad * 2), pygame.SRCALPHA)
+            rc = r + pad
+            # 외부 글로우 (넓은 반투명)
+            if r > 8:
+                pygame.draw.circle(ring_surf, (255, 200, 50, alpha // 4),
+                                   (rc, rc), r + 3, thickness + 4)
+            # 메인 링
+            pygame.draw.circle(ring_surf, (255, 210, 60, alpha),
+                               (rc, rc), r, thickness)
+            # 내부 밝은 코어 라인
+            pygame.draw.circle(ring_surf, (255, 250, 150, min(255, alpha + 40)),
+                               (rc, rc), r, max(1, thickness - 2))
+            screen.blit(ring_surf, (cx - rc, cy - rc))
 
-        # 반사 시 공 주변 글로우
+        # ── 에너지 스파크 (확장 시 불꽃) ──
+        if hasattr(self, 'energy_sparks'):
+            for sp in self.energy_sparks:
+                life_ratio = max(0, sp['life'] / 0.35)
+                size = max(1, int(sp['size'] * life_ratio))
+                alpha = int(255 * life_ratio)
+                if size > 0 and alpha > 0:
+                    ss = pygame.Surface((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
+                    sc = size + 2
+                    # 글로우
+                    pygame.draw.circle(ss, (*sp['color'][:3], alpha // 3), (sc, sc), size + 2)
+                    # 코어
+                    pygame.draw.circle(ss, (*sp['color'][:3], alpha), (sc, sc), size)
+                    screen.blit(ss, (int(sp['x']) - sc, int(sp['y']) - sc))
+
+        # ── 반사 시 공 주변 글로우 (강화) ──
         if self.ball_reflected and ball and self.impact_particles:
             bx = int(ball.x + getattr(ball, 'width', 10) / 2)
             by = int(ball.y + getattr(ball, 'height', 10) / 2)
-            glow_surf = pygame.Surface((60, 60), pygame.SRCALPHA)
-            glow_alpha = min(150, int(255 * len(self.impact_particles) / 24))
-            pygame.draw.circle(glow_surf, (255, 220, 80, glow_alpha), (30, 30), 25)
-            screen.blit(glow_surf, (bx - 30, by - 30))
+            glow_surf = pygame.Surface((100, 100), pygame.SRCALPHA)
+            glow_alpha = min(180, int(255 * len(self.impact_particles) / 40))
+            # 다중 글로우 레이어
+            pygame.draw.circle(glow_surf, (255, 200, 50, glow_alpha // 3), (50, 50), 45)
+            pygame.draw.circle(glow_surf, (255, 220, 80, glow_alpha // 2), (50, 50), 30)
+            pygame.draw.circle(glow_surf, (255, 240, 120, glow_alpha), (50, 50), 18)
+            screen.blit(glow_surf, (bx - 50, by - 50))
 
-        # 임팩트 파티클
+        # ── 임팩트 파티클 (글로우 추가) ──
         for p in self.impact_particles:
-            life_ratio = max(0, p['life'] / 0.7)
+            life_ratio = max(0, p['life'] / 0.8)
             size = max(1, int(p['size'] * life_ratio))
             alpha = int(255 * life_ratio)
             if size > 0 and alpha > 0:
-                ps = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-                pygame.draw.circle(ps, (*p['color'], alpha), (size, size), size)
-                screen.blit(ps, (int(p['x']) - size, int(p['y']) - size))
+                ps = pygame.Surface((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
+                pc = size + 2
+                # 글로우 후광
+                pygame.draw.circle(ps, (*p['color'], alpha // 3), (pc, pc), size + 2)
+                # 메인 파티클
+                pygame.draw.circle(ps, (*p['color'], alpha), (pc, pc), size)
+                screen.blit(ps, (int(p['x']) - pc, int(p['y']) - pc))
 
 
 # ============================================================================
