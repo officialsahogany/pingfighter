@@ -14320,8 +14320,10 @@ class WildRoar(HeroSkill):
 
     SHOCKWAVE_RADIUS = 252      # 충격파 최대 반경 (px) (-30% 축소)
     SHOCKWAVE_GROW_TIME = 0.09  # 충격파 확장 시간 (초) (2x 더 빠르게)
-    BALL_SPEED_BOOST = 3.6      # 공 속도 배율 (260% 증가)
+    BALL_SPEED_BOOST = 3.6      # 공 속도 배율 (260% 증가) - 가장 가까울 때 기준
     ROAR_FREEZE_TIME = 0.6      # 포효 시 이동 불가 시간 (초)
+    TRIGGER_DIST_MIN = 80       # 발동 최소 거리 (px) - 가까울수록 공속 빠름
+    TRIGGER_DIST_MAX = 230      # 발동 최대 거리 (px) - 멀수록 공속 -70%
 
     def __init__(self):
         super().__init__(
@@ -14345,6 +14347,8 @@ class WildRoar(HeroSkill):
         self.impact_particles = []
         self.roar_freeze_timer = 0.0   # 포효 중 이동 불가 타이머
         self._freeze_applied = False    # 스턴 적용 여부
+        self._trigger_distance = 0.0   # 이번 사이클 랜덤 발동 거리
+        self._actual_boost = self.BALL_SPEED_BOOST  # 거리 기반 실제 부스트
         self._roar_sound = None
         self._hit_sound = None
         self._sounds_loaded = False
@@ -14376,11 +14380,30 @@ class WildRoar(HeroSkill):
     def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         # 공 접근 감지 (활성화 전에만 체크)
         if ball and not self.is_active and self.current_cooldown <= 0:
+            # 쿨타임 완료 직후 랜덤 발동 거리 결정 (한 사이클에 한 번)
+            if self._trigger_distance <= 0:
+                self._trigger_distance = random.uniform(
+                    self.TRIGGER_DIST_MIN, self.TRIGGER_DIST_MAX)
+
+            # 패들~공 사이 거리 계산
             ball_cy = ball.y + getattr(ball, 'height', 10) / 2
             if self.caster_is_top:
-                self._ball_in_range = (ball.vy < 0 and ball_cy < 380)
+                paddle_edge = caster_paddle.y + caster_paddle.height
+                approaching = ball.vy < 0
+                dist_to_ball = ball_cy - paddle_edge
             else:
-                self._ball_in_range = (ball.vy > 0 and ball_cy > 370)
+                paddle_edge = caster_paddle.y
+                approaching = ball.vy > 0
+                dist_to_ball = paddle_edge - ball_cy
+
+            if approaching and 0 < dist_to_ball <= self._trigger_distance:
+                self._ball_in_range = True
+                # 거리 기반 부스트 계산: 가까울수록 100%, 멀수록 30%
+                t = max(0, min(1, (self._trigger_distance - self.TRIGGER_DIST_MIN)
+                               / (self.TRIGGER_DIST_MAX - self.TRIGGER_DIST_MIN)))
+                self._actual_boost = self.BALL_SPEED_BOOST * (1.0 - t * 0.7)
+            else:
+                self._ball_in_range = False
         else:
             self._ball_in_range = False
         super().update(dt, caster_paddle, target_paddle, ball, game_state)
@@ -14398,6 +14421,8 @@ class WildRoar(HeroSkill):
         self.impact_particles = []
         self.flash_alpha = 200        # 발동 시 플래시 효과
         self.energy_sparks = []       # 확장 중 에너지 스파크
+        # 다음 쿨타임 사이클에서 새 랜덤 거리 결정하도록 리셋
+        self._trigger_distance = 0.0
 
         self._cx = caster_paddle.x + caster_paddle.width // 2
         if self.caster_is_top:
@@ -14539,10 +14564,11 @@ class WildRoar(HeroSkill):
                         break
                 if hit:
                     self.ball_reflected = True
-                    ball.vy = -ball.vy * self.BALL_SPEED_BOOST
-                    ball.vx = ball.vx * self.BALL_SPEED_BOOST
+                    boost = self._actual_boost
+                    ball.vy = -ball.vy * boost
+                    ball.vx = ball.vx * boost
                     self._create_impact(ball_cx, ball_cy)
-                    game_state['screen_shake'] = 20
+                    game_state['screen_shake'] = max(8, int(20 * boost / self.BALL_SPEED_BOOST))
                     if self._hit_sound:
                         try:
                             self._hit_sound.play()
@@ -14612,6 +14638,8 @@ class WildRoar(HeroSkill):
             game_state['bottom_paddle_stunned'] = False
             self._freeze_applied = False
         self.roar_freeze_timer = 0
+        self._trigger_distance = 0.0
+        self._actual_boost = self.BALL_SPEED_BOOST
 
     # ------------------------------------------------------------------
     # 렌더링
