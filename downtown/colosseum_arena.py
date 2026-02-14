@@ -5471,6 +5471,7 @@ class ColosseumsArena:
         self.guard_warrior_map = {}          # hero_id -> [guard hero dicts] (토너먼트 전체 누적)
         self.recalled_guard_map = {}         # hero_id -> guard dict (재소집령으로 복귀한 호위무사, 라운드 간 유지)
         self.former_guards = []              # 교체되어 탈락한 호위무사 목록 (우승 연출용)
+        self.guard_loyalty_cd_bonus = {}     # hero_id -> int (기존 호위무사 유지 횟수, 1회당 -10% 쿨타임)
         self.guard_warriors_top = []         # 현재 배틀 상단 영웅의 호위무사들
         self.guard_warriors_bottom = []      # 현재 배틀 하단 영웅의 호위무사들
         # 쿨타임
@@ -9265,8 +9266,11 @@ class ColosseumsArena:
         card_gap = max(1, int(2 * _scale))
         margin_x = max(1, int(3 * _scale))
         total_h = len(entries) * (card_h + card_gap) - card_gap
-        start_y = pillar_y + max(int(20 * _scale), (pillar_h - total_h) // 2)
-        card_x = pillar_x + margin_x
+        # 세로: 중앙에서 150px 위로
+        center_y = pillar_y + (pillar_h - total_h) // 2
+        start_y = max(pillar_y + 5, center_y - int(150 * _scale))
+        # 가로: 오른쪽 정렬 (인게임 왼쪽 벽 옆)
+        card_x = pillar_x + pillar_w - card_w - margin_x
 
         # dt 계산 (스무스 애니메이션용)
         dt = 1.0 / 60.0
@@ -9310,14 +9314,14 @@ class ColosseumsArena:
                 glow_surf.fill((255, 200, 60, int(50 * pulse)))
                 card_surf.blit(glow_surf, (0, 0))
             elif not is_ready and cd_max > 0:
-                # 쿨타임 중: 아래→위로 밝아지는 명암 (cd_ratio = 0이면 완전 어둡, 1이면 밝음)
+                # 쿨타임 중: 왼→오른쪽으로 밝아지는 가로 명암
                 cd_ratio = 1.0 - min(1.0, cd_rem / cd_max)  # 0=쿨타임 시작, 1=준비 완료
-                # 어두운 오버레이가 위에서 아래로 걷힘
-                dark_h = max(0, int(card_h * (1.0 - cd_ratio)))
-                if dark_h > 0:
-                    dark_surf = pygame.Surface((card_w, dark_h), pygame.SRCALPHA)
+                # 어두운 오버레이가 오른쪽에서 왼쪽으로 걷힘
+                dark_w = max(0, int(card_w * (1.0 - cd_ratio)))
+                if dark_w > 0:
+                    dark_surf = pygame.Surface((dark_w, card_h), pygame.SRCALPHA)
                     dark_surf.fill((0, 0, 0, 140))
-                    card_surf.blit(dark_surf, (0, 0))
+                    card_surf.blit(dark_surf, (card_w - dark_w, 0))
 
             # --- 테두리 ---
             if is_active:
@@ -12069,6 +12073,10 @@ class ColosseumsArena:
                 mults["instant_cooldown"] = val
             elif etype == "theft":
                 mults["theft"] = val
+        # 충성 보너스: 기존 호위무사 유지 시 쿨타임 -10% 누적
+        loyalty_count = self.guard_loyalty_cd_bonus.get(hero_id, 0)
+        if loyalty_count > 0:
+            mults["guard_cooldown"] -= 0.10 * loyalty_count
         return mults
 
     def _draw_perk_icon_swift_foot(self, surf, cx, cy, r, ss):
@@ -14104,6 +14112,19 @@ class ColosseumsArena:
         self.guard_select_chosen = index
         print(f"[Guard] 호위무사 선택 완료: {selected['name']} (탈락: {[g['name'] for g in dropped_guards]})")
 
+        # 충성 보너스 (기존 호위무사 유지 시 쿨타임 -10% 누적)
+        if index == new_idx:
+            # 신규 호위무사로 교체 → 충성 보너스 초기화
+            self.guard_loyalty_cd_bonus[bet_id] = 0
+            print(f"[Guard] 호위무사 교체 → 충성 보너스 초기화 (쿨타임 보너스: 0%)")
+        else:
+            # 기존 호위무사 유지 → 충성 보너스 +10% 누적
+            prev_bonus = self.guard_loyalty_cd_bonus.get(bet_id, 0)
+            self.guard_loyalty_cd_bonus[bet_id] = prev_bonus + 1
+            new_bonus = self.guard_loyalty_cd_bonus[bet_id]
+            print(f"[Guard] 기존 호위무사 유지 → 충성 보너스 +10% "
+                  f"(누적: -{new_bonus * 10}% 쿨타임 감소)")
+
         # 신규 호위무사 선택 시 → 같은 화면 하단에서 인라인 스킬 룰렛
         if index == new_idx:
             self.hero_selected_skills[selected["id"]] = random.randint(0, 1)
@@ -14297,6 +14318,27 @@ class ColosseumsArena:
                 self.screen.blit(badge_bg, (bx, by))
                 self.screen.blit(badge_surf, (bx + 5, by + 2))
 
+                # 기존 호위무사 카드: 충성 보너스 표시
+                if idx != new_idx:
+                    bet_id = self.bet_hero["id"] if self.bet_hero else ""
+                    loyalty_count = self.guard_loyalty_cd_bonus.get(bet_id, 0)
+                    next_bonus = (loyalty_count + 1) * 10  # 선택 시 받을 보너스
+                    if loyalty_count > 0:
+                        bonus_text = f"쿨타임 -{loyalty_count * 10}% (유지 시 -{next_bonus}%)"
+                    else:
+                        bonus_text = f"유지 시 쿨타임 -{next_bonus}%"
+                    bonus_color = (100, 220, 160)
+                    bonus_surf, _ = self.fonts["small"].render(bonus_text, bonus_color)
+                    bonus_bg = _get_arena_surface(bonus_surf.get_width() + 10, bonus_surf.get_height() + 4)
+                    bonus_bg.fill((0, 0, 0, 160))
+                    pygame.draw.rect(bonus_bg, (*bonus_color, 100),
+                                     (0, 0, bonus_bg.get_width(), bonus_bg.get_height()),
+                                     1, border_radius=4)
+                    bbx = draw_x + 6
+                    bby = draw_y + 6
+                    self.screen.blit(bonus_bg, (bbx, bby))
+                    self.screen.blit(bonus_surf, (bbx + 5, bby + 2))
+
             # 호버 시 글로우
             if is_hover or is_chosen:
                 glow_color = (255, 215, 80) if is_chosen else bright_color
@@ -14437,7 +14479,10 @@ class ColosseumsArena:
         overlay.fill((0, 0, 0, 160))
         self.screen.blit(overlay, (0, 0))
 
-        dialog_w, dialog_h = 420, 200
+        bet_id_for_dialog = self.bet_hero["id"] if self.bet_hero else ""
+        loyalty_for_dialog = self.guard_loyalty_cd_bonus.get(bet_id_for_dialog, 0)
+        dialog_w = 420
+        dialog_h = 220 if loyalty_for_dialog > 0 else 200
         cx = SCREEN_WIDTH // 2
         cy = SCREEN_HEIGHT // 2
         dx = cx - dialog_w // 2
@@ -14461,13 +14506,23 @@ class ColosseumsArena:
         if "small" in self.fonts:
             line1 = "신규 호위무사를 영입하면"
             line2 = "기존 호위무사는 해고됩니다."
-            line3 = "계속하시겠습니까?"
             s1, _ = self.fonts["small"].render(line1, ET["text_body"])
             s2, _ = self.fonts["small"].render(line2, ET["text_body"])
-            s3, _ = self.fonts["small"].render(line3, ET["gold_pale"])
             self.screen.blit(s1, (cx - s1.get_width() // 2, dy + 55))
             self.screen.blit(s2, (cx - s2.get_width() // 2, dy + 78))
-            self.screen.blit(s3, (cx - s3.get_width() // 2, dy + 105))
+            # 충성 보너스 리셋 경고
+            bet_id = self.bet_hero["id"] if self.bet_hero else ""
+            loyalty_count = self.guard_loyalty_cd_bonus.get(bet_id, 0)
+            if loyalty_count > 0:
+                warn_line = f"충성 보너스 (쿨타임 -{loyalty_count * 10}%)가 초기화됩니다!"
+                ws, _ = self.fonts["small"].render(warn_line, (255, 100, 100))
+                self.screen.blit(ws, (cx - ws.get_width() // 2, dy + 98))
+                line3_y = dy + 120
+            else:
+                line3_y = dy + 105
+            line3 = "계속하시겠습니까?"
+            s3, _ = self.fonts["small"].render(line3, ET["gold_pale"])
+            self.screen.blit(s3, (cx - s3.get_width() // 2, line3_y))
 
         # 버튼
         btn_w, btn_h = 100, 40
