@@ -64,6 +64,7 @@ def _create_icon(skill_id: str) -> Optional[pygame.Surface]:
         "solar_bolt": _icon_solar_bolt,
         "thunder_orb": _icon_thunder_orb,
         "banana_slice": _icon_banana_slice,
+        "wild_roar": _icon_wild_roar,
     }
     creator = creators.get(skill_id)
     if creator:
@@ -1043,5 +1044,64 @@ def _icon_banana_slice() -> pygame.Surface:
 
     # 테두리 글로우
     pygame.draw.circle(s, (255, 220, 80, 60), (16, 16), 14, 1)
+
+    return s
+
+
+def _icon_wild_roar() -> pygame.Surface:
+    """야생의 포효 - 포효하는 원숭이 입 + 황금 충격파 링"""
+    s = pygame.Surface((32, 32), pygame.SRCALPHA)
+    # 배경 원 (깊은 갈색/주황)
+    pygame.draw.circle(s, (50, 30, 15), (16, 16), 15)
+    pygame.draw.circle(s, (120, 80, 30), (16, 16), 15, 1)
+
+    # 충격파 링 3개 (바깥→안 갈수록 밝게)
+    ring_color_outer = (255, 180, 40, 60)
+    ring_color_mid = (255, 200, 60, 100)
+    ring_color_inner = (255, 220, 100, 160)
+    pygame.draw.circle(s, ring_color_outer, (16, 16), 14, 2)
+    pygame.draw.circle(s, ring_color_mid, (16, 16), 11, 2)
+    pygame.draw.circle(s, ring_color_inner, (16, 16), 8, 1)
+
+    # 원숭이 얼굴 실루엣 (중앙)
+    face_brown = (140, 90, 40)
+    face_light = (190, 140, 80)
+    # 머리 윤곽
+    pygame.draw.circle(s, face_brown, (16, 14), 6)
+    # 얼굴 밝은 부분 (하단 턱 쪽)
+    pygame.draw.circle(s, face_light, (16, 16), 4)
+
+    # 크게 벌린 입 (포효!)
+    mouth_points = [(12, 16), (16, 22), (20, 16)]
+    pygame.draw.polygon(s, (60, 20, 10), mouth_points)
+    # 입 안쪽 밝은 부분
+    pygame.draw.polygon(s, (120, 40, 20), [(13, 17), (16, 21), (19, 17)])
+    # 이빨 (위쪽)
+    pygame.draw.line(s, (240, 230, 210), (13, 16), (14, 18), 1)
+    pygame.draw.line(s, (240, 230, 210), (19, 16), (18, 18), 1)
+
+    # 눈 (분노의 빛)
+    pygame.draw.circle(s, (255, 200, 50), (13, 13), 2)
+    pygame.draw.circle(s, (255, 255, 180), (13, 13), 1)
+    pygame.draw.circle(s, (255, 200, 50), (19, 13), 2)
+    pygame.draw.circle(s, (255, 255, 180), (19, 13), 1)
+
+    # 충격파 방사선 (대각선 4방향)
+    ray_color = (255, 220, 80, 140)
+    for angle_deg in [45, 135, 225, 315]:
+        rad = math.radians(angle_deg)
+        sx = 16 + int(math.cos(rad) * 9)
+        sy = 16 + int(math.sin(rad) * 9)
+        ex = 16 + int(math.cos(rad) * 14)
+        ey = 16 + int(math.sin(rad) * 14)
+        pygame.draw.line(s, ray_color, (sx, sy), (ex, ey), 1)
+
+    # 스파크 (충격파 끝)
+    for angle_deg in [0, 90, 180, 270]:
+        rad = math.radians(angle_deg)
+        px = 16 + int(math.cos(rad) * 14)
+        py = 16 + int(math.sin(rad) * 14)
+        if 0 <= px < 32 and 0 <= py < 32:
+            pygame.draw.circle(s, (255, 255, 200), (px, py), 1)
 
     return s

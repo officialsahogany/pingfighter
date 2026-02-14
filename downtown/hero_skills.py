@@ -14232,6 +14232,267 @@ class BananaSlice(HeroSkill):
         return surf
 
 
+class WildRoar(HeroSkill):
+    """야생의 포효 - 충격파를 펼쳐 공이 닿으면 속도 80% 증가 반사"""
+
+    SHOCKWAVE_RADIUS = 200      # 충격파 최대 반경 (px)
+    SHOCKWAVE_GROW_TIME = 0.25  # 충격파 확장 시간 (초)
+    BALL_SPEED_BOOST = 1.8      # 공 속도 배율 (80% 증가)
+
+    def __init__(self):
+        super().__init__(
+            skill_id="wild_roar",
+            name="Wild Roar",
+            korean_name="야생의 포효",
+            description="포효 충격파에 공이 닿으면 80% 가속 반사",
+            trigger=SkillTrigger.ON_COOLDOWN,
+            cooldown=23.0,
+            duration=1.8,
+            hero_id="monkeyking"
+        )
+        self.caster_is_top = False
+        self.shockwave_timer = 0.0
+        self.shockwave_radius = 0.0
+        self.ball_reflected = False
+        self._ball_in_range = False
+        self._cx = 380.0
+        self._cy = 375.0
+        self.ring_effects = []
+        self.impact_particles = []
+        self._roar_sound = None
+        self._hit_sound = None
+        self._sounds_loaded = False
+
+    def _load_sounds(self):
+        if self._sounds_loaded:
+            return
+        self._sounds_loaded = True
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            roar_path = os.path.join(project_root, "sounds", "horncharge.wav")
+            if os.path.exists(roar_path):
+                self._roar_sound = pygame.mixer.Sound(roar_path)
+                self._roar_sound.set_volume(0.7)
+            hit_path = os.path.join(project_root, "sounds", "smallboyhit.wav")
+            if os.path.exists(hit_path):
+                self._hit_sound = pygame.mixer.Sound(hit_path)
+                self._hit_sound.set_volume(0.8)
+        except Exception:
+            pass
+
+    # ------------------------------------------------------------------
+    # 발동 조건: 쿨타임 완료 + 공이 접근 중일 때만
+    # ------------------------------------------------------------------
+    def can_use(self) -> bool:
+        return (self.current_cooldown <= 0 and not self.is_active
+                and getattr(self, '_ball_in_range', False))
+
+    def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        # 공 접근 감지 (활성화 전에만 체크)
+        if ball and not self.is_active and self.current_cooldown <= 0:
+            ball_cy = ball.y + getattr(ball, 'height', 10) / 2
+            if self.caster_is_top:
+                self._ball_in_range = (ball.vy < 0 and ball_cy < 320)
+            else:
+                self._ball_in_range = (ball.vy > 0 and ball_cy > 430)
+        else:
+            self._ball_in_range = False
+        super().update(dt, caster_paddle, target_paddle, ball, game_state)
+
+    # ------------------------------------------------------------------
+    # 스킬 발동
+    # ------------------------------------------------------------------
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        self.caster_is_top = caster_paddle.is_top
+        self.shockwave_timer = 0.0
+        self.shockwave_radius = 0.0
+        self.ball_reflected = False
+        self._ball_in_range = False
+        self.ring_effects = []
+        self.impact_particles = []
+
+        self._cx = caster_paddle.x + caster_paddle.width // 2
+        if self.caster_is_top:
+            self._cy = caster_paddle.y + caster_paddle.height
+        else:
+            self._cy = caster_paddle.y
+
+        for i in range(4):
+            self.ring_effects.append({
+                'radius': 0.0,
+                'max_radius': self.SHOCKWAVE_RADIUS * (0.5 + i * 0.18),
+                'alpha': 220 - i * 35,
+                'delay': i * 0.1,
+                'timer': 0.0,
+            })
+
+        self._load_sounds()
+        if self._roar_sound:
+            try:
+                self._roar_sound.play()
+            except Exception:
+                pass
+
+        game_state['screen_shake'] = 8
+        return {}
+
+    # ------------------------------------------------------------------
+    # 업데이트
+    # ------------------------------------------------------------------
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        self.shockwave_timer += dt
+
+        # 충격파 중심 (패들 따라감)
+        self._cx = caster_paddle.x + caster_paddle.width // 2
+        if self.caster_is_top:
+            self._cy = caster_paddle.y + caster_paddle.height
+        else:
+            self._cy = caster_paddle.y
+
+        # 충격파 확장
+        grow = min(1.0, self.shockwave_timer / self.SHOCKWAVE_GROW_TIME)
+        self.shockwave_radius = self.SHOCKWAVE_RADIUS * grow
+
+        # 링 이펙트 확장
+        for ring in self.ring_effects:
+            ring['timer'] += dt
+            elapsed = ring['timer'] - ring['delay']
+            if elapsed > 0:
+                ring['radius'] = ring['max_radius'] * min(1.0, elapsed / 0.4)
+
+        # --- 공과 충격파 충돌 체크 ---
+        if not self.ball_reflected and ball:
+            ball_cx = ball.x + getattr(ball, 'width', 10) / 2
+            ball_cy = ball.y + getattr(ball, 'height', 10) / 2
+            dx = ball_cx - self._cx
+            dy = ball_cy - self._cy
+            dist = math.sqrt(dx * dx + dy * dy)
+
+            approaching = ((self.caster_is_top and ball.vy < 0) or
+                           (not self.caster_is_top and ball.vy > 0))
+
+            if dist < self.shockwave_radius and approaching:
+                self.ball_reflected = True
+                ball.vy = -ball.vy * self.BALL_SPEED_BOOST
+                ball.vx = ball.vx * self.BALL_SPEED_BOOST
+                self._create_impact(ball_cx, ball_cy)
+                game_state['screen_shake'] = 15
+                if self._hit_sound:
+                    try:
+                        self._hit_sound.play()
+                    except Exception:
+                        pass
+
+        # 임팩트 파티클 업데이트
+        for p in self.impact_particles[:]:
+            p['x'] += p['vx'] * dt
+            p['y'] += p['vy'] * dt
+            p['life'] -= dt
+            if p['life'] <= 0:
+                self.impact_particles.remove(p)
+
+        # 반사 완료 + 이펙트 종료 → 스킬 종료
+        if self.ball_reflected and not self.impact_particles:
+            self.active_timer = 0
+
+    def _create_impact(self, x: float, y: float):
+        """반사 임팩트 파티클"""
+        colors = [
+            (255, 200, 50), (255, 160, 30), (255, 240, 100),
+            (255, 100, 30), (255, 255, 200),
+        ]
+        for _ in range(24):
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(200, 700)
+            self.impact_particles.append({
+                'x': x, 'y': y,
+                'vx': _cos(angle) * speed,
+                'vy': _sin(angle) * speed,
+                'size': random.uniform(2, 7),
+                'color': random.choice(colors),
+                'life': random.uniform(0.3, 0.7),
+            })
+
+    # ------------------------------------------------------------------
+    # 종료 / 리셋
+    # ------------------------------------------------------------------
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        self.ring_effects = []
+        self.impact_particles = []
+
+    def reset_for_new_round(self, game_state: dict):
+        super().reset_for_new_round(game_state)
+        self.shockwave_timer = 0.0
+        self.shockwave_radius = 0.0
+        self.ball_reflected = False
+        self._ball_in_range = False
+        self.ring_effects = []
+        self.impact_particles = []
+
+    # ------------------------------------------------------------------
+    # 렌더링
+    # ------------------------------------------------------------------
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        if not self.is_active:
+            return
+
+        cx, cy = int(self._cx), int(self._cy)
+        fade = max(0.0, 1.0 - self.shockwave_timer / self.duration)
+
+        # 충격파 영역 (반투명 금색 원 + 방사 라인)
+        if self.shockwave_radius > 10 and not self.ball_reflected:
+            r = int(self.shockwave_radius)
+            zone_surf = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+            zone_alpha = int(35 * fade)
+            pygame.draw.circle(zone_surf, (255, 180, 40, zone_alpha), (r, r), r)
+            for angle_deg in range(0, 360, 30):
+                rad = math.radians(angle_deg)
+                inner_r = int(r * 0.3)
+                outer_r = int(r * 0.9)
+                lx1 = r + int(_cos(rad) * inner_r)
+                ly1 = r + int(_sin(rad) * inner_r)
+                lx2 = r + int(_cos(rad) * outer_r)
+                ly2 = r + int(_sin(rad) * outer_r)
+                pygame.draw.line(zone_surf, (255, 200, 80, int(20 * fade)),
+                                 (lx1, ly1), (lx2, ly2), 1)
+            screen.blit(zone_surf, (cx - r, cy - r))
+
+        # 충격파 링
+        for ring in self.ring_effects:
+            r = int(ring['radius'])
+            if r < 5:
+                continue
+            ring_fade = fade if not self.ball_reflected else 0.3
+            alpha = int(ring['alpha'] * ring_fade)
+            if alpha <= 0:
+                continue
+            ring_surf = pygame.Surface((r * 2 + 6, r * 2 + 6), pygame.SRCALPHA)
+            pygame.draw.circle(ring_surf, (255, 200, 50, alpha),
+                               (r + 3, r + 3), r, 3)
+            pygame.draw.circle(ring_surf, (255, 240, 120, alpha // 2),
+                               (r + 3, r + 3), r, 1)
+            screen.blit(ring_surf, (cx - r - 3, cy - r - 3))
+
+        # 반사 시 공 주변 글로우
+        if self.ball_reflected and ball and self.impact_particles:
+            bx = int(ball.x + getattr(ball, 'width', 10) / 2)
+            by = int(ball.y + getattr(ball, 'height', 10) / 2)
+            glow_surf = pygame.Surface((60, 60), pygame.SRCALPHA)
+            glow_alpha = min(150, int(255 * len(self.impact_particles) / 24))
+            pygame.draw.circle(glow_surf, (255, 220, 80, glow_alpha), (30, 30), 25)
+            screen.blit(glow_surf, (bx - 30, by - 30))
+
+        # 임팩트 파티클
+        for p in self.impact_particles:
+            life_ratio = max(0, p['life'] / 0.7)
+            size = max(1, int(p['size'] * life_ratio))
+            alpha = int(255 * life_ratio)
+            if size > 0 and alpha > 0:
+                ps = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(ps, (*p['color'], alpha), (size, size), size)
+                screen.blit(ps, (int(p['x']) - size, int(p['y']) - size))
+
+
 # ============================================================================
 # 영웅 스킬 매핑
 # ============================================================================
@@ -14250,7 +14511,7 @@ HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "mirage": [SandPrison(), SandVortex()],
     "android": [BombSurprise(), GatlingBurst()],
     "ra": [SolarBolt(), ThunderOrb()],  # 라의 낙뢰 + 라의 뇌구
-    "monkeyking": [BananaSlice()],  # 원숭이왕: 바나나 슬라이스
+    "monkeyking": [BananaSlice(), WildRoar()],  # 원숭이왕: 바나나 슬라이스 + 야생의 포효
 }
 
 # 스킬 클래스 매핑 (호위무사 시스템 등에서 독립 인스턴스 생성용)
@@ -14269,7 +14530,7 @@ HERO_SKILL_CLASSES: Dict[str, list] = {
     "mirage": [SandPrison, SandVortex],
     "android": [BombSurprise, GatlingBurst],
     "ra": [SolarBolt, ThunderOrb],  # 라의 낙뢰 + 라의 뇌구
-    "monkeyking": [BananaSlice],  # 원숭이왕: 바나나 슬라이스
+    "monkeyking": [BananaSlice, WildRoar],  # 원숭이왕: 바나나 슬라이스 + 야생의 포효
 }
 
 
