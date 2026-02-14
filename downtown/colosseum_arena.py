@@ -958,10 +958,10 @@ ARENA_PERK_POOL = [
     {
         "id": "flash_inspiration",
         "name": "번뜩이는 영감",
-        "description": "타격 시 15% 확률로\n스킬 쿨타임 즉시 충전",
+        "description": "타격 시 10% 확률로\n스킬 쿨타임 즉시 충전",
         "icon_color": (255, 220, 100),   # 금빛 (영감/번쩍임)
         "effect_type": "instant_cooldown",
-        "value": 0.15,
+        "value": 0.10,
     },
     # === 해금 조건 퍽 ===
     {
@@ -5953,6 +5953,12 @@ class ColosseumsArena:
             for hero_id, is_top in hero_positions.items():
                 side = 'top' if is_top else 'bottom'
                 state = self.hero_paddle_renderer._get_state(hero_id)
+                # [DEBUG] 개틀링 상태 확인
+                _gm = game_state.get(f'gatling_mounting_{side}', False)
+                _gf = game_state.get(f'gatling_burst_active_{side}', False)
+                _gd = game_state.get(f'gatling_dismounting_{side}', False)
+                if _gm or _gf or _gd:
+                    print(f"[GATLING SYNC] hero={hero_id} side={side} mounting={_gm} firing={_gf} dismounting={_gd}")
                 state['gatling_firing'] = game_state.get(f'gatling_burst_active_{side}', False)
                 state['gatling_recoil'] = game_state.get(f'gatling_recoil_{side}', 0)
                 state['gatling_mounting'] = game_state.get(f'gatling_mounting_{side}', False)
