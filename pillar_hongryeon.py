@@ -736,7 +736,7 @@ class HongryeonFrame:
                 self.snake_attack_cooldown = 3.0
                 # print(f"[홍련 필러] 광폭화 모드 활성화 - 뱀 공격 시스템 가동! 뱀 개수: {len(self.snake_pots)}")
                 for i, pot in enumerate(self.snake_pots):
-                    # print(f"  - 뱀 #{i}: 위치 ({pot.x}, {pot.y}), 상태: {pot.state}")
+                    pass  # print(f"  - 뱀 #{i}: 위치 ({pot.x}, {pot.y}), 상태: {pot.state}")
             else:
                 # 광폭화 종료 시 모든 뱀 숨기기
                 for pot in self.snake_pots:
@@ -832,7 +832,7 @@ class HongryeonFrame:
         result = selected_pot.start_attack(self.player_x, self.player_y)
 
         if result:
-            # print(f"[홍련 필러] 뱀 공격! 항아리 #{selected_pot.index} ({selected_pot.side})")
+            pass  # print(f"[홍련 필러] 뱀 공격! 항아리 #{selected_pot.index} ({selected_pot.side})")
 
         return result
 
@@ -1003,7 +1003,7 @@ class HongryeonFrame:
                     )
                     # print(f"[홍련] 뱀 공격 성공! 다음 쿨타임: {self.snake_attack_cooldown:.1f}s")
                 else:
-                    # print(f"[홍련] 뱀 공격 실패 - 가용 항아리 없음")
+                    pass  # print(f"[홍련] 뱀 공격 실패 - 가용 항아리 없음")
 
         # 모든 항아리 뱀 업데이트 (광폭화 여부와 관계없이 - 숨는 애니메이션 처리)
         for pot in self.snake_pots:
