@@ -47,6 +47,91 @@ class HeroPortraitRenderer:
     def _darken(color, amount=40):
         return tuple(max(0, c - amount) for c in color[:3])
 
+    @staticmethod
+    def _mix(c1, c2, t=0.5):
+        """Mix two RGB colors. t=0 -> c1, t=1 -> c2."""
+        return tuple(int(a + (b - a) * t) for a, b in zip(c1[:3], c2[:3]))
+
+    def _soft_glow(self, surf, cx, cy, radius, color, alpha=30):
+        """Soft additive glow circle."""
+        sz = max(4, radius * 2 + 2)
+        gs = pygame.Surface((sz, sz), pygame.SRCALPHA)
+        r = sz // 2
+        pygame.draw.circle(gs, (*color[:3], alpha), (r, r), r)
+        surf.blit(gs, (cx - r, cy - r), special_flags=pygame.BLEND_ADD)
+
+    def _face_base(self, surf, cx, face_top, face_w, face_h, skin, skin_sh, skin_hi):
+        """Draw multi-layered face with 4-layer shading for depth."""
+        skin_deep = self._darken(skin_sh, 15)
+        fr = pygame.Rect(cx - face_w // 2, face_top, face_w, face_h)
+        # Base
+        pygame.draw.ellipse(surf, skin, fr)
+        # Jaw deep shadow
+        pygame.draw.ellipse(surf, skin_deep,
+                            (fr.x + 1, face_top + int(face_h * 0.65), face_w - 2, int(face_h * 0.35)))
+        # Mid shadow
+        pygame.draw.ellipse(surf, skin_sh,
+                            (fr.x, face_top + int(face_h * 0.5), face_w, int(face_h * 0.5)))
+        # Re-blend upper
+        pygame.draw.ellipse(surf, skin,
+                            (fr.x + 1, face_top, face_w - 2, int(face_h * 0.6)))
+        # Forehead highlight
+        hi_w = int(face_w * 0.55)
+        hi_h = int(face_h * 0.22)
+        pygame.draw.ellipse(surf, (*skin_hi[:3], 45),
+                            (cx - hi_w // 2, face_top + int(face_h * 0.06), hi_w, hi_h))
+        # Left side shadow for 3D depth
+        pygame.draw.ellipse(surf, (*skin_sh[:3], 30),
+                            (fr.x, face_top + int(face_h * 0.15), int(face_w * 0.28), int(face_h * 0.5)))
+        return fr
+
+    def _hq_eye(self, surf, ex, ey, w, h, b, iris_color,
+                pupil_color=(25, 20, 20), sclera=(245, 242, 240),
+                glow_color=None, sharp=False, sparkle=True,
+                lid_color=(40, 30, 30), slit_pupil=False, eye_scale=1.0):
+        """High-quality eye with limbal ring, gradient iris, dual highlights, eyelid."""
+        sw = max(3, int(w * 0.08 * eye_scale))
+        sh = max(2, int(h * 0.065 * eye_scale))
+        if glow_color:
+            self._soft_glow(surf, ex, ey, max(3, int(b * 0.45)), glow_color, 25)
+        # Socket shadow
+        pygame.draw.ellipse(surf, (*self._darken(sclera, 50)[:3], 25),
+                            (ex - sw - 2, ey - sh - 2, (sw + 2) * 2, (sh + 2) * 2))
+        # Sclera
+        if sharp:
+            pts = [(ex - sw, ey + 1), (ex - sw // 2, ey - sh),
+                   (ex + sw // 2, ey - sh), (ex + sw, ey + 1), (ex, ey + sh)]
+            pygame.draw.polygon(surf, sclera, pts)
+        else:
+            pygame.draw.ellipse(surf, sclera, (ex - sw, ey - sh, sw * 2, sh * 2))
+        # Limbal ring (dark ring at iris edge)
+        ir = max(2, int(min(sw, sh) * 0.75))
+        pygame.draw.circle(surf, self._darken(iris_color, 50), (ex, ey), ir + 1)
+        # Iris
+        pygame.draw.circle(surf, iris_color, (ex, ey), ir)
+        # Inner lighter iris
+        pygame.draw.circle(surf, self._lighten(iris_color, 30), (ex, ey), max(1, ir * 2 // 3))
+        # Pupil
+        pr = max(1, ir // 2)
+        if slit_pupil:
+            pygame.draw.ellipse(surf, pupil_color,
+                                (ex - max(1, pr // 2), ey - ir + 1, max(2, pr), ir * 2 - 2))
+        else:
+            pygame.draw.circle(surf, pupil_color, (ex, ey), pr)
+        # Primary highlight
+        side = -1 if ex < w // 2 else 1
+        pygame.draw.circle(surf, (255, 255, 255),
+                           (ex + side, ey - max(1, sh // 3)), max(1, ir // 3))
+        # Secondary sparkle
+        if sparkle:
+            pygame.draw.circle(surf, (255, 255, 255, 180),
+                               (ex - side, ey + max(1, sh // 4)), max(1, ir // 5))
+        # Upper eyelid (eyelash)
+        lid_t = max(1, int(b * 0.07))
+        pygame.draw.arc(surf, lid_color,
+                        (ex - sw - 1, ey - sh - 1, sw * 2 + 2, sh * 2 + 1),
+                        0.3, 2.8, lid_t)
+
     def _portrait_default(self, surf, w, h, color):
         cx = w // 2
         cy = h // 2
