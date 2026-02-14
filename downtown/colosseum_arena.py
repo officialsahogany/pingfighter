@@ -9192,7 +9192,8 @@ class ColosseumsArena:
                                        y + icon_size + 2))
 
     def draw_cooldown_queue(self, surface=None, skill_mgr=None, guard_sys=None,
-                           pillar_x=0, pillar_w=80, pillar_y=0, pillar_h=750):
+                           pillar_x=0, pillar_w=80, pillar_y=0, pillar_h=750,
+                           mouse_pos=None):
         """통합 쿨타임 큐 UI - 왼쪽 필러에 영웅+호위무사를 쿨타임 순으로 세로 나열
 
         Args:
@@ -9203,6 +9204,10 @@ class ColosseumsArena:
             pillar_w: 왼쪽 필러 너비
             pillar_y: 왼쪽 필러 시작 Y (REAL_SCREEN 좌표)
             pillar_h: 왼쪽 필러 높이
+            mouse_pos: 마우스 좌표 (REAL_SCREEN 기준), 호버 감지용
+
+        Returns:
+            hover_info dict or None (호버된 카드의 영웅/스킬 정보)
         """
         if not self.selected_match:
             return
@@ -9277,6 +9282,7 @@ class ColosseumsArena:
         ticks = pygame.time.get_ticks()
 
         # === 4. 각 카드 그리기 ===
+        hover_result = None
         for idx, entry in enumerate(entries):
             target_y = start_y + idx * (card_h + card_gap)
             ekey = entry["key"]
@@ -9345,11 +9351,40 @@ class ColosseumsArena:
 
             draw_surface.blit(card_surf, (card_x, draw_y))
 
+            # --- 호버 감지 ---
+            if mouse_pos and hover_result is None:
+                mx, my = mouse_pos
+                if card_x <= mx < card_x + card_w and draw_y <= my < draw_y + card_h:
+                    _skill = entry.get("skill", None)
+                    # 같은 hero_id의 모든 스킬을 수집 (다중 스킬 표시용)
+                    _all_skills = []
+                    for e2 in entries:
+                        if e2["hero_id"] == entry["hero_id"] and e2.get("skill"):
+                            sk2 = e2["skill"]
+                            if sk2 not in _all_skills:
+                                _all_skills.append(sk2)
+                    if not _all_skills and _skill:
+                        _all_skills = [_skill]
+                    hover_result = {
+                        "name": entry["hero_name"],
+                        "color": entry["hero_color"],
+                        "cooldown": entry["cooldown_remaining"],
+                        "phase": "casting" if entry["is_active"] else None,
+                        "is_next": False,
+                        "skill": _skill,
+                        "skills": _all_skills,
+                        "side": entry["side"],
+                        "screen_x": card_x + card_w + 2,
+                        "screen_y": draw_y,
+                    }
+
         # 오래된 position 키 정리
         active_keys = {e["key"] for e in entries}
         stale_keys = [k for k in self._queue_positions if k not in active_keys]
         for k in stale_keys:
             del self._queue_positions[k]
+
+        return hover_result
 
     def _draw_cooldown_queue(self):
         """내부 호출용 래퍼 (독립 실행 모드)"""

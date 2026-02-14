@@ -8079,6 +8079,7 @@ def _fullscreen_flip():
 
         # 🎯 통합 쿨타임 큐 UI (왼쪽 필러, 영웅+호위무사)
         _skip_guard_icons = False
+        _queue_hover = None
         if arena_mode_enabled:
             try:
                 from downtown.colosseum_arena import ColosseumsArena as _CA
@@ -8090,7 +8091,7 @@ def _fullscreen_flip():
                     _pil_w = GAME_OFFSET_X if GAME_OFFSET_X > 0 else 80
                     _pil_y = GAME_OFFSET_Y
                     _pil_h = GAME_SCALED_HEIGHT if GAME_SCALED_HEIGHT > 0 else 750
-                    _arena_inst.draw_cooldown_queue(
+                    _queue_hover = _arena_inst.draw_cooldown_queue(
                         surface=REAL_SCREEN,
                         skill_mgr=arena_skill_manager,
                         guard_sys=arena_guard_system,
@@ -8098,9 +8099,10 @@ def _fullscreen_flip():
                         pillar_w=_pil_w,
                         pillar_y=_pil_y,
                         pillar_h=_pil_h,
+                        mouse_pos=_original_mouse_get_pos(),
                     )
             except Exception:
-                pass
+                _queue_hover = None
 
         # 🛡️ 호위무사 아이콘 UI (필러 배경 위에 그리기)
         # 쿨타임 큐 UI 활성화 시 기존 아이콘 비활성화
@@ -8136,9 +8138,11 @@ def _fullscreen_flip():
             except Exception:
                 pass
 
-        # 호위무사 / 퍽 툴팁 (퍽 호버가 우선, 상대방 호위무사 툴팁은 비공개)
+        # 호위무사 / 퍽 / 큐 툴팁 (퍽 호버가 우선, 상대방 호위무사 툴팁은 비공개)
         if _perk_hover:
             _draw_perk_hover_tooltip(REAL_SCREEN, _perk_hover)
+        elif _queue_hover:
+            _draw_guard_hover_tooltip(REAL_SCREEN, _queue_hover)
         elif _guard_hover and _guard_hover.get("side") != "top":
             _draw_guard_hover_tooltip(REAL_SCREEN, _guard_hover)
 
@@ -8256,6 +8260,7 @@ def _fullscreen_update(*args, **kwargs):
 
         # 🎯 통합 쿨타임 큐 UI (왼쪽 필러, 영웅+호위무사) - fullscreen
         _skip_guard_icons2 = False
+        _queue_hover2 = None
         if arena_mode_enabled:
             try:
                 from downtown.colosseum_arena import ColosseumsArena as _CA2
@@ -8266,7 +8271,7 @@ def _fullscreen_update(*args, **kwargs):
                     _pil_w2 = GAME_OFFSET_X if GAME_OFFSET_X > 0 else 80
                     _pil_y2 = GAME_OFFSET_Y
                     _pil_h2 = GAME_SCALED_HEIGHT if GAME_SCALED_HEIGHT > 0 else 750
-                    _arena_inst2.draw_cooldown_queue(
+                    _queue_hover2 = _arena_inst2.draw_cooldown_queue(
                         surface=REAL_SCREEN,
                         skill_mgr=arena_skill_manager,
                         guard_sys=arena_guard_system,
@@ -8274,9 +8279,10 @@ def _fullscreen_update(*args, **kwargs):
                         pillar_w=_pil_w2,
                         pillar_y=_pil_y2,
                         pillar_h=_pil_h2,
+                        mouse_pos=_original_mouse_get_pos(),
                     )
             except Exception:
-                pass
+                _queue_hover2 = None
 
         # 🛡️ 호위무사 아이콘 UI (필러 배경 위에 그리기)
         # 쿨타임 큐 UI 활성화 시 기존 아이콘 비활성화
@@ -8314,6 +8320,8 @@ def _fullscreen_update(*args, **kwargs):
 
         if _perk_hover2:
             _draw_perk_hover_tooltip(REAL_SCREEN, _perk_hover2)
+        elif _queue_hover2:
+            _draw_guard_hover_tooltip(REAL_SCREEN, _queue_hover2)
         elif _guard_hover2 and _guard_hover2.get("side") != "top":
             _draw_guard_hover_tooltip(REAL_SCREEN, _guard_hover2)
 
