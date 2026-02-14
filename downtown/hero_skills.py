@@ -8308,21 +8308,6 @@ class GhostSummon(HeroSkill):
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         new_ghosts = []
 
-        # [DEBUG] 매 0.5초마다 상태 출력
-        if not hasattr(self, '_debug_timer'):
-            self._debug_timer = 0.0
-        self._debug_timer += dt
-        if self._debug_timer >= 0.5:
-            self._debug_timer = 0.0
-            ball_vis = getattr(ball, 'visible', '?') if ball else 'NO_BALL'
-            ball_xy = f"({ball.x:.0f},{ball.y:.0f})" if ball else "N/A"
-            print(f"[GhostSummon DEBUG] ghosts={len(self.ghosts)}, eating={self._eating_ball}, "
-                  f"ball_visible={ball_vis}, ball_pos={ball_xy}, ball_type={type(ball).__name__}")
-            for g in self.ghosts:
-                print(f"  ghost[{g['id']}] rect=({g['rect'].centerx},{g['rect'].centery}) "
-                      f"eating={g['eating']} teleporting={g['teleporting']} "
-                      f"spawn_t={g['spawn_time']:.1f} cd={g['hit_cooldown']:.1f}")
-
         for ghost in self.ghosts:
             if not ghost['active']:
                 continue
@@ -8395,23 +8380,27 @@ class GhostSummon(HeroSkill):
                         ghost['teleport_timer'] = 0.0
 
                 elif phase == 'release':
-                    # 공 발사!
-                    print(f"[GhostSummon DEBUG] ★ RELEASE! ghost[{ghost['id']}] at ({rect.centerx},{rect.centery})")
+                    # 공 발사! - game_state를 통해 실제 공 위치/속도 변경 요청
                     if ball is not None:
-                        print(f"  ball BEFORE: visible={ball.visible}, pos=({ball.x:.0f},{ball.y:.0f}), vel=({ball.vx:.1f},{ball.vy:.1f})")
-                        ball.visible = True
-                        ball.x = float(rect.centerx)
-                        ball.y = float(rect.centery)
-                        # 랜덤 방향으로 발사
                         release_angle = random.uniform(-0.8, 0.8)
                         base_speed = max(6.0, math.hypot(self._saved_ball_vx, self._saved_ball_vy))
                         release_dir = 1 if self.caster_is_top else -1  # 상대 방향
-                        ball.vx = base_speed * math.sin(release_angle)
-                        ball.vy = base_speed * math.cos(release_angle) * release_dir
+                        new_vx = base_speed * math.sin(release_angle)
+                        new_vy = base_speed * math.cos(release_angle) * release_dir
                         # 최소 Y 속도 보장
-                        if abs(ball.vy) < 4.0:
-                            ball.vy = 4.0 * release_dir
-                        print(f"  ball AFTER: visible={ball.visible}, pos=({ball.x:.0f},{ball.y:.0f}), vel=({ball.vx:.1f},{ball.vy:.1f})")
+                        if abs(new_vy) < 4.0:
+                            new_vy = 4.0 * release_dir
+                        # BallWrapper에 속도 직접 설정 (pingfighter에서 ball_vel로 동기화됨)
+                        ball.vx = new_vx
+                        ball.vy = new_vy
+                        # 위치 변경은 game_state를 통해 전달 (BallWrapper 위치 변경은 동기화 안됨)
+                        game_state['ghost_summon_ball_release'] = {
+                            'ball_x': float(rect.centerx),
+                            'ball_y': float(rect.centery),
+                        }
+
+                    # 공 숨김 해제
+                    game_state['ghost_summon_ball_hidden'] = False
 
                     # 순간이동 종료, 정상 상태로 복귀
                     ghost['teleporting'] = False
@@ -8423,19 +8412,14 @@ class GhostSummon(HeroSkill):
                     self._eating_ball = False
                     self._eating_ghost_id = -1
 
-                    # 발사 사운드 (투기장 모드에서만 재생)
+                    # 발사 사운드
                     try:
-                        import pingfighter as _pf_gs
-                        if getattr(_pf_gs, 'arena_mode_enabled', False):
-                            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                            sound_path = os.path.join(project_root, "sounds", "ghostwalk.wav")
-                            if os.path.exists(sound_path):
-                                s = pygame.mixer.Sound(sound_path)
-                                s.set_volume(0.4)
-                                s.play()
-                        else:
-                            print(f"[GHOSTWALK BUG] 투기장 모드 아닌데 유령소환 발사 사운드 재생 시도!")
-                            import traceback; traceback.print_stack(limit=5)
+                        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                        sound_path = os.path.join(project_root, "sounds", "ghostwalk.wav")
+                        if os.path.exists(sound_path):
+                            s = pygame.mixer.Sound(sound_path)
+                            s.set_volume(0.4)
+                            s.play()
                     except Exception:
                         pass
 
@@ -8535,9 +8519,11 @@ class GhostSummon(HeroSkill):
                         'age': 0.0,
                     })
             else:
-                # 공 추적 이동 (공이 있고 보이면 공의 X 방향으로 이동)
-                if ball is not None and getattr(ball, 'visible', True):
-                    ball_cx = ball.x + getattr(ball, 'width', 0) / 2
+                # 공 추적 이동 (공이 있고 숨겨지지 않았으면 공의 X 방향으로 이동)
+                _ball_hidden = game_state.get('ghost_summon_ball_hidden', False)
+                if ball is not None and not _ball_hidden:
+                    _bw = getattr(ball, 'width', 0)
+                    ball_cx = ball.x + _bw / 2 if _bw > 1 else ball.x
                     ghost_cx = float(rect.centerx)
                     dx = ball_cx - ghost_cx
 
@@ -8590,38 +8576,27 @@ class GhostSummon(HeroSkill):
                     ghost['headbutt_timer'] = 0.0
 
             # 공과 충돌 체크 (등장 완료 후, 쿨다운 없을 때, 다른 유령이 먹고 있지 않을 때)
+            _ball_hidden = game_state.get('ghost_summon_ball_hidden', False)
             _can_check = (ball is not None and ghost['spawn_time'] >= self.EMERGE_DURATION
                     and ghost['hit_cooldown'] <= 0 and not self._eating_ball
-                    and getattr(ball, 'visible', True))
-            if not _can_check and ball is not None and not hasattr(self, '_skip_dbg'):
-                # [DEBUG] 왜 충돌 체크를 안 하는지 출력 (1번만)
-                reasons = []
-                if ghost['spawn_time'] < self.EMERGE_DURATION:
-                    reasons.append(f"spawn_time={ghost['spawn_time']:.2f}<{self.EMERGE_DURATION}")
-                if ghost['hit_cooldown'] > 0:
-                    reasons.append(f"hit_cd={ghost['hit_cooldown']:.2f}")
-                if self._eating_ball:
-                    reasons.append("already_eating")
-                if not getattr(ball, 'visible', True):
-                    reasons.append("ball_invisible")
-                if reasons:
-                    print(f"[GhostSummon DEBUG] 충돌체크 SKIP: {', '.join(reasons)}")
+                    and not _ball_hidden)
             if _can_check:
-                # ArenaBall은 width/height가 없으므로 getattr로 폴백
+                # BallWrapper는 width/height를 가짐, ArenaBall은 없음 → getattr로 폴백
                 bw = getattr(ball, 'width', 20)
                 bh = getattr(ball, 'height', 20)
-                ball_rect = pygame.Rect(int(ball.x) - bw // 2, int(ball.y) - bh // 2, bw, bh)
-                ghost_rect_for_check = rect
-
-                # [DEBUG] 충돌 거리 확인
-                dist_y = abs(ball.y - rect.centery)
-                if dist_y < 80:
-                    print(f"[GhostSummon DEBUG] 충돌근접! ghost_rect={rect}, ball_rect={ball_rect}, "
-                          f"dist_y={dist_y:.0f}, collide={rect.colliderect(ball_rect)}")
+                # BallWrapper.x/y는 좌상단, ArenaBall.x/y는 중심 → width가 있으면 좌상단 기준
+                if bw > 1:
+                    # BallWrapper (좌상단 기준) - 중심 좌표로 변환
+                    ball_cx = ball.x + bw / 2
+                    ball_cy = ball.y + bh / 2
+                else:
+                    # ArenaBall (중심 기준)
+                    ball_cx = ball.x
+                    ball_cy = ball.y
+                    bw, bh = 20, 20
+                ball_rect = pygame.Rect(int(ball_cx) - bw // 2, int(ball_cy) - bh // 2, bw, bh)
 
                 if rect.colliderect(ball_rect):
-                    print(f"[GhostSummon DEBUG] ★★★ 공 먹기 시작! ghost[{ghost['id']}] ★★★")
-                    print(f"  ball.visible BEFORE={ball.visible}, setting to False")
                     # 공 먹기 시작!
                     ghost['eating'] = True
                     ghost['eat_timer'] = 0.0
@@ -8632,15 +8607,14 @@ class GhostSummon(HeroSkill):
                     self._eating_ball = True
                     self._eating_ghost_id = ghost['id']
 
-                    # 공 속도 저장 후 숨김
+                    # 공 속도 저장 후 숨김 (game_state 통해 pingfighter에 전달)
                     self._saved_ball_vx = ball.vx
                     self._saved_ball_vy = ball.vy
-                    ball.visible = False
                     ball.vx = 0.0
                     ball.vy = 0.0
-                    print(f"  ball.visible AFTER={ball.visible}")
+                    game_state['ghost_summon_ball_hidden'] = True
 
-                    # 먹기 사운드 (흡수하는 느낌)
+                    # 먹기 사운드
                     try:
                         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                         sound_path = os.path.join(project_root, "sounds", "grab.wav")
@@ -8682,18 +8656,25 @@ class GhostSummon(HeroSkill):
 
         # 공을 먹고 있는 유령이 있으면 공을 복원
         if self._eating_ball and ball is not None:
-            ball.visible = True
             # 마지막으로 먹고 있던 유령 위치에서 발사
+            release_x = 380.0
+            release_y = 375.0
             for ghost in self.ghosts:
                 if ghost['id'] == self._eating_ghost_id:
-                    ball.x = float(ghost['rect'].centerx)
-                    ball.y = float(ghost['rect'].centery)
+                    release_x = float(ghost['rect'].centerx)
+                    release_y = float(ghost['rect'].centery)
                     break
             release_dir = 1 if self.caster_is_top else -1
             ball.vx = self._saved_ball_vx * 0.5
             ball.vy = abs(self._saved_ball_vy) * release_dir
             if abs(ball.vy) < 4.0:
                 ball.vy = 4.0 * release_dir
+            # game_state를 통해 위치 변경 + 숨김 해제
+            game_state['ghost_summon_ball_release'] = {
+                'ball_x': release_x,
+                'ball_y': release_y,
+            }
+            game_state['ghost_summon_ball_hidden'] = False
             self._eating_ball = False
             self._eating_ghost_id = -1
 
@@ -8716,6 +8697,8 @@ class GhostSummon(HeroSkill):
         self._eating_ball = False
         self._eating_ghost_id = -1
         game_state['has_ghost_summon'] = False
+        game_state['ghost_summon_ball_hidden'] = False
+        game_state.pop('ghost_summon_ball_release', None)
 
     def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         super().update(dt, caster_paddle, target_paddle, ball, game_state)
@@ -12979,19 +12962,33 @@ class SolarBolt(HeroSkill):
     번개가 시전자 패들에서 공까지 이어지며 공을 상대 방향으로 반사시킨다.
     """
 
-    LIGHTNING_DISPLAY = 0.12    # 번개 표시 시간 (초)
-    EXPLOSION_DISPLAY = 0.22    # 폭발 표시 시간 (초)
-    EFFECT_DURATION = 0.5       # 전체 이펙트 지속 시간 (초)
-    SPARK_COUNT = 14            # 스파크 파티클 수
+    LIGHTNING_DISPLAY = 0.20    # 번개 표시 시간 (초)
+    EXPLOSION_DISPLAY = 0.38    # 폭발 표시 시간 (초)
+    EFFECT_DURATION = 0.7       # 전체 이펙트 지속 시간 (초)
+    SPARK_COUNT = 22            # 스파크 파티클 수
 
-    # 라 테마 컬러 (태양 금빛)
-    CORE_COLOR = (255, 230, 100)        # 금빛 코어
-    GLOW_COLOR = (255, 200, 50, 110)    # 금빛 글로우
-    EXPLOSION_CORE = (255, 240, 150)    # 폭발 코어
-    EXPLOSION_INNER = (255, 255, 220)   # 폭발 내부
-    EXPLOSION_RING = (255, 200, 80)     # 폭발 링
-    SPARK_COLOR = (255, 220, 100)       # 스파크
-    SPARK_CORE = (255, 255, 200)        # 스파크 코어
+    # 4레이어 번개 컬러 (외곽→내부 순서)
+    GLOW_WIDE = (255, 180, 30, 35)      # 넓은 글로우 (반투명 오렌지)
+    GLOW_MID = (255, 210, 60, 80)       # 중간 글로우 (금빛)
+    CORE_OUTER = (255, 240, 140)        # 외곽 코어 (밝은 금)
+    CORE_INNER = (255, 255, 240)        # 내부 코어 (거의 백색)
+
+    # 분기 컬러
+    BRANCH_GLOW = (200, 180, 255, 60)   # 분기 글로우 (연보라)
+    BRANCH_CORE = (220, 220, 255)       # 분기 코어 (백청)
+
+    # 폭발 컬러
+    EXPLOSION_FLASH = (255, 255, 230)    # 중심 플래시
+    EXPLOSION_CORE = (255, 240, 150)     # 코어
+    EXPLOSION_INNER = (255, 255, 220)    # 내부
+    EXPLOSION_RING = (255, 200, 80)      # 링
+    EXPLOSION_ARC = (180, 210, 255)      # 방사형 아크
+
+    # 스파크 컬러 팔레트
+    SPARK_COLORS = [
+        (255, 255, 255), (255, 255, 200), (255, 230, 100),
+        (200, 220, 255), (255, 240, 160),
+    ]
 
     def __init__(self):
         super().__init__(
@@ -13051,13 +13048,14 @@ class SolarBolt(HeroSkill):
         return super().use(caster_paddle, target_paddle, ball, game_state)
 
     def _gen_lightning(self, start_xy, end_xy):
-        """프로시저럴 번개 경로 생성 (디바인쉴드와 동일)"""
+        """고퀄리티 프로시저럴 번개 경로 생성 - 다중 분기 + 세밀한 디테일"""
         sx, sy = start_xy
         ex, ey = end_xy
+        total_dist = math.hypot(ex - sx, ey - sy)
         pts = [(int(sx), int(sy)), (int(ex), int(ey))]
 
-        def subdivide(points, disp):
-            if disp < 6:
+        def subdivide(points, disp, min_disp=4):
+            if disp < min_disp:
                 return points
             out = [points[0]]
             for i in range(len(points) - 1):
@@ -13075,36 +13073,59 @@ class SolarBolt(HeroSkill):
                 my += ny * offset
                 out.append((int(mx), int(my)))
                 out.append((x2, y2))
-            return subdivide(out, disp * 0.55)
+            return subdivide(out, disp * 0.52, min_disp)
 
-        main = subdivide(pts, max(12.0, math.hypot(ex - sx, ey - sy) * 0.08))
+        # 메인 볼트: 더 높은 디테일 (기존 0.08 → 0.12)
+        main = subdivide(pts, max(16.0, total_dist * 0.12), min_disp=3)
 
+        # 분기: 3~5개 (기존 1~2개)
         branches = []
         if len(main) > 4:
-            branch_count = 1 if random.random() < 0.6 else 2
+            branch_count = random.randint(3, 5)
+            used_indices = set()
             for _ in range(branch_count):
-                idx = random.randrange(len(main) // 2, len(main) - 1)
+                # 메인 경로 전체에서 분기 (앞쪽에서도 분기 가능)
+                idx = random.randrange(max(1, len(main) // 4), len(main) - 1)
+                if idx in used_indices:
+                    continue
+                used_indices.add(idx)
                 bx, by = main[idx]
                 dirx = ex - bx
                 diry = ey - by
-                blen = max(18, int(math.hypot(dirx, diry) * 0.25))
-                ang = math.atan2(diry, dirx) + random.uniform(-0.6, 0.6)
+                # 분기 길이: 전체 거리의 15~35%
+                blen = max(20, int(total_dist * random.uniform(0.15, 0.35)))
+                ang = math.atan2(diry, dirx) + random.uniform(-0.9, 0.9)
                 ex2 = int(bx + _cos(ang) * blen)
                 ey2 = int(by + _sin(ang) * blen)
-                branches.append(subdivide([(bx, by), (ex2, ey2)], max(8.0, blen * 0.12)))
+                branch = subdivide([(bx, by), (ex2, ey2)], max(10.0, blen * 0.15), min_disp=4)
+                branches.append(branch)
+
+                # 서브 분기 (분기에서 갈라지는 작은 가지, 40% 확률)
+                if random.random() < 0.4 and len(branch) > 3:
+                    sub_idx = random.randrange(len(branch) // 2, len(branch) - 1)
+                    sbx, sby = branch[sub_idx]
+                    sub_len = max(10, int(blen * 0.4))
+                    sub_ang = ang + random.uniform(-1.2, 1.2)
+                    sex = int(sbx + _cos(sub_ang) * sub_len)
+                    sey = int(sby + _sin(sub_ang) * sub_len)
+                    branches.append(subdivide([(sbx, sby), (sex, sey)], max(6.0, sub_len * 0.12), min_disp=5))
         return main, branches
 
     def _spawn_sparks(self, x, y):
-        """번개 충돌 스파크 생성"""
+        """번개 충돌 스파크 생성 - 다양한 타입"""
         for _ in range(self.SPARK_COUNT):
             ang = random.uniform(0, math.tau)
-            spd = random.uniform(3.0, 7.0)
+            spd = random.uniform(2.5, 9.0)
+            spark_type = random.choice(['streak', 'dot', 'flash'])
             self.sparks.append({
                 'x': float(x), 'y': float(y),
                 'vx': _cos(ang) * spd,
                 'vy': _sin(ang) * spd,
-                'life': random.uniform(0.23, 0.4),
-                'size': random.uniform(1.5, 3.0)
+                'life': random.uniform(0.25, 0.55),
+                'max_life': 0.55,
+                'size': random.uniform(1.5, 4.0) if spark_type != 'flash' else random.uniform(4.0, 7.0),
+                'type': spark_type,
+                'color': random.choice(self.SPARK_COLORS),
             })
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
@@ -13196,63 +13217,158 @@ class SolarBolt(HeroSkill):
         self.sparks = []
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
-        """번개 + 폭발 + 스파크 렌더링"""
-        # 번개 렌더링
+        """고퀄리티 번개 + 폭발 + 스파크 렌더링 (4레이어 + 플리커 + 다중 충격파)"""
+        # ══════════════════════════════════════════════════
+        # 번개 렌더링 (4레이어 + 플리커)
+        # ══════════════════════════════════════════════════
         if self.lightning_ttl > 0 and self.lightning_path and len(self.lightning_path) >= 2:
+            flicker = random.random() < 0.85
+            fade = min(1.0, self.lightning_ttl / 0.06)
+
             all_pts = list(self.lightning_path)
             for br in self.lightning_branches:
                 all_pts.extend(br)
-            if all_pts:
+            if all_pts and flicker:
                 min_x = min(p[0] for p in all_pts)
                 max_x = max(p[0] for p in all_pts)
                 min_y = min(p[1] for p in all_pts)
                 max_y = max(p[1] for p in all_pts)
-                margin = 18
+                margin = 30
                 w = max(2, (max_x - min_x) + margin * 2)
                 h = max(2, (max_y - min_y) + margin * 2)
                 offx, offy = min_x - margin, min_y - margin
-                glow_surf = pygame.Surface((w, h), pygame.SRCALPHA)
                 def _off(pts):
                     return [(px - offx, py - offy) for (px, py) in pts]
-                # 글로우 레이어 (두꺼운 금빛)
-                pygame.draw.lines(glow_surf, self.GLOW_COLOR, False, _off(self.lightning_path), 6)
-                for br in self.lightning_branches:
-                    if len(br) >= 2:
-                        pygame.draw.lines(glow_surf, self.GLOW_COLOR, False, _off(br), 4)
-                screen.blit(glow_surf, (offx, offy))
-                # 코어 레이어 (밝은 금빛)
-                pygame.draw.lines(screen, self.CORE_COLOR, False, self.lightning_path, 2)
-                for br in self.lightning_branches:
-                    if len(br) >= 2:
-                        pygame.draw.lines(screen, self.CORE_COLOR, False, br, 1)
 
-        # 폭발 렌더링
+                # 레이어 1: 넓은 글로우 (14px, BLEND_ADD)
+                g1 = pygame.Surface((w, h), pygame.SRCALPHA)
+                a1 = int(self.GLOW_WIDE[3] * fade)
+                c1 = (self.GLOW_WIDE[0], self.GLOW_WIDE[1], self.GLOW_WIDE[2], a1)
+                pygame.draw.lines(g1, c1, False, _off(self.lightning_path), 14)
+                for br in self.lightning_branches:
+                    if len(br) >= 2:
+                        pygame.draw.lines(g1, c1, False, _off(br), 8)
+                screen.blit(g1, (offx, offy), special_flags=pygame.BLEND_ADD)
+
+                # 레이어 2: 중간 글로우 (7px)
+                g2 = pygame.Surface((w, h), pygame.SRCALPHA)
+                a2 = int(self.GLOW_MID[3] * fade)
+                c2 = (self.GLOW_MID[0], self.GLOW_MID[1], self.GLOW_MID[2], a2)
+                pygame.draw.lines(g2, c2, False, _off(self.lightning_path), 7)
+                for br in self.lightning_branches:
+                    if len(br) >= 2:
+                        ba = int(self.BRANCH_GLOW[3] * fade)
+                        bc = (self.BRANCH_GLOW[0], self.BRANCH_GLOW[1], self.BRANCH_GLOW[2], ba)
+                        pygame.draw.lines(g2, bc, False, _off(br), 5)
+                screen.blit(g2, (offx, offy))
+
+                # 레이어 3: 외곽 코어 (3px)
+                pygame.draw.lines(screen, self.CORE_OUTER, False, self.lightning_path, 3)
+                for br in self.lightning_branches:
+                    if len(br) >= 2:
+                        pygame.draw.lines(screen, self.BRANCH_CORE, False, br, 2)
+
+                # 레이어 4: 내부 코어 (1px, 백색)
+                pygame.draw.lines(screen, self.CORE_INNER, False, self.lightning_path, 1)
+                for br in self.lightning_branches:
+                    if len(br) >= 2:
+                        pygame.draw.lines(screen, (240, 240, 255), False, br, 1)
+
+                # 분기 갈림점 빛점
+                for br in self.lightning_branches:
+                    if br:
+                        bx, by = br[0]
+                        gr = random.randint(3, 5)
+                        gs = pygame.Surface((gr * 2, gr * 2), pygame.SRCALPHA)
+                        pygame.draw.circle(gs, (255, 255, 230, int(160 * fade)), (gr, gr), gr)
+                        screen.blit(gs, (bx - gr, by - gr), special_flags=pygame.BLEND_ADD)
+
+        # ══════════════════════════════════════════════════
+        # 폭발 렌더링 (다중 충격파 + 방사형 아크 + 중심 플래시)
+        # ══════════════════════════════════════════════════
         if self.explosion_ttl > 0:
             cx, cy = self.explosion_center
-            life_ratio = self.explosion_ttl / self.EXPLOSION_DISPLAY
-            r = int(8 + (1 - life_ratio) * 36)
-            alpha = int(220 * life_ratio)
-            if alpha > 0 and r > 0:
-                core_surf = pygame.Surface((r * 4, r * 4), pygame.SRCALPHA)
-                core_color = (self.EXPLOSION_CORE[0], self.EXPLOSION_CORE[1], self.EXPLOSION_CORE[2], alpha)
-                inner_color = (self.EXPLOSION_INNER[0], self.EXPLOSION_INNER[1], self.EXPLOSION_INNER[2], int(alpha * 0.6))
-                pygame.draw.circle(core_surf, core_color, (r * 2, r * 2), int(r * 0.6))
-                pygame.draw.circle(core_surf, inner_color, (r * 2, r * 2), int(r * 0.35))
-                screen.blit(core_surf, (cx - r * 2, cy - r * 2), special_flags=pygame.BLEND_ADD)
-                ring_alpha = int(180 * life_ratio)
-                if ring_alpha > 0 and r > 4:
-                    ring_color = (self.EXPLOSION_RING[0], self.EXPLOSION_RING[1], self.EXPLOSION_RING[2], ring_alpha)
-                    ring_surf = pygame.Surface((r * 2 + 6, r * 2 + 6), pygame.SRCALPHA)
-                    pygame.draw.circle(ring_surf, ring_color, (r + 3, r + 3), r, 2)
-                    screen.blit(ring_surf, (cx - r - 3, cy - r - 3))
+            progress = 1.0 - (self.explosion_ttl / self.EXPLOSION_DISPLAY)
+            life_ratio = 1.0 - progress
 
-        # 스파크 렌더링
+            # 중심 플래시 (초반 강렬)
+            if progress < 0.3:
+                fa = int(255 * (1.0 - progress / 0.3))
+                fr = int(12 + progress * 30)
+                fs = pygame.Surface((fr * 2, fr * 2), pygame.SRCALPHA)
+                pygame.draw.circle(fs, (255, 255, 240, fa), (fr, fr), fr)
+                pygame.draw.circle(fs, (255, 255, 255, min(255, fa + 30)), (fr, fr), max(1, fr // 2))
+                screen.blit(fs, (cx - fr, cy - fr), special_flags=pygame.BLEND_ADD)
+
+            # 코어 글로우
+            cr = int(6 + progress * 40)
+            ca = int(200 * life_ratio)
+            if ca > 0 and cr > 0:
+                cs = pygame.Surface((cr * 2, cr * 2), pygame.SRCALPHA)
+                pygame.draw.circle(cs, (self.EXPLOSION_CORE[0], self.EXPLOSION_CORE[1], self.EXPLOSION_CORE[2], ca),
+                                   (cr, cr), int(cr * 0.6))
+                pygame.draw.circle(cs, (self.EXPLOSION_INNER[0], self.EXPLOSION_INNER[1], self.EXPLOSION_INNER[2], int(ca * 0.5)),
+                                   (cr, cr), int(cr * 0.3))
+                screen.blit(cs, (cx - cr, cy - cr), special_flags=pygame.BLEND_ADD)
+
+            # 다중 충격파 링 (3중 시간차)
+            for ri in range(3):
+                rd = ri * 0.1
+                rp = max(0.0, progress - rd) / max(0.01, 1.0 - rd)
+                if rp <= 0 or rp > 1.0:
+                    continue
+                rr = int(self.EXPLOSION_DISPLAY * 60 * rp * (ri + 1) * 0.25)
+                ra = int((160 - ri * 40) * (1.0 - rp))
+                if ra > 0 and rr > 4:
+                    rs = pygame.Surface((rr * 2 + 6, rr * 2 + 6), pygame.SRCALPHA)
+                    th = max(1, 3 - ri)
+                    pygame.draw.circle(rs, (self.EXPLOSION_RING[0], self.EXPLOSION_RING[1], self.EXPLOSION_RING[2], ra),
+                                       (rr + 3, rr + 3), rr, th)
+                    screen.blit(rs, (cx - rr - 3, cy - rr - 3))
+
+            # 방사형 번개 아크
+            if progress < 0.7:
+                ac = 5 + int(progress * 8)
+                for i in range(ac):
+                    a = (i / ac) * math.tau + random.uniform(-0.2, 0.2)
+                    ir = 4 + progress * 15
+                    orr = ir + random.uniform(15, 35) * (1.0 + progress)
+                    sx = cx + int(_cos(a) * ir)
+                    sy = cy + int(_sin(a) * ir)
+                    ex = cx + int(_cos(a) * orr)
+                    ey = cy + int(_sin(a) * orr)
+                    mx = (sx + ex) // 2 + random.randint(-6, 6)
+                    my = (sy + ey) // 2 + random.randint(-6, 6)
+                    col = random.choice([self.EXPLOSION_ARC, (255, 240, 180), (220, 230, 255)])
+                    pygame.draw.lines(screen, col, False, [(sx, sy), (mx, my), (ex, ey)], 1)
+
+        # ══════════════════════════════════════════════════
+        # 스파크 렌더링 (다양한 타입 + 글로우)
+        # ══════════════════════════════════════════════════
         for p in self.sparks:
-            s = max(1, int(p['size']))
-            ex = int(p['x'] + p['vx'] * 0.6)
-            ey = int(p['y'] + p['vy'] * 0.6)
-            pygame.draw.line(screen, self.SPARK_COLOR, (int(p['x']), int(p['y'])), (ex, ey), 1)
-            pygame.draw.circle(screen, self.SPARK_CORE, (int(p['x']), int(p['y'])), max(1, s // 2))
+            pxi, pyi = int(p['x']), int(p['y'])
+            lr = p['life'] / p.get('max_life', 0.55)
+            am = min(1.0, lr * 2.0)
+            col = p.get('color', (255, 255, 200))
+            s = max(1, int(p['size'] * am))
+
+            if p.get('type') == 'streak':
+                spd = max(0.1, math.hypot(p['vx'], p['vy']))
+                tl = max(1.0, spd * 0.8)
+                tex = int(p['x'] - p['vx'] / spd * tl)
+                tey = int(p['y'] - p['vy'] / spd * tl)
+                pygame.draw.line(screen, col, (pxi, pyi), (tex, tey), max(1, s // 2))
+                pygame.draw.circle(screen, (255, 255, 255), (pxi, pyi), max(1, s // 3))
+            elif p.get('type') == 'flash':
+                a = int(180 * am)
+                gs = pygame.Surface((s * 2, s * 2), pygame.SRCALPHA)
+                pygame.draw.circle(gs, (col[0], col[1], col[2], a), (s, s), s)
+                pygame.draw.circle(gs, (255, 255, 255, min(255, int(a * 0.7))), (s, s), max(1, s // 2))
+                screen.blit(gs, (pxi - s, pyi - s), special_flags=pygame.BLEND_ADD)
+            else:
+                pygame.draw.circle(screen, col, (pxi, pyi), max(1, s // 2))
+                if s > 2:
+                    pygame.draw.circle(screen, (255, 255, 255), (pxi, pyi), max(1, s // 4))
 
     def reset_for_new_round(self, game_state: dict):
         """라운드 전환 시 이펙트 정리"""
