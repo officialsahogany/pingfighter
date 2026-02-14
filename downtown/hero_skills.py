@@ -8271,20 +8271,10 @@ class GhostSummon(HeroSkill):
 
         game_state['has_ghost_summon'] = True
 
-        # 소환 사운드
-        try:
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            sound_path = os.path.join(project_root, "sounds", "ghostwalk.wav")
-            if os.path.exists(sound_path):
-                pygame.mixer.Sound(sound_path).play()
-        except Exception:
-            pass
-
         return {
             'screen_effect': ScreenEffect.FLASH,
             'flash_color': (60, 120, 100),
             'flash_duration': 0.15,
-            'sound': 'ghost_summon'
         }
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
@@ -8727,17 +8717,6 @@ class SkeletonArcher(HeroSkill):
         }
         self.archers.append(archer)
         self._next_archer_id += 1
-
-        # 소환 사운드
-        try:
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            sound_path = os.path.join(project_root, "sounds", "ghostwalk.wav")
-            if os.path.exists(sound_path):
-                s = pygame.mixer.Sound(sound_path)
-                s.set_volume(0.25)
-                s.play()
-        except Exception:
-            pass
 
         flash_color = (255, 215, 50) if is_golden else (160, 180, 120)
         return {
@@ -9729,17 +9708,6 @@ class BoneBarrier(HeroSkill):
         }
         self.barriers.append(barrier)
         self._next_id += 1
-
-        # 소환 사운드
-        try:
-            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            sound_path = os.path.join(project_root, "sounds", "ghostwalk.wav")
-            if os.path.exists(sound_path):
-                s = pygame.mixer.Sound(sound_path)
-                s.set_volume(0.3)
-                s.play()
-        except Exception:
-            pass
 
         return {
             'screen_effect': ScreenEffect.FLASH,
