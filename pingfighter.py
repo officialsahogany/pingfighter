@@ -7114,6 +7114,22 @@ def invalidate_scale_cache():
     global _scale_cache_dirty
     _scale_cache_dirty = True
 
+# ============================================================
+# 필러 배경 프레임-스킵 캐싱 (창모드 성능 최적화)
+# ============================================================
+_pillar_bg_cache = None           # 캐시 서피스 (REAL_SCREEN 크기, .convert())
+_pillar_bg_cache_size = None      # (w, h) 크기 검증용
+_pillar_bg_cache_dirty = True     # 다음 기회에 재렌더링 필요
+_pillar_bg_render_interval = 2    # N프레임마다 필러 배경 재렌더링 (2 = 매 프레임 50% 스킵)
+_pillar_bg_frame_counter = 0      # 프레임 카운터
+_pillar_bg_cache_stage = -1       # 캐시된 스테이지 번호 (변경 감지용)
+
+def invalidate_pillar_bg_cache():
+    """필러 배경 캐시 무효화 (디스플레이 모드 전환, 해상도 변경 시 호출)"""
+    global _pillar_bg_cache, _pillar_bg_cache_dirty
+    _pillar_bg_cache = None
+    _pillar_bg_cache_dirty = True
+
 def _get_scaled_screen():
     """최적화된 스케일링: 프리얼로케이트된 서피스에 scale (매 프레임 Surface 할당 방지)"""
     global SCREEN, GAME_SCALE_FACTOR, GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT
@@ -7969,18 +7985,41 @@ def _draw_pillar_ui(screen, renderer):
 def _fullscreen_flip():
     """전체화면 모드에서 게임 Surface를 실제 화면에 blit 후 flip"""
     global REAL_SCREEN, SCREEN, pillar_renderer, _flip_count, _scale_cache_dirty
+    global _pillar_bg_cache, _pillar_bg_cache_size, _pillar_bg_cache_dirty
+    global _pillar_bg_frame_counter, _pillar_bg_cache_stage
     _flip_count += 1
+    _pillar_bg_frame_counter += 1
     _scale_cache_dirty = True  # 매 프레임 스케일 캐시 무효화
     if _is_fullscreen_active and REAL_SCREEN is not None:
         # 디버그용: 화면 경계 표시 (비활성화)
         show_debug_border = False
-        # 필러 배경 그리기
+        # 필러 배경 그리기 (프레임-스킵 캐싱 적용)
         if pillar_renderer is not None:
             # 성능 측정
             if VALTHOR_PERF_DEBUG:
                 valthor_perf_start("pillar_draw")
-            # 필러 배경 먼저 그리기 (상하좌우 여백 모두 포함)
-            pillar_renderer.draw(REAL_SCREEN)
+
+            # 캐시 서피스 할당/크기 검증
+            real_w, real_h = REAL_SCREEN.get_size()
+            if _pillar_bg_cache is None or _pillar_bg_cache_size != (real_w, real_h):
+                _pillar_bg_cache = pygame.Surface((real_w, real_h)).convert()
+                _pillar_bg_cache_size = (real_w, real_h)
+                _pillar_bg_cache_dirty = True
+
+            # 스테이지 변경 감지
+            _cur_stage = getattr(pillar_renderer, 'current_stage', -1)
+            if _pillar_bg_cache_stage != _cur_stage:
+                _pillar_bg_cache_stage = _cur_stage
+                _pillar_bg_cache_dirty = True
+
+            # N프레임마다 또는 dirty시 필러 배경 재렌더링
+            if _pillar_bg_cache_dirty or _pillar_bg_frame_counter % _pillar_bg_render_interval == 0:
+                pillar_renderer.draw(_pillar_bg_cache)
+                _pillar_bg_cache_dirty = False
+
+            # 매 프레임 캐시를 REAL_SCREEN에 blit (DOUBLEBUF 대응)
+            REAL_SCREEN.blit(_pillar_bg_cache, (0, 0))
+
             if VALTHOR_PERF_DEBUG:
                 valthor_perf_end("pillar_draw")
         else:
@@ -8122,11 +8161,32 @@ def _fullscreen_flip():
 def _fullscreen_update(*args, **kwargs):
     """전체화면 모드에서 게임 Surface를 실제 화면에 blit 후 update"""
     global REAL_SCREEN, SCREEN, pillar_renderer
+    global _pillar_bg_cache, _pillar_bg_cache_size, _pillar_bg_cache_dirty
+    global _pillar_bg_frame_counter, _pillar_bg_cache_stage
+    _pillar_bg_frame_counter += 1
     if _is_fullscreen_active and REAL_SCREEN is not None:
-        # 필러 배경 그리기
+        # 필러 배경 그리기 (프레임-스킵 캐싱 적용)
         if pillar_renderer is not None:
-            # 필러 배경 먼저 그리기 (상하좌우 여백 모두 포함)
-            pillar_renderer.draw(REAL_SCREEN)
+            # 캐시 서피스 할당/크기 검증
+            real_w, real_h = REAL_SCREEN.get_size()
+            if _pillar_bg_cache is None or _pillar_bg_cache_size != (real_w, real_h):
+                _pillar_bg_cache = pygame.Surface((real_w, real_h)).convert()
+                _pillar_bg_cache_size = (real_w, real_h)
+                _pillar_bg_cache_dirty = True
+
+            # 스테이지 변경 감지
+            _cur_stage = getattr(pillar_renderer, 'current_stage', -1)
+            if _pillar_bg_cache_stage != _cur_stage:
+                _pillar_bg_cache_stage = _cur_stage
+                _pillar_bg_cache_dirty = True
+
+            # dirty시 또는 N프레임마다 재렌더링
+            if _pillar_bg_cache_dirty or _pillar_bg_frame_counter % _pillar_bg_render_interval == 0:
+                pillar_renderer.draw(_pillar_bg_cache)
+                _pillar_bg_cache_dirty = False
+
+            # 매 프레임 캐시를 REAL_SCREEN에 blit
+            REAL_SCREEN.blit(_pillar_bg_cache, (0, 0))
         else:
             # 필러 렌더러 없을 때만 전체 화면 단색 채우기
             REAL_SCREEN.fill((15, 15, 25))  # 기본 배경색
@@ -8540,6 +8600,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             offset_x=GAME_OFFSET_X, offset_y=GAME_OFFSET_Y,
             original_game_width=WIDTH, original_game_height=HEIGHT
         )
+        invalidate_pillar_bg_cache()  # 필러 캐시 무효화 (해상도 변경)
         _set_dm_fullscreen(True, SCREEN)  # 스케일링 파이프라인 유지
 
         # flip/update/mouse/event 래핑 갱신
@@ -8624,6 +8685,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             offset_x=GAME_OFFSET_X, offset_y=GAME_OFFSET_Y,
             original_game_width=WIDTH, original_game_height=HEIGHT
         )
+        invalidate_pillar_bg_cache()  # 필러 캐시 무효화 (해상도 변경)
         _set_dm_fullscreen(True, SCREEN)
 
         pygame.display.flip = _fullscreen_flip
@@ -8713,6 +8775,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             offset_x=GAME_OFFSET_X, offset_y=GAME_OFFSET_Y,
             original_game_width=WIDTH, original_game_height=HEIGHT
         )
+        invalidate_pillar_bg_cache()  # 필러 캐시 무효화 (해상도 변경)
         _set_dm_fullscreen(True, SCREEN)
 
         _is_fullscreen_active = True
@@ -8797,6 +8860,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             offset_x=GAME_OFFSET_X, offset_y=GAME_OFFSET_Y,
             original_game_width=WIDTH, original_game_height=HEIGHT
         )
+        invalidate_pillar_bg_cache()  # 필러 캐시 무효화 (해상도 변경)
         _set_dm_fullscreen(True, SCREEN)
 
         pygame.display.flip = _fullscreen_flip
