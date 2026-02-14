@@ -4862,6 +4862,8 @@ class ColosseumsArena:
         self.hover_btn_id = ""                   # 버튼 호버 ID
         self.hover_line_particles = []           # 호버 시 라인 파티클 이펙트
         self.hover_glow_timer = 0.0              # 호버 글로우 펄스 타이머
+        self.card_attract_particles = []         # 비공개 카드 테두리 형형색색 파티클
+        self.card_attract_timer = 0.0            # 파티클 스폰 타이머
 
         # ============ 초반 셋업 시스템 (감옥 + 비공개 대진표) ============
         self.match_revealed = [False, False, False, False]  # 4매치 공개 상태
@@ -6410,6 +6412,24 @@ class ColosseumsArena:
             p['alpha'] = max(0, p['alpha'] - 200 * dt)
         self.hover_line_particles[:] = [p for p in self.hover_line_particles if p['life'] > 0]
 
+        # 비공개 카드 테두리 형형색색 파티클 업데이트
+        self.card_attract_timer += dt
+        for p in self.card_attract_particles:
+            p['life'] -= dt
+            p['angle'] += p['speed'] * dt
+            p['drift'] += p['drift_speed'] * dt
+            t_ratio = 1.0 - max(0, p['life']) / p['max_life']
+            p['alpha'] = max(0, 255 * (1.0 - t_ratio * t_ratio))
+            p['size'] = p['base_size'] * (0.6 + 0.4 * _sin(p['life'] * 8.0))
+        self.card_attract_particles[:] = [p for p in self.card_attract_particles if p['life'] > 0]
+
+        # 비공개 카드 파티클 스폰 (초기 셋업 중일 때만)
+        if not self.initial_setup_done and self.current_round == TournamentRound.QUARTER_FINAL:
+            if self.state not in (TournamentState.MATCH_REVEAL,):
+                if self.card_attract_timer >= 0.08:
+                    self.card_attract_timer = 0.0
+                    self._spawn_card_attract_particles()
+
         # 시각 효과 업데이트
         if self.arena_background:
             ball_x = self.ball.x if self.ball else None
@@ -7463,6 +7483,87 @@ class ColosseumsArena:
                 self.screen.blit(ps, (int(p['x']) - 1, int(p['y']) - 1))
 
     # ================================================================
+    # 비공개 카드 형형색색 파티클 시스템
+    # ================================================================
+
+    def _spawn_card_attract_particles(self):
+        """비공개 매치 카드 테두리에 형형색색 파티클 생성"""
+        import random as _r
+        box_w, box_h = 120, 140
+        y_base = 530
+        x_positions = [60, 195, 430, 565]
+        # 레인보우 컬러 팔레트
+        rainbow = [
+            (255, 80, 80),    # 빨강
+            (255, 160, 60),   # 주황
+            (255, 220, 50),   # 노랑
+            (80, 255, 120),   # 초록
+            (60, 220, 255),   # 시안
+            (100, 140, 255),  # 파랑
+            (180, 100, 255),  # 보라
+            (255, 120, 200),  # 핑크
+        ]
+        for i in range(4):
+            if self.match_revealed[i]:
+                continue
+            cx = x_positions[i] + box_w // 2
+            cy = y_base + box_h // 2
+            hw, hh = box_w // 2, box_h // 2
+            # 테두리 위 랜덤 위치에 파티클 생성
+            side = _r.randint(0, 3)
+            color = _r.choice(rainbow)
+            if side == 0:  # 상단
+                px = x_positions[i] + _r.uniform(0, box_w)
+                py = float(y_base)
+            elif side == 1:  # 하단
+                px = x_positions[i] + _r.uniform(0, box_w)
+                py = float(y_base + box_h)
+            elif side == 2:  # 좌측
+                px = float(x_positions[i])
+                py = y_base + _r.uniform(0, box_h)
+            else:  # 우측
+                px = float(x_positions[i] + box_w)
+                py = y_base + _r.uniform(0, box_h)
+            life = _r.uniform(0.8, 1.6)
+            self.card_attract_particles.append({
+                'x': px, 'y': py,
+                'cx': cx, 'cy': cy,
+                'angle': math.atan2(py - cy, px - cx),
+                'speed': _r.uniform(1.2, 2.5) * (_r.choice([-1, 1])),
+                'drift': 0.0,
+                'drift_speed': _r.uniform(6, 14),
+                'radius': math.hypot(px - cx, py - cy),
+                'color': color,
+                'alpha': 255.0,
+                'size': _r.uniform(1.5, 3.0),
+                'base_size': _r.uniform(1.5, 3.0),
+                'life': life,
+                'max_life': life,
+                'card_idx': i,
+            })
+
+    def _draw_card_attract_particles(self):
+        """비공개 카드 주변 형형색색 파티클 렌더링"""
+        for p in self.card_attract_particles:
+            if p['alpha'] < 3:
+                continue
+            # 테두리 주위를 공전하며 약간 바깥으로 표류
+            drift_offset = 3.0 * _sin(p['drift'])
+            rx = p['cx'] + (p['radius'] + drift_offset) * math.cos(p['angle'])
+            ry = p['cy'] + (p['radius'] + drift_offset) * math.sin(p['angle'])
+            sz = max(1, int(p['size']))
+            al = int(min(255, p['alpha']))
+            # 글로우 (큰 반투명 원)
+            glow_sz = sz + 3
+            gs = _get_arena_surface(glow_sz * 2 + 2, glow_sz * 2 + 2)
+            pygame.draw.circle(gs, (*p['color'], al // 4), (glow_sz + 1, glow_sz + 1), glow_sz)
+            self.screen.blit(gs, (int(rx) - glow_sz - 1, int(ry) - glow_sz - 1))
+            # 코어 (밝은 작은 원)
+            ps = _get_arena_surface(sz * 2 + 2, sz * 2 + 2)
+            pygame.draw.circle(ps, (*p['color'], al), (sz + 1, sz + 1), sz)
+            self.screen.blit(ps, (int(rx) - sz - 1, int(ry) - sz - 1))
+
+    # ================================================================
     # 이집트 파피루스 테마 헬퍼 메서드
     # ================================================================
 
@@ -8249,6 +8350,10 @@ class ColosseumsArena:
         # 대진표 그리기
         self._draw_tournament_bracket()
 
+        # 비공개 카드 형형색색 파티클 렌더링
+        if not self.initial_setup_done and self.current_round == TournamentRound.QUARTER_FINAL:
+            self._draw_card_attract_particles()
+
         # 현재 상태에 따른 UI
         if self.state == TournamentState.BRACKET_VIEW:
             self._draw_match_selection_hint()
@@ -8424,21 +8529,55 @@ class ColosseumsArena:
 
                     self.screen.blit(rotated_surf, (draw_x, draw_y))
                     return
-                # 비공개 상태
+                # 비공개 상태 - 형형색색 테두리 애니메이션
                 if is_hovered:
                     self._draw_hover_border(x, y, box_w, box_h, ET["hover_glow"])
+                else:
+                    # 레인보우 글로우 테두리 (비호버)
+                    t = self.animation_timer + match_idx * 0.7
+                    # HSV-like 색상 순환
+                    r_val = int(128 + 127 * _sin(t * 2.0))
+                    g_val = int(128 + 127 * _sin(t * 2.0 + 2.094))
+                    b_val = int(128 + 127 * _sin(t * 2.0 + 4.189))
+                    glow_color = (r_val, g_val, b_val)
+                    glow_pulse = 0.4 + 0.6 * abs(_sin(t * 1.5))
+                    glow_al = int(60 * glow_pulse)
+                    # 외곽 글로우
+                    glow_surf = _get_arena_surface(box_w + 10, box_h + 10)
+                    pygame.draw.rect(glow_surf, (*glow_color, glow_al),
+                                     (0, 0, box_w + 10, box_h + 10), border_radius=12)
+                    self.screen.blit(glow_surf, (x - 5, y - 5))
+                    # 테두리 라인
+                    border_al = int(140 * glow_pulse)
+                    bsf = _get_arena_surface(box_w + 4, box_h + 4)
+                    pygame.draw.rect(bsf, (*glow_color, border_al),
+                                     (0, 0, box_w + 4, box_h + 4), 2, border_radius=10)
+                    self.screen.blit(bsf, (x - 2, y - 2))
                 bg = ET["card_bg_hover"] if is_hovered else ET["card_bg"]
                 pygame.draw.rect(self.screen, bg, (x, y, box_w, box_h), border_radius=8)
                 border = ET["bronze"] if is_hovered else ET["card_border"]
                 pygame.draw.rect(self.screen, border, (x, y, box_w, box_h), 2, border_radius=8)
                 cx, cy = x + box_w // 2, y + box_h // 2
                 if self.fonts and "large" in self.fonts:
-                    q_color = ET["gold_pale"] if is_hovered else ET["text_disabled"]
+                    # ? 심볼 색상도 레인보우
+                    if not is_hovered:
+                        t2 = self.animation_timer + match_idx * 0.7
+                        qr = int(180 + 75 * _sin(t2 * 1.8))
+                        qg = int(180 + 75 * _sin(t2 * 1.8 + 2.094))
+                        qb = int(180 + 75 * _sin(t2 * 1.8 + 4.189))
+                        q_color = (qr, qg, qb)
+                    else:
+                        q_color = ET["gold_pale"]
                     surf, _ = self.fonts["large"].render("?", q_color)
                     self.screen.blit(surf, (cx - surf.get_width() // 2, cy - surf.get_height() // 2))
                 if self.fonts and "small" in self.fonts:
-                    h_color = ET["gold_pale"] if is_hovered else ET["text_hint"]
-                    surf, _ = self.fonts["small"].render("클릭하여 공개", h_color)
+                    # 클릭! 텍스트 펄스 애니메이션
+                    pulse = 0.7 + 0.3 * _sin(self.animation_timer * 3.0)
+                    h_base = ET["gold_pale"] if is_hovered else ET["gold_bright"]
+                    h_color = (min(255, int(h_base[0] * pulse)),
+                               min(255, int(h_base[1] * pulse)),
+                               min(255, int(h_base[2] * pulse)))
+                    surf, _ = self.fonts["small"].render("클릭!", h_color)
                     self.screen.blit(surf, (cx - surf.get_width() // 2, cy + 30))
                 return
 
