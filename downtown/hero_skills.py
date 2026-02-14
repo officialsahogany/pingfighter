@@ -13574,7 +13574,7 @@ class ThunderOrb(HeroSkill):
             self._draw_electric_stun(screen)
 
     def _draw_orb(self, screen):
-        """에너지볼 스타일 렌더링 (라이트닝 마스터 전기 투사체와 동일)"""
+        """육각형 프레임 + 중앙 에너지볼 + 번개 아크 스타일 렌더링"""
         ox, oy = int(self.orb_x), int(self.orb_y)
         vr = self.ORB_VISUAL_RADIUS  # 시각 반지름 (30)
         t = pygame.time.get_ticks()
@@ -13594,112 +13594,97 @@ class ThunderOrb(HeroSkill):
                              (int(sp['x']), int(sp['y'])),
                              (int(sp['ex']), int(sp['ey'])), 1)
 
-        # ── 서피스 크기 (시각 반지름 기준) ──
+        # ── 서피스 크기 ──
         surf_size = vr * 6 + 20
         ball_surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
         center = surf_size // 2
 
         # 펄스 효과
-        pulse = _sin(t * 0.005) * 0.12 + 1.0
-        pulse2 = _sin(t * 0.0075) * 0.08 + 1.0
+        pulse = _sin(t * 0.005) * 0.10 + 1.0
 
-        # === Layer 1: 외부 글로우 ===
-        for i in range(3):
-            glow_r = int(vr * (0.8 - i * 0.11) * pulse)
-            glow_a = int(30 - i * 6)
-            if glow_a > 0 and glow_r > 0:
-                pygame.draw.circle(ball_surf, (*self.ORB_OUTER_COLOR, glow_a),
-                                   (center, center), glow_r)
+        hex_r = vr * 1.15  # 육각형 외접원 반지름
 
-        # === Layer 2: 회전하는 자기장 고리 (3개) ===
-        ring1_angle = (t * 0.18) % 360
-        ring2_angle = (360 - (t * 0.12) % 360)
-        ring3_angle = (t * 0.15) % 360
-        ring1_tilt = 20 + _sin(t * 0.002) * 10
-        ring2_tilt = 45 + _sin(t * 0.0015 + 1) * 12
-        ring3_tilt = 70 + _sin(t * 0.001 + 2) * 8
-        ring_data = [(ring1_angle, ring1_tilt), (ring2_angle, ring2_tilt), (ring3_angle, ring3_tilt)]
+        # === Layer 1: 육각형 외부 글로우 ===
+        for gi in range(3):
+            gr = hex_r + (3 - gi) * 4
+            ga = int(18 - gi * 5)
+            if ga > 0:
+                glow_pts = []
+                for i in range(6):
+                    ang = math.radians(60 * i - 90)
+                    glow_pts.append((int(center + _cos(ang) * gr),
+                                     int(center + _sin(ang) * gr)))
+                pygame.draw.polygon(ball_surf, (*self.ORB_OUTER_COLOR, ga), glow_pts)
 
-        for ring_idx, (ring_rot, ring_tilt) in enumerate(ring_data):
-            ring_radius = vr * (1.16 + ring_idx * 0.11)
-            tilt_rad = math.radians(ring_tilt)
+        # === Layer 2: 육각형 프레임 ===
+        hex_pts = []
+        for i in range(6):
+            ang = math.radians(60 * i - 90)
+            hx = center + _cos(ang) * hex_r
+            hy = center + _sin(ang) * hex_r
+            hex_pts.append((int(hx), int(hy)))
 
-            # 고리 위의 점들
-            num_pts = 24
-            ring_pts = []
-            for i in range(num_pts):
-                angle = math.radians(ring_rot + i * (360 / num_pts))
-                x_off = _cos(angle) * ring_radius
-                y_off = _sin(angle) * ring_radius * _cos(tilt_rad)
-                z_depth = _sin(angle) * _sin(tilt_rad)
-                depth_f = (z_depth + 1) / 2
-                px = center + x_off
-                py = center + y_off
-                pt_size = max(1, int(1.7 + depth_f * 1.3))
-                pt_alpha = int(50 + depth_f * 80)
-                br, bg, bb = self.ORB_RING_COLOR
-                cr = int(min(255, br * 0.3 + depth_f * br * 0.7 + ring_idx * 5))
-                cg = int(min(255, bg * 0.3 + depth_f * bg * 0.7 + ring_idx * 10))
-                cb = int(min(255, bb * 0.3 + depth_f * bb * 0.7))
-                pygame.draw.circle(ball_surf, (cr, cg, cb, pt_alpha), (int(px), int(py)), pt_size)
-                ring_pts.append((int(px), int(py)))
+        # 프레임 내부 채움 (반투명 어두운 파랑)
+        pygame.draw.polygon(ball_surf, (15, 25, 60, 120), hex_pts)
+        # 프레임 테두리 (밝은 파랑, 두꺼운 선)
+        pygame.draw.polygon(ball_surf, (60, 120, 220, 200), hex_pts, 3)
+        # 내부 테두리 (더 밝은 파랑, 가는 선)
+        hex_inner_pts = []
+        for i in range(6):
+            ang = math.radians(60 * i - 90)
+            hx = center + _cos(ang) * (hex_r - 3)
+            hy = center + _sin(ang) * (hex_r - 3)
+            hex_inner_pts.append((int(hx), int(hy)))
+        pygame.draw.polygon(ball_surf, (80, 160, 255, 100), hex_inner_pts, 1)
 
-            # 고리 연결선
-            if len(ring_pts) > 2:
-                for i in range(len(ring_pts)):
-                    start = ring_pts[i]
-                    end = ring_pts[(i + 1) % len(ring_pts)]
-                    pygame.draw.line(ball_surf, (*self.ORB_RING_COLOR, 35), start, end, 1)
+        # 꼭짓점 밝은 점
+        for hx, hy in hex_pts:
+            pygame.draw.circle(ball_surf, (180, 220, 255, 200), (hx, hy), 3)
+            pygame.draw.circle(ball_surf, (255, 255, 255, 160), (hx, hy), 1)
 
-        # === Layer 3: 내부 에너지 구체 ===
-        outer_glow = int(vr * 0.36 * pulse2)
-        pygame.draw.circle(ball_surf, (*self.ORB_INNER_COLOR, 70), (center, center), outer_glow)
-        mid_glow = int(vr * 0.29 * pulse)
-        mid_col = tuple(int(c * 0.8 + 50) for c in self.ORB_INNER_COLOR)
-        pygame.draw.circle(ball_surf, (*mid_col, 110), (center, center), mid_glow)
-        inner_sph = int(vr * 0.26)
+        # === Layer 3: 중앙 에너지 구체 ===
+        orb_r = vr * 0.40 * pulse
+        # 외부 글로우
+        pygame.draw.circle(ball_surf, (*self.ORB_INNER_COLOR, 50), (center, center), int(orb_r * 1.6))
+        pygame.draw.circle(ball_surf, (*self.ORB_INNER_COLOR, 80), (center, center), int(orb_r * 1.2))
+        # 구체 본체
+        mid_col = tuple(int(min(255, c * 0.8 + 50)) for c in self.ORB_INNER_COLOR)
         inner_col = tuple(int(min(255, c * 0.7 + 80)) for c in self.ORB_INNER_COLOR)
-        pygame.draw.circle(ball_surf, (*inner_col, 160), (center, center), inner_sph)
+        pygame.draw.circle(ball_surf, (*self.ORB_INNER_COLOR, 160), (center, center), int(orb_r))
+        pygame.draw.circle(ball_surf, (*mid_col, 190), (center, center), int(orb_r * 0.75))
+        pygame.draw.circle(ball_surf, (*inner_col, 220), (center, center), int(orb_r * 0.5))
+        # 밝은 코어
+        core_sz = max(2, int(orb_r * 0.35))
+        pygame.draw.circle(ball_surf, (*self.ORB_CORE_COLOR, 240), (center, center), core_sz)
+        pygame.draw.circle(ball_surf, (255, 255, 255, 250), (center, center), max(1, core_sz // 2))
 
-        # === Layer 3.5: 회전하는 에너지 줄기 (swirling energy wisps) ===
-        num_wisps = 5
-        for wi in range(num_wisps):
-            base_ang = math.radians((t * 0.25 + wi * (360 / num_wisps)) % 360)
-            wisp_r = vr * (0.35 + 0.15 * _sin(t * 0.004 + wi * 1.3))
-            # 줄기 궤적 (6개 점으로 부드러운 곡선)
-            wisp_pts = []
-            for si in range(6):
-                seg_ang = base_ang + si * 0.35
-                seg_r = wisp_r + si * vr * 0.08
-                wx = center + _cos(seg_ang) * seg_r
-                wy = center + _sin(seg_ang) * seg_r
-                wisp_pts.append((int(wx), int(wy)))
-            # 글로우 (두껍고 반투명)
-            if len(wisp_pts) > 1:
-                wisp_alpha = int(100 + 40 * _sin(t * 0.006 + wi))
-                wisp_col_g = (130, 200, 255, wisp_alpha)
-                wisp_col_c = (200, 235, 255, min(255, wisp_alpha + 60))
-                pygame.draw.lines(ball_surf, wisp_col_g, False, wisp_pts, 3)
-                pygame.draw.lines(ball_surf, wisp_col_c, False, wisp_pts, 1)
-                # 줄기 끝에 밝은 점
-                ex, ey = wisp_pts[-1]
-                if 0 < ex < surf_size and 0 < ey < surf_size:
-                    pygame.draw.circle(ball_surf, (220, 240, 255, min(255, wisp_alpha + 80)), (ex, ey), 2)
+        # === Layer 4: 구체→꼭짓점 번개 아크 6개 ===
+        orb_surface_r = orb_r * 0.9
+        for i in range(6):
+            ang = math.radians(60 * i - 90)
+            # 구체 표면 시작점
+            sx = center + _cos(ang) * orb_surface_r
+            sy = center + _sin(ang) * orb_surface_r
+            # 꼭짓점 끝점
+            ex_f, ey_f = float(hex_pts[i][0]), float(hex_pts[i][1])
+            # 중간 지그재그 (약간 어긋남 + 시간에 따라 흔들림)
+            jitter = _sin(t * 0.008 + i * 1.1) * 5
+            mid_ang = math.radians(60 * i - 90 + 10 + jitter)
+            mid_r = hex_r * 0.55
+            mx = center + _cos(mid_ang) * mid_r
+            my = center + _sin(mid_ang) * mid_r
+            # 아크 글로우 (두꺼운 반투명 파란선)
+            pygame.draw.line(ball_surf, (60, 130, 255, 90),
+                             (int(sx), int(sy)), (int(mx), int(my)), 3)
+            pygame.draw.line(ball_surf, (60, 130, 255, 90),
+                             (int(mx), int(my)), (int(ex_f), int(ey_f)), 3)
+            # 아크 코어 (가는 밝은 선)
+            pygame.draw.line(ball_surf, (200, 230, 255, 220),
+                             (int(sx), int(sy)), (int(mx), int(my)), 1)
+            pygame.draw.line(ball_surf, (200, 230, 255, 220),
+                             (int(mx), int(my)), (int(ex_f), int(ey_f)), 1)
 
-        # === Layer 4: 밝은 코어 ===
-        core_sz = int(vr * 0.18)
-        core_glow_col = tuple(int(min(255, c * 0.5 + 128)) for c in self.ORB_RING_COLOR)
-        pygame.draw.circle(ball_surf, (*core_glow_col, 160), (center, center), core_sz + 2)
-        pygame.draw.circle(ball_surf, (*self.ORB_CORE_COLOR, 230), (center, center), core_sz)
-        pygame.draw.circle(ball_surf, (255, 255, 255, 245), (center, center), max(2, core_sz // 2))
-
-        # === Layer 5: 상단 하이라이트 ===
-        hl_x = center - int(vr * 0.11)
-        hl_y = center - int(vr * 0.11)
-        hl_sz = max(1, int(vr * 0.07))
-        pygame.draw.circle(ball_surf, (255, 255, 255, 160), (hl_x, hl_y), hl_sz)
-
-        # === Layer 6: 떠다니는 에너지 파티클 ===
+        # === Layer 5: 떠다니는 에너지 파티클 ===
         for p in self.energy_particles:
             if p['life'] > 0:
                 alpha = int(200 * (p['life'] / p['max_life']))
@@ -13715,18 +13700,18 @@ class ThunderOrb(HeroSkill):
         rr = rotated.get_rect(center=(ox, oy))
         screen.blit(rotated, rr)
 
-        # === Layer 7: 전기 아크 (구체 바깥, 직접 screen에) ===
+        # === Layer 6: 전기 아크 (프레임 바깥, 직접 screen에) ===
         for _ in range(random.randint(2, 4)):
             a = random.uniform(0, math.tau)
-            sr = random.uniform(vr * 0.5, vr * 1.3)
+            sr = random.uniform(vr * 0.8, vr * 1.3)
             sx = ox + int(_cos(a) * sr)
             sy = oy + int(_sin(a) * sr)
-            a2 = a + random.uniform(-0.8, 0.8)
-            er = sr + random.uniform(6, 14)
-            ex = ox + int(_cos(a2) * er)
-            ey = oy + int(_sin(a2) * er)
+            a2 = a + random.uniform(-0.6, 0.6)
+            er = sr + random.uniform(5, 12)
+            ex_s = ox + int(_cos(a2) * er)
+            ey_s = oy + int(_sin(a2) * er)
             col = random.choice(self.ARC_COLORS_OUTER)
-            pygame.draw.line(screen, col, (sx, sy), (ex, ey), 1)
+            pygame.draw.line(screen, col, (sx, sy), (ex_s, ey_s), 1)
 
     def _draw_explosion(self, screen):
         """폭발 이펙트 렌더링 (강력한 전기 폭발)"""
