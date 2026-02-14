@@ -7363,11 +7363,12 @@ class HeroPaddleRenderer:
             else:  # dismounting
                 transform_progress = 1.0 - dismount_progress  # 1→0
 
+            _aim_angle = anim.get('gatling_aim_angle', None)
             self._draw_android_tank_transform(
                 screen, cx, torso_y, b, p, t, transform_progress,
                 barrel_spin, gatling_firing, show_back,
                 led_pulse, reactor_pulse, lean_offset,
-                gatling_recoil
+                gatling_recoil, _aim_angle
             )
             return  # 변신 중에는 일반 안드로이드 그리지 않음
 
@@ -8089,7 +8090,7 @@ class HeroPaddleRenderer:
     def _draw_android_tank_transform(self, screen, cx, torso_y, b, p, t,
                                       progress, barrel_spin, is_firing,
                                       show_back, led_pulse, reactor_pulse,
-                                      lean_offset, recoil):
+                                      lean_offset, recoil, aim_angle=None):
         """안드로이드 ↔ 탱크 변환 애니메이션 + 탱크 모드 렌더링
 
         progress: 0.0=안드로이드 형태, 1.0=탱크 형태
@@ -8220,7 +8221,6 @@ class HeroPaddleRenderer:
                 (r_cx, r_cy), max(2, int(r_r * 0.5)))
         else:
             # === 완전 탱크 모드 ===
-            aim_angle = anim.get('gatling_aim_angle', None)
             self._draw_android_tank(
                 screen, cx, torso_y, b, p, t,
                 barrel_spin, is_firing, show_back,
