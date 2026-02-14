@@ -14318,9 +14318,10 @@ class BananaSlice(HeroSkill):
 class WildRoar(HeroSkill):
     """야생의 포효 - 충격파를 펼쳐 공이 닿으면 260% 가속 반사"""
 
-    SHOCKWAVE_RADIUS = 360      # 충격파 최대 반경 (px) (1.5x 확대)
+    SHOCKWAVE_RADIUS = 252      # 충격파 최대 반경 (px) (-30% 축소)
     SHOCKWAVE_GROW_TIME = 0.09  # 충격파 확장 시간 (초) (2x 더 빠르게)
     BALL_SPEED_BOOST = 3.6      # 공 속도 배율 (260% 증가)
+    ROAR_FREEZE_TIME = 0.6      # 포효 시 이동 불가 시간 (초)
 
     def __init__(self):
         super().__init__(
@@ -14342,6 +14343,8 @@ class WildRoar(HeroSkill):
         self._cy = 375.0
         self.ring_effects = []
         self.impact_particles = []
+        self.roar_freeze_timer = 0.0   # 포효 중 이동 불가 타이머
+        self._freeze_applied = False    # 스턴 적용 여부
         self._roar_sound = None
         self._hit_sound = None
         self._sounds_loaded = False
@@ -14433,6 +14436,12 @@ class WildRoar(HeroSkill):
                 ]),
             })
 
+        # 포효 중 0.6초 이동 불가
+        self.roar_freeze_timer = self.ROAR_FREEZE_TIME
+        self._freeze_applied = True
+        caster_prefix = 'top_paddle' if self.caster_is_top else 'bottom_paddle'
+        game_state[f'{caster_prefix}_stunned'] = True
+
         self._load_sounds()
         if self._roar_sound:
             try:
@@ -14452,6 +14461,15 @@ class WildRoar(HeroSkill):
         # 플래시 페이드
         if hasattr(self, 'flash_alpha') and self.flash_alpha > 0:
             self.flash_alpha = max(0, self.flash_alpha - dt * 800)
+
+        # 포효 이동 불가 타이머
+        if self.roar_freeze_timer > 0:
+            self.roar_freeze_timer -= dt
+            if self.roar_freeze_timer <= 0:
+                self.roar_freeze_timer = 0
+                caster_prefix = 'top_paddle' if self.caster_is_top else 'bottom_paddle'
+                game_state[f'{caster_prefix}_stunned'] = False
+                self._freeze_applied = False
 
         # 충격파 중심 (패들 따라감)
         self._cx = caster_paddle.x + caster_paddle.width // 2
@@ -14572,6 +14590,12 @@ class WildRoar(HeroSkill):
         self.impact_particles = []
         self.energy_sparks = []
         self.flash_alpha = 0
+        # 스턴 안전 해제
+        if self._freeze_applied:
+            caster_prefix = 'top_paddle' if self.caster_is_top else 'bottom_paddle'
+            game_state[f'{caster_prefix}_stunned'] = False
+            self._freeze_applied = False
+        self.roar_freeze_timer = 0
 
     def reset_for_new_round(self, game_state: dict):
         super().reset_for_new_round(game_state)
@@ -14583,6 +14607,11 @@ class WildRoar(HeroSkill):
         self.impact_particles = []
         self.energy_sparks = []
         self.flash_alpha = 0
+        if self._freeze_applied:
+            game_state['top_paddle_stunned'] = False
+            game_state['bottom_paddle_stunned'] = False
+            self._freeze_applied = False
+        self.roar_freeze_timer = 0
 
     # ------------------------------------------------------------------
     # 렌더링
