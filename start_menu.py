@@ -38,7 +38,7 @@ MENU_ICONS = {
     "크레딧": "●",
     "개발자": "☆",
 }
-VERSION_TEXT = "1.4v beta"
+VERSION_TEXT = "2.1v beta"
 DEV_CODE = [1]
 ITEM_CODE = [2]
 
