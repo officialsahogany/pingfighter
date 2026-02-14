@@ -123336,6 +123336,7 @@ def handle_ball():
                 pass
 
         # 투기장 모드: 하단 영웅(플레이어 위치) ON_BALL_HIT 스킬 발동
+        _arena_bottom_skill_sound_played = False  # 스킬 사운드 재생 여부 플래그
         if arena_mode_enabled and arena_skill_manager and arena_bottom_hero:
             try:
                 # 래퍼 객체 생성 (스킬 시스템용)
@@ -123387,6 +123388,8 @@ def handle_ball():
                         ball_vel[1] = ball_wrapper.vy
                         # 스킬 사운드 재생 + 말풍선 표시
                         _skill_sound_played = arena_play_skill_sound(result)
+                        if _skill_sound_played:
+                            _arena_bottom_skill_sound_played = True  # 패들 사운드 중복 방지
                         print(f"[SoundDebug] 하단 ON_BALL_HIT 스킬 발동: hero={hero_id}, skill={result.get('skill_korean_name','?')}, sound={result.get('sound','없음')}, played={_skill_sound_played}, player_handled={player_collision_handled}")
                         if 'skill_korean_name' in result:
                             arena_show_speech_bubble(False, result['skill_korean_name'], hero_id=hero_id)
@@ -123633,9 +123636,11 @@ def handle_ball():
         # handle_player에서 이미 사운드를 재생하므로 여기서는 재생하지 않음
         # handle_player에서 놓친 충돌의 경우에만 사운드 재생 (쿠로미가 공을 먹는 중이 아닐 때만)
         if not player_collision_handled and player_sound_cooldown <= 0 and not ball_in_kuromi:
-            if arena_mode_enabled:
-                print(f"[SoundDebug] 하단 패들 일반 사운드 재생 (play_paddle_sound) - 스킬 사운드와 중복 가능!")
-            play_paddle_sound()
+            # 투기장 모드: 스킬 사운드가 이미 재생되었으면 패들 사운드 스킵
+            if arena_mode_enabled and _arena_bottom_skill_sound_played:
+                print(f"[SoundDebug] 하단 패들: 스킬 사운드 재생됨 → 패들 사운드 스킵")
+            else:
+                play_paddle_sound()
             player_sound_cooldown = 20  # 약 0.33초 쿨다운
             if DEBUG_HANDLE_BALL_VERBOSE:
                 print("handle_ball   (handle_player  )")
@@ -124168,6 +124173,7 @@ def handle_ball():
                 pass
 
         # 투기장 모드: 상단 영웅(보스 위치) ON_BALL_HIT 스킬 발동
+        _arena_top_skill_sound_played = False  # 스킬 사운드 재생 여부 플래그
         if arena_mode_enabled and arena_skill_manager and arena_top_hero:
             try:
                 # 래퍼 객체 생성 (스킬 시스템용)
@@ -124219,6 +124225,8 @@ def handle_ball():
                         ball_vel[1] = ball_wrapper.vy
                         # 스킬 사운드 재생 + 말풍선 표시
                         _skill_sound_played = arena_play_skill_sound(result)
+                        if _skill_sound_played:
+                            _arena_top_skill_sound_played = True  # 패들 사운드 중복 방지
                         print(f"[SoundDebug] 상단 ON_BALL_HIT 스킬 발동: hero={hero_id}, skill={result.get('skill_korean_name','?')}, sound={result.get('sound','없음')}, played={_skill_sound_played}")
                         if 'skill_korean_name' in result:
                             arena_show_speech_bubble(True, result['skill_korean_name'], hero_id=hero_id)
@@ -124725,9 +124733,11 @@ def handle_ball():
             elif current_stage == 2 and speed_defense_active:
                 play_sound_with_volume(SOUND_DEFENSE_HIT)
             else:
-                if arena_mode_enabled:
-                    print(f"[SoundDebug] 상단 패들(보스) 일반 사운드 재생 (play_paddle_sound) - 스킬 사운드와 중복 가능!")
-                play_paddle_sound()
+                # 투기장 모드: 스킬 사운드가 이미 재생되었으면 패들 사운드 스킵
+                if arena_mode_enabled and _arena_top_skill_sound_played:
+                    print(f"[SoundDebug] 상단 패들: 스킬 사운드 재생됨 → 패들 사운드 스킵")
+                else:
+                    play_paddle_sound()
         if ball_vel[0] != 0:
             direction = math.copysign(1, ball_vel[0])
             ball_angle += direction * 10
