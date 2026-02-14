@@ -7427,7 +7427,7 @@ TOP_PADDLE_Y = 25
 BOTTOM_PADDLE_Y = 710
 
 class Charm(HeroSkill):
-    """매혹 - 자력 에너지를 발사하여 상대 호위무사를 끌어들임 (25초)
+    """매혹 - 자력 에너지를 발사하여 상대 호위무사를 끌어들임 (10~20초)
 
     4단계 연출:
     1) projectile: 자력 에너지 탄을 상대 호위무사에게 발사
@@ -7441,10 +7441,10 @@ class Charm(HeroSkill):
             skill_id="charm",
             name="Charm",
             korean_name="매혹",
-            description="자력 에너지를 발사하여 상대 호위무사를 25초간 아군으로 끌어들인다",
+            description="자력 에너지를 발사하여 상대 호위무사를 10~20초간 아군으로 끌어들인다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=38.0,
-            duration=25.0,
+            duration=15.0,
             hero_id="banshee"
         )
         # === 매혹 상태 ===
@@ -7519,6 +7519,9 @@ class Charm(HeroSkill):
     #  _apply_effect  (Phase 1 시작)
     # ------------------------------------------------------------------
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        # 매혹 지속시간 10~20초 랜덤
+        self.duration = random.uniform(10.0, 20.0)
+        self.active_timer = self.duration
         self.charm_source_is_top = getattr(self, 'caster_is_top', True)
         self._charm_applied = False
         self.charmed_guard = None
