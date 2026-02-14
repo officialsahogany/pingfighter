@@ -135995,6 +135995,18 @@ def main(stage_num, new_boss_mode=False):
                         globals()['player_stunned_timer'] = max(player_stunned_timer, 36)  # 0.6초 경직
                         _kb_gs['bottom_paddle_knockback'] = False  # 플래그 리셋
 
+                    # 🍌 바나나 슬라이스 미끄러짐 (스테이지2 바나나와 동일한 선형 감속)
+                    if _kb_gs.get('top_paddle_banana_slip_active', False):
+                        _bs_offset = _kb_gs.get('top_paddle_banana_slip_offset', 0)
+                        if abs(_bs_offset) > 0.01:
+                            BOSS.x += int(_bs_offset)
+                            BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+                    if _kb_gs.get('bottom_paddle_banana_slip_active', False):
+                        _bs_offset = _kb_gs.get('bottom_paddle_banana_slip_offset', 0)
+                        if abs(_bs_offset) > 0.01:
+                            PLAYER.x += int(_bs_offset)
+                            PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
+
                     # ⚔️ 달빛 베기 커브 효과 적용 (스매셔 드라이브처럼 굴곡)
                     _dark_gs = arena_skill_manager.game_state
                     if _dark_gs.get('dark_slash_spin_strength', 0) > 0:

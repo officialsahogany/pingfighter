@@ -13963,8 +13963,8 @@ class BananaSlice(HeroSkill):
     GAME_LEFT = 0
     GAME_RIGHT = 760
     THROW_SPEED = 1200          # px/s (원본 20px/frame * 60fps)
-    SLIP_DURATION = 0.8         # 미끄러짐 지속 (초)
-    SLIP_KNOCKBACK_VEL = 110    # 미끄러짐 넉백 속도
+    SLIP_DURATION = 0.8         # 미끄러짐 지속 (초) - 스테이지2 바나나와 동일
+    SLIP_SPEED = 15             # 미끄러짐 속도 (px/frame) - 스테이지2 바나나와 동일 선형 감속
     LAND_DURATION = 3.0         # 착지 후 유지 (초)
     PREPARE_TIME = 0.3          # 준비 동작 (초, 원본 18프레임)
     TOP_LAND_Y = 45             # 상단 착지 Y
@@ -14134,27 +14134,29 @@ class BananaSlice(HeroSkill):
                     else:
                         self.slip_direction = 1 if paddle_cx > landed['x'] else -1
                     self._create_burst_particles(landed['x'], landed['y'])
+                    # 스테이지2 바나나와 동일한 선형 감속 슬립 (넉백 시스템 미사용)
                     target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
-                    game_state[f'{target_prefix}_knockback'] = True
-                    game_state[f'{target_prefix}_knockback_dir'] = self.slip_direction
-                    game_state[f'{target_prefix}_knockback_vel'] = self.SLIP_KNOCKBACK_VEL
+                    game_state[f'{target_prefix}_banana_slip_active'] = True
                     game_state['screen_shake'] = 5
                     self._play_slip_sound()
                     continue
             if landed['timer'] <= 0:
                 landed['active'] = False
 
-        # 미끄러짐 상태 관리
+        # 미끄러짐 상태 관리 (스테이지2 바나나와 동일한 선형 감속)
         if self.target_slipping:
             self.slip_timer -= dt
             target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
-            game_state[f'{target_prefix}_knockback'] = True
-            game_state[f'{target_prefix}_knockback_dir'] = self.slip_direction
-            game_state[f'{target_prefix}_knockback_vel'] = self.SLIP_KNOCKBACK_VEL
+            # 선형 감속: 시작 시 최대 속도, 끝날 때 0 (스테이지2 get_slip_offset과 동일)
+            strength = self.slip_timer / self.SLIP_DURATION  # 1.0 → 0.0
+            slip_offset = self.slip_direction * self.SLIP_SPEED * strength
+            game_state[f'{target_prefix}_banana_slip_offset'] = slip_offset
+            game_state[f'{target_prefix}_banana_slip_active'] = True
             if self.slip_timer <= 0:
                 self.target_slipping = False
                 self.slip_direction = 0
-                game_state[f'{target_prefix}_knockback'] = False
+                game_state[f'{target_prefix}_banana_slip_active'] = False
+                game_state[f'{target_prefix}_banana_slip_offset'] = 0
 
         # 파티클 업데이트
         for p in self.burst_particles[:]:
@@ -14199,8 +14201,8 @@ class BananaSlice(HeroSkill):
         self.preparing = False
         self.target_slipping = False
         for prefix in ['top_paddle', 'bottom_paddle']:
-            if game_state.get(f'{prefix}_knockback'):
-                game_state[f'{prefix}_knockback'] = False
+            game_state[f'{prefix}_banana_slip_active'] = False
+            game_state[f'{prefix}_banana_slip_offset'] = 0
 
     def reset_for_new_round(self, game_state: dict):
         super().reset_for_new_round(game_state)
@@ -14213,8 +14215,8 @@ class BananaSlice(HeroSkill):
         self.slip_timer = 0.0
         self.slip_direction = 0
         for prefix in ['top_paddle', 'bottom_paddle']:
-            if f'{prefix}_knockback' in game_state:
-                game_state[f'{prefix}_knockback'] = False
+            game_state[f'{prefix}_banana_slip_active'] = False
+            game_state[f'{prefix}_banana_slip_offset'] = 0
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         # 준비 동작 중 바나나
