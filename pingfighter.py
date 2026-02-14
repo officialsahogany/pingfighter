@@ -19950,13 +19950,30 @@ def show_arena_perk_select_menu():
                             break
                 elif event.button == 4:  # 마우스 휠 위 (레거시)
                     scroll_offset = max(0, scroll_offset - 1)
+                    # 선택 커서를 보이는 영역 안으로 이동
+                    sel_r = selected_idx // cols
+                    if sel_r >= scroll_offset + visible_rows:
+                        selected_idx = min(len(filtered_perks) - 1, (scroll_offset + visible_rows - 1) * cols + selected_idx % cols)
+                    elif sel_r < scroll_offset:
+                        selected_idx = min(len(filtered_perks) - 1, scroll_offset * cols + selected_idx % cols)
                 elif event.button == 5:  # 마우스 휠 아래 (레거시)
                     scroll_offset = min(max_scroll, scroll_offset + 1)
+                    sel_r = selected_idx // cols
+                    if sel_r < scroll_offset:
+                        selected_idx = min(len(filtered_perks) - 1, scroll_offset * cols + selected_idx % cols)
+                    elif sel_r >= scroll_offset + visible_rows:
+                        selected_idx = min(len(filtered_perks) - 1, (scroll_offset + visible_rows - 1) * cols + selected_idx % cols)
             elif event.type == pygame.MOUSEWHEEL:
                 if event.y > 0:  # 마우스 휠 위
                     scroll_offset = max(0, scroll_offset - 1)
                 elif event.y < 0:  # 마우스 휠 아래
                     scroll_offset = min(max_scroll, scroll_offset + 1)
+                # 선택 커서를 보이는 영역 안으로 이동
+                sel_r = selected_idx // cols
+                if sel_r < scroll_offset:
+                    selected_idx = min(len(filtered_perks) - 1, scroll_offset * cols + selected_idx % cols)
+                elif sel_r >= scroll_offset + visible_rows:
+                    selected_idx = min(len(filtered_perks) - 1, (scroll_offset + visible_rows - 1) * cols + selected_idx % cols)
 
         # 선택된 항목이 보이도록 스크롤 조정
         sel_row = selected_idx // cols
