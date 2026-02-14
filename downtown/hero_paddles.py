@@ -7511,8 +7511,27 @@ class HeroPaddleRenderer:
             shoulder = (cx + side * int(1.5 * b) + lean_offset,
                        torso_y + int(0.25 * b) + s_bob_offset)
 
-            # 오른팔(기관포) 공 타격 시 안쪽으로 휘두르기 (쿠로카게 스타일)
-            if side == 1 and weapon_swing != 0:
+            # 오른팔 포즈 결정
+            if side == 1 and is_gatling_active and kneel_progress > 0:
+                # 🔫 어깨 견착 자세: 오른팔이 위로 올라가 기관포를 어깨에 올림
+                # 일반 팔 위치 (보간 시작점)
+                norm_elbow_x = shoulder[0] + int(0.5 * b)
+                norm_elbow_y = torso_y + int(0.95 * b)
+                norm_wrist_x = norm_elbow_x + int(0.4 * b)
+                norm_wrist_y = torso_y + int(1.6 * b)
+                # 견착 팔 위치 (팔꿈치 위로 벌어짐, 손목이 어깨 높이로)
+                mount_elbow_x = shoulder[0] + int(0.5 * b)
+                mount_elbow_y = shoulder[1] - int(0.3 * b)
+                mount_wrist_x = shoulder[0] + int(0.15 * b)
+                mount_wrist_y = shoulder[1] - int(0.75 * b)
+                # 진행도에 따라 부드럽게 보간
+                kp = kneel_progress
+                elbow = (int(norm_elbow_x * (1 - kp) + mount_elbow_x * kp),
+                        int(norm_elbow_y * (1 - kp) + mount_elbow_y * kp))
+                wrist = (int(norm_wrist_x * (1 - kp) + mount_wrist_x * kp),
+                        int(norm_wrist_y * (1 - kp) + mount_wrist_y * kp))
+            elif side == 1 and weapon_swing != 0:
+                # 오른팔(기관포) 공 타격 시 안쪽으로 휘두르기 (쿠로카게 스타일)
                 swing_x = int(weapon_swing * 4.0 * b)
                 swing_y = int(abs(weapon_swing) * 1.5 * b)
                 elbow = (shoulder[0] + int(0.5 * b) + swing_x,
@@ -7668,7 +7687,7 @@ class HeroPaddleRenderer:
                     max(1, int(0.03 * b)))
             else:
                 # === 오른팔 - 기관포 (개틀링 건) ===
-                # 기관포 마운트 (손목 장착형)
+                # 기관포 마운트 (견착 시 어깨 장착 / 평상시 손목 장착)
                 mount_cx = wrist[0]
                 mount_cy = wrist[1]
                 mount_r = max(3, int(0.32 * b))
@@ -7678,6 +7697,25 @@ class HeroPaddleRenderer:
                     (mount_cx, mount_cy), mount_r)
                 pygame.draw.circle(screen, p["cannon_light"],
                     (mount_cx, mount_cy), int(mount_r * 0.7))
+
+                # 🔫 어깨 견착 시 마운트 브라켓 (기관포 ↔ 어깨패드 연결)
+                if is_gatling_active and kneel_progress > 0:
+                    sp_cx = cx + int(1.45 * b) + lean_offset
+                    sp_cy = torso_y - int(0.3 * b) + int(shoulder_bob * 0.3 * b)
+                    bkt_w = max(2, int(0.12 * b * kneel_progress))
+                    # 수직 지지대 (기관포 → 어깨)
+                    pygame.draw.line(screen, p["cannon_dark"],
+                        (mount_cx, mount_cy + mount_r),
+                        (sp_cx, sp_cy),
+                        bkt_w + 1)
+                    pygame.draw.line(screen, p["cannon_mid"],
+                        (mount_cx, mount_cy + mount_r),
+                        (sp_cx, sp_cy),
+                        bkt_w)
+                    # 마운트 보강 볼트
+                    pygame.draw.circle(screen, p["joint"],
+                        (sp_cx, sp_cy - int(0.05 * b)),
+                        max(2, int(0.06 * b * kneel_progress)))
 
                 # 기관포 외부 배럴 가드
                 guard_y = mount_cy + int(0.15 * b)
