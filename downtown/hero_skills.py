@@ -9078,6 +9078,21 @@ class SkeletonArcher(HeroSkill):
         self.arrow_particles = []   # 화살 히트 파티클
         self.caster_is_top = False
         self._next_archer_id = 0
+        self._summon_sound = None
+        self._sounds_loaded = False
+
+    def _load_sounds(self):
+        if self._sounds_loaded:
+            return
+        self._sounds_loaded = True
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            path = os.path.join(project_root, "sounds", "bonemake2.wav")
+            if os.path.exists(path):
+                self._summon_sound = pygame.mixer.Sound(path)
+                self._summon_sound.set_volume(0.6)
+        except Exception:
+            pass
 
     def can_use(self) -> bool:
         """중복 소환 허용 - is_active 체크 안 함"""
@@ -9144,6 +9159,13 @@ class SkeletonArcher(HeroSkill):
         }
         self.archers.append(archer)
         self._next_archer_id += 1
+
+        self._load_sounds()
+        if self._summon_sound:
+            try:
+                self._summon_sound.play()
+            except Exception:
+                pass
 
         flash_color = (255, 215, 50) if is_golden else (160, 180, 120)
         return {
