@@ -3293,16 +3293,12 @@ class GuardWarriorSystem:
                 return
 
             elif skill_id == 'gatling_burst' and skill and not skill.is_active:
-                # 게틀링 버스트 종료 → 퇴장 전환
+                # 게틀링 버스트 종료 → 그 자리에서 순찰로 복귀
                 if is_top:
-                    self._exit_start_x_top = self.x_top
-                    self._exit_start_y_top = self.y_top
-                    self.phase_top = "exiting"
+                    self.phase_top = "patrolling"
                     self.anim_timer_top = 0.0
                 else:
-                    self._exit_start_x_bottom = self.x_bottom
-                    self._exit_start_y_bottom = self.y_bottom
-                    self.phase_bottom = "exiting"
+                    self.phase_bottom = "patrolling"
                     self.anim_timer_bottom = 0.0
                 return
 
