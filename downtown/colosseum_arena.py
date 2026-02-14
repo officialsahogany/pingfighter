@@ -5994,6 +5994,9 @@ class ColosseumsArena:
         finally:
             # 투기장 모드 변수 초기화
             try:
+                # 🔇 스킬 사운드 즉시 중지 (ghostwalk 등이 다음 화면에서 들리는 버그 방지)
+                if hasattr(pingfighter, 'arena_stop_all_skill_sounds'):
+                    pingfighter.arena_stop_all_skill_sounds()
                 pingfighter.arena_mode_enabled = False
                 pingfighter.arena_battle_result = None  # 배틀 결과 초기화
                 pingfighter.arena_top_hero = None
