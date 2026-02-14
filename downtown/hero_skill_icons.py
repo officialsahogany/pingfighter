@@ -614,34 +614,117 @@ def _draw_shuriken(surface, cx, cy, size, color):
 # ===== 벤시 (banshee) 스킬 =====
 
 def _icon_charm() -> pygame.Surface:
-    """매혹 - 유령 하트 + 소용돌이 + 최면 눈"""
+    """매혹 - 벤시의 유혹적인 하트 + 최면 소용돌이 + 유령빛 오라"""
     s = pygame.Surface((32, 32), pygame.SRCALPHA)
-    # 어두운 청보라 배경
-    pygame.draw.circle(s, (25, 20, 50), (16, 16), 15)
-    pygame.draw.circle(s, (50, 40, 80), (16, 16), 15, 1)
-    # 소용돌이 (최면 효과)
-    for i in range(3):
-        r = 11 - i * 3
-        start_angle = i * 1.2
-        pygame.draw.arc(s, (140, 80, 200, 180 - i * 40),
-                       (16 - r, 16 - r, r * 2, r * 2),
-                       start_angle, start_angle + 3.5, 2)
-    # 하트 (중앙, 핑크+시안 그라데이션 느낌)
-    # 하트 왼쪽 볼
-    pygame.draw.circle(s, (200, 80, 160), (13, 12), 4)
-    # 하트 오른쪽 볼
-    pygame.draw.circle(s, (180, 100, 200), (19, 12), 4)
-    # 하트 아래쪽 꼭짓점
-    pygame.draw.polygon(s, (190, 90, 180), [
-        (9, 14), (16, 22), (23, 14),
-    ])
-    # 하트 하이라이트
-    pygame.draw.circle(s, (240, 150, 210), (12, 11), 2)
-    # 유령빛 글로우
-    pygame.draw.circle(s, (100, 200, 240, 60), (16, 16), 10)
-    # 스파크
-    for px, py in [(8, 8), (24, 8), (16, 26)]:
-        pygame.draw.circle(s, (200, 220, 255), (px, py), 1)
+    # 배경 (깊은 보라/남색 - 신비로운 분위기)
+    pygame.draw.circle(s, (20, 12, 45), (16, 16), 15)
+    pygame.draw.circle(s, (45, 30, 75), (16, 16), 15, 1)
+
+    # === 배경 마법 오라 (다층 글로우) ===
+    aura = pygame.Surface((32, 32), pygame.SRCALPHA)
+    pygame.draw.circle(aura, (180, 80, 200, 18), (16, 14), 14)
+    pygame.draw.circle(aura, (100, 160, 240, 12), (16, 14), 11)
+    s.blit(aura, (0, 0))
+
+    # === 최면 소용돌이 (배경에 은은하게) ===
+    for i in range(5):
+        r = 13 - i * 2
+        if r < 2:
+            break
+        start_angle = i * 0.9
+        alpha = 100 - i * 15
+        color = (120 + i * 15, 60 + i * 10, 180 + i * 10, alpha)
+        pygame.draw.arc(s, color,
+                       (16 - r, 14 - r, r * 2, r * 2),
+                       start_angle, start_angle + 4.0, 1)
+
+    # === 메인 하트 (다층 그라데이션 - 핑크/마젠타/시안) ===
+    # 하트 외곽 글로우 (넓은 발광)
+    heart_glow = pygame.Surface((32, 32), pygame.SRCALPHA)
+    # 글로우 좌볼
+    pygame.draw.circle(heart_glow, (220, 60, 160, 35), (12, 11), 6)
+    # 글로우 우볼
+    pygame.draw.circle(heart_glow, (160, 80, 220, 35), (20, 11), 6)
+    # 글로우 하단
+    pygame.draw.polygon(heart_glow, (190, 70, 190, 25), [
+        (7, 14), (16, 24), (25, 14)])
+    s.blit(heart_glow, (0, 0))
+
+    # 하트 외곽 (어두운 마젠타)
+    # 좌볼
+    pygame.draw.circle(s, (160, 40, 110), (12, 11), 5)
+    # 우볼
+    pygame.draw.circle(s, (130, 50, 150), (20, 11), 5)
+    # 하단 꼭짓점
+    pygame.draw.polygon(s, (145, 45, 130), [
+        (7, 13), (16, 23), (25, 13)])
+
+    # 하트 본체 (밝은 핑크~마젠타 그라데이션)
+    # 좌볼 (핫핑크)
+    pygame.draw.circle(s, (220, 70, 140), (12, 11), 4)
+    # 우볼 (마젠타~보라)
+    pygame.draw.circle(s, (190, 80, 180), (20, 11), 4)
+    # 하단
+    pygame.draw.polygon(s, (205, 75, 160), [
+        (8, 13), (16, 22), (24, 13)])
+
+    # 하트 내부 밝은 층 (코어)
+    # 좌볼 내부
+    pygame.draw.circle(s, (240, 120, 180), (12, 11), 3)
+    # 우볼 내부
+    pygame.draw.circle(s, (220, 130, 210), (20, 11), 3)
+    # 하단 내부
+    pygame.draw.polygon(s, (230, 125, 195), [
+        (10, 13), (16, 20), (22, 13)])
+
+    # 하트 하이라이트 (좌상단 반사광)
+    pygame.draw.circle(s, (255, 190, 230), (11, 9), 2)
+    pygame.draw.circle(s, (255, 230, 245), (11, 9), 1)
+    # 우측 작은 하이라이트
+    pygame.draw.circle(s, (240, 170, 220), (19, 9), 1)
+
+    # === 하트에서 퍼져나가는 매혹 파동 (동심원 하트 형태) ===
+    # 파동 1 (가까운 - 진하게)
+    wave1_color = (200, 100, 180, 80)
+    pygame.draw.circle(s, wave1_color, (11, 10), 7, 1)
+    pygame.draw.circle(s, wave1_color, (21, 10), 7, 1)
+    # 파동 2 (먼 - 흐리게)
+    wave2_color = (180, 80, 200, 40)
+    pygame.draw.circle(s, wave2_color, (10, 9), 9, 1)
+    pygame.draw.circle(s, wave2_color, (22, 9), 9, 1)
+
+    # === 유령빛 파티클 (하트 주변에 떠다니는 빛) ===
+    particles = [
+        (6, 6, (180, 220, 255, 160), 1),
+        (26, 5, (255, 150, 220, 160), 1),
+        (4, 18, (150, 200, 255, 120), 1),
+        (28, 17, (255, 130, 200, 120), 1),
+        (8, 26, (200, 180, 255, 100), 1),
+        (24, 26, (220, 160, 240, 100), 1),
+        (16, 28, (180, 200, 255, 140), 1),
+    ]
+    for px, py, c, r in particles:
+        pygame.draw.circle(s, c, (px, py), r)
+
+    # === 최면 눈 심볼 (하트 중앙에 작은 눈) ===
+    # 눈 외곽
+    pygame.draw.ellipse(s, (160, 100, 200, 180), (13, 14, 6, 3))
+    # 눈동자
+    pygame.draw.circle(s, (80, 200, 240), (16, 15), 1)
+    pygame.draw.circle(s, (200, 255, 255), (16, 15), 0)
+
+    # === 별빛 스파클 (4각 별) ===
+    sparkle_positions = [(6, 12), (26, 12), (16, 3)]
+    for sx, sy in sparkle_positions:
+        # 세로선
+        pygame.draw.line(s, (255, 220, 255), (sx, sy - 2), (sx, sy + 2), 1)
+        # 가로선
+        pygame.draw.line(s, (255, 220, 255), (sx - 2, sy), (sx + 2, sy), 1)
+        # 중심 밝은 점
+        pygame.draw.circle(s, (255, 255, 255), (sx, sy), 0)
+
+    # 외곽 글로우 테두리
+    pygame.draw.circle(s, (180, 100, 200, 50), (16, 16), 14, 1)
     return s
 
 
