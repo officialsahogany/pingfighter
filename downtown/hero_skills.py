@@ -11449,26 +11449,7 @@ class GatlingBurst(HeroSkill):
         # 반동 (발사마다 살짝 뒤로)
         self._recoil_offset = 3.5
 
-        # 머즐 플래쉬 (방향성)
-        self.muzzle_flashes.append({
-            'x': spawn_x,
-            'y': spawn_y,
-            'timer': self.MUZZLE_FLASH_DURATION,
-            'size': random.uniform(10, 16),
-            'angle': final_angle,
-        })
-
-        # 총구 연기
-        smoke_angle = final_angle + random.uniform(-0.5, 0.5)
-        self.smoke_puffs.append({
-            'x': float(spawn_x),
-            'y': float(spawn_y),
-            'vx': math.cos(smoke_angle) * random.uniform(20, 60),
-            'vy': math.sin(smoke_angle) * random.uniform(20, 60),
-            'age': 0.0,
-            'life': random.uniform(0.3, 0.6),
-            'size': random.uniform(4, 8),
-        })
+        # 머즐 플래쉬 / 총구 연기는 탱크 내장 렌더러(hero_paddles)가 처리
 
         # 탄피 배출 (좌우 랜덤)
         eject_side = random.choice([-1, 1])
@@ -11767,52 +11748,7 @@ class GatlingBurst(HeroSkill):
                 pygame.draw.rect(bar_fill, (*gc, 200), (0, 0, fill_w, bar_h), border_radius=1)
                 screen.blit(bar_fill, (bar_x, bar_y))
 
-        # --- 총구 연기 (뒤에 깔림) ---
-        for s in self.smoke_puffs:
-            ratio = 1.0 - s['age'] / s['life']
-            sz = max(1, int(s['size'] * ratio))
-            alpha = int(50 * ratio)
-            if alpha > 3 and sz > 0:
-                smoke_s = pygame.Surface(
-                    (sz * 2, sz * 2), pygame.SRCALPHA)
-                pygame.draw.circle(
-                    smoke_s, (180, 180, 180, alpha),
-                    (sz, sz), sz)
-                screen.blit(smoke_s,
-                    (int(s['x']) - sz, int(s['y']) - sz))
-
-        # --- 머즐 플래쉬 (방향성 + 스타 패턴) ---
-        for flash in self.muzzle_flashes:
-            t_ratio = flash['timer'] / self.MUZZLE_FLASH_DURATION
-            size = int(flash['size'] * t_ratio)
-            if size > 1:
-                fx, fy = int(flash['x']), int(flash['y'])
-                angle = flash['angle']
-                fs_dim = size * 4 + 4
-                fs = pygame.Surface((fs_dim, fs_dim), pygame.SRCALPHA)
-                center = fs_dim // 2
-                alpha = int(220 * t_ratio)
-                # 방향 스트릭 (발사 방향으로 길쭉한 광선)
-                streak_len = int(size * 2.5)
-                ex = center + int(math.cos(angle) * streak_len)
-                ey = center + int(math.sin(angle) * streak_len)
-                pygame.draw.line(fs, (255, 240, 180, alpha),
-                    (center, center), (ex, ey),
-                    max(2, size // 2))
-                # 십자 글로우
-                for a_off in [0, math.pi / 2, math.pi, math.pi * 1.5]:
-                    sx = center + int(math.cos(angle + a_off) * size)
-                    sy = center + int(math.sin(angle + a_off) * size)
-                    pygame.draw.line(fs, (255, 200, 80, alpha // 2),
-                        (center, center), (sx, sy),
-                        max(1, size // 3))
-                # 코어 글로우
-                pygame.draw.circle(fs, (255, 255, 220, alpha),
-                    (center, center), max(2, size // 2))
-                pygame.draw.circle(fs, (255, 180, 50, alpha // 3),
-                    (center, center), size)
-                screen.blit(fs, (fx - center, fy - center),
-                    special_flags=pygame.BLEND_ADD)
+        # --- 총구 연기 / 머즐 플래쉬는 탱크 내장 렌더러(hero_paddles)가 처리 ---
 
         # --- 총알 (속도 기반 트레일 - 저장 없이 즉석 계산) ---
         for bullet in self.bullets:
