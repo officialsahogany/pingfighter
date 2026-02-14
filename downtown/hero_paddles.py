@@ -633,79 +633,186 @@ class HeroPaddleRenderer:
             pygame.draw.rect(screen, p["sash"], headband_rect, border_radius=1)
             pygame.draw.rect(screen, p["sash_knot"], headband_rect, 1, border_radius=1)
 
-        # === 귀검 (보라색 검기 - 고퀄리티 효과 + 스윙 애니메이션) ===
+        # === 장검 (사무라이 일본도 / 카타나 스타일) ===
         swing_angle = anim.get("weapon_swing_angle", 0)
         sword_x = cx + int(2.2 * b) + lean_offset
-        sword_top = head_y - int(0.8 * b)
-        sword_bottom = cy + int(2.0 * b)
-        # 피벗 = 츠바(가드) 위치 = 손잡이 상단
+        # 장검: 훨씬 긴 블레이드 (머리 위로 크게 돌출)
+        blade_len = int(4.5 * b)
+        sword_bottom = cy + int(2.0 * b)   # 츠바(가드) 위치
+        sword_top = sword_bottom - blade_len  # 칼끝 (머리 위)
         pivot_x, pivot_y = sword_x, sword_bottom
 
-        # 스윙 시 회전 적용할 좌표 계산
-        if swing_angle != 0:
-            r = self._rotate_point
-            r_top = r(sword_x, sword_top, pivot_x, pivot_y, swing_angle)
-            r_top_shadow = r(sword_x + 2, sword_top + 2, pivot_x, pivot_y, swing_angle)
-            r_bottom_shadow = r(sword_x + 2, sword_bottom + 2, pivot_x, pivot_y, swing_angle)
-            r_blade_tip = r(sword_x, sword_top - int(0.7 * b), pivot_x, pivot_y, swing_angle)
-            r_blade_l = r(sword_x - int(0.25 * b), sword_top + int(0.1 * b), pivot_x, pivot_y, swing_angle)
-            r_blade_r = r(sword_x + int(0.25 * b), sword_top + int(0.1 * b), pivot_x, pivot_y, swing_angle)
-            r_light_top = r(sword_x, sword_top - int(0.6 * b), pivot_x, pivot_y, swing_angle)
-            r_light_bot = r(sword_x, sword_top - int(0.2 * b), pivot_x, pivot_y, swing_angle)
-            r_hl_top = r(sword_x - 1, sword_top, pivot_x, pivot_y, swing_angle)
-            r_hl_bot = r(sword_x - 1, sword_bottom, pivot_x, pivot_y, swing_angle)
-        else:
-            r_top = (sword_x, sword_top)
-            r_top_shadow = (sword_x + 2, sword_top + 2)
-            r_bottom_shadow = (sword_x + 2, sword_bottom + 2)
-            r_blade_tip = (sword_x, sword_top - int(0.7 * b))
-            r_blade_l = (sword_x - int(0.25 * b), sword_top + int(0.1 * b))
-            r_blade_r = (sword_x + int(0.25 * b), sword_top + int(0.1 * b))
-            r_light_top = (sword_x, sword_top - int(0.6 * b))
-            r_light_bot = (sword_x, sword_top - int(0.2 * b))
-            r_hl_top = (sword_x - 1, sword_top)
-            r_hl_bot = (sword_x - 1, sword_bottom)
+        # 카타나 곡률 (살짝 휜 일본도)
+        curve_amount = int(0.15 * b)  # 등쪽으로 휘는 정도
 
-        # 검기 오라 (스윙 중이 아닐 때만 - 빠른 동작이라 생략해도 무방)
+        # 블레이드 주요 포인트 계산 (곡선 보간)
+        def _blade_pt(t):
+            """t=0: 칼끝(sword_top), t=1: 츠바(sword_bottom). 곡선 적용."""
+            bx = sword_x + int(_sin(t * math.pi) * curve_amount)
+            by = int(sword_top + (sword_bottom - sword_top) * t)
+            return bx, by
+
+        # 칼끝 (기사키/kissaki) - 뾰족한 삼각형
+        kissaki_len = int(0.5 * b)
+        tip_x, tip_y = _blade_pt(0)
+        tip_top = (tip_x, tip_y - kissaki_len)
+        tip_l = (tip_x - int(0.18 * b), tip_y)
+        tip_r = (tip_x + int(0.1 * b), tip_y)
+
+        # 블레이드 폴리곤 포인트 (날+등 양면)
+        blade_segments = 10
+        blade_left = []   # 날(ha) 쪽 - 바깥 커브
+        blade_right = []  # 등(mune) 쪽 - 안쪽
+        blade_width = max(2, int(0.2 * b))
+        for si in range(blade_segments + 1):
+            t = si / blade_segments
+            bx, by = _blade_pt(t)
+            # 폭 테이퍼 (끝으로 갈수록 좁아짐)
+            w = blade_width * (0.4 + 0.6 * t) if t < 0.15 else blade_width
+            blade_left.append((bx - int(w * 0.6), by))
+            blade_right.append((bx + int(w * 0.4), by))
+
+        # 스윙 시 회전 적용
+        rot = self._rotate_point if swing_angle != 0 else None
+
+        def _rp(x, y):
+            if rot:
+                return rot(x, y, pivot_x, pivot_y, swing_angle)
+            return (x, y)
+
+        # 회전 적용된 폴리곤
+        r_blade_left = [_rp(*pt) for pt in blade_left]
+        r_blade_right = [_rp(*pt) for pt in blade_right]
+        r_tip_top = _rp(*tip_top)
+        r_tip_l = _rp(*tip_l)
+        r_tip_r = _rp(*tip_r)
+
+        # === 검기 오라 (어둠의 기운, 장검을 따라 흐르는) ===
         if swing_angle == 0:
-            for i in range(4):
-                aura_surf = self._get_surface(int(b), sword_bottom - sword_top + int(b))
-                aura_alpha = 40 - i * 10
-                for y in range(0, sword_bottom - sword_top, 3):
-                    wave_x = int(0.5 * b) + int(_sin(self.time * 8 + y * 0.05) * 0.1 * b)
-                    pygame.draw.circle(aura_surf, (*p["sword_glow"], aura_alpha), (wave_x, y), 2 + i)
-                screen.blit(aura_surf, (sword_x - int(0.5 * b), sword_top), special_flags=pygame.BLEND_ADD)
+            aura_h = blade_len + int(b)
+            aura_w = int(1.2 * b)
+            aura_surf = self._get_surface(aura_w, aura_h)
+            for ai in range(3):
+                aura_alpha = 30 - ai * 8
+                for ay in range(0, aura_h, 3):
+                    t = ay / max(1, aura_h)
+                    wave_x = aura_w // 2 + int(_sin(self.time * 6 + ay * 0.04) * 0.12 * b)
+                    wave_x += int(_sin(t * math.pi) * curve_amount)
+                    pygame.draw.circle(aura_surf, (*p["sword_glow"], max(0, aura_alpha)),
+                                     (wave_x, ay), 2 + ai)
+            screen.blit(aura_surf, (sword_x - aura_w // 2, sword_top - kissaki_len),
+                       special_flags=pygame.BLEND_ADD)
 
-        # 검신 그림자
-        pygame.draw.line(screen, (60, 50, 80), r_top_shadow, r_bottom_shadow, max(2, int(0.3 * b)))
-        # 검신 본체
-        pygame.draw.line(screen, p["sword_blade"], r_top, (pivot_x, pivot_y), max(2, int(0.3 * b)))
-        # 검신 하이라이트
-        pygame.draw.line(screen, p["sword_edge"], r_hl_top, r_hl_bot, 1)
+        # === 블레이드 본체 (폴리곤) ===
+        # 그림자
+        shadow_off = 2
+        shadow_left = [(x + shadow_off, y + shadow_off) for x, y in r_blade_left]
+        shadow_right = [(x + shadow_off, y + shadow_off) for x, y in r_blade_right]
+        shadow_poly = shadow_left + list(reversed(shadow_right))
+        if len(shadow_poly) >= 3:
+            pygame.draw.polygon(screen, (50, 40, 65), shadow_poly)
 
-        # 검날 (더 날카롭게)
-        blade_points = [r_blade_tip, r_blade_l, r_blade_r]
-        pygame.draw.polygon(screen, p["sword_blade"], blade_points)
-        pygame.draw.polygon(screen, p["sword_edge"], blade_points, 1)
-        # 검날 빛
-        pygame.draw.line(screen, p["sword_core"], r_light_top, r_light_bot, 1)
+        # 메인 블레이드
+        blade_poly = r_blade_left + list(reversed(r_blade_right))
+        if len(blade_poly) >= 3:
+            pygame.draw.polygon(screen, p["sword_blade"], blade_poly)
+            pygame.draw.polygon(screen, p["sword_edge"], blade_poly, 1)
 
-        # 츠바 (검 가드) - 피벗 위치이므로 고정
-        guard_y = sword_bottom
+        # 기사키 (칼끝 삼각형)
+        pygame.draw.polygon(screen, p["sword_blade"], [r_tip_top, r_tip_l, r_tip_r])
+        pygame.draw.polygon(screen, p["sword_edge"], [r_tip_top, r_tip_l, r_tip_r], 1)
+
+        # 시노기 (등줄 - 블레이드 중앙 능선)
+        shinogi_pts = []
+        for si in range(blade_segments + 1):
+            t = si / blade_segments
+            bx, by = _blade_pt(t)
+            shinogi_pts.append(_rp(bx + int(blade_width * 0.1), by))
+        if len(shinogi_pts) >= 2:
+            pygame.draw.lines(screen, p["sword_edge"], False, shinogi_pts, 1)
+
+        # 하몬 (날 쪽 파상 담금질 무늬)
+        hamon_pts = []
+        for si in range(blade_segments + 1):
+            t = si / blade_segments
+            bx, by = _blade_pt(t)
+            hamon_wave = int(_sin(t * 18 + 0.5) * 0.04 * b)
+            hamon_pts.append(_rp(bx - int(blade_width * 0.35) + hamon_wave, by))
+        if len(hamon_pts) >= 2:
+            hamon_color = tuple(min(255, c + 25) for c in p["sword_blade"])
+            pygame.draw.lines(screen, hamon_color, False, hamon_pts, 1)
+
+        # 블레이드 중앙 하이라이트 (광택)
+        hl_pts = []
+        for si in range(blade_segments + 1):
+            t = si / blade_segments
+            bx, by = _blade_pt(t)
+            hl_pts.append(_rp(bx - 1, by))
+        if len(hl_pts) >= 2:
+            pygame.draw.lines(screen, p["sword_core"], False, hl_pts, 1)
+
+        # === 츠바 (원형 가드 - 일본도 스타일) ===
+        guard_x, guard_y = sword_x, sword_bottom
+        tsuba_r = max(3, int(0.32 * b))
+        # 츠바 그림자
+        pygame.draw.ellipse(screen, (50, 40, 35),
+                          (guard_x - tsuba_r + 1, guard_y - tsuba_r // 2 + 1,
+                           tsuba_r * 2, tsuba_r))
+        # 츠바 본체 (원형)
         pygame.draw.ellipse(screen, p["sword_guard"],
-                          (sword_x - int(0.35 * b), guard_y - int(0.08 * b), int(0.7 * b), int(0.16 * b)))
+                          (guard_x - tsuba_r, guard_y - tsuba_r // 2,
+                           tsuba_r * 2, tsuba_r))
+        # 츠바 테두리
         pygame.draw.ellipse(screen, p["kimono_gold"],
-                          (sword_x - int(0.3 * b), guard_y - int(0.05 * b), int(0.6 * b), int(0.1 * b)))
-        # 손잡이 (고정)
-        pygame.draw.rect(screen, p["sword_hilt"], (sword_x - int(0.12 * b), guard_y + int(0.05 * b), int(0.24 * b), int(0.55 * b)))
-        # 손잡이 감기
-        for i in range(4):
-            wrap_y = guard_y + int(0.1 * b) + i * int(0.12 * b)
-            pygame.draw.line(screen, p["sword_wrap"],
-                           (sword_x - int(0.1 * b), wrap_y), (sword_x + int(0.1 * b), wrap_y + int(0.05 * b)), 1)
-        # 카시라 (손잡이 끝)
+                          (guard_x - tsuba_r, guard_y - tsuba_r // 2,
+                           tsuba_r * 2, tsuba_r), 1)
+        # 츠바 중앙 구멍 (나카고아나)
+        pygame.draw.ellipse(screen, p["sword_hilt"],
+                          (guard_x - int(0.08 * b), guard_y - int(0.03 * b),
+                           int(0.16 * b), int(0.06 * b)))
+        # 츠바 장식문양 (간단한 선)
+        if tsuba_r >= 5:
+            pygame.draw.arc(screen, p["kimono_gold"],
+                          (guard_x - tsuba_r + 2, guard_y - tsuba_r // 2 + 2,
+                           tsuba_r * 2 - 4, tsuba_r - 4),
+                          0.5, 2.6, 1)
+
+        # === 츠카 (손잡이 - 길게, 양손검) ===
+        tsuka_w = int(0.2 * b)
+        tsuka_h = int(0.7 * b)
+        tsuka_top = guard_y + tsuba_r // 2
+        # 손잡이 본체 (나무 + 가죽)
+        pygame.draw.rect(screen, p["sword_hilt"],
+                        (guard_x - tsuka_w // 2, tsuka_top,
+                         tsuka_w, tsuka_h), border_radius=1)
+        # 이토 (마름모 교차 감기 - 카타나 특유)
+        wrap_count = max(4, int(tsuka_h / (0.1 * b)))
+        wrap_step = tsuka_h / wrap_count
+        for wi in range(wrap_count):
+            wy = tsuka_top + int(wi * wrap_step)
+            # X 교차 패턴
+            if wi % 2 == 0:
+                pygame.draw.line(screen, p["sword_wrap"],
+                               (guard_x - tsuka_w // 2, wy),
+                               (guard_x + tsuka_w // 2, int(wy + wrap_step)), 1)
+            else:
+                pygame.draw.line(screen, p["sword_wrap"],
+                               (guard_x + tsuka_w // 2, wy),
+                               (guard_x - tsuka_w // 2, int(wy + wrap_step)), 1)
+        # 메누키 (손잡이 장식 - 작은 금속 장식)
+        menuki_y = tsuka_top + tsuka_h // 3
+        pygame.draw.ellipse(screen, p["kimono_gold"],
+                          (guard_x - int(0.06 * b), menuki_y,
+                           int(0.12 * b), int(0.06 * b)))
+
+        # === 카시라 (손잡이 끝 마감) ===
+        kashira_y = tsuka_top + tsuka_h
         pygame.draw.ellipse(screen, p["sword_guard"],
-                          (sword_x - int(0.15 * b), guard_y + int(0.55 * b), int(0.3 * b), int(0.12 * b)))
+                          (guard_x - int(0.14 * b), kashira_y,
+                           int(0.28 * b), int(0.1 * b)))
+        pygame.draw.ellipse(screen, p["kimono_gold"],
+                          (guard_x - int(0.14 * b), kashira_y,
+                           int(0.28 * b), int(0.1 * b)), 1)
 
     # =========================================================================
     # 크라켄 - 심해의 포식자 (촉수 괴물 하이브리드)
