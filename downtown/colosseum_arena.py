@@ -5915,7 +5915,7 @@ class ColosseumsArena:
         self.bottom_paddle.gravity_drift = game_state.get('bottom_paddle_gravity_drift', 0.0)
 
 
-        # 🔫 개틀링 버스트 활성 시 영웅 패들 배럴 스핀 가속 + 반동
+        # 🔫 개틀링 버스트 견착/발사 시 영웅 패들 연동
         if self.hero_paddle_renderer:
             hero_positions = game_state.get('hero_positions', {})
             for hero_id, is_top in hero_positions.items():
@@ -5923,6 +5923,8 @@ class ColosseumsArena:
                 state = self.hero_paddle_renderer._get_state(hero_id)
                 state['gatling_firing'] = game_state.get(f'gatling_burst_active_{side}', False)
                 state['gatling_recoil'] = game_state.get(f'gatling_recoil_{side}', 0)
+                state['gatling_mounting'] = game_state.get(f'gatling_mounting_{side}', False)
+                state['gatling_mount_progress'] = game_state.get(f'gatling_mount_progress_{side}', 0.0)
 
         # 💣 폭탄 서프라이즈 넉백은 update_battle()에서 AI 이동 후 적용 (paddle.update 이후)
 

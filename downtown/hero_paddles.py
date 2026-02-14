@@ -324,6 +324,8 @@ class HeroPaddleRenderer:
         # 영웅 상태 플래그를 anim에 전달 (스킬 연동 등)
         anim['gatling_firing'] = state.get('gatling_firing', False)
         anim['gatling_recoil'] = state.get('gatling_recoil', 0)
+        anim['gatling_mounting'] = state.get('gatling_mounting', False)
+        anim['gatling_mount_progress'] = state.get('gatling_mount_progress', 0.0)
 
         # 영웅별 그리기 (팔/다리 동작으로 자연스러운 옆걸음 표현)
         draw_func = getattr(self, f"_draw_{hero_id}", None)
@@ -6348,6 +6350,15 @@ class HeroPaddleRenderer:
         t = self.time
         gatling_firing = anim.get('gatling_firing', False)
         gatling_recoil = anim.get('gatling_recoil', 0)
+        gatling_mounting = anim.get('gatling_mounting', False)
+        mount_progress = anim.get('gatling_mount_progress', 0.0)
+
+        # 🔫 견착 중: 몸체가 살짝 웅크리며 준비 자세
+        if gatling_mounting and mount_progress > 0:
+            # 무게감 표현 - 약간 아래로 가라앉음
+            torso_y += int(mount_progress * 1.5 * b * 0.15)
+            # 기관포 쪽으로 살짝 기울기
+            lean_offset += int(mount_progress * 0.8 * b * 0.2)
 
         # 🔫 반동: 발사 시 몸체 미세 진동 (recoil 값 + 고주파 떨림)
         if gatling_firing:
@@ -6358,11 +6369,17 @@ class HeroPaddleRenderer:
             cx += recoil_shake_x
             torso_y += recoil_shake_y
 
-        # LED 펄스 (사이언 계열 빛) - 발사 시 더 빠르게
-        led_pulse = (_sin(t * (8 if gatling_firing else 3)) + 1) * 0.5
-        reactor_pulse = (_sin(t * (12 if gatling_firing else 4.5)) + 1) * 0.5
-        # 기관포 배럴 회전 (idle: 느리게, 발사: 빠르게)
-        barrel_spin = t * (18.0 if gatling_firing else 2.0)
+        # LED 펄스 (사이언 계열 빛) - 견착/발사 시 더 빠르게
+        is_active = gatling_firing or gatling_mounting
+        led_pulse = (_sin(t * (8 if is_active else 3)) + 1) * 0.5
+        reactor_pulse = (_sin(t * (12 if is_active else 4.5)) + 1) * 0.5
+        # 기관포 배럴 회전 (idle → 견착 시 가속 → 발사 시 최대)
+        if gatling_firing:
+            barrel_spin = t * 18.0
+        elif gatling_mounting:
+            barrel_spin = t * (2.0 + 10.0 * mount_progress)  # 점점 빨라짐
+        else:
+            barrel_spin = t * 2.0
 
         # 로봇 색상 팔레트
         p = {

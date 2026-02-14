@@ -10870,15 +10870,17 @@ class BombSurprise(HeroSkill):
 # 안드로이드 스킬 - 개틀링 버스트 (기관포 연사)
 # ============================================================================
 class GatlingBurst(HeroSkill):
-    """개틀링 버스트 - 3초간 기관포에서 총알을 연사, 상대에게 넉백 유발"""
+    """개틀링 버스트 - 1초 견착 후 3초간 기관포 연사, 발사 중 이동속도 50% 감소"""
 
     GAME_LEFT = 0
     GAME_RIGHT = 760
     GAME_TOP = 0
     GAME_BOTTOM = 750
 
+    MOUNT_DURATION = 1.0      # 견착 준비 시간 (초)
+    FIRE_DURATION = 3.0       # 실제 발사 시간 (초)
     BULLET_SPEED = 620        # 총알 속도
-    FIRE_RATE = 0.10          # 발사 간격 (초) - 초당 10발
+    FIRE_RATE = 0.067         # 발사 간격 (초) - 초당 약 15발 (50% 증가)
     BULLET_LENGTH = 8         # 탄환 길이 (픽셀)
     BULLET_WIDTH = 3          # 탄환 폭
     KNOCKBACK_VEL = 120       # 넉백 속도
@@ -10886,16 +10888,17 @@ class GatlingBurst(HeroSkill):
     MUZZLE_FLASH_DURATION = 0.08  # 머즐 플래쉬 지속
     TRAIL_STEPS = 5           # 트레일 단계 수
     TRAIL_STEP_DT = 0.012     # 트레일 간격 (속도 기반 역추적)
+    MOVE_SLOW_AMOUNT = 0.5    # 발사 중 이동속도 배율 (50% 감소)
 
     def __init__(self):
         super().__init__(
             skill_id="gatling_burst",
             name="Gatling Burst",
             korean_name="개틀링 버스트",
-            description="3초간 기관포를 난사! 총알이 상대를 강제 넉백시킨다",
+            description="1초 견착 후 3초간 기관포 난사! 발사 중 이동속도 50% 감소",
             trigger=SkillTrigger.ON_BALL_HIT,
             cooldown=15.0,
-            duration=3.0,
+            duration=4.0,   # 1초 견착 + 3초 발사
             hero_id="android"
         )
         self.bullets = []
@@ -10909,6 +10912,8 @@ class GatlingBurst(HeroSkill):
         self._hit_sound = None
         self._fire_sound = None
         self._recoil_offset = 0.0  # 반동 오프셋 (hero_paddles 연동)
+        self._phase = 'idle'       # 'idle', 'mounting', 'firing'
+        self._phase_timer = 0.0    # 현재 페이즈 경과 시간
 
     def _load_sounds(self):
         """사운드 로드"""
@@ -10940,15 +10945,20 @@ class GatlingBurst(HeroSkill):
         self.fire_timer = 0.0
         self.total_fired = 0
         self._recoil_offset = 0.0
+        self._phase = 'mounting'
+        self._phase_timer = 0.0
         self._load_sounds()
 
+        # 견착 단계 시작 - 아직 발사하지 않음
         side = 'top' if self.caster_is_top else 'bottom'
-        game_state[f'gatling_burst_active_{side}'] = True
+        game_state[f'gatling_mounting_{side}'] = True
+        game_state[f'gatling_mount_progress_{side}'] = 0.0
+        game_state[f'gatling_burst_active_{side}'] = False
 
         return {
             'screen_effect': ScreenEffect.FLASH,
-            'flash_color': (255, 200, 100),
-            'flash_duration': 0.1,
+            'flash_color': (200, 180, 120),
+            'flash_duration': 0.05,
         }
 
     def _fire_bullet(self, caster_paddle, target_paddle, game_state):
@@ -11050,6 +11060,35 @@ class GatlingBurst(HeroSkill):
 
     def _update_active_effect(self, dt: float, caster_paddle,
                               target_paddle, ball, game_state: dict):
+        side = 'top' if self.caster_is_top else 'bottom'
+        caster_prefix = f'{side}_paddle'
+        self._phase_timer += dt
+
+        # === 견착 단계 (1초) ===
+        if self._phase == 'mounting':
+            progress = min(1.0, self._phase_timer / self.MOUNT_DURATION)
+            game_state[f'gatling_mount_progress_{side}'] = progress
+
+            # 견착 중 이동속도 점진적 감소 (0% → 50% 감소)
+            game_state[f'{caster_prefix}_slowed'] = True
+            game_state[f'{caster_prefix}_slow_amount'] = 1.0 - (0.5 * progress)
+
+            if self._phase_timer >= self.MOUNT_DURATION:
+                # 견착 완료 → 발사 단계 전환
+                self._phase = 'firing'
+                self._phase_timer = 0.0
+                game_state[f'gatling_mounting_{side}'] = False
+                game_state[f'gatling_burst_active_{side}'] = True
+                # 발사 시작 플래시
+                game_state['screen_shake'] = 3
+                game_state['shake_duration'] = 0.15
+            return  # 견착 중에는 총알 발사 안함
+
+        # === 발사 단계 (3초) ===
+        # 발사 중 이동속도 50% 감소
+        game_state[f'{caster_prefix}_slowed'] = True
+        game_state[f'{caster_prefix}_slow_amount'] = self.MOVE_SLOW_AMOUNT
+
         # 발사 타이머
         self.fire_timer += dt
         if self.fire_timer >= self.FIRE_RATE:
@@ -11061,7 +11100,6 @@ class GatlingBurst(HeroSkill):
             self._recoil_offset = max(0, self._recoil_offset - dt * 35)
 
         # 반동 값을 game_state에 전달 (hero_paddles.py 연동)
-        side = 'top' if self.caster_is_top else 'bottom'
         game_state[f'gatling_recoil_{side}'] = self._recoil_offset
 
         # 총알 업데이트
@@ -11205,8 +11243,16 @@ class GatlingBurst(HeroSkill):
     def _end_effect(self, caster_paddle, target_paddle, ball,
                     game_state: dict):
         side = 'top' if self.caster_is_top else 'bottom'
+        caster_prefix = f'{side}_paddle'
         game_state[f'gatling_burst_active_{side}'] = False
+        game_state[f'gatling_mounting_{side}'] = False
+        game_state[f'gatling_mount_progress_{side}'] = 0.0
         game_state[f'gatling_recoil_{side}'] = 0
+        # 이동속도 감소 해제
+        game_state[f'{caster_prefix}_slowed'] = False
+        game_state[f'{caster_prefix}_slow_amount'] = 1.0
+        self._phase = 'idle'
+        self._phase_timer = 0.0
 
     def reset_for_new_round(self, game_state: dict):
         super().reset_for_new_round(game_state)
@@ -11218,9 +11264,13 @@ class GatlingBurst(HeroSkill):
         self.fire_timer = 0.0
         self.total_fired = 0
         self._recoil_offset = 0.0
-        for key in ['gatling_burst_active_top', 'gatling_burst_active_bottom',
-                     'gatling_recoil_top', 'gatling_recoil_bottom']:
-            game_state[key] = False if 'active' in key else 0
+        self._phase = 'idle'
+        self._phase_timer = 0.0
+        for side in ['top', 'bottom']:
+            game_state[f'gatling_burst_active_{side}'] = False
+            game_state[f'gatling_mounting_{side}'] = False
+            game_state[f'gatling_mount_progress_{side}'] = 0.0
+            game_state[f'gatling_recoil_{side}'] = 0
 
     def draw(self, screen: pygame.Surface, caster_paddle,
              target_paddle, ball, game_state: dict):
@@ -11228,6 +11278,92 @@ class GatlingBurst(HeroSkill):
                 and not self.hit_particles and not self.shell_casings
                 and not self.smoke_puffs):
             return
+
+        # --- 견착 애니메이션 (거대 개틀링건 등장) ---
+        if self._phase == 'mounting':
+            side = 'top' if self.caster_is_top else 'bottom'
+            progress = game_state.get(f'gatling_mount_progress_{side}', 0.0)
+            px = caster_paddle.x + caster_paddle.width // 2
+            py = caster_paddle.y + (caster_paddle.height + 8 if self.caster_is_top
+                                    else -8)
+
+            # 개틀링건 실루엣 (아래에서 올라오는 등장 효과)
+            gun_w = int(28 * progress)
+            gun_h = int(50 * progress)
+            # 슬라이드 인: 화면 밖에서 올라옴
+            slide_offset = int(40 * (1.0 - progress))
+            if self.caster_is_top:
+                gun_cy = py + slide_offset
+            else:
+                gun_cy = py - slide_offset
+
+            if gun_w > 2 and gun_h > 4:
+                gun_surf = pygame.Surface((gun_w * 2 + 16, gun_h + 20), pygame.SRCALPHA)
+                gcx, gcy = gun_w + 8, gun_h // 2 + 10
+
+                # 기관포 본체 (진한 건메탈)
+                body_rect = pygame.Rect(gcx - gun_w // 2, gcy - gun_h // 4,
+                                        gun_w, gun_h // 2)
+                pygame.draw.rect(gun_surf, (60, 65, 75, int(220 * progress)),
+                    body_rect, border_radius=3)
+                pygame.draw.rect(gun_surf, (90, 95, 110, int(200 * progress)),
+                    body_rect.inflate(-4, -4), border_radius=2)
+
+                # 배럴 3개 (회전 효과 - 점점 빨라짐)
+                barrel_len = int(gun_h * 0.6 * progress)
+                barrel_spin = self._phase_timer * (2 + 8 * progress)
+                barrel_spread = int(4 * progress)
+                fire_dir = 1 if self.caster_is_top else -1
+                for i in range(3):
+                    angle = barrel_spin + i * math.pi * 2 / 3
+                    bx_off = int(math.cos(angle) * barrel_spread)
+                    by_off = int(math.sin(angle) * barrel_spread * 0.5)
+                    bx1 = gcx + bx_off
+                    by1 = gcy + fire_dir * (gun_h // 4) + by_off
+                    bx2 = gcx + bx_off
+                    by2 = by1 + fire_dir * barrel_len + by_off
+                    pygame.draw.line(gun_surf, (50, 52, 60, int(200 * progress)),
+                        (bx1, by1), (bx2, by2), max(2, int(3 * progress)))
+
+                # 마운트 브래킷 (어깨 연결부)
+                bracket_w = int(12 * progress)
+                pygame.draw.rect(gun_surf,
+                    (100, 105, 120, int(180 * progress)),
+                    (gcx - bracket_w // 2, gcy - gun_h // 4 - 4,
+                     bracket_w, 6), border_radius=2)
+
+                # 준비 중 LED (깜빡이는 빨간 불)
+                led_blink = (math.sin(self._phase_timer * 10) + 1) * 0.5
+                led_alpha = int(180 * progress * led_blink)
+                pygame.draw.circle(gun_surf,
+                    (255, 50, 30, led_alpha),
+                    (gcx, gcy - gun_h // 4 + 2),
+                    max(2, int(3 * progress)))
+
+                # 화면에 블릿
+                screen.blit(gun_surf,
+                    (px - gun_w - 8, int(gun_cy) - gun_h // 2 - 10))
+
+            # "LOADING" 게이지 바
+            bar_w = 40
+            bar_h = 4
+            bar_x = px - bar_w // 2
+            bar_y = gun_cy + (25 if self.caster_is_top else -25)
+            # 배경
+            bar_bg = pygame.Surface((bar_w + 2, bar_h + 2), pygame.SRCALPHA)
+            pygame.draw.rect(bar_bg, (0, 0, 0, 120), (0, 0, bar_w + 2, bar_h + 2), border_radius=2)
+            screen.blit(bar_bg, (bar_x - 1, bar_y - 1))
+            # 게이지
+            fill_w = int(bar_w * progress)
+            if fill_w > 0:
+                # 색상: 빨강 → 주황 → 초록
+                if progress < 0.5:
+                    gc = (255, int(100 + 155 * progress * 2), 50)
+                else:
+                    gc = (int(255 * (1 - (progress - 0.5) * 2)), 255, 50)
+                bar_fill = pygame.Surface((fill_w, bar_h), pygame.SRCALPHA)
+                pygame.draw.rect(bar_fill, (*gc, 200), (0, 0, fill_w, bar_h), border_radius=1)
+                screen.blit(bar_fill, (bar_x, bar_y))
 
         # --- 총구 연기 (뒤에 깔림) ---
         for s in self.smoke_puffs:
