@@ -15031,6 +15031,11 @@ class HeroSkillManager:
                 new_skill.current_cooldown = random.uniform(3.0, 8.0)
                 skills.append(new_skill)
             self.active_skills[hero_id] = skills
+            # 듀얼 스킬 페널티: 2개 이상 보유 시 모든 스킬 쿨타임 20% 증가
+            if len(skills) > 1:
+                for sk in skills:
+                    sk.cooldown *= 1.2
+                print(f"[Skill] {hero_id} 듀얼 스킬 페널티 적용: 모든 스킬 쿨타임 20% 증가")
         else:
             # 이미 존재하는 스킬들의 caster_is_top 업데이트
             for skill in self.active_skills[hero_id]:

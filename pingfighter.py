@@ -19899,7 +19899,7 @@ def show_arena_perk_select_menu():
                     pool.append({
                         "id": skill_perk_id,
                         "name": other_skill.korean_name,
-                        "description": "추가 스킬 획득",
+                        "description": "추가 스킬 획득\n(쿨타임 20% 증가)",
                         "icon_color": hero_color,
                         "effect_type": "add_skill",
                         "value": other_skill_idx,
@@ -19920,7 +19920,7 @@ def show_arena_perk_select_menu():
             all_perks.append({
                 "id": skill_perk_id,
                 "name": other_skill.korean_name,
-                "description": "추가 스킬 획득",
+                "description": "추가 스킬 획득\n(쿨타임 20% 증가)",
                 "icon_color": hero_color,
                 "effect_type": "add_skill",
                 "value": other_skill_idx,

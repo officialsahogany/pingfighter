@@ -953,7 +953,7 @@ ARENA_PERK_POOL = [
     {
         "id": "extra_training",
         "name": "추가훈련",
-        "description": "호위무사 스킬이\n한 개 더 해금됩니다",
+        "description": "호위무사 스킬이\n한 개 더 해금됩니다\n(쿨타임 20% 증가)",
         "icon_color": (100, 180, 220),   # 파란색 (훈련/학습)
         "effect_type": "guard_extra_skill",
         "value": 1,
@@ -2126,7 +2126,11 @@ class GuardWarriorSystem:
                     print(f"[Guard] 추가훈련 퍽: {guard_hero['name']}({hero_id}) "
                           f"스킬 해금 → {new_skill.korean_name}")
             self.skill_instances[hero_id] = current_skills
-            # 새 스킬의 독립 쿨타임 동기화
+            # 듀얼 스킬 페널티: 모든 스킬 쿨타임 20% 증가
+            for sk in current_skills:
+                sk.cooldown *= 1.2
+            print(f"[Guard] 듀얼 스킬 페널티: {guard_hero['name']}({hero_id}) 모든 스킬 쿨타임 20% 증가")
+            # 새 스킬의 독립 쿨타임 동기화 (페널티 적용 후 계산)
             cds = self.guard_skill_cooldowns.get(hero_id, [])
             cds_max = self.guard_skill_cooldowns_max.get(hero_id, [])
             while len(cds) < len(current_skills):
@@ -11068,7 +11072,7 @@ class ColosseumsArena:
                     pool.append({
                         "id": f"skill_{other_skill.skill_id}",
                         "name": other_skill.korean_name,
-                        "description": f"추가 스킬 획득",
+                        "description": f"추가 스킬 획득\n(쿨타임 20% 증가)",
                         "icon_color": hero_color,
                         "effect_type": "add_skill",
                         "value": other_skill_idx,
@@ -11213,7 +11217,7 @@ class ColosseumsArena:
                     available.append({
                         "id": f"skill_{other_skill.skill_id}",
                         "name": other_skill.korean_name,
-                        "description": "추가 스킬 획득",
+                        "description": "추가 스킬 획득\n(쿨타임 20% 증가)",
                         "icon_color": hero_color,
                         "effect_type": "add_skill",
                         "value": other_skill_idx,
