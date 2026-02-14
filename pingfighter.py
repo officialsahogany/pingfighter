@@ -21672,8 +21672,9 @@ def update_arena_bottom_hero_dash():
         arena_storm_rush_burst_bottom = False          # 버스트업 해제
         arena_storm_rush_height_bonus_bottom = 0       # 높이 보너스 초기화
         arena_bottom_dash_stun_timer = ARENA_DASH_STUN_FRAMES  # 후딜 타이머 설정
-        # 쿨타임 설정 (10~15초 랜덤) - 대쉬 종료 후 설정 + 퍽 적용
-        arena_bottom_dash_cooldown = int(random.randint(ARENA_DASH_COOLDOWN_MIN, ARENA_DASH_COOLDOWN_MAX) * arena_perk_dash_cd_mult_bottom)
+        # 쿨타임 설정 - 토큰이 남아있으면 쿨다운 없이 후딜만 적용 (잔상술 퍽 등으로 토큰 2개 이상일 때)
+        if arena_bottom_dash_charges <= 0:
+            arena_bottom_dash_cooldown = int(random.randint(ARENA_DASH_COOLDOWN_MIN, ARENA_DASH_COOLDOWN_MAX) * arena_perk_dash_cd_mult_bottom)
         # 후딜 사운드 시작 (보스와 동일)
         try:
             play_dash_delay_sound()
