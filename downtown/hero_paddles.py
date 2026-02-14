@@ -8389,83 +8389,118 @@ class HeroPaddleRenderer:
         else:
             cannon_mount_y = turret_rect.bottom + int(0.1 * b)
 
-        # 포 마운트
+        # 포 마운트 (대형)
         pygame.draw.circle(screen, p["cannon_dark"],
-            (cannon_mount_x + 1, cannon_mount_y + 1), mount_r + 1)
+            (cannon_mount_x + 1, cannon_mount_y + 1), mount_r + 2)
         pygame.draw.circle(screen, p["cannon_mid"],
             (cannon_mount_x, cannon_mount_y), mount_r)
         pygame.draw.circle(screen, p["cannon_light"],
-            (cannon_mount_x, cannon_mount_y), int(mount_r * 0.7))
+            (cannon_mount_x, cannon_mount_y), int(mount_r * 0.6))
 
-        # 배럴 가드
-        guard_w = int(0.6 * b)
-        guard_h = int(0.7 * b)
+        # 포신 외장 (두꺼운 메인 캐논 튜브)
+        tube_w = int(1.0 * b)
+        tube_h = int(1.8 * b)
         if gun_dir < 0:
-            guard_y = cannon_mount_y - guard_h - int(0.1 * b)
+            tube_y = cannon_mount_y - tube_h
         else:
-            guard_y = cannon_mount_y + int(0.1 * b)
-        guard_rect = pygame.Rect(
-            cannon_mount_x - guard_w // 2, guard_y,
-            guard_w, guard_h)
+            tube_y = cannon_mount_y
+        tube_rect = pygame.Rect(
+            cannon_mount_x - tube_w // 2, tube_y, tube_w, tube_h)
+        # 외장 그림자 + 본체
         pygame.draw.rect(screen, p["cannon_dark"],
-            guard_rect.inflate(2, 2), border_radius=3)
+            tube_rect.inflate(4, 2), border_radius=int(0.15 * b))
         pygame.draw.rect(screen, p["cannon_mid"],
-            guard_rect, border_radius=3)
+            tube_rect.inflate(2, 0), border_radius=int(0.12 * b))
         pygame.draw.rect(screen, p["cannon_light"],
-            guard_rect.inflate(-int(0.08 * b), -int(0.06 * b)),
-            border_radius=2)
+            tube_rect.inflate(-int(0.1 * b), -int(0.08 * b)),
+            border_radius=int(0.08 * b))
 
-        # 환기 슬릿
-        for i in range(3):
-            slit_y = guard_rect.top + int(0.12 * b) + i * int(0.18 * b)
-            if slit_y < guard_rect.bottom:
+        # 포신 보강 링 (2개)
+        for ri in range(2):
+            ring_offset = int(0.5 * b) + ri * int(0.7 * b)
+            if gun_dir < 0:
+                ring_y = cannon_mount_y - ring_offset
+            else:
+                ring_y = cannon_mount_y + ring_offset
+            ring_hw = tube_w // 2 + 2
+            pygame.draw.line(screen, p["joint"],
+                (cannon_mount_x - ring_hw, ring_y),
+                (cannon_mount_x + ring_hw, ring_y),
+                max(2, int(0.08 * b)))
+
+        # 환기 슬릿 (포신 측면)
+        for i in range(4):
+            slit_offset = int(0.3 * b) + i * int(0.35 * b)
+            if gun_dir < 0:
+                slit_y = cannon_mount_y - slit_offset
+            else:
+                slit_y = cannon_mount_y + slit_offset
+            if tube_rect.top < slit_y < tube_rect.bottom:
                 pygame.draw.line(screen, p["cannon_barrel"],
-                    (guard_rect.left + int(0.06 * b), slit_y),
-                    (guard_rect.right - int(0.06 * b), slit_y),
-                    max(1, int(0.03 * b)))
+                    (tube_rect.left + int(0.1 * b), slit_y),
+                    (tube_rect.right - int(0.1 * b), slit_y),
+                    max(1, int(0.04 * b)))
 
-        # 3연장 회전 배럴 (발사 방향으로 연장)
-        barrel_len = int(0.7 * b)
-        barrel_spread = int(0.14 * b)
-        barrel_edge = guard_rect.top if gun_dir < 0 else guard_rect.bottom
+        # 3연장 회전 배럴 (포신 끝에서 연장)
+        barrel_len = int(1.6 * b)
+        barrel_spread = int(0.2 * b)
+        barrel_thick = max(2, int(0.14 * b))
+        if gun_dir < 0:
+            barrel_base_y = tube_rect.top
+        else:
+            barrel_base_y = tube_rect.bottom
         for i in range(3):
             angle = barrel_spin + i * math.pi * 2 / 3
             bx_off = int(_cos(angle) * barrel_spread)
-            by_off = int(_sin(angle) * barrel_spread * 0.5)
+            by_off = int(_sin(angle) * barrel_spread * 0.4)
             bx1 = cannon_mount_x + bx_off
-            by1 = barrel_edge + gun_dir * int(-0.05 * b) + by_off
+            by1 = barrel_base_y + by_off
             bx2 = cannon_mount_x + bx_off
-            by2 = barrel_edge + gun_dir * (-barrel_len) + by_off
+            by2 = barrel_base_y + gun_dir * (-barrel_len) + by_off
+            # 배럴 그림자
+            pygame.draw.line(screen, p["cannon_dark"],
+                (bx1 + 1, by1 + 1), (bx2 + 1, by2 + 1),
+                barrel_thick + 1)
+            # 배럴 본체
             pygame.draw.line(screen, p["cannon_barrel"],
-                (bx1, by1), (bx2, by2),
-                max(2, int(0.1 * b)))
-            # 총구
+                (bx1, by1), (bx2, by2), barrel_thick)
+            # 배럴 하이라이트 (중심선)
+            pygame.draw.line(screen, p["cannon_mid"],
+                (bx1, by1), (bx2, by2), max(1, barrel_thick // 2))
+            # 총구 팁
+            muzzle_r = max(2, int(0.08 * b))
             pygame.draw.circle(screen, p["cannon_dark"],
-                (bx2, by2), max(1, int(0.05 * b)))
+                (bx2, by2), muzzle_r + 1)
+            pygame.draw.circle(screen, p["cannon_mid"],
+                (bx2, by2), muzzle_r)
 
-        # 배럴 LED
-        led_surf_gun = self._get_surface(8, 8)
+        # 배럴 LED (포신 근처)
+        led_surf_gun = self._get_surface(10, 10)
         gun_led_a = int(
-            (120 + 100 * _sin(t * 15)) if is_firing
+            (140 + 110 * _sin(t * 15)) if is_firing
             else (60 + 50 * _sin(t * 5)))
         pygame.draw.circle(led_surf_gun,
-            (*p["led_red"], min(255, gun_led_a)), (4, 4), 3)
+            (*p["led_red"], min(255, gun_led_a)), (5, 5), 4)
         screen.blit(led_surf_gun,
-            (cannon_mount_x - 4, cannon_mount_y + gun_dir * mount_r - 4),
+            (cannon_mount_x - 5, cannon_mount_y + gun_dir * (mount_r + 2) - 5),
             special_flags=pygame.BLEND_ADD)
 
-        # 🔫 발사 시 총구 화염
+        # 🔫 발사 시 총구 화염 (대형)
         if is_firing:
-            flash_sz = int(0.5 * b + 0.2 * b * _sin(t * 30))
+            muzzle_tip_y = barrel_base_y + gun_dir * (-barrel_len)
+            flash_sz = int(0.8 * b + 0.3 * b * _sin(t * 30))
             flash_cx = cannon_mount_x
-            flash_cy = barrel_edge + gun_dir * (-barrel_len - int(0.1 * b))
+            flash_cy = muzzle_tip_y + gun_dir * int(-0.15 * b)
             fl_surf = self._get_surface(flash_sz * 3, flash_sz * 3)
-            fl_a = int(160 + 80 * _sin(t * 25))
-            pygame.draw.circle(fl_surf, (255, 200, 50, min(255, fl_a)),
+            fl_a = int(180 + 70 * _sin(t * 25))
+            pygame.draw.circle(fl_surf, (255, 220, 60, min(255, fl_a)),
                 (flash_sz * 3 // 2, flash_sz * 3 // 2), flash_sz)
-            pygame.draw.circle(fl_surf, (255, 120, 20, min(255, fl_a - 30)),
+            pygame.draw.circle(fl_surf, (255, 140, 30, min(255, fl_a - 20)),
                 (flash_sz * 3 // 2, flash_sz * 3 // 2),
-                max(1, flash_sz * 2 // 3))
+                max(1, flash_sz * 3 // 4))
+            pygame.draw.circle(fl_surf, (255, 255, 200, min(255, fl_a - 60)),
+                (flash_sz * 3 // 2, flash_sz * 3 // 2),
+                max(1, flash_sz // 3))
             screen.blit(fl_surf,
                 (flash_cx - flash_sz * 3 // 2,
                  flash_cy - flash_sz * 3 // 2),
