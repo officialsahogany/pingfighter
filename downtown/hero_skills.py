@@ -8683,9 +8683,9 @@ class SkeletonArcher(HeroSkill):
         # 궁수 소환 위치: 내 진영 (캐스터 근처)
         spawn_x = random.randint(self.GAME_LEFT + 40, self.GAME_RIGHT - 40)
         if self.caster_is_top:
-            patrol_y_min = 60
-            patrol_y_max = 180
-            spawn_y = caster_paddle.y + 30
+            patrol_y_min = 100
+            patrol_y_max = 220
+            spawn_y = caster_paddle.y + 70
         else:
             patrol_y_min = 570
             patrol_y_max = 690
