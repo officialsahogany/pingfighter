@@ -15695,8 +15695,8 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
             pass
         animated_bg_stage8.draw(SCREEN, offset=(shake_x, shake_y))
     elif current_stage == 30 and animated_bg_stage30 is not None:
-        # 투기장 (콜로세움) 배경
-        dt = elapsed_ms / 1000.0
+        # 투기장 (콜로세움) 배경 - 배속 연동
+        dt = (elapsed_ms / 1000.0) * arena_speed_multiplier
         animated_bg_stage30.update(dt)
         animated_bg_stage30.draw(SCREEN, offset_x=shake_x, offset_y=shake_y)
     else:
@@ -55049,7 +55049,7 @@ def handle_gods_judgment():
 
         # ── 모래 소용돌이: 공 끌어당김 + 포획 + 커브 발사 (모래회오리 세트와 동일) ──
         if bg.judgment_phase == 11:  # SANDSTORM phase
-            dt = 1.0 / 60.0
+            dt = (1.0 / 60.0) * arena_speed_multiplier
             PULL_RADIUS = 200
             CAPTURE_RADIUS = 36
             LAUNCH_SPEED_MULT = 1.43
@@ -61245,7 +61245,7 @@ def handle_player(keys):
     arena_player_confused = False
     # ⚡ 번개의 분노 스턴 (독립 메커니즘 - 다른 스킬이 paddle_stunned 덮어써도 적용)
     if _judgment_lightning_stun_bottom_timer > 0:
-        _judgment_lightning_stun_bottom_timer -= 1.0 / 60.0
+        _judgment_lightning_stun_bottom_timer -= (1.0 / 60.0) * arena_speed_multiplier
         if _judgment_lightning_stun_bottom_timer <= 0:
             _judgment_lightning_stun_bottom_timer = 0.0
             if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
@@ -61257,7 +61257,7 @@ def handle_player(keys):
             rolling_timer = 0
     # 🌪️ 바람의 분노 스턴 (독립 메커니즘)
     if _judgment_wind_stun_bottom_timer > 0:
-        _judgment_wind_stun_bottom_timer -= 1.0 / 60.0
+        _judgment_wind_stun_bottom_timer -= (1.0 / 60.0) * arena_speed_multiplier
         if _judgment_wind_stun_bottom_timer <= 0:
             _judgment_wind_stun_bottom_timer = 0.0
             if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
@@ -116231,9 +116231,9 @@ def draw_field():
             offset=(screen_shake_offset_x, screen_shake_offset_y),
         )
     elif current_stage == 30 and animated_bg_stage30 is not None:
-        # 스테이지30: 투기장 (콜로세움) 애니메이션 배경
+        # 스테이지30: 투기장 (콜로세움) 애니메이션 배경 - 배속 연동
         elapsed_ms = clock.get_time() if 'clock' in globals() else 16
-        dt = elapsed_ms / 1000.0
+        dt = (elapsed_ms / 1000.0) * arena_speed_multiplier
         # 라운드 전환(공 서브 애니메이션) 중에는 신의심판 타이머 동결
         animated_bg_stage30.judgment_logic_paused = is_ball_spawn_animation_paused()
         animated_bg_stage30.update(dt)
@@ -127652,7 +127652,7 @@ def handle_boss():
     arena_boss_confused = False
     # ⚡ 번개의 분노 스턴 (독립 메커니즘 - 다른 스킬이 paddle_stunned 덮어써도 적용)
     if _judgment_lightning_stun_top_timer > 0:
-        _judgment_lightning_stun_top_timer -= 1.0 / 60.0
+        _judgment_lightning_stun_top_timer -= (1.0 / 60.0) * arena_speed_multiplier
         if _judgment_lightning_stun_top_timer <= 0:
             _judgment_lightning_stun_top_timer = 0.0
             if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
@@ -127662,7 +127662,7 @@ def handle_boss():
             return  # 번개 스턴 중 모든 처리 차단
     # 🌪️ 바람의 분노 스턴 (독립 메커니즘)
     if _judgment_wind_stun_top_timer > 0:
-        _judgment_wind_stun_top_timer -= 1.0 / 60.0
+        _judgment_wind_stun_top_timer -= (1.0 / 60.0) * arena_speed_multiplier
         if _judgment_wind_stun_top_timer <= 0:
             _judgment_wind_stun_top_timer = 0.0
             if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
