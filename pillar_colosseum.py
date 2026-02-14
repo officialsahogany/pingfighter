@@ -993,8 +993,8 @@ class CircularStadiumFrame:
 
         # 웨이브 애니메이션
         if self._wave_active:
-            self._wave_angle += dt * 2.5
-            if self._wave_angle > math.pi * 2 + 1:
+            self._wave_angle += dt * 2.2  # 약간 느리게 (자연스러운 웨이브)
+            if self._wave_angle > math.pi * 2 + 1.5:  # 뒤쪽 이징 구간까지 여유
                 self._wave_active = False
                 self._wave_angle = 0.0
 
@@ -1076,10 +1076,24 @@ class CircularStadiumFrame:
                 arm_up = self._gasp_intensity > 0.5  # 초반엔 팔 올림 (놀람)
 
             if self._wave_active:
-                angle_diff = abs(person['angle'] - self._wave_angle)
-                if angle_diff < 0.5 or angle_diff > math.pi * 2 - 0.5:
-                    draw_y -= 12
-                    arm_up = True
+                # 웨이브가 지나간 정도 계산 (앞쪽은 올라감, 뒤쪽은 부드럽게 내려옴)
+                raw_diff = person['angle'] - self._wave_angle
+                # 순환 보정: 웨이브가 한바퀴 도는 동안 정상 작동하도록
+                angle_diff = raw_diff % (math.pi * 2)
+
+                # 웨이브 전방: 올라가는 구간 (0 ~ 0.6 라디안)
+                if angle_diff < 0.6:
+                    # 코사인 이징으로 부드럽게 올라감
+                    rise = 0.5 * (1 + math.cos(math.pi * angle_diff / 0.6))
+                    draw_y -= 12 * rise
+                    arm_up = rise > 0.3
+                # 웨이브 후방: 내려오는 구간 (2π - 1.2 ~ 2π)
+                elif angle_diff > math.pi * 2 - 1.2:
+                    # 더 넓은 범위에서 천천히 내려옴 (어색함 제거)
+                    fall_progress = (math.pi * 2 - angle_diff) / 1.2
+                    ease = 0.5 * (1 + math.cos(math.pi * (1 - fall_progress)))
+                    draw_y -= 12 * ease
+                    arm_up = ease > 0.3
 
             # 캐시된 서피스 blit (1회 draw call)
             cache = self._crowd_cache[i]
