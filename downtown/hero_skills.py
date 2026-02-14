@@ -14640,11 +14640,21 @@ class WildRoar(HeroSkill):
                 if r_len > 0:
                     angle = math.atan2(rvy, rvx)
                     angle += random.uniform(-0.523, 0.523)
+                    # 안전장치: 공이 시전자 쪽으로 향하면 방향 보정
+                    if self.caster_is_top and _sin(angle) < 0:
+                        angle = -angle
+                    elif not self.caster_is_top and _sin(angle) > 0:
+                        angle = -angle
                     ball.vx = _cos(angle) * speed * boost
                     ball.vy = _sin(angle) * speed * boost
                 else:
                     ball.vy = -ball.vy * boost
                     ball.vx = ball.vx * boost
+                # 최종 안전장치: 공이 시전자 골대로 향하면 vy 반전
+                if self.caster_is_top and ball.vy < 0:
+                    ball.vy = -ball.vy
+                elif not self.caster_is_top and ball.vy > 0:
+                    ball.vy = -ball.vy
                 self._create_impact(ball_cx, ball_cy)
                 if self._hit_sound:
                     try:
