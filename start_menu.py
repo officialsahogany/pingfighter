@@ -444,12 +444,6 @@ def _render_menu(
     version_rect = version_surface.get_rect(bottomleft=(10, height - 10))
     screen.blit(version_surface, version_rect)
 
-    res_index = ctx.get_current_resolution_index()
-    res_width, res_height = ctx.resolution_options[res_index]
-    resolution_text = f"해상도: {res_width}x{res_height} (F9/F10으로 변경)"
-    resolution_surface = font_tiny.render(resolution_text, True, (150, 200, 255))
-    resolution_rect = resolution_surface.get_rect(bottomright=(width - 10, height - 10))
-    screen.blit(resolution_surface, resolution_rect)
 
     # 관리자 모드 활성화 메시지 표시
     global ADMIN_MODE_MESSAGE_TIMER
@@ -1715,10 +1709,16 @@ def _handle_menu_events(
                 pygame.quit()
                 raise SystemExit
             if event.key == pygame.K_F9:
-                _handle_resolution_change(ctx, state, -1)
+                # F9: 시네마모드 전환
+                from pingfighter import switch_display_mode, get_display_mode
+                if get_display_mode() != "cinema":
+                    switch_display_mode("cinema")
                 continue
             if event.key == pygame.K_F10:
-                _handle_resolution_change(ctx, state, 1)
+                # F10: 창모드 전환
+                from pingfighter import switch_display_mode, get_display_mode
+                if get_display_mode() != "windowed":
+                    switch_display_mode("windowed")
                 continue
             # 관리자 모드 활성화 (7키 연타)
             if event.key == pygame.K_7:
