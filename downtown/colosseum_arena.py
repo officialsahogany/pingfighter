@@ -7488,16 +7488,16 @@ class ColosseumsArena:
         box_w, box_h = 120, 140
         y_base = 530
         x_positions = [60, 195, 430, 565]
-        # 레인보우 컬러 팔레트
-        rainbow = [
-            (255, 80, 80),    # 빨강
-            (255, 160, 60),   # 주황
-            (255, 220, 50),   # 노랑
-            (80, 255, 120),   # 초록
-            (60, 220, 255),   # 시안
-            (100, 140, 255),  # 파랑
-            (180, 100, 255),  # 보라
-            (255, 120, 200),  # 핑크
+        # 모랫빛 + 금빛 팔레트 (이집트/투기장 테마)
+        sand_gold = [
+            (218, 185, 120),  # 모래색
+            (240, 200, 100),  # 밝은 모래
+            (200, 165, 90),   # 어두운 모래
+            (255, 215, 80),   # 금빛
+            (230, 190, 60),   # 진한 금
+            (245, 225, 150),  # 연한 금
+            (190, 150, 80),   # 황토
+            (255, 235, 170),  # 밝은 금빛
         ]
         for i in range(4):
             if self.match_revealed[i]:
@@ -7507,7 +7507,7 @@ class ColosseumsArena:
             hw, hh = box_w // 2, box_h // 2
             # 테두리 위 랜덤 위치에 파티클 생성
             side = _r.randint(0, 3)
-            color = _r.choice(rainbow)
+            color = _r.choice(sand_gold)
             if side == 0:  # 상단
                 px = x_positions[i] + _r.uniform(0, box_w)
                 py = float(y_base)
@@ -8529,12 +8529,13 @@ class ColosseumsArena:
                 if is_hovered:
                     self._draw_hover_border(x, y, box_w, box_h, ET["hover_glow"])
                 else:
-                    # 레인보우 글로우 테두리 (비호버)
+                    # 모랫빛 + 금빛 글로우 테두리 (비호버)
                     t = self.animation_timer + match_idx * 0.7
-                    # HSV-like 색상 순환
-                    r_val = int(128 + 127 * _sin(t * 2.0))
-                    g_val = int(128 + 127 * _sin(t * 2.0 + 2.094))
-                    b_val = int(128 + 127 * _sin(t * 2.0 + 4.189))
+                    # 모래색 ↔ 금색 순환
+                    blend = 0.5 + 0.5 * _sin(t * 1.8)
+                    r_val = int(200 + 55 * blend)
+                    g_val = int(165 + 50 * blend)
+                    b_val = int(80 + 40 * blend)
                     glow_color = (r_val, g_val, b_val)
                     glow_pulse = 0.4 + 0.6 * abs(_sin(t * 1.5))
                     glow_al = int(60 * glow_pulse)
@@ -8555,12 +8556,13 @@ class ColosseumsArena:
                 pygame.draw.rect(self.screen, border, (x, y, box_w, box_h), 2, border_radius=8)
                 cx, cy = x + box_w // 2, y + box_h // 2
                 if self.fonts and "large" in self.fonts:
-                    # ? 심볼 색상도 레인보우
+                    # ? 심볼 금빛 펄스
                     if not is_hovered:
                         t2 = self.animation_timer + match_idx * 0.7
-                        qr = int(180 + 75 * _sin(t2 * 1.8))
-                        qg = int(180 + 75 * _sin(t2 * 1.8 + 2.094))
-                        qb = int(180 + 75 * _sin(t2 * 1.8 + 4.189))
+                        blend2 = 0.5 + 0.5 * _sin(t2 * 2.0)
+                        qr = int(210 + 45 * blend2)
+                        qg = int(185 + 40 * blend2)
+                        qb = int(100 + 50 * blend2)
                         q_color = (qr, qg, qb)
                     else:
                         q_color = ET["gold_pale"]
