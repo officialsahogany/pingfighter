@@ -122984,6 +122984,11 @@ def handle_ball():
                                 _sk.current_cooldown = 0.0
                         arena_flash_inspiration_timer_bottom = ARENA_FLASH_INSPIRATION_DURATION
                         _spawn_flash_inspiration_particles(False)
+                        if SOUND_CLEANSE:
+                            try:
+                                play_sound_with_volume(SOUND_CLEANSE, volume=0.4)
+                            except:
+                                pass
                         arena_show_speech_bubble(False, '번뜩이는 영감!', hero_id=hero_id)
                         print(f"[번뜩이는 영감] 하단 영웅 스킬 쿨타임 즉시 충전!")
             except Exception:
@@ -123804,6 +123809,11 @@ def handle_ball():
                                 _sk.current_cooldown = 0.0
                         arena_flash_inspiration_timer_top = ARENA_FLASH_INSPIRATION_DURATION
                         _spawn_flash_inspiration_particles(True)
+                        if SOUND_CLEANSE:
+                            try:
+                                play_sound_with_volume(SOUND_CLEANSE, volume=0.4)
+                            except:
+                                pass
                         arena_show_speech_bubble(True, '번뜩이는 영감!', hero_id=hero_id)
                         print(f"[번뜩이는 영감] 상단 영웅 스킬 쿨타임 즉시 충전!")
             except Exception:
