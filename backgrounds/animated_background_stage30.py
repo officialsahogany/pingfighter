@@ -1490,7 +1490,7 @@ class AnimatedBackgroundStage30:
                 hole_w = int(22 * fade_s)
                 hole_h = int(8 * fade_s)
                 if hole_w > 3 and hole_h > 1:
-                    hole_surf = pygame.Surface((hole_w, hole_h), pygame.SRCALPHA)
+                    hole_surf = _get_cached_surface(hole_w, hole_h)
                     pygame.draw.ellipse(hole_surf, (*hole_dark, min(160, fade_alpha)),
                                         (0, 0, hole_w, hole_h))
                     screen.blit(hole_surf, (cx - hole_w // 2, ground_y - hole_h // 3))
@@ -1508,7 +1508,7 @@ class AnimatedBackgroundStage30:
                     (cx, ground_y + int(3 * fade_s)),
                 ]
                 if len(edge_pts) >= 3:
-                    edge_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+                    edge_surf = _get_cached_surface(self.width, self.height)
                     col_a = (*sand_dark, min(200, fade_alpha))
                     pygame.draw.polygon(edge_surf, col_a, edge_pts)
                     screen.blit(edge_surf, (0, 0))
@@ -1560,7 +1560,7 @@ class AnimatedBackgroundStage30:
             hole_w = int(22 * s)
             hole_h = int(8 * s)
             if hole_w > 4 and hole_h > 2:
-                hole_surf = pygame.Surface((hole_w, hole_h), pygame.SRCALPHA)
+                hole_surf = _get_cached_surface(hole_w, hole_h)
                 pygame.draw.ellipse(hole_surf, (*hole_dark, 160), (0, 0, hole_w, hole_h))
                 screen.blit(hole_surf, (cx + rise_shake_x - hole_w // 2,
                                         ground_y - hole_h // 3))
@@ -1606,7 +1606,7 @@ class AnimatedBackgroundStage30:
                 dust_w = int(26 * s)
                 dust_h = int(5 * s)
                 if dust_w > 4 and dust_h > 2:
-                    dust_surf = pygame.Surface((dust_w, dust_h), pygame.SRCALPHA)
+                    dust_surf = _get_cached_surface(dust_w, dust_h)
                     pygame.draw.ellipse(dust_surf, (180, 160, 130, dust_alpha),
                                         (0, 0, dust_w, dust_h))
                     screen.blit(dust_surf, (cx + rise_shake_x - dust_w // 2,
@@ -1618,7 +1618,7 @@ class AnimatedBackgroundStage30:
                     wide_w = int(36 * s)
                     wide_h = int(7 * s)
                     if wide_w > 4 and wide_h > 2:
-                        wide_surf = pygame.Surface((wide_w, wide_h), pygame.SRCALPHA)
+                        wide_surf = _get_cached_surface(wide_w, wide_h)
                         pygame.draw.ellipse(wide_surf, (170, 150, 120, wide_alpha),
                                             (0, 0, wide_w, wide_h))
                         screen.blit(wide_surf, (cx + rise_shake_x - wide_w // 2,
@@ -1628,7 +1628,7 @@ class AnimatedBackgroundStage30:
                     deep_w = int(16 * s)
                     deep_h = int(5 * s)
                     if deep_w > 3 and deep_h > 1:
-                        deep_surf = pygame.Surface((deep_w, deep_h), pygame.SRCALPHA)
+                        deep_surf = _get_cached_surface(deep_w, deep_h)
                         pygame.draw.ellipse(deep_surf, (55, 42, 28, deep_alpha),
                                             (0, 0, deep_w, deep_h))
                         screen.blit(deep_surf, (cx + rise_shake_x - deep_w // 2,
@@ -1681,7 +1681,7 @@ class AnimatedBackgroundStage30:
                 bolt_segs.append((rx, ry))
             # 글로우 (금색 반투명)
             glow_r = int(12 * ps)
-            glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+            glow_surf = _get_cached_surface(glow_r * 2, glow_r * 2)
             pygame.draw.circle(glow_surf, (180, 150, 60, 40), (glow_r, glow_r), glow_r)
             pygame.draw.circle(glow_surf, (212, 175, 85, 70), (glow_r, glow_r), glow_r // 2)
             screen.blit(glow_surf, (bx - glow_r, by - glow_r), special_flags=pygame.BLEND_ADD)
@@ -1726,7 +1726,7 @@ class AnimatedBackgroundStage30:
             ring_a = self.judgment_explosion_ring_alpha
             # 확장 전기 링 (금색 외곽 + 백색 내곽)
             if ring_a > 10 and r > 3:
-                ring_surf = pygame.Surface((r * 2 + 4, r * 2 + 4), pygame.SRCALPHA)
+                ring_surf = _get_cached_surface(r * 2 + 4, r * 2 + 4)
                 ring_cx, ring_cy = r + 2, r + 2
                 a1 = min(255, ring_a)
                 a2 = min(180, int(ring_a * 0.6))
@@ -1769,15 +1769,15 @@ class AnimatedBackgroundStage30:
             if self.judgment_explosion_flash_alpha > 10:
                 fa = min(200, self.judgment_explosion_flash_alpha)
                 flash_size = max(10, int(r * 0.6))
-                fl_surf = pygame.Surface((flash_size * 2, flash_size * 2), pygame.SRCALPHA)
+                fl_surf = _get_cached_surface(flash_size * 2, flash_size * 2)
                 pygame.draw.circle(fl_surf, (212, 175, 85, fa), (flash_size, flash_size), flash_size)
                 pygame.draw.circle(fl_surf, (255, 245, 200, min(255, fa + 30)), (flash_size, flash_size), flash_size // 3)
                 screen.blit(fl_surf, (ex - flash_size, ey - flash_size), special_flags=pygame.BLEND_ADD)
 
-        # ── 충격 플래시 (단순 전체 플래시) ──
+        # ── 충격 플래시 (단순 전체 플래시) - 캐시된 서피스 사용 ──
         if self.judgment_flash_alpha > 0:
             fa = min(180, self.judgment_flash_alpha)
-            flash_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            flash_surf = _get_cached_surface(self.width, self.height)
             flash_surf.fill((255, 245, 220, fa))
             screen.blit(flash_surf, (offset_x, offset_y), special_flags=pygame.BLEND_ADD)
 
@@ -2501,7 +2501,7 @@ class AnimatedBackgroundStage30:
         # 보석 글로우
         if s >= 2:
             glow_r = gem_r + max(1, int(1 * s))
-            glow_surf = pygame.Surface((glow_r * 2 + 4, glow_r * 2 + 4), pygame.SRCALPHA)
+            glow_surf = _get_cached_surface(glow_r * 2 + 4, glow_r * 2 + 4)
             pygame.draw.circle(glow_surf, (200, 185, 80, 60),
                                (glow_r + 2, glow_r + 2), glow_r)
             screen.blit(glow_surf, (cx - glow_r - 2, top_y - glow_r - 2),
@@ -2917,7 +2917,7 @@ class AnimatedBackgroundStage30:
                 glow_col = (min(255, int(160 + 80 * intensity)),
                             min(255, int(100 + 60 * intensity)),
                             min(255, int(30 + 40 * intensity)))
-                glow_surf = pygame.Surface((glow_r * 2 + 4, glow_r * 2 + 4), pygame.SRCALPHA)
+                glow_surf = _get_cached_surface(glow_r * 2 + 4, glow_r * 2 + 4)
                 glow_alpha = min(120, int(40 + 80 * intensity))
                 pygame.draw.circle(glow_surf, (*glow_col, glow_alpha),
                                    (glow_r + 2, glow_r + 2), glow_r)
@@ -2959,14 +2959,15 @@ class AnimatedBackgroundStage30:
             color = (200, 175, 140)
             pygame.draw.circle(screen, color, (px, py), size)
 
-        # 3. 금빛 먼지 (프리미엄 분위기)
+        # 3. 금빛 먼지 (프리미엄 분위기) - 캐시된 서피스 사용
         for gd in self.golden_dust:
             gx = int(gd['x'] * scale_x + offset_x)
             gy = int(gd['y'] * scale_y + offset_y)
             gsize = max(1, int(gd['size'] * scale_x))
             pulse = 0.6 + 0.4 * math.sin(self.time * 1.5 + gd['phase'])
             galpha = int(gd['alpha'] * pulse)
-            gd_surf = pygame.Surface((gsize * 2 + 2, gsize * 2 + 2), pygame.SRCALPHA)
+            surf_sz = gsize * 2 + 2
+            gd_surf = _get_cached_surface(surf_sz, surf_sz)
             pygame.draw.circle(gd_surf, (210, 180, 80, galpha),
                              (gsize + 1, gsize + 1), gsize)
             screen.blit(gd_surf, (gx - gsize - 1, gy - gsize - 1))
@@ -3017,12 +3018,23 @@ class AnimatedBackgroundStage30:
         if glow_radius < 4:
             return
 
-        glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-        for r in range(glow_radius, 0, -2):
-            alpha = int(30 * (r / glow_radius) * intensity)
-            if alpha > 0:
-                pygame.draw.circle(glow_surf, (255, 210, 80, alpha),
-                                 (glow_radius, glow_radius), r)
+        # 글로우 서피스 캐시 (반경별)
+        if not hasattr(self, '_zeus_glow_cache'):
+            self._zeus_glow_cache = {}
+        if glow_radius not in self._zeus_glow_cache:
+            gs = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+            for r in range(glow_radius, 0, -2):
+                alpha = int(30 * (r / glow_radius))
+                if alpha > 0:
+                    pygame.draw.circle(gs, (255, 210, 80, alpha),
+                                     (glow_radius, glow_radius), r)
+            self._zeus_glow_cache[glow_radius] = gs
+        # intensity 변조는 alpha mult로 적용
+        glow_surf = self._zeus_glow_cache[glow_radius].copy()
+        if intensity < 0.95:
+            alpha_s = _get_cached_surface(glow_radius * 2, glow_radius * 2)
+            alpha_s.fill((255, 255, 255, int(255 * intensity)))
+            glow_surf.blit(alpha_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
         screen.blit(glow_surf, (bx - glow_radius, by - glow_radius),
                    special_flags=pygame.BLEND_ADD)
 
@@ -3031,7 +3043,8 @@ class AnimatedBackgroundStage30:
             spark_len = int(6 * spark * scale_x)
             spark_alpha = int(100 * spark)
             spark_color = (255, 230, 120, spark_alpha)
-            spark_surf = pygame.Surface((spark_len * 2 + 2, spark_len * 2 + 2), pygame.SRCALPHA)
+            sz_s = spark_len * 2 + 2
+            spark_surf = _get_cached_surface(sz_s, sz_s)
             sc = spark_len + 1
             pygame.draw.line(spark_surf, spark_color, (sc - spark_len, sc), (sc + spark_len, sc), 1)
             pygame.draw.line(spark_surf, spark_color, (sc, sc - spark_len), (sc, sc + spark_len), 1)
@@ -3078,15 +3091,22 @@ class AnimatedBackgroundStage30:
             ]
             pygame.draw.polygon(screen, inner_color, inner_points)
 
-            # 글로우 효과
+            # 글로우 효과 (프리렌더 캐시)
             glow_radius = int(25 * intensity * scale_x)
-            glow_surf = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-            for r in range(glow_radius, 0, -3):
-                alpha = int(25 * (r / glow_radius) * intensity)
-                pygame.draw.circle(glow_surf, (255, 160, 60, alpha),
-                                 (glow_radius, glow_radius), r)
-            screen.blit(glow_surf, (tx - glow_radius, ty - flame_h // 2 - glow_radius),
-                       special_flags=pygame.BLEND_ADD)
+            if glow_radius > 0:
+                if not hasattr(self, '_torch_glow_cache'):
+                    self._torch_glow_cache = {}
+                glow_key = glow_radius
+                if glow_key not in self._torch_glow_cache:
+                    gs = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+                    for r in range(glow_radius, 0, -3):
+                        alpha = int(25 * (r / glow_radius))
+                        pygame.draw.circle(gs, (255, 160, 60, alpha),
+                                         (glow_radius, glow_radius), r)
+                    self._torch_glow_cache[glow_key] = gs
+                screen.blit(self._torch_glow_cache[glow_key],
+                           (tx - glow_radius, ty - flame_h // 2 - glow_radius),
+                           special_flags=pygame.BLEND_ADD)
 
     def _draw_spectators(self, screen, scale_x, scale_y, offset_x, offset_y):
         """관중 실루엣 그리기"""
@@ -3109,20 +3129,23 @@ class AnimatedBackgroundStage30:
                                             size * 2 // 3, size))
 
     def draw_foreground(self, screen, scale_x=1.0, scale_y=1.0, offset_x=0, offset_y=0):
-        """전경 효과 (패들/공 위에 그려짐) - 알파 비네트"""
+        """전경 효과 (패들/공 위에 그려짐) - 알파 비네트 (프리렌더 캐시)"""
         vignette_size = 50
         sw = int(self.width * scale_x)
 
-        # 상단 비네트
-        v_top = pygame.Surface((sw, vignette_size), pygame.SRCALPHA)
-        for i in range(vignette_size):
-            alpha = int(35 * (1 - i / vignette_size))
-            pygame.draw.line(v_top, (20, 15, 10, alpha), (0, i), (sw, i))
-        screen.blit(v_top, (offset_x, offset_y + int(50 * scale_y)))
+        # 프리렌더 캐시 (최초 1회만 생성)
+        cache_key = f"_fg_vignette_{sw}"
+        if not hasattr(self, cache_key):
+            v_top = pygame.Surface((sw, vignette_size), pygame.SRCALPHA)
+            for i in range(vignette_size):
+                alpha = int(35 * (1 - i / vignette_size))
+                pygame.draw.line(v_top, (20, 15, 10, alpha), (0, i), (sw, i))
+            v_bot = pygame.Surface((sw, vignette_size), pygame.SRCALPHA)
+            for i in range(vignette_size):
+                alpha = int(35 * (i / vignette_size))
+                pygame.draw.line(v_bot, (20, 15, 10, alpha), (0, i), (sw, i))
+            setattr(self, cache_key, (v_top, v_bot))
 
-        # 하단 비네트
-        v_bot = pygame.Surface((sw, vignette_size), pygame.SRCALPHA)
-        for i in range(vignette_size):
-            alpha = int(35 * (i / vignette_size))
-            pygame.draw.line(v_bot, (20, 15, 10, alpha), (0, i), (sw, i))
+        v_top, v_bot = getattr(self, cache_key)
+        screen.blit(v_top, (offset_x, offset_y + int(50 * scale_y)))
         screen.blit(v_bot, (offset_x, offset_y + int((self.height - 50) * scale_y) - vignette_size))

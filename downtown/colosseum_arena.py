@@ -827,6 +827,10 @@ class ArenaLeafShield:
             draw_order.append((depth, angle, lx, ly, leaf))
         draw_order.sort(key=lambda x: x[0])
 
+        # 잎 스프라이트 캐시 초기화 (최초 1회)
+        if not hasattr(self, '_leaf_sprite_cache'):
+            self._leaf_sprite_cache = {}
+
         for depth, angle, lx, ly, leaf in draw_order:
             depth_f = 0.6 + 0.4 * ((depth + 1) / 2)
             alpha_f = 0.5 + 0.5 * ((depth + 1) / 2)
@@ -835,41 +839,51 @@ class ArenaLeafShield:
             if sz < 2:
                 continue
 
-            # 타원형 글로우 (신화 아이템과 동일)
+            # 타원형 글로우 (캐시된 서피스 사용)
             glow_w = sz * 4
             glow_h = sz * 3
-            glow_s = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+            glow_s = _get_arena_surface(glow_w, glow_h)
             glow_a = int(40 * alpha_f)
             pygame.draw.ellipse(glow_s, (255, 215, 100, glow_a), (0, 0, glow_w, glow_h))
             screen.blit(glow_s, (int(lx) - glow_w // 2, int(ly) - glow_h // 2))
 
-            # 잎 서피스 (가로로 길게 - 신화 아이템과 동일 비율)
+            # 잎 스프라이트 캐시 (타입+크기 기반)
+            leaf_type = leaf.get('type', 0)
             leaf_w = max(4, int(sz * 2.5))
             leaf_h = max(3, int(sz * 1.2))
-            leaf_s = pygame.Surface((leaf_w, leaf_h), pygame.SRCALPHA)
+            depth_q = round(depth_f, 1)  # 양자화하여 캐시 히트율 향상
+            sprite_key = (leaf_type, leaf_w, leaf_h, depth_q)
+            if sprite_key not in self._leaf_sprite_cache:
+                leaf_s = pygame.Surface((leaf_w, leaf_h), pygame.SRCALPHA)
+                if leaf_type == 0:
+                    self._draw_leaf_type_0(leaf_s, leaf_w, leaf_h, depth_q)
+                elif leaf_type == 1:
+                    self._draw_leaf_type_1(leaf_s, leaf_w, leaf_h, depth_q)
+                elif leaf_type == 2:
+                    self._draw_leaf_type_2(leaf_s, leaf_w, leaf_h, depth_q)
+                else:
+                    self._draw_leaf_type_3(leaf_s, leaf_w, leaf_h, depth_q)
+                self._leaf_sprite_cache[sprite_key] = leaf_s
+            leaf_s = self._leaf_sprite_cache[sprite_key]
 
-            # 잎 타입별 디테일 그리기
-            leaf_type = leaf.get('type', 0)
-            if leaf_type == 0:
-                self._draw_leaf_type_0(leaf_s, leaf_w, leaf_h, depth_f)
-            elif leaf_type == 1:
-                self._draw_leaf_type_1(leaf_s, leaf_w, leaf_h, depth_f)
-            elif leaf_type == 2:
-                self._draw_leaf_type_2(leaf_s, leaf_w, leaf_h, depth_f)
-            else:
-                self._draw_leaf_type_3(leaf_s, leaf_w, leaf_h, depth_f)
-
-            # 회전
-            rotated = pygame.transform.rotate(leaf_s, -math.degrees(angle))
+            # 회전 (각도를 5도 단위로 양자화하여 캐시)
+            deg = -math.degrees(angle)
+            deg_q = round(deg / 5) * 5
+            rot_key = (sprite_key, deg_q)
+            if not hasattr(self, '_leaf_rot_cache'):
+                self._leaf_rot_cache = {}
+            if rot_key not in self._leaf_rot_cache:
+                self._leaf_rot_cache[rot_key] = pygame.transform.rotate(leaf_s, deg_q)
+            rotated = self._leaf_rot_cache[rot_key]
             rect = rotated.get_rect(center=(int(lx), int(ly)))
             screen.blit(rotated, rect)
 
-        # 파티클
+        # 파티클 (캐시된 서피스 사용)
         for p in self.particles:
             life_ratio = p['life'] / 40.0
             a = min(255, int(255 * life_ratio))
             sz = max(1, int(p['life'] / 8))
-            ps = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+            ps = _get_arena_surface(sz * 2, sz * 2)
             pygame.draw.circle(ps, (*p['color'], a), (sz, sz), sz)
             screen.blit(ps, (int(p['x']) - sz, int(p['y']) - sz))
 
@@ -4189,23 +4203,7 @@ class GuardWarriorSystem:
             # theme_color 안전 검증
             if not isinstance(theme_color, (tuple, list)) or len(theme_color) < 3:
                 theme_color = (200, 100, 60)
-            import os, sys
-            font = pygame.font.Font(None, 24)
-            try:
-                if hasattr(sys, '_MEIPASS'):
-                    base = sys._MEIPASS
-                else:
-                    base = os.path.dirname(os.path.dirname(__file__))
-                font_candidates = [
-                    os.path.join(base, "fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"),
-                    os.path.join(base, "fonts", "NanumSquareB.ttf"),
-                ]
-                for fp in font_candidates:
-                    if os.path.exists(fp):
-                        font = pygame.font.Font(fp, 20)
-                        break
-            except Exception:
-                pass
+            font = self._get_guard_korean_font(20)
 
             text_surface = font.render(text, True, (255, 255, 255))
             text_w = text_surface.get_width()
@@ -4278,14 +4276,20 @@ class GuardWarriorSystem:
                             max(0, theme_color[2] - 60))
             pygame.draw.polygon(bubble_surface, border_color, points, 3)
 
-            # 텍스트: 검정 외곽선 + 흰색 본문
+            # 텍스트: 검정 외곽선 + 흰색 본문 (캐시된 아웃라인 서피스 사용)
             tx = int(cx - text_w / 2)
             ty = int(cy - text_h / 2)
-            for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2),
-                            (-1, -1), (1, -1), (-1, 1), (1, 1)]:
+            cache_key = f"_guard_bubble_text_{text}"
+            outlined_text = getattr(self, cache_key, None)
+            if outlined_text is None:
+                outlined_text = pygame.Surface((text_w + 4, text_h + 4), pygame.SRCALPHA)
                 outline = font.render(text, True, (0, 0, 0))
-                bubble_surface.blit(outline, (tx + dx, ty + dy))
-            bubble_surface.blit(font.render(text, True, (255, 255, 255)), (tx, ty))
+                for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2),
+                                (-1, -1), (1, -1), (-1, 1), (1, 1)]:
+                    outlined_text.blit(outline, (2 + dx, 2 + dy))
+                outlined_text.blit(font.render(text, True, (255, 255, 255)), (2, 2))
+                setattr(self, cache_key, outlined_text)
+            bubble_surface.blit(outlined_text, (tx - 2, ty - 2))
 
             # 흔들림 애니메이션
             float_offset = _sin(timer * 5.0) * 2
@@ -5030,6 +5034,33 @@ class ColosseumsArena:
         surf, rect = font.render(text, color)
         self._text_cache[key] = (surf, rect)
         return surf, rect
+
+    def _load_korean_font(self, size=20):
+        """한글 폰트 로드 (캐시됨) - 디스크 I/O를 최초 1회만 수행"""
+        cache_key = f"_cached_korean_font_{size}"
+        cached = getattr(self, cache_key, None)
+        if cached:
+            return cached
+        import os, sys
+        try:
+            if hasattr(sys, '_MEIPASS'):
+                base = sys._MEIPASS
+            else:
+                base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            font_candidates = [
+                os.path.join(base, "fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"),
+                os.path.join(base, "fonts", "NanumSquareB.ttf"),
+            ]
+            for fp in font_candidates:
+                if os.path.exists(fp):
+                    font = pygame.font.Font(fp, size)
+                    setattr(self, cache_key, font)
+                    return font
+        except Exception:
+            pass
+        font = pygame.font.Font(None, size)
+        setattr(self, cache_key, font)
+        return font
 
     # ========================================================================
     # 관리자 영웅 선택 (F5) - Admin Hero Select
@@ -5890,12 +5921,12 @@ class ColosseumsArena:
             )
             return False
 
-        # [DEBUG] 폭탄 넉백 상태 체크 (is_frozen 확인용)
-        if self.skill_manager:
-            _dbg_gs = self.skill_manager.game_state
-            for _dbg_pfx in ['top_paddle', 'bottom_paddle']:
-                if _dbg_gs.get(f'{_dbg_pfx}_bomb_kb_active', False):
-                    print(f"[BombKB-DEBUG] PRE-CHECK → {_dbg_pfx} kb_active=True, is_frozen={is_frozen}, spawn_phase={self.spawn_phase}")
+        # [DEBUG] 폭탄 넉백 상태 체크 (is_frozen 확인용) - 성능 최적화: 비활성화
+        # if self.skill_manager:
+        #     _dbg_gs = self.skill_manager.game_state
+        #     for _dbg_pfx in ['top_paddle', 'bottom_paddle']:
+        #         if _dbg_gs.get(f'{_dbg_pfx}_bomb_kb_active', False):
+        #             print(f"[BombKB-DEBUG] PRE-CHECK → {_dbg_pfx} kb_active=True, is_frozen={is_frozen}, spawn_phase={self.spawn_phase}")
 
         if not is_frozen:
             # AI 패들 업데이트 (실제 게임과 동일한 파라미터)
@@ -5916,10 +5947,8 @@ class ColosseumsArena:
                         kb_vel = gs_kb.get(f'{prefix}_bomb_kb_vel', 0)
                         kb_dir = gs_kb.get(f'{prefix}_bomb_kb_dir', 0)
                         kb_frames = gs_kb.get(f'{prefix}_bomb_kb_frames', 0)
-                        print(f"[BombKB-DEBUG] APPLY → prefix={prefix}, kb_dir={kb_dir}, kb_vel={kb_vel:.1f}, kb_frames={kb_frames}, paddle_x_before={paddle.x:.1f}, stunned={paddle.is_stunned}")
                         if kb_frames > 0 and kb_vel > 0:
                             # 프레임 기반 넉백 (다이너마이트와 동일 방식)
-                            old_x = paddle.x
                             paddle.x += kb_dir * kb_vel * dt * 60
                             kb_frames -= 1
                             # 감속 (후반부 감속)
@@ -5930,10 +5959,8 @@ class ColosseumsArena:
                             # 경계 클램핑
                             paddle.x = max(GAME_AREA_X, min(paddle.x,
                                            GAME_AREA_X + GAME_AREA_WIDTH - getattr(paddle, 'width', 80)))
-                            print(f"[BombKB-DEBUG] MOVED → {old_x:.1f} → {paddle.x:.1f} (delta={paddle.x - old_x:.1f})")
                         else:
                             gs_kb[f'{prefix}_bomb_kb_active'] = False
-                            print(f"[BombKB-DEBUG] DEACTIVATED → frames={kb_frames}, vel={kb_vel:.1f}")
 
             # === 모래감옥 위치 강제 클램핑 (AI 이동 후 적용) ===
             if self.skill_manager:
@@ -6196,27 +6223,10 @@ class ColosseumsArena:
     def _draw_single_speech_bubble(self, x: float, y: float, text: str, is_top: bool):
         """개별 말풍선 그리기"""
         try:
-            # 폰트 설정 (한글 지원 Pretendard 폰트)
-            import os
-            import sys
-            font = pygame.font.Font(None, 24)
-            try:
-                if hasattr(sys, '_MEIPASS'):
-                    base = sys._MEIPASS
-                else:
-                    base = os.path.dirname(os.path.dirname(__file__))
-                font_candidates = [
-                    os.path.join(base, "fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"),
-                    os.path.join(base, "fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Regular.ttf"),
-                    os.path.join(base, "fonts", "프리텐다드", "public", "static", "Pretendard-Bold.otf"),
-                    os.path.join(base, "fonts", "NanumSquareB.ttf"),
-                ]
-                for font_path in font_candidates:
-                    if os.path.exists(font_path):
-                        font = pygame.font.Font(font_path, 20)
-                        break
-            except Exception:
-                pass
+            # 캐시된 폰트 사용 (매 프레임 디스크 로드 방지)
+            if not hasattr(self, '_speech_bubble_font'):
+                self._speech_bubble_font = self._load_korean_font(20)
+            font = self._speech_bubble_font
 
             text_surface = font.render(text, True, (0, 0, 0))
 
@@ -8222,15 +8232,25 @@ class ColosseumsArena:
             # 물음표 그리기 (폰트가 있으면 사용, 없으면 원으로 대체)
             if self.fonts and "medium" in self.fonts:
                 question_text, _ = self._render_text("medium", "?", color)
-                # 크기 조절
-                scaled_width = int(question_text.get_width() * size_factor)
-                scaled_height = int(question_text.get_height() * size_factor)
+                # 크기 조절 (10% 단위로 양자화하여 캐시 효율 향상)
+                sf_q = round(size_factor, 1)
+                scaled_width = max(1, int(question_text.get_width() * sf_q))
+                scaled_height = max(1, int(question_text.get_height() * sf_q))
                 if scaled_width > 0 and scaled_height > 0:
-                    scaled_question = pygame.transform.scale(question_text, (scaled_width, scaled_height))
+                    # 스케일된 물음표 캐시
+                    if not hasattr(self, '_question_scale_cache'):
+                        self._question_scale_cache = {}
+                    q_cache_key = (color, scaled_width, scaled_height)
+                    if q_cache_key not in self._question_scale_cache:
+                        self._question_scale_cache[q_cache_key] = pygame.transform.scale(question_text, (scaled_width, scaled_height))
+                    scaled_question = self._question_scale_cache[q_cache_key]
                     question_rect = scaled_question.get_rect(center=(int(x), int(y)))
-                    # 그림자
+                    # 그림자 캐시
                     shadow_text, _ = self._render_text("medium", "?", (50, 50, 0))
-                    scaled_shadow = pygame.transform.scale(shadow_text, (scaled_width, scaled_height))
+                    s_cache_key = (50, scaled_width, scaled_height)
+                    if s_cache_key not in self._question_scale_cache:
+                        self._question_scale_cache[s_cache_key] = pygame.transform.scale(shadow_text, (scaled_width, scaled_height))
+                    scaled_shadow = self._question_scale_cache[s_cache_key]
                     shadow_rect = scaled_shadow.get_rect(center=(int(x + 2), int(y + 2)))
                     self.screen.blit(scaled_shadow, shadow_rect)
                     self.screen.blit(scaled_question, question_rect)
@@ -9452,6 +9472,16 @@ class ColosseumsArena:
         if open_ratio >= 1.0:
             return  # 완전히 열린 상태 - 철창 안 그림
 
+        # 정적 철창 캐시 (크기+호버 상태별, 열림 애니메이션 중에는 캐시 미사용)
+        if open_ratio == 0:
+            if not hasattr(self, '_prison_bars_cache'):
+                self._prison_bars_cache = {}
+            p_cache_key = (cw, ch, is_hovered)
+            cached_bar = self._prison_bars_cache.get(p_cache_key)
+            if cached_bar is not None:
+                self.screen.blit(cached_bar, (cx, cy))
+                return
+
         bar_color = ET["iron_bar_hover"] if is_hovered else ET["iron_bar"]
         bar_light = ET["iron_bar_light"]
         bar_dark = ET["iron_bar_dark"]
@@ -9533,6 +9563,9 @@ class ColosseumsArena:
                 self.screen.blit(bar_surf, (cx, cy - shift_up))
                 self.screen.set_clip(old_clip)
         else:
+            # 정적 철창 캐시 저장
+            if hasattr(self, '_prison_bars_cache'):
+                self._prison_bars_cache[(cw, ch, is_hovered)] = bar_surf.copy()
             self.screen.blit(bar_surf, (cx, cy))
 
     def _draw_prison_select(self):
@@ -10423,18 +10456,26 @@ class ColosseumsArena:
                 pygame.draw.line(ray_surf, (255, 215, 0, ray_alpha), (center_x, 350), (end_x, end_y), 3)
             self.screen.blit(ray_surf, (0, 0))
 
-        # 바닥 무대 (금색 그라데이션 라인)
+        # 바닥 무대 (금색 그라데이션 라인) - 프리렌더 캐시
         stage_y = 540
         if intro > 0.2:
             stage_alpha = int(180 * min(1.0, (intro - 0.2) * 3))
-            stage_surf = _get_arena_surface(SCREEN_WIDTH, 4)
-            for sx in range(SCREEN_WIDTH):
-                dist = abs(sx - center_x) / (SCREEN_WIDTH / 2)
-                a = int(stage_alpha * max(0, 1.0 - dist * 1.2))
-                stage_surf.set_at((sx, 0), (255, 215, 0, a))
-                stage_surf.set_at((sx, 1), (255, 215, 0, a // 2))
-                stage_surf.set_at((sx, 2), (200, 170, 0, a // 3))
-                stage_surf.set_at((sx, 3), (150, 130, 0, a // 4))
+            # 기본 그라데이션 패턴을 캐시 (alpha 변조만 매 프레임)
+            if not hasattr(self, '_victory_stage_base'):
+                base = pygame.Surface((SCREEN_WIDTH, 4), pygame.SRCALPHA)
+                for sx in range(SCREEN_WIDTH):
+                    dist = abs(sx - center_x) / (SCREEN_WIDTH / 2)
+                    a = int(180 * max(0, 1.0 - dist * 1.2))
+                    base.set_at((sx, 0), (255, 215, 0, a))
+                    base.set_at((sx, 1), (255, 215, 0, a // 2))
+                    base.set_at((sx, 2), (200, 170, 0, a // 3))
+                    base.set_at((sx, 3), (150, 130, 0, a // 4))
+                self._victory_stage_base = base
+            stage_surf = self._victory_stage_base.copy()
+            if stage_alpha < 180:
+                alpha_mult = _get_arena_surface(SCREEN_WIDTH, 4)
+                alpha_mult.fill((255, 255, 255, stage_alpha))
+                stage_surf.blit(alpha_mult, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
             self.screen.blit(stage_surf, (0, stage_y))
 
         # === 호위무사 (양옆, 챔피언보다 먼저 등장) ===
