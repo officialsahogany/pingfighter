@@ -6392,7 +6392,7 @@ class HeroPaddleRenderer:
     # 라 - 태양의 매 (독수리 가면, 깃털 망토, 사신의 낫) [고퀄리티]
     # =========================================================================
     def _draw_ra(self, screen, cx, cy, b, color, show_back, anim):
-        """라 - 태양의 매 (독수리/매 가면, 깃털 장식, 사신의 낫) [HD 버전]"""
+        """호루스 - 천둥의 매 (독수리/매 가면, 깃털 장식, 번개 낫) [HD 버전]"""
         b = int(b * 1.2)
         lean = anim["lean"]
         wave = anim["wave"]
@@ -6857,11 +6857,11 @@ class HeroPaddleRenderer:
             g_top_x, g_top_y = grip_top_x, grip_top_y
             g_bot_x, g_bot_y = grip_bot_x, grip_bot_y
 
-        # 스윙 잔상 (낫날 궤적)
+        # 스윙 잔상 (번개 궤적)
         if abs(weapon_swing) > 0.15:
-            # 낫날 끝점 (회전 전) - 자루 상단에서 아래로 휘어진 낫날 끝
-            blade_tip_raw_x = shaft_top_x - int(0.3 * b)
-            blade_tip_raw_y = shaft_top_y + int(1.4 * b)
+            # 번개 끝점 (회전 전)
+            blade_tip_raw_x = shaft_top_x - int(0.1 * b)
+            blade_tip_raw_y = shaft_top_y + int(1.3 * b)
             trail_pts = []
             t_steps = 6
             for ti in range(t_steps + 1):
@@ -6884,7 +6884,7 @@ class HeroPaddleRenderer:
                 f_alpha = int(abs(weapon_swing) * 140 * ((ti + 1) / len(trail_pts)))
                 lp1 = (trail_pts[ti][0] - t_mn_x, trail_pts[ti][1] - t_mn_y)
                 lp2 = (trail_pts[ti + 1][0] - t_mn_x, trail_pts[ti + 1][1] - t_mn_y)
-                pygame.draw.line(t_surf, (*p["scythe_blade"], f_alpha),
+                pygame.draw.line(t_surf, (180, 220, 255, f_alpha),
                                lp1, lp2, max(2, int(0.12 * b)))
             screen.blit(t_surf, (t_mn_x, t_mn_y))
 
@@ -6899,60 +6899,88 @@ class HeroPaddleRenderer:
         pygame.draw.circle(screen, p["gold"], (g_top_x, g_top_y), ring_r)
         pygame.draw.circle(screen, p["gold"], (g_bot_x, g_bot_y), ring_r)
 
-        # ─── 낫날 (자루 상단에서 아래로 휘어진 곡선 칼날) ───
-        # 45도 자루 상단에서 수직 아래쪽으로 곡선을 그리며 휘어짐
-        blade_base_x = shaft_top_x
-        blade_base_y = shaft_top_y
-        blade_mid_x = shaft_top_x + int(0.3 * b)
-        blade_mid_y = shaft_top_y + int(0.9 * b)
-        blade_tip_x = shaft_top_x - int(0.3 * b)
-        blade_tip_y = shaft_top_y + int(1.4 * b)
-        blade_inner_x = shaft_top_x - int(0.15 * b)
-        blade_inner_y = shaft_top_y + int(0.8 * b)
+        # ─── 번개 낫날 (자루 상단에서 지그재그 번개 형상) ───
+        # 번개 꼭짓점들 (자루 상단 기준, 아래로 지그재그)
+        bolt_raw = [
+            (shaft_top_x, shaft_top_y),                                          # 0: 시작 (자루 끝)
+            (shaft_top_x + int(0.45 * b), shaft_top_y + int(0.35 * b)),          # 1: 오른쪽으로 꺾임
+            (shaft_top_x + int(0.05 * b), shaft_top_y + int(0.65 * b)),          # 2: 왼쪽으로 꺾임
+            (shaft_top_x + int(0.35 * b), shaft_top_y + int(0.95 * b)),          # 3: 오른쪽으로 꺾임
+            (shaft_top_x - int(0.1 * b), shaft_top_y + int(1.3 * b)),           # 4: 끝 (뾰족한 번개 끝)
+        ]
+        # 번개 두께용 안쪽 라인 (폭을 만들기 위해)
+        bolt_w = int(0.2 * b)
+        bolt_inner_raw = [
+            (shaft_top_x - int(0.1 * b), shaft_top_y + int(0.05 * b)),          # 0i
+            (shaft_top_x + int(0.2 * b), shaft_top_y + int(0.4 * b)),           # 1i
+            (shaft_top_x - int(0.15 * b), shaft_top_y + int(0.7 * b)),          # 2i
+            (shaft_top_x + int(0.1 * b), shaft_top_y + int(1.0 * b)),           # 3i
+        ]
 
         # 회전 적용
+        bolt_pts = []
+        bolt_inner_pts = []
         if scythe_angle != 0:
-            _rb = self._rotate_point(blade_base_x, blade_base_y, pivot_x, pivot_y, scythe_angle)
-            bb_x, bb_y = int(_rb[0]), int(_rb[1])
-            _rm = self._rotate_point(blade_mid_x, blade_mid_y, pivot_x, pivot_y, scythe_angle)
-            bm_x, bm_y = int(_rm[0]), int(_rm[1])
-            _rt = self._rotate_point(blade_tip_x, blade_tip_y, pivot_x, pivot_y, scythe_angle)
-            bt_x, bt_y = int(_rt[0]), int(_rt[1])
-            _ri = self._rotate_point(blade_inner_x, blade_inner_y, pivot_x, pivot_y, scythe_angle)
-            bi_x, bi_y = int(_ri[0]), int(_ri[1])
+            for bx, by in bolt_raw:
+                _r = self._rotate_point(bx, by, pivot_x, pivot_y, scythe_angle)
+                bolt_pts.append((int(_r[0]), int(_r[1])))
+            for bx, by in bolt_inner_raw:
+                _r = self._rotate_point(bx, by, pivot_x, pivot_y, scythe_angle)
+                bolt_inner_pts.append((int(_r[0]), int(_r[1])))
         else:
-            bb_x, bb_y = blade_base_x, blade_base_y
-            bm_x, bm_y = blade_mid_x, blade_mid_y
-            bt_x, bt_y = blade_tip_x, blade_tip_y
-            bi_x, bi_y = blade_inner_x, blade_inner_y
+            bolt_pts = [(int(x), int(y)) for x, y in bolt_raw]
+            bolt_inner_pts = [(int(x), int(y)) for x, y in bolt_inner_raw]
 
-        # 칼날 외곽 (바깥쪽 곡선 - 날카로운 엣지)
-        blade_outer_pts = [
-            (bb_x, bb_y),
-            (bm_x, bm_y),
-            (bt_x, bt_y),
-            (bi_x, bi_y),
-        ]
-        pygame.draw.polygon(screen, p["scythe_blade"], blade_outer_pts)
-        # 칼날 엣지 (밝은 선 - 날 부분)
-        pygame.draw.line(screen, p["scythe_blade_edge"],
-                        (bb_x, bb_y), (bm_x, bm_y),
-                        max(1, int(0.07 * b)))
-        pygame.draw.line(screen, p["scythe_blade_edge"],
-                        (bm_x, bm_y), (bt_x, bt_y),
-                        max(1, int(0.06 * b)))
-        # 칼날 안쪽 그림자
-        pygame.draw.line(screen, p["scythe_blade_dark"],
-                        (bi_x, bi_y), (bt_x, bt_y),
-                        max(1, int(0.05 * b)))
-        # 칼날 표면 반사광
-        refl_x = (bm_x + bi_x) // 2
-        refl_y = (bm_y + bi_y) // 2
-        refl_r = max(1, int(0.08 * b))
-        refl_surf = self._get_surface(refl_r * 4, refl_r * 4)
-        refl_a = int(40 + 25 * sun_pulse)
-        pygame.draw.circle(refl_surf, (*p["scythe_blade_edge"], refl_a), (refl_r * 2, refl_r * 2), refl_r)
-        screen.blit(refl_surf, (refl_x - refl_r * 2, refl_y - refl_r * 2))
+        # 번개 끝점 (파티클용)
+        bt_x, bt_y = bolt_pts[4]
+
+        # 번개 글로우 (외부 발광)
+        glow_r = max(2, int(0.15 * b))
+        glow_a = int(30 + 20 * sun_pulse)
+        for i in range(len(bolt_pts) - 1):
+            gx = (bolt_pts[i][0] + bolt_pts[i + 1][0]) // 2
+            gy = (bolt_pts[i][1] + bolt_pts[i + 1][1]) // 2
+            gs = self._get_surface(glow_r * 4, glow_r * 4)
+            pygame.draw.circle(gs, (255, 220, 80, glow_a), (glow_r * 2, glow_r * 2), glow_r * 2)
+            screen.blit(gs, (gx - glow_r * 2, gy - glow_r * 2))
+
+        # 번개 폴리곤 (외곽 + 안쪽으로 두께감 있는 형태)
+        lightning_poly = bolt_pts + list(reversed(bolt_inner_pts))
+        if len(lightning_poly) >= 3:
+            # 전기 색 (밝은 파란-흰색)
+            bolt_color = (180, 210, 255)
+            pygame.draw.polygon(screen, bolt_color, lightning_poly)
+            # 외곽선 (더 밝은 엣지)
+            bolt_edge = (220, 240, 255)
+            for i in range(len(bolt_pts) - 1):
+                pygame.draw.line(screen, bolt_edge,
+                                bolt_pts[i], bolt_pts[i + 1],
+                                max(1, int(0.06 * b)))
+            # 안쪽 코어 (흰색 - 중심선)
+            bolt_core = (255, 255, 255)
+            core_pts = []
+            for i in range(len(bolt_pts)):
+                if i < len(bolt_inner_pts):
+                    cx_b = (bolt_pts[i][0] + bolt_inner_pts[i][0]) // 2
+                    cy_b = (bolt_pts[i][1] + bolt_inner_pts[i][1]) // 2
+                    core_pts.append((cx_b, cy_b))
+                else:
+                    core_pts.append(bolt_pts[i])
+            for i in range(len(core_pts) - 1):
+                pygame.draw.line(screen, bolt_core,
+                                core_pts[i], core_pts[i + 1],
+                                max(1, int(0.04 * b)))
+
+        # 번개 끝 전기 스파크 (끝에서 튀는 전기)
+        spark_a = int(50 + 30 * sun_pulse)
+        for si in range(3):
+            sp_angle = t * 5.0 + si * 2.1
+            sp_len = int(0.25 * b)
+            spx = bt_x + int(_sin(sp_angle) * sp_len)
+            spy = bt_y + int(_cos(sp_angle) * sp_len)
+            sp_surf = self._get_surface(4, 4)
+            pygame.draw.circle(sp_surf, (200, 230, 255, spark_a), (2, 2), 2)
+            screen.blit(sp_surf, (spx - 2, spy - 2))
 
         # 자루-칼날 연결부 금장식
         conn_r = max(2, int(0.12 * b))
@@ -6963,7 +6991,7 @@ class HeroPaddleRenderer:
         pygame.draw.circle(screen, p["gold_dark"], (s_bot_x, s_bot_y), end_r)
         pygame.draw.circle(screen, p["gold"], (s_bot_x, s_bot_y), max(1, end_r - 1))
 
-        # 스윙 시 칼날 불꽃 파티클
+        # 스윙 시 번개 전기 파티클
         if abs(weapon_swing) > 0.3:
             burst_n = int(abs(weapon_swing) * 8)
             for bi in range(burst_n):
@@ -6974,7 +7002,7 @@ class HeroPaddleRenderer:
                 burst_r = max(1, int(0.1 * b))
                 if ba > 10:
                     bs = self._get_surface(burst_r * 2, burst_r * 2)
-                    pygame.draw.circle(bs, (*p["sun_orange"], ba), (burst_r, burst_r), burst_r)
+                    pygame.draw.circle(bs, (180, 220, 255, ba), (burst_r, burst_r), burst_r)
                     screen.blit(bs, (bx - burst_r, by - burst_r))
 
         # ─── 양팔 (낫 자루를 양손으로 잡는 포즈) ───
