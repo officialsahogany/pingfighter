@@ -135788,6 +135788,22 @@ def main(stage_num, new_boss_mode=False):
                         except Exception as _guard_err:
                             print(f"[Guard] update error: {_guard_err}")
 
+                        # 🔫 호위무사 게틀링 버스트 ↔ 탱크 변신 상태 동기화
+                        if arena_hero_paddle_renderer:
+                            _gs = arena_skill_manager.game_state
+                            for _guard_list, _guard_side in [
+                                (getattr(arena_guard_system, 'guard_warriors_top', []), 'top'),
+                                (getattr(arena_guard_system, 'guard_warriors_bottom', []), 'bottom'),
+                            ]:
+                                for _guard in _guard_list:
+                                    _g_st = arena_hero_paddle_renderer._get_state(_guard["id"])
+                                    _g_st['gatling_firing'] = _gs.get(f'gatling_burst_active_{_guard_side}', False)
+                                    _g_st['gatling_recoil'] = _gs.get(f'gatling_recoil_{_guard_side}', 0)
+                                    _g_st['gatling_mounting'] = _gs.get(f'gatling_mounting_{_guard_side}', False)
+                                    _g_st['gatling_mount_progress'] = _gs.get(f'gatling_mount_progress_{_guard_side}', 0.0)
+                                    _g_st['gatling_dismounting'] = _gs.get(f'gatling_dismounting_{_guard_side}', False)
+                                    _g_st['gatling_dismount_progress'] = _gs.get(f'gatling_dismount_progress_{_guard_side}', 0.0)
+
                     # 💣 폭탄 서프라이즈 넉백 처리 (영웅 스킬 + 호위무사 스킬 모두 포함)
                     # 호위무사 update() 이후에 실행해야 호위무사의 폭탄도 같은 프레임에 처리됨
                     _bomb_gs = arena_skill_manager.game_state
