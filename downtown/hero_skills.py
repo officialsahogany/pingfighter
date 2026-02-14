@@ -10861,6 +10861,8 @@ class BombSurprise(HeroSkill):
         self._sound_loaded = False
         self._attach_sound = None
         self._tick_sound = None
+        self._tick_sound2 = None
+        self._tick_toggle = False  # False=ticking1, True=ticking2
         self._explode_sound = None
         # 넉백/스턴 상태
         self._knockback_target = None   # 'top' or 'bottom'
@@ -10879,10 +10881,14 @@ class BombSurprise(HeroSkill):
             if os.path.exists(path1):
                 self._attach_sound = pygame.mixer.Sound(path1)
                 self._attach_sound.set_volume(0.35)
-            path2 = os.path.join(project_root, "sounds", "shurikenhit.wav")
+            path2 = os.path.join(project_root, "sounds", "ticking1.wav")
             if os.path.exists(path2):
                 self._tick_sound = pygame.mixer.Sound(path2)
                 self._tick_sound.set_volume(0.15)
+            path2b = os.path.join(project_root, "sounds", "ticking2.wav")
+            if os.path.exists(path2b):
+                self._tick_sound2 = pygame.mixer.Sound(path2b)
+                self._tick_sound2.set_volume(0.15)
             path3 = os.path.join(project_root, "sounds", "grenade.wav")
             if os.path.exists(path3):
                 self._explode_sound = pygame.mixer.Sound(path3)
@@ -10898,6 +10904,7 @@ class BombSurprise(HeroSkill):
         self.bomb_location = 'ball'   # 처음엔 공에 부착
         self.explosion_effects = []
         self._tick_sound_cd = 0.0
+        self._tick_toggle = False
         self._knockback_target = None
         self._stun_applied = False
         self._stun_timer = 0.0
@@ -10979,19 +10986,20 @@ class BombSurprise(HeroSkill):
             if self._vy_grace_timer <= 0:
                 self.last_ball_vy_sign = current_vy_sign
 
-        # 틱 사운드 (점점 빨라짐)
+        # 틱 사운드 (점점 빨라짐, ticking1/ticking2 번갈아 재생)
         self._tick_sound_cd -= dt
-        remaining = max(0, self.bomb_max_time - self.bomb_timer)
         tick_interval = max(0.12, 0.7 - (self.bomb_timer / self.bomb_max_time) * 0.58)
         if self._tick_sound_cd <= 0:
             self._tick_sound_cd = tick_interval
-            if self._tick_sound:
+            snd = self._tick_sound2 if self._tick_toggle else self._tick_sound
+            if snd:
                 try:
                     vol = 0.1 + 0.2 * (self.bomb_timer / self.bomb_max_time)
-                    self._tick_sound.set_volume(min(0.4, vol))
-                    self._tick_sound.play()
+                    snd.set_volume(min(0.4, vol))
+                    snd.play()
                 except Exception:
                     pass
+            self._tick_toggle = not self._tick_toggle
 
         # 폭발!
         if self.bomb_timer >= self.bomb_max_time:
