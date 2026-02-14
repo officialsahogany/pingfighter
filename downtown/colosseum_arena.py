@@ -537,7 +537,7 @@ BOTTOM_HEROES = [
         "power": 1.0,
         "accuracy": 0.95,
         "position": "bottom",
-        "description": "독수리 가면을 쓴 태양의 화신, 빛의 힘으로 적을 심판한다"
+        "description": "독수리 가면을 쓴 천둥의 화신, 번개의 힘으로 적을 심판한다"
     },
     {
         "id": "monkeyking",
