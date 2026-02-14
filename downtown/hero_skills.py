@@ -5578,32 +5578,51 @@ class SteamBarrier(HeroSkill):
         self.barrier_hit_rings = [r for r in self.barrier_hit_rings if r['life'] > 0]
 
         # 공 배리어 충돌 체크 (쿨다운 중이 아닐 때만)
+        # 스윕 충돌 감지: 빠른 공이 한 프레임에 배리어를 통과하는 것을 방지
         is_top = game_state.get('barrier_owner_is_top', True)
         if self.hit_cooldown <= 0:
             if is_top:
-                # 상단 배리어: 공이 아래에서 위로 접근 (ball.y > barrier_y)
-                if ball.vy < 0 and abs(ball.y - self.barrier_y) < 20 and ball.y > self.barrier_y:
-                    ball.vy = abs(ball.vy) * 1.4
-                    self.hit_cooldown = self.hit_cooldown_max  # 중복 충돌 방지
-                    game_state['screen_shake'] = 10
-                    # 배리어 충돌 플래시 이펙트
-                    self._spawn_barrier_hit_flash(ball.x + getattr(ball, 'width', 10) / 2)
-                    # 성스러운 이펙트 활성화
-                    self.holy_ball_active = True
-                    self.holy_ball_timer = self.holy_ball_duration
-                    game_state['ball_holy'] = True
+                # 상단 배리어: 공이 아래에서 위로 접근
+                if ball.vy < 0:
+                    next_y = ball.y + ball.vy
+                    # 예측 충돌: 공이 배리어 아래에 있고 다음 프레임에 배리어에 도달/통과
+                    will_cross = ball.y >= self.barrier_y and next_y <= self.barrier_y + 5
+                    # 안전망: 이전 프레임에서 배리어를 이미 통과한 경우
+                    already_past = ball.y < self.barrier_y and ball.y > self.barrier_y - abs(ball.vy) - 5
+                    # 기존 근접 감지 (저속 공용)
+                    proximity = abs(ball.y - self.barrier_y) < 20 and ball.y > self.barrier_y
+                    if will_cross or already_past or proximity:
+                        ball.y = self.barrier_y + 2  # 배리어 아래로 위치 보정
+                        ball.vy = abs(ball.vy) * 1.4
+                        self.hit_cooldown = self.hit_cooldown_max  # 중복 충돌 방지
+                        game_state['screen_shake'] = 10
+                        # 배리어 충돌 플래시 이펙트
+                        self._spawn_barrier_hit_flash(ball.x + getattr(ball, 'width', 10) / 2)
+                        # 성스러운 이펙트 활성화
+                        self.holy_ball_active = True
+                        self.holy_ball_timer = self.holy_ball_duration
+                        game_state['ball_holy'] = True
             else:
-                # 하단 배리어: 공이 위에서 아래로 접근 (ball.y < barrier_y)
-                if ball.vy > 0 and abs(ball.y - self.barrier_y) < 20 and ball.y < self.barrier_y:
-                    ball.vy = -abs(ball.vy) * 1.4
-                    self.hit_cooldown = self.hit_cooldown_max  # 중복 충돌 방지
-                    game_state['screen_shake'] = 10
-                    # 배리어 충돌 플래시 이펙트
-                    self._spawn_barrier_hit_flash(ball.x + getattr(ball, 'width', 10) / 2)
-                    # 성스러운 이펙트 활성화
-                    self.holy_ball_active = True
-                    self.holy_ball_timer = self.holy_ball_duration
-                    game_state['ball_holy'] = True
+                # 하단 배리어: 공이 위에서 아래로 접근
+                if ball.vy > 0:
+                    next_y = ball.y + ball.vy
+                    # 예측 충돌: 공이 배리어 위에 있고 다음 프레임에 배리어에 도달/통과
+                    will_cross = ball.y <= self.barrier_y and next_y >= self.barrier_y - 5
+                    # 안전망: 이전 프레임에서 배리어를 이미 통과한 경우
+                    already_past = ball.y > self.barrier_y and ball.y < self.barrier_y + abs(ball.vy) + 5
+                    # 기존 근접 감지 (저속 공용)
+                    proximity = abs(ball.y - self.barrier_y) < 20 and ball.y < self.barrier_y
+                    if will_cross or already_past or proximity:
+                        ball.y = self.barrier_y - 2  # 배리어 위로 위치 보정
+                        ball.vy = -abs(ball.vy) * 1.4
+                        self.hit_cooldown = self.hit_cooldown_max  # 중복 충돌 방지
+                        game_state['screen_shake'] = 10
+                        # 배리어 충돌 플래시 이펙트
+                        self._spawn_barrier_hit_flash(ball.x + getattr(ball, 'width', 10) / 2)
+                        # 성스러운 이펙트 활성화
+                        self.holy_ball_active = True
+                        self.holy_ball_timer = self.holy_ball_duration
+                        game_state['ball_holy'] = True
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         # 배리어 사운드 정지

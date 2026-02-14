@@ -6253,6 +6253,27 @@ class ColosseumsArena:
             if not self.battle_active:
                 return True
 
+            # 안전망: 스팀베리어 활성 중 득점 방지 (빠른 공이 베리어를 통과한 경우)
+            if self.skill_manager:
+                gs = self.skill_manager.game_state
+                if gs.get('barrier_active', False):
+                    barrier_y = gs.get('barrier_y', 0)
+                    barrier_is_top = gs.get('barrier_owner_is_top', True)
+                    # 하단 배리어 활성 중 상단 득점(공이 하단 밖으로 나감) → 배리어가 막았어야 함
+                    if not barrier_is_top and scorer == "top" and self.ball:
+                        self.ball.visible = True
+                        self.ball.y = barrier_y - 2
+                        self.ball.vy = -abs(self.ball.vy) * 1.4 if abs(self.ball.vy) > 0.1 else -10.0
+                        scorer = None
+                    # 상단 배리어 활성 중 하단 득점(공이 상단 밖으로 나감) → 배리어가 막았어야 함
+                    elif barrier_is_top and scorer == "bottom" and self.ball:
+                        self.ball.visible = True
+                        self.ball.y = barrier_y + 2
+                        self.ball.vy = abs(self.ball.vy) * 1.4 if abs(self.ball.vy) > 0.1 else 10.0
+                        scorer = None
+
+        if scorer:
+
             if scorer == "top":
                 self.score_top += 1
             else:
