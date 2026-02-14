@@ -526,6 +526,19 @@ BOTTOM_HEROES = [
         "position": "bottom",
         "description": "폭탄과 기관포로 무장한 냉혹한 전투 로봇"
     },
+    {
+        "id": "ra",
+        "name": "라",
+        "title": "태양의 매",
+        "style": HeroStyle.BALANCED,
+        "color": (230, 160, 40),  # 태양 오렌지 골드
+        "speed": 1.1,
+        "reaction": 0.95,
+        "power": 1.0,
+        "accuracy": 0.95,
+        "position": "bottom",
+        "description": "독수리 가면을 쓴 태양의 화신, 빛의 힘으로 적을 심판한다"
+    },
 ]
 
 # 전체 영웅 목록

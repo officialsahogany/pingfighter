@@ -8214,6 +8214,13 @@ class GhostSummon(HeroSkill):
     # 유령 소환 Y 위치 (맵 중앙 부근)
     GHOST_Y_POSITIONS = [325, 425]
 
+    # 공 먹기 관련 상수
+    EAT_DURATION = 1.5          # 공을 먹고 있는 시간 (초)
+    EAT_GROW_INTERVAL = 0.1     # 성장 간격 (초)
+    EAT_GROW_RATE = 0.03        # 성장률 (3%)
+    TELEPORT_DISAPPEAR_DUR = 0.3  # 순간이동 사라지는 시간
+    TELEPORT_APPEAR_DUR = 0.4     # 순간이동 나타나는 시간
+
     def __init__(self):
         super().__init__(
             skill_id="ghost_summon",
@@ -8230,6 +8237,11 @@ class GhostSummon(HeroSkill):
         self.caster_is_top = False
         self.caster_facing = "down"
         self._ghost_particles = []  # 유령 파티클
+        self._eating_ball = False   # 유령이 공을 먹고 있는 중인지
+        self._eating_ghost_id = -1  # 공을 먹고 있는 유령 ID
+        self._saved_ball_vx = 0.0   # 먹기 전 공 속도 보존
+        self._saved_ball_vy = 0.0
+        self._teleport_effects = []  # 순간이동 이펙트 파티클
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.caster_is_top = caster_paddle.is_top
@@ -8242,6 +8254,9 @@ class GhostSummon(HeroSkill):
         self.ghosts = []
         self.dying_ghosts = []
         self._ghost_particles = []
+        self._eating_ball = False
+        self._eating_ghost_id = -1
+        self._teleport_effects = []
 
         # 유령 2개를 캐스터 위치에서 출발 → 맵 중앙으로 이동
         for i, ghost_y in enumerate(self.GHOST_Y_POSITIONS):
@@ -8266,6 +8281,19 @@ class GhostSummon(HeroSkill):
                 'knockback_vx': 0.0,  # 넉백 X 속도
                 'knockback_vy': 0.0,  # 넉백 Y 속도
                 'headbutt_timer': 0.0,  # 박치기 애니메이션 타이머
+                # 공 먹기 상태
+                'eating': False,            # 공을 먹고 있는 중
+                'eat_timer': 0.0,           # 먹기 타이머
+                'eat_scale': 1.0,           # 먹기 스케일 (점점 커짐)
+                'eat_grow_acc': 0.0,        # 성장 누적 시간
+                'eat_bulge_phase': 0.0,     # 울퉁불퉁 애니메이션 위상
+                # 순간이동 상태
+                'teleporting': False,       # 순간이동 중
+                'teleport_phase': '',       # 'disappear' | 'appear' | 'release'
+                'teleport_timer': 0.0,      # 순간이동 타이머
+                'teleport_target_x': 0.0,   # 순간이동 목표 X
+                'pre_teleport_x': 0.0,      # 순간이동 전 X (이펙트용)
+                'pre_teleport_y': 0.0,      # 순간이동 전 Y (이펙트용)
             }
             self.ghosts.append(ghost)
 
@@ -8292,6 +8320,169 @@ class GhostSummon(HeroSkill):
 
             rect = ghost['rect']
 
+            # ============================================================
+            # 순간이동 처리 (공 먹기 완료 후)
+            # ============================================================
+            if ghost['teleporting']:
+                ghost['teleport_timer'] += dt
+                phase = ghost['teleport_phase']
+
+                if phase == 'disappear':
+                    # 사라지는 중 - 파티클 생성
+                    t = ghost['teleport_timer'] / self.TELEPORT_DISAPPEAR_DUR
+                    if random.random() < 0.8:
+                        angle = random.uniform(0, math.pi * 2)
+                        dist = random.uniform(5, 35) * (1.0 - t)
+                        self._teleport_effects.append({
+                            'x': ghost['pre_teleport_x'] + math.cos(angle) * dist,
+                            'y': ghost['pre_teleport_y'] + math.sin(angle) * dist,
+                            'vx': math.cos(angle) * -2.0,  # 안쪽으로 수렴
+                            'vy': math.sin(angle) * -2.0 - 1.0,
+                            'alpha': random.randint(150, 230),
+                            'size': random.randint(3, 7),
+                            'life': random.uniform(0.3, 0.6),
+                            'age': 0.0,
+                            'color': random.choice([
+                                (80, 200, 180), (60, 160, 140), (120, 240, 210), (40, 120, 100)
+                            ]),
+                            'type': 'disappear',
+                        })
+                    if ghost['teleport_timer'] >= self.TELEPORT_DISAPPEAR_DUR:
+                        # 사라짐 완료 → 새 위치로 이동
+                        ghost['teleport_phase'] = 'appear'
+                        ghost['teleport_timer'] = 0.0
+                        rect.centerx = int(ghost['teleport_target_x'])
+                        # Y는 원래 target_y 유지
+
+                elif phase == 'appear':
+                    # 나타나는 중 - 파티클 생성
+                    t = ghost['teleport_timer'] / self.TELEPORT_APPEAR_DUR
+                    if random.random() < 0.8:
+                        angle = random.uniform(0, math.pi * 2)
+                        dist = random.uniform(0, 40) * t
+                        self._teleport_effects.append({
+                            'x': float(rect.centerx) + math.cos(angle) * dist,
+                            'y': float(rect.centery) + math.sin(angle) * dist,
+                            'vx': math.cos(angle) * 3.0,  # 바깥으로 퍼짐
+                            'vy': math.sin(angle) * 3.0 - 1.5,
+                            'alpha': random.randint(150, 240),
+                            'size': random.randint(3, 8),
+                            'life': random.uniform(0.4, 0.8),
+                            'age': 0.0,
+                            'color': random.choice([
+                                (100, 220, 200), (80, 200, 180), (140, 255, 230), (60, 180, 160)
+                            ]),
+                            'type': 'appear',
+                        })
+                    if ghost['teleport_timer'] >= self.TELEPORT_APPEAR_DUR:
+                        # 나타남 완료 → 공 발사
+                        ghost['teleport_phase'] = 'release'
+                        ghost['teleport_timer'] = 0.0
+
+                elif phase == 'release':
+                    # 공 발사!
+                    if ball is not None:
+                        ball.visible = True
+                        ball.x = float(rect.centerx)
+                        ball.y = float(rect.centery)
+                        # 랜덤 방향으로 발사
+                        release_angle = random.uniform(-0.8, 0.8)
+                        base_speed = max(6.0, math.hypot(self._saved_ball_vx, self._saved_ball_vy))
+                        release_dir = 1 if self.caster_is_top else -1  # 상대 방향
+                        ball.vx = base_speed * math.sin(release_angle)
+                        ball.vy = base_speed * math.cos(release_angle) * release_dir
+                        # 최소 Y 속도 보장
+                        if abs(ball.vy) < 4.0:
+                            ball.vy = 4.0 * release_dir
+
+                    # 순간이동 종료, 정상 상태로 복귀
+                    ghost['teleporting'] = False
+                    ghost['teleport_phase'] = ''
+                    ghost['eating'] = False
+                    ghost['eat_scale'] = 1.0
+                    ghost['eat_timer'] = 0.0
+                    ghost['hit_cooldown'] = 0.5  # 발사 후 잠깐 쿨다운
+                    self._eating_ball = False
+                    self._eating_ghost_id = -1
+
+                    # 발사 사운드
+                    try:
+                        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                        sound_path = os.path.join(project_root, "sounds", "ghostwalk.wav")
+                        if os.path.exists(sound_path):
+                            s = pygame.mixer.Sound(sound_path)
+                            s.set_volume(0.4)
+                            s.play()
+                    except Exception:
+                        pass
+
+                new_ghosts.append(ghost)
+                continue
+
+            # ============================================================
+            # 공 먹기 처리
+            # ============================================================
+            if ghost['eating']:
+                ghost['eat_timer'] += dt
+                ghost['eat_bulge_phase'] += dt * 12.0  # 울퉁불퉁 애니메이션 속도
+
+                # 0.1초마다 3%씩 성장
+                ghost['eat_grow_acc'] += dt
+                while ghost['eat_grow_acc'] >= self.EAT_GROW_INTERVAL:
+                    ghost['eat_grow_acc'] -= self.EAT_GROW_INTERVAL
+                    ghost['eat_scale'] += self.EAT_GROW_RATE
+
+                # 먹기 중 이동 정지 (약간의 떨림만)
+                ghost['vx'] *= 0.85
+
+                # 먹기 중 파티클 (소화 이펙트)
+                if random.random() < 0.4:
+                    self._ghost_particles.append({
+                        'x': rect.centerx + random.randint(-20, 20),
+                        'y': rect.centery + random.randint(-15, 15),
+                        'vy': random.uniform(-2.0, -0.5),
+                        'alpha': random.randint(140, 220),
+                        'size': random.randint(2, 5),
+                        'life': random.uniform(0.3, 0.8),
+                        'age': 0.0,
+                    })
+
+                # 1.5초 후 순간이동 시작
+                if ghost['eat_timer'] >= self.EAT_DURATION:
+                    ghost['teleporting'] = True
+                    ghost['teleport_phase'] = 'disappear'
+                    ghost['teleport_timer'] = 0.0
+                    ghost['pre_teleport_x'] = float(rect.centerx)
+                    ghost['pre_teleport_y'] = float(rect.centery)
+                    # 랜덤 X 위치 (현재 위치에서 최소 100px 이상 떨어진 곳)
+                    min_x = self.GAME_LEFT + 60
+                    max_x = self.GAME_RIGHT - 60
+                    attempts = 0
+                    while attempts < 20:
+                        new_x = random.randint(int(min_x), int(max_x))
+                        if abs(new_x - rect.centerx) >= 100:
+                            break
+                        attempts += 1
+                    ghost['teleport_target_x'] = float(new_x)
+
+                    # 사라지는 사운드
+                    try:
+                        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                        sound_path = os.path.join(project_root, "sounds", "ghostwalk.wav")
+                        if os.path.exists(sound_path):
+                            s = pygame.mixer.Sound(sound_path)
+                            s.set_volume(0.3)
+                            s.play()
+                    except Exception:
+                        pass
+
+                new_ghosts.append(ghost)
+                continue
+
+            # ============================================================
+            # 일반 이동 & 충돌 (등장 이후)
+            # ============================================================
+
             # 등장 애니메이션: 캐스터 몸에서 목표 위치로 날아감
             if ghost['spawn_time'] < self.EMERGE_DURATION:
                 t = ghost['spawn_time'] / self.EMERGE_DURATION
@@ -8316,8 +8507,8 @@ class GhostSummon(HeroSkill):
                         'age': 0.0,
                     })
             else:
-                # 공 추적 이동 (공이 있으면 공의 X 방향으로 이동)
-                if ball is not None:
+                # 공 추적 이동 (공이 있고 보이면 공의 X 방향으로 이동)
+                if ball is not None and getattr(ball, 'visible', True):
                     ball_cx = ball.x + ball.width / 2
                     ghost_cx = float(rect.centerx)
                     dx = ball_cx - ghost_cx
@@ -8330,7 +8521,7 @@ class GhostSummon(HeroSkill):
                         # 공 바로 아래/위면 감속
                         ghost['vx'] *= 0.92
                 else:
-                    # 공이 없으면 약간의 난수 이동
+                    # 공이 없거나 안 보이면 약간의 난수 이동
                     ghost['vx'] += random.uniform(-0.2, 0.2)
 
                 # 좌우 이동
@@ -8370,39 +8561,34 @@ class GhostSummon(HeroSkill):
                 if ghost['headbutt_timer'] < 0:
                     ghost['headbutt_timer'] = 0.0
 
-            # 공과 충돌 체크 (등장 완료 후, 쿨다운 없을 때만)
-            if ball is not None and ghost['spawn_time'] >= self.EMERGE_DURATION and ghost['hit_cooldown'] <= 0:
+            # 공과 충돌 체크 (등장 완료 후, 쿨다운 없을 때, 다른 유령이 먹고 있지 않을 때)
+            if (ball is not None and ghost['spawn_time'] >= self.EMERGE_DURATION
+                    and ghost['hit_cooldown'] <= 0 and not self._eating_ball
+                    and getattr(ball, 'visible', True)):
                 ball_rect = pygame.Rect(int(ball.x), int(ball.y), int(ball.width), int(ball.height))
 
                 if rect.colliderect(ball_rect):
-                    # 공을 상대 방향으로 쳐냄
-                    hit_offset = (ball.x + ball.width / 2) - rect.centerx
-                    angle_factor = hit_offset / (self.GHOST_WIDTH / 2)
+                    # 공 먹기 시작!
+                    ghost['eating'] = True
+                    ghost['eat_timer'] = 0.0
+                    ghost['eat_scale'] = 1.0
+                    ghost['eat_grow_acc'] = 0.0
+                    ghost['eat_bulge_phase'] = 0.0
+                    ghost['hit_cooldown'] = 99.0  # 먹는 동안 충돌 방지
+                    self._eating_ball = True
+                    self._eating_ghost_id = ghost['id']
 
-                    if self.caster_is_top:
-                        # 캐스터가 상단 → 유령이 공을 아래로 (상대 쪽으로)
-                        ball.vy = abs(ball.vy) * 1.15
-                    else:
-                        # 캐스터가 하단 → 유령이 공을 위로 (상대 쪽으로)
-                        ball.vy = -abs(ball.vy) * 1.15
+                    # 공 속도 저장 후 숨김
+                    self._saved_ball_vx = ball.vx
+                    self._saved_ball_vy = ball.vy
+                    ball.visible = False
+                    ball.vx = 0.0
+                    ball.vy = 0.0
 
-                    ball.vx = ball.vx * 0.7 + angle_factor * 4.0
-
-                    # 충돌 쿨다운 설정 (0.3초 동안 재충돌 방지)
-                    ghost['hit_cooldown'] = 0.3
-
-                    # 유령 넉백 (공을 친 반대 방향으로 밀려남)
-                    knockback_dir = 1 if self.caster_is_top else -1  # 캐스터 쪽으로 밀림
-                    ghost['knockback_vy'] = knockback_dir * 60.0
-                    ghost['knockback_vx'] = -angle_factor * 30.0
-
-                    # 박치기 애니메이션 트리거
-                    ghost['headbutt_timer'] = 0.3  # 0.3초 동안 박치기 모션
-
-                    # 타격 사운드
+                    # 먹기 사운드 (흡수하는 느낌)
                     try:
                         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                        sound_path = os.path.join(project_root, "sounds", "shurikenhit.wav")
+                        sound_path = os.path.join(project_root, "sounds", "grab.wav")
                         if os.path.exists(sound_path):
                             s = pygame.mixer.Sound(sound_path)
                             s.set_volume(0.5)
@@ -8438,6 +8624,24 @@ class GhostSummon(HeroSkill):
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['has_ghost_summon'] = False
+
+        # 공을 먹고 있는 유령이 있으면 공을 복원
+        if self._eating_ball and ball is not None:
+            ball.visible = True
+            # 마지막으로 먹고 있던 유령 위치에서 발사
+            for ghost in self.ghosts:
+                if ghost['id'] == self._eating_ghost_id:
+                    ball.x = float(ghost['rect'].centerx)
+                    ball.y = float(ghost['rect'].centery)
+                    break
+            release_dir = 1 if self.caster_is_top else -1
+            ball.vx = self._saved_ball_vx * 0.5
+            ball.vy = abs(self._saved_ball_vy) * release_dir
+            if abs(ball.vy) < 4.0:
+                ball.vy = 4.0 * release_dir
+            self._eating_ball = False
+            self._eating_ghost_id = -1
+
         # 남은 유령을 dying_ghosts로 이동
         for ghost in self.ghosts:
             if ghost['active']:
@@ -8453,6 +8657,9 @@ class GhostSummon(HeroSkill):
         self.ghosts = []
         self.dying_ghosts = []
         self._ghost_particles = []
+        self._teleport_effects = []
+        self._eating_ball = False
+        self._eating_ghost_id = -1
         game_state['has_ghost_summon'] = False
 
     def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
@@ -8465,6 +8672,18 @@ class GhostSummon(HeroSkill):
                 if dying['death_time'] < self.DEATH_DURATION:
                     new_dying.append(dying)
             self.dying_ghosts = new_dying
+        # 순간이동 이펙트도 is_active 관계없이 업데이트
+        if self._teleport_effects:
+            new_tp = []
+            for p in self._teleport_effects:
+                p['age'] += dt
+                p['x'] += p['vx'] * dt
+                p['y'] += p['vy'] * dt
+                ratio = max(0, 1.0 - p['age'] / p['life'])
+                p['alpha'] = int(p['alpha'] * ratio)
+                if p['age'] < p['life'] and p['alpha'] > 5:
+                    new_tp.append(p)
+            self._teleport_effects = new_tp
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         renderer = get_shadow_clone_renderer() if HERO_PADDLE_RENDERER_AVAILABLE else None
@@ -8483,10 +8702,101 @@ class GhostSummon(HeroSkill):
                 color = (100, 200, 180, int(p['alpha']))
                 pygame.draw.circle(screen, color, (int(p['x']), int(p['y'])), p['size'])
 
+        # 순간이동 이펙트 파티클 그리기
+        for p in self._teleport_effects:
+            if p['alpha'] > 5:
+                c = p['color']
+                alpha = int(min(255, p['alpha']))
+                size = max(1, p['size'])
+                surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(surf, (*c, alpha), (size, size), size)
+                screen.blit(surf, (int(p['x']) - size, int(p['y']) - size))
+
     def _draw_ghost(self, screen: pygame.Surface, ghost: dict, renderer):
         """활성 유령 렌더링 - 반투명 유령 캐릭터"""
         rect = ghost['rect']
         spawn_time = ghost['spawn_time']
+
+        # ============================================================
+        # 순간이동 중 렌더링
+        # ============================================================
+        if ghost['teleporting']:
+            phase = ghost['teleport_phase']
+            timer = ghost['teleport_timer']
+
+            if phase == 'disappear':
+                # 사라지는 중: 점점 작아지며 투명해짐
+                t = min(1.0, timer / self.TELEPORT_DISAPPEAR_DUR)
+                alpha = int(180 * (1.0 - t))
+                shrink_scale = ghost['eat_scale'] * (1.0 - t * 0.8)
+                x = int(ghost['pre_teleport_x'])
+                y = int(ghost['pre_teleport_y'])
+                if alpha > 10:
+                    # 소용돌이 회전 효과
+                    rotate_offset_x = int(8 * _sin(timer * 25) * (1.0 - t))
+                    rotate_offset_y = int(8 * math.cos(timer * 25) * (1.0 - t))
+                    self._draw_fallback_ghost(screen, x + rotate_offset_x,
+                                            y + rotate_offset_y, alpha, shrink_scale)
+                return
+
+            elif phase == 'appear':
+                # 나타나는 중: 점점 커지며 나타남
+                t = min(1.0, timer / self.TELEPORT_APPEAR_DUR)
+                # 탄성 바운스 이징
+                if t < 0.6:
+                    ease_t = (t / 0.6) ** 0.5
+                else:
+                    overshoot = (t - 0.6) / 0.4
+                    ease_t = 1.0 + 0.15 * _sin(overshoot * math.pi)
+                alpha = int(180 * min(1.0, t * 1.5))
+                appear_scale = 0.2 + 0.8 * ease_t
+                x = rect.centerx
+                y = rect.centery
+                if alpha > 10:
+                    self._draw_fallback_ghost(screen, x, y, alpha, appear_scale)
+                return
+
+            elif phase == 'release':
+                # 발사 직후 - 일반 렌더링으로 넘어감
+                pass
+
+        # ============================================================
+        # 공 먹기 중 렌더링
+        # ============================================================
+        if ghost['eating']:
+            emerge_progress = min(1.0, spawn_time / self.EMERGE_DURATION)
+            alpha = int(180 * emerge_progress)
+            x = rect.centerx
+            y = rect.centery
+
+            eat_scale = ghost['eat_scale']
+            bulge_phase = ghost['eat_bulge_phase']
+
+            # 울퉁불퉁 애니메이션: sin 파형으로 X/Y 스케일 비대칭 변화
+            bulge_x = eat_scale * (1.0 + 0.06 * _sin(bulge_phase))
+            bulge_y = eat_scale * (1.0 + 0.06 * _sin(bulge_phase + 1.5))
+
+            # 약간의 떨림 (소화 중)
+            shake_x = int(2 * _sin(bulge_phase * 3.7))
+            shake_y = int(1.5 * math.cos(bulge_phase * 2.9))
+
+            # 바닥 그림자 (먹기 스케일에 맞게)
+            shadow_width = int(self.GHOST_WIDTH * 0.8 * eat_scale)
+            shadow_alpha = int(alpha * 0.35)
+            shadow_y_base = rect.centery + 20
+            shadow_surf = pygame.Surface((shadow_width, 8), pygame.SRCALPHA)
+            pygame.draw.ellipse(shadow_surf, (10, 20, 18, shadow_alpha),
+                              (0, 0, shadow_width, 8))
+            screen.blit(shadow_surf, (x - shadow_width // 2, shadow_y_base))
+
+            # 울퉁불퉁한 유령 렌더링
+            self._draw_eating_ghost(screen, x + shake_x, y + shake_y,
+                                   alpha, bulge_x, bulge_y, ghost['eat_timer'])
+            return
+
+        # ============================================================
+        # 일반 렌더링
+        # ============================================================
 
         # 등장 시 페이드인
         emerge_progress = min(1.0, spawn_time / self.EMERGE_DURATION)
@@ -8571,6 +8881,76 @@ class GhostSummon(HeroSkill):
             pygame.draw.circle(body_surf, bright_eye, (int(32*s), int(18*s)), eye_size + 2)
 
         screen.blit(body_surf, (x - surf_w // 2, y - surf_h + int(10*s)))
+
+    def _draw_eating_ghost(self, screen: pygame.Surface, x: int, y: int,
+                           alpha: int, scale_x: float, scale_y: float, eat_timer: float):
+        """공을 먹고 있는 유령 렌더링 - 울퉁불퉁한 비대칭 스케일"""
+        ghost_color = (80, 180, 160, alpha)
+        eye_color = (140, 255, 230, alpha)
+
+        base_w, base_h = 50, 60
+        surf_w = int(base_w * scale_x) + 4
+        surf_h = int(base_h * scale_y) + 4
+        body_surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+
+        sx, sy = scale_x, scale_y
+        ticks = pygame.time.get_ticks() * 0.001
+
+        # 유령 몸체 (비대칭 스케일로 울퉁불퉁한 느낌)
+        body_w = int(40 * sx)
+        body_h = int(35 * sy)
+        pygame.draw.ellipse(body_surf, ghost_color,
+                          (int(5 * sx), int(5 * sy), body_w, body_h))
+
+        # 볼록한 부분 (공이 배 안에서 움직이는 느낌)
+        bulge_x_offset = int(8 * _sin(eat_timer * 6.0))
+        bulge_y_offset = int(5 * math.cos(eat_timer * 4.5))
+        bulge_r = int(8 * min(sx, sy))
+        bulge_cx = int(25 * sx) + bulge_x_offset
+        bulge_cy = int(22 * sy) + bulge_y_offset
+        bulge_color = (90, 195, 175, min(255, int(alpha * 1.1)))
+        pygame.draw.circle(body_surf, bulge_color, (bulge_cx, bulge_cy), bulge_r)
+
+        # 아래쪽 물결 모양 (더 격하게 출렁거림)
+        for i in range(4):
+            wave_x = int((8 + i * 10) * sx)
+            wave_h = int(15 * sy) + int(5 * _sin(ticks * 8 + i * 1.5 + eat_timer * 4))
+            pygame.draw.ellipse(body_surf, ghost_color,
+                              (wave_x - int(5 * sx), int(30 * sy), int(10 * sx), wave_h))
+
+        # 눈 (먹는 중 - 만족스러운 표정, 초승달 눈)
+        eye_y = int(16 * sy)
+        left_eye_x = int(18 * sx)
+        right_eye_x = int(32 * sx)
+        eye_sz = max(2, int(3.5 * min(sx, sy)))
+
+        # 먹는 동안 눈을 초승달 모양으로 (행복한 표정)
+        # 아래쪽 반원을 검정으로 덮어서 초승달 효과
+        pygame.draw.circle(body_surf, eye_color, (left_eye_x, eye_y), eye_sz)
+        pygame.draw.circle(body_surf, eye_color, (right_eye_x, eye_y), eye_sz)
+        # 눈 아래쪽 가리기 (초승달)
+        cover_color = ghost_color
+        pygame.draw.circle(body_surf, cover_color, (left_eye_x, eye_y + 2), eye_sz)
+        pygame.draw.circle(body_surf, cover_color, (right_eye_x, eye_y + 2), eye_sz)
+
+        # 입 (크게 벌린 O자 모양 → 씹는 모션)
+        mouth_x = int(25 * sx)
+        mouth_y = int(25 * sy)
+        chew_phase = _sin(eat_timer * 8.0)
+        mouth_h = max(2, int((4 + 3 * abs(chew_phase)) * min(sx, sy)))
+        mouth_w = max(3, int((6 + 2 * chew_phase) * min(sx, sy)))
+        mouth_color = (40, 80, 70, min(255, int(alpha * 1.2)))
+        pygame.draw.ellipse(body_surf, mouth_color,
+                          (mouth_x - mouth_w // 2, mouth_y - mouth_h // 2,
+                           mouth_w, mouth_h))
+
+        # 눈 글로우 (먹는 중 밝게)
+        glow_alpha = min(255, int(alpha * 1.3))
+        glow_color = (160, 255, 235, glow_alpha)
+        pygame.draw.circle(body_surf, glow_color, (left_eye_x, eye_y - 1), max(1, eye_sz - 1))
+        pygame.draw.circle(body_surf, glow_color, (right_eye_x, eye_y - 1), max(1, eye_sz - 1))
+
+        screen.blit(body_surf, (x - surf_w // 2, y - surf_h + int(10 * sy)))
 
     def _draw_dying_ghost(self, screen: pygame.Surface, dying: dict, renderer):
         """소멸 중인 유령 (위로 떠오르며 사라짐)"""
@@ -12524,6 +12904,7 @@ HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "joker": [BalloonWall(), DeadPossession()],
     "mirage": [SandPrison(), SandVortex()],
     "android": [BombSurprise(), GatlingBurst()],
+    "ra": [SandPrison(), SandVortex()],  # TODO: 라 전용 스킬 추가 예정 (임시로 세트 스킬 사용)
 }
 
 # 스킬 클래스 매핑 (호위무사 시스템 등에서 독립 인스턴스 생성용)
@@ -12541,6 +12922,7 @@ HERO_SKILL_CLASSES: Dict[str, list] = {
     "joker": [BalloonWall, DeadPossession],
     "mirage": [SandPrison, SandVortex],
     "android": [BombSurprise, GatlingBurst],
+    "ra": [SandPrison, SandVortex],  # TODO: 라 전용 스킬 추가 예정
 }
 
 
