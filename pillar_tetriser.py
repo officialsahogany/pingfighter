@@ -727,7 +727,7 @@ class CrystalShieldSystem:
 
             # 디버그: 현재 타이머 출력 (0.5초마다)
             if int(self.animation_timer * 2) != int((self.animation_timer - dt) * 2):
-                # print(f"[CrystalShield] Aura phase: timer={self.animation_timer:.2f}, shockwave_phase={self.shockwave_phase}")
+                pass  # print(f"[CrystalShield] Aura phase: timer={self.animation_timer:.2f}, shockwave_phase={self.shockwave_phase}")
 
             if self.animation_timer < 1.2:
                 # Phase 1a: 아우라 파티클이 보스에게 모임
