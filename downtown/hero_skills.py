@@ -14602,8 +14602,10 @@ class WildRoar(HeroSkill):
                 self._trigger_distance = random.uniform(
                     self.TRIGGER_DIST_MIN, self.TRIGGER_DIST_MAX)
 
-            # 패들~공 사이 거리 계산
+            # 패들~공 사이 거리 계산 (X축 + Y축 모두 감지)
+            ball_cx = ball.x + getattr(ball, 'width', 10) / 2
             ball_cy = ball.y + getattr(ball, 'height', 10) / 2
+            paddle_cx = caster_paddle.x + caster_paddle.width // 2
             if self.caster_is_top:
                 paddle_edge = caster_paddle.y + caster_paddle.height
                 approaching = ball.vy < 0
@@ -14613,7 +14615,11 @@ class WildRoar(HeroSkill):
                 approaching = ball.vy > 0
                 dist_to_ball = paddle_edge - ball_cy
 
-            if approaching and 0 < dist_to_ball <= self._trigger_distance:
+            # X축 거리도 충격파 반경 이내인지 확인 (반사 실패 방지)
+            dx = abs(ball_cx - paddle_cx)
+            in_x_range = dx <= self.SHOCKWAVE_RADIUS
+
+            if approaching and 0 < dist_to_ball <= self._trigger_distance and in_x_range:
                 self._ball_in_range = True
                 # 거리 기반 부스트: 가까움 3.6x(260%) ↔ 멀음 2.6x(160%)
                 t = max(0, min(1, (self._trigger_distance - self.TRIGGER_DIST_MIN)
