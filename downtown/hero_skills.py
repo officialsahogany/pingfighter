@@ -13645,7 +13645,7 @@ class ThunderOrb(HeroSkill):
         # === Layer 1: 외부 글로우 ===
         for i in range(3):
             glow_r = int(vr * (0.8 - i * 0.11) * pulse)
-            glow_a = int(8 - i * 2)
+            glow_a = int(30 - i * 6)
             if glow_a > 0 and glow_r > 0:
                 pygame.draw.circle(ball_surf, (*self.ORB_OUTER_COLOR, glow_a),
                                    (center, center), glow_r)
@@ -13675,7 +13675,7 @@ class ThunderOrb(HeroSkill):
                 px = center + x_off
                 py = center + y_off
                 pt_size = max(1, int(1.7 + depth_f * 1.3))
-                pt_alpha = int(15 + depth_f * 35)
+                pt_alpha = int(50 + depth_f * 80)
                 br, bg, bb = self.ORB_RING_COLOR
                 cr = int(min(255, br * 0.3 + depth_f * br * 0.7 + ring_idx * 5))
                 cg = int(min(255, bg * 0.3 + depth_f * bg * 0.7 + ring_idx * 10))
@@ -13688,30 +13688,30 @@ class ThunderOrb(HeroSkill):
                 for i in range(len(ring_pts)):
                     start = ring_pts[i]
                     end = ring_pts[(i + 1) % len(ring_pts)]
-                    pygame.draw.line(ball_surf, (*self.ORB_RING_COLOR, 10), start, end, 1)
+                    pygame.draw.line(ball_surf, (*self.ORB_RING_COLOR, 35), start, end, 1)
 
         # === Layer 3: 내부 에너지 구체 ===
         outer_glow = int(vr * 0.36 * pulse2)
-        pygame.draw.circle(ball_surf, (*self.ORB_INNER_COLOR, 25), (center, center), outer_glow)
+        pygame.draw.circle(ball_surf, (*self.ORB_INNER_COLOR, 70), (center, center), outer_glow)
         mid_glow = int(vr * 0.29 * pulse)
         mid_col = tuple(int(c * 0.8 + 50) for c in self.ORB_INNER_COLOR)
-        pygame.draw.circle(ball_surf, (*mid_col, 40), (center, center), mid_glow)
+        pygame.draw.circle(ball_surf, (*mid_col, 110), (center, center), mid_glow)
         inner_sph = int(vr * 0.26)
         inner_col = tuple(int(min(255, c * 0.7 + 80)) for c in self.ORB_INNER_COLOR)
-        pygame.draw.circle(ball_surf, (*inner_col, 60), (center, center), inner_sph)
+        pygame.draw.circle(ball_surf, (*inner_col, 160), (center, center), inner_sph)
 
         # === Layer 4: 밝은 코어 ===
         core_sz = int(vr * 0.18)
         core_glow_col = tuple(int(min(255, c * 0.5 + 128)) for c in self.ORB_RING_COLOR)
-        pygame.draw.circle(ball_surf, (*core_glow_col, 80), (center, center), core_sz + 2)
-        pygame.draw.circle(ball_surf, (*self.ORB_CORE_COLOR, 150), (center, center), core_sz)
-        pygame.draw.circle(ball_surf, (255, 255, 255, 200), (center, center), max(2, core_sz // 2))
+        pygame.draw.circle(ball_surf, (*core_glow_col, 160), (center, center), core_sz + 2)
+        pygame.draw.circle(ball_surf, (*self.ORB_CORE_COLOR, 230), (center, center), core_sz)
+        pygame.draw.circle(ball_surf, (255, 255, 255, 245), (center, center), max(2, core_sz // 2))
 
         # === Layer 5: 상단 하이라이트 ===
         hl_x = center - int(vr * 0.11)
         hl_y = center - int(vr * 0.11)
         hl_sz = max(1, int(vr * 0.07))
-        pygame.draw.circle(ball_surf, (255, 255, 255, 80), (hl_x, hl_y), hl_sz)
+        pygame.draw.circle(ball_surf, (255, 255, 255, 160), (hl_x, hl_y), hl_sz)
 
         # === Layer 6: 떠다니는 에너지 파티클 ===
         for p in self.energy_particles:
