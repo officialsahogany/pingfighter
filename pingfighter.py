@@ -135810,6 +135810,12 @@ def main(stage_num, new_boss_mode=False):
                                 arena_skill_manager.game_state['chronos_cast_pose_timer'] = _cast_timer - dt
                             arena_hero_paddle_renderer.set_staff_hold_outward(_hero_id, _chronos_gravity or _cast_timer > 0)
 
+                        # 원숭이왕 포효 포즈
+                        if arena_skill_manager.game_state.get('monkeyking_roar_pose', False):
+                            arena_hero_paddle_renderer.set_roar_pose("monkeyking", True)
+                        else:
+                            arena_hero_paddle_renderer.set_roar_pose("monkeyking", False)
+
                         # 쿠로카게 수리검 발사 시 무기 휘두르기
                         if arena_skill_manager.game_state.get('kurokage_weapon_swing'):
                             arena_skill_manager.game_state['kurokage_weapon_swing'] = False

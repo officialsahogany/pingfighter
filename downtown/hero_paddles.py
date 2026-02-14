@@ -140,6 +140,11 @@ class HeroPaddleRenderer:
         state = self._get_state(hero_id)
         state["staff_hold_outward"] = hold
 
+    def set_roar_pose(self, hero_id: str, active: bool):
+        """야생의 포효 중 양팔 벌리고 무릎 굽힌 포즈 (원숭이왕 전용)"""
+        state = self._get_state(hero_id)
+        state["roar_pose"] = active
+
     def _rotate_point(self, px, py, pivot_x, pivot_y, angle):
         """점 (px, py)을 pivot 기준으로 angle(라디안)만큼 회전"""
         dx, dy = px - pivot_x, py - pivot_y
@@ -241,6 +246,8 @@ class HeroPaddleRenderer:
             "arm_slam": arm_slam,
             # 키르케 중력조작 지팡이 펼침
             "staff_hold_outward": state.get("staff_hold_outward", False),
+            # 원숭이왕 포효 포즈
+            "roar_pose": state.get("roar_pose", False),
         }
 
     def draw_hero_paddle(self, screen: pygame.Surface, hero_id: str,
@@ -8697,15 +8704,26 @@ class HeroPaddleRenderer:
             leg_lift = left_leg_lift if side == -1 else right_leg_lift
 
             hip_x = cx + side * int(0.5 * b) + lean_offset
-            # 무릎 (크게 구부러진)
-            knee_x = hip_x + int(leg_sway * 0.6 * b) + side * int(0.15 * b)
-            knee_y = hip_y + int(0.8 * b) - int(leg_lift * 0.3 * b) + int(swagger_bob * 0.3)
-            # 발목
-            ankle_x = knee_x + int(leg_sway * 0.3 * b)
-            ankle_y = knee_y + int(0.6 * b) - int(leg_lift * 0.2 * b)
-            # 발 (넓고 평평한 유인원 발)
-            foot_x = ankle_x + side * int(0.1 * b)
-            foot_y = ankle_y + int(0.15 * b)
+
+            if roar_pose:
+                # ── 포효 포즈: 다리 넓게 벌리고 무릎 깊이 굽힘 ──
+                hip_x = cx + side * int(0.75 * b) + lean_offset
+                knee_x = hip_x + side * int(0.4 * b)
+                knee_y = hip_y + int(0.5 * b)
+                ankle_x = knee_x - side * int(0.15 * b)
+                ankle_y = knee_y + int(0.7 * b)
+                foot_x = ankle_x + side * int(0.15 * b)
+                foot_y = ankle_y + int(0.15 * b)
+            else:
+                # 무릎 (크게 구부러진)
+                knee_x = hip_x + int(leg_sway * 0.6 * b) + side * int(0.15 * b)
+                knee_y = hip_y + int(0.8 * b) - int(leg_lift * 0.3 * b) + int(swagger_bob * 0.3)
+                # 발목
+                ankle_x = knee_x + int(leg_sway * 0.3 * b)
+                ankle_y = knee_y + int(0.6 * b) - int(leg_lift * 0.2 * b)
+                # 발 (넓고 평평한 유인원 발)
+                foot_x = ankle_x + side * int(0.1 * b)
+                foot_y = ankle_y + int(0.15 * b)
 
             thigh_thick = max(3, int(0.35 * b))
             shin_thick = max(2, int(0.28 * b))
@@ -8902,6 +8920,7 @@ class HeroPaddleRenderer:
 
         # ─── 양팔 (매우 긴 원숭이 팔 - 무릎 아래까지 늘어짐) ───
         arm_thick = max(2, int(0.26 * b))
+        roar_pose = anim.get("roar_pose", False)
 
         for side in [-1, 1]:
             arm_swing = left_arm_swing if side == -1 else right_arm_swing
@@ -8910,17 +8929,26 @@ class HeroPaddleRenderer:
             s_x = cx + side * int(1.15 * b) + lean_offset
             s_y = shoulder_y_pos + int(0.2 * b)
 
-            # 기본 팔 늘어뜨림 (원숭이 특유의 긴 팔)
-            # 팔꿈치 (바깥쪽으로 살짝 벌어짐)
-            elbow_x = s_x + side * int(0.5 * b) + int(arm_swing * 1.2 * b)
-            elbow_y = s_y + int(1.5 * b) + int(arm_swing * 0.3 * b)
+            # ── 야생의 포효 포즈: 양팔 크게 벌리기 ──
+            if roar_pose:
+                # 팔꿈치를 바깥+위로 크게 벌림
+                elbow_x = s_x + side * int(1.6 * b)
+                elbow_y = s_y + int(0.4 * b)
+                # 손목: 팔꿈치에서 바깥+아래로
+                wrist_x = elbow_x + side * int(1.0 * b)
+                wrist_y = elbow_y + int(0.9 * b)
+            else:
+                # 기본 팔 늘어뜨림 (원숭이 특유의 긴 팔)
+                # 팔꿈치 (바깥쪽으로 살짝 벌어짐)
+                elbow_x = s_x + side * int(0.5 * b) + int(arm_swing * 1.2 * b)
+                elbow_y = s_y + int(1.5 * b) + int(arm_swing * 0.3 * b)
 
-            # 손목 (무릎 근처까지 늘어짐)
-            wrist_x = elbow_x + side * int(0.15 * b) + int(arm_swing * 0.8 * b)
-            wrist_y = elbow_y + int(1.2 * b) + int(arm_swing * 0.2 * b)
+                # 손목 (무릎 근처까지 늘어짐)
+                wrist_x = elbow_x + side * int(0.15 * b) + int(arm_swing * 0.8 * b)
+                wrist_y = elbow_y + int(1.2 * b) + int(arm_swing * 0.2 * b)
 
             # 타격 모션 - 한쪽 팔 휘두르기
-            if abs(weapon_swing) > 0.05:
+            if not roar_pose and abs(weapon_swing) > 0.05:
                 swing_dir = -1 if show_back else 1
                 hit_side = 1 if not show_back else -1  # 정면: 오른팔, 후면: 왼팔
                 if side == hit_side:

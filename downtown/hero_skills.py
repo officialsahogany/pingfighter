@@ -14459,11 +14459,14 @@ class WildRoar(HeroSkill):
                 ]),
             })
 
-        # 포효 중 0.6초 이동 불가
+        # 포효 중 0.6초 이동 불가 + 포효 포즈
         self.roar_freeze_timer = self.ROAR_FREEZE_TIME
         self._freeze_applied = True
         caster_prefix = 'top_paddle' if self.caster_is_top else 'bottom_paddle'
         game_state[f'{caster_prefix}_stunned'] = True
+
+        # 포효 포즈 플래그 (양팔 벌리고 무릎 굽힘)
+        game_state['monkeyking_roar_pose'] = True
 
         self._load_sounds()
         if self._roar_sound:
@@ -14493,6 +14496,8 @@ class WildRoar(HeroSkill):
                 caster_prefix = 'top_paddle' if self.caster_is_top else 'bottom_paddle'
                 game_state[f'{caster_prefix}_stunned'] = False
                 self._freeze_applied = False
+                # 포효 포즈 해제
+                game_state['monkeyking_roar_pose'] = False
 
         # 충격파 중심 (패들 따라감)
         self._cx = caster_paddle.x + caster_paddle.width // 2
@@ -14634,12 +14639,13 @@ class WildRoar(HeroSkill):
         self.impact_particles = []
         self.energy_sparks = []
         self.flash_alpha = 0
-        # 스턴 안전 해제
+        # 스턴 + 포즈 안전 해제
         if self._freeze_applied:
             caster_prefix = 'top_paddle' if self.caster_is_top else 'bottom_paddle'
             game_state[f'{caster_prefix}_stunned'] = False
             self._freeze_applied = False
         self.roar_freeze_timer = 0
+        game_state['monkeyking_roar_pose'] = False
 
     def reset_for_new_round(self, game_state: dict):
         super().reset_for_new_round(game_state)
@@ -14658,6 +14664,7 @@ class WildRoar(HeroSkill):
         self.roar_freeze_timer = 0
         self._trigger_distance = 0.0
         self._actual_boost = self.BALL_SPEED_BOOST
+        game_state['monkeyking_roar_pose'] = False
 
     # ------------------------------------------------------------------
     # 렌더링
