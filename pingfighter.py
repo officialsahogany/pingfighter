@@ -8068,19 +8068,28 @@ def _fullscreen_flip():
             _draw_pillar_ui(REAL_SCREEN, pillar_renderer)
 
         # 🛡️ 호위무사 아이콘 UI (필러 배경 위에 그리기)
+        # 쿨타임 큐 UI 활성화 시 기존 아이콘 비활성화
         _guard_hover = None
         if arena_mode_enabled and arena_guard_system:
+            _skip_guard_icons = False
             try:
-                _real_mpos = _original_mouse_get_pos()
-                _guard_hover = arena_guard_system.draw_guard_icons(
-                    REAL_SCREEN,
-                    game_offset_x=GAME_OFFSET_X,
-                    game_offset_y=GAME_OFFSET_Y,
-                    game_scale=GAME_SCALE_FACTOR,
-                    mouse_pos=_real_mpos,
-                )
+                from downtown.colosseum_arena import ColosseumsArena as _CA
+                if hasattr(_CA, '_active_instance') and _CA._active_instance:
+                    _skip_guard_icons = getattr(_CA._active_instance, '_use_queue_ui', False)
             except Exception:
                 pass
+            if not _skip_guard_icons:
+                try:
+                    _real_mpos = _original_mouse_get_pos()
+                    _guard_hover = arena_guard_system.draw_guard_icons(
+                        REAL_SCREEN,
+                        game_offset_x=GAME_OFFSET_X,
+                        game_offset_y=GAME_OFFSET_Y,
+                        game_scale=GAME_SCALE_FACTOR,
+                        mouse_pos=_real_mpos,
+                    )
+                except Exception:
+                    pass
 
         # 🏅 퍽 아이콘 UI (필러 배경, 호위무사 위/아래)
         _perk_hover = None
@@ -8219,18 +8228,27 @@ def _fullscreen_update(*args, **kwargs):
             _draw_pillar_ui(REAL_SCREEN, pillar_renderer)
 
         # 🛡️ 호위무사 아이콘 UI (필러 배경 위에 그리기)
+        # 쿨타임 큐 UI 활성화 시 기존 아이콘 비활성화
         _guard_hover2 = None
         if arena_mode_enabled and arena_guard_system:
+            _skip_guard_icons2 = False
             try:
-                _real_mpos2 = _original_mouse_get_pos()
-                _guard_hover2 = arena_guard_system.draw_guard_icons(
-                    REAL_SCREEN,
-                    game_offset_x=GAME_OFFSET_X,
-                    game_offset_y=GAME_OFFSET_Y,
-                    game_scale=GAME_SCALE_FACTOR,
-                    mouse_pos=_real_mpos2,
-                )
+                from downtown.colosseum_arena import ColosseumsArena as _CA2
+                if hasattr(_CA2, '_active_instance') and _CA2._active_instance:
+                    _skip_guard_icons2 = getattr(_CA2._active_instance, '_use_queue_ui', False)
             except Exception:
+                pass
+            if not _skip_guard_icons2:
+                try:
+                    _real_mpos2 = _original_mouse_get_pos()
+                    _guard_hover2 = arena_guard_system.draw_guard_icons(
+                        REAL_SCREEN,
+                        game_offset_x=GAME_OFFSET_X,
+                        game_offset_y=GAME_OFFSET_Y,
+                        game_scale=GAME_SCALE_FACTOR,
+                        mouse_pos=_real_mpos2,
+                    )
+                except Exception:
                 pass
 
         # 🏅 퍽 아이콘 UI (필러 배경, 호위무사 위/아래)

@@ -5099,6 +5099,97 @@ class GuardWarriorSystem:
             pygame.draw.circle(screen, color, (cx, cy), 14)
             pygame.draw.circle(screen, (255, 255, 255), (cx, cy), 14, 2)
 
+    def get_all_cooldown_entries(self):
+        """모든 호위무사의 스킬 쿨타임 정보를 통합 리스트로 반환 (쿨타임 큐 UI용)
+
+        Returns: list of dicts with keys:
+            hero_id, hero_name, hero_color, cooldown_remaining, cooldown_max,
+            is_active, source_type, side, skill
+        """
+        entries = []
+        # --- 상단 영웅의 호위무사 ---
+        for i, guard in enumerate(self.guard_warriors_top):
+            gid = guard.get("id", "")
+            skills = self.skill_instances.get(gid, [])
+            dual_cds = self.guard_skill_cooldowns.get(gid, [])
+            dual_maxs = self.guard_skill_cooldowns_max.get(gid, [])
+            is_casting = (self.phase_top in ("casting",) and
+                          self.active_top is not None and
+                          self.active_top.get("id") == gid)
+            if dual_cds and len(dual_cds) > 1:
+                # 듀얼스킬 모드: 각 스킬별 엔트리
+                for si, sk in enumerate(skills):
+                    if si < len(dual_cds):
+                        entries.append({
+                            "hero_id": gid,
+                            "hero_name": guard.get("name", "?"),
+                            "hero_color": guard.get("color", (150, 150, 150)),
+                            "cooldown_remaining": max(0.0, dual_cds[si]),
+                            "cooldown_max": dual_maxs[si] if si < len(dual_maxs) else 30.0,
+                            "is_active": is_casting and getattr(self.selected_skill_top, 'skill_id', '') == sk.skill_id,
+                            "source_type": "guard",
+                            "side": "top",
+                            "skill": sk,
+                            "key": f"guard_{gid}_{sk.skill_id}",
+                        })
+            else:
+                # 싱글스킬 모드: 공유 쿨타임
+                cd_rem = max(0.0, self.cooldown_top) if self.phase_top in (None, "patrolling", "patrol_entering") else 0.0
+                cd_max = self.cooldown_max_top if self.cooldown_max_top > 0 else 30.0
+                entries.append({
+                    "hero_id": gid,
+                    "hero_name": guard.get("name", "?"),
+                    "hero_color": guard.get("color", (150, 150, 150)),
+                    "cooldown_remaining": cd_rem,
+                    "cooldown_max": cd_max,
+                    "is_active": is_casting,
+                    "source_type": "guard",
+                    "side": "top",
+                    "skill": skills[0] if skills else None,
+                    "key": f"guard_{gid}_{skills[0].skill_id if skills else 'none'}",
+                })
+
+        # --- 하단 영웅의 호위무사 ---
+        for i, guard in enumerate(self.guard_warriors_bottom):
+            gid = guard.get("id", "")
+            skills = self.skill_instances.get(gid, [])
+            dual_cds = self.guard_skill_cooldowns.get(gid, [])
+            dual_maxs = self.guard_skill_cooldowns_max.get(gid, [])
+            is_casting = (self.phase_bottom in ("casting",) and
+                          self.active_bottom is not None and
+                          self.active_bottom.get("id") == gid)
+            if dual_cds and len(dual_cds) > 1:
+                for si, sk in enumerate(skills):
+                    if si < len(dual_cds):
+                        entries.append({
+                            "hero_id": gid,
+                            "hero_name": guard.get("name", "?"),
+                            "hero_color": guard.get("color", (150, 150, 150)),
+                            "cooldown_remaining": max(0.0, dual_cds[si]),
+                            "cooldown_max": dual_maxs[si] if si < len(dual_maxs) else 30.0,
+                            "is_active": is_casting and getattr(self.selected_skill_bottom, 'skill_id', '') == sk.skill_id,
+                            "source_type": "guard",
+                            "side": "bottom",
+                            "skill": sk,
+                            "key": f"guard_{gid}_{sk.skill_id}",
+                        })
+            else:
+                cd_rem = max(0.0, self.cooldown_bottom) if self.phase_bottom in (None, "patrolling", "patrol_entering") else 0.0
+                cd_max = self.cooldown_max_bottom if self.cooldown_max_bottom > 0 else 30.0
+                entries.append({
+                    "hero_id": gid,
+                    "hero_name": guard.get("name", "?"),
+                    "hero_color": guard.get("color", (150, 150, 150)),
+                    "cooldown_remaining": cd_rem,
+                    "cooldown_max": cd_max,
+                    "is_active": is_casting,
+                    "source_type": "guard",
+                    "side": "bottom",
+                    "skill": skills[0] if skills else None,
+                    "key": f"guard_{gid}_{skills[0].skill_id if skills else 'none'}",
+                })
+        return entries
+
     def reset_active_skills(self):
         """득점 시 호위무사 활성 스킬 리셋"""
         game_state = self.skill_manager.game_state if self.skill_manager else {}
@@ -5276,6 +5367,11 @@ class ColosseumsArena:
         self.perk_frame_count = 0                 # 애니메이션 프레임 카운터
         self.current_perk_options = []            # 현재 표시 중인 랜덤 3개 퍽
         self.hero_has_both_skills: Dict[str, bool] = {}  # 영웅 양쪽 스킬 보유 여부
+
+        # 쿨타임 큐 UI 상태
+        self._queue_positions = {}       # {entry_key: current_y} - 스무스 리오더링 애니메이션
+        self._portrait_renderer = None   # HeroPortraitRenderer 인스턴스 (지연 초기화)
+        self._use_queue_ui = True        # 새 쿨타임 큐 UI 사용 플래그
 
         # 마우스 호버 상태
         self.hover_perk_index = -1               # 퍽 카드 호버 인덱스 (-1 = 없음)
@@ -8885,11 +8981,8 @@ class ColosseumsArena:
         # 배속 버튼
         self._draw_speed_buttons()
 
-        # 영웅 정보
-        self._draw_hero_info()
-
-        # 스킬 쿨타임 UI 표시
-        self._draw_skill_cooldowns()
+        # 통합 쿨타임 큐 UI (영웅 + 호위무사 통합, 왼쪽 필러)
+        self._draw_cooldown_queue()
 
         # 전경 효과
         if self.arena_background:
@@ -9096,6 +9189,220 @@ class ColosseumsArena:
                 surf, _ = self.fonts["small"].render(initial, color)
                 self.screen.blit(surf, (x + icon_size // 2 - surf.get_width() // 2,
                                        y + icon_size + 2))
+
+    def _draw_cooldown_queue(self):
+        """통합 쿨타임 큐 UI - 왼쪽 필러에 영웅+호위무사를 쿨타임 순으로 세로 나열"""
+        if not self.selected_match:
+            return
+
+        # 지연 초기화: HeroPortraitRenderer
+        if self._portrait_renderer is None:
+            try:
+                from downtown.hero_portraits import get_portrait_renderer
+                self._portrait_renderer = get_portrait_renderer()
+            except Exception:
+                return
+
+        # === 1. 데이터 수집 ===
+        entries = []
+        # 영웅 스킬
+        if self.skill_manager:
+            for hero, side in [(self.selected_match.hero1, "top"), (self.selected_match.hero2, "bottom")]:
+                hero_id = hero["id"]
+                hero_skills = self.skill_manager.active_skills.get(hero_id, [])
+                for sk in hero_skills:
+                    entries.append({
+                        "hero_id": hero_id,
+                        "hero_name": hero.get("name", "?"),
+                        "hero_color": hero.get("color", (150, 150, 150)),
+                        "cooldown_remaining": max(0.0, sk.current_cooldown),
+                        "cooldown_max": sk.cooldown if sk.cooldown > 0 else 20.0,
+                        "is_active": sk.is_active,
+                        "source_type": "hero",
+                        "side": side,
+                        "skill": sk,
+                        "key": f"hero_{hero_id}_{sk.skill_id}",
+                    })
+
+        # 호위무사 스킬
+        if self.guard_system:
+            try:
+                guard_entries = self.guard_system.get_all_cooldown_entries()
+                entries.extend(guard_entries)
+            except Exception:
+                pass
+
+        if not entries:
+            return
+
+        # === 2. 정렬 (쿨타임 짧은 순) ===
+        entries.sort(key=lambda e: (
+            0 if e["is_active"] else (1 if e["cooldown_remaining"] <= 0 else 2),
+            e["cooldown_remaining"],
+            0 if e["source_type"] == "hero" else 1,
+        ))
+
+        # === 3. 레이아웃 계산 ===
+        card_w = 70
+        card_h = 45
+        card_gap = 3
+        margin_x = 5
+        total_h = len(entries) * (card_h + card_gap) - card_gap
+        start_y = max(30, (SCREEN_HEIGHT - total_h) // 2)
+        card_x = margin_x
+
+        # 폰트 (작은 크기)
+        small_font = self.fonts.get("small") if self.fonts else None
+
+        # dt 계산 (스무스 애니메이션용)
+        dt = 1.0 / 60.0  # 기본 60fps 가정
+
+        # === 4. 각 카드 그리기 ===
+        for idx, entry in enumerate(entries):
+            target_y = start_y + idx * (card_h + card_gap)
+            ekey = entry["key"]
+
+            # 스무스 Y 위치 (lerp)
+            cur_y = self._queue_positions.get(ekey, target_y)
+            lerp_speed = 8.0
+            cur_y += (target_y - cur_y) * min(1.0, lerp_speed * dt)
+            self._queue_positions[ekey] = cur_y
+            draw_y = int(cur_y)
+
+            hero_id = entry["hero_id"]
+            hero_color = entry["hero_color"]
+            cd_rem = entry["cooldown_remaining"]
+            cd_max = entry["cooldown_max"]
+            is_active = entry["is_active"]
+            is_ready = cd_rem <= 0 and not is_active
+            side = entry["side"]
+
+            # --- 카드 배경 ---
+            card_rect = pygame.Rect(card_x, draw_y, card_w, card_h)
+            # 배경색 (상태에 따라)
+            if is_active:
+                bg_color = (40, 35, 20, 220)
+            elif is_ready:
+                bg_color = (35, 40, 50, 230)
+            else:
+                bg_color = (25, 25, 30, 210)
+
+            card_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+            pygame.draw.rect(card_surf, bg_color, (0, 0, card_w, card_h), border_radius=4)
+
+            # 진영 표시 (왼쪽 얇은 줄)
+            side_color = (200, 80, 80) if side == "top" else (80, 130, 200)
+            pygame.draw.rect(card_surf, side_color, (0, 2, 3, card_h - 4), border_radius=1)
+
+            # --- 순번 배지 ---
+            badge_w = 10
+            badge_x = 4
+            badge_cy = card_h // 2
+            num_text = str(idx + 1)
+            if small_font:
+                try:
+                    num_surf, _ = small_font.render(num_text, (200, 200, 200))
+                    card_surf.blit(num_surf, (badge_x + badge_w // 2 - num_surf.get_width() // 2,
+                                             badge_cy - num_surf.get_height() // 2))
+                except Exception:
+                    pass
+
+            # --- 얼굴 초상화 ---
+            portrait_x = badge_x + badge_w + 2
+            portrait_w = 28
+            portrait_h = card_h - 6
+            portrait_y = 3
+            try:
+                portrait = self._portrait_renderer.render_portrait(hero_id, hero_color, portrait_w, portrait_h)
+                card_surf.blit(portrait, (portrait_x, portrait_y))
+                # 초상화 테두리
+                pygame.draw.rect(card_surf, (80, 80, 90, 180),
+                                 (portrait_x, portrait_y, portrait_w, portrait_h), 1, border_radius=2)
+            except Exception:
+                # 폴백: 색상 원
+                pygame.draw.rect(card_surf, hero_color,
+                                 (portrait_x, portrait_y, portrait_w, portrait_h), border_radius=2)
+
+            # --- 정보 영역 ---
+            info_x = portrait_x + portrait_w + 3
+            info_w = card_w - info_x - 2
+
+            # 이름 (1줄)
+            if small_font:
+                try:
+                    name = entry["hero_name"]
+                    if len(name) > 3:
+                        name = name[:3]
+                    name_surf, _ = small_font.render(name, (220, 220, 220))
+                    card_surf.blit(name_surf, (info_x, 3))
+                except Exception:
+                    pass
+
+            # 쿨타임 바 + 숫자
+            bar_y = card_h - 16
+            bar_h = 6
+            bar_w_max = info_w - 2
+
+            if is_active:
+                # 활성 중 - 황금 바
+                pygame.draw.rect(card_surf, (180, 160, 60), (info_x, bar_y, bar_w_max, bar_h), border_radius=2)
+            elif is_ready:
+                # 준비 완료 - 밝은 바
+                pygame.draw.rect(card_surf, (60, 180, 100), (info_x, bar_y, bar_w_max, bar_h), border_radius=2)
+            else:
+                # 쿨타임 중 - 회색 바 + 채우기
+                pygame.draw.rect(card_surf, (40, 40, 45), (info_x, bar_y, bar_w_max, bar_h), border_radius=2)
+                if cd_max > 0:
+                    fill_ratio = 1.0 - min(1.0, cd_rem / cd_max)
+                    fill_w = int(bar_w_max * fill_ratio)
+                    if fill_w > 0:
+                        fill_color = tuple(int(c * 0.6) for c in hero_color[:3])
+                        pygame.draw.rect(card_surf, fill_color,
+                                         (info_x, bar_y, fill_w, bar_h), border_radius=2)
+
+                # 쿨타임 숫자
+                if small_font and cd_rem > 0:
+                    try:
+                        cd_text = str(int(cd_rem) + 1)
+                        cd_surf, _ = small_font.render(cd_text, (180, 180, 180))
+                        card_surf.blit(cd_surf, (info_x + bar_w_max // 2 - cd_surf.get_width() // 2,
+                                                bar_y - cd_surf.get_height() - 1))
+                    except Exception:
+                        pass
+
+            # 쿨타임 어둡게 오버레이 (쿨타임 중인 카드)
+            if cd_rem > 0 and not is_active:
+                overlay = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+                overlay.fill((0, 0, 0, 80))
+                card_surf.blit(overlay, (0, 0))
+
+            # --- 테두리 ---
+            if is_active:
+                # 활성 중: 황금 글로우
+                ticks = pygame.time.get_ticks()
+                pulse = 0.7 + 0.3 * _sin(ticks / 200.0)
+                glow_alpha = int(200 * pulse)
+                pygame.draw.rect(card_surf, (255, 220, 80, glow_alpha),
+                                 (0, 0, card_w, card_h), 2, border_radius=4)
+            elif is_ready:
+                # 준비 완료: 밝은 테두리
+                ticks = pygame.time.get_ticks()
+                pulse = 0.6 + 0.4 * _sin(ticks / 350.0)
+                glow_alpha = int(180 * pulse)
+                pygame.draw.rect(card_surf, (100, 220, 150, glow_alpha),
+                                 (0, 0, card_w, card_h), 1, border_radius=4)
+            else:
+                # 쿨타임 중: 어두운 테두리
+                pygame.draw.rect(card_surf, (60, 60, 70, 150),
+                                 (0, 0, card_w, card_h), 1, border_radius=4)
+
+            self.screen.blit(card_surf, (card_x, draw_y))
+
+        # 오래된 position 키 정리
+        active_keys = {e["key"] for e in entries}
+        stale_keys = [k for k in self._queue_positions if k not in active_keys]
+        for k in stale_keys:
+            del self._queue_positions[k]
 
     def _draw_bracket(self):
         """대진표 화면 그리기"""
