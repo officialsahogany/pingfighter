@@ -4877,7 +4877,6 @@ class ColosseumsArena:
         self.guard_warrior_map = {}          # hero_id -> [guard hero dicts] (토너먼트 전체 누적)
         self.recalled_guard_map = {}         # hero_id -> guard dict (재소집령으로 복귀한 호위무사, 라운드 간 유지)
         self.former_guards = []              # 교체되어 탈락한 호위무사 목록 (우승 연출용)
-        self._guard_dismissed_this_round = False  # 이번 라운드에서 호위무사 교체 여부 (재소집령 즉시 등장 방지)
         self.guard_warriors_top = []         # 현재 배틀 상단 영웅의 호위무사들
         self.guard_warriors_bottom = []      # 현재 배틀 하단 영웅의 호위무사들
         # 쿨타임
@@ -10540,9 +10539,6 @@ class ColosseumsArena:
                 # 이전에 호위무사를 해고한 적이 있어야 함
                 if not getattr(self, 'former_guards', []):
                     continue
-                # 이번 라운드에서 방금 교체한 직후에는 재소집령 제외
-                if getattr(self, '_guard_dismissed_this_round', False):
-                    continue
             pool.append(p)
 
         # 영웅의 미선택 스킬을 퍽 옵션으로 추가
@@ -10600,8 +10596,6 @@ class ColosseumsArena:
 
     def _confirm_perk_selection(self):
         """퍽 선택 확정"""
-        # 호위무사 교체 플래그 초기화 (다음 라운드부터 재소집령 가능)
-        self._guard_dismissed_this_round = False
         if self.perk_selected_index < 0 or self.perk_selected_index >= len(self.current_perk_options):
             return
         _load_button_click_sound()
@@ -12180,17 +12174,11 @@ class ColosseumsArena:
         # 신규 포획 호위무사(new_idx)를 거절한 경우는 기록하지 않음
         # (한 번도 실전 투입되지 않은 호위무사는 "교체당한" 것이 아님)
         dropped_guards = [g for i, g in enumerate(guards) if i != index]
-        guard_added_to_former = False
         for i, g in enumerate(guards):
             if i == index:
                 continue
             if i != new_idx and g not in self.former_guards:
                 self.former_guards.append(g)
-                guard_added_to_former = True
-        # 이번 라운드에서 호위무사를 교체했으면 플래그 설정
-        # (같은 라운드 퍽 선택에서 재소집령이 바로 나타나는 것 방지)
-        if guard_added_to_former:
-            self._guard_dismissed_this_round = True
         self.guard_warrior_map[bet_id] = [selected]
 
         # 재소집령으로 복귀한 호위무사는 선택과 무관하게 유지
