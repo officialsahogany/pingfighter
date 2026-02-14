@@ -135759,6 +135759,18 @@ def main(stage_num, new_boss_mode=False):
                             arena_skill_manager.game_state['kurokage_weapon_swing'] = False
                             arena_hero_paddle_renderer.trigger_weapon_swing("kurokage", 0.2)
 
+                        # 🔫 안드로이드 게틀링 버스트 ↔ 탱크 변신 상태 동기화
+                        _hero_positions = arena_skill_manager.game_state.get('hero_positions', {})
+                        for _hero_id, _is_top in _hero_positions.items():
+                            _side = 'top' if _is_top else 'bottom'
+                            _h_state = arena_hero_paddle_renderer._get_state(_hero_id)
+                            _h_state['gatling_firing'] = arena_skill_manager.game_state.get(f'gatling_burst_active_{_side}', False)
+                            _h_state['gatling_recoil'] = arena_skill_manager.game_state.get(f'gatling_recoil_{_side}', 0)
+                            _h_state['gatling_mounting'] = arena_skill_manager.game_state.get(f'gatling_mounting_{_side}', False)
+                            _h_state['gatling_mount_progress'] = arena_skill_manager.game_state.get(f'gatling_mount_progress_{_side}', 0.0)
+                            _h_state['gatling_dismounting'] = arena_skill_manager.game_state.get(f'gatling_dismounting_{_side}', False)
+                            _h_state['gatling_dismount_progress'] = arena_skill_manager.game_state.get(f'gatling_dismount_progress_{_side}', 0.0)
+
                     # 🛡️ 호위무사 시스템 업데이트 (4강/결승)
                     if arena_guard_system:
                         try:

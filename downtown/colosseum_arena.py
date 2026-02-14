@@ -5953,12 +5953,6 @@ class ColosseumsArena:
             for hero_id, is_top in hero_positions.items():
                 side = 'top' if is_top else 'bottom'
                 state = self.hero_paddle_renderer._get_state(hero_id)
-                # [DEBUG] 개틀링 상태 확인
-                _gm = game_state.get(f'gatling_mounting_{side}', False)
-                _gf = game_state.get(f'gatling_burst_active_{side}', False)
-                _gd = game_state.get(f'gatling_dismounting_{side}', False)
-                if _gm or _gf or _gd:
-                    print(f"[GATLING SYNC] hero={hero_id} side={side} mounting={_gm} firing={_gf} dismounting={_gd}")
                 state['gatling_firing'] = game_state.get(f'gatling_burst_active_{side}', False)
                 state['gatling_recoil'] = game_state.get(f'gatling_recoil_{side}', 0)
                 state['gatling_mounting'] = game_state.get(f'gatling_mounting_{side}', False)

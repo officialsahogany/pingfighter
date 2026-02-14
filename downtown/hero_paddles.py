@@ -343,6 +343,8 @@ class HeroPaddleRenderer:
         anim['gatling_recoil'] = state.get('gatling_recoil', 0)
         anim['gatling_mounting'] = state.get('gatling_mounting', False)
         anim['gatling_mount_progress'] = state.get('gatling_mount_progress', 0.0)
+        anim['gatling_dismounting'] = state.get('gatling_dismounting', False)
+        anim['gatling_dismount_progress'] = state.get('gatling_dismount_progress', 0.0)
 
         # 영웅별 그리기 (팔/다리 동작으로 자연스러운 옆걸음 표현)
         draw_func = getattr(self, f"_draw_{hero_id}", None)
