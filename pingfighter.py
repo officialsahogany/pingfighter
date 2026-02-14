@@ -21438,6 +21438,8 @@ def arena_trigger_bottom_hero_dash(direction: int) -> bool:
     arena_bottom_dashing = True
     arena_bottom_dash_charges -= 1
     arena_bottom_dash_charge_timer = 0  # 충전 타이머 리셋 (새 토큰 충전 시작)
+    print(f"[DEBUG DASH MANUAL] 대쉬 발동! charges={arena_bottom_dash_charges}/{arena_bottom_max_dash_charges} "
+          f"charge_timer=0으로 리셋, cooldown={arena_bottom_dash_cooldown}, stun={arena_bottom_dash_stun_timer}", flush=True)
 
     # 폭풍질주 퍽: 버스트업 Lv3 효과
     if arena_perk_dash_distance_mult_bottom > 1.0:
@@ -21592,6 +21594,10 @@ def update_arena_bottom_hero_dash():
     # 충전 타이머 업데이트 (후딜 중에는 충전 안 함)
     if arena_bottom_dash_charges < arena_bottom_max_dash_charges and arena_bottom_dash_cooldown <= 0 and arena_bottom_dash_stun_timer <= 0:
         arena_bottom_dash_charge_timer += 1
+        if arena_bottom_dash_charge_timer % 60 == 1:  # 매 1초마다 로그
+            print(f"[DEBUG CHARGE] 충전 중: timer={arena_bottom_dash_charge_timer}/{ARENA_DASH_CHARGE_TIME} "
+                  f"charges={arena_bottom_dash_charges}/{arena_bottom_max_dash_charges} "
+                  f"cooldown={arena_bottom_dash_cooldown} stun={arena_bottom_dash_stun_timer}", flush=True)
         if arena_bottom_dash_charge_timer >= ARENA_DASH_CHARGE_TIME:
             _charged_idx = arena_bottom_dash_charges  # 충전될 토큰 인덱스 (증가 전)
             arena_bottom_dash_charges = min(arena_bottom_max_dash_charges, arena_bottom_dash_charges + 1)
@@ -21676,6 +21682,9 @@ def update_arena_bottom_hero_dash():
         # 쿨타임 설정 - 토큰이 남아있으면 쿨다운 없이 후딜만 적용 (잔상술 퍽 등으로 토큰 2개 이상일 때)
         if arena_bottom_dash_charges <= 0:
             arena_bottom_dash_cooldown = int(random.randint(ARENA_DASH_COOLDOWN_MIN, ARENA_DASH_COOLDOWN_MAX) * arena_perk_dash_cd_mult_bottom)
+        print(f"[DEBUG DASH END] 대쉬 종료! charges={arena_bottom_dash_charges}/{arena_bottom_max_dash_charges} "
+              f"charge_timer={arena_bottom_dash_charge_timer} cooldown={arena_bottom_dash_cooldown} "
+              f"stun={arena_bottom_dash_stun_timer}", flush=True)
         # 후딜 사운드 시작 (보스와 동일)
         try:
             play_dash_delay_sound()
@@ -41093,6 +41102,17 @@ energy_ball_particles = []  # 에너지볼 주변 파티클들
 energy_ball_ring_particles = []  # 고리 위 파티클들
 ENERGY_BALL_MAX_PARTICLES = 20  # 최대 파티클 수
 
+# 에너지볼/고스트트레일 Surface 재사용 캐시 (매 프레임 Surface 생성 방지)
+_reusable_surface_pool = {}  # {size: pygame.Surface}
+
+def _get_reusable_surface(size):
+    """재사용 가능한 SRCALPHA Surface 반환 (매 프레임 할당 방지)"""
+    if size not in _reusable_surface_pool:
+        _reusable_surface_pool[size] = pygame.Surface((size, size), pygame.SRCALPHA)
+    surf = _reusable_surface_pool[size]
+    surf.fill((0, 0, 0, 0))
+    return surf
+
 # 벽 충돌 이펙트 변수
 wall_impact_particles: list = []  # 벽 충돌 파티클들
 wall_impact_flash_timer: int = 0  # 충돌 플래시 타이머
@@ -41933,9 +41953,9 @@ def draw_energy_ball(surface: pygame.Surface, cx: int, cy: int, radius: int) -> 
     ring3_tilt = 70 + math.sin(current_time * 0.001 + 2) * 8
     ring_tilts = [ring1_tilt, ring2_tilt, ring3_tilt]
 
-    # 서피스 크기 (여유있게)
+    # 서피스 크기 (여유있게) - 재사용 캐시로 매 프레임 할당 방지
     surf_size = radius * 6 + 20
-    ball_surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+    ball_surf = _get_reusable_surface(surf_size)
     center = surf_size // 2
 
     # === 펄스 효과 계산 ===
@@ -42224,9 +42244,9 @@ def draw_ball_ghost_trail(surface: pygame.Surface, screen_offset_x: int = 0, scr
         if ghost_size < 2:
             continue
 
-        # 서피스 크기 (여유있게)
+        # 서피스 크기 (여유있게) - 재사용 캐시로 매 프레임 할당 방지
         surf_size = ghost_size * 3 + 10
-        ghost_surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+        ghost_surf = _get_reusable_surface(surf_size)
         center = surf_size // 2
 
         # === 잔잔한 에너지 파동 링 (바깥쪽 투명한 파동) ===
@@ -76449,27 +76469,14 @@ def draw_overlay_ui():
 
 def apply_white_glow(surface, intensity=60):
     """
-    픽셀 단위로 반짝임 효과를 입히는 함수 (최적화 버전)
+    Surface 전체에 밝기를 더하는 함수 (BLEND_RGB_ADD 최적화 버전)
     :param surface: pygame.Surface (RGBA)
     :param intensity: 반짝임 밝기 (기본 60)
     """
-    # 성능 최적화: 너무 큰 표면에서는 효과 비활성화 (크기 제한을 늘림)
     if surface.get_width() > 400 or surface.get_height() > 400:
-        return  # 매우 큰 표면에서만 효과 비활성화
-    # 성능 최적화: 픽셀 단위 대신 간격을 두고 처리
-    step = 2  # 2픽셀마다 처리
-    for x in range(0, surface.get_width(), step):
-        for y in range(0, surface.get_height(), step):
-            pixel = surface.get_at((x, y))
-            if pixel.a != 0:  # 기체 부분에만 적용
-                glow_r = min(255, max(0, pixel.r + intensity))
-                glow_g = min(255, max(0, pixel.g + intensity))
-                glow_b = min(255, max(0, pixel.b + intensity))
-                try:
-                    surface.set_at((x, y), pygame.Color(glow_r, glow_g, glow_b, pixel.a))
-                except ValueError:
-                    # 색상 값이 잘못된 경우 기본값 사용
-                    surface.set_at((x, y), pygame.Color(255, 255, 255, pixel.a))
+        return
+    # BLEND_RGB_ADD로 한 번에 밝기 추가 - 알파 채널은 보존됨
+    surface.fill((intensity, intensity, intensity), special_flags=pygame.BLEND_RGB_ADD)
 def draw_stage1_boss_gauge_bar():
     """스테이지 1 보스 필살기 게이지바 - 조선시대 궁궐 스타일"""
     global current_stage, boss_special_gauge, displayed_boss_gauge
@@ -84616,6 +84623,10 @@ def draw_player_gauge():
             _total_wait = arena_bottom_dash_cooldown + max(0, ARENA_DASH_CHARGE_TIME - arena_bottom_dash_charge_timer)
             _total_max = ARENA_DASH_COOLDOWN_MAX + ARENA_DASH_CHARGE_TIME  # 최대 대기 시간
             _effective_charge_progress = max(0.0, 1.0 - (_total_wait / max(1, _total_max)))
+            if arena_bottom_dash_charge_timer % 60 == 0:  # 매 1초마다 UI 로그
+                print(f"[DEBUG UI GAUGE] idx={_charging_idx} wait={_total_wait} max={_total_max} "
+                      f"progress={_effective_charge_progress:.2f} cooldown={arena_bottom_dash_cooldown} "
+                      f"charge_timer={arena_bottom_dash_charge_timer}/{ARENA_DASH_CHARGE_TIME}", flush=True)
         _charging_state["index"] = _charging_idx
         _charging_state["timer"] = int((1.0 - _effective_charge_progress) * _UI_CHARGE_MAX)
         _charging_state["max_time"] = _UI_CHARGE_MAX
