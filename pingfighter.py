@@ -98648,6 +98648,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
             # 잔상술 퍽으로 증가된 최대 토큰 수를 현재 충전량에 반영
             arena_bottom_dash_charges = arena_bottom_max_dash_charges
         else:
+            print("[ArenaPerk] WARNING: _arena_pending_perk_data가 없음! 퍽 초기화됨")
             reset_arena_perks()
 
         # 영웅 상황 대사 시스템 초기화

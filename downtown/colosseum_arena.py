@@ -5504,29 +5504,33 @@ class ColosseumsArena:
                 # (start_arena_battle 내부에서 스킬 매니저 초기화 후 설정됨)
                 try:
                     import pingfighter
+                    # ★ 퍽/스킬 데이터를 먼저 전달 (호위무사 디버그 출력 실패 시에도 퍽 데이터 보존)
+                    pingfighter._arena_pending_perk_data = self
+                    pingfighter.arena_battle_arena_obj = self  # F8 퍽 선택용 직접 참조
+                    pingfighter._arena_pending_skill_selections = self.hero_selected_skills
+                    pingfighter._arena_pending_both_skills = self.hero_has_both_skills
+                    # 호위무사 데이터 전달
                     if self.initial_setup_done or self.current_round in (TournamentRound.SEMI_FINAL, TournamentRound.FINAL):
                         pingfighter._arena_pending_top_guards = self.guard_warrior_map.get(top_hero["id"], [])
                         pingfighter._arena_pending_bottom_guards = self.guard_warrior_map.get(bottom_hero["id"], [])
                         # 재소집령 디버그: 배틀 시작 시 호위무사 수 확인
-                        _top_g = pingfighter._arena_pending_top_guards
-                        _bot_g = pingfighter._arena_pending_bottom_guards
-                        _recalled = self.recalled_guard_map
-                        print(f"[Guard 재소집령] 배틀 시작 | 라운드={self.current_round} | "
-                              f"상단={[g.get('name','?') for g in _top_g]}({len(_top_g)}명) | "
-                              f"하단={[g.get('name','?') for g in _bot_g]}({len(_bot_g)}명) | "
-                              f"recalled_map={{{k: v.get('name','?') for k,v in _recalled.items()}}}")
+                        try:
+                            _top_g = pingfighter._arena_pending_top_guards
+                            _bot_g = pingfighter._arena_pending_bottom_guards
+                            _recalled = self.recalled_guard_map
+                            print(f"[Guard 재소집령] 배틀 시작 | 라운드={self.current_round} | "
+                                  f"상단={[g.get('name','?') for g in _top_g]}({len(_top_g)}명) | "
+                                  f"하단={[g.get('name','?') for g in _bot_g]}({len(_bot_g)}명) | "
+                                  f"recalled_map={{{k: v.get('name','?') for k,v in _recalled.items()}}}")
+                        except Exception as e:
+                            print(f"[Guard] 디버그 출력 실패: {e}")
                     else:
                         pingfighter._arena_pending_top_guards = []
                         pingfighter._arena_pending_bottom_guards = []
-                    # 퍽 데이터를 pingfighter에 전달
-                    pingfighter._arena_pending_perk_data = self
-                    pingfighter.arena_battle_arena_obj = self  # F8 퍽 선택용 직접 참조
-                    # 스킬 선택 정보 전달 (모듈 글로벌 + 영웅 dict 직접 삽입 이중 전달)
-                    pingfighter._arena_pending_skill_selections = self.hero_selected_skills
-                    # 양쪽 스킬 보유 정보 전달
-                    pingfighter._arena_pending_both_skills = self.hero_has_both_skills
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"[Arena] 배틀 데이터 전달 실패: {e}")
+                    import traceback
+                    traceback.print_exc()
                 # 스킬 선택 인덱스를 영웅 dict에 직접 삽입 (글로벌 변수 문제 방지)
                 # 양쪽 스킬 보유 영웅은 -1 (모든 스킬 활성화)
                 top_id = top_hero["id"]
