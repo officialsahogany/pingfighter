@@ -21591,8 +21591,8 @@ def update_arena_bottom_hero_dash():
             arena_storm_rush_height_bonus_bottom = 0
         return False
 
-    # 충전 타이머 업데이트 (후딜 중에는 충전 안 함)
-    if arena_bottom_dash_charges < arena_bottom_max_dash_charges and arena_bottom_dash_cooldown <= 0 and arena_bottom_dash_stun_timer <= 0:
+    # 충전 타이머 업데이트 (대쉬 중/후딜 중에는 충전 안 함)
+    if arena_bottom_dash_charges < arena_bottom_max_dash_charges and arena_bottom_dash_cooldown <= 0 and arena_bottom_dash_stun_timer <= 0 and not arena_bottom_dashing:
         arena_bottom_dash_charge_timer += 1
         if arena_bottom_dash_charge_timer % 60 == 1:  # 매 1초마다 로그
             print(f"[DEBUG CHARGE] 충전 중: timer={arena_bottom_dash_charge_timer}/{ARENA_DASH_CHARGE_TIME} "
@@ -84619,12 +84619,17 @@ def draw_player_gauge():
         _effective_charge_progress = 0.0
         if rolling_charges < max_tokens:
             _charging_idx = rolling_charges  # 다음 충전할 토큰 인덱스
-            # 쿨다운 + 충전 합산 진행률 계산
-            _total_wait = arena_bottom_dash_cooldown + max(0, ARENA_DASH_CHARGE_TIME - arena_bottom_dash_charge_timer)
-            _total_max = ARENA_DASH_COOLDOWN_MAX + ARENA_DASH_CHARGE_TIME  # 최대 대기 시간
-            _effective_charge_progress = max(0.0, 1.0 - (_total_wait / max(1, _total_max)))
+            # 쿨다운 유무에 따라 진행률 계산 분기
+            if arena_bottom_dash_cooldown > 0:
+                # 쿨다운 + 충전 합산 진행률 (쿨다운이 있을 때)
+                _total_wait = arena_bottom_dash_cooldown + max(0, ARENA_DASH_CHARGE_TIME - arena_bottom_dash_charge_timer)
+                _total_max = ARENA_DASH_COOLDOWN_MAX + ARENA_DASH_CHARGE_TIME
+                _effective_charge_progress = max(0.0, 1.0 - (_total_wait / max(1, _total_max)))
+            else:
+                # 쿨다운 없이 충전만 (잔상술 퍽 등으로 토큰 남아있을 때) - 0%에서 시작
+                _effective_charge_progress = arena_bottom_dash_charge_timer / max(1, ARENA_DASH_CHARGE_TIME)
             if arena_bottom_dash_charge_timer % 60 == 0:  # 매 1초마다 UI 로그
-                print(f"[DEBUG UI GAUGE] idx={_charging_idx} wait={_total_wait} max={_total_max} "
+                print(f"[DEBUG UI GAUGE] idx={_charging_idx} "
                       f"progress={_effective_charge_progress:.2f} cooldown={arena_bottom_dash_cooldown} "
                       f"charge_timer={arena_bottom_dash_charge_timer}/{ARENA_DASH_CHARGE_TIME}", flush=True)
         _charging_state["index"] = _charging_idx
