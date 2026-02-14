@@ -10877,12 +10877,15 @@ class GatlingBurst(HeroSkill):
     GAME_TOP = 0
     GAME_BOTTOM = 750
 
-    BULLET_SPEED = 600        # 총알 속도 (빠름)
-    FIRE_RATE = 0.12          # 발사 간격 (초) - 초당 약 8발
-    BULLET_SIZE = 4           # 총알 크기
+    BULLET_SPEED = 620        # 총알 속도
+    FIRE_RATE = 0.10          # 발사 간격 (초) - 초당 10발
+    BULLET_LENGTH = 8         # 탄환 길이 (픽셀)
+    BULLET_WIDTH = 3          # 탄환 폭
     KNOCKBACK_VEL = 120       # 넉백 속도
-    SPREAD_ANGLE = 12         # 탄 퍼짐 (도)
-    MUZZLE_FLASH_DURATION = 0.06  # 머즐 플래쉬 지속
+    SPREAD_ANGLE = 10         # 탄 퍼짐 (도)
+    MUZZLE_FLASH_DURATION = 0.08  # 머즐 플래쉬 지속
+    TRAIL_STEPS = 5           # 트레일 단계 수
+    TRAIL_STEP_DT = 0.012     # 트레일 간격 (속도 기반 역추적)
 
     def __init__(self):
         super().__init__(
@@ -10895,14 +10898,17 @@ class GatlingBurst(HeroSkill):
             duration=3.0,
             hero_id="android"
         )
-        self.bullets = []          # 비행 중인 총알
-        self.fire_timer = 0.0      # 발사 타이머
+        self.bullets = []
+        self.fire_timer = 0.0
         self.caster_is_top = False
-        self.hit_particles = []    # 히트 파티클
-        self.muzzle_flashes = []   # 머즐 플래쉬 이펙트
-        self.total_fired = 0       # 총 발사 수
+        self.hit_particles = []
+        self.muzzle_flashes = []
+        self.shell_casings = []    # 탄피
+        self.smoke_puffs = []      # 총구 연기
+        self.total_fired = 0
         self._hit_sound = None
         self._fire_sound = None
+        self._recoil_offset = 0.0  # 반동 오프셋 (hero_paddles 연동)
 
     def _load_sounds(self):
         """사운드 로드"""
@@ -10910,7 +10916,6 @@ class GatlingBurst(HeroSkill):
             try:
                 project_root = os.path.dirname(
                     os.path.dirname(os.path.abspath(__file__)))
-                # smallboy 사운드를 총알 발사/히트용으로 사용
                 fire_path = os.path.join(
                     project_root, "sounds", "smallboyshoot.wav")
                 if os.path.exists(fire_path):
@@ -10930,11 +10935,13 @@ class GatlingBurst(HeroSkill):
         self.bullets = []
         self.hit_particles = []
         self.muzzle_flashes = []
+        self.shell_casings = []
+        self.smoke_puffs = []
         self.fire_timer = 0.0
         self.total_fired = 0
+        self._recoil_offset = 0.0
         self._load_sounds()
 
-        # 게임 상태에 개틀링 활성 플래그 (hero_paddles.py 연동용)
         side = 'top' if self.caster_is_top else 'bottom'
         game_state[f'gatling_burst_active_{side}'] = True
 
@@ -10946,7 +10953,6 @@ class GatlingBurst(HeroSkill):
 
     def _fire_bullet(self, caster_paddle, target_paddle, game_state):
         """총알 한 발 발사"""
-        # 발사 위치: 캐스터 패들 중앙
         spawn_x = caster_paddle.x + caster_paddle.width // 2
         if self.caster_is_top:
             spawn_y = caster_paddle.y + caster_paddle.height + 5
@@ -10968,21 +10974,25 @@ class GatlingBurst(HeroSkill):
             target_y = (self.GAME_BOTTOM if self.caster_is_top
                         else self.GAME_TOP)
 
-        # 방향 벡터 계산
         dx = target_x - spawn_x
         dy = target_y - spawn_y
         dist = math.sqrt(dx * dx + dy * dy)
         if dist < 1:
             dist = 1
 
-        # 탄 퍼짐 적용 (AK-47 스타일 스프레이)
+        # AK-47 스타일 스프레이 (연속 발사 시 퍼짐 증가)
+        burst_spread = min(self.SPREAD_ANGLE * 1.5,
+                           self.SPREAD_ANGLE * (1.0 + self.total_fired * 0.02))
         spread = math.radians(
-            random.uniform(-self.SPREAD_ANGLE, self.SPREAD_ANGLE))
+            random.uniform(-burst_spread, burst_spread))
         base_angle = math.atan2(dy, dx)
         final_angle = base_angle + spread
 
         vx = math.cos(final_angle) * self.BULLET_SPEED
         vy = math.sin(final_angle) * self.BULLET_SPEED
+
+        # 트레이서탄 여부 (5발에 1발)
+        is_tracer = (self.total_fired % 5 == 0)
 
         self.bullets.append({
             'x': float(spawn_x),
@@ -10991,19 +11001,50 @@ class GatlingBurst(HeroSkill):
             'vy': vy,
             'active': True,
             'age': 0.0,
-            'trail': [],
+            'angle': final_angle,
+            'tracer': is_tracer,
         })
         self.total_fired += 1
 
-        # 머즐 플래쉬
+        # 반동 (발사마다 살짝 뒤로)
+        self._recoil_offset = 3.5
+
+        # 머즐 플래쉬 (방향성)
         self.muzzle_flashes.append({
             'x': spawn_x,
             'y': spawn_y,
             'timer': self.MUZZLE_FLASH_DURATION,
-            'size': random.uniform(8, 14),
+            'size': random.uniform(10, 16),
+            'angle': final_angle,
         })
 
-        # 발사 사운드 (3발에 1번만 - 과도한 사운드 방지)
+        # 총구 연기
+        smoke_angle = final_angle + random.uniform(-0.5, 0.5)
+        self.smoke_puffs.append({
+            'x': float(spawn_x),
+            'y': float(spawn_y),
+            'vx': math.cos(smoke_angle) * random.uniform(20, 60),
+            'vy': math.sin(smoke_angle) * random.uniform(20, 60),
+            'age': 0.0,
+            'life': random.uniform(0.3, 0.6),
+            'size': random.uniform(4, 8),
+        })
+
+        # 탄피 배출 (좌우 랜덤)
+        eject_side = random.choice([-1, 1])
+        self.shell_casings.append({
+            'x': float(spawn_x),
+            'y': float(spawn_y),
+            'vx': eject_side * random.uniform(80, 160),
+            'vy': random.uniform(-100, -30),
+            'gravity': 500,
+            'age': 0.0,
+            'life': 0.5,
+            'rotation': random.uniform(0, math.pi * 2),
+            'rot_speed': random.uniform(8, 20),
+        })
+
+        # 발사 사운드 (3발에 1번)
         if self._fire_sound and self.total_fired % 3 == 1:
             self._fire_sound.play()
 
@@ -11015,20 +11056,20 @@ class GatlingBurst(HeroSkill):
             self.fire_timer -= self.FIRE_RATE
             self._fire_bullet(caster_paddle, target_paddle, game_state)
 
+        # 반동 감쇠
+        if self._recoil_offset > 0:
+            self._recoil_offset = max(0, self._recoil_offset - dt * 35)
+
+        # 반동 값을 game_state에 전달 (hero_paddles.py 연동)
+        side = 'top' if self.caster_is_top else 'bottom'
+        game_state[f'gatling_recoil_{side}'] = self._recoil_offset
+
         # 총알 업데이트
         new_bullets = []
         for bullet in self.bullets:
             if not bullet['active']:
                 continue
 
-            # 잔상 추가
-            bullet['trail'].append({
-                'x': bullet['x'], 'y': bullet['y'], 'alpha': 180
-            })
-            if len(bullet['trail']) > 4:
-                bullet['trail'].pop(0)
-
-            # 이동
             bullet['x'] += bullet['vx'] * dt
             bullet['y'] += bullet['vy'] * dt
             bullet['age'] += dt
@@ -11040,7 +11081,7 @@ class GatlingBurst(HeroSkill):
                     or bullet['y'] > self.GAME_BOTTOM + 20):
                 continue
 
-            # 수명 초과 (2초)
+            # 수명 초과
             if bullet['age'] > 2.0:
                 continue
 
@@ -11076,7 +11117,6 @@ class GatlingBurst(HeroSkill):
                 _imm_side = 'top' if target_is_top else 'bottom'
                 if not game_state.get(
                         f'magic_immunity_{_imm_side}', False):
-                    # 넉백 적용
                     knockback_dir = (1 if bullet['vx'] > 0
                                     else -1)
                     if abs(bullet['vx']) < 10:
@@ -11092,17 +11132,20 @@ class GatlingBurst(HeroSkill):
                         f'{target_prefix}_knockback_vel'
                     ] = self.KNOCKBACK_VEL
 
-                # 히트 파티클
-                for _ in range(6):
+                # 히트 스파크 (금속 충돌감)
+                hit_angle = bullet['angle']
+                for _ in range(8):
+                    spread_a = hit_angle + math.pi + random.uniform(-1.2, 1.2)
+                    spd = random.uniform(100, 300)
                     self.hit_particles.append({
                         'x': bullet['x'],
                         'y': bullet['y'],
-                        'vx': random.uniform(-150, 150),
-                        'vy': random.uniform(-150, 150),
-                        'alpha': 220,
-                        'life': random.uniform(0.2, 0.4),
+                        'vx': math.cos(spread_a) * spd,
+                        'vy': math.sin(spread_a) * spd,
+                        'life': random.uniform(0.15, 0.35),
                         'age': 0.0,
-                        'size': random.uniform(2, 4),
+                        'size': random.uniform(1.5, 4),
+                        'type': random.choice(['spark', 'spark', 'ember']),
                     })
 
                 # 히트 사운드 (5발에 1번)
@@ -11116,12 +11159,11 @@ class GatlingBurst(HeroSkill):
         self.bullets = new_bullets
 
         # 머즐 플래쉬 업데이트
-        new_flashes = []
-        for flash in self.muzzle_flashes:
-            flash['timer'] -= dt
-            if flash['timer'] > 0:
-                new_flashes.append(flash)
-        self.muzzle_flashes = new_flashes
+        self.muzzle_flashes = [
+            f for f in self.muzzle_flashes
+            if (f.__setitem__('timer', f['timer'] - dt) or True)
+            and f['timer'] > 0
+        ]
 
         # 히트 파티클 업데이트
         new_particles = []
@@ -11129,97 +11171,223 @@ class GatlingBurst(HeroSkill):
             p['age'] += dt
             p['x'] += p['vx'] * dt
             p['y'] += p['vy'] * dt
-            p['alpha'] = int(
-                220 * max(0, 1.0 - p['age'] / p['life']))
-            if p['age'] < p['life'] and p['alpha'] > 5:
+            p['vy'] += 200 * dt  # 약간의 중력
+            if p['age'] < p['life']:
                 new_particles.append(p)
         self.hit_particles = new_particles
+
+        # 탄피 업데이트
+        new_casings = []
+        for c in self.shell_casings:
+            c['age'] += dt
+            c['x'] += c['vx'] * dt
+            c['y'] += c['vy'] * dt
+            c['vy'] += c['gravity'] * dt
+            c['rotation'] += c['rot_speed'] * dt
+            c['vx'] *= 0.97  # 공기 저항
+            if c['age'] < c['life']:
+                new_casings.append(c)
+        self.shell_casings = new_casings
+
+        # 연기 업데이트
+        new_smoke = []
+        for s in self.smoke_puffs:
+            s['age'] += dt
+            s['x'] += s['vx'] * dt
+            s['y'] += s['vy'] * dt
+            s['vx'] *= 0.92
+            s['vy'] *= 0.92
+            s['size'] += dt * 12  # 연기 확산
+            if s['age'] < s['life']:
+                new_smoke.append(s)
+        self.smoke_puffs = new_smoke
 
     def _end_effect(self, caster_paddle, target_paddle, ball,
                     game_state: dict):
         side = 'top' if self.caster_is_top else 'bottom'
         game_state[f'gatling_burst_active_{side}'] = False
+        game_state[f'gatling_recoil_{side}'] = 0
 
     def reset_for_new_round(self, game_state: dict):
         super().reset_for_new_round(game_state)
         self.bullets = []
         self.hit_particles = []
         self.muzzle_flashes = []
+        self.shell_casings = []
+        self.smoke_puffs = []
         self.fire_timer = 0.0
         self.total_fired = 0
-        game_state['gatling_burst_active_top'] = False
-        game_state['gatling_burst_active_bottom'] = False
+        self._recoil_offset = 0.0
+        for key in ['gatling_burst_active_top', 'gatling_burst_active_bottom',
+                     'gatling_recoil_top', 'gatling_recoil_bottom']:
+            game_state[key] = False if 'active' in key else 0
 
     def draw(self, screen: pygame.Surface, caster_paddle,
              target_paddle, ball, game_state: dict):
-        if not self.is_active and not self.bullets and not self.hit_particles:
+        if (not self.is_active and not self.bullets
+                and not self.hit_particles and not self.shell_casings
+                and not self.smoke_puffs):
             return
 
-        # --- 머즐 플래쉬 ---
+        # --- 총구 연기 (뒤에 깔림) ---
+        for s in self.smoke_puffs:
+            ratio = 1.0 - s['age'] / s['life']
+            sz = max(1, int(s['size'] * ratio))
+            alpha = int(50 * ratio)
+            if alpha > 3 and sz > 0:
+                smoke_s = pygame.Surface(
+                    (sz * 2, sz * 2), pygame.SRCALPHA)
+                pygame.draw.circle(
+                    smoke_s, (180, 180, 180, alpha),
+                    (sz, sz), sz)
+                screen.blit(smoke_s,
+                    (int(s['x']) - sz, int(s['y']) - sz))
+
+        # --- 머즐 플래쉬 (방향성 + 스타 패턴) ---
         for flash in self.muzzle_flashes:
             t_ratio = flash['timer'] / self.MUZZLE_FLASH_DURATION
             size = int(flash['size'] * t_ratio)
-            if size > 0:
-                fs = pygame.Surface(
-                    (size * 4, size * 4), pygame.SRCALPHA)
-                alpha = int(255 * t_ratio)
-                # 외부 글로우 (주황)
-                pygame.draw.circle(
-                    fs, (255, 180, 50, alpha // 2),
-                    (size * 2, size * 2), size * 2)
-                # 내부 핵심 (흰색)
-                pygame.draw.circle(
-                    fs, (255, 255, 200, alpha),
-                    (size * 2, size * 2), size)
-                screen.blit(
-                    fs,
-                    (int(flash['x']) - size * 2,
-                     int(flash['y']) - size * 2),
+            if size > 1:
+                fx, fy = int(flash['x']), int(flash['y'])
+                angle = flash['angle']
+                fs_dim = size * 4 + 4
+                fs = pygame.Surface((fs_dim, fs_dim), pygame.SRCALPHA)
+                center = fs_dim // 2
+                alpha = int(220 * t_ratio)
+                # 방향 스트릭 (발사 방향으로 길쭉한 광선)
+                streak_len = int(size * 2.5)
+                ex = center + int(math.cos(angle) * streak_len)
+                ey = center + int(math.sin(angle) * streak_len)
+                pygame.draw.line(fs, (255, 240, 180, alpha),
+                    (center, center), (ex, ey),
+                    max(2, size // 2))
+                # 십자 글로우
+                for a_off in [0, math.pi / 2, math.pi, math.pi * 1.5]:
+                    sx = center + int(math.cos(angle + a_off) * size)
+                    sy = center + int(math.sin(angle + a_off) * size)
+                    pygame.draw.line(fs, (255, 200, 80, alpha // 2),
+                        (center, center), (sx, sy),
+                        max(1, size // 3))
+                # 코어 글로우
+                pygame.draw.circle(fs, (255, 255, 220, alpha),
+                    (center, center), max(2, size // 2))
+                pygame.draw.circle(fs, (255, 180, 50, alpha // 3),
+                    (center, center), size)
+                screen.blit(fs, (fx - center, fy - center),
                     special_flags=pygame.BLEND_ADD)
 
-        # --- 총알 ---
+        # --- 총알 (속도 기반 트레일 - 저장 없이 즉석 계산) ---
         for bullet in self.bullets:
             if not bullet['active']:
                 continue
 
-            # 잔상
-            for tr in bullet['trail']:
-                tr['alpha'] = max(0, tr['alpha'] - 15)
-                if tr['alpha'] > 10:
-                    pygame.draw.circle(
-                        screen,
-                        (255, 200, 80, tr['alpha']),
-                        (int(tr['x']), int(tr['y'])),
-                        max(1, self.BULLET_SIZE - 1))
+            bx, by = bullet['x'], bullet['y']
+            vx, vy = bullet['vx'], bullet['vy']
+            angle = bullet['angle']
+            cos_a = math.cos(angle)
+            sin_a = math.sin(angle)
+            is_tracer = bullet.get('tracer', False)
 
-            # 총알 본체 (밝은 노란색 탄환)
-            bx, by = int(bullet['x']), int(bullet['y'])
-            # 글로우
-            gs = pygame.Surface((16, 16), pygame.SRCALPHA)
-            pygame.draw.circle(
-                gs, (255, 200, 80, 100), (8, 8), 6)
-            screen.blit(gs, (bx - 8, by - 8),
-                       special_flags=pygame.BLEND_ADD)
-            # 코어
-            pygame.draw.circle(
-                screen, (255, 230, 150),
-                (bx, by), self.BULLET_SIZE)
-            pygame.draw.circle(
-                screen, (255, 255, 220),
-                (bx, by), max(1, self.BULLET_SIZE - 2))
+            # 트레일 (속도 역추적 방식 - 잔류 버그 없음)
+            for i in range(self.TRAIL_STEPS):
+                t = (i + 1) * self.TRAIL_STEP_DT
+                tx = bx - vx * t
+                ty = by - vy * t
+                trail_alpha = int((100 - i * 20) * (0.8 if not is_tracer else 1.0))
+                trail_w = max(1, self.BULLET_WIDTH - i)
+                if trail_alpha > 0 and trail_w > 0:
+                    ts = pygame.Surface(
+                        (trail_w * 2 + 2, trail_w * 2 + 2), pygame.SRCALPHA)
+                    color = (255, 180, 60, trail_alpha) if not is_tracer \
+                        else (255, 100, 100, trail_alpha)
+                    pygame.draw.circle(ts, color,
+                        (trail_w + 1, trail_w + 1), trail_w)
+                    screen.blit(ts,
+                        (int(tx) - trail_w - 1, int(ty) - trail_w - 1))
 
-        # --- 히트 파티클 (금속 스파크) ---
+            # 총알 본체 (길쭉한 탄환 형태)
+            ibx, iby = int(bx), int(by)
+            tip_x = ibx + int(cos_a * self.BULLET_LENGTH // 2)
+            tip_y = iby + int(sin_a * self.BULLET_LENGTH // 2)
+            tail_x = ibx - int(cos_a * self.BULLET_LENGTH // 2)
+            tail_y = iby - int(sin_a * self.BULLET_LENGTH // 2)
+
+            # 탄환 글로우 (SRCALPHA 서페이스)
+            glow_r = 8 if is_tracer else 6
+            gs = pygame.Surface(
+                (glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+            glow_color = (255, 120, 80, 80) if is_tracer \
+                else (255, 200, 100, 60)
+            pygame.draw.circle(gs, glow_color,
+                (glow_r, glow_r), glow_r)
+            screen.blit(gs, (ibx - glow_r, iby - glow_r),
+                special_flags=pygame.BLEND_ADD)
+
+            # 탄환 본체 (라인)
+            if is_tracer:
+                # 트레이서탄: 붉은 광선
+                pygame.draw.line(screen, (255, 100, 80),
+                    (tail_x, tail_y), (tip_x, tip_y),
+                    self.BULLET_WIDTH + 1)
+                pygame.draw.line(screen, (255, 200, 180),
+                    (tail_x, tail_y), (tip_x, tip_y),
+                    max(1, self.BULLET_WIDTH - 1))
+            else:
+                # 일반탄: 노란 금속탄
+                pygame.draw.line(screen, (200, 170, 80),
+                    (tail_x, tail_y), (tip_x, tip_y),
+                    self.BULLET_WIDTH + 1)
+                pygame.draw.line(screen, (255, 240, 180),
+                    (tail_x, tail_y), (tip_x, tip_y),
+                    max(1, self.BULLET_WIDTH - 1))
+            # 탄두 하이라이트
+            pygame.draw.circle(screen, (255, 255, 230),
+                (tip_x, tip_y), max(1, self.BULLET_WIDTH // 2))
+
+        # --- 탄피 ---
+        for c in self.shell_casings:
+            ratio = 1.0 - c['age'] / c['life']
+            if ratio > 0:
+                cx_i, cy_i = int(c['x']), int(c['y'])
+                alpha = int(180 * ratio)
+                rot = c['rotation']
+                # 작은 금색 탄피 (회전하는 사각형)
+                casing_len = 4
+                casing_w = 2
+                dx = int(math.cos(rot) * casing_len)
+                dy = int(math.sin(rot) * casing_len)
+                cs_surf = pygame.Surface((12, 12), pygame.SRCALPHA)
+                pygame.draw.line(cs_surf, (220, 180, 60, alpha),
+                    (6 - dx, 6 - dy), (6 + dx, 6 + dy), casing_w)
+                pygame.draw.circle(cs_surf, (255, 220, 100, min(255, alpha + 40)),
+                    (6 + dx, 6 + dy), 1)
+                screen.blit(cs_surf, (cx_i - 6, cy_i - 6))
+
+        # --- 히트 스파크 (금속 충돌) ---
         for p in self.hit_particles:
-            if p['alpha'] > 5:
-                px, py = int(p['x']), int(p['y'])
-                sz = max(1, int(p['size'] * (1 - p['age'] / p['life'])))
-                # 스파크 (밝은 주황/흰)
-                spark_color = random.choice([
-                    (255, 220, 100), (255, 180, 60),
-                    (255, 255, 200),
-                ])
-                pygame.draw.circle(
-                    screen, spark_color, (px, py), sz)
+            ratio = 1.0 - p['age'] / p['life']
+            if ratio <= 0:
+                continue
+            px, py = int(p['x']), int(p['y'])
+            sz = max(1, int(p['size'] * ratio))
+            alpha = int(255 * ratio)
+
+            if p.get('type') == 'ember':
+                # 잔불 (어두운 주황, 느리게 사라짐)
+                es = pygame.Surface((sz * 2 + 2, sz * 2 + 2), pygame.SRCALPHA)
+                pygame.draw.circle(es, (255, 120, 30, min(255, alpha)),
+                    (sz + 1, sz + 1), sz)
+                screen.blit(es, (px - sz - 1, py - sz - 1),
+                    special_flags=pygame.BLEND_ADD)
+            else:
+                # 금속 스파크 (밝은 선형 궤적)
+                prev_x = px - int(p['vx'] * 0.02)
+                prev_y = py - int(p['vy'] * 0.02)
+                spark_colors = [(255, 240, 180), (255, 200, 100), (255, 255, 220)]
+                sc = spark_colors[hash((px, py)) % len(spark_colors)]
+                pygame.draw.line(screen, sc,
+                    (prev_x, prev_y), (px, py),
+                    max(1, sz))
 
 
 # ============================================================================

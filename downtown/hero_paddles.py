@@ -323,6 +323,7 @@ class HeroPaddleRenderer:
 
         # 영웅 상태 플래그를 anim에 전달 (스킬 연동 등)
         anim['gatling_firing'] = state.get('gatling_firing', False)
+        anim['gatling_recoil'] = state.get('gatling_recoil', 0)
 
         # 영웅별 그리기 (팔/다리 동작으로 자연스러운 옆걸음 표현)
         draw_func = getattr(self, f"_draw_{hero_id}", None)
@@ -6346,6 +6347,17 @@ class HeroPaddleRenderer:
 
         t = self.time
         gatling_firing = anim.get('gatling_firing', False)
+        gatling_recoil = anim.get('gatling_recoil', 0)
+
+        # 🔫 반동: 발사 시 몸체 미세 진동 (recoil 값 + 고주파 떨림)
+        if gatling_firing:
+            recoil_shake_x = int(_sin(t * 45) * 1.2 * b * 0.08)
+            # 상단 영웅은 아래로, 하단 영웅은 위로 반동
+            recoil_dir = 1 if show_back else -1
+            recoil_shake_y = int(gatling_recoil * recoil_dir * 0.4)
+            cx += recoil_shake_x
+            torso_y += recoil_shake_y
+
         # LED 펄스 (사이언 계열 빛) - 발사 시 더 빠르게
         led_pulse = (_sin(t * (8 if gatling_firing else 3)) + 1) * 0.5
         reactor_pulse = (_sin(t * (12 if gatling_firing else 4.5)) + 1) * 0.5
