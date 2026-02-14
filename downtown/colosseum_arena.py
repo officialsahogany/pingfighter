@@ -555,7 +555,7 @@ class TournamentRound(Enum):
 class ArenaLeafShield:
     """투기장 전용 신성월계수 잎 시스템 (간소화 버전)"""
 
-    def __init__(self, leaf_count=5, is_top=False):
+    def __init__(self, leaf_count=4, is_top=False):
         self.leaf_count = leaf_count
         self.is_top = is_top       # 상단(보스) vs 하단(플레이어)
         self.active = False
@@ -565,7 +565,7 @@ class ArenaLeafShield:
         self.orbit_radius = 196   # 궤도 반지름 (기존 170에서 15% 확대)
         self.ellipse_y = 0.3       # Y축 압축률 (전설 신성월계수와 동일)
         self.front_threshold = 30  # 패들 앞쪽 잎 충돌 무시 기준 (전설과 동일)
-        self.leaf_size = 24        # 잎 그리기 크기 (3배 확대)
+        self.leaf_size = 19        # 잎 그리기 크기 (기존 24에서 20% 감소)
         self.hitbox_size = 35      # 충돌 판정 크기 (전설 신성월계수와 동일)
         self.regen_delay = 30 * 60  # 잎 재생 시간 (30초 * 60fps)
         self.owner_x = 0.0
@@ -916,10 +916,10 @@ ARENA_PERK_POOL = [
     {
         "id": "laurel_shield",
         "name": "신성월계수",
-        "description": "잎 5개가 영웅 주위를 회전하며 공을 방어",
+        "description": "잎 4개가 영웅 주위를 회전하며 공을 방어",
         "icon_color": (200, 180, 60),    # 금색 (월계수)
         "effect_type": "laurel_shield",
-        "value": 5,  # 잎 개수
+        "value": 4,  # 잎 개수
     },
     {
         "id": "titan_body",
