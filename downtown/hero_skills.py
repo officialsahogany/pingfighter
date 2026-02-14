@@ -12602,7 +12602,7 @@ class SandVortex(HeroSkill):
         try:
             import os
             project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            path1 = os.path.join(project_root, "sounds", "gravityaccel.wav")
+            path1 = os.path.join(project_root, "sounds", "windstorm.wav")
             if os.path.exists(path1):
                 self._sound = pygame.mixer.Sound(path1)
                 self._sound.set_volume(0.4)
