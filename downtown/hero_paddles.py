@@ -239,7 +239,8 @@ class HeroPaddleRenderer:
     def draw_hero_paddle(self, screen: pygame.Surface, hero_id: str,
                          x: float, y: float, width: int, height: int,
                          facing: str = "down", color: Tuple[int, int, int] = (200, 200, 200),
-                         scale_mode: str = "paddle", stun_effect: bool = False):
+                         scale_mode: str = "paddle", stun_effect: bool = False,
+                         electric_stun: bool = False):
         """
         영웅 패들 그리기
         facing="down": 정면 (아래를 바라봄, 얼굴이 보임) - 상단 영웅
@@ -247,9 +248,25 @@ class HeroPaddleRenderer:
         scale_mode="paddle": 투기장 모드 - 패들 크기에 맞게 캐릭터 축소
         scale_mode="preview": 미리보기 모드 - 기존 크기
         stun_effect: 대쉬 후딜 상태 (보라색 틴트 효과)
+        electric_stun: 번개의 분노 감전 상태 (전기 틴트 + 경련 떨림)
         """
+        import random as _rand
+        # 번개 감전 상태: 전기 색상 틴트 + 경련 오프셋
+        if electric_stun:
+            t = pygame.time.get_ticks()
+            # 빠른 불규칙 경련 (부르르 떨림) - 프레임마다 랜덤 + 고주파 사인 혼합
+            tremor_x = _rand.randint(-3, 3) + int(2.0 * _sin(t * 0.07))
+            tremor_y = _rand.randint(-2, 2) + int(1.5 * _cos(t * 0.09))
+            x += tremor_x
+            y += tremor_y
+            # 전기 색상 틴트 (노란~하얀 깜빡임)
+            flash = 0.5 + 0.5 * _sin(t * 0.03)
+            r = min(255, int(color[0] * 0.4 + 255 * flash * 0.6))
+            g = min(255, int(color[1] * 0.4 + 255 * flash * 0.5))
+            b_color = min(255, int(color[2] * 0.3 + 200 * flash * 0.3))
+            color = (r, g, b_color)
         # 후딜 상태일 때 색상 변경 (보라색 틴트)
-        if stun_effect:
+        elif stun_effect:
             # 보라색 틴트 적용 (원래 색상에 보라색 혼합)
             pulse = 0.6 + 0.4 * _sin(pygame.time.get_ticks() * 0.02)
             r = int(color[0] * 0.5 + 180 * pulse * 0.5)

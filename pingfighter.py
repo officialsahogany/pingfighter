@@ -90002,7 +90002,8 @@ def draw_objects():
                         facing="down",
                         color=arena_top_hero["color"],
                         scale_mode="paddle",
-                        stun_effect=(arena_top_dash_stun_timer > 0)
+                        stun_effect=(arena_top_dash_stun_timer > 0),
+                        electric_stun=(_judgment_lightning_stun_top_timer > 0)
                     )
                     _arena_holo_surf = apply_hologram_materialize_effect(_arena_holo_surf, _boss_hologram_progress, _hologram_time_now)
                     SCREEN.blit(_arena_holo_surf, (int(_top_final_x) - _arena_holo_size // 2, int(_top_final_y) - _arena_holo_size // 2))
@@ -90018,7 +90019,8 @@ def draw_objects():
                         facing="down",
                         color=arena_top_hero["color"],
                         scale_mode="paddle",
-                        stun_effect=(arena_top_dash_stun_timer > 0)
+                        stun_effect=(arena_top_dash_stun_timer > 0),
+                        electric_stun=(_judgment_lightning_stun_top_timer > 0)
                     )
 
             # 마법결계 보호막 이펙트 (상단 영웅)
@@ -91588,7 +91590,8 @@ def draw_objects():
                         facing="up",
                         color=arena_bottom_hero["color"],
                         scale_mode="paddle",
-                        stun_effect=(arena_bottom_dash_stun_timer > 0)
+                        stun_effect=(arena_bottom_dash_stun_timer > 0),
+                        electric_stun=(_judgment_lightning_stun_bottom_timer > 0)
                     )
                     _arena_holo_surf_btm = apply_hologram_materialize_effect(_arena_holo_surf_btm, _player_hologram_progress, _hologram_time_now)
                     SCREEN.blit(_arena_holo_surf_btm, (int(_final_x) - _arena_holo_size_btm // 2, int(_final_y) - _arena_holo_size_btm // 2))
@@ -91604,7 +91607,8 @@ def draw_objects():
                         facing="up",
                         color=arena_bottom_hero["color"],
                         scale_mode="paddle",
-                        stun_effect=(arena_bottom_dash_stun_timer > 0)
+                        stun_effect=(arena_bottom_dash_stun_timer > 0),
+                        electric_stun=(_judgment_lightning_stun_bottom_timer > 0)
                     )
 
             # 마법결계 보호막 이펙트 (하단 영웅)
@@ -92396,46 +92400,93 @@ def draw_objects():
                 SCREEN.blit(glow_surface, (star_x - star_size * 1.5, star_y - star_size * 1.5))
 
         def _draw_arena_electric_stun(target_rect, is_top):
-            """투기장 번개 스턴 전기 이펙트 (파란 전기 아크 + 깜빡임)"""
+            """투기장 번개 스턴 전기 이펙트 - 실제 전류가 흐르는 듯한 찌릿찌릿 전기 아크"""
             current_time = pygame.time.get_ticks()
             cx, cy = target_rect.centerx, target_rect.centery
             offset_y_e = 20 if is_top else -20
             cy += offset_y_e
-            # 전기 아크 (랜덤 지그재그 라인)
-            arc_count = 4
-            for i in range(arc_count):
-                angle = (current_time * 0.5 + i * 90) % 360
-                angle_rad = math.radians(angle)
-                start_r = 8
-                end_r = 22
-                sx = cx + start_r * math.cos(angle_rad)
-                sy = cy + start_r * math.sin(angle_rad) * 0.6
-                ex = cx + end_r * math.cos(angle_rad)
-                ey = cy + end_r * math.sin(angle_rad) * 0.6
-                # 지그재그 2~3세그먼트
+            hw = target_rect.width // 2 + 5   # 패들 반폭
+            hh = 28  # 전기가 흐르는 세로 범위
+
+            # 전기 색상 팔레트 (밝은 노란색~하얀색 전류)
+            _arc_colors_core = [
+                (255, 255, 255), (255, 255, 230), (255, 250, 200),
+            ]
+            _arc_colors_outer = [
+                (120, 180, 255), (80, 140, 255), (160, 200, 255),
+                (255, 240, 120), (255, 220, 80),
+            ]
+
+            # ── 1. 주요 전류 아크 (몸을 관통하는 굵은 번개) ──
+            main_arc_count = 3
+            for i in range(main_arc_count):
+                # 시작/끝점: 몸의 좌우 또는 상하 랜덤 지점
+                if random.random() < 0.6:
+                    # 좌우 관통
+                    sx = cx - hw + random.randint(-3, 5)
+                    sy = cy + random.randint(-hh, hh)
+                    ex = cx + hw + random.randint(-5, 3)
+                    ey = cy + random.randint(-hh, hh)
+                else:
+                    # 상하 관통
+                    sx = cx + random.randint(-hw, hw)
+                    sy = cy - hh + random.randint(-3, 5)
+                    ex = cx + random.randint(-hw, hw)
+                    ey = cy + hh + random.randint(-5, 3)
+
+                # 지그재그 세그먼트 (4~6개로 찌릿찌릿)
+                segs = random.randint(4, 6)
                 pts = [(int(sx), int(sy))]
-                segs = random.randint(2, 3)
                 for j in range(1, segs):
                     frac = j / segs
-                    mx = sx + (ex - sx) * frac + random.uniform(-4, 4)
-                    my = sy + (ey - sy) * frac + random.uniform(-3, 3)
+                    jitter_x = random.uniform(-8, 8)
+                    jitter_y = random.uniform(-6, 6)
+                    mx = sx + (ex - sx) * frac + jitter_x
+                    my = sy + (ey - sy) * frac + jitter_y
                     pts.append((int(mx), int(my)))
                 pts.append((int(ex), int(ey)))
-                # 깜빡이는 색상
-                blink = (current_time // 60) % 3
-                if blink == 0:
-                    col = (120, 120, 255)
-                elif blink == 1:
-                    col = (200, 200, 255)
-                else:
-                    col = (255, 255, 255)
-                pygame.draw.lines(SCREEN, col, False, pts, 1)
-            # 중앙 글로우
-            if (current_time // 100) % 2 == 0:
-                glow_s = pygame.Surface((30, 30), pygame.SRCALPHA)
-                pygame.draw.circle(glow_s, (100, 100, 255, 40), (15, 15), 15)
-                pygame.draw.circle(glow_s, (180, 180, 255, 60), (15, 15), 8)
-                SCREEN.blit(glow_s, (cx - 15, cy - 15), special_flags=pygame.BLEND_ADD)
+
+                # 외곽선 (넓은 전기 글로우)
+                if len(pts) >= 2:
+                    pygame.draw.lines(SCREEN, random.choice(_arc_colors_outer), False, pts, 2)
+                    # 코어 (밝은 중심)
+                    pygame.draw.lines(SCREEN, random.choice(_arc_colors_core), False, pts, 1)
+
+            # ── 2. 분기 전류 (주 전류에서 갈라지는 작은 번개) ──
+            branch_count = random.randint(4, 7)
+            for _ in range(branch_count):
+                bx = cx + random.randint(-hw, hw)
+                by = cy + random.randint(-hh, hh)
+                b_angle = random.uniform(0, math.pi * 2)
+                b_len = random.uniform(8, 18)
+                pts = [(int(bx), int(by))]
+                segs = random.randint(2, 4)
+                for j in range(1, segs + 1):
+                    frac = j / segs
+                    nx = bx + math.cos(b_angle) * b_len * frac + random.uniform(-4, 4)
+                    ny = by + math.sin(b_angle) * b_len * frac + random.uniform(-4, 4)
+                    pts.append((int(nx), int(ny)))
+                col = random.choice(_arc_colors_outer + _arc_colors_core)
+                if len(pts) >= 2:
+                    pygame.draw.lines(SCREEN, col, False, pts, 1)
+
+            # ── 3. 스파크 포인트 (튀는 전기 불꽃) ──
+            spark_count = random.randint(3, 6)
+            for _ in range(spark_count):
+                sp_x = cx + random.randint(-hw, hw)
+                sp_y = cy + random.randint(-hh, hh)
+                sp_size = random.randint(1, 3)
+                sp_col = random.choice([(255, 255, 255), (255, 255, 200), (200, 230, 255)])
+                pygame.draw.circle(SCREEN, sp_col, (sp_x, sp_y), sp_size)
+
+            # ── 4. 전기 글로우 오버레이 (펄스) ──
+            pulse = 0.5 + 0.5 * math.sin(current_time * 0.015)
+            glow_alpha = int(35 * pulse)
+            glow_w, glow_h = hw * 2 + 16, hh * 2 + 16
+            glow_s = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+            pygame.draw.ellipse(glow_s, (120, 180, 255, glow_alpha), (0, 0, glow_w, glow_h))
+            pygame.draw.ellipse(glow_s, (200, 230, 255, glow_alpha + 10), (glow_w // 4, glow_h // 4, glow_w // 2, glow_h // 2))
+            SCREEN.blit(glow_s, (cx - glow_w // 2, cy - glow_h // 2), special_flags=pygame.BLEND_ADD)
 
         # 뿔 박치기 포함 모든 스턴을 _draw_arena_stun_stars()로 통합 처리
         # 번개 스턴일 때는 전기 이펙트로 대체 (타이머 직접 체크 - 다른 스킬의 stun 리셋과 독립)
