@@ -6675,25 +6675,35 @@ class HeroPaddleRenderer:
         # ─── 사신의 낫 (양손 그립) + 팔 ───
         arm_thick = max(2, int(0.22 * b))
 
-        # 낫 자루 기준점 계산 (양손 사이 중앙)
+        # 낫 자루 기준점 계산 (45도 대각선 - 양손 그립)
         # 정면: 왼손(위쪽 그립) + 오른손(아래쪽 그립)
         # 후면: 오른손(위쪽 그립) + 왼손(아래쪽 그립)
         grip_cx = cx + lean_offset
-        grip_top_y = torso_y + int(0.2 * b)   # 위쪽 손 위치
-        grip_bot_y = torso_y + int(1.3 * b)   # 아래쪽 손 위치
+        tilt = 0.7071  # sin(45°) ≈ cos(45°)
+
+        # 자루 전체 (45도 대각선: 오른쪽 위 → 왼쪽 아래)
+        shaft_len_top = int(2.5 * b)
+        shaft_len_bot = int(2.0 * b)
+        shaft_top_x = grip_cx + int(shaft_len_top * tilt)
+        shaft_top_y = torso_y - int(shaft_len_top * tilt)
+        shaft_bot_x = grip_cx - int(shaft_len_bot * tilt)
+        shaft_bot_y = torso_y + int(shaft_len_bot * tilt)
+
+        # 그립 위치도 45도 자루 위에 배치
+        grip_dist_top = int(0.4 * b)   # 피벗에서 위쪽 그립까지 거리
+        grip_dist_bot = int(1.0 * b)   # 피벗에서 아래쪽 그립까지 거리
+        grip_top_x = grip_cx + int(grip_dist_top * tilt)
+        grip_top_y = torso_y - int(grip_dist_top * tilt) + int(0.2 * b)
+        grip_bot_x = grip_cx - int(grip_dist_bot * tilt)
+        grip_bot_y = torso_y + int(grip_dist_bot * tilt) + int(0.2 * b)
+
+        # 자루 피벗 (양손 중간)
+        pivot_x = (grip_top_x + grip_bot_x) // 2
+        pivot_y = (grip_top_y + grip_bot_y) // 2
 
         # 스윙 회전
         swing_dir = -1 if show_back else 1
         scythe_angle = weapon_swing * 1.8 * swing_dir
-
-        # 낫 자루 끝점 (회전 전)
-        shaft_top_x = grip_cx
-        shaft_top_y = torso_y - int(2.5 * b)
-        shaft_bot_x = grip_cx
-        shaft_bot_y = torso_y + int(2.0 * b)
-        # 자루 피벗 (양손 중간)
-        pivot_x = grip_cx
-        pivot_y = (grip_top_y + grip_bot_y) // 2
 
         # 스윙 시 전체 회전
         if scythe_angle != 0:
@@ -6701,21 +6711,21 @@ class HeroPaddleRenderer:
             s_top_x, s_top_y = int(_rot_top[0]), int(_rot_top[1])
             _rot_bot = self._rotate_point(shaft_bot_x, shaft_bot_y, pivot_x, pivot_y, scythe_angle)
             s_bot_x, s_bot_y = int(_rot_bot[0]), int(_rot_bot[1])
-            _rot_gt = self._rotate_point(grip_cx, grip_top_y, pivot_x, pivot_y, scythe_angle)
+            _rot_gt = self._rotate_point(grip_top_x, grip_top_y, pivot_x, pivot_y, scythe_angle)
             g_top_x, g_top_y = int(_rot_gt[0]), int(_rot_gt[1])
-            _rot_gb = self._rotate_point(grip_cx, grip_bot_y, pivot_x, pivot_y, scythe_angle)
+            _rot_gb = self._rotate_point(grip_bot_x, grip_bot_y, pivot_x, pivot_y, scythe_angle)
             g_bot_x, g_bot_y = int(_rot_gb[0]), int(_rot_gb[1])
         else:
             s_top_x, s_top_y = shaft_top_x, shaft_top_y
             s_bot_x, s_bot_y = shaft_bot_x, shaft_bot_y
-            g_top_x, g_top_y = grip_cx, grip_top_y
-            g_bot_x, g_bot_y = grip_cx, grip_bot_y
+            g_top_x, g_top_y = grip_top_x, grip_top_y
+            g_bot_x, g_bot_y = grip_bot_x, grip_bot_y
 
         # 스윙 잔상 (낫날 궤적)
         if abs(weapon_swing) > 0.15:
-            # 낫날 끝점 (회전 전) - 자루 상단에서 옆으로 뻗는 낫날 끝
-            blade_tip_raw_x = shaft_top_x + int(1.2 * b)
-            blade_tip_raw_y = shaft_top_y + int(0.8 * b)
+            # 낫날 끝점 (회전 전) - 자루 상단에서 아래로 휘어진 낫날 끝
+            blade_tip_raw_x = shaft_top_x - int(0.3 * b)
+            blade_tip_raw_y = shaft_top_y + int(1.4 * b)
             trail_pts = []
             t_steps = 6
             for ti in range(t_steps + 1):
@@ -6753,16 +6763,16 @@ class HeroPaddleRenderer:
         pygame.draw.circle(screen, p["gold"], (g_top_x, g_top_y), ring_r)
         pygame.draw.circle(screen, p["gold"], (g_bot_x, g_bot_y), ring_r)
 
-        # ─── 낫날 (자루 상단에서 한쪽으로 휘어진 곡선 칼날) ───
-        # 칼날 기준점들 (회전 전)
+        # ─── 낫날 (자루 상단에서 아래로 휘어진 곡선 칼날) ───
+        # 45도 자루 상단에서 수직 아래쪽으로 곡선을 그리며 휘어짐
         blade_base_x = shaft_top_x
         blade_base_y = shaft_top_y
-        blade_mid_x = shaft_top_x + int(1.0 * b)
-        blade_mid_y = shaft_top_y + int(0.3 * b)
-        blade_tip_x = shaft_top_x + int(1.2 * b)
-        blade_tip_y = shaft_top_y + int(0.8 * b)
-        blade_inner_x = shaft_top_x + int(0.6 * b)
-        blade_inner_y = shaft_top_y + int(0.6 * b)
+        blade_mid_x = shaft_top_x + int(0.3 * b)
+        blade_mid_y = shaft_top_y + int(0.9 * b)
+        blade_tip_x = shaft_top_x - int(0.3 * b)
+        blade_tip_y = shaft_top_y + int(1.4 * b)
+        blade_inner_x = shaft_top_x - int(0.15 * b)
+        blade_inner_y = shaft_top_y + int(0.8 * b)
 
         # 회전 적용
         if scythe_angle != 0:
