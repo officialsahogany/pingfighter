@@ -8565,7 +8565,10 @@ class GhostSummon(HeroSkill):
             if (ball is not None and ghost['spawn_time'] >= self.EMERGE_DURATION
                     and ghost['hit_cooldown'] <= 0 and not self._eating_ball
                     and getattr(ball, 'visible', True)):
-                ball_rect = pygame.Rect(int(ball.x), int(ball.y), int(ball.width), int(ball.height))
+                # ArenaBall은 width/height가 없으므로 getattr로 폴백
+                bw = getattr(ball, 'width', 20)
+                bh = getattr(ball, 'height', 20)
+                ball_rect = pygame.Rect(int(ball.x) - bw // 2, int(ball.y) - bh // 2, bw, bh)
 
                 if rect.colliderect(ball_rect):
                     # 공 먹기 시작!
@@ -11257,8 +11260,9 @@ class GatlingBurst(HeroSkill):
     GAME_TOP = 0
     GAME_BOTTOM = 750
 
-    MOUNT_DURATION = 1.0      # 견착 준비 시간 (초)
+    MOUNT_DURATION = 1.0      # 변신 준비 시간 (초) - 안드로이드 → 탱크
     FIRE_DURATION = 3.0       # 실제 발사 시간 (초)
+    DISMOUNT_DURATION = 1.0   # 복귀 변환 시간 (초) - 탱크 → 안드로이드
     BULLET_SPEED = 620        # 총알 속도
     FIRE_RATE = 0.067         # 발사 간격 (초) - 초당 약 15발 (50% 증가)
     BULLET_LENGTH = 8         # 탄환 길이 (픽셀)
@@ -11278,7 +11282,7 @@ class GatlingBurst(HeroSkill):
             description="1초 견착 후 3초간 기관포 난사! 발사 중 이동속도 50% 감소",
             trigger=SkillTrigger.ON_BALL_HIT,
             cooldown=15.0,
-            duration=4.0,   # 1초 견착 + 3초 발사
+            duration=5.0,   # 1초 변신 + 3초 발사 + 1초 복귀
             hero_id="android"
         )
         self.bullets = []
@@ -11292,7 +11296,7 @@ class GatlingBurst(HeroSkill):
         self._hit_sound = None
         self._fire_sound = None
         self._recoil_offset = 0.0  # 반동 오프셋 (hero_paddles 연동)
-        self._phase = 'idle'       # 'idle', 'mounting', 'firing'
+        self._phase = 'idle'       # 'idle', 'mounting', 'firing', 'dismounting'
         self._phase_timer = 0.0    # 현재 페이즈 경과 시간
 
     def _load_sounds(self):
@@ -11334,6 +11338,8 @@ class GatlingBurst(HeroSkill):
         game_state[f'gatling_mounting_{side}'] = True
         game_state[f'gatling_mount_progress_{side}'] = 0.0
         game_state[f'gatling_burst_active_{side}'] = False
+        game_state[f'gatling_dismounting_{side}'] = False
+        game_state[f'gatling_dismount_progress_{side}'] = 0.0
 
         return {
             'screen_effect': ScreenEffect.FLASH,
@@ -11464,23 +11470,43 @@ class GatlingBurst(HeroSkill):
                 game_state['shake_duration'] = 0.15
             return  # 견착 중에는 총알 발사 안함
 
-        # === 발사 단계 (3초) ===
-        # 발사 중 이동속도 50% 감소
-        game_state[f'{caster_prefix}_slowed'] = True
-        game_state[f'{caster_prefix}_slow_amount'] = self.MOVE_SLOW_AMOUNT
+        # === 해체/복귀 단계 (1초) - 탱크 → 안드로이드 역변환 ===
+        if self._phase == 'dismounting':
+            progress = min(1.0, self._phase_timer / self.DISMOUNT_DURATION)
+            game_state[f'gatling_dismount_progress_{side}'] = progress
+            # 해체 중에도 기존 이펙트는 계속 업데이트 (아래 공통 코드로 진행)
 
-        # 발사 타이머
-        self.fire_timer += dt
-        if self.fire_timer >= self.FIRE_RATE:
-            self.fire_timer -= self.FIRE_RATE
-            self._fire_bullet(caster_paddle, target_paddle, game_state)
+        # === 발사 단계 (3초) - 발사 전용 코드 ===
+        if self._phase == 'firing':
+            # 발사 중 이동속도 50% 감소
+            game_state[f'{caster_prefix}_slowed'] = True
+            game_state[f'{caster_prefix}_slow_amount'] = self.MOVE_SLOW_AMOUNT
 
-        # 반동 감쇠
-        if self._recoil_offset > 0:
-            self._recoil_offset = max(0, self._recoil_offset - dt * 35)
+            # 발사 타이머
+            self.fire_timer += dt
+            if self.fire_timer >= self.FIRE_RATE:
+                self.fire_timer -= self.FIRE_RATE
+                self._fire_bullet(caster_paddle, target_paddle, game_state)
 
-        # 반동 값을 game_state에 전달 (hero_paddles.py 연동)
-        game_state[f'gatling_recoil_{side}'] = self._recoil_offset
+            # 반동 감쇠
+            if self._recoil_offset > 0:
+                self._recoil_offset = max(0, self._recoil_offset - dt * 35)
+
+            # 반동 값을 game_state에 전달 (hero_paddles.py 연동)
+            game_state[f'gatling_recoil_{side}'] = self._recoil_offset
+
+            # 발사 시간 초과 → 해체/복귀 단계 전환
+            if self._phase_timer >= self.FIRE_DURATION:
+                self._phase = 'dismounting'
+                self._phase_timer = 0.0
+                game_state[f'gatling_burst_active_{side}'] = False
+                game_state[f'gatling_dismounting_{side}'] = True
+                game_state[f'gatling_dismount_progress_{side}'] = 0.0
+                game_state[f'{caster_prefix}_slowed'] = False
+                game_state[f'{caster_prefix}_slow_amount'] = 1.0
+                game_state[f'gatling_recoil_{side}'] = 0
+
+        # === 총알 & 이펙트 업데이트 (발사/해체 공통) ===
 
         # 총알 업데이트
         new_bullets = []
@@ -11627,6 +11653,8 @@ class GatlingBurst(HeroSkill):
         game_state[f'gatling_burst_active_{side}'] = False
         game_state[f'gatling_mounting_{side}'] = False
         game_state[f'gatling_mount_progress_{side}'] = 0.0
+        game_state[f'gatling_dismounting_{side}'] = False
+        game_state[f'gatling_dismount_progress_{side}'] = 0.0
         game_state[f'gatling_recoil_{side}'] = 0
         # 이동속도 감소 해제
         game_state[f'{caster_prefix}_slowed'] = False
@@ -11656,6 +11684,8 @@ class GatlingBurst(HeroSkill):
             game_state[f'gatling_burst_active_{side}'] = False
             game_state[f'gatling_mounting_{side}'] = False
             game_state[f'gatling_mount_progress_{side}'] = 0.0
+            game_state[f'gatling_dismounting_{side}'] = False
+            game_state[f'gatling_dismount_progress_{side}'] = 0.0
             game_state[f'gatling_recoil_{side}'] = 0
 
     def draw(self, screen: pygame.Surface, caster_paddle,
