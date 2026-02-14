@@ -2510,6 +2510,10 @@ class GuardWarriorSystem:
                     c['ghost_step_timer'] = 0.0
                     c['ghost_step_base_y'] = c['y']
                     c['ghost_step_hit_count'] = 0
+                elif skill_id == 'steam_barrier':
+                    # 호위무사가 시전한 배리어 → 메인 패들 정지 방지
+                    game_state['steam_barrier_caster_frozen'] = False
+                    game_state['steam_barrier_thaw_speed'] = 0.0
 
                 # 말풍선 표시
                 bubble_text = f"{skill.korean_name}!"
@@ -2750,6 +2754,10 @@ class GuardWarriorSystem:
                     game_state['demon_eye_active'] = False
                     game_state.pop('ghost_step_start_top', None)
                     game_state.pop('ghost_step_start_bottom', None)
+                elif skill_id == 'steam_barrier':
+                    # 호위무사가 시전한 배리어 → 메인 패들 정지 방지
+                    game_state['steam_barrier_caster_frozen'] = False
+                    game_state['steam_barrier_thaw_speed'] = 0.0
                 # 말풍선
                 bubble_text = f"{skill.korean_name}!"
                 bubble_color = guard.get("color") or (200, 200, 200)
@@ -2976,6 +2984,10 @@ class GuardWarriorSystem:
                         game_state['demon_eye_active'] = False
                         game_state.pop('ghost_step_start_top', None)
                         game_state.pop('ghost_step_start_bottom', None)
+                    elif skill_id == 'steam_barrier':
+                        # 호위무사가 시전한 배리어 → 메인 패들 정지 방지
+                        game_state['steam_barrier_caster_frozen'] = False
+                        game_state['steam_barrier_thaw_speed'] = 0.0
                     # OilSpill: 발사체/웅덩이가 모두 소진되면 비활성화
                     elif skill_id == 'oil_spill':
                         if not skill.oil_projectiles and not skill.oil_puddles:
@@ -3792,6 +3804,10 @@ class GuardWarriorSystem:
             game_state['demon_eye_active'] = False
             game_state.pop('ghost_step_start_top', None)
             game_state.pop('ghost_step_start_bottom', None)
+        elif skill_id == 'steam_barrier':
+            # 호위무사가 시전한 배리어 → 메인 패들 정지 방지
+            game_state['steam_barrier_caster_frozen'] = False
+            game_state['steam_barrier_thaw_speed'] = 0.0
 
         # duration=0 스킬 (OilSpill 등)은 use()에서 is_active가 안 켜짐 → 수동 활성화
         # (호위무사 update/draw 루프가 is_active 기반이므로 필요)
