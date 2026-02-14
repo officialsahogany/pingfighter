@@ -21344,11 +21344,11 @@ def arena_trigger_bottom_hero_dash_ai(target_x: float) -> bool:
     if arena_bottom_ghost_step_active:
         return False
 
-    # 대쉬 중이거나 쿨다운/후딜 중이면 발동 불가
-    if arena_bottom_dashing or arena_bottom_dash_cooldown > 0 or arena_bottom_dash_stun_timer > 0:
+    # 대쉬 중이거나 후딜 중이면 발동 불가
+    if arena_bottom_dashing or arena_bottom_dash_stun_timer > 0:
         return False
 
-    # 대쉬 토큰이 없으면 발동 불가
+    # 토큰 없으면 발동 불가 (쿨다운은 충전만 제어, 토큰 남아있으면 사용 가능)
     if arena_bottom_dash_charges <= 0:
         return False
 
@@ -21415,10 +21415,11 @@ def arena_trigger_bottom_hero_dash(direction: int) -> bool:
     if arena_bottom_ghost_step_active:
         return False
 
-    # 대쉬 중이거나 쿨다운/후딜 중이면 발동 불가
-    if arena_bottom_dashing or arena_bottom_dash_cooldown > 0 or arena_bottom_dash_stun_timer > 0:
+    # 대쉬 중이거나 후딜 중이면 발동 불가
+    if arena_bottom_dashing or arena_bottom_dash_stun_timer > 0:
         return False
 
+    # 토큰 없으면 발동 불가 (쿨다운은 충전만 제어, 토큰 남아있으면 사용 가능)
     if arena_bottom_dash_charges <= 0:
         return False
 
@@ -21438,8 +21439,6 @@ def arena_trigger_bottom_hero_dash(direction: int) -> bool:
     arena_bottom_dashing = True
     arena_bottom_dash_charges -= 1
     arena_bottom_dash_charge_timer = 0  # 충전 타이머 리셋 (새 토큰 충전 시작)
-    print(f"[DEBUG DASH MANUAL] 대쉬 발동! charges={arena_bottom_dash_charges}/{arena_bottom_max_dash_charges} "
-          f"charge_timer=0으로 리셋, cooldown={arena_bottom_dash_cooldown}, stun={arena_bottom_dash_stun_timer}", flush=True)
 
     # 폭풍질주 퍽: 버스트업 Lv3 효과
     if arena_perk_dash_distance_mult_bottom > 1.0:
@@ -21594,10 +21593,6 @@ def update_arena_bottom_hero_dash():
     # 충전 타이머 업데이트 (대쉬 중/후딜 중에는 충전 안 함)
     if arena_bottom_dash_charges < arena_bottom_max_dash_charges and arena_bottom_dash_cooldown <= 0 and arena_bottom_dash_stun_timer <= 0 and not arena_bottom_dashing:
         arena_bottom_dash_charge_timer += 1
-        if arena_bottom_dash_charge_timer % 60 == 1:  # 매 1초마다 로그
-            print(f"[DEBUG CHARGE] 충전 중: timer={arena_bottom_dash_charge_timer}/{ARENA_DASH_CHARGE_TIME} "
-                  f"charges={arena_bottom_dash_charges}/{arena_bottom_max_dash_charges} "
-                  f"cooldown={arena_bottom_dash_cooldown} stun={arena_bottom_dash_stun_timer}", flush=True)
         if arena_bottom_dash_charge_timer >= ARENA_DASH_CHARGE_TIME:
             _charged_idx = arena_bottom_dash_charges  # 충전될 토큰 인덱스 (증가 전)
             arena_bottom_dash_charges = min(arena_bottom_max_dash_charges, arena_bottom_dash_charges + 1)
@@ -21679,12 +21674,8 @@ def update_arena_bottom_hero_dash():
         arena_storm_rush_burst_bottom = False          # 버스트업 해제
         arena_storm_rush_height_bonus_bottom = 0       # 높이 보너스 초기화
         arena_bottom_dash_stun_timer = ARENA_DASH_STUN_FRAMES  # 후딜 타이머 설정
-        # 쿨타임 설정 - 토큰이 남아있으면 쿨다운 없이 후딜만 적용 (잔상술 퍽 등으로 토큰 2개 이상일 때)
-        if arena_bottom_dash_charges <= 0:
-            arena_bottom_dash_cooldown = int(random.randint(ARENA_DASH_COOLDOWN_MIN, ARENA_DASH_COOLDOWN_MAX) * arena_perk_dash_cd_mult_bottom)
-        print(f"[DEBUG DASH END] 대쉬 종료! charges={arena_bottom_dash_charges}/{arena_bottom_max_dash_charges} "
-              f"charge_timer={arena_bottom_dash_charge_timer} cooldown={arena_bottom_dash_cooldown} "
-              f"stun={arena_bottom_dash_stun_timer}", flush=True)
+        # 쿨타임은 항상 설정 (충전 속도 제어용 - 토큰 사용은 쿨다운과 무관하게 가능)
+        arena_bottom_dash_cooldown = int(random.randint(ARENA_DASH_COOLDOWN_MIN, ARENA_DASH_COOLDOWN_MAX) * arena_perk_dash_cd_mult_bottom)
         # 후딜 사운드 시작 (보스와 동일)
         try:
             play_dash_delay_sound()
@@ -84619,19 +84610,10 @@ def draw_player_gauge():
         _effective_charge_progress = 0.0
         if rolling_charges < max_tokens:
             _charging_idx = rolling_charges  # 다음 충전할 토큰 인덱스
-            # 쿨다운 유무에 따라 진행률 계산 분기
-            if arena_bottom_dash_cooldown > 0:
-                # 쿨다운 + 충전 합산 진행률 (쿨다운이 있을 때)
-                _total_wait = arena_bottom_dash_cooldown + max(0, ARENA_DASH_CHARGE_TIME - arena_bottom_dash_charge_timer)
-                _total_max = ARENA_DASH_COOLDOWN_MAX + ARENA_DASH_CHARGE_TIME
-                _effective_charge_progress = max(0.0, 1.0 - (_total_wait / max(1, _total_max)))
-            else:
-                # 쿨다운 없이 충전만 (잔상술 퍽 등으로 토큰 남아있을 때) - 0%에서 시작
-                _effective_charge_progress = arena_bottom_dash_charge_timer / max(1, ARENA_DASH_CHARGE_TIME)
-            if arena_bottom_dash_charge_timer % 60 == 0:  # 매 1초마다 UI 로그
-                print(f"[DEBUG UI GAUGE] idx={_charging_idx} "
-                      f"progress={_effective_charge_progress:.2f} cooldown={arena_bottom_dash_cooldown} "
-                      f"charge_timer={arena_bottom_dash_charge_timer}/{ARENA_DASH_CHARGE_TIME}", flush=True)
+            # 쿨다운 + 충전 합산 진행률 계산
+            _total_wait = arena_bottom_dash_cooldown + max(0, ARENA_DASH_CHARGE_TIME - arena_bottom_dash_charge_timer)
+            _total_max = ARENA_DASH_COOLDOWN_MAX + ARENA_DASH_CHARGE_TIME  # 최대 대기 시간
+            _effective_charge_progress = max(0.0, 1.0 - (_total_wait / max(1, _total_max)))
         _charging_state["index"] = _charging_idx
         _charging_state["timer"] = int((1.0 - _effective_charge_progress) * _UI_CHARGE_MAX)
         _charging_state["max_time"] = _UI_CHARGE_MAX
