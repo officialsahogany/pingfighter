@@ -8424,16 +8424,7 @@ class GhostSummon(HeroSkill):
                     self._time_since_ghost_release = 0.0  # 연속 포획 판정용
                     self._eating_ghost_id = -1
 
-                    # 발사 사운드
-                    try:
-                        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                        sound_path = os.path.join(project_root, "sounds", "ghostwalk.wav")
-                        if os.path.exists(sound_path):
-                            s = pygame.mixer.Sound(sound_path)
-                            s.set_volume(0.4)
-                            s.play()
-                    except Exception:
-                        pass
+                    # 발사 사운드 (ghostwalk.wav 제거 - 무겐 귀신발걸음과 혼동됨)
 
                 new_ghosts.append(ghost)
                 continue
@@ -8484,16 +8475,7 @@ class GhostSummon(HeroSkill):
                         attempts += 1
                     ghost['teleport_target_x'] = float(new_x)
 
-                    # 사라지는 사운드 (투기장 모드에서만 재생)
-                    try:
-                        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                        sound_path = os.path.join(project_root, "sounds", "ghostwalk.wav")
-                        if os.path.exists(sound_path):
-                            s = pygame.mixer.Sound(sound_path)
-                            s.set_volume(0.3)
-                            s.play()
-                    except Exception:
-                        pass
+                    # 사라지는 사운드 (ghostwalk.wav 제거 - 무겐 귀신발걸음과 혼동됨)
 
                 new_ghosts.append(ghost)
                 continue
