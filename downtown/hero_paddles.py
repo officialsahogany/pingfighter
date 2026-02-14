@@ -8565,7 +8565,7 @@ class HeroPaddleRenderer:
     # =========================================================================
     def _draw_monkeyking(self, screen, cx, cy, b, color, show_back, anim):
         """원숭이왕 - 밀림의 패왕 (야생 원숭이 스타일, 금 왕관, 어슬렁 걸음, 팔 휘두르기) [HD 버전]"""
-        b = int(b * 1.2)
+        b = int(b * 1.4)
         lean = anim["lean"]
         wave = anim["wave"]
         body_bob = anim["body_bob"]
