@@ -13,6 +13,18 @@ import random
 import pygame
 from typing import List, Tuple, Optional, Dict
 
+# Surface 재사용 풀 (매 프레임 Surface 생성 방지)
+_tetriser_surface_pool = {}
+
+def _get_pooled_surface(w, h):
+    """재사용 가능한 SRCALPHA Surface 반환 (매 프레임 할당 방지)"""
+    key = (w, h)
+    if key not in _tetriser_surface_pool:
+        _tetriser_surface_pool[key] = pygame.Surface((w, h), pygame.SRCALPHA)
+    surf = _tetriser_surface_pool[key]
+    surf.fill((0, 0, 0, 0))
+    return surf
+
 
 class CrystalShieldBlock:
     """보스 주변을 회전하는 크리스탈 테트로미노 블록"""
@@ -151,7 +163,7 @@ class CrystalShieldBlock:
         # 글로우 효과
         glow_alpha = int(30 * alpha_mult)
         if glow_alpha > 0:
-            glow_surface = pygame.Surface((size + 8, size + 8), pygame.SRCALPHA)
+            glow_surface = _get_pooled_surface(size + 8, size + 8)
             pygame.draw.rect(glow_surface, (*rainbow_color, glow_alpha),
                            (0, 0, size + 8, size + 8), border_radius=4)
             surface.blit(glow_surface, (px - 4, py - 4))
@@ -159,7 +171,7 @@ class CrystalShieldBlock:
         # 메인 블록
         main_alpha = int(80 * alpha_mult)
         if main_alpha > 0:
-            block_surface = pygame.Surface((size, size), pygame.SRCALPHA)
+            block_surface = _get_pooled_surface(size, size)
             pygame.draw.rect(block_surface, (*rainbow_color, main_alpha),
                            (0, 0, size, size), border_radius=3)
             # 외곽선
@@ -318,7 +330,7 @@ class CrystalShieldSystem:
             for row in right_game.board:
                 right_count += sum(1 for cell in row if cell is not None)
 
-        print(f"[CrystalShield] 다음 라운드에 실드 활성화 예약됨 (좌측 {left_count}개, 우측 {right_count}개)")
+        # print(f"[CrystalShield] 다음 라운드에 실드 활성화 예약됨 (좌측 {left_count}개, 우측 {right_count}개)")
 
     def start_activation(self, boss_x: float, boss_y: float):
         """실제 활성화 시작 (다음 라운드 시작 시 호출)"""
@@ -354,7 +366,7 @@ class CrystalShieldSystem:
         # 최종 24개 실드 위치 계산
         self._calculate_merge_targets()
 
-        print(f"[CrystalShield] 활성화 시작 - 공중부양 블록 수: {len(self.floating_blocks)}")
+        # print(f"[CrystalShield] 활성화 시작 - 공중부양 블록 수: {len(self.floating_blocks)}")
         return True
 
     def _collect_board_blocks(self):
@@ -425,7 +437,7 @@ class CrystalShieldSystem:
                             'rainbow_offset': random.uniform(0, 1),
                         })
 
-        print(f"[CrystalShield] 보드 블록 수집 완료: {len(self.floating_blocks)}개")
+        # print(f"[CrystalShield] 보드 블록 수집 완료: {len(self.floating_blocks)}개")
 
     def _calculate_merge_targets(self):
         """최종 24개 실드 위치 계산 (보스 주변 궤도)"""
@@ -476,7 +488,7 @@ class CrystalShieldSystem:
             else:
                 right_blocks.append(block)
 
-        print(f"[CrystalShield] 좌측 블록: {len(left_blocks)}개, 우측 블록: {len(right_blocks)}개")
+        # print(f"[CrystalShield] 좌측 블록: {len(left_blocks)}개, 우측 블록: {len(right_blocks)}개")
 
         # 좌측 블록이 부족하면 생성
         while len(left_blocks) < BLOCKS_PER_SIDE:
@@ -511,7 +523,7 @@ class CrystalShieldSystem:
                 selected_blocks.append(right_blocks[i])
 
         num_blocks = len(selected_blocks)
-        print(f"[CrystalShield] 총 선택된 블록: {num_blocks}개 (좌{min(len(left_blocks), BLOCKS_PER_SIDE)} + 우{min(len(right_blocks), BLOCKS_PER_SIDE)})")
+        # print(f"[CrystalShield] 총 선택된 블록: {num_blocks}개 (좌{min(len(left_blocks), BLOCKS_PER_SIDE)} + 우{min(len(right_blocks), BLOCKS_PER_SIDE)})")
 
         # 필러 블록들을 실드 블록으로 변환
         for i in range(num_blocks):
@@ -715,7 +727,7 @@ class CrystalShieldSystem:
 
             # 디버그: 현재 타이머 출력 (0.5초마다)
             if int(self.animation_timer * 2) != int((self.animation_timer - dt) * 2):
-                print(f"[CrystalShield] Aura phase: timer={self.animation_timer:.2f}, shockwave_phase={self.shockwave_phase}")
+                # print(f"[CrystalShield] Aura phase: timer={self.animation_timer:.2f}, shockwave_phase={self.shockwave_phase}")
 
             if self.animation_timer < 1.2:
                 # Phase 1a: 아우라 파티클이 보스에게 모임
@@ -734,7 +746,7 @@ class CrystalShieldSystem:
                     self.shockwave_triggered = True
                     self.shockwave_phase = "exploding"
                     self._create_shockwave_particles()
-                    print("[CrystalShield] 충격파 발사!")
+                    # print("[CrystalShield] 충격파 발사!")
 
                 # 충격파 파티클 확장
                 for p in self.shockwave_particles:
@@ -764,7 +776,7 @@ class CrystalShieldSystem:
                 self.injection_particles.clear()
                 # 보드에서 블록 제거 (이제 floating_blocks로 관리)
                 self._clear_board_blocks()
-                print("[CrystalShield] Phase: floating (블록 공중부양)")
+                # print("[CrystalShield] Phase: floating (블록 공중부양)")
 
         elif self.animation_phase == "floating":
             # Phase 2: 블록들이 공중으로 둥둥 떠오름 (3초)
@@ -809,7 +821,7 @@ class CrystalShieldSystem:
                 for block in self.floating_blocks:
                     block['gather_start_x'] = block['x']
                     block['gather_start_y'] = block['y']
-                print("[CrystalShield] Phase: gathering (블록 수집)")
+                # print("[CrystalShield] Phase: gathering (블록 수집)")
 
         elif self.animation_phase == "gathering":
             # Phase 3: 테트리서에게 빠르게 모임 (1초) - 모든 블록이 보스에게 모임
@@ -842,7 +854,7 @@ class CrystalShieldSystem:
                 self.animation_timer = 0.0
                 # 최종 24개 실드 블록 생성
                 self._create_final_shield_blocks()
-                print("[CrystalShield] Phase: forming (실드 형성 + 플라즈마 폭발)")
+                # print("[CrystalShield] Phase: forming (실드 형성 + 플라즈마 폭발)")
 
         elif self.animation_phase == "forming":
             # Phase 4: 실드 형성 + 플라즈마 폭발 (2초)
@@ -878,7 +890,7 @@ class CrystalShieldSystem:
                     self.energy_rings.clear()  # 에너지 링도 클리어
                     # 폭발 파티클 강화
                     self._boost_plasma_explosion()
-                    print("[CrystalShield] 플라즈마 폭발! - 24개 실드 형성 완료")
+                    # print("[CrystalShield] 플라즈마 폭발! - 24개 실드 형성 완료")
 
             else:
                 # Phase 4c: 폭발 후 페이드아웃
@@ -899,7 +911,7 @@ class CrystalShieldSystem:
                 self.freeze_screen = False
                 self.collection_complete = True
                 self.aura_intensity = 0
-                print("[CrystalShield] Phase: active (게임 시작)")
+                # print("[CrystalShield] Phase: active (게임 시작)")
 
         elif self.animation_phase == "active":
             # 활성 상태 - 블록들이 보스 주변 회전
@@ -1053,7 +1065,7 @@ class CrystalShieldSystem:
             shield_block.phase = "orbiting"
             self.shield_blocks.append(shield_block)
 
-        print(f"[CrystalShield] 최종 실드 블록 {len(self.shield_blocks)}개 생성")
+        # print(f"[CrystalShield] 최종 실드 블록 {len(self.shield_blocks)}개 생성")
 
     def draw(self, surface: pygame.Surface):
         """실드 시스템 그리기"""
@@ -1116,14 +1128,14 @@ class CrystalShieldSystem:
 
             # 글로우 효과 (펄스에 따라 강도 변화)
             glow_size = size + int(10 * glow_intensity)
-            glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+            glow_surf = _get_pooled_surface(glow_size, glow_size)
             glow_alpha = int(60 * glow_intensity)
             pygame.draw.rect(glow_surf, (*rainbow_color, glow_alpha),
                            (0, 0, glow_size, glow_size), border_radius=4)
             surface.blit(glow_surf, (x - glow_size // 2, y - glow_size // 2))
 
             # 메인 블록
-            block_surf = pygame.Surface((size, size), pygame.SRCALPHA)
+            block_surf = _get_pooled_surface(size, size)
             pygame.draw.rect(block_surf, (*rainbow_color, min(200, alpha)),
                            (0, 0, size, size), border_radius=2)
             # 테두리 (밝게 빛나는 효과)
@@ -1134,7 +1146,7 @@ class CrystalShieldSystem:
 
             # 블록 내부 하이라이트 (펄스에 따라)
             if block['float_reached'] and glow_intensity > 0.7:
-                highlight_surf = pygame.Surface((size - 4, size - 4), pygame.SRCALPHA)
+                highlight_surf = _get_pooled_surface(size - 4, size - 4)
                 highlight_alpha = int(100 * (glow_intensity - 0.5))
                 pygame.draw.rect(highlight_surf, (255, 255, 255, highlight_alpha),
                                (0, 0, size - 4, size - 4), border_radius=1)
@@ -1156,13 +1168,13 @@ class CrystalShieldSystem:
 
             # 글로우 효과
             glow_size = size * 3
-            glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+            glow_surf = _get_pooled_surface(glow_size * 2, glow_size * 2)
             pygame.draw.circle(glow_surf, (*color, p['alpha'] // 4),
                              (glow_size, glow_size), glow_size)
             surface.blit(glow_surf, (x - glow_size, y - glow_size))
 
             # 코어 (밝은 중심)
-            particle_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            particle_surf = _get_pooled_surface(size * 2, size * 2)
             pygame.draw.circle(particle_surf, (*color, p['alpha']),
                              (size, size), size)
             # 흰색 중심
@@ -1178,7 +1190,7 @@ class CrystalShieldSystem:
         # 중앙 글로우
         glow_radius = int(100 * self.aura_intensity)
         if glow_radius > 0:
-            glow_surface = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
+            glow_surface = _get_pooled_surface(glow_radius * 2, glow_radius * 2)
 
             for r in range(glow_radius, 0, -5):
                 alpha = int(40 * (r / glow_radius) * self.aura_intensity)
@@ -1198,7 +1210,7 @@ class CrystalShieldSystem:
             color = (int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
             alpha = int(p['alpha'] * self.aura_intensity)
             if alpha > 0:
-                particle_surface = pygame.Surface((int(p['size'] * 2), int(p['size'] * 2)), pygame.SRCALPHA)
+                particle_surface = _get_pooled_surface(int(p['size'] * 2), int(p['size'] * 2))
                 pygame.draw.circle(particle_surface, (*color, alpha),
                                  (int(p['size']), int(p['size'])), int(p['size']))
                 surface.blit(particle_surface, (int(px - p['size']), int(py - p['size'])))
@@ -1227,7 +1239,7 @@ class CrystalShieldSystem:
                 if p['type'] == 'ring':
                     # 링 파티클 (약간 큰 글로우)
                     glow_size = size * 2
-                    glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                    glow_surf = _get_pooled_surface(glow_size * 2, glow_size * 2)
                     pygame.draw.circle(glow_surf, (*color, alpha // 2),
                                      (glow_size, glow_size), glow_size)
                     pygame.draw.circle(glow_surf, (255, 255, 255, alpha),
@@ -1235,7 +1247,7 @@ class CrystalShieldSystem:
                     surface.blit(glow_surf, (int(px - glow_size), int(py - glow_size)))
                 else:
                     # 일반 파티클
-                    particle_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                    particle_surf = _get_pooled_surface(size * 2, size * 2)
                     pygame.draw.circle(particle_surf, (*color, alpha),
                                      (size, size), size)
                     surface.blit(particle_surf, (int(px - size), int(py - size)))
@@ -1248,7 +1260,7 @@ class CrystalShieldSystem:
 
             if ring_alpha > 0 and ring_radius > 0:
                 # 외곽 충격파 링
-                ring_surf = pygame.Surface((ring_radius * 2 + 20, ring_radius * 2 + 20), pygame.SRCALPHA)
+                ring_surf = _get_pooled_surface(ring_radius * 2 + 20, ring_radius * 2 + 20)
                 for thickness in range(5, 0, -1):
                     alpha = ring_alpha // (6 - thickness)
                     hue = (self.animation_timer * 2 + thickness * 0.1) % 1.0
@@ -1301,7 +1313,7 @@ class CrystalShieldSystem:
                         trail_alpha = alpha // (t + 2)
                         trail_size = max(2, size - t * 2)
                         if trail_alpha > 0:
-                            trail_surf = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
+                            trail_surf = _get_pooled_surface(trail_size * 2, trail_size * 2)
                             pygame.draw.circle(trail_surf, (*color, trail_alpha),
                                              (trail_size, trail_size), trail_size)
                             surface.blit(trail_surf, (int(tx - trail_size), int(ty - trail_size)))
@@ -1309,13 +1321,13 @@ class CrystalShieldSystem:
             # 메인 파티클
             # 글로우
             glow_size = size * 2
-            glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+            glow_surf = _get_pooled_surface(glow_size * 2, glow_size * 2)
             pygame.draw.circle(glow_surf, (*color, alpha // 3),
                              (glow_size, glow_size), glow_size)
             surface.blit(glow_surf, (x - glow_size, y - glow_size))
 
             # 코어
-            core_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            core_surf = _get_pooled_surface(size * 2, size * 2)
             pygame.draw.circle(core_surf, (*color, alpha), (size, size), size)
             pygame.draw.circle(core_surf, (255, 255, 255, alpha // 2), (size, size), size // 2)
             surface.blit(core_surf, (x - size, y - size))
@@ -1323,7 +1335,7 @@ class CrystalShieldSystem:
             # 도착 시 스파크 효과
             if p['arrived'] and p['alpha'] > 150:
                 spark_size = size * 3
-                spark_surf = pygame.Surface((spark_size * 2, spark_size * 2), pygame.SRCALPHA)
+                spark_surf = _get_pooled_surface(spark_size * 2, spark_size * 2)
                 pygame.draw.circle(spark_surf, (255, 255, 255, int(p['alpha'] * 0.5)),
                                  (spark_size, spark_size), spark_size)
                 surface.blit(spark_surf, (x - spark_size, y - spark_size))
@@ -1358,7 +1370,7 @@ class CrystalShieldSystem:
                 alpha = int(150 * self.condensing_energy)
                 if alpha > 0:
                     # 광선 그리기
-                    ray_surf = pygame.Surface((300, 300), pygame.SRCALPHA)
+                    ray_surf = _get_pooled_surface(300, 300)
                     pygame.draw.line(ray_surf, (*color, alpha),
                                    (150 + int(outer_x - self.boss_x), 150 + int(outer_y - self.boss_y)),
                                    (150 + int(inner_x - self.boss_x), 150 + int(inner_y - self.boss_y)), 2)
@@ -1377,7 +1389,7 @@ class CrystalShieldSystem:
             alpha = int(100 * self.plasma_intensity * (1 - i / ring_count))
 
             if radius > 0 and alpha > 0:
-                ring_surf = pygame.Surface((radius * 2 + 4, radius * 2 + 4), pygame.SRCALPHA)
+                ring_surf = _get_pooled_surface(radius * 2 + 4, radius * 2 + 4)
                 pygame.draw.circle(ring_surf, (*color, alpha), (radius + 2, radius + 2), radius, 3)
                 surface.blit(ring_surf, (int(self.boss_x - radius - 2), int(self.boss_y - radius - 2)))
 
@@ -1385,7 +1397,7 @@ class CrystalShieldSystem:
         core_intensity = self.plasma_intensity * (1.0 + self.condensing_energy)
         core_radius = int(30 * min(1.5, core_intensity))
         if core_radius > 0:
-            core_surf = pygame.Surface((core_radius * 2, core_radius * 2), pygame.SRCALPHA)
+            core_surf = _get_pooled_surface(core_radius * 2, core_radius * 2)
             for r in range(core_radius, 0, -3):
                 hue = (self.animation_timer * 2 + r * 0.05) % 1.0
                 rgb = self._hsv_to_rgb(hue, 0.6, 1.0)
@@ -1399,7 +1411,7 @@ class CrystalShieldSystem:
                 white_radius = int(15 * (self.condensing_energy - 0.5) * 2)
                 if white_radius > 0:
                     white_alpha = int(200 * (self.condensing_energy - 0.5) * 2)
-                    white_surf = pygame.Surface((white_radius * 2, white_radius * 2), pygame.SRCALPHA)
+                    white_surf = _get_pooled_surface(white_radius * 2, white_radius * 2)
                     pygame.draw.circle(white_surf, (255, 255, 255, white_alpha),
                                      (white_radius, white_radius), white_radius)
                     surface.blit(white_surf, (int(self.boss_x - white_radius), int(self.boss_y - white_radius)))
@@ -1415,7 +1427,7 @@ class CrystalShieldSystem:
             rgb = self._hsv_to_rgb(hue, 0.7, 1.0)
             color = (int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255))
 
-            ring_surf = pygame.Surface((radius * 2 + 10, radius * 2 + 10), pygame.SRCALPHA)
+            ring_surf = _get_pooled_surface(radius * 2 + 10, radius * 2 + 10)
             thickness = int(ring['thickness'])
             pygame.draw.circle(ring_surf, (*color, ring['alpha']),
                              (radius + 5, radius + 5), radius, thickness)
@@ -1436,7 +1448,7 @@ class CrystalShieldSystem:
 
             size = int(p['size'] * (1 - p['age'] / p['lifetime']))
             if size > 0:
-                particle_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                particle_surf = _get_pooled_surface(size * 2, size * 2)
                 pygame.draw.circle(particle_surf, (*color, p['alpha']),
                                  (size, size), size)
                 surface.blit(particle_surf, (int(px - size), int(py - size)))
@@ -1993,7 +2005,7 @@ class TetrisGame:
         surface.blit(value_surf, (value_x, value_y))
 
         # 글로우 효과 (값 주변)
-        glow_surf = pygame.Surface((value_surf.get_width() + 10, value_surf.get_height() + 6), pygame.SRCALPHA)
+        glow_surf = _get_pooled_surface(value_surf.get_width() + 10, value_surf.get_height() + 6)
         pygame.draw.rect(glow_surf, (*accent, 15),
                         (0, 0, glow_surf.get_width(), glow_surf.get_height()), border_radius=3)
         surface.blit(glow_surf, (value_x - 5, value_y - 3))
@@ -2382,7 +2394,7 @@ class TetriserPillarBackground:
 
                 if alpha > 0:
                     # 반투명 레이어에 테트리스 그리기
-                    tetris_layer = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
+                    tetris_layer = _get_pooled_surface(self.screen_width, self.screen_height)
                     if self.left_game:
                         self.left_game.draw(tetris_layer)
                     if self.right_game:
@@ -2559,7 +2571,7 @@ class TetriserPillarBackground:
                         })
                         right_count += 1
 
-        print(f"[CrystalShield] 블록 수집: 좌측 {left_count}개, 우측 {right_count}개, 총 {len(blocks)}개")
+        # print(f"[CrystalShield] 블록 수집: 좌측 {left_count}개, 우측 {right_count}개, 총 {len(blocks)}개")
         return blocks
 
     def activate_crystal_shield(self, boss_x: float, boss_y: float):

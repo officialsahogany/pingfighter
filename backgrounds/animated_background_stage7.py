@@ -74,6 +74,15 @@ class AnimatedBackgroundStage7:
         self.band_height = 180
         self.band_top = int(height / 2 - self.band_height / 2)
 
+        # 라이트 밴드 프리렌더 (200 draw.line 호출 → 1회 프리렌더)
+        self._prerendered_band = pygame.Surface((self.band_width, self.band_height), pygame.SRCALPHA)
+        half = self.band_width / 2
+        for x in range(self.band_width):
+            intensity = max(0.0, 1.0 - abs(x - half) / half)
+            alpha = int(70 * (intensity ** 1.8))
+            color = (120, 186, 255, alpha)
+            pygame.draw.line(self._prerendered_band, color, (x, 0), (x, self.band_height))
+
         # 중앙 회전 큐브(의사 3D) 파라미터
         # - 정적 자원 사용 없이 폴리곤만으로 그리며, per‑frame 연산을 최소화한다.
         self.cube_enabled = True
@@ -379,17 +388,9 @@ class AnimatedBackgroundStage7:
                 pygame.draw.circle(overlay, (120, 200, 255, halo_alpha), (x, y - 6), int(halo_radius), width=2)
 
     def _draw_light_band(self, overlay: pygame.Surface) -> None:
-        band_surface = _get_cached_surface(self.band_width, self.band_height)
-        half = self.band_width / 2
-        for x in range(self.band_width):
-            intensity = max(0.0, 1.0 - abs(x - half) / half)
-            alpha = int(70 * (intensity ** 1.8))
-            color = (120, 186, 255, alpha)
-            pygame.draw.line(band_surface, color, (x, 0), (x, self.band_height))
-
         sweep = (self.time * 120) % (self.width + self.band_width) - self.band_width
         overlay.blit(
-            band_surface,
+            self._prerendered_band,
             (int(sweep), self.band_top),
             special_flags=pygame.BLEND_PREMULTIPLIED,
         )

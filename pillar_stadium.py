@@ -8,6 +8,18 @@ import math
 import random
 import pygame
 
+# Surface 재사용 풀 (매 프레임 Surface 생성 방지)
+_stadium_surface_pool = {}
+
+def _get_pooled_surface(w, h):
+    """재사용 가능한 SRCALPHA Surface 반환"""
+    key = (w, h)
+    if key not in _stadium_surface_pool:
+        _stadium_surface_pool[key] = pygame.Surface((w, h), pygame.SRCALPHA)
+    surf = _stadium_surface_pool[key]
+    surf.fill((0, 0, 0, 0))
+    return surf
+
 
 class TraditionalFrame:
     """조선시대 스타일 액자 테두리"""
@@ -439,16 +451,17 @@ class TraditionalFrame:
         body_length = int(12 * size)
 
         # 왼쪽 날개
-        left_wing = pygame.Surface((wing_size, wing_size), pygame.SRCALPHA)
+        left_wing = _get_pooled_surface(wing_size, wing_size)
         pygame.draw.ellipse(left_wing, (*wing_color, 220), (0, 0, wing_size, wing_size * 0.7))
         pygame.draw.ellipse(left_wing, (*accent, 180), (wing_size // 4, wing_size // 6, wing_size // 2, wing_size // 3))
 
         # 오른쪽 날개
         right_wing = pygame.transform.flip(left_wing, True, False)
 
-        # 날개 회전
-        left_rotated = pygame.transform.rotate(left_wing, math.degrees(wing_angle) * 30)
-        right_rotated = pygame.transform.rotate(right_wing, -math.degrees(wing_angle) * 30)
+        # 날개 회전 (5도 단위 양자화로 캐시 효율 향상)
+        rot_deg = round(math.degrees(wing_angle) * 30 / 5) * 5
+        left_rotated = pygame.transform.rotate(left_wing, rot_deg)
+        right_rotated = pygame.transform.rotate(right_wing, -rot_deg)
 
         # 배치
         surface.blit(left_rotated, (x - wing_size - 2, y - wing_size // 2))
@@ -676,7 +689,7 @@ class TraditionalFrame:
 
     def _draw_petal(self, surface: pygame.Surface, petal: dict):
         """꽃잎 파티클 그리기"""
-        petal_surf = pygame.Surface((petal['size'] * 2, petal['size']), pygame.SRCALPHA)
+        petal_surf = _get_pooled_surface(petal['size'] * 2, petal['size'])
         pygame.draw.ellipse(petal_surf, (*petal['color'], 200),
                            (0, 0, petal['size'] * 2, petal['size']))
 
@@ -691,7 +704,7 @@ class TraditionalFrame:
         color = particle['color']
 
         # 빛나는 효과
-        glow_surf = pygame.Surface((size * 4, size * 4), pygame.SRCALPHA)
+        glow_surf = _get_pooled_surface(size * 4, size * 4)
         for i in range(3):
             glow_alpha = int(alpha * (0.3 - i * 0.1))
             if glow_alpha > 0:
@@ -734,7 +747,7 @@ class TraditionalFrame:
             size = 10 - i * 2
             if size <= 0:
                 continue
-            trail_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            trail_surf = _get_pooled_surface(size * 2, size * 2)
             pygame.draw.circle(trail_surf, color, (size, size), size)
             surface.blit(trail_surf, (trail_x - size, trail_y - size))
 
@@ -792,7 +805,7 @@ class TraditionalFrame:
             layer_size = glow_size + i * 15
             glow_alpha = int(alpha * (0.4 - i * 0.1))
             if glow_alpha > 0 and layer_size > 0:
-                glow_surf = pygame.Surface((layer_size * 2, layer_size * 2), pygame.SRCALPHA)
+                glow_surf = _get_pooled_surface(layer_size * 2, layer_size * 2)
                 pygame.draw.circle(glow_surf, (*glow_color, glow_alpha),
                                  (layer_size, layer_size), layer_size)
                 surface.blit(glow_surf, (x - layer_size, y - layer_size))
@@ -807,14 +820,14 @@ class TraditionalFrame:
             particle_size = int(4 * progress)
             if particle_size > 0:
                 particle_alpha = int(200 * progress)
-                particle_surf = pygame.Surface((particle_size * 2, particle_size * 2), pygame.SRCALPHA)
+                particle_surf = _get_pooled_surface(particle_size * 2, particle_size * 2)
                 pygame.draw.circle(particle_surf, (255, 255, 255, particle_alpha),
                                  (particle_size, particle_size), particle_size)
                 surface.blit(particle_surf, (px - particle_size, py - particle_size))
 
         # 나비 본체 (페이드아웃)
         # 왼쪽 날개
-        left_wing = pygame.Surface((wing_size, wing_size), pygame.SRCALPHA)
+        left_wing = _get_pooled_surface(wing_size, wing_size)
         pygame.draw.ellipse(left_wing, (*wing_color, alpha), (0, 0, wing_size, int(wing_size * 0.7)))
         pygame.draw.ellipse(left_wing, (*accent, int(alpha * 0.8)), (wing_size // 4, wing_size // 6, wing_size // 2, wing_size // 3))
 
@@ -830,7 +843,7 @@ class TraditionalFrame:
         surface.blit(right_rotated, (x + 2, y - wing_size // 2))
 
         # 몸통
-        body_surf = pygame.Surface((10, body_length + 4), pygame.SRCALPHA)
+        body_surf = _get_pooled_surface(10, body_length + 4)
         pygame.draw.ellipse(body_surf, (40, 35, 30, alpha), (2, 2, 6, body_length))
         surface.blit(body_surf, (x - 5, y - body_length // 2 - 2))
 
@@ -991,16 +1004,17 @@ class TraditionalFrame:
         body_length = int(12 * size)
 
         # 왼쪽 날개
-        left_wing = pygame.Surface((wing_size, wing_size), pygame.SRCALPHA)
+        left_wing = _get_pooled_surface(wing_size, wing_size)
         pygame.draw.ellipse(left_wing, (*wing_color, 220), (0, 0, wing_size, wing_size * 0.7))
         pygame.draw.ellipse(left_wing, (*accent, 180), (wing_size // 4, wing_size // 6, wing_size // 2, wing_size // 3))
 
         # 오른쪽 날개
         right_wing = pygame.transform.flip(left_wing, True, False)
 
-        # 날개 회전
-        left_rotated = pygame.transform.rotate(left_wing, math.degrees(wing_angle) * 30)
-        right_rotated = pygame.transform.rotate(right_wing, -math.degrees(wing_angle) * 30)
+        # 날개 회전 (5도 단위 양자화)
+        rot_deg = round(math.degrees(wing_angle) * 30 / 5) * 5
+        left_rotated = pygame.transform.rotate(left_wing, rot_deg)
+        right_rotated = pygame.transform.rotate(right_wing, -rot_deg)
 
         # 빛나는 꼬리 효과
         trail_colors = [
@@ -1014,7 +1028,7 @@ class TraditionalFrame:
             trail_y = int(y)
             trail_size = 10 - i * 2
             if trail_size > 0:
-                trail_surf = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
+                trail_surf = _get_pooled_surface(trail_size * 2, trail_size * 2)
                 pygame.draw.circle(trail_surf, color, (trail_size, trail_size), trail_size)
                 screen.blit(trail_surf, (trail_x - trail_size, trail_y - trail_size))
 
@@ -1073,7 +1087,7 @@ class TraditionalFrame:
                 continue
 
             # 빛나는 효과
-            glow_surf = pygame.Surface((size * 4, size * 4), pygame.SRCALPHA)
+            glow_surf = _get_pooled_surface(size * 4, size * 4)
             for i in range(3):
                 glow_alpha = int(alpha * (0.3 - i * 0.1))
                 if glow_alpha > 0:
@@ -1179,7 +1193,7 @@ class TraditionalFrame:
             layer_size = glow_size + i * 15
             glow_alpha = int(alpha * (0.4 - i * 0.1))
             if glow_alpha > 0 and layer_size > 0:
-                glow_surf = pygame.Surface((layer_size * 2, layer_size * 2), pygame.SRCALPHA)
+                glow_surf = _get_pooled_surface(layer_size * 2, layer_size * 2)
                 pygame.draw.circle(glow_surf, (*glow_color, glow_alpha),
                                  (layer_size, layer_size), layer_size)
                 screen.blit(glow_surf, (x - layer_size, y - layer_size))
@@ -1194,14 +1208,14 @@ class TraditionalFrame:
             particle_size = int(4 * progress)
             if particle_size > 0:
                 particle_alpha = int(200 * progress)
-                particle_surf = pygame.Surface((particle_size * 2, particle_size * 2), pygame.SRCALPHA)
+                particle_surf = _get_pooled_surface(particle_size * 2, particle_size * 2)
                 pygame.draw.circle(particle_surf, (255, 255, 255, particle_alpha),
                                  (particle_size, particle_size), particle_size)
                 screen.blit(particle_surf, (px - particle_size, py - particle_size))
 
         # 나비 본체 (페이드아웃)
         # 왼쪽 날개
-        left_wing = pygame.Surface((wing_size, wing_size), pygame.SRCALPHA)
+        left_wing = _get_pooled_surface(wing_size, wing_size)
         pygame.draw.ellipse(left_wing, (*wing_color, alpha), (0, 0, wing_size, int(wing_size * 0.7)))
         pygame.draw.ellipse(left_wing, (*accent, int(alpha * 0.8)), (wing_size // 4, wing_size // 6, wing_size // 2, wing_size // 3))
 
@@ -1217,7 +1231,7 @@ class TraditionalFrame:
         screen.blit(right_rotated, (x + 2, y - wing_size // 2))
 
         # 몸통
-        body_surf = pygame.Surface((10, body_length + 4), pygame.SRCALPHA)
+        body_surf = _get_pooled_surface(10, body_length + 4)
         pygame.draw.ellipse(body_surf, (40, 35, 30, alpha), (2, 2, 6, body_length))
         screen.blit(body_surf, (x - 5, y - body_length // 2 - 2))
 

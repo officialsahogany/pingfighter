@@ -2941,13 +2941,20 @@ class AnimatedBackgroundStage30:
 
     def draw(self, screen, scale_x=1.0, scale_y=1.0, offset_x=0, offset_y=0):
         """배경 그리기"""
+        # 스케일 캐시 (매 프레임 transform.scale 방지)
+        scale_key = (round(scale_x, 4), round(scale_y, 4))
+        if not hasattr(self, '_scaled_cache'):
+            self._scaled_cache = {}
+
         # 1. 바닥 (모래 + 비네트 + 바람무늬)
         if scale_x != 1.0 or scale_y != 1.0:
-            scaled_floor = pygame.transform.scale(
-                self.floor_surface,
-                (int(self.width * scale_x), int(self.height * scale_y))
-            )
-            screen.blit(scaled_floor, (offset_x, offset_y))
+            cache_key = ('floor', scale_key)
+            if cache_key not in self._scaled_cache:
+                self._scaled_cache[cache_key] = pygame.transform.scale(
+                    self.floor_surface,
+                    (int(self.width * scale_x), int(self.height * scale_y))
+                )
+            screen.blit(self._scaled_cache[cache_key], (offset_x, offset_y))
         else:
             screen.blit(self.floor_surface, (offset_x, offset_y))
 
@@ -2975,20 +2982,24 @@ class AnimatedBackgroundStage30:
         # 4. 경기장 라인 (중앙선, 중앙원, 코너)
         arena = self.arena_surface
         if scale_x != 1.0 or scale_y != 1.0:
-            scaled_arena = pygame.transform.scale(
-                arena, (int(self.width * scale_x), int(self.height * scale_y))
-            )
-            screen.blit(scaled_arena, (offset_x, offset_y))
+            cache_key = ('arena', scale_key)
+            if cache_key not in self._scaled_cache:
+                self._scaled_cache[cache_key] = pygame.transform.scale(
+                    arena, (int(self.width * scale_x), int(self.height * scale_y))
+                )
+            screen.blit(self._scaled_cache[cache_key], (offset_x, offset_y))
         else:
             screen.blit(arena, (offset_x, offset_y))
 
         # 5. 장식 테두리 + 석상 (프리렌더)
         if scale_x != 1.0 or scale_y != 1.0:
-            scaled_border = pygame.transform.scale(
-                self.border_surface,
-                (int(self.width * scale_x), int(self.height * scale_y))
-            )
-            screen.blit(scaled_border, (offset_x, offset_y))
+            cache_key = ('border', scale_key)
+            if cache_key not in self._scaled_cache:
+                self._scaled_cache[cache_key] = pygame.transform.scale(
+                    self.border_surface,
+                    (int(self.width * scale_x), int(self.height * scale_y))
+                )
+            screen.blit(self._scaled_cache[cache_key], (offset_x, offset_y))
         else:
             screen.blit(self.border_surface, (offset_x, offset_y))
 
@@ -3029,14 +3040,19 @@ class AnimatedBackgroundStage30:
                     pygame.draw.circle(gs, (255, 210, 80, alpha),
                                      (glow_radius, glow_radius), r)
             self._zeus_glow_cache[glow_radius] = gs
-        # intensity 변조는 alpha mult로 적용
-        glow_surf = self._zeus_glow_cache[glow_radius].copy()
+        # intensity 변조: .copy() 제거 → 풀 Surface에 캐시 blit 후 mult
+        cached_glow = self._zeus_glow_cache[glow_radius]
         if intensity < 0.95:
+            glow_surf = _get_cached_surface(glow_radius * 2, glow_radius * 2)
+            glow_surf.blit(cached_glow, (0, 0))
             alpha_s = _get_cached_surface(glow_radius * 2, glow_radius * 2)
             alpha_s.fill((255, 255, 255, int(255 * intensity)))
             glow_surf.blit(alpha_s, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        screen.blit(glow_surf, (bx - glow_radius, by - glow_radius),
-                   special_flags=pygame.BLEND_ADD)
+            screen.blit(glow_surf, (bx - glow_radius, by - glow_radius),
+                       special_flags=pygame.BLEND_ADD)
+        else:
+            screen.blit(cached_glow, (bx - glow_radius, by - glow_radius),
+                       special_flags=pygame.BLEND_ADD)
 
         # 스파크일 때 작은 빛줄기 추가
         if spark > 0.5:

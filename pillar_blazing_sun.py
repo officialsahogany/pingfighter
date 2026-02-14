@@ -15,6 +15,18 @@ import sys
 import platform
 import pygame
 
+# Surface 재사용 풀 (매 프레임 Surface 생성 방지)
+_blazing_surface_pool = {}
+
+def _get_pooled_surface(w, h):
+    """재사용 가능한 SRCALPHA Surface 반환"""
+    key = (w, h)
+    if key not in _blazing_surface_pool:
+        _blazing_surface_pool[key] = pygame.Surface((w, h), pygame.SRCALPHA)
+    surf = _blazing_surface_pool[key]
+    surf.fill((0, 0, 0, 0))
+    return surf
+
 
 def resource_path(relative_path):
     """Get absolute path to resource, works for dev and PyInstaller"""
@@ -521,7 +533,7 @@ class BlazingSunFrame:
                 continue
 
             # 다층 원형 그라데이션 (step을 3으로 늘려 성능 향상, 2 -> 3)
-            cell_surf = pygame.Surface((int(radius * 2.5), int(radius * 2.5)), pygame.SRCALPHA)
+            cell_surf = _get_pooled_surface(int(radius * 2.5), int(radius * 2.5))
             center = int(radius * 1.25)
 
             for r in range(int(radius), 0, -3):  # step 2 -> 3
@@ -623,9 +635,7 @@ class BlazingSunFrame:
                 alpha = int((200 - layer * 40) * flare['intensity'])
 
                 try:
-                    flare_surf = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
-                    pygame.draw.polygon(flare_surf, (*color, alpha), [sp1, sp2, sp3])
-                    surface.blit(flare_surf, (0, 0))
+                    pygame.draw.polygon(surface, (*color, alpha), [sp1, sp2, sp3])
                 except:
                     pass
 
@@ -640,7 +650,7 @@ class BlazingSunFrame:
             if size > 0 and alpha > 0:
                 # 글로우 효과
                 glow_size = size + 4
-                glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                glow_surf = _get_pooled_surface(glow_size * 2, glow_size * 2)
 
                 # 외부 글로우
                 glow_color = (*color, alpha // 3)

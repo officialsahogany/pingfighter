@@ -360,17 +360,22 @@ class AnimatedBackgroundStage8:
         # 스타디움 펄스
         self.stadium_pulse_phase = self.time * 1.0
 
-        # 수리검 업데이트
-        for shuriken in self.shurikens[:]:
+        # 수리검 업데이트 (list.remove → 필터 방식으로 O(n²) 제거)
+        respawn_count = 0
+        kept_shurikens = []
+        for shuriken in self.shurikens:
             shuriken["x"] += shuriken["speed_x"] * dt
             shuriken["y"] += shuriken["speed_y"] * dt
             shuriken["rotation"] += shuriken["rot_speed"] * dt
 
-            # 화면 밖으로 나가면 재생성
             if (shuriken["x"] < -50 or shuriken["x"] > self.width + 50 or
                 shuriken["y"] < -50 or shuriken["y"] > self.height + 50):
-                self.shurikens.remove(shuriken)
-                self._spawn_shuriken()
+                respawn_count += 1
+            else:
+                kept_shurikens.append(shuriken)
+        self.shurikens = kept_shurikens
+        for _ in range(respawn_count):
+            self._spawn_shuriken()
 
         # 닌자 그림자 업데이트
         self.ninja_shadow_cooldown -= dt
@@ -560,8 +565,9 @@ class AnimatedBackgroundStage8:
             color = (180, 120, 130, 80)
             pygame.draw.ellipse(petal_surf, color, (size // 2, 0, size, size * 2))
 
-            # 회전 적용
-            rotated = pygame.transform.rotate(petal_surf, math.degrees(rot))
+            # 회전 적용 (10도 단위 양자화 - 캐시 효율)
+            rot_deg = round(math.degrees(rot) / 10) * 10
+            rotated = pygame.transform.rotate(petal_surf, rot_deg)
             rect = rotated.get_rect(center=(x, y))
             overlay.blit(rotated, rect)
 

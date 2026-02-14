@@ -275,22 +275,23 @@ class AnimatedBackgroundStage6:
             screen.blit(cloud_surface, (cloud['x'], cloud['y']))
     
     def _draw_waves(self, screen):
-        """파도 그리기 (캐시된 서피스 재사용)"""
+        """파도 그리기 (캐시된 서피스 재사용, 최적화: step 5→8, 결정적 거품)"""
+        ocean_color = (*self.ocean_surface, 40)
+        foam_color = (*self.wave_foam, 60)
+        w = self.width
         for wave in self.waves:
             self._wave_surface.fill(self._transparent)
+            amp = wave['amplitude']
+            freq = wave['frequency']
+            phase = wave['phase']
 
-            for x in range(0, self.width, 5):
-                # 사인파 형태의 파도
-                y = 20 + wave['amplitude'] * math.sin(x * wave['frequency'] + wave['phase'])
-
-                # 파도 그리기
-                pygame.draw.circle(self._wave_surface, (*self.ocean_surface, 40),
-                                 (x, int(y)), 8)
-
-                # 파도 거품
-                if random.random() < 0.1:
-                    pygame.draw.circle(self._wave_surface, (*self.wave_foam, 60),
-                                     (x, int(y) - 5), 3)
+            for x in range(0, w, 8):
+                y = 20 + amp * math.sin(x * freq + phase)
+                iy = int(y)
+                pygame.draw.circle(self._wave_surface, ocean_color, (x, iy), 8)
+                # 결정적 거품 (random 호출 제거)
+                if x % 80 < 8:
+                    pygame.draw.circle(self._wave_surface, foam_color, (x, iy - 5), 3)
 
             screen.blit(self._wave_surface, (0, wave['y']))
     

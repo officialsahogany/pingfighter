@@ -401,7 +401,7 @@ class AnimatedBackgroundStage2:
             # 다음 라운드에서 보스 분노 애니메이션 예약
             self.boss_rage_pending = True
             self.crisis_triggered = True
-            print("⚠️ Stage 2: 보스 위기 감지! 다음 라운드에서 분노 폭발 예정...")
+            # print("⚠️ Stage 2: 보스 위기 감지! 다음 라운드에서 분노 폭발 예정...")
         
         return is_crisis
     
@@ -412,7 +412,7 @@ class AnimatedBackgroundStage2:
             self.boss_rage_active = True
             self.boss_rage_timer = 0
             self.boss_stomp_count = 0
-            print("😡 Stage 2 보스 분노 폭발! 바닥을 쿵쿵 밟기 시작!")
+            # print("😡 Stage 2 보스 분노 폭발! 바닥을 쿵쿵 밟기 시작!")
             return True
         return False
     
@@ -421,7 +421,7 @@ class AnimatedBackgroundStage2:
         self.earthquake_active = True
         self.earthquake_timer = 0
         self.rock_spawn_triggered = False
-        print(f"🌋 정글지진 효과 시작! 지속시간: {self.earthquake_duration}프레임")
+        # print(f"🌋 정글지진 효과 시작! 지속시간: {self.earthquake_duration}프레임")
     
     def spawn_skill_rocks(self, enraged=False, difficulty="pro"):
         """정글지진 스킬 발동 시 바위 즉시 생성 (난이도별 개수 조절)
@@ -542,11 +542,11 @@ class AnimatedBackgroundStage2:
             }
             self.crisis_rocks.append(rock)
         
-        print(f"⚡ 정글지진 스킬로 바위 {num_rocks}개 생성!")
+        # print(f"⚡ 정글지진 스킬로 바위 {num_rocks}개 생성!")
     
     def spawn_crisis_rocks(self):
         """위기 상황 바위 4-6개 생성 (보스 패들 뒤쪽 방어벽)"""
-        print("🔥🔥🔥 spawn_crisis_rocks() 함수 시작!")
+        # print("🔥🔥🔥 spawn_crisis_rocks() 함수 시작!")
         # 🛡️ 보스 패들 뒤쪽 영역만 지정 (방어벽 형태)
         # 보스 패들은 y=90 위치, 바위는 그 뒤쪽(위쪽) y=20~80 영역에 생성
         # 화면 너비 760px 기준으로 양쪽 50px 여백
@@ -647,10 +647,10 @@ class AnimatedBackgroundStage2:
             }
             
             self.crisis_rocks.append(rock)
-            print(f"  🪨 바위 {i+1} 추가됨: x={x}, y={y}, size={size}")
+            # print(f"  🪨 바위 {i+1} 추가됨: x={x}, y={y}, size={size}")
         
-        print(f"🪨 위기 상황 바위 {num_rocks}개 생성! 보스 패들 뒤쪽 방어벽 구축")
-        print(f"🔍 현재 crisis_rocks 리스트 크기: {len(self.crisis_rocks)}")
+        # print(f"🪨 위기 상황 바위 {num_rocks}개 생성! 보스 패들 뒤쪽 방어벽 구축")
+        # print(f"🔍 현재 crisis_rocks 리스트 크기: {len(self.crisis_rocks)}")
     
     def destroy_rock(self, rock):
         """바위 파괴 및 파편 생성 애니메이션"""
@@ -676,7 +676,7 @@ class AnimatedBackgroundStage2:
             }
             self.rock_fragments.append(fragment)
         
-        print(f"💥 바위 파괴! {num_fragments}개 파편 생성")
+        # print(f"💥 바위 파괴! {num_fragments}개 파편 생성")
     
     def check_ball_rock_collision(self, ball_rect):
         """공과 바위 충돌 체크 및 파괴"""
@@ -719,7 +719,7 @@ class AnimatedBackgroundStage2:
             }
             self.rock_fragments.append(fragment)
         
-        print(f"💥 바위 파괴! {num_fragments}개 파편 생성")
+        # print(f"💥 바위 파괴! {num_fragments}개 파편 생성")
     
     
     def update(self, dt, ball_x=None, ball_y=None, boss_paddle_x=None, player_paddle_x=None, 
@@ -750,7 +750,7 @@ class AnimatedBackgroundStage2:
                     if self.cry_sound:
                         self.cry_sound.stop()  # 기존 재생 중지
                         self.cry_sound.play()
-                    print(f"💢 쿵! (발구르기 {self.boss_stomp_count}/4) - 😭 cry.wav 재생 - 화면 흔들림!")
+                    # print(f"💢 쿵! (발구르기 {self.boss_stomp_count}/4) - 😭 cry.wav 재생 - 화면 흔들림!")
                 elif self.boss_rage_timer % 15 == 5:
                     self.boss_shake_offset_y = -10  # 착지 충격
                     # 💢 착지 시 더 강한 흔들림
@@ -764,14 +764,14 @@ class AnimatedBackgroundStage2:
             
             # 60-80 프레임: 최종 강한 발구르기와 함께 지진 시작
             elif self.boss_rage_timer == 80:
-                print("💥💥 크아아악! 보스 최종 분노 폭발!")
+                # print("💥💥 크아아악! 보스 최종 분노 폭발!")
                 self.boss_shake_offset_y = 30
                 # 💢 최종 발구르기 - 가장 강한 흔들림
                 self.stomp_shake_offset_x = random.randint(-12, 12)
                 self.stomp_shake_offset_y = random.randint(-10, 10)
                 self.trigger_earthquake()
                 self.spawn_crisis_rocks()
-                print("🪨 하늘에서 바위가 떨어지기 시작! - 화면 대폭 흔들림!")
+                # print("🪨 하늘에서 바위가 떨어지기 시작! - 화면 대폭 흔들림!")
             
             # 80-100 프레임: 빨간색 서서히 사라짐
             elif self.boss_rage_timer <= 100:
@@ -790,7 +790,7 @@ class AnimatedBackgroundStage2:
                 # 💢 발구르기 흔들림 초기화
                 self.stomp_shake_offset_x = 0
                 self.stomp_shake_offset_y = 0
-                print("😤 보스 분노가 가라앉았다...")
+                # print("😤 보스 분노가 가라앉았다...")
         
         # 지진 효과 처리
         if self.earthquake_active:
@@ -802,7 +802,7 @@ class AnimatedBackgroundStage2:
                 self.earthquake_active = False
                 self.earthquake_timer = 0
                 self.rock_spawn_triggered = False
-                print("🌋 정글지진 효과 종료")
+                # print("🌋 정글지진 효과 종료")
         
         # 공 위치 업데이트
         if ball_x is not None and ball_y is not None:
@@ -1169,9 +1169,10 @@ class AnimatedBackgroundStage2:
                                (center_x + offset, center_y - size), 
                                (center_x + offset, center_y + size), 1)
         
-        # 회전 적용
+        # 회전 적용 (10도 단위 양자화 - 캐시 효율)
         if rotation != 0:
-            rotated_surface = pygame.transform.rotate(leaf_surface, rotation)
+            rot_deg = round(rotation / 10) * 10
+            rotated_surface = pygame.transform.rotate(leaf_surface, rot_deg)
             rotated_rect = rotated_surface.get_rect(center=(x, y))
             surface.blit(rotated_surface, rotated_rect)
         else:

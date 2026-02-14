@@ -13,6 +13,18 @@ import random
 import pygame
 from typing import Callable, Optional, List, Tuple
 
+# Surface 재사용 풀 (매 프레임 Surface 생성 방지)
+_hongryeon_surface_pool = {}
+
+def _get_pooled_surface(w, h):
+    """재사용 가능한 SRCALPHA Surface 반환"""
+    key = (w, h)
+    if key not in _hongryeon_surface_pool:
+        _hongryeon_surface_pool[key] = pygame.Surface((w, h), pygame.SRCALPHA)
+    surf = _hongryeon_surface_pool[key]
+    surf.fill((0, 0, 0, 0))
+    return surf
+
 
 class PillarFireball:
     """필러 영역에서 게임 영역으로 이동하는 화염탄 효과
@@ -129,7 +141,7 @@ class PillarFireball:
             # 게임 화염탄 생성 콜백 호출
             # REAL_SCREEN 좌표를 직접 전달 - fire_snake_fireball에서 변환
             if self.fire_callback:
-                print(f"🔥 [필러화염탄] 게임 영역 진입! REAL=({self.x:.0f}, {self.y:.0f}), side={self.side}")
+                # print(f"🔥 [필러화염탄] 게임 영역 진입! REAL=({self.x:.0f}, {self.y:.0f}), side={self.side}")
                 # REAL 좌표와 side 정보 전달 (fire_snake_fireball에서 변환)
                 self.fire_callback(
                     int(self.x), int(self.y),
@@ -164,7 +176,7 @@ class PillarFireball:
                 alpha = int((i + 1) / len(self.trail_positions) * 150)
                 trail_size = int(6 * (i + 1) / len(self.trail_positions) * self.scale_factor)
                 if trail_size > 0:
-                    trail_surf = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
+                    trail_surf = _get_pooled_surface(trail_size * 2, trail_size * 2)
                     pygame.draw.circle(trail_surf, (*self.COLORS['trail'], alpha),
                                      (trail_size, trail_size), trail_size)
                     screen.blit(trail_surf, (int(tx) - trail_size, int(ty) - trail_size))
@@ -184,7 +196,7 @@ class PillarFireball:
             for i in range(3):
                 glow_size = base_size + int((3 - i) * 4 * self.scale_factor)
                 glow_alpha = 80 - i * 25
-                glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                glow_surf = _get_pooled_surface(glow_size * 2, glow_size * 2)
                 pygame.draw.circle(glow_surf, (*self.COLORS['outer'], glow_alpha),
                                  (glow_size, glow_size), glow_size)
                 screen.blit(glow_surf, (draw_x - glow_size, draw_y - glow_size))
@@ -339,8 +351,8 @@ class SnakePot:
                 snake_head_x = int(self.x + math.cos(self.snake_head_angle) * head_offset)
                 snake_head_y = int(head_base_y + math.sin(self.snake_head_angle) * head_offset)
 
-                print(f"🐍 [SnakePot] 발사! pot=({self.x}, {self.y}), side={self.side}")
-                print(f"   head=({snake_head_x}, {snake_head_y}) → target=({self.target_x}, {self.target_y})")
+                # print(f"🐍 [SnakePot] 발사! pot=({self.x}, {self.y}), side={self.side}")
+                # print(f"   head=({snake_head_x}, {snake_head_y}) → target=({self.target_x}, {self.target_y})")
                 self.fire_callback(snake_head_x, snake_head_y, self.target_x, self.target_y)
                 self.fired_this_cycle = True
 
@@ -415,7 +427,7 @@ class SnakePot:
                 lid_x = cx + w//3 + lid_offset - 20
 
             # 뚜껑 (타원)
-            lid_surf = pygame.Surface((30, 15), pygame.SRCALPHA)
+            lid_surf = _get_pooled_surface(30, 15)
             pygame.draw.ellipse(lid_surf, self.POT_COLORS['lid'], (0, 0, 30, 15))
             pygame.draw.ellipse(lid_surf, self.POT_COLORS['rim_gold'], (0, 0, 30, 15), 2)
 
@@ -716,22 +728,22 @@ class HongryeonFrame:
 
     def set_enraged_mode(self, active: bool):
         """광폭화 모드 설정"""
-        print(f"[홍련 필러] set_enraged_mode 호출: {active}, 현재 상태: {self.enraged_mode}")
+        # print(f"[홍련 필러] set_enraged_mode 호출: {active}, 현재 상태: {self.enraged_mode}")
         if self.enraged_mode != active:
             self.enraged_mode = active
             if active:
                 # 광폭화 시작 시 쿨타임 초기화 (3초 후 첫 공격)
                 self.snake_attack_cooldown = 3.0
-                print(f"[홍련 필러] 광폭화 모드 활성화 - 뱀 공격 시스템 가동! 뱀 개수: {len(self.snake_pots)}")
+                # print(f"[홍련 필러] 광폭화 모드 활성화 - 뱀 공격 시스템 가동! 뱀 개수: {len(self.snake_pots)}")
                 for i, pot in enumerate(self.snake_pots):
-                    print(f"  - 뱀 #{i}: 위치 ({pot.x}, {pot.y}), 상태: {pot.state}")
+                    # print(f"  - 뱀 #{i}: 위치 ({pot.x}, {pot.y}), 상태: {pot.state}")
             else:
                 # 광폭화 종료 시 모든 뱀 숨기기
                 for pot in self.snake_pots:
                     if pot.state != SnakePot.STATE_IDLE:
                         pot.state = SnakePot.STATE_HIDING
                         pot.state_timer = 0.0
-                print("[홍련 필러] 광폭화 모드 비활성화")
+                # print("[홍련 필러] 광폭화 모드 비활성화")
 
     def set_fire_callback(self, callback: Callable[[int, int, int, int], None],
                            fireball_image: pygame.Surface = None):
@@ -744,7 +756,7 @@ class HongryeonFrame:
         self.fire_callback = callback
         self.fireball_image = fireball_image  # 인게임 화염탄 이미지 저장
         # 모든 항아리는 spawn_pillar_fireball을 호출
-        print(f"[홍련 필러] 화염탄 콜백 설정! 뱀 개수: {len(self.snake_pots)}, 이미지: {fireball_image is not None}")
+        # print(f"[홍련 필러] 화염탄 콜백 설정! 뱀 개수: {len(self.snake_pots)}, 이미지: {fireball_image is not None}")
         for pot in self.snake_pots:
             pot.fire_callback = self._spawn_pillar_fireball
 
@@ -764,10 +776,10 @@ class HongryeonFrame:
         internal_target_x = self.internal_player_x
         internal_target_y = self.internal_player_y
 
-        print(f"🔥 [필러화염탄 생성] side={side}")
-        print(f"   REAL: start=({start_x}, {start_y}), target=({target_x}, {target_y})")
-        print(f"   INTERNAL target: ({internal_target_x}, {internal_target_y})")
-        print(f"   scale={self.scale_factor:.2f}, offset=({self.game_x}, {self.game_y})")
+        # print(f"🔥 [필러화염탄 생성] side={side}")
+        # print(f"   REAL: start=({start_x}, {start_y}), target=({target_x}, {target_y})")
+        # print(f"   INTERNAL target: ({internal_target_x}, {internal_target_y})")
+        # print(f"   scale={self.scale_factor:.2f}, offset=({self.game_x}, {self.game_y})")
 
         fireball = PillarFireball(
             start_x=start_x,
@@ -820,7 +832,7 @@ class HongryeonFrame:
         result = selected_pot.start_attack(self.player_x, self.player_y)
 
         if result:
-            print(f"[홍련 필러] 뱀 공격! 항아리 #{selected_pot.index} ({selected_pot.side})")
+            # print(f"[홍련 필러] 뱀 공격! 항아리 #{selected_pot.index} ({selected_pot.side})")
 
         return result
 
@@ -983,15 +995,15 @@ class HongryeonFrame:
                 #     print(f"[홍련] 뱀 쿨타임: {self.snake_attack_cooldown:.1f}s, 뱀 개수: {len(self.snake_pots)}")
             elif not is_waiting_for_serve:
                 # 쿨타임 만료 시 뱀 공격 트리거 (서브 대기 중이 아닐 때만)
-                print(f"[홍련] 뱀 공격 트리거 시도! 플레이어: ({self.player_x}, {self.player_y})")
+                # print(f"[홍련] 뱀 공격 트리거 시도! 플레이어: ({self.player_x}, {self.player_y})")
                 if self._trigger_snake_attack():
                     # 다음 쿨타임 설정 (10~20초)
                     self.snake_attack_cooldown = random.uniform(
                         self.SNAKE_COOLDOWN_MIN, self.SNAKE_COOLDOWN_MAX
                     )
-                    print(f"[홍련] 뱀 공격 성공! 다음 쿨타임: {self.snake_attack_cooldown:.1f}s")
+                    # print(f"[홍련] 뱀 공격 성공! 다음 쿨타임: {self.snake_attack_cooldown:.1f}s")
                 else:
-                    print(f"[홍련] 뱀 공격 실패 - 가용 항아리 없음")
+                    # print(f"[홍련] 뱀 공격 실패 - 가용 항아리 없음")
 
         # 모든 항아리 뱀 업데이트 (광폭화 여부와 관계없이 - 숨는 애니메이션 처리)
         for pot in self.snake_pots:
@@ -1092,7 +1104,7 @@ class HongryeonFrame:
             for r in range(8, 0, -1):
                 glow_size = size + r * 15
                 alpha = int(18 * intensity * (9 - r) / 8)
-                glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                glow_surf = _get_pooled_surface(glow_size * 2, glow_size * 2)
                 pygame.draw.circle(glow_surf, (*current_glow, alpha),
                                  (glow_size, glow_size), glow_size)
                 screen.blit(glow_surf, (x - glow_size, y - glow_size))
@@ -1172,7 +1184,7 @@ class HongryeonFrame:
             core_width = int(size * 0.28)
             core_height = int(size * 0.7)
             for i in range(3, 0, -1):
-                core_surf = pygame.Surface((core_width * 2 + i * 8, core_height + i * 6), pygame.SRCALPHA)
+                core_surf = _get_pooled_surface(core_width * 2 + i * 8, core_height + i * 6)
                 pygame.draw.ellipse(core_surf, (*current_core, 50 + i * 20),
                                   (0, 0, core_width * 2 + i * 8, core_height + i * 6))
                 screen.blit(core_surf, (x - core_width - i * 4, core_y - core_height // 2 - i * 3))
@@ -1262,7 +1274,7 @@ class HongryeonFrame:
             for f in range(4, 0, -1):
                 flame_w = 12 + f * 5
                 flame_h = flame_height + f * 10
-                flame_surf = pygame.Surface((flame_w * 2, flame_h), pygame.SRCALPHA)
+                flame_surf = _get_pooled_surface(flame_w * 2, flame_h)
                 # 불꽃 형태 (여러 삼각형 합성)
                 main_points = [
                     (flame_w + flame_wobble, 0),
@@ -1309,7 +1321,7 @@ class HongryeonFrame:
             # 왼쪽 반사광 (세로 하이라이트)
             highlight_x = x - int(size * 0.3)
             highlight_y = y - int(size * 0.2)
-            highlight_surf = pygame.Surface((8, int(size * 1.2)), pygame.SRCALPHA)
+            highlight_surf = _get_pooled_surface(8, int(size * 1.2))
             for i in range(8):
                 alpha = 60 - i * 8
                 if alpha > 0:
@@ -1319,7 +1331,7 @@ class HongryeonFrame:
 
             # 오른쪽 림라이트 (미세한)
             rim_x = x + int(size * 0.25)
-            rim_surf = pygame.Surface((4, int(size * 0.8)), pygame.SRCALPHA)
+            rim_surf = _get_pooled_surface(4, int(size * 0.8))
             for i in range(4):
                 alpha = 30 - i * 8
                 if alpha > 0:
@@ -1357,7 +1369,7 @@ class HongryeonFrame:
             ]
 
             # 글로우
-            glow_surf = pygame.Surface((int(size * 4), int(size * 4)), pygame.SRCALPHA)
+            glow_surf = _get_pooled_surface(int(size * 4), int(size * 4))
             glow_center = (int(size * 2), int(size * 2))
             pygame.draw.circle(glow_surf, (*current_glow, 40),
                              glow_center, int(size * 1.5))
@@ -1377,7 +1389,7 @@ class HongryeonFrame:
             color = (*self.COLORS['line_glow'], alpha)
 
             # 좌측 글로우
-            glow_surf = pygame.Surface((glow_width, self.game_height), pygame.SRCALPHA)
+            glow_surf = _get_pooled_surface(glow_width, self.game_height)
             glow_surf.fill(color)
             screen.blit(glow_surf, (self.game_x - glow_width, self.game_y))
 
