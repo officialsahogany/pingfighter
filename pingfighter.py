@@ -91644,11 +91644,14 @@ def draw_objects():
             # 홀로그램 미표시 중에도 투기장 모드이므로 기본 패들 숨김
             _arena_paddle_drawn = True
         except Exception as e:
-            pass
+            _arena_paddle_drawn = True  # 예외 발생해도 기본 패들(스매셔) 표시 방지
+            print(f"[Arena] Bottom hero paddle render error: {e}")
 
     # 오딘의 눈 페널티 상태가 아닐 때만 기본 패들 그리기
     if _arena_paddle_drawn:
         pass  # 투기장 모드에서 영웅 패들을 그렸으므로 스킵
+    elif arena_mode_enabled:
+        pass  # 투기장 모드에서는 기본 패들(스매셔 등)을 절대 그리지 않음
     elif _odins_eye_dark_paddle_drawn:
         pass  # 이미 오딘의 눈 패들을 그렸으므로 스킵
     elif _odins_eye_hide_paddle:
