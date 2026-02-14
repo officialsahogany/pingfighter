@@ -4844,18 +4844,28 @@ class HeroPaddleRenderer:
         left_arm_swing = anim.get("left_arm_swing", 0)
         right_arm_swing = anim.get("right_arm_swing", 0)
 
+        # 지팡이 든 손: 정면=왼손(side==-1), 뒷모습=오른손(side==1)
+        _staff_side = -1 if not show_back else 1
         for side in [-1, 1]:
             arm_swing_val = left_arm_swing if side == -1 else right_arm_swing
             shoulder_x = cx + side * int(0.8 * b) + lean_offset
             shoulder_y_arm = torso_y + int(shoulder_bob * b)
 
-            # 팔꿈치
-            elbow_x = shoulder_x + side * int(0.3 * b)
-            elbow_y = shoulder_y_arm + int(1.0 * b) + int(arm_swing_val * 0.3 * b)
-
-            # 손
-            hand_x = elbow_x + side * int(0.2 * b)
-            hand_y = elbow_y + int(0.7 * b) + int(arm_swing_val * 0.2 * b)
+            # 지팡이 팔 공 타격 시 안쪽으로 휘두르기 (키르케 스타일)
+            if side == _staff_side and weapon_swing != 0:
+                swing_x = int(weapon_swing * 4.0 * b)
+                swing_y = int(abs(weapon_swing) * 1.5 * b)
+                elbow_x = shoulder_x + side * int(0.3 * b) + swing_x
+                elbow_y = shoulder_y_arm + int(1.0 * b) - swing_y
+                hand_x = elbow_x + side * int(0.2 * b) + int(swing_x * 0.6)
+                hand_y = elbow_y + int(0.7 * b) - int(swing_y * 0.6)
+            else:
+                # 팔꿈치
+                elbow_x = shoulder_x + side * int(0.3 * b)
+                elbow_y = shoulder_y_arm + int(1.0 * b) + int(arm_swing_val * 0.3 * b)
+                # 손
+                hand_x = elbow_x + side * int(0.2 * b)
+                hand_y = elbow_y + int(0.7 * b) + int(arm_swing_val * 0.2 * b)
 
             # 상완골 (두꺼운 뼈)
             arm_thick = max(2, int(0.18 * b))
@@ -4898,11 +4908,18 @@ class HeroPaddleRenderer:
                                (int(hand_x), int(hand_y)), (fx, fy), 1)
 
             # 왼손에 뼈 홀(셉터) (뒷모습이면 오른손)
-            if (side == -1 and not show_back) or (side == 1 and show_back):
+            if side == _staff_side:
                 staff_bottom_x = hand_x
                 staff_bottom_y = hand_y
-                staff_top_x = hand_x + side * int(0.1 * b) + int(weapon_swing * side * 0.5 * b)
-                staff_top_y = torso_y - int(2.5 * b) + int(weapon_swing * 0.3 * b)
+                # 스윙 시 지팡이 상단도 같이 휘둘러짐
+                if weapon_swing != 0:
+                    ws_x = int(weapon_swing * 3.0 * b)
+                    ws_y = int(abs(weapon_swing) * 2.0 * b)
+                    staff_top_x = hand_x + side * int(0.1 * b) + ws_x
+                    staff_top_y = torso_y - int(2.5 * b) - ws_y
+                else:
+                    staff_top_x = hand_x + side * int(0.1 * b)
+                    staff_top_y = torso_y - int(2.5 * b)
 
                 # 뼈 셉터 몸체 (척추뼈 모양)
                 seg_count = 8
