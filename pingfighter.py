@@ -8249,7 +8249,7 @@ def _fullscreen_update(*args, **kwargs):
                         mouse_pos=_real_mpos2,
                     )
                 except Exception:
-                pass
+                    pass
 
         # 🏅 퍽 아이콘 UI (필러 배경, 호위무사 위/아래)
         _perk_hover2 = None
