@@ -50944,6 +50944,7 @@ def go_to_next_round():
     global _judgment_quake_sound_playing, _judgment_ball_speed_backup, _judgment_prev_earthquake_active
     global _judgment_prev_phase, _judgment_lightning_stun_applied
     global _judgment_lightning_stun_top_timer, _judgment_lightning_stun_bottom_timer, _judgment_lightning_stun_type
+    global _judgment_wind_stun_applied, _judgment_wind_stun_top_timer, _judgment_wind_stun_bottom_timer
     if current_stage == 30 and animated_bg_stage30 is not None:
         if animated_bg_stage30.is_judgment_active():
             print(f"[신의심판] 라운드 전환으로 강제 초기화 (페이즈: {animated_bg_stage30.get_judgment_phase_name()})")
@@ -50962,6 +50963,9 @@ def go_to_next_round():
     _judgment_lightning_stun_top_timer = 0.0
     _judgment_lightning_stun_bottom_timer = 0.0
     _judgment_lightning_stun_type = False
+    _judgment_wind_stun_applied = False
+    _judgment_wind_stun_top_timer = 0.0
+    _judgment_wind_stun_bottom_timer = 0.0
 
     # 🎭 투기장 영웅 스킬 초기화 (라운드 전환 시 활성 스킬 강제 종료)
     if arena_mode_enabled and arena_skill_manager:
@@ -54869,13 +54873,17 @@ _judgment_lightning_stun_applied = False  # 번개 스턴이 이미 적용되었
 _judgment_lightning_stun_top_timer = 0.0   # 상단 영웅 전기 스턴 타이머
 _judgment_lightning_stun_bottom_timer = 0.0  # 하단 영웅 전기 스턴 타이머
 _judgment_lightning_stun_type = False  # 현재 스턴이 번개 타입인지 (비주얼 분기용)
+_judgment_wind_stun_applied = False   # 바람 스턴이 이미 적용되었는지
+_judgment_wind_stun_top_timer = 0.0    # 상단 바람 스턴 타이머
+_judgment_wind_stun_bottom_timer = 0.0 # 하단 바람 스턴 타이머
 
 def handle_gods_judgment():
-    """투기장 신의심판 이벤트 처리 - 공 랜덤 이동 + 영웅 속도 감소 + 번개 스턴"""
+    """투기장 신의심판 이벤트 처리 - 공 랜덤 이동 + 영웅 속도 감소 + 번개/바람 스턴"""
     global ball_vel, _judgment_quake_sound_playing, _judgment_ball_speed_backup
     global _judgment_prev_earthquake_active, _judgment_prev_phase, PLAYER_SPEED
     global _judgment_lightning_stun_applied, _judgment_lightning_stun_top_timer
     global _judgment_lightning_stun_bottom_timer, _judgment_lightning_stun_type
+    global _judgment_wind_stun_applied, _judgment_wind_stun_top_timer, _judgment_wind_stun_bottom_timer
 
     if current_stage != 30 or animated_bg_stage30 is None:
         return
@@ -54981,6 +54989,53 @@ def handle_gods_judgment():
         if not bg.is_judgment_active():
             _judgment_lightning_stun_applied = False
             _judgment_lightning_stun_type = False
+
+    # ── 바람의 분노: 텍스트 표시 (FAN_SWING 시작 시) ──
+    if bg.judgment_variant == 'wind':
+        if bg.judgment_fan_swing_started:
+            bg.judgment_fan_swing_started = False
+            bg.judgment_text_display_paused = True
+            show_fade_text("신의 심판: 바람의 분노")
+            bg.judgment_text_display_paused = False
+
+        # ── 바람의 분노: 모래바람 히트 판정 (consume-flag 방식) ──
+        if bg.judgment_sandstorm_hit_top and not _judgment_wind_stun_applied:
+            _judgment_wind_stun_applied = True
+            # 상단 스턴 (1.5초)
+            if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
+                arena_skill_manager.game_state['top_paddle_stunned'] = True
+            _judgment_wind_stun_top_timer = 1.5
+            bg.judgment_sandstorm_hit_top = False
+            print(f"[신의심판] 바람의 분노 - 상단 영웅 모래바람 스턴!")
+
+        if bg.judgment_sandstorm_hit_bottom and not _judgment_wind_stun_applied:
+            _judgment_wind_stun_applied = True
+            # 하단 스턴 (1.5초)
+            if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
+                arena_skill_manager.game_state['bottom_paddle_stunned'] = True
+            _judgment_wind_stun_bottom_timer = 1.5
+            bg.judgment_sandstorm_hit_bottom = False
+            print(f"[신의심판] 바람의 분노 - 하단 영웅 모래바람 스턴!")
+
+        # 모래바람 비행 중: 공에 바람 영향 (약한 밀어내기)
+        if bg.judgment_phase == 11:  # SANDSTORM phase
+            wind_info = bg.get_wind_sandstorm_info()
+            if wind_info['active']:
+                for storm in wind_info['storms']:
+                    # 공과 모래바람 거리 계산
+                    dist = math.hypot(BALL.centerx - storm['x'], BALL.centery - storm['y'])
+                    push_radius = storm['size'] * 2.5
+                    if dist < push_radius and dist > 1:
+                        # 모래바람 방향으로 약한 밀어내기
+                        push_strength = 0.3 * (1.0 - dist / push_radius)
+                        norm_vx = storm['vx'] / max(1, math.hypot(storm['vx'], storm['vy']))
+                        norm_vy = storm['vy'] / max(1, math.hypot(storm['vx'], storm['vy']))
+                        ball_vel[0] += norm_vx * push_strength
+                        ball_vel[1] += norm_vy * push_strength
+
+        # 이벤트 종료 시 리셋
+        if not bg.is_judgment_active():
+            _judgment_wind_stun_applied = False
 
 
 def draw_shaking_screen():
@@ -60416,7 +60471,7 @@ def handle_player(keys):
     global blacksmith_blocking_skill_timer, blacksmith_blocking_bonus_pending
     global blacksmith_blocking_bonus_ready, blacksmith_blocking_bonus_window_timer
     global fire_support_radio_loop_active
-    global _judgment_lightning_stun_bottom_timer
+    global _judgment_lightning_stun_bottom_timer, _judgment_wind_stun_bottom_timer
     global blacksmith_trail_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
@@ -61072,6 +61127,18 @@ def handle_player(keys):
         _judgment_lightning_stun_bottom_timer -= 1.0 / 60.0
         if _judgment_lightning_stun_bottom_timer <= 0:
             _judgment_lightning_stun_bottom_timer = 0.0
+            if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
+                arena_skill_manager.game_state['bottom_paddle_stunned'] = False
+        else:
+            arena_player_stun_block = True
+            current_speed = 0
+            rolling_active = False
+            rolling_timer = 0
+    # 🌪️ 바람의 분노 스턴 (독립 메커니즘)
+    if _judgment_wind_stun_bottom_timer > 0:
+        _judgment_wind_stun_bottom_timer -= 1.0 / 60.0
+        if _judgment_wind_stun_bottom_timer <= 0:
+            _judgment_wind_stun_bottom_timer = 0.0
             if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
                 arena_skill_manager.game_state['bottom_paddle_stunned'] = False
         else:
@@ -117309,6 +117376,7 @@ def reset_round(is_stage_start=False):
     global _judgment_quake_sound_playing, _judgment_ball_speed_backup, _judgment_prev_earthquake_active
     global _judgment_prev_phase, _judgment_lightning_stun_applied
     global _judgment_lightning_stun_top_timer, _judgment_lightning_stun_bottom_timer, _judgment_lightning_stun_type
+    global _judgment_wind_stun_applied, _judgment_wind_stun_top_timer, _judgment_wind_stun_bottom_timer
     if current_stage == 30 and animated_bg_stage30 is not None:
         if animated_bg_stage30.is_judgment_active():
             print(f"[신의심판] 라운드 전환으로 강제 초기화 (페이즈: {animated_bg_stage30.get_judgment_phase_name()})")
@@ -117327,6 +117395,9 @@ def reset_round(is_stage_start=False):
     _judgment_lightning_stun_top_timer = 0.0
     _judgment_lightning_stun_bottom_timer = 0.0
     _judgment_lightning_stun_type = False
+    _judgment_wind_stun_applied = False
+    _judgment_wind_stun_top_timer = 0.0
+    _judgment_wind_stun_bottom_timer = 0.0
 
     # 🎭 투기장 영웅 스킬 초기화 (라운드 전환 시 활성 스킬 강제 종료)
     if arena_mode_enabled and arena_skill_manager:
@@ -127425,7 +127496,7 @@ def handle_boss():
     global boss_throwing, boss_throw_timer  #  Stage 5 화염탄 관련 변수
     global ball_vel, boss_special_gauge
     global ragnarok_shock_playing  #  라그나로크 전기 감전 사운드 상태
-    global _judgment_lightning_stun_top_timer
+    global _judgment_lightning_stun_top_timer, _judgment_wind_stun_top_timer
     global boss_stunned_timer, boss_knockback_vel  #  화염병 스턴 관련 변수
     global stopwatch_active, stopwatch_timer  # ️ 스탑워치 관련 변수
     global whip_deactivation_active, boss_stunned_after_whip  #  상모돌리기 강제 해제 관련 변수
@@ -127466,6 +127537,16 @@ def handle_boss():
         else:
             boss_current_speed = 0
             return  # 번개 스턴 중 모든 처리 차단
+    # 🌪️ 바람의 분노 스턴 (독립 메커니즘)
+    if _judgment_wind_stun_top_timer > 0:
+        _judgment_wind_stun_top_timer -= 1.0 / 60.0
+        if _judgment_wind_stun_top_timer <= 0:
+            _judgment_wind_stun_top_timer = 0.0
+            if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
+                arena_skill_manager.game_state['top_paddle_stunned'] = False
+        else:
+            boss_current_speed = 0
+            return  # 바람 스턴 중 모든 처리 차단
     if arena_mode_enabled and arena_skill_manager:
         try:
             game_state = arena_skill_manager.game_state

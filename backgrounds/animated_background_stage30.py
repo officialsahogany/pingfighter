@@ -117,6 +117,8 @@ class AnimatedBackgroundStage30:
         self.JUDGMENT_BOLT_THROW = 7      # 0.6초: 번개 투척 모션
         self.JUDGMENT_BOLT_FLIGHT = 8     # 0.8초: 번개 투사체 비행
         self.JUDGMENT_BOLT_EXPLOSION = 9  # 1.5초: 감전 폭발
+        self.JUDGMENT_FAN_SWING = 10      # 1.2초: 부채 휘두르기
+        self.JUDGMENT_SANDSTORM = 11      # 3.5초: 모래바람 비행
 
         self.judgment_phase = self.JUDGMENT_IDLE
         self.judgment_timer = 0.0
@@ -165,9 +167,17 @@ class AnimatedBackgroundStage30:
         self.judgment_lightning_active = False
         self.judgment_logic_paused = False  # 라운드 전환 시 judgment 타이머 일시정지
         self.judgment_text_display_paused = False  # show_fade_text 중 judgment 타이머 일시정지
+        # 바람의 분노 (Wind variant) 상태
+        self.judgment_wind_sandstorms = []          # 모래바람 투사체 리스트
+        self.judgment_wind_particles = []           # 바람 파티클
+        self.judgment_fan_swing_progress = 0.0      # 부채 휘두르기 진행도
+        self.judgment_wind_charge_intensity = 0.0   # 바람 충전 강도
         # 이벤트 플래그 (핸들러에서 consume 방식으로 사용)
         self.judgment_bolt_throw_started = False   # BOLT_THROW 진입 시 True → 핸들러가 읽고 False
         self.judgment_bolt_explosion_started = False  # BOLT_EXPLOSION 진입 시 True → 핸들러가 읽고 False
+        self.judgment_fan_swing_started = False     # FAN_SWING 진입 시 True → 핸들러가 읽고 False
+        self.judgment_sandstorm_hit_top = False     # 모래바람 상단 히트 플래그
+        self.judgment_sandstorm_hit_bottom = False  # 모래바람 하단 히트 플래그
 
         # 페이즈 지속시간 (초)
         self.MERGE_DURATION = 2.0
@@ -179,6 +189,8 @@ class AnimatedBackgroundStage30:
         self.BOLT_THROW_DURATION = 0.6
         self.BOLT_FLIGHT_DURATION = 0.8
         self.BOLT_EXPLOSION_DURATION = 1.05  # 1.5 * 0.7 (-30% 단축)
+        self.FAN_SWING_DURATION = 1.2
+        self.SANDSTORM_DURATION = 3.5
 
         # 테두리 서피스
         self.border_surface = pygame.Surface((width, height), pygame.SRCALPHA)
@@ -765,8 +777,8 @@ class AnimatedBackgroundStage30:
         self.judgment_quake_sound_playing = False
         self.judgment_bolt_sparks = []
         self.judgment_bolt_intensity = 0.0
-        # 번개의 분노 상태 초기화
-        self.judgment_variant = random.choice(['earthquake', 'lightning'])
+        # 변형 초기화
+        self.judgment_variant = random.choice(['earthquake', 'lightning', 'wind'])
         print(f"[신의심판] 변형 선택: {self.judgment_variant}")
         self.judgment_bolt_hidden = False
         self.judgment_bolt_thrown = False
@@ -778,6 +790,14 @@ class AnimatedBackgroundStage30:
         self.judgment_lightning_active = False
         self.judgment_bolt_throw_started = False
         self.judgment_bolt_explosion_started = False
+        # 바람의 분노 상태 초기화
+        self.judgment_wind_sandstorms = []
+        self.judgment_wind_particles = []
+        self.judgment_fan_swing_progress = 0.0
+        self.judgment_wind_charge_intensity = 0.0
+        self.judgment_fan_swing_started = False
+        self.judgment_sandstorm_hit_top = False
+        self.judgment_sandstorm_hit_bottom = False
         # 합체 파티클 (심플한 대리석 먼지)
         cx = self.width // 2
         cy = self.height // 2
@@ -873,46 +893,75 @@ class AnimatedBackgroundStage30:
             self.judgment_right_arm_progress = ease
             # 발 흔들림 (사인파)
             self.judgment_feet_swing = math.sin(self.judgment_timer * 5.0) * 0.3 * ease
-            # ── 번개 충전 이펙트 (팔 다 올린 후 70%부터만 발동) ──
+            # ── 충전 이펙트 (팔 다 올린 후 70%부터만 발동) ──
             s = self.judgment_scale
             if progress > 0.7:
-                # 70~100% 구간을 0~1로 재매핑
                 charge_p = (progress - 0.7) / 0.3
-                base_intensity = charge_p * 0.7
-                flash_freq = 6.0 + charge_p * 14.0  # 6Hz → 20Hz
-                flash_wave = max(0, math.sin(self.judgment_timer * flash_freq * math.pi))
-                flash_boost = flash_wave * charge_p * 0.3
-                self.judgment_bolt_intensity = min(1.0, base_intensity + flash_boost)
-                # 스파크 파티클 생성
-                r_shoulder_x = cx + int(10 * s)
-                r_shoulder_y = cy - int(19 * s)
-                spark_rate = int(charge_p * 3) + (1 if random.random() < charge_p * 0.5 else 0)
-                for _ in range(spark_rate):
-                    spark_cx = r_shoulder_x + random.uniform(-15 * s, 5 * s)
-                    spark_cy = r_shoulder_y + random.uniform(-20 * s, -5 * s)
-                    angle = random.uniform(0, math.pi * 2)
-                    speed = random.uniform(1.5, 5.0) * s
-                    self.judgment_bolt_sparks.append({
-                        'x': spark_cx,
-                        'y': spark_cy,
-                        'vx': math.cos(angle) * speed,
-                        'vy': math.sin(angle) * speed,
-                        'size': random.uniform(1.0, 2.5) * s * 0.4,
-                        'life': random.uniform(0.2, 0.6),
-                        'color': random.choice([
-                            (255, 240, 140), (255, 220, 80),
-                            (255, 255, 200), (220, 200, 60),
-                        ]),
-                    })
+                if self.judgment_variant == 'wind':
+                    # 바람 충전: 모래색 소용돌이 파티클
+                    self.judgment_wind_charge_intensity = min(1.0, charge_p)
+                    r_shoulder_x = cx + int(10 * s)
+                    r_shoulder_y = cy - int(19 * s)
+                    spark_rate = int(charge_p * 4) + (1 if random.random() < charge_p * 0.6 else 0)
+                    for _ in range(spark_rate):
+                        angle = random.uniform(0, math.pi * 2)
+                        dist = random.uniform(5, 20) * s
+                        speed = random.uniform(2.0, 5.0) * s
+                        self.judgment_wind_particles.append({
+                            'x': r_shoulder_x + math.cos(angle) * dist,
+                            'y': r_shoulder_y + math.sin(angle) * dist,
+                            'vx': math.cos(angle + 1.5) * speed,
+                            'vy': math.sin(angle + 1.5) * speed,
+                            'size': random.uniform(1.0, 3.0) * s * 0.4,
+                            'life': random.uniform(0.3, 0.7),
+                            'color': random.choice([
+                                (210, 180, 105), (220, 190, 120),
+                                (195, 170, 110), (180, 155, 95),
+                            ]),
+                        })
+                else:
+                    # 번개/대지 충전: 기존 번개 스파크
+                    base_intensity = charge_p * 0.7
+                    flash_freq = 6.0 + charge_p * 14.0
+                    flash_wave = max(0, math.sin(self.judgment_timer * flash_freq * math.pi))
+                    flash_boost = flash_wave * charge_p * 0.3
+                    self.judgment_bolt_intensity = min(1.0, base_intensity + flash_boost)
+                    r_shoulder_x = cx + int(10 * s)
+                    r_shoulder_y = cy - int(19 * s)
+                    spark_rate = int(charge_p * 3) + (1 if random.random() < charge_p * 0.5 else 0)
+                    for _ in range(spark_rate):
+                        spark_cx = r_shoulder_x + random.uniform(-15 * s, 5 * s)
+                        spark_cy = r_shoulder_y + random.uniform(-20 * s, -5 * s)
+                        angle = random.uniform(0, math.pi * 2)
+                        speed = random.uniform(1.5, 5.0) * s
+                        self.judgment_bolt_sparks.append({
+                            'x': spark_cx,
+                            'y': spark_cy,
+                            'vx': math.cos(angle) * speed,
+                            'vy': math.sin(angle) * speed,
+                            'size': random.uniform(1.0, 2.5) * s * 0.4,
+                            'life': random.uniform(0.2, 0.6),
+                            'color': random.choice([
+                                (255, 240, 140), (255, 220, 80),
+                                (255, 255, 200), (220, 200, 60),
+                            ]),
+                        })
             else:
                 self.judgment_bolt_intensity = 0.0
-            # 스파크 파티클 업데이트
+                self.judgment_wind_charge_intensity = 0.0
+            # 스파크/바람 파티클 업데이트
             for sp in self.judgment_bolt_sparks:
                 sp['x'] += sp['vx'] * dt * 60
                 sp['y'] += sp['vy'] * dt * 60
                 sp['life'] -= dt
                 sp['size'] = max(0, sp['size'] - dt * 2)
             self.judgment_bolt_sparks = [sp for sp in self.judgment_bolt_sparks if sp['life'] > 0]
+            for wp in self.judgment_wind_particles:
+                wp['x'] += wp['vx'] * dt * 60
+                wp['y'] += wp['vy'] * dt * 60
+                wp['life'] -= dt
+                wp['size'] = max(0, wp['size'] - dt * 1.5)
+            self.judgment_wind_particles = [wp for wp in self.judgment_wind_particles if wp['life'] > 0]
             if progress >= 1.0:
                 if self.judgment_variant == 'lightning':
                     # 번개의 분노: 투척 페이즈로
@@ -946,6 +995,14 @@ class AnimatedBackgroundStage30:
                         target_y = 720.0    # 하단 끝 (플레이어 패들 라인)
                     self.judgment_bolt_proj_target_x = target_x
                     self.judgment_bolt_proj_target_y = target_y
+                elif self.judgment_variant == 'wind':
+                    # 바람의 분노: 부채 휘두르기 페이즈로
+                    self.judgment_phase = self.JUDGMENT_FAN_SWING
+                    self.judgment_timer = 0.0
+                    self.judgment_fan_swing_progress = 0.0
+                    self.judgment_fan_swing_started = True  # 핸들러에서 텍스트 표시용
+                    self.judgment_wind_charge_intensity = 1.0
+                    print(f"[신의심판] ARM_RAISE → FAN_SWING 전환")
                 else:
                     # 땅의 분노: 기존 슬램
                     self.judgment_phase = self.JUDGMENT_SLAM
@@ -1211,6 +1268,175 @@ class AnimatedBackgroundStage30:
                 self.judgment_right_arm_progress = 0.0
                 print(f"[신의심판] BOLT_EXPLOSION → RETURN 전환")
 
+        elif self.judgment_phase == self.JUDGMENT_FAN_SWING:
+            # 1.2초: 부채 휘두르기 → 모래바람 4방향 발사
+            progress = min(1.0, self.judgment_timer / self.FAN_SWING_DURATION)
+            s = self.judgment_scale
+            # 팔 애니메이션: 와인드업(0~30%) → 스윙(30~70%) → 팔로우스루(70~100%)
+            if progress < 0.3:
+                wind_p = progress / 0.3
+                self.judgment_right_arm_progress = 1.0 + wind_p * 0.2
+                self.judgment_left_arm_progress = 1.0
+                self.judgment_fan_swing_progress = 0.0
+            elif progress < 0.7:
+                swing_p = (progress - 0.3) / 0.4
+                ease_swing = swing_p * swing_p * (3.0 - 2.0 * swing_p)
+                self.judgment_right_arm_progress = 1.2 - ease_swing * 1.8
+                self.judgment_left_arm_progress = max(0, 1.0 - swing_p * 1.2)
+                self.judgment_fan_swing_progress = ease_swing
+            else:
+                follow_p = (progress - 0.7) / 0.3
+                self.judgment_right_arm_progress = max(-0.2, -0.6 + follow_p * 0.4)
+                self.judgment_left_arm_progress = 0.0
+                self.judgment_fan_swing_progress = 1.0
+            # 바람 충전 강도 감소 (에너지 방출)
+            if progress > 0.5:
+                self.judgment_wind_charge_intensity = max(0, 1.0 - (progress - 0.5) * 3.0)
+            # 바람 파티클 생성 (스윙 중)
+            if 0.3 < progress < 0.8:
+                for _ in range(int(3 * s)):
+                    angle = random.uniform(0, math.pi * 2)
+                    speed = random.uniform(3, 8) * s
+                    self.judgment_wind_particles.append({
+                        'x': float(cx) + random.uniform(-10 * s, 10 * s),
+                        'y': float(cy) + random.uniform(-15 * s, 5 * s),
+                        'vx': math.cos(angle) * speed,
+                        'vy': math.sin(angle) * speed,
+                        'size': random.uniform(1.5, 3.5) * s * 0.3,
+                        'life': random.uniform(0.3, 0.8),
+                        'color': random.choice([
+                            (210, 180, 105), (220, 190, 120),
+                            (195, 170, 110), (240, 210, 140),
+                        ]),
+                    })
+            # 50% 시점에서 모래바람 발사
+            if progress >= 0.5 and len(self.judgment_wind_sandstorms) == 0:
+                # 4방향 대각선: 45°, -45°(=315°), 135°, -135°(=225°)
+                sand_speed = 160.0  # px/s
+                sand_colors = [
+                    (210, 180, 105), (195, 170, 110),
+                    (220, 190, 120), (180, 155, 95),
+                ]
+                for angle_deg in [45, -45, 135, -135]:
+                    angle_rad = math.radians(angle_deg)
+                    self.judgment_wind_sandstorms.append({
+                        'x': float(cx),
+                        'y': float(cy),
+                        'vx': math.cos(angle_rad) * sand_speed,
+                        'vy': math.sin(angle_rad) * sand_speed,
+                        'angle_deg': angle_deg,
+                        'rotation': random.uniform(0, 360),
+                        'spin_speed': random.uniform(280, 400),
+                        'size': 28.0 * s,
+                        'alpha': 255,
+                        'age': 0.0,
+                        'dead': False,
+                        'hit_top': False,
+                        'hit_bottom': False,
+                        'trail_particles': [],
+                    })
+                # 발사 시 화면 흔들림 + 플래시
+                self.judgment_shake_intensity = 0.4
+                self.judgment_flash_alpha = 100
+            # 화면 흔들림 감쇠 (스윙 후)
+            if progress > 0.5:
+                self.judgment_shake_intensity = max(0, 0.4 * (1.0 - (progress - 0.5) * 4.0))
+            # 바람 파티클 업데이트
+            for wp in self.judgment_wind_particles:
+                wp['x'] += wp['vx'] * dt * 60
+                wp['y'] += wp['vy'] * dt * 60
+                wp['life'] -= dt
+                wp['size'] = max(0, wp['size'] - dt * 1.5)
+            self.judgment_wind_particles = [wp for wp in self.judgment_wind_particles if wp['life'] > 0]
+            # 플래시 감소
+            self.judgment_flash_alpha = max(0, self.judgment_flash_alpha - int(dt * 400))
+            if progress >= 1.0:
+                self.judgment_phase = self.JUDGMENT_SANDSTORM
+                self.judgment_timer = 0.0
+                self.judgment_shake_intensity = 0.0
+                self.judgment_flash_alpha = 0
+                self.judgment_wind_charge_intensity = 0.0
+                print(f"[신의심판] FAN_SWING → SANDSTORM 전환")
+
+        elif self.judgment_phase == self.JUDGMENT_SANDSTORM:
+            # 3.5초: 모래바람 비행 + 히트 판정
+            progress = min(1.0, self.judgment_timer / self.SANDSTORM_DURATION)
+            s = self.judgment_scale
+            # 팔 서서히 원위치
+            arm_fold = min(1.0, progress * 2.0)
+            self.judgment_left_arm_progress = 0.0
+            self.judgment_right_arm_progress = max(0, -0.2 + arm_fold * 0.2)
+            self.judgment_fan_swing_progress = max(0, 1.0 - progress * 2.0)
+            # 모래바람 업데이트
+            all_dead = True
+            for storm in self.judgment_wind_sandstorms:
+                if storm['dead']:
+                    continue
+                all_dead = False
+                storm['age'] += dt
+                # 이동
+                storm['x'] += storm['vx'] * dt
+                storm['y'] += storm['vy'] * dt
+                # 회전
+                storm['rotation'] += storm['spin_speed'] * dt
+                # 성장 (시간에 따라 약간 커짐)
+                storm['size'] = 28.0 * s * (1.0 + 0.15 * storm['age'])
+                # 트레일 파티클 생성
+                if random.random() < 0.6:
+                    t_angle = random.uniform(0, math.pi * 2)
+                    t_dist = random.uniform(0, storm['size'] * 0.5)
+                    storm['trail_particles'].append({
+                        'x': storm['x'] + math.cos(t_angle) * t_dist,
+                        'y': storm['y'] + math.sin(t_angle) * t_dist,
+                        'vx': random.uniform(-1.5, 1.5),
+                        'vy': random.uniform(-1.5, 1.5),
+                        'size': random.uniform(1.5, 3.5),
+                        'life': random.uniform(0.3, 0.6),
+                        'color': random.choice([
+                            (210, 180, 105), (195, 170, 110),
+                            (220, 190, 120), (160, 130, 80),
+                        ]),
+                    })
+                # 트레일 업데이트
+                for tp in storm['trail_particles']:
+                    tp['x'] += tp['vx'] * dt * 60
+                    tp['y'] += tp['vy'] * dt * 60
+                    tp['life'] -= dt
+                storm['trail_particles'] = [tp for tp in storm['trail_particles'] if tp['life'] > 0]
+                # 히트 판정: 상단 패들 영역 (Y < 65)
+                if storm['y'] < 65 and not storm['hit_top']:
+                    storm['hit_top'] = True
+                    self.judgment_sandstorm_hit_top = True
+                # 히트 판정: 하단 패들 영역 (Y > 710)
+                if storm['y'] > 710 and not storm['hit_bottom']:
+                    storm['hit_bottom'] = True
+                    self.judgment_sandstorm_hit_bottom = True
+                # 화면 밖으로 나가면 소멸
+                if (storm['x'] < -50 or storm['x'] > self.width + 50 or
+                        storm['y'] < -50 or storm['y'] > self.height + 50):
+                    storm['dead'] = True
+                # 페이드아웃 (3초 이후)
+                if storm['age'] > 2.5:
+                    fade_p = (storm['age'] - 2.5) / 1.0
+                    storm['alpha'] = max(0, int(255 * (1.0 - fade_p)))
+                    if storm['alpha'] <= 0:
+                        storm['dead'] = True
+            # 약한 화면 흔들림 (모래바람 비행 중)
+            if not all_dead and progress < 0.8:
+                self.judgment_shake_intensity = 0.08
+            else:
+                self.judgment_shake_intensity = max(0, self.judgment_shake_intensity - dt * 0.5)
+            if progress >= 1.0 or all_dead:
+                self.judgment_phase = self.JUDGMENT_RETURN
+                self.judgment_timer = 0.0
+                self.judgment_shake_intensity = 0.0
+                self.judgment_slam_progress = 0.0
+                self.judgment_left_arm_progress = 0.0
+                self.judgment_right_arm_progress = 0.0
+                self.judgment_wind_sandstorms.clear()
+                self.judgment_wind_particles.clear()
+                print(f"[신의심판] SANDSTORM → RETURN 전환")
+
         elif self.judgment_phase == self.JUDGMENT_RETURN:
             # 3초간 땅속으로 다시 들어감 (무게감 있게)
             progress = min(1.0, self.judgment_timer / self.RETURN_DURATION)
@@ -1372,11 +1598,20 @@ class AnimatedBackgroundStage30:
                 self.judgment_lightning_stun_bottom = False
                 self.judgment_lightning_stun_timer = 0.0
                 self.judgment_bolt_intensity = 0.0
+                # 바람 상태 초기화
+                self.judgment_wind_sandstorms.clear()
+                self.judgment_wind_particles.clear()
+                self.judgment_fan_swing_progress = 0.0
+                self.judgment_wind_charge_intensity = 0.0
+                self.judgment_fan_swing_started = False
+                self.judgment_sandstorm_hit_top = False
+                self.judgment_sandstorm_hit_bottom = False
 
     def get_judgment_shake_offset(self):
         """신의심판 화면 흔들림 오프셋 반환 (정글지진의 1.5배 강도)"""
         if self.judgment_phase not in (self.JUDGMENT_EARTHQUAKE, self.JUDGMENT_SLAM,
-                                       self.JUDGMENT_BOLT_EXPLOSION, self.JUDGMENT_RETURN):
+                                       self.JUDGMENT_BOLT_EXPLOSION, self.JUDGMENT_RETURN,
+                                       self.JUDGMENT_FAN_SWING, self.JUDGMENT_SANDSTORM):
             return (0, 0)
         if self.judgment_shake_intensity <= 0:
             return (0, 0)
@@ -1394,6 +1629,19 @@ class AnimatedBackgroundStage30:
                 'y': self.judgment_explosion_y,
                 'radius': self.judgment_explosion_radius,
                 'max_radius': self.judgment_explosion_max_radius,
+            }
+        return {'active': False}
+
+    def get_wind_sandstorm_info(self):
+        """바람 모래바람 정보 반환 (pingfighter.py 히트 판정용)"""
+        if self.judgment_phase == self.JUDGMENT_SANDSTORM and self.judgment_variant == 'wind':
+            active_storms = [s for s in self.judgment_wind_sandstorms if not s['dead']]
+            return {
+                'active': True,
+                'storms': [{'x': s['x'], 'y': s['y'], 'size': s['size'],
+                             'vx': s['vx'], 'vy': s['vy']} for s in active_storms],
+                'hit_top': self.judgment_sandstorm_hit_top,
+                'hit_bottom': self.judgment_sandstorm_hit_bottom,
             }
         return {'active': False}
 
@@ -1437,6 +1685,14 @@ class AnimatedBackgroundStage30:
         self.judgment_lightning_stun_bottom = False
         self.judgment_lightning_stun_timer = 0.0
         self.judgment_lightning_active = False
+        # 바람 상태 초기화
+        self.judgment_wind_sandstorms.clear()
+        self.judgment_wind_particles.clear()
+        self.judgment_fan_swing_progress = 0.0
+        self.judgment_wind_charge_intensity = 0.0
+        self.judgment_fan_swing_started = False
+        self.judgment_sandstorm_hit_top = False
+        self.judgment_sandstorm_hit_bottom = False
         self.judgment_bolt_throw_started = False
         self.judgment_bolt_explosion_started = False
         # 쿨타임 리셋 (다음 라운드에서 새로 카운트)
@@ -1450,7 +1706,8 @@ class AnimatedBackgroundStage30:
     def get_judgment_phase_name(self):
         """현재 페이즈 이름 (디버그용)"""
         names = {0: "IDLE", 1: "MERGE", 2: "ARM_RAISE", 3: "SLAM", 4: "EARTHQUAKE",
-                 5: "RETURN", 6: "HOLE_FADE", 7: "BOLT_THROW", 8: "BOLT_FLIGHT", 9: "BOLT_EXPLOSION"}
+                 5: "RETURN", 6: "HOLE_FADE", 7: "BOLT_THROW", 8: "BOLT_FLIGHT", 9: "BOLT_EXPLOSION",
+                 10: "FAN_SWING", 11: "SANDSTORM"}
         return names.get(self.judgment_phase, "UNKNOWN")
 
     def _draw_judgment_overlay(self, screen, offset_x=0, offset_y=0):
@@ -1773,6 +2030,86 @@ class AnimatedBackgroundStage30:
                 pygame.draw.circle(fl_surf, (212, 175, 85, fa), (flash_size, flash_size), flash_size)
                 pygame.draw.circle(fl_surf, (255, 245, 200, min(255, fa + 30)), (flash_size, flash_size), flash_size // 3)
                 screen.blit(fl_surf, (ex - flash_size, ey - flash_size), special_flags=pygame.BLEND_ADD)
+
+        # ── 바람 충전 파티클 (ARM_RAISE wind variant) ──
+        for wp in self.judgment_wind_particles:
+            wx, wy = int(wp['x']) + offset_x, int(wp['y']) + offset_y
+            ws = max(1, int(wp['size'] * min(1.0, wp['life'] * 3)))
+            if ws > 0:
+                pygame.draw.circle(screen, wp['color'], (wx, wy), ws)
+
+        # ── 모래바람 투사체 (FAN_SWING / SANDSTORM 페이즈) ──
+        for storm in self.judgment_wind_sandstorms:
+            if storm['dead'] or storm['alpha'] <= 5:
+                continue
+            sx = int(storm['x']) + offset_x
+            sy = int(storm['y']) + offset_y
+            sz = max(4, int(storm['size']))
+            alpha = storm['alpha']
+            rot = storm['rotation']
+
+            # 트레일 파티클
+            for tp in storm['trail_particles']:
+                tx, ty = int(tp['x']) + offset_x, int(tp['y']) + offset_y
+                ts = max(1, int(tp['size'] * min(1.0, tp['life'] * 3)))
+                if ts > 0:
+                    pygame.draw.circle(screen, tp['color'], (tx, ty), ts)
+
+            # 외곽 모래 구름 (8개 회전하는 원)
+            for i in range(8):
+                c_ang = rot * 0.0174533 + i * math.pi / 4
+                c_dist = sz * 0.6
+                c_x = sx + int(math.cos(c_ang) * c_dist)
+                c_y = sy + int(math.sin(c_ang) * c_dist)
+                c_r = max(2, int(sz * 0.35))
+                c_col = (min(255, 190 + i * 3), min(255, 155 + i * 2), min(255, 80 + i * 2))
+                cloud_surf = _get_cached_surface(c_r * 2, c_r * 2)
+                cloud_a = max(0, min(255, int(alpha * 0.25)))
+                pygame.draw.circle(cloud_surf, (*c_col, cloud_a), (c_r, c_r), c_r)
+                screen.blit(cloud_surf, (c_x - c_r, c_y - c_r))
+
+            # 나선형 리본 (4겹)
+            for layer in range(4):
+                layer_r = sz * (0.5 - layer * 0.1)
+                if layer_r < 2:
+                    break
+                pts = []
+                segs = 12
+                for j in range(segs + 1):
+                    t = j / segs
+                    a = rot * 0.0174533 + t * math.pi * 3 + layer * math.pi / 2
+                    r_val = layer_r * (1.0 - t * 0.5)
+                    px = sx + int(math.cos(a) * r_val)
+                    py = sy + int(math.sin(a) * r_val)
+                    pts.append((px, py))
+                if len(pts) >= 2:
+                    rib_r = min(255, 210 - layer * 15)
+                    rib_g = min(255, 175 - layer * 20)
+                    rib_b = min(255, 90 - layer * 12)
+                    rib_w = max(1, 3 - layer)
+                    pygame.draw.lines(screen, (rib_r, rib_g, rib_b), False, pts, rib_w)
+
+            # 밝은 코어
+            core_r = max(2, int(sz * 0.2))
+            core_surf = _get_cached_surface(core_r * 2 + 4, core_r * 2 + 4)
+            core_a = max(0, min(255, int(alpha * 0.5)))
+            pygame.draw.circle(core_surf, (230, 200, 130, core_a),
+                               (core_r + 2, core_r + 2), core_r)
+            screen.blit(core_surf, (sx - core_r - 2, sy - core_r - 2))
+            # 중심 밝은 점
+            pygame.draw.circle(screen, (245, 225, 165), (sx, sy), max(1, int(sz * 0.08)))
+
+            # 모래 알갱이 (6개 랜덤)
+            for _ in range(6):
+                g_ang = random.uniform(0, math.pi * 2)
+                g_dist = random.uniform(0, sz * 0.5)
+                gx = sx + int(math.cos(g_ang) * g_dist)
+                gy = sy + int(math.sin(g_ang) * g_dist)
+                g_s = max(1, int(random.uniform(1, 2.5)))
+                g_col = random.choice([
+                    (210, 175, 95), (195, 165, 90), (225, 195, 115),
+                ])
+                pygame.draw.circle(screen, g_col, (gx, gy), g_s)
 
         # ── 충격 플래시 (단순 전체 플래시) - 캐시된 서피스 사용 ──
         if self.judgment_flash_alpha > 0:
@@ -2697,8 +3034,132 @@ class AnimatedBackgroundStage30:
             pygame.draw.polygon(screen, marble, r_delt_pts)
             pygame.draw.polygon(screen, marble_dark, r_delt_pts, 1)
 
-        # ── 오른손 무기 (variant에 따라 번개 또는 해머) ──
-        if self.judgment_variant == 'lightning':
+        # ── 오른손 무기 (variant에 따라 번개/해머/부채) ──
+        if self.judgment_variant == 'wind':
+            # ══════ 고대 화초선 (바람의 분노 전용) ══════
+            fan_angle = fore_angle_r
+            fx, fy = ra_hand
+            handle_len = int(12 * s)
+            fdir_x = math.sin(fan_angle)
+            fdir_y = math.cos(fan_angle)
+            perp_fx, perp_fy = fdir_y, -fdir_x
+
+            # 부채 자루
+            tip_x = fx + int(handle_len * fdir_x)
+            tip_y = fy + int(handle_len * fdir_y)
+
+            # 자루 색상
+            bamboo = (160, 130, 70)
+            bamboo_dark = (120, 95, 50)
+            bamboo_light = (190, 160, 95)
+            silk = (200, 170, 100)
+            silk_dark = (170, 140, 75)
+            silk_light = (230, 200, 140)
+            gold_trim = (212, 175, 85)
+
+            # 자루 (대나무)
+            handle_w = max(2, int(2 * s))
+            pygame.draw.line(screen, bamboo_dark, (fx + 1, fy + 1), (tip_x + 1, tip_y + 1), handle_w)
+            pygame.draw.line(screen, bamboo, (fx, fy), (tip_x, tip_y), handle_w)
+            # 자루 마디
+            for t in (0.3, 0.6):
+                bx = fx + int(handle_len * t * fdir_x)
+                by = fy + int(handle_len * t * fdir_y)
+                knot_half = max(1, int(1.5 * s))
+                k1 = (bx - int(knot_half * perp_fx), by - int(knot_half * perp_fy))
+                k2 = (bx + int(knot_half * perp_fx), by + int(knot_half * perp_fy))
+                pygame.draw.line(screen, bamboo_dark, k1, k2, max(1, int(s)))
+
+            # 부채 부분 (부채꼴 모양 - 핸들 끝에서 펼쳐짐)
+            fan_center_x = tip_x + int(2 * s * fdir_x)
+            fan_center_y = tip_y + int(2 * s * fdir_y)
+            fan_radius = int(14 * s)
+            fan_spread = math.pi * 0.65  # 약 117도 펼침
+
+            # 부채 기본 방향 (전완 방향)
+            base_ang = math.atan2(fdir_x, fdir_y)
+
+            # 부채살 (9개)
+            rib_count = 9
+            for i in range(rib_count):
+                t = i / max(1, rib_count - 1)
+                rib_ang = base_ang - fan_spread / 2 + fan_spread * t
+                rx = fan_center_x + int(fan_radius * math.sin(rib_ang))
+                ry = fan_center_y + int(fan_radius * math.cos(rib_ang))
+                # 부채살 (대나무색)
+                rib_col = bamboo if i % 2 == 0 else bamboo_light
+                pygame.draw.line(screen, rib_col, (fan_center_x, fan_center_y), (rx, ry), max(1, int(0.8 * s)))
+
+            # 부채 면 (부채살 사이를 채우는 비단)
+            fan_pts = [(fan_center_x, fan_center_y)]
+            for i in range(rib_count + 4):
+                t = i / (rib_count + 3)
+                rib_ang = base_ang - fan_spread / 2 + fan_spread * t
+                r_val = fan_radius * (0.95 + 0.05 * math.sin(t * 6))
+                px = fan_center_x + int(r_val * math.sin(rib_ang))
+                py = fan_center_y + int(r_val * math.cos(rib_ang))
+                fan_pts.append((px, py))
+            if len(fan_pts) >= 3:
+                fan_surf = _get_cached_surface(self.width, self.height)
+                pygame.draw.polygon(fan_surf, (*silk, 180), fan_pts)
+                screen.blit(fan_surf, (0, 0))
+                # 비단 테두리
+                pygame.draw.polygon(screen, silk_dark, fan_pts, max(1, int(s)))
+
+            # 부채 장식 패턴 (고대 문양 - 동심원호)
+            for ring in range(3):
+                ring_r = int(fan_radius * (0.4 + ring * 0.2))
+                if ring_r > 3:
+                    arc_start = base_ang - fan_spread / 2
+                    arc_end = base_ang + fan_spread / 2
+                    arc_rect = (fan_center_x - ring_r, fan_center_y - ring_r,
+                                ring_r * 2, ring_r * 2)
+                    # pygame arc는 래디안, 수학 좌표계
+                    a1 = -(arc_end - math.pi / 2)
+                    a2 = -(arc_start - math.pi / 2)
+                    col = gold_trim if ring == 1 else silk_dark
+                    pygame.draw.arc(screen, col, arc_rect, a1, a2, 1)
+
+            # 부채 끝 금장식 (호 테두리)
+            for i in range(rib_count + 4):
+                t = i / (rib_count + 3)
+                rib_ang = base_ang - fan_spread / 2 + fan_spread * t
+                ox = fan_center_x + int(fan_radius * math.sin(rib_ang))
+                oy = fan_center_y + int(fan_radius * math.cos(rib_ang))
+                if i > 0:
+                    prev_t = (i - 1) / (rib_count + 3)
+                    prev_ang = base_ang - fan_spread / 2 + fan_spread * prev_t
+                    px = fan_center_x + int(fan_radius * math.sin(prev_ang))
+                    py = fan_center_y + int(fan_radius * math.cos(prev_ang))
+                    pygame.draw.line(screen, gold_trim, (px, py), (ox, oy), max(1, int(s * 0.7)))
+
+            # 바람 충전 글로우 (intensity에 따라)
+            intensity = self.judgment_wind_charge_intensity
+            if intensity > 0.1:
+                glow_r = int(fan_radius * 0.5 + intensity * 8 * s)
+                glow_col = (min(255, int(180 + 60 * intensity)),
+                            min(255, int(160 + 50 * intensity)),
+                            min(255, int(80 + 40 * intensity)))
+                glow_surf = _get_cached_surface(glow_r * 2 + 4, glow_r * 2 + 4)
+                glow_alpha = min(100, int(30 + 70 * intensity))
+                pygame.draw.circle(glow_surf, (*glow_col, glow_alpha),
+                                   (glow_r + 2, glow_r + 2), glow_r)
+                screen.blit(glow_surf, (fan_center_x - glow_r - 2, fan_center_y - glow_r - 2),
+                            special_flags=pygame.BLEND_ADD)
+                # 바람 이펙트 라인 (강도에 따라 부채에서 나오는 바람줄)
+                for _ in range(int(intensity * 3)):
+                    w_ang = base_ang + random.uniform(-fan_spread / 2, fan_spread / 2)
+                    w_start_r = fan_radius * random.uniform(0.6, 1.0)
+                    w_len = random.uniform(4, 12) * s * intensity
+                    w_sx = fan_center_x + int(w_start_r * math.sin(w_ang))
+                    w_sy = fan_center_y + int(w_start_r * math.cos(w_ang))
+                    w_ex = w_sx + int(w_len * math.sin(w_ang))
+                    w_ey = w_sy + int(w_len * math.cos(w_ang))
+                    w_col = (min(255, 220 + int(35 * random.random())),
+                             min(255, 190 + int(30 * random.random())),
+                             min(255, 100 + int(40 * random.random())))
+                    pygame.draw.line(screen, w_col, (w_sx, w_sy), (w_ex, w_ey), 1)
+        elif self.judgment_variant == 'lightning':
             # ══════ 번개 (오른손에 들고 있음, 투척 후 숨김) ══════
             if self.judgment_bolt_hidden:
                 for sp in self.judgment_bolt_sparks:
