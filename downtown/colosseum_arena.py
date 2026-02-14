@@ -5957,6 +5957,8 @@ class ColosseumsArena:
                 state['gatling_recoil'] = game_state.get(f'gatling_recoil_{side}', 0)
                 state['gatling_mounting'] = game_state.get(f'gatling_mounting_{side}', False)
                 state['gatling_mount_progress'] = game_state.get(f'gatling_mount_progress_{side}', 0.0)
+                state['gatling_dismounting'] = game_state.get(f'gatling_dismounting_{side}', False)
+                state['gatling_dismount_progress'] = game_state.get(f'gatling_dismount_progress_{side}', 0.0)
 
         # 💣 폭탄 서프라이즈 넉백은 update_battle()에서 AI 이동 후 적용 (paddle.update 이후)
 

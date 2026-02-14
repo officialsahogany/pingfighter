@@ -7312,6 +7312,27 @@ class HeroPaddleRenderer:
             "wire_blue": (50, 100, 200),
         }
 
+        # === 🔫 탱크 변신 시스템 ===
+        is_transforming = gatling_mounting or gatling_dismounting
+        is_tank_mode = gatling_firing
+
+        if is_transforming or is_tank_mode:
+            # 변환 진행도 계산 (0.0=안드로이드, 1.0=탱크)
+            if gatling_mounting:
+                transform_progress = mount_progress  # 0→1
+            elif gatling_firing:
+                transform_progress = 1.0  # 완전 탱크
+            else:  # dismounting
+                transform_progress = 1.0 - dismount_progress  # 1→0
+
+            self._draw_android_tank_transform(
+                screen, cx, torso_y, b, p, t, transform_progress,
+                barrel_spin, gatling_firing, show_back,
+                led_pulse, reactor_pulse, lean_offset,
+                gatling_recoil
+            )
+            return  # 변신 중에는 일반 안드로이드 그리지 않음
+
         # === 리액터 오라 (뒤쪽 글로우) ===
         aura_size = int(3.5 * b)
         aura_surf = self._get_surface(aura_size * 2, aura_size * 2)
@@ -7337,12 +7358,6 @@ class HeroPaddleRenderer:
             # 허벅지 (장갑판 + 유압 실린더)
             thigh_top = hip_y - leg_lift_y
             thigh_h = int(1.5 * b)
-
-            # 게틀링 견착 시 오른쪽 무릎 굽히기 (한쪽 무릎 꿇기)
-            if side == 1 and is_gatling_active and kneel_progress > 0:
-                thigh_x += int(kneel_progress * 0.25 * b)  # 허벅지 살짝 바깥으로
-                thigh_h += int(kneel_progress * 0.9 * b)  # 무릎이 더 내려감
-
             thigh_rect = pygame.Rect(thigh_x - int(0.48 * b), thigh_top,
                                     int(0.96 * b), thigh_h)
             pygame.draw.rect(screen, p["armor_shadow"],
@@ -7398,12 +7413,6 @@ class HeroPaddleRenderer:
             # 정강이 (프레임 + 장갑)
             shin_x = knee_x + leg_sway_x
             shin_y = knee_y + int(1.1 * b) - int(leg_lift_y * 0.3)
-
-            # 게틀링 견착 시 오른쪽 정강이 접힘 (무릎 꿇기)
-            if side == 1 and is_gatling_active and kneel_progress > 0:
-                shin_y -= int(kneel_progress * 0.65 * b)  # 정강이 짧아짐 (접힘)
-                shin_x -= int(kneel_progress * 0.15 * b)  # 발이 몸쪽으로
-
             # 피스톤 (뒤쪽 보강)
             pygame.draw.line(screen, p["joint_dark"],
                            (knee_x + side * int(0.12 * b),
@@ -7628,26 +7637,8 @@ class HeroPaddleRenderer:
             shoulder = (cx + side * int(1.5 * b) + lean_offset,
                        torso_y + int(0.25 * b) + s_bob_offset)
 
-            # 오른팔 포즈 결정
-            if side == 1 and is_gatling_active and kneel_progress > 0:
-                # 🔫 어깨 견착 자세: 오른팔이 위로 올라가 기관포를 어깨에 올림
-                # 일반 팔 위치 (보간 시작점)
-                norm_elbow_x = shoulder[0] + int(0.5 * b)
-                norm_elbow_y = torso_y + int(0.95 * b)
-                norm_wrist_x = norm_elbow_x + int(0.4 * b)
-                norm_wrist_y = torso_y + int(1.6 * b)
-                # 견착 팔 위치 (팔꿈치 위로 벌어짐, 손목이 어깨 높이로)
-                mount_elbow_x = shoulder[0] + int(0.5 * b)
-                mount_elbow_y = shoulder[1] - int(0.3 * b)
-                mount_wrist_x = shoulder[0] + int(0.15 * b)
-                mount_wrist_y = shoulder[1] - int(0.75 * b)
-                # 진행도에 따라 부드럽게 보간
-                kp = kneel_progress
-                elbow = (int(norm_elbow_x * (1 - kp) + mount_elbow_x * kp),
-                        int(norm_elbow_y * (1 - kp) + mount_elbow_y * kp))
-                wrist = (int(norm_wrist_x * (1 - kp) + mount_wrist_x * kp),
-                        int(norm_wrist_y * (1 - kp) + mount_wrist_y * kp))
-            elif side == 1 and weapon_swing != 0:
+            # 오른팔(기관포) 공 타격 시 안쪽으로 휘두르기 (쿠로카게 스타일)
+            if side == 1 and weapon_swing != 0:
                 # 오른팔(기관포) 공 타격 시 안쪽으로 휘두르기 (쿠로카게 스타일)
                 swing_x = int(weapon_swing * 4.0 * b)
                 swing_y = int(abs(weapon_swing) * 1.5 * b)
@@ -7814,25 +7805,6 @@ class HeroPaddleRenderer:
                     (mount_cx, mount_cy), mount_r)
                 pygame.draw.circle(screen, p["cannon_light"],
                     (mount_cx, mount_cy), int(mount_r * 0.7))
-
-                # 🔫 어깨 견착 시 마운트 브라켓 (기관포 ↔ 어깨패드 연결)
-                if is_gatling_active and kneel_progress > 0:
-                    sp_cx = cx + int(1.45 * b) + lean_offset
-                    sp_cy = torso_y - int(0.3 * b) + int(shoulder_bob * 0.3 * b)
-                    bkt_w = max(2, int(0.12 * b * kneel_progress))
-                    # 수직 지지대 (기관포 → 어깨)
-                    pygame.draw.line(screen, p["cannon_dark"],
-                        (mount_cx, mount_cy + mount_r),
-                        (sp_cx, sp_cy),
-                        bkt_w + 1)
-                    pygame.draw.line(screen, p["cannon_mid"],
-                        (mount_cx, mount_cy + mount_r),
-                        (sp_cx, sp_cy),
-                        bkt_w)
-                    # 마운트 보강 볼트
-                    pygame.draw.circle(screen, p["joint"],
-                        (sp_cx, sp_cy - int(0.05 * b)),
-                        max(2, int(0.06 * b * kneel_progress)))
 
                 # 기관포 외부 배럴 가드
                 guard_y = mount_cy + int(0.15 * b)
@@ -8072,6 +8044,419 @@ class HeroPaddleRenderer:
                         (2, 0), (2, 3), 1)
                     screen.blit(sp_surf, (spx2 - 2, spy2 - 2),
                         special_flags=pygame.BLEND_ADD)
+
+    # =========================================================================
+    # 안드로이드 탱크 변신 시스템
+    # =========================================================================
+    def _draw_android_tank_transform(self, screen, cx, torso_y, b, p, t,
+                                      progress, barrel_spin, is_firing,
+                                      show_back, led_pulse, reactor_pulse,
+                                      lean_offset, recoil):
+        """안드로이드 ↔ 탱크 변환 애니메이션 + 탱크 모드 렌더링
+
+        progress: 0.0=안드로이드 형태, 1.0=탱크 형태
+        변환 중 파츠가 해체되어 흩어졌다가 새 형태로 재조립됨
+        """
+        # 발사 중 미세 반동
+        if is_firing and recoil:
+            recoil_dir = 1 if show_back else -1
+            cx += int(_sin(t * 45) * 1.2 * b * 0.08)
+            torso_y += int(recoil * recoil_dir * 0.4)
+
+        # 산개 강도 (progress 0.5일 때 최대)
+        scatter = _sin(progress * math.pi) * 1.0
+        # 이징 함수 (자연스러운 가감속)
+        ease_p = progress * progress * (3 - 2 * progress)  # smoothstep
+
+        # === 파츠 정의 ===
+        # (android_x, android_y, tank_x, tank_y, w, h, color_key, scatter_angle)
+        # 좌표는 (cx, torso_y) 기준 상대 좌표
+        parts = [
+            # 머리 → 포탑
+            (0, -3.1*b, 0, -1.2*b, 2.0*b, 1.8*b, "armor", -1.57),
+            # 흉부 → 차체 상판
+            (0, 0, 0, 0.2*b, 3.0*b, 2.0*b, "armor_dark", 0),
+            # 왼쪽 어깨 → 차체 좌측
+            (-1.45*b, -0.3*b, -1.2*b, 0.8*b, 1.1*b, 0.9*b, "armor", 3.14),
+            # 오른쪽 어깨 → 차체 우측
+            (1.45*b, -0.3*b, 1.2*b, 0.8*b, 1.1*b, 0.9*b, "armor", 0),
+            # 왼쪽 다리 → 왼쪽 무한궤도
+            (-0.55*b, 3.0*b, -1.4*b, 2.0*b, 0.9*b, 2.5*b, "armor_shadow", 2.36),
+            # 오른쪽 다리 → 오른쪽 무한궤도
+            (0.55*b, 3.0*b, 1.4*b, 2.0*b, 0.9*b, 2.5*b, "armor_shadow", 0.79),
+            # 왼팔 → 전면 장갑
+            (-1.5*b, 1.0*b, -0.6*b, -0.5*b, 0.6*b, 1.2*b, "frame", 3.93),
+            # 오른팔+기관포 → 주포
+            (1.5*b, 1.0*b, 0, -2.5*b, 0.6*b, 2.0*b, "cannon_mid", -0.79),
+        ]
+
+        scatter_dist = 2.5 * b  # 최대 산개 거리
+
+        # 변환 중이면 (0 < progress < 1) 파츠 산개 + 에너지 이펙트
+        if progress < 0.98:
+            # 리액터 에너지 폭발 이펙트 (변환 중)
+            if scatter > 0.1:
+                energy_r = int(scatter * 3.0 * b)
+                energy_surf = self._get_surface(energy_r * 2, energy_r * 2)
+                e_alpha = int(40 * scatter)
+                pygame.draw.circle(energy_surf,
+                    (*p["reactor_blue"], e_alpha),
+                    (energy_r, energy_r), energy_r)
+                pygame.draw.circle(energy_surf,
+                    (*p["reactor_glow"], int(e_alpha * 0.6)),
+                    (energy_r, energy_r), int(energy_r * 0.6))
+                screen.blit(energy_surf,
+                    (cx + lean_offset - energy_r,
+                     torso_y + int(0.5 * b) - energy_r),
+                    special_flags=pygame.BLEND_ADD)
+
+                # 에너지 스파크
+                for i in range(8):
+                    spark_angle = t * 3 + i * math.pi / 4
+                    spark_dist = scatter * 2.0 * b * (0.5 + 0.5 * _sin(t * 5 + i))
+                    sx = cx + lean_offset + int(_cos(spark_angle) * spark_dist)
+                    sy = torso_y + int(0.5 * b) + int(_sin(spark_angle) * spark_dist)
+                    spark_s = self._get_surface(6, 6)
+                    s_alpha = int(120 * scatter * (0.5 + 0.5 * _sin(t * 8 + i * 1.3)))
+                    pygame.draw.circle(spark_s,
+                        (*p["led_cyan"], min(255, s_alpha)), (3, 3), 2)
+                    screen.blit(spark_s, (sx - 3, sy - 3),
+                        special_flags=pygame.BLEND_ADD)
+
+            # 파츠 산개 렌더링
+            for (ax, ay, tx, ty, pw, ph, col_key, sa) in parts:
+                # 위치 보간 + 산개
+                ix = ax * (1 - ease_p) + tx * ease_p + _cos(sa) * scatter * scatter_dist
+                iy = ay * (1 - ease_p) + ty * ease_p + _sin(sa) * scatter * scatter_dist
+                # 크기 보간 (변환 중 약간 축소)
+                size_scale = 1.0 - 0.3 * scatter
+                fw = int(pw * size_scale)
+                fh = int(ph * size_scale)
+
+                fx = cx + lean_offset + int(ix) - fw // 2
+                fy = torso_y + int(iy) - fh // 2
+
+                # 파츠 그리기 (회전 효과 포함)
+                rot = scatter * 0.5 * sa  # 산개 중 약간 회전
+                part_surf = self._get_surface(fw + 4, fh + 4)
+                # 그림자
+                pygame.draw.rect(part_surf, p["armor_shadow"],
+                    (3, 3, fw, fh), border_radius=max(2, int(0.15 * b)))
+                # 본체
+                pygame.draw.rect(part_surf, p[col_key],
+                    (2, 2, fw, fh), border_radius=max(2, int(0.15 * b)))
+                # 하이라이트
+                if fw > 4 and fh > 4:
+                    hl_color = tuple(min(255, c + 30) for c in p[col_key])
+                    pygame.draw.rect(part_surf, hl_color,
+                        (4, 4, max(1, fw - 4), max(1, fh - 4)),
+                        border_radius=max(1, int(0.1 * b)))
+
+                # LED 포인트 (각 파츠에 사이언 빛)
+                led_a = int(80 + 80 * scatter * _sin(t * 6 + sa))
+                led_s = self._get_surface(4, 4)
+                pygame.draw.circle(led_s,
+                    (*p["led_cyan"], min(255, led_a)), (2, 2), 2)
+                part_surf.blit(led_s,
+                    (fw // 2, fh // 2), special_flags=pygame.BLEND_ADD)
+
+                screen.blit(part_surf, (fx - 2, fy - 2))
+
+            # 리액터 코어 (항상 중앙에 표시)
+            r_cx = cx + lean_offset
+            r_cy = torso_y + int(0.5 * b * ease_p)
+            r_r = max(4, int(0.4 * b))
+            # 코어 글로우
+            core_surf = self._get_surface(r_r * 4, r_r * 4)
+            core_a = int(150 + 100 * reactor_pulse)
+            pygame.draw.circle(core_surf,
+                (*p["reactor_blue"], core_a),
+                (r_r * 2, r_r * 2), r_r)
+            pygame.draw.circle(core_surf,
+                (*p["reactor_white"], int(core_a * 0.5)),
+                (r_r * 2, r_r * 2), int(r_r * 0.4))
+            screen.blit(core_surf,
+                (r_cx - r_r * 2, r_cy - r_r * 2),
+                special_flags=pygame.BLEND_ADD)
+            pygame.draw.circle(screen, p["reactor_glow"],
+                (r_cx, r_cy), max(2, int(r_r * 0.5)))
+        else:
+            # === 완전 탱크 모드 ===
+            self._draw_android_tank(
+                screen, cx, torso_y, b, p, t,
+                barrel_spin, is_firing, show_back,
+                led_pulse, reactor_pulse, lean_offset
+            )
+
+    def _draw_android_tank(self, screen, cx, torso_y, b, p, t,
+                            barrel_spin, is_firing, show_back,
+                            led_pulse, reactor_pulse, lean_offset):
+        """안드로이드 탱크 모드 렌더링 - 게틀링 발사 중 탱크 형태"""
+        cx += lean_offset
+
+        # === 무한궤도 (좌우) ===
+        for side in [-1, 1]:
+            tread_cx = cx + side * int(1.4 * b)
+            tread_y = torso_y + int(2.0 * b)
+            tread_w = int(0.9 * b)
+            tread_h = int(2.5 * b)
+            tread_rect = pygame.Rect(
+                tread_cx - tread_w // 2, tread_y - tread_h // 2,
+                tread_w, tread_h)
+
+            # 궤도 외곽
+            pygame.draw.rect(screen, p["armor_shadow"],
+                tread_rect.inflate(3, 3), border_radius=int(0.2 * b))
+            pygame.draw.rect(screen, p["armor_dark"],
+                tread_rect.inflate(1, 1), border_radius=int(0.18 * b))
+            pygame.draw.rect(screen, p["armor_shadow"],
+                tread_rect, border_radius=int(0.15 * b))
+
+            # 궤도 패턴 (움직이는 줄무늬)
+            tread_offset = int(t * 30) % int(0.4 * b + 1) if b > 0 else 0
+            for i in range(7):
+                ty = tread_rect.top + int(0.15 * b) + i * int(0.32 * b) + tread_offset
+                if tread_rect.top < ty < tread_rect.bottom - int(0.1 * b):
+                    pygame.draw.line(screen, p["frame_dark"],
+                        (tread_rect.left + int(0.08 * b), ty),
+                        (tread_rect.right - int(0.08 * b), ty),
+                        max(1, int(0.04 * b)))
+
+            # 구동륜 (상하)
+            for wy in [tread_rect.top + int(0.15 * b),
+                       tread_rect.bottom - int(0.15 * b)]:
+                wheel_r = max(2, int(0.18 * b))
+                pygame.draw.circle(screen, p["joint_dark"],
+                    (tread_cx, wy), wheel_r + 1)
+                pygame.draw.circle(screen, p["joint"],
+                    (tread_cx, wy), wheel_r)
+                # 구동축 회전
+                for i in range(4):
+                    angle = barrel_spin * 2 + i * math.pi / 2
+                    wx = tread_cx + int(_cos(angle) * wheel_r * 0.5)
+                    wy2 = wy + int(_sin(angle) * wheel_r * 0.5)
+                    pygame.draw.circle(screen, p["joint_light"],
+                        (wx, wy2), max(1, int(0.04 * b)))
+
+        # === 차체 (메인 헐) ===
+        hull_w = int(3.2 * b)
+        hull_h = int(2.2 * b)
+        hull_rect = pygame.Rect(
+            cx - hull_w // 2, torso_y - int(0.2 * b),
+            hull_w, hull_h)
+
+        # 헐 외곽
+        pygame.draw.rect(screen, p["armor_shadow"],
+            hull_rect.inflate(3, 3), border_radius=int(0.3 * b))
+        pygame.draw.rect(screen, p["armor_dark"],
+            hull_rect.inflate(1, 1), border_radius=int(0.25 * b))
+        pygame.draw.rect(screen, p["armor"],
+            hull_rect, border_radius=int(0.2 * b))
+
+        # 전면/후면 경사 장갑판
+        for vy, c in [(hull_rect.top + int(0.15 * b), p["armor_mid"]),
+                       (hull_rect.bottom - int(0.15 * b), p["armor_dark"])]:
+            pygame.draw.line(screen, c,
+                (hull_rect.left + int(0.2 * b), vy),
+                (hull_rect.right - int(0.2 * b), vy),
+                max(2, int(0.06 * b)))
+
+        # 장갑판 볼트
+        for corner_x, corner_y in [(-1, -1), (1, -1), (-1, 1), (1, 1)]:
+            bx = cx + corner_x * int(1.2 * b)
+            by = hull_rect.centery + corner_y * int(0.6 * b)
+            pygame.draw.circle(screen, p["joint_dark"], (bx, by),
+                max(2, int(0.06 * b)))
+            pygame.draw.circle(screen, p["joint"], (bx - 1, by - 1),
+                max(1, int(0.04 * b)))
+
+        # 측면 장갑판 (좌우)
+        for side in [-1, 1]:
+            side_rect = pygame.Rect(
+                cx + side * int(0.8 * b) - int(0.4 * b),
+                hull_rect.centery - int(0.5 * b),
+                int(0.8 * b), int(1.0 * b))
+            pygame.draw.rect(screen, p["armor_mid"],
+                side_rect, border_radius=3)
+            pygame.draw.rect(screen, p["armor_light"],
+                side_rect.inflate(-int(0.1 * b), -int(0.1 * b)),
+                border_radius=2)
+
+        # 리액터 코어 (차체 중앙)
+        reactor_cx = cx
+        reactor_cy = hull_rect.centery
+        reactor_r = max(4, int(0.35 * b))
+
+        pygame.draw.circle(screen, p["frame_dark"],
+            (reactor_cx, reactor_cy), reactor_r + 2)
+        pygame.draw.circle(screen, p["frame"],
+            (reactor_cx, reactor_cy), reactor_r)
+
+        # 리액터 글로우
+        glow_r = max(3, int(reactor_r * 0.85))
+        glow_surf = self._get_surface(reactor_r * 4, reactor_r * 4)
+        glow_a = int(120 + 100 * reactor_pulse)
+        pygame.draw.circle(glow_surf,
+            (*p["reactor_blue"], glow_a),
+            (reactor_r * 2, reactor_r * 2), glow_r)
+        pygame.draw.circle(glow_surf,
+            (*p["reactor_white"], int(glow_a * 0.4)),
+            (reactor_r * 2, reactor_r * 2), int(glow_r * 0.3))
+        screen.blit(glow_surf,
+            (reactor_cx - reactor_r * 2, reactor_cy - reactor_r * 2),
+            special_flags=pygame.BLEND_ADD)
+
+        # LED 스트라이프 (차체)
+        for i in range(4):
+            led_x = hull_rect.left + int(0.3 * b) + i * int(0.65 * b)
+            led_y = hull_rect.bottom - int(0.25 * b)
+            led_a_val = int(60 + 60 * _sin(t * 4 + i * 0.8))
+            led_surf = self._get_surface(6, 6)
+            pygame.draw.circle(led_surf,
+                (*p["led_cyan"], led_a_val), (3, 3), 2)
+            screen.blit(led_surf, (led_x - 3, led_y - 3),
+                special_flags=pygame.BLEND_ADD)
+
+        # === 포탑 (터렛) ===
+        turret_w = int(2.0 * b)
+        turret_h = int(1.4 * b)
+        turret_rect = pygame.Rect(
+            cx - turret_w // 2, torso_y - int(1.6 * b),
+            turret_w, turret_h)
+
+        # 포탑 본체
+        pygame.draw.rect(screen, p["armor_shadow"],
+            turret_rect.inflate(3, 3), border_radius=int(0.25 * b))
+        pygame.draw.rect(screen, p["armor_dark"],
+            turret_rect.inflate(1, 1), border_radius=int(0.2 * b))
+        pygame.draw.rect(screen, p["armor"],
+            turret_rect, border_radius=int(0.18 * b))
+        pygame.draw.rect(screen, p["armor_light"],
+            turret_rect.inflate(-int(0.15 * b), -int(0.12 * b)),
+            border_radius=int(0.12 * b))
+
+        # 바이저 (포탑 전면 관측창)
+        visor_w = int(1.0 * b)
+        visor_h = int(0.3 * b)
+        visor_y = turret_rect.centery - int(0.1 * b)
+        visor_rect = pygame.Rect(
+            cx - visor_w // 2, visor_y, visor_w, visor_h)
+        pygame.draw.rect(screen, p["visor_dim"], visor_rect, border_radius=2)
+        # 바이저 글로우
+        vis_surf = self._get_surface(visor_w + 4, visor_h + 4)
+        vis_a = int(80 + 60 * led_pulse)
+        pygame.draw.rect(vis_surf,
+            (*p["visor"], vis_a),
+            (2, 2, visor_w, visor_h), border_radius=2)
+        screen.blit(vis_surf,
+            (visor_rect.left - 2, visor_rect.top - 2),
+            special_flags=pygame.BLEND_ADD)
+
+        # 포탑 볼트
+        for corner in [(-1, -1), (1, -1), (-1, 1), (1, 1)]:
+            bx = cx + corner[0] * int(0.7 * b)
+            by = turret_rect.centery + corner[1] * int(0.4 * b)
+            pygame.draw.circle(screen, p["joint_dark"], (bx, by),
+                max(2, int(0.05 * b)))
+
+        # 안테나
+        ant_x = cx + int(0.6 * b)
+        ant_y = turret_rect.top
+        pygame.draw.line(screen, p["antenna"],
+            (ant_x, ant_y),
+            (ant_x + int(0.1 * b), ant_y - int(0.6 * b)),
+            max(1, int(0.04 * b)))
+        # 안테나 끝 빨간 LED
+        ant_led = self._get_surface(6, 6)
+        ant_a = int(120 + 120 * _sin(t * 4))
+        pygame.draw.circle(ant_led,
+            (*p["led_red"], min(255, ant_a)), (3, 3), 2)
+        screen.blit(ant_led,
+            (ant_x + int(0.1 * b) - 3, ant_y - int(0.6 * b) - 3),
+            special_flags=pygame.BLEND_ADD)
+
+        # === 주포 (개틀링 캐논) ===
+        cannon_mount_x = cx
+        cannon_mount_y = turret_rect.top - int(0.1 * b)
+        mount_r = max(4, int(0.35 * b))
+
+        # 포 마운트
+        pygame.draw.circle(screen, p["cannon_dark"],
+            (cannon_mount_x + 1, cannon_mount_y + 1), mount_r + 1)
+        pygame.draw.circle(screen, p["cannon_mid"],
+            (cannon_mount_x, cannon_mount_y), mount_r)
+        pygame.draw.circle(screen, p["cannon_light"],
+            (cannon_mount_x, cannon_mount_y), int(mount_r * 0.7))
+
+        # 배럴 가드
+        guard_w = int(0.6 * b)
+        guard_h = int(0.7 * b)
+        guard_y = cannon_mount_y - guard_h - int(0.1 * b)
+        guard_rect = pygame.Rect(
+            cannon_mount_x - guard_w // 2, guard_y,
+            guard_w, guard_h)
+        pygame.draw.rect(screen, p["cannon_dark"],
+            guard_rect.inflate(2, 2), border_radius=3)
+        pygame.draw.rect(screen, p["cannon_mid"],
+            guard_rect, border_radius=3)
+        pygame.draw.rect(screen, p["cannon_light"],
+            guard_rect.inflate(-int(0.08 * b), -int(0.06 * b)),
+            border_radius=2)
+
+        # 환기 슬릿
+        for i in range(3):
+            slit_y = guard_rect.top + int(0.12 * b) + i * int(0.18 * b)
+            if slit_y < guard_rect.bottom:
+                pygame.draw.line(screen, p["cannon_barrel"],
+                    (guard_rect.left + int(0.06 * b), slit_y),
+                    (guard_rect.right - int(0.06 * b), slit_y),
+                    max(1, int(0.03 * b)))
+
+        # 3연장 회전 배럴
+        barrel_len = int(0.7 * b)
+        barrel_spread = int(0.14 * b)
+        for i in range(3):
+            angle = barrel_spin + i * math.pi * 2 / 3
+            bx_off = int(_cos(angle) * barrel_spread)
+            by_off = int(_sin(angle) * barrel_spread * 0.5)
+            bx1 = cannon_mount_x + bx_off
+            by1 = guard_rect.top - int(0.05 * b) + by_off
+            bx2 = cannon_mount_x + bx_off
+            by2 = guard_rect.top - barrel_len + by_off
+            pygame.draw.line(screen, p["cannon_barrel"],
+                (bx1, by1), (bx2, by2),
+                max(2, int(0.1 * b)))
+            # 총구
+            pygame.draw.circle(screen, p["cannon_dark"],
+                (bx2, by2), max(1, int(0.05 * b)))
+
+        # 배럴 LED
+        led_surf_gun = self._get_surface(8, 8)
+        gun_led_a = int(
+            (120 + 100 * _sin(t * 15)) if is_firing
+            else (60 + 50 * _sin(t * 5)))
+        pygame.draw.circle(led_surf_gun,
+            (*p["led_red"], min(255, gun_led_a)), (4, 4), 3)
+        screen.blit(led_surf_gun,
+            (cannon_mount_x - 4, cannon_mount_y - mount_r - 4),
+            special_flags=pygame.BLEND_ADD)
+
+        # 🔫 발사 시 총구 화염
+        if is_firing:
+            flash_sz = int(0.5 * b + 0.2 * b * _sin(t * 30))
+            flash_cx = cannon_mount_x
+            flash_cy = guard_rect.top - barrel_len - int(0.1 * b)
+            fl_surf = self._get_surface(flash_sz * 3, flash_sz * 3)
+            fl_a = int(160 + 80 * _sin(t * 25))
+            pygame.draw.circle(fl_surf, (255, 200, 50, min(255, fl_a)),
+                (flash_sz * 3 // 2, flash_sz * 3 // 2), flash_sz)
+            pygame.draw.circle(fl_surf, (255, 120, 20, min(255, fl_a - 30)),
+                (flash_sz * 3 // 2, flash_sz * 3 // 2),
+                max(1, flash_sz * 2 // 3))
+            screen.blit(fl_surf,
+                (flash_cx - flash_sz * 3 // 2,
+                 flash_cy - flash_sz * 3 // 2),
+                special_flags=pygame.BLEND_ADD)
 
     # =========================================================================
     # 기본 폴백
