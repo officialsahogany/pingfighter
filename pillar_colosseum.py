@@ -456,9 +456,9 @@ class CircularStadiumFrame:
         random.seed()
 
     def _create_frame(self):
-        """프레임 캐시 생성 (석조 배경)"""
+        """프레임 캐시 생성 (석조 배경) - 불투명"""
         self._frame_surface = pygame.Surface(
-            (self.screen_width, self.screen_height), pygame.SRCALPHA
+            (self.screen_width, self.screen_height)
         )
 
         # 배경 (어두운 석조)
@@ -479,8 +479,8 @@ class CircularStadiumFrame:
         # 통로
         self._draw_aisles(self._frame_surface)
 
-        # 게임 영역 투명
-        pygame.draw.rect(self._frame_surface, (0, 0, 0, 0),
+        # 게임 영역 검정 (게임 콘텐츠가 위에 덮어씀)
+        pygame.draw.rect(self._frame_surface, (0, 0, 0),
                         (self.game_x, self.game_y, self.game_width, self.game_height))
 
         # 경기장 테두리 장식
