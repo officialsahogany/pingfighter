@@ -11967,89 +11967,148 @@ class ColosseumsArena:
             pygame.draw.circle(surf, (120, 210, 255, pa), (px, py), max(1, int(s * 0.035)))
 
     def _draw_perk_icon_tenacity(self, surf, cx, cy, r, ss):
-        """반칙왕 아이콘 - 호루라기 + 소리 파동"""
+        """반칙왕 아이콘 - 고퀄 금색 호루라기 (반칙호루라기 아이템 참고)"""
         s = r * ss
         lw = max(2, int(2 * ss / 3))
-        # 배경 노란 글로우 (경고색)
+        # 회전 각도 (좌상→우하 대각선, 약 30도)
+        ang = math.radians(-30)
+        ca, sa = _cos(ang), _sin(ang)
+
+        def rot(px, py):
+            """cx,cy 기준 회전"""
+            dx, dy = px - cx, py - cy
+            return (cx + int(dx * ca - dy * sa), cy + int(dx * sa + dy * ca))
+
+        # 배경 금색 글로우
         for gr in range(3):
-            glow_r = int(s * (0.85 - gr * 0.12))
-            pygame.draw.circle(surf, (200, 160, 30, 10 + gr * 7), (cx, cy), glow_r)
-        # ── 호루라기 본체 (약간 기울어진 배치, 좌하→우상) ──
-        # 몸통: 둥근 직사각형 (기울어진 느낌을 위해 약간 회전)
-        # 마우스피스 (왼쪽 아래 - 입으로 부는 부분)
-        mp_x1 = cx - int(s * 0.5)
-        mp_y1 = cy + int(s * 0.2)
-        mp_x2 = cx - int(s * 0.15)
-        mp_y2 = cy + int(s * 0.05)
-        mp_w = max(2, int(s * 0.12))
-        # 마우스피스 글로우
-        pygame.draw.line(surf, (200, 180, 60, 40), (mp_x1, mp_y1), (mp_x2, mp_y2), mp_w + 4)
-        # 마우스피스 메인
-        pygame.draw.line(surf, (220, 200, 80, 230), (mp_x1, mp_y1), (mp_x2, mp_y2), mp_w)
-        # 마우스피스 하이라이트
-        pygame.draw.line(surf, (250, 240, 150, 100), (mp_x1 + 1, mp_y1 - 1), (mp_x2 + 1, mp_y2 - 1), max(1, mp_w // 3))
-        # 호루라기 몸통 (타원형, 오른쪽)
-        body_cx = cx + int(s * 0.08)
-        body_cy = cy - int(s * 0.05)
-        body_rx = int(s * 0.35)
-        body_ry = int(s * 0.28)
-        # 몸통 그림자
-        pygame.draw.ellipse(surf, (140, 100, 20, 40),
-                            (body_cx - body_rx + 2, body_cy - body_ry + 2, body_rx * 2, body_ry * 2))
-        # 몸통 메인 (은색/노란 금속)
-        pygame.draw.ellipse(surf, (240, 210, 80, 230),
-                            (body_cx - body_rx, body_cy - body_ry, body_rx * 2, body_ry * 2))
-        # 몸통 하이라이트 (좌상단 반사)
-        hl_rx = int(body_rx * 0.6)
-        hl_ry = int(body_ry * 0.5)
-        pygame.draw.ellipse(surf, (255, 245, 170, 120),
-                            (body_cx - body_rx + int(s * 0.06), body_cy - body_ry + int(s * 0.04),
-                             hl_rx, hl_ry))
-        # 몸통 테두리
-        pygame.draw.ellipse(surf, (200, 170, 50, 240),
-                            (body_cx - body_rx, body_cy - body_ry, body_rx * 2, body_ry * 2), lw)
-        # 호루라기 구멍 (소리 나오는 곳, 오른쪽 상단)
-        hole_x = body_cx + int(s * 0.2)
-        hole_y = body_cy - int(s * 0.05)
-        hole_r = max(2, int(s * 0.08))
-        pygame.draw.circle(surf, (120, 90, 30, 200), (hole_x, hole_y), hole_r)
-        pygame.draw.circle(surf, (180, 150, 50, 240), (hole_x, hole_y), hole_r, max(1, lw // 2))
-        # 호루라기 중앙 라인 (이음매)
-        pygame.draw.line(surf, (200, 170, 50, 120),
-                         (body_cx - int(s * 0.1), body_cy - body_ry + 2),
-                         (body_cx - int(s * 0.1), body_cy + body_ry - 2), max(1, lw // 2))
-        # 끈 고리 (호루라기 왼쪽 상단)
-        ring_x = cx - int(s * 0.25)
-        ring_y = cy - int(s * 0.2)
-        ring_r = max(2, int(s * 0.08))
-        pygame.draw.circle(surf, (200, 170, 50, 200), (ring_x, ring_y), ring_r, lw)
-        # 끈 (위로 올라가는 곡선)
-        strap_pts = [
-            (ring_x, ring_y - ring_r),
-            (ring_x - int(s * 0.1), ring_y - int(s * 0.3)),
-            (ring_x + int(s * 0.05), ring_y - int(s * 0.45)),
+            glow_r = int(s * (0.82 - gr * 0.12))
+            pygame.draw.circle(surf, (200, 160, 40, 12 + gr * 8), (cx, cy), glow_r)
+
+        # ── 1. 마우스피스 (좁은 직사각형, 왼쪽으로 뻗음) ──
+        mp_len = int(s * 0.45)
+        mp_half_w = max(2, int(s * 0.09))
+        # 마우스피스 4 꼭짓점 (회전 전: 왼쪽으로 뻗는 수평 직사각형)
+        mp_x0 = cx - int(s * 0.2)  # 몸통 접합부
+        mp_pts = [
+            rot(mp_x0, cy - mp_half_w),
+            rot(mp_x0 - mp_len, cy - mp_half_w),
+            rot(mp_x0 - mp_len, cy + mp_half_w),
+            rot(mp_x0, cy + mp_half_w),
         ]
-        pygame.draw.lines(surf, (220, 60, 60, 180), False, strap_pts, lw)
-        # ── 소리 파동 (오른쪽 위에서 퍼져나감) ──
-        wave_cx = hole_x + int(s * 0.15)
-        wave_cy = hole_y - int(s * 0.1)
+        # 그림자
+        mp_shadow = [(p[0] + 2, p[1] + 2) for p in mp_pts]
+        pygame.draw.polygon(surf, (120, 85, 15, 50), mp_shadow)
+        # 메인 (진한 금색)
+        pygame.draw.polygon(surf, (230, 185, 55, 240), mp_pts)
+        # 상단 하이라이트
+        mp_hl = [
+            rot(mp_x0, cy - mp_half_w),
+            rot(mp_x0 - mp_len, cy - mp_half_w),
+            rot(mp_x0 - mp_len, cy - mp_half_w + max(1, mp_half_w // 2)),
+            rot(mp_x0, cy - mp_half_w + max(1, mp_half_w // 2)),
+        ]
+        pygame.draw.polygon(surf, (255, 230, 130, 100), mp_hl)
+        # 테두리
+        pygame.draw.polygon(surf, (190, 145, 35, 220), mp_pts, max(1, lw // 2 + 1))
+        # 마우스피스 끝 라인 (입구 부분)
+        pygame.draw.line(surf, (180, 140, 30, 200),
+                         rot(mp_x0 - mp_len + 1, cy - mp_half_w),
+                         rot(mp_x0 - mp_len + 1, cy + mp_half_w), lw)
+
+        # ── 2. 호루라기 몸통 (둥근 사각형, 더 넓음) ──
+        bd_w = int(s * 0.48)  # 몸통 가로
+        bd_h = int(s * 0.42)  # 몸통 세로
+        bd_cx = cx + int(s * 0.12)  # 몸통 중심 (약간 오른쪽)
+        # 몸통을 회전 서피스로 그림
+        bd_surf_w = bd_w + 8
+        bd_surf_h = bd_h + 8
+        bd_s = _get_arena_surface(bd_surf_w, bd_surf_h)
+        bx, by = 4, 4
+        # 몸통 메인
+        pygame.draw.rect(bd_s, (245, 205, 65, 240), (bx, by, bd_w, bd_h),
+                         border_radius=max(3, int(s * 0.1)))
+        # 몸통 하이라이트 (상단 반사 밴드)
+        hl_h = max(2, bd_h // 3)
+        pygame.draw.rect(bd_s, (255, 240, 150, 110), (bx + 2, by + 2, bd_w - 4, hl_h),
+                         border_radius=max(2, int(s * 0.08)))
+        # 몸통 하단 음영
+        sh_h = max(2, bd_h // 4)
+        pygame.draw.rect(bd_s, (200, 160, 40, 80),
+                         (bx + 2, by + bd_h - sh_h, bd_w - 4, sh_h - 2),
+                         border_radius=max(2, int(s * 0.06)))
+        # 몸통 중앙 이음매 라인 (세로)
+        seam_x = bx + bd_w // 3
+        pygame.draw.line(bd_s, (210, 170, 45, 100), (seam_x, by + 3), (seam_x, by + bd_h - 3),
+                         max(1, int(s * 0.02)))
+        # 소리 구멍 (오른쪽)
+        hole_r = max(2, int(s * 0.07))
+        hole_x = bx + bd_w - int(bd_w * 0.28)
+        hole_y_pos = by + bd_h // 2
+        pygame.draw.circle(bd_s, (100, 70, 15, 220), (hole_x, hole_y_pos), hole_r)
+        pygame.draw.circle(bd_s, (160, 120, 30, 180), (hole_x, hole_y_pos), hole_r, max(1, int(s * 0.025)))
+        # 구멍 하이라이트 (작은 빛 반사)
+        pygame.draw.circle(bd_s, (255, 240, 160, 100),
+                           (hole_x - max(1, hole_r // 3), hole_y_pos - max(1, hole_r // 3)),
+                           max(1, hole_r // 3))
+        # 몸통 테두리
+        pygame.draw.rect(bd_s, (195, 150, 35, 230), (bx, by, bd_w, bd_h),
+                         max(1, lw // 2 + 1), border_radius=max(3, int(s * 0.1)))
+        # 회전 후 블릿
+        rot_bd = pygame.transform.rotate(bd_s, math.degrees(-ang))
+        rot_rect = rot_bd.get_rect(center=(bd_cx, cy))
+        surf.blit(rot_bd, rot_rect)
+
+        # ── 3. 공기 슬릿 (몸통 오른쪽 끝, 소리가 나오는 좁은 틈) ──
+        slit_x1 = cx + int(s * 0.35)
+        slit_len = int(s * 0.15)
+        slit_hw = max(1, int(s * 0.04))
+        slit_pts = [
+            rot(slit_x1, cy - slit_hw),
+            rot(slit_x1 + slit_len, cy - max(1, slit_hw // 2)),
+            rot(slit_x1 + slit_len, cy + max(1, slit_hw // 2)),
+            rot(slit_x1, cy + slit_hw),
+        ]
+        pygame.draw.polygon(surf, (210, 175, 50, 200), slit_pts)
+
+        # ── 4. 끈 고리 (몸통 상단 좌측) ──
+        ring_cx, ring_cy = rot(cx - int(s * 0.08), cy - int(s * 0.28))
+        ring_r = max(2, int(s * 0.09))
+        # 고리 그림자
+        pygame.draw.circle(surf, (140, 110, 25, 40), (ring_cx + 1, ring_cy + 1), ring_r + 1, lw)
+        # 고리 메인
+        pygame.draw.circle(surf, (225, 185, 55, 230), (ring_cx, ring_cy), ring_r, lw)
+        # 고리 하이라이트
+        pygame.draw.circle(surf, (255, 235, 140, 80), (ring_cx - 1, ring_cy - 1), ring_r, max(1, lw // 2))
+
+        # ── 5. 빨간 끈 (고리에서 위로) ──
+        strap_pts = [
+            (ring_cx, ring_cy - ring_r),
+            (ring_cx - int(s * 0.08), ring_cy - int(s * 0.22)),
+            (ring_cx - int(s * 0.15), ring_cy - int(s * 0.38)),
+            (ring_cx - int(s * 0.06), ring_cy - int(s * 0.48)),
+        ]
+        # 끈 그림자
+        strap_shadow = [(p[0] + 1, p[1] + 1) for p in strap_pts]
+        pygame.draw.lines(surf, (120, 30, 20, 60), False, strap_shadow, lw + 1)
+        # 끈 메인
+        pygame.draw.lines(surf, (210, 55, 45, 200), False, strap_pts, lw)
+        # 끈 하이라이트
+        pygame.draw.lines(surf, (240, 100, 80, 70), False, strap_pts, max(1, lw // 2))
+
+        # ── 6. 소리 파동 (우하단에서 퍼져나감) ──
+        wave_origin = rot(cx + int(s * 0.45), cy)
+        wave_ang = ang - math.pi * 0.05  # 몸통 방향으로 퍼짐
         for i in range(3):
-            wave_r = int(s * (0.12 + i * 0.12))
-            wave_a = 180 - i * 50
-            # 반원 호 (오른쪽 위로 퍼지는 느낌)
+            wave_r = int(s * (0.1 + i * 0.1))
+            wave_a = 170 - i * 45
             arc_pts = []
-            for t in range(12):
-                angle = -math.pi * 0.6 + (t / 11.0) * math.pi * 0.7
-                ax = wave_cx + int(_cos(angle) * wave_r)
-                ay = wave_cy + int(_sin(angle) * wave_r)
+            for t in range(16):
+                a = wave_ang - math.pi * 0.35 + (t / 15.0) * math.pi * 0.7
+                ax = wave_origin[0] + int(_cos(a) * wave_r)
+                ay = wave_origin[1] + int(_sin(a) * wave_r)
                 arc_pts.append((ax, ay))
             if len(arc_pts) >= 2:
-                pygame.draw.lines(surf, (255, 220, 80, wave_a), False, arc_pts, max(1, lw - i))
-        # 음표 파티클 (♪ 느낌의 작은 점들)
-        for px, py, pa in [(cx + int(s * 0.5), cy - int(s * 0.45), 140),
-                           (cx + int(s * 0.6), cy - int(s * 0.25), 110),
-                           (cx + int(s * 0.45), cy - int(s * 0.6), 90)]:
-            pygame.draw.circle(surf, (255, 230, 100, pa), (px, py), max(1, int(s * 0.03)))
+                pygame.draw.lines(surf, (255, 225, 90, wave_a), False, arc_pts, max(1, lw - i))
 
     def _draw_perk_icon_extra_training(self, surf, cx, cy, r, ss):
         """추가훈련 아이콘 - 고퀄 쌍검 + 빛나는 배지"""
