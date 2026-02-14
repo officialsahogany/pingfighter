@@ -5322,13 +5322,15 @@ class HeroPaddleRenderer:
             knee_x = leg_x + int(leg_sway_x * 0.5)
             knee_y = leg_top + int(1.0 * b) + int(sway * 0.15 * b)
 
-            # --- 킥 모션: 오른쪽 다리(앞모습) 또는 왼쪽 다리(뒷모습) ---
+            # --- 킥 모션: 기존 다리 한쪽을 들어올려 자연스럽게 차기 ---
             _is_kick = (side == 1 and not show_back) or (side == -1 and show_back)
             _kick_amt = abs(weapon_swing) if _is_kick and weapon_swing != 0 else 0
             _kick_dir = -1 if not show_back else 1  # 하단캐릭: 위로, 상단캐릭: 아래로
             if _kick_amt > 0:
-                knee_y += int(_kick_dir * _kick_amt * 3.0 * b)
-                knee_x += int(_kick_amt * 0.8 * b * side)
+                k = min(1.0, _kick_amt)
+                # 허벅지 들어올림: 무릎이 킥 방향으로 자연스럽게 올라감
+                knee_y += int(_kick_dir * k * 0.45 * b)
+                knee_x += int(k * 0.15 * b * side)
 
             thigh_w = max(2, int(0.4 * b))
             pygame.draw.line(screen, pants_color,
@@ -5341,8 +5343,10 @@ class HeroPaddleRenderer:
             foot_x = leg_x + leg_sway_x
             foot_y = int(leg_bottom - leg_lift * 0.3 * b)
             if _kick_amt > 0:
-                foot_x = knee_x + int(_kick_amt * 2.0 * b * side)
-                foot_y = knee_y + int(_kick_dir * _kick_amt * 2.5 * b)
+                k = min(1.0, _kick_amt)
+                # 정강이 스냅: 무릎에서 킥 방향으로 자연스럽게 뻗기
+                foot_x = knee_x + int(k * 0.6 * b * side)
+                foot_y = knee_y + int((1.0 - k * 0.75) * 0.9 * b)
             shin_w = max(2, int(0.3 * b))
             pygame.draw.line(screen, pants_color,
                            (knee_x, knee_y), (foot_x, foot_y), shin_w)
@@ -5365,8 +5369,9 @@ class HeroPaddleRenderer:
             tip_x = foot_x + side * int(0.4 * b) + int(move_dir * side_blend * 0.15 * b)
             tip_y = foot_y + int(_sin(self.time * 3 + side) * 0.08 * b)
             if _kick_amt > 0:
-                tip_x = foot_x + int(_kick_amt * 1.0 * b * side)
-                tip_y = foot_y + int(_kick_dir * _kick_amt * 0.6 * b)
+                k = min(1.0, _kick_amt)
+                tip_x = foot_x + int(k * 0.4 * b * side)
+                tip_y = foot_y + int(_kick_dir * k * 0.15 * b)
             pygame.draw.line(screen, shoe_color, (foot_x + side * int(0.15 * b), foot_y),
                            (tip_x, tip_y), max(1, int(0.12 * b)))
             # 끝 방울
