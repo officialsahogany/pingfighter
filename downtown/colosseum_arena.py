@@ -11861,14 +11861,43 @@ class ColosseumsArena:
                     self.screen.blit(tt_surf, (tt_x, tt_y))
                     tooltip_shown = True
 
-                # 보유 퍽 아이콘 툴팁
+                # 보유 퍽 아이콘 툴팁 (설명 줄바꿈 + 하단 잘림 방지)
                 if not tooltip_shown and _perk_owned_tooltips:
                     for tt in _perk_owned_tooltips:
                         if tt["rect"].collidepoint(mpos):
-                            tt_w, tt_h = 240, 48
+                            tt_w = 260
+                            tt_pad = 8
+                            tt_text_w = tt_w - tt_pad * 2
+                            line_h = 18
+                            name_h = 22
+
+                            # 설명 텍스트 줄바꿈
+                            desc_lines = []
+                            if self.fonts and "small" in self.fonts:
+                                _ft = self.fonts["small"]
+                                desc = tt["desc"]
+                                line = ""
+                                for ch in desc:
+                                    test = line + ch
+                                    test_s, _ = _ft.render(test, (255, 255, 255))
+                                    if test_s.get_width() > tt_text_w and line:
+                                        desc_lines.append(line)
+                                        line = ch
+                                    else:
+                                        line = test
+                                if line:
+                                    desc_lines.append(line)
+                            if not desc_lines:
+                                desc_lines = [tt["desc"]]
+
+                            tt_h = tt_pad + name_h + len(desc_lines) * line_h + tt_pad
                             tt_x = min(tt["rect"].x + tt["rect"].w + 5,
                                         SCREEN_WIDTH - tt_w - 5)
-                            tt_y = tt["rect"].y - 10
+                            # 기본: 아이콘 위쪽으로 툴팁 개방 (하단 잘림 방지)
+                            tt_y = tt["rect"].y - tt_h - 5
+                            if tt_y < 5:
+                                tt_y = tt["rect"].y + tt["rect"].h + 5
+
                             tt_surf = _get_arena_surface(tt_w, tt_h)
                             pygame.draw.rect(tt_surf, (30, 28, 22, 240),
                                              (0, 0, tt_w, tt_h), border_radius=6)
@@ -11877,22 +11906,52 @@ class ColosseumsArena:
                             if self.fonts and "small" in self.fonts:
                                 tn_s, _ = self.fonts["small"].render(
                                     tt["name"], tt["color"])
-                                tt_surf.blit(tn_s, (8, 6))
-                                td_s, _ = self.fonts["small"].render(
-                                    tt["desc"], (200, 195, 180))
-                                tt_surf.blit(td_s, (8, 26))
+                                tt_surf.blit(tn_s, (tt_pad, tt_pad))
+                                for li, dline in enumerate(desc_lines):
+                                    td_s, _ = self.fonts["small"].render(
+                                        dline, (200, 195, 180))
+                                    tt_surf.blit(td_s, (tt_pad, tt_pad + name_h + li * line_h))
                             self.screen.blit(tt_surf, (tt_x, tt_y))
                             tooltip_shown = True
                             break
 
-                # 호위무사/스킬 아이콘 툴팁
+                # 호위무사/스킬 아이콘 툴팁 (설명 줄바꿈 + 하단 잘림 방지)
                 if not tooltip_shown and _perk_guard_tooltips:
                     for tt in _perk_guard_tooltips:
                         if tt["rect"].collidepoint(mpos):
-                            tt_w, tt_h = 220, 48
+                            tt_w = 260
+                            tt_pad = 8
+                            tt_text_w = tt_w - tt_pad * 2
+                            line_h = 18
+                            name_h = 22
+
+                            # 설명 텍스트 줄바꿈
+                            desc_lines = []
+                            if self.fonts and "small" in self.fonts:
+                                _ft = self.fonts["small"]
+                                desc = tt["desc"]
+                                line = ""
+                                for ch in desc:
+                                    test = line + ch
+                                    test_s, _ = _ft.render(test, (255, 255, 255))
+                                    if test_s.get_width() > tt_text_w and line:
+                                        desc_lines.append(line)
+                                        line = ch
+                                    else:
+                                        line = test
+                                if line:
+                                    desc_lines.append(line)
+                            if not desc_lines:
+                                desc_lines = [tt["desc"]]
+
+                            tt_h = tt_pad + name_h + len(desc_lines) * line_h + tt_pad
                             tt_x = min(tt["rect"].x + tt["rect"].w + 5,
                                         SCREEN_WIDTH - tt_w - 5)
-                            tt_y = tt["rect"].y - 5
+                            # 기본: 아이콘 위쪽으로 툴팁 개방 (하단 잘림 방지)
+                            tt_y = tt["rect"].y - tt_h - 5
+                            if tt_y < 5:
+                                tt_y = tt["rect"].y + tt["rect"].h + 5
+
                             tt_surf = _get_arena_surface(tt_w, tt_h)
                             pygame.draw.rect(tt_surf, (30, 28, 22, 240),
                                              (0, 0, tt_w, tt_h), border_radius=6)
@@ -11901,10 +11960,11 @@ class ColosseumsArena:
                             if self.fonts and "small" in self.fonts:
                                 tn_s, _ = self.fonts["small"].render(
                                     tt["name"], tt["color"])
-                                tt_surf.blit(tn_s, (8, 6))
-                                td_s, _ = self.fonts["small"].render(
-                                    tt["desc"], (200, 195, 180))
-                                tt_surf.blit(td_s, (8, 26))
+                                tt_surf.blit(tn_s, (tt_pad, tt_pad))
+                                for li, dline in enumerate(desc_lines):
+                                    td_s, _ = self.fonts["small"].render(
+                                        dline, (200, 195, 180))
+                                    tt_surf.blit(td_s, (tt_pad, tt_pad + name_h + li * line_h))
                             self.screen.blit(tt_surf, (tt_x, tt_y))
                             break
 
