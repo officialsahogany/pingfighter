@@ -1612,9 +1612,10 @@ class AnimatedBackgroundStage30:
             ang = math.radians(self.judgment_bolt_proj_angle)
             ps = self.judgment_scale  # 동상 스케일 (4x)
             bolt_len = int(18 * ps)   # 동상 번개와 동일한 길이
-            cos_a, sin_a = math.cos(ang), math.sin(ang)
-            # 수직 방향
-            perp_cos, perp_sin = -sin_a, cos_a
+            # 동상 손 번개와 동일한 방향 컨벤션: sin/cos (Y축 기준 각도)
+            bdir_x, bdir_y = math.sin(ang), math.cos(ang)
+            # 수직 방향 (동상 번개와 동일)
+            perp_x, perp_y = bdir_y, -bdir_x
             # 동상 번개와 동일한 지그재그 패턴
             zigzag = [
                 (0, 0),
@@ -1622,8 +1623,8 @@ class AnimatedBackgroundStage30:
             ]
             bolt_segs = []
             for zx, zt in zigzag:
-                rx = bx + int(zx * ps * perp_cos) + int(bolt_len * zt * cos_a)
-                ry = by + int(zx * ps * perp_sin) + int(bolt_len * zt * sin_a)
+                rx = bx + int(zx * ps * perp_x) + int(bolt_len * zt * bdir_x)
+                ry = by + int(zx * ps * perp_y) + int(bolt_len * zt * bdir_y)
                 bolt_segs.append((rx, ry))
             # 글로우 (금색 반투명)
             glow_r = int(12 * ps)
