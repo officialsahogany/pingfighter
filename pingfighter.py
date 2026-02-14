@@ -18291,11 +18291,24 @@ def store_bgm_volume(value: float) -> float:
     return bgm_volume
 
 
+_sound_id_to_name = {}  # 디버그용 사운드 ID→이름 맵
+
 def play_sound_with_volume(sound, volume=None):
     """효과음을 지정된 볼륨으로 재생"""
     global sfx_volume
     if not sound:
         return None
+    # 투기장 디버그: 모든 사운드 추적
+    if arena_mode_enabled:
+        if not _sound_id_to_name:
+            for _k, _v in globals().items():
+                if _k.startswith('SOUND_') and hasattr(_v, 'play'):
+                    _sound_id_to_name[id(_v)] = _k
+        _sn = _sound_id_to_name.get(id(sound), '?')
+        import traceback as _tb
+        _fr = _tb.extract_stack(limit=3)
+        _caller = next((f"{f.name}:{f.lineno}" for f in reversed(_fr) if 'pingfighter' in f.filename and f.name != 'play_sound_with_volume'), '?')
+        print(f"[SoundTrace] {_sn} from {_caller}")
     if volume is None:
         volume = sfx_volume
     sound.set_volume(volume)

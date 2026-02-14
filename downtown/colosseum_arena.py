@@ -4326,6 +4326,7 @@ class GuardWarriorSystem:
 
         sound = ColosseumsArena._skill_sound_cache.get(sound_key)
         if sound:
+            print(f"[SoundTrace:Guard] {sound_key} from _play_skill_sound")
             sound.play()
             # pingfighter의 패들 사운드 중복 방지 플래그 설정
             try:
@@ -6851,6 +6852,7 @@ class ColosseumsArena:
             if sound_type in self._crowd_sound_cache:
                 sound = self._crowd_sound_cache[sound_type]
                 if sound:
+                    print(f"[SoundTrace:Crowd] {sound_type}")
                     sound.play()
                 return
 
@@ -6858,6 +6860,7 @@ class ColosseumsArena:
             sound = self._synthesize_crowd_sound(sound_type)
             self._crowd_sound_cache[sound_type] = sound
             if sound:
+                print(f"[SoundTrace:Crowd] {sound_type} (new)")
                 sound.play()
         except Exception as e:
             print(f"[CrowdSound] 사운드 재생 실패: {e}")
