@@ -14305,7 +14305,7 @@ class BananaSlice(HeroSkill):
                     if abs(paddle_cx - landed['x']) < 10:
                         self.slip_direction = random.choice([-1, 1])
                     else:
-                        self.slip_direction = 1 if paddle_cx > landed['x'] else -1
+                        self.slip_direction = -1 if paddle_cx > landed['x'] else 1
                     self._create_burst_particles(landed['x'], landed['y'])
                     # 스테이지2 바나나와 동일한 선형 감속 슬립 (넉백 시스템 미사용)
                     target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
