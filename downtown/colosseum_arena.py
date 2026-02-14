@@ -5238,6 +5238,7 @@ class ColosseumsArena:
         # UI 상태
         self.animation_timer = 0
         self.result_display_timer = 0
+        self.result_dialogue_line = None  # 라운드 종료 대사 (30% 확률)
         self.exit_requested = False
         self.winnings_collected = False
 
@@ -7017,6 +7018,19 @@ class ColosseumsArena:
 
         self.state = TournamentState.RESULT
         self.result_display_timer = 180  # 3초
+
+        # 라운드 종료 대사 (30% 확률)
+        try:
+            from downtown.hero_dialogues import get_dialogue_manager
+            dlg = get_dialogue_manager()
+            if self.bet_hero:
+                hero_id = self.bet_hero.get("id", "")
+                is_win = (winner == self.bet_hero)
+                self.result_dialogue_line = dlg.get_round_end_line(hero_id, is_win)
+            else:
+                self.result_dialogue_line = None
+        except Exception:
+            self.result_dialogue_line = None
 
         # 전투 종료 후 대기실 BGM 복구
         try:
@@ -10677,7 +10691,8 @@ class ColosseumsArena:
                 advance_text = "우승!"
 
             # 패널
-            panel_w, panel_h = 380, 340
+            panel_w = 380
+            panel_h = 370 if self.result_dialogue_line else 340
             panel_x = cx - panel_w // 2
             panel_y = 190
             self._draw_egyptian_panel(panel_x, panel_y, panel_w, panel_h)
@@ -10767,14 +10782,25 @@ class ColosseumsArena:
                 surf, _ = self.fonts["small"].render(acc_text, ET["gold_pale"])
                 self.screen.blit(surf, (cx - surf.get_width() // 2, panel_y + 270))
 
+            # 라운드 종료 대사
+            if self.result_dialogue_line and self.fonts and "small" in self.fonts:
+                quote = f'"{self.result_dialogue_line}"'
+                surf, _ = self.fonts["small"].render(quote, ET["gold_pale"])
+                self.screen.blit(surf, (cx - surf.get_width() // 2, panel_y + 290))
+                hint_y = panel_y + 320
+            else:
+                hint_y = panel_y + 305
+
             # 안내
             if self.fonts and "small" in self.fonts:
                 surf, _ = self.fonts["small"].render("클릭하여 계속", ET["text_hint"])
-                self.screen.blit(surf, (cx - surf.get_width() // 2, panel_y + 305))
+                self.screen.blit(surf, (cx - surf.get_width() // 2, hint_y))
 
         else:
             # ── 패배 화면 ──
-            panel_w, panel_h = 380, 250
+            has_dialogue = bool(self.result_dialogue_line)
+            panel_w = 380
+            panel_h = 290 if has_dialogue else 250
             panel_x = cx - panel_w // 2
             panel_y = 230
             self._draw_egyptian_panel(panel_x, panel_y, panel_w, panel_h, border_color=ET["carnelian"])
@@ -10807,10 +10833,19 @@ class ColosseumsArena:
                 surf, _ = self.fonts["small"].render(lose_msg, ET["text_disabled"])
                 self.screen.blit(surf, (cx - surf.get_width() // 2, panel_y + 155))
 
+            # 라운드 종료 대사
+            if has_dialogue and self.fonts and "small" in self.fonts:
+                quote = f'"{self.result_dialogue_line}"'
+                surf, _ = self.fonts["small"].render(quote, ET["carnelian_light"])
+                self.screen.blit(surf, (cx - surf.get_width() // 2, panel_y + 190))
+                hint_y = panel_y + 250
+            else:
+                hint_y = panel_y + 210
+
             # 안내
             if self.fonts and "small" in self.fonts:
                 surf, _ = self.fonts["small"].render("클릭하여 계속", ET["text_hint"])
-                self.screen.blit(surf, (cx - surf.get_width() // 2, panel_y + 210))
+                self.screen.blit(surf, (cx - surf.get_width() // 2, hint_y))
 
     def _draw_difficulty_select(self):
         """난이도 선택 UI"""
