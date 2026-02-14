@@ -11,6 +11,20 @@ import os
 import sys
 from typing import List, Tuple, Dict, Any
 
+# ============================================================
+# 서피스 풀 (매 프레임 Surface 할당 방지)
+# ============================================================
+_temple_surface_pool = {}
+
+def _get_pooled_surface(w, h):
+    """크기별 재사용 서피스 반환 (SRCALPHA, fill 후 반환)"""
+    key = (w, h)
+    if key not in _temple_surface_pool:
+        _temple_surface_pool[key] = pygame.Surface((w, h), pygame.SRCALPHA)
+    surf = _temple_surface_pool[key]
+    surf.fill((0, 0, 0, 0))
+    return surf
+
 def resource_path(relative_path):
     """PyInstaller 번들과 일반 실행 모두에서 작동하는 리소스 경로 반환"""
     try:
@@ -365,8 +379,7 @@ class ShaolinTempleBackground:
     def _create_red_moon_surface(self, pulse: float, moon_scale: float) -> pygame.Surface:
         """Create the red moon effect surface (for caching)"""
         # Create a surface large enough for the effect (400x400 to fit all glows)
-        cache_surface = pygame.Surface((400, 400), pygame.SRCALPHA)
-        cache_surface.fill((0, 0, 0, 0))
+        cache_surface = _get_pooled_surface(400, 400)
         
         # Center position in cache surface
         center_x, center_y = 200, 200
@@ -407,7 +420,7 @@ class ShaolinTempleBackground:
         
         # Draw red moon overlay with better blending
         moon_size = int(80 * moon_scale)  # Apply scale to moon size
-        moon_surface = pygame.Surface((moon_size, moon_size), pygame.SRCALPHA)
+        moon_surface = _get_pooled_surface(moon_size, moon_size)
         
         # Optimized gradient moon surface - reduced gradient steps
         moon_radius = int(35 * moon_scale)  # Scale the radius too
@@ -475,8 +488,7 @@ class ShaolinTempleBackground:
             
             # Create a temporary surface for this glow layer
             glow_size = glow_radius * 2 + 10
-            glow_surface = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
-            glow_surface.fill((0, 0, 0, 0))  # Clear with transparent
+            glow_surface = _get_pooled_surface(glow_size, glow_size)
             
             # Draw the glow circle
             pygame.draw.circle(glow_surface, glow_color, 
@@ -540,8 +552,8 @@ class ShaolinTempleBackground:
             # Update door tracking
             self._temple_last_door_amount = door_amount
 
-        # Create temple surface for collapse effects
-        temple_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        # Create temple surface for collapse effects (풀링)
+        temple_surface = _get_pooled_surface(self.width, self.height)
 
         # 5층 탑 그리기 (울트라 고품질 버전)
         # 가라앉음 오프셋 계산 (최대 300 픽셀까지 가라앉음)
@@ -803,7 +815,7 @@ class ShaolinTempleBackground:
                 # 상륜부를 별도 Surface에 그린 후 기울기 적용
                 spire_height = 90
                 spire_width = 60
-                spire_surf = pygame.Surface((spire_width, spire_height), pygame.SRCALPHA)
+                spire_surf = _get_pooled_surface(spire_width, spire_height)
                 spire_cx = spire_width // 2  # 상륜부 중심 X
                 spire_cy = spire_height - 10  # 상륜부 밑부분에서 회전
 
@@ -1774,7 +1786,7 @@ class ShaolinTempleBackground:
             # Draw caught effect (glow)
             glow_alpha = int(255 - crow['glow_timer'] * 5)
             if glow_alpha > 0:
-                glow_surface = pygame.Surface((60, 60), pygame.SRCALPHA)
+                glow_surface = _get_pooled_surface(60, 60)
                 pygame.draw.circle(glow_surface, (255, 215, 0, glow_alpha), (30, 30), 30)
                 surface.blit(glow_surface, (crow['x'] - 30, crow['y'] - 30))
             crow['glow_timer'] += 1
@@ -1879,17 +1891,20 @@ class ShaolinTempleBackground:
     def _update_crows(self):
         """Update crow positions and spawn new ones"""
         # Update existing crows
-        for crow in self.crows[:]:
+        alive_crows = []
+        for crow in self.crows:
             if not crow['caught']:
                 crow['x'] += crow['vx']
                 crow['y'] += crow['vy']
-                
+
                 # Slight vertical movement
                 crow['vy'] += math.sin(self.frame_count * 0.05) * 0.02
-                
+
                 # Remove if off screen
                 if crow['x'] < -100 or crow['x'] > self.width + 100:
-                    self.crows.remove(crow)
+                    continue
+            alive_crows.append(crow)
+        self.crows = alive_crows
         
         # Spawn new crow occasionally
         self.crow_spawn_timer += 1
@@ -1971,54 +1986,59 @@ class ShaolinTempleBackground:
     
     def _update_crow_fragments(self):
         """Update crow explosion fragments"""
-        for fragment in self.crow_fragments[:]:
+        alive = []
+        for fragment in self.crow_fragments:
             # Update position
             fragment['x'] += fragment['vx']
             fragment['y'] += fragment['vy']
-            
+
             # Apply gravity
             fragment['vy'] += fragment['gravity']
-            
+
             # Air resistance
             fragment['vx'] *= 0.98
-            
+
             # Update rotation
             fragment['rotation'] += fragment['rotation_speed']
-            
+
             # Update life
             fragment['life'] -= 1
-            
+
             # Fade out
             if fragment['life'] < 30:
                 fragment['opacity'] = int(255 * (fragment['life'] / 30))
-            
-            # Remove if dead or off screen
-            if fragment['life'] <= 0 or fragment['y'] > self.height + 50:
-                self.crow_fragments.remove(fragment)
+
+            # Keep if alive and on screen
+            if fragment['life'] > 0 and fragment['y'] <= self.height + 50:
+                alive.append(fragment)
+        self.crow_fragments = alive
     
     def _update_crow_particles(self):
         """Update crow explosion particles"""
-        for particle in self.crow_particles[:]:
+        alive = []
+        for particle in self.crow_particles:
             # Update position
             particle['x'] += particle['vx']
             particle['y'] += particle['vy']
-            
+
             # Apply gravity
             particle['vy'] += 0.1
-            
+
             # Update life
             particle['life'] -= 1
-            
+
             # Fade out
             particle['opacity'] = int(particle['opacity'] * 0.95)
-            
-            # Remove if dead
-            if particle['life'] <= 0 or particle['opacity'] < 10:
-                self.crow_particles.remove(particle)
+
+            # Keep if alive
+            if particle['life'] > 0 and particle['opacity'] >= 10:
+                alive.append(particle)
+        self.crow_particles = alive
     
     def _update_crow_corpses(self):
         """Update falling crow corpses"""
-        for corpse in self.crow_corpses[:]:
+        alive = []
+        for corpse in self.crow_corpses:
             if not corpse['collected']:
                 # Apply physics
                 corpse['vy'] += corpse['gravity']
@@ -2029,10 +2049,12 @@ class ShaolinTempleBackground:
                 corpse['x'] += corpse['vx']
                 corpse['vx'] *= 0.99  # Lighter air resistance
                 corpse['rotation'] += corpse['rotation_speed']
-                
+
                 # Remove if falls off screen bottom
                 if corpse['y'] > self.height + 50:
-                    self.crow_corpses.remove(corpse)
+                    continue
+            alive.append(corpse)
+        self.crow_corpses = alive
     
     def _draw_crow_corpse(self, surface: pygame.Surface, corpse: Dict[str, Any]):
         """Draw a falling crow corpse"""
@@ -2042,8 +2064,8 @@ class ShaolinTempleBackground:
             if corpse['opacity'] <= 0:
                 return False
         
-        # Create rotated corpse surface
-        corpse_surface = pygame.Surface((corpse['size'] * 3, corpse['size'] * 3), pygame.SRCALPHA)
+        # Create rotated corpse surface (풀링)
+        corpse_surface = _get_pooled_surface(corpse['size'] * 3, corpse['size'] * 3)
         
         # Draw dead crow (wings spread in death pose)
         body_color = (40, 35, 45, corpse['opacity'])  # Darker dead color
@@ -2166,7 +2188,7 @@ class ShaolinTempleBackground:
                     
                     if random.random() < swing_probability:
                         target_type = "보스 공" if is_boss_ball else "플레이어 공"
-                        print(f"    {i} {target_type}  ! : {distance:.1f}, : ({monk['x']:.0f}, {monk['y']:.0f})")
+                        pass  # print(f"monk swing")
                         # Start swing animation
                         monk['state'] = 'swinging'
                         monk['swing_animation'] = 0
@@ -2176,7 +2198,7 @@ class ShaolinTempleBackground:
                         
                         # Face the ball
                         monk['direction'] = 1 if ball_x > monk['x'] else -1
-                        print(f"   : {'' if monk['direction'] == 1 else ''}")
+                        pass  # print(direction)
                         
                         return True  # Monk will deflect the ball
         
@@ -2215,7 +2237,7 @@ class ShaolinTempleBackground:
                         deflection_x *= speed_multiplier
                         deflection_y *= speed_multiplier
                         
-                        print(f"     !  ! : {deflection_x:.2f},  : {deflection_y:.2f}")
+                        pass  # print(boss ball counter)
                     else:
                         # 플레이어 공 반격: 보스 방향을 고려한 균형잡힌 반격
                         # 몽크 위치 기준으로 공이 어느 쪽에서 왔는지 확인
@@ -2243,12 +2265,10 @@ class ShaolinTempleBackground:
                         # 추가 랜덤성 부여
                         deflection_x += random.uniform(-0.1, 0.1)
                         
-                        print(f"     !  : {'' if ball_from_left else ''} →"
-                              f"반격 방향: {'오른쪽' if deflection_x > 0 else '왼쪽'} 위 ({deflection_x:.2f}, {deflection_y:.2f})")
+                        pass  # print(player ball counter)
                     
                     if not is_countering_boss:
-                        print(f"    ! : {math.degrees(deflection_angle):.1f}°,"
-                              f"방향 변경: ({deflection_x:.2f}, {deflection_y:.2f})")
+                        pass  # print(deflection angle)
                     
                     # Mark that this swing has hit the ball
                     monk['has_hit_ball'] = True
@@ -2351,53 +2371,47 @@ class ShaolinTempleBackground:
         self.monk_spawn_timer += 1
         if self.monk_spawn_timer >= self.monk_spawn_interval:
             self._spawn_monk()
-            print(f"  !")
+            pass  # print(monk spawned)
             self.monk_spawn_timer = 0
             self.monk_spawn_interval = random.randint(1200, 2400)  # 20~40초 (일반 스폰)
         
         # Update existing monks
-        for monk in self.monks[:]:
+        alive_monks = []
+        for monk in self.monks:
+            remove_monk = False
+
             # Fade in effect
             if monk['fade_in'] and monk['opacity'] < 255:
                 monk['opacity'] = min(255, monk['opacity'] + 5)
                 if monk['opacity'] >= 255:
                     monk['fade_in'] = False
-            
+
             # Update swing cooldown
             if monk['swing_cooldown'] > 0:
                 monk['swing_cooldown'] -= 1
-            
+
             # 연막탄 몽크의 복귀 타이머 처리 (라운드 관계없이 계속 진행)
             if monk.get('is_smoke_grenade_monk', False):
                 # 타이머가 있고 아직 복귀중이 아닌 경우
                 if monk.get('smoke_return_timer', 0) > 0 and not monk.get('returning_to_temple', False):
                     monk['smoke_return_timer'] -= 1
-                    
-                    # 남은 시간 표시 (5초마다)
-                    if monk['smoke_return_timer'] % 300 == 0 and monk['smoke_return_timer'] > 0:
-                        remaining_seconds = monk['smoke_return_timer'] / 60
-                        monk_state = monk.get('state', 'unknown')
-                        print(f"⏰    {remaining_seconds:.0f}  (: {monk_state},    )")
-                    
+
                     # 타이머가 0이 되면 즉시 복귀 시작
                     if monk['smoke_return_timer'] <= 0:
-                        print(f"     ! (30  )")
                         monk['returning_to_temple'] = True
                         monk['state'] = 'returning'
                         monk['target_x'] = self.width // 2  # Temple entrance
                         monk['target_y'] = 450
                         # 스윙 카운트에 관계없이 강제 복귀
                         monk['swing_count'] = 99  # 복귀 우선
-            
+
             # Check if monk should return to temple after 2 swings (백업 체크)
-            # 이미 스윙 완료 시점에서 처리하지만, 혹시 놓친 경우를 위한 백업
             if monk['swing_count'] >= 2 and not monk['returning_to_temple'] and monk['state'] != 'returning':
-                print(f"  :  2  !")
                 monk['returning_to_temple'] = True
                 monk['state'] = 'returning'
                 monk['target_x'] = self.width // 2  # Temple entrance
                 monk['target_y'] = 450
-            
+
             # State timer (don't change state if swinging or returning)
             if monk['state'] not in ['swinging', 'returning']:
                 monk['state_timer'] -= 1
@@ -2406,19 +2420,19 @@ class ShaolinTempleBackground:
                     states = ['walking', 'standing', 'meditating']
                     monk['state'] = random.choice(states)
                     monk['state_timer'] = random.randint(180, 360)
-                    
+
                     # Set new target for walking
                     if monk['state'] == 'walking':
                         monk['target_x'] = random.randint(100, 500)
                         monk['target_y'] = random.randint(480, 550)
-            
+
             # Update based on state
             if monk['state'] == 'walking':
                 # Move towards target
                 dx = monk['target_x'] - monk['x']
                 dy = monk['target_y'] - monk['y']
                 distance = math.sqrt(dx*dx + dy*dy)
-                
+
                 if distance > 5:
                     # Normalize and apply speed
                     monk['x'] += (dx / distance) * monk['speed']
@@ -2429,20 +2443,20 @@ class ShaolinTempleBackground:
                     # Reached target, change state
                     monk['state'] = random.choice(['standing', 'meditating'])
                     monk['state_timer'] = random.randint(180, 360)
-            
+
             elif monk['state'] == 'standing':
                 # Just standing, slight robe sway
                 monk['robe_sway'] = math.sin(self.frame_count * 0.02) * 2
-                
+
             elif monk['state'] == 'meditating':
                 # Meditation pose
                 monk['meditation_timer'] += 1
                 monk['robe_sway'] = math.sin(self.frame_count * 0.01) * 1
-            
+
             elif monk['state'] == 'swinging':
                 # Staff swing animation
                 monk['swing_animation'] += 1
-                
+
                 if monk['swing_animation'] < 10:
                     # Wind up
                     monk['staff_angle'] = -math.pi / 4 * (monk['swing_animation'] / 10)
@@ -2453,11 +2467,9 @@ class ShaolinTempleBackground:
                 else:
                     # Swing complete
                     monk['swing_count'] += 1  # 스윙이 완료된 후에 카운트 증가
-                    print(f" DEBUG:   !  : {monk['swing_count']}/2")
-                    
+
                     # 2번 스윙 완료 시 즉시 사원으로 복귀
                     if monk['swing_count'] >= 2:
-                        print(f"  2  !")
                         monk['returning_to_temple'] = True
                         monk['state'] = 'returning'
                         monk['target_x'] = self.width // 2  # Temple entrance
@@ -2465,12 +2477,12 @@ class ShaolinTempleBackground:
                     else:
                         monk['state'] = 'standing'
                         monk['state_timer'] = 60  # Brief pause after swing
-                    
+
                     monk['swing_animation'] = 0
                     monk['staff_angle'] = 0
                     monk['swing_cooldown'] = 120  # 2 second cooldown
                     monk['has_hit_ball'] = False  # Reset for next swing
-            
+
             # 넉백 상태 처리 (Stage 5 화염 등에 의한 넉백)
             elif monk['state'] == 'knockback':
                 # 넉백 속도가 있으면 적용
@@ -2478,15 +2490,15 @@ class ShaolinTempleBackground:
                     # 위치 업데이트
                     monk['x'] += monk['knockback_vel_x']
                     monk['y'] += monk['knockback_vel_y']
-                    
+
                     # 넉백 속도 감속 (마찰)
                     monk['knockback_vel_x'] *= 0.9
                     monk['knockback_vel_y'] *= 0.9
-                    
+
                     # 맵 경계 체크
                     monk['x'] = max(30, min(self.width - 30, monk['x']))
                     monk['y'] = max(450, min(self.height - 50, monk['y']))
-                    
+
                     # 넉백 타이머 감소
                     if 'knockback_timer' in monk:
                         monk['knockback_timer'] -= 1
@@ -2496,21 +2508,19 @@ class ShaolinTempleBackground:
                             monk['state_timer'] = 60
                             monk['knockback_vel_x'] = 0
                             monk['knockback_vel_y'] = 0
-                            print(f"   ,")
-            
+
             # returning_to_temple이 True인데 state가 returning이 아닌 경우 강제 설정
             if monk.get('returning_to_temple', False) and monk['state'] != 'returning':
                 monk['state'] = 'returning'
                 monk['target_x'] = self.width // 2
                 monk['target_y'] = 450
-                print(f"    : returning")
-            
+
             elif monk['state'] == 'returning':
                 # Return to temple entrance
                 dx = monk['target_x'] - monk['x']
                 dy = monk['target_y'] - monk['y']
                 distance = math.sqrt(dx*dx + dy*dy)
-                
+
                 if distance > 5:
                     # Move towards temple at slightly faster speed
                     monk['x'] += (dx / distance) * (monk['speed'] * 2)
@@ -2521,32 +2531,35 @@ class ShaolinTempleBackground:
                     # Reached temple, start fading out
                     monk['opacity'] -= 10
                     if monk['opacity'] <= 0:
-                        self.monks.remove(monk)
-                        
-                        # 연막탄 몽크가 모두 사원에 들어갔는지 체크
-                        remaining_smoke_monks = [m for m in self.monks if m.get('is_smoke_grenade_monk', False)]
-                        if len(remaining_smoke_monks) == 0 and self.brazier_lit:
-                            # 모든 연막탄 몽크가 사원에 들어가면 화로 불 끄기
-                            self.brazier_lit = False
-                            print(f"       !")
-                        
+                        remove_monk = True
+
                         # 몽크가 사원으로 들어간 후 다음 스폰까지 15~30초
                         if not monk.get('is_smoke_grenade_monk', False):
                             self.monk_spawn_timer = 0
                             self.monk_spawn_interval = random.randint(900, 1800)  # 15~30초
-                            print(f"   .   {self.monk_spawn_interval/60:.0f}")
-                        continue
-            
-            # Update staff angle (if not swinging)
-            if monk['state'] != 'swinging':
-                monk['staff_angle'] = math.sin(monk['walking_phase']) * 0.1
-            
-            # Remove monk if they've been around too long (after 2 minutes)
-            if not monk['fade_in'] and random.random() < 0.0002:  # Small chance to leave
-                monk['fade_in'] = True  # Reuse for fade out
-                monk['opacity'] -= 5
-                if monk['opacity'] <= 0:
-                    self.monks.remove(monk)
+
+            if not remove_monk:
+                # Update staff angle (if not swinging)
+                if monk['state'] != 'swinging':
+                    monk['staff_angle'] = math.sin(monk['walking_phase']) * 0.1
+
+                # Remove monk if they've been around too long (after 2 minutes)
+                if not monk['fade_in'] and random.random() < 0.0002:  # Small chance to leave
+                    monk['fade_in'] = True  # Reuse for fade out
+                    monk['opacity'] -= 5
+                    if monk['opacity'] <= 0:
+                        remove_monk = True
+
+            if not remove_monk:
+                alive_monks.append(monk)
+
+        self.monks = alive_monks
+
+        # 연막탄 몽크가 모두 사원에 들어갔는지 체크 (루프 후 1회만)
+        if self.brazier_lit:
+            remaining_smoke_monks = any(m.get('is_smoke_grenade_monk', False) for m in self.monks)
+            if not remaining_smoke_monks:
+                self.brazier_lit = False
     
     def _create_monk_hit_effect(self, monk: Dict[str, Any]):
         """Create visual effect when monk hits the ball"""
@@ -2584,13 +2597,14 @@ class ShaolinTempleBackground:
     def _update_monk_death_effects(self):
         """Update monk death particles and body parts"""
         # Update death particles
-        for particle in self.monk_death_particles[:]:
+        alive_particles = []
+        for particle in self.monk_death_particles:
             # Only update position for particles with velocity
             if 'vx' in particle and 'vy' in particle:
                 particle['x'] += particle['vx']
                 particle['y'] += particle['vy']
                 particle['vy'] += particle.get('gravity', 0.2)
-            
+
             # Handle both life and lifetime keys for compatibility
             if 'life' in particle:
                 particle['life'] -= 1
@@ -2602,56 +2616,54 @@ class ShaolinTempleBackground:
                 # Default lifetime if neither exists
                 particle['life'] = 60
                 life_remaining = 60
-            
+
             # Fade out particles
             if 'opacity' in particle:
                 particle['opacity'] = max(0, int(particle['opacity'] * 0.95))
-            
-            if life_remaining <= 0:
-                self.monk_death_particles.remove(particle)
-        
+
+            if life_remaining > 0:
+                alive_particles.append(particle)
+        self.monk_death_particles = alive_particles
+
         # Update body parts
-        for part in self.monk_body_parts[:]:
+        alive_parts = []
+        for part in self.monk_body_parts:
             part['x'] += part['vx']
             part['y'] += part['vy']
             part['vy'] += part['gravity']
             part['rotation'] += part['rotation_speed']
             part['lifetime'] -= 1
-            
+
             # Slow down horizontal movement
             part['vx'] *= 0.98
-            
-            # Remove if off screen or expired
-            if part['lifetime'] <= 0 or part['y'] > self.height + 50:
-                self.monk_body_parts.remove(part)
+
+            # Keep if alive and on screen
+            if part['lifetime'] > 0 and part['y'] <= self.height + 50:
+                alive_parts.append(part)
+        self.monk_body_parts = alive_parts
     
     def _update_monk_hit_effects(self):
         """Update monk hit effects"""
-        effects_to_remove = []
-        
+        alive = []
         for effect in self.monk_hit_effects:
+            keep = True
             if effect['type'] == 'shockwave':
                 # Expand shockwave
                 effect['radius'] += 3
                 effect['alpha'] = max(0, 255 - (effect['radius'] / effect['max_radius']) * 255)
-                
                 if effect['radius'] >= effect['max_radius']:
-                    effects_to_remove.append(effect)
-                    
+                    keep = False
             elif effect['type'] == 'spark':
                 # Move spark particle
                 effect['x'] += effect['vx']
                 effect['y'] += effect['vy']
                 effect['vy'] += 0.3  # Gravity
                 effect['life'] -= 1
-                
                 if effect['life'] <= 0:
-                    effects_to_remove.append(effect)
-        
-        # Remove finished effects
-        for effect in effects_to_remove:
-            if effect in self.monk_hit_effects:
-                self.monk_hit_effects.remove(effect)
+                    keep = False
+            if keep:
+                alive.append(effect)
+        self.monk_hit_effects = alive
     
     def _draw_monk_death_effects(self, surface: pygame.Surface):
         """Draw monk death particles and body parts"""
@@ -2678,8 +2690,8 @@ class ShaolinTempleBackground:
                 elif particle.get('type') in ['head', 'torso', 'arm', 'leg']:
                     # Draw body fragments as irregular shapes based on type
                     size = max(particle.get('size', 5), 8)
-                    frag_surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-                    
+                    frag_surface = _get_pooled_surface(size * 2, size * 2)
+
                     if particle['type'] == 'head':
                         # Draw skull-like fragment
                         points = []
@@ -2733,7 +2745,7 @@ class ShaolinTempleBackground:
                 else:
                     # Blood droplets as small irregular shapes
                     size = max(particle.get('size', 3), 4)
-                    droplet_surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                    droplet_surface = _get_pooled_surface(size * 2, size * 2)
                     
                     # Create droplet shape (teardrop-like)
                     points = []
@@ -2763,7 +2775,7 @@ class ShaolinTempleBackground:
                 size = max(part.get('size', 8), 10)  # Minimum size 10
                 
                 # Create surface for body part
-                part_surface = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                part_surface = _get_pooled_surface(size * 2, size * 2)
                 center = size
                 
                 # Draw realistic body part shapes
@@ -3265,18 +3277,15 @@ class ShaolinTempleBackground:
         self._draw_floating_leaves(temp_surface)
         
         # Draw flying crows
-        for crow in self.crows[:]:
-            if not self._draw_crow(temp_surface, crow):
-                self.crows.remove(crow)  # Remove caught crows after animation
-        
+        self.crows = [crow for crow in self.crows if self._draw_crow(temp_surface, crow)]
+
         # Draw crow explosion fragments and particles
         self._draw_crow_fragments(temp_surface)
         self._draw_crow_particles(temp_surface)
-        
+
         # Draw falling crow corpses (kept for compatibility)
-        for corpse in self.crow_corpses[:]:
-            if not self._draw_crow_corpse(temp_surface, corpse):
-                self.crow_corpses.remove(corpse)  # Remove collected corpses after fade
+        self.crow_corpses = [corpse for corpse in self.crow_corpses
+                             if self._draw_crow_corpse(temp_surface, corpse)]
         
         # Draw collapse debris
         self._draw_collapse_debris(temp_surface)
@@ -3322,8 +3331,8 @@ class ShaolinTempleBackground:
             # 화로에 불 붙이기
             self.brazier_lit = True
             self.brazier_fire_animation = 0
-            print(f"   !")
-            
+            pass  # print(brazier lit)
+
             # 불이 붙으면 몽크 5명 소환
             self._spawn_smoke_grenade_monks_from_brazier()
             return True
@@ -3332,7 +3341,7 @@ class ShaolinTempleBackground:
     
     def _spawn_smoke_grenade_monks_from_brazier(self):
         """화로에 불이 붙으면 특별한 몽크 5명 소환"""
-        print(f"      5 !")
+        pass  # print(5 monks spawn)
         
         # 5명의 개성있는 몽크 타입 정의
         monk_types = [
@@ -3413,7 +3422,7 @@ class ShaolinTempleBackground:
             }
             self.monks.append(monk)
         
-        print(f"   : {len(self.monks)}")
+        pass  # print(monk count)
     
     def spawn_smoke_grenade_monks(self):
         """연막탄 사용 시 호출 (기존 메서드 - 화로 체크로 대체됨)"""
@@ -3428,8 +3437,7 @@ class ShaolinTempleBackground:
                 monk['smoke_return_timer'] = 1800  # 30초 (60 FPS * 30)
                 smoke_monk_count += 1
         if smoke_monk_count > 0:
-            print(f"   {smoke_monk_count}   ! 30")
-            print(f"     !")
+            pass  # print(smoke monk return)
     
     def get_brazier_position(self) -> tuple:
         """화로의 위치를 반환 (연막탄 충돌 체크용)"""
@@ -3716,7 +3724,7 @@ class ShaolinTempleBackground:
                         self._gauge_gradient_cache.clear()
 
                     # Create gradient surface once
-                    gradient_surf = pygame.Surface((core_width, gradient_height), pygame.SRCALPHA)
+                    gradient_surf = _get_pooled_surface(core_width, gradient_height)
                     for i in range(gradient_height):
                         gradient_ratio = i / max(1, gradient_height)
                         gradient_color = tuple(
@@ -3821,7 +3829,7 @@ class ShaolinTempleBackground:
             self.moon_fragment_active = False
             self.moon_fragment_timer = 0
             self.moon_fragments.clear()
-            print("Temple destruction animation started!")
+            pass  # print(destruction started)
     
     def is_destruction_animation_active(self):
         """Check if destruction animation is currently playing"""
@@ -3836,7 +3844,7 @@ class ShaolinTempleBackground:
         
         # Debug: Track phase changes
         if self.destruction_timer % 60 == 0:  # Every second
-            print(f"🔥 Destruction Phase {self.destruction_phase}, Timer: {self.destruction_timer}")
+            pass  # print(destruction phase)
         
         if self.destruction_phase == 1:  # Moon turning red (3 seconds)
             # Gradually increase red intensity with more dramatic curve
@@ -3848,7 +3856,7 @@ class ShaolinTempleBackground:
                 self.moon_red_intensity = 1.0  # Ensure it's fully red
                 self.destruction_phase = 2
                 self.destruction_timer = 0
-                print("🔥 Entering Phase 2: Red light emission")
+                pass  # print(phase 2)
                 
         elif self.destruction_phase == 2:  # Red light emission (1.5 seconds)
             # Flash red light across the map
@@ -3858,7 +3866,7 @@ class ShaolinTempleBackground:
                 self.red_light_alpha = max(0, 150 - (self.destruction_timer - 45) * 3.3)
             
             if self.destruction_timer >= 90:  # 1.5 seconds
-                print("🔥 Entering Phase 3: Destruction wave charging!")
+                pass  # print(phase 3)
                 self.destruction_phase = 3
                 self.destruction_timer = 0
                 self.destruction_wave_charging = True
@@ -3869,7 +3877,7 @@ class ShaolinTempleBackground:
                 self.moon_pulse_active = True
                 self.moon_pulse_scale = 1.0 + (self.destruction_timer / 60.0) * 0.5  # Grow to 1.5x
             elif self.destruction_timer == 61:  # Fire the wave
-                print("🌙 FIRING DESTRUCTION WAVE!")
+                pass  # print(firing wave)
                 self._play_stage4_moon_shoot_sound()
                 self._fire_destruction_wave()
                 self.destruction_wave_charging = False
@@ -3877,7 +3885,7 @@ class ShaolinTempleBackground:
                 self.moon_pulse_scale = 1.0
             
             if self.destruction_timer >= 120:  # 2 seconds total
-                print("🔥 Entering Phase 4: Temple collapsing - MONKS SHOULD EXPLODE!")
+                pass  # print(phase 4)
                 self.destruction_phase = 4
                 self.destruction_timer = 0
                 self._create_collapse_debris()
@@ -3886,9 +3894,7 @@ class ShaolinTempleBackground:
         elif self.destruction_phase == 4:  # Temple collapsing (5 seconds) - 건물 찌그러짐 + 가라앉음
             # Kill all monks and dummies when temple starts collapsing
             if self.destruction_timer == 1:
-                print(f"🔥 Temple collapsing! Current monks: {len(self.monks)}")
-                for i, monk in enumerate(self.monks):
-                    print(f"   Monk {i}: at ({monk['x']}, {monk['y']}) - type: {monk.get('type', 'normal')}")
+                pass  # print(temple collapsing)
 
                 # Always spawn some test monks to ensure explosion effect is visible
                 for i in range(2):
@@ -3900,9 +3906,7 @@ class ShaolinTempleBackground:
                     }
                     self.monks.append(test_monk)
 
-                print(f"🔥 About to explode {len(self.monks)} monks...")
                 self._explode_all_monks()
-                print(f"🔥 After explosion: {len(self.monk_death_particles)} particles, {len(self.monk_body_parts)} body parts")
                 self._explode_all_training_dummies()
 
             # 화면 흔들림 (초반에 강하게, 후반에 약하게)
@@ -4007,7 +4011,7 @@ class ShaolinTempleBackground:
             self.screen_shake_intensity = 0
             self.monks.clear()  # Remove all monks
             self.monk_spawn_timer = float('inf')  # Stop monk spawning
-            print("Temple destruction complete! No more monks will spawn.")
+            pass  # print(destruction complete)
     
     def _fire_destruction_wave(self):
         """Fire a destruction wave from the moon towards the temple"""
@@ -4052,7 +4056,7 @@ class ShaolinTempleBackground:
             self.destruction_wave['vx'] = 0
             self.destruction_wave['vy'] = self.destruction_wave['speed']
         
-        print(f"🌙 Destruction wave fired from ({moon_x}, {moon_y}) to ({temple_x}, {temple_y})")
+        pass  # print(wave fired)
     
     def _update_destruction_wave(self):
         """Update the destruction wave animation"""
@@ -4111,33 +4115,39 @@ class ShaolinTempleBackground:
             wave['energy_rings'].append(energy_ring)
         
         # Update trail particles
-        for particle in wave['trail'][:]:
+        alive_trail = []
+        for particle in wave['trail']:
             particle['life'] -= 1
             particle['size'] *= 0.95  # Shrink over time
-            if particle['life'] <= 0 or particle['size'] < 1:
-                wave['trail'].remove(particle)
-        
+            if particle['life'] > 0 and particle['size'] >= 1:
+                alive_trail.append(particle)
+        wave['trail'] = alive_trail
+
         # Update beam particles
-        for beam in wave['beam_particles'][:]:
+        alive_beams = []
+        for beam in wave['beam_particles']:
             beam['life'] -= 1
             beam['length'] *= 0.98  # Shorten over time
-            if beam['life'] <= 0:
-                wave['beam_particles'].remove(beam)
-        
+            if beam['life'] > 0:
+                alive_beams.append(beam)
+        wave['beam_particles'] = alive_beams
+
         # Update energy rings
-        for ring in wave['energy_rings'][:]:
+        alive_rings = []
+        for ring in wave['energy_rings']:
             ring['radius'] += 8  # Expand rapidly
             ring['opacity'] -= 12  # Fade out
             ring['life'] -= 1
-            if ring['life'] <= 0 or ring['opacity'] <= 0:
-                wave['energy_rings'].remove(ring)
+            if ring['life'] > 0 and ring['opacity'] > 0:
+                alive_rings.append(ring)
+        wave['energy_rings'] = alive_rings
         
         # Check if wave reached temple or expired
         temple_distance = math.sqrt((wave['current_x'] - wave['target_x'])**2 + 
                                   (wave['current_y'] - wave['target_y'])**2)
         
         if temple_distance < 50:
-            print("🌙 Destruction wave hit the temple!")
+            pass  # print(wave hit)
             self._play_stage4_hit_sound()
             self.destruction_wave = None  # Remove the wave
         elif wave['lifetime'] >= wave['max_lifetime']:
@@ -4154,7 +4164,7 @@ class ShaolinTempleBackground:
         # Draw energy rings first (background layer)
         for ring in wave['energy_rings']:
             if ring['opacity'] > 0:
-                ring_surf = pygame.Surface((ring['radius'] * 2, ring['radius'] * 2), pygame.SRCALPHA)
+                ring_surf = _get_pooled_surface(ring['radius'] * 2, ring['radius'] * 2)
                 center = ring['radius']
                 # Draw glowing ring
                 for width in range(5, 0, -1):
@@ -4169,7 +4179,7 @@ class ShaolinTempleBackground:
         # Draw beam particles for laser effect
         for beam in wave['beam_particles']:
             if beam['life'] > 0:
-                beam_surf = pygame.Surface((beam['length'] * 2, beam['width'] * 4), pygame.SRCALPHA)
+                beam_surf = _get_pooled_surface(beam['length'] * 2, beam['width'] * 4)
                 
                 # Calculate beam opacity based on life
                 opacity = int(255 * (beam['life'] / 40))
@@ -4201,7 +4211,7 @@ class ShaolinTempleBackground:
             alpha = int(255 * (particle['life'] / 30))
             if alpha > 0 and particle['size'] > 0:
                 # Create glowing particle
-                particle_surf = pygame.Surface((particle['size'] * 4, particle['size'] * 4), pygame.SRCALPHA)
+                particle_surf = _get_pooled_surface(particle['size'] * 4, particle['size'] * 4)
                 center = particle['size'] * 2
                 
                 # Draw multiple layers for glow
@@ -4229,7 +4239,7 @@ class ShaolinTempleBackground:
         
         # Draw main wave core with enhanced destruction effect
         wave_size = int(wave['radius'] * 3)  # Larger surface for effects
-        wave_surf = pygame.Surface((wave_size, wave_size), pygame.SRCALPHA)
+        wave_surf = _get_pooled_surface(wave_size, wave_size)
         center = wave_size // 2
         
         # Draw outer shockwave
@@ -4707,20 +4717,22 @@ class ShaolinTempleBackground:
     
     def _update_ground_fires(self):
         """Update ground fire effects"""
-        for fire in self.ground_fires[:]:
+        alive_fires = []
+        for fire in self.ground_fires:
             fire['lifetime'] -= 1
-            
+
             # Update fire particles
-            for particle in fire['particles'][:]:
+            alive_fp = []
+            for particle in fire['particles']:
                 particle['y'] += particle['vy']
                 particle['x'] += particle['vx']
                 particle['vy'] -= 0.1  # Rise faster
                 particle['life'] -= 1
                 particle['size'] = max(1, particle['size'] - 0.1)
-                
-                if particle['life'] <= 0 or particle['size'] <= 0:
-                    fire['particles'].remove(particle)
-            
+                if particle['life'] > 0 and particle['size'] > 0:
+                    alive_fp.append(particle)
+            fire['particles'] = alive_fp
+
             # Add new particles while fire is active
             if fire['lifetime'] > 30 and len(fire['particles']) < 15:
                 for _ in range(3):
@@ -4734,10 +4746,11 @@ class ShaolinTempleBackground:
                         'color_phase': random.uniform(0, 1),
                     }
                     fire['particles'].append(particle)
-            
-            # Remove fire when done
-            if fire['lifetime'] <= 0 and len(fire['particles']) == 0:
-                self.ground_fires.remove(fire)
+
+            # Keep fire if still active
+            if fire['lifetime'] > 0 or len(fire['particles']) > 0:
+                alive_fires.append(fire)
+        self.ground_fires = alive_fires
     
     def _draw_collapse_debris(self, surface: pygame.Surface):
         """Draw falling debris during collapse as realistic building fragments"""
@@ -4750,7 +4763,7 @@ class ShaolinTempleBackground:
             opacity = debris.get('opacity', 255)
             if opacity > 0:
                 # Create surface for debris
-                debris_surf = pygame.Surface((debris['size'] * 3, debris['size'] * 3), pygame.SRCALPHA)
+                debris_surf = _get_pooled_surface(debris['size'] * 3, debris['size'] * 3)
                 center = debris['size'] * 1.5
                 
                 # Draw debris piece based on type with building fragment appearance
@@ -5018,7 +5031,7 @@ class ShaolinTempleBackground:
 
                 if layer_alpha > 0:
                     # 메인 구름
-                    dust_surf = pygame.Surface((int(layer_size * 2.5), int(layer_size * 2)), pygame.SRCALPHA)
+                    dust_surf = _get_pooled_surface(int(layer_size * 2.5), int(layer_size * 2))
                     dust_color = (*base_color, layer_alpha)
 
                     # 불규칙한 구름 모양 (여러 원 조합)
@@ -5063,7 +5076,7 @@ class ShaolinTempleBackground:
                 
                 # Create larger surface for deformed lantern
                 surf_size = max(int(width * 2), int(height * 2)) + 20
-                lantern_surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+                lantern_surf = _get_pooled_surface(surf_size, surf_size)
                 
                 # Draw lantern body with deformation
                 cx, cy = surf_size // 2, surf_size // 2
@@ -5141,8 +5154,8 @@ class ShaolinTempleBackground:
                 alpha = int(200 * (particle['life'] / 40))
                 
                 # Create particle surface for flame shape
-                particle_surf = pygame.Surface((particle['size'] * 2, particle['size'] * 2), pygame.SRCALPHA)
-                
+                particle_surf = _get_pooled_surface(particle['size'] * 2, particle['size'] * 2)
+
                 # Create flame-like shape (teardrop pointing up)
                 center = particle['size']
                 flame_points = []
@@ -5314,14 +5327,16 @@ class ShaolinTempleBackground:
                 self.moon_fragment_interval = random.randint(120, 900)  # 2-15 seconds
         
         # Update existing fragments
-        for fragment in self.moon_fragments[:]:
+        alive_fragments = []
+        for fragment in self.moon_fragments:
+            keep = True
             if not fragment['impact']:
                 # Update position
                 fragment['x'] += fragment['vx']
                 fragment['y'] += fragment['vy']
                 fragment['rotation'] += fragment['rotation_speed']
                 fragment['glow_phase'] += 0.1
-                
+
                 # Check collision with temple during destruction event
                 if self.destruction_animation_active and not self.temple_destroyed:
                     if self._get_temple_hitbox().collidepoint(fragment['x'], fragment['y']):
@@ -5330,8 +5345,9 @@ class ShaolinTempleBackground:
                         fragment['shockwave_radius'] = 0
                         fragment['impact_reason'] = "temple"
                         self._play_stage4_hit_sound()
+                        alive_fragments.append(fragment)
                         continue
-                
+
                 # Add to trail - OPTIMIZED: reduced trail length and simplified alpha
                 max_trail = 10  # Reduced from 15 for performance
                 if len(fragment['trail']) < max_trail:
@@ -5340,24 +5356,22 @@ class ShaolinTempleBackground:
                     # Shift trail and add new position
                     fragment['trail'].pop(0)
                     fragment['trail'].append((fragment['x'], fragment['y']))
-                
+
                 # Check if reached target or went off screen
-                dist_to_target = math.sqrt((fragment['x'] - fragment['target_x'])**2 + 
+                dist_to_target = math.sqrt((fragment['x'] - fragment['target_x'])**2 +
                                           (fragment['y'] - fragment['target_y'])**2)
-                
+
                 # Only impact when went completely off screen
-                # Remove target distance check - let fragments continue until off screen
-                off_screen = (fragment['y'] >= self.height + 10 or  # Give more room at bottom
+                off_screen = (fragment['y'] >= self.height + 10 or
                              fragment['x'] < -30 or fragment['x'] > self.width + 30)
-                
+
                 # Also check lifetime
                 fragment['lifetime'] -= 1
                 expired = fragment['lifetime'] <= 0
-                
+
                 if off_screen or expired:
                     fragment['impact'] = True
                     fragment['impact_timer'] = 30  # 0.5 second impact effect
-                    # Create impact shockwave effect
                     fragment['shockwave_radius'] = 0
             else:
                 # Handle impact animation
@@ -5366,11 +5380,13 @@ class ShaolinTempleBackground:
                     fragment['shockwave_radius'] = (30 - fragment['impact_timer']) * 3
                 else:
                     # Remove fragment after impact
-                    # 다단히트 쿨다운 딕셔너리에서도 정리
                     fragment_id = fragment.get('fragment_id', id(fragment))
                     if fragment_id in self.fragment_hit_cooldowns:
                         del self.fragment_hit_cooldowns[fragment_id]
-                    self.moon_fragments.remove(fragment)
+                    keep = False
+            if keep:
+                alive_fragments.append(fragment)
+        self.moon_fragments = alive_fragments
 
     def _get_temple_hitbox(self) -> pygame.Rect:
         """Return current temple hitbox, adjusted for collapse offset"""
@@ -5460,8 +5476,7 @@ class ShaolinTempleBackground:
         
         # Clear all monks
         self.monks.clear()
-        print(f"All monks exploded during temple destruction!")
-        print(f"Created {len(self.monk_death_particles)} death particles and {len(self.monk_body_parts)} body parts")
+        pass  # print(monks exploded)
     
     def _explode_all_training_dummies(self):
         """Explode all training dummies when temple is destroyed"""
@@ -5676,7 +5691,7 @@ class ShaolinTempleBackground:
         self._temp_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         self._red_overlay_surface = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         
-        print("Stage 4: Shaolin Temple background reset to initial state")
+        pass  # print(stage4 reset)
     
     def _draw_moon_fragments(self, surface: pygame.Surface):
         """Draw moon crater fragments (optimized)"""
@@ -5717,7 +5732,7 @@ class ShaolinTempleBackground:
                                 int(trail_point[1] - trail_size)))
 
                 # Draw main fragment with glow
-                fragment_surf = pygame.Surface((fragment['size'] * 4, fragment['size'] * 4), pygame.SRCALPHA)
+                fragment_surf = _get_pooled_surface(fragment['size'] * 4, fragment['size'] * 4)
                 center = fragment['size'] * 2
 
                 # Outer glow (pulsing) - use pre-cached random offsets
