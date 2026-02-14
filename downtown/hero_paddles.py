@@ -6354,10 +6354,10 @@ class HeroPaddleRenderer:
                     screen.blit(ds, (dx - dr, dy - dr))
 
     # =========================================================================
-    # 라 - 태양의 매 (독수리 가면, 깃털 망토, 태양 지팡이) [고퀄리티]
+    # 라 - 태양의 매 (독수리 가면, 깃털 망토, 사신의 낫) [고퀄리티]
     # =========================================================================
     def _draw_ra(self, screen, cx, cy, b, color, show_back, anim):
-        """라 - 태양의 매 (독수리/매 가면, 깃털 장식, 태양 지팡이) [HD 버전]"""
+        """라 - 태양의 매 (독수리/매 가면, 깃털 장식, 사신의 낫) [HD 버전]"""
         b = int(b * 1.2)
         lean = anim["lean"]
         wave = anim["wave"]
@@ -6415,6 +6415,12 @@ class HeroPaddleRenderer:
             "loincloth_fold": (190, 185, 165),
             "sandal": (155, 115, 55),
             "anklet_gold": (215, 185, 60),
+            "scythe_shaft": (90, 60, 30),
+            "scythe_shaft_light": (120, 85, 45),
+            "scythe_blade": (180, 190, 200),
+            "scythe_blade_edge": (220, 230, 240),
+            "scythe_blade_dark": (100, 110, 130),
+            "scythe_glow": (255, 200, 80),
         }
 
         # ─── 태양 파티클 (뒤쪽 - 불씨 같은 작은 빛 입자들) ───
@@ -6625,135 +6631,189 @@ class HeroPaddleRenderer:
                 pygame.draw.circle(screen, p["feather_light"],
                                  (ftip_x + f_sway, ftip_y), ft_size)
 
-        # ─── 팔 ───
+        # ─── 사신의 낫 (양손 그립) + 팔 ───
         arm_thick = max(2, int(0.22 * b))
+
+        # 낫 자루 기준점 계산 (양손 사이 중앙)
+        # 정면: 왼손(위쪽 그립) + 오른손(아래쪽 그립)
+        # 후면: 오른손(위쪽 그립) + 왼손(아래쪽 그립)
+        grip_cx = cx + lean_offset
+        grip_top_y = torso_y + int(0.2 * b)   # 위쪽 손 위치
+        grip_bot_y = torso_y + int(1.3 * b)   # 아래쪽 손 위치
+
+        # 스윙 회전
+        swing_dir = -1 if show_back else 1
+        scythe_angle = weapon_swing * 1.8 * swing_dir
+
+        # 낫 자루 끝점 (회전 전)
+        shaft_top_x = grip_cx
+        shaft_top_y = torso_y - int(2.5 * b)
+        shaft_bot_x = grip_cx
+        shaft_bot_y = torso_y + int(2.0 * b)
+        # 자루 피벗 (양손 중간)
+        pivot_x = grip_cx
+        pivot_y = (grip_top_y + grip_bot_y) // 2
+
+        # 스윙 시 전체 회전
+        if scythe_angle != 0:
+            _rot_top = self._rotate_point(shaft_top_x, shaft_top_y, pivot_x, pivot_y, scythe_angle)
+            s_top_x, s_top_y = int(_rot_top[0]), int(_rot_top[1])
+            _rot_bot = self._rotate_point(shaft_bot_x, shaft_bot_y, pivot_x, pivot_y, scythe_angle)
+            s_bot_x, s_bot_y = int(_rot_bot[0]), int(_rot_bot[1])
+            _rot_gt = self._rotate_point(grip_cx, grip_top_y, pivot_x, pivot_y, scythe_angle)
+            g_top_x, g_top_y = int(_rot_gt[0]), int(_rot_gt[1])
+            _rot_gb = self._rotate_point(grip_cx, grip_bot_y, pivot_x, pivot_y, scythe_angle)
+            g_bot_x, g_bot_y = int(_rot_gb[0]), int(_rot_gb[1])
+        else:
+            s_top_x, s_top_y = shaft_top_x, shaft_top_y
+            s_bot_x, s_bot_y = shaft_bot_x, shaft_bot_y
+            g_top_x, g_top_y = grip_cx, grip_top_y
+            g_bot_x, g_bot_y = grip_cx, grip_bot_y
+
+        # 스윙 잔상 (낫날 궤적)
+        if abs(weapon_swing) > 0.15:
+            # 낫날 끝점 (회전 전) - 자루 상단에서 옆으로 뻗는 낫날 끝
+            blade_tip_raw_x = shaft_top_x + int(1.2 * b)
+            blade_tip_raw_y = shaft_top_y + int(0.8 * b)
+            trail_pts = []
+            t_steps = 6
+            for ti in range(t_steps + 1):
+                t_frac = ti / float(t_steps)
+                t_ang = scythe_angle * t_frac
+                if t_ang != 0:
+                    _tr = self._rotate_point(blade_tip_raw_x, blade_tip_raw_y, pivot_x, pivot_y, t_ang)
+                    trail_pts.append((int(_tr[0]), int(_tr[1])))
+                else:
+                    trail_pts.append((blade_tip_raw_x, blade_tip_raw_y))
+            t_all_x = [tp_i[0] for tp_i in trail_pts] + [s_top_x]
+            t_all_y = [tp_i[1] for tp_i in trail_pts] + [s_top_y]
+            t_pad = int(0.6 * b)
+            t_mn_x, t_mn_y = min(t_all_x) - t_pad, min(t_all_y) - t_pad
+            t_mx_x, t_mx_y = max(t_all_x) + t_pad, max(t_all_y) + t_pad
+            tw = max(4, t_mx_x - t_mn_x)
+            th = max(4, t_mx_y - t_mn_y)
+            t_surf = self._get_surface(tw, th)
+            for ti in range(len(trail_pts) - 1):
+                f_alpha = int(abs(weapon_swing) * 140 * ((ti + 1) / len(trail_pts)))
+                lp1 = (trail_pts[ti][0] - t_mn_x, trail_pts[ti][1] - t_mn_y)
+                lp2 = (trail_pts[ti + 1][0] - t_mn_x, trail_pts[ti + 1][1] - t_mn_y)
+                pygame.draw.line(t_surf, (*p["scythe_blade"], f_alpha),
+                               lp1, lp2, max(2, int(0.12 * b)))
+            screen.blit(t_surf, (t_mn_x, t_mn_y))
+
+        # 낫 자루 (나무 질감)
+        shaft_w = max(2, int(0.12 * b))
+        pygame.draw.line(screen, p["scythe_shaft"],
+                        (s_top_x, s_top_y), (s_bot_x, s_bot_y), shaft_w + 1)
+        pygame.draw.line(screen, p["scythe_shaft_light"],
+                        (s_top_x - 1, s_top_y), (s_bot_x - 1, s_bot_y), max(1, shaft_w - 1))
+        # 자루 금장식 링 (그립 위치)
+        ring_r = max(2, int(0.08 * b))
+        pygame.draw.circle(screen, p["gold"], (g_top_x, g_top_y), ring_r)
+        pygame.draw.circle(screen, p["gold"], (g_bot_x, g_bot_y), ring_r)
+
+        # ─── 낫날 (자루 상단에서 한쪽으로 휘어진 곡선 칼날) ───
+        # 칼날 기준점들 (회전 전)
+        blade_base_x = shaft_top_x
+        blade_base_y = shaft_top_y
+        blade_mid_x = shaft_top_x + int(1.0 * b)
+        blade_mid_y = shaft_top_y + int(0.3 * b)
+        blade_tip_x = shaft_top_x + int(1.2 * b)
+        blade_tip_y = shaft_top_y + int(0.8 * b)
+        blade_inner_x = shaft_top_x + int(0.6 * b)
+        blade_inner_y = shaft_top_y + int(0.6 * b)
+
+        # 회전 적용
+        if scythe_angle != 0:
+            _rb = self._rotate_point(blade_base_x, blade_base_y, pivot_x, pivot_y, scythe_angle)
+            bb_x, bb_y = int(_rb[0]), int(_rb[1])
+            _rm = self._rotate_point(blade_mid_x, blade_mid_y, pivot_x, pivot_y, scythe_angle)
+            bm_x, bm_y = int(_rm[0]), int(_rm[1])
+            _rt = self._rotate_point(blade_tip_x, blade_tip_y, pivot_x, pivot_y, scythe_angle)
+            bt_x, bt_y = int(_rt[0]), int(_rt[1])
+            _ri = self._rotate_point(blade_inner_x, blade_inner_y, pivot_x, pivot_y, scythe_angle)
+            bi_x, bi_y = int(_ri[0]), int(_ri[1])
+        else:
+            bb_x, bb_y = blade_base_x, blade_base_y
+            bm_x, bm_y = blade_mid_x, blade_mid_y
+            bt_x, bt_y = blade_tip_x, blade_tip_y
+            bi_x, bi_y = blade_inner_x, blade_inner_y
+
+        # 칼날 외곽 (바깥쪽 곡선 - 날카로운 엣지)
+        blade_outer_pts = [
+            (bb_x, bb_y),
+            (bm_x, bm_y),
+            (bt_x, bt_y),
+            (bi_x, bi_y),
+        ]
+        pygame.draw.polygon(screen, p["scythe_blade"], blade_outer_pts)
+        # 칼날 엣지 (밝은 선 - 날 부분)
+        pygame.draw.line(screen, p["scythe_blade_edge"],
+                        (bb_x, bb_y), (bm_x, bm_y),
+                        max(1, int(0.07 * b)))
+        pygame.draw.line(screen, p["scythe_blade_edge"],
+                        (bm_x, bm_y), (bt_x, bt_y),
+                        max(1, int(0.06 * b)))
+        # 칼날 안쪽 그림자
+        pygame.draw.line(screen, p["scythe_blade_dark"],
+                        (bi_x, bi_y), (bt_x, bt_y),
+                        max(1, int(0.05 * b)))
+        # 칼날 표면 반사광
+        refl_x = (bm_x + bi_x) // 2
+        refl_y = (bm_y + bi_y) // 2
+        refl_r = max(1, int(0.08 * b))
+        refl_surf = self._get_surface(refl_r * 4, refl_r * 4)
+        refl_a = int(40 + 25 * sun_pulse)
+        pygame.draw.circle(refl_surf, (*p["scythe_blade_edge"], refl_a), (refl_r * 2, refl_r * 2), refl_r)
+        screen.blit(refl_surf, (refl_x - refl_r * 2, refl_y - refl_r * 2))
+
+        # 자루-칼날 연결부 금장식
+        conn_r = max(2, int(0.12 * b))
+        pygame.draw.circle(screen, p["gold_dark"], (s_top_x, s_top_y), conn_r)
+        pygame.draw.circle(screen, p["gold"], (s_top_x, s_top_y), max(1, conn_r - 1))
+        # 자루 하단 금 끝장식
+        end_r = max(2, int(0.1 * b))
+        pygame.draw.circle(screen, p["gold_dark"], (s_bot_x, s_bot_y), end_r)
+        pygame.draw.circle(screen, p["gold"], (s_bot_x, s_bot_y), max(1, end_r - 1))
+
+        # 스윙 시 칼날 불꽃 파티클
+        if abs(weapon_swing) > 0.3:
+            burst_n = int(abs(weapon_swing) * 8)
+            for bi in range(burst_n):
+                bp = self.time * 8.0 + bi * 2.1 + weapon_swing * 10
+                bx = bt_x + int(_sin(bp) * 1.2 * b)
+                by = bt_y + int(_cos(bp * 0.7) * 0.8 * b)
+                ba = int(abs(weapon_swing) * 150 * max(0, _sin(bp * 1.5)))
+                burst_r = max(1, int(0.1 * b))
+                if ba > 10:
+                    bs = self._get_surface(burst_r * 2, burst_r * 2)
+                    pygame.draw.circle(bs, (*p["sun_orange"], ba), (burst_r, burst_r), burst_r)
+                    screen.blit(bs, (bx - burst_r, by - burst_r))
+
+        # ─── 양팔 (낫 자루를 양손으로 잡는 포즈) ───
         for side in [-1, 1]:
             s_x = cx + side * int(1.0 * b) + lean_offset
             s_y = shoulder_y + int(0.2 * b)
-            arm_swing_val = left_arm_swing if side == -1 else right_arm_swing
-            e_x = s_x + side * int(0.5 * b) + int(arm_swing_val * 0.5 * b)
-            e_y = s_y + int(1.2 * b)
-            h_x = e_x + side * int(0.2 * b) + int(wave * 0.15 * b)
-            h_y = e_y + int(0.8 * b)
-            if side == -1 and not show_back:
-                h_y = e_y + int(0.3 * b)
-            # 무기 스윙 시 팔 모션
-            is_staff_arm = (side == -1 and not show_back) or (side == 1 and show_back)
-            if is_staff_arm and weapon_swing != 0:
-                ws_x = int(weapon_swing * 4.0 * b * side)
-                ws_y = int(abs(weapon_swing) * 2.0 * b)
-                e_x += ws_x
-                e_y -= ws_y
-                h_x += int(ws_x * 0.7)
-                h_y -= int(ws_y * 0.5)
+            # 위쪽 그립: 정면=왼손(-1), 후면=오른손(1)
+            is_top_grip = (side == -1 and not show_back) or (side == 1 and show_back)
+            if is_top_grip:
+                target_hx, target_hy = g_top_x, g_top_y
+            else:
+                target_hx, target_hy = g_bot_x, g_bot_y
+            # 팔꿈치 (어깨→손 중간, 약간 바깥쪽)
+            e_x = (s_x + target_hx) // 2 + side * int(0.3 * b)
+            e_y = (s_y + target_hy) // 2 + int(0.2 * b)
             # 윗팔
             pygame.draw.line(screen, p["skin_bronze"], (s_x, s_y), (e_x, e_y), arm_thick + 1)
             pygame.draw.line(screen, p["skin_light"], (s_x, s_y), (e_x, e_y), arm_thick)
             # 아랫팔
-            pygame.draw.line(screen, p["skin_bronze"], (e_x, e_y), (h_x, h_y), arm_thick)
-            # 금 팔찌
+            pygame.draw.line(screen, p["skin_bronze"], (e_x, e_y), (target_hx, target_hy), arm_thick)
+            # 팔꿈치 금 팔찌
             br_r = max(2, int(0.15 * b))
             pygame.draw.circle(screen, p["gold"], (e_x, e_y), br_r)
             # 손
             hand_r = max(2, int(0.18 * b))
-            pygame.draw.circle(screen, p["skin_bronze"], (h_x, h_y), hand_r)
-
-            # 태양 지팡이 - 정면:왼손, 후면:오른손
-            if (side == -1 and not show_back) or (side == 1 and show_back):
-                staff_bx = h_x
-                staff_by = h_y
-                raw_end_x = h_x
-                raw_end_y = torso_y - int(2.5 * b)
-                # 스윙 회전
-                swing_dir = -1 if show_back else 1
-                staff_angle = weapon_swing * 1.8 * swing_dir
-                if staff_angle != 0:
-                    _rot = self._rotate_point(raw_end_x, raw_end_y, staff_bx, staff_by, staff_angle)
-                    staff_tx, staff_ty = int(_rot[0]), int(_rot[1])
-                else:
-                    staff_tx, staff_ty = raw_end_x, raw_end_y
-
-                # 스윙 잔상 (태양빛 호 궤적)
-                if abs(weapon_swing) > 0.15:
-                    trail_pts = []
-                    t_steps = 5
-                    for ti in range(t_steps + 1):
-                        t_frac = ti / float(t_steps)
-                        t_ang = staff_angle * t_frac
-                        if t_ang != 0:
-                            _tr = self._rotate_point(raw_end_x, raw_end_y, staff_bx, staff_by, t_ang)
-                            trail_pts.append((int(_tr[0]), int(_tr[1])))
-                        else:
-                            trail_pts.append((raw_end_x, raw_end_y))
-                    t_all_x = [tp_i[0] for tp_i in trail_pts] + [staff_bx]
-                    t_all_y = [tp_i[1] for tp_i in trail_pts] + [staff_by]
-                    t_pad = int(0.5 * b)
-                    t_mn_x, t_mn_y = min(t_all_x) - t_pad, min(t_all_y) - t_pad
-                    t_mx_x, t_mx_y = max(t_all_x) + t_pad, max(t_all_y) + t_pad
-                    tw = max(4, t_mx_x - t_mn_x)
-                    th = max(4, t_mx_y - t_mn_y)
-                    t_surf = self._get_surface(tw, th)
-                    for ti in range(len(trail_pts) - 1):
-                        f_alpha = int(abs(weapon_swing) * 120 * ((ti + 1) / len(trail_pts)))
-                        lp1 = (trail_pts[ti][0] - t_mn_x, trail_pts[ti][1] - t_mn_y)
-                        lp2 = (trail_pts[ti + 1][0] - t_mn_x, trail_pts[ti + 1][1] - t_mn_y)
-                        pygame.draw.line(t_surf, (*p["sun_glow"], f_alpha),
-                                       lp1, lp2, max(2, int(0.15 * b)))
-                    screen.blit(t_surf, (t_mn_x, t_mn_y))
-
-                # 지팡이 몸체
-                pygame.draw.line(screen, p["gold_dark"],
-                               (staff_bx, staff_by), (staff_tx, staff_ty),
-                               max(2, int(0.12 * b)))
-                pygame.draw.line(screen, p["gold"],
-                               (staff_bx - 1, staff_by), (staff_tx - 1, staff_ty),
-                               max(1, int(0.07 * b)))
-
-                # ─── 태양 디스크 (지팡이 상단) ───
-                sun_x, sun_y = staff_tx, staff_ty
-                sun_r = max(3, int(0.25 * b))
-                # 태양 광선 (바깥쪽 삼각 광선들)
-                ray_count = 8
-                for ri in range(ray_count):
-                    ray_angle = ri * (2 * 3.14159 / ray_count) + t * 0.8
-                    ray_len = sun_r + max(2, int(0.2 * b + 0.05 * b * sun_pulse))
-                    ray_ex = sun_x + int(_cos(ray_angle) * ray_len)
-                    ray_ey = sun_y + int(_sin(ray_angle) * ray_len)
-                    ray_alpha = int(80 + 60 * sun_pulse)
-                    ray_w = max(1, int(0.06 * b))
-                    rs = self._get_surface(abs(ray_ex - sun_x) * 2 + ray_w * 4, abs(ray_ey - sun_y) * 2 + ray_w * 4)
-                    rsx, rsy = rs.get_width() // 2, rs.get_height() // 2
-                    pygame.draw.line(rs, (*p["sun_glow"], ray_alpha),
-                                   (rsx, rsy),
-                                   (rsx + ray_ex - sun_x, rsy + ray_ey - sun_y),
-                                   ray_w)
-                    screen.blit(rs, (sun_x - rsx, sun_y - rsy))
-                # 태양 원 (글로우)
-                glow_r = sun_r + max(2, int(0.15 * b * sun_pulse))
-                gs = self._get_surface(glow_r * 4, glow_r * 4)
-                ga = int(40 + 30 * sun_pulse)
-                pygame.draw.circle(gs, (*p["sun_glow"], ga), (glow_r * 2, glow_r * 2), glow_r)
-                screen.blit(gs, (sun_x - glow_r * 2, sun_y - glow_r * 2),
-                           special_flags=pygame.BLEND_ADD)
-                # 태양 본체
-                pygame.draw.circle(screen, p["sun_orange"], (sun_x, sun_y), sun_r)
-                pygame.draw.circle(screen, p["sun_glow"], (sun_x, sun_y), max(2, sun_r - 1))
-                inner_r = max(1, sun_r // 2)
-                pygame.draw.circle(screen, p["sun_core"], (sun_x, sun_y), inner_r)
-
-                # 스윙 시 태양 불꽃 파티클
-                if abs(weapon_swing) > 0.3:
-                    burst_n = int(abs(weapon_swing) * 8)
-                    for bi in range(burst_n):
-                        bp = self.time * 8.0 + bi * 2.1 + weapon_swing * 10
-                        bx = staff_tx + int(_sin(bp) * 1.5 * b)
-                        by = staff_ty + int(_cos(bp * 0.7) * 1.0 * b)
-                        ba = int(abs(weapon_swing) * 160 * max(0, _sin(bp * 1.5)))
-                        br = max(1, int(0.12 * b))
-                        if ba > 10:
-                            bs = self._get_surface(br * 2, br * 2)
-                            pygame.draw.circle(bs, (*p["sun_orange"], ba), (br, br), br)
-                            screen.blit(bs, (bx - br, by - br))
+            pygame.draw.circle(screen, p["skin_bronze"], (target_hx, target_hy), hand_r)
 
         # ─── 머리 (독수리/매 가면) ───
         head_x = cx + lean_offset
