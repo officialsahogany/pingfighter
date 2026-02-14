@@ -2900,25 +2900,92 @@ class HeroPortraitRenderer:
             pygame.draw.arc(surf, (*fur_lt, 30),
                             (ear_x - ear_r, ear_y - ear_r, ear_r * 2, ear_r * 2),
                             0.5 if s == 1 else 2.5, 2.5 if s == 1 else 4.5, 1)
-        # Monkey face - using _face_base for multi-layer shading
-        face_w = int(w * 0.48)
-        face_h = int(h * 0.55)
-        face_top = int(h * 0.28)
-        self._face_base(surf, cx, face_top, face_w, face_h, skin, skin_sh, skin_hi)
-        self._face_detail(surf, cx, face_top, face_w, face_h, skin_sh, skin_hi)
-        # Fur texture lines on cheeks (fine whisker-like marks)
+        # ── Monkey face (custom primate anatomy, NOT _face_base) ──
+        face_w = int(w * 0.52)
+        face_h = int(h * 0.58)
+        face_top = int(h * 0.24)
+        fr = pygame.Rect(cx - face_w // 2, face_top, face_w, face_h)
+        # Upper face (forehead + eye area) - slightly narrower
+        upper_w = int(face_w * 0.95)
+        upper_h = int(face_h * 0.50)
+        pygame.draw.ellipse(surf, skin, (cx - upper_w // 2, face_top, upper_w, upper_h))
+        # Upper face shadow layers
+        pygame.draw.ellipse(surf, skin_sh,
+                            (cx - upper_w // 2, face_top + int(upper_h * 0.55), upper_w, int(upper_h * 0.45)))
+        pygame.draw.ellipse(surf, skin,
+                            (cx - upper_w // 2 + 1, face_top, upper_w - 2, int(upper_h * 0.6)))
+        # Forehead highlight
+        pygame.draw.ellipse(surf, (*skin_hi, 35),
+                            (cx - int(face_w * 0.20), face_top + int(face_h * 0.03),
+                             int(face_w * 0.40), int(face_h * 0.12)))
+        # ── Protruding MUZZLE (key monkey feature) ──
+        muzzle_w = int(face_w * 0.72)
+        muzzle_h = int(face_h * 0.50)
+        muzzle_top = face_top + int(face_h * 0.38)
+        muzzle_color = (238, 200, 160)
+        muzzle_sh = (210, 170, 135)
+        muzzle_hi = (250, 228, 198)
+        # Muzzle shadow (depth behind protrusion)
+        pygame.draw.ellipse(surf, (*skin_sh, 35),
+                            (cx - muzzle_w // 2 - 1, muzzle_top - 1, muzzle_w + 2, muzzle_h + 2))
+        # Muzzle base (lighter than surrounding face)
+        pygame.draw.ellipse(surf, muzzle_color, (cx - muzzle_w // 2, muzzle_top, muzzle_w, muzzle_h))
+        # Muzzle lower shadow
+        pygame.draw.ellipse(surf, muzzle_sh,
+                            (cx - muzzle_w // 2 + 1, muzzle_top + int(muzzle_h * 0.60),
+                             muzzle_w - 2, int(muzzle_h * 0.40)))
+        # Muzzle upper blend
+        pygame.draw.ellipse(surf, muzzle_color,
+                            (cx - muzzle_w // 2 + 1, muzzle_top, muzzle_w - 2, int(muzzle_h * 0.55)))
+        # Muzzle center highlight (protruding feel)
+        pygame.draw.ellipse(surf, (*muzzle_hi, 30),
+                            (cx - int(muzzle_w * 0.25), muzzle_top + int(muzzle_h * 0.10),
+                             int(muzzle_w * 0.50), int(muzzle_h * 0.30)))
+        # Muzzle side shadows (rounded protrusion)
         for s in [-1, 1]:
-            for fi in range(3):
-                fx1 = cx + s * int(face_w * (0.22 + fi * 0.06))
-                fy1 = face_top + int(face_h * 0.45)
-                fx2 = fx1 + s * max(1, int(w * 0.02))
-                fy2 = fy1 + max(1, int(h * 0.03))
-                pygame.draw.line(surf, (*fur_dk, 25), (fx1, fy1), (fx2, fy2), 1)
-        # Extra cheek warmth (reddish blush)
+            pygame.draw.ellipse(surf, (*muzzle_sh, 25),
+                                (cx + s * int(muzzle_w * 0.35) - int(muzzle_w * 0.10),
+                                 muzzle_top + int(muzzle_h * 0.10),
+                                 int(muzzle_w * 0.15), int(muzzle_h * 0.50)))
+        # Muzzle outline (subtle edge definition)
+        pygame.draw.ellipse(surf, (*skin_sh, 20),
+                            (cx - muzzle_w // 2, muzzle_top, muzzle_w, muzzle_h), 1)
+        # ── Prominent BROW RIDGE (overhanging eyes) ──
+        brow_y = face_top + int(face_h * 0.22)
+        brow_w = int(face_w * 0.85)
+        brow_h = max(3, int(face_h * 0.08))
+        pygame.draw.ellipse(surf, skin_sh,
+                            (cx - brow_w // 2, brow_y, brow_w, brow_h))
+        # Brow ridge highlight on top edge
+        pygame.draw.ellipse(surf, (*skin_hi, 30),
+                            (cx - int(brow_w * 0.40), brow_y - 1, int(brow_w * 0.80), max(2, brow_h // 2)))
+        # Deep-set eye sockets (shadow under brow)
         for s in [-1, 1]:
-            pygame.draw.ellipse(surf, (230, 160, 130, 25),
-                                (cx + s * int(w * 0.07) - int(w * 0.05), face_top + int(face_h * 0.40),
-                                 int(w * 0.09), int(face_h * 0.13)))
+            sock_x = cx + s * int(w * 0.10)
+            pygame.draw.ellipse(surf, (*self._darken(skin_sh, 20), 20),
+                                (sock_x - int(w * 0.07), brow_y + brow_h - 1,
+                                 int(w * 0.14), int(h * 0.06)))
+        # Temple & side face shadows
+        for s in [-1, 1]:
+            pygame.draw.ellipse(surf, (*skin_sh, 22),
+                                (cx + s * int(face_w * 0.34) - int(face_w * 0.09),
+                                 face_top + int(face_h * 0.10),
+                                 int(face_w * 0.14), int(face_h * 0.30)))
+        # Cheek fur fringe (where fur meets skin)
+        for s in [-1, 1]:
+            for fi in range(4):
+                fx1 = cx + s * int(face_w * (0.38 + fi * 0.03))
+                fy1 = face_top + int(face_h * (0.20 + fi * 0.08))
+                fx2 = fx1 + s * max(1, int(w * 0.015))
+                fy2 = fy1 + max(1, int(h * 0.025))
+                pygame.draw.line(surf, (*fur, 30), (fx1, fy1), (fx2, fy2), 1)
+        # Wrinkle lines around eyes (primate feature)
+        for s in [-1, 1]:
+            for wi in range(2):
+                wx = cx + s * int(w * 0.16) + s * wi * max(1, int(w * 0.02))
+                wy = face_top + int(face_h * 0.36) + wi * max(1, int(h * 0.01))
+                pygame.draw.line(surf, (*skin_sh, 16),
+                                 (wx, wy), (wx + s * max(1, int(w * 0.02)), wy + 1), 1)
         # Golden crown/band on forehead - enhanced with gradient and gems
         band_y = int(h * 0.17)
         band_h = max(4, int(h * 0.09))
@@ -2960,94 +3027,116 @@ class HeroPortraitRenderer:
             pygame.draw.circle(surf, self._darken(crown_lt, 15), (gx, gem_y), sr + 1)
             pygame.draw.circle(surf, crown_lt, (gx, gem_y), sr)
             pygame.draw.circle(surf, crown_hi, (gx - 1, gem_y - 1), max(1, sr // 2))
-        # Fiery golden eyes using _hq_eye
-        eye_y = int(h * 0.42)
+        # ── Deep-set MONKEY EYES (under brow ridge) ──
+        eye_y = face_top + int(face_h * 0.34)
         eye_sp = int(w * 0.10)
         for s in [-1, 1]:
             ex = cx + s * eye_sp
             ew = max(4, int(w * 0.07))
-            eh = max(3, int(h * 0.06))
+            eh = max(3, int(h * 0.055))
+            # Deeper eye socket shadow (primate deep-set)
+            pygame.draw.ellipse(surf, (*self._darken(skin_sh, 25), 30),
+                                (ex - ew - 2, eye_y - eh - 3, (ew + 2) * 2, (eh + 3) * 2))
             self._hq_eye(surf, ex, eye_y, ew, eh, b, eye_color,
                          pupil_color=(50, 30, 10), sclera=(255, 252, 235),
                          glow_color=(220, 190, 40), sharp=True, sparkle=True,
                          lid_color=fur_dk)
-        # Mischievous arched eyebrows - thicker, more expressive
+        # Heavy primate brow ridges (fur-covered, thick)
         for s in [-1, 1]:
             bx = cx + s * eye_sp
-            by = eye_y - max(4, int(h * 0.08))
-            bw = int(w * 0.06)
+            by = eye_y - max(4, int(h * 0.065))
+            bw = int(w * 0.07)
             bh = int(h * 0.04)
-            # Thicker brow with fur texture
+            # Thick furry brow
             pygame.draw.arc(surf, fur_dk, (bx - bw, by - bh, bw * 2, bh * 2),
-                            0.3, 2.8, max(2, int(b * 0.08)))
-            pygame.draw.arc(surf, self._mix(fur_dk, fur, 0.5), (bx - bw, by - bh - 1, bw * 2, bh * 2),
-                            0.5, 2.6, max(1, int(b * 0.05)))
-        # Monkey nose - use nose_detail base then override with flat monkey shape
-        nose_y = int(h * 0.53)
-        nose_w = max(4, int(w * 0.07))
-        nose_h = max(3, int(h * 0.05))
-        # Bridge detail from nose_detail
-        self._nose_detail(surf, cx, nose_y, b, skin, skin_sh, skin_hi, w, h)
-        # Override with flat monkey nose shape on top
-        pygame.draw.ellipse(surf, skin_sh, (cx - nose_w, nose_y - 1, nose_w * 2, nose_h * 2 + 1))
-        pygame.draw.ellipse(surf, skin, (cx - nose_w + 1, nose_y, nose_w * 2 - 2, int(nose_h * 1.5)))
-        # Wide flat nostrils (monkey-specific)
+                            0.2, 2.9, max(2, int(b * 0.10)))
+            pygame.draw.arc(surf, fur, (bx - bw, by - bh - 1, bw * 2, bh * 2),
+                            0.3, 2.8, max(1, int(b * 0.07)))
+            # Brow fur strands
+            for bi in range(3):
+                bsx = bx - int(bw * 0.6) + bi * max(1, int(bw * 0.5))
+                pygame.draw.line(surf, (*fur_dk, 30),
+                                 (bsx, by), (bsx + s * max(1, int(w * 0.01)), by - 2), 1)
+        # ── Flat wide MONKEY NOSE (on muzzle, primate anatomy) ──
+        nose_y = muzzle_top + int(muzzle_h * 0.25)
+        nose_w = max(5, int(w * 0.10))
+        nose_h = max(4, int(h * 0.06))
+        # Flat nose pad (wide, low-bridged)
+        pygame.draw.ellipse(surf, muzzle_sh, (cx - nose_w - 1, nose_y - 1, nose_w * 2 + 2, nose_h * 2 + 2))
+        pygame.draw.ellipse(surf, muzzle_color, (cx - nose_w, nose_y, nose_w * 2, nose_h * 2))
+        # Nose pad highlight (rounded, protruding)
+        pygame.draw.ellipse(surf, (*muzzle_hi, 40),
+                            (cx - int(nose_w * 0.5), nose_y + 1, int(nose_w * 1.0), int(nose_h * 1.0)))
+        # Large round nostrils (wide-set, very monkey-like)
+        nostril_r = max(2, int(b * 0.08))
+        nostril_sp = max(3, int(w * 0.06))
         for s in [-1, 1]:
-            nx = cx + s * max(2, int(nose_w * 0.6))
+            nx = cx + s * nostril_sp
             ny = nose_y + nose_h
-            pygame.draw.circle(surf, (150, 110, 80), (nx, ny), max(1, int(b * 0.055)))
-            pygame.draw.circle(surf, (130, 90, 60), (nx + s, ny), max(1, int(b * 0.03)))
-            # Nostril inner shadow
-            pygame.draw.circle(surf, (110, 75, 50), (nx + s, ny + 1), max(1, int(b * 0.02)))
-        # Nose highlight
-        pygame.draw.ellipse(surf, (*skin_hi, 45), (cx - int(nose_w * 0.4), nose_y + 1,
-                                                    int(nose_w * 0.8), int(nose_h * 0.8)))
-        # Mischievous wide grin - lips base then teeth/fangs
-        mouth_y = int(h * 0.65)
-        mouth_w = int(w * 0.15)
-        lip_color = (170, 120, 80)
-        lip_hi2 = (210, 170, 130)
-        self._lips(surf, cx, mouth_y, b, lip_color, lip_hi2, w_frac=0.15)
-        # Wider grin arc on top
-        pygame.draw.arc(surf, (140, 90, 60), (cx - mouth_w - 1, mouth_y - int(h * 0.02) - 1,
-                        mouth_w * 2 + 2, int(h * 0.09)),
-                        3.3, 6.1, max(2, int(b * 0.08)))
-        # Mischievous expression lines (raised corners)
+            # Nostril outer ring
+            pygame.draw.circle(surf, (140, 100, 70), (nx, ny), nostril_r + 1)
+            # Nostril hole (dark)
+            pygame.draw.circle(surf, (90, 60, 35), (nx, ny), nostril_r)
+            # Nostril inner depth
+            pygame.draw.circle(surf, (65, 40, 20), (nx + s, ny + 1), max(1, nostril_r - 1))
+            # Nostril edge highlight
+            pygame.draw.circle(surf, (*muzzle_hi, 35), (nx - s, ny - 1), max(1, nostril_r // 2))
+        # Nose septum line
+        pygame.draw.line(surf, (*muzzle_sh, 30), (cx, nose_y + 2), (cx, nose_y + nose_h + nostril_r), 1)
+        # Nose bridge (very flat, almost absent - primate style)
+        pygame.draw.line(surf, (*skin_sh, 18), (cx, muzzle_top - int(h * 0.02)), (cx, nose_y + 1), 1)
+        # ── Wide MONKEY MOUTH / GRIN (on muzzle) ──
+        mouth_y = muzzle_top + int(muzzle_h * 0.62)
+        mouth_w = int(muzzle_w * 0.45)
+        lip_dk = (155, 105, 70)
+        lip_color = (175, 125, 85)
+        # Mouth opening (dark interior)
+        pygame.draw.ellipse(surf, (80, 50, 30),
+                            (cx - mouth_w, mouth_y - int(h * 0.005), mouth_w * 2, int(h * 0.04)))
+        # Upper lip (thin, wide)
+        pygame.draw.arc(surf, lip_dk,
+                        (cx - mouth_w, mouth_y - int(h * 0.015), mouth_w * 2, int(h * 0.04)),
+                        0.2, 2.9, max(1, int(b * 0.06)))
+        # Lower lip (slightly fuller, primate-style)
+        pygame.draw.arc(surf, lip_color,
+                        (cx - int(mouth_w * 0.8), mouth_y + int(h * 0.005),
+                         int(mouth_w * 1.6), int(h * 0.035)),
+                        3.4, 5.9, max(1, int(b * 0.06)))
+        # Lower lip highlight
+        pygame.draw.ellipse(surf, (*muzzle_hi, 22),
+                            (cx - int(mouth_w * 0.3), mouth_y + int(h * 0.01),
+                             int(mouth_w * 0.6), max(1, int(h * 0.012))))
+        # Mouth corners (upturned = mischievous grin)
         for s in [-1, 1]:
-            pygame.draw.line(surf, (*skin_sh, 40),
-                             (cx + s * int(mouth_w * 0.9), mouth_y - 1),
-                             (cx + s * int(mouth_w * 1.1), mouth_y - int(h * 0.02)), 1)
-        # Teeth showing in grin - individual teeth
-        teeth_y = mouth_y + int(h * 0.01)
-        teeth_w = int(mouth_w * 0.9)
-        teeth_h = max(2, int(h * 0.025))
+            pygame.draw.line(surf, lip_dk,
+                             (cx + s * mouth_w, mouth_y),
+                             (cx + s * int(mouth_w * 1.15), mouth_y - int(h * 0.015)),
+                             max(1, int(b * 0.05)))
+            # Mouth fold (nasolabial crease around muzzle)
+            pygame.draw.line(surf, (*muzzle_sh, 18),
+                             (cx + s * int(mouth_w * 1.1), mouth_y - int(h * 0.02)),
+                             (cx + s * int(muzzle_w * 0.40), muzzle_top + int(muzzle_h * 0.15)), 1)
+        # Teeth showing in wide grin
+        teeth_y = mouth_y + int(h * 0.005)
+        teeth_w = int(mouth_w * 0.85)
+        teeth_h = max(2, int(h * 0.022))
         pygame.draw.rect(surf, (250, 245, 235), (cx - teeth_w // 2, teeth_y, teeth_w, teeth_h))
-        # Tooth dividers (more teeth)
-        num_teeth = 5
-        for i in range(1, num_teeth):
-            tx = cx - teeth_w // 2 + int(i * teeth_w / num_teeth)
-            pygame.draw.line(surf, (220, 210, 200), (tx, teeth_y), (tx, teeth_y + teeth_h), 1)
-        # Teeth highlight
-        pygame.draw.rect(surf, (255, 252, 248, 40), (cx - teeth_w // 2, teeth_y, teeth_w, max(1, teeth_h // 2)))
-        # Prominent canine fangs at edges
+        # Tooth dividers
+        for i in range(1, 5):
+            tx = cx - teeth_w // 2 + int(i * teeth_w / 5)
+            pygame.draw.line(surf, (225, 215, 205), (tx, teeth_y), (tx, teeth_y + teeth_h), 1)
+        # Prominent canine fangs
         for s in [-1, 1]:
             fx = cx + s * (teeth_w // 2 + 1)
-            fang_h = teeth_h + max(2, int(h * 0.015))
+            fang_h = teeth_h + max(2, int(h * 0.018))
             pygame.draw.polygon(surf, (248, 243, 230),
-                                [(fx - max(1, int(w * 0.005)), teeth_y),
-                                 (fx + s * max(1, int(w * 0.01)), teeth_y + fang_h),
-                                 (fx + max(1, int(w * 0.005)), teeth_y)])
-            pygame.draw.polygon(surf, (235, 228, 215),
-                                [(fx - max(1, int(w * 0.005)), teeth_y),
-                                 (fx + s * max(1, int(w * 0.01)), teeth_y + fang_h),
-                                 (fx + max(1, int(w * 0.005)), teeth_y)], 1)
-        # Mischievous raised eyebrow marks
-        for s in [-1, 1]:
-            rbx = cx + s * eye_sp
-            rby = eye_y - max(5, int(h * 0.10))
-            pygame.draw.line(surf, (*fur_dk, 30),
-                             (rbx - s * max(1, int(w * 0.01)), rby),
-                             (rbx + s * max(1, int(w * 0.03)), rby - max(1, int(h * 0.01))), 1)
+                                [(fx - max(1, int(w * 0.006)), teeth_y),
+                                 (fx + s * max(1, int(w * 0.008)), teeth_y + fang_h),
+                                 (fx + max(1, int(w * 0.006)), teeth_y)])
+            pygame.draw.polygon(surf, (230, 220, 210),
+                                [(fx - max(1, int(w * 0.006)), teeth_y),
+                                 (fx + s * max(1, int(w * 0.008)), teeth_y + fang_h),
+                                 (fx + max(1, int(w * 0.006)), teeth_y)], 1)
         # Ruyi Jingu Bang (staff) silhouette hint at edge
         staff_x = int(w * 0.88)
         pygame.draw.line(surf, (*crown_dk, 30), (staff_x, int(h * 0.10)), (staff_x, int(h * 0.85)), max(1, int(b * 0.04)))
