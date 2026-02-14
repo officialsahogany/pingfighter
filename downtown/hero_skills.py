@@ -14077,23 +14077,27 @@ class BananaSlice(HeroSkill):
         return positions
 
     def _execute_throw(self, caster_paddle):
-        """준비 동작 완료 후 바나나 2개 투척 (각각 랜덤 위치)"""
+        """준비 동작 완료 후 바나나 2개 투척 (각각 랜덤 위치, 시차 발사)"""
         start_x = self.prepare_display_x
         start_y = self.prepare_display_y
         vel_y = self.THROW_SPEED if self.caster_is_top else -self.THROW_SPEED
-        for target_x in self._pending_target_xs:
+        for i, target_x in enumerate(self._pending_target_xs):
             dx = target_x - start_x
             if abs(dx) > 1:
                 vel_x = (dx / abs(dx)) * min(abs(dx) * 2, self.THROW_SPEED * 0.3)
             else:
                 vel_x = 0.0
+            # 두 번째 바나나는 약간의 발사 딜레이 (시각적 구분)
+            delay_offset = i * 0.15  # 0.15초 간격
             self.projectiles.append({
                 'x': float(start_x), 'y': float(start_y),
                 'vel_x': vel_x, 'vel_y': vel_y,
                 'rotation': 0.0,
                 'rotation_speed': random.uniform(480, 900) * random.choice([-1, 1]),
                 'active': True,
+                'delay': delay_offset,  # 발사 딜레이
             })
+        print(f"[BananaSlice] 🍌 바나나 {len(self._pending_target_xs)}개 투척! 목표 X: {self._pending_target_xs}")
         self._play_throw_sound()
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
@@ -14115,6 +14119,10 @@ class BananaSlice(HeroSkill):
         for proj in self.projectiles[:]:
             if not proj['active']:
                 self.projectiles.remove(proj)
+                continue
+            # 발사 딜레이 처리 (딜레이 중에는 대기)
+            if proj.get('delay', 0) > 0:
+                proj['delay'] -= dt
                 continue
             proj['x'] += proj['vel_x'] * dt
             proj['y'] += proj['vel_y'] * dt
@@ -14260,7 +14268,7 @@ class BananaSlice(HeroSkill):
 
         # 비행 중 바나나
         for proj in self.projectiles:
-            if not proj['active']:
+            if not proj['active'] or proj.get('delay', 0) > 0:
                 continue
             banana_surf = self._create_banana_surface(64)
             rotated = pygame.transform.rotate(banana_surf, proj['rotation'])
