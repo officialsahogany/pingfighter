@@ -13990,7 +13990,7 @@ class BananaSlice(HeroSkill):
             korean_name="바나나 슬라이스",
             description="바나나를 던져 상대가 밟으면 미끄러진다",
             trigger=SkillTrigger.ON_BALL_HIT,
-            cooldown=15.0,
+            cooldown=18.0,
             duration=999.0,
             hero_id="monkeyking"
         )
