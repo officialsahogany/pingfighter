@@ -8841,39 +8841,45 @@ class HeroPaddleRenderer:
                            (butt_cx, butt_cy + butt_h - int(0.1 * b)),
                            max(1, int(0.04 * b)))
 
-            # ─── 꼬리 (후면에서만 보임 - 엉덩이 위에 그림) ───
+            # ─── 꼬리 (후면에서만 보임 - 엉덩이 위, 대각선 + 끝 말림) ───
             tail_base_x = cx + lean_offset
             tail_base_y = torso_y + int(1.8 * b)
-            # 꼬리 곡선 - 4개 제어점으로 S자 곡선
-            tail_sway_fast = _sin(t * 3.2) * 0.5 * b
-            tail_curl = _sin(t * 1.5) * 0.3 * b
+            tail_sway_fast = _sin(t * 3.2) * 0.3 * b
+            tail_curl_anim = _sin(t * 1.5) * 0.15 * b
 
-            # 꼬리 관절 좌표 (기저부 → 중간 → 끝)
-            t1x = tail_base_x + int(tail_drift * 0.3)
-            t1y = tail_base_y + int(0.3 * b)
-            t2x = tail_base_x + int(tail_drift * 0.6) + int(tail_sway_fast * 0.5)
-            t2y = tail_base_y - int(0.8 * b)
-            t3x = tail_base_x + int(tail_drift * 0.9) + int(tail_sway_fast)
-            t3y = tail_base_y - int(1.8 * b) + int(tail_curl)
-            t4x = tail_base_x + int(tail_drift * 1.1) + int(tail_sway_fast * 1.3) + int(tail_curl * 0.6)
-            t4y = tail_base_y - int(2.3 * b) + int(tail_curl * 1.5) + int(_sin(t * 2.5) * 0.2 * b)
+            # 꼬리 방향: 옆으로 대각선 (X 많이, Y 조금)
+            # 관절 좌표 (기저부 → 대각선 → 말림)
+            t1x = tail_base_x + int(tail_drift * 0.2) + int(0.3 * b)
+            t1y = tail_base_y - int(0.1 * b)
+            t2x = tail_base_x + int(tail_drift * 0.4) + int(1.0 * b) + int(tail_sway_fast * 0.3)
+            t2y = tail_base_y - int(0.5 * b) + int(tail_curl_anim * 0.3)
+            t3x = tail_base_x + int(tail_drift * 0.6) + int(1.6 * b) + int(tail_sway_fast * 0.6)
+            t3y = tail_base_y - int(0.8 * b) + int(tail_curl_anim * 0.6)
+            # 말림 시작 (위쪽으로 꺾임)
+            t4x = tail_base_x + int(tail_drift * 0.7) + int(1.8 * b) + int(tail_sway_fast * 0.8)
+            t4y = tail_base_y - int(1.2 * b) + int(tail_curl_anim)
+            # 말림 끝 (동그랗게 안쪽으로 돌아옴)
+            curl_phase = t * 1.8
+            t5x = t4x - int(0.3 * b) + int(_sin(curl_phase) * 0.08 * b)
+            t5y = t4y - int(0.35 * b) + int(_cos(curl_phase) * 0.06 * b)
+            t6x = t5x - int(0.35 * b) + int(_sin(curl_phase) * 0.05 * b)
+            t6y = t5y + int(0.1 * b) + int(_cos(curl_phase) * 0.04 * b)
+
+            tail_pts = [(t1x, t1y), (t2x, t2y), (t3x, t3y), (t4x, t4y), (t5x, t5y), (t6x, t6y)]
+            seg_count = len(tail_pts) - 1
 
             # 꼬리 그림자
             tail_shadow_off = int(0.06 * b)
-            for i in range(3):
-                pts = [(t1x, t1y), (t2x, t2y), (t3x, t3y), (t4x, t4y)]
-                p1 = pts[i]
-                p2 = pts[i + 1]
-                seg_thick = max(2, int((0.28 - i * 0.06) * b))
-                pygame.draw.line(screen, (60, 40, 15, 40) if i == 0 else p["fur_deep"],
-                               (p1[0] + tail_shadow_off, p1[1] + tail_shadow_off),
-                               (p2[0] + tail_shadow_off, p2[1] + tail_shadow_off),
+            for i in range(seg_count):
+                seg_thick = max(2, int((0.28 - i * 0.04) * b))
+                pygame.draw.line(screen, p["fur_deep"],
+                               (tail_pts[i][0] + tail_shadow_off, tail_pts[i][1] + tail_shadow_off),
+                               (tail_pts[i + 1][0] + tail_shadow_off, tail_pts[i + 1][1] + tail_shadow_off),
                                seg_thick + 1)
 
             # 꼬리 본체 (굵기 점점 가늘어짐)
-            tail_pts = [(t1x, t1y), (t2x, t2y), (t3x, t3y), (t4x, t4y)]
-            for i in range(3):
-                seg_thick = max(2, int((0.28 - i * 0.06) * b))
+            for i in range(seg_count):
+                seg_thick = max(2, int((0.28 - i * 0.04) * b))
                 # 외곽 (어두운 색)
                 pygame.draw.line(screen, p["fur_dark"],
                                tail_pts[i], tail_pts[i + 1], seg_thick + 1)
@@ -8887,9 +8893,9 @@ class HeroPaddleRenderer:
                                max(1, seg_thick // 3))
 
             # 꼬리 끝 둥근 마감
-            tip_r = max(2, int(0.1 * b))
-            pygame.draw.circle(screen, p["fur_dark"], (t4x, t4y), tip_r + 1)
-            pygame.draw.circle(screen, p["fur_gold"], (t4x, t4y), tip_r)
+            tip_r = max(2, int(0.08 * b))
+            pygame.draw.circle(screen, p["fur_dark"], (t6x, t6y), tip_r + 1)
+            pygame.draw.circle(screen, p["fur_gold"], (t6x, t6y), tip_r)
 
         # 어깨 근육 (양쪽 둥근 근육 - 알몸 원숭이 어깨)
         shoulder_y_pos = chest_top + int(0.15 * b) + int(shoulder_bob * 0.25 * b)
