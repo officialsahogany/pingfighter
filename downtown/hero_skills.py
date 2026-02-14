@@ -14565,7 +14565,7 @@ class WildRoar(HeroSkill):
                 if sp['life'] <= 0:
                     self.energy_sparks.remove(sp)
 
-        # --- 공과 링 충돌 체크 (링 반경 밴드 방식) ---
+        # --- 공과 링 충돌 체크 (원형 법선 반사) ---
         if not self.ball_reflected and ball:
             ball_cx = ball.x + getattr(ball, 'width', 10) / 2
             ball_cy = ball.y + getattr(ball, 'height', 10) / 2
@@ -14577,7 +14577,6 @@ class WildRoar(HeroSkill):
                            (not self.caster_is_top and ball.vy > 0))
 
             if approaching:
-                # 각 링의 현재 반경에서 ±30px 밴드 내에 공이 있으면 반사
                 BAND = 30
                 hit = False
                 for ring in self.ring_effects:
@@ -14590,8 +14589,27 @@ class WildRoar(HeroSkill):
                 if hit:
                     self.ball_reflected = True
                     boost = self._actual_boost
-                    ball.vy = -ball.vy * boost
-                    ball.vx = ball.vx * boost
+                    # 원형 표면 법선벡터 기반 반사
+                    speed = math.sqrt(ball.vx ** 2 + ball.vy ** 2)
+                    if dist > 1:
+                        # 법선벡터: 충격파 중심 → 공 방향 (바깥쪽)
+                        nx = dx / dist
+                        ny = dy / dist
+                        # 반사: V' = V - 2(V·N)N
+                        dot = ball.vx * nx + ball.vy * ny
+                        rvx = ball.vx - 2 * dot * nx
+                        rvy = ball.vy - 2 * dot * ny
+                        # 반사 방향 정규화 후 부스트 속도 적용
+                        r_len = math.sqrt(rvx ** 2 + rvy ** 2)
+                        if r_len > 0:
+                            ball.vx = (rvx / r_len) * speed * boost
+                            ball.vy = (rvy / r_len) * speed * boost
+                        else:
+                            ball.vy = -ball.vy * boost
+                            ball.vx = ball.vx * boost
+                    else:
+                        ball.vy = -ball.vy * boost
+                        ball.vx = ball.vx * boost
                     self._create_impact(ball_cx, ball_cy)
                     game_state['screen_shake'] = max(8, int(20 * boost / self.BALL_SPEED_BOOST))
                     if self._hit_sound:
