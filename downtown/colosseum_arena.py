@@ -11620,24 +11620,47 @@ class ColosseumsArena:
         return mults
 
     def _draw_perk_icon_swift_foot(self, surf, cx, cy, r, ss):
-        """질풍각 아이콘 - 바람 소용돌이"""
-        color = (100, 220, 255)
-        # 소용돌이 곡선 3개
-        for i in range(3):
+        """질풍각 아이콘 - 바람 소용돌이 (고퀄리티)"""
+        s = r * ss
+        # 배경 소프트 글로우
+        for i in range(4):
+            a = 20 - i * 5
+            pygame.draw.circle(surf, (60, 180, 255, a), (cx, cy), int(s * (0.85 - i * 0.08)))
+        # 소용돌이 곡선 5개 (더 촘촘한 나선)
+        for i in range(5):
             points = []
-            base_angle = i * (2 * math.pi / 3)
-            for t in range(20):
-                frac = t / 19.0
-                angle = base_angle + frac * math.pi * 1.5
-                dist = r * ss * (0.15 + frac * 0.7)
+            base_angle = i * (2 * math.pi / 5)
+            for t in range(35):
+                frac = t / 34.0
+                angle = base_angle + frac * math.pi * 2.0
+                dist = s * (0.08 + frac * 0.7)
                 px = cx + int(_cos(angle) * dist)
                 py = cy + int(_sin(angle) * dist)
                 points.append((px, py))
             if len(points) >= 2:
                 alpha = 200 - i * 30
-                pygame.draw.lines(surf, (*color, alpha), False, points, max(2, int(3 * ss / 3)))
-        # 중심 원
-        pygame.draw.circle(surf, (*color, 220), (cx, cy), max(2, int(r * ss * 0.15)))
+                lw = max(2, int(4 * ss / 3))
+                # 글로우 외곽
+                pygame.draw.lines(surf, (40, 150, 255, alpha // 3), False, points, lw + 3)
+                # 메인 라인
+                pygame.draw.lines(surf, (100, 220, 255, alpha), False, points, lw)
+                # 밝은 코어 라인
+                if lw > 2:
+                    pygame.draw.lines(surf, (200, 245, 255, alpha // 2), False, points, max(1, lw - 2))
+        # 중심 에너지 코어 (다층 글로우)
+        core_r = max(3, int(s * 0.16))
+        pygame.draw.circle(surf, (80, 180, 255, 100), (cx, cy), core_r + 4)
+        pygame.draw.circle(surf, (140, 220, 255, 180), (cx, cy), core_r + 1)
+        pygame.draw.circle(surf, (200, 240, 255, 240), (cx, cy), core_r)
+        pygame.draw.circle(surf, (235, 250, 255, 255), (cx, cy), max(2, core_r // 2))
+        # 바람 파티클 (6개)
+        for i in range(6):
+            angle = i * math.pi / 3 + 0.5
+            dist = s * (0.35 + (i % 3) * 0.15)
+            ppx = cx + int(_cos(angle) * dist)
+            ppy = cy + int(_sin(angle) * dist)
+            pr = max(1, int(s * 0.04))
+            pygame.draw.circle(surf, (180, 240, 255, 100 + (i % 3) * 40), (ppx, ppy), pr)
 
     def _draw_perk_icon_quick_reflex(self, surf, cx, cy, r, ss):
         """순발력 아이콘 - 번개 볼트"""
@@ -11712,307 +11735,693 @@ class ColosseumsArena:
         pygame.draw.polygon(surf, (255, 200, 200, 200), tri_points)
 
     def _draw_perk_icon_shadow_step(self, surf, cx, cy, r, ss):
-        """잔상술 아이콘 - 겹쳐진 그림자 (잔상 3개)"""
-        color = (80, 200, 180)
+        """잔상술 아이콘 - 고퀄 그림자 잔상 + 글로우 + 파티클"""
         s = r * ss
-        # 3개의 잔상 (점점 진해짐)
-        for i in range(3):
-            offset_x = int(s * 0.25 * (2 - i))
-            alpha = 60 + i * 70  # 60, 130, 200
-            body_w = int(s * 0.3)
-            body_h = int(s * 0.6)
-            bx = cx - body_w // 2 - offset_x
-            by = cy - body_h // 2
-            pygame.draw.rect(surf, (*color, alpha), (bx, by, body_w, body_h),
-                             border_radius=max(1, int(body_w * 0.3)))
+        # 배경 글로우 (시안 오라)
+        for gr in range(3):
+            glow_r = int(s * (0.8 - gr * 0.12))
+            pygame.draw.circle(surf, (40, 160, 140, 15 + gr * 8), (cx, cy), glow_r)
+        # 바닥 그림자
+        sh_w, sh_h = int(s * 1.1), int(s * 0.2)
+        sh_s = _get_arena_surface(sh_w, sh_h)
+        pygame.draw.ellipse(sh_s, (30, 80, 70, 60), (0, 0, sh_w, sh_h))
+        surf.blit(sh_s, (cx - sh_w // 2, cy + int(s * 0.38)))
+        # 잔상 4단계 (왼→오, 점점 선명)
+        body_w = int(s * 0.22)
+        body_h = int(s * 0.5)
+        head_r = int(s * 0.12)
+        for i in range(4):
+            gx = cx - int(s * 0.45) + int(s * 0.2 * i)
+            a = 30 + i * 55
+            c = (50 + i * 15, 160 + i * 15, 140 + i * 15)
             # 머리
-            head_r = int(s * 0.15)
-            pygame.draw.circle(surf, (*color, alpha), (bx + body_w // 2, by - head_r + 2), head_r)
-        # "+1" 텍스트 효과 (우측 상단)
-        plus_r = int(s * 0.2)
-        pygame.draw.circle(surf, (255, 255, 255, 200), (cx + int(s * 0.5), cy - int(s * 0.4)), plus_r)
-        lw = max(1, int(plus_r * 0.4))
-        px, py = cx + int(s * 0.5), cy - int(s * 0.4)
-        pygame.draw.line(surf, (80, 200, 180, 255), (px - plus_r + 2, py), (px + plus_r - 2, py), lw)
-        pygame.draw.line(surf, (80, 200, 180, 255), (px, py - plus_r + 2), (px, py + plus_r - 2), lw)
+            pygame.draw.circle(surf, (*c, a), (gx, cy - int(s * 0.25)), head_r)
+            # 몸체
+            pygame.draw.rect(surf, (*c, int(a * 0.85)),
+                             (gx - body_w // 2, cy - int(s * 0.08), body_w, body_h),
+                             border_radius=max(1, int(body_w * 0.3)))
+        # 메인 본체 (가장 선명)
+        mx = cx + int(s * 0.2)
+        mc = (100, 230, 210)
+        pygame.draw.circle(surf, (*mc, 245), (mx, cy - int(s * 0.25)), head_r)
+        pygame.draw.circle(surf, (180, 255, 240, 90), (mx - int(s * 0.03), cy - int(s * 0.29)), int(head_r * 0.35))
+        pygame.draw.rect(surf, (*mc, 230),
+                         (mx - body_w // 2, cy - int(s * 0.08), body_w, body_h),
+                         border_radius=max(1, int(body_w * 0.3)))
+        # 하이라이트 줄
+        hl_w = max(1, body_w // 4)
+        pygame.draw.rect(surf, (180, 255, 240, 70),
+                         (mx - hl_w // 2, cy - int(s * 0.04), hl_w, int(body_h * 0.65)),
+                         border_radius=max(1, hl_w // 2))
+        # "+1" 배지 (밝은 원 + 텍스트)
+        plus_r = int(s * 0.18)
+        px, py = cx + int(s * 0.5), cy - int(s * 0.42)
+        pygame.draw.circle(surf, (255, 255, 255, 60), (px, py), plus_r + 2)
+        pygame.draw.circle(surf, (255, 255, 255, 220), (px, py), plus_r)
+        plw = max(1, int(plus_r * 0.35))
+        pygame.draw.line(surf, (60, 180, 160, 255), (px - plus_r + 3, py), (px + plus_r - 3, py), plw)
+        pygame.draw.line(surf, (60, 180, 160, 255), (px, py - plus_r + 3), (px, py + plus_r - 3), plw)
+        # 이동 속도선
+        for i in range(3):
+            ly = cy - int(s * 0.1) + i * int(s * 0.2)
+            la = 110 - i * 25
+            pygame.draw.line(surf, (100, 220, 200, la),
+                             (cx - int(s * 0.6), ly), (cx - int(s * 0.2), ly), max(1, int(s * 0.04)))
 
     def _draw_perk_icon_storm_rush(self, surf, cx, cy, r, ss):
-        """폭풍질주 아이콘 - 화살표 + 바람 줄"""
-        color = (50, 180, 255)
+        """폭풍질주 아이콘 - 고퀄 토네이도 화살표 + 바람 이펙트"""
         s = r * ss
-        # 큰 화살표 (→)
+        # 배경 폭풍 글로우
+        for gr in range(3):
+            glow_r = int(s * (0.85 - gr * 0.15))
+            pygame.draw.circle(surf, (30, 100, 180, 12 + gr * 6), (cx, cy), glow_r)
+        # 토네이도 소용돌이 (뒤쪽 장식)
+        for i in range(5):
+            t = i / 4.0
+            sw_cx = cx - int(s * 0.15) + int(s * 0.08 * _sin(t * math.pi * 3))
+            sw_cy = cy - int(s * 0.5) + int(s * 1.0 * t)
+            sw_w = int(s * (0.15 + t * 0.3))
+            sw_a = 40 + int(t * 50)
+            pygame.draw.ellipse(surf, (80, 180, 255, sw_a),
+                                (sw_cx - sw_w, sw_cy - int(s * 0.04), sw_w * 2, int(s * 0.08)),
+                                max(1, int(s * 0.04)))
+        # 메인 화살표 몸체 (그라데이션 효과)
         arrow_y = cy
-        arrow_left = cx - int(s * 0.6)
-        arrow_right = cx + int(s * 0.3)
-        arrow_w = max(2, int(s * 0.2))
-        pygame.draw.line(surf, (*color, 230), (arrow_left, arrow_y), (arrow_right, arrow_y), arrow_w)
-        # 화살표 머리
-        head_s = int(s * 0.35)
+        arrow_left = cx - int(s * 0.55)
+        arrow_right = cx + int(s * 0.25)
+        # 화살표 광선 (밑 레이어)
+        for dy in range(-1, 2):
+            a = 180 if dy == 0 else 60
+            pygame.draw.line(surf, (100, 200, 255, a),
+                             (arrow_left, arrow_y + dy * int(s * 0.08)),
+                             (arrow_right, arrow_y + dy * int(s * 0.04)),
+                             max(2, int(s * 0.12)))
+        # 화살표 코어
+        pygame.draw.line(surf, (60, 190, 255, 240), (arrow_left, arrow_y), (arrow_right, arrow_y),
+                         max(2, int(s * 0.16)))
+        # 밝은 중심선
+        pygame.draw.line(surf, (160, 230, 255, 150), (arrow_left + int(s * 0.1), arrow_y),
+                         (arrow_right, arrow_y), max(1, int(s * 0.06)))
+        # 화살표 머리 (그라데이션 삼각형)
+        head_s = int(s * 0.32)
         tip_x = cx + int(s * 0.6)
-        pygame.draw.polygon(surf, (*color, 230), [
+        # 외곽 글로우
+        pygame.draw.polygon(surf, (100, 200, 255, 60), [
+            (tip_x + int(s * 0.05), arrow_y),
+            (arrow_right - int(s * 0.03), arrow_y - head_s - int(s * 0.05)),
+            (arrow_right - int(s * 0.03), arrow_y + head_s + int(s * 0.05)),
+        ])
+        # 메인 삼각형
+        pygame.draw.polygon(surf, (50, 180, 255, 240), [
             (tip_x, arrow_y),
             (arrow_right, arrow_y - head_s),
             (arrow_right, arrow_y + head_s),
         ])
-        # 바람 줄 3개
-        for i in range(3):
-            wy = cy - int(s * 0.4) + i * int(s * 0.4)
-            w_alpha = 120 - i * 20
-            wx_start = cx - int(s * 0.7)
-            wx_end = cx - int(s * 0.2)
-            pygame.draw.line(surf, (*color, w_alpha), (wx_start, wy), (wx_end, wy), max(1, int(s * 0.06)))
+        # 하이라이트
+        pygame.draw.polygon(surf, (160, 230, 255, 100), [
+            (tip_x - int(s * 0.05), arrow_y),
+            (arrow_right + int(s * 0.05), arrow_y - int(head_s * 0.5)),
+            (arrow_right + int(s * 0.05), arrow_y),
+        ])
+        # 바람 줄 (곡선 느낌, 더 많이)
+        for i in range(4):
+            wy = cy - int(s * 0.45) + i * int(s * 0.28)
+            w_alpha = 130 - i * 22
+            wx_s = cx - int(s * 0.7)
+            wx_e = cx - int(s * 0.25)
+            # 약간 굽은 바람줄
+            mid_y = wy + int(s * 0.04 * (1 if i % 2 == 0 else -1))
+            pts = [(wx_s, wy), ((wx_s + wx_e) // 2, mid_y), (wx_e, wy)]
+            pygame.draw.lines(surf, (80, 190, 255, w_alpha), False, pts, max(1, int(s * 0.05)))
+        # 속도 파티클
+        for px, py, pa in [(cx + int(s * 0.45), cy - int(s * 0.35), 120),
+                           (cx - int(s * 0.5), cy + int(s * 0.25), 80),
+                           (cx + int(s * 0.3), cy + int(s * 0.4), 90)]:
+            pygame.draw.circle(surf, (120, 210, 255, pa), (px, py), max(1, int(s * 0.035)))
 
     def _draw_perk_icon_tenacity(self, surf, cx, cy, r, ss):
-        """반칙왕 아이콘 - 불꽃 + 주먹"""
-        color = (255, 200, 60)
+        """반칙왕 아이콘 - 고퀄 불꽃 주먹 + 폭발 글로우"""
         s = r * ss
-        # 불꽃 (아래에서 위로)
-        flame_points = [
-            (cx, cy - int(s * 0.75)),
-            (cx + int(s * 0.35), cy - int(s * 0.3)),
-            (cx + int(s * 0.2), cy + int(s * 0.1)),
-            (cx + int(s * 0.4), cy + int(s * 0.5)),
+        # 배경 화염 글로우
+        for gr in range(4):
+            glow_r = int(s * (0.9 - gr * 0.12))
+            pygame.draw.circle(surf, (180, 80, 20, 10 + gr * 8), (cx, cy), glow_r)
+        # 외곽 큰 불꽃 (붉은색)
+        flame_outer = [
+            (cx, cy - int(s * 0.8)),
+            (cx + int(s * 0.2), cy - int(s * 0.55)),
+            (cx + int(s * 0.4), cy - int(s * 0.35)),
+            (cx + int(s * 0.3), cy - int(s * 0.1)),
+            (cx + int(s * 0.45), cy + int(s * 0.15)),
+            (cx + int(s * 0.35), cy + int(s * 0.45)),
+            (cx + int(s * 0.1), cy + int(s * 0.55)),
+            (cx, cy + int(s * 0.4)),
+            (cx - int(s * 0.1), cy + int(s * 0.55)),
+            (cx - int(s * 0.35), cy + int(s * 0.45)),
+            (cx - int(s * 0.45), cy + int(s * 0.15)),
+            (cx - int(s * 0.3), cy - int(s * 0.1)),
+            (cx - int(s * 0.4), cy - int(s * 0.35)),
+            (cx - int(s * 0.2), cy - int(s * 0.55)),
+        ]
+        pygame.draw.polygon(surf, (220, 80, 30, 150), flame_outer)
+        # 중간 불꽃 (주황색)
+        flame_mid = [
+            (cx, cy - int(s * 0.6)),
+            (cx + int(s * 0.15), cy - int(s * 0.4)),
+            (cx + int(s * 0.3), cy - int(s * 0.2)),
+            (cx + int(s * 0.25), cy + int(s * 0.05)),
+            (cx + int(s * 0.32), cy + int(s * 0.25)),
+            (cx + int(s * 0.15), cy + int(s * 0.4)),
             (cx, cy + int(s * 0.3)),
-            (cx - int(s * 0.4), cy + int(s * 0.5)),
-            (cx - int(s * 0.2), cy + int(s * 0.1)),
-            (cx - int(s * 0.35), cy - int(s * 0.3)),
+            (cx - int(s * 0.15), cy + int(s * 0.4)),
+            (cx - int(s * 0.32), cy + int(s * 0.25)),
+            (cx - int(s * 0.25), cy + int(s * 0.05)),
+            (cx - int(s * 0.3), cy - int(s * 0.2)),
+            (cx - int(s * 0.15), cy - int(s * 0.4)),
         ]
-        pygame.draw.polygon(surf, (*color, 180), flame_points)
-        # 안쪽 밝은 불꽃
-        inner_points = [
-            (cx, cy - int(s * 0.45)),
-            (cx + int(s * 0.15), cy - int(s * 0.1)),
-            (cx + int(s * 0.2), cy + int(s * 0.2)),
-            (cx, cy + int(s * 0.1)),
-            (cx - int(s * 0.2), cy + int(s * 0.2)),
-            (cx - int(s * 0.15), cy - int(s * 0.1)),
+        pygame.draw.polygon(surf, (255, 160, 40, 190), flame_mid)
+        # 안쪽 밝은 불꽃 (노란색)
+        flame_inner = [
+            (cx, cy - int(s * 0.4)),
+            (cx + int(s * 0.12), cy - int(s * 0.2)),
+            (cx + int(s * 0.18), cy + int(s * 0.05)),
+            (cx + int(s * 0.1), cy + int(s * 0.25)),
+            (cx, cy + int(s * 0.18)),
+            (cx - int(s * 0.1), cy + int(s * 0.25)),
+            (cx - int(s * 0.18), cy + int(s * 0.05)),
+            (cx - int(s * 0.12), cy - int(s * 0.2)),
         ]
-        pygame.draw.polygon(surf, (255, 240, 150, 200), inner_points)
+        pygame.draw.polygon(surf, (255, 240, 130, 220), flame_inner)
+        # 중심 코어 (흰 노란)
+        pygame.draw.circle(surf, (255, 255, 200, 160), (cx, cy), int(s * 0.1))
+        # 불꽃 테두리 하이라이트
+        pygame.draw.polygon(surf, (255, 120, 40, 120), flame_outer, max(1, int(s * 0.04)))
+        # 불씨 파티클
+        for px, py, pa in [(cx - int(s * 0.3), cy - int(s * 0.6), 150),
+                           (cx + int(s * 0.35), cy - int(s * 0.5), 120),
+                           (cx + int(s * 0.5), cy - int(s * 0.15), 100),
+                           (cx - int(s * 0.5), cy - int(s * 0.2), 90)]:
+            pr = max(1, int(s * 0.035))
+            pygame.draw.circle(surf, (255, 200, 80, pa), (px, py), pr)
+            pygame.draw.circle(surf, (255, 255, 180, pa // 2), (px, py), max(1, pr // 2))
 
     def _draw_perk_icon_extra_training(self, surf, cx, cy, r, ss):
-        """추가훈련 아이콘 - 검 두 자루 (스킬 2개 해금)"""
-        color = (100, 180, 220)
+        """추가훈련 아이콘 - 고퀄 쌍검 + 빛나는 배지"""
         s = r * ss
         lw = max(2, int(2 * ss / 3))
-        # 왼쪽 검
-        sword_h = int(s * 0.7)
-        sword_w = int(s * 0.12)
-        sx1 = cx - int(s * 0.2)
-        pygame.draw.line(surf, (*color, 220), (sx1, cy - sword_h), (sx1, cy + int(s * 0.1)), lw + 1)
-        # 왼쪽 검 가드
-        pygame.draw.line(surf, (*color, 180), (sx1 - int(s * 0.15), cy + int(s * 0.1)),
-                         (sx1 + int(s * 0.15), cy + int(s * 0.1)), lw)
+        # 배경 글로우
+        for gr in range(3):
+            glow_r = int(s * (0.8 - gr * 0.12))
+            pygame.draw.circle(surf, (50, 120, 170, 12 + gr * 6), (cx, cy), glow_r)
+        # X자 교차 배치 (왼쪽 검 - 약간 기울어짐)
+        sx1 = cx - int(s * 0.15)
+        # 왼쪽 검 칼날 (그라데이션)
+        blade_top = cy - int(s * 0.65)
+        blade_bot = cy + int(s * 0.05)
+        blade_w = max(2, int(s * 0.08))
+        # 칼날 몸체
+        pygame.draw.line(surf, (130, 200, 240, 230), (sx1 - int(s * 0.05), blade_top),
+                         (sx1 + int(s * 0.02), blade_bot), lw + 2)
+        # 칼날 하이라이트
+        pygame.draw.line(surf, (200, 235, 255, 120), (sx1 - int(s * 0.03), blade_top + int(s * 0.05)),
+                         (sx1 + int(s * 0.01), blade_bot - int(s * 0.05)), max(1, lw // 2))
+        # 왼쪽 검 가드 (장식)
+        gy1 = blade_bot + int(s * 0.02)
+        gw = int(s * 0.18)
+        pygame.draw.line(surf, (180, 150, 80, 220), (sx1 - gw, gy1), (sx1 + gw, gy1), lw + 1)
+        pygame.draw.circle(surf, (200, 170, 90, 180), (sx1 - gw, gy1), max(1, int(s * 0.04)))
+        pygame.draw.circle(surf, (200, 170, 90, 180), (sx1 + gw, gy1), max(1, int(s * 0.04)))
         # 왼쪽 검 손잡이
-        pygame.draw.line(surf, (*color, 150), (sx1, cy + int(s * 0.1)), (sx1, cy + int(s * 0.35)), lw)
-        # 오른쪽 검
-        sx2 = cx + int(s * 0.2)
-        pygame.draw.line(surf, (*color, 220), (sx2, cy - sword_h), (sx2, cy + int(s * 0.1)), lw + 1)
-        # 오른쪽 검 가드
-        pygame.draw.line(surf, (*color, 180), (sx2 - int(s * 0.15), cy + int(s * 0.1)),
-                         (sx2 + int(s * 0.15), cy + int(s * 0.1)), lw)
-        # 오른쪽 검 손잡이
-        pygame.draw.line(surf, (*color, 150), (sx2, cy + int(s * 0.1)), (sx2, cy + int(s * 0.35)), lw)
-        # 중앙 '+' 표시 (추가 해금)
-        plus_s = int(s * 0.15)
-        pygame.draw.line(surf, (255, 255, 255, 200), (cx - plus_s, cy + int(s * 0.5)),
-                         (cx + plus_s, cy + int(s * 0.5)), lw)
-        pygame.draw.line(surf, (255, 255, 255, 200), (cx, cy + int(s * 0.5) - plus_s),
-                         (cx, cy + int(s * 0.5) + plus_s), lw)
+        grip_bot = gy1 + int(s * 0.25)
+        pygame.draw.line(surf, (140, 100, 50, 200), (sx1, gy1), (sx1, grip_bot), lw)
+        # 왼쪽 검 끝 장식
+        pygame.draw.circle(surf, (180, 140, 60, 200), (sx1, grip_bot), max(1, int(s * 0.05)))
+        # 오른쪽 검 (대칭)
+        sx2 = cx + int(s * 0.15)
+        pygame.draw.line(surf, (130, 200, 240, 230), (sx2 + int(s * 0.05), blade_top),
+                         (sx2 - int(s * 0.02), blade_bot), lw + 2)
+        pygame.draw.line(surf, (200, 235, 255, 120), (sx2 + int(s * 0.03), blade_top + int(s * 0.05)),
+                         (sx2 - int(s * 0.01), blade_bot - int(s * 0.05)), max(1, lw // 2))
+        gy2 = blade_bot + int(s * 0.02)
+        pygame.draw.line(surf, (180, 150, 80, 220), (sx2 - gw, gy2), (sx2 + gw, gy2), lw + 1)
+        pygame.draw.circle(surf, (200, 170, 90, 180), (sx2 - gw, gy2), max(1, int(s * 0.04)))
+        pygame.draw.circle(surf, (200, 170, 90, 180), (sx2 + gw, gy2), max(1, int(s * 0.04)))
+        pygame.draw.line(surf, (140, 100, 50, 200), (sx2, gy2), (sx2, grip_bot), lw)
+        pygame.draw.circle(surf, (180, 140, 60, 200), (sx2, grip_bot), max(1, int(s * 0.05)))
+        # 검날 끝 하이라이트 (빛남)
+        pygame.draw.circle(surf, (220, 245, 255, 100), (sx1 - int(s * 0.05), blade_top), max(1, int(s * 0.05)))
+        pygame.draw.circle(surf, (220, 245, 255, 100), (sx2 + int(s * 0.05), blade_top), max(1, int(s * 0.05)))
+        # 하단 "+2" 배지 (빛나는 원형)
+        badge_y = cy + int(s * 0.52)
+        badge_r = int(s * 0.16)
+        pygame.draw.circle(surf, (80, 180, 220, 50), (cx, badge_y), badge_r + 3)
+        pygame.draw.circle(surf, (255, 255, 255, 220), (cx, badge_y), badge_r)
+        pygame.draw.circle(surf, (255, 255, 255, 255), (cx, badge_y), badge_r, max(1, int(s * 0.03)))
+        # "+" 기호
+        plw = max(1, int(badge_r * 0.35))
+        pygame.draw.line(surf, (60, 150, 200, 255), (cx - badge_r + 3, badge_y), (cx + badge_r - 3, badge_y), plw)
+        pygame.draw.line(surf, (60, 150, 200, 255), (cx, badge_y - badge_r + 3), (cx, badge_y + badge_r - 3), plw)
 
     def _draw_perk_icon_magic_barrier(self, surf, cx, cy, r, ss):
-        """마법결계 아이콘 - 반투명 보호막 원"""
-        color = (120, 200, 255)
+        """마법결계 아이콘 - 고퀄 마법진 + 룬 문양 + 에너지 실드"""
         s = r * ss
-        # 외곽 보호막 원
-        shield_r = int(s * 0.65)
-        pygame.draw.circle(surf, (*color, 80), (cx, cy), shield_r)
-        pygame.draw.circle(surf, (*color, 200), (cx, cy), shield_r, max(2, int(3 * ss / 3)))
-        # 안쪽 보호막 원
-        inner_r = int(s * 0.45)
-        pygame.draw.circle(surf, (*color, 60), (cx, cy), inner_r)
-        pygame.draw.circle(surf, (*color, 150), (cx, cy), inner_r, max(1, int(2 * ss / 3)))
-        # 중심 별 모양 (마법 문양)
-        star_r = int(s * 0.2)
+        lw = max(1, int(2 * ss / 3))
+        # 배경 마법 글로우
+        for gr in range(4):
+            glow_r = int(s * (0.9 - gr * 0.1))
+            pygame.draw.circle(surf, (60, 130, 220, 10 + gr * 8), (cx, cy), glow_r)
+        # 외곽 보호막 원 (이중 링)
+        shield_r = int(s * 0.68)
+        pygame.draw.circle(surf, (100, 180, 255, 50), (cx, cy), shield_r)
+        pygame.draw.circle(surf, (120, 200, 255, 200), (cx, cy), shield_r, lw + 1)
+        pygame.draw.circle(surf, (160, 220, 255, 120), (cx, cy), shield_r - lw - 1, lw)
+        # 중간 링
+        mid_r = int(s * 0.48)
+        pygame.draw.circle(surf, (100, 190, 255, 40), (cx, cy), mid_r)
+        pygame.draw.circle(surf, (130, 210, 255, 160), (cx, cy), mid_r, lw)
+        # 헥사곤 마법진 (외곽)
+        hex_r = int(s * 0.55)
+        hex_pts = []
+        for i in range(6):
+            angle = i * math.pi / 3 - math.pi / 6
+            hex_pts.append((cx + int(_cos(angle) * hex_r), cy + int(_sin(angle) * hex_r)))
+        pygame.draw.polygon(surf, (140, 210, 255, 80), hex_pts, lw)
+        # 내부 삼각형 2개 (다윗의 별)
+        tri1 = [hex_pts[0], hex_pts[2], hex_pts[4]]
+        tri2 = [hex_pts[1], hex_pts[3], hex_pts[5]]
+        pygame.draw.polygon(surf, (160, 220, 255, 100), tri1, lw)
+        pygame.draw.polygon(surf, (160, 220, 255, 100), tri2, lw)
+        # 룬 포인트 (꼭짓점에 빛나는 점)
+        for pt in hex_pts:
+            pygame.draw.circle(surf, (200, 240, 255, 200), pt, max(1, int(s * 0.04)))
+            pygame.draw.circle(surf, (220, 245, 255, 100), pt, max(2, int(s * 0.07)))
+        # 중심 코어 에너지
+        core_r = int(s * 0.15)
+        pygame.draw.circle(surf, (180, 230, 255, 150), (cx, cy), core_r)
+        pygame.draw.circle(surf, (220, 245, 255, 200), (cx, cy), int(core_r * 0.6))
+        pygame.draw.circle(surf, (255, 255, 255, 130), (cx, cy), int(core_r * 0.3))
+        # 에너지 방사선 (6방향)
         for i in range(6):
             angle = i * math.pi / 3
-            ex = cx + int(_cos(angle) * star_r)
-            ey = cy + int(_sin(angle) * star_r)
-            pygame.draw.line(surf, (200, 240, 255, 220), (cx, cy), (ex, ey), max(1, int(2 * ss / 3)))
+            inner_d = int(s * 0.2)
+            outer_d = int(s * 0.42)
+            x1 = cx + int(_cos(angle) * inner_d)
+            y1 = cy + int(_sin(angle) * inner_d)
+            x2 = cx + int(_cos(angle) * outer_d)
+            y2 = cy + int(_sin(angle) * outer_d)
+            pygame.draw.line(surf, (180, 230, 255, 150), (x1, y1), (x2, y2), lw)
 
     def _draw_perk_icon_laurel_shield(self, surf, cx, cy, r, ss):
-        """신성월계수 아이콘 - 잎 3개가 원형 궤도"""
+        """신성월계수 아이콘 - 고퀄 월계관 + 빛나는 잎 + 신성 글로우"""
         s = r * ss
-        # 궤도 원 (점선 느낌)
-        orbit_r = int(s * 0.55)
-        pygame.draw.circle(surf, (200, 180, 60, 60), (cx, cy), orbit_r, max(1, int(1 * ss / 3)))
-        # 잎 3개 배치
-        for i in range(3):
-            angle = i * (2 * math.pi / 3) - math.pi / 2
+        lw = max(1, int(2 * ss / 3))
+        # 신성한 배경 글로우 (금색)
+        for gr in range(4):
+            glow_r = int(s * (0.85 - gr * 0.1))
+            pygame.draw.circle(surf, (160, 140, 40, 10 + gr * 8), (cx, cy), glow_r)
+        # 월계관 궤도 (이중 링)
+        orbit_r = int(s * 0.52)
+        pygame.draw.circle(surf, (200, 180, 60, 40), (cx, cy), orbit_r + 2)
+        pygame.draw.circle(surf, (220, 200, 80, 100), (cx, cy), orbit_r, lw)
+        # 궤도 위 빛나는 점 (8개)
+        for i in range(8):
+            da = i * math.pi / 4
+            dx = cx + int(_cos(da) * orbit_r)
+            dy = cy + int(_sin(da) * orbit_r)
+            pygame.draw.circle(surf, (240, 220, 100, 80), (dx, dy), max(1, int(s * 0.025)))
+        # 잎 5개 (월계관 형태로 배치)
+        for i in range(5):
+            angle = i * (2 * math.pi / 5) - math.pi / 2
             lx = cx + int(_cos(angle) * orbit_r)
-            ly = cy + int(_sin(angle) * orbit_r * 0.7)
-            leaf_w = max(3, int(s * 0.25))
-            leaf_h = max(2, int(s * 0.15))
+            ly = cy + int(_sin(angle) * orbit_r * 0.8)
+            leaf_w = max(4, int(s * 0.28))
+            leaf_h = max(3, int(s * 0.14))
+            # 잎 외곽 글로우
+            glow_s = _get_arena_surface(leaf_w + 6, leaf_h + 6)
+            pygame.draw.ellipse(glow_s, (240, 220, 80, 50), (0, 0, leaf_w + 6, leaf_h + 6))
+            rot_g = pygame.transform.rotate(glow_s, -math.degrees(angle))
+            rect_g = rot_g.get_rect(center=(lx, ly))
+            surf.blit(rot_g, rect_g)
+            # 메인 잎
             leaf_s = _get_arena_surface(leaf_w + 2, leaf_h + 2)
-            pygame.draw.ellipse(leaf_s, (240, 220, 80, 220), (1, 1, leaf_w, leaf_h))
+            pygame.draw.ellipse(leaf_s, (240, 220, 80, 230), (1, 1, leaf_w, leaf_h))
+            # 잎 중심 하이라이트
+            hl_w = max(1, leaf_w // 3)
+            hl_h = max(1, leaf_h // 3)
+            pygame.draw.ellipse(leaf_s, (255, 245, 160, 120),
+                                (leaf_w // 2 - hl_w // 2 + 1, leaf_h // 2 - hl_h // 2 + 1, hl_w, hl_h))
+            # 잎맥 (중심선)
+            pygame.draw.line(leaf_s, (210, 190, 60, 150), (2, leaf_h // 2 + 1), (leaf_w, leaf_h // 2 + 1), 1)
             rot = pygame.transform.rotate(leaf_s, -math.degrees(angle))
             rect = rot.get_rect(center=(lx, ly))
             surf.blit(rot, rect)
-        # 중심 빛
-        pygame.draw.circle(surf, (255, 240, 150, 120), (cx, cy), int(s * 0.15))
+        # 중심 신성 코어
+        core_r = int(s * 0.18)
+        pygame.draw.circle(surf, (255, 240, 140, 100), (cx, cy), core_r + 3)
+        pygame.draw.circle(surf, (255, 245, 180, 180), (cx, cy), core_r)
+        pygame.draw.circle(surf, (255, 255, 220, 120), (cx, cy), int(core_r * 0.5))
+        # 빛 방사 (4방향 십자)
+        for i in range(4):
+            angle = i * math.pi / 2
+            r1 = int(s * 0.22)
+            r2 = int(s * 0.38)
+            x1 = cx + int(_cos(angle) * r1)
+            y1 = cy + int(_sin(angle) * r1)
+            x2 = cx + int(_cos(angle) * r2)
+            y2 = cy + int(_sin(angle) * r2)
+            pygame.draw.line(surf, (255, 240, 150, 100), (x1, y1), (x2, y2), lw)
 
     def _draw_perk_icon_titan_body(self, surf, cx, cy, r, ss):
-        """거신화 아이콘 - 위로 확대되는 몸체"""
-        color = (220, 120, 60)
+        """거신화 아이콘 - 고퀄 거인 실루엣 + 파워 오라 + 확대 이펙트"""
         s = r * ss
-        # 큰 몸체 실루엣 (사다리꼴)
-        bw = int(s * 0.6)
-        bh = int(s * 0.75)
-        top_w = int(bw * 0.7)
-        body_top = cy - int(bh * 0.4)
+        lw = max(1, int(2 * ss / 3))
+        # 파워 오라 배경
+        for gr in range(4):
+            glow_r = int(s * (0.9 - gr * 0.1))
+            pygame.draw.circle(surf, (180, 80, 30, 10 + gr * 7), (cx - int(s * 0.05), cy), glow_r)
+        # 바닥 진동 이펙트
+        for i in range(3):
+            vib_w = int(s * (0.8 - i * 0.15))
+            vib_y = cy + int(s * 0.5) + i * int(s * 0.08)
+            vib_a = 80 - i * 20
+            pygame.draw.line(surf, (220, 140, 60, vib_a),
+                             (cx - vib_w // 2, vib_y), (cx + vib_w // 2, vib_y), max(1, lw))
+        # 거인 몸체 (그라데이션 사다리꼴)
+        bw = int(s * 0.55)
+        bh = int(s * 0.65)
+        top_w = int(bw * 0.65)
+        body_top = cy - int(bh * 0.35)
         body_bot = cy + int(bh * 0.4)
-        pts = [
+        body_pts = [
             (cx - top_w // 2, body_top),
             (cx + top_w // 2, body_top),
             (cx + bw // 2, body_bot),
             (cx - bw // 2, body_bot),
         ]
-        pygame.draw.polygon(surf, (*color, 180), pts)
-        pygame.draw.polygon(surf, (*color, 255), pts, max(2, int(2 * ss / 3)))
-        # 머리
-        head_r = int(s * 0.2)
-        pygame.draw.circle(surf, (*color, 200), (cx, body_top - head_r + 2), head_r)
-        pygame.draw.circle(surf, (*color, 255), (cx, body_top - head_r + 2), head_r, max(1, int(2 * ss / 3)))
-        # 확대 화살표 (↑)
-        arr_x = cx + int(s * 0.45)
-        arr_bot = cy + int(s * 0.3)
-        arr_top = cy - int(s * 0.45)
-        pygame.draw.line(surf, (255, 200, 100, 220), (arr_x, arr_bot), (arr_x, arr_top), max(2, int(2 * ss / 3)))
-        pygame.draw.polygon(surf, (255, 200, 100, 220), [
-            (arr_x, arr_top - int(s * 0.1)),
-            (arr_x - int(s * 0.1), arr_top + int(s * 0.05)),
-            (arr_x + int(s * 0.1), arr_top + int(s * 0.05)),
+        # 몸체 그림자
+        shadow_pts = [(p[0] + 2, p[1] + 2) for p in body_pts]
+        pygame.draw.polygon(surf, (100, 40, 20, 60), shadow_pts)
+        # 메인 몸체
+        pygame.draw.polygon(surf, (220, 120, 60, 200), body_pts)
+        # 몸체 하이라이트 (왼쪽 빛)
+        hl_pts = [
+            (cx - top_w // 2 + int(s * 0.03), body_top + int(s * 0.02)),
+            (cx - int(s * 0.02), body_top + int(s * 0.02)),
+            (cx + int(s * 0.05), body_bot - int(s * 0.02)),
+            (cx - bw // 2 + int(s * 0.03), body_bot - int(s * 0.02)),
+        ]
+        pygame.draw.polygon(surf, (240, 160, 90, 80), hl_pts)
+        # 몸체 테두리
+        pygame.draw.polygon(surf, (240, 140, 70, 255), body_pts, lw + 1)
+        # 어깨 장식 (양쪽 삼각)
+        sh_size = int(s * 0.1)
+        for sx_off in [-1, 1]:
+            sh_x = cx + sx_off * (top_w // 2 + int(s * 0.02))
+            sh_y = body_top + int(s * 0.02)
+            sh_pts_d = [
+                (sh_x, sh_y - sh_size),
+                (sh_x + sx_off * sh_size, sh_y + sh_size // 2),
+                (sh_x, sh_y + sh_size),
+            ]
+            pygame.draw.polygon(surf, (240, 160, 80, 180), sh_pts_d)
+        # 머리 (빛나는 원)
+        head_r = int(s * 0.18)
+        head_y = body_top - head_r + 3
+        pygame.draw.circle(surf, (220, 120, 60, 60), (cx, head_y), head_r + 3)
+        pygame.draw.circle(surf, (230, 135, 70, 220), (cx, head_y), head_r)
+        pygame.draw.circle(surf, (250, 180, 110, 100), (cx - int(s * 0.05), head_y - int(s * 0.04)), int(head_r * 0.35))
+        pygame.draw.circle(surf, (240, 150, 80, 255), (cx, head_y), head_r, lw)
+        # 눈 (빛나는 점 2개)
+        eye_y = head_y - int(s * 0.02)
+        for ex_off in [-1, 1]:
+            ex = cx + ex_off * int(s * 0.07)
+            pygame.draw.circle(surf, (255, 240, 180, 240), (ex, eye_y), max(1, int(s * 0.03)))
+        # 확대 화살표 (↑, 그라데이션)
+        arr_x = cx + int(s * 0.48)
+        arr_bot = cy + int(s * 0.25)
+        arr_top = cy - int(s * 0.4)
+        # 화살표 글로우
+        pygame.draw.line(surf, (255, 200, 100, 50), (arr_x, arr_bot + 2), (arr_x, arr_top + 2), lw + 3)
+        # 메인 화살표
+        pygame.draw.line(surf, (255, 200, 100, 230), (arr_x, arr_bot), (arr_x, arr_top), lw + 1)
+        # 화살표 머리
+        arr_hs = int(s * 0.12)
+        pygame.draw.polygon(surf, (255, 210, 120, 240), [
+            (arr_x, arr_top - int(s * 0.12)),
+            (arr_x - arr_hs, arr_top + int(s * 0.03)),
+            (arr_x + arr_hs, arr_top + int(s * 0.03)),
         ])
 
     def _draw_perk_icon_recall_guard(self, surf, cx, cy, r, ss):
-        """재소집령 아이콘 - 두 명의 전사 실루엣 (한 명은 귀환 화살표)"""
-        color = (200, 160, 60)
+        """재소집령 아이콘 - 고퀄 두 전사 + 소환 마법진 + 귀환 이펙트"""
         s = r * ss
         lw = max(2, int(2 * ss / 3))
-        # 왼쪽 전사 (기존 호위무사 - 진한 색)
-        w1_x = cx - int(s * 0.3)
-        body_w = int(s * 0.25)
-        body_h = int(s * 0.45)
-        head_r = int(s * 0.13)
-        # 머리
-        pygame.draw.circle(surf, (*color, 220), (w1_x, cy - int(s * 0.3)), head_r)
+        # 소환 마법 글로우 배경
+        for gr in range(3):
+            glow_r = int(s * (0.85 - gr * 0.12))
+            pygame.draw.circle(surf, (140, 110, 30, 10 + gr * 7), (cx, cy), glow_r)
+        # 바닥 소환진 (타원형 마법진)
+        circle_y = cy + int(s * 0.35)
+        circle_w = int(s * 1.1)
+        circle_h = int(s * 0.25)
+        circle_s = _get_arena_surface(circle_w, circle_h)
+        pygame.draw.ellipse(circle_s, (220, 190, 80, 60), (0, 0, circle_w, circle_h))
+        pygame.draw.ellipse(circle_s, (240, 210, 100, 120), (0, 0, circle_w, circle_h), max(1, int(s * 0.03)))
+        surf.blit(circle_s, (cx - circle_w // 2, circle_y - circle_h // 2))
+        # 왼쪽 전사 (기존 호위무사 - 확고한 존재)
+        w1_x = cx - int(s * 0.28)
+        body_w = int(s * 0.22)
+        body_h = int(s * 0.42)
+        head_r = int(s * 0.11)
+        color1 = (210, 170, 70)
+        # 머리 (빛나는)
+        pygame.draw.circle(surf, (*color1, 60), (w1_x, cy - int(s * 0.28)), head_r + 2)
+        pygame.draw.circle(surf, (*color1, 235), (w1_x, cy - int(s * 0.28)), head_r)
+        pygame.draw.circle(surf, (240, 210, 120, 80), (w1_x - int(s * 0.03), cy - int(s * 0.31)), int(head_r * 0.35))
         # 몸체
-        pygame.draw.rect(surf, (*color, 200),
-                         (w1_x - body_w // 2, cy - int(s * 0.15), body_w, body_h),
-                         border_radius=max(1, int(body_w * 0.2)))
-        # 방패 (왼쪽 전사)
-        shield_w = int(s * 0.12)
-        shield_h = int(s * 0.2)
-        pygame.draw.rect(surf, (180, 140, 50, 180),
-                         (w1_x - body_w // 2 - shield_w, cy - int(s * 0.05), shield_w, shield_h),
-                         border_radius=max(1, int(shield_w * 0.3)))
-
-        # 오른쪽 전사 (복귀 호위무사 - 반투명, 귀환 중)
-        w2_x = cx + int(s * 0.3)
-        # 머리 (반투명)
-        pygame.draw.circle(surf, (*color, 130), (w2_x, cy - int(s * 0.3)), head_r)
+        pygame.draw.rect(surf, (*color1, 220),
+                         (w1_x - body_w // 2, cy - int(s * 0.13), body_w, body_h),
+                         border_radius=max(1, int(body_w * 0.25)))
+        # 몸체 하이라이트
+        hl_w = max(1, body_w // 4)
+        pygame.draw.rect(surf, (240, 220, 130, 70),
+                         (w1_x - hl_w // 2, cy - int(s * 0.1), hl_w, int(body_h * 0.7)),
+                         border_radius=max(1, hl_w // 2))
+        # 방패 (세부 묘사)
+        sh_w = int(s * 0.13)
+        sh_h = int(s * 0.22)
+        sh_x = w1_x - body_w // 2 - sh_w
+        sh_y = cy - int(s * 0.05)
+        pygame.draw.rect(surf, (190, 150, 55, 200), (sh_x, sh_y, sh_w, sh_h),
+                         border_radius=max(1, int(sh_w * 0.3)))
+        pygame.draw.rect(surf, (220, 180, 80, 255), (sh_x, sh_y, sh_w, sh_h),
+                         max(1, int(s * 0.02)), border_radius=max(1, int(sh_w * 0.3)))
+        # 방패 문양 (세로줄)
+        pygame.draw.line(surf, (230, 200, 100, 120),
+                         (sh_x + sh_w // 2, sh_y + 2), (sh_x + sh_w // 2, sh_y + sh_h - 2), 1)
+        # 오른쪽 전사 (귀환 중 - 빛나는 반투명 + 소환 파티클)
+        w2_x = cx + int(s * 0.28)
+        color2 = (220, 190, 90)
+        # 소환 기둥 빛
+        pillar_w = int(s * 0.2)
+        pillar_h = int(s * 0.7)
+        pillar_s = _get_arena_surface(pillar_w, pillar_h)
+        for py_i in range(pillar_h):
+            pa = int(40 * (1 - abs(py_i - pillar_h // 2) / (pillar_h // 2)))
+            pygame.draw.line(pillar_s, (255, 230, 130, pa), (0, py_i), (pillar_w, py_i), 1)
+        surf.blit(pillar_s, (w2_x - pillar_w // 2, cy - int(s * 0.4)))
+        # 머리 (반투명, 빛남)
+        pygame.draw.circle(surf, (*color2, 150), (w2_x, cy - int(s * 0.28)), head_r)
+        pygame.draw.circle(surf, (255, 240, 160, 60), (w2_x, cy - int(s * 0.28)), head_r + 2)
         # 몸체 (반투명)
-        pygame.draw.rect(surf, (*color, 120),
-                         (w2_x - body_w // 2, cy - int(s * 0.15), body_w, body_h),
-                         border_radius=max(1, int(body_w * 0.2)))
-        # 검 (오른쪽 전사)
-        sword_h = int(s * 0.3)
-        pygame.draw.line(surf, (220, 200, 100, 150),
-                         (w2_x + body_w // 2 + 2, cy - int(s * 0.15)),
-                         (w2_x + body_w // 2 + 2, cy - int(s * 0.15) - sword_h), lw)
-
-        # 귀환 화살표 (오른쪽 → 왼쪽으로 향하는 곡선 화살표)
-        arrow_y = cy + int(s * 0.45)
-        arrow_left = cx - int(s * 0.35)
-        arrow_right = cx + int(s * 0.35)
-        pygame.draw.line(surf, (255, 220, 100, 200),
-                         (arrow_right, arrow_y), (arrow_left, arrow_y), lw)
-        # 화살표 머리 (왼쪽 방향)
+        pygame.draw.rect(surf, (*color2, 140),
+                         (w2_x - body_w // 2, cy - int(s * 0.13), body_w, body_h),
+                         border_radius=max(1, int(body_w * 0.25)))
+        # 검 (빛나는)
+        sword_h = int(s * 0.28)
+        sw_x = w2_x + body_w // 2 + 2
+        sw_top = cy - int(s * 0.13) - sword_h
+        pygame.draw.line(surf, (240, 220, 130, 180), (sw_x, cy - int(s * 0.13)), (sw_x, sw_top), lw)
+        pygame.draw.circle(surf, (255, 245, 180, 100), (sw_x, sw_top), max(1, int(s * 0.03)))
+        # 소환 파티클 (오른쪽 전사 주변)
+        for px, py, pa in [(w2_x - int(s * 0.12), cy - int(s * 0.42), 130),
+                           (w2_x + int(s * 0.14), cy - int(s * 0.35), 100),
+                           (w2_x, cy + int(s * 0.2), 90),
+                           (w2_x - int(s * 0.1), cy + int(s * 0.05), 70)]:
+            pygame.draw.circle(surf, (255, 230, 120, pa), (px, py), max(1, int(s * 0.025)))
+        # 귀환 화살표 (곡선, 더 화려)
+        arrow_y = cy + int(s * 0.48)
+        arr_left = cx - int(s * 0.32)
+        arr_right = cx + int(s * 0.32)
+        # 화살표 글로우
+        pygame.draw.line(surf, (255, 220, 100, 50), (arr_right, arrow_y + 1), (arr_left, arrow_y + 1), lw + 2)
+        # 메인 화살표
+        pygame.draw.line(surf, (255, 220, 100, 220), (arr_right, arrow_y), (arr_left, arrow_y), lw)
+        # 화살표 머리 (정교한)
         arr_s = int(s * 0.1)
-        pygame.draw.polygon(surf, (255, 220, 100, 200), [
-            (arrow_left - arr_s, arrow_y),
-            (arrow_left + arr_s, arrow_y - arr_s),
-            (arrow_left + arr_s, arrow_y + arr_s),
+        pygame.draw.polygon(surf, (255, 225, 110, 230), [
+            (arr_left - arr_s, arrow_y),
+            (arr_left + arr_s, arrow_y - arr_s),
+            (arr_left + arr_s, arrow_y + arr_s),
         ])
 
     def _draw_perk_icon_flash_inspiration(self, surf, cx, cy, r, ss):
-        """번뜩이는 영감 아이콘 - 전구 + 반짝이는 빛"""
-        color = (255, 220, 100)
+        """번뜩이는 영감 아이콘 - 고퀄 빛나는 전구 + 아이디어 섬광"""
         s = r * ss
         lw = max(2, int(2 * ss / 3))
-        # 전구 유리 부분 (상단 원)
-        bulb_r = int(s * 0.35)
-        bulb_cy = cy - int(s * 0.15)
-        pygame.draw.circle(surf, (*color, 200), (cx, bulb_cy), bulb_r)
-        pygame.draw.circle(surf, (255, 255, 230, 120), (cx - int(s * 0.1), bulb_cy - int(s * 0.1)), int(bulb_r * 0.35))
-        pygame.draw.circle(surf, (*color, 255), (cx, bulb_cy), bulb_r, lw)
-        # 전구 나사산 (하단 직사각형)
-        base_w = int(s * 0.22)
-        base_h = int(s * 0.2)
-        base_top = bulb_cy + bulb_r - int(s * 0.05)
-        pygame.draw.rect(surf, (200, 170, 60, 200),
+        # 전구 빛 글로우 (배경)
+        for gr in range(5):
+            glow_r = int(s * (0.95 - gr * 0.1))
+            pygame.draw.circle(surf, (200, 180, 60, 8 + gr * 6), (cx, cy - int(s * 0.12)), glow_r)
+        # 빛 방사선 (8방향, 길이 차이 있음)
+        bulb_cy = cy - int(s * 0.12)
+        for i in range(8):
+            angle = i * (math.pi / 4)
+            inner_d = int(s * 0.45)
+            outer_d = int(s * (0.65 + 0.1 * (i % 2)))
+            x1 = cx + int(_cos(angle) * inner_d)
+            y1 = bulb_cy + int(_sin(angle) * inner_d)
+            x2 = cx + int(_cos(angle) * outer_d)
+            y2 = bulb_cy + int(_sin(angle) * outer_d)
+            ray_a = 160 - (i % 2) * 40
+            pygame.draw.line(surf, (255, 240, 140, ray_a), (x1, y1), (x2, y2), lw)
+            # 방사선 끝 빛
+            pygame.draw.circle(surf, (255, 250, 180, ray_a // 2), (x2, y2), max(1, int(s * 0.025)))
+        # 전구 유리 (그라데이션 원)
+        bulb_r = int(s * 0.32)
+        # 외곽 글로우
+        pygame.draw.circle(surf, (255, 230, 100, 50), (cx, bulb_cy), bulb_r + 3)
+        # 메인 전구
+        pygame.draw.circle(surf, (255, 225, 110, 220), (cx, bulb_cy), bulb_r)
+        # 하이라이트 (좌상단 빛 반사)
+        pygame.draw.circle(surf, (255, 250, 200, 150), (cx - int(s * 0.1), bulb_cy - int(s * 0.1)), int(bulb_r * 0.35))
+        pygame.draw.circle(surf, (255, 255, 240, 100), (cx - int(s * 0.08), bulb_cy - int(s * 0.08)), int(bulb_r * 0.18))
+        # 전구 내부 필라멘트 (W자)
+        fil_y = bulb_cy
+        fil_w = int(s * 0.15)
+        fil_h = int(s * 0.12)
+        fil_pts = [
+            (cx - fil_w, fil_y + fil_h),
+            (cx - fil_w // 2, fil_y - fil_h),
+            (cx, fil_y + fil_h // 2),
+            (cx + fil_w // 2, fil_y - fil_h),
+            (cx + fil_w, fil_y + fil_h),
+        ]
+        pygame.draw.lines(surf, (255, 200, 60, 200), False, fil_pts, max(1, lw // 2))
+        # 전구 테두리
+        pygame.draw.circle(surf, (240, 200, 80, 255), (cx, bulb_cy), bulb_r, lw)
+        # 나사산 (더 정교한)
+        base_w = int(s * 0.2)
+        base_h = int(s * 0.22)
+        base_top = bulb_cy + bulb_r - int(s * 0.04)
+        # 나사산 몸체
+        pygame.draw.rect(surf, (200, 165, 55, 210),
                          (cx - base_w, base_top, base_w * 2, base_h),
-                         border_radius=max(1, int(base_w * 0.3)))
-        # 나사산 줄
-        for i in range(3):
-            ly = base_top + int(base_h * (i + 1) / 4)
-            pygame.draw.line(surf, (180, 150, 50, 150),
+                         border_radius=max(1, int(base_w * 0.25)))
+        # 나사산 줄 (더 정교한)
+        for i in range(4):
+            ly = base_top + int(base_h * (i + 1) / 5)
+            la = 170 - i * 15
+            pygame.draw.line(surf, (170, 140, 45, la),
                              (cx - base_w + 2, ly), (cx + base_w - 2, ly), max(1, lw // 2))
-        # 빛 방사선 (6방향)
-        for i in range(6):
-            angle = i * (math.pi / 3) + math.pi / 6
-            inner_dist = int(s * 0.5)
-            outer_dist = int(s * 0.7)
-            x1 = cx + int(_cos(angle) * inner_dist)
-            y1 = bulb_cy + int(_sin(angle) * inner_dist)
-            x2 = cx + int(_cos(angle) * outer_dist)
-            y2 = bulb_cy + int(_sin(angle) * outer_dist)
-            pygame.draw.line(surf, (255, 240, 150, 180), (x1, y1), (x2, y2), lw)
-        # 반짝이는 별 (4각 별 2개)
-        for sx, sy in [(cx - int(s * 0.55), bulb_cy - int(s * 0.4)),
-                       (cx + int(s * 0.5), bulb_cy + int(s * 0.1))]:
-            star_s = int(s * 0.12)
-            pygame.draw.line(surf, (255, 255, 200, 220), (sx - star_s, sy), (sx + star_s, sy), max(1, lw // 2))
-            pygame.draw.line(surf, (255, 255, 200, 220), (sx, sy - star_s), (sx, sy + star_s), max(1, lw // 2))
+        # 나사산 하이라이트
+        pygame.draw.rect(surf, (230, 200, 90, 60),
+                         (cx - base_w + 2, base_top + 1, max(1, base_w // 2), base_h - 2),
+                         border_radius=max(1, int(base_w * 0.15)))
+        # 나사산 테두리
+        pygame.draw.rect(surf, (180, 150, 50, 200),
+                         (cx - base_w, base_top, base_w * 2, base_h),
+                         lw, border_radius=max(1, int(base_w * 0.25)))
+        # 반짝이는 4각 별 3개
+        stars = [(cx - int(s * 0.55), bulb_cy - int(s * 0.42), 0.14),
+                 (cx + int(s * 0.52), bulb_cy - int(s * 0.15), 0.11),
+                 (cx - int(s * 0.4), bulb_cy + int(s * 0.35), 0.09)]
+        for sx, sy, ss_r in stars:
+            star_s = int(s * ss_r)
+            # 별 글로우
+            pygame.draw.circle(surf, (255, 250, 200, 60), (sx, sy), star_s + 1)
+            # 십자 별
+            for angle_off in [0, math.pi / 4]:
+                x1 = sx + int(_cos(angle_off) * star_s)
+                y1 = sy + int(_sin(angle_off) * star_s)
+                x2 = sx - int(_cos(angle_off) * star_s)
+                y2 = sy - int(_sin(angle_off) * star_s)
+                pygame.draw.line(surf, (255, 255, 210, 230), (x1, y1), (x2, y2), max(1, lw // 2))
 
     def _draw_perk_icon_skill(self, surf, cx, cy, r, ss):
-        """스킬 추가 아이콘 - 검 (⚔) 모양"""
-        color = (255, 220, 100)  # 골드
+        """스킬 추가 아이콘 - 고퀄 빛나는 검 + 마법 오라"""
         s = r * ss
-        # 칼날 (세로 직사각형)
-        blade_w = int(s * 0.15)
-        blade_h = int(s * 0.8)
-        blade_top = cy - int(s * 0.55)
-        pygame.draw.rect(surf, (*color, 220),
+        lw = max(1, int(2 * ss / 3))
+        # 마법 오라 배경
+        for gr in range(3):
+            glow_r = int(s * (0.85 - gr * 0.12))
+            pygame.draw.circle(surf, (180, 160, 50, 10 + gr * 7), (cx, cy), glow_r)
+        # 칼날 글로우 (뒤쪽)
+        blade_w = int(s * 0.13)
+        blade_h = int(s * 0.72)
+        blade_top = cy - int(s * 0.5)
+        pygame.draw.rect(surf, (255, 230, 100, 30),
+                         (cx - blade_w - 2, blade_top - 2, blade_w * 2 + 4, blade_h + 4))
+        # 메인 칼날
+        pygame.draw.rect(surf, (255, 225, 110, 230),
                          (cx - blade_w, blade_top, blade_w * 2, blade_h))
-        # 칼날 하이라이트
-        pygame.draw.rect(surf, (255, 255, 230, 150),
-                         (cx - blade_w // 2, blade_top, blade_w, blade_h))
-        # 가드 (가로 직사각형)
-        guard_w = int(s * 0.5)
-        guard_h = int(s * 0.12)
+        # 칼날 하이라이트 (왼쪽 빛 반사)
+        hl_w = max(1, blade_w // 2)
+        pygame.draw.rect(surf, (255, 250, 200, 150),
+                         (cx - blade_w + 1, blade_top, hl_w, blade_h))
+        # 칼날 중심 홈
+        pygame.draw.line(surf, (230, 200, 80, 100),
+                         (cx, blade_top + int(s * 0.05)), (cx, blade_top + int(blade_h * 0.85)), 1)
+        # 칼날 끝 (삼각형으로 뾰족하게)
+        tip_h = int(s * 0.1)
+        pygame.draw.polygon(surf, (255, 230, 120, 240), [
+            (cx, blade_top - tip_h),
+            (cx - blade_w, blade_top),
+            (cx + blade_w, blade_top),
+        ])
+        # 팁 하이라이트
+        pygame.draw.circle(surf, (255, 255, 220, 120), (cx, blade_top - tip_h + 2), max(1, int(s * 0.04)))
+        # 칼날 테두리
+        pygame.draw.rect(surf, (230, 195, 80, 200),
+                         (cx - blade_w, blade_top, blade_w * 2, blade_h), lw)
+        # 가드 (더 정교한 십자가드)
+        guard_w = int(s * 0.45)
+        guard_h = int(s * 0.1)
         guard_y = cy + int(s * 0.15)
-        pygame.draw.rect(surf, (200, 160, 60, 220),
+        # 가드 몸체
+        pygame.draw.rect(surf, (200, 160, 55, 230),
                          (cx - guard_w, guard_y, guard_w * 2, guard_h),
                          border_radius=max(1, int(guard_h * 0.4)))
-        # 손잡이
-        grip_w = int(s * 0.1)
-        grip_h = int(s * 0.3)
+        # 가드 하이라이트
+        pygame.draw.rect(surf, (230, 190, 80, 80),
+                         (cx - guard_w + 2, guard_y + 1, guard_w, max(1, guard_h // 2)),
+                         border_radius=max(1, int(guard_h * 0.3)))
+        # 가드 끝 장식
+        for gx_off in [-1, 1]:
+            gx = cx + gx_off * guard_w
+            pygame.draw.circle(surf, (220, 180, 70, 200), (gx, guard_y + guard_h // 2), max(1, int(s * 0.04)))
+        # 가드 테두리
+        pygame.draw.rect(surf, (180, 140, 50, 200),
+                         (cx - guard_w, guard_y, guard_w * 2, guard_h),
+                         lw, border_radius=max(1, int(guard_h * 0.4)))
+        # 손잡이 (감은 가죽)
+        grip_w = int(s * 0.08)
+        grip_h = int(s * 0.25)
         grip_y = guard_y + guard_h
-        pygame.draw.rect(surf, (160, 120, 40, 200),
+        pygame.draw.rect(surf, (140, 100, 35, 210),
                          (cx - grip_w, grip_y, grip_w * 2, grip_h))
-        # 끝 장식 (원)
+        # 가죽 감김 줄
+        for i in range(4):
+            gy = grip_y + int(grip_h * (i + 0.5) / 4)
+            pygame.draw.line(surf, (120, 85, 30, 150),
+                             (cx - grip_w, gy), (cx + grip_w, gy), 1)
+        # 끝 장식 (빛나는 원형 폼멜)
         pommel_y = grip_y + grip_h
-        pygame.draw.circle(surf, (200, 160, 60, 220), (cx, pommel_y), int(s * 0.12))
+        pommel_r = int(s * 0.1)
+        pygame.draw.circle(surf, (200, 160, 55, 50), (cx, pommel_y), pommel_r + 2)
+        pygame.draw.circle(surf, (210, 170, 65, 230), (cx, pommel_y), pommel_r)
+        pygame.draw.circle(surf, (240, 200, 100, 120), (cx - 1, pommel_y - 1), int(pommel_r * 0.4))
+        pygame.draw.circle(surf, (190, 150, 50, 220), (cx, pommel_y), pommel_r, lw)
 
     def _draw_perk_icon(self, surface, perk_id, cx, cy, size):
         """퍽 아이콘 (3x 슈퍼샘플링으로 깨짐 방지)"""
