@@ -13604,28 +13604,13 @@ class ThunderOrb(HeroSkill):
 
         hex_r = vr * 1.15  # 육각형 외접원 반지름
 
-        # === Layer 1: 육각형 외부 글로우 ===
-        for gi in range(3):
-            gr = hex_r + (3 - gi) * 4
-            ga = int(18 - gi * 5)
-            if ga > 0:
-                glow_pts = []
-                for i in range(6):
-                    ang = math.radians(60 * i - 90)
-                    glow_pts.append((int(center + _cos(ang) * gr),
-                                     int(center + _sin(ang) * gr)))
-                pygame.draw.polygon(ball_surf, (*self.ORB_OUTER_COLOR, ga), glow_pts)
-
-        # === Layer 2: 육각형 프레임 ===
+        # === 육각형 꼭짓점 좌표 (번개 아크 끝점용) ===
         hex_pts = []
         for i in range(6):
             ang = math.radians(60 * i - 90)
             hx = center + _cos(ang) * hex_r
             hy = center + _sin(ang) * hex_r
             hex_pts.append((int(hx), int(hy)))
-
-        # 프레임 내부 채움 (반투명 어두운 파랑, 테두리 없음)
-        pygame.draw.polygon(ball_surf, (15, 25, 60, 120), hex_pts)
 
         # 꼭짓점 밝은 점
         for hx, hy in hex_pts:
