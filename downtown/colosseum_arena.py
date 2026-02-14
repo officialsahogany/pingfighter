@@ -3520,6 +3520,16 @@ class GuardWarriorSystem:
                     self.y_bottom = vy
                 return  # 타이머 기반 퇴장 안 함 - 스킬 종료 시 자동 퇴장
 
+            # === 스팀베리어: 시전 중 현재 위치 고정, 스킬 끝날 때까지 대기 ===
+            elif skill_id == 'steam_barrier' and skill and skill.is_active:
+                # 스팀베리어 활성 상태 → 현재 위치에서 대기 (타이머 기반 퇴장 안 함)
+                return
+
+            elif skill_id == 'steam_barrier' and skill and not skill.is_active:
+                # 스팀베리어 종료 → 순찰 복귀 또는 퇴장
+                self._transition_after_casting(is_top)
+                return
+
             # === 게틀링 버스트: 탱크 모드 중 현재 위치 고정, 스킬 끝날 때까지 대기 ===
             elif skill_id == 'gatling_burst' and skill and skill.is_active:
                 # 게틀링 버스트 활성 상태 → 현재 위치에서 대기 (타이머 기반 퇴장 안 함)
@@ -3978,6 +3988,29 @@ class GuardWarriorSystem:
                     'hit_offset': hit_offset,
                     'guard_id': guard["id"] if guard else None,
                 }
+
+                # 스팀베리어 활성 중 호위무사에 공이 닿으면 → 베리어 강제 해제
+                skill_id = getattr(skill, 'skill_id', '') if skill else ''
+                if skill_id == 'steam_barrier' and skill and skill.is_active:
+                    guard_paddle = self.guard_paddles.get(guard["id"]) if guard else None
+                    if guard_paddle:
+                        target_paddle = None  # 타겟 패들은 _end_effect에서 미사용
+                        skill._end_effect(guard_paddle, target_paddle, ball, game_state)
+                    skill.is_active = False
+                    # 호위무사를 순찰/퇴장으로 전환
+                    self._transition_after_casting(is_top)
+                    # 배리어 파괴 사운드 재생
+                    try:
+                        import os
+                        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                        snd_path = os.path.join(project_root, "sounds", "steambarriorbreak.wav")
+                        if os.path.exists(snd_path):
+                            break_sound = pygame.mixer.Sound(snd_path)
+                            break_sound.play()
+                    except Exception:
+                        pass
+                    self._guard_ball_cooldown = 0.3
+                    return
 
                 # ON_BALL_HIT 스킬 발동 (바나나슬라이스 등)
                 if guard and self.skill_manager:
@@ -5084,6 +5117,15 @@ class ColosseumsArena:
         self.spawn_phase = False  # 공 생성 중 여부
         self.score_top = 0
         self.score_bottom = 0
+
+        # 관중 반응 시스템 (Crowd Reaction System)
+        self._crowd_rally_count = 0         # 현재 랠리 카운트
+        self._crowd_last_hit_by = ""        # 마지막 공 타격 측 ("top"/"bottom")
+        self._crowd_prev_score_diff = 0     # 이전 점수 차이 (역전 감지용)
+        self._crowd_lead_changed = False    # 역전 발생 여부
+        self._crowd_sound_timer = 0.0       # 관중 사운드 쿨타임
+        self._crowd_cheer_channel = None    # 관중 사운드 채널
+        self._crowd_sound_cache = {}        # 관중 사운드 캐시
 
         # 배속 시스템
         self.speed_multiplier = 1  # 1.3x, 2x, 3x
@@ -6232,17 +6274,15 @@ class ColosseumsArena:
                 # 무기 휘두르기 애니메이션 트리거
                 if self.hero_paddle_renderer:
                     self.hero_paddle_renderer.trigger_weapon_swing(self.selected_match.hero1["id"])
-                # 관중 반응 (약한 흥분)
-                if self.arena_pillar and hasattr(self.arena_pillar, 'trigger_excitement'):
-                    self.arena_pillar.trigger_excitement(intensity=0.3, duration=0.5)
+                # 관중 반응 - 랠리 기반
+                self._update_crowd_on_hit("top")
             if self.ball.check_paddle_collision(self.bottom_paddle):
                 self._on_ball_hit(self.selected_match.hero2["id"], self.bottom_paddle, self.top_paddle)
                 # 무기 휘두르기 애니메이션 트리거
                 if self.hero_paddle_renderer:
                     self.hero_paddle_renderer.trigger_weapon_swing(self.selected_match.hero2["id"])
-                # 관중 반응 (약한 흥분)
-                if self.arena_pillar and hasattr(self.arena_pillar, 'trigger_excitement'):
-                    self.arena_pillar.trigger_excitement(intensity=0.3, duration=0.5)
+                # 관중 반응 - 랠리 기반
+                self._update_crowd_on_hit("bottom")
         else:
             # 화면 정지 중 - 공/패들 업데이트 없음
             scorer = None
@@ -6279,9 +6319,8 @@ class ColosseumsArena:
             else:
                 self.score_bottom += 1
 
-            # 관중 흥분 이벤트 트리거
-            if self.arena_pillar and hasattr(self.arena_pillar, 'trigger_excitement'):
-                self.arena_pillar.trigger_excitement(intensity=1.0, duration=2.5)
+            # 관중 반응 - 득점 시
+            self._update_crowd_on_score(scorer)
 
             # === 모든 활성 스킬 상태 리셋 (득점 시) ===
             # 스킬 사운드 즉시 중지 (라운드 전환)
@@ -6573,6 +6612,261 @@ class ColosseumsArena:
                 return True
 
         return False
+
+    # ============================================================
+    # 관중 반응 시스템 (Crowd Reaction System)
+    # ============================================================
+
+    def _update_crowd_on_hit(self, hit_by: str):
+        """공이 패들에 맞았을 때 관중 반응 업데이트
+
+        Args:
+            hit_by: "top" 또는 "bottom"
+        """
+        if not self.arena_pillar:
+            return
+
+        # 랠리 카운트 업데이트
+        if self._crowd_last_hit_by != "" and self._crowd_last_hit_by != hit_by:
+            self._crowd_rally_count += 1
+        self._crowd_last_hit_by = hit_by
+
+        rally = self._crowd_rally_count
+
+        # 모멘텀 축적
+        if hasattr(self.arena_pillar, 'add_momentum'):
+            self.arena_pillar.add_momentum(0.05)  # 매 히트마다 5% 축적
+
+        # 랠리 길이에 따른 관중 반응
+        if rally < 3:
+            # 초반 랠리: 약한 흥분
+            self.arena_pillar.trigger_excitement(intensity=0.2, duration=0.4)
+        elif rally < 6:
+            # 중간 랠리: 중간 흥분
+            self.arena_pillar.trigger_excitement(intensity=0.5, duration=0.6)
+            if hasattr(self.arena_pillar, 'add_momentum'):
+                self.arena_pillar.add_momentum(0.03)  # 추가 모멘텀
+        elif rally < 10:
+            # 긴 랠리: 강한 흥분 + 사운드
+            self.arena_pillar.trigger_excitement(intensity=0.8, duration=1.0)
+            self._play_crowd_sound("cheer_medium")
+        else:
+            # 극한 랠리 (10회 이상): 최대 흥분 + 웨이브
+            self.arena_pillar.trigger_excitement(intensity=1.0, duration=1.5)
+            if rally % 5 == 0:  # 5회마다 웨이브
+                self.arena_pillar.trigger_wave()
+            self._play_crowd_sound("cheer_loud")
+
+    def _update_crowd_on_score(self, scorer: str):
+        """득점 시 관중 반응 업데이트
+
+        Args:
+            scorer: "top" 또는 "bottom"
+        """
+        if not self.arena_pillar:
+            return
+
+        s1, s2 = self.score_top, self.score_bottom
+        prev_diff = self._crowd_prev_score_diff
+        curr_diff = s1 - s2
+
+        # 긴 랠리 끝에 득점 → 기립박수급 흥분
+        was_long_rally = self._crowd_rally_count >= 8
+
+        # 역전 감지: 리드가 바뀌었을 때
+        lead_changed = (prev_diff > 0 and curr_diff < 0) or (prev_diff < 0 and curr_diff > 0)
+
+        # 듀스 상황 (4:4 이상 동점) 근처
+        is_close_match = s1 >= 3 and s2 >= 3 and abs(curr_diff) <= 1
+        is_deuce = s1 >= 4 and s2 >= 4 and s1 == s2
+
+        # 일방적 전개 (3점 이상 차이)
+        is_domination = abs(curr_diff) >= 3
+
+        # 매치 포인트 (한쪽이 이길 점수-1)
+        is_match_point = (s1 == self.win_score - 1 or s2 == self.win_score - 1)
+
+        if was_long_rally:
+            # 긴 랠리 끝 득점: 기립박수
+            if hasattr(self.arena_pillar, 'trigger_standing_ovation'):
+                self.arena_pillar.trigger_standing_ovation(duration=3.0)
+            self._play_crowd_sound("standing_ovation")
+        elif lead_changed:
+            # 역전! 탄식 + 강한 흥분
+            if hasattr(self.arena_pillar, 'trigger_gasp'):
+                self.arena_pillar.trigger_gasp(duration=1.2)
+            self.arena_pillar.trigger_excitement(intensity=1.0, duration=2.0)
+            self._play_crowd_sound("gasp")
+        elif is_deuce:
+            # 듀스! 강한 흥분 + 웨이브
+            self.arena_pillar.trigger_excitement(intensity=1.0, duration=2.5)
+            self.arena_pillar.trigger_wave()
+            self._play_crowd_sound("cheer_loud")
+        elif is_match_point and is_close_match:
+            # 접전에서 매치 포인트: 최대 흥분
+            self.arena_pillar.trigger_excitement(intensity=1.0, duration=3.0)
+            self._play_crowd_sound("cheer_loud")
+        elif is_domination:
+            # 일방적 전개: 야유
+            if hasattr(self.arena_pillar, 'trigger_boo'):
+                self.arena_pillar.trigger_boo(duration=1.5)
+            self._play_crowd_sound("boo")
+        elif is_close_match:
+            # 접전: 중간 흥분
+            self.arena_pillar.trigger_excitement(intensity=0.7, duration=1.5)
+            self._play_crowd_sound("cheer_medium")
+        else:
+            # 일반 득점: 표준 흥분
+            self.arena_pillar.trigger_excitement(intensity=0.6, duration=1.5)
+            self._play_crowd_sound("cheer_short")
+
+        # 모멘텀 리셋 (득점 시 약간 감소)
+        if hasattr(self.arena_pillar, 'reset_momentum'):
+            self.arena_pillar.reset_momentum()
+
+        # 상태 업데이트
+        self._crowd_prev_score_diff = curr_diff
+        self._crowd_rally_count = 0
+        self._crowd_last_hit_by = ""
+
+    def _play_crowd_sound(self, sound_type: str):
+        """관중 사운드 재생 (프로시저럴 합성 - 화이트 노이즈 기반)
+
+        Args:
+            sound_type: "cheer_short", "cheer_medium", "cheer_loud",
+                       "boo", "gasp", "standing_ovation"
+        """
+        try:
+            # 쿨타임 체크 (0.3초)
+            current_time = pygame.time.get_ticks()
+            if current_time - self._crowd_sound_timer < 300:
+                return
+            self._crowd_sound_timer = current_time
+
+            # 캐시된 사운드가 있으면 재사용
+            if sound_type in self._crowd_sound_cache:
+                sound = self._crowd_sound_cache[sound_type]
+                if sound:
+                    sound.play()
+                return
+
+            # 프로시저럴 관중 사운드 합성
+            sound = self._synthesize_crowd_sound(sound_type)
+            self._crowd_sound_cache[sound_type] = sound
+            if sound:
+                sound.play()
+        except Exception as e:
+            print(f"[CrowdSound] 사운드 재생 실패: {e}")
+
+    def _synthesize_crowd_sound(self, sound_type: str):
+        """관중 사운드를 프로시저럴하게 합성
+
+        화이트 노이즈 + 엔벨로프 + 주파수 필터링으로 관중 함성 효과 생성
+        """
+        try:
+            import numpy as np
+        except ImportError:
+            return None
+
+        try:
+            sample_rate = 22050
+            channels = 1
+
+            if sound_type == "cheer_short":
+                duration = 0.4
+                volume = 0.15
+                attack = 0.05
+                decay = 0.35
+            elif sound_type == "cheer_medium":
+                duration = 0.8
+                volume = 0.2
+                attack = 0.1
+                decay = 0.6
+            elif sound_type == "cheer_loud":
+                duration = 1.2
+                volume = 0.25
+                attack = 0.15
+                decay = 0.8
+            elif sound_type == "boo":
+                duration = 1.0
+                volume = 0.18
+                attack = 0.1
+                decay = 0.7
+            elif sound_type == "gasp":
+                duration = 0.5
+                volume = 0.2
+                attack = 0.02
+                decay = 0.45
+            elif sound_type == "standing_ovation":
+                duration = 2.0
+                volume = 0.25
+                attack = 0.3
+                decay = 1.2
+            else:
+                return None
+
+            num_samples = int(sample_rate * duration)
+            t = np.linspace(0, duration, num_samples, dtype=np.float32)
+
+            # 화이트 노이즈 기반 (관중 웅성거림)
+            noise = np.random.uniform(-1, 1, num_samples).astype(np.float32)
+
+            # 간단한 로우패스 필터 (이동 평균)
+            if sound_type == "boo":
+                kernel_size = 8  # 더 낮은 주파수 (야유는 저음)
+            elif sound_type == "gasp":
+                kernel_size = 3  # 높은 주파수 (탄식은 날카로움)
+            else:
+                kernel_size = 5  # 중간 주파수 (환호)
+            kernel = np.ones(kernel_size, dtype=np.float32) / kernel_size
+            filtered = np.convolve(noise, kernel, mode='same').astype(np.float32)
+
+            # 환호 사운드에 음색 추가 (저주파 울림)
+            if sound_type in ("cheer_medium", "cheer_loud", "standing_ovation"):
+                low_rumble = np.sin(2 * np.pi * 120 * t).astype(np.float32) * 0.15
+                mid_tone = np.sin(2 * np.pi * 300 * t).astype(np.float32) * 0.08
+                filtered = filtered + low_rumble + mid_tone
+
+            # 야유에는 낮은 웅웅거림 추가
+            if sound_type == "boo":
+                boo_tone = np.sin(2 * np.pi * 80 * t).astype(np.float32) * 0.2
+                filtered = filtered + boo_tone
+
+            # ADSR 엔벨로프
+            envelope = np.ones(num_samples, dtype=np.float32)
+            attack_samples = int(sample_rate * attack)
+            decay_samples = int(sample_rate * decay)
+            sustain_start = attack_samples
+            decay_start = num_samples - decay_samples
+
+            # Attack
+            if attack_samples > 0:
+                envelope[:attack_samples] = np.linspace(0, 1, attack_samples, dtype=np.float32)
+
+            # Decay (페이드 아웃)
+            if decay_samples > 0 and decay_start > 0:
+                envelope[decay_start:] = np.linspace(1, 0, num_samples - decay_start, dtype=np.float32)
+
+            # 적용
+            result = (filtered * envelope * volume).astype(np.float32)
+
+            # 클리핑
+            result = np.clip(result, -1.0, 1.0)
+
+            # pygame Sound로 변환 (16bit signed int)
+            result_int16 = (result * 32767).astype(np.int16)
+
+            sound = pygame.mixer.Sound(buffer=result_int16.tobytes())
+            return sound
+        except Exception as e:
+            print(f"[CrowdSound] 합성 실패: {e}")
+            return None
+
+    def get_crowd_momentum(self) -> float:
+        """현재 관중 모멘텀 레벨 반환 (외부에서 버프 적용용)"""
+        if self.arena_pillar and hasattr(self.arena_pillar, 'get_momentum_level'):
+            return self.arena_pillar.get_momentum_level()
+        return 0.0
 
     def _end_battle(self, winner: Dict):
         """배틀 종료 - 누적 상금 시스템"""
