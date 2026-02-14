@@ -8456,7 +8456,7 @@ class HeroPaddleRenderer:
             bx1 = cannon_mount_x + bx_off
             by1 = barrel_base_y + by_off
             bx2 = cannon_mount_x + bx_off
-            by2 = barrel_base_y + gun_dir * (-barrel_len) + by_off
+            by2 = barrel_base_y + gun_dir * barrel_len + by_off
             # 배럴 그림자
             pygame.draw.line(screen, p["cannon_dark"],
                 (bx1 + 1, by1 + 1), (bx2 + 1, by2 + 1),
@@ -8487,10 +8487,10 @@ class HeroPaddleRenderer:
 
         # 🔫 발사 시 총구 화염 (대형)
         if is_firing:
-            muzzle_tip_y = barrel_base_y + gun_dir * (-barrel_len)
+            muzzle_tip_y = barrel_base_y + gun_dir * barrel_len
             flash_sz = int(0.8 * b + 0.3 * b * _sin(t * 30))
             flash_cx = cannon_mount_x
-            flash_cy = muzzle_tip_y + gun_dir * int(-0.15 * b)
+            flash_cy = muzzle_tip_y + gun_dir * int(0.15 * b)
             fl_surf = self._get_surface(flash_sz * 3, flash_sz * 3)
             fl_a = int(180 + 70 * _sin(t * 25))
             pygame.draw.circle(fl_surf, (255, 220, 60, min(255, fl_a)),
