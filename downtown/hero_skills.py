@@ -10125,6 +10125,17 @@ class BoneBarrier(HeroSkill):
         self.barriers.append(barrier)
         self._next_id += 1
 
+        # 뼈 장막 건설 시작 사운드
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            sound_path = os.path.join(project_root, "sounds", "bonemake.wav")
+            if os.path.exists(sound_path):
+                s = pygame.mixer.Sound(sound_path)
+                s.set_volume(0.4)
+                s.play()
+        except Exception:
+            pass
+
         return {
             'screen_effect': ScreenEffect.FLASH,
             'flash_color': (180, 170, 130),
