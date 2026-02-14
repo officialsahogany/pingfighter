@@ -529,7 +529,7 @@ BOTTOM_HEROES = [
     {
         "id": "ra",
         "name": "라",
-        "title": "태양의 매",
+        "title": "천둥의 매",
         "style": HeroStyle.BALANCED,
         "color": (230, 160, 40),  # 태양 오렌지 골드
         "speed": 1.1,
