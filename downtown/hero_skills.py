@@ -13293,7 +13293,7 @@ class ThunderOrb(HeroSkill):
     """
 
     # 구체 상수 (에너지볼과 동일 사이즈/속도)
-    ORB_SPEED = 504             # 구체 이동 속도 (px/sec) - 420 * 1.2 (20% 증가)
+    ORB_SPEED = 605             # 구체 이동 속도 (px/sec) - 504 * 1.2 (20% 증가)
     ORB_RADIUS = 10             # 구체 물리 반지름 - BALL_SIZE = 10
     ORB_VISUAL_RADIUS = 30      # 구체 시각 반지름 (에너지볼 렌더링용)
     EXPLOSION_RADIUS = 170      # 폭발 범위 (px)
