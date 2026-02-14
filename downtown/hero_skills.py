@@ -11286,7 +11286,7 @@ class GatlingBurst(HeroSkill):
             korean_name="개틀링 버스트",
             description="1초 견착 후 3초간 기관포 난사! 발사 중 이동속도 50% 감소",
             trigger=SkillTrigger.ON_BALL_HIT,
-            cooldown=25.0,
+            cooldown=22.0,
             duration=5.0,   # 1초 변신 + 3초 발사 + 1초 복귀
             hero_id="android"
         )
