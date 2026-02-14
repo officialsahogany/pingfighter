@@ -1372,7 +1372,6 @@ class AIPaddleController:
         else:
             self.ghost_step_y_velocity = -self.ghost_step_speed  # 위로
 
-        print(f"[GhostStep] 귀신발걸음 y축 이동 시작! is_top={self.is_top}, 현재 y={self.y}, 방향={'아래' if self.is_top else '위'}")
         return True
 
     def update_ghost_step(self, dt: float):
@@ -1391,17 +1390,14 @@ class AIPaddleController:
             if current_offset >= self.ghost_step_max_offset:
                 self.ghost_step_phase = 1
                 self.ghost_step_y_velocity = -self.ghost_step_y_velocity  # 방향 반전
-                print(f"[GhostStep] 전진 완료, 복귀 시작! y={self.y}")
         else:
             # 복귀 페이즈: 원위치에 도달하면 귀신발걸음 종료
             if self.is_top:
                 if self.y <= self.original_y:
                     self.end_ghost_step()
-                    print(f"[GhostStep] 1회 왕복 완료 → 귀신발걸음 종료")
             else:
                 if self.y >= self.original_y:
                     self.end_ghost_step()
-                    print(f"[GhostStep] 1회 왕복 완료 → 귀신발걸음 종료")
 
     def end_ghost_step(self):
         """귀신발걸음 y축 이동 종료 및 원위치 복귀"""
@@ -1409,7 +1405,6 @@ class AIPaddleController:
         self.y = self.original_y
         self.ghost_step_y_velocity = 0.0
         self.ghost_step_phase = 0
-        print(f"[GhostStep] 귀신발걸음 종료, y={self.y}로 복귀")
 
     def ai_try_emergency_dash(self, ball_x: float, ball_y: float, ball_vx: float, ball_vy: float) -> bool:
         """AI 긴급 대쉬 판단 (보스 AI와 동일한 로직)"""
@@ -3604,7 +3599,6 @@ class GuardWarriorSystem:
                             'is_top_guard': caster_is_top,
                             'hit_offset': hit_offset,
                         }
-                        print(f"[Charm GhostStep] 매혹 호위무사 공 충돌! is_top={caster_is_top}, offset={hit_offset:.2f}")
                         return
 
         # --- 일반 가드 귀신발걸음 충돌 체크 ---
@@ -3657,7 +3651,6 @@ class GuardWarriorSystem:
                         'is_top_guard': is_top_guard,
                         'hit_offset': hit_offset,
                     }
-                    print(f"[Guard GhostStep] 호위무사 공 충돌 (1회)! is_top={is_top_guard}, offset={hit_offset:.2f}")
                     return
 
     def _check_guard_general_ball_collision(self, ball, game_state):

@@ -7533,8 +7533,6 @@ class Charm(HeroSkill):
         self.charm_aura_timer = 0.0
         self.charm_elapsed = 0.0
 
-        print(f"[Charm] _apply_effect 호출! caster_is_top={self.charm_source_is_top}")
-
         # 시전자 좌표
         caster = caster_paddle if self.charm_source_is_top else target_paddle
         cx = caster.x + (caster.width // 2 if hasattr(caster, 'width') else 40)
@@ -7544,7 +7542,6 @@ class Charm(HeroSkill):
         # caster_is_top이면 상대는 bottom, 아니면 top
         enemy_side = 'bottom' if self.charm_source_is_top else 'top'
         guard_info = game_state.get(f'_guard_info_{enemy_side}', None)
-        print(f"[Charm] enemy_side={enemy_side}, guard_info={guard_info}")
         if guard_info:
             self.proj_target_x = guard_info.get('x', 380)
             self.proj_target_y = guard_info.get('y', (BOTTOM_PADDLE_Y if self.charm_source_is_top else TOP_PADDLE_Y))
@@ -7606,10 +7603,6 @@ class Charm(HeroSkill):
         self.phase_timer += dt
         self.charm_aura_timer += dt
 
-        # 디버그: 페이즈 전환 추적 (첫 프레임만)
-        if self.phase_timer < dt * 2:
-            print(f"[Charm] update: phase={self.charm_phase}, active_timer={self.active_timer:.1f}, elapsed={self.charm_elapsed:.1f}")
-
         # === Phase 1: 발사체 비행 ===
         if self.charm_phase == "projectile":
             self.proj_progress += dt * self.proj_speed
@@ -7644,7 +7637,6 @@ class Charm(HeroSkill):
 
             # 도착 → Phase 2 전환
             if self.proj_progress >= 1.0:
-                print(f"[Charm] 발사체 도착! → pulling 전환")
                 self.charm_phase = "pulling"
                 self.phase_timer = 0.0
                 self.proj_trail = []
