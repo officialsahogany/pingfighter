@@ -21261,8 +21261,8 @@ def arena_should_bottom_hero_dash() -> tuple[bool, float]:
     if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and not arena_skill_manager.game_state.get('barrier_owner_is_top', False):
         return False, 0.0
 
-    # 대쉬 중이거나 쿨다운/후딜 중이면 발동 불가
-    if arena_bottom_dashing or arena_bottom_dash_cooldown > 0 or arena_bottom_dash_stun_timer > 0:
+    # 대쉬 중이거나 후딜 중이면 발동 불가 (쿨다운은 충전만 제어, 토큰 남아있으면 사용 가능)
+    if arena_bottom_dashing or arena_bottom_dash_stun_timer > 0:
         return False, 0.0
 
     # 공이 하단 영웅(플레이어) 방향으로 향하지 않으면 사용하지 않음
