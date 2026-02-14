@@ -91660,6 +91660,16 @@ def draw_objects():
             _arena_paddle_drawn = True  # 예외 발생해도 기본 패들(스매셔) 표시 방지
             print(f"[Arena] Bottom hero paddle render error: {e}")
 
+    # 🎯 투기장 스킬 오버레이 (패들 부착 폭탄 등 - 영웅 이미지 위에 그려야 하는 이펙트)
+    if arena_mode_enabled and arena_skill_manager:
+        try:
+            _ov_top = PaddleWrapperDraw(BOSS, True)
+            _ov_btm = PaddleWrapperDraw(PLAYER, False)
+            _ov_ball = BallWrapperDraw(BALL, ball_vel)
+            arena_skill_manager.draw_skills_overlay(SCREEN, _ov_top, _ov_btm, _ov_ball)
+        except Exception:
+            pass
+
     # 오딘의 눈 페널티 상태가 아닐 때만 기본 패들 그리기
     if _arena_paddle_drawn:
         pass  # 투기장 모드에서 영웅 패들을 그렸으므로 스킵

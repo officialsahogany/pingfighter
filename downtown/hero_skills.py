@@ -11066,23 +11066,31 @@ class BombSurprise(HeroSkill):
         countdown_int = int(math.ceil(remaining))  # 5,4,3,2,1
 
         if self.bomb_active:
-            # 폭탄 위치 결정
+            # 공에 붙은 폭탄만 여기서 그림 (패들 부착 폭탄은 draw_overlay에서 처리)
             if self.bomb_location == 'ball' and ball:
                 bx = int(ball.x + ball.width / 2)
                 by = int(ball.y + ball.height / 2)
-                self._draw_bomb(screen, bx, by, countdown_int, remaining)
-            elif self.bomb_location in ('top', 'bottom'):
-                if self.bomb_location == 'top':
-                    paddle = caster_paddle if caster_paddle.is_top else target_paddle
-                else:
-                    paddle = target_paddle if not target_paddle.is_top else caster_paddle
-                bx = int(paddle.x + getattr(paddle, 'width', 80) // 2)
-                by = int(paddle.y - 8)
                 self._draw_bomb(screen, bx, by, countdown_int, remaining)
 
         # 폭발 이펙트
         for exp in self.explosion_effects:
             self._draw_explosion(screen, exp)
+
+    def draw_overlay(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        """패들에 부착된 폭탄을 영웅 이미지 위에 그리기 (draw_objects에서 영웅 패들 렌더링 후 호출)"""
+        if not self.bomb_active:
+            return
+        if self.bomb_location not in ('top', 'bottom'):
+            return
+        remaining = max(0, self.bomb_max_time - self.bomb_timer)
+        countdown_int = int(math.ceil(remaining))
+        if self.bomb_location == 'top':
+            paddle = caster_paddle if caster_paddle.is_top else target_paddle
+        else:
+            paddle = target_paddle if not target_paddle.is_top else caster_paddle
+        bx = int(paddle.x + getattr(paddle, 'width', 80) // 2)
+        by = int(paddle.y - 8)
+        self._draw_bomb(screen, bx, by, countdown_int, remaining)
 
     def _draw_bomb(self, screen, bx, by, countdown_int, remaining):
         """시한폭탄 렌더링 (타이머 텍스트 포함)"""
@@ -15144,6 +15152,16 @@ class HeroSkillManager:
 
             for skill in skills:
                 skill.draw(screen, caster_paddle, target_paddle, ball, self.game_state)
+
+    def draw_skills_overlay(self, screen: pygame.Surface, top_paddle, bottom_paddle, ball):
+        """영웅 패들 위에 그려야 하는 스킬 오버레이 이펙트 (패들 부착 폭탄 등)"""
+        for hero_id, skills in self.active_skills.items():
+            is_top = self.game_state.get('hero_positions', {}).get(hero_id, True)
+            caster_paddle = top_paddle if is_top else bottom_paddle
+            target_paddle = bottom_paddle if is_top else top_paddle
+            for skill in skills:
+                if hasattr(skill, 'draw_overlay'):
+                    skill.draw_overlay(screen, caster_paddle, target_paddle, ball, self.game_state)
 
     def draw_screen_effects(self, screen: pygame.Surface):
         """화면 효과 그리기"""
