@@ -50853,7 +50853,7 @@ def go_to_next_round():
     ball_vel = [0, 0]
     physics_manager.reset_ball(is_player_serve)
     serve_power_smash_lockout = 0  # 라운드 시작 시 파워스매싱 서브 잠금 해제
-    
+
     # 무승부 판정 시스템 변수 초기화
     wall_bounce_count = 0
     last_wall_hit = None
@@ -50864,6 +50864,9 @@ def go_to_next_round():
     molotovs.clear()    # 날아가는 화염병도 제거
 
     # ⚡ 신의심판 강제 초기화 (라운드 전환 시 진행 중인 이벤트 즉시 종료)
+    global _judgment_quake_sound_playing, _judgment_ball_speed_backup, _judgment_prev_earthquake_active
+    global _judgment_prev_phase, _judgment_lightning_stun_applied
+    global _judgment_lightning_stun_top_timer, _judgment_lightning_stun_bottom_timer, _judgment_lightning_stun_type
     if current_stage == 30 and animated_bg_stage30 is not None:
         if animated_bg_stage30.is_judgment_active():
             print(f"[신의심판] 라운드 전환으로 강제 초기화 (페이즈: {animated_bg_stage30.get_judgment_phase_name()})")
@@ -117005,6 +117008,9 @@ def reset_round(is_stage_start=False):
     molotovs.clear()    # 날아가는 화염병도 제거
 
     # ⚡ 신의심판 강제 초기화 (라운드 전환 시 진행 중인 이벤트 즉시 종료)
+    global _judgment_quake_sound_playing, _judgment_ball_speed_backup, _judgment_prev_earthquake_active
+    global _judgment_prev_phase, _judgment_lightning_stun_applied
+    global _judgment_lightning_stun_top_timer, _judgment_lightning_stun_bottom_timer, _judgment_lightning_stun_type
     if current_stage == 30 and animated_bg_stage30 is not None:
         if animated_bg_stage30.is_judgment_active():
             print(f"[신의심판] 라운드 전환으로 강제 초기화 (페이즈: {animated_bg_stage30.get_judgment_phase_name()})")
