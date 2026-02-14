@@ -314,47 +314,176 @@ def _icon_doll_curse() -> pygame.Surface:
 # ===== 이그니스 (ignis) 스킬 =====
 
 def _icon_dragon_breath() -> pygame.Surface:
-    """드래곤 브레스 - 화염 콘"""
+    """드래곤 브레스 - 용 머리에서 뿜어져 나오는 화염 브레스"""
     s = pygame.Surface((32, 32), pygame.SRCALPHA)
-    # 배경
-    pygame.draw.circle(s, (55, 25, 10), (16, 16), 15)
-    pygame.draw.circle(s, (90, 40, 15), (16, 16), 15, 1)
-    # 화염 콘 (좌→우 방향)
-    # 외부 불꽃 (빨강)
-    flame_outer = [(6, 16), (14, 8), (26, 6), (28, 16), (26, 26), (14, 24)]
-    pygame.draw.polygon(s, (200, 50, 20), flame_outer)
+    # 배경 (깊은 암적색 + 열기 글로우)
+    pygame.draw.circle(s, (50, 15, 8), (16, 16), 15)
+    pygame.draw.circle(s, (80, 30, 12), (16, 16), 15, 1)
+    # 열기 글로우 (중앙~우측으로 퍼지는 열복사)
+    heat_glow = pygame.Surface((32, 32), pygame.SRCALPHA)
+    pygame.draw.circle(heat_glow, (255, 80, 20, 25), (22, 16), 12)
+    pygame.draw.circle(heat_glow, (255, 120, 30, 15), (26, 16), 8)
+    s.blit(heat_glow, (0, 0))
+
+    # === 화염 브레스 (좌측 입에서 우측으로 퍼지는 콘 형태) ===
+    # 최외곽 불꽃 (짙은 적색 + 검은 연기 테두리)
+    flame_smoke = [(7, 16), (12, 6), (20, 3), (28, 5), (30, 16), (28, 27), (20, 29), (12, 26)]
+    pygame.draw.polygon(s, (120, 25, 5), flame_smoke)
+    # 외부 불꽃 (붉은 오렌지)
+    flame_outer = [(8, 16), (13, 8), (20, 5), (27, 7), (29, 16), (27, 25), (20, 27), (13, 24)]
+    pygame.draw.polygon(s, (210, 55, 15), flame_outer)
     # 중간 불꽃 (오렌지)
-    flame_mid = [(8, 16), (14, 10), (24, 10), (26, 16), (24, 22), (14, 22)]
-    pygame.draw.polygon(s, (230, 120, 30), flame_mid)
-    # 내부 불꽃 (노랑)
-    flame_inner = [(10, 16), (15, 12), (22, 13), (23, 16), (22, 19), (15, 20)]
-    pygame.draw.polygon(s, (255, 200, 60), flame_inner)
-    # 코어 (흰노랑)
-    pygame.draw.circle(s, (255, 240, 180), (12, 16), 2)
+    flame_mid = [(9, 16), (14, 10), (20, 8), (25, 10), (27, 16), (25, 22), (20, 24), (14, 22)]
+    pygame.draw.polygon(s, (240, 130, 25), flame_mid)
+    # 내부 불꽃 (밝은 주황~노랑)
+    flame_inner = [(10, 16), (15, 12), (20, 11), (23, 13), (24, 16), (23, 19), (20, 21), (15, 20)]
+    pygame.draw.polygon(s, (255, 190, 50), flame_inner)
+    # 코어 (흰노랑 - 가장 뜨거운 부분)
+    flame_core = [(11, 16), (15, 14), (19, 13), (21, 16), (19, 19), (15, 18)]
+    pygame.draw.polygon(s, (255, 240, 150), flame_core)
+    # 초고온 코어 중심
+    pygame.draw.circle(s, (255, 255, 220), (12, 16), 2)
+    pygame.draw.circle(s, (255, 255, 250), (12, 16), 1)
+
+    # === 용 머리 실루엣 (좌측, 불을 내뿜는 형태) ===
+    head_dark = (80, 35, 15)
+    head_mid = (110, 55, 20)
+    head_light = (140, 75, 30)
+    # 용 머리 윤곽 (옆모습 - 위턱+아래턱 벌린 상태)
+    # 윗머리+뿔
+    pygame.draw.polygon(s, head_dark, [(2, 10), (4, 6), (6, 5), (5, 8), (8, 10), (8, 14), (2, 14)])
+    # 아래턱
+    pygame.draw.polygon(s, head_dark, [(2, 18), (8, 18), (8, 22), (6, 23), (4, 22), (2, 20)])
+    # 머리 디테일 (비늘 느낌)
+    pygame.draw.line(s, head_mid, (3, 9), (5, 9), 1)
+    pygame.draw.line(s, head_mid, (3, 12), (6, 12), 1)
+    # 뿔 하이라이트
+    pygame.draw.line(s, head_light, (4, 6), (6, 5), 1)
+    # 눈 (분노의 노란 눈)
+    pygame.draw.circle(s, (255, 200, 40), (5, 11), 1)
+    pygame.draw.circle(s, (255, 255, 180), (5, 11), 0)
+    # 콧구멍에서 나오는 연기
+    pygame.draw.circle(s, (180, 80, 30, 100), (7, 13), 1)
+    pygame.draw.circle(s, (160, 60, 20, 80), (7, 19), 1)
+
+    # === 불씨/엠버 파티클 (화염 주변에 떠다니는 불씨) ===
+    ember_positions = [(18, 4), (26, 9), (29, 14), (28, 22), (22, 27), (15, 5), (25, 4)]
+    for i, (ex, ey) in enumerate(ember_positions):
+        c = [(255, 160, 40), (255, 200, 60), (255, 120, 20)][i % 3]
+        pygame.draw.circle(s, (*c, 200 - i * 15), (ex, ey), 1)
+
+    # 화염 끝 갈래 (우측 끝에서 갈라지는 불꽃 혀)
+    pygame.draw.line(s, (255, 140, 30, 160), (27, 8), (30, 5), 1)
+    pygame.draw.line(s, (255, 140, 30, 160), (28, 16), (31, 16), 1)
+    pygame.draw.line(s, (255, 140, 30, 160), (27, 24), (30, 27), 1)
     return s
 
 
 def _icon_dragon_wing() -> pygame.Surface:
-    """용의 날개 - 날개 + 바람"""
+    """용의 날개 - 펼쳐진 용 날개 + 바람 이펙트 + 비늘 디테일"""
     s = pygame.Surface((32, 32), pygame.SRCALPHA)
-    # 배경
-    pygame.draw.circle(s, (45, 30, 15), (16, 16), 15)
-    pygame.draw.circle(s, (80, 55, 30), (16, 16), 15, 1)
-    # 날개 (좌측)
-    wing_points = [(6, 22), (8, 10), (14, 6), (18, 8), (16, 14), (14, 20)]
-    pygame.draw.polygon(s, (180, 120, 60), wing_points)
-    pygame.draw.polygon(s, (220, 160, 80), wing_points, 2)
-    # 날개 뼈대
-    pygame.draw.line(s, (200, 140, 70), (8, 20), (14, 6), 1)
-    pygame.draw.line(s, (200, 140, 70), (10, 18), (18, 8), 1)
-    # 바람선 (우측)
-    for i in range(3):
-        y = 10 + i * 6
-        x_start = 20
-        x_end = 28
-        alpha = 180 - i * 40
-        pygame.draw.line(s, (200, 220, 255, alpha), (x_start, y), (x_end, y), 1)
-        pygame.draw.line(s, (200, 220, 255, alpha), (x_end - 2, y - 1), (x_end, y), 1)
+    # 배경 (깊은 갈색/금색 톤 - 드래곤 테마)
+    pygame.draw.circle(s, (40, 25, 12), (16, 16), 15)
+    pygame.draw.circle(s, (80, 55, 25), (16, 16), 15, 1)
+    # 배경 글로우 (날개 주변 오라)
+    glow = pygame.Surface((32, 32), pygame.SRCALPHA)
+    pygame.draw.circle(glow, (255, 160, 40, 20), (14, 14), 13)
+    s.blit(glow, (0, 0))
+
+    # === 날개 색상 팔레트 ===
+    wing_dark = (130, 70, 25)        # 어두운 갈색 (그림자)
+    wing_base = (185, 115, 45)       # 기본 날개막 색
+    wing_mid = (210, 145, 55)        # 중간 톤
+    wing_light = (240, 185, 80)      # 밝은 하이라이트
+    wing_glow = (255, 220, 120)      # 금빛 글로우
+    bone_color = (160, 100, 40)      # 뼈대 색
+    bone_light = (200, 150, 70)      # 뼈대 하이라이트
+
+    # === 왼쪽 날개 (메인 - 크게 펼침) ===
+    # 날개막 전체 실루엣 (그림자)
+    wing_L_full = [(5, 24), (4, 18), (3, 12), (5, 6), (9, 3), (14, 4),
+                   (17, 7), (18, 11), (17, 16), (15, 21), (12, 25)]
+    pygame.draw.polygon(s, wing_dark, wing_L_full)
+
+    # 날개막 섹션 1 (상단 - 가장 큰 막)
+    section1 = [(5, 6), (9, 3), (14, 4), (17, 7), (12, 10), (7, 12)]
+    pygame.draw.polygon(s, wing_base, section1)
+    pygame.draw.polygon(s, wing_mid, [(6, 7), (10, 4), (13, 5), (16, 7), (12, 9), (8, 11)])
+
+    # 날개막 섹션 2 (중단)
+    section2 = [(4, 12), (7, 12), (12, 10), (17, 7), (18, 11), (17, 16), (12, 16), (6, 16)]
+    pygame.draw.polygon(s, wing_base, section2)
+    pygame.draw.polygon(s, wing_mid, [(5, 13), (8, 13), (13, 11), (17, 9), (17, 14), (13, 15), (7, 15)])
+
+    # 날개막 섹션 3 (하단)
+    section3 = [(4, 16), (6, 16), (12, 16), (17, 16), (15, 21), (12, 25), (5, 24)]
+    pygame.draw.polygon(s, wing_base, section3)
+    pygame.draw.polygon(s, (175, 105, 40), [(5, 17), (7, 17), (13, 17), (14, 20), (11, 23), (6, 22)])
+
+    # === 날개 뼈대 (3개의 갈비뼈 구조) ===
+    # 메인 뼈대 (어깨→상단 끝)
+    pygame.draw.line(s, bone_color, (8, 22), (9, 3), 2)
+    pygame.draw.line(s, bone_light, (8, 22), (9, 3), 1)
+    # 두 번째 뼈대 (어깨→중단)
+    pygame.draw.line(s, bone_color, (8, 22), (17, 8), 2)
+    pygame.draw.line(s, bone_light, (9, 21), (17, 8), 1)
+    # 세 번째 뼈대 (어깨→하단 끝)
+    pygame.draw.line(s, bone_color, (8, 22), (17, 16), 2)
+    pygame.draw.line(s, bone_light, (9, 21), (16, 16), 1)
+
+    # 뼈대 관절 마디 표시
+    for jx, jy in [(9, 6), (12, 10), (14, 15), (10, 14)]:
+        pygame.draw.circle(s, bone_light, (jx, jy), 1)
+
+    # 어깨 관절 (두꺼운 원)
+    pygame.draw.circle(s, bone_color, (8, 22), 3)
+    pygame.draw.circle(s, bone_light, (8, 22), 2)
+    pygame.draw.circle(s, wing_glow, (8, 22), 1)
+
+    # === 날개막 하이라이트 (빛 반사) ===
+    pygame.draw.line(s, wing_light, (7, 8), (12, 5), 1)
+    pygame.draw.line(s, wing_light, (6, 14), (14, 12), 1)
+    pygame.draw.line(s, wing_glow, (8, 5), (11, 4), 1)
+
+    # === 비늘 디테일 (어깨~몸통 부근) ===
+    scale_positions = [(7, 26), (9, 27), (6, 28), (8, 29), (10, 28)]
+    for sx, sy in scale_positions:
+        if 0 <= sy < 32:
+            pygame.draw.circle(s, wing_mid, (sx, sy), 1)
+            pygame.draw.circle(s, wing_dark, (sx, sy + 1), 1)
+
+    # === 바람 이펙트 (우측 - 날갯짓으로 인한 돌풍) ===
+    wind_colors = [
+        (220, 235, 255, 140),
+        (200, 220, 255, 110),
+        (180, 210, 255, 80),
+        (160, 200, 250, 50),
+    ]
+    # 바람선 (곡선 형태 - 날개에서 우하단으로 퍼짐)
+    wind_lines = [
+        [(19, 8), (22, 7), (26, 8), (29, 7)],
+        [(20, 12), (23, 11), (27, 12), (30, 11)],
+        [(19, 17), (23, 16), (27, 17), (30, 16)],
+        [(18, 22), (22, 21), (26, 22), (29, 21)],
+    ]
+    for i, pts in enumerate(wind_lines):
+        c = wind_colors[i]
+        pygame.draw.lines(s, c, False, pts, 1)
+        # 바람 끝 화살촉
+        ex, ey = pts[-1]
+        pygame.draw.line(s, c, (ex - 2, ey - 1), (ex, ey), 1)
+        pygame.draw.line(s, c, (ex - 2, ey + 1), (ex, ey), 1)
+
+    # 바람 파티클 (작은 점들)
+    for px, py in [(24, 9), (28, 13), (25, 19), (22, 24), (30, 9)]:
+        pygame.draw.circle(s, (200, 225, 255, 100), (px, py), 1)
+
+    # === 금빛 용기 파티클 (버프 스킬 느낌) ===
+    for px, py in [(20, 5), (26, 15), (22, 26)]:
+        pygame.draw.circle(s, (255, 220, 80, 120), (px, py), 1)
+
+    # 외곽 글로우 강조
+    pygame.draw.circle(s, (255, 200, 80, 40), (16, 16), 14, 1)
     return s
 
 
