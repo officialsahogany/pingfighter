@@ -10899,6 +10899,362 @@ class BombSurprise(HeroSkill):
 
 
 # ============================================================================
+# 안드로이드 스킬 - 개틀링 버스트 (기관포 연사)
+# ============================================================================
+class GatlingBurst(HeroSkill):
+    """개틀링 버스트 - 3초간 기관포에서 총알을 연사, 상대에게 넉백 유발"""
+
+    GAME_LEFT = 0
+    GAME_RIGHT = 760
+    GAME_TOP = 0
+    GAME_BOTTOM = 750
+
+    BULLET_SPEED = 600        # 총알 속도 (빠름)
+    FIRE_RATE = 0.12          # 발사 간격 (초) - 초당 약 8발
+    BULLET_SIZE = 4           # 총알 크기
+    KNOCKBACK_VEL = 120       # 넉백 속도
+    SPREAD_ANGLE = 12         # 탄 퍼짐 (도)
+    MUZZLE_FLASH_DURATION = 0.06  # 머즐 플래쉬 지속
+
+    def __init__(self):
+        super().__init__(
+            skill_id="gatling_burst",
+            name="Gatling Burst",
+            korean_name="개틀링 버스트",
+            description="3초간 기관포를 난사! 총알이 상대를 강제 넉백시킨다",
+            trigger=SkillTrigger.ON_BALL_HIT,
+            cooldown=15.0,
+            duration=3.0,
+            hero_id="android"
+        )
+        self.bullets = []          # 비행 중인 총알
+        self.fire_timer = 0.0      # 발사 타이머
+        self.caster_is_top = False
+        self.hit_particles = []    # 히트 파티클
+        self.muzzle_flashes = []   # 머즐 플래쉬 이펙트
+        self.total_fired = 0       # 총 발사 수
+        self._hit_sound = None
+        self._fire_sound = None
+
+    def _load_sounds(self):
+        """사운드 로드"""
+        if self._fire_sound is None:
+            try:
+                project_root = os.path.dirname(
+                    os.path.dirname(os.path.abspath(__file__)))
+                # smallboy 사운드를 총알 발사/히트용으로 사용
+                fire_path = os.path.join(
+                    project_root, "sounds", "smallboyshoot.wav")
+                if os.path.exists(fire_path):
+                    self._fire_sound = pygame.mixer.Sound(fire_path)
+                    self._fire_sound.set_volume(0.15)
+                hit_path = os.path.join(
+                    project_root, "sounds", "smallboyhit.wav")
+                if os.path.exists(hit_path):
+                    self._hit_sound = pygame.mixer.Sound(hit_path)
+                    self._hit_sound.set_volume(0.2)
+            except Exception:
+                pass
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball,
+                      game_state: dict) -> dict:
+        self.caster_is_top = getattr(caster_paddle, 'is_top', False)
+        self.bullets = []
+        self.hit_particles = []
+        self.muzzle_flashes = []
+        self.fire_timer = 0.0
+        self.total_fired = 0
+        self._load_sounds()
+
+        # 게임 상태에 개틀링 활성 플래그 (hero_paddles.py 연동용)
+        side = 'top' if self.caster_is_top else 'bottom'
+        game_state[f'gatling_burst_active_{side}'] = True
+
+        return {
+            'screen_effect': ScreenEffect.FLASH,
+            'flash_color': (255, 200, 100),
+            'flash_duration': 0.1,
+        }
+
+    def _fire_bullet(self, caster_paddle, target_paddle, game_state):
+        """총알 한 발 발사"""
+        # 발사 위치: 캐스터 패들 중앙
+        spawn_x = caster_paddle.x + caster_paddle.width // 2
+        if self.caster_is_top:
+            spawn_y = caster_paddle.y + caster_paddle.height + 5
+        else:
+            spawn_y = caster_paddle.y - 5
+
+        # 적 패들 방향으로 조준 + 랜덤 퍼짐
+        enemy_key = ('hero_paddle_bottom' if self.caster_is_top
+                     else 'hero_paddle_top')
+        hero_info = game_state.get(enemy_key)
+        if hero_info:
+            target_x = hero_info['x'] + hero_info['width'] / 2
+            target_y = hero_info['y'] + hero_info['height'] / 2
+        elif target_paddle is not None:
+            target_x = target_paddle.x + target_paddle.width / 2
+            target_y = target_paddle.y + target_paddle.height / 2
+        else:
+            target_x = spawn_x
+            target_y = (self.GAME_BOTTOM if self.caster_is_top
+                        else self.GAME_TOP)
+
+        # 방향 벡터 계산
+        dx = target_x - spawn_x
+        dy = target_y - spawn_y
+        dist = math.sqrt(dx * dx + dy * dy)
+        if dist < 1:
+            dist = 1
+
+        # 탄 퍼짐 적용 (AK-47 스타일 스프레이)
+        spread = math.radians(
+            random.uniform(-self.SPREAD_ANGLE, self.SPREAD_ANGLE))
+        base_angle = math.atan2(dy, dx)
+        final_angle = base_angle + spread
+
+        vx = math.cos(final_angle) * self.BULLET_SPEED
+        vy = math.sin(final_angle) * self.BULLET_SPEED
+
+        self.bullets.append({
+            'x': float(spawn_x),
+            'y': float(spawn_y),
+            'vx': vx,
+            'vy': vy,
+            'active': True,
+            'age': 0.0,
+            'trail': [],
+        })
+        self.total_fired += 1
+
+        # 머즐 플래쉬
+        self.muzzle_flashes.append({
+            'x': spawn_x,
+            'y': spawn_y,
+            'timer': self.MUZZLE_FLASH_DURATION,
+            'size': random.uniform(8, 14),
+        })
+
+        # 발사 사운드 (3발에 1번만 - 과도한 사운드 방지)
+        if self._fire_sound and self.total_fired % 3 == 1:
+            self._fire_sound.play()
+
+    def _update_active_effect(self, dt: float, caster_paddle,
+                              target_paddle, ball, game_state: dict):
+        # 발사 타이머
+        self.fire_timer += dt
+        if self.fire_timer >= self.FIRE_RATE:
+            self.fire_timer -= self.FIRE_RATE
+            self._fire_bullet(caster_paddle, target_paddle, game_state)
+
+        # 총알 업데이트
+        new_bullets = []
+        for bullet in self.bullets:
+            if not bullet['active']:
+                continue
+
+            # 잔상 추가
+            bullet['trail'].append({
+                'x': bullet['x'], 'y': bullet['y'], 'alpha': 180
+            })
+            if len(bullet['trail']) > 4:
+                bullet['trail'].pop(0)
+
+            # 이동
+            bullet['x'] += bullet['vx'] * dt
+            bullet['y'] += bullet['vy'] * dt
+            bullet['age'] += dt
+
+            # 화면 밖 제거
+            if (bullet['x'] < self.GAME_LEFT - 20
+                    or bullet['x'] > self.GAME_RIGHT + 20
+                    or bullet['y'] < self.GAME_TOP - 20
+                    or bullet['y'] > self.GAME_BOTTOM + 20):
+                continue
+
+            # 수명 초과 (2초)
+            if bullet['age'] > 2.0:
+                continue
+
+            # 적 패들 충돌 체크
+            target_is_top = not self.caster_is_top
+            enemy_key = ('hero_paddle_top' if target_is_top
+                         else 'hero_paddle_bottom')
+            hero_info = game_state.get(enemy_key)
+
+            hit = False
+            if hero_info:
+                paddle_cx = hero_info['x'] + hero_info['width'] / 2
+                paddle_cy = hero_info['y'] + hero_info['height'] / 2
+                hit_dist = math.sqrt(
+                    (bullet['x'] - paddle_cx) ** 2
+                    + (bullet['y'] - paddle_cy) ** 2)
+                if hit_dist < (hero_info['width'] / 2 + 10):
+                    hit = True
+            elif (target_paddle is not None
+                  and not getattr(target_paddle, 'is_bodyguard', False)):
+                paddle_cx = (target_paddle.x
+                            + target_paddle.width / 2)
+                paddle_cy = (target_paddle.y
+                            + target_paddle.height / 2)
+                hit_dist = math.sqrt(
+                    (bullet['x'] - paddle_cx) ** 2
+                    + (bullet['y'] - paddle_cy) ** 2)
+                if hit_dist < (target_paddle.width / 2 + 10):
+                    hit = True
+
+            if hit:
+                # 마법결계 면역 체크
+                _imm_side = 'top' if target_is_top else 'bottom'
+                if not game_state.get(
+                        f'magic_immunity_{_imm_side}', False):
+                    # 넉백 적용
+                    knockback_dir = (1 if bullet['vx'] > 0
+                                    else -1)
+                    if abs(bullet['vx']) < 10:
+                        knockback_dir = random.choice([-1, 1])
+                    target_prefix = ('top_paddle' if target_is_top
+                                     else 'bottom_paddle')
+                    game_state[
+                        f'{target_prefix}_knockback'] = True
+                    game_state[
+                        f'{target_prefix}_knockback_dir'
+                    ] = knockback_dir
+                    game_state[
+                        f'{target_prefix}_knockback_vel'
+                    ] = self.KNOCKBACK_VEL
+
+                # 히트 파티클
+                for _ in range(6):
+                    self.hit_particles.append({
+                        'x': bullet['x'],
+                        'y': bullet['y'],
+                        'vx': random.uniform(-150, 150),
+                        'vy': random.uniform(-150, 150),
+                        'alpha': 220,
+                        'life': random.uniform(0.2, 0.4),
+                        'age': 0.0,
+                        'size': random.uniform(2, 4),
+                    })
+
+                # 히트 사운드 (5발에 1번)
+                if self._hit_sound and self.total_fired % 5 == 0:
+                    self._hit_sound.play()
+
+                continue  # 총알 소멸
+
+            new_bullets.append(bullet)
+
+        self.bullets = new_bullets
+
+        # 머즐 플래쉬 업데이트
+        new_flashes = []
+        for flash in self.muzzle_flashes:
+            flash['timer'] -= dt
+            if flash['timer'] > 0:
+                new_flashes.append(flash)
+        self.muzzle_flashes = new_flashes
+
+        # 히트 파티클 업데이트
+        new_particles = []
+        for p in self.hit_particles:
+            p['age'] += dt
+            p['x'] += p['vx'] * dt
+            p['y'] += p['vy'] * dt
+            p['alpha'] = int(
+                220 * max(0, 1.0 - p['age'] / p['life']))
+            if p['age'] < p['life'] and p['alpha'] > 5:
+                new_particles.append(p)
+        self.hit_particles = new_particles
+
+    def _end_effect(self, caster_paddle, target_paddle, ball,
+                    game_state: dict):
+        side = 'top' if self.caster_is_top else 'bottom'
+        game_state[f'gatling_burst_active_{side}'] = False
+
+    def reset_for_new_round(self, game_state: dict):
+        super().reset_for_new_round(game_state)
+        self.bullets = []
+        self.hit_particles = []
+        self.muzzle_flashes = []
+        self.fire_timer = 0.0
+        self.total_fired = 0
+        game_state['gatling_burst_active_top'] = False
+        game_state['gatling_burst_active_bottom'] = False
+
+    def draw(self, screen: pygame.Surface, caster_paddle,
+             target_paddle, ball, game_state: dict):
+        if not self.is_active and not self.bullets and not self.hit_particles:
+            return
+
+        # --- 머즐 플래쉬 ---
+        for flash in self.muzzle_flashes:
+            t_ratio = flash['timer'] / self.MUZZLE_FLASH_DURATION
+            size = int(flash['size'] * t_ratio)
+            if size > 0:
+                fs = pygame.Surface(
+                    (size * 4, size * 4), pygame.SRCALPHA)
+                alpha = int(255 * t_ratio)
+                # 외부 글로우 (주황)
+                pygame.draw.circle(
+                    fs, (255, 180, 50, alpha // 2),
+                    (size * 2, size * 2), size * 2)
+                # 내부 핵심 (흰색)
+                pygame.draw.circle(
+                    fs, (255, 255, 200, alpha),
+                    (size * 2, size * 2), size)
+                screen.blit(
+                    fs,
+                    (int(flash['x']) - size * 2,
+                     int(flash['y']) - size * 2),
+                    special_flags=pygame.BLEND_ADD)
+
+        # --- 총알 ---
+        for bullet in self.bullets:
+            if not bullet['active']:
+                continue
+
+            # 잔상
+            for tr in bullet['trail']:
+                tr['alpha'] = max(0, tr['alpha'] - 15)
+                if tr['alpha'] > 10:
+                    pygame.draw.circle(
+                        screen,
+                        (255, 200, 80, tr['alpha']),
+                        (int(tr['x']), int(tr['y'])),
+                        max(1, self.BULLET_SIZE - 1))
+
+            # 총알 본체 (밝은 노란색 탄환)
+            bx, by = int(bullet['x']), int(bullet['y'])
+            # 글로우
+            gs = pygame.Surface((16, 16), pygame.SRCALPHA)
+            pygame.draw.circle(
+                gs, (255, 200, 80, 100), (8, 8), 6)
+            screen.blit(gs, (bx - 8, by - 8),
+                       special_flags=pygame.BLEND_ADD)
+            # 코어
+            pygame.draw.circle(
+                screen, (255, 230, 150),
+                (bx, by), self.BULLET_SIZE)
+            pygame.draw.circle(
+                screen, (255, 255, 220),
+                (bx, by), max(1, self.BULLET_SIZE - 2))
+
+        # --- 히트 파티클 (금속 스파크) ---
+        for p in self.hit_particles:
+            if p['alpha'] > 5:
+                px, py = int(p['x']), int(p['y'])
+                sz = max(1, int(p['size'] * (1 - p['age'] / p['life'])))
+                # 스파크 (밝은 주황/흰)
+                spark_color = random.choice([
+                    (255, 220, 100), (255, 180, 60),
+                    (255, 255, 200),
+                ])
+                pygame.draw.circle(
+                    screen, spark_color, (px, py), sz)
+
+
+# ============================================================================
 # 세트 스킬 - 사막의 환술사 (트릭키)
 # ============================================================================
 class SandPrison(HeroSkill):
@@ -11350,7 +11706,7 @@ class SandVortex(HeroSkill):
     GAME_TOP = 0
     GAME_BOTTOM = 750
 
-    PULL_RADIUS = 140      # 끌어당김 범위 (기본값, 성장에 따라 증가)
+    PULL_RADIUS = 200      # 끌어당김 범위 (기본값, 성장에 따라 증가) - 140→200 확대
     CAPTURE_RADIUS = 36    # 완전 포획 범위 (기본값, 성장에 따라 증가)
     VORTEX_SPEED = 180     # 이동 속도
     LAUNCH_SPEED_MULT = 1.43  # 포획 후 발사 속도 = 공 현재 속도 × 배율 (기존 1.1 → 30% 증가)
@@ -11360,7 +11716,7 @@ class SandVortex(HeroSkill):
     VORTEX_LIFETIME = 4.0  # 소용돌이 수명 (초)
     FADE_DURATION = 1.2    # 소멸 페이드 시간 (초)
     CURVE_DURATION = 2.5   # 커브 효과 지속시간 (초, 기존 1.5 → 대폭 증가)
-    CURVE_ROTATION_SPEED = 0.85  # 커브 회전 속도 (rad/s, 총 ~60도 호 궤적)
+    CURVE_ROTATION_SPEED = 3.0  # 커브 회전 속도 (rad/s) - 0.85→3.0 U턴급 강화
     CAPTURE_BOOST = 1.6    # 포획 시 공 임팩트 부스트 (ball_impact_boost에 적용)
     GROWTH_RATE = 0.20     # 초당 크기/범위 성장률 (20%)
 
@@ -11370,7 +11726,7 @@ class SandVortex(HeroSkill):
             name="Sand Vortex",
             korean_name="모래회오리",
             description="2개의 모래 소용돌이를 발사하여 공을 끌어당긴다",
-            trigger=SkillTrigger.ON_BALL_HIT,
+            trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=16.0,
             duration=7.0,
             hero_id="mirage"
@@ -11557,9 +11913,9 @@ class SandVortex(HeroSkill):
                     dist = math.sqrt(dx * dx + dy * dy)
 
                     if dist < scaled_pull_radius and dist > 1:
-                        # 끌어당김 (성장된 범위 기준)
-                        pull_factor = (1 - dist / scaled_pull_radius) ** 1.5
-                        pull_strength = pull_factor * 350 * dt
+                        # 끌어당김 (성장된 범위 기준) - U턴급 강력한 흡인력
+                        pull_factor = (1 - dist / scaled_pull_radius) ** 0.8  # 지수 1.5→0.8: 먼 거리에서도 강한 흡인
+                        pull_strength = pull_factor * 700 * dt  # 350→700: 구심력 2배 강화
                         nx = dx / dist
                         ny = dy / dist
 
@@ -11570,7 +11926,7 @@ class SandVortex(HeroSkill):
                             ball.speed_x += nx * pull_strength
                             ball.speed_y += ny * pull_strength
 
-                        # 접선 방향 힘 (공이 소용돌이를 휘감도록 궤도 회전)
+                        # 접선 방향 힘 (공이 소용돌이 주변을 U턴하도록 강한 궤도 회전)
                         ball_vx_cur = getattr(ball, 'vx', 0) or getattr(ball, 'speed_x', 0)
                         ball_vy_cur = getattr(ball, 'vy', 0) or getattr(ball, 'speed_y', 0)
                         # 외적으로 공의 자연스러운 공전 방향 결정
@@ -11579,7 +11935,7 @@ class SandVortex(HeroSkill):
                         # 반지름 방향에 수직인 접선 벡터
                         tx = -ny * spin_dir
                         ty = nx * spin_dir
-                        tangent_strength = pull_factor * 180 * dt
+                        tangent_strength = pull_factor * 600 * dt  # 180→600: 접선력 3.3배 강화 (U턴 궤적)
                         if hasattr(ball, 'vx'):
                             ball.vx += tx * tangent_strength
                             ball.vy += ty * tangent_strength
@@ -11889,7 +12245,7 @@ HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "necro": [BoneBarrier(), SkeletonArcher()],
     "joker": [BalloonWall(), DeadPossession()],
     "mirage": [SandPrison(), SandVortex()],
-    "android": [BombSurprise(), BombSurprise()],  # 두 번째 스킬 추후 추가 예정 (총알 발사)
+    "android": [BombSurprise(), GatlingBurst()],
 }
 
 # 스킬 클래스 매핑 (호위무사 시스템 등에서 독립 인스턴스 생성용)
@@ -11906,7 +12262,7 @@ HERO_SKILL_CLASSES: Dict[str, list] = {
     "necro": [BoneBarrier, SkeletonArcher],
     "joker": [BalloonWall, DeadPossession],
     "mirage": [SandPrison, SandVortex],
-    "android": [BombSurprise, BombSurprise],  # 두 번째 스킬 추후 추가 예정 (총알 발사)
+    "android": [BombSurprise, GatlingBurst],
 }
 
 
