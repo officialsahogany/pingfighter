@@ -884,7 +884,7 @@ def _icon_sand_vortex() -> pygame.Surface:
 # ===== 라 (ra) 스킬 =====
 
 def _icon_solar_bolt() -> pygame.Surface:
-    """라의 낙뢰 - 황금 번개 + 태양 광휘"""
+    """천둥 낙뢰 - 황금 번개 + 태양 광휘"""
     s = pygame.Surface((32, 32), pygame.SRCALPHA)
     # 배경 (깊은 남색 - 폭풍 하늘)
     pygame.draw.circle(s, (15, 15, 45), (16, 16), 15)
@@ -936,7 +936,7 @@ def _icon_solar_bolt() -> pygame.Surface:
 
 
 def _icon_thunder_orb() -> pygame.Surface:
-    """라의 뇌구 - 전기 구체 + 방전 아크"""
+    """천둥 뇌구 - 전기 구체 + 방전 아크"""
     s = pygame.Surface((32, 32), pygame.SRCALPHA)
     # 배경 (어두운 남보라 - 전기 테마)
     pygame.draw.circle(s, (15, 12, 40), (16, 16), 15)

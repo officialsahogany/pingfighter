@@ -12843,7 +12843,7 @@ class SandVortex(HeroSkill):
 # 라 (Ra) - 태양의 매 전용 스킬
 # ============================================================================
 class SolarBolt(HeroSkill):
-    """라의 낙뢰 - 공이 자신에게 향할 때 번개로 타격하여 반사시킨다 (디바인쉴드 번개 요격과 동일)
+    """천둥 낙뢰 - 공이 자신에게 향할 때 번개로 타격하여 반사시킨다 (디바인쉴드 번개 요격과 동일)
 
     자동 발동 (쿨타임 15초). 공이 시전자 쪽으로 내려오고 있을 때 발동되며,
     번개가 시전자 패들에서 공까지 이어지며 공을 상대 방향으로 반사시킨다.
@@ -12881,7 +12881,7 @@ class SolarBolt(HeroSkill):
         super().__init__(
             skill_id="solar_bolt",
             name="Solar Bolt",
-            korean_name="라의 낙뢰",
+            korean_name="천둥 낙뢰",
             description="태양의 번개로 공을 강타하여 반대 방향으로 반사시킨다",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=12.0,
@@ -13268,7 +13268,7 @@ class SolarBolt(HeroSkill):
 
 
 class ThunderOrb(HeroSkill):
-    """라의 뇌구 - 강력한 번개 구체를 발사, 상대 진영에서 폭발하여 범위 내 감전(스턴)
+    """천둥 뇌구 - 강력한 번개 구체를 발사, 상대 진영에서 폭발하여 범위 내 감전(스턴)
 
     자동 발동 (쿨타임 20초). 시전자 패들에서 번개 구체를 발사하며,
     상대 진영에 도달 시 폭발(170px). 범위 내 상대가 있으면 2초 감전.
@@ -13317,7 +13317,7 @@ class ThunderOrb(HeroSkill):
         super().__init__(
             skill_id="thunder_orb",
             name="Thunder Orb",
-            korean_name="라의 뇌구",
+            korean_name="천둥 뇌구",
             description="강력한 번개 구체를 발사하여 상대 진영에서 폭발, 범위 내 감전",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=20.0,
@@ -14535,7 +14535,7 @@ HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "joker": [BalloonWall(), DeadPossession()],
     "mirage": [SandPrison(), SandVortex()],
     "android": [BombSurprise(), GatlingBurst()],
-    "ra": [SolarBolt(), ThunderOrb()],  # 라의 낙뢰 + 라의 뇌구
+    "ra": [SolarBolt(), ThunderOrb()],  # 천둥 낙뢰 + 천둥 뇌구
     "monkeyking": [BananaSlice(), WildRoar()],  # 원숭이왕: 바나나 슬라이스 + 야생의 포효
 }
 
@@ -14554,7 +14554,7 @@ HERO_SKILL_CLASSES: Dict[str, list] = {
     "joker": [BalloonWall, DeadPossession],
     "mirage": [SandPrison, SandVortex],
     "android": [BombSurprise, GatlingBurst],
-    "ra": [SolarBolt, ThunderOrb],  # 라의 낙뢰 + 라의 뇌구
+    "ra": [SolarBolt, ThunderOrb],  # 천둥 낙뢰 + 천둥 뇌구
     "monkeyking": [BananaSlice, WildRoar],  # 원숭이왕: 바나나 슬라이스 + 야생의 포효
 }
 
