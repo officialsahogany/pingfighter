@@ -135817,6 +135817,21 @@ def main(stage_num, new_boss_mode=False):
                     ball_vel[0] = ball_wrapper.vx
                     ball_vel[1] = ball_wrapper.vy
 
+                    # 👻 유령소환: 공 숨김/발사 처리
+                    _gs_ghost = arena_skill_manager.game_state
+                    if _gs_ghost.get('ghost_summon_ball_hidden', False):
+                        # 공을 화면 밖으로 이동 + 속도 0으로 고정
+                        BALL.x = -200
+                        BALL.y = -200
+                        ball_vel[0] = 0.0
+                        ball_vel[1] = 0.0
+                    _ghost_release = _gs_ghost.get('ghost_summon_ball_release')
+                    if _ghost_release:
+                        # 유령이 공을 발사 → 실제 BALL 위치 설정 (중심→좌상단 변환)
+                        BALL.x = int(_ghost_release['ball_x']) - BALL.width // 2
+                        BALL.y = int(_ghost_release['ball_y']) - BALL.height // 2
+                        del _gs_ghost['ghost_summon_ball_release']
+
                     # 🌪️ 모래회오리 포획: 실제 BALL 위치/속도/부스트 반영
                     _vortex_cap = arena_skill_manager.game_state.get('sand_vortex_ball_captured')
                     if _vortex_cap:

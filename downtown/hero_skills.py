@@ -8474,17 +8474,12 @@ class GhostSummon(HeroSkill):
 
                     # 사라지는 사운드 (투기장 모드에서만 재생)
                     try:
-                        import pingfighter as _pf_gs2
-                        if getattr(_pf_gs2, 'arena_mode_enabled', False):
-                            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                            sound_path = os.path.join(project_root, "sounds", "ghostwalk.wav")
-                            if os.path.exists(sound_path):
-                                s = pygame.mixer.Sound(sound_path)
-                                s.set_volume(0.3)
-                                s.play()
-                        else:
-                            print(f"[GHOSTWALK BUG] 투기장 모드 아닌데 유령소환 사라짐 사운드 재생 시도!")
-                            import traceback; traceback.print_stack(limit=5)
+                        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                        sound_path = os.path.join(project_root, "sounds", "ghostwalk.wav")
+                        if os.path.exists(sound_path):
+                            s = pygame.mixer.Sound(sound_path)
+                            s.set_volume(0.3)
+                            s.play()
                     except Exception:
                         pass
 
