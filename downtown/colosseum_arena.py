@@ -513,6 +513,19 @@ BOTTOM_HEROES = [
         "position": "bottom",
         "description": "사막의 모래바람을 조종하여 적을 가두고 혼란시키는 환술사"
     },
+    {
+        "id": "android",
+        "name": "안드로이드",
+        "title": "전투 병기",
+        "style": HeroStyle.AGGRESSIVE,
+        "color": (130, 140, 160),  # 건메탈 실버
+        "speed": 1.15,
+        "reaction": 0.88,
+        "power": 1.3,
+        "accuracy": 0.85,
+        "position": "bottom",
+        "description": "폭탄과 기관포로 무장한 냉혹한 전투 로봇"
+    },
 ]
 
 # 전체 영웅 목록

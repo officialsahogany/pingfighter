@@ -11889,6 +11889,7 @@ HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "necro": [BoneBarrier(), SkeletonArcher()],
     "joker": [BalloonWall(), DeadPossession()],
     "mirage": [SandPrison(), SandVortex()],
+    "android": [BombSurprise(), BombSurprise()],  # 두 번째 스킬 추후 추가 예정 (총알 발사)
 }
 
 # 스킬 클래스 매핑 (호위무사 시스템 등에서 독립 인스턴스 생성용)
@@ -11905,6 +11906,7 @@ HERO_SKILL_CLASSES: Dict[str, list] = {
     "necro": [BoneBarrier, SkeletonArcher],
     "joker": [BalloonWall, DeadPossession],
     "mirage": [SandPrison, SandVortex],
+    "android": [BombSurprise, BombSurprise],  # 두 번째 스킬 추후 추가 예정 (총알 발사)
 }
 
 
@@ -12297,4 +12299,4 @@ try:
     from downtown.colosseum_arena import TOP_HEROES, BOTTOM_HEROES
 except ImportError:
     TOP_HEROES = [{"id": "mugen"}, {"id": "kraken"}, {"id": "chronos"}, {"id": "onimaru"}]
-    BOTTOM_HEROES = [{"id": "maria"}, {"id": "ignis"}, {"id": "gear"}, {"id": "kurokage"}, {"id": "banshee"}]
+    BOTTOM_HEROES = [{"id": "maria"}, {"id": "ignis"}, {"id": "gear"}, {"id": "kurokage"}, {"id": "banshee"}, {"id": "android"}]

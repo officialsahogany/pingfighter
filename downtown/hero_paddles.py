@@ -6320,6 +6320,767 @@ class HeroPaddleRenderer:
                     screen.blit(ds, (dx - dr, dy - dr))
 
     # =========================================================================
+    # 안드로이드 - 전투 병기 (폭탄 + 기관포로 무장한 전투 로봇) [고퀄리티]
+    # =========================================================================
+    def _draw_android(self, screen, cx, cy, b, color, show_back, anim):
+        """안드로이드 - 전투 병기 (왼손에 폭탄, 오른손에 기관포를 장착한 전투 로봇) [HD 버전]"""
+        lean = anim["lean"]
+        wave = anim["wave"]
+        body_bob = anim["body_bob"]
+        left_arm_swing = anim.get("left_arm_swing", 0)
+        right_arm_swing = anim.get("right_arm_swing", 0)
+        shoulder_bob = anim.get("shoulder_bob", 0)
+        left_leg_sway = anim.get("left_leg_sway", 0)
+        right_leg_sway = anim.get("right_leg_sway", 0)
+        left_leg_lift = anim.get("left_leg", 0)
+        right_leg_lift = anim.get("right_leg", 0)
+        side_blend = anim.get("side_blend", 0)
+        move_dir = anim.get("move_dir", 0)
+        weapon_swing = anim.get("weapon_swing_angle", 0)
+
+        torso_y = cy - int(1.5 * b) + int(body_bob * 2 * b)
+        lean_offset = int(lean * 2.5 * b)
+
+        t = self.time
+        # LED 펄스 (사이언 계열 빛)
+        led_pulse = (_sin(t * 3) + 1) * 0.5
+        reactor_pulse = (_sin(t * 4.5) + 1) * 0.5
+        # 기관포 배럴 회전 (idle 시에도 살짝)
+        barrel_spin = t * 2.0
+
+        # 로봇 색상 팔레트
+        p = {
+            "armor": color,
+            "armor_light": tuple(min(255, c + 45) for c in color),
+            "armor_mid": tuple(min(255, c + 20) for c in color),
+            "armor_dark": tuple(max(0, c - 40) for c in color),
+            "armor_shadow": tuple(max(0, c - 70) for c in color),
+            "frame": (60, 65, 75),
+            "frame_light": (90, 95, 105),
+            "frame_dark": (35, 38, 45),
+            "joint": (100, 105, 115),
+            "joint_light": (140, 145, 155),
+            "joint_dark": (65, 68, 78),
+            "led_cyan": (0, 220, 255),
+            "led_cyan_dim": (0, 120, 160),
+            "led_red": (255, 50, 30),
+            "reactor_blue": (30, 140, 255),
+            "reactor_glow": (80, 180, 255),
+            "reactor_white": (200, 230, 255),
+            "cannon_dark": (50, 52, 58),
+            "cannon_mid": (75, 78, 85),
+            "cannon_light": (110, 115, 125),
+            "cannon_barrel": (40, 42, 48),
+            "bomb_body": (45, 40, 35),
+            "bomb_highlight": (80, 72, 60),
+            "bomb_fuse": (120, 90, 40),
+            "bomb_spark": (255, 200, 50),
+            "bomb_glow": (255, 160, 30),
+            "visor": (0, 200, 240),
+            "visor_glow": (100, 230, 255),
+            "visor_dim": (0, 100, 140),
+            "antenna": (180, 185, 195),
+            "wire_red": (200, 60, 50),
+            "wire_blue": (50, 100, 200),
+        }
+
+        # === 리액터 오라 (뒤쪽 글로우) ===
+        aura_size = int(3.5 * b)
+        aura_surf = self._get_surface(aura_size * 2, aura_size * 2)
+        for i in range(3):
+            aura_alpha = int((18 - i * 5) * reactor_pulse)
+            aura_r = int((1.4 - i * 0.35) * b)
+            pygame.draw.circle(aura_surf, (*p["reactor_blue"], aura_alpha),
+                             (aura_size, aura_size), aura_r)
+        screen.blit(aura_surf, (cx - aura_size + lean_offset,
+                                torso_y - int(0.5 * b) - aura_size // 2),
+                   special_flags=pygame.BLEND_ADD)
+
+        # === 다리 (유압식 기계 다리) ===
+        hip_y = torso_y + int(2.0 * b)
+        for side in [-1, 1]:
+            cur_sway = left_leg_sway if side == -1 else right_leg_sway
+            cur_lift = left_leg_lift if side == -1 else right_leg_lift
+            leg_sway_x = int(cur_sway * 0.5 * b)
+            leg_lift_y = int(cur_lift * 0.3 * b)
+
+            thigh_x = cx + side * int(0.55 * b) + lean_offset + leg_sway_x
+
+            # 허벅지 (장갑판 + 유압 실린더)
+            thigh_top = hip_y - leg_lift_y
+            thigh_h = int(1.5 * b)
+            thigh_rect = pygame.Rect(thigh_x - int(0.48 * b), thigh_top,
+                                    int(0.96 * b), thigh_h)
+            pygame.draw.rect(screen, p["armor_shadow"],
+                           thigh_rect.inflate(2, 2), border_radius=4)
+            pygame.draw.rect(screen, p["armor_dark"],
+                           thigh_rect, border_radius=4)
+            pygame.draw.rect(screen, p["armor"],
+                           thigh_rect.inflate(-int(0.1 * b), -int(0.08 * b)),
+                           border_radius=3)
+
+            # 유압 실린더 (허벅지 측면)
+            cyl_x = thigh_x + side * int(0.28 * b)
+            pygame.draw.line(screen, p["joint_dark"],
+                           (cyl_x, thigh_rect.top + int(0.15 * b)),
+                           (cyl_x, thigh_rect.bottom - int(0.1 * b)),
+                           max(2, int(0.08 * b)))
+            pygame.draw.line(screen, p["joint_light"],
+                           (cyl_x - 1, thigh_rect.top + int(0.18 * b)),
+                           (cyl_x - 1, thigh_rect.bottom - int(0.12 * b)),
+                           max(1, int(0.04 * b)))
+
+            # 장갑판 볼트
+            for i in range(2):
+                bolt_y = thigh_rect.top + int(0.3 * b) + i * int(0.6 * b)
+                bolt_x = thigh_x - side * int(0.15 * b)
+                pygame.draw.circle(screen, p["joint"], (bolt_x, bolt_y),
+                                 max(1, int(0.05 * b)))
+
+            # 무릎 관절 (로터리 조인트)
+            knee_y = thigh_rect.bottom - int(0.1 * b) - leg_lift_y // 2
+            knee_x = thigh_x + int(cur_sway * 0.15 * b)
+            knee_r = max(3, int(0.28 * b))
+            pygame.draw.circle(screen, p["armor_shadow"],
+                             (knee_x + 1, knee_y + 1), knee_r + 2)
+            pygame.draw.circle(screen, p["armor_dark"],
+                             (knee_x, knee_y), knee_r + 1)
+            pygame.draw.circle(screen, p["armor"],
+                             (knee_x, knee_y), knee_r)
+
+            # 무릎 LED 링
+            for i in range(6):
+                angle = t * 2 + i * math.pi / 3
+                lx = knee_x + int(_cos(angle) * knee_r * 0.6)
+                ly = knee_y + int(_sin(angle) * knee_r * 0.6)
+                led_a = int(80 + 60 * _sin(t * 3 + i))
+                led_s = self._get_surface(6, 6)
+                pygame.draw.circle(led_s, (*p["led_cyan"], led_a), (3, 3), 2)
+                screen.blit(led_s, (lx - 3, ly - 3),
+                           special_flags=pygame.BLEND_ADD)
+            pygame.draw.circle(screen, p["joint"], (knee_x, knee_y),
+                             max(2, int(0.14 * b)))
+
+            # 정강이 (프레임 + 장갑)
+            shin_x = knee_x + leg_sway_x
+            shin_y = knee_y + int(1.1 * b) - int(leg_lift_y * 0.3)
+            # 피스톤 (뒤쪽 보강)
+            pygame.draw.line(screen, p["joint_dark"],
+                           (knee_x + side * int(0.12 * b),
+                            knee_y + int(0.2 * b)),
+                           (shin_x + side * int(0.08 * b),
+                            shin_y - int(0.15 * b)),
+                           max(2, int(0.06 * b)))
+            # 메인 정강이
+            pygame.draw.line(screen, p["armor_shadow"],
+                           (knee_x + 1, knee_y + int(0.15 * b) + 1),
+                           (shin_x + 1, shin_y + 1),
+                           max(3, int(0.45 * b)))
+            pygame.draw.line(screen, p["armor_dark"],
+                           (knee_x, knee_y + int(0.15 * b)),
+                           (shin_x, shin_y),
+                           max(3, int(0.42 * b)))
+            pygame.draw.line(screen, p["armor"],
+                           (knee_x, knee_y + int(0.15 * b)),
+                           (shin_x, shin_y),
+                           max(2, int(0.3 * b)))
+
+            # 부츠 (중장갑)
+            boot_w = max(4, int(0.7 * b))
+            boot_h = max(3, int(0.45 * b))
+            boot_rect = pygame.Rect(shin_x - boot_w // 2,
+                                   shin_y - int(0.05 * b),
+                                   boot_w, boot_h)
+            pygame.draw.rect(screen, p["armor_shadow"],
+                           boot_rect.inflate(3, 3), border_radius=3)
+            pygame.draw.rect(screen, p["armor_dark"],
+                           boot_rect.inflate(1, 1), border_radius=3)
+            pygame.draw.rect(screen, p["armor"], boot_rect, border_radius=3)
+            pygame.draw.rect(screen, p["armor_light"],
+                           boot_rect.inflate(-int(0.12 * b), -int(0.1 * b)),
+                           border_radius=2)
+
+            # 발끝 금속판
+            toe_w = boot_w - int(0.1 * b)
+            toe_h = max(2, int(0.15 * b))
+            pygame.draw.rect(screen, p["armor_mid"],
+                           (boot_rect.left + int(0.05 * b),
+                            boot_rect.bottom - toe_h,
+                            toe_w, toe_h), border_radius=2)
+            # 부츠 볼트
+            pygame.draw.circle(screen, p["joint"],
+                             (boot_rect.centerx - int(0.12 * b),
+                              boot_rect.centery),
+                             max(1, int(0.04 * b)))
+            pygame.draw.circle(screen, p["joint"],
+                             (boot_rect.centerx + int(0.12 * b),
+                              boot_rect.centery),
+                             max(1, int(0.04 * b)))
+
+        # === 몸통 (중장갑 흉부 + 리액터 코어) ===
+        chest_w, chest_h = int(3.0 * b), int(2.3 * b)
+        chest_rect = pygame.Rect(cx - chest_w // 2 + lean_offset,
+                                torso_y - int(0.4 * b),
+                                chest_w, chest_h)
+
+        # 장갑판 베이스
+        pygame.draw.rect(screen, p["armor_shadow"],
+                        chest_rect.inflate(3, 3), border_radius=int(0.4 * b))
+        pygame.draw.rect(screen, p["armor_dark"],
+                        chest_rect.inflate(1, 1), border_radius=int(0.38 * b))
+        pygame.draw.rect(screen, p["armor"], chest_rect,
+                        border_radius=int(0.35 * b))
+
+        # 중앙 장갑판 경계선
+        pygame.draw.line(screen, p["armor_shadow"],
+                        (chest_rect.centerx, chest_rect.top + int(0.1 * b)),
+                        (chest_rect.centerx, chest_rect.bottom - int(0.1 * b)),
+                        2)
+
+        # 좌우 장갑판 하이라이트
+        for side in [-1, 1]:
+            plate_x = chest_rect.centerx + side * int(0.5 * b)
+            plate_w = int(0.8 * b)
+            plate_h = int(1.4 * b)
+            plate_rect = pygame.Rect(plate_x - plate_w // 2,
+                                   chest_rect.centery - plate_h // 2,
+                                   plate_w, plate_h)
+            pygame.draw.rect(screen, p["armor_mid"],
+                           plate_rect, border_radius=3)
+            pygame.draw.rect(screen, p["armor_light"],
+                           plate_rect.inflate(-int(0.1 * b), -int(0.1 * b)),
+                           border_radius=2)
+
+        # 리액터 코어 (중앙 원형 에너지 코어)
+        reactor_cx = chest_rect.centerx
+        reactor_cy = chest_rect.centery - int(0.1 * b)
+        reactor_r = max(4, int(0.38 * b))
+
+        # 리액터 외부 링
+        pygame.draw.circle(screen, p["armor_shadow"],
+                         (reactor_cx, reactor_cy), reactor_r + 3)
+        pygame.draw.circle(screen, p["frame_dark"],
+                         (reactor_cx, reactor_cy), reactor_r + 2)
+        pygame.draw.circle(screen, p["frame"],
+                         (reactor_cx, reactor_cy), reactor_r)
+
+        # 리액터 에너지 글로우
+        glow_r = max(3, int(reactor_r * 0.85))
+        glow_surf = self._get_surface(reactor_r * 4, reactor_r * 4)
+        glow_center = (reactor_r * 2, reactor_r * 2)
+        glow_alpha = int(120 + 100 * reactor_pulse)
+        pygame.draw.circle(glow_surf,
+                         (*p["reactor_blue"], glow_alpha),
+                         glow_center, glow_r)
+        pygame.draw.circle(glow_surf,
+                         (*p["reactor_glow"], int(glow_alpha * 0.7)),
+                         glow_center, int(glow_r * 0.6))
+        pygame.draw.circle(glow_surf,
+                         (*p["reactor_white"], int(glow_alpha * 0.4)),
+                         glow_center, int(glow_r * 0.3))
+        screen.blit(glow_surf,
+                   (reactor_cx - reactor_r * 2, reactor_cy - reactor_r * 2),
+                   special_flags=pygame.BLEND_ADD)
+
+        # 리액터 삼각형 에너지 패턴
+        for i in range(3):
+            angle = t * 1.5 + i * math.pi * 2 / 3
+            tx = reactor_cx + int(_cos(angle) * reactor_r * 0.5)
+            ty = reactor_cy + int(_sin(angle) * reactor_r * 0.5)
+            pygame.draw.circle(screen, p["reactor_white"], (tx, ty),
+                             max(1, int(0.05 * b)))
+
+        # 장갑 모서리 볼트
+        for corner_x, corner_y in [(-1, -1), (1, -1), (-1, 1), (1, 1)]:
+            bx = chest_rect.centerx + corner_x * int(1.15 * b)
+            by = chest_rect.centery + corner_y * int(0.75 * b)
+            pygame.draw.circle(screen, p["joint_dark"], (bx, by),
+                             max(2, int(0.07 * b)))
+            pygame.draw.circle(screen, p["joint"], (bx - 1, by - 1),
+                             max(1, int(0.05 * b)))
+
+        # 내부 배선 (리액터 → 어깨)
+        for side in [-1, 1]:
+            wire_start = (reactor_cx + side * int(0.3 * b), reactor_cy)
+            wire_end = (cx + side * int(1.3 * b) + lean_offset,
+                       torso_y - int(0.1 * b))
+            wire_mid = ((wire_start[0] + wire_end[0]) // 2,
+                       wire_start[1] - int(0.15 * b))
+            pygame.draw.line(screen, p["wire_blue"],
+                           wire_start, wire_mid, max(1, int(0.03 * b)))
+            pygame.draw.line(screen, p["wire_blue"],
+                           wire_mid, wire_end, max(1, int(0.03 * b)))
+
+        # 허리 장갑 벨트
+        belt_w = int(2.5 * b)
+        belt_h = int(0.5 * b)
+        belt_rect = pygame.Rect(cx - belt_w // 2 + lean_offset,
+                               chest_rect.bottom - int(0.1 * b),
+                               belt_w, belt_h)
+        pygame.draw.rect(screen, p["armor_shadow"],
+                        belt_rect.inflate(2, 2), border_radius=3)
+        pygame.draw.rect(screen, p["armor_dark"],
+                        belt_rect, border_radius=3)
+        pygame.draw.rect(screen, p["armor"],
+                        belt_rect.inflate(-int(0.08 * b), -int(0.06 * b)),
+                        border_radius=2)
+
+        # 벨트 LED 스트라이프
+        for i in range(5):
+            led_x = belt_rect.left + int(0.2 * b) + i * int(0.42 * b)
+            led_y = belt_rect.centery
+            led_a_val = int(80 + 80 * _sin(t * 4 + i * 0.8))
+            led_surf = self._get_surface(6, 6)
+            pygame.draw.circle(led_surf,
+                             (*p["led_cyan"], led_a_val), (3, 3), 2)
+            screen.blit(led_surf, (led_x - 3, led_y - 3),
+                       special_flags=pygame.BLEND_ADD)
+
+        # === 어깨 (중장갑 어깨 패드) ===
+        for side in [-1, 1]:
+            s_bob = int(shoulder_bob * 0.3 * b)
+            shoulder_cx = cx + side * int(1.45 * b) + lean_offset
+            shoulder_cy = torso_y - int(0.3 * b) + s_bob
+
+            # 어깨 장갑판
+            sp_w, sp_h = int(1.2 * b), int(0.95 * b)
+            sp_rect = pygame.Rect(shoulder_cx - sp_w // 2,
+                                 shoulder_cy - sp_h // 2,
+                                 sp_w, sp_h)
+            pygame.draw.rect(screen, p["armor_shadow"],
+                           sp_rect.inflate(3, 3), border_radius=5)
+            pygame.draw.rect(screen, p["armor_dark"],
+                           sp_rect.inflate(1, 1), border_radius=4)
+            pygame.draw.rect(screen, p["armor"],
+                           sp_rect, border_radius=4)
+            pygame.draw.rect(screen, p["armor_light"],
+                           sp_rect.inflate(-int(0.15 * b), -int(0.12 * b)),
+                           border_radius=3)
+
+            # 어깨 LED 스트라이프
+            stripe_y = sp_rect.centery
+            pygame.draw.line(screen, p["led_cyan_dim"],
+                           (sp_rect.left + int(0.1 * b), stripe_y),
+                           (sp_rect.right - int(0.1 * b), stripe_y),
+                           max(2, int(0.06 * b)))
+            stripe_surf = self._get_surface(sp_w, 8)
+            stripe_alpha = int(50 + 40 * led_pulse)
+            pygame.draw.line(stripe_surf,
+                           (*p["led_cyan"], stripe_alpha),
+                           (int(0.1 * b), 4),
+                           (sp_w - int(0.1 * b), 4),
+                           max(2, int(0.08 * b)))
+            screen.blit(stripe_surf, (sp_rect.left, stripe_y - 4),
+                       special_flags=pygame.BLEND_ADD)
+
+            # 어깨 볼트
+            for corner in [(-1, -1), (1, -1), (-1, 1), (1, 1)]:
+                rx = shoulder_cx + corner[0] * int(0.4 * b)
+                ry = shoulder_cy + corner[1] * int(0.3 * b)
+                pygame.draw.circle(screen, p["joint_dark"], (rx, ry),
+                                 max(2, int(0.06 * b)))
+                pygame.draw.circle(screen, p["joint"], (rx - 1, ry - 1),
+                                 max(1, int(0.04 * b)))
+
+        # === 팔 (왼팔: 폭탄 손 / 오른팔: 기관포) ===
+        for side in [-1, 1]:
+            s_bob_offset = int(shoulder_bob * 0.3 * b)
+            shoulder = (cx + side * int(1.5 * b) + lean_offset,
+                       torso_y + int(0.25 * b) + s_bob_offset)
+
+            # 공 타격 시 양팔 스윙
+            if weapon_swing != 0:
+                swing_x = int(weapon_swing * 3.5 * b * (-side))
+                swing_y = int(abs(weapon_swing) * 1.2 * b)
+                elbow = (shoulder[0] + side * int(0.5 * b) + swing_x,
+                        torso_y + int(0.95 * b) - swing_y)
+                wrist = (elbow[0] + side * int(0.4 * b)
+                        + int(swing_x * 0.5),
+                        torso_y + int(1.6 * b) - int(swing_y * 0.5))
+            else:
+                elbow = (shoulder[0] + side * int(0.5 * b),
+                        torso_y + int(0.95 * b))
+                wrist = (elbow[0] + side * int(0.4 * b),
+                        torso_y + int(1.6 * b))
+
+            # 상완 (장갑판)
+            pygame.draw.line(screen, p["armor_shadow"],
+                           (shoulder[0] + 2, shoulder[1] + 2),
+                           (elbow[0] + 2, elbow[1] + 2),
+                           max(4, int(0.6 * b)))
+            pygame.draw.line(screen, p["armor_dark"],
+                           shoulder, elbow, max(4, int(0.58 * b)))
+            pygame.draw.line(screen, p["armor"],
+                           shoulder, elbow, max(3, int(0.42 * b)))
+
+            # 피스톤 링 (상완 장식)
+            for i in range(2):
+                ring_ratio = (i + 1) / 3
+                ring_x = shoulder[0] + int(
+                    (elbow[0] - shoulder[0]) * ring_ratio)
+                ring_y = shoulder[1] + int(
+                    (elbow[1] - shoulder[1]) * ring_ratio)
+                pygame.draw.circle(screen, p["joint_dark"],
+                                 (ring_x, ring_y), max(2, int(0.13 * b)))
+
+            # 팔꿈치 관절
+            pygame.draw.circle(screen, p["joint_dark"],
+                             (elbow[0] + 1, elbow[1] + 1),
+                             max(3, int(0.28 * b)))
+            pygame.draw.circle(screen, p["joint"],
+                             elbow, max(3, int(0.26 * b)))
+            pygame.draw.circle(screen, p["joint_light"],
+                             elbow, max(2, int(0.16 * b)))
+            # 팔꿈치 톱니
+            for i in range(6):
+                angle = t * 2 * side + i * math.pi / 3
+                jx = elbow[0] + int(_cos(angle) * 0.2 * b)
+                jy = elbow[1] + int(_sin(angle) * 0.2 * b)
+                pygame.draw.circle(screen, p["joint"], (jx, jy),
+                                 max(1, int(0.04 * b)))
+
+            # 전완
+            pygame.draw.line(screen, p["armor_shadow"],
+                           (elbow[0] + 1, elbow[1] + 1),
+                           (wrist[0] + 1, wrist[1] + 1),
+                           max(3, int(0.55 * b)))
+            pygame.draw.line(screen, p["armor_dark"],
+                           elbow, wrist, max(3, int(0.52 * b)))
+            pygame.draw.line(screen, p["armor"],
+                           elbow, wrist, max(2, int(0.38 * b)))
+            # 전완 플레이트
+            for i in range(2):
+                plate_ratio = (i + 1) / 3
+                plate_x = elbow[0] + int(
+                    (wrist[0] - elbow[0]) * plate_ratio)
+                plate_y = elbow[1] + int(
+                    (wrist[1] - elbow[1]) * plate_ratio)
+                pygame.draw.circle(screen, p["joint"],
+                                 (plate_x, plate_y), max(2, int(0.1 * b)))
+
+            if side == -1:
+                # === 왼팔 - 폭탄 손 ===
+                # 기계 손
+                pygame.draw.circle(screen, p["armor_dark"],
+                    (wrist[0] + 1, wrist[1] + 1), max(3, int(0.32 * b)))
+                pygame.draw.circle(screen, p["armor"],
+                    wrist, max(3, int(0.3 * b)))
+                pygame.draw.circle(screen, p["armor_light"],
+                    (wrist[0] - 1, wrist[1] - 1), max(2, int(0.18 * b)))
+                # 기계 손가락 (폭탄 감싸는 형태)
+                for fi in range(3):
+                    finger_angle = 0.8 + fi * 0.35
+                    flen = int(0.25 * b)
+                    fx1 = wrist[0] - int(_cos(finger_angle) * 0.15 * b)
+                    fy1 = (wrist[1]
+                           + int(_sin(finger_angle) * 0.12 * b)
+                           + int(0.1 * b))
+                    fx2 = fx1 - int(_cos(finger_angle + 0.3) * flen)
+                    fy2 = fy1 + int(flen * 0.5)
+                    pygame.draw.line(screen, p["armor_dark"],
+                        (wrist[0], wrist[1] + int(0.06 * b)),
+                        (fx1, fy1), max(2, int(0.08 * b)))
+                    pygame.draw.line(screen, p["armor"],
+                        (fx1, fy1), (fx2, fy2), max(1, int(0.06 * b)))
+                    pygame.draw.circle(screen, p["joint"],
+                        (fx1, fy1), max(1, int(0.03 * b)))
+
+                # 폭탄 (둥근 검은 폭탄 + 도화선 + 불꽃)
+                bomb_cx = wrist[0] - int(0.15 * b)
+                bomb_cy = wrist[1] + int(0.5 * b)
+                bomb_r = max(4, int(0.4 * b))
+
+                # 폭탄 본체
+                pygame.draw.circle(screen, p["bomb_body"],
+                    (bomb_cx + 1, bomb_cy + 1), bomb_r + 1)
+                pygame.draw.circle(screen, p["bomb_body"],
+                    (bomb_cx, bomb_cy), bomb_r)
+                pygame.draw.circle(screen, p["bomb_highlight"],
+                    (bomb_cx - int(0.08 * b), bomb_cy - int(0.08 * b)),
+                    int(bomb_r * 0.6))
+                # 반사광
+                pygame.draw.circle(screen, (100, 95, 85),
+                    (bomb_cx - int(0.12 * b), bomb_cy - int(0.15 * b)),
+                    max(1, int(0.08 * b)))
+
+                # 도화선
+                fuse_start = (bomb_cx,
+                             bomb_cy - bomb_r + int(0.05 * b))
+                fuse_mid = (bomb_cx + int(0.15 * b),
+                           bomb_cy - bomb_r - int(0.2 * b))
+                fuse_end = (bomb_cx + int(0.08 * b),
+                           bomb_cy - bomb_r - int(0.4 * b))
+                pygame.draw.line(screen, p["bomb_fuse"],
+                    fuse_start, fuse_mid, max(2, int(0.06 * b)))
+                pygame.draw.line(screen, p["bomb_fuse"],
+                    fuse_mid, fuse_end, max(2, int(0.05 * b)))
+
+                # 불꽃 (도화선 끝 - 깜빡이는 스파크)
+                spark_x, spark_y = fuse_end
+                spark_r = max(2, int(0.12 * b))
+                spark_surf = self._get_surface(spark_r * 4, spark_r * 4)
+                spark_alpha = int(150 + 100 * _sin(t * 8))
+                pygame.draw.circle(spark_surf,
+                    (*p["bomb_glow"], spark_alpha),
+                    (spark_r * 2, spark_r * 2), spark_r)
+                pygame.draw.circle(spark_surf,
+                    (*p["bomb_spark"], int(spark_alpha * 0.7)),
+                    (spark_r * 2, spark_r * 2), int(spark_r * 0.5))
+                screen.blit(spark_surf,
+                    (spark_x - spark_r * 2, spark_y - spark_r * 2),
+                    special_flags=pygame.BLEND_ADD)
+                # 불꽃 코어
+                pygame.draw.circle(screen, p["bomb_spark"],
+                    (spark_x, spark_y), max(1, int(0.06 * b)))
+                pygame.draw.circle(screen, (255, 255, 200),
+                    (spark_x, spark_y), max(1, int(0.03 * b)))
+
+                # 폭탄 위험 X 표시
+                pygame.draw.line(screen, p["bomb_fuse"],
+                    (bomb_cx - int(0.12 * b), bomb_cy - int(0.12 * b)),
+                    (bomb_cx + int(0.12 * b), bomb_cy + int(0.12 * b)),
+                    max(1, int(0.03 * b)))
+                pygame.draw.line(screen, p["bomb_fuse"],
+                    (bomb_cx + int(0.12 * b), bomb_cy - int(0.12 * b)),
+                    (bomb_cx - int(0.12 * b), bomb_cy + int(0.12 * b)),
+                    max(1, int(0.03 * b)))
+            else:
+                # === 오른팔 - 기관포 (개틀링 건) ===
+                # 기관포 마운트 (손목 장착형)
+                mount_cx = wrist[0]
+                mount_cy = wrist[1]
+                mount_r = max(3, int(0.32 * b))
+                pygame.draw.circle(screen, p["cannon_dark"],
+                    (mount_cx + 1, mount_cy + 1), mount_r + 1)
+                pygame.draw.circle(screen, p["cannon_mid"],
+                    (mount_cx, mount_cy), mount_r)
+                pygame.draw.circle(screen, p["cannon_light"],
+                    (mount_cx, mount_cy), int(mount_r * 0.7))
+
+                # 기관포 외부 배럴 가드
+                guard_y = mount_cy + int(0.15 * b)
+                guard_w = int(0.55 * b)
+                guard_h = int(0.65 * b)
+                guard_rect = pygame.Rect(mount_cx - guard_w // 2,
+                    guard_y, guard_w, guard_h)
+                pygame.draw.rect(screen, p["cannon_dark"],
+                    guard_rect.inflate(2, 2), border_radius=3)
+                pygame.draw.rect(screen, p["cannon_mid"],
+                    guard_rect, border_radius=3)
+                pygame.draw.rect(screen, p["cannon_light"],
+                    guard_rect.inflate(-int(0.08 * b), -int(0.06 * b)),
+                    border_radius=2)
+                # 환기 슬릿
+                for i in range(3):
+                    slit_y = (guard_rect.top + int(0.12 * b)
+                             + i * int(0.16 * b))
+                    pygame.draw.line(screen, p["cannon_barrel"],
+                        (guard_rect.left + int(0.06 * b), slit_y),
+                        (guard_rect.right - int(0.06 * b), slit_y),
+                        max(1, int(0.03 * b)))
+
+                # 기관포 배럴 (3개 총열 - 회전)
+                barrel_len = int(0.55 * b)
+                barrel_spread = int(0.12 * b)
+                for i in range(3):
+                    angle = barrel_spin + i * math.pi * 2 / 3
+                    bx_off = int(_cos(angle) * barrel_spread)
+                    by_off = int(_sin(angle) * barrel_spread * 0.5)
+                    bx1 = mount_cx + bx_off
+                    by1 = guard_rect.bottom - int(0.05 * b) + by_off
+                    bx2 = mount_cx + bx_off
+                    by2 = guard_rect.bottom + barrel_len + by_off
+                    pygame.draw.line(screen, p["cannon_barrel"],
+                        (bx1, by1), (bx2, by2),
+                        max(2, int(0.09 * b)))
+                    # 총구
+                    pygame.draw.circle(screen, p["cannon_dark"],
+                        (bx2, by2), max(1, int(0.05 * b)))
+
+                # 배럴 회전부 LED (빨간색)
+                led_surf_gun = self._get_surface(8, 8)
+                gun_led_a = int(60 + 50 * _sin(t * 5))
+                pygame.draw.circle(led_surf_gun,
+                    (*p["led_red"], gun_led_a), (4, 4), 3)
+                screen.blit(led_surf_gun,
+                    (mount_cx - 4, mount_cy - mount_r - 2),
+                    special_flags=pygame.BLEND_ADD)
+
+        # === 머리 (로봇 헤드 - 바이저 + 안테나) ===
+        head_y = torso_y - int(3.1 * b)
+        head_w, head_h = int(2.0 * b), int(2.0 * b)
+        head_rect = pygame.Rect(cx - head_w // 2 + lean_offset,
+                               head_y, head_w, head_h)
+
+        if show_back:
+            # 뒷모습 - 후두부 장갑
+            pygame.draw.rect(screen, p["armor_shadow"],
+                head_rect.inflate(2, 2), border_radius=int(0.5 * b))
+            pygame.draw.rect(screen, p["armor_dark"],
+                head_rect, border_radius=int(0.45 * b))
+            pygame.draw.rect(screen, p["armor"],
+                head_rect.inflate(-int(0.15 * b), -int(0.12 * b)),
+                border_radius=int(0.4 * b))
+            # 후두부 패널 라인
+            pygame.draw.line(screen, p["armor_shadow"],
+                (head_rect.centerx, head_rect.top + int(0.2 * b)),
+                (head_rect.centerx, head_rect.bottom - int(0.15 * b)), 2)
+            # 배기구
+            vent_cx = head_rect.centerx
+            vent_y = head_rect.centery + int(0.15 * b)
+            for i in range(3):
+                vent_off = (i - 1) * int(0.25 * b)
+                pygame.draw.rect(screen, p["frame_dark"],
+                    (vent_cx + vent_off - int(0.08 * b), vent_y,
+                     int(0.16 * b), int(0.3 * b)), border_radius=1)
+            # 뒤쪽 볼트
+            for sx in [-1, 1]:
+                pygame.draw.circle(screen, p["joint"],
+                    (head_rect.centerx + sx * int(0.55 * b),
+                     head_rect.centery), max(1, int(0.05 * b)))
+            # 안테나
+            ant_x = head_rect.centerx
+            ant_y = head_rect.top
+            pygame.draw.line(screen, p["antenna"],
+                (ant_x, ant_y), (ant_x, ant_y - int(0.6 * b)),
+                max(2, int(0.06 * b)))
+            pygame.draw.circle(screen, p["led_red"],
+                (ant_x, ant_y - int(0.6 * b)), max(2, int(0.08 * b)))
+        else:
+            # === 정면 - 로봇 페이스 ===
+            # 머리 외형
+            pygame.draw.rect(screen, p["armor_shadow"],
+                head_rect.inflate(3, 3), border_radius=int(0.5 * b))
+            pygame.draw.rect(screen, p["armor_dark"],
+                head_rect.inflate(1, 1), border_radius=int(0.45 * b))
+            pygame.draw.rect(screen, p["armor"],
+                head_rect, border_radius=int(0.42 * b))
+
+            # 얼굴 내부 (어두운 프레임)
+            face_w = int(1.5 * b)
+            face_h = int(1.2 * b)
+            face_rect = pygame.Rect(
+                head_rect.centerx - face_w // 2,
+                head_rect.centery - face_h // 2 + int(0.1 * b),
+                face_w, face_h)
+            pygame.draw.rect(screen, p["frame_dark"],
+                face_rect, border_radius=int(0.2 * b))
+            pygame.draw.rect(screen, p["frame"],
+                face_rect.inflate(-3, -3), border_radius=int(0.18 * b))
+
+            # 바이저 (가로로 긴 LED 눈)
+            visor_w = int(1.2 * b)
+            visor_h = max(3, int(0.3 * b))
+            visor_rect = pygame.Rect(
+                face_rect.centerx - visor_w // 2,
+                face_rect.centery - visor_h // 2 - int(0.12 * b),
+                visor_w, visor_h)
+            # 바이저 글로우
+            visor_surf = self._get_surface(visor_w + 8, visor_h + 8)
+            visor_alpha = int(140 + 80 * led_pulse)
+            pygame.draw.rect(visor_surf,
+                (*p["visor"], visor_alpha),
+                (4, 4, visor_w, visor_h), border_radius=2)
+            pygame.draw.rect(visor_surf,
+                (*p["visor_glow"], int(visor_alpha * 0.5)),
+                (6, 5, visor_w - 4, visor_h - 2), border_radius=1)
+            screen.blit(visor_surf,
+                (visor_rect.left - 4, visor_rect.top - 4),
+                special_flags=pygame.BLEND_ADD)
+            # 바이저 본체
+            pygame.draw.rect(screen, p["visor_dim"],
+                visor_rect, border_radius=2)
+            pygame.draw.rect(screen, p["visor"],
+                visor_rect.inflate(-2, -2), border_radius=2)
+            # 눈 포인트 (바이저 안에 2개)
+            for eye_side in [-1, 1]:
+                eye_x = visor_rect.centerx + eye_side * int(0.22 * b)
+                eye_y = visor_rect.centery
+                pygame.draw.circle(screen, p["visor_glow"],
+                    (eye_x, eye_y), max(2, int(0.08 * b)))
+                pygame.draw.circle(screen, (255, 255, 255),
+                    (eye_x, eye_y), max(1, int(0.04 * b)))
+
+            # 입 (격자형 스피커)
+            mouth_y = face_rect.centery + int(0.22 * b)
+            mouth_w = int(0.6 * b)
+            mouth_h = int(0.25 * b)
+            mouth_rect = pygame.Rect(
+                face_rect.centerx - mouth_w // 2,
+                mouth_y, mouth_w, mouth_h)
+            pygame.draw.rect(screen, p["frame_dark"],
+                mouth_rect, border_radius=2)
+            # 격자
+            grid_count = max(3, int(mouth_w / max(1, int(0.1 * b))))
+            for i in range(grid_count):
+                gx = (mouth_rect.left + int(0.04 * b)
+                     + i * max(1, int(mouth_w / grid_count)))
+                pygame.draw.line(screen, p["joint_dark"],
+                    (gx, mouth_rect.top + 2),
+                    (gx, mouth_rect.bottom - 2), 1)
+
+            # 볼 볼트
+            for s in [-1, 1]:
+                cheek_x = head_rect.centerx + s * int(0.7 * b)
+                cheek_y = head_rect.centery + int(0.1 * b)
+                pygame.draw.circle(screen, p["joint_dark"],
+                    (cheek_x, cheek_y), max(2, int(0.06 * b)))
+                pygame.draw.circle(screen, p["joint"],
+                    (cheek_x - 1, cheek_y - 1), max(1, int(0.04 * b)))
+
+            # 안테나
+            ant_x = head_rect.centerx
+            ant_base_y = head_rect.top + int(0.05 * b)
+            ant_top_y = head_rect.top - int(0.55 * b)
+            # 기둥
+            pygame.draw.line(screen, p["antenna"],
+                (ant_x, ant_base_y), (ant_x, ant_top_y),
+                max(2, int(0.06 * b)))
+            pygame.draw.circle(screen, p["joint"],
+                (ant_x, ant_base_y), max(2, int(0.08 * b)))
+            # 안테나 LED (빨간 점멸)
+            ant_led_r = max(2, int(0.1 * b))
+            ant_led_alpha = int(120 + 120 * _sin(t * 6))
+            ant_led_surf = self._get_surface(ant_led_r * 4, ant_led_r * 4)
+            pygame.draw.circle(ant_led_surf,
+                (*p["led_red"], ant_led_alpha),
+                (ant_led_r * 2, ant_led_r * 2), ant_led_r)
+            screen.blit(ant_led_surf,
+                (ant_x - ant_led_r * 2, ant_top_y - ant_led_r * 2),
+                special_flags=pygame.BLEND_ADD)
+            pygame.draw.circle(screen, p["led_red"],
+                (ant_x, ant_top_y), max(2, int(0.07 * b)))
+
+            # 머리 측면 라인
+            for s in [-1, 1]:
+                line_x = head_rect.centerx + s * int(0.75 * b)
+                pygame.draw.line(screen, p["armor_shadow"],
+                    (line_x, head_rect.top + int(0.3 * b)),
+                    (line_x, head_rect.bottom - int(0.2 * b)), 1)
+
+        # === 스파크 이펙트 (관절에서 간헐적으로) ===
+        if _sin(t * 7) > 0.85:
+            spark_positions = [
+                (cx + lean_offset + int(0.5 * b),
+                 torso_y + int(0.95 * b)),
+                (cx + lean_offset - int(0.5 * b),
+                 torso_y + int(0.95 * b)),
+            ]
+            for sp_x, sp_y in spark_positions:
+                for i in range(3):
+                    sp_angle = t * 15 + i * 2.1
+                    sp_len = (int(0.15 * b)
+                             + int(_sin(t * 20 + i) * 0.08 * b))
+                    spx2 = sp_x + int(_cos(sp_angle) * sp_len)
+                    spy2 = sp_y + int(_sin(sp_angle) * sp_len)
+                    sp_surf = self._get_surface(4, 4)
+                    pygame.draw.line(sp_surf,
+                        (*p["bomb_spark"], 180),
+                        (2, 0), (2, 3), 1)
+                    screen.blit(sp_surf, (spx2 - 2, spy2 - 2),
+                        special_flags=pygame.BLEND_ADD)
+
+    # =========================================================================
     # 기본 폴백
     # =========================================================================
     def _draw_default(self, screen, cx, cy, b, color, show_back, anim):
