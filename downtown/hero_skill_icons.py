@@ -63,6 +63,7 @@ def _create_icon(skill_id: str) -> Optional[pygame.Surface]:
         "sand_vortex": _icon_sand_vortex,
         "solar_bolt": _icon_solar_bolt,
         "thunder_orb": _icon_thunder_orb,
+        "banana_slice": _icon_banana_slice,
     }
     creator = creators.get(skill_id)
     if creator:
@@ -985,5 +986,62 @@ def _icon_thunder_orb() -> pygame.Surface:
         py = 16 + int(math.sin(rad) * 13)
         if 0 <= px < 32 and 0 <= py < 32:
             pygame.draw.circle(s, (180, 220, 255), (px, py), 1)
+
+    return s
+
+
+# ===== 원숭이왕 (monkeyking) 스킬 =====
+
+def _icon_banana_slice() -> pygame.Surface:
+    """바나나 슬라이스 - 바나나 + 슬라이스 궤적"""
+    s = pygame.Surface((32, 32), pygame.SRCALPHA)
+    # 배경 원 (따뜻한 갈색 톤)
+    pygame.draw.circle(s, (45, 35, 15), (16, 16), 15)
+    pygame.draw.circle(s, (100, 80, 30), (16, 16), 15, 1)
+
+    # 바나나 본체 (초승달 모양)
+    peel_dark = (198, 156, 41)
+    peel_mid = (227, 189, 52)
+    peel_light = (247, 220, 89)
+    stem_green = (154, 165, 67)
+    tip_dark = (89, 60, 31)
+
+    # 바나나 몸통 (커브 형태)
+    body_outer = [(7, 18), (10, 12), (14, 9), (19, 8), (23, 10), (25, 14), (24, 18)]
+    body_inner = [(24, 18), (23, 20), (20, 22), (15, 22), (11, 21), (8, 20), (7, 18)]
+    body_full = body_outer + body_inner
+    pygame.draw.polygon(s, peel_dark, body_full)
+
+    # 밝은 부분 (상단 하이라이트)
+    hl_outer = [(9, 16), (12, 11), (16, 9), (21, 9), (24, 12), (23, 16)]
+    hl_inner = [(23, 16), (21, 18), (17, 19), (13, 18), (10, 17), (9, 16)]
+    hl_full = hl_outer + hl_inner
+    pygame.draw.polygon(s, peel_mid, hl_full)
+
+    # 더 밝은 줄 (광택)
+    pygame.draw.lines(s, peel_light, False,
+                      [(11, 13), (15, 10), (20, 10), (23, 13)], 1)
+
+    # 꼭지 (왼쪽 끝)
+    pygame.draw.circle(s, stem_green, (7, 18), 2)
+
+    # 끝 (오른쪽)
+    pygame.draw.circle(s, tip_dark, (25, 14), 2)
+
+    # 슬라이스 궤적 (대각선 칼날 효과 - 바나나를 자르는 느낌)
+    # 밝은 황금색 궤적
+    pygame.draw.line(s, (255, 240, 150), (5, 6), (27, 26), 2)
+    pygame.draw.line(s, (255, 255, 200), (6, 5), (28, 25), 1)
+
+    # 슬라이스 스파크 (궤적 위)
+    for px, py in [(9, 9), (16, 16), (23, 23), (26, 25)]:
+        pygame.draw.circle(s, (255, 255, 180), (px, py), 1)
+
+    # 바나나 조각 파편 (슬라이스 결과)
+    pygame.draw.polygon(s, peel_mid, [(4, 25), (7, 23), (9, 26)])  # 작은 조각 왼쪽
+    pygame.draw.polygon(s, peel_mid, [(24, 4), (27, 6), (25, 8)])  # 작은 조각 오른쪽
+
+    # 테두리 글로우
+    pygame.draw.circle(s, (255, 220, 80, 60), (16, 16), 14, 1)
 
     return s

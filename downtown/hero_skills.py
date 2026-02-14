@@ -13936,6 +13936,367 @@ class ThunderOrb(HeroSkill):
 
 
 # ============================================================================
+# 원숭이왕 (monkeyking) 스킬
+# ============================================================================
+class BananaSlice(HeroSkill):
+    """바나나 슬라이스 - 바나나를 던져 상대가 밟으면 미끄러진다 (액티브 아이템 바나나와 동일 효과)"""
+
+    GAME_LEFT = 0
+    GAME_RIGHT = 760
+    THROW_SPEED = 1200          # px/s (원본 20px/frame * 60fps)
+    SLIP_DURATION = 0.8         # 미끄러짐 지속 (초)
+    SLIP_KNOCKBACK_VEL = 110    # 미끄러짐 넉백 속도
+    LAND_DURATION = 3.0         # 착지 후 유지 (초)
+    PREPARE_TIME = 0.3          # 준비 동작 (초, 원본 18프레임)
+    TOP_LAND_Y = 45             # 상단 착지 Y
+    BOTTOM_LAND_Y = 710         # 하단 착지 Y
+
+    def __init__(self):
+        super().__init__(
+            skill_id="banana_slice",
+            name="Banana Slice",
+            korean_name="바나나 슬라이스",
+            description="바나나를 던져 상대가 밟으면 미끄러진다",
+            trigger=SkillTrigger.ON_BALL_HIT,
+            cooldown=15.0,
+            duration=999.0,
+            hero_id="monkeyking"
+        )
+        self.caster_is_top = False
+        self.target_is_top = False
+        self.preparing = False
+        self.prepare_timer = 0.0
+        self.prepare_display_x = 0.0
+        self.prepare_display_y = 0.0
+        self._pending_target_x = 380.0
+        self.projectiles = []
+        self.landed_bananas = []
+        self.target_slipping = False
+        self.slip_timer = 0.0
+        self.slip_direction = 0
+        self.burst_particles = []
+        self._throw_sound = None
+        self._slip_sound = None
+        self._sounds_loaded = False
+
+    def _load_sounds(self):
+        if self._sounds_loaded:
+            return
+        self._sounds_loaded = True
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            throw_path = os.path.join(project_root, "sounds", "throwingbanana.wav")
+            if os.path.exists(throw_path):
+                self._throw_sound = pygame.mixer.Sound(throw_path)
+                self._throw_sound.set_volume(0.6)
+            slip_path = os.path.join(project_root, "sounds", "bananastep.wav")
+            if os.path.exists(slip_path):
+                self._slip_sound = pygame.mixer.Sound(slip_path)
+                self._slip_sound.set_volume(0.7)
+        except Exception:
+            pass
+
+    def _play_throw_sound(self):
+        if self._throw_sound:
+            try:
+                self._throw_sound.play()
+            except Exception:
+                pass
+
+    def _play_slip_sound(self):
+        if self._slip_sound:
+            try:
+                self._slip_sound.play()
+            except Exception:
+                pass
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        self.caster_is_top = caster_paddle.is_top
+        self.target_is_top = target_paddle.is_top
+        self.projectiles = []
+        self.landed_bananas = []
+        self.burst_particles = []
+        self.target_slipping = False
+        self.slip_timer = 0.0
+        self.slip_direction = 0
+        self.preparing = True
+        self.prepare_timer = self.PREPARE_TIME
+        self.prepare_display_x = caster_paddle.x + caster_paddle.width // 2
+        if self.caster_is_top:
+            self.prepare_display_y = caster_paddle.y + caster_paddle.height + 10
+        else:
+            self.prepare_display_y = caster_paddle.y - 10
+        self._pending_target_x = target_paddle.x + target_paddle.width // 2
+        self._load_sounds()
+        return {}
+
+    def _execute_throw(self, caster_paddle):
+        """준비 동작 완료 후 실제 투척"""
+        start_x = self.prepare_display_x
+        start_y = self.prepare_display_y
+        dx = self._pending_target_x - start_x
+        if abs(dx) > 1:
+            vel_x = (dx / abs(dx)) * min(abs(dx) * 2, self.THROW_SPEED * 0.3)
+        else:
+            vel_x = 0.0
+        vel_y = self.THROW_SPEED if self.caster_is_top else -self.THROW_SPEED
+        self.projectiles.append({
+            'x': float(start_x), 'y': float(start_y),
+            'vel_x': vel_x, 'vel_y': vel_y,
+            'rotation': 0.0,
+            'rotation_speed': random.uniform(480, 900) * random.choice([-1, 1]),
+            'active': True,
+        })
+        self._play_throw_sound()
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        # 준비 동작
+        if self.preparing:
+            self.prepare_timer -= dt
+            self.prepare_display_x = caster_paddle.x + caster_paddle.width // 2
+            if self.caster_is_top:
+                self.prepare_display_y = caster_paddle.y + caster_paddle.height + 10
+            else:
+                self.prepare_display_y = caster_paddle.y - 10
+            if self.prepare_timer <= 0:
+                self.preparing = False
+                self._execute_throw(caster_paddle)
+
+        land_y = self.TOP_LAND_Y if self.target_is_top else self.BOTTOM_LAND_Y
+
+        # 투척체 업데이트
+        for proj in self.projectiles[:]:
+            if not proj['active']:
+                self.projectiles.remove(proj)
+                continue
+            proj['x'] += proj['vel_x'] * dt
+            proj['y'] += proj['vel_y'] * dt
+            proj['rotation'] += proj['rotation_speed'] * dt
+            # 좌우 벽 충돌
+            if proj['x'] <= self.GAME_LEFT + 10:
+                proj['x'] = self.GAME_LEFT + 10
+                proj['vel_x'] = abs(proj['vel_x']) * 0.7
+            elif proj['x'] >= self.GAME_RIGHT - 10:
+                proj['x'] = self.GAME_RIGHT - 10
+                proj['vel_x'] = -abs(proj['vel_x']) * 0.7
+            # 타겟 진영 도달
+            if self.target_is_top and proj['vel_y'] < 0 and proj['y'] <= land_y:
+                self._land_banana(proj, land_y)
+                continue
+            elif not self.target_is_top and proj['vel_y'] > 0 and proj['y'] >= land_y:
+                self._land_banana(proj, land_y)
+                continue
+            if proj['y'] < -50 or proj['y'] > 800:
+                proj['active'] = False
+
+        # 착지한 바나나 업데이트
+        for landed in self.landed_bananas[:]:
+            if not landed['active']:
+                self.landed_bananas.remove(landed)
+                continue
+            landed['timer'] -= dt
+            if not landed['slip_triggered']:
+                if target_paddle.is_top == self.target_is_top:
+                    ptc = target_paddle
+                else:
+                    ptc = caster_paddle
+                p_w = getattr(ptc, 'width', 80)
+                p_h = getattr(ptc, 'height', 20)
+                paddle_rect = pygame.Rect(ptc.x, ptc.y, p_w, p_h)
+                banana_rect = pygame.Rect(int(landed['x']) - 40, int(landed['y']) - 25, 80, 50)
+                if paddle_rect.colliderect(banana_rect):
+                    landed['slip_triggered'] = True
+                    landed['active'] = False
+                    self.target_slipping = True
+                    self.slip_timer = self.SLIP_DURATION
+                    paddle_cx = ptc.x + p_w // 2
+                    if abs(paddle_cx - landed['x']) < 10:
+                        self.slip_direction = random.choice([-1, 1])
+                    else:
+                        self.slip_direction = 1 if paddle_cx > landed['x'] else -1
+                    self._create_burst_particles(landed['x'], landed['y'])
+                    target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
+                    game_state[f'{target_prefix}_knockback'] = True
+                    game_state[f'{target_prefix}_knockback_dir'] = self.slip_direction
+                    game_state[f'{target_prefix}_knockback_vel'] = self.SLIP_KNOCKBACK_VEL
+                    game_state['screen_shake'] = 5
+                    self._play_slip_sound()
+                    continue
+            if landed['timer'] <= 0:
+                landed['active'] = False
+
+        # 미끄러짐 상태 관리
+        if self.target_slipping:
+            self.slip_timer -= dt
+            target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
+            game_state[f'{target_prefix}_knockback'] = True
+            game_state[f'{target_prefix}_knockback_dir'] = self.slip_direction
+            game_state[f'{target_prefix}_knockback_vel'] = self.SLIP_KNOCKBACK_VEL
+            if self.slip_timer <= 0:
+                self.target_slipping = False
+                self.slip_direction = 0
+                game_state[f'{target_prefix}_knockback'] = False
+
+        # 파티클 업데이트
+        for p in self.burst_particles[:]:
+            p['x'] += p['vx'] * dt
+            p['y'] += p['vy'] * dt
+            p['vy'] += 1200 * dt
+            p['life'] -= dt
+            if p['life'] <= 0:
+                self.burst_particles.remove(p)
+
+        # 종료 체크
+        if (not self.preparing and not self.projectiles and
+                not self.landed_bananas and not self.target_slipping and
+                not self.burst_particles):
+            self.active_timer = 0
+
+    def _land_banana(self, proj, land_y):
+        landed_x = max(30, min(730, proj['x']))
+        self.landed_bananas.append({
+            'x': landed_x, 'y': land_y,
+            'timer': self.LAND_DURATION, 'active': True, 'slip_triggered': False,
+        })
+        proj['active'] = False
+
+    def _create_burst_particles(self, x: float, y: float):
+        colors = [(255, 225, 50), (227, 189, 52), (198, 156, 41),
+                  (255, 255, 200), (139, 90, 43)]
+        for _ in range(12):
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(180, 480)
+            self.burst_particles.append({
+                'x': x, 'y': y,
+                'vx': _cos(angle) * speed, 'vy': _sin(angle) * speed - 180,
+                'size': random.randint(3, 7), 'color': random.choice(colors),
+                'life': random.uniform(0.33, 0.67),
+            })
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        self.projectiles = []
+        self.landed_bananas = []
+        self.burst_particles = []
+        self.preparing = False
+        self.target_slipping = False
+        for prefix in ['top_paddle', 'bottom_paddle']:
+            if game_state.get(f'{prefix}_knockback'):
+                game_state[f'{prefix}_knockback'] = False
+
+    def reset_for_new_round(self, game_state: dict):
+        super().reset_for_new_round(game_state)
+        self.projectiles = []
+        self.landed_bananas = []
+        self.burst_particles = []
+        self.preparing = False
+        self.prepare_timer = 0.0
+        self.target_slipping = False
+        self.slip_timer = 0.0
+        self.slip_direction = 0
+        for prefix in ['top_paddle', 'bottom_paddle']:
+            if f'{prefix}_knockback' in game_state:
+                game_state[f'{prefix}_knockback'] = False
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        # 준비 동작 중 바나나
+        if self.preparing:
+            x, y = int(self.prepare_display_x), int(self.prepare_display_y)
+            progress = 1.0 - (self.prepare_timer / self.PREPARE_TIME)
+            offset_y = int(20 * progress) if self.caster_is_top else int(-20 * progress)
+            banana_surf = self._create_banana_surface(64)
+            rotation = -15 + progress * 30
+            rotated = pygame.transform.rotate(banana_surf, rotation)
+            rect = rotated.get_rect(center=(x, y + offset_y))
+            screen.blit(rotated, rect)
+
+        # 비행 중 바나나
+        for proj in self.projectiles:
+            if not proj['active']:
+                continue
+            banana_surf = self._create_banana_surface(64)
+            rotated = pygame.transform.rotate(banana_surf, proj['rotation'])
+            rect = rotated.get_rect(center=(int(proj['x']), int(proj['y'])))
+            screen.blit(rotated, rect)
+
+        # 착지한 바나나
+        for landed in self.landed_bananas:
+            if not landed['active']:
+                continue
+            x, y = int(landed['x']), int(landed['y'])
+            if landed['timer'] < 1.0 and int(landed['timer'] * 12) % 2 == 0:
+                continue
+            banana_surf = self._create_banana_surface(72)
+            rotated = pygame.transform.rotate(banana_surf, 15)
+            rect = rotated.get_rect(center=(x, y))
+            screen.blit(rotated, rect)
+            if not landed['slip_triggered']:
+                warning_surf = pygame.Surface((60, 20), pygame.SRCALPHA)
+                pygame.draw.ellipse(warning_surf, (255, 255, 0, 80), (0, 5, 60, 10))
+                screen.blit(warning_surf, (x - 30, y + 5))
+
+        # 터지는 파티클
+        for p in self.burst_particles:
+            life_ratio = max(0, p['life'] / 0.67)
+            size = max(1, int(p['size'] * life_ratio))
+            alpha = int(255 * life_ratio)
+            if size > 0 and alpha > 0:
+                ps = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                pygame.draw.circle(ps, (*p['color'], alpha), (size, size), size)
+                screen.blit(ps, (int(p['x']) - size, int(p['y']) - size))
+
+    @staticmethod
+    def _create_banana_surface(size: int) -> pygame.Surface:
+        """바나나 서피스 (액티브 아이템과 동일한 초승달 모양)"""
+        surf = pygame.Surface((size, size), pygame.SRCALPHA)
+        cx, cy = size // 2, size // 2
+        peel_dark = (198, 156, 41)
+        peel_mid = (227, 189, 52)
+        peel_light = (247, 220, 89)
+        stem_green = (154, 165, 67)
+        tip_dark = (89, 60, 31)
+        scale = size / 48
+        body_points = []
+        for i in range(15):
+            t = i / 14
+            x = cx - 15 * scale + t * 30 * scale
+            curve = -10 * scale * _sin(t * math.pi)
+            y = cy + curve
+            body_points.append((x, y))
+        for i in range(14, -1, -1):
+            t = i / 14
+            x = cx - 15 * scale + t * 30 * scale
+            curve = -5 * scale * _sin(t * math.pi) + 6 * scale
+            y = cy + curve
+            body_points.append((x, y))
+        if len(body_points) >= 3:
+            pygame.draw.polygon(surf, peel_dark, body_points)
+            inner_points = [(p[0], p[1] - scale) for p in body_points]
+            pygame.draw.polygon(surf, peel_mid, inner_points)
+            hl_pts = []
+            for i in range(8):
+                t = i / 7
+                x = cx - 10 * scale + t * 20 * scale
+                y = cy - 7 * scale * _sin(t * math.pi)
+                hl_pts.append((x, y))
+            for i in range(7, -1, -1):
+                t = i / 7
+                x = cx - 10 * scale + t * 20 * scale
+                y = cy - 4 * scale * _sin(t * math.pi) + 2 * scale
+                hl_pts.append((x, y))
+            if len(hl_pts) >= 3:
+                pygame.draw.polygon(surf, peel_light, hl_pts)
+        stem_x = cx - 16 * scale
+        stem_y = cy
+        pygame.draw.ellipse(surf, stem_green,
+                            (stem_x - 3 * scale, stem_y - 2 * scale, 5 * scale, 4 * scale))
+        tip_x = cx + 16 * scale
+        tip_y = cy + 2 * scale
+        pygame.draw.ellipse(surf, tip_dark,
+                            (tip_x - 2 * scale, tip_y - 2 * scale, 4 * scale, 3 * scale))
+        return surf
+
+
+# ============================================================================
 # 영웅 스킬 매핑
 # ============================================================================
 HERO_SKILLS: Dict[str, List[HeroSkill]] = {
@@ -13953,6 +14314,7 @@ HERO_SKILLS: Dict[str, List[HeroSkill]] = {
     "mirage": [SandPrison(), SandVortex()],
     "android": [BombSurprise(), GatlingBurst()],
     "ra": [SolarBolt(), ThunderOrb()],  # 라의 낙뢰 + 라의 뇌구
+    "monkeyking": [BananaSlice()],  # 원숭이왕: 바나나 슬라이스
 }
 
 # 스킬 클래스 매핑 (호위무사 시스템 등에서 독립 인스턴스 생성용)
@@ -13971,6 +14333,7 @@ HERO_SKILL_CLASSES: Dict[str, list] = {
     "mirage": [SandPrison, SandVortex],
     "android": [BombSurprise, GatlingBurst],
     "ra": [SolarBolt, ThunderOrb],  # 라의 낙뢰 + 라의 뇌구
+    "monkeyking": [BananaSlice],  # 원숭이왕: 바나나 슬라이스
 }
 
 
