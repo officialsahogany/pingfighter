@@ -91667,6 +91667,9 @@ def draw_objects():
             _ov_btm = PaddleWrapperDraw(PLAYER, False)
             _ov_ball = BallWrapperDraw(BALL, ball_vel)
             arena_skill_manager.draw_skills_overlay(SCREEN, _ov_top, _ov_btm, _ov_ball)
+            # 호위무사 스킬 오버레이 (폭탄 서프라이즈 등)
+            if arena_guard_system:
+                arena_guard_system.draw_skills_overlay(SCREEN, _ov_top, _ov_btm, _ov_ball)
         except Exception:
             pass
 

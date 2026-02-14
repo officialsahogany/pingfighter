@@ -2983,8 +2983,18 @@ class GuardWarriorSystem:
                     # caster 측 game_state 보호 (호위무사 스킬이 메인 영웅에 영향 방지)
                     caster_prefix = 'top_paddle' if is_top_guard else 'bottom_paddle'
                     saved = self._save_caster_state(game_state, caster_prefix)
-                    skill.update(dt, guard_paddle, target, ball, game_state)
+                    # 폭탄 서프라이즈: 실제 게임 패들 사용 (폭탄은 호위무사가 아닌 실제 영웅 패들에 부착)
+                    if skill_id == 'bomb_surprise':
+                        actual_caster = top_paddle if is_top_guard else bottom_paddle
+                        actual_target = bottom_paddle if is_top_guard else top_paddle
+                        skill.update(dt, actual_caster, actual_target, ball, game_state)
+                    else:
+                        skill.update(dt, guard_paddle, target, ball, game_state)
                     self._restore_caster_state(game_state, caster_prefix, saved)
+                    # 폭탄 서프라이즈: 폭발 스턴/넉백은 restore 후에도 유지해야 함
+                    if skill_id == 'bomb_surprise' and skill._stun_applied:
+                        stun_prefix = 'top_paddle' if skill._knockback_target == 'top' else 'bottom_paddle'
+                        game_state[f'{stun_prefix}_stunned'] = True
                     # 스킬별 글로벌 game_state 키 차단 (메인 영웅에 영향 방지)
                     if skill_id == 'horn_charge':
                         game_state['horn_charge_active'] = False
@@ -4050,7 +4060,13 @@ class GuardWarriorSystem:
                             guard_paddle.centerx = gx
                             guard_paddle.y = gy
                             guard_paddle.centery = gy + guard_paddle.height // 2
-                        skill.draw(screen, guard_paddle, target, ball, game_state)
+                        # 폭탄 서프라이즈: 실제 게임 패들 사용 (폭탄이 영웅 패들에 부착되므로)
+                        if skill_id == 'bomb_surprise':
+                            actual_caster = top_paddle if is_top_guard else bottom_paddle
+                            actual_target = bottom_paddle if is_top_guard else top_paddle
+                            skill.draw(screen, actual_caster, actual_target, ball, game_state)
+                        else:
+                            skill.draw(screen, guard_paddle, target, ball, game_state)
                     except Exception as e:
                         print(f"[Guard] skill draw error ({getattr(skill, 'skill_id', '?')}): {e}")
 
@@ -4091,6 +4107,24 @@ class GuardWarriorSystem:
             self._draw_guard_bubbles(screen, shake_x, shake_y)
         except Exception as e:
             print(f"[Guard] bubble draw error: {e}")
+
+    def draw_skills_overlay(self, screen, top_paddle=None, bottom_paddle=None, ball=None):
+        """영웅 패들 위에 그려야 하는 호위무사 스킬 오버레이 (패들 부착 폭탄 등)"""
+        game_state = self.skill_manager.game_state if self.skill_manager else {}
+        for hero_id, skills in self.skill_instances.items():
+            if self._charmed and self._charmed['guard'].get("id") == hero_id:
+                is_top_guard = self._charmed['caster_is_top']
+            else:
+                is_top_guard = any(g["id"] == hero_id for g in self.guard_warriors_top)
+            # 폭탄 서프라이즈 등 오버레이가 필요한 스킬: 실제 게임 패들 사용
+            actual_caster = top_paddle if is_top_guard else bottom_paddle
+            actual_target = bottom_paddle if is_top_guard else top_paddle
+            for skill in skills:
+                if skill.is_active and hasattr(skill, 'draw_overlay'):
+                    try:
+                        skill.draw_overlay(screen, actual_caster, actual_target, ball, game_state)
+                    except Exception:
+                        pass
 
     def _draw_charm_transitioning_guard(self, screen, game_state, shake_x, shake_y):
         """매혹 견인/복귀 중인 호위무사 캐릭터 렌더링"""
