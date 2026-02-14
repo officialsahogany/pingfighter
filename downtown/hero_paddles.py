@@ -5515,15 +5515,25 @@ class HeroPaddleRenderer:
                            (pad_x, pad_y - pad_h // 2 + 2), max(1, int(0.08 * b)))
 
         # === 팔 (소매 디테일 + 커프스) ===
+        _front_side = 1 if not show_back else -1  # 전방 손 (카드 들고있는 손)
         for side in [-1, 1]:
             arm_swing_val = left_arm_swing if side == -1 else right_arm_swing
             shoulder_x = cx + side * int(1.0 * b) + lean_offset
             shoulder_y_arm = torso_top + int(0.3 * b) + int(shoulder_bob * 0.5 * b)
 
-            elbow_x = shoulder_x + side * int(0.4 * b) + int(arm_swing_val * 0.3 * b * side)
-            elbow_y = shoulder_y_arm + int(1.1 * b) + int(arm_swing_val * 0.3 * b)
-            hand_x = elbow_x + side * int(0.25 * b) + int(arm_swing_val * 0.15 * b * side)
-            hand_y = elbow_y + int(0.8 * b) + int(arm_swing_val * 0.2 * b)
+            # 전방 팔(카드 손) 공 타격 시 안쪽으로 휘두르기 (쿠로카게 스타일)
+            if side == _front_side and weapon_swing != 0:
+                swing_x = int(weapon_swing * 4.0 * b)
+                swing_y = int(abs(weapon_swing) * 1.5 * b)
+                elbow_x = shoulder_x + side * int(0.4 * b) + swing_x
+                elbow_y = shoulder_y_arm + int(1.1 * b) - swing_y
+                hand_x = elbow_x + side * int(0.25 * b) + int(swing_x * 0.6)
+                hand_y = elbow_y + int(0.8 * b) - int(swing_y * 0.6)
+            else:
+                elbow_x = shoulder_x + side * int(0.4 * b) + int(arm_swing_val * 0.3 * b * side)
+                elbow_y = shoulder_y_arm + int(1.1 * b) + int(arm_swing_val * 0.3 * b)
+                hand_x = elbow_x + side * int(0.25 * b) + int(arm_swing_val * 0.15 * b * side)
+                hand_y = elbow_y + int(0.8 * b) + int(arm_swing_val * 0.2 * b)
 
             sleeve_color = p["coat_red"] if side == -1 else p["coat_gold"]
             sleeve_light = p["coat_red_light"] if side == -1 else p["coat_gold_light"]
@@ -5563,10 +5573,9 @@ class HeroPaddleRenderer:
                              (int(hand_x), int(hand_y)), hand_size, 1)
 
             # 카드 (전방 손)
-            front_side = 1 if not show_back else -1
-            if side == front_side:
+            if side == _front_side:
                 card_cx = int(hand_x) + side * int(0.2 * b)
-                card_cy = int(hand_y) - int(0.15 * b) + int(weapon_swing * 0.4 * b)
+                card_cy = int(hand_y) - int(0.15 * b)
                 card_w = max(5, int(0.35 * b))
                 card_h = max(7, int(0.5 * b))
                 # 카드 그림자
@@ -6721,15 +6730,14 @@ class HeroPaddleRenderer:
             shoulder = (cx + side * int(1.5 * b) + lean_offset,
                        torso_y + int(0.25 * b) + s_bob_offset)
 
-            # 공 타격 시 양팔 스윙
-            if weapon_swing != 0:
-                swing_x = int(weapon_swing * 3.5 * b * (-side))
-                swing_y = int(abs(weapon_swing) * 1.2 * b)
-                elbow = (shoulder[0] + side * int(0.5 * b) + swing_x,
+            # 오른팔(기관포) 공 타격 시 안쪽으로 휘두르기 (쿠로카게 스타일)
+            if side == 1 and weapon_swing != 0:
+                swing_x = int(weapon_swing * 4.0 * b)
+                swing_y = int(abs(weapon_swing) * 1.5 * b)
+                elbow = (shoulder[0] + int(0.5 * b) + swing_x,
                         torso_y + int(0.95 * b) - swing_y)
-                wrist = (elbow[0] + side * int(0.4 * b)
-                        + int(swing_x * 0.5),
-                        torso_y + int(1.6 * b) - int(swing_y * 0.5))
+                wrist = (elbow[0] + int(0.4 * b) + int(swing_x * 0.6),
+                        torso_y + int(1.6 * b) - int(swing_y * 0.6))
             else:
                 elbow = (shoulder[0] + side * int(0.5 * b),
                         torso_y + int(0.95 * b))
