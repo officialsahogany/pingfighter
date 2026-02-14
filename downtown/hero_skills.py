@@ -10902,11 +10902,12 @@ class BombSurprise(HeroSkill):
 # 세트 스킬 - 사막의 환술사 (트릭키)
 # ============================================================================
 class SandPrison(HeroSkill):
-    """모래감옥 - 상대의 이동 범위를 300px로 제한하는 사각형 모래 감옥 (건설/해체 애니메이션)"""
+    """모래감옥 - 상대의 이동 범위를 200~300px(랜덤)로 제한하는 사각형 모래 감옥 (건설/해체 애니메이션)"""
 
     GAME_LEFT = 80    # GAME_AREA_OFFSET_X (필러 영역 제외)
     GAME_RIGHT = 680   # GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH
-    PRISON_HALF_RANGE = 150  # ±150px = 300px 총 범위 (기존 100 → 50% 증가)
+    PRISON_HALF_RANGE_MIN = 100  # 최소 ±100px = 200px
+    PRISON_HALF_RANGE_MAX = 150  # 최대 ±150px = 300px
 
     BUILD_DURATION = 1.0      # 건설 애니메이션 (초)
     ACTIVE_DURATION = 3.2     # 실제 이동 제한 시간 (기존 4.0 → -20%)
@@ -10919,13 +10920,14 @@ class SandPrison(HeroSkill):
             skill_id="sand_prison",
             name="Sand Prison",
             korean_name="모래감옥",
-            description="상대의 이동 범위를 300px로 제한하는 모래 감옥",
+            description="상대의 이동 범위를 200~300px로 제한하는 모래 감옥",
             trigger=SkillTrigger.ON_COOLDOWN,
             cooldown=20.0,
             duration=total_dur,
             hero_id="mirage"
         )
         self.prison_center_x = 380
+        self.prison_half_range = self.PRISON_HALF_RANGE_MAX  # 발동 시 랜덤 결정
         self.prison_y_top = 0
         self.prison_y_bot = 100
         self.sand_particles = []
@@ -10952,15 +10954,18 @@ class SandPrison(HeroSkill):
             pass
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
-        """감옥 활성화 - 상대 현재 위치 중심으로 300px 제한 (건설 시작)"""
+        """감옥 활성화 - 상대 현재 위치 중심으로 200~300px 랜덤 제한 (건설 시작)"""
         self.target_is_top = target_paddle.is_top
+
+        # 발동마다 감옥 크기 랜덤 결정 (200~300px)
+        self.prison_half_range = random.randint(self.PRISON_HALF_RANGE_MIN, self.PRISON_HALF_RANGE_MAX)
 
         opp_x = target_paddle.x + getattr(target_paddle, 'width', 80) // 2
         self.prison_center_x = opp_x
 
         # 경계 클램핑
-        self.prison_center_x = max(self.GAME_LEFT + self.PRISON_HALF_RANGE,
-                                    min(self.GAME_RIGHT - self.PRISON_HALF_RANGE,
+        self.prison_center_x = max(self.GAME_LEFT + self.prison_half_range,
+                                    min(self.GAME_RIGHT - self.prison_half_range,
                                         self.prison_center_x))
 
         target_y = getattr(target_paddle, 'y', 375)
@@ -10993,8 +10998,8 @@ class SandPrison(HeroSkill):
         """감옥 건설/유지/해체 - 페이즈별 업데이트"""
         self.elapsed += dt
 
-        left_wall = self.prison_center_x - self.PRISON_HALF_RANGE
-        right_wall = self.prison_center_x + self.PRISON_HALF_RANGE
+        left_wall = self.prison_center_x - self.prison_half_range
+        right_wall = self.prison_center_x + self.prison_half_range
 
         # ── 페이즈 전환 ──
         if self.elapsed < self.BUILD_DURATION:
@@ -11169,7 +11174,7 @@ class SandPrison(HeroSkill):
         game_state[f'{target_prefix}_sand_prison'] = active
         if active:
             game_state['sand_prison_center_x'] = self.prison_center_x
-            game_state['sand_prison_range'] = self.PRISON_HALF_RANGE
+            game_state['sand_prison_range'] = self.prison_half_range
             game_state['sand_prison_target_is_top'] = self.target_is_top
         else:
             game_state.pop('sand_prison_center_x', None)
@@ -11198,13 +11203,13 @@ class SandPrison(HeroSkill):
         if not self.is_active:
             return
 
-        left_wall = self.prison_center_x - self.PRISON_HALF_RANGE
-        right_wall = self.prison_center_x + self.PRISON_HALF_RANGE
+        left_wall = self.prison_center_x - self.prison_half_range
+        right_wall = self.prison_center_x + self.prison_half_range
         py_top = self.prison_y_top
         py_bot = self.prison_y_bot
         full_h = py_bot - py_top
         alpha = int(self.wall_alpha)
-        floor_w = int(self.PRISON_HALF_RANGE * 2)
+        floor_w = int(self.prison_half_range * 2)
 
         # 건설/해체 진행도에 따른 가시 높이 계산
         if self.phase == 'building':
