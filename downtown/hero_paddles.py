@@ -2170,10 +2170,13 @@ class HeroPaddleRenderer:
             foot_lift_y = int(leg_lift * 0.4 * b)    # 발 들어올림 (Y) - 충분한 높이
             foot_sway_x = int(leg_sway * 0.7 * b)    # 발 앞뒤 스윙 (X) - 넓은 보폭
 
+            # 이동 시 다리 벌림 (정지: 0.55, 이동: 최대 0.85)
+            # 들어올린 발은 더 바깥으로 벌어짐 (자연스러운 보행)
+            leg_spread = 0.55 + side_blend * 0.3 + leg_lift * 0.08
             # 들어올린 발은 살짝 앞으로 기울어짐 (발레 포인트)
             foot_tilt = leg_lift * 0.18 * b
 
-            foot_x = cx + side * int(0.55 * b) + lean_offset + foot_sway_x
+            foot_x = cx + side * int(leg_spread * b) + lean_offset + foot_sway_x
             foot_y = cy + int(2.6 * b) - foot_lift_y
 
             # 발목~종아리 (드레스 아래로 살짝 보이는 스타킹)
@@ -2191,7 +2194,7 @@ class HeroPaddleRenderer:
             # 슈즈 그림자 (바닥에 고정 - 들어올린 발은 그림자 작아짐)
             shadow_scale = max(0.4, 1.0 - leg_lift * 0.15)
             shadow_w = int(0.56 * b * shadow_scale)
-            shadow_x = cx + side * int(0.55 * b) + lean_offset + foot_sway_x
+            shadow_x = cx + side * int(leg_spread * b) + lean_offset + foot_sway_x
             shadow_y = cy + int(2.6 * b)
             pygame.draw.ellipse(screen, (40, 35, 50),
                               (shadow_x - shadow_w // 2 + 1, shadow_y + 1, shadow_w, int(0.2 * b * shadow_scale)))
