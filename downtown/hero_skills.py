@@ -13144,45 +13144,30 @@ class SolarBolt(HeroSkill):
                 def _off(pts):
                     return [(px - offx, py - offy) for (px, py) in pts]
 
-                # 레이어 1: 넓은 글로우 (14px, BLEND_ADD)
+                # 레이어 1: 글로우 (6px, BLEND_ADD)
                 g1 = pygame.Surface((w, h), pygame.SRCALPHA)
                 a1 = int(self.GLOW_WIDE[3] * fade)
                 c1 = (self.GLOW_WIDE[0], self.GLOW_WIDE[1], self.GLOW_WIDE[2], a1)
-                pygame.draw.lines(g1, c1, False, _off(self.lightning_path), 14)
+                pygame.draw.lines(g1, c1, False, _off(self.lightning_path), 6)
                 for br in self.lightning_branches:
                     if len(br) >= 2:
-                        pygame.draw.lines(g1, c1, False, _off(br), 8)
+                        pygame.draw.lines(g1, c1, False, _off(br), 4)
                 screen.blit(g1, (offx, offy), special_flags=pygame.BLEND_ADD)
 
-                # 레이어 2: 중간 글로우 (7px)
-                g2 = pygame.Surface((w, h), pygame.SRCALPHA)
-                a2 = int(self.GLOW_MID[3] * fade)
-                c2 = (self.GLOW_MID[0], self.GLOW_MID[1], self.GLOW_MID[2], a2)
-                pygame.draw.lines(g2, c2, False, _off(self.lightning_path), 7)
+                # 레이어 2: 코어 (2px)
+                pygame.draw.lines(screen, self.CORE_OUTER, False, self.lightning_path, 2)
                 for br in self.lightning_branches:
                     if len(br) >= 2:
-                        ba = int(self.BRANCH_GLOW[3] * fade)
-                        bc = (self.BRANCH_GLOW[0], self.BRANCH_GLOW[1], self.BRANCH_GLOW[2], ba)
-                        pygame.draw.lines(g2, bc, False, _off(br), 5)
-                screen.blit(g2, (offx, offy))
+                        pygame.draw.lines(screen, self.BRANCH_CORE, False, br, 1)
 
-                # 레이어 3: 외곽 코어 (3px)
-                pygame.draw.lines(screen, self.CORE_OUTER, False, self.lightning_path, 3)
-                for br in self.lightning_branches:
-                    if len(br) >= 2:
-                        pygame.draw.lines(screen, self.BRANCH_CORE, False, br, 2)
-
-                # 레이어 4: 내부 코어 (1px, 백색)
+                # 레이어 3: 내부 코어 (1px, 백색)
                 pygame.draw.lines(screen, self.CORE_INNER, False, self.lightning_path, 1)
-                for br in self.lightning_branches:
-                    if len(br) >= 2:
-                        pygame.draw.lines(screen, (240, 240, 255), False, br, 1)
 
                 # 분기 갈림점 빛점
                 for br in self.lightning_branches:
                     if br:
                         bx, by = br[0]
-                        gr = random.randint(3, 5)
+                        gr = random.randint(2, 3)
                         gs = pygame.Surface((gr * 2, gr * 2), pygame.SRCALPHA)
                         pygame.draw.circle(gs, (255, 255, 230, int(160 * fade)), (gr, gr), gr)
                         screen.blit(gs, (bx - gr, by - gr), special_flags=pygame.BLEND_ADD)
