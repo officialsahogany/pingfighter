@@ -990,6 +990,15 @@ ARENA_PERK_POOL = [
         "effect_type": "instant_cooldown",
         "value": 0.08,
     },
+    # === 승리 시 발동 퍽 ===
+    {
+        "id": "theft",
+        "name": "도둑질",
+        "description": "승리 시 50% 확률로\n상대의 퍽 1개를 탈취",
+        "icon_color": (160, 60, 200),    # 보라색 (도둑 테마)
+        "effect_type": "theft",
+        "value": 0.50,
+    },
     # === 해금 조건 퍽 ===
     {
         "id": "recall_guard",
@@ -5239,6 +5248,7 @@ class ColosseumsArena:
         self.animation_timer = 0
         self.result_display_timer = 0
         self.result_dialogue_line = None  # 라운드 종료 대사 (30% 확률)
+        self.theft_result = None  # 도둑질 퍽 발동 결과
         self.exit_requested = False
         self.winnings_collected = False
 
@@ -7003,6 +7013,42 @@ class ColosseumsArena:
             print(f"[반칙왕] 배팅 영웅 '{_bet_name}' 매치 승리!")
 
         self.selected_match.set_result(winner, self.score_top, self.score_bottom)
+
+        # === 도둑질 퍽: 승리 시 상대 퍽 탈취 ===
+        self.theft_result = None  # 초기화
+        try:
+            match = self.selected_match
+            winner_id = winner["id"]
+            loser = match.hero2 if winner == match.hero1 else match.hero1
+            loser_id = loser["id"]
+
+            winner_perks = self.hero_perks.get(winner_id, [])
+            theft_perk = next((p for p in winner_perks if p["id"] == "theft"), None)
+
+            if theft_perk:
+                if random.random() < theft_perk["value"]:  # 50%
+                    winner_perk_ids = {p["id"] for p in winner_perks}
+                    loser_perks = self.hero_perks.get(loser_id, [])
+                    stealable = [p for p in loser_perks if p["id"] not in winner_perk_ids]
+
+                    if stealable:
+                        stolen = random.choice(stealable)
+                        loser_perks.remove(stolen)
+                        winner_perks.append(dict(stolen))
+                        self.theft_result = {
+                            "stolen_perk_name": stolen["name"],
+                            "stolen_perk_id": stolen["id"],
+                            "from_hero": loser.get("name", "?"),
+                            "thief_hero": winner.get("name", "?"),
+                        }
+                        print(f"[도둑질] {winner.get('name','?')}이(가) {loser.get('name','?')}의 "
+                              f"'{stolen['name']}' 퍽을 탈취!")
+                    else:
+                        print(f"[도둑질] 탈취 가능한 퍽 없음 (상대 퍽이 모두 중복)")
+                else:
+                    print(f"[도둑질] 확률 실패 (50%)")
+        except Exception as e:
+            print(f"[도둑질] 오류: {e}")
 
         # 상금 시스템 - 승패 결과 처리 (누적식)
         if self.bet_hero:
@@ -10695,7 +10741,10 @@ class ColosseumsArena:
 
             # 패널
             panel_w = 380
+            has_theft = bool(getattr(self, 'theft_result', None))
             panel_h = 370 if self.result_dialogue_line else 340
+            if has_theft:
+                panel_h += 25
             panel_x = cx - panel_w // 2
             panel_y = 190
             self._draw_egyptian_panel(panel_x, panel_y, panel_w, panel_h)
@@ -10785,14 +10834,23 @@ class ColosseumsArena:
                 surf, _ = self.fonts["small"].render(acc_text, ET["gold_pale"])
                 self.screen.blit(surf, (cx - surf.get_width() // 2, panel_y + 270))
 
+            # 도둑질 퍽 발동 표시
+            if getattr(self, 'theft_result', None) and self.fonts:
+                stolen_name = self.theft_result.get("stolen_perk_name", "?")
+                theft_text = f"도둑질! '{stolen_name}' 탈취!"
+                if "small" in self.fonts:
+                    theft_surf, _ = self.fonts["small"].render(theft_text, (200, 130, 255))
+                    self.screen.blit(theft_surf, (cx - theft_surf.get_width() // 2, panel_y + 290))
+
             # 라운드 종료 대사
+            _theft_offset = 25 if has_theft else 0
             if self.result_dialogue_line and self.fonts and "small" in self.fonts:
                 quote = f'"{self.result_dialogue_line}"'
                 surf, _ = self.fonts["small"].render(quote, ET["gold_pale"])
-                self.screen.blit(surf, (cx - surf.get_width() // 2, panel_y + 290))
-                hint_y = panel_y + 320
+                self.screen.blit(surf, (cx - surf.get_width() // 2, panel_y + 290 + _theft_offset))
+                hint_y = panel_y + 320 + _theft_offset
             else:
-                hint_y = panel_y + 305
+                hint_y = panel_y + 305 + _theft_offset
 
             # 안내
             if self.fonts and "small" in self.fonts:
@@ -11726,6 +11784,7 @@ class ColosseumsArena:
             "paddle_enlarge": 1.0,      # 패들 확대 배율
             "recall_guard": False,      # 재소집령 (호위무사 복귀)
             "instant_cooldown": 0.0,    # 타격 시 스킬쿨 즉시 충전 확률
+            "theft": 0.0,               # 승리 시 상대 퍽 탈취 확률
         }
         for perk in perks:
             etype = perk["effect_type"]
@@ -11756,6 +11815,8 @@ class ColosseumsArena:
                 mults["recall_guard"] = True
             elif etype == "instant_cooldown":
                 mults["instant_cooldown"] = val
+            elif etype == "theft":
+                mults["theft"] = val
         return mults
 
     def _draw_perk_icon_swift_foot(self, surf, cx, cy, r, ss):
@@ -12565,6 +12626,84 @@ class ColosseumsArena:
                 y2 = sy - int(_sin(angle_off) * star_s)
                 pygame.draw.line(surf, (255, 255, 210, 230), (x1, y1), (x2, y2), max(1, lw // 2))
 
+    def _draw_perk_icon_theft(self, surf, cx, cy, r, ss):
+        """도둑질 아이콘 - 보라색 도둑 손 + 보석 탈취"""
+        s = r * ss
+        lw = max(2, int(2 * ss / 3))
+        # 어둠 글로우 배경
+        for gr in range(4):
+            glow_r = int(s * (0.9 - gr * 0.1))
+            pygame.draw.circle(surf, (100, 30, 160, 8 + gr * 5), (cx, cy), glow_r)
+        # 도둑 마스크 (눈 부분)
+        mask_w = int(s * 0.7)
+        mask_h = int(s * 0.25)
+        mask_y = cy - int(s * 0.18)
+        pygame.draw.ellipse(surf, (40, 10, 60, 220),
+                            (cx - mask_w // 2, mask_y - mask_h // 2, mask_w, mask_h))
+        # 눈 (날카로운 삼각형 눈)
+        eye_w = int(s * 0.14)
+        eye_h = int(s * 0.09)
+        for ex_off in [-1, 1]:
+            ex = cx + ex_off * int(s * 0.17)
+            ey = mask_y
+            pts = [(ex - eye_w // 2, ey), (ex + eye_w // 2, ey),
+                   (ex, ey - eye_h)]
+            pygame.draw.polygon(surf, (220, 180, 255, 240), pts)
+            # 눈동자 광채
+            pygame.draw.circle(surf, (255, 255, 255, 180), (ex, ey - int(eye_h * 0.3)), max(1, int(s * 0.025)))
+        # 도둑 손 (아래에서 뻗어 올라오는 손)
+        hand_cx = cx
+        hand_y = cy + int(s * 0.15)
+        # 손목
+        wrist_w = int(s * 0.12)
+        wrist_h = int(s * 0.2)
+        pygame.draw.rect(surf, (140, 50, 200, 200),
+                         (hand_cx - wrist_w // 2, hand_y, wrist_w, wrist_h))
+        # 손바닥
+        palm_r = int(s * 0.16)
+        pygame.draw.circle(surf, (150, 60, 210, 210), (hand_cx, hand_y), palm_r)
+        # 손가락 3개 (위로 뻗음)
+        for fi, fx_off in enumerate([-0.12, 0, 0.12]):
+            fx = hand_cx + int(s * fx_off)
+            fy_top = hand_y - int(s * (0.28 + fi * 0.03))
+            fw = max(2, int(s * 0.06))
+            pygame.draw.line(surf, (160, 70, 220, 220),
+                             (fx, hand_y - palm_r + int(s * 0.04)),
+                             (fx, fy_top), fw)
+            # 손가락 끝 둥글게
+            pygame.draw.circle(surf, (170, 80, 230, 220), (fx, fy_top), fw // 2)
+        # 탈취 대상 보석 (손 위에 떠 있는 다이아몬드)
+        gem_cy = cy - int(s * 0.48)
+        gem_size = int(s * 0.18)
+        gem_pts = [
+            (cx, gem_cy - gem_size),            # 상단
+            (cx + gem_size, gem_cy),             # 오른쪽
+            (cx, gem_cy + int(gem_size * 0.6)),  # 하단
+            (cx - gem_size, gem_cy),             # 왼쪽
+        ]
+        # 보석 글로우
+        pygame.draw.circle(surf, (200, 160, 255, 40), (cx, gem_cy), gem_size + 3)
+        # 보석 본체
+        pygame.draw.polygon(surf, (200, 140, 255, 230), gem_pts)
+        # 보석 하이라이트
+        hl_pts = [
+            (cx, gem_cy - gem_size + int(gem_size * 0.3)),
+            (cx + int(gem_size * 0.4), gem_cy - int(gem_size * 0.1)),
+            (cx, gem_cy + int(gem_size * 0.1)),
+            (cx - int(gem_size * 0.4), gem_cy - int(gem_size * 0.1)),
+        ]
+        pygame.draw.polygon(surf, (230, 200, 255, 120), hl_pts)
+        # 보석 테두리
+        pygame.draw.polygon(surf, (180, 100, 240, 255), gem_pts, lw)
+        # 반짝이는 별 2개
+        for sx, sy in [(cx - int(s * 0.4), gem_cy - int(s * 0.1)),
+                        (cx + int(s * 0.38), gem_cy + int(s * 0.05))]:
+            star_s = int(s * 0.08)
+            pygame.draw.line(surf, (255, 220, 255, 200),
+                             (sx - star_s, sy), (sx + star_s, sy), max(1, lw // 2))
+            pygame.draw.line(surf, (255, 220, 255, 200),
+                             (sx, sy - star_s), (sx, sy + star_s), max(1, lw // 2))
+
     def _draw_perk_icon_skill(self, surf, cx, cy, r, ss):
         """스킬 추가 아이콘 - 고퀄 빛나는 검 + 마법 오라"""
         s = r * ss
@@ -12662,6 +12801,7 @@ class ColosseumsArena:
             "titan_body": self._draw_perk_icon_titan_body,
             "recall_guard": self._draw_perk_icon_recall_guard,
             "flash_inspiration": self._draw_perk_icon_flash_inspiration,
+            "theft": self._draw_perk_icon_theft,
         }
         # 스킬 타입 퍽은 별(★) 아이콘으로 표시
         if perk_id.startswith("skill_"):
