@@ -5808,6 +5808,8 @@ class HeroPaddleRenderer:
     # =========================================================================
     def _draw_mirage(self, screen, cx, cy, b, color, show_back, anim):
         """세트 - 이집트 파라오 (네메스 왕관, 황금 장식, 왕홀) [HD 버전]"""
+        # 다른 영웅 평균 체급에 맞추기 위한 스케일 업 (2.0b→2.4b 몸통 등)
+        b = int(b * 1.2)
         lean = anim["lean"]
         wave = anim["wave"]
         body_bob = anim["body_bob"]
