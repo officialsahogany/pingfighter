@@ -119411,6 +119411,8 @@ def handle_ball():
     global stage8_shuriken_pending, stage8_shuriken_from_pending
     # 스테이지8 구름장막 상태
     global stage8_cloud_active, stage8_cloud_rect, stage8_cloud_start_ms, stage8_cloud_end_ms, stage8_cloud_dash_active, stage8_cloud_dash_phase, stage8_cloud_dash_start_ms, stage8_cloud_next_ready_ms
+    # 번뜩이는 영감 이펙트 타이머
+    global arena_flash_inspiration_timer_top, arena_flash_inspiration_timer_bottom
 
     # --- Stage 8 그림자분신: 매 프레임 상태 업데이트 ---
     if current_stage == 8:
