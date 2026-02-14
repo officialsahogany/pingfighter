@@ -971,10 +971,10 @@ ARENA_PERK_POOL = [
     {
         "id": "flash_inspiration",
         "name": "번뜩이는 영감",
-        "description": "타격 시 10% 확률로\n스킬 쿨타임 즉시 충전",
+        "description": "타격 시 8% 확률로\n스킬 쿨타임 즉시 충전",
         "icon_color": (255, 220, 100),   # 금빛 (영감/번쩍임)
         "effect_type": "instant_cooldown",
-        "value": 0.10,
+        "value": 0.08,
     },
     # === 해금 조건 퍽 ===
     {
