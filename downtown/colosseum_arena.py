@@ -539,6 +539,19 @@ BOTTOM_HEROES = [
         "position": "bottom",
         "description": "독수리 가면을 쓴 태양의 화신, 빛의 힘으로 적을 심판한다"
     },
+    {
+        "id": "monkeyking",
+        "name": "원숭이왕",
+        "title": "밀림의 패왕",
+        "style": HeroStyle.AGGRESSIVE,
+        "color": (205, 165, 75),  # 금빛 갈색 (원숭이 털색)
+        "speed": 1.3,
+        "reaction": 0.88,
+        "power": 1.25,
+        "accuracy": 0.82,
+        "position": "bottom",
+        "description": "밀림을 지배하는 야생의 왕, 강력한 팔 한 방으로 모든 것을 박살낸다"
+    },
 ]
 
 # 전체 영웅 목록
