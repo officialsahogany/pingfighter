@@ -135811,6 +135811,7 @@ def main(stage_num, new_boss_mode=False):
                             _h_state['gatling_mount_progress'] = arena_skill_manager.game_state.get(f'gatling_mount_progress_{_side}', 0.0)
                             _h_state['gatling_dismounting'] = arena_skill_manager.game_state.get(f'gatling_dismounting_{_side}', False)
                             _h_state['gatling_dismount_progress'] = arena_skill_manager.game_state.get(f'gatling_dismount_progress_{_side}', 0.0)
+                            _h_state['gatling_aim_angle'] = arena_skill_manager.game_state.get(f'gatling_aim_angle_{_side}', None)
 
                     # 🛡️ 호위무사 시스템 업데이트 (4강/결승)
                     if arena_guard_system:
@@ -135834,6 +135835,7 @@ def main(stage_num, new_boss_mode=False):
                                     _g_st['gatling_mount_progress'] = _gs.get(f'gatling_mount_progress_{_guard_side}', 0.0)
                                     _g_st['gatling_dismounting'] = _gs.get(f'gatling_dismounting_{_guard_side}', False)
                                     _g_st['gatling_dismount_progress'] = _gs.get(f'gatling_dismount_progress_{_guard_side}', 0.0)
+                                    _g_st['gatling_aim_angle'] = _gs.get(f'gatling_aim_angle_{_guard_side}', None)
 
                     # 💣 폭탄 서프라이즈 넉백 처리 (영웅 스킬 + 호위무사 스킬 모두 포함)
                     # 호위무사 update() 이후에 실행해야 호위무사의 폭탄도 같은 프레임에 처리됨

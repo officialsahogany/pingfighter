@@ -11321,30 +11321,38 @@ class GatlingBurst(HeroSkill):
         self._phase = 'idle'       # 'idle', 'mounting', 'firing', 'dismounting'
         self._phase_timer = 0.0    # 현재 페이즈 경과 시간
 
-    def _get_cannon_tip(self, caster_paddle):
-        """탱크 모드 캐논 총구 끝 위치 계산 (hero_paddles._draw_android_tank 기하학 동일)"""
+    def _get_cannon_tip(self, caster_paddle, game_state=None):
+        """탱크 모드 캐논 총구 끝 위치 계산 (aim angle 반영, hero_paddles 기하학 동일)"""
         pw = caster_paddle.width
         b = max(4, int(8 * pw / 130.0))
         cx = caster_paddle.x + pw // 2
 
+        # 캐논 마운트 Y 위치 계산
         if self.caster_is_top:
-            # 상단 영웅 (facing=down): cy = y + 28, gun_dir = +1 (아래로 발사)
             cy = caster_paddle.y + 28
             torso_y = cy - int(1.5 * b)
             turret_bottom = torso_y - int(1.6 * b) + int(1.4 * b)
             cannon_mount_y = turret_bottom + int(0.1 * b)
-            barrel_base_y = cannon_mount_y + int(1.8 * b)
-            muzzle_tip_y = barrel_base_y + int(1.6 * b)
         else:
-            # 하단 영웅 (facing=up): cy = y - 14, gun_dir = -1 (위로 발사)
             cy = caster_paddle.y + int(2.0 * 8) - 30
             torso_y = cy - int(1.5 * b)
             turret_top = torso_y - int(1.6 * b)
             cannon_mount_y = turret_top - int(0.1 * b)
-            barrel_base_y = cannon_mount_y - int(1.8 * b)
-            muzzle_tip_y = barrel_base_y - int(1.6 * b)
 
-        return cx, muzzle_tip_y
+        # 조준 각도 (game_state에서 읽기, 없으면 직선 방향)
+        side = 'top' if self.caster_is_top else 'bottom'
+        default_angle = math.pi / 2 if self.caster_is_top else -math.pi / 2
+        aim_angle = default_angle
+        if game_state:
+            aim_angle = game_state.get(
+                f'gatling_aim_angle_{side}', default_angle)
+
+        # 포신(1.8b) + 배럴(1.6b) = 총 3.4b 길이를 조준 방향으로 연장
+        total_len = int(1.8 * b) + int(1.6 * b)
+        tip_x = cx + math.cos(aim_angle) * total_len
+        tip_y = cannon_mount_y + math.sin(aim_angle) * total_len
+
+        return int(tip_x), int(tip_y)
 
     def _load_sounds(self):
         """사운드 로드"""
@@ -11396,8 +11404,8 @@ class GatlingBurst(HeroSkill):
 
     def _fire_bullet(self, caster_paddle, target_paddle, game_state):
         """총알 한 발 발사 - 탱크 캐논 총구 끝에서 발사"""
-        # 탱크 캐논 총구 끝 위치에서 발사
-        spawn_x, spawn_y = self._get_cannon_tip(caster_paddle)
+        # 탱크 캐논 총구 끝 위치에서 발사 (조준 각도 반영)
+        spawn_x, spawn_y = self._get_cannon_tip(caster_paddle, game_state)
 
         # 적 패들 방향으로 조준 + 랜덤 퍼짐
         enemy_key = ('hero_paddle_bottom' if self.caster_is_top
@@ -11474,6 +11482,26 @@ class GatlingBurst(HeroSkill):
         side = 'top' if self.caster_is_top else 'bottom'
         caster_prefix = f'{side}_paddle'
         self._phase_timer += dt
+
+        # === 조준 각도 계산 (탱크 캐논 회전용) ===
+        if self._phase in ('mounting', 'firing', 'dismounting'):
+            cx = caster_paddle.x + caster_paddle.width // 2
+            cy = caster_paddle.y
+            enemy_key = ('hero_paddle_bottom' if self.caster_is_top
+                         else 'hero_paddle_top')
+            hero_info = game_state.get(enemy_key)
+            if hero_info:
+                tx = hero_info['x'] + hero_info['width'] / 2
+                ty = hero_info['y'] + hero_info['height'] / 2
+            elif target_paddle is not None:
+                tx = target_paddle.x + target_paddle.width / 2
+                ty = target_paddle.y + target_paddle.height / 2
+            else:
+                tx = cx
+                ty = (self.GAME_BOTTOM if self.caster_is_top
+                      else self.GAME_TOP)
+            game_state[f'gatling_aim_angle_{side}'] = math.atan2(
+                ty - cy, tx - cx)
 
         # === 견착 단계 (1초) ===
         if self._phase == 'mounting':
@@ -11725,7 +11753,7 @@ class GatlingBurst(HeroSkill):
             side = 'top' if self.caster_is_top else 'bottom'
             progress = game_state.get(f'gatling_mount_progress_{side}', 0.0)
             # 캐논 총구 끝 위치 기준으로 게이지 바 표시
-            tip_x, tip_y = self._get_cannon_tip(caster_paddle)
+            tip_x, tip_y = self._get_cannon_tip(caster_paddle, game_state)
 
             # "LOADING" 게이지 바
             bar_w = 40
