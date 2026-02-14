@@ -1149,7 +1149,7 @@ class AnimatedBackgroundStage30:
                 self.judgment_explosion_ring_alpha = 255
                 self.judgment_bolt_proj_trail.clear()
                 self.judgment_lightning_active = True
-                self.judgment_shake_intensity = 0.5
+                self.judgment_shake_intensity = 0.8
                 self.judgment_bolt_explosion_started = True  # 핸들러에서 스턴 판정용
                 print(f"[신의심판] BOLT_FLIGHT → BOLT_EXPLOSION 전환 (폭발 위치:{self.judgment_explosion_x:.0f},{self.judgment_explosion_y:.0f})")
 
@@ -1161,11 +1161,18 @@ class AnimatedBackgroundStage30:
             # 플래시 빠르게 감소
             self.judgment_explosion_flash_alpha = max(0, int(255 * (1.0 - progress * 4)))
             self.judgment_explosion_ring_alpha = max(0, int(255 * (1.0 - progress)))
-            # 화면 흔들림 감소
-            if progress < 0.5:
-                self.judgment_shake_intensity = 0.5 * (1.0 - progress * 2)
+            # 화면 흔들림 (폭발 전체 구간에 걸쳐 강하게)
+            if progress < 0.3:
+                # 초반: 최대 강도 (감전 충격)
+                self.judgment_shake_intensity = 0.8
+            elif progress < 0.7:
+                # 중반: 강한 진동 유지
+                mid_p = (progress - 0.3) / 0.4
+                self.judgment_shake_intensity = 0.8 - mid_p * 0.3
             else:
-                self.judgment_shake_intensity = 0.0
+                # 후반: 점차 감소
+                fade_p = (progress - 0.7) / 0.3
+                self.judgment_shake_intensity = 0.5 * (1.0 - fade_p)
             # 전기 아크 스파크 생성
             if progress < 0.8:
                 ex, ey = self.judgment_explosion_x, self.judgment_explosion_y
