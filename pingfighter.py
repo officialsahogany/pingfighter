@@ -18618,12 +18618,11 @@ def play_wall_sound():
 
 def play_paddle_sound():
     """패들 충돌 사운드 재생"""
-    import traceback
-    if arena_mode_enabled:
-        # 투기장 모드에서 호출 추적 (사운드 중복 디버그)
-        caller = traceback.extract_stack(limit=3)
-        for frame in caller[:-1]:
-            print(f"[SoundDebug] play_paddle_sound 호출원: {frame.filename.split('/')[-1]}:{frame.lineno} in {frame.name}")
+    global _arena_skill_sound_this_frame
+    # 투기장 모드: 이번 프레임에서 스킬 사운드가 이미 재생되었으면 패들 사운드 스킵
+    if arena_mode_enabled and _arena_skill_sound_this_frame:
+        print(f"[SoundDebug] play_paddle_sound 스킵: 스킬 사운드가 이미 재생됨")
+        return
     play_sound_with_volume(SOUND_PADDLE)
 
 def play_button_hover_sound():
@@ -20907,10 +20906,11 @@ def arena_show_speech_bubble(is_top: bool, skill_name: str, raw: bool = False, h
 
 # 투기장 스킬 사운드 캐시 및 재생
 _arena_skill_sound_cache = {}
+_arena_skill_sound_this_frame = False  # 이번 프레임에서 스킬 사운드 재생 여부 (패들 사운드 중복 방지)
 
 def arena_play_skill_sound(result):
     """투기장 스킬 결과에서 사운드 키를 꺼내 재생. 재생 성공 시 True 반환."""
-    global _arena_skill_sound_cache
+    global _arena_skill_sound_cache, _arena_skill_sound_this_frame
     if not result:
         return False
     # 🔥 안전장치: 투기장 모드가 아니면 스킬 사운드 재생 차단
@@ -20937,6 +20937,7 @@ def arena_play_skill_sound(result):
     if snd:
         print(f"[SoundDebug] 스킬 사운드 재생: key={sound_key}, skill={result.get('skill_korean_name', '?')}")
         snd.play()
+        _arena_skill_sound_this_frame = True  # 이번 프레임에서 패들 사운드 스킵
         return True
     else:
         print(f"[SoundDebug] 스킬 사운드 로드 실패: key={sound_key}")
@@ -66771,8 +66772,6 @@ def handle_player(keys):
             print("!")
         # 사운드 쿨다운이 없을 때만 사운드 재생 (쿠로미가 공을 먹는 중이 아닐 때만)
         if player_sound_cooldown <= 0 and not ball_in_kuromi:
-            if arena_mode_enabled:
-                print(f"[SoundDebug] handle_player에서 패들 사운드 재생 (player_sound_cooldown={player_sound_cooldown})")
             play_paddle_sound()
             player_sound_cooldown = 20  # 약 0.33초 쿨다운
             if DEBUG_HANDLE_PLAYER_VERBOSE:
@@ -123433,7 +123432,6 @@ def handle_ball():
                 pass
 
         # 투기장 모드: 하단 영웅(플레이어 위치) ON_BALL_HIT 스킬 발동
-        _arena_bottom_skill_sound_played = False  # 스킬 사운드 재생 여부 플래그
         if arena_mode_enabled and arena_skill_manager and arena_bottom_hero:
             try:
                 # 래퍼 객체 생성 (스킬 시스템용)
@@ -123484,10 +123482,7 @@ def handle_ball():
                         ball_vel[0] = ball_wrapper.vx
                         ball_vel[1] = ball_wrapper.vy
                         # 스킬 사운드 재생 + 말풍선 표시
-                        _skill_sound_played = arena_play_skill_sound(result)
-                        if _skill_sound_played:
-                            _arena_bottom_skill_sound_played = True  # 패들 사운드 중복 방지
-                        print(f"[SoundDebug] 하단 ON_BALL_HIT 스킬 발동: hero={hero_id}, skill={result.get('skill_korean_name','?')}, sound={result.get('sound','없음')}, played={_skill_sound_played}, player_handled={player_collision_handled}")
+                        arena_play_skill_sound(result)
                         if 'skill_korean_name' in result:
                             arena_show_speech_bubble(False, result['skill_korean_name'], hero_id=hero_id)
 
@@ -123733,11 +123728,7 @@ def handle_ball():
         # handle_player에서 이미 사운드를 재생하므로 여기서는 재생하지 않음
         # handle_player에서 놓친 충돌의 경우에만 사운드 재생 (쿠로미가 공을 먹는 중이 아닐 때만)
         if not player_collision_handled and player_sound_cooldown <= 0 and not ball_in_kuromi:
-            # 투기장 모드: 스킬 사운드가 이미 재생되었으면 패들 사운드 스킵
-            if arena_mode_enabled and _arena_bottom_skill_sound_played:
-                print(f"[SoundDebug] 하단 패들: 스킬 사운드 재생됨 → 패들 사운드 스킵")
-            else:
-                play_paddle_sound()
+            play_paddle_sound()
             player_sound_cooldown = 20  # 약 0.33초 쿨다운
             if DEBUG_HANDLE_BALL_VERBOSE:
                 print("handle_ball   (handle_player  )")
@@ -124270,7 +124261,6 @@ def handle_ball():
                 pass
 
         # 투기장 모드: 상단 영웅(보스 위치) ON_BALL_HIT 스킬 발동
-        _arena_top_skill_sound_played = False  # 스킬 사운드 재생 여부 플래그
         if arena_mode_enabled and arena_skill_manager and arena_top_hero:
             try:
                 # 래퍼 객체 생성 (스킬 시스템용)
@@ -124321,10 +124311,7 @@ def handle_ball():
                         ball_vel[0] = ball_wrapper.vx
                         ball_vel[1] = ball_wrapper.vy
                         # 스킬 사운드 재생 + 말풍선 표시
-                        _skill_sound_played = arena_play_skill_sound(result)
-                        if _skill_sound_played:
-                            _arena_top_skill_sound_played = True  # 패들 사운드 중복 방지
-                        print(f"[SoundDebug] 상단 ON_BALL_HIT 스킬 발동: hero={hero_id}, skill={result.get('skill_korean_name','?')}, sound={result.get('sound','없음')}, played={_skill_sound_played}")
+                        arena_play_skill_sound(result)
                         if 'skill_korean_name' in result:
                             arena_show_speech_bubble(True, result['skill_korean_name'], hero_id=hero_id)
 
@@ -124830,11 +124817,7 @@ def handle_ball():
             elif current_stage == 2 and speed_defense_active:
                 play_sound_with_volume(SOUND_DEFENSE_HIT)
             else:
-                # 투기장 모드: 스킬 사운드가 이미 재생되었으면 패들 사운드 스킵
-                if arena_mode_enabled and _arena_top_skill_sound_played:
-                    print(f"[SoundDebug] 상단 패들: 스킬 사운드 재생됨 → 패들 사운드 스킵")
-                else:
-                    play_paddle_sound()
+                play_paddle_sound()
         if ball_vel[0] != 0:
             direction = math.copysign(1, ball_vel[0])
             ball_angle += direction * 10
@@ -136217,6 +136200,9 @@ def main(stage_num, new_boss_mode=False):
                                 ball_vel[1] = _ls_new_speed * _math_ls.sin(_ls_final_angle)
 
             if not freeze_now:
+                # 투기장 모드: 매 프레임 스킬 사운드 플래그 리셋
+                if arena_mode_enabled:
+                    globals()['_arena_skill_sound_this_frame'] = False
                 _handle_ball_result = handle_ball()
                 # 투기장 모드: handle_ball() 내부에서 승부 결정 시 즉시 반환
                 if arena_mode_enabled and _handle_ball_result is not None:
