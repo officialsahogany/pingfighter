@@ -8308,6 +8308,21 @@ class GhostSummon(HeroSkill):
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         new_ghosts = []
 
+        # [DEBUG] 매 0.5초마다 상태 출력
+        if not hasattr(self, '_debug_timer'):
+            self._debug_timer = 0.0
+        self._debug_timer += dt
+        if self._debug_timer >= 0.5:
+            self._debug_timer = 0.0
+            ball_vis = getattr(ball, 'visible', '?') if ball else 'NO_BALL'
+            ball_xy = f"({ball.x:.0f},{ball.y:.0f})" if ball else "N/A"
+            print(f"[GhostSummon DEBUG] ghosts={len(self.ghosts)}, eating={self._eating_ball}, "
+                  f"ball_visible={ball_vis}, ball_pos={ball_xy}, ball_type={type(ball).__name__}")
+            for g in self.ghosts:
+                print(f"  ghost[{g['id']}] rect=({g['rect'].centerx},{g['rect'].centery}) "
+                      f"eating={g['eating']} teleporting={g['teleporting']} "
+                      f"spawn_t={g['spawn_time']:.1f} cd={g['hit_cooldown']:.1f}")
+
         for ghost in self.ghosts:
             if not ghost['active']:
                 continue
@@ -8381,7 +8396,9 @@ class GhostSummon(HeroSkill):
 
                 elif phase == 'release':
                     # 공 발사!
+                    print(f"[GhostSummon DEBUG] ★ RELEASE! ghost[{ghost['id']}] at ({rect.centerx},{rect.centery})")
                     if ball is not None:
+                        print(f"  ball BEFORE: visible={ball.visible}, pos=({ball.x:.0f},{ball.y:.0f}), vel=({ball.vx:.1f},{ball.vy:.1f})")
                         ball.visible = True
                         ball.x = float(rect.centerx)
                         ball.y = float(rect.centery)
@@ -8394,6 +8411,7 @@ class GhostSummon(HeroSkill):
                         # 최소 Y 속도 보장
                         if abs(ball.vy) < 4.0:
                             ball.vy = 4.0 * release_dir
+                        print(f"  ball AFTER: visible={ball.visible}, pos=({ball.x:.0f},{ball.y:.0f}), vel=({ball.vx:.1f},{ball.vy:.1f})")
 
                     # 순간이동 종료, 정상 상태로 복귀
                     ghost['teleporting'] = False
@@ -8562,15 +8580,38 @@ class GhostSummon(HeroSkill):
                     ghost['headbutt_timer'] = 0.0
 
             # 공과 충돌 체크 (등장 완료 후, 쿨다운 없을 때, 다른 유령이 먹고 있지 않을 때)
-            if (ball is not None and ghost['spawn_time'] >= self.EMERGE_DURATION
+            _can_check = (ball is not None and ghost['spawn_time'] >= self.EMERGE_DURATION
                     and ghost['hit_cooldown'] <= 0 and not self._eating_ball
-                    and getattr(ball, 'visible', True)):
+                    and getattr(ball, 'visible', True))
+            if not _can_check and ball is not None and not hasattr(self, '_skip_dbg'):
+                # [DEBUG] 왜 충돌 체크를 안 하는지 출력 (1번만)
+                reasons = []
+                if ghost['spawn_time'] < self.EMERGE_DURATION:
+                    reasons.append(f"spawn_time={ghost['spawn_time']:.2f}<{self.EMERGE_DURATION}")
+                if ghost['hit_cooldown'] > 0:
+                    reasons.append(f"hit_cd={ghost['hit_cooldown']:.2f}")
+                if self._eating_ball:
+                    reasons.append("already_eating")
+                if not getattr(ball, 'visible', True):
+                    reasons.append("ball_invisible")
+                if reasons:
+                    print(f"[GhostSummon DEBUG] 충돌체크 SKIP: {', '.join(reasons)}")
+            if _can_check:
                 # ArenaBall은 width/height가 없으므로 getattr로 폴백
                 bw = getattr(ball, 'width', 20)
                 bh = getattr(ball, 'height', 20)
                 ball_rect = pygame.Rect(int(ball.x) - bw // 2, int(ball.y) - bh // 2, bw, bh)
+                ghost_rect_for_check = rect
+
+                # [DEBUG] 충돌 거리 확인
+                dist_y = abs(ball.y - rect.centery)
+                if dist_y < 80:
+                    print(f"[GhostSummon DEBUG] 충돌근접! ghost_rect={rect}, ball_rect={ball_rect}, "
+                          f"dist_y={dist_y:.0f}, collide={rect.colliderect(ball_rect)}")
 
                 if rect.colliderect(ball_rect):
+                    print(f"[GhostSummon DEBUG] ★★★ 공 먹기 시작! ghost[{ghost['id']}] ★★★")
+                    print(f"  ball.visible BEFORE={ball.visible}, setting to False")
                     # 공 먹기 시작!
                     ghost['eating'] = True
                     ghost['eat_timer'] = 0.0
@@ -8587,6 +8628,7 @@ class GhostSummon(HeroSkill):
                     ball.visible = False
                     ball.vx = 0.0
                     ball.vy = 0.0
+                    print(f"  ball.visible AFTER={ball.visible}")
 
                     # 먹기 사운드 (흡수하는 느낌)
                     try:
@@ -12990,8 +13032,10 @@ class SolarBolt(HeroSkill):
         """조건 충족 시에만 발동 (공이 시전자에게 향하고 있을 때)"""
         if not self.can_use():
             return {}
-        # 공이 시전자 쪽으로 향하고 있지 않으면 발동하지 않음 (쿨타임 소모 안 함)
-        if not self._check_ball_conditions(caster_paddle, ball):
+        # 호위무사(is_bodyguard)일 때는 조건 체크 없이 바로 발동
+        is_guard = getattr(caster_paddle, 'is_bodyguard', False)
+        if not is_guard and not self._check_ball_conditions(caster_paddle, ball):
+            # 공이 시전자 쪽으로 향하고 있지 않으면 발동하지 않음 (쿨타임 소모 안 함)
             return {}
         # 조건 충족 → 부모 use() 호출 (쿨타임 설정 + _apply_effect)
         return super().use(caster_paddle, target_paddle, ball, game_state)
