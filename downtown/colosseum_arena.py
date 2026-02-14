@@ -3925,7 +3925,10 @@ class GuardWarriorSystem:
                 guard_paddle = top_paddle if is_top_guard else bottom_paddle
             target = bottom_paddle if is_top_guard else top_paddle
             for skill in skills:
-                if skill.is_active and hasattr(skill, 'draw'):
+                # 유령소환은 is_active가 False여도 잔여 이펙트(dying, teleport)를 그려야 함
+                has_lingering = (getattr(skill, 'skill_id', '') == 'ghost_summon'
+                                 and (skill.dying_ghosts or skill._teleport_effects))
+                if (skill.is_active or has_lingering) and hasattr(skill, 'draw'):
                     try:
                         # 귀신발걸음: draw 전에 현재 호위무사 위치로 동기화
                         skill_id = getattr(skill, 'skill_id', '')
