@@ -9266,9 +9266,9 @@ class ColosseumsArena:
         card_gap = max(1, int(2 * _scale))
         margin_x = max(1, int(3 * _scale))
         total_h = len(entries) * (card_h + card_gap) - card_gap
-        # 세로: 중앙에서 150px 위로
+        # 세로: 중앙 정렬
         center_y = pillar_y + (pillar_h - total_h) // 2
-        start_y = max(pillar_y + 5, center_y - int(150 * _scale))
+        start_y = max(pillar_y + 5, center_y)
         # 가로: 오른쪽 정렬 (인게임 왼쪽 벽 옆)
         card_x = pillar_x + pillar_w - card_w - margin_x
 
