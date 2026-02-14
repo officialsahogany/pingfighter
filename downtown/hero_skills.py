@@ -11618,6 +11618,20 @@ class GatlingBurst(HeroSkill):
                                     else -1)
                     if abs(bullet['vx']) < 10:
                         knockback_dir = random.choice([-1, 1])
+
+                    # 벽 반사 넉백: 벽에 몰려있으면 반대로 튕겨냄
+                    if target_paddle is not None:
+                        _wall_margin = 15
+                        _near_left = (target_paddle.x
+                                      <= 80 + _wall_margin)
+                        _near_right = (target_paddle.x
+                                       + target_paddle.width
+                                       >= 680 - _wall_margin)
+                        if _near_left and knockback_dir == -1:
+                            knockback_dir = 1  # 왼쪽 벽 → 오른쪽으로 튕김
+                        elif _near_right and knockback_dir == 1:
+                            knockback_dir = -1  # 오른쪽 벽 → 왼쪽으로 튕김
+
                     target_prefix = ('top_paddle' if target_is_top
                                      else 'bottom_paddle')
                     game_state[
