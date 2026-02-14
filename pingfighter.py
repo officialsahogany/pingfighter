@@ -19819,6 +19819,8 @@ def show_arena_perk_select_menu():
         if unlock_cond == "former_guards":
             if not getattr(arena_obj, 'former_guards', []):
                 continue
+            if getattr(arena_obj, '_guard_dismissed_this_round', False):
+                continue
         pool.append(p)
 
     # 영웅의 미선택 스킬을 퍽 옵션으로 추가
@@ -19868,6 +19870,8 @@ def show_arena_perk_select_menu():
         unlock_cond = p.get("unlock_condition")
         if unlock_cond == "former_guards":
             if not getattr(arena_obj, 'former_guards', []):
+                continue
+            if getattr(arena_obj, '_guard_dismissed_this_round', False):
                 continue
         filtered_perks.append(p)
 
