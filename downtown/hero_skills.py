@@ -8300,6 +8300,7 @@ class GhostSummon(HeroSkill):
                 'eat_scale': 1.0,           # 먹기 스케일 (점점 커짐)
                 'eat_grow_acc': 0.0,        # 성장 누적 시간
                 'eat_bulge_phase': 0.0,     # 울퉁불퉁 애니메이션 위상
+                'swallow_sound_played': False,  # 삼키기 사운드 재생 여부
                 # 순간이동 상태
                 'teleporting': False,       # 순간이동 중
                 'teleport_phase': '',       # 'disappear' | 'appear' | 'release'
@@ -8447,6 +8448,19 @@ class GhostSummon(HeroSkill):
 
                 # 먹기 중 이동 정지 (약간의 떨림만)
                 ghost['vx'] *= 0.85
+
+                # 삼키기 사운드 (먹기 0.7초 시점)
+                if ghost['eat_timer'] >= 0.7 and not ghost.get('swallow_sound_played', False):
+                    ghost['swallow_sound_played'] = True
+                    try:
+                        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                        swallow_path = os.path.join(project_root, "sounds", "kuromiswallow.wav")
+                        if os.path.exists(swallow_path):
+                            sw = pygame.mixer.Sound(swallow_path)
+                            sw.set_volume(0.5)
+                            sw.play()
+                    except Exception:
+                        pass
 
                 # 먹기 중 파티클 (소화 이펙트)
                 if random.random() < 0.4:
@@ -8631,16 +8645,17 @@ class GhostSummon(HeroSkill):
                         ghost['eat_bulge_phase'] = 0.0
                         ghost['hit_cooldown'] = 99.0
 
-                    # 먹기 사운드
+                    # 먹기 사운드 (쿠로미 혀 내밀기)
                     try:
                         project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                        sound_path = os.path.join(project_root, "sounds", "grab.wav")
+                        sound_path = os.path.join(project_root, "sounds", "kuromitongue.wav")
                         if os.path.exists(sound_path):
                             s = pygame.mixer.Sound(sound_path)
                             s.set_volume(0.5)
                             s.play()
                     except Exception:
                         pass
+                    ghost['swallow_sound_played'] = False
 
             # 유령 파티클 생성 (가끔)
             if random.random() < 0.15:
