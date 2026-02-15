@@ -18715,8 +18715,11 @@ def apply_serve_result(serve_result):
         pass
 
 def play_wall_sound():
-    """벽 충돌 사운드 재생"""
-    play_sound_with_volume(SOUND_WALL)
+    """벽 충돌 사운드 재생 (탁구공 모드일 때 pong_wall_hit.wav 사용)"""
+    if _get_ball_type() == "pingpong" and SOUND_PONG_WALL:
+        play_sound_with_volume(SOUND_PONG_WALL)
+    else:
+        play_sound_with_volume(SOUND_WALL)
 
 def _get_selected_paddle_sound():
     """설정에서 선택된 패들 타격 사운드 반환"""
@@ -18742,12 +18745,15 @@ def _get_ball_type():
         return 'energy'
 
 def play_paddle_sound():
-    """패들 충돌 사운드 재생"""
+    """패들 충돌 사운드 재생 (탁구공 모드일 때 pong_paddle.wav 사용)"""
     global _arena_skill_sound_this_frame
     # 투기장 모드: 이번 프레임에서 스킬 사운드가 이미 재생되었으면 패들 사운드 스킵
     if arena_mode_enabled and _arena_skill_sound_this_frame:
         return
-    play_sound_with_volume(_get_selected_paddle_sound())
+    if _get_ball_type() == "pingpong" and SOUND_PONG_PADDLE:
+        play_sound_with_volume(SOUND_PONG_PADDLE)
+    else:
+        play_sound_with_volume(_get_selected_paddle_sound())
 
 def play_button_hover_sound():
     """버튼 호버 사운드 재생"""
@@ -43610,7 +43616,7 @@ def check_divine_shield_ball_collision():
 
             # 반사 효과음 및 이펙트
             try:
-                play_sound_with_volume(SOUND_WALL)
+                play_wall_sound()
                 effects_manager.spawn_star_particles(BALL.centerx, BALL.centery, count=8)
             except Exception:
                 pass
@@ -71282,7 +71288,7 @@ def handle_spinning_top():
                 )
                 
                 # 효과음
-                play_sound_with_volume(_get_selected_paddle_sound())
+                play_paddle_sound()
 
                 # 400% 속도 부스트 (0.3초)
                 angle = math.atan2(dy, dx)
@@ -71442,7 +71448,7 @@ def check_spinning_top_collision():
             create_impact_effect(top_center[0], top_center[1], [0, 0], is_player=False)
             
             # 효과음 재생
-            play_sound_with_volume(_get_selected_paddle_sound())
+            play_paddle_sound()
 
             print(f"  !  !  : {math.degrees(random_angle):.0f}°")
             return True
@@ -102732,15 +102738,13 @@ def show_tutorial_power_demonstration():
             if demo_ball_x <= ball_radius or demo_ball_x >= WIDTH - ball_radius:
                 demo_ball_dx = -demo_ball_dx
                 try:
-                    if 'SOUND_WALL' in globals():
-                        play_sound_with_volume(SOUND_WALL)
+                    play_wall_sound()
                 except:
                     pass
             if demo_ball_y <= ball_radius or demo_ball_y >= HEIGHT - ball_radius:
                 demo_ball_dy = -demo_ball_dy
                 try:
-                    if 'SOUND_PADDLE' in globals():
-                        play_sound_with_volume(_get_selected_paddle_sound())
+                    play_paddle_sound()
                 except:
                     pass
         
@@ -122744,7 +122748,7 @@ def handle_ball():
             # ball_vel은 holy_barrier.py에서 이미 반전됨
             print("✨ 홀리베리어가 공을 반사했습니다!")
             try:
-                play_sound_with_volume(SOUND_WALL)
+                play_wall_sound()
             except:
                 pass
 

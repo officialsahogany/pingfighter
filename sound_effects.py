@@ -13,6 +13,8 @@ SOUND_PATHS = {
     "PADDLE": "sounds/paddle_hit.wav",
     "PADDLE2": "sounds/paddle_hit2.wav",
     "PADDLE3": "sounds/paddle_hit3.wav",
+    "PONG_PADDLE": "sounds/pong_paddle.wav",
+    "PONG_WALL": "sounds/pong_wall_hit.wav",
     "QUAKE": "sounds/quake_sound.wav",
     "WHIP": "sounds/whip_effect.wav",
     "AIRPLANE": "sounds/airplane.wav",
