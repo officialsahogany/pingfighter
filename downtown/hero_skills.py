@@ -13499,7 +13499,7 @@ class SolarBolt(HeroSkill):
 class ThunderOrb(HeroSkill):
     """천둥 뇌구 - 강력한 번개 구체를 발사, 상대 진영에서 폭발하여 범위 내 감전(스턴)
 
-    자동 발동 (쿨타임 20초). 시전자 패들에서 번개 구체를 발사하며,
+    자동 발동 (쿨타임 16초). 시전자 패들에서 번개 구체를 발사하며,
     상대 진영에 도달 시 폭발(170px). 범위 내 상대가 있으면 2초 감전.
     감전 이펙트는 번개의 분노와 동일 (전류 아크 + 분기 전류 + 스파크).
     """
@@ -13549,7 +13549,7 @@ class ThunderOrb(HeroSkill):
             korean_name="천둥 뇌구",
             description="강력한 번개 구체를 발사하여 상대 진영에서 폭발, 범위 내 감전",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=20.0,
+            cooldown=16.0,
             duration=self.TOTAL_DURATION,
             hero_id="ra"
         )
