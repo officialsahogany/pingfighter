@@ -11515,6 +11515,7 @@ class GatlingBurst(HeroSkill):
         self._recoil_offset = 0.0  # 반동 오프셋 (hero_paddles 연동)
         self._phase = 'idle'       # 'idle', 'mounting', 'firing', 'dismounting'
         self._phase_timer = 0.0    # 현재 페이즈 경과 시간
+        self._gatling_loop_sound = None  # 개틀링 루프 사운드
 
     def _get_cannon_tip(self, caster_paddle, game_state=None):
         """탱크 모드 캐논 총구 끝 위치 계산 (aim angle 반영, hero_paddles 기하학 동일)"""
@@ -11716,6 +11717,16 @@ class GatlingBurst(HeroSkill):
                 # 발사 시작 플래시
                 game_state['screen_shake'] = 3
                 game_state['shake_duration'] = 0.15
+                # 개틀링 루프 사운드 시작
+                try:
+                    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    snd_path = os.path.join(project_root, "sounds", "gatling.wav")
+                    if os.path.exists(snd_path):
+                        self._gatling_loop_sound = pygame.mixer.Sound(snd_path)
+                        self._gatling_loop_sound.set_volume(0.7)
+                        self._gatling_loop_sound.play(-1)  # 무한 반복
+                except Exception:
+                    pass
             return  # 견착 중에는 총알 발사 안함
 
         # === 해체/복귀 단계 (1초) - 탱크 → 안드로이드 역변환 ===
@@ -11753,6 +11764,10 @@ class GatlingBurst(HeroSkill):
                 game_state[f'{caster_prefix}_slowed'] = False
                 game_state[f'{caster_prefix}_slow_amount'] = 1.0
                 game_state[f'gatling_recoil_{side}'] = 0
+                # 개틀링 루프 사운드 즉시 정지
+                if self._gatling_loop_sound:
+                    self._gatling_loop_sound.stop()
+                    self._gatling_loop_sound = None
 
         # === 총알 & 이펙트 업데이트 (발사/해체 공통) ===
 
@@ -11923,6 +11938,10 @@ class GatlingBurst(HeroSkill):
         game_state[f'{caster_prefix}_slow_amount'] = 1.0
         self._phase = 'idle'
         self._phase_timer = 0.0
+        # 개틀링 루프 사운드 정지
+        if self._gatling_loop_sound:
+            self._gatling_loop_sound.stop()
+            self._gatling_loop_sound = None
         # 모든 이펙트 즉시 제거 (잔류 방지)
         self.bullets = []
         self.hit_particles = []
@@ -11932,6 +11951,10 @@ class GatlingBurst(HeroSkill):
 
     def reset_for_new_round(self, game_state: dict):
         super().reset_for_new_round(game_state)
+        # 개틀링 루프 사운드 정지
+        if self._gatling_loop_sound:
+            self._gatling_loop_sound.stop()
+            self._gatling_loop_sound = None
         self.bullets = []
         self.hit_particles = []
         self.muzzle_flashes = []
