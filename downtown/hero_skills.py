@@ -8314,14 +8314,14 @@ class GhostSummon(HeroSkill):
 
         game_state['has_ghost_summon'] = True
 
-        # 유령 앰비언트 사운드 루프 재생
+        # 유령 소환 사운드 (1회 재생)
         try:
             project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             ambient_path = os.path.join(project_root, "sounds", "bencyghost.wav")
             if os.path.exists(ambient_path):
                 self._ghost_ambient_sound = pygame.mixer.Sound(ambient_path)
                 self._ghost_ambient_sound.set_volume(0.45)
-                self._ghost_ambient_sound.play(loops=-1)
+                self._ghost_ambient_sound.play()
         except Exception:
             pass
 
