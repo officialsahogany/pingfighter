@@ -8254,6 +8254,7 @@ class GhostSummon(HeroSkill):
         self._saved_ball_vy = 0.0
         self._teleport_effects = []  # 순간이동 이펙트 파티클
         self._time_since_ghost_release = 999.0  # 마지막 유령 공 발사 이후 경과 시간
+        self._ghost_ambient_sound = None  # 유령 앰비언트 사운드 채널
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.caster_is_top = caster_paddle.is_top
@@ -8312,6 +8313,17 @@ class GhostSummon(HeroSkill):
             self.ghosts.append(ghost)
 
         game_state['has_ghost_summon'] = True
+
+        # 유령 앰비언트 사운드 루프 재생
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            ambient_path = os.path.join(project_root, "sounds", "bencyghost.wav")
+            if os.path.exists(ambient_path):
+                self._ghost_ambient_sound = pygame.mixer.Sound(ambient_path)
+                self._ghost_ambient_sound.set_volume(0.45)
+                self._ghost_ambient_sound.play(loops=-1)
+        except Exception:
+            pass
 
         return {
             'screen_effect': ScreenEffect.FLASH,
@@ -8676,6 +8688,11 @@ class GhostSummon(HeroSkill):
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['has_ghost_summon'] = False
 
+        # 유령 앰비언트 사운드 정지
+        if self._ghost_ambient_sound:
+            self._ghost_ambient_sound.fadeout(600)
+            self._ghost_ambient_sound = None
+
         # 공을 먹고 있는 유령이 있으면 공을 복원
         if self._eating_ball and ball is not None:
             # 마지막으로 먹고 있던 유령 위치에서 발사
@@ -8712,6 +8729,10 @@ class GhostSummon(HeroSkill):
 
     def reset_for_new_round(self, game_state: dict):
         super().reset_for_new_round(game_state)
+        # 유령 앰비언트 사운드 정지
+        if self._ghost_ambient_sound:
+            self._ghost_ambient_sound.stop()
+            self._ghost_ambient_sound = None
         self.ghosts = []
         self.dying_ghosts = []
         self._ghost_particles = []
