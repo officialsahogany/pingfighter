@@ -98,6 +98,7 @@ SOUND_PATHS = {
     "MISSION_CLEAR": "sounds/missonclear.wav",
     "TUTORIAL_MISSION": "sounds/tutorialmission.wav",
     "LEVEL_SELECT": "sounds/levelselect.wav",
+    "GOD_START": "sounds/godstart.wav",
 }
 
 

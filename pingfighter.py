@@ -19342,6 +19342,7 @@ SOUND_PADDLE3 = sound_effects.get('PADDLE3')
 SOUND_PONG_PADDLE = sound_effects.get('PONG_PADDLE')
 SOUND_PONG_WALL = sound_effects.get('PONG_WALL')
 SOUND_QUAKE = sound_effects['QUAKE']
+SOUND_GOD_START = sound_effects.get('GOD_START')
 whip_sound = sound_effects['WHIP']
 SOUND_AIRPLANE = sound_effects['AIRPLANE']
 SOUND_DEFENSE_HIT = sound_effects['DEFENSE_HIT']
@@ -55254,6 +55255,9 @@ def handle_gods_judgment():
             pass
         # 공 속도 백업
         _judgment_ball_speed_backup = ball_vel.copy()
+        # 신의 심판 시작 사운드
+        if SOUND_GOD_START:
+            SOUND_GOD_START.play()
         # 화면 중앙 텍스트 (텍스트 표시 중 judgment 타이머 일시정지)
         bg.judgment_text_display_paused = True
         show_fade_text("신의 심판: 땅의 분노")
@@ -55304,6 +55308,8 @@ def handle_gods_judgment():
         # 투척 시작 순간 텍스트 표시 (텍스트 표시 중 judgment 타이머 일시정지)
         if bg.judgment_bolt_throw_started:
             bg.judgment_bolt_throw_started = False
+            if SOUND_GOD_START:
+                SOUND_GOD_START.play()
             bg.judgment_text_display_paused = True
             show_fade_text("신의 심판: 번개의 분노")
             bg.judgment_text_display_paused = False
@@ -55344,6 +55350,8 @@ def handle_gods_judgment():
     if bg.judgment_variant == 'wind':
         if bg.judgment_fan_swing_started:
             bg.judgment_fan_swing_started = False
+            if SOUND_GOD_START:
+                SOUND_GOD_START.play()
             bg.judgment_text_display_paused = True
             show_fade_text("신의 심판: 바람의 분노")
             bg.judgment_text_display_paused = False
