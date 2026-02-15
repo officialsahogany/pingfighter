@@ -1161,30 +1161,6 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
             sfx_mute_lbl = font_small.render("OFF", True, (255, 80, 80) if sfx_muted else (120, 120, 120))
             screen.blit(sfx_mute_lbl, (sfx_cb_x + checkbox_size + 5, sfx_cb_y + 2))
 
-            # ── 타격 사운드 ──
-            hit_y = content_y + 120
-            hit_label = font_medium.render("타격 사운드", True, (255, 255, 255))
-            screen.blit(hit_label, hit_label.get_rect(left=panel_x + margin_x, centery=hit_y + 18))
-
-            _hs_names = {1: "사운드 1", 2: "사운드 2", 3: "사운드 3"}
-            pill_w_h, pill_h_h = 90, 32
-            pill_gap_h = 8
-            hit_pills = []
-            for i, (val, lbl) in enumerate(_hs_names.items()):
-                px = slider_x + i * (pill_w_h + pill_gap_h)
-                py = hit_y + 2
-                r = pygame.Rect(px, py, pill_w_h, pill_h_h)
-                hit_pills.append((r, val, lbl))
-                is_sel = (paddle_hit_sound == val)
-                col = (60, 90, 130) if is_sel else (45, 55, 70)
-                pygame.draw.rect(screen, col, r, border_radius=16)
-                border_col = (0, 255, 255) if is_sel else (150, 150, 150)
-                if focus == "hitsound" and is_sel:
-                    border_col = (0, 255, 255)
-                pygame.draw.rect(screen, border_col, r, 2, border_radius=16)
-                s = font_small.render(lbl, True, (255, 255, 255))
-                screen.blit(s, s.get_rect(center=r.center))
-
         elif current_tab == "controls":
             scheme_y = content_y + 20
             scheme_label = font_medium.render("조작 방식", True, (255, 255, 255))
@@ -1235,6 +1211,36 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
             }
             bt_desc = font_tiny.render(_bt_descs.get(ball_type, ""), True, (150, 180, 200))
             screen.blit(bt_desc, bt_desc.get_rect(centerx=width // 2, top=ball_sel_y + 44))
+
+            # ── 타격 사운드 (에너지볼일 때만 활성) ──
+            _hs_disabled = (ball_type == "pingpong")
+            hit_y = ball_sel_y + 70
+            _hs_label_col = (100, 100, 100) if _hs_disabled else (255, 255, 255)
+            hit_label = font_medium.render("타격 사운드", True, _hs_label_col)
+            screen.blit(hit_label, hit_label.get_rect(left=panel_x + margin_x, centery=hit_y + 18))
+
+            _hs_names = {1: "사운드 1", 2: "사운드 2", 3: "사운드 3"}
+            pill_w_h, pill_h_h = 90, 32
+            pill_gap_h = 8
+            hit_pills = []
+            for i, (val, lbl) in enumerate(_hs_names.items()):
+                px = slider_x + i * (pill_w_h + pill_gap_h)
+                py = hit_y + 2
+                r = pygame.Rect(px, py, pill_w_h, pill_h_h)
+                hit_pills.append((r, val, lbl))
+                is_sel = (paddle_hit_sound == val)
+                if _hs_disabled:
+                    col = (35, 38, 42)
+                    border_col = (70, 70, 70)
+                    txt_col = (80, 80, 80)
+                else:
+                    col = (60, 90, 130) if is_sel else (45, 55, 70)
+                    border_col = (0, 255, 255) if (is_sel and focus == "hitsound") else ((0, 255, 255) if is_sel else (150, 150, 150))
+                    txt_col = (255, 255, 255)
+                pygame.draw.rect(screen, col, r, border_radius=16)
+                pygame.draw.rect(screen, border_col, r, 2, border_radius=16)
+                s = font_small.render(lbl, True, txt_col)
+                screen.blit(s, s.get_rect(center=r.center))
 
         elif current_tab == "display":
             disp_y = content_y + 20
@@ -1327,7 +1333,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         current_sfx_volume = clamp_volume(current_sfx_volume - 0.05)
                         set_sfx_volume(current_sfx_volume)
                         selected_slider = "sfx"
-                    elif current_tab == "sound" and focus == "hitsound":
+                    elif current_tab == "play" and focus == "hitsound" and ball_type != "pingpong":
                         paddle_hit_sound = max(1, paddle_hit_sound - 1)
                         _hs_key = {1: "PADDLE", 2: "PADDLE2", 3: "PADDLE3"}.get(paddle_hit_sound, "PADDLE")
                         _ps = _paddle_sounds.get(_hs_key)
@@ -1356,7 +1362,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         current_sfx_volume = clamp_volume(current_sfx_volume + 0.05)
                         set_sfx_volume(current_sfx_volume)
                         selected_slider = "sfx"
-                    elif current_tab == "sound" and focus == "hitsound":
+                    elif current_tab == "play" and focus == "hitsound" and ball_type != "pingpong":
                         paddle_hit_sound = min(3, paddle_hit_sound + 1)
                         _hs_key = {1: "PADDLE", 2: "PADDLE2", 3: "PADDLE3"}.get(paddle_hit_sound, "PADDLE")
                         _ps = _paddle_sounds.get(_hs_key)
@@ -1374,9 +1380,9 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                     elif current_tab == "display":
                         order = ["dispmode", "back"]
                     elif current_tab == "play":
-                        order = ["balltype", "back"]
+                        order = ["balltype", "hitsound", "back"] if ball_type != "pingpong" else ["balltype", "back"]
                     else:
-                        order = ["bgm", "sfx", "hitsound", "back"]
+                        order = ["bgm", "sfx", "back"]
                     focus = order[(order.index(focus) - 1) % len(order)] if focus in order else order[0]
 
                 elif event.key == pygame.K_DOWN:
@@ -1385,9 +1391,9 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                     elif current_tab == "display":
                         order = ["dispmode", "back"]
                     elif current_tab == "play":
-                        order = ["balltype", "back"]
+                        order = ["balltype", "hitsound", "back"] if ball_type != "pingpong" else ["balltype", "back"]
                     else:
-                        order = ["bgm", "sfx", "hitsound", "back"]
+                        order = ["bgm", "sfx", "back"]
                     focus = order[(order.index(focus) + 1) % len(order)] if focus in order else order[0]
 
                 elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
@@ -1419,7 +1425,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                     elif current_tab == "sound" and focus == "sfx":
                         sfx_muted = not sfx_muted
                         set_sfx_muted(sfx_muted)
-                    elif current_tab == "sound" and focus == "hitsound":
+                    elif current_tab == "play" and focus == "hitsound" and ball_type != "pingpong":
                         paddle_hit_sound = (paddle_hit_sound % 3) + 1
                         _hs_key = {1: "PADDLE", 2: "PADDLE2", 3: "PADDLE3"}.get(paddle_hit_sound, "PADDLE")
                         _ps = _paddle_sounds.get(_hs_key)
@@ -1451,13 +1457,24 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                     focus = "balltype"
                     continue
 
-                # 플레이 탭 - 공 선택 클릭
+                # 플레이 탭 - 공 선택 및 타격 사운드 클릭
                 if current_tab == "play":
                     for _br, _bv, _bl in ball_pills:
                         if _br.collidepoint(mp):
                             ball_type = _bv
                             focus = "balltype"
                             break
+                    if ball_type != "pingpong":
+                        for _hr, _hv, _hl in hit_pills:
+                            if _hr.collidepoint(mp):
+                                paddle_hit_sound = _hv
+                                focus = "hitsound"
+                                _hs_key = {1: "PADDLE", 2: "PADDLE2", 3: "PADDLE3"}.get(_hv, "PADDLE")
+                                _ps = _paddle_sounds.get(_hs_key)
+                                if _ps:
+                                    _ps.set_volume(current_sfx_volume)
+                                    _ps.play()
+                                break
 
                 # 뒤로가기
                 if back_rect.collidepoint(mp):
@@ -1507,18 +1524,6 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         set_sfx_muted(sfx_muted)
                         ctx.play_click_sound()
                         continue
-
-                    # 타격 사운드 선택 클릭
-                    for _hr, _hv, _hl in hit_pills:
-                        if _hr.collidepoint(mp):
-                            paddle_hit_sound = _hv
-                            focus = "hitsound"
-                            _hs_key = {1: "PADDLE", 2: "PADDLE2", 3: "PADDLE3"}.get(_hv, "PADDLE")
-                            _ps = _paddle_sounds.get(_hs_key)
-                            if _ps:
-                                _ps.set_volume(current_sfx_volume)
-                                _ps.play()
-                            break
 
                     # BGM 슬라이더 클릭
                     bgm_slider_area = pygame.Rect(slider_x, bgm_y - 10, slider_width, slider_height + 20)
