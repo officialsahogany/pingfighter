@@ -135541,11 +135541,29 @@ def main(stage_num, new_boss_mode=False):
                             _gs.stance_mode_bottom = _new_stance
                             # 현재 진행 중인 스킬 쿨타임 즉시 조정
                             if _old_stance == "attack" and _new_stance == "defense":
-                                _gs.cooldown_bottom *= _gs.DEFENSE_SKILL_CD_MULT
-                                _gs.cooldown_max_bottom *= _gs.DEFENSE_SKILL_CD_MULT
+                                _mult = _gs.DEFENSE_SKILL_CD_MULT
                             elif _old_stance == "defense" and _new_stance == "attack":
-                                _gs.cooldown_bottom /= _gs.DEFENSE_SKILL_CD_MULT
-                                _gs.cooldown_max_bottom /= _gs.DEFENSE_SKILL_CD_MULT
+                                _mult = 1.0 / _gs.DEFENSE_SKILL_CD_MULT
+                            else:
+                                _mult = 1.0
+                            if _mult != 1.0:
+                                # 1번 호위무사 메인 쿨타임
+                                _gs.cooldown_bottom *= _mult
+                                _gs.cooldown_max_bottom *= _mult
+                                # 듀얼스킬 개별 쿨타임도 동기화 (안하면 sync가 덮어써서 방어배율 무효화)
+                                for _gw in _gs.guard_warriors_bottom:
+                                    _gid = _gw.get("id", "")
+                                    _scds = _gs.guard_skill_cooldowns.get(_gid, [])
+                                    _smaxs = _gs.guard_skill_cooldowns_max.get(_gid, [])
+                                    for _si in range(len(_scds)):
+                                        _scds[_si] *= _mult
+                                    for _si in range(len(_smaxs)):
+                                        _smaxs[_si] *= _mult
+                                # 2번 호위무사 쿨타임
+                                _p2 = getattr(_gs, '_patrol2_bottom', None)
+                                if _p2:
+                                    _p2['cooldown'] *= _mult
+                                    _p2['cooldown_max'] *= _mult
                             # 꼼수방지: 호위무사 대쉬 쿨타임(_guard_dash_cooldown)은
                             # 모드 전환 시 리셋하지 않음 - _update_guard_dash에서 항상 감소
                         try:

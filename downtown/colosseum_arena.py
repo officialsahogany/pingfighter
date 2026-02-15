@@ -3388,6 +3388,9 @@ class GuardWarriorSystem:
 
         # 쿨타임 설정
         cd_mult = self.guard_cd_mult_top if is_top else self.guard_cd_mult_bottom
+        # 수비모드: 하단 호위무사 스킬 쿨타임 배율 적용
+        if not is_top and self.stance_mode_bottom == "defense":
+            cd_mult *= self.DEFENSE_SKILL_CD_MULT
         base_cd = self._get_guard_cooldown(guard2["id"])
         extra_delay = self.PATROL_ENTRY_DELAY + GUARD_ENTER_DURATION + random.uniform(3.0, 6.0)
         initial_cd = base_cd * cd_mult + extra_delay
@@ -4073,6 +4076,8 @@ class GuardWarriorSystem:
             else:
                 # 모든 호위무사가 매혹 중 → 쿨타임만 재설정
                 cd_mult = self.guard_cd_mult_top if is_top else self.guard_cd_mult_bottom
+                if not is_top and self.stance_mode_bottom == "defense":
+                    cd_mult *= self.DEFENSE_SKILL_CD_MULT
                 next_cd = random.uniform(*self.cooldown_range) * cd_mult
                 if is_top:
                     self.cooldown_top = next_cd
@@ -4087,6 +4092,8 @@ class GuardWarriorSystem:
         if not skills:
             # 스킬이 없으면 폴백 쿨타임 설정 후 리턴 (퍽 적용)
             cd_mult = self.guard_cd_mult_top if is_top else self.guard_cd_mult_bottom
+            if not is_top and self.stance_mode_bottom == "defense":
+                cd_mult *= self.DEFENSE_SKILL_CD_MULT
             next_cd = random.uniform(*self.cooldown_range) * cd_mult
             if is_top:
                 self.cooldown_top = next_cd
@@ -4118,6 +4125,9 @@ class GuardWarriorSystem:
 
         # 다음 쿨타임 설정
         cd_mult = self.guard_cd_mult_top if is_top else self.guard_cd_mult_bottom
+        # 수비모드: 하단 호위무사 스킬 쿨타임 배율 적용
+        if not is_top and self.stance_mode_bottom == "defense":
+            cd_mult *= self.DEFENSE_SKILL_CD_MULT
         if self._has_dual_skills(guard["id"]):
             # 듀얼 스킬: 사용한 스킬만 쿨타임 리셋, 나머지는 계속 감소
             self._reset_skill_cooldown(guard["id"], skill_idx, cd_mult)
