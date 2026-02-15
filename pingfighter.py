@@ -51109,6 +51109,7 @@ def go_to_next_round():
     _judgment_lightning_stun_top_timer = 0.0
     _judgment_lightning_stun_bottom_timer = 0.0
     _judgment_lightning_stun_type = False
+    _stop_electric_shock_sound()  # 감전 사운드 정지
     _judgment_wind_stun_applied = False
     _judgment_wind_stun_top_timer = 0.0
     _judgment_wind_stun_bottom_timer = 0.0
@@ -55021,11 +55022,53 @@ _judgment_lightning_stun_applied = False  # 번개 스턴이 이미 적용되었
 _judgment_lightning_stun_top_timer = 0.0   # 상단 영웅 전기 스턴 타이머
 _judgment_lightning_stun_bottom_timer = 0.0  # 하단 영웅 전기 스턴 타이머
 _judgment_lightning_stun_type = False  # 현재 스턴이 번개 타입인지 (비주얼 분기용)
+# ⚡ 감전 사운드 (electricshock.wav) - 감전 지속시간 동안만 재생
+_electric_shock_sound = None
+_electric_shock_sound_loaded = False
+_electric_shock_sound_channel = None  # 재생 중인 채널 (정지용)
 _judgment_wind_stun_applied = False   # 바람 스턴이 이미 적용되었는지
 _judgment_wind_stun_top_timer = 0.0    # 상단 바람 스턴 타이머
 _judgment_wind_stun_bottom_timer = 0.0 # 하단 바람 스턴 타이머
 _judgment_wind_curve_effects = []      # 모래 소용돌이 포획 후 커브 효과 리스트
 _judgment_wind_ball_immunity = 0.0     # 포획 후 재포획 면역 타이머 (초)
+
+def _load_electric_shock_sound():
+    """감전 사운드 로딩 (최초 1회)"""
+    global _electric_shock_sound, _electric_shock_sound_loaded
+    if _electric_shock_sound_loaded:
+        return
+    _electric_shock_sound_loaded = True
+    try:
+        snd_path = resource_path(os.path.join("sounds", "electricshock.wav"))
+        if os.path.exists(snd_path):
+            _electric_shock_sound = pygame.mixer.Sound(snd_path)
+            _electric_shock_sound.set_volume(0.45)
+    except Exception:
+        pass
+
+def _play_electric_shock_sound():
+    """감전 사운드 루프 재생 (지속시간 동안)"""
+    global _electric_shock_sound_channel
+    _load_electric_shock_sound()
+    if _electric_shock_sound is None:
+        return
+    try:
+        # 이미 재생 중이면 중복 재생 방지
+        if _electric_shock_sound_channel and _electric_shock_sound_channel.get_busy():
+            return
+        _electric_shock_sound_channel = _electric_shock_sound.play(-1)  # 루프 재생
+    except Exception:
+        pass
+
+def _stop_electric_shock_sound():
+    """감전 사운드 정지"""
+    global _electric_shock_sound_channel
+    try:
+        if _electric_shock_sound_channel and _electric_shock_sound_channel.get_busy():
+            _electric_shock_sound_channel.stop()
+        _electric_shock_sound_channel = None
+    except Exception:
+        _electric_shock_sound_channel = None
 
 def handle_gods_judgment():
     """투기장 신의심판 이벤트 처리 - 공 랜덤 이동 + 영웅 속도 감소 + 번개/바람 스턴"""
@@ -55135,6 +55178,9 @@ def handle_gods_judgment():
                     arena_skill_manager.game_state['bottom_paddle_stunned'] = True
                 _judgment_lightning_stun_bottom_timer = 2.0
                 print(f"[신의심판] 하단 영웅 감전 스턴! 거리:{bot_dist:.0f}")
+            # 누구든 감전되었으면 사운드 재생
+            if _judgment_lightning_stun_top_timer > 0 or _judgment_lightning_stun_bottom_timer > 0:
+                _play_electric_shock_sound()
         # 스턴 타이머 카운트다운은 이동 코드에서 직접 처리 (gate 조건과 무관하게 항상 실행)
         # 이벤트 종료 시 리셋
         if not bg.is_judgment_active():
@@ -61394,6 +61440,9 @@ def handle_player(keys):
             _judgment_lightning_stun_bottom_timer = 0.0
             if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
                 arena_skill_manager.game_state['bottom_paddle_stunned'] = False
+            # 상단도 감전 끝났으면 사운드 정지
+            if _judgment_lightning_stun_top_timer <= 0:
+                _stop_electric_shock_sound()
         else:
             arena_player_stun_block = True
             current_speed = 0
@@ -117923,6 +117972,7 @@ def reset_round(is_stage_start=False):
     _judgment_lightning_stun_top_timer = 0.0
     _judgment_lightning_stun_bottom_timer = 0.0
     _judgment_lightning_stun_type = False
+    _stop_electric_shock_sound()  # 감전 사운드 정지
     _judgment_wind_stun_applied = False
     _judgment_wind_stun_top_timer = 0.0
     _judgment_wind_stun_bottom_timer = 0.0
@@ -128099,6 +128149,9 @@ def handle_boss():
             _judgment_lightning_stun_top_timer = 0.0
             if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
                 arena_skill_manager.game_state['top_paddle_stunned'] = False
+            # 하단도 감전 끝났으면 사운드 정지
+            if _judgment_lightning_stun_bottom_timer <= 0:
+                _stop_electric_shock_sound()
         else:
             boss_current_speed = 0
             return  # 번개 스턴 중 모든 처리 차단

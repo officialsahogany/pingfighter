@@ -13593,6 +13593,8 @@ class ThunderOrb(HeroSkill):
         self._sound_loaded = False
         self._sound = None
         self._explode_sound = None
+        self._electric_shock_sound = None
+        self._electric_shock_channel = None  # 감전 사운드 채널 (정지용)
         # 런타임 상태
         self.phase = self.PHASE_IDLE
         self.orb_x = 0.0
@@ -13623,6 +13625,11 @@ class ThunderOrb(HeroSkill):
             if os.path.exists(sound_path):
                 self._sound = pygame.mixer.Sound(sound_path)
                 self._sound.set_volume(0.4)
+            # 감전 사운드
+            shock_path = os.path.join(project_root, "sounds", "electricshock.wav")
+            if os.path.exists(shock_path):
+                self._electric_shock_sound = pygame.mixer.Sound(shock_path)
+                self._electric_shock_sound.set_volume(0.45)
         except Exception:
             pass
 
@@ -13796,6 +13803,12 @@ class ThunderOrb(HeroSkill):
                     int(getattr(target_paddle, 'width', 80)),
                     int(getattr(target_paddle, 'height', 10))
                 )
+                # 감전 사운드 루프 재생
+                if self._electric_shock_sound:
+                    try:
+                        self._electric_shock_channel = self._electric_shock_sound.play(-1)
+                    except Exception:
+                        pass
             else:
                 # 범위 밖 → 스킬 종료
                 self.phase = self.PHASE_IDLE
@@ -13816,6 +13829,8 @@ class ThunderOrb(HeroSkill):
             prefix = 'top_paddle' if self.stun_target_is_top else 'bottom_paddle'
             game_state[f'{prefix}_stunned'] = False
             game_state[f'{prefix}_electric_stun'] = False
+            # 감전 사운드 정지
+            self._stop_electric_shock_sound()
             self.phase = self.PHASE_IDLE
             self.is_active = False
             self.active_timer = 0
@@ -14151,6 +14166,15 @@ class ThunderOrb(HeroSkill):
             sp_col = random.choice([(255, 255, 255), (255, 255, 200), (200, 230, 255)])
             pygame.draw.circle(screen, sp_col, (sp_x, sp_y), sp_size)
 
+    def _stop_electric_shock_sound(self):
+        """감전 사운드 정지"""
+        try:
+            if self._electric_shock_channel and self._electric_shock_channel.get_busy():
+                self._electric_shock_channel.stop()
+            self._electric_shock_channel = None
+        except Exception:
+            self._electric_shock_channel = None
+
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         """스킬 종료 정리"""
         # 감전 상태 해제
@@ -14158,6 +14182,7 @@ class ThunderOrb(HeroSkill):
             prefix = 'top_paddle' if self.stun_target_is_top else 'bottom_paddle'
             game_state[f'{prefix}_stunned'] = False
             game_state[f'{prefix}_electric_stun'] = False
+        self._stop_electric_shock_sound()  # 감전 사운드 정지
         self.phase = self.PHASE_IDLE
         self.orb_trail = []
         self.orb_sparks = []
@@ -14172,6 +14197,7 @@ class ThunderOrb(HeroSkill):
             prefix = 'top_paddle' if self.stun_target_is_top else 'bottom_paddle'
             game_state[f'{prefix}_stunned'] = False
             game_state[f'{prefix}_electric_stun'] = False
+        self._stop_electric_shock_sound()  # 감전 사운드 정지
         super().reset_for_new_round(game_state)
         self.phase = self.PHASE_IDLE
         self.orb_trail = []
