@@ -7356,6 +7356,12 @@ class ColosseumsArena:
             if result is None:
                 # ESC 나가기 → 토너먼트 종료
                 self.battle_active = False
+                # 스킬 사운드 정리 (루프 사운드 포함)
+                for snd in getattr(ColosseumsArena, '_skill_sound_cache', {}).values():
+                    if snd:
+                        snd.stop()
+                if self.skill_manager:
+                    self.skill_manager.reset_active_skills_for_round()
                 self.exit_requested = True
                 return
             elif result:
@@ -8177,6 +8183,10 @@ class ColosseumsArena:
             if snd:
                 snd.stop()
 
+        # 스킬 매니저의 모든 활성 스킬 강제 종료 (루프 사운드 포함)
+        if self.skill_manager:
+            self.skill_manager.reset_active_skills_for_round()
+
         # 방어 로직: selected_match 체크
         if not self.selected_match:
             print(f"[Arena] ERROR: selected_match is None in _end_battle!")
@@ -8793,6 +8803,12 @@ class ColosseumsArena:
                                   TournamentState.SKILL_REVEAL, TournamentState.PRISON_SELECT,
                                   TournamentState.GUARD_SKILL_REVEAL):
                     return False  # 초반 셋업 중에는 나갈 수 없음
+                # 스킬 사운드 정리 (루프 사운드 포함)
+                for snd in getattr(ColosseumsArena, '_skill_sound_cache', {}).values():
+                    if snd:
+                        snd.stop()
+                if self.skill_manager:
+                    self.skill_manager.reset_active_skills_for_round()
                 self.exit_requested = True
                 return True
 

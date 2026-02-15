@@ -15380,7 +15380,11 @@ class HeroSkillManager:
                 has_vortexes = hasattr(skill, 'vortexes') and skill.vortexes
                 # 유령소환: 공을 먹고 있는 중이면 라운드 리셋 시 공 복원 필요
                 has_ghost_eating = hasattr(skill, '_eating_ball') and skill._eating_ball
-                if skill.is_active or has_oil_effects or has_dwarf_magic_effects or has_shadow_clones or has_shurikens or has_vortexes or has_ghost_eating:
+                # 천둥 뇌구: is_active=False여도 감전 사운드 채널이 남아있는 경우 포함
+                has_electric_shock = hasattr(skill, '_electric_shock_channel') and skill._electric_shock_channel
+                # 개틀링 버스트: is_active=False여도 루프 사운드가 남아있는 경우 포함
+                has_gatling_loop = hasattr(skill, '_gatling_loop_sound') and skill._gatling_loop_sound
+                if skill.is_active or has_oil_effects or has_dwarf_magic_effects or has_shadow_clones or has_shurikens or has_vortexes or has_ghost_eating or has_electric_shock or has_gatling_loop:
                     skill.reset_for_new_round(self.game_state)
 
         # 추가로 game_state의 모든 효과 상태 초기화
