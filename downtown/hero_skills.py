@@ -9420,12 +9420,14 @@ class SkeletonArcher(HeroSkill):
         game_state[f'{target_prefix}_knockback_dir'] = knockback_dir
         game_state[f'{target_prefix}_knockback_vel'] = self.KNOCKBACK_VEL
 
-        # 히트 사운드
+        # 히트 사운드 (코만도 권총 피격음)
         try:
             project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            sound_path = os.path.join(project_root, "sounds", "shurikenhit.wav")
+            sound_path = os.path.join(project_root, "sounds", "smallboyhit.wav")
             if os.path.exists(sound_path):
-                pygame.mixer.Sound(sound_path).play()
+                s = pygame.mixer.Sound(sound_path)
+                s.set_volume(0.7)
+                s.play()
         except Exception:
             pass
 
