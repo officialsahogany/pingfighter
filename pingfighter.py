@@ -137070,6 +137070,10 @@ def main(stage_num, new_boss_mode=False):
 
                     # 🛡️ 호위무사 시스템 업데이트 (4강/결승)
                     if arena_guard_system:
+                        # 호위무사 긴급 대쉬 판정용 영웅 대쉬 상태 전달
+                        if arena_skill_manager:
+                            arena_skill_manager.game_state['arena_bottom_dash_charges'] = arena_bottom_dash_charges
+                            arena_skill_manager.game_state['arena_bottom_dashing'] = arena_bottom_dashing
                         try:
                             arena_guard_system.update(dt, top_wrapper, bottom_wrapper, ball_wrapper)
                         except Exception as _guard_err:

@@ -2474,6 +2474,17 @@ class GuardWarriorSystem:
         self.DEFENSE_SPEED_MULT = 2.0       # 수비모드 이동속도 +100% (2배)
         self.DEFENSE_SKILL_CD_MULT = 2.0    # 수비모드 스킬쿨타임 +100% (2배)
 
+        # 호위무사 긴급 대쉬 (수비모드 전용)
+        self._guard_dash_active = False
+        self._guard_dash_cooldown = 0.0
+        self._guard_dash_target_x = 0.0
+        self._guard_dash_start_x = 0.0
+        self._guard_dash_timer = 0.0
+        self._guard_dash_duration = 0.0
+        self._guard_dash_afterimages = []
+        self.GUARD_DASH_COOLDOWN = 25.0
+        self.GUARD_DASH_SPEED = 1200.0
+
         # 매혹(Charm)된 호위무사 독립 추적
         self._charmed = None  # dict or None
 
@@ -2533,6 +2544,9 @@ class GuardWarriorSystem:
 
         # 스탠스 초기화
         self.stance_mode_bottom = "attack"
+        self._guard_dash_active = False
+        self._guard_dash_cooldown = 0.0
+        self._guard_dash_afterimages = []
 
         # 2번째 호위무사 초기화 (2명 이상일 때)
         self._patrol2_top = None
@@ -3876,6 +3890,11 @@ class GuardWarriorSystem:
         self._update_side(dt, is_top=False, top_paddle=top_paddle,
                           bottom_paddle=bottom_paddle, ball=ball)
 
+        # 호위무사 긴급 대쉬 업데이트 (수비모드 전용)
+        self._update_guard_dash(dt)
+        if not self._guard_dash_active:
+            self._check_guard_emergency_dash(dt, ball)
+
         # 2번째 호위무사 독립 순찰 업데이트
         self._update_patrol2(dt, is_top=True, top_paddle=top_paddle,
                              bottom_paddle=bottom_paddle, ball=ball)
@@ -4369,6 +4388,116 @@ class GuardWarriorSystem:
                 self.phase_bottom = "exiting"
                 self.anim_timer_bottom = 0.0
 
+    # ── 호위무사 긴급 대쉬 (수비모드 전용) ──────────────────────────
+
+    @staticmethod
+    def _predict_guard_ball_x(ball_x, ball_vx, ball_y, ball_vy, target_y):
+        """벽 반사를 고려한 공 도착 X 예측 (ArenaHeroAI._predict_x_with_walls 동일)"""
+        if abs(ball_vy) < 0.1:
+            return ball_x
+        time_to_target = abs(target_y - ball_y) / abs(ball_vy)
+        predicted_x = ball_x + ball_vx * time_to_target
+        left_wall = GAME_AREA_X + BALL_SIZE
+        right_wall = GAME_AREA_X + GAME_AREA_WIDTH - BALL_SIZE
+        for _ in range(10):
+            if predicted_x < left_wall:
+                predicted_x = 2 * left_wall - predicted_x
+            elif predicted_x > right_wall:
+                predicted_x = 2 * right_wall - predicted_x
+            else:
+                break
+        return predicted_x
+
+    def _check_guard_emergency_dash(self, dt, ball):
+        """호위무사 긴급 대쉬 판정 (수비모드 전용)"""
+        if self.stance_mode_bottom != "defense":
+            return
+        if self.phase_bottom != "patrolling":
+            return
+        if self._guard_dash_active or self._guard_dash_cooldown > 0:
+            return
+        if not ball or not hasattr(ball, 'vy') or ball.vy <= 0:
+            return
+
+        game_state = self.skill_manager.game_state if self.skill_manager else {}
+        if game_state.get('arena_bottom_dash_charges', 1) > 0:
+            return
+        if game_state.get('arena_bottom_dashing', False):
+            return
+
+        ball_cx = ball.x + ball.width // 2
+        dy = self.y_bottom - (ball.y + ball.height)
+        if dy <= 0 or dy > ball.vy * 1.5:
+            return
+        time_to_arrive = dy / ball.vy
+        if time_to_arrive > 1.5 or time_to_arrive < 0.05:
+            return
+
+        predicted_x = self._predict_guard_ball_x(
+            ball_cx, ball.vx, ball.y, ball.vy, self.y_bottom)
+        distance = abs(predicted_x - self.x_bottom)
+
+        normal_speed = max(140.0, self._patrol_speed_bottom) * self.DEFENSE_SPEED_MULT
+        max_travel = normal_speed * time_to_arrive
+        if max_travel >= distance - PADDLE_WIDTH // 2:
+            return
+
+        self._start_guard_dash(predicted_x)
+
+    def _start_guard_dash(self, target_x):
+        """호위무사 긴급 대쉬 시작"""
+        left_bound = PADDLE_WIDTH // 2
+        right_bound = SCREEN_WIDTH - PADDLE_WIDTH // 2
+        target_x = max(left_bound, min(target_x, right_bound))
+        distance = abs(target_x - self.x_bottom)
+        if distance < 20:
+            return
+        self._guard_dash_active = True
+        self._guard_dash_start_x = self.x_bottom
+        self._guard_dash_target_x = target_x
+        self._guard_dash_timer = 0.0
+        self._guard_dash_duration = max(0.08, min(distance / self.GUARD_DASH_SPEED, 0.4))
+        self._guard_dash_afterimages = []
+        self._guard_dash_cooldown = self.GUARD_DASH_COOLDOWN
+        print(f"[Guard Dash] 호위무사 긴급 대쉬! {self.x_bottom:.0f} → {target_x:.0f} "
+              f"(거리={distance:.0f}px, 소요={self._guard_dash_duration:.2f}s)")
+
+    def _update_guard_dash(self, dt):
+        """호위무사 긴급 대쉬 프레임 업데이트"""
+        if self._guard_dash_cooldown > 0:
+            self._guard_dash_cooldown -= dt
+        new_imgs = []
+        for img in self._guard_dash_afterimages:
+            img['alpha'] -= 300 * dt
+            img['life'] -= dt
+            if img['alpha'] > 0 and img['life'] > 0:
+                new_imgs.append(img)
+        self._guard_dash_afterimages = new_imgs
+        if not self._guard_dash_active:
+            return
+        self._guard_dash_timer += dt
+        progress = min(1.0, self._guard_dash_timer / self._guard_dash_duration)
+        eased = 1.0 - (1.0 - progress) ** 2
+        self.x_bottom = self._guard_dash_start_x + \
+            (self._guard_dash_target_x - self._guard_dash_start_x) * eased
+        left_bound = PADDLE_WIDTH // 2
+        right_bound = SCREEN_WIDTH - PADDLE_WIDTH // 2
+        self.x_bottom = max(left_bound, min(self.x_bottom, right_bound))
+        self._guard_dash_afterimages.append({
+            'x': self.x_bottom, 'y': self.y_bottom,
+            'alpha': 160, 'life': 0.15,
+        })
+        if len(self._guard_dash_afterimages) > 8:
+            self._guard_dash_afterimages.pop(0)
+        guard = self.active_bottom
+        if guard and self.hero_paddle_renderer:
+            self.hero_paddle_renderer.update_movement(guard["id"], self.x_bottom, dt)
+        if progress >= 1.0:
+            self._guard_dash_active = False
+            self.x_bottom = self._guard_dash_target_x
+
+    # ── 호위무사 순찰 이동 ──────────────────────────────────────
+
     def _update_patrol(self, dt, is_top, ball=None):
         """순찰 모드: 호위무사가 진영 내에서 자연스럽게 랜덤 순찰
         수비모드(하단만): 공을 따라 부드럽게 추적, 멈춤 없음, 이동속도 +30%
@@ -4408,22 +4537,25 @@ class GuardWarriorSystem:
         else:
             # 하단 호위무사: 수비모드 체크
             if self.stance_mode_bottom == "defense" and ball:
-                # 수비모드: 공을 따라 부드럽게 추적, 멈춤 없음
-                self._patrol_wait_bottom = 0
-                target_x = ball.x + ball.width // 2
-                target_x = max(left_bound, min(target_x, right_bound))
-                diff = target_x - self.x_bottom
-                speed = self._patrol_speed_bottom * self.DEFENSE_SPEED_MULT
-                if self._patrol_speed_bottom < 140.0:
-                    speed = 140.0 * self.DEFENSE_SPEED_MULT
-                if abs(diff) > 3.0:
-                    direction = 1 if diff > 0 else -1
-                    self._patrol_dir_bottom = direction
-                    move = direction * speed * dt
-                    if abs(move) > abs(diff):
-                        move = diff
-                    self.x_bottom += move
-                    self.x_bottom = max(left_bound, min(self.x_bottom, right_bound))
+                if self._guard_dash_active:
+                    pass  # 대쉬 이동은 _update_guard_dash에서 처리
+                else:
+                    # 수비모드: 공을 따라 부드럽게 추적, 멈춤 없음
+                    self._patrol_wait_bottom = 0
+                    target_x = ball.x + ball.width // 2
+                    target_x = max(left_bound, min(target_x, right_bound))
+                    diff = target_x - self.x_bottom
+                    speed = self._patrol_speed_bottom * self.DEFENSE_SPEED_MULT
+                    if self._patrol_speed_bottom < 140.0:
+                        speed = 140.0 * self.DEFENSE_SPEED_MULT
+                    if abs(diff) > 3.0:
+                        direction = 1 if diff > 0 else -1
+                        self._patrol_dir_bottom = direction
+                        move = direction * speed * dt
+                        if abs(move) > abs(diff):
+                            move = diff
+                        self.x_bottom += move
+                        self.x_bottom = max(left_bound, min(self.x_bottom, right_bound))
             else:
                 # 공격모드: 기존 랜덤 순찰 + 멈춤
                 if self._patrol_wait_bottom > 0:
@@ -5121,6 +5253,19 @@ class GuardWarriorSystem:
                 self._draw_guard(screen, self.active_top,
                                  self.x_top + shake_x, self.y_top + shake_y,
                                  is_top=True)
+
+        # 하단 호위무사 긴급 대쉬 잔상
+        if self._guard_dash_afterimages and self.active_bottom:
+            _dash_color = self.active_bottom.get("color", (200, 200, 200))
+            for _img in self._guard_dash_afterimages:
+                _a = max(0, min(255, int(_img['alpha'])))
+                if _a <= 0:
+                    continue
+                _ai_surf = _get_arena_surface(PADDLE_WIDTH, PADDLE_HEIGHT + 8)
+                _ai_surf.fill((*_dash_color, _a))
+                _rx = int(_img['x'] + shake_x) - PADDLE_WIDTH // 2
+                _ry = int(_img['y'] + shake_y) - 4
+                screen.blit(_ai_surf, (_rx, _ry))
 
         # 하단측 호위무사 캐릭터 (patrol_entering 딜레이 중에는 미표시)
         if self.active_bottom and self.phase_bottom:
@@ -5915,6 +6060,10 @@ class GuardWarriorSystem:
         self._patrol2_bottom = None
         # 매혹 호위무사 초기화
         self._charmed = None
+        # 호위무사 긴급 대쉬 초기화
+        self._guard_dash_active = False
+        self._guard_dash_cooldown = 0.0
+        self._guard_dash_afterimages = []
 
         # 스킬 인스턴스 정리
         game_state = self.skill_manager.game_state if self.skill_manager else {}
