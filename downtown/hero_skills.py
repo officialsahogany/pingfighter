@@ -12271,7 +12271,7 @@ class SandPrison(HeroSkill):
             korean_name="모래감옥",
             description="상대의 이동 범위를 200~300px로 제한하는 모래 감옥",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=20.0,
+            cooldown=25.0,
             duration=total_dur,
             hero_id="mirage"
         )
