@@ -191,7 +191,7 @@ class AnimatedBackgroundStage30:
         self.BOLT_FLIGHT_DURATION = 0.8
         self.BOLT_EXPLOSION_DURATION = 1.05  # 1.5 * 0.7 (-30% 단축)
         self.FAN_SWING_DURATION = 1.2
-        self.SANDSTORM_DURATION = 4.0  # 모래회오리 세트와 동일한 수명
+        self.SANDSTORM_DURATION = 7.0  # 나선형 소용돌이 (1개, 달팽이 궤적)
 
         # 테두리 서피스
         self.border_surface = pygame.Surface((width, height), pygame.SRCALPHA)
@@ -1311,43 +1311,48 @@ class AnimatedBackgroundStage30:
                             (195, 170, 110), (240, 210, 140),
                         ]),
                     })
-            # 50% 시점에서 모래바람 발사 (모래회오리 세트와 동일한 소용돌이 메커니즘)
+            # 50% 시점에서 나선형 소용돌이 1개 발사 (달팽이처럼 원으로 퍼져나감)
             if progress >= 0.5 and len(self.judgment_wind_sandstorms) == 0:
-                # 4방향 대각선: 45°, -45°(=315°), 135°, -135°(=225°)
-                sand_speed = 180.0  # px/s (모래회오리 세트와 동일)
-                for angle_deg in [45, -45, 135, -135]:
-                    angle_rad = math.radians(angle_deg)
-                    self.judgment_wind_sandstorms.append({
-                        'x': float(cx),
-                        'y': float(cy),
-                        'base_vx': math.cos(angle_rad) * sand_speed,
-                        'base_vy': math.sin(angle_rad) * sand_speed,
-                        'vx': math.cos(angle_rad) * sand_speed,
-                        'vy': math.sin(angle_rad) * sand_speed,
-                        'angle_deg': angle_deg,
-                        'rotation': random.uniform(0, 360),
-                        'spin_speed': random.uniform(280, 400),
-                        'base_size': 44.0 * s,
-                        'size': 44.0 * s,
-                        'growth_scale': 1.0,
-                        'alpha': 255,
-                        'age': 0.0,
-                        'dead': False,
-                        'fading': False,
-                        'hit_top': False,
-                        'hit_bottom': False,
-                        'has_captured': False,
-                        'capture_cooldown': 0.0,
-                        # 예측불가 랜덤 X축 움직임 (wobble/drift)
-                        'wobble_phase': random.uniform(0, math.pi * 2),
-                        'wobble_speed': random.uniform(3.0, 4.5),
-                        'drift_vx': 0.0,
-                        'drift_target': random.uniform(-80, 80),
-                        'drift_timer': 0.0,
-                        'drift_interval': random.uniform(0.3, 0.7),
-                        'jitter_x': 0.0,
-                        'trail_particles': [],
-                    })
+                start_angle = random.uniform(0, math.pi * 2)
+                self.judgment_wind_sandstorms.append({
+                    'x': float(cx),
+                    'y': float(cy),
+                    # 나선형 궤적 파라미터
+                    'spiral_cx': float(cx),          # 나선 중심 X
+                    'spiral_cy': float(cy),          # 나선 중심 Y
+                    'spiral_angle': start_angle,     # 현재 각도 (rad)
+                    'spiral_radius': 15.0,           # 현재 반경 (작게 시작)
+                    'spiral_angular_speed': 3.2,     # 각속도 (rad/s)
+                    'spiral_expansion_rate': 42.0,   # 반경 확장 속도 (px/s)
+                    'spiral_max_radius': 310.0,      # 최대 반경
+                    # 기존 호환용 (info 반환 등)
+                    'base_vx': 0.0,
+                    'base_vy': 0.0,
+                    'vx': 0.0,
+                    'vy': 0.0,
+                    'drift_vx': 0.0,
+                    'angle_deg': 0,
+                    'rotation': random.uniform(0, 360),
+                    'spin_speed': random.uniform(320, 450),
+                    'base_size': 50.0 * s,           # 약간 더 큰 시작 크기
+                    'size': 50.0 * s,
+                    'growth_scale': 1.0,
+                    'alpha': 255,
+                    'age': 0.0,
+                    'dead': False,
+                    'fading': False,
+                    'hit_top': False,
+                    'hit_bottom': False,
+                    'has_captured': False,
+                    'capture_cooldown': 0.0,
+                    'wobble_phase': random.uniform(0, math.pi * 2),
+                    'wobble_speed': random.uniform(3.0, 4.5),
+                    'drift_target': 0.0,
+                    'drift_timer': 0.0,
+                    'drift_interval': 0.5,
+                    'jitter_x': 0.0,
+                    'trail_particles': [],
+                })
                 # 발사 시 화면 흔들림 + 플래시
                 self.judgment_shake_intensity = 0.4
                 self.judgment_flash_alpha = 100
@@ -1372,7 +1377,7 @@ class AnimatedBackgroundStage30:
                 print(f"[신의심판] FAN_SWING → SANDSTORM 전환")
 
         elif self.judgment_phase == self.JUDGMENT_SANDSTORM:
-            # 4초: 모래 소용돌이 비행 + 공 끌어당김/포획 + 히트 판정
+            # 7초: 나선형 소용돌이 1개가 달팽이처럼 원으로 퍼져나감
             progress = min(1.0, self.judgment_timer / self.SANDSTORM_DURATION)
             s = self.judgment_scale
             # 팔 서서히 원위치
@@ -1381,21 +1386,14 @@ class AnimatedBackgroundStage30:
             self.judgment_right_arm_progress = max(0, -0.2 + arm_fold * 0.2)
             self.judgment_fan_swing_progress = max(0, 1.0 - progress * 2.0)
 
-            # ── 소용돌이 상수 (모래회오리 세트와 동일) ──
-            VORTEX_PULL_RADIUS = 200     # 끌어당김 범위
-            VORTEX_CAPTURE_RADIUS = 36   # 포획 범위
-            VORTEX_GROWTH_RATE = 0.20    # 초당 20% 성장
-            VORTEX_LIFETIME = 4.0        # 수명
-            VORTEX_FADE_DURATION = 1.2   # 소멸 페이드 시간
-            WOBBLE_AMPLITUDE = 80        # 좌우 진폭
-            LAUNCH_SPEED_MULT = 1.43     # 포획 후 발사 속도 배율
-            LAUNCH_SPEED_MIN = 8
-            LAUNCH_SPEED_MAX = 18
-            CAPTURE_BOOST = 1.6          # 포획 시 임팩트 부스트
-            CURVE_DURATION = 2.5         # 커브 효과 지속시간
-            CURVE_ROTATION_SPEED = 3.0   # 커브 회전 속도 (rad/s)
+            # ── 나선형 소용돌이 상수 ──
+            VORTEX_GROWTH_RATE = 0.15    # 초당 15% 크기 성장
+            VORTEX_LIFETIME = 7.0        # 수명 (SANDSTORM_DURATION과 동일)
+            VORTEX_FADE_DURATION = 1.5   # 소멸 페이드 시간
             GAME_LEFT = 80
             GAME_RIGHT = 680
+            GAME_TOP = 0
+            GAME_BOTTOM = 750
 
             # 모래바람 업데이트
             all_dead = True
@@ -1405,11 +1403,11 @@ class AnimatedBackgroundStage30:
                 all_dead = False
                 storm['age'] += dt
 
-                # ── 크기 성장: 초당 20%씩 커짐 ──
+                # ── 크기 성장 ──
                 storm['growth_scale'] = 1.0 + VORTEX_GROWTH_RATE * storm['age']
                 grown_size = storm['base_size'] * storm['growth_scale']
 
-                # ── 수명 관리: 4초 후 페이드 아웃 ──
+                # ── 수명 관리 ──
                 fade_start = VORTEX_LIFETIME - VORTEX_FADE_DURATION
                 if storm['age'] >= VORTEX_LIFETIME:
                     storm['dead'] = True
@@ -1418,8 +1416,8 @@ class AnimatedBackgroundStage30:
                     storm['fading'] = True
                     fade_progress = (storm['age'] - fade_start) / VORTEX_FADE_DURATION
                     storm['alpha'] = max(0, int(255 * (1 - fade_progress)))
-                    storm['spin_speed'] *= (1 - 0.8 * dt)
-                    storm['size'] = max(8, grown_size * (1 - fade_progress * 0.6))
+                    storm['spin_speed'] *= (1 - 0.5 * dt)
+                    storm['size'] = max(8, grown_size * (1 - fade_progress * 0.4))
                 else:
                     storm['size'] = grown_size
 
@@ -1427,78 +1425,71 @@ class AnimatedBackgroundStage30:
                 if storm['capture_cooldown'] > 0:
                     storm['capture_cooldown'] -= dt
 
-                # ── 예측불가 랜덤 X축 움직임 (wobble/drift) ──
-                storm['drift_timer'] += dt
-                if storm['drift_timer'] >= storm['drift_interval']:
-                    storm['drift_timer'] = 0.0
-                    storm['drift_interval'] = random.uniform(0.2, 0.6)
-                    storm['drift_target'] = random.uniform(-120, 120)
-
-                lerp_speed = 4.0 * dt
-                storm['drift_vx'] += (storm['drift_target'] - storm['drift_vx']) * lerp_speed
-                storm['jitter_x'] = random.uniform(-25, 25)
-                storm['wobble_phase'] += storm['wobble_speed'] * dt
-                wobble_offset = math.sin(storm['wobble_phase']) * WOBBLE_AMPLITUDE
-
-                # 페이드 중이면 움직임 감속
+                # ── 나선형 궤적 업데이트 (달팽이처럼 원으로 퍼져나감) ──
                 speed_mult = 1.0
                 if storm.get('fading'):
                     fp = (storm['age'] - fade_start) / VORTEX_FADE_DURATION
-                    speed_mult = max(0.1, 1 - fp * 0.7)
+                    speed_mult = max(0.2, 1 - fp * 0.6)
 
-                final_x_move = (storm['base_vx'] + wobble_offset + storm['drift_vx'] + storm['jitter_x']) * speed_mult
-                storm['x'] += final_x_move * dt
-                storm['y'] += storm['base_vy'] * dt * speed_mult
+                # 각도 증가 (일정한 각속도로 회전)
+                storm['spiral_angle'] += storm['spiral_angular_speed'] * dt * speed_mult
+                # 반경 확장 (점점 넓어지는 원)
+                if storm['spiral_radius'] < storm['spiral_max_radius']:
+                    storm['spiral_radius'] += storm['spiral_expansion_rate'] * dt * speed_mult
+                    storm['spiral_radius'] = min(storm['spiral_radius'], storm['spiral_max_radius'])
 
-                # vx/vy 동기화 (info 반환용)
-                storm['vx'] = final_x_move
-                storm['vy'] = storm['base_vy'] * speed_mult
+                # 나선 위치 계산
+                new_x = storm['spiral_cx'] + math.cos(storm['spiral_angle']) * storm['spiral_radius']
+                new_y = storm['spiral_cy'] + math.sin(storm['spiral_angle']) * storm['spiral_radius']
 
-                # 회전
+                # 벽 클램핑 (나선이 게임 영역 안에 유지)
+                margin = storm['size'] * 0.5
+                new_x = max(GAME_LEFT + margin, min(GAME_RIGHT - margin, new_x))
+                new_y = max(GAME_TOP + margin, min(GAME_BOTTOM - margin, new_y))
+
+                # 속도 계산 (info 반환 + 트레일 파티클용)
+                if dt > 0:
+                    storm['vx'] = (new_x - storm['x']) / dt
+                    storm['vy'] = (new_y - storm['y']) / dt
+                    storm['base_vx'] = storm['vx']
+                    storm['base_vy'] = storm['vy']
+
+                storm['x'] = new_x
+                storm['y'] = new_y
+
+                # 회전 (시각적)
                 storm['rotation'] += storm['spin_speed'] * dt
 
-                # 좌우 벽 바운스
-                if storm['x'] < GAME_LEFT + storm['size']:
-                    storm['x'] = GAME_LEFT + storm['size']
-                    storm['base_vx'] = abs(storm['base_vx'])
-                    storm['drift_vx'] = abs(storm['drift_vx'])
-                    storm['drift_target'] = abs(storm['drift_target'])
-                elif storm['x'] > GAME_RIGHT - storm['size']:
-                    storm['x'] = GAME_RIGHT - storm['size']
-                    storm['base_vx'] = -abs(storm['base_vx'])
-                    storm['drift_vx'] = -abs(storm['drift_vx'])
-                    storm['drift_target'] = -abs(storm['drift_target'])
-
-                # 트레일 파티클 생성
-                particle_count = 1 if storm.get('fading') else 4
+                # 트레일 파티클 생성 (나선 궤적을 따라 모래 흔적)
+                particle_count = 2 if storm.get('fading') else 6
                 for _ in range(particle_count):
                     t_angle = random.uniform(0, math.pi * 2)
                     t_dist = random.uniform(4, storm['size'] * 1.2)
-                    orbit_speed = random.uniform(60, 140)
+                    orbit_speed = random.uniform(80, 180)
                     storm['trail_particles'].append({
                         'x': storm['x'] + math.cos(t_angle) * t_dist,
                         'y': storm['y'] + math.sin(t_angle) * t_dist,
-                        'vx': math.cos(t_angle + math.pi / 2) * orbit_speed + random.uniform(-20, 20),
-                        'vy': math.sin(t_angle + math.pi / 2) * orbit_speed * 0.5 + storm['base_vy'] * 0.3,
-                        'size': random.uniform(2, 6),
-                        'life': random.uniform(0.4, 0.9),
+                        'vx': math.cos(t_angle + math.pi / 2) * orbit_speed + random.uniform(-30, 30),
+                        'vy': math.sin(t_angle + math.pi / 2) * orbit_speed * 0.5 + random.uniform(-20, 20),
+                        'size': random.uniform(2, 7),
+                        'life': random.uniform(0.5, 1.2),
                         'color': random.choice([
                             (210, 180, 105), (195, 170, 110),
                             (220, 190, 120), (160, 130, 80),
                         ]),
                     })
-                # 큰 먼지 덩어리
-                dust_chance = 0.1 if storm.get('fading') else 0.35
+                # 큰 먼지 덩어리 (나선 경로에 흩뿌림)
+                dust_chance = 0.15 if storm.get('fading') else 0.45
                 if random.random() < dust_chance:
                     d_angle = random.uniform(0, math.pi * 2)
-                    d_dist = random.uniform(storm['size'] * 0.5, storm['size'] * 1.5)
+                    d_dist = random.uniform(storm['size'] * 0.5, storm['size'] * 1.8)
                     storm['trail_particles'].append({
                         'x': storm['x'] + math.cos(d_angle) * d_dist,
                         'y': storm['y'] + math.sin(d_angle) * d_dist,
-                        'vx': random.uniform(-40, 40),
-                        'vy': storm['base_vy'] * 0.2 + random.uniform(-15, 15),
-                        'size': random.uniform(6, 12),
-                        'life': random.uniform(0.5, 1.0),
+                        'vx': random.uniform(-50, 50),
+                        'vy': random.uniform(-30, 30),
+                        'size': random.uniform(6, 14),
+                        'life': random.uniform(0.6, 1.2),
                         'color': (195, 170, 110),
                     })
                 # 트레일 업데이트
@@ -1516,14 +1507,16 @@ class AnimatedBackgroundStage30:
                 if storm['y'] > 710 and not storm['hit_bottom']:
                     storm['hit_bottom'] = True
                     self.judgment_sandstorm_hit_bottom = True
-                # 화면 밖으로 나가면 소멸
-                if storm['y'] < -60 or storm['y'] > 810:
-                    storm['dead'] = True
-                    continue
 
-            # 약한 화면 흔들림 (모래바람 비행 중)
-            if not all_dead and progress < 0.8:
-                self.judgment_shake_intensity = 0.08
+            # 나선 회전 중 지속적 화면 흔들림
+            if not all_dead and progress < 0.85:
+                # 나선 반경이 커질수록 흔들림 강해짐
+                storm_ref = self.judgment_wind_sandstorms[0] if self.judgment_wind_sandstorms else None
+                if storm_ref and not storm_ref['dead']:
+                    radius_ratio = storm_ref.get('spiral_radius', 0) / storm_ref.get('spiral_max_radius', 310)
+                    self.judgment_shake_intensity = 0.05 + 0.15 * radius_ratio
+                else:
+                    self.judgment_shake_intensity = 0.05
             else:
                 self.judgment_shake_intensity = max(0, self.judgment_shake_intensity - dt * 0.5)
             if progress >= 1.0 or all_dead:
