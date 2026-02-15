@@ -3019,7 +3019,7 @@ class GuardWarriorSystem:
         game_state.pop('charm_active', None)
 
         # 복귀 위치 X 클램핑
-        return_x = max(GAME_AREA_X + 40, min(return_x, GAME_AREA_X + GAME_AREA_WIDTH - 40))
+        return_x = max(PADDLE_WIDTH // 2, min(return_x, SCREEN_WIDTH - PADDLE_WIDTH // 2))
 
         # 상대 호위무사를 복귀 위치에서 바로 순찰 상태로 배치 (사라짐/재등장 없이)
         if stolen_from_top:
@@ -3105,8 +3105,8 @@ class GuardWarriorSystem:
         if _charm_dual:
             self._tick_guard_skill_cooldowns(dt, _charm_guard["id"])
 
-        left_bound = GAME_AREA_X + 40
-        right_bound = GAME_AREA_X + GAME_AREA_WIDTH - 40
+        left_bound = PADDLE_WIDTH // 2
+        right_bound = SCREEN_WIDTH - PADDLE_WIDTH // 2
 
         # === 귀신발걸음 Y축 이동 처리 (일반 순찰 대신) ===
         if c.get('ghost_step_active'):
@@ -3480,8 +3480,8 @@ class GuardWarriorSystem:
 
     def _update_patrol2_movement(self, dt, p2, ball=None, is_top=True):
         """2번째 호위무사 순찰 이동 (랜덤 패턴 / 수비모드: 공 추적)"""
-        left_bound = GAME_AREA_X + 40
-        right_bound = GAME_AREA_X + GAME_AREA_WIDTH - 40
+        left_bound = PADDLE_WIDTH // 2
+        right_bound = SCREEN_WIDTH - PADDLE_WIDTH // 2
 
         # 하단 수비모드: 공 추적 + 멈춤 없음 + 속도 1.3배
         if not is_top and self.stance_mode_bottom == "defense" and ball:
@@ -4373,8 +4373,8 @@ class GuardWarriorSystem:
         """순찰 모드: 호위무사가 진영 내에서 자연스럽게 랜덤 순찰
         수비모드(하단만): 공을 따라 부드럽게 추적, 멈춤 없음, 이동속도 +30%
         """
-        left_bound = GAME_AREA_X + 40
-        right_bound = GAME_AREA_X + GAME_AREA_WIDTH - 40
+        left_bound = PADDLE_WIDTH // 2
+        right_bound = SCREEN_WIDTH - PADDLE_WIDTH // 2
 
         if is_top:
             # 상단 호위무사: 기존 공격모드 로직 그대로
