@@ -13787,6 +13787,7 @@ class ThunderOrb(HeroSkill):
         self.explosion_x = self.orb_x
         self.explosion_y = self.orb_y
         game_state['screen_shake'] = 22
+        game_state['shake_duration'] = 0.5  # 폭발 시 0.5초 화면 흔들림
         # 폭발 사운드 재생
         if self._explode_sound:
             try:
