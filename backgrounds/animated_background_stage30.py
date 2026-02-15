@@ -1561,8 +1561,10 @@ class AnimatedBackgroundStage30:
             self.judgment_slam_progress = 1.0 - arm_fold
             self.judgment_left_arm_progress = 0.0
             self.judgment_right_arm_progress = 0.0
-            # 하강 중 화면 흔들림 (전체 구간, 초반 강하고 후반 약해짐)
-            if progress < 0.5:
+            # 하강 중 화면 흔들림 (번개의 분노는 폭발 후 흔들림 불필요)
+            if self.judgment_variant == 'lightning':
+                self.judgment_shake_intensity = 0.0
+            elif progress < 0.5:
                 # 초반~중반: 강한 진동 (무게감 있는 하강)
                 self.judgment_shake_intensity = 0.25 * (1.0 - progress * 0.6)
             else:
