@@ -860,6 +860,102 @@ HERO_SELECT_LINES = {
 }
 
 # ============================================================================
+# 랠리 중 도발/독백 대사 (긴 랠리 시 서로 주고받는 느낌)
+# ============================================================================
+RALLY_TAUNT_LINES = {
+    "mugen": [
+        "끈질긴 녀석이군...",
+        "이 검을 피하다니.",
+        "흥, 제법이야.",
+        "어둠이 널 놓아주지 않을 거다.",
+    ],
+    "kraken": [
+        "미끌미끌 빠져나가는군...",
+        "촉수를 피한다고 끝이 아니야.",
+        "심해의 끈기를 보여주지.",
+        "크크크... 재밌군.",
+    ],
+    "chronos": [
+        "후후, 끈질기네.",
+        "마법을 피하는 재주가 있군.",
+        "빨리 끝내줄까?",
+        "저주가 곧 닿을 거야.",
+    ],
+    "onimaru": [
+        "으하하! 끈질긴 놈이군!",
+        "이 뿔을 피해보라고!",
+        "좋아, 더 세게 간다!",
+        "빨리 죽어!!",
+    ],
+    "maria": [
+        "후후... 도망치는 거예요?",
+        "인형 줄에서 벗어날 수 없어요~",
+        "재밌네요, 더 놀아요~",
+        "왜 안 맞는 거예요...?",
+    ],
+    "ignis": [
+        "용의 불꽃을 피하다니!",
+        "기사의 일격을 버틸 수 있나!",
+        "아직 끝나지 않았다!",
+        "드래곤의 집념을 보여주마!",
+    ],
+    "gear": [
+        "어라, 계산이 틀렸나?",
+        "기계가 못 잡을 리가 없는데~!",
+        "출력 올릴게! 각오해!",
+        "이 끈기는 뭐야~!",
+    ],
+    "kurokage": [
+        "...빠르군.",
+        "그림자를 따돌릴 수는 없다.",
+        "닌자에게 인내심을 시험하나.",
+        "다음엔 피하지 못한다.",
+    ],
+    "banshee": [
+        "키히히, 잘 피하네요~",
+        "유령은 지치지 않아요...",
+        "비명이 곧 닿을 거예요~",
+        "도망쳐봐야 소용없어요...",
+    ],
+    "necro": [
+        "망자는 지치지 않는다.",
+        "해골 군단이 물러설 줄 알았나.",
+        "죽음은 끈질기지.",
+        "끈질긴 생명력이군... 부럽다.",
+    ],
+    "joker": [
+        "아하하! 이거 재밌잖아~!",
+        "아직 쇼가 끝나지 않았어~!",
+        "관객들이 열광하고 있어!",
+        "이 긴장감~! 최고야!",
+    ],
+    "mirage": [
+        "신기루를 따라잡을 수 있을까?",
+        "끈질기군... 사막을 걸어봤나?",
+        "모래처럼 빠져나가지.",
+        "환상인지 현실인지 구분이 되나?",
+    ],
+    "android": [
+        "[분석] 예상 외 저항. 전술 수정.",
+        "[경고] 장기전 돌입. 냉각 필요.",
+        "[판정] 상대 회피율 상향 조정.",
+        "[시스템] 출력 증강 모드 전환.",
+    ],
+    "ra": [
+        "매의 눈을 피할 수 있을까!",
+        "천둥은 쉬지 않는다!",
+        "태양 앞에 숨을 곳은 없다!",
+        "끈질긴 녀석... 인정하지.",
+    ],
+    "monkeyking": [
+        "우끼끼끼!!!",
+        "끼끼! 끼끼끼!",
+        "우끼~!!",
+        "끼끼끼끼끼끼!!!",
+    ],
+}
+
+# ============================================================================
 # 토너먼트 상태
 # ============================================================================
 class TournamentState(Enum):
@@ -5716,6 +5812,11 @@ class ColosseumsArena:
         self._crowd_cheer_channel = None    # 관중 사운드 채널
         self._crowd_sound_cache = {}        # 관중 사운드 캐시
 
+        # 랠리 도발 대사 시스템
+        self._rally_taunt_next_threshold = 6    # 다음 대사 트리거 랠리 수
+        self._rally_taunt_last_speaker = ""     # 마지막 대사를 한 쪽 ("top"/"bottom")
+        self._rally_taunt_used_lines = {"top": set(), "bottom": set()}  # 사용한 대사 인덱스
+
         # 배속 시스템
         self.speed_multiplier = 1  # 1.3x, 2x, 3x
         self.speed_btn_rects = {}  # {multiplier: pygame.Rect}
@@ -7311,6 +7412,60 @@ class ColosseumsArena:
                 self.arena_pillar.trigger_wave()
             self._play_crowd_sound("cheer_loud")
 
+        # 랠리 도발 대사 트리거
+        self._check_rally_taunt(rally, hit_by)
+
+    def _check_rally_taunt(self, rally: int, hit_by: str):
+        """랠리 길이에 따라 도발 대사 표시 (번갈아 가며 주고받기)"""
+        if rally < self._rally_taunt_next_threshold:
+            return
+        if not self.selected_match:
+            return
+
+        # 현재 말풍선 표시 중이면 스킵 (겹침 방지)
+        if self.top_speech_timer > 0 or self.bottom_speech_timer > 0:
+            return
+
+        # 발언자 결정: 마지막 발언자의 반대쪽, 또는 공을 받은 쪽
+        if self._rally_taunt_last_speaker == "top":
+            speaker = "bottom"
+        elif self._rally_taunt_last_speaker == "bottom":
+            speaker = "top"
+        else:
+            speaker = hit_by  # 첫 대사는 공을 받은 쪽
+
+        # 영웅 ID 결정
+        if speaker == "top":
+            hero_id = self.selected_match.hero1.get("id", "")
+        else:
+            hero_id = self.selected_match.hero2.get("id", "")
+
+        # 대사 선택 (사용한 대사 피하기)
+        lines = RALLY_TAUNT_LINES.get(hero_id, ["끈질긴 녀석이군...", "빨리 끝내주마!"])
+        used = self._rally_taunt_used_lines.get(speaker, set())
+        available = [(i, l) for i, l in enumerate(lines) if i not in used]
+        if not available:
+            # 모든 대사 소진 → 리셋 후 다시 선택
+            used.clear()
+            available = list(enumerate(lines))
+
+        import random as _rnd
+        idx, line = _rnd.choice(available)
+        used.add(idx)
+
+        # 말풍선 표시
+        is_top = (speaker == "top")
+        if is_top:
+            self.top_speech_text = line
+            self.top_speech_timer = self.speech_duration
+        else:
+            self.bottom_speech_text = line
+            self.bottom_speech_timer = self.speech_duration
+
+        self._rally_taunt_last_speaker = speaker
+        # 다음 트리거: 3~5회 후
+        self._rally_taunt_next_threshold = rally + _rnd.randint(3, 5)
+
     def _update_crowd_on_score(self, scorer: str):
         """득점 시 관중 반응 업데이트
 
@@ -7382,6 +7537,11 @@ class ColosseumsArena:
         self._crowd_prev_score_diff = curr_diff
         self._crowd_rally_count = 0
         self._crowd_last_hit_by = ""
+
+        # 랠리 도발 대사 리셋
+        self._rally_taunt_next_threshold = 6
+        self._rally_taunt_last_speaker = ""
+        self._rally_taunt_used_lines = {"top": set(), "bottom": set()}
 
     def _play_crowd_sound(self, sound_type: str):
         """관중 사운드 재생 (프로시저럴 합성) - 비활성화: 사각사각 소음 이슈"""
