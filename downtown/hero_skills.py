@@ -2913,7 +2913,7 @@ class HornCharge(HeroSkill):
             korean_name="뿔 박치기",
             description="빠르게 돌진하여 상대를 밀어내고 스턴시킨다",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=30.0,
+            cooldown=28.0,
             duration=3.0,  # 돌진 0.3초 + 충돌 0.2초 + 복귀 0.5초 + 양측 스턴 1초
             hero_id="onimaru"
         )
