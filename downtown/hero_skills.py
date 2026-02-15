@@ -13613,9 +13613,9 @@ class ThunderOrb(HeroSkill):
         self.explosion_particles = []  # 폭발 파티클
         self.orb_rotation = 0.0      # 구체 회전 각도 (도)
         self.orb_rotation_speed = 280.0  # 회전 속도 (도/초)
-        # 급감속 시스템: 4.5배속 → 0.4초 동안 급감속 → 0.1배속 크롤링
+        # 급감속 시스템: 4.5배속 → 1초 동안 급감속 → 0.1배속 크롤링
         self.decel_timer = 0.0           # 감속 경과 시간
-        self.decel_duration = 0.4        # 감속 지속 시간 (초)
+        self.decel_duration = 1.0        # 감속 지속 시간 (초)
         self.speed_mult_start = 4.5      # 초기 속도 배율 (4.5배속)
         self.speed_mult_end = 0.1        # 최종 속도 배율 (극저속 ~60px/s)
         self.base_orb_vy = 0.0           # 방향 포함 기본 속도 (ORB_SPEED * ±1)
