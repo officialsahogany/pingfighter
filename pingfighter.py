@@ -142056,7 +142056,7 @@ def show_character_info(background_surface=None):
             scroll_thumb = bag_scroll.get("thumb_rect")
         else:
             active_hover, active_rects = None, {}
-            bag_rects, bag_hover, bag_scroll = [], None, {}
+            bag_rects, bag_hover, bag_scroll = {}, None, {}
             passive_scroll_max = 0
             scroll_track = None
             scroll_thumb = None
