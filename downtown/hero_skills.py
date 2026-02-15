@@ -11664,7 +11664,7 @@ class GatlingBurst(HeroSkill):
                     self._fire_sound = pygame.mixer.Sound(fire_path)
                     self._fire_sound.set_volume(0.15)
                 hit_path = os.path.join(
-                    project_root, "sounds", "gatling.wav")
+                    project_root, "sounds", "bullethit.wav")
                 if os.path.exists(hit_path):
                     self._hit_sound = pygame.mixer.Sound(hit_path)
                     self._hit_sound.set_volume(0.2)
