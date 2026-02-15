@@ -50689,6 +50689,7 @@ except Exception:
     pygame.draw.circle(PINGPONG_BALL_IMG, (230, 230, 230), (18, 18), 14)
     pygame.draw.circle(PINGPONG_BALL_IMG, (255, 255, 255), (14, 14), 6)
 _pingpong_ball_cache = {}  # 크기별 캐시 {size: scaled_surface}
+_pingpong_ball_angle = 0.0  # 탁구공 회전 각도
 
 hit_animation_active = False
 hit_animation_timer = 0
@@ -94230,13 +94231,18 @@ def draw_objects():
         if _current_ball_type == "pingpong":
             # === 탁구공 모드: 이펙트/파티클 없이 이미지만 그리기 ===
             if not ball_already_drawn and not ball_in_kuromi:
-                ball_size = (BALL.width + 4) * 2
+                ball_size = int((BALL.width + 4) * 1.6)
                 if ball_size not in _pingpong_ball_cache:
                     _pingpong_ball_cache[ball_size] = pygame.transform.smoothscale(
                         PINGPONG_BALL_IMG, (ball_size, ball_size))
-                bx = ball_rect.centerx + screen_shake_offset_x - ball_size // 2
-                by = ball_rect.centery + screen_shake_offset_y - ball_size // 2
-                SCREEN.blit(_pingpong_ball_cache[ball_size], (bx, by))
+                # 공 이동 방향에 따라 회전 업데이트
+                _spd = math.hypot(ball_vel[0], ball_vel[1])
+                _pingpong_ball_angle = (_pingpong_ball_angle - ball_vel[0] * 3) % 360
+                rotated = pygame.transform.rotate(_pingpong_ball_cache[ball_size], _pingpong_ball_angle)
+                r_rect = rotated.get_rect(center=(
+                    ball_rect.centerx + screen_shake_offset_x,
+                    ball_rect.centery + screen_shake_offset_y))
+                SCREEN.blit(rotated, r_rect)
         else:
             # === 에너지볼 모드 (기본) ===
             # === 공 잔상 궤적 시스템 (에너지 파동형 투명 잔상) ===
