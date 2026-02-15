@@ -2383,7 +2383,21 @@ class GuardWarriorSystem:
             gs = self.skill_manager.game_state if self.skill_manager else {}
             # ★ 기존 스킬 인스턴스 정리 (game_state 키 잔류 방지)
             old_skills = self.skill_instances.get(guard_id, [])
+            # ★ 해골궁수 등 지속형 소환물 상태 보존 (매혹 전 소환된 궁수 유지)
+            _preserved_archers = []
+            _preserved_dying = []
+            _preserved_arrows = []
+            _preserved_particles = []
+            _preserved_caster_is_top = None
+            _preserved_next_id = 0
             for old_skill in old_skills:
+                if getattr(old_skill, 'skill_id', '') == 'skeleton_archer':
+                    _preserved_archers = list(old_skill.archers)
+                    _preserved_dying = list(old_skill.dying_archers)
+                    _preserved_arrows = list(old_skill.arrows)
+                    _preserved_particles = list(old_skill.arrow_particles)
+                    _preserved_caster_is_top = old_skill.caster_is_top
+                    _preserved_next_id = old_skill._next_archer_id
                 if old_skill.is_active:
                     try:
                         old_skill._end_effect(None, None, None, gs)
@@ -2401,6 +2415,16 @@ class GuardWarriorSystem:
                 new_skills.append(cls())
             for sk in new_skills:
                 sk.game_state = gs
+                # ★ 해골궁수 상태 복원 (매혹 전 소환된 궁수를 새 인스턴스로 이전)
+                if getattr(sk, 'skill_id', '') == 'skeleton_archer' and _preserved_archers:
+                    sk.archers = _preserved_archers
+                    sk.dying_archers = _preserved_dying
+                    sk.arrows = _preserved_arrows
+                    sk.arrow_particles = _preserved_particles
+                    sk.caster_is_top = _preserved_caster_is_top
+                    sk._next_archer_id = _preserved_next_id
+                    sk.is_active = True
+                    sk.active_timer = sk.duration
             self.skill_instances[guard_id] = new_skills
         except Exception as e:
             print(f"[Charm] 매혹 스킬 인스턴스 재생성 실패: {e}")
@@ -2490,9 +2514,36 @@ class GuardWarriorSystem:
                         break
 
         print(f"[Charm] 매혹 종료! {guard['name']} 원래 진영으로 완전 복귀 (x={return_x:.0f})")
+        # ★ 해골궁수 상태 보존 (스킬 재생성 전에 저장)
+        _saved_archer_state = {}
+        guard_id = guard.get("id", "")
+        for hero_id, skills in self.skill_instances.items():
+            for skill in skills:
+                if getattr(skill, 'skill_id', '') == 'skeleton_archer' and skill.archers:
+                    _saved_archer_state[hero_id] = {
+                        'archers': list(skill.archers),
+                        'dying_archers': list(skill.dying_archers),
+                        'arrows': list(skill.arrows),
+                        'arrow_particles': list(skill.arrow_particles),
+                        'caster_is_top': skill.caster_is_top,
+                        '_next_archer_id': skill._next_archer_id,
+                    }
         # ★ 활성 스킬 정리 후 재생성 (game_state 키 잔류 방지)
         self._cleanup_all_active_skills()
         self._init_guard_skills()
+        # ★ 해골궁수 상태 복원
+        for hero_id, state in _saved_archer_state.items():
+            for skill in self.skill_instances.get(hero_id, []):
+                if getattr(skill, 'skill_id', '') == 'skeleton_archer':
+                    skill.archers = state['archers']
+                    skill.dying_archers = state['dying_archers']
+                    skill.arrows = state['arrows']
+                    skill.arrow_particles = state['arrow_particles']
+                    skill.caster_is_top = state['caster_is_top']
+                    skill._next_archer_id = state['_next_archer_id']
+                    skill.is_active = True
+                    skill.active_timer = skill.duration
+                    break
 
     def _update_charmed_guard(self, dt, top_paddle, bottom_paddle, ball):
         """매혹된 호위무사 독립 업데이트 (순찰 + 스킬 시전)"""
