@@ -85992,11 +85992,11 @@ def draw_player_gauge():
                 _gd_ready = _gd_cd <= 0
                 _gd_progress = max(0.0, 1.0 - (_gd_cd / _gd_cd_max)) if _gd_cd_max > 0 else 1.0
 
-                # 구슬 크기: 대쉬 토큰 구슬의 ~33%
-                _gd_r = max(8, int(orb_radius * 0.33))
-                # 위치: 대쉬 토큰 구슬 우하단 옆
-                _gd_x = orb_center_x + orb_radius + _gd_r + 12
-                _gd_y = orb_center_y + orb_radius - _gd_r - 2
+                # 구슬 크기: 대쉬 토큰 구슬의 ~66%
+                _gd_r = max(12, int(orb_radius * 0.66))
+                # 위치: 영웅 대쉬 구슬 바로 위
+                _gd_x = orb_center_x
+                _gd_y = orb_center_y - orb_radius - _gd_r - 20
 
                 # 파란색 테마 (수비모드)
                 _gd_empty = (15, 25, 50)
@@ -86034,10 +86034,14 @@ def draw_player_gauge():
 
                 # 5. 유리 하이라이트
                 _gd_hl = pygame.Surface((_gd_r * 2, _gd_r * 2), pygame.SRCALPHA)
-                pygame.draw.ellipse(_gd_hl, (255, 255, 255, 40),
-                                  (3, 2, _gd_r, _gd_r // 2))
-                pygame.draw.circle(_gd_hl, (255, 255, 255, 80),
-                                 (_gd_r // 3, _gd_r // 3), 2)
+                pygame.draw.ellipse(_gd_hl, (255, 255, 255, 35),
+                                  (4, 3, int(_gd_r * 1.2), _gd_r // 2))
+                pygame.draw.ellipse(_gd_hl, (255, 255, 255, 55),
+                                  (8, 6, int(_gd_r * 0.7), _gd_r // 3))
+                pygame.draw.circle(_gd_hl, (255, 255, 255, 100),
+                                 (_gd_r // 3, _gd_r // 3), max(2, _gd_r // 8))
+                pygame.draw.circle(_gd_hl, (255, 255, 255, 60),
+                                 (_gd_r // 3 + 2, _gd_r // 3 + 2), max(1, _gd_r // 12))
                 SCREEN.blit(_gd_hl, (_gd_x - _gd_r, _gd_y - _gd_r))
 
                 # 6. 내부 테두리
@@ -86046,28 +86050,40 @@ def draw_player_gauge():
                 # 7. 준비완료 글로우 효과
                 if _gd_ready:
                     _gd_pulse = 0.5 + 0.5 * math.sin(time_now * 0.005)
-                    _gd_ga = int(60 * _gd_pulse)
-                    _gd_gs = pygame.Surface((_gd_r * 2 + 16, _gd_r * 2 + 16), pygame.SRCALPHA)
-                    pygame.draw.circle(_gd_gs, (*_gd_glow, _gd_ga),
-                                     (_gd_r + 8, _gd_r + 8), _gd_r + 6)
-                    SCREEN.blit(_gd_gs, (_gd_x - _gd_r - 8, _gd_y - _gd_r - 8))
+                    _gd_ga = int(70 * _gd_pulse)
+                    for _gl in range(3):
+                        _gl_r = _gd_r + 8 + _gl * 5
+                        _gl_a = max(0, _gd_ga - _gl * 15)
+                        _gd_gs = pygame.Surface((_gl_r * 2 + 4, _gl_r * 2 + 4), pygame.SRCALPHA)
+                        pygame.draw.circle(_gd_gs, (*_gd_glow, _gl_a),
+                                         (_gl_r + 2, _gl_r + 2), _gl_r)
+                        SCREEN.blit(_gd_gs, (_gd_x - _gl_r - 2, _gd_y - _gl_r - 2))
 
-                # 8. 방패 미니 아이콘 (중앙)
-                _gd_icon_s = max(3, _gd_r // 3)
+                # 8. 방패 아이콘 (중앙)
+                _gd_icon_s = max(5, int(_gd_r * 0.4))
                 _shield_pts = [
                     (_gd_x, _gd_y - _gd_icon_s),
-                    (_gd_x + _gd_icon_s, _gd_y - _gd_icon_s // 2),
-                    (_gd_x + _gd_icon_s, _gd_y + _gd_icon_s // 3),
+                    (_gd_x + _gd_icon_s, _gd_y - int(_gd_icon_s * 0.5)),
+                    (_gd_x + _gd_icon_s, _gd_y + int(_gd_icon_s * 0.2)),
+                    (_gd_x + int(_gd_icon_s * 0.6), _gd_y + int(_gd_icon_s * 0.65)),
                     (_gd_x, _gd_y + _gd_icon_s),
-                    (_gd_x - _gd_icon_s, _gd_y + _gd_icon_s // 3),
-                    (_gd_x - _gd_icon_s, _gd_y - _gd_icon_s // 2),
+                    (_gd_x - int(_gd_icon_s * 0.6), _gd_y + int(_gd_icon_s * 0.65)),
+                    (_gd_x - _gd_icon_s, _gd_y + int(_gd_icon_s * 0.2)),
+                    (_gd_x - _gd_icon_s, _gd_y - int(_gd_icon_s * 0.5)),
                 ]
-                _icon_alpha = 200 if _gd_ready else 100
-                _icon_color = (180, 220, 255) if _gd_ready else (80, 110, 150)
+                _icon_alpha = 220 if _gd_ready else 110
+                _icon_color = (160, 210, 255) if _gd_ready else (60, 90, 140)
                 _gd_icon_surf = pygame.Surface((_gd_r * 2, _gd_r * 2), pygame.SRCALPHA)
                 _offset_pts = [(_px - _gd_x + _gd_r, _py - _gd_y + _gd_r) for _px, _py in _shield_pts]
                 pygame.draw.polygon(_gd_icon_surf, (*_icon_color, _icon_alpha), _offset_pts)
-                pygame.draw.polygon(_gd_icon_surf, (220, 240, 255, _icon_alpha), _offset_pts, 1)
+                pygame.draw.polygon(_gd_icon_surf, (200, 230, 255, _icon_alpha), _offset_pts, 1)
+                # 방패 십자 문양
+                _cross_s = max(2, _gd_icon_s // 2)
+                _cross_c = (220, 240, 255, _icon_alpha)
+                pygame.draw.line(_gd_icon_surf, _cross_c,
+                               (_gd_r, _gd_r - _cross_s), (_gd_r, _gd_r + _cross_s), max(1, _gd_icon_s // 5))
+                pygame.draw.line(_gd_icon_surf, _cross_c,
+                               (_gd_r - int(_cross_s * 0.7), _gd_r), (_gd_r + int(_cross_s * 0.7), _gd_r), max(1, _gd_icon_s // 5))
                 SCREEN.blit(_gd_icon_surf, (_gd_x - _gd_r, _gd_y - _gd_r))
 
         # === 토큰 카운트 텍스트는 맨 마지막에 그림 (아래 코드 참조) ===
@@ -86083,9 +86099,13 @@ def draw_player_gauge():
         if sensor_equipped_fullscreen:
             # 센서 구슬 크기: 대쉬 토큰 구슬의 70%
             sensor_orb_radius = int(orb_radius * 0.7)  # 55 * 0.7 = 38.5 -> 38
-            # 센서 구슬 위치: 대쉬 토큰 구슬 바로 위 (더 위로)
+            # 센서 구슬 위치: 대쉬 토큰 구슬 바로 위 (호위무사 구슬이 있으면 더 위로)
             sensor_orb_x = orb_center_x
-            sensor_orb_y = orb_center_y - orb_radius - sensor_orb_radius - 35  # 대쉬 구슬 위 35px 간격
+            _guard_orb_offset = 0
+            _gs_sensor_check = globals().get('arena_guard_system')
+            if arena_mode_enabled and _gs_sensor_check and globals().get('arena_guard_stance_mode') == "defense":
+                _guard_orb_offset = int(orb_radius * 0.66) * 2 + 25  # 호위무사 구슬 높이 + 간격
+            sensor_orb_y = orb_center_y - orb_radius - sensor_orb_radius - 35 - _guard_orb_offset
 
             # 쿨타임 진행률 계산
             sensor_cooldown = danger_sensor_cooldown_ms
