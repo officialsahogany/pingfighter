@@ -10577,12 +10577,16 @@ class ColosseumsArena:
             card_surf = self._cd_card_surf
             card_surf.fill((15, 12, 20, 255))
 
-            # 얼굴 초상화 (카드 전체를 채움)
-            try:
-                portrait = self._portrait_renderer.render_portrait(hero_id, hero_color, card_w, card_h)
-                card_surf.blit(portrait, (0, 0))
-            except Exception:
-                pygame.draw.rect(card_surf, hero_color, (0, 0, card_w, card_h), border_radius=2)
+            # 얼굴 초상화 (카드 전체를 채움) - 페이스카드 우선, 없으면 프로시저럴 폴백
+            _fc = _load_facecard(hero_id, card_w, card_h)
+            if _fc is not None:
+                card_surf.blit(_fc, (0, 0))
+            else:
+                try:
+                    portrait = self._portrait_renderer.render_portrait(hero_id, hero_color, card_w, card_h)
+                    card_surf.blit(portrait, (0, 0))
+                except Exception:
+                    pygame.draw.rect(card_surf, hero_color, (0, 0, card_w, card_h), border_radius=2)
 
             # --- 쿨타임 명암 오버레이 (캐시된 오버레이 Surface 재사용) ---
             if is_active:
