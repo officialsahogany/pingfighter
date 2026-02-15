@@ -8737,10 +8737,10 @@ class ColosseumsArena:
                 # 계속 도전 버튼
                 continue_rect = pygame.Rect(SCREEN_WIDTH // 2 - btn_w - 20, btn_y, btn_w, btn_h)
                 if continue_rect.collidepoint(mx, my):
-                    # 효과음: startbutton (경기 시작 효과음)
-                    _load_start_button_sound()
-                    if _start_button_sound:
-                        _start_button_sound.play()
+                    # 효과음: gatcharesult (경기 시작 효과음)
+                    _load_gacha_result_sound()
+                    if _gacha_result_sound:
+                        _gacha_result_sound.play()
                     if self.selected_match:
                         self._start_battle_intro()
                     return
