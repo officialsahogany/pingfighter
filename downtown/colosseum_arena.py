@@ -15530,6 +15530,12 @@ class ColosseumsArena:
         self.highlight_phase = "fade_in"
         self.highlight_phase_timer = 0.0
         self.state = TournamentState.HIGHLIGHT_REPLAY
+        # 투기장 배틀 BGM 재생
+        try:
+            import bgm_manager
+            bgm_manager.play_stage_bgm(30)
+        except Exception:
+            pass
 
     def _update_highlight_replay(self, dt: float):
         """하이라이트 리플레이 업데이트"""
@@ -15659,6 +15665,12 @@ class ColosseumsArena:
 
     def _end_highlight_replay(self):
         """하이라이트 리플레이 종료 → 다음 단계로 진행"""
+        # 대기실 BGM 복구
+        try:
+            import bgm_manager
+            bgm_manager.play_colosseum_room_bgm()
+        except Exception:
+            pass
         self._advance_from_guard_notify()
 
     # ================================================================
