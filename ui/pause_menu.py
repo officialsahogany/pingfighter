@@ -640,6 +640,10 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         ctx.play_button_click_sound()
                         current_bgm_volume = ctx.store_bgm_volume(current_bgm_volume)
                         current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
+                        settings.set_setting('controls', 'control_scheme', control_scheme)
+                        settings.set_setting('audio', 'paddle_hit_sound', paddle_hit_sound)
+                        settings.set_setting('gameplay', 'ball_type', ball_type)
+                        settings.save_settings()
                         # 디스플레이 모드 변경 적용
                         try:
                             from pingfighter import switch_display_mode, get_display_mode
@@ -676,6 +680,10 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         ctx.play_button_click_sound()
                         current_bgm_volume = ctx.store_bgm_volume(current_bgm_volume)
                         current_sfx_volume = ctx.set_sfx_volume(current_sfx_volume)
+                        settings.set_setting('controls', 'control_scheme', control_scheme)
+                        settings.set_setting('audio', 'paddle_hit_sound', paddle_hit_sound)
+                        settings.set_setting('gameplay', 'ball_type', ball_type)
+                        settings.save_settings()
                         # 디스플레이 모드 변경 적용
                         try:
                             from pingfighter import switch_display_mode, get_display_mode
