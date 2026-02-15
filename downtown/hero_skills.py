@@ -7591,10 +7591,20 @@ class Charm(HeroSkill):
             'phase': 'projectile',
         }
 
+        # 매혹 발사 사운드
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            love_path = os.path.join(project_root, "sounds", "bencylove.wav")
+            if os.path.exists(love_path):
+                love_snd = pygame.mixer.Sound(love_path)
+                love_snd.set_volume(0.5)
+                love_snd.play()
+        except Exception:
+            pass
+
         return {
             'screen_effect': ScreenEffect.FLASH,
             'flash_color': (100, 60, 180),
-            'sound': 'dollcurse'
         }
 
     # ------------------------------------------------------------------
