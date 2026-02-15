@@ -21177,9 +21177,17 @@ def arena_play_skill_sound(result):
 
 def arena_stop_all_skill_sounds():
     """투기장 스킬 사운드 전체 중지 (pingfighter 캐시 + colosseum_arena 캐시 + 개틀링 루프)"""
+    try:
+        if not pygame.mixer.get_init():
+            return
+    except Exception:
+        return
     for snd in _arena_skill_sound_cache.values():
         if snd:
-            snd.stop()
+            try:
+                snd.stop()
+            except Exception:
+                pass
     # ColosseumsArena의 스킬 사운드 캐시도 중지
     try:
         from downtown.colosseum_arena import ColosseumsArena
