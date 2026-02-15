@@ -135258,7 +135258,15 @@ def main(stage_num, new_boss_mode=False):
                         globals()['arena_guard_stance_mode'] = _new_stance
                         _gs = globals().get('arena_guard_system')
                         if _gs:
+                            _old_stance = _gs.stance_mode_bottom
                             _gs.stance_mode_bottom = _new_stance
+                            # 현재 진행 중인 쿨타임 즉시 조정
+                            if _old_stance == "attack" and _new_stance == "defense":
+                                _gs.cooldown_bottom *= _gs.DEFENSE_SKILL_CD_MULT
+                                _gs.cooldown_max_bottom *= _gs.DEFENSE_SKILL_CD_MULT
+                            elif _old_stance == "defense" and _new_stance == "attack":
+                                _gs.cooldown_bottom /= _gs.DEFENSE_SKILL_CD_MULT
+                                _gs.cooldown_max_bottom /= _gs.DEFENSE_SKILL_CD_MULT
                         try:
                             play_button_click_sound()
                         except Exception:

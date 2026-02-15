@@ -4536,11 +4536,9 @@ class GuardWarriorSystem:
             # 듀얼 스킬: 사용한 스킬만 쿨타임 리셋
             self._reset_skill_cooldown(guard["id"], skill_idx, cd_mult)
             self._sync_guard_cooldown_to_main(is_top, guard["id"])
-            print(f"[Guard] 순찰 재시전 쿨타임(듀얼): cd_mult={cd_mult:.2f}, stance={self.stance_mode_bottom}")
         else:
             base_cd = self._get_guard_cooldown(guard["id"])
             next_cd = base_cd * cd_mult
-            print(f"[Guard] 순찰 재시전 쿨타임: base={base_cd:.1f}, cd_mult={cd_mult:.2f}, next_cd={next_cd:.1f}s, stance={self.stance_mode_bottom}")
             if is_top:
                 self.cooldown_top = next_cd
                 self.cooldown_max_top = next_cd
