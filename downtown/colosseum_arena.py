@@ -764,6 +764,102 @@ BATTLE_INTRO_TAUNTS = {
 }
 
 # ============================================================================
+# 영웅 선택 대사 (대진표에서 영웅을 골랐을 때, 캐릭터 컨셉에 맞는 대사)
+# ============================================================================
+HERO_SELECT_LINES = {
+    "mugen": [
+        "...이 검을 뽑은 걸 후회하지 않겠지.",
+        "날 택했군. 어둠의 검이 함께한다.",
+        "좋아, 이 칼날로 길을 열어주마.",
+        "흥, 보는 눈은 있군.",
+    ],
+    "kraken": [
+        "크크크... 현명한 선택이야.",
+        "이 촉수가 승리를 가져다주지.",
+        "심해의 힘을 빌리겠다? 좋아.",
+        "먹잇감을 골라주면 되는 건가?",
+    ],
+    "chronos": [
+        "후후, 마녀의 힘이 필요했던 거야?",
+        "좋은 선택이야... 저주해줄게.",
+        "내 마법을 감당할 수 있을까?",
+        "운명을 바꿔줄게. 대가는 나중에.",
+    ],
+    "onimaru": [
+        "으하하! 날 고르다니 통 크군!",
+        "좋아! 이 뿔로 다 박살내주마!",
+        "지옥의 요괴가 함께한다!",
+        "덤벼라! 누가 와도 때려눕혀주지!",
+    ],
+    "maria": [
+        "후후... 절 골라주셨어요?",
+        "좋아요~ 인형들이 기뻐해요.",
+        "같이 놀아요~ 재밌을 거예요.",
+        "인형사를 선택하다니... 취향이 좋으시네요.",
+    ],
+    "ignis": [
+        "용의 기사를 선택하다니, 안목이 있군!",
+        "좋아! 드래곤의 불꽃으로 태워주지!",
+        "기사의 맹세로 승리를 약속하마!",
+        "이 창으로 적을 꿰뚫어주겠다!",
+    ],
+    "gear": [
+        "오! 날 골랐어? 센스 있는걸~!",
+        "이 두뇌가 필요한 거지? 맡겨!",
+        "기계공학의 힘을 보여줄게~!",
+        "좋아, 증기 파워 전개할게!",
+    ],
+    "kurokage": [
+        "...그림자가 너를 따르겠다.",
+        "닌자를 선택했군. 현명해.",
+        "이 칼에 맹세하지.",
+        "쉿... 조용히 승리하자.",
+    ],
+    "banshee": [
+        "키히히... 날 불러줬어요?",
+        "유령의 힘을 빌리다니~ 대담하군요.",
+        "좋아요, 비명으로 갚아줄게요.",
+        "함께하면... 무섭지 않을 거예요.",
+    ],
+    "necro": [
+        "망자의 여왕을 선택하다니... 흥미롭군.",
+        "해골 군단이 함께한다.",
+        "좋아, 죽음의 힘을 빌려주지.",
+        "현명한 선택이야. 빚은 갚는 주의거든.",
+    ],
+    "joker": [
+        "짜잔~! 최고의 선택이야!",
+        "아하하! 쇼타임이다~!",
+        "날 골라? 센스가 폭발하는걸!",
+        "관객 여러분~ 쇼가 시작됩니다~!",
+    ],
+    "mirage": [
+        "모래의 환술사를 선택하다니...",
+        "신기루처럼 적을 현혹시켜주지.",
+        "사막의 지혜가 승리를 가져다주리라.",
+        "보는 안목이 있군. 환상을 보여주지.",
+    ],
+    "android": [
+        "[시스템] 전투 유닛 선택 확인. 기동 개시.",
+        "[확인] 아군 편대 합류. 화력 지원 준비.",
+        "[분석] 작전 수행 가능. 명령 대기.",
+        "[알림] 전투 병기 가동. 승률 산출 중.",
+    ],
+    "ra": [
+        "태양의 매를 택했군. 현명하다.",
+        "천둥의 힘이 너와 함께한다!",
+        "신의 눈으로 승리를 이끌겠다.",
+        "매의 날개가 하늘을 가르리라!",
+    ],
+    "monkeyking": [
+        "우끼끼~! 나다 나!",
+        "끼끼끼! 골랐다 골랐어!",
+        "우끼! 같이 놀자!",
+        "끼끼~! 우끼끼끼!",
+    ],
+}
+
+# ============================================================================
 # 토너먼트 상태
 # ============================================================================
 class TournamentState(Enum):
@@ -6429,6 +6525,14 @@ class ColosseumsArena:
         self._hero_select_anim_timer = 0.0
         self._hero_select_swing_triggered = False
 
+        # 영웅 선택 대사 설정
+        hero_id = chosen_hero.get("id", "")
+        lines = HERO_SELECT_LINES.get(hero_id, ["날 불렀나?", "내 도움이 필요했군.", "보는 안목이 있군."])
+        import random as _rnd
+        self._hero_select_line = _rnd.choice(lines)
+        self._hero_select_line_timer = 0.0
+        self._hero_select_line_alpha = 0
+
     def _select_guard(self, guard_hero, prison_index):
         """감옥에서 호위무사 선택 → 철창 열림 애니메이션 시작"""
         self.player_guard = guard_hero
@@ -7650,6 +7754,13 @@ class ColosseumsArena:
             anim_phase = getattr(self, '_hero_select_anim_phase', None)
             if anim_phase == "attack_motion":
                 self._hero_select_anim_timer += dt
+                # 영웅 선택 대사 타이머 업데이트
+                if hasattr(self, '_hero_select_line_timer'):
+                    self._hero_select_line_timer += dt
+                    if self._hero_select_line_timer < 0.3:
+                        self._hero_select_line_alpha = min(255, int(255 * (self._hero_select_line_timer / 0.3)))
+                    else:
+                        self._hero_select_line_alpha = 255
                 timer = self._hero_select_anim_timer
                 if timer >= 1.2:
                     # 공격 애니 완료 → 같은 화면 하단에서 스킬 룰렛 시작
@@ -10569,6 +10680,43 @@ class ColosseumsArena:
                     surf, _ = self.fonts["small"].render(label, txt_color)
                     self.screen.blit(surf, (icon_x + 30, skill_y + 8))
                 skill_y += skill_h + 5
+
+        # ── 영웅 선택 대사 말풍선 ──
+        select_line = getattr(self, '_hero_select_line', None)
+        select_line_alpha = getattr(self, '_hero_select_line_alpha', 0)
+        if select_line and select_line_alpha > 0 and anim_phase and anim_idx >= 0:
+            sel_hero = hero1 if anim_idx == 0 else hero2
+            sel_cx = card1_x + card_w // 2 if anim_idx == 0 else card2_x + card_w // 2
+            if self.fonts and "medium" in self.fonts:
+                bubble_y = card_y - 8
+                txt_surf, _ = self.fonts["medium"].render(select_line, (255, 255, 255))
+                tw, th = txt_surf.get_width(), txt_surf.get_height()
+                pad = 10
+                bw = tw + pad * 2
+                bh = th + pad * 2
+                bx = sel_cx - bw // 2
+                by = bubble_y - bh
+                # 화면 밖 방지
+                bx = max(5, min(SCREEN_WIDTH - bw - 5, bx))
+                # 말풍선 배경
+                bubble_s = _get_arena_surface(bw + 4, bh + 16)
+                pygame.draw.rect(bubble_s, (30, 22, 12, int(select_line_alpha * 0.8)),
+                                 (0, 0, bw + 4, bh + 4), border_radius=8)
+                h_color = sel_hero.get("color", (200, 180, 100))
+                pygame.draw.rect(bubble_s, (*h_color, select_line_alpha),
+                                 (0, 0, bw + 4, bh + 4), width=2, border_radius=8)
+                # 꼬리 삼각형 (말풍선 아래)
+                tail_cx = min(max(sel_cx - bx, 15), bw - 15)
+                pygame.draw.polygon(bubble_s, (30, 22, 12, int(select_line_alpha * 0.8)),
+                                    [(tail_cx - 6, bh + 3), (tail_cx + 6, bh + 3), (tail_cx, bh + 13)])
+                pygame.draw.polygon(bubble_s, (*h_color, select_line_alpha),
+                                    [(tail_cx - 6, bh + 3), (tail_cx + 6, bh + 3), (tail_cx, bh + 13)], 2)
+                self.screen.blit(bubble_s, (bx - 2, by - 2))
+                # 텍스트
+                txt_a_surf = _get_arena_surface(tw, th)
+                txt_a_surf.blit(txt_surf, (0, 0))
+                txt_a_surf.set_alpha(select_line_alpha)
+                self.screen.blit(txt_a_surf, (bx + pad, by + pad))
 
         # VS 텍스트 (애니메이션 중이 아닐 때만)
         if not anim_phase:
