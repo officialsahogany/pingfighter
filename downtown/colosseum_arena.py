@@ -3223,6 +3223,10 @@ class GuardWarriorSystem:
                 _ghost_lingering = (getattr(skill, 'skill_id', '') == 'ghost_summon'
                                     and (skill.dying_ghosts or skill._teleport_effects
                                          or skill._ghost_particles))
+                # 익살스런파티(BalloonWall): is_active 꺼져도 popping 풍선/터짐 이펙트 정리 필요
+                _balloon_lingering = (getattr(skill, 'skill_id', '') == 'balloon_wall'
+                                      and (any(b['alive'] for b in getattr(skill, 'balloons', []))
+                                           or getattr(skill, 'pop_effects', [])))
                 if skill.is_active:
                     skill_id = getattr(skill, 'skill_id', '')
                     # 드래곤 브레스: 공을 따라다니며 화염 발사
@@ -3278,8 +3282,9 @@ class GuardWarriorSystem:
                     elif skill_id == 'oil_spill':
                         if not skill.oil_projectiles and not skill.oil_puddles:
                             skill.is_active = False
-                elif _ghost_lingering:
+                elif _ghost_lingering or _balloon_lingering:
                     # 유령소환 잔여 이펙트 정리 (dying_ghosts, particles, teleport_effects)
+                    # 익살스런파티 잔여 풍선 터짐 애니메이션 + 이펙트 정리
                     _fallback_paddle = guard_paddle or (top_paddle if is_top_guard else bottom_paddle)
                     _fallback_target = target or (bottom_paddle if is_top_guard else top_paddle)
                     skill.update(dt, _fallback_paddle, _fallback_target, ball, game_state)
@@ -4479,7 +4484,11 @@ class GuardWarriorSystem:
                 has_lingering = (getattr(skill, 'skill_id', '') == 'ghost_summon'
                                  and (skill.dying_ghosts or skill._teleport_effects
                                       or skill._ghost_particles))
-                if (skill.is_active or has_lingering) and hasattr(skill, 'draw'):
+                # 익살스런파티(BalloonWall): is_active 꺼져도 popping 풍선/터짐 이펙트 그려야 함
+                has_balloon_lingering = (getattr(skill, 'skill_id', '') == 'balloon_wall'
+                                         and (any(b['alive'] for b in getattr(skill, 'balloons', []))
+                                              or getattr(skill, 'pop_effects', [])))
+                if (skill.is_active or has_lingering or has_balloon_lingering) and hasattr(skill, 'draw'):
                     try:
                         # 귀신발걸음: draw 전에 현재 호위무사 위치로 동기화
                         skill_id = getattr(skill, 'skill_id', '')
@@ -5247,7 +5256,11 @@ class GuardWarriorSystem:
         for hero_id, skills in self.skill_instances.items():
             # 이 호위무사가 어느 쪽인지 판별 (패들 정보 없이 리셋)
             for skill in skills:
-                if skill.is_active:
+                # 익살스런파티: is_active가 False여도 잔여 풍선/이펙트가 있으면 리셋 필요
+                _has_balloon_remains = (getattr(skill, 'skill_id', '') == 'balloon_wall'
+                                        and (getattr(skill, 'balloons', [])
+                                             or getattr(skill, 'pop_effects', [])))
+                if skill.is_active or _has_balloon_remains:
                     try:
                         skill.reset_for_new_round(game_state)
                     except Exception:
