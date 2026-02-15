@@ -13887,7 +13887,6 @@ class ThunderOrb(HeroSkill):
         self.explosion_y = self.orb_y
         game_state['screen_shake'] = 40
         game_state['shake_duration'] = 0.5  # 폭발 시 0.5초 화면 흔들림
-        print(f"[DEBUG 뇌구폭발] screen_shake={game_state['screen_shake']}, shake_duration={game_state['shake_duration']}, game_state id={id(game_state)}")
         # 폭발 사운드 재생
         if self._explode_sound:
             try:
@@ -15464,10 +15463,8 @@ class HeroSkillManager:
         # 화면 흔들림 감소
         if self.game_state.get('shake_duration', 0) > 0:
             self.game_state['shake_duration'] -= dt
-            print(f"[DEBUG shake_decay] duration={self.game_state['shake_duration']:.3f}, shake={self.game_state.get('screen_shake',0)}")
             if self.game_state['shake_duration'] <= 0:
                 self.game_state['screen_shake'] = 0
-                print("[DEBUG shake_decay] → shake cleared!")
 
         # 영웅별 글로벌 쿨다운 감소
         for hero_id in list(self.hero_global_cooldowns.keys()):
@@ -15598,8 +15595,6 @@ class HeroSkillManager:
         """화면 흔들림 오프셋 반환"""
         shake = self.game_state.get('screen_shake', 0)
         if shake > 0:
-            dur = self.game_state.get('shake_duration', 0)
-            print(f"[DEBUG shake] intensity={shake}, duration={dur}, gs_id={id(self.game_state)}")
             return (random.randint(-int(shake), int(shake)),
                    random.randint(-int(shake), int(shake)))
         return (0, 0)

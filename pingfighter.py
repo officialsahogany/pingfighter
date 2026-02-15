@@ -55597,9 +55597,17 @@ def draw_shaking_screen():
         except:
             pass
 
+        # 투기장 영웅 스킬 화면 흔들림
+        arena_shake_x, arena_shake_y = 0, 0
+        if arena_mode_enabled and arena_skill_manager:
+            arena_shake_x, arena_shake_y = arena_skill_manager.get_screen_shake()
+
         if odins_shake_x != 0 or odins_shake_y != 0:
             screen_shake_offset_x = int(odins_shake_x)
             screen_shake_offset_y = int(odins_shake_y)
+        elif arena_shake_x != 0 or arena_shake_y != 0:
+            screen_shake_offset_x = int(arena_shake_x)
+            screen_shake_offset_y = int(arena_shake_y)
         else:
             screen_shake_offset_x = 0
             screen_shake_offset_y = 0
