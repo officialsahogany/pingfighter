@@ -50667,6 +50667,7 @@ except Exception:
     pygame.draw.circle(PINGPONG_BALL_IMG, (255, 255, 255), (18, 18), 16)
     pygame.draw.circle(PINGPONG_BALL_IMG, (230, 230, 230), (18, 18), 14)
     pygame.draw.circle(PINGPONG_BALL_IMG, (255, 255, 255), (14, 14), 6)
+_pingpong_ball_cache = {}  # 크기별 캐시 {size: scaled_surface}
 
 hit_animation_active = False
 hit_animation_timer = 0
@@ -94202,26 +94203,39 @@ def draw_objects():
         ball_already_drawn = True  # 애니메이션이 공을 대체
         # 잔상과 일반 공 그리기 완전히 건너뛰기
     else:
-        # === 공 잔상 궤적 시스템 (에너지 파동형 투명 잔상) ===
-        # 쿠로미가 먹지 않았을 때만 잔상 업데이트 및 그리기
-        if not ball_in_kuromi:
-            # 잔상 궤적 업데이트
-            update_ball_ghost_trail(ball_rect.centerx, ball_rect.centery, BALL.width // 2)
-            # 잔상을 공 뒤에 그리기 (공보다 먼저 그려야 뒤에 보임)
-            draw_ball_ghost_trail(SCREEN, screen_shake_offset_x, screen_shake_offset_y)
+        _current_ball_type = _get_ball_type()
+        if _current_ball_type == "pingpong":
+            # === 탁구공 모드: 이펙트/파티클 없이 이미지만 그리기 ===
+            if not ball_already_drawn and not ball_in_kuromi:
+                ball_size = BALL.width + 4
+                if ball_size not in _pingpong_ball_cache:
+                    _pingpong_ball_cache[ball_size] = pygame.transform.smoothscale(
+                        PINGPONG_BALL_IMG, (ball_size, ball_size))
+                bx = ball_rect.centerx + screen_shake_offset_x - ball_size // 2
+                by = ball_rect.centery + screen_shake_offset_y - ball_size // 2
+                SCREEN.blit(_pingpong_ball_cache[ball_size], (bx, by))
+        else:
+            # === 에너지볼 모드 (기본) ===
+            # === 공 잔상 궤적 시스템 (에너지 파동형 투명 잔상) ===
+            # 쿠로미가 먹지 않았을 때만 잔상 업데이트 및 그리기
+            if not ball_in_kuromi:
+                # 잔상 궤적 업데이트
+                update_ball_ghost_trail(ball_rect.centerx, ball_rect.centery, BALL.width // 2)
+                # 잔상을 공 뒤에 그리기 (공보다 먼저 그려야 뒤에 보임)
+                draw_ball_ghost_trail(SCREEN, screen_shake_offset_x, screen_shake_offset_y)
 
-            # 🔥 인텐시티 이펙트 업데이트 및 그리기 (공 뒤에)
-            update_intensity_particles(ball_rect.centerx, ball_rect.centery)
-            draw_intensity_effects(SCREEN,
-                                  ball_rect.centerx + screen_shake_offset_x,
-                                  ball_rect.centery + screen_shake_offset_y,
-                                  BALL.width // 2)
+                # 🔥 인텐시티 이펙트 업데이트 및 그리기 (공 뒤에)
+                update_intensity_particles(ball_rect.centerx, ball_rect.centery)
+                draw_intensity_effects(SCREEN,
+                                      ball_rect.centerx + screen_shake_offset_x,
+                                      ball_rect.centery + screen_shake_offset_y,
+                                      BALL.width // 2)
 
-        # 기본 공 그리기 (아직 그려지지 않은 경우에만, 그리고 쿠로미가 먹지 않았을 때)
-        if not ball_already_drawn and not ball_in_kuromi:
-            # 고퀄리티 에너지볼만 그리기 (PNG 이미지 제거)
-            draw_energy_ball(SCREEN, ball_rect.centerx + screen_shake_offset_x,
-                            ball_rect.centery + screen_shake_offset_y, BALL.width // 2 + 2)
+            # 기본 공 그리기 (아직 그려지지 않은 경우에만, 그리고 쿠로미가 먹지 않았을 때)
+            if not ball_already_drawn and not ball_in_kuromi:
+                # 고퀄리티 에너지볼만 그리기 (PNG 이미지 제거)
+                draw_energy_ball(SCREEN, ball_rect.centerx + screen_shake_offset_x,
+                                ball_rect.centery + screen_shake_offset_y, BALL.width // 2 + 2)
 
     # 디바인스톤(건설형) 월드 이펙트(번개/전기 폭발) 오버레이
     try:

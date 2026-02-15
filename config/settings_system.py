@@ -110,6 +110,7 @@ class SettingsManager:
             
             # 게임플레이 설정
             'gameplay': {
+                'ball_type': 'energy',
                 'difficulty': 'normal',
                 'auto_save': True,
                 'save_interval': 60,  # 초
@@ -524,7 +525,9 @@ class SettingsManager:
                 
     def _apply_gameplay_setting(self, key: str, value: Any):
         """게임플레이 설정 적용"""
-        if key == 'difficulty':
+        if key == 'ball_type':
+            self.global_manager.set('ball_type', value)
+        elif key == 'difficulty':
             self.global_manager.set_setting('difficulty', value)
         elif key == 'auto_save':
             self.global_manager.set_setting('auto_save', value)

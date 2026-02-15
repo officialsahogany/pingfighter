@@ -999,6 +999,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
     sfx_muted = get_sfx_muted()
     control_scheme = settings.get_setting("controls", "control_scheme", "keyboard")
     paddle_hit_sound = int(settings.get_setting("audio", "paddle_hit_sound", 1))
+    ball_type = settings.get_setting("gameplay", "ball_type", "energy")
 
     # 패들 타격 사운드 프리로드
     _paddle_sounds = {}
@@ -1031,6 +1032,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
     selected_slider = None
     dragging = False
     hit_pills = []
+    ball_pills = []
 
     running = True
     while running:
@@ -1202,8 +1204,37 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                 screen.blit(s, s.get_rect(center=rect.center))
 
         elif current_tab == "play":
-            play_desc = font_small.render("추후 설정 항목이 추가됩니다", True, (120, 140, 160))
-            screen.blit(play_desc, play_desc.get_rect(centerx=width // 2, top=content_y + 30))
+            # ── 공 선택 ──
+            ball_sel_y = content_y + 20
+            ball_sel_label = font_medium.render("공 선택", True, (255, 255, 255))
+            screen.blit(ball_sel_label, ball_sel_label.get_rect(left=panel_x + margin_x, centery=ball_sel_y + 16))
+
+            _bt_names = {"energy": "에너지볼", "pingpong": "탁구공"}
+            pill_w_b, pill_h_b = 110, 32
+            pill_gap_b = 10
+            ball_pills = []
+            for i, (val, lbl) in enumerate(_bt_names.items()):
+                px = slider_x + i * (pill_w_b + pill_gap_b)
+                py = ball_sel_y + 2
+                r = pygame.Rect(px, py, pill_w_b, pill_h_b)
+                ball_pills.append((r, val, lbl))
+                is_sel = (ball_type == val)
+                col = (60, 90, 130) if is_sel else (45, 55, 70)
+                pygame.draw.rect(screen, col, r, border_radius=16)
+                border_col = (0, 255, 255) if is_sel else (150, 150, 150)
+                if focus == "balltype" and is_sel:
+                    border_col = (0, 255, 255)
+                pygame.draw.rect(screen, border_col, r, 2, border_radius=16)
+                s = font_small.render(lbl, True, (255, 255, 255))
+                screen.blit(s, s.get_rect(center=r.center))
+
+            # 공 설명
+            _bt_descs = {
+                "energy": "속도에 따라 색상과 이펙트가 변합니다",
+                "pingpong": "탁구공 이미지, 이펙트 없음",
+            }
+            bt_desc = font_tiny.render(_bt_descs.get(ball_type, ""), True, (150, 180, 200))
+            screen.blit(bt_desc, bt_desc.get_rect(centerx=width // 2, top=ball_sel_y + 44))
 
         elif current_tab == "display":
             disp_y = content_y + 20
@@ -1256,14 +1287,14 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
         # ─── 이벤트 처리 ───
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound)
+                _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound, ball_type)
                 pygame.quit()
                 raise SystemExit
 
             if event.type == pygame.KEYDOWN:
                 state.idle_start_time = pygame.time.get_ticks()
                 if event.key == pygame.K_ESCAPE:
-                    _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound)
+                    _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound, ball_type)
                     # 디스플레이 모드 변경 적용
                     try:
                         from pingfighter import switch_display_mode, get_display_mode
@@ -1277,7 +1308,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                     _tab_order = ["sound", "controls", "display", "play"]
                     _tab_idx = _tab_order.index(current_tab) if current_tab in _tab_order else 0
                     current_tab = _tab_order[(_tab_idx + 1) % len(_tab_order)]
-                    focus = {"sound": "bgm", "controls": "scheme", "display": "dispmode", "play": "back"}.get(current_tab, "bgm")
+                    focus = {"sound": "bgm", "controls": "scheme", "display": "dispmode", "play": "balltype"}.get(current_tab, "bgm")
 
                 if event.key == pygame.K_LEFT:
                     if current_tab == "controls" and focus == "scheme":
@@ -1303,6 +1334,10 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         if _ps:
                             _ps.set_volume(current_sfx_volume)
                             _ps.play()
+                    elif current_tab == "play" and focus == "balltype":
+                        _bt_order = ["energy", "pingpong"]
+                        _bt_idx = _bt_order.index(ball_type) if ball_type in _bt_order else 0
+                        ball_type = _bt_order[max(0, _bt_idx - 1)]
 
                 elif event.key == pygame.K_RIGHT:
                     if current_tab == "controls" and focus == "scheme":
@@ -1328,6 +1363,10 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         if _ps:
                             _ps.set_volume(current_sfx_volume)
                             _ps.play()
+                    elif current_tab == "play" and focus == "balltype":
+                        _bt_order = ["energy", "pingpong"]
+                        _bt_idx = _bt_order.index(ball_type) if ball_type in _bt_order else 0
+                        ball_type = _bt_order[min(len(_bt_order) - 1, _bt_idx + 1)]
 
                 elif event.key == pygame.K_UP:
                     if current_tab == "controls":
@@ -1335,7 +1374,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                     elif current_tab == "display":
                         order = ["dispmode", "back"]
                     elif current_tab == "play":
-                        order = ["back"]
+                        order = ["balltype", "back"]
                     else:
                         order = ["bgm", "sfx", "hitsound", "back"]
                     focus = order[(order.index(focus) - 1) % len(order)] if focus in order else order[0]
@@ -1346,7 +1385,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                     elif current_tab == "display":
                         order = ["dispmode", "back"]
                     elif current_tab == "play":
-                        order = ["back"]
+                        order = ["balltype", "back"]
                     else:
                         order = ["bgm", "sfx", "hitsound", "back"]
                     focus = order[(order.index(focus) + 1) % len(order)] if focus in order else order[0]
@@ -1354,7 +1393,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                 elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
                     if focus == "back":
                         ctx.play_click_sound()
-                        _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound)
+                        _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound, ball_type)
                         # 디스플레이 모드 변경 적용
                         try:
                             from pingfighter import switch_display_mode, get_display_mode
@@ -1387,6 +1426,8 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         if _ps:
                             _ps.set_volume(current_sfx_volume)
                             _ps.play()
+                    elif current_tab == "play" and focus == "balltype":
+                        ball_type = "pingpong" if ball_type == "energy" else "energy"
 
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 state.idle_start_time = pygame.time.get_ticks()
@@ -1407,13 +1448,21 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                     continue
                 if play_tab_rect.collidepoint(mp):
                     current_tab = "play"
-                    focus = "back"
+                    focus = "balltype"
                     continue
+
+                # 플레이 탭 - 공 선택 클릭
+                if current_tab == "play":
+                    for _br, _bv, _bl in ball_pills:
+                        if _br.collidepoint(mp):
+                            ball_type = _bv
+                            focus = "balltype"
+                            break
 
                 # 뒤로가기
                 if back_rect.collidepoint(mp):
                     ctx.play_click_sound()
-                    _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound)
+                    _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound, ball_type)
                     # 디스플레이 모드 변경 적용
                     try:
                         from pingfighter import switch_display_mode, get_display_mode
@@ -1522,10 +1571,10 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         if not sfx_muted:
                             set_sfx_volume(current_sfx_volume)
 
-    _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound)
+    _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound, ball_type)
 
 
-def _save_menu_settings(settings, bgm_mgr, bgm_vol, sfx_vol, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound=1):
+def _save_menu_settings(settings, bgm_mgr, bgm_vol, sfx_vol, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound=1, ball_type="energy"):
     """설정 값 저장"""
     from game_state.audio import set_bgm_volume, set_sfx_volume, set_bgm_muted, set_sfx_muted
     try:
@@ -1540,6 +1589,7 @@ def _save_menu_settings(settings, bgm_mgr, bgm_vol, sfx_vol, bgm_muted, sfx_mute
         settings.set_setting("audio", "sfx_volume", sfx_vol)
         settings.set_setting("audio", "music_volume", bgm_vol)
         settings.set_setting("audio", "paddle_hit_sound", paddle_hit_sound)
+        settings.set_setting("gameplay", "ball_type", ball_type)
         settings.set_setting("controls", "control_scheme", control_scheme)
         settings.save_settings()
     except Exception as e:

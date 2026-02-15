@@ -199,6 +199,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
     settings = get_settings_manager()
     control_scheme = settings.get_setting('controls', 'control_scheme', 'keyboard')
     paddle_hit_sound = int(settings.get_setting('audio', 'paddle_hit_sound', 1))
+    ball_type = settings.get_setting('gameplay', 'ball_type', 'energy')
     modern_loop_enabled = ctx.get_modern_loop_enabled()
 
     # 패들 타격 사운드 프리로드
@@ -253,6 +254,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
     focus: str = "bgm"  # 키보드 포커스: bgm / sfx / hitsound / back
     dragging = False
     hit_pills = []
+    ball_pills = []
 
     clock = ctx.clock_factory()
     running = True
@@ -305,8 +307,36 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
 
         # 컨텐츠 렌더링 -------------------------------------------------------
         if current_tab == 'play':
-            play_desc = font_small.render("추후 설정 항목이 추가됩니다", True, (120, 140, 160))
-            ctx.screen.blit(play_desc, play_desc.get_rect(centerx=ctx.width // 2, top=bgm_slider_y + 10))
+            # ── 공 선택 ──
+            ball_sel_y = bgm_slider_y
+            ball_sel_label = font_medium.render("공 선택", True, const.WHITE)
+            ctx.screen.blit(ball_sel_label, ball_sel_label.get_rect(left=panel_x + margin_x, centery=ball_sel_y + 16))
+
+            _bt_names = {"energy": "에너지볼", "pingpong": "탁구공"}
+            pill_w_b, pill_h_b = 110, 32
+            pill_gap_b = 10
+            ball_pills = []
+            for i, (val, lbl) in enumerate(_bt_names.items()):
+                px = bgm_slider_x + i * (pill_w_b + pill_gap_b)
+                py = ball_sel_y + 2
+                r = pygame.Rect(px, py, pill_w_b, pill_h_b)
+                ball_pills.append((r, val, lbl))
+                is_sel = (ball_type == val)
+                col = (60, 90, 130) if is_sel else (45, 55, 70)
+                pygame.draw.rect(ctx.screen, col, r, border_radius=16)
+                border_col = (0, 255, 255) if is_sel else (150, 150, 150)
+                if focus == "balltype" and is_sel:
+                    border_col = (0, 255, 255)
+                pygame.draw.rect(ctx.screen, border_col, r, 2, border_radius=16)
+                s = font_small.render(lbl, True, const.WHITE)
+                ctx.screen.blit(s, s.get_rect(center=r.center))
+
+            _bt_descs = {
+                "energy": "속도에 따라 색상과 이펙트가 변합니다",
+                "pingpong": "탁구공 이미지, 이펙트 없음",
+            }
+            bt_desc = font_small.render(_bt_descs.get(ball_type, ''), True, (150, 180, 200))
+            ctx.screen.blit(bt_desc, bt_desc.get_rect(centerx=ctx.width // 2, top=ball_sel_y + 44))
         elif current_tab == 'controls':
             # 조작 방식 선택(키보드만 / 마우스+키보드)
             label = font_medium.render("조작 방식", True, const.WHITE)
@@ -490,6 +520,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     # 컨트롤 스킴 및 타격 사운드 저장
                     settings.set_setting('controls','control_scheme', control_scheme)
                     settings.set_setting('audio', 'paddle_hit_sound', paddle_hit_sound)
+                    settings.set_setting('gameplay', 'ball_type', ball_type)
                     settings.save_settings()
                     # 디스플레이 모드 변경 적용
                     try:
@@ -503,7 +534,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     _tab_order = ['sound', 'controls', 'display', 'play']
                     _tidx = _tab_order.index(current_tab) if current_tab in _tab_order else 0
                     current_tab = _tab_order[(_tidx + 1) % len(_tab_order)]
-                    focus = {'sound': 'bgm', 'controls': 'scheme', 'display': 'dispmode', 'play': 'back'}.get(current_tab, 'bgm')
+                    focus = {'sound': 'bgm', 'controls': 'scheme', 'display': 'dispmode', 'play': 'balltype'}.get(current_tab, 'bgm')
                 if event.key == pygame.K_LEFT:
                     if current_tab == 'controls':
                         if locals().get('focus','bgm') in ('scheme','back'):
@@ -529,6 +560,10 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         if _ps:
                             _ps.set_volume(current_sfx_volume)
                             _ps.play()
+                    elif current_tab == 'play' and focus == 'balltype':
+                        _bt_order = ["energy", "pingpong"]
+                        _bt_idx = _bt_order.index(ball_type) if ball_type in _bt_order else 0
+                        ball_type = _bt_order[max(0, _bt_idx - 1)]
                 elif event.key == pygame.K_RIGHT:
                     if current_tab == 'controls':
                         if locals().get('focus','bgm') in ('scheme','back'):
@@ -554,13 +589,17 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         if _ps:
                             _ps.set_volume(current_sfx_volume)
                             _ps.play()
+                    elif current_tab == 'play' and focus == 'balltype':
+                        _bt_order = ["energy", "pingpong"]
+                        _bt_idx = _bt_order.index(ball_type) if ball_type in _bt_order else 0
+                        ball_type = _bt_order[min(len(_bt_order) - 1, _bt_idx + 1)]
                 elif event.key == pygame.K_UP:
                     if current_tab == 'controls':
                         order = ["scheme", "back"]
                     elif current_tab == 'display':
                         order = ["dispmode", "back"]
                     elif current_tab == 'play':
-                        order = ["back"]
+                        order = ["balltype", "back"]
                     else:
                         order = ["bgm", "sfx", "hitsound", "back"]
                     focus = order[(order.index(focus) - 1) % len(order)] if focus in order else order[0]
@@ -570,7 +609,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     elif current_tab == 'display':
                         order = ["dispmode", "back"]
                     elif current_tab == 'play':
-                        order = ["back"]
+                        order = ["balltype", "back"]
                     else:
                         order = ["bgm", "sfx", "hitsound", "back"]
                     focus = order[(order.index(focus) + 1) % len(order)] if focus in order else order[0]
@@ -588,6 +627,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         if _ps:
                             _ps.set_volume(current_sfx_volume)
                             _ps.play()
+                    elif current_tab == 'play' and focus == 'balltype':
+                        ball_type = "pingpong" if ball_type == "energy" else "energy"
                     elif focus == "back":
                         ctx.play_button_click_sound()
                         current_bgm_volume = ctx.store_bgm_volume(current_bgm_volume)
@@ -621,7 +662,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         continue
                     if play_tab_rect.collidepoint(mouse_pos):
                         current_tab = 'play'
-                        focus = 'back'
+                        focus = 'balltype'
                         continue
 
                     if back_button_rect.collidepoint(mouse_pos):
@@ -692,6 +733,14 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                                     _ps.play()
                                 break
 
+                    # 플레이 탭 - 공 선택 클릭
+                    if current_tab == 'play':
+                        for _br, _bv, _bl in ball_pills:
+                            if _br.collidepoint(mouse_pos):
+                                ball_type = _bv
+                                focus = "balltype"
+                                break
+
                     bgm_slider_rect = pygame.Rect(bgm_slider_x, bgm_slider_y - 10, slider_width, slider_height + 20)
                     if current_tab == 'sound' and (bgm_slider_rect.collidepoint(mouse_pos) or ('bgm_handle_rect' in locals() and bgm_handle_rect.collidepoint(mouse_pos))):
                         selected_slider = "bgm"
@@ -750,4 +799,5 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
     ctx.store_bgm_volume(current_bgm_volume)
     ctx.set_sfx_volume(current_sfx_volume)
     settings.set_setting('audio', 'paddle_hit_sound', paddle_hit_sound)
+    settings.set_setting('gameplay', 'ball_type', ball_type)
     settings.save_settings()
