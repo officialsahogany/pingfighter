@@ -19354,6 +19354,7 @@ SOUND_GOD_START = sound_effects.get('GOD_START')
 SOUND_GOD_EARTHQUAKE = sound_effects.get('GOD_EARTHQUAKE')
 SOUND_GOD_WIND = sound_effects.get('GOD_WIND')
 SOUND_GOD_THUNDER = sound_effects.get('GOD_THUNDER')
+SOUND_GOD_POP = sound_effects.get('GOD_POP')
 whip_sound = sound_effects['WHIP']
 SOUND_AIRPLANE = sound_effects['AIRPLANE']
 SOUND_DEFENSE_HIT = sound_effects['DEFENSE_HIT']
@@ -55353,6 +55354,11 @@ def handle_gods_judgment():
     cur_phase = bg.judgment_phase
     prev_phase = _judgment_prev_phase
     _judgment_prev_phase = cur_phase
+
+    # 석상 등장 사운드 (IDLE → MERGE 전환 시)
+    if prev_phase == 0 and cur_phase == 1:
+        if SOUND_GOD_POP:
+            SOUND_GOD_POP.play()
 
     is_eq = bg.is_judgment_earthquake_active()
     was_eq = _judgment_prev_earthquake_active
