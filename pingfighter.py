@@ -7640,6 +7640,22 @@ def _draw_pillar_ui(screen, renderer):
         globals()['_arena_skill_slot_data'] = _arena_skill_slot_data
         globals()['_pillar_active_item_slot_rects'] = []
 
+    # 호위무사 스탠스 토글 버튼 (하단 필러, 투기장 전용)
+    _stance_btn_rect = None
+    if arena_mode_enabled and arena_guard_system:
+        _has_guards = (hasattr(arena_guard_system, 'guard_warriors_bottom')
+                       and arena_guard_system.guard_warriors_bottom)
+        if _has_guards:
+            try:
+                _stance_btn_rect = renderer.draw_guard_stance_toggle(
+                    screen,
+                    stance_mode=arena_guard_stance_mode,
+                    game_scale=GAME_SCALE_FACTOR if 'GAME_SCALE_FACTOR' in globals() else 1.0
+                )
+            except Exception:
+                pass
+    globals()['_guard_stance_toggle_rect'] = _stance_btn_rect
+
     # 왼쪽 필러 상단 - 인게임 골드 HUD 표시 (2배 크기)
     # 전체화면 모드에서만 필러 영역에 표시
     try:
@@ -19716,6 +19732,7 @@ arena_perk_skill_cd_mult_top = 1.0   # 상단 영웅 스킬쿨 배율
 arena_perk_skill_cd_mult_bottom = 1.0
 arena_perk_guard_cd_mult_top = 1.0   # 상단 호위무사쿨 배율
 arena_perk_guard_cd_mult_bottom = 1.0
+arena_guard_stance_mode = "attack"   # 호위무사 스탠스 ("attack" / "defense")
 arena_active_hero_perks = []         # TAB 표시용: 플레이어(하단) 영웅 보유 퍽 목록
 arena_active_enemy_perks = []        # 필러 표시용: 상대(상단) 영웅 보유 퍽 목록
 arena_perk_draw_icon_func = None     # 퍽 아이콘 그리기 함수 (ColosseumsArena._draw_perk_icon)
@@ -19765,6 +19782,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     global arena_perk_dash_cd_mult_top, arena_perk_dash_cd_mult_bottom
     global arena_perk_skill_cd_mult_top, arena_perk_skill_cd_mult_bottom
     global arena_perk_guard_cd_mult_top, arena_perk_guard_cd_mult_bottom
+    global arena_guard_stance_mode
     global arena_active_hero_perks, arena_active_enemy_perks
     global arena_perk_dash_distance_mult_top, arena_perk_dash_distance_mult_bottom
     global arena_perk_retry_chance, arena_perk_retry_chance_top
@@ -19798,6 +19816,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_perk_skill_cd_mult_bottom = 1.0
     arena_perk_guard_cd_mult_top = 1.0
     arena_perk_guard_cd_mult_bottom = 1.0
+    arena_guard_stance_mode = "attack"
     arena_perk_dash_distance_mult_top = 1.0
     arena_perk_dash_distance_mult_bottom = 1.0
     arena_perk_retry_chance = 0.0
@@ -19917,6 +19936,7 @@ def reset_arena_perks():
     global arena_perk_dash_cd_mult_top, arena_perk_dash_cd_mult_bottom
     global arena_perk_skill_cd_mult_top, arena_perk_skill_cd_mult_bottom
     global arena_perk_guard_cd_mult_top, arena_perk_guard_cd_mult_bottom
+    global arena_guard_stance_mode
     global arena_active_hero_perks, arena_active_enemy_perks
     global arena_perk_dash_distance_mult_top, arena_perk_dash_distance_mult_bottom
     global arena_perk_retry_chance, arena_perk_retry_chance_top
@@ -19942,6 +19962,7 @@ def reset_arena_perks():
     arena_perk_skill_cd_mult_bottom = 1.0
     arena_perk_guard_cd_mult_top = 1.0
     arena_perk_guard_cd_mult_bottom = 1.0
+    arena_guard_stance_mode = "attack"
     arena_perk_dash_distance_mult_top = 1.0
     arena_perk_dash_distance_mult_bottom = 1.0
     arena_perk_retry_chance = 0.0
@@ -99882,7 +99903,8 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         _pillar_ui_enabled = True
 
         # === 호위무사 시스템 설정 (콜로세움에서 전달한 데이터 사용) ===
-        global arena_guard_system
+        global arena_guard_system, arena_guard_stance_mode
+        arena_guard_stance_mode = "attack"  # 배틀 시작 시 공격모드로 초기화
         try:
             _top_guards = _arena_pending_top_guards
             _bottom_guards = _arena_pending_bottom_guards
@@ -135219,6 +135241,30 @@ def main(stage_num, new_boss_mode=False):
                 real_mouse_pos = _original_mouse_get_pos()
                 if _handle_discard_menu_click(real_mouse_pos):
                     continue  # 버리기 메뉴에서 처리했으면 다른 처리 건너뛰기
+
+            # 🛡️ 호위무사 스탠스 토글 클릭 처리
+            if (
+                event.type == pygame.MOUSEBUTTONDOWN
+                and event.button == 1
+                and globals().get('arena_mode_enabled', False)
+                and globals().get('arena_guard_system')
+            ):
+                _stance_rect = globals().get('_guard_stance_toggle_rect')
+                if _stance_rect:
+                    _real_mp = _original_mouse_get_pos()
+                    if _stance_rect.collidepoint(_real_mp):
+                        _cur_stance = globals().get('arena_guard_stance_mode', 'attack')
+                        _new_stance = "defense" if _cur_stance == "attack" else "attack"
+                        globals()['arena_guard_stance_mode'] = _new_stance
+                        _gs = globals().get('arena_guard_system')
+                        if _gs:
+                            _gs.stance_mode_bottom = _new_stance
+                        try:
+                            play_button_click_sound()
+                        except Exception:
+                            pass
+                        _mode_label = "수비" if _new_stance == "defense" else "공격"
+                        print(f"[Guard] 호위무사 스탠스 전환: {_mode_label}모드")
 
             # 마우스 좌클릭으로 슬롯을 눌렀을 때도 해당 아이템을 사용
             # 슬롯이 필러 영역(REAL_SCREEN 좌표)에 있으므로 원본 마우스 좌표 사용

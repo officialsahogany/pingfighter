@@ -3091,23 +3091,37 @@ class GuardWarriorSystem:
                 c['cooldown'] -= dt
             return  # 귀신발걸음 중에는 순찰 이동 스킵
 
-        # 순찰 이동 (기존 호위무사와 동일한 패턴)
-        if c['patrol_wait'] > 0:
-            c['patrol_wait'] -= dt
-        else:
-            if c['patrol_target'] is None:
-                c['patrol_target'] = random.uniform(left_bound + 20, right_bound - 20)
-                c['patrol_speed'] = random.uniform(110.0, 180.0)
-
-            diff = c['patrol_target'] - c['x']
-            if abs(diff) < 3.0:
-                c['x'] = c['patrol_target']
-                c['patrol_target'] = None
-                c['patrol_wait'] = random.uniform(0.4, 1.5)
-            else:
+        # 순찰 이동 (수비모드: 공 추적 / 공격모드: 랜덤 패턴)
+        _charm_is_bottom = not c.get('is_top', True)
+        if _charm_is_bottom and self.stance_mode_bottom == "defense" and ball:
+            c['patrol_wait'] = 0
+            target_x = max(left_bound, min(ball.centerx, right_bound))
+            diff = target_x - c['x']
+            speed = max(140.0, c['patrol_speed']) * self.DEFENSE_SPEED_MULT
+            if abs(diff) > 3.0:
                 direction = 1 if diff > 0 else -1
-                c['x'] += direction * c['patrol_speed'] * dt
+                move = direction * speed * dt
+                if abs(move) > abs(diff):
+                    move = diff
+                c['x'] += move
                 c['x'] = max(left_bound, min(c['x'], right_bound))
+        else:
+            if c['patrol_wait'] > 0:
+                c['patrol_wait'] -= dt
+            else:
+                if c['patrol_target'] is None:
+                    c['patrol_target'] = random.uniform(left_bound + 20, right_bound - 20)
+                    c['patrol_speed'] = random.uniform(110.0, 180.0)
+
+                diff = c['patrol_target'] - c['x']
+                if abs(diff) < 3.0:
+                    c['x'] = c['patrol_target']
+                    c['patrol_target'] = None
+                    c['patrol_wait'] = random.uniform(0.4, 1.5)
+                else:
+                    direction = 1 if diff > 0 else -1
+                    c['x'] += direction * c['patrol_speed'] * dt
+                    c['x'] = max(left_bound, min(c['x'], right_bound))
 
         # 이동 애니메이션
         guard = c['guard']
@@ -3365,7 +3379,7 @@ class GuardWarriorSystem:
 
         # === patrolling: 순찰 + 쿨타임 ===
         if phase == 'patrolling':
-            self._update_patrol2_movement(dt, p2)
+            self._update_patrol2_movement(dt, p2, ball=ball, is_top=is_top)
 
             if _p2_dual:
                 # 듀얼 스킬: 쿨다운은 상단에서 이미 tick됨, 여기서는 체크만
@@ -3395,32 +3409,46 @@ class GuardWarriorSystem:
                 p2['anim_timer'] = 0.0
                 p2['y'] = float(TOP_PADDLE_Y if is_top else BOTTOM_PADDLE_Y)
 
-    def _update_patrol2_movement(self, dt, p2):
-        """2번째 호위무사 순찰 이동 (랜덤 패턴)"""
+    def _update_patrol2_movement(self, dt, p2, ball=None, is_top=True):
+        """2번째 호위무사 순찰 이동 (랜덤 패턴 / 수비모드: 공 추적)"""
         left_bound = GAME_AREA_X + 40
         right_bound = GAME_AREA_X + GAME_AREA_WIDTH - 40
 
-        if p2['patrol_wait'] > 0:
-            p2['patrol_wait'] -= dt
-            # 대기 중 이동 애니메이션
-            guard = p2['guard']
-            if guard and self.hero_paddle_renderer:
-                self.hero_paddle_renderer.update_movement(guard["id"], p2['x'], dt)
-            return
-
-        if p2['patrol_target'] is None:
-            p2['patrol_target'] = random.uniform(left_bound + 20, right_bound - 20)
-            p2['patrol_speed'] = random.uniform(110.0, 180.0)
-
-        diff = p2['patrol_target'] - p2['x']
-        if abs(diff) < 3.0:
-            p2['x'] = p2['patrol_target']
-            p2['patrol_target'] = None
-            p2['patrol_wait'] = random.uniform(0.4, 1.5)
+        # 하단 수비모드: 공 추적 + 멈춤 없음 + 속도 1.3배
+        if not is_top and self.stance_mode_bottom == "defense" and ball:
+            p2['patrol_wait'] = 0
+            target_x = max(left_bound, min(ball.centerx, right_bound))
+            diff = target_x - p2['x']
+            speed = max(140.0, p2['patrol_speed']) * self.DEFENSE_SPEED_MULT
+            if abs(diff) > 3.0:
+                direction = 1 if diff > 0 else -1
+                move = direction * speed * dt
+                if abs(move) > abs(diff):
+                    move = diff
+                p2['x'] += move
+                p2['x'] = max(left_bound, min(p2['x'], right_bound))
         else:
-            direction = 1 if diff > 0 else -1
-            p2['x'] += direction * p2['patrol_speed'] * dt
-            p2['x'] = max(left_bound, min(p2['x'], right_bound))
+            # 기존 공격모드 로직
+            if p2['patrol_wait'] > 0:
+                p2['patrol_wait'] -= dt
+                guard = p2['guard']
+                if guard and self.hero_paddle_renderer:
+                    self.hero_paddle_renderer.update_movement(guard["id"], p2['x'], dt)
+                return
+
+            if p2['patrol_target'] is None:
+                p2['patrol_target'] = random.uniform(left_bound + 20, right_bound - 20)
+                p2['patrol_speed'] = random.uniform(110.0, 180.0)
+
+            diff = p2['patrol_target'] - p2['x']
+            if abs(diff) < 3.0:
+                p2['x'] = p2['patrol_target']
+                p2['patrol_target'] = None
+                p2['patrol_wait'] = random.uniform(0.4, 1.5)
+            else:
+                direction = 1 if diff > 0 else -1
+                p2['x'] += direction * p2['patrol_speed'] * dt
+                p2['x'] = max(left_bound, min(p2['x'], right_bound))
 
         guard = p2['guard']
         if guard and self.hero_paddle_renderer:
@@ -3443,6 +3471,9 @@ class GuardWarriorSystem:
 
         # ★ 쿨타임을 먼저 설정 (예외 발생 시에도 매 프레임 재발동 방지)
         cd_mult = self.guard_cd_mult_top if is_top else self.guard_cd_mult_bottom
+        # 수비모드: 하단 호위무사 스킬 쿨타임 +50%
+        if not is_top and self.stance_mode_bottom == "defense":
+            cd_mult *= self.DEFENSE_SKILL_CD_MULT
         if self._has_dual_skills(guard["id"]):
             # 듀얼 스킬: 사용한 스킬만 리셋
             self._reset_skill_cooldown(guard["id"], skill_idx, cd_mult)
@@ -3859,7 +3890,7 @@ class GuardWarriorSystem:
 
         # 순찰 모드: 진영 내 이동 + 쿨타임 동시 진행
         if phase == "patrolling":
-            self._update_patrol(dt, is_top)
+            self._update_patrol(dt, is_top, ball=ball)
             if _dual_mode:
                 # 듀얼 스킬: 독립 쿨다운 체크 (상단에서 이미 tick됨)
                 if self._any_skill_ready(_dual_guard["id"]):
@@ -4269,31 +4300,29 @@ class GuardWarriorSystem:
                 self.phase_bottom = "exiting"
                 self.anim_timer_bottom = 0.0
 
-    def _update_patrol(self, dt, is_top):
-        """순찰 모드: 호위무사가 진영 내에서 자연스럽게 랜덤 순찰"""
+    def _update_patrol(self, dt, is_top, ball=None):
+        """순찰 모드: 호위무사가 진영 내에서 자연스럽게 랜덤 순찰
+        수비모드(하단만): 공을 따라 부드럽게 추적, 멈춤 없음, 이동속도 +30%
+        """
         left_bound = GAME_AREA_X + 40
         right_bound = GAME_AREA_X + GAME_AREA_WIDTH - 40
 
         if is_top:
-            # 대기 중이면 타이머 감소
+            # 상단 호위무사: 기존 공격모드 로직 그대로
             if self._patrol_wait_top > 0:
                 self._patrol_wait_top -= dt
-                # 대기 중에도 이동 애니메이션 갱신 (정지 → 감쇠)
                 guard = self.active_top
                 if guard and self.hero_paddle_renderer:
                     self.hero_paddle_renderer.update_movement(
                         guard["id"], self.x_top, dt)
                 return
 
-            # 목표 없으면 새 목표 생성
             if self._patrol_target_top is None:
                 self._patrol_target_top = random.uniform(left_bound + 20, right_bound - 20)
                 self._patrol_speed_top = random.uniform(110.0, 180.0)
 
-            # 목표를 향해 이동
             diff = self._patrol_target_top - self.x_top
             if abs(diff) < 3.0:
-                # 목표 도달 → 잠시 대기 후 새 목표
                 self.x_top = self._patrol_target_top
                 self._patrol_target_top = None
                 self._patrol_wait_top = random.uniform(0.4, 1.5)
@@ -4301,40 +4330,55 @@ class GuardWarriorSystem:
                 direction = 1 if diff > 0 else -1
                 self._patrol_dir_top = direction
                 self.x_top += direction * self._patrol_speed_top * dt
-                # 경계 클램프
                 self.x_top = max(left_bound, min(self.x_top, right_bound))
 
-            # 이동 애니메이션 갱신
             guard = self.active_top
             if guard and self.hero_paddle_renderer:
                 self.hero_paddle_renderer.update_movement(
                     guard["id"], self.x_top, dt)
         else:
-            # 대기 중이면 타이머 감소
-            if self._patrol_wait_bottom > 0:
-                self._patrol_wait_bottom -= dt
-                guard = self.active_bottom
-                if guard and self.hero_paddle_renderer:
-                    self.hero_paddle_renderer.update_movement(
-                        guard["id"], self.x_bottom, dt)
-                return
-
-            # 목표 없으면 새 목표 생성
-            if self._patrol_target_bottom is None:
-                self._patrol_target_bottom = random.uniform(left_bound + 20, right_bound - 20)
-                self._patrol_speed_bottom = random.uniform(110.0, 180.0)
-
-            # 목표를 향해 이동
-            diff = self._patrol_target_bottom - self.x_bottom
-            if abs(diff) < 3.0:
-                self.x_bottom = self._patrol_target_bottom
-                self._patrol_target_bottom = None
-                self._patrol_wait_bottom = random.uniform(0.4, 1.5)
+            # 하단 호위무사: 수비모드 체크
+            if self.stance_mode_bottom == "defense" and ball:
+                # 수비모드: 공을 따라 부드럽게 추적, 멈춤 없음
+                self._patrol_wait_bottom = 0
+                target_x = ball.centerx
+                target_x = max(left_bound, min(target_x, right_bound))
+                diff = target_x - self.x_bottom
+                speed = self._patrol_speed_bottom * self.DEFENSE_SPEED_MULT
+                if self._patrol_speed_bottom < 140.0:
+                    speed = 140.0 * self.DEFENSE_SPEED_MULT
+                if abs(diff) > 3.0:
+                    direction = 1 if diff > 0 else -1
+                    self._patrol_dir_bottom = direction
+                    move = direction * speed * dt
+                    if abs(move) > abs(diff):
+                        move = diff
+                    self.x_bottom += move
+                    self.x_bottom = max(left_bound, min(self.x_bottom, right_bound))
             else:
-                direction = 1 if diff > 0 else -1
-                self._patrol_dir_bottom = direction
-                self.x_bottom += direction * self._patrol_speed_bottom * dt
-                self.x_bottom = max(left_bound, min(self.x_bottom, right_bound))
+                # 공격모드: 기존 랜덤 순찰 + 멈춤
+                if self._patrol_wait_bottom > 0:
+                    self._patrol_wait_bottom -= dt
+                    guard = self.active_bottom
+                    if guard and self.hero_paddle_renderer:
+                        self.hero_paddle_renderer.update_movement(
+                            guard["id"], self.x_bottom, dt)
+                    return
+
+                if self._patrol_target_bottom is None:
+                    self._patrol_target_bottom = random.uniform(left_bound + 20, right_bound - 20)
+                    self._patrol_speed_bottom = random.uniform(110.0, 180.0)
+
+                diff = self._patrol_target_bottom - self.x_bottom
+                if abs(diff) < 3.0:
+                    self.x_bottom = self._patrol_target_bottom
+                    self._patrol_target_bottom = None
+                    self._patrol_wait_bottom = random.uniform(0.4, 1.5)
+                else:
+                    direction = 1 if diff > 0 else -1
+                    self._patrol_dir_bottom = direction
+                    self.x_bottom += direction * self._patrol_speed_bottom * dt
+                    self.x_bottom = max(left_bound, min(self.x_bottom, right_bound))
 
             # 이동 애니메이션 갱신
             guard = self.active_bottom
@@ -4413,6 +4457,9 @@ class GuardWarriorSystem:
 
         # 다음 쿨타임 설정
         cd_mult = self.guard_cd_mult_top if is_top else self.guard_cd_mult_bottom
+        # 수비모드: 하단 호위무사 스킬 쿨타임 +50%
+        if not is_top and self.stance_mode_bottom == "defense":
+            cd_mult *= self.DEFENSE_SKILL_CD_MULT
         if self._has_dual_skills(guard["id"]):
             # 듀얼 스킬: 사용한 스킬만 쿨타임 리셋
             self._reset_skill_cooldown(guard["id"], skill_idx, cd_mult)

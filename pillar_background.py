@@ -1990,6 +1990,106 @@ class PillarBackgroundRenderer:
 
         return slot_results
 
+    def draw_guard_stance_toggle(self, screen, stance_mode, game_scale=1.0):
+        """투기장 호위무사 공격/수비 모드 토글 버튼 (하단 필러 영역)
+
+        Args:
+            screen: REAL_SCREEN
+            stance_mode: "attack" or "defense"
+            game_scale: 게임 스케일 팩터
+        Returns:
+            pygame.Rect: 버튼 히트박스 (클릭 감지용), None if 그릴 수 없음
+        """
+        import math
+
+        _s = game_scale if game_scale > 0 else 1.0
+        btn_w = max(20, int(36 * _s))
+        btn_h = max(20, int(36 * _s))
+
+        # 위치: 하단 필러 영역, 스킬 슬롯 오른쪽
+        _bottom_pillar_y = self.game_offset_y + self.game_height
+        _bottom_pillar_h = self.screen_height - _bottom_pillar_y
+        if _bottom_pillar_h < btn_h + 4:
+            return None
+
+        btn_y = _bottom_pillar_y + max(2, (_bottom_pillar_h - btn_h) // 2)
+        # 게임 영역 오른쪽 끝 근처에 배치
+        game_area_right = self.game_offset_x + self.game_width
+        btn_x = game_area_right - btn_w - max(4, int(8 * _s))
+
+        is_defense = (stance_mode == "defense")
+
+        # 배경
+        bg_color = (30, 50, 90, 200) if is_defense else (80, 30, 30, 200)
+        bg_surf = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
+        bg_surf.fill(bg_color)
+        screen.blit(bg_surf, (btn_x, btn_y))
+
+        # 테두리
+        border_color = (80, 150, 255) if is_defense else (255, 100, 80)
+        pygame.draw.rect(screen, border_color,
+                         (btn_x, btn_y, btn_w, btn_h), 2, border_radius=4)
+
+        # 아이콘 그리기 (검 or 방패)
+        cx = btn_x + btn_w // 2
+        cy = btn_y + btn_h // 2
+        icon_s = max(4, int(10 * _s))
+
+        if is_defense:
+            # 방패 아이콘 (파란색)
+            shield_color = (100, 180, 255)
+            # 방패 외곽
+            pts = [
+                (cx, cy - icon_s),
+                (cx + icon_s, cy - icon_s // 2),
+                (cx + icon_s, cy + icon_s // 3),
+                (cx, cy + icon_s),
+                (cx - icon_s, cy + icon_s // 3),
+                (cx - icon_s, cy - icon_s // 2),
+            ]
+            pygame.draw.polygon(screen, shield_color, pts)
+            pygame.draw.polygon(screen, (200, 230, 255), pts, max(1, int(1 * _s)))
+            # 방패 중앙 십자
+            cross_s = max(2, icon_s // 3)
+            pygame.draw.line(screen, (200, 230, 255),
+                             (cx, cy - cross_s), (cx, cy + cross_s), max(1, int(1 * _s)))
+            pygame.draw.line(screen, (200, 230, 255),
+                             (cx - cross_s, cy), (cx + cross_s, cy), max(1, int(1 * _s)))
+        else:
+            # 검 아이콘 (빨간색)
+            sword_color = (255, 120, 100)
+            blade_len = icon_s
+            # 칼날 (위→아래 대각선)
+            pygame.draw.line(screen, sword_color,
+                             (cx - blade_len // 2, cy - blade_len),
+                             (cx + blade_len // 2, cy + blade_len // 2),
+                             max(2, int(2 * _s)))
+            # 가드 (가로선)
+            guard_w = max(3, icon_s - 1)
+            guard_y = cy
+            pygame.draw.line(screen, (255, 200, 150),
+                             (cx - guard_w, guard_y), (cx + guard_w, guard_y),
+                             max(1, int(2 * _s)))
+            # 손잡이
+            pygame.draw.line(screen, (200, 160, 100),
+                             (cx + blade_len // 2, cy + blade_len // 2),
+                             (cx + blade_len // 2 + 2, cy + blade_len // 2 + max(2, int(3 * _s))),
+                             max(2, int(2 * _s)))
+
+        # 모드 텍스트
+        try:
+            font_size = max(8, int(9 * _s))
+            font = self._get_font(font_size)
+            label = "수비" if is_defense else "공격"
+            text_color = (150, 200, 255) if is_defense else (255, 180, 150)
+            text_surf = font.render(label, True, text_color)
+            text_rect = text_surf.get_rect(centerx=cx, top=btn_y + btn_h + max(1, int(2 * _s)))
+            screen.blit(text_surf, text_rect)
+        except Exception:
+            pass
+
+        return pygame.Rect(btn_x, btn_y, btn_w, btn_h)
+
     def draw_right_pillar_ui(self, screen, player_score=0, boss_score=0,
                              boss_gauge=0, boss_gauge_max=500,
                              player_gauge=0, player_gauge_max=100,
