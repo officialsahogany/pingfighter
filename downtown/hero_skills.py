@@ -10910,7 +10910,7 @@ class BombSurprise(HeroSkill):
         self._sound_loaded = True
         try:
             project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            path1 = os.path.join(project_root, "sounds", "hellfire.wav")
+            path1 = os.path.join(project_root, "sounds", "boomstart.wav")
             if os.path.exists(path1):
                 self._attach_sound = pygame.mixer.Sound(path1)
                 self._attach_sound.set_volume(0.35)
