@@ -8076,6 +8076,9 @@ class DeadPossession(HeroSkill):
         chosen_cls = random.choice(all_skill_classes)
         self.possessed_skill = chosen_cls()
         self.possessed_skill.caster_is_top = getattr(self, 'caster_is_top', True)
+        # 빙의 스킬은 조건 무시하고 강제 발동 (예: 야생의 포효의 _ball_in_range)
+        if hasattr(self.possessed_skill, '_ball_in_range'):
+            self.possessed_skill._ball_in_range = True
         self.possession_name = self.possessed_skill.korean_name
         self.possession_flash = 1.5  # 1.5초 플래시 표시
 
