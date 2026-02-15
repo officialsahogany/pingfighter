@@ -7800,6 +7800,17 @@ class Charm(HeroSkill):
                 self.return_end_y = TOP_PADDLE_Y     # 하단이 빌려왔으니 상단으로 복귀
             self.return_end_x = self.return_start_x
 
+            # 매혹 해제 사운드 재생
+            try:
+                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                love_path = os.path.join(project_root, "sounds", "bencylove.wav")
+                if os.path.exists(love_path):
+                    love_snd = pygame.mixer.Sound(love_path)
+                    love_snd.set_volume(0.5)
+                    love_snd.play()
+            except Exception:
+                pass
+
             # GuardWarriorSystem에 '복귀 시작' 알림
             game_state['charm_phase_request'] = {
                 'caster_is_top': self.charm_source_is_top,
