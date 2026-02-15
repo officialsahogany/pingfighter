@@ -982,6 +982,7 @@ class TournamentState(Enum):
     TENACITY_RETRY = "tenacity_retry"          # 반칙왕 퍽 재시작 연출
     BATTLE_INTRO = "battle_intro"              # 배틀 시작 전 연출 (VS 불꽃 + 도발)
     HIGHLIGHT_REPLAY = "highlight_replay"      # 하이라이트 리플레이 재생
+    HERO_PREVIEW = "hero_preview"              # 전체 영웅 미리보기
 
 class TournamentRound(Enum):
     QUARTER_FINAL = "8강"
@@ -2399,6 +2400,11 @@ class GuardWarriorSystem:
         self._patrol_speed_top = 140.0      # 개별 속도 (랜덤 변동)
         self._patrol_speed_bottom = 140.0
 
+        # 호위무사 스탠스 모드 ("attack" or "defense")
+        self.stance_mode_bottom = "attack"  # 하단(플레이어) 호위무사 모드
+        self.DEFENSE_SPEED_MULT = 1.3       # 수비모드 이동속도 +30%
+        self.DEFENSE_SKILL_CD_MULT = 1.5    # 수비모드 스킬쿨타임 +50%
+
         # 매혹(Charm)된 호위무사 독립 추적
         self._charmed = None  # dict or None
 
@@ -2455,6 +2461,9 @@ class GuardWarriorSystem:
             self.patrol_mode_top = True
         if self.guard_warriors_bottom:
             self.patrol_mode_bottom = True
+
+        # 스탠스 초기화
+        self.stance_mode_bottom = "attack"
 
         # 2번째 호위무사 초기화 (2명 이상일 때)
         self._patrol2_top = None
@@ -5952,6 +5961,12 @@ class ColosseumsArena:
         self.card_attract_particles = []         # 비공개 카드 테두리 형형색색 파티클
         self.card_attract_timer = 0.0            # 파티클 스폰 타이머
 
+        # 영웅 미리보기 상태
+        self._hero_preview_return_state = TournamentState.BRACKET_VIEW
+        self._hero_preview_scroll_y = 0
+        self._hero_preview_hover_index = -1
+        self._hero_preview_close_btn_rect = None
+
         # ============ 초반 셋업 시스템 (감옥 + 비공개 대진표) ============
         self.match_revealed = [False, False, False, False]  # 4매치 공개 상태
         self.selected_match_index = -1           # 플레이어가 선택한 매치 인덱스
@@ -8374,7 +8389,22 @@ class ColosseumsArena:
                 self._end_highlight_replay()
                 return False
 
+            # TAB: 영웅 미리보기 토글 (대진표 화면에서)
+            if event.key == pygame.K_TAB:
+                if self.state == TournamentState.HERO_PREVIEW:
+                    self.state = self._hero_preview_return_state
+                    return False
+                elif self.state in (TournamentState.BRACKET_VIEW, TournamentState.SELECT_MATCH):
+                    self._hero_preview_return_state = self.state
+                    self._hero_preview_scroll_y = 0
+                    self._hero_preview_hover_index = -1
+                    self.state = TournamentState.HERO_PREVIEW
+                    return False
+
             if event.key == pygame.K_ESCAPE:
+                if self.state == TournamentState.HERO_PREVIEW:
+                    self.state = self._hero_preview_return_state
+                    return False
                 if self.state == TournamentState.BATTLE:
                     return False  # 배틀 중에는 나갈 수 없음
                 if self.state == TournamentState.PERK_SELECT:
@@ -8449,6 +8479,10 @@ class ColosseumsArena:
         elif event.type == pygame.MOUSEMOTION:
             self._update_hover(event.pos)
 
+        elif event.type == pygame.MOUSEWHEEL:
+            if self.state == TournamentState.HERO_PREVIEW:
+                self._hero_preview_scroll_y = max(0, getattr(self, '_hero_preview_scroll_y', 0) - event.y * 40)
+
         elif event.type == pygame.MOUSEBUTTONDOWN:
             if event.button == 1:  # 좌클릭
                 self._handle_click(event.pos)
@@ -8462,6 +8496,13 @@ class ColosseumsArena:
         # 하이라이트 리플레이 중 클릭 → 즉시 종료
         if self.state == TournamentState.HIGHLIGHT_REPLAY:
             self._end_highlight_replay()
+            return
+
+        # 영웅 미리보기 중 닫기 버튼 클릭
+        if self.state == TournamentState.HERO_PREVIEW:
+            close_btn = getattr(self, '_hero_preview_close_btn_rect', None)
+            if close_btn and close_btn.collidepoint(mx, my):
+                self.state = self._hero_preview_return_state
             return
 
         # 호위무사 생포 알림 중 클릭 (하이라이트 클립 있을 때만)
@@ -9511,7 +9552,9 @@ class ColosseumsArena:
 
     def draw(self):
         """메인 그리기"""
-        if self.state == TournamentState.VS_PREVIEW:
+        if self.state == TournamentState.HERO_PREVIEW:
+            self._draw_hero_preview()
+        elif self.state == TournamentState.VS_PREVIEW:
             self._draw_vs_preview()
         elif self.state == TournamentState.BATTLE_INTRO:
             self._draw_battle_intro()
@@ -11036,6 +11079,169 @@ class ColosseumsArena:
         if anim_phase in ("skill_rolling", "skill_selected"):
             self._draw_inline_skill_roulette()
 
+    def _draw_hero_preview(self):
+        """전체 영웅 미리보기 화면 (모든 영웅의 정면 모습을 그리드로 표시)"""
+        import math
+        self.screen.fill(ET["bg_dark"])
+        self._draw_papyrus_bg()
+
+        # 타이틀
+        self._draw_egyptian_title("영웅 도감", 15)
+
+        # 스크롤 오프셋
+        scroll_y = getattr(self, '_hero_preview_scroll_y', 0)
+
+        # 그리드 레이아웃: 5열
+        cols = 5
+        card_w, card_h = 130, 200
+        gap_x, gap_y = 10, 12
+        total_grid_w = cols * card_w + (cols - 1) * gap_x
+        start_x = (SCREEN_WIDTH - total_grid_w) // 2
+        start_y = 55
+
+        # 마우스 위치
+        mx, my = pygame.mouse.get_pos()
+
+        all_heroes = ARENA_HEROES
+        rows = (len(all_heroes) + cols - 1) // cols
+        total_content_h = rows * (card_h + gap_y) + start_y + 40
+        max_scroll = max(0, total_content_h - SCREEN_HEIGHT + 50)
+        self._hero_preview_scroll_y = min(scroll_y, max_scroll)
+        scroll_y = self._hero_preview_scroll_y
+
+        from downtown.hero_skills import HERO_SKILLS
+        style_names = {"aggressive": "공격형", "defensive": "수비형",
+                       "balanced": "균형형", "tricky": "트릭형"}
+        style_colors = {
+            "aggressive": (220, 80, 60),
+            "defensive": (60, 140, 220),
+            "balanced": (80, 200, 120),
+            "tricky": (200, 160, 60),
+        }
+
+        hover_idx = -1
+
+        for i, hero in enumerate(all_heroes):
+            col = i % cols
+            row = i // cols
+            cx = start_x + col * (card_w + gap_x)
+            cy = start_y + row * (card_h + gap_y) - int(scroll_y)
+
+            # 화면 밖이면 건너뜀
+            if cy + card_h < 0 or cy > SCREEN_HEIGHT:
+                continue
+
+            # 호버 체크
+            is_hovered = (cx <= mx <= cx + card_w and cy <= my <= cy + card_h)
+            if is_hovered:
+                hover_idx = i
+
+            # 포지션 구분 (상단/하단 영웅)
+            is_top = hero.get("position") == "top"
+
+            # 카드 배경
+            if is_hovered:
+                bg_color = ET["card_bg_hover"]
+                border_color = ET["gold_medium"]
+            else:
+                bg_color = ET["card_bg"]
+                border_color = ET["card_border"]
+            pygame.draw.rect(self.screen, bg_color, (cx, cy, card_w, card_h), border_radius=8)
+            pygame.draw.rect(self.screen, border_color, (cx, cy, card_w, card_h), 2, border_radius=8)
+
+            # 상단/하단 표시 태그
+            tag_color = (180, 60, 60) if is_top else (60, 120, 180)
+            tag_text = "적" if is_top else "아군"
+            tag_w, tag_h = 28, 14
+            pygame.draw.rect(self.screen, tag_color, (cx + card_w - tag_w - 4, cy + 4, tag_w, tag_h), border_radius=3)
+            if self.fonts and "small" in self.fonts:
+                tag_surf, _ = self.fonts["small"].render(tag_text, (255, 255, 255))
+                scaled_tag = pygame.transform.smoothscale(tag_surf, (min(tag_surf.get_width(), tag_w - 4), min(tag_surf.get_height(), tag_h - 2)))
+                self.screen.blit(scaled_tag, (cx + card_w - tag_w - 4 + (tag_w - scaled_tag.get_width()) // 2,
+                                              cy + 4 + (tag_h - scaled_tag.get_height()) // 2))
+
+            # 영웅 캐릭터 렌더링 (정면)
+            if self.hero_paddle_renderer:
+                hero_cx = cx + card_w // 2
+                hero_cy = cy + 58
+                h_w, h_h = 80, 56
+                self.hero_paddle_renderer.draw_hero_paddle(
+                    self.screen, hero["id"], hero_cx, hero_cy,
+                    h_w, h_h, facing="down", color=hero["color"], scale_mode="preview"
+                )
+
+            # 영웅 이름
+            if self.fonts and "medium" in self.fonts:
+                h_color = hero["color"]
+                brightness = sum(h_color) / 3
+                name_color = h_color if brightness > 80 else (
+                    min(255, h_color[0] + 100), min(255, h_color[1] + 100), min(255, h_color[2] + 100))
+                name_surf, _ = self.fonts["medium"].render(hero["name"], name_color)
+                self.screen.blit(name_surf, (cx + card_w // 2 - name_surf.get_width() // 2, cy + 95))
+
+            # 칭호
+            if self.fonts and "small" in self.fonts:
+                title_surf, _ = self.fonts["small"].render(hero.get("title", ""), ET["text_subtitle"])
+                self.screen.blit(title_surf, (cx + card_w // 2 - title_surf.get_width() // 2, cy + 115))
+
+            # 스타일 태그
+            style_val = hero["style"].value
+            style_text = style_names.get(style_val, "???")
+            s_color = style_colors.get(style_val, ET["text_hint"])
+            if self.fonts and "small" in self.fonts:
+                st_surf, _ = self.fonts["small"].render(f"[{style_text}]", s_color)
+                self.screen.blit(st_surf, (cx + card_w // 2 - st_surf.get_width() // 2, cy + 133))
+
+            # 스킬 목록 (최대 2개, 아이콘 + 이름)
+            hero_skills = HERO_SKILLS.get(hero["id"], [])
+            skill_y = cy + 152
+            for si, skill in enumerate(hero_skills[:2]):
+                icon = _get_hero_skill_icon(skill.skill_id, 16)
+                icon_x = cx + 6
+                if icon:
+                    scaled_icon = pygame.transform.smoothscale(icon, (16, 16))
+                    self.screen.blit(scaled_icon, (icon_x, skill_y))
+                else:
+                    pygame.draw.rect(self.screen, ET["bg_medium"], (icon_x, skill_y, 16, 16), border_radius=3)
+                if self.fonts and "small" in self.fonts:
+                    sk_label = skill.korean_name
+                    sk_surf, _ = self.fonts["small"].render(sk_label, ET["text_body"])
+                    # 텍스트가 카드 너비를 넘지 않도록 클리핑
+                    max_txt_w = card_w - 30
+                    if sk_surf.get_width() > max_txt_w:
+                        clip_surf = sk_surf.subsurface((0, 0, max_txt_w, sk_surf.get_height()))
+                        self.screen.blit(clip_surf, (icon_x + 20, skill_y + 1))
+                    else:
+                        self.screen.blit(sk_surf, (icon_x + 20, skill_y + 1))
+                skill_y += 20
+
+        self._hero_preview_hover_index = hover_idx
+
+        # 하단 닫기 안내
+        if self.fonts and "small" in self.fonts:
+            hint_surf, _ = self.fonts["small"].render("TAB 또는 ESC로 닫기", ET["text_subtitle"])
+            # 반투명 배경
+            hint_bg = _get_arena_surface(hint_surf.get_width() + 20, hint_surf.get_height() + 10)
+            hint_bg.fill((*ET["bg_dark"], 200))
+            self.screen.blit(hint_bg, (SCREEN_WIDTH // 2 - hint_bg.get_width() // 2, SCREEN_HEIGHT - 30))
+            self.screen.blit(hint_surf, (SCREEN_WIDTH // 2 - hint_surf.get_width() // 2, SCREEN_HEIGHT - 25))
+
+        # 닫기 버튼 (우상단)
+        close_size = 28
+        close_x = SCREEN_WIDTH - close_size - 10
+        close_y = 10
+        close_rect = pygame.Rect(close_x, close_y, close_size, close_size)
+        self._hero_preview_close_btn_rect = close_rect
+        close_hover = close_rect.collidepoint(mx, my)
+        close_bg = (180, 60, 50) if close_hover else (100, 50, 40)
+        pygame.draw.rect(self.screen, close_bg, close_rect, border_radius=5)
+        pygame.draw.rect(self.screen, ET["gold_medium"], close_rect, 1, border_radius=5)
+        # X 표시
+        pygame.draw.line(self.screen, (255, 255, 255),
+                         (close_x + 7, close_y + 7), (close_x + close_size - 7, close_y + close_size - 7), 2)
+        pygame.draw.line(self.screen, (255, 255, 255),
+                         (close_x + close_size - 7, close_y + 7), (close_x + 7, close_y + close_size - 7), 2)
+
     def _draw_inline_skill_roulette(self, base_y=432):
         """영웅/호위무사 선택 화면 하단 스킬 룰렛 UI (큰 아이콘 + 두루마리 펼침)
         base_y: 구분선 시작 Y좌표
@@ -12040,6 +12246,10 @@ class ColosseumsArena:
             hint = "관전할 경기를 클릭하세요"
             surf, _ = self.fonts["small"].render(hint, ET["text_subtitle"])
             self.screen.blit(surf, (SCREEN_WIDTH // 2 - surf.get_width() // 2, 700))
+            # TAB 영웅 도감 힌트
+            tab_hint = "[TAB] 영웅 도감"
+            tab_surf, _ = self.fonts["small"].render(tab_hint, ET["gold_pale"])
+            self.screen.blit(tab_surf, (SCREEN_WIDTH // 2 - tab_surf.get_width() // 2, 720))
 
     def _draw_betting_ui(self):
         """단순화된 배팅 UI - 영웅만 선택"""
