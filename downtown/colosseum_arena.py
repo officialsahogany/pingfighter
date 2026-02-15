@@ -15469,29 +15469,42 @@ class ColosseumsArena:
             btn_y = SCREEN_HEIGHT - btn_h - 20
             self.highlight_btn_rect = pygame.Rect(btn_x, btn_y, btn_w, btn_h)
 
-            # 버튼 배경 (그라데이션)
+            # 마우스 호버 감지
+            mouse_pos = pygame.mouse.get_pos()
+            is_hovered = self.highlight_btn_rect.collidepoint(mouse_pos)
+
+            # 버튼 배경 (그라데이션 - 호버 시 밝아짐)
             btn_surf = _get_arena_surface(btn_w, btn_h)
             for i in range(btn_h):
                 ratio = i / btn_h
-                r = int(80 * (1 - ratio) + 40 * ratio)
-                g = int(140 * (1 - ratio) + 80 * ratio)
-                b = int(220 * (1 - ratio) + 160 * ratio)
-                a = 200
+                if is_hovered:
+                    r = int(120 * (1 - ratio) + 70 * ratio)
+                    g = int(180 * (1 - ratio) + 120 * ratio)
+                    b = int(255 * (1 - ratio) + 200 * ratio)
+                    a = 230
+                else:
+                    r = int(80 * (1 - ratio) + 40 * ratio)
+                    g = int(140 * (1 - ratio) + 80 * ratio)
+                    b = int(220 * (1 - ratio) + 160 * ratio)
+                    a = 200
                 pygame.draw.line(btn_surf, (r, g, b, a), (0, i), (btn_w, i))
             self.screen.blit(btn_surf, (btn_x, btn_y))
 
-            # 버튼 테두리 (반짝이는 효과)
-            border_alpha = int(180 + abs(_sin(self.animation_timer * 4)) * 75)
-            border_color = (min(255, 150 + int(abs(_sin(self.animation_timer * 3)) * 105)),
-                           min(255, 200 + int(abs(_sin(self.animation_timer * 3)) * 55)),
-                           255)
-            pygame.draw.rect(self.screen, border_color, self.highlight_btn_rect, 2, border_radius=6)
+            # 버튼 테두리 (호버 시 두껍고 밝은 골드, 평상시 반짝이는 효과)
+            if is_hovered:
+                pygame.draw.rect(self.screen, (255, 230, 100), self.highlight_btn_rect, 3, border_radius=6)
+            else:
+                border_color = (min(255, 150 + int(abs(_sin(self.animation_timer * 3)) * 105)),
+                               min(255, 200 + int(abs(_sin(self.animation_timer * 3)) * 55)),
+                               255)
+                pygame.draw.rect(self.screen, border_color, self.highlight_btn_rect, 2, border_radius=6)
 
-            # 버튼 텍스트
+            # 버튼 텍스트 (호버 시 골드색)
             if self.fonts and "small" in self.fonts:
                 clip_count = len(self.highlight_recorder.get_clips())
                 btn_text = f"▶ 하이라이트 ({clip_count})"
-                btn_surf_text, _ = self.fonts["small"].render(btn_text, (255, 255, 255))
+                text_color = (255, 240, 140) if is_hovered else (255, 255, 255)
+                btn_surf_text, _ = self.fonts["small"].render(btn_text, text_color)
                 tx = btn_x + (btn_w - btn_surf_text.get_width()) // 2
                 ty = btn_y + (btn_h - btn_surf_text.get_height()) // 2
                 self.screen.blit(btn_surf_text, (tx, ty))
