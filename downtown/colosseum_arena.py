@@ -582,6 +582,7 @@ class TournamentState(Enum):
     PRISON_SELECT = "prison_select"            # 감옥 호위무사 선택
     GUARD_SKILL_REVEAL = "guard_skill_reveal"  # 호위무사 스킬 연출
     TENACITY_RETRY = "tenacity_retry"          # 반칙왕 퍽 재시작 연출
+    BATTLE_INTRO = "battle_intro"              # 배틀 시작 전 연출 (VS 불꽃 + 도발)
 
 class TournamentRound(Enum):
     QUARTER_FINAL = "8강"
@@ -6332,6 +6333,51 @@ class ColosseumsArena:
         self.vs_preview_show_buttons = show_buttons
         self.state = TournamentState.VS_PREVIEW
 
+    def _start_battle_intro(self):
+        """배틀 시작 전 연출 시작 (VS 불꽃 회전 + 캐릭터 모션 + 도발 멘트)"""
+        self.battle_intro_timer = 0.0
+        self.battle_intro_duration = 2.5  # 2.5초 연출
+        self.battle_intro_fade_start = 2.0  # 2초부터 페이드아웃 시작
+        # VS 회전/불꽃 파라미터
+        self.battle_intro_vs_angle = 0.0
+        self.battle_intro_fire_particles = []
+        # 캐릭터 스윙 모션
+        self.battle_intro_swing_phase = 0.0
+        # 도발 멘트 시스템
+        self.battle_intro_taunts = []
+        self.battle_intro_taunt_timer = 0.0
+        self.battle_intro_taunt_index = 0
+        self.battle_intro_current_taunt = None
+        self.battle_intro_taunt_alpha = 0
+        self.battle_intro_taunt_side = "left"  # 먼저 왼쪽(hero1)
+        # 도발 멘트 목록
+        _taunt_pool_left = [
+            "넌 쫄지마!",
+            "자신있어?",
+            "밟아주마!",
+            "덤벼봐!",
+            "각오해라!",
+            "끝장내주지!",
+        ]
+        _taunt_pool_right = [
+            "웃기는 소리!",
+            "두고 봐라!",
+            "한 수 배워라!",
+            "겁나긴 뭐가!",
+            "큰소리 치네!",
+            "나를 우습게 보나!",
+        ]
+        import random as _rnd
+        _rnd.shuffle(_taunt_pool_left)
+        _rnd.shuffle(_taunt_pool_right)
+        # 교대로 도발 (왼쪽 먼저, 0.5초 간격)
+        self.battle_intro_taunt_schedule = [
+            (0.3, "left", _taunt_pool_left[0]),
+            (0.9, "right", _taunt_pool_right[0]),
+            (1.4, "left", _taunt_pool_left[1] if len(_taunt_pool_left) > 1 else _taunt_pool_left[0]),
+        ]
+        self.state = TournamentState.BATTLE_INTRO
+
     def start_battle(self, match: Match):
         """배틀 시작 - 실제 게임 엔진 사용 (pingfighter.main 스테이지 30)"""
         print(f"[DEBUG 반칙왕] start_battle() 호출됨! match={match.hero1.get('name','?')} vs {match.hero2.get('name','?')}")
@@ -7511,6 +7557,74 @@ class ColosseumsArena:
                     self.start_battle(self.selected_match)
             # 버튼 있는 모드: 클릭 대기 (자동 시작 안함)
 
+        elif self.state == TournamentState.BATTLE_INTRO:
+            # 배틀 시작 전 연출 업데이트
+            self.battle_intro_timer += dt
+            t = self.battle_intro_timer
+
+            # VS 회전 속도 (점점 빨라짐)
+            spin_speed = 180 + t * 360  # 초당 회전도 (점점 가속)
+            self.battle_intro_vs_angle += spin_speed * dt
+
+            # 스윙 모션 업데이트
+            self.battle_intro_swing_phase += dt * 6  # 빠른 반복
+
+            # 불꽃 파티클 생성 (시간이 갈수록 많아짐)
+            import random as _rnd
+            fire_count = int(2 + t * 8)
+            cx, cy = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2
+            for _ in range(fire_count):
+                angle = _rnd.uniform(0, 6.283)
+                dist = _rnd.uniform(10, 30 + t * 25)
+                speed = _rnd.uniform(20, 60 + t * 30)
+                life = _rnd.uniform(0.3, 0.7)
+                size = _rnd.uniform(2, 5 + t * 2)
+                px = cx + dist * _cos(angle)
+                py = cy + dist * _sin(angle)
+                self.battle_intro_fire_particles.append({
+                    "x": px, "y": py,
+                    "vx": _cos(angle) * speed * 0.3,
+                    "vy": -speed * 0.5 - _rnd.uniform(10, 40),
+                    "life": life, "max_life": life,
+                    "size": size,
+                })
+
+            # 파티클 업데이트
+            for p in self.battle_intro_fire_particles:
+                p["x"] += p["vx"] * dt
+                p["y"] += p["vy"] * dt
+                p["life"] -= dt
+            self.battle_intro_fire_particles = [p for p in self.battle_intro_fire_particles if p["life"] > 0]
+
+            # 도발 멘트 스케줄 체크
+            schedule = getattr(self, 'battle_intro_taunt_schedule', [])
+            for taunt_time, side, text in schedule:
+                if t >= taunt_time and not any(
+                    tt.get("text") == text and tt.get("side") == side
+                    for tt in self.battle_intro_taunts
+                ):
+                    self.battle_intro_taunts.append({
+                        "text": text, "side": side,
+                        "timer": 0.0, "duration": 0.8,
+                        "alpha": 0,
+                    })
+            # 도발 멘트 업데이트
+            for taunt in self.battle_intro_taunts:
+                taunt["timer"] += dt
+                # 페이드인 0.15초 → 유지 → 페이드아웃 0.15초
+                if taunt["timer"] < 0.15:
+                    taunt["alpha"] = int(255 * (taunt["timer"] / 0.15))
+                elif taunt["timer"] > taunt["duration"] - 0.15:
+                    taunt["alpha"] = int(255 * max(0, (taunt["duration"] - taunt["timer"]) / 0.15))
+                else:
+                    taunt["alpha"] = 255
+            self.battle_intro_taunts = [t_data for t_data in self.battle_intro_taunts if t_data["timer"] < t_data["duration"]]
+
+            # 연출 종료 → 배틀 시작
+            if t >= self.battle_intro_duration:
+                if self.selected_match:
+                    self.start_battle(self.selected_match)
+
         elif self.state == TournamentState.BATTLE:
             self.update_battle(dt)
         elif self.state == TournamentState.RESULT:
@@ -8005,11 +8119,12 @@ class ColosseumsArena:
                 # 계속 도전 버튼
                 continue_rect = pygame.Rect(SCREEN_WIDTH // 2 - btn_w - 20, btn_y, btn_w, btn_h)
                 if continue_rect.collidepoint(mx, my):
-                    _load_button_click_sound()
-                    if _button_click_sound:
-                        _button_click_sound.play()
+                    # 효과음: selectswing (투기장 선택 효과음)
+                    _load_select_swing_sound()
+                    if _select_swing_sound:
+                        _select_swing_sound.play()
                     if self.selected_match:
-                        self.start_battle(self.selected_match)
+                        self._start_battle_intro()
                     return
 
                 # 상금 수령하고 나가기 버튼
@@ -8770,6 +8885,8 @@ class ColosseumsArena:
         """메인 그리기"""
         if self.state == TournamentState.VS_PREVIEW:
             self._draw_vs_preview()
+        elif self.state == TournamentState.BATTLE_INTRO:
+            self._draw_battle_intro()
         elif self.state == TournamentState.BATTLE:
             self._draw_battle()
         elif self.state == TournamentState.GUARD_NOTIFY:
@@ -8867,6 +8984,227 @@ class ColosseumsArena:
                 btn_text_x = exit_rect.centerx - surf.get_width() // 2
                 self._draw_coin_icon(btn_text_x - 12, exit_rect.y + 15 + surf.get_height() // 2, 12)
                 self.screen.blit(surf, (btn_text_x, exit_rect.y + 15))
+
+    def _draw_battle_intro(self):
+        """배틀 시작 전 연출 그리기 (VS 불꽃 회전 + 캐릭터 스윙 + 도발 + 페이드아웃)"""
+        # 배경
+        self.screen.fill(ET["bg_dark"])
+        self._draw_papyrus_bg()
+
+        if not self.selected_match:
+            return
+
+        hero1 = self.selected_match.hero1
+        hero2 = self.selected_match.hero2
+        t = getattr(self, 'battle_intro_timer', 0.0)
+        swing = getattr(self, 'battle_intro_swing_phase', 0.0)
+
+        # 라운드 이름 (상단)
+        round_names = {
+            TournamentRound.QUARTER_FINAL: "8강전",
+            TournamentRound.SEMI_FINAL: "4강전",
+            TournamentRound.FINAL: "결승전",
+        }
+        round_name = round_names.get(self.current_round, "다음 경기")
+        if self.fonts and "large" in self.fonts:
+            pulse = abs(_sin(self.animation_timer * 3)) * 0.3 + 0.7
+            gold_color = (int(ET["gold_bright"][0] * pulse), int(ET["gold_bright"][1] * pulse), int(ET["gold_bright"][2] * pulse))
+            surf, _ = self.fonts["large"].render(round_name, gold_color)
+            title_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
+            self.screen.blit(surf, (title_x, 80))
+            icon_y = 80 + surf.get_height() // 2
+            self._draw_sword_icon(title_x - 16, icon_y, 14, gold_color)
+            self._draw_sword_icon(title_x + surf.get_width() + 16, icon_y, 14, gold_color)
+
+        # === 영웅 1 (왼쪽) - 스윙 모션 ===
+        hero1_x = SCREEN_WIDTH // 2 - 150
+        hero1_y = SCREEN_HEIGHT // 2
+        # 공을 때리는 전후 움직임 (앞으로 찌르기)
+        swing_offset_x1 = int(_sin(swing) * 12)
+        swing_offset_y1 = int(abs(_sin(swing)) * -5)
+        h1_draw_x = hero1_x + swing_offset_x1
+        h1_draw_y = hero1_y + swing_offset_y1
+
+        # 글로우 효과 (점점 밝아짐)
+        glow_intensity = min(1.0, t / 1.5)
+        glow_alpha = int((80 + abs(_sin(self.animation_timer * 4)) * 50) * glow_intensity)
+        glow_surf = _get_arena_surface(160, 160)
+        pygame.draw.circle(glow_surf, (*hero1["color"], min(255, glow_alpha + int(t * 40))), (80, 80), 70)
+        self.screen.blit(glow_surf, (h1_draw_x - 80, h1_draw_y - 80))
+
+        # 캐릭터
+        if self.hero_paddle_renderer:
+            self.hero_paddle_renderer.draw_hero_paddle(
+                self.screen, hero1.get("id", "mugen"), h1_draw_x, h1_draw_y, 100, 70,
+                facing="down", color=hero1["color"], scale_mode="preview"
+            )
+
+        # 이름 + 칭호
+        if self.fonts and "medium" in self.fonts:
+            h1_color = hero1["color"]
+            h1_brightness = sum(h1_color) / 3
+            h1_name_color = h1_color if h1_brightness > 80 else (min(255, h1_color[0] + 100), min(255, h1_color[1] + 100), min(255, h1_color[2] + 100))
+            surf, _ = self.fonts["medium"].render(hero1["name"], h1_name_color)
+            self.screen.blit(surf, (h1_draw_x - surf.get_width() // 2, h1_draw_y - 70))
+            title_text = f"\u300c{hero1['title']}\u300d"
+            shadow_surf, _ = self.fonts["medium"].render(title_text, ET["gold_dark"])
+            self.screen.blit(shadow_surf, (h1_draw_x - shadow_surf.get_width() // 2 + 1, h1_draw_y + 46))
+            surf, _ = self.fonts["medium"].render(title_text, ET["gold_pale"])
+            self.screen.blit(surf, (h1_draw_x - surf.get_width() // 2, h1_draw_y + 45))
+
+        # 호위무사 (영웅1)
+        h1_guards = self.guard_warrior_map.get(hero1.get("id"), [])
+        if h1_guards and self.hero_paddle_renderer:
+            g = h1_guards[0]
+            guard_y = h1_draw_y + 90
+            self.hero_paddle_renderer.draw_hero_paddle(
+                self.screen, g.get("id", "mugen"), h1_draw_x, guard_y, 56, 40,
+                facing="down", color=g.get("color", (150, 150, 150)), scale_mode="preview"
+            )
+            if self.fonts and "small" in self.fonts:
+                g_name = g.get("name", "")
+                ns, _ = self.fonts["small"].render(g_name, ET["text_body"])
+                self.screen.blit(ns, (h1_draw_x - ns.get_width() // 2, guard_y + 28))
+
+        # === 영웅 2 (오른쪽) - 스윙 모션 (반대 위상) ===
+        hero2_x = SCREEN_WIDTH // 2 + 150
+        hero2_y = SCREEN_HEIGHT // 2
+        swing_offset_x2 = int(_sin(swing + 3.14) * 12)
+        swing_offset_y2 = int(abs(_sin(swing + 3.14)) * -5)
+        h2_draw_x = hero2_x + swing_offset_x2
+        h2_draw_y = hero2_y + swing_offset_y2
+
+        # 글로우
+        glow_surf = _get_arena_surface(160, 160)
+        pygame.draw.circle(glow_surf, (*hero2["color"], min(255, glow_alpha + int(t * 40))), (80, 80), 70)
+        self.screen.blit(glow_surf, (h2_draw_x - 80, h2_draw_y - 80))
+
+        # 캐릭터
+        if self.hero_paddle_renderer:
+            self.hero_paddle_renderer.draw_hero_paddle(
+                self.screen, hero2.get("id", "chronos"), h2_draw_x, h2_draw_y, 100, 70,
+                facing="down", color=hero2["color"], scale_mode="preview"
+            )
+
+        # 이름 + 칭호
+        if self.fonts and "medium" in self.fonts:
+            h2_color = hero2["color"]
+            h2_brightness = sum(h2_color) / 3
+            h2_name_color = h2_color if h2_brightness > 80 else (min(255, h2_color[0] + 100), min(255, h2_color[1] + 100), min(255, h2_color[2] + 100))
+            surf, _ = self.fonts["medium"].render(hero2["name"], h2_name_color)
+            self.screen.blit(surf, (h2_draw_x - surf.get_width() // 2, h2_draw_y - 70))
+            title_text = f"\u300c{hero2['title']}\u300d"
+            shadow_surf, _ = self.fonts["medium"].render(title_text, ET["gold_dark"])
+            self.screen.blit(shadow_surf, (h2_draw_x - shadow_surf.get_width() // 2 + 1, h2_draw_y + 46))
+            surf, _ = self.fonts["medium"].render(title_text, ET["gold_pale"])
+            self.screen.blit(surf, (h2_draw_x - surf.get_width() // 2, h2_draw_y + 45))
+
+        # 호위무사 (영웅2)
+        h2_guards = self.guard_warrior_map.get(hero2.get("id"), [])
+        if h2_guards and self.hero_paddle_renderer:
+            g = h2_guards[0]
+            guard_y = h2_draw_y + 90
+            self.hero_paddle_renderer.draw_hero_paddle(
+                self.screen, g.get("id", "mugen"), h2_draw_x, guard_y, 56, 40,
+                facing="down", color=g.get("color", (150, 150, 150)), scale_mode="preview"
+            )
+            if self.fonts and "small" in self.fonts:
+                g_name = g.get("name", "")
+                ns, _ = self.fonts["small"].render(g_name, ET["text_body"])
+                self.screen.blit(ns, (h2_draw_x - ns.get_width() // 2, guard_y + 28))
+
+        # === VS 불꽃 회전 ===
+        cx, cy = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2
+        vs_angle = getattr(self, 'battle_intro_vs_angle', 0.0)
+
+        # 불꽃 파티클 그리기 (VS 뒤)
+        for p in getattr(self, 'battle_intro_fire_particles', []):
+            life_ratio = p["life"] / p["max_life"]
+            # 색상: 노랑 → 주황 → 빨강 (수명에 따라)
+            r = 255
+            g_val = int(255 * life_ratio * 0.8)
+            b_val = int(80 * life_ratio * 0.3)
+            alpha = int(220 * life_ratio)
+            size = max(1, int(p["size"] * life_ratio))
+            fire_surf = _get_arena_surface(size * 2 + 2, size * 2 + 2)
+            pygame.draw.circle(fire_surf, (r, g_val, b_val, alpha), (size + 1, size + 1), size)
+            self.screen.blit(fire_surf, (int(p["x"]) - size - 1, int(p["y"]) - size - 1))
+
+        # VS 텍스트 (회전 + 크기 변동)
+        fire_progress = min(1.0, t / 1.5)
+        if self.fonts and "large" in self.fonts:
+            vs_r = 255
+            vs_g = int(200 - fire_progress * 150 + abs(_sin(self.animation_timer * 8)) * 50)
+            vs_b = int(100 - fire_progress * 80)
+            vs_color = (vs_r, min(255, max(0, vs_g)), min(255, max(0, vs_b)))
+
+            vs_surf, _ = self.fonts["large"].render("VS", vs_color)
+            # 크기 펄스 (두근두근)
+            scale_pulse = 1.0 + _sin(t * 8) * 0.08 + fire_progress * 0.15
+            scaled_w = int(vs_surf.get_width() * scale_pulse)
+            scaled_h = int(vs_surf.get_height() * scale_pulse)
+            if scaled_w > 0 and scaled_h > 0:
+                scaled_vs = pygame.transform.scale(vs_surf, (scaled_w, scaled_h))
+                # 회전
+                rotated_vs = pygame.transform.rotate(scaled_vs, vs_angle % 360)
+                rot_rect = rotated_vs.get_rect(center=(cx, cy))
+                self.screen.blit(rotated_vs, rot_rect.topleft)
+
+        # 불꽃 글로우 (VS 주변)
+        glow_size = int(40 + fire_progress * 60)
+        glow_alpha_val = int(40 + fire_progress * 80)
+        glow_surf = _get_arena_surface(glow_size * 2, glow_size * 2)
+        pygame.draw.circle(glow_surf, (255, 120, 30, glow_alpha_val), (glow_size, glow_size), glow_size)
+        self.screen.blit(glow_surf, (cx - glow_size, cy - glow_size))
+
+        # === 도발 멘트 말풍선 ===
+        for taunt in getattr(self, 'battle_intro_taunts', []):
+            if taunt["alpha"] <= 0:
+                continue
+            taunt_text = taunt["text"]
+            taunt_side = taunt["side"]
+            taunt_alpha = taunt["alpha"]
+
+            if taunt_side == "left":
+                bubble_x = hero1_x + 50
+                bubble_y = hero1_y - 100
+            else:
+                bubble_x = hero2_x - 50
+                bubble_y = hero2_y - 100
+
+            if self.fonts and "medium" in self.fonts:
+                txt_surf, _ = self.fonts["medium"].render(taunt_text, (255, 255, 255))
+                tw, th = txt_surf.get_width(), txt_surf.get_height()
+                pad = 8
+                # 말풍선 배경
+                bubble_w = tw + pad * 2
+                bubble_h = th + pad * 2
+                bx = bubble_x - bubble_w // 2
+                by = bubble_y - bubble_h // 2
+                bubble_surf = _get_arena_surface(bubble_w + 4, bubble_h + 4)
+                # 배경 (반투명 검정)
+                pygame.draw.rect(bubble_surf, (30, 20, 10, int(taunt_alpha * 0.7)),
+                                 (0, 0, bubble_w + 4, bubble_h + 4), border_radius=6)
+                # 테두리
+                border_color = hero1["color"] if taunt_side == "left" else hero2["color"]
+                pygame.draw.rect(bubble_surf, (*border_color, taunt_alpha),
+                                 (0, 0, bubble_w + 4, bubble_h + 4), width=2, border_radius=6)
+                self.screen.blit(bubble_surf, (bx - 2, by - 2))
+                # 텍스트
+                txt_alpha_surf = _get_arena_surface(tw, th)
+                txt_alpha_surf.blit(txt_surf, (0, 0))
+                txt_alpha_surf.set_alpha(taunt_alpha)
+                self.screen.blit(txt_alpha_surf, (bx + pad, by + pad))
+
+        # === 페이드아웃 (2초부터 시작) ===
+        fade_start = getattr(self, 'battle_intro_fade_start', 2.0)
+        duration = getattr(self, 'battle_intro_duration', 2.5)
+        if t >= fade_start:
+            fade_progress = min(1.0, (t - fade_start) / (duration - fade_start))
+            fade_alpha = int(255 * fade_progress)
+            fade_surf = _get_arena_surface(SCREEN_WIDTH, SCREEN_HEIGHT)
+            fade_surf.fill((0, 0, 0, fade_alpha))
+            self.screen.blit(fade_surf, (0, 0))
 
     def _draw_battle(self):
         """배틀 화면 그리기"""
