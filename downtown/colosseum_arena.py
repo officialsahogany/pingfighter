@@ -4925,8 +4925,17 @@ class GuardWarriorSystem:
                 if mouse_pos:
                     _fr = pygame.Rect(frame_x_right, slot_cy, frame_w, frame_h)
                     if _fr.collidepoint(mouse_pos):
-                        # 선택된 스킬 정보 포함
+                        # 선택된 스킬 정보 포함 (다음 발동 스킬 1개만 표시)
                         _guard_skills = self.skill_instances.get(guard["id"], [])
+                        _next_skill = None
+                        if _guard_skills:
+                            _skill_cds = self.guard_skill_cooldowns.get(guard["id"], [])
+                            if len(_skill_cds) > 1 and len(_guard_skills) > 1:
+                                _min_idx = min(range(min(len(_skill_cds), len(_guard_skills))),
+                                               key=lambda _i: _skill_cds[_i])
+                                _next_skill = _guard_skills[_min_idx]
+                            else:
+                                _next_skill = _guard_skills[0]
                         # 순찰/순찰입장 중에도 쿨타임 표시
                         _cd_val = self.cooldown_top if self.phase_top in (None, "patrolling", "patrol_entering") else 0
                         hover_info = {
@@ -4938,8 +4947,8 @@ class GuardWarriorSystem:
                             "side": "top",
                             "screen_x": frame_x_right + frame_w + 8,
                             "screen_y": slot_cy,
-                            "skill": _guard_skills[0] if _guard_skills else None,
-                            "skills": list(_guard_skills),  # 모든 스킬 목록
+                            "skill": _next_skill,
+                            "skills": [_next_skill] if _next_skill else [],
                         }
 
         # --- 하단 영웅의 호위무사 → 왼쪽 필러, 인게임창 하단 끝에 붙임 ---
@@ -5016,8 +5025,17 @@ class GuardWarriorSystem:
                 if mouse_pos:
                     _fr = pygame.Rect(frame_x_left, slot_cy, frame_w, frame_h)
                     if _fr.collidepoint(mouse_pos):
-                        # 선택된 스킬 정보 포함
+                        # 선택된 스킬 정보 포함 (다음 발동 스킬 1개만 표시)
                         _guard_skills = self.skill_instances.get(guard["id"], [])
+                        _next_skill = None
+                        if _guard_skills:
+                            _skill_cds = self.guard_skill_cooldowns.get(guard["id"], [])
+                            if len(_skill_cds) > 1 and len(_guard_skills) > 1:
+                                _min_idx = min(range(min(len(_skill_cds), len(_guard_skills))),
+                                               key=lambda _i: _skill_cds[_i])
+                                _next_skill = _guard_skills[_min_idx]
+                            else:
+                                _next_skill = _guard_skills[0]
                         # 순찰/순찰입장 중에도 쿨타임 표시
                         _cd_val = self.cooldown_bottom if self.phase_bottom in (None, "patrolling", "patrol_entering") else 0
                         hover_info = {
@@ -5029,8 +5047,8 @@ class GuardWarriorSystem:
                             "side": "bottom",
                             "screen_x": frame_x_left - 8,
                             "screen_y": slot_cy,
-                            "skill": _guard_skills[0] if _guard_skills else None,
-                            "skills": list(_guard_skills),  # 모든 스킬 목록
+                            "skill": _next_skill,
+                            "skills": [_next_skill] if _next_skill else [],
                         }
 
         return hover_info
