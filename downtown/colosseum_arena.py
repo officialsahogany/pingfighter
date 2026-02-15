@@ -11127,8 +11127,7 @@ class ColosseumsArena:
             self._draw_inline_skill_roulette()
 
     def _draw_hero_preview(self):
-        """전체 영웅 미리보기 화면 (모든 영웅의 정면 모습을 그리드로 표시)"""
-        import math
+        """전체 영웅 미리보기 화면 (캐릭터 아이콘 + 이름만 크게 표시)"""
         self.screen.fill(ET["bg_dark"])
         self._draw_papyrus_bg()
 
@@ -11138,10 +11137,10 @@ class ColosseumsArena:
         # 스크롤 오프셋
         scroll_y = getattr(self, '_hero_preview_scroll_y', 0)
 
-        # 그리드 레이아웃: 5열
+        # 그리드 레이아웃: 5열, 캐릭터 크게
         cols = 5
-        card_w, card_h = 130, 200
-        gap_x, gap_y = 10, 12
+        card_w, card_h = 138, 175
+        gap_x, gap_y = 8, 10
         total_grid_w = cols * card_w + (cols - 1) * gap_x
         start_x = (SCREEN_WIDTH - total_grid_w) // 2
         start_y = 55
@@ -11155,16 +11154,6 @@ class ColosseumsArena:
         max_scroll = max(0, total_content_h - SCREEN_HEIGHT + 50)
         self._hero_preview_scroll_y = min(scroll_y, max_scroll)
         scroll_y = self._hero_preview_scroll_y
-
-        from downtown.hero_skills import HERO_SKILLS
-        style_names = {"aggressive": "공격형", "defensive": "수비형",
-                       "balanced": "균형형", "tricky": "트릭형"}
-        style_colors = {
-            "aggressive": (220, 80, 60),
-            "defensive": (60, 140, 220),
-            "balanced": (80, 200, 120),
-            "tricky": (200, 160, 60),
-        }
 
         hover_idx = -1
 
@@ -11183,9 +11172,6 @@ class ColosseumsArena:
             if is_hovered:
                 hover_idx = i
 
-            # 포지션 구분 (상단/하단 영웅)
-            is_top = hero.get("position") == "top"
-
             # 카드 배경
             if is_hovered:
                 bg_color = ET["card_bg_hover"]
@@ -11196,22 +11182,11 @@ class ColosseumsArena:
             pygame.draw.rect(self.screen, bg_color, (cx, cy, card_w, card_h), border_radius=8)
             pygame.draw.rect(self.screen, border_color, (cx, cy, card_w, card_h), 2, border_radius=8)
 
-            # 상단/하단 표시 태그
-            tag_color = (180, 60, 60) if is_top else (60, 120, 180)
-            tag_text = "적" if is_top else "아군"
-            tag_w, tag_h = 28, 14
-            pygame.draw.rect(self.screen, tag_color, (cx + card_w - tag_w - 4, cy + 4, tag_w, tag_h), border_radius=3)
-            if self.fonts and "small" in self.fonts:
-                tag_surf, _ = self.fonts["small"].render(tag_text, (255, 255, 255))
-                scaled_tag = pygame.transform.smoothscale(tag_surf, (min(tag_surf.get_width(), tag_w - 4), min(tag_surf.get_height(), tag_h - 2)))
-                self.screen.blit(scaled_tag, (cx + card_w - tag_w - 4 + (tag_w - scaled_tag.get_width()) // 2,
-                                              cy + 4 + (tag_h - scaled_tag.get_height()) // 2))
-
-            # 영웅 캐릭터 렌더링 (정면)
+            # 영웅 캐릭터 렌더링 (정면, 2배 크기)
             if self.hero_paddle_renderer:
                 hero_cx = cx + card_w // 2
-                hero_cy = cy + 58
-                h_w, h_h = 80, 56
+                hero_cy = cy + 68
+                h_w, h_h = 160, 112
                 self.hero_paddle_renderer.draw_hero_paddle(
                     self.screen, hero["id"], hero_cx, hero_cy,
                     h_w, h_h, facing="down", color=hero["color"], scale_mode="preview"
@@ -11224,50 +11199,13 @@ class ColosseumsArena:
                 name_color = h_color if brightness > 80 else (
                     min(255, h_color[0] + 100), min(255, h_color[1] + 100), min(255, h_color[2] + 100))
                 name_surf, _ = self.fonts["medium"].render(hero["name"], name_color)
-                self.screen.blit(name_surf, (cx + card_w // 2 - name_surf.get_width() // 2, cy + 95))
-
-            # 칭호
-            if self.fonts and "small" in self.fonts:
-                title_surf, _ = self.fonts["small"].render(hero.get("title", ""), ET["text_subtitle"])
-                self.screen.blit(title_surf, (cx + card_w // 2 - title_surf.get_width() // 2, cy + 115))
-
-            # 스타일 태그
-            style_val = hero["style"].value
-            style_text = style_names.get(style_val, "???")
-            s_color = style_colors.get(style_val, ET["text_hint"])
-            if self.fonts and "small" in self.fonts:
-                st_surf, _ = self.fonts["small"].render(f"[{style_text}]", s_color)
-                self.screen.blit(st_surf, (cx + card_w // 2 - st_surf.get_width() // 2, cy + 133))
-
-            # 스킬 목록 (최대 2개, 아이콘 + 이름)
-            hero_skills = HERO_SKILLS.get(hero["id"], [])
-            skill_y = cy + 152
-            for si, skill in enumerate(hero_skills[:2]):
-                icon = _get_hero_skill_icon(skill.skill_id, 16)
-                icon_x = cx + 6
-                if icon:
-                    scaled_icon = pygame.transform.smoothscale(icon, (16, 16))
-                    self.screen.blit(scaled_icon, (icon_x, skill_y))
-                else:
-                    pygame.draw.rect(self.screen, ET["bg_medium"], (icon_x, skill_y, 16, 16), border_radius=3)
-                if self.fonts and "small" in self.fonts:
-                    sk_label = skill.korean_name
-                    sk_surf, _ = self.fonts["small"].render(sk_label, ET["text_body"])
-                    # 텍스트가 카드 너비를 넘지 않도록 클리핑
-                    max_txt_w = card_w - 30
-                    if sk_surf.get_width() > max_txt_w:
-                        clip_surf = sk_surf.subsurface((0, 0, max_txt_w, sk_surf.get_height()))
-                        self.screen.blit(clip_surf, (icon_x + 20, skill_y + 1))
-                    else:
-                        self.screen.blit(sk_surf, (icon_x + 20, skill_y + 1))
-                skill_y += 20
+                self.screen.blit(name_surf, (cx + card_w // 2 - name_surf.get_width() // 2, cy + card_h - 30))
 
         self._hero_preview_hover_index = hover_idx
 
         # 하단 닫기 안내
         if self.fonts and "small" in self.fonts:
             hint_surf, _ = self.fonts["small"].render("TAB 또는 ESC로 닫기", ET["text_subtitle"])
-            # 반투명 배경
             hint_bg = _get_arena_surface(hint_surf.get_width() + 20, hint_surf.get_height() + 10)
             hint_bg.fill((*ET["bg_dark"], 200))
             self.screen.blit(hint_bg, (SCREEN_WIDTH // 2 - hint_bg.get_width() // 2, SCREEN_HEIGHT - 30))
