@@ -5372,6 +5372,10 @@ class ColosseumsArena:
         self._queue_positions = {}       # {entry_key: current_y} - 스무스 리오더링 애니메이션
         self._portrait_renderer = None   # HeroPortraitRenderer 인스턴스 (지연 초기화)
         self._use_queue_ui = True        # 새 쿨타임 큐 UI 사용 플래그
+        # 쿨타임 큐 Surface 캐시 (매 프레임 Surface 생성 방지)
+        self._cd_card_surf = None        # 재사용 카드 Surface
+        self._cd_overlay_surf = None     # 재사용 오버레이 Surface (glow/dark용)
+        self._cd_card_size = (0, 0)      # 현재 캐시된 카드 크기
 
         # 마우스 호버 상태
         self.hover_perk_index = -1               # 퍽 카드 호버 인덱스 (-1 = 없음)
@@ -9281,7 +9285,13 @@ class ColosseumsArena:
         dt = 1.0 / 60.0
         ticks = pygame.time.get_ticks()
 
-        # === 4. 각 카드 그리기 ===
+        # === 4. 각 카드 그리기 (Surface 재사용 최적화) ===
+        # 카드 크기 변경 시에만 Surface 재생성
+        if self._cd_card_size != (card_w, card_h):
+            self._cd_card_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+            self._cd_overlay_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+            self._cd_card_size = (card_w, card_h)
+
         hover_result = None
         for idx, entry in enumerate(entries):
             target_y = start_y + idx * (card_h + card_gap)
@@ -9302,9 +9312,8 @@ class ColosseumsArena:
             is_ready = cd_rem <= 0 and not is_active
             side = entry["side"]
 
-            # --- 카드 = 얼굴 초상화 전체 ---
-            card_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
-            # 불투명 배경 (초상화가 반투명이라 필러 배경이 비치는 것 방지)
+            # --- 카드 = 얼굴 초상화 전체 (캐시된 Surface 재사용) ---
+            card_surf = self._cd_card_surf
             card_surf.fill((15, 12, 20, 255))
 
             # 얼굴 초상화 (카드 전체를 채움)
@@ -9314,22 +9323,20 @@ class ColosseumsArena:
             except Exception:
                 pygame.draw.rect(card_surf, hero_color, (0, 0, card_w, card_h), border_radius=2)
 
-            # --- 쿨타임 명암 오버레이 (얼굴 위에 직접 표시) ---
+            # --- 쿨타임 명암 오버레이 (캐시된 오버레이 Surface 재사용) ---
             if is_active:
                 # 스킬 발동 중: 밝은 황금빛 오버레이 + 펄스
                 pulse = 0.5 + 0.5 * _sin(ticks / 150.0)
-                glow_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
-                glow_surf.fill((255, 200, 60, int(50 * pulse)))
-                card_surf.blit(glow_surf, (0, 0))
+                self._cd_overlay_surf.fill((255, 200, 60, int(50 * pulse)))
+                card_surf.blit(self._cd_overlay_surf, (0, 0))
             elif not is_ready and cd_max > 0:
                 # 쿨타임 중: 왼→오른쪽으로 밝아지는 가로 명암
                 cd_ratio = 1.0 - min(1.0, cd_rem / cd_max)  # 0=쿨타임 시작, 1=준비 완료
                 # 어두운 오버레이가 오른쪽에서 왼쪽으로 걷힘
                 dark_w = max(0, int(card_w * (1.0 - cd_ratio)))
                 if dark_w > 0:
-                    dark_surf = pygame.Surface((dark_w, card_h), pygame.SRCALPHA)
-                    dark_surf.fill((0, 0, 0, 140))
-                    card_surf.blit(dark_surf, (card_w - dark_w, 0))
+                    self._cd_overlay_surf.fill((0, 0, 0, 140))
+                    card_surf.blit(self._cd_overlay_surf, (card_w - dark_w, 0), (0, 0, dark_w, card_h))
 
             # --- 테두리 ---
             if is_active:
