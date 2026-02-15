@@ -123248,6 +123248,12 @@ def handle_ball():
             if current_stage == 30 and pillar_renderer is not None:
                 _arena_crowd_on_score(pillar_renderer, "bottom", round_wins, round_losses)
 
+            # 투기장 하이라이트 저장 - 배팅 영웅(하단) 득점 시
+            if current_stage == 30 and arena_battle_arena_obj is not None:
+                _hl_rec = getattr(arena_battle_arena_obj, 'highlight_recorder', None)
+                if _hl_rec:
+                    _hl_rec.save_highlight()
+
             # 🔥 상대 반칙왕 발동 시: 반칙호루라기와 동일한 연출
             if tenacity_top_triggered:
                 game_state.round_wins = round_wins
@@ -138972,6 +138978,12 @@ def main(stage_num, new_boss_mode=False):
 
         if genie_assistant.is_active():
             genie_assistant.draw(SCREEN)
+
+        # 투기장 하이라이트 녹화 (스테이지 30: 화면 렌더링 완료 후 캡처)
+        if current_stage == 30 and arena_battle_arena_obj is not None:
+            _hl_rec = getattr(arena_battle_arena_obj, 'highlight_recorder', None)
+            if _hl_rec and _hl_rec.recording:
+                _hl_rec.capture_frame(SCREEN)
 
         pygame.display.flip()
         # 프로파일러 프레임 종료
