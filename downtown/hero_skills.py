@@ -10892,6 +10892,9 @@ class BombSurprise(HeroSkill):
         self._tick_sound = None
         self._tick_sound2 = None
         self._tick_toggle = False  # False=ticking1, True=ticking2
+        self._tick_sound3 = None       # 폭발 0.5초 전 긴박감 사운드
+        self._ticking3_channel = None  # ticking3 재생 채널 (폭발 시 정지용)
+        self._ticking3_playing = False
         self._explode_sound = None
         # 넉백/스턴 상태
         self._knockback_target = None   # 'top' or 'bottom'
@@ -10918,6 +10921,10 @@ class BombSurprise(HeroSkill):
             if os.path.exists(path2b):
                 self._tick_sound2 = pygame.mixer.Sound(path2b)
                 self._tick_sound2.set_volume(0.15)
+            path2c = os.path.join(project_root, "sounds", "ticking3.wav")
+            if os.path.exists(path2c):
+                self._tick_sound3 = pygame.mixer.Sound(path2c)
+                self._tick_sound3.set_volume(0.45)
             path3 = os.path.join(project_root, "sounds", "grenade.wav")
             if os.path.exists(path3):
                 self._explode_sound = pygame.mixer.Sound(path3)
@@ -10934,6 +10941,8 @@ class BombSurprise(HeroSkill):
         self.explosion_effects = []
         self._tick_sound_cd = 0.0
         self._tick_toggle = False
+        self._ticking3_playing = False
+        self._ticking3_channel = None
         self._knockback_target = None
         self._stun_applied = False
         self._stun_timer = 0.0
@@ -11030,6 +11039,15 @@ class BombSurprise(HeroSkill):
                     pass
             self._tick_toggle = not self._tick_toggle
 
+        # 폭발 0.5초 전 긴박감 사운드
+        remaining = self.bomb_max_time - self.bomb_timer
+        if remaining <= 0.5 and not self._ticking3_playing and self._tick_sound3:
+            try:
+                self._ticking3_channel = self._tick_sound3.play()
+                self._ticking3_playing = True
+            except Exception:
+                pass
+
         # 폭발!
         if self.bomb_timer >= self.bomb_max_time:
             self._explode(caster_paddle, target_paddle, ball, game_state)
@@ -11047,6 +11065,15 @@ class BombSurprise(HeroSkill):
         """폭발 처리 (다이너마이트급 범위/넉백/화면흔들림, 자폭 시 약화)"""
         self.bomb_active = False
         game_state['bomb_surprise_active'] = False
+
+        # ticking3 사운드 즉시 정지
+        if self._ticking3_channel:
+            try:
+                self._ticking3_channel.stop()
+            except Exception:
+                pass
+        self._ticking3_playing = False
+        self._ticking3_channel = None
 
         # 폭발 위치와 피해 대상 결정
         if self.bomb_location == 'ball' and ball:
