@@ -8945,11 +8945,17 @@ class HeroPaddleRenderer:
 
         t = self.time
 
+        # 원숭이왕 전용 - 정지 시 호흡 애니메이션 (어깨 들썩임)
+        # 이동 중에는 swagger가 담당하므로, 정지 시(side_blend≈0)에만 활성화
+        idle_blend = max(0.0, 1.0 - side_blend * 2.5)  # 이동 시 빠르게 사라짐
+        idle_breath = _sin(t * 1.8) * 0.18 * b * idle_blend        # 상체 상하 (느린 호흡)
+        idle_shoulder_breath = _sin(t * 1.8) * 0.22 * b * idle_blend  # 어깨 상하 (약간 더 큼)
+
         # 원숭이왕 전용 - 어슬렁거리는 상체 흔들림 (좌우 롤링)
         swagger_roll = _sin(t * 3.5) * side_blend * 0.4 * b
         swagger_bob = abs(_sin(t * 5.0)) * side_blend * 0.3 * b
 
-        torso_y = cy - int(1.2 * b) + int(body_bob * 2.0 * b) + int(swagger_bob)
+        torso_y = cy - int(1.2 * b) + int(body_bob * 2.0 * b) + int(swagger_bob) + int(idle_breath)
         lean_offset = int(lean * 2.5 * b) + int(swagger_roll)
 
         # 꼬리 관성 (이동 반대 방향으로 흔들림)
@@ -9254,7 +9260,7 @@ class HeroPaddleRenderer:
             pygame.draw.circle(screen, p["fur_gold"], (t6x, t6y), tip_r)
 
         # 어깨 근육 (양쪽 둥근 근육 - 알몸 원숭이 어깨)
-        shoulder_y_pos = chest_top + int(0.15 * b) + int(shoulder_bob * 0.25 * b)
+        shoulder_y_pos = chest_top + int(0.15 * b) + int(shoulder_bob * 0.25 * b) + int(idle_shoulder_breath)
         for side in [-1, 1]:
             sx = cx + side * int(1.15 * b) + lean_offset
             sy = shoulder_y_pos
