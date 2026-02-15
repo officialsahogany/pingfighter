@@ -18732,6 +18732,15 @@ def _get_selected_paddle_sound():
         return SOUND_PADDLE3
     return SOUND_PADDLE
 
+def _get_ball_type():
+    """설정에서 선택된 공 타입 반환 ('energy' 또는 'pingpong')"""
+    try:
+        from config.settings_system import get_settings_manager
+        sm = get_settings_manager()
+        return sm.get_setting('gameplay', 'ball_type', 'energy')
+    except Exception:
+        return 'energy'
+
 def play_paddle_sound():
     """패들 충돌 사운드 재생"""
     global _arena_skill_sound_this_frame
@@ -50646,6 +50655,19 @@ except:
     pygame.draw.circle(BALL_IMG, (100, 180, 255), (18, 18), 16)
     pygame.draw.circle(BALL_IMG, (200, 230, 255), (18, 18), 12)
     pygame.draw.circle(BALL_IMG, (255, 255, 255), (18, 18), 6)
+
+# 탁구공 이미지 로드 (ball.ico)
+PINGPONG_BALL_IMG = None
+try:
+    PINGPONG_BALL_IMG = pygame.image.load(resource_path("ball.ico")).convert_alpha()
+    PINGPONG_BALL_IMG = pygame.transform.smoothscale(PINGPONG_BALL_IMG, (36, 36))
+except Exception:
+    # ball.ico 없을 경우 흰색 탁구공 프로시저럴 생성
+    PINGPONG_BALL_IMG = pygame.Surface((36, 36), pygame.SRCALPHA)
+    pygame.draw.circle(PINGPONG_BALL_IMG, (255, 255, 255), (18, 18), 16)
+    pygame.draw.circle(PINGPONG_BALL_IMG, (230, 230, 230), (18, 18), 14)
+    pygame.draw.circle(PINGPONG_BALL_IMG, (255, 255, 255), (14, 14), 6)
+
 hit_animation_active = False
 hit_animation_timer = 0
 HIT_ANIMATION_DURATION = 6  # 프레임 수
@@ -55238,13 +55260,13 @@ def handle_gods_judgment():
             PULL_RADIUS = 220        # 끌어당김 범위 (넓게)
             PULL_CENTRIPETAL = 700.0  # 구심력 강도 (px/s²) - 세트 모래회오리와 동일
             PULL_TANGENTIAL = 600.0   # 접선력 강도 (px/s²) - 공이 소용돌이 주위를 공전
-            LAUNCH_SPEED_MULT = 1.43  # 포획 후 발사 속도 배율 (세트와 동일)
-            LAUNCH_SPEED_MIN = 10
-            LAUNCH_SPEED_MAX = 22
+            LAUNCH_SPEED_MULT = 2.86  # 포획 후 발사 속도 배율 (2배)
+            LAUNCH_SPEED_MIN = 20
+            LAUNCH_SPEED_MAX = 44
             CURVE_DURATION = 2.5     # 커브 지속시간
             CURVE_ROTATION_SPEED = 5.0  # 커브 회전 속도 (rad/s)
             SPEED_BOOST_FACTOR = 1.03  # 커브 중 속도 부스트
-            MAX_BOOSTED_SPEED = 28   # 커브 중 최대 속도
+            MAX_BOOSTED_SPEED = 56   # 커브 중 최대 속도 (2배)
             IMMUNITY_DURATION = 0.8  # 포획 후 면역 시간 (짧게)
 
             # 면역 타이머 감소
