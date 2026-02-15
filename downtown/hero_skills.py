@@ -10153,7 +10153,7 @@ class BoneBarrier(HeroSkill):
             sound_path = os.path.join(project_root, "sounds", "bonemake3.wav")
             if os.path.exists(sound_path):
                 s = pygame.mixer.Sound(sound_path)
-                s.set_volume(0.4)
+                s.set_volume(0.7)
                 s.play()
         except Exception:
             pass
@@ -10209,7 +10209,7 @@ class BoneBarrier(HeroSkill):
                             sound_path = os.path.join(project_root, "sounds", "bonebreak.wav")
                             if os.path.exists(sound_path):
                                 snd = pygame.mixer.Sound(sound_path)
-                                snd.set_volume(0.4)
+                                snd.set_volume(0.7)
                                 snd.play()
                         except Exception:
                             pass
