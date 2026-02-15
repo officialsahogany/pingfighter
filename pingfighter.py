@@ -85907,8 +85907,10 @@ def draw_player_gauge():
                 _top_available = arena_top_dash_charges
                 _top_charge_progress = 0.0
                 if arena_top_dash_charges < _top_max_tokens:
-                    if arena_top_dash_cooldown <= 0 and arena_top_dash_stun_timer <= 0 and not arena_top_dashing:
-                        _top_charge_progress = arena_top_dash_charge_timer / max(1, ARENA_DASH_CHARGE_TIME)
+                    # 쿨다운 + 충전 합산 진행률 계산 (하단 영웅과 동일한 방식)
+                    _top_total_wait = arena_top_dash_cooldown + max(0, ARENA_DASH_CHARGE_TIME - arena_top_dash_charge_timer)
+                    _top_total_max = ARENA_DASH_COOLDOWN_MAX + ARENA_DASH_CHARGE_TIME
+                    _top_charge_progress = max(0.0, 1.0 - (_top_total_wait / max(1, _top_total_max)))
 
                 # 구슬 크기: 하단 구슬과 동일
                 _top_orb_radius = orb_radius
