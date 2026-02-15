@@ -8693,6 +8693,17 @@ class GhostSummon(HeroSkill):
             self._ghost_ambient_sound.fadeout(600)
             self._ghost_ambient_sound = None
 
+        # 유령 소멸 사운드 재생
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            out_path = os.path.join(project_root, "sounds", "bencyghostout.wav")
+            if os.path.exists(out_path):
+                out_snd = pygame.mixer.Sound(out_path)
+                out_snd.set_volume(0.5)
+                out_snd.play()
+        except Exception:
+            pass
+
         # 공을 먹고 있는 유령이 있으면 공을 복원
         if self._eating_ball and ball is not None:
             # 마지막으로 먹고 있던 유령 위치에서 발사
