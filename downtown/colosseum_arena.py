@@ -558,6 +558,102 @@ BOTTOM_HEROES = [
 ARENA_HEROES = TOP_HEROES + BOTTOM_HEROES
 
 # ============================================================================
+# 감옥 해방 대사 (영웅별 캐릭터 컨셉에 맞는 대사)
+# ============================================================================
+PRISON_RELEASE_LINES = {
+    "mugen": [
+        "...검이 녹슬기 전에 풀어줬군.",
+        "어둠이 답답해지던 참이었다.",
+        "흥, 날 부른 건 현명한 판단이야.",
+        "이 검기로 빚을 갚아주지.",
+    ],
+    "kraken": [
+        "크크크... 바다가 그리웠다.",
+        "이 촉수가 얼마나 굶주렸는지 모르지?",
+        "날 가둘 수 있다고 생각했나?",
+        "좋아, 먹잇감을 찾아볼까.",
+    ],
+    "chronos": [
+        "후후, 마법이 봉인에 눌리던 참이었어.",
+        "현명한 선택이야... 인간.",
+        "이 정도 감옥으론 나를 가둘 수 없지.",
+        "보는 눈이 있군. 마녀의 힘을 빌리다니.",
+    ],
+    "onimaru": [
+        "으하하! 답답했는데 몸 좀 풀어볼까!",
+        "지옥보다 더 갑갑한 곳이었다!",
+        "좋아! 뿔이 근질근질하다!",
+        "날 풀어준 건 잘한 선택이야!",
+    ],
+    "maria": [
+        "후후... 인형들이 기다리고 있었어요~",
+        "감옥에서도 인형놀이는 가능하지만요.",
+        "절 골라주다니... 꼭두각시가 되실 건가요?",
+        "아, 밖이다~ 인형들이 기뻐해요.",
+    ],
+    "ignis": [
+        "용의 불꽃은 감옥 따위로 가둘 수 없다!",
+        "기사의 맹세로 은혜를 갚겠다!",
+        "내 도움이 필요했군. 좋아!",
+        "드래곤의 힘, 보여주지!",
+    ],
+    "gear": [
+        "아싸, 밖이다! 공구가 다 녹슬 뻔했잖아~",
+        "엔진이 식기 전에 풀어줘서 고마워!",
+        "좋아, 이 두뇌가 필요한 거지?",
+        "후후, 감옥도 개조할 뻔했는데~",
+    ],
+    "kurokage": [
+        "...그림자는 가둘 수 없다.",
+        "원한다면 칼이 되어주지.",
+        "쉿... 조용히 처리해줄게.",
+        "닌자에게 감옥 따위...",
+    ],
+    "banshee": [
+        "키히히... 유령을 가두려 했다니~",
+        "벽 따위 통과할 수 있었는데?",
+        "날 불러줘서... 고맙군요...",
+        "이 비명으로 은혜를 갚아줄게요.",
+    ],
+    "necro": [
+        "망자의 여왕을 가두다니... 어리석은.",
+        "해골들이 기다리고 있었다.",
+        "날 풀어줘서 고맙군. 빚은 갚는 주의야.",
+        "이 감옥의 혼령들이 가여워지는군.",
+    ],
+    "joker": [
+        "짜잔~! 감옥 탈출 매직~!",
+        "아하하! 갇혀 있으니 너무 심심했다구~",
+        "쇼는 이제부터 시작이야!",
+        "날 고르다니~ 센스 있는걸?",
+    ],
+    "mirage": [
+        "사막의 신기루를 가두려 하다니...",
+        "모래 한 줌이면 탈출할 수 있었지만.",
+        "보는 안목이 있군. 환술사를 선택하다니.",
+        "이 모래바람으로 갚아주지.",
+    ],
+    "android": [
+        "[시스템] 감금 해제. 전투 모드 기동.",
+        "[확인] 전투 지원 요청 수락.",
+        "[분석] 아군으로 판별. 화력 지원 개시.",
+        "[경고] 대기 시간 초과. 무장 점검 필요.",
+    ],
+    "ra": [
+        "태양의 눈이 다시 빛난다!",
+        "심판의 때가 온 건가...",
+        "날 부른 자여, 천둥의 힘을 빌려주마.",
+        "매의 날개는 감옥에 갇히지 않는다.",
+    ],
+    "monkeyking": [
+        "우키키! 밖이다 밖! 자유다!",
+        "답답했는데 몸 좀 풀어볼까!",
+        "날 풀어줘서 고맙군! 한바탕 놀아보자!",
+        "숲의 왕을 가두다니 웃기는 놈들!",
+    ],
+}
+
+# ============================================================================
 # 토너먼트 상태
 # ============================================================================
 class TournamentState(Enum):
@@ -6242,6 +6338,13 @@ class ColosseumsArena:
         self._prison_opening_index = prison_index
         self._prison_opening_timer = 0.0
         self._prison_attack_particles = []
+        # 감옥 해방 대사 선택
+        hero_id = guard_hero.get("id", "")
+        lines = PRISON_RELEASE_LINES.get(hero_id, ["날 불렀나?", "내 도움이 필요했군.", "보는 안목이 있군."])
+        import random as _rnd
+        self._prison_release_line = _rnd.choice(lines)
+        self._prison_release_line_timer = 0.0
+        self._prison_release_line_alpha = 0
 
     def _prepare_prison_candidates(self):
         """대진표에 포함되지 않은 나머지 영웅에서 감옥 후보 3명 선정"""
@@ -7503,6 +7606,18 @@ class ColosseumsArena:
                     p['vy'] += 120 * dt  # 중력
                     p['alpha'] -= 180 * dt
                 self._prison_attack_particles = [p for p in particles if p['alpha'] > 0]
+
+                # 감옥 해방 대사 타이머 업데이트 (철창 열린 후 표시)
+                if hasattr(self, '_prison_release_line_timer'):
+                    if timer >= 1.2:  # 철창이 거의 열린 시점부터
+                        self._prison_release_line_timer += dt
+                        lt = self._prison_release_line_timer
+                        if lt < 0.25:
+                            self._prison_release_line_alpha = int(255 * (lt / 0.25))
+                        elif lt > 2.5:
+                            self._prison_release_line_alpha = int(255 * max(0, (3.0 - lt) / 0.5))
+                        else:
+                            self._prison_release_line_alpha = 255
 
                 if opening_phase == "bars_opening" and timer >= 1.5:
                     self._prison_opening_phase = "attack_motion"
@@ -11245,6 +11360,43 @@ class ColosseumsArena:
                     'size': _rand.uniform(2, 5),
                     'color': (120 + _rand.randint(0, 40), 115 + _rand.randint(0, 35), 100 + _rand.randint(0, 30))
                 })
+
+        # ── 감옥 해방 대사 말풍선 ──
+        release_line = getattr(self, '_prison_release_line', None)
+        release_alpha = getattr(self, '_prison_release_line_alpha', 0)
+        if release_line and release_alpha > 0 and opening_phase and opening_idx >= 0:
+            sel_hero = self.prison_heroes[opening_idx] if opening_idx < len(self.prison_heroes) else None
+            if sel_hero and self.fonts and "medium" in self.fonts:
+                sel_cx = start_x + opening_idx * (cell_w + gap) + cell_w // 2
+                bubble_y = cell_y - 8
+                txt_surf, _ = self.fonts["medium"].render(release_line, (255, 255, 255))
+                tw, th = txt_surf.get_width(), txt_surf.get_height()
+                pad = 10
+                bw = tw + pad * 2
+                bh = th + pad * 2
+                bx = sel_cx - bw // 2
+                by = bubble_y - bh
+                # 화면 밖 방지
+                bx = max(5, min(SCREEN_WIDTH - bw - 5, bx))
+                # 말풍선 배경
+                bubble_s = _get_arena_surface(bw + 4, bh + 16)
+                pygame.draw.rect(bubble_s, (30, 22, 12, int(release_alpha * 0.8)),
+                                 (0, 0, bw + 4, bh + 4), border_radius=8)
+                h_color = sel_hero.get("color", (200, 180, 100))
+                pygame.draw.rect(bubble_s, (*h_color, release_alpha),
+                                 (0, 0, bw + 4, bh + 4), width=2, border_radius=8)
+                # 꼬리 삼각형 (말풍선 아래)
+                tail_cx = min(max(sel_cx - bx, 15), bw - 15)
+                pygame.draw.polygon(bubble_s, (30, 22, 12, int(release_alpha * 0.8)),
+                                    [(tail_cx - 6, bh + 3), (tail_cx + 6, bh + 3), (tail_cx, bh + 13)])
+                pygame.draw.polygon(bubble_s, (*h_color, release_alpha),
+                                    [(tail_cx - 6, bh + 3), (tail_cx + 6, bh + 3), (tail_cx, bh + 13)], 2)
+                self.screen.blit(bubble_s, (bx - 2, by - 2))
+                # 텍스트
+                txt_a_surf = _get_arena_surface(tw, th)
+                txt_a_surf.blit(txt_surf, (0, 0))
+                txt_a_surf.set_alpha(release_alpha)
+                self.screen.blit(txt_a_surf, (bx + pad, by + pad))
 
         # 하단 스킬 룰렛 (호위무사 선택 후 같은 화면에서 스킬 결정)
         if opening_phase in ("skill_rolling", "skill_selected"):
