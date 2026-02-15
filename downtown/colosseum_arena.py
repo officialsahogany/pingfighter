@@ -981,11 +981,82 @@ class TournamentState(Enum):
     GUARD_SKILL_REVEAL = "guard_skill_reveal"  # 호위무사 스킬 연출
     TENACITY_RETRY = "tenacity_retry"          # 반칙왕 퍽 재시작 연출
     BATTLE_INTRO = "battle_intro"              # 배틀 시작 전 연출 (VS 불꽃 + 도발)
+    HIGHLIGHT_REPLAY = "highlight_replay"      # 하이라이트 리플레이 재생
 
 class TournamentRound(Enum):
     QUARTER_FINAL = "8강"
     SEMI_FINAL = "4강"
     FINAL = "결승"
+
+
+# ============================================================================
+# 하이라이트 리플레이 녹화 시스템
+# ============================================================================
+class HighlightRecorder:
+    """투기장 하이라이트 녹화 - 화면 캡처 방식의 롤링 버퍼"""
+    CAPTURE_INTERVAL = 3   # 매 3프레임마다 캡처 (≈20fps)
+    BUFFER_SIZE = 100      # 5초 분량 (20fps × 5s)
+    HALF_W = 380           # 절반 해상도 너비
+    HALF_H = 375           # 절반 해상도 높이
+    MAX_CLIPS = 3          # 최대 저장 클립 수
+
+    def __init__(self):
+        from collections import deque
+        self.frame_buffer = deque(maxlen=self.BUFFER_SIZE)
+        self.frame_counter = 0
+        self.highlight_clips = []   # List[List[pygame.Surface]]
+        self.recording = False
+
+    def start(self):
+        """녹화 시작"""
+        self.frame_buffer.clear()
+        self.frame_counter = 0
+        self.highlight_clips.clear()
+        self.recording = True
+
+    def stop(self):
+        """녹화 중단 (클립은 유지)"""
+        self.recording = False
+
+    def capture_frame(self, screen: pygame.Surface):
+        """매 프레임 호출 - 일정 간격으로 화면을 축소 캡처"""
+        if not self.recording:
+            return
+        self.frame_counter += 1
+        if self.frame_counter % self.CAPTURE_INTERVAL != 0:
+            return
+        # 전체 화면을 절반 해상도로 축소 캡처
+        try:
+            small = pygame.transform.smoothscale(screen, (self.HALF_W, self.HALF_H))
+            self.frame_buffer.append(small)
+        except Exception:
+            pass  # 캡처 실패 시 무시
+
+    def save_highlight(self):
+        """현재 버퍼를 하이라이트 클립으로 저장 (득점 시 호출)"""
+        if len(self.frame_buffer) < 10:
+            return  # 너무 짧으면 무시
+        clip = list(self.frame_buffer)
+        self.highlight_clips.append(clip)
+        # 최대 개수 초과 시 가장 오래된 것 제거
+        while len(self.highlight_clips) > self.MAX_CLIPS:
+            old = self.highlight_clips.pop(0)
+            del old
+
+    def has_clips(self) -> bool:
+        return len(self.highlight_clips) > 0
+
+    def get_clips(self):
+        return self.highlight_clips
+
+    def clear(self):
+        """메모리 해제"""
+        self.frame_buffer.clear()
+        for clip in self.highlight_clips:
+            clip.clear()
+        self.highlight_clips.clear()
+        self.recording = False
+
 
 # ============================================================================
 # 투기장 퍽 - 신성월계수 잎 궤도 시스템
@@ -5803,6 +5874,15 @@ class ColosseumsArena:
         self.score_top = 0
         self.score_bottom = 0
 
+        # 하이라이트 리플레이 시스템
+        self.highlight_recorder: Optional[HighlightRecorder] = None
+        self.highlight_clip_index = 0
+        self.highlight_frame_index = 0
+        self.highlight_phase = "fade_in"  # fade_in / playing / fade_out
+        self.highlight_phase_timer = 0.0
+        self.highlight_btn_rect: Optional[pygame.Rect] = None  # 하이라이트 버튼 영역
+        self.highlight_skip_btn_rect: Optional[pygame.Rect] = None  # 건너뛰기 버튼 영역
+
         # 관중 반응 시스템 (Crowd Reaction System)
         self._crowd_rally_count = 0         # 현재 랠리 카운트
         self._crowd_last_hit_by = ""        # 마지막 공 타격 측 ("top"/"bottom")
@@ -6803,6 +6883,12 @@ class ColosseumsArena:
         self.score_top = 0
         self.score_bottom = 0
 
+        # 하이라이트 레코더 초기화
+        if self.highlight_recorder:
+            self.highlight_recorder.clear()
+        self.highlight_recorder = HighlightRecorder()
+        self.highlight_recorder.start()
+
         # 배속 리셋 (매 경기 1.3x로 초기화)
         self.speed_multiplier = 1
 
@@ -7076,6 +7162,10 @@ class ColosseumsArena:
 
             # 관중 반응 - 득점 시
             self._update_crowd_on_score(scorer)
+
+            # 하이라이트 저장 - bet_hero(항상 하단) 득점 시
+            if scorer == "bottom" and self.highlight_recorder:
+                self.highlight_recorder.save_highlight()
 
             # === 모든 활성 스킬 상태 리셋 (득점 시) ===
             # 스킬 사운드 즉시 중지 (라운드 전환)
@@ -7689,6 +7779,10 @@ class ColosseumsArena:
 
         self.battle_active = False
 
+        # 하이라이트 녹화 중단 (클립은 유지)
+        if self.highlight_recorder:
+            self.highlight_recorder.stop()
+
         # 모든 스킬 사운드 즉시 중지
         for snd in getattr(ColosseumsArena, '_skill_sound_cache', {}).values():
             if snd:
@@ -8173,13 +8267,20 @@ class ColosseumsArena:
             guard_notify_duration = 2.5
             self.guard_notify_progress = min(1.0, self.guard_notify_timer / guard_notify_duration)
             if self.guard_notify_timer >= guard_notify_duration:
-                # 알림 끝 → 호위무사 2명 이상이면 선택 화면, 아니면 퍽 선택
-                bet_id = self.bet_hero["id"] if self.bet_hero else ""
-                guards = self.guard_warrior_map.get(bet_id, [])
-                if len(guards) >= 2:
-                    self._start_guard_select()
+                # 하이라이트 클립이 있으면 버튼 대기 (자동 진행 안 함)
+                if self.highlight_recorder and self.highlight_recorder.has_clips():
+                    pass  # 클릭 이벤트에서 처리
                 else:
-                    self._start_perk_select()
+                    # 알림 끝 → 호위무사 2명 이상이면 선택 화면, 아니면 퍽 선택
+                    bet_id = self.bet_hero["id"] if self.bet_hero else ""
+                    guards = self.guard_warrior_map.get(bet_id, [])
+                    if len(guards) >= 2:
+                        self._start_guard_select()
+                    else:
+                        self._start_perk_select()
+
+        elif self.state == TournamentState.HIGHLIGHT_REPLAY:
+            self._update_highlight_replay(dt)
 
         elif self.state == TournamentState.GUARD_SELECT:
             # 호위무사 선택 화면 애니메이션
@@ -8258,6 +8359,11 @@ class ColosseumsArena:
                     self.admin_hover_index = -1
                     return False
 
+            # 하이라이트 리플레이 중 아무 키 → 즉시 종료
+            if self.state == TournamentState.HIGHLIGHT_REPLAY:
+                self._end_highlight_replay()
+                return False
+
             if event.key == pygame.K_ESCAPE:
                 if self.state == TournamentState.BATTLE:
                     return False  # 배틀 중에는 나갈 수 없음
@@ -8267,6 +8373,8 @@ class ColosseumsArena:
                     return False  # 라운드 종료 선택 중에는 나갈 수 없음
                 if self.state == TournamentState.GUARD_SELECT:
                     return False  # 호위무사 선택 중에는 나갈 수 없음
+                if self.state == TournamentState.GUARD_NOTIFY:
+                    return False  # 생포 알림 중에는 나갈 수 없음
                 if self.state in (TournamentState.MATCH_REVEAL, TournamentState.HERO_SELECT,
                                   TournamentState.SKILL_REVEAL, TournamentState.PRISON_SELECT,
                                   TournamentState.GUARD_SKILL_REVEAL):
@@ -8340,6 +8448,24 @@ class ColosseumsArena:
     def _handle_click(self, pos: Tuple[int, int]):
         """클릭 처리"""
         mx, my = pos
+
+        # 하이라이트 리플레이 중 클릭 → 즉시 종료
+        if self.state == TournamentState.HIGHLIGHT_REPLAY:
+            self._end_highlight_replay()
+            return
+
+        # 호위무사 생포 알림 중 클릭 (하이라이트 클립 있을 때만)
+        if self.state == TournamentState.GUARD_NOTIFY:
+            if self.guard_notify_progress >= 1.0:
+                if self.highlight_recorder and self.highlight_recorder.has_clips():
+                    # 하이라이트 버튼 클릭 확인
+                    if self.highlight_btn_rect and self.highlight_btn_rect.collidepoint(mx, my):
+                        self._start_highlight_replay()
+                        return
+                    # 버튼 외 영역 클릭 → 다음 단계로 진행
+                    self._advance_from_guard_notify()
+                    return
+            return
 
         # 배속 버튼 클릭 처리
         if self.state == TournamentState.BATTLE:
@@ -9383,6 +9509,8 @@ class ColosseumsArena:
             self._draw_battle()
         elif self.state == TournamentState.GUARD_NOTIFY:
             self._draw_guard_notification()
+        elif self.state == TournamentState.HIGHLIGHT_REPLAY:
+            self._draw_highlight_replay()
         elif self.state == TournamentState.GUARD_SELECT:
             self._draw_guard_select()
         elif self.state == TournamentState.PERK_SELECT:
@@ -9941,6 +10069,10 @@ class ColosseumsArena:
         # 전경 효과
         if self.arena_background:
             self.arena_background.draw_foreground(self.screen, offset_x=GAME_AREA_X, offset_y=0)
+
+        # 하이라이트 녹화 (배틀 화면 렌더링 완료 후 캡처)
+        if self.highlight_recorder and self.highlight_recorder.recording:
+            self.highlight_recorder.capture_frame(self.screen)
 
     def _draw_confusion_effect(self, shake_x: int = 0, shake_y: int = 0):
         """혼란 상태 물음표 효과 그리기 (패들 위에 빙글빙글 도는 물음표)"""
@@ -15041,6 +15173,195 @@ class ColosseumsArena:
                 spark_surf = _get_arena_surface(8, 8)
                 pygame.draw.circle(spark_surf, (*ET["gold_bright"], spark_alpha), (4, 4), 3)
                 self.screen.blit(spark_surf, (px - 4, py - 4))
+
+        # 하이라이트 보기 버튼 (알림 완료 후 + 하이라이트 클립 존재 시)
+        if progress >= 1.0 and self.highlight_recorder and self.highlight_recorder.has_clips():
+            btn_w, btn_h = 160, 40
+            btn_x = SCREEN_WIDTH - btn_w - 20
+            btn_y = SCREEN_HEIGHT - btn_h - 20
+            self.highlight_btn_rect = pygame.Rect(btn_x, btn_y, btn_w, btn_h)
+
+            # 버튼 배경 (그라데이션)
+            btn_surf = _get_arena_surface(btn_w, btn_h)
+            for i in range(btn_h):
+                ratio = i / btn_h
+                r = int(80 * (1 - ratio) + 40 * ratio)
+                g = int(140 * (1 - ratio) + 80 * ratio)
+                b = int(220 * (1 - ratio) + 160 * ratio)
+                a = 200
+                pygame.draw.line(btn_surf, (r, g, b, a), (0, i), (btn_w, i))
+            self.screen.blit(btn_surf, (btn_x, btn_y))
+
+            # 버튼 테두리 (반짝이는 효과)
+            border_alpha = int(180 + abs(_sin(self.animation_timer * 4)) * 75)
+            border_color = (min(255, 150 + int(abs(_sin(self.animation_timer * 3)) * 105)),
+                           min(255, 200 + int(abs(_sin(self.animation_timer * 3)) * 55)),
+                           255)
+            pygame.draw.rect(self.screen, border_color, self.highlight_btn_rect, 2, border_radius=6)
+
+            # 버튼 텍스트
+            if self.fonts and "small" in self.fonts:
+                clip_count = len(self.highlight_recorder.get_clips())
+                btn_text = f"▶ 하이라이트 ({clip_count})"
+                btn_surf_text, _ = self.fonts["small"].render(btn_text, (255, 255, 255))
+                tx = btn_x + (btn_w - btn_surf_text.get_width()) // 2
+                ty = btn_y + (btn_h - btn_surf_text.get_height()) // 2
+                self.screen.blit(btn_surf_text, (tx, ty))
+
+            # "계속" 안내 텍스트
+            if self.fonts and "small" in self.fonts:
+                skip_text = "클릭하여 계속..."
+                skip_alpha = int(100 + abs(_sin(self.animation_timer * 2)) * 100)
+                skip_surf, _ = self.fonts["small"].render(skip_text, (skip_alpha, skip_alpha, skip_alpha))
+                self.screen.blit(skip_surf, (20, SCREEN_HEIGHT - 35))
+        else:
+            self.highlight_btn_rect = None
+
+    # ================================================================
+    # 하이라이트 리플레이 시스템
+    # ================================================================
+    def _start_highlight_replay(self):
+        """하이라이트 리플레이 재생 시작"""
+        if not self.highlight_recorder or not self.highlight_recorder.has_clips():
+            return
+        self.highlight_clip_index = 0
+        self.highlight_frame_index = 0
+        self.highlight_phase = "fade_in"
+        self.highlight_phase_timer = 0.0
+        self.state = TournamentState.HIGHLIGHT_REPLAY
+
+    def _update_highlight_replay(self, dt: float):
+        """하이라이트 리플레이 업데이트"""
+        if not self.highlight_recorder:
+            self._end_highlight_replay()
+            return
+
+        clips = self.highlight_recorder.get_clips()
+        if not clips or self.highlight_clip_index >= len(clips):
+            self._end_highlight_replay()
+            return
+
+        clip = clips[self.highlight_clip_index]
+        self.highlight_phase_timer += dt
+
+        if self.highlight_phase == "fade_in":
+            # 0.5초 페이드인
+            if self.highlight_phase_timer >= 0.5:
+                self.highlight_phase = "playing"
+                self.highlight_phase_timer = 0.0
+                self.highlight_frame_index = 0
+
+        elif self.highlight_phase == "playing":
+            # 4초간 재생 (프레임 진행)
+            if len(clip) > 0:
+                # 4초 동안 전체 클립을 균등 재생
+                progress = min(1.0, self.highlight_phase_timer / 4.0)
+                self.highlight_frame_index = min(
+                    int(progress * len(clip)),
+                    len(clip) - 1
+                )
+            if self.highlight_phase_timer >= 4.0:
+                self.highlight_phase = "fade_out"
+                self.highlight_phase_timer = 0.0
+
+        elif self.highlight_phase == "fade_out":
+            # 0.5초 페이드아웃
+            if self.highlight_phase_timer >= 0.5:
+                # 다음 클립으로
+                self.highlight_clip_index += 1
+                if self.highlight_clip_index >= len(clips):
+                    self._end_highlight_replay()
+                else:
+                    self.highlight_phase = "fade_in"
+                    self.highlight_phase_timer = 0.0
+                    self.highlight_frame_index = 0
+
+    def _draw_highlight_replay(self):
+        """하이라이트 리플레이 렌더링"""
+        self.screen.fill((0, 0, 0))
+
+        if not self.highlight_recorder:
+            return
+
+        clips = self.highlight_recorder.get_clips()
+        if not clips or self.highlight_clip_index >= len(clips):
+            return
+
+        clip = clips[self.highlight_clip_index]
+        if not clip:
+            return
+
+        # 현재 프레임 가져오기
+        frame_idx = max(0, min(self.highlight_frame_index, len(clip) - 1))
+        frame_surf = clip[frame_idx]
+
+        # 풀 해상도로 스케일업
+        try:
+            full_surf = pygame.transform.smoothscale(frame_surf, (SCREEN_WIDTH, SCREEN_HEIGHT))
+        except Exception:
+            return
+
+        # 페이드 알파 계산
+        fade_alpha = 255
+        if self.highlight_phase == "fade_in":
+            fade_alpha = int(min(255, (self.highlight_phase_timer / 0.5) * 255))
+        elif self.highlight_phase == "fade_out":
+            fade_alpha = int(max(0, (1.0 - self.highlight_phase_timer / 0.5) * 255))
+
+        # 프레임에 알파 적용
+        if fade_alpha < 255:
+            full_surf.set_alpha(fade_alpha)
+        self.screen.blit(full_surf, (0, 0))
+
+        # 상단 "HIGHLIGHT" 텍스트 오버레이
+        if self.fonts and fade_alpha > 50:
+            total_clips = len(clips)
+            current = self.highlight_clip_index + 1
+
+            # "HIGHLIGHT 1/3" 텍스트
+            if "medium" in self.fonts:
+                hl_text = f"HIGHLIGHT  {current}/{total_clips}"
+                hl_surf, _ = self.fonts["medium"].render(hl_text, (255, 255, 255))
+                # 반투명 배경 바
+                bar_h = hl_surf.get_height() + 16
+                bar_surf = _get_arena_surface(SCREEN_WIDTH, bar_h)
+                bar_surf.fill((0, 0, 0, min(fade_alpha, 140)))
+                self.screen.blit(bar_surf, (0, 0))
+                self.screen.blit(hl_surf, (SCREEN_WIDTH // 2 - hl_surf.get_width() // 2, 8))
+
+            # 좌상단 "▶ REPLAY" 워터마크
+            if "small" in self.fonts:
+                wm_text = "▶ REPLAY"
+                pulse = int(abs(_sin(self.animation_timer * 3)) * 50)
+                wm_color = (200 + pulse // 2, 50 + pulse, 50 + pulse)
+                wm_surf, _ = self.fonts["small"].render(wm_text, wm_color)
+                self.screen.blit(wm_surf, (10, bar_h + 5))
+
+            # 하단 "클릭하여 건너뛰기" 안내
+            if "small" in self.fonts:
+                skip_alpha = int(80 + abs(_sin(self.animation_timer * 2)) * 80)
+                skip_surf, _ = self.fonts["small"].render(
+                    "클릭하여 건너뛰기", (skip_alpha, skip_alpha, skip_alpha))
+                self.screen.blit(skip_surf, (
+                    SCREEN_WIDTH // 2 - skip_surf.get_width() // 2,
+                    SCREEN_HEIGHT - 30))
+
+    def _advance_from_guard_notify(self):
+        """호위무사 생포 알림에서 다음 단계로 진행"""
+        # 하이라이트 메모리 해제
+        if self.highlight_recorder:
+            self.highlight_recorder.clear()
+
+        bet_id = self.bet_hero["id"] if self.bet_hero else ""
+        guards = self.guard_warrior_map.get(bet_id, [])
+        if len(guards) >= 2:
+            self._start_guard_select()
+        else:
+            self._start_perk_select()
+
+    def _end_highlight_replay(self):
+        """하이라이트 리플레이 종료 → 다음 단계로 진행"""
+        self._advance_from_guard_notify()
 
     # ================================================================
     # 결승 호위무사 선택 시스템
