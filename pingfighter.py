@@ -19356,6 +19356,7 @@ SOUND_GOD_WIND = sound_effects.get('GOD_WIND')
 SOUND_GOD_THUNDER = sound_effects.get('GOD_THUNDER')
 SOUND_GOD_POP = sound_effects.get('GOD_POP')
 SOUND_GOD_OUT = sound_effects.get('GOD_OUT')
+SOUND_GOD_THUNDER_THROW = sound_effects.get('GOD_THUNDER_THROW')
 whip_sound = sound_effects['WHIP']
 SOUND_AIRPLANE = sound_effects['AIRPLANE']
 SOUND_DEFENSE_HIT = sound_effects['DEFENSE_HIT']
@@ -55440,6 +55441,9 @@ def handle_gods_judgment():
             bg.judgment_text_display_paused = True
             show_fade_text("신의 심판: 번개의 분노")
             bg.judgment_text_display_paused = False
+            # 투척 사운드
+            if SOUND_GOD_THUNDER_THROW:
+                SOUND_GOD_THUNDER_THROW.play()
 
         # ── 번개의 분노: 폭발 시 스턴 판정 (consume-flag 방식) ──
         if bg.judgment_bolt_explosion_started and not _judgment_lightning_stun_applied:
