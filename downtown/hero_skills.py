@@ -13617,7 +13617,7 @@ class ThunderOrb(HeroSkill):
         self.decel_timer = 0.0           # 감속 경과 시간
         self.decel_duration = 1.0        # 감속 지속 시간 (초)
         self.speed_mult_start = 4.5      # 초기 속도 배율 (4.5배속)
-        self.speed_mult_end = 0.1        # 최종 속도 배율 (극저속 ~60px/s)
+        self.speed_mult_end = 0.05       # 최종 속도 배율 (극저속 ~30px/s)
         self.base_orb_vy = 0.0           # 방향 포함 기본 속도 (ORB_SPEED * ±1)
 
     def _load_sound(self):
