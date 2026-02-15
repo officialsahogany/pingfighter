@@ -201,7 +201,7 @@ class DarkSlash(HeroSkill):
             korean_name="달빛 베기",
             description="공을 사선으로 베어 시간이 멈추고, 해제되는 순간 공이 4배 빨라진다",
             trigger=SkillTrigger.ON_BALL_HIT,
-            cooldown=24.0,
+            cooldown=32.0,
             duration=2.5,
             hero_id="mugen"
         )
@@ -1215,8 +1215,8 @@ class AbyssInk(HeroSkill):
             korean_name="심해의 먹물",
             description="심해의 먹물을 발사하여 상대의 시야를 방해하고 혼란을 준다",
             trigger=SkillTrigger.ON_BALL_HIT,
-            cooldown=15.0,
-            duration=3.5,
+            cooldown=18.0,
+            duration=3.0,
             hero_id="kraken"
         )
         self.ink_blobs = []
