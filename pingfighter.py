@@ -19314,6 +19314,8 @@ SOUND_BRICK_DESTROY = sound_effects['BRICK_DESTROY']
 SOUND_PADDLE = sound_effects['PADDLE']
 SOUND_PADDLE2 = sound_effects.get('PADDLE2')
 SOUND_PADDLE3 = sound_effects.get('PADDLE3')
+SOUND_PONG_PADDLE = sound_effects.get('PONG_PADDLE')
+SOUND_PONG_WALL = sound_effects.get('PONG_WALL')
 SOUND_QUAKE = sound_effects['QUAKE']
 whip_sound = sound_effects['WHIP']
 SOUND_AIRPLANE = sound_effects['AIRPLANE']
@@ -21073,7 +21075,7 @@ def arena_play_skill_sound(result):
     return False
 
 def arena_stop_all_skill_sounds():
-    """투기장 스킬 사운드 전체 중지 (pingfighter 캐시 + colosseum_arena 캐시)"""
+    """투기장 스킬 사운드 전체 중지 (pingfighter 캐시 + colosseum_arena 캐시 + 개틀링 루프)"""
     for snd in _arena_skill_sound_cache.values():
         if snd:
             snd.stop()
@@ -21084,6 +21086,16 @@ def arena_stop_all_skill_sounds():
             for snd in ColosseumsArena._skill_sound_cache.values():
                 if snd:
                     snd.stop()
+    except Exception:
+        pass
+    # 개틀링 버스트 루프 사운드 즉시 정지 (스킬 인스턴스에서 직접 관리하는 사운드)
+    try:
+        if arena_skill_manager:
+            for hero_id, skills in arena_skill_manager.active_skills.items():
+                for skill in skills:
+                    if hasattr(skill, '_gatling_loop_sound') and skill._gatling_loop_sound:
+                        skill._gatling_loop_sound.stop()
+                        skill._gatling_loop_sound = None
     except Exception:
         pass
 
@@ -64807,7 +64819,9 @@ def handle_player(keys):
                 # 🔧 버그 수정: 캐시된 방향키 상태 사용 (키 상태 변화로 인한 대쉬 무시 방지)
                 left_before_down = _cached_left_for_dash
                 right_before_down = _cached_right_for_dash
-                if left_before_down and down_pressed and not dash_down_first_lock and rolling_charges > 0 and not optimus_drain_locked and dash_key_released_since_last:
+                # 스턴/감전 상태에서는 대쉬 불가
+                _player_stun_blocked = player_stunned_timer > 0 or player_stunned or player_missile_stunned_timer > 0
+                if left_before_down and down_pressed and not dash_down_first_lock and rolling_charges > 0 and not optimus_drain_locked and dash_key_released_since_last and not _player_stun_blocked:
                     # 아래키 + 왼쪽 - 대쉬 실행
                     # 🔧 버그 수정: 일반 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
@@ -123075,6 +123089,7 @@ def handle_ball():
                 pass
             print(f" [ ]  ! deuce_wins: {deuce_wins}, round_wins: {round_wins}")
             stop_dash_delay_sound()  # 점수판 표시 전 후딜 사운드 중지
+            arena_stop_all_skill_sounds()  # 개틀링 등 스킬 루프 사운드 즉시 중지
             # 투기장 모드: 영웅 이름 사용
             if arena_mode_enabled and arena_bottom_hero:
                 show_winner_text(arena_bottom_hero.get("name", "Player"))
@@ -123227,6 +123242,7 @@ def handle_ball():
                 print("[Stage5 네메시스] 보조 보스 전기 스킬 다음 라운드 발동 예약!")
 
             stop_dash_delay_sound()  # 점수판 표시 전 후딜 사운드 중지
+            arena_stop_all_skill_sounds()  # 개틀링 등 스킬 루프 사운드 즉시 중지
             # 투기장 모드: 영웅 이름 사용
             if arena_mode_enabled and arena_bottom_hero:
                 show_winner_text(arena_bottom_hero.get("name", "Player"))
@@ -123712,6 +123728,7 @@ def handle_ball():
             if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
                 stage8_boss_sprite.trigger_victory()
             stop_dash_delay_sound()  # 점수판 표시 전 후딜 사운드 중지
+            arena_stop_all_skill_sounds()  # 개틀링 등 스킬 루프 사운드 즉시 중지
             show_winner_text(boss_name)
             show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
                        player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
@@ -123870,6 +123887,7 @@ def handle_ball():
             if current_stage == 8 and stage8_boss_sprite and STAGE8_BOSS_ANIMATION_AVAILABLE:
                 stage8_boss_sprite.trigger_victory()
             stop_dash_delay_sound()  # 점수판 표시 전 후딜 사운드 중지
+            arena_stop_all_skill_sounds()  # 개틀링 등 스킬 루프 사운드 즉시 중지
             show_winner_text(boss_name)
             show_score(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
                        player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
