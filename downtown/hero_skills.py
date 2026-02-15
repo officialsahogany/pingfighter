@@ -10179,7 +10179,7 @@ class BoneBarrier(HeroSkill):
                 barrier['built'] = True
                 try:
                     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                    sound_path = os.path.join(project_root, "sounds", "bonemake2.wav")
+                    sound_path = os.path.join(project_root, "sounds", "bonemake3.wav")
                     if os.path.exists(sound_path):
                         s = pygame.mixer.Sound(sound_path)
                         s.set_volume(0.4)
