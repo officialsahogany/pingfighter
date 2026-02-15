@@ -89440,7 +89440,7 @@ def _get_timing_surface(radius):
     return _timing_surface_cache
 
 def draw_objects():
-    global quake_offset_y, rainbow_index, ball_angle
+    global quake_offset_y, rainbow_index, ball_angle, _pingpong_ball_angle
     global hit_animation_active, hit_animation_timer
     global boss_trail, long_boost_animating, long_boost_animation_step
     global long_boost_growing, long_boost_shrinking, long_boost_active
