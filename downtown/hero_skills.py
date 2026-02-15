@@ -13613,6 +13613,12 @@ class ThunderOrb(HeroSkill):
         self.explosion_particles = []  # 폭발 파티클
         self.orb_rotation = 0.0      # 구체 회전 각도 (도)
         self.orb_rotation_speed = 280.0  # 회전 속도 (도/초)
+        # 급감속 시스템: 3배속 → 0.5초 동안 -80% 감속
+        self.decel_timer = 0.0           # 감속 경과 시간
+        self.decel_duration = 0.5        # 감속 지속 시간 (초)
+        self.speed_mult_start = 3.0      # 초기 속도 배율 (3배속)
+        self.speed_mult_end = 0.6        # 최종 속도 배율 (3.0 * 0.2 = 0.6배)
+        self.base_orb_vy = 0.0           # 방향 포함 기본 속도 (ORB_SPEED * ±1)
 
     def _load_sound(self):
         if self._sound_loaded:
@@ -13645,12 +13651,16 @@ class ThunderOrb(HeroSkill):
         is_top = getattr(self, 'caster_is_top', True)
         if is_top:
             # 상단 → 아래로 발사
-            self.orb_vy = self.ORB_SPEED
+            self.base_orb_vy = self.ORB_SPEED
             self.target_y = self.TARGET_Y_BOTTOM
         else:
             # 하단 → 위로 발사
-            self.orb_vy = -self.ORB_SPEED
+            self.base_orb_vy = -self.ORB_SPEED
             self.target_y = self.TARGET_Y_TOP
+
+        # 급감속: 초기 3배속으로 발사
+        self.orb_vy = self.base_orb_vy * self.speed_mult_start
+        self.decel_timer = 0.0
 
         self.orb_x = cx
         self.orb_y = cy
@@ -13686,7 +13696,16 @@ class ThunderOrb(HeroSkill):
             self._update_stun(dt, target_paddle, game_state)
 
     def _update_traveling(self, dt, target_paddle, game_state):
-        """구체 이동 + 회전 + 궤적/에너지 파티클"""
+        """구체 이동 + 회전 + 궤적/에너지 파티클 (급감속 적용)"""
+        # 급감속 시스템: 0.5초 동안 3배속 → 0.6배속 (ease-in 곡선으로 급격히 감속)
+        if self.decel_timer < self.decel_duration:
+            self.decel_timer += dt
+            t = min(self.decel_timer / self.decel_duration, 1.0)
+            # ease-in (t^2): 처음엔 천천히 감속, 후반에 급격히 감속
+            eased = t * t
+            mult = self.speed_mult_start + (self.speed_mult_end - self.speed_mult_start) * eased
+            self.orb_vy = self.base_orb_vy * mult
+
         self.orb_y += self.orb_vy * dt
         self.orb_rotation = (self.orb_rotation + self.orb_rotation_speed * dt) % 360
 
