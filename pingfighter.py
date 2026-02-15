@@ -18976,6 +18976,7 @@ def stop_all_stage_sounds():
     # 3. 직접 참조 가능한 사운드 객체들 정지
     sounds_to_stop = [
         'SOUND_QUAKE',
+        'SOUND_GOD_EARTHQUAKE',
         'SOUND_CONSTRUCTION',
         'SOUND_DRONE',
         'SOUND_STAGE4_MAGNETIC',
@@ -19343,6 +19344,7 @@ SOUND_PONG_PADDLE = sound_effects.get('PONG_PADDLE')
 SOUND_PONG_WALL = sound_effects.get('PONG_WALL')
 SOUND_QUAKE = sound_effects['QUAKE']
 SOUND_GOD_START = sound_effects.get('GOD_START')
+SOUND_GOD_EARTHQUAKE = sound_effects.get('GOD_EARTHQUAKE')
 whip_sound = sound_effects['WHIP']
 SOUND_AIRPLANE = sound_effects['AIRPLANE']
 SOUND_DEFENSE_HIT = sound_effects['DEFENSE_HIT']
@@ -51252,7 +51254,8 @@ def go_to_next_round():
             # 지진 사운드 정지
             if _judgment_quake_sound_playing:
                 try:
-                    SOUND_QUAKE.stop()
+                    if SOUND_GOD_EARTHQUAKE:
+                        SOUND_GOD_EARTHQUAKE.stop()
                 except Exception:
                     pass
     _judgment_quake_sound_playing = False
@@ -55249,7 +55252,8 @@ def handle_gods_judgment():
     if is_eq and not was_eq:
         # 사운드 재생
         try:
-            SOUND_QUAKE.play(loops=-1)
+            if SOUND_GOD_EARTHQUAKE:
+                SOUND_GOD_EARTHQUAKE.play(loops=-1)
             _judgment_quake_sound_playing = True
         except Exception:
             pass
@@ -55268,7 +55272,8 @@ def handle_gods_judgment():
         # 사운드 정지
         try:
             if _judgment_quake_sound_playing:
-                SOUND_QUAKE.stop()
+                if SOUND_GOD_EARTHQUAKE:
+                    SOUND_GOD_EARTHQUAKE.stop()
                 _judgment_quake_sound_playing = False
         except Exception:
             pass
@@ -100119,7 +100124,8 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         global _judgment_quake_sound_playing
         if _judgment_quake_sound_playing:
             try:
-                SOUND_QUAKE.stop()
+                if SOUND_GOD_EARTHQUAKE:
+                    SOUND_GOD_EARTHQUAKE.stop()
             except Exception:
                 pass
             _judgment_quake_sound_playing = False
@@ -118274,7 +118280,8 @@ def reset_round(is_stage_start=False):
             # 지진 사운드 정지
             if _judgment_quake_sound_playing:
                 try:
-                    SOUND_QUAKE.stop()
+                    if SOUND_GOD_EARTHQUAKE:
+                        SOUND_GOD_EARTHQUAKE.stop()
                 except Exception:
                     pass
     _judgment_quake_sound_playing = False
