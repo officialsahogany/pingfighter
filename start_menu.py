@@ -998,6 +998,18 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
     bgm_muted = get_bgm_muted()
     sfx_muted = get_sfx_muted()
     control_scheme = settings.get_setting("controls", "control_scheme", "keyboard")
+    paddle_hit_sound = int(settings.get_setting("audio", "paddle_hit_sound", 1))
+
+    # 패들 타격 사운드 프리로드
+    _paddle_sounds = {}
+    try:
+        from sound_effects import SOUND_PATHS
+        for _sk in ("PADDLE", "PADDLE2", "PADDLE3"):
+            _rp = SOUND_PATHS.get(_sk)
+            if _rp:
+                _paddle_sounds[_sk] = pygame.mixer.Sound(ctx.resource_path(_rp))
+    except Exception as _e:
+        print(f"[WARN] paddle sound preload: {_e}")
 
     # 폰트
     font_medium = ctx.FontStyle.body()
@@ -1015,9 +1027,10 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
 
     # 상태
     current_tab = "sound"
-    focus = "bgm"  # bgm / sfx / back (sound) | scheme / back (controls) | dispmode / back (display)
+    focus = "bgm"  # bgm / sfx / hitsound / back (sound) | scheme / back (controls) | dispmode / back (display)
     selected_slider = None
     dragging = False
+    hit_pills = []
 
     running = True
     while running:
@@ -1040,7 +1053,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
 
         # ─── 패널 ───
         panel_width = min(600, max(500, int(width * 0.82)))
-        panel_height = 300
+        panel_height = 340 if current_tab == "sound" else 300
         panel_x = (width - panel_width) // 2
         panel_y = (height - panel_height) // 2
 
@@ -1144,6 +1157,30 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
             sfx_mute_lbl = font_small.render("OFF", True, (255, 80, 80) if sfx_muted else (120, 120, 120))
             screen.blit(sfx_mute_lbl, (sfx_cb_x + checkbox_size + 5, sfx_cb_y + 2))
 
+            # ── 타격 사운드 ──
+            hit_y = content_y + 120
+            hit_label = font_medium.render("타격 사운드", True, (255, 255, 255))
+            screen.blit(hit_label, hit_label.get_rect(left=panel_x + margin_x, centery=hit_y + 18))
+
+            _hs_names = {1: "사운드 1", 2: "사운드 2", 3: "사운드 3"}
+            pill_w_h, pill_h_h = 90, 32
+            pill_gap_h = 8
+            hit_pills = []
+            for i, (val, lbl) in enumerate(_hs_names.items()):
+                px = slider_x + i * (pill_w_h + pill_gap_h)
+                py = hit_y + 2
+                r = pygame.Rect(px, py, pill_w_h, pill_h_h)
+                hit_pills.append((r, val, lbl))
+                is_sel = (paddle_hit_sound == val)
+                col = (60, 90, 130) if is_sel else (45, 55, 70)
+                pygame.draw.rect(screen, col, r, border_radius=16)
+                border_col = (0, 255, 255) if is_sel else (150, 150, 150)
+                if focus == "hitsound" and is_sel:
+                    border_col = (0, 255, 255)
+                pygame.draw.rect(screen, border_col, r, 2, border_radius=16)
+                s = font_small.render(lbl, True, (255, 255, 255))
+                screen.blit(s, s.get_rect(center=r.center))
+
         elif current_tab == "controls":
             scheme_y = content_y + 20
             scheme_label = font_medium.render("조작 방식", True, (255, 255, 255))
@@ -1213,14 +1250,14 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
         # ─── 이벤트 처리 ───
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme)
+                _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound)
                 pygame.quit()
                 raise SystemExit
 
             if event.type == pygame.KEYDOWN:
                 state.idle_start_time = pygame.time.get_ticks()
                 if event.key == pygame.K_ESCAPE:
-                    _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme)
+                    _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound)
                     # 디스플레이 모드 변경 적용
                     try:
                         from pingfighter import switch_display_mode, get_display_mode
@@ -1253,6 +1290,13 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         current_sfx_volume = clamp_volume(current_sfx_volume - 0.05)
                         set_sfx_volume(current_sfx_volume)
                         selected_slider = "sfx"
+                    elif current_tab == "sound" and focus == "hitsound":
+                        paddle_hit_sound = max(1, paddle_hit_sound - 1)
+                        _hs_key = {1: "PADDLE", 2: "PADDLE2", 3: "PADDLE3"}.get(paddle_hit_sound, "PADDLE")
+                        _ps = _paddle_sounds.get(_hs_key)
+                        if _ps:
+                            _ps.set_volume(current_sfx_volume)
+                            _ps.play()
 
                 elif event.key == pygame.K_RIGHT:
                     if current_tab == "controls" and focus == "scheme":
@@ -1271,6 +1315,13 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         current_sfx_volume = clamp_volume(current_sfx_volume + 0.05)
                         set_sfx_volume(current_sfx_volume)
                         selected_slider = "sfx"
+                    elif current_tab == "sound" and focus == "hitsound":
+                        paddle_hit_sound = min(3, paddle_hit_sound + 1)
+                        _hs_key = {1: "PADDLE", 2: "PADDLE2", 3: "PADDLE3"}.get(paddle_hit_sound, "PADDLE")
+                        _ps = _paddle_sounds.get(_hs_key)
+                        if _ps:
+                            _ps.set_volume(current_sfx_volume)
+                            _ps.play()
 
                 elif event.key == pygame.K_UP:
                     if current_tab == "controls":
@@ -1278,7 +1329,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                     elif current_tab == "display":
                         order = ["dispmode", "back"]
                     else:
-                        order = ["bgm", "sfx", "back"]
+                        order = ["bgm", "sfx", "hitsound", "back"]
                     focus = order[(order.index(focus) - 1) % len(order)] if focus in order else order[0]
 
                 elif event.key == pygame.K_DOWN:
@@ -1287,13 +1338,13 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                     elif current_tab == "display":
                         order = ["dispmode", "back"]
                     else:
-                        order = ["bgm", "sfx", "back"]
+                        order = ["bgm", "sfx", "hitsound", "back"]
                     focus = order[(order.index(focus) + 1) % len(order)] if focus in order else order[0]
 
                 elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
                     if focus == "back":
                         ctx.play_click_sound()
-                        _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme)
+                        _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound)
                         # 디스플레이 모드 변경 적용
                         try:
                             from pingfighter import switch_display_mode, get_display_mode
@@ -1319,6 +1370,13 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                     elif current_tab == "sound" and focus == "sfx":
                         sfx_muted = not sfx_muted
                         set_sfx_muted(sfx_muted)
+                    elif current_tab == "sound" and focus == "hitsound":
+                        paddle_hit_sound = (paddle_hit_sound % 3) + 1
+                        _hs_key = {1: "PADDLE", 2: "PADDLE2", 3: "PADDLE3"}.get(paddle_hit_sound, "PADDLE")
+                        _ps = _paddle_sounds.get(_hs_key)
+                        if _ps:
+                            _ps.set_volume(current_sfx_volume)
+                            _ps.play()
 
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 state.idle_start_time = pygame.time.get_ticks()
@@ -1341,7 +1399,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                 # 뒤로가기
                 if back_rect.collidepoint(mp):
                     ctx.play_click_sound()
-                    _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme)
+                    _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound)
                     # 디스플레이 모드 변경 적용
                     try:
                         from pingfighter import switch_display_mode, get_display_mode
@@ -1386,6 +1444,18 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         set_sfx_muted(sfx_muted)
                         ctx.play_click_sound()
                         continue
+
+                    # 타격 사운드 선택 클릭
+                    for _hr, _hv, _hl in hit_pills:
+                        if _hr.collidepoint(mp):
+                            paddle_hit_sound = _hv
+                            focus = "hitsound"
+                            _hs_key = {1: "PADDLE", 2: "PADDLE2", 3: "PADDLE3"}.get(_hv, "PADDLE")
+                            _ps = _paddle_sounds.get(_hs_key)
+                            if _ps:
+                                _ps.set_volume(current_sfx_volume)
+                                _ps.play()
+                            break
 
                     # BGM 슬라이더 클릭
                     bgm_slider_area = pygame.Rect(slider_x, bgm_y - 10, slider_width, slider_height + 20)
@@ -1438,10 +1508,10 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         if not sfx_muted:
                             set_sfx_volume(current_sfx_volume)
 
-    _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme)
+    _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound)
 
 
-def _save_menu_settings(settings, bgm_mgr, bgm_vol, sfx_vol, bgm_muted, sfx_muted, control_scheme):
+def _save_menu_settings(settings, bgm_mgr, bgm_vol, sfx_vol, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound=1):
     """설정 값 저장"""
     from game_state.audio import set_bgm_volume, set_sfx_volume, set_bgm_muted, set_sfx_muted
     try:
@@ -1455,6 +1525,7 @@ def _save_menu_settings(settings, bgm_mgr, bgm_vol, sfx_vol, bgm_muted, sfx_mute
                 pygame.mixer.music.set_volume(bgm_vol)
         settings.set_setting("audio", "sfx_volume", sfx_vol)
         settings.set_setting("audio", "music_volume", bgm_vol)
+        settings.set_setting("audio", "paddle_hit_sound", paddle_hit_sound)
         settings.set_setting("controls", "control_scheme", control_scheme)
         settings.save_settings()
     except Exception as e:
