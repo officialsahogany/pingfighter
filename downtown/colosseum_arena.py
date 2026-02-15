@@ -67,7 +67,9 @@ FACECARD_MAP = {
     "joker": "joker.png",
     "kurokage": "kurokake.png",
     "gear": "mari.png",
+    "mirage": "set.png",
     "monkeyking": "monkeyking.png",
+    "mugen": "mugen.png",
     "necro": "necro.png",
     "onimaru": "onimaru.png",
     "maria": "yeonhwa.png",
@@ -4527,16 +4529,18 @@ class GuardWarriorSystem:
 
         # 다음 쿨타임 설정
         cd_mult = self.guard_cd_mult_top if is_top else self.guard_cd_mult_bottom
-        # 수비모드: 하단 호위무사 스킬 쿨타임 +50%
+        # 수비모드: 하단 호위무사 스킬 쿨타임 +100% (2배)
         if not is_top and self.stance_mode_bottom == "defense":
             cd_mult *= self.DEFENSE_SKILL_CD_MULT
         if self._has_dual_skills(guard["id"]):
             # 듀얼 스킬: 사용한 스킬만 쿨타임 리셋
             self._reset_skill_cooldown(guard["id"], skill_idx, cd_mult)
             self._sync_guard_cooldown_to_main(is_top, guard["id"])
+            print(f"[Guard] 순찰 재시전 쿨타임(듀얼): cd_mult={cd_mult:.2f}, stance={self.stance_mode_bottom}")
         else:
             base_cd = self._get_guard_cooldown(guard["id"])
             next_cd = base_cd * cd_mult
+            print(f"[Guard] 순찰 재시전 쿨타임: base={base_cd:.1f}, cd_mult={cd_mult:.2f}, next_cd={next_cd:.1f}s, stance={self.stance_mode_bottom}")
             if is_top:
                 self.cooldown_top = next_cd
                 self.cooldown_max_top = next_cd
