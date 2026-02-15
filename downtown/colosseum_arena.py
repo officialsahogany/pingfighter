@@ -10781,15 +10781,7 @@ class ColosseumsArena:
                 mx, my = mouse_pos
                 if card_x <= mx < card_x + card_w and draw_y <= my < draw_y + card_h:
                     _skill = entry.get("skill", None)
-                    # 같은 hero_id의 모든 스킬을 수집 (다중 스킬 표시용)
-                    _all_skills = []
-                    for e2 in entries:
-                        if e2["hero_id"] == entry["hero_id"] and e2.get("skill"):
-                            sk2 = e2["skill"]
-                            if sk2 not in _all_skills:
-                                _all_skills.append(sk2)
-                    if not _all_skills and _skill:
-                        _all_skills = [_skill]
+                    # 이 카드에 해당하는 스킬만 표시 (각 카드 = 1 스킬)
                     hover_result = {
                         "name": entry["hero_name"],
                         "color": entry["hero_color"],
@@ -10797,7 +10789,7 @@ class ColosseumsArena:
                         "phase": "casting" if entry["is_active"] else None,
                         "is_next": False,
                         "skill": _skill,
-                        "skills": _all_skills,
+                        "skills": [_skill] if _skill else [],
                         "side": entry["side"],
                         "screen_x": card_x + card_w + 2,
                         "screen_y": draw_y,

@@ -7326,7 +7326,7 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
         _th = sum(s.get_height() for s in _lines) + 6 * len(_lines) + 12
         # 스킬 영역 높이 추가 (여러 스킬)
         if len(_gh_skills) > 1:
-            # 다중 스킬: "스킬 (랜덤 발동)" 헤더
+            # 다중 스킬: "보유 스킬" 헤더
             _th += 6 + 27
         for idx, _se in enumerate(_skill_entries):
             if idx == 0:
@@ -7362,7 +7362,7 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
             _cy += 6
             # 다중 스킬 헤더
             if len(_gh_skills) > 1:
-                _hdr_surf = _gh_tiny.render("스킬 (랜덤 발동)", True, (180, 180, 220))
+                _hdr_surf = _gh_tiny.render("보유 스킬", True, (180, 180, 220))
                 _tip_surf.blit(_hdr_surf, (12, _cy))
                 _cy += 27
             # 각 스킬 표시
