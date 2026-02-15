@@ -55373,13 +55373,6 @@ def handle_gods_judgment():
 
     # 지진 시작 순간
     if is_eq and not was_eq:
-        # 사운드 재생
-        try:
-            if SOUND_GOD_EARTHQUAKE:
-                SOUND_GOD_EARTHQUAKE.play(loops=-1)
-            _judgment_quake_sound_playing = True
-        except Exception:
-            pass
         # 공 속도 백업
         _judgment_ball_speed_backup = ball_vel.copy()
         # 신의 심판 시작 사운드
@@ -55389,6 +55382,13 @@ def handle_gods_judgment():
         bg.judgment_text_display_paused = True
         show_fade_text("신의 심판: 땅의 분노")
         bg.judgment_text_display_paused = False
+        # 지진 루프 사운드 (텍스트 표시 후 재생 → godstart와 겹치지 않음)
+        try:
+            if SOUND_GOD_EARTHQUAKE:
+                SOUND_GOD_EARTHQUAKE.play(loops=-1)
+            _judgment_quake_sound_playing = True
+        except Exception:
+            pass
 
     # 지진 종료 순간
     if was_eq and not is_eq:
