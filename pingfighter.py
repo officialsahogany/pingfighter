@@ -21335,6 +21335,10 @@ def arena_should_top_hero_dash() -> tuple[bool, float]:
     if arena_top_dashing or arena_top_dash_stun_timer > 0:
         return False, 0.0
 
+    # 스턴/감전 상태에서는 대쉬 불가
+    if _judgment_lightning_stun_top_timer > 0 or (arena_skill_manager and arena_skill_manager.game_state.get('top_paddle_electric_stun', False)):
+        return False, 0.0
+
     # 토큰 없으면 발동 불가 (쿨다운은 충전만 제어, 토큰 남아있으면 사용 가능)
     if arena_top_dash_charges <= 0:
         return False, 0.0
@@ -21594,6 +21598,10 @@ def arena_trigger_bottom_hero_dash_ai(target_x: float) -> bool:
     if arena_bottom_dashing or arena_bottom_dash_stun_timer > 0:
         return False
 
+    # 스턴/감전 상태에서는 대쉬 불가
+    if _judgment_lightning_stun_bottom_timer > 0 or (arena_skill_manager and arena_skill_manager.game_state.get('bottom_paddle_electric_stun', False)):
+        return False
+
     # 토큰 없으면 발동 불가 (쿨다운은 충전만 제어, 토큰 남아있으면 사용 가능)
     if arena_bottom_dash_charges <= 0:
         return False
@@ -21663,6 +21671,10 @@ def arena_trigger_bottom_hero_dash(direction: int) -> bool:
 
     # 대쉬 중이거나 후딜 중이면 발동 불가
     if arena_bottom_dashing or arena_bottom_dash_stun_timer > 0:
+        return False
+
+    # 스턴/감전 상태에서는 대쉬 불가
+    if _judgment_lightning_stun_bottom_timer > 0 or (arena_skill_manager and arena_skill_manager.game_state.get('bottom_paddle_electric_stun', False)):
         return False
 
     # 토큰 없으면 발동 불가 (쿨다운은 충전만 제어, 토큰 남아있으면 사용 가능)
@@ -65093,7 +65105,9 @@ def handle_player(keys):
                 # 🔧 버그 수정: elif를 if로 변경 - 왼쪽 대쉬와 독립적으로 오른쪽 대쉬 조건 체크
                 # (이전에는 elif라서 rolling_charge_timer > 0이면 오른쪽 대쉬가 항상 무시됨)
                 # 대쉬 감속 구간 캔슬 적용 (왼쪽 대쉬와 동일)
-                if right_before_down and down_pressed and not dash_down_first_lock and rolling_charges > 0 and not optimus_drain_locked and _can_cancel_normal and dash_key_released_since_last:
+                # 스턴/감전 상태에서는 대쉬 불가
+                _player_stun_blocked_r = player_stunned_timer > 0 or player_stunned or player_missile_stunned_timer > 0
+                if right_before_down and down_pressed and not dash_down_first_lock and rolling_charges > 0 and not optimus_drain_locked and _can_cancel_normal and dash_key_released_since_last and not _player_stun_blocked_r:
                     # 아래키 + 오른쪽 - 대쉬 실행
                     # 🔧 버그 수정: 일반 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
@@ -121177,7 +121191,9 @@ def handle_ball():
                 # 대쉬 실행 - 위험감지센서는 게이지와 토큰 소모 없이 사용
                 # 대쉬 감속 구간 캔슬: rolling_active 중이어도 감속 후반부면 연속 대쉬 허용
                 _can_cancel_sensor = not rolling_active or (rolling_active and rolling_timer <= DASH_CANCEL_THRESHOLD)
-                if _can_cancel_sensor and not is_waiting_for_serve:
+                # 스턴/감전 상태에서는 자동 대쉬 불가
+                _player_stun_blocked_sensor = player_stunned_timer > 0 or player_stunned or player_missile_stunned_timer > 0
+                if _can_cancel_sensor and not is_waiting_for_serve and not _player_stun_blocked_sensor:
                     global is_danger_sensor_dash
                     # 🔧 버그 수정: 센서 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
