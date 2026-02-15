@@ -19353,6 +19353,7 @@ SOUND_QUAKE = sound_effects['QUAKE']
 SOUND_GOD_START = sound_effects.get('GOD_START')
 SOUND_GOD_EARTHQUAKE = sound_effects.get('GOD_EARTHQUAKE')
 SOUND_GOD_WIND = sound_effects.get('GOD_WIND')
+SOUND_GOD_THUNDER = sound_effects.get('GOD_THUNDER')
 whip_sound = sound_effects['WHIP']
 SOUND_AIRPLANE = sound_effects['AIRPLANE']
 SOUND_DEFENSE_HIT = sound_effects['DEFENSE_HIT']
@@ -55425,6 +55426,9 @@ def handle_gods_judgment():
             bg.judgment_bolt_explosion_started = False
             _judgment_lightning_stun_applied = True
             _judgment_lightning_stun_type = True
+            # 폭발 사운드
+            if SOUND_GOD_THUNDER:
+                SOUND_GOD_THUNDER.play()
             ex = bg.judgment_explosion_x
             ey = bg.judgment_explosion_y
             stun_radius = bg.judgment_explosion_max_radius

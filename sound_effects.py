@@ -101,6 +101,7 @@ SOUND_PATHS = {
     "GOD_START": "sounds/godstart.wav",
     "GOD_EARTHQUAKE": "sounds/godearthquake.wav",
     "GOD_WIND": "sounds/godwind.wav",
+    "GOD_THUNDER": "sounds/godthunder.wav",
 }
 
 
