@@ -3178,9 +3178,17 @@ class GuardWarriorSystem:
         _charm_is_bottom = not c.get('is_top', True)
         if _charm_is_bottom and self.stance_mode_bottom == "defense" and ball:
             c['patrol_wait'] = 0
-            target_x = max(left_bound, min(ball.x + ball.width // 2, right_bound))
-            diff = target_x - c['x']
+            if bottom_paddle:
+                target_x, is_urgent = self._calc_defense_target_x(
+                    c['x'], ball, bottom_paddle.x,
+                    getattr(bottom_paddle, 'width', PADDLE_WIDTH))
+            else:
+                target_x = ball.x + ball.width // 2
+                is_urgent = True
             speed = max(140.0, c['patrol_speed']) * self.DEFENSE_SPEED_MULT
+            if not is_urgent:
+                speed *= 0.6
+            diff = target_x - c['x']
             if abs(diff) > 3.0:
                 direction = 1 if diff > 0 else -1
                 move = direction * speed * dt
@@ -3462,7 +3470,7 @@ class GuardWarriorSystem:
 
         # === patrolling: 순찰 + 쿨타임 ===
         if phase == 'patrolling':
-            self._update_patrol2_movement(dt, p2, ball=ball, is_top=is_top)
+            self._update_patrol2_movement(dt, p2, ball=ball, is_top=is_top, bottom_paddle=bottom_paddle)
 
             if _p2_dual:
                 # 듀얼 스킬: 쿨다운은 상단에서 이미 tick됨, 여기서는 체크만
@@ -3492,17 +3500,26 @@ class GuardWarriorSystem:
                 p2['anim_timer'] = 0.0
                 p2['y'] = float(TOP_PADDLE_Y if is_top else BOTTOM_PADDLE_Y)
 
-    def _update_patrol2_movement(self, dt, p2, ball=None, is_top=True):
-        """2번째 호위무사 순찰 이동 (랜덤 패턴 / 수비모드: 공 추적)"""
+    def _update_patrol2_movement(self, dt, p2, ball=None, is_top=True, bottom_paddle=None):
+        """2번째 호위무사 순찰 이동 (랜덤 패턴 / 수비모드: 스마트 포지셔닝)"""
         left_bound = PADDLE_WIDTH // 2
         right_bound = SCREEN_WIDTH - PADDLE_WIDTH // 2
 
-        # 하단 수비모드: 공 추적 + 멈춤 없음 + 속도 1.3배
+        # 하단 수비모드: 스마트 포지셔닝
         if not is_top and self.stance_mode_bottom == "defense" and ball:
             p2['patrol_wait'] = 0
-            target_x = max(left_bound, min(ball.x + ball.width // 2, right_bound))
+            if bottom_paddle:
+                target_x, is_urgent = self._calc_defense_target_x(
+                    p2['x'], ball, bottom_paddle.x,
+                    getattr(bottom_paddle, 'width', PADDLE_WIDTH))
+            else:
+                target_x = ball.x + ball.width // 2
+                is_urgent = True
+            target_x = max(left_bound, min(target_x, right_bound))
             diff = target_x - p2['x']
             speed = max(140.0, p2['patrol_speed']) * self.DEFENSE_SPEED_MULT
+            if not is_urgent:
+                speed *= 0.6
             if abs(diff) > 3.0:
                 direction = 1 if diff > 0 else -1
                 move = direction * speed * dt
@@ -3978,7 +3995,7 @@ class GuardWarriorSystem:
 
         # 순찰 모드: 진영 내 이동 + 쿨타임 동시 진행
         if phase == "patrolling":
-            self._update_patrol(dt, is_top, ball=ball)
+            self._update_patrol(dt, is_top, ball=ball, bottom_paddle=bottom_paddle)
             if _dual_mode:
                 # 듀얼 스킬: 독립 쿨다운 체크 (상단에서 이미 tick됨)
                 if self._any_skill_ready(_dual_guard["id"]):
@@ -4408,6 +4425,67 @@ class GuardWarriorSystem:
                 break
         return predicted_x
 
+    def _calc_defense_target_x(self, guard_cx, ball, hero_px, hero_pw):
+        """수비모드 스마트 포지셔닝 - 영웅이 커버 못하는 영역을 보완
+
+        Args:
+            guard_cx: 호위무사 현재 center X
+            ball: 공 객체
+            hero_px: 영웅 패들 left-edge X
+            hero_pw: 영웅 패들 너비
+        Returns:
+            (target_x, is_urgent): 목표 X좌표, 긴급 여부
+        """
+        left_bound = PADDLE_WIDTH // 2
+        right_bound = SCREEN_WIDTH - PADDLE_WIDTH // 2
+
+        ball_cx = ball.x + ball.width // 2
+        hero_cx = hero_px + hero_pw // 2
+
+        # Step 1: 공 착지점 예측
+        if hasattr(ball, 'vy') and ball.vy > 0:
+            predicted_x = self._predict_guard_ball_x(
+                ball_cx, ball.vx, ball.y, ball.vy, BOTTOM_PADDLE_Y)
+        else:
+            predicted_x = ball_cx
+
+        # Step 2: 영웅이 착지점 커버 가능한지
+        hero_covers = abs(hero_cx - predicted_x) < hero_pw // 2 + 20
+
+        # Step 3: 영웅 대쉬 상태 확인
+        game_state = self.skill_manager.game_state if self.skill_manager else {}
+        hero_has_dash = game_state.get('arena_bottom_dash_charges', 1) > 0
+        hero_is_dashing = game_state.get('arena_bottom_dashing', False)
+
+        # Step 4: 포지셔닝 결정
+        is_urgent = False
+        if hasattr(ball, 'vy') and ball.vy > 0 and not hero_covers and not hero_has_dash and not hero_is_dashing:
+            # 긴급: 영웅이 커버 못하고 대쉬도 없음 → 착지점 직행
+            target_x = predicted_x
+            is_urgent = True
+        elif hasattr(ball, 'vy') and ball.vy > 0:
+            # 보완: 영웅 반대편에 포지셔닝 (영웅이 커버 가능하거나 대쉬 있음)
+            game_center = GAME_AREA_X + GAME_AREA_WIDTH // 2  # 380
+            if hero_cx < game_center:
+                target_x = game_center + (game_center - hero_cx) * 0.5
+            else:
+                target_x = game_center - (hero_cx - game_center) * 0.5
+        else:
+            # 공이 상단으로 이동 중 → 예측 위치로 느긋하게
+            target_x = predicted_x
+
+        # Step 5: 영웅과 최소 간격 유지 (80px)
+        MIN_SEP = PADDLE_WIDTH
+        if abs(target_x - hero_cx) < MIN_SEP:
+            if target_x <= hero_cx:
+                target_x = hero_cx - MIN_SEP
+            else:
+                target_x = hero_cx + MIN_SEP
+
+        # Step 6: 범위 제한
+        target_x = max(left_bound, min(target_x, right_bound))
+        return target_x, is_urgent
+
     def _check_guard_emergency_dash(self, dt, ball):
         """호위무사 긴급 대쉬 판정 (수비모드 전용)"""
         if self.stance_mode_bottom != "defense":
@@ -4498,9 +4576,9 @@ class GuardWarriorSystem:
 
     # ── 호위무사 순찰 이동 ──────────────────────────────────────
 
-    def _update_patrol(self, dt, is_top, ball=None):
+    def _update_patrol(self, dt, is_top, ball=None, bottom_paddle=None):
         """순찰 모드: 호위무사가 진영 내에서 자연스럽게 랜덤 순찰
-        수비모드(하단만): 공을 따라 부드럽게 추적, 멈춤 없음, 이동속도 +30%
+        수비모드(하단만): 스마트 포지셔닝 (영웅 보완, 착지점 예측)
         """
         left_bound = PADDLE_WIDTH // 2
         right_bound = SCREEN_WIDTH - PADDLE_WIDTH // 2
@@ -4540,14 +4618,20 @@ class GuardWarriorSystem:
                 if self._guard_dash_active:
                     pass  # 대쉬 이동은 _update_guard_dash에서 처리
                 else:
-                    # 수비모드: 공을 따라 부드럽게 추적, 멈춤 없음
+                    # 수비모드: 스마트 포지셔닝 (영웅 보완 + 착지점 예측)
                     self._patrol_wait_bottom = 0
-                    target_x = ball.x + ball.width // 2
+                    if bottom_paddle:
+                        target_x, is_urgent = self._calc_defense_target_x(
+                            self.x_bottom, ball, bottom_paddle.x,
+                            getattr(bottom_paddle, 'width', PADDLE_WIDTH))
+                    else:
+                        target_x = ball.x + ball.width // 2
+                        is_urgent = True
                     target_x = max(left_bound, min(target_x, right_bound))
                     diff = target_x - self.x_bottom
-                    speed = self._patrol_speed_bottom * self.DEFENSE_SPEED_MULT
-                    if self._patrol_speed_bottom < 140.0:
-                        speed = 140.0 * self.DEFENSE_SPEED_MULT
+                    speed = max(140.0, self._patrol_speed_bottom) * self.DEFENSE_SPEED_MULT
+                    if not is_urgent:
+                        speed *= 0.6  # 긴급 아닐 때 느긋하게
                     if abs(diff) > 3.0:
                         direction = 1 if diff > 0 else -1
                         self._patrol_dir_bottom = direction
