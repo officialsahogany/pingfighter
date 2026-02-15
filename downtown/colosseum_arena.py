@@ -6546,6 +6546,7 @@ class ColosseumsArena:
         self.battle_intro_swing_phase = 0.0
         # 도발 멘트 시스템
         self.battle_intro_taunts = []
+        self.battle_intro_taunts_triggered = set()  # 이미 발동된 도발 인덱스
 
         # 영웅별 캐릭터 컨셉 도발 대사 선택
         import random as _rnd
@@ -7804,13 +7805,12 @@ class ColosseumsArena:
                 p["life"] -= dt
             self.battle_intro_fire_particles = [p for p in self.battle_intro_fire_particles if p["life"] > 0]
 
-            # 도발 멘트 스케줄 체크
+            # 도발 멘트 스케줄 체크 (인덱스 기반 - 한 번만 발동)
             schedule = getattr(self, 'battle_intro_taunt_schedule', [])
-            for taunt_time, side, text in schedule:
-                if t >= taunt_time and not any(
-                    tt.get("text") == text and tt.get("side") == side
-                    for tt in self.battle_intro_taunts
-                ):
+            triggered = getattr(self, 'battle_intro_taunts_triggered', set())
+            for idx, (taunt_time, side, text) in enumerate(schedule):
+                if t >= taunt_time and idx not in triggered:
+                    triggered.add(idx)
                     self.battle_intro_taunts.append({
                         "text": text, "side": side,
                         "timer": 0.0, "duration": 0.8,
