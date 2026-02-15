@@ -13627,7 +13627,7 @@ class ThunderOrb(HeroSkill):
         try:
             project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             # 발사 사운드
-            sound_path = os.path.join(project_root, "sounds", "devinethunder.wav")
+            sound_path = os.path.join(project_root, "sounds", "thunderbolt.wav")
             if os.path.exists(sound_path):
                 self._sound = pygame.mixer.Sound(sound_path)
                 self._sound.set_volume(0.4)
