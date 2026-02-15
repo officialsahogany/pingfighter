@@ -3095,7 +3095,7 @@ class GuardWarriorSystem:
         _charm_is_bottom = not c.get('is_top', True)
         if _charm_is_bottom and self.stance_mode_bottom == "defense" and ball:
             c['patrol_wait'] = 0
-            target_x = max(left_bound, min(ball.centerx, right_bound))
+            target_x = max(left_bound, min(ball.x + ball.width // 2, right_bound))
             diff = target_x - c['x']
             speed = max(140.0, c['patrol_speed']) * self.DEFENSE_SPEED_MULT
             if abs(diff) > 3.0:
@@ -3417,7 +3417,7 @@ class GuardWarriorSystem:
         # 하단 수비모드: 공 추적 + 멈춤 없음 + 속도 1.3배
         if not is_top and self.stance_mode_bottom == "defense" and ball:
             p2['patrol_wait'] = 0
-            target_x = max(left_bound, min(ball.centerx, right_bound))
+            target_x = max(left_bound, min(ball.x + ball.width // 2, right_bound))
             diff = target_x - p2['x']
             speed = max(140.0, p2['patrol_speed']) * self.DEFENSE_SPEED_MULT
             if abs(diff) > 3.0:
@@ -4341,7 +4341,7 @@ class GuardWarriorSystem:
             if self.stance_mode_bottom == "defense" and ball:
                 # 수비모드: 공을 따라 부드럽게 추적, 멈춤 없음
                 self._patrol_wait_bottom = 0
-                target_x = ball.centerx
+                target_x = ball.x + ball.width // 2
                 target_x = max(left_bound, min(target_x, right_bound))
                 diff = target_x - self.x_bottom
                 speed = self._patrol_speed_bottom * self.DEFENSE_SPEED_MULT
