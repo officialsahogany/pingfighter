@@ -758,8 +758,8 @@ class AnimatedBackgroundStage30:
     # ========================================
     # 신의심판 이벤트 메서드
     # ========================================
-    def trigger_gods_judgment(self):
-        """신의심판 이벤트 시작"""
+    def trigger_gods_judgment(self, forced_variant=None):
+        """신의심판 이벤트 시작. forced_variant로 변형 지정 가능 ('earthquake'/'lightning'/'wind')"""
         if self.judgment_phase != self.JUDGMENT_IDLE:
             return False
         self.judgment_phase = self.JUDGMENT_MERGE
@@ -779,7 +779,10 @@ class AnimatedBackgroundStage30:
         self.judgment_bolt_sparks = []
         self.judgment_bolt_intensity = 0.0
         # 변형 초기화
-        self.judgment_variant = random.choice(['earthquake', 'lightning', 'wind'])
+        if forced_variant and forced_variant in ('earthquake', 'lightning', 'wind'):
+            self.judgment_variant = forced_variant
+        else:
+            self.judgment_variant = random.choice(['earthquake', 'lightning', 'wind'])
         print(f"[신의심판] 변형 선택: {self.judgment_variant}")
         self.judgment_bolt_hidden = False
         self.judgment_bolt_thrown = False

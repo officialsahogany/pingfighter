@@ -1724,8 +1724,14 @@ def _apply_global_hotkeys(events):
             uni = getattr(ev, "unicode", "")
             is_b_toggle = (key == pygame.K_b) or (uni == "ㅠ")
 
-            # F12 스크린샷 기능 (필러 포함 전체화면 캡처)
+            # F12: 투기장(Stage 30)에서는 신의심판 디버그 메뉴, 그 외는 스크린샷
             if ev.type == pygame.KEYDOWN and key == pygame.K_F12:
+                if current_stage == 30 and animated_bg_stage30 is not None:
+                    try:
+                        show_judgment_debug_menu()
+                    except Exception:
+                        pass
+                    continue
                 try:
                     # 스크린샷 저장 폴더 (EXE 파일 위치 또는 게임 폴더 내 screenshots)
                     if getattr(sys, 'frozen', False):
@@ -55238,6 +55244,88 @@ def _stop_electric_shock_sound():
         _electric_shock_sound_channel = None
     except Exception:
         _electric_shock_sound_channel = None
+
+def show_judgment_debug_menu():
+    """F12 디버그: 신의심판 변형 선택 메뉴 (투기장 전용)"""
+    if current_stage != 30 or animated_bg_stage30 is None:
+        return
+    # 이미 진행 중이면 무시
+    if animated_bg_stage30.judgment_phase != animated_bg_stage30.JUDGMENT_IDLE:
+        return
+
+    menu_options = [
+        {"key": "earthquake", "label": "땅의 분노", "color": (180, 120, 60)},
+        {"key": "lightning",  "label": "번개의 분노", "color": (100, 180, 255)},
+        {"key": "wind",       "label": "바람의 분노", "color": (160, 200, 120)},
+    ]
+    selected = 0
+    clock = pygame.time.Clock()
+    font_title = get_font(28)
+    font_option = get_font(22)
+    font_hint = get_font(14)
+
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_ESCAPE, pygame.K_F12):
+                    running = False
+                elif event.key == pygame.K_UP:
+                    selected = (selected - 1) % len(menu_options)
+                elif event.key == pygame.K_DOWN:
+                    selected = (selected + 1) % len(menu_options)
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    variant = menu_options[selected]["key"]
+                    animated_bg_stage30.trigger_gods_judgment(forced_variant=variant)
+                    running = False
+
+        # 반투명 배경
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        SCREEN.blit(overlay, (0, 0))
+
+        cx = WIDTH // 2
+        # 타이틀
+        title_surf = font_title.render("신의 심판 발동", True, (255, 220, 150))
+        title_rect = title_surf.get_rect(center=(cx, 260))
+        SCREEN.blit(title_surf, title_rect)
+        # 밑줄
+        pygame.draw.line(SCREEN, (255, 220, 150), (cx - 100, 282), (cx + 100, 282), 2)
+
+        # 옵션
+        for i, opt in enumerate(menu_options):
+            y = 320 + i * 60
+            is_sel = (i == selected)
+            # 선택 배경
+            if is_sel:
+                sel_bg = pygame.Surface((280, 44), pygame.SRCALPHA)
+                sel_bg.fill((*opt["color"], 50))
+                SCREEN.blit(sel_bg, (cx - 140, y - 8))
+                pygame.draw.rect(SCREEN, opt["color"], (cx - 140, y - 8, 280, 44), 2)
+            # 번호
+            num_color = opt["color"] if is_sel else (120, 120, 120)
+            num_surf = font_option.render(f"{i + 1}.", True, num_color)
+            SCREEN.blit(num_surf, (cx - 110, y + 2))
+            # 라벨
+            label_color = (255, 255, 255) if is_sel else (160, 160, 160)
+            label_surf = font_option.render(opt["label"], True, label_color)
+            SCREEN.blit(label_surf, (cx - 80, y + 2))
+            # 선택 마커
+            if is_sel:
+                marker_surf = font_option.render(">", True, opt["color"])
+                SCREEN.blit(marker_surf, (cx - 130, y + 2))
+
+        # 하단 힌트
+        hint_surf = font_hint.render("Enter: 발동  /  ESC: 취소", True, (140, 140, 140))
+        hint_rect = hint_surf.get_rect(center=(cx, 510))
+        SCREEN.blit(hint_surf, hint_rect)
+
+        pygame.display.flip()
+        clock.tick(60)
+
 
 def handle_gods_judgment():
     """투기장 신의심판 이벤트 처리 - 공 랜덤 이동 + 영웅 속도 감소 + 번개/바람 스턴"""
