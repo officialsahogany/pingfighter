@@ -50674,13 +50674,13 @@ except:
     pygame.draw.circle(BALL_IMG, (200, 230, 255), (18, 18), 12)
     pygame.draw.circle(BALL_IMG, (255, 255, 255), (18, 18), 6)
 
-# 탁구공 이미지 로드 (ball.ico)
+# 탁구공 이미지 로드 (ball.png)
 PINGPONG_BALL_IMG = None
 try:
-    PINGPONG_BALL_IMG = pygame.image.load(resource_path("ball.ico")).convert_alpha()
+    PINGPONG_BALL_IMG = pygame.image.load(resource_path("ball.png")).convert_alpha()
     PINGPONG_BALL_IMG = pygame.transform.smoothscale(PINGPONG_BALL_IMG, (36, 36))
 except Exception:
-    # ball.ico 없을 경우 흰색 탁구공 프로시저럴 생성
+    # ball.png 없을 경우 흰색 탁구공 프로시저럴 생성
     PINGPONG_BALL_IMG = pygame.Surface((36, 36), pygame.SRCALPHA)
     pygame.draw.circle(PINGPONG_BALL_IMG, (255, 255, 255), (18, 18), 16)
     pygame.draw.circle(PINGPONG_BALL_IMG, (230, 230, 230), (18, 18), 14)
