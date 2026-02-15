@@ -1065,17 +1065,19 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
         screen.blit(panel, (panel_x, panel_y))
 
         # ─── 탭 ───
-        tab_w, tab_h = 110, 36
-        tab_gap = 10
+        tab_w, tab_h = 100, 36
+        tab_gap = 8
         tabs_y = panel_y + 12
-        sound_tab_rect = pygame.Rect(panel_x + 20, tabs_y, tab_w, tab_h)
-        ctrl_tab_rect = pygame.Rect(panel_x + 20 + tab_w + tab_gap, tabs_y, tab_w, tab_h)
-        disp_tab_rect = pygame.Rect(panel_x + 20 + (tab_w + tab_gap) * 2, tabs_y, tab_w, tab_h)
+        sound_tab_rect = pygame.Rect(panel_x + 16, tabs_y, tab_w, tab_h)
+        ctrl_tab_rect = pygame.Rect(panel_x + 16 + (tab_w + tab_gap), tabs_y, tab_w, tab_h)
+        disp_tab_rect = pygame.Rect(panel_x + 16 + (tab_w + tab_gap) * 2, tabs_y, tab_w, tab_h)
+        play_tab_rect = pygame.Rect(panel_x + 16 + (tab_w + tab_gap) * 3, tabs_y, tab_w, tab_h)
 
         for tab_rect, label, active in [
             (sound_tab_rect, "사운드", current_tab == "sound"),
             (ctrl_tab_rect, "컨트롤", current_tab == "controls"),
             (disp_tab_rect, "디스플레이", current_tab == "display"),
+            (play_tab_rect, "플레이", current_tab == "play"),
         ]:
             base = (70, 100, 140) if active else (50, 60, 80)
             pygame.draw.rect(screen, base, tab_rect, border_radius=8)
@@ -1199,6 +1201,10 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                 s = font_small.render(label, True, (255, 255, 255))
                 screen.blit(s, s.get_rect(center=rect.center))
 
+        elif current_tab == "play":
+            play_desc = font_small.render("추후 설정 항목이 추가됩니다", True, (120, 140, 160))
+            screen.blit(play_desc, play_desc.get_rect(centerx=width // 2, top=content_y + 30))
+
         elif current_tab == "display":
             disp_y = content_y + 20
             disp_label = font_medium.render("화면 모드", True, (255, 255, 255))
@@ -1268,10 +1274,10 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                     return
 
                 if event.key == pygame.K_TAB:
-                    _tab_order = ["sound", "controls", "display"]
+                    _tab_order = ["sound", "controls", "display", "play"]
                     _tab_idx = _tab_order.index(current_tab) if current_tab in _tab_order else 0
                     current_tab = _tab_order[(_tab_idx + 1) % len(_tab_order)]
-                    focus = {"sound": "bgm", "controls": "scheme", "display": "dispmode"}.get(current_tab, "bgm")
+                    focus = {"sound": "bgm", "controls": "scheme", "display": "dispmode", "play": "back"}.get(current_tab, "bgm")
 
                 if event.key == pygame.K_LEFT:
                     if current_tab == "controls" and focus == "scheme":
@@ -1328,6 +1334,8 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         order = ["scheme", "back"]
                     elif current_tab == "display":
                         order = ["dispmode", "back"]
+                    elif current_tab == "play":
+                        order = ["back"]
                     else:
                         order = ["bgm", "sfx", "hitsound", "back"]
                     focus = order[(order.index(focus) - 1) % len(order)] if focus in order else order[0]
@@ -1337,6 +1345,8 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         order = ["scheme", "back"]
                     elif current_tab == "display":
                         order = ["dispmode", "back"]
+                    elif current_tab == "play":
+                        order = ["back"]
                     else:
                         order = ["bgm", "sfx", "hitsound", "back"]
                     focus = order[(order.index(focus) + 1) % len(order)] if focus in order else order[0]
@@ -1394,6 +1404,10 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                 if disp_tab_rect.collidepoint(mp):
                     current_tab = "display"
                     focus = "dispmode"
+                    continue
+                if play_tab_rect.collidepoint(mp):
+                    current_tab = "play"
+                    focus = "back"
                     continue
 
                 # 뒤로가기

@@ -281,12 +281,13 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
         current_tab = locals().get('current_tab', 'sound')  # 유지용
         # 탭 영역
         tabs_y = panel_y + 10
-        tab_w = 110
-        tab_gap = 10
+        tab_w = 100
+        tab_gap = 8
         tab_h = 36
-        sound_tab_rect = pygame.Rect(panel_x + 20, tabs_y, tab_w, tab_h)
-        ctrl_tab_rect = pygame.Rect(panel_x + 20 + tab_w + tab_gap, tabs_y, tab_w, tab_h)
-        disp_tab_rect = pygame.Rect(panel_x + 20 + (tab_w + tab_gap) * 2, tabs_y, tab_w, tab_h)
+        sound_tab_rect = pygame.Rect(panel_x + 16, tabs_y, tab_w, tab_h)
+        ctrl_tab_rect = pygame.Rect(panel_x + 16 + (tab_w + tab_gap), tabs_y, tab_w, tab_h)
+        disp_tab_rect = pygame.Rect(panel_x + 16 + (tab_w + tab_gap) * 2, tabs_y, tab_w, tab_h)
+        play_tab_rect = pygame.Rect(panel_x + 16 + (tab_w + tab_gap) * 3, tabs_y, tab_w, tab_h)
         # 현재 탭 상태 유지
         if 'current_tab' not in locals():
             current_tab = 'sound'
@@ -300,9 +301,13 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
         _draw_tab(sound_tab_rect, '사운드', current_tab == 'sound')
         _draw_tab(ctrl_tab_rect, '컨트롤', current_tab == 'controls')
         _draw_tab(disp_tab_rect, '디스플레이', current_tab == 'display')
+        _draw_tab(play_tab_rect, '플레이', current_tab == 'play')
 
         # 컨텐츠 렌더링 -------------------------------------------------------
-        if current_tab == 'controls':
+        if current_tab == 'play':
+            play_desc = font_small.render("추후 설정 항목이 추가됩니다", True, (120, 140, 160))
+            ctx.screen.blit(play_desc, play_desc.get_rect(centerx=ctx.width // 2, top=bgm_slider_y + 10))
+        elif current_tab == 'controls':
             # 조작 방식 선택(키보드만 / 마우스+키보드)
             label = font_medium.render("조작 방식", True, const.WHITE)
             ctx.screen.blit(label, (panel_x + margin_x, bgm_slider_y + slider_height // 2 - 10))
@@ -495,10 +500,10 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         print(f"[디스플레이 전환 오류] {_e}")
                     return
                 if event.key == pygame.K_TAB:
-                    _tab_order = ['sound', 'controls', 'display']
+                    _tab_order = ['sound', 'controls', 'display', 'play']
                     _tidx = _tab_order.index(current_tab) if current_tab in _tab_order else 0
                     current_tab = _tab_order[(_tidx + 1) % len(_tab_order)]
-                    focus = {'sound': 'bgm', 'controls': 'scheme', 'display': 'dispmode'}.get(current_tab, 'bgm')
+                    focus = {'sound': 'bgm', 'controls': 'scheme', 'display': 'dispmode', 'play': 'back'}.get(current_tab, 'bgm')
                 if event.key == pygame.K_LEFT:
                     if current_tab == 'controls':
                         if locals().get('focus','bgm') in ('scheme','back'):
@@ -554,6 +559,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         order = ["scheme", "back"]
                     elif current_tab == 'display':
                         order = ["dispmode", "back"]
+                    elif current_tab == 'play':
+                        order = ["back"]
                     else:
                         order = ["bgm", "sfx", "hitsound", "back"]
                     focus = order[(order.index(focus) - 1) % len(order)] if focus in order else order[0]
@@ -562,6 +569,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         order = ["scheme", "back"]
                     elif current_tab == 'display':
                         order = ["dispmode", "back"]
+                    elif current_tab == 'play':
+                        order = ["back"]
                     else:
                         order = ["bgm", "sfx", "hitsound", "back"]
                     focus = order[(order.index(focus) + 1) % len(order)] if focus in order else order[0]
@@ -609,6 +618,10 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     if disp_tab_rect.collidepoint(mouse_pos):
                         current_tab = 'display'
                         focus = 'dispmode'
+                        continue
+                    if play_tab_rect.collidepoint(mouse_pos):
+                        current_tab = 'play'
+                        focus = 'back'
                         continue
 
                     if back_button_rect.collidepoint(mouse_pos):
