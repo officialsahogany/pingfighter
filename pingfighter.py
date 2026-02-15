@@ -18718,13 +18718,27 @@ def play_wall_sound():
     """벽 충돌 사운드 재생"""
     play_sound_with_volume(SOUND_WALL)
 
+def _get_selected_paddle_sound():
+    """설정에서 선택된 패들 타격 사운드 반환"""
+    try:
+        from config.settings_system import get_settings_manager
+        sm = get_settings_manager()
+        idx = sm.get_setting('audio', 'paddle_hit_sound', 1)
+    except Exception:
+        idx = 1
+    if idx == 2 and SOUND_PADDLE2:
+        return SOUND_PADDLE2
+    elif idx == 3 and SOUND_PADDLE3:
+        return SOUND_PADDLE3
+    return SOUND_PADDLE
+
 def play_paddle_sound():
     """패들 충돌 사운드 재생"""
     global _arena_skill_sound_this_frame
     # 투기장 모드: 이번 프레임에서 스킬 사운드가 이미 재생되었으면 패들 사운드 스킵
     if arena_mode_enabled and _arena_skill_sound_this_frame:
         return
-    play_sound_with_volume(SOUND_PADDLE)
+    play_sound_with_volume(_get_selected_paddle_sound())
 
 def play_button_hover_sound():
     """버튼 호버 사운드 재생"""
@@ -19289,6 +19303,8 @@ SOUND_SERVE = sound_effects['SERVE']
 SOUND_WALL = sound_effects['WALL']
 SOUND_BRICK_DESTROY = sound_effects['BRICK_DESTROY']
 SOUND_PADDLE = sound_effects['PADDLE']
+SOUND_PADDLE2 = sound_effects.get('PADDLE2')
+SOUND_PADDLE3 = sound_effects.get('PADDLE3')
 SOUND_QUAKE = sound_effects['QUAKE']
 whip_sound = sound_effects['WHIP']
 SOUND_AIRPLANE = sound_effects['AIRPLANE']
@@ -71229,8 +71245,8 @@ def handle_spinning_top():
                 )
                 
                 # 효과음
-                play_sound_with_volume(SOUND_PADDLE)
-                
+                play_sound_with_volume(_get_selected_paddle_sound())
+
                 # 400% 속도 부스트 (0.3초)
                 angle = math.atan2(dy, dx)
                 boost_speed = 8.0  # 400% 속도
@@ -71389,8 +71405,8 @@ def check_spinning_top_collision():
             create_impact_effect(top_center[0], top_center[1], [0, 0], is_player=False)
             
             # 효과음 재생
-            play_sound_with_volume(SOUND_PADDLE)
-            
+            play_sound_with_volume(_get_selected_paddle_sound())
+
             print(f"  !  !  : {math.degrees(random_angle):.0f}°")
             return True
     
@@ -102674,7 +102690,7 @@ def show_tutorial_power_demonstration():
                 demo_ball_dy = -demo_ball_dy
                 try:
                     if 'SOUND_PADDLE' in globals():
-                        play_sound_with_volume(SOUND_PADDLE)
+                        play_sound_with_volume(_get_selected_paddle_sound())
                 except:
                     pass
         

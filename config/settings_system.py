@@ -104,7 +104,8 @@ class SettingsManager:
                 'duck_explosion_trigger': True,
                 'mute_all': False,
                 'spatial_audio': True,
-                'dynamic_music': True
+                'dynamic_music': True,
+                'paddle_hit_sound': 1
             },
             
             # 게임플레이 설정
@@ -506,6 +507,9 @@ class SettingsManager:
             else:
                 sound_manager.set_ducking(enabled=bool(audio.get('ducking_enabled', True)))
                 sound_manager.set_ducking_triggers(channels)
+        elif key == 'paddle_hit_sound':
+            # 패들 타격 사운드 변경 (1, 2, 3)
+            self.global_manager.set('paddle_hit_sound', int(value))
         elif key == 'mute_all':
             if value:
                 sound_manager.mute()

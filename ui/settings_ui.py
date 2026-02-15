@@ -240,6 +240,14 @@ class SettingsUI:
                 'step': 0.1
             },
             {
+                'type': 'dropdown',
+                'key': 'paddle_hit_sound',
+                'label': '타격 사운드',
+                'options': [1, 2, 3],
+                'format': lambda x: f'사운드 {x}',
+                'preview_sound': True
+            },
+            {
                 'type': 'toggle',
                 'key': 'enable_limiter',
                 'label': '효과음 리미터 켜기(피크 억제)'
@@ -485,7 +493,37 @@ class SettingsUI:
                         current_idx = 0
                     new_idx = (current_idx + direction) % len(options)
                     self._set_setting_value(key, options[new_idx])
+                    # 타격 사운드 미리듣기
+                    if item.get('preview_sound') and key == 'paddle_hit_sound':
+                        self._preview_paddle_sound(options[new_idx])
                     
+    def _preview_paddle_sound(self, sound_index: int):
+        """타격 사운드 미리듣기"""
+        try:
+            sound_keys = {1: 'PADDLE', 2: 'PADDLE2', 3: 'PADDLE3'}
+            key = sound_keys.get(sound_index, 'PADDLE')
+            from sound_effects import load_sound_effects
+            import sys, os
+            def resource_path(relative_path):
+                try:
+                    base_path = sys._MEIPASS
+                except Exception:
+                    base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                relative_path = relative_path.replace('/', os.sep).replace('\\', os.sep)
+                return os.path.join(base_path, relative_path)
+            from sound_effects import SOUND_PATHS
+            rel_path = SOUND_PATHS.get(key)
+            if rel_path:
+                full_path = resource_path(rel_path)
+                sound = pygame.mixer.Sound(full_path)
+                sfx_vol = self._get_setting_value('sfx_volume', 1.0)
+                if sfx_vol is None:
+                    sfx_vol = 1.0
+                sound.set_volume(sfx_vol)
+                sound.play()
+        except Exception as e:
+            print(f"[WARN] paddle sound preview failed: {e}")
+
     def _activate_item(self):
         """선택된 항목 활성화"""
         items = self.setting_items[self.current_category]

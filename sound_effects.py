@@ -11,6 +11,8 @@ SOUND_PATHS = {
     "WALL": "sounds/wall_hit.wav",
     "BRICK_DESTROY": "sounds/stonebreak2.wav",
     "PADDLE": "sounds/paddle_hit.wav",
+    "PADDLE2": "sounds/paddle_hit2.wav",
+    "PADDLE3": "sounds/paddle_hit3.wav",
     "QUAKE": "sounds/quake_sound.wav",
     "WHIP": "sounds/whip_effect.wav",
     "AIRPLANE": "sounds/airplane.wav",
