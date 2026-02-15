@@ -18977,6 +18977,7 @@ def stop_all_stage_sounds():
     sounds_to_stop = [
         'SOUND_QUAKE',
         'SOUND_GOD_EARTHQUAKE',
+        'SOUND_GOD_WIND',
         'SOUND_CONSTRUCTION',
         'SOUND_DRONE',
         'SOUND_STAGE4_MAGNETIC',
@@ -19345,6 +19346,7 @@ SOUND_PONG_WALL = sound_effects.get('PONG_WALL')
 SOUND_QUAKE = sound_effects['QUAKE']
 SOUND_GOD_START = sound_effects.get('GOD_START')
 SOUND_GOD_EARTHQUAKE = sound_effects.get('GOD_EARTHQUAKE')
+SOUND_GOD_WIND = sound_effects.get('GOD_WIND')
 whip_sound = sound_effects['WHIP']
 SOUND_AIRPLANE = sound_effects['AIRPLANE']
 SOUND_DEFENSE_HIT = sound_effects['DEFENSE_HIT']
@@ -51247,6 +51249,7 @@ def go_to_next_round():
     global _judgment_lightning_stun_top_timer, _judgment_lightning_stun_bottom_timer, _judgment_lightning_stun_type
     global _judgment_wind_stun_applied, _judgment_wind_stun_top_timer, _judgment_wind_stun_bottom_timer
     global _judgment_wind_curve_effects, _judgment_wind_ball_immunity
+    global _judgment_wind_sound_playing
     if current_stage == 30 and animated_bg_stage30 is not None:
         if animated_bg_stage30.is_judgment_active():
             print(f"[신의심판] 라운드 전환으로 강제 초기화 (페이즈: {animated_bg_stage30.get_judgment_phase_name()})")
@@ -51256,6 +51259,13 @@ def go_to_next_round():
                 try:
                     if SOUND_GOD_EARTHQUAKE:
                         SOUND_GOD_EARTHQUAKE.stop()
+                except Exception:
+                    pass
+            # 바람 회오리 사운드 정지
+            if _judgment_wind_sound_playing:
+                try:
+                    if SOUND_GOD_WIND:
+                        SOUND_GOD_WIND.stop()
                 except Exception:
                     pass
     _judgment_quake_sound_playing = False
@@ -51272,6 +51282,7 @@ def go_to_next_round():
     _judgment_wind_stun_bottom_timer = 0.0
     _judgment_wind_curve_effects = []
     _judgment_wind_ball_immunity = 0.0
+    _judgment_wind_sound_playing = False
 
     # 🎭 투기장 영웅 스킬 초기화 (라운드 전환 시 활성 스킬 강제 종료)
     if arena_mode_enabled and arena_skill_manager:
@@ -55188,6 +55199,7 @@ _judgment_wind_stun_top_timer = 0.0    # 상단 바람 스턴 타이머
 _judgment_wind_stun_bottom_timer = 0.0 # 하단 바람 스턴 타이머
 _judgment_wind_curve_effects = []      # 모래 소용돌이 포획 후 커브 효과 리스트
 _judgment_wind_ball_immunity = 0.0     # 포획 후 재포획 면역 타이머 (초)
+_judgment_wind_sound_playing = False   # 바람 회오리 사운드 재생 중 여부
 
 def _load_electric_shock_sound():
     """감전 사운드 로딩 (최초 1회)"""
@@ -55235,6 +55247,7 @@ def handle_gods_judgment():
     global _judgment_lightning_stun_bottom_timer, _judgment_lightning_stun_type
     global _judgment_wind_stun_applied, _judgment_wind_stun_top_timer, _judgment_wind_stun_bottom_timer
     global _judgment_wind_curve_effects, _judgment_wind_ball_immunity
+    global _judgment_wind_sound_playing
 
     if current_stage != 30 or animated_bg_stage30 is None:
         return
@@ -55379,6 +55392,22 @@ def handle_gods_judgment():
             _judgment_wind_stun_bottom_timer = 1.5
             bg.judgment_sandstorm_hit_bottom = False
             print(f"[신의심판] 바람의 분노 - 하단 영웅 모래바람 스턴!")
+
+        # ── 바람 회오리 사운드: SANDSTORM 페이즈 동안 루프 재생 ──
+        if bg.judgment_phase == 11 and not _judgment_wind_sound_playing:
+            try:
+                if SOUND_GOD_WIND:
+                    SOUND_GOD_WIND.play(loops=-1)
+                _judgment_wind_sound_playing = True
+            except Exception:
+                pass
+        elif bg.judgment_phase != 11 and _judgment_wind_sound_playing:
+            try:
+                if SOUND_GOD_WIND:
+                    SOUND_GOD_WIND.stop()
+                _judgment_wind_sound_playing = False
+            except Exception:
+                _judgment_wind_sound_playing = False
 
         # ── 나선형 소용돌이: 구심력 + 접선력 끌어당김 + 포획 → 고속 커브 발사 ──
         # (세트 모래회오리와 동일한 메커니즘)
@@ -100121,7 +100150,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
             animated_bg_stage30.judgment_scale = 1.0
             animated_bg_stage30.judgment_text_display_paused = False
         # 신의심판 사운드 정지
-        global _judgment_quake_sound_playing
+        global _judgment_quake_sound_playing, _judgment_wind_sound_playing
         if _judgment_quake_sound_playing:
             try:
                 if SOUND_GOD_EARTHQUAKE:
@@ -100129,6 +100158,13 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
             except Exception:
                 pass
             _judgment_quake_sound_playing = False
+        if _judgment_wind_sound_playing:
+            try:
+                if SOUND_GOD_WIND:
+                    SOUND_GOD_WIND.stop()
+            except Exception:
+                pass
+            _judgment_wind_sound_playing = False
         # 호위무사 시스템 초기화
         if arena_guard_system is not None:
             try:
@@ -118273,6 +118309,7 @@ def reset_round(is_stage_start=False):
     global _judgment_lightning_stun_top_timer, _judgment_lightning_stun_bottom_timer, _judgment_lightning_stun_type
     global _judgment_wind_stun_applied, _judgment_wind_stun_top_timer, _judgment_wind_stun_bottom_timer
     global _judgment_wind_curve_effects, _judgment_wind_ball_immunity
+    global _judgment_wind_sound_playing
     if current_stage == 30 and animated_bg_stage30 is not None:
         if animated_bg_stage30.is_judgment_active():
             print(f"[신의심판] 라운드 전환으로 강제 초기화 (페이즈: {animated_bg_stage30.get_judgment_phase_name()})")
@@ -118282,6 +118319,13 @@ def reset_round(is_stage_start=False):
                 try:
                     if SOUND_GOD_EARTHQUAKE:
                         SOUND_GOD_EARTHQUAKE.stop()
+                except Exception:
+                    pass
+            # 바람 회오리 사운드 정지
+            if _judgment_wind_sound_playing:
+                try:
+                    if SOUND_GOD_WIND:
+                        SOUND_GOD_WIND.stop()
                 except Exception:
                     pass
     _judgment_quake_sound_playing = False
@@ -118298,6 +118342,7 @@ def reset_round(is_stage_start=False):
     _judgment_wind_stun_bottom_timer = 0.0
     _judgment_wind_curve_effects = []
     _judgment_wind_ball_immunity = 0.0
+    _judgment_wind_sound_playing = False
 
     # 🎭 투기장 영웅 스킬 초기화 (라운드 전환 시 활성 스킬 강제 종료)
     if arena_mode_enabled and arena_skill_manager:

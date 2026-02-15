@@ -100,6 +100,7 @@ SOUND_PATHS = {
     "LEVEL_SELECT": "sounds/levelselect.wav",
     "GOD_START": "sounds/godstart.wav",
     "GOD_EARTHQUAKE": "sounds/godearthquake.wav",
+    "GOD_WIND": "sounds/godwind.wav",
 }
 
 
