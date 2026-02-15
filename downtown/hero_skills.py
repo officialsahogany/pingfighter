@@ -10889,6 +10889,7 @@ class BombSurprise(HeroSkill):
         self._tick_sound_cd = 0.0
         self._sound_loaded = False
         self._attach_sound = None
+        self._transfer_sound = None   # 폭탄 이동 시 효과음 (spiderminesetup)
         self._tick_sound = None
         self._tick_sound2 = None
         self._tick_toggle = False  # False=ticking1, True=ticking2
@@ -10913,6 +10914,10 @@ class BombSurprise(HeroSkill):
             if os.path.exists(path1):
                 self._attach_sound = pygame.mixer.Sound(path1)
                 self._attach_sound.set_volume(0.35)
+            path1b = os.path.join(project_root, "sounds", "spiderminesetup.wav")
+            if os.path.exists(path1b):
+                self._transfer_sound = pygame.mixer.Sound(path1b)
+                self._transfer_sound.set_volume(0.3)
             path2 = os.path.join(project_root, "sounds", "ticking1.wav")
             if os.path.exists(path2):
                 self._tick_sound = pygame.mixer.Sound(path2)
@@ -11054,10 +11059,9 @@ class BombSurprise(HeroSkill):
 
     def _play_attach_sound(self):
         """폭탄 이동 시 효과음"""
-        if self._attach_sound:
+        if self._transfer_sound:
             try:
-                self._attach_sound.set_volume(0.2)
-                self._attach_sound.play()
+                self._transfer_sound.play()
             except Exception:
                 pass
 
