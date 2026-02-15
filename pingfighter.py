@@ -85982,6 +85982,94 @@ def draw_player_gauge():
             pygame.draw.circle(_rb_surf2, (255, 200, 200, 160), (_rbx - 1, _rby - 1), 1)
         SCREEN.blit(_rb_surf2, (0, 0))
 
+        # === 호위무사 대쉬 토큰 구슬 (수비모드 전용, 대쉬 토큰 구슬 옆 작은 구슬) ===
+        if arena_mode_enabled:
+            _gs_gd = globals().get('arena_guard_system')
+            _guard_stance_now = globals().get('arena_guard_stance_mode', 'attack')
+            if _gs_gd and _guard_stance_now == "defense":
+                _gd_cd = getattr(_gs_gd, '_guard_dash_cooldown', 0.0)
+                _gd_cd_max = getattr(_gs_gd, 'GUARD_DASH_COOLDOWN', 25.0)
+                _gd_ready = _gd_cd <= 0
+                _gd_progress = max(0.0, 1.0 - (_gd_cd / _gd_cd_max)) if _gd_cd_max > 0 else 1.0
+
+                # 구슬 크기: 대쉬 토큰 구슬의 ~33%
+                _gd_r = max(8, int(orb_radius * 0.33))
+                # 위치: 대쉬 토큰 구슬 우하단 옆
+                _gd_x = orb_center_x + orb_radius + _gd_r + 12
+                _gd_y = orb_center_y + orb_radius - _gd_r - 2
+
+                # 파란색 테마 (수비모드)
+                _gd_empty = (15, 25, 50)
+                _gd_full = (50, 130, 220)
+                _gd_glow = (80, 170, 255)
+
+                # 1. 그림자
+                _gd_shadow_s = pygame.Surface((_gd_r * 2 + 8, _gd_r * 2 + 8), pygame.SRCALPHA)
+                pygame.draw.circle(_gd_shadow_s, (5, 5, 15, 60), (_gd_r + 6, _gd_r + 6), _gd_r + 2)
+                SCREEN.blit(_gd_shadow_s, (_gd_x - _gd_r - 4, _gd_y - _gd_r - 4))
+
+                # 2. 프레임 (금속 테두리)
+                pygame.draw.circle(SCREEN, (25, 35, 55), (_gd_x, _gd_y), _gd_r + 4)
+                pygame.draw.circle(SCREEN, (60, 80, 110), (_gd_x, _gd_y), _gd_r + 4, 2)
+                pygame.draw.circle(SCREEN, (90, 110, 140), (_gd_x, _gd_y), _gd_r + 2, 1)
+
+                # 3. 배경
+                pygame.draw.circle(SCREEN, _gd_empty, (_gd_x, _gd_y), _gd_r)
+
+                # 4. 충전 상태 채우기 (아래에서 위로)
+                if _gd_progress > 0:
+                    _gd_fill_h = int(_gd_r * 2 * _gd_progress)
+                    for _gy_off in range(_gd_fill_h + 1):
+                        _gy = _gd_y + _gd_r - _gy_off
+                        _gdy = abs(_gy - _gd_y)
+                        if _gdy <= _gd_r:
+                            _gdx = math.sqrt(_gd_r * _gd_r - _gdy * _gdy)
+                            _ratio = _gy_off / (_gd_r * 2) if _gd_r > 0 else 0
+                            _gc_r = int(_gd_empty[0] + (_gd_full[0] - _gd_empty[0]) * (0.6 + 0.4 * _ratio))
+                            _gc_g = int(_gd_empty[1] + (_gd_full[1] - _gd_empty[1]) * (0.6 + 0.4 * _ratio))
+                            _gc_b = int(_gd_empty[2] + (_gd_full[2] - _gd_empty[2]) * (0.6 + 0.4 * _ratio))
+                            pygame.draw.line(SCREEN, (_gc_r, _gc_g, _gc_b),
+                                           (int(_gd_x - _gdx), int(_gy)),
+                                           (int(_gd_x + _gdx), int(_gy)))
+
+                # 5. 유리 하이라이트
+                _gd_hl = pygame.Surface((_gd_r * 2, _gd_r * 2), pygame.SRCALPHA)
+                pygame.draw.ellipse(_gd_hl, (255, 255, 255, 40),
+                                  (3, 2, _gd_r, _gd_r // 2))
+                pygame.draw.circle(_gd_hl, (255, 255, 255, 80),
+                                 (_gd_r // 3, _gd_r // 3), 2)
+                SCREEN.blit(_gd_hl, (_gd_x - _gd_r, _gd_y - _gd_r))
+
+                # 6. 내부 테두리
+                pygame.draw.circle(SCREEN, (40, 60, 90), (_gd_x, _gd_y), _gd_r, 1)
+
+                # 7. 준비완료 글로우 효과
+                if _gd_ready:
+                    _gd_pulse = 0.5 + 0.5 * math.sin(time_now * 0.005)
+                    _gd_ga = int(60 * _gd_pulse)
+                    _gd_gs = pygame.Surface((_gd_r * 2 + 16, _gd_r * 2 + 16), pygame.SRCALPHA)
+                    pygame.draw.circle(_gd_gs, (*_gd_glow, _gd_ga),
+                                     (_gd_r + 8, _gd_r + 8), _gd_r + 6)
+                    SCREEN.blit(_gd_gs, (_gd_x - _gd_r - 8, _gd_y - _gd_r - 8))
+
+                # 8. 방패 미니 아이콘 (중앙)
+                _gd_icon_s = max(3, _gd_r // 3)
+                _shield_pts = [
+                    (_gd_x, _gd_y - _gd_icon_s),
+                    (_gd_x + _gd_icon_s, _gd_y - _gd_icon_s // 2),
+                    (_gd_x + _gd_icon_s, _gd_y + _gd_icon_s // 3),
+                    (_gd_x, _gd_y + _gd_icon_s),
+                    (_gd_x - _gd_icon_s, _gd_y + _gd_icon_s // 3),
+                    (_gd_x - _gd_icon_s, _gd_y - _gd_icon_s // 2),
+                ]
+                _icon_alpha = 200 if _gd_ready else 100
+                _icon_color = (180, 220, 255) if _gd_ready else (80, 110, 150)
+                _gd_icon_surf = pygame.Surface((_gd_r * 2, _gd_r * 2), pygame.SRCALPHA)
+                _offset_pts = [(_px - _gd_x + _gd_r, _py - _gd_y + _gd_r) for _px, _py in _shield_pts]
+                pygame.draw.polygon(_gd_icon_surf, (*_icon_color, _icon_alpha), _offset_pts)
+                pygame.draw.polygon(_gd_icon_surf, (220, 240, 255, _icon_alpha), _offset_pts, 1)
+                SCREEN.blit(_gd_icon_surf, (_gd_x - _gd_r, _gd_y - _gd_r))
+
         # === 토큰 카운트 텍스트는 맨 마지막에 그림 (아래 코드 참조) ===
 
         # tokens_bottom은 사용하지 않지만 호환성을 위해 설정
@@ -135260,19 +135348,22 @@ def main(stage_num, new_boss_mode=False):
                         if _gs:
                             _old_stance = _gs.stance_mode_bottom
                             _gs.stance_mode_bottom = _new_stance
-                            # 현재 진행 중인 쿨타임 즉시 조정
+                            # 현재 진행 중인 스킬 쿨타임 즉시 조정
                             if _old_stance == "attack" and _new_stance == "defense":
                                 _gs.cooldown_bottom *= _gs.DEFENSE_SKILL_CD_MULT
                                 _gs.cooldown_max_bottom *= _gs.DEFENSE_SKILL_CD_MULT
                             elif _old_stance == "defense" and _new_stance == "attack":
                                 _gs.cooldown_bottom /= _gs.DEFENSE_SKILL_CD_MULT
                                 _gs.cooldown_max_bottom /= _gs.DEFENSE_SKILL_CD_MULT
+                            # 꼼수방지: 호위무사 대쉬 쿨타임(_guard_dash_cooldown)은
+                            # 모드 전환 시 리셋하지 않음 - _update_guard_dash에서 항상 감소
                         try:
                             play_button_click_sound()
                         except Exception:
                             pass
                         _mode_label = "수비" if _new_stance == "defense" else "공격"
-                        print(f"[Guard] 호위무사 스탠스 전환: {_mode_label}모드")
+                        _guard_cd_remain = getattr(_gs, '_guard_dash_cooldown', 0) if _gs else 0
+                        print(f"[Guard] 호위무사 스탠스 전환: {_mode_label}모드 (대쉬CD={_guard_cd_remain:.1f}s 유지)")
 
             # 마우스 좌클릭으로 슬롯을 눌렀을 때도 해당 아이템을 사용
             # 슬롯이 필러 영역(REAL_SCREEN 좌표)에 있으므로 원본 마우스 좌표 사용
