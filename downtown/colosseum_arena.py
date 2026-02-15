@@ -6028,7 +6028,10 @@ class GuardWarriorSystem:
                 _has_balloon_remains = (getattr(skill, 'skill_id', '') == 'balloon_wall'
                                         and (getattr(skill, 'balloons', [])
                                              or getattr(skill, 'pop_effects', [])))
-                if skill.is_active or _has_balloon_remains:
+                # 유령소환: is_active가 False여도 앰비언트 사운드가 재생 중이면 리셋 필요
+                _has_ghost_sound = (getattr(skill, 'skill_id', '') == 'ghost_summon'
+                                    and getattr(skill, '_ghost_ambient_sound', None) is not None)
+                if skill.is_active or _has_balloon_remains or _has_ghost_sound:
                     try:
                         skill.reset_for_new_round(game_state)
                     except Exception:
@@ -6069,7 +6072,9 @@ class GuardWarriorSystem:
         game_state = self.skill_manager.game_state if self.skill_manager else {}
         for hero_id, skills in self.skill_instances.items():
             for skill in skills:
-                if skill.is_active:
+                _has_ghost_sound = (getattr(skill, 'skill_id', '') == 'ghost_summon'
+                                    and getattr(skill, '_ghost_ambient_sound', None) is not None)
+                if skill.is_active or _has_ghost_sound:
                     try:
                         skill.reset_for_new_round(game_state)
                     except Exception:
