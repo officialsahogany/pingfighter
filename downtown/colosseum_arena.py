@@ -55,6 +55,76 @@ WIN_SCORE = 5  # 5점 선취 승리
 _arena_surface_cache = {}
 _arena_fullscreen_surface = None
 
+# ── 페이스카드 (외부 초상화 이미지) 시스템 ──────────────────────────
+# hero_id → facecard 파일명 매핑
+FACECARD_MAP = {
+    "android": "android.png",
+    "banshee": "bency.png",
+    "kraken": "crakken.png",
+    "chronos": "keerke.png",
+    "ra": "horus.png",
+    "ignis": "ignis.png",
+    "joker": "joker.png",
+    "kurokage": "kurokake.png",
+    "gear": "mari.png",
+    "monkeyking": "monkeyking.png",
+    "necro": "necro.png",
+    "onimaru": "onimaru.png",
+    "maria": "yeonhwa.png",
+}
+
+# (hero_id, target_w, target_h) → pygame.Surface 캐시
+_facecard_cache: Dict[tuple, Optional[pygame.Surface]] = {}
+
+def _load_facecard(hero_id: str, target_w: int, target_h: int) -> Optional[pygame.Surface]:
+    """페이스카드 이미지를 로드하고 target 크기에 맞게 스케일+크롭하여 캐시 반환.
+    - 높이 기준으로 맞추고, 가로는 중앙 크롭 (초상화 얼굴 중심)
+    - 캐시하여 매 프레임 재로딩 방지
+    """
+    cache_key = (hero_id, target_w, target_h)
+    if cache_key in _facecard_cache:
+        return _facecard_cache[cache_key]
+
+    filename = FACECARD_MAP.get(hero_id)
+    if not filename:
+        _facecard_cache[cache_key] = None
+        return None
+
+    try:
+        if hasattr(sys, '_MEIPASS'):
+            base = sys._MEIPASS
+        else:
+            base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        img_path = os.path.join(base, "facecard", filename)
+        if not os.path.exists(img_path):
+            _facecard_cache[cache_key] = None
+            return None
+
+        raw = pygame.image.load(img_path).convert_alpha()
+        rw, rh = raw.get_size()
+
+        # 높이 기준 스케일 (프레임 높이에 맞춤)
+        scale = target_h / rh
+        new_w = max(1, int(rw * scale))
+        new_h = target_h
+        scaled = pygame.transform.smoothscale(raw, (new_w, new_h))
+
+        # 가로 중앙 크롭
+        if new_w > target_w:
+            crop_x = (new_w - target_w) // 2
+            cropped = scaled.subsurface((crop_x, 0, target_w, new_h)).copy()
+        else:
+            # 원본이 좁으면 중앙 배치
+            cropped = pygame.Surface((target_w, new_h), pygame.SRCALPHA)
+            cropped.blit(scaled, ((target_w - new_w) // 2, 0))
+
+        _facecard_cache[cache_key] = cropped
+        return cropped
+    except Exception as e:
+        print(f"[facecard] {hero_id} load failed: {e}")
+        _facecard_cache[cache_key] = None
+        return None
+
 def _get_arena_surface(w, h):
     """크기별 SRCALPHA Surface 캐시 재사용 (매 프레임 재생성 방지)"""
     w = max(4, ((w + 3) // 4) * 4)
@@ -5681,20 +5751,30 @@ class GuardWarriorSystem:
 
     def _draw_guard_icon_character(self, screen, guard_hero, cx, cy,
                                     surf_w, surf_h, facing="down"):
-        """호위무사 캐릭터를 소형 서피스에 렌더링 후 중앙 정렬하여 blit"""
+        """호위무사 캐릭터를 소형 서피스에 렌더링 후 중앙 정렬하여 blit
+        - 페이스카드 이미지가 있으면 우선 사용
+        - 없으면 기존 프로시저럴 렌더링 폴백
+        """
+        hero_id = guard_hero.get("id", "")
         color = guard_hero.get("color", (200, 200, 200))
+
+        # 1) 페이스카드 이미지 시도
+        facecard = _load_facecard(hero_id, surf_w, surf_h)
+        if facecard is not None:
+            screen.blit(facecard, (cx - surf_w // 2, cy - surf_h // 2))
+            return
+
+        # 2) 폴백: 기존 프로시저럴 렌더링
         if self.hero_paddle_renderer:
             try:
-                # 소형 투명 서피스에 캐릭터를 중앙에 그림
                 char_surf = _get_arena_surface(surf_w, surf_h)
                 self.hero_paddle_renderer.draw_hero_paddle(
-                    char_surf, guard_hero["id"],
+                    char_surf, hero_id,
                     surf_w // 2, surf_h // 2,
                     48, 24,
                     facing=facing, color=color,
                     scale_mode="preview"
                 )
-                # 중앙 정렬하여 screen에 blit
                 screen.blit(char_surf, (cx - surf_w // 2, cy - surf_h // 2))
             except Exception:
                 pygame.draw.circle(screen, color, (cx, cy), 14)

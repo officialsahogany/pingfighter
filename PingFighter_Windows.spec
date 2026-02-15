@@ -77,6 +77,8 @@ a = Analysis(
         ('NeoDGM.ttf', '.'),
         ('NeoDunggeunmoPro.ttf', '.'),
         ('\uB124\uC624\uB465\uADFC\uBAA8.ttf', '.'),
+        # font 디렉토리 (HCRBatang 등 인트로용 폰트)
+        ('font/*.ttf', 'font'),
         # 폰트 서브디렉토리
         ('fonts/pixel/*.ttf', 'fonts/pixel'),
         ('fonts/\uD504\uB9AC\uD150\uB2E4\uB4DC/public/static/alternative/*.ttf', 'fonts/\uD504\uB9AC\uD150\uB2E4\uB4DC/public/static/alternative'),
@@ -93,6 +95,8 @@ a = Analysis(
         ('chat/*.png', 'chat'),
         # 인트로 스토리 이미지
         ('introstory/*.png', 'introstory'),
+        # 페이스카드 초상화 이미지
+        ('facecard/*.png', 'facecard'),
         # 스프라이트 시트 (보스 애니메이션)
         ('assets/*.png', 'assets'),
         # 스테이지 배경 이미지
@@ -108,7 +112,6 @@ a = Analysis(
         ('*.txt', '.'),
         
         # Python 모듈 디렉토리
-        ('scenes', 'scenes'),
         ('ui', 'ui'),
         ('backgrounds', 'backgrounds'),
         ('config', 'config'),
