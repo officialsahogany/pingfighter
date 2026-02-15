@@ -139004,7 +139004,7 @@ def show_pause_menu():
         menu_items = [
             ("계속", None),
             ("캐릭터정보", show_character_info),
-            ("옵션", show_pause_options),
+            ("설정", show_pause_options),
             ("나가기", None),
         ]
         # 버튼 위치 계산
