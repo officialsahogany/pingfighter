@@ -11592,6 +11592,17 @@ class GatlingBurst(HeroSkill):
         game_state[f'gatling_dismounting_{side}'] = False
         game_state[f'gatling_dismount_progress_{side}'] = 0.0
 
+        # 탱크 변신 사운드
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            snd_path = os.path.join(project_root, "sounds", "tanktransform.wav")
+            if os.path.exists(snd_path):
+                s = pygame.mixer.Sound(snd_path)
+                s.set_volume(0.7)
+                s.play()
+        except Exception:
+            pass
+
         return {
             'screen_effect': ScreenEffect.FLASH,
             'flash_color': (200, 180, 120),
@@ -11768,6 +11779,16 @@ class GatlingBurst(HeroSkill):
                 if self._gatling_loop_sound:
                     self._gatling_loop_sound.stop()
                     self._gatling_loop_sound = None
+                # 탱크 해체 사운드
+                try:
+                    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    snd_path = os.path.join(project_root, "sounds", "tanktransform.wav")
+                    if os.path.exists(snd_path):
+                        s = pygame.mixer.Sound(snd_path)
+                        s.set_volume(0.7)
+                        s.play()
+                except Exception:
+                    pass
 
         # === 총알 & 이펙트 업데이트 (발사/해체 공통) ===
 
