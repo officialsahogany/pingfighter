@@ -1066,11 +1066,9 @@ class TournamentRound(Enum):
 # 하이라이트 리플레이 녹화 시스템
 # ============================================================================
 class HighlightRecorder:
-    """투기장 하이라이트 녹화 - 화면 캡처 방식의 롤링 버퍼"""
-    CAPTURE_INTERVAL = 3   # 매 3프레임마다 캡처 (≈20fps)
-    BUFFER_SIZE = 100      # 5초 분량 (20fps × 5s)
-    HALF_W = 380           # 절반 해상도 너비
-    HALF_H = 375           # 절반 해상도 높이
+    """투기장 하이라이트 녹화 - 원본 해상도 화면 캡처 방식의 롤링 버퍼"""
+    CAPTURE_INTERVAL = 2   # 매 2프레임마다 캡처 (30fps)
+    BUFFER_SIZE = 150      # 5초 분량 (30fps × 5s)
     MAX_CLIPS = 3          # 최대 저장 클립 수
 
     def __init__(self):
@@ -1092,16 +1090,15 @@ class HighlightRecorder:
         self.recording = False
 
     def capture_frame(self, screen: pygame.Surface):
-        """매 프레임 호출 - 일정 간격으로 화면을 축소 캡처"""
+        """매 프레임 호출 - 일정 간격으로 원본 해상도 캡처"""
         if not self.recording:
             return
         self.frame_counter += 1
         if self.frame_counter % self.CAPTURE_INTERVAL != 0:
             return
-        # 전체 화면을 절반 해상도로 축소 캡처
+        # 원본 해상도 그대로 캡처 (화질 손실 없음)
         try:
-            small = pygame.transform.smoothscale(screen, (self.HALF_W, self.HALF_H))
-            self.frame_buffer.append(small)
+            self.frame_buffer.append(screen.copy())
         except Exception:
             pass  # 캡처 실패 시 무시
 
@@ -15586,11 +15583,8 @@ class ColosseumsArena:
         frame_idx = max(0, min(self.highlight_frame_index, len(clip) - 1))
         frame_surf = clip[frame_idx]
 
-        # 풀 해상도로 스케일업
-        try:
-            full_surf = pygame.transform.smoothscale(frame_surf, (SCREEN_WIDTH, SCREEN_HEIGHT))
-        except Exception:
-            return
+        # 원본 해상도 그대로 사용 (스케일업 불필요)
+        full_surf = frame_surf
 
         # 페이드 알파 계산
         fade_alpha = 255
