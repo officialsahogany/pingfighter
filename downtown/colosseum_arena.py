@@ -8011,8 +8011,11 @@ class ColosseumsArena:
                 # 영웅 선택 대사 타이머 업데이트
                 if hasattr(self, '_hero_select_line_timer'):
                     self._hero_select_line_timer += dt
-                    if self._hero_select_line_timer < 0.3:
-                        self._hero_select_line_alpha = min(255, int(255 * (self._hero_select_line_timer / 0.3)))
+                    lt = self._hero_select_line_timer
+                    if lt < 0.25:
+                        self._hero_select_line_alpha = int(255 * (lt / 0.25))
+                    elif lt > 2.5:
+                        self._hero_select_line_alpha = int(255 * max(0, (3.0 - lt) / 0.5))
                     else:
                         self._hero_select_line_alpha = 255
                 timer = self._hero_select_anim_timer
@@ -8027,19 +8030,26 @@ class ColosseumsArena:
                     self.skill_reveal_target = chosen_hero["id"]
                     self.skill_reveal_result = self.player_hero_skill_index
                     self._skill_reveal_last_tick_idx = -1
-            elif anim_phase == "skill_rolling":
-                self.skill_reveal_timer += dt
-                if self.skill_reveal_phase == "rolling" and self.skill_reveal_timer >= 3.5:
-                    self.skill_reveal_phase = "selected"
-                    self._hero_select_anim_phase = "skill_selected"
-                    self.skill_reveal_selected_timer = 0.0
-                    self._skill_reveal_particles = []
-                    _load_gacha_result_sound()
-                    if _gacha_result_sound:
-                        _gacha_result_sound.play()
-            elif anim_phase == "skill_selected":
-                self.skill_reveal_selected_timer = getattr(self, 'skill_reveal_selected_timer', 0) + dt
-                self.skill_reveal_timer += dt
+            elif anim_phase in ("skill_rolling", "skill_selected"):
+                # 영웅 선택 대사 타이머 계속 업데이트 (페이드아웃 완료까지)
+                if hasattr(self, '_hero_select_line_timer') and self._hero_select_line_alpha > 0:
+                    self._hero_select_line_timer += dt
+                    lt = self._hero_select_line_timer
+                    if lt > 2.5:
+                        self._hero_select_line_alpha = int(255 * max(0, (3.0 - lt) / 0.5))
+                if anim_phase == "skill_rolling":
+                    self.skill_reveal_timer += dt
+                    if self.skill_reveal_phase == "rolling" and self.skill_reveal_timer >= 3.5:
+                        self.skill_reveal_phase = "selected"
+                        self._hero_select_anim_phase = "skill_selected"
+                        self.skill_reveal_selected_timer = 0.0
+                        self._skill_reveal_particles = []
+                        _load_gacha_result_sound()
+                        if _gacha_result_sound:
+                            _gacha_result_sound.play()
+                else:  # skill_selected
+                    self.skill_reveal_selected_timer = getattr(self, 'skill_reveal_selected_timer', 0) + dt
+                    self.skill_reveal_timer += dt
 
         elif self.state == TournamentState.SKILL_REVEAL:
             # 스킬 랜덤 선택 연출 (리얼 룰렛: 빠름→느림→빠름→매우느림 3.5초 + 확정 1.5초)
