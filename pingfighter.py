@@ -19686,7 +19686,8 @@ arena_perk_draw_icon_func = None     # 퍽 아이콘 그리기 함수 (Colosseum
 # 신규 퍽 효과 변수
 arena_perk_dash_distance_mult_top = 1.0     # 상단 대쉬 거리 배율
 arena_perk_dash_distance_mult_bottom = 1.0  # 하단 대쉬 거리 배율
-arena_perk_retry_chance = 0.0               # 패배 시 재시작 확률
+arena_perk_retry_chance = 0.0               # 하단(플레이어) 패배 시 재시작 확률
+arena_perk_retry_chance_top = 0.0            # 상단(상대) 패배 시 재시작 확률
 arena_perk_guard_extra_skill_top = False      # 상단 호위무사 추가 스킬 해금
 arena_perk_guard_extra_skill_bottom = False   # 하단 호위무사 추가 스킬 해금
 arena_perk_magic_immunity_chance_top = 0.0   # 상단 마법 면역 확률
@@ -19730,7 +19731,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     global arena_perk_guard_cd_mult_top, arena_perk_guard_cd_mult_bottom
     global arena_active_hero_perks, arena_active_enemy_perks
     global arena_perk_dash_distance_mult_top, arena_perk_dash_distance_mult_bottom
-    global arena_perk_retry_chance
+    global arena_perk_retry_chance, arena_perk_retry_chance_top
     global arena_perk_guard_extra_skill_top, arena_perk_guard_extra_skill_bottom
     global arena_perk_magic_immunity_chance_top, arena_perk_magic_immunity_chance_bottom
     global arena_magic_immunity_timer_top, arena_magic_immunity_timer_bottom
@@ -19764,6 +19765,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_perk_dash_distance_mult_top = 1.0
     arena_perk_dash_distance_mult_bottom = 1.0
     arena_perk_retry_chance = 0.0
+    arena_perk_retry_chance_top = 0.0
     arena_perk_guard_extra_skill_top = False
     arena_perk_guard_extra_skill_bottom = False
     arena_perk_magic_immunity_chance_top = 0.0
@@ -19804,6 +19806,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_perk_paddle_enlarge_top = top_mults["paddle_enlarge"]
     arena_perk_recall_guard_top = top_mults["recall_guard"]
     arena_perk_instant_cooldown_chance_top = top_mults["instant_cooldown"]
+    arena_perk_retry_chance_top = top_mults["retry_chance"]  # 상단(상대) 반칙왕
     # 신성월계수 잎 (상단)
     if top_mults["laurel_shield"] > 0:
         from downtown.colosseum_arena import ArenaLeafShield
@@ -19819,7 +19822,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_perk_dash_distance_mult_bottom = bottom_mults["dash_distance"]
     arena_perk_guard_extra_skill_bottom = bottom_mults["guard_extra_skill"]
     arena_perk_magic_immunity_chance_bottom = bottom_mults["magic_immunity"]
-    arena_perk_retry_chance = bottom_mults["retry_chance"]  # 하단(플레이어)만
+    arena_perk_retry_chance = bottom_mults["retry_chance"]  # 하단(플레이어) 반칙왕
     arena_bottom_max_dash_charges = 1 + bottom_mults["dash_tokens"]
     arena_perk_paddle_enlarge_bottom = bottom_mults["paddle_enlarge"]
     arena_perk_recall_guard_bottom = bottom_mults["recall_guard"]
@@ -19866,7 +19869,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
 
     print(f"[ArenaPerk] 상단({top_hero_id}): 이속x{arena_perk_speed_mult_top:.2f} "
           f"대쉬쿨x{arena_perk_dash_cd_mult_top:.2f} 스킬쿨x{arena_perk_skill_cd_mult_top:.2f} "
-          f"호위쿨x{arena_perk_guard_cd_mult_top:.2f}")
+          f"호위쿨x{arena_perk_guard_cd_mult_top:.2f} 재시작:{arena_perk_retry_chance_top:.0%}")
     print(f"[ArenaPerk] 하단({bottom_hero_id}): 이속x{arena_perk_speed_mult_bottom:.2f} "
           f"대쉬쿨x{arena_perk_dash_cd_mult_bottom:.2f} 스킬쿨x{arena_perk_skill_cd_mult_bottom:.2f} "
           f"호위쿨x{arena_perk_guard_cd_mult_bottom:.2f} 대쉬토큰:{arena_bottom_max_dash_charges} "
@@ -19880,7 +19883,7 @@ def reset_arena_perks():
     global arena_perk_guard_cd_mult_top, arena_perk_guard_cd_mult_bottom
     global arena_active_hero_perks, arena_active_enemy_perks
     global arena_perk_dash_distance_mult_top, arena_perk_dash_distance_mult_bottom
-    global arena_perk_retry_chance
+    global arena_perk_retry_chance, arena_perk_retry_chance_top
     global arena_perk_guard_extra_skill_top, arena_perk_guard_extra_skill_bottom
     global arena_perk_magic_immunity_chance_top, arena_perk_magic_immunity_chance_bottom
     global arena_magic_immunity_timer_top, arena_magic_immunity_timer_bottom
@@ -19906,6 +19909,7 @@ def reset_arena_perks():
     arena_perk_dash_distance_mult_top = 1.0
     arena_perk_dash_distance_mult_bottom = 1.0
     arena_perk_retry_chance = 0.0
+    arena_perk_retry_chance_top = 0.0
     arena_perk_guard_extra_skill_top = False
     arena_perk_guard_extra_skill_bottom = False
     arena_perk_magic_immunity_chance_top = 0.0
@@ -123008,8 +123012,15 @@ def handle_ball():
         else:
             # 튜토리얼 중이면 점수 고정 (0:0 유지)
             # 튜토리얼이 활성화되었고 아직 완료되지 않은 경우에만 점수 고정
+            tenacity_top_triggered = False
             if not _ingame_tutorial_score_frozen and not (_ingame_tutorial_active and not _ingame_tutorial_completed):
                 round_wins += 1
+                # 🔥 투기장 상대 반칙왕 퍽: 상대 실점 시 무효화
+                if arena_mode_enabled and arena_perk_retry_chance_top > 0:
+                    if random.random() < arena_perk_retry_chance_top:
+                        round_wins -= 1
+                        tenacity_top_triggered = True
+                        print(f"🔥 상대 반칙왕 발동! 플레이어 득점 무효화 (round_wins: {round_wins})")
 
             # 👁 오딘의 눈: 라운드 승리 시 페널티 해제 및 부활 상태 초기화
             try:
@@ -123029,6 +123040,34 @@ def handle_ball():
             # 스테이지 30 (투기장): 관중 반응 시스템
             if current_stage == 30 and pillar_renderer is not None:
                 _arena_crowd_on_score(pillar_renderer, "bottom", round_wins, round_losses)
+
+            # 🔥 상대 반칙왕 발동 시: 반칙호루라기와 동일한 연출
+            if tenacity_top_triggered:
+                game_state.round_wins = round_wins
+                try:
+                    from item_effects.foul_whistle import get_foul_whistle_instance
+                    whistle = get_foul_whistle_instance()
+                    whistle.animation_active = True
+                    whistle.animation_frame = 0
+                    whistle.reset_ready = False
+                    foul_whistle_pending_round_reset = True
+                    try:
+                        if SOUND_FOUL_WHISTLE:
+                            play_sound_with_volume(SOUND_FOUL_WHISTLE, sfx_volume)
+                    except Exception:
+                        pass
+                    try:
+                        ball_vel[0] = 0
+                        ball_vel[1] = 0
+                        BALL.centerx = WIDTH // 2
+                        BALL.centery = HEIGHT // 2
+                    except Exception:
+                        pass
+                except Exception:
+                    show_fade_text("상대 반칙왕 발동!")
+                    go_to_next_round()
+                return
+
             # 🔧 라운드 승리 시 즉시 대시 상태 초기화 (윈도우 버그 방지)
             rolling_active = False
             rolling_timer = 0
