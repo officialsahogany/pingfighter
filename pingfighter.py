@@ -19648,6 +19648,8 @@ arena_bottom_dash_afterimages = []   # 하단 영웅 대쉬 잔상
 arena_bottom_dash_charges = 1        # 하단 영웅 대쉬 충전 (플레이어)
 arena_bottom_max_dash_charges = 1    # 하단 영웅 대쉬 최대 토큰 수 (기본 1, 퍽으로 증가 가능)
 arena_top_max_dash_charges = 1       # 상단 영웅 대쉬 최대 토큰 수 (기본 1, 퍽으로 증가 가능)
+arena_top_dash_charges = 1           # 상단 영웅 대쉬 현재 토큰 수
+arena_top_dash_charge_timer = 0      # 상단 영웅 대쉬 충전 타이머
 arena_bottom_dash_charge_timer = 0   # 하단 영웅 대쉬 충전 타이머
 arena_bottom_dash_duration_frames = 15  # 하단 영웅 대쉬 지속 시간 (동적 계산됨)
 arena_bottom_dash_stun_timer = 0     # 하단 영웅 대쉬 후딜 타이머
@@ -19722,6 +19724,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     global arena_barrier_flash_top, arena_barrier_flash_bottom
     global arena_barrier_beam_target_top, arena_barrier_beam_target_bottom
     global arena_bottom_max_dash_charges, arena_top_max_dash_charges
+    global arena_bottom_dash_charges, arena_top_dash_charges
     global arena_perk_paddle_enlarge_top, arena_perk_paddle_enlarge_bottom
     global arena_leaf_shield_top, arena_leaf_shield_bottom
     global arena_perk_draw_icon_func
@@ -20282,6 +20285,7 @@ def show_arena_perk_select_menu():
 def _apply_arena_f8_perk(arena_obj, hero_id, selected_perk):
     """F8으로 선택한 퍽을 즉시 적용"""
     global arena_bottom_max_dash_charges, arena_bottom_dash_charges
+    global arena_top_max_dash_charges, arena_top_dash_charges
 
     if selected_perk["effect_type"] == "add_skill":
         # 추가 스킬 획득
@@ -20322,9 +20326,10 @@ def _apply_arena_f8_perk(arena_obj, hero_id, selected_perk):
     top_hero_id = arena_top_hero["id"] if arena_top_hero else ""
     apply_arena_perks_for_battle(arena_obj, top_hero_id, hero_id)
 
-    # 잔상술 퍽: 대쉬 토큰 수 반영
+    # 잔상술 퍽: 대쉬 토큰 수 반영 (상단/하단 모두)
     if selected_perk["effect_type"] == "dash_token":
         arena_bottom_dash_charges = arena_bottom_max_dash_charges
+        arena_top_dash_charges = arena_top_max_dash_charges
 
     print(f"[ArenaPerk F8] 퍽 적용 완료 (총 {len(arena_obj.hero_perks.get(hero_id, []))}개)")
 
@@ -21263,8 +21268,12 @@ def arena_should_top_hero_dash() -> tuple[bool, float]:
     if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and arena_skill_manager.game_state.get('barrier_owner_is_top', False):
         return False, 0.0
 
-    # 대쉬 중이거나 쿨다운/후딜 중이면 발동 불가
-    if arena_top_dashing or arena_top_dash_cooldown > 0 or arena_top_dash_stun_timer > 0:
+    # 대쉬 중이거나 후딜 중이면 발동 불가
+    if arena_top_dashing or arena_top_dash_stun_timer > 0:
+        return False, 0.0
+
+    # 토큰 없으면 발동 불가 (쿨다운은 충전만 제어, 토큰 남아있으면 사용 가능)
+    if arena_top_dash_charges <= 0:
         return False, 0.0
 
     # 공이 상단 영웅(보스) 방향으로 향하지 않으면 사용하지 않음
@@ -21363,15 +21372,19 @@ def arena_trigger_top_hero_dash(target_x: float) -> bool:
     """상단 영웅(AI) 대쉬 발동 - 보스 대쉬와 동일한 방식"""
     global arena_top_dashing, arena_top_dash_timer, arena_top_dash_direction
     global arena_top_dash_target_x, arena_top_dash_cooldown, arena_top_dash_duration_frames
-    global arena_top_dash_stun_timer
+    global arena_top_dash_stun_timer, arena_top_dash_charges, arena_top_dash_charge_timer
     global arena_storm_rush_burst_top, arena_storm_rush_height_bonus_top
 
     # 스팀 배리어 시전 중에는 대쉬 발동 불가
     if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and arena_skill_manager.game_state.get('barrier_owner_is_top', False):
         return False
 
-    # 대쉬 중이거나 쿨다운/후딜 중이면 발동 불가
-    if arena_top_dashing or arena_top_dash_cooldown > 0 or arena_top_dash_stun_timer > 0:
+    # 대쉬 중이거나 후딜 중이면 발동 불가
+    if arena_top_dashing or arena_top_dash_stun_timer > 0:
+        return False
+
+    # 토큰 없으면 발동 불가 (쿨다운은 충전만 제어, 토큰 남아있으면 사용 가능)
+    if arena_top_dash_charges <= 0:
         return False
 
     direction = 1 if target_x > BOSS.centerx else -1
@@ -21395,6 +21408,8 @@ def arena_trigger_top_hero_dash(target_x: float) -> bool:
     arena_top_dash_duration_frames = int(max(10, min(estimated_duration, 60)))  # 10~60 프레임
     arena_top_dash_timer = arena_top_dash_duration_frames
     arena_top_dashing = True
+    arena_top_dash_charges -= 1             # 토큰 1개 소비
+    arena_top_dash_charge_timer = 0         # 충전 타이머 리셋 (새 토큰 충전 시작)
 
     # 폭풍질주 퍽: 버스트업 Lv3 효과 (패들 높이 증가 + 사운드 + 파티클)
     if arena_perk_dash_distance_mult_top > 1.0:
@@ -21633,6 +21648,7 @@ def update_arena_top_hero_dash():
     """상단 영웅 대쉬 업데이트 - 보스 대쉬와 동일한 방식"""
     global arena_top_dashing, arena_top_dash_timer, arena_top_dash_cooldown
     global arena_top_dash_afterimages, arena_top_dash_stun_timer, arena_top_dash_duration_frames
+    global arena_top_dash_charges, arena_top_dash_charge_timer
     global arena_storm_rush_burst_top, arena_storm_rush_height_bonus_top, arena_storm_rush_particles
 
     # 폭풍질주 파티클 업데이트 (대쉬 상태와 무관하게 매 프레임)
@@ -21653,6 +21669,14 @@ def update_arena_top_hero_dash():
             arena_storm_rush_burst_top = False
             arena_storm_rush_height_bonus_top = 0
         return False
+
+    # 충전 타이머 업데이트 (대쉬 중/후딜 중에는 충전 안 함) - 하단 영웅과 동일
+    if arena_top_dash_charges < arena_top_max_dash_charges and arena_top_dash_cooldown <= 0 and arena_top_dash_stun_timer <= 0 and not arena_top_dashing:
+        arena_top_dash_charge_timer += 1
+        if arena_top_dash_charge_timer >= ARENA_DASH_CHARGE_TIME:
+            arena_top_dash_charges = min(arena_top_max_dash_charges, arena_top_dash_charges + 1)
+            arena_top_dash_charge_timer = 0
+            play_dash_charge_sound()
 
     # 쿨다운 감소
     if arena_top_dash_cooldown > 0:
@@ -85863,19 +85887,12 @@ def draw_player_gauge():
         if arena_mode_enabled and not _skip_right_orb_drawing:
             try:
                 _top_max_tokens = arena_top_max_dash_charges
-                # 상단 영웅 대쉬 가용 토큰 계산 (쿨다운/대쉬/스턴 기반)
-                _top_available = 0
+                # 상단 영웅 대쉬 가용 토큰 계산 (하단 영웅과 동일한 토큰 기반)
+                _top_available = arena_top_dash_charges
                 _top_charge_progress = 0.0
-                if not arena_top_dashing and arena_top_dash_cooldown <= 0 and arena_top_dash_stun_timer <= 0:
-                    _top_available = _top_max_tokens  # 대쉬 가능
-                else:
-                    if arena_top_dash_cooldown > 0:
-                        _top_cd_max = int(ARENA_DASH_COOLDOWN_MAX * arena_perk_dash_cd_mult_top)
-                        _top_charge_progress = max(0.0, 1.0 - (arena_top_dash_cooldown / max(1, _top_cd_max)))
-                    elif arena_top_dash_stun_timer > 0:
-                        _top_charge_progress = 0.0
-                    elif arena_top_dashing:
-                        _top_charge_progress = 0.0
+                if arena_top_dash_charges < _top_max_tokens:
+                    if arena_top_dash_cooldown <= 0 and arena_top_dash_stun_timer <= 0 and not arena_top_dashing:
+                        _top_charge_progress = arena_top_dash_charge_timer / max(1, ARENA_DASH_CHARGE_TIME)
 
                 # 구슬 크기: 하단 구슬과 동일
                 _top_orb_radius = orb_radius
@@ -99437,6 +99454,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
     global arena_top_dashing, arena_top_dash_timer, arena_top_dash_direction
     global arena_top_dash_target_x, arena_top_dash_cooldown, arena_top_dash_afterimages
     global arena_top_dash_duration_frames, arena_top_dash_stun_timer
+    global arena_top_max_dash_charges, arena_top_dash_charges, arena_top_dash_charge_timer
     global arena_bottom_dashing, arena_bottom_dash_timer, arena_bottom_dash_direction
     global arena_bottom_dash_target_x, arena_bottom_dash_cooldown, arena_bottom_dash_afterimages
     global ai_mode
@@ -99478,6 +99496,9 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         arena_top_dash_target_x = 0.0
         arena_top_dash_cooldown = 0
         arena_top_dash_afterimages = []
+        arena_top_max_dash_charges = 1  # 기본 최대 1개 (퍽으로 증가 가능)
+        arena_top_dash_charges = arena_top_max_dash_charges  # 시작 시 최대치
+        arena_top_dash_charge_timer = 0
         arena_top_dash_duration_frames = 15
         arena_top_dash_stun_timer = 0
         arena_bottom_dashing = False
@@ -99522,8 +99543,9 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         arena_battle_arena_obj = _arena_perk_obj  # F8 퍽 선택용 참조 저장
         if _arena_perk_obj:
             apply_arena_perks_for_battle(_arena_perk_obj, top_hero["id"], bottom_hero["id"])
-            # 잔상술 퍽으로 증가된 최대 토큰 수를 현재 충전량에 반영
+            # 잔상술 퍽으로 증가된 최대 토큰 수를 현재 충전량에 반영 (상단/하단 모두)
             arena_bottom_dash_charges = arena_bottom_max_dash_charges
+            arena_top_dash_charges = arena_top_max_dash_charges
         else:
             print("[ArenaPerk] WARNING: _arena_pending_perk_data가 없음! 퍽 초기화됨")
             reset_arena_perks()
