@@ -14781,10 +14781,7 @@ class WildRoar(HeroSkill):
             if os.path.exists(roar_path):
                 self._roar_sound = pygame.mixer.Sound(roar_path)
                 self._roar_sound.set_volume(0.7)
-            hit_path = os.path.join(project_root, "sounds", "smallboyhit.wav")
-            if os.path.exists(hit_path):
-                self._hit_sound = pygame.mixer.Sound(hit_path)
-                self._hit_sound.set_volume(0.8)
+            self._hit_sound = None  # 충격파 반사 시 피격음 없음
         except Exception:
             pass
 
