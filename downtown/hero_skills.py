@@ -13697,12 +13697,12 @@ class ThunderOrb(HeroSkill):
 
     def _update_traveling(self, dt, target_paddle, game_state):
         """구체 이동 + 회전 + 궤적/에너지 파티클 (급감속 적용)"""
-        # 급감속 시스템: 0.5초 동안 3배속 → 0.6배속 (ease-in 곡선으로 급격히 감속)
+        # 급감속 시스템: 0.4초 동안 4.5배속 → 0.1배속 (ease-out: 발사 직후 급감속)
         if self.decel_timer < self.decel_duration:
             self.decel_timer += dt
             t = min(self.decel_timer / self.decel_duration, 1.0)
-            # ease-in (t^2): 처음엔 천천히 감속, 후반에 급격히 감속
-            eased = t * t
+            # ease-out (1-(1-t)^2): 발사 직후부터 급격히 감속, 후반엔 서서히 안정
+            eased = 1.0 - (1.0 - t) * (1.0 - t)
             mult = self.speed_mult_start + (self.speed_mult_end - self.speed_mult_start) * eased
             self.orb_vy = self.base_orb_vy * mult
 
