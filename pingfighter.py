@@ -18654,8 +18654,11 @@ def play_active_item_sound():
     play_sound_with_volume(SOUND_ACTIVE_ITEM)
 
 def play_serve_sound():
-    """서브 사운드 재생"""
-    play_sound_with_volume(SOUND_SERVE)
+    """서브 사운드 재생 (탁구공 모드일 때 pong_paddle.wav 사용)"""
+    if _get_ball_type() == "pingpong" and SOUND_PONG_PADDLE:
+        play_sound_with_volume(SOUND_PONG_PADDLE)
+    else:
+        play_sound_with_volume(SOUND_SERVE)
 
 def apply_serve_result(serve_result):
     """serve_ball() 결과를 전역 상태에 반영한다."""
