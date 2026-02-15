@@ -14943,6 +14943,7 @@ class WildRoar(HeroSkill):
                         pass
 
         game_state['screen_shake'] = 12 if not self.ball_reflected else 20
+        game_state['shake_duration'] = 0.4 if not self.ball_reflected else 0.5
         return {'reflected': self.ball_reflected}
 
     # ------------------------------------------------------------------
@@ -15053,6 +15054,9 @@ class WildRoar(HeroSkill):
             self._freeze_applied = False
         self.roar_freeze_timer = 0
         game_state['monkeyking_roar_pose'] = False
+        # 화면 흔들림 안전 해제
+        game_state['screen_shake'] = 0
+        game_state['shake_duration'] = 0
 
     def reset_for_new_round(self, game_state: dict):
         super().reset_for_new_round(game_state)
