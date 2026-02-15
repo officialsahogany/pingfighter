@@ -14750,7 +14750,7 @@ class WildRoar(HeroSkill):
             korean_name="야생의 포효",
             description="포효 충격파에 공이 닿으면 260% 가속 반사",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=25.0,
+            cooldown=30.0,
             duration=1.8,
             hero_id="monkeyking"
         )
