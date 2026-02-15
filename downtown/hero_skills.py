@@ -10150,7 +10150,7 @@ class BoneBarrier(HeroSkill):
         # 뼈 장막 건설 시작 사운드
         try:
             project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            sound_path = os.path.join(project_root, "sounds", "bonemake.wav")
+            sound_path = os.path.join(project_root, "sounds", "bonemake3.wav")
             if os.path.exists(sound_path):
                 s = pygame.mixer.Sound(sound_path)
                 s.set_volume(0.4)
@@ -10177,15 +10177,6 @@ class BoneBarrier(HeroSkill):
             # 건설 완료 체크
             if not barrier['built'] and barrier['build_timer'] >= self.BUILD_TIME:
                 barrier['built'] = True
-                try:
-                    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                    sound_path = os.path.join(project_root, "sounds", "bonemake3.wav")
-                    if os.path.exists(sound_path):
-                        s = pygame.mixer.Sound(sound_path)
-                        s.set_volume(0.4)
-                        s.play()
-                except Exception:
-                    pass
 
             # 공 충돌 체크
             if ball is not None:
