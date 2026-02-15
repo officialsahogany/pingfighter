@@ -2472,8 +2472,8 @@ class GuardWarriorSystem:
 
         # 호위무사 스탠스 모드 ("attack" or "defense")
         self.stance_mode_bottom = "attack"  # 하단(플레이어) 호위무사 모드
-        self.DEFENSE_SPEED_MULT = 1.5       # 수비모드 이동속도 +50%
-        self.DEFENSE_SKILL_CD_MULT = 1.5    # 수비모드 스킬쿨타임 +50%
+        self.DEFENSE_SPEED_MULT = 2.0       # 수비모드 이동속도 +100% (2배)
+        self.DEFENSE_SKILL_CD_MULT = 2.0    # 수비모드 스킬쿨타임 +100% (2배)
 
         # 매혹(Charm)된 호위무사 독립 추적
         self._charmed = None  # dict or None
