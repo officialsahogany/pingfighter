@@ -94230,7 +94230,7 @@ def draw_objects():
         if _current_ball_type == "pingpong":
             # === 탁구공 모드: 이펙트/파티클 없이 이미지만 그리기 ===
             if not ball_already_drawn and not ball_in_kuromi:
-                ball_size = BALL.width + 4
+                ball_size = (BALL.width + 4) * 2
                 if ball_size not in _pingpong_ball_cache:
                     _pingpong_ball_cache[ball_size] = pygame.transform.smoothscale(
                         PINGPONG_BALL_IMG, (ball_size, ball_size))
@@ -118657,6 +118657,8 @@ def draw_prism_particles(screen):
 
 def create_impact_effect(x, y, ball_speed, is_player=True):
     """타격 이펙트 생성 - Phase 101: unified_effects 사용"""
+    if _get_ball_type() == "pingpong":
+        return
     global impact_particles, last_impact_strength
     # 공 속도 계산 (속도 벡터의 크기)
     speed = math.sqrt(ball_speed[0]**2 + ball_speed[1]**2)
