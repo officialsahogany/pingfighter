@@ -13592,7 +13592,7 @@ class ThunderOrb(HeroSkill):
         )
         self._sound_loaded = False
         self._sound = None
-        self._explode_sound = None
+        self._explode_sound = None       # 폭발 사운드
         self._electric_shock_sound = None
         self._electric_shock_channel = None  # 감전 사운드 채널 (정지용)
         # 런타임 상태
@@ -13631,6 +13631,11 @@ class ThunderOrb(HeroSkill):
             if os.path.exists(sound_path):
                 self._sound = pygame.mixer.Sound(sound_path)
                 self._sound.set_volume(0.4)
+            # 폭발 사운드
+            explode_path = os.path.join(project_root, "sounds", "thunderboltboom.wav")
+            if os.path.exists(explode_path):
+                self._explode_sound = pygame.mixer.Sound(explode_path)
+                self._explode_sound.set_volume(0.5)
             # 감전 사운드
             shock_path = os.path.join(project_root, "sounds", "electricshock.wav")
             if os.path.exists(shock_path):
@@ -13774,6 +13779,12 @@ class ThunderOrb(HeroSkill):
         self.explosion_x = self.orb_x
         self.explosion_y = self.orb_y
         game_state['screen_shake'] = 22
+        # 폭발 사운드 재생
+        if self._explode_sound:
+            try:
+                self._explode_sound.play()
+            except Exception:
+                pass
         # 폭발 파티클 생성 (방사형 - 대형 + 소형)
         self.explosion_particles = []
         # 대형 파티클 (밝은 에너지 파편)
