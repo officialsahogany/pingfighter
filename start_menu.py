@@ -1095,8 +1095,8 @@ def _show_arena_sub_selection(ctx: "MenuContext", state: "MenuState") -> bool:
     emblems_info = [
         {"label": "토너먼트", "sublabel": "8인 토너먼트 대전",
          "color": (80, 60, 20), "accent": (255, 215, 0), "icon": "T", "dimmed": False},
-        {"label": "도장깨기", "sublabel": "준비 중...",
-         "color": (20, 60, 60), "accent": (0, 200, 200), "icon": "D", "dimmed": True},
+        {"label": "도장깨기", "sublabel": "끊임없는 1:1 대결",
+         "color": (20, 60, 60), "accent": (0, 200, 200), "icon": "D", "dimmed": False},
     ]
 
     while True:
@@ -1121,7 +1121,10 @@ def _show_arena_sub_selection(ctx: "MenuContext", state: "MenuState") -> bool:
                     _play_rainbow_transition(screen, 800)
                     ctx.start_arena_dev()
                     return True
-                # 도장깨기는 이미 걸러짐
+                elif chosen == 1:
+                    _play_rainbow_transition(screen, 800)
+                    ctx.start_dojo_dev()
+                    return True
 
         # 준비 중 타이머
         if preparing_timer > 0:
@@ -1153,8 +1156,9 @@ def _show_arena_sub_selection(ctx: "MenuContext", state: "MenuState") -> bool:
                     if selected == 0:
                         ctx.play_click_sound()
                         click_anim = {"card": 0, "timer": 0.0, "dur": 0.3}
-                    else:
-                        preparing_timer = 2.0  # 2초간 "준비 중" 표시
+                    elif selected == 1:
+                        ctx.play_click_sound()
+                        click_anim = {"card": 1, "timer": 0.0, "dur": 0.3}
 
             if ev.type == pygame.MOUSEMOTION:
                 mx, my = ev.pos
@@ -1176,12 +1180,9 @@ def _show_arena_sub_selection(ctx: "MenuContext", state: "MenuState") -> bool:
                 for i in range(2):
                     ecx = sx + i * (EMBLEM_R * 2 + GAP)
                     if (mx - ecx) ** 2 + (my - ey) ** 2 <= EMBLEM_R ** 2:
-                        if i == 0:
-                            selected = 0
-                            ctx.play_click_sound()
-                            click_anim = {"card": 0, "timer": 0.0, "dur": 0.3}
-                        else:
-                            preparing_timer = 2.0
+                        selected = i
+                        ctx.play_click_sound()
+                        click_anim = {"card": i, "timer": 0.0, "dur": 0.3}
 
         # 엠블럼 애니메이션 업데이트
         for i in range(2):
@@ -1215,17 +1216,7 @@ def _show_arena_sub_selection(ctx: "MenuContext", state: "MenuState") -> bool:
         ss = sub_font.render("모드를 선택하세요", True, (180, 170, 140))
         screen.blit(ss, ss.get_rect(center=(width // 2, 158)))
 
-        # "준비 중" 토스트
-        if preparing_timer > 0:
-            toast_alpha = min(255, int(preparing_timer * 255))
-            toast_font = ctx.FontStyle.body()
-            toast_s = toast_font.render("준비 중입니다!", True, (255, 200, 80))
-            toast_bg = pygame.Surface((toast_s.get_width() + 40, toast_s.get_height() + 20), pygame.SRCALPHA)
-            pygame.draw.rect(toast_bg, (0, 0, 0, min(180, toast_alpha)), toast_bg.get_rect(), border_radius=10)
-            toast_x = (width - toast_bg.get_width()) // 2
-            toast_y = height - 120
-            screen.blit(toast_bg, (toast_x, toast_y))
-            screen.blit(toast_s, toast_s.get_rect(center=(width // 2, toast_y + toast_bg.get_height() // 2)))
+        # (토스트 메시지 영역 - 필요시 사용)
 
         # ESC 힌트
         esc = sub_font.render("ESC: 뒤로", True, (100, 110, 130))

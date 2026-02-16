@@ -100335,13 +100335,9 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
     return result
 
 
-def start_arena_dev():
-    """개발 메뉴에서 투기장 바로 진입 (입장료 무료)"""
+def _make_arena_fonts():
+    """투기장 공용 freetype 폰트 딕셔너리 생성"""
     import pygame.freetype
-    from downtown.colosseum_arena import ColosseumsArena
-
-    screen = SCREEN
-    # freetype 폰트 딕셔너리 생성 (downtown/manager.py와 동일한 로직)
     fonts = {}
     font = None
     pixel_font_path = resource_path("PFStardust.ttf")
@@ -100360,6 +100356,15 @@ def start_arena_dev():
         fonts['large'] = pygame.freetype.SysFont(None, 32)
         fonts['medium'] = pygame.freetype.SysFont(None, 24)
         fonts['small'] = pygame.freetype.SysFont(None, 16)
+    return fonts
+
+
+def start_arena_dev():
+    """개발 메뉴에서 투기장(토너먼트) 바로 진입 (입장료 무료)"""
+    from downtown.colosseum_arena import ColosseumsArena
+
+    screen = SCREEN
+    fonts = _make_arena_fonts()
 
     arena = ColosseumsArena(screen, fonts, 999999, battle_callback=start_arena_battle)
     arena.entry_fee_paid = True  # 입장료 무료
@@ -100377,6 +100382,44 @@ def start_arena_dev():
         arena.update(dt)
         arena.draw()
         pygame.display.flip()
+
+
+def start_dojo_dev():
+    """메인메뉴에서 도장깨기 바로 진입"""
+    from downtown.colosseum_dojo import ColosseumsDojoBreaker
+
+    screen = SCREEN
+    fonts = _make_arena_fonts()
+
+    # 투기장 대기실 BGM 재생
+    try:
+        import bgm_manager
+        bgm_manager.play_colosseum_room_bgm()
+    except Exception:
+        pass
+
+    dojo = ColosseumsDojoBreaker(screen, fonts, 999999, battle_callback=start_arena_battle)
+
+    clock_dojo = pygame.time.Clock()
+    dojo_active = True
+    while dojo_active:
+        dt = clock_dojo.tick(60) / 1000.0
+        for ev in pygame.event.get():
+            if ev.type == pygame.QUIT:
+                pygame.quit()
+                raise SystemExit
+            if dojo.handle_event(ev):
+                dojo_active = False
+        dojo.update(dt)
+        dojo.draw()
+        pygame.display.flip()
+
+    # BGM 복구
+    try:
+        import bgm_manager
+        bgm_manager.stop_bgm()
+    except Exception:
+        pass
 
 
 def show_start_screen():
@@ -100643,6 +100686,8 @@ def show_start_screen():
     ctx.start_arena_battle = start_arena_battle
     # 개발 메뉴 투기장 바로가기
     ctx.start_arena_dev = start_arena_dev
+    # 도장깨기 바로가기
+    ctx.start_dojo_dev = start_dojo_dev
 
     # 메인 메뉴 진입 시 pillar_renderer 스테이지 0으로 설정 (바로크 액자용)
     if pillar_renderer is not None:
