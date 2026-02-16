@@ -738,6 +738,26 @@ def _show_dev_test_menu(ctx: MenuContext, state: MenuState) -> bool:
 
 # ─── 모드 선택 화면 (스토리모드 / 투기장) ───────────────────────────────
 
+_mode_card_preview_cache: dict = {}  # 카드 미리보기 이미지 캐시
+
+
+def _load_mode_preview(path_key: str, resource_path_fn) -> "pygame.Surface | None":
+    """모드 카드 미리보기 이미지를 로드하고 캐시한다."""
+    if path_key in _mode_card_preview_cache:
+        return _mode_card_preview_cache[path_key]
+    import os
+    full_path = resource_path_fn(path_key)
+    if os.path.exists(full_path):
+        try:
+            img = pygame.image.load(full_path).convert_alpha()
+            _mode_card_preview_cache[path_key] = img
+            return img
+        except Exception:
+            pass
+    _mode_card_preview_cache[path_key] = None
+    return None
+
+
 def _draw_mode_card(
     screen: pygame.Surface,
     x: int, y: int, w: int, h: int,
@@ -747,40 +767,73 @@ def _draw_mode_card(
     is_selected: bool, scale: float,
     y_offset: float, anim_t: float,
     ctx: "MenuContext",
+    preview_img: "pygame.Surface | None" = None,
 ):
-    """모드 선택 카드 1장을 그린다."""
+    """모드 선택 카드 1장을 그린다. preview_img가 있으면 배경에 표시."""
     # scale 적용 (중심 기준)
     sw, sh = int(w * scale), int(h * scale)
     sx = x + (w - sw) // 2
     sy = int(y + (h - sh) // 2 + y_offset)
     card = pygame.Surface((sw, sh), pygame.SRCALPHA)
 
-    # 그라데이션 배경
-    for row in range(sh):
-        t = row / max(sh - 1, 1)
-        r = int(color_top[0] + (color_bot[0] - color_top[0]) * t)
-        g = int(color_top[1] + (color_bot[1] - color_top[1]) * t)
-        b = int(color_top[2] + (color_bot[2] - color_top[2]) * t)
-        pygame.draw.line(card, (r, g, b, 220), (0, row), (sw - 1, row))
+    if preview_img is not None:
+        # 미리보기 이미지 배경 - 호버 시 천천히 패닝
+        img_w, img_h = preview_img.get_size()
+        # 카드에 맞게 스케일 (살짝 크게 해서 패닝 여유 확보)
+        img_scale = max(sw / img_w, sh / img_h) * 1.15
+        scaled_w = int(img_w * img_scale)
+        scaled_h = int(img_h * img_scale)
+        scaled_img = pygame.transform.smoothscale(preview_img, (scaled_w, scaled_h))
+        # 호버 시 천천히 이동하는 오프셋
+        if is_selected:
+            pan_x = int(math.sin(anim_t * 0.4) * (scaled_w - sw) * 0.35)
+            pan_y = int(math.cos(anim_t * 0.3) * (scaled_h - sh) * 0.35)
+        else:
+            pan_x = 0
+            pan_y = 0
+        # 이미지 중앙 정렬 + 패닝
+        blit_x = -(scaled_w - sw) // 2 + pan_x
+        blit_y = -(scaled_h - sh) // 2 + pan_y
+        card.blit(scaled_img, (blit_x, blit_y))
+        # 하단 그라데이션 오버레이 (텍스트 가독성)
+        grad_h = sh // 2
+        grad_surf = pygame.Surface((sw, grad_h), pygame.SRCALPHA)
+        for row in range(grad_h):
+            a = int(200 * (row / max(grad_h - 1, 1)))
+            pygame.draw.line(grad_surf, (0, 0, 0, a), (0, row), (sw - 1, row))
+        card.blit(grad_surf, (0, sh - grad_h))
+        # 비선택 시 어둡게
+        if not is_selected:
+            dim = pygame.Surface((sw, sh), pygame.SRCALPHA)
+            dim.fill((0, 0, 0, 100))
+            card.blit(dim, (0, 0))
+    else:
+        # 폴백: 그라데이션 배경
+        for row in range(sh):
+            t = row / max(sh - 1, 1)
+            r = int(color_top[0] + (color_bot[0] - color_top[0]) * t)
+            g = int(color_top[1] + (color_bot[1] - color_top[1]) * t)
+            b = int(color_top[2] + (color_bot[2] - color_top[2]) * t)
+            pygame.draw.line(card, (r, g, b, 220), (0, row), (sw - 1, row))
+        # 아이콘 (이미지 없을 때만)
+        icon_font = ctx.FontStyle.title_large()
+        icon_surf = icon_font.render(icon_char, True, (255, 255, 255, 180))
+        icon_rect = icon_surf.get_rect(center=(sw // 2, sh // 2 - 30))
+        card.blit(icon_surf, icon_rect)
+
     # 둥근 마스크 (모서리 깎기)
     mask = pygame.Surface((sw, sh), pygame.SRCALPHA)
     pygame.draw.rect(mask, (255, 255, 255, 255), (0, 0, sw, sh), border_radius=18)
     card.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
 
-    # 아이콘 영역
-    icon_font = ctx.FontStyle.title_large()
-    icon_surf = icon_font.render(icon_char, True, (255, 255, 255, 180))
-    icon_rect = icon_surf.get_rect(center=(sw // 2, sh // 2 - 30))
-    card.blit(icon_surf, icon_rect)
-
-    # 타이틀
+    # 타이틀 (하단에 배치)
     title_font = ctx.FontStyle.body()
     ts = title_font.render(title, True, (255, 255, 255))
-    card.blit(ts, ts.get_rect(center=(sw // 2, sh - 75)))
+    card.blit(ts, ts.get_rect(center=(sw // 2, sh - 55)))
     # 부제
     sub_font = ctx.FontStyle.tiny()
     ss = sub_font.render(subtitle, True, (200, 210, 230))
-    card.blit(ss, ss.get_rect(center=(sw // 2, sh - 48)))
+    card.blit(ss, ss.get_rect(center=(sw // 2, sh - 30)))
 
     screen.blit(card, (sx, sy))
 
@@ -876,11 +929,20 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
     CARD_W, CARD_H = 250, 320
     GAP = 24
 
+    # 미리보기 이미지 로드
+    import os
+    story_preview = _load_mode_preview(
+        os.path.join("backgrounds", "stage1_field.png"), ctx.resource_path)
+    arena_preview = _load_mode_preview(
+        os.path.join("screenshots", "screenshot_20260216_022303.png"), ctx.resource_path)
+
     cards_info = [
         {"title": "스토리모드", "subtitle": "보스를 쓰러트려라!",
-         "top": (26, 26, 62), "bot": (58, 26, 94), "accent": (0, 200, 255), "icon": "VS"},
+         "top": (26, 26, 62), "bot": (58, 26, 94), "accent": (0, 200, 255), "icon": "VS",
+         "preview": story_preview},
         {"title": "투기장", "subtitle": "최강의 영웅은 누구?",
-         "top": (62, 26, 26), "bot": (62, 58, 26), "accent": (255, 200, 80), "icon": "PVP"},
+         "top": (62, 26, 26), "bot": (62, 58, 26), "accent": (255, 200, 80), "icon": "PVP",
+         "preview": arena_preview},
     ]
 
     while True:
@@ -1000,6 +1062,7 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
                 info["top"], info["bot"], info["accent"], info["icon"],
                 i == selected, hover_scales[i], y_off,
                 state.animation_timer, ctx,
+                preview_img=info.get("preview"),
             )
             card_rects.append(rect)
 
