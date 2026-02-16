@@ -126556,8 +126556,22 @@ def handle_boss_pro():
     config["fail_chance"] = 0.25  # 25% 실수율 (주니어리그 표준)
     # 간단한 예측 로직
     predict_frame = max(10, min(30, int(FPS / max(1, abs(ball_vel[0])))))
-    # 조명탄 혼란 효과 체크
-    if boss_confused_timer > 0:
+
+    # 🏟️ 투기장 모드: 하단 영웅(player AI)과 동일한 궤적 예측 사용
+    if arena_mode_enabled:
+        # player_ai.py의 decide()와 동일한 로직: 공이 보스 패들까지 도달하는 시간 기반 예측
+        _bvy = ball_vel[1]
+        if abs(_bvy) > 1e-3:
+            # 보스는 화면 상단(Y=25+40=65)에 있으므로, 공이 위로 올라올 때(vy<0) 시간 계산
+            _dist_y = BOSS.bottom - BALL.centery  # 음수일 때 공이 보스 위에 있음
+            _t = max(0.0, _dist_y / _bvy) if _bvy != 0 else 0
+            future_x = BALL.centerx + ball_vel[0] * _t
+        else:
+            future_x = BALL.centerx
+        future_x = max(GAME_AREA_OFFSET_X + 20, min(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 20, future_x))
+
+    # 일반 모드: 기존 AI 로직
+    elif boss_confused_timer > 0:
         # 혼란 상태일 때는 완전히 랜덤하게 움직임 (공을 무시)
         if not hasattr(handle_boss, 'confusion_target'):
             handle_boss.confusion_target = random.randint(BOSS.width // 2, WIDTH - BOSS.width // 2)
