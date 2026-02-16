@@ -866,33 +866,22 @@ class ColosseumsDojoBreaker:
                 self._register_opponent_skills()
 
     def _register_hero_skills(self, hero, is_top):
-        """영웅 스킬 등록"""
+        """영웅 스킬 등록 (init_hero_skills API 사용)"""
         if not self.skill_manager or not HERO_SKILLS_AVAILABLE:
             return
         hero_id = hero["id"]
         skill_idx = self.player_hero_skill_index if not is_top else self.opponent_skill_index
-        skills = HERO_SKILLS.get(hero_id, [])
-        if skills and 0 <= skill_idx < len(skills):
-            skill = skills[skill_idx]
-            position = "top" if is_top else "bottom"
-            self.skill_manager.register_skill(skill, position, hero_id)
-
-            # 양쪽 스킬 보유 시 두 번째 스킬도 등록
-            if self.hero_has_both_skills.get(hero_id, False):
-                other_idx = 1 - skill_idx
-                if 0 <= other_idx < len(skills):
-                    other_skill = skills[other_idx]
-                    self.skill_manager.register_skill(other_skill, position, hero_id)
+        # 양쪽 스킬 보유 시 -1 (전체 활성화)
+        if self.hero_has_both_skills.get(hero_id, False):
+            skill_idx = -1
+        self.skill_manager.init_hero_skills(hero_id, is_top=is_top, selected_skill_index=skill_idx)
 
     def _register_opponent_skills(self):
         """상대 영웅 스킬 등록"""
         if not self.skill_manager or not HERO_SKILLS_AVAILABLE or not self.current_opponent:
             return
         opp_id = self.current_opponent["id"]
-        skills = HERO_SKILLS.get(opp_id, [])
-        if skills and 0 <= self.opponent_skill_index < len(skills):
-            skill = skills[self.opponent_skill_index]
-            self.skill_manager.register_skill(skill, "top", opp_id)
+        self.skill_manager.init_hero_skills(opp_id, is_top=True, selected_skill_index=self.opponent_skill_index)
 
     def _apply_perks_to_hero(self, hero_data):
         """퍽 효과를 영웅 데이터에 적용"""
