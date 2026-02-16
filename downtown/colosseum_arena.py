@@ -4608,7 +4608,7 @@ class GuardWarriorSystem:
 
     def _update_guard_dash(self, dt):
         """호위무사 긴급 대쉬 프레임 업데이트"""
-        if self._guard_dash_cooldown > 0:
+        if self._guard_dash_cooldown > 0 and self.stance_mode_bottom == "defense":
             self._guard_dash_cooldown -= dt
         new_imgs = []
         for img in self._guard_dash_afterimages:
