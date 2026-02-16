@@ -38029,7 +38029,7 @@ def update_blacksmith_turret():
 
         turret_runtime.projectiles = new_projectiles
 
-    missile_img = BLACKSMITH_TURRET_MISSILE_IMG
+    missile_img = globals().get("BLACKSMITH_TURRET_MISSILE_IMG")
     if missile_img is not None:
         try:
             missile_img.set_alpha(255 if turret_runtime.projectiles else 0)
@@ -137416,6 +137416,8 @@ def main(stage_num, new_boss_mode=False):
                         if arena_skill_manager:
                             arena_skill_manager.game_state['arena_bottom_dash_charges'] = arena_bottom_dash_charges
                             arena_skill_manager.game_state['arena_bottom_dashing'] = arena_bottom_dashing
+                            arena_skill_manager.game_state['_hero_bottom_cx'] = PLAYER.centerx
+                            arena_skill_manager.game_state['_hero_bottom_pw'] = PLAYER.width
                         try:
                             arena_guard_system.update(dt, top_wrapper, bottom_wrapper, ball_wrapper)
                         except Exception as _guard_err:
