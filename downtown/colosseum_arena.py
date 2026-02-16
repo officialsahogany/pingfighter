@@ -148,8 +148,8 @@ def _get_arena_fullscreen():
     return _arena_fullscreen_surface
 
 # 물리 상수 (실제 게임과 동일)
-BALL_BASE_SPEED = 7.0       # 기본 공 속도
-BALL_MAX_SPEED = 15.0       # 최대 공 속도
+BALL_BASE_SPEED = 8.75      # 기본 공 속도 (+25%)
+BALL_MAX_SPEED = 18.75      # 최대 공 속도 (+25%)
 BALL_ACCELERATION = 1.03    # 충돌 시 가속률
 PADDLE_HIT_ANGLE_FACTOR = 4.0  # 패들 타격 시 각도 변화 계수
 WALL_BOUNCE_SLOWDOWN = 0.98  # 벽 반사 시 속도 감소
@@ -1588,8 +1588,8 @@ class AIPaddleController:
         self.height = PADDLE_HEIGHT  # 스킬 코드 호환용 (target_paddle.height)
 
         # 영웅 스탯 기반 능력치
-        self.base_speed = 7.0 * hero["speed"]
-        self.max_speed = 10.0 * hero["speed"]
+        self.base_speed = 8.75 * hero["speed"]   # +25%
+        self.max_speed = 12.5 * hero["speed"]    # +25%
         self.reaction_time = 0.08 / hero["reaction"]  # 반응 시간 (초)
         self.prediction_accuracy = hero["accuracy"]  # 예측 정확도
         self.power = hero["power"]
