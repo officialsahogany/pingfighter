@@ -965,6 +965,21 @@ class ColosseumsDojoBreaker:
             elif etype == "paddle_enlarge":
                 hero_data["_paddle_scale"] = hero_data.get("_paddle_scale", 1.0) + val
 
+    def _draw_perk_icon(self, surface, perk_id, cx, cy, size):
+        """퍽 아이콘 그리기 (ColosseumsArena의 아이콘 메서드 재사용)"""
+        if not hasattr(self, '_icon_proxy'):
+            try:
+                # ColosseumsArena의 아이콘 그리기 메서드만 사용하는 경량 프록시
+                cls = _arena_mod.ColosseumsArena
+                self._icon_proxy = cls.__new__(cls)  # __init__ 없이 메서드만 접근
+            except Exception:
+                self._icon_proxy = None
+        if self._icon_proxy:
+            try:
+                self._icon_proxy._draw_perk_icon(surface, perk_id, cx, cy, size)
+            except Exception:
+                pass
+
     def get_hero_perk_multipliers(self, hero_id: str) -> Dict[str, float]:
         """영웅의 퍽에서 멀티플라이어 계산 (apply_arena_perks_for_battle 호환)"""
         perks = self.hero_perks.get(hero_id, [])

@@ -100200,12 +100200,13 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         try:
             _top_guards = _arena_pending_top_guards
             _bottom_guards = _arena_pending_bottom_guards
+            # 항상 GuardWarriorSystem 생성 (퍽 필러 아이콘 표시에 필요)
+            from downtown.colosseum_arena import GuardWarriorSystem
+            guard_system = GuardWarriorSystem(
+                skill_manager=arena_skill_manager,
+                hero_paddle_renderer=arena_hero_paddle_renderer,
+            )
             if _top_guards or _bottom_guards:
-                from downtown.colosseum_arena import GuardWarriorSystem
-                guard_system = GuardWarriorSystem(
-                    skill_manager=arena_skill_manager,
-                    hero_paddle_renderer=arena_hero_paddle_renderer,
-                )
                 guard_system.setup(_top_guards, _bottom_guards, skill_selections=_skill_selections)
                 # 호위무사 퍽 멀티플라이어 적용
                 guard_system.guard_cd_mult_top = arena_perk_guard_cd_mult_top
@@ -100224,10 +100225,8 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
                     guard_system.unlock_extra_skills(is_top=True)
                 if arena_perk_guard_extra_skill_bottom:
                     guard_system.unlock_extra_skills(is_top=False)
-                arena_guard_system = guard_system
                 print(f"[Guard] start_arena_battle 호위무사 설정 완료: top={len(_top_guards)}, bottom={len(_bottom_guards)}")
-            else:
-                arena_guard_system = None
+            arena_guard_system = guard_system
         except Exception as e:
             print(f"[Guard] start_arena_battle 호위무사 설정 오류: {e}")
             arena_guard_system = None
