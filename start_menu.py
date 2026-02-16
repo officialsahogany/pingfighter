@@ -931,7 +931,7 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
     # 미리보기 이미지 로드
     import os
     story_preview = _load_mode_preview(
-        os.path.join("backgrounds", "stage1_field.png"), ctx.resource_path)
+        os.path.join("ui", "story.PNG"), ctx.resource_path)
     arena_preview = _load_mode_preview(
         os.path.join("screenshots", "screenshot_20260216_022303.png"), ctx.resource_path)
 
