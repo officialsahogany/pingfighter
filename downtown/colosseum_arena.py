@@ -2731,26 +2731,56 @@ class GuardWarriorSystem:
         if skill_cds:
             for i in range(len(skill_cds)):
                 skill_cds[i] -= dt
+        # ON_BALL_HIT 스킬의 내부 current_cooldown도 감소 (캐스팅 루프에서 update()가 안 호출됨)
+        self._tick_ball_hit_skill_cooldowns(dt, guard_id)
+
+    def _tick_ball_hit_skill_cooldowns(self, dt, guard_id):
+        """ON_BALL_HIT 스킬의 내부 쿨타임 감소 (캐스팅 시스템과 독립)"""
+        from downtown.hero_skills import SkillTrigger
+        skills = self.skill_instances.get(guard_id, [])
+        for skill in skills:
+            if getattr(skill, 'trigger', None) != SkillTrigger.ON_BALL_HIT:
+                continue
+            # is_active 중에는 기존 update() 루프에서 감소하므로 스킵
+            if skill.is_active:
+                continue
+            if skill.current_cooldown > 0:
+                skill.current_cooldown -= dt
 
     def _any_skill_ready(self, guard_id):
-        """쿨다운 완료된 스킬이 있는지 확인"""
+        """쿨다운 완료된 캐스팅 스킬이 있는지 확인 (ON_BALL_HIT 제외)"""
+        from downtown.hero_skills import SkillTrigger
         skill_cds = self.guard_skill_cooldowns.get(guard_id, [])
-        return any(cd <= 0 for cd in skill_cds)
+        skills = self.skill_instances.get(guard_id, [])
+        for i, cd in enumerate(skill_cds):
+            if cd <= 0 and i < len(skills):
+                if getattr(skills[i], 'trigger', None) != SkillTrigger.ON_BALL_HIT:
+                    return True
+        return False
 
     def _select_ready_skill(self, guard_id, skills):
         """쿨다운이 완료된 스킬 선택 (가장 오래 대기한 스킬 우선)
 
         Returns: (skill_index, skill_instance)
         """
+        from downtown.hero_skills import SkillTrigger
         skill_cds = self.guard_skill_cooldowns.get(guard_id, [])
         if len(skill_cds) > 1 and len(skills) > 1:
+            # ON_BALL_HIT 스킬은 캐스팅 대상에서 제외 (공 충돌 시에만 발동)
             ready = [(i, skills[i]) for i in range(min(len(skills), len(skill_cds)))
-                     if skill_cds[i] <= 0]
+                     if skill_cds[i] <= 0
+                     and getattr(skills[i], 'trigger', None) != SkillTrigger.ON_BALL_HIT]
             if ready:
                 # 가장 오래 대기한(쿨다운이 가장 낮은) 스킬 선택
                 idx, skill = min(ready, key=lambda x: skill_cds[x[0]])
                 return idx, skill
-        # 폴백: 랜덤
+        # 폴백: ON_BALL_HIT 제외한 스킬 중 랜덤
+        castable = [(i, sk) for i, sk in enumerate(skills)
+                    if getattr(sk, 'trigger', None) != SkillTrigger.ON_BALL_HIT]
+        if castable:
+            idx, skill = random.choice(castable)
+            return idx, skill
+        # 모든 스킬이 ON_BALL_HIT이면 폴백
         idx = random.randrange(len(skills))
         return idx, skills[idx]
 
@@ -3950,6 +3980,9 @@ class GuardWarriorSystem:
             _dual_mode = True
             self._tick_guard_skill_cooldowns(dt, _dual_guard["id"])
             self._sync_guard_cooldown_to_main(is_top, _dual_guard["id"])
+        elif _dual_guard:
+            # 싱글 스킬 가드: ON_BALL_HIT 스킬 쿨타임만 별도 감소
+            self._tick_ball_hit_skill_cooldowns(dt, _dual_guard["id"])
 
         # 현재 애니메이션 진행 중이면 애니메이션 처리
         phase = self.phase_top if is_top else self.phase_bottom
@@ -4768,10 +4801,12 @@ class GuardWarriorSystem:
                 pass
             # 야생의 포효가 선택됐지만 공이 범위 밖 → 다른 준비된 스킬로 교체
             if getattr(skill, 'skill_id', '') == 'wild_roar' and not skill.can_use():
+                from downtown.hero_skills import SkillTrigger as _ST
                 skill_cds = self.guard_skill_cooldowns.get(guard["id"], [])
                 fallback = None
                 for i, sk in enumerate(skills):
-                    if sk != skill and i < len(skill_cds) and skill_cds[i] <= 0:
+                    if (sk != skill and i < len(skill_cds) and skill_cds[i] <= 0
+                            and getattr(sk, 'trigger', None) != _ST.ON_BALL_HIT):
                         fallback = (i, sk)
                         break
                 if fallback:
@@ -4780,11 +4815,15 @@ class GuardWarriorSystem:
                     return  # 다른 스킬도 없음 → 대기
         else:
             # 싱글 스킬: 기존 로직 (can_use 조건 확인 후 가능한 스킬 우선)
+            from downtown.hero_skills import SkillTrigger
             guard_paddle = self._make_guard_paddle(is_top)
             target_paddle = bottom_paddle if is_top else top_paddle
             game_state = self.skill_manager.game_state if self.skill_manager else {}
             usable = []
             for sk in skills:
+                # ON_BALL_HIT 스킬은 캐스팅 대상에서 제외 (쿨타임 리셋 방지)
+                if getattr(sk, 'trigger', None) == SkillTrigger.ON_BALL_HIT:
+                    continue
                 sk.caster_is_top = is_top
                 sk.current_cooldown = 0
                 try:
@@ -4793,7 +4832,15 @@ class GuardWarriorSystem:
                     pass
                 if sk.can_use():
                     usable.append(sk)
-            skill = random.choice(usable) if usable else random.choice(skills)
+            # ON_BALL_HIT 제외 후 가능한 스킬이 없으면 → 대기 (캐스팅 스킵)
+            castable = [sk for sk in skills
+                        if getattr(sk, 'trigger', None) != SkillTrigger.ON_BALL_HIT]
+            if not usable:
+                skill = random.choice(castable) if castable else None
+                if not skill:
+                    return  # 모든 스킬이 ON_BALL_HIT → 캐스팅 불가
+            else:
+                skill = random.choice(usable)
             skill_idx = skills.index(skill) if skill in skills else 0
 
         if is_top:
@@ -5160,6 +5207,22 @@ class GuardWarriorSystem:
             result = skill.use(guard_paddle, target_paddle, ball, game_state)
             self._restore_caster_state(game_state, caster_prefix, saved)
             if result:
+                # 사운드 재생
+                self._play_skill_sound(result)
+                # 말풍선 표시 (호위무사 위치에)
+                bubble_text = f"{skill.korean_name}!"
+                bubble_data = {'text': bubble_text, 'timer': self._bubble_duration}
+                if is_top:
+                    self._bubble_top = bubble_data
+                else:
+                    self._bubble_bottom = bubble_data
+                # 외부 쿨다운 시스템에도 반영 (캐스팅 선택에서 제외용)
+                skill_idx = skills.index(skill) if skill in skills else -1
+                if skill_idx >= 0:
+                    cd_mult = self.guard_cd_mult_top if is_top else self.guard_cd_mult_bottom
+                    if not is_top and self.stance_mode_bottom == "defense":
+                        cd_mult *= self.DEFENSE_SKILL_CD_MULT
+                    self._reset_skill_cooldown(guard["id"], skill_idx, cd_mult)
                 print(f"[Guard] 호위무사 {guard['name']} ON_BALL_HIT 스킬 발동: {skill.korean_name}")
                 break  # 한 번에 하나만 발동
 
