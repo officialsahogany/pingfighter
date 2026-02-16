@@ -736,6 +736,442 @@ def _show_dev_test_menu(ctx: MenuContext, state: MenuState) -> bool:
         pygame.display.flip()
 
 
+# ─── 모드 선택 화면 (스토리모드 / 투기장) ───────────────────────────────
+
+def _draw_mode_card(
+    screen: pygame.Surface,
+    x: int, y: int, w: int, h: int,
+    title: str, subtitle: str,
+    color_top: tuple, color_bot: tuple,
+    accent: tuple, icon_char: str,
+    is_selected: bool, scale: float,
+    y_offset: float, anim_t: float,
+    ctx: "MenuContext",
+):
+    """모드 선택 카드 1장을 그린다."""
+    # scale 적용 (중심 기준)
+    sw, sh = int(w * scale), int(h * scale)
+    sx = x + (w - sw) // 2
+    sy = int(y + (h - sh) // 2 + y_offset)
+    card = pygame.Surface((sw, sh), pygame.SRCALPHA)
+
+    # 그라데이션 배경
+    for row in range(sh):
+        t = row / max(sh - 1, 1)
+        r = int(color_top[0] + (color_bot[0] - color_top[0]) * t)
+        g = int(color_top[1] + (color_bot[1] - color_top[1]) * t)
+        b = int(color_top[2] + (color_bot[2] - color_top[2]) * t)
+        pygame.draw.line(card, (r, g, b, 220), (0, row), (sw - 1, row))
+    # 둥근 마스크 (모서리 깎기)
+    mask = pygame.Surface((sw, sh), pygame.SRCALPHA)
+    pygame.draw.rect(mask, (255, 255, 255, 255), (0, 0, sw, sh), border_radius=18)
+    card.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+
+    # 아이콘 영역
+    icon_font = ctx.FontStyle.title_large()
+    icon_surf = icon_font.render(icon_char, True, (255, 255, 255, 180))
+    icon_rect = icon_surf.get_rect(center=(sw // 2, sh // 2 - 30))
+    card.blit(icon_surf, icon_rect)
+
+    # 타이틀
+    title_font = ctx.FontStyle.medium()
+    ts = title_font.render(title, True, (255, 255, 255))
+    card.blit(ts, ts.get_rect(center=(sw // 2, sh - 75)))
+    # 부제
+    sub_font = ctx.FontStyle.tiny()
+    ss = sub_font.render(subtitle, True, (200, 210, 230))
+    card.blit(ss, ss.get_rect(center=(sw // 2, sh - 48)))
+
+    screen.blit(card, (sx, sy))
+
+    # 테두리
+    border_alpha = 255 if is_selected else 120
+    border_color = accent if is_selected else (accent[0] // 2, accent[1] // 2, accent[2] // 2)
+    bs = pygame.Surface((sw + 4, sh + 4), pygame.SRCALPHA)
+    pygame.draw.rect(bs, (*border_color, border_alpha), (0, 0, sw + 4, sh + 4), 3, border_radius=20)
+    screen.blit(bs, (sx - 2, sy - 2))
+
+    # 선택 글로우
+    if is_selected:
+        pulse = 0.5 + 0.5 * math.sin(anim_t * 3.0)
+        gs = pygame.Surface((sw + 16, sh + 16), pygame.SRCALPHA)
+        pygame.draw.rect(gs, (*accent, int(40 * pulse)), (0, 0, sw + 16, sh + 16), border_radius=24)
+        screen.blit(gs, (sx - 8, sy - 8))
+        _menu_draw_hover_border(screen, sx, sy, sw, sh, accent)
+
+    return pygame.Rect(sx, sy, sw, sh)
+
+
+def _draw_arena_emblem(
+    screen: pygame.Surface,
+    cx: int, cy: int, radius: int,
+    label: str, sublabel: str,
+    color: tuple, accent: tuple,
+    icon_char: str,
+    is_selected: bool,
+    angle: float, glow: float,
+    anim_t: float,
+    ctx: "MenuContext",
+    dimmed: bool = False,
+):
+    """투기장 하위 모드 엠블럼 1개를 그린다."""
+    surf_size = radius * 2 + 20
+    surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+    center = surf_size // 2
+
+    # 팔각형 점 계산
+    pts = []
+    for i in range(8):
+        a = math.radians(i * 45 - 22.5) + angle
+        pts.append((center + int(radius * math.cos(a)), center + int(radius * math.sin(a))))
+    # 배경
+    alpha = 140 if not dimmed else 80
+    pygame.draw.polygon(surf, (*color, alpha), pts)
+    # 테두리
+    ba = 255 if is_selected else 140
+    if dimmed:
+        ba = 80
+    pygame.draw.polygon(surf, (*accent, ba), pts, 3)
+
+    # 아이콘
+    icon_font = ctx.FontStyle.title_large()
+    ic_alpha = 180 if not dimmed else 80
+    ic = icon_font.render(icon_char, True, (255, 255, 255, ic_alpha))
+    surf.blit(ic, ic.get_rect(center=(center, center - 5)))
+
+    # 글로우 링
+    if glow > 0.05 and not dimmed:
+        for i in range(4):
+            ga = int(50 * glow * (1 - i / 4))
+            pygame.draw.polygon(surf, (*accent, ga),
+                                [(px + int((px - center) * 0.05 * (i + 1)),
+                                  py + int((py - center) * 0.05 * (i + 1))) for px, py in pts], 2)
+
+    screen.blit(surf, (cx - surf_size // 2, cy - surf_size // 2))
+
+    # 라벨
+    label_font = ctx.FontStyle.medium()
+    lc = (255, 255, 255) if not dimmed else (120, 120, 120)
+    ls = label_font.render(label, True, lc)
+    screen.blit(ls, ls.get_rect(center=(cx, cy + radius + 25)))
+    # 서브라벨
+    sub_font = ctx.FontStyle.tiny()
+    sc = (180, 190, 210) if not dimmed else (90, 90, 100)
+    ss = sub_font.render(sublabel, True, sc)
+    screen.blit(ss, ss.get_rect(center=(cx, cy + radius + 50)))
+
+    if is_selected and not dimmed:
+        _menu_draw_hover_border(screen, cx - radius - 2, cy - radius - 2, radius * 2 + 4, radius * 2 + 4, accent)
+
+    return pygame.Rect(cx - radius, cy - radius, radius * 2, radius * 2)
+
+
+def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
+    """모드 선택 화면 - 스토리모드 vs 투기장."""
+    selected = 0  # 0=스토리, 1=투기장
+    hover_scales = [1.0, 1.0]
+    clock = pygame.time.Clock()
+    click_anim = None  # {"card": idx, "timer": 0, "dur": 0.3}
+
+    CARD_W, CARD_H = 250, 320
+    GAP = 24
+
+    cards_info = [
+        {"title": "스토리모드", "subtitle": "보스를 쓰러트려라!",
+         "top": (26, 26, 62), "bot": (58, 26, 94), "accent": (0, 200, 255), "icon": "VS"},
+        {"title": "투기장", "subtitle": "최강의 영웅은 누구?",
+         "top": (62, 26, 26), "bot": (62, 58, 26), "accent": (255, 200, 80), "icon": "PVP"},
+    ]
+
+    while True:
+        dt = clock.tick(60) / 1000.0
+        state.animation_timer += dt
+        screen = ctx.get_screen()
+        width, height = ctx.get_dimensions()
+        _update_background_layers(ctx, state, dt, screen, width, height)
+
+        # 오버레이
+        ov = pygame.Surface((width, height), pygame.SRCALPHA)
+        ov.fill((0, 0, 0, 150))
+        screen.blit(ov, (0, 0))
+
+        # 클릭 애니메이션 업데이트
+        if click_anim is not None:
+            click_anim["timer"] += dt
+            if click_anim["timer"] >= click_anim["dur"]:
+                chosen = click_anim["card"]
+                click_anim = None
+                _play_rainbow_transition(screen, 800)
+                if chosen == 0:
+                    # 스토리모드 - 기존 플로우
+                    character = ctx.show_character_selection()
+                    if character == "__TUTORIAL__":
+                        ctx.set_tutorial_mode(True)
+                        ctx.start_game_with_difficulty("ufo_player", "junior")
+                        return True
+                    if character is not None:
+                        difficulty = ctx.show_difficulty_selection()
+                        if difficulty is not None:
+                            ctx.set_tutorial_mode(False)
+                            ctx.start_game_with_difficulty(character, difficulty)
+                    return True
+                else:
+                    # 투기장 하위 선택
+                    result = _show_arena_sub_selection(ctx, state)
+                    if result:
+                        return True
+                    # 돌아오면 계속 루프
+                    continue
+
+        # 이벤트 처리
+        for ev in pygame.event.get():
+            if ev.type == pygame.QUIT:
+                pygame.quit()
+                raise SystemExit
+            if ev.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN, pygame.MOUSEMOTION):
+                state.idle_start_time = pygame.time.get_ticks()
+
+            if click_anim is not None:
+                continue  # 애니메이션 중 입력 무시
+
+            if ev.type == pygame.KEYDOWN:
+                if ev.key == pygame.K_ESCAPE:
+                    return False
+                if ev.key in (pygame.K_LEFT, pygame.K_a):
+                    if selected != 0:
+                        selected = 0
+                        ctx.play_hover_sound()
+                elif ev.key in (pygame.K_RIGHT, pygame.K_d):
+                    if selected != 1:
+                        selected = 1
+                        ctx.play_hover_sound()
+                elif ev.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    ctx.play_click_sound()
+                    click_anim = {"card": selected, "timer": 0.0, "dur": 0.3}
+
+            if ev.type == pygame.MOUSEMOTION:
+                mx, my = ev.pos
+                total_w = CARD_W * 2 + GAP
+                sx = (width - total_w) // 2
+                cy = (height - CARD_H) // 2 + 20
+                for i in range(2):
+                    rx = sx + i * (CARD_W + GAP)
+                    if pygame.Rect(rx, cy, CARD_W, CARD_H).collidepoint(mx, my):
+                        if selected != i:
+                            selected = i
+                            ctx.play_hover_sound()
+
+            if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+                mx, my = ev.pos
+                total_w = CARD_W * 2 + GAP
+                sx = (width - total_w) // 2
+                cy = (height - CARD_H) // 2 + 20
+                for i in range(2):
+                    rx = sx + i * (CARD_W + GAP)
+                    if pygame.Rect(rx, cy, CARD_W, CARD_H).collidepoint(mx, my):
+                        selected = i
+                        ctx.play_click_sound()
+                        click_anim = {"card": i, "timer": 0.0, "dur": 0.3}
+
+        # 호버 스케일 업데이트
+        for i in range(2):
+            target = 1.06 if i == selected else 1.0
+            if click_anim and click_anim["card"] == i:
+                prog = click_anim["timer"] / click_anim["dur"]
+                target = 1.06 + 0.12 * prog  # 클릭 시 더 확대
+            hover_scales[i] += (target - hover_scales[i]) * min(1.0, 8.0 * dt)
+
+        # 카드 그리기
+        total_w = CARD_W * 2 + GAP
+        start_x = (width - total_w) // 2
+        card_y = (height - CARD_H) // 2 + 20
+        card_rects = []
+
+        for i, info in enumerate(cards_info):
+            cx = start_x + i * (CARD_W + GAP)
+            y_off = math.sin(state.animation_timer * 1.5 + i * math.pi) * 3
+            # 클릭 애니메이션 - 다른 카드 페이드
+            if click_anim and click_anim["card"] != i:
+                fade_alpha = int(255 * (1.0 - click_anim["timer"] / click_anim["dur"]))
+                fade_surf = pygame.Surface((width, height), pygame.SRCALPHA)
+            rect = _draw_mode_card(
+                screen, cx, card_y, CARD_W, CARD_H,
+                info["title"], info["subtitle"],
+                info["top"], info["bot"], info["accent"], info["icon"],
+                i == selected, hover_scales[i], y_off,
+                state.animation_timer, ctx,
+            )
+            card_rects.append(rect)
+
+        # 타이틀
+        title_font = ctx.FontStyle.title_large()
+        ts = title_font.render("모드 선택", True, (255, 255, 255))
+        screen.blit(ts, ts.get_rect(center=(width // 2, 110)))
+        # 서브타이틀
+        sub_font = ctx.FontStyle.tiny()
+        ss = sub_font.render("플레이할 모드를 선택하세요", True, (150, 170, 200))
+        screen.blit(ss, ss.get_rect(center=(width // 2, 150)))
+        # ESC 힌트
+        esc = sub_font.render("ESC: 뒤로", True, (100, 110, 130))
+        screen.blit(esc, esc.get_rect(center=(width // 2, height - 50)))
+
+        pygame.display.flip()
+
+
+def _show_arena_sub_selection(ctx: "MenuContext", state: "MenuState") -> bool:
+    """투기장 하위 모드 선택 - 토너먼트 vs 도장깨기."""
+    selected = 0  # 0=토너먼트, 1=도장깨기
+    emblem_angles = [0.0, 0.0]
+    emblem_glows = [0.0, 0.0]
+    clock = pygame.time.Clock()
+    preparing_timer = 0.0  # "준비 중" 메시지 타이머
+    click_anim = None
+
+    EMBLEM_R = 90
+    GAP = 40
+
+    emblems_info = [
+        {"label": "토너먼트", "sublabel": "8인 토너먼트 대전",
+         "color": (80, 60, 20), "accent": (255, 215, 0), "icon": "T", "dimmed": False},
+        {"label": "도장깨기", "sublabel": "준비 중...",
+         "color": (20, 60, 60), "accent": (0, 200, 200), "icon": "D", "dimmed": True},
+    ]
+
+    while True:
+        dt = clock.tick(60) / 1000.0
+        state.animation_timer += dt
+        screen = ctx.get_screen()
+        width, height = ctx.get_dimensions()
+        _update_background_layers(ctx, state, dt, screen, width, height)
+
+        # 오버레이
+        ov = pygame.Surface((width, height), pygame.SRCALPHA)
+        ov.fill((0, 0, 0, 160))
+        screen.blit(ov, (0, 0))
+
+        # 클릭 애니메이션
+        if click_anim is not None:
+            click_anim["timer"] += dt
+            if click_anim["timer"] >= click_anim["dur"]:
+                chosen = click_anim["card"]
+                click_anim = None
+                if chosen == 0:
+                    _play_rainbow_transition(screen, 800)
+                    ctx.start_arena_dev()
+                    return True
+                # 도장깨기는 이미 걸러짐
+
+        # 준비 중 타이머
+        if preparing_timer > 0:
+            preparing_timer -= dt
+
+        # 이벤트
+        for ev in pygame.event.get():
+            if ev.type == pygame.QUIT:
+                pygame.quit()
+                raise SystemExit
+            if ev.type in (pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN, pygame.MOUSEMOTION):
+                state.idle_start_time = pygame.time.get_ticks()
+
+            if click_anim is not None:
+                continue
+
+            if ev.type == pygame.KEYDOWN:
+                if ev.key == pygame.K_ESCAPE:
+                    return False
+                if ev.key in (pygame.K_LEFT, pygame.K_a):
+                    if selected != 0:
+                        selected = 0
+                        ctx.play_hover_sound()
+                elif ev.key in (pygame.K_RIGHT, pygame.K_d):
+                    if selected != 1:
+                        selected = 1
+                        ctx.play_hover_sound()
+                elif ev.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    if selected == 0:
+                        ctx.play_click_sound()
+                        click_anim = {"card": 0, "timer": 0.0, "dur": 0.3}
+                    else:
+                        preparing_timer = 2.0  # 2초간 "준비 중" 표시
+
+            if ev.type == pygame.MOUSEMOTION:
+                mx, my = ev.pos
+                total_w = EMBLEM_R * 4 + GAP
+                sx = (width - total_w) // 2 + EMBLEM_R
+                ey = height // 2
+                for i in range(2):
+                    ecx = sx + i * (EMBLEM_R * 2 + GAP)
+                    if (mx - ecx) ** 2 + (my - ey) ** 2 <= EMBLEM_R ** 2:
+                        if selected != i:
+                            selected = i
+                            ctx.play_hover_sound()
+
+            if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+                mx, my = ev.pos
+                total_w = EMBLEM_R * 4 + GAP
+                sx = (width - total_w) // 2 + EMBLEM_R
+                ey = height // 2
+                for i in range(2):
+                    ecx = sx + i * (EMBLEM_R * 2 + GAP)
+                    if (mx - ecx) ** 2 + (my - ey) ** 2 <= EMBLEM_R ** 2:
+                        if i == 0:
+                            selected = 0
+                            ctx.play_click_sound()
+                            click_anim = {"card": 0, "timer": 0.0, "dur": 0.3}
+                        else:
+                            preparing_timer = 2.0
+
+        # 엠블럼 애니메이션 업데이트
+        for i in range(2):
+            if i == selected and not emblems_info[i]["dimmed"]:
+                emblem_angles[i] = math.sin(state.animation_timer * 2.5) * 0.08
+                emblem_glows[i] += (1.0 - emblem_glows[i]) * min(1.0, 6.0 * dt)
+            else:
+                emblem_angles[i] *= 0.9
+                emblem_glows[i] += (0.0 - emblem_glows[i]) * min(1.0, 6.0 * dt)
+
+        # 엠블럼 그리기
+        total_w = EMBLEM_R * 4 + GAP
+        start_cx = (width - total_w) // 2 + EMBLEM_R
+        emblem_cy = height // 2
+
+        for i, info in enumerate(emblems_info):
+            ecx = start_cx + i * (EMBLEM_R * 2 + GAP)
+            _draw_arena_emblem(
+                screen, ecx, emblem_cy, EMBLEM_R,
+                info["label"], info["sublabel"],
+                info["color"], info["accent"], info["icon"],
+                i == selected, emblem_angles[i], emblem_glows[i],
+                state.animation_timer, ctx, dimmed=info["dimmed"],
+            )
+
+        # 타이틀
+        title_font = ctx.FontStyle.title_large()
+        ts = title_font.render("투기장", True, (255, 220, 100))
+        screen.blit(ts, ts.get_rect(center=(width // 2, 120)))
+        sub_font = ctx.FontStyle.tiny()
+        ss = sub_font.render("모드를 선택하세요", True, (180, 170, 140))
+        screen.blit(ss, ss.get_rect(center=(width // 2, 158)))
+
+        # "준비 중" 토스트
+        if preparing_timer > 0:
+            toast_alpha = min(255, int(preparing_timer * 255))
+            toast_font = ctx.FontStyle.medium()
+            toast_s = toast_font.render("준비 중입니다!", True, (255, 200, 80))
+            toast_bg = pygame.Surface((toast_s.get_width() + 40, toast_s.get_height() + 20), pygame.SRCALPHA)
+            pygame.draw.rect(toast_bg, (0, 0, 0, min(180, toast_alpha)), toast_bg.get_rect(), border_radius=10)
+            toast_x = (width - toast_bg.get_width()) // 2
+            toast_y = height - 120
+            screen.blit(toast_bg, (toast_x, toast_y))
+            screen.blit(toast_s, toast_s.get_rect(center=(width // 2, toast_y + toast_bg.get_height() // 2)))
+
+        # ESC 힌트
+        esc = sub_font.render("ESC: 뒤로", True, (100, 110, 130))
+        screen.blit(esc, esc.get_rect(center=(width // 2, height - 50)))
+
+        pygame.display.flip()
+
+
 def _play_rainbow_transition(screen: pygame.Surface, duration_ms: int = 1000):
     """무지개 파티클이 쏟아지며 화면이 깜빡이는 트랜지션 효과"""
     clock = pygame.time.Clock()
@@ -1733,40 +2169,7 @@ def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bo
         return False
 
     if choice == "경기장 입장":
-        # 입장 버튼 클릭 사운드 재생
-        try:
-            import os
-            def _resource_path(relative_path):
-                try:
-                    import sys
-                    base_path = sys._MEIPASS
-                except Exception:
-                    base_path = os.path.dirname(os.path.abspath(__file__))
-                return os.path.join(base_path, relative_path.replace('/', os.sep).replace('\\', os.sep))
-
-            start_sound_path = _resource_path(os.path.join("sounds", "startbutton.wav"))
-            if os.path.exists(start_sound_path):
-                start_sound = pygame.mixer.Sound(start_sound_path)
-                start_sound.set_volume(0.7)
-                start_sound.play()
-        except Exception:
-            pass  # 사운드 재생 실패 시 무시
-
-        # 무지개 파티클 트랜지션 효과 재생
-        _play_rainbow_transition(ctx.get_screen(), 1000)
-        # 캐릭터 선택으로 진행
-        character = ctx.show_character_selection()
-        if character == "__TUTORIAL__":
-            # 튜토리얼 진행 선택됨 - 스매셔 + 주니어리그로 스테이지 1부터 시작
-            ctx.set_tutorial_mode(True)  # 튜토리얼 모드 활성화
-            ctx.start_game_with_difficulty("ufo_player", "junior")
-            return True
-        if character is not None:
-            difficulty = ctx.show_difficulty_selection()
-            if difficulty is not None:
-                ctx.set_tutorial_mode(False)  # 일반 게임 모드 (튜토리얼 비활성화)
-                ctx.start_game_with_difficulty(character, difficulty)
-        return True
+        return _show_mode_selection(ctx, state)
     if choice == "멀티플레이":
         return _show_multiplayer_menu(ctx, state)
     if choice == "AI 플레이":
