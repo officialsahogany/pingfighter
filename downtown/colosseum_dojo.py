@@ -184,6 +184,12 @@ class ColosseumsDojoBreaker:
         self.state = DojoState.DIFFICULTY_SELECT
         self.exit_requested = False
 
+        # 1점 속전속결 (start_arena_battle에서 win_score 읽음)
+        self.win_score = 1
+
+        # 호위무사 없음 (apply_arena_perks_for_battle 호환용)
+        self.guard_loyalty_cd_bonus: Dict[str, int] = {}
+
         # 난이도
         self.difficulty = "normal"
         self.difficulty_data = DOJO_DIFFICULTIES[0]
@@ -827,6 +833,68 @@ class ColosseumsDojoBreaker:
     # ========================================================================
     def _start_battle(self):
         """배틀 시작"""
+        if self.battle_callback:
+            # ★ 실제 게임 엔진(스테이지30)으로 배틀 실행
+            self._run_real_engine_battle()
+            return
+
+        # 폴백: 내부 물리 시스템 (battle_callback 없을 때)
+        self._run_internal_battle()
+
+    def _run_real_engine_battle(self):
+        """실제 게임 엔진(스테이지30)으로 배틀 실행 (블로킹)"""
+        import pingfighter
+
+        # 상대(상단) 영웅 데이터 준비 - 스탯 스케일링
+        top_hero = dict(self.current_opponent)
+        top_hero["speed"] = top_hero["speed"] * self.current_stat_mult
+        top_hero["reaction"] = top_hero["reaction"] * self.current_stat_mult
+        top_hero["power"] = top_hero["power"] * min(self.current_stat_mult, 1.5)
+        top_hero["accuracy"] = min(0.98, top_hero["accuracy"] * self.current_stat_mult)
+        top_hero["_selected_skill_idx"] = self.opponent_skill_index
+
+        # 플레이어(하단) 영웅 데이터 준비 - 퍽 적용
+        bottom_hero = dict(self.player_hero)
+        self._apply_perks_to_hero(bottom_hero)
+        hero_id = self.player_hero["id"]
+        if self.hero_has_both_skills.get(hero_id, False):
+            bottom_hero["_selected_skill_idx"] = -1
+        else:
+            bottom_hero["_selected_skill_idx"] = self.player_hero_skill_index
+
+        # pingfighter에 pending 데이터 설정 (start_arena_battle에서 읽음)
+        pingfighter._arena_pending_perk_data = self  # self.hero_perks, self.win_score 참조
+        pingfighter._arena_pending_skill_selections = self.hero_selected_skills
+        pingfighter._arena_pending_both_skills = self.hero_has_both_skills
+        # 도장깨기는 호위무사 없음
+        pingfighter._arena_pending_top_guards = []
+        pingfighter._arena_pending_bottom_guards = []
+
+        # ★ battle_callback 호출 (블로킹 - main(30) 실행)
+        result = self.battle_callback(top_hero, bottom_hero)
+
+        # BGM 복원 (배틀 후 투기장 로비 BGM)
+        try:
+            import bgm_manager
+            bgm_manager.play_colosseum_room_bgm()
+        except Exception:
+            pass
+
+        # 결과 처리
+        if result is None:
+            # ESC 나가기
+            self.exit_requested = True
+            return
+
+        if result:
+            # 하단(플레이어) 승리
+            self._on_score("player")
+        else:
+            # 상단(상대) 승리
+            self._on_score("opponent")
+
+    def _run_internal_battle(self):
+        """내부 물리 시스템으로 배틀 실행 (폴백)"""
         self.state = DojoState.BATTLE
         self.battle_active = True
         self.score_top = 0
@@ -896,6 +964,58 @@ class ColosseumsDojoBreaker:
                 hero_data["speed"] = hero_data["speed"] * (1 + val)
             elif etype == "paddle_enlarge":
                 hero_data["_paddle_scale"] = hero_data.get("_paddle_scale", 1.0) + val
+
+    def get_hero_perk_multipliers(self, hero_id: str) -> Dict[str, float]:
+        """영웅의 퍽에서 멀티플라이어 계산 (apply_arena_perks_for_battle 호환)"""
+        perks = self.hero_perks.get(hero_id, [])
+        mults = {
+            "move_speed": 1.0,
+            "dash_cooldown": 1.0,
+            "skill_cooldown": 1.0,
+            "guard_cooldown": 1.0,
+            "dash_tokens": 0,
+            "dash_distance": 1.0,
+            "retry_chance": 0.0,
+            "guard_extra_skill": False,
+            "magic_immunity": 0.0,
+            "laurel_shield": 0,
+            "paddle_enlarge": 1.0,
+            "recall_guard": False,
+            "instant_cooldown": 0.0,
+            "theft": 0.0,
+        }
+        for perk in perks:
+            etype = perk.get("effect_type", "")
+            val = perk.get("value", 0)
+            if etype == "move_speed":
+                mults["move_speed"] += val
+            elif etype == "dash_cooldown":
+                mults["dash_cooldown"] -= val
+            elif etype == "skill_cooldown":
+                mults["skill_cooldown"] -= val
+            elif etype == "guard_cooldown":
+                mults["guard_cooldown"] -= val
+            elif etype == "dash_token":
+                mults["dash_tokens"] += int(val)
+            elif etype == "dash_distance":
+                mults["dash_distance"] += val
+            elif etype == "retry_chance":
+                mults["retry_chance"] = val
+            elif etype == "guard_extra_skill":
+                mults["guard_extra_skill"] = True
+            elif etype == "magic_immunity":
+                mults["magic_immunity"] = val
+            elif etype == "laurel_shield":
+                mults["laurel_shield"] = int(val)
+            elif etype == "paddle_enlarge":
+                mults["paddle_enlarge"] += val
+            elif etype == "recall_guard":
+                mults["recall_guard"] = True
+            elif etype == "instant_cooldown":
+                mults["instant_cooldown"] = val
+            elif etype == "theft":
+                mults["theft"] = val
+        return mults
 
     def _handle_battle_event(self, event) -> bool:
         # 배속 버튼 클릭
