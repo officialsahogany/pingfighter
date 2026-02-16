@@ -1724,14 +1724,17 @@ def _apply_global_hotkeys(events):
             uni = getattr(ev, "unicode", "")
             is_b_toggle = (key == pygame.K_b) or (uni == "ㅠ")
 
-            # F11: 투기장(Stage 30)에서는 신의심판 디버그 메뉴, 그 외는 스크린샷
+            # F11: 투기장(Stage 30) 신의심판 디버그 메뉴
             if ev.type == pygame.KEYDOWN and key == pygame.K_F11:
                 if current_stage == 30 and animated_bg_stage30 is not None:
                     try:
                         show_judgment_debug_menu()
                     except Exception:
                         pass
-                    continue
+                continue
+
+            # F12: 스크린샷 (모든 스테이지에서 동작)
+            if ev.type == pygame.KEYDOWN and key == pygame.K_F12:
                 try:
                     # 스크린샷 저장 폴더 (EXE 파일 위치 또는 게임 폴더 내 screenshots)
                     if getattr(sys, 'frozen', False):
