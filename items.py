@@ -1809,7 +1809,9 @@ PASSIVE_DUPLICATE_ALLOWED = {
     "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder",
     "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest",
     "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle",
-    "smartphone", "knee_pads", "gold_digger"
+    "smartphone", "knee_pads", "gold_digger",
+    "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing",
+    "sacred_laurel", "transcendent_crown", "odins_eye"
 }
 
 
