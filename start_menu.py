@@ -933,7 +933,7 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
     story_preview = _load_mode_preview(
         os.path.join("ui", "story.PNG"), ctx.resource_path)
     arena_preview = _load_mode_preview(
-        os.path.join("screenshots", "screenshot_20260216_022303.png"), ctx.resource_path)
+        os.path.join("ui", "arena.jpg"), ctx.resource_path)
 
     cards_info = [
         {"title": "스토리모드", "subtitle": "보스를 쓰러트려라!",
