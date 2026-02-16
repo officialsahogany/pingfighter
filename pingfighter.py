@@ -126616,12 +126616,35 @@ def handle_boss_pro():
         enhanced_acceleration = 0.4    # PLAYER ACCELERATION
         enhanced_deceleration = 0.4    # PLAYER DECELERATION
 
+    # 🏟️ 투기장 모드: 스토리 전용 핸디캡 스킵, 직접 속도 물리 사용 (하단 영웅과 동일)
+    if arena_mode_enabled:
+        # 데드존 8px (player AI와 동일)
+        _arena_dz = 8
+        if future_x < BOSS.centerx - _arena_dz:
+            if boss_current_speed > -enhanced_max_speed:
+                boss_current_speed -= enhanced_acceleration
+        elif future_x > BOSS.centerx + _arena_dz:
+            if boss_current_speed < enhanced_max_speed:
+                boss_current_speed += enhanced_acceleration
+        else:
+            if boss_current_speed > 0:
+                boss_current_speed = max(0, boss_current_speed - enhanced_deceleration)
+            elif boss_current_speed < 0:
+                boss_current_speed = min(0, boss_current_speed + enhanced_deceleration)
+        # 직접 위치 업데이트 (Ultra Smooth/Smooth 바이패스 - PID지연/마찰 없음)
+        proposed_x = BOSS.x + boss_current_speed
+        # 게임 영역 경계 클램핑
+        proposed_x = max(GAME_AREA_OFFSET_X, min(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - BOSS.width, proposed_x))
+        BOSS.x = proposed_x
+        return  # 투기장은 여기서 종료 (아래 스토리모드 전용 로직 실행 안 함)
+
+    # --- 이하 스토리모드 전용 ---
     # 상모돌리기 강제 해제 모션 중 속도 50% 감소
     if whip_deactivation_active:
         enhanced_max_speed *= 0.5  # 50% 감소 = 50%만 유지
         enhanced_acceleration *= 0.5
         enhanced_deceleration *= 0.5
-    
+
     # 이동 속도 감소 효과 적용 (레그샷/스파이더지뢰 등)
     slow_multiplier = 1.0
     if leg_shot_active:
@@ -126659,7 +126682,7 @@ def handle_boss_pro():
         speed_multiplier = 0.5 - (progress * 0.3)  # 0.5 -> 0.2 (50% -> 20%)
         # 현재 보스 속도에 점진적 감속 적용
         boss_current_speed *= speed_multiplier
-    
+
     #  라그나로크 해머 스턴 체크 - 스턴 중이면 모든 움직임 업데이트 차단
     if boss_stun_timer <= 0:
         #  Ultra Smooth 물리 시스템 우선 적용
