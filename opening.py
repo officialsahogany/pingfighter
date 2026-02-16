@@ -2012,11 +2012,16 @@ class IntroCutscene:
             text_color=(255, 80, 80)  # 빨간색
         )
 
-        # 차 BGM 페이드아웃
+        # 차 BGM 정지 (fadeout 대신 즉시 stop - 다음 BGM 재생 충돌 방지)
         try:
-            pygame.mixer.music.fadeout(1500)  # 1.5초 페이드아웃
+            pygame.mixer.music.fadeout(800)
+            pygame.time.wait(850)  # 페이드아웃 완료 대기
+            pygame.mixer.music.stop()
         except Exception:
-            pass
+            try:
+                pygame.mixer.music.stop()
+            except Exception:
+                pass
 
 
 def show_intro_cutscene(screen, width, height):
@@ -2058,7 +2063,12 @@ def play_intro_click_sound():
 
 def show_opening_animation(SCREEN, WIDTH, HEIGHT):
     """게임 오프닝 애니메이션 - 간단한 버전"""
-    # 인트로 BGM 재생
+    # 이전 BGM 완전 정지 후 인트로 BGM 재생
+    # (인트로 컷씬의 fadeout이 남아있을 수 있으므로 명시적 stop 필요)
+    try:
+        pygame.mixer.music.stop()
+    except Exception:
+        pass
     bgm_manager.play_intro_bgm()
 
     # 배경 이미지 로드 (main.jpg)

@@ -213,8 +213,14 @@ class BGMManager:
         if not bgm_path:
             print(f"BGM '{bgm_name}'을 찾을 수 없습니다.")
             return
-            
+
         try:
+            # 이전 BGM이 fadeout 중일 수 있으므로 명시적으로 정지
+            # (fadeout 중 load+play 하면 fadeout이 새 트랙까지 멈출 수 있음)
+            try:
+                pygame.mixer.music.stop()
+            except Exception:
+                pass
             try:
                 pygame.mixer.music.load(bgm_path)
             except Exception as e:
@@ -365,12 +371,12 @@ class BGMManager:
         
     def play_menu_bgm(self):
         """메인 메뉴 BGM 재생 (이미 재생 중이 아닌 경우)"""
-        # 메뉴 BGM이 아닌 다른 BGM이 재생 중이면 멈추고 메뉴 BGM 재생
-        if self.current_bgm != 'menu' and self.current_bgm != 'intro':
-            self.stop_bgm()
-            self.play_bgm('menu')
-        elif not self.is_playing():
-            self.play_bgm('menu')
+        # intro와 menu는 동일 트랙 - 이미 재생 중이면 유지
+        if self.current_bgm in ('menu', 'intro') and self.is_playing():
+            return
+        # 그 외: 현재 BGM 정지 후 메뉴 BGM 재생
+        self.stop_bgm()
+        self.play_bgm('menu')
             
     def play_stage_bgm(self, stage_num):
         """
