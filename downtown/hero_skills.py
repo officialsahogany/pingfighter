@@ -5596,6 +5596,7 @@ class SteamBarrier(HeroSkill):
                         ball.vy = abs(ball.vy) * 1.4
                         self.hit_cooldown = self.hit_cooldown_max  # 중복 충돌 방지
                         game_state['screen_shake'] = 10
+                        game_state['shake_duration'] = 0.3
                         # 배리어 충돌 플래시 이펙트
                         self._spawn_barrier_hit_flash(ball.x + getattr(ball, 'width', 10) / 2)
                         # 성스러운 이펙트 활성화
@@ -5617,6 +5618,7 @@ class SteamBarrier(HeroSkill):
                         ball.vy = -abs(ball.vy) * 1.4
                         self.hit_cooldown = self.hit_cooldown_max  # 중복 충돌 방지
                         game_state['screen_shake'] = 10
+                        game_state['shake_duration'] = 0.3
                         # 배리어 충돌 플래시 이펙트
                         self._spawn_barrier_hit_flash(ball.x + getattr(ball, 'width', 10) / 2)
                         # 성스러운 이펙트 활성화
@@ -7249,6 +7251,7 @@ class IllusionShuriken(HeroSkill):
                 })
                 # 화면 흔들림
                 game_state['screen_shake'] = 8
+                game_state['shake_duration'] = 0.2
 
         # 잔상 알파값 감소
         for shuriken in self.shurikens:
@@ -14554,6 +14557,7 @@ class BananaSlice(HeroSkill):
                     target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
                     game_state[f'{target_prefix}_banana_slip_active'] = True
                     game_state['screen_shake'] = 5
+                    game_state['shake_duration'] = 0.2
                     self._play_slip_sound()
                     continue
             if landed['timer'] <= 0:
