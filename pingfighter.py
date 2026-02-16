@@ -1724,8 +1724,8 @@ def _apply_global_hotkeys(events):
             uni = getattr(ev, "unicode", "")
             is_b_toggle = (key == pygame.K_b) or (uni == "ㅠ")
 
-            # F12: 투기장(Stage 30)에서는 신의심판 디버그 메뉴, 그 외는 스크린샷
-            if ev.type == pygame.KEYDOWN and key == pygame.K_F12:
+            # F11: 투기장(Stage 30)에서는 신의심판 디버그 메뉴, 그 외는 스크린샷
+            if ev.type == pygame.KEYDOWN and key == pygame.K_F11:
                 if current_stage == 30 and animated_bg_stage30 is not None:
                     try:
                         show_judgment_debug_menu()
@@ -55258,7 +55258,7 @@ def _stop_electric_shock_sound():
         _electric_shock_sound_channel = None
 
 def show_judgment_debug_menu():
-    """F12 디버그: 신의심판 변형 선택 메뉴 (투기장 전용)"""
+    """F11 디버그: 신의심판 변형 선택 메뉴 (투기장 전용)"""
     if current_stage != 30 or animated_bg_stage30 is None:
         return
     # 이미 진행 중이면 무시
@@ -55283,7 +55283,7 @@ def show_judgment_debug_menu():
                 pygame.quit()
                 sys.exit()
             if event.type == pygame.KEYDOWN:
-                if event.key in (pygame.K_ESCAPE, pygame.K_F12):
+                if event.key in (pygame.K_ESCAPE, pygame.K_F11):
                     running = False
                 elif event.key == pygame.K_UP:
                     selected = (selected - 1) % len(menu_options)
