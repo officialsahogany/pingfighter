@@ -774,7 +774,7 @@ def _draw_mode_card(
     card.blit(icon_surf, icon_rect)
 
     # 타이틀
-    title_font = ctx.FontStyle.medium()
+    title_font = ctx.FontStyle.body()
     ts = title_font.render(title, True, (255, 255, 255))
     card.blit(ts, ts.get_rect(center=(sw // 2, sh - 75)))
     # 부제
@@ -850,7 +850,7 @@ def _draw_arena_emblem(
     screen.blit(surf, (cx - surf_size // 2, cy - surf_size // 2))
 
     # 라벨
-    label_font = ctx.FontStyle.medium()
+    label_font = ctx.FontStyle.body()
     lc = (255, 255, 255) if not dimmed else (120, 120, 120)
     ls = label_font.render(label, True, lc)
     screen.blit(ls, ls.get_rect(center=(cx, cy + radius + 25)))
@@ -1156,7 +1156,7 @@ def _show_arena_sub_selection(ctx: "MenuContext", state: "MenuState") -> bool:
         # "준비 중" 토스트
         if preparing_timer > 0:
             toast_alpha = min(255, int(preparing_timer * 255))
-            toast_font = ctx.FontStyle.medium()
+            toast_font = ctx.FontStyle.body()
             toast_s = toast_font.render("준비 중입니다!", True, (255, 200, 80))
             toast_bg = pygame.Surface((toast_s.get_width() + 40, toast_s.get_height() + 20), pygame.SRCALPHA)
             pygame.draw.rect(toast_bg, (0, 0, 0, min(180, toast_alpha)), toast_bg.get_rect(), border_radius=10)
