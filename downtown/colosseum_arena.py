@@ -4515,9 +4515,13 @@ class GuardWarriorSystem:
 
         ball_cx = ball.x + ball.width // 2
         dy = self.y_bottom - (ball.y + ball.height)
-        if dy <= 0 or dy > ball.vy * 1.5:
+        if dy <= 0:
             return
-        time_to_arrive = dy / ball.vy
+        # ball.vy는 px/frame 단위 → px/sec로 변환 (guard 시스템은 초 단위 사용)
+        ball_vy_sec = ball.vy * 60.0
+        if ball_vy_sec < 0.1:
+            return
+        time_to_arrive = dy / ball_vy_sec  # 초 단위
         if time_to_arrive > 1.5 or time_to_arrive < 0.05:
             return
 
@@ -4526,7 +4530,7 @@ class GuardWarriorSystem:
         distance = abs(predicted_x - self.x_bottom)
 
         normal_speed = max(140.0, self._patrol_speed_bottom) * self.DEFENSE_SPEED_MULT
-        max_travel = normal_speed * time_to_arrive
+        max_travel = normal_speed * time_to_arrive  # px/sec * sec = px (단위 일치)
         if max_travel >= distance - PADDLE_WIDTH // 2:
             return
 
