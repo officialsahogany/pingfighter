@@ -738,190 +738,24 @@ def _show_dev_test_menu(ctx: MenuContext, state: MenuState) -> bool:
 
 # ─── 모드 선택 화면 (스토리모드 / 투기장) ───────────────────────────────
 
-class MiniGamePreview:
-    """카드 안에서 실시간으로 돌아가는 미니 탁구 시뮬레이션."""
+_mode_card_preview_cache: dict = {}
 
-    def __init__(self, w: int, h: int, bg_color=(15, 15, 35),
-                 ball_color=(255, 255, 255), top_color=(255, 100, 100),
-                 bot_color=(100, 180, 255), style="story"):
-        self.w, self.h = w, h
-        self.bg_color = bg_color
-        self.ball_color = ball_color
-        self.top_color = top_color
-        self.bot_color = bot_color
-        self.style = style  # "story" or "arena"
-        self.surface = pygame.Surface((w, h), pygame.SRCALPHA)
 
-        # 패들
-        self.pad_w = int(w * 0.22)
-        self.pad_h = max(3, int(h * 0.018))
-        self.top_x = w / 2.0
-        self.bot_x = w / 2.0
-        self.top_y = int(h * 0.06)
-        self.bot_y = int(h * 0.94)
-
-        # 공
-        self.ball_x = w / 2.0
-        self.ball_y = h / 2.0
-        self.ball_r = max(2, int(w * 0.015))
-        speed = w * 0.35
-        angle = random.uniform(0.3, 0.8) * random.choice([-1, 1])
-        self.ball_vx = speed * math.sin(angle)
-        self.ball_vy = speed * math.cos(angle) * random.choice([-1, 1])
-
-        # AI 속도
-        self.ai_speed = w * 0.45
-        # 점수
-        self.score_top = 0
-        self.score_bot = 0
-        # 궤적 이펙트
-        self.trail: list = []
-        # 히트 파티클
-        self.particles: list = []
-
-    def update(self, dt: float):
-        dt = min(dt, 0.05)  # 프레임 스킵 방지
-
-        # 궤적 추가
-        self.trail.append((self.ball_x, self.ball_y, 1.0))
-        if len(self.trail) > 12:
-            self.trail.pop(0)
-        # 궤적 페이드
-        self.trail = [(x, y, a - dt * 4) for x, y, a in self.trail if a > 0]
-
-        # AI 패들 이동 (약간의 지연 + 예측)
-        predict_t = abs(self.ball_y - self.top_y) / max(abs(self.ball_vy), 1) * 0.5
-        target_top = self.ball_x + self.ball_vx * predict_t * 0.3
-        diff_top = target_top - self.top_x
-        self.top_x += max(-self.ai_speed * dt, min(self.ai_speed * dt, diff_top * 0.8))
-        self.top_x = max(self.pad_w / 2, min(self.w - self.pad_w / 2, self.top_x))
-
-        predict_b = abs(self.ball_y - self.bot_y) / max(abs(self.ball_vy), 1) * 0.5
-        target_bot = self.ball_x + self.ball_vx * predict_b * 0.3
-        diff_bot = target_bot - self.bot_x
-        self.bot_x += max(-self.ai_speed * dt, min(self.ai_speed * dt, diff_bot * 0.8))
-        self.bot_x = max(self.pad_w / 2, min(self.w - self.pad_w / 2, self.bot_x))
-
-        # 공 이동
-        self.ball_x += self.ball_vx * dt
-        self.ball_y += self.ball_vy * dt
-
-        # 벽 반사 (좌우)
-        if self.ball_x <= self.ball_r:
-            self.ball_x = self.ball_r
-            self.ball_vx = abs(self.ball_vx)
-        elif self.ball_x >= self.w - self.ball_r:
-            self.ball_x = self.w - self.ball_r
-            self.ball_vx = -abs(self.ball_vx)
-
-        # 상단 패들 충돌
-        if (self.ball_vy < 0 and
-                self.top_y - 2 <= self.ball_y - self.ball_r <= self.top_y + self.pad_h + 2 and
-                abs(self.ball_x - self.top_x) < self.pad_w / 2 + self.ball_r):
-            self.ball_vy = abs(self.ball_vy) * 1.02
-            offset = (self.ball_x - self.top_x) / (self.pad_w / 2)
-            self.ball_vx += offset * self.w * 0.15
-            self._spawn_hit_particles(self.ball_x, self.top_y + self.pad_h, self.top_color)
-
-        # 하단 패들 충돌
-        if (self.ball_vy > 0 and
-                self.bot_y - self.pad_h - 2 <= self.ball_y + self.ball_r <= self.bot_y + 2 and
-                abs(self.ball_x - self.bot_x) < self.pad_w / 2 + self.ball_r):
-            self.ball_vy = -abs(self.ball_vy) * 1.02
-            offset = (self.ball_x - self.bot_x) / (self.pad_w / 2)
-            self.ball_vx += offset * self.w * 0.15
-            self._spawn_hit_particles(self.ball_x, self.bot_y - self.pad_h, self.bot_color)
-
-        # 속도 제한
-        max_spd = self.w * 0.8
-        spd = math.hypot(self.ball_vx, self.ball_vy)
-        if spd > max_spd:
-            self.ball_vx *= max_spd / spd
-            self.ball_vy *= max_spd / spd
-
-        # 득점 (화면 밖)
-        if self.ball_y < -10:
-            self.score_bot += 1
-            self._reset_ball()
-        elif self.ball_y > self.h + 10:
-            self.score_top += 1
-            self._reset_ball()
-
-        # 파티클 업데이트
-        for p in self.particles:
-            p["x"] += p["vx"] * dt
-            p["y"] += p["vy"] * dt
-            p["life"] -= dt * 3
-        self.particles = [p for p in self.particles if p["life"] > 0]
-
-    def _reset_ball(self):
-        self.ball_x = self.w / 2
-        self.ball_y = self.h / 2
-        speed = self.w * 0.3
-        angle = random.uniform(0.3, 0.8) * random.choice([-1, 1])
-        self.ball_vx = speed * math.sin(angle)
-        self.ball_vy = speed * math.cos(angle) * random.choice([-1, 1])
-        self.trail.clear()
-
-    def _spawn_hit_particles(self, bx, by, color):
-        for _ in range(6):
-            self.particles.append({
-                "x": bx, "y": by,
-                "vx": random.uniform(-40, 40),
-                "vy": random.uniform(-40, 40),
-                "color": color, "life": 1.0,
-            })
-
-    def render(self) -> pygame.Surface:
-        s = self.surface
-        s.fill((*self.bg_color, 255))
-
-        # 중앙선
-        line_y = self.h // 2
-        for dx in range(0, self.w, 8):
-            pygame.draw.rect(s, (60, 60, 80, 100), (dx, line_y, 4, 2))
-        # 중앙 원
-        pygame.draw.circle(s, (50, 50, 70, 80), (self.w // 2, self.h // 2), self.w // 6, 1)
-
-        # 궤적
-        for tx, ty, ta in self.trail:
-            a = max(0, min(255, int(ta * 120)))
-            r = max(1, int(self.ball_r * ta * 0.7))
-            pygame.draw.circle(s, (*self.ball_color, a), (int(tx), int(ty)), r)
-
-        # 파티클
-        for p in self.particles:
-            a = max(0, min(255, int(p["life"] * 200)))
-            pygame.draw.circle(s, (*p["color"], a), (int(p["x"]), int(p["y"])), 2)
-
-        # 패들
-        hw = self.pad_w // 2
-        # 상단 패들
-        top_rect = pygame.Rect(int(self.top_x - hw), self.top_y, self.pad_w, self.pad_h)
-        pygame.draw.rect(s, self.top_color, top_rect, border_radius=2)
-        # 하단 패들
-        bot_rect = pygame.Rect(int(self.bot_x - hw), self.bot_y - self.pad_h, self.pad_w, self.pad_h)
-        pygame.draw.rect(s, self.bot_color, bot_rect, border_radius=2)
-
-        # 공
-        pygame.draw.circle(s, self.ball_color, (int(self.ball_x), int(self.ball_y)), self.ball_r)
-        # 공 글로우
-        glow = pygame.Surface((self.ball_r * 6, self.ball_r * 6), pygame.SRCALPHA)
-        pygame.draw.circle(glow, (*self.ball_color, 40),
-                           (self.ball_r * 3, self.ball_r * 3), self.ball_r * 3)
-        s.blit(glow, (int(self.ball_x) - self.ball_r * 3, int(self.ball_y) - self.ball_r * 3))
-
-        # 점수
-        score_text = f"{self.score_top} : {self.score_bot}"
-        # 미니 텍스트 (pygame.font 사용)
+def _load_mode_preview(path_key: str, resource_path_fn) -> "pygame.Surface | None":
+    """모드 카드 미리보기 이미지를 로드하고 캐시한다."""
+    if path_key in _mode_card_preview_cache:
+        return _mode_card_preview_cache[path_key]
+    import os
+    full_path = resource_path_fn(path_key)
+    if os.path.exists(full_path):
         try:
-            tiny = pygame.font.Font(None, max(12, self.w // 16))
-            sc_surf = tiny.render(score_text, True, (200, 200, 220))
-            s.blit(sc_surf, sc_surf.get_rect(center=(self.w // 2, self.h // 2 - 10)))
+            img = pygame.image.load(full_path).convert_alpha()
+            _mode_card_preview_cache[path_key] = img
+            return img
         except Exception:
             pass
-
-        return s
+    _mode_card_preview_cache[path_key] = None
+    return None
 
 
 def _draw_mode_card(
@@ -933,31 +767,45 @@ def _draw_mode_card(
     is_selected: bool, scale: float,
     y_offset: float, anim_t: float,
     ctx: "MenuContext",
-    mini_game: "MiniGamePreview | None" = None,
+    preview_img: "pygame.Surface | None" = None,
 ):
-    """모드 선택 카드 1장을 그린다. mini_game이 있으면 실시간 미리보기 표시."""
+    """모드 선택 카드 1장을 그린다. preview_img가 있으면 배경에 표시."""
     # scale 적용 (중심 기준)
     sw, sh = int(w * scale), int(h * scale)
     sx = x + (w - sw) // 2
     sy = int(y + (h - sh) // 2 + y_offset)
     card = pygame.Surface((sw, sh), pygame.SRCALPHA)
 
-    if mini_game is not None:
-        # 미니게임 서피스를 카드 크기에 맞게 스케일
-        game_surf = mini_game.render()
-        scaled_game = pygame.transform.smoothscale(game_surf, (sw, sh))
-        card.blit(scaled_game, (0, 0))
+    if preview_img is not None:
+        # 미리보기 이미지 배경 - 호버 시 천천히 패닝
+        img_w, img_h = preview_img.get_size()
+        # 카드에 맞게 스케일 (살짝 크게 해서 패닝 여유 확보)
+        img_scale = max(sw / img_w, sh / img_h) * 1.15
+        scaled_w = int(img_w * img_scale)
+        scaled_h = int(img_h * img_scale)
+        scaled_img = pygame.transform.smoothscale(preview_img, (scaled_w, scaled_h))
+        # 호버 시 천천히 이동하는 오프셋
+        if is_selected:
+            pan_x = int(math.sin(anim_t * 0.4) * (scaled_w - sw) * 0.35)
+            pan_y = int(math.cos(anim_t * 0.3) * (scaled_h - sh) * 0.35)
+        else:
+            pan_x = 0
+            pan_y = 0
+        # 이미지 중앙 정렬 + 패닝
+        blit_x = -(scaled_w - sw) // 2 + pan_x
+        blit_y = -(scaled_h - sh) // 2 + pan_y
+        card.blit(scaled_img, (blit_x, blit_y))
         # 하단 그라데이션 오버레이 (텍스트 가독성)
-        grad_h = sh // 3
+        grad_h = sh // 2
         grad_surf = pygame.Surface((sw, grad_h), pygame.SRCALPHA)
         for row in range(grad_h):
-            a = int(220 * (row / max(grad_h - 1, 1)))
+            a = int(200 * (row / max(grad_h - 1, 1)))
             pygame.draw.line(grad_surf, (0, 0, 0, a), (0, row), (sw - 1, row))
         card.blit(grad_surf, (0, sh - grad_h))
-        # 비선택 시 어둡게 + 일시정지 느낌
+        # 비선택 시 어둡게
         if not is_selected:
             dim = pygame.Surface((sw, sh), pygame.SRCALPHA)
-            dim.fill((0, 0, 0, 110))
+            dim.fill((0, 0, 0, 100))
             card.blit(dim, (0, 0))
     else:
         # 폴백: 그라데이션 배경
@@ -1080,24 +928,20 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
     CARD_W, CARD_H = 250, 320
     GAP = 24
 
-    # 미니게임 프리뷰 생성 (카드보다 약간 큰 해상도로 렌더링)
-    PREVIEW_W, PREVIEW_H = 200, 260
-    story_mini = MiniGamePreview(
-        PREVIEW_W, PREVIEW_H,
-        bg_color=(12, 8, 30), ball_color=(255, 255, 255),
-        top_color=(255, 80, 80), bot_color=(80, 180, 255), style="story")
-    arena_mini = MiniGamePreview(
-        PREVIEW_W, PREVIEW_H,
-        bg_color=(50, 35, 15), ball_color=(255, 230, 150),
-        top_color=(255, 160, 50), bot_color=(50, 200, 160), style="arena")
+    # 미리보기 이미지 로드
+    import os
+    story_preview = _load_mode_preview(
+        os.path.join("backgrounds", "stage1_field.png"), ctx.resource_path)
+    arena_preview = _load_mode_preview(
+        os.path.join("screenshots", "screenshot_20260216_022303.png"), ctx.resource_path)
 
     cards_info = [
         {"title": "스토리모드", "subtitle": "보스를 쓰러트려라!",
          "top": (26, 26, 62), "bot": (58, 26, 94), "accent": (0, 200, 255), "icon": "VS",
-         "mini": story_mini},
+         "preview": story_preview},
         {"title": "투기장", "subtitle": "최강의 영웅은 누구?",
          "top": (62, 26, 26), "bot": (62, 58, 26), "accent": (255, 200, 80), "icon": "PVP",
-         "mini": arena_mini},
+         "preview": arena_preview},
     ]
 
     while True:
@@ -1198,13 +1042,6 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
                 target = 1.06 + 0.12 * prog  # 클릭 시 더 확대
             hover_scales[i] += (target - hover_scales[i]) * min(1.0, 8.0 * dt)
 
-        # 미니게임 업데이트 (선택된 카드만 활발하게, 비선택은 느리게)
-        for i, info in enumerate(cards_info):
-            mini = info.get("mini")
-            if mini is not None:
-                speed = 1.0 if i == selected else 0.3
-                mini.update(dt * speed)
-
         # 카드 그리기
         total_w = CARD_W * 2 + GAP
         start_x = (width - total_w) // 2
@@ -1224,7 +1061,7 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
                 info["top"], info["bot"], info["accent"], info["icon"],
                 i == selected, hover_scales[i], y_off,
                 state.animation_timer, ctx,
-                mini_game=info.get("mini"),
+                preview_img=info.get("preview"),
             )
             card_rects.append(rect)
 
