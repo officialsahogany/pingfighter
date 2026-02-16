@@ -2482,7 +2482,7 @@ class GuardWarriorSystem:
         self._guard_dash_timer = 0.0
         self._guard_dash_duration = 0.0
         self._guard_dash_afterimages = []
-        self.GUARD_DASH_COOLDOWN = 25.0
+        self.GUARD_DASH_COOLDOWN = 15.0
         self.GUARD_DASH_SPEED = 1200.0
 
         # 매혹(Charm)된 호위무사 독립 추적
@@ -3179,9 +3179,16 @@ class GuardWarriorSystem:
         if _charm_is_bottom and self.stance_mode_bottom == "defense" and ball:
             c['patrol_wait'] = 0
             if bottom_paddle:
+                # 활성 호위무사 위치를 겹침 방지용으로 전달
+                _other_cx = None
+                if self.phase_bottom == "patrolling":
+                    _other_cx = self.x_bottom
+                elif self._patrol2_bottom and self._patrol2_bottom.get('phase') == 'patrolling':
+                    _other_cx = self._patrol2_bottom['x']
                 target_x, is_urgent = self._calc_defense_target_x(
                     c['x'], ball, bottom_paddle.x,
-                    getattr(bottom_paddle, 'width', PADDLE_WIDTH))
+                    getattr(bottom_paddle, 'width', PADDLE_WIDTH),
+                    other_guard_cx=_other_cx)
             else:
                 target_x = ball.x + ball.width // 2
                 is_urgent = True
@@ -3512,9 +3519,14 @@ class GuardWarriorSystem:
         if not is_top and self.stance_mode_bottom == "defense" and ball:
             p2['patrol_wait'] = 0
             if bottom_paddle:
+                # 1번 호위무사 위치를 겹침 방지용으로 전달
+                _other_cx = None
+                if self.phase_bottom == "patrolling":
+                    _other_cx = self.x_bottom
                 target_x, is_urgent = self._calc_defense_target_x(
                     p2['x'], ball, bottom_paddle.x,
-                    getattr(bottom_paddle, 'width', PADDLE_WIDTH))
+                    getattr(bottom_paddle, 'width', PADDLE_WIDTH),
+                    other_guard_cx=_other_cx)
             else:
                 target_x = ball.x + ball.width // 2
                 is_urgent = True
@@ -4435,14 +4447,15 @@ class GuardWarriorSystem:
                 break
         return predicted_x
 
-    def _calc_defense_target_x(self, guard_cx, ball, hero_px, hero_pw):
-        """수비모드 스마트 포지셔닝 - 영웅이 커버 못하는 영역을 보완
+    def _calc_defense_target_x(self, guard_cx, ball, hero_px, hero_pw, other_guard_cx=None):
+        """수비모드 스마트 포지셔닝 - 영웅 도달 가능성 물리 판정 + 착지 예측 블렌딩
 
         Args:
             guard_cx: 호위무사 현재 center X
             ball: 공 객체
             hero_px: 영웅 패들 left-edge X
             hero_pw: 영웅 패들 너비
+            other_guard_cx: 다른 호위무사의 center X (겹침 방지용, None이면 무시)
         Returns:
             (target_x, is_urgent): 목표 X좌표, 긴급 여부
         """
@@ -4459,32 +4472,51 @@ class GuardWarriorSystem:
         else:
             predicted_x = ball_cx
 
-        # Step 2: 영웅이 착지점 커버 가능한지
-        hero_covers = abs(hero_cx - predicted_x) < hero_pw // 2 + 20
-
-        # Step 3: 영웅 대쉬 상태 확인
+        # Step 2: 영웅 도달 가능성 물리 판정
         game_state = self.skill_manager.game_state if self.skill_manager else {}
-        hero_has_dash = game_state.get('arena_bottom_dash_charges', 1) > 0
         hero_is_dashing = game_state.get('arena_bottom_dashing', False)
 
-        # Step 4: 포지셔닝 결정
+        # 공 도착 시간 계산
+        if hasattr(ball, 'vy') and ball.vy > 0:
+            ball_vy_sec = ball.vy * 60.0
+            if ball_vy_sec > 0.1:
+                time_to_arrive = max(0.05, (BOTTOM_PADDLE_Y - ball.y) / ball_vy_sec)
+            else:
+                time_to_arrive = 999.0
+        else:
+            time_to_arrive = 999.0
+
+        hero_distance = abs(hero_cx - predicted_x)
+        HERO_BASE_SPEED_PPS = 420.0  # MAX_SPEED(7) * 60
+        hero_max_travel = HERO_BASE_SPEED_PPS * time_to_arrive
+        if game_state.get('arena_bottom_dash_charges', 1) > 0 or hero_is_dashing:
+            hero_max_travel += 200.0
+        hero_can_reach = hero_max_travel >= (hero_distance - hero_pw // 2)
+
+        # Step 3: 포지셔닝 결정
         is_urgent = False
-        if hasattr(ball, 'vy') and ball.vy > 0 and not hero_covers and not hero_has_dash and not hero_is_dashing:
-            # 긴급: 영웅이 커버 못하고 대쉬도 없음 → 착지점 직행
+        if hasattr(ball, 'vy') and ball.vy > 0 and not hero_can_reach:
+            # 긴급: 영웅이 물리적으로 도달 불가 → 착지점 직행
             target_x = predicted_x
             is_urgent = True
         elif hasattr(ball, 'vy') and ball.vy > 0:
-            # 보완: 영웅 반대편에 포지셔닝 (영웅이 커버 가능하거나 대쉬 있음)
+            # 보완: predicted_x와 anti-hero 위치를 시간 기반 블렌딩
             game_center = GAME_AREA_X + GAME_AREA_WIDTH // 2  # 380
             if hero_cx < game_center:
-                target_x = game_center + (game_center - hero_cx) * 0.5
+                anti_hero_x = game_center + (game_center - hero_cx) * 0.5
             else:
-                target_x = game_center - (hero_cx - game_center) * 0.5
+                anti_hero_x = game_center - (hero_cx - game_center) * 0.5
+            # 시간 압박도에 따라 착지 예측 vs 커버리지 비율 조절
+            # < 0.5초: 70% predicted, 30% anti-hero (시간 압박)
+            # > 1.5초: 20% predicted, 80% anti-hero (여유 → 커버리지)
+            blend = max(0.2, min(0.7, 1.0 - (time_to_arrive - 0.5) * 0.5))
+            target_x = predicted_x * blend + anti_hero_x * (1.0 - blend)
         else:
-            # 공이 상단으로 이동 중 → 예측 위치로 느긋하게
-            target_x = predicted_x
+            # 공이 상단으로 이동 중 → 중앙 위주 + 예측 보조
+            game_center = GAME_AREA_X + GAME_AREA_WIDTH // 2
+            target_x = predicted_x * 0.3 + game_center * 0.7
 
-        # Step 5: 영웅과 최소 간격 유지 (80px)
+        # Step 4: 영웅과 최소 간격 유지 (80px)
         MIN_SEP = PADDLE_WIDTH
         if abs(target_x - hero_cx) < MIN_SEP:
             if target_x <= hero_cx:
@@ -4492,12 +4524,19 @@ class GuardWarriorSystem:
             else:
                 target_x = hero_cx + MIN_SEP
 
+        # Step 5: 호위무사끼리 최소 간격 유지 (80px)
+        if other_guard_cx is not None and abs(target_x - other_guard_cx) < MIN_SEP:
+            if target_x <= other_guard_cx:
+                target_x = other_guard_cx - MIN_SEP
+            else:
+                target_x = other_guard_cx + MIN_SEP
+
         # Step 6: 범위 제한
         target_x = max(left_bound, min(target_x, right_bound))
         return target_x, is_urgent
 
     def _check_guard_emergency_dash(self, dt, ball):
-        """호위무사 긴급 대쉬 판정 (수비모드 전용)"""
+        """호위무사 긴급 대쉬 판정 (수비모드 전용) - 영웅 도달 가능성 물리 판정"""
         if self.stance_mode_bottom != "defense":
             return
         if self.phase_bottom != "patrolling":
@@ -4508,8 +4547,7 @@ class GuardWarriorSystem:
             return
 
         game_state = self.skill_manager.game_state if self.skill_manager else {}
-        if game_state.get('arena_bottom_dash_charges', 1) > 0:
-            return
+        # 영웅이 이미 대쉬 중이면 맡기기
         if game_state.get('arena_bottom_dashing', False):
             return
 
@@ -4527,12 +4565,26 @@ class GuardWarriorSystem:
 
         predicted_x = self._predict_guard_ball_x(
             ball_cx, ball.vx, ball.y, ball.vy, self.y_bottom)
-        distance = abs(predicted_x - self.x_bottom)
 
+        # 영웅 도달 가능성 물리 판정
+        hero_cx = game_state.get('_hero_bottom_cx')
+        hero_pw = game_state.get('_hero_bottom_pw', PADDLE_WIDTH)
+        if hero_cx is not None:
+            hero_distance = abs(predicted_x - hero_cx)
+            HERO_BASE_SPEED_PPS = 420.0  # MAX_SPEED(7) * 60
+            hero_max_travel = HERO_BASE_SPEED_PPS * time_to_arrive
+            # 대쉬 토큰이 있으면 추가 이동 범위 보너스
+            if game_state.get('arena_bottom_dash_charges', 1) > 0:
+                hero_max_travel += 200.0
+            if hero_max_travel >= hero_distance - hero_pw // 2:
+                return  # 영웅이 도달 가능 → 대쉬 불필요
+
+        # 호위무사 일반 이동으로 도달 가능한지 체크
+        distance = abs(predicted_x - self.x_bottom)
         normal_speed = max(140.0, self._patrol_speed_bottom) * self.DEFENSE_SPEED_MULT
-        max_travel = normal_speed * time_to_arrive  # px/sec * sec = px (단위 일치)
+        max_travel = normal_speed * time_to_arrive
         if max_travel >= distance - PADDLE_WIDTH // 2:
-            return
+            return  # 일반 이동으로 충분
 
         self._start_guard_dash(predicted_x)
 
@@ -4635,9 +4687,14 @@ class GuardWarriorSystem:
                     # 수비모드: 스마트 포지셔닝 (영웅 보완 + 착지점 예측)
                     self._patrol_wait_bottom = 0
                     if bottom_paddle:
+                        # 2번 호위무사 위치를 겹침 방지용으로 전달
+                        _other_cx = None
+                        if self._patrol2_bottom and self._patrol2_bottom.get('phase') == 'patrolling':
+                            _other_cx = self._patrol2_bottom['x']
                         target_x, is_urgent = self._calc_defense_target_x(
                             self.x_bottom, ball, bottom_paddle.x,
-                            getattr(bottom_paddle, 'width', PADDLE_WIDTH))
+                            getattr(bottom_paddle, 'width', PADDLE_WIDTH),
+                            other_guard_cx=_other_cx)
                     else:
                         target_x = ball.x + ball.width // 2
                         is_urgent = True
@@ -5036,6 +5093,46 @@ class GuardWarriorSystem:
                 self._guard_ball_cooldown = 0.15  # 연속 충돌 방지
 
                 # ON_BALL_HIT 스킬 발동 (바나나슬라이스 등)
+                if guard and self.skill_manager:
+                    self._trigger_ball_hit_skill(is_top, guard, ball, game_state)
+                return
+
+        # --- 2번째 호위무사 (patrol2) 충돌 체크 ---
+        for is_top in (True, False):
+            p2 = self._patrol2_top if is_top else self._patrol2_bottom
+            if not p2 or p2.get('phase') != 'patrolling':
+                continue
+
+            gx = p2['x']
+            gy = p2['y']
+            guard_rect = pygame.Rect(
+                int(gx - PADDLE_WIDTH // 2), int(gy),
+                PADDLE_WIDTH, PADDLE_HEIGHT
+            )
+            ball_rect = pygame.Rect(
+                int(ball.x) - BALL_SIZE - 2,
+                int(ball.y) - BALL_SIZE - 2,
+                BALL_SIZE * 2 + 4,
+                BALL_SIZE * 2 + 4
+            )
+
+            if guard_rect.colliderect(ball_rect):
+                ball_vy = getattr(ball, 'vy', 0)
+                if is_top and ball_vy >= 0:
+                    continue
+                if not is_top and ball_vy <= 0:
+                    continue
+
+                hit_offset = (ball_rect.centerx - guard_rect.centerx) / (PADDLE_WIDTH / 2)
+                hit_offset = max(-1.0, min(1.0, hit_offset))
+                guard = p2['guard']
+                game_state['guard_patrol_ball_hit'] = {
+                    'is_top_guard': is_top,
+                    'hit_offset': hit_offset,
+                    'guard_id': guard["id"] if guard else None,
+                }
+                self._guard_ball_cooldown = 0.15
+
                 if guard and self.skill_manager:
                     self._trigger_ball_hit_skill(is_top, guard, ball, game_state)
                 return
