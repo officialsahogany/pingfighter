@@ -33,6 +33,10 @@ bgm_files = []
 for _pattern in ("bgm/*.ogg", "bgm/*.mp3", "bgm/*.wav"):
     for _path in glob.glob(_pattern):
         bgm_files.append((_path, 'bgm'))
+# bgm/intro/ 서브디렉토리 (인트로 컷씬 BGM)
+for _pattern in ("bgm/intro/*.ogg", "bgm/intro/*.mp3", "bgm/intro/*.wav"):
+    for _path in glob.glob(_pattern):
+        bgm_files.append((_path, 'bgm/intro'))
 
 # --- 스테이지 비디오 수집 ---
 stage_videos = []
