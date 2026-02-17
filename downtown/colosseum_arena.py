@@ -3970,8 +3970,9 @@ class GuardWarriorSystem:
             self._tick_guard_skill_cooldowns(dt, _dual_guard["id"])
             self._sync_guard_cooldown_to_main(is_top, _dual_guard["id"])
         elif _dual_guard:
-            # 싱글 스킬 가드: ON_BALL_HIT 스킬 쿨타임만 별도 감소
-            self._tick_ball_hit_skill_cooldowns(dt, _dual_guard["id"])
+            # 싱글 스킬 가드: 모든 스킬 쿨타임 감소 (자동발동 통일)
+            self._tick_guard_skill_cooldowns(dt, _dual_guard["id"])
+            self._sync_guard_cooldown_to_main(is_top, _dual_guard["id"])
 
         # 현재 애니메이션 진행 중이면 애니메이션 처리
         phase = self.phase_top if is_top else self.phase_bottom
@@ -4794,8 +4795,7 @@ class GuardWarriorSystem:
                 skill_cds = self.guard_skill_cooldowns.get(guard["id"], [])
                 fallback = None
                 for i, sk in enumerate(skills):
-                    if (sk != skill and i < len(skill_cds) and skill_cds[i] <= 0
-                            and getattr(sk, 'trigger', None) != _ST.ON_BALL_HIT):
+                    if (sk != skill and i < len(skill_cds) and skill_cds[i] <= 0):
                         fallback = (i, sk)
                         break
                 if fallback:
@@ -4803,16 +4803,12 @@ class GuardWarriorSystem:
                 else:
                     return  # 다른 스킬도 없음 → 대기
         else:
-            # 싱글 스킬: 기존 로직 (can_use 조건 확인 후 가능한 스킬 우선)
-            from downtown.hero_skills import SkillTrigger
+            # 싱글 스킬: 기존 로직 (can_use 조건 확인 후 가능한 스킬 우선, 호위무사는 모든 스킬 자동발동)
             guard_paddle = self._make_guard_paddle(is_top)
             target_paddle = bottom_paddle if is_top else top_paddle
             game_state = self.skill_manager.game_state if self.skill_manager else {}
             usable = []
             for sk in skills:
-                # ON_BALL_HIT 스킬은 캐스팅 대상에서 제외 (쿨타임 리셋 방지)
-                if getattr(sk, 'trigger', None) == SkillTrigger.ON_BALL_HIT:
-                    continue
                 sk.caster_is_top = is_top
                 sk.current_cooldown = 0
                 try:
@@ -4821,13 +4817,10 @@ class GuardWarriorSystem:
                     pass
                 if sk.can_use():
                     usable.append(sk)
-            # ON_BALL_HIT 제외 후 가능한 스킬이 없으면 → 대기 (캐스팅 스킵)
-            castable = [sk for sk in skills
-                        if getattr(sk, 'trigger', None) != SkillTrigger.ON_BALL_HIT]
             if not usable:
-                skill = random.choice(castable) if castable else None
+                skill = random.choice(skills) if skills else None
                 if not skill:
-                    return  # 모든 스킬이 ON_BALL_HIT → 캐스팅 불가
+                    return
             else:
                 skill = random.choice(usable)
             skill_idx = skills.index(skill) if skill in skills else 0
