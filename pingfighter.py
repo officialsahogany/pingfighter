@@ -8257,18 +8257,21 @@ def _fullscreen_flip():
                 pass
 
         # 🕸️ 생포 호위무사 1회용 소환 UI (좌측 필러)
-        if globals().get('arena_mode_enabled', False) and arena_captured_guard and not arena_captured_guard_used:
+        _cg = globals().get('arena_captured_guard')
+        _cg_used = globals().get('arena_captured_guard_used', True)
+        _cg_active = globals().get('arena_captured_guard_active', False)
+        if globals().get('arena_mode_enabled', False) and _cg and not _cg_used:
             try:
                 _draw_captured_guard_ui(REAL_SCREEN)
             except Exception:
                 pass
         # 생포 호위무사 소환 연출 (배틀 중 내부 좌표)
-        if globals().get('arena_mode_enabled', False) and arena_captured_guard_active:
+        if globals().get('arena_mode_enabled', False) and _cg_active:
             try:
                 _update_and_draw_captured_guard_summon(SCREEN)
             except Exception as _cg_err:
                 print(f"[CapturedGuard] 소환 연출 오류: {_cg_err}")
-                arena_captured_guard_active = False
+                globals()['arena_captured_guard_active'] = False
 
         # 좌표계 디버그 (F4 토글) - 히트박스 & 마우스 위치
         if COORDINATE_DEBUG_MODE:
