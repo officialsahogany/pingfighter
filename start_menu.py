@@ -866,42 +866,153 @@ def _draw_arena_emblem(
     ctx: "MenuContext",
     dimmed: bool = False,
 ):
-    """투기장 하위 모드 엠블럼 1개를 그린다."""
-    surf_size = radius * 2 + 20
+    """투기장 하위 모드 엠블럼 1개를 그린다 (고퀄리티 버전)."""
+    margin = 40
+    surf_size = radius * 2 + margin * 2
     surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
     center = surf_size // 2
 
-    # 팔각형 점 계산
-    pts = []
-    for i in range(8):
-        a = math.radians(i * 45 - 22.5) + angle
-        pts.append((center + int(radius * math.cos(a)), center + int(radius * math.sin(a))))
-    # 배경
-    alpha = 140 if not dimmed else 80
-    pygame.draw.polygon(surf, (*color, alpha), pts)
-    # 테두리
-    ba = 255 if is_selected else 140
-    if dimmed:
-        ba = 80
-    pygame.draw.polygon(surf, (*accent, ba), pts, 3)
+    dim_f = 0.4 if dimmed else 1.0
+    sel_f = 1.0 if is_selected else 0.7
 
-    # 아이콘
+    def _oct(r, ang_off=0.0):
+        """반지름 r인 팔각형 꼭짓점 리스트 반환."""
+        return [(center + int(r * math.cos(math.radians(i * 45 - 22.5) + angle + ang_off)),
+                 center + int(r * math.sin(math.radians(i * 45 - 22.5) + angle + ang_off)))
+                for i in range(8)]
+
+    # ── 1) 외곽 글로우 (선택 시 강한 발광) ──
+    if glow > 0.05 and not dimmed:
+        for ring in range(6, 0, -1):
+            ga = int(28 * glow * (1 - ring / 7) * sel_f)
+            r_off = radius + ring * 4
+            pygame.draw.polygon(surf, (*accent, ga), _oct(r_off), 2)
+
+    # ── 2) 바깥쪽 장식 테두리 ──
+    outer_pts = _oct(radius + 4)
+    oa = int(100 * dim_f * sel_f)
+    pygame.draw.polygon(surf, (*accent, oa), outer_pts, 2)
+    # 꼭짓점 장식 점
+    for px, py in outer_pts:
+        da = int(160 * dim_f * sel_f)
+        pygame.draw.circle(surf, (*accent, da), (px, py), 3)
+
+    # ── 3) 메인 팔각형 - 그라데이션 효과 (여러 겹) ──
+    layers = 5
+    for li in range(layers):
+        t = li / layers
+        lr = radius - int(t * radius * 0.15)
+        # 색상 보간: 바깥쪽은 어두운 base, 안쪽은 accent 쪽으로 약간 밝아짐
+        lc = tuple(int(color[j] * (1 - t * 0.3) + accent[j] * t * 0.15) for j in range(3))
+        la = int((160 - t * 40) * dim_f)
+        pygame.draw.polygon(surf, (*lc, la), _oct(lr))
+
+    # ── 4) 내부 빛 하이라이트 (상단에서 내려오는 광택) ──
+    highlight_surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+    inner_pts = _oct(radius * 0.85)
+    # 상단 반쪽만 밝게
+    for hi in range(3):
+        ha = int(25 * (1 - hi / 3) * dim_f * sel_f)
+        hr = radius * (0.85 - hi * 0.12)
+        h_pts = _oct(hr)
+        # 상단 절반만 클리핑 (간단히 y < center인 점들만 사용한 폴리곤)
+        clip_pts = [(px, min(py, center + int(hr * 0.15))) for px, py in h_pts]
+        pygame.draw.polygon(highlight_surf, (255, 255, 255, ha), clip_pts)
+    surf.blit(highlight_surf, (0, 0))
+
+    # ── 5) 메인 테두리 (두꺼운 이중선) ──
+    main_pts = _oct(radius)
+    ba = int((255 if is_selected else 160) * dim_f)
+    pygame.draw.polygon(surf, (*accent, ba), main_pts, 3)
+    # 안쪽 보조선
+    inner_border_pts = _oct(radius - 6)
+    iba = int(80 * dim_f * sel_f)
+    pygame.draw.polygon(surf, (*accent, iba), inner_border_pts, 1)
+
+    # ── 6) 꼭짓점 사이 눈금 장식 ──
+    for i in range(8):
+        a1 = math.radians(i * 45 - 22.5) + angle
+        a2 = math.radians((i + 1) * 45 - 22.5) + angle
+        mid_a = (a1 + a2) / 2
+        # 변 중간 바깥쪽 작은 삼각형 장식
+        mx = center + int((radius + 2) * math.cos(mid_a))
+        my = center + int((radius + 2) * math.sin(mid_a))
+        mx2 = center + int((radius + 10) * math.cos(mid_a))
+        my2 = center + int((radius + 10) * math.sin(mid_a))
+        ta = int(120 * dim_f * sel_f)
+        pygame.draw.line(surf, (*accent, ta), (mx, my), (mx2, my2), 2)
+        # 끝에 작은 다이아몬드
+        d_size = 3
+        for dx, dy in [(0, -d_size), (d_size, 0), (0, d_size), (-d_size, 0)]:
+            pass  # 점으로 대체
+        pygame.draw.circle(surf, (*accent, ta), (mx2, my2), 2)
+
+    # ── 7) 내부 장식 패턴 (십자 + 대각선) ──
+    pattern_a = int(40 * dim_f * sel_f)
+    pr = radius * 0.55
+    # 십자선
+    for da in [0, math.pi / 2]:
+        x1 = center + int(pr * math.cos(da + angle))
+        y1 = center + int(pr * math.sin(da + angle))
+        x2 = center - int(pr * math.cos(da + angle))
+        y2 = center - int(pr * math.sin(da + angle))
+        pygame.draw.line(surf, (*accent, pattern_a), (x1, y1), (x2, y2), 1)
+    # 대각선 (짧게)
+    pr2 = radius * 0.35
+    for da in [math.pi / 4, 3 * math.pi / 4]:
+        x1 = center + int(pr2 * math.cos(da + angle))
+        y1 = center + int(pr2 * math.sin(da + angle))
+        x2 = center - int(pr2 * math.cos(da + angle))
+        y2 = center - int(pr2 * math.sin(da + angle))
+        pygame.draw.line(surf, (*accent, pattern_a), (x1, y1), (x2, y2), 1)
+
+    # ── 8) 내부 원형 프레임 (아이콘 배경) ──
+    icon_bg_r = int(radius * 0.42)
+    # 원형 배경 (어두운)
+    pygame.draw.circle(surf, (*color, int(180 * dim_f)), (center, center), icon_bg_r)
+    # 원형 테두리
+    circle_ba = int(180 * dim_f * sel_f)
+    pygame.draw.circle(surf, (*accent, circle_ba), (center, center), icon_bg_r, 2)
+    # 안쪽 원
+    pygame.draw.circle(surf, (*accent, int(50 * dim_f * sel_f)), (center, center), icon_bg_r - 5, 1)
+
+    # ── 9) 아이콘 문자 (그림자 + 발광 효과) ──
     icon_font = ctx.FontStyle.title_large()
-    ic_alpha = 180 if not dimmed else 80
+    ic_alpha = int(220 * dim_f)
+    # 그림자
+    shadow = icon_font.render(icon_char, True, (0, 0, 0, int(ic_alpha * 0.5)))
+    surf.blit(shadow, shadow.get_rect(center=(center + 2, center - 3)))
+    # 선택 시 accent 색 글로우
+    if is_selected and not dimmed:
+        glow_ic = icon_font.render(icon_char, True, (*accent, int(80 * glow)))
+        for gx, gy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            surf.blit(glow_ic, glow_ic.get_rect(center=(center + gx * 2, center - 5 + gy * 2)))
+    # 메인 문자
     ic = icon_font.render(icon_char, True, (255, 255, 255, ic_alpha))
     surf.blit(ic, ic.get_rect(center=(center, center - 5)))
 
-    # 글로우 링
-    if glow > 0.05 and not dimmed:
-        for i in range(4):
-            ga = int(50 * glow * (1 - i / 4))
-            pygame.draw.polygon(surf, (*accent, ga),
-                                [(px + int((px - center) * 0.05 * (i + 1)),
-                                  py + int((py - center) * 0.05 * (i + 1))) for px, py in pts], 2)
+    # ── 10) 회전하는 외곽 장식 링 (선택 시) ──
+    if is_selected and not dimmed and glow > 0.1:
+        spin_a = anim_t * 1.5
+        deco_r = radius + 14
+        for i in range(8):
+            da = math.radians(i * 45) + spin_a
+            dx = center + int(deco_r * math.cos(da))
+            dy = center + int(deco_r * math.sin(da))
+            dot_a = int(140 * glow * (0.5 + 0.5 * math.sin(anim_t * 3 + i)))
+            pygame.draw.circle(surf, (*accent, dot_a), (dx, dy), 2)
+
+    # ── 11) 펄스 반짝임 (선택 시 가끔 빛남) ──
+    if is_selected and not dimmed:
+        sparkle_phase = (anim_t * 2.0) % (math.pi * 2)
+        sparkle_i = max(0, math.sin(sparkle_phase) - 0.7) / 0.3  # 0~1 짧은 피크
+        if sparkle_i > 0:
+            sa = int(60 * sparkle_i)
+            pygame.draw.circle(surf, (255, 255, 255, sa), (center, center), int(radius * 0.9), 0)
 
     screen.blit(surf, (cx - surf_size // 2, cy - surf_size // 2))
 
-    # 라벨
+    # ── 라벨 ──
     label_font = ctx.FontStyle.body()
     lc = (255, 255, 255) if not dimmed else (120, 120, 120)
     ls = label_font.render(label, True, lc)
