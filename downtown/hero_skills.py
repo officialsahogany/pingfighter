@@ -12270,7 +12270,7 @@ class SandPrison(HeroSkill):
     PRISON_HALF_RANGE_MAX = 150  # 최대 ±150px = 300px
 
     BUILD_DURATION = 1.0      # 건설 애니메이션 (초)
-    ACTIVE_DURATION = 3.2     # 실제 이동 제한 시간 (기존 4.0 → -20%)
+    ACTIVE_DURATION = 1.5     # 실제 이동 제한 시간
     DISSOLVE_DURATION = 1.0   # 해체 애니메이션 (초)
 
     def __init__(self):
@@ -12282,7 +12282,7 @@ class SandPrison(HeroSkill):
             korean_name="모래감옥",
             description="상대의 이동 범위를 200~300px로 제한하는 모래 감옥",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=25.0,
+            cooldown=20.0,
             duration=total_dur,
             hero_id="mirage"
         )
