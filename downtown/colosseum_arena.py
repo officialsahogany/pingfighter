@@ -3970,9 +3970,9 @@ class GuardWarriorSystem:
             self._tick_guard_skill_cooldowns(dt, _dual_guard["id"])
             self._sync_guard_cooldown_to_main(is_top, _dual_guard["id"])
         elif _dual_guard:
-            # 싱글 스킬 가드: 모든 스킬 쿨타임 감소 (자동발동 통일)
-            self._tick_guard_skill_cooldowns(dt, _dual_guard["id"])
-            self._sync_guard_cooldown_to_main(is_top, _dual_guard["id"])
+            # 싱글 스킬 가드: 메인 쿨다운(cooldown_top/bottom)으로 관리
+            # ON_BALL_HIT 스킬의 내부 쿨타임도 감소 (자동발동 통일)
+            self._tick_ball_hit_skill_cooldowns(dt, _dual_guard["id"])
 
         # 현재 애니메이션 진행 중이면 애니메이션 처리
         phase = self.phase_top if is_top else self.phase_bottom
