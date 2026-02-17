@@ -6636,6 +6636,9 @@ class ColosseumsArena:
         self.captured_guard_used = False
         # 교체 선택
         self.capture_swap_hover = -1            # 교체 UI 호버 인덱스
+        # 인게임 포획 결과 (pingfighter에서 읽어옴)
+        self._last_capture_result = None        # True/False/None
+        self._last_capture_target = None        # 포획 대상 영웅 dict
 
         # ============ 관리자 영웅 선택 (F5) ============
         self.admin_hero_select_active = False       # 관리자 영웅 선택 오버레이 활성화 여부
@@ -7515,6 +7518,8 @@ class ColosseumsArena:
                     # 생포된 호위무사 (1회용 소환) 데이터 전달
                     pingfighter._arena_pending_captured_guard = self.captured_guard
                     pingfighter._arena_pending_captured_guard_used = self.captured_guard_used
+                    # 포획 페이즈 플래그 전달 (결승 제외, 승리 시 인게임 포획 실행)
+                    pingfighter._arena_pending_do_capture = (self.current_round != TournamentRound.FINAL)
                 except Exception as e:
                     print(f"[Arena] 배틀 데이터 전달 실패: {e}")
                     import traceback
@@ -8466,6 +8471,36 @@ class ColosseumsArena:
         except Exception:
             pass
 
+        # 인게임 포획 결과 동기화 (스테이지30 내부에서 수행된 포획)
+        try:
+            import pingfighter
+            _cap_result = getattr(pingfighter, 'arena_capture_result_flag', None)
+            if _cap_result is True and winner == self.bet_hero:
+                # 포획 성공 → guard_warrior_map 추가 + captured_guard 설정
+                loser = match.hero1 if winner == match.hero2 else match.hero2
+                bet_id = self.bet_hero["id"] if self.bet_hero else ""
+                if bet_id not in self.guard_warrior_map:
+                    self.guard_warrior_map[bet_id] = []
+                if loser not in self.guard_warrior_map[bet_id]:
+                    self.guard_warrior_map[bet_id].append(loser)
+                # captured_guard 슬롯 갱신
+                if self.captured_guard is None or self.captured_guard_used:
+                    self.captured_guard = dict(loser)
+                    self.captured_guard_used = False
+                self._last_capture_result = True
+                self._last_capture_target = loser
+                print(f"[CAPTURE] 인게임 포획 성공! {loser.get('name', '?')} → guard_warrior_map 추가")
+            elif _cap_result is False:
+                self._last_capture_result = False
+                self._last_capture_target = None
+                print("[CAPTURE] 인게임 포획 실패")
+            else:
+                self._last_capture_result = None
+                self._last_capture_target = None
+        except Exception:
+            self._last_capture_result = None
+            self._last_capture_target = None
+
         # 전투 종료 후 대기실 BGM 복구
         try:
             import bgm_manager
@@ -8840,18 +8875,22 @@ class ColosseumsArena:
                         # 결승 패배 → 바로 종료
                         self.state = TournamentState.TOURNAMENT_END
                 else:
-                    # 승리 - 호위무사 생포 미니게임 시작
-                    bet_hero_loser = None
-                    if self.bet_hero and self.selected_match:
-                        match = self.selected_match
-                        if match.winner == self.bet_hero:
-                            bet_hero_loser = match.hero1 if match.winner == match.hero2 else match.hero2
-
-                    if bet_hero_loser:
-                        # guard_warrior_map 추가는 생포 성공 시에만 처리
-                        self._start_capture_minigame(bet_hero_loser)
+                    # 승리 - 인게임 포획 결과에 따라 분기
+                    if getattr(self, '_last_capture_result', None) is True:
+                        # 포획 성공 → GUARD_NOTIFY 표시
+                        target = getattr(self, '_last_capture_target', None)
+                        if target:
+                            self.guard_notify_hero = target
+                            self.guard_notify_owner = self.bet_hero
+                            self.guard_notify_timer = 0.0
+                            self.guard_notify_progress = 0.0
+                            bet_id = self.bet_hero["id"] if self.bet_hero else ""
+                            self.guard_notify_total = len(self.guard_warrior_map.get(bet_id, []))
+                            self.state = TournamentState.GUARD_NOTIFY
+                        else:
+                            self._start_perk_select()
                     else:
-                        # 호위무사 없으면 퍽 선택으로
+                        # 포획 실패 또는 포획 없음 → 퍽 선택으로
                         self._start_perk_select()
 
         elif self.state == TournamentState.CAPTURE_MINIGAME:
