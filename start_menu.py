@@ -931,6 +931,9 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
     except Exception:
         pass
 
+    # 하트 비 트랜지션 재생
+    _play_rainbow_transition(ctx.get_screen(), 1000)
+
     selected = 0  # 0=스토리, 1=투기장
     hover_scales = [1.0, 1.0]
     clock = pygame.time.Clock()
@@ -973,7 +976,6 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
             if click_anim["timer"] >= click_anim["dur"]:
                 chosen = click_anim["card"]
                 click_anim = None
-                _play_rainbow_transition(screen, 800)
                 if chosen == 0:
                     # 스토리모드 - 기존 플로우
                     character = ctx.show_character_selection()
@@ -1141,11 +1143,9 @@ def _show_arena_sub_selection(ctx: "MenuContext", state: "MenuState") -> bool:
                 chosen = click_anim["card"]
                 click_anim = None
                 if chosen == 0:
-                    _play_rainbow_transition(screen, 800)
                     ctx.start_arena_dev()
                     return True
                 elif chosen == 1:
-                    _play_rainbow_transition(screen, 800)
                     ctx.start_dojo_dev()
                     return True
 
