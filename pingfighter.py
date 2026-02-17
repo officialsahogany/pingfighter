@@ -62499,16 +62499,8 @@ def handle_player(keys):
     # 좌우 이동은 공용 헬퍼로 처리하여 IME/레이아웃 변환과 스캔코드까지 포괄
     left_pressed_raw = is_move_left_pressed(keys)
     right_pressed_raw = is_move_right_pressed(keys)
-    # 🕸️ 포획 페이즈 active: AI/MOVE_EVENT 전부 무시, 실제 키보드만 사용
-    if arena_capture_phase == "active":
-        MOVE_EVENT_LEFT = False
-        MOVE_EVENT_RIGHT = False
-        _fresh_cap = pygame.key.get_pressed()
-        left_pressed_raw = bool(_fresh_cap[pygame.K_a]) or bool(_fresh_cap[pygame.K_LEFT])
-        right_pressed_raw = bool(_fresh_cap[pygame.K_d]) or bool(_fresh_cap[pygame.K_RIGHT])
     # 🛡️ 투기장 모드: 좌우 이동도 실제 키보드 입력 차단 (AI 스냅샷만 사용)
-    # 단, 포획 페이즈 active 중에는 플레이어 직접 조종 허용
-    if arena_mode_enabled and not player_ai_enabled and arena_capture_phase != "active":
+    if arena_mode_enabled and not player_ai_enabled:
         # player_ai_enabled가 True면 keys가 이미 AI wrapper이므로 OK
         # 그렇지 않은 비정상 상태에서도 입력 차단
         left_pressed_raw = False
@@ -62525,9 +62517,8 @@ def handle_player(keys):
 
     # 프레임 입력 스냅샷이 유효하면 방향키/AD도 스냅샷을 우선 사용해 프레임 경계에서의 불안정 제거
     # (Prompt/오버레이 갱신 타이밍에 따른 간헐적 끊김 방지)
-    # 단, 포획 페이즈 active 중에는 스냅샷(AI)이 아닌 실제 키보드 입력 사용
     try:
-        if 'INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID and arena_capture_phase != "active":
+        if 'INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID:
             # space 키는 아래에서 별도로 SNAP_space_pressed를 사용하므로 여기서는 방향만 적용
             left_pressed_raw = bool(SNAP_left_state)
             right_pressed_raw = bool(SNAP_right_state)
@@ -118189,6 +118180,11 @@ def _update_arena_capture_phase(screen):
             BOSS.centery = int(arena_capture_flee_y)
         except Exception:
             pass
+        # 하단 영웅도 중앙으로 배치
+        try:
+            PLAYER.centerx = GAME_CENTER_X
+        except Exception:
+            pass
 
         progress = min(1.0, arena_capture_timer / 2.0)
         # 반투명 오버레이
@@ -118224,6 +118220,18 @@ def _update_arena_capture_phase(screen):
     elif arena_capture_phase == "active":
         time_limit = 12.0
         time_left = max(0, time_limit - arena_capture_timer)
+
+        # ── 하단 영웅 직접 이동 (A/D 키) ──
+        _cap_keys = pygame.key.get_pressed()
+        _cap_left = _cap_keys[pygame.K_a] or _cap_keys[pygame.K_LEFT]
+        _cap_right = _cap_keys[pygame.K_d] or _cap_keys[pygame.K_RIGHT]
+        _cap_move_speed = 6
+        if _cap_left and not _cap_right:
+            PLAYER.x -= _cap_move_speed
+        elif _cap_right and not _cap_left:
+            PLAYER.x += _cap_move_speed
+        # 게임 영역 내 클램프
+        PLAYER.x = max(GAME_LEFT, min(GAME_RIGHT - PLAYER.width, PLAYER.x))
 
         # ── 도주 AI (상단 영웅) ──
         arena_capture_flee_dodge_timer -= dt
@@ -138039,7 +138047,7 @@ def main(stage_num, new_boss_mode=False):
             # [DEBUG] 귀신발걸음 중 X좌표 추적 - handle_player 전
             _gs_x_before_handle = PLAYER.x if arena_bottom_ghost_step_active else None
 
-            if not freeze_now or freeze_capture:
+            if not freeze_now:
                 handle_player(keys_now)
 
             # [DEBUG] 귀신발걸음 중 X좌표 추적 - handle_player 후
