@@ -1008,7 +1008,13 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
                         ctx.play_hover_sound()
                 elif ev.key in (pygame.K_RETURN, pygame.K_SPACE):
                     ctx.play_click_sound()
-                    click_anim = {"card": selected, "timer": 0.0, "dur": 0.3}
+                    if selected == 1:
+                        # 투기장 → 즉시 하위 선택으로
+                        result = _show_arena_sub_selection(ctx, state)
+                        if result:
+                            return True
+                    else:
+                        click_anim = {"card": selected, "timer": 0.0, "dur": 0.3}
 
             if ev.type == pygame.MOUSEMOTION:
                 mx, my = ev.pos
@@ -1032,7 +1038,13 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
                     if pygame.Rect(rx, cy, CARD_W, CARD_H).collidepoint(mx, my):
                         selected = i
                         ctx.play_click_sound()
-                        click_anim = {"card": i, "timer": 0.0, "dur": 0.3}
+                        if i == 1:
+                            # 투기장 → 즉시 하위 선택으로
+                            result = _show_arena_sub_selection(ctx, state)
+                            if result:
+                                return True
+                        else:
+                            click_anim = {"card": i, "timer": 0.0, "dur": 0.3}
 
         # 호버 스케일 업데이트
         for i in range(2):
