@@ -19837,7 +19837,7 @@ arena_capture_net_active = False
 arena_capture_net_speed = -14.0         # 위로 발사
 arena_capture_shots_left = 3
 arena_capture_net_rope = []             # 로프 궤적 포인트
-# 상대 도주 AI
+# 상대 도주 AI (상단 영웅)
 arena_capture_flee_x = 380.0
 arena_capture_flee_y = 60.0
 arena_capture_flee_vx = 0.0
@@ -62500,7 +62500,8 @@ def handle_player(keys):
     left_pressed_raw = is_move_left_pressed(keys)
     right_pressed_raw = is_move_right_pressed(keys)
     # 🛡️ 투기장 모드: 좌우 이동도 실제 키보드 입력 차단 (AI 스냅샷만 사용)
-    if arena_mode_enabled and not player_ai_enabled:
+    # 단, 포획 페이즈 active 중에는 플레이어 직접 조종 허용
+    if arena_mode_enabled and not player_ai_enabled and arena_capture_phase != "active":
         # player_ai_enabled가 True면 keys가 이미 AI wrapper이므로 OK
         # 그렇지 않은 비정상 상태에서도 입력 차단
         left_pressed_raw = False
@@ -62517,8 +62518,9 @@ def handle_player(keys):
 
     # 프레임 입력 스냅샷이 유효하면 방향키/AD도 스냅샷을 우선 사용해 프레임 경계에서의 불안정 제거
     # (Prompt/오버레이 갱신 타이밍에 따른 간헐적 끊김 방지)
+    # 단, 포획 페이즈 active 중에는 스냅샷(AI)이 아닌 실제 키보드 입력 사용
     try:
-        if 'INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID:
+        if 'INPUT_SNAPSHOT_VALID' in globals() and INPUT_SNAPSHOT_VALID and arena_capture_phase != "active":
             # space 키는 아래에서 별도로 SNAP_space_pressed를 사용하므로 여기서는 방향만 적용
             left_pressed_raw = bool(SNAP_left_state)
             right_pressed_raw = bool(SNAP_right_state)
@@ -118116,9 +118118,9 @@ def _fire_capture_net():
 def _update_arena_capture_phase(screen):
     """포획 페이즈 업데이트 + 렌더링 (매 프레임 호출)
     - 호위무사 퇴장, 기존 영웅 패들 그대로 사용
-    - 하단 영웅: 플레이어 A/D 키 조종 (handle_player)
-    - 상단 영웅: BOSS 패들을 도주 위치로 직접 이동
-    - 마우스 클릭: 하단 영웅에서 작살 발사
+    - 하단 영웅: 플레이어 A/D 키 직접 조종 (handle_player에서 포획 중 입력 허용)
+    - 상단 영웅: BOSS 패들을 도주 AI로 랜덤 이동
+    - 마우스 클릭: 하단 영웅에서 그물 발사
     """
     global arena_capture_phase, arena_capture_timer, arena_capture_result_flag
     global arena_capture_net_active, arena_capture_net_x, arena_capture_net_y
@@ -118294,7 +118296,7 @@ def _update_arena_capture_phase(screen):
             timer_text = f"{time_left:.1f}초"
             tt, ttr = _cap_ui_font.render(timer_text, (255, 200, 100))
             screen.blit(tt, (GAME_CENTER_X - ttr.width // 2, 10))
-            help_text = "A/D: 이동  |  마우스 클릭: 작살 발사"
+            help_text = "A/D: 이동  |  클릭: 그물 발사"
             ht, htr = _cap_ui_font.render(help_text, (200, 200, 200))
             screen.blit(ht, (GAME_CENTER_X - htr.width // 2, 730))
         except Exception:
