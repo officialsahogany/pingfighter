@@ -7284,7 +7284,7 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
             _status_color = (180, 220, 255)
 
         # 스킬 정보 준비 (모든 스킬)
-        _skill_entries = []  # [{name, icon, desc_lines}, ...]
+        _skill_entries = []  # [{name, icon, desc_lines, trigger_text, trigger_color}, ...]
         for _sk in _gh_skills:
             if not _sk:
                 continue
@@ -7294,6 +7294,23 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
             try:
                 from downtown.hero_skill_icons import get_skill_icon
                 _sk_icon = get_skill_icon(getattr(_sk, 'skill_id', ''), 27)
+            except Exception:
+                pass
+            # 발동 방식 텍스트
+            _sk_trigger_text = ""
+            _sk_trigger_color = (180, 180, 180)
+            try:
+                from downtown.hero_skills import SkillTrigger
+                _sk_trigger = getattr(_sk, 'trigger', None)
+                if _sk_trigger == SkillTrigger.ON_BALL_HIT:
+                    _sk_trigger_text = "타격발동"
+                    _sk_trigger_color = (100, 200, 255)
+                elif _sk_trigger == SkillTrigger.ON_COOLDOWN:
+                    _sk_trigger_text = "자동발동"
+                    _sk_trigger_color = (255, 180, 80)
+                elif _sk_trigger == SkillTrigger.PASSIVE:
+                    _sk_trigger_text = "패시브"
+                    _sk_trigger_color = (150, 255, 150)
             except Exception:
                 pass
             # 설명 줄바꿈 (최대 너비 기반)
@@ -7312,7 +7329,8 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
             if _cur_line:
                 _desc_lines.append(_cur_line)
             _desc_lines = _desc_lines[:3]
-            _skill_entries.append({"name": _sk_name, "icon": _sk_icon, "desc_lines": _desc_lines})
+            _skill_entries.append({"name": _sk_name, "icon": _sk_icon, "desc_lines": _desc_lines,
+                                  "trigger_text": _sk_trigger_text, "trigger_color": _sk_trigger_color})
 
         # 레이아웃 계산
         _n_surf = _gh_font.render(_gh_name, True, _gh_color)
@@ -7326,7 +7344,11 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
         # 스킬이 있으면 너비 확보
         for _se in _skill_entries:
             _sn_surf = _gh_small.render(_se["name"], True, (255, 255, 255))
-            _tw = max(_tw, _sn_surf.get_width() + 51 + 20)
+            _trig_w = 0
+            if _se["trigger_text"]:
+                _trig_surf = _gh_tiny.render(_se["trigger_text"], True, _se["trigger_color"])
+                _trig_w = _trig_surf.get_width() + 10  # 태그 너비 + 여백
+            _tw = max(_tw, _sn_surf.get_width() + 51 + _trig_w + 20)
             for dl in _se["desc_lines"]:
                 _dl_surf = _gh_tiny.render(dl, True, (200, 200, 200))
                 _tw = max(_tw, _dl_surf.get_width() + 20)
@@ -7378,14 +7400,28 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
             for idx, _se in enumerate(_skill_entries):
                 if idx > 0:
                     _cy += 9
-                # 스킬 아이콘 + 이름
+                # 스킬 아이콘 + 이름 + 발동 방식 태그
                 if _se["icon"]:
                     _tip_surf.blit(_se["icon"], (10, _cy))
                     _sn_surf = _gh_small.render(_se["name"], True, (255, 230, 150))
                     _tip_surf.blit(_sn_surf, (42, _cy + 2))
+                    _name_end_x = 42 + _sn_surf.get_width() + 6
                 else:
                     _sn_surf = _gh_small.render(_se["name"], True, (255, 230, 150))
                     _tip_surf.blit(_sn_surf, (12, _cy + 2))
+                    _name_end_x = 12 + _sn_surf.get_width() + 6
+                # 발동 방식 태그 (스킬 이름 우측)
+                if _se["trigger_text"]:
+                    _trig_s = _gh_tiny.render(_se["trigger_text"], True, _se["trigger_color"])
+                    _tag_w = _trig_s.get_width() + 8
+                    _tag_h = _trig_s.get_height() + 4
+                    _tag_x = _name_end_x
+                    _tag_y = _cy + 3
+                    _tag_bg = pygame.Surface((_tag_w, _tag_h), pygame.SRCALPHA)
+                    pygame.draw.rect(_tag_bg, (*_se["trigger_color"][:3], 35), (0, 0, _tag_w, _tag_h), border_radius=3)
+                    pygame.draw.rect(_tag_bg, (*_se["trigger_color"][:3], 100), (0, 0, _tag_w, _tag_h), 1, border_radius=3)
+                    _tip_surf.blit(_tag_bg, (_tag_x, _tag_y))
+                    _tip_surf.blit(_trig_s, (_tag_x + 4, _tag_y + 2))
                 _cy += 30
                 # 설명 텍스트
                 for dl in _se["desc_lines"]:
