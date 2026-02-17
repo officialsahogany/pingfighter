@@ -118122,6 +118122,8 @@ def _update_arena_capture_phase(screen):
     global arena_capture_caught_anim, arena_capture_escape_anim
     global arena_capture_net_rope
     global arena_battle_result
+    import pygame as pygame  # 로컬 스코프에서 pygame 명시적 임포트
+    import pygame.freetype    # freetype 서브모듈도 미리 임포트
     import random as _cap_random
     import math as _cap_math
 
@@ -118158,7 +118160,6 @@ def _update_arena_capture_phase(screen):
         screen.blit(overlay, (0, 0))
         # "포획전!" 텍스트
         try:
-            import pygame.freetype
             _cap_font = getattr(_update_arena_capture_phase, '_title_font', None)
             if _cap_font is None:
                 font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
@@ -118377,6 +118378,7 @@ def _update_arena_capture_phase(screen):
 
 def _draw_capture_hero_sprite(screen, x, y, color, name, alpha=255):
     """포획 대상 영웅 스프라이트 그리기"""
+    import pygame, pygame.freetype
     import math as _m
     # 패들 형태 (60x20)
     hero_surf = pygame.Surface((70, 30), pygame.SRCALPHA)
@@ -118394,7 +118396,6 @@ def _draw_capture_hero_sprite(screen, x, y, color, name, alpha=255):
     screen.blit(hero_surf, (int(x) - 35, int(y) - 15))
     # 이름 표시
     try:
-        import pygame.freetype
         _name_font = getattr(_draw_capture_hero_sprite, '_font', None)
         if _name_font is None:
             font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
