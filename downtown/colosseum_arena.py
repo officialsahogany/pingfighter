@@ -257,6 +257,20 @@ def _load_start_button_sound():
     except Exception:
         _start_button_sound = None
 
+_grab_sound = None
+def _load_grab_sound():
+    global _grab_sound
+    if _grab_sound is not None:
+        return
+    try:
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        path = os.path.join(base, "sounds", "grab.wav")
+        if os.path.exists(path):
+            _grab_sound = pygame.mixer.Sound(path)
+            _grab_sound.set_volume(0.6)
+    except Exception:
+        _grab_sound = None
+
 _gacha_result_sound = None
 def _load_gacha_result_sound():
     global _gacha_result_sound
@@ -1055,6 +1069,7 @@ class TournamentState(Enum):
     BATTLE_INTRO = "battle_intro"              # 배틀 시작 전 연출 (VS 불꽃 + 도발)
     HIGHLIGHT_REPLAY = "highlight_replay"      # 하이라이트 리플레이 재생
     HERO_PREVIEW = "hero_preview"              # 전체 영웅 미리보기
+    CAPTURE_MINIGAME = "capture_minigame"      # 호위무사 생포 미니게임
 
 class TournamentRound(Enum):
     QUARTER_FINAL = "8강"
@@ -6591,6 +6606,37 @@ class ColosseumsArena:
         # GuardWarriorSystem 인스턴스
         self.guard_system = None
 
+        # ============ 호위무사 생포 미니게임 ============
+        self.capture_target = None              # 생포 대상 영웅 dict
+        self.capture_gauge_pos = 0.0            # 게이지 위치 (0.0~1.0)
+        self.capture_gauge_speed = 1.8          # 게이지 속도 (초당 왕복)
+        self.capture_gauge_direction = 1        # 1=오른쪽, -1=왼쪽
+        self.capture_phase = "intro"            # intro/aiming/throwing/result
+        self.capture_timer = 0.0                # 페이즈 타이머
+        self.capture_result = None              # "perfect"/"good"/"miss"
+        self.capture_hero_x = 380.0             # 도주 영웅 X좌표
+        self.capture_hero_speed = 100.0         # 도주 속도 (px/s)
+        self.capture_hero_dir = 1               # 도주 방향
+        self.capture_dust_particles = []        # 도주 먼지 파티클
+        # 그물 투사체
+        self.capture_net_active = False
+        self.capture_net_x = 0.0
+        self.capture_net_y = 0.0
+        self.capture_net_vx = 0.0
+        self.capture_net_vy = 0.0
+        self.capture_net_rope_points = []
+        self.capture_net_deployed = False
+        self.capture_net_shape = None
+        self.capture_net_phase = 0.0
+        self.capture_net_origin = (380, 650)
+        self.capture_net_deploy_timer = 0.0
+        self.capture_net_deploy_max = 1.0
+        # 생포된 호위무사 (1회용 소환)
+        self.captured_guard = None              # 생포된 영웅 dict (1회용 소환 전용)
+        self.captured_guard_used = False
+        # 교체 선택
+        self.capture_swap_hover = -1            # 교체 UI 호버 인덱스
+
         # ============ 관리자 영웅 선택 (F5) ============
         self.admin_hero_select_active = False       # 관리자 영웅 선택 오버레이 활성화 여부
         self.admin_target_match_index = -1          # 수정할 매치 인덱스 (0~3)
@@ -7466,6 +7512,9 @@ class ColosseumsArena:
                     else:
                         pingfighter._arena_pending_top_guards = []
                         pingfighter._arena_pending_bottom_guards = []
+                    # 생포된 호위무사 (1회용 소환) 데이터 전달
+                    pingfighter._arena_pending_captured_guard = self.captured_guard
+                    pingfighter._arena_pending_captured_guard_used = self.captured_guard_used
                 except Exception as e:
                     print(f"[Arena] 배틀 데이터 전달 실패: {e}")
                     import traceback
@@ -8406,6 +8455,17 @@ class ColosseumsArena:
         except Exception:
             self.result_dialogue_line = None
 
+        # 생포 호위무사 사용 여부 동기화
+        try:
+            import pingfighter
+            _cg_used = getattr(pingfighter, 'arena_captured_guard_used', False)
+            if _cg_used and self.captured_guard is not None:
+                self.captured_guard_used = True
+                self.captured_guard = None
+                print("[CAPTURE] 생포 호위무사 사용 완료 → 슬롯 비움")
+        except Exception:
+            pass
+
         # 전투 종료 후 대기실 BGM 복구
         try:
             import bgm_manager
@@ -8780,7 +8840,7 @@ class ColosseumsArena:
                         # 결승 패배 → 바로 종료
                         self.state = TournamentState.TOURNAMENT_END
                 else:
-                    # 승리 - 호위무사 생포 알림 후 대진표 애니메이션
+                    # 승리 - 호위무사 생포 미니게임 시작
                     bet_hero_loser = None
                     if self.bet_hero and self.selected_match:
                         match = self.selected_match
@@ -8788,23 +8848,14 @@ class ColosseumsArena:
                             bet_hero_loser = match.hero1 if match.winner == match.hero2 else match.hero2
 
                     if bet_hero_loser:
-                        # 호위무사 생포 알림 먼저 표시
-                        self.guard_notify_hero = bet_hero_loser
-                        self.guard_notify_owner = self.bet_hero
-                        self.guard_notify_timer = 0.0
-                        self.guard_notify_progress = 0.0
-                        # 생포한 호위무사를 즉시 guard_warrior_map에 추가
-                        # (호위무사 선택 화면에서 참조하기 위함)
-                        bet_id = self.bet_hero["id"]
-                        if bet_id not in self.guard_warrior_map:
-                            self.guard_warrior_map[bet_id] = []
-                        if bet_hero_loser not in self.guard_warrior_map[bet_id]:
-                            self.guard_warrior_map[bet_id].append(bet_hero_loser)
-                        self.guard_notify_total = len(self.guard_warrior_map[bet_id])
-                        self.state = TournamentState.GUARD_NOTIFY
+                        # guard_warrior_map 추가는 생포 성공 시에만 처리
+                        self._start_capture_minigame(bet_hero_loser)
                     else:
                         # 호위무사 없으면 퍽 선택으로
                         self._start_perk_select()
+
+        elif self.state == TournamentState.CAPTURE_MINIGAME:
+            self._update_capture_minigame(dt)
 
         elif self.state == TournamentState.GUARD_NOTIFY:
             # 호위무사 생포 알림 (2.5초)
@@ -8935,6 +8986,8 @@ class ColosseumsArena:
                     return False  # 호위무사 선택 중에는 나갈 수 없음
                 if self.state == TournamentState.GUARD_NOTIFY:
                     return False  # 생포 알림 중에는 나갈 수 없음
+                if self.state == TournamentState.CAPTURE_MINIGAME:
+                    return False  # 생포 미니게임 중에는 나갈 수 없음
                 if self.state in (TournamentState.MATCH_REVEAL, TournamentState.HERO_SELECT,
                                   TournamentState.SKILL_REVEAL, TournamentState.PRISON_SELECT,
                                   TournamentState.GUARD_SKILL_REVEAL):
@@ -8947,6 +9000,17 @@ class ColosseumsArena:
                     self.skill_manager.reset_active_skills_for_round()
                 self.exit_requested = True
                 return True
+
+            # 생포 미니게임 키보드 처리
+            if self.state == TournamentState.CAPTURE_MINIGAME:
+                if event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                    if self.capture_phase == "aiming":
+                        self._capture_throw()
+                    elif self.capture_phase == "result":
+                        # 교체 선택 UI가 활성 상태가 아닐 때만 진행
+                        if not self._capture_needs_swap():
+                            self._advance_from_capture()
+                return False
 
             # 배틀 중 배속 변경 (1x / 1.5x / 2x / 3x)
             if self.state == TournamentState.BATTLE:
@@ -9029,6 +9093,11 @@ class ColosseumsArena:
             close_btn = getattr(self, '_hero_preview_close_btn_rect', None)
             if close_btn and close_btn.collidepoint(mx, my):
                 self.state = self._hero_preview_return_state
+            return
+
+        # 호위무사 생포 미니게임 클릭 처리
+        if self.state == TournamentState.CAPTURE_MINIGAME:
+            self._handle_capture_click(mx, my)
             return
 
         # 호위무사 생포 알림 중 클릭 (하이라이트 클립 있을 때만)
@@ -10086,6 +10155,8 @@ class ColosseumsArena:
             self._draw_battle_intro()
         elif self.state == TournamentState.BATTLE:
             self._draw_battle()
+        elif self.state == TournamentState.CAPTURE_MINIGAME:
+            self._draw_capture_minigame()
         elif self.state == TournamentState.GUARD_NOTIFY:
             self._draw_guard_notification()
         elif self.state == TournamentState.HIGHLIGHT_REPLAY:
@@ -16073,6 +16144,650 @@ class ColosseumsArena:
         "onimaru": "지옥의 불꽃", "maria": "인형조종", "ignis": "드래곤 브레스",
         "gear": "스팀배리어", "kurokage": "그림자분신",
     }
+
+    # ===================================================================
+    # ============ 호위무사 생포 미니게임 (CAPTURE_MINIGAME) ============
+    # ===================================================================
+
+    # 게이지 구간 상수
+    _CAP_ZONE_PERFECT = (0.42, 0.58)    # 중앙 16%
+    _CAP_ZONE_GOOD_L  = (0.25, 0.42)    # 좌측 GOOD
+    _CAP_ZONE_GOOD_R  = (0.58, 0.75)    # 우측 GOOD
+    _CAP_GAUGE_SPEEDS = {                 # 라운드별 속도
+        "8강": 1.8,
+        "4강": 2.8,
+    }
+    _CAP_TIMEOUT = {"8강": 8.0, "4강": 6.0}
+
+    def _start_capture_minigame(self, target_hero):
+        """호위무사 생포 미니게임 시작"""
+        self.capture_target = target_hero
+        self.capture_phase = "intro"
+        self.capture_timer = 0.0
+        self.capture_result = None
+        self.capture_gauge_pos = 0.0
+        self.capture_gauge_direction = 1
+        round_name = self.current_round.value if self.current_round else "8강"
+        self.capture_gauge_speed = self._CAP_GAUGE_SPEEDS.get(round_name, 1.8)
+        self.capture_hero_x = 380.0
+        self.capture_hero_dir = 1
+        self.capture_hero_speed = 80.0 + (40.0 if round_name == "4강" else 0.0)
+        self.capture_dust_particles = []
+        # 그물 초기화
+        self.capture_net_active = False
+        self.capture_net_deployed = False
+        self.capture_net_shape = None
+        self.capture_net_rope_points = []
+        self.capture_net_phase = 0.0
+        self.capture_net_deploy_timer = 0.0
+        self.capture_net_deploy_max = 1.0
+        # 교체 선택 초기화
+        self.capture_swap_hover = -1
+        # 상태 전환
+        self.state = TournamentState.CAPTURE_MINIGAME
+        # 사운드
+        _load_prison_open_sound()
+        if _prison_open_sound:
+            try:
+                _prison_open_sound.play()
+            except Exception:
+                pass
+        print(f"[CAPTURE] 생포 미니게임 시작: {target_hero.get('name', '?')} (라운드: {round_name})")
+
+    def _update_capture_minigame(self, dt):
+        """미니게임 업데이트 (update()에서 호출)"""
+        self.capture_timer += dt
+
+        if self.capture_phase == "intro":
+            # 1.5초 인트로
+            if self.capture_timer >= 1.5:
+                self.capture_phase = "aiming"
+                self.capture_timer = 0.0
+
+        elif self.capture_phase == "aiming":
+            # 게이지 좌우 왕복
+            self.capture_gauge_pos += self.capture_gauge_speed * dt * self.capture_gauge_direction
+            if self.capture_gauge_pos >= 1.0:
+                self.capture_gauge_pos = 1.0
+                self.capture_gauge_direction = -1
+            elif self.capture_gauge_pos <= 0.0:
+                self.capture_gauge_pos = 0.0
+                self.capture_gauge_direction = 1
+            # 도주 영웅 좌우 이동
+            self.capture_hero_x += self.capture_hero_speed * dt * self.capture_hero_dir
+            if self.capture_hero_x > 600:
+                self.capture_hero_dir = -1
+            elif self.capture_hero_x < 160:
+                self.capture_hero_dir = 1
+            # 먼지 파티클
+            if int(self.capture_timer * 30) % 3 == 0:
+                import random
+                self.capture_dust_particles.append({
+                    "x": self.capture_hero_x + random.uniform(-10, 10),
+                    "y": 210.0,
+                    "vx": random.uniform(-20, 20),
+                    "vy": random.uniform(-40, -10),
+                    "life": 0.6,
+                    "max_life": 0.6,
+                })
+            # 파티클 업데이트
+            for p in self.capture_dust_particles:
+                p["x"] += p["vx"] * dt
+                p["y"] += p["vy"] * dt
+                p["life"] -= dt
+            self.capture_dust_particles = [p for p in self.capture_dust_particles if p["life"] > 0]
+            # 타임아웃
+            round_name = self.current_round.value if self.current_round else "8강"
+            timeout = self._CAP_TIMEOUT.get(round_name, 8.0)
+            if self.capture_timer >= timeout:
+                self.capture_result = "miss"
+                self.capture_phase = "throwing"
+                self.capture_timer = 0.0
+                self._launch_capture_net()
+
+        elif self.capture_phase == "throwing":
+            # 그물 투사체 이동
+            if self.capture_net_active and not self.capture_net_deployed:
+                self.capture_net_x += self.capture_net_vx * dt * 60
+                self.capture_net_y += self.capture_net_vy * dt * 60
+                # 밧줄 궤적
+                self.capture_net_rope_points.append((self.capture_net_x, self.capture_net_y))
+                if len(self.capture_net_rope_points) > 18:
+                    self.capture_net_rope_points.pop(0)
+                # 도달 판정 (목표 Y 근처)
+                if self.capture_net_y <= 200:
+                    self.capture_net_deployed = True
+                    self.capture_net_deploy_timer = 0.0
+                    w, h = 200, 120
+                    self.capture_net_shape = self._generate_capture_net_shape((w, h))
+                    # 성공 시 영웅 위치에 그물, 실패 시 빗나간 위치
+                    if self.capture_result in ("perfect", "good"):
+                        self.capture_net_x = self.capture_hero_x
+                    else:
+                        # 빗나감 - 영웅 반대편
+                        offset = 150 if self.capture_hero_dir > 0 else -150
+                        self.capture_net_x = self.capture_hero_x + offset
+                    self.capture_net_y = 180
+                    _load_grab_sound()
+                    if self.capture_result in ("perfect", "good") and _grab_sound:
+                        try:
+                            _grab_sound.play()
+                        except Exception:
+                            pass
+            # 그물 전개 후 애니메이션
+            if self.capture_net_deployed:
+                self.capture_net_deploy_timer += dt
+                self.capture_net_phase += 0.12
+                if self.capture_net_deploy_timer >= self.capture_net_deploy_max:
+                    self.capture_phase = "result"
+                    self.capture_timer = 0.0
+                    # 성공 시 골드 보너스 + guard_warrior_map 추가
+                    if self.capture_result in ("perfect", "good"):
+                        self._process_capture_success()
+                    else:
+                        self._process_capture_fail()
+            # 도주 영웅: 실패 시 계속 이동
+            if self.capture_result == "miss" and not self.capture_net_deployed:
+                self.capture_hero_x += self.capture_hero_speed * dt * self.capture_hero_dir
+
+        elif self.capture_phase == "result":
+            # 결과 표시 (교체 선택이 필요없으면 2.5초 후 자동 진행)
+            if not self._capture_needs_swap() and self.capture_timer >= 2.5:
+                self._advance_from_capture()
+
+    def _capture_throw(self):
+        """스페이스 입력 - 게이지 판정 + 그물 발사"""
+        if self.capture_phase != "aiming":
+            return
+        pos = self.capture_gauge_pos
+        p = self._CAP_ZONE_PERFECT
+        gl = self._CAP_ZONE_GOOD_L
+        gr = self._CAP_ZONE_GOOD_R
+        if p[0] <= pos <= p[1]:
+            self.capture_result = "perfect"
+        elif gl[0] <= pos <= gl[1] or gr[0] <= pos <= gr[1]:
+            self.capture_result = "good"
+        else:
+            self.capture_result = "miss"
+        self.capture_phase = "throwing"
+        self.capture_timer = 0.0
+        self._launch_capture_net()
+        # 사운드
+        _load_select_swing_sound()
+        if _select_swing_sound:
+            try:
+                _select_swing_sound.play()
+            except Exception:
+                pass
+        print(f"[CAPTURE] 판정: {self.capture_result} (gauge={pos:.3f})")
+
+    def _launch_capture_net(self):
+        """그물 투사체 발사"""
+        origin_x = 380.0
+        origin_y = 650.0
+        target_x = self.capture_hero_x
+        target_y = 180.0
+        dx = target_x - origin_x
+        dy = target_y - origin_y
+        dist = math.hypot(dx, dy) or 1
+        speed = 16.0
+        self.capture_net_active = True
+        self.capture_net_x = origin_x
+        self.capture_net_y = origin_y
+        self.capture_net_vx = (dx / dist) * speed
+        self.capture_net_vy = (dy / dist) * speed
+        self.capture_net_rope_points = [(origin_x, origin_y)]
+        self.capture_net_deployed = False
+        self.capture_net_origin = (origin_x, origin_y)
+
+    def _process_capture_success(self):
+        """생포 성공 처리 - guard_warrior_map 추가 + captured_guard 저장"""
+        target = self.capture_target
+        if not target:
+            return
+        # guard_warrior_map에 추가 (여기서만!)
+        bet_id = self.bet_hero["id"] if self.bet_hero else ""
+        if bet_id not in self.guard_warrior_map:
+            self.guard_warrior_map[bet_id] = []
+        if target not in self.guard_warrior_map[bet_id]:
+            self.guard_warrior_map[bet_id].append(target)
+        # PERFECT 보너스 골드
+        if self.capture_result == "perfect":
+            self.accumulated_prize += 200
+        # captured_guard 슬롯 (이미 보유 시 교체 선택은 result 페이즈에서 처리)
+        if self.captured_guard is None or self.captured_guard_used:
+            self.captured_guard = dict(target)
+            self.captured_guard_used = False
+        # (이미 captured_guard 보유 시에는 result 페이즈에서 교체 UI 표시)
+        print(f"[CAPTURE] 생포 성공! {target.get('name', '?')} → guard_warrior_map 추가")
+
+    def _process_capture_fail(self):
+        """생포 실패 처리 - guard_warrior_map에 추가하지 않음"""
+        target = self.capture_target
+        print(f"[CAPTURE] 생포 실패! {target.get('name', '?') if target else '?'} 도주")
+
+    def _capture_needs_swap(self):
+        """교체 선택이 필요한지 (이미 포로 보유 + 새 생포 성공)"""
+        return (self.capture_result in ("perfect", "good")
+                and self.captured_guard is not None
+                and not self.captured_guard_used
+                and self.capture_target is not None
+                and self.captured_guard.get("id") != self.capture_target.get("id"))
+
+    def _swap_captured_guard(self, use_new):
+        """생포 호위무사 교체"""
+        if use_new:
+            # 새 포로 → captured_guard
+            self.captured_guard = dict(self.capture_target)
+            self.captured_guard_used = False
+        # use_new=False → 기존 유지, 새 영웅은 guard_warrior_map에만 남음
+        self._advance_from_capture()
+
+    def _advance_from_capture(self):
+        """미니게임 완료 → 다음 상태로 전환"""
+        if self.capture_result in ("perfect", "good"):
+            # 성공 → GUARD_NOTIFY 표시
+            target = self.capture_target
+            self.guard_notify_hero = target
+            self.guard_notify_owner = self.bet_hero
+            self.guard_notify_timer = 0.0
+            self.guard_notify_progress = 0.0
+            bet_id = self.bet_hero["id"] if self.bet_hero else ""
+            self.guard_notify_total = len(self.guard_warrior_map.get(bet_id, []))
+            self.state = TournamentState.GUARD_NOTIFY
+        else:
+            # 실패 → 바로 퍽 선택
+            self._start_perk_select()
+
+    def _handle_capture_click(self, mx, my):
+        """생포 미니게임 클릭 처리"""
+        if self.capture_phase == "aiming":
+            self._capture_throw()
+        elif self.capture_phase == "result":
+            if self._capture_needs_swap():
+                # 교체 UI 버튼 클릭 판정
+                screen_w = self.screen.get_width()
+                btn_y = 480
+                btn_w, btn_h = 160, 44
+                # "교체하기" 버튼 (왼쪽)
+                swap_rect = pygame.Rect(screen_w // 2 - btn_w - 20, btn_y, btn_w, btn_h)
+                # "유지하기" 버튼 (오른쪽)
+                keep_rect = pygame.Rect(screen_w // 2 + 20, btn_y, btn_w, btn_h)
+                if swap_rect.collidepoint(mx, my):
+                    self._swap_captured_guard(use_new=True)
+                elif keep_rect.collidepoint(mx, my):
+                    self._swap_captured_guard(use_new=False)
+            else:
+                self._advance_from_capture()
+
+    # ============ 생포 미니게임 렌더링 ============
+
+    def _draw_capture_minigame(self):
+        """미니게임 전체 렌더링"""
+        self.screen.fill(ET["bg_dark"])
+        # 반투명 오버레이
+        overlay = pygame.Surface(self.screen.get_size(), pygame.SRCALPHA)
+        overlay.fill((*ET["overlay_warm"], 80))
+        self.screen.blit(overlay, (0, 0))
+
+        screen_w = self.screen.get_width()
+
+        if self.capture_phase == "intro":
+            self._draw_capture_intro(screen_w)
+        elif self.capture_phase == "aiming":
+            self._draw_capture_aiming(screen_w)
+        elif self.capture_phase == "throwing":
+            self._draw_capture_throwing(screen_w)
+        elif self.capture_phase == "result":
+            self._draw_capture_result_phase(screen_w)
+
+    def _draw_capture_intro(self, screen_w):
+        """인트로 페이즈: '생포 기회!' 타이틀 + 도주 영웅 등장"""
+        progress = min(1.0, self.capture_timer / 1.5)
+        # 타이틀 슬라이드 인
+        title_y = int(80 * progress)
+        font = self.fonts.get("title") or self.fonts.get("korean_large")
+        if font:
+            surf, rect = font.render("생포 기회!", ET["gold_bright"])
+            if surf:
+                x = screen_w // 2 - rect.width // 2
+                self.screen.blit(surf, (x, title_y))
+        # 도주 영웅 등장 (페이드 인)
+        alpha = int(255 * progress)
+        self._draw_capture_hero_sprite(self.capture_hero_x, 180, alpha)
+        # 대상 이름
+        name = self.capture_target.get("name", "???") if self.capture_target else "???"
+        name_font = self.fonts.get("korean_medium") or self.fonts.get("korean_small")
+        if name_font:
+            ns, nr = name_font.render(name, ET["text_body"])
+            if ns:
+                self.screen.blit(ns, (screen_w // 2 - nr.width // 2, 240))
+        # 안내 텍스트
+        hint_font = self.fonts.get("korean_small")
+        if hint_font and progress > 0.8:
+            hs, hr = hint_font.render("도망치는 호위무사를 그물로 잡아라!", (200, 200, 180))
+            if hs:
+                self.screen.blit(hs, (screen_w // 2 - hr.width // 2, 280))
+
+    def _draw_capture_aiming(self, screen_w):
+        """조준 페이즈: 게이지 + 도주 영웅"""
+        # 도주 영웅
+        self._draw_capture_hero_sprite(self.capture_hero_x, 180, 255)
+        # 먼지 파티클
+        for p in self.capture_dust_particles:
+            alpha = int(150 * (p["life"] / p["max_life"]))
+            r = int(3 * (p["life"] / p["max_life"]))
+            if r > 0:
+                surf = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(surf, (180, 160, 130, alpha), (r, r), r)
+                self.screen.blit(surf, (int(p["x"]) - r, int(p["y"]) - r))
+        # 대상 이름
+        name = self.capture_target.get("name", "???") if self.capture_target else "???"
+        name_font = self.fonts.get("korean_medium") or self.fonts.get("korean_small")
+        if name_font:
+            ns, nr = name_font.render(name, ET["text_body"])
+            if ns:
+                self.screen.blit(ns, (screen_w // 2 - nr.width // 2, 240))
+        # 타이밍 게이지
+        gauge_w, gauge_h = 400, 32
+        gauge_x = screen_w // 2 - gauge_w // 2
+        gauge_y = 500
+        self._draw_capture_gauge(gauge_x, gauge_y, gauge_w, gauge_h)
+        # 안내
+        hint_font = self.fonts.get("korean_small")
+        if hint_font:
+            hs, hr = hint_font.render("스페이스바로 그물을 던져라!", (220, 220, 200))
+            if hs:
+                self.screen.blit(hs, (screen_w // 2 - hr.width // 2, 545))
+        # 타임아웃 표시
+        round_name = self.current_round.value if self.current_round else "8강"
+        timeout = self._CAP_TIMEOUT.get(round_name, 8.0)
+        remaining = max(0, timeout - self.capture_timer)
+        if hint_font:
+            ts, tr = hint_font.render(f"남은 시간: {remaining:.1f}초", (255, 180, 100) if remaining < 3 else (180, 180, 160))
+            if ts:
+                self.screen.blit(ts, (screen_w // 2 - tr.width // 2, 570))
+        # 발사 원점 (플레이어 위치 표시)
+        pygame.draw.rect(self.screen, ET["gold_bright"], (370, 640, 20, 10))
+
+    def _draw_capture_throwing(self, screen_w):
+        """투척 페이즈: 그물 투사체 비행 + 포박/빗나감"""
+        # 도주 영웅
+        if self.capture_result == "miss" and not self.capture_net_deployed:
+            # 실패 시 영웅 계속 도주
+            self._draw_capture_hero_sprite(self.capture_hero_x, 180, 255)
+        elif self.capture_result in ("perfect", "good"):
+            # 성공 시 영웅 위치 고정 (포박 후)
+            if self.capture_net_deployed:
+                self._draw_capture_hero_sprite(self.capture_hero_x, 180, 255)
+            else:
+                self._draw_capture_hero_sprite(self.capture_hero_x, 180, 255)
+        else:
+            self._draw_capture_hero_sprite(self.capture_hero_x, 180, 255)
+
+        # 그물 투사체
+        if self.capture_net_active and not self.capture_net_deployed:
+            self._draw_capture_net_projectile()
+        # 전개된 그물
+        if self.capture_net_deployed:
+            success = self.capture_result in ("perfect", "good")
+            self._draw_capture_deployed_net(
+                self.capture_net_x, self.capture_net_y, success)
+
+    def _draw_capture_result_phase(self, screen_w):
+        """결과 페이즈: PERFECT/GOOD/MISS + 교체 선택"""
+        # 배경에 영웅 + 그물 유지
+        if self.capture_result in ("perfect", "good"):
+            self._draw_capture_hero_sprite(self.capture_hero_x, 180, 255)
+            self._draw_capture_deployed_net(self.capture_net_x, self.capture_net_y, True)
+        # 결과 텍스트
+        font = self.fonts.get("title") or self.fonts.get("korean_large")
+        if self.capture_result == "perfect":
+            result_text = "PERFECT!"
+            result_color = ET["gold_bright"]
+        elif self.capture_result == "good":
+            result_text = "생포 성공!"
+            result_color = ET["malachite"]
+        else:
+            result_text = "생포 실패..."
+            result_color = ET["btn_danger"]
+        if font:
+            surf, rect = font.render(result_text, result_color)
+            if surf:
+                self.screen.blit(surf, (screen_w // 2 - rect.width // 2, 330))
+        # 보너스 골드 (PERFECT)
+        sub_font = self.fonts.get("korean_medium") or self.fonts.get("korean_small")
+        if self.capture_result == "perfect" and sub_font:
+            gs, gr = sub_font.render("+200G 보너스!", (255, 215, 50))
+            if gs:
+                self.screen.blit(gs, (screen_w // 2 - gr.width // 2, 380))
+        elif self.capture_result == "miss" and sub_font:
+            gs, gr = sub_font.render("호위무사가 도주했다!", (200, 150, 120))
+            if gs:
+                self.screen.blit(gs, (screen_w // 2 - gr.width // 2, 380))
+
+        # 교체 선택 UI (이미 포로 보유 시)
+        if self._capture_needs_swap():
+            self._draw_capture_swap_ui(screen_w)
+        else:
+            # 진행 안내
+            hint_font = self.fonts.get("korean_small")
+            if hint_font and self.capture_timer > 0.8:
+                hs, hr = hint_font.render("클릭하여 계속", (160, 160, 140))
+                if hs:
+                    self.screen.blit(hs, (screen_w // 2 - hr.width // 2, 600))
+
+    def _draw_capture_swap_ui(self, screen_w):
+        """교체 선택 UI (이미 포로 보유 + 새 생포 성공)"""
+        sub_font = self.fonts.get("korean_small")
+        if sub_font:
+            # 설명
+            old_name = self.captured_guard.get("name", "???") if self.captured_guard else "???"
+            new_name = self.capture_target.get("name", "???") if self.capture_target else "???"
+            ts, tr = sub_font.render(f"기존 포로: {old_name}  /  신규 포로: {new_name}", (200, 200, 180))
+            if ts:
+                self.screen.blit(ts, (screen_w // 2 - tr.width // 2, 440))
+        # 버튼
+        btn_y = 480
+        btn_w, btn_h = 160, 44
+        swap_rect = pygame.Rect(screen_w // 2 - btn_w - 20, btn_y, btn_w, btn_h)
+        keep_rect = pygame.Rect(screen_w // 2 + 20, btn_y, btn_w, btn_h)
+        # 호버 체크
+        mx, my = pygame.mouse.get_pos()
+        swap_hover = swap_rect.collidepoint(mx, my)
+        keep_hover = keep_rect.collidepoint(mx, my)
+        # 교체하기 버튼
+        swap_color = ET["gold_bright"] if swap_hover else ET["card_border"]
+        pygame.draw.rect(self.screen, swap_color, swap_rect, 0 if swap_hover else 2, border_radius=6)
+        if swap_hover:
+            pygame.draw.rect(self.screen, (0, 0, 0), swap_rect.inflate(-4, -4), 0, border_radius=4)
+        btn_font = self.fonts.get("korean_small")
+        if btn_font:
+            bs, br = btn_font.render("교체하기", ET["gold_bright"] if swap_hover else ET["text_body"])
+            if bs:
+                self.screen.blit(bs, (swap_rect.centerx - br.width // 2, swap_rect.centery - br.height // 2))
+        # 유지하기 버튼
+        keep_color = ET["malachite"] if keep_hover else ET["card_border"]
+        pygame.draw.rect(self.screen, keep_color, keep_rect, 0 if keep_hover else 2, border_radius=6)
+        if keep_hover:
+            pygame.draw.rect(self.screen, (0, 0, 0), keep_rect.inflate(-4, -4), 0, border_radius=4)
+        if btn_font:
+            ks, kr = btn_font.render("유지하기", ET["malachite"] if keep_hover else ET["text_body"])
+            if ks:
+                self.screen.blit(ks, (keep_rect.centerx - kr.width // 2, keep_rect.centery - kr.height // 2))
+
+    def _draw_capture_hero_sprite(self, x, y, alpha=255):
+        """도주 영웅 스프라이트 (간단한 컬러 박스 + 이름)"""
+        hero = self.capture_target
+        if not hero:
+            return
+        color = hero.get("color", (200, 200, 200))
+        w, h = 40, 30
+        surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        surf.fill((*color, alpha))
+        # 테두리
+        pygame.draw.rect(surf, (255, 255, 255, min(alpha, 180)), (0, 0, w, h), 2)
+        self.screen.blit(surf, (int(x) - w // 2, int(y) - h // 2))
+        # 도주 방향 표시 (작은 삼각형)
+        tri_dir = self.capture_hero_dir
+        tri_x = int(x) + (w // 2 + 5) * tri_dir
+        tri_y = int(y)
+        pts = [
+            (tri_x, tri_y - 5),
+            (tri_x + 8 * tri_dir, tri_y),
+            (tri_x, tri_y + 5),
+        ]
+        pygame.draw.polygon(self.screen, (*color, min(alpha, 200)), pts)
+
+    def _draw_capture_gauge(self, x, y, width, height):
+        """타이밍 게이지 렌더링"""
+        gauge_surf = pygame.Surface((width, height), pygame.SRCALPHA)
+        # MISS 구간 (빨강)
+        miss_l_w = int(width * 0.25)
+        miss_r_x = int(width * 0.75)
+        pygame.draw.rect(gauge_surf, (*ET["btn_danger"], 180), (0, 0, miss_l_w, height))
+        pygame.draw.rect(gauge_surf, (*ET["btn_danger"], 180), (miss_r_x, 0, width - miss_r_x, height))
+        # GOOD 구간 (초록)
+        good_l_start = int(width * 0.25)
+        good_l_end = int(width * 0.42)
+        good_r_start = int(width * 0.58)
+        good_r_end = int(width * 0.75)
+        pygame.draw.rect(gauge_surf, (*ET["malachite"], 180), (good_l_start, 0, good_l_end - good_l_start, height))
+        pygame.draw.rect(gauge_surf, (*ET["malachite"], 180), (good_r_start, 0, good_r_end - good_r_start, height))
+        # PERFECT 구간 (금색)
+        perf_start = int(width * 0.42)
+        perf_end = int(width * 0.58)
+        pygame.draw.rect(gauge_surf, (*ET["gold_bright"], 200), (perf_start, 0, perf_end - perf_start, height))
+        # 구간 경계선
+        for bx in [int(width * 0.25), int(width * 0.42), int(width * 0.58), int(width * 0.75)]:
+            pygame.draw.line(gauge_surf, (255, 255, 255, 100), (bx, 0), (bx, height), 1)
+        # 테두리
+        pygame.draw.rect(gauge_surf, ET["card_border"], (0, 0, width, height), 2)
+        # 인디케이터 (세로 막대)
+        indicator_x = int(self.capture_gauge_pos * width)
+        indicator_x = max(2, min(width - 2, indicator_x))
+        glow_alpha = int(200 + 55 * abs(math.sin(self.capture_timer * 8)))
+        glow_alpha = min(255, glow_alpha)
+        # 글로우 (넓은 반투명)
+        glow_w = 12
+        glow_rect = pygame.Rect(indicator_x - glow_w // 2, 0, glow_w, height)
+        pygame.draw.rect(gauge_surf, (255, 255, 255, 60), glow_rect)
+        # 메인 인디케이터
+        pygame.draw.line(gauge_surf, (255, 255, 255, glow_alpha),
+                         (indicator_x, 0), (indicator_x, height), 3)
+        # 구간 라벨
+        label_font = self.fonts.get("korean_tiny") or self.fonts.get("korean_small")
+        if label_font:
+            # PERFECT 라벨
+            ps, pr = label_font.render("★", ET["gold_bright"])
+            if ps:
+                px = (perf_start + perf_end) // 2 - pr.width // 2
+                gauge_surf.blit(ps, (px, height // 2 - pr.height // 2))
+
+        self.screen.blit(gauge_surf, (x, y))
+
+    def _draw_capture_net_projectile(self):
+        """그물 투사체 + 밧줄 궤적 렌더링"""
+        nx, ny = int(self.capture_net_x), int(self.capture_net_y)
+        origin = self.capture_net_origin
+        # 밧줄
+        rope_pts = [(int(origin[0]), int(origin[1]))] + \
+                   [(int(px), int(py)) for px, py in self.capture_net_rope_points]
+        if len(rope_pts) >= 2:
+            for i in range(len(rope_pts) - 1):
+                thickness = max(1, 4 - i // 4)
+                pygame.draw.line(self.screen, (210, 180, 140), rope_pts[i], rope_pts[i + 1], thickness)
+        # 작살 머리 (삼각형)
+        vx = self.capture_net_vx
+        vy = self.capture_net_vy
+        heading = math.atan2(vy, vx) if (vx or vy) else -math.pi / 2
+        tip = (nx + int(math.cos(heading) * 14), ny + int(math.sin(heading) * 14))
+        left = (nx + int(math.cos(heading + math.pi * 0.75) * 7),
+                ny + int(math.sin(heading + math.pi * 0.75) * 7))
+        right = (nx + int(math.cos(heading - math.pi * 0.75) * 7),
+                 ny + int(math.sin(heading - math.pi * 0.75) * 7))
+        pygame.draw.polygon(self.screen, (200, 220, 230), [tip, left, right])
+        # 몸체
+        shaft_rect = pygame.Rect(0, 0, 5, 14)
+        shaft_rect.center = (nx - int(math.cos(heading) * 5), ny - int(math.sin(heading) * 5))
+        pygame.draw.rect(self.screen, (130, 140, 150), shaft_rect)
+
+    def _draw_capture_deployed_net(self, x, y, success):
+        """전개된 그물 렌더링"""
+        if not self.capture_net_shape:
+            return
+        w, h = 200, 120
+        net_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+        phase = self.capture_net_phase
+        ratio = min(1.0, self.capture_net_deploy_timer / self.capture_net_deploy_max)
+
+        cx, cy = w / 2, h / 2
+        points = []
+        for px, py in self.capture_net_shape:
+            rel_x = px - cx
+            rel_y = py - cy
+            jitter_x = math.sin(phase + (px + py) * 0.03) * 3
+            jitter_y = math.cos(phase * 0.8 + (px + py) * 0.03) * 2
+            if success:
+                # 성공: 그물 조여짐
+                shrink = 0.95 - 0.15 * ratio
+                final_x = cx + rel_x * shrink + jitter_x
+                final_y = cy + rel_y * 0.7 + jitter_y
+            else:
+                # 실패: 용해
+                shrink = 1.0 - 0.5 * ratio
+                float_dy = ratio * 30
+                final_x = cx + rel_x * shrink + jitter_x + math.sin(phase * 1.5) * ratio * 8
+                final_y = cy + rel_y * (0.6 + 0.3 * (1 - ratio)) + jitter_y + float_dy
+            points.append((final_x, final_y))
+
+        if len(points) >= 3:
+            alpha = int(220 * (1 - ratio * 0.4) if success else 180 * (1 - ratio))
+            alpha = max(20, min(255, alpha))
+            fill_color = (95, 140, 180, int(alpha * 0.5))
+            outline_color = (210, 240, 255, alpha)
+            pygame.draw.polygon(net_surf, fill_color, points)
+            pygame.draw.polygon(net_surf, outline_color, points, 2)
+            # 메시 격자
+            self._draw_capture_mesh(net_surf, points, (175, 215, 245, int(alpha * 0.6)))
+
+        self.screen.blit(net_surf, (int(x) - w // 2, int(y) - h // 2))
+
+    def _generate_capture_net_shape(self, size):
+        """그물 유기적 형태 생성 (36포인트)"""
+        import random
+        w, h = size
+        cx, cy = w / 2, h / 2
+        rx, ry = w / 2, h / 2
+        points = []
+        seed = random.random()
+        for i in range(36):
+            angle = (i / 36) * math.tau
+            noise = math.sin(angle * 3 + seed * math.tau) * 0.18
+            noise += math.sin(angle * 7 + seed * 5) * 0.08
+            scale = 0.82 + noise
+            px = cx + math.cos(angle) * rx * scale
+            py = cy + math.sin(angle) * ry * scale
+            points.append((px, py))
+        return points
+
+    def _draw_capture_mesh(self, surface, hull_points, color):
+        """그물 격자 패턴"""
+        if len(hull_points) < 4:
+            return
+        cx = sum(p[0] for p in hull_points) / len(hull_points)
+        cy = sum(p[1] for p in hull_points) / len(hull_points)
+        # 스포크 (방사선)
+        step = max(2, len(hull_points) // 12)
+        for i in range(0, len(hull_points), step):
+            mid_x = (hull_points[i][0] + cx) / 2
+            mid_y = (hull_points[i][1] + cy) / 2
+            pygame.draw.aaline(surface, color, (cx, cy), (mid_x, mid_y))
+        # 현 (외곽 연결)
+        chord_step = max(3, len(hull_points) // 10)
+        for i in range(0, len(hull_points), chord_step):
+            j = (i + chord_step * 3) % len(hull_points)
+            pygame.draw.aaline(surface, color, hull_points[i], hull_points[j])
 
     def _start_guard_select(self):
         """호위무사 선택 화면 시작 (매 라운드 진출 시)"""

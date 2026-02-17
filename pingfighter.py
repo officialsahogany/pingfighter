@@ -8256,6 +8256,20 @@ def _fullscreen_flip():
             except Exception:
                 pass
 
+        # 🕸️ 생포 호위무사 1회용 소환 UI (좌측 필러)
+        if globals().get('arena_mode_enabled', False) and arena_captured_guard and not arena_captured_guard_used:
+            try:
+                _draw_captured_guard_ui(REAL_SCREEN)
+            except Exception:
+                pass
+        # 생포 호위무사 소환 연출 (배틀 중 내부 좌표)
+        if globals().get('arena_mode_enabled', False) and arena_captured_guard_active:
+            try:
+                _update_and_draw_captured_guard_summon(SCREEN)
+            except Exception as _cg_err:
+                print(f"[CapturedGuard] 소환 연출 오류: {_cg_err}")
+                arena_captured_guard_active = False
+
         # 좌표계 디버그 (F4 토글) - 히트박스 & 마우스 위치
         if COORDINATE_DEBUG_MODE:
             _draw_coordinate_debug(REAL_SCREEN)
@@ -19781,6 +19795,14 @@ arena_perk_skill_cd_mult_bottom = 1.0
 arena_perk_guard_cd_mult_top = 1.0   # 상단 호위무사쿨 배율
 arena_perk_guard_cd_mult_bottom = 1.0
 arena_guard_stance_mode = "attack"   # 호위무사 스탠스 ("attack" / "defense")
+# 생포된 호위무사 (1회용 소환)
+arena_captured_guard = None              # 생포된 영웅 dict
+arena_captured_guard_used = False        # 사용 여부
+arena_captured_guard_active = False      # 현재 소환 중
+arena_captured_guard_phase = None        # "entering" / "casting" / "exiting"
+arena_captured_guard_x = 0.0
+arena_captured_guard_y = 0.0
+arena_captured_guard_timer = 0.0
 arena_active_hero_perks = []         # TAB 표시용: 플레이어(하단) 영웅 보유 퍽 목록
 arena_active_enemy_perks = []        # 필러 표시용: 상대(상단) 영웅 보유 퍽 목록
 arena_perk_draw_icon_func = None     # 퍽 아이콘 그리기 함수 (ColosseumsArena._draw_perk_icon)
@@ -100267,6 +100289,22 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         globals().pop('_arena_pending_skill_selections', None)
         globals().pop('_arena_pending_both_skills', None)
 
+        # ★ 생포된 호위무사 (1회용 소환) 수신
+        global arena_captured_guard, arena_captured_guard_used
+        global arena_captured_guard_active, arena_captured_guard_phase
+        global arena_captured_guard_x, arena_captured_guard_y, arena_captured_guard_timer
+        arena_captured_guard = globals().pop('_arena_pending_captured_guard', None)
+        arena_captured_guard_used = globals().pop('_arena_pending_captured_guard_used', False)
+        arena_captured_guard_active = False
+        arena_captured_guard_phase = None
+        arena_captured_guard_x = 0.0
+        arena_captured_guard_y = 0.0
+        arena_captured_guard_timer = 0.0
+        if arena_captured_guard and not arena_captured_guard_used:
+            print(f"[CapturedGuard] 1회용 소환 가능: {arena_captured_guard.get('name', '?')}")
+        else:
+            print("[CapturedGuard] 1회용 소환 없음")
+
         # 신의심판 이벤트 활성화
         if animated_bg_stage30 is not None:
             animated_bg_stage30.judgment_enabled = True
@@ -117766,6 +117804,194 @@ def _update_arena_speed_btn_rects():
         arena_speed_btn_rects[mult] = pygame.Rect(rx, sy, rw, rh)
 
 
+# ============================================================
+# 🕸️ 생포 호위무사 1회용 소환 UI + 연출
+# ============================================================
+_captured_guard_btn_rect = None  # 소환 버튼 히트 영역 (REAL_SCREEN 좌표)
+
+def _draw_captured_guard_ui(surface):
+    """좌측 필러에 생포 호위무사 1회용 소환 버튼 표시"""
+    global _captured_guard_btn_rect
+    if not arena_captured_guard or arena_captured_guard_used:
+        _captured_guard_btn_rect = None
+        return
+    # 좌측 필러 하단 영역 (배속 버튼 위)
+    pil_x = 4
+    pil_y = int(GAME_OFFSET_Y + GAME_SCALED_HEIGHT * 0.52) if GAME_SCALED_HEIGHT > 0 else 390
+    icon_size = 44
+    btn_w, btn_h = icon_size + 8, icon_size + 24
+    btn_rect = pygame.Rect(pil_x, pil_y, btn_w, btn_h)
+    _captured_guard_btn_rect = btn_rect
+    # 배경
+    mx, my = _original_mouse_get_pos()
+    is_hover = btn_rect.collidepoint(mx, my)
+    bg_color = (60, 50, 35, 200) if is_hover else (40, 32, 22, 160)
+    bg_surf = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
+    bg_surf.fill(bg_color)
+    # 테두리
+    border_color = (255, 215, 50) if is_hover else (140, 115, 75)
+    pygame.draw.rect(bg_surf, border_color, (0, 0, btn_w, btn_h), 2, border_radius=4)
+    surface.blit(bg_surf, (pil_x, pil_y))
+    # 영웅 컬러 아이콘
+    hero_color = arena_captured_guard.get("color", (200, 200, 200))
+    icon_rect = pygame.Rect(pil_x + 4, pil_y + 4, icon_size, icon_size)
+    pygame.draw.rect(surface, hero_color, icon_rect, border_radius=3)
+    pygame.draw.rect(surface, (255, 255, 255, 180), icon_rect, 1, border_radius=3)
+    # "1회" 라벨
+    try:
+        import pygame.freetype
+        _cg_font = getattr(_draw_captured_guard_ui, '_font', None)
+        if _cg_font is None:
+            font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+            _cg_font = pygame.freetype.Font(font_path, 11)
+            _draw_captured_guard_ui._font = _cg_font
+        ts, tr = _cg_font.render("1회용", (255, 215, 50))
+        surface.blit(ts, (pil_x + btn_w // 2 - tr.width // 2, pil_y + icon_size + 6))
+    except Exception:
+        pass
+    # 호버 시 이름 툴팁
+    if is_hover:
+        name = arena_captured_guard.get("name", "???")
+        try:
+            _cg_font2 = getattr(_draw_captured_guard_ui, '_font2', None)
+            if _cg_font2 is None:
+                font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+                _cg_font2 = pygame.freetype.Font(font_path, 13)
+                _draw_captured_guard_ui._font2 = _cg_font2
+            ns, nr = _cg_font2.render(f"Q: {name} 소환", (255, 255, 220))
+            tip_x = pil_x + btn_w + 4
+            tip_y = pil_y + btn_h // 2 - nr.height // 2
+            # 툴팁 배경
+            tip_bg = pygame.Surface((nr.width + 10, nr.height + 6), pygame.SRCALPHA)
+            tip_bg.fill((30, 24, 16, 220))
+            surface.blit(tip_bg, (tip_x - 5, tip_y - 3))
+            surface.blit(ns, (tip_x, tip_y))
+        except Exception:
+            pass
+
+
+def _activate_captured_guard_summon():
+    """생포 호위무사 1회용 소환 활성화"""
+    global arena_captured_guard_active, arena_captured_guard_phase
+    global arena_captured_guard_x, arena_captured_guard_y, arena_captured_guard_timer
+    if not arena_captured_guard or arena_captured_guard_used or arena_captured_guard_active:
+        return
+    arena_captured_guard_active = True
+    arena_captured_guard_phase = "entering"
+    arena_captured_guard_x = -50.0  # 화면 왼쪽에서 시작
+    arena_captured_guard_y = 600.0  # 플레이어 진영 근처
+    arena_captured_guard_timer = 0.0
+    print(f"[CapturedGuard] 소환 시작! {arena_captured_guard.get('name', '?')}")
+
+
+def _update_and_draw_captured_guard_summon(screen):
+    """생포 호위무사 소환 연출 업데이트 + 렌더링"""
+    global arena_captured_guard_active, arena_captured_guard_phase
+    global arena_captured_guard_x, arena_captured_guard_y, arena_captured_guard_timer
+    global arena_captured_guard_used
+    dt = 1.0 / 60.0  # 60fps 가정
+    arena_captured_guard_timer += dt
+
+    if arena_captured_guard_phase == "entering":
+        # 0.8초에 걸쳐 왼쪽에서 게임 영역으로 진입
+        progress = min(1.0, arena_captured_guard_timer / 0.8)
+        # 이징 (ease-out)
+        eased = 1.0 - (1.0 - progress) ** 2
+        target_x = 200.0  # GAME_AREA_OFFSET_X + 120
+        arena_captured_guard_x = -50 + (target_x + 50) * eased
+        if progress >= 1.0:
+            arena_captured_guard_phase = "casting"
+            arena_captured_guard_timer = 0.0
+            # 스킬 발동
+            _trigger_captured_guard_skill()
+
+    elif arena_captured_guard_phase == "casting":
+        # 스킬 사용 후 1.5초 대기
+        if arena_captured_guard_timer >= 1.5:
+            arena_captured_guard_phase = "exiting"
+            arena_captured_guard_timer = 0.0
+
+    elif arena_captured_guard_phase == "exiting":
+        # 0.8초에 걸쳐 화면 밖으로 퇴장
+        progress = min(1.0, arena_captured_guard_timer / 0.8)
+        eased = progress ** 2  # ease-in
+        arena_captured_guard_x = 200.0 - (200.0 + 60) * eased
+        if progress >= 1.0:
+            arena_captured_guard_active = False
+            arena_captured_guard_phase = None
+            arena_captured_guard_used = True
+            print("[CapturedGuard] 소환 완료, 1회용 소진")
+            return
+
+    # 그리기 (내부 좌표계 SCREEN에)
+    hero = arena_captured_guard
+    if hero:
+        color = hero.get("color", (200, 200, 200))
+        x = int(arena_captured_guard_x)
+        y = int(arena_captured_guard_y)
+        # 패들 스프라이트 (40x30)
+        paddle_rect = pygame.Rect(x - 20, y - 15, 40, 30)
+        pygame.draw.rect(screen, color, paddle_rect, border_radius=4)
+        pygame.draw.rect(screen, (255, 255, 255), paddle_rect, 2, border_radius=4)
+        # 이름 (casting 중)
+        if arena_captured_guard_phase == "casting":
+            try:
+                import pygame.freetype
+                _summon_font = getattr(_update_and_draw_captured_guard_summon, '_font', None)
+                if _summon_font is None:
+                    font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+                    _summon_font = pygame.freetype.Font(font_path, 12)
+                    _update_and_draw_captured_guard_summon._font = _summon_font
+                name = hero.get("name", "???")
+                ns, nr = _summon_font.render(name, (255, 255, 220))
+                screen.blit(ns, (x - nr.width // 2, y - 30))
+            except Exception:
+                pass
+        # casting 상태에서 스킬 이펙트 표시 (간단한 원형 파동)
+        if arena_captured_guard_phase == "casting":
+            wave_r = int(30 + arena_captured_guard_timer * 80)
+            wave_alpha = max(0, int(180 - arena_captured_guard_timer * 120))
+            if wave_alpha > 0:
+                wave_surf = pygame.Surface((wave_r * 2, wave_r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(wave_surf, (*color, wave_alpha), (wave_r, wave_r), wave_r, 3)
+                screen.blit(wave_surf, (x - wave_r, y - wave_r))
+
+
+def _trigger_captured_guard_skill():
+    """생포 호위무사 스킬 발동 (기존 스킬 시스템 활용)"""
+    global arena_captured_guard
+    if not arena_captured_guard:
+        return
+    hero_id = arena_captured_guard.get("id", "")
+    # 투기장 호위무사 스킬 시스템으로 발동
+    try:
+        if arena_guard_system and hasattr(arena_guard_system, 'guard_skill_instances'):
+            skills = arena_guard_system.guard_skill_instances.get(hero_id)
+            if skills and len(skills) > 0:
+                import random
+                skill = random.choice(skills)
+                if hasattr(skill, 'activate'):
+                    skill.activate()
+                    print(f"[CapturedGuard] 스킬 발동: {hero_id}")
+                    return
+    except Exception as e:
+        print(f"[CapturedGuard] 스킬 발동 실패 (guard_system): {e}")
+    # 폴백: arena_skill_manager 사용
+    try:
+        if arena_skill_manager:
+            hero_skills = arena_skill_manager.get_hero_skills(hero_id)
+            if hero_skills:
+                import random
+                skill = random.choice(hero_skills)
+                if hasattr(skill, 'activate'):
+                    skill.activate()
+                    print(f"[CapturedGuard] 스킬 발동 (skill_manager): {hero_id}")
+                    return
+    except Exception as e:
+        print(f"[CapturedGuard] 스킬 발동 실패 (skill_manager): {e}")
+    print(f"[CapturedGuard] 스킬 발동 불가 - 스킬 인스턴스 없음: {hero_id}")
+
+
 def draw_arena_speed_buttons(surface):
     """투기장 배속 버튼 그리기 (>, >>, >>>, >>>>) + 호버 툴팁"""
     if not arena_mode_enabled:
@@ -133514,7 +133740,14 @@ def main(stage_num, new_boss_mode=False):
                     if _rect.collidepoint(_mx, _my):
                         arena_speed_multiplier = _mult
                         break
+                # 생포 호위무사 소환 버튼 클릭
+                if _captured_guard_btn_rect and _captured_guard_btn_rect.collidepoint(_mx, _my):
+                    _activate_captured_guard_summon()
             main._arena_mouse_pressed = _mb[0]
+            # Q키: 생포 호위무사 소환
+            if keys[pygame.K_q] and not getattr(main, '_arena_q_pressed', False):
+                _activate_captured_guard_summon()
+            main._arena_q_pressed = keys[pygame.K_q]
 
         # ] 키로 스크린샷 캡처 (필러 포함)
         global _screenshot_key_pressed
