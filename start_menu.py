@@ -920,6 +920,17 @@ def _draw_arena_emblem(
 
 def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
     """모드 선택 화면 - 스토리모드 vs 투기장."""
+    # 입장 버튼 클릭 사운드 재생
+    try:
+        import os as _os
+        _sp = ctx.resource_path(_os.path.join("sounds", "startbutton.wav"))
+        if _os.path.exists(_sp):
+            _snd = pygame.mixer.Sound(_sp)
+            _snd.set_volume(0.7)
+            _snd.play()
+    except Exception:
+        pass
+
     selected = 0  # 0=스토리, 1=투기장
     hover_scales = [1.0, 1.0]
     clock = pygame.time.Clock()
