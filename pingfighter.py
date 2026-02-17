@@ -7296,19 +7296,13 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
                 _sk_icon = get_skill_icon(getattr(_sk, 'skill_id', ''), 27)
             except Exception:
                 pass
-            # 발동 방식 텍스트
-            _sk_trigger_text = ""
-            _sk_trigger_color = (180, 180, 180)
+            # 발동 방식 텍스트 (호위무사는 모든 스킬 자동발동)
+            _sk_trigger_text = "자동발동"
+            _sk_trigger_color = (255, 180, 80)
             try:
                 from downtown.hero_skills import SkillTrigger
                 _sk_trigger = getattr(_sk, 'trigger', None)
-                if _sk_trigger == SkillTrigger.ON_BALL_HIT:
-                    _sk_trigger_text = "타격발동"
-                    _sk_trigger_color = (100, 200, 255)
-                elif _sk_trigger == SkillTrigger.ON_COOLDOWN:
-                    _sk_trigger_text = "자동발동"
-                    _sk_trigger_color = (255, 180, 80)
-                elif _sk_trigger == SkillTrigger.PASSIVE:
+                if _sk_trigger == SkillTrigger.PASSIVE:
                     _sk_trigger_text = "패시브"
                     _sk_trigger_color = (150, 255, 150)
             except Exception:
