@@ -2748,39 +2748,28 @@ class GuardWarriorSystem:
                 skill.current_cooldown -= dt
 
     def _any_skill_ready(self, guard_id):
-        """쿨다운 완료된 캐스팅 스킬이 있는지 확인 (ON_BALL_HIT 제외)"""
-        from downtown.hero_skills import SkillTrigger
+        """쿨다운 완료된 캐스팅 스킬이 있는지 확인 (호위무사는 모든 스킬 자동발동)"""
         skill_cds = self.guard_skill_cooldowns.get(guard_id, [])
         skills = self.skill_instances.get(guard_id, [])
         for i, cd in enumerate(skill_cds):
             if cd <= 0 and i < len(skills):
-                if getattr(skills[i], 'trigger', None) != SkillTrigger.ON_BALL_HIT:
-                    return True
+                return True
         return False
 
     def _select_ready_skill(self, guard_id, skills):
-        """쿨다운이 완료된 스킬 선택 (가장 오래 대기한 스킬 우선)
+        """쿨다운이 완료된 스킬 선택 (가장 오래 대기한 스킬 우선, 호위무사는 모든 스킬 자동발동)
 
         Returns: (skill_index, skill_instance)
         """
-        from downtown.hero_skills import SkillTrigger
         skill_cds = self.guard_skill_cooldowns.get(guard_id, [])
         if len(skill_cds) > 1 and len(skills) > 1:
-            # ON_BALL_HIT 스킬은 캐스팅 대상에서 제외 (공 충돌 시에만 발동)
             ready = [(i, skills[i]) for i in range(min(len(skills), len(skill_cds)))
-                     if skill_cds[i] <= 0
-                     and getattr(skills[i], 'trigger', None) != SkillTrigger.ON_BALL_HIT]
+                     if skill_cds[i] <= 0]
             if ready:
                 # 가장 오래 대기한(쿨다운이 가장 낮은) 스킬 선택
                 idx, skill = min(ready, key=lambda x: skill_cds[x[0]])
                 return idx, skill
-        # 폴백: ON_BALL_HIT 제외한 스킬 중 랜덤
-        castable = [(i, sk) for i, sk in enumerate(skills)
-                    if getattr(sk, 'trigger', None) != SkillTrigger.ON_BALL_HIT]
-        if castable:
-            idx, skill = random.choice(castable)
-            return idx, skill
-        # 모든 스킬이 ON_BALL_HIT이면 폴백
+        # 폴백: 랜덤 스킬
         idx = random.randrange(len(skills))
         return idx, skills[idx]
 
@@ -5089,9 +5078,6 @@ class GuardWarriorSystem:
                     self._guard_ball_cooldown = 0.3
                     return
 
-                # ON_BALL_HIT 스킬 발동 (바나나슬라이스 등)
-                if guard and self.skill_manager:
-                    self._trigger_ball_hit_skill(is_top, guard, ball, game_state)
                 return
 
     def _check_guard_patrol_ball_collision(self, ball, game_state):
@@ -5138,10 +5124,6 @@ class GuardWarriorSystem:
                     'guard_id': guard["id"] if guard else None,
                 }
                 self._guard_ball_cooldown = 0.15  # 연속 충돌 방지
-
-                # ON_BALL_HIT 스킬 발동 (바나나슬라이스 등)
-                if guard and self.skill_manager:
-                    self._trigger_ball_hit_skill(is_top, guard, ball, game_state)
                 return
 
         # --- 2번째 호위무사 (patrol2) 충돌 체크 ---
@@ -5179,9 +5161,6 @@ class GuardWarriorSystem:
                     'guard_id': guard["id"] if guard else None,
                 }
                 self._guard_ball_cooldown = 0.15
-
-                if guard and self.skill_manager:
-                    self._trigger_ball_hit_skill(is_top, guard, ball, game_state)
                 return
 
     def _trigger_ball_hit_skill(self, is_top, guard, ball, game_state):
