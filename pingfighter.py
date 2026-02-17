@@ -62499,6 +62499,13 @@ def handle_player(keys):
     # 좌우 이동은 공용 헬퍼로 처리하여 IME/레이아웃 변환과 스캔코드까지 포괄
     left_pressed_raw = is_move_left_pressed(keys)
     right_pressed_raw = is_move_right_pressed(keys)
+    # 🕸️ 포획 페이즈 active: AI/MOVE_EVENT 전부 무시, 실제 키보드만 사용
+    if arena_capture_phase == "active":
+        MOVE_EVENT_LEFT = False
+        MOVE_EVENT_RIGHT = False
+        _fresh_cap = pygame.key.get_pressed()
+        left_pressed_raw = bool(_fresh_cap[pygame.K_a]) or bool(_fresh_cap[pygame.K_LEFT])
+        right_pressed_raw = bool(_fresh_cap[pygame.K_d]) or bool(_fresh_cap[pygame.K_RIGHT])
     # 🛡️ 투기장 모드: 좌우 이동도 실제 키보드 입력 차단 (AI 스냅샷만 사용)
     # 단, 포획 페이즈 active 중에는 플레이어 직접 조종 허용
     if arena_mode_enabled and not player_ai_enabled and arena_capture_phase != "active":
