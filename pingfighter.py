@@ -118095,9 +118095,9 @@ def _fire_capture_net():
         return
     if arena_capture_phase != "active":
         return
-    # 플레이어 패들 위치에서 발사
-    px = globals().get('player_x', 380)
-    py = 700  # 플레이어 패들 Y 근처
+    # 플레이어 패들(하단 영웅) 위치에서 작살 발사
+    px = PLAYER.centerx if PLAYER else 380
+    py = PLAYER.top if PLAYER else 700
     arena_capture_net_x = float(px)
     arena_capture_net_y = float(py)
     arena_capture_net_speed = -14.0
@@ -118114,7 +118114,12 @@ def _fire_capture_net():
     print(f"[CAPTURE] 그물 발사! 잔여 {arena_capture_shots_left}발")
 
 def _update_arena_capture_phase(screen):
-    """포획 페이즈 업데이트 + 렌더링 (매 프레임 호출)"""
+    """포획 페이즈 업데이트 + 렌더링 (매 프레임 호출)
+    - 호위무사 퇴장, 기존 영웅 패들 그대로 사용
+    - 하단 영웅: 플레이어 A/D 키 조종 (handle_player)
+    - 상단 영웅: BOSS 패들을 도주 위치로 직접 이동
+    - 마우스 클릭: 하단 영웅에서 작살 발사
+    """
     global arena_capture_phase, arena_capture_timer, arena_capture_result_flag
     global arena_capture_net_active, arena_capture_net_x, arena_capture_net_y
     global arena_capture_flee_x, arena_capture_flee_y, arena_capture_flee_vx
@@ -118122,8 +118127,8 @@ def _update_arena_capture_phase(screen):
     global arena_capture_caught_anim, arena_capture_escape_anim
     global arena_capture_net_rope
     global arena_battle_result
-    import pygame as pygame  # 로컬 스코프에서 pygame 명시적 임포트
-    import pygame.freetype    # freetype 서브모듈도 미리 임포트
+    import pygame as pygame
+    import pygame.freetype
     import random as _cap_random
     import math as _cap_math
 
@@ -118138,25 +118143,48 @@ def _update_arena_capture_phase(screen):
     GAME_RIGHT = 680
     GAME_CENTER_X = 380
 
-    # 상대 영웅 색상/이름
+    # 상대 영웅 이름
     top_hero = arena_top_hero if arena_top_hero else {}
-    top_color = top_hero.get("color", (200, 80, 80))
     top_name = top_hero.get("name", "???")
-    # 내 영웅 색상
-    bot_hero = arena_bottom_hero if arena_bottom_hero else {}
-    bot_color = bot_hero.get("color", (80, 80, 200))
+
+    # ── 공통: 호위무사 퇴장 (매 프레임) ──
+    try:
+        if arena_guard_system:
+            arena_guard_system.phase_top = None
+            arena_guard_system.phase_bottom = None
+            arena_guard_system.active_top = None
+            arena_guard_system.active_bottom = None
+            if hasattr(arena_guard_system, '_patrol2_top'):
+                arena_guard_system._patrol2_top = None
+            if hasattr(arena_guard_system, '_patrol2_bottom'):
+                arena_guard_system._patrol2_bottom = None
+            if hasattr(arena_guard_system, '_charmed'):
+                arena_guard_system._charmed = None
+    except Exception:
+        pass
+
+    # ── 공통: BOSS 패들을 도주 위치로 이동 ──
+    try:
+        BOSS.centerx = int(arena_capture_flee_x)
+        BOSS.centery = int(arena_capture_flee_y)
+    except Exception:
+        pass
 
     # ─────── ANNOUNCE 페이즈 (2초) ───────
     if arena_capture_phase == "announce":
-        # 보스 패들 숨기기
+        # 상단 영웅을 중앙으로 이동
+        arena_capture_flee_x = float(GAME_CENTER_X)
+        arena_capture_flee_y = float(BOSS_Y + BOSS_HEIGHT // 2) if 'BOSS_Y' in dir() else 45.0
         try:
-            globals()['boss_x'] = -999
+            BOSS.centerx = int(arena_capture_flee_x)
+            BOSS.centery = int(arena_capture_flee_y)
         except Exception:
             pass
+
         progress = min(1.0, arena_capture_timer / 2.0)
-        # 배경 어둡게
+        # 반투명 오버레이
         overlay = pygame.Surface((760, 750), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, int(120 * progress)))
+        overlay.fill((0, 0, 0, int(100 * progress)))
         screen.blit(overlay, (0, 0))
         # "포획전!" 텍스트
         try:
@@ -118176,76 +118204,58 @@ def _update_arena_capture_phase(screen):
             screen.blit(ts, (GAME_CENTER_X - tr.width // 2, 340))
         except Exception:
             pass
-        # 도주 대상 영웅 미리보기 (상단)
-        if progress > 0.5:
-            _draw_capture_hero_sprite(screen, arena_capture_flee_x, arena_capture_flee_y,
-                                     top_color, top_name, alpha=int(255 * (progress - 0.5) * 2))
         if arena_capture_timer >= 2.0:
             arena_capture_phase = "active"
             arena_capture_timer = 0.0
-            # 도주 AI 초기화
-            arena_capture_flee_x = float(GAME_CENTER_X)
-            arena_capture_flee_y = 60.0
             arena_capture_flee_dir = _cap_random.choice([-1, 1])
             arena_capture_flee_dodge_timer = 0.0
             print("[CAPTURE] → active 페이즈 진입")
 
     # ─────── ACTIVE 페이즈 (최대 12초, 3발) ───────
     elif arena_capture_phase == "active":
-        # 보스 패들 숨기기 (매 프레임)
-        try:
-            globals()['boss_x'] = -999
-        except Exception:
-            pass
         time_limit = 12.0
         time_left = max(0, time_limit - arena_capture_timer)
 
-        # ── 도주 AI ──
+        # ── 도주 AI (상단 영웅) ──
         arena_capture_flee_dodge_timer -= dt
-        # 플레이어 패들 X (도주 대상이 피하려는 위치)
-        px = globals().get('player_x', GAME_CENTER_X)
-        # 기본 이동: 좌우 왕복 + 플레이어 위치 회피
+        px = PLAYER.centerx if PLAYER else GAME_CENTER_X
         flee_speed = arena_capture_flee_speed
-        # 그물이 날아오면 급회피
+        # 그물 감지 시 급회피
         if arena_capture_net_active and arena_capture_net_y < 300:
             net_dx = arena_capture_net_x - arena_capture_flee_x
             if abs(net_dx) < 100:
-                # 그물 반대방향으로 급회피
                 arena_capture_flee_dir = -1 if net_dx > 0 else 1
                 flee_speed = flee_speed * 2.5
                 arena_capture_flee_dodge_timer = 0.3
         # 일반 이동
         if arena_capture_flee_dodge_timer <= 0:
-            # 벽 근처에서 방향 전환
             if arena_capture_flee_x <= GAME_LEFT + 50:
                 arena_capture_flee_dir = 1
             elif arena_capture_flee_x >= GAME_RIGHT - 50:
                 arena_capture_flee_dir = -1
-            # 랜덤 방향 전환
             if _cap_random.random() < 0.02:
                 arena_capture_flee_dir *= -1
-            # 플레이어 패들 위치 기반 회피
             if abs(px - arena_capture_flee_x) < 80:
                 arena_capture_flee_dir = -1 if px > arena_capture_flee_x else 1
             arena_capture_flee_dodge_timer = 0.0
-
         arena_capture_flee_x += arena_capture_flee_dir * flee_speed
         arena_capture_flee_x = max(GAME_LEFT + 30, min(GAME_RIGHT - 30, arena_capture_flee_x))
-        # 약간의 Y축 흔들림
-        arena_capture_flee_y = 60.0 + _cap_math.sin(arena_capture_timer * 3.0) * 15.0
+        arena_capture_flee_y = 45.0 + _cap_math.sin(arena_capture_timer * 3.0) * 12.0
 
         # ── 그물 투사체 업데이트 ──
         if arena_capture_net_active:
             arena_capture_net_y += arena_capture_net_speed
-            # 로프 궤적 추가
             arena_capture_net_rope.append((arena_capture_net_x, arena_capture_net_y))
             if len(arena_capture_net_rope) > 20:
                 arena_capture_net_rope.pop(0)
-            # 충돌 판정 (그물 vs 도주 영웅)
+            # 충돌 판정 (그물 vs BOSS 패들)
             net_rect = pygame.Rect(arena_capture_net_x - 25, arena_capture_net_y - 15, 50, 30)
-            flee_rect = pygame.Rect(arena_capture_flee_x - 30, arena_capture_flee_y - 15, 60, 30)
+            boss_w = BOSS.width if BOSS else 60
+            boss_h = BOSS.height if BOSS else 20
+            flee_rect = pygame.Rect(arena_capture_flee_x - boss_w // 2,
+                                    arena_capture_flee_y - boss_h // 2,
+                                    boss_w, boss_h)
             if net_rect.colliderect(flee_rect):
-                # 포획 성공!
                 arena_capture_net_active = False
                 arena_capture_phase = "result"
                 arena_capture_timer = 0.0
@@ -118253,52 +118263,38 @@ def _update_arena_capture_phase(screen):
                 arena_capture_caught_anim = 0.0
                 print(f"[CAPTURE] 포획 성공! {top_name}")
             elif arena_capture_net_y < -20:
-                # 미스 (화면 밖)
                 arena_capture_net_active = False
                 arena_capture_net_rope = []
                 print(f"[CAPTURE] 미스! 잔여 {arena_capture_shots_left}발")
 
-        # 시간 초과 또는 탄 소진 체크
+        # 시간 초과 또는 탄 소진
         if arena_capture_timer >= time_limit or (arena_capture_shots_left <= 0 and not arena_capture_net_active):
-            if arena_capture_phase == "active":  # 아직 result로 전환 안됨
+            if arena_capture_phase == "active":
                 arena_capture_phase = "result"
                 arena_capture_timer = 0.0
                 arena_capture_result_flag = False
                 arena_capture_escape_anim = 0.0
                 print(f"[CAPTURE] 포획 실패! {top_name} 도주")
 
-        # ── 그리기 ──
-        # 반투명 오버레이
-        overlay = pygame.Surface((760, 750), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 80))
-        screen.blit(overlay, (0, 0))
-
-        # 도주 영웅
-        _draw_capture_hero_sprite(screen, arena_capture_flee_x, arena_capture_flee_y,
-                                 top_color, top_name, alpha=255)
-
+        # ── 그리기 (오버레이만 - 패들은 메인 루프가 그림) ──
         # 그물 투사체
         if arena_capture_net_active:
             _draw_capture_net_projectile(screen, arena_capture_net_x, arena_capture_net_y,
                                         arena_capture_net_rope)
-
-        # UI: 잔여 발수 + 타이머
+        # UI: 잔여 발수 + 타이머 + 조작 안내
         try:
             _cap_ui_font = getattr(_update_arena_capture_phase, '_ui_font', None)
             if _cap_ui_font is None:
                 font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
                 _cap_ui_font = pygame.freetype.Font(font_path, 16)
                 _update_arena_capture_phase._ui_font = _cap_ui_font
-            # 잔여 발수 (우상단)
             shot_text = f"그물: {'●' * arena_capture_shots_left}{'○' * (3 - arena_capture_shots_left)}"
             st, sr = _cap_ui_font.render(shot_text, (255, 255, 200))
             screen.blit(st, (GAME_RIGHT - sr.width - 10, 10))
-            # 타이머
             timer_text = f"{time_left:.1f}초"
             tt, ttr = _cap_ui_font.render(timer_text, (255, 200, 100))
             screen.blit(tt, (GAME_CENTER_X - ttr.width // 2, 10))
-            # 조작 안내
-            help_text = "마우스 클릭: 그물 발사"
+            help_text = "A/D: 이동  |  마우스 클릭: 작살 발사"
             ht, htr = _cap_ui_font.render(help_text, (200, 200, 200))
             screen.blit(ht, (GAME_CENTER_X - htr.width // 2, 730))
         except Exception:
@@ -118306,31 +118302,20 @@ def _update_arena_capture_phase(screen):
 
     # ─────── RESULT 페이즈 (3초) ───────
     elif arena_capture_phase == "result":
-        # 보스 패들 숨기기
-        try:
-            globals()['boss_x'] = -999
-        except Exception:
-            pass
         # 배경 어둡게
         overlay = pygame.Surface((760, 750), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 140))
         screen.blit(overlay, (0, 0))
 
         if arena_capture_result_flag:
-            # ── 포획 성공 연출 ──
+            # ── 포획 성공 ──
             arena_capture_caught_anim += dt
-            # 잡힌 영웅 (그물 안)
-            _draw_capture_hero_sprite(screen, arena_capture_flee_x, arena_capture_flee_y,
-                                     top_color, top_name, alpha=255)
-            # 그물 덮기 애니메이션
             net_expand = min(1.0, arena_capture_caught_anim / 0.5)
             _draw_capture_net_deployed(screen, arena_capture_flee_x, arena_capture_flee_y, net_expand)
-            # "포획 성공!" 텍스트
             try:
                 _cap_font = getattr(_update_arena_capture_phase, '_title_font', None)
                 ts, tr = _cap_font.render("포획 성공!", (50, 255, 50))
                 screen.blit(ts, (GAME_CENTER_X - tr.width // 2, 300))
-                # 영웅 이름
                 _cap_sub_font = getattr(_update_arena_capture_phase, '_sub_font', None)
                 if _cap_sub_font is None:
                     font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
@@ -118341,15 +118326,13 @@ def _update_arena_capture_phase(screen):
             except Exception:
                 pass
         else:
-            # ── 포획 실패 연출 ──
+            # ── 포획 실패 (영웅 화면 밖으로 도주) ──
             arena_capture_escape_anim += dt
-            # 도주 애니메이션 (영웅이 화면 밖으로)
             escape_x = arena_capture_flee_x + arena_capture_flee_dir * arena_capture_escape_anim * 400
-            escape_alpha = max(0, int(255 * (1.0 - arena_capture_escape_anim / 1.5)))
-            if escape_alpha > 0:
-                _draw_capture_hero_sprite(screen, escape_x, arena_capture_flee_y,
-                                         top_color, top_name, alpha=escape_alpha)
-            # "포획 실패!" 텍스트
+            try:
+                BOSS.centerx = int(escape_x)
+            except Exception:
+                pass
             try:
                 _cap_font = getattr(_update_arena_capture_phase, '_title_font', None)
                 ts, tr = _cap_font.render("포획 실패!", (255, 80, 80))
@@ -118364,14 +118347,12 @@ def _update_arena_capture_phase(screen):
             except Exception:
                 pass
 
-        # 3초 후 배틀 종료
         if arena_capture_timer >= 3.0:
             arena_capture_phase = "done"
             arena_capture_timer = 0.0
 
     # ─────── DONE 페이즈 ───────
     elif arena_capture_phase == "done":
-        # 배틀 결과 확정 (플레이어 승리)
         arena_battle_result = True
         print(f"[CAPTURE] 포획 페이즈 완료. 결과={arena_capture_result_flag}")
 
@@ -131463,9 +131444,9 @@ def show_result(won):
             arena_capture_result_flag = None
             arena_capture_shots_left = 3
             arena_capture_net_active = False
-            # 상대 영웅 도주 시작 위치 (보스 패들 위치 근처)
-            arena_capture_flee_x = float(globals().get('boss_x', 380))
-            arena_capture_flee_y = 60.0
+            # 상대 영웅 도주 시작 위치 (BOSS 패들 중앙)
+            arena_capture_flee_x = float(BOSS.centerx) if BOSS else 380.0
+            arena_capture_flee_y = float(BOSS.centery) if BOSS else 45.0
             arena_capture_flee_vx = 0.0
             # 공 숨기기
             try:
