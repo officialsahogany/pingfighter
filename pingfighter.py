@@ -134962,6 +134962,20 @@ def main(stage_num, new_boss_mode=False):
                         play_button_click_sound()
                     except Exception:
                         pass
+            # 1/2/3 키 → 하수인 발동
+            _k1 = keys[pygame.K_1] or keys[pygame.K_KP1]
+            _k2 = keys[pygame.K_2] or keys[pygame.K_KP2]
+            _k3 = keys[pygame.K_3] or keys[pygame.K_KP3]
+            if arena_henchman_system:
+                if _k1 and not getattr(main, '_arena_hench_key1_pressed', False):
+                    arena_henchman_system.trigger_by_index(0)
+                elif _k2 and not getattr(main, '_arena_hench_key2_pressed', False):
+                    arena_henchman_system.trigger_by_index(1)
+                elif _k3 and not getattr(main, '_arena_hench_key3_pressed', False):
+                    arena_henchman_system.trigger_by_index(2)
+            main._arena_hench_key1_pressed = _k1
+            main._arena_hench_key2_pressed = _k2
+            main._arena_hench_key3_pressed = _k3
             main._arena_key_period_pressed = _k_period
             main._arena_key_comma_pressed = _k_comma
             main._arena_key_slash_pressed = _k_slash

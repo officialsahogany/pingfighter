@@ -38,8 +38,8 @@ HENCH_EXIT_DURATION = 0.4      # 퇴장 시간
 HENCHMAN_CD_MULT = 4.0
 GUARD_CD_PENALTY = 1.3  # 호위무사 기본 페널티 (동일 적용)
 
-# 하수인 등장 Y 위치 (플레이어 진영)
-HENCH_Y = 650  # 플레이어 패들 근처
+# 하수인 등장 Y 위치 (호위무사/영웅과 동일)
+HENCH_Y = 710  # BOTTOM_PADDLE_Y와 동일
 
 # 아이콘 크기
 HENCH_ICON_SIZE = 42
@@ -476,6 +476,15 @@ class HenchmanSystem:
             if slot.icon_rect.collidepoint(mouse_pos) and slot.is_ready:
                 self._trigger_henchman(i)
                 return True
+        return False
+
+    def trigger_by_index(self, index: int) -> bool:
+        """단축키(1/2/3)로 하수인 발동. 성공 시 True."""
+        if index < 0 or index >= len(self.slots):
+            return False
+        if self.slots[index].is_ready:
+            self._trigger_henchman(index)
+            return True
         return False
 
     def _trigger_henchman(self, index: int):
