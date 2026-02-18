@@ -139073,6 +139073,11 @@ def main(stage_num, new_boss_mode=False):
                             if _hench_fx:
                                 if _hench_fx.get('freeze'):
                                     arena_freeze_frames = max(arena_freeze_frames, 30)
+                                # 공 속도 변경 반영 (용의 날갯짓 등 ball.vx/vy 수정 스킬)
+                                if 'ball_vx' in _hench_fx:
+                                    ball_vel[0] = _hench_fx['ball_vx']
+                                if 'ball_vy' in _hench_fx:
+                                    ball_vel[1] = _hench_fx['ball_vy']
                         except Exception as _hench_err:
                             print(f"[Henchman] update error: {_hench_err}")
 
