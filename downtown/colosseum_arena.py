@@ -16353,9 +16353,9 @@ class ColosseumsArena:
                 self.capture_gauge_direction = 1
             # 도주 영웅 좌우 이동
             self.capture_hero_x += self.capture_hero_speed * dt * self.capture_hero_dir
-            if self.capture_hero_x > 600:
+            if self.capture_hero_x > 720:
                 self.capture_hero_dir = -1
-            elif self.capture_hero_x < 160:
+            elif self.capture_hero_x < 40:
                 self.capture_hero_dir = 1
             # 먼지 파티클
             if int(self.capture_timer * 30) % 3 == 0:
