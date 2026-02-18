@@ -21993,9 +21993,6 @@ def arena_trigger_bottom_hero_dash_ai(target_x: float) -> bool:
     arena_bottom_dash_charges -= 1  # 대쉬 토큰 소모
     arena_bottom_dash_charge_timer = 0  # 충전 타이머 리셋 (새 토큰 충전 시작)
 
-    print(f"[ARENA DASH AI] 하단 대쉬 발동! charges={arena_bottom_dash_charges}→{arena_bottom_dash_charges} "
-          f"dist={dash_distance:.0f} dir={direction}", flush=True)
-
     # 폭풍질주 퍽: 버스트업 Lv3 효과
     if arena_perk_dash_distance_mult_bottom > 1.0:
         arena_storm_rush_burst_bottom = True
@@ -22236,7 +22233,6 @@ def update_arena_bottom_hero_dash():
             # 모든 토큰 풀충전 시 화려한 반짝임 효과
             if arena_bottom_dash_charges >= arena_bottom_max_dash_charges:
                 _all_tokens_full_sparkle_timer = _ALL_TOKENS_FULL_SPARKLE_DURATION
-            print(f"[ARENA DASH CHARGE] 토큰 충전 완료! charges={arena_bottom_dash_charges}/{arena_bottom_max_dash_charges}", flush=True)
 
     # 쿨다운 감소
     if arena_bottom_dash_cooldown > 0:
@@ -130034,34 +130030,8 @@ def handle_boss():
     stage8_in_superspeed = False
 
     # 🔍 [DEBUG] 투기장 상단 영웅 AI 디버그 로깅
-    if arena_mode_enabled:
-        if not hasattr(handle_boss, '_debug_frame'):
-            handle_boss._debug_frame = 0
-            handle_boss._debug_not_moving_frames = 0
-            handle_boss._debug_last_boss_x = 0.0
-        handle_boss._debug_frame += 1
-        _dbg_frame = handle_boss._debug_frame
-        # 이동하지 않는 프레임 카운터 (핵심 디버그)
-        if abs(BOSS.centerx - handle_boss._debug_last_boss_x) < 0.5:
-            handle_boss._debug_not_moving_frames += 1
-        else:
-            handle_boss._debug_not_moving_frames = 0
-        handle_boss._debug_last_boss_x = BOSS.centerx
-        # 60프레임(1초) 이상 안 움직이면 경고
-        if handle_boss._debug_not_moving_frames == 60:
-            print(f"[ARENA-AI ⚠️ WARNING] F{_dbg_frame} 상단AI 1초간 정지! BOSS.cx={BOSS.centerx:.0f} "
-                  f"speed={boss_current_speed:.2f} ball=({BALL.centerx},{BALL.centery}) "
-                  f"waiting_serve={is_waiting_for_serve} stunned={boss_stunned_timer} "
-                  f"stun_timer={boss_stun_timer} dash_stun={boss_dash_stun_timer} "
-                  f"dashing={boss_dashing} knockback={boss_knockback_timer} "
-                  f"ball_spawn={ball_spawn_animation_active} stage={current_stage} ai_mode={ai_mode}")
-        elif handle_boss._debug_not_moving_frames > 60 and handle_boss._debug_not_moving_frames % 120 == 0:
-            print(f"[ARENA-AI ⚠️ STILL STUCK] F{_dbg_frame} {handle_boss._debug_not_moving_frames/60:.0f}초째 정지! BOSS.cx={BOSS.centerx:.0f}")
-
     # 공 생성 애니메이션 중에는 보스 AI 정지
     if ball_spawn_animation_active:
-        if arena_mode_enabled and _dbg_frame % 60 == 0:
-            print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: ball_spawn_animation_active")
         return
 
     # 🏟️ 투기장 영웅 스킬 상태 효과 적용 (상단 패들 = 보스)
@@ -130079,8 +130049,6 @@ def handle_boss():
                 _stop_electric_shock_sound()
         else:
             boss_current_speed = 0
-            if arena_mode_enabled and _dbg_frame % 60 == 0:
-                print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: 번개스턴 timer={_judgment_lightning_stun_top_timer:.2f}")
             return  # 번개 스턴 중 모든 처리 차단
     # 🌪️ 바람의 분노 스턴 (독립 메커니즘)
     if _judgment_wind_stun_top_timer > 0:
@@ -130091,8 +130059,6 @@ def handle_boss():
                 arena_skill_manager.game_state['top_paddle_stunned'] = False
         else:
             boss_current_speed = 0
-            if arena_mode_enabled and _dbg_frame % 60 == 0:
-                print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: 바람스턴 timer={_judgment_wind_stun_top_timer:.2f}")
             return  # 바람 스턴 중 모든 처리 차단
     if arena_mode_enabled and arena_skill_manager:
         try:
@@ -130100,14 +130066,10 @@ def handle_boss():
             # 스턴 체크 (상단 패들이 스턴되면 이동 불가)
             if game_state.get('top_paddle_stunned', False):
                 boss_current_speed = 0
-                if arena_mode_enabled and _dbg_frame % 60 == 0:
-                    print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: top_paddle_stunned=True")
                 return  # 스턴 중에는 모든 처리 차단
             # 스팀 배리어 시전 중 정지 (상단 패들이 시전자일 때)
             if game_state.get('steam_barrier_caster_frozen', False) and game_state.get('barrier_owner_is_top', False):
                 boss_current_speed = 0
-                if arena_mode_enabled and _dbg_frame % 60 == 0:
-                    print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: steam_barrier_caster_frozen")
                 return  # 배리어 시전 중 이동 불가
             # 스팀 배리어 해동 중 (마지막 1초) - 점진적 속도 복귀
             steam_thaw = game_state.get('steam_barrier_thaw_speed', 0.0)
@@ -130154,8 +130116,6 @@ def handle_boss():
     if arena_mode_enabled and arena_top_hero:
         # 대쉬 업데이트
         if update_arena_top_hero_dash():
-            if _dbg_frame % 60 == 0:
-                print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: arena_top_hero_dash 진행중")
             return  # 대쉬 중에는 다른 AI 처리 건너뜀
 
         # 대쉬 발동 조건 체크 (보스와 동일한 조건: 공이 가까이 + 막지 못할 것 같을 때만)
@@ -130311,8 +130271,6 @@ def handle_boss():
 
         # 넉백 중에는 보스 이동 불가
         boss_current_speed = 0
-        if arena_mode_enabled and _dbg_frame % 60 == 0:
-            print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: boss_knockback timer={boss_knockback_timer}")
         return
 
     # 🔥 화재 이벤트 공 충돌 넉백 - 이제 X축으로 처리됨 (boss_knockback_vel 사용)
@@ -130384,8 +130342,6 @@ def handle_boss():
         # 대쉬 중에도 바주카포 충돌 체크
         _process_bazooka_collisions()
         # 대쉬 중에는 다른 AI 처리 건너뜀
-        if arena_mode_enabled and _dbg_frame % 60 == 0:
-            print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: boss_dashing timer={boss_dash_timer}")
         return
 
     # 대쉬 후 후딜 시간 처리
@@ -130400,8 +130356,6 @@ def handle_boss():
             except Exception:
                 pass
         _process_bazooka_collisions()  # 스턴 중에도 바주카포 충돌 체크
-        if arena_mode_enabled and _dbg_frame % 60 == 0:
-            print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: boss_dash_stun timer={boss_dash_stun_timer}")
         return
 
     # 극정호신 상태에서는 일반 AI를 건너뛰되, 서브 대기 중이면 서브 로직은 그대로 진행
@@ -130426,8 +130380,6 @@ def handle_boss():
 
         # 스턴 중에도 바주카포 발사체 충돌 체크는 계속 수행
         _process_bazooka_collisions()
-        if arena_mode_enabled and _dbg_frame % 60 == 0:
-            print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: boss_stun_timer={boss_stun_timer}")
         return  # 스턴 중에는 모든 처리 차단
     
     # 바주카포 충돌 체크 및 폭발 처리
@@ -130688,8 +130640,6 @@ def handle_boss():
         if current_stage == 8 and boss_stunned_timer <= 0 and not stage8_stun_escape_active:
             stage8_stun_escape_ready_ms = 0
             stage8_stun_escape_attempted = False
-        if arena_mode_enabled and _dbg_frame % 60 == 0:
-            print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: boss_stunned_timer={boss_stunned_timer} knockback_vel={boss_knockback_vel:.2f}")
         return  # 스턴 중에는 AI 비활성화
     # Stage 50 (튜토리얼) - 매우 쉬운 AI
     if current_stage == 50:
@@ -130817,12 +130767,6 @@ def handle_boss():
     
     # 일반 보스 AI: 통합 보스 설정 (스테이지별 + 리그별 완전 연계)
     config = get_final_boss_config(current_stage, ai_mode)
-    # 🔍 [DEBUG] 투기장 AI config 확인 (120프레임=2초마다)
-    if arena_mode_enabled and _dbg_frame % 120 == 1:
-        print(f"[ARENA-AI DEBUG] F{_dbg_frame} ✅ REACHED MOVEMENT LOGIC! stage={current_stage} ai_mode={ai_mode} "
-              f"config=[max_speed={config.get('max_speed',0):.1f} accel={config.get('accel',0):.2f} "
-              f"fail={config.get('fail_chance',0):.2f} predict={config.get('predict_chance',0):.2f} "
-              f"pred_err={config.get('predict_error',0)} fail_err={config.get('fail_error',0)}]")
     # --- Stage 5 화염탄 던지는 중에는 0.5초간 이동 금지 ---
     if current_stage == 5 and boss_throwing:
         boss_current_speed = 0
@@ -130934,8 +130878,6 @@ def handle_boss():
                 BOSS.centerx = max(boss_min_cx, min(boss_max_cx, BOSS.centerx))
             else:
                 BOSS.centerx += fake_motion()
-        if arena_mode_enabled and _dbg_frame % 60 == 0:
-            print(f"[ARENA-AI DEBUG] F{_dbg_frame} ⏸️ SERVE: waiting={is_waiting_for_serve} player_serve={is_player_serve}")
         return  # 서브 중에는 아래 일반 이동 로직 실행 안 함
     # --- 일반 AI 이동 로직 ---
     predict_frame = max(10, min(30, int(FPS / max(1, abs(ball_vel[0])))))
@@ -131019,16 +130961,6 @@ def handle_boss():
             else:
                 future_x = BALL.centerx
             future_x += random.randint(-enhanced_predict_error, enhanced_predict_error)
-    # 🔍 [DEBUG] 투기장 AI 궤적 예측 결과
-    if arena_mode_enabled and _dbg_frame % 30 == 0:
-        _dbg_ball_dir = "↑보스쪽" if ball_vel[1] < 0 else "↓플레이어쪽"
-        _dbg_fail = "멍청모드" if boss_fail_timer > 0 else "정상"
-        _dbg_confused = "혼란" if boss_confused_timer > 0 else "정상"
-        _dbg_dist = abs(future_x - BOSS.centerx)
-        print(f"[ARENA-AI DEBUG] F{_dbg_frame} 🎯 future_x={future_x:.0f} BOSS.cx={BOSS.centerx:.0f} "
-              f"거리={_dbg_dist:.0f} 공방향={_dbg_ball_dir} ball=({BALL.centerx},{BALL.centery}) "
-              f"vel=({ball_vel[0]:.1f},{ball_vel[1]:.1f}) 모드={_dbg_fail}/{_dbg_confused} "
-              f"fail_timer={boss_fail_timer} config=[fail={enhanced_fail_chance:.2f} pred={enhanced_predict_chance:.2f} err={enhanced_predict_error}]")
     # Check if target is blocked by cracks and adjust if needed
     target_x = future_x
     if 'blacksmith_ground_cracks' in globals() and blacksmith_ground_cracks:
@@ -131202,12 +131134,6 @@ def handle_boss():
         boss_current_speed = enhanced_max_speed
     elif boss_current_speed < -enhanced_max_speed:
         boss_current_speed = -enhanced_max_speed
-    # 🔍 [DEBUG] 투기장 AI 최종 이동 상태
-    if arena_mode_enabled and _dbg_frame % 30 == 0:
-        _dbg_slow = slow_multiplier if 'slow_multiplier' in dir() else 1.0
-        print(f"[ARENA-AI DEBUG] F{_dbg_frame} 🏃 speed={boss_current_speed:.2f} max={enhanced_max_speed:.2f} "
-              f"accel={enhanced_accel:.3f} target_x={effective_target_x:.0f} BOSS.cx={BOSS.centerx:.0f} "
-              f"slow_mult={_dbg_slow:.2f} arena_confused={arena_confused}")
     # 이동 적용 with ground crack collision check
     proposed_x = BOSS.x + boss_current_speed
     proposed_boss_rect = pygame.Rect(proposed_x, BOSS.y, BOSS.width, BOSS.height)
