@@ -3360,10 +3360,10 @@ class GuardWarriorSystem:
                 self._apply_status_effects(result, target_paddle)
 
                 # 스킬별 글로벌 game_state 키 차단 (메인 영웅에 영향 방지)
-                skill_id = getattr(skill, 'skill_id', '')
-                if skill_id == 'horn_charge':
+                _eff_id, _ = self._unwrap_possessed_skill(skill)
+                if _eff_id == 'horn_charge':
                     game_state['horn_charge_active'] = False
-                elif skill_id == 'demon_step':
+                elif _eff_id == 'demon_step':
                     game_state['demon_eye_active'] = False
                     game_state.pop('ghost_step_start_top', None)
                     game_state.pop('ghost_step_start_bottom', None)
@@ -3372,7 +3372,7 @@ class GuardWarriorSystem:
                     c['ghost_step_timer'] = 0.0
                     c['ghost_step_base_y'] = c['y']
                     c['ghost_step_hit_count'] = 0
-                elif skill_id == 'steam_barrier':
+                elif _eff_id == 'steam_barrier':
                     # 호위무사가 시전한 배리어 → 메인 패들 정지 방지
                     game_state['steam_barrier_caster_frozen'] = False
                     game_state['steam_barrier_thaw_speed'] = 0.0
@@ -3683,14 +3683,14 @@ class GuardWarriorSystem:
                 self._play_skill_sound(result)
                 self._apply_status_effects(result, target_paddle)
                 # 글로벌 game_state 키 차단 (메인 영웅에 영향 방지)
-                skill_id = getattr(skill, 'skill_id', '')
-                if skill_id == 'horn_charge':
+                _eff_id2, _ = self._unwrap_possessed_skill(skill)
+                if _eff_id2 == 'horn_charge':
                     game_state['horn_charge_active'] = False
-                elif skill_id == 'demon_step':
+                elif _eff_id2 == 'demon_step':
                     game_state['demon_eye_active'] = False
                     game_state.pop('ghost_step_start_top', None)
                     game_state.pop('ghost_step_start_bottom', None)
-                elif skill_id == 'steam_barrier':
+                elif _eff_id2 == 'steam_barrier':
                     # 호위무사가 시전한 배리어 → 메인 패들 정지 방지
                     game_state['steam_barrier_caster_frozen'] = False
                     game_state['steam_barrier_thaw_speed'] = 0.0
@@ -3935,25 +3935,27 @@ class GuardWarriorSystem:
                     if skill_id == 'bomb_surprise' and skill._stun_applied:
                         stun_prefix = 'top_paddle' if skill._knockback_target == 'top' else 'bottom_paddle'
                         game_state[f'{stun_prefix}_stunned'] = True
+                    # 빙의 스킬 언래핑 (수수께끼 묘기 → 실제 스킬)
+                    _eff_id3, _eff_sk3 = self._unwrap_possessed_skill(skill)
                     # 뿔 박치기: 시전자 스턴 복원 (_restore_caster_state가 해제한 것 복구)
-                    if skill_id == 'horn_charge':
-                        if (hasattr(skill, 'phase') and skill.phase == skill.PHASE_STUN
-                                and skill.phase_timer < 1.0):
-                            _hc_caster_prefix = 'top_paddle' if skill.caster_is_top else 'bottom_paddle'
+                    if _eff_id3 == 'horn_charge' and _eff_sk3:
+                        if (hasattr(_eff_sk3, 'phase') and _eff_sk3.phase == _eff_sk3.PHASE_STUN
+                                and _eff_sk3.phase_timer < 1.0):
+                            _hc_caster_prefix = 'top_paddle' if _eff_sk3.caster_is_top else 'bottom_paddle'
                             game_state[f'{_hc_caster_prefix}_stunned'] = True
                     # 스킬별 글로벌 game_state 키 차단 (메인 영웅에 영향 방지)
-                    if skill_id == 'horn_charge':
+                    if _eff_id3 == 'horn_charge':
                         game_state['horn_charge_active'] = False
-                    elif skill_id == 'demon_step':
+                    elif _eff_id3 == 'demon_step':
                         game_state['demon_eye_active'] = False
                         game_state.pop('ghost_step_start_top', None)
                         game_state.pop('ghost_step_start_bottom', None)
-                    elif skill_id == 'steam_barrier':
+                    elif _eff_id3 == 'steam_barrier':
                         # 호위무사가 시전한 배리어 → 메인 패들 정지 방지
                         game_state['steam_barrier_caster_frozen'] = False
                         game_state['steam_barrier_thaw_speed'] = 0.0
                     # OilSpill: 발사체/웅덩이가 모두 소진되면 비활성화
-                    elif skill_id == 'oil_spill':
+                    elif _eff_id3 == 'oil_spill':
                         if not skill.oil_projectiles and not skill.oil_puddles:
                             skill.is_active = False
                 elif _ghost_lingering or _balloon_lingering:
@@ -4214,6 +4216,20 @@ class GuardWarriorSystem:
         print(f"[Guard] {'상단' if is_top else '하단'}측 호위무사 {guard['name']} 등장! "
               f"스킬: {skill.korean_name} | 방향: {side} | 다음 쿨타임: {next_cd:.1f}초")
 
+    @staticmethod
+    def _unwrap_possessed_skill(skill):
+        """수수께끼 묘기(riddle_trick)가 빙의한 스킬의 실제 skill_id와 인스턴스를 반환.
+        빙의가 아니면 원본을 그대로 반환한다.
+        Returns: (effective_skill_id, effective_skill)
+        """
+        if skill is None:
+            return '', None
+        sid = getattr(skill, 'skill_id', '')
+        if sid == 'riddle_trick' and hasattr(skill, 'possessed_skill') and skill.possessed_skill:
+            ps = skill.possessed_skill
+            return getattr(ps, 'skill_id', sid), ps
+        return sid, skill
+
     def _update_animation(self, dt, is_top, top_paddle, bottom_paddle, ball):
         """호위무사 등장/시전/퇴장 애니메이션"""
         if is_top:
@@ -4269,9 +4285,11 @@ class GuardWarriorSystem:
         elif phase == "casting":
             skill = self.selected_skill_top if is_top else self.selected_skill_bottom
             skill_id = getattr(skill, 'skill_id', '') if skill else ''
+            # 수수께끼 묘기: 빙의된 스킬의 ID/인스턴스로 대체 (호위무사 돌진 등 특수 처리용)
+            eff_id, eff_skill = self._unwrap_possessed_skill(skill)
 
             # === 드래곤 브레스: 시전 중 공의 X좌표를 따라감 ===
-            if skill_id == 'dragon_breath' and ball:
+            if eff_id == 'dragon_breath' and ball:
                 bx = max(GAME_AREA_X + 30, min(ball.x, GAME_AREA_X + GAME_AREA_WIDTH - 30))
                 if is_top:
                     self.x_top = bx
@@ -4279,22 +4297,22 @@ class GuardWarriorSystem:
                     self.x_bottom = bx
                 target_x = bx
 
-            # === 뿔 박치기: 오니마루가 직접 돌진/복귀 ===
-            elif skill_id == 'horn_charge' and skill and skill.is_active:
+            # === 뿔 박치기: 호위무사가 직접 돌진/복귀 (빙의 포함) ===
+            elif eff_id == 'horn_charge' and eff_skill and eff_skill.is_active:
                 base_y = 120 if is_top else 630
                 enter_x = self._enter_x_top if is_top else self._enter_x_bottom
-                skill_target_x = getattr(skill, 'target_x', enter_x)
-                skill_impact_y = getattr(skill, 'impact_y', base_y)
+                skill_target_x = getattr(eff_skill, 'target_x', enter_x)
+                skill_impact_y = getattr(eff_skill, 'impact_y', base_y)
 
-                if skill.phase == skill.PHASE_CHARGING:
-                    p = getattr(skill, 'charge_progress', 0) ** 2  # 이징(가속)
+                if eff_skill.phase == eff_skill.PHASE_CHARGING:
+                    p = getattr(eff_skill, 'charge_progress', 0) ** 2  # 이징(가속)
                     vy = base_y + (skill_impact_y - base_y) * p
                     vx = enter_x + (skill_target_x - enter_x) * p
-                elif skill.phase == skill.PHASE_IMPACT:
+                elif eff_skill.phase == eff_skill.PHASE_IMPACT:
                     vy = skill_impact_y
                     vx = skill_target_x
-                elif skill.phase == skill.PHASE_RETURNING:
-                    p = 1 - (1 - getattr(skill, 'return_progress', 0)) ** 2  # 이징(감속)
+                elif eff_skill.phase == eff_skill.PHASE_RETURNING:
+                    p = 1 - (1 - getattr(eff_skill, 'return_progress', 0)) ** 2  # 이징(감속)
                     vy = skill_impact_y + (base_y - skill_impact_y) * p
                     vx = skill_target_x + (enter_x - skill_target_x) * p
                 else:  # STUN
@@ -4310,21 +4328,21 @@ class GuardWarriorSystem:
                 return  # 타이머 기반 퇴장 안 함 - 스킬 종료 시 자동 퇴장
 
             # === 스팀베리어: 시전 중 현재 위치 고정, 스킬 끝날 때까지 대기 ===
-            elif skill_id == 'steam_barrier' and skill and skill.is_active:
+            elif eff_id == 'steam_barrier' and eff_skill and eff_skill.is_active:
                 # 스팀베리어 활성 상태 → 현재 위치에서 대기 (타이머 기반 퇴장 안 함)
                 return
 
-            elif skill_id == 'steam_barrier' and skill and not skill.is_active:
+            elif eff_id == 'steam_barrier' and eff_skill and not eff_skill.is_active:
                 # 스팀베리어 종료 → 순찰 복귀 또는 퇴장
                 self._transition_after_casting(is_top)
                 return
 
             # === 게틀링 버스트: 탱크 모드 중 현재 위치 고정, 스킬 끝날 때까지 대기 ===
-            elif skill_id == 'gatling_burst' and skill and skill.is_active:
+            elif eff_id == 'gatling_burst' and eff_skill and eff_skill.is_active:
                 # 게틀링 버스트 활성 상태 → 현재 위치에서 대기 (타이머 기반 퇴장 안 함)
                 return
 
-            elif skill_id == 'gatling_burst' and skill and not skill.is_active:
+            elif eff_id == 'gatling_burst' and eff_skill and not eff_skill.is_active:
                 # 게틀링 버스트 종료 → 그 자리에서 순찰로 복귀
                 if is_top:
                     self.phase_top = "patrolling"
@@ -4335,11 +4353,11 @@ class GuardWarriorSystem:
                 return
 
             # === 촉수 휘감기: 크라켄이 촉수휘감기가 끝날 때까지 대기 후 퇴장 ===
-            elif skill_id == 'tentacle_wrap' and skill and skill.is_active:
+            elif eff_id == 'tentacle_wrap' and eff_skill and eff_skill.is_active:
                 # 촉수휘감기 활성 상태 → 현재 위치에서 대기 (타이머 기반 퇴장 안 함)
                 return
 
-            elif skill_id == 'tentacle_wrap' and skill and not skill.is_active:
+            elif eff_id == 'tentacle_wrap' and eff_skill and not eff_skill.is_active:
                 # 촉수휘감기 종료 → 퇴장 전환
                 if is_top:
                     self._exit_start_x_top = self.x_top
@@ -4354,7 +4372,7 @@ class GuardWarriorSystem:
                 return
 
             # === 귀신발걸음: 무겐이 공을 따라다니며 상대 진영으로 전진/복귀 ===
-            elif skill_id == 'demon_step' and skill and skill.is_active:
+            elif eff_id == 'demon_step' and eff_skill and eff_skill.is_active:
                 # X축: 공을 따라감
                 if ball:
                     bx = max(GAME_AREA_X + 30, min(ball.x, GAME_AREA_X + GAME_AREA_WIDTH - 30))
@@ -4389,8 +4407,8 @@ class GuardWarriorSystem:
 
                 # 4초 후 강제 종료
                 if timer >= DEMON_STEP_GUARD_DURATION:
-                    skill.is_active = False
-                    skill.aura_particles = []
+                    eff_skill.is_active = False
+                    eff_skill.aura_particles = []
                     game_state = self.skill_manager.game_state if self.skill_manager else {}
                     game_state['demon_eye_active'] = False
                     # 공 충돌 횟수 카운터 리셋 (1회 발동당 3회까지)
@@ -5295,14 +5313,14 @@ class GuardWarriorSystem:
         self._restore_caster_state(game_state, caster_prefix, saved)
 
         # 스킬별 글로벌 game_state 키 차단 (메인 영웅에 영향 방지)
-        skill_id = getattr(skill, 'skill_id', '')
-        if skill_id == 'horn_charge':
+        _eff_id4, _ = self._unwrap_possessed_skill(skill)
+        if _eff_id4 == 'horn_charge':
             game_state['horn_charge_active'] = False
-        elif skill_id == 'demon_step':
+        elif _eff_id4 == 'demon_step':
             game_state['demon_eye_active'] = False
             game_state.pop('ghost_step_start_top', None)
             game_state.pop('ghost_step_start_bottom', None)
-        elif skill_id == 'steam_barrier':
+        elif _eff_id4 == 'steam_barrier':
             # 호위무사가 시전한 배리어 → 메인 패들 정지 방지
             game_state['steam_barrier_caster_frozen'] = False
             game_state['steam_barrier_thaw_speed'] = 0.0
