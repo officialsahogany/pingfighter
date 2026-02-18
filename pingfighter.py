@@ -139052,16 +139052,15 @@ def main(stage_num, new_boss_mode=False):
                                     _g_st['gatling_aim_angle'] = _gs.get(f'gatling_aim_angle_{_guard_side}', None)
 
                     # 🗡️ 하수인 시스템 업데이트
+                    # 하수인 스킬의 stun/slow/confuse 등은 arena_skill_manager.game_state에
+                    # 직접 설정되므로 보스 AI가 자동으로 읽는다 (별도 브릿지 불필요)
                     if arena_henchman_system:
                         try:
                             _hench_fx = arena_henchman_system.update(
                                 dt, top_wrapper, bottom_wrapper, ball_wrapper,
                                 getattr(ball_wrapper, 'vx', 0),
                                 getattr(ball_wrapper, 'vy', 0))
-                            # 하수인 스킬 효과 적용 (보스 효과)
                             if _hench_fx:
-                                if _hench_fx.get('stun_frames'):
-                                    arena_top_stun_frames = max(arena_top_stun_frames, _hench_fx['stun_frames'])
                                 if _hench_fx.get('freeze'):
                                     arena_freeze_frames = max(arena_freeze_frames, 30)
                         except Exception as _hench_err:

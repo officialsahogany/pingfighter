@@ -422,40 +422,34 @@ class HenchmanSystem:
                 game_state[f'{prefix}_shrink_scale'] = effect.get('scale', 0.5)
 
     def _extract_boss_effects(self, ball) -> dict:
-        """game_state에서 보스 효과 추출"""
+        """game_state에서 보스 효과 추출.
+
+        주의: stun/slow/confuse/shrink 등 상태 효과는 스킬이 직접
+        arena_skill_manager.game_state에 설정/해제하므로 여기서 pop하지 않는다.
+        보스 AI가 game_state를 직접 읽어 처리한다.
+        여기서는 넉백, 프리즈, 공 속도 변경, 화면 흔들림 등만 추출한다.
+        """
         gs = self.skill_manager.game_state if self.skill_manager else {}
         boss_effects = {}
 
-        if gs.pop('top_paddle_stunned', False):
-            boss_effects['stun_frames'] = 90
-        if gs.pop('top_paddle_slowed', False):
-            boss_effects['slow'] = True
-            boss_effects['slow_amount'] = gs.pop('top_paddle_slow_amount', 0.5)
-            boss_effects['slow_frames'] = 180
-        if gs.pop('top_paddle_confused', False):
-            boss_effects['confuse_frames'] = 180
-        if gs.pop('top_paddle_shrink', False):
-            boss_effects['shrink'] = True
-            boss_effects['shrink_scale'] = gs.pop('top_paddle_shrink_scale', 0.5)
-            boss_effects['shrink_frames'] = 180
-        if gs.pop('top_paddle_locked', False):
-            boss_effects['puppet'] = True
-            boss_effects['puppet_x'] = gs.pop('top_paddle_locked_x', None)
-            boss_effects['puppet_y'] = gs.pop('top_paddle_locked_y', None)
+        # 넉백 (일회성 → consume)
         if gs.get('horn_charge_apply_knockback'):
             boss_effects['horn_charge_knockback'] = True
             boss_effects['horn_charge_knockback_dir'] = gs.get('horn_charge_knockback_dir', 1)
             boss_effects['horn_charge_knockback_vel'] = gs.get('horn_charge_knockback_vel', 73)
             boss_effects['horn_charge_target_is_top'] = gs.get('horn_charge_target_is_top', True)
             gs['horn_charge_apply_knockback'] = False
+        # 프리즈 (일회성 트리거)
         if gs.get('dark_slash_freeze', False):
             boss_effects['freeze'] = True
         if gs.get('hell_fire_freeze', False):
             boss_effects['freeze'] = True
+        # 공 속도 변경
         if ball and ball.vel_changed:
             boss_effects['ball_vx'] = ball.vx
             boss_effects['ball_vy'] = ball.vy
 
+        # 화면 흔들림
         for fx in (self.skill_manager.screen_effects if self.skill_manager else []):
             boss_effects['screen_shake'] = True
             boss_effects['shake_intensity'] = fx.get('intensity', 15)
