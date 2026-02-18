@@ -795,6 +795,8 @@ class HenchmanSystem:
             if slot.phase is not None:
                 slot.phase = None
                 slot.anim_timer = 0.0
+                # 스킬 사용 중이었으면 쿨타임 부여 (다음 라운드 즉시 재사용 방지)
+                slot.cooldown = slot.cooldown_max
 
 
 # ============================================================================

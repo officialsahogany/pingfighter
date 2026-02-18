@@ -139152,8 +139152,8 @@ def main(stage_num, new_boss_mode=False):
                                     ball_vel[0] = _hench_fx['ball_vx']
                                 if 'ball_vy' in _hench_fx:
                                     ball_vel[1] = _hench_fx['ball_vy']
-                            # 하수인 자동 발동 (쿨타임 완료 시 자동으로 스킬 사용)
-                            arena_henchman_system.auto_trigger()
+                            # 하수인은 수동 발동만 허용 (1/2/3 키 또는 아이콘 클릭)
+                            # auto_trigger 제거: 설계상 자동 시전 없음
                         except Exception as _hench_err:
                             print(f"[Henchman] update error: {_hench_err}")
 
