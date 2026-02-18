@@ -7249,10 +7249,11 @@ def clear_ui_overlay():
     _ui_overlay_items = []
 
 def _draw_guard_hover_tooltip(target_screen, hover_info):
-    """호위무사 아이콘 호버 시 쿨타임 + 스킬 정보 툴팁 표시 (REAL_SCREEN에 직접 그리기)"""
+    """호위무사/하수인 아이콘 호버 시 쿨타임 + 스킬 정보 툴팁 표시 (REAL_SCREEN에 직접 그리기)"""
     if not hover_info:
         return
     try:
+        _gh_is_henchman = hover_info.get("type") == "henchman"
         _gh_name = hover_info["name"]
         _gh_color = hover_info["color"]
         _gh_cd = hover_info["cooldown"]
@@ -7263,10 +7264,31 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
         _gh_small = get_font(17, style="regular")
         _gh_tiny = get_font(15, style="regular")
 
+        # 이름 옆에 칭호 태그 추가
+        if _gh_is_henchman:
+            _gh_display_name = _gh_name
+            _gh_title_tag = "[하수인]"
+            _gh_title_color = (200, 150, 255)  # 보라색
+        else:
+            _gh_display_name = _gh_name
+            _gh_title_tag = "[호위무사]"
+            _gh_title_color = (255, 200, 100)  # 골드
+
         _gh_skills = hover_info.get("skills", [_gh_skill] if _gh_skill else [])
 
         # 상태 텍스트
-        if _gh_phase in ("patrolling", "patrol_entering"):
+        if _gh_is_henchman:
+            # 하수인: 순찰 없이 자동 발동
+            if _gh_phase is not None:
+                _status = "발동 중"
+                _status_color = (120, 255, 170)
+            elif _gh_cd > 0:
+                _status = f"쿨타임: {_gh_cd:.1f}초"
+                _status_color = (255, 200, 100)
+            else:
+                _status = "대기 중 (자동 발동)"
+                _status_color = (180, 220, 255)
+        elif _gh_phase in ("patrolling", "patrol_entering"):
             if _gh_cd > 0:
                 _status = f"순찰 중 | 스킬: {_gh_cd:.1f}초"
                 _status_color = (255, 200, 100)
@@ -7327,14 +7349,16 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
                                   "trigger_text": _sk_trigger_text, "trigger_color": _sk_trigger_color})
 
         # 레이아웃 계산
-        _n_surf = _gh_font.render(_gh_name, True, _gh_color)
+        _n_surf = _gh_font.render(_gh_display_name, True, _gh_color)
+        _tag_surf = _gh_tiny.render(f" {_gh_title_tag}", True, _gh_title_color)
+        _name_row_w = _n_surf.get_width() + _tag_surf.get_width()
         _s_surf = _gh_small.render(_status, True, _status_color)
-        _lines = [_n_surf, _s_surf]
+        _lines = [_s_surf]
         if _gh_next:
             _nx_surf = _gh_small.render("▶ 다음 출격", True, (255, 200, 50))
             _lines.append(_nx_surf)
 
-        _tw = max(s.get_width() for s in _lines) + 20
+        _tw = max(_name_row_w, max(s.get_width() for s in _lines)) + 20
         # 스킬이 있으면 너비 확보
         for _se in _skill_entries:
             _sn_surf = _gh_small.render(_se["name"], True, (255, 255, 255))
@@ -7348,7 +7372,7 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
                 _tw = max(_tw, _dl_surf.get_width() + 20)
         _tw = max(_tw, 210)
 
-        _th = sum(s.get_height() for s in _lines) + 6 * len(_lines) + 12
+        _th = _n_surf.get_height() + 6 + sum(s.get_height() for s in _lines) + 6 * len(_lines) + 12
         # 스킬 영역 높이 추가 (여러 스킬)
         if len(_gh_skills) > 1:
             # 다중 스킬: "보유 스킬" 헤더
@@ -7368,12 +7392,19 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
         _ty = hover_info["screen_y"]
         _ty = max(4, min(_ty, target_screen.get_height() - _th - 4))
 
+        # 하수인 테마: 보라색 테두리, 호위무사: 캐릭터 색상 테두리
+        _border_color = (160, 100, 220) if _gh_is_henchman else _gh_color
+
         # 중간 서피스에 그린 뒤 스케일링
         _tip_surf = pygame.Surface((_tw, _th), pygame.SRCALPHA)
         pygame.draw.rect(_tip_surf, (16, 20, 36, 230), (0, 0, _tw, _th), border_radius=8)
-        pygame.draw.rect(_tip_surf, (*_gh_color, 200), (0, 0, _tw, _th), 2, border_radius=8)
+        pygame.draw.rect(_tip_surf, (*_border_color, 200), (0, 0, _tw, _th), 2, border_radius=8)
 
         _cy = 8
+        # 이름 + 칭호 태그 (같은 줄)
+        _tip_surf.blit(_n_surf, (12, _cy))
+        _tip_surf.blit(_tag_surf, (12 + _n_surf.get_width(), _cy + _n_surf.get_height() - _tag_surf.get_height()))
+        _cy += _n_surf.get_height() + 6
         for _ls in _lines:
             _tip_surf.blit(_ls, (12, _cy))
             _cy += _ls.get_height() + 6
@@ -7382,7 +7413,7 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
         if _skill_entries:
             _cy += 3
             # 구분선
-            pygame.draw.line(_tip_surf, (*_gh_color[:3], 80),
+            pygame.draw.line(_tip_surf, (*_border_color[:3], 80),
                            (10, _cy), (_tw - 10, _cy), 1)
             _cy += 6
             # 다중 스킬 헤더
@@ -8263,9 +8294,11 @@ def _fullscreen_flip():
             except Exception:
                 pass
 
-        # 호위무사 / 퍽 / 큐 툴팁 (퍽 호버가 우선, 상대방 호위무사 툴팁은 비공개)
+        # 호위무사 / 하수인 / 퍽 / 큐 툴팁 (퍽 호버가 우선, 상대방 호위무사 툴팁은 비공개)
         if _perk_hover:
             _draw_perk_hover_tooltip(REAL_SCREEN, _perk_hover)
+        elif _hench_hover:
+            _draw_guard_hover_tooltip(REAL_SCREEN, _hench_hover)
         elif _queue_hover:
             _draw_guard_hover_tooltip(REAL_SCREEN, _queue_hover)
         elif _guard_hover and _guard_hover.get("side") != "top":
@@ -8460,8 +8493,35 @@ def _fullscreen_update(*args, **kwargs):
             except Exception:
                 pass
 
+        # 🗡️ 하수인 아이콘 UI (fullscreen - 호위무사 아이콘 위)
+        _hench_hover2 = None
+        if arena_mode_enabled and arena_henchman_system and not _skip_guard_icons2:
+            try:
+                _real_mpos_h2 = _original_mouse_get_pos()
+                _guard_top_y2 = None
+                if arena_guard_system:
+                    _s2 = GAME_SCALE_FACTOR
+                    _n_bottom2 = len(getattr(arena_guard_system, 'guard_warriors_bottom', []))
+                    if _n_bottom2 > 0:
+                        _slot_h2 = max(50, int(100 * _s2))
+                        _game_h2 = int(750 * _s2)
+                        _y_end2 = GAME_OFFSET_Y + _game_h2 - int(10 * _s2)
+                        _guard_top_y2 = _y_end2 - _n_bottom2 * _slot_h2
+                _hench_hover2 = arena_henchman_system.draw_pillar_icons(
+                    REAL_SCREEN,
+                    game_offset_x=GAME_OFFSET_X,
+                    game_offset_y=GAME_OFFSET_Y,
+                    game_scale=GAME_SCALE_FACTOR,
+                    mouse_pos=_real_mpos_h2,
+                    bodyguard_icon_top_y=_guard_top_y2,
+                )
+            except Exception:
+                pass
+
         if _perk_hover2:
             _draw_perk_hover_tooltip(REAL_SCREEN, _perk_hover2)
+        elif _hench_hover2:
+            _draw_guard_hover_tooltip(REAL_SCREEN, _hench_hover2)
         elif _queue_hover2:
             _draw_guard_hover_tooltip(REAL_SCREEN, _queue_hover2)
         elif _guard_hover2 and _guard_hover2.get("side") != "top":
