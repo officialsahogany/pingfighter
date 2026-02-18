@@ -51,8 +51,8 @@ class _PaddleProxy:
         self.y = rect.y
         self.width = rect.width
         self.height = rect.height
-        self.centerx = rect.centerx
-        self.centery = rect.centery
+        self.centerx = getattr(rect, 'centerx', rect.x + rect.width // 2)
+        self.centery = getattr(rect, 'centery', rect.y + rect.height // 2)
         self.is_top = is_top
         self.paddle_scale = 1.0
 
@@ -64,8 +64,8 @@ class _BallProxy:
         self.y = rect.y
         self.width = rect.width
         self.height = rect.height
-        self.centerx = rect.centerx
-        self.centery = rect.centery
+        self.centerx = getattr(rect, 'centerx', rect.x + rect.width // 2)
+        self.centery = getattr(rect, 'centery', rect.y + rect.height // 2)
         self.vx = vx
         self.vy = vy
         # 원본 속도 저장 (스킬에 의한 변경량 추적용)
