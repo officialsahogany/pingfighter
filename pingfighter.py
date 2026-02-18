@@ -19890,6 +19890,18 @@ arena_flash_inspiration_timer_bottom = 0.0     # 하단 번뜩이는 영감 이�
 ARENA_FLASH_INSPIRATION_DURATION = 0.5         # 번뜩이는 영감 이펙트 지속 시간 (초)
 arena_flash_inspiration_particles_top = []     # 상단 반짝임 파티클
 arena_flash_inspiration_particles_bottom = []  # 하단 반짝임 파티클
+# 기사회생 퍽 (상대 4점 시 1라운드 스킬쿨 -70%)
+arena_perk_comeback_has_top = False              # 상단 영웅 기사회생 퍽 보유
+arena_perk_comeback_has_bottom = False            # 하단 영웅 기사회생 퍽 보유
+arena_perk_comeback_value_top = 0.70              # 상단 기사회생 스킬쿨 감소량
+arena_perk_comeback_value_bottom = 0.70           # 하단 기사회생 스킬쿨 감소량
+arena_perk_comeback_active_top = False            # 상단 기사회생 현재 발동 중
+arena_perk_comeback_active_bottom = False         # 하단 기사회생 현재 발동 중
+arena_perk_comeback_pending_top = False           # 상단 기사회생 다음 라운드 발동 예약
+arena_perk_comeback_pending_bottom = False        # 하단 기사회생 다음 라운드 발동 예약
+arena_perk_comeback_base_skill_cd_top = 1.0       # 상단 기사회생 발동 전 원래 스킬쿨 배율
+arena_perk_comeback_base_skill_cd_bottom = 1.0    # 하단 기사회생 발동 전 원래 스킬쿨 배율
+arena_perk_comeback_aura_timer = 0.0              # 기사회생 오오라 애니메이션 타이머
 arena_battle_arena_obj = None                # ColosseumsArena 인스턴스 참조 (F8 퍽 선택용)
 
 def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
@@ -19916,6 +19928,12 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     global arena_perk_instant_cooldown_chance_top, arena_perk_instant_cooldown_chance_bottom
     global arena_flash_inspiration_timer_top, arena_flash_inspiration_timer_bottom
     global arena_flash_inspiration_particles_top, arena_flash_inspiration_particles_bottom
+    global arena_perk_comeback_has_top, arena_perk_comeback_has_bottom
+    global arena_perk_comeback_value_top, arena_perk_comeback_value_bottom
+    global arena_perk_comeback_active_top, arena_perk_comeback_active_bottom
+    global arena_perk_comeback_pending_top, arena_perk_comeback_pending_bottom
+    global arena_perk_comeback_base_skill_cd_top, arena_perk_comeback_base_skill_cd_bottom
+    global arena_perk_comeback_aura_timer
 
     # 아이콘 그리기 함수 저장
     if arena_obj and hasattr(arena_obj, '_draw_perk_icon'):
@@ -19960,6 +19978,18 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_flash_inspiration_timer_bottom = 0.0
     arena_flash_inspiration_particles_top.clear()
     arena_flash_inspiration_particles_bottom.clear()
+    # 기사회생 초기화
+    arena_perk_comeback_has_top = False
+    arena_perk_comeback_has_bottom = False
+    arena_perk_comeback_value_top = 0.70
+    arena_perk_comeback_value_bottom = 0.70
+    arena_perk_comeback_active_top = False
+    arena_perk_comeback_active_bottom = False
+    arena_perk_comeback_pending_top = False
+    arena_perk_comeback_pending_bottom = False
+    arena_perk_comeback_base_skill_cd_top = 1.0
+    arena_perk_comeback_base_skill_cd_bottom = 1.0
+    arena_perk_comeback_aura_timer = 0.0
 
     if not arena_obj or not hasattr(arena_obj, 'get_hero_perk_multipliers'):
         return
@@ -19978,6 +20008,10 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_perk_recall_guard_top = top_mults["recall_guard"]
     arena_perk_instant_cooldown_chance_top = top_mults["instant_cooldown"]
     arena_perk_retry_chance_top = top_mults["retry_chance"]  # 상단(상대) 반칙왕
+    # 기사회생 퍽 (상단)
+    if top_mults["comeback"] > 0:
+        arena_perk_comeback_has_top = True
+        arena_perk_comeback_value_top = top_mults["comeback"]
     # 신성월계수 잎 (상단)
     if top_mults["laurel_shield"] > 0:
         from downtown.colosseum_arena import ArenaLeafShield
@@ -19998,6 +20032,13 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_perk_paddle_enlarge_bottom = bottom_mults["paddle_enlarge"]
     arena_perk_recall_guard_bottom = bottom_mults["recall_guard"]
     arena_perk_instant_cooldown_chance_bottom = bottom_mults["instant_cooldown"]
+    # 기사회생 퍽 (하단)
+    if bottom_mults["comeback"] > 0:
+        arena_perk_comeback_has_bottom = True
+        arena_perk_comeback_value_bottom = bottom_mults["comeback"]
+    # 기사회생 기본 스킬쿨 배율 저장
+    arena_perk_comeback_base_skill_cd_top = arena_perk_skill_cd_mult_top
+    arena_perk_comeback_base_skill_cd_bottom = arena_perk_skill_cd_mult_bottom
     # 신성월계수 잎 (하단)
     if bottom_mults["laurel_shield"] > 0:
         from downtown.colosseum_arena import ArenaLeafShield
@@ -20070,6 +20111,10 @@ def reset_arena_perks():
     global arena_perk_instant_cooldown_chance_top, arena_perk_instant_cooldown_chance_bottom
     global arena_flash_inspiration_timer_top, arena_flash_inspiration_timer_bottom
     global arena_flash_inspiration_particles_top, arena_flash_inspiration_particles_bottom
+    global arena_perk_comeback_has_top, arena_perk_comeback_has_bottom
+    global arena_perk_comeback_active_top, arena_perk_comeback_active_bottom
+    global arena_perk_comeback_pending_top, arena_perk_comeback_pending_bottom
+    global arena_perk_comeback_aura_timer
     arena_perk_speed_mult_top = 1.0
     arena_perk_speed_mult_bottom = 1.0
     arena_perk_dash_cd_mult_top = 1.0
@@ -20118,6 +20163,99 @@ def reset_arena_perks():
     arena_storm_rush_particles.clear()
     arena_active_hero_perks = []
     arena_active_enemy_perks = []
+    # 기사회생 초기화
+    arena_perk_comeback_has_top = False
+    arena_perk_comeback_has_bottom = False
+    arena_perk_comeback_active_top = False
+    arena_perk_comeback_active_bottom = False
+    arena_perk_comeback_pending_top = False
+    arena_perk_comeback_pending_bottom = False
+    arena_perk_comeback_aura_timer = 0.0
+
+
+def _arena_comeback_activate(is_top):
+    """기사회생 퍽 발동: 스킬 쿨타임 대폭 감소"""
+    global arena_perk_comeback_active_top, arena_perk_comeback_active_bottom
+    global arena_perk_skill_cd_mult_top, arena_perk_skill_cd_mult_bottom
+    global arena_perk_comeback_aura_timer
+    if is_top:
+        arena_perk_comeback_active_top = True
+        # 기존 스킬쿨 배율에서 추가 감소 적용
+        arena_perk_skill_cd_mult_top = max(0.05, arena_perk_comeback_base_skill_cd_top - arena_perk_comeback_value_top)
+        if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
+            arena_skill_manager.game_state['perk_skill_cd_mult_top'] = arena_perk_skill_cd_mult_top
+        print(f"🔥 기사회생 발동! (상단) 스킬쿨 배율: {arena_perk_skill_cd_mult_top:.2f}")
+    else:
+        arena_perk_comeback_active_bottom = True
+        arena_perk_skill_cd_mult_bottom = max(0.05, arena_perk_comeback_base_skill_cd_bottom - arena_perk_comeback_value_bottom)
+        if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
+            arena_skill_manager.game_state['perk_skill_cd_mult_bottom'] = arena_perk_skill_cd_mult_bottom
+        print(f"🔥 기사회생 발동! (하단) 스킬쿨 배율: {arena_perk_skill_cd_mult_bottom:.2f}")
+    arena_perk_comeback_aura_timer = 0.0
+
+
+def _arena_comeback_deactivate(is_top):
+    """기사회생 퍽 해제: 스킬 쿨타임 원래대로 복원"""
+    global arena_perk_comeback_active_top, arena_perk_comeback_active_bottom
+    global arena_perk_skill_cd_mult_top, arena_perk_skill_cd_mult_bottom
+    if is_top and arena_perk_comeback_active_top:
+        arena_perk_comeback_active_top = False
+        arena_perk_skill_cd_mult_top = arena_perk_comeback_base_skill_cd_top
+        if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
+            arena_skill_manager.game_state['perk_skill_cd_mult_top'] = arena_perk_skill_cd_mult_top
+        print(f"🔥 기사회생 해제 (상단) 스킬쿨 배율 복원: {arena_perk_skill_cd_mult_top:.2f}")
+    elif not is_top and arena_perk_comeback_active_bottom:
+        arena_perk_comeback_active_bottom = False
+        arena_perk_skill_cd_mult_bottom = arena_perk_comeback_base_skill_cd_bottom
+        if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
+            arena_skill_manager.game_state['perk_skill_cd_mult_bottom'] = arena_perk_skill_cd_mult_bottom
+        print(f"🔥 기사회생 해제 (하단) 스킬쿨 배율 복원: {arena_perk_skill_cd_mult_bottom:.2f}")
+
+
+def _draw_comeback_aura(screen, center_x, center_y, base_w, base_h, aura_timer):
+    """기사회생 붉은 광채 오오라 이펙트"""
+    t = aura_timer
+    pulse = 0.7 + 0.3 * math.sin(t * 4.0)
+    base_r = max(base_w, base_h) // 2 + 20
+
+    # 외곽 소프트 글로우 (3겹)
+    for i in range(3):
+        r = int(base_r * (1.3 - i * 0.12) * (0.95 + 0.05 * math.sin(t * 3.0 + i)))
+        alpha = int((25 - i * 6) * pulse)
+        if alpha > 0 and r > 0:
+            glow_surf = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (220, 40, 30, alpha), (r, r), r)
+            screen.blit(glow_surf, (center_x - r, center_y - r))
+
+    # 중간 오오라 링 (회전하는 링)
+    ring_r = int(base_r * 1.05 * pulse)
+    ring_alpha = int(80 * pulse)
+    if ring_r > 0 and ring_alpha > 0:
+        ring_surf = pygame.Surface((ring_r * 2 + 4, ring_r * 2 + 4), pygame.SRCALPHA)
+        cx_r, cy_r = ring_r + 2, ring_r + 2
+        lw = max(2, int(ring_r * 0.08))
+        pygame.draw.circle(ring_surf, (255, 60, 40, ring_alpha), (cx_r, cy_r), ring_r, lw)
+        # 내부 링 (밝은 주황)
+        inner_r = int(ring_r * 0.85)
+        pygame.draw.circle(ring_surf, (255, 140, 60, int(ring_alpha * 0.5)), (cx_r, cy_r), inner_r, max(1, lw - 1))
+        screen.blit(ring_surf, (center_x - ring_r - 2, center_y - ring_r - 2))
+
+    # 불꽃 파티클 (8개가 원형으로 회전)
+    num_particles = 8
+    for i in range(num_particles):
+        angle = t * 2.0 + i * (math.pi * 2 / num_particles)
+        dist = base_r * (0.9 + 0.15 * math.sin(t * 5.0 + i * 1.5))
+        px = center_x + int(math.cos(angle) * dist)
+        py = center_y + int(math.sin(angle) * dist)
+        p_size = max(2, int(4 + 2 * math.sin(t * 6.0 + i)))
+        p_alpha = int(160 * pulse)
+        if p_alpha > 0:
+            p_surf = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
+            # 외곽 글로우
+            pygame.draw.circle(p_surf, (255, 80, 30, p_alpha // 3), (p_size, p_size), p_size)
+            # 코어
+            pygame.draw.circle(p_surf, (255, 200, 80, p_alpha), (p_size, p_size), max(1, p_size // 2))
+            screen.blit(p_surf, (px - p_size, py - p_size))
 
 
 def show_arena_perk_select_menu():
@@ -118176,7 +118314,7 @@ def _update_arena_capture_phase(screen):
 
     # ─────── ANNOUNCE 페이즈 (1.8초: 화면정지 + 고퀄 연출) ───────
     if arena_capture_phase == "announce":
-        ANNOUNCE_DUR = 1.8
+        ANNOUNCE_DUR = 3.8
         # 상단 영웅을 중앙으로 이동
         arena_capture_flee_x = float(GAME_CENTER_X)
         arena_capture_flee_y = float(BOSS_Y + BOSS_HEIGHT // 2) if 'BOSS_Y' in dir() else 45.0
