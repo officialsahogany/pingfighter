@@ -1127,10 +1127,10 @@ def _draw_swords_icon(surf, cx, cy, scale, accent, dim_f, sel_f, anim_t):
     # 2) 교차 검 (방패 위에 X자로 교차)
     # ════════════════════════════════════════
     for side in (-1, 1):
-        # 검 각도: 약 40도 기울기
+        # 검 각도: 수직 기준 ±42도 (칼끝이 위를 향함)
         sa = math.radians(42 * side)
-        ddx = math.cos(sa)
-        ddy = -math.sin(sa)
+        ddx = math.sin(sa)
+        ddy = -math.cos(sa)
         ppx = -ddy  # 수직 방향
         ppy = ddx
 
