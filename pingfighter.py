@@ -138905,46 +138905,53 @@ def main(stage_num, new_boss_mode=False):
             # 투기장 영웅 스킬 시스템 업데이트
             # 달빛 베기/도깨비불 화면 정지 중에도 스킬 타이머는 진행되어야 함 (1초 후 해제)
             if (not freeze_now or freeze_dark_slash or freeze_hell_fire) and arena_mode_enabled and arena_skill_manager:
+                dt = (1.0 / 60.0) * arena_speed_multiplier  # 배속 적용
+
+                # 🔥 기사회생 퍽: 매 프레임 perk_skill_cd_mult 동기화 (라운드 전환 시 유실 방지)
+                arena_skill_manager.game_state['perk_skill_cd_mult_top'] = arena_perk_skill_cd_mult_top
+                arena_skill_manager.game_state['perk_skill_cd_mult_bottom'] = arena_perk_skill_cd_mult_bottom
+
+                # 🎯 패들 속도 추적 (뿔 박치기 위치 예측용)
+                _prev_player_x = globals().get("_arena_prev_player_x", PLAYER.centerx)
+                _prev_boss_x = globals().get("_arena_prev_boss_x", BOSS.centerx)
+                _player_velocity_x = (PLAYER.centerx - _prev_player_x) / dt if dt > 0 else 0
+                _boss_velocity_x = (BOSS.centerx - _prev_boss_x) / dt if dt > 0 else 0
+                globals()["_arena_prev_player_x"] = PLAYER.centerx
+                globals()["_arena_prev_boss_x"] = BOSS.centerx
+
+                # game_state에 타겟 속도 저장
+                arena_skill_manager.game_state['target_velocity_x'] = _player_velocity_x  # 하단(플레이어) 속도
+                arena_skill_manager.game_state['boss_velocity_x'] = _boss_velocity_x  # 상단(보스) 속도
+
+                # 래퍼 객체 생성
+                class PaddleWrapper:
+                    def __init__(self, rect, is_top):
+                        self.x = rect.x
+                        self.y = rect.y
+                        self.width = rect.width
+                        self.height = rect.height
+                        self.centerx = rect.centerx
+                        self.centery = rect.centery
+                        self.is_top = is_top
+                class BallWrapper:
+                    def __init__(self, rect, vel):
+                        self.x = rect.x
+                        self.y = rect.y
+                        self.width = rect.width
+                        self.height = rect.height
+                        self.vx = vel[0]
+                        self.vy = vel[1]
+                top_wrapper = PaddleWrapper(BOSS, True)
+                bottom_wrapper = PaddleWrapper(PLAYER, False)
+                ball_wrapper = BallWrapper(BALL, ball_vel)
+
+                # 스킬 쿨다운/효과 업데이트
                 try:
-                    dt = (1.0 / 60.0) * arena_speed_multiplier  # 배속 적용
-
-                    # 🎯 패들 속도 추적 (뿔 박치기 위치 예측용)
-                    _prev_player_x = globals().get("_arena_prev_player_x", PLAYER.centerx)
-                    _prev_boss_x = globals().get("_arena_prev_boss_x", BOSS.centerx)
-                    _player_velocity_x = (PLAYER.centerx - _prev_player_x) / dt if dt > 0 else 0
-                    _boss_velocity_x = (BOSS.centerx - _prev_boss_x) / dt if dt > 0 else 0
-                    globals()["_arena_prev_player_x"] = PLAYER.centerx
-                    globals()["_arena_prev_boss_x"] = BOSS.centerx
-
-                    # game_state에 타겟 속도 저장
-                    arena_skill_manager.game_state['target_velocity_x'] = _player_velocity_x  # 하단(플레이어) 속도
-                    arena_skill_manager.game_state['boss_velocity_x'] = _boss_velocity_x  # 상단(보스) 속도
-
-                    # 래퍼 객체 생성
-                    class PaddleWrapper:
-                        def __init__(self, rect, is_top):
-                            self.x = rect.x
-                            self.y = rect.y
-                            self.width = rect.width
-                            self.height = rect.height
-                            self.centerx = rect.centerx
-                            self.centery = rect.centery
-                            self.is_top = is_top
-                    class BallWrapper:
-                        def __init__(self, rect, vel):
-                            self.x = rect.x
-                            self.y = rect.y
-                            self.width = rect.width
-                            self.height = rect.height
-                            self.vx = vel[0]
-                            self.vy = vel[1]
-                    top_wrapper = PaddleWrapper(BOSS, True)
-                    bottom_wrapper = PaddleWrapper(PLAYER, False)
-                    ball_wrapper = BallWrapper(BALL, ball_vel)
-
-                    # 스킬 쿨다운/효과 업데이트
                     arena_skill_manager.update(dt, top_wrapper, bottom_wrapper, ball_wrapper)
+                except Exception as _skill_update_err:
+                    print(f"[Arena] skill_manager.update error: {_skill_update_err}")
 
+                try:
                     # 🏜️ 모래감옥: 실제 패들에 이동 범위 제한 적용
                     _sp_gs = arena_skill_manager.game_state
                     _sp_center = _sp_gs.get('sand_prison_center_x')
@@ -139681,8 +139688,8 @@ def main(stage_num, new_boss_mode=False):
                                 arena_play_skill_sound(result)
                                 if 'skill_korean_name' in result:
                                     arena_show_speech_bubble(False, result['skill_korean_name'], hero_id=hero_id)
-                except Exception:
-                    pass
+                except Exception as _arena_skill_block_err:
+                    print(f"[Arena] skill/guard/henchman block error: {_arena_skill_block_err}")
 
                 # 투기장 영웅 상황 대사 업데이트
                 try:

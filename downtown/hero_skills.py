@@ -15386,6 +15386,14 @@ class HeroSkillManager:
                 if skill.is_active or has_oil_effects or has_dwarf_magic_effects or has_shadow_clones or has_shurikens or has_vortexes or has_ghost_eating or has_electric_shock or has_gatling_loop:
                     skill.reset_for_new_round(self.game_state)
 
+        # 🔥 기사회생 퍽: perk_skill_cd_mult 값 보존 (라운드 전환 시 유실 방지)
+        _preserved_perk_cd_top = self.game_state.get('perk_skill_cd_mult_top', 1.0)
+        _preserved_perk_cd_bottom = self.game_state.get('perk_skill_cd_mult_bottom', 1.0)
+        _preserved_instant_cd_top = self.game_state.get('instant_cooldown_chance_top', 0.0)
+        _preserved_instant_cd_bottom = self.game_state.get('instant_cooldown_chance_bottom', 0.0)
+        _preserved_magic_imm_chance_top = self.game_state.get('magic_immunity_chance_top', 0.0)
+        _preserved_magic_imm_chance_bottom = self.game_state.get('magic_immunity_chance_bottom', 0.0)
+
         # 추가로 game_state의 모든 효과 상태 초기화
         self.game_state['top_paddle_stunned'] = False
         self.game_state['top_paddle_slowed'] = False
@@ -15446,6 +15454,14 @@ class HeroSkillManager:
         # 오니마루 뿔 박치기 착지 충격파/폭발 이펙트 초기화
         self.game_state['horn_charge_impact_shockwave'] = None
         self.game_state['horn_charge_explosion'] = None
+
+        # 🔥 기사회생 퍽: 보존된 perk 값 복원 (라운드 전환으로 인한 유실 방지)
+        self.game_state['perk_skill_cd_mult_top'] = _preserved_perk_cd_top
+        self.game_state['perk_skill_cd_mult_bottom'] = _preserved_perk_cd_bottom
+        self.game_state['instant_cooldown_chance_top'] = _preserved_instant_cd_top
+        self.game_state['instant_cooldown_chance_bottom'] = _preserved_instant_cd_bottom
+        self.game_state['magic_immunity_chance_top'] = _preserved_magic_imm_chance_top
+        self.game_state['magic_immunity_chance_bottom'] = _preserved_magic_imm_chance_bottom
 
     def update(self, dt: float, top_paddle, bottom_paddle, ball):
         """스킬 업데이트"""
