@@ -17250,6 +17250,9 @@ class ColosseumsArena:
                 self.former_guards.append(g)
         self.guard_warrior_map[bet_id] = [selected]
 
+        # 호위무사로 선택된 영웅은 하수인 목록에서 제거 (생포로 이미 추가됐을 수 있음)
+        self.henchman_list = [h for h in self.henchman_list if h.get("id") != selected.get("id")]
+
         # 승급으로 추가된 호위무사는 선택과 무관하게 유지
         recalled = self.recalled_guard_map.get(bet_id)
         if recalled and recalled.get("id") != selected.get("id"):
@@ -17257,6 +17260,8 @@ class ColosseumsArena:
             # 복귀 호위무사가 former_guards에 추가됐으면 제거
             if recalled in self.former_guards:
                 self.former_guards.remove(recalled)
+            # 승급 호위무사도 하수인 목록에서 제거
+            self.henchman_list = [h for h in self.henchman_list if h.get("id") != recalled.get("id")]
             print(f"[Guard] 승급 호위무사 '{recalled['name']}' 자동 유지 "
                   f"(총 {len(self.guard_warrior_map[bet_id])}명)")
 
