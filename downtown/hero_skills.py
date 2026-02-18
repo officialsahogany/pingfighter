@@ -8082,6 +8082,17 @@ class DeadPossession(HeroSkill):
         """쿨타임 완료 + 빙의 스킬이 없을 때"""
         return self.current_cooldown <= 0 and self.possessed_skill is None
 
+    def _possessed_has_ongoing_effects(self) -> bool:
+        """빙의된 스킬이 is_active=False여도 지속되는 효과가 있는지 확인"""
+        if not self.possessed_skill:
+            return False
+        # OilSpill: 발사체 또는 웅덩이가 남아있으면 지속 중
+        if hasattr(self.possessed_skill, 'oil_projectiles') and self.possessed_skill.oil_projectiles:
+            return True
+        if hasattr(self.possessed_skill, 'oil_puddles') and self.possessed_skill.oil_puddles:
+            return True
+        return False
+
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         """랜덤 스킬 선택 및 즉시 발동"""
         # 자신의 스킬(balloon_wall, riddle_trick)은 제외하고 모든 영웅 스킬 풀에서 선택
@@ -8136,6 +8147,10 @@ class DeadPossession(HeroSkill):
         if self.possessed_skill.is_active and self.possessed_skill.duration > 0:
             self.is_active = True
             self.active_timer = self.possessed_skill.duration + 0.5  # 여유 시간
+        elif self._possessed_has_ongoing_effects():
+            # OilSpill 등 is_active=False지만 발사체/웅덩이가 지속되는 스킬
+            self.is_active = True
+            self.active_timer = 8.0  # 발사체 비행 + 웅덩이 지속 + 여유
         else:
             # 즉발 스킬이면 짧은 표시 후 정리
             self.is_active = True
@@ -8152,11 +8167,12 @@ class DeadPossession(HeroSkill):
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         """빙의 스킬 효과 업데이트"""
-        # 빙의된 스킬 업데이트
-        if self.possessed_skill and self.possessed_skill.is_active:
+        # 빙의된 스킬 업데이트 (OilSpill 등 is_active=False여도 update 필요한 스킬 지원)
+        if self.possessed_skill:
             self.possessed_skill.update(dt, caster_paddle, target_paddle, ball, game_state)
-            # 빙의 스킬이 끝나면 우리도 종료
-            if not self.possessed_skill.is_active:
+            # 빙의 스킬의 모든 효과가 끝났으면 우리도 종료
+            has_ongoing = self.possessed_skill.is_active or self._possessed_has_ongoing_effects()
+            if not has_ongoing:
                 self.active_timer = min(self.active_timer, 0.5)
 
         # 플래시 타이머
@@ -8175,20 +8191,27 @@ class DeadPossession(HeroSkill):
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         """빙의 종료"""
-        if self.possessed_skill and self.possessed_skill.is_active:
-            try:
-                self.possessed_skill._end_effect(caster_paddle, target_paddle, ball, game_state)
-            except Exception:
-                pass
-            self.possessed_skill.is_active = False
+        if self.possessed_skill:
+            # is_active 스킬 또는 지속 효과(OilSpill 웅덩이 등) 정리
+            if self.possessed_skill.is_active or self._possessed_has_ongoing_effects():
+                try:
+                    self.possessed_skill._end_effect(caster_paddle, target_paddle, ball, game_state)
+                except Exception:
+                    pass
+                self.possessed_skill.is_active = False
+                # OilSpill 웅덩이/발사체 정리
+                if hasattr(self.possessed_skill, 'oil_projectiles'):
+                    self.possessed_skill.oil_projectiles = []
+                if hasattr(self.possessed_skill, 'oil_puddles'):
+                    self.possessed_skill.oil_puddles = []
         self.possessed_skill = None
         self.ghost_particles = []
         self.possession_name = ""
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         """빙의 시각 효과"""
-        # 빙의된 스킬의 draw 호출
-        if self.possessed_skill and self.possessed_skill.is_active:
+        # 빙의된 스킬의 draw 호출 (OilSpill 등 is_active=False여도 그리기 필요)
+        if self.possessed_skill:
             self.possessed_skill.draw(screen, caster_paddle, target_paddle, ball, game_state)
 
         # 유령 파티클
