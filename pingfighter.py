@@ -134910,24 +134910,62 @@ def main(stage_num, new_boss_mode=False):
                 enraged_boss_aura_particles = []
         main.keyF5_pressed = keys[pygame.K_F5]
 
-        # 투기장 배속 변경 (1/2/3/4 키 + 넘패드 + 마우스 클릭)
+        # 투기장 배속 변경 (.키=빨라짐, ,키=느려짐, /키=기본배속 + 마우스 클릭)
         if arena_mode_enabled:
-            _k1 = keys[pygame.K_1] or keys[pygame.K_KP1]
-            _k2 = keys[pygame.K_2] or keys[pygame.K_KP2]
-            _k3 = keys[pygame.K_3] or keys[pygame.K_KP3]
-            _k4 = keys[pygame.K_4] or keys[pygame.K_KP4]
-            if _k1 and not getattr(main, '_arena_key1_pressed', False):
+            _speed_list = [opt[0] for opt in _ARENA_SPEED_OPTIONS]  # [1, 1.5, 2, 3]
+            _k_period = keys[pygame.K_PERIOD]    # . 키 → 배속 증가
+            _k_comma = keys[pygame.K_COMMA]      # , 키 → 배속 감소
+            _k_slash = keys[pygame.K_SLASH]      # / 키 → 기본 배속 (1x)
+            if _k_period and not getattr(main, '_arena_key_period_pressed', False):
+                _cur_idx = _speed_list.index(arena_speed_multiplier) if arena_speed_multiplier in _speed_list else 0
+                if _cur_idx < len(_speed_list) - 1:
+                    arena_speed_multiplier = _speed_list[_cur_idx + 1]
+            elif _k_comma and not getattr(main, '_arena_key_comma_pressed', False):
+                _cur_idx = _speed_list.index(arena_speed_multiplier) if arena_speed_multiplier in _speed_list else 0
+                if _cur_idx > 0:
+                    arena_speed_multiplier = _speed_list[_cur_idx - 1]
+            elif _k_slash and not getattr(main, '_arena_key_slash_pressed', False):
                 arena_speed_multiplier = 1
-            elif _k2 and not getattr(main, '_arena_key2_pressed', False):
-                arena_speed_multiplier = 1.5
-            elif _k3 and not getattr(main, '_arena_key3_pressed', False):
-                arena_speed_multiplier = 2
-            elif _k4 and not getattr(main, '_arena_key4_pressed', False):
-                arena_speed_multiplier = 3
-            main._arena_key1_pressed = _k1
-            main._arena_key2_pressed = _k2
-            main._arena_key3_pressed = _k3
-            main._arena_key4_pressed = _k4
+            # E 키 → 호위무사 스탠스 토글 (공격모드 ↔ 방어모드)
+            _k_e = keys[pygame.K_e]
+            if _k_e and not getattr(main, '_arena_key_e_pressed', False):
+                if globals().get('arena_guard_system'):
+                    _cur_stance = globals().get('arena_guard_stance_mode', 'attack')
+                    _new_stance = "defense" if _cur_stance == "attack" else "attack"
+                    globals()['arena_guard_stance_mode'] = _new_stance
+                    _gs = globals().get('arena_guard_system')
+                    if _gs:
+                        _old_stance = _gs.stance_mode_bottom
+                        _gs.stance_mode_bottom = _new_stance
+                        if _old_stance == "attack" and _new_stance == "defense":
+                            _mult = _gs.DEFENSE_SKILL_CD_MULT
+                        elif _old_stance == "defense" and _new_stance == "attack":
+                            _mult = 1.0 / _gs.DEFENSE_SKILL_CD_MULT
+                        else:
+                            _mult = 1.0
+                        if _mult != 1.0:
+                            _gs.cooldown_bottom *= _mult
+                            _gs.cooldown_max_bottom *= _mult
+                            for _gw in _gs.guard_warriors_bottom:
+                                _gid = _gw.get("id", "")
+                                _scds = _gs.guard_skill_cooldowns.get(_gid, [])
+                                _smaxs = _gs.guard_skill_cooldowns_max.get(_gid, [])
+                                for _si in range(len(_scds)):
+                                    _scds[_si] *= _mult
+                                for _si in range(len(_smaxs)):
+                                    _smaxs[_si] *= _mult
+                            _p2 = getattr(_gs, '_patrol2_bottom', None)
+                            if _p2:
+                                _p2['cooldown'] *= _mult
+                                _p2['cooldown_max'] *= _mult
+                    try:
+                        play_button_click_sound()
+                    except Exception:
+                        pass
+            main._arena_key_period_pressed = _k_period
+            main._arena_key_comma_pressed = _k_comma
+            main._arena_key_slash_pressed = _k_slash
+            main._arena_key_e_pressed = _k_e
             # 마우스 클릭으로 배속 버튼 변경 (REAL_SCREEN 좌표 사용)
             _mb = pygame.mouse.get_pressed()
             if _mb[0] and not getattr(main, '_arena_mouse_pressed', False):
