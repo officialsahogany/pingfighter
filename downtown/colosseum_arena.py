@@ -15719,7 +15719,7 @@ class ColosseumsArena:
                         # 호위무사 아이콘 툴팁 rect 수집 (이름 숨기고 호버 시 표시)
                         guard_name = guard.get("name", "?")
                         guard_title = guard.get("title", "")
-                        guard_tt_text = f"{guard_name}  「{guard_title}」" if guard_title else guard_name
+                        guard_tt_text = f"{guard_name} [호위무사]  「{guard_title}」" if guard_title else f"{guard_name} [호위무사]"
                         _perk_guard_tooltips.append({
                             "rect": pygame.Rect(
                                 panel_x + gx, status_y + gy,
@@ -18402,7 +18402,7 @@ class ColosseumsArena:
                     facing="down", color=g.get("color", (150, 150, 150)), scale_mode="preview"
                 )
                 if "small" in self.fonts:
-                    g_name = g.get("name", "")
+                    g_name = f"{g.get('name', '')} [호위무사]"
                     ns, _ = self.fonts["small"].render(g_name, ET["text_body"])
                     self.screen.blit(ns, (hero1_x - ns.get_width() // 2, guard_y + 28))
 
@@ -18468,7 +18468,7 @@ class ColosseumsArena:
                     facing="down", color=g.get("color", (150, 150, 150)), scale_mode="preview"
                 )
                 if "small" in self.fonts:
-                    g_name = g.get("name", "")
+                    g_name = f"{g.get('name', '')} [호위무사]"
                     ns, _ = self.fonts["small"].render(g_name, ET["text_body"])
                     self.screen.blit(ns, (hero2_x - ns.get_width() // 2, guard_y + 28))
 
