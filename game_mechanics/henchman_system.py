@@ -469,6 +469,27 @@ class HenchmanSystem:
         return boss_effects
 
     # ========================================================================
+    # 자동 발동 (auto-trigger)
+    # ========================================================================
+    def auto_trigger(self):
+        """쿨타임이 완료된 하수인을 자동으로 발동.
+
+        매 프레임 호출하면, 준비된 하수인이 있으면 하나씩 순서대로 자동 발동한다.
+        동시에 여러 하수인이 발동 중이면 겹치지 않도록 한 명만 발동.
+        """
+        if not self.slots:
+            return
+        # 이미 발동 중인(애니메이션 진행 중인) 하수인이 있으면 대기
+        any_active = any(s.phase is not None for s in self.slots)
+        if any_active:
+            return
+        # 준비된 하수인 중 첫 번째를 발동
+        for i, slot in enumerate(self.slots):
+            if slot.is_ready:
+                self._trigger_henchman(i)
+                return
+
+    # ========================================================================
     # 클릭 핸들링
     # ========================================================================
     def handle_click(self, mouse_pos) -> bool:
