@@ -736,7 +736,7 @@ def _show_dev_test_menu(ctx: MenuContext, state: MenuState) -> bool:
         pygame.display.flip()
 
 
-# ─── 모드 선택 화면 (스토리모드 / 투기장) ───────────────────────────────
+# ─── 모드 선택 화면 (아케이드 / 투기장) ───────────────────────────────
 
 _mode_card_preview_cache: dict = {}
 
@@ -1469,7 +1469,7 @@ def _draw_arena_emblem(
 
 
 def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
-    """모드 선택 화면 - 스토리모드 vs 투기장."""
+    """모드 선택 화면 - 아케이드 vs 투기장."""
     # 입장 버튼 클릭 사운드 재생
     try:
         import os as _os
@@ -1484,7 +1484,7 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
     # 하트 비 트랜지션 재생
     _play_rainbow_transition(ctx.get_screen(), 1000)
 
-    selected = 0  # 0=스토리, 1=투기장
+    selected = 0  # 0=아케이드, 1=투기장
     hover_scales = [1.0, 1.0]
     clock = pygame.time.Clock()
     click_anim = None  # {"card": idx, "timer": 0, "dur": 0.3}
@@ -1500,7 +1500,7 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
         os.path.join("ui", "arena.jpg"), ctx.resource_path)
 
     cards_info = [
-        {"title": "스토리모드", "subtitle": "보스를 쓰러트려라!",
+        {"title": "아케이드", "subtitle": "보스를 쓰러트려라!",
          "top": (26, 26, 62), "bot": (58, 26, 94), "accent": (0, 200, 255), "icon": "VS",
          "preview": story_preview},
         {"title": "투기장", "subtitle": "최강의 영웅은 누구?",
@@ -1527,7 +1527,7 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
                 chosen = click_anim["card"]
                 click_anim = None
                 if chosen == 0:
-                    # 스토리모드 - 기존 플로우
+                    # 아케이드 - 기존 플로우
                     character = ctx.show_character_selection()
                     if character == "__TUTORIAL__":
                         ctx.set_tutorial_mode(True)

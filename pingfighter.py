@@ -128140,7 +128140,7 @@ def handle_boss_pro():
         enhanced_acceleration = 0.4    # PLAYER ACCELERATION
         enhanced_deceleration = 0.4    # PLAYER DECELERATION
 
-    # 🏟️ 투기장 모드: 스토리 전용 핸디캡 스킵, 직접 속도 물리 사용 (하단 영웅과 동일)
+    # 🏟️ 투기장 모드: 아케이드 전용 핸디캡 스킵, 직접 속도 물리 사용 (하단 영웅과 동일)
     if arena_mode_enabled:
         # 데드존 8px (player AI와 동일)
         _arena_dz = 8
@@ -128160,9 +128160,9 @@ def handle_boss_pro():
         # 게임 영역 경계 클램핑
         proposed_x = max(GAME_AREA_OFFSET_X, min(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - BOSS.width, proposed_x))
         BOSS.x = proposed_x
-        return  # 투기장은 여기서 종료 (아래 스토리모드 전용 로직 실행 안 함)
+        return  # 투기장은 여기서 종료 (아래 아케이드 전용 로직 실행 안 함)
 
-    # --- 이하 스토리모드 전용 ---
+    # --- 이하 아케이드 전용 ---
     # 상모돌리기 강제 해제 모션 중 속도 50% 감소
     if whip_deactivation_active:
         enhanced_max_speed *= 0.5  # 50% 감소 = 50%만 유지
