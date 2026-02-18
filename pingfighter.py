@@ -8219,22 +8219,28 @@ def _fullscreen_flip():
             except Exception:
                 pass
 
-        # 🗡️ 하수인 아이콘 UI (호위무사 아이콘 아래)
+        # 🗡️ 하수인 아이콘 UI (호위무사 아이콘 위)
         _hench_hover = None
         if arena_mode_enabled and arena_henchman_system:
             try:
                 _real_mpos_h = _original_mouse_get_pos()
-                # 호위무사 아이콘 하단 Y 계산
-                _guard_bottom_y = None
-                if _guard_hover and isinstance(_guard_hover, dict):
-                    _guard_bottom_y = _guard_hover.get('_icon_bottom_y')
+                # 호위무사 아이콘 상단 Y 계산 (항상 계산, 큐 UI 활성화와 무관)
+                _guard_top_y = None
+                if arena_guard_system:
+                    _s = GAME_SCALE_FACTOR
+                    _n_bottom = len(getattr(arena_guard_system, 'guard_warriors_bottom', []))
+                    if _n_bottom > 0:
+                        _slot_h = max(50, int(100 * _s))
+                        _game_h = int(750 * _s)
+                        _y_end = GAME_OFFSET_Y + _game_h - int(10 * _s)
+                        _guard_top_y = _y_end - _n_bottom * _slot_h
                 _hench_hover = arena_henchman_system.draw_pillar_icons(
                     REAL_SCREEN,
                     game_offset_x=GAME_OFFSET_X,
                     game_offset_y=GAME_OFFSET_Y,
                     game_scale=GAME_SCALE_FACTOR,
                     mouse_pos=_real_mpos_h,
-                    bodyguard_icon_bottom_y=_guard_bottom_y,
+                    bodyguard_icon_top_y=_guard_top_y,
                 )
             except Exception:
                 pass

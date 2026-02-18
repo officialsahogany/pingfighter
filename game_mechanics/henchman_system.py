@@ -564,8 +564,8 @@ class HenchmanSystem:
     # ========================================================================
     def draw_pillar_icons(self, screen, game_offset_x=0, game_offset_y=0,
                           game_scale=1.0, mouse_pos=None,
-                          bodyguard_icon_bottom_y=None) -> dict:
-        """왼쪽 필러에 하수인 아이콘 렌더링. hover_info 반환."""
+                          bodyguard_icon_top_y=None) -> dict:
+        """왼쪽 필러에 하수인 아이콘 렌더링 (호위무사 위에 위로 쌓기). hover_info 반환."""
         if not self.slots:
             return None
 
@@ -573,12 +573,16 @@ class HenchmanSystem:
         icon_sz = max(24, int(HENCH_ICON_SIZE * _s))
         gap = max(4, int(6 * _s))
 
-        # 시작 Y: 호위무사 아이콘 아래, 또는 게임 영역 중간
-        if bodyguard_icon_bottom_y is not None:
-            start_y = int(bodyguard_icon_bottom_y) + gap + max(4, int(8 * _s))
+        # 하수인 아이콘은 호위무사 아이콘 바로 위에 위로 쌓기
+        n = len(self.slots)
+        total_height = n * icon_sz + (n - 1) * gap
+        if bodyguard_icon_top_y is not None:
+            # 호위무사 아이콘 상단에서 gap만큼 위부터 시작 (위로 쌓기)
+            start_y = int(bodyguard_icon_top_y) - max(4, int(8 * _s)) - total_height
         else:
+            # 폴백: 게임 영역 하단 80% 위치
             game_h = int(SCREEN_HEIGHT * _s)
-            start_y = game_offset_y + int(game_h * 0.55)
+            start_y = game_offset_y + int(game_h * 0.80) - total_height
 
         # X: 왼쪽 필러 중앙
         frame_x = game_offset_x - icon_sz - int(8 * _s)
@@ -591,7 +595,7 @@ class HenchmanSystem:
             iy = start_y + i * (icon_sz + gap)
 
             # 화면 밖이면 스킵
-            if iy + icon_sz > screen.get_height():
+            if iy < 0 or iy + icon_sz > screen.get_height():
                 break
 
             slot.icon_rect = pygame.Rect(frame_x, iy, icon_sz, icon_sz)
