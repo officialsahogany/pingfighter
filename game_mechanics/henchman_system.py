@@ -253,7 +253,7 @@ class HenchmanSystem:
             slot.anim_timer += dt
 
             if slot.phase == "entering":
-                self._update_entering(slot, dt)
+                self._update_entering(slot, dt, ball)
             elif slot.phase == "casting":
                 self._update_casting(slot, dt, top_paddle, bottom_paddle, ball)
             elif slot.phase == "exiting":
@@ -276,7 +276,7 @@ class HenchmanSystem:
         # boss_effects 추출
         return self._extract_boss_effects(ball)
 
-    def _update_entering(self, slot: HenchmanSlot, dt: float):
+    def _update_entering(self, slot: HenchmanSlot, dt: float, ball=None):
         """화면 밖에서 게임 영역으로 진입"""
         progress = min(1.0, slot.anim_timer / HENCH_ENTER_DURATION)
         # 이즈 아웃
@@ -293,7 +293,7 @@ class HenchmanSystem:
             slot.x = slot.target_x
             slot.phase = "casting"
             slot.anim_timer = 0.0
-            self._activate_skill(slot)
+            self._activate_skill(slot, ball)
 
     def _update_casting(self, slot: HenchmanSlot, dt: float,
                         top_paddle, bottom_paddle, ball):
@@ -330,7 +330,7 @@ class HenchmanSystem:
             # 쿨타임 시작
             slot.cooldown = slot.cooldown_max
 
-    def _activate_skill(self, slot: HenchmanSlot):
+    def _activate_skill(self, slot: HenchmanSlot, ball=None):
         """하수인 스킬 발동"""
         skill = slot.skill_instance
         if not skill:
@@ -347,14 +347,14 @@ class HenchmanSystem:
         # 이전 효과 종료
         if skill.is_active:
             try:
-                skill._end_effect(guard_paddle, target_paddle, None, game_state)
+                skill._end_effect(guard_paddle, target_paddle, ball, game_state)
             except Exception:
                 pass
             skill.is_active = False
 
         # 상태 갱신
         try:
-            skill.update(0.016, guard_paddle, target_paddle, None, game_state)
+            skill.update(0.016, guard_paddle, target_paddle, ball, game_state)
         except Exception:
             pass
 
@@ -365,7 +365,7 @@ class HenchmanSystem:
             if key.startswith(caster_prefix):
                 saved[key] = game_state[key]
 
-        result = skill.use(guard_paddle, target_paddle, None, game_state)
+        result = skill.use(guard_paddle, target_paddle, ball, game_state)
 
         for key, val in saved.items():
             game_state[key] = val
