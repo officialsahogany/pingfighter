@@ -19998,6 +19998,7 @@ arena_perk_comeback_pending_bottom = False        # 하단 기사회생 다음 �
 arena_perk_comeback_base_skill_cd_top = 1.0       # 상단 기사회생 발동 전 원래 스킬쿨 배율
 arena_perk_comeback_base_skill_cd_bottom = 1.0    # 하단 기사회생 발동 전 원래 스킬쿨 배율
 arena_perk_comeback_aura_timer = 0.0              # 기사회생 오오라 애니메이션 타이머
+arena_freeze_frames = 0                           # 하수인 스킬 freeze 프레임 카운터
 arena_battle_arena_obj = None                # ColosseumsArena 인스턴스 참조 (F8 퍽 선택용)
 
 def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
@@ -20108,6 +20109,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     if top_mults["comeback"] > 0:
         arena_perk_comeback_has_top = True
         arena_perk_comeback_value_top = top_mults["comeback"]
+        print(f"[DEBUG 기사회생] 초기화: 상단 기사회생 보유! value={arena_perk_comeback_value_top:.3f}")
     # 신성월계수 잎 (상단)
     if top_mults["laurel_shield"] > 0:
         from downtown.colosseum_arena import ArenaLeafShield
@@ -20132,9 +20134,11 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     if bottom_mults["comeback"] > 0:
         arena_perk_comeback_has_bottom = True
         arena_perk_comeback_value_bottom = bottom_mults["comeback"]
+        print(f"[DEBUG 기사회생] 초기화: 하단 기사회생 보유! value={arena_perk_comeback_value_bottom:.3f}")
     # 기사회생 기본 스킬쿨 배율 저장
     arena_perk_comeback_base_skill_cd_top = arena_perk_skill_cd_mult_top
     arena_perk_comeback_base_skill_cd_bottom = arena_perk_skill_cd_mult_bottom
+    print(f"[DEBUG 기사회생] 초기화 완료: base_cd_top={arena_perk_comeback_base_skill_cd_top:.3f}, base_cd_bottom={arena_perk_comeback_base_skill_cd_bottom:.3f}")
     # 신성월계수 잎 (하단)
     if bottom_mults["laurel_shield"] > 0:
         from downtown.colosseum_arena import ArenaLeafShield
@@ -20274,11 +20278,19 @@ def _arena_comeback_activate(is_top):
     global arena_perk_comeback_active_top, arena_perk_comeback_active_bottom
     global arena_perk_skill_cd_mult_top, arena_perk_skill_cd_mult_bottom
     global arena_perk_comeback_aura_timer
+    _side = "상단" if is_top else "하단"
+    print(f"[DEBUG 기사회생] === ACTIVATE 호출 ({_side}) ===")
+    print(f"[DEBUG 기사회생]   active_top={arena_perk_comeback_active_top}, active_bottom={arena_perk_comeback_active_bottom}")
+    print(f"[DEBUG 기사회생]   has_top={arena_perk_comeback_has_top}, has_bottom={arena_perk_comeback_has_bottom}")
+    print(f"[DEBUG 기사회생]   base_skill_cd: top={arena_perk_comeback_base_skill_cd_top:.3f}, bottom={arena_perk_comeback_base_skill_cd_bottom:.3f}")
+    print(f"[DEBUG 기사회생]   current skill_cd_mult: top={arena_perk_skill_cd_mult_top:.3f}, bottom={arena_perk_skill_cd_mult_bottom:.3f}")
+    print(f"[DEBUG 기사회생]   comeback_value: top={arena_perk_comeback_value_top:.3f}, bottom={arena_perk_comeback_value_bottom:.3f}")
     if is_top:
         arena_perk_comeback_active_top = True
         old_mult = arena_perk_comeback_base_skill_cd_top
         arena_perk_skill_cd_mult_top = max(0.05, arena_perk_comeback_base_skill_cd_top - arena_perk_comeback_value_top)
         new_mult = arena_perk_skill_cd_mult_top
+        print(f"[DEBUG 기사회생]   상단 배율: {old_mult:.3f} → {new_mult:.3f}")
         if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
             arena_skill_manager.game_state['perk_skill_cd_mult_top'] = new_mult
         # 진행 중인 스킬 쿨다운 즉시 비례 감소 (AI 영웅도 즉시 혜택)
@@ -20286,15 +20298,19 @@ def _arena_comeback_activate(is_top):
             _hero_id = arena_top_hero.get("id", "")
             _skills = arena_skill_manager.active_skills.get(_hero_id, [])
             _ratio = (new_mult / old_mult) if old_mult > 0 else 0.3
+            print(f"[DEBUG 기사회생]   스킬쿨 비례감소 ratio={_ratio:.3f}, hero={_hero_id}, skills={len(_skills)}개")
             for _sk in _skills:
                 if _sk.current_cooldown > 0:
+                    _old_cd = _sk.current_cooldown
                     _sk.current_cooldown *= _ratio
+                    print(f"[DEBUG 기사회생]     '{getattr(_sk, 'skill_id', '?')}' cd: {_old_cd:.2f} → {_sk.current_cooldown:.2f}")
         print(f"🔥 기사회생 발동! (상단) 스킬쿨 배율: {new_mult:.2f}")
     else:
         arena_perk_comeback_active_bottom = True
         old_mult = arena_perk_comeback_base_skill_cd_bottom
         arena_perk_skill_cd_mult_bottom = max(0.05, arena_perk_comeback_base_skill_cd_bottom - arena_perk_comeback_value_bottom)
         new_mult = arena_perk_skill_cd_mult_bottom
+        print(f"[DEBUG 기사회생]   하단 배율: {old_mult:.3f} → {new_mult:.3f}")
         if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
             arena_skill_manager.game_state['perk_skill_cd_mult_bottom'] = new_mult
         # 진행 중인 스킬 쿨다운 즉시 비례 감소
@@ -20302,29 +20318,42 @@ def _arena_comeback_activate(is_top):
             _hero_id = arena_bottom_hero.get("id", "")
             _skills = arena_skill_manager.active_skills.get(_hero_id, [])
             _ratio = (new_mult / old_mult) if old_mult > 0 else 0.3
+            print(f"[DEBUG 기사회생]   스킬쿨 비례감소 ratio={_ratio:.3f}, hero={_hero_id}, skills={len(_skills)}개")
             for _sk in _skills:
                 if _sk.current_cooldown > 0:
+                    _old_cd = _sk.current_cooldown
                     _sk.current_cooldown *= _ratio
+                    print(f"[DEBUG 기사회생]     '{getattr(_sk, 'skill_id', '?')}' cd: {_old_cd:.2f} → {_sk.current_cooldown:.2f}")
         print(f"🔥 기사회생 발동! (하단) 스킬쿨 배율: {new_mult:.2f}")
     arena_perk_comeback_aura_timer = 0.0
+    print(f"[DEBUG 기사회생] === ACTIVATE 완료 ({_side}) ===")
 
 
 def _arena_comeback_deactivate(is_top):
     """기사회생 퍽 해제: 스킬 쿨타임 원래대로 복원"""
     global arena_perk_comeback_active_top, arena_perk_comeback_active_bottom
     global arena_perk_skill_cd_mult_top, arena_perk_skill_cd_mult_bottom
+    _side = "상단" if is_top else "하단"
+    _was_active = arena_perk_comeback_active_top if is_top else arena_perk_comeback_active_bottom
+    print(f"[DEBUG 기사회생] DEACTIVATE 호출 ({_side}) was_active={_was_active}")
     if is_top and arena_perk_comeback_active_top:
         arena_perk_comeback_active_top = False
+        _old = arena_perk_skill_cd_mult_top
         arena_perk_skill_cd_mult_top = arena_perk_comeback_base_skill_cd_top
         if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
             arena_skill_manager.game_state['perk_skill_cd_mult_top'] = arena_perk_skill_cd_mult_top
+        print(f"[DEBUG 기사회생]   상단 배율 복원: {_old:.3f} → {arena_perk_skill_cd_mult_top:.3f} (base={arena_perk_comeback_base_skill_cd_top:.3f})")
         print(f"🔥 기사회생 해제 (상단) 스킬쿨 배율 복원: {arena_perk_skill_cd_mult_top:.2f}")
     elif not is_top and arena_perk_comeback_active_bottom:
         arena_perk_comeback_active_bottom = False
+        _old = arena_perk_skill_cd_mult_bottom
         arena_perk_skill_cd_mult_bottom = arena_perk_comeback_base_skill_cd_bottom
         if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
             arena_skill_manager.game_state['perk_skill_cd_mult_bottom'] = arena_perk_skill_cd_mult_bottom
+        print(f"[DEBUG 기사회생]   하단 배율 복원: {_old:.3f} → {arena_perk_skill_cd_mult_bottom:.3f} (base={arena_perk_comeback_base_skill_cd_bottom:.3f})")
         print(f"🔥 기사회생 해제 (하단) 스킬쿨 배율 복원: {arena_perk_skill_cd_mult_bottom:.2f}")
+    else:
+        print(f"[DEBUG 기사회생]   ({_side}) 발동 중이 아니므로 해제 스킵")
 
 
 def _draw_comeback_aura(screen, center_x, center_y, base_w, base_h, aura_timer):
@@ -125023,6 +125052,7 @@ def handle_ball():
 
             # 🔥 기사회생 퍽: 듀스 모드에서도 라운드 종료 시 해제
             if arena_mode_enabled:
+                print(f"[DEBUG 기사회생] --- 듀스(하단득점) 라운드 종료, 기사회생 해제 ---")
                 _arena_comeback_deactivate(True)
                 _arena_comeback_deactivate(False)
 
@@ -125085,12 +125115,19 @@ def handle_ball():
 
             # 🔥 기사회생 퍽: 라운드 종료 시 해제 + 상대 4점 시 발동
             if arena_mode_enabled:
+                print(f"[DEBUG 기사회생] --- 하단 득점! score: wins={round_wins} losses={round_losses} ---")
+                print(f"[DEBUG 기사회생]   has_top={arena_perk_comeback_has_top}, has_bottom={arena_perk_comeback_has_bottom}")
+                print(f"[DEBUG 기사회생]   active_top={arena_perk_comeback_active_top}, active_bottom={arena_perk_comeback_active_bottom}")
+                print(f"[DEBUG 기사회생]   tenacity_top_triggered={tenacity_top_triggered}")
                 # 기존 기사회생 해제 (이전 라운드에서 발동 중이었다면)
                 _arena_comeback_deactivate(True)
                 _arena_comeback_deactivate(False)
                 # 하단(플레이어)이 4점에 도달하면 상단(상대) 기사회생 발동
                 if arena_perk_comeback_has_top and round_wins == 4 and not tenacity_top_triggered:
+                    print(f"[DEBUG 기사회생] ★ 조건 충족! 상단 기사회생 발동 (round_wins=={round_wins})")
                     _arena_comeback_activate(True)
+                else:
+                    print(f"[DEBUG 기사회생]   상단 발동 조건 불충족: has={arena_perk_comeback_has_top}, wins={round_wins}, tenacity={tenacity_top_triggered}")
                 # 상대(상단)가 4점에 도달하면 하단(플레이어) 기사회생 발동
                 # (이 블록은 하단 득점이므로 round_losses 변화 없음)
 
@@ -125654,6 +125691,7 @@ def handle_ball():
 
             # 🔥 기사회생 퍽: 듀스 모드에서도 라운드 종료 시 해제
             if arena_mode_enabled:
+                print(f"[DEBUG 기사회생] --- 듀스(상단득점) 라운드 종료, 기사회생 해제 ---")
                 _arena_comeback_deactivate(True)
                 _arena_comeback_deactivate(False)
 
@@ -125788,12 +125826,19 @@ def handle_ball():
 
             # 🔥 기사회생 퍽: 라운드 종료 시 해제 + 상대 4점 시 발동
             if arena_mode_enabled:
+                print(f"[DEBUG 기사회생] --- 상단 득점! score: wins={round_wins} losses={round_losses} ---")
+                print(f"[DEBUG 기사회생]   has_top={arena_perk_comeback_has_top}, has_bottom={arena_perk_comeback_has_bottom}")
+                print(f"[DEBUG 기사회생]   active_top={arena_perk_comeback_active_top}, active_bottom={arena_perk_comeback_active_bottom}")
+                print(f"[DEBUG 기사회생]   tenacity_triggered={tenacity_triggered}")
                 # 기존 기사회생 해제 (이전 라운드에서 발동 중이었다면)
                 _arena_comeback_deactivate(True)
                 _arena_comeback_deactivate(False)
                 # 상대(상단)가 4점에 도달하면 하단(플레이어) 기사회생 발동
                 if arena_perk_comeback_has_bottom and round_losses == 4 and not tenacity_triggered:
+                    print(f"[DEBUG 기사회생] ★ 조건 충족! 하단 기사회생 발동 (round_losses=={round_losses})")
                     _arena_comeback_activate(False)
+                else:
+                    print(f"[DEBUG 기사회생]   하단 발동 조건 불충족: has={arena_perk_comeback_has_bottom}, losses={round_losses}, tenacity={tenacity_triggered}")
                 # 하단(플레이어)이 4점에 도달하면 상단(상대) 기사회생 발동 (상대 AI용)
                 # (이 블록은 상단 득점이므로 round_wins 변화 없음)
 
@@ -133075,6 +133120,8 @@ def main(stage_num, new_boss_mode=False):
     global power_smashing_direction, power_smashing_original_speed  # 파워스매싱 관련 변수
     global boss_stunned_timer, boss_knockback_vel, boss_knockback_timer  # 다이너마이트 넉백용 전역 변수
     global arena_skill_check_timer  # 투기장 스킬 시스템 전역 변수 (arena_skill_manager는 위에서 이미 선언)
+    global arena_freeze_frames  # 하수인 스킬 freeze 프레임 카운터
+    global arena_perk_comeback_aura_timer  # 기사회생 오오라 애니메이션 타이머
     nine_just_pressed = False
     last_nine_state = False
     
@@ -138977,6 +139024,24 @@ def main(stage_num, new_boss_mode=False):
                 # 🔥 기사회생 퍽: 매 프레임 perk_skill_cd_mult 동기화 (라운드 전환 시 유실 방지)
                 arena_skill_manager.game_state['perk_skill_cd_mult_top'] = arena_perk_skill_cd_mult_top
                 arena_skill_manager.game_state['perk_skill_cd_mult_bottom'] = arena_perk_skill_cd_mult_bottom
+                # [DEBUG] 기사회생 상태 5초마다 출력
+                if (arena_perk_comeback_active_top or arena_perk_comeback_active_bottom):
+                    _cb_dbg_timer = globals().get('_comeback_debug_timer', 0.0)
+                    _cb_dbg_timer += dt
+                    globals()['_comeback_debug_timer'] = _cb_dbg_timer
+                    if _cb_dbg_timer >= 5.0:
+                        globals()['_comeback_debug_timer'] = 0.0
+                        print(f"[DEBUG 기사회생] 프레임동기화: active_top={arena_perk_comeback_active_top}, active_bottom={arena_perk_comeback_active_bottom}")
+                        print(f"[DEBUG 기사회생]   skill_cd_mult: top={arena_perk_skill_cd_mult_top:.3f}, bottom={arena_perk_skill_cd_mult_bottom:.3f}")
+                        print(f"[DEBUG 기사회생]   game_state: top={arena_skill_manager.game_state.get('perk_skill_cd_mult_top', '?')}, bottom={arena_skill_manager.game_state.get('perk_skill_cd_mult_bottom', '?')}")
+                        # 현재 스킬 쿨다운 상태도 출력
+                        for _dbg_side, _dbg_hero in [("상단", arena_top_hero), ("하단", arena_bottom_hero)]:
+                            if _dbg_hero:
+                                _dbg_hid = _dbg_hero.get("id", "")
+                                _dbg_skills = arena_skill_manager.active_skills.get(_dbg_hid, [])
+                                for _dbg_sk in _dbg_skills:
+                                    if hasattr(_dbg_sk, 'current_cooldown') and hasattr(_dbg_sk, 'cooldown'):
+                                        print(f"[DEBUG 기사회생]   {_dbg_side} '{getattr(_dbg_sk, 'skill_id', '?')}' cd={_dbg_sk.current_cooldown:.2f}/{_dbg_sk.cooldown:.2f}")
 
                 # 🎯 패들 속도 추적 (뿔 박치기 위치 예측용)
                 _prev_player_x = globals().get("_arena_prev_player_x", PLAYER.centerx)
