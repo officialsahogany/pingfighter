@@ -7258,7 +7258,7 @@ class IllusionShuriken(HeroSkill):
                     'flash_intensity': 1.0
                 })
                 # 화면 흔들림
-                game_state['screen_shake'] = 8
+                game_state['screen_shake'] = 3
                 game_state['shake_duration'] = 0.2
 
         # 잔상 알파값 감소
