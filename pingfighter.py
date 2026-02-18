@@ -20176,23 +20176,42 @@ def reset_arena_perks():
 
 
 def _arena_comeback_activate(is_top):
-    """기사회생 퍽 발동: 스킬 쿨타임 대폭 감소"""
+    """기사회생 퍽 발동: 스킬 쿨타임 대폭 감소 + 진행 중 쿨다운 즉시 감소"""
     global arena_perk_comeback_active_top, arena_perk_comeback_active_bottom
     global arena_perk_skill_cd_mult_top, arena_perk_skill_cd_mult_bottom
     global arena_perk_comeback_aura_timer
     if is_top:
         arena_perk_comeback_active_top = True
-        # 기존 스킬쿨 배율에서 추가 감소 적용
+        old_mult = arena_perk_comeback_base_skill_cd_top
         arena_perk_skill_cd_mult_top = max(0.05, arena_perk_comeback_base_skill_cd_top - arena_perk_comeback_value_top)
+        new_mult = arena_perk_skill_cd_mult_top
         if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
-            arena_skill_manager.game_state['perk_skill_cd_mult_top'] = arena_perk_skill_cd_mult_top
-        print(f"🔥 기사회생 발동! (상단) 스킬쿨 배율: {arena_perk_skill_cd_mult_top:.2f}")
+            arena_skill_manager.game_state['perk_skill_cd_mult_top'] = new_mult
+        # 진행 중인 스킬 쿨다운 즉시 비례 감소 (AI 영웅도 즉시 혜택)
+        if arena_skill_manager and hasattr(arena_skill_manager, 'active_skills') and arena_top_hero:
+            _hero_id = arena_top_hero.get("id", "")
+            _skills = arena_skill_manager.active_skills.get(_hero_id, [])
+            _ratio = (new_mult / old_mult) if old_mult > 0 else 0.3
+            for _sk in _skills:
+                if _sk.current_cooldown > 0:
+                    _sk.current_cooldown *= _ratio
+        print(f"🔥 기사회생 발동! (상단) 스킬쿨 배율: {new_mult:.2f}")
     else:
         arena_perk_comeback_active_bottom = True
+        old_mult = arena_perk_comeback_base_skill_cd_bottom
         arena_perk_skill_cd_mult_bottom = max(0.05, arena_perk_comeback_base_skill_cd_bottom - arena_perk_comeback_value_bottom)
+        new_mult = arena_perk_skill_cd_mult_bottom
         if arena_skill_manager and hasattr(arena_skill_manager, 'game_state'):
-            arena_skill_manager.game_state['perk_skill_cd_mult_bottom'] = arena_perk_skill_cd_mult_bottom
-        print(f"🔥 기사회생 발동! (하단) 스킬쿨 배율: {arena_perk_skill_cd_mult_bottom:.2f}")
+            arena_skill_manager.game_state['perk_skill_cd_mult_bottom'] = new_mult
+        # 진행 중인 스킬 쿨다운 즉시 비례 감소
+        if arena_skill_manager and hasattr(arena_skill_manager, 'active_skills') and arena_bottom_hero:
+            _hero_id = arena_bottom_hero.get("id", "")
+            _skills = arena_skill_manager.active_skills.get(_hero_id, [])
+            _ratio = (new_mult / old_mult) if old_mult > 0 else 0.3
+            for _sk in _skills:
+                if _sk.current_cooldown > 0:
+                    _sk.current_cooldown *= _ratio
+        print(f"🔥 기사회생 발동! (하단) 스킬쿨 배율: {new_mult:.2f}")
     arena_perk_comeback_aura_timer = 0.0
 
 
