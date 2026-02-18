@@ -118603,8 +118603,10 @@ def _update_arena_capture_phase(screen):
                     arena_capture_deployed_net = None
 
         # 시간 초과 또는 탄 소진 (펼쳐진 그물 없을 때만)
+        # ⚠️ trapped 상태 그물이 있으면 시간 초과 무시 (성공 처리 대기)
         no_active_net = not arena_capture_net_active and arena_capture_deployed_net is None
-        if arena_capture_timer >= time_limit or (arena_capture_shots_left <= 0 and no_active_net):
+        has_trapped_net = (arena_capture_deployed_net is not None and arena_capture_deployed_net.get("trapped", False))
+        if not has_trapped_net and (arena_capture_timer >= time_limit or (arena_capture_shots_left <= 0 and no_active_net)):
             if arena_capture_phase == "active":
                 arena_capture_phase = "result"
                 arena_capture_timer = 0.0
