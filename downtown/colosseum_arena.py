@@ -1554,6 +1554,15 @@ ARENA_PERK_POOL = [
         "effect_type": "theft",
         "value": 0.50,
     },
+    # === 조건 발동 퍽 ===
+    {
+        "id": "comeback",
+        "name": "기사회생",
+        "description": "상대 4점 획득 시 다음 1라운드\n스킬 쿨타임 70% 감소",
+        "icon_color": (220, 50, 50),    # 붉은색 (불굴)
+        "effect_type": "comeback",
+        "value": 0.70,
+    },
     # === 해금 조건 퍽 ===
     {
         "id": "recall_guard",
@@ -14030,6 +14039,7 @@ class ColosseumsArena:
             "recall_guard": False,      # 재소집령 (호위무사 복귀)
             "instant_cooldown": 0.0,    # 타격 시 스킬쿨 즉시 충전 확률
             "theft": 0.0,               # 승리 시 상대 퍽 탈취 확률
+            "comeback": 0.0,            # 기사회생 스킬쿨 감소량 (상대 4점 시 발동)
         }
         for perk in perks:
             etype = perk["effect_type"]
@@ -14062,6 +14072,8 @@ class ColosseumsArena:
                 mults["instant_cooldown"] = val
             elif etype == "theft":
                 mults["theft"] = val
+            elif etype == "comeback":
+                mults["comeback"] = val
         # 충성 보너스: 기존 호위무사 유지 시 쿨타임 -10% 누적
         loyalty_count = self.guard_loyalty_cd_bonus.get(hero_id, 0)
         if loyalty_count > 0:
@@ -14953,6 +14965,84 @@ class ColosseumsArena:
             pygame.draw.line(surf, (255, 220, 255, 200),
                              (sx, sy - star_s), (sx, sy + star_s), max(1, lw // 2))
 
+    def _draw_perk_icon_comeback(self, surf, cx, cy, r, ss):
+        """기사회생 아이콘 - 붉은 불사조 날개 + 부활 불꽃"""
+        s = r * ss
+        lw = max(2, int(2 * ss / 3))
+        # 배경 붉은 글로우
+        for gr in range(5):
+            glow_r = int(s * (0.92 - gr * 0.08))
+            pygame.draw.circle(surf, (220, 30, 30, 6 + gr * 4), (cx, cy), glow_r)
+        # 중심 불꽃 코어 (밝은 노란색→주황→붉은색 그라데이션)
+        core_r = int(s * 0.18)
+        pygame.draw.circle(surf, (255, 200, 80, 60), (cx, cy + int(s * 0.05)), core_r + 4)
+        pygame.draw.circle(surf, (255, 160, 40, 120), (cx, cy + int(s * 0.05)), core_r + 2)
+        pygame.draw.circle(surf, (255, 240, 180, 200), (cx, cy + int(s * 0.05)), core_r)
+        # 불사조 날개 (좌우 대칭) - 붉은 곡선
+        for wing_dir in [-1, 1]:
+            pts = []
+            for t in range(20):
+                frac = t / 19.0
+                # 날개 곡선: 위로 올라가면서 바깥으로 펼쳐짐
+                wx = cx + wing_dir * int(s * (0.15 + frac * 0.65) * (1.0 - frac * 0.2))
+                wy = cy - int(s * (frac * 0.7 - frac * frac * 0.3))
+                pts.append((wx, wy))
+            # 날개 하단 곡선 (돌아오기)
+            for t in range(19, -1, -1):
+                frac = t / 19.0
+                wx = cx + wing_dir * int(s * (0.1 + frac * 0.45))
+                wy = cy - int(s * (frac * 0.5 - frac * frac * 0.15)) + int(s * 0.1)
+                pts.append((wx, wy))
+            if len(pts) >= 3:
+                # 날개 글로우
+                pygame.draw.polygon(surf, (200, 40, 20, 80), pts)
+                # 날개 본체
+                pygame.draw.polygon(surf, (220, 60, 30, 180), pts)
+                # 날개 테두리
+                pygame.draw.polygon(surf, (255, 100, 50, 200), pts, lw)
+        # 날개 깃털 라인 (3줄)
+        for wing_dir in [-1, 1]:
+            for fi in range(3):
+                frac = 0.3 + fi * 0.2
+                fx = cx + wing_dir * int(s * (0.2 + frac * 0.4))
+                fy_top = cy - int(s * (frac * 0.6))
+                fy_bot = cy + int(s * 0.05)
+                pygame.draw.line(surf, (255, 120, 60, 150), (fx, fy_top), (cx + wing_dir * int(s * 0.08), fy_bot), max(1, lw - 1))
+        # 상단 불꽃 이펙트 (위로 솟는 3개 불꽃)
+        flame_positions = [(-0.08, -0.35, 0.12), (0.0, -0.45, 0.15), (0.08, -0.35, 0.12)]
+        for fx_off, fy_off, f_size in flame_positions:
+            fx = cx + int(s * fx_off)
+            fy = cy + int(s * fy_off)
+            fr = int(s * f_size)
+            # 불꽃 삼각형
+            flame_pts = [
+                (fx, fy - fr),
+                (fx - int(fr * 0.6), fy + int(fr * 0.5)),
+                (fx + int(fr * 0.6), fy + int(fr * 0.5)),
+            ]
+            pygame.draw.polygon(surf, (255, 120, 30, 180), flame_pts)
+            pygame.draw.polygon(surf, (255, 200, 80, 120), [
+                (fx, fy - int(fr * 0.6)),
+                (fx - int(fr * 0.3), fy + int(fr * 0.3)),
+                (fx + int(fr * 0.3), fy + int(fr * 0.3)),
+            ])
+        # 하단 글자 효과: "復" 느낌의 심볼 (십자가 + 화살표 위)
+        sym_y = cy + int(s * 0.3)
+        # 작은 위쪽 화살표
+        arr_h = int(s * 0.18)
+        arr_w = int(s * 0.12)
+        pygame.draw.line(surf, (255, 180, 100, 220), (cx, sym_y), (cx, sym_y - arr_h), lw)
+        pygame.draw.line(surf, (255, 180, 100, 220), (cx - arr_w, sym_y - arr_h + int(arr_h * 0.4)), (cx, sym_y - arr_h), lw)
+        pygame.draw.line(surf, (255, 180, 100, 220), (cx + arr_w, sym_y - arr_h + int(arr_h * 0.4)), (cx, sym_y - arr_h), lw)
+        # 반짝이는 별 파티클
+        for sx, sy in [(cx - int(s * 0.55), cy - int(s * 0.3)),
+                        (cx + int(s * 0.5), cy - int(s * 0.2)),
+                        (cx - int(s * 0.3), cy + int(s * 0.45))]:
+            star_s = int(s * 0.07)
+            pygame.draw.circle(surf, (255, 200, 100, 60), (sx, sy), star_s + 1)
+            pygame.draw.line(surf, (255, 220, 140, 200), (sx - star_s, sy), (sx + star_s, sy), max(1, lw // 2))
+            pygame.draw.line(surf, (255, 220, 140, 200), (sx, sy - star_s), (sx, sy + star_s), max(1, lw // 2))
+
     def _draw_perk_icon_skill(self, surf, cx, cy, r, ss):
         """스킬 추가 아이콘 - 고퀄 빛나는 검 + 마법 오라"""
         s = r * ss
@@ -15051,6 +15141,7 @@ class ColosseumsArena:
             "recall_guard": self._draw_perk_icon_recall_guard,
             "flash_inspiration": self._draw_perk_icon_flash_inspiration,
             "theft": self._draw_perk_icon_theft,
+            "comeback": self._draw_perk_icon_comeback,
         }
         # 스킬 타입 퍽은 별(★) 아이콘으로 표시
         if perk_id.startswith("skill_"):

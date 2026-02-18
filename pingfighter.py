@@ -91462,6 +91462,12 @@ def draw_objects():
                 _imm_base_r = max(_top_draw_width, _top_draw_height) // 2 + 15
                 _draw_magic_immunity_barrier(SCREEN, int(_top_final_x), int(_top_final_y), _imm_base_r, _imm_timer, ARENA_MAGIC_IMMUNITY_DURATION, arena_barrier_flash_top, arena_barrier_beam_target_top, is_top=True)
 
+            # 🔥 기사회생 붉은 광채 오오라 (상단 영웅)
+            if arena_perk_comeback_active_top:
+                _draw_comeback_aura(SCREEN, int(_top_final_x), int(_top_final_y),
+                                    _top_draw_width, _top_draw_height,
+                                    arena_perk_comeback_aura_timer)
+
             # 번뜩이는 영감 반짝임 이펙트 (상단 영웅)
             if arena_flash_inspiration_timer_top > 0 or arena_flash_inspiration_particles_top:
                 _draw_flash_inspiration_effect(SCREEN, int(_top_final_x), int(_top_final_y),
@@ -93049,6 +93055,12 @@ def draw_objects():
                 _imm_timer = arena_skill_manager.game_state.get('magic_immunity_timer_bottom', 0.0)
                 _imm_base_r = max(_bottom_draw_width, _bottom_draw_height) // 2 + 15
                 _draw_magic_immunity_barrier(SCREEN, int(_final_x), int(_final_y), _imm_base_r, _imm_timer, ARENA_MAGIC_IMMUNITY_DURATION, arena_barrier_flash_bottom, arena_barrier_beam_target_bottom, is_top=False)
+
+            # 🔥 기사회생 붉은 광채 오오라 (하단 영웅)
+            if arena_perk_comeback_active_bottom:
+                _draw_comeback_aura(SCREEN, int(_final_x), int(_final_y),
+                                    _bottom_draw_width, _bottom_draw_height,
+                                    arena_perk_comeback_aura_timer)
 
             # 번뜩이는 영감 반짝임 이펙트 (하단 영웅)
             if arena_flash_inspiration_timer_bottom > 0 or arena_flash_inspiration_particles_bottom:
@@ -122057,6 +122069,8 @@ def handle_ball():
     global stage8_cloud_active, stage8_cloud_rect, stage8_cloud_start_ms, stage8_cloud_end_ms, stage8_cloud_dash_active, stage8_cloud_dash_phase, stage8_cloud_dash_start_ms, stage8_cloud_next_ready_ms
     # 번뜩이는 영감 이펙트 타이머
     global arena_flash_inspiration_timer_top, arena_flash_inspiration_timer_bottom
+    # 기사회생 오오라 타이머
+    global arena_perk_comeback_aura_timer
 
     # --- Stage 8 그림자분신: 매 프레임 상태 업데이트 ---
     if current_stage == 8:
@@ -124714,6 +124728,17 @@ def handle_ball():
                 if _hl_rec:
                     _hl_rec.save_highlight()
 
+            # 🔥 기사회생 퍽: 라운드 종료 시 해제 + 상대 4점 시 발동
+            if arena_mode_enabled:
+                # 기존 기사회생 해제 (이전 라운드에서 발동 중이었다면)
+                _arena_comeback_deactivate(True)
+                _arena_comeback_deactivate(False)
+                # 하단(플레이어)이 4점에 도달하면 상단(상대) 기사회생 발동
+                if arena_perk_comeback_has_top and round_wins == 4 and not tenacity_top_triggered:
+                    _arena_comeback_activate(True)
+                # 상대(상단)가 4점에 도달하면 하단(플레이어) 기사회생 발동
+                # (이 블록은 하단 득점이므로 round_losses 변화 없음)
+
             # 🔥 상대 반칙왕 발동 시: 반칙호루라기와 동일한 연출
             if tenacity_top_triggered:
                 game_state.round_wins = round_wins
@@ -125400,6 +125425,17 @@ def handle_ball():
             # 스테이지 30 (투기장): 관중 반응 시스템 (상단 영웅 득점)
             if current_stage == 30 and pillar_renderer is not None:
                 _arena_crowd_on_score(pillar_renderer, "top", round_wins, round_losses)
+
+            # 🔥 기사회생 퍽: 라운드 종료 시 해제 + 상대 4점 시 발동
+            if arena_mode_enabled:
+                # 기존 기사회생 해제 (이전 라운드에서 발동 중이었다면)
+                _arena_comeback_deactivate(True)
+                _arena_comeback_deactivate(False)
+                # 상대(상단)가 4점에 도달하면 하단(플레이어) 기사회생 발동
+                if arena_perk_comeback_has_bottom and round_losses == 4 and not tenacity_triggered:
+                    _arena_comeback_activate(False)
+                # 하단(플레이어)이 4점에 도달하면 상단(상대) 기사회생 발동 (상대 AI용)
+                # (이 블록은 상단 득점이므로 round_wins 변화 없음)
 
             # 🔥 반칙왕 발동 시: 반칙호루라기와 동일한 연출 (심판 + "무효!" + 파동 + 효과음)
             if tenacity_triggered:
@@ -130709,6 +130745,13 @@ def handle_boss():
     enhanced_predict_chance = config["predict_chance"]
     enhanced_predict_error = config["predict_error"]
     enhanced_fail_error = config["fail_error"]
+
+    # 🏟️ 투기장 모드: AI 오차 파라미터 대폭 축소 (영웅 vs 영웅 공정성)
+    if arena_mode_enabled:
+        enhanced_predict_error = min(enhanced_predict_error, 25)   # 예측 오차: 최대 ±25px (기존 95)
+        enhanced_fail_error = min(enhanced_fail_error, 60)         # 실수 오차: 최대 ±60px (기존 315)
+        enhanced_predict_chance = max(enhanced_predict_chance, 0.85)  # 예측 확률: 최소 85% (기존 45%)
+        enhanced_fail_chance = min(enhanced_fail_chance, 0.005)    # 실수 확률: 최대 0.5% (기존 1%)
     
     # Check if current position is blocked by cracks (stuck detection)
     if 'blacksmith_ground_cracks' in globals() and blacksmith_ground_cracks:
@@ -130753,12 +130796,22 @@ def handle_boss():
             future_x = random.randint(BOSS.width // 2, WIDTH - BOSS.width // 2)
     # --- 멍청 모드 처리 ---
     elif boss_fail_timer > 0:
-        future_x = BALL.centerx + ball_vel[0] * predict_frame
-        future_x += random.randint(-enhanced_fail_error, enhanced_fail_error)
-        boss_fail_timer -= 1
+        # 🏟️ 투기장: 공이 보스쪽으로 오고 있으면 멍청모드 즉시 해제 (반응성 향상)
+        if arena_mode_enabled and ball_vel[1] < -3:
+            boss_fail_timer = 0
+            if random.random() < enhanced_predict_chance:
+                future_x = BALL.centerx + ball_vel[0] * predict_frame
+            else:
+                future_x = BALL.centerx
+            future_x += random.randint(-enhanced_predict_error, enhanced_predict_error)
+        else:
+            future_x = BALL.centerx + ball_vel[0] * predict_frame
+            future_x += random.randint(-enhanced_fail_error, enhanced_fail_error)
+            boss_fail_timer -= 1
     else:
         if random.random() < enhanced_fail_chance:
-            boss_fail_timer = 60
+            # 🏟️ 투기장: 멍청모드 지속 시간 단축 (60→20프레임, 약 0.33초)
+            boss_fail_timer = 20 if arena_mode_enabled else 60
             future_x = BALL.centerx + ball_vel[0] * predict_frame
             future_x += random.randint(-enhanced_fail_error, enhanced_fail_error)
         else:
@@ -138632,6 +138685,9 @@ def main(stage_num, new_boss_mode=False):
                     _update_barrier_block_effects(dt)
                     # 번뜩이는 영감: 반짝임 이펙트 타이머 업데이트
                     _update_flash_inspiration(dt)
+                    # 🔥 기사회생 오오라 애니메이션 타이머
+                    if arena_perk_comeback_active_top or arena_perk_comeback_active_bottom:
+                        arena_perk_comeback_aura_timer += dt
 
                     # 연화(maria) 스킬 시전 중 팔 올린 상태 유지
                     if arena_hero_paddle_renderer:
