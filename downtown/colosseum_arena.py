@@ -3935,6 +3935,12 @@ class GuardWarriorSystem:
                     if skill_id == 'bomb_surprise' and skill._stun_applied:
                         stun_prefix = 'top_paddle' if skill._knockback_target == 'top' else 'bottom_paddle'
                         game_state[f'{stun_prefix}_stunned'] = True
+                    # 뿔 박치기: 시전자 스턴 복원 (_restore_caster_state가 해제한 것 복구)
+                    if skill_id == 'horn_charge':
+                        if (hasattr(skill, 'phase') and skill.phase == skill.PHASE_STUN
+                                and skill.phase_timer < 1.0):
+                            _hc_caster_prefix = 'top_paddle' if skill.caster_is_top else 'bottom_paddle'
+                            game_state[f'{_hc_caster_prefix}_stunned'] = True
                     # 스킬별 글로벌 game_state 키 차단 (메인 영웅에 영향 방지)
                     if skill_id == 'horn_charge':
                         game_state['horn_charge_active'] = False

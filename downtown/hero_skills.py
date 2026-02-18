@@ -3176,6 +3176,7 @@ class HornCharge(HeroSkill):
         elif self.phase == self.PHASE_STUN:
             # 스턴 지속 (1초) - 타겟 + 시전자 모두
             game_state['horn_charge_y_offset'] = 0  # 원위치
+            game_state['horn_charge_x_offset'] = 0  # X 오프셋도 명시적으로 0
             if self.phase_timer >= 1.0:
                 # 스턴 해제 (타겟 + 시전자)
                 target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
