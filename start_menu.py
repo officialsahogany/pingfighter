@@ -1081,82 +1081,134 @@ def _draw_swords_icon(surf, cx, cy, scale, accent, dim_f, sel_f, anim_t):
     pygame.draw.line(surf, (*accent, al(70)),
                      (cx + vw, st + int(14 * s)), (cx, st + sh - int(16 * s)), 2)
 
-    # ── 교차 검 (훨씬 크고 굵게) ──
+    # ── 교차 검 (대형, 고대비, 발광 효과) ──
     for side in (-1, 1):
-        sa = math.radians(38 * side)
+        sa = math.radians(40 * side)
         dx = math.cos(sa)
         dy = -math.sin(sa)
         px = -dy
         py = dx
 
-        # 검날 끝 (위쪽) - 방패 밖으로 나가게
-        tip_x = cx + dx * int(55 * s)
-        tip_y = cy - int(10 * s) + dy * int(55 * s)
+        # 검날 끝 (위쪽) - 방패 밖으로 크게 돌출
+        tip_x = cx + dx * int(62 * s)
+        tip_y = cy - int(8 * s) + dy * int(62 * s)
         # 검날 시작 (아래쪽 - 가드 위치)
-        mid_x = cx - dx * int(10 * s)
-        mid_y = cy + int(14 * s) - dy * int(10 * s)
+        mid_x = cx - dx * int(8 * s)
+        mid_y = cy + int(16 * s) - dy * int(8 * s)
 
-        # 검날 (넓은 사다리꼴)
-        bw_b = int(6 * s)
-        bw_t = int(2 * s)
+        # 검날 (넓은 사다리꼴 - 매우 굵게)
+        bw_b = int(10 * s)   # 검날 밑 폭 (기존 6 → 10)
+        bw_t = int(3 * s)    # 검날 끝 폭 (기존 2 → 3)
         blade = [
             (int(mid_x - px * bw_b), int(mid_y - py * bw_b)),
             (int(mid_x + px * bw_b), int(mid_y + py * bw_b)),
             (int(tip_x + px * bw_t), int(tip_y + py * bw_t)),
             (int(tip_x - px * bw_t), int(tip_y - py * bw_t)),
         ]
-        # 검날 그림자
-        shadow_off = int(2 * s)
-        shadow_blade = [(bx + shadow_off, by + shadow_off) for bx, by in blade]
-        pygame.draw.polygon(surf, (10, 20, 30, al(100)), shadow_blade)
-        # 검날 본체
-        pygame.draw.polygon(surf, (210, 220, 230, al(240)), blade)
-        # 검날 중심 밝은 선
-        pygame.draw.line(surf, (245, 248, 255, al(180)),
-                         (int(mid_x), int(mid_y)), (int(tip_x), int(tip_y)), 2)
-        # 검날 테두리
-        pygame.draw.polygon(surf, (130, 140, 155, al(220)), blade, 1)
 
-        # ── 가드 ──
+        # 외곽 발광 (검 주변 glow - 2중)
+        glow_b = int(14 * s)
+        glow_t = int(6 * s)
+        glow_blade = [
+            (int(mid_x - px * glow_b), int(mid_y - py * glow_b)),
+            (int(mid_x + px * glow_b), int(mid_y + py * glow_b)),
+            (int(tip_x + px * glow_t), int(tip_y + py * glow_t)),
+            (int(tip_x - px * glow_t), int(tip_y - py * glow_t)),
+        ]
+        pygame.draw.polygon(surf, (*accent[:3], al(35)), glow_blade)
+        glow2_b = int(12 * s)
+        glow2_t = int(5 * s)
+        glow2_blade = [
+            (int(mid_x - px * glow2_b), int(mid_y - py * glow2_b)),
+            (int(mid_x + px * glow2_b), int(mid_y + py * glow2_b)),
+            (int(tip_x + px * glow2_t), int(tip_y + py * glow2_t)),
+            (int(tip_x - px * glow2_t), int(tip_y - py * glow2_t)),
+        ]
+        pygame.draw.polygon(surf, (*accent[:3], al(55)), glow2_blade)
+
+        # 검날 그림자
+        shadow_off = int(3 * s)
+        shadow_blade = [(bx + shadow_off, by + shadow_off) for bx, by in blade]
+        pygame.draw.polygon(surf, (5, 10, 15, al(140)), shadow_blade)
+
+        # 검날 본체 (밝은 은색 → 흰색에 가깝게)
+        pygame.draw.polygon(surf, (235, 240, 250, al(255)), blade)
+        # 검날 어두운쪽 (한쪽 반을 약간 어둡게 - 입체감)
+        half_blade = [blade[0], (int((blade[0][0]+blade[1][0])//2), int((blade[0][1]+blade[1][1])//2)),
+                      (int((blade[2][0]+blade[3][0])//2), int((blade[2][1]+blade[3][1])//2)), blade[3]]
+        pygame.draw.polygon(surf, (190, 200, 220, al(180)), half_blade)
+
+        # 검날 중심 밝은 하이라이트 (넓게)
+        pygame.draw.line(surf, (255, 255, 255, al(220)),
+                         (int(mid_x), int(mid_y)), (int(tip_x), int(tip_y)), max(3, int(3 * s)))
+        # 검날 테두리 (밝은 테두리로 윤곽 강조)
+        pygame.draw.polygon(surf, (180, 190, 210, al(255)), blade, 2)
+
+        # 검끝 포인트 (밝은 점)
+        pygame.draw.circle(surf, (255, 255, 255, al(200)),
+                           (int(tip_x), int(tip_y)), int(3 * s))
+
+        # ── 가드 (크고 밝게) ──
         gcx = int(mid_x + dx * int(2 * s))
         gcy = int(mid_y - dy * int(2 * s))
-        glen = int(12 * s)
+        glen = int(15 * s)   # 가드 길이 (기존 12 → 15)
         gp1 = (gcx - int(px * glen), gcy - int(py * glen))
         gp2 = (gcx + int(px * glen), gcy + int(py * glen))
-        pygame.draw.line(surf, (*accent, al(240)), gp1, gp2, 4)
+        # 가드 그림자
+        pygame.draw.line(surf, (10, 15, 20, al(120)),
+                         (gp1[0]+2, gp1[1]+2), (gp2[0]+2, gp2[1]+2), 6)
+        # 가드 본체 (밝은 accent)
+        pygame.draw.line(surf, (*accent, al(255)), gp1, gp2, 5)
+        # 가드 하이라이트
+        pygame.draw.line(surf, (*tuple(min(255, c+80) for c in accent), al(180)),
+                         gp1, gp2, 2)
         for gp in [gp1, gp2]:
-            pygame.draw.circle(surf, (*accent, al(220)), gp, int(3 * s))
+            pygame.draw.circle(surf, (*accent, al(255)), gp, int(4 * s))
+            pygame.draw.circle(surf, (255, 255, 255, al(120)), gp, int(2 * s))
 
-        # ── 그립 ──
-        grip_len = int(20 * s)
+        # ── 그립 (굵게) ──
+        grip_len = int(22 * s)
         gex = mid_x - dx * grip_len
         gey = mid_y + dy * grip_len + int(grip_len * 0.4)
-        pygame.draw.line(surf, (130, 85, 40, al(240)),
-                         (int(mid_x), int(mid_y)), (int(gex), int(gey)), 4)
-        # 그립 감김
-        for gi in range(5):
-            gt = (gi + 0.5) / 5
+        # 그립 그림자
+        pygame.draw.line(surf, (30, 20, 10, al(120)),
+                         (int(mid_x)+2, int(mid_y)+2), (int(gex)+2, int(gey)+2), 6)
+        # 그립 본체
+        pygame.draw.line(surf, (160, 105, 50, al(255)),
+                         (int(mid_x), int(mid_y)), (int(gex), int(gey)), 5)
+        # 그립 감김 줄 (밝게)
+        for gi in range(6):
+            gt = (gi + 0.5) / 6
             gx = mid_x + (gex - mid_x) * gt
             gy = mid_y + (gey - mid_y) * gt
-            pygame.draw.circle(surf, (170, 120, 55, al(180)), (int(gx), int(gy)), int(2 * s))
+            pygame.draw.circle(surf, (200, 155, 75, al(220)), (int(gx), int(gy)), int(3 * s))
 
-        # ── 폼멜 ──
-        pygame.draw.circle(surf, (*accent, al(240)), (int(gex), int(gey)), int(5 * s))
-        pygame.draw.circle(surf, (50, 70, 80, al(180)), (int(gex), int(gey)), int(3 * s))
+        # ── 폼멜 (크게) ──
+        pygame.draw.circle(surf, (*accent, al(255)), (int(gex), int(gey)), int(6 * s))
+        pygame.draw.circle(surf, (80, 100, 120, al(200)), (int(gex), int(gey)), int(4 * s))
+        pygame.draw.circle(surf, (255, 255, 255, al(100)),
+                           (int(gex) - int(1*s), int(gey) - int(1*s)), int(2 * s))
 
-    # ── 교차점 보석 ──
+    # ── 교차점 보석 (크고 밝게) ──
     gem_y = cy - int(2 * s)
-    pygame.draw.circle(surf, (*accent, al(250)), (cx, gem_y), int(7 * s))
-    pygame.draw.circle(surf, (255, 255, 255, al(150)), (cx - int(2 * s), gem_y - int(2 * s)), int(3 * s))
+    # 보석 외곽 glow
+    pygame.draw.circle(surf, (*accent, al(80)), (cx, gem_y), int(12 * s))
+    pygame.draw.circle(surf, (*accent, al(255)), (cx, gem_y), int(8 * s))
+    # 보석 안쪽 밝은 원
+    pygame.draw.circle(surf, (*tuple(min(255, c+60) for c in accent), al(220)),
+                       (cx, gem_y), int(5 * s))
+    # 보석 하이라이트
+    pygame.draw.circle(surf, (255, 255, 255, al(200)),
+                       (cx - int(2 * s), gem_y - int(2 * s)), int(3 * s))
 
     # ── 선택 시 에너지 파티클 ──
     if sel_f >= 1.0:
-        for pi in range(8):
-            pa = (anim_t * 1.2 + pi * 0.78) % (math.pi * 2)
-            pr = int(40 * s) + int(6 * math.sin(anim_t * 2 + pi))
+        for pi in range(10):
+            pa = (anim_t * 1.2 + pi * 0.628) % (math.pi * 2)
+            pr = int(42 * s) + int(6 * math.sin(anim_t * 2 + pi))
             ppx = cx + int(pr * math.cos(pa))
             ppy = cy + int(pr * math.sin(pa))
-            ppa = int(120 * (0.5 + 0.5 * math.sin(anim_t * 3 + pi * 0.7)) * dim_f)
+            ppa = int(140 * (0.5 + 0.5 * math.sin(anim_t * 3 + pi * 0.7)) * dim_f)
             pygame.draw.circle(surf, (*accent, ppa), (ppx, ppy), int(2 * s))
 
 
