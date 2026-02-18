@@ -1,0 +1,770 @@
+"""하수인 (Henchman) 시스템
+
+투기장에서 포획한 영웅이 호위무사가 아닌 하수인으로 전환되어
+플레이어가 수동으로 클릭하여 스킬을 발동시키는 시스템.
+
+- 호위무사와 달리 자동 순찰/자동 시전 없음
+- 플레이어가 필러 아이콘을 클릭해야만 발동
+- 쿨타임 4배 (기본 쿨타임 × GUARD_CD_PENALTY × HENCHMAN_CD_MULT)
+- 여러 명의 하수인을 동시에 보유 가능
+"""
+import random
+import math
+import os
+
+try:
+    import pygame
+    import pygame.freetype
+except ImportError:
+    pygame = None
+
+
+# ============================================================================
+# 상수
+# ============================================================================
+GAME_AREA_X = 80           # 게임 영역 시작 X
+GAME_AREA_WIDTH = 600      # 게임 영역 너비
+SCREEN_WIDTH = 760         # 전체 내부 해상도 너비
+SCREEN_HEIGHT = 750        # 전체 내부 해상도 높이
+PADDLE_WIDTH = 120
+PADDLE_HEIGHT = 40
+
+# 하수인 애니메이션 타이밍
+HENCH_ENTER_DURATION = 0.5     # 등장 시간 (초)
+HENCH_CAST_DURATION = 0.8      # 시전 포즈 시간
+HENCH_EXIT_DURATION = 0.4      # 퇴장 시간
+
+# 하수인 쿨타임 배율 (기존 호위무사 대비 +300%)
+HENCHMAN_CD_MULT = 4.0
+GUARD_CD_PENALTY = 1.3  # 호위무사 기본 페널티 (동일 적용)
+
+# 하수인 등장 Y 위치 (플레이어 진영)
+HENCH_Y = 650  # 플레이어 패들 근처
+
+# 아이콘 크기
+HENCH_ICON_SIZE = 42
+
+
+# ============================================================================
+# 영웅 표시 정보
+# ============================================================================
+HERO_DISPLAY_INFO = {
+    "mugen":    {"name": "무겐",    "color": (120, 60, 180)},
+    "kraken":   {"name": "크라켄",  "color": (40, 120, 140)},
+    "chronos":  {"name": "크로노스","color": (200, 170, 100)},
+    "onimaru":  {"name": "오니마루","color": (200, 50, 70)},
+    "maria":    {"name": "연화",    "color": (180, 100, 150)},
+    "ignis":    {"name": "이그니스","color": (220, 100, 40)},
+    "gear":     {"name": "기어",    "color": (140, 100, 60)},
+    "kurokage": {"name": "쿠로카게","color": (50, 50, 70)},
+}
+
+
+# ============================================================================
+# 프록시 클래스 (ingame_bodyguard.py와 동일)
+# ============================================================================
+class _PaddleProxy:
+    def __init__(self, rect, is_top):
+        self.x = rect.x
+        self.y = rect.y
+        self.width = rect.width
+        self.height = rect.height
+        self.centerx = rect.centerx
+        self.centery = rect.centery
+        self.is_top = is_top
+        self.paddle_scale = 1.0
+
+
+class _BallProxy:
+    def __init__(self, rect, vx=0, vy=0):
+        self.x = rect.x
+        self.y = rect.y
+        self.width = rect.width
+        self.height = rect.height
+        self.centerx = rect.centerx
+        self.centery = rect.centery
+        self.vx = vx
+        self.vy = vy
+        self._original_vx = vx
+        self._original_vy = vy
+
+    @property
+    def vel_changed(self):
+        return (self.vx != self._original_vx or
+                self.vy != self._original_vy)
+
+
+class _MinimalSkillManager:
+    def __init__(self):
+        self.game_state = {'is_henchman': True}
+        self.screen_effects = []
+
+
+class _GuardPaddle:
+    """하수인 위치를 패들처럼 사용하기 위한 가상 패들"""
+    def __init__(self, x, y, is_top=False, width=PADDLE_WIDTH, height=PADDLE_HEIGHT):
+        self.x = x - width // 2
+        self.y = y
+        self.width = width
+        self.height = height
+        self.centerx = x
+        self.centery = y + height // 2
+        self.is_top = is_top
+        self.is_bodyguard = True
+        self.paddle_scale = 1.0
+        self.power = 1.0
+
+    def get_rect(self):
+        return pygame.Rect(int(self.x), int(self.y), self.width, self.height)
+
+
+# ============================================================================
+# 하수인 슬롯
+# ============================================================================
+class HenchmanSlot:
+    """개별 하수인의 런타임 상태"""
+
+    def __init__(self, hero_data: dict, skill_instance, cooldown_max: float):
+        self.hero_data = hero_data
+        self.skill_instance = skill_instance
+        self.cooldown = 0.0           # 초기에는 즉시 사용 가능
+        self.cooldown_max = cooldown_max
+        self.phase = None             # None / "entering" / "casting" / "exiting"
+        self.anim_timer = 0.0
+        self.x = 0.0
+        self.y = HENCH_Y
+        self.target_x = 0.0          # 진입 목표 X
+        self.entry_side = "left"      # "left" or "right"
+        self.icon_rect = pygame.Rect(0, 0, 0, 0)  # 필러 아이콘 영역
+
+    @property
+    def hero_id(self):
+        return self.hero_data.get("id", "")
+
+    @property
+    def hero_name(self):
+        return self.hero_data.get("name", "?")
+
+    @property
+    def hero_color(self):
+        info = HERO_DISPLAY_INFO.get(self.hero_id)
+        if info:
+            return info.get("color", (200, 200, 200))
+        return self.hero_data.get("color", (200, 200, 200))
+
+    @property
+    def is_ready(self):
+        """쿨타임 완료 + 애니메이션 미진행"""
+        return self.cooldown <= 0 and self.phase is None
+
+    @property
+    def is_on_cooldown(self):
+        return self.cooldown > 0
+
+    @property
+    def cooldown_ratio(self):
+        if self.cooldown_max <= 0:
+            return 0.0
+        return min(1.0, max(0.0, self.cooldown / self.cooldown_max))
+
+
+# ============================================================================
+# 하수인 시스템
+# ============================================================================
+class HenchmanSystem:
+    """수동 클릭 발동 하수인 시스템"""
+
+    def __init__(self):
+        self.slots = []              # list[HenchmanSlot]
+        self.skill_manager = None    # _MinimalSkillManager
+        self.hero_paddle_renderer = None
+        self._font = None
+        self._font_small = None
+        self._icon_cache = {}        # 서피스 캐시
+
+    def setup(self, henchman_list: list, skill_selections: dict = None,
+              skill_manager=None, hero_paddle_renderer=None):
+        """하수인 슬롯 초기화"""
+        self.slots = []
+        self.skill_manager = skill_manager or _MinimalSkillManager()
+        self.hero_paddle_renderer = hero_paddle_renderer
+
+        if not henchman_list:
+            return
+
+        for hero_data in henchman_list:
+            hero_id = hero_data.get("id", "")
+            # 스킬 인스턴스 생성
+            skill = self._create_skill_instance(hero_id, skill_selections)
+            if not skill:
+                continue
+            # game_state 연결
+            skill.game_state = self.skill_manager.game_state
+            # 쿨타임 계산
+            cd = skill.cooldown * GUARD_CD_PENALTY * HENCHMAN_CD_MULT
+            slot = HenchmanSlot(hero_data, skill, cooldown_max=cd)
+            self.slots.append(slot)
+            print(f"[Henchman] 하수인 등록: {hero_data.get('name', '?')} "
+                  f"(스킬: {skill.korean_name}, 쿨타임: {cd:.1f}초)")
+
+    def _create_skill_instance(self, hero_id: str, skill_selections: dict = None):
+        """영웅 ID로 스킬 인스턴스 하나 생성"""
+        try:
+            from downtown.hero_skills import HERO_SKILL_CLASSES
+            skill_classes = HERO_SKILL_CLASSES.get(hero_id, [])
+            if not skill_classes:
+                return None
+            # skill_selections에서 배정된 스킬 인덱스 확인
+            selected_idx = 0
+            if skill_selections:
+                selected_idx = skill_selections.get(hero_id, 0)
+            if selected_idx < 0 or selected_idx >= len(skill_classes):
+                selected_idx = 0
+            return skill_classes[selected_idx]()
+        except Exception as e:
+            print(f"[Henchman] 스킬 생성 실패 ({hero_id}): {e}")
+            return None
+
+    # ========================================================================
+    # 업데이트
+    # ========================================================================
+    def update(self, dt: float, boss_rect=None, player_rect=None,
+               ball_rect=None, ball_vx=0, ball_vy=0) -> dict:
+        """매 프레임 업데이트. boss_effects dict 반환."""
+        if not self.slots:
+            return {}
+
+        # 프록시 생성
+        top_paddle = _PaddleProxy(boss_rect, is_top=True) if boss_rect else \
+            _PaddleProxy(pygame.Rect(380, 25, 120, 40), is_top=True)
+        bottom_paddle = _PaddleProxy(player_rect, is_top=False) if player_rect else \
+            _PaddleProxy(pygame.Rect(380, 710, 120, 40), is_top=False)
+        ball = _BallProxy(ball_rect, ball_vx, ball_vy) if ball_rect else None
+
+        for slot in self.slots:
+            # 쿨타임 틱
+            if slot.cooldown > 0:
+                slot.cooldown = max(0.0, slot.cooldown - dt)
+
+            # 페이즈 업데이트
+            if slot.phase is None:
+                continue
+
+            slot.anim_timer += dt
+
+            if slot.phase == "entering":
+                self._update_entering(slot, dt)
+            elif slot.phase == "casting":
+                self._update_casting(slot, dt, top_paddle, bottom_paddle, ball)
+            elif slot.phase == "exiting":
+                self._update_exiting(slot, dt)
+
+        # 스킬 이펙트 업데이트 (활성 스킬만)
+        game_state = self.skill_manager.game_state if self.skill_manager else {}
+        for slot in self.slots:
+            skill = slot.skill_instance
+            if skill and skill.is_active:
+                try:
+                    guard_paddle = _GuardPaddle(slot.x, slot.y)
+                    skill.update(dt, guard_paddle, top_paddle, ball, game_state)
+                except Exception:
+                    pass
+
+        # boss_effects 추출
+        return self._extract_boss_effects(ball)
+
+    def _update_entering(self, slot: HenchmanSlot, dt: float):
+        """화면 밖에서 게임 영역으로 진입"""
+        progress = min(1.0, slot.anim_timer / HENCH_ENTER_DURATION)
+        # 이즈 아웃
+        t = 1.0 - (1.0 - progress) ** 2
+
+        if slot.entry_side == "left":
+            start_x = GAME_AREA_X - 60
+        else:
+            start_x = GAME_AREA_X + GAME_AREA_WIDTH + 60
+
+        slot.x = start_x + (slot.target_x - start_x) * t
+
+        if progress >= 1.0:
+            slot.x = slot.target_x
+            slot.phase = "casting"
+            slot.anim_timer = 0.0
+            self._activate_skill(slot)
+
+    def _update_casting(self, slot: HenchmanSlot, dt: float,
+                        top_paddle, bottom_paddle, ball):
+        """시전 포즈 (스킬 실행 중)"""
+        # 스킬이 끝나면 퇴장 (최소 시전 시간 보장)
+        skill = slot.skill_instance
+        skill_done = (not skill.is_active) if skill else True
+        if slot.anim_timer >= HENCH_CAST_DURATION and skill_done:
+            slot.phase = "exiting"
+            slot.anim_timer = 0.0
+
+    def _update_exiting(self, slot: HenchmanSlot, dt: float):
+        """게임 영역에서 퇴장"""
+        progress = min(1.0, slot.anim_timer / HENCH_EXIT_DURATION)
+        t = progress ** 2  # 이즈 인
+
+        if slot.entry_side == "left":
+            end_x = GAME_AREA_X - 60
+        else:
+            end_x = GAME_AREA_X + GAME_AREA_WIDTH + 60
+
+        slot.x = slot.target_x + (end_x - slot.target_x) * t
+
+        if progress >= 1.0:
+            slot.phase = None
+            slot.anim_timer = 0.0
+            # 쿨타임 시작
+            slot.cooldown = slot.cooldown_max
+
+    def _activate_skill(self, slot: HenchmanSlot):
+        """하수인 스킬 발동"""
+        skill = slot.skill_instance
+        if not skill:
+            return
+
+        game_state = self.skill_manager.game_state if self.skill_manager else {}
+        guard_paddle = _GuardPaddle(slot.x, slot.y)
+        # 하단 플레이어가 시전자, 상단 보스가 타겟
+        target_paddle = _PaddleProxy(pygame.Rect(380, 25, 120, 40), is_top=True)
+
+        skill.caster_is_top = False
+        skill.current_cooldown = 0
+
+        # 이전 효과 종료
+        if skill.is_active:
+            try:
+                skill._end_effect(guard_paddle, target_paddle, None, game_state)
+            except Exception:
+                pass
+            skill.is_active = False
+
+        # 상태 갱신
+        try:
+            skill.update(0.016, guard_paddle, target_paddle, None, game_state)
+        except Exception:
+            pass
+
+        # caster 보호
+        caster_prefix = 'bottom_paddle'
+        saved = {}
+        for key in list(game_state.keys()):
+            if key.startswith(caster_prefix):
+                saved[key] = game_state[key]
+
+        result = skill.use(guard_paddle, target_paddle, None, game_state)
+
+        for key, val in saved.items():
+            game_state[key] = val
+
+        # 글로벌 game_state 키 차단
+        skill_id = getattr(skill, 'skill_id', '')
+        if skill_id == 'horn_charge':
+            game_state['horn_charge_active'] = False
+        elif skill_id == 'demon_step':
+            game_state['demon_eye_active'] = False
+            game_state.pop('ghost_step_start_top', None)
+            game_state.pop('ghost_step_start_bottom', None)
+        elif skill_id == 'steam_barrier':
+            game_state['steam_barrier_caster_frozen'] = False
+            game_state['steam_barrier_thaw_speed'] = 0.0
+
+        # duration=0 스킬 수동 활성화
+        if result and not skill.is_active and skill.duration <= 0:
+            skill.is_active = True
+
+        if result:
+            self._play_skill_sound(result)
+            self._apply_status_effects(result, target_paddle, game_state)
+            print(f"[Henchman] {slot.hero_name} → {skill.korean_name} 발동 성공!")
+        else:
+            print(f"[Henchman] {slot.hero_name} → {skill.korean_name} 발동 실패")
+
+    def _play_skill_sound(self, result):
+        """스킬 사운드 재생"""
+        if not result:
+            return
+        sound_key = result.get('sound') if isinstance(result, dict) else None
+        if sound_key:
+            try:
+                from managers.sound_manager import get_sound_manager
+                sm = get_sound_manager()
+                if sm:
+                    sm.play_sound(sound_key)
+            except Exception:
+                pass
+
+    def _apply_status_effects(self, result, target_paddle, game_state):
+        """상태 효과 적용 (대상: 보스)"""
+        if not isinstance(result, dict):
+            return
+        effects = result.get('status_effects', [])
+        if isinstance(effects, dict):
+            effects = [effects]
+        for effect in effects:
+            if not isinstance(effect, dict):
+                continue
+            etype = effect.get('type', '')
+            target = effect.get('target', 'opponent')
+            prefix = 'top_paddle' if target == 'opponent' else 'bottom_paddle'
+            if etype == 'stun':
+                game_state[f'{prefix}_stunned'] = True
+            elif etype == 'slow':
+                game_state[f'{prefix}_slowed'] = True
+                game_state[f'{prefix}_slow_amount'] = effect.get('amount', 0.5)
+            elif etype == 'confuse':
+                game_state[f'{prefix}_confused'] = True
+            elif etype == 'shrink':
+                game_state[f'{prefix}_shrink'] = True
+                game_state[f'{prefix}_shrink_scale'] = effect.get('scale', 0.5)
+
+    def _extract_boss_effects(self, ball) -> dict:
+        """game_state에서 보스 효과 추출"""
+        gs = self.skill_manager.game_state if self.skill_manager else {}
+        boss_effects = {}
+
+        if gs.pop('top_paddle_stunned', False):
+            boss_effects['stun_frames'] = 90
+        if gs.pop('top_paddle_slowed', False):
+            boss_effects['slow'] = True
+            boss_effects['slow_amount'] = gs.pop('top_paddle_slow_amount', 0.5)
+            boss_effects['slow_frames'] = 180
+        if gs.pop('top_paddle_confused', False):
+            boss_effects['confuse_frames'] = 180
+        if gs.pop('top_paddle_shrink', False):
+            boss_effects['shrink'] = True
+            boss_effects['shrink_scale'] = gs.pop('top_paddle_shrink_scale', 0.5)
+            boss_effects['shrink_frames'] = 180
+        if gs.pop('top_paddle_locked', False):
+            boss_effects['puppet'] = True
+            boss_effects['puppet_x'] = gs.pop('top_paddle_locked_x', None)
+            boss_effects['puppet_y'] = gs.pop('top_paddle_locked_y', None)
+        if gs.get('horn_charge_apply_knockback'):
+            boss_effects['horn_charge_knockback'] = True
+            boss_effects['horn_charge_knockback_dir'] = gs.get('horn_charge_knockback_dir', 1)
+            boss_effects['horn_charge_knockback_vel'] = gs.get('horn_charge_knockback_vel', 73)
+            boss_effects['horn_charge_target_is_top'] = gs.get('horn_charge_target_is_top', True)
+            gs['horn_charge_apply_knockback'] = False
+        if gs.get('dark_slash_freeze', False):
+            boss_effects['freeze'] = True
+        if gs.get('hell_fire_freeze', False):
+            boss_effects['freeze'] = True
+        if ball and ball.vel_changed:
+            boss_effects['ball_vx'] = ball.vx
+            boss_effects['ball_vy'] = ball.vy
+
+        for fx in (self.skill_manager.screen_effects if self.skill_manager else []):
+            boss_effects['screen_shake'] = True
+            boss_effects['shake_intensity'] = fx.get('intensity', 15)
+        if self.skill_manager:
+            self.skill_manager.screen_effects.clear()
+
+        return boss_effects
+
+    # ========================================================================
+    # 클릭 핸들링
+    # ========================================================================
+    def handle_click(self, mouse_pos) -> bool:
+        """마우스 클릭으로 하수인 발동. 발동 성공 시 True."""
+        if not mouse_pos or not self.slots:
+            return False
+
+        for i, slot in enumerate(self.slots):
+            if slot.icon_rect.collidepoint(mouse_pos) and slot.is_ready:
+                self._trigger_henchman(i)
+                return True
+        return False
+
+    def _trigger_henchman(self, index: int):
+        """하수인 발동 시작 (진입 애니메이션)"""
+        slot = self.slots[index]
+        if not slot.is_ready:
+            return
+
+        # 진입 방향 랜덤
+        slot.entry_side = random.choice(["left", "right"])
+        if slot.entry_side == "left":
+            slot.x = GAME_AREA_X - 60
+        else:
+            slot.x = GAME_AREA_X + GAME_AREA_WIDTH + 60
+        # 타겟 X: 게임 영역 내 랜덤 위치
+        slot.target_x = random.uniform(GAME_AREA_X + 80, GAME_AREA_X + GAME_AREA_WIDTH - 80)
+        slot.y = HENCH_Y
+        slot.phase = "entering"
+        slot.anim_timer = 0.0
+        print(f"[Henchman] {slot.hero_name} 발동! (진입: {slot.entry_side})")
+
+    # ========================================================================
+    # 렌더링 - 게임 내 캐릭터
+    # ========================================================================
+    def draw(self, screen, boss_rect=None, player_rect=None, ball_rect=None):
+        """하수인 캐릭터 + 스킬 이펙트 렌더링"""
+        if not self.slots:
+            return
+
+        top_paddle = _PaddleProxy(boss_rect, is_top=True) if boss_rect else None
+        bottom_paddle = _PaddleProxy(player_rect, is_top=False) if player_rect else None
+        ball = _BallProxy(ball_rect) if ball_rect else None
+
+        if top_paddle is None:
+            top_paddle = _PaddleProxy(pygame.Rect(380, 25, 120, 40), is_top=True)
+        if bottom_paddle is None:
+            bottom_paddle = _PaddleProxy(pygame.Rect(380, 710, 120, 40), is_top=False)
+
+        for slot in self.slots:
+            skill = slot.skill_instance
+            # 스킬 이펙트 그리기 (활성 상태)
+            if skill and skill.is_active:
+                try:
+                    guard_paddle = _GuardPaddle(slot.x, slot.y)
+                    skill.draw(screen, guard_paddle, top_paddle, ball)
+                except Exception:
+                    pass
+
+            # 캐릭터 그리기 (페이즈 활성 시)
+            if slot.phase is not None:
+                self._draw_henchman_character(screen, slot)
+
+    def _draw_henchman_character(self, screen, slot: HenchmanSlot):
+        """단일 하수인 캐릭터 렌더링"""
+        ix, iy = int(slot.x), int(slot.y)
+        color = slot.hero_color
+
+        # 글로우 효과
+        glow_r = 30
+        glow_size = glow_r * 2
+        glow_surf = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+        glow_alpha = 100 if slot.phase == "casting" else 50
+        pygame.draw.circle(glow_surf, (*color, glow_alpha), (glow_r, glow_r), glow_r)
+        screen.blit(glow_surf, (ix - glow_r, iy - glow_r))
+
+        # 캐릭터 그리기
+        if self.hero_paddle_renderer:
+            try:
+                self.hero_paddle_renderer.draw_hero_paddle(
+                    screen,
+                    slot.hero_id,
+                    ix, iy,
+                    110, PADDLE_HEIGHT,
+                    facing="up",
+                    color=color,
+                    scale_mode="paddle"
+                )
+            except Exception:
+                pygame.draw.circle(screen, color, (ix, iy), 15)
+        else:
+            pygame.draw.circle(screen, color, (ix, iy), 15)
+            pygame.draw.circle(screen, (255, 255, 255), (ix, iy), 15, 2)
+
+    # ========================================================================
+    # 렌더링 - 필러 아이콘
+    # ========================================================================
+    def draw_pillar_icons(self, screen, game_offset_x=0, game_offset_y=0,
+                          game_scale=1.0, mouse_pos=None,
+                          bodyguard_icon_bottom_y=None) -> dict:
+        """왼쪽 필러에 하수인 아이콘 렌더링. hover_info 반환."""
+        if not self.slots:
+            return None
+
+        _s = game_scale
+        icon_sz = max(24, int(HENCH_ICON_SIZE * _s))
+        gap = max(4, int(6 * _s))
+
+        # 시작 Y: 호위무사 아이콘 아래, 또는 게임 영역 중간
+        if bodyguard_icon_bottom_y is not None:
+            start_y = int(bodyguard_icon_bottom_y) + gap + max(4, int(8 * _s))
+        else:
+            game_h = int(SCREEN_HEIGHT * _s)
+            start_y = game_offset_y + int(game_h * 0.55)
+
+        # X: 왼쪽 필러 중앙
+        frame_x = game_offset_x - icon_sz - int(8 * _s)
+        if frame_x < 2:
+            frame_x = 2
+
+        hover_info = None
+
+        for i, slot in enumerate(self.slots):
+            iy = start_y + i * (icon_sz + gap)
+
+            # 화면 밖이면 스킵
+            if iy + icon_sz > screen.get_height():
+                break
+
+            slot.icon_rect = pygame.Rect(frame_x, iy, icon_sz, icon_sz)
+
+            # 배경
+            bg_color = (35, 30, 25)
+            if slot.is_ready:
+                bg_color = (50, 45, 35)
+            pygame.draw.rect(screen, bg_color, slot.icon_rect, border_radius=4)
+
+            # 캐릭터 아이콘 (hero paddle renderer)
+            inner_margin = 3
+            inner_sz = icon_sz - inner_margin * 2
+            if self.hero_paddle_renderer and inner_sz > 10:
+                try:
+                    self.hero_paddle_renderer.draw_hero_paddle(
+                        screen,
+                        slot.hero_id,
+                        frame_x + icon_sz // 2,
+                        iy + icon_sz // 2,
+                        inner_sz, inner_sz,
+                        facing="up",
+                        color=slot.hero_color,
+                        scale_mode="icon"
+                    )
+                except Exception:
+                    pygame.draw.circle(screen, slot.hero_color,
+                                       (frame_x + icon_sz // 2, iy + icon_sz // 2),
+                                       inner_sz // 3)
+            else:
+                pygame.draw.circle(screen, slot.hero_color,
+                                   (frame_x + icon_sz // 2, iy + icon_sz // 2),
+                                   inner_sz // 3)
+
+            # 쿨타임 오버레이
+            if slot.is_on_cooldown:
+                ratio = slot.cooldown_ratio
+                overlay_h = int(icon_sz * ratio)
+                if overlay_h > 0:
+                    ov_surf = pygame.Surface((icon_sz, overlay_h), pygame.SRCALPHA)
+                    ov_surf.fill((0, 0, 0, 160))
+                    screen.blit(ov_surf, (frame_x, iy + icon_sz - overlay_h))
+
+                # 쿨타임 숫자
+                cd_text = f"{int(slot.cooldown) + 1}"
+                font = self._get_font(max(10, int(12 * _s)))
+                if font:
+                    ts, _ = font.render(cd_text, (255, 255, 255))
+                    screen.blit(ts, (frame_x + icon_sz // 2 - ts.get_width() // 2,
+                                     iy + icon_sz // 2 - ts.get_height() // 2))
+
+            # 테두리
+            if slot.is_ready:
+                # 준비 완료: 밝은 골드 테두리 + 펄스
+                pulse = 0.6 + 0.4 * abs(math.sin(pygame.time.get_ticks() * 0.003))
+                border_alpha = int(200 * pulse)
+                border_surf = pygame.Surface((icon_sz + 4, icon_sz + 4), pygame.SRCALPHA)
+                pygame.draw.rect(border_surf, (210, 180, 100, border_alpha),
+                                 (0, 0, icon_sz + 4, icon_sz + 4), 2, border_radius=5)
+                screen.blit(border_surf, (frame_x - 2, iy - 2))
+            elif slot.phase is not None:
+                # 발동 중: 밝은 하이라이트
+                pygame.draw.rect(screen, (255, 220, 120),
+                                 (frame_x - 1, iy - 1, icon_sz + 2, icon_sz + 2),
+                                 2, border_radius=5)
+            else:
+                # 쿨타임 중: 어두운 테두리
+                pygame.draw.rect(screen, (80, 70, 60),
+                                 slot.icon_rect, 1, border_radius=4)
+
+            # "하" 라벨 (하수인 구분용)
+            label_font = self._get_font(max(8, int(9 * _s)))
+            if label_font:
+                ls, _ = label_font.render("하", (160, 140, 100))
+                screen.blit(ls, (frame_x + 2, iy + 1))
+
+            # 호버 감지
+            if mouse_pos and slot.icon_rect.collidepoint(mouse_pos):
+                # 호버 테두리
+                pygame.draw.rect(screen, (255, 220, 140),
+                                 (frame_x - 2, iy - 2, icon_sz + 4, icon_sz + 4),
+                                 2, border_radius=5)
+                hover_info = {
+                    "type": "henchman",
+                    "name": slot.hero_name,
+                    "color": slot.hero_color,
+                    "cooldown": slot.cooldown,
+                    "cooldown_max": slot.cooldown_max,
+                    "is_ready": slot.is_ready,
+                    "phase": slot.phase,
+                    "skill": slot.skill_instance,
+                    "screen_x": frame_x,
+                    "screen_y": iy,
+                    "side": "bottom",
+                }
+
+        return hover_info
+
+    def _get_font(self, size=12):
+        """한글 폰트 반환 (캐싱)"""
+        cache_key = size
+        if cache_key in self._icon_cache:
+            return self._icon_cache[cache_key]
+        try:
+            font_paths = [
+                os.path.join("fonts", "Pretendard-Bold.ttf"),
+                os.path.join("fonts", "NanumSquareB.ttf"),
+            ]
+            for fp in font_paths:
+                full_path = fp
+                try:
+                    import sys
+                    base = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+                    # game_mechanics 폴더에서 한 단계 위로
+                    base = os.path.dirname(base)
+                    full_path = os.path.join(base, fp)
+                except Exception:
+                    pass
+                if os.path.exists(full_path):
+                    font = pygame.freetype.Font(full_path, size)
+                    self._icon_cache[cache_key] = font
+                    return font
+        except Exception:
+            pass
+        self._icon_cache[cache_key] = None
+        return None
+
+    # ========================================================================
+    # 리셋
+    # ========================================================================
+    def reset(self):
+        """모든 하수인 상태 초기화"""
+        # 활성 스킬 종료
+        gs = self.skill_manager.game_state if self.skill_manager else {}
+        for slot in self.slots:
+            skill = slot.skill_instance
+            if skill and skill.is_active:
+                try:
+                    skill._end_effect(None, None, None, gs)
+                except Exception:
+                    pass
+                skill.is_active = False
+        self.slots = []
+        self._icon_cache = {}
+
+    def reset_active_skills(self):
+        """득점 시 활성 스킬 리셋"""
+        gs = self.skill_manager.game_state if self.skill_manager else {}
+        for slot in self.slots:
+            skill = slot.skill_instance
+            if skill and skill.is_active:
+                try:
+                    if hasattr(skill, 'reset_for_new_round'):
+                        skill.reset_for_new_round(gs)
+                    else:
+                        skill._end_effect(None, None, None, gs)
+                        skill.is_active = False
+                except Exception:
+                    skill.is_active = False
+            # 진행 중인 애니메이션도 리셋
+            if slot.phase is not None:
+                slot.phase = None
+                slot.anim_timer = 0.0
+
+
+# ============================================================================
+# 싱글턴
+# ============================================================================
+_henchman_instance = None
+
+
+def get_henchman_system() -> HenchmanSystem:
+    global _henchman_instance
+    if _henchman_instance is None:
+        _henchman_instance = HenchmanSystem()
+    return _henchman_instance

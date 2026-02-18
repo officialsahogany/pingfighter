@@ -8219,6 +8219,26 @@ def _fullscreen_flip():
             except Exception:
                 pass
 
+        # 🗡️ 하수인 아이콘 UI (호위무사 아이콘 아래)
+        _hench_hover = None
+        if arena_mode_enabled and arena_henchman_system:
+            try:
+                _real_mpos_h = _original_mouse_get_pos()
+                # 호위무사 아이콘 하단 Y 계산
+                _guard_bottom_y = None
+                if _guard_hover and isinstance(_guard_hover, dict):
+                    _guard_bottom_y = _guard_hover.get('_icon_bottom_y')
+                _hench_hover = arena_henchman_system.draw_pillar_icons(
+                    REAL_SCREEN,
+                    game_offset_x=GAME_OFFSET_X,
+                    game_offset_y=GAME_OFFSET_Y,
+                    game_scale=GAME_SCALE_FACTOR,
+                    mouse_pos=_real_mpos_h,
+                    bodyguard_icon_bottom_y=_guard_bottom_y,
+                )
+            except Exception:
+                pass
+
         # 🏅 퍽 아이콘 UI (필러 배경, 호위무사 위/아래)
         _perk_hover = None
         if arena_mode_enabled and arena_guard_system:
@@ -19753,6 +19773,7 @@ arena_hero_paddle_renderer = None    # 영웅 패들 렌더러
 arena_skill_manager = None           # 투기장 영웅 스킬 매니저
 arena_skill_check_timer = 0.0        # 스킬 쿨다운 체크 타이머
 arena_guard_system = None            # 투기장 호위무사 시스템 (GuardWarriorSystem)
+arena_henchman_system = None         # 투기장 하수인 시스템 (HenchmanSystem)
 arena_top_confused = False           # 상단 영웅(보스) 혼란 상태 (심해의 먹물 등)
 arena_bottom_confused = False        # 하단 영웅(플레이어) 혼란 상태
 # 투기장 혼란 랜덤 움직임 (조명탄과 동일한 방식)
@@ -51583,6 +51604,12 @@ def go_to_next_round():
     if arena_mode_enabled and arena_guard_system:
         try:
             arena_guard_system.reset_active_skills()
+        except Exception:
+            pass
+    # 🗡️ 하수인 활성 스킬도 리셋 (득점 시)
+    if arena_mode_enabled and arena_henchman_system:
+        try:
+            arena_henchman_system.reset_active_skills()
         except Exception:
             pass
     # 🛡️ 인게임 호위무사 활성 스킬 리셋 (라운드 전환 시)
@@ -90205,6 +90232,12 @@ def draw_objects():
             ball_wrapper = BallWrapperDraw(BALL, ball_vel)
             # 스킬 이펙트 그리기
             arena_skill_manager.draw_skills(SCREEN, top_wrapper, bottom_wrapper, ball_wrapper)
+            # 🗡️ 하수인 시스템 그리기 (호위무사 아래 z-order)
+            if arena_henchman_system:
+                try:
+                    arena_henchman_system.draw(SCREEN, top_wrapper, bottom_wrapper, ball_wrapper)
+                except Exception as _hench_draw_err:
+                    print(f"[Henchman] draw error: {_hench_draw_err}")
             # 🛡️ 호위무사 시스템 그리기 (캐릭터 + 스킬 이펙트)
             if arena_guard_system:
                 try:
@@ -100498,12 +100531,34 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         except Exception as e:
             print(f"[Guard] start_arena_battle 호위무사 설정 오류: {e}")
             arena_guard_system = None
+        # === 하수인 시스템 설정 ===
+        global arena_henchman_system
+        try:
+            _henchman_list = globals().pop('_arena_pending_henchman_list', [])
+            if _henchman_list:
+                from game_mechanics.henchman_system import get_henchman_system
+                _hench_sys = get_henchman_system()
+                _hench_sys.setup(
+                    henchman_list=_henchman_list,
+                    skill_selections=_skill_selections,
+                    skill_manager=arena_skill_manager,
+                    hero_paddle_renderer=arena_hero_paddle_renderer,
+                )
+                arena_henchman_system = _hench_sys
+                print(f"[Henchman] 하수인 시스템 설정 완료: {len(_henchman_list)}명")
+            else:
+                arena_henchman_system = None
+        except Exception as e:
+            print(f"[Henchman] 하수인 시스템 설정 오류: {e}")
+            arena_henchman_system = None
+
         # pending data 정리
         globals().pop('_arena_pending_top_guards', None)
         globals().pop('_arena_pending_bottom_guards', None)
         globals().pop('_arena_pending_perk_data', None)
         globals().pop('_arena_pending_skill_selections', None)
         globals().pop('_arena_pending_both_skills', None)
+        globals().pop('_arena_pending_henchman_list', None)
 
         # ★ 생포된 호위무사 (1회용 소환) 수신
         global arena_captured_guard, arena_captured_guard_used
@@ -100607,6 +100662,13 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
             except Exception:
                 pass
             arena_guard_system = None
+        # 하수인 시스템 초기화
+        if arena_henchman_system is not None:
+            try:
+                arena_henchman_system.reset()
+            except Exception:
+                pass
+            arena_henchman_system = None
         # 상단 영웅 아이템 슬롯 초기화
         arena_top_active_item_slot = []
         arena_top_selected_item_index = 0
@@ -119837,6 +119899,12 @@ def reset_round(is_stage_start=False):
             arena_guard_system.reset_active_skills()
         except Exception:
             pass
+    # 🗡️ 하수인 활성 스킬도 리셋 (두 번째 득점 리셋 위치)
+    if arena_mode_enabled and arena_henchman_system:
+        try:
+            arena_henchman_system.reset_active_skills()
+        except Exception:
+            pass
     # 🛡️ 인게임 호위무사 활성 스킬 리셋 (두 번째 라운드 전환)
     if not arena_mode_enabled:
         try:
@@ -137081,6 +137149,21 @@ def main(stage_num, new_boss_mode=False):
                         _guard_cd_remain = getattr(_gs, '_guard_dash_cooldown', 0) if _gs else 0
                         print(f"[Guard] 호위무사 스탠스 전환: {_mode_label}모드 (대쉬CD={_guard_cd_remain:.1f}s 유지)")
 
+            # 🗡️ 하수인 아이콘 클릭 처리
+            if (
+                event.type == pygame.MOUSEBUTTONDOWN
+                and event.button == 1
+                and globals().get('arena_mode_enabled', False)
+                and globals().get('arena_henchman_system')
+            ):
+                _real_mp_h = _original_mouse_get_pos()
+                _hench_sys = globals()['arena_henchman_system']
+                if _hench_sys.handle_click(_real_mp_h):
+                    try:
+                        play_button_click_sound()
+                    except Exception:
+                        pass
+
             # 마우스 좌클릭으로 슬롯을 눌렀을 때도 해당 아이템을 사용
             # 슬롯이 필러 영역(REAL_SCREEN 좌표)에 있으므로 원본 마우스 좌표 사용
             if (
@@ -138910,6 +138993,22 @@ def main(stage_num, new_boss_mode=False):
                                     _g_st['gatling_dismounting'] = _gs.get(f'gatling_dismounting_{_guard_side}', False)
                                     _g_st['gatling_dismount_progress'] = _gs.get(f'gatling_dismount_progress_{_guard_side}', 0.0)
                                     _g_st['gatling_aim_angle'] = _gs.get(f'gatling_aim_angle_{_guard_side}', None)
+
+                    # 🗡️ 하수인 시스템 업데이트
+                    if arena_henchman_system:
+                        try:
+                            _hench_fx = arena_henchman_system.update(
+                                dt, top_wrapper, bottom_wrapper, ball_wrapper,
+                                getattr(ball_wrapper, 'vx', 0),
+                                getattr(ball_wrapper, 'vy', 0))
+                            # 하수인 스킬 효과 적용 (보스 효과)
+                            if _hench_fx:
+                                if _hench_fx.get('stun_frames'):
+                                    arena_top_stun_frames = max(arena_top_stun_frames, _hench_fx['stun_frames'])
+                                if _hench_fx.get('freeze'):
+                                    arena_freeze_frames = max(arena_freeze_frames, 30)
+                        except Exception as _hench_err:
+                            print(f"[Henchman] update error: {_hench_err}")
 
                     # 💣 폭탄 서프라이즈 넉백 처리 (영웅 스킬 + 호위무사 스킬 모두 포함)
                     # 호위무사 update() 이후에 실행해야 호위무사의 폭탄도 같은 프레임에 처리됨

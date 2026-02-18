@@ -6051,6 +6051,15 @@ class GuardWarriorSystem:
                             "skills": [_next_skill] if _next_skill else [],
                         }
 
+            # 하수인 아이콘 배치용: 마지막 호위무사 아이콘 하단 Y 기록
+            if self.guard_warriors_bottom:
+                _last_idx = len(self.guard_warriors_bottom) - 1
+                _last_bottom_y = y_start_bottom + _last_idx * slot_h + frame_h
+                if hover_info is None:
+                    hover_info = {}
+                if isinstance(hover_info, dict):
+                    hover_info['_icon_bottom_y'] = _last_bottom_y
+
         return hover_info
 
     def draw_perk_pillar_icons(self, screen, player_perks, enemy_perks,
@@ -6596,6 +6605,7 @@ class ColosseumsArena:
         self.guard_warrior_map = {}          # hero_id -> [guard hero dicts] (토너먼트 전체 누적)
         self.recalled_guard_map = {}         # hero_id -> guard dict (재소집령으로 복귀한 호위무사, 라운드 간 유지)
         self.former_guards = []              # 교체되어 탈락한 호위무사 목록 (우승 연출용)
+        self.henchman_list = []              # 하수인 목록 (hero dict 리스트, 라운드 간 유지)
         self.guard_loyalty_cd_bonus = {}     # hero_id -> int (기존 호위무사 유지 횟수, 1회당 -10% 쿨타임)
         self.guard_warriors_top = []         # 현재 배틀 상단 영웅의 호위무사들
         self.guard_warriors_bottom = []      # 현재 배틀 하단 영웅의 호위무사들
@@ -7530,6 +7540,8 @@ class ColosseumsArena:
                     else:
                         pingfighter._arena_pending_top_guards = []
                         pingfighter._arena_pending_bottom_guards = []
+                    # 하수인 데이터 전달
+                    pingfighter._arena_pending_henchman_list = list(self.henchman_list)
                     # 생포된 호위무사 (1회용 소환) 데이터 전달
                     pingfighter._arena_pending_captured_guard = self.captured_guard
                     pingfighter._arena_pending_captured_guard_used = self.captured_guard_used
@@ -17006,16 +17018,11 @@ class ColosseumsArena:
                         print(f"[Guard] AI 호위무사 축소: {hero['name']} → {chosen['name']}")
 
     def _try_guard_select(self, index: int):
-        """호위무사 선택 시도 - 신규 선택 시 경고 다이얼로그 표시"""
-        new_idx = getattr(self, 'guard_select_new_idx', -1)
-        if index == new_idx:
-            # 신규 호위무사 선택 → 경고 다이얼로그 표시
-            self.guard_confirm_showing = True
-            self.guard_confirm_index = index
-            self.guard_confirm_selected = 1  # 기본값 '아니오'
-        else:
-            # 기존 호위무사 유지 → 바로 확정
-            self._confirm_guard_select(index)
+        """호위무사 선택 시도 - 양쪽 모두 확인 다이얼로그 표시 (하수인 시스템)"""
+        # 기존/신규 모두 다이얼로그 표시 (기존 선택 → 포획 영웅이 하수인, 신규 선택 → 기존 호위무사가 하수인)
+        self.guard_confirm_showing = True
+        self.guard_confirm_index = index
+        self.guard_confirm_selected = 0  # 기본값 '예'
 
     def _confirm_guard_select(self, index: int):
         """호위무사 선택 확정"""
@@ -17029,14 +17036,15 @@ class ColosseumsArena:
         bet_id = self.bet_hero["id"] if self.bet_hero else ""
         new_idx = getattr(self, 'guard_select_new_idx', len(guards) - 1)
 
-        # 선택한 호위무사만 남기기 (교체된 기존 호위무사만 기록)
-        # 신규 포획 호위무사(new_idx)를 거절한 경우는 기록하지 않음
-        # (한 번도 실전 투입되지 않은 호위무사는 "교체당한" 것이 아님)
+        # 선택한 호위무사만 남기기 - 탈락한 영웅은 하수인으로 전환
         dropped_guards = [g for i, g in enumerate(guards) if i != index]
-        for i, g in enumerate(guards):
-            if i == index:
-                continue
-            if i != new_idx and g not in self.former_guards:
+        for g in dropped_guards:
+            # 하수인 목록에 추가 (중복 방지)
+            if not any(h.get("id") == g.get("id") for h in self.henchman_list):
+                self.henchman_list.append(g)
+                print(f"[Henchman] '{g.get('name', '?')}' → 하수인으로 전환")
+            # former_guards에도 추가 (우승 연출용)
+            if g not in self.former_guards:
                 self.former_guards.append(g)
         self.guard_warrior_map[bet_id] = [selected]
 
@@ -17371,6 +17379,84 @@ class ColosseumsArena:
 
             # (능력치 바 제거 - 스킬 룰렛 공간 확보)
 
+        # === 하수인 미리보기 (카드 하단) ===
+        new_idx = getattr(self, 'guard_select_new_idx', 1)
+        hench_sq_sz = 36  # 하수인 정사각형 크기
+        hench_sq_gap = 6
+        hench_preview_y = 175 + card_h + 15  # 카드 하단 + 여백
+
+        for idx, (cx_card, cy_card) in enumerate(card_positions[:2]):
+            if idx == 0:
+                # 왼쪽 카드(기존 유지): 현재 하수인 목록 + 포획된 영웅(하수인될 예정)
+                preview_heroes = list(self.henchman_list)
+                # 포획된 신규 영웅이 하수인이 될 경우 미리보기 추가
+                if new_idx < len(guards):
+                    new_guard = guards[new_idx]
+                    if not any(h.get("id") == new_guard.get("id") for h in preview_heroes):
+                        preview_heroes.append(new_guard)
+            else:
+                # 오른쪽 카드(교체): 기존 호위무사가 하수인이 됨
+                preview_heroes = list(self.henchman_list)
+                if guards and len(guards) >= 1:
+                    old_guard = guards[0]
+                    if not any(h.get("id") == old_guard.get("id") for h in preview_heroes):
+                        preview_heroes.append(old_guard)
+
+            if preview_heroes and self.fonts and "small" in self.fonts:
+                # "하수인" 라벨
+                lbl = "하수인" if idx == 0 else "하수인 (교체 시)"
+                lbl_surf, _ = self.fonts["small"].render(lbl, (160, 140, 110))
+                lbl_x = cx_card + card_w // 2 - lbl_surf.get_width() // 2
+                self.screen.blit(lbl_surf, (lbl_x, hench_preview_y - 16))
+
+                # 하수인 정사각형 UI들 (오른쪽으로 늘어남)
+                total_w = len(preview_heroes) * (hench_sq_sz + hench_sq_gap) - hench_sq_gap
+                start_x = cx_card + card_w // 2 - total_w // 2
+                for hi, hero in enumerate(preview_heroes):
+                    sq_x = start_x + hi * (hench_sq_sz + hench_sq_gap)
+                    sq_y = hench_preview_y
+                    h_color = hero.get("color", (150, 150, 150))
+
+                    # 배경
+                    sq_surf = _get_arena_surface(hench_sq_sz, hench_sq_sz)
+                    sq_surf.fill((30, 25, 20, 200))
+                    self.screen.blit(sq_surf, (sq_x, sq_y))
+
+                    # 캐릭터 아이콘
+                    if self.hero_paddle_renderer:
+                        try:
+                            self.hero_paddle_renderer.draw_hero_paddle(
+                                self.screen,
+                                hero.get("id", ""),
+                                sq_x + hench_sq_sz // 2,
+                                sq_y + hench_sq_sz // 2,
+                                hench_sq_sz - 6, hench_sq_sz - 6,
+                                facing="up",
+                                color=h_color,
+                                scale_mode="icon"
+                            )
+                        except Exception:
+                            pygame.draw.circle(self.screen, h_color,
+                                               (sq_x + hench_sq_sz // 2, sq_y + hench_sq_sz // 2),
+                                               hench_sq_sz // 4)
+                    else:
+                        pygame.draw.circle(self.screen, h_color,
+                                           (sq_x + hench_sq_sz // 2, sq_y + hench_sq_sz // 2),
+                                           hench_sq_sz // 4)
+
+                    # 테두리
+                    pygame.draw.rect(self.screen, (100, 90, 70),
+                                     (sq_x, sq_y, hench_sq_sz, hench_sq_sz), 1, border_radius=3)
+
+                    # 이름 (아래)
+                    h_name = hero.get("name", "?")
+                    if len(h_name) > 3:
+                        h_name = h_name[:2] + ".."
+                    if self.fonts and "small" in self.fonts:
+                        ns, _ = self.fonts["small"].render(h_name, (140, 130, 110))
+                        self.screen.blit(ns, (sq_x + hench_sq_sz // 2 - ns.get_width() // 2,
+                                              sq_y + hench_sq_sz + 2))
+
         # === 하단 안내 텍스트 (스킬 룰렛 중에는 숨김) ===
         if not getattr(self, '_guard_select_anim_phase', None):
             if self.fonts and "small" in self.fonts and timer > 0.6:
@@ -17400,7 +17486,7 @@ class ColosseumsArena:
             self._draw_guard_confirm_dialog()
 
     def _draw_guard_confirm_dialog(self):
-        """신규 호위무사 선택 시 경고 확인 다이얼로그"""
+        """호위무사 선택 확인 다이얼로그 (하수인 시스템 반영)"""
         # 어두운 오버레이
         overlay = _get_arena_fullscreen()
         overlay.fill((0, 0, 0, 160))
@@ -17408,8 +17494,23 @@ class ColosseumsArena:
 
         bet_id_for_dialog = self.bet_hero["id"] if self.bet_hero else ""
         loyalty_for_dialog = self.guard_loyalty_cd_bonus.get(bet_id_for_dialog, 0)
+        confirm_idx = getattr(self, 'guard_confirm_index', -1)
+        new_idx = getattr(self, 'guard_select_new_idx', -1)
+        is_swap = (confirm_idx == new_idx)  # 신규 교체인지 기존 유지인지
+
+        guards = getattr(self, 'guard_select_guards', [])
+        # 다이얼로그에 표시할 이름 결정
+        if is_swap:
+            # 신규 교체: 기존 호위무사가 하수인이 됨
+            new_hero_name = guards[new_idx].get("name", "?") if new_idx < len(guards) else "?"
+            old_hero_name = guards[0].get("name", "?") if guards else "?"
+        else:
+            # 기존 유지: 포획된 신규 영웅이 하수인이 됨
+            new_hero_name = guards[new_idx].get("name", "?") if new_idx < len(guards) else "?"
+
         dialog_w = 420
-        dialog_h = 220 if loyalty_for_dialog > 0 else 200
+        extra_h = 20 if (is_swap and loyalty_for_dialog > 0) else 0
+        dialog_h = 220 + extra_h
         cx = SCREEN_WIDTH // 2
         cy = SCREEN_HEIGHT // 2
         dx = cx - dialog_w // 2
@@ -17424,32 +17525,43 @@ class ColosseumsArena:
         if not self.fonts:
             return
 
-        # 제목: ⚠ 경고
+        # 제목
         if "medium" in self.fonts:
-            title_surf, _ = self.fonts["medium"].render("경고", ET["carnelian_light"])
+            title_text = "호위무사 교체" if is_swap else "확인"
+            title_color = ET["carnelian_light"] if is_swap else ET["gold_pale"]
+            title_surf, _ = self.fonts["medium"].render(title_text, title_color)
             self.screen.blit(title_surf, (cx - title_surf.get_width() // 2, dy + 20))
 
         # 본문
         if "small" in self.fonts:
-            line1 = "신규 호위무사를 영입하면"
-            line2 = "기존 호위무사는 해고됩니다."
-            s1, _ = self.fonts["small"].render(line1, ET["text_body"])
-            s2, _ = self.fonts["small"].render(line2, ET["text_body"])
-            self.screen.blit(s1, (cx - s1.get_width() // 2, dy + 55))
-            self.screen.blit(s2, (cx - s2.get_width() // 2, dy + 78))
-            # 충성 보너스 리셋 경고
-            bet_id = self.bet_hero["id"] if self.bet_hero else ""
-            loyalty_count = self.guard_loyalty_cd_bonus.get(bet_id, 0)
-            if loyalty_count > 0:
-                warn_line = f"충성 보너스 (쿨타임 -{loyalty_count * 10}%)가 초기화됩니다!"
-                ws, _ = self.fonts["small"].render(warn_line, (255, 100, 100))
-                self.screen.blit(ws, (cx - ws.get_width() // 2, dy + 98))
-                line3_y = dy + 120
+            cur_y = dy + 55
+            if is_swap:
+                # 신규 교체: "호위무사를 [name]로 교체합니다" + "기존 호위무사 [name]는 하수인이 됩니다"
+                line1 = f"호위무사를 {new_hero_name}(으)로 교체합니다."
+                line2 = f"기존 호위무사 {old_hero_name}는 하수인이 됩니다."
+                s1, _ = self.fonts["small"].render(line1, ET["text_body"])
+                s2, _ = self.fonts["small"].render(line2, ET["text_body"])
+                self.screen.blit(s1, (cx - s1.get_width() // 2, cur_y))
+                cur_y += 23
+                self.screen.blit(s2, (cx - s2.get_width() // 2, cur_y))
+                cur_y += 23
+                # 충성 보너스 리셋 경고
+                loyalty_count = self.guard_loyalty_cd_bonus.get(bet_id_for_dialog, 0)
+                if loyalty_count > 0:
+                    warn_line = f"충성 보너스 (쿨타임 -{loyalty_count * 10}%)가 초기화됩니다!"
+                    ws, _ = self.fonts["small"].render(warn_line, (255, 100, 100))
+                    self.screen.blit(ws, (cx - ws.get_width() // 2, cur_y))
+                    cur_y += 23
             else:
-                line3_y = dy + 105
+                # 기존 유지: "포획한 [name]는 하수인이 됩니다"
+                line1 = f"포획한 {new_hero_name}는 하수인이 됩니다."
+                s1, _ = self.fonts["small"].render(line1, ET["text_body"])
+                self.screen.blit(s1, (cx - s1.get_width() // 2, cur_y))
+                cur_y += 23
+
             line3 = "계속하시겠습니까?"
             s3, _ = self.fonts["small"].render(line3, ET["gold_pale"])
-            self.screen.blit(s3, (cx - s3.get_width() // 2, line3_y))
+            self.screen.blit(s3, (cx - s3.get_width() // 2, cur_y + 5))
 
         # 버튼
         btn_w, btn_h = 100, 40
