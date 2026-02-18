@@ -14551,6 +14551,13 @@ class BananaSlice(HeroSkill):
                 paddle_rect = pygame.Rect(ptc.x, ptc.y, p_w, p_h)
                 banana_rect = pygame.Rect(int(landed['x']) - 40, int(landed['y']) - 25, 80, 50)
                 if paddle_rect.colliderect(banana_rect):
+                    # 마법결계 면역 체크 - 면역 상태면 슬립 차단
+                    _immunity_side = 'top' if self.target_is_top else 'bottom'
+                    if game_state.get(f'magic_immunity_{_immunity_side}', False):
+                        landed['slip_triggered'] = True
+                        landed['active'] = False
+                        self._create_burst_particles(landed['x'], landed['y'])
+                        continue
                     landed['slip_triggered'] = True
                     landed['active'] = False
                     self.target_slipping = True
