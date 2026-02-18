@@ -51228,6 +51228,7 @@ def show_winner_text(winner_name):
     game_center_x = PILLAR_UI_WIDTH + GAME_PLAY_WIDTH // 2
     #  빠른 페이드인 (0.4초)
     for alpha in range(0, 256, 25):
+        pygame.event.pump()  # 마우스 위치 업데이트 (커서 프리즈 방지)
         draw_field()
         draw_objects()
         # 반투명 오버레이
@@ -51267,6 +51268,7 @@ def show_winner_text(winner_name):
     hold_start = pygame.time.get_ticks()
     hold_duration = 1000
     while pygame.time.get_ticks() - hold_start < hold_duration:
+        pygame.event.pump()  # 마우스 위치 업데이트 (커서 프리즈 방지)
         draw_field()
         draw_objects()
         # 반투명 오버레이 - 캐시된 Surface 사용
@@ -51304,6 +51306,7 @@ def show_winner_text(winner_name):
         pygame.time.delay(16)
     #  빠른 페이드아웃 (0.3초)
     for alpha in range(255, -1, -35):
+        pygame.event.pump()  # 마우스 위치 업데이트 (커서 프리즈 방지)
         draw_field()
         draw_objects()
         # 반투명 오버레이
@@ -119226,6 +119229,7 @@ def show_fade_text(message):
     text_surface = font_main.render(display_text, True, main_color)
     #  빠른 페이드인 (0.3초)
     for alpha in range(0, 256, 32):
+        pygame.event.pump()  # 마우스 위치 업데이트 (커서 프리즈 방지)
         # 구슬 접기 애니메이션 업데이트
         if is_orb_collapse_animation_active():
             update_orb_collapse_animation()
@@ -119255,6 +119259,7 @@ def show_fade_text(message):
     hold_duration = 800 if is_power_smashing else (600 if is_serve_message else (1000 if is_deuce else 500))
     start_time = pygame.time.get_ticks()
     while pygame.time.get_ticks() - start_time < hold_duration:
+        pygame.event.pump()  # 마우스 위치 업데이트 (커서 프리즈 방지)
         # 구슬 접기 애니메이션 업데이트
         if is_orb_collapse_animation_active():
             update_orb_collapse_animation()
@@ -119280,6 +119285,7 @@ def show_fade_text(message):
         pygame.time.delay(16)
     #  빠른 페이드아웃 (0.2초)
     for alpha in range(255, -1, -42):
+        pygame.event.pump()  # 마우스 위치 업데이트 (커서 프리즈 방지)
         # 구슬 접기 애니메이션 업데이트
         if is_orb_collapse_animation_active():
             update_orb_collapse_animation()

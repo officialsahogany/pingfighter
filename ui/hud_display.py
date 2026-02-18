@@ -328,6 +328,7 @@ class HUDDisplay:
 
         # 페이드인 애니메이션
         for alpha in range(0, 256, 18):
+            pygame.event.pump()  # 마우스 위치 업데이트 (커서 프리즈 방지)
             self._draw_kbo_scoreboard(player_score, ai_score, board_x, board_y,
                                       board_width, board_height, inner_x, inner_y,
                                       inner_w, inner_h, animation_timer, alpha,
@@ -338,6 +339,7 @@ class HUDDisplay:
 
         # 점수판 표시 시간 (1.5초)
         for _ in range(90):
+            pygame.event.pump()  # 마우스 위치 업데이트 (커서 프리즈 방지)
             self._draw_kbo_scoreboard(player_score, ai_score, board_x, board_y,
                                       board_width, board_height, inner_x, inner_y,
                                       inner_w, inner_h, animation_timer, 255,
