@@ -11226,6 +11226,7 @@ class ColosseumsArena:
                     _skill = entry.get("skill", None)
                     # 이 카드에 해당하는 스킬만 표시 (각 카드 = 1 스킬)
                     hover_result = {
+                        "type": entry.get("source_type", "guard"),
                         "name": entry["hero_name"],
                         "color": entry["hero_color"],
                         "cooldown": entry["cooldown_remaining"],

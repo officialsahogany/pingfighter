@@ -7253,7 +7253,7 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
     if not hover_info:
         return
     try:
-        _gh_is_henchman = hover_info.get("type") == "henchman"
+        _gh_type = hover_info.get("type", "guard")
         _gh_name = hover_info["name"]
         _gh_color = hover_info["color"]
         _gh_cd = hover_info["cooldown"]
@@ -7265,19 +7265,21 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
         _gh_tiny = get_font(15, style="regular")
 
         # 이름 옆에 칭호 태그 추가
-        if _gh_is_henchman:
-            _gh_display_name = _gh_name
+        _gh_display_name = _gh_name
+        if _gh_type == "henchman":
             _gh_title_tag = "[하수인]"
             _gh_title_color = (200, 150, 255)  # 보라색
+        elif _gh_type == "hero":
+            _gh_title_tag = "[영웅]"
+            _gh_title_color = (120, 200, 255)  # 하늘색
         else:
-            _gh_display_name = _gh_name
             _gh_title_tag = "[호위무사]"
             _gh_title_color = (255, 200, 100)  # 골드
 
         _gh_skills = hover_info.get("skills", [_gh_skill] if _gh_skill else [])
 
         # 상태 텍스트
-        if _gh_is_henchman:
+        if _gh_type == "henchman":
             # 하수인: 순찰 없이 자동 발동
             if _gh_phase is not None:
                 _status = "발동 중"
@@ -7393,7 +7395,12 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
         _ty = max(4, min(_ty, target_screen.get_height() - _th - 4))
 
         # 하수인 테마: 보라색 테두리, 호위무사: 캐릭터 색상 테두리
-        _border_color = (160, 100, 220) if _gh_is_henchman else _gh_color
+        if _gh_type == "henchman":
+            _border_color = (160, 100, 220)  # 보라색
+        elif _gh_type == "hero":
+            _border_color = (80, 160, 220)  # 하늘색
+        else:
+            _border_color = _gh_color
 
         # 중간 서피스에 그린 뒤 스케일링
         _tip_surf = pygame.Surface((_tw, _th), pygame.SRCALPHA)
