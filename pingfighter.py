@@ -19910,8 +19910,8 @@ arena_storm_rush_burst_bottom = False        # 하단 폭풍질주 버스트업 
 arena_storm_rush_height_bonus_top = 0        # 상단 버스트업 패들 높이 보너스
 arena_storm_rush_height_bonus_bottom = 0     # 하단 버스트업 패들 높이 보너스
 arena_storm_rush_particles = []              # 폭풍질주 플래시 파티클
-arena_perk_recall_guard_top = False          # 상단 재소집령 퍽 활성
-arena_perk_recall_guard_bottom = False       # 하단 재소집령 퍽 활성
+arena_perk_recall_guard_top = False          # 상단 승급 퍽 활성
+arena_perk_recall_guard_bottom = False       # 하단 승급 퍽 활성
 arena_perk_instant_cooldown_chance_top = 0.0   # 상단 번뜩이는 영감 확률
 arena_perk_instant_cooldown_chance_bottom = 0.0  # 하단 번뜩이는 영감 확률
 arena_flash_inspiration_timer_top = 0.0        # 상단 번뜩이는 영감 이펙트 타이머
@@ -20352,8 +20352,8 @@ def show_arena_perk_select_menu():
         if p["id"] in owned_perk_ids:
             continue
         unlock_cond = p.get("unlock_condition")
-        if unlock_cond == "former_guards":
-            if not getattr(arena_obj, 'former_guards', []):
+        if unlock_cond == "has_henchman":
+            if not getattr(arena_obj, 'henchman_list', []):
                 continue
         pool.append(p)
 
@@ -20398,12 +20398,12 @@ def show_arena_perk_select_menu():
                 "value": other_skill_idx,
             })
 
-    # 해금 조건 미충족 퍽 필터 (재소집령: 해고된 호위무사 없으면 제외)
+    # 해금 조건 미충족 퍽 필터 (승급: 하수인 없으면 제외)
     filtered_perks = []
     for p in all_perks:
         unlock_cond = p.get("unlock_condition")
-        if unlock_cond == "former_guards":
-            if not getattr(arena_obj, 'former_guards', []):
+        if unlock_cond == "has_henchman":
+            if not getattr(arena_obj, 'henchman_list', []):
                 continue
         filtered_perks.append(p)
 
@@ -20677,20 +20677,20 @@ def _apply_arena_f8_perk(arena_obj, hero_id, selected_perk):
                 print(f"[ArenaPerk F8] 스킬 재초기화 실패: {e}")
         print(f"[ArenaPerk F8] {hero_id}에게 추가 스킬 '{selected_perk['name']}' 부여!")
     elif selected_perk["effect_type"] == "recall_guard":
-        # 재소집령 - hero_perks에 추가만 (배틀 중 호위무사 핫추가는 복잡하므로 다음 라운드부터 적용)
+        # 승급 - 첫 번째 하수인을 호위무사로 승급 (다음 라운드부터 적용)
         if hero_id not in arena_obj.hero_perks:
             arena_obj.hero_perks[hero_id] = []
         arena_obj.hero_perks[hero_id].append(dict(selected_perk))
-        if arena_obj.former_guards:
-            recalled = arena_obj.former_guards.pop(0)
+        if arena_obj.henchman_list:
+            promoted = arena_obj.henchman_list.pop(0)
             if hero_id not in arena_obj.guard_warrior_map:
                 arena_obj.guard_warrior_map[hero_id] = []
-            arena_obj.guard_warrior_map[hero_id].append(recalled)
-            # 복귀 호위무사 추적 (호위무사 선택 시 보존용)
-            arena_obj.recalled_guard_map[hero_id] = recalled
-            arena_obj.hero_selected_skills[recalled["id"]] = random.randint(0, 1)
-            print(f"[ArenaPerk F8] 재소집령: '{recalled['name']}' 복귀!")
-        print(f"[ArenaPerk F8] {hero_id}에게 '재소집령' 퍽 부여!")
+            arena_obj.guard_warrior_map[hero_id].append(promoted)
+            # 승급 호위무사 추적 (호위무사 선택 시 보존용)
+            arena_obj.recalled_guard_map[hero_id] = promoted
+            arena_obj.hero_selected_skills[promoted["id"]] = random.randint(0, 1)
+            print(f"[ArenaPerk F8] 승급: 하수인 '{promoted['name']}' → 호위무사 승급!")
+        print(f"[ArenaPerk F8] {hero_id}에게 '승급' 퍽 부여!")
     else:
         # 일반 퍽 추가
         if hero_id not in arena_obj.hero_perks:

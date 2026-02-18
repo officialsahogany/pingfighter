@@ -1070,6 +1070,7 @@ class TournamentState(Enum):
     HIGHLIGHT_REPLAY = "highlight_replay"      # 하이라이트 리플레이 재생
     HERO_PREVIEW = "hero_preview"              # 전체 영웅 미리보기
     CAPTURE_MINIGAME = "capture_minigame"      # 호위무사 생포 미니게임
+    HENCHMAN_NOTIFY = "henchman_notify"        # 하수인 생포 알림
 
 class TournamentRound(Enum):
     QUARTER_FINAL = "8강"
@@ -1566,12 +1567,12 @@ ARENA_PERK_POOL = [
     # === 해금 조건 퍽 ===
     {
         "id": "recall_guard",
-        "name": "재소집령",
-        "description": "해고했던 호위무사를 불러내어\n전투에 참가시킵니다\n(호위무사 2명)",
+        "name": "승급",
+        "description": "첫 번째 하수인을 호위무사로\n승급시켜 전장에 배치합니다\n(호위무사 +1)",
         "icon_color": (200, 160, 60),    # 금빛 (명령/충성)
         "effect_type": "recall_guard",
         "value": 1,
-        "unlock_condition": "former_guards",  # 이전에 호위무사를 해고한 적이 있어야 함
+        "unlock_condition": "has_henchman",  # 하수인이 1명 이상 있어야 함
     },
 ]
 
@@ -2474,7 +2475,7 @@ class GuardWarriorSystem:
         self._bubble_bottom = None
         self._bubble_duration = 2.0  # 말풍선 표시 시간 (초)
 
-        # 2번째 호위무사 독립 순찰 (재소집령 등으로 2명일 때)
+        # 2번째 호위무사 독립 순찰 (승급 등으로 2명일 때)
         # 구조: _charmed 와 동일 - {'guard': hero_dict, 'x': float, 'y': float, ...}
         self._patrol2_top = None
         self._patrol2_bottom = None
@@ -3409,7 +3410,7 @@ class GuardWarriorSystem:
                          c['x'] + shake_x, c['y'] + shake_y,
                          is_top=c['caster_is_top'])
 
-    # === 2번째 호위무사 독립 순찰 시스템 (재소집령 등) ===
+    # === 2번째 호위무사 독립 순찰 시스템 (승급 등) ===
 
     def _activate_patrol2(self, is_top, exclude_guard=None):
         """2번째 호위무사를 독립 순찰로 활성화
@@ -6611,7 +6612,7 @@ class ColosseumsArena:
 
         # === 호위무사 시스템 ===
         self.guard_warrior_map = {}          # hero_id -> [guard hero dicts] (토너먼트 전체 누적)
-        self.recalled_guard_map = {}         # hero_id -> guard dict (재소집령으로 복귀한 호위무사, 라운드 간 유지)
+        self.recalled_guard_map = {}         # hero_id -> guard dict (승급으로 추가된 호위무사, 라운드 간 유지)
         self.former_guards = []              # 교체되어 탈락한 호위무사 목록 (우승 연출용)
         self.henchman_list = []              # 하수인 목록 (hero dict 리스트, 라운드 간 유지)
         self.guard_loyalty_cd_bonus = {}     # hero_id -> int (기존 호위무사 유지 횟수, 1회당 -10% 쿨타임)
@@ -6672,6 +6673,13 @@ class ColosseumsArena:
         # 인게임 포획 결과 (pingfighter에서 읽어옴)
         self._last_capture_result = None        # True/False/None
         self._last_capture_target = None        # 포획 대상 영웅 dict
+
+        # ============ 하수인 생포 알림 ============
+        self.henchman_notify_hero = None           # 하수인으로 생포된 영웅 dict
+        self.henchman_notify_timer = 0.0           # 알림 타이머
+        self.henchman_notify_progress = 0.0        # 알림 진행률 (0.0~1.0)
+        self._pending_henchman_capture = False     # 하수인 생포 대기 플래그
+        self._pending_henchman_target = None       # 하수인 생포 대상 영웅
 
         # ============ 관리자 영웅 선택 (F5) ============
         self.admin_hero_select_active = False       # 관리자 영웅 선택 오버레이 활성화 여부
@@ -7534,12 +7542,12 @@ class ColosseumsArena:
                     if self.initial_setup_done or self.current_round in (TournamentRound.SEMI_FINAL, TournamentRound.FINAL):
                         pingfighter._arena_pending_top_guards = self.guard_warrior_map.get(top_hero["id"], [])
                         pingfighter._arena_pending_bottom_guards = self.guard_warrior_map.get(bottom_hero["id"], [])
-                        # 재소집령 디버그: 배틀 시작 시 호위무사 수 확인
+                        # 승급 디버그: 배틀 시작 시 호위무사 수 확인
                         try:
                             _top_g = pingfighter._arena_pending_top_guards
                             _bot_g = pingfighter._arena_pending_bottom_guards
                             _recalled = self.recalled_guard_map
-                            print(f"[Guard 재소집령] 배틀 시작 | 라운드={self.current_round} | "
+                            print(f"[Guard 승급] 배틀 시작 | 라운드={self.current_round} | "
                                   f"상단={[g.get('name','?') for g in _top_g]}({len(_top_g)}명) | "
                                   f"하단={[g.get('name','?') for g in _bot_g]}({len(_bot_g)}명) | "
                                   f"recalled_map={{{k: v.get('name','?') for k,v in _recalled.items()}}}")
@@ -8536,6 +8544,24 @@ class ColosseumsArena:
             self._last_capture_result = None
             self._last_capture_target = None
 
+        # 하수인 생포 판정 (8강/4강에서 승리 시 70% 확률)
+        self._pending_henchman_capture = False
+        self._pending_henchman_target = None
+        if (self.bet_hero and winner == self.bet_hero
+                and self.current_round in (TournamentRound.QUARTER_FINAL, TournamentRound.SEMI_FINAL)):
+            loser_h = match.hero1 if winner == match.hero2 else match.hero2
+            if random.random() < 0.70:
+                # 하수인 목록에 추가 (중복 방지)
+                if not any(h.get("id") == loser_h.get("id") for h in self.henchman_list):
+                    self.henchman_list.append(dict(loser_h))
+                    print(f"[Henchman] 하수인 생포 성공! {loser_h.get('name', '?')} (70% 판정 통과)")
+                else:
+                    print(f"[Henchman] {loser_h.get('name', '?')} 이미 하수인 목록에 있음 → 중복 스킵")
+                self._pending_henchman_capture = True
+                self._pending_henchman_target = loser_h
+            else:
+                print(f"[Henchman] 하수인 생포 실패 (70% 판정 탈락) - {loser_h.get('name', '?')}")
+
         # 전투 종료 후 대기실 BGM 복구
         try:
             import bgm_manager
@@ -8949,6 +8975,15 @@ class ColosseumsArena:
                     else:
                         self._start_perk_select()
 
+        elif self.state == TournamentState.HENCHMAN_NOTIFY:
+            # 하수인 생포 알림 (2.5초)
+            self.henchman_notify_timer += dt
+            henchman_notify_duration = 2.5
+            self.henchman_notify_progress = min(1.0, self.henchman_notify_timer / henchman_notify_duration)
+            if self.henchman_notify_timer >= henchman_notify_duration:
+                # 알림 끝 → 실제 퍽 선택으로 (하수인 플래그는 이미 소진됨)
+                self._do_start_perk_select()
+
         elif self.state == TournamentState.HIGHLIGHT_REPLAY:
             self._update_highlight_replay(dt)
 
@@ -9060,6 +9095,8 @@ class ColosseumsArena:
                     return False  # 호위무사 선택 중에는 나갈 수 없음
                 if self.state == TournamentState.GUARD_NOTIFY:
                     return False  # 생포 알림 중에는 나갈 수 없음
+                if self.state == TournamentState.HENCHMAN_NOTIFY:
+                    return False  # 하수인 생포 알림 중에는 나갈 수 없음
                 if self.state == TournamentState.CAPTURE_MINIGAME:
                     return False  # 생포 미니게임 중에는 나갈 수 없음
                 if self.state in (TournamentState.MATCH_REVEAL, TournamentState.HERO_SELECT,
@@ -9074,6 +9111,13 @@ class ColosseumsArena:
                     self.skill_manager.reset_active_skills_for_round()
                 self.exit_requested = True
                 return True
+
+            # 하수인 생포 알림 키보드 처리 (알림 완료 후 Space/Enter로 스킵)
+            if self.state == TournamentState.HENCHMAN_NOTIFY:
+                if event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                    if self.henchman_notify_progress >= 1.0:
+                        self._do_start_perk_select()
+                return False
 
             # 생포 미니게임 키보드 처리
             if self.state == TournamentState.CAPTURE_MINIGAME:
@@ -9172,6 +9216,12 @@ class ColosseumsArena:
         # 호위무사 생포 미니게임 클릭 처리
         if self.state == TournamentState.CAPTURE_MINIGAME:
             self._handle_capture_click(mx, my)
+            return
+
+        # 하수인 생포 알림 중 클릭 → 알림 완료 시 즉시 퍽 선택으로
+        if self.state == TournamentState.HENCHMAN_NOTIFY:
+            if self.henchman_notify_progress >= 1.0:
+                self._do_start_perk_select()
             return
 
         # 호위무사 생포 알림 중 클릭 (하이라이트 클립 있을 때만)
@@ -10233,6 +10283,8 @@ class ColosseumsArena:
             self._draw_capture_minigame()
         elif self.state == TournamentState.GUARD_NOTIFY:
             self._draw_guard_notification()
+        elif self.state == TournamentState.HENCHMAN_NOTIFY:
+            self._draw_henchman_notification()
         elif self.state == TournamentState.HIGHLIGHT_REPLAY:
             self._draw_highlight_replay()
         elif self.state == TournamentState.GUARD_SELECT:
@@ -13844,9 +13896,9 @@ class ColosseumsArena:
                 continue
             # 해금 조건 체크
             unlock_cond = p.get("unlock_condition")
-            if unlock_cond == "former_guards":
-                # 이전에 호위무사를 해고한 적이 있어야 함
-                if not getattr(self, 'former_guards', []):
+            if unlock_cond == "has_henchman":
+                # 하수인이 1명 이상 있어야 함
+                if not getattr(self, 'henchman_list', []):
                     continue
             pool.append(p)
 
@@ -13873,7 +13925,22 @@ class ColosseumsArena:
         return pool
 
     def _start_perk_select(self):
-        """퍽 선택 화면 시작"""
+        """퍽 선택 화면 시작 (하수인 생포 알림이 대기 중이면 먼저 표시)"""
+        # 하수인 생포 알림 대기 중이면 먼저 표시
+        if self._pending_henchman_capture and self._pending_henchman_target:
+            self.henchman_notify_hero = self._pending_henchman_target
+            self.henchman_notify_timer = 0.0
+            self.henchman_notify_progress = 0.0
+            self._pending_henchman_capture = False  # 플래그 소진
+            self._pending_henchman_target = None
+            self.state = TournamentState.HENCHMAN_NOTIFY
+            print(f"[Henchman] 하수인 생포 알림 표시: {self.henchman_notify_hero.get('name', '?')}")
+            return
+
+        self._do_start_perk_select()
+
+    def _do_start_perk_select(self):
+        """퍽 선택 화면 실제 시작 (하수인 알림 체크 없이 직접 진입)"""
         self.perk_selected_index = 0
         self.perk_anim_timer = 0.0
         self.perk_anim_phase = "appearing"
@@ -13927,26 +13994,26 @@ class ColosseumsArena:
                 print(f"[Perk] {self.bet_hero['name']}에게 추가 스킬 '{selected_perk['name']}' 부여! "
                       f"(양쪽 스킬 보유)")
             elif selected_perk["effect_type"] == "recall_guard":
-                # 재소집령: 해고했던 호위무사를 복귀시켜 2명으로 만듦
+                # 승급: 첫 번째 하수인을 호위무사로 승급
                 if hero_id not in self.hero_perks:
                     self.hero_perks[hero_id] = []
                 self.hero_perks[hero_id].append(dict(selected_perk))
-                # former_guards에서 한 명을 꺼내 guard_warrior_map에 추가
-                if self.former_guards:
-                    recalled = self.former_guards.pop(0)  # 가장 먼저 해고된 호위무사
+                # henchman_list에서 첫 번째 하수인을 꺼내 guard_warrior_map에 추가
+                if self.henchman_list:
+                    promoted = self.henchman_list.pop(0)  # 가장 먼저 얻은 하수인
                     if hero_id not in self.guard_warrior_map:
                         self.guard_warrior_map[hero_id] = []
-                    self.guard_warrior_map[hero_id].append(recalled)
-                    # 복귀 호위무사 추적 (호위무사 선택 시 보존용)
-                    self.recalled_guard_map[hero_id] = recalled
-                    # 복귀 호위무사 스킬 랜덤 배정
-                    self.hero_selected_skills[recalled["id"]] = random.randint(0, 1)
-                    print(f"[Perk] {self.bet_hero['name']}에게 '재소집령' 퍽 부여! "
-                          f"호위무사 '{recalled['name']}' 복귀 (총 호위무사: "
+                    self.guard_warrior_map[hero_id].append(promoted)
+                    # 승급 호위무사 추적 (호위무사 선택 시 보존용)
+                    self.recalled_guard_map[hero_id] = promoted
+                    # 승급 호위무사 스킬 랜덤 배정
+                    self.hero_selected_skills[promoted["id"]] = random.randint(0, 1)
+                    print(f"[Perk] {self.bet_hero['name']}에게 '승급' 퍽 부여! "
+                          f"하수인 '{promoted['name']}' → 호위무사 승급 (총 호위무사: "
                           f"{len(self.guard_warrior_map[hero_id])}명)")
                 else:
-                    print(f"[Perk] {self.bet_hero['name']}에게 '재소집령' 퍽 부여! "
-                          f"(복귀 가능한 호위무사 없음)")
+                    print(f"[Perk] {self.bet_hero['name']}에게 '승급' 퍽 부여! "
+                          f"(승급 가능한 하수인 없음)")
             else:
                 # 일반 퍽 추가
                 if hero_id not in self.hero_perks:
@@ -13992,8 +14059,8 @@ class ColosseumsArena:
                 continue
             # 해금 조건 체크 (AI에게도 동일하게 적용)
             unlock_cond = p.get("unlock_condition")
-            if unlock_cond == "former_guards":
-                if not getattr(self, 'former_guards', []):
+            if unlock_cond == "has_henchman":
+                if not getattr(self, 'henchman_list', []):
                     continue
             available.append(p)
 
@@ -14028,16 +14095,16 @@ class ColosseumsArena:
                 # 스킬 퍽은 1회만 가능하므로 풀에서 제거
                 available = [p for p in available if p["effect_type"] != "add_skill"]
             elif perk["effect_type"] == "recall_guard":
-                # 재소집령: AI도 해고된 호위무사 복귀
+                # 승급: AI도 첫 번째 하수인을 호위무사로 승급
                 self.hero_perks[hero_id].append(dict(perk))
-                if self.former_guards:
-                    recalled = self.former_guards.pop(0)
+                if self.henchman_list:
+                    promoted = self.henchman_list.pop(0)
                     if hero_id not in self.guard_warrior_map:
                         self.guard_warrior_map[hero_id] = []
-                    self.guard_warrior_map[hero_id].append(recalled)
-                    # 복귀 호위무사 추적 (호위무사 선택 시 보존용)
-                    self.recalled_guard_map[hero_id] = recalled
-                    self.hero_selected_skills[recalled["id"]] = random.randint(0, 1)
+                    self.guard_warrior_map[hero_id].append(promoted)
+                    # 승급 호위무사 추적 (호위무사 선택 시 보존용)
+                    self.recalled_guard_map[hero_id] = promoted
+                    self.hero_selected_skills[promoted["id"]] = random.randint(0, 1)
                 owned_ids.add(perk["id"])
                 available = [p for p in available if p["id"] != perk["id"]]
             else:
@@ -14062,7 +14129,7 @@ class ColosseumsArena:
             "magic_immunity": 0.0,      # 타격 시 마법 면역 확률
             "laurel_shield": 0,         # 신성월계수 잎 개수 (0이면 비활성)
             "paddle_enlarge": 1.0,      # 패들 확대 배율
-            "recall_guard": False,      # 재소집령 (호위무사 복귀)
+            "recall_guard": False,      # 승급 (하수인 → 호위무사)
             "instant_cooldown": 0.0,    # 타격 시 스킬쿨 즉시 충전 확률
             "theft": 0.0,               # 승리 시 상대 퍽 탈취 확률
             "comeback": 0.0,            # 기사회생 스킬쿨 감소량 (상대 4점 시 발동)
@@ -14738,7 +14805,7 @@ class ColosseumsArena:
         ])
 
     def _draw_perk_icon_recall_guard(self, surf, cx, cy, r, ss):
-        """재소집령 아이콘 - 고퀄 두 전사 + 소환 마법진 + 귀환 이펙트"""
+        """승급 아이콘 - 고퀄 두 전사 + 소환 마법진 + 귀환 이펙트"""
         s = r * ss
         lw = max(2, int(2 * ss / 3))
         # 소환 마법 글로우 배경
@@ -16138,6 +16205,135 @@ class ColosseumsArena:
             self.highlight_btn_rect = None
 
     # ================================================================
+    # 하수인 생포 알림 렌더링
+    # ================================================================
+    def _draw_henchman_notification(self):
+        """하수인 생포 알림 애니메이션 (GUARD_NOTIFY와 유사하지만 보라색 테마)"""
+        hero = self.henchman_notify_hero
+        if not hero:
+            return
+
+        progress = self.henchman_notify_progress  # 0.0 ~ 1.0 over 2.5s
+
+        # 배경
+        self.screen.fill(ET["bg_dark"])
+
+        # 반투명 보라색 오버레이 (페이드인)
+        overlay_alpha = int(min(180, 220 * min(1.0, progress * 3)))
+        overlay = _get_arena_fullscreen()
+        # 보라/짙은 파란 톤 오버레이 (하수인 테마)
+        overlay.fill((40, 20, 60, overlay_alpha))
+        self.screen.blit(overlay, (0, 0))
+
+        center_x = SCREEN_WIDTH // 2
+
+        # 영웅 이미지 (아래에서 슬라이드 업)
+        target_y = SCREEN_HEIGHT // 2 - 30
+        start_y = SCREEN_HEIGHT // 2 + 100
+        slide_progress = self._ease_in_out(min(1.0, progress * 2.5))
+        hero_y = int(start_y + (target_y - start_y) * slide_progress)
+
+        # 글로우 효과 (보라색 톤)
+        hero_color = hero.get("color", (150, 150, 150))
+        glow_alpha = int(60 + abs(_sin(self.animation_timer * 3)) * 40)
+        glow_radius = 80
+        glow_surf = _get_arena_surface(glow_radius * 2, glow_radius * 2)
+        # 보라색 글로우
+        glow_color = (min(255, hero_color[0] + 40), min(255, hero_color[1]),
+                      min(255, hero_color[2] + 80))
+        pygame.draw.circle(glow_surf, (*glow_color, glow_alpha),
+                           (glow_radius, glow_radius), glow_radius)
+        intro_b = max(3, 120 // 12)
+        intro_glow_adj = int(intro_b * 0.75)
+        self.screen.blit(glow_surf, (center_x - glow_radius,
+                                      hero_y - glow_radius - intro_glow_adj))
+
+        # 영웅 캐릭터 이미지
+        if self.hero_paddle_renderer:
+            hero_id = hero.get("id", "mugen")
+            self.hero_paddle_renderer.draw_hero_paddle(
+                self.screen, hero_id, center_x, hero_y, 120, 84,
+                facing="down", color=hero_color, scale_mode="preview"
+            )
+        else:
+            pygame.draw.circle(self.screen, hero_color, (center_x, hero_y), 40)
+            pygame.draw.circle(self.screen, (255, 255, 255), (center_x, hero_y), 40, 2)
+
+        # 쇠사슬/족쇄 아이콘 (하수인 느낌)
+        if progress > 0.4:
+            chain_alpha = int(min(200, (progress - 0.4) * 5 * 200))
+            chain_surf = _get_arena_surface(24, 24)
+            # 작은 쇠사슬 고리 2개
+            pygame.draw.circle(chain_surf, (140, 140, 150, chain_alpha), (8, 12), 6, 2)
+            pygame.draw.circle(chain_surf, (140, 140, 150, chain_alpha), (16, 12), 6, 2)
+            self.screen.blit(chain_surf, (center_x - 12, hero_y + 45))
+
+        # 텍스트 (페이드인, progress > 0.2)
+        text_alpha = max(0, min(255, int((progress - 0.2) * 4 * 255)))
+
+        if text_alpha > 0 and self.fonts:
+            hero_name = hero.get("name", "???")
+
+            # 밝기 보정
+            brightness = sum(hero_color) / 3
+            name_color = hero_color if brightness > 80 else (
+                min(255, hero_color[0] + 100),
+                min(255, hero_color[1] + 100),
+                min(255, hero_color[2] + 100)
+            )
+
+            # 이름 (큰 글씨)
+            if "large" in self.fonts:
+                surf, _ = self.fonts["large"].render(hero_name, name_color)
+                alpha_surf = _get_arena_surface(*surf.get_size())
+                alpha_surf.fill((255, 255, 255, text_alpha))
+                surf.blit(alpha_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                self.screen.blit(surf, (center_x - surf.get_width() // 2, hero_y - 80))
+
+            # 메인 알림 메시지 (보라/마젠타 톤)
+            if "medium" in self.fonts:
+                msg1 = f"{hero_name}을(를) 하수인으로 생포!"
+                hench_color = (200, 150, 255)  # 밝은 보라색
+
+                surf1, _ = self.fonts["medium"].render(msg1, hench_color)
+                alpha_surf1 = _get_arena_surface(*surf1.get_size())
+                alpha_surf1.fill((255, 255, 255, text_alpha))
+                surf1.blit(alpha_surf1, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                self.screen.blit(surf1, (center_x - surf1.get_width() // 2, hero_y + 100))
+
+            # 하수인 카운트
+            if "small" in self.fonts:
+                count_msg = f"현재 하수인: {len(self.henchman_list)}명"
+                surf, _ = self.fonts["small"].render(count_msg, ET["text_body"])
+                alpha_surf = _get_arena_surface(*surf.get_size())
+                alpha_surf.fill((255, 255, 255, text_alpha))
+                surf.blit(alpha_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                self.screen.blit(surf, (center_x - surf.get_width() // 2, hero_y + 135))
+
+            # 설명 텍스트
+            if "small" in self.fonts:
+                desc_msg = "다음 경기에서 자동으로 스킬을 사용합니다"
+                surf, _ = self.fonts["small"].render(desc_msg, (180, 180, 200))
+                alpha_surf = _get_arena_surface(*surf.get_size())
+                alpha_surf.fill((255, 255, 255, text_alpha))
+                surf.blit(alpha_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                self.screen.blit(surf, (center_x - surf.get_width() // 2, hero_y + 165))
+
+        # 장식 파티클 (궤도 도는 보라색 스파크)
+        if progress > 0.3:
+            particle_count = int((progress - 0.3) * 10)
+            for i in range(min(particle_count, 6)):
+                angle = self.animation_timer * 2 + i * (math.pi * 2 / 6)
+                dist = 100 + _sin(self.animation_timer * 3 + i) * 20
+                px = center_x + int(_cos(angle) * dist)
+                py = hero_y + int(_sin(angle) * dist * 0.6)
+                spark_alpha = int(100 + abs(_sin(self.animation_timer * 5 + i)) * 100)
+                spark_surf = _get_arena_surface(8, 8)
+                spark_color = (180, 120, 255, spark_alpha)  # 보라색 스파크
+                pygame.draw.circle(spark_surf, spark_color, (4, 4), 3)
+                self.screen.blit(spark_surf, (px - 4, py - 4))
+
+    # ================================================================
     # 하이라이트 리플레이 시스템
     # ================================================================
     def _start_highlight_replay(self):
@@ -16948,7 +17144,7 @@ class ColosseumsArena:
         bet_id = self.bet_hero["id"] if self.bet_hero else ""
         guards = self.guard_warrior_map.get(bet_id, [])
 
-        # 재소집령으로 복귀한 호위무사는 선택 후보에서 제외 (자동 유지)
+        # 승급으로 추가된 호위무사는 선택 후보에서 제외 (자동 유지)
         recalled = self.recalled_guard_map.get(bet_id)
         if recalled:
             selectable = [g for g in guards if g.get("id") != recalled.get("id")]
@@ -16957,7 +17153,7 @@ class ColosseumsArena:
 
         # 선택 가능 후보가 1명 이하면 선택 화면 건너뛰기
         if len(selectable) <= 1:
-            print(f"[Guard] 재소집령 복귀 호위무사 보존 → 선택 화면 생략 "
+            print(f"[Guard] 승급 호위무사 보존 → 선택 화면 생략 "
                   f"(총 {len(guards)}명, 선택 가능 {len(selectable)}명)")
             self._start_perk_select()
             return
@@ -16995,7 +17191,7 @@ class ColosseumsArena:
               f"{recalled['name'] if recalled else '없음'})")
 
     def _trim_all_ai_guards(self):
-        """모든 AI 영웅 호위무사를 1명으로 랜덤 축소 (bet_hero 제외, 재소집령 복귀 호위무사 보존)"""
+        """모든 AI 영웅 호위무사를 1명으로 랜덤 축소 (bet_hero 제외, 승급 호위무사 보존)"""
         if not self.bet_hero:
             return
         bet_id = self.bet_hero["id"]
@@ -17007,7 +17203,7 @@ class ColosseumsArena:
                 hero_id = hero["id"]
                 guards = self.guard_warrior_map.get(hero_id, [])
                 if len(guards) >= 2:
-                    # 재소집령 복귀 호위무사가 있으면 보존
+                    # 승급 호위무사가 있으면 보존
                     recalled = self.recalled_guard_map.get(hero_id)
                     if recalled:
                         non_recalled = [g for g in guards if g.get("id") != recalled.get("id")]
@@ -17054,14 +17250,14 @@ class ColosseumsArena:
                 self.former_guards.append(g)
         self.guard_warrior_map[bet_id] = [selected]
 
-        # 재소집령으로 복귀한 호위무사는 선택과 무관하게 유지
+        # 승급으로 추가된 호위무사는 선택과 무관하게 유지
         recalled = self.recalled_guard_map.get(bet_id)
         if recalled and recalled.get("id") != selected.get("id"):
             self.guard_warrior_map[bet_id].append(recalled)
             # 복귀 호위무사가 former_guards에 추가됐으면 제거
             if recalled in self.former_guards:
                 self.former_guards.remove(recalled)
-            print(f"[Guard] 재소집령 복귀 호위무사 '{recalled['name']}' 자동 유지 "
+            print(f"[Guard] 승급 호위무사 '{recalled['name']}' 자동 유지 "
                   f"(총 {len(self.guard_warrior_map[bet_id])}명)")
 
         self.guard_select_chosen = index
