@@ -14071,6 +14071,9 @@ class ColosseumsArena:
         for p in ARENA_PERK_POOL:
             if p["id"] in owned_ids:
                 continue
+            # recall_guard 퍽은 AI에게 부여 금지 (henchman_list는 플레이어 소유)
+            if p.get("effect_type") == "recall_guard":
+                continue
             # 해금 조건 체크 (AI에게도 동일하게 적용)
             unlock_cond = p.get("unlock_condition")
             if unlock_cond == "has_henchman":
