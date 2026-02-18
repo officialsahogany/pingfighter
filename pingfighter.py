@@ -19847,8 +19847,10 @@ arena_capture_flee_dir = 1
 arena_capture_flee_speed = 3.5
 arena_capture_flee_dodge_timer = 0.0
 # 포획 결과 연출
-arena_capture_caught_anim = 0.0         # 그물 펼침 애니메이션
+arena_capture_caught_anim = 0.0         # 끌어오기 애니메이션 타이머
 arena_capture_escape_anim = 0.0         # 도주 애니메이션
+arena_capture_pull_start_x = 380.0      # 끌어오기 시작 X
+arena_capture_pull_start_y = 60.0       # 끌어오기 시작 Y
 arena_active_hero_perks = []         # TAB 표시용: 플레이어(하단) 영웅 보유 퍽 목록
 arena_active_enemy_perks = []        # 필러 표시용: 상대(상단) 영웅 보유 퍽 목록
 arena_perk_draw_icon_func = None     # 퍽 아이콘 그리기 함수 (ColosseumsArena._draw_perk_icon)
@@ -100508,7 +100510,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         global arena_capture_flee_dir, arena_capture_flee_speed, arena_capture_flee_dodge_timer
         global arena_capture_net_x, arena_capture_net_y, arena_capture_net_speed
         global arena_capture_net_rope, arena_capture_caught_anim, arena_capture_escape_anim
-        global arena_capture_deployed_net
+        global arena_capture_deployed_net, arena_capture_pull_start_x, arena_capture_pull_start_y
         arena_capture_do_capture = globals().pop('_arena_pending_do_capture', False)
         arena_capture_phase = None
         arena_capture_timer = 0.0
@@ -100527,6 +100529,8 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         arena_capture_caught_anim = 0.0
         arena_capture_escape_anim = 0.0
         arena_capture_deployed_net = None
+        arena_capture_pull_start_x = 380.0
+        arena_capture_pull_start_y = 60.0
         if arena_capture_do_capture:
             print("[CAPTURE] 인게임 포획 활성화 (승리 시 포획 페이즈 진입)")
         else:
@@ -118279,6 +118283,7 @@ def _update_arena_capture_phase(screen):
     global arena_capture_flee_x, arena_capture_flee_y, arena_capture_flee_vx
     global arena_capture_flee_dir, arena_capture_flee_dodge_timer
     global arena_capture_caught_anim, arena_capture_escape_anim
+    global arena_capture_pull_start_x, arena_capture_pull_start_y
     global arena_capture_net_rope, arena_capture_deployed_net
     global arena_battle_result
     import pygame as pygame
@@ -118568,6 +118573,9 @@ def _update_arena_capture_phase(screen):
                     arena_capture_timer = 0.0
                     arena_capture_result_flag = True
                     arena_capture_caught_anim = 0.0
+                    # 끌어오기 시작 위치 기록
+                    arena_capture_pull_start_x = dnet["x"]
+                    arena_capture_pull_start_y = dnet["y"]
                     arena_capture_deployed_net = None
             else:
                 # 미스 → 그물 용해 후 계속
@@ -118612,56 +118620,176 @@ def _update_arena_capture_phase(screen):
         except Exception:
             pass
 
-    # ─────── RESULT 페이즈 (3초) ───────
+    # ─────── RESULT 페이즈 ───────
     elif arena_capture_phase == "result":
+        import math as _cap_m2
+
         # 배경 어둡게
         overlay = pygame.Surface((760, 750), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 140))
+        overlay.fill((0, 0, 0, 160))
         screen.blit(overlay, (0, 0))
 
+        # 폰트 준비
+        _cap_font = getattr(_update_arena_capture_phase, '_title_font', None)
+        _cap_sub_font = getattr(_update_arena_capture_phase, '_sub_font', None)
+        if _cap_sub_font is None:
+            font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+            _cap_sub_font = pygame.freetype.Font(font_path, 20)
+            _update_arena_capture_phase._sub_font = _cap_sub_font
+
         if arena_capture_result_flag:
-            # ── 포획 성공 ──
+            # ══════════════════════════════════════════
+            # ── 포획 성공: 꼭두각시 끌어오기 연출 ──
+            # ══════════════════════════════════════════
             arena_capture_caught_anim += dt
-            net_expand = min(1.0, arena_capture_caught_anim / 0.5)
-            _draw_capture_net_deployed(screen, arena_capture_flee_x, arena_capture_flee_y, net_expand)
+            t = arena_capture_caught_anim
+
+            # 타이밍: 0~1.5초 끌어오기, 1.5~3.5초 텍스트 표시, 3.5초 종료
+            PULL_DUR = 1.5
+            TEXT_START = 1.2
+            TOTAL_DUR = 3.5
+
+            # ── Phase A: 상대 영웅을 플레이어 쪽으로 끌어오기 ──
+            pull_t = min(1.0, t / PULL_DUR)
+            # 이징: ease-in-out cubic
+            if pull_t < 0.5:
+                eased = 4.0 * pull_t * pull_t * pull_t
+            else:
+                eased = 1.0 - (-2.0 * pull_t + 2.0) ** 3 / 2.0
+
+            # 시작 위치 → 플레이어 패들 바로 위(Y=650)까지 끌어옴
+            start_x = arena_capture_pull_start_x
+            start_y = arena_capture_pull_start_y
+            target_x = PLAYER.centerx
+            target_y = 620  # 플레이어 패들 약간 위
+
+            cur_x = start_x + (target_x - start_x) * eased
+            cur_y = start_y + (target_y - start_y) * eased
+
+            # 보스 위치 업데이트
             try:
-                _cap_font = getattr(_update_arena_capture_phase, '_title_font', None)
-                ts, tr = _cap_font.render("포획 성공!", (50, 255, 50))
-                screen.blit(ts, (GAME_CENTER_X - tr.width // 2, 300))
-                _cap_sub_font = getattr(_update_arena_capture_phase, '_sub_font', None)
-                if _cap_sub_font is None:
-                    font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
-                    _cap_sub_font = pygame.freetype.Font(font_path, 20)
-                    _update_arena_capture_phase._sub_font = _cap_sub_font
-                ns, nr = _cap_sub_font.render(f"{top_name} 영웅을 생포하였습니다!", (220, 255, 220))
-                screen.blit(ns, (GAME_CENTER_X - nr.width // 2, 360))
+                BOSS.centerx = int(cur_x)
+                BOSS.centery = int(cur_y)
             except Exception:
                 pass
+
+            # ── 끌어오기 밧줄/사슬 이펙트 ──
+            rope_alpha = int(200 * (1.0 - pull_t * 0.5))
+            rope_color = (180, 220, 255, rope_alpha)
+            # 플레이어→상대 연결선 (사슬 느낌)
+            chain_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
+            px, py = PLAYER.centerx, PLAYER.centery
+            bx, by = int(cur_x), int(cur_y)
+            # 메인 체인
+            pygame.draw.line(chain_surf, rope_color, (px, py), (bx, by), 3)
+            # 체인 마디 (작은 원)
+            chain_len = max(1, int(((px - bx)**2 + (py - by)**2)**0.5 / 20))
+            for i in range(chain_len):
+                frac = i / max(1, chain_len - 1)
+                cx = px + (bx - px) * frac
+                cy = py + (by - py) * frac
+                jitter_x = _cap_m2.sin(t * 8 + i * 1.2) * 3
+                pygame.draw.circle(chain_surf, (200, 240, 255, rope_alpha),
+                                   (int(cx + jitter_x), int(cy)), 4)
+            screen.blit(chain_surf, (0, 0))
+
+            # ── 그물 이펙트 (상대 영웅 위에 표시) ──
+            net_size = 60
+            net_surf = pygame.Surface((net_size * 2, net_size * 2), pygame.SRCALPHA)
+            net_alpha = int(180 * (1.0 - pull_t * 0.3))
+            # 그물 격자
+            for gi in range(5):
+                frac = gi / 4.0
+                gx = int(net_size * 2 * frac)
+                pygame.draw.line(net_surf, (200, 230, 255, net_alpha),
+                                 (gx, 0), (gx, net_size * 2), 1)
+                pygame.draw.line(net_surf, (200, 230, 255, net_alpha),
+                                 (0, gx), (net_size * 2, gx), 1)
+            # 떨림 효과
+            jx = _cap_m2.sin(t * 12) * 2
+            jy = _cap_m2.cos(t * 10) * 2
+            screen.blit(net_surf, (int(cur_x - net_size + jx), int(cur_y - net_size + jy)))
+
+            # ── Phase B: 텍스트 표시 ──
+            if t >= TEXT_START:
+                text_t = t - TEXT_START
+                # 텍스트 페이드인 (0.4초)
+                text_alpha = min(255, int(text_t / 0.4 * 255))
+
+                # "포획 성공!" 큰 글씨 (슬라이드 업 + 글로우)
+                if _cap_font:
+                    title_y_off = max(0, 15 * (1.0 - min(1.0, text_t / 0.3)))
+                    # 글로우
+                    glow_surf = pygame.Surface((400, 60), pygame.SRCALPHA)
+                    ts_g, tr_g = _cap_font.render("포획 성공!", (100, 255, 100))
+                    glow_surf.blit(ts_g, (200 - tr_g.width // 2, 30 - tr_g.height // 2))
+                    glow_surf.set_alpha(int(text_alpha * 0.4))
+                    gscaled = pygame.transform.smoothscale(glow_surf, (440, 70))
+                    screen.blit(gscaled, (GAME_CENTER_X - 220, int(280 + title_y_off)))
+
+                    # 메인 텍스트
+                    main_surf = pygame.Surface((400, 60), pygame.SRCALPHA)
+                    ts, tr = _cap_font.render("포획 성공!", (50, 255, 50))
+                    main_surf.blit(ts, (200 - tr.width // 2, 30 - tr.height // 2))
+                    main_surf.set_alpha(text_alpha)
+                    screen.blit(main_surf, (GAME_CENTER_X - 200, int(285 + title_y_off)))
+
+                # "{이름} 영웅을 생포하였습니다!" 서브 텍스트
+                if text_t >= 0.3 and _cap_sub_font:
+                    sub_alpha = min(255, int((text_t - 0.3) / 0.4 * 255))
+                    sub_surf = pygame.Surface((500, 40), pygame.SRCALPHA)
+                    ns, nr = _cap_sub_font.render(f"{top_name} 영웅을 생포하였습니다!", (220, 255, 220))
+                    sub_surf.blit(ns, (250 - nr.width // 2, 20 - nr.height // 2))
+                    sub_surf.set_alpha(sub_alpha)
+                    screen.blit(sub_surf, (GAME_CENTER_X - 250, 345))
+
+            # 화면 테두리 펄스 (녹색)
+            border_alpha = int(60 + 40 * _cap_m2.sin(t * 4))
+            border_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
+            pygame.draw.rect(border_surf, (50, 255, 50, border_alpha), (0, 0, 760, 750), 4)
+            screen.blit(border_surf, (0, 0))
+
+            if t >= TOTAL_DUR:
+                arena_capture_phase = "done"
+                arena_capture_timer = 0.0
+
         else:
+            # ══════════════════════════════════════
             # ── 포획 실패 (영웅 화면 밖으로 도주) ──
+            # ══════════════════════════════════════
             arena_capture_escape_anim += dt
             escape_x = arena_capture_flee_x + arena_capture_flee_dir * arena_capture_escape_anim * 400
             try:
                 BOSS.centerx = int(escape_x)
             except Exception:
                 pass
-            try:
-                _cap_font = getattr(_update_arena_capture_phase, '_title_font', None)
-                ts, tr = _cap_font.render("포획 실패!", (255, 80, 80))
-                screen.blit(ts, (GAME_CENTER_X - tr.width // 2, 300))
-                _cap_sub_font = getattr(_update_arena_capture_phase, '_sub_font', None)
-                if _cap_sub_font is None:
-                    font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
-                    _cap_sub_font = pygame.freetype.Font(font_path, 20)
-                    _update_arena_capture_phase._sub_font = _cap_sub_font
-                ns, nr = _cap_sub_font.render(f"{top_name} 영웅이 도망쳤습니다!", (255, 200, 200))
-                screen.blit(ns, (GAME_CENTER_X - nr.width // 2, 360))
-            except Exception:
-                pass
 
-        if arena_capture_timer >= 3.0:
-            arena_capture_phase = "done"
-            arena_capture_timer = 0.0
+            if _cap_font:
+                fail_surf = pygame.Surface((400, 60), pygame.SRCALPHA)
+                ts, tr = _cap_font.render("포획 실패!", (255, 80, 80))
+                fail_surf.blit(ts, (200 - tr.width // 2, 30 - tr.height // 2))
+                alpha = min(255, int(arena_capture_escape_anim / 0.4 * 255))
+                fail_surf.set_alpha(alpha)
+                screen.blit(fail_surf, (GAME_CENTER_X - 200, 285))
+
+            if _cap_sub_font and arena_capture_escape_anim >= 0.3:
+                sub_alpha = min(255, int((arena_capture_escape_anim - 0.3) / 0.4 * 255))
+                sub_surf = pygame.Surface((500, 40), pygame.SRCALPHA)
+                ns, nr = _cap_sub_font.render(f"{top_name} 영웅이 도망쳤습니다!", (255, 200, 200))
+                sub_surf.blit(ns, (250 - nr.width // 2, 20 - nr.height // 2))
+                sub_surf.set_alpha(sub_alpha)
+                screen.blit(sub_surf, (GAME_CENTER_X - 250, 345))
+
+            # 화면 테두리 펄스 (적색)
+            import math as _cap_m3
+            border_alpha = int(60 + 40 * _cap_m3.sin(arena_capture_escape_anim * 4))
+            border_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
+            pygame.draw.rect(border_surf, (255, 50, 50, border_alpha), (0, 0, 760, 750), 4)
+            screen.blit(border_surf, (0, 0))
+
+            if arena_capture_escape_anim >= 3.0:
+                arena_capture_phase = "done"
+                arena_capture_timer = 0.0
 
     # ─────── DONE 페이즈 ───────
     elif arena_capture_phase == "done":
