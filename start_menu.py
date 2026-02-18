@@ -1291,6 +1291,7 @@ def _draw_arena_emblem(
     anim_t: float,
     ctx: "MenuContext",
     dimmed: bool = False,
+    flip_angle: float = 0.0,
 ):
     """투기장 하위 모드 엠블럼 1개를 그린다."""
     margin = 50
@@ -1440,7 +1441,16 @@ def _draw_arena_emblem(
             dot_a = int(80 * glow * (0.5 + 0.5 * math.sin(anim_t * 2.5 + i * 0.5)))
             pygame.draw.circle(surf, (*accent, dot_a), (dpx, dpy), 1)
 
-    screen.blit(surf, (cx - surf_size // 2, cy - surf_size // 2))
+    # ── X축 3D 회전 (수평 스케일링으로 시뮬레이션) ──
+    x_scale = abs(math.cos(flip_angle))
+    if x_scale < 0.05:
+        x_scale = 0.05  # 완전히 사라지지 않게
+    if x_scale < 0.99:
+        scaled_w = max(1, int(surf_size * x_scale))
+        scaled_surf = pygame.transform.smoothscale(surf, (scaled_w, surf_size))
+        screen.blit(scaled_surf, (cx - scaled_w // 2, cy - surf_size // 2))
+    else:
+        screen.blit(surf, (cx - surf_size // 2, cy - surf_size // 2))
 
     # ── 라벨 ──
     label_font = ctx.FontStyle.body()
@@ -1650,6 +1660,7 @@ def _show_arena_sub_selection(ctx: "MenuContext", state: "MenuState") -> bool:
     selected = 0  # 0=토너먼트, 1=도장깨기
     emblem_angles = [0.0, 0.0]
     emblem_glows = [0.0, 0.0]
+    emblem_flip_angles = [0.0, 0.0]  # X축 3D 회전 각도 (라디안)
     clock = pygame.time.Clock()
     preparing_timer = 0.0  # "준비 중" 메시지 타이머
     click_anim = None
@@ -1752,9 +1763,23 @@ def _show_arena_sub_selection(ctx: "MenuContext", state: "MenuState") -> bool:
             if i == selected and not emblems_info[i]["dimmed"]:
                 emblem_angles[i] = math.sin(state.animation_timer * 2.5) * 0.08
                 emblem_glows[i] += (1.0 - emblem_glows[i]) * min(1.0, 6.0 * dt)
+                # 호버 시 X축 회전 (천천히 360도 반복)
+                emblem_flip_angles[i] += dt * 1.8  # ~3.5초에 1회전
             else:
                 emblem_angles[i] *= 0.9
                 emblem_glows[i] += (0.0 - emblem_glows[i]) * min(1.0, 6.0 * dt)
+                # 비호버 시 가장 가까운 0도(정면)로 부드럽게 복귀
+                cur = emblem_flip_angles[i] % (math.pi * 2)
+                if cur > 0.05:
+                    # 가까운 쪽(0 또는 2pi)으로 이동
+                    if cur < math.pi:
+                        emblem_flip_angles[i] -= dt * 3.0
+                        if emblem_flip_angles[i] % (math.pi * 2) > cur:
+                            emblem_flip_angles[i] = 0.0
+                    else:
+                        emblem_flip_angles[i] += dt * 3.0
+                else:
+                    emblem_flip_angles[i] = 0.0
 
         # 엠블럼 그리기
         total_w = EMBLEM_R * 4 + GAP
@@ -1769,6 +1794,7 @@ def _show_arena_sub_selection(ctx: "MenuContext", state: "MenuState") -> bool:
                 info["color"], info["accent"], info["icon"],
                 i == selected, emblem_angles[i], emblem_glows[i],
                 state.animation_timer, ctx, dimmed=info["dimmed"],
+                flip_angle=emblem_flip_angles[i],
             )
 
         # 타이틀
