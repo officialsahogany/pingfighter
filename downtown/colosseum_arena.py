@@ -17066,21 +17066,10 @@ class ColosseumsArena:
             print(f"[Guard] 기존 호위무사 유지 → 충성 보너스 +10% "
                   f"(누적: -{new_bonus * 10}% 쿨타임 감소)")
 
-        # 신규 호위무사 선택 시 → 같은 화면 하단에서 인라인 스킬 룰렛
+        # 신규/기존 모두 원래 배정된 스킬 유지 (랜덤 재배정 없음)
         if index == new_idx:
-            self.hero_selected_skills[selected["id"]] = random.randint(0, 1)
-            print(f"[Guard] 신규 호위무사 스킬 랜덤 배정: {selected['name']} "
-                  f"(스킬 인덱스: {self.hero_selected_skills[selected['id']]})")
-            # 인라인 스킬 룰렛 시작 (GUARD_SELECT 화면 유지)
-            self._guard_select_anim_phase = "skill_rolling"
-            self.skill_reveal_timer = 0.0
-            self.skill_reveal_phase = "rolling"
-            self.skill_reveal_target = selected["id"]
-            self.skill_reveal_result = self.hero_selected_skills[selected["id"]]
-            self._skill_reveal_last_tick_idx = -1
-            self.skill_reveal_selected_timer = 0.0
-            self._skill_reveal_particles = []
-            return
+            print(f"[Guard] 신규 호위무사 선택: {selected['name']} "
+                  f"(기존 스킬 유지, 인덱스: {self.hero_selected_skills.get(selected['id'], 0)})")
         else:
             print(f"[Guard] 기존 호위무사 유지: {selected['name']} (스킬 유지)")
 
@@ -17329,12 +17318,9 @@ class ColosseumsArena:
             new_idx = getattr(self, 'guard_select_new_idx', 1)
             is_existing = (idx != new_idx)
 
-            # 기존 호위무사: 선택된 스킬 1개만 / 신규: 2개 모두
-            if is_existing:
-                selected_si = self.hero_selected_skills.get(g_id, 0)
-                display_skills = [hero_skills[selected_si]] if selected_si < len(hero_skills) else hero_skills[:1]
-            else:
-                display_skills = hero_skills[:2]
+            # 기존/신규 모두 배정된 스킬 1개만 표시 (랜덤 스킬 선택 제거됨)
+            selected_si = self.hero_selected_skills.get(g_id, 0)
+            display_skills = [hero_skills[selected_si]] if selected_si < len(hero_skills) else hero_skills[:1]
 
             num_skills = len(display_skills)
             # 아이콘 + 이름을 세로 배치 (겹침 방지)
@@ -17346,7 +17332,7 @@ class ColosseumsArena:
 
             # 라벨
             if self.fonts and "small" in self.fonts:
-                lbl_text = "장착 스킬" if is_existing else "보유 스킬"
+                lbl_text = "장착 스킬"
                 lbl_surf, _ = self.fonts["small"].render(lbl_text, ET["text_hint"])
                 self.screen.blit(lbl_surf, (hero_cx - lbl_surf.get_width() // 2, icons_y - 16))
 
