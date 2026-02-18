@@ -16886,8 +16886,6 @@ class ColosseumsArena:
             outline_color = (210, 240, 255, alpha)
             pygame.draw.polygon(net_surf, fill_color, points)
             pygame.draw.polygon(net_surf, outline_color, points, 2)
-            # 메시 격자
-            self._draw_capture_mesh(net_surf, points, (175, 215, 245, int(alpha * 0.6)))
 
         self.screen.blit(net_surf, (int(x) - w // 2, int(y) - h // 2))
 
