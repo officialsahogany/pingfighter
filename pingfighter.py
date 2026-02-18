@@ -129664,8 +129664,26 @@ def handle_boss():
     if arena_mode_enabled:
         if not hasattr(handle_boss, '_debug_frame'):
             handle_boss._debug_frame = 0
+            handle_boss._debug_not_moving_frames = 0
+            handle_boss._debug_last_boss_x = 0.0
         handle_boss._debug_frame += 1
         _dbg_frame = handle_boss._debug_frame
+        # 이동하지 않는 프레임 카운터 (핵심 디버그)
+        if abs(BOSS.centerx - handle_boss._debug_last_boss_x) < 0.5:
+            handle_boss._debug_not_moving_frames += 1
+        else:
+            handle_boss._debug_not_moving_frames = 0
+        handle_boss._debug_last_boss_x = BOSS.centerx
+        # 60프레임(1초) 이상 안 움직이면 경고
+        if handle_boss._debug_not_moving_frames == 60:
+            print(f"[ARENA-AI ⚠️ WARNING] F{_dbg_frame} 상단AI 1초간 정지! BOSS.cx={BOSS.centerx:.0f} "
+                  f"speed={boss_current_speed:.2f} ball=({BALL.centerx},{BALL.centery}) "
+                  f"waiting_serve={is_waiting_for_serve} stunned={boss_stunned_timer} "
+                  f"stun_timer={boss_stun_timer} dash_stun={boss_dash_stun_timer} "
+                  f"dashing={boss_dashing} knockback={boss_knockback_timer} "
+                  f"ball_spawn={ball_spawn_animation_active} stage={current_stage} ai_mode={ai_mode}")
+        elif handle_boss._debug_not_moving_frames > 60 and handle_boss._debug_not_moving_frames % 120 == 0:
+            print(f"[ARENA-AI ⚠️ STILL STUCK] F{_dbg_frame} {handle_boss._debug_not_moving_frames/60:.0f}초째 정지! BOSS.cx={BOSS.centerx:.0f}")
 
     # 공 생성 애니메이션 중에는 보스 AI 정지
     if ball_spawn_animation_active:
@@ -130426,6 +130444,12 @@ def handle_boss():
     
     # 일반 보스 AI: 통합 보스 설정 (스테이지별 + 리그별 완전 연계)
     config = get_final_boss_config(current_stage, ai_mode)
+    # 🔍 [DEBUG] 투기장 AI config 확인 (120프레임=2초마다)
+    if arena_mode_enabled and _dbg_frame % 120 == 1:
+        print(f"[ARENA-AI DEBUG] F{_dbg_frame} ✅ REACHED MOVEMENT LOGIC! stage={current_stage} ai_mode={ai_mode} "
+              f"config=[max_speed={config.get('max_speed',0):.1f} accel={config.get('accel',0):.2f} "
+              f"fail={config.get('fail_chance',0):.2f} predict={config.get('predict_chance',0):.2f} "
+              f"pred_err={config.get('predict_error',0)} fail_err={config.get('fail_error',0)}]")
     # --- Stage 5 화염탄 던지는 중에는 0.5초간 이동 금지 ---
     if current_stage == 5 and boss_throwing:
         boss_current_speed = 0
