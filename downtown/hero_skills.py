@@ -88,6 +88,10 @@ class ScreenEffect(Enum):
 # 스킬 기본 클래스
 # ============================================================================
 class HeroSkill:
+    # 투기장 플레이 영역 표준 상수 (모든 스킬이 상속)
+    GAME_LEFT = 0
+    GAME_RIGHT = 760
+
     def __init__(self,
                  skill_id: str,
                  name: str,
@@ -2969,10 +2973,8 @@ class HornCharge(HeroSkill):
         predicted_x = current_target_x + target_velocity_x * charge_duration
 
         # 게임 영역 경계 제한 (투기장: 0 ~ 760)
-        GAME_LEFT = 0
-        GAME_RIGHT = 760
-        predicted_x = max(GAME_LEFT + target_paddle.width // 2,
-                         min(GAME_RIGHT - target_paddle.width // 2, predicted_x))
+        predicted_x = max(self.GAME_LEFT + target_paddle.width // 2,
+                         min(self.GAME_RIGHT - target_paddle.width // 2, predicted_x))
 
         self.target_x = predicted_x  # 예측된 타겟 X 위치
         self.target_y = target_paddle.y  # 타겟 Y
@@ -6571,10 +6573,6 @@ class OilSpill(HeroSkill):
 class ShadowClone(HeroSkill):
     """그림자분신 - 아카무 리고 스타일 분신 (Stage 8 방식으로 구현)"""
 
-    # 게임 영역 경계 (투기장: 필러 없이 전체 760px 사용)
-    GAME_LEFT = 0
-    GAME_RIGHT = 760
-
     # 분신 상수 (Stage 8과 동일하게)
     CLONE_WIDTH = 80       # 충돌 판정 너비
     CLONE_HEIGHT = 40      # 충돌 판정 높이
@@ -7010,9 +7008,6 @@ class ShadowClone(HeroSkill):
 class IllusionShuriken(HeroSkill):
     """환영수리검 - 3개의 수리검을 순차 발사, 벽에서 튕기고 넉백 유발"""
 
-    # 게임 영역 경계 (투기장: 필러 없이 전체 760px 사용)
-    GAME_LEFT = 0
-    GAME_RIGHT = 760
     GAME_TOP = 0
     GAME_BOTTOM = 750
     SHURIKEN_SIZE = 18  # 수리검 반지름
@@ -8246,9 +8241,6 @@ class DeadPossession(HeroSkill):
 class GhostSummon(HeroSkill):
     """유령소환 - 맵 중앙에 유령 패들 2개를 소환하여 공을 상대에게 쳐낸다"""
 
-    GAME_LEFT = 0
-    GAME_RIGHT = 760
-
     GHOST_WIDTH = 80
     GHOST_HEIGHT = 40
     EMERGE_DURATION = 0.8   # 등장 애니메이션 - 캐스터→목표 비행 (초)
@@ -9125,8 +9117,6 @@ class GhostSummon(HeroSkill):
 class SkeletonArcher(HeroSkill):
     """해골 궁수 - 내 진영에 해골 궁수를 소환. 공에 맞으면 죽고, 적을 향해 화살 발사"""
 
-    GAME_LEFT = 80
-    GAME_RIGHT = 680
     GAME_TOP = 0
     GAME_BOTTOM = 750
 
@@ -10127,8 +10117,6 @@ class BoneBarrier(HeroSkill):
     BUILD_TIME = 3.0
     DEATH_DURATION = 0.6
     MIN_SPACING = 110       # 장벽 간 최소 거리
-    GAME_LEFT = 80
-    GAME_RIGHT = 680
 
     def __init__(self):
         super().__init__(
@@ -10497,9 +10485,6 @@ class BoneBarrier(HeroSkill):
 
 class BalloonWall(HeroSkill):
     """익살스런파티 - 화면 중앙에 풍선 장벽을 띄워 공의 궤적을 바꾼다"""
-
-    GAME_LEFT = 0
-    GAME_RIGHT = 760
 
     def __init__(self):
         super().__init__(
@@ -10936,8 +10921,6 @@ class BalloonWall(HeroSkill):
 class BombSurprise(HeroSkill):
     """폭탄 서프라이즈 - 시한폭탄을 공에 부착, 패들↔공 사이를 오가다 폭발 시 넉백+스턴"""
 
-    GAME_LEFT = 0
-    GAME_RIGHT = 760
     EXPLOSION_RADIUS = 350  # 폭발 범위 (다이너마이트 동일)
     KNOCKBACK_FORCE = 600   # 넉백 강도 (px/s, 다이너마이트급)
     STUN_DURATION = 3.0     # 스턴 시간 (다이너마이트 동일)
@@ -11586,8 +11569,6 @@ class BombSurprise(HeroSkill):
 class GatlingBurst(HeroSkill):
     """개틀링 버스트 - 1초 견착 후 3초간 기관포 연사, 발사 중 이동속도 50% 감소"""
 
-    GAME_LEFT = 0
-    GAME_RIGHT = 760
     GAME_TOP = 0
     GAME_BOTTOM = 750
 
@@ -12265,8 +12246,6 @@ class GatlingBurst(HeroSkill):
 class SandPrison(HeroSkill):
     """모래감옥 - 상대의 이동 범위를 200~300px(랜덤)로 제한하는 사각형 모래 감옥 (건설/해체 애니메이션)"""
 
-    GAME_LEFT = 80    # GAME_AREA_OFFSET_X (필러 영역 제외)
-    GAME_RIGHT = 680   # GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH
     PRISON_HALF_RANGE_MIN = 100  # 최소 ±100px = 200px
     PRISON_HALF_RANGE_MAX = 150  # 최대 ±150px = 300px
 
@@ -12706,8 +12685,6 @@ class SandPrison(HeroSkill):
 class SandVortex(HeroSkill):
     """모래회오리 - 2개의 거대한 모래폭풍을 발사하여 상대 공을 끌어당기고 커브 발사"""
 
-    GAME_LEFT = 80    # GAME_AREA_OFFSET_X (필러 영역 제외)
-    GAME_RIGHT = 680   # GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH
     GAME_TOP = 0
     GAME_BOTTOM = 750
 
@@ -14365,8 +14342,6 @@ class ThunderOrb(HeroSkill):
 class BananaSlice(HeroSkill):
     """바나나 슬라이스 - 바나나를 던져 상대가 밟으면 미끄러진다 (액티브 아이템 바나나와 동일 효과)"""
 
-    GAME_LEFT = 0
-    GAME_RIGHT = 760
     THROW_SPEED = 1200          # px/s (원본 20px/frame * 60fps)
     SLIP_DURATION = 0.8         # 미끄러짐 지속 (초) - 스테이지2 바나나와 동일
     SLIP_SPEED = 15             # 미끄러짐 속도 (px/frame) - 스테이지2 바나나와 동일 선형 감속
