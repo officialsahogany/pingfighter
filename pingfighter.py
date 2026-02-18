@@ -118591,10 +118591,10 @@ def _update_arena_capture_phase(screen):
                     arena_capture_timer = 0.0
                     arena_capture_result_flag = True
                     arena_capture_caught_anim = 0.0
-                    # 끌어오기 시작 위치 기록
-                    arena_capture_pull_start_x = dnet["x"]
-                    arena_capture_pull_start_y = dnet["y"]
-                    print(f"[CAPTURE-DEBUG] ▶ RESULT 진입! pull_start=({dnet['x']:.0f},{dnet['y']:.0f}) BOSS=({BOSS.centerx},{BOSS.centery}) PLAYER=({PLAYER.centerx},{PLAYER.centery})")
+                    # 끌어오기 시작 위치 기록 (rect에서 중심 좌표 추출)
+                    arena_capture_pull_start_x = dnet["rect"].centerx
+                    arena_capture_pull_start_y = dnet["rect"].centery
+                    print(f"[CAPTURE-DEBUG] ▶ RESULT 진입! pull_start=({dnet['rect'].centerx},{dnet['rect'].centery}) BOSS=({BOSS.centerx},{BOSS.centery}) PLAYER=({PLAYER.centerx},{PLAYER.centery})")
                     print(f"[CAPTURE-DEBUG]   top_hero={arena_top_hero} renderer={arena_hero_paddle_renderer is not None}")
                     arena_capture_deployed_net = None
             else:
