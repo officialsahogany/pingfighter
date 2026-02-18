@@ -131197,6 +131197,11 @@ def handle_boss():
         boss_current_speed -= enhanced_instant_stop
     elif effective_target_x > BOSS.centerx and boss_current_speed < 0:
         boss_current_speed += enhanced_instant_stop
+    # 최종 속도 클램프 (급정지 후 max_speed 초과 방지)
+    if boss_current_speed > enhanced_max_speed:
+        boss_current_speed = enhanced_max_speed
+    elif boss_current_speed < -enhanced_max_speed:
+        boss_current_speed = -enhanced_max_speed
     # 🔍 [DEBUG] 투기장 AI 최종 이동 상태
     if arena_mode_enabled and _dbg_frame % 30 == 0:
         _dbg_slow = slow_multiplier if 'slow_multiplier' in dir() else 1.0
