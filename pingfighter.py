@@ -118594,6 +118594,8 @@ def _update_arena_capture_phase(screen):
                     # 끌어오기 시작 위치 기록
                     arena_capture_pull_start_x = dnet["x"]
                     arena_capture_pull_start_y = dnet["y"]
+                    print(f"[CAPTURE-DEBUG] ▶ RESULT 진입! pull_start=({dnet['x']:.0f},{dnet['y']:.0f}) BOSS=({BOSS.centerx},{BOSS.centery}) PLAYER=({PLAYER.centerx},{PLAYER.centery})")
+                    print(f"[CAPTURE-DEBUG]   top_hero={arena_top_hero} renderer={arena_hero_paddle_renderer is not None}")
                     arena_capture_deployed_net = None
             else:
                 # 미스 → 그물 용해 후 계속
@@ -118684,17 +118686,25 @@ def _update_arena_capture_phase(screen):
             cur_x = start_x + (target_x - start_x) * eased
             cur_y = start_y + (target_y - start_y) * eased
 
+            # 🔍 DEBUG: 끌어오기 좌표 추적
+            if int(t * 10) % 5 == 0:  # 0.5초마다 출력
+                print(f"[CAPTURE-DEBUG] result t={t:.2f} pull_t={pull_t:.2f} eased={eased:.3f}")
+                print(f"  start=({start_x:.0f},{start_y:.0f}) target=({target_x},{target_y}) cur=({cur_x:.0f},{cur_y:.0f})")
+                print(f"  BOSS=({BOSS.centerx},{BOSS.centery}) PLAYER=({PLAYER.centerx},{PLAYER.centery})")
+                print(f"  renderer={arena_hero_paddle_renderer is not None} top_hero={arena_top_hero is not None}")
+
             # 보스 위치 업데이트
             try:
                 BOSS.centerx = int(cur_x)
                 BOSS.centery = int(cur_y)
-            except Exception:
-                pass
+            except Exception as _boss_err:
+                print(f"[CAPTURE-DEBUG] BOSS 위치 업데이트 오류: {_boss_err}")
 
             # ── 상단 영웅 패들을 이동된 위치에 직접 그리기 ──
             # (오버레이 위에 그려야 보임 - 메인 루프의 그리기는 오버레이 아래)
             if arena_hero_paddle_renderer and arena_top_hero:
                 try:
+                    print(f"[CAPTURE-DEBUG] 상단 영웅 그리기: id={arena_top_hero['id']} pos=({int(cur_x)},{int(cur_y)})")
                     arena_hero_paddle_renderer.draw_hero_paddle(
                         screen,
                         arena_top_hero["id"],
@@ -118705,7 +118715,10 @@ def _update_arena_capture_phase(screen):
                         scale_mode="paddle"
                     )
                 except Exception as _pull_draw_err:
-                    print(f"[CAPTURE] 끌어오기 영웅 그리기 오류: {_pull_draw_err}")
+                    print(f"[CAPTURE-DEBUG] 끌어오기 영웅 그리기 오류: {_pull_draw_err}")
+                    import traceback; traceback.print_exc()
+            else:
+                print(f"[CAPTURE-DEBUG] 영웅 그리기 SKIP: renderer={arena_hero_paddle_renderer is not None} top_hero={arena_top_hero is not None}")
 
             # ── 하단 영웅(플레이어) 패들도 오버레이 위에 그리기 ──
             if arena_hero_paddle_renderer and arena_bottom_hero:
