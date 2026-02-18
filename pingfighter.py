@@ -4849,9 +4849,9 @@ def _draw_arena_skill_tooltip(surface: pygame.Surface, skill, slot_rect, hero_co
     if _arena_skill_tooltip_fonts is None:
         import pygame.freetype as freetype_module
         try:
-            title_font = freetype_module.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 16)
-            normal_font = freetype_module.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 12)
-            small_font = freetype_module.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
+            title_font = freetype_module.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 16)
+            normal_font = freetype_module.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 12)
+            small_font = freetype_module.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 10)
         except:
             title_font = freetype_module.SysFont("malgun gothic", 16)
             normal_font = freetype_module.SysFont("malgun gothic", 12)
@@ -5040,9 +5040,9 @@ def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
     if _smasher_skill_tooltip_fonts is None:
         import pygame.freetype as freetype_module
         try:
-            title_font = freetype_module.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 16)
-            normal_font = freetype_module.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 12)
-            small_font = freetype_module.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
+            title_font = freetype_module.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 16)
+            normal_font = freetype_module.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 12)
+            small_font = freetype_module.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 10)
         except:
             title_font = freetype_module.SysFont("malgun gothic", 16)
             normal_font = freetype_module.SysFont("malgun gothic", 12)
@@ -5295,9 +5295,9 @@ def _draw_odin_swamp_tooltip(surface: pygame.Surface, mouse_pos: tuple, current_
     if _smasher_skill_tooltip_fonts is None:
         import pygame.freetype as freetype_module
         try:
-            title_font = freetype_module.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 16)
-            normal_font = freetype_module.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 12)
-            small_font = freetype_module.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
+            title_font = freetype_module.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 16)
+            normal_font = freetype_module.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 12)
+            small_font = freetype_module.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 10)
         except:
             title_font = freetype_module.SysFont("malgun gothic", 16)
             normal_font = freetype_module.SysFont("malgun gothic", 12)
@@ -57209,7 +57209,7 @@ def draw_soldier_weapon_ui(screen):
                     resource_path("PFStardust.ttf"),
                     resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Regular.ttf")),
                     resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "Pretendard-Regular.otf")),
-                    resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+                    resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"))
                 ]
 
                 for font_path in font_paths:
@@ -73288,7 +73288,7 @@ def draw_tutorial_action_gauge():
 
     # 제목
     try:
-        title_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 14)
+        title_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 14)
     except:
         title_font = pygame.freetype.SysFont("malgun gothic", 14)
 
@@ -73332,7 +73332,7 @@ def draw_tutorial_action_gauge():
 
     # 진행도 숫자 또는 "완료!" 텍스트
     try:
-        num_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 28)
+        num_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 28)
     except:
         num_font = pygame.freetype.SysFont("malgun gothic", 28)
 
@@ -73340,7 +73340,7 @@ def draw_tutorial_action_gauge():
         # 완료 텍스트 표시 (펄스 효과)
         pulse_scale = 1.0 + 0.1 * math.sin(current_time * 0.008)
         try:
-            complete_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), int(24 * pulse_scale))
+            complete_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), int(24 * pulse_scale))
         except:
             complete_font = pygame.freetype.SysFont("malgun gothic", int(24 * pulse_scale))
 
@@ -73369,7 +73369,7 @@ def draw_tutorial_action_gauge():
         ]
 
         try:
-            combo_num_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 18)
+            combo_num_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 18)
         except:
             combo_num_font = pygame.freetype.SysFont("malgun gothic", 18)
 
@@ -73418,7 +73418,7 @@ def draw_tutorial_action_gauge():
                 # 숫자 렌더링 (밝은 색)
                 font_size = int(18 * scale)
                 try:
-                    scaled_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), font_size)
+                    scaled_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), font_size)
                 except:
                     scaled_font = pygame.freetype.SysFont("malgun gothic", font_size)
 
@@ -73466,7 +73466,7 @@ def draw_tutorial_action_gauge():
         # "RESET!" 텍스트 (초반에만 표시)
         if reset_progress < 0.5:
             try:
-                reset_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 16)
+                reset_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 16)
             except:
                 reset_font = pygame.freetype.SysFont("malgun gothic", 16)
 
@@ -73532,9 +73532,9 @@ def _draw_dash_keycap_hint(target_screen, x, y, width, gauge_type="dash", alpha=
 
     # 폰트 설정
     try:
-        key_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 12)
-        small_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
-        tiny_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 9)
+        key_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 12)
+        small_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 10)
+        tiny_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 9)
     except:
         key_font = pygame.freetype.SysFont("malgun gothic", 12)
         small_font = pygame.freetype.SysFont("malgun gothic", 10)
@@ -73643,7 +73643,7 @@ def _draw_tutorial_skill_hover_gauge(target_screen, current_time, entrance_progr
 
     # 제목
     try:
-        title_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 13)
+        title_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 13)
     except:
         title_font = pygame.freetype.SysFont("malgun gothic", 13)
 
@@ -73692,7 +73692,7 @@ def _draw_tutorial_skill_hover_gauge(target_screen, current_time, entrance_progr
 
         # 스킬명
         try:
-            name_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
+            name_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 10)
         except:
             name_font = pygame.freetype.SysFont("malgun gothic", 10)
         name_surf, name_rect = name_font.render("드라이브", drive_data["color"])
@@ -73744,7 +73744,7 @@ def _draw_tutorial_skill_hover_gauge(target_screen, current_time, entrance_progr
         else:
             # 남은 시간 표시
             try:
-                pct_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
+                pct_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 10)
             except:
                 pct_font = pygame.freetype.SysFont("malgun gothic", 10)
             remaining = max(0, 3.0 - (3.0 * drive_progress))
@@ -73763,7 +73763,7 @@ def _draw_tutorial_skill_hover_gauge(target_screen, current_time, entrance_progr
 
         # 스킬명
         try:
-            name_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
+            name_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 10)
         except:
             name_font = pygame.freetype.SysFont("malgun gothic", 10)
         name_surf, name_rect = name_font.render("파워스매싱", power_data["color"])
@@ -73810,7 +73810,7 @@ def _draw_tutorial_skill_hover_gauge(target_screen, current_time, entrance_progr
                            (gauge_center_x + 7, gauge_center_y - 6), 3)
         else:
             try:
-                pct_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
+                pct_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 10)
             except:
                 pct_font = pygame.freetype.SysFont("malgun gothic", 10)
             remaining = max(0, 3.0 - (3.0 * power_progress))
@@ -73826,7 +73826,7 @@ def _draw_tutorial_skill_hover_gauge(target_screen, current_time, entrance_progr
     if _tutorial_action_gauge_complete and _tutorial_action_gauge_fill_anim >= 1.0:
         # 완료 텍스트
         try:
-            complete_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 16)
+            complete_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 16)
         except:
             complete_font = pygame.freetype.SysFont("malgun gothic", 16)
         complete_surf, complete_rect = complete_font.render("완료!", (255, 215, 0))
@@ -73835,7 +73835,7 @@ def _draw_tutorial_skill_hover_gauge(target_screen, current_time, entrance_progr
     else:
         # 진행 상황 (x/2)
         try:
-            status_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 14)
+            status_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 14)
         except:
             status_font = pygame.freetype.SysFont("malgun gothic", 14)
         completed_count = (1 if _tutorial_skill_hover_drive else 0) + (1 if _tutorial_skill_hover_power else 0)
@@ -73903,7 +73903,7 @@ def _draw_tutorial_skill_use_gauge(target_screen, current_time, entrance_progres
 
     # 제목
     try:
-        title_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 13)
+        title_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 13)
     except:
         title_font = pygame.freetype.SysFont("malgun gothic", 13)
 
@@ -73952,7 +73952,7 @@ def _draw_tutorial_skill_use_gauge(target_screen, current_time, entrance_progres
 
         # 스킬명
         try:
-            name_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
+            name_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 10)
         except:
             name_font = pygame.freetype.SysFont("malgun gothic", 10)
 
@@ -73966,7 +73966,7 @@ def _draw_tutorial_skill_use_gauge(target_screen, current_time, entrance_progres
 
         # 상태 텍스트
         try:
-            status_small_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 9)
+            status_small_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 9)
         except:
             status_small_font = pygame.freetype.SysFont("malgun gothic", 9)
 
@@ -74006,7 +74006,7 @@ def _draw_tutorial_skill_use_gauge(target_screen, current_time, entrance_progres
 
         # 스킬명
         try:
-            name_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 10)
+            name_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 10)
         except:
             name_font = pygame.freetype.SysFont("malgun gothic", 10)
 
@@ -74020,7 +74020,7 @@ def _draw_tutorial_skill_use_gauge(target_screen, current_time, entrance_progres
 
         # 상태 텍스트
         try:
-            status_small_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 9)
+            status_small_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 9)
         except:
             status_small_font = pygame.freetype.SysFont("malgun gothic", 9)
 
@@ -74040,7 +74040,7 @@ def _draw_tutorial_skill_use_gauge(target_screen, current_time, entrance_progres
     if _tutorial_action_gauge_complete and _tutorial_action_gauge_fill_anim >= 1.0:
         # 완료 텍스트
         try:
-            complete_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 16)
+            complete_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 16)
         except:
             complete_font = pygame.freetype.SysFont("malgun gothic", 16)
         complete_surf, complete_rect = complete_font.render("완료!", (255, 215, 0))
@@ -74049,7 +74049,7 @@ def _draw_tutorial_skill_use_gauge(target_screen, current_time, entrance_progres
     else:
         # 진행 상황 (x/2)
         try:
-            status_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 14)
+            status_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 14)
         except:
             status_font = pygame.freetype.SysFont("malgun gothic", 14)
         completed_count = (1 if _tutorial_skill_used_drive else 0) + (1 if _tutorial_skill_used_power else 0)
@@ -74204,8 +74204,8 @@ def draw_mission_banner():
 
     # 텍스트 렌더링 (한글 지원을 위해 pygame.freetype 사용)
     try:
-        font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), int(18 * scale))
-        key_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), int(14 * scale))
+        font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), int(18 * scale))
+        key_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), int(14 * scale))
     except:
         font = pygame.freetype.SysFont("malgun gothic", int(18 * scale))
         key_font = pygame.freetype.SysFont("malgun gothic", int(14 * scale))
@@ -77004,7 +77004,7 @@ def _draw_ingame_tutorial() -> None:
 
         # "여기!" 텍스트
         try:
-            bubble_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 14)
+            bubble_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 14)
         except:
             bubble_font = pygame.freetype.SysFont("malgun gothic", 14)
 
@@ -77343,7 +77343,7 @@ def _draw_keycap_icon(surface: pygame.Surface, x: int, y: int, key_char: str, si
 
     # 키 문자
     try:
-        key_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 14)
+        key_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 14)
     except:
         key_font = pygame.freetype.SysFont("malgun gothic", 14)
 
@@ -100657,7 +100657,7 @@ def _make_arena_fonts():
     fonts = {}
     font = None
     pixel_font_path = resource_path("PFStardust.ttf")
-    fallback_font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+    fallback_font_path = resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"))
     if os.path.exists(pixel_font_path):
         font = pixel_font_path
     elif os.path.exists(fallback_font_path):
@@ -118091,7 +118091,7 @@ def _draw_captured_guard_ui(surface):
         import pygame.freetype
         _cg_font = getattr(_draw_captured_guard_ui, '_font', None)
         if _cg_font is None:
-            font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+            font_path = resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"))
             _cg_font = pygame.freetype.Font(font_path, 11)
             _draw_captured_guard_ui._font = _cg_font
         ts, tr = _cg_font.render("1회용", (255, 215, 50))
@@ -118104,7 +118104,7 @@ def _draw_captured_guard_ui(surface):
         try:
             _cg_font2 = getattr(_draw_captured_guard_ui, '_font2', None)
             if _cg_font2 is None:
-                font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+                font_path = resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"))
                 _cg_font2 = pygame.freetype.Font(font_path, 13)
                 _draw_captured_guard_ui._font2 = _cg_font2
             ns, nr = _cg_font2.render(f"Q: {name} 소환", (255, 255, 220))
@@ -118188,7 +118188,7 @@ def _update_and_draw_captured_guard_summon(screen):
                 import pygame.freetype
                 _summon_font = getattr(_update_and_draw_captured_guard_summon, '_font', None)
                 if _summon_font is None:
-                    font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+                    font_path = resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"))
                     _summon_font = pygame.freetype.Font(font_path, 12)
                     _update_and_draw_captured_guard_summon._font = _summon_font
                 name = hero.get("name", "???")
@@ -118385,7 +118385,7 @@ def _update_arena_capture_phase(screen):
         _cap_font_big = getattr(_update_arena_capture_phase, '_title_font_big', None)
         if _cap_font_big is None:
             try:
-                font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+                font_path = resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"))
                 _cap_font_big = pygame.freetype.Font(font_path, 32)
             except Exception:
                 _cap_font_big = pygame.freetype.SysFont("malgun gothic", 32)
@@ -118393,7 +118393,7 @@ def _update_arena_capture_phase(screen):
         _cap_font_sm = getattr(_update_arena_capture_phase, '_ui_font', None)
         if _cap_font_sm is None:
             try:
-                font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+                font_path = resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"))
                 _cap_font_sm = pygame.freetype.Font(font_path, 16)
             except Exception:
                 _cap_font_sm = pygame.freetype.SysFont("malgun gothic", 16)
@@ -118625,7 +118625,7 @@ def _update_arena_capture_phase(screen):
         try:
             _cap_ui_font = getattr(_update_arena_capture_phase, '_ui_font', None)
             if _cap_ui_font is None:
-                font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+                font_path = resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"))
                 _cap_ui_font = pygame.freetype.Font(font_path, 16)
                 _update_arena_capture_phase._ui_font = _cap_ui_font
             shot_text = f"그물: {'●' * arena_capture_shots_left}{'○' * (3 - arena_capture_shots_left)}"
@@ -118653,7 +118653,7 @@ def _update_arena_capture_phase(screen):
         _cap_font = getattr(_update_arena_capture_phase, '_title_font', None)
         _cap_sub_font = getattr(_update_arena_capture_phase, '_sub_font', None)
         if _cap_sub_font is None:
-            font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+            font_path = resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"))
             _cap_sub_font = pygame.freetype.Font(font_path, 20)
             _update_arena_capture_phase._sub_font = _cap_sub_font
 
@@ -118971,7 +118971,7 @@ def _draw_capture_hero_sprite(screen, x, y, color, name, alpha=255):
     try:
         _name_font = getattr(_draw_capture_hero_sprite, '_font', None)
         if _name_font is None:
-            font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+            font_path = resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"))
             _name_font = pygame.freetype.Font(font_path, 12)
             _draw_capture_hero_sprite._font = _name_font
         ns, nr = _name_font.render(name, (255, 255, 255))
