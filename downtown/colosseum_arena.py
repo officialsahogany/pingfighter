@@ -6065,31 +6065,25 @@ class GuardWarriorSystem:
     def draw_perk_pillar_icons(self, screen, player_perks, enemy_perks,
                                 game_offset_x=0, game_offset_y=0, game_scale=1.0,
                                 mouse_pos=None, draw_icon_func=None):
-        """필러 배경 위에 획득한 퍽 아이콘 표시
-        - 플레이어 퍽 → 왼쪽 필러 하단 배경 (배속 버튼 옆, 가로 배치)
-        - 상대 퍽 → 오른쪽 필러 상단 배경 (맨 우측부터 가로 정렬)
+        """플레이 화면 안에 획득한 퍽 아이콘 표시
+        - 플레이어(하단) 퍽 → 플레이 화면 왼쪽 아래
+        - 상대(상단) 퍽 → 플레이 화면 오른쪽 위
         Returns: hover_info dict or None
         """
         hover_info = None
         game_scaled_w = int(SCREEN_WIDTH * game_scale)
         game_scaled_h = int(SCREEN_HEIGHT * game_scale)
-        right_pillar_x = game_offset_x + game_scaled_w
-        right_pillar_w = screen.get_width() - right_pillar_x
 
         _s = game_scale
-        icon_size = max(20, int(40 * _s))
-        icon_full = icon_size + 6  # 아이콘+테두리 전체 크기
-        icon_gap = max(4, int(6 * _s))
+        icon_size = max(16, int(30 * _s))
+        icon_full = icon_size + 4
+        icon_gap = max(3, int(4 * _s))
+        margin = max(4, int(6 * _s))
 
-        # --- 플레이어 퍽 → 왼쪽 필러 하단 배경 (게임 영역 아래, 가로 배치) ---
+        # --- 플레이어 퍽 → 플레이 화면 왼쪽 아래 ---
         if player_perks:
-            # Y: 게임 영역 바로 아래 + 마진
-            py = game_offset_y + game_scaled_h + max(10, int(14 * _s))
-            # X: 배속 버튼 오른쪽에 배치 (배속 버튼 4개 너비 + 여유분)
-            btn_w = max(1, int(44 * _s))
-            btn_gap = max(1, int(6 * _s))
-            speed_btns_w = 4 * btn_w + 3 * btn_gap + max(8, int(12 * _s))
-            px_start = max(4, int(4 * _s)) + speed_btns_w
+            px_start = game_offset_x + margin
+            py = game_offset_y + game_scaled_h - icon_full - margin
 
             for i, perk in enumerate(player_perks):
                 px = px_start + i * (icon_full + icon_gap)
@@ -6097,18 +6091,15 @@ class GuardWarriorSystem:
                     break
                 cy = py + icon_full // 2
                 cx = px + icon_full // 2
-                # 퍽 아이콘 배경 (원형)
                 bg_s = _get_arena_surface(icon_full, icon_full)
-                pygame.draw.circle(bg_s, (30, 30, 40, 200),
+                pygame.draw.circle(bg_s, (30, 30, 40, 180),
                                    (icon_full // 2, icon_full // 2), icon_full // 2)
                 perk_color = perk.get("icon_color", (200, 200, 200))
                 pygame.draw.circle(bg_s, (*perk_color[:3], 120),
                                    (icon_full // 2, icon_full // 2), icon_full // 2, 2)
                 screen.blit(bg_s, (px, py))
-                # 퍽 아이콘 그리기
                 if draw_icon_func:
                     draw_icon_func(screen, perk["id"], cx, cy, icon_size)
-                # 호버 체크
                 if mouse_pos:
                     _r = pygame.Rect(px, py, icon_full, icon_full)
                     if _r.collidepoint(mouse_pos):
@@ -6122,34 +6113,28 @@ class GuardWarriorSystem:
                             "screen_y": py - 10,
                         }
 
-        # --- 상대 퍽 → 오른쪽 필러 상단 배경 (맨 우측부터 가로 정렬) ---
-        if right_pillar_w >= 30 and enemy_perks:
-            # Y: 게임 영역 상단 + 마진
-            py = game_offset_y + max(8, int(10 * _s))
-            # X: 화면 우측 끝에서 왼쪽으로 정렬
-            screen_right = screen.get_width() - max(4, int(4 * _s))
+        # --- 상대 퍽 → 플레이 화면 오른쪽 위 ---
+        if enemy_perks:
+            py = game_offset_y + margin
             n_enemy = len(enemy_perks)
             total_w = n_enemy * icon_full + (n_enemy - 1) * icon_gap
-            px_start = screen_right - total_w
+            px_start = game_offset_x + game_scaled_w - total_w - margin
 
             for i, perk in enumerate(enemy_perks):
                 px = px_start + i * (icon_full + icon_gap)
-                if px < right_pillar_x:
-                    continue  # 게임 영역과 겹치면 스킵
+                if px < game_offset_x:
+                    continue
                 cy = py + icon_full // 2
                 cx = px + icon_full // 2
-                # 퍽 아이콘 배경 (원형)
                 bg_s = _get_arena_surface(icon_full, icon_full)
-                pygame.draw.circle(bg_s, (30, 30, 40, 200),
+                pygame.draw.circle(bg_s, (30, 30, 40, 180),
                                    (icon_full // 2, icon_full // 2), icon_full // 2)
                 perk_color = perk.get("icon_color", (200, 200, 200))
                 pygame.draw.circle(bg_s, (*perk_color[:3], 120),
                                    (icon_full // 2, icon_full // 2), icon_full // 2, 2)
                 screen.blit(bg_s, (px, py))
-                # 퍽 아이콘 그리기
                 if draw_icon_func:
                     draw_icon_func(screen, perk["id"], cx, cy, icon_size)
-                # 호버 체크
                 if mouse_pos:
                     _r = pygame.Rect(px, py, icon_full, icon_full)
                     if _r.collidepoint(mouse_pos):

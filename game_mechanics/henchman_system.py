@@ -268,7 +268,10 @@ class HenchmanSystem:
                     guard_paddle = _GuardPaddle(slot.x, slot.y)
                     skill.update(dt, guard_paddle, top_paddle, ball, game_state)
                 except Exception:
-                    pass
+                    # _update_active_effect 예외 시 active_timer는 이미 감소했지만
+                    # is_active = False 처리가 누락될 수 있으므로 수동 체크
+                    if skill.active_timer <= 0:
+                        skill.is_active = False
 
         # boss_effects 추출
         return self._extract_boss_effects(ball)
@@ -295,9 +298,16 @@ class HenchmanSystem:
     def _update_casting(self, slot: HenchmanSlot, dt: float,
                         top_paddle, bottom_paddle, ball):
         """시전 포즈 (스킬 실행 중)"""
-        # 스킬이 끝나면 퇴장 (최소 시전 시간 보장)
         skill = slot.skill_instance
         skill_done = (not skill.is_active) if skill else True
+
+        # 안전 타임아웃: 스킬 duration + 여유 시간 초과 시 강제 퇴장
+        max_cast = HENCH_CAST_DURATION + (skill.duration if skill else 0) + 2.0
+        if slot.anim_timer >= max_cast and not skill_done:
+            if skill:
+                skill.is_active = False
+            skill_done = True
+
         if slot.anim_timer >= HENCH_CAST_DURATION and skill_done:
             slot.phase = "exiting"
             slot.anim_timer = 0.0
@@ -641,14 +651,14 @@ class HenchmanSystem:
                 overlay_h = int(icon_sz * ratio)
                 if overlay_h > 0:
                     ov_surf = pygame.Surface((icon_sz, overlay_h), pygame.SRCALPHA)
-                    ov_surf.fill((0, 0, 0, 160))
+                    ov_surf.fill((255, 255, 255, 160))
                     screen.blit(ov_surf, (frame_x, iy + icon_sz - overlay_h))
 
                 # 쿨타임 숫자
                 cd_text = f"{int(slot.cooldown) + 1}"
                 font = self._get_font(max(10, int(12 * _s)))
                 if font:
-                    ts, _ = font.render(cd_text, (255, 255, 255))
+                    ts, _ = font.render(cd_text, (40, 40, 40))
                     screen.blit(ts, (frame_x + icon_sz // 2 - ts.get_width() // 2,
                                      iy + icon_sz // 2 - ts.get_height() // 2))
 
