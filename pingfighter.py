@@ -118695,6 +118695,37 @@ def _update_arena_capture_phase(screen):
             except Exception:
                 pass
 
+            # ── 상단 영웅 패들을 이동된 위치에 직접 그리기 ──
+            # (오버레이 위에 그려야 보임 - 메인 루프의 그리기는 오버레이 아래)
+            if arena_hero_paddle_renderer and arena_top_hero:
+                try:
+                    arena_hero_paddle_renderer.draw_hero_paddle(
+                        screen,
+                        arena_top_hero["id"],
+                        int(cur_x), int(cur_y),
+                        169, 52,  # 기본 영웅 패들 크기
+                        facing="down",
+                        color=arena_top_hero.get("color", (200, 200, 200)),
+                        scale_mode="paddle"
+                    )
+                except Exception as _pull_draw_err:
+                    print(f"[CAPTURE] 끌어오기 영웅 그리기 오류: {_pull_draw_err}")
+
+            # ── 하단 영웅(플레이어) 패들도 오버레이 위에 그리기 ──
+            if arena_hero_paddle_renderer and arena_bottom_hero:
+                try:
+                    arena_hero_paddle_renderer.draw_hero_paddle(
+                        screen,
+                        arena_bottom_hero["id"],
+                        PLAYER.centerx, PLAYER.centery,
+                        169, 52,
+                        facing="up",
+                        color=arena_bottom_hero.get("color", (200, 200, 200)),
+                        scale_mode="paddle"
+                    )
+                except Exception:
+                    pass
+
             # ── 끌어오기 밧줄/사슬 이펙트 ──
             rope_alpha = int(200 * (1.0 - pull_t * 0.5))
             rope_color = (180, 220, 255, rope_alpha)
@@ -118785,6 +118816,21 @@ def _update_arena_capture_phase(screen):
                 BOSS.centerx = int(escape_x)
             except Exception:
                 pass
+
+            # ── 도주하는 상단 영웅 오버레이 위에 그리기 ──
+            if arena_hero_paddle_renderer and arena_top_hero:
+                try:
+                    arena_hero_paddle_renderer.draw_hero_paddle(
+                        screen,
+                        arena_top_hero["id"],
+                        int(escape_x), BOSS.centery,
+                        169, 52,
+                        facing="down",
+                        color=arena_top_hero.get("color", (200, 200, 200)),
+                        scale_mode="paddle"
+                    )
+                except Exception:
+                    pass
 
             if _cap_font:
                 fail_surf = pygame.Surface((400, 60), pygame.SRCALPHA)
