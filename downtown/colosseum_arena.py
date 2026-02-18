@@ -6065,9 +6065,9 @@ class GuardWarriorSystem:
     def draw_perk_pillar_icons(self, screen, player_perks, enemy_perks,
                                 game_offset_x=0, game_offset_y=0, game_scale=1.0,
                                 mouse_pos=None, draw_icon_func=None):
-        """플레이 화면 안에 획득한 퍽 아이콘 표시
-        - 플레이어(하단) 퍽 → 플레이 화면 왼쪽 아래
-        - 상대(상단) 퍽 → 플레이 화면 오른쪽 위
+        """필러 배경 영역에 획득한 퍽 아이콘 표시
+        - 플레이어(하단) 퍽 → 필러 하단 배경 (게임 영역 아래), 왼쪽부터 가로 배치
+        - 상대(상단) 퍽 → 필러 상단 배경 (게임 영역 위), 오른쪽부터 가로 배치
         Returns: hover_info dict or None
         """
         hover_info = None
@@ -6080,10 +6080,10 @@ class GuardWarriorSystem:
         icon_gap = max(3, int(4 * _s))
         margin = max(4, int(6 * _s))
 
-        # --- 플레이어 퍽 → 플레이 화면 왼쪽 아래 ---
+        # --- 플레이어 퍽 → 필러 하단 배경 (게임 영역 아래), 왼쪽부터 ---
         if player_perks:
             px_start = game_offset_x + margin
-            py = game_offset_y + game_scaled_h - icon_full - margin
+            py = game_offset_y + game_scaled_h + margin
 
             for i, perk in enumerate(player_perks):
                 px = px_start + i * (icon_full + icon_gap)
@@ -6113,9 +6113,11 @@ class GuardWarriorSystem:
                             "screen_y": py - 10,
                         }
 
-        # --- 상대 퍽 → 플레이 화면 오른쪽 위 ---
+        # --- 상대 퍽 → 필러 상단 배경 (게임 영역 위), 오른쪽부터 ---
         if enemy_perks:
-            py = game_offset_y + margin
+            py = game_offset_y - icon_full - margin
+            if py < 2:
+                py = 2
             n_enemy = len(enemy_perks)
             total_w = n_enemy * icon_full + (n_enemy - 1) * icon_gap
             px_start = game_offset_x + game_scaled_w - total_w - margin
