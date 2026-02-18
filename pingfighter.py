@@ -19830,13 +19830,15 @@ arena_capture_phase = None              # None / "announce" / "active" / "result
 arena_capture_timer = 0.0
 arena_capture_result_flag = None        # True=성공, False=실패 (colosseum_arena가 읽음)
 arena_capture_do_capture = False         # 포획 실행 여부 (colosseum_arena에서 설정)
-# 그물 투사체
+# 그물 투사체 (작살 → 상대 진영 도달 시 펼침)
 arena_capture_net_x = 0.0
 arena_capture_net_y = 0.0
 arena_capture_net_active = False
 arena_capture_net_speed = -14.0         # 위로 발사
 arena_capture_shots_left = 3
 arena_capture_net_rope = []             # 로프 궤적 포인트
+# 펼쳐진 그물 (deployed net)
+arena_capture_deployed_net = None       # {"rect", "timer", "max_timer", "shape", "trapped", "phase"}
 # 상대 도주 AI (상단 영웅)
 arena_capture_flee_x = 380.0
 arena_capture_flee_y = 60.0
@@ -100356,6 +100358,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         global arena_capture_flee_dir, arena_capture_flee_speed, arena_capture_flee_dodge_timer
         global arena_capture_net_x, arena_capture_net_y, arena_capture_net_speed
         global arena_capture_net_rope, arena_capture_caught_anim, arena_capture_escape_anim
+        global arena_capture_deployed_net
         arena_capture_do_capture = globals().pop('_arena_pending_do_capture', False)
         arena_capture_phase = None
         arena_capture_timer = 0.0
@@ -100373,6 +100376,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         arena_capture_net_rope = []
         arena_capture_caught_anim = 0.0
         arena_capture_escape_anim = 0.0
+        arena_capture_deployed_net = None
         if arena_capture_do_capture:
             print("[CAPTURE] 인게임 포획 활성화 (승리 시 포획 페이즈 진입)")
         else:
@@ -118125,7 +118129,7 @@ def _update_arena_capture_phase(screen):
     global arena_capture_flee_x, arena_capture_flee_y, arena_capture_flee_vx
     global arena_capture_flee_dir, arena_capture_flee_dodge_timer
     global arena_capture_caught_anim, arena_capture_escape_anim
-    global arena_capture_net_rope
+    global arena_capture_net_rope, arena_capture_deployed_net
     global arena_battle_result
     import pygame as pygame
     import pygame.freetype
@@ -118233,10 +118237,17 @@ def _update_arena_capture_phase(screen):
         # 게임 영역 내 클램프
         PLAYER.x = max(GAME_LEFT, min(GAME_RIGHT - PLAYER.width, PLAYER.x))
 
-        # ── 도주 AI (상단 영웅) ──
+        # ── 도주 AI (상단 영웅) ── (포획 그물에 갇히면 정지)
+        _boss_trapped_by_net = (arena_capture_deployed_net is not None
+                                and arena_capture_deployed_net.get("trapped", False))
+        if _boss_trapped_by_net:
+            # 그물에 갇힘 → 움직이지 않음 (그물 rect 중앙에 고정)
+            dnet_rect = arena_capture_deployed_net["rect"]
+            arena_capture_flee_x = float(dnet_rect.centerx)
+            arena_capture_flee_y = float(dnet_rect.centery)
         arena_capture_flee_dodge_timer -= dt
         px = PLAYER.centerx if PLAYER else GAME_CENTER_X
-        flee_speed = arena_capture_flee_speed
+        flee_speed = arena_capture_flee_speed if not _boss_trapped_by_net else 0
         # 그물 감지 시 급회피
         if arena_capture_net_active and arena_capture_net_y < 300:
             net_dx = arena_capture_net_x - arena_capture_flee_x
@@ -118259,45 +118270,93 @@ def _update_arena_capture_phase(screen):
         arena_capture_flee_x = max(GAME_LEFT + 30, min(GAME_RIGHT - 30, arena_capture_flee_x))
         arena_capture_flee_y = 45.0 + _cap_math.sin(arena_capture_timer * 3.0) * 12.0
 
-        # ── 그물 투사체 업데이트 ──
+        # ── 그물 투사체 업데이트 (코만도 그물덫총 방식) ──
+        DEPLOY_Y = 120  # 상대 진영 하단 경계에서 펼침
         if arena_capture_net_active:
             arena_capture_net_y += arena_capture_net_speed
             arena_capture_net_rope.append((arena_capture_net_x, arena_capture_net_y))
             if len(arena_capture_net_rope) > 20:
                 arena_capture_net_rope.pop(0)
-            # 충돌 판정 (그물 vs BOSS 패들)
-            net_rect = pygame.Rect(arena_capture_net_x - 25, arena_capture_net_y - 15, 50, 30)
-            boss_w = BOSS.width if BOSS else 60
-            boss_h = BOSS.height if BOSS else 20
-            flee_rect = pygame.Rect(arena_capture_flee_x - boss_w // 2,
-                                    arena_capture_flee_y - boss_h // 2,
-                                    boss_w, boss_h)
-            if net_rect.colliderect(flee_rect):
-                arena_capture_net_active = False
-                arena_capture_phase = "result"
-                arena_capture_timer = 0.0
-                arena_capture_result_flag = True
-                arena_capture_caught_anim = 0.0
-                print(f"[CAPTURE] 포획 성공! {top_name}")
-            elif arena_capture_net_y < -20:
+            # 상대 진영 도달 → 그물 펼침!
+            if arena_capture_net_y <= DEPLOY_Y:
                 arena_capture_net_active = False
                 arena_capture_net_rope = []
-                print(f"[CAPTURE] 미스! 잔여 {arena_capture_shots_left}발")
+                # 그물 펼침 (280x120 크기)
+                net_w, net_h = 260, 100
+                nx = int(arena_capture_net_x)
+                net_left = max(GAME_LEFT, min(GAME_RIGHT - net_w, nx - net_w // 2))
+                net_top = max(10, int(arena_capture_flee_y) - net_h // 2)
+                net_rect = pygame.Rect(net_left, net_top, net_w, net_h)
+                # 보스 히트박스
+                boss_w = BOSS.width if BOSS else 60
+                boss_h = BOSS.height if BOSS else 20
+                flee_rect = pygame.Rect(arena_capture_flee_x - boss_w // 2,
+                                        arena_capture_flee_y - boss_h // 2,
+                                        boss_w, boss_h)
+                trapped = net_rect.colliderect(flee_rect)
+                # 그물 shape 생성 (36각형 폴리곤)
+                _shape = []
+                for i in range(36):
+                    angle = (i / 36) * _cap_math.tau
+                    noise = _cap_math.sin(angle * 3 + arena_capture_timer) * 0.15
+                    scale = 0.85 + noise
+                    sx = net_w / 2 + _cap_math.cos(angle) * (net_w / 2) * scale
+                    sy = net_h / 2 + _cap_math.sin(angle) * (net_h / 2) * scale
+                    _shape.append((sx, sy))
+                arena_capture_deployed_net = {
+                    "rect": net_rect,
+                    "timer": 90 if trapped else 30,  # 1.5초 or 0.5초
+                    "max_timer": 90 if trapped else 30,
+                    "shape": _shape,
+                    "trapped": trapped,
+                    "phase": 0.0,
+                }
+                if trapped:
+                    print(f"[CAPTURE] 그물 펼침 → 포획 성공! {top_name}")
+                else:
+                    print(f"[CAPTURE] 그물 펼침 → 미스! 잔여 {arena_capture_shots_left}발")
+            elif arena_capture_net_y < -40:
+                arena_capture_net_active = False
+                arena_capture_net_rope = []
+                print(f"[CAPTURE] 화면 밖 미스! 잔여 {arena_capture_shots_left}발")
 
-        # 시간 초과 또는 탄 소진
-        if arena_capture_timer >= time_limit or (arena_capture_shots_left <= 0 and not arena_capture_net_active):
+        # ── 펼쳐진 그물 업데이트 ──
+        if arena_capture_deployed_net is not None:
+            dnet = arena_capture_deployed_net
+            dnet["timer"] -= 1
+            dnet["phase"] += dt
+            if dnet["trapped"]:
+                # 포획 성공 → 그물 펼침 연출 후 result로
+                if dnet["timer"] <= 0:
+                    arena_capture_phase = "result"
+                    arena_capture_timer = 0.0
+                    arena_capture_result_flag = True
+                    arena_capture_caught_anim = 0.0
+                    arena_capture_deployed_net = None
+            else:
+                # 미스 → 그물 용해 후 계속
+                if dnet["timer"] <= 0:
+                    arena_capture_deployed_net = None
+
+        # 시간 초과 또는 탄 소진 (펼쳐진 그물 없을 때만)
+        no_active_net = not arena_capture_net_active and arena_capture_deployed_net is None
+        if arena_capture_timer >= time_limit or (arena_capture_shots_left <= 0 and no_active_net):
             if arena_capture_phase == "active":
                 arena_capture_phase = "result"
                 arena_capture_timer = 0.0
                 arena_capture_result_flag = False
                 arena_capture_escape_anim = 0.0
+                arena_capture_deployed_net = None
                 print(f"[CAPTURE] 포획 실패! {top_name} 도주")
 
-        # ── 그리기 (오버레이만 - 패들은 메인 루프가 그림) ──
-        # 그물 투사체
+        # ── 그리기 ──
+        # 날아가는 투사체
         if arena_capture_net_active:
             _draw_capture_net_projectile(screen, arena_capture_net_x, arena_capture_net_y,
                                         arena_capture_net_rope)
+        # 펼쳐진 그물
+        if arena_capture_deployed_net is not None:
+            _draw_deployed_capture_net(screen, arena_capture_deployed_net)
         # UI: 잔여 발수 + 타이머 + 조작 안내
         try:
             _cap_ui_font = getattr(_update_arena_capture_phase, '_ui_font', None)
@@ -118372,6 +118431,81 @@ def _update_arena_capture_phase(screen):
     elif arena_capture_phase == "done":
         arena_battle_result = True
         print(f"[CAPTURE] 포획 페이즈 완료. 결과={arena_capture_result_flag}")
+
+
+def _draw_deployed_capture_net(screen, dnet):
+    """펼쳐진 그물 그리기 (코만도 그물덫총 스타일)"""
+    import math as _m
+    rect = dnet["rect"]
+    shape = dnet["shape"]
+    trapped = dnet["trapped"]
+    life_ratio = max(0.0, dnet["timer"] / dnet["max_timer"]) if dnet["max_timer"] > 0 else 0.0
+    phase = dnet["phase"]
+
+    # 펼침 애니메이션 (처음 0.3초 동안 확장)
+    expand = min(1.0, phase / 0.3)
+
+    # dissolve 효과 (미스 시 빠르게 수축)
+    if trapped:
+        shrink = 0.9 + 0.1 * life_ratio
+        alpha = int(180 * life_ratio + 40)
+        jitter = 2
+    else:
+        shrink = life_ratio ** 1.2
+        alpha = int(150 * life_ratio)
+        jitter = int(4 + (1.0 - life_ratio) * 8)
+
+    alpha = max(0, min(255, alpha))
+    scale = expand * shrink
+    if scale < 0.05 or alpha < 5:
+        return
+
+    w = int(rect.width * scale)
+    h = int(rect.height * scale)
+    if w < 4 or h < 4:
+        return
+
+    cx = rect.centerx
+    cy = rect.centery
+
+    surf = pygame.Surface((w + 20, h + 20), pygame.SRCALPHA)
+    ox = (w + 20) / 2
+    oy = (h + 20) / 2
+
+    # 폴리곤 변환 (shape는 원본 rect 크기 기준 좌표)
+    sx_ratio = w / rect.width if rect.width > 0 else 1
+    sy_ratio = h / rect.height if rect.height > 0 else 1
+    transformed = []
+    for (px, py) in shape:
+        tx = ox + (px - rect.width / 2) * sx_ratio + _m.sin(phase * 5 + px) * jitter
+        ty = oy + (py - rect.height / 2) * sy_ratio + _m.cos(phase * 4 + py) * jitter
+        transformed.append((tx, ty))
+
+    if len(transformed) >= 3:
+        # 그물 배경
+        net_color = (95, 160, 200, alpha) if trapped else (140, 140, 120, alpha)
+        pygame.draw.polygon(surf, net_color, transformed)
+        # 외곽선
+        outline_color = (180, 230, 255, min(alpha + 30, 255)) if trapped else (180, 170, 140, alpha)
+        pygame.draw.polygon(surf, outline_color, transformed, 2)
+
+        # 메쉬 (격자 + 스포크)
+        mesh_alpha = max(20, alpha - 40)
+        mesh_color = (210, 240, 255, mesh_alpha) if trapped else (180, 160, 120, mesh_alpha)
+        # 가로줄
+        for row in range(0, h, max(8, h // 8)):
+            y1 = oy - h / 2 + row
+            pygame.draw.line(surf, mesh_color, (ox - w / 2, y1), (ox + w / 2, y1), 1)
+        # 세로줄
+        for col in range(0, w, max(10, w // 8)):
+            x1 = ox - w / 2 + col
+            pygame.draw.line(surf, mesh_color, (x1, oy - h / 2), (x1, oy + h / 2), 1)
+        # 스포크 (중심 → 외곽)
+        spoke_step = max(2, len(transformed) // 12)
+        for i in range(0, len(transformed), spoke_step):
+            pygame.draw.aaline(surf, mesh_color[:3], (ox, oy), transformed[i])
+
+    screen.blit(surf, (cx - (w + 20) // 2, cy - (h + 20) // 2))
 
 
 def _draw_capture_hero_sprite(screen, x, y, color, name, alpha=255):
