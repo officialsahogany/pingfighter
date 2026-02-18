@@ -523,13 +523,15 @@ class HenchmanSystem:
         if bottom_paddle is None:
             bottom_paddle = _PaddleProxy(pygame.Rect(380, 710, 120, 40), is_top=False)
 
+        game_state = self.skill_manager.game_state if self.skill_manager else {}
+
         for slot in self.slots:
             skill = slot.skill_instance
             # 스킬 이펙트 그리기 (활성 상태)
             if skill and skill.is_active:
                 try:
                     guard_paddle = _GuardPaddle(slot.x, slot.y)
-                    skill.draw(screen, guard_paddle, top_paddle, ball)
+                    skill.draw(screen, guard_paddle, top_paddle, ball, game_state)
                 except Exception:
                     pass
 
