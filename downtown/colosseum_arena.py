@@ -8526,6 +8526,10 @@ class ColosseumsArena:
                     self.guard_warrior_map[bet_id] = []
                 if loser not in self.guard_warrior_map[bet_id]:
                     self.guard_warrior_map[bet_id].append(loser)
+                # 호위무사로 포획된 영웅은 하수인 목록에서 제거 (중복 방지)
+                _loser_id = loser.get("id")
+                if _loser_id:
+                    self.henchman_list = [h for h in self.henchman_list if h.get("id") != _loser_id]
                 # captured_guard 슬롯 갱신
                 if self.captured_guard is None or self.captured_guard_used:
                     self.captured_guard = dict(loser)
@@ -8545,12 +8549,21 @@ class ColosseumsArena:
             self._last_capture_target = None
 
         # 하수인 생포 판정 (8강/4강에서 승리 시 70% 확률)
+        # 단, 이미 호위무사로 포획된 영웅은 하수인 대상에서 제외
         self._pending_henchman_capture = False
         self._pending_henchman_target = None
         if (self.bet_hero and winner == self.bet_hero
                 and self.current_round in (TournamentRound.QUARTER_FINAL, TournamentRound.SEMI_FINAL)):
             loser_h = match.hero1 if winner == match.hero2 else match.hero2
-            if random.random() < 0.70:
+            bet_id_h = self.bet_hero["id"] if self.bet_hero else ""
+            # 이미 호위무사로 포획된 영웅인지 체크
+            _already_guard = any(
+                g.get("id") == loser_h.get("id")
+                for g in self.guard_warrior_map.get(bet_id_h, [])
+            )
+            if _already_guard:
+                print(f"[Henchman] {loser_h.get('name', '?')} 이미 호위무사로 포획됨 → 하수인 생포 스킵")
+            elif random.random() < 0.70:
                 # 하수인 목록에 추가 (중복 방지)
                 if not any(h.get("id") == loser_h.get("id") for h in self.henchman_list):
                     self.henchman_list.append(dict(loser_h))
@@ -16704,6 +16717,10 @@ class ColosseumsArena:
             self.guard_warrior_map[bet_id] = []
         if target not in self.guard_warrior_map[bet_id]:
             self.guard_warrior_map[bet_id].append(target)
+        # 호위무사로 포획된 영웅은 하수인 목록에서 제거 (70% 하수인 생포와 중복 방지)
+        target_id = target.get("id")
+        if target_id:
+            self.henchman_list = [h for h in self.henchman_list if h.get("id") != target_id]
         # PERFECT 보너스 골드
         if self.capture_result == "perfect":
             self.accumulated_prize += 200
