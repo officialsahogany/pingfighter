@@ -118094,16 +118094,15 @@ def _get_arena_speed_btn_layout():
         rh = max(1, int(btn_h_base * scale))
         rgap = max(1, int(gap_base * scale))
 
-        # 인게임 좌측벽 기준 배치 (게임 영역 왼쪽 끝에서 시작)
-        sx = GAME_OFFSET_X
-        # 스킬 UI와 같은 높이 (게임 영역 바로 아래 + 14px 마진)
+        # 맨 좌측 배치 (화면 왼쪽 끝 + 마진)
+        sx = max(4, int(4 * scale))
+        # 게임 영역 바로 아래 + 14px 마진
         game_height = int(INTERNAL_HEIGHT * scale)
         sy = GAME_OFFSET_Y + game_height + 14
     else:
-        # 윈도우 모드: 좌측 필러 영역 내
+        # 윈도우 모드: 좌측 필러 영역 맨 왼쪽
         rw, rh, rgap = btn_w_base, btn_h_base, gap_base
-        total_w = btn_count * rw + (btn_count - 1) * rgap
-        sx = (PILLAR_UI_WIDTH - total_w) // 2
+        sx = 4
         sy = HEIGHT - btn_h_base - 30
 
     return sx, sy, rw, rh, rgap
