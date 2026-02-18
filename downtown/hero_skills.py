@@ -8107,6 +8107,9 @@ class DeadPossession(HeroSkill):
         # 빙의 스킬은 조건 무시하고 강제 발동 (예: 야생의 포효의 _ball_in_range)
         if hasattr(self.possessed_skill, '_ball_in_range'):
             self.possessed_skill._ball_in_range = True
+        # 빙의 스킬의 use() 오버라이드 조건 체크 우회 플래그
+        # (예: SolarBolt의 _check_ball_conditions 공 방향 체크 무시)
+        self.possessed_skill._possessed_force = True
         self.possession_name = self.possessed_skill.korean_name
         self.possession_flash = 1.5  # 1.5초 플래시 표시
 
@@ -13298,9 +13301,10 @@ class SolarBolt(HeroSkill):
         """조건 충족 시에만 발동 (공이 시전자에게 향하고 있을 때)"""
         if not self.can_use():
             return {}
-        # 호위무사(is_bodyguard)일 때는 조건 체크 없이 바로 발동
+        # 호위무사(is_bodyguard) 또는 빙의(_possessed_force)일 때는 조건 체크 없이 바로 발동
         is_guard = getattr(caster_paddle, 'is_bodyguard', False)
-        if not is_guard and not self._check_ball_conditions(caster_paddle, ball):
+        is_possessed = getattr(self, '_possessed_force', False)
+        if not is_guard and not is_possessed and not self._check_ball_conditions(caster_paddle, ball):
             # 공이 시전자 쪽으로 향하고 있지 않으면 발동하지 않음 (쿨타임 소모 안 함)
             return {}
         # 조건 충족 → 부모 use() 호출 (쿨타임 설정 + _apply_effect)
