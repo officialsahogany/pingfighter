@@ -1067,9 +1067,9 @@ def _draw_swords_icon(surf, cx, cy, scale, accent, dim_f, sel_f, anim_t):
     # ════════════════════════════════════════
     # 1) 방패 (레퍼런스: 큰 방패가 중심, 검이 위에)
     # ════════════════════════════════════════
-    sw = int(68 * s)   # 방패 너비
-    sh = int(82 * s)   # 방패 높이
-    st = cy - int(36 * s)  # 방패 상단 Y
+    sw = int(84 * s)   # 방패 너비 (68→84)
+    sh = int(100 * s)  # 방패 높이 (82→100)
+    st = cy - int(44 * s)  # 방패 상단 Y (36→44)
 
     # 방패 외곽 형태 (오각형 실드)
     shield = [
@@ -1139,18 +1139,18 @@ def _draw_swords_icon(surf, cx, cy, scale, accent, dim_f, sel_f, anim_t):
         cross_y = cy - int(4 * s)
 
         # 검날: 교차점에서 위로 뻗는 부분
-        blade_len = int(58 * s)
+        blade_len = int(72 * s)   # 58→72
         tip_x = cross_x + ddx * blade_len
         tip_y = cross_y + ddy * blade_len
 
         # 그립: 교차점에서 아래로 뻗는 부분
-        grip_total = int(32 * s)
+        grip_total = int(40 * s)  # 32→40
         grip_end_x = cross_x - ddx * grip_total
         grip_end_y = cross_y - ddy * grip_total
 
         # ── 2a) 검날 (사다리꼴 - 넓은 밑, 좁은 끝) ──
-        bw_base = int(8 * s)   # 검날 밑 반폭
-        bw_tip = int(2 * s)    # 검날 끝 반폭
+        bw_base = int(10 * s)  # 검날 밑 반폭 (8→10)
+        bw_tip = int(3 * s)   # 검날 끝 반폭 (2→3)
         blade_pts = [
             (int(cross_x - ppx * bw_base), int(cross_y - ppy * bw_base)),
             (int(cross_x + ppx * bw_base), int(cross_y + ppy * bw_base)),
@@ -1189,8 +1189,8 @@ def _draw_swords_icon(surf, cx, cy, scale, accent, dim_f, sel_f, anim_t):
         pygame.draw.circle(surf, (*blade_light, al(255)), tip_pt, int(1.5 * s))
 
         # ── 2b) 가드 (십자형 크로스가드 - 골드) ──
-        guard_len = int(14 * s)
-        guard_w = int(4 * s)
+        guard_len = int(17 * s)  # 14→17
+        guard_w = int(5 * s)   # 4→5
         gcx = int(cross_x + ddx * int(1 * s))
         gcy = int(cross_y + ddy * int(1 * s))
 
@@ -1224,7 +1224,7 @@ def _draw_swords_icon(surf, cx, cy, scale, accent, dim_f, sel_f, anim_t):
         # ── 2c) 그립 (다크 네이비) ──
         grip_start_x = cross_x - ddx * int(3 * s)
         grip_start_y = cross_y - ddy * int(3 * s)
-        grip_w = int(5 * s)
+        grip_w = int(6 * s)   # 5→6
 
         # 그립 본체 (사각형)
         grip_pts = [
@@ -1256,7 +1256,7 @@ def _draw_swords_icon(surf, cx, cy, scale, accent, dim_f, sel_f, anim_t):
         # ── 2d) 폼멜 (빨간 보석 + 아웃라인) ──
         pom_x = int(grip_end_x)
         pom_y = int(grip_end_y)
-        pom_r = int(5 * s)
+        pom_r = int(6 * s)   # 5→6
         pygame.draw.circle(surf, (*pommel_outline, al(255)), (pom_x, pom_y), pom_r + int(1.5 * s))
         pygame.draw.circle(surf, (*pommel_red, al(255)), (pom_x, pom_y), pom_r)
         # 폼멜 하이라이트
