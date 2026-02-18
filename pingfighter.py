@@ -118208,77 +118208,89 @@ def _update_arena_capture_phase(screen):
             screen.blit(bar_surf, (GAME_LEFT, 280))
             screen.blit(bar_surf, (GAME_LEFT, 410))
 
-        try:
-            # 폰트 준비
-            _cap_font_big = getattr(_update_arena_capture_phase, '_title_font_big', None)
-            if _cap_font_big is None:
+        # 폰트 준비 (캐시)
+        _cap_font_big = getattr(_update_arena_capture_phase, '_title_font_big', None)
+        if _cap_font_big is None:
+            try:
                 font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
                 _cap_font_big = pygame.freetype.Font(font_path, 32)
-                _update_arena_capture_phase._title_font_big = _cap_font_big
-            _cap_font_sm = getattr(_update_arena_capture_phase, '_ui_font', None)
-            if _cap_font_sm is None:
+            except Exception:
+                _cap_font_big = pygame.freetype.SysFont("malgun gothic", 32)
+            _update_arena_capture_phase._title_font_big = _cap_font_big
+        _cap_font_sm = getattr(_update_arena_capture_phase, '_ui_font', None)
+        if _cap_font_sm is None:
+            try:
                 font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
                 _cap_font_sm = pygame.freetype.Font(font_path, 16)
-                _update_arena_capture_phase._ui_font = _cap_font_sm
+            except Exception:
+                _cap_font_sm = pygame.freetype.SysFont("malgun gothic", 16)
+            _update_arena_capture_phase._ui_font = _cap_font_sm
 
-            # "적을 포획하세요!" - 슬라이드인 + 바운스
-            if t < 1.0:
-                slide = min(1.0, t / 0.35)
-                # 이징 (ease-out-back)
-                ease = 1.0 + 2.7 * ((slide - 1) ** 3) + 1.7 * ((slide - 1) ** 2) if slide < 1 else 1.0
-                text_x = GAME_CENTER_X
-                text_y = int(310 + (1.0 - ease) * 60)
-                alpha_t = min(255, int(255 * min(1.0, t / 0.2)))
-                # 글로우 효과
-                glow_r = int(6 * abs(_cap_math.sin(t * 6)))
-                for gx in range(-glow_r, glow_r + 1, 2):
-                    for gy in range(-glow_r, glow_r + 1, 2):
-                        gs, gr = _cap_font_big.render("적을 포획하세요!", (255, 180, 50))
-                        gs.set_alpha(max(10, alpha_t // 4))
-                        screen.blit(gs, (text_x - gr.width // 2 + gx, text_y + gy))
-                # 외곽선
-                for ox2, oy2 in [(-2, 0), (2, 0), (0, -2), (0, 2), (-1, -1), (1, 1)]:
-                    ts, tr = _cap_font_big.render("적을 포획하세요!", (40, 20, 0))
-                    ts.set_alpha(alpha_t)
-                    screen.blit(ts, (text_x - tr.width // 2 + ox2, text_y + oy2))
-                # 본문
-                ts, tr = _cap_font_big.render("적을 포획하세요!", (255, 230, 80))
-                ts.set_alpha(alpha_t)
-                screen.blit(ts, (text_x - tr.width // 2, text_y))
+        # "적을 포획하세요!" - 슬라이드인 + 바운스
+        if t < 1.2:
+            slide = min(1.0, t / 0.35)
+            # 이징 (ease-out-back)
+            ease = 1.0 + 2.7 * ((slide - 1) ** 3) + 1.7 * ((slide - 1) ** 2) if slide < 1 else 1.0
+            text_x = GAME_CENTER_X
+            text_y = int(310 + (1.0 - ease) * 60)
+            alpha_t = min(255, int(255 * min(1.0, t / 0.15)))
 
-                # 영웅 이름 (하단)
-                ns, nr = _cap_font_sm.render(f"대상: {top_name}", (255, 200, 150))
-                ns.set_alpha(alpha_t)
-                screen.blit(ns, (text_x - nr.width // 2, text_y + 45))
+            # 텍스트를 임시 서피스에 합성 (per-pixel alpha + set_alpha 호환)
+            title_text = "적을 포획하세요!"
+            ts_main, tr_main = _cap_font_big.render(title_text, (255, 230, 80))
+            tw, th = tr_main.width + 16, tr_main.height + 16
+            text_layer = pygame.Surface((tw, th), pygame.SRCALPHA)
 
-            # Phase 2: 조작 안내 (0.8~1.8초) - 페이드인
-            if t >= 0.8:
-                ctrl_alpha = min(255, int(255 * (t - 0.8) / 0.4))
-                cy_base = 380
+            # 글로우 효과
+            glow_r = max(1, int(6 * abs(_cap_math.sin(t * 6))))
+            for gx in range(-glow_r, glow_r + 1, 3):
+                for gy in range(-glow_r, glow_r + 1, 3):
+                    gs, _ = _cap_font_big.render(title_text, (255, 180, 50, 40))
+                    text_layer.blit(gs, (8 + gx, 8 + gy))
+            # 외곽선
+            for ox2, oy2 in [(-2, 0), (2, 0), (0, -2), (0, 2)]:
+                os2, _ = _cap_font_big.render(title_text, (40, 20, 0, 255))
+                text_layer.blit(os2, (8 + ox2, 8 + oy2))
+            # 본문
+            text_layer.blit(ts_main, (8, 8))
 
-                # 조작 안내 배경 박스
-                info_surf = pygame.Surface((400, 90), pygame.SRCALPHA)
-                info_surf.fill((0, 0, 0, min(140, ctrl_alpha)))
-                pygame.draw.rect(info_surf, (255, 200, 80, min(180, ctrl_alpha)), (0, 0, 400, 90), 2, border_radius=8)
-                screen.blit(info_surf, (GAME_CENTER_X - 200, cy_base - 10))
+            # alpha 적용하여 screen에 그리기
+            text_layer.set_alpha(alpha_t)
+            screen.blit(text_layer, (text_x - tw // 2, text_y - 8))
 
-                # ◀ A/D ▶  이동
-                move_ts, move_tr = _cap_font_sm.render("◀  A / D  ▶   이동", (255, 255, 255))
-                move_ts.set_alpha(ctrl_alpha)
-                screen.blit(move_ts, (GAME_CENTER_X - move_tr.width // 2, cy_base + 8))
+            # 영웅 이름 (하단)
+            name_text = f"대상: {top_name}"
+            ns, nr = _cap_font_sm.render(name_text, (255, 200, 150))
+            name_layer = pygame.Surface((nr.width + 4, nr.height + 4), pygame.SRCALPHA)
+            name_layer.blit(ns, (2, 2))
+            name_layer.set_alpha(alpha_t)
+            screen.blit(name_layer, (text_x - (nr.width + 4) // 2, text_y + 45))
 
-                # 🖱 마우스 왼쪽 클릭  포획
-                click_ts, click_tr = _cap_font_sm.render("마우스 왼쪽 클릭   그물 발사", (255, 220, 100))
-                click_ts.set_alpha(ctrl_alpha)
-                screen.blit(click_ts, (GAME_CENTER_X - click_tr.width // 2, cy_base + 35))
+        # Phase 2: 조작 안내 (0.8~1.8초) - 페이드인
+        if t >= 0.8:
+            ctrl_alpha = min(255, int(255 * (t - 0.8) / 0.4))
+            cy_base = 380
 
-                # 제한시간
-                time_ts, time_tr = _cap_font_sm.render("제한시간: 5초", (255, 120, 120))
-                time_ts.set_alpha(ctrl_alpha)
-                screen.blit(time_ts, (GAME_CENTER_X - time_tr.width // 2, cy_base + 60))
+            # 조작 안내 배경 박스
+            info_surf = pygame.Surface((400, 90), pygame.SRCALPHA)
+            info_surf.fill((0, 0, 0, min(140, ctrl_alpha)))
+            pygame.draw.rect(info_surf, (255, 200, 80, min(180, ctrl_alpha)), (0, 0, 400, 90), 2, border_radius=8)
+            screen.blit(info_surf, (GAME_CENTER_X - 200, cy_base - 10))
 
-        except Exception:
-            pass
+            # 조작 안내 텍스트를 임시 서피스에 합성
+            ctrl_layer = pygame.Surface((380, 80), pygame.SRCALPHA)
+
+            move_ts, move_tr = _cap_font_sm.render("◀  A / D  ▶   이동", (255, 255, 255))
+            ctrl_layer.blit(move_ts, (190 - move_tr.width // 2, 8))
+
+            click_ts, click_tr = _cap_font_sm.render("마우스 왼쪽 클릭   그물 발사", (255, 220, 100))
+            ctrl_layer.blit(click_ts, (190 - click_tr.width // 2, 35))
+
+            time_ts, time_tr = _cap_font_sm.render("제한시간: 5초", (255, 120, 120))
+            ctrl_layer.blit(time_ts, (190 - time_tr.width // 2, 58))
+
+            ctrl_layer.set_alpha(ctrl_alpha)
+            screen.blit(ctrl_layer, (GAME_CENTER_X - 190, cy_base))
 
         # 화면 테두리 펄스 (경고 느낌)
         if t > 0.2:
@@ -129648,8 +129660,17 @@ def handle_boss():
     now_ms = pygame.time.get_ticks()
     stage8_in_superspeed = False
 
+    # 🔍 [DEBUG] 투기장 상단 영웅 AI 디버그 로깅
+    if arena_mode_enabled:
+        if not hasattr(handle_boss, '_debug_frame'):
+            handle_boss._debug_frame = 0
+        handle_boss._debug_frame += 1
+        _dbg_frame = handle_boss._debug_frame
+
     # 공 생성 애니메이션 중에는 보스 AI 정지
     if ball_spawn_animation_active:
+        if arena_mode_enabled and _dbg_frame % 60 == 0:
+            print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: ball_spawn_animation_active")
         return
 
     # 🏟️ 투기장 영웅 스킬 상태 효과 적용 (상단 패들 = 보스)
@@ -129667,6 +129688,8 @@ def handle_boss():
                 _stop_electric_shock_sound()
         else:
             boss_current_speed = 0
+            if arena_mode_enabled and _dbg_frame % 60 == 0:
+                print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: 번개스턴 timer={_judgment_lightning_stun_top_timer:.2f}")
             return  # 번개 스턴 중 모든 처리 차단
     # 🌪️ 바람의 분노 스턴 (독립 메커니즘)
     if _judgment_wind_stun_top_timer > 0:
@@ -129677,6 +129700,8 @@ def handle_boss():
                 arena_skill_manager.game_state['top_paddle_stunned'] = False
         else:
             boss_current_speed = 0
+            if arena_mode_enabled and _dbg_frame % 60 == 0:
+                print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: 바람스턴 timer={_judgment_wind_stun_top_timer:.2f}")
             return  # 바람 스턴 중 모든 처리 차단
     if arena_mode_enabled and arena_skill_manager:
         try:
@@ -129684,10 +129709,14 @@ def handle_boss():
             # 스턴 체크 (상단 패들이 스턴되면 이동 불가)
             if game_state.get('top_paddle_stunned', False):
                 boss_current_speed = 0
+                if arena_mode_enabled and _dbg_frame % 60 == 0:
+                    print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: top_paddle_stunned=True")
                 return  # 스턴 중에는 모든 처리 차단
             # 스팀 배리어 시전 중 정지 (상단 패들이 시전자일 때)
             if game_state.get('steam_barrier_caster_frozen', False) and game_state.get('barrier_owner_is_top', False):
                 boss_current_speed = 0
+                if arena_mode_enabled and _dbg_frame % 60 == 0:
+                    print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: steam_barrier_caster_frozen")
                 return  # 배리어 시전 중 이동 불가
             # 스팀 배리어 해동 중 (마지막 1초) - 점진적 속도 복귀
             steam_thaw = game_state.get('steam_barrier_thaw_speed', 0.0)
@@ -129734,6 +129763,8 @@ def handle_boss():
     if arena_mode_enabled and arena_top_hero:
         # 대쉬 업데이트
         if update_arena_top_hero_dash():
+            if _dbg_frame % 60 == 0:
+                print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: arena_top_hero_dash 진행중")
             return  # 대쉬 중에는 다른 AI 처리 건너뜀
 
         # 대쉬 발동 조건 체크 (보스와 동일한 조건: 공이 가까이 + 막지 못할 것 같을 때만)
@@ -129889,6 +129920,8 @@ def handle_boss():
 
         # 넉백 중에는 보스 이동 불가
         boss_current_speed = 0
+        if arena_mode_enabled and _dbg_frame % 60 == 0:
+            print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: boss_knockback timer={boss_knockback_timer}")
         return
 
     # 🔥 화재 이벤트 공 충돌 넉백 - 이제 X축으로 처리됨 (boss_knockback_vel 사용)
@@ -129960,6 +129993,8 @@ def handle_boss():
         # 대쉬 중에도 바주카포 충돌 체크
         _process_bazooka_collisions()
         # 대쉬 중에는 다른 AI 처리 건너뜀
+        if arena_mode_enabled and _dbg_frame % 60 == 0:
+            print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: boss_dashing timer={boss_dash_timer}")
         return
 
     # 대쉬 후 후딜 시간 처리
@@ -129974,6 +130009,8 @@ def handle_boss():
             except Exception:
                 pass
         _process_bazooka_collisions()  # 스턴 중에도 바주카포 충돌 체크
+        if arena_mode_enabled and _dbg_frame % 60 == 0:
+            print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: boss_dash_stun timer={boss_dash_stun_timer}")
         return
 
     # 극정호신 상태에서는 일반 AI를 건너뛰되, 서브 대기 중이면 서브 로직은 그대로 진행
@@ -129998,6 +130035,8 @@ def handle_boss():
 
         # 스턴 중에도 바주카포 발사체 충돌 체크는 계속 수행
         _process_bazooka_collisions()
+        if arena_mode_enabled and _dbg_frame % 60 == 0:
+            print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: boss_stun_timer={boss_stun_timer}")
         return  # 스턴 중에는 모든 처리 차단
     
     # 바주카포 충돌 체크 및 폭발 처리
@@ -130258,6 +130297,8 @@ def handle_boss():
         if current_stage == 8 and boss_stunned_timer <= 0 and not stage8_stun_escape_active:
             stage8_stun_escape_ready_ms = 0
             stage8_stun_escape_attempted = False
+        if arena_mode_enabled and _dbg_frame % 60 == 0:
+            print(f"[ARENA-AI DEBUG] F{_dbg_frame} ❌ BLOCKED: boss_stunned_timer={boss_stunned_timer} knockback_vel={boss_knockback_vel:.2f}")
         return  # 스턴 중에는 AI 비활성화
     # Stage 50 (튜토리얼) - 매우 쉬운 AI
     if current_stage == 50:
@@ -130496,6 +130537,8 @@ def handle_boss():
                 BOSS.centerx = max(boss_min_cx, min(boss_max_cx, BOSS.centerx))
             else:
                 BOSS.centerx += fake_motion()
+        if arena_mode_enabled and _dbg_frame % 60 == 0:
+            print(f"[ARENA-AI DEBUG] F{_dbg_frame} ⏸️ SERVE: waiting={is_waiting_for_serve} player_serve={is_player_serve}")
         return  # 서브 중에는 아래 일반 이동 로직 실행 안 함
     # --- 일반 AI 이동 로직 ---
     predict_frame = max(10, min(30, int(FPS / max(1, abs(ball_vel[0])))))
@@ -130562,6 +130605,16 @@ def handle_boss():
             else:
                 future_x = BALL.centerx
             future_x += random.randint(-enhanced_predict_error, enhanced_predict_error)
+    # 🔍 [DEBUG] 투기장 AI 궤적 예측 결과
+    if arena_mode_enabled and _dbg_frame % 30 == 0:
+        _dbg_ball_dir = "↑보스쪽" if ball_vel[1] < 0 else "↓플레이어쪽"
+        _dbg_fail = "멍청모드" if boss_fail_timer > 0 else "정상"
+        _dbg_confused = "혼란" if boss_confused_timer > 0 else "정상"
+        _dbg_dist = abs(future_x - BOSS.centerx)
+        print(f"[ARENA-AI DEBUG] F{_dbg_frame} 🎯 future_x={future_x:.0f} BOSS.cx={BOSS.centerx:.0f} "
+              f"거리={_dbg_dist:.0f} 공방향={_dbg_ball_dir} ball=({BALL.centerx},{BALL.centery}) "
+              f"vel=({ball_vel[0]:.1f},{ball_vel[1]:.1f}) 모드={_dbg_fail}/{_dbg_confused} "
+              f"fail_timer={boss_fail_timer} config=[fail={enhanced_fail_chance:.2f} pred={enhanced_predict_chance:.2f} err={enhanced_predict_error}]")
     # Check if target is blocked by cracks and adjust if needed
     target_x = future_x
     if 'blacksmith_ground_cracks' in globals() and blacksmith_ground_cracks:
@@ -130730,6 +130783,12 @@ def handle_boss():
         boss_current_speed -= enhanced_instant_stop
     elif effective_target_x > BOSS.centerx and boss_current_speed < 0:
         boss_current_speed += enhanced_instant_stop
+    # 🔍 [DEBUG] 투기장 AI 최종 이동 상태
+    if arena_mode_enabled and _dbg_frame % 30 == 0:
+        _dbg_slow = slow_multiplier if 'slow_multiplier' in dir() else 1.0
+        print(f"[ARENA-AI DEBUG] F{_dbg_frame} 🏃 speed={boss_current_speed:.2f} max={enhanced_max_speed:.2f} "
+              f"accel={enhanced_accel:.3f} target_x={effective_target_x:.0f} BOSS.cx={BOSS.centerx:.0f} "
+              f"slow_mult={_dbg_slow:.2f} arena_confused={arena_confused}")
     # 이동 적용 with ground crack collision check
     proposed_x = BOSS.x + boss_current_speed
     proposed_boss_rect = pygame.Rect(proposed_x, BOSS.y, BOSS.width, BOSS.height)
