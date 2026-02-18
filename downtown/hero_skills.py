@@ -12270,7 +12270,7 @@ class SandPrison(HeroSkill):
     PRISON_HALF_RANGE_MAX = 150  # 최대 ±150px = 300px
 
     BUILD_DURATION = 1.0      # 건설 애니메이션 (초)
-    ACTIVE_DURATION = 1.5     # 실제 이동 제한 시간
+    ACTIVE_DURATION = 2.0     # 실제 이동 제한 시간
     DISSOLVE_DURATION = 1.0   # 해체 애니메이션 (초)
 
     def __init__(self):
