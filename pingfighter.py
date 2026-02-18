@@ -124954,6 +124954,11 @@ def handle_ball():
                 pass
             draw_score()  # 3:0 완승 보너스 메시지도 표시
 
+            # 🔥 기사회생 퍽: 듀스 모드에서도 라운드 종료 시 해제
+            if arena_mode_enabled:
+                _arena_comeback_deactivate(True)
+                _arena_comeback_deactivate(False)
+
             #  Stage 1 듀스 모드 - 타이머 기반으로 변경되어 더 이상 점수 체크하지 않음
             # 기존 코드 주석 처리 (타이머 기반으로 변경)
             # if current_stage == 1 and stage1_events:
@@ -125579,6 +125584,11 @@ def handle_ball():
                         odins_eye.reset_for_new_round()
             except Exception:
                 pass
+
+            # 🔥 기사회생 퍽: 듀스 모드에서도 라운드 종료 시 해제
+            if arena_mode_enabled:
+                _arena_comeback_deactivate(True)
+                _arena_comeback_deactivate(False)
 
             if try_trigger_foul_whistle("deuce"):
                 return
