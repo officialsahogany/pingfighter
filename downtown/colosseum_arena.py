@@ -6346,13 +6346,14 @@ class GuardWarriorSystem:
                 # 듀얼스킬 모드: 각 스킬별 엔트리
                 for si, sk in enumerate(skills):
                     if si < len(dual_cds):
+                        _flash = getattr(sk, 'activation_flash_timer', 0) > 0
                         entries.append({
                             "hero_id": gid,
                             "hero_name": guard.get("name", "?"),
                             "hero_color": guard.get("color", (150, 150, 150)),
                             "cooldown_remaining": max(0.0, dual_cds[si]),
                             "cooldown_max": dual_maxs[si] if si < len(dual_maxs) else 30.0,
-                            "is_active": is_casting and getattr(self.selected_skill_top, 'skill_id', '') == sk.skill_id,
+                            "is_active": _flash,
                             "source_type": "guard",
                             "side": "top",
                             "skill": sk,
@@ -6362,13 +6363,14 @@ class GuardWarriorSystem:
                 # 싱글스킬 모드: 공유 쿨타임
                 cd_rem = max(0.0, self.cooldown_top) if self.phase_top in (None, "patrolling", "patrol_entering") else 0.0
                 cd_max = self.cooldown_max_top if self.cooldown_max_top > 0 else 30.0
+                _flash = getattr(skills[0], 'activation_flash_timer', 0) > 0 if skills else False
                 entries.append({
                     "hero_id": gid,
                     "hero_name": guard.get("name", "?"),
                     "hero_color": guard.get("color", (150, 150, 150)),
                     "cooldown_remaining": cd_rem,
                     "cooldown_max": cd_max,
-                    "is_active": is_casting,
+                    "is_active": _flash,
                     "source_type": "guard",
                     "side": "top",
                     "skill": skills[0] if skills else None,
@@ -6387,13 +6389,14 @@ class GuardWarriorSystem:
             if dual_cds and len(dual_cds) > 1:
                 for si, sk in enumerate(skills):
                     if si < len(dual_cds):
+                        _flash = getattr(sk, 'activation_flash_timer', 0) > 0
                         entries.append({
                             "hero_id": gid,
                             "hero_name": guard.get("name", "?"),
                             "hero_color": guard.get("color", (150, 150, 150)),
                             "cooldown_remaining": max(0.0, dual_cds[si]),
                             "cooldown_max": dual_maxs[si] if si < len(dual_maxs) else 30.0,
-                            "is_active": is_casting and getattr(self.selected_skill_bottom, 'skill_id', '') == sk.skill_id,
+                            "is_active": _flash,
                             "source_type": "guard",
                             "side": "bottom",
                             "skill": sk,
@@ -6402,13 +6405,14 @@ class GuardWarriorSystem:
             else:
                 cd_rem = max(0.0, self.cooldown_bottom) if self.phase_bottom in (None, "patrolling", "patrol_entering") else 0.0
                 cd_max = self.cooldown_max_bottom if self.cooldown_max_bottom > 0 else 30.0
+                _flash = getattr(skills[0], 'activation_flash_timer', 0) > 0 if skills else False
                 entries.append({
                     "hero_id": gid,
                     "hero_name": guard.get("name", "?"),
                     "hero_color": guard.get("color", (150, 150, 150)),
                     "cooldown_remaining": cd_rem,
                     "cooldown_max": cd_max,
-                    "is_active": is_casting,
+                    "is_active": _flash,
                     "source_type": "guard",
                     "side": "bottom",
                     "skill": skills[0] if skills else None,
@@ -11258,7 +11262,7 @@ class ColosseumsArena:
                         "hero_color": hero.get("color", (150, 150, 150)),
                         "cooldown_remaining": max(0.0, sk.current_cooldown),
                         "cooldown_max": sk.cooldown if sk.cooldown > 0 else 20.0,
-                        "is_active": sk.is_active,
+                        "is_active": getattr(sk, 'activation_flash_timer', 0) > 0,
                         "source_type": "hero",
                         "side": side,
                         "skill": sk,

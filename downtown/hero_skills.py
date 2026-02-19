@@ -115,6 +115,7 @@ class HeroSkill:
         self.is_active = False            # 효과 활성화 중
         self.active_timer = 0.0           # 효과 남은 시간
         self.effect_data = {}             # 효과별 추가 데이터
+        self.activation_flash_timer = 0.0 # 발동 이펙트 타이머 (UI 초상화 깜빡임용)
 
     def can_use(self) -> bool:
         """스킬 사용 가능 여부"""
@@ -132,6 +133,7 @@ class HeroSkill:
         else:
             skill_cd_mult = game_state.get('perk_skill_cd_mult_bottom', 1.0)
         self.current_cooldown = self.cooldown * skill_cd_mult
+        self.activation_flash_timer = 1.5  # 발동 이펙트 1.5초
         if self.duration > 0:
             self.is_active = True
             self.active_timer = self.duration
@@ -147,6 +149,10 @@ class HeroSkill:
         # 쿨타임 감소
         if self.current_cooldown > 0:
             self.current_cooldown -= dt
+
+        # 발동 이펙트 타이머 감소
+        if self.activation_flash_timer > 0:
+            self.activation_flash_timer -= dt
 
         # 활성 효과 업데이트
         if self.is_active:
@@ -174,11 +180,13 @@ class HeroSkill:
         self.is_active = False
         self.active_timer = 0.0
         self.effect_data = {}
+        self.activation_flash_timer = 0.0
 
     def reset_for_new_round(self, game_state: dict):
         """라운드 전환 시 스킬 강제 종료 및 상태 초기화
         서브클래스에서 오버라이드하여 추가 정리 작업 수행
         """
+        self.activation_flash_timer = 0.0
         if self.is_active:
             self.is_active = False
             self.active_timer = 0.0
@@ -9210,6 +9218,7 @@ class SkeletonArcher(HeroSkill):
         else:
             skill_cd_mult = game_state.get('perk_skill_cd_mult_bottom', 1.0)
         self.current_cooldown = self.cooldown * skill_cd_mult
+        self.activation_flash_timer = 1.5  # 발동 이펙트 1.5초
 
         # 항상 활성 상태 유지 (궁수가 살아있는 동안)
         self.is_active = True
@@ -10173,6 +10182,7 @@ class BoneBarrier(HeroSkill):
         else:
             skill_cd_mult = game_state.get('perk_skill_cd_mult_bottom', 1.0)
         self.current_cooldown = self.cooldown * skill_cd_mult
+        self.activation_flash_timer = 1.5  # 발동 이펙트 1.5초
         self.is_active = True
         self.active_timer = self.duration
         return self._apply_effect(caster_paddle, target_paddle, ball, game_state)
