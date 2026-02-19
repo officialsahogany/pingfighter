@@ -8638,7 +8638,7 @@ class ColosseumsArena:
         self._auto_decide_remaining_matches()
 
         self.state = TournamentState.RESULT
-        self.result_display_timer = 180  # 3초
+        self.result_display_timer = 180  # 3초 (패배/결승 시에만 사용)
 
         # 라운드 종료 대사 (30% 확률)
         try:
@@ -8731,6 +8731,24 @@ class ColosseumsArena:
             bgm_manager.play_colosseum_room_bgm()
         except Exception:
             pass
+
+        # 승리 시 RESULT 화면("~강 진출!") 스킵 → 바로 포획/퍽 선택으로 진행
+        # (패배, 결승은 RESULT 화면 그대로 사용)
+        if self.bet_hero and winner == self.bet_hero and self.current_round != TournamentRound.FINAL:
+            if getattr(self, '_last_capture_result', None) is True:
+                target = getattr(self, '_last_capture_target', None)
+                if target:
+                    self.guard_notify_hero = target
+                    self.guard_notify_owner = self.bet_hero
+                    self.guard_notify_timer = 0.0
+                    self.guard_notify_progress = 0.0
+                    bet_id = self.bet_hero["id"] if self.bet_hero else ""
+                    self.guard_notify_total = len(self.guard_warrior_map.get(bet_id, []))
+                    self.state = TournamentState.GUARD_NOTIFY
+                else:
+                    self._start_perk_select()
+            else:
+                self._start_perk_select()
 
     def _auto_decide_remaining_matches(self):
         """현재 라운드의 나머지 경기를 랜덤으로 결정"""
