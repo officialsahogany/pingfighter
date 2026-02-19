@@ -269,11 +269,13 @@ class HenchmanSystem:
                     slot.phase = "exiting"
                     slot.anim_timer = 0.0
 
-        # 스킬 이펙트 업데이트 (활성 스킬만)
+        # 스킬 이펙트 업데이트 (활성 스킬만 + 후처리 필요 스킬)
         game_state = self.skill_manager.game_state if self.skill_manager else {}
         for slot in self.slots:
             skill = slot.skill_instance
-            if skill and skill.is_active:
+            if not skill:
+                continue
+            if skill.is_active:
                 try:
                     guard_paddle = _GuardPaddle(slot.x, slot.y)
                     skill.update(dt, guard_paddle, top_paddle, ball, game_state)
@@ -282,6 +284,26 @@ class HenchmanSystem:
                     # is_active = False 처리가 누락될 수 있으므로 수동 체크
                     if skill.active_timer <= 0:
                         skill.is_active = False
+            else:
+                # 비활성 스킬도 dying_clones 등 후처리가 필요한 경우 업데이트
+                # (ShadowClone 등 소멸 애니메이션이 is_active=False 후에도 필요)
+                if hasattr(skill, 'dying_clones') and skill.dying_clones:
+                    try:
+                        skill.update(dt, _GuardPaddle(slot.x, slot.y),
+                                     top_paddle, ball, game_state)
+                    except Exception:
+                        pass
+
+        # 스킬 업데이트 후 casting 상태 재검증:
+        # 스킬이 이 프레임에서 비활성화되었으면 즉시 exiting으로 전환
+        # (다음 프레임까지 기다리지 않음)
+        for slot in self.slots:
+            if slot.phase == "casting":
+                skill = slot.skill_instance
+                skill_done = (not skill.is_active) if skill else True
+                if skill_done and slot.anim_timer >= HENCH_CAST_DURATION:
+                    slot.phase = "exiting"
+                    slot.anim_timer = 0.0
 
         # boss_effects 추출
         return self._extract_boss_effects(ball)
@@ -314,6 +336,21 @@ class HenchmanSystem:
         """시전 포즈 (스킬 실행 중)"""
         skill = slot.skill_instance
         skill_done = (not skill.is_active) if skill else True
+
+        # 스킬 타이머 직접 체크: active_timer가 만료되었으면 즉시 종료 처리
+        # (스킬의 update()가 is_active=False를 설정하기 전에 먼저 감지)
+        if not skill_done and skill:
+            timer = getattr(skill, 'active_timer', None)
+            if timer is not None and timer <= 0:
+                try:
+                    gs = self.skill_manager.game_state if self.skill_manager else {}
+                    skill._end_effect(None, None, None, gs)
+                except Exception:
+                    pass
+                skill.is_active = False
+                if hasattr(skill, 'possessed_skill') and skill.possessed_skill:
+                    skill.possessed_skill.is_active = False
+                skill_done = True
 
         # 안전 타임아웃: skill.duration 또는 실제 active_timer 중 큰 값 + 여유
         actual_duration = 0.0
@@ -574,13 +611,15 @@ class HenchmanSystem:
 
         for slot in self.slots:
             skill = slot.skill_instance
-            # 스킬 이펙트 그리기 (활성 상태)
-            if skill and skill.is_active:
-                try:
-                    guard_paddle = _GuardPaddle(slot.x, slot.y)
-                    skill.draw(screen, guard_paddle, top_paddle, ball, game_state)
-                except Exception:
-                    pass
+            # 스킬 이펙트 그리기 (활성 상태 또는 소멸 애니메이션 잔존)
+            if skill:
+                has_dying = hasattr(skill, 'dying_clones') and skill.dying_clones
+                if skill.is_active or has_dying:
+                    try:
+                        guard_paddle = _GuardPaddle(slot.x, slot.y)
+                        skill.draw(screen, guard_paddle, top_paddle, ball, game_state)
+                    except Exception:
+                        pass
 
             # 캐릭터 그리기 (페이즈 활성 시)
             if slot.phase is not None:
