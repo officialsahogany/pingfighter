@@ -2475,6 +2475,10 @@ class GuardWarriorSystem:
         self._bubble_bottom = None
         self._bubble_duration = 2.0  # 말풍선 표시 시간 (초)
 
+        # 호위무사 등장 대사 (인게임 호위무사에서 전달)
+        self._entrance_guard_line_top = None
+        self._entrance_guard_line_bottom = None
+
         # 2번째 호위무사 독립 순찰 (승급 등으로 2명일 때)
         # 구조: _charmed 와 동일 - {'guard': hero_dict, 'x': float, 'y': float, ...}
         self._patrol2_top = None
@@ -2614,6 +2618,15 @@ class GuardWarriorSystem:
             # 다음 호위무사 인덱스 갱신
             if len(self.guard_warriors_top) > 1:
                 self.next_guard_top_idx = random.randint(0, len(self.guard_warriors_top) - 1)
+            # 등장 대사 자동 설정 (외부에서 설정하지 않은 경우)
+            if not self._entrance_guard_line_top:
+                try:
+                    from game_mechanics.ingame_bodyguard import GUARD_ENTRANCE_LINES
+                    entrance = GUARD_ENTRANCE_LINES.get(guard["id"])
+                    if entrance:
+                        self._entrance_guard_line_top = random.choice(entrance["guard_lines"])
+                except Exception:
+                    pass
             print(f"[Guard] 상단측 호위무사 {guard['name']} 순찰 등장 예약! ({self.PATROL_ENTRY_DELAY}초 후 입장)")
 
             # 2번째 호위무사 동시 등장 (2명 이상일 때)
@@ -2642,6 +2655,15 @@ class GuardWarriorSystem:
                     extra_delay=self.PATROL_ENTRY_DELAY + GUARD_ENTER_DURATION)
             if len(self.guard_warriors_bottom) > 1:
                 self.next_guard_bottom_idx = random.randint(0, len(self.guard_warriors_bottom) - 1)
+            # 등장 대사 자동 설정 (외부에서 설정하지 않은 경우)
+            if not self._entrance_guard_line_bottom:
+                try:
+                    from game_mechanics.ingame_bodyguard import GUARD_ENTRANCE_LINES
+                    entrance = GUARD_ENTRANCE_LINES.get(guard["id"])
+                    if entrance:
+                        self._entrance_guard_line_bottom = random.choice(entrance["guard_lines"])
+                except Exception:
+                    pass
             print(f"[Guard] 하단측 호위무사 {guard['name']} 순찰 등장 예약! ({self.PATROL_ENTRY_DELAY}초 후 입장)")
 
             # 2번째 호위무사 동시 등장 (2명 이상일 때)
@@ -4062,6 +4084,26 @@ class GuardWarriorSystem:
                     self.anim_timer_bottom = 0.0
                 if guard:
                     print(f"[Guard] {'상단' if is_top else '하단'}측 호위무사 {guard['name']} 순찰 시작!")
+                    # 💬 호위무사 등장 대사 말풍선 (입장 완료 시 표시)
+                    entrance_line = (self._entrance_guard_line_top if is_top
+                                     else self._entrance_guard_line_bottom)
+                    if entrance_line:
+                        bubble_color = guard.get("color") or (200, 200, 200)
+                        if not isinstance(bubble_color, (tuple, list)) or len(bubble_color) < 3:
+                            bubble_color = (200, 200, 200)
+                        bubble_data = {
+                            'text': entrance_line,
+                            'timer': 3.0,  # 3초간 표시
+                            'color': bubble_color,
+                            'is_entrance': True,  # 등장 대사 (둥근 말풍선)
+                        }
+                        if is_top:
+                            self._bubble_top = bubble_data
+                            self._entrance_guard_line_top = None  # 1회만
+                        else:
+                            self._bubble_bottom = bubble_data
+                            self._entrance_guard_line_bottom = None  # 1회만
+                        print(f"[Guard] 호위무사 등장 대사: {entrance_line}")
             return
 
         # 순찰 모드: 진영 내 이동 + 쿨타임 동시 진행
@@ -5635,8 +5677,13 @@ class GuardWarriorSystem:
                 by = self.y_top + shake_y + 15
             timer = self._bubble_top['timer']
             theme = self._bubble_top.get('color', (200, 100, 60))
-            self._draw_guard_shout_bubble(screen, bx, by, self._bubble_top['text'],
-                                          timer, theme)
+            if self._bubble_top.get('is_entrance'):
+                self._draw_guard_round_bubble(screen, bx, by,
+                                              self._bubble_top['text'],
+                                              timer, theme, is_top=True)
+            else:
+                self._draw_guard_shout_bubble(screen, bx, by, self._bubble_top['text'],
+                                              timer, theme)
 
         # 하단측 호위무사 말풍선 (캐릭터 위)
         if (self._bubble_bottom and self._bubble_bottom['timer'] > 0
@@ -5649,8 +5696,15 @@ class GuardWarriorSystem:
                 by = self.y_bottom + shake_y - 50
             timer = self._bubble_bottom['timer']
             theme = self._bubble_bottom.get('color', (200, 100, 60))
-            self._draw_guard_shout_bubble(screen, bx, by, self._bubble_bottom['text'],
-                                          timer, theme)
+            # 등장 대사는 둥근 말풍선으로 표시
+            if self._bubble_bottom.get('is_entrance'):
+                self._draw_guard_round_bubble(screen, bx, by,
+                                              self._bubble_bottom['text'],
+                                              timer, theme, is_top=False)
+            else:
+                self._draw_guard_shout_bubble(screen, bx, by,
+                                              self._bubble_bottom['text'],
+                                              timer, theme)
 
     def _draw_guard_shout_bubble(self, screen, x, y, text, timer, theme_color):
         """호위무사 외침 풍선 렌더링 (뾰족한 스타버스트 - 영웅 스킬 발동과 동일)"""
@@ -5756,6 +5810,72 @@ class GuardWarriorSystem:
             screen.blit(bubble_surface, (blit_x, blit_y))
         except Exception as e:
             print(f"[Guard] bubble render error: {e}")
+
+    def _draw_guard_round_bubble(self, screen, x, y, text, timer, theme_color, is_top=False):
+        """호위무사 등장 대사 둥근 말풍선 렌더링"""
+        try:
+            if not isinstance(theme_color, (tuple, list)) or len(theme_color) < 3:
+                theme_color = (200, 200, 200)
+            font = self._get_guard_korean_font(18)
+            text_surface = font.render(text, True, (40, 40, 40))
+            text_w = text_surface.get_width()
+            text_h = text_surface.get_height()
+
+            pad_x, pad_y = 16, 10
+            bw = text_w + pad_x * 2
+            bh = text_h + pad_y * 2
+            tail_h = 10
+
+            # 페이드 효과 (마지막 0.8초)
+            alpha = 255
+            if timer < 0.8:
+                alpha = int(255 * (timer / 0.8))
+
+            surf_h = bh + tail_h + 4
+            bubble_surface = pygame.Surface((bw + 4, surf_h), pygame.SRCALPHA)
+
+            # 그림자
+            shadow_r = 8
+            pygame.draw.rect(bubble_surface, (0, 0, 0, int(40 * alpha / 255)),
+                             (3, 3, bw, bh), border_radius=shadow_r)
+
+            # 배경 (흰색)
+            pygame.draw.rect(bubble_surface, (255, 255, 255, alpha),
+                             (0, 0, bw, bh), border_radius=shadow_r)
+
+            # 테두리 (영웅 테마 색상)
+            border_c = (theme_color[0], theme_color[1], theme_color[2], alpha)
+            pygame.draw.rect(bubble_surface, border_c,
+                             (0, 0, bw, bh), 2, border_radius=shadow_r)
+
+            # 꼬리 (아래쪽 - 캐릭터를 가리킴)
+            tail_x = bw // 2
+            tail_pts = [
+                (tail_x - 6, bh - 1),
+                (tail_x + 6, bh - 1),
+                (tail_x, bh + tail_h)
+            ]
+            pygame.draw.polygon(bubble_surface, (255, 255, 255, alpha), tail_pts)
+            pygame.draw.lines(bubble_surface, border_c, False,
+                              [(tail_x - 6, bh - 1), (tail_x, bh + tail_h),
+                               (tail_x + 6, bh - 1)], 2)
+
+            # 텍스트
+            if alpha < 255:
+                text_surface.set_alpha(alpha)
+            bubble_surface.blit(text_surface, (pad_x, pad_y - 2))
+
+            # 살짝 떠다니는 효과
+            float_offset = _sin(timer * 4.0) * 2
+
+            # 화면에 그리기
+            blit_x = int(x - bw // 2)
+            blit_y = int(y + float_offset) - surf_h
+            blit_x = max(GAME_AREA_X + 5, min(blit_x, GAME_AREA_X + GAME_AREA_WIDTH - bw - 5))
+            blit_y = max(5, blit_y)
+            screen.blit(bubble_surface, (blit_x, blit_y))
+        except Exception as e:
+            print(f"[Guard] round bubble render error: {e}")
 
     # 인게임 영웅 렌더링 기준 너비 130의 90% (호위무사는 영웅보다 10% 작게)
     _GUARD_RENDER_WIDTH = 117

@@ -90508,6 +90508,8 @@ def draw_objects():
             _bodyguard = get_bodyguard()
             if _bodyguard.active:
                 _bodyguard.draw(SCREEN, boss_rect=BOSS, player_rect=PLAYER, ball_rect=BALL)
+                # 💬 영웅 등장 대사 말풍선 (호위무사 등장 전 표시)
+                _bodyguard.draw_entrance_speech(SCREEN, PLAYER)
         except Exception:
             pass
 

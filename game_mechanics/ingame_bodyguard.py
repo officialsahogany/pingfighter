@@ -36,6 +36,207 @@ HERO_DISPLAY_INFO = {
     "kurokage": {"name": "쿠로카게","skill": "그림자분신",   "color": (50, 50, 70)},
 }
 
+# ── 호위무사 등장 대사 ──
+# hero_lines: 호위무사 등장 전 영웅이 먼저 하는 대사
+# guard_lines: 호위무사가 화면에 진입 완료 후 하는 대사
+GUARD_ENTRANCE_LINES = {
+    # ─── 무겐 (귀검사) : 냉철하고 과묵한 검사 ───
+    "mugen": {
+        "hero_lines": [
+            "감옥에서 갈고닦은 검기... 보여줄 차례다.",
+            "내 그림자가 움직인다.",
+            "어둠의 검이여... 나타나라.",
+        ],
+        "guard_lines": [
+            "...명에 따르겠습니다.",
+            "어둠 속에서 주군을 지키겠습니다.",
+            "검에 맹세하여, 호위하겠습니다.",
+        ],
+    },
+    # ─── 크라켄 (심해의 포식자) : 기괴하고 탐욕스러운 ───
+    "kraken": {
+        "hero_lines": [
+            "배고프다... 먹잇감을 불러줘.",
+            "촉수가 떨려... 누가 올 거야.",
+            "심해에서 뭔가 올라오고 있어... 흐흐.",
+        ],
+        "guard_lines": [
+            "크르르... 배가 고프군.",
+            "먹잇감의 냄새가 나... 흐흐.",
+            "심해의 촉수가 도와주지.",
+        ],
+    },
+    # ─── 키르케 (흑마녀) : 오만하고 우아한 ───
+    "chronos": {
+        "hero_lines": [
+            "후후, 하인을 불러볼까.",
+            "본 마녀의 종이 올 시간이야.",
+            "흑마법으로 소환한 충실한 수하야.",
+        ],
+        "guard_lines": [
+            "마녀님의 명에 따릅니다.",
+            "흑마법의 힘이 함께합니다.",
+            "주인님을 위해 싸우겠습니다.",
+        ],
+    },
+    # ─── 오니마루 (요괴무사) : 호쾌하고 전투광 ───
+    "onimaru": {
+        "hero_lines": [
+            "좋다! 든든한 놈이 오고 있다!",
+            "하하! 동료가 합류한다!",
+            "지옥에서 데려온 녀석이지!",
+        ],
+        "guard_lines": [
+            "뿔의 힘으로 호위하겠습니다!",
+            "전장에 왔다! 같이 싸우자!",
+            "오니의 맹세로, 지켜드리겠습니다!",
+        ],
+    },
+    # ─── 연화 (인형사) : 소름끼치고 장난스러운 ───
+    "maria": {
+        "hero_lines": [
+            "히히... 인형이 하나 더 움직이네.",
+            "새 친구가 오고 있어~",
+            "실을 당기면... 나타날 거야.",
+        ],
+        "guard_lines": [
+            "인형의 실에 이끌려 왔어요... 히히.",
+            "주인님의 인형이 되어드릴게요~",
+            "같이 놀아줄게... 후후.",
+        ],
+    },
+    # ─── 이그니스 (드래곤 나이트) : 열혈 전사 ───
+    "ignis": {
+        "hero_lines": [
+            "불꽃의 원군이 온다! 하하!",
+            "내 전우가 합류한다!",
+            "드래곤의 동지여, 나타나라!",
+        ],
+        "guard_lines": [
+            "불꽃의 맹세로 호위하겠습니다!",
+            "내가 있으니 든든하지? 하하!",
+            "함께 싸우자! 용기사의 이름으로!",
+        ],
+    },
+    # ─── 마리 (스팀펑크 메카닉) : 발명가 기질, 자기 기계에 대한 자부심 ───
+    "gear": {
+        "hero_lines": [
+            "내가 만든 작품이 도착했어!",
+            "증기 충전 완료! 원군 투입~!",
+            "후후, 내 신작이 출격한다!",
+        ],
+        "guard_lines": [
+            "기어 풀가동! 호위 시작합니다!",
+            "최선을 다해 호위하겠습니다!",
+            "스팀 파워로 지켜드릴게요!",
+        ],
+    },
+    # ─── 쿠로카게 (그림자 닌자) : 과묵하고 냉정한 ───
+    "kurokage": {
+        "hero_lines": [
+            "...그림자가 하나 더 움직인다.",
+            "닌자는 혼자 싸우지 않는다.",
+            "...원군이다.",
+        ],
+        "guard_lines": [
+            "...임무를 수행합니다.",
+            "그림자처럼 호위하겠습니다.",
+            "주인님을 보호하라... 그것이 임무.",
+        ],
+    },
+    # ─── 벤시 (유령 여왕) : 서늘하고 기품 있는 유령 ───
+    "banshee": {
+        "hero_lines": [
+            "...차가운 바람이 불어온다.",
+            "유령 하나가 더 깨어났어.",
+            "한이 서린 영혼이 움직이는군...",
+        ],
+        "guard_lines": [
+            "원한의 힘으로... 지켜드리겠습니다.",
+            "유령은 사라지지 않아... 여기서 호위할게.",
+            "차가운 비명으로 적을 쫓아드리죠.",
+        ],
+    },
+    # ─── 네크로 (강령술사) : 차분하고 으스스한 강령술사 ───
+    "necro": {
+        "hero_lines": [
+            "영혼들이여... 소환에 응하라.",
+            "죽음의 군단에서 하나를 불러내지.",
+            "저승에서 동지가 온다...",
+        ],
+        "guard_lines": [
+            "망자의 충성을... 바칩니다.",
+            "저승에서 왔습니다. 호위하겠습니다.",
+            "죽음의 손길로 적을 막겠습니다.",
+        ],
+    },
+    # ─── 조커 (광대) : 장난기 넘치고 도발적인 광대 ───
+    "joker": {
+        "hero_lines": [
+            "자~ 서프라이즈 게스트 등장~!",
+            "하하! 쇼에 조수가 필요하지!",
+            "땡! 비밀 게스트 공개~!",
+        ],
+        "guard_lines": [
+            "서프라이즈~! 내가 왔다!",
+            "하하! 쇼를 도와줄게~!",
+            "최고의 조수가 등장이다! 짜잔~!",
+        ],
+    },
+    # ─── 세트 (사막의 환술사) : 신비롭고 차분한 사막 현자 ───
+    "mirage": {
+        "hero_lines": [
+            "모래바람 속에서 무언가 다가온다...",
+            "사막의 신기루가 형체를 갖추는군.",
+            "환영이 아니다... 진짜 동지야.",
+        ],
+        "guard_lines": [
+            "사막의 모래가 보낸 호위입니다.",
+            "신기루처럼 나타나 적을 막겠습니다.",
+            "모래바람의 가호가 함께합니다.",
+        ],
+    },
+    # ─── 안드로이드 (기계 전사) : 감정을 흉내내려 하지만 어색한 로봇 ───
+    "android": {
+        "hero_lines": [
+            "호위 유닛 기동 확인.",
+            "지원 병기 투입 승인.",
+            "...증원입니다. 전투력 상승.",
+        ],
+        "guard_lines": [
+            "호위 모드 기동. ...든든합니까?",
+            "보호 프로토콜 실행합니다.",
+            "전투 지원 개시. 이상 없음.",
+        ],
+    },
+    # ─── 호루스 (천둥의 매) : 위엄 있고 냉철한 번개의 지배자 ───
+    "ra": {
+        "hero_lines": [
+            "번개의 사자가 내려온다.",
+            "뇌운이 몰려오고 있다... 동지여.",
+            "하늘의 매가 원군을 보냈다.",
+        ],
+        "guard_lines": [
+            "번개의 힘으로 호위하겠습니다.",
+            "뇌신의 명으로, 적을 심판합니다.",
+            "하늘에서 내려온 수호자입니다.",
+        ],
+    },
+    # ─── 원숭이왕 (밀림의 패왕) : 의성어만 가능 ───
+    "monkeyking": {
+        "hero_lines": [
+            "우끼끼!! 우끼끼끼!!",
+            "끼끼끽! 우끼~!",
+            "우키키!! 끼끽!!",
+        ],
+        "guard_lines": [
+            "우끼끼~! 우끽!",
+            "끼끼! 끼끼끼!",
+            "우끼!! 우키키키!",
+        ],
+    },
+}
+
 
 class _MinimalSkillManager:
     """GuardWarriorSystem이 요구하는 최소한의 skill_manager 인터페이스"""
@@ -94,11 +295,30 @@ class InGameBodyguard:
         self._guard_system = None   # GuardWarriorSystem 인스턴스
         self._skill_manager = None  # 최소 skill_manager
         self._hero_paddle_renderer = None
+        # 등장 대사 시스템
+        self._entrance_hero_line = None     # 영웅 등장 전 대사 텍스트
+        self._entrance_hero_timer = 0.0     # 영웅 대사 표시 타이머 (초)
+        self._entrance_guard_line = None    # 호위무사 등장 후 대사 텍스트 (예약)
+        self._entrance_hero_color = (255, 255, 255)  # 영웅 대사 색상
 
     def setup(self, hero_data: dict):
         """호위무사 설정 (투기장 우승 후 등용된 영웅)"""
         self.hero_data = hero_data
         self.active = True
+
+        # 등장 대사 설정 (영웅이 먼저 말하고, 호위무사가 등장 후 말함)
+        hero_id = hero_data.get("id", "")
+        entrance = GUARD_ENTRANCE_LINES.get(hero_id)
+        if entrance:
+            self._entrance_hero_line = random.choice(entrance["hero_lines"])
+            self._entrance_guard_line = random.choice(entrance["guard_lines"])
+            self._entrance_hero_timer = 3.0  # 3초간 영웅 대사 표시
+            self._entrance_hero_color = hero_data.get("color", (255, 255, 255))
+            print(f"[Bodyguard] 영웅 등장 대사: {self._entrance_hero_line}")
+        else:
+            self._entrance_hero_line = None
+            self._entrance_guard_line = None
+            self._entrance_hero_timer = 0.0
 
         # 패들 렌더러 초기화
         try:
@@ -123,6 +343,9 @@ class InGameBodyguard:
                 guards_bottom=[hero_data],    # 하단(플레이어 측)에 배치
                 initial_delay=(12.0, 18.0),
             )
+            # 호위무사 등장 대사 전달 (입장 완료 시 말풍선으로 표시)
+            if self._entrance_guard_line:
+                self._guard_system._entrance_guard_line_bottom = self._entrance_guard_line
             # 순찰 모드 즉시 시작 (기본 동작: 맵에서 상시 순찰)
             self._guard_system.activate_patrol_immediate()
             print(f"[Bodyguard] 호위무사 설정 완료 (GuardWarriorSystem): "
@@ -141,6 +364,10 @@ class InGameBodyguard:
         self.active = False
         self._guard_system = None
         self._skill_manager = None
+        # 등장 대사 초기화
+        self._entrance_hero_line = None
+        self._entrance_hero_timer = 0.0
+        self._entrance_guard_line = None
 
     def update(self, dt: float, boss_rect=None, player_rect=None,
                ball_rect=None, ball_vx=0, ball_vy=0) -> dict:
@@ -155,6 +382,10 @@ class InGameBodyguard:
         """
         if not self.active or not self._guard_system:
             return {}
+
+        # 영웅 등장 대사 타이머 감소
+        if self._entrance_hero_timer > 0:
+            self._entrance_hero_timer -= dt
 
         # Rect → 프록시 패들/공 변환
         top_paddle = _PaddleProxy(boss_rect, is_top=True) if boss_rect else None
@@ -271,6 +502,81 @@ class InGameBodyguard:
             game_offset_y=game_offset_y,
             game_scale=game_scale,
         )
+
+    def draw_entrance_speech(self, screen, player_rect):
+        """영웅의 등장 전 대사 말풍선 그리기 (플레이어 패들 위에 표시)"""
+        if not self._entrance_hero_line or self._entrance_hero_timer <= 0:
+            return
+        if not pygame or not player_rect:
+            return
+
+        try:
+            import pygame.freetype as _ft
+
+            text = self._entrance_hero_line
+            color = self._entrance_hero_color
+            if not isinstance(color, (tuple, list)) or len(color) < 3:
+                color = (255, 255, 255)
+
+            # 폰트 로드
+            font = None
+            try:
+                font_path = os.path.join(
+                    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                    "fonts", "NanumSquareB.ttf"
+                )
+                font = _ft.Font(font_path, 16)
+            except Exception:
+                font = _ft.SysFont("", 16)
+            if not font:
+                return
+
+            text_surf, text_rect = font.render(text, (0, 0, 0))
+            tw, th = text_surf.get_size()
+            padding = 12
+
+            # 말풍선 크기
+            bw = tw + padding * 2
+            bh = th + padding
+            # 위치: 플레이어 패들 위 (80px 위)
+            bx = int(player_rect.centerx - bw // 2)
+            by = int(player_rect.top - 80)
+            # 화면 경계 보정
+            bx = max(GAME_AREA_X + 4, min(bx, GAME_AREA_X + GAME_AREA_WIDTH - bw - 4))
+            by = max(4, by)
+
+            # 페이드 효과 (마지막 0.5초 페이드아웃)
+            alpha = 255
+            if self._entrance_hero_timer < 0.5:
+                alpha = int(255 * (self._entrance_hero_timer / 0.5))
+
+            # 말풍선 배경 Surface
+            bubble_surf = pygame.Surface((bw, bh), pygame.SRCALPHA)
+            # 둥근 모서리 말풍선 배경
+            r = 10
+            pygame.draw.rect(bubble_surf, (255, 255, 255, alpha), (0, 0, bw, bh), border_radius=r)
+            # 테두리
+            border_c = (min(255, color[0] + 30), min(255, color[1] + 30), min(255, color[2] + 30), alpha)
+            pygame.draw.rect(bubble_surf, border_c, (0, 0, bw, bh), 2, border_radius=r)
+
+            # 말풍선 꼬리 (아래쪽)
+            tail_x = bw // 2
+            tail_pts = [(tail_x - 6, bh - 1), (tail_x + 6, bh - 1), (tail_x, bh + 8)]
+            pygame.draw.polygon(bubble_surf, (255, 255, 255, alpha), tail_pts)
+            pygame.draw.lines(bubble_surf, border_c, False,
+                              [(tail_x - 6, bh - 1), (tail_x, bh + 8), (tail_x + 6, bh - 1)], 2)
+
+            screen.blit(bubble_surf, (bx, by))
+
+            # 텍스트 (페이드 적용)
+            if alpha < 255:
+                text_surf_a, _ = font.render(text, (0, 0, 0, alpha))
+                screen.blit(text_surf_a, (bx + padding, by + padding // 2))
+            else:
+                screen.blit(text_surf, (bx + padding, by + padding // 2))
+
+        except Exception as e:
+            print(f"[Bodyguard] 등장 대사 렌더링 오류: {e}")
 
     def reset_active_skills(self):
         """득점 시 호위무사 활성 스킬 리셋"""
