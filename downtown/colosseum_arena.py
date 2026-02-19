@@ -6746,7 +6746,7 @@ class ColosseumsArena:
         self.former_guards = []              # 교체되어 탈락한 호위무사 목록 (우승 연출용)
         self.henchman_list = []              # 하수인 목록 (hero dict 리스트, 라운드 간 유지)
         self.ai_henchman_map = {}            # AI 하수인: hero_id → [hero dict] (4강/결승 AI 전용)
-        self.guard_loyalty_cd_bonus = {}     # hero_id -> int (기존 호위무사 유지 횟수, 1회당 -10% 쿨타임)
+        self.guard_loyalty_cd_bonus = {}     # hero_id -> int (기존 호위무사 유지 횟수, 1회당 -5% 쿨타임)
         self.guard_warriors_top = []         # 현재 배틀 상단 영웅의 호위무사들
         self.guard_warriors_bottom = []      # 현재 배틀 하단 영웅의 호위무사들
         # 쿨타임
@@ -14391,10 +14391,10 @@ class ColosseumsArena:
                 mults["theft"] = val
             elif etype == "comeback":
                 mults["comeback"] = val
-        # 충성 보너스: 기존 호위무사 유지 시 쿨타임 -10% 누적
+        # 충성 보너스: 기존 호위무사 유지 시 쿨타임 -5% 누적
         loyalty_count = self.guard_loyalty_cd_bonus.get(hero_id, 0)
         if loyalty_count > 0:
-            mults["guard_cooldown"] -= 0.10 * loyalty_count
+            mults["guard_cooldown"] -= 0.05 * loyalty_count
         return mults
 
     def _draw_perk_icon_swift_foot(self, surf, cx, cy, r, ss):
@@ -17488,18 +17488,18 @@ class ColosseumsArena:
         self.guard_select_chosen = index
         print(f"[Guard] 호위무사 선택 완료: {selected['name']} (탈락: {[g['name'] for g in dropped_guards]})")
 
-        # 충성 보너스 (기존 호위무사 유지 시 쿨타임 -10% 누적)
+        # 충성 보너스 (기존 호위무사 유지 시 쿨타임 -5% 누적)
         if index == new_idx:
             # 신규 호위무사로 교체 → 충성 보너스 초기화
             self.guard_loyalty_cd_bonus[bet_id] = 0
             print(f"[Guard] 호위무사 교체 → 충성 보너스 초기화 (쿨타임 보너스: 0%)")
         else:
-            # 기존 호위무사 유지 → 충성 보너스 +10% 누적
+            # 기존 호위무사 유지 → 충성 보너스 +5% 누적
             prev_bonus = self.guard_loyalty_cd_bonus.get(bet_id, 0)
             self.guard_loyalty_cd_bonus[bet_id] = prev_bonus + 1
             new_bonus = self.guard_loyalty_cd_bonus[bet_id]
-            print(f"[Guard] 기존 호위무사 유지 → 충성 보너스 +10% "
-                  f"(누적: -{new_bonus * 10}% 쿨타임 감소)")
+            print(f"[Guard] 기존 호위무사 유지 → 충성 보너스 +5% "
+                  f"(누적: -{new_bonus * 5}% 쿨타임 감소)")
 
         # 신규/기존 모두 원래 배정된 스킬 유지 (랜덤 재배정 없음)
         if index == new_idx:
@@ -17687,9 +17687,9 @@ class ColosseumsArena:
                 if idx != new_idx:
                     bet_id = self.bet_hero["id"] if self.bet_hero else ""
                     loyalty_count = self.guard_loyalty_cd_bonus.get(bet_id, 0)
-                    next_bonus = (loyalty_count + 1) * 10  # 선택 시 받을 보너스
+                    next_bonus = (loyalty_count + 1) * 5  # 선택 시 받을 보너스
                     if loyalty_count > 0:
-                        bonus_text = f"쿨타임 -{loyalty_count * 10}% (유지 시 -{next_bonus}%)"
+                        bonus_text = f"쿨타임 -{loyalty_count * 5}% (유지 시 -{next_bonus}%)"
                     else:
                         bonus_text = f"유지 시 쿨타임 -{next_bonus}%"
                     bonus_color = (100, 220, 160)
@@ -17975,7 +17975,7 @@ class ColosseumsArena:
                 # 충성 보너스 리셋 경고
                 loyalty_count = self.guard_loyalty_cd_bonus.get(bet_id_for_dialog, 0)
                 if loyalty_count > 0:
-                    warn_line = f"충성 보너스 (쿨타임 -{loyalty_count * 10}%)가 초기화됩니다!"
+                    warn_line = f"충성 보너스 (쿨타임 -{loyalty_count * 5}%)가 초기화됩니다!"
                     ws, _ = self.fonts["small"].render(warn_line, (255, 100, 100))
                     self.screen.blit(ws, (cx - ws.get_width() // 2, cur_y))
                     cur_y += 23
