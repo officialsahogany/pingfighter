@@ -118778,14 +118778,13 @@ def _update_arena_capture_phase(screen):
         except Exception:
             pass
 
-        # 조작 안내 텍스트 (처음 2.5초간 자연스럽게 페이드인/아웃, 배경 없음)
+        # 조작 안내 큰 문구 (처음 2.5초간 자연스럽게 페이드인/아웃)
         _hint_t = arena_capture_timer
-        _HINT_FADE_IN = 0.3    # 페이드인 시간
-        _HINT_HOLD = 1.8       # 유지 시간
-        _HINT_FADE_OUT = 0.4   # 페이드아웃 시간
-        _HINT_TOTAL = _HINT_FADE_IN + _HINT_HOLD + _HINT_FADE_OUT  # = 2.5초
+        _HINT_FADE_IN = 0.3
+        _HINT_HOLD = 1.8
+        _HINT_FADE_OUT = 0.4
+        _HINT_TOTAL = _HINT_FADE_IN + _HINT_HOLD + _HINT_FADE_OUT
         if _hint_t < _HINT_TOTAL:
-            # 알파 계산: 페이드인 → 유지 → 페이드아웃
             if _hint_t < _HINT_FADE_IN:
                 _hint_alpha = int(255 * (_hint_t / _HINT_FADE_IN))
             elif _hint_t < _HINT_FADE_IN + _HINT_HOLD:
@@ -118794,22 +118793,27 @@ def _update_arena_capture_phase(screen):
                 _hint_alpha = int(255 * (1.0 - (_hint_t - _HINT_FADE_IN - _HINT_HOLD) / _HINT_FADE_OUT))
             _hint_alpha = max(0, min(255, _hint_alpha))
             try:
-                _hint_font = getattr(_update_arena_capture_phase, '_ui_font', None)
-                if _hint_font:
-                    _hint_cy = 340
-                    _hint_layer = pygame.Surface((400, 80), pygame.SRCALPHA)
-
-                    _h1s, _h1r = _hint_font.render("◀  A / D  ▶   이동", (255, 255, 255))
-                    _hint_layer.blit(_h1s, (200 - _h1r.width // 2, 8))
-
-                    _h2s, _h2r = _hint_font.render("마우스 왼쪽 클릭   그물 발사", (255, 220, 100))
-                    _hint_layer.blit(_h2s, (200 - _h2r.width // 2, 35))
-
-                    _h3s, _h3r = _hint_font.render(f"제한시간: {int(time_limit)}초", (255, 120, 120))
-                    _hint_layer.blit(_h3s, (200 - _h3r.width // 2, 58))
-
-                    _hint_layer.set_alpha(_hint_alpha)
-                    screen.blit(_hint_layer, (GAME_CENTER_X - 200, _hint_cy))
+                _hint_big_font = getattr(_update_arena_capture_phase, '_title_font_big', None)
+                if _hint_big_font is None:
+                    font_path = resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"))
+                    try:
+                        _hint_big_font = pygame.freetype.Font(font_path, 24)
+                    except Exception:
+                        _hint_big_font = pygame.freetype.SysFont("malgun gothic", 24)
+                    _update_arena_capture_phase._title_font_big = _hint_big_font
+                if _hint_big_font:
+                    _hint_text = "A/D 키로 움직이면서 마우스를 클릭하여 적을 생포하세요!"
+                    _hs, _hr = _hint_big_font.render(_hint_text, (255, 60, 60))
+                    _hw = _hr.width + 12
+                    _hh = _hr.height + 12
+                    _hint_surf = pygame.Surface((_hw, _hh), pygame.SRCALPHA)
+                    # 외곽선 (가독성)
+                    for _ox, _oy in [(-1,0),(1,0),(0,-1),(0,1)]:
+                        _os, _ = _hint_big_font.render(_hint_text, (0, 0, 0))
+                        _hint_surf.blit(_os, (6 + _ox, 6 + _oy))
+                    _hint_surf.blit(_hs, (6, 6))
+                    _hint_surf.set_alpha(_hint_alpha)
+                    screen.blit(_hint_surf, (GAME_CENTER_X - _hw // 2, 350 - _hh // 2))
             except Exception:
                 pass
 
