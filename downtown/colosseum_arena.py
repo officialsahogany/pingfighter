@@ -16193,14 +16193,6 @@ class ColosseumsArena:
                 surf1.blit(alpha_surf1, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
                 self.screen.blit(surf1, (center_x - surf1.get_width() // 2, hero_y + 100))
 
-            # 호위무사 카운트
-            if "small" in self.fonts and self.guard_notify_total > 0:
-                count_msg = f"현재 호위무사: {self.guard_notify_total}명"
-                surf, _ = self.fonts["small"].render(count_msg, ET["text_body"])
-                alpha_surf = _get_arena_surface(*surf.get_size())
-                alpha_surf.fill((255, 255, 255, text_alpha))
-                surf.blit(alpha_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-                self.screen.blit(surf, (center_x - surf.get_width() // 2, hero_y + 165))
 
         # 장식 파티클 (궤도 도는 금색 스파크)
         if progress > 0.3:
