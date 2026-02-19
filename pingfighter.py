@@ -131452,10 +131452,15 @@ def handle_boss():
         arena_top_confusion_target = 0
         arena_top_confusion_timer = 0
     # 기존 AI 움직임 로직
-    if effective_target_x < BOSS.centerx:
+    _boss_dist = effective_target_x - BOSS.centerx
+    _boss_abs_dist = abs(_boss_dist)
+    # 🏟️ 투기장: 근접 감속 (목표에 가까울수록 자연스럽게 속도 줄임)
+    if arena_mode_enabled and _boss_abs_dist < 12:
+        boss_current_speed *= 0.82  # 마찰 브레이크
+    elif _boss_dist < 0:
         if boss_current_speed > -enhanced_max_speed:
             boss_current_speed -= enhanced_accel
-    elif effective_target_x > BOSS.centerx:
+    elif _boss_dist > 0:
         if boss_current_speed < enhanced_max_speed:
             boss_current_speed += enhanced_accel
     else:
@@ -131463,16 +131468,20 @@ def handle_boss():
             boss_current_speed -= enhanced_decel
         elif boss_current_speed < 0:
             boss_current_speed += enhanced_decel
-    # 급정지 처리
-    if effective_target_x < BOSS.centerx and boss_current_speed > 0:
-        boss_current_speed -= enhanced_instant_stop
-    elif effective_target_x > BOSS.centerx and boss_current_speed < 0:
-        boss_current_speed += enhanced_instant_stop
+    # 급정지 처리 (🏟️ 투기장: 부드러운 방향 전환)
+    _effective_instant_stop = min(enhanced_instant_stop, 0.5) if arena_mode_enabled else enhanced_instant_stop
+    if _boss_dist < 0 and boss_current_speed > 0:
+        boss_current_speed -= _effective_instant_stop
+    elif _boss_dist > 0 and boss_current_speed < 0:
+        boss_current_speed += _effective_instant_stop
     # 최종 속도 클램프 (급정지 후 max_speed 초과 방지)
     if boss_current_speed > enhanced_max_speed:
         boss_current_speed = enhanced_max_speed
     elif boss_current_speed < -enhanced_max_speed:
         boss_current_speed = -enhanced_max_speed
+    # 🏟️ 투기장: 미세 진동 방지
+    if arena_mode_enabled and _boss_abs_dist < 3 and abs(boss_current_speed) < 1.5:
+        boss_current_speed = 0
     # 이동 적용 with ground crack collision check
     proposed_x = BOSS.x + boss_current_speed
     proposed_boss_rect = pygame.Rect(proposed_x, BOSS.y, BOSS.width, BOSS.height)
