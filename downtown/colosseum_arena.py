@@ -3910,6 +3910,12 @@ class GuardWarriorSystem:
                 guard_paddle = top_paddle if is_top_guard else bottom_paddle
             target = bottom_paddle if is_top_guard else top_paddle
             for skill in skills:
+                # 비활성 스킬도 쿨타임 + activation_flash_timer 감소 처리
+                if not skill.is_active:
+                    if skill.current_cooldown > 0:
+                        skill.current_cooldown -= dt
+                    if getattr(skill, 'activation_flash_timer', 0) > 0:
+                        skill.activation_flash_timer -= dt
                 # 유령소환: is_active 꺼져도 dying/particle/teleport 정리를 위해 update 필요
                 _ghost_lingering = (getattr(skill, 'skill_id', '') == 'ghost_summon'
                                     and (skill.dying_ghosts or skill._teleport_effects
