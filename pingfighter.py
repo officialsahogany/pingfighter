@@ -118853,7 +118853,7 @@ def _update_arena_capture_phase(screen):
             PULL_DUR = 1.5        # 본격 끌어오기 소요 시간
             PULL_END = PULL_START + PULL_DUR  # = 2.3
             TEXT_START = 1.5      # 텍스트 표시 시작
-            TOTAL_DUR = 3.8       # 전체 종료
+            TOTAL_DUR = PULL_END + 0.2  # 끌어오기 완료 직후 즉시 전환 (GUARD_NOTIFY 중복 방지)
 
             start_x = arena_capture_pull_start_x
             start_y = arena_capture_pull_start_y
@@ -118996,14 +118996,8 @@ def _update_arena_capture_phase(screen):
                     main_surf.set_alpha(text_alpha)
                     screen.blit(main_surf, (GAME_CENTER_X - 200, int(285 + title_y_off)))
 
-                # "{이름} 영웅을 생포하였습니다!" 서브 텍스트
-                if text_t >= 0.3 and _cap_sub_font:
-                    sub_alpha = min(255, int((text_t - 0.3) / 0.4 * 255))
-                    sub_surf = pygame.Surface((500, 40), pygame.SRCALPHA)
-                    ns, nr = _cap_sub_font.render(f"{top_name} 영웅을 생포하였습니다!", (220, 255, 220))
-                    sub_surf.blit(ns, (250 - nr.width // 2, 20 - nr.height // 2))
-                    sub_surf.set_alpha(sub_alpha)
-                    screen.blit(sub_surf, (GAME_CENTER_X - 250, 345))
+                # "{이름} 영웅을 생포하였습니다!" 서브 텍스트 제거
+                # (GUARD_NOTIFY에서 동일 내용 표시하므로 중복 방지)
 
             # 화면 테두리 펄스 (녹색, 페이드인 적용)
             border_fade = min(1.0, t / FADE_IN_DUR)
