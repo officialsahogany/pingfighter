@@ -451,6 +451,65 @@ def get_style_matchup(style_a: 'HeroStyle', style_b: 'HeroStyle') -> float:
         return -STYLE_MATCHUP_BONUS
     return 0.0
 
+# ============================================================================
+# 영웅 도감 해금 시스템 (Hero Dex Unlock System)
+# - 영웅을 직접 선택하거나 감옥에서 호위무사로 선택해야 도감에서 볼 수 있음
+# ============================================================================
+_HERO_DEX_SAVE_FILE = "arena_hero_dex.json"
+_unlocked_hero_ids: set = set()
+_hero_dex_loaded = False
+
+def _get_hero_dex_path() -> str:
+    """세이브 파일 경로 반환"""
+    try:
+        if hasattr(sys, '_MEIPASS'):
+            base = os.path.dirname(sys.executable)
+        else:
+            base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(base, _HERO_DEX_SAVE_FILE)
+    except Exception:
+        return _HERO_DEX_SAVE_FILE
+
+def _load_hero_dex():
+    """영웅 도감 해금 데이터 로드"""
+    global _unlocked_hero_ids, _hero_dex_loaded
+    if _hero_dex_loaded:
+        return
+    _hero_dex_loaded = True
+    try:
+        import json as _json
+        path = _get_hero_dex_path()
+        if os.path.exists(path):
+            with open(path, 'r', encoding='utf-8') as f:
+                data = _json.load(f)
+            _unlocked_hero_ids = set(data.get("unlocked", []))
+    except Exception as e:
+        print(f"[hero_dex] load failed: {e}")
+
+def _save_hero_dex():
+    """영웅 도감 해금 데이터 저장"""
+    try:
+        import json as _json
+        path = _get_hero_dex_path()
+        with open(path, 'w', encoding='utf-8') as f:
+            _json.dump({"unlocked": sorted(list(_unlocked_hero_ids))}, f, indent=2)
+    except Exception as e:
+        print(f"[hero_dex] save failed: {e}")
+
+def unlock_hero_dex(hero_id: str):
+    """영웅 도감 해금 (선택 또는 감옥 호위무사 선택 시 호출)"""
+    global _unlocked_hero_ids
+    if hero_id and hero_id not in _unlocked_hero_ids:
+        _unlocked_hero_ids.add(hero_id)
+        _save_hero_dex()
+
+def is_hero_unlocked(hero_id: str) -> bool:
+    """영웅이 도감에서 해금되었는지 확인"""
+    return hero_id in _unlocked_hero_ids
+
+# 모듈 로드 시 도감 데이터 로드
+_load_hero_dex()
+
 # 상단 패들 영웅 (hero1 - 화면 위쪽)
 TOP_HEROES = [
     {
@@ -7462,6 +7521,9 @@ class ColosseumsArena:
         self.opponent_hero = opponent_hero
         self.bet_hero = chosen_hero  # 호환성: bet_hero도 설정
 
+        # 영웅 도감 해금
+        unlock_hero_dex(chosen_hero.get("id", ""))
+
         # 공격 퍼포먼스 애니메이션 시작
         # (완료 후 update()에서 SKILL_REVEAL로 전환)
         heroes = [self.selected_match.hero1, self.selected_match.hero2]
@@ -7481,6 +7543,9 @@ class ColosseumsArena:
     def _select_guard(self, guard_hero, prison_index):
         """감옥에서 호위무사 선택 → 철창 열림 애니메이션 시작"""
         self.player_guard = guard_hero
+
+        # 영웅 도감 해금
+        unlock_hero_dex(guard_hero.get("id", ""))
         self.prison_selected = guard_hero
 
         # 나머지 감옥 영웅 배정
@@ -12017,6 +12082,14 @@ class ColosseumsArena:
 
         hover_idx = -1
 
+        # 해금 카운트 표시
+        unlocked_count = sum(1 for h in all_heroes if is_hero_unlocked(h["id"]))
+        total_count = len(all_heroes)
+        if self.fonts and "small" in self.fonts:
+            count_text = f"{unlocked_count}/{total_count}"
+            count_surf, _ = self.fonts["small"].render(count_text, ET.get("gold_medium", (218, 175, 32)))
+            self.screen.blit(count_surf, (SCREEN_WIDTH - count_surf.get_width() - 45, 18))
+
         for i, hero in enumerate(all_heroes):
             col = i % cols
             row = i // cols
@@ -12027,39 +12100,64 @@ class ColosseumsArena:
             if cy + card_h < 0 or cy > SCREEN_HEIGHT:
                 continue
 
+            unlocked = is_hero_unlocked(hero["id"])
+
             # 호버 체크
             is_hovered = (cx <= mx <= cx + card_w and cy <= my <= cy + card_h)
             if is_hovered:
                 hover_idx = i
 
-            # 카드 배경
-            if is_hovered:
-                bg_color = ET["card_bg_hover"]
-                border_color = ET["gold_medium"]
+            if unlocked:
+                # === 해금된 영웅: 기존 렌더링 ===
+                # 카드 배경
+                if is_hovered:
+                    bg_color = ET["card_bg_hover"]
+                    border_color = ET["gold_medium"]
+                else:
+                    bg_color = ET["card_bg"]
+                    border_color = ET["card_border"]
+                pygame.draw.rect(self.screen, bg_color, (cx, cy, card_w, card_h), border_radius=8)
+                pygame.draw.rect(self.screen, border_color, (cx, cy, card_w, card_h), 2, border_radius=8)
+
+                # 영웅 캐릭터 렌더링 (정면, 2배 크기)
+                if self.hero_paddle_renderer:
+                    hero_cx = cx + card_w // 2
+                    hero_cy = cy + 68
+                    h_w, h_h = 160, 112
+                    self.hero_paddle_renderer.draw_hero_paddle(
+                        self.screen, hero["id"], hero_cx, hero_cy,
+                        h_w, h_h, facing="down", color=hero["color"], scale_mode="preview"
+                    )
+
+                # 영웅 이름
+                if self.fonts and "medium" in self.fonts:
+                    h_color = hero["color"]
+                    brightness = sum(h_color) / 3
+                    name_color = h_color if brightness > 80 else (
+                        min(255, h_color[0] + 100), min(255, h_color[1] + 100), min(255, h_color[2] + 100))
+                    name_surf, _ = self.fonts["medium"].render(hero["name"], name_color)
+                    self.screen.blit(name_surf, (cx + card_w // 2 - name_surf.get_width() // 2, cy + card_h - 30))
             else:
-                bg_color = ET["card_bg"]
-                border_color = ET["card_border"]
-            pygame.draw.rect(self.screen, bg_color, (cx, cy, card_w, card_h), border_radius=8)
-            pygame.draw.rect(self.screen, border_color, (cx, cy, card_w, card_h), 2, border_radius=8)
+                # === 미해금 영웅: 어두운 카드 + ? 표시 ===
+                locked_bg = (25, 20, 15)
+                locked_border = (60, 50, 40)
+                if is_hovered:
+                    locked_bg = (35, 28, 20)
+                    locked_border = (80, 65, 50)
+                pygame.draw.rect(self.screen, locked_bg, (cx, cy, card_w, card_h), border_radius=8)
+                pygame.draw.rect(self.screen, locked_border, (cx, cy, card_w, card_h), 2, border_radius=8)
 
-            # 영웅 캐릭터 렌더링 (정면, 2배 크기)
-            if self.hero_paddle_renderer:
-                hero_cx = cx + card_w // 2
-                hero_cy = cy + 68
-                h_w, h_h = 160, 112
-                self.hero_paddle_renderer.draw_hero_paddle(
-                    self.screen, hero["id"], hero_cx, hero_cy,
-                    h_w, h_h, facing="down", color=hero["color"], scale_mode="preview"
-                )
+                # 실루엣 영역에 큰 ? 표시
+                if self.fonts and "large" in self.fonts:
+                    q_color = (80, 65, 50)
+                    q_surf, _ = self.fonts["large"].render("?", q_color)
+                    self.screen.blit(q_surf, (cx + card_w // 2 - q_surf.get_width() // 2,
+                                              cy + card_h // 2 - q_surf.get_height() // 2 - 5))
 
-            # 영웅 이름
-            if self.fonts and "medium" in self.fonts:
-                h_color = hero["color"]
-                brightness = sum(h_color) / 3
-                name_color = h_color if brightness > 80 else (
-                    min(255, h_color[0] + 100), min(255, h_color[1] + 100), min(255, h_color[2] + 100))
-                name_surf, _ = self.fonts["medium"].render(hero["name"], name_color)
-                self.screen.blit(name_surf, (cx + card_w // 2 - name_surf.get_width() // 2, cy + card_h - 30))
+                # 하단에 ??? 표시
+                if self.fonts and "medium" in self.fonts:
+                    unknown_surf, _ = self.fonts["medium"].render("???", (60, 50, 40))
+                    self.screen.blit(unknown_surf, (cx + card_w // 2 - unknown_surf.get_width() // 2, cy + card_h - 30))
 
         self._hero_preview_hover_index = hover_idx
 
