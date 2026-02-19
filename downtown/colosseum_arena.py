@@ -13441,7 +13441,7 @@ class ColosseumsArena:
 
         # 타이틀
         if self.fonts and "large" in self.fonts:
-            round_name = "4강" if self.current_round == TournamentRound.SEMI_FINAL else "결승"
+            round_name = "4강" if self.current_round == TournamentRound.QUARTER_FINAL else "결승"
             title = f"{round_name} 진출!"
             surf, _ = self.fonts["large"].render(title, ET["gold_bright"])
             title_x = SCREEN_WIDTH // 2 - surf.get_width() // 2
