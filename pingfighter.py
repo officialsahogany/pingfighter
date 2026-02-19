@@ -19847,6 +19847,7 @@ arena_skill_manager = None           # 투기장 영웅 스킬 매니저
 arena_skill_check_timer = 0.0        # 스킬 쿨다운 체크 타이머
 arena_guard_system = None            # 투기장 호위무사 시스템 (GuardWarriorSystem)
 arena_henchman_system = None         # 투기장 하수인 시스템 (HenchmanSystem)
+arena_ai_henchman_system = None      # 투기장 AI 하수인 시스템 (HenchmanSystem, is_top=True)
 arena_top_confused = False           # 상단 영웅(보스) 혼란 상태 (심해의 먹물 등)
 arena_bottom_confused = False        # 하단 영웅(플레이어) 혼란 상태
 # 투기장 혼란 랜덤 움직임 (조명탄과 동일한 방식)
@@ -51712,6 +51713,11 @@ def go_to_next_round():
     if arena_mode_enabled and arena_henchman_system:
         try:
             arena_henchman_system.reset_active_skills()
+        except Exception:
+            pass
+    if arena_mode_enabled and arena_ai_henchman_system:
+        try:
+            arena_ai_henchman_system.reset_active_skills()
         except Exception:
             pass
     # 🛡️ 인게임 호위무사 활성 스킬 리셋 (라운드 전환 시)
@@ -90340,6 +90346,12 @@ def draw_objects():
                     arena_henchman_system.draw(SCREEN, top_wrapper, bottom_wrapper, ball_wrapper)
                 except Exception as _hench_draw_err:
                     print(f"[Henchman] draw error: {_hench_draw_err}")
+            # 🗡️ AI 하수인 시스템 그리기
+            if arena_ai_henchman_system:
+                try:
+                    arena_ai_henchman_system.draw(SCREEN, top_wrapper, bottom_wrapper, ball_wrapper)
+                except Exception as _ai_hench_draw_err:
+                    print(f"[Henchman] AI draw error: {_ai_hench_draw_err}")
             # 🛡️ 호위무사 시스템 그리기 (캐릭터 + 스킬 이펙트)
             if arena_guard_system:
                 try:
@@ -100654,6 +100666,27 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
             print(f"[Henchman] 하수인 시스템 설정 오류: {e}")
             arena_henchman_system = None
 
+        # === AI 하수인 시스템 설정 ===
+        global arena_ai_henchman_system
+        try:
+            _ai_henchman_list = globals().pop('_arena_pending_ai_henchman_list', [])
+            if _ai_henchman_list:
+                from game_mechanics.henchman_system import HenchmanSystem
+                _ai_hench_sys = HenchmanSystem(is_top=True)
+                _ai_hench_sys.setup(
+                    henchman_list=_ai_henchman_list,
+                    skill_selections=_skill_selections,
+                    skill_manager=arena_skill_manager,
+                    hero_paddle_renderer=arena_hero_paddle_renderer,
+                )
+                arena_ai_henchman_system = _ai_hench_sys
+                print(f"[Henchman] AI 하수인 시스템 설정 완료: {len(_ai_henchman_list)}명")
+            else:
+                arena_ai_henchman_system = None
+        except Exception as e:
+            print(f"[Henchman] AI 하수인 시스템 설정 오류: {e}")
+            arena_ai_henchman_system = None
+
         # pending data 정리
         globals().pop('_arena_pending_top_guards', None)
         globals().pop('_arena_pending_bottom_guards', None)
@@ -100661,6 +100694,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         globals().pop('_arena_pending_skill_selections', None)
         globals().pop('_arena_pending_both_skills', None)
         globals().pop('_arena_pending_henchman_list', None)
+        globals().pop('_arena_pending_ai_henchman_list', None)
 
         # ★ 생포된 호위무사 (1회용 소환) 수신
         global arena_captured_guard, arena_captured_guard_used
@@ -100771,6 +100805,13 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
             except Exception:
                 pass
             arena_henchman_system = None
+        # AI 하수인 시스템 초기화
+        if arena_ai_henchman_system is not None:
+            try:
+                arena_ai_henchman_system.reset()
+            except Exception:
+                pass
+            arena_ai_henchman_system = None
         # 상단 영웅 아이템 슬롯 초기화
         arena_top_active_item_slot = []
         arena_top_selected_item_index = 0
@@ -120006,6 +120047,11 @@ def reset_round(is_stage_start=False):
             arena_henchman_system.reset_active_skills()
         except Exception:
             pass
+    if arena_mode_enabled and arena_ai_henchman_system:
+        try:
+            arena_ai_henchman_system.reset_active_skills()
+        except Exception:
+            pass
     # 🛡️ 인게임 호위무사 활성 스킬 리셋 (두 번째 라운드 전환)
     if not arena_mode_enabled:
         try:
@@ -139217,6 +139263,21 @@ def main(stage_num, new_boss_mode=False):
                             # auto_trigger 제거: 설계상 자동 시전 없음
                         except Exception as _hench_err:
                             print(f"[Henchman] update error: {_hench_err}")
+
+                    # 🗡️ AI 하수인 시스템 업데이트 (자동 발동)
+                    if arena_ai_henchman_system:
+                        try:
+                            _ai_hench_fx = arena_ai_henchman_system.update(
+                                dt, top_wrapper, bottom_wrapper, ball_wrapper,
+                                getattr(ball_wrapper, 'vx', 0),
+                                getattr(ball_wrapper, 'vy', 0)) or {}
+                            if _ai_hench_fx:
+                                if _ai_hench_fx.get('freeze'):
+                                    arena_freeze_frames = max(arena_freeze_frames, 30)
+                            # AI 하수인은 자동 발동
+                            arena_ai_henchman_system.auto_trigger()
+                        except Exception as _ai_hench_err:
+                            print(f"[Henchman] AI update error: {_ai_hench_err}")
 
                     # 💣 폭탄 서프라이즈 넉백 처리 (영웅 스킬 + 호위무사 스킬 모두 포함)
                     # 호위무사 update() 이후에 실행해야 호위무사의 폭탄도 같은 프레임에 처리됨

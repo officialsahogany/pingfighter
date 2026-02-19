@@ -172,12 +172,13 @@ class HenchmanSlot:
 # 하수인 시스템
 # ============================================================================
 class HenchmanSystem:
-    """수동 클릭 발동 하수인 시스템"""
+    """수동 클릭 발동 하수인 시스템 (is_top=True이면 AI 상단 하수인)"""
 
-    def __init__(self):
+    def __init__(self, is_top=False):
         self.slots = []              # list[HenchmanSlot]
         self.skill_manager = None    # _MinimalSkillManager
         self.hero_paddle_renderer = None
+        self.is_top = is_top         # True=상단(AI), False=하단(플레이어)
         self._font = None
         self._font_small = None
         self._icon_cache = {}        # 서피스 캐시
@@ -396,11 +397,15 @@ class HenchmanSystem:
             return
 
         game_state = self.skill_manager.game_state if self.skill_manager else {}
-        guard_paddle = _GuardPaddle(slot.x, slot.y)
-        # 하단 플레이어가 시전자, 상단 보스가 타겟
-        target_paddle = _PaddleProxy(pygame.Rect(380, 25, 120, 40), is_top=True)
+        guard_paddle = _GuardPaddle(slot.x, slot.y, is_top=self.is_top)
+        # is_top=True: AI 상단 하수인 → 타겟=하단 플레이어
+        # is_top=False: 플레이어 하단 하수인 → 타겟=상단 보스
+        if self.is_top:
+            target_paddle = _PaddleProxy(pygame.Rect(380, 710, 120, 40), is_top=False)
+        else:
+            target_paddle = _PaddleProxy(pygame.Rect(380, 25, 120, 40), is_top=True)
 
-        skill.caster_is_top = False
+        skill.caster_is_top = self.is_top
         skill.current_cooldown = 0
 
         # 이전 효과 종료
@@ -417,8 +422,8 @@ class HenchmanSystem:
         except Exception:
             pass
 
-        # caster 보호
-        caster_prefix = 'bottom_paddle'
+        # caster 보호 (is_top=True이면 상단 AI, False이면 하단 플레이어)
+        caster_prefix = 'top_paddle' if self.is_top else 'bottom_paddle'
         saved = {}
         for key in list(game_state.keys()):
             if key.startswith(caster_prefix):
@@ -585,7 +590,7 @@ class HenchmanSystem:
             slot.x = GAME_AREA_X + GAME_AREA_WIDTH + 60
         # 타겟 X: 게임 영역 내 랜덤 위치
         slot.target_x = random.uniform(GAME_AREA_X + 80, GAME_AREA_X + GAME_AREA_WIDTH - 80)
-        slot.y = HENCH_Y
+        slot.y = 25 if self.is_top else HENCH_Y  # 상단 AI: 보스 영역, 하단: 플레이어 영역
         slot.phase = "entering"
         slot.anim_timer = 0.0
         print(f"[Henchman] {slot.hero_name} 발동! (진입: {slot.entry_side})")

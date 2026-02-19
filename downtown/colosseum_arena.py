@@ -6615,6 +6615,7 @@ class ColosseumsArena:
         self.recalled_guard_map = {}         # hero_id -> guard dict (승급으로 추가된 호위무사, 라운드 간 유지)
         self.former_guards = []              # 교체되어 탈락한 호위무사 목록 (우승 연출용)
         self.henchman_list = []              # 하수인 목록 (hero dict 리스트, 라운드 간 유지)
+        self.ai_henchman_map = {}            # AI 하수인: hero_id → [hero dict] (4강/결승 AI 전용)
         self.guard_loyalty_cd_bonus = {}     # hero_id -> int (기존 호위무사 유지 횟수, 1회당 -10% 쿨타임)
         self.guard_warriors_top = []         # 현재 배틀 상단 영웅의 호위무사들
         self.guard_warriors_bottom = []      # 현재 배틀 하단 영웅의 호위무사들
@@ -7124,6 +7125,15 @@ class ColosseumsArena:
             for w in winners:
                 if w and (not self.bet_hero or w["id"] != self.bet_hero["id"]):
                     self._assign_ai_perks(w, 1 + self.ai_bonus_perks)
+            # AI 4강 진출자에게 하수인 1명 배정 (8강 패자 중 랜덤)
+            losers_qf = []
+            for m in self.matches[TournamentRound.QUARTER_FINAL]:
+                if m.winner:
+                    loser = m.hero1 if m.winner == m.hero2 else m.hero2
+                    losers_qf.append(loser)
+            for w in winners:
+                if w and (not self.bet_hero or w["id"] != self.bet_hero["id"]):
+                    self._assign_ai_henchmen(w, losers_qf)
             self.current_round = TournamentRound.SEMI_FINAL
         elif self.current_round == TournamentRound.SEMI_FINAL:
             # 4강 → 결승
@@ -7152,6 +7162,15 @@ class ColosseumsArena:
             for w in winners:
                 if w and (not self.bet_hero or w["id"] != self.bet_hero["id"]):
                     self._assign_ai_perks(w, 1 + self.ai_bonus_perks)
+            # AI 결승 진출자에게 하수인 추가 배정 (4강 패자 중 랜덤)
+            losers_sf = []
+            for m in self.matches[TournamentRound.SEMI_FINAL]:
+                if m.winner:
+                    loser = m.hero1 if m.winner == m.hero2 else m.hero2
+                    losers_sf.append(loser)
+            for w in winners:
+                if w and (not self.bet_hero or w["id"] != self.bet_hero["id"]):
+                    self._assign_ai_henchmen(w, losers_sf)
             self.current_round = TournamentRound.FINAL
 
     def _init_guard_warriors_for_battle(self, match: Match):
@@ -7558,6 +7577,8 @@ class ColosseumsArena:
                         pingfighter._arena_pending_bottom_guards = []
                     # 하수인 데이터 전달
                     pingfighter._arena_pending_henchman_list = list(self.henchman_list)
+                    # AI 하수인 데이터 전달
+                    pingfighter._arena_pending_ai_henchman_list = self.ai_henchman_map.get(top_hero["id"], [])
                     # 생포된 호위무사 (1회용 소환) 데이터 전달
                     pingfighter._arena_pending_captured_guard = self.captured_guard
                     pingfighter._arena_pending_captured_guard_used = self.captured_guard_used
@@ -14131,6 +14152,34 @@ class ColosseumsArena:
         print(f"[Perk] AI {hero['name']}에게 랜덤 퍽 {count}개 부여: "
               f"{[p['name'] for p in self.hero_perks[hero_id]]}")
 
+    def _assign_ai_henchmen(self, hero: Dict, losers: list):
+        """AI 영웅에게 패자 중 1명을 하수인으로 배정"""
+        hero_id = hero["id"]
+        # 이미 호위무사/하수인인 영웅 ID 수집
+        taken_ids = set()
+        for guards in self.guard_warrior_map.values():
+            for g in guards:
+                taken_ids.add(g.get("id"))
+        for hench_list in self.ai_henchman_map.values():
+            for h in hench_list:
+                taken_ids.add(h.get("id"))
+        for h in self.henchman_list:
+            taken_ids.add(h.get("id"))
+        taken_ids.add(hero_id)  # 자기 자신 제외
+
+        # 후보: 패자 중 아직 배정되지 않은 영웅
+        candidates = [l for l in losers if l.get("id") not in taken_ids]
+        if not candidates:
+            return
+
+        chosen = random.choice(candidates)
+        if hero_id not in self.ai_henchman_map:
+            self.ai_henchman_map[hero_id] = []
+        self.ai_henchman_map[hero_id].append(dict(chosen))
+        # 랜덤 스킬 배정
+        self.hero_selected_skills[chosen["id"]] = random.randint(0, 1)
+        print(f"[Henchman AI] {hero['name']}에게 하수인 배정: {chosen['name']}")
+
     def get_hero_perk_multipliers(self, hero_id: str) -> Dict[str, float]:
         """영웅의 퍽에서 멀티플라이어 계산"""
         perks = self.hero_perks.get(hero_id, [])
@@ -18434,43 +18483,45 @@ class ColosseumsArena:
                     self.screen.blit(ns, (hero1_x - ns.get_width() // 2, guard_y + 28))
                 h1_guard_bottom_y = guard_y + 48
 
-            # 하수인 아이콘 (영웅1) - 플레이어 영웅일 때만 표시
+            # 하수인 아이콘 (영웅1) - 플레이어 또는 AI 하수인 표시
             if self.player_hero and hero1.get("id") == self.player_hero.get("id"):
                 h1_henchmen = getattr(self, 'henchman_list', [])
-                if h1_henchmen and self.hero_paddle_renderer:
-                    hench_sq_sz = 32
-                    hench_sq_gap = 4
-                    hench_y = h1_guard_bottom_y + 8
-                    total_w = len(h1_henchmen) * (hench_sq_sz + hench_sq_gap) - hench_sq_gap
-                    start_x = hero1_x - total_w // 2
-                    # "하수인" 라벨
-                    if "small" in self.fonts:
-                        lbl_surf, _ = self.fonts["small"].render("하수인", (160, 120, 180))
-                        self.screen.blit(lbl_surf, (hero1_x - lbl_surf.get_width() // 2, hench_y - 14))
-                    hench_y += 4
-                    for hi, hench in enumerate(h1_henchmen):
-                        sq_x = start_x + hi * (hench_sq_sz + hench_sq_gap)
-                        h_color = hench.get("color", (150, 150, 150))
-                        # 배경
-                        sq_surf = _get_arena_surface(hench_sq_sz, hench_sq_sz)
-                        sq_surf.fill((30, 25, 40, 180))
-                        self.screen.blit(sq_surf, (sq_x, hench_y))
-                        # 테두리
-                        border_surf = _get_arena_surface(hench_sq_sz, hench_sq_sz)
-                        pygame.draw.rect(border_surf, (*h_color, 120), (0, 0, hench_sq_sz, hench_sq_sz), 1)
-                        self.screen.blit(border_surf, (sq_x, hench_y))
-                        # 캐릭터 아이콘
-                        try:
-                            self.hero_paddle_renderer.draw_hero_paddle(
-                                self.screen, hench.get("id", ""),
-                                sq_x + hench_sq_sz // 2, hench_y + hench_sq_sz // 2,
-                                hench_sq_sz - 6, hench_sq_sz - 6,
-                                facing="up", color=h_color, scale_mode="icon"
-                            )
-                        except Exception:
-                            pygame.draw.circle(self.screen, h_color,
-                                               (sq_x + hench_sq_sz // 2, hench_y + hench_sq_sz // 2),
-                                               hench_sq_sz // 4)
+            else:
+                h1_henchmen = self.ai_henchman_map.get(hero1.get("id"), [])
+            if h1_henchmen and self.hero_paddle_renderer:
+                hench_sq_sz = 32
+                hench_sq_gap = 4
+                hench_y = h1_guard_bottom_y + 8
+                total_w = len(h1_henchmen) * (hench_sq_sz + hench_sq_gap) - hench_sq_gap
+                start_x = hero1_x - total_w // 2
+                # "하수인" 라벨
+                if "small" in self.fonts:
+                    lbl_surf, _ = self.fonts["small"].render("하수인", (160, 120, 180))
+                    self.screen.blit(lbl_surf, (hero1_x - lbl_surf.get_width() // 2, hench_y - 14))
+                hench_y += 4
+                for hi, hench in enumerate(h1_henchmen):
+                    sq_x = start_x + hi * (hench_sq_sz + hench_sq_gap)
+                    h_color = hench.get("color", (150, 150, 150))
+                    # 배경
+                    sq_surf = _get_arena_surface(hench_sq_sz, hench_sq_sz)
+                    sq_surf.fill((30, 25, 40, 180))
+                    self.screen.blit(sq_surf, (sq_x, hench_y))
+                    # 테두리
+                    border_surf = _get_arena_surface(hench_sq_sz, hench_sq_sz)
+                    pygame.draw.rect(border_surf, (*h_color, 120), (0, 0, hench_sq_sz, hench_sq_sz), 1)
+                    self.screen.blit(border_surf, (sq_x, hench_y))
+                    # 캐릭터 아이콘
+                    try:
+                        self.hero_paddle_renderer.draw_hero_paddle(
+                            self.screen, hench.get("id", ""),
+                            sq_x + hench_sq_sz // 2, hench_y + hench_sq_sz // 2,
+                            hench_sq_sz - 6, hench_sq_sz - 6,
+                            facing="up", color=h_color, scale_mode="icon"
+                        )
+                    except Exception:
+                        pygame.draw.circle(self.screen, h_color,
+                                           (sq_x + hench_sq_sz // 2, hench_y + hench_sq_sz // 2),
+                                           hench_sq_sz // 4)
 
         # VS (중앙, 스케일 애니메이션)
         vs_scale = min(1.0, progress * 3) if progress < 0.5 else 1.0
@@ -18540,43 +18591,45 @@ class ColosseumsArena:
                     self.screen.blit(ns, (hero2_x - ns.get_width() // 2, guard_y + 28))
                 h2_guard_bottom_y = guard_y + 48
 
-            # 하수인 아이콘 (영웅2) - 플레이어 영웅일 때만 표시
+            # 하수인 아이콘 (영웅2) - 플레이어 또는 AI 하수인 표시
             if self.player_hero and hero2.get("id") == self.player_hero.get("id"):
                 h2_henchmen = getattr(self, 'henchman_list', [])
-                if h2_henchmen and self.hero_paddle_renderer:
-                    hench_sq_sz = 32
-                    hench_sq_gap = 4
-                    hench_y = h2_guard_bottom_y + 8
-                    total_w = len(h2_henchmen) * (hench_sq_sz + hench_sq_gap) - hench_sq_gap
-                    start_x = hero2_x - total_w // 2
-                    # "하수인" 라벨
-                    if "small" in self.fonts:
-                        lbl_surf, _ = self.fonts["small"].render("하수인", (160, 120, 180))
-                        self.screen.blit(lbl_surf, (hero2_x - lbl_surf.get_width() // 2, hench_y - 14))
-                    hench_y += 4
-                    for hi, hench in enumerate(h2_henchmen):
-                        sq_x = start_x + hi * (hench_sq_sz + hench_sq_gap)
-                        h_color = hench.get("color", (150, 150, 150))
-                        # 배경
-                        sq_surf = _get_arena_surface(hench_sq_sz, hench_sq_sz)
-                        sq_surf.fill((30, 25, 40, 180))
-                        self.screen.blit(sq_surf, (sq_x, hench_y))
-                        # 테두리
-                        border_surf = _get_arena_surface(hench_sq_sz, hench_sq_sz)
-                        pygame.draw.rect(border_surf, (*h_color, 120), (0, 0, hench_sq_sz, hench_sq_sz), 1)
-                        self.screen.blit(border_surf, (sq_x, hench_y))
-                        # 캐릭터 아이콘
-                        try:
-                            self.hero_paddle_renderer.draw_hero_paddle(
-                                self.screen, hench.get("id", ""),
-                                sq_x + hench_sq_sz // 2, hench_y + hench_sq_sz // 2,
-                                hench_sq_sz - 6, hench_sq_sz - 6,
-                                facing="up", color=h_color, scale_mode="icon"
-                            )
-                        except Exception:
-                            pygame.draw.circle(self.screen, h_color,
-                                               (sq_x + hench_sq_sz // 2, hench_y + hench_sq_sz // 2),
-                                               hench_sq_sz // 4)
+            else:
+                h2_henchmen = self.ai_henchman_map.get(hero2.get("id"), [])
+            if h2_henchmen and self.hero_paddle_renderer:
+                hench_sq_sz = 32
+                hench_sq_gap = 4
+                hench_y = h2_guard_bottom_y + 8
+                total_w = len(h2_henchmen) * (hench_sq_sz + hench_sq_gap) - hench_sq_gap
+                start_x = hero2_x - total_w // 2
+                # "하수인" 라벨
+                if "small" in self.fonts:
+                    lbl_surf, _ = self.fonts["small"].render("하수인", (160, 120, 180))
+                    self.screen.blit(lbl_surf, (hero2_x - lbl_surf.get_width() // 2, hench_y - 14))
+                hench_y += 4
+                for hi, hench in enumerate(h2_henchmen):
+                    sq_x = start_x + hi * (hench_sq_sz + hench_sq_gap)
+                    h_color = hench.get("color", (150, 150, 150))
+                    # 배경
+                    sq_surf = _get_arena_surface(hench_sq_sz, hench_sq_sz)
+                    sq_surf.fill((30, 25, 40, 180))
+                    self.screen.blit(sq_surf, (sq_x, hench_y))
+                    # 테두리
+                    border_surf = _get_arena_surface(hench_sq_sz, hench_sq_sz)
+                    pygame.draw.rect(border_surf, (*h_color, 120), (0, 0, hench_sq_sz, hench_sq_sz), 1)
+                    self.screen.blit(border_surf, (sq_x, hench_y))
+                    # 캐릭터 아이콘
+                    try:
+                        self.hero_paddle_renderer.draw_hero_paddle(
+                            self.screen, hench.get("id", ""),
+                            sq_x + hench_sq_sz // 2, hench_y + hench_sq_sz // 2,
+                            hench_sq_sz - 6, hench_sq_sz - 6,
+                            facing="up", color=h_color, scale_mode="icon"
+                        )
+                    except Exception:
+                        pygame.draw.circle(self.screen, h_color,
+                                           (sq_x + hench_sq_sz // 2, hench_y + hench_sq_sz // 2),
+                                           hench_sq_sz // 4)
 
         # 상성 표시 (VS 텍스트 아래)
         matchup_val = get_style_matchup(hero1["style"], hero2["style"])
