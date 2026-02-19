@@ -444,6 +444,11 @@ def _render_menu(
     version_rect = version_surface.get_rect(bottomleft=(10, height - 10))
     screen.blit(version_surface, version_rect)
 
+    # F9/F10 단축키 안내 텍스트 (우측 하단)
+    shortcut_text = "F9 전체화면  F10 창모드"
+    shortcut_surface = font_tiny.render(shortcut_text, True, (160, 200, 255))
+    shortcut_rect = shortcut_surface.get_rect(bottomright=(width - 10, height - 10))
+    screen.blit(shortcut_surface, shortcut_rect)
 
     # 관리자 모드 활성화 메시지 표시
     global ADMIN_MODE_MESSAGE_TIMER
