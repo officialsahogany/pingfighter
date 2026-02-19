@@ -6522,11 +6522,11 @@ class ColosseumsArena:
         self.battle_callback = battle_callback  # 실제 게임 엔진 사용 콜백
         self._text_cache: Dict[tuple, tuple] = {}  # (font_key, text, color) → (surf, rect)
 
-        # 토너먼트 상태
-        self.state = TournamentState.DIFFICULTY_SELECT
+        # 토너먼트 상태 - 난이도 선택 스킵, 일반(normal)으로 바로 대진표 시작
+        self.state = TournamentState.BRACKET_VIEW
         self.current_round = TournamentRound.QUARTER_FINAL
 
-        # 난이도 설정 (난이도 선택 후 업데이트됨)
+        # 난이도 설정 - 일반(normal) 고정
         self.difficulty = "normal"
         self.difficulty_multiplier = 1.0
         self.ai_bonus_perks = 0
