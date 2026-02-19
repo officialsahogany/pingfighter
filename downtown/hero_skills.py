@@ -10378,6 +10378,9 @@ class BoneBarrier(HeroSkill):
             self.current_cooldown -= dt
         if self.is_active:
             self._update_active_effect(dt, caster_paddle, target_paddle, ball, game_state)
+            # 모든 장벽이 파괴되면 스킬 발동 상태 해제 (초상화 UI 깜빡임 방지)
+            if not self.barriers:
+                self.is_active = False
         # 파괴 애니메이션은 is_active 관계없이
         if self.dying_barriers and not self.is_active:
             new_dying = []
