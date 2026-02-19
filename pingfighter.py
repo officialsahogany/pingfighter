@@ -118594,137 +118594,13 @@ def _update_arena_capture_phase(screen):
     except Exception:
         pass
 
-    # ─────── ANNOUNCE 페이즈 (1.8초: 화면정지 + 고퀄 연출) ───────
+    # ─────── ANNOUNCE 페이즈 (사용 안 함 - 바로 active로 진입) ───────
     if arena_capture_phase == "announce":
-        ANNOUNCE_DUR = 3.8
-        # 상단 영웅을 중앙으로 이동
-        arena_capture_flee_x = float(GAME_CENTER_X)
-        arena_capture_flee_y = float(BOSS_Y + BOSS_HEIGHT // 2) if 'BOSS_Y' in dir() else 45.0
-        try:
-            BOSS.centerx = int(arena_capture_flee_x)
-            BOSS.centery = int(arena_capture_flee_y)
-        except Exception:
-            pass
-        # 하단 영웅도 중앙으로 배치
-        try:
-            PLAYER.centerx = GAME_CENTER_X
-        except Exception:
-            pass
-
-        t = arena_capture_timer
-        progress = min(1.0, t / ANNOUNCE_DUR)
-
-        # ── Phase 1: 화면 어둡게 + "적을 포획하세요!" (0~1.0초) ──
-        overlay = pygame.Surface((760, 750), pygame.SRCALPHA)
-        dark_alpha = int(min(160, 200 * min(1.0, t / 0.4)))
-        overlay.fill((0, 0, 0, dark_alpha))
-        screen.blit(overlay, (0, 0))
-
-        # 상단 경고 바 (빨간 줄무늬 깜빡임)
-        if t < 1.2:
-            bar_alpha = int(180 * abs(_cap_math.sin(t * 8)))
-            bar_surf = pygame.Surface((760, 4), pygame.SRCALPHA)
-            bar_surf.fill((255, 60, 40, bar_alpha))
-            screen.blit(bar_surf, (0, 280))
-            screen.blit(bar_surf, (0, 410))
-
-        # 폰트 준비 (캐시)
-        _cap_font_big = getattr(_update_arena_capture_phase, '_title_font_big', None)
-        if _cap_font_big is None:
-            try:
-                font_path = resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"))
-                _cap_font_big = pygame.freetype.Font(font_path, 32)
-            except Exception:
-                _cap_font_big = pygame.freetype.SysFont("malgun gothic", 32)
-            _update_arena_capture_phase._title_font_big = _cap_font_big
-        _cap_font_sm = getattr(_update_arena_capture_phase, '_ui_font', None)
-        if _cap_font_sm is None:
-            try:
-                font_path = resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"))
-                _cap_font_sm = pygame.freetype.Font(font_path, 16)
-            except Exception:
-                _cap_font_sm = pygame.freetype.SysFont("malgun gothic", 16)
-            _update_arena_capture_phase._ui_font = _cap_font_sm
-
-        # "적을 포획하세요!" - 슬라이드인 + 바운스
-        if t < 1.2:
-            slide = min(1.0, t / 0.35)
-            # 이징 (ease-out-back)
-            ease = 1.0 + 2.7 * ((slide - 1) ** 3) + 1.7 * ((slide - 1) ** 2) if slide < 1 else 1.0
-            text_x = GAME_CENTER_X
-            text_y = int(310 + (1.0 - ease) * 60)
-            alpha_t = min(255, int(255 * min(1.0, t / 0.15)))
-
-            # 텍스트를 임시 서피스에 합성 (per-pixel alpha + set_alpha 호환)
-            title_text = "적을 포획하세요!"
-            ts_main, tr_main = _cap_font_big.render(title_text, (255, 230, 80))
-            tw, th = tr_main.width + 16, tr_main.height + 16
-            text_layer = pygame.Surface((tw, th), pygame.SRCALPHA)
-
-            # 글로우 효과
-            glow_r = max(1, int(6 * abs(_cap_math.sin(t * 6))))
-            for gx in range(-glow_r, glow_r + 1, 3):
-                for gy in range(-glow_r, glow_r + 1, 3):
-                    gs, _ = _cap_font_big.render(title_text, (255, 180, 50, 40))
-                    text_layer.blit(gs, (8 + gx, 8 + gy))
-            # 외곽선
-            for ox2, oy2 in [(-2, 0), (2, 0), (0, -2), (0, 2)]:
-                os2, _ = _cap_font_big.render(title_text, (40, 20, 0, 255))
-                text_layer.blit(os2, (8 + ox2, 8 + oy2))
-            # 본문
-            text_layer.blit(ts_main, (8, 8))
-
-            # alpha 적용하여 screen에 그리기
-            text_layer.set_alpha(alpha_t)
-            screen.blit(text_layer, (text_x - tw // 2, text_y - 8))
-
-            # 영웅 이름 (하단)
-            name_text = f"대상: {top_name}"
-            ns, nr = _cap_font_sm.render(name_text, (255, 200, 150))
-            name_layer = pygame.Surface((nr.width + 4, nr.height + 4), pygame.SRCALPHA)
-            name_layer.blit(ns, (2, 2))
-            name_layer.set_alpha(alpha_t)
-            screen.blit(name_layer, (text_x - (nr.width + 4) // 2, text_y + 45))
-
-        # Phase 2: 조작 안내 (0.8~1.8초) - 페이드인
-        if t >= 0.8:
-            ctrl_alpha = min(255, int(255 * (t - 0.8) / 0.4))
-            cy_base = 380
-
-            # 조작 안내 배경 박스
-            info_surf = pygame.Surface((400, 90), pygame.SRCALPHA)
-            info_surf.fill((0, 0, 0, min(140, ctrl_alpha)))
-            pygame.draw.rect(info_surf, (255, 200, 80, min(180, ctrl_alpha)), (0, 0, 400, 90), 2, border_radius=8)
-            screen.blit(info_surf, (GAME_CENTER_X - 200, cy_base - 10))
-
-            # 조작 안내 텍스트를 임시 서피스에 합성
-            ctrl_layer = pygame.Surface((380, 80), pygame.SRCALPHA)
-
-            move_ts, move_tr = _cap_font_sm.render("◀  A / D  ▶   이동", (255, 255, 255))
-            ctrl_layer.blit(move_ts, (190 - move_tr.width // 2, 8))
-
-            click_ts, click_tr = _cap_font_sm.render("마우스 왼쪽 클릭   그물 발사", (255, 220, 100))
-            ctrl_layer.blit(click_ts, (190 - click_tr.width // 2, 35))
-
-            time_ts, time_tr = _cap_font_sm.render("제한시간: 5초", (255, 120, 120))
-            ctrl_layer.blit(time_ts, (190 - time_tr.width // 2, 58))
-
-            ctrl_layer.set_alpha(ctrl_alpha)
-            screen.blit(ctrl_layer, (GAME_CENTER_X - 190, cy_base))
-
-        # 화면 테두리 펄스 (경고 느낌)
-        if t > 0.2:
-            edge_alpha = int(60 * abs(_cap_math.sin(t * 5)))
-            edge_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
-            pygame.draw.rect(edge_surf, (255, 180, 50, edge_alpha), (GAME_LEFT, 0, 760, 750), 3)
-            screen.blit(edge_surf, (0, 0))
-
-        if t >= ANNOUNCE_DUR:
-            arena_capture_phase = "active"
-            arena_capture_timer = 0.0
-            arena_capture_flee_dir = _cap_random.choice([-1, 1])
-            arena_capture_flee_dodge_timer = 0.0
-            print("[CAPTURE] → active 페이즈 진입")
+        # 레거시 호환: 혹시 announce로 진입 시 즉시 active로 전환
+        arena_capture_phase = "active"
+        arena_capture_timer = 0.0
+        arena_capture_flee_dir = _cap_random.choice([-1, 1])
+        arena_capture_flee_dodge_timer = 0.0
 
     # ─────── ACTIVE 페이즈 (최대 5초, 3발) ───────
     elif arena_capture_phase == "active":
@@ -118899,11 +118775,43 @@ def _update_arena_capture_phase(screen):
             timer_text = f"{time_left:.1f}초"
             tt, ttr = _cap_ui_font.render(timer_text, (255, 200, 100))
             screen.blit(tt, (GAME_CENTER_X - ttr.width // 2, 10))
-            help_text = "A/D: 이동  |  클릭: 그물 발사"
-            ht, htr = _cap_ui_font.render(help_text, (200, 200, 200))
-            screen.blit(ht, (GAME_CENTER_X - htr.width // 2, 730))
         except Exception:
             pass
+
+        # 조작 안내 텍스트 (처음 2.5초간 자연스럽게 페이드인/아웃, 배경 없음)
+        _hint_t = arena_capture_timer
+        _HINT_FADE_IN = 0.3    # 페이드인 시간
+        _HINT_HOLD = 1.8       # 유지 시간
+        _HINT_FADE_OUT = 0.4   # 페이드아웃 시간
+        _HINT_TOTAL = _HINT_FADE_IN + _HINT_HOLD + _HINT_FADE_OUT  # = 2.5초
+        if _hint_t < _HINT_TOTAL:
+            # 알파 계산: 페이드인 → 유지 → 페이드아웃
+            if _hint_t < _HINT_FADE_IN:
+                _hint_alpha = int(255 * (_hint_t / _HINT_FADE_IN))
+            elif _hint_t < _HINT_FADE_IN + _HINT_HOLD:
+                _hint_alpha = 255
+            else:
+                _hint_alpha = int(255 * (1.0 - (_hint_t - _HINT_FADE_IN - _HINT_HOLD) / _HINT_FADE_OUT))
+            _hint_alpha = max(0, min(255, _hint_alpha))
+            try:
+                _hint_font = getattr(_update_arena_capture_phase, '_ui_font', None)
+                if _hint_font:
+                    _hint_cy = 340
+                    _hint_layer = pygame.Surface((400, 80), pygame.SRCALPHA)
+
+                    _h1s, _h1r = _hint_font.render("◀  A / D  ▶   이동", (255, 255, 255))
+                    _hint_layer.blit(_h1s, (200 - _h1r.width // 2, 8))
+
+                    _h2s, _h2r = _hint_font.render("마우스 왼쪽 클릭   그물 발사", (255, 220, 100))
+                    _hint_layer.blit(_h2s, (200 - _h2r.width // 2, 35))
+
+                    _h3s, _h3r = _hint_font.render(f"제한시간: {int(time_limit)}초", (255, 120, 120))
+                    _hint_layer.blit(_h3s, (200 - _h3r.width // 2, 58))
+
+                    _hint_layer.set_alpha(_hint_alpha)
+                    screen.blit(_hint_layer, (GAME_CENTER_X - 200, _hint_cy))
+            except Exception:
+                pass
 
     # ─────── RESULT 페이즈 ───────
     elif arena_capture_phase == "result":
@@ -132389,7 +132297,7 @@ def show_result(won):
             return
         # 승리 + 포획 활성화 → 포획 페이즈 시작 (배틀 종료 대신)
         if won and arena_capture_do_capture and arena_capture_phase is None:
-            arena_capture_phase = "announce"
+            arena_capture_phase = "active"
             arena_capture_timer = 0.0
             arena_capture_result_flag = None
             arena_capture_shots_left = 3
@@ -132398,6 +132306,10 @@ def show_result(won):
             arena_capture_flee_x = float(BOSS.centerx) if BOSS else 380.0
             arena_capture_flee_y = float(BOSS.centery) if BOSS else 45.0
             arena_capture_flee_vx = 0.0
+            # 도주 방향 즉시 초기화 (announce 없이 바로 active)
+            import random as _cap_init_rand
+            arena_capture_flee_dir = _cap_init_rand.choice([-1, 1])
+            arena_capture_flee_dodge_timer = 0.0
             # 공 숨기기
             try:
                 BALL.x = -999
