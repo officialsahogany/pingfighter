@@ -2598,7 +2598,7 @@ except ImportError as e:
 
 #  Ultra Smooth 물리 기반 보스 움직임 시스템
 try:
-    from game_logic.advanced_boss_physics import get_ultra_smooth_movement, apply_ultra_smooth_movement
+    from game_logic.advanced_boss_physics import get_ultra_smooth_movement, apply_ultra_smooth_movement, get_ultra_smooth_player_movement
     ULTRA_SMOOTH_AVAILABLE = True
 except ImportError as e:
     ULTRA_SMOOTH_AVAILABLE = False
@@ -66836,19 +66836,71 @@ def handle_player(keys):
                 pass
         if soldier_control_lock_timer <= 0 or is_dashing:
             if not suicide_drone_active and not ice_dash_sliding:
-                # pygame.Rect 안전을 위해 int() 변환 및 유효성 검사
-                try:
-                    # NaN/Infinity 체크
-                    if current_speed != current_speed or abs(current_speed) > 1000000:
-                        safe_speed = 0
-                    else:
-                        safe_speed = int(current_speed)
-                    # 최종 위치가 유효 범위 내인지 확인
-                    new_x = PLAYER.x + safe_speed
-                    if -2147483647 < new_x < 2147483647:
-                        PLAYER.x = int(new_x)
-                except (ValueError, OverflowError, TypeError):
-                    pass  # 유효하지 않은 값이면 무시
+                # 🏟️ 투기장 AI 모드: Ultra Smooth PID 물리로 이동 (상단 영웅과 동일)
+                _arena_pid_applied = False
+                if arena_mode_enabled and player_ai_enabled and ULTRA_SMOOTH_AVAILABLE and not is_dashing:
+                    try:
+                        if selected_character_type == "blacksmith":
+                            controller = get_blacksmith_ai_controller()
+                        else:
+                            controller = get_player_ai_controller()
+                        _pid_target_x = getattr(controller, 'last_target_x', None)
+                        if _pid_target_x is not None:
+                            _player_smoother = get_ultra_smooth_player_movement()
+                            # 상단 영웅과 동일한 PID 매개변수
+                            _player_smoother.physics.max_velocity = 7.0  # PLAYER MAX_SPEED
+                            _player_smoother.physics.max_force = 7.0 * 2.5
+                            _player_smoother.physics.friction = 0.92
+                            _player_smoother.pid.kp = 0.35
+                            _player_smoother.pid.ki = 0.015
+                            _player_smoother.pid.kd = 0.18
+                            _player_smoother.prediction_enabled = True
+                            _player_smoother.adaptive_enabled = True
+                            # 🏟️ 투기장 퍽/스킬 속도 배율 적용
+                            _pid_max_speed = 7.0
+                            if arena_perk_speed_mult_bottom != 1.0:
+                                _pid_max_speed *= arena_perk_speed_mult_bottom
+                            if arena_player_slow_mult != 1.0:
+                                _pid_max_speed *= arena_player_slow_mult
+                            if arena_player_speed_boost_only > 1.0:
+                                _pid_max_speed *= arena_player_speed_boost_only
+                            # 🏟️ 관중 모멘텀 버프
+                            if current_stage == 30 and pillar_renderer is not None:
+                                _m_bg = pillar_renderer.get_colosseum_bg() if pillar_renderer else None
+                                if _m_bg and hasattr(_m_bg, 'get_momentum_level'):
+                                    _momentum = _m_bg.get_momentum_level()
+                                    if _momentum > 0.3:
+                                        _pid_max_speed *= 1.0 + _momentum * 0.1
+                            # 🏟️ 신의심판 감속
+                            if current_stage == 30 and animated_bg_stage30 is not None:
+                                if animated_bg_stage30.is_judgment_earthquake_active():
+                                    _pid_max_speed *= 0.5
+                            _player_smoother.physics.max_velocity = _pid_max_speed
+                            _player_smoother.physics.max_force = _pid_max_speed * 2.5
+                            # PID 물리 업데이트
+                            _new_pos, _new_vel = _player_smoother.update(
+                                PLAYER.x, _pid_target_x, ball_vel[0] if 'ball_vel' in globals() else 0
+                            )
+                            PLAYER.x = int(_new_pos)
+                            current_speed = _new_vel
+                            _arena_pid_applied = True
+                    except Exception as _pid_err:
+                        pass  # PID 실패 시 기존 키 기반 이동으로 폴백
+                # 기존 키 기반 이동 (PID 미적용 시)
+                if not _arena_pid_applied:
+                    # pygame.Rect 안전을 위해 int() 변환 및 유효성 검사
+                    try:
+                        # NaN/Infinity 체크
+                        if current_speed != current_speed or abs(current_speed) > 1000000:
+                            safe_speed = 0
+                        else:
+                            safe_speed = int(current_speed)
+                        # 최종 위치가 유효 범위 내인지 확인
+                        new_x = PLAYER.x + safe_speed
+                        if -2147483647 < new_x < 2147483647:
+                            PLAYER.x = int(new_x)
+                    except (ValueError, OverflowError, TypeError):
+                        pass  # 유효하지 않은 값이면 무시
 
         # 후딜 시간은 항상 감소 (대쉬 중에도)
         if soldier_control_lock_timer > 0:
@@ -100573,6 +100625,12 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         # AI 플레이 모드 활성화 (양쪽 모두 AI)
         player_ai_enabled = True
         apply_character_selection("normal")  # 투기장 전용 - 캐릭터 스킬/이펙트 비활성화
+        # 🏟️ 하단 영웅 PID 물리 인스턴스 리셋 (새 경기 시작)
+        try:
+            if ULTRA_SMOOTH_AVAILABLE:
+                get_ultra_smooth_player_movement().reset()
+        except Exception:
+            pass
 
         # 투기장 패들 크기 통일 (양쪽 모두 AI이므로 BOSS와 동일한 130x40으로 설정)
         global PADDLE_BASE_WIDTH, PADDLE_BASE_HEIGHT, PADDLE_WIDTH, PADDLE_HEIGHT
@@ -100832,6 +100890,12 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
 
         # 1) AI 자동조종 해제 (⚠️ 필수! 없으면 다음 스테이지에서 AI가 계속 조종)
         player_ai_enabled = False
+        # 🏟️ 하단 영웅 PID 물리 인스턴스 리셋
+        try:
+            if ULTRA_SMOOTH_AVAILABLE:
+                get_ultra_smooth_player_movement().reset()
+        except Exception:
+            pass
 
         # 2) 캐릭터 타입 복원
         apply_character_selection(_saved_character_type)

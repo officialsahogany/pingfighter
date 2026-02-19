@@ -318,14 +318,23 @@ class UltraSmoothBossMovement:
 
 # 싱글톤 인스턴스
 _ultra_smooth_instance = None
+_ultra_smooth_player_instance = None  # 하단 영웅(플레이어 AI) 전용
 
 
 def get_ultra_smooth_movement():
-    """싱글톤 인스턴스 반환"""
+    """싱글톤 인스턴스 반환 (상단 영웅/보스용)"""
     global _ultra_smooth_instance
     if _ultra_smooth_instance is None:
         _ultra_smooth_instance = UltraSmoothBossMovement()
     return _ultra_smooth_instance
+
+
+def get_ultra_smooth_player_movement():
+    """싱글톤 인스턴스 반환 (하단 영웅/플레이어 AI용)"""
+    global _ultra_smooth_player_instance
+    if _ultra_smooth_player_instance is None:
+        _ultra_smooth_player_instance = UltraSmoothBossMovement()
+    return _ultra_smooth_player_instance
 
 
 def apply_ultra_smooth_movement(boss_x, ball_x, ball_vel_x=0):

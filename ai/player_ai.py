@@ -51,6 +51,7 @@ class PlayerAIController:
         self.last_space_press_ms = 0
         self.space_hold_until_ms = 0
         self.space_hold_dir = 0  # -1: left, 1: right
+        self.last_target_x = None  # 🏟️ 투기장: PID 물리용 목표 X 좌표
 
     def on_stage_start(self):
         self.last_dash_ms = 0
@@ -172,6 +173,7 @@ class PlayerAIController:
             t = max(0.0, dist_y / vy)
             target_x = ball.centerx + vx * t
         target_x = max(20, min(state["width"] - 20, target_x))
+        self.last_target_x = target_x  # 🏟️ PID 물리용 목표 저장
 
         if player.centerx < target_x - 8:
             pressed.update((pygame.K_RIGHT, pygame.K_d))

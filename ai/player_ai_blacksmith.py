@@ -42,6 +42,7 @@ class BlacksmithAIController:
             "upgrade_divine": 200,
         }
         self.hammer_charge_until_ms = 0
+        self.last_target_x = None  # 🏟️ 투기장: PID 물리용 목표 X 좌표
         self.hammer_charging = False
         self.last_action_ms = 0
         self.last_debug_ms = 0
@@ -263,6 +264,7 @@ class BlacksmithAIController:
             t = max(0.0, dist_y / vy) if vy != 0 else 0.0
             target_x = ball.centerx + vx * t
         target_x = max(margin, min(width - margin, target_x))
+        self.last_target_x = target_x  # 🏟️ PID 물리용 목표 저장
 
         # 디바인쉴드 발동 준비 시 스톤 위치로 이동 우선
         if state.get("divine_shield_ready", False) and state.get("divine_rect") is not None:
