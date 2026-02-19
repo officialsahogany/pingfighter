@@ -118786,19 +118786,30 @@ def _update_arena_capture_phase(screen):
         arena_capture_flee_dodge_timer -= dt
         px = PLAYER.centerx if PLAYER else GAME_CENTER_X
         flee_speed = arena_capture_flee_speed if not _boss_trapped_by_net else 0
-        # 그물 감지 시 급회피
+        # 그물 감지 시 급회피 (벽 방향 회피 방지)
         if arena_capture_net_active and arena_capture_net_y < 300:
             net_dx = arena_capture_net_x - arena_capture_flee_x
             if abs(net_dx) < 100:
-                arena_capture_flee_dir = -1 if net_dx > 0 else 1
+                dodge_dir = -1 if net_dx > 0 else 1
+                # 벽 쪽으로 회피하려는 경우 반대로 회피
+                if dodge_dir == -1 and arena_capture_flee_x <= GAME_LEFT + 60:
+                    dodge_dir = 1
+                elif dodge_dir == 1 and arena_capture_flee_x >= GAME_RIGHT - 60:
+                    dodge_dir = -1
+                arena_capture_flee_dir = dodge_dir
                 flee_speed = flee_speed * 2.5
                 arena_capture_flee_dodge_timer = 0.3
-        # 일반 이동
-        if arena_capture_flee_dodge_timer <= 0:
-            if arena_capture_flee_x <= GAME_LEFT + 50:
-                arena_capture_flee_dir = 1
-            elif arena_capture_flee_x >= GAME_RIGHT - 50:
-                arena_capture_flee_dir = -1
+        # 벽 경계 체크 (최우선 - 구석 고착 방지)
+        _flee_at_left_wall = arena_capture_flee_x <= GAME_LEFT + 50
+        _flee_at_right_wall = arena_capture_flee_x >= GAME_RIGHT - 50
+        if _flee_at_left_wall:
+            arena_capture_flee_dir = 1
+            arena_capture_flee_dodge_timer = 0.0  # 회피 중이어도 벽에서는 즉시 반전
+        elif _flee_at_right_wall:
+            arena_capture_flee_dir = -1
+            arena_capture_flee_dodge_timer = 0.0
+        elif arena_capture_flee_dodge_timer <= 0:
+            # 일반 이동 (벽 근처가 아닐 때만)
             if _cap_random.random() < 0.02:
                 arena_capture_flee_dir *= -1
             if abs(px - arena_capture_flee_x) < 80:
