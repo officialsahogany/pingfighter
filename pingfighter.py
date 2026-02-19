@@ -66884,7 +66884,7 @@ def handle_player(keys):
                             _accel = 0.4    # PLAYER ACCELERATION
                             _decel = 0.4    # PLAYER DECELERATION
                             _max_spd = 7.0  # PLAYER MAX_SPEED
-                            _instant_stop = 1.0  # PLAYER INSTANT_STOP_DECELERATION
+                            _instant_stop = 0.5  # 부드러운 방향 전환 (1.0→0.5)
                             # 🏟️ 퍽: 이동속도 배율
                             if arena_perk_speed_mult_bottom != 1.0:
                                 _accel *= arena_perk_speed_mult_bottom
@@ -66916,28 +66916,32 @@ def handle_player(keys):
                                 current_speed = _max_spd
                             elif current_speed < -_max_spd:
                                 current_speed = -_max_spd
+                            # 목표와의 거리
+                            _dist = _target_x - PLAYER.centerx
+                            _abs_dist = abs(_dist)
+                            # 근접 감속: 목표에 가까울수록 자연스럽게 속도 줄임
+                            if _abs_dist < 12:
+                                current_speed *= 0.82  # 마찰 브레이크
                             # 가속/감속 (상단 영웅 handle_boss와 동일한 로직)
-                            if _target_x < PLAYER.centerx:
+                            elif _dist < 0:
                                 if current_speed > -_max_spd:
                                     current_speed -= _accel
-                            elif _target_x > PLAYER.centerx:
+                            elif _dist > 0:
                                 if current_speed < _max_spd:
                                     current_speed += _accel
-                            else:
-                                if current_speed > 0:
-                                    current_speed -= _decel
-                                elif current_speed < 0:
-                                    current_speed += _decel
-                            # 급정지 처리 (방향 전환 시 즉시 감속 - 상단 영웅과 동일)
-                            if _target_x < PLAYER.centerx and current_speed > 0:
+                            # 방향 전환 시 부드러운 감속 (instant_stop)
+                            if _dist < 0 and current_speed > 0:
                                 current_speed -= _instant_stop
-                            elif _target_x > PLAYER.centerx and current_speed < 0:
+                            elif _dist > 0 and current_speed < 0:
                                 current_speed += _instant_stop
                             # 최종 속도 클램프
                             if current_speed > _max_spd:
                                 current_speed = _max_spd
                             elif current_speed < -_max_spd:
                                 current_speed = -_max_spd
+                            # 미세 진동 방지: 목표 근접 + 저속이면 정지
+                            if _abs_dist < 3 and abs(current_speed) < 1.5:
+                                current_speed = 0
                             # 이동 적용
                             PLAYER.x = int(PLAYER.x + current_speed)
                             _arena_direct_move_applied = True
