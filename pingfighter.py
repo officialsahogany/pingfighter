@@ -19980,6 +19980,7 @@ arena_capture_caught_anim = 0.0         # 끌어오기 애니메이션 타이머
 arena_capture_escape_anim = 0.0         # 도주 애니메이션
 arena_capture_pull_start_x = 380.0      # 끌어오기 시작 X
 arena_capture_pull_start_y = 60.0       # 끌어오기 시작 Y
+arena_capture_residual_net = None       # 잔여 그물 페이드아웃용 (rect, shape)
 arena_active_hero_perks = []         # TAB 표시용: 플레이어(하단) 영웅 보유 퍽 목록
 arena_active_enemy_perks = []        # 필러 표시용: 상대(상단) 영웅 보유 퍽 목록
 arena_perk_draw_icon_func = None     # 퍽 아이콘 그리기 함수 (ColosseumsArena._draw_perk_icon)
@@ -100754,6 +100755,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         global arena_capture_net_x, arena_capture_net_y, arena_capture_net_speed
         global arena_capture_net_rope, arena_capture_caught_anim, arena_capture_escape_anim
         global arena_capture_deployed_net, arena_capture_pull_start_x, arena_capture_pull_start_y
+        global arena_capture_residual_net
         arena_capture_do_capture = globals().pop('_arena_pending_do_capture', False)
         arena_capture_phase = None
         arena_capture_timer = 0.0
@@ -100772,6 +100774,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         arena_capture_caught_anim = 0.0
         arena_capture_escape_anim = 0.0
         arena_capture_deployed_net = None
+        arena_capture_residual_net = None
         arena_capture_pull_start_x = 380.0
         arena_capture_pull_start_y = 60.0
         if arena_capture_do_capture:
@@ -118544,6 +118547,7 @@ def _update_arena_capture_phase(screen):
     global arena_capture_caught_anim, arena_capture_escape_anim
     global arena_capture_pull_start_x, arena_capture_pull_start_y
     global arena_capture_net_rope, arena_capture_deployed_net
+    global arena_capture_residual_net
     global arena_battle_result
     import pygame as pygame
     import pygame.freetype
@@ -118846,6 +118850,11 @@ def _update_arena_capture_phase(screen):
                     # 끌어오기 시작 위치 기록 (rect에서 중심 좌표 추출)
                     arena_capture_pull_start_x = dnet["rect"].centerx
                     arena_capture_pull_start_y = dnet["rect"].centery
+                    # 잔여 그물 정보 보존 (페이드아웃 연출용)
+                    arena_capture_residual_net = {
+                        "rect": pygame.Rect(dnet["rect"]),
+                        "shape": list(dnet["shape"]),
+                    }
                     print(f"[CAPTURE-DEBUG] ▶ RESULT 진입! pull_start=({dnet['rect'].centerx},{dnet['rect'].centery}) BOSS=({BOSS.centerx},{BOSS.centery}) PLAYER=({PLAYER.centerx},{PLAYER.centery})")
                     print(f"[CAPTURE-DEBUG]   top_hero={arena_top_hero} renderer={arena_hero_paddle_renderer is not None}")
                     arena_capture_deployed_net = None
@@ -118898,9 +118907,14 @@ def _update_arena_capture_phase(screen):
     elif arena_capture_phase == "result":
         import math as _cap_m2
 
-        # 배경 어둡게
+        # 배경 어둡게 (성공: 페이드인 / 실패: 즉시)
+        if arena_capture_result_flag:
+            _ov_t = arena_capture_caught_anim + dt  # 이번 프레임에서 증가될 값 미리 반영
+            _ov_alpha = min(160, int(_ov_t / 0.5 * 160))
+        else:
+            _ov_alpha = 160
         overlay = pygame.Surface((760, 750), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 160))
+        overlay.fill((0, 0, 0, _ov_alpha))
         screen.blit(overlay, (0, 0))
 
         # 폰트 준비
@@ -118913,68 +118927,75 @@ def _update_arena_capture_phase(screen):
 
         if arena_capture_result_flag:
             # ══════════════════════════════════════════
-            # ── 포획 성공: 꼭두각시 끌어오기 연출 ──
+            # ── 포획 성공: 자연스러운 전환 + 끌어오기 연출 ──
             # ══════════════════════════════════════════
             arena_capture_caught_anim += dt
             t = arena_capture_caught_anim
 
-            # 타이밍: 0~1.5초 끌어오기, 1.5~3.5초 텍스트 표시, 3.5초 종료
-            PULL_DUR = 1.5
-            TEXT_START = 1.2
-            TOTAL_DUR = 3.5
+            # 타이밍 상수
+            FADE_IN_DUR = 0.5     # 오버레이 페이드인
+            NET_FADE_DUR = 0.6    # 잔여 그물 페이드아웃
+            ROPE_GROW_DUR = 0.5   # 밧줄 성장
+            TUG_START = 0.5       # 잡아당김(tug) 시작
+            TUG_END = 0.8         # tug 끝 / 본격 끌어오기 시작
+            TUG_DIST = 40.0       # tug에서 끌려오는 Y 거리
+            PULL_START = TUG_END  # 본격 끌어오기 시작 시점
+            PULL_DUR = 1.5        # 본격 끌어오기 소요 시간
+            PULL_END = PULL_START + PULL_DUR  # = 2.3
+            TEXT_START = 1.5      # 텍스트 표시 시작
+            TOTAL_DUR = 3.8       # 전체 종료
 
-            # ── Phase A: 상대 영웅을 플레이어 쪽으로 끌어오기 ──
-            pull_t = min(1.0, t / PULL_DUR)
-            # 이징: ease-in-out cubic
-            if pull_t < 0.5:
-                eased = 4.0 * pull_t * pull_t * pull_t
-            else:
-                eased = 1.0 - (-2.0 * pull_t + 2.0) ** 3 / 2.0
-
-            # 시작 위치 → 플레이어 패들 바로 위(Y=650)까지 끌어옴
             start_x = arena_capture_pull_start_x
             start_y = arena_capture_pull_start_y
             target_x = PLAYER.centerx
             target_y = 620  # 플레이어 패들 약간 위
 
-            cur_x = start_x + (target_x - start_x) * eased
-            cur_y = start_y + (target_y - start_y) * eased
-
-            # 🔍 DEBUG: 끌어오기 좌표 추적
-            if int(t * 10) % 5 == 0:  # 0.5초마다 출력
-                print(f"[CAPTURE-DEBUG] result t={t:.2f} pull_t={pull_t:.2f} eased={eased:.3f}")
-                print(f"  start=({start_x:.0f},{start_y:.0f}) target=({target_x},{target_y}) cur=({cur_x:.0f},{cur_y:.0f})")
-                print(f"  BOSS=({BOSS.centerx},{BOSS.centery}) PLAYER=({PLAYER.centerx},{PLAYER.centery})")
-                print(f"  renderer={arena_hero_paddle_renderer is not None} top_hero={arena_top_hero is not None}")
+            # ── 영웅 위치 계산 (3단계: 정지 → tug → 본격 끌어오기) ──
+            if t < TUG_START:
+                # 정지 상태 (그물에 갇힌 채로)
+                cur_x = start_x
+                cur_y = start_y
+            elif t < TUG_END:
+                # tug: 살짝 아래로 끌림 (ease-out quad)
+                tug_t = (t - TUG_START) / (TUG_END - TUG_START)
+                tug_eased = 1.0 - (1.0 - tug_t) * (1.0 - tug_t)
+                cur_x = start_x
+                cur_y = start_y + TUG_DIST * tug_eased
+            else:
+                # 본격 끌어오기: tug 끝 위치 → 플레이어 패들 위
+                pull_t = min(1.0, (t - PULL_START) / PULL_DUR)
+                # ease-in-out cubic
+                if pull_t < 0.5:
+                    eased = 4.0 * pull_t * pull_t * pull_t
+                else:
+                    eased = 1.0 - (-2.0 * pull_t + 2.0) ** 3 / 2.0
+                tug_y = start_y + TUG_DIST  # tug 완료 후 시작 Y
+                cur_x = start_x + (target_x - start_x) * eased
+                cur_y = tug_y + (target_y - tug_y) * eased
 
             # 보스 위치 업데이트
             try:
                 BOSS.centerx = int(cur_x)
                 BOSS.centery = int(cur_y)
-            except Exception as _boss_err:
-                print(f"[CAPTURE-DEBUG] BOSS 위치 업데이트 오류: {_boss_err}")
+            except Exception:
+                pass
 
-            # ── 상단 영웅 패들을 이동된 위치에 직접 그리기 ──
-            # (오버레이 위에 그려야 보임 - 메인 루프의 그리기는 오버레이 아래)
+            # ── 상단 영웅(포획 대상) 패들 그리기 ──
             if arena_hero_paddle_renderer and arena_top_hero:
                 try:
-                    print(f"[CAPTURE-DEBUG] 상단 영웅 그리기: id={arena_top_hero['id']} pos=({int(cur_x)},{int(cur_y)})")
                     arena_hero_paddle_renderer.draw_hero_paddle(
                         screen,
                         arena_top_hero["id"],
                         int(cur_x), int(cur_y),
-                        169, 52,  # 기본 영웅 패들 크기
+                        169, 52,
                         facing="down",
                         color=arena_top_hero.get("color", (200, 200, 200)),
                         scale_mode="paddle"
                     )
-                except Exception as _pull_draw_err:
-                    print(f"[CAPTURE-DEBUG] 끌어오기 영웅 그리기 오류: {_pull_draw_err}")
-                    import traceback; traceback.print_exc()
-            else:
-                print(f"[CAPTURE-DEBUG] 영웅 그리기 SKIP: renderer={arena_hero_paddle_renderer is not None} top_hero={arena_top_hero is not None}")
+                except Exception:
+                    pass
 
-            # ── 하단 영웅(플레이어) 패들도 오버레이 위에 그리기 ──
+            # ── 하단 영웅(플레이어) 패들 그리기 ──
             if arena_hero_paddle_renderer and arena_bottom_hero:
                 try:
                     arena_hero_paddle_renderer.draw_hero_paddle(
@@ -118989,38 +119010,69 @@ def _update_arena_capture_phase(screen):
                 except Exception:
                     pass
 
-            # ── 끌어오기 밧줄/사슬 이펙트 ──
-            rope_alpha = int(200 * (1.0 - pull_t * 0.5))
-            rope_color = (180, 220, 255, rope_alpha)
-            # 플레이어→상대 연결선 (사슬 느낌)
-            chain_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
-            px, py = PLAYER.centerx, PLAYER.centery
-            bx, by = int(cur_x), int(cur_y)
-            # 메인 체인
-            pygame.draw.line(chain_surf, rope_color, (px, py), (bx, by), 3)
-            # 체인 마디 (작은 원)
-            chain_len = max(1, int(((px - bx)**2 + (py - by)**2)**0.5 / 20))
-            for i in range(chain_len):
-                frac = i / max(1, chain_len - 1)
-                cx = px + (bx - px) * frac
-                cy = py + (by - py) * frac
-                jitter_x = _cap_m2.sin(t * 8 + i * 1.2) * 3
-                pygame.draw.circle(chain_surf, (200, 240, 255, rope_alpha),
-                                   (int(cx + jitter_x), int(cy)), 4)
-            screen.blit(chain_surf, (0, 0))
+            # ── 잔여 그물 페이드아웃 (0~0.6초) ──
+            if t < NET_FADE_DUR and arena_capture_residual_net is not None:
+                rnet = arena_capture_residual_net
+                net_fade = 1.0 - (t / NET_FADE_DUR)  # 1.0 → 0.0
+                net_shrink = 0.5 + 0.5 * net_fade     # 1.0 → 0.5
+                net_alpha = int(180 * net_fade)
+                if net_alpha > 5:
+                    r_rect = rnet["rect"]
+                    r_shape = rnet["shape"]
+                    nw = int(r_rect.width * net_shrink)
+                    nh = int(r_rect.height * net_shrink)
+                    if nw > 4 and nh > 4:
+                        # 그물을 영웅 현재 위치에 맞춤
+                        ncx, ncy = int(cur_x), int(cur_y)
+                        nsurf = pygame.Surface((nw + 20, nh + 20), pygame.SRCALPHA)
+                        ox = (nw + 20) / 2
+                        oy = (nh + 20) / 2
+                        sx_r = nw / r_rect.width if r_rect.width > 0 else 1
+                        sy_r = nh / r_rect.height if r_rect.height > 0 else 1
+                        transformed = []
+                        for (spx, spy) in r_shape:
+                            tx = ox + (spx - r_rect.width / 2) * sx_r + _cap_m2.sin(t * 5 + spx) * 2
+                            ty = oy + (spy - r_rect.height / 2) * sy_r + _cap_m2.cos(t * 4 + spy) * 2
+                            transformed.append((tx, ty))
+                        if len(transformed) >= 3:
+                            pygame.draw.polygon(nsurf, (95, 160, 200, net_alpha), transformed)
+                            pygame.draw.polygon(nsurf, (180, 230, 255, min(net_alpha + 20, 255)), transformed, 2)
+                        screen.blit(nsurf, (ncx - (nw + 20) // 2, ncy - (nh + 20) // 2))
 
-            # ── 그물 이펙트 제거됨 ──
+            # ── 밧줄/사슬 이펙트 (점진적 성장) ──
+            rope_grow = min(1.0, t / ROPE_GROW_DUR)  # 0→1 over 0.5초
+            if rope_grow > 0.05:
+                px, py = PLAYER.centerx, PLAYER.centery
+                bx, by = int(cur_x), int(cur_y)
+                # 밧줄이 플레이어에서 적 방향으로 점진적 성장
+                rope_end_x = px + (bx - px) * rope_grow
+                rope_end_y = py + (by - py) * rope_grow
+                rope_alpha = int(200 * rope_grow * (1.0 - max(0, (t - PULL_END)) / (TOTAL_DUR - PULL_END) * 0.5))
+                rope_alpha = max(0, min(255, rope_alpha))
+                rope_color = (180, 220, 255, rope_alpha)
+                chain_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
+                # 메인 체인
+                pygame.draw.line(chain_surf, rope_color, (px, py), (int(rope_end_x), int(rope_end_y)), 3)
+                # 체인 마디
+                dist = max(1.0, ((px - rope_end_x)**2 + (py - rope_end_y)**2)**0.5)
+                chain_len = max(1, int(dist / 20))
+                for i in range(chain_len):
+                    frac = i / max(1, chain_len - 1)
+                    cx = px + (rope_end_x - px) * frac
+                    cy = py + (rope_end_y - py) * frac
+                    jitter_x = _cap_m2.sin(t * 8 + i * 1.2) * 3
+                    pygame.draw.circle(chain_surf, (200, 240, 255, rope_alpha),
+                                       (int(cx + jitter_x), int(cy)), 4)
+                screen.blit(chain_surf, (0, 0))
 
-            # ── Phase B: 텍스트 표시 ──
+            # ── 텍스트 표시 ──
             if t >= TEXT_START:
                 text_t = t - TEXT_START
-                # 텍스트 페이드인 (0.4초)
                 text_alpha = min(255, int(text_t / 0.4 * 255))
 
                 # "포획 성공!" 큰 글씨 (슬라이드 업 + 글로우)
                 if _cap_font:
                     title_y_off = max(0, 15 * (1.0 - min(1.0, text_t / 0.3)))
-                    # 글로우
                     glow_surf = pygame.Surface((400, 60), pygame.SRCALPHA)
                     ts_g, tr_g = _cap_font.render("포획 성공!", (100, 255, 100))
                     glow_surf.blit(ts_g, (200 - tr_g.width // 2, 30 - tr_g.height // 2))
@@ -119028,7 +119080,6 @@ def _update_arena_capture_phase(screen):
                     gscaled = pygame.transform.smoothscale(glow_surf, (440, 70))
                     screen.blit(gscaled, (GAME_CENTER_X - 220, int(280 + title_y_off)))
 
-                    # 메인 텍스트
                     main_surf = pygame.Surface((400, 60), pygame.SRCALPHA)
                     ts, tr = _cap_font.render("포획 성공!", (50, 255, 50))
                     main_surf.blit(ts, (200 - tr.width // 2, 30 - tr.height // 2))
@@ -119044,8 +119095,9 @@ def _update_arena_capture_phase(screen):
                     sub_surf.set_alpha(sub_alpha)
                     screen.blit(sub_surf, (GAME_CENTER_X - 250, 345))
 
-            # 화면 테두리 펄스 (녹색)
-            border_alpha = int(60 + 40 * _cap_m2.sin(t * 4))
+            # 화면 테두리 펄스 (녹색, 페이드인 적용)
+            border_fade = min(1.0, t / FADE_IN_DUR)
+            border_alpha = int((60 + 40 * _cap_m2.sin(t * 4)) * border_fade)
             border_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
             pygame.draw.rect(border_surf, (50, 255, 50, border_alpha), (0, 0, 760, 750), 4)
             screen.blit(border_surf, (0, 0))
@@ -119053,6 +119105,7 @@ def _update_arena_capture_phase(screen):
             if t >= TOTAL_DUR:
                 arena_capture_phase = "done"
                 arena_capture_timer = 0.0
+                arena_capture_residual_net = None
 
         else:
             # ══════════════════════════════════════
