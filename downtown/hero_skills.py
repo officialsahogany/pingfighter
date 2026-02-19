@@ -9167,7 +9167,7 @@ class SkeletonArcher(HeroSkill):
             korean_name="해골 궁수",
             description="내 진영에 해골 궁수를 소환한다. 적 영웅을 향해 화살을 쏘며, 공에 맞으면 죽는다. 20% 확률로 황금 궁수 소환.",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=7.0,
+            cooldown=10.0,
             duration=999999.0,  # 사실상 무제한 (공에 맞아야 사라짐)
             hero_id="necro"
         )
@@ -10151,7 +10151,7 @@ class BoneBarrier(HeroSkill):
             korean_name="뼈 장막",
             description="내 진영에 날카로운 뼈 장막을 건설한다. 완성 후 공을 1회 반사하고 파괴된다.",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=17.0,
+            cooldown=24.0,
             duration=999999.0,
             hero_id="necro"
         )
