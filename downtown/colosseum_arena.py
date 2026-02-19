@@ -7578,7 +7578,12 @@ class ColosseumsArena:
                     # 하수인 데이터 전달
                     pingfighter._arena_pending_henchman_list = list(self.henchman_list)
                     # AI 하수인 데이터 전달
-                    pingfighter._arena_pending_ai_henchman_list = self.ai_henchman_map.get(top_hero["id"], [])
+                    _ai_hench_for_top = self.ai_henchman_map.get(top_hero["id"], [])
+                    print(f"[Henchman AI DEBUG] start_battle | round={self.current_round} | "
+                          f"top_hero={top_hero.get('name','?')}(id={top_hero['id'][:8]}) | "
+                          f"ai_map_keys={[k[:8] for k in self.ai_henchman_map.keys()]} | "
+                          f"henchmen={[h.get('name','?') for h in _ai_hench_for_top]}({len(_ai_hench_for_top)}명)")
+                    pingfighter._arena_pending_ai_henchman_list = _ai_hench_for_top
                     # 생포된 호위무사 (1회용 소환) 데이터 전달
                     pingfighter._arena_pending_captured_guard = self.captured_guard
                     pingfighter._arena_pending_captured_guard_used = self.captured_guard_used
@@ -14170,6 +14175,10 @@ class ColosseumsArena:
 
         # 후보: 패자 중 아직 배정되지 않은 영웅
         candidates = [l for l in losers if l.get("id") not in taken_ids]
+        print(f"[Henchman AI DEBUG] _assign | hero={hero.get('name','?')}(id={hero_id[:8]}) | "
+              f"losers={[l.get('name','?') for l in losers]} | "
+              f"taken={len(taken_ids)} | candidates={[c.get('name','?') for c in candidates]} | "
+              f"existing={[h.get('name','?') for h in self.ai_henchman_map.get(hero_id, [])]}")
         if not candidates:
             return
 
