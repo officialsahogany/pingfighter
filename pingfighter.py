@@ -117842,8 +117842,11 @@ def draw_field():
         # 스테이지30: 투기장 (콜로세움) 애니메이션 배경 - 배속 연동
         elapsed_ms = clock.get_time() if 'clock' in globals() else 16
         dt = (elapsed_ms / 1000.0) * arena_speed_multiplier
-        # 라운드 전환(공 서브 애니메이션) 중에는 신의심판 타이머 동결
-        animated_bg_stage30.judgment_logic_paused = is_ball_spawn_animation_paused()
+        # 라운드 전환(공 서브 애니메이션) 또는 포획 페이즈 중에는 신의심판 타이머 동결
+        animated_bg_stage30.judgment_logic_paused = (
+            is_ball_spawn_animation_paused()
+            or arena_capture_phase is not None
+        )
         animated_bg_stage30.update(dt)
         animated_bg_stage30.draw(
             SCREEN,
@@ -119185,6 +119188,9 @@ def _update_arena_capture_phase(screen):
 
     # ─────── DONE 페이즈 ───────
     elif arena_capture_phase == "done":
+        # 신의심판 쿨다운 복구
+        if animated_bg_stage30 is not None:
+            animated_bg_stage30.judgment_cooldown = _cap_random.uniform(50.0, 60.0)
         arena_battle_result = True
         print(f"[CAPTURE] 포획 페이즈 완료. 결과={arena_capture_result_flag}")
 
@@ -132433,6 +132439,10 @@ def show_result(won):
                 globals()['ball_speed_y'] = 0
             except Exception:
                 pass
+            # 신의심판 이벤트 강제 중지 (포획 중 발동 방지)
+            if animated_bg_stage30 is not None:
+                animated_bg_stage30.judgment_phase = animated_bg_stage30.JUDGMENT_IDLE
+                animated_bg_stage30.judgment_cooldown = 999.0
             _top_name = arena_top_hero.get('name', '?') if arena_top_hero else '?'
             print(f"[CAPTURE] 포획 페이즈 시작! 대상: {_top_name}")
             return
