@@ -139326,12 +139326,17 @@ def main(stage_num, new_boss_mode=False):
                             if _hench_fx:
                                 if _hench_fx.get('freeze'):
                                     arena_freeze_frames = max(arena_freeze_frames, 30)
+                                if _hench_fx.get('screen_shake'):
+                                    _shake_int = _hench_fx.get('shake_intensity', 15)
+                                    globals()['screen_shake_timer'] = max(globals().get('screen_shake_timer', 0), 18)
+                                    globals()['screen_shake_intensity'] = max(globals().get('screen_shake_intensity', 0), _shake_int)
                             # 하수인은 수동 발동만 허용 (1/2/3 키 또는 아이콘 클릭)
                             # auto_trigger 제거: 설계상 자동 시전 없음
                         except Exception as _hench_err:
                             print(f"[Henchman] update error: {_hench_err}")
 
                     # 🗡️ AI 하수인 시스템 업데이트 (자동 발동)
+                    _ai_hench_fx = {}
                     if arena_ai_henchman_system:
                         try:
                             _ai_hench_fx = arena_ai_henchman_system.update(
@@ -139341,6 +139346,10 @@ def main(stage_num, new_boss_mode=False):
                             if _ai_hench_fx:
                                 if _ai_hench_fx.get('freeze'):
                                     arena_freeze_frames = max(arena_freeze_frames, 30)
+                                if _ai_hench_fx.get('screen_shake'):
+                                    _shake_int = _ai_hench_fx.get('shake_intensity', 15)
+                                    globals()['screen_shake_timer'] = max(globals().get('screen_shake_timer', 0), 18)
+                                    globals()['screen_shake_intensity'] = max(globals().get('screen_shake_intensity', 0), _shake_int)
                             # AI 하수인은 자동 발동
                             arena_ai_henchman_system.auto_trigger()
                         except Exception as _ai_hench_err:
@@ -139382,6 +139391,12 @@ def main(stage_num, new_boss_mode=False):
                             ball_vel[0] = _hench_fx['ball_vx']
                         if 'ball_vy' in _hench_fx:
                             ball_vel[1] = _hench_fx['ball_vy']
+                    # 🗡️ AI 하수인 스킬에 의한 공 속도 변경 반영
+                    if _ai_hench_fx:
+                        if 'ball_vx' in _ai_hench_fx:
+                            ball_vel[0] = _ai_hench_fx['ball_vx']
+                        if 'ball_vy' in _ai_hench_fx:
+                            ball_vel[1] = _ai_hench_fx['ball_vy']
 
                     # 👻 유령소환: 공 숨김/발사 처리 (ball_in_kuromi 재활용)
                     _gs_ghost = arena_skill_manager.game_state

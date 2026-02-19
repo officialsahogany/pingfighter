@@ -278,7 +278,7 @@ class HenchmanSystem:
                 continue
             if skill.is_active:
                 try:
-                    guard_paddle = _GuardPaddle(slot.x, slot.y)
+                    guard_paddle = _GuardPaddle(slot.x, slot.y, is_top=self.is_top)
                     skill.update(dt, guard_paddle, top_paddle, ball, game_state)
                 except Exception:
                     # _update_active_effect 예외 시 active_timer는 이미 감소했지만
@@ -290,7 +290,7 @@ class HenchmanSystem:
                 # (ShadowClone 등 소멸 애니메이션이 is_active=False 후에도 필요)
                 if hasattr(skill, 'dying_clones') and skill.dying_clones:
                     try:
-                        skill.update(dt, _GuardPaddle(slot.x, slot.y),
+                        skill.update(dt, _GuardPaddle(slot.x, slot.y, is_top=self.is_top),
                                      top_paddle, ball, game_state)
                     except Exception:
                         pass
@@ -472,7 +472,7 @@ class HenchmanSystem:
                 pass
 
     def _apply_status_effects(self, result, target_paddle, game_state):
-        """상태 효과 적용 (대상: 보스)"""
+        """상태 효과 적용 (is_top 기반으로 올바른 타겟에 적용)"""
         if not isinstance(result, dict):
             return
         effects = result.get('status_effects', [])
@@ -483,7 +483,12 @@ class HenchmanSystem:
                 continue
             etype = effect.get('type', '')
             target = effect.get('target', 'opponent')
-            prefix = 'top_paddle' if target == 'opponent' else 'bottom_paddle'
+            # is_top=True(AI 상단): opponent=bottom_paddle, self=top_paddle
+            # is_top=False(플레이어 하단): opponent=top_paddle, self=bottom_paddle
+            if target == 'opponent':
+                prefix = 'bottom_paddle' if self.is_top else 'top_paddle'
+            else:
+                prefix = 'top_paddle' if self.is_top else 'bottom_paddle'
             if etype == 'stun':
                 game_state[f'{prefix}_stunned'] = True
             elif etype == 'slow':
@@ -506,13 +511,8 @@ class HenchmanSystem:
         gs = self.skill_manager.game_state if self.skill_manager else {}
         boss_effects = {}
 
-        # 넉백 (일회성 → consume)
-        if gs.get('horn_charge_apply_knockback'):
-            boss_effects['horn_charge_knockback'] = True
-            boss_effects['horn_charge_knockback_dir'] = gs.get('horn_charge_knockback_dir', 1)
-            boss_effects['horn_charge_knockback_vel'] = gs.get('horn_charge_knockback_vel', 73)
-            boss_effects['horn_charge_target_is_top'] = gs.get('horn_charge_target_is_top', True)
-            gs['horn_charge_apply_knockback'] = False
+        # 넉백: game_state에 남겨두고 pingfighter.py의 직접 체크에서 처리
+        # (여기서 consume하면 pingfighter.py에서 읽기 전에 사라짐)
         # 프리즈 (일회성 트리거)
         if gs.get('dark_slash_freeze', False):
             boss_effects['freeze'] = True
@@ -621,7 +621,7 @@ class HenchmanSystem:
                 has_dying = hasattr(skill, 'dying_clones') and skill.dying_clones
                 if skill.is_active or has_dying:
                     try:
-                        guard_paddle = _GuardPaddle(slot.x, slot.y)
+                        guard_paddle = _GuardPaddle(slot.x, slot.y, is_top=self.is_top)
                         skill.draw(screen, guard_paddle, top_paddle, ball, game_state)
                     except Exception:
                         pass
