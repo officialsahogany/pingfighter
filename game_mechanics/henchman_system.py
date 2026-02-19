@@ -242,22 +242,32 @@ class HenchmanSystem:
         ball = _BallProxy(ball_rect, ball_vx, ball_vy) if ball_rect else None
 
         for slot in self.slots:
-            # 쿨타임 틱
-            if slot.cooldown > 0:
-                slot.cooldown = max(0.0, slot.cooldown - dt)
+            try:
+                # 쿨타임 틱
+                if slot.cooldown > 0:
+                    slot.cooldown = max(0.0, slot.cooldown - dt)
 
-            # 페이즈 업데이트
-            if slot.phase is None:
-                continue
+                # 페이즈 업데이트
+                if slot.phase is None:
+                    continue
 
-            slot.anim_timer += dt
+                slot.anim_timer += dt
 
-            if slot.phase == "entering":
-                self._update_entering(slot, dt, ball)
-            elif slot.phase == "casting":
-                self._update_casting(slot, dt, top_paddle, bottom_paddle, ball)
-            elif slot.phase == "exiting":
-                self._update_exiting(slot, dt)
+                if slot.phase == "entering":
+                    self._update_entering(slot, dt, ball)
+                elif slot.phase == "casting":
+                    self._update_casting(slot, dt, top_paddle, bottom_paddle, ball)
+                elif slot.phase == "exiting":
+                    self._update_exiting(slot, dt)
+            except Exception as e:
+                # 개별 슬롯 예외 시 해당 슬롯만 강제 퇴장 처리
+                print(f"[Henchman] 슬롯 업데이트 예외 ({slot.hero_name}): {e}")
+                if slot.phase is not None:
+                    skill = slot.skill_instance
+                    if skill and skill.is_active:
+                        skill.is_active = False
+                    slot.phase = "exiting"
+                    slot.anim_timer = 0.0
 
         # 스킬 이펙트 업데이트 (활성 스킬만)
         game_state = self.skill_manager.game_state if self.skill_manager else {}
@@ -293,7 +303,11 @@ class HenchmanSystem:
             slot.x = slot.target_x
             slot.phase = "casting"
             slot.anim_timer = 0.0
-            self._activate_skill(slot, ball)
+            try:
+                self._activate_skill(slot, ball)
+            except Exception as e:
+                # 스킬 발동 실패해도 casting→exiting 흐름은 유지
+                print(f"[Henchman] _activate_skill 예외: {e}")
 
     def _update_casting(self, slot: HenchmanSlot, dt: float,
                         top_paddle, bottom_paddle, ball):
@@ -301,11 +315,19 @@ class HenchmanSystem:
         skill = slot.skill_instance
         skill_done = (not skill.is_active) if skill else True
 
-        # 안전 타임아웃: 스킬 duration + 여유 시간 초과 시 강제 퇴장
-        max_cast = HENCH_CAST_DURATION + (skill.duration if skill else 0) + 2.0
+        # 안전 타임아웃: skill.duration 또는 실제 active_timer 중 큰 값 + 여유
+        actual_duration = 0.0
+        if skill:
+            actual_duration = max(skill.duration, getattr(skill, 'active_timer', 0.0))
+        max_cast = HENCH_CAST_DURATION + actual_duration + 2.0
+        # 절대 최대 제한: 어떤 경우에도 10초 이내 강제 퇴장
+        max_cast = min(max_cast, 10.0)
         if slot.anim_timer >= max_cast and not skill_done:
             if skill:
                 skill.is_active = False
+                # DeadPossession 등 내부 스킬도 강제 종료
+                if hasattr(skill, 'possessed_skill') and skill.possessed_skill:
+                    skill.possessed_skill.is_active = False
             skill_done = True
 
         if slot.anim_timer >= HENCH_CAST_DURATION and skill_done:
