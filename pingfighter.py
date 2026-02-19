@@ -118562,9 +118562,9 @@ def _update_arena_capture_phase(screen):
     dt = 1.0 / 60.0
     arena_capture_timer += dt
 
-    # 게임 영역 좌표
-    GAME_LEFT = 80
-    GAME_RIGHT = 680
+    # 게임 영역 좌표 (포획 페이즈는 전체 내부 해상도 760px 사용)
+    GAME_LEFT = 0
+    GAME_RIGHT = 760
     GAME_CENTER_X = 380
 
     # 상대 영웅 이름
@@ -118623,10 +118623,10 @@ def _update_arena_capture_phase(screen):
         # 상단 경고 바 (빨간 줄무늬 깜빡임)
         if t < 1.2:
             bar_alpha = int(180 * abs(_cap_math.sin(t * 8)))
-            bar_surf = pygame.Surface((600, 4), pygame.SRCALPHA)
+            bar_surf = pygame.Surface((760, 4), pygame.SRCALPHA)
             bar_surf.fill((255, 60, 40, bar_alpha))
-            screen.blit(bar_surf, (GAME_LEFT, 280))
-            screen.blit(bar_surf, (GAME_LEFT, 410))
+            screen.blit(bar_surf, (0, 280))
+            screen.blit(bar_surf, (0, 410))
 
         # 폰트 준비 (캐시)
         _cap_font_big = getattr(_update_arena_capture_phase, '_title_font_big', None)
@@ -118716,7 +118716,7 @@ def _update_arena_capture_phase(screen):
         if t > 0.2:
             edge_alpha = int(60 * abs(_cap_math.sin(t * 5)))
             edge_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
-            pygame.draw.rect(edge_surf, (255, 180, 50, edge_alpha), (GAME_LEFT, 0, 600, 750), 3)
+            pygame.draw.rect(edge_surf, (255, 180, 50, edge_alpha), (GAME_LEFT, 0, 760, 750), 3)
             screen.blit(edge_surf, (0, 0))
 
         if t >= ANNOUNCE_DUR:
