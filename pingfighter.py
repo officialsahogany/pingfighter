@@ -66870,98 +66870,19 @@ def handle_player(keys):
                 pass
         if soldier_control_lock_timer <= 0 or is_dashing:
             if not suicide_drone_active and not ice_dash_sliding:
-                # 🏟️ 투기장 AI 모드: 상단 영웅과 동일한 프레임 기반 가속/감속 + 급정지 이동
-                _arena_direct_move_applied = False
-                if arena_mode_enabled and player_ai_enabled and not is_dashing:
-                    try:
-                        if selected_character_type == "blacksmith":
-                            _ai_ctrl = get_blacksmith_ai_controller()
-                        else:
-                            _ai_ctrl = get_player_ai_controller()
-                        _target_x = getattr(_ai_ctrl, 'last_target_x', None)
-                        if _target_x is not None:
-                            # 상단 영웅과 동일한 이동 파라미터 (handle_boss 투기장 모드와 일치)
-                            _accel = 0.4    # PLAYER ACCELERATION
-                            _decel = 0.4    # PLAYER DECELERATION
-                            _max_spd = 7.0  # PLAYER MAX_SPEED
-                            _instant_stop = 0.5  # 부드러운 방향 전환 (1.0→0.5)
-                            # 🏟️ 퍽: 이동속도 배율
-                            if arena_perk_speed_mult_bottom != 1.0:
-                                _accel *= arena_perk_speed_mult_bottom
-                                _max_spd *= arena_perk_speed_mult_bottom
-                            # 🏟️ 스킬 둔화/속도증가
-                            if arena_player_slow_mult != 1.0:
-                                _accel *= arena_player_slow_mult
-                                _decel *= arena_player_slow_mult
-                                _max_spd *= arena_player_slow_mult
-                            if arena_player_speed_boost_only > 1.0:
-                                _accel *= arena_player_speed_boost_only
-                                _max_spd *= arena_player_speed_boost_only
-                            # 🏟️ 관중 모멘텀 버프
-                            if current_stage == 30 and pillar_renderer is not None:
-                                _m_bg = pillar_renderer.get_colosseum_bg() if pillar_renderer else None
-                                if _m_bg and hasattr(_m_bg, 'get_momentum_level'):
-                                    _momentum = _m_bg.get_momentum_level()
-                                    if _momentum > 0.3:
-                                        _m_bonus = 1.0 + _momentum * 0.1
-                                        _accel *= _m_bonus
-                                        _max_spd *= _m_bonus
-                            # 🏟️ 신의심판 감속
-                            if current_stage == 30 and animated_bg_stage30 is not None:
-                                if animated_bg_stage30.is_judgment_earthquake_active():
-                                    _accel *= 0.5
-                                    _max_spd *= 0.5
-                            # 속도 클램프 (둔화 적용 후)
-                            if current_speed > _max_spd:
-                                current_speed = _max_spd
-                            elif current_speed < -_max_spd:
-                                current_speed = -_max_spd
-                            # 목표와의 거리
-                            _dist = _target_x - PLAYER.centerx
-                            _abs_dist = abs(_dist)
-                            # 근접 감속: 목표에 가까울수록 자연스럽게 속도 줄임
-                            if _abs_dist < 12:
-                                current_speed *= 0.82  # 마찰 브레이크
-                            # 가속/감속 (상단 영웅 handle_boss와 동일한 로직)
-                            elif _dist < 0:
-                                if current_speed > -_max_spd:
-                                    current_speed -= _accel
-                            elif _dist > 0:
-                                if current_speed < _max_spd:
-                                    current_speed += _accel
-                            # 방향 전환 시 부드러운 감속 (instant_stop)
-                            if _dist < 0 and current_speed > 0:
-                                current_speed -= _instant_stop
-                            elif _dist > 0 and current_speed < 0:
-                                current_speed += _instant_stop
-                            # 최종 속도 클램프
-                            if current_speed > _max_spd:
-                                current_speed = _max_spd
-                            elif current_speed < -_max_spd:
-                                current_speed = -_max_spd
-                            # 미세 진동 방지: 목표 근접 + 저속이면 정지
-                            if _abs_dist < 3 and abs(current_speed) < 1.5:
-                                current_speed = 0
-                            # 이동 적용
-                            PLAYER.x = int(PLAYER.x + current_speed)
-                            _arena_direct_move_applied = True
-                    except Exception:
-                        pass  # 실패 시 기존 키 기반 이동으로 폴백
-                # 기존 키 기반 이동 (투기장 직접 이동 미적용 시)
-                if not _arena_direct_move_applied:
-                    # pygame.Rect 안전을 위해 int() 변환 및 유효성 검사
-                    try:
-                        # NaN/Infinity 체크
-                        if current_speed != current_speed or abs(current_speed) > 1000000:
-                            safe_speed = 0
-                        else:
-                            safe_speed = int(current_speed)
-                        # 최종 위치가 유효 범위 내인지 확인
-                        new_x = PLAYER.x + safe_speed
-                        if -2147483647 < new_x < 2147483647:
-                            PLAYER.x = int(new_x)
-                    except (ValueError, OverflowError, TypeError):
-                        pass  # 유효하지 않은 값이면 무시
+                # pygame.Rect 안전을 위해 int() 변환 및 유효성 검사
+                try:
+                    # NaN/Infinity 체크
+                    if current_speed != current_speed or abs(current_speed) > 1000000:
+                        safe_speed = 0
+                    else:
+                        safe_speed = int(current_speed)
+                    # 최종 위치가 유효 범위 내인지 확인
+                    new_x = PLAYER.x + safe_speed
+                    if -2147483647 < new_x < 2147483647:
+                        PLAYER.x = int(new_x)
+                except (ValueError, OverflowError, TypeError):
+                    pass  # 유효하지 않은 값이면 무시
 
         # 후딜 시간은 항상 감소 (대쉬 중에도)
         if soldier_control_lock_timer > 0:
@@ -131458,15 +131379,10 @@ def handle_boss():
         arena_top_confusion_target = 0
         arena_top_confusion_timer = 0
     # 기존 AI 움직임 로직
-    _boss_dist = effective_target_x - BOSS.centerx
-    _boss_abs_dist = abs(_boss_dist)
-    # 🏟️ 투기장: 근접 감속 (목표에 가까울수록 자연스럽게 속도 줄임)
-    if arena_mode_enabled and _boss_abs_dist < 12:
-        boss_current_speed *= 0.82  # 마찰 브레이크
-    elif _boss_dist < 0:
+    if effective_target_x < BOSS.centerx:
         if boss_current_speed > -enhanced_max_speed:
             boss_current_speed -= enhanced_accel
-    elif _boss_dist > 0:
+    elif effective_target_x > BOSS.centerx:
         if boss_current_speed < enhanced_max_speed:
             boss_current_speed += enhanced_accel
     else:
@@ -131474,20 +131390,16 @@ def handle_boss():
             boss_current_speed -= enhanced_decel
         elif boss_current_speed < 0:
             boss_current_speed += enhanced_decel
-    # 급정지 처리 (🏟️ 투기장: 부드러운 방향 전환)
-    _effective_instant_stop = min(enhanced_instant_stop, 0.5) if arena_mode_enabled else enhanced_instant_stop
-    if _boss_dist < 0 and boss_current_speed > 0:
-        boss_current_speed -= _effective_instant_stop
-    elif _boss_dist > 0 and boss_current_speed < 0:
-        boss_current_speed += _effective_instant_stop
+    # 급정지 처리
+    if effective_target_x < BOSS.centerx and boss_current_speed > 0:
+        boss_current_speed -= enhanced_instant_stop
+    elif effective_target_x > BOSS.centerx and boss_current_speed < 0:
+        boss_current_speed += enhanced_instant_stop
     # 최종 속도 클램프 (급정지 후 max_speed 초과 방지)
     if boss_current_speed > enhanced_max_speed:
         boss_current_speed = enhanced_max_speed
     elif boss_current_speed < -enhanced_max_speed:
         boss_current_speed = -enhanced_max_speed
-    # 🏟️ 투기장: 미세 진동 방지
-    if arena_mode_enabled and _boss_abs_dist < 3 and abs(boss_current_speed) < 1.5:
-        boss_current_speed = 0
     # 이동 적용 with ground crack collision check
     proposed_x = BOSS.x + boss_current_speed
     proposed_boss_rect = pygame.Rect(proposed_x, BOSS.y, BOSS.width, BOSS.height)
