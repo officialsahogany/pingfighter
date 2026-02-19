@@ -1618,6 +1618,8 @@ class AbyssInk(HeroSkill):
         # 쿨타임 감소
         if self.current_cooldown > 0:
             self.current_cooldown -= dt
+        if self.activation_flash_timer > 0:
+            self.activation_flash_timer -= dt
 
         # 활성 효과 업데이트
         if self.is_active:
@@ -2288,6 +2290,8 @@ class DwarfMagic(HeroSkill):
         # 부모 클래스의 쿨타임 처리
         if self.current_cooldown > 0:
             self.current_cooldown -= dt
+        if self.activation_flash_timer > 0:
+            self.activation_flash_timer -= dt
 
         # 활성 효과 업데이트 (투사체 이동)
         if self.is_active:
@@ -6372,6 +6376,8 @@ class OilSpill(HeroSkill):
         # 쿨타임 감소
         if self.current_cooldown > 0:
             self.current_cooldown -= dt
+        if self.activation_flash_timer > 0:
+            self.activation_flash_timer -= dt
 
         # 발사체나 웅덩이가 있으면 항상 업데이트
         if self.oil_projectiles or self.oil_puddles:
@@ -7538,6 +7544,8 @@ class Charm(HeroSkill):
         # 쿨타임 감소 (base 로직 동일)
         if self.current_cooldown > 0:
             self.current_cooldown -= dt
+        if self.activation_flash_timer > 0:
+            self.activation_flash_timer -= dt
 
         if self.is_active:
             self.active_timer -= dt
@@ -9583,6 +9591,8 @@ class SkeletonArcher(HeroSkill):
         # 쿨타임 감소
         if self.current_cooldown > 0:
             self.current_cooldown -= dt
+        if self.activation_flash_timer > 0:
+            self.activation_flash_timer -= dt
 
         # 활성 효과 업데이트 (궁수가 존재하는 한)
         if self.is_active:
@@ -10386,6 +10396,8 @@ class BoneBarrier(HeroSkill):
     def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         if self.current_cooldown > 0:
             self.current_cooldown -= dt
+        if self.activation_flash_timer > 0:
+            self.activation_flash_timer -= dt
         if self.is_active:
             self._update_active_effect(dt, caster_paddle, target_paddle, ball, game_state)
             # 모든 장벽이 파괴되면 스킬 발동 상태 해제 (초상화 UI 깜빡임 방지)
