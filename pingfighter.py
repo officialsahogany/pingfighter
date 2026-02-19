@@ -8283,6 +8283,21 @@ def _fullscreen_flip():
             except Exception:
                 pass
 
+        # 🗡️ AI 하수인 아이콘 UI (왼쪽 필러 상단, 하단 하수인과 대칭)
+        _ai_hench_hover = None
+        if arena_mode_enabled and arena_ai_henchman_system:
+            try:
+                _real_mpos_ah = _original_mouse_get_pos()
+                _ai_hench_hover = arena_ai_henchman_system.draw_pillar_icons_top(
+                    REAL_SCREEN,
+                    game_offset_x=GAME_OFFSET_X,
+                    game_offset_y=GAME_OFFSET_Y,
+                    game_scale=GAME_SCALE_FACTOR,
+                    mouse_pos=_real_mpos_ah,
+                )
+            except Exception:
+                pass
+
         # 🏅 퍽 아이콘 UI (필러 배경, 호위무사 위/아래)
         _perk_hover = None
         if arena_mode_enabled and arena_guard_system:
@@ -8304,6 +8319,8 @@ def _fullscreen_flip():
         # 호위무사 / 하수인 / 퍽 / 큐 툴팁 (퍽 호버가 우선, 상대방 호위무사 툴팁은 비공개)
         if _perk_hover:
             _draw_perk_hover_tooltip(REAL_SCREEN, _perk_hover)
+        elif _ai_hench_hover:
+            _draw_guard_hover_tooltip(REAL_SCREEN, _ai_hench_hover)
         elif _hench_hover:
             _draw_guard_hover_tooltip(REAL_SCREEN, _hench_hover)
         elif _queue_hover:
@@ -8525,8 +8542,25 @@ def _fullscreen_update(*args, **kwargs):
             except Exception:
                 pass
 
+        # 🗡️ AI 하수인 아이콘 UI (fullscreen - 왼쪽 필러 상단)
+        _ai_hench_hover2 = None
+        if arena_mode_enabled and arena_ai_henchman_system:
+            try:
+                _real_mpos_ah2 = _original_mouse_get_pos()
+                _ai_hench_hover2 = arena_ai_henchman_system.draw_pillar_icons_top(
+                    REAL_SCREEN,
+                    game_offset_x=GAME_OFFSET_X,
+                    game_offset_y=GAME_OFFSET_Y,
+                    game_scale=GAME_SCALE_FACTOR,
+                    mouse_pos=_real_mpos_ah2,
+                )
+            except Exception:
+                pass
+
         if _perk_hover2:
             _draw_perk_hover_tooltip(REAL_SCREEN, _perk_hover2)
+        elif _ai_hench_hover2:
+            _draw_guard_hover_tooltip(REAL_SCREEN, _ai_hench_hover2)
         elif _hench_hover2:
             _draw_guard_hover_tooltip(REAL_SCREEN, _hench_hover2)
         elif _queue_hover2:

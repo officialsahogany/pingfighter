@@ -796,6 +796,124 @@ class HenchmanSystem:
 
         return hover_info
 
+    def draw_pillar_icons_top(self, screen, game_offset_x=0, game_offset_y=0,
+                               game_scale=1.0, mouse_pos=None) -> dict:
+        """왼쪽 필러 상단에 AI 하수인 아이콘 렌더링 (위에서 아래로 쌓기). hover_info 반환."""
+        if not self.slots:
+            return None
+
+        _s = game_scale
+        icon_sz = max(24, int(HENCH_ICON_SIZE * _s))
+        gap = max(4, int(6 * _s))
+
+        # Y 시작: 게임 영역 상단 + 약간의 여백
+        start_y = game_offset_y + int(10 * _s)
+
+        # X: 왼쪽 필러 중앙 (하단 하수인과 동일한 X)
+        frame_x = game_offset_x - icon_sz - int(8 * _s)
+        if frame_x < 2:
+            frame_x = 2
+
+        hover_info = None
+
+        for i, slot in enumerate(self.slots):
+            iy = start_y + i * (icon_sz + gap)
+
+            if iy < 0 or iy + icon_sz > screen.get_height():
+                break
+
+            slot.icon_rect = pygame.Rect(frame_x, iy, icon_sz, icon_sz)
+
+            # 배경
+            bg_color = (35, 30, 25)
+            if slot.is_ready:
+                bg_color = (50, 45, 35)
+            pygame.draw.rect(screen, bg_color, slot.icon_rect, border_radius=4)
+
+            # 캐릭터 아이콘
+            inner_margin = 3
+            inner_sz = icon_sz - inner_margin * 2
+            if self.hero_paddle_renderer and inner_sz > 10:
+                try:
+                    self.hero_paddle_renderer.draw_hero_paddle(
+                        screen,
+                        slot.hero_id,
+                        frame_x + icon_sz // 2,
+                        iy + icon_sz // 2,
+                        inner_sz, inner_sz,
+                        facing="down",
+                        color=slot.hero_color,
+                        scale_mode="icon"
+                    )
+                except Exception:
+                    pygame.draw.circle(screen, slot.hero_color,
+                                       (frame_x + icon_sz // 2, iy + icon_sz // 2),
+                                       inner_sz // 3)
+            else:
+                pygame.draw.circle(screen, slot.hero_color,
+                                   (frame_x + icon_sz // 2, iy + icon_sz // 2),
+                                   inner_sz // 3)
+
+            # 쿨타임 오버레이
+            if slot.is_on_cooldown:
+                ratio = slot.cooldown_ratio
+                overlay_h = int(icon_sz * ratio)
+                if overlay_h > 0:
+                    ov_surf = pygame.Surface((icon_sz, overlay_h), pygame.SRCALPHA)
+                    ov_surf.fill((255, 255, 255, 160))
+                    screen.blit(ov_surf, (frame_x, iy + icon_sz - overlay_h))
+
+                # 쿨타임 숫자
+                cd_text = f"{int(slot.cooldown) + 1}"
+                font = self._get_font(max(10, int(12 * _s)))
+                if font:
+                    ts, _ = font.render(cd_text, (40, 40, 40))
+                    screen.blit(ts, (frame_x + icon_sz // 2 - ts.get_width() // 2,
+                                     iy + icon_sz // 2 - ts.get_height() // 2))
+
+            # 테두리
+            if slot.is_ready:
+                pulse = 0.6 + 0.4 * abs(math.sin(pygame.time.get_ticks() * 0.003))
+                border_alpha = int(200 * pulse)
+                border_surf = pygame.Surface((icon_sz + 4, icon_sz + 4), pygame.SRCALPHA)
+                pygame.draw.rect(border_surf, (210, 180, 100, border_alpha),
+                                 (0, 0, icon_sz + 4, icon_sz + 4), 2, border_radius=5)
+                screen.blit(border_surf, (frame_x - 2, iy - 2))
+            elif slot.phase is not None:
+                pygame.draw.rect(screen, (255, 220, 120),
+                                 (frame_x - 1, iy - 1, icon_sz + 2, icon_sz + 2),
+                                 2, border_radius=5)
+            else:
+                pygame.draw.rect(screen, (80, 70, 60),
+                                 slot.icon_rect, 1, border_radius=4)
+
+            # "하" 라벨 (하수인 구분용)
+            label_font = self._get_font(max(8, int(9 * _s)))
+            if label_font:
+                ls, _ = label_font.render("하", (160, 140, 100))
+                screen.blit(ls, (frame_x + 2, iy + 1))
+
+            # 호버 감지
+            if mouse_pos and slot.icon_rect.collidepoint(mouse_pos):
+                pygame.draw.rect(screen, (255, 220, 140),
+                                 (frame_x - 2, iy - 2, icon_sz + 4, icon_sz + 4),
+                                 2, border_radius=5)
+                hover_info = {
+                    "type": "henchman",
+                    "name": slot.hero_name,
+                    "color": slot.hero_color,
+                    "cooldown": slot.cooldown,
+                    "cooldown_max": slot.cooldown_max,
+                    "is_ready": slot.is_ready,
+                    "phase": slot.phase,
+                    "skill": slot.skill_instance,
+                    "screen_x": frame_x,
+                    "screen_y": iy,
+                    "side": "top",
+                }
+
+        return hover_info
+
     def _get_font(self, size=12):
         """한글 폰트 반환 (캐싱)"""
         cache_key = size
