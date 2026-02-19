@@ -272,6 +272,8 @@ class HenchmanSystem:
 
         # 스킬 이펙트 업데이트 (활성 스킬만 + 후처리 필요 스킬)
         game_state = self.skill_manager.game_state if self.skill_manager else {}
+        # is_top=True(AI): target=bottom_paddle, is_top=False(플레이어): target=top_paddle
+        skill_target_paddle = bottom_paddle if self.is_top else top_paddle
         for slot in self.slots:
             skill = slot.skill_instance
             if not skill:
@@ -279,7 +281,7 @@ class HenchmanSystem:
             if skill.is_active:
                 try:
                     guard_paddle = _GuardPaddle(slot.x, slot.y, is_top=self.is_top)
-                    skill.update(dt, guard_paddle, top_paddle, ball, game_state)
+                    skill.update(dt, guard_paddle, skill_target_paddle, ball, game_state)
                 except Exception:
                     # _update_active_effect 예외 시 active_timer는 이미 감소했지만
                     # is_active = False 처리가 누락될 수 있으므로 수동 체크
@@ -291,7 +293,7 @@ class HenchmanSystem:
                 if hasattr(skill, 'dying_clones') and skill.dying_clones:
                     try:
                         skill.update(dt, _GuardPaddle(slot.x, slot.y, is_top=self.is_top),
-                                     top_paddle, ball, game_state)
+                                     skill_target_paddle, ball, game_state)
                     except Exception:
                         pass
 
@@ -613,6 +615,8 @@ class HenchmanSystem:
             bottom_paddle = _PaddleProxy(pygame.Rect(380, 710, 120, 40), is_top=False)
 
         game_state = self.skill_manager.game_state if self.skill_manager else {}
+        # is_top=True(AI): target=bottom_paddle, is_top=False(플레이어): target=top_paddle
+        draw_target_paddle = bottom_paddle if self.is_top else top_paddle
 
         for slot in self.slots:
             skill = slot.skill_instance
@@ -622,7 +626,7 @@ class HenchmanSystem:
                 if skill.is_active or has_dying:
                     try:
                         guard_paddle = _GuardPaddle(slot.x, slot.y, is_top=self.is_top)
-                        skill.draw(screen, guard_paddle, top_paddle, ball, game_state)
+                        skill.draw(screen, guard_paddle, draw_target_paddle, ball, game_state)
                     except Exception:
                         pass
 
