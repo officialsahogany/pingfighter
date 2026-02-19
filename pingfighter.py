@@ -119036,22 +119036,7 @@ def _update_arena_capture_phase(screen):
                                    (int(cx + jitter_x), int(cy)), 4)
             screen.blit(chain_surf, (0, 0))
 
-            # ── 그물 이펙트 (상대 영웅 위에 표시) ──
-            net_size = 60
-            net_surf = pygame.Surface((net_size * 2, net_size * 2), pygame.SRCALPHA)
-            net_alpha = int(180 * (1.0 - pull_t * 0.3))
-            # 그물 격자
-            for gi in range(5):
-                frac = gi / 4.0
-                gx = int(net_size * 2 * frac)
-                pygame.draw.line(net_surf, (200, 230, 255, net_alpha),
-                                 (gx, 0), (gx, net_size * 2), 1)
-                pygame.draw.line(net_surf, (200, 230, 255, net_alpha),
-                                 (0, gx), (net_size * 2, gx), 1)
-            # 떨림 효과
-            jx = _cap_m2.sin(t * 12) * 2
-            jy = _cap_m2.cos(t * 10) * 2
-            screen.blit(net_surf, (int(cur_x - net_size + jx), int(cur_y - net_size + jy)))
+            # ── 그물 이펙트 제거됨 ──
 
             # ── Phase B: 텍스트 표시 ──
             if t >= TEXT_START:
@@ -119211,21 +119196,7 @@ def _draw_deployed_capture_net(screen, dnet):
         outline_color = (180, 230, 255, min(alpha + 30, 255)) if trapped else (180, 170, 140, alpha)
         pygame.draw.polygon(surf, outline_color, transformed, 2)
 
-        # 메쉬 (격자 + 스포크)
-        mesh_alpha = max(20, alpha - 40)
-        mesh_color = (210, 240, 255, mesh_alpha) if trapped else (180, 160, 120, mesh_alpha)
-        # 가로줄
-        for row in range(0, h, max(8, h // 8)):
-            y1 = oy - h / 2 + row
-            pygame.draw.line(surf, mesh_color, (ox - w / 2, y1), (ox + w / 2, y1), 1)
-        # 세로줄
-        for col in range(0, w, max(10, w // 8)):
-            x1 = ox - w / 2 + col
-            pygame.draw.line(surf, mesh_color, (x1, oy - h / 2), (x1, oy + h / 2), 1)
-        # 스포크 (중심 → 외곽)
-        spoke_step = max(2, len(transformed) // 12)
-        for i in range(0, len(transformed), spoke_step):
-            pygame.draw.aaline(surf, mesh_color[:3], (ox, oy), transformed[i])
+        # 메쉬 (격자 + 스포크) 제거됨
 
     screen.blit(surf, (cx - (w + 20) // 2, cy - (h + 20) // 2))
 
@@ -119287,15 +119258,7 @@ def _draw_capture_net_projectile(screen, nx, ny, rope_points):
     net_w = 30
     net_h = 20
     net_rect = pygame.Rect(nx_int - net_w // 2, ny_int + 2, net_w, net_h)
-    # 그물 메쉬 라인
-    net_surf = pygame.Surface((net_w, net_h), pygame.SRCALPHA)
-    # 가로줄
-    for row in range(0, net_h, 5):
-        pygame.draw.line(net_surf, (180, 160, 120, 180), (0, row), (net_w, row), 1)
-    # 세로줄
-    for col in range(0, net_w, 6):
-        pygame.draw.line(net_surf, (180, 160, 120, 180), (col, 0), (col, net_h), 1)
-    screen.blit(net_surf, (nx_int - net_w // 2, ny_int + 2))
+    # 그물 메쉬 라인 제거됨
 
 
 def _draw_capture_net_deployed(screen, cx, cy, expand_progress):
@@ -119310,11 +119273,7 @@ def _draw_capture_net_deployed(screen, cx, cy, expand_progress):
     net_surf = pygame.Surface((w, h), pygame.SRCALPHA)
     # 외곽 타원
     pygame.draw.ellipse(net_surf, (160, 140, 100, 200), (0, 0, w, h), 2)
-    # 메쉬 라인
-    for row in range(0, h, 7):
-        pygame.draw.line(net_surf, (160, 140, 100, 140), (0, row), (w, row), 1)
-    for col in range(0, w, 8):
-        pygame.draw.line(net_surf, (160, 140, 100, 140), (col, 0), (col, h), 1)
+    # 메쉬 라인 제거됨
     screen.blit(net_surf, (int(cx) - w // 2, int(cy) - h // 2))
 
 
