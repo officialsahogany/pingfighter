@@ -18384,7 +18384,7 @@ class ColosseumsArena:
         hero1_target_x = SCREEN_WIDTH // 2 - 150
         hero1_start_x = -100
         hero1_x = int(hero1_start_x + (hero1_target_x - hero1_start_x) * self._ease_in_out(min(1.0, progress * 2)))
-        hero1_y = SCREEN_HEIGHT // 2
+        hero1_y = SCREEN_HEIGHT // 2 - 45
 
         # 글로우 효과
         glow_alpha = int(80 + abs(_sin(self.animation_timer * 4)) * 50)
@@ -18420,6 +18420,7 @@ class ColosseumsArena:
 
             # 호위무사 아이콘 (영웅1) - 1명만 표시
             h1_guards = self.guard_warrior_map.get(hero1.get("id"), [])
+            h1_guard_bottom_y = hero1_y + 70  # 호위무사 없을 때 기본 하단 Y
             if h1_guards and self.hero_paddle_renderer:
                 g = h1_guards[0]
                 guard_y = hero1_y + 90
@@ -18431,6 +18432,45 @@ class ColosseumsArena:
                     g_name = f"{g.get('name', '')} [호위무사]"
                     ns, _ = self.fonts["small"].render(g_name, ET["text_body"])
                     self.screen.blit(ns, (hero1_x - ns.get_width() // 2, guard_y + 28))
+                h1_guard_bottom_y = guard_y + 48
+
+            # 하수인 아이콘 (영웅1) - 플레이어 영웅일 때만 표시
+            if self.player_hero and hero1.get("id") == self.player_hero.get("id"):
+                h1_henchmen = getattr(self, 'henchman_list', [])
+                if h1_henchmen and self.hero_paddle_renderer:
+                    hench_sq_sz = 32
+                    hench_sq_gap = 4
+                    hench_y = h1_guard_bottom_y + 8
+                    total_w = len(h1_henchmen) * (hench_sq_sz + hench_sq_gap) - hench_sq_gap
+                    start_x = hero1_x - total_w // 2
+                    # "하수인" 라벨
+                    if "small" in self.fonts:
+                        lbl_surf, _ = self.fonts["small"].render("하수인", (160, 120, 180))
+                        self.screen.blit(lbl_surf, (hero1_x - lbl_surf.get_width() // 2, hench_y - 14))
+                    hench_y += 4
+                    for hi, hench in enumerate(h1_henchmen):
+                        sq_x = start_x + hi * (hench_sq_sz + hench_sq_gap)
+                        h_color = hench.get("color", (150, 150, 150))
+                        # 배경
+                        sq_surf = _get_arena_surface(hench_sq_sz, hench_sq_sz)
+                        sq_surf.fill((30, 25, 40, 180))
+                        self.screen.blit(sq_surf, (sq_x, hench_y))
+                        # 테두리
+                        border_surf = _get_arena_surface(hench_sq_sz, hench_sq_sz)
+                        pygame.draw.rect(border_surf, (*h_color, 120), (0, 0, hench_sq_sz, hench_sq_sz), 1)
+                        self.screen.blit(border_surf, (sq_x, hench_y))
+                        # 캐릭터 아이콘
+                        try:
+                            self.hero_paddle_renderer.draw_hero_paddle(
+                                self.screen, hench.get("id", ""),
+                                sq_x + hench_sq_sz // 2, hench_y + hench_sq_sz // 2,
+                                hench_sq_sz - 6, hench_sq_sz - 6,
+                                facing="up", color=h_color, scale_mode="icon"
+                            )
+                        except Exception:
+                            pygame.draw.circle(self.screen, h_color,
+                                               (sq_x + hench_sq_sz // 2, hench_y + hench_sq_sz // 2),
+                                               hench_sq_sz // 4)
 
         # VS (중앙, 스케일 애니메이션)
         vs_scale = min(1.0, progress * 3) if progress < 0.5 else 1.0
@@ -18451,7 +18491,7 @@ class ColosseumsArena:
         hero2_target_x = SCREEN_WIDTH // 2 + 150
         hero2_start_x = SCREEN_WIDTH + 100
         hero2_x = int(hero2_start_x + (hero2_target_x - hero2_start_x) * self._ease_in_out(min(1.0, progress * 2)))
-        hero2_y = SCREEN_HEIGHT // 2
+        hero2_y = SCREEN_HEIGHT // 2 - 45
 
         # 글로우 효과
         glow_surf = _get_arena_surface(160, 160)
@@ -18486,6 +18526,7 @@ class ColosseumsArena:
 
             # 호위무사 아이콘 (영웅2) - 1명만 표시
             h2_guards = self.guard_warrior_map.get(hero2.get("id"), [])
+            h2_guard_bottom_y = hero2_y + 70  # 호위무사 없을 때 기본 하단 Y
             if h2_guards and self.hero_paddle_renderer:
                 g = h2_guards[0]
                 guard_y = hero2_y + 90
@@ -18497,6 +18538,45 @@ class ColosseumsArena:
                     g_name = f"{g.get('name', '')} [호위무사]"
                     ns, _ = self.fonts["small"].render(g_name, ET["text_body"])
                     self.screen.blit(ns, (hero2_x - ns.get_width() // 2, guard_y + 28))
+                h2_guard_bottom_y = guard_y + 48
+
+            # 하수인 아이콘 (영웅2) - 플레이어 영웅일 때만 표시
+            if self.player_hero and hero2.get("id") == self.player_hero.get("id"):
+                h2_henchmen = getattr(self, 'henchman_list', [])
+                if h2_henchmen and self.hero_paddle_renderer:
+                    hench_sq_sz = 32
+                    hench_sq_gap = 4
+                    hench_y = h2_guard_bottom_y + 8
+                    total_w = len(h2_henchmen) * (hench_sq_sz + hench_sq_gap) - hench_sq_gap
+                    start_x = hero2_x - total_w // 2
+                    # "하수인" 라벨
+                    if "small" in self.fonts:
+                        lbl_surf, _ = self.fonts["small"].render("하수인", (160, 120, 180))
+                        self.screen.blit(lbl_surf, (hero2_x - lbl_surf.get_width() // 2, hench_y - 14))
+                    hench_y += 4
+                    for hi, hench in enumerate(h2_henchmen):
+                        sq_x = start_x + hi * (hench_sq_sz + hench_sq_gap)
+                        h_color = hench.get("color", (150, 150, 150))
+                        # 배경
+                        sq_surf = _get_arena_surface(hench_sq_sz, hench_sq_sz)
+                        sq_surf.fill((30, 25, 40, 180))
+                        self.screen.blit(sq_surf, (sq_x, hench_y))
+                        # 테두리
+                        border_surf = _get_arena_surface(hench_sq_sz, hench_sq_sz)
+                        pygame.draw.rect(border_surf, (*h_color, 120), (0, 0, hench_sq_sz, hench_sq_sz), 1)
+                        self.screen.blit(border_surf, (sq_x, hench_y))
+                        # 캐릭터 아이콘
+                        try:
+                            self.hero_paddle_renderer.draw_hero_paddle(
+                                self.screen, hench.get("id", ""),
+                                sq_x + hench_sq_sz // 2, hench_y + hench_sq_sz // 2,
+                                hench_sq_sz - 6, hench_sq_sz - 6,
+                                facing="up", color=h_color, scale_mode="icon"
+                            )
+                        except Exception:
+                            pygame.draw.circle(self.screen, h_color,
+                                               (sq_x + hench_sq_sz // 2, hench_y + hench_sq_sz // 2),
+                                               hench_sq_sz // 4)
 
         # 상성 표시 (VS 텍스트 아래)
         matchup_val = get_style_matchup(hero1["style"], hero2["style"])
