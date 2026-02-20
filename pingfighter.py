@@ -101660,16 +101660,33 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
             _arena_guard_tutorial_delay_frames = _ARENA_GUARD_TUTORIAL_DELAY
             _arena_guard_tutorial_step = 0
             _arena_guard_tutorial_active = False  # 딜레이 후 활성화
-            print("[ArenaTutorial] 호위무사 튜토리얼 딜레이 시작 (2초)")
+            # 호위무사 튜토리얼 진행 시 초상화/배속은 체인으로 트리거됨
+            _arena_portrait_tutorial_delay_frames = 0
+            _arena_portrait_tutorial_active = False
+            _arena_speed_tutorial_delay_frames = 0
+            _arena_speed_tutorial_active = False
+            print("[ArenaTutorial] 호위무사 튜토리얼 딜레이 시작 (6초)")
         else:
             _arena_guard_tutorial_delay_frames = 0
             _arena_guard_tutorial_active = False
-        # 초상화 튜토리얼 초기화 (호위무사 튜토리얼 완료 후 딜레이 시작됨)
-        _arena_portrait_tutorial_delay_frames = 0
-        _arena_portrait_tutorial_active = False
-        # 배속 튜토리얼 초기화
-        _arena_speed_tutorial_delay_frames = 0
-        _arena_speed_tutorial_active = False
+            # 호위무사 튜토리얼을 이미 봤으면 초상화 튜토리얼 바로 딜레이 시작
+            if _arena_guard_tutorial_shown and not _arena_portrait_tutorial_shown:
+                _arena_portrait_tutorial_delay_frames = _ARENA_PORTRAIT_TUTORIAL_DELAY
+                _arena_portrait_tutorial_step = 0
+                _arena_portrait_tutorial_active = False
+                print("[ArenaTutorial] 호위무사 이미 완료 → 초상화 튜토리얼 딜레이 시작")
+            else:
+                _arena_portrait_tutorial_delay_frames = 0
+                _arena_portrait_tutorial_active = False
+            # 초상화도 이미 봤으면 배속 튜토리얼 바로 딜레이 시작
+            if _arena_portrait_tutorial_shown and not _arena_speed_tutorial_shown:
+                _arena_speed_tutorial_delay_frames = _ARENA_SPEED_TUTORIAL_DELAY
+                _arena_speed_tutorial_step = 0
+                _arena_speed_tutorial_active = False
+                print("[ArenaTutorial] 초상화 이미 완료 → 배속 튜토리얼 딜레이 시작")
+            else:
+                _arena_speed_tutorial_delay_frames = 0
+                _arena_speed_tutorial_active = False
 
         # === 하수인 시스템 설정 ===
         global arena_henchman_system
