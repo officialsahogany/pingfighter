@@ -7079,12 +7079,12 @@ class HeroPaddleRenderer:
 
         # ─── 신비의 시길 (등 뒤 기하학 문양 글로우) ───
         sigil_cx = cx + lean_offset
-        sigil_cy = torso_y + int(0.5 * b)
-        sigil_r = int(1.8 * b)
+        sigil_cy = torso_y - int(0.3 * b)
+        sigil_r = int(3.0 * b)
         sigil_size = sigil_r * 2 + 4
         sigil_surf = self._get_surface(sigil_size, sigil_size)
         sigil_center = sigil_size // 2
-        sigil_alpha = int(25 + 15 * gold_pulse)
+        sigil_alpha = int(35 + 20 * gold_pulse)
         # 외곽 원
         pygame.draw.circle(sigil_surf, (*p["gold_light"], sigil_alpha),
                          (sigil_center, sigil_center), sigil_r, max(1, int(0.06 * b)))
