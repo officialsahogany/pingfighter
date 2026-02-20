@@ -2723,6 +2723,11 @@ class GuardWarriorSystem:
         # 호위무사 등장 대사 (인게임 호위무사에서 전달)
         self._entrance_guard_line_top = None
         self._entrance_guard_line_bottom = None
+        # 등장 대사 지연 타이머 (입장 완료 후 1초 뒤 말풍선 표시)
+        self._entrance_speech_delay_top = 0.0
+        self._entrance_speech_delay_bottom = 0.0
+        self._entrance_speech_pending_top = None   # 지연 중인 말풍선 데이터
+        self._entrance_speech_pending_bottom = None
 
         # 2번째 호위무사 독립 순찰 (승급 등으로 2명일 때)
         # 구조: _charmed 와 동일 - {'guard': hero_dict, 'x': float, 'y': float, ...}
@@ -4341,7 +4346,7 @@ class GuardWarriorSystem:
                     self.anim_timer_bottom = 0.0
                 if guard:
                     print(f"[Guard] {'상단' if is_top else '하단'}측 호위무사 {guard['name']} 순찰 시작!")
-                    # 💬 호위무사 등장 대사 말풍선 (입장 완료 시 표시)
+                    # 💬 호위무사 등장 대사 말풍선 (입장 완료 후 1초 지연)
                     entrance_line = (self._entrance_guard_line_top if is_top
                                      else self._entrance_guard_line_bottom)
                     if entrance_line:
@@ -4355,16 +4360,31 @@ class GuardWarriorSystem:
                             'is_entrance': True,  # 등장 대사 (둥근 말풍선)
                         }
                         if is_top:
-                            self._bubble_top = bubble_data
+                            self._entrance_speech_pending_top = bubble_data
+                            self._entrance_speech_delay_top = 1.0  # 1초 지연
                             self._entrance_guard_line_top = None  # 1회만
                         else:
-                            self._bubble_bottom = bubble_data
+                            self._entrance_speech_pending_bottom = bubble_data
+                            self._entrance_speech_delay_bottom = 1.0  # 1초 지연
                             self._entrance_guard_line_bottom = None  # 1회만
-                        print(f"[Guard] 호위무사 등장 대사: {entrance_line}")
+                        print(f"[Guard] 호위무사 등장 대사 예약 (1초 후): {entrance_line}")
             return
 
         # 순찰 모드: 진영 내 이동 + 쿨타임 동시 진행
         if phase == "patrolling":
+            # 등장 대사 지연 타이머 체크
+            if is_top and self._entrance_speech_delay_top > 0:
+                self._entrance_speech_delay_top -= dt
+                if self._entrance_speech_delay_top <= 0 and self._entrance_speech_pending_top:
+                    self._bubble_top = self._entrance_speech_pending_top
+                    self._entrance_speech_pending_top = None
+                    print(f"[Guard] 상단 호위무사 등장 대사 표시")
+            elif not is_top and self._entrance_speech_delay_bottom > 0:
+                self._entrance_speech_delay_bottom -= dt
+                if self._entrance_speech_delay_bottom <= 0 and self._entrance_speech_pending_bottom:
+                    self._bubble_bottom = self._entrance_speech_pending_bottom
+                    self._entrance_speech_pending_bottom = None
+                    print(f"[Guard] 하단 호위무사 등장 대사 표시")
             self._update_patrol(dt, is_top, ball=ball, bottom_paddle=bottom_paddle)
             if _dual_mode:
                 # 듀얼 스킬: 독립 쿨다운 체크 (상단에서 이미 tick됨)
@@ -6718,6 +6738,11 @@ class GuardWarriorSystem:
         self.next_guard_bottom_idx = 0
         self._bubble_top = None
         self._bubble_bottom = None
+        # 등장 대사 지연 초기화
+        self._entrance_speech_delay_top = 0.0
+        self._entrance_speech_delay_bottom = 0.0
+        self._entrance_speech_pending_top = None
+        self._entrance_speech_pending_bottom = None
         # 순찰 상태 초기화
         self._patrol_target_top = None
         self._patrol_target_bottom = None
