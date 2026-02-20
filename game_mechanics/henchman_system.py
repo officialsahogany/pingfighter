@@ -5,7 +5,7 @@
 
 - 호위무사와 달리 자동 순찰/자동 시전 없음
 - 플레이어가 필러 아이콘을 클릭해야만 발동
-- 쿨타임 4배 (기본 쿨타임 × GUARD_CD_PENALTY × HENCHMAN_CD_MULT)
+- 쿨타임 3.8배 (기본 쿨타임 × HENCHMAN_TOTAL_CD_MULT)
 - 여러 명의 하수인을 동시에 보유 가능
 """
 import random
@@ -34,9 +34,8 @@ HENCH_ENTER_DURATION = 0.5     # 등장 시간 (초)
 HENCH_CAST_DURATION = 0.8      # 시전 포즈 시간
 HENCH_EXIT_DURATION = 0.4      # 퇴장 시간
 
-# 하수인 쿨타임 배율 (기존 호위무사 대비 +300%)
-HENCHMAN_CD_MULT = 4.0
-GUARD_CD_PENALTY = 1.3  # 호위무사 기본 페널티 (동일 적용)
+# 하수인 쿨타임 총 배율 (기본 스킬 쿨타임 × 3.8)
+HENCHMAN_TOTAL_CD_MULT = 3.8
 
 # 하수인 등장 Y 위치 (호위무사/영웅과 동일)
 HENCH_Y = 710  # BOTTOM_PADDLE_Y와 동일
@@ -202,7 +201,7 @@ class HenchmanSystem:
             # game_state 연결
             skill.game_state = self.skill_manager.game_state
             # 쿨타임 계산
-            cd = skill.cooldown * GUARD_CD_PENALTY * HENCHMAN_CD_MULT
+            cd = skill.cooldown * HENCHMAN_TOTAL_CD_MULT
             slot = HenchmanSlot(hero_data, skill, cooldown_max=cd)
             self.slots.append(slot)
             print(f"[Henchman] 하수인 등록: {hero_data.get('name', '?')} "
