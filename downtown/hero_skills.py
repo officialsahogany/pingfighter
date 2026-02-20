@@ -10190,7 +10190,7 @@ class BoneBarrier(HeroSkill):
     라운드를 넘겨도 유지, 겹쳐서 건설 불가(간격 필요).
     """
 
-    BARRIER_WIDTH = 80
+    BARRIER_WIDTH = 120
     BARRIER_HEIGHT = 12
     BUILD_TIME = 3.0
     DEATH_DURATION = 0.6
