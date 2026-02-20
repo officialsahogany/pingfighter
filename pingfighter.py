@@ -8388,6 +8388,9 @@ def _fullscreen_flip():
         # 투기장 하수인 튜토리얼 오버레이
         if arena_mode_enabled and _arena_henchman_tutorial_active:
             _draw_arena_henchman_tutorial()
+        # 투기장 포획 튜토리얼 오버레이
+        if arena_mode_enabled and _arena_capture_tutorial_active:
+            _draw_arena_capture_tutorial()
 
         # 미션 안내창 업데이트 및 그리기 (튜토리얼 위에 표시)
         try:
@@ -8623,6 +8626,9 @@ def _fullscreen_update(*args, **kwargs):
         # 투기장 하수인 튜토리얼 오버레이
         if arena_mode_enabled and _arena_henchman_tutorial_active:
             _draw_arena_henchman_tutorial()
+        # 투기장 포획 튜토리얼 오버레이
+        if arena_mode_enabled and _arena_capture_tutorial_active:
+            _draw_arena_capture_tutorial()
 
         # 미션 안내창 업데이트 및 그리기 (튜토리얼 위에 표시)
         try:
@@ -20129,6 +20135,36 @@ _ARENA_HENCHMAN_TUTORIAL_STEPS = [
         "messages": [
             "호위무사와 달리 스킬 쿨타임이 매우 길어서",
             "상황에 맞게 사용하는 것이 좋습니다!",
+        ],
+    },
+]
+# 투기장 포획 튜토리얼 (승리 후 포획 이벤트 발생 시 표시)
+_arena_capture_tutorial_shown = False
+_arena_capture_tutorial_active = False
+_arena_capture_tutorial_step = 0
+_ARENA_CAPTURE_TUTORIAL_STEPS = [
+    {
+        "highlight": None,
+        "expression": "default",
+        "messages": [
+            "승리한 상대 영웅을 포획할 수 있습니다.",
+            "포획에 성공하면 하수인이나 호위무사로 등용할 수 있어요!",
+        ],
+    },
+    {
+        "highlight": None,
+        "expression": "thinking",
+        "messages": [
+            "{KEY:A}{KEY:D}키로 이동하며 마우스 왼쪽 클릭으로",
+            "그물덫을 발사해 상대를 포획하세요.",
+        ],
+    },
+    {
+        "highlight": None,
+        "expression": "default",
+        "messages": [
+            "제한 시간 5초 동안 총 3번의 그물덫을 발사할 수 있습니다.",
+            "실패하면 도망쳐 버리니 신중하게 조준하세요!",
         ],
     },
 ]
@@ -77596,6 +77632,81 @@ def _draw_arena_henchman_tutorial() -> None:
         target_screen.blit(hint_text, hint_rect)
 
 
+# ────────────────────────────────────────────────────────────────
+#  투기장 포획 튜토리얼
+# ────────────────────────────────────────────────────────────────
+def is_arena_capture_tutorial_paused() -> bool:
+    """투기장 포획 튜토리얼로 인해 게임이 일시정지 상태인지"""
+    return _arena_capture_tutorial_active
+
+
+def advance_arena_capture_tutorial():
+    """투기장 포획 튜토리얼 다음 단계로 진행"""
+    global _arena_capture_tutorial_step, _arena_capture_tutorial_active, _arena_capture_tutorial_shown
+    _arena_capture_tutorial_step += 1
+    if _arena_capture_tutorial_step >= len(_ARENA_CAPTURE_TUTORIAL_STEPS):
+        _arena_capture_tutorial_active = False
+        _arena_capture_tutorial_shown = True
+        print("[ArenaTutorial] 포획 튜토리얼 완료!")
+
+
+def _draw_arena_capture_tutorial() -> None:
+    """투기장 포획 튜토리얼 그리기 (주황/금색 테마)"""
+    if not _arena_capture_tutorial_active:
+        return
+    if _arena_capture_tutorial_step >= len(_ARENA_CAPTURE_TUTORIAL_STEPS):
+        return
+
+    current = _ARENA_CAPTURE_TUTORIAL_STEPS[_arena_capture_tutorial_step]
+
+    target_screen = REAL_SCREEN if (_is_fullscreen_active and REAL_SCREEN is not None) else SCREEN
+    screen_width = target_screen.get_width()
+    screen_height = target_screen.get_height()
+    _ui_s = max(1.0, screen_height / INTERNAL_HEIGHT)
+
+    overlay = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 180))
+
+    target_screen.blit(overlay, (0, 0))
+
+    # === 메시지 박스 (주황/금색 테마) ===
+    _main_color = (255, 180, 50)
+    _accent_color = (255, 220, 120)
+    box_width = int(500 * _ui_s)
+    box_height = int(120 * _ui_s)
+    box_x = (screen_width - box_width) // 2
+    box_y = screen_height // 2 - box_height // 2
+
+    # 박스 배경
+    box_surf = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+    pygame.draw.rect(box_surf, (20, 15, 5, 230), (0, 0, box_width, box_height), border_radius=int(14 * _ui_s))
+    pygame.draw.rect(box_surf, _main_color, (0, 0, box_width, box_height), width=max(2, int(3 * _ui_s)), border_radius=int(14 * _ui_s))
+    target_screen.blit(box_surf, (box_x, box_y))
+
+    # NPC 표정 아이콘
+    expression = current.get("expression", "default")
+    _draw_arena_tutorial_npc_face(target_screen, box_x - int(10 * _ui_s), box_y, int(60 * _ui_s), expression, _main_color, _ui_s)
+
+    # 메시지 렌더
+    messages = current.get("messages", [])
+    _line_height = int(28 * _ui_s)
+    total_text_height = _line_height * len(messages)
+    y_offset = box_y + (box_height - total_text_height) // 2
+    for msg in messages:
+        _render_message_with_keycaps(
+            target_screen, msg,
+            box_x + int(60 * _ui_s), y_offset,
+            box_width - int(80 * _ui_s),
+            int(22 * _ui_s), _ui_s, _accent_color
+        )
+        y_offset += _line_height
+
+    hint_font = get_font(int(18 * _ui_s))
+    hint_text = hint_font.render("클릭 또는 SPACE로 계속", True, (150, 200, 255))
+    hint_rect = hint_text.get_rect(center=(box_x + box_width // 2, box_y + box_height + int(25 * _ui_s)))
+    target_screen.blit(hint_text, hint_rect)
+
+
 def _draw_ingame_tutorial() -> None:
     """실전 튜토리얼 UI 그리기
 
@@ -102152,6 +102263,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         _arena_speed_tutorial_delay_frames = 0
         _arena_henchman_tutorial_active = False
         _arena_henchman_tutorial_delay_frames = 0
+        _arena_capture_tutorial_active = False
         arena_battle_arena_obj = None  # F8 퍽 선택용 참조 해제
         arena_top_hero = None
         arena_bottom_hero = None
@@ -102394,7 +102506,7 @@ def start_arena_dev():
     """개발 메뉴에서 투기장(토너먼트) 바로 진입 (입장료 무료)"""
     global _arena_tutorial_enabled, _arena_guard_tutorial_shown
     global _arena_portrait_tutorial_shown, _arena_speed_tutorial_shown
-    global _arena_henchman_tutorial_shown
+    global _arena_henchman_tutorial_shown, _arena_capture_tutorial_shown
     from downtown.colosseum_arena import ColosseumsArena
 
     # 튜토리얼 확인 다이얼로그
@@ -102405,6 +102517,7 @@ def start_arena_dev():
         _arena_portrait_tutorial_shown = False
         _arena_speed_tutorial_shown = False
         _arena_henchman_tutorial_shown = False
+        _arena_capture_tutorial_shown = False
 
     screen = SCREEN
     fonts = _make_arena_fonts()
@@ -120042,6 +120155,10 @@ def _update_arena_capture_phase(screen):
     if arena_capture_phase is None:
         return
 
+    # 포획 튜토리얼 진행 중이면 포획 타이머/로직 일시정지
+    if _arena_capture_tutorial_active:
+        return
+
     dt = 1.0 / 60.0
     arena_capture_timer += dt
 
@@ -122727,7 +122844,7 @@ def calculate_bounce(paddle):
         # 일반 충돌과 동일한 속도 처리
         #  속도에 관계없이 일정한 가속 적용 (완화된 증가율)
         # 🏟️ 투기장 랠리 공속 증가율 보정 (+60%)
-        arena_accel_mult = 1.6 if arena_mode_enabled else 1.0
+        arena_accel_mult = 1.6 if arena_mode_enabled else 1.5
         # 🌱 주니어리그: 속도 증가율 -20% 감소
         junior_mult = get_junior_speed_increase_multiplier()
         base_min = 1.0 + (0.02 * junior_mult * arena_accel_mult)  # 1.02 → 1.032 (투기장)
@@ -122743,7 +122860,7 @@ def calculate_bounce(paddle):
     else:
         # 일반 충돌 시 동일한 가속 (완화된 증가율)
         # 🌱 주니어리그: 속도 증가율 -20% 감소
-        arena_accel_mult = 1.6 if arena_mode_enabled else 1.0
+        arena_accel_mult = 1.6 if arena_mode_enabled else 1.5
         junior_mult = get_junior_speed_increase_multiplier()
         base_min = 1.0 + (0.024 * junior_mult * arena_accel_mult)  # [투기장: +60% 가속]
         base_max = 1.0 + (0.084 * junior_mult * arena_accel_mult)  # [투기장: +60% 가속]
@@ -133839,6 +133956,12 @@ def show_result(won):
             return
         # 승리 + 포획 활성화 → 포획 페이즈 시작 (배틀 종료 대신)
         if won and arena_capture_do_capture and arena_capture_phase is None:
+            # 포획 튜토리얼 (첫 포획 시 1회)
+            global _arena_capture_tutorial_shown, _arena_capture_tutorial_active, _arena_capture_tutorial_step
+            if _arena_tutorial_enabled and not _arena_capture_tutorial_shown:
+                _arena_capture_tutorial_step = 0
+                _arena_capture_tutorial_active = True
+                print("[ArenaTutorial] 포획 튜토리얼 시작!")
             arena_capture_phase = "active"
             arena_capture_timer = 0.0
             arena_capture_result_flag = None
@@ -134595,6 +134718,7 @@ def main(stage_num, new_boss_mode=False):
         _arena_speed_tutorial_delay_frames = 0
         _arena_henchman_tutorial_active = False
         _arena_henchman_tutorial_delay_frames = 0
+        _arena_capture_tutorial_active = False
         arena_skill_manager = None
         arena_stop_all_skill_sounds()
 
@@ -138211,6 +138335,18 @@ def main(stage_num, new_boss_mode=False):
                     advance_arena_henchman_tutorial()
                 continue  # 하수인 튜토리얼 중에는 다른 입력 무시
 
+            # 투기장 포획 튜토리얼 입력 처리
+            if is_arena_capture_tutorial_paused():
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                    if "BUTTON_CLICK" in sound_effects and sound_effects["BUTTON_CLICK"]:
+                        sound_effects["BUTTON_CLICK"].play()
+                    advance_arena_capture_tutorial()
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if "BUTTON_CLICK" in sound_effects and sound_effects["BUTTON_CLICK"]:
+                        sound_effects["BUTTON_CLICK"].play()
+                    advance_arena_capture_tutorial()
+                continue  # 포획 튜토리얼 중에는 다른 입력 무시
+
             if genie_assistant.is_active():
                 genie_assistant.handle_event(event)
                 continue
@@ -140484,6 +140620,7 @@ def main(stage_num, new_boss_mode=False):
             freeze_arena_portrait_tutorial = is_arena_portrait_tutorial_paused()  # 투기장 초상화 튜토리얼
             freeze_arena_speed_tutorial = is_arena_speed_tutorial_paused()  # 투기장 배속 튜토리얼
             freeze_arena_henchman_tutorial = is_arena_henchman_tutorial_paused()  # 투기장 하수인 튜토리얼
+            freeze_arena_capture_tutorial = is_arena_capture_tutorial_paused()  # 투기장 포획 튜토리얼
             # 달빛 베기 / 도깨비불 화면 정지 (투기장 모드 + 인게임 호위무사)
             freeze_dark_slash = False
             freeze_hell_fire = False
@@ -140504,7 +140641,7 @@ def main(stage_num, new_boss_mode=False):
                 except Exception:
                     pass
             freeze_capture = (arena_mode_enabled and arena_capture_phase is not None)
-            freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim or freeze_tooltip or freeze_ingame_tutorial or freeze_arena_guard_tutorial or freeze_arena_portrait_tutorial or freeze_arena_speed_tutorial or freeze_arena_henchman_tutorial or freeze_dark_slash or freeze_hell_fire or freeze_capture
+            freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim or freeze_tooltip or freeze_ingame_tutorial or freeze_arena_guard_tutorial or freeze_arena_portrait_tutorial or freeze_arena_speed_tutorial or freeze_arena_henchman_tutorial or freeze_arena_capture_tutorial or freeze_dark_slash or freeze_hell_fire or freeze_capture
 
             # 투기장 호위무사 튜토리얼 딜레이 카운터 감소
             if arena_mode_enabled and _arena_guard_tutorial_delay_frames > 0 and not freeze_now:
@@ -146275,6 +146412,9 @@ def show_character_info(background_surface=None):
         # 투기장 하수인 튜토리얼 오버레이
         if arena_mode_enabled and _arena_henchman_tutorial_active:
             _draw_arena_henchman_tutorial()
+        # 투기장 포획 튜토리얼 오버레이
+        if arena_mode_enabled and _arena_capture_tutorial_active:
+            _draw_arena_capture_tutorial()
 
         pygame.display.flip()
         for event in pygame.event.get():
