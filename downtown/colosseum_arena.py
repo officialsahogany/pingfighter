@@ -8730,7 +8730,8 @@ class ColosseumsArena:
         self._pending_henchman_target = None
         if (self.bet_hero and winner == self.bet_hero
                 and self.current_round in (TournamentRound.QUARTER_FINAL, TournamentRound.SEMI_FINAL)):
-            loser_h = match.hero1 if winner == match.hero2 else match.hero2
+            _match = self.selected_match
+            loser_h = _match.hero1 if winner == _match.hero2 else _match.hero2
             bet_id_h = self.bet_hero["id"] if self.bet_hero else ""
             # 이미 호위무사로 포획된 영웅인지 체크
             _already_guard = any(

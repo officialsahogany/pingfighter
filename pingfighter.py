@@ -77683,20 +77683,35 @@ def _draw_arena_capture_tutorial() -> None:
     pygame.draw.rect(box_surf, _main_color, (0, 0, box_width, box_height), width=max(2, int(3 * _ui_s)), border_radius=int(14 * _ui_s))
     target_screen.blit(box_surf, (box_x, box_y))
 
-    # NPC 표정 아이콘
+    # 조교 이미지
     expression = current.get("expression", "default")
-    _draw_arena_tutorial_npc_face(target_screen, box_x - int(10 * _ui_s), box_y, int(60 * _ui_s), expression, _main_color, _ui_s)
+    instructor_img = TUTORIAL_INSTRUCTOR_IMGS.get(expression) or TUTORIAL_INSTRUCTOR_IMGS.get("default")
+    inst_width = 0
+    inst_padding = 0
+    if instructor_img:
+        inst_width = instructor_img.get_width()
+        inst_height = instructor_img.get_height()
+        if _ui_s != 1.0:
+            inst_width = int(inst_width * _ui_s)
+            inst_height = int(inst_height * _ui_s)
+            instructor_img = pygame.transform.smoothscale(instructor_img, (inst_width, inst_height))
+        inst_padding = int(10 * _ui_s)
+        _inst_x = box_x + inst_padding
+        _inst_y = box_y + (box_height - inst_height) // 2
+        target_screen.blit(instructor_img, (_inst_x, _inst_y))
 
     # 메시지 렌더
     messages = current.get("messages", [])
+    _text_left = box_x + inst_width + inst_padding * 2 + int(10 * _ui_s)
+    _text_width = box_width - (inst_width + inst_padding * 2 + int(20 * _ui_s))
     _line_height = int(28 * _ui_s)
     total_text_height = _line_height * len(messages)
     y_offset = box_y + (box_height - total_text_height) // 2
     for msg in messages:
         _render_message_with_keycaps(
             target_screen, msg,
-            box_x + int(60 * _ui_s), y_offset,
-            box_width - int(80 * _ui_s),
+            _text_left, y_offset,
+            _text_width,
             int(22 * _ui_s), _ui_s, _accent_color
         )
         y_offset += _line_height
