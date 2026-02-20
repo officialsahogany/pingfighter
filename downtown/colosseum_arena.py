@@ -3529,7 +3529,10 @@ class GuardWarriorSystem:
                     c['patrol_wait'] = random.uniform(0.4, 1.5)
                 else:
                     direction = 1 if diff > 0 else -1
-                    c['x'] += direction * c['patrol_speed'] * dt
+                    move = direction * c['patrol_speed'] * dt
+                    if abs(move) > abs(diff):
+                        move = diff
+                    c['x'] += move
                     c['x'] = max(left_bound, min(c['x'], right_bound))
 
         # 이동 애니메이션
@@ -3873,7 +3876,10 @@ class GuardWarriorSystem:
                 p2['patrol_wait'] = random.uniform(0.4, 1.5)
             else:
                 direction = 1 if diff > 0 else -1
-                p2['x'] += direction * p2['patrol_speed'] * dt
+                move = direction * p2['patrol_speed'] * dt
+                if abs(move) > abs(diff):
+                    move = diff
+                p2['x'] += move
                 p2['x'] = max(left_bound, min(p2['x'], right_bound))
 
         guard = p2['guard']
@@ -5036,7 +5042,10 @@ class GuardWarriorSystem:
             else:
                 direction = 1 if diff > 0 else -1
                 self._patrol_dir_top = direction
-                self.x_top += direction * self._patrol_speed_top * dt
+                move = direction * self._patrol_speed_top * dt
+                if abs(move) > abs(diff):
+                    move = diff
+                self.x_top += move
                 self.x_top = max(left_bound, min(self.x_top, right_bound))
 
             guard = self.active_top
@@ -5098,7 +5107,10 @@ class GuardWarriorSystem:
                 else:
                     direction = 1 if diff > 0 else -1
                     self._patrol_dir_bottom = direction
-                    self.x_bottom += direction * self._patrol_speed_bottom * dt
+                    move = direction * self._patrol_speed_bottom * dt
+                    if abs(move) > abs(diff):
+                        move = diff
+                    self.x_bottom += move
                     self.x_bottom = max(left_bound, min(self.x_bottom, right_bound))
 
             # 이동 애니메이션 갱신
