@@ -4778,7 +4778,6 @@ class DragonBreath(HeroSkill):
         self.spawn_phase_ended = False  # 파티클 생성 단계 종료 여부
         self.fire_zone_timer = 0  # 화염지대 생성 타이머
         self.fire_zone_positions = []  # 생성된 화염지대 위치들
-        self.flying_dragon = None  # 날아가는 드래곤 엔티티
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.breath_particles = []
@@ -4816,26 +4815,6 @@ class DragonBreath(HeroSkill):
                 'color_phase': random.uniform(0, 1),
                 'delay': delay  # 발사 딜레이
             })
-
-        # 🐉 날아가는 드래곤 생성 - 브레스 방향으로 맵의 끝에서 끝으로 횡단
-        dragon_fly_dir = random.choice([-1, 1])  # 좌→우 또는 우→좌
-        if direction == 1:  # 위에서 아래로 (탑 캐스터)
-            dragon_y = random.uniform(200, 350)
-        else:  # 아래에서 위로 (바텀 캐스터)
-            dragon_y = random.uniform(400, 550)
-
-        dragon_start_x = 20.0 if dragon_fly_dir == 1 else 740.0
-        self.flying_dragon = {
-            'x': dragon_start_x,
-            'y': float(dragon_y),
-            'base_y': float(dragon_y),
-            'vx': dragon_fly_dir * 220.0,  # 약 2.7초에 맵 횡단
-            'wing_time': 0.0,
-            'direction': dragon_fly_dir,       # 비행 방향 (1=우, -1=좌)
-            'breath_dir': direction,           # 브레스 방향 (1=아래, -1=위)
-            'hit_cooldown': 0.0,
-            'active': True,
-        }
 
         return {
             'screen_effect': ScreenEffect.FIRE,
@@ -4984,41 +4963,6 @@ class DragonBreath(HeroSkill):
                     self.fire_zone_positions = []
                 self.fire_zone_positions.append((avg_x, avg_y))
 
-        # 🐉 날아가는 드래곤 업데이트
-        if self.flying_dragon and self.flying_dragon.get('active'):
-            dragon = self.flying_dragon
-            dragon['x'] += dragon['vx'] * dt
-            dragon['wing_time'] += dt
-            # Y축 부드러운 파도 움직임 (base_y 기준 ±8px 진동)
-            dragon['y'] = dragon['base_y'] + _sin(dragon['wing_time'] * 2.5) * 8
-
-            # 맵 밖으로 나가면 비활성화
-            if dragon['x'] < -120 or dragon['x'] > 880:
-                dragon['active'] = False
-
-            # 공과 충돌 체크
-            if dragon['hit_cooldown'] > 0:
-                dragon['hit_cooldown'] -= dt
-
-            dragon_rect = pygame.Rect(
-                int(dragon['x']) - 45, int(dragon['y']) - 20, 90, 40
-            )
-            if dragon['hit_cooldown'] <= 0 and dragon_rect.colliderect(ball_rect):
-                current_speed = math.hypot(ball.vx, ball.vy)
-                if current_speed < 8.0:
-                    current_speed = 10.0
-                boosted_speed = current_speed * random.uniform(1.4, 1.7)
-
-                if dragon['breath_dir'] == 1:  # 아래로
-                    ball.vy = abs(boosted_speed)
-                else:  # 위로
-                    ball.vy = -abs(boosted_speed)
-
-                # 드래곤 진행 방향으로 넉백
-                ball.vx += dragon['direction'] * random.uniform(3.0, 6.0)
-                dragon['hit_cooldown'] = 0.5
-                game_state['ball_on_fire'] = True
-
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         # 파티클은 이미 자연스럽게 페이드아웃되어 있어야 함
         # 혹시 남아있는 파티클이 있어도 다음 스킬 시작 시 초기화됨
@@ -5040,7 +4984,6 @@ class DragonBreath(HeroSkill):
         self.fire_zone_positions = []
         game_state['ball_on_fire'] = False
         game_state['spawn_dragon_fire_zones'] = []  # 화염지대 리스트도 초기화
-        self.flying_dragon = None
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         # 고퀄리티 드래곤 브레스 화염 이펙트
@@ -5161,8 +5104,196 @@ class DragonBreath(HeroSkill):
                                int(p['y'] + spark_offset_y - spark_size - 1)),
                               special_flags=pygame.BLEND_ADD)
 
-        # 🐉 날아가는 드래곤 그리기
+
+class DragonWing(HeroSkill):
+    """용의 날개 - 바람으로 공 궤적 변경"""
+    def __init__(self):
+        super().__init__(
+            skill_id="dragon_wing",
+            name="Dragon Wing",
+            korean_name="용의 날개",
+            description="용의 날갯짓으로 바람을 일으켜 공의 궤적을 바꾼다",
+            trigger=SkillTrigger.ON_BALL_HIT,
+            cooldown=15.0,
+            duration=2.5,
+            hero_id="ignis"
+        )
+        self.wind_direction = 0
+        self.wind_particles = []
+        self.flying_dragon = None  # 날아가는 드래곤 엔티티
+
+    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        # 랜덤 바람 방향
+        self.wind_direction = random.choice([-1, 1])
+        game_state['wind_force'] = self.wind_direction * 3
+
+        # 날씨 강풍 이벤트 시작 (스킬 종료 시 강제 종료됨)
+        if WEATHER_EVENT_AVAILABLE:
+            force_start_gust_event(direction=self.wind_direction, duration=99)  # 스킬 종료 시 force_end_weather_event로 종료
+            play_weather_sound("gust")
+
+        # 🐉 날아가는 드래곤 생성 - 바람 방향으로 맵의 끝에서 끝으로 횡단
+        is_caster_top = getattr(self, 'caster_is_top', caster_paddle.is_top)
+        if is_caster_top:
+            dragon_y = random.uniform(200, 350)
+        else:
+            dragon_y = random.uniform(400, 550)
+
+        dragon_start_x = 20.0 if self.wind_direction == 1 else 740.0
+        self.flying_dragon = {
+            'x': dragon_start_x,
+            'y': float(dragon_y),
+            'base_y': float(dragon_y),
+            'vx': self.wind_direction * 220.0,  # 약 2.7초에 맵 횡단
+            'wing_time': 0.0,
+            'direction': self.wind_direction,    # 비행 방향 = 바람 방향
+            'hit_cooldown': 0.0,
+            'active': True,
+        }
+
+        return {
+            'screen_effect': ScreenEffect.WIND,
+            'wind_direction': self.wind_direction,
+            'sound': None  # 날씨 시스템에서 사운드 재생
+        }
+
+    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        # 공에 바람 효과 적용 (변동성 추가)
+        base_wind = game_state.get('wind_force', 0)
+
+        # 1. 랜덤 변동 (-30% ~ +30%)
+        wind_variation = base_wind * random.uniform(0.7, 1.3)
+
+        # 2. 벽 근처에서 바람 감소 (벽에 갇히는 현상 방지)
+        wall_margin = 50  # 벽에서 50px 이내
+        left_wall = 80 + wall_margin
+        right_wall = 680 - wall_margin
+
+        if (ball.x < left_wall and base_wind < 0) or (ball.x > right_wall and base_wind > 0):
+            # 벽 방향으로 밀리는 중이면 힘 대폭 감소
+            wind_variation *= 0.2
+
+        # 3. 가끔 반대 방향 돌풍 (15% 확률)
+        if random.random() < 0.15:
+            wind_variation *= -0.5  # 반대 방향으로 살짝 밀기
+
+        # 4. 약간의 Y축 변동 추가 (자연스러운 움직임)
+        ball.vx += wind_variation * dt * 60
+        ball.vy += random.uniform(-0.3, 0.3) * abs(base_wind) * dt * 60
+
+        # 바람 파티클 추가
+        if random.random() < 0.4:
+            start_x = 80 if self.wind_direction > 0 else 680
+            self.wind_particles.append({
+                'x': start_x,
+                'y': random.uniform(100, 650),
+                'vx': self.wind_direction * random.uniform(200, 400),
+                'life': 1.0,
+                'length': random.uniform(20, 50)
+            })
+
+        for p in self.wind_particles:
+            p['x'] += p['vx'] * dt
+            p['life'] -= dt
+        self.wind_particles = [p for p in self.wind_particles if p['life'] > 0 and 80 < p['x'] < 680]
+
+        # 🐉 날아가는 드래곤 업데이트
         if self.flying_dragon and self.flying_dragon.get('active'):
+            dragon = self.flying_dragon
+            dragon['x'] += dragon['vx'] * dt
+            dragon['wing_time'] += dt
+            # Y축 부드러운 파도 움직임 (base_y 기준 ±8px 진동)
+            dragon['y'] = dragon['base_y'] + _sin(dragon['wing_time'] * 2.5) * 8
+
+            # 맵 밖으로 나가면 비활성화
+            if dragon['x'] < -120 or dragon['x'] > 880:
+                dragon['active'] = False
+
+            # 공과 충돌 체크
+            if dragon['hit_cooldown'] > 0:
+                dragon['hit_cooldown'] -= dt
+
+            ball_radius = 10
+            ball_rect = pygame.Rect(
+                ball.x - ball_radius - 5, ball.y - ball_radius - 5,
+                ball_radius * 2 + 10, ball_radius * 2 + 10
+            )
+            dragon_rect = pygame.Rect(
+                int(dragon['x']) - 45, int(dragon['y']) - 20, 90, 40
+            )
+            if dragon['hit_cooldown'] <= 0 and dragon_rect.colliderect(ball_rect):
+                current_speed = math.hypot(ball.vx, ball.vy)
+                if current_speed < 8.0:
+                    current_speed = 10.0
+                boosted_speed = current_speed * random.uniform(1.4, 1.7)
+
+                # 바람(드래곤) 방향으로 공을 밀어냄
+                ball.vx = dragon['direction'] * abs(boosted_speed) * 0.7
+                ball.vy += random.uniform(-3.0, 3.0)
+                dragon['hit_cooldown'] = 0.5
+
+    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        game_state['wind_force'] = 0
+        self.wind_particles = []
+
+        # 강풍 이벤트 강제 종료 (스킬 종료와 함께)
+        if WEATHER_EVENT_AVAILABLE:
+            force_end_weather_event()
+
+    def reset_for_new_round(self, game_state: dict):
+        """라운드 전환 시 용의 날개 스킬 강제 종료"""
+        super().reset_for_new_round(game_state)
+        game_state['wind_force'] = 0
+        self.wind_particles = []
+        self.wind_direction = 0
+        self.flying_dragon = None
+        # 강풍 이벤트 강제 종료
+        if WEATHER_EVENT_AVAILABLE:
+            force_end_weather_event()
+
+    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        if self.is_active:
+            # 바람 라인 (투명도 지원을 위해 Surface 사용)
+            for p in self.wind_particles:
+                alpha = int(200 * p['life'])
+                line_length = p['length'] * 1.5
+                end_x = p['x'] + line_length * (1 if self.wind_direction > 0 else -1)
+
+                # 바람 라인 Surface 생성
+                line_width = int(abs(end_x - p['x'])) + 20
+                line_height = 20
+                if line_width > 0:
+                    wind_surf = pygame.Surface((line_width, line_height), pygame.SRCALPHA)
+
+                    # 그라데이션 라인 (여러 줄로 두껍게)
+                    for i in range(5):
+                        line_alpha = max(0, alpha - i * 30)
+                        if line_alpha > 0:
+                            # 청록색 ~ 흰색 그라데이션
+                            r = min(255, 150 + i * 20)
+                            g = min(255, 220 + i * 10)
+                            b = 255
+                            color = (r, g, b, line_alpha)
+                            local_start = (5 if self.wind_direction > 0 else line_width - 5, 10 + i - 2)
+                            local_end = (line_width - 5 if self.wind_direction > 0 else 5, 10 + i - 2)
+                            pygame.draw.line(wind_surf, color, local_start, local_end, 3)
+
+                    # 블렌드 모드로 화면에 그리기
+                    blit_x = min(p['x'], end_x) - 5
+                    blit_y = p['y'] - 10
+                    screen.blit(wind_surf, (int(blit_x), int(blit_y)), special_flags=pygame.BLEND_ADD)
+
+        # 🐉 날아가는 드래곤 그리기 (스킬 비활성 상태에서도 드래곤은 계속 날아감)
+        if self.flying_dragon and self.flying_dragon.get('active'):
+            # 스킬 종료 후에도 드래곤 위치 업데이트 (draw는 매 프레임 호출됨)
+            if not self.is_active:
+                dragon = self.flying_dragon
+                dt = 1 / 60.0  # 60fps 기준
+                dragon['x'] += dragon['vx'] * dt
+                dragon['wing_time'] += dt
+                dragon['y'] = dragon['base_y'] + _sin(dragon['wing_time'] * 2.5) * 8
+                if dragon['x'] < -120 or dragon['x'] > 880:
+                    dragon['active'] = False
             self._draw_flying_dragon(screen)
 
     def _draw_flying_dragon(self, screen):
@@ -5201,10 +5332,9 @@ class DragonBreath(HeroSkill):
         pygame.draw.polygon(dragon_surf, (140, 35, 15, 180), tip_pts)
 
         # ── 날개 (날갯짓 애니메이션) ──
-        wing_y_off = wing_flap * 25  # 앞쪽 끝 날갯짓 범위
-        wing_y_off2 = wing_flap * 18  # 뒤쪽 끝 날갯짓 범위
+        wing_y_off = wing_flap * 25
+        wing_y_off2 = wing_flap * 18
 
-        # 날개 막 (반투명 폴리곤)
         wing_pts = [
             (CX - 5, CY - 8),
             (CX + 5, int(CY - 35 - wing_y_off)),
@@ -5230,7 +5360,6 @@ class DragonBreath(HeroSkill):
         # ── 몸통 ──
         pygame.draw.ellipse(dragon_surf, (180, 60, 30), (CX - 28, CY - 12, 56, 24))
         pygame.draw.ellipse(dragon_surf, (200, 80, 45), (CX - 22, CY - 9, 44, 18))
-        # 배 (밝은 색)
         pygame.draw.ellipse(dragon_surf, (230, 160, 80), (CX - 15, CY + 2, 30, 10))
 
         # ── 목 + 머리 ──
@@ -5293,129 +5422,6 @@ class DragonBreath(HeroSkill):
         pygame.draw.ellipse(glow_surf, (255, 120, 40, glow_alpha), (0, 0, glow_w, glow_h))
         screen.blit(glow_surf, (int(cx - glow_w // 2), int(cy - glow_h // 2)),
                     special_flags=pygame.BLEND_ADD)
-
-
-class DragonWing(HeroSkill):
-    """용의 날개 - 바람으로 공 궤적 변경"""
-    def __init__(self):
-        super().__init__(
-            skill_id="dragon_wing",
-            name="Dragon Wing",
-            korean_name="용의 날개",
-            description="용의 날갯짓으로 바람을 일으켜 공의 궤적을 바꾼다",
-            trigger=SkillTrigger.ON_BALL_HIT,
-            cooldown=15.0,
-            duration=2.5,
-            hero_id="ignis"
-        )
-        self.wind_direction = 0
-        self.wind_particles = []
-
-    def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
-        # 랜덤 바람 방향
-        self.wind_direction = random.choice([-1, 1])
-        game_state['wind_force'] = self.wind_direction * 3
-
-        # 날씨 강풍 이벤트 시작 (스킬 종료 시 강제 종료됨)
-        if WEATHER_EVENT_AVAILABLE:
-            force_start_gust_event(direction=self.wind_direction, duration=99)  # 스킬 종료 시 force_end_weather_event로 종료
-            play_weather_sound("gust")
-
-        return {
-            'screen_effect': ScreenEffect.WIND,
-            'wind_direction': self.wind_direction,
-            'sound': None  # 날씨 시스템에서 사운드 재생
-        }
-
-    def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
-        # 공에 바람 효과 적용 (변동성 추가)
-        base_wind = game_state.get('wind_force', 0)
-
-        # 1. 랜덤 변동 (-30% ~ +30%)
-        wind_variation = base_wind * random.uniform(0.7, 1.3)
-
-        # 2. 벽 근처에서 바람 감소 (벽에 갇히는 현상 방지)
-        wall_margin = 50  # 벽에서 50px 이내
-        left_wall = 80 + wall_margin
-        right_wall = 680 - wall_margin
-
-        if (ball.x < left_wall and base_wind < 0) or (ball.x > right_wall and base_wind > 0):
-            # 벽 방향으로 밀리는 중이면 힘 대폭 감소
-            wind_variation *= 0.2
-
-        # 3. 가끔 반대 방향 돌풍 (15% 확률)
-        if random.random() < 0.15:
-            wind_variation *= -0.5  # 반대 방향으로 살짝 밀기
-
-        # 4. 약간의 Y축 변동 추가 (자연스러운 움직임)
-        ball.vx += wind_variation * dt * 60
-        ball.vy += random.uniform(-0.3, 0.3) * abs(base_wind) * dt * 60
-
-        # 바람 파티클 추가
-        if random.random() < 0.4:
-            start_x = 80 if self.wind_direction > 0 else 680
-            self.wind_particles.append({
-                'x': start_x,
-                'y': random.uniform(100, 650),
-                'vx': self.wind_direction * random.uniform(200, 400),
-                'life': 1.0,
-                'length': random.uniform(20, 50)
-            })
-
-        for p in self.wind_particles:
-            p['x'] += p['vx'] * dt
-            p['life'] -= dt
-        self.wind_particles = [p for p in self.wind_particles if p['life'] > 0 and 80 < p['x'] < 680]
-
-    def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
-        game_state['wind_force'] = 0
-        self.wind_particles = []
-
-        # 강풍 이벤트 강제 종료 (스킬 종료와 함께)
-        if WEATHER_EVENT_AVAILABLE:
-            force_end_weather_event()
-
-    def reset_for_new_round(self, game_state: dict):
-        """라운드 전환 시 용의 날개 스킬 강제 종료"""
-        super().reset_for_new_round(game_state)
-        game_state['wind_force'] = 0
-        self.wind_particles = []
-        self.wind_direction = 0
-        # 강풍 이벤트 강제 종료
-        if WEATHER_EVENT_AVAILABLE:
-            force_end_weather_event()
-
-    def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
-        if self.is_active:
-            # 바람 라인 (투명도 지원을 위해 Surface 사용)
-            for p in self.wind_particles:
-                alpha = int(200 * p['life'])
-                line_length = p['length'] * 1.5
-                end_x = p['x'] + line_length * (1 if self.wind_direction > 0 else -1)
-
-                # 바람 라인 Surface 생성
-                line_width = int(abs(end_x - p['x'])) + 20
-                line_height = 20
-                if line_width > 0:
-                    wind_surf = pygame.Surface((line_width, line_height), pygame.SRCALPHA)
-
-                    # 그라데이션 라인 (여러 줄로 두껍게)
-                    for i in range(5):
-                        line_alpha = max(0, alpha - i * 30)
-                        if line_alpha > 0:
-                            # 청록색 ~ 흰색 그라데이션
-                            r = min(255, 150 + i * 20)
-                            g = min(255, 220 + i * 10)
-                            b = 255
-                            color = (r, g, b, line_alpha)
-                            local_start = (5 if self.wind_direction > 0 else line_width - 5, 10 + i - 2)
-                            local_end = (line_width - 5 if self.wind_direction > 0 else 5, 10 + i - 2)
-                            pygame.draw.line(wind_surf, color, local_start, local_end, 3)
-
-                    # 블렌드 모드로 화면에 그리기
-                    blit_x = min(p['x'], end_x) - 5
-                    blit_y = p['y'] - 10
-                    screen.blit(wind_surf, (int(blit_x), int(blit_y)), special_flags=pygame.BLEND_ADD)
 
 
 # ============================================================================
