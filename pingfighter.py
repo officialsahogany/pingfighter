@@ -120295,7 +120295,7 @@ def _load_netcome_sound():
     if _netcome_sound is not None:
         return
     try:
-        snd_path = resource_path(os.path.join("sounds", "weakexplosion.wav"))
+        snd_path = resource_path(os.path.join("sounds", "netcome.wav"))
         if os.path.exists(snd_path):
             _netcome_sound = pygame.mixer.Sound(snd_path)
             _netcome_sound.set_volume(0.8)
