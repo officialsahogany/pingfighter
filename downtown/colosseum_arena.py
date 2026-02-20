@@ -14673,10 +14673,17 @@ class ColosseumsArena:
                 elif m.hero2 and m.hero2.get("id") == hero_id and m.hero1:
                     for g in self.guard_warrior_map.get(m.hero1["id"], []):
                         taken_ids.add(g.get("id"))
-        # 이미 다른 AI의 하수인인 영웅 제외
-        for hench_list in self.ai_henchman_map.values():
-            for h in hench_list:
-                taken_ids.add(h.get("id"))
+        # 같은 경기 상대 AI의 하수인만 제외 (다른 경기 AI의 하수인은 허용)
+        if matches:
+            for m in matches:
+                opponent_id = None
+                if m.hero1 and m.hero1.get("id") == hero_id and m.hero2:
+                    opponent_id = m.hero2.get("id")
+                elif m.hero2 and m.hero2.get("id") == hero_id and m.hero1:
+                    opponent_id = m.hero1.get("id")
+                if opponent_id:
+                    for h in self.ai_henchman_map.get(opponent_id, []):
+                        taken_ids.add(h.get("id"))
         # 플레이어 하수인 제외
         for h in self.henchman_list:
             taken_ids.add(h.get("id"))
