@@ -102080,6 +102080,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
             _arena_speed_tutorial_active = False
             _arena_henchman_tutorial_delay_frames = 0
             _arena_henchman_tutorial_active = False
+            _arena_capture_tutorial_active = False
         elif (not _arena_guard_tutorial_shown
                 and arena_guard_system is not None
                 and hasattr(arena_guard_system, 'guard_warriors_bottom')
@@ -134707,6 +134708,7 @@ def main(stage_num, new_boss_mode=False):
     global _arena_portrait_tutorial_active, _arena_portrait_tutorial_delay_frames
     global _arena_speed_tutorial_active, _arena_speed_tutorial_delay_frames
     global _arena_henchman_tutorial_active, _arena_henchman_tutorial_delay_frames
+    global _arena_capture_tutorial_active
     if stage_num != 30 and arena_mode_enabled:
         print(f"[WARNING] 스테이지 {stage_num} 진입 시 arena_mode_enabled=True 감지! 강제 초기화")
         arena_mode_enabled = False

@@ -2118,6 +2118,7 @@ class DowntownManager:
                                 _pf._arena_portrait_tutorial_shown = False
                                 _pf._arena_speed_tutorial_shown = False
                                 _pf._arena_henchman_tutorial_shown = False
+                                _pf._arena_capture_tutorial_shown = False
                             except Exception:
                                 pass
                             show_tutorial_dialog = False
