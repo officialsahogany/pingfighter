@@ -31,7 +31,6 @@ MENU_ICONS = {
     "멀티플레이": "★",
     "로컬플레이": "▷",
     "AI 플레이": "◇",
-    "테스트메뉴": "◆",
     "개발테스트": "▣",
     "메달샵": "◆",
     "설정": "⚙",
@@ -656,7 +655,7 @@ def _show_multiplayer_menu(ctx: MenuContext, state: MenuState) -> bool:
 
 def _show_dev_test_menu(ctx: MenuContext, state: MenuState) -> bool:
     """메인 메뉴 하위 개발/테스트 묶음."""
-    options = ["AI 플레이", "투기장", "테스트메뉴", "뒤로"]
+    options = ["AI 플레이", "뒤로"]
     selected = 0
     clock = pygame.time.Clock()
     while True:
@@ -681,12 +680,6 @@ def _show_dev_test_menu(ctx: MenuContext, state: MenuState) -> bool:
                     choice = options[selected]
                     if choice == "AI 플레이":
                         return _run_ai_play_flow(ctx)
-                    if choice == "투기장":
-                        ctx.start_arena_dev()
-                        return True
-                    if choice == "테스트메뉴":
-                        ctx.start_test_mode()
-                        return True
                     return False
                 elif ev.key == pygame.K_ESCAPE:
                     return False
@@ -703,12 +696,6 @@ def _show_dev_test_menu(ctx: MenuContext, state: MenuState) -> bool:
                         selected = idx
                         if opt == "AI 플레이":
                             return _run_ai_play_flow(ctx)
-                        if opt == "투기장":
-                            ctx.start_arena_dev()
-                            return True
-                        if opt == "테스트메뉴":
-                            ctx.start_test_mode()
-                            return True
                         return False
 
         font_title = ctx.FontStyle.title()
@@ -733,9 +720,8 @@ def _show_dev_test_menu(ctx: MenuContext, state: MenuState) -> bool:
             pygame.draw.rect(screen, (140, 200, 255), rect, 2 if is_sel else 1, border_radius=12)
             label_surface = font_item.render(opt, True, (255, 255, 255))
             screen.blit(label_surface, label_surface.get_rect(center=rect.center))
-            if is_sel and opt in ("AI 플레이", "투기장", "테스트메뉴"):
-                hint = "AI 대전 시작" if opt == "AI 플레이" else "투기장 바로 입장 (무료)" if opt == "투기장" else "테스트/디버그 메뉴"
-                hint_surf = ctx.FontStyle.tiny().render(hint, True, (210, 220, 255))
+            if is_sel and opt == "AI 플레이":
+                hint_surf = ctx.FontStyle.tiny().render("AI 대전 시작", True, (210, 220, 255))
                 screen.blit(hint_surf, hint_surf.get_rect(center=(rect.centerx, rect.bottom + 24)))
 
         pygame.display.flip()
@@ -2838,9 +2824,6 @@ def _activate_menu_choice(ctx: MenuContext, state: MenuState, choice: str) -> bo
         return _show_multiplayer_menu(ctx, state)
     if choice == "AI 플레이":
         return _run_ai_play_flow(ctx)
-    if choice == "테스트메뉴":
-        ctx.start_test_mode()
-        return True
     if choice == "개발테스트":
         return _show_dev_test_menu(ctx, state)
     if choice == "메달샵":
