@@ -7508,7 +7508,7 @@ class ColosseumsArena:
                     losers_qf.append(loser)
             for w in winners:
                 if w and (not self.bet_hero or w["id"] != self.bet_hero["id"]):
-                    self._assign_ai_henchmen(w, losers_qf)
+                    self._assign_ai_henchmen(w, losers_qf, self.matches[TournamentRound.SEMI_FINAL])
             self.current_round = TournamentRound.SEMI_FINAL
         elif self.current_round == TournamentRound.SEMI_FINAL:
             # 4강 → 결승
@@ -7545,7 +7545,7 @@ class ColosseumsArena:
                     losers_sf.append(loser)
             for w in winners:
                 if w and (not self.bet_hero or w["id"] != self.bet_hero["id"]):
-                    self._assign_ai_henchmen(w, losers_sf)
+                    self._assign_ai_henchmen(w, losers_sf, self.matches[TournamentRound.FINAL])
             self.current_round = TournamentRound.FINAL
 
     def _init_guard_warriors_for_battle(self, match: Match):
@@ -14651,18 +14651,33 @@ class ColosseumsArena:
         print(f"[Perk] AI {hero['name']}에게 랜덤 퍽 {count}개 부여: "
               f"{[p['name'] for p in self.hero_perks[hero_id]]}")
 
-    def _assign_ai_henchmen(self, hero: Dict, losers: list):
-        """AI 영웅에게 패자 중 1명을 하수인으로 배정"""
+    def _assign_ai_henchmen(self, hero: Dict, losers: list, matches: list = None):
+        """AI 영웅에게 패자 중 1명을 하수인으로 배정
+
+        Args:
+            hero: 하수인을 받을 AI 영웅
+            losers: 하수인 후보 (이전 라운드 패자들)
+            matches: 현재 라운드 매치 리스트 (같은 경기 상대 호위무사 충돌 방지용)
+        """
         hero_id = hero["id"]
-        # 이미 하수인인 영웅 ID 수집
-        # 모든 영웅의 호위무사를 제외 (승급된 호위무사가 다른 AI의 하수인으로 중복 배정되는 것 방지)
         taken_ids = set()
-        for all_guards in self.guard_warrior_map.values():
-            for g in all_guards:
-                taken_ids.add(g.get("id"))
+        # 자기 자신의 호위무사 제외 (같은 편에 중복 등장 방지)
+        for g in self.guard_warrior_map.get(hero_id, []):
+            taken_ids.add(g.get("id"))
+        # 같은 경기 상대의 호위무사도 제외 (양쪽에 같은 영웅 등장 방지)
+        if matches:
+            for m in matches:
+                if m.hero1 and m.hero1.get("id") == hero_id and m.hero2:
+                    for g in self.guard_warrior_map.get(m.hero2["id"], []):
+                        taken_ids.add(g.get("id"))
+                elif m.hero2 and m.hero2.get("id") == hero_id and m.hero1:
+                    for g in self.guard_warrior_map.get(m.hero1["id"], []):
+                        taken_ids.add(g.get("id"))
+        # 이미 다른 AI의 하수인인 영웅 제외
         for hench_list in self.ai_henchman_map.values():
             for h in hench_list:
                 taken_ids.add(h.get("id"))
+        # 플레이어 하수인 제외
         for h in self.henchman_list:
             taken_ids.add(h.get("id"))
         taken_ids.add(hero_id)  # 자기 자신 제외
