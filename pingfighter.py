@@ -77120,11 +77120,21 @@ def is_arena_speed_tutorial_paused() -> bool:
 def advance_arena_speed_tutorial():
     """투기장 배속 튜토리얼 다음 단계로 진행"""
     global _arena_speed_tutorial_step, _arena_speed_tutorial_active, _arena_speed_tutorial_shown
+    global _arena_henchman_tutorial_delay_frames, _arena_henchman_tutorial_step, _arena_henchman_tutorial_active
     _arena_speed_tutorial_step += 1
     if _arena_speed_tutorial_step >= len(_ARENA_SPEED_TUTORIAL_STEPS):
         _arena_speed_tutorial_active = False
         _arena_speed_tutorial_shown = True
         print("[ArenaTutorial] 배속 튜토리얼 완료!")
+        # 체인: 하수인 튜토리얼 딜레이 시작 (하수인이 있고, 아직 안 본 경우)
+        if (not _arena_henchman_tutorial_shown
+                and arena_henchman_system is not None
+                and hasattr(arena_henchman_system, 'slots')
+                and arena_henchman_system.slots):
+            _arena_henchman_tutorial_delay_frames = _ARENA_HENCHMAN_TUTORIAL_DELAY
+            _arena_henchman_tutorial_step = 0
+            _arena_henchman_tutorial_active = False
+            print("[ArenaTutorial] 배속 완료 → 하수인 튜토리얼 딜레이 시작 (6초)")
 
 
 def _draw_arena_speed_tutorial() -> None:
@@ -102141,6 +102151,8 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
                 _arena_speed_tutorial_active = False
 
         # === 하수인 시스템 설정 ===
+        # NOTE: 하수인 튜토리얼은 배속 완료 후 체인으로 트리거됨 (advance_arena_speed_tutorial)
+        # 배속 튜토리얼이 이미 완료된 경우에는 하수인 시스템 설정 후 아래에서 직접 체인
         global arena_henchman_system
         try:
             _henchman_list = globals().pop('_arena_pending_henchman_list', [])
@@ -102182,16 +102194,19 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
             print(f"[Henchman] AI 하수인 시스템 설정 오류: {e}")
             arena_ai_henchman_system = None
 
-        # === 하수인 튜토리얼 트리거 ===
+        # === 하수인 튜토리얼 ===
+        # 배속 튜토리얼이 아직 안 끝남 → 배속 완료 후 체인으로 트리거 (advance_arena_speed_tutorial)
+        # 배속 튜토리얼이 이미 완료됨 → 여기서 직접 딜레이 시작
         if (_arena_tutorial_enabled
+                and _arena_speed_tutorial_shown
                 and not _arena_henchman_tutorial_shown
                 and arena_henchman_system is not None
                 and hasattr(arena_henchman_system, 'slots')
                 and arena_henchman_system.slots):
             _arena_henchman_tutorial_delay_frames = _ARENA_HENCHMAN_TUTORIAL_DELAY
             _arena_henchman_tutorial_step = 0
-            _arena_henchman_tutorial_active = False  # 딜레이 후 활성화
-            print("[ArenaTutorial] 하수인 튜토리얼 딜레이 시작 (6초)")
+            _arena_henchman_tutorial_active = False
+            print("[ArenaTutorial] 배속 이미 완료 → 하수인 튜토리얼 딜레이 시작 (6초)")
         else:
             _arena_henchman_tutorial_delay_frames = 0
             _arena_henchman_tutorial_active = False
