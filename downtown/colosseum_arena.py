@@ -157,6 +157,8 @@ WALL_BOUNCE_SLOWDOWN = 0.98  # 벽 반사 시 속도 감소
 # 패들 위치 (실제 게임과 동일)
 TOP_PADDLE_Y = 25           # 상단 패들 Y (보스 위치)
 BOTTOM_PADDLE_Y = 710       # 하단 패들 Y (플레이어 위치)
+# 호위무사 Y 위치 (캐릭터가 영웅보다 크게 렌더링되므로 상단은 아래로 오프셋)
+GUARD_TOP_Y = TOP_PADDLE_Y + 20   # 상단 호위무사 Y (캐릭터 상반신 잘림 방지)
 
 # 배경/필러 임포트 (선택적)
 try:
@@ -2698,12 +2700,12 @@ class GuardWarriorSystem:
         self.guard_paddles = {}            # hero_id -> _GuardPaddle
 
         # Y 위치 추적 (horn_charge 등에서 Y 이동 필요)
-        self.y_top = TOP_PADDLE_Y              # 상단 호위무사 현재 Y (영웅 패들과 동일)
+        self.y_top = GUARD_TOP_Y              # 상단 호위무사 현재 Y (영웅 패들과 동일)
         self.y_bottom = BOTTOM_PADDLE_Y        # 하단 호위무사 현재 Y (영웅 패들과 동일)
         self._enter_x_top = 0.0      # 등장 완료 시 X 위치 (horn_charge 기준점)
         self._enter_x_bottom = 0.0
         self._exit_start_x_top = 0.0  # 퇴장 시작 시 X 위치
-        self._exit_start_y_top = float(TOP_PADDLE_Y)
+        self._exit_start_y_top = float(GUARD_TOP_Y)
         self._exit_start_x_bottom = 0.0
         self._exit_start_y_bottom = float(BOTTOM_PADDLE_Y)
 
@@ -2784,7 +2786,7 @@ class GuardWarriorSystem:
         self.active_bottom = None
         self.phase_top = None
         self.phase_bottom = None
-        self.y_top = TOP_PADDLE_Y
+        self.y_top = GUARD_TOP_Y
         self.y_bottom = BOTTOM_PADDLE_Y
 
         # 호위무사 스킬 인스턴스 생성 (쿨타임 계산 전에 먼저 생성해야 함)
@@ -2847,7 +2849,7 @@ class GuardWarriorSystem:
             self.side_top = random.choice(["left", "right"])
             start_x = (GAME_AREA_X - 60) if self.side_top == "left" else (GAME_AREA_X + GAME_AREA_WIDTH + 60)
             self.x_top = start_x
-            self.y_top = TOP_PADDLE_Y
+            self.y_top = GUARD_TOP_Y
             # 첫 스킬 쿨타임 설정
             cd_mult = self.guard_cd_mult_top
             base_cd = self._get_guard_cooldown(guard["id"])
@@ -3164,7 +3166,7 @@ class GuardWarriorSystem:
                 'x': self.x_top, 'y': self.y_top,
                 'id': self.active_top.get('id')}
         elif self.guard_warriors_top:
-            game_state['_guard_info_top'] = {'x': 380, 'y': TOP_PADDLE_Y}
+            game_state['_guard_info_top'] = {'x': 380, 'y': GUARD_TOP_Y}
 
     def _charm_steal_guard(self, game_state, caster_is_top):
         """Phase 'pulling': 상대 호위무사를 숨기고 견인 시작 (리스트에서 제거하지 않음!)"""
@@ -3219,7 +3221,7 @@ class GuardWarriorSystem:
             'caster_is_top': caster_is_top,
             'stolen_from_top': not caster_is_top,
             'x': 380.0,
-            'y': TOP_PADDLE_Y if caster_is_top else BOTTOM_PADDLE_Y,
+            'y': GUARD_TOP_Y if caster_is_top else BOTTOM_PADDLE_Y,
             'phase': 'pulling',  # pulling → patrolling → done
             'cooldown': saved_cooldown,  # 쿨타임 이어받기!
             'cooldown_max': saved_cooldown_max,  # 원본 최대 쿨타임 유지 (UI 바 정확도)
@@ -3242,7 +3244,7 @@ class GuardWarriorSystem:
 
         # 순찰 위치 설정 (시전자 진영)
         if caster_is_top:
-            self._charmed['y'] = TOP_PADDLE_Y
+            self._charmed['y'] = GUARD_TOP_Y
         else:
             self._charmed['y'] = BOTTOM_PADDLE_Y
         self._charmed['x'] = random.uniform(GAME_AREA_X + 80, GAME_AREA_X + GAME_AREA_WIDTH - 80)
@@ -3352,7 +3354,7 @@ class GuardWarriorSystem:
                 self.phase_top = "patrolling"
                 self.anim_timer_top = 0.0
                 self.x_top = return_x
-                self.y_top = TOP_PADDLE_Y
+                self.y_top = GUARD_TOP_Y
                 # 쿨타임 이어받기 (매혹 중 남은 쿨타임 유지, 초기화 없음)
                 self.cooldown_top = remaining_cooldown
                 if remaining_cooldown_max > 0:
@@ -3723,7 +3725,7 @@ class GuardWarriorSystem:
             'guard': guard2,
             'is_top': is_top,
             'x': float(start_x),
-            'y': float(TOP_PADDLE_Y if is_top else BOTTOM_PADDLE_Y),
+            'y': float(GUARD_TOP_Y if is_top else BOTTOM_PADDLE_Y),
             'phase': 'patrol_entering',  # patrol_entering → entering → patrolling
             'anim_timer': 0.0,
             'side': side2,
@@ -3817,7 +3819,7 @@ class GuardWarriorSystem:
             if p2['anim_timer'] >= GUARD_CAST_DURATION:
                 p2['phase'] = 'patrolling'
                 p2['anim_timer'] = 0.0
-                p2['y'] = float(TOP_PADDLE_Y if is_top else BOTTOM_PADDLE_Y)
+                p2['y'] = float(GUARD_TOP_Y if is_top else BOTTOM_PADDLE_Y)
 
     def _update_patrol2_movement(self, dt, p2, ball=None, is_top=True, bottom_paddle=None):
         """2번째 호위무사 순찰 이동 (랜덤 패턴 / 수비모드: 스마트 포지셔닝)"""
@@ -4022,7 +4024,7 @@ class GuardWarriorSystem:
             self.side_top = random.choice(["left", "right"])
             start_x = (GAME_AREA_X - 60) if self.side_top == "left" else (GAME_AREA_X + GAME_AREA_WIDTH + 60)
             self.x_top = start_x
-            self.y_top = TOP_PADDLE_Y
+            self.y_top = GUARD_TOP_Y
             cd_mult = self.guard_cd_mult_top
             base_cd = self._get_guard_cooldown(guard["id"])
             self.cooldown_top = base_cd * cd_mult + GUARD_ENTER_DURATION
@@ -4747,7 +4749,7 @@ class GuardWarriorSystem:
                         self.phase_top = "patrolling"
                         self.anim_timer_top = 0.0
                         self.x_top = patrol_x
-                        self.y_top = TOP_PADDLE_Y
+                        self.y_top = GUARD_TOP_Y
                     else:
                         self.phase_bottom = "patrolling"
                         self.anim_timer_bottom = 0.0
@@ -4759,7 +4761,7 @@ class GuardWarriorSystem:
                         self.phase_top = None
                         self.active_top = None
                         self.selected_skill_top = None
-                        self.y_top = TOP_PADDLE_Y
+                        self.y_top = GUARD_TOP_Y
                     else:
                         self.phase_bottom = None
                         self.active_bottom = None
@@ -4773,7 +4775,7 @@ class GuardWarriorSystem:
             if is_top:
                 self.phase_top = "patrolling"
                 self.anim_timer_top = 0.0
-                self.y_top = TOP_PADDLE_Y
+                self.y_top = GUARD_TOP_Y
             else:
                 self.phase_bottom = "patrolling"
                 self.anim_timer_bottom = 0.0
@@ -6698,7 +6700,7 @@ class GuardWarriorSystem:
         self.active_bottom = None
         self.selected_skill_top = None
         self.selected_skill_bottom = None
-        self.y_top = TOP_PADDLE_Y
+        self.y_top = GUARD_TOP_Y
         self.y_bottom = BOTTOM_PADDLE_Y
         self.next_guard_top_idx = 0
         self.next_guard_bottom_idx = 0
