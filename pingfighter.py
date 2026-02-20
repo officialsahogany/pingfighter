@@ -120297,58 +120297,74 @@ def _fire_capture_net():
     print(f"[CAPTURE] 그물 발사! 잔여 {arena_capture_shots_left}발")
 
 def _draw_arena_capture_speech(screen, line, hero_x, hero_y, elapsed, success=True):
-    """포획 결과 대사 말풍선 그리기 (화면 중앙 하단 고정)"""
+    """포획 결과 대사 말풍선 그리기 (캐릭터 위치 기준 말풍선)"""
     import pygame.freetype as _ft
+    import math as _bm
     _font = getattr(_draw_arena_capture_speech, '_font', None)
     if _font is None:
         try:
             font_path = resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"))
-            _font = _ft.Font(font_path, 20)
+            _font = _ft.Font(font_path, 18)
         except Exception:
             try:
-                _font = _ft.SysFont("malgun gothic", 20)
+                _font = _ft.SysFont("malgun gothic", 18)
             except Exception:
-                _font = _ft.Font(None, 20)
+                _font = _ft.Font(None, 18)
         _draw_arena_capture_speech._font = _font
     if not _font:
         return
     # 텍스트 렌더
-    text_color = (255, 255, 255)
-    ts, tr = _font.render(line, text_color)
-    # 큰 따옴표 스타일 말풍선 (화면 중앙 고정, Y=400)
-    pad_x, pad_y = 20, 12
+    ts, tr = _font.render(line, (255, 255, 255))
+    pad_x, pad_y = 16, 10
     bw = tr.width + pad_x * 2
     bh = tr.height + pad_y * 2
-    bx = 380 - bw // 2
-    by = 400
-    # 페이드인 (0.4초)
-    fade = min(1.0, elapsed / 0.4)
-    alpha = int(230 * fade)
-    # 말풍선 서피스
-    bubble = pygame.Surface((bw, bh), pygame.SRCALPHA)
-    bg_color = (20, 20, 30, alpha)
-    border_c = (80, 230, 80, alpha) if success else (230, 140, 60, alpha)
-    pygame.draw.rect(bubble, bg_color, (0, 0, bw, bh), border_radius=10)
-    pygame.draw.rect(bubble, border_c, (0, 0, bw, bh), 2, border_radius=10)
-    # 텍스트 blit
-    bubble.blit(ts, (pad_x, pad_y))
+    tail_h = 12  # 꼬리 높이
+    total_h = bh + tail_h
+    # 말풍선 위치: 캐릭터 위에 표시
+    bx = max(10, min(hero_x - bw // 2, 750 - bw))
+    by = hero_y - total_h - 30
+    # 화면 상단 넘어가면 아래에 표시
+    if by < 10:
+        by = hero_y + 50
+    # 페이드인 (0.35초)
+    fade = min(1.0, elapsed / 0.35)
+    alpha = int(240 * fade)
+    # 말풍선 서피스 (본체 + 꼬리)
+    surf_w = bw + 4
+    surf_h = total_h + 4
+    bubble = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+    # 색상
+    bg_color = (15, 15, 25, alpha)
+    border_c = (90, 220, 90, alpha) if success else (220, 130, 60, alpha)
+    # 본체 (둥근 사각형)
+    body_rect = pygame.Rect(2, 2, bw, bh)
+    pygame.draw.rect(bubble, bg_color, body_rect, border_radius=12)
+    pygame.draw.rect(bubble, border_c, body_rect, 2, border_radius=12)
+    # 꼬리 (삼각형 - 캐릭터 방향)
+    tail_cx = min(max(20, hero_x - bx), bw - 20) + 2
+    if by < hero_y:
+        # 말풍선이 캐릭터 위에 있을 때 → 꼬리 아래쪽
+        tail_pts = [
+            (tail_cx - 8, bh + 1),
+            (tail_cx + 8, bh + 1),
+            (tail_cx, bh + tail_h)
+        ]
+    else:
+        # 말풍선이 캐릭터 아래에 있을 때 → 꼬리 위쪽
+        tail_pts = [
+            (tail_cx - 8, 3),
+            (tail_cx + 8, 3),
+            (tail_cx, 2 - tail_h)
+        ]
+    pygame.draw.polygon(bubble, bg_color, tail_pts)
+    pygame.draw.polygon(bubble, border_c, tail_pts, 2)
+    # 텍스트
+    bubble.blit(ts, (2 + pad_x, 2 + pad_y))
+    # 약간의 흔들림 (포획 시 끌려오는 느낌)
+    shake_x = int(_bm.sin(elapsed * 6) * 2 * max(0, 1.0 - elapsed))
     if fade < 1.0:
         bubble.set_alpha(int(255 * fade))
-    screen.blit(bubble, (bx, by))
-    # 큰따옴표 장식 (「  」)
-    try:
-        _deco_font = getattr(_draw_arena_capture_speech, '_deco_font', None)
-        if _deco_font is None:
-            _deco_font = _ft.Font(None, 28)
-            _draw_arena_capture_speech._deco_font = _deco_font
-        qs, qr = _deco_font.render("「", border_c[:3])
-        qs.set_alpha(alpha)
-        screen.blit(qs, (bx - qr.width - 4, by + bh // 2 - qr.height // 2))
-        qs2, qr2 = _deco_font.render("」", border_c[:3])
-        qs2.set_alpha(alpha)
-        screen.blit(qs2, (bx + bw + 4, by + bh // 2 - qr2.height // 2))
-    except Exception:
-        pass
+    screen.blit(bubble, (bx + shake_x, by))
 
 def _update_arena_capture_phase(screen):
     """포획 페이즈 업데이트 + 렌더링 (매 프레임 호출)
