@@ -7015,38 +7015,6 @@ class HeroPaddleRenderer:
                            (int(bell_end_x) - bell_r + 1, int(bell_end_y)),
                            (int(bell_end_x) + bell_r - 1, int(bell_end_y)), 1)
 
-            # === 방울 골든 글로우 이펙트 ===
-            bell_glow_r = int(bell_r * 3.5)
-            bell_glow_surf = self._get_surface(bell_glow_r * 2, bell_glow_r * 2)
-            bell_glow_pulse = max(0, 0.4 + 0.6 * _sin(self.time * 6.0 + side * 2.0))
-            bell_glow_alpha = max(0, int(30 * bell_glow_pulse))
-            pygame.draw.circle(bell_glow_surf,
-                             (255, 230, 100, bell_glow_alpha),
-                             (bell_glow_r, bell_glow_r), bell_glow_r)
-            pygame.draw.circle(bell_glow_surf,
-                             (255, 250, 180, int(bell_glow_alpha * 0.8)),
-                             (bell_glow_r, bell_glow_r), int(bell_glow_r * 0.5))
-            screen.blit(bell_glow_surf,
-                       (int(bell_end_x) - bell_glow_r, int(bell_end_y) - bell_glow_r),
-                       special_flags=pygame.BLEND_ADD)
-
-        # === 신발 끝 방울 골든 글로우 ===
-        for _sbell_side in [-1, 1]:
-            _sb_leg_x = cx + _sbell_side * int(0.45 * b) + lean_offset
-            _sb_sway = left_leg_sway if _sbell_side == -1 else right_leg_sway
-            _sb_foot_x = _sb_leg_x + int(_sb_sway * 0.5 * b)
-            _sb_foot_y = torso_y + int(1.55 * b) + int(1.9 * b) + int(_sb_sway * 0.3 * b)
-            _sb_tip_x = _sb_foot_x + _sbell_side * int(0.4 * b)
-            _sb_tip_y = _sb_foot_y + int(_sin(self.time * 3 + _sbell_side) * 0.08 * b)
-            _sb_glow_r = int(0.35 * b)
-            _sb_glow_surf = self._get_surface(_sb_glow_r * 2, _sb_glow_r * 2)
-            _sb_pulse = max(0, 0.3 + 0.7 * _sin(self.time * 5.5 + _sbell_side * 3.0))
-            _sb_alpha = max(0, int(25 * _sb_pulse))
-            pygame.draw.circle(_sb_glow_surf, (255, 220, 80, _sb_alpha),
-                             (_sb_glow_r, _sb_glow_r), _sb_glow_r)
-            screen.blit(_sb_glow_surf,
-                       (_sb_tip_x - _sb_glow_r, _sb_tip_y - _sb_glow_r),
-                       special_flags=pygame.BLEND_ADD)
 
     # =========================================================================
     # 세트 - 사막의 환술사 (트릭키) [HD 버전]
