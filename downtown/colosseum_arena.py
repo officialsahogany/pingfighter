@@ -1101,6 +1101,198 @@ RALLY_TAUNT_LINES = {
 }
 
 # ============================================================================
+# 생포 회피 대사 (그물을 피했을 때, 50% 확률로 표시)
+# ============================================================================
+CAPTURE_DODGE_LINES = {
+    "mugen": [
+        "니놈에게 잡힐 바엔 자결한다.",
+        "흥, 이 검사를 그물 따위로?",
+        "어둠은 그물로 잡을 수 없다.",
+        "느린 손놀림이군.",
+    ],
+    "kraken": [
+        "크크크... 촉수가 미끄럽거든.",
+        "심해의 괴물을 잡으려면 부족해.",
+        "그물? 난 그물을 찢는 쪽이지.",
+        "바다에서 그물질 좀 더 배워와라.",
+    ],
+    "chronos": [
+        "후후, 마녀를 잡으려면 마법이 필요해.",
+        "저주가 무서워서 그물을 쓰나?",
+        "시간을 조금 되돌렸을 뿐이야.",
+        "그런 느린 손으론 나를 못 잡아.",
+    ],
+    "onimaru": [
+        "으하하! 도깨비를 잡겠다고?!",
+        "이 뿔을 묶을 그물은 없다!",
+        "한심하군! 다시 던져봐라!",
+        "지옥에서 그물질 연습하고 와!",
+    ],
+    "maria": [
+        "후후... 인형은 줄에서 빠져나오는 게 특기예요~",
+        "잡으려면 더 예쁜 그물을 가져와요.",
+        "인형놀이의 줄은 내가 조종하는 거예요~",
+        "놓쳤네요~ 아쉽죠?",
+    ],
+    "ignis": [
+        "용의 기사를 그물 따위로 잡겠다고?!",
+        "불꽃으로 태워버릴 수도 있었다!",
+        "기사의 긍지가 허락하지 않는다!",
+        "드래곤을 잡으려면 쇠사슬이 필요하지!",
+    ],
+    "gear": [
+        "아하~ 계산이 틀렸는걸?",
+        "이 두뇌를 그물로 잡으려면 100년은 걸려!",
+        "기계적 정밀도로 회피 완료~!",
+        "내 발명품이면 잡았을 텐데?",
+    ],
+    "kurokage": [
+        "...그림자를 잡을 수는 없다.",
+        "닌자에게 그물은 통하지 않는다.",
+        "소리가 너무 컸다.",
+        "잡고 싶다면 눈을 감아라.",
+    ],
+    "banshee": [
+        "키히히... 유령을 어떻게 잡아요~?",
+        "그물이 통과했어요~ 투명하거든요~",
+        "잡히면 저주할 뻔했는데... 아쉽~",
+        "유령은 묶을 수 없어요...",
+    ],
+    "necro": [
+        "망자를 그물로 잡겠다고? 어리석은.",
+        "해골들이 비웃고 있다.",
+        "죽은 자는 묶을 수 없어.",
+        "흥, 이 정도로는 부족하지.",
+    ],
+    "joker": [
+        "짜잔~! 탈출 매직~! 아하하!",
+        "관객 여러분! 그물 탈출쇼~!",
+        "아하하! 이것도 쇼의 일부야!",
+        "트릭은 항상 빠져나가는 거지~!",
+    ],
+    "mirage": [
+        "잡은 건 신기루였을 뿐...",
+        "환상을 그물로 잡을 수 있을까?",
+        "모래는 손가락 사이로 빠져나가지.",
+        "사막을 걸어본 자만이 나를 잡을 수 있다.",
+    ],
+    "android": [
+        "[회피] 투사체 궤도 분석 완료. 회피 성공.",
+        "[판정] 포획 실패. 재시도 권장.",
+        "[경고] 포획 불가. 이동 알고리즘 우세.",
+        "[분석] 그물 궤적 예측. 회피 기동 완료.",
+    ],
+    "ra": [
+        "태양의 매를 그물로 잡겠다고?!",
+        "신의 날개는 인간의 그물에 걸리지 않는다!",
+        "하늘의 왕을 묶으려는 오만함이여!",
+        "천둥처럼 빠르지 않으면 불가능하다!",
+    ],
+    "monkeyking": [
+        "우끼끼끼! 못 잡지~!",
+        "끼끼끼! 느려느려~!",
+        "우끼~! 바보바보!",
+        "끼끼! 우끼끼끼끼!",
+    ],
+}
+
+# ============================================================================
+# 생포 성공 대사 (그물에 잡혔을 때, 100% 확률로 표시)
+# ============================================================================
+CAPTURE_SUCCESS_LINES = {
+    "mugen": [
+        "크윽... 이런 치욕이...",
+        "검을 쥐지 못하다니... 수치스럽군.",
+        "어둠의 검사가 그물에 걸리다니.",
+        "끝이 아니다... 기억해라.",
+    ],
+    "kraken": [
+        "이런... 촉수가 묶이다니...",
+        "그르르... 심해로 돌아갈 수 없다니.",
+        "크큭... 이 치욕을 잊지 않겠다.",
+        "어부 출신이냐... 그물 솜씨가 좋군.",
+    ],
+    "chronos": [
+        "크윽... 마법이 봉인되다니...",
+        "이대로 끝인가... 마녀의 최후치곤...",
+        "저주를 걸어줄 테니 풀어라... 안 할게.",
+        "시간을 되돌릴 수만 있다면...",
+    ],
+    "onimaru": [
+        "크아아! 이 뿔이 걸렸다!",
+        "으으... 도깨비의 수치야!",
+        "그물 따위에... 억울하다!",
+        "좋아, 인정한다! 솜씨가 좋군!",
+    ],
+    "maria": [
+        "아... 줄에 묶이다니... 이건 싫어요...",
+        "인형사가 줄에 걸리다니... 아이러니네요.",
+        "풀어주면... 인형 하나 줄게요...",
+        "으응... 인형들이 슬퍼하고 있어요...",
+    ],
+    "ignis": [
+        "크윽... 기사의 치욕이다!",
+        "드래곤의 불꽃이 이렇게 꺼지다니...!",
+        "인정한다... 좋은 솜씨다.",
+        "기사의 맹세로... 다음엔 지지 않겠다.",
+    ],
+    "gear": [
+        "아야야! 기계가 걸렸어~!",
+        "이 상황은 계산에 없었는데?!",
+        "톱니바퀴가... 멈추고 말았어...",
+        "어떻게 잡은 거야?! 특허 내!",
+    ],
+    "kurokage": [
+        "...그림자가 잡히다니.",
+        "쉿... 다음엔 없다.",
+        "닌자의 수치... 잊지 않겠다.",
+        "소리 없이 다가왔군... 인정한다.",
+    ],
+    "banshee": [
+        "끄으... 유령이 잡히다니...",
+        "이 그물... 마법이 걸려있어요..?",
+        "비명을 질러도 소용없는 건가요...",
+        "묶여도 저주는 할 수 있어요... 히히.",
+    ],
+    "necro": [
+        "크윽... 망자의 여왕이...",
+        "해골들이... 주인을 구하지 못하다니.",
+        "이 치욕... 무덤까지 가져가겠다.",
+        "인정하지. 손이 빠르군.",
+    ],
+    "joker": [
+        "아하하... 이건 대본에 없는데?",
+        "탈출 매직이... 안 먹히잖아?!",
+        "관객 여러분, 오늘 쇼는 여기까지...",
+        "내 트릭 카드가... 다 떨어졌어!",
+    ],
+    "mirage": [
+        "신기루가... 잡히다니...",
+        "모래가 굳어버렸군...",
+        "사막의 환술사에게 이런 치욕이...",
+        "인정한다... 네 눈은 환상을 꿰뚫는군.",
+    ],
+    "android": [
+        "[경고] 이동 불가. 포획 상태 진입.",
+        "[오류] 탈출 프로토콜 실패. 항복 모드.",
+        "[시스템] 저항 무의미. 에너지 절약 모드 전환.",
+        "[분석] 포획 인정. 전투 데이터 기록 중.",
+    ],
+    "ra": [
+        "크윽... 태양의 매가 묶이다니...!",
+        "신의 날개가... 이런 치욕을...!",
+        "인정한다... 솜씨가 좋은 사냥꾼이로군.",
+        "하늘의 왕이 땅에 내려앉다니...",
+    ],
+    "monkeyking": [
+        "끼... 끼익...",
+        "우끼... 우끼끼...",
+        "끼끼... 풀어줘...",
+        "우끼... 바나나...",
+    ],
+}
+
+# ============================================================================
 # 토너먼트 상태
 # ============================================================================
 class TournamentState(Enum):
@@ -6851,6 +7043,7 @@ class ColosseumsArena:
         self.captured_guard_used = False
         # 교체 선택
         self.capture_swap_hover = -1            # 교체 UI 호버 인덱스
+        self.capture_speech_line = None         # 생포 결과 대사 (회피/포획 시)
         # 인게임 포획 결과 (pingfighter에서 읽어옴)
         self._last_capture_result = None        # True/False/None
         self._last_capture_target = None        # 포획 대상 영웅 dict
@@ -16987,6 +17180,7 @@ class ColosseumsArena:
         self.capture_net_deploy_max = 1.0
         # 교체 선택 초기화
         self.capture_swap_hover = -1
+        self.capture_speech_line = None  # 생포 결과 대사 초기화
         # 상태 전환
         self.state = TournamentState.CAPTURE_MINIGAME
         # 사운드
@@ -17167,11 +17361,20 @@ class ColosseumsArena:
             self.captured_guard = dict(target)
             self.captured_guard_used = False
         # (이미 captured_guard 보유 시에는 result 페이즈에서 교체 UI 표시)
+        # 생포 성공 대사 (100% 확률)
+        hero_id = target.get("id", "")
+        lines = CAPTURE_SUCCESS_LINES.get(hero_id, ["크윽... 이렇게 끝인가...", "억울하다..."])
+        self.capture_speech_line = random.choice(lines)
         print(f"[CAPTURE] 생포 성공! {target.get('name', '?')} → guard_warrior_map 추가")
 
     def _process_capture_fail(self):
         """생포 실패 처리 - guard_warrior_map에 추가하지 않음"""
         target = self.capture_target
+        # 회피 대사 (50% 확률)
+        if target and random.random() < 0.5:
+            hero_id = target.get("id", "")
+            lines = CAPTURE_DODGE_LINES.get(hero_id, ["흥, 내가 쉽게 잡힐 것 같으냐.", "놓쳤군!"])
+            self.capture_speech_line = random.choice(lines)
         print(f"[CAPTURE] 생포 실패! {target.get('name', '?') if target else '?'} 도주")
 
     def _capture_needs_swap(self):
@@ -17374,6 +17577,10 @@ class ColosseumsArena:
             if gs:
                 self.screen.blit(gs, (screen_w // 2 - gr.width // 2, 380))
 
+        # 생포 결과 대사 말풍선
+        if self.capture_speech_line and self.capture_timer > 0.3:
+            self._draw_capture_speech_bubble(screen_w)
+
         # 교체 선택 UI (이미 포로 보유 시)
         if self._capture_needs_swap():
             self._draw_capture_swap_ui(screen_w)
@@ -17423,6 +17630,56 @@ class ColosseumsArena:
             ks, kr = btn_font.render("유지하기", ET["malachite"] if keep_hover else ET["text_body"])
             if ks:
                 self.screen.blit(ks, (keep_rect.centerx - kr.width // 2, keep_rect.centery - kr.height // 2))
+
+    def _draw_capture_speech_bubble(self, screen_w):
+        """생포 결과 대사 말풍선 그리기"""
+        line = self.capture_speech_line
+        if not line:
+            return
+        try:
+            if not hasattr(self, '_capture_speech_font'):
+                self._capture_speech_font = self._load_korean_font(18)
+            font = self._capture_speech_font
+            if not font:
+                return
+            text_surface = font.render(line, True, (255, 255, 255))
+            padding_x = 16
+            padding_y = 10
+            bubble_w = text_surface.get_width() + padding_x * 2
+            bubble_h = text_surface.get_height() + padding_y * 2
+            # 영웅 위치 기준 말풍선 (영웅 아래에 표시)
+            bubble_x = int(self.capture_hero_x - bubble_w // 2)
+            bubble_y = 220  # 영웅 스프라이트(Y=180) 아래
+            # 화면 경계 체크
+            bubble_x = max(10, min(bubble_x, screen_w - bubble_w - 10))
+            # 말풍선 서피스
+            bubble_surf = pygame.Surface((bubble_w + 4, bubble_h + 18), pygame.SRCALPHA)
+            # 꼬리 (위쪽, 영웅을 향함)
+            tail_cx = bubble_w // 2
+            tail_points = [
+                (tail_cx - 7, 2),
+                (tail_cx + 7, 2),
+                (tail_cx, -10)
+            ]
+            pygame.draw.polygon(bubble_surf, (40, 40, 50, 220), [(p[0], p[1] + 12) for p in tail_points])
+            # 배경
+            bg_rect = pygame.Rect(0, 12, bubble_w, bubble_h)
+            pygame.draw.rect(bubble_surf, (40, 40, 50, 220), bg_rect, border_radius=8)
+            # 성공/실패에 따른 테두리 색상
+            if self.capture_result in ("perfect", "good"):
+                border_color = (100, 200, 100, 200)  # 녹색 (포획)
+            else:
+                border_color = (200, 120, 80, 200)  # 주황 (회피)
+            pygame.draw.rect(bubble_surf, border_color, bg_rect, 2, border_radius=8)
+            # 텍스트
+            bubble_surf.blit(text_surface, (padding_x, 12 + padding_y))
+            # 페이드인 효과
+            fade = min(1.0, (self.capture_timer - 0.3) / 0.5)
+            if fade < 1.0:
+                bubble_surf.set_alpha(int(255 * fade))
+            self.screen.blit(bubble_surf, (bubble_x, bubble_y))
+        except Exception:
+            pass
 
     def _draw_capture_hero_sprite(self, x, y, alpha=255):
         """도주 영웅 스프라이트 (간단한 컬러 박스 + 이름)"""
