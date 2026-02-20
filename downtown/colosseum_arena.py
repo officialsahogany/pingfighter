@@ -8694,6 +8694,9 @@ class ColosseumsArena:
         try:
             import pingfighter
             _cap_result = getattr(pingfighter, 'arena_capture_result_flag', None)
+            _is_bet_win = (winner == self.bet_hero)
+            _is_final = (self.current_round == TournamentRound.FINAL)
+            print(f"[CAPTURE-DEBUG] _end_battle: cap_result={_cap_result}, bet_win={_is_bet_win}, is_final={_is_final}, round={self.current_round}")
             if _cap_result is True and winner == self.bet_hero:
                 # 포획 성공 → guard_warrior_map 추가 + captured_guard 설정
                 loser = match.hero1 if winner == match.hero2 else match.hero2
@@ -8761,6 +8764,10 @@ class ColosseumsArena:
 
         # 승리 시 RESULT 화면("~강 진출!") 스킵 → 바로 포획/퍽 선택으로 진행
         # (패배, 결승은 RESULT 화면 그대로 사용)
+        _lcr = getattr(self, '_last_capture_result', None)
+        print(f"[CAPTURE-DEBUG] state override check: bet_hero={bool(self.bet_hero)}, "
+              f"winner_is_bet={winner == self.bet_hero}, round={self.current_round}, "
+              f"_last_capture_result={_lcr} (type={type(_lcr).__name__})")
         if self.bet_hero and winner == self.bet_hero and self.current_round != TournamentRound.FINAL:
             if getattr(self, '_last_capture_result', None) is True:
                 target = getattr(self, '_last_capture_target', None)
@@ -8786,6 +8793,7 @@ class ColosseumsArena:
             else:
                 # 포획 미시도 → 바로 퍽 선택
                 self._start_perk_select()
+        print(f"[CAPTURE-DEBUG] _end_battle 최종 state={self.state}")
 
     def _auto_decide_remaining_matches(self):
         """현재 라운드의 나머지 경기를 랜덤으로 결정"""
@@ -9172,8 +9180,21 @@ class ColosseumsArena:
                             self.state = TournamentState.GUARD_NOTIFY
                         else:
                             self._start_perk_select()
+                    elif getattr(self, '_last_capture_result', None) is False:
+                        # 포획 실패 → ESCAPE_NOTIFY 표시
+                        match = self.selected_match
+                        if match:
+                            winner = match.winner
+                            loser = match.hero1 if winner == match.hero2 else match.hero2
+                            self.escape_notify_hero = loser
+                            self.escape_notify_timer = 0.0
+                            self.escape_notify_progress = 0.0
+                            self.escape_notify_hero_x = float(SCREEN_WIDTH // 2)
+                            self.state = TournamentState.ESCAPE_NOTIFY
+                        else:
+                            self._start_perk_select()
                     else:
-                        # 포획 실패 또는 포획 없음 → 퍽 선택으로
+                        # 포획 없음 → 퍽 선택으로
                         self._start_perk_select()
 
         elif self.state == TournamentState.CAPTURE_MINIGAME:
