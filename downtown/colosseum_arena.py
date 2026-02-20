@@ -8729,37 +8729,29 @@ class ColosseumsArena:
             self._last_capture_result = None
             self._last_capture_target = None
 
-        # 하수인 생포 판정 (8강/4강에서 승리 시 70% 확률)
-        # 단, 이미 호위무사로 포획된 영웅은 하수인 대상에서 제외
+        # 하수인 생포 판정
+        # 사용자: 포획(그물총) 성공/실패 여부로만 결정 (70% 자동 없음)
+        # AI 매치: _auto_decide_remaining_matches()에서 70% 자동 적용
         self._pending_henchman_capture = False
         self._pending_henchman_target = None
         if (self.bet_hero and winner == self.bet_hero
                 and self.current_round in (TournamentRound.QUARTER_FINAL, TournamentRound.SEMI_FINAL)):
             _match = self.selected_match
             loser_h = _match.hero1 if winner == _match.hero2 else _match.hero2
-            bet_id_h = self.bet_hero["id"] if self.bet_hero else ""
-            # 이미 호위무사로 포획된 영웅인지 체크
-            _already_guard = any(
-                g.get("id") == loser_h.get("id")
-                for g in self.guard_warrior_map.get(bet_id_h, [])
-            )
-            # 인게임 포획 실패(도망) 시 하수인 자동 생포도 스킵
-            _capture_failed = getattr(self, '_last_capture_result', None) is False
-            if _capture_failed:
-                print(f"[Henchman] {loser_h.get('name', '?')} 포획 실패(도망) → 하수인 생포 스킵")
-            elif _already_guard:
-                print(f"[Henchman] {loser_h.get('name', '?')} 이미 호위무사로 포획됨 → 하수인 생포 스킵")
-            elif random.random() < 0.70:
-                # 하수인 목록에 추가 (중복 방지)
+            _cap = getattr(self, '_last_capture_result', None)
+            if _cap is True:
+                # 포획 성공 → 하수인 목록에도 추가
                 if not any(h.get("id") == loser_h.get("id") for h in self.henchman_list):
                     self.henchman_list.append(dict(loser_h))
-                    print(f"[Henchman] 하수인 생포 성공! {loser_h.get('name', '?')} (70% 판정 통과)")
+                    print(f"[Henchman] 포획 성공 → 하수인 추가! {loser_h.get('name', '?')}")
                 else:
                     print(f"[Henchman] {loser_h.get('name', '?')} 이미 하수인 목록에 있음 → 중복 스킵")
                 self._pending_henchman_capture = True
                 self._pending_henchman_target = loser_h
+            elif _cap is False:
+                print(f"[Henchman] {loser_h.get('name', '?')} 포획 실패(도망) → 하수인 생포 스킵")
             else:
-                print(f"[Henchman] 하수인 생포 실패 (70% 판정 탈락) - {loser_h.get('name', '?')}")
+                print(f"[Henchman] {loser_h.get('name', '?')} 포획 미시도 → 하수인 생포 스킵")
 
         # 전투 종료 후 대기실 BGM 복구
         try:
