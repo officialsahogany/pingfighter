@@ -3838,6 +3838,15 @@ class DollCurse(HeroSkill):
                             'guardian_y': guardian['y']
                         }
                         guardian['hit_flash'] = 1.0  # 히트 이펙트
+                        # 벽 충돌 사운드 재생
+                        try:
+                            if not hasattr(DollCurse, '_wall_sound'):
+                                wall_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sounds", "wall_hit.wav")
+                                DollCurse._wall_sound = pygame.mixer.Sound(wall_path) if os.path.exists(wall_path) else None
+                            if DollCurse._wall_sound:
+                                DollCurse._wall_sound.play()
+                        except Exception:
+                            pass
 
         # game_state 업데이트 (pingfighter에서 충돌 체크용)
         game_state['doll_curse_guardians'] = self.guardian_dolls
