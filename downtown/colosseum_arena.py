@@ -18050,7 +18050,9 @@ class ColosseumsArena:
                         preview_heroes.append(new_guard)
             else:
                 # 오른쪽 카드(교체): 기존 호위무사가 하수인이 됨
-                preview_heroes = list(self.henchman_list)
+                # 신규 호위무사로 선택될 영웅은 하수인 미리보기에서 제외
+                new_guard_id = guards[new_idx].get("id") if new_idx < len(guards) else None
+                preview_heroes = [h for h in self.henchman_list if h.get("id") != new_guard_id]
                 if guards and len(guards) >= 1:
                     old_guard = guards[0]
                     if not any(h.get("id") == old_guard.get("id") for h in preview_heroes):
