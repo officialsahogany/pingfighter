@@ -76832,7 +76832,7 @@ def _draw_arena_portrait_tutorial() -> None:
                 overlay.blit(_glow_surf, (_glow_rect.x - 2, _glow_rect.y - 2))
 
             # 강조 영역을 투명하게 (둥근 사각형 구멍)
-            pygame.draw.rect(overlay, (0, 0, 0, 0), _portrait_rect, border_radius=int(10 * _gs))
+            pygame.draw.rect(overlay, (0, 0, 0, 0), _portrait_rect, border_radius=int(10 * _ui_s))
 
     target_screen.blit(overlay, (0, 0))
 
