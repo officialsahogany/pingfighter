@@ -997,7 +997,6 @@ class ColosseumsDojoBreaker:
             "paddle_enlarge": 1.0,
             "recall_guard": False,
             "instant_cooldown": 0.0,
-            "theft": 0.0,
         }
         for perk in perks:
             etype = perk.get("effect_type", "")
@@ -1028,8 +1027,6 @@ class ColosseumsDojoBreaker:
                 mults["recall_guard"] = True
             elif etype == "instant_cooldown":
                 mults["instant_cooldown"] = val
-            elif etype == "theft":
-                mults["theft"] = val
         return mults
 
     def _handle_battle_event(self, event) -> bool:
