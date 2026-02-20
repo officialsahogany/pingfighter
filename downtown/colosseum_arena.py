@@ -8839,6 +8839,10 @@ class ColosseumsArena:
 
     def update(self, dt: float):
         """메인 업데이트"""
+        # dt 스파이크 방지: start_battle()이 update() 내에서 블로킹 호출되므로
+        # 배틀 종료 후 clock.tick()이 배틀 전체 시간(~60초)을 반환함.
+        # 이로 인해 GUARD_NOTIFY 등 타이머 기반 상태가 즉시 스킵되는 버그 방지.
+        dt = min(dt, 0.1)
         self.animation_timer += dt
         self.hover_glow_timer += dt
 
