@@ -66762,6 +66762,13 @@ def handle_player(keys):
                 for net in active_nets:
                     cf = net.get("constrict_factor", 1.0)
                     net["constrict_factor"] = max(0.6, cf - 0.04)
+                # 줄 당기기 사운드 재생
+                _load_netcome_sound()
+                if _netcome_sound:
+                    try:
+                        _netcome_sound.play()
+                    except Exception:
+                        pass
             last_net_constrict_dir = dir_input
             last_net_constrict_tick = now
 
@@ -120277,6 +120284,21 @@ def _load_capture_net_sound():
         if os.path.exists(snd_path):
             _capture_net_sound = pygame.mixer.Sound(snd_path)
             _capture_net_sound.set_volume(0.5)
+    except Exception:
+        pass
+
+_netcome_sound = None
+
+def _load_netcome_sound():
+    """그물 줄 당기기 사운드 로드"""
+    global _netcome_sound
+    if _netcome_sound is not None:
+        return
+    try:
+        snd_path = resource_path(os.path.join("sounds", "netcome.wav"))
+        if os.path.exists(snd_path):
+            _netcome_sound = pygame.mixer.Sound(snd_path)
+            _netcome_sound.set_volume(0.5)
     except Exception:
         pass
 
