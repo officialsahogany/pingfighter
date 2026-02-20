@@ -43,6 +43,12 @@ HENCH_Y = 710  # BOTTOM_PADDLE_Y와 동일
 # 아이콘 크기
 HENCH_ICON_SIZE = 42
 
+# 채널링 스킬 ID (하수인이 스킬 지속 중 화면에 남아야 하는 스킬)
+# 나머지 스킬은 시전 포즈 후 즉시 퇴장하고, 스킬 이펙트만 독립적으로 지속
+HENCH_CHANNELED_SKILLS = frozenset({'steam_barrier'})
+# 채널링 스킬의 최대 체류 시간 (안전 타임아웃)
+HENCH_CHANNEL_MAX_STAY = 12.0
+
 
 # ============================================================================
 # 영웅 표시 정보
@@ -339,18 +345,17 @@ class HenchmanSystem:
                         pass
 
         # 스킬 업데이트 후 casting 상태 재검증:
-        # 스킬이 이 프레임에서 비활성화되었으면 즉시 exiting으로 전환
-        # (다음 프레임까지 기다리지 않음)
+        # 채널링 스킬이 이 프레임에서 비활성화되었으면 즉시 exiting으로 전환
+        # (일반 스킬은 _update_casting에서 이미 퇴장 처리됨)
         for slot in self.slots:
             if slot.phase == "casting":
                 skill = slot.skill_instance
-                skill_done = (not skill.is_active) if skill else True
-                # OilSpill 등: is_active=False여도 잔여 이펙트가 있으면 done이 아님
-                if skill_done and skill and self._skill_has_lingering_effects(skill):
-                    skill_done = False
-                if skill_done and slot.anim_timer >= HENCH_CAST_DURATION:
-                    slot.phase = "exiting"
-                    slot.anim_timer = 0.0
+                skill_id = getattr(skill, 'skill_id', '') if skill else ''
+                if skill_id in HENCH_CHANNELED_SKILLS:
+                    skill_done = (not skill.is_active) if skill else True
+                    if skill_done and slot.anim_timer >= HENCH_CAST_DURATION:
+                        slot.phase = "exiting"
+                        slot.anim_timer = 0.0
 
         # boss_effects 추출
         return self._extract_boss_effects(ball)
@@ -380,22 +385,24 @@ class HenchmanSystem:
 
     def _update_casting(self, slot: HenchmanSlot, dt: float,
                         top_paddle, bottom_paddle, ball):
-        """시전 포즈 (스킬 실행 중)"""
-        skill = slot.skill_instance
-        skill_done = (not skill.is_active) if skill else True
+        """시전 포즈 (스킬 실행 중)
 
-        # 스킬 타이머 직접 체크: active_timer가 만료되었으면 즉시 종료 처리
-        # (스킬의 update()가 is_active=False를 설정하기 전에 먼저 감지)
-        if not skill_done and skill:
-            timer = getattr(skill, 'active_timer', None)
-            if timer is not None and timer <= 0:
-                # duration=0 스킬 (OilSpill 등)은 active_timer를 사용하지 않고
-                # 자체적으로 is_active를 관리함. is_active는 유지하되
-                # 하수인 캐릭터는 퇴장할 수 있도록 skill_done=True로 설정.
-                # (스킬 이펙트는 update/draw 루프에서 독립적으로 계속 진행)
-                if skill.duration <= 0:
-                    skill_done = True  # 하수인 퇴장 허용, is_active는 유지
-                else:
+        스킬 유형에 따라 두 가지 퇴장 전략:
+        - 채널링 스킬 (HENCH_CHANNELED_SKILLS): 스킬 효과가 끝날 때까지 대기 후 퇴장
+        - 일반 스킬: 시전 포즈(0.8초) 완료 즉시 퇴장, 스킬 이펙트는 독립적으로 지속
+        """
+        skill = slot.skill_instance
+        skill_id = getattr(skill, 'skill_id', '') if skill else ''
+        is_channeled = skill_id in HENCH_CHANNELED_SKILLS
+
+        if is_channeled:
+            # === 채널링 스킬: 스킬 효과 종료까지 대기 ===
+            skill_done = (not skill.is_active) if skill else True
+
+            # active_timer 만료 시 즉시 종료 처리
+            if not skill_done and skill:
+                timer = getattr(skill, 'active_timer', None)
+                if timer is not None and timer <= 0 and skill.duration > 0:
                     try:
                         gs = self.skill_manager.game_state if self.skill_manager else {}
                         skill._end_effect(None, None, None, gs)
@@ -406,19 +413,24 @@ class HenchmanSystem:
                         skill.possessed_skill.is_active = False
                     skill_done = True
 
-        # 안전 타임아웃: skill.duration 또는 실제 active_timer 중 큰 값 + 여유
-        actual_duration = 0.0
-        if skill:
-            actual_duration = max(skill.duration, getattr(skill, 'active_timer', 0.0))
-        max_cast = HENCH_CAST_DURATION + actual_duration + 2.0
-        # 절대 최대 제한: 어떤 경우에도 10초 이내 강제 퇴장
-        max_cast = min(max_cast, 10.0)
-        if slot.anim_timer >= max_cast and not skill_done:
-            if skill:
-                skill.is_active = False
-                # DeadPossession 등 내부 스킬도 강제 종료
-                if hasattr(skill, 'possessed_skill') and skill.possessed_skill:
-                    skill.possessed_skill.is_active = False
+            # 채널링 안전 타임아웃
+            if not skill_done:
+                max_stay = HENCH_CAST_DURATION + skill.duration + 1.0
+                max_stay = min(max_stay, HENCH_CHANNEL_MAX_STAY)
+                if slot.anim_timer >= max_stay:
+                    if skill:
+                        try:
+                            gs = self.skill_manager.game_state if self.skill_manager else {}
+                            skill._end_effect(None, None, None, gs)
+                        except Exception:
+                            pass
+                        skill.is_active = False
+                        if hasattr(skill, 'possessed_skill') and skill.possessed_skill:
+                            skill.possessed_skill.is_active = False
+                    skill_done = True
+        else:
+            # === 일반 스킬: 시전 포즈 후 즉시 퇴장 ===
+            # 스킬 이펙트(발사체, 소환물, 장벽 등)는 is_active 기반으로 독립 지속
             skill_done = True
 
         if slot.anim_timer >= HENCH_CAST_DURATION and skill_done:
