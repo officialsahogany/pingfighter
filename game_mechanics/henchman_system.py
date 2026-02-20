@@ -488,25 +488,26 @@ class HenchmanSystem:
             pass
 
         # caster 보호 (is_top=True이면 상단 AI, False이면 하단 플레이어)
-        caster_prefix = 'top_paddle' if self.is_top else 'bottom_paddle'
+        # demon_step(귀신발걸음)은 hero 패들에 직접 효과를 주므로 보호 스킵
+        skill_id = getattr(skill, 'skill_id', '')
+        skip_caster_protect = (skill_id == 'demon_step')
+
         saved = {}
-        for key in list(game_state.keys()):
-            if key.startswith(caster_prefix):
-                saved[key] = game_state[key]
+        if not skip_caster_protect:
+            caster_prefix = 'top_paddle' if self.is_top else 'bottom_paddle'
+            for key in list(game_state.keys()):
+                if key.startswith(caster_prefix):
+                    saved[key] = game_state[key]
 
         result = skill.use(guard_paddle, target_paddle, ball, game_state)
 
-        for key, val in saved.items():
-            game_state[key] = val
+        if not skip_caster_protect:
+            for key, val in saved.items():
+                game_state[key] = val
 
         # 글로벌 game_state 키 차단
-        skill_id = getattr(skill, 'skill_id', '')
         if skill_id == 'horn_charge':
             game_state['horn_charge_active'] = False
-        elif skill_id == 'demon_step':
-            game_state['demon_eye_active'] = False
-            game_state.pop('ghost_step_start_top', None)
-            game_state.pop('ghost_step_start_bottom', None)
         elif skill_id == 'steam_barrier':
             game_state['steam_barrier_caster_frozen'] = False
             game_state['steam_barrier_thaw_speed'] = 0.0
