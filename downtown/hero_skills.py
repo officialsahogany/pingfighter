@@ -213,7 +213,7 @@ class DarkSlash(HeroSkill):
             korean_name="달빛 베기",
             description="공을 사선으로 베어 시간이 멈추고, 해제되는 순간 공이 4배 빨라진다",
             trigger=SkillTrigger.ON_BALL_HIT,
-            cooldown=32.0,
+            cooldown=28.0,
             duration=2.5,
             hero_id="mugen"
         )
