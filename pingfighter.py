@@ -8376,6 +8376,9 @@ def _fullscreen_flip():
             _draw_ingame_tutorial()
         except NameError:
             pass  # 함수가 아직 정의되지 않음 (로딩 중)
+        # 투기장 호위무사 튜토리얼 오버레이
+        if arena_mode_enabled and _arena_guard_tutorial_active:
+            _draw_arena_guard_tutorial()
 
         # 미션 안내창 업데이트 및 그리기 (튜토리얼 위에 표시)
         try:
@@ -8599,6 +8602,9 @@ def _fullscreen_update(*args, **kwargs):
             _draw_ingame_tutorial()
         except NameError:
             pass  # 함수가 아직 정의되지 않음 (로딩 중)
+        # 투기장 호위무사 튜토리얼 오버레이
+        if arena_mode_enabled and _arena_guard_tutorial_active:
+            _draw_arena_guard_tutorial()
 
         # 미션 안내창 업데이트 및 그리기 (튜토리얼 위에 표시)
         try:
@@ -8644,6 +8650,9 @@ else:
             _draw_ingame_tutorial()
         except NameError:
             pass  # 함수가 아직 정의되지 않음 (로딩 중)
+        # 투기장 호위무사 튜토리얼 오버레이
+        if arena_mode_enabled and _arena_guard_tutorial_active:
+            _draw_arena_guard_tutorial()
         # 미션 안내창 업데이트 및 그리기
         try:
             update_mission_banner()
@@ -8663,6 +8672,9 @@ else:
             _draw_ingame_tutorial()
         except NameError:
             pass  # 함수가 아직 정의되지 않음 (로딩 중)
+        # 투기장 호위무사 튜토리얼 오버레이
+        if arena_mode_enabled and _arena_guard_tutorial_active:
+            _draw_arena_guard_tutorial()
         # 미션 안내창 업데이트 및 그리기
         try:
             update_mission_banner()
@@ -19946,6 +19958,47 @@ arena_perk_skill_cd_mult_bottom = 1.0
 arena_perk_guard_cd_mult_top = 1.0   # 상단 호위무사쿨 배율
 arena_perk_guard_cd_mult_bottom = 1.0
 arena_guard_stance_mode = "attack"   # 호위무사 스탠스 ("attack" / "defense")
+# 투기장 호위무사 튜토리얼 (첫 배틀 시 1회 표시)
+_arena_guard_tutorial_shown = False      # 세션 내 1회만 표시
+_arena_guard_tutorial_active = False     # 현재 튜토리얼 진행 중
+_arena_guard_tutorial_step = 0           # 현재 단계 (0~3)
+_arena_guard_tutorial_delay_frames = 0   # 게임 시작 후 딜레이 카운터
+_ARENA_GUARD_TUTORIAL_DELAY = 120        # 2초 (60fps 기준)
+_ARENA_GUARD_TUTORIAL_STEPS = [
+    {
+        "highlight": "guard_stance",
+        "expression": "default",
+        "messages": [
+            "이 아이콘을 클릭하거나 {KEY:E}키를 누르면",
+            "호위무사의 포지션을 전환할 수 있습니다.",
+        ],
+    },
+    {
+        "highlight": "guard_stance",
+        "expression": "thinking",
+        "messages": [
+            "기본 설정은 공격 모드입니다.",
+            "공격 모드에서 호위무사는 공 수비보다",
+            "스킬 사용에 집중합니다.",
+        ],
+    },
+    {
+        "highlight": "guard_stance",
+        "expression": "thinking",
+        "messages": [
+            "방어 모드에서는 공을 적극적으로 수비하고",
+            "대쉬도 사용하지만, 스킬 쿨타임이 2배 늘어납니다.",
+        ],
+    },
+    {
+        "highlight": None,
+        "expression": "default",
+        "messages": [
+            "상황에 따라 포지션을 적절히 전환하면",
+            "유리한 경기를 이끌어갈 수 있습니다!",
+        ],
+    },
+]
 # 생포된 호위무사 (1회용 소환)
 arena_captured_guard = None              # 생포된 영웅 dict
 arena_captured_guard_used = False        # 사용 여부
@@ -76337,6 +76390,130 @@ def get_tutorial_balloons_positions() -> list:
     return [(b["x"], b["y"], b["radius"]) for b in balloons]
 
 
+def is_arena_guard_tutorial_paused() -> bool:
+    """투기장 호위무사 튜토리얼로 인해 게임이 일시정지 상태인지"""
+    return _arena_guard_tutorial_active
+
+
+def advance_arena_guard_tutorial():
+    """투기장 호위무사 튜토리얼 다음 단계로 진행"""
+    global _arena_guard_tutorial_step, _arena_guard_tutorial_active, _arena_guard_tutorial_shown
+    _arena_guard_tutorial_step += 1
+    if _arena_guard_tutorial_step >= len(_ARENA_GUARD_TUTORIAL_STEPS):
+        _arena_guard_tutorial_active = False
+        _arena_guard_tutorial_shown = True
+        print("[ArenaTutorial] 호위무사 튜토리얼 완료!")
+
+
+def _draw_arena_guard_tutorial() -> None:
+    """투기장 호위무사 공격/방어 모드 튜토리얼 UI 그리기
+
+    기존 스토리 모드 튜토리얼과 동일한 패턴:
+    어두운 오버레이 + 원형 글로우 하이라이트 + 조교 이미지 + 메시지 박스
+    """
+    if not _arena_guard_tutorial_active:
+        return
+
+    if _arena_guard_tutorial_step >= len(_ARENA_GUARD_TUTORIAL_STEPS):
+        return
+
+    current = _ARENA_GUARD_TUTORIAL_STEPS[_arena_guard_tutorial_step]
+
+    # REAL_SCREEN 또는 SCREEN 결정
+    target_screen = REAL_SCREEN if (_is_fullscreen_active and REAL_SCREEN is not None) else SCREEN
+    screen_width = target_screen.get_width()
+    screen_height = target_screen.get_height()
+
+    # 화면 전체 어둡게
+    overlay = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 180))
+
+    highlight_type = current.get("highlight")
+
+    if highlight_type == "guard_stance":
+        # 호위무사 스탠스 토글 버튼 좌표
+        stance_rect = globals().get('_guard_stance_toggle_rect')
+        if stance_rect:
+            hx = stance_rect.centerx
+            hy = stance_rect.centery
+            highlight_radius = max(stance_rect.width, stance_rect.height) // 2 + 20
+
+            # 글로우 효과 (빨간/주황 계열 - 전투 모드 느낌)
+            for i in range(4):
+                glow_radius = highlight_radius + i * 10
+                glow_alpha = 120 - i * 25
+                glow_surface = pygame.Surface((glow_radius * 2 + 4, glow_radius * 2 + 4), pygame.SRCALPHA)
+                pygame.draw.circle(glow_surface, (255, 140, 60, glow_alpha),
+                                   (glow_radius + 2, glow_radius + 2), glow_radius)
+                overlay.blit(glow_surface,
+                             (hx - glow_radius - 2, hy - glow_radius - 2))
+
+            # 강조 영역을 투명하게 (원형 구멍)
+            pygame.draw.circle(overlay, (0, 0, 0, 0), (hx, hy), highlight_radius)
+
+    target_screen.blit(overlay, (0, 0))
+
+    # 메시지 박스 그리기 (조교 이미지 + 텍스트)
+    messages = current.get("messages", [])
+    if messages:
+        # 조교 표정 선택
+        expression = current.get("expression", "default")
+        instructor_img = TUTORIAL_INSTRUCTOR_IMGS.get(expression) or TUTORIAL_INSTRUCTOR_IMGS.get("default")
+
+        # 조교 이미지 크기 계산
+        inst_width = instructor_img.get_width() if instructor_img else 0
+        inst_height = instructor_img.get_height() if instructor_img else 0
+        inst_padding = 15 if instructor_img else 0
+
+        # 박스 크기
+        text_area_width = 460
+        box_width = text_area_width + inst_width + inst_padding * 2 + 20
+        min_height = inst_height + 30 if instructor_img else 40
+        box_height = max(min_height, 40 + len(messages) * 35)
+
+        # 화면 중앙 배치
+        if _is_fullscreen_active and REAL_SCREEN is not None:
+            box_x = GAME_OFFSET_X + (GAME_SCALED_WIDTH - box_width) // 2
+            box_y = GAME_OFFSET_Y + (GAME_SCALED_HEIGHT - box_height) // 2
+        else:
+            box_x = (INTERNAL_WIDTH - box_width) // 2
+            box_y = INTERNAL_HEIGHT // 2 - box_height // 2
+
+        # 메시지 박스 배경
+        box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+        pygame.draw.rect(box_surface, (20, 30, 50, 240), (0, 0, box_width, box_height), border_radius=15)
+        pygame.draw.rect(box_surface, (100, 200, 255), (0, 0, box_width, box_height), 3, border_radius=15)
+        target_screen.blit(box_surface, (box_x, box_y))
+
+        # 조교 이미지 (왼쪽)
+        text_start_x = box_x + 15
+        if instructor_img:
+            instructor_x = box_x + inst_padding
+            instructor_y = box_y + (box_height - inst_height) // 2
+            target_screen.blit(instructor_img, (instructor_x, instructor_y))
+            text_start_x = box_x + inst_width + inst_padding * 2
+
+        # 메시지 텍스트 (조교 오른쪽)
+        msg_font = get_font(24)
+        text_center_x = text_start_x + (text_area_width // 2)
+        y_offset = box_y + (box_height - len(messages) * 35) // 2
+
+        for msg in messages:
+            if "{KEY:" in msg:
+                _render_message_with_keycaps(target_screen, msg, msg_font, text_start_x, text_area_width, y_offset)
+            else:
+                text_surface = msg_font.render(msg, True, WHITE)
+                text_rect = text_surface.get_rect(center=(text_center_x, y_offset + 10))
+                target_screen.blit(text_surface, text_rect)
+            y_offset += 35
+
+        # "클릭 또는 SPACE로 계속" 힌트
+        hint_font = get_font(18)
+        hint_text = hint_font.render("클릭 또는 SPACE로 계속", True, (150, 200, 255))
+        hint_rect = hint_text.get_rect(center=(box_x + box_width // 2, box_y + box_height + 25))
+        target_screen.blit(hint_text, hint_rect)
+
+
 def _draw_ingame_tutorial() -> None:
     """실전 튜토리얼 UI 그리기
 
@@ -100683,6 +100860,22 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         except Exception as e:
             print(f"[Guard] start_arena_battle 호위무사 설정 오류: {e}")
             arena_guard_system = None
+
+        # === 호위무사 튜토리얼 (첫 배틀 시 1회) ===
+        global _arena_guard_tutorial_shown, _arena_guard_tutorial_active
+        global _arena_guard_tutorial_step, _arena_guard_tutorial_delay_frames
+        if (not _arena_guard_tutorial_shown
+                and arena_guard_system is not None
+                and hasattr(arena_guard_system, 'guard_warriors_bottom')
+                and arena_guard_system.guard_warriors_bottom):
+            _arena_guard_tutorial_delay_frames = _ARENA_GUARD_TUTORIAL_DELAY
+            _arena_guard_tutorial_step = 0
+            _arena_guard_tutorial_active = False  # 딜레이 후 활성화
+            print("[ArenaTutorial] 호위무사 튜토리얼 딜레이 시작 (2초)")
+        else:
+            _arena_guard_tutorial_delay_frames = 0
+            _arena_guard_tutorial_active = False
+
         # === 하수인 시스템 설정 ===
         global arena_henchman_system
         try:
@@ -100809,6 +101002,8 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         arena_stop_all_skill_sounds()
         win_goal = _saved_win_goal  # 승점 복원
         arena_mode_enabled = False
+        _arena_guard_tutorial_active = False
+        _arena_guard_tutorial_delay_frames = 0
         arena_battle_arena_obj = None  # F8 퍽 선택용 참조 해제
         arena_top_hero = None
         arena_bottom_hero = None
@@ -133102,10 +133297,12 @@ def main(stage_num, new_boss_mode=False):
 
     # 🔥 안전장치: 투기장이 아닌 스테이지 진입 시 투기장 상태 강제 초기화
     # (투기장 셋업 실패 등으로 arena_mode_enabled가 True로 남아있는 경우 방지)
-    global arena_mode_enabled, arena_skill_manager
+    global arena_mode_enabled, arena_skill_manager, _arena_guard_tutorial_active, _arena_guard_tutorial_delay_frames
     if stage_num != 30 and arena_mode_enabled:
         print(f"[WARNING] 스테이지 {stage_num} 진입 시 arena_mode_enabled=True 감지! 강제 초기화")
         arena_mode_enabled = False
+        _arena_guard_tutorial_active = False
+        _arena_guard_tutorial_delay_frames = 0
         arena_skill_manager = None
         arena_stop_all_skill_sounds()
 
@@ -136659,6 +136856,18 @@ def main(stage_num, new_boss_mode=False):
                     advance_ingame_tutorial()
                 continue  # 튜토리얼 일시정지 중에는 다른 입력 무시
 
+            # 투기장 호위무사 튜토리얼 입력 처리 (일시정지 상태에서만)
+            if is_arena_guard_tutorial_paused():
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                    if "BUTTON_CLICK" in sound_effects and sound_effects["BUTTON_CLICK"]:
+                        sound_effects["BUTTON_CLICK"].play()
+                    advance_arena_guard_tutorial()
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if "BUTTON_CLICK" in sound_effects and sound_effects["BUTTON_CLICK"]:
+                        sound_effects["BUTTON_CLICK"].play()
+                    advance_arena_guard_tutorial()
+                continue  # 투기장 튜토리얼 중에는 다른 입력 무시
+
             if genie_assistant.is_active():
                 genie_assistant.handle_event(event)
                 continue
@@ -138928,6 +139137,7 @@ def main(stage_num, new_boss_mode=False):
             freeze_spawn_anim = is_ball_spawn_animation_paused()
             freeze_tooltip = game_paused and game_paused_by_tooltip  # 툴팁으로 인한 일시정지
             freeze_ingame_tutorial = is_ingame_tutorial_paused()  # 실전 튜토리얼 일시정지
+            freeze_arena_guard_tutorial = is_arena_guard_tutorial_paused()  # 투기장 호위무사 튜토리얼
             # 달빛 베기 / 도깨비불 화면 정지 (투기장 모드 + 인게임 호위무사)
             freeze_dark_slash = False
             freeze_hell_fire = False
@@ -138948,7 +139158,14 @@ def main(stage_num, new_boss_mode=False):
                 except Exception:
                     pass
             freeze_capture = (arena_mode_enabled and arena_capture_phase is not None)
-            freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim or freeze_tooltip or freeze_ingame_tutorial or freeze_dark_slash or freeze_hell_fire or freeze_capture
+            freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim or freeze_tooltip or freeze_ingame_tutorial or freeze_arena_guard_tutorial or freeze_dark_slash or freeze_hell_fire or freeze_capture
+
+            # 투기장 호위무사 튜토리얼 딜레이 카운터 감소
+            if arena_mode_enabled and _arena_guard_tutorial_delay_frames > 0 and not freeze_now:
+                _arena_guard_tutorial_delay_frames -= 1
+                if _arena_guard_tutorial_delay_frames <= 0:
+                    _arena_guard_tutorial_active = True
+                    print("[ArenaTutorial] 딜레이 완료 → 튜토리얼 시작!")
 
             # 디버그: 툴팁 일시정지 상태 확인
             if freeze_tooltip:
@@ -144679,6 +144896,9 @@ def show_character_info(background_surface=None):
         # 튜토리얼 UI 그리기 (캐릭터 정보창 위에 표시)
         if _ingame_tutorial_active and not _ingame_tutorial_waiting_action:
             _draw_ingame_tutorial()
+        # 투기장 호위무사 튜토리얼 오버레이
+        if arena_mode_enabled and _arena_guard_tutorial_active:
+            _draw_arena_guard_tutorial()
 
         pygame.display.flip()
         for event in pygame.event.get():
