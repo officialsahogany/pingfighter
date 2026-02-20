@@ -719,7 +719,7 @@ class TentacleWrap(HeroSkill):
         self.travel_progress = 0  # 이동 진행도 (0~1)
         self.wrap_timer = 0  # 감싸기 지속 시간
         self.slow_applied = False  # 둔화 적용 여부
-        self.slow_amount = 0.5  # 50% 감소 = 50%만 유지
+        self.slow_amount = 0.4  # 60% 감소 = 40%만 유지
         self.time = 0  # 애니메이션 시간
 
         # 색상 팔레트 (크라켄 hero_paddles.py와 동일)
