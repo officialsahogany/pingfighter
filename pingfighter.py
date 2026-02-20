@@ -364,6 +364,7 @@ GAME_OFFSET_Y = 0
 GAME_SCALE_FACTOR = 1.0  # 전체화면 자동 스케일링 비율
 GAME_SCALED_WIDTH = 0    # 스케일링된 게임 화면 너비
 GAME_SCALED_HEIGHT = 0   # 스케일링된 게임 화면 높이
+_use_scaled_mode = False  # True: pygame.SCALED 활성, 수동 스케일링 건너뜀 (창모드 GPU 스케일링)
 
 def _setup_fullscreen_mode():
     global FULLSCREEN_MODE, FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT
@@ -3065,43 +3066,13 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     set_fullscreen_mode(True, SCREEN)
     print(f"[전체화면] display_manager에 전체화면 모드 설정 완료 (SCREEN Surface 전달)", flush=True)
 else:
-    # === 창모드 (필러 포함) ===
-    print("[디스플레이] 창모드(필러 포함)로 시작...", flush=True)
-
-    # 네이티브 모니터 해상도 가져오기
-    if sys.platform == 'win32':
-        _win_native = _get_native_resolution() or _get_current_resolution()
-        if _win_native:
-            _init_monitor_w, _init_monitor_h = _win_native
-        else:
-            _init_monitor_w, _init_monitor_h = 1920, 1080
-    else:
-        _init_dinfo = pygame.display.Info()
-        _init_monitor_w, _init_monitor_h = _init_dinfo.current_w, _init_dinfo.current_h
-
-    # 게임 비율 유지하면서 필러 배경까지 포함하여 창 구성
-    _init_base_h = int(_init_monitor_h * 0.85)
-    _init_win_scale = _init_base_h / HEIGHT
-    _init_game_w = int(WIDTH * _init_win_scale)
-
-    # 필러 배경 공간 추가 (좌우 각 30%, 상하 각 6.5%)
-    _init_pillar_pad_x = int(_init_game_w * 0.30)
-    _init_pillar_pad_y = max(int(_init_base_h * 0.065), 30)
-
-    _init_target_w = _init_game_w + _init_pillar_pad_x * 2
-    _init_target_h = _init_base_h + _init_pillar_pad_y * 2
-
-    # 창이 모니터보다 크지 않도록 보정
-    if _init_target_w > int(_init_monitor_w * 0.90):
-        _init_target_w = int(_init_monitor_w * 0.90)
-    if _init_target_h > int(_init_monitor_h * 0.85):
-        _init_target_h = int(_init_monitor_h * 0.85)
-
-    print(f"[디스플레이] 창모드: 모니터 {_init_monitor_w}x{_init_monitor_h} → 창 {_init_target_w}x{_init_target_h} (필러패딩 좌우{_init_pillar_pad_x}px 상하{_init_pillar_pad_y}px)", flush=True)
+    # === 창모드 (pygame.SCALED GPU 스케일링) ===
+    print("[디스플레이] 창모드(pygame.SCALED)로 시작...", flush=True)
 
     # 창을 모니터 중앙에 배치
     os.environ['SDL_VIDEO_CENTERED'] = '1'
-    REAL_SCREEN = pygame.display.set_mode((_init_target_w, _init_target_h), pygame.DOUBLEBUF | pygame.RESIZABLE)
+    # pygame.SCALED: SDL이 GPU로 업스케일링 처리, 내부 해상도는 760x750 고정
+    REAL_SCREEN = pygame.display.set_mode((WIDTH, HEIGHT), pygame.SCALED | pygame.RESIZABLE)
     if 'SDL_VIDEO_CENTERED' in os.environ:
         del os.environ['SDL_VIDEO_CENTERED']
 
@@ -3109,46 +3080,26 @@ else:
     if _custom_cursor_enabled:
         pygame.mouse.set_visible(False)
 
-    _init_actual_w, _init_actual_h = REAL_SCREEN.get_size()
-    FULLSCREEN_WIDTH = _init_actual_w
-    FULLSCREEN_HEIGHT = _init_actual_h
-
-    # 스케일링 계산 (필러 배경 공간 확보)
-    _init_margin = _init_pillar_pad_y
-    _init_scale_y = (_init_actual_h - _init_margin * 2) / HEIGHT
-    _init_scaled_w_check = int(WIDTH * _init_scale_y)
-    if _init_scaled_w_check > _init_actual_w:
-        GAME_SCALE_FACTOR = _init_actual_w / WIDTH
-    else:
-        GAME_SCALE_FACTOR = _init_scale_y
-
-    GAME_SCALED_WIDTH = int(WIDTH * GAME_SCALE_FACTOR)
-    GAME_SCALED_HEIGHT = int(HEIGHT * GAME_SCALE_FACTOR)
-    GAME_OFFSET_X = (_init_actual_w - GAME_SCALED_WIDTH) // 2
-    GAME_OFFSET_Y = (_init_actual_h - GAME_SCALED_HEIGHT) // 2
+    # SCALED 모드: SCREEN == REAL_SCREEN, 수동 스케일링 불필요
+    SCREEN = REAL_SCREEN
+    _use_scaled_mode = True
+    GAME_SCALE_FACTOR = 1.0
+    GAME_SCALED_WIDTH = WIDTH
+    GAME_SCALED_HEIGHT = HEIGHT
+    GAME_OFFSET_X = 0
+    GAME_OFFSET_Y = 0
+    FULLSCREEN_WIDTH = WIDTH
+    FULLSCREEN_HEIGHT = HEIGHT
+    pillar_renderer = None  # 장식용 필러 배경 불필요 (게임 내 필러 UI는 정상 작동)
 
     from pixel_font_manager import set_fullscreen_font_scale
-    set_fullscreen_font_scale(GAME_SCALE_FACTOR)
+    set_fullscreen_font_scale(1.0)
 
-    print(f"[디스플레이] 창모드 스케일링: {GAME_SCALE_FACTOR:.2f}x ({WIDTH}x{HEIGHT} -> {GAME_SCALED_WIDTH}x{GAME_SCALED_HEIGHT})", flush=True)
-
-    # 게임 렌더링용 Surface (REAL_SCREEN과 분리)
-    SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert()
-
-    # 필러 배경 렌더러 초기화
-    from pillar_background import init_pillar_background, get_pillar_renderer
-    pillar_renderer = init_pillar_background(
-        _init_actual_w, _init_actual_h,
-        GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT,
-        offset_x=GAME_OFFSET_X, offset_y=GAME_OFFSET_Y,
-        original_game_width=WIDTH, original_game_height=HEIGHT
-    )
-
-    # display_manager에 스케일링 파이프라인 설정 전달
+    # display_manager에 설정 전달
     from display_manager import set_fullscreen_mode
     set_fullscreen_mode(True, SCREEN)
 
-    print(f"[디스플레이] 창모드 시작 완료: {_init_actual_w}x{_init_actual_h}", flush=True)
+    print(f"[디스플레이] 창모드(SCALED) 시작 완료: 내부 {WIDTH}x{HEIGHT}, SDL GPU 스케일링 활성", flush=True)
 
 pygame.display.set_caption("PINGFIGHTER")
 
@@ -3168,8 +3119,8 @@ if FULLSCREEN_MODE:
 # 전체화면 모드에서 pygame.display.flip()을 래핑하여 SCREEN을 REAL_SCREEN에 blit
 _original_flip = pygame.display.flip
 _original_update = pygame.display.update
-# 필러 포함 창모드: FULLSCREEN_MODE=False이지만 스케일링 파이프라인 활성화
-_is_fullscreen_active = (FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0) or (pillar_renderer is not None and GAME_SCALE_FACTOR != 1.0)
+# 필러 포함 창모드 또는 SCALED 모드: 스케일링 파이프라인 활성화
+_is_fullscreen_active = (FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0) or (pillar_renderer is not None and GAME_SCALE_FACTOR != 1.0) or _use_scaled_mode
 _current_display_mode = "fullscreen" if FULLSCREEN_MODE else "windowed"
 
 # 플레이어 게이지를 필러에 렌더링하기 위한 전역 변수
@@ -8132,38 +8083,6 @@ def _fullscreen_flip():
     if _is_fullscreen_active and REAL_SCREEN is not None:
         # 디버그용: 화면 경계 표시 (비활성화)
         show_debug_border = False
-        # 필러 배경 그리기 (프레임-스킵 캐싱 적용)
-        if pillar_renderer is not None:
-            # 성능 측정
-            if VALTHOR_PERF_DEBUG:
-                valthor_perf_start("pillar_draw")
-
-            # 캐시 서피스 할당/크기 검증
-            real_w, real_h = REAL_SCREEN.get_size()
-            if _pillar_bg_cache is None or _pillar_bg_cache_size != (real_w, real_h):
-                _pillar_bg_cache = pygame.Surface((real_w, real_h)).convert()
-                _pillar_bg_cache_size = (real_w, real_h)
-                _pillar_bg_cache_dirty = True
-
-            # 스테이지 변경 감지
-            _cur_stage = getattr(pillar_renderer, 'current_stage', -1)
-            if _pillar_bg_cache_stage != _cur_stage:
-                _pillar_bg_cache_stage = _cur_stage
-                _pillar_bg_cache_dirty = True
-
-            # N프레임마다 또는 dirty시 필러 배경 재렌더링
-            if _pillar_bg_cache_dirty or _pillar_bg_frame_counter % _pillar_bg_render_interval == 0:
-                pillar_renderer.draw(_pillar_bg_cache)
-                _pillar_bg_cache_dirty = False
-
-            # 매 프레임 캐시를 REAL_SCREEN에 blit (DOUBLEBUF 대응)
-            REAL_SCREEN.blit(_pillar_bg_cache, (0, 0))
-
-            if VALTHOR_PERF_DEBUG:
-                valthor_perf_end("pillar_draw")
-        else:
-            # 필러 렌더러 없을 때만 전체 화면 단색 채우기
-            REAL_SCREEN.fill((15, 15, 25))  # 기본 배경색
 
         # 🕸️ 포획 페이즈 렌더링 (SCREEN에 직접 - 스케일링 전)
         _cap_phase_pre = globals().get('arena_capture_phase')
@@ -8176,35 +8095,70 @@ def _fullscreen_flip():
                 globals()['arena_capture_phase'] = None
                 globals()['arena_battle_result'] = True
 
-        # 게임 영역을 먼저 검은색으로 채워 스케일링 가장자리 문제 방지
-        pygame.draw.rect(REAL_SCREEN, (0, 0, 0),
-                        (GAME_OFFSET_X, GAME_OFFSET_Y, GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT))
+        # SCALED 모드: SDL이 GPU로 업스케일링 처리 → 수동 스케일링/필러 배경 건너뜀
+        if not _use_scaled_mode:
+            # 필러 배경 그리기 (프레임-스킵 캐싱 적용)
+            if pillar_renderer is not None:
+                # 성능 측정
+                if VALTHOR_PERF_DEBUG:
+                    valthor_perf_start("pillar_draw")
 
-        # 게임 Surface를 중앙에 blit (스케일링 적용)
-        if GAME_SCALE_FACTOR != 1.0:
-            # rotozoom으로 스케일링 (smoothscale은 격자 아티팩트 발생)
-            scaled_surface = _get_scaled_screen()
-            sw, sh = scaled_surface.get_size()
-            offset_x = GAME_OFFSET_X + (GAME_SCALED_WIDTH - sw) // 2
-            offset_y = GAME_OFFSET_Y + (GAME_SCALED_HEIGHT - sh) // 2
-            REAL_SCREEN.blit(scaled_surface, (offset_x, offset_y))
-        else:
-            # 스케일링 불필요 시 원본 그대로 blit
-            REAL_SCREEN.blit(SCREEN, (GAME_OFFSET_X, GAME_OFFSET_Y))
+                # 캐시 서피스 할당/크기 검증
+                real_w, real_h = REAL_SCREEN.get_size()
+                if _pillar_bg_cache is None or _pillar_bg_cache_size != (real_w, real_h):
+                    _pillar_bg_cache = pygame.Surface((real_w, real_h)).convert()
+                    _pillar_bg_cache_size = (real_w, real_h)
+                    _pillar_bg_cache_dirty = True
 
-        # 디버그용: 게임 영역 경계 표시
-        if show_debug_border:
-            # 빨간색 테두리로 게임 영역 표시
-            pygame.draw.rect(REAL_SCREEN, (255, 0, 0),
-                           (GAME_OFFSET_X, GAME_OFFSET_Y, GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT), 3)
-            # 상하단 여백 표시 (노란색)
-            if GAME_OFFSET_Y > 0:
-                pygame.draw.line(REAL_SCREEN, (255, 255, 0),
-                               (0, GAME_OFFSET_Y), (FULLSCREEN_WIDTH, GAME_OFFSET_Y), 2)
-            if GAME_OFFSET_Y + GAME_SCALED_HEIGHT < FULLSCREEN_HEIGHT:
-                pygame.draw.line(REAL_SCREEN, (255, 255, 0),
-                               (0, GAME_OFFSET_Y + GAME_SCALED_HEIGHT),
-                               (FULLSCREEN_WIDTH, GAME_OFFSET_Y + GAME_SCALED_HEIGHT), 2)
+                # 스테이지 변경 감지
+                _cur_stage = getattr(pillar_renderer, 'current_stage', -1)
+                if _pillar_bg_cache_stage != _cur_stage:
+                    _pillar_bg_cache_stage = _cur_stage
+                    _pillar_bg_cache_dirty = True
+
+                # N프레임마다 또는 dirty시 필러 배경 재렌더링
+                if _pillar_bg_cache_dirty or _pillar_bg_frame_counter % _pillar_bg_render_interval == 0:
+                    pillar_renderer.draw(_pillar_bg_cache)
+                    _pillar_bg_cache_dirty = False
+
+                # 매 프레임 캐시를 REAL_SCREEN에 blit (DOUBLEBUF 대응)
+                REAL_SCREEN.blit(_pillar_bg_cache, (0, 0))
+
+                if VALTHOR_PERF_DEBUG:
+                    valthor_perf_end("pillar_draw")
+            else:
+                # 필러 렌더러 없을 때만 전체 화면 단색 채우기
+                REAL_SCREEN.fill((15, 15, 25))  # 기본 배경색
+
+            # 게임 영역을 먼저 검은색으로 채워 스케일링 가장자리 문제 방지
+            pygame.draw.rect(REAL_SCREEN, (0, 0, 0),
+                            (GAME_OFFSET_X, GAME_OFFSET_Y, GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT))
+
+            # 게임 Surface를 중앙에 blit (스케일링 적용)
+            if GAME_SCALE_FACTOR != 1.0:
+                # rotozoom으로 스케일링 (smoothscale은 격자 아티팩트 발생)
+                scaled_surface = _get_scaled_screen()
+                sw, sh = scaled_surface.get_size()
+                offset_x = GAME_OFFSET_X + (GAME_SCALED_WIDTH - sw) // 2
+                offset_y = GAME_OFFSET_Y + (GAME_SCALED_HEIGHT - sh) // 2
+                REAL_SCREEN.blit(scaled_surface, (offset_x, offset_y))
+            else:
+                # 스케일링 불필요 시 원본 그대로 blit
+                REAL_SCREEN.blit(SCREEN, (GAME_OFFSET_X, GAME_OFFSET_Y))
+
+            # 디버그용: 게임 영역 경계 표시
+            if show_debug_border:
+                # 빨간색 테두리로 게임 영역 표시
+                pygame.draw.rect(REAL_SCREEN, (255, 0, 0),
+                               (GAME_OFFSET_X, GAME_OFFSET_Y, GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT), 3)
+                # 상하단 여백 표시 (노란색)
+                if GAME_OFFSET_Y > 0:
+                    pygame.draw.line(REAL_SCREEN, (255, 255, 0),
+                                   (0, GAME_OFFSET_Y), (FULLSCREEN_WIDTH, GAME_OFFSET_Y), 2)
+                if GAME_OFFSET_Y + GAME_SCALED_HEIGHT < FULLSCREEN_HEIGHT:
+                    pygame.draw.line(REAL_SCREEN, (255, 255, 0),
+                                   (0, GAME_OFFSET_Y + GAME_SCALED_HEIGHT),
+                                   (FULLSCREEN_WIDTH, GAME_OFFSET_Y + GAME_SCALED_HEIGHT), 2)
 
         # UI 오버레이 렌더링 (선명한 텍스트)
         _render_ui_overlay(REAL_SCREEN)
@@ -8422,47 +8376,49 @@ def _fullscreen_update(*args, **kwargs):
     global _pillar_bg_frame_counter, _pillar_bg_cache_stage
     _pillar_bg_frame_counter += 1
     if _is_fullscreen_active and REAL_SCREEN is not None:
-        # 필러 배경 그리기 (프레임-스킵 캐싱 적용)
-        if pillar_renderer is not None:
-            # 캐시 서피스 할당/크기 검증
-            real_w, real_h = REAL_SCREEN.get_size()
-            if _pillar_bg_cache is None or _pillar_bg_cache_size != (real_w, real_h):
-                _pillar_bg_cache = pygame.Surface((real_w, real_h)).convert()
-                _pillar_bg_cache_size = (real_w, real_h)
-                _pillar_bg_cache_dirty = True
+        # SCALED 모드: SDL이 GPU로 업스케일링 처리 → 수동 스케일링/필러 배경 건너뜀
+        if not _use_scaled_mode:
+            # 필러 배경 그리기 (프레임-스킵 캐싱 적용)
+            if pillar_renderer is not None:
+                # 캐시 서피스 할당/크기 검증
+                real_w, real_h = REAL_SCREEN.get_size()
+                if _pillar_bg_cache is None or _pillar_bg_cache_size != (real_w, real_h):
+                    _pillar_bg_cache = pygame.Surface((real_w, real_h)).convert()
+                    _pillar_bg_cache_size = (real_w, real_h)
+                    _pillar_bg_cache_dirty = True
 
-            # 스테이지 변경 감지
-            _cur_stage = getattr(pillar_renderer, 'current_stage', -1)
-            if _pillar_bg_cache_stage != _cur_stage:
-                _pillar_bg_cache_stage = _cur_stage
-                _pillar_bg_cache_dirty = True
+                # 스테이지 변경 감지
+                _cur_stage = getattr(pillar_renderer, 'current_stage', -1)
+                if _pillar_bg_cache_stage != _cur_stage:
+                    _pillar_bg_cache_stage = _cur_stage
+                    _pillar_bg_cache_dirty = True
 
-            # dirty시 또는 N프레임마다 재렌더링
-            if _pillar_bg_cache_dirty or _pillar_bg_frame_counter % _pillar_bg_render_interval == 0:
-                pillar_renderer.draw(_pillar_bg_cache)
-                _pillar_bg_cache_dirty = False
+                # dirty시 또는 N프레임마다 재렌더링
+                if _pillar_bg_cache_dirty or _pillar_bg_frame_counter % _pillar_bg_render_interval == 0:
+                    pillar_renderer.draw(_pillar_bg_cache)
+                    _pillar_bg_cache_dirty = False
 
-            # 매 프레임 캐시를 REAL_SCREEN에 blit
-            REAL_SCREEN.blit(_pillar_bg_cache, (0, 0))
-        else:
-            # 필러 렌더러 없을 때만 전체 화면 단색 채우기
-            REAL_SCREEN.fill((15, 15, 25))  # 기본 배경색
+                # 매 프레임 캐시를 REAL_SCREEN에 blit
+                REAL_SCREEN.blit(_pillar_bg_cache, (0, 0))
+            else:
+                # 필러 렌더러 없을 때만 전체 화면 단색 채우기
+                REAL_SCREEN.fill((15, 15, 25))  # 기본 배경색
 
-        # 게임 영역을 먼저 검은색으로 채워 스케일링 가장자리 문제 방지
-        pygame.draw.rect(REAL_SCREEN, (0, 0, 0),
-                        (GAME_OFFSET_X, GAME_OFFSET_Y, GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT))
+            # 게임 영역을 먼저 검은색으로 채워 스케일링 가장자리 문제 방지
+            pygame.draw.rect(REAL_SCREEN, (0, 0, 0),
+                            (GAME_OFFSET_X, GAME_OFFSET_Y, GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT))
 
-        # 게임 Surface를 중앙에 blit (스케일링 적용)
-        if GAME_SCALE_FACTOR != 1.0:
-            # rotozoom으로 스케일링 (smoothscale은 격자 아티팩트 발생)
-            scaled_surface = _get_scaled_screen()
-            sw, sh = scaled_surface.get_size()
-            offset_x = GAME_OFFSET_X + (GAME_SCALED_WIDTH - sw) // 2
-            offset_y = GAME_OFFSET_Y + (GAME_SCALED_HEIGHT - sh) // 2
-            REAL_SCREEN.blit(scaled_surface, (offset_x, offset_y))
-        else:
-            # 스케일링 불필요 시 원본 그대로 blit
-            REAL_SCREEN.blit(SCREEN, (GAME_OFFSET_X, GAME_OFFSET_Y))
+            # 게임 Surface를 중앙에 blit (스케일링 적용)
+            if GAME_SCALE_FACTOR != 1.0:
+                # rotozoom으로 스케일링 (smoothscale은 격자 아티팩트 발생)
+                scaled_surface = _get_scaled_screen()
+                sw, sh = scaled_surface.get_size()
+                offset_x = GAME_OFFSET_X + (GAME_SCALED_WIDTH - sw) // 2
+                offset_y = GAME_OFFSET_Y + (GAME_SCALED_HEIGHT - sh) // 2
+                REAL_SCREEN.blit(scaled_surface, (offset_x, offset_y))
+            else:
+                # 스케일링 불필요 시 원본 그대로 blit
+                REAL_SCREEN.blit(SCREEN, (GAME_OFFSET_X, GAME_OFFSET_Y))
 
         # UI 오버레이 렌더링 (선명한 텍스트)
         _render_ui_overlay(REAL_SCREEN)
@@ -8880,7 +8836,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
     global GAME_OFFSET_X, GAME_OFFSET_Y, GAME_SCALE_FACTOR
     global GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT
     global FULLSCREEN_MODE, FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT
-    global _current_display_mode, _original_resolution
+    global _current_display_mode, _original_resolution, _use_scaled_mode
 
     # 하위호환: to_windowed 파라미터 지원
     if mode is None and to_windowed is not None:
@@ -8913,33 +8869,16 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             _dinfo = pygame.display.Info()
             monitor_w, monitor_h = _dinfo.current_w, _dinfo.current_h
 
-        # 게임 비율 유지하면서 필러 배경까지 포함하여 창 구성
-        base_h = int(monitor_h * 0.85)
-        _win_scale = base_h / HEIGHT
-        game_w = int(WIDTH * _win_scale)
+        print(f"[디스플레이] 창모드(SCALED) 전환 시작...", flush=True)
 
-        # 필러 배경 공간 추가 (좌우 각 30%, 상하 각 6.5%)
-        _pillar_pad_x = int(game_w * 0.30)
-        _pillar_pad_y = max(int(base_h * 0.065), 30)
-
-        target_w = game_w + _pillar_pad_x * 2
-        target_h = base_h + _pillar_pad_y * 2
-
-        # 창이 모니터보다 크지 않도록 보정
-        if target_w > int(monitor_w * 0.90):
-            target_w = int(monitor_w * 0.90)
-        if target_h > int(monitor_h * 0.85):
-            target_h = int(monitor_h * 0.85)
-
-        print(f"[디스플레이] 창모드: 모니터 {monitor_w}x{monitor_h} → 창 {target_w}x{target_h} (필러패딩 좌우{_pillar_pad_x}px 상하{_pillar_pad_y}px)", flush=True)
-
-        # 전체화면 해제 + 새 창 생성
+        # 전체화면 해제 + SCALED 창 생성
         FULLSCREEN_MODE = False
-        _is_fullscreen_active = True  # 스케일링 파이프라인 유지 (필러 포함)
+        _is_fullscreen_active = True  # 오버레이 UI 파이프라인 유지
+        _use_scaled_mode = True
 
         # 창을 모니터 중앙에 배치
         os.environ['SDL_VIDEO_CENTERED'] = '1'
-        REAL_SCREEN = _original_set_mode((target_w, target_h), pygame.DOUBLEBUF | pygame.RESIZABLE)
+        REAL_SCREEN = _original_set_mode((WIDTH, HEIGHT), pygame.SCALED | pygame.RESIZABLE)
         if 'SDL_VIDEO_CENTERED' in os.environ:
             del os.environ['SDL_VIDEO_CENTERED']
 
@@ -8947,38 +8886,20 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         if _custom_cursor_enabled:
             pygame.mouse.set_visible(False)
 
-        actual_w, actual_h = REAL_SCREEN.get_size()
-        FULLSCREEN_WIDTH = actual_w
-        FULLSCREEN_HEIGHT = actual_h
+        # SCALED 모드: SCREEN == REAL_SCREEN, 수동 스케일링 불필요
+        SCREEN = REAL_SCREEN
+        GAME_SCALE_FACTOR = 1.0
+        GAME_SCALED_WIDTH = WIDTH
+        GAME_SCALED_HEIGHT = HEIGHT
+        GAME_OFFSET_X = 0
+        GAME_OFFSET_Y = 0
+        FULLSCREEN_WIDTH = WIDTH
+        FULLSCREEN_HEIGHT = HEIGHT
+        pillar_renderer = None  # 장식용 필러 배경 불필요
 
-        # 스케일링 계산 (필러 배경 공간 확보)
-        MARGIN = _pillar_pad_y  # 상하 필러 마진
-        scale_y = (actual_h - MARGIN * 2) / HEIGHT
-        scaled_width_check = int(WIDTH * scale_y)
-        if scaled_width_check > actual_w:
-            GAME_SCALE_FACTOR = actual_w / WIDTH
-        else:
-            GAME_SCALE_FACTOR = scale_y
-
-        GAME_SCALED_WIDTH = int(WIDTH * GAME_SCALE_FACTOR)
-        GAME_SCALED_HEIGHT = int(HEIGHT * GAME_SCALE_FACTOR)
-        GAME_OFFSET_X = (actual_w - GAME_SCALED_WIDTH) // 2
-        GAME_OFFSET_Y = (actual_h - GAME_SCALED_HEIGHT) // 2
-
-        _set_font_scale(GAME_SCALE_FACTOR)
-
-        # 게임 Surface 재생성
-        SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert()
-
-        # 필러 배경 초기화
-        pillar_renderer = init_pillar_background(
-            actual_w, actual_h,
-            GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT,
-            offset_x=GAME_OFFSET_X, offset_y=GAME_OFFSET_Y,
-            original_game_width=WIDTH, original_game_height=HEIGHT
-        )
-        invalidate_pillar_bg_cache()  # 필러 캐시 무효화 (해상도 변경)
-        _set_dm_fullscreen(True, SCREEN)  # 스케일링 파이프라인 유지
+        _set_font_scale(1.0)
+        invalidate_pillar_bg_cache()
+        _set_dm_fullscreen(True, SCREEN)
 
         # flip/update/mouse/event 래핑 갱신
         pygame.display.flip = _fullscreen_flip
@@ -8995,7 +8916,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
 
         pygame.display.set_caption("PINGFIGHTER")
         _current_display_mode = "windowed"
-        print(f"[디스플레이] 창모드 전환 완료: {actual_w}x{actual_h}", flush=True)
+        print(f"[디스플레이] 창모드(SCALED) 전환 완료: 내부 {WIDTH}x{HEIGHT}, SDL GPU 스케일링", flush=True)
 
     elif mode == "fullscreen":
         # === 전체화면으로 전환 (보더리스 윈도우, 네이티브 해상도) ===
@@ -9021,6 +8942,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
 
         FULLSCREEN_MODE = False
         _is_fullscreen_active = True
+        _use_scaled_mode = False
 
         # 보더리스 윈도우로 전체화면 (호환성 최적)
         os.environ['SDL_VIDEO_WINDOW_POS'] = '0,0'
@@ -9156,6 +9078,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         _set_dm_fullscreen(True, SCREEN)
 
         _is_fullscreen_active = True
+        _use_scaled_mode = False
 
         pygame.display.flip = _fullscreen_flip
         pygame.display.update = _fullscreen_update
@@ -9195,6 +9118,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
 
         FULLSCREEN_MODE = False
         _is_fullscreen_active = True
+        _use_scaled_mode = False
 
         # 보더리스 윈도우 (프레임 없이 모니터 해상도로)
         os.environ['SDL_VIDEO_WINDOW_POS'] = '0,0'
