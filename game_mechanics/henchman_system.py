@@ -135,6 +135,8 @@ class HenchmanSlot:
         self.target_x = 0.0          # 진입 목표 X
         self.entry_side = "left"      # "left" or "right"
         self.icon_rect = pygame.Rect(0, 0, 0, 0)  # 필러 아이콘 영역
+        self.ready_flash_timer = 0.0   # 쿨타임 완충 시 반짝임 타이머 (초)
+        self._was_on_cooldown = False   # 쿨타임→완충 전환 감지용
 
     @property
     def hero_id(self):
@@ -245,7 +247,16 @@ class HenchmanSystem:
             try:
                 # 쿨타임 틱
                 if slot.cooldown > 0:
+                    slot._was_on_cooldown = True
                     slot.cooldown = max(0.0, slot.cooldown - dt)
+                    # 쿨타임 완충 순간 감지 → 반짝임 시작
+                    if slot.cooldown <= 0 and slot._was_on_cooldown:
+                        slot.ready_flash_timer = 1.5  # 1.5초간 반짝임
+                        slot._was_on_cooldown = False
+
+                # 반짝임 타이머 틱
+                if slot.ready_flash_timer > 0:
+                    slot.ready_flash_timer = max(0.0, slot.ready_flash_timer - dt)
 
                 # 페이즈 업데이트
                 if slot.phase is None:
@@ -790,6 +801,33 @@ class HenchmanSystem:
                 pygame.draw.rect(border_surf, (210, 180, 100, border_alpha),
                                  (0, 0, icon_sz + 4, icon_sz + 4), 2, border_radius=5)
                 screen.blit(border_surf, (frame_x - 2, iy - 2))
+
+                # 쿨타임 완충 직후 반짝임 이펙트
+                if slot.ready_flash_timer > 0:
+                    t = pygame.time.get_ticks()
+                    fade = min(1.0, slot.ready_flash_timer / 0.5)  # 마지막 0.5초 페이드아웃
+
+                    # 1) 전체 백색 플래시 오버레이 (빠른 점멸)
+                    blink = abs(math.sin(t * 0.012))  # 빠른 깜빡임
+                    flash_alpha = int(120 * blink * fade)
+                    if flash_alpha > 0:
+                        flash_surf = pygame.Surface((icon_sz, icon_sz), pygame.SRCALPHA)
+                        flash_surf.fill((255, 255, 220, flash_alpha))
+                        screen.blit(flash_surf, (frame_x, iy))
+
+                    # 2) 모서리 반짝이 파티클 (4개 코너 순환)
+                    cx, cy = frame_x + icon_sz // 2, iy + icon_sz // 2
+                    half = icon_sz // 2 + 2
+                    for ci in range(4):
+                        angle = (t * 0.006) + ci * (math.pi / 2)
+                        sx = cx + int(half * math.cos(angle))
+                        sy = cy + int(half * math.sin(angle))
+                        sparkle_r = max(1, int(3 * _s * fade * (0.5 + 0.5 * abs(math.sin(t * 0.01 + ci)))))
+                        sparkle_alpha = int(220 * fade)
+                        sp_surf = pygame.Surface((sparkle_r * 2 + 2, sparkle_r * 2 + 2), pygame.SRCALPHA)
+                        pygame.draw.circle(sp_surf, (255, 255, 180, sparkle_alpha),
+                                           (sparkle_r + 1, sparkle_r + 1), sparkle_r)
+                        screen.blit(sp_surf, (sx - sparkle_r - 1, sy - sparkle_r - 1))
             elif slot.phase is not None:
                 # 발동 중: 밝은 하이라이트
                 pygame.draw.rect(screen, (255, 220, 120),
@@ -911,6 +949,30 @@ class HenchmanSystem:
                 pygame.draw.rect(border_surf, (210, 180, 100, border_alpha),
                                  (0, 0, icon_sz + 4, icon_sz + 4), 2, border_radius=5)
                 screen.blit(border_surf, (frame_x - 2, iy - 2))
+
+                # 쿨타임 완충 직후 반짝임 이펙트
+                if slot.ready_flash_timer > 0:
+                    t = pygame.time.get_ticks()
+                    fade = min(1.0, slot.ready_flash_timer / 0.5)
+                    blink = abs(math.sin(t * 0.012))
+                    flash_alpha = int(120 * blink * fade)
+                    if flash_alpha > 0:
+                        flash_surf = pygame.Surface((icon_sz, icon_sz), pygame.SRCALPHA)
+                        flash_surf.fill((255, 255, 220, flash_alpha))
+                        screen.blit(flash_surf, (frame_x, iy))
+                    cx, cy = frame_x + icon_sz // 2, iy + icon_sz // 2
+                    half = icon_sz // 2 + 2
+                    for ci in range(4):
+                        angle = (t * 0.006) + ci * (math.pi / 2)
+                        sx = cx + int(half * math.cos(angle))
+                        sy = cy + int(half * math.sin(angle))
+                        sparkle_r = max(1, int(3 * _s * fade * (0.5 + 0.5 * abs(math.sin(t * 0.01 + ci)))))
+                        sparkle_alpha = int(220 * fade)
+                        sp_surf = pygame.Surface((sparkle_r * 2 + 2, sparkle_r * 2 + 2), pygame.SRCALPHA)
+                        pygame.draw.circle(sp_surf, (255, 255, 180, sparkle_alpha),
+                                           (sparkle_r + 1, sparkle_r + 1), sparkle_r)
+                        screen.blit(sp_surf, (sx - sparkle_r - 1, sy - sparkle_r - 1))
+
             elif slot.phase is not None:
                 pygame.draw.rect(screen, (255, 220, 120),
                                  (frame_x - 1, iy - 1, icon_sz + 2, icon_sz + 2),
