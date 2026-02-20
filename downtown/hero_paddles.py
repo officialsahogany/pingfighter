@@ -2877,7 +2877,7 @@ class HeroPaddleRenderer:
         eth_size = int(5.0 * b)
         eth_surf = self._get_surface(eth_size * 2, eth_size * 2)
         eth_cx_m, eth_cy_m = eth_size, eth_size
-        eth_pulse = 0.4 + 0.6 * _sin(self.time * 2.0)
+        eth_pulse = max(0, 0.4 + 0.6 * _sin(self.time * 2.0))
         for eth_ring in range(3):
             eth_hue = self.time * 1.2 + eth_ring * 0.8
             eth_r_c = int(200 + 55 * _sin(eth_hue))
@@ -2896,8 +2896,8 @@ class HeroPaddleRenderer:
         mc_h = int(0.8 * b)
         mc_surf = self._get_surface(mc_w * 2, mc_h * 2)
         mc_cx_s, mc_cy_s = mc_w, mc_h
-        mc_pulse = 0.3 + 0.7 * _sin(self.time * 1.8)
-        mc_alpha = int(25 * mc_pulse)
+        mc_pulse = max(0, 0.3 + 0.7 * _sin(self.time * 1.8))
+        mc_alpha = max(0, int(25 * mc_pulse))
         # 외곽 타원
         pygame.draw.ellipse(mc_surf, (200, 130, 220, mc_alpha),
                           (mc_cx_s - int(1.4 * b), mc_cy_s - int(0.25 * b),
@@ -3213,8 +3213,8 @@ class HeroPaddleRenderer:
                 pygame.draw.line(screen, p["string"], (mid_x, mid_y), (target_x, target_y), 1)
 
                 # === 퍼펫 스트링 글로우 (실에 은은한 마법빛) ===
-                str_glow_pulse = 0.3 + 0.7 * _sin(self.time * 3.0 + j * 0.9)
-                str_glow_alpha = int(20 * str_glow_pulse * eerie_pulse)
+                str_glow_pulse = max(0, 0.3 + 0.7 * _sin(self.time * 3.0 + j * 0.9))
+                str_glow_alpha = max(0, min(255, int(20 * str_glow_pulse * eerie_pulse)))
                 str_gl_r = max(int(0.12 * b), 2)
                 str_gl_surf = self._get_surface(str_gl_r * 2, str_gl_r * 2)
                 pygame.draw.circle(str_gl_surf, (200, 160, 230, str_glow_alpha),
@@ -3231,7 +3231,7 @@ class HeroPaddleRenderer:
                            special_flags=pygame.BLEND_ADD)
 
         # === 퍼펫 컨트롤 스트링 (위쪽 조종 실 글로우) ===
-        pcs_glow_pulse = 0.4 + 0.6 * _sin(self.time * 2.2)
+        pcs_glow_pulse = max(0, 0.4 + 0.6 * _sin(self.time * 2.2))
         pcs_surf_h = int(3.5 * b)
         pcs_surf_w = int(4.0 * b)
         pcs_surf = self._get_surface(pcs_surf_w, pcs_surf_h)
@@ -3412,8 +3412,8 @@ class HeroPaddleRenderer:
                 # === 돌 아이 스파클 글로우 (눈 반짝임 별 모양) ===
                 sparkle_r = max(int(0.18 * b), 3)
                 sparkle_surf = self._get_surface(sparkle_r * 2, sparkle_r * 2)
-                sp_pulse = 0.3 + 0.7 * _sin(self.time * 5.0 + side * 2.5)
-                sp_alpha = int(35 * sp_pulse)
+                sp_pulse = max(0, 0.3 + 0.7 * _sin(self.time * 5.0 + side * 2.5))
+                sp_alpha = max(0, min(255, int(35 * sp_pulse)))
                 sp_cx_s, sp_cy_s = sparkle_r, sparkle_r
                 # 별 모양 (4방향 십자 + 대각선)
                 sp_len = int(sparkle_r * 0.8)
@@ -7065,8 +7065,8 @@ class HeroPaddleRenderer:
             # === 방울 골든 글로우 이펙트 ===
             bell_glow_r = int(bell_r * 3.5)
             bell_glow_surf = self._get_surface(bell_glow_r * 2, bell_glow_r * 2)
-            bell_glow_pulse = 0.4 + 0.6 * _sin(self.time * 6.0 + side * 2.0)
-            bell_glow_alpha = int(30 * bell_glow_pulse)
+            bell_glow_pulse = max(0, 0.4 + 0.6 * _sin(self.time * 6.0 + side * 2.0))
+            bell_glow_alpha = max(0, int(30 * bell_glow_pulse))
             pygame.draw.circle(bell_glow_surf,
                              (255, 230, 100, bell_glow_alpha),
                              (bell_glow_r, bell_glow_r), bell_glow_r)
@@ -7087,8 +7087,8 @@ class HeroPaddleRenderer:
             _sb_tip_y = _sb_foot_y + int(_sin(self.time * 3 + _sbell_side) * 0.08 * b)
             _sb_glow_r = int(0.35 * b)
             _sb_glow_surf = self._get_surface(_sb_glow_r * 2, _sb_glow_r * 2)
-            _sb_pulse = 0.3 + 0.7 * _sin(self.time * 5.5 + _sbell_side * 3.0)
-            _sb_alpha = int(25 * _sb_pulse)
+            _sb_pulse = max(0, 0.3 + 0.7 * _sin(self.time * 5.5 + _sbell_side * 3.0))
+            _sb_alpha = max(0, int(25 * _sb_pulse))
             pygame.draw.circle(_sb_glow_surf, (255, 220, 80, _sb_alpha),
                              (_sb_glow_r, _sb_glow_r), _sb_glow_r)
             screen.blit(_sb_glow_surf,
