@@ -120252,6 +120252,7 @@ def _trigger_captured_guard_skill():
 # 🕸️ 인게임 포획 페이즈 (스테이지30 내부)
 # ============================================================
 _capture_grab_sound = None
+_capture_net_sound = None
 
 def _load_capture_grab_sound():
     """그물 발사 사운드 로드"""
@@ -120263,6 +120264,19 @@ def _load_capture_grab_sound():
         if os.path.exists(snd_path):
             _capture_grab_sound = pygame.mixer.Sound(snd_path)
             _capture_grab_sound.set_volume(0.5)
+    except Exception:
+        pass
+
+def _load_capture_net_sound():
+    """그물 포획 성공 사운드 로드"""
+    global _capture_net_sound
+    if _capture_net_sound is not None:
+        return
+    try:
+        snd_path = resource_path(os.path.join("sounds", "net.wav"))
+        if os.path.exists(snd_path):
+            _capture_net_sound = pygame.mixer.Sound(snd_path)
+            _capture_net_sound.set_volume(0.5)
     except Exception:
         pass
 
@@ -120598,6 +120612,13 @@ def _update_arena_capture_phase(screen):
                     "phase": 0.0,
                 }
                 if trapped:
+                    # 포획 성공 사운드 재생
+                    _load_capture_net_sound()
+                    if _capture_net_sound:
+                        try:
+                            _capture_net_sound.play()
+                        except Exception:
+                            pass
                     print(f"[CAPTURE] 그물 펼침 → 포획 성공! {top_name}")
                 else:
                     print(f"[CAPTURE] 그물 펼침 → 미스! 잔여 {arena_capture_shots_left}발")

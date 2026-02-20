@@ -1,4 +1,5 @@
 import math
+import os
 import random
 import sys
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
@@ -6,6 +7,27 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 import pygame
 
 from config.constants import WIDTH, HEIGHT, TARGET_FPS
+
+# ── 그물 포획 사운드 (lazy load) ──
+_net_capture_sound = None
+
+def _load_net_capture_sound():
+    """그물 포획 성공 사운드 로드 (최초 1회)"""
+    global _net_capture_sound
+    if _net_capture_sound is not None:
+        return
+    try:
+        # resource_path 사용
+        try:
+            base_path = sys._MEIPASS
+        except Exception:
+            base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        snd_path = os.path.join(base_path, "sounds", "net.wav")
+        if os.path.exists(snd_path):
+            _net_capture_sound = pygame.mixer.Sound(snd_path)
+            _net_capture_sound.set_volume(0.5)
+    except Exception:
+        pass
 
 
 class NetTrapGun:
@@ -343,6 +365,13 @@ class NetTrapGun:
             self._debug(
                 f"deploy → success rect=({rect.left},{rect.top},{rect.width},{rect.height})"
             )
+            # 포획 성공 사운드 재생
+            _load_net_capture_sound()
+            if _net_capture_sound:
+                try:
+                    _net_capture_sound.play()
+                except Exception:
+                    pass
             print(
                 f"🕸️ 보스 포획 성공! 지속시간 {self.NET_DURATION_FRAMES/60:.1f}초, 범위 {rect.left}-{rect.right}px"
             )
