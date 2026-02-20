@@ -8947,8 +8947,11 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         # SCALED 모드 시도 → 실패 시 소프트웨어 스케일링 폴백
         _sw_scaled_ok = False
         try:
+            # 이전 display 상태 초기화 (시네마/전체화면 렌더러와 충돌 방지)
+            pygame.display.quit()
+            pygame.display.init()
             os.environ['SDL_VIDEO_CENTERED'] = '1'
-            REAL_SCREEN = _original_set_mode((WIDTH, HEIGHT), pygame.SCALED | pygame.RESIZABLE)
+            REAL_SCREEN = pygame.display.set_mode((WIDTH, HEIGHT), pygame.SCALED | pygame.RESIZABLE)
             if 'SDL_VIDEO_CENTERED' in os.environ:
                 del os.environ['SDL_VIDEO_CENTERED']
             _sw_scaled_ok = True
@@ -8985,7 +8988,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             if _t_h > int(monitor_h * 0.85):
                 _t_h = int(monitor_h * 0.85)
             os.environ['SDL_VIDEO_CENTERED'] = '1'
-            REAL_SCREEN = _original_set_mode((_t_w, _t_h), pygame.DOUBLEBUF | pygame.RESIZABLE)
+            REAL_SCREEN = pygame.display.set_mode((_t_w, _t_h), pygame.DOUBLEBUF | pygame.RESIZABLE)
             if 'SDL_VIDEO_CENTERED' in os.environ:
                 del os.environ['SDL_VIDEO_CENTERED']
             if _custom_cursor_enabled:
@@ -9056,12 +9059,17 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         _is_fullscreen_active = True
         _use_scaled_mode = False
 
+        # SCALED 모드에서 전환 시 display 리셋 필요
+        if _use_scaled_mode:
+            pygame.display.quit()
+            pygame.display.init()
+
         # 보더리스 윈도우로 전체화면 (호환성 최적)
         os.environ['SDL_VIDEO_WINDOW_POS'] = '0,0'
         if _current_platform == 'Darwin':
-            REAL_SCREEN = _original_set_mode((FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT), pygame.NOFRAME | pygame.DOUBLEBUF)
+            REAL_SCREEN = pygame.display.set_mode((FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT), pygame.NOFRAME | pygame.DOUBLEBUF)
         else:
-            REAL_SCREEN = _original_set_mode((FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT), pygame.NOFRAME)
+            REAL_SCREEN = pygame.display.set_mode((FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT), pygame.NOFRAME)
         if 'SDL_VIDEO_WINDOW_POS' in os.environ:
             del os.environ['SDL_VIDEO_WINDOW_POS']
 
@@ -9152,8 +9160,13 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             FULLSCREEN_WIDTH = display_info.current_w
             FULLSCREEN_HEIGHT = display_info.current_h
 
+        # SCALED 모드에서 전환 시 display 리셋 필요
+        if _use_scaled_mode:
+            pygame.display.quit()
+            pygame.display.init()
+
         _fs_flags = pygame.FULLSCREEN | pygame.DOUBLEBUF if _current_platform == 'Darwin' else pygame.FULLSCREEN
-        REAL_SCREEN = _original_set_mode((FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT), _fs_flags)
+        REAL_SCREEN = pygame.display.set_mode((FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT), _fs_flags)
 
         if _custom_cursor_enabled:
             pygame.mouse.set_visible(False)
@@ -9232,12 +9245,17 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         _is_fullscreen_active = True
         _use_scaled_mode = False
 
+        # SCALED 모드에서 전환 시 display 리셋 필요
+        if _use_scaled_mode:
+            pygame.display.quit()
+            pygame.display.init()
+
         # 보더리스 윈도우 (프레임 없이 모니터 해상도로)
         os.environ['SDL_VIDEO_WINDOW_POS'] = '0,0'
         if _current_platform == 'Darwin':
-            REAL_SCREEN = _original_set_mode((monitor_w, monitor_h), pygame.NOFRAME | pygame.DOUBLEBUF)
+            REAL_SCREEN = pygame.display.set_mode((monitor_w, monitor_h), pygame.NOFRAME | pygame.DOUBLEBUF)
         else:
-            REAL_SCREEN = _original_set_mode((monitor_w, monitor_h), pygame.NOFRAME)
+            REAL_SCREEN = pygame.display.set_mode((monitor_w, monitor_h), pygame.NOFRAME)
         # 환경변수 정리
         if 'SDL_VIDEO_WINDOW_POS' in os.environ:
             del os.environ['SDL_VIDEO_WINDOW_POS']
