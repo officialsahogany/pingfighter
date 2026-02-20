@@ -76810,48 +76810,25 @@ def _draw_arena_portrait_tutorial() -> None:
     _portrait_cx = 0
     _portrait_cy = 0
     _portrait_rect = None
-    if highlight_type == "portrait" and arena_guard_system is not None:
-        n_guards = len(getattr(arena_guard_system, 'guard_warriors_bottom', []))
-        if n_guards > 0:
-            # 좌표 계산 (colosseum_arena.py의 draw_guard_portraits_on_pillar 동일 로직)
-            if _is_fullscreen_active and REAL_SCREEN is not None:
-                _go_x = GAME_OFFSET_X
-                _go_y = GAME_OFFSET_Y
-                _gs = GAME_SCALE_FACTOR
-                _gsh = GAME_SCALED_HEIGHT
-            else:
-                _go_x = GAME_AREA_OFFSET_X  # 80
-                _go_y = 0
-                _gs = 1.0
-                _gsh = INTERNAL_HEIGHT  # 750
-
-            _frame_w = max(30, int(58 * _gs))
-            _frame_h = max(30, int(58 * _gs))
-            _slot_h = max(50, int(100 * _gs))
-
-            _frame_x_left = _go_x - _frame_w - int(4 * _gs)
-            _y_end = _go_y + _gsh - int(10 * _gs)
-            _y_start = _y_end - n_guards * _slot_h
-
-            # 초상화 전체 영역 바운딩 박스 (패딩 포함)
-            _pad = int(12 * _gs)
-            _pr_x = _frame_x_left - _pad
-            _pr_y = _y_start - _pad
-            _pr_w = _frame_w + _pad * 2
-            _pr_h = n_guards * _slot_h + _pad * 2
-            _portrait_rect = pygame.Rect(_pr_x, _pr_y, _pr_w, _pr_h)
-            _portrait_cx = _pr_x + _pr_w // 2
-            _portrait_cy = _pr_y + _pr_h // 2
+    if highlight_type == "portrait":
+        # 실제 렌더링 코드가 저장한 바운딩 rect 사용
+        import builtins
+        _stored_rect = builtins.__dict__.get('_arena_left_portrait_rect')
+        if _stored_rect:
+            _pad = int(12 * _ui_s)
+            _portrait_rect = _stored_rect.inflate(_pad * 2, _pad * 2)
+            _portrait_cx = _portrait_rect.centerx
+            _portrait_cy = _portrait_rect.centery
 
             # 글로우 효과 (청록/시안 계열 - 정보 모드 느낌)
             _glow_color = (80, 200, 255)
             for i in range(4):
-                _glow_pad = int(i * 8 * _gs)
+                _glow_pad = int(i * 8 * _ui_s)
                 _glow_alpha = 120 - i * 25
                 _glow_rect = _portrait_rect.inflate(_glow_pad * 2, _glow_pad * 2)
                 _glow_surf = pygame.Surface((_glow_rect.width + 4, _glow_rect.height + 4), pygame.SRCALPHA)
                 pygame.draw.rect(_glow_surf, (*_glow_color, _glow_alpha),
-                                 (0, 0, _glow_rect.width + 4, _glow_rect.height + 4), border_radius=int(14 * _gs))
+                                 (0, 0, _glow_rect.width + 4, _glow_rect.height + 4), border_radius=int(14 * _ui_s))
                 overlay.blit(_glow_surf, (_glow_rect.x - 2, _glow_rect.y - 2))
 
             # 강조 영역을 투명하게 (둥근 사각형 구멍)

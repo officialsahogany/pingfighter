@@ -11451,6 +11451,14 @@ class ColosseumsArena:
         for k in stale_keys:
             del self._queue_positions[k]
 
+        # 튜토리얼용: 좌측 필러 초상화 전체 바운딩 rect 저장
+        import builtins
+        if entries:
+            _first_y = start_y
+            _last_y = start_y + (len(entries) - 1) * (card_h + card_gap) + card_h
+            builtins.__dict__['_arena_left_portrait_rect'] = pygame.Rect(
+                card_x, _first_y, card_w, _last_y - _first_y)
+
         return hover_result
 
     def _draw_cooldown_queue(self):
