@@ -521,17 +521,31 @@ class HenchmanSystem:
                         or getattr(skill, 'oil_puddles', []))
         return False
 
+    _skill_sound_cache = {}
+
     def _play_skill_sound(self, result):
-        """스킬 사운드 재생"""
+        """스킬 사운드 재생 (프로젝트 루트 sounds/ 폴더에서 직접 로드)"""
         if not result:
             return
         sound_key = result.get('sound') if isinstance(result, dict) else None
-        if sound_key:
+        if not sound_key:
+            return
+
+        if sound_key not in HenchmanSystem._skill_sound_cache:
             try:
-                from managers.sound_manager import get_sound_manager
-                sm = get_sound_manager()
-                if sm:
-                    sm.play_sound(sound_key)
+                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                filepath = os.path.join(project_root, "sounds", f"{sound_key}.wav")
+                if os.path.exists(filepath):
+                    HenchmanSystem._skill_sound_cache[sound_key] = pygame.mixer.Sound(filepath)
+                else:
+                    HenchmanSystem._skill_sound_cache[sound_key] = None
+            except Exception:
+                HenchmanSystem._skill_sound_cache[sound_key] = None
+
+        sound = HenchmanSystem._skill_sound_cache.get(sound_key)
+        if sound:
+            try:
+                sound.play()
             except Exception:
                 pass
 
