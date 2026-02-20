@@ -19987,7 +19987,7 @@ _arena_guard_tutorial_shown = False      # 세션 내 1회만 표시
 _arena_guard_tutorial_active = False     # 현재 튜토리얼 진행 중
 _arena_guard_tutorial_step = 0           # 현재 단계 (0~3)
 _arena_guard_tutorial_delay_frames = 0   # 게임 시작 후 딜레이 카운터
-_ARENA_GUARD_TUTORIAL_DELAY = 120        # 2초 (60fps 기준)
+_ARENA_GUARD_TUTORIAL_DELAY = 480        # 8초 (60fps 기준)
 _ARENA_GUARD_TUTORIAL_STEPS = [
     {
         "highlight": "guard_stance",
