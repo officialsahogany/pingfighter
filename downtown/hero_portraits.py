@@ -586,8 +586,38 @@ class HeroPortraitRenderer:
             # Dual highlights
             pygame.draw.circle(surf, (255, 255, 220), (ex + s * 2, eye_y - 2), max(1, ir // 3))
             pygame.draw.circle(surf, (255, 255, 230, 150), (ex - s, eye_y + 2), max(1, ir // 5))
+        # Body / mantle connection (bridges dome to tentacles)
+        mantle_top = dome_top + int(dome_h * 0.70)
+        mantle_bot = int(h * 0.68)
+        mantle_top_w = int(dome_w * 0.55)
+        mantle_bot_w = int(w * 0.62)
+        mantle_pts = [
+            (cx - mantle_top_w // 2, mantle_top),
+            (cx + mantle_top_w // 2, mantle_top),
+            (cx + mantle_bot_w // 2, mantle_bot),
+            (cx - mantle_bot_w // 2, mantle_bot),
+        ]
+        pygame.draw.polygon(surf, body, mantle_pts)
+        # Mantle side shading
+        shade_w = max(2, mantle_bot_w // 5)
+        pygame.draw.polygon(surf, body_dk, [
+            (cx - mantle_top_w // 2, mantle_top),
+            (cx - mantle_bot_w // 2, mantle_bot),
+            (cx - mantle_bot_w // 2 + shade_w, mantle_bot),
+            (cx - mantle_top_w // 2 + shade_w, mantle_top),
+        ])
+        pygame.draw.polygon(surf, body_dk, [
+            (cx + mantle_top_w // 2, mantle_top),
+            (cx + mantle_bot_w // 2, mantle_bot),
+            (cx + mantle_bot_w // 2 - shade_w, mantle_bot),
+            (cx + mantle_top_w // 2 - shade_w, mantle_top),
+        ])
+        # Mantle bottom edge highlight
+        pygame.draw.line(surf, (*body_lt[:3], 40),
+                         (cx - mantle_bot_w // 3, mantle_bot),
+                         (cx + mantle_bot_w // 3, mantle_bot), 1)
         # Tentacles - enhanced with gradient color
-        tent_y = int(h * 0.62)
+        tent_y = int(h * 0.66)
         for i in range(8):
             tx = cx + int((i - 3.5) * w * 0.08)
             tent_len = int(h * 0.26) + (i % 3) * int(h * 0.06)
