@@ -16753,6 +16753,10 @@ class ColosseumsArena:
         # 하이라이트 메모리 해제
         if self.highlight_recorder:
             self.highlight_recorder.clear()
+        # 포획 실패 직후 "하수인 생포!" 알림은 맥락상 어색하므로 스킵
+        # (하수인 자체는 이미 리스트에 추가됨, 알림 화면만 생략)
+        self._pending_henchman_capture = False
+        self._pending_henchman_target = None
         self._start_perk_select()
 
     # ================================================================
