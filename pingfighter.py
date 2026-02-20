@@ -93118,6 +93118,9 @@ def draw_objects():
                 spark_offset = random.randint(-5, 5)
                 draw.circle((200, 220, 255), 
                                   (antenna_right_x + spark_offset, antenna_tip_y + random.randint(-3, 3)), 1)
+    # 투기장 대쉬 잔상 + 폭풍질주 파티클 렌더링 (패들 뒤에 그려짐)
+    if arena_mode_enabled:
+        draw_arena_dash_afterimages(SCREEN)
     # 투기장 모드일 때 상단 영웅 패들 그리기 (보스 대신)
     if arena_mode_enabled and arena_top_hero and arena_hero_paddle_renderer:
         try:
