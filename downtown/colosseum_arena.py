@@ -18664,14 +18664,32 @@ class ColosseumsArena:
         skill = hero_skills[selected_si] if selected_si < len(hero_skills) else (hero_skills[0] if hero_skills else None)
 
         # 툴팁 크기
-        tooltip_width = 240
+        tooltip_width = 260
         padding = 10
         header_height = 28
 
+        # 설명 줄바꿈 계산
+        desc_lines = []
+        if h_desc and self.fonts and "small" in self.fonts:
+            max_text_w = tooltip_width - padding * 2
+            current_line = ""
+            for char in h_desc:
+                test_line = current_line + char
+                test_surf, _ = self.fonts["small"].render(test_line, (255, 255, 255))
+                if test_surf.get_width() <= max_text_w:
+                    current_line = test_line
+                else:
+                    if current_line:
+                        desc_lines.append(current_line)
+                    current_line = char
+            if current_line:
+                desc_lines.append(current_line)
+            desc_lines = desc_lines[:3]
+
         # 높이 계산
         y_offset = padding + header_height + 4
-        if h_desc:
-            y_offset += 16  # 설명 1줄
+        if desc_lines:
+            y_offset += len(desc_lines) * 16 + 4
         if skill:
             y_offset += 22  # 스킬 아이콘 + 이름
         tooltip_height = y_offset + padding
@@ -18711,22 +18729,13 @@ class ColosseumsArena:
 
         y_pos += header_height + 4
 
-        # 설명
-        if h_desc and self.fonts and "small" in self.fonts:
-            max_text_w = tooltip_width - padding * 2
-            # 한 줄로 자르기
-            truncated = h_desc
-            ds, _ = self.fonts["small"].render(truncated, ET["text_body"])
-            if ds.get_width() > max_text_w:
-                while len(truncated) > 1:
-                    truncated = truncated[:-1]
-                    ds, _ = self.fonts["small"].render(truncated + "..", ET["text_body"])
-                    if ds.get_width() <= max_text_w:
-                        truncated += ".."
-                        ds, _ = self.fonts["small"].render(truncated, ET["text_body"])
-                        break
-            tt.blit(ds, (padding, y_pos))
-            y_pos += 16
+        # 설명 (줄바꿈)
+        if desc_lines and self.fonts and "small" in self.fonts:
+            for line in desc_lines:
+                ds, _ = self.fonts["small"].render(line, ET["text_body"])
+                tt.blit(ds, (padding, y_pos))
+                y_pos += 16
+            y_pos += 4
 
         # 장착 스킬
         if skill and self.fonts and "small" in self.fonts:
