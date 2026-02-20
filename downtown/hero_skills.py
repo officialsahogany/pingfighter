@@ -11044,6 +11044,7 @@ class BombSurprise(HeroSkill):
         self._ticking3_channel = None  # ticking3 재생 채널 (폭발 시 정지용)
         self._ticking3_playing = False
         self._explode_sound = None
+        self._self_explode_sound = None  # 자폭 전용 사운드 (weakexplosion)
         # 넉백/스턴 상태
         self._knockback_target = None   # 'top' or 'bottom'
         self._stun_applied = False
@@ -11081,6 +11082,10 @@ class BombSurprise(HeroSkill):
             if os.path.exists(path3):
                 self._explode_sound = pygame.mixer.Sound(path3)
                 self._explode_sound.set_volume(0.8)
+            path3b = os.path.join(project_root, "sounds", "weakexplosion.wav")
+            if os.path.exists(path3b):
+                self._self_explode_sound = pygame.mixer.Sound(path3b)
+                self._self_explode_sound.set_volume(0.45)
         except Exception:
             pass
 
@@ -11368,13 +11373,15 @@ class BombSurprise(HeroSkill):
             'kb_dir': kb_dir,
         }]
 
-        # 폭발 사운드 (자폭 시 볼륨 낮춤)
-        if self._explode_sound:
-            try:
-                self._explode_sound.set_volume(0.35 if is_self_explosion else 0.8)
+        # 폭발 사운드 (자폭 시 weakexplosion 사운드 사용)
+        try:
+            if is_self_explosion and self._self_explode_sound:
+                self._self_explode_sound.play()
+            elif self._explode_sound:
+                self._explode_sound.set_volume(0.8)
                 self._explode_sound.play()
-            except Exception:
-                pass
+        except Exception:
+            pass
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         self.bomb_active = False
