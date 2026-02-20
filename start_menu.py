@@ -449,11 +449,23 @@ def _render_menu(
     shortcut_rect = shortcut_surface.get_rect(bottomright=(width - 10, height - 10))
     screen.blit(shortcut_surface, shortcut_rect)
 
-    # BGM 토글 안내 텍스트 (우측 하단, F9/F10 위)
-    bgm_hint_text = "B  BGM 켜기/끄기"
-    bgm_hint_surface = font_tiny.render(bgm_hint_text, True, (160, 200, 255))
-    bgm_hint_rect = bgm_hint_surface.get_rect(bottomright=(width - 10, shortcut_rect.top - 4))
-    screen.blit(bgm_hint_surface, bgm_hint_rect)
+    # BGM 토글 안내 (우측 하단, F9/F10 위) - B 키캡 아이콘 + 텍스트
+    bgm_label_surface = font_tiny.render("BGM 켜기/끄기", True, (160, 200, 255))
+    bgm_label_h = bgm_label_surface.get_height()
+    cap_size = max(bgm_label_h, 16)
+    gap = 5  # 키캡과 텍스트 사이 간격
+    total_w = cap_size + gap + bgm_label_surface.get_width()
+    bgm_hint_x = width - 10 - total_w
+    bgm_hint_y = shortcut_rect.top - 4 - cap_size
+    # 키캡 배경
+    pygame.draw.rect(screen, (50, 60, 80), (bgm_hint_x, bgm_hint_y, cap_size, cap_size), border_radius=4)
+    pygame.draw.rect(screen, (100, 120, 150), (bgm_hint_x, bgm_hint_y, cap_size, cap_size), 2, border_radius=4)
+    # 키캡 문자
+    b_surf = font_tiny.render("B", True, (220, 220, 220))
+    b_rect = b_surf.get_rect(center=(bgm_hint_x + cap_size // 2, bgm_hint_y + cap_size // 2))
+    screen.blit(b_surf, b_rect)
+    # 라벨 텍스트
+    screen.blit(bgm_label_surface, (bgm_hint_x + cap_size + gap, bgm_hint_y + (cap_size - bgm_label_h) // 2))
 
     # 관리자 모드 활성화 메시지 표시
     global ADMIN_MODE_MESSAGE_TIMER
