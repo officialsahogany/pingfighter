@@ -546,13 +546,21 @@ class HeroPaddleRenderer:
         # === 팔은 장검과 함께 그림 (양손 그립 - 아래 참조) ===
 
         # === 목 ===
-        neck_w = max(2, int(0.3 * b))
-        pygame.draw.line(screen, p["skin"],
-                        (cx + lean_offset, torso_y - int(0.3 * b)),
-                        (cx + lean_offset, torso_y - int(1.0 * b)), neck_w)
+        neck_bot_w = int(0.7 * b)
+        neck_top_w = int(0.5 * b)
+        neck_top_y = torso_y - int(1.0 * b)
+        neck_bot_y = torso_y - int(0.2 * b)
+        neck_cx = cx + lean_offset
+        neck_pts = [
+            (neck_cx - neck_bot_w // 2, neck_bot_y),
+            (neck_cx + neck_bot_w // 2, neck_bot_y),
+            (neck_cx + neck_top_w // 2, neck_top_y),
+            (neck_cx - neck_top_w // 2, neck_top_y),
+        ]
+        pygame.draw.polygon(screen, p["skin"], neck_pts)
         pygame.draw.line(screen, p["skin_shadow"],
-                        (cx + lean_offset + neck_w // 2, torso_y - int(0.35 * b)),
-                        (cx + lean_offset + neck_w // 2, torso_y - int(0.95 * b)), 1)
+                        (neck_cx + neck_top_w // 4, neck_top_y + 1),
+                        (neck_cx + neck_bot_w // 4, neck_bot_y - 1), 1)
 
         # === 머리 (더 정교한 얼굴) ===
         head_y = torso_y - int(2.8 * b)
@@ -3241,12 +3249,6 @@ class HeroPaddleRenderer:
             # 관절 이음새 (목)
             pygame.draw.circle(screen, p["puppet_joint"], (int(head_x), int(puppet_y + int(0.02 * b))), max(1, int(0.04 * b)))
 
-        # === 목 ===
-        neck_w = max(2, int(0.25 * b))
-        pygame.draw.line(screen, p["skin"],
-                        (cx + lean_offset, torso_y - int(0.25 * b)),
-                        (cx + lean_offset, torso_y - int(0.8 * b)), neck_w)
-
         # === 머리 (긴 물결 머리 + 리본) ===
         head_y = torso_y - int(2.8 * b)
         head_w, head_h = int(2.2 * b), int(2.0 * b)
@@ -4276,6 +4278,23 @@ class HeroPaddleRenderer:
                 # 가죽 장갑
                 pygame.draw.circle(screen, p["leather"], wrist, max(2, int(0.25 * b)))
 
+        # === 목 ===
+        neck_bot_w = int(0.6 * b)
+        neck_top_w = int(0.4 * b)
+        neck_top_y = torso_y - int(1.0 * b)
+        neck_bot_y = torso_y - int(0.2 * b)
+        neck_cx = cx + lean_offset
+        neck_pts = [
+            (neck_cx - neck_bot_w // 2, neck_bot_y),
+            (neck_cx + neck_bot_w // 2, neck_bot_y),
+            (neck_cx + neck_top_w // 2, neck_top_y),
+            (neck_cx - neck_top_w // 2, neck_top_y),
+        ]
+        pygame.draw.polygon(screen, p["skin"], neck_pts)
+        pygame.draw.line(screen, p["skin_shadow"],
+                        (neck_cx + neck_top_w // 4, neck_top_y + 1),
+                        (neck_cx + neck_bot_w // 4, neck_bot_y - 1), 1)
+
         # === 머리 (고글 + 모자) ===
         head_y = torso_y - int(3.0 * b)
         head_w, head_h = int(2.2 * b), int(2.0 * b)
@@ -4795,10 +4814,18 @@ class HeroPaddleRenderer:
                 pygame.draw.circle(screen, p["metal"], (ring_x, ring_y), max(2, int(0.1 * b)), 1)
 
         # === 목 ===
-        neck_w = max(2, int(0.3 * b))
-        pygame.draw.line(screen, p["skin"],
-                        (cx + lean_offset, torso_y - int(0.25 * b)),
-                        (cx + lean_offset, torso_y - int(0.8 * b)), neck_w)
+        neck_bot_w = int(0.65 * b)
+        neck_top_w = int(0.45 * b)
+        neck_top_y = torso_y - int(0.8 * b)
+        neck_bot_y = torso_y - int(0.15 * b)
+        neck_cx = cx + lean_offset
+        neck_pts = [
+            (neck_cx - neck_bot_w // 2, neck_bot_y),
+            (neck_cx + neck_bot_w // 2, neck_bot_y),
+            (neck_cx + neck_top_w // 2, neck_top_y),
+            (neck_cx - neck_top_w // 2, neck_top_y),
+        ]
+        pygame.draw.polygon(screen, p["skin"], neck_pts)
 
         # === 머리 (닌자 마스크 - 고퀄리티) ===
         head_y = torso_y - int(2.7 * b)
@@ -9136,13 +9163,23 @@ class HeroPaddleRenderer:
                         special_flags=pygame.BLEND_ADD)
 
         # === 목 (기계 프레임 연결부) ===
-        neck_w = max(2, int(0.35 * b))
-        pygame.draw.line(screen, p["frame"],
-                        (cx + lean_offset, torso_y - int(0.4 * b)),
-                        (cx + lean_offset, torso_y - int(1.1 * b)), neck_w)
-        pygame.draw.line(screen, p["frame_light"],
-                        (cx + lean_offset - 1, torso_y - int(0.5 * b)),
-                        (cx + lean_offset - 1, torso_y - int(1.0 * b)), max(1, neck_w // 2))
+        neck_bot_w = int(0.8 * b)
+        neck_top_w = int(0.6 * b)
+        neck_top_y = torso_y - int(1.1 * b)
+        neck_bot_y = torso_y - int(0.3 * b)
+        neck_cx = cx + lean_offset
+        neck_pts = [
+            (neck_cx - neck_bot_w // 2, neck_bot_y),
+            (neck_cx + neck_bot_w // 2, neck_bot_y),
+            (neck_cx + neck_top_w // 2, neck_top_y),
+            (neck_cx - neck_top_w // 2, neck_top_y),
+        ]
+        pygame.draw.polygon(screen, p["frame"], neck_pts)
+        pygame.draw.polygon(screen, p["frame_light"], neck_pts, 1)
+        # 중앙 프레임 라인
+        pygame.draw.line(screen, p["joint"],
+                        (neck_cx, neck_top_y + 2),
+                        (neck_cx, neck_bot_y - 2), max(1, int(0.08 * b)))
 
         # === 머리 (로봇 헤드 - 바이저 + 안테나) ===
         head_y = torso_y - int(3.1 * b)
