@@ -5239,15 +5239,11 @@ class DragonWing(HeroSkill):
                     ball.vx = dragon['direction'] * abs(boosted_speed) * 0.5
                     ball.vy = toward_opponent_vy * abs(boosted_speed) * 0.85
                     dragon['hit_cooldown'] = 0.5
-                    # 벽 충돌 사운드 재생
+                    # 벽 충돌 사운드 재생 (에너지볼 벽 충돌음)
                     try:
                         if not hasattr(DragonWing, '_wall_sound'):
-                            wall_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sounds", "pong_wall_hit.wav")
-                            if os.path.exists(wall_path):
-                                DragonWing._wall_sound = pygame.mixer.Sound(wall_path)
-                            else:
-                                wall_path2 = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sounds", "wall_hit.wav")
-                                DragonWing._wall_sound = pygame.mixer.Sound(wall_path2) if os.path.exists(wall_path2) else None
+                            wall_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "sounds", "wall_hit.wav")
+                            DragonWing._wall_sound = pygame.mixer.Sound(wall_path) if os.path.exists(wall_path) else None
                         if DragonWing._wall_sound:
                             DragonWing._wall_sound.play()
                     except Exception:
