@@ -4778,6 +4778,7 @@ class DragonBreath(HeroSkill):
         self.spawn_phase_ended = False  # 파티클 생성 단계 종료 여부
         self.fire_zone_timer = 0  # 화염지대 생성 타이머
         self.fire_zone_positions = []  # 생성된 화염지대 위치들
+        self.flying_dragon = None  # 날아가는 드래곤 엔티티
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.breath_particles = []
@@ -4815,6 +4816,26 @@ class DragonBreath(HeroSkill):
                 'color_phase': random.uniform(0, 1),
                 'delay': delay  # 발사 딜레이
             })
+
+        # 🐉 날아가는 드래곤 생성 - 브레스 방향으로 맵의 끝에서 끝으로 횡단
+        dragon_fly_dir = random.choice([-1, 1])  # 좌→우 또는 우→좌
+        if direction == 1:  # 위에서 아래로 (탑 캐스터)
+            dragon_y = random.uniform(200, 350)
+        else:  # 아래에서 위로 (바텀 캐스터)
+            dragon_y = random.uniform(400, 550)
+
+        dragon_start_x = 20.0 if dragon_fly_dir == 1 else 740.0
+        self.flying_dragon = {
+            'x': dragon_start_x,
+            'y': float(dragon_y),
+            'base_y': float(dragon_y),
+            'vx': dragon_fly_dir * 220.0,  # 약 2.7초에 맵 횡단
+            'wing_time': 0.0,
+            'direction': dragon_fly_dir,       # 비행 방향 (1=우, -1=좌)
+            'breath_dir': direction,           # 브레스 방향 (1=아래, -1=위)
+            'hit_cooldown': 0.0,
+            'active': True,
+        }
 
         return {
             'screen_effect': ScreenEffect.FIRE,
@@ -4963,6 +4984,41 @@ class DragonBreath(HeroSkill):
                     self.fire_zone_positions = []
                 self.fire_zone_positions.append((avg_x, avg_y))
 
+        # 🐉 날아가는 드래곤 업데이트
+        if self.flying_dragon and self.flying_dragon.get('active'):
+            dragon = self.flying_dragon
+            dragon['x'] += dragon['vx'] * dt
+            dragon['wing_time'] += dt
+            # Y축 부드러운 파도 움직임 (base_y 기준 ±8px 진동)
+            dragon['y'] = dragon['base_y'] + _sin(dragon['wing_time'] * 2.5) * 8
+
+            # 맵 밖으로 나가면 비활성화
+            if dragon['x'] < -120 or dragon['x'] > 880:
+                dragon['active'] = False
+
+            # 공과 충돌 체크
+            if dragon['hit_cooldown'] > 0:
+                dragon['hit_cooldown'] -= dt
+
+            dragon_rect = pygame.Rect(
+                int(dragon['x']) - 45, int(dragon['y']) - 20, 90, 40
+            )
+            if dragon['hit_cooldown'] <= 0 and dragon_rect.colliderect(ball_rect):
+                current_speed = math.hypot(ball.vx, ball.vy)
+                if current_speed < 8.0:
+                    current_speed = 10.0
+                boosted_speed = current_speed * random.uniform(1.4, 1.7)
+
+                if dragon['breath_dir'] == 1:  # 아래로
+                    ball.vy = abs(boosted_speed)
+                else:  # 위로
+                    ball.vy = -abs(boosted_speed)
+
+                # 드래곤 진행 방향으로 넉백
+                ball.vx += dragon['direction'] * random.uniform(3.0, 6.0)
+                dragon['hit_cooldown'] = 0.5
+                game_state['ball_on_fire'] = True
+
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         # 파티클은 이미 자연스럽게 페이드아웃되어 있어야 함
         # 혹시 남아있는 파티클이 있어도 다음 스킬 시작 시 초기화됨
@@ -4984,6 +5040,7 @@ class DragonBreath(HeroSkill):
         self.fire_zone_positions = []
         game_state['ball_on_fire'] = False
         game_state['spawn_dragon_fire_zones'] = []  # 화염지대 리스트도 초기화
+        self.flying_dragon = None
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         # 고퀄리티 드래곤 브레스 화염 이펙트
@@ -5103,6 +5160,139 @@ class DragonBreath(HeroSkill):
                               (int(p['x'] + spark_offset_x - spark_size - 1),
                                int(p['y'] + spark_offset_y - spark_size - 1)),
                               special_flags=pygame.BLEND_ADD)
+
+        # 🐉 날아가는 드래곤 그리기
+        if self.flying_dragon and self.flying_dragon.get('active'):
+            self._draw_flying_dragon(screen)
+
+    def _draw_flying_dragon(self, screen):
+        """날갯짓하며 맵을 횡단하는 드래곤 렌더링"""
+        d = self.flying_dragon
+        cx, cy = d['x'], d['y']
+        facing = d['direction']  # 1=우, -1=좌
+        wt = d['wing_time']
+        wing_flap = _sin(wt * 8)  # 날갯짓 진동 (-1 ~ 1, 초당 ~4회)
+
+        # 드래곤 서피스 (우측 방향 기준으로 그린 뒤 필요시 좌우 반전)
+        SURF_W, SURF_H = 200, 160
+        CX, CY = 100, 90  # 서피스 내 몸통 중심
+
+        dragon_surf = pygame.Surface((SURF_W, SURF_H), pygame.SRCALPHA)
+
+        # ── 꼬리 ──
+        for i in range(7):
+            tx = CX - 35 - i * 8
+            ty = CY + _sin(wt * 4 + i * 0.7) * (2 + i * 1.8)
+            tr = max(2, 7 - i)
+            col_r = max(80, 170 - i * 12)
+            t_alpha = max(60, 220 - i * 25)
+            t_surf = pygame.Surface((tr * 2 + 2, tr * 2 + 2), pygame.SRCALPHA)
+            pygame.draw.circle(t_surf, (col_r, 40, 15, t_alpha), (tr + 1, tr + 1), tr)
+            dragon_surf.blit(t_surf, (int(tx - tr - 1), int(ty - tr - 1)))
+
+        # 꼬리 끝 화살촉
+        last_tx = CX - 35 - 7 * 8
+        last_ty = CY + _sin(wt * 4 + 7 * 0.7) * (2 + 7 * 1.8)
+        tip_pts = [
+            (int(last_tx), int(last_ty)),
+            (int(last_tx - 14), int(last_ty - 7)),
+            (int(last_tx - 14), int(last_ty + 7)),
+        ]
+        pygame.draw.polygon(dragon_surf, (140, 35, 15, 180), tip_pts)
+
+        # ── 날개 (날갯짓 애니메이션) ──
+        wing_y_off = wing_flap * 25  # 앞쪽 끝 날갯짓 범위
+        wing_y_off2 = wing_flap * 18  # 뒤쪽 끝 날갯짓 범위
+
+        # 날개 막 (반투명 폴리곤)
+        wing_pts = [
+            (CX - 5, CY - 8),
+            (CX + 5, int(CY - 35 - wing_y_off)),
+            (CX - 25, int(CY - 40 - wing_y_off)),
+            (CX - 45, int(CY - 30 - wing_y_off2)),
+            (CX - 30, CY - 5),
+        ]
+        pygame.draw.polygon(dragon_surf, (220, 100, 40, 150), wing_pts)
+        pygame.draw.lines(dragon_surf, (240, 120, 50, 200), True,
+                          [(int(p[0]), int(p[1])) for p in wing_pts], 2)
+
+        # 날개 뼈대
+        pygame.draw.line(dragon_surf, (180, 60, 25, 220),
+                         (CX - 5, CY - 8),
+                         (CX + 5, int(CY - 35 - wing_y_off)), 3)
+        pygame.draw.line(dragon_surf, (180, 60, 25, 200),
+                         (CX - 5, CY - 8),
+                         (CX - 25, int(CY - 40 - wing_y_off)), 2)
+        pygame.draw.line(dragon_surf, (180, 60, 25, 180),
+                         (CX - 5, CY - 8),
+                         (CX - 45, int(CY - 30 - wing_y_off2)), 2)
+
+        # ── 몸통 ──
+        pygame.draw.ellipse(dragon_surf, (180, 60, 30), (CX - 28, CY - 12, 56, 24))
+        pygame.draw.ellipse(dragon_surf, (200, 80, 45), (CX - 22, CY - 9, 44, 18))
+        # 배 (밝은 색)
+        pygame.draw.ellipse(dragon_surf, (230, 160, 80), (CX - 15, CY + 2, 30, 10))
+
+        # ── 목 + 머리 ──
+        head_x, head_y = CX + 45, CY - 10
+        pygame.draw.line(dragon_surf, (185, 65, 32),
+                         (CX + 22, CY - 5), (head_x - 5, head_y + 2), 9)
+        pygame.draw.circle(dragon_surf, (190, 65, 35), (head_x, head_y), 11)
+        pygame.draw.circle(dragon_surf, (205, 80, 45), (head_x, head_y), 9)
+
+        # 주둥이
+        snout_x, snout_y = head_x + 14, head_y + 3
+        pygame.draw.polygon(dragon_surf, (190, 70, 35), [
+            (head_x + 9, head_y - 4),
+            (snout_x, snout_y),
+            (head_x + 9, head_y + 8),
+        ])
+
+        # 눈 (빛나는 노란 눈)
+        eye_x, eye_y = head_x + 3, head_y - 4
+        pygame.draw.circle(dragon_surf, (255, 220, 50), (eye_x, eye_y), 3)
+        pygame.draw.circle(dragon_surf, (255, 100, 0), (eye_x, eye_y), 1)
+
+        # 뿔
+        pygame.draw.line(dragon_surf, (120, 45, 20),
+                         (head_x - 3, head_y - 10), (head_x - 8, head_y - 22), 2)
+        pygame.draw.line(dragon_surf, (120, 45, 20),
+                         (head_x + 3, head_y - 9), (head_x - 1, head_y - 20), 2)
+
+        # ── 다리 ──
+        for leg_off in [-8, 12]:
+            lx = CX + leg_off
+            ly = CY + 12
+            sway = _sin(wt * 6 + leg_off) * 3
+            pygame.draw.line(dragon_surf, (160, 55, 28),
+                             (lx, ly), (int(lx + sway), ly + 15), 3)
+            pygame.draw.line(dragon_surf, (120, 40, 18),
+                             (int(lx + sway), ly + 15), (int(lx + sway + 4), ly + 18), 2)
+
+        # ── 입에서 나오는 화염 ──
+        for _ in range(4):
+            fx = snout_x + random.uniform(3, 22)
+            fy = snout_y + random.uniform(-7, 7)
+            fs = random.randint(3, 8)
+            fc = (255, random.randint(120, 220), random.randint(0, 50), random.randint(150, 230))
+            fire_s = pygame.Surface((fs * 2, fs * 2), pygame.SRCALPHA)
+            pygame.draw.circle(fire_s, fc, (fs, fs), fs)
+            dragon_surf.blit(fire_s, (int(fx - fs), int(fy - fs)))
+
+        # 좌측 방향이면 좌우 반전
+        if facing == -1:
+            dragon_surf = pygame.transform.flip(dragon_surf, True, False)
+
+        # 화면에 그리기
+        screen.blit(dragon_surf, (int(cx - SURF_W // 2), int(cy - CY)))
+
+        # ── 발광 오버레이 (BLEND_ADD) ──
+        glow_w, glow_h = 160, 100
+        glow_surf = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
+        glow_alpha = int(30 + 15 * _sin(wt * 5))
+        pygame.draw.ellipse(glow_surf, (255, 120, 40, glow_alpha), (0, 0, glow_w, glow_h))
+        screen.blit(glow_surf, (int(cx - glow_w // 2), int(cy - glow_h // 2)),
+                    special_flags=pygame.BLEND_ADD)
 
 
 class DragonWing(HeroSkill):
