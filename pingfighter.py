@@ -3066,34 +3066,52 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     set_fullscreen_mode(True, SCREEN)
     print(f"[전체화면] display_manager에 전체화면 모드 설정 완료 (SCREEN Surface 전달)", flush=True)
 else:
-    # === 창모드: SCALED 합성 서피스 (게임+필러 여백, SDL GPU 업스케일링) ===
-    # 합성 서피스 비율을 모니터 비율에 맞춰 레터박스 제거
-
-    # 모니터 해상도 감지 (display quit 전에 수행)
+    # === 창모드: SCALED 정수배 합성 (구 공식 창 사이즈 + SDL GPU 업스케일링) ===
+    # 1단계: 구 공식으로 목표 창 사이즈 계산 (폴백과 동일한 공식)
     if sys.platform == 'win32':
-        _comp_monitor = _get_native_resolution() or _get_current_resolution()
-        if _comp_monitor:
-            _comp_mon_w, _comp_mon_h = _comp_monitor
+        _win_native = _get_native_resolution() or _get_current_resolution()
+        if _win_native:
+            _init_monitor_w, _init_monitor_h = _win_native
         else:
-            _comp_mon_w, _comp_mon_h = 1920, 1080
+            _init_monitor_w, _init_monitor_h = 1920, 1080
     else:
-        _comp_dinfo = pygame.display.Info()
-        _comp_mon_w, _comp_mon_h = _comp_dinfo.current_w, _comp_dinfo.current_h
+        _init_dinfo = pygame.display.Info()
+        _init_monitor_w, _init_monitor_h = _init_dinfo.current_w, _init_dinfo.current_h
 
-    # 합성 높이 = 게임 + 상하 여백, 너비 = 모니터 비율에 맞춤
-    _comp_pad_y = max(int(HEIGHT * 0.06), 30)
-    _comp_h = HEIGHT + _comp_pad_y * 2
-    _comp_mon_aspect = _comp_mon_w / max(_comp_mon_h, 1)
-    _comp_w = max(int(_comp_h * _comp_mon_aspect), WIDTH + 100)
+    _init_base_h = int(_init_monitor_h * 0.85)
+    _init_win_scale = _init_base_h / HEIGHT
+    _init_game_w = int(WIDTH * _init_win_scale)
+    _init_pillar_pad_x = int(_init_game_w * 0.30)
+    _init_pillar_pad_y = max(int(_init_base_h * 0.065), 30)
+    _init_target_w = _init_game_w + _init_pillar_pad_x * 2
+    _init_target_h = _init_base_h + _init_pillar_pad_y * 2
+    if _init_target_w > int(_init_monitor_w * 0.90):
+        _init_target_w = int(_init_monitor_w * 0.90)
+    if _init_target_h > int(_init_monitor_h * 0.85):
+        _init_target_h = int(_init_monitor_h * 0.85)
+
+    # 2단계: 정수배 합성 크기 결정 (target/N >= 게임 크기인 최대 N)
+    _comp_w_try = _init_target_w // 2
+    _comp_h_try = _init_target_h // 2
+    if _comp_w_try >= WIDTH and _comp_h_try >= HEIGHT:
+        _comp_w = _comp_w_try
+        _comp_h = _comp_h_try
+        _scale_n = 2
+    else:
+        _comp_w = _init_target_w
+        _comp_h = _init_target_h
+        _scale_n = 1
     _comp_pad_x = (_comp_w - WIDTH) // 2
+    _comp_pad_y = (_comp_h - HEIGHT) // 2
 
+    # 3단계: SCALED 모드 시도 (SDL이 자동 정수배 업스케일링)
     _scaled_ok = False
     try:
-        print(f"[디스플레이] 창모드(SCALED 합성) 시작... 합성={_comp_w}x{_comp_h} (모니터비율 {_comp_mon_aspect:.2f})", flush=True)
+        print(f"[디스플레이] 창모드(SCALED x{_scale_n}) 시작... 합성={_comp_w}x{_comp_h} → 목표 {_init_target_w}x{_init_target_h}", flush=True)
         pygame.display.quit()
         pygame.display.init()
         os.environ['SDL_VIDEO_CENTERED'] = '1'
-        REAL_SCREEN = pygame.display.set_mode((_comp_w, _comp_h), pygame.SCALED | pygame.RESIZABLE)
+        REAL_SCREEN = pygame.display.set_mode((_comp_w, _comp_h), pygame.SCALED)
         if 'SDL_VIDEO_CENTERED' in os.environ:
             del os.environ['SDL_VIDEO_CENTERED']
         _scaled_ok = True
@@ -3103,7 +3121,7 @@ else:
             del os.environ['SDL_VIDEO_CENTERED']
 
     if _scaled_ok:
-        # --- SCALED 합성 모드: 게임 1:1 + 필러 배경, GPU 업스케일링 ---
+        # --- SCALED 합성 모드: 게임 1:1 + 필러 배경, GPU N배 업스케일링 ---
         _use_scaled_mode = True
 
         if _custom_cursor_enabled:
@@ -3133,7 +3151,7 @@ else:
         from display_manager import set_fullscreen_mode
         set_fullscreen_mode(True, SCREEN)
 
-        print(f"[디스플레이] 창모드(SCALED 합성) 완료: 합성 {_comp_w}x{_comp_h}, 게임 1:1, SDL GPU 스케일링", flush=True)
+        print(f"[디스플레이] 창모드(SCALED x{_scale_n}) 완료: 합성 {_comp_w}x{_comp_h}, 게임 1:1, SDL GPU 스케일링", flush=True)
     else:
         # --- 폴백: 기존 소프트웨어 스케일링 (필러 포함) ---
         if sys.platform == 'win32':
@@ -8956,12 +8974,32 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         FULLSCREEN_MODE = False
         _is_fullscreen_active = True
 
-        # 합성 서피스 비율을 모니터 비율에 맞춤 (레터박스 방지)
-        _comp_pad_y = max(int(HEIGHT * 0.06), 30)
-        _comp_h = HEIGHT + _comp_pad_y * 2
-        _comp_mon_aspect = monitor_w / max(monitor_h, 1)
-        _comp_w = max(int(_comp_h * _comp_mon_aspect), WIDTH + 100)
+        # 구 공식으로 목표 창 사이즈 계산 → 정수배 합성
+        _init_base_h = int(monitor_h * 0.85)
+        _init_win_scale = _init_base_h / HEIGHT
+        _init_game_w = int(WIDTH * _init_win_scale)
+        _init_pillar_pad_x = int(_init_game_w * 0.30)
+        _init_pillar_pad_y = max(int(_init_base_h * 0.065), 30)
+        _init_target_w = _init_game_w + _init_pillar_pad_x * 2
+        _init_target_h = _init_base_h + _init_pillar_pad_y * 2
+        if _init_target_w > int(monitor_w * 0.90):
+            _init_target_w = int(monitor_w * 0.90)
+        if _init_target_h > int(monitor_h * 0.85):
+            _init_target_h = int(monitor_h * 0.85)
+
+        # 정수배 합성 크기 결정
+        _comp_w_try = _init_target_w // 2
+        _comp_h_try = _init_target_h // 2
+        if _comp_w_try >= WIDTH and _comp_h_try >= HEIGHT:
+            _comp_w = _comp_w_try
+            _comp_h = _comp_h_try
+            _scale_n = 2
+        else:
+            _comp_w = _init_target_w
+            _comp_h = _init_target_h
+            _scale_n = 1
         _comp_pad_x = (_comp_w - WIDTH) // 2
+        _comp_pad_y = (_comp_h - HEIGHT) // 2
 
         # SCALED 합성 모드 시도 → 실패 시 소프트웨어 스케일링 폴백
         _sw_scaled_ok = False
@@ -8969,7 +9007,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             pygame.display.quit()
             pygame.display.init()
             os.environ['SDL_VIDEO_CENTERED'] = '1'
-            REAL_SCREEN = pygame.display.set_mode((_comp_w, _comp_h), pygame.SCALED | pygame.RESIZABLE)
+            REAL_SCREEN = pygame.display.set_mode((_comp_w, _comp_h), pygame.SCALED)
             if 'SDL_VIDEO_CENTERED' in os.environ:
                 del os.environ['SDL_VIDEO_CENTERED']
             _sw_scaled_ok = True
@@ -9078,10 +9116,11 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
 
         FULLSCREEN_MODE = False
         _is_fullscreen_active = True
-        _use_scaled_mode = False
 
-        # SCALED 모드에서 전환 시 display 리셋 필요
-        if _use_scaled_mode:
+        # SCALED 모드에서 전환 시 display 리셋 필요 (플래그 해제 전에 체크)
+        _was_scaled = _use_scaled_mode
+        _use_scaled_mode = False
+        if _was_scaled:
             pygame.display.quit()
             pygame.display.init()
 
@@ -9264,10 +9303,11 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
 
         FULLSCREEN_MODE = False
         _is_fullscreen_active = True
-        _use_scaled_mode = False
 
-        # SCALED 모드에서 전환 시 display 리셋 필요
-        if _use_scaled_mode:
+        # SCALED 모드에서 전환 시 display 리셋 필요 (플래그 해제 전에 체크)
+        _was_scaled = _use_scaled_mode
+        _use_scaled_mode = False
+        if _was_scaled:
             pygame.display.quit()
             pygame.display.init()
 
