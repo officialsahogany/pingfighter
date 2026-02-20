@@ -76786,8 +76786,18 @@ def _draw_arena_guard_tutorial() -> None:
             instructor_img = pygame.transform.smoothscale(instructor_img, (inst_width, inst_height))
         inst_padding = int(15 * _ui_s) if instructor_img else 0
 
-        # 박스 크기 (스케일 적용)
+        # 폰트 먼저 생성 (텍스트 너비 측정용)
+        _font_size = int(24 * _ui_s)
+        msg_font = get_font(_font_size)
+
+        # 박스 크기 (텍스트 너비 기반 동적 계산)
         text_area_width = int(460 * _ui_s)
+        _text_padding = int(30 * _ui_s)
+        for _m_msg in messages:
+            if "{KEY:" not in _m_msg:
+                _tw = msg_font.size(_m_msg)[0] + _text_padding
+                if _tw > text_area_width:
+                    text_area_width = _tw
         _line_height = int(35 * _ui_s)
         box_width = text_area_width + inst_width + inst_padding * 2 + int(20 * _ui_s)
         min_height = inst_height + int(30 * _ui_s) if instructor_img else int(40 * _ui_s)
@@ -76815,10 +76825,6 @@ def _draw_arena_guard_tutorial() -> None:
             instructor_y = box_y + (box_height - inst_height) // 2
             target_screen.blit(instructor_img, (instructor_x, instructor_y))
             text_start_x = box_x + inst_width + inst_padding * 2
-
-        # 메시지 텍스트 (조교 오른쪽, 폰트 스케일 적용)
-        _font_size = int(24 * _ui_s)
-        msg_font = get_font(_font_size)
         text_center_x = text_start_x + (text_area_width // 2)
         y_offset = box_y + (box_height - len(messages) * _line_height) // 2
 
@@ -77066,7 +77072,17 @@ def _draw_arena_portrait_tutorial() -> None:
             instructor_img = pygame.transform.smoothscale(instructor_img, (inst_width, inst_height))
         inst_padding = int(15 * _ui_s) if instructor_img else 0
 
+        # 폰트 먼저 생성 (텍스트 너비 측정용)
+        _font_size = int(24 * _ui_s)
+        msg_font = get_font(_font_size)
+
         text_area_width = int(460 * _ui_s)
+        _text_padding = int(30 * _ui_s)
+        for _m_msg in messages:
+            if "{KEY:" not in _m_msg:
+                _tw = msg_font.size(_m_msg)[0] + _text_padding
+                if _tw > text_area_width:
+                    text_area_width = _tw
         _line_height = int(35 * _ui_s)
         box_width = text_area_width + inst_width + inst_padding * 2 + int(20 * _ui_s)
         min_height = inst_height + int(30 * _ui_s) if instructor_img else int(40 * _ui_s)
@@ -77092,8 +77108,6 @@ def _draw_arena_portrait_tutorial() -> None:
             target_screen.blit(instructor_img, (instructor_x, instructor_y))
             text_start_x = box_x + inst_width + inst_padding * 2
 
-        _font_size = int(24 * _ui_s)
-        msg_font = get_font(_font_size)
         text_center_x = text_start_x + (text_area_width // 2)
         y_offset = box_y + (box_height - len(messages) * _line_height) // 2
 
@@ -77338,7 +77352,17 @@ def _draw_arena_speed_tutorial() -> None:
             instructor_img = pygame.transform.smoothscale(instructor_img, (inst_width, inst_height))
         inst_padding = int(15 * _ui_s) if instructor_img else 0
 
+        # 폰트 먼저 생성 (텍스트 너비 측정용)
+        _font_size = int(24 * _ui_s)
+        msg_font = get_font(_font_size)
+
         text_area_width = int(460 * _ui_s)
+        _text_padding = int(30 * _ui_s)
+        for _m_msg in messages:
+            if "{KEY:" not in _m_msg:
+                _tw = msg_font.size(_m_msg)[0] + _text_padding
+                if _tw > text_area_width:
+                    text_area_width = _tw
         _line_height = int(35 * _ui_s)
         box_width = text_area_width + inst_width + inst_padding * 2 + int(20 * _ui_s)
         min_height = inst_height + int(30 * _ui_s) if instructor_img else int(40 * _ui_s)
@@ -77364,8 +77388,6 @@ def _draw_arena_speed_tutorial() -> None:
             target_screen.blit(instructor_img, (instructor_x, instructor_y))
             text_start_x = box_x + inst_width + inst_padding * 2
 
-        _font_size = int(24 * _ui_s)
-        msg_font = get_font(_font_size)
         text_center_x = text_start_x + (text_area_width // 2)
         y_offset = box_y + (box_height - len(messages) * _line_height) // 2
 
@@ -77596,7 +77618,17 @@ def _draw_arena_henchman_tutorial() -> None:
             instructor_img = pygame.transform.smoothscale(instructor_img, (inst_width, inst_height))
         inst_padding = int(15 * _ui_s) if instructor_img else 0
 
+        # 폰트 먼저 생성 (텍스트 너비 측정용)
+        _font_size = int(24 * _ui_s)
+        msg_font = get_font(_font_size)
+
         text_area_width = int(460 * _ui_s)
+        _text_padding = int(30 * _ui_s)
+        for _m_msg in messages:
+            if "{KEY:" not in _m_msg:
+                _tw = msg_font.size(_m_msg)[0] + _text_padding
+                if _tw > text_area_width:
+                    text_area_width = _tw
         _line_height = int(35 * _ui_s)
         box_width = text_area_width + inst_width + inst_padding * 2 + int(20 * _ui_s)
         min_height = inst_height + int(30 * _ui_s) if instructor_img else int(40 * _ui_s)
@@ -77622,8 +77654,6 @@ def _draw_arena_henchman_tutorial() -> None:
             target_screen.blit(instructor_img, (instructor_x, instructor_y))
             text_start_x = box_x + inst_width + inst_padding * 2
 
-        _font_size = int(24 * _ui_s)
-        msg_font = get_font(_font_size)
         text_center_x = text_start_x + (text_area_width // 2)
         y_offset = box_y + (box_height - len(messages) * _line_height) // 2
 
@@ -77693,7 +77723,17 @@ def _draw_arena_capture_tutorial() -> None:
 
     # === 박스 크기 (텍스트 + 조교 이미지 기반 동적 계산) ===
     messages = current.get("messages", [])
+    # 폰트 먼저 생성 (텍스트 너비 측정용)
+    _font_size = int(24 * _ui_s)
+    _cap_msg_font = get_font(_font_size)
+
     text_area_width = int(460 * _ui_s)
+    _text_padding = int(30 * _ui_s)
+    for _m_msg in messages:
+        if "{KEY:" not in _m_msg:
+            _tw = _cap_msg_font.size(_m_msg)[0] + _text_padding
+            if _tw > text_area_width:
+                text_area_width = _tw
     _line_height = int(35 * _ui_s)
     box_width = text_area_width + inst_width + inst_padding * 2 + int(20 * _ui_s)
     min_height = inst_height + int(30 * _ui_s) if instructor_img else int(40 * _ui_s)
@@ -77721,10 +77761,6 @@ def _draw_arena_capture_tutorial() -> None:
         _inst_y = box_y + (box_height - inst_height) // 2
         target_screen.blit(instructor_img, (_inst_x, _inst_y))
         text_start_x = _inst_x + inst_width + inst_padding
-
-    # 메시지 렌더
-    _font_size = int(24 * _ui_s)
-    _cap_msg_font = get_font(_font_size)
     y_offset = box_y + (box_height - len(messages) * _line_height) // 2
     for msg in messages:
         if "{KEY:" in msg:
