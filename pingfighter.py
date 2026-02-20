@@ -93118,9 +93118,6 @@ def draw_objects():
                 spark_offset = random.randint(-5, 5)
                 draw.circle((200, 220, 255), 
                                   (antenna_right_x + spark_offset, antenna_tip_y + random.randint(-3, 3)), 1)
-    # 투기장 대쉬 잔상 + 폭풍질주 파티클 렌더링 (패들 뒤에 그려짐)
-    if arena_mode_enabled:
-        draw_arena_dash_afterimages(SCREEN)
     # 투기장 모드일 때 상단 영웅 패들 그리기 (보스 대신)
     if arena_mode_enabled and arena_top_hero and arena_hero_paddle_renderer:
         try:
@@ -94259,6 +94256,190 @@ def draw_objects():
                                (fade_x, PLAYER.centery - fade_height),
                                (fade_x, PLAYER.centery + fade_height), 1)
 
+    # 투기장 폭풍질주 버스트업: 대쉬 중 로즈골드 그라데이션 트레일 (스매셔 Lv3 동일)
+    if arena_mode_enabled and arena_storm_rush_burst_bottom and arena_bottom_dashing:
+        _sr_primary = (255, 200, 180)   # 로즈 골드
+        _sr_secondary = (240, 160, 140) # 피치
+        _sr_accent = (255, 230, 210)    # 라이트 피치
+        _sr_glow = 0.6
+        _sr_trail_length = min(abs(arena_bottom_dash_target_x - PLAYER.centerx), 250)
+        _sr_dir = arena_bottom_dash_direction
+        if _sr_dir == -1:
+            _sr_trail_sx = PLAYER.centerx + PADDLE_WIDTH // 2
+            _sr_trail_ex = _sr_trail_sx + _sr_trail_length
+        else:
+            _sr_trail_sx = PLAYER.centerx - PADDLE_WIDTH // 2
+            _sr_trail_ex = _sr_trail_sx - _sr_trail_length
+        # 1. 소프트 오로라 글로우
+        _sr_glow_w = abs(_sr_trail_ex - _sr_trail_sx) + 150
+        if _sr_glow_w > 0:
+            _sr_gs = pygame.Surface((_sr_glow_w, HEIGHT), pygame.SRCALPHA)
+            for _sr_ly in range(8):
+                _sr_lp = _sr_ly / 7
+                _sr_r = int(_sr_primary[0] * (1 - _sr_lp) + _sr_secondary[0] * _sr_lp)
+                _sr_g = int(_sr_primary[1] * (1 - _sr_lp) + _sr_secondary[1] * _sr_lp)
+                _sr_b = int(_sr_primary[2] * (1 - _sr_lp) + _sr_secondary[2] * _sr_lp)
+                _sr_la = int(30 * _sr_glow * (1 - _sr_lp * 0.7))
+                _sr_lw = int(80 - _sr_ly * 8)
+                if _sr_la > 0 and _sr_lw > 0:
+                    for _sr_off in range(-_sr_lw // 2, _sr_lw // 2):
+                        _sr_or = 1 - (abs(_sr_off) / (_sr_lw / 2)) ** 2
+                        _sr_pa = int(_sr_la * _sr_or)
+                        if _sr_pa > 0:
+                            _sr_wo = math.sin(pygame.time.get_ticks() * 0.002 + _sr_ly * 0.5) * 2
+                            pygame.draw.line(_sr_gs, (_sr_r, _sr_g, _sr_b, _sr_pa),
+                                (0, PLAYER.centery + _sr_off + _sr_wo),
+                                (_sr_glow_w - 150, PLAYER.centery + _sr_off + _sr_wo), 1)
+            if _sr_dir == -1:
+                SCREEN.blit(_sr_gs, (_sr_trail_sx - 50, 0))
+            else:
+                SCREEN.blit(_sr_gs, (_sr_trail_ex - 50, 0))
+        # 2. 실크 리본 트레일
+        _sr_tw = abs(_sr_trail_ex - _sr_trail_sx) + 50
+        if _sr_tw > 0:
+            _sr_ts = pygame.Surface((_sr_tw, HEIGHT), pygame.SRCALPHA)
+            for _sr_ri in range(5):
+                _sr_ro = (_sr_ri - 2) * 12
+                _sr_pts = []
+                for _sr_si in range(41):
+                    _sr_t = _sr_si / 40
+                    _sr_x = _sr_t * abs(_sr_trail_ex - _sr_trail_sx)
+                    _sr_to = pygame.time.get_ticks() * 0.003
+                    _sr_w1 = math.sin(_sr_t * 3 + _sr_to) * 4
+                    _sr_w2 = math.sin(_sr_t * 5 + _sr_to * 1.5) * 2
+                    _sr_y = PLAYER.centery + _sr_ro + _sr_w1 + _sr_w2
+                    _sr_pts.append((_sr_x, _sr_y))
+                if len(_sr_pts) > 1:
+                    for _sr_i in range(len(_sr_pts) - 1):
+                        _sr_sp = _sr_i / (len(_sr_pts) - 1)
+                        _sr_fi = min(1, _sr_sp * 4)
+                        _sr_fo = min(1, (1 - _sr_sp) * 2)
+                        _sr_ff = _sr_fi * _sr_fo
+                        if _sr_sp < 0.5:
+                            _sr_ct = _sr_sp * 2
+                            _sr_cr = int(_sr_accent[0] * (1 - _sr_ct) + _sr_primary[0] * _sr_ct)
+                            _sr_cg = int(_sr_accent[1] * (1 - _sr_ct) + _sr_primary[1] * _sr_ct)
+                            _sr_cb = int(_sr_accent[2] * (1 - _sr_ct) + _sr_primary[2] * _sr_ct)
+                        else:
+                            _sr_ct = (_sr_sp - 0.5) * 2
+                            _sr_cr = int(_sr_primary[0] * (1 - _sr_ct) + _sr_secondary[0] * _sr_ct)
+                            _sr_cg = int(_sr_primary[1] * (1 - _sr_ct) + _sr_secondary[1] * _sr_ct)
+                            _sr_cb = int(_sr_primary[2] * (1 - _sr_ct) + _sr_secondary[2] * _sr_ct)
+                        _sr_th = int(2 + 2 * _sr_ff)
+                        _sr_al = int(120 * _sr_ff * _sr_glow)
+                        if _sr_al > 0:
+                            pygame.draw.line(_sr_ts, (_sr_cr, _sr_cg, _sr_cb, _sr_al),
+                                _sr_pts[_sr_i], _sr_pts[_sr_i + 1], _sr_th)
+            if _sr_dir == -1:
+                SCREEN.blit(_sr_ts, (_sr_trail_sx, 0))
+            else:
+                SCREEN.blit(_sr_ts, (_sr_trail_ex, 0))
+        # 3. 스타더스트 파티클
+        for _ in range(14):
+            _sr_pt = random.random()
+            _sr_px = _sr_trail_sx + _sr_pt * (_sr_trail_ex - _sr_trail_sx)
+            _sr_py = PLAYER.centery + random.randint(-25, 25)
+            _sr_pal = int(80 * (1 - _sr_pt * 0.6) * _sr_glow)
+            _sr_psz = random.randint(1, 2)
+            _sr_spk = abs(math.sin(pygame.time.get_ticks() * 0.01 + _sr_pt * 10))
+            _sr_pal = int(_sr_pal * (0.5 + _sr_spk * 0.5))
+            if _sr_pal > 0 and random.random() < 0.4:
+                _sr_psurf = pygame.Surface((_sr_psz * 4, _sr_psz * 4), pygame.SRCALPHA)
+                for _sr_ci in range(_sr_psz, 0, -1):
+                    _sr_ca = int(_sr_pal * (_sr_ci / _sr_psz))
+                    _sr_cc = _sr_accent if _sr_ci == _sr_psz else _sr_primary
+                    pygame.draw.circle(_sr_psurf, (*_sr_cc, _sr_ca), (_sr_psz * 2, _sr_psz * 2), _sr_ci)
+                SCREEN.blit(_sr_psurf, (_sr_px - _sr_psz * 2, _sr_py - _sr_psz * 2))
+        # 4. 패들 주변 소프트 오라
+        _sr_aw = PADDLE_WIDTH + 100
+        _sr_ah = PADDLE_HEIGHT + arena_storm_rush_height_bonus_bottom + 100
+        _sr_asurf = pygame.Surface((_sr_aw, _sr_ah), pygame.SRCALPHA)
+        _sr_tf = pygame.time.get_ticks() * 0.002
+        for _sr_ai in range(5):
+            _sr_ap = _sr_ai / 4
+            _sr_ar = int(_sr_accent[0] * (1 - _sr_ap) + _sr_secondary[0] * _sr_ap)
+            _sr_ag = int(_sr_accent[1] * (1 - _sr_ap) + _sr_secondary[1] * _sr_ap)
+            _sr_ab = int(_sr_accent[2] * (1 - _sr_ap) + _sr_secondary[2] * _sr_ap)
+            _sr_pulse = 1 + math.sin(_sr_tf + _sr_ai * 0.5) * 0.1
+            _sr_aa = int(60 * (1 - _sr_ap) * _sr_glow * _sr_pulse)
+            _sr_asz = int((10 + _sr_ai * 8) * _sr_pulse)
+            if _sr_aa > 0:
+                pygame.draw.ellipse(_sr_asurf, (_sr_ar, _sr_ag, _sr_ab, _sr_aa),
+                    (50 - _sr_asz, 50 - _sr_asz, PADDLE_WIDTH + _sr_asz * 2,
+                     PADDLE_HEIGHT + arena_storm_rush_height_bonus_bottom + _sr_asz * 2), 1)
+        SCREEN.blit(_sr_asurf, (PLAYER.centerx - _sr_aw // 2, PLAYER.centery - _sr_ah // 2))
+    # 투기장 폭풍질주 버스트업: 상단 영웅 대쉬 중 로즈골드 그라데이션 트레일
+    if arena_mode_enabled and arena_storm_rush_burst_top and arena_top_dashing:
+        _srt_primary = (255, 200, 180)
+        _srt_secondary = (240, 160, 140)
+        _srt_accent = (255, 230, 210)
+        _srt_glow = 0.6
+        _srt_trail_length = min(abs(arena_top_dash_target_x - BOSS.centerx), 250)
+        _srt_dir = arena_top_dash_direction
+        if _srt_dir == -1:
+            _srt_sx = BOSS.centerx + BOSS.width // 2
+            _srt_ex = _srt_sx + _srt_trail_length
+        else:
+            _srt_sx = BOSS.centerx - BOSS.width // 2
+            _srt_ex = _srt_sx - _srt_trail_length
+        # 실크 리본 트레일 (상단 영웅)
+        _srt_tw = abs(_srt_ex - _srt_sx) + 50
+        if _srt_tw > 0:
+            _srt_ts = pygame.Surface((_srt_tw, HEIGHT), pygame.SRCALPHA)
+            for _srt_ri in range(5):
+                _srt_ro = (_srt_ri - 2) * 12
+                _srt_pts = []
+                for _srt_si in range(41):
+                    _srt_t = _srt_si / 40
+                    _srt_x = _srt_t * abs(_srt_ex - _srt_sx)
+                    _srt_to = pygame.time.get_ticks() * 0.003
+                    _srt_w1 = math.sin(_srt_t * 3 + _srt_to) * 4
+                    _srt_w2 = math.sin(_srt_t * 5 + _srt_to * 1.5) * 2
+                    _srt_y = BOSS.centery + _srt_ro + _srt_w1 + _srt_w2
+                    _srt_pts.append((_srt_x, _srt_y))
+                if len(_srt_pts) > 1:
+                    for _srt_i in range(len(_srt_pts) - 1):
+                        _srt_sp = _srt_i / (len(_srt_pts) - 1)
+                        _srt_fi = min(1, _srt_sp * 4)
+                        _srt_fo = min(1, (1 - _srt_sp) * 2)
+                        _srt_ff = _srt_fi * _srt_fo
+                        if _srt_sp < 0.5:
+                            _srt_ct = _srt_sp * 2
+                            _srt_cr = int(_srt_accent[0] * (1 - _srt_ct) + _srt_primary[0] * _srt_ct)
+                            _srt_cg = int(_srt_accent[1] * (1 - _srt_ct) + _srt_primary[1] * _srt_ct)
+                            _srt_cb = int(_srt_accent[2] * (1 - _srt_ct) + _srt_primary[2] * _srt_ct)
+                        else:
+                            _srt_ct = (_srt_sp - 0.5) * 2
+                            _srt_cr = int(_srt_primary[0] * (1 - _srt_ct) + _srt_secondary[0] * _srt_ct)
+                            _srt_cg = int(_srt_primary[1] * (1 - _srt_ct) + _srt_secondary[1] * _srt_ct)
+                            _srt_cb = int(_srt_primary[2] * (1 - _srt_ct) + _srt_secondary[2] * _srt_ct)
+                        _srt_th = int(2 + 2 * _srt_ff)
+                        _srt_al = int(120 * _srt_ff * _srt_glow)
+                        if _srt_al > 0:
+                            pygame.draw.line(_srt_ts, (_srt_cr, _srt_cg, _srt_cb, _srt_al),
+                                _srt_pts[_srt_i], _srt_pts[_srt_i + 1], _srt_th)
+            if _srt_dir == -1:
+                SCREEN.blit(_srt_ts, (_srt_sx, 0))
+            else:
+                SCREEN.blit(_srt_ts, (_srt_ex, 0))
+        # 패들 주변 소프트 오라 (상단)
+        _srt_aw = BOSS.width + 100
+        _srt_ah = BOSS.height + arena_storm_rush_height_bonus_top + 100
+        _srt_asurf = pygame.Surface((_srt_aw, _srt_ah), pygame.SRCALPHA)
+        _srt_tf = pygame.time.get_ticks() * 0.002
+        for _srt_ai in range(5):
+            _srt_ap = _srt_ai / 4
+            _srt_ar = int(_srt_accent[0] * (1 - _srt_ap) + _srt_secondary[0] * _srt_ap)
+            _srt_ag = int(_srt_accent[1] * (1 - _srt_ap) + _srt_secondary[1] * _srt_ap)
+            _srt_ab = int(_srt_accent[2] * (1 - _srt_ap) + _srt_secondary[2] * _srt_ap)
+            _srt_pulse = 1 + math.sin(_srt_tf + _srt_ai * 0.5) * 0.1
+            _srt_aa = int(60 * (1 - _srt_ap) * _srt_glow * _srt_pulse)
+            _srt_asz = int((10 + _srt_ai * 8) * _srt_pulse)
+            if _srt_aa > 0:
+                pygame.draw.ellipse(_srt_asurf, (_srt_ar, _srt_ag, _srt_ab, _srt_aa),
+                    (50 - _srt_asz, 50 - _srt_asz, BOSS.width + _srt_asz * 2,
+                     BOSS.height + arena_storm_rush_height_bonus_top + _srt_asz * 2), 1)
+        SCREEN.blit(_srt_asurf, (BOSS.centerx - _srt_aw // 2, BOSS.centery - _srt_ah // 2))
     # 테크니컬조끼 연막 효과 그리기 (플레이어 패들보다 먼저 그려서 패들이 위에 보이도록)
     draw_technical_vest_effects(SCREEN)
 
