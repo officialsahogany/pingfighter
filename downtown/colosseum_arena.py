@@ -17916,7 +17916,7 @@ class ColosseumsArena:
                     loyalty_count = self.guard_loyalty_cd_bonus.get(bet_id, 0)
                     next_bonus = (loyalty_count + 1) * 5  # 선택 시 받을 보너스
                     if loyalty_count > 0:
-                        bonus_text = f"쿨타임 -{loyalty_count * 5}% (유지 시 -{next_bonus}%)"
+                        bonus_text = f"쿨타임 -{loyalty_count * 5}%(유지-{next_bonus}%)"
                     else:
                         bonus_text = f"유지 시 쿨타임 -{next_bonus}%"
                     bonus_color = (100, 220, 160)
@@ -17927,7 +17927,7 @@ class ColosseumsArena:
                                      (0, 0, bonus_bg.get_width(), bonus_bg.get_height()),
                                      1, border_radius=4)
                     bbx = draw_x + 6
-                    bby = draw_y + 6 + badge_bg.get_height() + 4
+                    bby = draw_y + 6
                     self.screen.blit(bonus_bg, (bbx, bby))
                     self.screen.blit(bonus_surf, (bbx + 5, bby + 2))
 
