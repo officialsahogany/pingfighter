@@ -139207,6 +139207,35 @@ def main(stage_num, new_boss_mode=False):
 
                     # 마법결계: 플래시/빔/녹아내리는 이펙트 타이머 업데이트
                     _update_barrier_block_effects(dt)
+
+                    # 마법결계: 스킬 업데이트 중 발생한 패링 이벤트 처리
+                    _barrier_events = arena_skill_manager.game_state.get('barrier_block_events', [])
+                    for _be in _barrier_events:
+                        _be_skill_name = _be.get('skill_korean_name', '')
+                        _be_caster_is_top = _be.get('caster_is_top', True)
+                        _be_caster_x = _be.get('caster_x', 380.0)
+                        _be_caster_y = _be.get('caster_y', 375.0)
+                        _be_target_x = _be.get('target_x', 380.0)
+                        _be_target_y = _be.get('target_y', 375.0)
+                        # 시전자 말풍선 (스킬명), 방어자 말풍선 (패링)
+                        if _be_caster_is_top:
+                            arena_show_speech_bubble(True, _be_skill_name, hero_id=arena_top_hero["id"] if arena_top_hero else None)
+                            arena_show_speech_bubble(False, '패링', hero_id=arena_bottom_hero["id"] if arena_bottom_hero else None)
+                            _be_hero_color = arena_top_hero.get("color", (180, 80, 220)) if arena_top_hero else (180, 80, 220)
+                        else:
+                            arena_show_speech_bubble(False, _be_skill_name, hero_id=arena_bottom_hero["id"] if arena_bottom_hero else None)
+                            arena_show_speech_bubble(True, '패링', hero_id=arena_top_hero["id"] if arena_top_hero else None)
+                            _be_hero_color = arena_bottom_hero.get("color", (180, 80, 220)) if arena_bottom_hero else (180, 80, 220)
+                        _spawn_barrier_block_effect(
+                            caster_x=float(_be_caster_x), caster_y=float(_be_caster_y),
+                            target_x=float(_be_target_x), target_y=float(_be_target_y),
+                            skill_name=_be_skill_name,
+                            caster_is_top=_be_caster_is_top,
+                            hero_color=_be_hero_color
+                        )
+                    if _barrier_events:
+                        arena_skill_manager.game_state['barrier_block_events'] = []
+
                     # 번뜩이는 영감: 반짝임 이펙트 타이머 업데이트
                     _update_flash_inspiration(dt)
                     # 🔥 기사회생 오오라 애니메이션 타이머

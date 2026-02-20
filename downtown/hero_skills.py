@@ -876,6 +876,17 @@ class TentacleWrap(HeroSkill):
                 if game_state.get(f'magic_immunity_{_immunity_side}', False):
                     self.is_active = False
                     self._end_effect(caster_paddle, target_paddle, ball, game_state)
+                    # 패링 이펙트 이벤트 전달
+                    if 'barrier_block_events' not in game_state:
+                        game_state['barrier_block_events'] = []
+                    game_state['barrier_block_events'].append({
+                        'skill_korean_name': self.korean_name,
+                        'caster_is_top': getattr(self, 'caster_is_top', True),
+                        'caster_x': caster_paddle.x + getattr(caster_paddle, 'width', 80) / 2,
+                        'caster_y': caster_paddle.y + getattr(caster_paddle, 'height', 10) / 2,
+                        'target_x': target_paddle.x + getattr(target_paddle, 'width', 80) / 2,
+                        'target_y': target_paddle.y + getattr(target_paddle, 'height', 10) / 2,
+                    })
                     return
 
                 self.phase = 'wrap'
@@ -2386,6 +2397,17 @@ class DwarfMagic(HeroSkill):
                 _immunity_side = 'top' if target_paddle.is_top else 'bottom'
                 if game_state.get(f'magic_immunity_{_immunity_side}', False):
                     self.projectile_active = False
+                    # 패링 이펙트 이벤트 전달
+                    if 'barrier_block_events' not in game_state:
+                        game_state['barrier_block_events'] = []
+                    game_state['barrier_block_events'].append({
+                        'skill_korean_name': self.korean_name,
+                        'caster_is_top': getattr(self, 'caster_is_top', True),
+                        'caster_x': caster_paddle.x + getattr(caster_paddle, 'width', 80) / 2,
+                        'caster_y': caster_paddle.y + getattr(caster_paddle, 'height', 10) / 2,
+                        'target_x': target_paddle.x + getattr(target_paddle, 'width', 80) / 2,
+                        'target_y': target_paddle.y + getattr(target_paddle, 'height', 10) / 2,
+                    })
                     return
 
                 # 명중!
@@ -7196,6 +7218,17 @@ class IllusionShuriken(HeroSkill):
                 _immunity_side = 'top' if self.target_is_top else 'bottom'
                 if game_state.get(f'magic_immunity_{_immunity_side}', False):
                     # 수리검은 소멸하지만 넉백/스턴은 적용하지 않음
+                    # 패링 이펙트 이벤트 전달
+                    if 'barrier_block_events' not in game_state:
+                        game_state['barrier_block_events'] = []
+                    game_state['barrier_block_events'].append({
+                        'skill_korean_name': self.korean_name,
+                        'caster_is_top': getattr(self, 'caster_is_top', True),
+                        'caster_x': caster_paddle.x + getattr(caster_paddle, 'width', 80) / 2,
+                        'caster_y': caster_paddle.y + getattr(caster_paddle, 'height', 10) / 2,
+                        'target_x': target_paddle.x + getattr(target_paddle, 'width', 80) / 2,
+                        'target_y': target_paddle.y + getattr(target_paddle, 'height', 10) / 2,
+                    })
                     continue
 
                 # 수리검 히트 사운드 재생
@@ -11989,8 +12022,23 @@ class GatlingBurst(HeroSkill):
             if hit:
                 # 마법결계 면역 체크
                 _imm_side = 'top' if target_is_top else 'bottom'
-                if not game_state.get(
+                if game_state.get(
                         f'magic_immunity_{_imm_side}', False):
+                    # 패링 이펙트 이벤트 전달 (중복 방지: 프레임당 1회만)
+                    _block_events = game_state.get('barrier_block_events', [])
+                    _already_has = any(e.get('skill_korean_name') == self.korean_name for e in _block_events)
+                    if not _already_has:
+                        if 'barrier_block_events' not in game_state:
+                            game_state['barrier_block_events'] = []
+                        game_state['barrier_block_events'].append({
+                            'skill_korean_name': self.korean_name,
+                            'caster_is_top': self.caster_is_top,
+                            'caster_x': caster_paddle.x + getattr(caster_paddle, 'width', 80) / 2,
+                            'caster_y': caster_paddle.y + getattr(caster_paddle, 'height', 10) / 2,
+                            'target_x': target_paddle.x + getattr(target_paddle, 'width', 80) / 2,
+                            'target_y': target_paddle.y + getattr(target_paddle, 'height', 10) / 2,
+                        })
+                else:
                     knockback_dir = (1 if bullet['vx'] > 0
                                     else -1)
                     if abs(bullet['vx']) < 10:
@@ -14585,6 +14633,17 @@ class BananaSlice(HeroSkill):
                         landed['slip_triggered'] = True
                         landed['active'] = False
                         self._create_burst_particles(landed['x'], landed['y'])
+                        # 패링 이펙트 이벤트 전달
+                        if 'barrier_block_events' not in game_state:
+                            game_state['barrier_block_events'] = []
+                        game_state['barrier_block_events'].append({
+                            'skill_korean_name': self.korean_name,
+                            'caster_is_top': getattr(self, 'caster_is_top', True),
+                            'caster_x': caster_paddle.x + getattr(caster_paddle, 'width', 80) / 2,
+                            'caster_y': caster_paddle.y + getattr(caster_paddle, 'height', 10) / 2,
+                            'target_x': target_paddle.x + getattr(target_paddle, 'width', 80) / 2,
+                            'target_y': target_paddle.y + getattr(target_paddle, 'height', 10) / 2,
+                        })
                         continue
                     landed['slip_triggered'] = True
                     landed['active'] = False
