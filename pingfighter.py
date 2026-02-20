@@ -78852,6 +78852,9 @@ def apply_white_glow(surface, intensity=60):
     """
     if surface.get_width() > 400 or surface.get_height() > 400:
         return
+    intensity = max(0, min(255, int(intensity)))
+    if intensity == 0:
+        return
     # BLEND_RGB_ADD로 한 번에 밝기 추가 - 알파 채널은 보존됨
     surface.fill((intensity, intensity, intensity), special_flags=pygame.BLEND_RGB_ADD)
 def draw_stage1_boss_gauge_bar():
@@ -92681,7 +92684,7 @@ def draw_objects():
             # 보스 충돌 시 빛나는 효과 추가 (파워스매싱 상태일 때만)
             if boss_hit_animation_active and boss_hit_animation_timer > BOSS_HIT_ANIMATION_DURATION - 3 and special_active:
                 # 파워스매싱 충돌 직후 3프레임 동안 빛나는 효과
-                glow_intensity = (BOSS_HIT_ANIMATION_DURATION - boss_hit_animation_timer) * 20
+                glow_intensity = max(0, min(255, int((BOSS_HIT_ANIMATION_DURATION - boss_hit_animation_timer) * 20)))
                 apply_white_glow(rotated_deactivation_boss, intensity=glow_intensity)
 
             # === 홀로그램 물질화 효과 적용 (보스 - rotated_deactivation_boss) ===
@@ -92694,7 +92697,7 @@ def draw_objects():
             # 보스 충돌 시 빛나는 효과 추가 (파워스매싱 상태일 때만)
             if boss_hit_animation_active and boss_hit_animation_timer > BOSS_HIT_ANIMATION_DURATION - 3 and special_active:
                 # 파워스매싱 충돌 직후 3프레임 동안 빛나는 효과
-                glow_intensity = (BOSS_HIT_ANIMATION_DURATION - boss_hit_animation_timer) * 20
+                glow_intensity = max(0, min(255, int((BOSS_HIT_ANIMATION_DURATION - boss_hit_animation_timer) * 20)))
                 apply_white_glow(rotated_boss, intensity=glow_intensity)
             # 상모돌리기 종료 후 헐떡임(호흡) 연출: 패들을 위아래로 작게 이동
             bob_offset = 0
