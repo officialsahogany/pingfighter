@@ -101949,12 +101949,140 @@ def _make_arena_fonts():
     return fonts
 
 
+def _show_arena_tutorial_confirm():
+    """투기장 튜토리얼 확인 다이얼로그 (메인메뉴 진입용)
+    Returns: True=예, False=아니오
+    """
+    global _arena_tutorial_enabled, _arena_guard_tutorial_shown
+    global _arena_portrait_tutorial_shown, _arena_speed_tutorial_shown
+
+    clock = pygame.time.Clock()
+    selected = 0  # 0: 예, 1: 아니오
+    animation_timer = 0.0
+
+    dialog_width = 500
+    dialog_height = 250
+    dialog_x = (WIDTH - dialog_width) // 2
+    dialog_y = (HEIGHT - dialog_height) // 2
+
+    button_width = 150
+    button_height = 50
+    button_y = dialog_y + 170
+    yes_btn = pygame.Rect(dialog_x + dialog_width // 2 - button_width - 20,
+                          button_y, button_width, button_height)
+    no_btn = pygame.Rect(dialog_x + dialog_width // 2 + 20,
+                         button_y, button_width, button_height)
+
+    while True:
+        clock.tick(60)
+        animation_timer += 0.016
+
+        # 배경
+        SCREEN.fill((0, 0, 0))
+
+        # 글로우
+        for i in range(4):
+            _ga = int(15 * (1 - i / 4))
+            _gr = pygame.Rect(dialog_x - i * 4, dialog_y - i * 4,
+                              dialog_width + i * 8, dialog_height + i * 8)
+            pygame.draw.rect(SCREEN, (255, 180, 0, _ga), _gr, border_radius=12)
+
+        # 패널
+        _ds = pygame.Surface((dialog_width, dialog_height), pygame.SRCALPHA)
+        pygame.draw.rect(_ds, (25, 30, 40, 240),
+                         (0, 0, dialog_width, dialog_height), border_radius=12)
+        pygame.draw.rect(_ds, (255, 180, 0, 200),
+                         (0, 0, dialog_width, dialog_height), width=3, border_radius=12)
+
+        # 텍스트
+        _tf = get_font(30)
+        _t1 = _tf.render("튜토리얼 가이드", True, (255, 215, 0))
+        _ds.blit(_t1, (_t1.get_rect(centerx=dialog_width // 2, y=30)))
+
+        _qf = get_font(22)
+        _q1 = _qf.render("튜토리얼 가이드와 함께 진행하시겠습니까?", True, (255, 255, 255))
+        _ds.blit(_q1, (_q1.get_rect(centerx=dialog_width // 2, y=80)))
+
+        _hf = get_font(16)
+        _h1 = _hf.render("투기장 시스템을 처음 접하시면 추천합니다.", True, (160, 160, 160))
+        _ds.blit(_h1, (_h1.get_rect(centerx=dialog_width // 2, y=115)))
+
+        SCREEN.blit(_ds, (dialog_x, dialog_y))
+
+        # 버튼
+        update_btn_hover_effects()
+        for btn, text, idx in [(yes_btn, "예", 0), (no_btn, "아니오", 1)]:
+            if selected == idx:
+                _bc = (80, 180, 80) if idx == 0 else (200, 90, 90)
+                _bdc = (100, 255, 100) if idx == 0 else (255, 120, 120)
+                _tc = (255, 255, 255)
+                _pulse = abs(math.sin(animation_timer * 3)) * 6
+                _pr = btn.inflate(_pulse, _pulse // 2)
+                pygame.draw.rect(SCREEN, _bc, _pr, border_radius=8)
+                pygame.draw.rect(SCREEN, _bdc, _pr, width=2, border_radius=8)
+                draw_btn_hover_border(SCREEN, btn.x, btn.y, btn.w, btn.h, _bdc)
+            else:
+                pygame.draw.rect(SCREEN, (40, 50, 60), btn, border_radius=8)
+                pygame.draw.rect(SCREEN, (100, 100, 100), btn, width=2, border_radius=8)
+                _tc = (180, 180, 180)
+            _bf = get_font(24)
+            _bt = _bf.render(text, True, _tc)
+            SCREEN.blit(_bt, _bt.get_rect(center=btn.center))
+
+        # 힌트
+        _hf2 = get_font(14)
+        _ht = _hf2.render("← → 키로 선택, SPACE/ENTER로 확인", True, (120, 120, 120))
+        SCREEN.blit(_ht, _ht.get_rect(center=(WIDTH // 2, dialog_y + dialog_height + 30)))
+
+        pygame.display.flip()
+
+        for ev in pygame.event.get():
+            if ev.type == pygame.QUIT:
+                pygame.quit()
+                raise SystemExit
+            if ev.type == pygame.KEYDOWN:
+                if ev.key in (pygame.K_LEFT, pygame.K_a):
+                    selected = 0
+                    play_button_hover_sound()
+                elif ev.key in (pygame.K_RIGHT, pygame.K_d):
+                    selected = 1
+                    play_button_hover_sound()
+                elif ev.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    play_button_click_sound()
+                    return selected == 0
+                elif ev.key == pygame.K_ESCAPE:
+                    play_button_click_sound()
+                    return False
+            if ev.type == pygame.MOUSEMOTION:
+                _mp = ev.pos
+                if check_btn_hover("arena_tut_yes", yes_btn, _mp):
+                    selected = 0
+                elif check_btn_hover("arena_tut_no", no_btn, _mp):
+                    selected = 1
+            if ev.type == pygame.MOUSEBUTTONDOWN:
+                _mp = ev.pos
+                if yes_btn.collidepoint(_mp):
+                    play_button_click_sound()
+                    return True
+                elif no_btn.collidepoint(_mp):
+                    play_button_click_sound()
+                    return False
+
+
 def start_arena_dev():
     """개발 메뉴에서 투기장(토너먼트) 바로 진입 (입장료 무료)"""
-    global _arena_tutorial_enabled
+    global _arena_tutorial_enabled, _arena_guard_tutorial_shown
+    global _arena_portrait_tutorial_shown, _arena_speed_tutorial_shown
     from downtown.colosseum_arena import ColosseumsArena
 
-    _arena_tutorial_enabled = True  # dev 모드에서는 튜토리얼 활성화
+    # 튜토리얼 확인 다이얼로그
+    tutorial_choice = _show_arena_tutorial_confirm()
+    _arena_tutorial_enabled = tutorial_choice
+    if tutorial_choice:
+        _arena_guard_tutorial_shown = False
+        _arena_portrait_tutorial_shown = False
+        _arena_speed_tutorial_shown = False
+
     screen = SCREEN
     fonts = _make_arena_fonts()
 
