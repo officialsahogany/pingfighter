@@ -21184,9 +21184,10 @@ def _spawn_barrier_block_effect(caster_x, caster_y, target_x, target_y,
 
     # 패링 사운드 재생
     try:
-        if not hasattr(_spawn_barrier_block_effect, '_parry_sound'):
+        if not hasattr(_spawn_barrier_block_effect, '_parry_sound') or getattr(_spawn_barrier_block_effect, '_parry_sound_file', '') != 'magicdefense.wav':
             import os as _os
-            _parry_path = resource_path(_os.path.join("sounds", "divineshield.wav"))
+            _parry_path = resource_path(_os.path.join("sounds", "magicdefense.wav"))
+            _spawn_barrier_block_effect._parry_sound_file = 'magicdefense.wav'
             if _os.path.exists(_parry_path):
                 _spawn_barrier_block_effect._parry_sound = pygame.mixer.Sound(_parry_path)
                 _spawn_barrier_block_effect._parry_sound.set_volume(0.5)
