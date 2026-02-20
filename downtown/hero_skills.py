@@ -48,6 +48,26 @@ def _get_fullscreen_surface():
         _fullscreen_surface.fill((0, 0, 0, 0))
     return _fullscreen_surface
 
+# === 파티클/이펙트 Surface 풀링 (최적화) ===
+# draw 메서드에서 매 프레임 pygame.Surface() 반복 생성 방지
+_psurf_cache: Dict[Tuple[int, int, int], pygame.Surface] = {}
+
+def _psurf(size, flags=pygame.SRCALPHA):
+    """파티클/이펙트 Surface 풀링 - 크기별 캐싱 후 clear하여 재사용"""
+    w = max(2, int(size[0]))
+    h = max(2, int(size[1]))
+    # 4px 단위 양자화로 캐시 적중률 향상
+    w = ((w + 3) // 4) * 4
+    h = ((h + 3) // 4) * 4
+    key = (w, h, flags)
+    cached = _psurf_cache.get(key)
+    if cached is None:
+        cached = pygame.Surface((w, h), flags)
+        _psurf_cache[key] = cached
+    else:
+        cached.fill((0, 0, 0, 0))
+    return cached
+
 # ============================================================================
 # 스킬 발동 조건
 # ============================================================================
@@ -437,7 +457,7 @@ class DarkSlash(HeroSkill):
                     fy = by + frag['offset_y'] + frag['target_y'] * sep
 
                     # 반쪽 공 그리기 (반원)
-                    half_surf = pygame.Surface((30, 30), pygame.SRCALPHA)
+                    half_surf = _psurf((30, 30), pygame.SRCALPHA)
                     if i == 0:  # 좌상단 조각
                         pygame.draw.circle(half_surf, (255, 255, 255), (15, 15), 10)
                         pygame.draw.rect(half_surf, (0, 0, 0, 0), (15, 0, 15, 30))  # 우측 제거
@@ -480,7 +500,7 @@ class DarkSlash(HeroSkill):
                 if self.slash_progress > 0.5:
                     impact_size = int(20 * (1 - self.slash_progress) * 2)
                     if impact_size > 0:
-                        impact_surf = pygame.Surface((impact_size * 2, impact_size * 2), pygame.SRCALPHA)
+                        impact_surf = _psurf((impact_size * 2, impact_size * 2), pygame.SRCALPHA)
                         pygame.draw.circle(impact_surf, (255, 200, 255, 150),
                                          (impact_size, impact_size), impact_size)
                         screen.blit(impact_surf, (int(end_x) - impact_size, int(end_y) - impact_size),
@@ -510,7 +530,7 @@ class DarkSlash(HeroSkill):
                 life_ratio = max(0, min(1, spark['life'] / spark['max_life']))
                 alpha = max(0, min(255, int(255 * life_ratio)))
                 size = max(1, int(spark['size'] * life_ratio))
-                surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                surf = _psurf((size * 2, size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(surf, (*spark['color'][:3], alpha), (size, size), size)
                 screen.blit(surf, (int(spark['x']) - size, int(spark['y']) - size),
                            special_flags=pygame.BLEND_ADD)
@@ -522,7 +542,7 @@ class DarkSlash(HeroSkill):
             # 검은 오라
             for r in range(3):
                 glow_size = 18 + r * 10
-                glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                glow_surf = _psurf((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(glow_surf, (120, 50, 200, 70 - r * 20),
                                  (glow_size, glow_size), glow_size)
                 screen.blit(glow_surf, (live_bx - glow_size, live_by - glow_size),
@@ -652,7 +672,7 @@ class DemonEye(HeroSkill):
 
             # 외곽 글로우 (큰 원)
             glow_radius = int(60 * pulse)
-            glow_surf = pygame.Surface((glow_radius * 2 + 20, glow_radius * 2 + 20), pygame.SRCALPHA)
+            glow_surf = _psurf((glow_radius * 2 + 20, glow_radius * 2 + 20), pygame.SRCALPHA)
             for r in range(glow_radius, 0, -3):
                 alpha = int(80 * (r / glow_radius))
                 pygame.draw.circle(glow_surf, (120, 30, 180, alpha),
@@ -669,7 +689,7 @@ class DemonEye(HeroSkill):
                 # 파티클 글로우
                 p_size = int(p['size'] * pulse)
                 if p_size > 0:
-                    p_surf = pygame.Surface((p_size * 4, p_size * 4), pygame.SRCALPHA)
+                    p_surf = _psurf((p_size * 4, p_size * 4), pygame.SRCALPHA)
                     p_alpha = min(255, max(0, p['alpha']))
                     pygame.draw.circle(p_surf, (180, 80, 255, p_alpha),
                                      (p_size * 2, p_size * 2), p_size * 2)
@@ -685,7 +705,7 @@ class DemonEye(HeroSkill):
 
             # 눈 외곽 글로우
             eye_glow_size = int(20 * eye_pulse)
-            eye_glow_surf = pygame.Surface((eye_glow_size * 2, eye_glow_size * 2), pygame.SRCALPHA)
+            eye_glow_surf = _psurf((eye_glow_size * 2, eye_glow_size * 2), pygame.SRCALPHA)
             pygame.draw.circle(eye_glow_surf, (200, 50, 255, 120),
                              (eye_glow_size, eye_glow_size), eye_glow_size)
             screen.blit(eye_glow_surf, (int(eye_x - eye_glow_size), int(eye_y - eye_glow_size)),
@@ -1007,7 +1027,7 @@ class TentacleWrap(HeroSkill):
             return
 
         glow_size = int(6 + pulse * 4)
-        glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+        glow_surf = _psurf((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
 
         # 다층 글로우 효과
         for i in range(3):
@@ -1188,7 +1208,7 @@ class TentacleWrap(HeroSkill):
 
             # 다층 링 효과
             for i in range(3):
-                ring_surf = pygame.Surface((ring_radius * 2 + 20, ring_radius * 2 + 20), pygame.SRCALPHA)
+                ring_surf = _psurf((ring_radius * 2 + 20, ring_radius * 2 + 20), pygame.SRCALPHA)
                 ring_alpha = int((60 - i * 15) * (0.5 + ring_pulse * 0.5))
                 ring_color = (*self.colors['tentacle_highlight'], ring_alpha)
                 pygame.draw.ellipse(ring_surf, ring_color,
@@ -1206,7 +1226,7 @@ class TentacleWrap(HeroSkill):
                 slime_y = target_y + _sin(angle) * slime_dist * 0.6
                 slime_size = int(3 + _sin(self.time * 4 + i * 0.5) * 2)
 
-                slime_surf = pygame.Surface((slime_size * 2 + 4, slime_size * 2 + 4), pygame.SRCALPHA)
+                slime_surf = _psurf((slime_size * 2 + 4, slime_size * 2 + 4), pygame.SRCALPHA)
                 pygame.draw.circle(slime_surf, (*self.colors['slime'], 120),
                                  (slime_size + 2, slime_size + 2), slime_size)
                 screen.blit(slime_surf, (int(slime_x) - slime_size - 2, int(slime_y) - slime_size - 2))
@@ -1701,21 +1721,21 @@ class AbyssInk(HeroSkill):
         for tp in self._trail_particles:
             if tp['alpha'] > 5 and tp['size'] > 0.5:
                 s = int(tp['size'])
-                ts = pygame.Surface((s * 2 + 2, s * 2 + 2), pygame.SRCALPHA)
+                ts = _psurf((s * 2 + 2, s * 2 + 2), pygame.SRCALPHA)
                 a = int(max(0, min(255, tp['alpha'])))
                 pygame.draw.circle(ts, (*self.colors['ink_mid'], a), (s + 1, s + 1), s)
                 screen.blit(ts, (int(tp['x']) - s - 1, int(tp['y']) - s - 1))
 
         # 외곽 글로우 (큰 반투명 원)
         glow_size = 48
-        glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+        glow_surf = _psurf((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
         pygame.draw.circle(glow_surf, (*self.colors['ink_outer'], 60), (glow_size, glow_size), glow_size)
         pygame.draw.circle(glow_surf, (*self.colors['ink_glow'], 40), (glow_size, glow_size), glow_size - 8)
         screen.blit(glow_surf, (int(current_x) - glow_size, int(current_y) - glow_size))
 
         # 메인 발사체 서피스
         proj_size = 44
-        proj_surf = pygame.Surface((proj_size * 2, proj_size * 2), pygame.SRCALPHA)
+        proj_surf = _psurf((proj_size * 2, proj_size * 2), pygame.SRCALPHA)
         cx, cy = proj_size, proj_size
 
         # 안정적인 먹물 덩어리 (미리 생성된 파티클 사용)
@@ -1746,7 +1766,7 @@ class AbyssInk(HeroSkill):
                 a = int(150 - i * 25)
                 s = int(14 - i * 2)
                 if s > 0 and a > 0:
-                    ts = pygame.Surface((s * 2 + 2, s * 2 + 2), pygame.SRCALPHA)
+                    ts = _psurf((s * 2 + 2, s * 2 + 2), pygame.SRCALPHA)
                     pygame.draw.circle(ts, (*self.colors['ink_core'], a), (s + 1, s + 1), s)
                     screen.blit(ts, (int(tx) - s - 1, int(ty) - s - 1))
 
@@ -1759,7 +1779,7 @@ class AbyssInk(HeroSkill):
 
         surf_w = wr * 2 + 60
         surf_h = hr * 2 + 60
-        splash_surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+        splash_surf = _psurf((surf_w, surf_h), pygame.SRCALPHA)
         scx, scy = surf_w // 2, surf_h // 2
 
         # 불규칙한 스플래시 (복수 레이어)
@@ -1798,7 +1818,7 @@ class AbyssInk(HeroSkill):
                 dy = self.splash_center_y + drop['y']
                 s = max(1, int(drop['size']))
                 a = int(max(0, min(255, drop['alpha'])))
-                ds = pygame.Surface((s * 2 + 4, s * 2 + 4), pygame.SRCALPHA)
+                ds = _psurf((s * 2 + 4, s * 2 + 4), pygame.SRCALPHA)
                 pygame.draw.circle(ds, (*self.colors['ink_glow'], a // 2), (s + 2, s + 2), s + 2)
                 pygame.draw.circle(ds, (*self.colors['ink_core'], a), (s + 2, s + 2), s)
                 screen.blit(ds, (int(dx) - s - 2, int(dy) - s - 2))
@@ -1808,7 +1828,7 @@ class AbyssInk(HeroSkill):
         # --- 배경 영역 글로우 ---
         wr = int(self.splash_max_radius * self.splash_width_scale)
         hr = int(self.splash_max_radius)
-        glow_surf = pygame.Surface((wr * 2 + 40, hr * 2 + 40), pygame.SRCALPHA)
+        glow_surf = _psurf((wr * 2 + 40, hr * 2 + 40), pygame.SRCALPHA)
         gcx, gcy = wr + 20, hr + 20
 
         # 부드러운 외곽 글로우 (타원)
@@ -1833,7 +1853,7 @@ class AbyssInk(HeroSkill):
                 if size < 2:
                     continue
 
-                surf = pygame.Surface((size * 2 + 12, size * 2 + 12), pygame.SRCALPHA)
+                surf = _psurf((size * 2 + 12, size * 2 + 12), pygame.SRCALPHA)
                 c = size + 6
 
                 # 불규칙한 형태 (12각형 기반)
@@ -1872,7 +1892,7 @@ class AbyssInk(HeroSkill):
                 s = max(1, int(bubble['size'] * (0.5 + life_ratio * 0.5)))
                 ba = int(180 * life_ratio)
                 # 기포 본체
-                bs = pygame.Surface((s * 2 + 6, s * 2 + 6), pygame.SRCALPHA)
+                bs = _psurf((s * 2 + 6, s * 2 + 6), pygame.SRCALPHA)
                 bc = s + 3
                 pygame.draw.circle(bs, (*self.colors['bubble_base'], ba), (bc, bc), s)
                 # 기포 하이라이트 (반달)
@@ -1883,7 +1903,7 @@ class AbyssInk(HeroSkill):
 
         # --- 혼란 적용 시 영역 표시 ---
         if self.confusion_applied:
-            confusion_surf = pygame.Surface((wr * 2 + 20, hr * 2 + 20), pygame.SRCALPHA)
+            confusion_surf = _psurf((wr * 2 + 20, hr * 2 + 20), pygame.SRCALPHA)
             ccx, ccy = wr + 10, hr + 10
             # 맥동하는 외곽선
             pulse_a = int(30 + 20 * _sin(self.ink_shimmer_time * 3))
@@ -1915,7 +1935,7 @@ class AbyssInk(HeroSkill):
             alpha = int(180 * (1.0 - t * 0.6))
 
             # 촉수 세그먼트
-            ts = pygame.Surface((abs(int(nx - prev_x)) + seg_width * 2 + 20,
+            ts = _psurf((abs(int(nx - prev_x)) + seg_width * 2 + 20,
                                 abs(int(ny - prev_y)) + seg_width * 2 + 20), pygame.SRCALPHA)
             ox = seg_width + 10 - min(0, int(nx - prev_x))
             oy = seg_width + 10 - min(0, int(ny - prev_y))
@@ -1939,7 +1959,7 @@ class AbyssInk(HeroSkill):
             if a < 3:
                 continue
             s = max(1, int(wisp['size']))
-            ws = pygame.Surface((s * 2 + 4, s * 2 + 4), pygame.SRCALPHA)
+            ws = _psurf((s * 2 + 4, s * 2 + 4), pygame.SRCALPHA)
             wc = s + 2
             # 연기 (여러 겹 반투명 원)
             pygame.draw.circle(ws, (*self.colors['ink_outer'], int(a * 0.3)), (wc, wc), s)
@@ -1954,7 +1974,7 @@ class AbyssInk(HeroSkill):
             if a < 3 or s < 1:
                 continue
 
-            fs = pygame.Surface((s * 2 + 6, s * 2 + 6), pygame.SRCALPHA)
+            fs = _psurf((s * 2 + 6, s * 2 + 6), pygame.SRCALPHA)
             fc = s + 3
 
             # 불규칙 형태 회전
@@ -1980,7 +2000,7 @@ class AbyssInk(HeroSkill):
             hr = int(self.splash_max_radius)
             fade_a = int(30 * (1 - progress / 0.7))
             if fade_a > 2:
-                gs = pygame.Surface((wr * 2 + 20, hr * 2 + 20), pygame.SRCALPHA)
+                gs = _psurf((wr * 2 + 20, hr * 2 + 20), pygame.SRCALPHA)
                 gcx, gcy = wr + 10, hr + 10
                 pygame.draw.ellipse(gs, (*self.colors['ink_outer'], fade_a),
                                    (10, 10, wr * 2, hr * 2))
@@ -2157,7 +2177,7 @@ class GravityControl(HeroSkill):
                 wave_y = line['y'] + _sin(x * line['frequency'] + line['phase']) * line['amplitude']
                 points.append((x, int(wave_y)))
             if len(points) > 1:
-                surf = pygame.Surface((600, 30), pygame.SRCALPHA)
+                surf = _psurf((600, 30), pygame.SRCALPHA)
                 for i in range(len(points) - 1):
                     px1, py1 = points[i][0] - 80, 15
                     px2, py2 = points[i + 1][0] - 80, 15
@@ -2184,7 +2204,7 @@ class GravityControl(HeroSkill):
             for i in range(3):
                 radius = int(20 + i * 12 + pulse * 8)
                 alpha = int(60 - i * 15)
-                surf = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+                surf = _psurf((radius * 2, radius * 2), pygame.SRCALPHA)
                 pygame.draw.circle(surf, (100, 80, 180, alpha), (radius, radius), radius, 2)
                 screen.blit(surf, (int(ball.x - radius), int(ball.y - radius)))
 
@@ -2217,7 +2237,7 @@ class GravityControl(HeroSkill):
                     seg_alpha = int((80 + 60 * t) * abs(_sin(self.pulse_timer * 3 + t * 2)))
                     seg_alpha = max(20, min(200, seg_alpha))
                     seg_size = max(2, int(3 + 2 * t))
-                    seg_surf = pygame.Surface((seg_size * 2, seg_size * 2), pygame.SRCALPHA)
+                    seg_surf = _psurf((seg_size * 2, seg_size * 2), pygame.SRCALPHA)
                     pygame.draw.circle(seg_surf, (140, 100, 220, seg_alpha),
                                      (seg_size, seg_size), seg_size)
                     screen.blit(seg_surf, (int(mx - seg_size), int(my - seg_size)))
@@ -2227,7 +2247,7 @@ class GravityControl(HeroSkill):
             for r in range(2):
                 aura_r = int(25 + r * 15 + aura_pulse * 10)
                 a = max(20, int(70 - r * 25))
-                aura_s = pygame.Surface((aura_r * 2, aura_r * 2), pygame.SRCALPHA)
+                aura_s = _psurf((aura_r * 2, aura_r * 2), pygame.SRCALPHA)
                 pygame.draw.circle(aura_s, (120, 80, 200, a), (aura_r, aura_r), aura_r, 2)
                 screen.blit(aura_s, (int(paddle_cx - aura_r), int(paddle_cy - aura_r)))
 
@@ -2466,7 +2486,7 @@ class DwarfMagic(HeroSkill):
             for r in range(3, 0, -1):
                 alpha = 100 + r * 50
                 size = 8 + r * 4
-                surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                surf = _psurf((size * 2, size * 2), pygame.SRCALPHA)
                 color = (180, 100, 220, alpha)  # 보라색
                 pygame.draw.circle(surf, color, (size, size), size)
                 screen.blit(surf, (int(self.projectile_x - size), int(self.projectile_y - size)))
@@ -2479,7 +2499,7 @@ class DwarfMagic(HeroSkill):
         for p in self.magic_particles:
             if p['alpha'] > 20:
                 p_size = max(1, int(p['size']))
-                surf = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
+                surf = _psurf((p_size * 2, p_size * 2), pygame.SRCALPHA)
                 # 보라색 계열 (다양한 밝기) - 정수로 변환
                 r = random.randint(150, 200)
                 g = random.randint(80, 130)
@@ -2496,7 +2516,7 @@ class DwarfMagic(HeroSkill):
             paddle_cy = target_paddle.y + target_paddle.height // 2
             for i in range(3):
                 size = 30 + i * 15
-                surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                surf = _psurf((size * 2, size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(surf, (180, 100, 220, aura_alpha // (i + 1)),
                                  (size, size), size, 2)
                 screen.blit(surf, (int(paddle_cx - size), int(paddle_cy - size)))
@@ -2783,7 +2803,7 @@ class HellFire(HeroSkill):
     def _draw_dokkaebi_face(self, screen: pygame.Surface, bx: int, by: int):
         """공 위에 반투명 도깨비 얼굴을 글리치하게 그리기"""
         face_size = 150  # 얼굴 크기 (3배)
-        face_surf = pygame.Surface((face_size * 2, face_size * 2), pygame.SRCALPHA)
+        face_surf = _psurf((face_size * 2, face_size * 2), pygame.SRCALPHA)
         cx, cy = face_size, face_size  # 중심
 
         # 도깨비 색상 (푸른 불빛)
@@ -2839,7 +2859,7 @@ class HellFire(HeroSkill):
             ])
 
         # === 글리치 효과 적용 ===
-        glitched_surf = pygame.Surface((face_size * 2, face_size * 2), pygame.SRCALPHA)
+        glitched_surf = _psurf((face_size * 2, face_size * 2), pygame.SRCALPHA)
 
         # 글리치 라인별 수평 이동
         for y_line in range(face_size * 2):
@@ -2866,7 +2886,7 @@ class HellFire(HeroSkill):
         # === RGB 분리 효과 (크로마틱 어버레이션) ===
         if random.random() < 0.4:
             rgb_offset = random.randint(3, 9)
-            rgb_surf = pygame.Surface((face_size * 2, face_size * 2), pygame.SRCALPHA)
+            rgb_surf = _psurf((face_size * 2, face_size * 2), pygame.SRCALPHA)
             # 빨간 채널 오프셋
             rgb_surf.blit(glitched_surf, (rgb_offset, 0))
             rgb_surf.fill((255, 0, 0, 30), special_flags=pygame.BLEND_RGBA_MULT)
@@ -2896,7 +2916,7 @@ class HellFire(HeroSkill):
 
             # 공 주변 불꽃 아우라 (정지 중에도 희미하게)
             aura_size = 75 + int(24 * _sin(self.glitch_timer * 6))
-            aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
+            aura_surf = _psurf((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
             aura_alpha = int(60 * pulse)
             pygame.draw.circle(aura_surf, (80, 200, 255, aura_alpha),
                               (aura_size, aura_size), aura_size)
@@ -2907,7 +2927,7 @@ class HellFire(HeroSkill):
             if random.random() < 0.15:
                 gy = random.randint(0, 750)
                 gh = random.randint(1, 4)
-                glitch_bar = pygame.Surface((760, gh), pygame.SRCALPHA)
+                glitch_bar = _psurf((760, gh), pygame.SRCALPHA)
                 glitch_bar.fill((80, 200, 255, random.randint(20, 60)))
                 screen.blit(glitch_bar, (random.randint(-5, 5), gy))
 
@@ -2928,7 +2948,7 @@ class HellFire(HeroSkill):
                     b = 255
                     alpha = int(200 * life_ratio)
 
-                    surf = pygame.Surface((int(p['size'] * 2), int(p['size'] * 2)), pygame.SRCALPHA)
+                    surf = _psurf((int(p['size'] * 2), int(p['size'] * 2)), pygame.SRCALPHA)
                     pygame.draw.circle(surf, (r, g, b, alpha),
                                       (int(p['size']), int(p['size'])), int(p['size']))
                     screen.blit(surf, (int(p['x'] - p['size']), int(p['y'] - p['size'])),
@@ -3272,7 +3292,7 @@ class HornCharge(HeroSkill):
                     if radius > 0:
                         ring_alpha = max(0, int(alpha * (1 - r_offset / 60)))
                         # SRCALPHA Surface로 그리기
-                        ring_surf = pygame.Surface((radius * 2 + 10, radius * 2 + 10), pygame.SRCALPHA)
+                        ring_surf = _psurf((radius * 2 + 10, radius * 2 + 10), pygame.SRCALPHA)
                         pygame.draw.circle(ring_surf, (255, 100, 50, ring_alpha),
                                          (radius + 5, radius + 5), radius, 5)
                         screen.blit(ring_surf, (int(center_x - radius - 5), int(center_y - radius - 5)))
@@ -3576,7 +3596,7 @@ class PuppetControl(HeroSkill):
             for sp in self.kiss_sparkles:
                 alpha = int(255 * sp['life'])
                 size = int(sp['size'])
-                sparkle_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                sparkle_surf = _psurf((size * 2, size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(sparkle_surf, (255, 255, 200, alpha), (size, size), size)
                 screen.blit(sparkle_surf, (int(sp['x']) - size, int(sp['y']) - size))
 
@@ -3607,7 +3627,7 @@ class PuppetControl(HeroSkill):
 
     def _draw_heart(self, screen, x, y, size, alpha):
         """하트 모양 그리기"""
-        heart_surf = pygame.Surface((int(size * 2), int(size * 2)), pygame.SRCALPHA)
+        heart_surf = _psurf((int(size * 2), int(size * 2)), pygame.SRCALPHA)
         color = (255, 100, 150, alpha)
 
         # 간단한 하트: 두 원 + 삼각형
@@ -3940,7 +3960,7 @@ class DollCurse(HeroSkill):
                 size = max(2, int(p['size']))
 
                 # 불꽃 파티클 그리기
-                flame_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                flame_surf = _psurf((size * 2, size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(flame_surf, (*color, alpha), (size, size), size)
                 screen.blit(flame_surf, (int(p['x']) - size, int(p['y']) - size))
 
@@ -3954,7 +3974,7 @@ class DollCurse(HeroSkill):
 
             # 캐릭터를 감싸는 이글이글 오라 (캐릭터 몸 전체)
             aura_w, aura_h = 70, 60  # 캐릭터 크기에 맞게
-            aura_surf = pygame.Surface((aura_w, aura_h), pygame.SRCALPHA)
+            aura_surf = _psurf((aura_w, aura_h), pygame.SRCALPHA)
             # 외부 오라 (진한 빨간색, 펄스 효과)
             pulse = 0.7 + 0.3 * _sin(pygame.time.get_ticks() * 0.008)
             alpha = int(50 * pulse)
@@ -3975,7 +3995,7 @@ class DollCurse(HeroSkill):
                 if flash > 0:
                     flash_alpha = int(200 * flash)
                     flash_size = int(50 + flash * 30)
-                    flash_surf = pygame.Surface((flash_size * 2, flash_size * 2), pygame.SRCALPHA)
+                    flash_surf = _psurf((flash_size * 2, flash_size * 2), pygame.SRCALPHA)
                     # 다중 레이어 플래시
                     pygame.draw.circle(flash_surf, (255, 100, 150, int(flash_alpha * 0.3)),
                                      (flash_size, flash_size), flash_size)
@@ -4059,7 +4079,7 @@ class DollCurse(HeroSkill):
 
                         # 빛 원점에서 글로우 효과
                         glow_size = int(12 * s * light_pulse)
-                        glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                        glow_surf = _psurf((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
                         pygame.draw.circle(glow_surf, (255, 200, 230, int(150 * spawn_alpha)),
                                          (glow_size, glow_size), glow_size)
                         pygame.draw.circle(glow_surf, (255, 255, 255, int(200 * spawn_alpha)),
@@ -4069,7 +4089,7 @@ class DollCurse(HeroSkill):
                 # === 외부 마법진/보호 오라 (인형 뒤에) - 고퀄리티 업그레이드 ===
                 aura_pulse = 0.7 + 0.3 * _sin(time_tick * 0.008 + guardian['wobble'])
                 magic_size = int(60 * s * aura_pulse)
-                magic_surf = pygame.Surface((magic_size * 2 + 20, magic_size * 2 + 20), pygame.SRCALPHA)
+                magic_surf = _psurf((magic_size * 2 + 20, magic_size * 2 + 20), pygame.SRCALPHA)
                 mc = magic_size + 10  # 마법진 중심
 
                 # 1. 내부 글로우 (부드러운 그라데이션)
@@ -4132,7 +4152,7 @@ class DollCurse(HeroSkill):
 
                 # === 그림자 (입체감) ===
                 shadow_w, shadow_h = max(1, int(40 * s)), max(1, int(12 * s))
-                shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
+                shadow_surf = _psurf((shadow_w, shadow_h), pygame.SRCALPHA)
                 pygame.draw.ellipse(shadow_surf, (0, 0, 0, int(100 * spawn_alpha)), shadow_surf.get_rect())
                 screen.blit(shadow_surf, (gx - shadow_w // 2, gy + int(38 * s)))
 
@@ -4192,7 +4212,7 @@ class DollCurse(HeroSkill):
                         p_pulse = 0.6 + 0.4 * _sin(time_tick * 0.008 + thread_i)
                         p_size = int(4 * p_pulse)
                         px, py = points[particle_idx]
-                        p_surf = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
+                        p_surf = _psurf((p_size * 2, p_size * 2), pygame.SRCALPHA)
                         pygame.draw.circle(p_surf, (255, 180, 200, int(150 * spawn_alpha * p_pulse)),
                                          (p_size, p_size), p_size)
                         screen.blit(p_surf, (px - p_size, py - p_size))
@@ -4317,7 +4337,7 @@ class DollCurse(HeroSkill):
                 heart_glow_c = (255, 60, 100)
                 # 핀 글로우 (은은한 발광)
                 hg_size = max(1, int(12 * s))
-                hg_surf = pygame.Surface((hg_size * 2, hg_size * 2), pygame.SRCALPHA)
+                hg_surf = _psurf((hg_size * 2, hg_size * 2), pygame.SRCALPHA)
                 hg_pulse = 0.6 + 0.4 * _sin(time_tick * 0.005 + g_idx)
                 pygame.draw.circle(hg_surf, (*heart_glow_c, int(35 * hg_pulse)),
                                   (hg_size, hg_size), hg_size)
@@ -4430,7 +4450,7 @@ class DollCurse(HeroSkill):
                 # 눈 글로우 (저주 발광)
                 eye_pulse = 0.6 + 0.4 * _sin(time_tick * 0.007 + g_idx)
                 eg_size = max(1, int(10 * s))
-                eg_surf = pygame.Surface((eg_size * 2, eg_size * 2), pygame.SRCALPHA)
+                eg_surf = _psurf((eg_size * 2, eg_size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(eg_surf, (255, 40, 80, int(50 * eye_pulse)),
                                   (eg_size, eg_size), eg_size)
                 screen.blit(eg_surf, (re_x - eg_size, re_y - eg_size))
@@ -4446,7 +4466,7 @@ class DollCurse(HeroSkill):
                 # 눈물 자국 (오른쪽 눈 아래)
                 tear_start_y = re_y + x_sz + int(2*s)
                 tear_c = (180, 50, 80, 100)
-                tear_surf = pygame.Surface((max(1, int(4*s)), max(1, int(10*s))), pygame.SRCALPHA)
+                tear_surf = _psurf((max(1, int(4*s)), max(1, int(10*s))), pygame.SRCALPHA)
                 pygame.draw.ellipse(tear_surf, tear_c, tear_surf.get_rect())
                 screen.blit(tear_surf, (re_x - int(2*s), tear_start_y))
 
@@ -4478,7 +4498,7 @@ class DollCurse(HeroSkill):
                 # --- 볼 홍조 ---
                 blush_alpha = int(90 * spawn_alpha)
                 bw, bh = max(1, int(10*s)), max(1, int(6*s))
-                blush_surf = pygame.Surface((bw, bh), pygame.SRCALPHA)
+                blush_surf = _psurf((bw, bh), pygame.SRCALPHA)
                 pygame.draw.ellipse(blush_surf, (210, 90, 110, blush_alpha), blush_surf.get_rect())
                 screen.blit(blush_surf, (gx - int(18*s), head_y + int(3*s)))
                 screen.blit(blush_surf, (gx + int(8*s), head_y + int(3*s)))
@@ -4501,7 +4521,7 @@ class DollCurse(HeroSkill):
                     py = gy + int(_sin(p_angle) * p_dist * 0.6)
                     p_size = max(1, int(3 * s * (0.4 + 0.6 * _sin(time_tick * 0.006 + pi))))
                     p_alpha = max(0, min(255, int(140 * spawn_alpha * (0.4 + 0.6 * _sin(time_tick * 0.005 + pi)))))
-                    p_surf = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
+                    p_surf = _psurf((p_size * 2, p_size * 2), pygame.SRCALPHA)
                     p_color = [(200, 60, 110), (180, 40, 90), (220, 80, 130)][pi % 3]
                     pygame.draw.circle(p_surf, (*p_color, p_alpha), (p_size, p_size), p_size)
                     screen.blit(p_surf, (px - p_size, py - p_size))
@@ -4527,7 +4547,7 @@ class DollCurse(HeroSkill):
                 aura_pulse = 0.6 + 0.4 * _sin(time_tick * 0.006 + doll_idx)
                 aura_size = int(35 * s * aura_pulse)
                 if aura_size > 0:
-                    aura_surf = pygame.Surface((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
+                    aura_surf = _psurf((aura_size * 2, aura_size * 2), pygame.SRCALPHA)
                     for ar in range(aura_size, 0, -3):
                         a_alpha = int(35 * (ar / aura_size) * aura_pulse)
                         pygame.draw.circle(aura_surf, (180, 40, 90, a_alpha), (aura_size, aura_size), ar)
@@ -4536,7 +4556,7 @@ class DollCurse(HeroSkill):
                 # === 그림자 ===
                 shadow_w, shadow_h = int(24 * s), int(8 * s)
                 if shadow_w > 0 and shadow_h > 0:
-                    shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
+                    shadow_surf = _psurf((shadow_w, shadow_h), pygame.SRCALPHA)
                     pygame.draw.ellipse(shadow_surf, (0, 0, 0, 60), shadow_surf.get_rect())
                     screen.blit(shadow_surf, (dx - shadow_w // 2, dy + int(20 * s)))
 
@@ -4682,7 +4702,7 @@ class DollCurse(HeroSkill):
                     xs = int(4 * s)
                     # 글로우
                     eg_sz = max(1, int(8 * s * eye_pulse))
-                    eg_surf = pygame.Surface((eg_sz * 2, eg_sz * 2), pygame.SRCALPHA)
+                    eg_surf = _psurf((eg_sz * 2, eg_sz * 2), pygame.SRCALPHA)
                     pygame.draw.circle(eg_surf, (255, 40, 80, int(55 * eye_pulse)),
                                       (eg_sz, eg_sz), eg_sz)
                     screen.blit(eg_surf, (ex - eg_sz, ey - eg_sz))
@@ -4715,7 +4735,7 @@ class DollCurse(HeroSkill):
                 # --- 볼 홍조 ---
                 b_sz = max(1, int(5 * s))
                 b_h = max(1, int(3 * s))
-                blush_surf = pygame.Surface((b_sz * 2, b_h), pygame.SRCALPHA)
+                blush_surf = _psurf((b_sz * 2, b_h), pygame.SRCALPHA)
                 pygame.draw.ellipse(blush_surf, (200, 85, 105, 55), blush_surf.get_rect())
                 screen.blit(blush_surf, (dx - int(11*s), head_y + int(2*s)))
                 screen.blit(blush_surf, (dx + int(3*s), head_y + int(2*s)))
@@ -4736,7 +4756,7 @@ class DollCurse(HeroSkill):
                     py = dy + int(_sin(p_angle) * p_dist * 0.6)
                     p_size = max(1, int(2 * s * (0.5 + 0.5 * _sin(time_tick * 0.006 + pi))))
                     p_alpha = max(0, min(255, int(110 * (0.4 + 0.6 * _sin(time_tick * 0.005 + pi)))))
-                    p_surf = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
+                    p_surf = _psurf((p_size * 2, p_size * 2), pygame.SRCALPHA)
                     pc = [(200, 50, 100), (180, 35, 85), (220, 70, 120)][pi % 3]
                     pygame.draw.circle(p_surf, (*pc, p_alpha), (p_size, p_size), p_size)
                     screen.blit(p_surf, (px - p_size, py - p_size))
@@ -5065,7 +5085,7 @@ class DragonBreath(HeroSkill):
 
                     if layer_size > 1 and alpha > 5:
                         surf_size = layer_size * 2 + 4
-                        surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+                        surf = _psurf((surf_size, surf_size), pygame.SRCALPHA)
                         center = surf_size // 2
 
                         # 그라데이션 원 효과
@@ -5092,7 +5112,7 @@ class DragonBreath(HeroSkill):
                         is_caster_top = getattr(self, 'caster_is_top', True)
                         trail_y_dir = -1 if is_caster_top else 1
 
-                        trail_surf = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
+                        trail_surf = _psurf((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
                         pygame.draw.circle(trail_surf, (255, 150, 50, max(0, min(255, trail_alpha))),
                                          (trail_size, trail_size), trail_size)
                         screen.blit(trail_surf,
@@ -5105,7 +5125,7 @@ class DragonBreath(HeroSkill):
                     spark_size = random.randint(1, 3)
                     spark_offset_x = random.uniform(-base_size, base_size)
                     spark_offset_y = random.uniform(-base_size, base_size)
-                    spark_surf = pygame.Surface((spark_size * 2 + 2, spark_size * 2 + 2), pygame.SRCALPHA)
+                    spark_surf = _psurf((spark_size * 2 + 2, spark_size * 2 + 2), pygame.SRCALPHA)
                     pygame.draw.circle(spark_surf, (255, 255, 200, 255),
                                      (spark_size + 1, spark_size + 1), spark_size)
                     screen.blit(spark_surf,
@@ -5289,7 +5309,7 @@ class DragonWing(HeroSkill):
                 line_width = int(abs(end_x - p['x'])) + 20
                 line_height = 20
                 if line_width > 0:
-                    wind_surf = pygame.Surface((line_width, line_height), pygame.SRCALPHA)
+                    wind_surf = _psurf((line_width, line_height), pygame.SRCALPHA)
 
                     # 그라데이션 라인 (여러 줄로 두껍게)
                     for i in range(5):
@@ -5369,7 +5389,7 @@ class DragonWing(HeroSkill):
 
         SW, SH = 340, 260
         BY = 140  # Y 기준선 (더 큰 캔버스에 맞춤)
-        ds = pygame.Surface((SW, SH), pygame.SRCALPHA)
+        ds = _psurf((SW, SH), pygame.SRCALPHA)
 
         # ============================================================
         # 1) 척추 포인트 (꼬리끝 → 목끝) - 70개 세밀 포인트
@@ -5510,7 +5530,7 @@ class DragonWing(HeroSkill):
                 continue
             rune_alpha = int(55 + 35 * _sin(rune_phase + i * 0.7))
             rune_r = max(3, int(w * 0.3))
-            rs = pygame.Surface((rune_r * 2 + 4, rune_r * 2 + 4), pygame.SRCALPHA)
+            rs = _psurf((rune_r * 2 + 4, rune_r * 2 + 4), pygame.SRCALPHA)
             # 룬 원형
             pygame.draw.circle(rs, (255, 185, 55, rune_alpha), (rune_r + 2, rune_r + 2), rune_r, 1)
             # 룬 십자
@@ -5585,7 +5605,7 @@ class DragonWing(HeroSkill):
             ])
         # 꼬리 끝 룬 빛
         tail_glow_a = int(40 + 25 * _sin(wt * 2.5))
-        tg = pygame.Surface((16, 16), pygame.SRCALPHA)
+        tg = _psurf((16, 16), pygame.SRCALPHA)
         pygame.draw.circle(tg, (255, 185, 55, tail_glow_a), (8, 8), 6)
         ds.blit(tg, (int(tx - 18), int(ty + tw2 - 8)))
 
@@ -5794,7 +5814,7 @@ class DragonWing(HeroSkill):
         for si in range(2):
             smk_x = snout_x + 2 + si * 4 + _sin(wt * 5 + si) * 2
             smk_y = snout_y - 6 - si * 3
-            smk_s = pygame.Surface((8, 8), pygame.SRCALPHA)
+            smk_s = _psurf((8, 8), pygame.SRCALPHA)
             pygame.draw.circle(smk_s, (60, 45, 35, smoke_a - si * 15), (4, 4), 3)
             ds.blit(smk_s, (int(smk_x - 4), int(smk_y - 4)))
 
@@ -5819,7 +5839,7 @@ class DragonWing(HeroSkill):
             (hx + 9, int(hy + 8 + jaw_open * 0.4))])
         # 입 안쪽 밝은 부분 (목구멍 불빛)
         throat_glow_a = int(60 + 40 * _sin(wt * 3))
-        thr = pygame.Surface((20, 14), pygame.SRCALPHA)
+        thr = _psurf((20, 14), pygame.SRCALPHA)
         pygame.draw.ellipse(thr, (255, 100, 20, throat_glow_a), (2, 2, 16, 10))
         ds.blit(thr, (hx + 10, hy + 2))
 
@@ -5877,7 +5897,7 @@ class DragonWing(HeroSkill):
         pygame.draw.circle(ds, (255, 255, 255), (ex + 2, ey - 1), 1)
         # 눈 발광 오라 (은은하게)
         eye_glow_a = int(35 + 20 * _sin(wt * 3))
-        eg = pygame.Surface((24, 24), pygame.SRCALPHA)
+        eg = _psurf((24, 24), pygame.SRCALPHA)
         pygame.draw.circle(eg, (255, 200, 60, eye_glow_a), (12, 12), 10)
         ds.blit(eg, (ex - 12, ey - 12))
 
@@ -5957,7 +5977,7 @@ class DragonWing(HeroSkill):
             smk_y = fb_y + _sin(wt * 4 + si) * 4 - si * 2
             smk_r = 5 + si * 2
             smk_a = max(20, 50 - si * 15)
-            smk = pygame.Surface((smk_r * 2 + 2, smk_r * 2 + 2), pygame.SRCALPHA)
+            smk = _psurf((smk_r * 2 + 2, smk_r * 2 + 2), pygame.SRCALPHA)
             pygame.draw.circle(smk, (60, 45, 35, smk_a), (smk_r + 1, smk_r + 1), smk_r)
             ds.blit(smk, (int(smk_x - smk_r - 1), int(smk_y - smk_r - 1)))
 
@@ -5969,7 +5989,7 @@ class DragonWing(HeroSkill):
             f_r = 255
             f_g = min(255, int(80 + f_t * 175))
             f_b = min(255, int(5 + f_t * 170))
-            fs = pygame.Surface((r_f * 2 + 4, r_f * 2 + 4), pygame.SRCALPHA)
+            fs = _psurf((r_f * 2 + 4, r_f * 2 + 4), pygame.SRCALPHA)
             pygame.draw.circle(fs, (f_r, f_g, f_b, f_a), (r_f + 2, r_f + 2), r_f)
             ds.blit(fs, (fb_x - r_f - 2, fb_y - r_f - 2))
 
@@ -5981,7 +6001,7 @@ class DragonWing(HeroSkill):
             pa = random.randint(120, 230)
             pg = random.randint(100, 220)
             pb = random.randint(10, 50)
-            ps = pygame.Surface((pr * 2, pr * 2), pygame.SRCALPHA)
+            ps = _psurf((pr * 2, pr * 2), pygame.SRCALPHA)
             pygame.draw.circle(ps, (255, pg, pb, pa), (pr, pr), pr)
             ds.blit(ps, (int(px - pr), int(py - pr)))
 
@@ -5991,7 +6011,7 @@ class DragonWing(HeroSkill):
             spark_y = fb_y + random.uniform(-8, 8)
             spark_r = random.randint(1, 2)
             spark_a = random.randint(150, 255)
-            spark_s = pygame.Surface((4, 4), pygame.SRCALPHA)
+            spark_s = _psurf((4, 4), pygame.SRCALPHA)
             pygame.draw.circle(spark_s, (255, random.randint(200, 255), random.randint(60, 140), spark_a), (2, 2), spark_r)
             ds.blit(spark_s, (int(spark_x - 2), int(spark_y - 2)))
 
@@ -6514,7 +6534,7 @@ class SteamBarrier(HeroSkill):
 
             # 메인 배리어 라인 (화면 전체 너비 0~760)
             if barrier_alpha > 0:
-                barrier_surf = pygame.Surface((760, 8), pygame.SRCALPHA)
+                barrier_surf = _psurf((760, 8), pygame.SRCALPHA)
                 pygame.draw.line(barrier_surf, (180, 200, 220, barrier_alpha),
                                (0, 4), (760, 4), 4)
                 screen.blit(barrier_surf, (0, int(self.barrier_y) - 4))
@@ -6525,7 +6545,7 @@ class SteamBarrier(HeroSkill):
                 # 배리어 라인 전체가 밝게 번쩍 (충돌 직후 강하게 → 빠르게 감쇄)
                 flash_alpha = int(220 * flash_ratio)
                 if flash_alpha > 0:
-                    flash_surf = pygame.Surface((760, 14), pygame.SRCALPHA)
+                    flash_surf = _psurf((760, 14), pygame.SRCALPHA)
                     pygame.draw.line(flash_surf, (230, 245, 255, flash_alpha),
                                    (0, 7), (760, 7), 6)
                     screen.blit(flash_surf, (0, int(self.barrier_y) - 7),
@@ -6534,7 +6554,7 @@ class SteamBarrier(HeroSkill):
                     cx = int(self.barrier_hit_x)
                     local_alpha = int(255 * flash_ratio)
                     local_w = 120
-                    local_surf = pygame.Surface((local_w, 20), pygame.SRCALPHA)
+                    local_surf = _psurf((local_w, 20), pygame.SRCALPHA)
                     pygame.draw.ellipse(local_surf, (255, 255, 255, local_alpha),
                                        (0, 0, local_w, 20))
                     screen.blit(local_surf, (cx - local_w // 2, int(self.barrier_y) - 10),
@@ -6546,7 +6566,7 @@ class SteamBarrier(HeroSkill):
                 ring_radius = max(1, int(r['radius']))
                 if ring_alpha > 0:
                     ring_size = ring_radius * 2 + 4
-                    ring_surf = pygame.Surface((ring_size, ring_size), pygame.SRCALPHA)
+                    ring_surf = _psurf((ring_size, ring_size), pygame.SRCALPHA)
                     rc = ring_radius + 2
                     color = r['color']
                     pygame.draw.circle(ring_surf, (*color, ring_alpha), (rc, rc), ring_radius, 2)
@@ -6566,7 +6586,7 @@ class SteamBarrier(HeroSkill):
                     color = (180, 230, 255, p_alpha)
                 else:  # gold
                     color = (255, 220, 100, p_alpha)
-                p_surf = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
+                p_surf = _psurf((p_size * 2, p_size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(p_surf, color, (p_size, p_size), p_size)
                 screen.blit(p_surf, (int(p['x']) - p_size, int(p['y']) - p_size),
                            special_flags=pygame.BLEND_ADD)
@@ -6576,7 +6596,7 @@ class SteamBarrier(HeroSkill):
                 gear_alpha = int(200 * fade_alpha)
                 if gear_alpha <= 0:
                     continue
-                gear_surf = pygame.Surface((30, 30), pygame.SRCALPHA)
+                gear_surf = _psurf((30, 30), pygame.SRCALPHA)
                 teeth = 8
                 for i in range(teeth):
                     angle = math.radians(i * 360 / teeth + pygame.time.get_ticks() / 50)
@@ -6596,7 +6616,7 @@ class SteamBarrier(HeroSkill):
                 alpha = int(100 * (p['life'] / 0.8) * fade_alpha)
                 if alpha <= 0:
                     continue
-                surf = pygame.Surface((int(p['size'] * 2), int(p['size'] * 2)), pygame.SRCALPHA)
+                surf = _psurf((int(p['size'] * 2), int(p['size'] * 2)), pygame.SRCALPHA)
                 pygame.draw.circle(surf, (200, 210, 220, alpha),
                                   (int(p['size']), int(p['size'])), int(p['size']))
                 screen.blit(surf, (int(p['x'] - p['size']), int(p['y'] - p['size'])))
@@ -6610,7 +6630,7 @@ class SteamBarrier(HeroSkill):
                 ring_alpha = int(180 * (r['life'] / r['max_life']) * fade_alpha)
                 ring_radius = int(r['radius'])
                 if ring_alpha > 0 and ring_radius > 0:
-                    ring_surf = pygame.Surface((ring_radius * 2 + 4, ring_radius * 2 + 4), pygame.SRCALPHA)
+                    ring_surf = _psurf((ring_radius * 2 + 4, ring_radius * 2 + 4), pygame.SRCALPHA)
                     rc = ring_radius + 2
                     # 외곽 증기색 링
                     pygame.draw.circle(ring_surf, (180, 200, 220, ring_alpha // 2),
@@ -6634,7 +6654,7 @@ class SteamBarrier(HeroSkill):
                     color = (220, 150, 50, p_alpha)
                 else:  # gear_yellow
                     color = (240, 210, 80, p_alpha)
-                p_surf = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
+                p_surf = _psurf((p_size * 2, p_size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(p_surf, color, (p_size, p_size), p_size)
                 screen.blit(p_surf, (int(p['x']) - p_size, int(p['y']) - p_size),
                            special_flags=pygame.BLEND_ADD)
@@ -6645,14 +6665,14 @@ class SteamBarrier(HeroSkill):
             if core_alpha > 0:
                 # 외부 주황색 오오라
                 outer_size = 35 + int(8 * _sin(pygame.time.get_ticks() / 200))
-                outer_surf = pygame.Surface((outer_size * 2, outer_size * 2), pygame.SRCALPHA)
+                outer_surf = _psurf((outer_size * 2, outer_size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(outer_surf, (200, 140, 40, core_alpha // 2),
                                   (outer_size, outer_size), outer_size)
                 screen.blit(outer_surf, (cx - outer_size, cy - outer_size),
                            special_flags=pygame.BLEND_ADD)
                 # 내부 밝은 글로우
                 inner_size = 20 + int(4 * _sin(pygame.time.get_ticks() / 150))
-                inner_surf = pygame.Surface((inner_size * 2, inner_size * 2), pygame.SRCALPHA)
+                inner_surf = _psurf((inner_size * 2, inner_size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(inner_surf, (240, 200, 100, core_alpha),
                                   (inner_size, inner_size), inner_size)
                 screen.blit(inner_surf, (cx - inner_size, cy - inner_size),
@@ -6669,7 +6689,7 @@ class SteamBarrier(HeroSkill):
                 # 배리어 전체 라인 밝은 플래시 (강하게)
                 flash_alpha = int(255 * flash_ratio)
                 if flash_alpha > 0:
-                    flash_surf = pygame.Surface((760, 20), pygame.SRCALPHA)
+                    flash_surf = _psurf((760, 20), pygame.SRCALPHA)
                     pygame.draw.line(flash_surf, (255, 255, 255, flash_alpha),
                                    (0, 10), (760, 10), 10)
                     screen.blit(flash_surf, (0, int(self.break_barrier_y) - 10),
@@ -6687,7 +6707,7 @@ class SteamBarrier(HeroSkill):
                 ring_radius = max(1, int(r['radius']))
                 if ring_alpha > 0:
                     ring_size = ring_radius * 2 + 4
-                    ring_surf = pygame.Surface((ring_size, ring_size), pygame.SRCALPHA)
+                    ring_surf = _psurf((ring_size, ring_size), pygame.SRCALPHA)
                     rc = ring_radius + 2
                     color = r['color']
                     pygame.draw.circle(ring_surf, (*color, ring_alpha), (rc, rc), ring_radius, 2)
@@ -6719,7 +6739,7 @@ class SteamBarrier(HeroSkill):
                 # 회전된 직사각형 파편 그리기
                 w = max(2, int(s['width'] * (0.5 + 0.5 * life_ratio)))
                 h = max(1, int(s['height'] * (0.5 + 0.5 * life_ratio)))
-                shard_surf = pygame.Surface((w + 4, h + 4), pygame.SRCALPHA)
+                shard_surf = _psurf((w + 4, h + 4), pygame.SRCALPHA)
                 # 중심 기준 4개 꼭짓점 회전
                 cx_s, cy_s = (w + 4) / 2, (h + 4) / 2
                 cos_a = _cos(s['angle'])
@@ -6755,7 +6775,7 @@ class SteamBarrier(HeroSkill):
                 if g_alpha <= 0:
                     continue
                 sz = max(2, int(g['size'] * (0.6 + 0.4 * life_ratio)))
-                gear_surf = pygame.Surface((sz * 2 + 4, sz * 2 + 4), pygame.SRCALPHA)
+                gear_surf = _psurf((sz * 2 + 4, sz * 2 + 4), pygame.SRCALPHA)
                 gc = sz + 2
                 # 미니 톱니바퀴 그리기 (회전 적용)
                 teeth = g['teeth']
@@ -6790,7 +6810,7 @@ class SteamBarrier(HeroSkill):
                 p_size = max(1, int(p['size']))
                 if p_alpha <= 0:
                     continue
-                steam_surf = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
+                steam_surf = _psurf((p_size * 2, p_size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(steam_surf, (210, 220, 230, p_alpha),
                                   (p_size, p_size), p_size)
                 # 내부 밝은 코어
@@ -6815,7 +6835,7 @@ class SteamBarrier(HeroSkill):
                 trail_alpha = int(120 * (t['life'] / t['max_life']))
                 trail_size = max(1, int(t['size']))
                 if trail_alpha > 0 and trail_size > 0:
-                    trail_surf = pygame.Surface((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
+                    trail_surf = _psurf((trail_size * 2, trail_size * 2), pygame.SRCALPHA)
                     # 외곽 금빛 글로우
                     pygame.draw.circle(trail_surf, (255, 215, 80, trail_alpha // 3),
                                       (trail_size, trail_size), trail_size)
@@ -6841,7 +6861,7 @@ class SteamBarrier(HeroSkill):
                     color = (255, 230, 140, p_alpha)
                 else:
                     # 십자가 타입 - 작은 십자 모양
-                    cross_surf = pygame.Surface((p_size * 4, p_size * 4), pygame.SRCALPHA)
+                    cross_surf = _psurf((p_size * 4, p_size * 4), pygame.SRCALPHA)
                     cx, cy = p_size * 2, p_size * 2
                     cross_color = (255, 240, 180, p_alpha)
                     pygame.draw.line(cross_surf, cross_color,
@@ -6852,7 +6872,7 @@ class SteamBarrier(HeroSkill):
                                special_flags=pygame.BLEND_ADD)
                     continue
 
-                p_surf = pygame.Surface((p_size * 2, p_size * 2), pygame.SRCALPHA)
+                p_surf = _psurf((p_size * 2, p_size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(p_surf, color, (p_size, p_size), p_size)
                 screen.blit(p_surf, (int(p['x']) - p_size, int(p['y']) - p_size),
                            special_flags=pygame.BLEND_ADD)
@@ -6864,7 +6884,7 @@ class SteamBarrier(HeroSkill):
                 ball_cy = ball.y + getattr(ball, 'height', 10) / 2
                 # 외부 금빛 오오라
                 glow_size = 22 + int(4 * _sin(pygame.time.get_ticks() / 150))
-                glow_surf = pygame.Surface((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
+                glow_surf = _psurf((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(glow_surf, (255, 215, 80, 60),
                                   (glow_size, glow_size), glow_size)
                 pygame.draw.circle(glow_surf, (255, 240, 180, 90),
@@ -6879,7 +6899,7 @@ class SteamBarrier(HeroSkill):
                     angle = ring_time + i * (math.pi * 2 / 6)
                     rx = ball_cx + _cos(angle) * 14
                     ry = ball_cy + _sin(angle) * 14
-                    dot_surf = pygame.Surface((6, 6), pygame.SRCALPHA)
+                    dot_surf = _psurf((6, 6), pygame.SRCALPHA)
                     pygame.draw.circle(dot_surf, (255, 230, 140, 150), (3, 3), 3)
                     screen.blit(dot_surf, (int(rx) - 3, int(ry) - 3),
                                special_flags=pygame.BLEND_ADD)
@@ -7214,7 +7234,7 @@ class OilSpill(HeroSkill):
         if size < 2:
             return
         pad = 8
-        surf = pygame.Surface((size * 2 + pad * 2, size * 2 + pad * 2), pygame.SRCALPHA)
+        surf = _psurf((size * 2 + pad * 2, size * 2 + pad * 2), pygame.SRCALPHA)
         center = size + pad
         wobble_offset = _sin(proj['wobble']) * 3
 
@@ -7258,7 +7278,7 @@ class OilSpill(HeroSkill):
         pad = 16
         surf_w = w + pad * 2
         surf_h = h + pad * 2
-        surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+        surf = _psurf((surf_w, surf_h), pygame.SRCALPHA)
         cx, cy = surf_w // 2, surf_h // 2
 
         # --- 착지 스플래시 ---
@@ -7323,7 +7343,7 @@ class OilSpill(HeroSkill):
         for r in puddle.get('ripples', []):
             if r['alpha'] > 3:
                 rr = max(1, int(r['radius']))
-                rs = pygame.Surface((rr * 2 + 4, rr * 2 + 4), pygame.SRCALPHA)
+                rs = _psurf((rr * 2 + 4, rr * 2 + 4), pygame.SRCALPHA)
                 rc = rr + 2
                 ra = int(max(0, min(255, r['alpha'])))
                 pygame.draw.circle(rs, (*self._oil_colors['surface'], ra), (rc, rc), rr, 1)
@@ -7355,14 +7375,14 @@ class OilSpill(HeroSkill):
                 py = int(bubble['y'] + _sin(angle) * dist)
                 frag_a = int(80 * (1 - pop_p))
                 if frag_a > 3:
-                    ps = pygame.Surface((4, 4), pygame.SRCALPHA)
+                    ps = _psurf((4, 4), pygame.SRCALPHA)
                     pygame.draw.circle(ps, (*self._oil_colors['bubble_highlight'], frag_a), (2, 2), 1)
                     screen.blit(ps, (px - 2, py - 2))
             return
 
         ba = int(min(255, puddle_alpha * 0.9))
         pad = 4
-        bs = pygame.Surface((s * 2 + pad * 2, s * 2 + pad * 2), pygame.SRCALPHA)
+        bs = _psurf((s * 2 + pad * 2, s * 2 + pad * 2), pygame.SRCALPHA)
         bc = s + pad
 
         # 기포 본체 (반투명 원)
@@ -7684,7 +7704,7 @@ class ShadowClone(HeroSkill):
 
         # 바닥 그림자 먼저 그리기
         shadow_width = int(self.CLONE_WIDTH * 0.9)
-        shadow_surf = pygame.Surface((shadow_width, 10), pygame.SRCALPHA)
+        shadow_surf = _psurf((shadow_width, 10), pygame.SRCALPHA)
         pygame.draw.ellipse(shadow_surf, (10, 10, 25, int(alpha * 0.5)),
                           (0, 0, shadow_width, 10))
         screen.blit(shadow_surf, (x - shadow_width // 2, y + 15))
@@ -7693,7 +7713,7 @@ class ShadowClone(HeroSkill):
         if renderer and HERO_PADDLE_RENDERER_AVAILABLE:
             char_width = 120
             char_height = 100
-            temp_surf = pygame.Surface((char_width, char_height), pygame.SRCALPHA)
+            temp_surf = _psurf((char_width, char_height), pygame.SRCALPHA)
 
             renderer.update(1/60)
             shadow_color = (70, 60, 100)
@@ -7741,7 +7761,7 @@ class ShadowClone(HeroSkill):
         outline_color = (80, 80, 120, alpha)
 
         # 몸통
-        body_surf = pygame.Surface((40, 50), pygame.SRCALPHA)
+        body_surf = _psurf((40, 50), pygame.SRCALPHA)
         pygame.draw.ellipse(body_surf, body_color, (5, 20, 30, 30))  # 몸
         pygame.draw.circle(body_surf, body_color, (20, 12), 12)  # 머리
         pygame.draw.ellipse(body_surf, outline_color, (5, 20, 30, 30), 1)
@@ -7773,7 +7793,7 @@ class ShadowClone(HeroSkill):
         if renderer and HERO_PADDLE_RENDERER_AVAILABLE and base_alpha > 30:
             # RGB 분리 효과로 캐릭터 3번 그리기
             for color_offset, tint in [(-4, (255, 80, 80)), (0, (180, 180, 220)), (4, (80, 255, 255))]:
-                temp_surf = pygame.Surface((char_width, char_height), pygame.SRCALPHA)
+                temp_surf = _psurf((char_width, char_height), pygame.SRCALPHA)
                 try:
                     renderer.draw_hero_paddle(
                         temp_surf,
@@ -7798,7 +7818,7 @@ class ShadowClone(HeroSkill):
 
                 except Exception:
                     # 폴백: 단순 타원
-                    surf = pygame.Surface((50, 60), pygame.SRCALPHA)
+                    surf = _psurf((50, 60), pygame.SRCALPHA)
                     pygame.draw.ellipse(surf, (*tint, base_alpha // 2), (0, 0, 50, 60))
                     screen.blit(surf, (x - 25 + glitch_x + color_offset, y - 50 + glitch_y))
 
@@ -8152,7 +8172,7 @@ class IllusionShuriken(HeroSkill):
             flash_intensity = effect.get('flash_intensity', 0)
             if flash_intensity > 0:
                 flash_size = int(40 * flash_intensity)
-                flash_surf = pygame.Surface((flash_size * 2, flash_size * 2), pygame.SRCALPHA)
+                flash_surf = _psurf((flash_size * 2, flash_size * 2), pygame.SRCALPHA)
                 flash_alpha = int(200 * flash_intensity)
                 pygame.draw.circle(flash_surf, (255, 220, 255, flash_alpha),
                                  (flash_size, flash_size), flash_size)
@@ -8171,7 +8191,7 @@ class IllusionShuriken(HeroSkill):
                     ring_r = int(shockwave_r - offset)
                     if ring_r > 0:
                         ring_alpha = int(180 * (1 - shockwave_r / 80))
-                        ring_surf = pygame.Surface((ring_r * 2 + 4, ring_r * 2 + 4), pygame.SRCALPHA)
+                        ring_surf = _psurf((ring_r * 2 + 4, ring_r * 2 + 4), pygame.SRCALPHA)
                         pygame.draw.circle(ring_surf, (*color, ring_alpha),
                                          (ring_r + 2, ring_r + 2), ring_r, 2)
                         screen.blit(ring_surf, (ex - ring_r - 2, ey - ring_r - 2))
@@ -8188,7 +8208,7 @@ class IllusionShuriken(HeroSkill):
                     x2 = ex - _cos(angle_rad) * slash_length
                     y2 = ey - _sin(angle_rad) * slash_length
                     # 메인 슬래시
-                    slash_surf = pygame.Surface((int(slash_length * 2 + 10), int(slash_length * 2 + 10)), pygame.SRCALPHA)
+                    slash_surf = _psurf((int(slash_length * 2 + 10), int(slash_length * 2 + 10)), pygame.SRCALPHA)
                     center = int(slash_length + 5)
                     lx1 = center + _cos(angle_rad) * slash_length
                     ly1 = center + _sin(angle_rad) * slash_length
@@ -8221,7 +8241,7 @@ class IllusionShuriken(HeroSkill):
                                            (int(p['x']), int(p['y'])),
                                            (int(tail_x), int(tail_y)), max(1, size // 2))
                         # 메인 파티클
-                        surf = pygame.Surface((size * 2 + 2, size * 2 + 2), pygame.SRCALPHA)
+                        surf = _psurf((size * 2 + 2, size * 2 + 2), pygame.SRCALPHA)
                         pygame.draw.circle(surf, (*color, alpha), (size + 1, size + 1), size)
                         # 밝은 중심
                         if size > 2:
@@ -8233,7 +8253,7 @@ class IllusionShuriken(HeroSkill):
                        rotation: float, alpha: int):
         """수리검 그리기"""
         shuriken_size = 18
-        surf = pygame.Surface((shuriken_size * 2, shuriken_size * 2), pygame.SRCALPHA)
+        surf = _psurf((shuriken_size * 2, shuriken_size * 2), pygame.SRCALPHA)
 
         center = shuriken_size
         # 4개의 날
@@ -8709,13 +8729,13 @@ class Charm(HeroSkill):
                 c = (80, 200, 240, alpha)
             else:
                 c = (140, 60, 200, alpha)
-            s = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+            s = _psurf((sz * 2, sz * 2), pygame.SRCALPHA)
             pygame.draw.circle(s, c, (sz, sz), sz)
             screen.blit(s, (int(tr['x'] - sz), int(tr['y'] - sz)), special_flags=pygame.BLEND_ADD)
 
         # 외곽 글로우
         glow_r = 22
-        glow_s = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+        glow_s = _psurf((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
         pulse = (math.sin(self.charm_aura_timer * 8) + 1) * 0.5
         glow_alpha = int(60 + 40 * pulse)
         pygame.draw.circle(glow_s, (180, 60, 220, glow_alpha), (glow_r, glow_r), glow_r)
@@ -8726,7 +8746,7 @@ class Charm(HeroSkill):
             ox = cur_x + math.cos(orb['angle']) * orb['dist']
             oy = cur_y + math.sin(orb['angle']) * orb['dist']
             sz = max(1, int(orb['size']))
-            orb_s = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+            orb_s = _psurf((sz * 2, sz * 2), pygame.SRCALPHA)
             pygame.draw.circle(orb_s, (200, 100, 255, 200), (sz, sz), sz)
             screen.blit(orb_s, (int(ox - sz), int(oy - sz)), special_flags=pygame.BLEND_ADD)
 
@@ -8759,13 +8779,13 @@ class Charm(HeroSkill):
                 bx += wave
             alpha = int(120 + 80 * (1 - frac))
             sz = max(1, int(3 + 2 * math.sin(self.charm_aura_timer * 4 + i)))
-            cs = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+            cs = _psurf((sz * 2, sz * 2), pygame.SRCALPHA)
             pygame.draw.circle(cs, (180, 80, 220, alpha), (sz, sz), sz)
             screen.blit(cs, (int(bx - sz), int(by - sz)), special_flags=pygame.BLEND_ADD)
 
         # 호위무사 주위 매혹 필드 (견인 중)
         field_r = int(25 + 10 * math.sin(self.charm_aura_timer * 5))
-        field_s = pygame.Surface((field_r * 2, field_r * 2), pygame.SRCALPHA)
+        field_s = _psurf((field_r * 2, field_r * 2), pygame.SRCALPHA)
         field_alpha = int(50 + 30 * (1 - progress))
         pygame.draw.circle(field_s, (200, 80, 240, field_alpha), (field_r, field_r), field_r)
         screen.blit(field_s, (int(px - field_r), int(py - field_r)), special_flags=pygame.BLEND_ADD)
@@ -8777,7 +8797,7 @@ class Charm(HeroSkill):
             ring_r = 15 + r * 5
             rx = px + math.cos(angle) * ring_r
             ry = py + math.sin(angle) * ring_r * 0.6
-            dot_s = pygame.Surface((6, 6), pygame.SRCALPHA)
+            dot_s = _psurf((6, 6), pygame.SRCALPHA)
             pygame.draw.circle(dot_s, (255, 150, 220, 180), (3, 3), 3)
             screen.blit(dot_s, (int(rx - 3), int(ry - 3)), special_flags=pygame.BLEND_ADD)
 
@@ -8791,7 +8811,7 @@ class Charm(HeroSkill):
 
             if p.get('is_heart'):
                 # 하트 모양 (작은 점 두 개 + 아래 삼각형으로 근사)
-                heart_s = pygame.Surface((sz * 3, sz * 3), pygame.SRCALPHA)
+                heart_s = _psurf((sz * 3, sz * 3), pygame.SRCALPHA)
                 hc = (255, 100, 180, alpha)
                 hs = max(1, sz)
                 pygame.draw.circle(heart_s, hc, (hs, hs), hs)
@@ -8803,7 +8823,7 @@ class Charm(HeroSkill):
                     c = (200, 100, 180, alpha)
                 else:
                     c = (100, 200, 240, alpha)
-                ps = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+                ps = _psurf((sz * 2, sz * 2), pygame.SRCALPHA)
                 pygame.draw.circle(ps, c, (sz, sz), sz)
                 screen.blit(ps, (int(p['x'] - sz), int(p['y'] - sz)), special_flags=pygame.BLEND_ADD)
 
@@ -8811,7 +8831,7 @@ class Charm(HeroSkill):
         pulse = (math.sin(self.charm_aura_timer * 3) + 1) * 0.5
         bar_alpha = int(25 + 20 * pulse)
         bar_h = 6
-        bar_s = pygame.Surface((760, bar_h), pygame.SRCALPHA)
+        bar_s = _psurf((760, bar_h), pygame.SRCALPHA)
         bar_s.fill((180, 80, 220, bar_alpha))
         if self.charm_source_is_top:
             screen.blit(bar_s, (0, 0))
@@ -8823,7 +8843,7 @@ class Charm(HeroSkill):
         if guard_pos:
             gx, gy = guard_pos['x'], guard_pos['y']
             ring_r = int(20 + 5 * math.sin(self.charm_aura_timer * 4))
-            ring_s = pygame.Surface((ring_r * 2, ring_r * 2), pygame.SRCALPHA)
+            ring_s = _psurf((ring_r * 2, ring_r * 2), pygame.SRCALPHA)
             pygame.draw.circle(ring_s, (200, 80, 240, 40), (ring_r, ring_r), ring_r)
             pygame.draw.circle(ring_s, (200, 80, 240, 80), (ring_r, ring_r), ring_r, 2)
             screen.blit(ring_s, (int(gx - ring_r), int(gy - ring_r)), special_flags=pygame.BLEND_ADD)
@@ -8840,7 +8860,7 @@ class Charm(HeroSkill):
         dissipate_alpha = int(120 * (1 - progress))
         field_r = int(20 * (1 - progress * 0.5))
         if field_r > 0:
-            fs = pygame.Surface((field_r * 2, field_r * 2), pygame.SRCALPHA)
+            fs = _psurf((field_r * 2, field_r * 2), pygame.SRCALPHA)
             pygame.draw.circle(fs, (140, 80, 200, dissipate_alpha), (field_r, field_r), field_r)
             screen.blit(fs, (int(rx - field_r), int(ry - field_r)), special_flags=pygame.BLEND_ADD)
 
@@ -8851,7 +8871,7 @@ class Charm(HeroSkill):
             sd = 12 + 8 * (1 - progress)
             sx = rx + math.cos(angle) * sd
             sy = ry + math.sin(angle) * sd * 0.6
-            ss = pygame.Surface((4, 4), pygame.SRCALPHA)
+            ss = _psurf((4, 4), pygame.SRCALPHA)
             pygame.draw.circle(ss, (220, 120, 255, dissipate_alpha), (2, 2), 2)
             screen.blit(ss, (int(sx - 2), int(sy - 2)), special_flags=pygame.BLEND_ADD)
 
@@ -9041,7 +9061,7 @@ class DeadPossession(HeroSkill):
         for p in self.ghost_particles:
             alpha = int(180 * (p['life'] / p['max_life']))
             size = max(1, int(p['size'] * (p['life'] / p['max_life'])))
-            particle_surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+            particle_surf = _psurf((size * 2, size * 2), pygame.SRCALPHA)
             pygame.draw.circle(particle_surf, (80, 200, 255, alpha), (size, size), size)
             screen.blit(particle_surf, (int(p['x'] - size), int(p['y'] - size)),
                        special_flags=pygame.BLEND_ADD)
@@ -9054,7 +9074,7 @@ class DeadPossession(HeroSkill):
                 font = pygame.font.SysFont("malgungothic", 20, bold=True)
                 text = f"수수께끼 묘기: {self.possession_name}"
                 text_surf = font.render(text, True, (255, 220, 100))
-                text_alpha_surf = pygame.Surface(text_surf.get_size(), pygame.SRCALPHA)
+                text_alpha_surf = _psurf(text_surf.get_size(), pygame.SRCALPHA)
                 text_alpha_surf.blit(text_surf, (0, 0))
                 text_alpha_surf.set_alpha(flash_alpha)
                 text_x = 380 - text_surf.get_width() // 2
@@ -9685,7 +9705,7 @@ class GhostSummon(HeroSkill):
                 c = p['color']
                 alpha = int(min(255, p['alpha']))
                 size = max(1, p['size'])
-                surf = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                surf = _psurf((size * 2, size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(surf, (*c, alpha), (size, size), size)
                 screen.blit(surf, (int(p['x']) - size, int(p['y']) - size))
 
@@ -9761,7 +9781,7 @@ class GhostSummon(HeroSkill):
             shadow_width = int(self.GHOST_WIDTH * 0.8 * eat_scale)
             shadow_alpha = int(alpha * 0.35)
             shadow_y_base = rect.centery + 20
-            shadow_surf = pygame.Surface((shadow_width, 8), pygame.SRCALPHA)
+            shadow_surf = _psurf((shadow_width, 8), pygame.SRCALPHA)
             pygame.draw.ellipse(shadow_surf, (10, 20, 18, shadow_alpha),
                               (0, 0, shadow_width, 8))
             screen.blit(shadow_surf, (x - shadow_width // 2, shadow_y_base))
@@ -9814,7 +9834,7 @@ class GhostSummon(HeroSkill):
         shadow_width = int(self.GHOST_WIDTH * 0.8 * max(0.5, shadow_scale))
         shadow_alpha = int(alpha * 0.35 * max(0.3, shadow_scale))
         shadow_y_base = rect.centery + 20
-        shadow_surf = pygame.Surface((shadow_width, 8), pygame.SRCALPHA)
+        shadow_surf = _psurf((shadow_width, 8), pygame.SRCALPHA)
         pygame.draw.ellipse(shadow_surf, (10, 20, 18, shadow_alpha),
                           (0, 0, shadow_width, 8))
         screen.blit(shadow_surf, (x - shadow_width // 2, shadow_y_base))
@@ -9830,7 +9850,7 @@ class GhostSummon(HeroSkill):
         base_w, base_h = 50, 60
         surf_w = int(base_w * scale)
         surf_h = int(base_h * scale)
-        body_surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+        body_surf = _psurf((surf_w, surf_h), pygame.SRCALPHA)
 
         s = scale  # 스케일 축약
         # 유령 몸체
@@ -9868,7 +9888,7 @@ class GhostSummon(HeroSkill):
         base_w, base_h = 50, 60
         surf_w = int(base_w * scale_x) + 4
         surf_h = int(base_h * scale_y) + 4
-        body_surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+        body_surf = _psurf((surf_w, surf_h), pygame.SRCALPHA)
 
         sx, sy = scale_x, scale_y
         ticks = pygame.time.get_ticks() * 0.001
@@ -10454,7 +10474,7 @@ class SkeletonArcher(HeroSkill):
         aim_dir = -1 if is_bottom else 1    # -1=위로, 1=아래로
 
         surf_w, surf_h = 80, 100
-        surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+        surf = _psurf((surf_w, surf_h), pygame.SRCALPHA)
         cx = surf_w // 2  # 40
         cy = 65  # 궁수 몸통 중심
 
@@ -10726,7 +10746,7 @@ class SkeletonArcher(HeroSkill):
         # === 바닥 그림자 ===
         shadow_w = 30
         shadow_h = 8
-        shadow_surf = pygame.Surface((shadow_w, shadow_h), pygame.SRCALPHA)
+        shadow_surf = _psurf((shadow_w, shadow_h), pygame.SRCALPHA)
         pygame.draw.ellipse(shadow_surf, (15, 20, 12, int(alpha * 0.25)), (0, 0, shadow_w, shadow_h))
         screen.blit(shadow_surf, (x - shadow_w // 2, int(archer['y']) + 30))
 
@@ -10943,7 +10963,7 @@ class SkeletonArcher(HeroSkill):
 
         # 황금 화살: 빛나는 글로우
         if is_golden:
-            glow_surf = pygame.Surface((20, 20), pygame.SRCALPHA)
+            glow_surf = _psurf((20, 20), pygame.SRCALPHA)
             pygame.draw.circle(glow_surf, (255, 220, 80, 40), (10, 10), 10)
             screen.blit(glow_surf, (x - 10, y - 10), special_flags=pygame.BLEND_ADD)
 
@@ -11620,14 +11640,14 @@ class BalloonWall(HeroSkill):
 
             # === 글로우 (풍선 뒤에 은은한 빛) ===
             glow_r = size + 8
-            glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+            glow_surf = _psurf((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
             pygame.draw.circle(glow_surf, (*color[:3], 18), (glow_r, glow_r), glow_r)
             screen.blit(glow_surf, (bx - glow_r, by - glow_r))
 
             # === 풍선 본체 (고퀄리티 렌더링) ===
             surf_w = size * 2 + 8
             surf_h = int(size * 2.6) + 8
-            balloon_surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+            balloon_surf = _psurf((surf_w, surf_h), pygame.SRCALPHA)
             cx = surf_w // 2
             cy = int(size * 1.2) + 3
             bw = size
@@ -11712,7 +11732,7 @@ class BalloonWall(HeroSkill):
                 flash_alpha = int(220 * (1 - progress / 0.12))
                 flash_r = int(pop['size'] * 1.8)
                 if flash_r > 0:
-                    flash_surf = pygame.Surface((flash_r * 2, flash_r * 2), pygame.SRCALPHA)
+                    flash_surf = _psurf((flash_r * 2, flash_r * 2), pygame.SRCALPHA)
                     pygame.draw.circle(flash_surf, (255, 255, 255, flash_alpha),
                                      (flash_r, flash_r), flash_r)
                     screen.blit(flash_surf, (px - flash_r, py - flash_r))
@@ -11721,7 +11741,7 @@ class BalloonWall(HeroSkill):
             ring_r = int(pop['size'] * (1.0 + progress * 3.5))
             ring_alpha = int(alpha * 0.3)
             if ring_alpha > 5 and ring_r > 0:
-                ring_surf = pygame.Surface((ring_r * 2, ring_r * 2), pygame.SRCALPHA)
+                ring_surf = _psurf((ring_r * 2, ring_r * 2), pygame.SRCALPHA)
                 ring_thick = max(1, 3 - int(progress * 4))
                 pygame.draw.circle(ring_surf, (*pop['color'], ring_alpha),
                                  (ring_r, ring_r), ring_r, ring_thick)
@@ -11740,7 +11760,7 @@ class BalloonWall(HeroSkill):
                 if shape == 'strip' and frag_size > 1:
                     sw = frag_size * 3
                     sh = max(1, frag_size)
-                    frag_surf = pygame.Surface((sw + 2, sh + 2), pygame.SRCALPHA)
+                    frag_surf = _psurf((sw + 2, sh + 2), pygame.SRCALPHA)
                     pygame.draw.rect(frag_surf, fc, (1, 1, sw, sh))
                     rot_angle = math.degrees(frag.get('rotation', 0))
                     rotated = pygame.transform.rotate(frag_surf, rot_angle)
@@ -11748,7 +11768,7 @@ class BalloonWall(HeroSkill):
                                          fy - rotated.get_height() // 2))
                 elif shape == 'triangle' and frag_size > 1:
                     ts = frag_size + 1
-                    t_surf = pygame.Surface((ts * 2 + 2, ts * 2 + 2), pygame.SRCALPHA)
+                    t_surf = _psurf((ts * 2 + 2, ts * 2 + 2), pygame.SRCALPHA)
                     tc = ts + 1
                     pygame.draw.polygon(t_surf, fc, [
                         (tc, tc - ts), (tc - ts, tc + ts), (tc + ts, tc + ts),
@@ -11756,7 +11776,7 @@ class BalloonWall(HeroSkill):
                     screen.blit(t_surf, (fx - tc, fy - tc))
                 else:
                     if frag_size > 0:
-                        c_surf = pygame.Surface((frag_size * 2 + 2, frag_size * 2 + 2), pygame.SRCALPHA)
+                        c_surf = _psurf((frag_size * 2 + 2, frag_size * 2 + 2), pygame.SRCALPHA)
                         pygame.draw.circle(c_surf, fc,
                                          (frag_size + 1, frag_size + 1), frag_size)
                         screen.blit(c_surf, (fx - frag_size - 1, fy - frag_size - 1))
@@ -11770,7 +11790,7 @@ class BalloonWall(HeroSkill):
                     sy = py + int(math.sin(rp['angle']) * dist)
                     s_size = max(1, int(rp['size'] * (1 - progress * 2)))
                     if s_size > 0:
-                        sp_surf = pygame.Surface((s_size * 2 + 2, s_size * 2 + 2), pygame.SRCALPHA)
+                        sp_surf = _psurf((s_size * 2 + 2, s_size * 2 + 2), pygame.SRCALPHA)
                         pygame.draw.circle(sp_surf, (*rp['color'][:3], sparkle_alpha),
                                          (s_size + 1, s_size + 1), s_size)
                         screen.blit(sp_surf, (sx - s_size - 1, sy - s_size - 1))
@@ -12275,7 +12295,7 @@ class BombSurprise(HeroSkill):
         warn_r = bomb_size + 6 + int(8 * progress)
         warn_alpha = int(25 + 50 * progress)
         red_int = int(120 + 135 * progress)
-        warn_surf = pygame.Surface((warn_r * 2, warn_r * 2), pygame.SRCALPHA)
+        warn_surf = _psurf((warn_r * 2, warn_r * 2), pygame.SRCALPHA)
         pygame.draw.circle(warn_surf, (red_int, 30, 15, warn_alpha),
                          (warn_r, warn_r), warn_r)
         screen.blit(warn_surf, (bx - warn_r, by - warn_r))
@@ -12346,7 +12366,7 @@ class BombSurprise(HeroSkill):
             size = int(cloud['size'])
             c_alpha = int(120 * life_ratio)
             if size > 0 and c_alpha > 0:
-                cs = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                cs = _psurf((size * 2, size * 2), pygame.SRCALPHA)
                 for i in range(3):
                     r = size - i * size // 3
                     if r > 0:
@@ -12361,7 +12381,7 @@ class BombSurprise(HeroSkill):
             if 0 < wr < radius_cap:
                 wa = int(150 * (1 - wr / radius_cap))
                 if wa > 0:
-                    ws = pygame.Surface((wr * 2 + 10, wr * 2 + 10), pygame.SRCALPHA)
+                    ws = _psurf((wr * 2 + 10, wr * 2 + 10), pygame.SRCALPHA)
                     pygame.draw.circle(ws, (255, 180, 80, wa),
                                      (wr + 5, wr + 5), wr, max(2, 8 - int(wr / 40)))
                     screen.blit(ws, (ex - wr - 5, ey - wr - 5))
@@ -12370,7 +12390,7 @@ class BombSurprise(HeroSkill):
         if shockwave_radius > 0 and progress < 0.6:
             wave_alpha = int(220 * (1 - progress / 0.6))
             wave_width = max(4, int(20 * (1 - progress)))
-            ws = pygame.Surface((shockwave_radius * 2 + 30, shockwave_radius * 2 + 30), pygame.SRCALPHA)
+            ws = _psurf((shockwave_radius * 2 + 30, shockwave_radius * 2 + 30), pygame.SRCALPHA)
             center = shockwave_radius + 15
             pygame.draw.circle(ws, (255, 100, 30, wave_alpha // 3),
                              (center, center), shockwave_radius + 8, wave_width + 8)
@@ -12386,7 +12406,7 @@ class BombSurprise(HeroSkill):
             fp = progress / 0.25
             fr = int(150 * (1 - fp * 0.7))
             fa = int(255 * (1 - fp))
-            fs = pygame.Surface((fr * 2 + 30, fr * 2 + 30), pygame.SRCALPHA)
+            fs = _psurf((fr * 2 + 30, fr * 2 + 30), pygame.SRCALPHA)
             fc = fr + 15
             pygame.draw.circle(fs, (255, 150, 50, fa // 2), (fc, fc), fr)
             pygame.draw.circle(fs, (255, 220, 100, fa), (fc, fc), int(fr * 0.7))
@@ -12401,7 +12421,7 @@ class BombSurprise(HeroSkill):
             sa = int(255 * life_ratio)
             if sa > 0:
                 sx, sy = int(spark['x']), int(spark['y'])
-                ss = pygame.Surface((10, 10), pygame.SRCALPHA)
+                ss = _psurf((10, 10), pygame.SRCALPHA)
                 pygame.draw.circle(ss, (sr, sg, sb, sa), (5, 5), 2)
                 screen.blit(ss, (sx - 5, sy - 5))
 
@@ -12420,7 +12440,7 @@ class BombSurprise(HeroSkill):
                 pr, pg, pb = 255, int(150 * life_ratio), int(50 * life_ratio)
             pa = int(255 * life_ratio * life_ratio)
             if size > 0 and pa > 0:
-                ps = pygame.Surface((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
+                ps = _psurf((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
                 pc = size + 2
                 if size > 2:
                     pygame.draw.circle(ps, (pr, pg // 2, pb // 2, pa // 3), (pc, pc), size + 2)
@@ -12989,7 +13009,7 @@ class GatlingBurst(HeroSkill):
             bar_x = tip_x - bar_w // 2
             bar_y = tip_y + (12 if self.caster_is_top else -12)
             # 배경
-            bar_bg = pygame.Surface((bar_w + 2, bar_h + 2), pygame.SRCALPHA)
+            bar_bg = _psurf((bar_w + 2, bar_h + 2), pygame.SRCALPHA)
             pygame.draw.rect(bar_bg, (0, 0, 0, 120), (0, 0, bar_w + 2, bar_h + 2), border_radius=2)
             screen.blit(bar_bg, (bar_x - 1, bar_y - 1))
             # 게이지
@@ -13000,7 +13020,7 @@ class GatlingBurst(HeroSkill):
                     gc = (255, int(100 + 155 * progress * 2), 50)
                 else:
                     gc = (int(255 * (1 - (progress - 0.5) * 2)), 255, 50)
-                bar_fill = pygame.Surface((fill_w, bar_h), pygame.SRCALPHA)
+                bar_fill = _psurf((fill_w, bar_h), pygame.SRCALPHA)
                 pygame.draw.rect(bar_fill, (*gc, 200), (0, 0, fill_w, bar_h), border_radius=1)
                 screen.blit(bar_fill, (bar_x, bar_y))
 
@@ -13026,7 +13046,7 @@ class GatlingBurst(HeroSkill):
                 trail_alpha = int((100 - i * 20) * (0.8 if not is_tracer else 1.0))
                 trail_w = max(1, self.BULLET_WIDTH - i)
                 if trail_alpha > 0 and trail_w > 0:
-                    ts = pygame.Surface(
+                    ts = _psurf(
                         (trail_w * 2 + 2, trail_w * 2 + 2), pygame.SRCALPHA)
                     color = (255, 180, 60, trail_alpha) if not is_tracer \
                         else (255, 100, 100, trail_alpha)
@@ -13044,7 +13064,7 @@ class GatlingBurst(HeroSkill):
 
             # 탄환 글로우 (SRCALPHA 서페이스)
             glow_r = 8 if is_tracer else 6
-            gs = pygame.Surface(
+            gs = _psurf(
                 (glow_r * 2, glow_r * 2), pygame.SRCALPHA)
             glow_color = (255, 120, 80, 80) if is_tracer \
                 else (255, 200, 100, 60)
@@ -13086,7 +13106,7 @@ class GatlingBurst(HeroSkill):
                 casing_w = 2
                 dx = int(math.cos(rot) * casing_len)
                 dy = int(math.sin(rot) * casing_len)
-                cs_surf = pygame.Surface((12, 12), pygame.SRCALPHA)
+                cs_surf = _psurf((12, 12), pygame.SRCALPHA)
                 pygame.draw.line(cs_surf, (220, 180, 60, alpha),
                     (6 - dx, 6 - dy), (6 + dx, 6 + dy), casing_w)
                 pygame.draw.circle(cs_surf, (255, 220, 100, min(255, alpha + 40)),
@@ -13104,7 +13124,7 @@ class GatlingBurst(HeroSkill):
 
             if p.get('type') == 'ember':
                 # 잔불 (어두운 주황, 느리게 사라짐)
-                es = pygame.Surface((sz * 2 + 2, sz * 2 + 2), pygame.SRCALPHA)
+                es = _psurf((sz * 2 + 2, sz * 2 + 2), pygame.SRCALPHA)
                 pygame.draw.circle(es, (255, 120, 30, min(255, alpha)),
                     (sz + 1, sz + 1), sz)
                 screen.blit(es, (px - sz - 1, py - sz - 1),
@@ -13453,14 +13473,14 @@ class SandPrison(HeroSkill):
         # 감옥 영역 바닥 (연한 모래색)
         if draw_h > 0:
             floor_alpha = max(0, min(40, int(22 * visible_ratio)))
-            floor_surf = pygame.Surface((floor_w, draw_h), pygame.SRCALPHA)
+            floor_surf = _psurf((floor_w, draw_h), pygame.SRCALPHA)
             floor_surf.fill((210, 180, 100, floor_alpha))
             screen.blit(floor_surf, (int(left_wall), int(draw_top)))
 
         # 모래 벽 (양쪽)
         if draw_h > 3:
             for wall_x in [left_wall, right_wall]:
-                wall_surf = pygame.Surface((8, draw_h), pygame.SRCALPHA)
+                wall_surf = _psurf((8, draw_h), pygame.SRCALPHA)
                 for y in range(0, draw_h, 3):
                     r = random.randint(185, 220)
                     g = random.randint(155, 180)
@@ -13472,7 +13492,7 @@ class SandPrison(HeroSkill):
                 # 벽 글로우
                 if draw_h > 20:
                     glow_h = min(30, draw_h - 5)
-                    glow_surf = pygame.Surface((24, glow_h), pygame.SRCALPHA)
+                    glow_surf = _psurf((24, glow_h), pygame.SRCALPHA)
                     for gy in range(glow_h):
                         ga = int(alpha * 0.3 * (1 - gy / glow_h))
                         pygame.draw.line(glow_surf, (220, 190, 120, ga), (0, gy), (24, gy))
@@ -13485,7 +13505,7 @@ class SandPrison(HeroSkill):
                 bar_positions.append(draw_top)  # 상단 바 (거의 완성 시만)
             bar_positions.append(py_bot - 5)    # 하단 바 (항상)
             for bar_y in bar_positions:
-                bar_surf = pygame.Surface((floor_w + 8, 5), pygame.SRCALPHA)
+                bar_surf = _psurf((floor_w + 8, 5), pygame.SRCALPHA)
                 for bx in range(0, floor_w + 8, 3):
                     r = random.randint(185, 220)
                     g = random.randint(155, 180)
@@ -13499,7 +13519,7 @@ class SandPrison(HeroSkill):
             corner_alpha = int(alpha * 0.7 * min(1.0, (visible_ratio - 0.8) / 0.2))
             for cx_pos in [left_wall, right_wall]:
                 for cy_pos in [draw_top, py_bot]:
-                    cs = pygame.Surface((corner_r * 2, corner_r * 2), pygame.SRCALPHA)
+                    cs = _psurf((corner_r * 2, corner_r * 2), pygame.SRCALPHA)
                     pygame.draw.circle(cs, (200, 170, 90, corner_alpha),
                                      (corner_r, corner_r), corner_r)
                     screen.blit(cs, (int(cx_pos) - corner_r, int(cy_pos) - corner_r))
@@ -13516,7 +13536,7 @@ class SandPrison(HeroSkill):
             a = max(0, min(255, int(p['alpha'])))
             if a > 10:
                 sz = max(1, int(p['size']))
-                ps = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+                ps = _psurf((sz * 2, sz * 2), pygame.SRCALPHA)
                 pygame.draw.circle(ps, (215, 185, 105, a), (sz, sz), sz)
                 screen.blit(ps, (int(p['x'] - sz), int(p['y'] - sz)))
 
@@ -13531,14 +13551,14 @@ class SandPrison(HeroSkill):
                 r = int(230 - 30 * progress)
                 g = int(200 - 25 * progress)
                 bv = int(110 - 20 * progress)
-                ps = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+                ps = _psurf((sz * 2, sz * 2), pygame.SRCALPHA)
                 pygame.draw.circle(ps, (r, g, bv, a), (sz, sz), sz)
                 screen.blit(ps, (int(p['x'] - sz), int(p['y'] - sz)))
                 # 꼬리 잔상 (이동 방향 반대편에 작은 점)
                 if sz > 1 and progress < 0.8:
                     tail_sz = max(1, sz - 1)
                     tail_a = max(0, a // 3)
-                    ts = pygame.Surface((tail_sz * 2, tail_sz * 2), pygame.SRCALPHA)
+                    ts = _psurf((tail_sz * 2, tail_sz * 2), pygame.SRCALPHA)
                     pygame.draw.circle(ts, (r, g, bv, tail_a), (tail_sz, tail_sz), tail_sz)
                     # 꼬리 위치 = 속도 반대 방향으로 약간 뒤
                     spd = (p['vx'] ** 2 + p['vy'] ** 2) ** 0.5
@@ -13981,7 +14001,7 @@ class SandVortex(HeroSkill):
             alpha = vortex['alpha']
 
             surf_size = int(size * 3.5)
-            vortex_surf = pygame.Surface((surf_size * 2, surf_size * 2), pygame.SRCALPHA)
+            vortex_surf = _psurf((surf_size * 2, surf_size * 2), pygame.SRCALPHA)
             cx, cy = surf_size, surf_size
 
             # ── 1) 바깥쪽 모래구름 (반투명 대형 원들) ──
@@ -14050,7 +14070,7 @@ class SandVortex(HeroSkill):
 
             # 끌어당김 범위 (매우 연한 원 - 모래색, 성장에 따라 커짐)
             scaled_pr = int(self.PULL_RADIUS * vortex.get('growth_scale', 1.0))
-            pull_surf = pygame.Surface((scaled_pr * 2, scaled_pr * 2), pygame.SRCALPHA)
+            pull_surf = _psurf((scaled_pr * 2, scaled_pr * 2), pygame.SRCALPHA)
             pygame.draw.circle(pull_surf, (210, 180, 100, 10),
                              (scaled_pr, scaled_pr), scaled_pr, 1)
             screen.blit(pull_surf, (x - scaled_pr, y - scaled_pr))
@@ -14079,7 +14099,7 @@ class SandVortex(HeroSkill):
                         col = (220, 190, 120, a)
                     else:
                         col = (210, 180, 105, a)
-                ps = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+                ps = _psurf((sz * 2, sz * 2), pygame.SRCALPHA)
                 pygame.draw.circle(ps, col, (sz, sz), sz)
                 screen.blit(ps, (int(p['x'] - sz), int(p['y'] - sz)))
 
@@ -14381,7 +14401,7 @@ class SolarBolt(HeroSkill):
                     return [(px - offx, py - offy) for (px, py) in pts]
 
                 # 레이어 1: 글로우 (6px, BLEND_ADD)
-                g1 = pygame.Surface((w, h), pygame.SRCALPHA)
+                g1 = _psurf((w, h), pygame.SRCALPHA)
                 a1 = int(self.GLOW_WIDE[3] * fade)
                 c1 = (self.GLOW_WIDE[0], self.GLOW_WIDE[1], self.GLOW_WIDE[2], a1)
                 pygame.draw.lines(g1, c1, False, _off(self.lightning_path), 6)
@@ -14404,7 +14424,7 @@ class SolarBolt(HeroSkill):
                     if br:
                         bx, by = br[0]
                         gr = random.randint(2, 3)
-                        gs = pygame.Surface((gr * 2, gr * 2), pygame.SRCALPHA)
+                        gs = _psurf((gr * 2, gr * 2), pygame.SRCALPHA)
                         pygame.draw.circle(gs, (255, 255, 230, int(160 * fade)), (gr, gr), gr)
                         screen.blit(gs, (bx - gr, by - gr), special_flags=pygame.BLEND_ADD)
 
@@ -14420,7 +14440,7 @@ class SolarBolt(HeroSkill):
             if progress < 0.3:
                 fa = int(255 * (1.0 - progress / 0.3))
                 fr = int(12 + progress * 30)
-                fs = pygame.Surface((fr * 2, fr * 2), pygame.SRCALPHA)
+                fs = _psurf((fr * 2, fr * 2), pygame.SRCALPHA)
                 pygame.draw.circle(fs, (255, 255, 240, fa), (fr, fr), fr)
                 pygame.draw.circle(fs, (255, 255, 255, min(255, fa + 30)), (fr, fr), max(1, fr // 2))
                 screen.blit(fs, (cx - fr, cy - fr), special_flags=pygame.BLEND_ADD)
@@ -14429,7 +14449,7 @@ class SolarBolt(HeroSkill):
             cr = int(6 + progress * 40)
             ca = int(200 * life_ratio)
             if ca > 0 and cr > 0:
-                cs = pygame.Surface((cr * 2, cr * 2), pygame.SRCALPHA)
+                cs = _psurf((cr * 2, cr * 2), pygame.SRCALPHA)
                 pygame.draw.circle(cs, (self.EXPLOSION_CORE[0], self.EXPLOSION_CORE[1], self.EXPLOSION_CORE[2], ca),
                                    (cr, cr), int(cr * 0.6))
                 pygame.draw.circle(cs, (self.EXPLOSION_INNER[0], self.EXPLOSION_INNER[1], self.EXPLOSION_INNER[2], int(ca * 0.5)),
@@ -14445,7 +14465,7 @@ class SolarBolt(HeroSkill):
                 rr = int(self.EXPLOSION_DISPLAY * 60 * rp * (ri + 1) * 0.25)
                 ra = int((160 - ri * 40) * (1.0 - rp))
                 if ra > 0 and rr > 4:
-                    rs = pygame.Surface((rr * 2 + 6, rr * 2 + 6), pygame.SRCALPHA)
+                    rs = _psurf((rr * 2 + 6, rr * 2 + 6), pygame.SRCALPHA)
                     th = max(1, 3 - ri)
                     pygame.draw.circle(rs, (self.EXPLOSION_RING[0], self.EXPLOSION_RING[1], self.EXPLOSION_RING[2], ra),
                                        (rr + 3, rr + 3), rr, th)
@@ -14486,7 +14506,7 @@ class SolarBolt(HeroSkill):
                 pygame.draw.circle(screen, (255, 255, 255), (pxi, pyi), max(1, s // 3))
             elif p.get('type') == 'flash':
                 a = int(180 * am)
-                gs = pygame.Surface((s * 2, s * 2), pygame.SRCALPHA)
+                gs = _psurf((s * 2, s * 2), pygame.SRCALPHA)
                 pygame.draw.circle(gs, (col[0], col[1], col[2], a), (s, s), s)
                 pygame.draw.circle(gs, (255, 255, 255, min(255, int(a * 0.7))), (s, s), max(1, s // 2))
                 screen.blit(gs, (pxi - s, pyi - s), special_flags=pygame.BLEND_ADD)
@@ -14862,7 +14882,7 @@ class ThunderOrb(HeroSkill):
         for p in self.orb_trail:
             alpha = int(180 * (p['life'] / 0.3))
             sz = max(1, int(p['size']))
-            ts = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+            ts = _psurf((sz * 2, sz * 2), pygame.SRCALPHA)
             pygame.draw.circle(ts, (100, 180, 255, alpha), (sz, sz), sz)
             screen.blit(ts, (int(p['x']) - sz, int(p['y']) - sz))
 
@@ -14875,7 +14895,7 @@ class ThunderOrb(HeroSkill):
 
         # ── 서피스 크기 ──
         surf_size = vr * 6 + 20
-        ball_surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
+        ball_surf = _psurf((surf_size, surf_size), pygame.SRCALPHA)
         center = surf_size // 2
 
         # 펄스 효과
@@ -14988,7 +15008,7 @@ class ThunderOrb(HeroSkill):
                 alpha = min(255, int(255 * life_ratio))
                 sz = max(1, int(p['size'] * max(0.3, life_ratio)))
                 if alpha > 0 and sz > 0:
-                    ps = pygame.Surface((sz * 2 + 4, sz * 2 + 4), pygame.SRCALPHA)
+                    ps = _psurf((sz * 2 + 4, sz * 2 + 4), pygame.SRCALPHA)
                     pc = sz + 2
                     # 파티클 글로우
                     pygame.draw.circle(ps, (*p['color'][:3], alpha // 3), (pc, pc), sz + 2)
@@ -15006,14 +15026,14 @@ class ThunderOrb(HeroSkill):
             flash_r_outer = int(current_r * 0.9)
             flash_a_outer = int(80 * flash_f)
             if flash_r_outer > 0 and flash_a_outer > 0:
-                fs = pygame.Surface((flash_r_outer * 2, flash_r_outer * 2), pygame.SRCALPHA)
+                fs = _psurf((flash_r_outer * 2, flash_r_outer * 2), pygame.SRCALPHA)
                 pygame.draw.circle(fs, (100, 180, 255, flash_a_outer), (flash_r_outer, flash_r_outer), flash_r_outer)
                 screen.blit(fs, (cx - flash_r_outer, cy - flash_r_outer))
             # 중심 백색 플래시
             flash_r = int(current_r * 0.5)
             flash_a = int(220 * flash_f)
             if flash_r > 0 and flash_a > 0:
-                fs = pygame.Surface((flash_r * 2, flash_r * 2), pygame.SRCALPHA)
+                fs = _psurf((flash_r * 2, flash_r * 2), pygame.SRCALPHA)
                 pygame.draw.circle(fs, (255, 255, 255, flash_a), (flash_r, flash_r), flash_r)
                 screen.blit(fs, (cx - flash_r, cy - flash_r))
 
@@ -15031,7 +15051,7 @@ class ThunderOrb(HeroSkill):
             ring_a = int((220 - ring_idx * 30) * (1.0 - min(1.0, ring_prog)))
             ring_w = max(1, 4 - ring_idx)
             if ring_r > 0 and ring_a > 0:
-                rs = pygame.Surface((ring_r * 2 + 10, ring_r * 2 + 10), pygame.SRCALPHA)
+                rs = _psurf((ring_r * 2 + 10, ring_r * 2 + 10), pygame.SRCALPHA)
                 rc = ring_colors[ring_idx % len(ring_colors)]
                 rsc = ring_r + 5
                 # 글로우 링 (두꺼운 외곽)
@@ -15047,7 +15067,7 @@ class ThunderOrb(HeroSkill):
         if fill_a1 > 0:
             fill_r1 = int(current_r * 0.9)
             if fill_r1 > 0:
-                fs = pygame.Surface((fill_r1 * 2, fill_r1 * 2), pygame.SRCALPHA)
+                fs = _psurf((fill_r1 * 2, fill_r1 * 2), pygame.SRCALPHA)
                 pygame.draw.circle(fs, (20, 80, 180, fill_a1), (fill_r1, fill_r1), fill_r1)
                 screen.blit(fs, (cx - fill_r1, cy - fill_r1))
         # 내부 밝은 영역
@@ -15055,7 +15075,7 @@ class ThunderOrb(HeroSkill):
         if fill_a2 > 0:
             fill_r2 = int(current_r * 0.5)
             if fill_r2 > 0:
-                fs = pygame.Surface((fill_r2 * 2, fill_r2 * 2), pygame.SRCALPHA)
+                fs = _psurf((fill_r2 * 2, fill_r2 * 2), pygame.SRCALPHA)
                 pygame.draw.circle(fs, (60, 140, 230, fill_a2), (fill_r2, fill_r2), fill_r2)
                 screen.blit(fs, (cx - fill_r2, cy - fill_r2))
 
@@ -15554,7 +15574,7 @@ class BananaSlice(HeroSkill):
             rect = rotated.get_rect(center=(x, y))
             screen.blit(rotated, rect)
             if not landed['slip_triggered']:
-                warning_surf = pygame.Surface((60, 20), pygame.SRCALPHA)
+                warning_surf = _psurf((60, 20), pygame.SRCALPHA)
                 pygame.draw.ellipse(warning_surf, (255, 255, 0, 80), (0, 5, 60, 10))
                 screen.blit(warning_surf, (x - 30, y + 5))
 
@@ -15564,14 +15584,14 @@ class BananaSlice(HeroSkill):
             size = max(1, int(p['size'] * life_ratio))
             alpha = int(255 * life_ratio)
             if size > 0 and alpha > 0:
-                ps = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
+                ps = _psurf((size * 2, size * 2), pygame.SRCALPHA)
                 pygame.draw.circle(ps, (*p['color'], alpha), (size, size), size)
                 screen.blit(ps, (int(p['x']) - size, int(p['y']) - size))
 
     @staticmethod
     def _create_banana_surface(size: int) -> pygame.Surface:
         """바나나 서피스 (액티브 아이템과 동일한 초승달 모양)"""
-        surf = pygame.Surface((size, size), pygame.SRCALPHA)
+        surf = _psurf((size, size), pygame.SRCALPHA)
         cx, cy = size // 2, size // 2
         peel_dark = (198, 156, 41)
         peel_mid = (227, 189, 52)
@@ -15976,7 +15996,7 @@ class WildRoar(HeroSkill):
         # ── 발동 플래시 (화면 전체 번쩍) ──
         flash_a = int(getattr(self, 'flash_alpha', 0))
         if flash_a > 5:
-            flash_surf = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
+            flash_surf = _psurf(screen.get_size(), pygame.SRCALPHA)
             flash_surf.fill((255, 240, 180, min(flash_a, 120)))
             screen.blit(flash_surf, (0, 0))
 
@@ -15988,7 +16008,7 @@ class WildRoar(HeroSkill):
                 outer_fade = self.ring_effects[-1].get('fade_alpha', 1.0)
             if outer_fade > 0.01:
                 r = int(self.shockwave_radius)
-                zone_surf = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+                zone_surf = _psurf((r * 2, r * 2), pygame.SRCALPHA)
                 af = outer_fade
                 for gi, ga in [(r, 25), (int(r * 0.7), 35), (int(r * 0.4), 45)]:
                     if gi > 0:
@@ -16019,7 +16039,7 @@ class WildRoar(HeroSkill):
                 continue
             thickness = ring.get('thickness', 3)
             pad = thickness + 8
-            ring_surf = pygame.Surface((r * 2 + pad * 2, r * 2 + pad * 2), pygame.SRCALPHA)
+            ring_surf = _psurf((r * 2 + pad * 2, r * 2 + pad * 2), pygame.SRCALPHA)
             rc = r + pad
             # 외부 글로우 (넓은 반투명)
             if r > 8:
@@ -16040,7 +16060,7 @@ class WildRoar(HeroSkill):
                 size = max(1, int(sp['size'] * life_ratio))
                 alpha = int(255 * life_ratio)
                 if size > 0 and alpha > 0:
-                    ss = pygame.Surface((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
+                    ss = _psurf((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
                     sc = size + 2
                     # 글로우
                     pygame.draw.circle(ss, (*sp['color'][:3], alpha // 3), (sc, sc), size + 2)
@@ -16052,7 +16072,7 @@ class WildRoar(HeroSkill):
         if self.ball_reflected and ball and self.impact_particles:
             bx = int(ball.x + getattr(ball, 'width', 10) / 2)
             by = int(ball.y + getattr(ball, 'height', 10) / 2)
-            glow_surf = pygame.Surface((100, 100), pygame.SRCALPHA)
+            glow_surf = _psurf((100, 100), pygame.SRCALPHA)
             glow_alpha = min(180, int(255 * len(self.impact_particles) / 40))
             # 다중 글로우 레이어
             pygame.draw.circle(glow_surf, (255, 200, 50, glow_alpha // 3), (50, 50), 45)
@@ -16066,7 +16086,7 @@ class WildRoar(HeroSkill):
             size = max(1, int(p['size'] * life_ratio))
             alpha = int(255 * life_ratio)
             if size > 0 and alpha > 0:
-                ps = pygame.Surface((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
+                ps = _psurf((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
                 pc = size + 2
                 # 글로우 후광
                 pygame.draw.circle(ps, (*p['color'], alpha // 3), (pc, pc), size + 2)
