@@ -2056,6 +2056,8 @@ class DowntownManager:
         clock = pygame.time.Clock()
         running = True
         show_entry_dialog = False  # NPC 상호작용 시에만 표시
+        show_tutorial_dialog = False  # 튜토리얼 확인 다이얼로그
+        pending_arena_start = False  # 튜토리얼 선택 후 arena 시작 대기
         arena_running = False
 
         while running:
@@ -2070,13 +2072,23 @@ class DowntownManager:
                     if event.key == pygame.K_ESCAPE:
                         if arena_running:
                             continue  # 아레나 진행 중에는 ESC 무시
+                        if show_tutorial_dialog:
+                            # ESC = 아니오로 처리 → 튜토리얼 없이 진행
+                            try:
+                                import pingfighter as _pf
+                                _pf._arena_tutorial_enabled = False
+                            except Exception:
+                                pass
+                            show_tutorial_dialog = False
+                            pending_arena_start = True
+                            continue
                         if show_entry_dialog:
                             show_entry_dialog = False  # 다이얼로그 닫기
                             continue
                         running = False
 
                     # 스페이스바로 NPC 상호작용 - 메인 NPC (아레나 마스터)와 대화
-                    if event.key == pygame.K_SPACE and not show_entry_dialog and not arena_running:
+                    if event.key == pygame.K_SPACE and not show_entry_dialog and not show_tutorial_dialog and not arena_running:
                         # 플레이어가 메인 NPC 근처에 있는지 확인
                         if interior.is_near_main_npc():
                             player_gold = self.player_data.get('gold', 0)  # 골드 갱신
@@ -2086,7 +2098,7 @@ class DowntownManager:
                     mx, my = event.pos
 
                     # 다이얼로그가 닫혀있을 때 NPC 클릭으로 상호작용
-                    if not show_entry_dialog and not arena_running:
+                    if not show_entry_dialog and not show_tutorial_dialog and not arena_running:
                         # 메인 NPC 클릭 체크
                         clicked_npc = interior.get_clicked_npc(mx, my)
                         if clicked_npc and getattr(clicked_npc, 'role', None) == "main":
@@ -2094,7 +2106,31 @@ class DowntownManager:
                             show_entry_dialog = True
                             continue
 
-                    if show_entry_dialog:
+                    if show_tutorial_dialog:
+                        # 튜토리얼 확인 다이얼로그 버튼 클릭
+                        _tut_yes_btn = pygame.Rect(250, 400, 120, 45)
+                        _tut_no_btn = pygame.Rect(390, 400, 120, 45)
+                        if _tut_yes_btn.collidepoint(mx, my):
+                            try:
+                                import pingfighter as _pf
+                                _pf._arena_tutorial_enabled = True
+                                _pf._arena_guard_tutorial_shown = False
+                                _pf._arena_portrait_tutorial_shown = False
+                                _pf._arena_speed_tutorial_shown = False
+                            except Exception:
+                                pass
+                            show_tutorial_dialog = False
+                            pending_arena_start = True
+                        elif _tut_no_btn.collidepoint(mx, my):
+                            try:
+                                import pingfighter as _pf
+                                _pf._arena_tutorial_enabled = False
+                            except Exception:
+                                pass
+                            show_tutorial_dialog = False
+                            pending_arena_start = True
+
+                    elif show_entry_dialog:
                         # 입장 버튼 클릭 체크
                         entry_btn = pygame.Rect(250, 420, 120, 45)
                         cancel_btn = pygame.Rect(390, 420, 120, 45)
@@ -2104,79 +2140,84 @@ class DowntownManager:
                                 # 입장료 지불
                                 self.player_data['gold'] = player_gold - admission_fee
                                 show_entry_dialog = False
-                                arena_running = True
-
-                                # 아레나 시스템 실행 (실제 게임 엔진 연동)
-                                arena = ColosseumsArena(
-                                    self.screen,
-                                    self._freetype_fonts,
-                                    self.player_data.get('gold', 0),
-                                    battle_callback=self.arena_battle_callback
-                                )
-
-                                # 투기장 대기실 BGM 재생
-                                try:
-                                    import bgm_manager
-                                    bgm_manager.play_colosseum_room_bgm()
-                                except Exception as e:
-                                    print(f"[투기장] 대기실 BGM 재생 실패: {e}")
-
-                                # 아레나 게임 루프
-                                arena_active = True
-                                while arena_active:
-                                    dt = clock.tick(60) / 1000.0
-
-                                    # 디스플레이 모드 전환 시 SCREEN 참조 갱신
-                                    try:
-                                        import pingfighter as _pf
-                                        if hasattr(_pf, 'SCREEN') and _pf.SCREEN is not None and _pf.SCREEN is not self.screen:
-                                            self.screen = _pf.SCREEN
-                                            arena.screen = _pf.SCREEN
-                                    except Exception:
-                                        pass
-
-                                    for arena_event in pygame.event.get():
-                                        if arena_event.type == pygame.QUIT:
-                                            arena_active = False
-                                            running = False
-                                            return
-                                        if arena.handle_event(arena_event):
-                                            arena_active = False
-
-                                    arena.update(dt)
-                                    arena.draw()
-                                    pygame.display.flip()
-
-                                # 결과 처리
-                                result = arena.get_result()
-                                self.player_data['gold'] = self.player_data.get('gold', 0) + result['winnings']
-                                # 호위무사 등용 처리
-                                if result.get('recruited_hero'):
-                                    if 'recruited_heroes' not in self.player_data:
-                                        self.player_data['recruited_heroes'] = []
-                                    hero = result['recruited_hero']
-                                    self.player_data['recruited_heroes'].append({
-                                        'id': hero.get('id'),
-                                        'name': hero.get('name'),
-                                        'color': hero.get('color'),
-                                        'title': hero.get('title', ''),
-                                    })
-                                    print(f"[Arena] 호위무사 등용: {hero.get('name')}")
-                                arena_running = False
-                                running = False
-
-                                # 투기장 BGM → 광장 BGM 복구
-                                try:
-                                    import bgm_manager
-                                    bgm_manager.play_downtown_bgm()
-                                except Exception as e:
-                                    print(f"[투기장] 광장 BGM 복구 실패: {e}")
+                                show_tutorial_dialog = True  # 튜토리얼 확인 다이얼로그 표시
 
                         elif cancel_btn.collidepoint(mx, my):
                             show_entry_dialog = False  # 다이얼로그 닫고 계속 탐색
 
+            # 튜토리얼 선택 완료 → arena 시작
+            if pending_arena_start:
+                pending_arena_start = False
+                arena_running = True
+
+                # 아레나 시스템 실행 (실제 게임 엔진 연동)
+                arena = ColosseumsArena(
+                    self.screen,
+                    self._freetype_fonts,
+                    self.player_data.get('gold', 0),
+                    battle_callback=self.arena_battle_callback
+                )
+
+                # 투기장 대기실 BGM 재생
+                try:
+                    import bgm_manager
+                    bgm_manager.play_colosseum_room_bgm()
+                except Exception as e:
+                    print(f"[투기장] 대기실 BGM 재생 실패: {e}")
+
+                # 아레나 게임 루프
+                arena_active = True
+                while arena_active:
+                    dt = clock.tick(60) / 1000.0
+
+                    # 디스플레이 모드 전환 시 SCREEN 참조 갱신
+                    try:
+                        import pingfighter as _pf
+                        if hasattr(_pf, 'SCREEN') and _pf.SCREEN is not None and _pf.SCREEN is not self.screen:
+                            self.screen = _pf.SCREEN
+                            arena.screen = _pf.SCREEN
+                    except Exception:
+                        pass
+
+                    for arena_event in pygame.event.get():
+                        if arena_event.type == pygame.QUIT:
+                            arena_active = False
+                            running = False
+                            return
+                        if arena.handle_event(arena_event):
+                            arena_active = False
+
+                    arena.update(dt)
+                    arena.draw()
+                    pygame.display.flip()
+
+                # 결과 처리
+                result = arena.get_result()
+                self.player_data['gold'] = self.player_data.get('gold', 0) + result['winnings']
+                # 호위무사 등용 처리
+                if result.get('recruited_hero'):
+                    if 'recruited_heroes' not in self.player_data:
+                        self.player_data['recruited_heroes'] = []
+                    hero = result['recruited_hero']
+                    self.player_data['recruited_heroes'].append({
+                        'id': hero.get('id'),
+                        'name': hero.get('name'),
+                        'color': hero.get('color'),
+                        'title': hero.get('title', ''),
+                    })
+                    print(f"[Arena] 호위무사 등용: {hero.get('name')}")
+                arena_running = False
+                running = False
+
+                # 투기장 BGM → 광장 BGM 복구
+                try:
+                    import bgm_manager
+                    bgm_manager.play_downtown_bgm()
+                except Exception as e:
+                    print(f"[투기장] 광장 BGM 복구 실패: {e}")
+
             # 플레이어 이동 처리 (다이얼로그가 열려있지 않을 때)
-            if not show_entry_dialog and not arena_running:
+            if not show_entry_dialog and not show_tutorial_dialog and not arena_running:
                 interior.update(dt)
 
                 # 문 출구로 나가기 체크
@@ -2186,7 +2227,10 @@ class DowntownManager:
             # 그리기
             interior.draw(self.screen)
 
-            if show_entry_dialog:
+            if show_tutorial_dialog:
+                # 튜토리얼 확인 다이얼로그
+                self._draw_tutorial_confirm_dialog()
+            elif show_entry_dialog:
                 # 입장 확인 다이얼로그
                 self._draw_colosseum_entry_dialog(player_gold, admission_fee)
 
@@ -2252,6 +2296,53 @@ class DowntownManager:
             _dt_draw_hover_border(self.screen, entry_btn.x, entry_btn.y, entry_btn.w, entry_btn.h, (100, 255, 100))
         if cancel_hover:
             _dt_draw_hover_border(self.screen, cancel_btn.x, cancel_btn.y, cancel_btn.w, cancel_btn.h, (255, 100, 100))
+
+    def _draw_tutorial_confirm_dialog(self):
+        """투기장 튜토리얼 가이드 확인 다이얼로그"""
+        # 반투명 오버레이
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        self.screen.blit(overlay, (0, 0))
+
+        # 패널
+        panel_x, panel_y = 180, 270
+        panel_w, panel_h = 400, 200
+        pygame.draw.rect(self.screen, (35, 40, 50), (panel_x, panel_y, panel_w, panel_h), border_radius=10)
+        pygame.draw.rect(self.screen, (255, 180, 0), (panel_x, panel_y, panel_w, panel_h), 3, border_radius=10)
+
+        if self._freetype_fonts and "small" in self._freetype_fonts:
+            msg, _ = self._freetype_fonts["small"].render("튜토리얼 가이드와 함께 진행하시겠습니까?", (255, 255, 255))
+            self.screen.blit(msg, (SCREEN_WIDTH // 2 - msg.get_width() // 2, panel_y + 50))
+
+            hint, _ = self._freetype_fonts["small"].render("투기장 시스템을 처음 접하시면 추천합니다.", (160, 160, 160))
+            self.screen.blit(hint, (SCREEN_WIDTH // 2 - hint.get_width() // 2, panel_y + 80))
+
+        # 버튼
+        yes_btn = pygame.Rect(250, 400, 120, 45)
+        no_btn = pygame.Rect(390, 400, 120, 45)
+
+        _dt_update_hover()
+        _col_mpos = pygame.mouse.get_pos()
+        yes_hover = _dt_check_hover("tut_yes", yes_btn, _col_mpos)
+        no_hover = _dt_check_hover("tut_no", no_btn, _col_mpos)
+
+        yes_color = (100, 200, 100) if yes_hover else (80, 180, 80)
+        pygame.draw.rect(self.screen, yes_color, yes_btn, border_radius=5)
+
+        no_color = (220, 100, 100) if no_hover else (180, 80, 80)
+        pygame.draw.rect(self.screen, no_color, no_btn, border_radius=5)
+
+        if self._freetype_fonts and "medium" in self._freetype_fonts:
+            yes_text, _ = self._freetype_fonts["medium"].render("예", (255, 255, 255))
+            self.screen.blit(yes_text, (yes_btn.centerx - yes_text.get_width() // 2, yes_btn.y + 12))
+
+            no_text, _ = self._freetype_fonts["medium"].render("아니오", (255, 255, 255))
+            self.screen.blit(no_text, (no_btn.centerx - no_text.get_width() // 2, no_btn.y + 12))
+
+        if yes_hover:
+            _dt_draw_hover_border(self.screen, yes_btn.x, yes_btn.y, yes_btn.w, yes_btn.h, (100, 255, 100))
+        if no_hover:
+            _dt_draw_hover_border(self.screen, no_btn.x, no_btn.y, no_btn.w, no_btn.h, (255, 100, 100))
 
     def _show_placeholder(self, building_type):
         """건물 내부 표시 (광장 스타일 확장 - 플레이어 이동, 문 출입, 광장과 동일한 키 조작)"""

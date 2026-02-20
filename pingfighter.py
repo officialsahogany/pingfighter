@@ -19982,6 +19982,8 @@ arena_perk_skill_cd_mult_bottom = 1.0
 arena_perk_guard_cd_mult_top = 1.0   # 상단 호위무사쿨 배율
 arena_perk_guard_cd_mult_bottom = 1.0
 arena_guard_stance_mode = "attack"   # 호위무사 스탠스 ("attack" / "defense")
+# 투기장 튜토리얼 활성화 플래그 (입장 시 유저 선택)
+_arena_tutorial_enabled = False          # 유저가 "예" 선택 시 True
 # 투기장 호위무사 튜토리얼 (첫 배틀 시 1회 표시)
 _arena_guard_tutorial_shown = False      # 세션 내 1회만 표시
 _arena_guard_tutorial_active = False     # 현재 튜토리얼 진행 중
@@ -101647,13 +101649,22 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
             arena_guard_system = None
 
         # === 호위무사 튜토리얼 (첫 배틀 시 1회) ===
+        global _arena_tutorial_enabled
         global _arena_guard_tutorial_shown, _arena_guard_tutorial_active
         global _arena_guard_tutorial_step, _arena_guard_tutorial_delay_frames
         global _arena_portrait_tutorial_shown, _arena_portrait_tutorial_active
         global _arena_portrait_tutorial_step, _arena_portrait_tutorial_delay_frames
         global _arena_speed_tutorial_shown, _arena_speed_tutorial_active
         global _arena_speed_tutorial_step, _arena_speed_tutorial_delay_frames
-        if (not _arena_guard_tutorial_shown
+        # 튜토리얼 비활성화 시 모든 튜토리얼 초기화만 하고 건너뜀
+        if not _arena_tutorial_enabled:
+            _arena_guard_tutorial_delay_frames = 0
+            _arena_guard_tutorial_active = False
+            _arena_portrait_tutorial_delay_frames = 0
+            _arena_portrait_tutorial_active = False
+            _arena_speed_tutorial_delay_frames = 0
+            _arena_speed_tutorial_active = False
+        elif (not _arena_guard_tutorial_shown
                 and arena_guard_system is not None
                 and hasattr(arena_guard_system, 'guard_warriors_bottom')
                 and arena_guard_system.guard_warriors_bottom):
@@ -101940,8 +101951,10 @@ def _make_arena_fonts():
 
 def start_arena_dev():
     """개발 메뉴에서 투기장(토너먼트) 바로 진입 (입장료 무료)"""
+    global _arena_tutorial_enabled
     from downtown.colosseum_arena import ColosseumsArena
 
+    _arena_tutorial_enabled = True  # dev 모드에서는 튜토리얼 활성화
     screen = SCREEN
     fonts = _make_arena_fonts()
 
