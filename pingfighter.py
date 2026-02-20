@@ -56803,7 +56803,7 @@ DECELERERATION = 0.2  # 감속도 (빠르게 반응하도록 값을 증가)
 current_speed = 0
 # 기본 이동 속도
 PLAYER_BASE_SPEED = 2
-MAX_SPEED = 5  # 최대 속도 (기본 속도 추가 감소)
+MAX_SPEED = 6  # 최대 속도 (투기장 공정성 통일)
 ACCELERATION = 0.4  # 가속도 (빠르게 반응하도록 값을 증가)
 DECELERATION = 0.4  # 감속도 (빠르게 반응하도록 값을 증가)
 INSTANT_STOP_DECELERATION = 1.0  # 즉시 정지시킬 때 더 빠른 감속
@@ -129935,7 +129935,7 @@ def handle_boss_pro():
 
     # 🏟️ 투기장 모드: BOSS 능력치를 PLAYER와 동일하게 설정 (공정성)
     if arena_mode_enabled:
-        enhanced_max_speed = 5.0       # PLAYER MAX_SPEED (MAX_SPEED=5와 동일)
+        enhanced_max_speed = 6.0       # PLAYER MAX_SPEED (MAX_SPEED=6과 동일)
         enhanced_acceleration = 0.4    # PLAYER ACCELERATION
         enhanced_deceleration = 0.4    # PLAYER DECELERATION
 
@@ -130283,7 +130283,7 @@ def handle_boss_champion():
 
     # 🏟️ 투기장 모드: BOSS 능력치를 PLAYER와 동일하게 설정 (공정성)
     if arena_mode_enabled:
-        enhanced_max_speed = 5.0       # PLAYER MAX_SPEED (MAX_SPEED=5와 동일)
+        enhanced_max_speed = 6.0       # PLAYER MAX_SPEED (MAX_SPEED=6과 동일)
         enhanced_acceleration = 0.4    # PLAYER ACCELERATION
         enhanced_deceleration = 0.4    # PLAYER DECELERATION
 
@@ -130692,7 +130692,7 @@ def handle_boss_mythic():
 
     # 🏟️ 투기장 모드: BOSS 능력치를 PLAYER와 동일하게 설정 (공정성)
     if arena_mode_enabled:
-        enhanced_max_speed = 5.0       # PLAYER MAX_SPEED (MAX_SPEED=5와 동일)
+        enhanced_max_speed = 6.0       # PLAYER MAX_SPEED (MAX_SPEED=6과 동일)
         enhanced_acceleration = 0.4    # PLAYER ACCELERATION
         enhanced_deceleration = 0.4    # PLAYER DECELERATION
 
@@ -131141,7 +131141,7 @@ def handle_boss_junior():
 
     # 🏟️ 투기장 모드: BOSS 능력치를 PLAYER와 동일하게 설정 (공정성)
     if arena_mode_enabled:
-        enhanced_max_speed = 5.0       # PLAYER MAX_SPEED (MAX_SPEED=5와 동일)
+        enhanced_max_speed = 6.0       # PLAYER MAX_SPEED (MAX_SPEED=6과 동일)
         enhanced_acceleration = 0.4    # PLAYER ACCELERATION
         enhanced_deceleration = 0.4    # PLAYER DECELERATION
 
@@ -132981,7 +132981,7 @@ def handle_boss():
 
     # 🏟️ 투기장 모드: BOSS 능력치를 PLAYER와 동일하게 설정 (공정성)
     if arena_mode_enabled:
-        enhanced_max_speed = 5.0       # PLAYER MAX_SPEED (MAX_SPEED=5와 동일)
+        enhanced_max_speed = 6.0       # PLAYER MAX_SPEED (MAX_SPEED=6과 동일)
         enhanced_accel = 0.4           # PLAYER ACCELERATION
         enhanced_decel = 0.4           # PLAYER DECELERATION
 
