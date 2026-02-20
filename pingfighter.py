@@ -76707,7 +76707,7 @@ def _draw_arena_guard_tutorial() -> None:
 
         for msg in messages:
             if "{KEY:" in msg:
-                _render_message_with_keycaps(target_screen, msg, msg_font, text_start_x, text_area_width, y_offset)
+                _render_message_with_keycaps(target_screen, msg, msg_font, text_start_x, text_area_width, y_offset, scale=_ui_s)
             else:
                 text_surface = msg_font.render(msg, True, WHITE)
                 text_rect = text_surface.get_rect(center=(text_center_x, y_offset + int(10 * _ui_s)))
@@ -76999,7 +76999,7 @@ def _draw_arena_portrait_tutorial() -> None:
 
         for msg in messages:
             if "{KEY:" in msg:
-                _render_message_with_keycaps(target_screen, msg, msg_font, text_start_x, text_area_width, y_offset)
+                _render_message_with_keycaps(target_screen, msg, msg_font, text_start_x, text_area_width, y_offset, scale=_ui_s)
             else:
                 text_surface = msg_font.render(msg, True, WHITE)
                 text_rect = text_surface.get_rect(center=(text_center_x, y_offset + int(10 * _ui_s)))
@@ -78123,7 +78123,7 @@ def _draw_tutorial_runtime_skill_guide(screen, desc_box_x, desc_box_y, desc_box_
     screen.blit(hint_text, hint_rect)
 
 
-def _render_message_with_keycaps(surface: pygame.Surface, msg: str, font, box_x: int, box_width: int, y_offset: int) -> None:
+def _render_message_with_keycaps(surface: pygame.Surface, msg: str, font, box_x: int, box_width: int, y_offset: int, scale: float = 1.0) -> None:
     """메시지 내 {KEY:X} 패턴을 키캡 아이콘으로 렌더링"""
     import re
     key_pattern = re.compile(r'\{KEY:([^}]+)\}')
@@ -78140,8 +78140,8 @@ def _render_message_with_keycaps(surface: pygame.Surface, msg: str, font, box_x:
         segments.append(("text", msg[last_end:]))
 
     # 전체 너비 계산
-    keycap_size = 26
-    keycap_padding = 4
+    keycap_size = int(26 * scale)
+    keycap_padding = int(4 * scale)
     total_width = 0
     for seg_type, seg_content in segments:
         if seg_type == "text":
@@ -78162,40 +78162,46 @@ def _render_message_with_keycaps(surface: pygame.Surface, msg: str, font, box_x:
             current_x += text_surf.get_width()
         else:
             # 키캡 그리기
-            key_y = y_offset - 2
+            key_y = y_offset - int(2 * scale)
             _draw_keycap_icon(surface, current_x, key_y, seg_content, keycap_size)
             current_x += keycap_size + keycap_padding
 
 
 def _draw_keycap_icon(surface: pygame.Surface, x: int, y: int, key_char: str, size: int = 26) -> None:
     """키보드 키캡 아이콘 그리기"""
+    _s = size / 26.0  # 기본 크기(26) 대비 스케일
+    _br = max(3, int(5 * _s))
+    _br2 = max(2, int(4 * _s))
+    _bw = max(1, int(2 * _s))
+
     # 그림자
-    pygame.draw.rect(surface, (30, 30, 40), (x + 2, y + 3, size, size), border_radius=5)
+    pygame.draw.rect(surface, (30, 30, 40), (x + int(2 * _s), y + int(3 * _s), size, size), border_radius=_br)
 
     # 키캡 바닥
-    pygame.draw.rect(surface, (60, 60, 80), (x, y + 2, size, size), border_radius=5)
+    pygame.draw.rect(surface, (60, 60, 80), (x, y + int(2 * _s), size, size), border_radius=_br)
 
     # 키캡 상단
-    pygame.draw.rect(surface, (90, 95, 110), (x, y, size, size - 2), border_radius=5)
+    pygame.draw.rect(surface, (90, 95, 110), (x, y, size, size - int(2 * _s)), border_radius=_br)
 
     # 키캡 내부
-    pygame.draw.rect(surface, (70, 75, 90), (x + 2, y + 2, size - 4, size - 6), border_radius=4)
+    pygame.draw.rect(surface, (70, 75, 90), (x + int(2 * _s), y + int(2 * _s), size - int(4 * _s), size - int(6 * _s)), border_radius=_br2)
 
     # 하이라이트
-    pygame.draw.rect(surface, (120, 125, 140), (x + 3, y + 2, size - 6, 3), border_radius=2)
+    pygame.draw.rect(surface, (120, 125, 140), (x + int(3 * _s), y + int(2 * _s), size - int(6 * _s), max(2, int(3 * _s))), border_radius=max(1, int(2 * _s)))
 
     # 테두리
-    pygame.draw.rect(surface, (50, 55, 70), (x, y, size, size), 2, border_radius=5)
+    pygame.draw.rect(surface, (50, 55, 70), (x, y, size, size), _bw, border_radius=_br)
 
     # 키 문자
+    _font_size = max(10, int(14 * _s))
     try:
-        key_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 14)
+        key_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), _font_size)
     except:
-        key_font = pygame.freetype.SysFont("malgun gothic", 14)
+        key_font = pygame.freetype.SysFont("malgun gothic", _font_size)
 
     key_surf, key_rect = key_font.render(key_char, (230, 235, 245))
     key_x = x + (size - key_rect.width) // 2
-    key_y = y + (size - key_rect.height) // 2 - 1
+    key_y = y + (size - key_rect.height) // 2 - int(1 * _s)
     surface.blit(key_surf, (key_x, key_y))
 
 
