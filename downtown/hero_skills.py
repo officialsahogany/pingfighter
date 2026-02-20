@@ -8118,7 +8118,7 @@ class DeadPossession(HeroSkill):
             korean_name="수수께끼 묘기",
             description="예측 불가능한 묘기로 랜덤 스킬을 발동한다",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=18.0,
+            cooldown=20.0,
             duration=0,  # 즉발 (빙의된 스킬의 duration 사용)
             hero_id="joker"
         )
