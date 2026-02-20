@@ -1702,8 +1702,8 @@ def _show_arena_sub_selection(ctx: "MenuContext", state: "MenuState") -> bool:
                     ctx.start_arena_dev()
                     return True
                 elif chosen == 1:
-                    ctx.start_dojo_dev()
-                    return True
+                    # 도장깨기 준비 중
+                    preparing_timer = 2.0
 
         # 준비 중 타이머
         if preparing_timer > 0:
@@ -1736,8 +1736,9 @@ def _show_arena_sub_selection(ctx: "MenuContext", state: "MenuState") -> bool:
                         ctx.play_click_sound()
                         click_anim = {"card": 0, "timer": 0.0, "dur": 0.3}
                     elif selected == 1:
+                        # 도장깨기 준비 중
                         ctx.play_click_sound()
-                        click_anim = {"card": 1, "timer": 0.0, "dur": 0.3}
+                        preparing_timer = 2.0
 
             if ev.type == pygame.MOUSEMOTION:
                 mx, my = ev.pos
@@ -1761,7 +1762,11 @@ def _show_arena_sub_selection(ctx: "MenuContext", state: "MenuState") -> bool:
                     if (mx - ecx) ** 2 + (my - ey) ** 2 <= EMBLEM_R ** 2:
                         selected = i
                         ctx.play_click_sound()
-                        click_anim = {"card": i, "timer": 0.0, "dur": 0.3}
+                        if i == 1:
+                            # 도장깨기 준비 중
+                            preparing_timer = 2.0
+                        else:
+                            click_anim = {"card": i, "timer": 0.0, "dur": 0.3}
 
         # 엠블럼 애니메이션 업데이트
         for i in range(2):
@@ -1810,7 +1815,19 @@ def _show_arena_sub_selection(ctx: "MenuContext", state: "MenuState") -> bool:
         ss = sub_font.render("모드를 선택하세요", True, (180, 170, 140))
         screen.blit(ss, ss.get_rect(center=(width // 2, 158)))
 
-        # (토스트 메시지 영역 - 필요시 사용)
+        # "준비 중입니다" 토스트 메시지
+        if preparing_timer > 0:
+            _toast_alpha = min(255, int(preparing_timer * 255))
+            _toast_font = ctx.FontStyle.body()
+            _toast_surf = _toast_font.render("준비 중입니다", True, (255, 200, 100))
+            _toast_bg = pygame.Surface((_toast_surf.get_width() + 30, _toast_surf.get_height() + 16), pygame.SRCALPHA)
+            pygame.draw.rect(_toast_bg, (30, 30, 30, min(200, _toast_alpha)),
+                             (0, 0, _toast_bg.get_width(), _toast_bg.get_height()), border_radius=8)
+            pygame.draw.rect(_toast_bg, (255, 180, 0, min(180, _toast_alpha)),
+                             (0, 0, _toast_bg.get_width(), _toast_bg.get_height()), width=2, border_radius=8)
+            _toast_bg.blit(_toast_surf, (15, 8))
+            _toast_bg.set_alpha(_toast_alpha)
+            screen.blit(_toast_bg, (_toast_bg.get_rect(center=(width // 2, height - 100))))
 
         # ESC 힌트
         esc = sub_font.render("ESC: 뒤로", True, (100, 110, 130))
