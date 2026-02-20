@@ -8743,7 +8743,11 @@ class ColosseumsArena:
                 g.get("id") == loser_h.get("id")
                 for g in self.guard_warrior_map.get(bet_id_h, [])
             )
-            if _already_guard:
+            # 인게임 포획 실패(도망) 시 하수인 자동 생포도 스킵
+            _capture_failed = getattr(self, '_last_capture_result', None) is False
+            if _capture_failed:
+                print(f"[Henchman] {loser_h.get('name', '?')} 포획 실패(도망) → 하수인 생포 스킵")
+            elif _already_guard:
                 print(f"[Henchman] {loser_h.get('name', '?')} 이미 호위무사로 포획됨 → 하수인 생포 스킵")
             elif random.random() < 0.70:
                 # 하수인 목록에 추가 (중복 방지)
