@@ -14650,11 +14650,11 @@ class ColosseumsArena:
         """AI 영웅에게 패자 중 1명을 하수인으로 배정"""
         hero_id = hero["id"]
         # 이미 하수인인 영웅 ID 수집
-        # 주의: 다른 영웅의 호위무사는 제외하지 않음 (호위무사와 하수인은 별도 시스템)
-        # 자기 자신의 호위무사만 제외 (동일 영웅이 같은 주인의 호위무사+하수인이 되는 것 방지)
+        # 모든 영웅의 호위무사를 제외 (승급된 호위무사가 다른 AI의 하수인으로 중복 배정되는 것 방지)
         taken_ids = set()
-        for g in self.guard_warrior_map.get(hero_id, []):
-            taken_ids.add(g.get("id"))
+        for all_guards in self.guard_warrior_map.values():
+            for g in all_guards:
+                taken_ids.add(g.get("id"))
         for hench_list in self.ai_henchman_map.values():
             for h in hench_list:
                 taken_ids.add(h.get("id"))
