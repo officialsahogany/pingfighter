@@ -76424,6 +76424,9 @@ def _draw_arena_guard_tutorial() -> None:
     screen_width = target_screen.get_width()
     screen_height = target_screen.get_height()
 
+    # UI 스케일 팩터 (창 모드에서 해상도가 내부 해상도보다 클 때 UI를 비례 확대)
+    _ui_s = max(1.0, screen_height / INTERNAL_HEIGHT)
+
     # 화면 전체 어둡게
     overlay = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
     overlay.fill((0, 0, 0, 180))
@@ -76436,11 +76439,11 @@ def _draw_arena_guard_tutorial() -> None:
         if stance_rect:
             hx = stance_rect.centerx
             hy = stance_rect.centery
-            highlight_radius = max(stance_rect.width, stance_rect.height) // 2 + 20
+            highlight_radius = max(stance_rect.width, stance_rect.height) // 2 + int(20 * _ui_s)
 
             # 글로우 효과 (빨간/주황 계열 - 전투 모드 느낌)
             for i in range(4):
-                glow_radius = highlight_radius + i * 10
+                glow_radius = highlight_radius + int(i * 10 * _ui_s)
                 glow_alpha = 120 - i * 25
                 glow_surface = pygame.Surface((glow_radius * 2 + 4, glow_radius * 2 + 4), pygame.SRCALPHA)
                 pygame.draw.circle(glow_surface, (255, 140, 60, glow_alpha),
@@ -76460,25 +76463,25 @@ def _draw_arena_guard_tutorial() -> None:
             import math as _m
             _hx = stance_rect.centerx
             _hy = stance_rect.centery
-            _hr = max(stance_rect.width, stance_rect.height) // 2 + 20
+            _hr = max(stance_rect.width, stance_rect.height) // 2 + int(20 * _ui_s)
             _main_color = (255, 140, 60)
             _accent_color = (255, 200, 130)
 
             _cur_time = pygame.time.get_ticks()
             _bounce_phase = (_cur_time * 0.008) % (_m.pi * 2)
-            _bounce_offset = abs(_m.sin(_bounce_phase)) * 8
+            _bounce_offset = abs(_m.sin(_bounce_phase)) * 8 * _ui_s
 
-            # 화살표 서피스 (오른쪽 위 → 왼쪽 아래 방향)
-            _shaft_thickness = 7
-            _head_width = 14
-            _head_length = 18
-            _surf_size = 100
+            # 화살표 서피스 (스케일 적용)
+            _shaft_thickness = int(7 * _ui_s)
+            _head_width = int(14 * _ui_s)
+            _head_length = int(18 * _ui_s)
+            _surf_size = int(100 * _ui_s)
             _arrow_surf = pygame.Surface((_surf_size, _surf_size), pygame.SRCALPHA)
 
             _border_color = (220, 225, 235)
-            _border_thickness = 3
-            _start_x, _start_y = 85, 15
-            _end_x, _end_y = 20, 80
+            _border_thickness = max(2, int(3 * _ui_s))
+            _start_x, _start_y = int(85 * _ui_s), int(15 * _ui_s)
+            _end_x, _end_y = int(20 * _ui_s), int(80 * _ui_s)
 
             _dx = _end_x - _start_x
             _dy = _end_y - _start_y
@@ -76526,26 +76529,27 @@ def _draw_arena_guard_tutorial() -> None:
 
             # 하이라이트
             _hl_color = (min(255, _main_color[0] + 70), min(255, _main_color[1] + 70), min(255, _main_color[2] + 70))
-            _hl_off = _shaft_thickness - 3
+            _hl_off = _shaft_thickness - max(2, int(3 * _ui_s))
             pygame.draw.line(_arrow_surf, _hl_color,
-                             (_start_x + _perp_x * _hl_off - _dx * 5, _start_y + _perp_y * _hl_off - _dy * 5),
-                             (_head_sx + _perp_x * _hl_off + _dx * 5, _head_sy + _perp_y * _hl_off + _dy * 5), 3)
+                             (_start_x + _perp_x * _hl_off - _dx * 5 * _ui_s, _start_y + _perp_y * _hl_off - _dy * 5 * _ui_s),
+                             (_head_sx + _perp_x * _hl_off + _dx * 5 * _ui_s, _head_sy + _perp_y * _hl_off + _dy * 5 * _ui_s),
+                             max(2, int(3 * _ui_s)))
 
             # 화살표 위치 (아이콘 오른쪽 위에 배치, 바운스)
-            _arrow_cx = _hx + _hr + 25 - _bounce_offset * 0.7
-            _arrow_cy = _hy - _hr - 25 + _bounce_offset * 0.7
-            _arrow_rect = _arrow_surf.get_rect(center=(_arrow_cx, _arrow_cy))
+            _arrow_cx = _hx + _hr + int(25 * _ui_s) - _bounce_offset * 0.7
+            _arrow_cy = _hy - _hr - int(25 * _ui_s) + _bounce_offset * 0.7
+            _arrow_rect = _arrow_surf.get_rect(center=(int(_arrow_cx), int(_arrow_cy)))
             target_screen.blit(_arrow_surf, _arrow_rect)
 
             # === 반짝이는 별들 (아이콘 주변) ===
             for _si in range(4):
                 _sp = (_cur_time * 0.003 + _si * _m.pi / 2) % (_m.pi * 2)
-                _sd = _hr + 20 + _m.sin(_sp * 2) * 8
+                _sd = _hr + int(20 * _ui_s) + _m.sin(_sp * 2) * 8 * _ui_s
                 _sa = _sp + _si * (_m.pi / 2)
                 _sx = _hx + _m.cos(_sa) * _sd
                 _sy = _hy + _m.sin(_sa) * _sd
                 _ss = 0.5 + abs(_m.sin(_sp * 3)) * 0.8
-                _ssz = int(8 * _ss)
+                _ssz = int(8 * _ss * _ui_s)
                 if _ssz > 2:
                     _spts = []
                     for _sj in range(8):
@@ -76553,8 +76557,7 @@ def _draw_arena_guard_tutorial() -> None:
                         _dist = _ssz if _sj % 2 == 0 else _ssz * 0.4
                         _spts.append((_sx + _m.cos(_ang) * _dist, _sy + _m.sin(_ang) * _dist))
                     for _gi in range(2):
-                        _gsz = _ssz + _gi * 3
-                        _ga = 100 - _gi * 40
+                        _gsz = _ssz + int(_gi * 3 * _ui_s)
                         _gpts = []
                         for _gj in range(8):
                             _gang = _gj * _m.pi / 4 + _sp
@@ -76566,28 +76569,28 @@ def _draw_arena_guard_tutorial() -> None:
                         pygame.draw.polygon(target_screen, (255, 255, 255), _spts)
 
             # === "여기!" 텍스트 말풍선 ===
-            _bub_x = _arrow_cx + 10
-            _bub_y = _arrow_cy - 25
-            _bub_w, _bub_h = 50, 28
+            _bub_x = int(_arrow_cx + 10 * _ui_s)
+            _bub_y = int(_arrow_cy - 25 * _ui_s)
+            _bub_w, _bub_h = int(50 * _ui_s), int(28 * _ui_s)
             _bub_rect = pygame.Rect(_bub_x - _bub_w // 2, _bub_y - _bub_h // 2, _bub_w, _bub_h)
             _shadow_r = _bub_rect.copy()
             _shadow_r.x += 2
             _shadow_r.y += 2
             pygame.draw.ellipse(target_screen, (0, 0, 0, 80), _shadow_r)
             pygame.draw.ellipse(target_screen, (255, 255, 255), _bub_rect)
-            pygame.draw.ellipse(target_screen, _main_color, _bub_rect, 2)
+            pygame.draw.ellipse(target_screen, _main_color, _bub_rect, max(1, int(2 * _ui_s)))
             _tail = [
-                (_bub_x - 8, _bub_y + _bub_h // 2 - 3),
-                (_bub_x - 18, _bub_y + _bub_h // 2 + 12),
-                (_bub_x + 2, _bub_y + _bub_h // 2 - 1),
+                (_bub_x - int(8 * _ui_s), _bub_y + _bub_h // 2 - int(3 * _ui_s)),
+                (_bub_x - int(18 * _ui_s), _bub_y + _bub_h // 2 + int(12 * _ui_s)),
+                (_bub_x + int(2 * _ui_s), _bub_y + _bub_h // 2 - int(1 * _ui_s)),
             ]
             pygame.draw.polygon(target_screen, (255, 255, 255), _tail)
-            pygame.draw.line(target_screen, _main_color, _tail[0], _tail[1], 2)
-            pygame.draw.line(target_screen, _main_color, _tail[1], _tail[2], 2)
+            pygame.draw.line(target_screen, _main_color, _tail[0], _tail[1], max(1, int(2 * _ui_s)))
+            pygame.draw.line(target_screen, _main_color, _tail[1], _tail[2], max(1, int(2 * _ui_s)))
             try:
-                _bub_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 14)
+                _bub_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), int(14 * _ui_s))
             except Exception:
-                _bub_font = pygame.freetype.SysFont("malgun gothic", 14)
+                _bub_font = pygame.freetype.SysFont("malgun gothic", int(14 * _ui_s))
             _txt_s, _txt_r = _bub_font.render("여기!", _main_color)
             _txt_r.center = (_bub_x, _bub_y - 1)
             target_screen.blit(_txt_s, _txt_r)
@@ -76599,57 +76602,64 @@ def _draw_arena_guard_tutorial() -> None:
         expression = current.get("expression", "default")
         instructor_img = TUTORIAL_INSTRUCTOR_IMGS.get(expression) or TUTORIAL_INSTRUCTOR_IMGS.get("default")
 
-        # 조교 이미지 크기 계산
+        # 조교 이미지 크기 (스케일 적용)
         inst_width = instructor_img.get_width() if instructor_img else 0
         inst_height = instructor_img.get_height() if instructor_img else 0
-        inst_padding = 15 if instructor_img else 0
+        if instructor_img and _ui_s != 1.0:
+            inst_width = int(inst_width * _ui_s)
+            inst_height = int(inst_height * _ui_s)
+            instructor_img = pygame.transform.smoothscale(instructor_img, (inst_width, inst_height))
+        inst_padding = int(15 * _ui_s) if instructor_img else 0
 
-        # 박스 크기
-        text_area_width = 460
-        box_width = text_area_width + inst_width + inst_padding * 2 + 20
-        min_height = inst_height + 30 if instructor_img else 40
-        box_height = max(min_height, 40 + len(messages) * 35)
+        # 박스 크기 (스케일 적용)
+        text_area_width = int(460 * _ui_s)
+        _line_height = int(35 * _ui_s)
+        box_width = text_area_width + inst_width + inst_padding * 2 + int(20 * _ui_s)
+        min_height = inst_height + int(30 * _ui_s) if instructor_img else int(40 * _ui_s)
+        box_height = max(min_height, int(40 * _ui_s) + len(messages) * _line_height)
 
         # 화면 중앙 배치
         if _is_fullscreen_active and REAL_SCREEN is not None:
             box_x = GAME_OFFSET_X + (GAME_SCALED_WIDTH - box_width) // 2
             box_y = GAME_OFFSET_Y + (GAME_SCALED_HEIGHT - box_height) // 2
         else:
-            box_x = (INTERNAL_WIDTH - box_width) // 2
-            box_y = INTERNAL_HEIGHT // 2 - box_height // 2
+            box_x = (screen_width - box_width) // 2
+            box_y = screen_height // 2 - box_height // 2
 
         # 메시지 박스 배경
+        _border_r = int(15 * _ui_s)
         box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
-        pygame.draw.rect(box_surface, (20, 30, 50, 240), (0, 0, box_width, box_height), border_radius=15)
-        pygame.draw.rect(box_surface, (100, 200, 255), (0, 0, box_width, box_height), 3, border_radius=15)
+        pygame.draw.rect(box_surface, (20, 30, 50, 240), (0, 0, box_width, box_height), border_radius=_border_r)
+        pygame.draw.rect(box_surface, (100, 200, 255), (0, 0, box_width, box_height), max(2, int(3 * _ui_s)), border_radius=_border_r)
         target_screen.blit(box_surface, (box_x, box_y))
 
         # 조교 이미지 (왼쪽)
-        text_start_x = box_x + 15
+        text_start_x = box_x + int(15 * _ui_s)
         if instructor_img:
             instructor_x = box_x + inst_padding
             instructor_y = box_y + (box_height - inst_height) // 2
             target_screen.blit(instructor_img, (instructor_x, instructor_y))
             text_start_x = box_x + inst_width + inst_padding * 2
 
-        # 메시지 텍스트 (조교 오른쪽)
-        msg_font = get_font(24)
+        # 메시지 텍스트 (조교 오른쪽, 폰트 스케일 적용)
+        _font_size = int(24 * _ui_s)
+        msg_font = get_font(_font_size)
         text_center_x = text_start_x + (text_area_width // 2)
-        y_offset = box_y + (box_height - len(messages) * 35) // 2
+        y_offset = box_y + (box_height - len(messages) * _line_height) // 2
 
         for msg in messages:
             if "{KEY:" in msg:
                 _render_message_with_keycaps(target_screen, msg, msg_font, text_start_x, text_area_width, y_offset)
             else:
                 text_surface = msg_font.render(msg, True, WHITE)
-                text_rect = text_surface.get_rect(center=(text_center_x, y_offset + 10))
+                text_rect = text_surface.get_rect(center=(text_center_x, y_offset + int(10 * _ui_s)))
                 target_screen.blit(text_surface, text_rect)
-            y_offset += 35
+            y_offset += _line_height
 
         # "클릭 또는 SPACE로 계속" 힌트
-        hint_font = get_font(18)
+        hint_font = get_font(int(18 * _ui_s))
         hint_text = hint_font.render("클릭 또는 SPACE로 계속", True, (150, 200, 255))
-        hint_rect = hint_text.get_rect(center=(box_x + box_width // 2, box_y + box_height + 25))
+        hint_rect = hint_text.get_rect(center=(box_x + box_width // 2, box_y + box_height + int(25 * _ui_s)))
         target_screen.blit(hint_text, hint_rect)
 
 
