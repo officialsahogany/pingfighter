@@ -9919,6 +9919,7 @@ class ColosseumsArena:
             if getattr(self, '_guard_select_anim_phase', None):
                 self.guard_select_hover = -1
                 self.guard_select_skill_hover = None
+                self.guard_select_henchman_hover = None
             # 경고 다이얼로그 열려 있으면 버튼 호버만 처리
             elif getattr(self, 'guard_confirm_showing', False):
                 dialog_w, dialog_h = 420, 200
@@ -9953,6 +9954,14 @@ class ColosseumsArena:
                 for sr in skill_rects:
                     if sr['rect'].collidepoint(mx, my):
                         self.guard_select_skill_hover = sr
+                        break
+
+                # 하수인 아이콘 호버 감지
+                self.guard_select_henchman_hover = None
+                hench_rects = getattr(self, '_guard_henchman_icon_rects', [])
+                for hr in hench_rects:
+                    if hr['rect'].collidepoint(mx, my):
+                        self.guard_select_henchman_hover = hr
                         break
 
         # 영웅 선택 화면 호버
@@ -17752,6 +17761,8 @@ class ColosseumsArena:
 
         # 스킬 아이콘 rect 추적 (호버/툴팁용) - 매 프레임 리빌드
         self._guard_skill_icon_rects = []
+        # 하수인 아이콘 rect 추적 (호버/툴팁용) - 매 프레임 리빌드
+        self._guard_henchman_icon_rects = []
 
         # === 배경 ===
         self.screen.fill(ET["bg_dark"])
@@ -18029,7 +18040,12 @@ class ColosseumsArena:
                     self.screen.blit(sn_surf, (slot_x + skill_slot_w // 2 - sn_surf.get_width() // 2,
                                                 iy + icon_sz + 3))
 
-                # (스킬 호버/툴팁 비활성화 - 획득 전 정보 비공개)
+                # 스킬 아이콘 호버/툴팁용 rect 등록
+                self._guard_skill_icon_rects.append({
+                    'rect': pygame.Rect(ix, iy, icon_sz, icon_sz),
+                    'skill': skill,
+                    'hero_color': bright_color,
+                })
 
             # (능력치 바 제거 - 스킬 룰렛 공간 확보)
 
@@ -18113,6 +18129,12 @@ class ColosseumsArena:
                         self.screen.blit(ns, (sq_x + hench_sq_sz // 2 - ns.get_width() // 2,
                                               sq_y + hench_sq_sz + 2))
 
+                    # 하수인 아이콘 호버/툴팁용 rect 등록
+                    self._guard_henchman_icon_rects.append({
+                        'rect': pygame.Rect(sq_x, sq_y, hench_sq_sz, hench_sq_sz),
+                        'hero': hero,
+                    })
+
         # === 하단 안내 텍스트 (스킬 룰렛 중에는 숨김) ===
         if not getattr(self, '_guard_select_anim_phase', None):
             if self.fonts and "small" in self.fonts and timer > 0.6:
@@ -18130,7 +18152,15 @@ class ColosseumsArena:
                 rs, _ = self.fonts["small"].render(round_text, ET["gold_medium"])
                 self.screen.blit(rs, (center_x - rs.get_width() // 2, 650))
 
-        # 스킬 툴팁 비활성화 (획득 전 정보 비공개)
+        # 스킬 아이콘 툴팁
+        skill_hover = getattr(self, 'guard_select_skill_hover', None)
+        if skill_hover and not getattr(self, 'guard_confirm_showing', False):
+            self._draw_guard_skill_tooltip(skill_hover)
+
+        # 하수인 아이콘 툴팁
+        hench_hover = getattr(self, 'guard_select_henchman_hover', None)
+        if hench_hover and not getattr(self, 'guard_confirm_showing', False):
+            self._draw_guard_henchman_tooltip(hench_hover)
 
         # === 인라인 스킬 룰렛 (신규 호위무사 선택 후) ===
         guard_anim_phase = getattr(self, '_guard_select_anim_phase', None)
@@ -18349,6 +18379,104 @@ class ColosseumsArena:
             dur_text = f"지속시간: {duration}초"
             ds, _ = self.fonts["small"].render(dur_text, ET["malachite_light"])
             tt.blit(ds, (padding, y_pos))
+
+        self.screen.blit(tt, (tooltip_x, tooltip_y))
+
+    def _draw_guard_henchman_tooltip(self, hover_info: dict):
+        """호위무사 선택 화면의 하수인 아이콘 툴팁"""
+        hero = hover_info.get('hero')
+        slot_rect = hover_info.get('rect')
+        if not hero or not slot_rect:
+            return
+
+        h_color = hero.get("color", (150, 150, 150))
+        h_name = hero.get("name", "???")
+        h_title = hero.get("title", "")
+        h_id = hero.get("id", "")
+        h_desc = hero.get("description", "")
+
+        # 스킬 정보 가져오기
+        hero_skills = get_hero_skills(h_id) if HERO_SKILLS_AVAILABLE else []
+        selected_si = self.hero_selected_skills.get(h_id, 0)
+        skill = hero_skills[selected_si] if selected_si < len(hero_skills) else (hero_skills[0] if hero_skills else None)
+
+        # 툴팁 크기
+        tooltip_width = 240
+        padding = 10
+        header_height = 28
+
+        # 높이 계산
+        y_offset = padding + header_height + 4
+        if h_desc:
+            y_offset += 16  # 설명 1줄
+        if skill:
+            y_offset += 22  # 스킬 아이콘 + 이름
+        tooltip_height = y_offset + padding
+
+        # 위치: 슬롯 위쪽
+        tooltip_x = slot_rect.centerx - tooltip_width // 2
+        tooltip_y = slot_rect.y - tooltip_height - 6
+
+        # 화면 경계 보정
+        if tooltip_x < 8:
+            tooltip_x = 8
+        if tooltip_x + tooltip_width > SCREEN_WIDTH - 8:
+            tooltip_x = SCREEN_WIDTH - tooltip_width - 8
+        if tooltip_y < 8:
+            tooltip_y = slot_rect.y + slot_rect.height + 6
+
+        # 툴팁 Surface
+        tt = pygame.Surface((tooltip_width, tooltip_height), pygame.SRCALPHA)
+        tt.fill((*ET["bg_panel"], 235))
+
+        r, g, b = h_color[:3]
+        bright = (min(255, r + 60), min(255, g + 60), min(255, b + 60))
+        pygame.draw.rect(tt, bright, (0, 0, tooltip_width, tooltip_height), 2, border_radius=6)
+        pygame.draw.rect(tt, (*bright, 50), (2, 2, tooltip_width - 4, header_height), border_radius=5)
+
+        y_pos = padding
+
+        # 이름
+        if self.fonts and "medium" in self.fonts:
+            ns, _ = self.fonts["medium"].render(h_name, (255, 255, 255))
+            tt.blit(ns, (padding, y_pos))
+
+        # 칭호
+        if self.fonts and "small" in self.fonts and h_title:
+            ts, _ = self.fonts["small"].render(h_title, (180, 170, 150))
+            tt.blit(ts, (tooltip_width - padding - ts.get_width(), y_pos + 4))
+
+        y_pos += header_height + 4
+
+        # 설명
+        if h_desc and self.fonts and "small" in self.fonts:
+            max_text_w = tooltip_width - padding * 2
+            # 한 줄로 자르기
+            truncated = h_desc
+            ds, _ = self.fonts["small"].render(truncated, ET["text_body"])
+            if ds.get_width() > max_text_w:
+                while len(truncated) > 1:
+                    truncated = truncated[:-1]
+                    ds, _ = self.fonts["small"].render(truncated + "..", ET["text_body"])
+                    if ds.get_width() <= max_text_w:
+                        truncated += ".."
+                        ds, _ = self.fonts["small"].render(truncated, ET["text_body"])
+                        break
+            tt.blit(ds, (padding, y_pos))
+            y_pos += 16
+
+        # 장착 스킬
+        if skill and self.fonts and "small" in self.fonts:
+            sk_icon_sz = 18
+            sk_icon = _get_hero_skill_icon(skill.skill_id, sk_icon_sz)
+            sk_name = skill.korean_name if skill.korean_name else "?"
+            sk_label = f"스킬: {sk_name}"
+            ss, _ = self.fonts["small"].render(sk_label, ET["gold_pale"])
+            icon_x = padding
+            if sk_icon:
+                tt.blit(sk_icon, (icon_x, y_pos + 1))
+                icon_x += sk_icon_sz + 4
+            tt.blit(ss, (icon_x, y_pos + 2))
 
         self.screen.blit(tt, (tooltip_x, tooltip_y))
 
