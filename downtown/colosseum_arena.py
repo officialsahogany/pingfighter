@@ -1130,6 +1130,7 @@ class TournamentState(Enum):
     HERO_PREVIEW = "hero_preview"              # 전체 영웅 미리보기
     CAPTURE_MINIGAME = "capture_minigame"      # 호위무사 생포 미니게임
     HENCHMAN_NOTIFY = "henchman_notify"        # 하수인 생포 알림
+    ESCAPE_NOTIFY = "escape_notify"            # 포획 실패 도망 알림
 
 class TournamentRound(Enum):
     QUARTER_FINAL = "8강"
@@ -8772,7 +8773,17 @@ class ColosseumsArena:
                     self.state = TournamentState.GUARD_NOTIFY
                 else:
                     self._start_perk_select()
+            elif getattr(self, '_last_capture_result', None) is False:
+                # 포획 시도했지만 실패 → 도망 알림 표시
+                loser = match.hero1 if winner == match.hero2 else match.hero2
+                self.escape_notify_hero = loser
+                self.escape_notify_timer = 0.0
+                self.escape_notify_progress = 0.0
+                self.escape_notify_hero_x = float(SCREEN_WIDTH // 2)
+                self.state = TournamentState.ESCAPE_NOTIFY
+                print(f"[CAPTURE] 포획 실패 도망 알림: {loser.get('name', '?')}")
             else:
+                # 포획 미시도 → 바로 퍽 선택
                 self._start_perk_select()
 
     def _auto_decide_remaining_matches(self):
@@ -9185,6 +9196,25 @@ class ColosseumsArena:
                     else:
                         self._start_perk_select()
 
+        elif self.state == TournamentState.ESCAPE_NOTIFY:
+            # 포획 실패 도망 알림 (3.0초)
+            self.escape_notify_timer += dt
+            escape_notify_duration = 3.0
+            self.escape_notify_progress = min(1.0, self.escape_notify_timer / escape_notify_duration)
+            # 영웅이 왼쪽으로 이동하여 사라지는 애니메이션 (progress 0.45~0.85)
+            center_x = float(SCREEN_WIDTH // 2)
+            if self.escape_notify_progress > 0.45:
+                slide_t = min(1.0, (self.escape_notify_progress - 0.45) / 0.4)
+                ease_t = self._ease_in_out(slide_t)
+                self.escape_notify_hero_x = center_x - (center_x + 120) * ease_t
+            else:
+                self.escape_notify_hero_x = center_x
+            if self.escape_notify_timer >= escape_notify_duration:
+                if self.highlight_recorder and self.highlight_recorder.has_clips():
+                    pass  # 클릭 이벤트에서 처리
+                else:
+                    self._advance_from_escape_notify()
+
         elif self.state == TournamentState.HENCHMAN_NOTIFY:
             # 하수인 생포 알림 (2.5초)
             self.henchman_notify_timer += dt
@@ -9307,6 +9337,8 @@ class ColosseumsArena:
                     return False  # 생포 알림 중에는 나갈 수 없음
                 if self.state == TournamentState.HENCHMAN_NOTIFY:
                     return False  # 하수인 생포 알림 중에는 나갈 수 없음
+                if self.state == TournamentState.ESCAPE_NOTIFY:
+                    return False  # 도망 알림 중에는 나갈 수 없음
                 if self.state == TournamentState.CAPTURE_MINIGAME:
                     return False  # 생포 미니게임 중에는 나갈 수 없음
                 if self.state in (TournamentState.MATCH_REVEAL, TournamentState.HERO_SELECT,
@@ -9327,6 +9359,16 @@ class ColosseumsArena:
                 if event.key in (pygame.K_SPACE, pygame.K_RETURN):
                     if self.henchman_notify_progress >= 1.0:
                         self._do_start_perk_select()
+                return False
+
+            # 포획 실패 도망 알림 키보드 처리
+            if self.state == TournamentState.ESCAPE_NOTIFY:
+                if event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                    if self.escape_notify_progress >= 1.0:
+                        if self.highlight_recorder and self.highlight_recorder.has_clips():
+                            self._advance_from_escape_notify()
+                        else:
+                            self._advance_from_escape_notify()
                 return False
 
             # 생포 미니게임 키보드 처리
@@ -9434,12 +9476,28 @@ class ColosseumsArena:
                 self._do_start_perk_select()
             return
 
+        # 포획 실패 도망 알림 중 클릭 (하이라이트 버튼 포함)
+        if self.state == TournamentState.ESCAPE_NOTIFY:
+            if self.escape_notify_progress >= 1.0:
+                if self.highlight_recorder and self.highlight_recorder.has_clips():
+                    if self.highlight_btn_rect and self.highlight_btn_rect.collidepoint(mx, my):
+                        self._pre_highlight_state = "escape_notify"
+                        self._start_highlight_replay()
+                        return
+                    self._advance_from_escape_notify()
+                    return
+                else:
+                    self._advance_from_escape_notify()
+                    return
+            return
+
         # 호위무사 생포 알림 중 클릭 (하이라이트 클립 있을 때만)
         if self.state == TournamentState.GUARD_NOTIFY:
             if self.guard_notify_progress >= 1.0:
                 if self.highlight_recorder and self.highlight_recorder.has_clips():
                     # 하이라이트 버튼 클릭 확인
                     if self.highlight_btn_rect and self.highlight_btn_rect.collidepoint(mx, my):
+                        self._pre_highlight_state = "guard_notify"
                         self._start_highlight_replay()
                         return
                     # 버튼 외 영역 클릭 → 다음 단계로 진행
@@ -10495,6 +10553,8 @@ class ColosseumsArena:
             self._draw_guard_notification()
         elif self.state == TournamentState.HENCHMAN_NOTIFY:
             self._draw_henchman_notification()
+        elif self.state == TournamentState.ESCAPE_NOTIFY:
+            self._draw_escape_notification()
         elif self.state == TournamentState.HIGHLIGHT_REPLAY:
             self._draw_highlight_replay()
         elif self.state == TournamentState.GUARD_SELECT:
@@ -16664,6 +16724,173 @@ class ColosseumsArena:
         else:
             self._start_perk_select()
 
+    def _advance_from_escape_notify(self):
+        """포획 실패 도망 알림에서 다음 단계로 진행"""
+        # 하이라이트 메모리 해제
+        if self.highlight_recorder:
+            self.highlight_recorder.clear()
+        self._start_perk_select()
+
+    # ================================================================
+    # 포획 실패 도망 알림 렌더링
+    # ================================================================
+    def _draw_escape_notification(self):
+        """포획 실패 도망 알림 애니메이션 - 영웅이 왼쪽으로 도망"""
+        hero = self.escape_notify_hero
+        if not hero:
+            return
+
+        progress = self.escape_notify_progress  # 0.0 ~ 1.0 over 3.0s
+        hero_x = self.escape_notify_hero_x
+
+        # 배경 (어두운 톤)
+        self.screen.fill(ET["bg_dark"])
+
+        # 반투명 붉은/어두운 오버레이 (페이드인)
+        overlay_alpha = int(min(180, 220 * min(1.0, progress * 3)))
+        overlay = _get_arena_fullscreen()
+        overlay.fill((50, 20, 20, overlay_alpha))
+        self.screen.blit(overlay, (0, 0))
+
+        center_x = SCREEN_WIDTH // 2
+
+        # 영웅 캐릭터 Y 위치 (아래에서 슬라이드 업 → 이후 왼쪽 이동)
+        target_y = SCREEN_HEIGHT // 2 - 30
+        start_y = SCREEN_HEIGHT // 2 + 100
+        slide_up = self._ease_in_out(min(1.0, progress * 2.5))
+        hero_y = int(start_y + (target_y - start_y) * slide_up)
+
+        # 영웅이 화면 안에 있을 때만 그리기
+        if hero_x > -120:
+            hero_color = hero.get("color", (150, 150, 150))
+
+            # 글로우 효과 (붉은 톤)
+            glow_alpha = int(60 + abs(_sin(self.animation_timer * 3)) * 40)
+            glow_radius = 80
+            intro_b = max(3, 120 // 12)
+            intro_glow_adj = int(intro_b * 0.75)
+            glow_surf = _get_arena_surface(glow_radius * 2, glow_radius * 2)
+            glow_color = (min(255, hero_color[0] + 60), max(0, hero_color[1] - 20),
+                          max(0, hero_color[2] - 20))
+            pygame.draw.circle(glow_surf, (*glow_color, glow_alpha),
+                               (glow_radius, glow_radius), glow_radius)
+            self.screen.blit(glow_surf, (int(hero_x) - glow_radius,
+                                          hero_y - glow_radius - intro_glow_adj))
+
+            # 영웅 캐릭터 이미지
+            if self.hero_paddle_renderer:
+                hero_id = hero.get("id", "mugen")
+                self.hero_paddle_renderer.draw_hero_paddle(
+                    self.screen, hero_id, int(hero_x), hero_y, 120, 84,
+                    facing="down", color=hero_color, scale_mode="preview"
+                )
+            else:
+                pygame.draw.circle(self.screen, hero_color,
+                                   (int(hero_x), hero_y), 40)
+
+            # 도망 중 먼지 이펙트 (영웅이 이동 시작 후)
+            if progress > 0.45 and hero_x > -50:
+                dust_count = min(5, int((progress - 0.45) * 12))
+                for i in range(dust_count):
+                    dx = int(hero_x) + 50 + i * 15
+                    dy = hero_y + 20 + int(_sin(self.animation_timer * 8 + i * 2) * 10)
+                    dust_alpha = int(80 + abs(_sin(self.animation_timer * 4 + i)) * 80)
+                    dust_surf = _get_arena_surface(10, 10)
+                    pygame.draw.circle(dust_surf, (180, 160, 140, dust_alpha), (5, 5), 4)
+                    self.screen.blit(dust_surf, (dx, dy))
+
+        # 텍스트 (페이드인, progress > 0.15)
+        text_alpha = max(0, min(255, int((progress - 0.15) * 4 * 255)))
+
+        if text_alpha > 0 and self.fonts:
+            hero_name = hero.get("name", "???")
+            hero_color = hero.get("color", (150, 150, 150))
+
+            # 밝기 보정
+            brightness = sum(hero_color) / 3
+            name_color = hero_color if brightness > 80 else (
+                min(255, hero_color[0] + 100),
+                min(255, hero_color[1] + 100),
+                min(255, hero_color[2] + 100)
+            )
+
+            # 이름 (큰 글씨) - 영웅과 함께 이동
+            if "large" in self.fonts:
+                surf, _ = self.fonts["large"].render(hero_name, name_color)
+                alpha_surf = _get_arena_surface(*surf.get_size())
+                alpha_surf.fill((255, 255, 255, text_alpha))
+                surf.blit(alpha_surf, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                name_x = int(hero_x) - surf.get_width() // 2
+                self.screen.blit(surf, (name_x, hero_y - 80))
+
+            # 메인 알림 메시지 (화면 고정, 붉은 톤)
+            if "medium" in self.fonts:
+                # 조사 처리 (을/를)
+                last_char = hero_name[-1] if hero_name else ""
+                josa = "이" if self._has_batchim(last_char) else "가"
+                msg = f"{hero_name}{josa} 도망쳤습니다!"
+                escape_color = (255, 120, 100)  # 붉은 톤
+
+                surf1, _ = self.fonts["medium"].render(msg, escape_color)
+                alpha_surf1 = _get_arena_surface(*surf1.get_size())
+                alpha_surf1.fill((255, 255, 255, text_alpha))
+                surf1.blit(alpha_surf1, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+                self.screen.blit(surf1, (center_x - surf1.get_width() // 2, hero_y + 100))
+
+        # 하이라이트 보기 버튼 (알림 완료 후 + 하이라이트 클립 존재 시)
+        if progress >= 1.0 and self.highlight_recorder and self.highlight_recorder.has_clips():
+            btn_w, btn_h = 160, 40
+            btn_x = SCREEN_WIDTH - btn_w - 20
+            btn_y = SCREEN_HEIGHT - btn_h - 20
+            self.highlight_btn_rect = pygame.Rect(btn_x, btn_y, btn_w, btn_h)
+
+            mouse_pos = pygame.mouse.get_pos()
+            is_hovered = self.highlight_btn_rect.collidepoint(mouse_pos)
+
+            btn_surf = _get_arena_surface(btn_w, btn_h)
+            for i in range(btn_h):
+                ratio = i / btn_h
+                if is_hovered:
+                    r = int(120 * (1 - ratio) + 70 * ratio)
+                    g = int(180 * (1 - ratio) + 120 * ratio)
+                    b = int(255 * (1 - ratio) + 200 * ratio)
+                    a = 230
+                else:
+                    r = int(80 * (1 - ratio) + 40 * ratio)
+                    g = int(140 * (1 - ratio) + 80 * ratio)
+                    b = int(220 * (1 - ratio) + 160 * ratio)
+                    a = 200
+                pygame.draw.line(btn_surf, (r, g, b, a), (0, i), (btn_w, i))
+            self.screen.blit(btn_surf, (btn_x, btn_y))
+
+            if is_hovered:
+                pygame.draw.rect(self.screen, (255, 230, 100),
+                                 self.highlight_btn_rect, 3, border_radius=6)
+            else:
+                border_color = (min(255, 150 + int(abs(_sin(self.animation_timer * 3)) * 105)),
+                               min(255, 200 + int(abs(_sin(self.animation_timer * 3)) * 55)),
+                               255)
+                pygame.draw.rect(self.screen, border_color,
+                                 self.highlight_btn_rect, 2, border_radius=6)
+
+            if self.fonts and "small" in self.fonts:
+                clip_count = len(self.highlight_recorder.get_clips())
+                btn_text = f"▶ 하이라이트 ({clip_count})"
+                text_color = (255, 240, 140) if is_hovered else (255, 255, 255)
+                btn_surf_text, _ = self.fonts["small"].render(btn_text, text_color)
+                tx = btn_x + (btn_w - btn_surf_text.get_width()) // 2
+                ty = btn_y + (btn_h - btn_surf_text.get_height()) // 2
+                self.screen.blit(btn_surf_text, (tx, ty))
+
+            if self.fonts and "small" in self.fonts:
+                skip_text = "클릭하여 계속..."
+                skip_alpha = int(100 + abs(_sin(self.animation_timer * 2)) * 100)
+                skip_surf, _ = self.fonts["small"].render(
+                    skip_text, (skip_alpha, skip_alpha, skip_alpha))
+                self.screen.blit(skip_surf, (20, SCREEN_HEIGHT - 35))
+        else:
+            self.highlight_btn_rect = None
+
     def _end_highlight_replay(self):
         """하이라이트 리플레이 종료 → 다음 단계로 진행"""
         # 대기실 BGM 복구
@@ -16672,7 +16899,13 @@ class ColosseumsArena:
             bgm_manager.play_colosseum_room_bgm()
         except Exception:
             pass
-        self._advance_from_guard_notify()
+        # 도망 알림에서 왔으면 escape 경로로, 아니면 guard 경로로
+        if getattr(self, '_pre_highlight_state', None) == "escape_notify":
+            self._pre_highlight_state = None
+            self._advance_from_escape_notify()
+        else:
+            self._pre_highlight_state = None
+            self._advance_from_guard_notify()
 
     # ================================================================
     # 결승 호위무사 선택 시스템
@@ -18789,6 +19022,16 @@ class ColosseumsArena:
             return 2 * t * t
         else:
             return 1 - pow(-2 * t + 2, 2) / 2
+
+    @staticmethod
+    def _has_batchim(char: str) -> bool:
+        """한글 문자의 받침 유무 확인"""
+        if not char:
+            return False
+        code = ord(char)
+        if 0xAC00 <= code <= 0xD7A3:
+            return (code - 0xAC00) % 28 != 0
+        return False
 
     def _draw_animated_bracket_lines(self):
         """애니메이션이 적용된 대진표 연결선 (대각선 레이아웃 box_h=140 기준)"""
