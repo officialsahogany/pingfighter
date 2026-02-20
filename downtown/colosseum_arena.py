@@ -19217,7 +19217,7 @@ class ColosseumsArena:
         hero1_target_x = SCREEN_WIDTH // 2 - 150
         hero1_start_x = -100
         hero1_x = int(hero1_start_x + (hero1_target_x - hero1_start_x) * self._ease_in_out(min(1.0, progress * 2)))
-        hero1_y = SCREEN_HEIGHT // 2 - 45
+        hero1_y = SCREEN_HEIGHT // 2 - 70
 
         # 글로우 효과
         glow_alpha = int(80 + abs(_sin(self.animation_timer * 4)) * 50)
@@ -19253,10 +19253,10 @@ class ColosseumsArena:
 
             # 호위무사 아이콘 (영웅1) - 1명만 표시
             h1_guards = self.guard_warrior_map.get(hero1.get("id"), [])
-            h1_guard_bottom_y = hero1_y + 70  # 호위무사 없을 때 기본 하단 Y
+            h1_guard_bottom_y = hero1_y + 85  # 호위무사 없을 때 기본 하단 Y
             if h1_guards and self.hero_paddle_renderer:
                 g = h1_guards[0]
-                guard_y = hero1_y + 90
+                guard_y = hero1_y + 100
                 self.hero_paddle_renderer.draw_hero_paddle(
                     self.screen, g.get("id", "mugen"), hero1_x, guard_y, 56, 40,
                     facing="down", color=g.get("color", (150, 150, 150)), scale_mode="preview"
@@ -19275,7 +19275,7 @@ class ColosseumsArena:
             if h1_henchmen and self.hero_paddle_renderer:
                 hench_sq_sz = 32
                 hench_sq_gap = 4
-                hench_y = h1_guard_bottom_y + 8
+                hench_y = h1_guard_bottom_y + 23
                 total_w = len(h1_henchmen) * (hench_sq_sz + hench_sq_gap) - hench_sq_gap
                 start_x = hero1_x - total_w // 2
                 # "하수인" 라벨
@@ -19326,7 +19326,7 @@ class ColosseumsArena:
         hero2_target_x = SCREEN_WIDTH // 2 + 150
         hero2_start_x = SCREEN_WIDTH + 100
         hero2_x = int(hero2_start_x + (hero2_target_x - hero2_start_x) * self._ease_in_out(min(1.0, progress * 2)))
-        hero2_y = SCREEN_HEIGHT // 2 - 45
+        hero2_y = SCREEN_HEIGHT // 2 - 70
 
         # 글로우 효과
         glow_surf = _get_arena_surface(160, 160)
@@ -19361,10 +19361,10 @@ class ColosseumsArena:
 
             # 호위무사 아이콘 (영웅2) - 1명만 표시
             h2_guards = self.guard_warrior_map.get(hero2.get("id"), [])
-            h2_guard_bottom_y = hero2_y + 70  # 호위무사 없을 때 기본 하단 Y
+            h2_guard_bottom_y = hero2_y + 85  # 호위무사 없을 때 기본 하단 Y
             if h2_guards and self.hero_paddle_renderer:
                 g = h2_guards[0]
-                guard_y = hero2_y + 90
+                guard_y = hero2_y + 100
                 self.hero_paddle_renderer.draw_hero_paddle(
                     self.screen, g.get("id", "mugen"), hero2_x, guard_y, 56, 40,
                     facing="down", color=g.get("color", (150, 150, 150)), scale_mode="preview"
@@ -19383,7 +19383,7 @@ class ColosseumsArena:
             if h2_henchmen and self.hero_paddle_renderer:
                 hench_sq_sz = 32
                 hench_sq_gap = 4
-                hench_y = h2_guard_bottom_y + 8
+                hench_y = h2_guard_bottom_y + 23
                 total_w = len(h2_henchmen) * (hench_sq_sz + hench_sq_gap) - hench_sq_gap
                 start_x = hero2_x - total_w // 2
                 # "하수인" 라벨
