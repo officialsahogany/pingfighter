@@ -3299,7 +3299,7 @@ class PuppetControl(HeroSkill):
             korean_name="꼭두각시 조종",
             description="실로 상대를 끌어와 뽀뽀한 후 돌려보낸다",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=30.0,
+            cooldown=27.0,
             duration=3.62,  # 총 3.62초: 뻗기 0.7초 + 끌기 1.083초 + 뽀뽀 1초 + 복귀 0.833초 (이동 20% 빠르게)
             hero_id="maria"
         )
