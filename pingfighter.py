@@ -20016,7 +20016,7 @@ _arena_portrait_tutorial_shown = False      # 세션 내 1회만 표시
 _arena_portrait_tutorial_active = False     # 현재 튜토리얼 진행 중
 _arena_portrait_tutorial_step = 0           # 현재 단계 (0~3)
 _arena_portrait_tutorial_delay_frames = 0   # 호위무사 튜토리얼 완료 후 딜레이 카운터
-_ARENA_PORTRAIT_TUTORIAL_DELAY = 300        # 5초 (60fps 기준)
+_ARENA_PORTRAIT_TUTORIAL_DELAY = 720        # 12초 (60fps 기준)
 _ARENA_PORTRAIT_TUTORIAL_STEPS = [
     {
         "highlight": "portrait",
