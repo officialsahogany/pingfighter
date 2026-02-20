@@ -8961,7 +8961,12 @@ class ColosseumsArena:
         print(f"[CAPTURE-DEBUG] state override check: bet_hero={bool(self.bet_hero)}, "
               f"winner_is_bet={winner == self.bet_hero}, round={self.current_round}, "
               f"_last_capture_result={_lcr} (type={type(_lcr).__name__})")
-        if self.bet_hero and winner == self.bet_hero and self.current_round != TournamentRound.FINAL:
+        if self.bet_hero and winner == self.bet_hero and self.current_round == TournamentRound.FINAL:
+            # 결승 우승 → RESULT 팝업 스킵, 바로 시상식(VICTORY_CELEBRATION)으로
+            self.victory_timer = 0.0
+            self.victory_confetti = []
+            self.state = TournamentState.VICTORY_CELEBRATION
+        elif self.bet_hero and winner == self.bet_hero and self.current_round != TournamentRound.FINAL:
             if getattr(self, '_last_capture_result', None) is True:
                 target = getattr(self, '_last_capture_target', None)
                 if target:
