@@ -1722,7 +1722,7 @@ ARENA_PERK_POOL = [
     {
         "id": "spirit_flow",
         "name": "영기순환",
-        "description": "스킬 쿨타임 30% 감소",
+        "description": "영웅 스킬 쿨타임 30% 감소",
         "icon_color": (180, 100, 255),   # 보라 (마법)
         "effect_type": "skill_cooldown",
         "value": 0.30,
@@ -1730,7 +1730,7 @@ ARENA_PERK_POOL = [
     {
         "id": "command",
         "name": "호령",
-        "description": "호위무사 쿨타임 30% 감소",
+        "description": "호위무사 스킬 쿨타임 30% 감소",
         "icon_color": (255, 100, 100),   # 빨강 (권위)
         "effect_type": "guard_cooldown",
         "value": 0.30,
@@ -4678,17 +4678,8 @@ class GuardWarriorSystem:
                 return
 
             elif eff_id == 'tentacle_wrap' and eff_skill and not eff_skill.is_active:
-                # 촉수휘감기 종료 → 퇴장 전환
-                if is_top:
-                    self._exit_start_x_top = self.x_top
-                    self._exit_start_y_top = self.y_top
-                    self.phase_top = "exiting"
-                    self.anim_timer_top = 0.0
-                else:
-                    self._exit_start_x_bottom = self.x_bottom
-                    self._exit_start_y_bottom = self.y_bottom
-                    self.phase_bottom = "exiting"
-                    self.anim_timer_bottom = 0.0
+                # 촉수휘감기 종료 → 순찰모드면 순찰 복귀, 아니면 퇴장
+                self._transition_after_casting(is_top)
                 return
 
             # === 귀신발걸음: 무겐이 공을 따라다니며 상대 진영으로 전진/복귀 ===
@@ -14487,7 +14478,7 @@ class ColosseumsArena:
                     pool.append({
                         "id": f"skill_{other_skill.skill_id}",
                         "name": other_skill.korean_name,
-                        "description": f"추가 스킬 획득\n(쿨타임 30% 증가)",
+                        "description": f"영웅 추가 스킬 획득\n(모든 스킬쿨타임 20% 증가)",
                         "icon_color": hero_color,
                         "effect_type": "add_skill",
                         "value": other_skill_idx,
