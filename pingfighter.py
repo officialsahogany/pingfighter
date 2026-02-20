@@ -100777,6 +100777,13 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         arena_capture_escape_anim = 0.0
         arena_capture_deployed_net = None
         arena_capture_residual_net = None
+        # 대쉬 회피 시스템 리셋
+        import math as _reset_math
+        _reset_math._flee_dash_active = False
+        _reset_math._flee_dash_timer = 0.0
+        _reset_math._flee_dash_cooldown = 0.0
+        _reset_math._flee_dash_dir = 1
+        _reset_math._flee_feint_timer = 0.0
         arena_capture_pull_start_x = 380.0
         arena_capture_pull_start_y = 60.0
         if arena_capture_do_capture:
@@ -118630,38 +118637,96 @@ def _update_arena_capture_phase(screen):
         arena_capture_flee_dodge_timer -= dt
         px = PLAYER.centerx if PLAYER else GAME_CENTER_X
         flee_speed = arena_capture_flee_speed if not _boss_trapped_by_net else 0
-        # 그물 감지 시 급회피 (벽 방향 회피 방지)
-        if arena_capture_net_active and arena_capture_net_y < 300:
+
+        # ── 대쉬 회피 시스템 ──
+        # _flee_dash_active: 대쉬 중 여부
+        # _flee_dash_timer: 대쉬 남은 시간
+        # _flee_dash_cooldown: 대쉬 쿨다운
+        if not hasattr(_cap_math, '_flee_dash_active'):
+            _cap_math._flee_dash_active = False
+            _cap_math._flee_dash_timer = 0.0
+            _cap_math._flee_dash_cooldown = 0.0
+            _cap_math._flee_dash_dir = 1
+            _cap_math._flee_feint_timer = 0.0  # 페인트 타이머
+
+        _cap_math._flee_dash_cooldown = max(0, _cap_math._flee_dash_cooldown - dt)
+        _cap_math._flee_feint_timer = max(0, _cap_math._flee_feint_timer - dt)
+
+        # 대쉬 활성 중 → 고속 이동
+        if _cap_math._flee_dash_active:
+            _cap_math._flee_dash_timer -= dt
+            flee_speed = arena_capture_flee_speed * 5.5  # 대쉬 속도
+            arena_capture_flee_dir = _cap_math._flee_dash_dir
+            if _cap_math._flee_dash_timer <= 0:
+                _cap_math._flee_dash_active = False
+                _cap_math._flee_dash_cooldown = _cap_random.uniform(1.5, 3.0)
+                arena_capture_flee_dodge_timer = 0.15
+
+        # 그물 감지 시 회피 판정 (대쉬 or 일반 급회피)
+        elif arena_capture_net_active and arena_capture_net_y < 350 and not _boss_trapped_by_net:
             net_dx = arena_capture_net_x - arena_capture_flee_x
-            if abs(net_dx) < 100:
+            net_dist = abs(net_dx)
+            # 그물이 가까이 왔을 때 (감지 범위 130px)
+            if net_dist < 130:
                 dodge_dir = -1 if net_dx > 0 else 1
-                # 벽 쪽으로 회피하려는 경우 반대로 회피
+                # 벽 쪽으로 회피하려는 경우 반대로
                 if dodge_dir == -1 and arena_capture_flee_x <= GAME_LEFT + 60:
                     dodge_dir = 1
                 elif dodge_dir == 1 and arena_capture_flee_x >= GAME_RIGHT - 60:
                     dodge_dir = -1
-                arena_capture_flee_dir = dodge_dir
-                flee_speed = flee_speed * 2.5
-                arena_capture_flee_dodge_timer = 0.3
+
+                # 대쉬 회피 (40% 확률, 쿨다운 없을 때, 그물이 충분히 가까우면)
+                if (_cap_math._flee_dash_cooldown <= 0
+                        and arena_capture_net_y < 200
+                        and _cap_random.random() < 0.40):
+                    _cap_math._flee_dash_active = True
+                    _cap_math._flee_dash_timer = 0.18  # 대쉬 지속 0.18초
+                    _cap_math._flee_dash_dir = dodge_dir
+                    flee_speed = arena_capture_flee_speed * 5.5
+                    arena_capture_flee_dir = dodge_dir
+                    arena_capture_flee_dodge_timer = 0.3
+                else:
+                    # 일반 급회피
+                    arena_capture_flee_dir = dodge_dir
+                    flee_speed = flee_speed * 2.5
+                    arena_capture_flee_dodge_timer = 0.3
+
+            # 그물이 멀지만 감지됨 → 페인트 동작 (50% 확률, 방향 흔들기)
+            elif net_dist < 200 and _cap_math._flee_feint_timer <= 0:
+                if _cap_random.random() < 0.50:
+                    arena_capture_flee_dir *= -1
+                    _cap_math._flee_feint_timer = _cap_random.uniform(0.2, 0.5)
+
         # 벽 경계 체크 (최우선 - 구석 고착 방지)
         _flee_at_left_wall = arena_capture_flee_x <= GAME_LEFT + 50
         _flee_at_right_wall = arena_capture_flee_x >= GAME_RIGHT - 50
         if _flee_at_left_wall:
             arena_capture_flee_dir = 1
-            arena_capture_flee_dodge_timer = 0.0  # 회피 중이어도 벽에서는 즉시 반전
+            if _cap_math._flee_dash_active:
+                _cap_math._flee_dash_dir = 1
+            arena_capture_flee_dodge_timer = 0.0
         elif _flee_at_right_wall:
             arena_capture_flee_dir = -1
+            if _cap_math._flee_dash_active:
+                _cap_math._flee_dash_dir = -1
             arena_capture_flee_dodge_timer = 0.0
-        elif arena_capture_flee_dodge_timer <= 0:
-            # 일반 이동 (벽 근처가 아닐 때만)
-            if _cap_random.random() < 0.02:
+        elif arena_capture_flee_dodge_timer <= 0 and not _cap_math._flee_dash_active:
+            # 일반 이동 (회피/대쉬 중이 아닐 때)
+            # 랜덤 방향 전환 (더 자주 + 불규칙하게)
+            if _cap_random.random() < 0.04:
                 arena_capture_flee_dir *= -1
+            # 플레이어 근처면 반대로
             if abs(px - arena_capture_flee_x) < 80:
                 arena_capture_flee_dir = -1 if px > arena_capture_flee_x else 1
-            arena_capture_flee_dodge_timer = 0.0
+            # 가끔 급가속 후 감속 (불규칙 이동)
+            if _cap_random.random() < 0.03:
+                flee_speed = flee_speed * _cap_random.uniform(1.5, 2.2)
         arena_capture_flee_x += arena_capture_flee_dir * flee_speed
         arena_capture_flee_x = max(GAME_LEFT + 30, min(GAME_RIGHT - 30, arena_capture_flee_x))
-        arena_capture_flee_y = 45.0 + _cap_math.sin(arena_capture_timer * 3.0) * 12.0
+        # Y축도 불규칙하게 (위아래로 더 다이나믹)
+        _y_base = 45.0 + _cap_math.sin(arena_capture_timer * 3.0) * 12.0
+        _y_jitter = _cap_math.sin(arena_capture_timer * 7.3) * 8.0  # 고주파 흔들림 추가
+        arena_capture_flee_y = _y_base + _y_jitter
 
         # ── 그물 투사체 업데이트 (코만도 그물덫총 방식) ──
         DEPLOY_Y = 120  # 상대 진영 하단 경계에서 펼침
@@ -118674,8 +118739,8 @@ def _update_arena_capture_phase(screen):
             if arena_capture_net_y <= DEPLOY_Y:
                 arena_capture_net_active = False
                 arena_capture_net_rope = []
-                # 그물 펼침 (280x120 크기)
-                net_w, net_h = 260, 100
+                # 그물 펼침 (범위 30% 축소: 260→182, 100→70)
+                net_w, net_h = 182, 70
                 nx = int(arena_capture_net_x)
                 net_left = max(GAME_LEFT, min(GAME_RIGHT - net_w, nx - net_w // 2))
                 net_top = max(10, int(arena_capture_flee_y) - net_h // 2)
@@ -139859,12 +139924,26 @@ def main(stage_num, new_boss_mode=False):
                                 top_wrapper, bottom_wrapper, ball_wrapper
                             )
                             if result:
-                                ball_vel[0] = ball_wrapper.vx
-                                ball_vel[1] = ball_wrapper.vy
-                                # 스킬 사운드 재생 + 말풍선 표시
-                                arena_play_skill_sound(result)
-                                if 'skill_korean_name' in result:
-                                    arena_show_speech_bubble(True, result['skill_korean_name'], hero_id=hero_id)
+                                if result.get('blocked_by_immunity'):
+                                    # 마법결계에 의해 스킬 차단됨
+                                    _blocked_skill_name = result.get('skill_korean_name', '')
+                                    arena_show_speech_bubble(True, _blocked_skill_name, hero_id=arena_top_hero["id"] if arena_top_hero else None)
+                                    arena_show_speech_bubble(False, '패링', hero_id=arena_bottom_hero["id"] if arena_bottom_hero else None)
+                                    _block_hero_color = arena_top_hero.get("color", (180, 80, 220)) if arena_top_hero else (180, 80, 220)
+                                    _spawn_barrier_block_effect(
+                                        caster_x=float(BOSS.centerx), caster_y=float(BOSS.centery),
+                                        target_x=float(PLAYER.centerx), target_y=float(PLAYER.centery),
+                                        skill_name=_blocked_skill_name,
+                                        caster_is_top=True,
+                                        hero_color=_block_hero_color
+                                    )
+                                else:
+                                    ball_vel[0] = ball_wrapper.vx
+                                    ball_vel[1] = ball_wrapper.vy
+                                    # 스킬 사운드 재생 + 말풍선 표시
+                                    arena_play_skill_sound(result)
+                                    if 'skill_korean_name' in result:
+                                        arena_show_speech_bubble(True, result['skill_korean_name'], hero_id=hero_id)
                         # 하단 영웅 ON_COOLDOWN 스킬
                         if arena_bottom_hero:
                             hero_id = arena_bottom_hero["id"]
@@ -139873,12 +139952,26 @@ def main(stage_num, new_boss_mode=False):
                                 bottom_wrapper, top_wrapper, ball_wrapper
                             )
                             if result:
-                                ball_vel[0] = ball_wrapper.vx
-                                ball_vel[1] = ball_wrapper.vy
-                                # 스킬 사운드 재생 + 말풍선 표시
-                                arena_play_skill_sound(result)
-                                if 'skill_korean_name' in result:
-                                    arena_show_speech_bubble(False, result['skill_korean_name'], hero_id=hero_id)
+                                if result.get('blocked_by_immunity'):
+                                    # 마법결계에 의해 스킬 차단됨
+                                    _blocked_skill_name = result.get('skill_korean_name', '')
+                                    arena_show_speech_bubble(False, _blocked_skill_name, hero_id=arena_bottom_hero["id"] if arena_bottom_hero else None)
+                                    arena_show_speech_bubble(True, '패링', hero_id=arena_top_hero["id"] if arena_top_hero else None)
+                                    _block_hero_color = arena_bottom_hero.get("color", (180, 80, 220)) if arena_bottom_hero else (180, 80, 220)
+                                    _spawn_barrier_block_effect(
+                                        caster_x=float(PLAYER.centerx), caster_y=float(PLAYER.centery),
+                                        target_x=float(BOSS.centerx), target_y=float(BOSS.centery),
+                                        skill_name=_blocked_skill_name,
+                                        caster_is_top=False,
+                                        hero_color=_block_hero_color
+                                    )
+                                else:
+                                    ball_vel[0] = ball_wrapper.vx
+                                    ball_vel[1] = ball_wrapper.vy
+                                    # 스킬 사운드 재생 + 말풍선 표시
+                                    arena_play_skill_sound(result)
+                                    if 'skill_korean_name' in result:
+                                        arena_show_speech_bubble(False, result['skill_korean_name'], hero_id=hero_id)
                 except Exception as _arena_skill_block_err:
                     print(f"[Arena] skill/guard/henchman block error: {_arena_skill_block_err}")
 
@@ -147755,7 +147848,7 @@ def _legacy_main_multiplayer():
                 if p1_score >= win_score or p2_score >= win_score:
                     winner = "P1" if p1_score >= win_score else "P2"
                     _show_multiplayer_result(winner, p1_score, p2_score)
-                    multiplayer_mode = False
+                    multiplayer_mode = False마우스를 클릭하여 적을 생포하세요! 이런 큰 문구가 빨간색으로 뜨게 해줘 
                     try:
                         bgm_manager.play_menu_bgm()
                     except Exception:
