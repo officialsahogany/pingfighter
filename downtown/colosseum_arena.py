@@ -4248,10 +4248,14 @@ class GuardWarriorSystem:
                     _eff_id3, _eff_sk3 = self._unwrap_possessed_skill(skill)
                     # 뿔 박치기: 시전자 스턴 복원 (_restore_caster_state가 해제한 것 복구)
                     if _eff_id3 == 'horn_charge' and _eff_sk3:
+                        _hc_caster_prefix = 'top_paddle' if getattr(_eff_sk3, 'caster_is_top', True) else 'bottom_paddle'
                         if (hasattr(_eff_sk3, 'phase') and _eff_sk3.phase == _eff_sk3.PHASE_STUN
                                 and _eff_sk3.phase_timer < 1.0):
-                            _hc_caster_prefix = 'top_paddle' if _eff_sk3.caster_is_top else 'bottom_paddle'
                             game_state[f'{_hc_caster_prefix}_stunned'] = True
+                        elif (hasattr(_eff_sk3, 'phase') and _eff_sk3.phase == _eff_sk3.PHASE_STUN
+                                and _eff_sk3.phase_timer >= 1.0):
+                            # 스턴 해제 후: _restore_caster_state가 복원한 잔여 시전자 스턴 강제 제거
+                            game_state[f'{_hc_caster_prefix}_stunned'] = False
                     # 스킬별 글로벌 game_state 키 차단 (메인 영웅에 영향 방지)
                     if _eff_id3 == 'horn_charge':
                         game_state['horn_charge_active'] = False
