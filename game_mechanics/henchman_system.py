@@ -564,9 +564,43 @@ class HenchmanSystem:
                 pass
 
     def _apply_status_effects(self, result, target_paddle, game_state):
-        """상태 효과 적용 (is_top 기반으로 올바른 타겟에 적용)"""
+        """상태 효과 적용 (is_top 기반으로 올바른 타겟에 적용)
+
+        스킬 결과에서 두 가지 형식을 모두 처리:
+        1) target_status: StatusEffect enum (hero_skills 표준 반환값)
+        2) status_effects: [{'type': 'stun', ...}] (레거시 형식)
+        """
         if not isinstance(result, dict):
             return
+
+        # 타겟 프리픽스 결정 (opponent = 상대방)
+        # is_top=True(AI 상단): opponent=bottom_paddle, self=top_paddle
+        # is_top=False(플레이어 하단): opponent=top_paddle, self=bottom_paddle
+        target_prefix = 'bottom_paddle' if self.is_top else 'top_paddle'
+
+        # === 1) target_status 처리 (hero_skills 표준 형식) ===
+        target_status = result.get('target_status')
+        if target_status:
+            try:
+                from downtown.hero_skills import StatusEffect
+                if target_status == StatusEffect.STUN:
+                    game_state[f'{target_prefix}_stunned'] = True
+                elif target_status == StatusEffect.SLOW:
+                    game_state[f'{target_prefix}_slowed'] = True
+                    game_state[f'{target_prefix}_slow_amount'] = result.get('slow_amount', 0.5)
+                elif target_status == StatusEffect.CONFUSION:
+                    game_state[f'{target_prefix}_confused'] = True
+                elif target_status == StatusEffect.SHRINK:
+                    game_state[f'{target_prefix}_shrink'] = True
+                    game_state[f'{target_prefix}_shrink_scale'] = result.get('shrink_amount', 0.5)
+                elif target_status == StatusEffect.BLIND:
+                    game_state['blind_target_is_top'] = not self.is_top
+                elif target_status == StatusEffect.PUPPET:
+                    game_state[f'{target_prefix}_locked'] = True
+            except ImportError:
+                pass
+
+        # === 2) status_effects 처리 (레거시 형식) ===
         effects = result.get('status_effects', [])
         if isinstance(effects, dict):
             effects = [effects]
@@ -575,8 +609,6 @@ class HenchmanSystem:
                 continue
             etype = effect.get('type', '')
             target = effect.get('target', 'opponent')
-            # is_top=True(AI 상단): opponent=bottom_paddle, self=top_paddle
-            # is_top=False(플레이어 하단): opponent=top_paddle, self=bottom_paddle
             if target == 'opponent':
                 prefix = 'bottom_paddle' if self.is_top else 'top_paddle'
             else:
