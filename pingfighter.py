@@ -120746,18 +120746,24 @@ def _update_arena_capture_phase(screen):
                     _cap_math._flee_feint_timer = _cap_random.uniform(0.2, 0.5)
 
         # 벽 경계 체크 (최우선 - 구석 고착 방지)
-        _flee_at_left_wall = arena_capture_flee_x <= GAME_LEFT + 50
-        _flee_at_right_wall = arena_capture_flee_x >= GAME_RIGHT - 50
+        _flee_at_left_wall = arena_capture_flee_x <= GAME_LEFT + 80
+        _flee_at_right_wall = arena_capture_flee_x >= GAME_RIGHT - 80
         if _flee_at_left_wall:
             arena_capture_flee_dir = 1
             if _cap_math._flee_dash_active:
                 _cap_math._flee_dash_dir = 1
-            arena_capture_flee_dodge_timer = 0.0
+            # 벽 탈출 시 dodge_timer를 충분히 줘서 다른 로직이 방향을 덮어쓰지 않게
+            arena_capture_flee_dodge_timer = 0.4
+            # 벽에 가까울수록 강하게 탈출 (최대 3배속)
+            _wall_prox = max(0, 1.0 - (arena_capture_flee_x - GAME_LEFT) / 80.0)
+            flee_speed = arena_capture_flee_speed * (1.5 + _wall_prox * 1.5)
         elif _flee_at_right_wall:
             arena_capture_flee_dir = -1
             if _cap_math._flee_dash_active:
                 _cap_math._flee_dash_dir = -1
-            arena_capture_flee_dodge_timer = 0.0
+            arena_capture_flee_dodge_timer = 0.4
+            _wall_prox = max(0, 1.0 - (GAME_RIGHT - arena_capture_flee_x) / 80.0)
+            flee_speed = arena_capture_flee_speed * (1.5 + _wall_prox * 1.5)
         elif arena_capture_flee_dodge_timer <= 0 and not _cap_math._flee_dash_active:
             # 일반 이동 (회피/대쉬 중이 아닐 때)
             # 랜덤 방향 전환 (더 자주 + 불규칙하게)
