@@ -183,6 +183,29 @@ class HenchmanSystem:
         self._font = None
         self._font_small = None
         self._icon_cache = {}        # 서피스 캐시
+        self._ready_sound = None     # 쿨타임 완충 사운드
+        self._ready_sound_loaded = False
+
+    def _play_ready_sound(self):
+        """쿨타임 완충 사운드 재생 (lazy load)"""
+        if self.is_top:
+            return  # AI 하수인은 사운드 없음
+        if not self._ready_sound_loaded:
+            self._ready_sound_loaded = True
+            try:
+                import sys
+                base = getattr(sys, '_MEIPASS', os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                path = os.path.join(base, "sounds", "hasooincool.wav")
+                if os.path.exists(path) and pygame and pygame.mixer.get_init():
+                    self._ready_sound = pygame.mixer.Sound(path)
+                    self._ready_sound.set_volume(0.5)
+            except Exception:
+                self._ready_sound = None
+        if self._ready_sound:
+            try:
+                self._ready_sound.play()
+            except Exception:
+                pass
 
     def setup(self, henchman_list: list, skill_selections: dict = None,
               skill_manager=None, hero_paddle_renderer=None):
@@ -249,10 +272,11 @@ class HenchmanSystem:
                 if slot.cooldown > 0:
                     slot._was_on_cooldown = True
                     slot.cooldown = max(0.0, slot.cooldown - dt)
-                    # 쿨타임 완충 순간 감지 → 반짝임 시작
+                    # 쿨타임 완충 순간 감지 → 반짝임 + 사운드
                     if slot.cooldown <= 0 and slot._was_on_cooldown:
                         slot.ready_flash_timer = 1.5  # 1.5초간 반짝임
                         slot._was_on_cooldown = False
+                        self._play_ready_sound()
 
                 # 반짝임 타이머 틱
                 if slot.ready_flash_timer > 0:
