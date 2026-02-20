@@ -77707,10 +77707,7 @@ def _draw_arena_capture_tutorial() -> None:
     _line_height = int(28 * _ui_s)
     total_text_height = _line_height * len(messages)
     y_offset = box_y + (box_height - total_text_height) // 2
-    try:
-        _cap_msg_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), int(22 * _ui_s))
-    except Exception:
-        _cap_msg_font = pygame.freetype.SysFont("malgun gothic", int(22 * _ui_s))
+    _cap_msg_font = get_font(int(22 * _ui_s))
     for msg in messages:
         _render_message_with_keycaps(target_screen, msg, _cap_msg_font, _text_left, _text_width, y_offset, scale=_ui_s)
         y_offset += _line_height
