@@ -3067,16 +3067,29 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     print(f"[전체화면] display_manager에 전체화면 모드 설정 완료 (SCREEN Surface 전달)", flush=True)
 else:
     # === 창모드: SCALED 합성 서피스 (게임+필러 여백, SDL GPU 업스케일링) ===
-    # 합성 서피스 크기 = 게임(760x750) + 필러 여백 → SDL SCALED가 GPU로 창에 맞춤
-    # 소프트웨어 스케일링 없음 (GAME_SCALE_FACTOR = 1.0)
-    _comp_pad_x = int(WIDTH * 0.25)   # 좌우 각 190px 필러 여백
-    _comp_pad_y = max(int(HEIGHT * 0.06), 30)  # 상하 각 45px 여백
-    _comp_w = WIDTH + _comp_pad_x * 2
+    # 합성 서피스 비율을 모니터 비율에 맞춰 레터박스 제거
+
+    # 모니터 해상도 감지 (display quit 전에 수행)
+    if sys.platform == 'win32':
+        _comp_monitor = _get_native_resolution() or _get_current_resolution()
+        if _comp_monitor:
+            _comp_mon_w, _comp_mon_h = _comp_monitor
+        else:
+            _comp_mon_w, _comp_mon_h = 1920, 1080
+    else:
+        _comp_dinfo = pygame.display.Info()
+        _comp_mon_w, _comp_mon_h = _comp_dinfo.current_w, _comp_dinfo.current_h
+
+    # 합성 높이 = 게임 + 상하 여백, 너비 = 모니터 비율에 맞춤
+    _comp_pad_y = max(int(HEIGHT * 0.06), 30)
     _comp_h = HEIGHT + _comp_pad_y * 2
+    _comp_mon_aspect = _comp_mon_w / max(_comp_mon_h, 1)
+    _comp_w = max(int(_comp_h * _comp_mon_aspect), WIDTH + 100)
+    _comp_pad_x = (_comp_w - WIDTH) // 2
 
     _scaled_ok = False
     try:
-        print(f"[디스플레이] 창모드(SCALED 합성) 시작... 합성={_comp_w}x{_comp_h}", flush=True)
+        print(f"[디스플레이] 창모드(SCALED 합성) 시작... 합성={_comp_w}x{_comp_h} (모니터비율 {_comp_mon_aspect:.2f})", flush=True)
         pygame.display.quit()
         pygame.display.init()
         os.environ['SDL_VIDEO_CENTERED'] = '1'
@@ -8943,11 +8956,12 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         FULLSCREEN_MODE = False
         _is_fullscreen_active = True
 
-        # 합성 서피스 크기 (게임 + 필러 여백)
-        _comp_pad_x = int(WIDTH * 0.25)
+        # 합성 서피스 비율을 모니터 비율에 맞춤 (레터박스 방지)
         _comp_pad_y = max(int(HEIGHT * 0.06), 30)
-        _comp_w = WIDTH + _comp_pad_x * 2
         _comp_h = HEIGHT + _comp_pad_y * 2
+        _comp_mon_aspect = monitor_w / max(monitor_h, 1)
+        _comp_w = max(int(_comp_h * _comp_mon_aspect), WIDTH + 100)
+        _comp_pad_x = (_comp_w - WIDTH) // 2
 
         # SCALED 합성 모드 시도 → 실패 시 소프트웨어 스케일링 폴백
         _sw_scaled_ok = False
