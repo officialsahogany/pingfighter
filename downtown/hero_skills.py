@@ -11085,7 +11085,7 @@ class BombSurprise(HeroSkill):
             path3b = os.path.join(project_root, "sounds", "weakexplosion.wav")
             if os.path.exists(path3b):
                 self._self_explode_sound = pygame.mixer.Sound(path3b)
-                self._self_explode_sound.set_volume(0.45)
+                self._self_explode_sound.set_volume(0.8)
         except Exception:
             pass
 
