@@ -8691,12 +8691,11 @@ class ColosseumsArena:
             pass
 
         # 인게임 포획 결과 동기화 (스테이지30 내부에서 수행된 포획)
+        match = self.selected_match  # ★ match 변수를 try 밖에서 정의 (state override에서도 사용)
         try:
             import pingfighter
             _cap_result = getattr(pingfighter, 'arena_capture_result_flag', None)
-            _is_bet_win = (winner == self.bet_hero)
-            _is_final = (self.current_round == TournamentRound.FINAL)
-            print(f"[CAPTURE-DEBUG] _end_battle: cap_result={_cap_result}, bet_win={_is_bet_win}, is_final={_is_final}, round={self.current_round}")
+            print(f"[CAPTURE-DEBUG] _end_battle: cap_result={_cap_result}, bet_win={winner == self.bet_hero}, round={self.current_round}")
             if _cap_result is True and winner == self.bet_hero:
                 # 포획 성공 → guard_warrior_map 추가 + captured_guard 설정
                 loser = match.hero1 if winner == match.hero2 else match.hero2
@@ -8723,7 +8722,10 @@ class ColosseumsArena:
             else:
                 self._last_capture_result = None
                 self._last_capture_target = None
-        except Exception:
+        except Exception as _cap_exc:
+            import traceback
+            print(f"[CAPTURE] ★ 포획 동기화 예외 발생: {_cap_exc}")
+            traceback.print_exc()
             self._last_capture_result = None
             self._last_capture_target = None
 
