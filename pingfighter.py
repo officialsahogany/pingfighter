@@ -20206,6 +20206,7 @@ arena_capture_escape_anim = 0.0         # 도주 애니메이션
 arena_capture_pull_start_x = 380.0      # 끌어오기 시작 X
 arena_capture_pull_start_y = 60.0       # 끌어오기 시작 Y
 arena_capture_residual_net = None       # 잔여 그물 페이드아웃용 (rect, shape)
+arena_capture_speech_line = None       # 생포 결과 대사 (캐릭터별 멘트)
 arena_active_hero_perks = []         # TAB 표시용: 플레이어(하단) 영웅 보유 퍽 목록
 arena_active_enemy_perks = []        # 필러 표시용: 상대(상단) 영웅 보유 퍽 목록
 arena_perk_draw_icon_func = None     # 퍽 아이콘 그리기 함수 (ColosseumsArena._draw_perk_icon)
@@ -102371,11 +102372,12 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         global arena_capture_net_x, arena_capture_net_y, arena_capture_net_speed
         global arena_capture_net_rope, arena_capture_caught_anim, arena_capture_escape_anim
         global arena_capture_deployed_net, arena_capture_pull_start_x, arena_capture_pull_start_y
-        global arena_capture_residual_net
+        global arena_capture_residual_net, arena_capture_speech_line
         arena_capture_do_capture = globals().pop('_arena_pending_do_capture', False)
         arena_capture_phase = None
         arena_capture_timer = 0.0
         arena_capture_result_flag = None
+        arena_capture_speech_line = None
         arena_capture_net_active = False
         arena_capture_shots_left = 3
         arena_capture_flee_x = 380.0
@@ -120298,6 +120300,48 @@ def _fire_capture_net():
             pass
     print(f"[CAPTURE] 그물 발사! 잔여 {arena_capture_shots_left}발")
 
+def _draw_arena_capture_speech(screen, line, hero_x, hero_y, elapsed, success=True):
+    """포획 결과 대사 말풍선 그리기 (인게임 포획 페이즈)"""
+    try:
+        _font = getattr(_draw_arena_capture_speech, '_font', None)
+        if _font is None:
+            import pygame.freetype
+            font_path = resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"))
+            _font = pygame.freetype.Font(font_path, 17)
+            _draw_arena_capture_speech._font = _font
+        if not _font:
+            return
+        ts, tr = _font.render(line, (255, 255, 255))
+        pad_x, pad_y = 14, 8
+        bw = tr.width + pad_x * 2
+        bh = tr.height + pad_y * 2
+        # 영웅 위치 기준 아래쪽에 표시
+        bx = max(10, min(hero_x - bw // 2, 750 - bw))
+        by = hero_y + 40
+        # 화면 아래로 넘어가면 위쪽에 표시
+        if by + bh + 14 > 720:
+            by = hero_y - bh - 20
+        bubble = pygame.Surface((bw + 4, bh + 16), pygame.SRCALPHA)
+        # 꼬리 (위쪽)
+        tail_cx = min(max(20, hero_x - bx), bw - 20)
+        pygame.draw.polygon(bubble, (30, 30, 40, 210), [
+            (tail_cx - 6, 14), (tail_cx + 6, 14), (tail_cx, 2)
+        ])
+        # 배경
+        bg = pygame.Rect(0, 14, bw, bh)
+        pygame.draw.rect(bubble, (30, 30, 40, 210), bg, border_radius=7)
+        border_c = (80, 220, 80, 200) if success else (220, 130, 70, 200)
+        pygame.draw.rect(bubble, border_c, bg, 2, border_radius=7)
+        # 텍스트
+        bubble.blit(ts, (pad_x, 14 + pad_y))
+        # 페이드인
+        fade = min(1.0, elapsed / 0.4)
+        if fade < 1.0:
+            bubble.set_alpha(int(255 * fade))
+        screen.blit(bubble, (bx, by))
+    except Exception:
+        pass
+
 def _update_arena_capture_phase(screen):
     """포획 페이즈 업데이트 + 렌더링 (매 프레임 호출)
     - 호위무사 퇴장, 기존 영웅 패들 그대로 사용
@@ -120312,7 +120356,7 @@ def _update_arena_capture_phase(screen):
     global arena_capture_caught_anim, arena_capture_escape_anim
     global arena_capture_pull_start_x, arena_capture_pull_start_y
     global arena_capture_net_rope, arena_capture_deployed_net
-    global arena_capture_residual_net
+    global arena_capture_residual_net, arena_capture_speech_line
     global arena_battle_result
     import pygame as pygame
     import pygame.freetype
@@ -120550,6 +120594,14 @@ def _update_arena_capture_phase(screen):
                     arena_capture_timer = 0.0
                     arena_capture_result_flag = True
                     arena_capture_caught_anim = 0.0
+                    # 포획 성공 대사 (100% 확률)
+                    try:
+                        from downtown.colosseum_arena import CAPTURE_SUCCESS_LINES
+                        _cap_hero_id = top_hero.get("id", "")
+                        _cap_lines = CAPTURE_SUCCESS_LINES.get(_cap_hero_id, ["크윽... 이렇게 끝인가...", "억울하다..."])
+                        arena_capture_speech_line = _cap_random.choice(_cap_lines)
+                    except Exception:
+                        pass
                     # 끌어오기 시작 위치 기록 (rect에서 중심 좌표 추출)
                     arena_capture_pull_start_x = dnet["rect"].centerx
                     arena_capture_pull_start_y = dnet["rect"].centery
@@ -120577,6 +120629,15 @@ def _update_arena_capture_phase(screen):
                 arena_capture_result_flag = False
                 arena_capture_escape_anim = 0.0
                 arena_capture_deployed_net = None
+                # 회피 대사 (50% 확률)
+                try:
+                    from downtown.colosseum_arena import CAPTURE_DODGE_LINES
+                    _cap_hero_id = top_hero.get("id", "")
+                    if _cap_random.random() < 0.5:
+                        _cap_lines = CAPTURE_DODGE_LINES.get(_cap_hero_id, ["흥, 내가 쉽게 잡힐 것 같으냐.", "놓쳤군!"])
+                        arena_capture_speech_line = _cap_random.choice(_cap_lines)
+                except Exception:
+                    pass
                 print(f"[CAPTURE] 포획 실패! {top_name} 도주")
 
         # ── 그리기 ──
@@ -120828,6 +120889,11 @@ def _update_arena_capture_phase(screen):
                 # "{이름} 영웅을 생포하였습니다!" 서브 텍스트 제거
                 # (GUARD_NOTIFY에서 동일 내용 표시하므로 중복 방지)
 
+                # 포획 성공 대사 말풍선
+                if arena_capture_speech_line and text_t >= 0.2:
+                    _draw_arena_capture_speech(screen, arena_capture_speech_line,
+                                              int(cur_x), int(cur_y), text_t - 0.2, success=True)
+
             # 화면 테두리 펄스 (녹색, 페이드인 적용)
             border_fade = min(1.0, t / FADE_IN_DUR)
             border_alpha = int((60 + 40 * _cap_m2.sin(t * 4)) * border_fade)
@@ -120881,6 +120947,12 @@ def _update_arena_capture_phase(screen):
                 sub_surf.blit(ns, (250 - nr.width // 2, 20 - nr.height // 2))
                 sub_surf.set_alpha(sub_alpha)
                 screen.blit(sub_surf, (GAME_CENTER_X - 250, 345))
+
+            # 회피 대사 말풍선
+            if arena_capture_speech_line and arena_capture_escape_anim >= 0.5:
+                _draw_arena_capture_speech(screen, arena_capture_speech_line,
+                                          int(escape_x), BOSS.centery if BOSS else 60,
+                                          arena_capture_escape_anim - 0.5, success=False)
 
             # 화면 테두리 펄스 (적색)
             import math as _cap_m3
