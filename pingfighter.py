@@ -136241,20 +136241,22 @@ def main(stage_num, new_boss_mode=False):
                 skip_tutorial_chapter()
         main.keyCtrl_pressed = keys[pygame.K_LCTRL] or keys[pygame.K_RCTRL]
 
-        # F3키로 프로파일러 표시 토글
-        if keys[pygame.K_F3] and not getattr(main, 'keyF3_pressed', False):
-            if profiler:
-                profiler.toggle_visibility()
-                print(f" : {'ON' if profiler.visible else 'OFF'}")
+        # F3키로 프로파일러 표시 토글 (투기장 모드에서는 배속 키로 사용)
+        if not arena_mode_enabled:
+            if keys[pygame.K_F3] and not getattr(main, 'keyF3_pressed', False):
+                if profiler:
+                    profiler.toggle_visibility()
+                    print(f" : {'ON' if profiler.visible else 'OFF'}")
         main.keyF3_pressed = keys[pygame.K_F3]
 
-        # F4키로 좌표계 디버그 토글 (히트박스, 마우스 위치 시각화)
-        if keys[pygame.K_F4] and not getattr(main, 'keyF4_pressed', False):
-            globals()['COORDINATE_DEBUG_MODE'] = not COORDINATE_DEBUG_MODE
-            # 디버그 카운터 리셋 (켤 때마다 새로 출력)
-            if globals()['COORDINATE_DEBUG_MODE']:
-                globals()['_item_slot_debug_count'] = 0
-                globals()['_gauge_debug_count'] = 0
+        # F4키로 좌표계 디버그 토글 (투기장 모드에서는 배속 키로 사용)
+        if not arena_mode_enabled:
+            if keys[pygame.K_F4] and not getattr(main, 'keyF4_pressed', False):
+                globals()['COORDINATE_DEBUG_MODE'] = not COORDINATE_DEBUG_MODE
+                # 디버그 카운터 리셋 (켤 때마다 새로 출력)
+                if globals()['COORDINATE_DEBUG_MODE']:
+                    globals()['_item_slot_debug_count'] = 0
+                    globals()['_gauge_debug_count'] = 0
         main.keyF4_pressed = keys[pygame.K_F4]
 
         # F9키로 시네마모드 전환
@@ -136288,9 +136290,22 @@ def main(stage_num, new_boss_mode=False):
                 enraged_boss_aura_particles = []
         main.keyF5_pressed = keys[pygame.K_F5]
 
-        # 투기장 배속 변경 (.키=빨라짐, ,키=느려짐, /키=기본배속 + 마우스 클릭)
+        # 투기장 배속 변경 (F1~F4=직접배속, .키=빨라짐, ,키=느려짐, /키=기본배속 + 마우스 클릭)
         if arena_mode_enabled:
             _speed_list = [opt[0] for opt in _ARENA_SPEED_OPTIONS]  # [1, 1.5, 2, 3]
+            # F1~F4 키 → 배속 직접 선택
+            if keys[pygame.K_F1] and not getattr(main, '_arena_keyF1_pressed', False):
+                arena_speed_multiplier = 1      # x1
+            elif keys[pygame.K_F2] and not getattr(main, '_arena_keyF2_pressed', False):
+                arena_speed_multiplier = 1.5    # x1.5
+            elif keys[pygame.K_F3] and not getattr(main, '_arena_keyF3_pressed', False):
+                arena_speed_multiplier = 2      # x2
+            elif keys[pygame.K_F4] and not getattr(main, '_arena_keyF4_pressed', False):
+                arena_speed_multiplier = 3      # x3
+            main._arena_keyF1_pressed = keys[pygame.K_F1]
+            main._arena_keyF2_pressed = keys[pygame.K_F2]
+            main._arena_keyF3_pressed = keys[pygame.K_F3]
+            main._arena_keyF4_pressed = keys[pygame.K_F4]
             _k_period = keys[pygame.K_PERIOD]    # . 키 → 배속 증가
             _k_comma = keys[pygame.K_COMMA]      # , 키 → 배속 감소
             _k_slash = keys[pygame.K_SLASH]      # / 키 → 기본 배속 (1x)
