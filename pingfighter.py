@@ -129899,7 +129899,7 @@ def handle_boss_pro():
 
     # 🏟️ 투기장 모드: BOSS 능력치를 PLAYER와 동일하게 설정 (공정성)
     if arena_mode_enabled:
-        enhanced_max_speed = 7.0       # PLAYER MAX_SPEED
+        enhanced_max_speed = 5.0       # PLAYER MAX_SPEED (MAX_SPEED=5와 동일)
         enhanced_acceleration = 0.4    # PLAYER ACCELERATION
         enhanced_deceleration = 0.4    # PLAYER DECELERATION
 
@@ -130247,7 +130247,7 @@ def handle_boss_champion():
 
     # 🏟️ 투기장 모드: BOSS 능력치를 PLAYER와 동일하게 설정 (공정성)
     if arena_mode_enabled:
-        enhanced_max_speed = 7.0       # PLAYER MAX_SPEED
+        enhanced_max_speed = 5.0       # PLAYER MAX_SPEED (MAX_SPEED=5와 동일)
         enhanced_acceleration = 0.4    # PLAYER ACCELERATION
         enhanced_deceleration = 0.4    # PLAYER DECELERATION
 
@@ -130656,7 +130656,7 @@ def handle_boss_mythic():
 
     # 🏟️ 투기장 모드: BOSS 능력치를 PLAYER와 동일하게 설정 (공정성)
     if arena_mode_enabled:
-        enhanced_max_speed = 7.0       # PLAYER MAX_SPEED
+        enhanced_max_speed = 5.0       # PLAYER MAX_SPEED (MAX_SPEED=5와 동일)
         enhanced_acceleration = 0.4    # PLAYER ACCELERATION
         enhanced_deceleration = 0.4    # PLAYER DECELERATION
 
@@ -131105,7 +131105,7 @@ def handle_boss_junior():
 
     # 🏟️ 투기장 모드: BOSS 능력치를 PLAYER와 동일하게 설정 (공정성)
     if arena_mode_enabled:
-        enhanced_max_speed = 7.0       # PLAYER MAX_SPEED
+        enhanced_max_speed = 5.0       # PLAYER MAX_SPEED (MAX_SPEED=5와 동일)
         enhanced_acceleration = 0.4    # PLAYER ACCELERATION
         enhanced_deceleration = 0.4    # PLAYER DECELERATION
 
@@ -132945,7 +132945,7 @@ def handle_boss():
 
     # 🏟️ 투기장 모드: BOSS 능력치를 PLAYER와 동일하게 설정 (공정성)
     if arena_mode_enabled:
-        enhanced_max_speed = 7.0       # PLAYER MAX_SPEED
+        enhanced_max_speed = 5.0       # PLAYER MAX_SPEED (MAX_SPEED=5와 동일)
         enhanced_accel = 0.4           # PLAYER ACCELERATION
         enhanced_decel = 0.4           # PLAYER DECELERATION
 
