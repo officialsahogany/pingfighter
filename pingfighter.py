@@ -91850,88 +91850,6 @@ def draw_objects():
                     arena_guard_system.draw(SCREEN, top_wrapper, bottom_wrapper, ball_wrapper)
                 except Exception as _guard_draw_err:
                     print(f"[Guard] draw error: {_guard_draw_err}")
-            # 🗡️🛡️ 호위무사 스탠스 전환 팝업 아이콘 이펙트
-            if arena_stance_popup_effects:
-                _stance_remove_indices = []
-                for _si, _se in enumerate(arena_stance_popup_effects):
-                    _se["timer"] += dt
-                    if _se["timer"] >= _se["duration"]:
-                        _stance_remove_indices.append(_si)
-                        continue
-                    _prog = _se["timer"] / _se["duration"]
-                    # 위로 떠오르기 (35px)
-                    _fy = _se["y"] - _prog * 35
-                    _fx = _se["x"]
-                    # 알파: 처음 0.15 구간 페이드인, 이후 페이드아웃
-                    if _prog < 0.15:
-                        _sa = int(255 * (_prog / 0.15))
-                    else:
-                        _sa = int(255 * (1.0 - (_prog - 0.15) / 0.85))
-                    _sa = max(0, min(255, _sa))
-                    # 스케일: 처음 살짝 커졌다 정상으로
-                    if _prog < 0.12:
-                        _sscale = 1.0 + 0.4 * (1.0 - _prog / 0.12)
-                    else:
-                        _sscale = 1.0
-                    _base_sz = 28
-                    _isz = int(_base_sz * _sscale)
-                    _icon_sf = pygame.Surface((_isz + 8, _isz + 8), pygame.SRCALPHA)
-                    _icx = (_isz + 8) // 2
-                    _icy = (_isz + 8) // 2
-                    if _se["mode"] == "attack":
-                        # 공격모드: 검 아이콘 (빨간/주황)
-                        # 글로우
-                        _glow_sf = pygame.Surface((_isz + 8, _isz + 8), pygame.SRCALPHA)
-                        pygame.draw.circle(_glow_sf, (255, 80, 40, _sa // 4), (_icx, _icy), _isz // 2 + 2)
-                        _icon_sf.blit(_glow_sf, (0, 0))
-                        # 칼날 (위로 향하는 검)
-                        _blade_top = _icy - _isz // 2 + 2
-                        _blade_bot = _icy + _isz // 4
-                        _bw = max(1, _isz // 8)
-                        pygame.draw.line(_icon_sf, (255, 220, 180, _sa), (_icx, _blade_top), (_icx, _blade_bot), _bw + 2)
-                        pygame.draw.line(_icon_sf, (255, 100, 60, _sa), (_icx, _blade_top), (_icx, _blade_bot), _bw)
-                        # 칼날 끝 (뾰족하게)
-                        pygame.draw.polygon(_icon_sf, (255, 100, 60, _sa), [
-                            (_icx, _blade_top - 3),
-                            (_icx - _bw - 1, _blade_top + 2),
-                            (_icx + _bw + 1, _blade_top + 2)
-                        ])
-                        # 가드 (가로선)
-                        _gy = _blade_bot + 1
-                        _gw = _isz // 3
-                        pygame.draw.line(_icon_sf, (220, 180, 80, _sa), (_icx - _gw, _gy), (_icx + _gw, _gy), max(1, _bw))
-                        # 손잡이
-                        _hy = _gy + 2
-                        pygame.draw.line(_icon_sf, (180, 120, 60, _sa), (_icx, _hy), (_icx, _hy + _isz // 5), max(1, _bw))
-                        # 손잡이 끝 (폼멜)
-                        pygame.draw.circle(_icon_sf, (200, 150, 60, _sa), (_icx, _hy + _isz // 5 + 1), max(1, _bw))
-                    else:
-                        # 수비모드: 방패 아이콘 (파란색)
-                        # 글로우
-                        _glow_sf = pygame.Surface((_isz + 8, _isz + 8), pygame.SRCALPHA)
-                        pygame.draw.circle(_glow_sf, (40, 100, 255, _sa // 4), (_icx, _icy), _isz // 2 + 2)
-                        _icon_sf.blit(_glow_sf, (0, 0))
-                        # 방패 외곽 (뾰족한 하단)
-                        _sw = _isz // 3
-                        _sh = _isz // 2
-                        _shield_pts = [
-                            (_icx, _icy - _sh),         # 상단 중앙
-                            (_icx + _sw, _icy - _sh + 3),  # 상단 우
-                            (_icx + _sw, _icy + 2),     # 중단 우
-                            (_icx, _icy + _sh - 1),     # 하단 (뾰족)
-                            (_icx - _sw, _icy + 2),     # 중단 좌
-                            (_icx - _sw, _icy - _sh + 3),  # 상단 좌
-                        ]
-                        pygame.draw.polygon(_icon_sf, (60, 130, 255, _sa), _shield_pts)
-                        # 방패 테두리
-                        pygame.draw.polygon(_icon_sf, (120, 180, 255, _sa), _shield_pts, 2)
-                        # 방패 십자 장식
-                        _cr_half = _sw // 2
-                        pygame.draw.line(_icon_sf, (180, 220, 255, _sa), (_icx, _icy - _cr_half - 2), (_icx, _icy + _cr_half + 2), 2)
-                        pygame.draw.line(_icon_sf, (180, 220, 255, _sa), (_icx - _cr_half, _icy - 1), (_icx + _cr_half, _icy - 1), 2)
-                    SCREEN.blit(_icon_sf, (int(_fx) - (_isz + 8) // 2, int(_fy) - (_isz + 8) // 2))
-                for _ri in reversed(_stance_remove_indices):
-                    arena_stance_popup_effects.pop(_ri)
             # 화면 효과 그리기 (플래시, 흔들림 등)
             arena_skill_manager.draw_screen_effects(SCREEN)
 
@@ -91979,6 +91897,84 @@ def draw_objects():
 
         except Exception:
             pass  # 스킬 그리기 오류 무시
+
+    # 🗡️🛡️ 호위무사 스탠스 전환 팝업 아이콘 이펙트 (독립 블록 - 스킬 에러에 영향받지 않음)
+    if arena_mode_enabled and arena_stance_popup_effects:
+        try:
+            _stance_dt = (1.0 / 60.0) * (arena_speed_multiplier if 'arena_speed_multiplier' in dir() else 1)
+            _stance_remove_indices = []
+            for _si, _se in enumerate(arena_stance_popup_effects):
+                _se["timer"] += _stance_dt
+                if _se["timer"] >= _se["duration"]:
+                    _stance_remove_indices.append(_si)
+                    continue
+                _prog = _se["timer"] / _se["duration"]
+                # 위로 떠오르기 (50px)
+                _fy = _se["y"] - _prog * 50
+                _fx = _se["x"]
+                # 알파: 처음 0.08 페이드인, 0.08~0.45 최대, 0.45 이후 페이드아웃
+                if _prog < 0.08:
+                    _sa = int(255 * (_prog / 0.08))
+                elif _prog < 0.45:
+                    _sa = 255
+                else:
+                    _sa = int(255 * (1.0 - (_prog - 0.45) / 0.55))
+                _sa = max(0, min(255, _sa))
+                # 스케일: 처음 살짝 커졌다 정상으로
+                _sscale = 1.0 + 0.3 * max(0.0, 1.0 - _prog / 0.15) if _prog < 0.15 else 1.0
+                _base_sz = 36
+                _isz = int(_base_sz * _sscale)
+                _half = (_isz + 12) // 2
+                _icon_sf = pygame.Surface((_isz + 12, _isz + 12), pygame.SRCALPHA)
+                _icx = _half
+                _icy = _half
+                if _se["mode"] == "attack":
+                    # 공격모드: 검 아이콘 (빨간/주황) + 배경 원
+                    pygame.draw.circle(_icon_sf, (255, 60, 30, _sa // 3), (_icx, _icy), _half - 1)
+                    pygame.draw.circle(_icon_sf, (255, 80, 40, _sa // 2), (_icx, _icy), _half - 4)
+                    # 칼날
+                    _bt = _icy - _isz // 2 + 4
+                    _bb = _icy + _isz // 4 - 1
+                    _bw = max(2, _isz // 7)
+                    pygame.draw.line(_icon_sf, (255, 240, 200, _sa), (_icx, _bt), (_icx, _bb), _bw + 2)
+                    pygame.draw.line(_icon_sf, (255, 100, 60, _sa), (_icx, _bt), (_icx, _bb), _bw)
+                    # 칼날 끝
+                    pygame.draw.polygon(_icon_sf, (255, 120, 70, _sa), [
+                        (_icx, _bt - 4), (_icx - _bw, _bt + 1), (_icx + _bw, _bt + 1)])
+                    # 가드
+                    _gy = _bb + 2
+                    _ghw = _isz // 3
+                    pygame.draw.line(_icon_sf, (240, 200, 80, _sa), (_icx - _ghw, _gy), (_icx + _ghw, _gy), max(2, _bw))
+                    # 손잡이
+                    pygame.draw.line(_icon_sf, (180, 130, 60, _sa), (_icx, _gy + 2), (_icx, _gy + _isz // 4), max(2, _bw))
+                    pygame.draw.circle(_icon_sf, (220, 170, 70, _sa), (_icx, _gy + _isz // 4 + 1), max(2, _bw))
+                else:
+                    # 수비모드: 방패 아이콘 (파란색) + 배경 원
+                    pygame.draw.circle(_icon_sf, (30, 80, 255, _sa // 3), (_icx, _icy), _half - 1)
+                    pygame.draw.circle(_icon_sf, (40, 100, 255, _sa // 2), (_icx, _icy), _half - 4)
+                    # 방패 외곽
+                    _sw = _isz // 3 + 1
+                    _sh = _isz // 2
+                    _shield_pts = [
+                        (_icx, _icy - _sh + 1),
+                        (_icx + _sw, _icy - _sh + 5),
+                        (_icx + _sw, _icy + 3),
+                        (_icx, _icy + _sh - 1),
+                        (_icx - _sw, _icy + 3),
+                        (_icx - _sw, _icy - _sh + 5),
+                    ]
+                    pygame.draw.polygon(_icon_sf, (70, 140, 255, _sa), _shield_pts)
+                    pygame.draw.polygon(_icon_sf, (150, 200, 255, _sa), _shield_pts, 2)
+                    # 십자 장식
+                    _cr = _sw // 2
+                    pygame.draw.line(_icon_sf, (200, 230, 255, _sa), (_icx, _icy - _cr - 3), (_icx, _icy + _cr + 3), 2)
+                    pygame.draw.line(_icon_sf, (200, 230, 255, _sa), (_icx - _cr - 1, _icy), (_icx + _cr + 1, _icy), 2)
+                SCREEN.blit(_icon_sf, (int(_fx) - _half, int(_fy) - _half))
+            for _ri in reversed(_stance_remove_indices):
+                arena_stance_popup_effects.pop(_ri)
+        except Exception as _stance_popup_err:
+            print(f"[StancePopup] draw error: {_stance_popup_err}")
+            arena_stance_popup_effects.clear()
 
     # 옵티머스 비상충전 시각 효과 그리기
     if selected_character_type == "optimus":
@@ -137060,15 +137056,21 @@ def main(stage_num, new_boss_mode=False):
                             if _p2:
                                 _p2['cooldown'] *= _mult
                                 _p2['cooldown_max'] *= _mult
-                    # 스탠스 전환 아이콘 팝업 이펙트
-                    _popup_x = _gs.x_bottom if _gs else 380
-                    _popup_y = (_gs.y_bottom if _gs else 710) - 24
+                    # 스탠스 전환 아이콘 팝업 이펙트 (호위무사 또는 플레이어 패들 위)
+                    _popup_x = 380  # 기본값: 게임 영역 중앙
+                    _popup_y = 680  # 기본값: 플레이어 패들 위
+                    if _gs and getattr(_gs, 'phase_bottom', None) and _gs.x_bottom > 80:
+                        _popup_x = _gs.x_bottom
+                        _popup_y = _gs.y_bottom - 24
+                    elif hasattr(globals().get('PLAYER', None) or object(), 'centerx'):
+                        _popup_x = PLAYER.centerx
+                        _popup_y = PLAYER.y - 24
                     arena_stance_popup_effects.append({
                         "mode": _new_stance,
                         "x": _popup_x,
                         "y": _popup_y,
                         "timer": 0.0,
-                        "duration": 1.0,
+                        "duration": 1.2,
                     })
                     try:
                         play_button_click_sound()
