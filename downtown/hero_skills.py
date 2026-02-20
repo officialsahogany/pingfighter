@@ -5144,7 +5144,7 @@ class DragonWing(HeroSkill):
             'x': dragon_start_x,
             'y': float(dragon_y),
             'base_y': float(dragon_y),
-            'vx': self.wind_direction * 220.0,  # 약 2.7초에 맵 횡단
+            'vx': self.wind_direction * 330.0,  # 약 1.8초에 맵 횡단 (50% 빠르게)
             'wing_time': 0.0,
             'direction': self.wind_direction,    # 비행 방향 = 바람 방향
             'hit_cooldown': 0.0,
@@ -5297,131 +5297,324 @@ class DragonWing(HeroSkill):
             self._draw_flying_dragon(screen)
 
     def _draw_flying_dragon(self, screen):
-        """날갯짓하며 맵을 횡단하는 드래곤 렌더링"""
+        """고퀄리티 드래곤 렌더링 - 날갯짓하며 맵 횡단"""
         d = self.flying_dragon
         cx, cy = d['x'], d['y']
-        facing = d['direction']  # 1=우, -1=좌
+        facing = d['direction']
         wt = d['wing_time']
-        wing_flap = _sin(wt * 8)  # 날갯짓 진동 (-1 ~ 1, 초당 ~4회)
+        wf = _sin(wt * 8)  # 날갯짓 (-1~1, 초당 ~4회)
 
-        # 드래곤 서피스 (우측 방향 기준으로 그린 뒤 필요시 좌우 반전)
-        SURF_W, SURF_H = 200, 160
-        CX, CY = 100, 90  # 서피스 내 몸통 중심
+        # 색상 팔레트 (골든 드래곤)
+        C_BODY = (210, 140, 45)       # 몸통 메인
+        C_BODY_DK = (175, 100, 30)    # 몸통 어두운면
+        C_BODY_LT = (235, 180, 80)    # 몸통 밝은면
+        C_BELLY = (245, 210, 130)     # 배 (밝은 크림)
+        C_SCALE = (185, 110, 35)      # 비늘
+        C_SCALE_DK = (150, 80, 25)    # 비늘 어두운
+        C_WING_M = (230, 160, 60, 180)  # 날개 막
+        C_WING_B = (190, 110, 35)     # 날개 뼈대
+        C_WING_E = (245, 185, 75)     # 날개 테두리/밝은면
+        C_HORN = (140, 90, 40)        # 뿔
+        C_HORN_LT = (180, 130, 65)    # 뿔 밝은면
+        C_CLAW = (120, 70, 30)        # 발톱
+        C_EYE = (255, 230, 80)        # 눈
+        C_EYE_P = (180, 60, 10)       # 눈동자
 
-        dragon_surf = pygame.Surface((SURF_W, SURF_H), pygame.SRCALPHA)
+        SURF_W, SURF_H = 240, 180
+        BX, BY = 115, 100  # 몸통 중심
+        ds = pygame.Surface((SURF_W, SURF_H), pygame.SRCALPHA)
 
-        # ── 꼬리 ──
-        for i in range(7):
-            tx = CX - 35 - i * 8
-            ty = CY + _sin(wt * 4 + i * 0.7) * (2 + i * 1.8)
-            tr = max(2, 7 - i)
-            col_r = max(80, 170 - i * 12)
-            t_alpha = max(60, 220 - i * 25)
-            t_surf = pygame.Surface((tr * 2 + 2, tr * 2 + 2), pygame.SRCALPHA)
-            pygame.draw.circle(t_surf, (col_r, 40, 15, t_alpha), (tr + 1, tr + 1), tr)
-            dragon_surf.blit(t_surf, (int(tx - tr - 1), int(ty - tr - 1)))
-
+        # ========== 꼬리 (S자 곡선, 등지느러미) ==========
+        tail_pts = []
+        for i in range(10):
+            tx = BX - 40 - i * 9
+            ty = BY + 2 + _sin(wt * 3.5 + i * 0.55) * (1.5 + i * 1.6)
+            tail_pts.append((tx, ty))
+        # 꼬리 몸통 (두께 감소)
+        for i in range(len(tail_pts) - 1):
+            w = max(2, int(10 - i * 0.9))
+            ratio = i / (len(tail_pts) - 1)
+            cr = int(C_BODY[0] * (1 - ratio * 0.3))
+            cg = int(C_BODY[1] * (1 - ratio * 0.25))
+            cb = int(C_BODY[2] * (1 - ratio * 0.2))
+            pygame.draw.line(ds, (cr, cg, cb),
+                             (int(tail_pts[i][0]), int(tail_pts[i][1])),
+                             (int(tail_pts[i+1][0]), int(tail_pts[i+1][1])), w)
+            # 배쪽 밝은 라인
+            if w > 4:
+                pygame.draw.line(ds, C_BELLY,
+                                 (int(tail_pts[i][0]), int(tail_pts[i][1]) + w // 3),
+                                 (int(tail_pts[i+1][0]), int(tail_pts[i+1][1]) + max(1, w // 3 - 1)),
+                                 max(1, w // 3))
+        # 꼬리 등지느러미 (톱니 모양)
+        for i in range(1, len(tail_pts) - 2):
+            tx, ty = tail_pts[i]
+            spine_h = max(2, int(6 - i * 0.5))
+            pygame.draw.polygon(ds, C_SCALE_DK, [
+                (int(tx), int(ty - 5)),
+                (int(tx - 3), int(ty - 5 - spine_h)),
+                (int(tx + 3), int(ty - 5)),
+            ])
         # 꼬리 끝 화살촉
-        last_tx = CX - 35 - 7 * 8
-        last_ty = CY + _sin(wt * 4 + 7 * 0.7) * (2 + 7 * 1.8)
-        tip_pts = [
-            (int(last_tx), int(last_ty)),
-            (int(last_tx - 14), int(last_ty - 7)),
-            (int(last_tx - 14), int(last_ty + 7)),
-        ]
-        pygame.draw.polygon(dragon_surf, (140, 35, 15, 180), tip_pts)
-
-        # ── 날개 (날갯짓 애니메이션) ──
-        wing_y_off = wing_flap * 25
-        wing_y_off2 = wing_flap * 18
-
-        wing_pts = [
-            (CX - 5, CY - 8),
-            (CX + 5, int(CY - 35 - wing_y_off)),
-            (CX - 25, int(CY - 40 - wing_y_off)),
-            (CX - 45, int(CY - 30 - wing_y_off2)),
-            (CX - 30, CY - 5),
-        ]
-        pygame.draw.polygon(dragon_surf, (220, 100, 40, 150), wing_pts)
-        pygame.draw.lines(dragon_surf, (240, 120, 50, 200), True,
-                          [(int(p[0]), int(p[1])) for p in wing_pts], 2)
-
-        # 날개 뼈대
-        pygame.draw.line(dragon_surf, (180, 60, 25, 220),
-                         (CX - 5, CY - 8),
-                         (CX + 5, int(CY - 35 - wing_y_off)), 3)
-        pygame.draw.line(dragon_surf, (180, 60, 25, 200),
-                         (CX - 5, CY - 8),
-                         (CX - 25, int(CY - 40 - wing_y_off)), 2)
-        pygame.draw.line(dragon_surf, (180, 60, 25, 180),
-                         (CX - 5, CY - 8),
-                         (CX - 45, int(CY - 30 - wing_y_off2)), 2)
-
-        # ── 몸통 ──
-        pygame.draw.ellipse(dragon_surf, (180, 60, 30), (CX - 28, CY - 12, 56, 24))
-        pygame.draw.ellipse(dragon_surf, (200, 80, 45), (CX - 22, CY - 9, 44, 18))
-        pygame.draw.ellipse(dragon_surf, (230, 160, 80), (CX - 15, CY + 2, 30, 10))
-
-        # ── 목 + 머리 ──
-        head_x, head_y = CX + 45, CY - 10
-        pygame.draw.line(dragon_surf, (185, 65, 32),
-                         (CX + 22, CY - 5), (head_x - 5, head_y + 2), 9)
-        pygame.draw.circle(dragon_surf, (190, 65, 35), (head_x, head_y), 11)
-        pygame.draw.circle(dragon_surf, (205, 80, 45), (head_x, head_y), 9)
-
-        # 주둥이
-        snout_x, snout_y = head_x + 14, head_y + 3
-        pygame.draw.polygon(dragon_surf, (190, 70, 35), [
-            (head_x + 9, head_y - 4),
-            (snout_x, snout_y),
-            (head_x + 9, head_y + 8),
+        lt = tail_pts[-1]
+        lw = _sin(wt * 3.5 + 9 * 0.55)
+        pygame.draw.polygon(ds, C_SCALE_DK, [
+            (int(lt[0]), int(lt[1])),
+            (int(lt[0] - 16), int(lt[1] - 8)),
+            (int(lt[0] - 12), int(lt[1])),
+            (int(lt[0] - 16), int(lt[1] + 8)),
         ])
 
-        # 눈 (빛나는 노란 눈)
-        eye_x, eye_y = head_x + 3, head_y - 4
-        pygame.draw.circle(dragon_surf, (255, 220, 50), (eye_x, eye_y), 3)
-        pygame.draw.circle(dragon_surf, (255, 100, 0), (eye_x, eye_y), 1)
+        # ========== 뒷다리 (몸통 뒤) ==========
+        for lx_off, phase_off in [(-12, 0), (-2, 1.5)]:
+            lx = BX + lx_off
+            ly = BY + 13
+            sw = _sin(wt * 5 + phase_off) * 4
+            # 허벅지
+            knee_x, knee_y = lx + sw * 0.5, ly + 14
+            pygame.draw.line(ds, C_BODY_DK, (int(lx), int(ly)), (int(knee_x), int(knee_y)), 5)
+            pygame.draw.line(ds, C_BODY, (int(lx), int(ly)), (int(knee_x), int(knee_y)), 3)
+            # 종아리
+            foot_x, foot_y = knee_x + sw * 0.3, knee_y + 12
+            pygame.draw.line(ds, C_BODY_DK, (int(knee_x), int(knee_y)), (int(foot_x), int(foot_y)), 4)
+            pygame.draw.line(ds, C_BODY, (int(knee_x), int(knee_y)), (int(foot_x), int(foot_y)), 2)
+            # 발톱 3개
+            for ci, cx_off in enumerate([-4, 0, 4]):
+                pygame.draw.line(ds, C_CLAW,
+                                 (int(foot_x), int(foot_y)),
+                                 (int(foot_x + cx_off + sw * 0.2), int(foot_y + 5)), 2)
 
-        # 뿔
-        pygame.draw.line(dragon_surf, (120, 45, 20),
-                         (head_x - 3, head_y - 10), (head_x - 8, head_y - 22), 2)
-        pygame.draw.line(dragon_surf, (120, 45, 20),
-                         (head_x + 3, head_y - 9), (head_x - 1, head_y - 20), 2)
+        # ========== 날개 (큰 박쥐형, 멤브레인+뼈대) ==========
+        wing_base_x, wing_base_y = BX - 2, BY - 14
+        wy = wf * 30   # 앞쪽 날갯짓 범위
+        wy2 = wf * 22  # 중간
+        wy3 = wf * 15  # 뒤쪽
 
-        # ── 다리 ──
-        for leg_off in [-8, 12]:
-            lx = CX + leg_off
-            ly = CY + 12
-            sway = _sin(wt * 6 + leg_off) * 3
-            pygame.draw.line(dragon_surf, (160, 55, 28),
-                             (lx, ly), (int(lx + sway), ly + 15), 3)
-            pygame.draw.line(dragon_surf, (120, 40, 18),
-                             (int(lx + sway), ly + 15), (int(lx + sway + 4), ly + 18), 2)
+        # 날개 뼈대 끝점 (4개 손가락)
+        bone_tips = [
+            (BX + 15, BY - 50 - wy),      # 첫째 (가장 앞)
+            (BX + 0,  BY - 58 - wy),      # 둘째
+            (BX - 20, BY - 52 - wy2),     # 셋째
+            (BX - 42, BY - 40 - wy3),     # 넷째 (가장 뒤)
+        ]
+        # 뼈대 사이 막 끝점
+        membrane_mid = [
+            (BX + 8,  BY - 55 - wy),
+            (BX - 10, BY - 56 - wy2),
+            (BX - 32, BY - 47 - wy2),
+        ]
 
-        # ── 입에서 나오는 화염 ──
-        for _ in range(4):
-            fx = snout_x + random.uniform(3, 22)
-            fy = snout_y + random.uniform(-7, 7)
-            fs = random.randint(3, 8)
-            fc = (255, random.randint(120, 220), random.randint(0, 50), random.randint(150, 230))
-            fire_s = pygame.Surface((fs * 2, fs * 2), pygame.SRCALPHA)
-            pygame.draw.circle(fire_s, fc, (fs, fs), fs)
-            dragon_surf.blit(fire_s, (int(fx - fs), int(fy - fs)))
+        # 날개 막 (메인 폴리곤)
+        wing_poly = [
+            (wing_base_x, wing_base_y),
+            bone_tips[0],
+            membrane_mid[0],
+            bone_tips[1],
+            membrane_mid[1],
+            bone_tips[2],
+            membrane_mid[2],
+            bone_tips[3],
+            (BX - 35, BY - 8),
+        ]
+        pygame.draw.polygon(ds, C_WING_M, [(int(x), int(y)) for x, y in wing_poly])
 
-        # 좌측 방향이면 좌우 반전
+        # 막 디테일 - 반투명 줄무늬 (날개 혈관/질감)
+        for i in range(len(bone_tips) - 1):
+            mid_x = (bone_tips[i][0] + bone_tips[i+1][0]) / 2
+            mid_y = (bone_tips[i][1] + bone_tips[i+1][1]) / 2
+            pygame.draw.line(ds, (200, 140, 50, 80),
+                             (int(wing_base_x), int(wing_base_y)),
+                             (int(mid_x), int(mid_y)), 1)
+
+        # 날개 테두리 (상단)
+        top_edge = [bone_tips[0]] + list(membrane_mid) + [bone_tips[3]]
+        # 톱니 장식 (날개 끝)
+        for i in range(len(bone_tips)):
+            bx_t, by_t = bone_tips[i]
+            pygame.draw.circle(ds, C_WING_E, (int(bx_t), int(by_t)), 3)
+
+        # 날개 뼈대 (4개 + 엄지뼈)
+        for i, (bx_t, by_t) in enumerate(bone_tips):
+            thickness = 3 if i == 0 else 2
+            # 메인 뼈
+            pygame.draw.line(ds, C_WING_B,
+                             (int(wing_base_x), int(wing_base_y)),
+                             (int(bx_t), int(by_t)), thickness + 1)
+            # 밝은 하이라이트
+            pygame.draw.line(ds, C_WING_E,
+                             (int(wing_base_x), int(wing_base_y)),
+                             (int(bx_t), int(by_t)), max(1, thickness - 1))
+
+        # 날개 관절 (어깨)
+        pygame.draw.circle(ds, C_WING_B, (int(wing_base_x), int(wing_base_y)), 5)
+        pygame.draw.circle(ds, C_WING_E, (int(wing_base_x), int(wing_base_y)), 3)
+
+        # ========== 몸통 (타원 + 비늘 패턴) ==========
+        # 몸통 그림자
+        pygame.draw.ellipse(ds, C_BODY_DK, (BX - 32, BY - 14, 64, 30))
+        # 몸통 메인
+        pygame.draw.ellipse(ds, C_BODY, (BX - 30, BY - 13, 60, 28))
+        # 몸통 상단 밝은면
+        pygame.draw.ellipse(ds, C_BODY_LT, (BX - 24, BY - 12, 48, 16))
+
+        # 비늘 패턴 (등 위쪽 반원 아치)
+        for i in range(6):
+            sx = BX - 18 + i * 8
+            sy = BY - 8
+            pygame.draw.arc(ds, C_SCALE, (sx - 4, sy - 4, 8, 8), 0.3, 2.8, 2)
+        # 두 번째 줄 비늘
+        for i in range(5):
+            sx = BX - 14 + i * 8
+            sy = BY - 2
+            pygame.draw.arc(ds, C_SCALE, (sx - 3, sy - 3, 6, 6), 0.3, 2.8, 1)
+
+        # 배 (밝은 크림색)
+        pygame.draw.ellipse(ds, C_BELLY, (BX - 18, BY + 3, 36, 11))
+        # 배 줄무늬 (가로 세그먼트)
+        for i in range(4):
+            lx_s = BX - 14 + i * 8
+            pygame.draw.line(ds, (225, 190, 110),
+                             (int(lx_s), BY + 5), (int(lx_s), BY + 12), 1)
+
+        # 등지느러미 (몸통 위)
+        for i in range(5):
+            sx = BX - 15 + i * 8
+            spine_h = 5 + _sin(wt * 3 + i) * 1.5
+            pygame.draw.polygon(ds, C_SCALE_DK, [
+                (int(sx - 2), BY - 13),
+                (int(sx), int(BY - 13 - spine_h)),
+                (int(sx + 2), BY - 13),
+            ])
+
+        # ========== 앞다리 ==========
+        for lx_off, phase_off in [(15, 0.8), (22, 2.3)]:
+            lx_l = BX + lx_off
+            ly_l = BY + 12
+            sw_l = _sin(wt * 5 + phase_off) * 3
+            # 상박
+            elbow_x, elbow_y = lx_l + 3 + sw_l * 0.4, ly_l + 10
+            pygame.draw.line(ds, C_BODY_DK, (int(lx_l), int(ly_l)), (int(elbow_x), int(elbow_y)), 4)
+            pygame.draw.line(ds, C_BODY, (int(lx_l), int(ly_l)), (int(elbow_x), int(elbow_y)), 2)
+            # 전완
+            paw_x, paw_y = elbow_x + sw_l * 0.3 + 2, elbow_y + 10
+            pygame.draw.line(ds, C_BODY_DK, (int(elbow_x), int(elbow_y)), (int(paw_x), int(paw_y)), 3)
+            # 발톱
+            for ci_f, cx_off_f in enumerate([-3, 0, 3]):
+                pygame.draw.line(ds, C_CLAW,
+                                 (int(paw_x), int(paw_y)),
+                                 (int(paw_x + cx_off_f), int(paw_y + 4)), 2)
+
+        # ========== 목 (S자 곡선) ==========
+        neck_pts = []
+        for i in range(6):
+            t = i / 5.0
+            nx = BX + 28 + t * 30
+            ny = BY - 5 - t * 15 + _sin(t * 3.14) * 4
+            neck_pts.append((nx, ny))
+        for i in range(len(neck_pts) - 1):
+            w_n = max(3, int(10 - i * 1.2))
+            pygame.draw.line(ds, C_BODY_DK,
+                             (int(neck_pts[i][0]), int(neck_pts[i][1])),
+                             (int(neck_pts[i+1][0]), int(neck_pts[i+1][1])), w_n + 1)
+            pygame.draw.line(ds, C_BODY,
+                             (int(neck_pts[i][0]), int(neck_pts[i][1])),
+                             (int(neck_pts[i+1][0]), int(neck_pts[i+1][1])), w_n - 1)
+        # 목 배쪽 밝은 라인
+        for i in range(len(neck_pts) - 1):
+            w_nb = max(1, int(4 - i * 0.6))
+            pygame.draw.line(ds, C_BELLY,
+                             (int(neck_pts[i][0]), int(neck_pts[i][1]) + 3),
+                             (int(neck_pts[i+1][0]), int(neck_pts[i+1][1]) + 2), w_nb)
+
+        # ========== 머리 ==========
+        head_x, head_y = int(neck_pts[-1][0]) + 8, int(neck_pts[-1][1]) - 2
+        # 머리 그림자
+        pygame.draw.ellipse(ds, C_BODY_DK, (head_x - 13, head_y - 10, 26, 22))
+        # 머리 메인
+        pygame.draw.ellipse(ds, C_BODY, (head_x - 12, head_y - 9, 24, 20))
+        # 머리 상단 밝은면
+        pygame.draw.ellipse(ds, C_BODY_LT, (head_x - 9, head_y - 8, 18, 12))
+
+        # 주둥이 (길고 날카롭게)
+        snout_x, snout_y = head_x + 18, head_y + 4
+        # 윗턱
+        pygame.draw.polygon(ds, C_BODY, [
+            (head_x + 10, head_y - 3),
+            (snout_x, snout_y - 2),
+            (head_x + 10, head_y + 4),
+        ])
+        # 아랫턱
+        pygame.draw.polygon(ds, C_BODY_DK, [
+            (head_x + 10, head_y + 4),
+            (snout_x, snout_y + 1),
+            (head_x + 8, head_y + 8),
+        ])
+        # 콧구멍
+        pygame.draw.circle(ds, C_SCALE_DK, (snout_x - 3, snout_y - 3), 2)
+
+        # 눈 (큰 원형, 글로우)
+        eye_x, eye_y = head_x + 2, head_y - 3
+        # 눈 외곽
+        pygame.draw.circle(ds, (100, 50, 20), (eye_x, eye_y), 5)
+        # 홍채
+        pygame.draw.circle(ds, C_EYE, (eye_x, eye_y), 4)
+        # 밝은 중심
+        pygame.draw.circle(ds, (255, 250, 180), (eye_x, eye_y), 2)
+        # 눈동자 (세로 슬릿)
+        pygame.draw.line(ds, C_EYE_P, (eye_x, eye_y - 3), (eye_x, eye_y + 3), 2)
+        # 하이라이트
+        pygame.draw.circle(ds, (255, 255, 255), (eye_x - 1, eye_y - 2), 1)
+
+        # 뿔 (두 개, 곡선형)
+        for horn_i, (hx_off, hy_off, h_len, h_curve) in enumerate([
+            (-5, -9, 20, -4), (2, -8, 17, -2)
+        ]):
+            h_base_x, h_base_y = head_x + hx_off, head_y + hy_off
+            h_tip_x = h_base_x + h_curve
+            h_tip_y = h_base_y - h_len
+            # 뿔 두꺼운 부분
+            pygame.draw.line(ds, C_HORN, (int(h_base_x), int(h_base_y)),
+                             (int(h_tip_x), int(h_tip_y)), 4)
+            # 뿔 밝은 하이라이트
+            pygame.draw.line(ds, C_HORN_LT, (int(h_base_x), int(h_base_y)),
+                             (int(h_tip_x), int(h_tip_y)), 2)
+            # 뿔 끝 (가늘어짐)
+            pygame.draw.line(ds, C_HORN_LT,
+                             (int(h_tip_x), int(h_tip_y)),
+                             (int(h_tip_x + h_curve * 0.3), int(h_tip_y - 4)), 1)
+
+        # 머리 뒤 장식 뿔 (작은)
+        for sx_off in [-8, -3]:
+            pygame.draw.line(ds, C_SCALE_DK,
+                             (head_x + sx_off, head_y - 6),
+                             (head_x + sx_off - 2, head_y - 11), 2)
+
+        # ========== 입에서 나오는 화염구 ==========
+        fb_x, fb_y = snout_x + 8, snout_y
+        # 화염구 코어
+        for r_f in range(10, 0, -2):
+            f_alpha = min(255, int(100 + (10 - r_f) * 18))
+            f_r = min(255, 255)
+            f_g = min(255, int(150 + (10 - r_f) * 12))
+            f_b = min(255, int(20 + (10 - r_f) * 5))
+            fs = pygame.Surface((r_f * 2 + 2, r_f * 2 + 2), pygame.SRCALPHA)
+            pygame.draw.circle(fs, (f_r, f_g, f_b, f_alpha), (r_f + 1, r_f + 1), r_f)
+            ds.blit(fs, (int(fb_x - r_f - 1), int(fb_y - r_f - 1)))
+        # 화염 파티클 (입 주변)
+        for _ in range(3):
+            fx_p = fb_x + random.uniform(-4, 15)
+            fy_p = fb_y + random.uniform(-8, 8)
+            fr = random.randint(2, 5)
+            fa = random.randint(120, 200)
+            fs2 = pygame.Surface((fr * 2, fr * 2), pygame.SRCALPHA)
+            pygame.draw.circle(fs2, (255, random.randint(160, 230), random.randint(30, 80), fa), (fr, fr), fr)
+            ds.blit(fs2, (int(fx_p - fr), int(fy_p - fr)))
+
+        # ========== 좌우 반전 + 화면 그리기 ==========
         if facing == -1:
-            dragon_surf = pygame.transform.flip(dragon_surf, True, False)
+            ds = pygame.transform.flip(ds, True, False)
 
-        # 화면에 그리기
-        screen.blit(dragon_surf, (int(cx - SURF_W // 2), int(cy - CY)))
-
-        # ── 발광 오버레이 (BLEND_ADD) ──
-        glow_w, glow_h = 160, 100
-        glow_surf = pygame.Surface((glow_w, glow_h), pygame.SRCALPHA)
-        glow_alpha = int(30 + 15 * _sin(wt * 5))
-        pygame.draw.ellipse(glow_surf, (255, 120, 40, glow_alpha), (0, 0, glow_w, glow_h))
-        screen.blit(glow_surf, (int(cx - glow_w // 2), int(cy - glow_h // 2)),
-                    special_flags=pygame.BLEND_ADD)
+        screen.blit(ds, (int(cx - SURF_W // 2), int(cy - BY)))
 
 
 # ============================================================================
