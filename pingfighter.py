@@ -20238,6 +20238,7 @@ arena_storm_rush_burst_bottom = False        # 하단 폭풍질주 버스트업 
 arena_storm_rush_height_bonus_top = 0        # 상단 버스트업 패들 높이 보너스
 arena_storm_rush_height_bonus_bottom = 0     # 하단 버스트업 패들 높이 보너스
 arena_storm_rush_particles = []              # 폭풍질주 플래시 파티클
+arena_stance_popup_effects = []              # 호위무사 스탠스 전환 아이콘 팝업 이펙트
 arena_perk_recall_guard_top = False          # 상단 승급 퍽 활성
 arena_perk_recall_guard_bottom = False       # 하단 승급 퍽 활성
 arena_perk_instant_cooldown_chance_top = 0.0   # 상단 번뜩이는 영감 확률
@@ -20282,6 +20283,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     global arena_perk_paddle_enlarge_top, arena_perk_paddle_enlarge_bottom
     global arena_leaf_shield_top, arena_leaf_shield_bottom
     global arena_perk_draw_icon_func
+    global arena_stance_popup_effects
     global arena_perk_recall_guard_top, arena_perk_recall_guard_bottom
     global arena_perk_instant_cooldown_chance_top, arena_perk_instant_cooldown_chance_bottom
     global arena_flash_inspiration_timer_top, arena_flash_inspiration_timer_bottom
@@ -20320,6 +20322,7 @@ def apply_arena_perks_for_battle(arena_obj, top_hero_id, bottom_hero_id):
     arena_magic_immunity_timer_top = 0.0
     arena_magic_immunity_timer_bottom = 0.0
     arena_barrier_block_effects.clear()
+    arena_stance_popup_effects.clear()
     arena_barrier_flash_top = 0.0
     arena_barrier_flash_bottom = 0.0
     arena_barrier_beam_target_top = None
@@ -20468,6 +20471,7 @@ def reset_arena_perks():
     global arena_storm_rush_burst_top, arena_storm_rush_burst_bottom
     global arena_storm_rush_height_bonus_top, arena_storm_rush_height_bonus_bottom
     global arena_storm_rush_particles
+    global arena_stance_popup_effects
     global arena_perk_recall_guard_top, arena_perk_recall_guard_bottom
     global arena_perk_instant_cooldown_chance_top, arena_perk_instant_cooldown_chance_bottom
     global arena_flash_inspiration_timer_top, arena_flash_inspiration_timer_bottom
@@ -20496,6 +20500,7 @@ def reset_arena_perks():
     arena_magic_immunity_timer_top = 0.0
     arena_magic_immunity_timer_bottom = 0.0
     arena_barrier_block_effects.clear()
+    arena_stance_popup_effects.clear()
     arena_barrier_flash_top = 0.0
     arena_barrier_flash_bottom = 0.0
     arena_barrier_beam_target_top = None
@@ -20522,6 +20527,7 @@ def reset_arena_perks():
     arena_storm_rush_height_bonus_top = 0
     arena_storm_rush_height_bonus_bottom = 0
     arena_storm_rush_particles.clear()
+    arena_stance_popup_effects.clear()
     arena_active_hero_perks = []
     arena_active_enemy_perks = []
     # 기사회생 초기화
@@ -91843,6 +91849,88 @@ def draw_objects():
                     arena_guard_system.draw(SCREEN, top_wrapper, bottom_wrapper, ball_wrapper)
                 except Exception as _guard_draw_err:
                     print(f"[Guard] draw error: {_guard_draw_err}")
+            # 🗡️🛡️ 호위무사 스탠스 전환 팝업 아이콘 이펙트
+            if arena_stance_popup_effects:
+                _stance_remove_indices = []
+                for _si, _se in enumerate(arena_stance_popup_effects):
+                    _se["timer"] += dt
+                    if _se["timer"] >= _se["duration"]:
+                        _stance_remove_indices.append(_si)
+                        continue
+                    _prog = _se["timer"] / _se["duration"]
+                    # 위로 떠오르기 (35px)
+                    _fy = _se["y"] - _prog * 35
+                    _fx = _se["x"]
+                    # 알파: 처음 0.15 구간 페이드인, 이후 페이드아웃
+                    if _prog < 0.15:
+                        _sa = int(255 * (_prog / 0.15))
+                    else:
+                        _sa = int(255 * (1.0 - (_prog - 0.15) / 0.85))
+                    _sa = max(0, min(255, _sa))
+                    # 스케일: 처음 살짝 커졌다 정상으로
+                    if _prog < 0.12:
+                        _sscale = 1.0 + 0.4 * (1.0 - _prog / 0.12)
+                    else:
+                        _sscale = 1.0
+                    _base_sz = 28
+                    _isz = int(_base_sz * _sscale)
+                    _icon_sf = pygame.Surface((_isz + 8, _isz + 8), pygame.SRCALPHA)
+                    _icx = (_isz + 8) // 2
+                    _icy = (_isz + 8) // 2
+                    if _se["mode"] == "attack":
+                        # 공격모드: 검 아이콘 (빨간/주황)
+                        # 글로우
+                        _glow_sf = pygame.Surface((_isz + 8, _isz + 8), pygame.SRCALPHA)
+                        pygame.draw.circle(_glow_sf, (255, 80, 40, _sa // 4), (_icx, _icy), _isz // 2 + 2)
+                        _icon_sf.blit(_glow_sf, (0, 0))
+                        # 칼날 (위로 향하는 검)
+                        _blade_top = _icy - _isz // 2 + 2
+                        _blade_bot = _icy + _isz // 4
+                        _bw = max(1, _isz // 8)
+                        pygame.draw.line(_icon_sf, (255, 220, 180, _sa), (_icx, _blade_top), (_icx, _blade_bot), _bw + 2)
+                        pygame.draw.line(_icon_sf, (255, 100, 60, _sa), (_icx, _blade_top), (_icx, _blade_bot), _bw)
+                        # 칼날 끝 (뾰족하게)
+                        pygame.draw.polygon(_icon_sf, (255, 100, 60, _sa), [
+                            (_icx, _blade_top - 3),
+                            (_icx - _bw - 1, _blade_top + 2),
+                            (_icx + _bw + 1, _blade_top + 2)
+                        ])
+                        # 가드 (가로선)
+                        _gy = _blade_bot + 1
+                        _gw = _isz // 3
+                        pygame.draw.line(_icon_sf, (220, 180, 80, _sa), (_icx - _gw, _gy), (_icx + _gw, _gy), max(1, _bw))
+                        # 손잡이
+                        _hy = _gy + 2
+                        pygame.draw.line(_icon_sf, (180, 120, 60, _sa), (_icx, _hy), (_icx, _hy + _isz // 5), max(1, _bw))
+                        # 손잡이 끝 (폼멜)
+                        pygame.draw.circle(_icon_sf, (200, 150, 60, _sa), (_icx, _hy + _isz // 5 + 1), max(1, _bw))
+                    else:
+                        # 수비모드: 방패 아이콘 (파란색)
+                        # 글로우
+                        _glow_sf = pygame.Surface((_isz + 8, _isz + 8), pygame.SRCALPHA)
+                        pygame.draw.circle(_glow_sf, (40, 100, 255, _sa // 4), (_icx, _icy), _isz // 2 + 2)
+                        _icon_sf.blit(_glow_sf, (0, 0))
+                        # 방패 외곽 (뾰족한 하단)
+                        _sw = _isz // 3
+                        _sh = _isz // 2
+                        _shield_pts = [
+                            (_icx, _icy - _sh),         # 상단 중앙
+                            (_icx + _sw, _icy - _sh + 3),  # 상단 우
+                            (_icx + _sw, _icy + 2),     # 중단 우
+                            (_icx, _icy + _sh - 1),     # 하단 (뾰족)
+                            (_icx - _sw, _icy + 2),     # 중단 좌
+                            (_icx - _sw, _icy - _sh + 3),  # 상단 좌
+                        ]
+                        pygame.draw.polygon(_icon_sf, (60, 130, 255, _sa), _shield_pts)
+                        # 방패 테두리
+                        pygame.draw.polygon(_icon_sf, (120, 180, 255, _sa), _shield_pts, 2)
+                        # 방패 십자 장식
+                        _cr_half = _sw // 2
+                        pygame.draw.line(_icon_sf, (180, 220, 255, _sa), (_icx, _icy - _cr_half - 2), (_icx, _icy + _cr_half + 2), 2)
+                        pygame.draw.line(_icon_sf, (180, 220, 255, _sa), (_icx - _cr_half, _icy - 1), (_icx + _cr_half, _icy - 1), 2)
+                    SCREEN.blit(_icon_sf, (int(_fx) - (_isz + 8) // 2, int(_fy) - (_isz + 8) // 2))
+                for _ri in reversed(_stance_remove_indices):
+                    arena_stance_popup_effects.pop(_ri)
             # 화면 효과 그리기 (플래시, 흔들림 등)
             arena_skill_manager.draw_screen_effects(SCREEN)
 
@@ -136881,6 +136969,16 @@ def main(stage_num, new_boss_mode=False):
                             if _p2:
                                 _p2['cooldown'] *= _mult
                                 _p2['cooldown_max'] *= _mult
+                    # 스탠스 전환 아이콘 팝업 이펙트
+                    _popup_x = _gs.x_bottom if _gs else 380
+                    _popup_y = (_gs.y_bottom if _gs else 710) - 24
+                    arena_stance_popup_effects.append({
+                        "mode": _new_stance,
+                        "x": _popup_x,
+                        "y": _popup_y,
+                        "timer": 0.0,
+                        "duration": 1.0,
+                    })
                     try:
                         play_button_click_sound()
                     except Exception:
