@@ -4217,9 +4217,13 @@ class GuardWarriorSystem:
                         skill.update(dt, guard_paddle, target, ball, game_state)
                     self._restore_caster_state(game_state, caster_prefix, saved)
                     # 폭탄 서프라이즈: 폭발 스턴/넉백은 restore 후에도 유지해야 함
-                    if skill_id == 'bomb_surprise' and skill._stun_applied:
+                    if skill_id == 'bomb_surprise' and skill._knockback_target:
                         stun_prefix = 'top_paddle' if skill._knockback_target == 'top' else 'bottom_paddle'
-                        game_state[f'{stun_prefix}_stunned'] = True
+                        if skill._stun_applied:
+                            game_state[f'{stun_prefix}_stunned'] = True
+                        else:
+                            # 스턴 타이머 만료 후: _restore_caster_state가 복원한 잔여 스턴 제거
+                            game_state[f'{stun_prefix}_stunned'] = False
                     # 빙의 스킬 언래핑 (수수께끼 묘기 → 실제 스킬)
                     _eff_id3, _eff_sk3 = self._unwrap_possessed_skill(skill)
                     # 뿔 박치기: 시전자 스턴 복원 (_restore_caster_state가 해제한 것 복구)
