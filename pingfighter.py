@@ -132039,7 +132039,17 @@ def record_speed_adaptation(ball_speed):
 def record_victory_result(player_wins, boss_wins):
     """승부 결과 기록 (3-0, 3-1, 3-2 등)"""
     global player_analyzer, trade_point_system
-    
+
+    # 투기장 포획 이벤트 시 스타포인트 드랍 방지
+    # (포획 페이즈에서 별이 여러개 드랍되는 버그 수정)
+    if arena_mode_enabled and arena_capture_do_capture:
+        if player_analyzer:
+            try:
+                player_analyzer.record_victory_result(player_wins, boss_wins)
+            except:
+                pass
+        return
+
     # 5:0 완승 시 보너스 트레이드 포인트 지급
     if player_wins == 5 and boss_wins == 0:
         if trade_point_system:
