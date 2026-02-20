@@ -120661,6 +120661,7 @@ def _update_arena_capture_phase(screen):
                     arena_capture_timer = 0.0
                     arena_capture_result_flag = True
                     arena_capture_caught_anim = 0.0
+                    _update_arena_capture_phase._netcome_played = False  # 끌어오기 사운드 플래그 리셋
                     # 포획 성공 대사 (100% 확률)
                     try:
                         from downtown.colosseum_arena import CAPTURE_SUCCESS_LINES
@@ -120829,6 +120830,15 @@ def _update_arena_capture_phase(screen):
                 cur_x = start_x
                 cur_y = start_y
             elif t < TUG_END:
+                # tug 시작 시 끌어오기 사운드 (1회만)
+                if not getattr(_update_arena_capture_phase, '_netcome_played', False):
+                    _update_arena_capture_phase._netcome_played = True
+                    _load_netcome_sound()
+                    if _netcome_sound:
+                        try:
+                            _netcome_sound.play()
+                        except Exception:
+                            pass
                 # tug: 살짝 아래로 끌림 (ease-out quad)
                 tug_t = (t - TUG_START) / (TUG_END - TUG_START)
                 tug_eased = 1.0 - (1.0 - tug_t) * (1.0 - tug_t)
