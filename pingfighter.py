@@ -120301,44 +120301,56 @@ def _fire_capture_net():
     print(f"[CAPTURE] 그물 발사! 잔여 {arena_capture_shots_left}발")
 
 def _draw_arena_capture_speech(screen, line, hero_x, hero_y, elapsed, success=True):
-    """포획 결과 대사 말풍선 그리기 (인게임 포획 페이즈)"""
-    try:
-        _font = getattr(_draw_arena_capture_speech, '_font', None)
-        if _font is None:
-            import pygame.freetype
+    """포획 결과 대사 말풍선 그리기 (화면 중앙 하단 고정)"""
+    import pygame.freetype as _ft
+    _font = getattr(_draw_arena_capture_speech, '_font', None)
+    if _font is None:
+        try:
             font_path = resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"))
-            _font = pygame.freetype.Font(font_path, 17)
-            _draw_arena_capture_speech._font = _font
-        if not _font:
-            return
-        ts, tr = _font.render(line, (255, 255, 255))
-        pad_x, pad_y = 14, 8
-        bw = tr.width + pad_x * 2
-        bh = tr.height + pad_y * 2
-        # 영웅 위치 기준 아래쪽에 표시
-        bx = max(10, min(hero_x - bw // 2, 750 - bw))
-        by = hero_y + 40
-        # 화면 아래로 넘어가면 위쪽에 표시
-        if by + bh + 14 > 720:
-            by = hero_y - bh - 20
-        bubble = pygame.Surface((bw + 4, bh + 16), pygame.SRCALPHA)
-        # 꼬리 (위쪽)
-        tail_cx = min(max(20, hero_x - bx), bw - 20)
-        pygame.draw.polygon(bubble, (30, 30, 40, 210), [
-            (tail_cx - 6, 14), (tail_cx + 6, 14), (tail_cx, 2)
-        ])
-        # 배경
-        bg = pygame.Rect(0, 14, bw, bh)
-        pygame.draw.rect(bubble, (30, 30, 40, 210), bg, border_radius=7)
-        border_c = (80, 220, 80, 200) if success else (220, 130, 70, 200)
-        pygame.draw.rect(bubble, border_c, bg, 2, border_radius=7)
-        # 텍스트
-        bubble.blit(ts, (pad_x, 14 + pad_y))
-        # 페이드인
-        fade = min(1.0, elapsed / 0.4)
-        if fade < 1.0:
-            bubble.set_alpha(int(255 * fade))
-        screen.blit(bubble, (bx, by))
+            _font = _ft.Font(font_path, 20)
+        except Exception:
+            try:
+                _font = _ft.SysFont("malgun gothic", 20)
+            except Exception:
+                _font = _ft.Font(None, 20)
+        _draw_arena_capture_speech._font = _font
+    if not _font:
+        return
+    # 텍스트 렌더
+    text_color = (255, 255, 255)
+    ts, tr = _font.render(line, text_color)
+    # 큰 따옴표 스타일 말풍선 (화면 중앙 고정, Y=400)
+    pad_x, pad_y = 20, 12
+    bw = tr.width + pad_x * 2
+    bh = tr.height + pad_y * 2
+    bx = 380 - bw // 2
+    by = 400
+    # 페이드인 (0.4초)
+    fade = min(1.0, elapsed / 0.4)
+    alpha = int(230 * fade)
+    # 말풍선 서피스
+    bubble = pygame.Surface((bw, bh), pygame.SRCALPHA)
+    bg_color = (20, 20, 30, alpha)
+    border_c = (80, 230, 80, alpha) if success else (230, 140, 60, alpha)
+    pygame.draw.rect(bubble, bg_color, (0, 0, bw, bh), border_radius=10)
+    pygame.draw.rect(bubble, border_c, (0, 0, bw, bh), 2, border_radius=10)
+    # 텍스트 blit
+    bubble.blit(ts, (pad_x, pad_y))
+    if fade < 1.0:
+        bubble.set_alpha(int(255 * fade))
+    screen.blit(bubble, (bx, by))
+    # 큰따옴표 장식 (「  」)
+    try:
+        _deco_font = getattr(_draw_arena_capture_speech, '_deco_font', None)
+        if _deco_font is None:
+            _deco_font = _ft.Font(None, 28)
+            _draw_arena_capture_speech._deco_font = _deco_font
+        qs, qr = _deco_font.render("「", border_c[:3])
+        qs.set_alpha(alpha)
+        screen.blit(qs, (bx - qr.width - 4, by + bh // 2 - qr.height // 2))
+        qs2, qr2 = _deco_font.render("」", border_c[:3])
+        qs2.set_alpha(alpha)
+        screen.blit(qs2, (bx + bw + 4, by + bh // 2 - qr2.height // 2))
     except Exception:
         pass
 
@@ -120600,8 +120612,10 @@ def _update_arena_capture_phase(screen):
                         _cap_hero_id = top_hero.get("id", "")
                         _cap_lines = CAPTURE_SUCCESS_LINES.get(_cap_hero_id, ["크윽... 이렇게 끝인가...", "억울하다..."])
                         arena_capture_speech_line = _cap_random.choice(_cap_lines)
-                    except Exception:
-                        pass
+                        print(f"[CAPTURE] 대사 설정: '{arena_capture_speech_line}' (hero={_cap_hero_id})")
+                    except Exception as e:
+                        print(f"[CAPTURE] 대사 설정 오류: {e}")
+                        arena_capture_speech_line = "크윽... 이렇게 끝인가..."
                     # 끌어오기 시작 위치 기록 (rect에서 중심 좌표 추출)
                     arena_capture_pull_start_x = dnet["rect"].centerx
                     arena_capture_pull_start_y = dnet["rect"].centery
@@ -120636,8 +120650,11 @@ def _update_arena_capture_phase(screen):
                     if _cap_random.random() < 0.5:
                         _cap_lines = CAPTURE_DODGE_LINES.get(_cap_hero_id, ["흥, 내가 쉽게 잡힐 것 같으냐.", "놓쳤군!"])
                         arena_capture_speech_line = _cap_random.choice(_cap_lines)
-                except Exception:
-                    pass
+                        print(f"[CAPTURE] 회피 대사: '{arena_capture_speech_line}' (hero={_cap_hero_id})")
+                    else:
+                        print(f"[CAPTURE] 회피 대사 50% 미발동 (hero={_cap_hero_id})")
+                except Exception as e:
+                    print(f"[CAPTURE] 회피 대사 오류: {e}")
                 print(f"[CAPTURE] 포획 실패! {top_name} 도주")
 
         # ── 그리기 ──
@@ -120743,7 +120760,8 @@ def _update_arena_capture_phase(screen):
             PULL_DUR = 1.5        # 본격 끌어오기 소요 시간
             PULL_END = PULL_START + PULL_DUR  # = 2.3
             TEXT_START = 1.5      # 텍스트 표시 시작
-            TOTAL_DUR = PULL_END + 0.2  # 끌어오기 완료 직후 즉시 전환 (GUARD_NOTIFY 중복 방지)
+            SPEECH_START = PULL_END - 0.3  # 끌어오기 거의 완료 시점에 대사 표시 (= 2.0)
+            TOTAL_DUR = PULL_END + 1.2  # 대사 읽을 시간 확보 (2.3 + 1.2 = 3.5)
 
             start_x = arena_capture_pull_start_x
             start_y = arena_capture_pull_start_y
@@ -120889,17 +120907,18 @@ def _update_arena_capture_phase(screen):
                 # "{이름} 영웅을 생포하였습니다!" 서브 텍스트 제거
                 # (GUARD_NOTIFY에서 동일 내용 표시하므로 중복 방지)
 
-                # 포획 성공 대사 말풍선
-                if arena_capture_speech_line and text_t >= 0.2:
-                    _draw_arena_capture_speech(screen, arena_capture_speech_line,
-                                              int(cur_x), int(cur_y), text_t - 0.2, success=True)
-
             # 화면 테두리 펄스 (녹색, 페이드인 적용)
             border_fade = min(1.0, t / FADE_IN_DUR)
             border_alpha = int((60 + 40 * _cap_m2.sin(t * 4)) * border_fade)
             border_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
             pygame.draw.rect(border_surf, (50, 255, 50, border_alpha), (0, 0, 760, 750), 4)
             screen.blit(border_surf, (0, 0))
+
+            # ── 포획 성공 대사 (끌어오기 거의 완료 시점) ──
+            if arena_capture_speech_line and t >= SPEECH_START:
+                _speech_elapsed = t - SPEECH_START
+                _draw_arena_capture_speech(screen, arena_capture_speech_line,
+                                          int(cur_x), int(cur_y), _speech_elapsed, success=True)
 
             if t >= TOTAL_DUR:
                 arena_capture_phase = "done"
@@ -120948,10 +120967,10 @@ def _update_arena_capture_phase(screen):
                 sub_surf.set_alpha(sub_alpha)
                 screen.blit(sub_surf, (GAME_CENTER_X - 250, 345))
 
-            # 회피 대사 말풍선
+            # 회피 대사 말풍선 (화면 중앙 고정)
             if arena_capture_speech_line and arena_capture_escape_anim >= 0.5:
                 _draw_arena_capture_speech(screen, arena_capture_speech_line,
-                                          int(escape_x), BOSS.centery if BOSS else 60,
+                                          380, 60,
                                           arena_capture_escape_anim - 0.5, success=False)
 
             # 화면 테두리 펄스 (적색)
