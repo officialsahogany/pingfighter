@@ -147877,7 +147877,7 @@ def _legacy_main_multiplayer():
                 if p1_score >= win_score or p2_score >= win_score:
                     winner = "P1" if p1_score >= win_score else "P2"
                     _show_multiplayer_result(winner, p1_score, p2_score)
-                    multiplayer_mode = False마우스를 클릭하여 적을 생포하세요! 이런 큰 문구가 빨간색으로 뜨게 해줘 
+                    multiplayer_mode = False
                     try:
                         bgm_manager.play_menu_bgm()
                     except Exception:
