@@ -278,14 +278,21 @@ class HenchmanSystem:
             skill = slot.skill_instance
             if not skill:
                 continue
-            if skill.is_active:
+            _oil_lingering = self._skill_has_lingering_effects(skill)
+            if skill.is_active or _oil_lingering:
                 try:
                     guard_paddle = _GuardPaddle(slot.x, slot.y, is_top=self.is_top)
                     skill.update(dt, guard_paddle, skill_target_paddle, ball, game_state)
+                    # OilSpill: 발사체/웅덩이가 모두 소진되면 비활성화
+                    if (getattr(skill, 'skill_id', '') == 'oil_spill'
+                            and not skill.oil_projectiles
+                            and not skill.oil_puddles):
+                        skill.is_active = False
                 except Exception:
                     # _update_active_effect 예외 시 active_timer는 이미 감소했지만
                     # is_active = False 처리가 누락될 수 있으므로 수동 체크
-                    if skill.active_timer <= 0:
+                    # duration=0 스킬은 active_timer 체크 스킵 (자체 관리)
+                    if skill.active_timer <= 0 and skill.duration > 0:
                         skill.is_active = False
             else:
                 # 비활성 스킬도 dying_clones 등 후처리가 필요한 경우 업데이트
@@ -304,6 +311,9 @@ class HenchmanSystem:
             if slot.phase == "casting":
                 skill = slot.skill_instance
                 skill_done = (not skill.is_active) if skill else True
+                # OilSpill 등: is_active=False여도 잔여 이펙트가 있으면 done이 아님
+                if skill_done and skill and self._skill_has_lingering_effects(skill):
+                    skill_done = False
                 if skill_done and slot.anim_timer >= HENCH_CAST_DURATION:
                     slot.phase = "exiting"
                     slot.anim_timer = 0.0
@@ -345,15 +355,22 @@ class HenchmanSystem:
         if not skill_done and skill:
             timer = getattr(skill, 'active_timer', None)
             if timer is not None and timer <= 0:
-                try:
-                    gs = self.skill_manager.game_state if self.skill_manager else {}
-                    skill._end_effect(None, None, None, gs)
-                except Exception:
-                    pass
-                skill.is_active = False
-                if hasattr(skill, 'possessed_skill') and skill.possessed_skill:
-                    skill.possessed_skill.is_active = False
-                skill_done = True
+                # duration=0 스킬 (OilSpill 등)은 active_timer를 사용하지 않고
+                # 자체적으로 is_active를 관리함. is_active는 유지하되
+                # 하수인 캐릭터는 퇴장할 수 있도록 skill_done=True로 설정.
+                # (스킬 이펙트는 update/draw 루프에서 독립적으로 계속 진행)
+                if skill.duration <= 0:
+                    skill_done = True  # 하수인 퇴장 허용, is_active는 유지
+                else:
+                    try:
+                        gs = self.skill_manager.game_state if self.skill_manager else {}
+                        skill._end_effect(None, None, None, gs)
+                    except Exception:
+                        pass
+                    skill.is_active = False
+                    if hasattr(skill, 'possessed_skill') and skill.possessed_skill:
+                        skill.possessed_skill.is_active = False
+                    skill_done = True
 
         # 안전 타임아웃: skill.duration 또는 실제 active_timer 중 큰 값 + 여유
         actual_duration = 0.0
@@ -458,6 +475,17 @@ class HenchmanSystem:
             print(f"[Henchman] {slot.hero_name} → {skill.korean_name} 발동 성공!")
         else:
             print(f"[Henchman] {slot.hero_name} → {skill.korean_name} 발동 실패")
+
+    @staticmethod
+    def _skill_has_lingering_effects(skill) -> bool:
+        """스킬에 아직 진행 중인 잔여 이펙트가 있는지 확인 (OilSpill 발사체/웅덩이 등)"""
+        if not skill:
+            return False
+        skill_id = getattr(skill, 'skill_id', '')
+        if skill_id == 'oil_spill':
+            return bool(getattr(skill, 'oil_projectiles', [])
+                        or getattr(skill, 'oil_puddles', []))
+        return False
 
     def _play_skill_sound(self, result):
         """스킬 사운드 재생"""
@@ -620,10 +648,11 @@ class HenchmanSystem:
 
         for slot in self.slots:
             skill = slot.skill_instance
-            # 스킬 이펙트 그리기 (활성 상태 또는 소멸 애니메이션 잔존)
+            # 스킬 이펙트 그리기 (활성 상태 또는 소멸 애니메이션/잔여 이펙트)
             if skill:
                 has_dying = hasattr(skill, 'dying_clones') and skill.dying_clones
-                if skill.is_active or has_dying:
+                _oil_lingering = self._skill_has_lingering_effects(skill)
+                if skill.is_active or has_dying or _oil_lingering:
                     try:
                         guard_paddle = _GuardPaddle(slot.x, slot.y, is_top=self.is_top)
                         skill.draw(screen, guard_paddle, draw_target_paddle, ball, game_state)
