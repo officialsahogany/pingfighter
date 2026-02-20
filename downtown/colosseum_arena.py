@@ -17927,7 +17927,7 @@ class ColosseumsArena:
                                      (0, 0, bonus_bg.get_width(), bonus_bg.get_height()),
                                      1, border_radius=4)
                     bbx = draw_x + 6
-                    bby = draw_y + 6
+                    bby = draw_y + 6 + badge_bg.get_height() + 4
                     self.screen.blit(bonus_bg, (bbx, bby))
                     self.screen.blit(bonus_surf, (bbx + 5, bby + 2))
 
