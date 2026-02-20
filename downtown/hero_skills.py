@@ -5214,30 +5214,28 @@ class DragonWing(HeroSkill):
             if dragon['hit_cooldown'] > 0:
                 dragon['hit_cooldown'] -= dt
 
-            ball_radius = 10
-            ball_rect = pygame.Rect(
-                ball.x - ball_radius - 5, ball.y - ball_radius - 5,
-                ball_radius * 2 + 10, ball_radius * 2 + 10
-            )
-            dragon_rect = pygame.Rect(
-                int(dragon['x']) - 45, int(dragon['y']) - 20, 90, 40
-            )
-            if dragon['hit_cooldown'] <= 0 and dragon_rect.colliderect(ball_rect):
-                # 시전자측 공은 충돌 무시 (시전자가 공격 중인 공)
+            # 드래곤 히트박스 (에인션트 드래곤 크기에 맞춤)
+            dragon_half_w, dragon_half_h = 65, 35
+            dx = abs(ball.x - dragon['x'])
+            dy = abs(ball.y - dragon['y'])
+            hit_dist = dx < dragon_half_w and dy < dragon_half_h
+
+            if dragon['hit_cooldown'] <= 0 and hit_dist:
+                # 시전자측 공 판별: 시전자 방향으로 날아가는 공은 무시
                 caster_top = dragon.get('caster_is_top', False)
-                if caster_top and ball.vy > 0:
-                    pass  # 시전자(상단)의 공이 아래로 향하는 중 = 시전자 공격 → 무시
-                elif not caster_top and ball.vy < 0:
-                    pass  # 시전자(하단)의 공이 위로 향하는 중 = 시전자 공격 → 무시
+                ball_going_to_caster = (caster_top and ball.vy < 0) or (not caster_top and ball.vy > 0)
+
+                if not ball_going_to_caster:
+                    pass  # 시전자가 공격 중인 공 (상대를 향해 날아감) → 무시
                 else:
-                    # 상대측 공만 충돌 처리 (상대가 시전자를 향해 공격하는 공)
+                    # 상대가 시전자를 향해 보낸 공 → 충돌! 상대쪽으로 튕겨냄
                     current_speed = math.hypot(ball.vx, ball.vy)
                     if current_speed < 8.0:
                         current_speed = 10.0
                     boosted_speed = current_speed * random.uniform(1.4, 1.7)
 
                     # 공을 상대 방향(시전자 반대쪽)으로 튕겨냄
-                    toward_opponent_vy = -1.0 if caster_top else 1.0
+                    toward_opponent_vy = 1.0 if caster_top else -1.0
                     ball.vx = dragon['direction'] * abs(boosted_speed) * 0.5
                     ball.vy = toward_opponent_vy * abs(boosted_speed) * 0.85
                     dragon['hit_cooldown'] = 0.5
