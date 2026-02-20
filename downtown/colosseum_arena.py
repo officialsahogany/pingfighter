@@ -11583,7 +11583,12 @@ class ColosseumsArena:
         entries = []
         # 영웅 스킬
         if _sk_mgr:
-            for hero, side in [(self.selected_match.hero1, "top"), (self.selected_match.hero2, "bottom")]:
+            # bet_hero는 항상 하단(bottom)에 배치됨 → 피아식별띠 색상 결정
+            if self.bet_hero and self.bet_hero == self.selected_match.hero1:
+                _hero_sides = [(self.selected_match.hero1, "bottom"), (self.selected_match.hero2, "top")]
+            else:
+                _hero_sides = [(self.selected_match.hero1, "top"), (self.selected_match.hero2, "bottom")]
+            for hero, side in _hero_sides:
                 hero_id = hero["id"]
                 hero_skills = _sk_mgr.active_skills.get(hero_id, [])
                 for sk in hero_skills:
