@@ -8385,6 +8385,9 @@ def _fullscreen_flip():
         # 투기장 배속 튜토리얼 오버레이
         if arena_mode_enabled and _arena_speed_tutorial_active:
             _draw_arena_speed_tutorial()
+        # 투기장 하수인 튜토리얼 오버레이
+        if arena_mode_enabled and _arena_henchman_tutorial_active:
+            _draw_arena_henchman_tutorial()
 
         # 미션 안내창 업데이트 및 그리기 (튜토리얼 위에 표시)
         try:
@@ -8617,6 +8620,9 @@ def _fullscreen_update(*args, **kwargs):
         # 투기장 배속 튜토리얼 오버레이
         if arena_mode_enabled and _arena_speed_tutorial_active:
             _draw_arena_speed_tutorial()
+        # 투기장 하수인 튜토리얼 오버레이
+        if arena_mode_enabled and _arena_henchman_tutorial_active:
+            _draw_arena_henchman_tutorial()
 
         # 미션 안내창 업데이트 및 그리기 (튜토리얼 위에 표시)
         try:
@@ -8671,6 +8677,9 @@ else:
         # 투기장 배속 튜토리얼 오버레이
         if arena_mode_enabled and _arena_speed_tutorial_active:
             _draw_arena_speed_tutorial()
+        # 투기장 하수인 튜토리얼 오버레이
+        if arena_mode_enabled and _arena_henchman_tutorial_active:
+            _draw_arena_henchman_tutorial()
         # 미션 안내창 업데이트 및 그리기
         try:
             update_mission_banner()
@@ -8699,6 +8708,9 @@ else:
         # 투기장 배속 튜토리얼 오버레이
         if arena_mode_enabled and _arena_speed_tutorial_active:
             _draw_arena_speed_tutorial()
+        # 투기장 하수인 튜토리얼 오버레이
+        if arena_mode_enabled and _arena_henchman_tutorial_active:
+            _draw_arena_henchman_tutorial()
         # 미션 안내창 업데이트 및 그리기
         try:
             update_mission_banner()
@@ -20086,6 +20098,37 @@ _ARENA_SPEED_TUTORIAL_STEPS = [
         "messages": [
             "{KEY:<} {KEY:>}키로도 배속을 조절할 수 있으며",
             "{KEY:/}키를 누르면 원래 배속으로 되돌아옵니다.",
+        ],
+    },
+]
+# 투기장 하수인 튜토리얼 (4강 진출 후 하수인 획득 시 표시)
+_arena_henchman_tutorial_shown = False
+_arena_henchman_tutorial_active = False
+_arena_henchman_tutorial_step = 0
+_arena_henchman_tutorial_delay_frames = 0
+_ARENA_HENCHMAN_TUTORIAL_DELAY = 360     # 6초 (60fps 기준)
+_ARENA_HENCHMAN_TUTORIAL_STEPS = [
+    {
+        "highlight": "henchman_ui",
+        "expression": "default",
+        "messages": [
+            "하수인은 직접 지시하여 스킬을 발동할 수 있습니다.",
+        ],
+    },
+    {
+        "highlight": "henchman_ui",
+        "expression": "thinking",
+        "messages": [
+            "{KEY:1}{KEY:2}{KEY:3}키로 해당 위치의 하수인을 선택하거나",
+            "마우스로 하수인 아이콘을 클릭하면 스킬이 즉시 발동됩니다.",
+        ],
+    },
+    {
+        "highlight": None,
+        "expression": "default",
+        "messages": [
+            "호위무사와 달리 스킬 쿨타임이 매우 길어서",
+            "상황에 맞게 사용하는 것이 좋습니다!",
         ],
     },
 ]
@@ -77295,6 +77338,264 @@ def _draw_arena_speed_tutorial() -> None:
         target_screen.blit(hint_text, hint_rect)
 
 
+def is_arena_henchman_tutorial_paused() -> bool:
+    """투기장 하수인 튜토리얼로 인해 게임이 일시정지 상태인지"""
+    return _arena_henchman_tutorial_active
+
+
+def advance_arena_henchman_tutorial():
+    """투기장 하수인 튜토리얼 다음 단계로 진행"""
+    global _arena_henchman_tutorial_step, _arena_henchman_tutorial_active, _arena_henchman_tutorial_shown
+    _arena_henchman_tutorial_step += 1
+    if _arena_henchman_tutorial_step >= len(_ARENA_HENCHMAN_TUTORIAL_STEPS):
+        _arena_henchman_tutorial_active = False
+        _arena_henchman_tutorial_shown = True
+        print("[ArenaTutorial] 하수인 튜토리얼 완료!")
+
+
+def _draw_arena_henchman_tutorial() -> None:
+    """투기장 하수인 UI 튜토리얼 그리기 (보라/마젠타 테마)"""
+    if not _arena_henchman_tutorial_active:
+        return
+    if _arena_henchman_tutorial_step >= len(_ARENA_HENCHMAN_TUTORIAL_STEPS):
+        return
+
+    current = _ARENA_HENCHMAN_TUTORIAL_STEPS[_arena_henchman_tutorial_step]
+
+    target_screen = REAL_SCREEN if (_is_fullscreen_active and REAL_SCREEN is not None) else SCREEN
+    screen_width = target_screen.get_width()
+    screen_height = target_screen.get_height()
+    _ui_s = max(1.0, screen_height / INTERNAL_HEIGHT)
+
+    overlay = pygame.Surface((screen_width, screen_height), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 180))
+
+    highlight_type = current.get("highlight")
+    _hench_rect = None
+    _hench_cx = 0
+    _hench_cy = 0
+
+    if highlight_type == "henchman_ui" and arena_henchman_system is not None:
+        # 하수인 아이콘 rect 수집
+        _slots = getattr(arena_henchman_system, 'slots', [])
+        _icon_rects = [s.icon_rect for s in _slots if hasattr(s, 'icon_rect') and s.icon_rect is not None]
+        if _icon_rects:
+            _min_x = min(r.x for r in _icon_rects)
+            _min_y = min(r.y for r in _icon_rects)
+            _max_x = max(r.right for r in _icon_rects)
+            _max_y = max(r.bottom for r in _icon_rects)
+
+            _pad = int(12 * _ui_s)
+            _hench_rect = pygame.Rect(_min_x - _pad, _min_y - _pad,
+                                      (_max_x - _min_x) + _pad * 2,
+                                      (_max_y - _min_y) + _pad * 2)
+            _hench_cx = _hench_rect.centerx
+            _hench_cy = _hench_rect.centery
+
+            # 글로우 (보라/마젠타 계열)
+            _glow_color = (180, 100, 255)
+            for i in range(4):
+                _glow_pad = int(i * 8 * _ui_s)
+                _glow_alpha = 120 - i * 25
+                _glow_rect = _hench_rect.inflate(_glow_pad * 2, _glow_pad * 2)
+                _glow_surf = pygame.Surface((_glow_rect.width + 4, _glow_rect.height + 4), pygame.SRCALPHA)
+                pygame.draw.rect(_glow_surf, (*_glow_color, _glow_alpha),
+                                 (0, 0, _glow_rect.width + 4, _glow_rect.height + 4), border_radius=int(12 * _ui_s))
+                overlay.blit(_glow_surf, (_glow_rect.x - 2, _glow_rect.y - 2))
+
+            # 투명 구멍
+            pygame.draw.rect(overlay, (0, 0, 0, 0), _hench_rect, border_radius=int(8 * _ui_s))
+
+    target_screen.blit(overlay, (0, 0))
+
+    # === 화살표 + "여기!" 말풍선 ===
+    if highlight_type == "henchman_ui" and _hench_rect is not None:
+        import math as _m
+        _main_color = (180, 100, 255)
+        _accent_color = (220, 160, 255)
+
+        _cur_time = pygame.time.get_ticks()
+        _bounce_phase = (_cur_time * 0.008) % (_m.pi * 2)
+        _bounce_offset = abs(_m.sin(_bounce_phase)) * 8 * _ui_s
+
+        _surf_size = int(100 * _ui_s)
+        _arrow_surf = pygame.Surface((_surf_size, _surf_size), pygame.SRCALPHA)
+        _shaft_thickness = int(7 * _ui_s)
+        _head_width = int(14 * _ui_s)
+        _head_length = int(18 * _ui_s)
+        _border_color = (220, 225, 235)
+        _border_thickness = max(2, int(3 * _ui_s))
+
+        # 오른쪽 위에서 왼쪽 아래로 가리키는 화살표
+        _start_x, _start_y = int(85 * _ui_s), int(15 * _ui_s)
+        _end_x, _end_y = int(20 * _ui_s), int(80 * _ui_s)
+
+        _dx = _end_x - _start_x
+        _dy = _end_y - _start_y
+        _length = _m.sqrt(_dx * _dx + _dy * _dy)
+        _dx /= _length
+        _dy /= _length
+        _perp_x = -_dy
+        _perp_y = _dx
+        _head_sx = _end_x - _dx * _head_length
+        _head_sy = _end_y - _dy * _head_length
+
+        _b_shaft = [
+            (_start_x + _perp_x * (_shaft_thickness + _border_thickness), _start_y + _perp_y * (_shaft_thickness + _border_thickness)),
+            (_start_x - _perp_x * (_shaft_thickness + _border_thickness), _start_y - _perp_y * (_shaft_thickness + _border_thickness)),
+            (_head_sx - _perp_x * (_shaft_thickness + _border_thickness), _head_sy - _perp_y * (_shaft_thickness + _border_thickness)),
+            (_head_sx + _perp_x * (_shaft_thickness + _border_thickness), _head_sy + _perp_y * (_shaft_thickness + _border_thickness)),
+        ]
+        pygame.draw.polygon(_arrow_surf, _border_color, _b_shaft)
+        pygame.draw.circle(_arrow_surf, _border_color, (int(_start_x), int(_start_y)), _shaft_thickness + _border_thickness)
+        _head_b = [
+            (_end_x, _end_y),
+            (_head_sx + _perp_x * (_head_width + _border_thickness), _head_sy + _perp_y * (_head_width + _border_thickness)),
+            (_head_sx - _perp_x * (_head_width + _border_thickness), _head_sy - _perp_y * (_head_width + _border_thickness)),
+        ]
+        pygame.draw.polygon(_arrow_surf, _border_color, _head_b)
+
+        _m_shaft = [
+            (_start_x + _perp_x * _shaft_thickness, _start_y + _perp_y * _shaft_thickness),
+            (_start_x - _perp_x * _shaft_thickness, _start_y - _perp_y * _shaft_thickness),
+            (_head_sx - _perp_x * _shaft_thickness, _head_sy - _perp_y * _shaft_thickness),
+            (_head_sx + _perp_x * _shaft_thickness, _head_sy + _perp_y * _shaft_thickness),
+        ]
+        pygame.draw.polygon(_arrow_surf, _main_color, _m_shaft)
+        pygame.draw.circle(_arrow_surf, _main_color, (int(_start_x), int(_start_y)), _shaft_thickness)
+        _head_pts = [
+            (_end_x, _end_y),
+            (_head_sx + _perp_x * _head_width, _head_sy + _perp_y * _head_width),
+            (_head_sx - _perp_x * _head_width, _head_sy - _perp_y * _head_width),
+        ]
+        pygame.draw.polygon(_arrow_surf, _main_color, _head_pts)
+
+        _hl_color = (min(255, _main_color[0] + 70), min(255, _main_color[1] + 70), min(255, _main_color[2] + 70))
+        _hl_off = _shaft_thickness - max(2, int(3 * _ui_s))
+        pygame.draw.line(_arrow_surf, _hl_color,
+                         (_start_x + _perp_x * _hl_off - _dx * 5 * _ui_s, _start_y + _perp_y * _hl_off - _dy * 5 * _ui_s),
+                         (_head_sx + _perp_x * _hl_off + _dx * 5 * _ui_s, _head_sy + _perp_y * _hl_off + _dy * 5 * _ui_s),
+                         max(2, int(3 * _ui_s)))
+
+        _arrow_cx = _hench_rect.right + int(30 * _ui_s) + _bounce_offset * 0.7
+        _arrow_cy = _hench_rect.top - int(10 * _ui_s) - _bounce_offset * 0.7
+        _arrow_rect_pos = _arrow_surf.get_rect(center=(int(_arrow_cx), int(_arrow_cy)))
+        target_screen.blit(_arrow_surf, _arrow_rect_pos)
+
+        # 반짝이 별
+        for _si in range(4):
+            _sp = (_cur_time * 0.003 + _si * _m.pi / 2) % (_m.pi * 2)
+            _sd = max(_hench_rect.width, _hench_rect.height) // 2 + int(15 * _ui_s) + _m.sin(_sp * 2) * 6 * _ui_s
+            _sa = _sp + _si * (_m.pi / 2)
+            _sx = _hench_cx + _m.cos(_sa) * _sd
+            _sy = _hench_cy + _m.sin(_sa) * _sd
+            _ss = 0.5 + abs(_m.sin(_sp * 3)) * 0.8
+            _ssz = int(8 * _ss * _ui_s)
+            if _ssz > 2:
+                _spts = []
+                for _sj in range(8):
+                    _ang = _sj * _m.pi / 4 + _sp
+                    _dist = _ssz if _sj % 2 == 0 else _ssz * 0.4
+                    _spts.append((_sx + _m.cos(_ang) * _dist, _sy + _m.sin(_ang) * _dist))
+                for _gi in range(2):
+                    _gsz = _ssz + int(_gi * 3 * _ui_s)
+                    _gpts = []
+                    for _gj in range(8):
+                        _gang = _gj * _m.pi / 4 + _sp
+                        _gd = _gsz if _gj % 2 == 0 else _gsz * 0.4
+                        _gpts.append((_sx + _m.cos(_gang) * _gd, _sy + _m.sin(_gang) * _gd))
+                    if len(_gpts) >= 3:
+                        pygame.draw.polygon(target_screen, _accent_color, _gpts)
+                if len(_spts) >= 3:
+                    pygame.draw.polygon(target_screen, (255, 255, 255), _spts)
+
+        # "여기!" 말풍선
+        _bub_x = int(_arrow_cx + 10 * _ui_s)
+        _bub_y = int(_arrow_cy - 25 * _ui_s)
+        _bub_w, _bub_h = int(50 * _ui_s), int(28 * _ui_s)
+        _bub_rect = pygame.Rect(_bub_x - _bub_w // 2, _bub_y - _bub_h // 2, _bub_w, _bub_h)
+        _shadow_r = _bub_rect.copy()
+        _shadow_r.x += 2
+        _shadow_r.y += 2
+        pygame.draw.ellipse(target_screen, (0, 0, 0, 80), _shadow_r)
+        pygame.draw.ellipse(target_screen, (255, 255, 255), _bub_rect)
+        pygame.draw.ellipse(target_screen, _main_color, _bub_rect, max(1, int(2 * _ui_s)))
+        _tail = [
+            (_bub_x - int(8 * _ui_s), _bub_y + _bub_h // 2 - int(3 * _ui_s)),
+            (_bub_x - int(18 * _ui_s), _bub_y + _bub_h // 2 + int(12 * _ui_s)),
+            (_bub_x + int(2 * _ui_s), _bub_y + _bub_h // 2 - int(1 * _ui_s)),
+        ]
+        pygame.draw.polygon(target_screen, (255, 255, 255), _tail)
+        pygame.draw.line(target_screen, _main_color, _tail[0], _tail[1], max(1, int(2 * _ui_s)))
+        pygame.draw.line(target_screen, _main_color, _tail[1], _tail[2], max(1, int(2 * _ui_s)))
+        try:
+            _bub_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), int(14 * _ui_s))
+        except Exception:
+            _bub_font = pygame.freetype.SysFont("malgun gothic", int(14 * _ui_s))
+        _txt_s, _txt_r = _bub_font.render("여기!", _main_color)
+        _txt_r.center = (_bub_x, _bub_y - 1)
+        target_screen.blit(_txt_s, _txt_r)
+
+    # 메시지 박스
+    messages = current.get("messages", [])
+    if messages:
+        expression = current.get("expression", "default")
+        instructor_img = TUTORIAL_INSTRUCTOR_IMGS.get(expression) or TUTORIAL_INSTRUCTOR_IMGS.get("default")
+
+        inst_width = instructor_img.get_width() if instructor_img else 0
+        inst_height = instructor_img.get_height() if instructor_img else 0
+        if instructor_img and _ui_s != 1.0:
+            inst_width = int(inst_width * _ui_s)
+            inst_height = int(inst_height * _ui_s)
+            instructor_img = pygame.transform.smoothscale(instructor_img, (inst_width, inst_height))
+        inst_padding = int(15 * _ui_s) if instructor_img else 0
+
+        text_area_width = int(460 * _ui_s)
+        _line_height = int(35 * _ui_s)
+        box_width = text_area_width + inst_width + inst_padding * 2 + int(20 * _ui_s)
+        min_height = inst_height + int(30 * _ui_s) if instructor_img else int(40 * _ui_s)
+        box_height = max(min_height, int(40 * _ui_s) + len(messages) * _line_height)
+
+        if _is_fullscreen_active and REAL_SCREEN is not None:
+            box_x = GAME_OFFSET_X + (GAME_SCALED_WIDTH - box_width) // 2
+            box_y = GAME_OFFSET_Y + (GAME_SCALED_HEIGHT - box_height) // 2
+        else:
+            box_x = (screen_width - box_width) // 2
+            box_y = screen_height // 2 - box_height // 2
+
+        _border_r = int(15 * _ui_s)
+        box_surface = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+        pygame.draw.rect(box_surface, (20, 30, 50, 240), (0, 0, box_width, box_height), border_radius=_border_r)
+        pygame.draw.rect(box_surface, (100, 200, 255), (0, 0, box_width, box_height), max(2, int(3 * _ui_s)), border_radius=_border_r)
+        target_screen.blit(box_surface, (box_x, box_y))
+
+        text_start_x = box_x + int(15 * _ui_s)
+        if instructor_img:
+            instructor_x = box_x + inst_padding
+            instructor_y = box_y + (box_height - inst_height) // 2
+            target_screen.blit(instructor_img, (instructor_x, instructor_y))
+            text_start_x = box_x + inst_width + inst_padding * 2
+
+        _font_size = int(24 * _ui_s)
+        msg_font = get_font(_font_size)
+        text_center_x = text_start_x + (text_area_width // 2)
+        y_offset = box_y + (box_height - len(messages) * _line_height) // 2
+
+        for msg in messages:
+            if "{KEY:" in msg:
+                _render_message_with_keycaps(target_screen, msg, msg_font, text_start_x, text_area_width, y_offset, scale=_ui_s)
+            else:
+                text_surface = msg_font.render(msg, True, WHITE)
+                text_rect = text_surface.get_rect(center=(text_center_x, y_offset + int(10 * _ui_s)))
+                target_screen.blit(text_surface, text_rect)
+            y_offset += _line_height
+
+        hint_font = get_font(int(18 * _ui_s))
+        hint_text = hint_font.render("클릭 또는 SPACE로 계속", True, (150, 200, 255))
+        hint_rect = hint_text.get_rect(center=(box_x + box_width // 2, box_y + box_height + int(25 * _ui_s)))
+        target_screen.blit(hint_text, hint_rect)
+
+
 def _draw_ingame_tutorial() -> None:
     """실전 튜토리얼 UI 그리기
 
@@ -101656,6 +101957,8 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         global _arena_portrait_tutorial_step, _arena_portrait_tutorial_delay_frames
         global _arena_speed_tutorial_shown, _arena_speed_tutorial_active
         global _arena_speed_tutorial_step, _arena_speed_tutorial_delay_frames
+        global _arena_henchman_tutorial_shown, _arena_henchman_tutorial_active
+        global _arena_henchman_tutorial_step, _arena_henchman_tutorial_delay_frames
         # 튜토리얼 비활성화 시 모든 튜토리얼 초기화만 하고 건너뜀
         if not _arena_tutorial_enabled:
             _arena_guard_tutorial_delay_frames = 0
@@ -101664,6 +101967,8 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
             _arena_portrait_tutorial_active = False
             _arena_speed_tutorial_delay_frames = 0
             _arena_speed_tutorial_active = False
+            _arena_henchman_tutorial_delay_frames = 0
+            _arena_henchman_tutorial_active = False
         elif (not _arena_guard_tutorial_shown
                 and arena_guard_system is not None
                 and hasattr(arena_guard_system, 'guard_warriors_bottom')
@@ -101740,6 +102045,20 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         except Exception as e:
             print(f"[Henchman] AI 하수인 시스템 설정 오류: {e}")
             arena_ai_henchman_system = None
+
+        # === 하수인 튜토리얼 트리거 ===
+        if (_arena_tutorial_enabled
+                and not _arena_henchman_tutorial_shown
+                and arena_henchman_system is not None
+                and hasattr(arena_henchman_system, 'slots')
+                and arena_henchman_system.slots):
+            _arena_henchman_tutorial_delay_frames = _ARENA_HENCHMAN_TUTORIAL_DELAY
+            _arena_henchman_tutorial_step = 0
+            _arena_henchman_tutorial_active = False  # 딜레이 후 활성화
+            print("[ArenaTutorial] 하수인 튜토리얼 딜레이 시작 (6초)")
+        else:
+            _arena_henchman_tutorial_delay_frames = 0
+            _arena_henchman_tutorial_active = False
 
         # pending data 정리
         globals().pop('_arena_pending_top_guards', None)
@@ -101831,6 +102150,8 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         _arena_portrait_tutorial_delay_frames = 0
         _arena_speed_tutorial_active = False
         _arena_speed_tutorial_delay_frames = 0
+        _arena_henchman_tutorial_active = False
+        _arena_henchman_tutorial_delay_frames = 0
         arena_battle_arena_obj = None  # F8 퍽 선택용 참조 해제
         arena_top_hero = None
         arena_bottom_hero = None
@@ -102073,6 +102394,7 @@ def start_arena_dev():
     """개발 메뉴에서 투기장(토너먼트) 바로 진입 (입장료 무료)"""
     global _arena_tutorial_enabled, _arena_guard_tutorial_shown
     global _arena_portrait_tutorial_shown, _arena_speed_tutorial_shown
+    global _arena_henchman_tutorial_shown
     from downtown.colosseum_arena import ColosseumsArena
 
     # 튜토리얼 확인 다이얼로그
@@ -102082,6 +102404,7 @@ def start_arena_dev():
         _arena_guard_tutorial_shown = False
         _arena_portrait_tutorial_shown = False
         _arena_speed_tutorial_shown = False
+        _arena_henchman_tutorial_shown = False
 
     screen = SCREEN
     fonts = _make_arena_fonts()
@@ -134260,6 +134583,7 @@ def main(stage_num, new_boss_mode=False):
     global arena_mode_enabled, arena_skill_manager, _arena_guard_tutorial_active, _arena_guard_tutorial_delay_frames
     global _arena_portrait_tutorial_active, _arena_portrait_tutorial_delay_frames
     global _arena_speed_tutorial_active, _arena_speed_tutorial_delay_frames
+    global _arena_henchman_tutorial_active, _arena_henchman_tutorial_delay_frames
     if stage_num != 30 and arena_mode_enabled:
         print(f"[WARNING] 스테이지 {stage_num} 진입 시 arena_mode_enabled=True 감지! 강제 초기화")
         arena_mode_enabled = False
@@ -134269,6 +134593,8 @@ def main(stage_num, new_boss_mode=False):
         _arena_portrait_tutorial_delay_frames = 0
         _arena_speed_tutorial_active = False
         _arena_speed_tutorial_delay_frames = 0
+        _arena_henchman_tutorial_active = False
+        _arena_henchman_tutorial_delay_frames = 0
         arena_skill_manager = None
         arena_stop_all_skill_sounds()
 
@@ -137873,6 +138199,18 @@ def main(stage_num, new_boss_mode=False):
                     advance_arena_speed_tutorial()
                 continue  # 배속 튜토리얼 중에는 다른 입력 무시
 
+            # 투기장 하수인 튜토리얼 입력 처리
+            if is_arena_henchman_tutorial_paused():
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                    if "BUTTON_CLICK" in sound_effects and sound_effects["BUTTON_CLICK"]:
+                        sound_effects["BUTTON_CLICK"].play()
+                    advance_arena_henchman_tutorial()
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if "BUTTON_CLICK" in sound_effects and sound_effects["BUTTON_CLICK"]:
+                        sound_effects["BUTTON_CLICK"].play()
+                    advance_arena_henchman_tutorial()
+                continue  # 하수인 튜토리얼 중에는 다른 입력 무시
+
             if genie_assistant.is_active():
                 genie_assistant.handle_event(event)
                 continue
@@ -140145,6 +140483,7 @@ def main(stage_num, new_boss_mode=False):
             freeze_arena_guard_tutorial = is_arena_guard_tutorial_paused()  # 투기장 호위무사 튜토리얼
             freeze_arena_portrait_tutorial = is_arena_portrait_tutorial_paused()  # 투기장 초상화 튜토리얼
             freeze_arena_speed_tutorial = is_arena_speed_tutorial_paused()  # 투기장 배속 튜토리얼
+            freeze_arena_henchman_tutorial = is_arena_henchman_tutorial_paused()  # 투기장 하수인 튜토리얼
             # 달빛 베기 / 도깨비불 화면 정지 (투기장 모드 + 인게임 호위무사)
             freeze_dark_slash = False
             freeze_hell_fire = False
@@ -140165,7 +140504,7 @@ def main(stage_num, new_boss_mode=False):
                 except Exception:
                     pass
             freeze_capture = (arena_mode_enabled and arena_capture_phase is not None)
-            freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim or freeze_tooltip or freeze_ingame_tutorial or freeze_arena_guard_tutorial or freeze_arena_portrait_tutorial or freeze_arena_speed_tutorial or freeze_dark_slash or freeze_hell_fire or freeze_capture
+            freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim or freeze_tooltip or freeze_ingame_tutorial or freeze_arena_guard_tutorial or freeze_arena_portrait_tutorial or freeze_arena_speed_tutorial or freeze_arena_henchman_tutorial or freeze_dark_slash or freeze_hell_fire or freeze_capture
 
             # 투기장 호위무사 튜토리얼 딜레이 카운터 감소
             if arena_mode_enabled and _arena_guard_tutorial_delay_frames > 0 and not freeze_now:
@@ -140187,6 +140526,13 @@ def main(stage_num, new_boss_mode=False):
                 if _arena_speed_tutorial_delay_frames <= 0:
                     _arena_speed_tutorial_active = True
                     print("[ArenaTutorial] 배속 튜토리얼 딜레이 완료 → 시작!")
+
+            # 투기장 하수인 튜토리얼 딜레이 카운터 감소
+            if arena_mode_enabled and _arena_henchman_tutorial_delay_frames > 0 and not freeze_now:
+                _arena_henchman_tutorial_delay_frames -= 1
+                if _arena_henchman_tutorial_delay_frames <= 0:
+                    _arena_henchman_tutorial_active = True
+                    print("[ArenaTutorial] 하수인 튜토리얼 딜레이 완료 → 시작!")
 
             # 디버그: 툴팁 일시정지 상태 확인
             if freeze_tooltip:
@@ -145926,6 +146272,9 @@ def show_character_info(background_surface=None):
         # 투기장 배속 튜토리얼 오버레이
         if arena_mode_enabled and _arena_speed_tutorial_active:
             _draw_arena_speed_tutorial()
+        # 투기장 하수인 튜토리얼 오버레이
+        if arena_mode_enabled and _arena_henchman_tutorial_active:
+            _draw_arena_henchman_tutorial()
 
         pygame.display.flip()
         for event in pygame.event.get():
