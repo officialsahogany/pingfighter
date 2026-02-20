@@ -7077,22 +7077,28 @@ class HeroPaddleRenderer:
             "beard_stripe": (30, 55, 120),
         }
 
-        # ─── 신비의 시길 (등 뒤 기하학 문양 글로우) ───
+        # ─── 신비의 시길 (발밑 비스듬히 눕힌 소환진) ───
         sigil_cx = cx + lean_offset
-        sigil_cy = torso_y - int(0.3 * b)
-        sigil_r = int(3.0 * b)
-        sigil_size = sigil_r * 2 + 4
-        sigil_surf = self._get_surface(sigil_size, sigil_size)
-        sigil_center = sigil_size // 2
+        sigil_cy = leg_base_y + int(0.6 * b)
+        sigil_rx = int(2.2 * b)            # X 반지름 (가로 넓게)
+        sigil_ry = int(0.7 * b)            # Y 반지름 (원근 압축)
+        sigil_w = sigil_rx * 2 + 4
+        sigil_h = sigil_ry * 2 + 4
+        sigil_surf = self._get_surface(sigil_w, sigil_h)
+        s_cx, s_cy = sigil_w // 2, sigil_h // 2
         sigil_alpha = int(35 + 20 * gold_pulse)
-        # 외곽 원
-        pygame.draw.circle(sigil_surf, (*p["gold_light"], sigil_alpha),
-                         (sigil_center, sigil_center), sigil_r, max(1, int(0.06 * b)))
-        # 내곽 원
-        inner_sigil_r = int(sigil_r * 0.65)
-        pygame.draw.circle(sigil_surf, (*p["gem_glow"], int(sigil_alpha * 0.7)),
-                         (sigil_center, sigil_center), inner_sigil_r, max(1, int(0.04 * b)))
-        # 삼각형 (회전)
+        # 외곽 타원
+        pygame.draw.ellipse(sigil_surf, (*p["gold_light"], sigil_alpha),
+                          (s_cx - sigil_rx, s_cy - sigil_ry, sigil_rx * 2, sigil_ry * 2),
+                          max(1, int(0.06 * b)))
+        # 내곽 타원
+        inner_rx = int(sigil_rx * 0.65)
+        inner_ry = int(sigil_ry * 0.65)
+        pygame.draw.ellipse(sigil_surf, (*p["gem_glow"], int(sigil_alpha * 0.7)),
+                          (s_cx - inner_rx, s_cy - inner_ry, inner_rx * 2, inner_ry * 2),
+                          max(1, int(0.04 * b)))
+        # 삼각형 (회전, Y축 원근 압축)
+        perspective = sigil_ry / max(1, sigil_rx)  # 압축 비율
         sigil_rot = t * 0.5
         for tri in range(2):
             tri_angle_off = sigil_rot + tri * (math.pi / 3)
@@ -7100,12 +7106,12 @@ class HeroPaddleRenderer:
             for v in range(3):
                 va = tri_angle_off + v * (2 * math.pi / 3)
                 tri_pts_local.append((
-                    sigil_center + int(_cos(va) * inner_sigil_r * 0.9),
-                    sigil_center + int(_sin(va) * inner_sigil_r * 0.9)
+                    s_cx + int(_cos(va) * inner_rx * 0.9),
+                    s_cy + int(_sin(va) * inner_ry * 0.9)
                 ))
             tri_col = (*p["gold"], int(sigil_alpha * 0.6)) if tri == 0 else (*p["staff_gem"], int(sigil_alpha * 0.5))
             pygame.draw.polygon(sigil_surf, tri_col, tri_pts_local, max(1, int(0.04 * b)))
-        screen.blit(sigil_surf, (sigil_cx - sigil_center, sigil_cy - sigil_center),
+        screen.blit(sigil_surf, (sigil_cx - s_cx, sigil_cy - s_cy),
                     special_flags=pygame.BLEND_ADD)
 
         # ─── 모래 파티클 (뒤쪽 - 강화) ───
