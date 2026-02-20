@@ -20096,8 +20096,8 @@ _ARENA_SPEED_TUTORIAL_STEPS = [
         "highlight": "speed_buttons",
         "expression": "thinking",
         "messages": [
-            "{KEY:<} {KEY:>}키로도 배속을 조절할 수 있으며",
-            "{KEY:/}키를 누르면 원래 배속으로 되돌아옵니다.",
+            "{KEY:F1}x1 {KEY:F2}x1.5 {KEY:F3}x2 {KEY:F4}x3",
+            "키보드로도 빠르게 배속을 변경할 수 있습니다.",
         ],
     },
 ]
