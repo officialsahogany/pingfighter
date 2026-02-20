@@ -14698,6 +14698,12 @@ class ColosseumsArena:
         if not candidates:
             return
 
+        # 포획 확률 (AI도 포획에 실패할 수 있음)
+        AI_CAPTURE_RATE = 0.75  # 75% 성공률
+        if random.random() > AI_CAPTURE_RATE:
+            print(f"[Henchman AI] {hero['name']}의 하수인 포획 실패!")
+            return
+
         chosen = random.choice(candidates)
         if hero_id not in self.ai_henchman_map:
             self.ai_henchman_map[hero_id] = []
