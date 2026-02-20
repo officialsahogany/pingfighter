@@ -76453,6 +76453,145 @@ def _draw_arena_guard_tutorial() -> None:
 
     target_screen.blit(overlay, (0, 0))
 
+    # === 강조 화살표 + "여기!" 말풍선 (하이라이트가 있을 때만) ===
+    if highlight_type == "guard_stance":
+        stance_rect = globals().get('_guard_stance_toggle_rect')
+        if stance_rect:
+            import math as _m
+            _hx = stance_rect.centerx
+            _hy = stance_rect.centery
+            _hr = max(stance_rect.width, stance_rect.height) // 2 + 20
+            _main_color = (255, 140, 60)
+            _accent_color = (255, 200, 130)
+
+            _cur_time = pygame.time.get_ticks()
+            _bounce_phase = (_cur_time * 0.008) % (_m.pi * 2)
+            _bounce_offset = abs(_m.sin(_bounce_phase)) * 8
+
+            # 화살표 서피스 (오른쪽 위 → 왼쪽 아래 방향)
+            _shaft_thickness = 7
+            _head_width = 14
+            _head_length = 18
+            _surf_size = 100
+            _arrow_surf = pygame.Surface((_surf_size, _surf_size), pygame.SRCALPHA)
+
+            _border_color = (220, 225, 235)
+            _border_thickness = 3
+            _start_x, _start_y = 85, 15
+            _end_x, _end_y = 20, 80
+
+            _dx = _end_x - _start_x
+            _dy = _end_y - _start_y
+            _length = _m.sqrt(_dx * _dx + _dy * _dy)
+            _dx /= _length
+            _dy /= _length
+            _perp_x = -_dy
+            _perp_y = _dx
+            _head_sx = _end_x - _dx * _head_length
+            _head_sy = _end_y - _dy * _head_length
+
+            # 테두리 - 몸통
+            _b_shaft = [
+                (_start_x + _perp_x * (_shaft_thickness + _border_thickness), _start_y + _perp_y * (_shaft_thickness + _border_thickness)),
+                (_start_x - _perp_x * (_shaft_thickness + _border_thickness), _start_y - _perp_y * (_shaft_thickness + _border_thickness)),
+                (_head_sx - _perp_x * (_shaft_thickness + _border_thickness), _head_sy - _perp_y * (_shaft_thickness + _border_thickness)),
+                (_head_sx + _perp_x * (_shaft_thickness + _border_thickness), _head_sy + _perp_y * (_shaft_thickness + _border_thickness)),
+            ]
+            pygame.draw.polygon(_arrow_surf, _border_color, _b_shaft)
+            pygame.draw.circle(_arrow_surf, _border_color, (int(_start_x), int(_start_y)), _shaft_thickness + _border_thickness)
+            # 테두리 - 화살촉
+            _head_b = [
+                (_end_x, _end_y),
+                (_head_sx + _perp_x * (_head_width + _border_thickness), _head_sy + _perp_y * (_head_width + _border_thickness)),
+                (_head_sx - _perp_x * (_head_width + _border_thickness), _head_sy - _perp_y * (_head_width + _border_thickness)),
+            ]
+            pygame.draw.polygon(_arrow_surf, _border_color, _head_b)
+
+            # 메인 화살표 - 몸통
+            _m_shaft = [
+                (_start_x + _perp_x * _shaft_thickness, _start_y + _perp_y * _shaft_thickness),
+                (_start_x - _perp_x * _shaft_thickness, _start_y - _perp_y * _shaft_thickness),
+                (_head_sx - _perp_x * _shaft_thickness, _head_sy - _perp_y * _shaft_thickness),
+                (_head_sx + _perp_x * _shaft_thickness, _head_sy + _perp_y * _shaft_thickness),
+            ]
+            pygame.draw.polygon(_arrow_surf, _main_color, _m_shaft)
+            pygame.draw.circle(_arrow_surf, _main_color, (int(_start_x), int(_start_y)), _shaft_thickness)
+            # 화살촉
+            _head_pts = [
+                (_end_x, _end_y),
+                (_head_sx + _perp_x * _head_width, _head_sy + _perp_y * _head_width),
+                (_head_sx - _perp_x * _head_width, _head_sy - _perp_y * _head_width),
+            ]
+            pygame.draw.polygon(_arrow_surf, _main_color, _head_pts)
+
+            # 하이라이트
+            _hl_color = (min(255, _main_color[0] + 70), min(255, _main_color[1] + 70), min(255, _main_color[2] + 70))
+            _hl_off = _shaft_thickness - 3
+            pygame.draw.line(_arrow_surf, _hl_color,
+                             (_start_x + _perp_x * _hl_off - _dx * 5, _start_y + _perp_y * _hl_off - _dy * 5),
+                             (_head_sx + _perp_x * _hl_off + _dx * 5, _head_sy + _perp_y * _hl_off + _dy * 5), 3)
+
+            # 화살표 위치 (아이콘 오른쪽 위에 배치, 바운스)
+            _arrow_cx = _hx + _hr + 25 - _bounce_offset * 0.7
+            _arrow_cy = _hy - _hr - 25 + _bounce_offset * 0.7
+            _arrow_rect = _arrow_surf.get_rect(center=(_arrow_cx, _arrow_cy))
+            target_screen.blit(_arrow_surf, _arrow_rect)
+
+            # === 반짝이는 별들 (아이콘 주변) ===
+            for _si in range(4):
+                _sp = (_cur_time * 0.003 + _si * _m.pi / 2) % (_m.pi * 2)
+                _sd = _hr + 20 + _m.sin(_sp * 2) * 8
+                _sa = _sp + _si * (_m.pi / 2)
+                _sx = _hx + _m.cos(_sa) * _sd
+                _sy = _hy + _m.sin(_sa) * _sd
+                _ss = 0.5 + abs(_m.sin(_sp * 3)) * 0.8
+                _ssz = int(8 * _ss)
+                if _ssz > 2:
+                    _spts = []
+                    for _sj in range(8):
+                        _ang = _sj * _m.pi / 4 + _sp
+                        _dist = _ssz if _sj % 2 == 0 else _ssz * 0.4
+                        _spts.append((_sx + _m.cos(_ang) * _dist, _sy + _m.sin(_ang) * _dist))
+                    for _gi in range(2):
+                        _gsz = _ssz + _gi * 3
+                        _ga = 100 - _gi * 40
+                        _gpts = []
+                        for _gj in range(8):
+                            _gang = _gj * _m.pi / 4 + _sp
+                            _gd = _gsz if _gj % 2 == 0 else _gsz * 0.4
+                            _gpts.append((_sx + _m.cos(_gang) * _gd, _sy + _m.sin(_gang) * _gd))
+                        if len(_gpts) >= 3:
+                            pygame.draw.polygon(target_screen, _accent_color, _gpts)
+                    if len(_spts) >= 3:
+                        pygame.draw.polygon(target_screen, (255, 255, 255), _spts)
+
+            # === "여기!" 텍스트 말풍선 ===
+            _bub_x = _arrow_cx + 10
+            _bub_y = _arrow_cy - 25
+            _bub_w, _bub_h = 50, 28
+            _bub_rect = pygame.Rect(_bub_x - _bub_w // 2, _bub_y - _bub_h // 2, _bub_w, _bub_h)
+            _shadow_r = _bub_rect.copy()
+            _shadow_r.x += 2
+            _shadow_r.y += 2
+            pygame.draw.ellipse(target_screen, (0, 0, 0, 80), _shadow_r)
+            pygame.draw.ellipse(target_screen, (255, 255, 255), _bub_rect)
+            pygame.draw.ellipse(target_screen, _main_color, _bub_rect, 2)
+            _tail = [
+                (_bub_x - 8, _bub_y + _bub_h // 2 - 3),
+                (_bub_x - 18, _bub_y + _bub_h // 2 + 12),
+                (_bub_x + 2, _bub_y + _bub_h // 2 - 1),
+            ]
+            pygame.draw.polygon(target_screen, (255, 255, 255), _tail)
+            pygame.draw.line(target_screen, _main_color, _tail[0], _tail[1], 2)
+            pygame.draw.line(target_screen, _main_color, _tail[1], _tail[2], 2)
+            try:
+                _bub_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 14)
+            except Exception:
+                _bub_font = pygame.freetype.SysFont("malgun gothic", 14)
+            _txt_s, _txt_r = _bub_font.render("여기!", _main_color)
+            _txt_r.center = (_bub_x, _bub_y - 1)
+            target_screen.blit(_txt_s, _txt_r)
+
     # 메시지 박스 그리기 (조교 이미지 + 텍스트)
     messages = current.get("messages", [])
     if messages:
