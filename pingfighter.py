@@ -77669,47 +77669,60 @@ def _draw_arena_capture_tutorial() -> None:
 
     target_screen.blit(overlay, (0, 0))
 
-    # === 메시지 박스 (주황/금색 테마) ===
+    # === 조교 이미지 준비 ===
     _main_color = (255, 180, 50)
-    _accent_color = (255, 220, 120)
-    box_width = int(500 * _ui_s)
-    box_height = int(120 * _ui_s)
-    box_x = (screen_width - box_width) // 2
-    box_y = screen_height // 2 - box_height // 2
-
-    # 박스 배경
-    box_surf = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
-    pygame.draw.rect(box_surf, (20, 15, 5, 230), (0, 0, box_width, box_height), border_radius=int(14 * _ui_s))
-    pygame.draw.rect(box_surf, _main_color, (0, 0, box_width, box_height), width=max(2, int(3 * _ui_s)), border_radius=int(14 * _ui_s))
-    target_screen.blit(box_surf, (box_x, box_y))
-
-    # 조교 이미지
     expression = current.get("expression", "default")
     instructor_img = TUTORIAL_INSTRUCTOR_IMGS.get(expression) or TUTORIAL_INSTRUCTOR_IMGS.get("default")
-    inst_width = 0
-    inst_padding = 0
+    inst_width = instructor_img.get_width() if instructor_img else 0
+    inst_height = instructor_img.get_height() if instructor_img else 0
+    if instructor_img and _ui_s != 1.0:
+        inst_width = int(inst_width * _ui_s)
+        inst_height = int(inst_height * _ui_s)
+        instructor_img = pygame.transform.smoothscale(instructor_img, (inst_width, inst_height))
+    inst_padding = int(15 * _ui_s) if instructor_img else 0
+
+    # === 박스 크기 (텍스트 + 조교 이미지 기반 동적 계산) ===
+    messages = current.get("messages", [])
+    text_area_width = int(460 * _ui_s)
+    _line_height = int(35 * _ui_s)
+    box_width = text_area_width + inst_width + inst_padding * 2 + int(20 * _ui_s)
+    min_height = inst_height + int(30 * _ui_s) if instructor_img else int(40 * _ui_s)
+    box_height = max(min_height, int(40 * _ui_s) + len(messages) * _line_height)
+
+    # 화면 중앙 배치
+    if _is_fullscreen_active and REAL_SCREEN is not None:
+        box_x = GAME_OFFSET_X + (GAME_SCALED_WIDTH - box_width) // 2
+        box_y = GAME_OFFSET_Y + (GAME_SCALED_HEIGHT - box_height) // 2
+    else:
+        box_x = (screen_width - box_width) // 2
+        box_y = screen_height // 2 - box_height // 2
+
+    # 박스 배경
+    _border_r = int(15 * _ui_s)
+    box_surf = pygame.Surface((box_width, box_height), pygame.SRCALPHA)
+    pygame.draw.rect(box_surf, (20, 15, 5, 240), (0, 0, box_width, box_height), border_radius=_border_r)
+    pygame.draw.rect(box_surf, _main_color, (0, 0, box_width, box_height), width=max(2, int(3 * _ui_s)), border_radius=_border_r)
+    target_screen.blit(box_surf, (box_x, box_y))
+
+    # 조교 이미지 (왼쪽)
+    text_start_x = box_x + int(15 * _ui_s)
     if instructor_img:
-        inst_width = instructor_img.get_width()
-        inst_height = instructor_img.get_height()
-        if _ui_s != 1.0:
-            inst_width = int(inst_width * _ui_s)
-            inst_height = int(inst_height * _ui_s)
-            instructor_img = pygame.transform.smoothscale(instructor_img, (inst_width, inst_height))
-        inst_padding = int(10 * _ui_s)
         _inst_x = box_x + inst_padding
         _inst_y = box_y + (box_height - inst_height) // 2
         target_screen.blit(instructor_img, (_inst_x, _inst_y))
+        text_start_x = _inst_x + inst_width + inst_padding
 
     # 메시지 렌더
-    messages = current.get("messages", [])
-    _text_left = box_x + inst_width + inst_padding * 2 + int(10 * _ui_s)
-    _text_width = box_width - (inst_width + inst_padding * 2 + int(20 * _ui_s))
-    _line_height = int(28 * _ui_s)
-    total_text_height = _line_height * len(messages)
-    y_offset = box_y + (box_height - total_text_height) // 2
-    _cap_msg_font = get_font(int(22 * _ui_s))
+    _font_size = int(24 * _ui_s)
+    _cap_msg_font = get_font(_font_size)
+    y_offset = box_y + (box_height - len(messages) * _line_height) // 2
     for msg in messages:
-        _render_message_with_keycaps(target_screen, msg, _cap_msg_font, _text_left, _text_width, y_offset, scale=_ui_s)
+        if "{KEY:" in msg:
+            _render_message_with_keycaps(target_screen, msg, _cap_msg_font, text_start_x, text_area_width, y_offset, scale=_ui_s)
+        else:
+            text_surface = _cap_msg_font.render(msg, True, (255, 255, 255))
+            text_rect = text_surface.get_rect(centerx=text_start_x + text_area_width // 2, top=y_offset)
+            target_screen.blit(text_surface, text_rect)
         y_offset += _line_height
 
     hint_font = get_font(int(18 * _ui_s))
