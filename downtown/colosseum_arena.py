@@ -1336,10 +1336,11 @@ class TournamentRound(Enum):
 # 하이라이트 리플레이 녹화 시스템
 # ============================================================================
 class HighlightRecorder:
-    """투기장 하이라이트 녹화 - 원본 해상도 화면 캡처 방식의 롤링 버퍼"""
+    """투기장 하이라이트 녹화 - 50% 축소 캡처로 메모리 최적화 (원본 대비 1/4 메모리)"""
     CAPTURE_INTERVAL = 2   # 매 2프레임마다 캡처 (30fps)
     BUFFER_SIZE = 150      # 5초 분량 (30fps × 5s)
     MAX_CLIPS = 3          # 최대 저장 클립 수
+    SCALE_FACTOR = 0.5     # 캡처 해상도 축소 비율 (50%)
 
     def __init__(self):
         from collections import deque
@@ -1347,6 +1348,7 @@ class HighlightRecorder:
         self.frame_counter = 0
         self.highlight_clips = []   # List[List[pygame.Surface]]
         self.recording = False
+        self._scaled_size = None     # 캐시된 축소 해상도
 
     def start(self):
         """녹화 시작"""
@@ -1354,21 +1356,26 @@ class HighlightRecorder:
         self.frame_counter = 0
         self.highlight_clips.clear()
         self.recording = True
+        self._scaled_size = None
 
     def stop(self):
         """녹화 중단 (클립은 유지)"""
         self.recording = False
 
     def capture_frame(self, screen: pygame.Surface):
-        """매 프레임 호출 - 일정 간격으로 원본 해상도 캡처"""
+        """매 프레임 호출 - 50% 축소 캡처로 메모리 절약"""
         if not self.recording:
             return
         self.frame_counter += 1
         if self.frame_counter % self.CAPTURE_INTERVAL != 0:
             return
-        # 원본 해상도 그대로 캡처 (화질 손실 없음)
         try:
-            self.frame_buffer.append(screen.copy())
+            # 축소 해상도 캐시
+            if self._scaled_size is None:
+                sw, sh = screen.get_size()
+                self._scaled_size = (int(sw * self.SCALE_FACTOR), int(sh * self.SCALE_FACTOR))
+            scaled = pygame.transform.scale(screen, self._scaled_size)
+            self.frame_buffer.append(scaled)
         except Exception:
             pass  # 캡처 실패 시 무시
 
@@ -1389,6 +1396,18 @@ class HighlightRecorder:
     def get_clips(self):
         return self.highlight_clips
 
+    def get_clip_frame(self, clip_idx: int, frame_idx: int, target_size: tuple = None) -> pygame.Surface:
+        """클립 프레임을 원본 해상도로 업스케일하여 반환"""
+        if clip_idx >= len(self.highlight_clips):
+            return None
+        clip = self.highlight_clips[clip_idx]
+        if frame_idx >= len(clip):
+            return None
+        frame = clip[frame_idx]
+        if target_size and frame.get_size() != target_size:
+            return pygame.transform.scale(frame, target_size)
+        return frame
+
     def clear(self):
         """메모리 해제"""
         self.frame_buffer.clear()
@@ -1396,6 +1415,7 @@ class HighlightRecorder:
             clip.clear()
         self.highlight_clips.clear()
         self.recording = False
+        self._scaled_size = None
 
 
 # ============================================================================
@@ -7099,8 +7119,10 @@ class ColosseumsArena:
         self.admin_all_heroes = list(ARENA_HEROES)  # 선택 가능한 전체 영웅 목록
         self.admin_scroll_offset = 0                # 스크롤 오프셋 (영웅 많을 때)
 
+    _TEXT_CACHE_MAX = 256  # 텍스트 캐시 최대 크기 (메모리 누수 방지)
+
     def _render_text(self, font_key: str, text: str, color: tuple):
-        """정적 텍스트 렌더링 캐시 (매 프레임 동일 텍스트 재렌더링 방지)"""
+        """정적 텍스트 렌더링 캐시 (매 프레임 동일 텍스트 재렌더링 방지, 최대 256개)"""
         key = (font_key, text, color)
         cached = self._text_cache.get(key)
         if cached is not None:
@@ -7108,6 +7130,11 @@ class ColosseumsArena:
         font = self.fonts.get(font_key)
         if font is None:
             return None, None
+        # 캐시 크기 제한 - 오래된 항목 50% 제거
+        if len(self._text_cache) >= self._TEXT_CACHE_MAX:
+            keys = list(self._text_cache.keys())
+            for k in keys[:len(keys) // 2]:
+                del self._text_cache[k]
         surf, rect = font.render(text, color)
         self._text_cache[key] = (surf, rect)
         return surf, rect
@@ -16954,12 +16981,14 @@ class ColosseumsArena:
         if not clip:
             return
 
-        # 현재 프레임 가져오기
+        # 현재 프레임 가져오기 (축소 저장된 프레임을 원본 해상도로 업스케일)
         frame_idx = max(0, min(self.highlight_frame_index, len(clip) - 1))
         frame_surf = clip[frame_idx]
-
-        # 원본 해상도 그대로 사용 (스케일업 불필요)
-        full_surf = frame_surf
+        screen_size = self.screen.get_size()
+        if frame_surf.get_size() != screen_size:
+            full_surf = pygame.transform.scale(frame_surf, screen_size)
+        else:
+            full_surf = frame_surf
 
         # 페이드 알파 계산
         fade_alpha = 255

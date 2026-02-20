@@ -22074,90 +22074,279 @@ def _draw_shout_bubble(x, y, text, timer, max_timer, theme_color):
         pass
 
 
+# ============================================================================
+# 투기장 대쉬 시스템 - 통합 공통 함수 (top/bottom 코드 중복 제거)
+# ============================================================================
+
+def _predict_x_with_walls(x: float, vx: float, frames: float) -> float:
+    """벽 반사를 고려한 공의 예상 X 위치 계산 (투기장 대쉬용)"""
+    if abs(vx) < 1e-3 or frames <= 0:
+        return x
+    remaining = frames
+    x_min = 0.0
+    x_max = float(WIDTH)
+    for _ in range(4):
+        if remaining <= 0:
+            break
+        if vx > 0:
+            t_wall = (x_max - x) / vx if vx != 0 else float("inf")
+        else:
+            t_wall = (x_min - x) / vx if vx != 0 else float("inf")
+        if t_wall <= 0 or t_wall >= remaining:
+            x += vx * remaining
+            remaining = 0
+            break
+        x += vx * t_wall
+        remaining -= t_wall
+        vx = -vx
+    return max(x_min, min(x_max, x))
+
+
+def _arena_trigger_hero_dash_ai(is_top: bool, target_x: float) -> bool:
+    """투기장 영웅(AI) 대쉬 발동 (top/bottom 통합)"""
+    g = globals()
+    side = 'top' if is_top else 'bottom'
+
+    # 스팀 배리어 시전 중에는 대쉬 발동 불가
+    if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False):
+        barrier_owner_is_top = arena_skill_manager.game_state.get('barrier_owner_is_top', False)
+        if barrier_owner_is_top == is_top:
+            return False
+
+    # 귀신발걸음 활성 중에는 대쉬 발동 불가 (bottom만)
+    if not is_top and arena_bottom_ghost_step_active:
+        return False
+
+    # 대쉬 중이거나 후딜 중이면 발동 불가
+    if g[f'arena_{side}_dashing'] or g[f'arena_{side}_dash_stun_timer'] > 0:
+        return False
+
+    # 스턴/감전 상태에서는 대쉬 불가
+    stun_timer_val = g.get(f'_judgment_lightning_stun_{side}_timer', 0)
+    if stun_timer_val > 0:
+        return False
+    if arena_skill_manager and arena_skill_manager.game_state.get(f'{side}_paddle_electric_stun', False):
+        return False
+
+    # 토큰 없으면 발동 불가
+    if g[f'arena_{side}_dash_charges'] <= 0:
+        return False
+
+    paddle = BOSS if is_top else PLAYER
+    paddle_half = paddle.width // 2
+
+    direction = 1 if target_x > paddle.centerx else -1
+    base_distance = abs(target_x - paddle.centerx)
+    if base_distance < 30:
+        return False
+
+    # 폭풍질주 퍽: 실제 대쉬 거리 증가
+    perk_mult = g[f'arena_perk_dash_distance_mult_{side}']
+    dash_distance = base_distance * perk_mult
+    extended_target_x = paddle.centerx + direction * dash_distance
+    extended_target_x = float(max(paddle_half, min(WIDTH - paddle_half, extended_target_x)))
+    dash_distance = abs(extended_target_x - paddle.centerx)
+
+    g[f'arena_{side}_dash_direction'] = direction
+    g[f'arena_{side}_dash_target_x'] = extended_target_x
+
+    # 동적 지속시간 계산 (실제 이동 거리 기반)
+    estimated_duration = dash_distance / 30.0
+    g[f'arena_{side}_dash_duration_frames'] = int(max(10, min(estimated_duration, 60)))
+    g[f'arena_{side}_dash_timer'] = g[f'arena_{side}_dash_duration_frames']
+    g[f'arena_{side}_dashing'] = True
+    g[f'arena_{side}_dash_charges'] -= 1
+    g[f'arena_{side}_dash_charge_timer'] = 0
+
+    # 폭풍질주 퍽: 버스트업 Lv3 효과 (패들 높이 증가 + 사운드 + 파티클)
+    if perk_mult > 1.0:
+        g[f'arena_storm_rush_burst_{side}'] = True
+        g[f'arena_storm_rush_height_bonus_{side}'] = int(paddle.height * 2.1)
+        _spawn_storm_rush_particles(paddle.centerx, paddle.centery)
+        try:
+            play_sound_with_volume(SOUND_BURST_UP)
+        except Exception:
+            try:
+                play_dash_sound()
+            except Exception:
+                pass
+    else:
+        try:
+            play_dash_sound()
+        except Exception:
+            pass
+
+    return True
+
+
+def _arena_update_hero_dash(is_top: bool):
+    """투기장 영웅 대쉬 업데이트 (top/bottom 통합)"""
+    g = globals()
+    side = 'top' if is_top else 'bottom'
+
+    # 폭풍질주 파티클 업데이트 (top에서만 1회 처리, 공유 리스트)
+    if is_top:
+        new_particles = []
+        for p in arena_storm_rush_particles:
+            p[0] += p[2]  # x += vx
+            p[1] += p[3]  # y += vy
+            p[4] -= 1     # life -= 1
+            if p[4] > 0:
+                new_particles.append(p)
+        g['arena_storm_rush_particles'] = new_particles
+
+    # 스팀 배리어 시전 중에는 대쉬 즉시 취소
+    if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False):
+        barrier_owner_is_top = arena_skill_manager.game_state.get('barrier_owner_is_top', False)
+        if barrier_owner_is_top == is_top:
+            if g[f'arena_{side}_dashing']:
+                g[f'arena_{side}_dashing'] = False
+                g[f'arena_{side}_dash_timer'] = 0
+                g[f'arena_storm_rush_burst_{side}'] = False
+                g[f'arena_storm_rush_height_bonus_{side}'] = 0
+            return False
+
+    # 귀신발걸음 활성 중에는 대쉬 시스템 비활성화 (bottom만)
+    if not is_top and arena_bottom_ghost_step_active:
+        if g[f'arena_{side}_dashing']:
+            g[f'arena_{side}_dashing'] = False
+            g[f'arena_{side}_dash_timer'] = 0
+            g[f'arena_storm_rush_burst_{side}'] = False
+            g[f'arena_storm_rush_height_bonus_{side}'] = 0
+        return False
+
+    # 충전 타이머 업데이트 (대쉬 중/후딜 중에는 충전 안 함)
+    max_charges = g[f'arena_{side}_max_dash_charges']
+    charges = g[f'arena_{side}_dash_charges']
+    cooldown = g[f'arena_{side}_dash_cooldown']
+    stun_timer = g[f'arena_{side}_dash_stun_timer']
+    dashing = g[f'arena_{side}_dashing']
+
+    if charges < max_charges and cooldown <= 0 and stun_timer <= 0 and not dashing:
+        g[f'arena_{side}_dash_charge_timer'] += 1
+        if g[f'arena_{side}_dash_charge_timer'] >= ARENA_DASH_CHARGE_TIME:
+            charged_idx = charges
+            g[f'arena_{side}_dash_charges'] = min(max_charges, charges + 1)
+            g[f'arena_{side}_dash_charge_timer'] = 0
+            play_dash_charge_sound()
+            # 하단 전용: 토큰 플래시 반짝임 효과
+            if not is_top:
+                while len(_token_flash_timers) <= charged_idx:
+                    _token_flash_timers.append(0)
+                _token_flash_timers[charged_idx] = _TOKEN_FLASH_DURATION
+                if g[f'arena_{side}_dash_charges'] >= max_charges:
+                    g['_all_tokens_full_sparkle_timer'] = _ALL_TOKENS_FULL_SPARKLE_DURATION
+
+    # 쿨다운 감소
+    if cooldown > 0:
+        g[f'arena_{side}_dash_cooldown'] = cooldown - 1
+
+    # 후딜(스턴) 처리
+    if stun_timer > 0:
+        g[f'arena_{side}_dash_stun_timer'] = stun_timer - 1
+        if stun_timer > 0 and stun_timer - 1 <= 0:
+            try:
+                stop_dash_delay_sound()
+            except Exception:
+                pass
+        return True
+
+    if not dashing:
+        # 잔상 페이드아웃
+        afterimages = g[f'arena_{side}_dash_afterimages']
+        new_afterimages = []
+        for img in afterimages:
+            img['alpha'] -= 25
+            img['life'] = img.get('life', 10) - 1
+            if img['alpha'] > 0 and img['life'] > 0:
+                new_afterimages.append(img)
+        g[f'arena_{side}_dash_afterimages'] = new_afterimages
+        return False
+
+    g[f'arena_{side}_dash_timer'] -= 1
+    timer = g[f'arena_{side}_dash_timer']
+    duration = g[f'arena_{side}_dash_duration_frames']
+    speed = g[f'arena_{side}_dash_speed']
+    direction = g[f'arena_{side}_dash_direction']
+    target_x = g[f'arena_{side}_dash_target_x']
+
+    paddle = BOSS if is_top else PLAYER
+
+    # 속도 곡선: 초반 20프레임 고속, 후반 감속
+    high_phase_frames = min(20, duration)
+    if timer > high_phase_frames:
+        move_step = speed * direction
+    else:
+        decel_factor = max(0.0, timer / float(high_phase_frames)) if high_phase_frames > 0 else 0.0
+        move_step = speed * direction * decel_factor
+
+    paddle.centerx += move_step
+
+    # 목표 도달 체크
+    if direction > 0 and paddle.centerx >= target_x:
+        paddle.centerx = int(target_x)
+    elif direction < 0 and paddle.centerx <= target_x:
+        paddle.centerx = int(target_x)
+
+    # 게임 영역 내 제한
+    paddle_half = paddle.width // 2
+    paddle.centerx = max(paddle_half, min(WIDTH - paddle_half, paddle.centerx))
+
+    # 잔상 추가 (매 프레임, 최대 6개)
+    afterimages = g[f'arena_{side}_dash_afterimages']
+    afterimages.append({
+        'x': paddle.centerx, 'y': paddle.centery,
+        'width': paddle.width, 'height': paddle.height,
+        'alpha': 160, 'life': 10,
+        'storm_rush': g[f'arena_storm_rush_burst_{side}']
+    })
+    if len(afterimages) > 6:
+        afterimages.pop(0)
+
+    # 대쉬 종료
+    if timer <= 0:
+        g[f'arena_{side}_dashing'] = False
+        g[f'arena_storm_rush_burst_{side}'] = False
+        g[f'arena_storm_rush_height_bonus_{side}'] = 0
+        g[f'arena_{side}_dash_stun_timer'] = ARENA_DASH_STUN_FRAMES
+        perk_cd = g[f'arena_perk_dash_cd_mult_{side}']
+        g[f'arena_{side}_dash_cooldown'] = int(random.randint(ARENA_DASH_COOLDOWN_MIN, ARENA_DASH_COOLDOWN_MAX) * perk_cd)
+        try:
+            play_dash_delay_sound()
+        except Exception:
+            pass
+
+    return True
+
+
 def arena_should_top_hero_dash() -> tuple[bool, float]:
-    """상단 영웅(AI) 대쉬 발동 조건 체크 - 보스와 동일한 조건
-
-    Returns:
-        (should_dash, target_x): 대쉬 발동 여부와 목표 X 좌표
-    """
-    global arena_top_dashing, arena_top_dash_cooldown, arena_top_dash_stun_timer
-
+    """상단 영웅(AI) 대쉬 발동 조건 체크"""
     # 스팀 배리어 시전 중에는 대쉬 발동 불가
     if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and arena_skill_manager.game_state.get('barrier_owner_is_top', False):
         return False, 0.0
-
-    # 대쉬 중이거나 후딜 중이면 발동 불가
     if arena_top_dashing or arena_top_dash_stun_timer > 0:
         return False, 0.0
-
     # 스턴/감전 상태에서는 대쉬 불가
     if _judgment_lightning_stun_top_timer > 0 or (arena_skill_manager and arena_skill_manager.game_state.get('top_paddle_electric_stun', False)):
         return False, 0.0
-
-    # 토큰 없으면 발동 불가 (쿨다운은 충전만 제어, 토큰 남아있으면 사용 가능)
     if arena_top_dash_charges <= 0:
         return False, 0.0
-
-    # 공이 상단 영웅(보스) 방향으로 향하지 않으면 사용하지 않음
     if ball_vel[1] >= 0:
         return False, 0.0
 
-    # 공이 보스 라인 아래 특정 Y 구간에 있을 때만 대쉬 고려
-    # dy가 작을수록 공이 보스에 가까움 (100px = 더 가까워졌을 때만 발동)
     dy = BALL.centery - BOSS.bottom
     if dy <= 0 or dy > 100:
         return False, 0.0
-
-    time_to_boss = dy / max(1.0, abs(ball_vel[1]))  # 프레임 단위 예상 시간
-
-    # 공이 아직 너무 멀리 있을 때는 일반 이동으로 대응 가능하므로 대쉬 사용 안 함
-    if time_to_boss > 18.0:  # 약 0.3초 이상 남으면 대쉬 안 씀
+    time_to_paddle = dy / max(1.0, abs(ball_vel[1]))
+    if time_to_paddle > 18.0:
         return False, 0.0
 
-    # 투기장 영웅 이동 속도 추정 (일반 이동 성능)
-    effective_speed = 8.0 * 1.5  # 투기장 AI 이동 속도 여유 포함
-
-    # 남은 시간 동안 일반 이동으로 커버할 수 있는 최대 거리
-    max_travel = effective_speed * time_to_boss
-
-    # 사이드 벽 반사를 고려한 공의 예상 X 위치 계산
-    def _predict_x_with_walls(x: float, vx: float, frames: float) -> float:
-        if abs(vx) < 1e-3 or frames <= 0:
-            return x
-        remaining = frames
-        x_min = 0.0
-        x_max = float(WIDTH)
-        for _ in range(4):
-            if remaining <= 0:
-                break
-            if vx > 0:
-                t_wall = (x_max - x) / vx if vx != 0 else float("inf")
-            else:
-                t_wall = (x_min - x) / vx if vx != 0 else float("inf")
-            if t_wall <= 0 or t_wall >= remaining:
-                x += vx * remaining
-                remaining = 0
-                break
-            x += vx * t_wall
-            remaining -= t_wall
-            vx = -vx
-        return max(x_min, min(x_max, x))
-
-    predicted_x = _predict_x_with_walls(float(BALL.centerx), float(ball_vel[0]), float(time_to_boss))
-    boss_min_cx = BOSS.width // 2
-    boss_max_cx = WIDTH - BOSS.width // 2
-    predicted_x = max(boss_min_cx, min(boss_max_cx, predicted_x))
-
+    max_travel = 12.0 * time_to_paddle  # 8.0 * 1.5
+    predicted_x = _predict_x_with_walls(float(BALL.centerx), float(ball_vel[0]), float(time_to_paddle))
+    predicted_x = max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, predicted_x))
     required = abs(predicted_x - BOSS.centerx)
-
-    # 일반 이동으로도 충분히 커버 가능한 거리라면 대쉬 불필요
-    if required <= max_travel:
+    if required <= max_travel or required < BOSS.width * 0.8:
         return False, 0.0
-
-    # 작은 보정만으로 막을 수 있는 상황(보스 폭의 80% 미만 차이)에서는 대쉬 사용 안 함
-    if required < BOSS.width * 0.8:
-        return False, 0.0
-
     return True, predicted_x
 
 
@@ -22191,553 +22380,82 @@ def _spawn_storm_rush_particles(cx, cy):
 
 
 def arena_trigger_top_hero_dash(target_x: float) -> bool:
-    """상단 영웅(AI) 대쉬 발동 - 보스 대쉬와 동일한 방식"""
-    global arena_top_dashing, arena_top_dash_timer, arena_top_dash_direction
-    global arena_top_dash_target_x, arena_top_dash_cooldown, arena_top_dash_duration_frames
-    global arena_top_dash_stun_timer, arena_top_dash_charges, arena_top_dash_charge_timer
-    global arena_storm_rush_burst_top, arena_storm_rush_height_bonus_top
-
-    # 스팀 배리어 시전 중에는 대쉬 발동 불가
-    if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and arena_skill_manager.game_state.get('barrier_owner_is_top', False):
-        return False
-
-    # 대쉬 중이거나 후딜 중이면 발동 불가
-    if arena_top_dashing or arena_top_dash_stun_timer > 0:
-        return False
-
-    # 토큰 없으면 발동 불가 (쿨다운은 충전만 제어, 토큰 남아있으면 사용 가능)
-    if arena_top_dash_charges <= 0:
-        return False
-
-    direction = 1 if target_x > BOSS.centerx else -1
-    base_distance = abs(target_x - BOSS.centerx)
-
-    # 최소 거리 체크
-    if base_distance < 30:
-        return False
-
-    # 폭풍질주 퍽: 실제 대쉬 거리(px) 증가
-    dash_distance = base_distance * arena_perk_dash_distance_mult_top
-    extended_target_x = BOSS.centerx + direction * dash_distance
-    extended_target_x = float(max(BOSS.width // 2, min(WIDTH - BOSS.width // 2, extended_target_x)))
-    dash_distance = abs(extended_target_x - BOSS.centerx)  # 경계 클램프 후 실제 거리
-
-    arena_top_dash_direction = direction
-    arena_top_dash_target_x = extended_target_x
-
-    # 동적 지속시간 계산 (실제 이동 거리 기반)
-    estimated_duration = dash_distance / 30.0
-    arena_top_dash_duration_frames = int(max(10, min(estimated_duration, 60)))  # 10~60 프레임
-    arena_top_dash_timer = arena_top_dash_duration_frames
-    arena_top_dashing = True
-    arena_top_dash_charges -= 1             # 토큰 1개 소비
-    arena_top_dash_charge_timer = 0         # 충전 타이머 리셋 (새 토큰 충전 시작)
-
-    # 폭풍질주 퍽: 버스트업 Lv3 효과 (패들 높이 증가 + 사운드 + 파티클)
-    if arena_perk_dash_distance_mult_top > 1.0:
-        arena_storm_rush_burst_top = True
-        arena_storm_rush_height_bonus_top = int(BOSS.height * 2.1)
-        _spawn_storm_rush_particles(BOSS.centerx, BOSS.centery)
-        try:
-            play_sound_with_volume(SOUND_BURST_UP)
-        except Exception:
-            try:
-                play_dash_sound()
-            except Exception:
-                pass
-    else:
-        try:
-            play_dash_sound()
-        except Exception:
-            pass
-
-    return True
+    """상단 영웅(AI) 대쉬 발동 → 통합 함수 위임"""
+    return _arena_trigger_hero_dash_ai(True, target_x)
 
 
 def arena_should_bottom_hero_dash() -> tuple[bool, float]:
-    """하단 영웅(AI) 대쉬 발동 조건 체크 - 보스와 동일한 조건
-
-    Returns:
-        (should_dash, target_x): 대쉬 발동 여부와 목표 X 좌표
-    """
-    global arena_bottom_dashing, arena_bottom_dash_cooldown, arena_bottom_dash_stun_timer
-
+    """하단 영웅(AI) 대쉬 발동 조건 체크"""
     # 스팀 배리어 시전 중에는 대쉬 발동 불가 (하단 패들이 시전자일 때)
     if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and not arena_skill_manager.game_state.get('barrier_owner_is_top', False):
         return False, 0.0
-
-    # 대쉬 중이거나 후딜 중이면 발동 불가 (쿨다운은 충전만 제어, 토큰 남아있으면 사용 가능)
     if arena_bottom_dashing or arena_bottom_dash_stun_timer > 0:
         return False, 0.0
-
-    # 공이 하단 영웅(플레이어) 방향으로 향하지 않으면 사용하지 않음
     if ball_vel[1] <= 0:
         return False, 0.0
 
-    # 공이 플레이어 라인 위 특정 Y 구간에 있을 때만 대쉬 고려
-    # dy가 작을수록 공이 플레이어에 가까움 (100px = 더 가까워졌을 때만 발동)
     dy = PLAYER.top - BALL.centery
     if dy <= 0 or dy > 100:
         return False, 0.0
-
-    time_to_player = dy / max(1.0, abs(ball_vel[1]))  # 프레임 단위 예상 시간
-
-    # 공이 아직 너무 멀리 있을 때는 일반 이동으로 대응 가능하므로 대쉬 사용 안 함
-    if time_to_player > 18.0:  # 약 0.3초 이상 남으면 대쉬 안 씀
+    time_to_paddle = dy / max(1.0, abs(ball_vel[1]))
+    if time_to_paddle > 18.0:
         return False, 0.0
 
-    # 투기장 영웅 이동 속도 추정 (일반 이동 성능)
-    effective_speed = 8.0 * 1.5  # 투기장 AI 이동 속도 여유 포함
-
-    # 남은 시간 동안 일반 이동으로 커버할 수 있는 최대 거리
-    max_travel = effective_speed * time_to_player
-
-    # 사이드 벽 반사를 고려한 공의 예상 X 위치 계산
-    def _predict_x_with_walls(x: float, vx: float, frames: float) -> float:
-        if abs(vx) < 1e-3 or frames <= 0:
-            return x
-        remaining = frames
-        x_min = 0.0
-        x_max = float(WIDTH)
-        for _ in range(4):
-            if remaining <= 0:
-                break
-            if vx > 0:
-                t_wall = (x_max - x) / vx if vx != 0 else float("inf")
-            else:
-                t_wall = (x_min - x) / vx if vx != 0 else float("inf")
-            if t_wall <= 0 or t_wall >= remaining:
-                x += vx * remaining
-                remaining = 0
-                break
-            x += vx * t_wall
-            remaining -= t_wall
-            vx = -vx
-        return max(x_min, min(x_max, x))
-
-    predicted_x = _predict_x_with_walls(float(BALL.centerx), float(ball_vel[0]), float(time_to_player))
-    player_min_cx = PADDLE_WIDTH // 2
-    player_max_cx = WIDTH - PADDLE_WIDTH // 2
-    predicted_x = max(player_min_cx, min(player_max_cx, predicted_x))
-
+    max_travel = 12.0 * time_to_paddle  # 8.0 * 1.5
+    predicted_x = _predict_x_with_walls(float(BALL.centerx), float(ball_vel[0]), float(time_to_paddle))
+    predicted_x = max(PADDLE_WIDTH // 2, min(WIDTH - PADDLE_WIDTH // 2, predicted_x))
     required = abs(predicted_x - PLAYER.centerx)
-
-    # 일반 이동으로도 충분히 커버 가능한 거리라면 대쉬 불필요
-    if required <= max_travel:
+    if required <= max_travel or required < PLAYER.width * 0.8:
         return False, 0.0
-
-    # 작은 보정만으로 막을 수 있는 상황(패들 폭의 80% 미만 차이)에서는 대쉬 사용 안 함
-    if required < PLAYER.width * 0.8:
-        return False, 0.0
-
     return True, predicted_x
 
 
 def arena_trigger_bottom_hero_dash_ai(target_x: float) -> bool:
-    """하단 영웅(AI) 대쉬 발동 - 보스 대쉬와 동일한 방식 (AI용)"""
-    global arena_bottom_dashing, arena_bottom_dash_timer, arena_bottom_dash_direction
-    global arena_bottom_dash_target_x, arena_bottom_dash_cooldown
-    global arena_bottom_dash_duration_frames, arena_bottom_dash_stun_timer
-    global arena_bottom_dash_charges, arena_bottom_dash_charge_timer
-    global arena_storm_rush_burst_bottom, arena_storm_rush_height_bonus_bottom
-
-    # 스팀 배리어 시전 중에는 대쉬 발동 불가 (하단 패들이 시전자일 때)
-    if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and not arena_skill_manager.game_state.get('barrier_owner_is_top', False):
-        return False
-
-    # 🔥 귀신발걸음 활성 중에는 대쉬 발동 불가 (X축 점프 방지)
-    if arena_bottom_ghost_step_active:
-        return False
-
-    # 대쉬 중이거나 후딜 중이면 발동 불가
-    if arena_bottom_dashing or arena_bottom_dash_stun_timer > 0:
-        return False
-
-    # 스턴/감전 상태에서는 대쉬 불가
-    if _judgment_lightning_stun_bottom_timer > 0 or (arena_skill_manager and arena_skill_manager.game_state.get('bottom_paddle_electric_stun', False)):
-        return False
-
-    # 토큰 없으면 발동 불가 (쿨다운은 충전만 제어, 토큰 남아있으면 사용 가능)
-    if arena_bottom_dash_charges <= 0:
-        return False
-
-    direction = 1 if target_x > PLAYER.centerx else -1
-    base_distance = abs(target_x - PLAYER.centerx)
-
-    # 최소 거리 체크
-    if base_distance < 30:
-        return False
-
-    # 폭풍질주 퍽: 실제 대쉬 거리(px) 증가
-    dash_distance = base_distance * arena_perk_dash_distance_mult_bottom
-    extended_target_x = PLAYER.centerx + direction * dash_distance
-    extended_target_x = float(max(PADDLE_WIDTH // 2, min(WIDTH - PADDLE_WIDTH // 2, extended_target_x)))
-    dash_distance = abs(extended_target_x - PLAYER.centerx)  # 경계 클램프 후 실제 거리
-
-    arena_bottom_dash_direction = direction
-    arena_bottom_dash_target_x = extended_target_x
-
-    # 동적 지속시간 계산 (실제 이동 거리 기반)
-    estimated_duration = dash_distance / 30.0
-    arena_bottom_dash_duration_frames = int(max(10, min(estimated_duration, 60)))  # 10~60 프레임
-    arena_bottom_dash_timer = arena_bottom_dash_duration_frames
-    arena_bottom_dashing = True
-    arena_bottom_dash_charges -= 1  # 대쉬 토큰 소모
-    arena_bottom_dash_charge_timer = 0  # 충전 타이머 리셋 (새 토큰 충전 시작)
-
-    # 폭풍질주 퍽: 버스트업 Lv3 효과
-    if arena_perk_dash_distance_mult_bottom > 1.0:
-        arena_storm_rush_burst_bottom = True
-        arena_storm_rush_height_bonus_bottom = int(PADDLE_HEIGHT * 2.1)
-        _spawn_storm_rush_particles(PLAYER.centerx, PLAYER.centery)
-        try:
-            play_sound_with_volume(SOUND_BURST_UP)
-        except Exception:
-            try:
-                play_dash_sound()
-            except Exception:
-                pass
-    else:
-        try:
-            play_dash_sound()
-        except Exception:
-            pass
-
-    return True
+    """하단 영웅(AI) 대쉬 발동 → 통합 함수 위임"""
+    return _arena_trigger_hero_dash_ai(False, target_x)
 
 
 def arena_trigger_bottom_hero_dash(direction: int) -> bool:
-    """하단 영웅(플레이어) 대쉬 발동 - 수동 조작용"""
-    global arena_bottom_dashing, arena_bottom_dash_timer, arena_bottom_dash_direction
-    global arena_bottom_dash_target_x, arena_bottom_dash_cooldown, arena_bottom_dash_charges
-    global arena_bottom_dash_duration_frames, arena_bottom_dash_stun_timer
-    global arena_storm_rush_burst_bottom, arena_storm_rush_height_bonus_bottom
-
-    # 스팀 배리어 시전 중에는 대쉬 발동 불가 (하단 패들이 시전자일 때)
-    if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and not arena_skill_manager.game_state.get('barrier_owner_is_top', False):
-        return False
-
-    # 🔥 귀신발걸음 활성 중에는 대쉬 발동 불가 (X축 점프 방지)
-    if arena_bottom_ghost_step_active:
-        return False
-
-    # 대쉬 중이거나 후딜 중이면 발동 불가
-    if arena_bottom_dashing or arena_bottom_dash_stun_timer > 0:
-        return False
-
-    # 스턴/감전 상태에서는 대쉬 불가
-    if _judgment_lightning_stun_bottom_timer > 0 or (arena_skill_manager and arena_skill_manager.game_state.get('bottom_paddle_electric_stun', False)):
-        return False
-
-    # 토큰 없으면 발동 불가 (쿨다운은 충전만 제어, 토큰 남아있으면 사용 가능)
-    if arena_bottom_dash_charges <= 0:
-        return False
-
-    arena_bottom_dash_direction = direction
-    # 대쉬 목표 = 현재 위치 + 방향 * 대쉬 거리(150px) * 폭풍질주 퍽 멀티플라이어
-    base_dash_px = 150
-    dash_px = base_dash_px * arena_perk_dash_distance_mult_bottom
+    """하단 영웅(플레이어) 대쉬 발동 - 수동 조작용 (고정 150px 거리)"""
+    # 대쉬 목표 = 현재 위치 + 방향 * 150px * 폭풍질주 퍽
+    dash_px = 150 * arena_perk_dash_distance_mult_bottom
     target_x = PLAYER.centerx + direction * dash_px
     target_x = float(max(PADDLE_WIDTH // 2, min(WIDTH - PADDLE_WIDTH // 2, target_x)))
-    arena_bottom_dash_target_x = target_x
-
-    # 동적 지속시간 계산 (실제 이동 거리 기반)
-    dash_distance = abs(target_x - PLAYER.centerx)
-    estimated_duration = dash_distance / 30.0
-    arena_bottom_dash_duration_frames = int(max(10, min(estimated_duration, 60)))  # 10~60 프레임
-    arena_bottom_dash_timer = arena_bottom_dash_duration_frames
-    arena_bottom_dashing = True
-    arena_bottom_dash_charges -= 1
-    arena_bottom_dash_charge_timer = 0  # 충전 타이머 리셋 (새 토큰 충전 시작)
-
-    # 폭풍질주 퍽: 버스트업 Lv3 효과
-    if arena_perk_dash_distance_mult_bottom > 1.0:
-        arena_storm_rush_burst_bottom = True
-        arena_storm_rush_height_bonus_bottom = int(PADDLE_HEIGHT * 2.1)
-        _spawn_storm_rush_particles(PLAYER.centerx, PLAYER.centery)
-        try:
-            play_sound_with_volume(SOUND_BURST_UP)
-        except Exception:
-            try:
-                play_dash_sound()
-            except Exception:
-                pass
-    else:
-        try:
-            play_dash_sound()
-        except Exception:
-            pass
-
-    return True
+    return _arena_trigger_hero_dash_ai(False, target_x)
 
 
 def update_arena_top_hero_dash():
-    """상단 영웅 대쉬 업데이트 - 보스 대쉬와 동일한 방식"""
-    global arena_top_dashing, arena_top_dash_timer, arena_top_dash_cooldown
-    global arena_top_dash_afterimages, arena_top_dash_stun_timer, arena_top_dash_duration_frames
-    global arena_top_dash_charges, arena_top_dash_charge_timer
-    global arena_storm_rush_burst_top, arena_storm_rush_height_bonus_top, arena_storm_rush_particles
-
-    # 폭풍질주 파티클 업데이트 (대쉬 상태와 무관하게 매 프레임)
-    new_particles = []
-    for p in arena_storm_rush_particles:
-        p[0] += p[2]  # x += vx
-        p[1] += p[3]  # y += vy
-        p[4] -= 1     # life -= 1
-        if p[4] > 0:
-            new_particles.append(p)
-    arena_storm_rush_particles = new_particles
-
-    # 스팀 배리어 시전 중에는 대쉬 즉시 취소
-    if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and arena_skill_manager.game_state.get('barrier_owner_is_top', False):
-        if arena_top_dashing:
-            arena_top_dashing = False
-            arena_top_dash_timer = 0
-            arena_storm_rush_burst_top = False
-            arena_storm_rush_height_bonus_top = 0
-        return False
-
-    # 충전 타이머 업데이트 (대쉬 중/후딜 중에는 충전 안 함) - 하단 영웅과 동일
-    if arena_top_dash_charges < arena_top_max_dash_charges and arena_top_dash_cooldown <= 0 and arena_top_dash_stun_timer <= 0 and not arena_top_dashing:
-        arena_top_dash_charge_timer += 1
-        if arena_top_dash_charge_timer >= ARENA_DASH_CHARGE_TIME:
-            arena_top_dash_charges = min(arena_top_max_dash_charges, arena_top_dash_charges + 1)
-            arena_top_dash_charge_timer = 0
-            play_dash_charge_sound()
-
-    # 쿨다운 감소
-    if arena_top_dash_cooldown > 0:
-        arena_top_dash_cooldown -= 1
-
-    # 후딜(스턴) 처리 - 보스와 동일 (후딜 중에는 이동 불가)
-    if arena_top_dash_stun_timer > 0:
-        _prev_stun = arena_top_dash_stun_timer
-        arena_top_dash_stun_timer -= 1
-        # 후딜 종료 시 사운드 중지
-        if _prev_stun > 0 and arena_top_dash_stun_timer <= 0:
-            try:
-                stop_dash_delay_sound()
-            except Exception:
-                pass
-        return True  # 후딜 중에는 True 반환하여 AI 이동 처리 건너뜀
-
-    if not arena_top_dashing:
-        # 잔상 페이드아웃 - 보스와 동일 (life 기반)
-        new_afterimages = []
-        for img in arena_top_dash_afterimages:
-            img['alpha'] -= 25
-            img['life'] = img.get('life', 10) - 1
-            if img['alpha'] > 0 and img['life'] > 0:
-                new_afterimages.append(img)
-        arena_top_dash_afterimages = new_afterimages
-        return False
-
-    arena_top_dash_timer -= 1
-
-    # 보스와 동일한 속도 곡선: 초반 20프레임 고속, 후반 감속
-    high_phase_frames = min(20, arena_top_dash_duration_frames)
-    if arena_top_dash_timer > high_phase_frames:
-        move_step = arena_top_dash_speed * arena_top_dash_direction
-    else:
-        decel_factor = max(0.0, arena_top_dash_timer / float(high_phase_frames)) if high_phase_frames > 0 else 0.0
-        move_step = arena_top_dash_speed * arena_top_dash_direction * decel_factor
-
-    BOSS.centerx += move_step
-
-    # 목표 도달 체크
-    if arena_top_dash_direction > 0 and BOSS.centerx >= arena_top_dash_target_x:
-        BOSS.centerx = int(arena_top_dash_target_x)
-    elif arena_top_dash_direction < 0 and BOSS.centerx <= arena_top_dash_target_x:
-        BOSS.centerx = int(arena_top_dash_target_x)
-
-    # 게임 영역 내 제한
-    boss_min_cx = BOSS.width // 2
-    boss_max_cx = WIDTH - BOSS.width // 2
-    BOSS.centerx = max(boss_min_cx, min(boss_max_cx, BOSS.centerx))
-
-    # 잔상 추가 - 보스와 동일 (매 프레임, 6개, life 속성)
-    arena_top_dash_afterimages.append({
-        'x': BOSS.centerx, 'y': BOSS.centery,
-        'width': BOSS.width, 'height': BOSS.height,
-        'alpha': 160, 'life': 10,
-        'storm_rush': arena_storm_rush_burst_top  # 로즈골드 잔상 여부
-    })
-    if len(arena_top_dash_afterimages) > 6:
-        arena_top_dash_afterimages.pop(0)
-
-    # 대쉬 종료
-    if arena_top_dash_timer <= 0:
-        arena_top_dashing = False
-        arena_storm_rush_burst_top = False          # 버스트업 해제
-        arena_storm_rush_height_bonus_top = 0       # 높이 보너스 초기화
-        arena_top_dash_stun_timer = ARENA_DASH_STUN_FRAMES  # 후딜 타이머 설정
-        # 쿨타임 설정 (10~15초 랜덤) - 대쉬 종료 후 설정 + 퍽 적용
-        arena_top_dash_cooldown = int(random.randint(ARENA_DASH_COOLDOWN_MIN, ARENA_DASH_COOLDOWN_MAX) * arena_perk_dash_cd_mult_top)
-        # 후딜 사운드 시작 (보스와 동일)
-        try:
-            play_dash_delay_sound()
-        except Exception:
-            pass
-
-    return True
+    """상단 영웅 대쉬 업데이트 → 통합 함수 위임"""
+    return _arena_update_hero_dash(True)
 
 
 def update_arena_bottom_hero_dash():
-    """하단 영웅 대쉬 업데이트 - 보스 대쉬와 동일한 방식"""
-    global arena_bottom_dashing, arena_bottom_dash_timer, arena_bottom_dash_cooldown
-    global arena_bottom_dash_afterimages, arena_bottom_dash_charges, arena_bottom_dash_charge_timer
-    global arena_bottom_dash_stun_timer, arena_bottom_dash_duration_frames
-    global _all_tokens_full_sparkle_timer
-    global arena_storm_rush_burst_bottom, arena_storm_rush_height_bonus_bottom
+    """하단 영웅 대쉬 업데이트 → 통합 함수 위임"""
+    return _arena_update_hero_dash(False)
 
-    # 스팀 배리어 시전 중에는 대쉬 즉시 취소 (하단 패들이 시전자일 때)
-    if arena_skill_manager and arena_skill_manager.game_state.get('steam_barrier_caster_frozen', False) and not arena_skill_manager.game_state.get('barrier_owner_is_top', False):
-        if arena_bottom_dashing:
-            arena_bottom_dashing = False
-            arena_bottom_dash_timer = 0
-            arena_storm_rush_burst_bottom = False
-            arena_storm_rush_height_bonus_bottom = 0
-        return False
 
-    # 🔥 귀신발걸음 활성 중에는 대쉬 시스템 비활성화 (X축 점프 방지)
-    if arena_bottom_ghost_step_active:
-        # 대쉬 중이었다면 즉시 종료
-        if arena_bottom_dashing:
-            arena_bottom_dashing = False
-            arena_bottom_dash_timer = 0
-            arena_storm_rush_burst_bottom = False
-            arena_storm_rush_height_bonus_bottom = 0
-        return False
-
-    # 충전 타이머 업데이트 (대쉬 중/후딜 중에는 충전 안 함)
-    if arena_bottom_dash_charges < arena_bottom_max_dash_charges and arena_bottom_dash_cooldown <= 0 and arena_bottom_dash_stun_timer <= 0 and not arena_bottom_dashing:
-        arena_bottom_dash_charge_timer += 1
-        if arena_bottom_dash_charge_timer >= ARENA_DASH_CHARGE_TIME:
-            _charged_idx = arena_bottom_dash_charges  # 충전될 토큰 인덱스 (증가 전)
-            arena_bottom_dash_charges = min(arena_bottom_max_dash_charges, arena_bottom_dash_charges + 1)
-            arena_bottom_dash_charge_timer = 0
-            # 충전 완료 효과음 재생
-            play_dash_charge_sound()
-            # 충전 완료 플래시 반짝임 효과
-            while len(_token_flash_timers) <= _charged_idx:
-                _token_flash_timers.append(0)
-            _token_flash_timers[_charged_idx] = _TOKEN_FLASH_DURATION
-            # 모든 토큰 풀충전 시 화려한 반짝임 효과
-            if arena_bottom_dash_charges >= arena_bottom_max_dash_charges:
-                _all_tokens_full_sparkle_timer = _ALL_TOKENS_FULL_SPARKLE_DURATION
-
-    # 쿨다운 감소
-    if arena_bottom_dash_cooldown > 0:
-        arena_bottom_dash_cooldown -= 1
-
-    # 후딜(스턴) 처리 - 보스와 동일 (후딜 중에는 이동 불가)
-    if arena_bottom_dash_stun_timer > 0:
-        _prev_stun = arena_bottom_dash_stun_timer
-        arena_bottom_dash_stun_timer -= 1
-        # 후딜 종료 시 사운드 중지
-        if _prev_stun > 0 and arena_bottom_dash_stun_timer <= 0:
-            try:
-                stop_dash_delay_sound()
-            except Exception:
-                pass
-        return True  # 후딜 중에는 True 반환하여 이동 처리 건너뜀
-
-    if not arena_bottom_dashing:
-        # 잔상 페이드아웃 - 보스와 동일 (life 기반)
-        new_afterimages = []
-        for img in arena_bottom_dash_afterimages:
-            img['alpha'] -= 25
-            img['life'] = img.get('life', 10) - 1
-            if img['alpha'] > 0 and img['life'] > 0:
-                new_afterimages.append(img)
-        arena_bottom_dash_afterimages = new_afterimages
-        return False
-
-    arena_bottom_dash_timer -= 1
-
-    # 보스와 동일한 속도 곡선: 초반 20프레임 고속, 후반 감속
-    high_phase_frames = min(20, arena_bottom_dash_duration_frames)
-    if arena_bottom_dash_timer > high_phase_frames:
-        move_step = arena_bottom_dash_speed * arena_bottom_dash_direction
-    else:
-        decel_factor = max(0.0, arena_bottom_dash_timer / float(high_phase_frames)) if high_phase_frames > 0 else 0.0
-        move_step = arena_bottom_dash_speed * arena_bottom_dash_direction * decel_factor
-
-    PLAYER.centerx += move_step
-
-    # 목표 도달 체크
-    if arena_bottom_dash_direction > 0 and PLAYER.centerx >= arena_bottom_dash_target_x:
-        PLAYER.centerx = int(arena_bottom_dash_target_x)
-    elif arena_bottom_dash_direction < 0 and PLAYER.centerx <= arena_bottom_dash_target_x:
-        PLAYER.centerx = int(arena_bottom_dash_target_x)
-
-    # 게임 영역 내 제한
-    player_min_cx = PADDLE_WIDTH // 2
-    player_max_cx = WIDTH - PADDLE_WIDTH // 2
-    PLAYER.centerx = max(player_min_cx, min(player_max_cx, PLAYER.centerx))
-
-    # 잔상 추가 - 보스와 동일 (매 프레임, 6개, life 속성)
-    arena_bottom_dash_afterimages.append({
-        'x': PLAYER.centerx, 'y': PLAYER.centery,
-        'width': PLAYER.width, 'height': PLAYER.height,
-        'alpha': 160, 'life': 10,
-        'storm_rush': arena_storm_rush_burst_bottom  # 로즈골드 잔상 여부
-    })
-    if len(arena_bottom_dash_afterimages) > 6:
-        arena_bottom_dash_afterimages.pop(0)
-
-    # 대쉬 종료
-    if arena_bottom_dash_timer <= 0:
-        arena_bottom_dashing = False
-        arena_storm_rush_burst_bottom = False          # 버스트업 해제
-        arena_storm_rush_height_bonus_bottom = 0       # 높이 보너스 초기화
-        arena_bottom_dash_stun_timer = ARENA_DASH_STUN_FRAMES  # 후딜 타이머 설정
-        # 쿨타임은 항상 설정 (충전 속도 제어용 - 토큰 사용은 쿨다운과 무관하게 가능)
-        arena_bottom_dash_cooldown = int(random.randint(ARENA_DASH_COOLDOWN_MIN, ARENA_DASH_COOLDOWN_MAX) * arena_perk_dash_cd_mult_bottom)
-        # 후딜 사운드 시작 (보스와 동일)
-        try:
-            play_dash_delay_sound()
-        except Exception:
-            pass
-
-    return True
+def _draw_dash_afterimages_side(screen, afterimages, hero_data, default_color):
+    """대쉬 잔상 렌더링 (top/bottom 공통)"""
+    for img in afterimages:
+        alpha = img.get('alpha', 0)
+        life = img.get('life', 0)
+        if alpha > 0 and life > 0:
+            w = img.get('width', 80)
+            h = img.get('height', 20)
+            surf = pygame.Surface((w, h), pygame.SRCALPHA)
+            if img.get('storm_rush'):
+                color = (255, 200, 180)  # Rose Gold
+            else:
+                color = hero_data.get('color', default_color) if hero_data else default_color
+            surf.fill((*color, int(alpha)))
+            rect = surf.get_rect(center=(img['x'], img['y']))
+            screen.blit(surf, rect.topleft)
 
 
 def draw_arena_dash_afterimages(screen):
-    """투기장 영웅 대쉬 잔상 그리기 - 보스 대쉬 잔상과 동일한 방식"""
-    # 상단 영웅 잔상
-    for img in arena_top_dash_afterimages:
-        alpha = img.get('alpha', 0)
-        life = img.get('life', 0)
-        if alpha > 0 and life > 0:
-            width = img.get('width', BOSS.width)
-            height = img.get('height', BOSS.height)
-            surf = pygame.Surface((width, height), pygame.SRCALPHA)
-            # 폭풍질주 로즈골드 잔상
-            if img.get('storm_rush'):
-                color = (255, 200, 180)  # Rose Gold
-            else:
-                color = arena_top_hero.get('color', (100, 100, 255)) if arena_top_hero else (100, 100, 255)
-            surf.fill((*color, int(alpha)))
-            rect = surf.get_rect(center=(img['x'], img['y']))
-            screen.blit(surf, rect.topleft)
-
-    # 하단 영웅 잔상
-    for img in arena_bottom_dash_afterimages:
-        alpha = img.get('alpha', 0)
-        life = img.get('life', 0)
-        if alpha > 0 and life > 0:
-            width = img.get('width', PLAYER.width)
-            height = img.get('height', PLAYER.height)
-            surf = pygame.Surface((width, height), pygame.SRCALPHA)
-            # 폭풍질주 로즈골드 잔상
-            if img.get('storm_rush'):
-                color = (255, 200, 180)  # Rose Gold
-            else:
-                color = arena_bottom_hero.get('color', (255, 100, 100)) if arena_bottom_hero else (255, 100, 100)
-            surf.fill((*color, int(alpha)))
-            rect = surf.get_rect(center=(img['x'], img['y']))
-            screen.blit(surf, rect.topleft)
+    """투기장 영웅 대쉬 잔상 그리기"""
+    _draw_dash_afterimages_side(screen, arena_top_dash_afterimages, arena_top_hero, (100, 100, 255))
+    _draw_dash_afterimages_side(screen, arena_bottom_dash_afterimages, arena_bottom_hero, (255, 100, 100))
 
     # 폭풍질주 플래시 파티클 렌더링
     for p in arena_storm_rush_particles:
@@ -22749,10 +22467,8 @@ def draw_arena_dash_afterimages(screen):
         p_color = p[6]
         p_type = p[7] if len(p) > 7 else 'energy'
         if p_type == 'electric':
-            # 전기 스파크: 선형 페이드
             pygame.draw.circle(ps, (*p_color, p_alpha), (p_size, p_size), p_size)
         else:
-            # 에너지: 부드러운 글로우
             glow_alpha = max(0, p_alpha // 2)
             pygame.draw.circle(ps, (*p_color, glow_alpha), (p_size, p_size), p_size)
             inner = max(1, p_size // 2)
