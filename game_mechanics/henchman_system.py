@@ -37,8 +37,9 @@ HENCH_EXIT_DURATION = 0.4      # 퇴장 시간
 # 하수인 쿨타임 총 배율 (기본 스킬 쿨타임 × 4.2)
 HENCHMAN_TOTAL_CD_MULT = 4.2
 
-# 하수인 등장 Y 위치 (호위무사/영웅과 동일)
-HENCH_Y = 710  # BOTTOM_PADDLE_Y와 동일
+# 하수인 등장 Y 위치 (호위무사와 동일)
+HENCH_TOP_Y = 45   # TOP_PADDLE_Y(25) + 20 — 호위무사 상단 Y와 동일 (상반신 잘림 방지)
+HENCH_Y = 710       # BOTTOM_PADDLE_Y와 동일
 
 # 아이콘 크기
 HENCH_ICON_SIZE = 42
@@ -681,7 +682,7 @@ class HenchmanSystem:
             slot.x = GAME_AREA_X + GAME_AREA_WIDTH + 60
         # 타겟 X: 게임 영역 내 랜덤 위치
         slot.target_x = random.uniform(GAME_AREA_X + 80, GAME_AREA_X + GAME_AREA_WIDTH - 80)
-        slot.y = 25 if self.is_top else HENCH_Y  # 상단 AI: 보스 영역, 하단: 플레이어 영역
+        slot.y = HENCH_TOP_Y if self.is_top else HENCH_Y  # 상단 AI: 호위무사 높이, 하단: 플레이어 영역
         slot.phase = "entering"
         slot.anim_timer = 0.0
         print(f"[Henchman] {slot.hero_name} 발동! (진입: {slot.entry_side})")
