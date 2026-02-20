@@ -339,30 +339,66 @@ class HeroPortraitRenderer:
         band_sh = (210, 210, 220)
         band_hi = (255, 255, 255)
         aura = (120, 50, 180)
-        # Background - layered purple aura (radial glow for rich depth)
+        scar_pink = (220, 170, 160)
+        blood_red = (180, 30, 40)
+        # Background - deep volumetric purple aura (7-layer radial gradient)
+        self._radial_glow(surf, cx, int(h * 0.4), max(10, int(w * 0.55)), (60, 20, 100), layers=6, max_alpha=18)
         self._radial_glow(surf, cx, int(h * 0.4), max(8, int(w * 0.45)), aura, layers=5, max_alpha=22)
         self._radial_glow(surf, cx + int(w * 0.1), int(h * 0.3), max(6, int(w * 0.30)), (160, 80, 220), layers=4, max_alpha=16)
         self._radial_glow(surf, cx - int(w * 0.15), int(h * 0.55), max(4, int(w * 0.20)), (140, 60, 200), layers=3, max_alpha=10)
-        # Ambient purple energy particles around edges
+        self._radial_glow(surf, cx + int(w * 0.2), int(h * 0.6), max(5, int(w * 0.22)), (100, 30, 170), layers=3, max_alpha=12)
+        # Ethereal sword silhouette hint in background (diagonal slash)
+        sword_alpha = 14
+        sword_x1 = cx + int(w * 0.30)
+        sword_y1 = int(h * 0.05)
+        sword_x2 = cx - int(w * 0.25)
+        sword_y2 = int(h * 0.85)
+        pygame.draw.line(surf, (*aura[:3], sword_alpha), (sword_x1, sword_y1), (sword_x2, sword_y2), max(1, int(b * 0.06)))
+        pygame.draw.line(surf, (180, 100, 255, sword_alpha + 6), (sword_x1 + 1, sword_y1), (sword_x2 + 1, sword_y2), 1)
+        # Sword energy cross-guard hint
+        sg_cx = int((sword_x1 + sword_x2) * 0.5)
+        sg_cy = int((sword_y1 + sword_y2) * 0.5)
+        pygame.draw.line(surf, (*aura[:3], 10), (sg_cx - int(w * 0.08), sg_cy), (sg_cx + int(w * 0.08), sg_cy), 1)
+        # Sword energy slash marks in background (diagonal cuts)
+        for i, (sx1f, sy1f, sx2f, sy2f) in enumerate([
+            (-0.35, 0.15, 0.10, 0.40), (0.15, 0.08, -0.20, 0.55),
+            (-0.30, 0.60, 0.25, 0.80), (0.30, 0.20, -0.10, 0.35)]):
+            slash_a = max(8, 18 - i * 3)
+            pygame.draw.line(surf, (180, 100, 255, slash_a),
+                             (cx + int(sx1f * w), int(sy1f * h)),
+                             (cx + int(sx2f * w), int(sy2f * h)), 1)
+        # Purple + blood-red energy particles (25 mixed)
         import random as _rng_m
         _rng_m_inst = _rng_m.Random(77)
-        for _ in range(12):
-            px = _rng_m_inst.randint(2, w - 2)
-            py = _rng_m_inst.randint(2, h - 2)
+        for _ in range(25):
+            px = _rng_m_inst.randint(1, w - 1)
+            py = _rng_m_inst.randint(1, h - 1)
             pr = max(1, _rng_m_inst.randint(1, int(b * 0.08) + 1))
-            pa = _rng_m_inst.randint(15, 40)
-            pygame.draw.circle(surf, (*aura, pa), (px, py), pr + 2)
-            pygame.draw.circle(surf, (200, 140, 255, pa + 15), (px, py), pr)
+            pa = _rng_m_inst.randint(12, 45)
+            is_blood = _rng_m_inst.random() < 0.25
+            pc = blood_red if is_blood else aura
+            pc_lt = (255, 80, 80) if is_blood else (200, 140, 255)
+            pygame.draw.circle(surf, (*pc, pa), (px, py), pr + 2)
+            pygame.draw.circle(surf, (*pc_lt, pa + 12), (px, py), pr)
+        # Wispy energy trails (curving purple wisps)
+        for i in range(5):
+            wy_base = int(h * 0.1 + i * h * 0.18)
+            for t in range(6):
+                wx = cx + int(_sin(i * 1.5 + t * 0.8) * w * 0.35)
+                wy = wy_base + int(_cos(t * 1.2) * h * 0.04)
+                wa = max(6, 20 - t * 2)
+                pygame.draw.circle(surf, (160, 80, 220, wa), (wx, wy), max(1, int(b * 0.03)))
         # Hair back mass
         hair_rect = pygame.Rect(cx - int(w * 0.44), int(h * 0.0), int(w * 0.88), int(h * 0.56))
         pygame.draw.ellipse(surf, hair, hair_rect)
         # Hair mid-layer volume
         pygame.draw.ellipse(surf, hair_mid, (cx - int(w * 0.38), int(h * 0.04), int(w * 0.76), int(h * 0.45)))
-        # Spiky hair top - more spikes, varying sizes
+        # Spiky hair top - more spikes, varying sizes, wind-blown
         spikes = [(-0.38, 0.06, -0.28, -0.10), (-0.22, 0.02, -0.12, -0.16),
                   (-0.08, 0.0, 0.02, -0.22), (0.05, 0.01, 0.15, -0.18),
                   (0.18, 0.03, 0.28, -0.12), (0.32, 0.06, 0.40, -0.06),
-                  (-0.15, 0.01, -0.02, -0.20), (0.10, 0.02, 0.22, -0.14)]
+                  (-0.15, 0.01, -0.02, -0.20), (0.10, 0.02, 0.22, -0.14),
+                  (-0.42, 0.08, -0.35, -0.04), (0.38, 0.07, 0.44, -0.02)]
         for x1f, y1f, x2f, y2f in spikes:
             px = [cx + int(x1f * w), cx + int(x2f * w), cx + int((x1f + x2f) * 0.5 * w)]
             py = [int(h * (0.14 + y1f)), int(h * (0.04 + y2f)), int(h * (0.10 + (y1f + y2f) * 0.5))]
@@ -378,29 +414,59 @@ class HeroPortraitRenderer:
             tip_x = cx + int(x2f * w)
             tip_y = int(h * (0.04 + y2f))
             pygame.draw.circle(surf, (*hair_shine[:3], 50), (tip_x, tip_y), max(1, int(b * 0.04)))
+        # Wind-blown stray hair strands (dynamic floating wisps)
+        for i, (dx, dy_s, dy_e, curve) in enumerate([
+            (0.36, 0.08, 0.22, 0.06), (0.40, 0.12, 0.30, 0.08),
+            (-0.38, 0.10, 0.25, -0.05), (0.42, 0.06, 0.18, 0.10),
+            (-0.40, 0.14, 0.32, -0.07)]):
+            for t in range(4):
+                tf = t / 3.0
+                sx = cx + int((dx + curve * tf) * w)
+                sy = int(h * (dy_s + (dy_e - dy_s) * tf))
+                sa = max(20, 55 - t * 10)
+                pygame.draw.circle(surf, (*hair_mid[:3], sa), (sx, sy), 1)
         # Individual hair strand texture lines within back mass
         for dx_f in [-0.30, -0.22, -0.14, -0.06, 0.02, 0.10, 0.18, 0.26, 0.34]:
             sx = cx + int(dx_f * w)
             pygame.draw.line(surf, (*hair_mid[:3], 45), (sx, int(h * 0.06)),
                              (sx + int(w * 0.01), int(h * 0.42)), 1)
         # Additional thin highlight strands over hair mass
-        for dx_f in [-0.26, -0.10, 0.06, 0.22]:
+        for dx_f in [-0.26, -0.10, 0.06, 0.22, -0.18, 0.14]:
             sx = cx + int(dx_f * w)
             pygame.draw.line(surf, (*hair_hi[:3], 35), (sx, int(h * 0.08)),
                              (sx + int(w * 0.02), int(h * 0.38)), 1)
-        # Face - 4-layer shading
+        # Face - 8-layer shading
         face_w = int(w * 0.58)
         face_h = int(h * 0.72)
         face_top = int(h * 0.22)
         self._face_base(surf, cx, face_top, face_w, face_h, skin, skin_sh, skin_hi)
         self._face_detail(surf, cx, face_top, face_w, face_h, skin_sh, skin_hi)
-        # Scar / battle mark on left cheek (diagonal slash)
-        scar_x1 = cx - int(w * 0.12)
-        scar_y1 = int(h * 0.46)
-        scar_x2 = cx - int(w * 0.06)
-        scar_y2 = int(h * 0.56)
-        pygame.draw.line(surf, (*self._darken(skin_sh, 15)[:3], 35), (scar_x1, scar_y1), (scar_x2, scar_y2), 1)
-        pygame.draw.line(surf, (*skin_hi[:3], 25), (scar_x1 + 1, scar_y1), (scar_x2 + 1, scar_y2), 1)
+        # Skin texture micro-detail (pore-like stippling on cheeks)
+        for i in range(8):
+            tx = cx + _rng_m_inst.randint(-int(face_w * 0.3), int(face_w * 0.3))
+            ty = face_top + int(face_h * 0.35) + _rng_m_inst.randint(0, int(face_h * 0.25))
+            pygame.draw.circle(surf, (*skin_sh[:3], 8), (tx, ty), 1)
+        # Primary scar - left cheek (diagonal slash, deeper detail)
+        scar_x1 = cx - int(w * 0.13)
+        scar_y1 = int(h * 0.44)
+        scar_x2 = cx - int(w * 0.05)
+        scar_y2 = int(h * 0.58)
+        pygame.draw.line(surf, (*self._darken(skin_sh, 20)[:3], 40), (scar_x1, scar_y1), (scar_x2, scar_y2), 1)
+        pygame.draw.line(surf, (*scar_pink[:3], 30), (scar_x1 + 1, scar_y1), (scar_x2 + 1, scar_y2), 1)
+        pygame.draw.line(surf, (*skin_hi[:3], 18), (scar_x1 + 2, scar_y1 + 1), (scar_x2 + 2, scar_y2 + 1), 1)
+        # Secondary scar - small nick on right brow
+        nick_x1 = cx + int(w * 0.08)
+        nick_y1 = int(h * 0.34)
+        nick_x2 = cx + int(w * 0.11)
+        nick_y2 = int(h * 0.37)
+        pygame.draw.line(surf, (*self._darken(skin_sh, 15)[:3], 28), (nick_x1, nick_y1), (nick_x2, nick_y2), 1)
+        pygame.draw.line(surf, (*scar_pink[:3], 18), (nick_x1 + 1, nick_y1), (nick_x2 + 1, nick_y2), 1)
+        # Battle calluses on jaw area (rough skin patches)
+        for i, (cx_off, cy_off) in enumerate([(-0.15, 0.70), (0.12, 0.72), (-0.08, 0.75)]):
+            cal_x = cx + int(cx_off * w)
+            cal_y = int(cy_off * h)
+            pygame.draw.ellipse(surf, (*self._darken(skin, 8)[:3], 12),
+                                (cal_x - 2, cal_y - 1, 4, 2))
         # Right cheek highlight
         pygame.draw.ellipse(surf, (*skin_hi, 50),
                             (cx + int(w * 0.02), face_top + int(face_h * 0.35), int(face_w * 0.25), int(face_h * 0.18)))
@@ -414,67 +480,110 @@ class HeroPortraitRenderer:
                     (cx + int(w * 0.05), int(h * 0.10)),
                     (cx - int(w * 0.10), int(h * 0.08))]
         pygame.draw.polygon(surf, hair, bang_pts)
-        # Bang highlight strands
+        # Bang highlight strands (more varied)
         for dx, dy1, dy2 in [(-0.14, 0.10, 0.30), (-0.02, 0.09, 0.32), (0.08, 0.11, 0.26),
-                              (-0.20, 0.12, 0.22), (0.14, 0.13, 0.22)]:
+                              (-0.20, 0.12, 0.22), (0.14, 0.13, 0.22), (-0.08, 0.09, 0.28),
+                              (0.04, 0.10, 0.25)]:
             pygame.draw.line(surf, hair_hi, (cx + int(dx * w), int(dy1 * h)),
                              (cx + int((dx + 0.02) * w), int(dy2 * h)), 1)
-        # Hair shine line
+        # Hair shine lines (multiple for richer sheen)
         pygame.draw.line(surf, hair_shine, (cx - int(w * 0.05), int(h * 0.08)),
                          (cx + int(w * 0.02), int(h * 0.25)), 1)
-        # Hachimaki headband - more detailed
+        pygame.draw.line(surf, (*hair_shine[:3], 30), (cx + int(w * 0.08), int(h * 0.10)),
+                         (cx + int(w * 0.12), int(h * 0.22)), 1)
+        # Hachimaki headband - detailed with kanji symbol
         band_y = int(h * 0.27)
         band_h2 = max(3, int(h * 0.07))
+        # Band shadow underneath
+        pygame.draw.rect(surf, (*self._darken(band_sh, 20)[:3], 20),
+                         (cx - int(w * 0.34), band_y + band_h2, int(w * 0.68), max(1, int(h * 0.01))))
         pygame.draw.rect(surf, band, (cx - int(w * 0.34), band_y, int(w * 0.68), band_h2))
+        # Band fabric texture (horizontal weave lines)
+        for ty in range(band_y + 1, band_y + band_h2 - 1, max(1, band_h2 // 3)):
+            pygame.draw.line(surf, (*band_sh[:3], 18),
+                             (cx - int(w * 0.33), ty), (cx + int(w * 0.33), ty), 1)
         pygame.draw.line(surf, band_hi, (cx - int(w * 0.34), band_y), (cx + int(w * 0.34), band_y), 1)
         pygame.draw.line(surf, band_sh, (cx - int(w * 0.34), band_y + band_h2 - 1),
                          (cx + int(w * 0.34), band_y + band_h2 - 1), 1)
-        # Band knot detail (right side)
+        # Kanji symbol on headband center (simplified "sword" / "ken" character)
+        ks_x = cx
+        ks_y = band_y + band_h2 // 2
+        ks_h = max(2, band_h2 - 2)
+        ks_w = max(2, int(w * 0.04))
+        pygame.draw.line(surf, (180, 30, 40), (ks_x - ks_w, ks_y - ks_h // 2),
+                         (ks_x + ks_w, ks_y - ks_h // 2), 1)  # top stroke
+        pygame.draw.line(surf, (180, 30, 40), (ks_x, ks_y - ks_h // 2),
+                         (ks_x, ks_y + ks_h // 2), 1)  # center vertical
+        pygame.draw.line(surf, (180, 30, 40), (ks_x - ks_w + 1, ks_y),
+                         (ks_x + ks_w - 1, ks_y), 1)  # middle stroke
+        # Band knot detail (right side - richer)
         knot_x = cx + int(w * 0.30)
         knot_y = band_y + band_h2 // 2
         pygame.draw.circle(surf, band_sh, (knot_x, knot_y), max(2, int(b * 0.10)))
         pygame.draw.circle(surf, band, (knot_x, knot_y), max(1, int(b * 0.07)))
         pygame.draw.circle(surf, band_hi, (knot_x - 1, knot_y - 1), max(1, int(b * 0.04)))
-        # Knot wrinkle lines
+        # Knot wrinkle lines (multiple for fabric detail)
         pygame.draw.line(surf, band_sh, (knot_x - int(b * 0.06), knot_y - 1),
                          (knot_x + int(b * 0.06), knot_y + 1), 1)
-        # Band tails - flowing
+        pygame.draw.line(surf, (*band_sh[:3], 20), (knot_x - int(b * 0.04), knot_y + 1),
+                         (knot_x + int(b * 0.04), knot_y - 1), 1)
+        # Band tails - flowing with more detail
         tail_x = cx + int(w * 0.30)
-        for i, (ty, tx_off) in enumerate([(0, 6), (3, 10), (6, 13), (9, 11)]):
-            a = max(80, 220 - i * 40)
+        for i, (ty, tx_off) in enumerate([(0, 6), (2, 8), (4, 11), (6, 13), (8, 12), (10, 9)]):
+            a = max(60, 220 - i * 30)
             pygame.draw.line(surf, (*band, a), (tail_x, band_y + ty),
                              (tail_x + int(tx_off * b / 5), band_y + ty + int(h * 0.14)),
-                             max(1, band_h2 // 2 - i // 2))
+                             max(1, band_h2 // 2 - i // 3))
         # Band tail edge highlights
-        for i in range(2):
-            a = max(60, 180 - i * 50)
-            pygame.draw.line(surf, (*band_hi, a), (tail_x + 1, band_y + i * 4),
-                             (tail_x + int(8 * b / 5), band_y + i * 4 + int(h * 0.12)), 1)
+        for i in range(3):
+            a = max(40, 180 - i * 45)
+            pygame.draw.line(surf, (*band_hi, a), (tail_x + 1, band_y + i * 3),
+                             (tail_x + int(8 * b / 5), band_y + i * 3 + int(h * 0.12)), 1)
         # Eyes - high-quality glowing purple
         eye_y = int(h * 0.42)
         eye_sp = int(w * 0.12)
         for s in [-1, 1]:
+            # Extra deep eye glow for volumetric aura
+            self._radial_glow(surf, cx + s * eye_sp, eye_y, max(4, int(b * 0.30)), eye_glow, layers=3, max_alpha=14)
             self._hq_eye(surf, cx + s * eye_sp, eye_y, w, h, b,
                          eye_glow, pupil_color=(40, 10, 60), sclera=(240, 230, 245),
                          glow_color=(180, 80, 255), lid_color=(50, 25, 60))
-        # Intense eyebrows
+        # Intense eyebrows (thicker, more angular)
         for s in [-1, 1]:
             bx = cx + s * eye_sp
             by = eye_y - max(3, int(h * 0.07))
             pygame.draw.line(surf, (60, 30, 50), (bx - s * int(w * 0.05), by + 2),
                              (bx + s * int(w * 0.04), by - 1), max(1, int(b * 0.09)))
+            # Brow hair texture
+            pygame.draw.line(surf, (50, 25, 45, 35), (bx - s * int(w * 0.03), by + 1),
+                             (bx + s * int(w * 0.02), by - 1), 1)
         # Nose - detailed bridge, tip, nostrils
         nose_y = int(h * 0.55)
         self._nose_detail(surf, cx, nose_y, b, skin, skin_sh, skin_hi, w, h)
         # Mouth - detailed lips
         mouth_y = int(h * 0.65)
         self._lips(surf, cx, mouth_y, b, (180, 130, 120), skin_hi)
-        # Chin shadow
+        # Chin shadow (deeper)
         pygame.draw.ellipse(surf, (*skin_sh, 45),
                             (cx - face_w // 4, int(h * 0.74), face_w // 2, int(h * 0.14)))
-        # Rim light on right side
+        pygame.draw.ellipse(surf, (*self._darken(skin_sh, 10)[:3], 20),
+                            (cx - face_w // 6, int(h * 0.78), face_w // 3, int(h * 0.10)))
+        # Ambient occlusion under chin / neck shadow
+        pygame.draw.ellipse(surf, (*self._darken(skin_sh, 30)[:3], 18),
+                            (cx - face_w // 3, int(h * 0.86), int(face_w * 0.66), int(h * 0.08)))
+        # Rim light on right side (specular highlight)
         pygame.draw.arc(surf, (*skin_hi, 35),
                         (cx - face_w // 2, face_top, face_w, face_h), 4.5, 5.8, 1)
+        # Left side rim light (faint purple reflected light)
+        pygame.draw.arc(surf, (*aura[:3], 18),
+                        (cx - face_w // 2, face_top, face_w, face_h), 0.8, 2.2, 1)
+        # Purple aura energy emanation near face edges
+        for i in range(6):
+            ey = int(h * 0.25 + i * h * 0.10)
+            for s in [-1, 1]:
+                ex = cx + s * int(w * 0.30 + _sin(i * 1.5) * w * 0.06)
+                ea = max(12, 35 - i * 4)
+                self._radial_glow(surf, ex, ey, max(2, int(b * 0.08)), aura, layers=2, max_alpha=ea)
         # Border
         pygame.draw.rect(surf, (*aura, 180), (0, 0, w, h), 1, border_radius=2)
 
