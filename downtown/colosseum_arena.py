@@ -1813,7 +1813,7 @@ ARENA_PERK_POOL = [
     {
         "id": "recall_guard",
         "name": "승급",
-        "description": "첫 번째 하수인을 호위무사로\n승급시켜 전장에 배치합니다\n(호위무사 +1)",
+        "description": "첫 번째 하수인을 호위무사로\n승급시켜 전장에 배치합니다\n(호위무사 +1, 스킬쿨타임 20%↑)",
         "icon_color": (200, 160, 60),    # 금빛 (명령/충성)
         "effect_type": "recall_guard",
         "value": 1,
@@ -14770,6 +14770,7 @@ class ColosseumsArena:
                 mults["paddle_enlarge"] += val
             elif etype == "recall_guard":
                 mults["recall_guard"] = True
+                mults["guard_cooldown"] += 0.20  # 승급 패널티: 호위무사 스킬 쿨타임 20% 증가
             elif etype == "instant_cooldown":
                 mults["instant_cooldown"] = val
             elif etype == "comeback":

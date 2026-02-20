@@ -1025,6 +1025,7 @@ class ColosseumsDojoBreaker:
                 mults["paddle_enlarge"] += val
             elif etype == "recall_guard":
                 mults["recall_guard"] = True
+                mults["guard_cooldown"] += 0.20  # 승급 패널티: 호위무사 스킬 쿨타임 20% 증가
             elif etype == "instant_cooldown":
                 mults["instant_cooldown"] = val
         return mults
