@@ -17744,6 +17744,10 @@ class ColosseumsArena:
         else:
             print(f"[Guard] 기존 호위무사 유지: {selected['name']} (스킬 유지)")
 
+        # 호위무사 선택 완료 → 하수인 생포 알림 스킵 (GUARD_NOTIFY에서 이미 표시됨)
+        self._pending_henchman_capture = False
+        self._pending_henchman_target = None
+
         # 퍽 선택 화면으로 전환 (호위무사 선택 → 퍽 선택 → 대진표)
         self._start_perk_select()
 
