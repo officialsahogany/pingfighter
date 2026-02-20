@@ -5149,6 +5149,7 @@ class DragonWing(HeroSkill):
             'direction': self.wind_direction,    # 비행 방향 = 바람 방향
             'hit_cooldown': 0.0,
             'active': True,
+            'caster_is_top': is_caster_top,      # 시전자 진영 (충돌 판정용)
         }
 
         return {
@@ -5222,15 +5223,24 @@ class DragonWing(HeroSkill):
                 int(dragon['x']) - 45, int(dragon['y']) - 20, 90, 40
             )
             if dragon['hit_cooldown'] <= 0 and dragon_rect.colliderect(ball_rect):
-                current_speed = math.hypot(ball.vx, ball.vy)
-                if current_speed < 8.0:
-                    current_speed = 10.0
-                boosted_speed = current_speed * random.uniform(1.4, 1.7)
+                # 시전자측 공은 충돌 무시 (시전자가 공격 중인 공)
+                caster_top = dragon.get('caster_is_top', False)
+                if caster_top and ball.vy > 0:
+                    pass  # 시전자(상단)의 공이 아래로 향하는 중 = 시전자 공격 → 무시
+                elif not caster_top and ball.vy < 0:
+                    pass  # 시전자(하단)의 공이 위로 향하는 중 = 시전자 공격 → 무시
+                else:
+                    # 상대측 공만 충돌 처리 (상대가 시전자를 향해 공격하는 공)
+                    current_speed = math.hypot(ball.vx, ball.vy)
+                    if current_speed < 8.0:
+                        current_speed = 10.0
+                    boosted_speed = current_speed * random.uniform(1.4, 1.7)
 
-                # 바람(드래곤) 방향으로 공을 밀어냄
-                ball.vx = dragon['direction'] * abs(boosted_speed) * 0.7
-                ball.vy += random.uniform(-3.0, 3.0)
-                dragon['hit_cooldown'] = 0.5
+                    # 공을 상대 방향(시전자 반대쪽)으로 튕겨냄
+                    toward_opponent_vy = -1.0 if caster_top else 1.0
+                    ball.vx = dragon['direction'] * abs(boosted_speed) * 0.5
+                    ball.vy = toward_opponent_vy * abs(boosted_speed) * 0.85
+                    dragon['hit_cooldown'] = 0.5
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
         game_state['wind_force'] = 0
