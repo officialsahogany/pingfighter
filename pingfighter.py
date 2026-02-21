@@ -92080,22 +92080,71 @@ def draw_objects():
 
                 SCREEN.blit(_core_surf, (_ball_cx - _core_cx, _ball_cy - _core_cy), special_flags=pygame.BLEND_ADD)
 
-                # ── 6. 도깨비 눈 (불꽃 속에서 빛나는 두 눈) ──
-                _eye_pulse = 0.5 + 0.5 * math.sin(_dt * 8.0)
-                _eye_alpha = int(180 * _eye_pulse)
-                if _eye_alpha > 20:
+                # ── 6. 도깨비 형상 (불꽃 속 도깨비 얼굴 실루엣) ──
+                _face_pulse = 0.5 + 0.5 * math.sin(_dt * 5.0)
+                _face_base_a = int(160 * _face_pulse)
+                if _face_base_a > 20:
+                    _face_sz = int(_ball_r * 3.5)
+                    _face_surf = pygame.Surface((_face_sz * 2, _face_sz * 2), pygame.SRCALPHA)
+                    _fcx, _fcy = _face_sz, _face_sz
+
+                    # 뿔 (2개 - 불꽃 위로 솟은 뿔 형상)
+                    _horn_a = int(_face_base_a * 0.45)
+                    for _hdir in [-1, 1]:
+                        pygame.draw.polygon(_face_surf, (100, 220, 255, _horn_a), [
+                            (_fcx + _hdir * int(_ball_r * 0.7), _fcy - int(_ball_r * 0.5)),
+                            (_fcx + _hdir * int(_ball_r * 1.0), _fcy - int(_ball_r * 1.6) - int(3 * math.sin(_dt * 6.0 + _hdir))),
+                            (_fcx + _hdir * int(_ball_r * 0.35), _fcy - int(_ball_r * 0.6)),
+                        ])
+
+                    # 얼굴 윤곽 (타원)
+                    _face_a = int(_face_base_a * 0.25)
+                    _face_w = int(_ball_r * 1.6)
+                    _face_h = int(_ball_r * 1.3)
+                    pygame.draw.ellipse(_face_surf, (80, 200, 255, _face_a),
+                                       (_fcx - _face_w // 2, _fcy - _face_h // 2, _face_w, _face_h))
+
+                    # 눈 (붉은 삼각형 눈 - 도깨비 특유의 날카로운 눈)
+                    _eye_a = int(_face_base_a * 0.7)
                     for _edir in [-1, 1]:
-                        _ex = _ball_cx + _edir * int(_ball_r * 0.35)
-                        _ey = _ball_cy - int(_ball_r * 0.15)
-                        # 눈 글로우
-                        _eye_glow_surf = pygame.Surface((16, 16), pygame.SRCALPHA)
-                        pygame.draw.circle(_eye_glow_surf, (255, 100, 40, _eye_alpha // 3), (8, 8), 8)
-                        SCREEN.blit(_eye_glow_surf, (_ex - 8, _ey - 8), special_flags=pygame.BLEND_ADD)
-                        # 눈 코어
-                        _eye_core_surf = pygame.Surface((8, 8), pygame.SRCALPHA)
-                        pygame.draw.circle(_eye_core_surf, (255, 180, 80, _eye_alpha), (4, 4), 3)
-                        pygame.draw.circle(_eye_core_surf, (255, 240, 200, min(255, _eye_alpha + 40)), (4, 4), 1)
-                        SCREEN.blit(_eye_core_surf, (_ex - 4, _ey - 4), special_flags=pygame.BLEND_ADD)
+                        _ex = _fcx + _edir * int(_ball_r * 0.35)
+                        _ey = _fcy - int(_ball_r * 0.15)
+                        # 눈 외곽 글로우
+                        pygame.draw.circle(_face_surf, (255, 80, 30, _eye_a // 3), (_ex, _ey), int(_ball_r * 0.3))
+                        # 삼각형 눈
+                        pygame.draw.polygon(_face_surf, (255, 100, 50, _eye_a), [
+                            (_ex + _edir * int(_ball_r * 0.25), _ey),
+                            (_ex - _edir * int(_ball_r * 0.08), _ey - int(_ball_r * 0.25)),
+                            (_ex - _edir * int(_ball_r * 0.08), _ey + int(_ball_r * 0.12)),
+                        ])
+                        # 눈동자 (밝은 노랑)
+                        _pupil_pulse = 0.7 + 0.3 * math.sin(_dt * 10.0 + _edir * 1.5)
+                        _pupil_a = int(_eye_a * _pupil_pulse)
+                        pygame.draw.circle(_face_surf, (255, 200, 80, _pupil_a),
+                                         (_ex + _edir * int(_ball_r * 0.05), _ey), max(1, int(_ball_r * 0.08)))
+                        pygame.draw.circle(_face_surf, (255, 255, 220, min(255, _pupil_a + 30)),
+                                         (_ex + _edir * int(_ball_r * 0.03), _ey - 1), max(1, int(_ball_r * 0.04)))
+
+                    # 입 (크게 벌린 도깨비 입 + 이빨)
+                    _mouth_a = int(_face_base_a * 0.35)
+                    _mouth_w = int(_ball_r * 0.9)
+                    _mouth_h = int(_ball_r * 0.4)
+                    _mouth_y = _fcy + int(_ball_r * 0.25)
+                    pygame.draw.ellipse(_face_surf, (40, 140, 220, _mouth_a),
+                                       (_fcx - _mouth_w // 2, _mouth_y, _mouth_w, _mouth_h))
+                    # 이빨 (톱니)
+                    _teeth_a = int(_face_base_a * 0.35)
+                    _tooth_count = 5
+                    for _ti in range(_tooth_count):
+                        _tx = _fcx - _mouth_w // 2 + int((_ti + 0.5) * _mouth_w / _tooth_count)
+                        _th = int(_ball_r * 0.12) + int(2 * math.sin(_dt * 5.0 + _ti))
+                        pygame.draw.polygon(_face_surf, (200, 240, 255, _teeth_a), [
+                            (_tx - 2, _mouth_y + 1),
+                            (_tx + 2, _mouth_y + 1),
+                            (_tx, _mouth_y + _th),
+                        ])
+
+                    SCREEN.blit(_face_surf, (_ball_cx - _face_sz, _ball_cy - _face_sz), special_flags=pygame.BLEND_ADD)
 
                 # ── 7. 엣지 스파크 (불꽃 주변 불똥) ──
                 for _spi in range(5):
@@ -92348,20 +92397,71 @@ def draw_objects():
 
             SCREEN.blit(_core_surf, (_ball_cx - _core_cx, _ball_cy - _core_cy), special_flags=pygame.BLEND_ADD)
 
-            # ── 6. 도깨비 눈 ──
-            _eye_pulse = 0.5 + 0.5 * math.sin(_dt * 8.0)
-            _eye_alpha = int(180 * _eye_pulse)
-            if _eye_alpha > 20:
+            # ── 6. 도깨비 형상 (불꽃 속 도깨비 얼굴 실루엣) ──
+            _face_pulse = 0.5 + 0.5 * math.sin(_dt * 5.0)
+            _face_base_a = int(160 * _face_pulse)
+            if _face_base_a > 20:
+                _face_sz = int(_ball_r * 3.5)
+                _face_surf = pygame.Surface((_face_sz * 2, _face_sz * 2), pygame.SRCALPHA)
+                _fcx, _fcy = _face_sz, _face_sz
+
+                # 뿔 (2개 - 불꽃 위로 솟은 뿔 형상)
+                _horn_a = int(_face_base_a * 0.45)
+                for _hdir in [-1, 1]:
+                    pygame.draw.polygon(_face_surf, (100, 220, 255, _horn_a), [
+                        (_fcx + _hdir * int(_ball_r * 0.7), _fcy - int(_ball_r * 0.5)),
+                        (_fcx + _hdir * int(_ball_r * 1.0), _fcy - int(_ball_r * 1.6) - int(3 * math.sin(_dt * 6.0 + _hdir))),
+                        (_fcx + _hdir * int(_ball_r * 0.35), _fcy - int(_ball_r * 0.6)),
+                    ])
+
+                # 얼굴 윤곽 (타원)
+                _face_a = int(_face_base_a * 0.25)
+                _face_w = int(_ball_r * 1.6)
+                _face_h = int(_ball_r * 1.3)
+                pygame.draw.ellipse(_face_surf, (80, 200, 255, _face_a),
+                                   (_fcx - _face_w // 2, _fcy - _face_h // 2, _face_w, _face_h))
+
+                # 눈 (붉은 삼각형 눈 - 도깨비 특유의 날카로운 눈)
+                _eye_a = int(_face_base_a * 0.7)
                 for _edir in [-1, 1]:
-                    _ex = _ball_cx + _edir * int(_ball_r * 0.35)
-                    _ey = _ball_cy - int(_ball_r * 0.15)
-                    _eye_glow_surf = pygame.Surface((16, 16), pygame.SRCALPHA)
-                    pygame.draw.circle(_eye_glow_surf, (255, 100, 40, _eye_alpha // 3), (8, 8), 8)
-                    SCREEN.blit(_eye_glow_surf, (_ex - 8, _ey - 8), special_flags=pygame.BLEND_ADD)
-                    _eye_core_surf = pygame.Surface((8, 8), pygame.SRCALPHA)
-                    pygame.draw.circle(_eye_core_surf, (255, 180, 80, _eye_alpha), (4, 4), 3)
-                    pygame.draw.circle(_eye_core_surf, (255, 240, 200, min(255, _eye_alpha + 40)), (4, 4), 1)
-                    SCREEN.blit(_eye_core_surf, (_ex - 4, _ey - 4), special_flags=pygame.BLEND_ADD)
+                    _ex = _fcx + _edir * int(_ball_r * 0.35)
+                    _ey = _fcy - int(_ball_r * 0.15)
+                    # 눈 외곽 글로우
+                    pygame.draw.circle(_face_surf, (255, 80, 30, _eye_a // 3), (_ex, _ey), int(_ball_r * 0.3))
+                    # 삼각형 눈
+                    pygame.draw.polygon(_face_surf, (255, 100, 50, _eye_a), [
+                        (_ex + _edir * int(_ball_r * 0.25), _ey),
+                        (_ex - _edir * int(_ball_r * 0.08), _ey - int(_ball_r * 0.25)),
+                        (_ex - _edir * int(_ball_r * 0.08), _ey + int(_ball_r * 0.12)),
+                    ])
+                    # 눈동자 (밝은 노랑)
+                    _pupil_pulse = 0.7 + 0.3 * math.sin(_dt * 10.0 + _edir * 1.5)
+                    _pupil_a = int(_eye_a * _pupil_pulse)
+                    pygame.draw.circle(_face_surf, (255, 200, 80, _pupil_a),
+                                     (_ex + _edir * int(_ball_r * 0.05), _ey), max(1, int(_ball_r * 0.08)))
+                    pygame.draw.circle(_face_surf, (255, 255, 220, min(255, _pupil_a + 30)),
+                                     (_ex + _edir * int(_ball_r * 0.03), _ey - 1), max(1, int(_ball_r * 0.04)))
+
+                # 입 (크게 벌린 도깨비 입 + 이빨)
+                _mouth_a = int(_face_base_a * 0.35)
+                _mouth_w = int(_ball_r * 0.9)
+                _mouth_h = int(_ball_r * 0.4)
+                _mouth_y = _fcy + int(_ball_r * 0.25)
+                pygame.draw.ellipse(_face_surf, (40, 140, 220, _mouth_a),
+                                   (_fcx - _mouth_w // 2, _mouth_y, _mouth_w, _mouth_h))
+                # 이빨 (톱니)
+                _teeth_a = int(_face_base_a * 0.35)
+                _tooth_count = 5
+                for _ti in range(_tooth_count):
+                    _tx = _fcx - _mouth_w // 2 + int((_ti + 0.5) * _mouth_w / _tooth_count)
+                    _th = int(_ball_r * 0.12) + int(2 * math.sin(_dt * 5.0 + _ti))
+                    pygame.draw.polygon(_face_surf, (200, 240, 255, _teeth_a), [
+                        (_tx - 2, _mouth_y + 1),
+                        (_tx + 2, _mouth_y + 1),
+                        (_tx, _mouth_y + _th),
+                    ])
+
+                SCREEN.blit(_face_surf, (_ball_cx - _face_sz, _ball_cy - _face_sz), special_flags=pygame.BLEND_ADD)
 
             # ── 7. 엣지 스파크 ──
             for _spi in range(5):
