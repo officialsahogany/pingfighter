@@ -369,308 +369,299 @@ class Stage5ChineseMarket:
                               (particle['x'] - size * 2, particle['y'] - size * 2))
     
     # ================================================================
-    # 프로시저럴 중국 전통 석재 바닥 생성 (12레이어)
+    # 프로시저럴 중국 전통 목재 마루 바닥 생성 (12레이어)
     # ================================================================
     def _generate_floor(self, W, H):
-        """고퀄리티 중국 전통 사원 석재 바닥 텍스처 생성"""
+        """고퀄리티 중국 전통 사원 흑단/자단 마루 바닥 텍스처 생성"""
         _sin = math.sin
         cx, cy = W // 2, H // 2
 
-        # 색상 팔레트 (중국 사원 붉은 석재)
-        stone = (42, 18, 14)          # 기본 어두운 적갈색
-        stone_light = (60, 28, 22)    # 밝은 적갈색
-        stone_warm = (55, 22, 15)     # 따뜻한 톤
-        grout = (25, 10, 8)           # 줄눈 (어두운)
-        grout_light = (32, 14, 11)    # 줄눈 밝은
+        # 색상 팔레트 (중국 전통 어두운 목재 - 흑단/자단)
+        wood = (38, 16, 12)           # 기본 어두운 자단목
+        wood_light = (55, 25, 18)     # 밝은 자단
+        wood_dark = (25, 10, 7)       # 어두운 부분
+        wood_red = (50, 18, 10)       # 붉은 나무결
+        wood_warm = (48, 22, 14)      # 따뜻한 나무
+        gap_color = (15, 6, 4)        # 판재 틈새
+        lacquer_red = (80, 20, 12)    # 옻칠 붉은 광택
 
         clamp = lambda v: max(0, min(255, int(v)))
 
         def noise(x, y, seed=0):
-            """연속적인 유사 노이즈"""
+            """나무결 유사 노이즈 (수평 방향 강조)"""
             v = 0.0
-            v += 0.35 * _sin(x * 0.081 + y * 0.057 + seed * 1.7)
-            v += 0.25 * _sin(x * 0.137 - y * 0.098 + seed * 3.1)
-            v += 0.20 * _sin(x * 0.203 + y * 0.173 + seed * 5.3)
-            v += 0.12 * _sin(x * 0.311 - y * 0.261 + seed * 7.9)
-            v += 0.08 * _sin(x * 0.419 + y * 0.347 + seed * 11.3)
+            # 수평 방향 파동 (나무결 → 가로 줄무늬 강조)
+            v += 0.30 * _sin(x * 0.008 + y * 0.095 + seed * 1.7)
+            v += 0.25 * _sin(x * 0.012 - y * 0.157 + seed * 3.1)
+            v += 0.20 * _sin(x * 0.025 + y * 0.218 + seed * 5.3)
+            v += 0.15 * _sin(x * 0.045 - y * 0.312 + seed * 7.9)
+            v += 0.10 * _sin(x * 0.075 + y * 0.431 + seed * 11.3)
             return max(-1.0, min(1.0, v))
 
         floor = self._floor_cache
 
         # ═══════════════════════════════════════════════════════════
-        # 1. 베이스 석재 + 2px 연속 노이즈
+        # 1. 베이스 목재 + 나무결 노이즈
         # ═══════════════════════════════════════════════════════════
-        floor.fill(stone)
+        floor.fill(wood)
         noise_surf = pygame.Surface((W, H), pygame.SRCALPHA)
         step = 2
         for gy in range(0, H, step):
             for gx in range(0, W, step):
                 n = noise(gx, gy, 0)
-                bright = n * 12
-                warm = noise(gx, gy, 2.5) * 8
-                sat = noise(gx, gy, 5.0) * 5
-                r = clamp(stone[0] + bright + warm * 0.6)
-                g = clamp(stone[1] + bright * 0.5 + warm * 0.2 + sat * 0.15)
-                b = clamp(stone[2] + bright * 0.3 - warm * 0.1 + sat * 0.3)
-                pygame.draw.rect(noise_surf, (r, g, b, 90), (gx, gy, step, step))
+                bright = n * 10
+                grain = noise(gx * 0.5, gy, 4.0) * 7  # 나무결 (y축 의존 높음)
+                warm = noise(gx, gy, 8.0) * 4
+                r = clamp(wood[0] + bright + grain * 0.8 + warm * 0.5)
+                g = clamp(wood[1] + bright * 0.4 + grain * 0.3 + warm * 0.2)
+                b = clamp(wood[2] + bright * 0.25 + grain * 0.15)
+                pygame.draw.rect(noise_surf, (r, g, b, 95), (gx, gy, step, step))
         floor.blit(noise_surf, (0, 0))
 
         # ═══════════════════════════════════════════════════════════
-        # 2. 방사형 그라데이션 (중앙 은은한 붉은 빛)
+        # 2. 방사형 그라데이션 (중앙 따뜻한 빛)
         # ═══════════════════════════════════════════════════════════
         grad_surf = pygame.Surface((W, H), pygame.SRCALPHA)
-        vig_max = int(max(W, H) * 0.75)
-        for ring in range(35):
-            frac = ring / 35
-            radius = int(vig_max * (1.0 - frac * 0.7))
-            pygame.draw.circle(grad_surf, (80, 25, 15, int(3 * (1.0 - frac))),
+        for ring in range(30):
+            frac = ring / 30
+            radius = int(max(W, H) * 0.6 * (1.0 - frac * 0.7))
+            pygame.draw.circle(grad_surf, (70, 22, 10, int(3 * (1.0 - frac))),
                                (cx, cy), radius)
         floor.blit(grad_surf, (0, 0))
 
         # ═══════════════════════════════════════════════════════════
-        # 3. 석재 타일 그리드 (중국식 정사각 타일 + 줄눈)
+        # 3. 수평 목재 판재 (가로 긴 널빤지 + 틈새)
         # ═══════════════════════════════════════════════════════════
-        tile_surf = pygame.Surface((W, H), pygame.SRCALPHA)
-        random.seed(7777)  # 결정론적
-        tile_data = []
-        tile_size_base = 52
-        grout_w = 3
+        plank_surf = pygame.Surface((W, H), pygame.SRCALPHA)
+        random.seed(7777)
+        plank_data = []  # (y, height, shade, grain_seed) 저장
         y_pos = 0
-        row = 0
-        while y_pos < H + tile_size_base:
-            x_pos = (row % 2) * (tile_size_base // 2) - tile_size_base // 4
-            while x_pos < W + tile_size_base:
-                tw = tile_size_base + random.randint(-4, 4)
-                th = tile_size_base + random.randint(-4, 4)
-                tile_data.append((x_pos, y_pos, tw, th))
+        while y_pos < H + 30:
+            ph = random.randint(28, 48)  # 판재 높이 (넓은 범위)
+            p_shade = random.uniform(0.88, 1.12)
+            p_grain = random.randint(0, 9999)
+            plank_data.append((y_pos, ph, p_shade, p_grain))
 
-                # 줄눈 (수평 + 수직)
-                jitter = random.randint(-1, 1)
-                pygame.draw.rect(tile_surf, (*grout, 120),
-                                 (x_pos + jitter, y_pos, tw, grout_w))
-                pygame.draw.rect(tile_surf, (*grout, 120),
-                                 (x_pos, y_pos + jitter, grout_w, th))
-                # 줄눈 밝은 쪽 (깊이감)
-                pygame.draw.rect(tile_surf, (*grout_light, 50),
-                                 (x_pos + jitter + 1, y_pos + 1, tw - 1, 1))
-                pygame.draw.rect(tile_surf, (*grout_light, 50),
-                                 (x_pos + 1, y_pos + jitter + 1, 1, th - 1))
-                x_pos += tw + grout_w
-            y_pos += tile_size_base + grout_w
-            row += 1
+            # 판재 사이 틈새 (어두운 가로줄)
+            gap_h = random.randint(1, 2)
+            pygame.draw.rect(plank_surf, (*gap_color, 180),
+                             (0, y_pos + ph, W, gap_h))
+            # 틈새 그림자 (위쪽 어둡게)
+            pygame.draw.rect(plank_surf, (8, 3, 2, 100),
+                             (0, y_pos + ph - 1, W, 1))
+            # 틈새 밝은 가장자리 (아래쪽 밝게 - 빛 반사)
+            pygame.draw.rect(plank_surf, (*wood_light, 40),
+                             (0, y_pos + ph + gap_h, W, 1))
+            y_pos += ph + gap_h
+
+        # 세로 이음새 (판재 끝 연결부) - 가끔만
+        for py, ph, _, _ in plank_data:
+            num_joints = random.randint(0, 2)
+            for _ in range(num_joints):
+                jx = random.randint(80, W - 80)
+                jw = random.randint(1, 2)
+                pygame.draw.rect(plank_surf, (*gap_color, 120),
+                                 (jx, py + 2, jw, ph - 4))
+                # 이음새 밝은 가장자리
+                pygame.draw.rect(plank_surf, (*wood_light, 30),
+                                 (jx + jw, py + 3, 1, ph - 6))
         random.seed()
-        floor.blit(tile_surf, (0, 0))
+        floor.blit(plank_surf, (0, 0))
 
         # ═══════════════════════════════════════════════════════════
-        # 4. 타일별 색상 변화 (각 타일마다 미세한 붉은 색조 차이)
+        # 4. 판재별 색조 변화 (각 판재마다 미세한 나무 색상 차이)
         # ═══════════════════════════════════════════════════════════
-        tilecolor_surf = pygame.Surface((W, H), pygame.SRCALPHA)
+        plankcolor_surf = pygame.Surface((W, H), pygame.SRCALPHA)
         random.seed(8888)
-        for tx, ty, tw, th in tile_data:
-            r_shift = random.randint(-8, 12)
-            g_shift = random.randint(-4, 5)
-            b_shift = random.randint(-3, 4)
-            tc = (clamp(stone[0] + r_shift),
-                  clamp(stone[1] + g_shift),
-                  clamp(stone[2] + b_shift))
-            ta = random.randint(18, 42)
-            pygame.draw.rect(tilecolor_surf, (*tc, ta),
-                             (tx + grout_w, ty + grout_w, tw - grout_w, th - grout_w))
-        random.seed()
-        floor.blit(tilecolor_surf, (0, 0))
-
-        # ═══════════════════════════════════════════════════════════
-        # 5. 대규모 색상 패치 (화염 그을음, 습기, 풍화 영역)
-        # ═══════════════════════════════════════════════════════════
-        patch_surf = pygame.Surface((W, H), pygame.SRCALPHA)
-        random.seed(9999)
-        patch_colors = [
-            (22, 8, 5, 25),      # 그을음 (어두운)
-            (65, 20, 10, 20),     # 화염 자국 (붉은)
-            (50, 35, 20, 15),     # 풍화 (갈색)
-            (30, 15, 25, 12),     # 오래된 자국 (자줏빛)
-            (70, 30, 15, 18),     # 따뜻한 반점 (주황)
+        plank_palettes = [
+            wood, wood_light, wood_dark, wood_red, wood_warm,
+            (42, 20, 13), (35, 14, 10), (52, 24, 16), (30, 12, 9),
+            (45, 19, 11), (40, 17, 15), (48, 21, 12),
         ]
-        for _ in range(18):
-            pc = random.choice(patch_colors)
-            px = random.randint(0, W)
-            py = random.randint(0, H)
-            mr = random.randint(40, 120)
-            for r in range(mr, 0, -3):
-                frac = 1.0 - r / mr
-                pygame.draw.circle(patch_surf,
-                                   (pc[0], pc[1], pc[2], int(pc[3] * frac * frac)),
-                                   (px, py), r)
+        for py, ph, p_shade, _ in plank_data:
+            pc = random.choice(plank_palettes)
+            r_shift = random.randint(-6, 8)
+            g_shift = random.randint(-3, 4)
+            b_shift = random.randint(-2, 3)
+            tc = (clamp(pc[0] * p_shade + r_shift),
+                  clamp(pc[1] * p_shade + g_shift),
+                  clamp(pc[2] * p_shade + b_shift))
+            ta = random.randint(22, 48)
+            pygame.draw.rect(plankcolor_surf, (*tc, ta), (0, py + 2, W, ph - 2))
         random.seed()
-        floor.blit(patch_surf, (0, 0))
+        floor.blit(plankcolor_surf, (0, 0))
 
         # ═══════════════════════════════════════════════════════════
-        # 6. 석재 알갱이 텍스처 (화강암/적사암 입자)
+        # 5. 나무결 텍스처 (수평 물결 무늬 - 판재마다 다른 패턴)
         # ═══════════════════════════════════════════════════════════
         grain_surf = pygame.Surface((W, H), pygame.SRCALPHA)
-        random.seed(1111)
-        # 6a. 어두운 입자 (구멍)
-        for _ in range(W * H // 20):
-            gx = random.randint(0, W - 1)
-            gy = random.randint(0, H - 1)
-            grain_surf.set_at((gx, gy), (18, 8, 5, random.randint(25, 65)))
-        # 6b. 밝은 입자 (결정/반사)
-        for _ in range(W * H // 30):
-            gx = random.randint(0, W - 1)
-            gy = random.randint(0, H - 1)
-            grain_surf.set_at((gx, gy), (75, 35, 25, random.randint(20, 50)))
-        # 6c. 붉은 입자 (적사암 결)
-        for _ in range(W * H // 40):
-            gx = random.randint(0, W - 1)
-            gy = random.randint(0, H - 1)
-            grain_surf.set_at((gx, gy), (90, 25, 12, random.randint(30, 60)))
+        random.seed(2222)
+        for py, ph, p_shade, p_seed in plank_data:
+            # 각 판재별 나무결 (수평 방향 물결선)
+            num_grain_lines = random.randint(4, 8)
+            for g in range(num_grain_lines):
+                gy_base = py + int(ph * (g + 1) / (num_grain_lines + 1))
+                grain_pts = []
+                freq = random.uniform(0.015, 0.04)
+                amp = random.uniform(1.5, 4.0)
+                phase = p_seed * 0.01 + g * 1.3
+                for gx in range(0, W, 3):
+                    gy_off = amp * _sin(gx * freq + phase)
+                    gy_off += amp * 0.5 * _sin(gx * freq * 2.3 + phase * 1.7)
+                    grain_pts.append((gx, int(gy_base + gy_off)))
+                if len(grain_pts) >= 2:
+                    # 어두운 나무결선
+                    gc_dark = (clamp(wood_dark[0] * p_shade),
+                               clamp(wood_dark[1] * p_shade),
+                               clamp(wood_dark[2] * p_shade))
+                    pygame.draw.lines(grain_surf, (*gc_dark, random.randint(25, 55)),
+                                      False, grain_pts, 1)
+            # 나무 옹이 (knot) - 가끔
+            if random.random() < 0.15:
+                kx = random.randint(50, W - 50)
+                ky = py + ph // 2
+                kr = random.randint(4, 9)
+                # 옹이 어두운 링
+                for ring in range(kr, 0, -1):
+                    frac = ring / kr
+                    kc = clamp(wood_dark[0] * p_shade * (0.6 + 0.4 * frac))
+                    pygame.draw.circle(grain_surf, (kc, kc // 2, kc // 3,
+                                                     int(50 * (1 - frac))),
+                                       (kx, ky), ring)
+                # 옹이 중심 (가장 어두운)
+                pygame.draw.circle(grain_surf, (*gap_color, 70), (kx, ky), max(1, kr // 3))
         random.seed()
         floor.blit(grain_surf, (0, 0))
 
         # ═══════════════════════════════════════════════════════════
-        # 7. 중국 문양 임프린트 (은은한 회문/뇌문 패턴)
+        # 6. 대규모 색상 패치 (그을음, 옻칠 마모, 습기 자국)
         # ═══════════════════════════════════════════════════════════
-        motif_surf = pygame.Surface((W, H), pygame.SRCALPHA)
-        random.seed(3333)
-        motif_color = (55, 22, 16, 18)  # 매우 은은하게
-        # 격자형 회문 패턴 (줄눈 교차점에)
-        for tx, ty, tw, th in tile_data:
-            if random.random() < 0.12:
-                mcx = tx + tw // 2
-                mcy = ty + th // 2
-                ms = min(tw, th) // 3
-                # 중국 전통 회문 (사각 나선)
-                for ring in range(3):
-                    off = ring * 4
-                    rect = (mcx - ms + off, mcy - ms + off,
-                            (ms - off) * 2, (ms - off) * 2)
-                    if rect[2] > 4 and rect[3] > 4:
-                        pygame.draw.rect(motif_surf, motif_color, rect, 1)
-            # 가끔 작은 십자 무늬
-            if random.random() < 0.08:
-                mcx = tx + tw // 2
-                mcy = ty + th // 2
-                cs = min(tw, th) // 5
-                pygame.draw.line(motif_surf, motif_color,
-                                 (mcx - cs, mcy), (mcx + cs, mcy), 1)
-                pygame.draw.line(motif_surf, motif_color,
-                                 (mcx, mcy - cs), (mcx, mcy + cs), 1)
+        patch_surf = pygame.Surface((W, H), pygame.SRCALPHA)
+        random.seed(9999)
+        patch_colors = [
+            (18, 6, 3, 22),       # 그을음 (매우 어두운)
+            (55, 16, 8, 18),      # 화염 자국 (붉은)
+            (40, 28, 18, 14),     # 습기 (갈색)
+            (60, 22, 12, 16),     # 옻칠 잔여 (진한 붉은)
+            (30, 12, 20, 10),     # 오래된 자국 (자줏빛)
+        ]
+        for _ in range(15):
+            pc = random.choice(patch_colors)
+            px = random.randint(0, W)
+            py_p = random.randint(0, H)
+            mr = random.randint(35, 100)
+            for r in range(mr, 0, -3):
+                frac = 1.0 - r / mr
+                pygame.draw.circle(patch_surf,
+                                   (pc[0], pc[1], pc[2], int(pc[3] * frac * frac)),
+                                   (px, py_p), r)
         random.seed()
-        floor.blit(motif_surf, (0, 0))
+        floor.blit(patch_surf, (0, 0))
 
         # ═══════════════════════════════════════════════════════════
-        # 8. 풍화 균열
+        # 7. 옻칠 광택 (은은한 붉은 반사광 - 중국 사원 특유)
         # ═══════════════════════════════════════════════════════════
-        crack_surf = pygame.Surface((W, H), pygame.SRCALPHA)
+        lacquer_surf = pygame.Surface((W, H), pygame.SRCALPHA)
+        random.seed(3333)
+        for py, ph, p_shade, _ in plank_data:
+            if random.random() < 0.25:  # 일부 판재만 광택
+                # 가로로 긴 광택 하이라이트
+                lx = random.randint(30, W - 100)
+                lw = random.randint(60, 180)
+                ly = py + random.randint(3, max(4, ph - 6))
+                lh = random.randint(2, 5)
+                pygame.draw.rect(lacquer_surf, (*lacquer_red, random.randint(10, 25)),
+                                 (lx, ly, lw, lh))
+        # 중앙 광택 집중 (사원 바닥 광택)
+        for r in range(60, 0, -2):
+            frac = 1.0 - r / 60
+            pygame.draw.circle(lacquer_surf, (*lacquer_red, int(5 * frac)),
+                               (cx, cy), r)
+        random.seed()
+        floor.blit(lacquer_surf, (0, 0))
+
+        # ═══════════════════════════════════════════════════════════
+        # 8. 긁힘/마모 흔적 (전투 자국)
+        # ═══════════════════════════════════════════════════════════
+        scratch_surf = pygame.Surface((W, H), pygame.SRCALPHA)
         random.seed(4444)
-        cr_dark = (20, 8, 5)
-        for _ in range(25):
+        for _ in range(35):
             sx = random.randint(0, W)
             sy = random.randint(0, H)
-            angle = random.uniform(0, 6.283)
-            seg_count = random.randint(4, 12)
-            pts = [(sx, sy)]
-            for _ in range(seg_count):
-                angle += random.uniform(-0.8, 0.8)
-                seg_len = random.uniform(5, 18)
-                nx = pts[-1][0] + math.cos(angle) * seg_len
-                ny = pts[-1][1] + _sin(angle) * seg_len
-                pts.append((int(nx), int(ny)))
-            if len(pts) >= 2:
-                pygame.draw.lines(crack_surf, (*cr_dark, random.randint(30, 65)),
-                                  False, pts, 1)
-                # 분기 균열
-                if len(pts) > 3 and random.random() < 0.5:
-                    bi = random.randint(1, len(pts) - 2)
-                    bp = pts[bi]
-                    ba = angle + random.uniform(-1.2, 1.2)
-                    b_pts = [bp]
-                    for _ in range(random.randint(2, 5)):
-                        ba += random.uniform(-0.5, 0.5)
-                        bl = random.uniform(4, 12)
-                        b_pts.append((int(b_pts[-1][0] + math.cos(ba) * bl),
-                                      int(b_pts[-1][1] + _sin(ba) * bl)))
-                    pygame.draw.lines(crack_surf, (*cr_dark, random.randint(20, 45)),
-                                      False, b_pts, 1)
+            # 긁힘은 거의 수평 (나무결 방향)
+            angle = random.uniform(-0.3, 0.3)
+            s_len = random.randint(15, 60)
+            ex = sx + int(math.cos(angle) * s_len)
+            ey = sy + int(_sin(angle) * s_len)
+            sc = random.choice([
+                (*wood_light, random.randint(20, 45)),  # 밝은 긁힘 (표면 노출)
+                (*gap_color, random.randint(25, 50)),    # 깊은 긁힘
+            ])
+            pygame.draw.line(scratch_surf, sc, (sx, sy), (ex, ey), 1)
         random.seed()
-        floor.blit(crack_surf, (0, 0))
+        floor.blit(scratch_surf, (0, 0))
 
         # ═══════════════════════════════════════════════════════════
-        # 9. 미세 그림자 노이즈 (깊이감)
+        # 9. 미세 먼지/그림자 (깊이감)
         # ═══════════════════════════════════════════════════════════
         shadow_surf = pygame.Surface((W, H), pygame.SRCALPHA)
         random.seed(5555)
-        # 어두운 점 (미세 구멍)
-        for _ in range(200):
-            sx = random.randint(0, W - 1)
-            sy = random.randint(0, H - 1)
-            sr = random.randint(1, 3)
-            sa = random.randint(15, 40)
-            pygame.draw.circle(shadow_surf, (12, 5, 3, sa), (sx, sy), sr)
-        # 밝은 점 (반사 입자)
-        for _ in range(120):
-            sx = random.randint(0, W - 1)
-            sy = random.randint(0, H - 1)
-            sr = random.randint(1, 2)
-            sa = random.randint(10, 30)
-            pygame.draw.circle(shadow_surf, (stone_light[0] + 8, stone_light[1] + 5,
-                                             stone_light[2] + 3, sa), (sx, sy), sr)
+        for _ in range(180):
+            dx = random.randint(0, W - 1)
+            dy = random.randint(0, H - 1)
+            dr = random.randint(1, 3)
+            da = random.randint(10, 35)
+            pygame.draw.circle(shadow_surf, (10, 4, 2, da), (dx, dy), dr)
+        # 밝은 먼지 입자
+        for _ in range(90):
+            dx = random.randint(0, W - 1)
+            dy = random.randint(0, H - 1)
+            pygame.draw.circle(shadow_surf, (wood_light[0] + 10, wood_light[1] + 5,
+                                             wood_light[2] + 3, random.randint(8, 25)),
+                               (dx, dy), random.randint(1, 2))
         random.seed()
         floor.blit(shadow_surf, (0, 0))
 
         # ═══════════════════════════════════════════════════════════
-        # 10. 닳은 바닥 (전투 마모 + 중앙 화염 자국)
+        # 10. 화염 그을림 자국 (숯 반점)
         # ═══════════════════════════════════════════════════════════
-        wear_surf = pygame.Surface((W, H), pygame.SRCALPHA)
-        # 중앙 마모 (밝게)
-        for r in range(70, 0, -2):
-            frac = 1.0 - r / 70
-            pygame.draw.circle(wear_surf, (65, 28, 18, int(6 * frac)),
-                               (cx, cy), r)
-        # 화염 자국 반점들
+        burn_surf = pygame.Surface((W, H), pygame.SRCALPHA)
         random.seed(6666)
-        for _ in range(10):
-            fx = random.randint(PILLAR_OFFSET + 30, PILLAR_OFFSET + GAME_WIDTH - 30)
-            fy = random.randint(50, H - 50)
-            fr = random.randint(15, 35)
-            fc = random.choice([(60, 18, 8), (50, 15, 10), (45, 20, 12)])
-            for r in range(fr, 0, -2):
-                frac = 1.0 - r / fr
-                pygame.draw.circle(wear_surf, (*fc, int(10 * frac * frac)),
-                                   (fx, fy), r)
-        # 이동 흔적 (가로 줄)
-        for _ in range(8):
-            sx = random.randint(PILLAR_OFFSET, PILLAR_OFFSET + GAME_WIDTH)
-            sy = random.randint(0, H)
-            sw = random.randint(30, 80)
-            sh = random.randint(1, 2)
-            pygame.draw.rect(wear_surf, (stone_light[0], stone_light[1], stone_light[2],
-                                          random.randint(8, 18)), (sx, sy, sw, sh))
+        for _ in range(12):
+            bx = random.randint(PILLAR_OFFSET + 20, PILLAR_OFFSET + GAME_WIDTH - 20)
+            by = random.randint(40, H - 40)
+            br = random.randint(12, 30)
+            # 숯 자국 (가장 어두운)
+            for r in range(br, 0, -2):
+                frac = 1.0 - r / br
+                pygame.draw.circle(burn_surf, (12, 5, 3, int(12 * frac * frac)),
+                                   (bx, by), r)
+            # 가장자리 그을림 (갈색)
+            pygame.draw.circle(burn_surf, (35, 15, 8, 15), (bx, by), br + 3)
         random.seed()
-        floor.blit(wear_surf, (0, 0))
+        floor.blit(burn_surf, (0, 0))
 
         # ═══════════════════════════════════════════════════════════
-        # 11. 잔불/숯 흔적 (화염 테마)
+        # 11. 잔불/불티 자국 (화염 테마)
         # ═══════════════════════════════════════════════════════════
         ember_surf = pygame.Surface((W, H), pygame.SRCALPHA)
         random.seed(7770)
         ember_colors = [
-            (100, 30, 10),   # 어두운 잔불
-            (80, 20, 8),     # 숯
-            (120, 40, 15),   # 밝은 잔불
+            (90, 28, 8),    # 어두운 잔불
+            (110, 35, 12),  # 밝은 잔불
+            (70, 18, 6),    # 숯불
         ]
-        for _ in range(30):
+        for _ in range(25):
             ex = random.randint(0, W)
             ey = random.randint(0, H)
-            er = random.randint(2, 6)
+            er = random.randint(1, 4)
             ec = random.choice(ember_colors)
             pygame.draw.circle(ember_surf, (*ec, random.randint(15, 40)), (ex, ey), er)
-            # 주변 미세한 불티
-            for _ in range(random.randint(2, 5)):
-                ox = ex + random.randint(-8, 8)
-                oy = ey + random.randint(-8, 8)
-                pygame.draw.circle(ember_surf, (*ec, random.randint(8, 22)),
-                                   (ox, oy), random.randint(1, 2))
+            for _ in range(random.randint(1, 3)):
+                ox = ex + random.randint(-6, 6)
+                oy = ey + random.randint(-6, 6)
+                pygame.draw.circle(ember_surf, (*ec, random.randint(8, 20)),
+                                   (ox, oy), 1)
         random.seed()
         floor.blit(ember_surf, (0, 0))
 
@@ -678,10 +669,10 @@ class Stage5ChineseMarket:
         # 12. 비네트 (가장자리 어둡게)
         # ═══════════════════════════════════════════════════════════
         vignette_surf = pygame.Surface((W, H), pygame.SRCALPHA)
-        vig_max2 = int(max(W, H) * 0.7)
+        vig_max = int(max(W, H) * 0.7)
         for ring in range(30):
-            radius = int(vig_max2 * (1.0 - ring * 0.025))
-            pygame.draw.circle(vignette_surf, (8, 3, 2, int(2.5 + ring * 1.8)),
+            radius = int(vig_max * (1.0 - ring * 0.025))
+            pygame.draw.circle(vignette_surf, (6, 2, 1, int(2.5 + ring * 1.8)),
                                (cx, cy), radius)
         floor.blit(vignette_surf, (0, 0))
 
