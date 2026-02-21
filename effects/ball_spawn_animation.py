@@ -1083,20 +1083,21 @@ class BallSpawnAnimation:
         self.lightning_bolts = [bolt for bolt in self.lightning_bolts if bolt.update(dt)]
         self.chain_lightnings = [chain for chain in self.chain_lightnings if chain.update(dt)]
 
-        if progress < 0.5:
+        if progress < 0.6:
             self.lightning_spawn_timer += dt
-            fade_interval = 0.1 + progress * 0.5  # 0.1s → 0.35s (점점 느려짐)
+            fade_interval = 0.06 + progress * 0.5  # 0.06s → 0.36s (점점 느려짐)
             if self.lightning_spawn_timer >= fade_interval:
                 self.lightning_spawn_timer = 0
-                # 약한 번개 1개 (중심 근처, 점점 작아지는 범위)
-                max_r = 50 * (1 - progress * 2)
+                # 잔여 번개 (is_main=True로 눈에 보이게)
+                fade_mult = max(0, 1 - progress * 1.7)  # 1→0
+                max_r = max(25, 90 * fade_mult)
                 angle = random.uniform(0, math.pi * 2)
                 sx = self.center_x + math.cos(angle) * max_r
                 sy = self.center_y + math.sin(angle) * max_r
-                ex = self.center_x + random.uniform(-12, 12)
-                ey = self.center_y + random.uniform(-12, 12)
+                ex = self.center_x + random.uniform(-15, 15)
+                ey = self.center_y + random.uniform(-15, 15)
                 self.lightning_bolts.append(
-                    EnhancedLightningBolt(sx, sy, ex, ey, branch_depth=1)
+                    EnhancedLightningBolt(sx, sy, ex, ey, is_main=True)
                 )
 
         # 에너지 링 방출 - 최적화: 간격 늘리고 개수 제한
