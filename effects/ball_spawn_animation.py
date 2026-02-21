@@ -1065,40 +1065,44 @@ class BallSpawnAnimation:
             self.core_glow_radius = 20 + progress * 40
             self.core_glow_alpha = int(100 + progress * 155)
 
-        # === 리드미컬 안개 효과 (Phase 1 전체) ===
-        # 1. 감쇠 엔벨로프: 초반 강하게 → 자연스럽게 줄어듦
-        envelope = max(0, (1.0 - progress * 0.55) ** 1.4)
+        # === 환각적 몽환 안개 (Phase 1 전체) ===
+        # 1. 감쇠 엔벨로프
+        envelope = max(0, (1.0 - progress * 0.45) ** 1.2)
 
-        # 2. 리드미컬 호흡 (느린 맥동 + 미세 반짝임 합성)
-        slow_breath = math.sin(progress * math.pi * 5)       # 2.5 사이클 호흡
-        fast_shimmer = math.sin(progress * math.pi * 17) * 0.12  # 미세 반짝임
-        pulse = 0.52 + 0.48 * (slow_breath * 0.88 + fast_shimmer)
+        # 2. 깊은 호흡 (복합 하모닉스)
+        slow_breath = math.sin(progress * math.pi * 4.6)
+        mid_breath = math.sin(progress * math.pi * 7.8) * 0.22
+        fast_shimmer = math.sin(progress * math.pi * 19) * 0.08
+        pulse = 0.38 + 0.62 * max(0, slow_breath + mid_breath + fast_shimmer)
 
-        # 3. 기본 안개 알파
-        fog_alpha = int(105 * envelope * pulse)
+        # 3. 강한 안개 알파
+        fog_alpha = int(135 * envelope * pulse)
 
-        # 4. 느린 색상 변주 (빛 색상 위주: 웜화이트 → 쿨화이트 → 미세 라벤더)
-        phase_t = progress * math.pi * 1.2  # 0.6 사이클 (매우 느리게)
-        r = 228 + int(18 * math.sin(phase_t))
-        g = 232 + int(15 * math.sin(phase_t + 0.5))
-        b = 248 + int(7 * math.sin(phase_t + 1.0))
+        # 4. 오로라 색상 순환 (패스텔 HSL hue rotation + 하모닉 레이어)
+        t = progress * math.pi * 2.0         # 기본 색상 1사이클
+        t2 = progress * math.pi * 5.4        # 고속 하모닉
+        wave_r = math.sin(t) + 0.15 * math.sin(t2)
+        wave_g = math.sin(t + math.pi * 2 / 3) + 0.12 * math.sin(t2 + 1.0)
+        wave_b = math.sin(t + math.pi * 4 / 3) + 0.10 * math.sin(t2 + 2.0)
+        r = 218 + int(34 * wave_r)
+        g = 205 + int(38 * wave_g)
+        b = 230 + int(25 * wave_b)
         self.flash_color = (
-            min(255, max(210, r)),
-            min(255, max(215, g)),
-            min(255, max(240, b))
+            min(255, max(175, r)),
+            min(255, max(165, g)),
+            min(255, max(200, b))
         )
 
         # 5. Phase 1 종료 직전: 부드러운 전환 상승
         if progress > 0.88:
             end_t = (progress - 0.88) / 0.12
-            transition_alpha = int(200 * (end_t ** 2))
+            transition_alpha = int(210 * (end_t ** 2))
             fog_alpha = max(fog_alpha, transition_alpha)
-            # 순백으로 부드럽게 블렌드
             blend = end_t ** 2
             cr, cg, cb = self.flash_color
             self.flash_color = (
-                int(cr * (1 - blend) + 225 * blend),
-                int(cg * (1 - blend) + 240 * blend),
+                int(cr * (1 - blend) + 230 * blend),
+                int(cg * (1 - blend) + 220 * blend),
                 int(cb * (1 - blend) + 255 * blend)
             )
 
@@ -1165,28 +1169,26 @@ class BallSpawnAnimation:
         # 잔여 파티클 빠르게 제거 - 최적화: 더 빠르게 페이드아웃
         self.quantum_particles = [p for p in self.quantum_particles if random.random() > 0.12]
 
-        # === 안개 부드러운 페이드아웃 (Phase 2 전체 지속) ===
+        # === 환각적 잔향 안개 (Phase 2 전체 지속) ===
+        # Phase 1 오로라 색상 흐름 이어받기 (elapsed_time 기반)
+        global_t = self.elapsed_time * math.pi * 0.5
         if progress < 0.15:
-            # 초반: 전환 플래시 감쇠 (번개 가시성 확보)
             t = progress / 0.15
-            self.flash_alpha = max(0, int(160 * (1 - t * 0.6)))  # 160→64
-            self.flash_color = (
-                int(225 * (1 - t) + 195 * t),
-                int(240 * (1 - t) + 210 * t),
-                255
-            )
+            self.flash_alpha = max(0, int(150 * (1 - t * 0.55)))
         else:
-            # 중~후반: 리드미컬 잔여 안개 (Phase 2 끝까지 서서히)
             remain_t = (progress - 0.15) / 0.85
-            remain = (1.0 - remain_t) ** 1.2
-            shimmer = 0.65 + 0.35 * math.sin(remain_t * math.pi * 2.5)
-            self.flash_alpha = int(55 * remain * shimmer)
-            # 색상: 라벤더 → 민트로 서서히
-            self.flash_color = (
-                int(195 - remain_t * 30),
-                int(210 + remain_t * 20),
-                255
-            )
+            remain = (1.0 - remain_t) ** 1.0
+            shimmer = 0.55 + 0.45 * math.sin(remain_t * math.pi * 3)
+            self.flash_alpha = int(65 * remain * shimmer)
+        # 몽환 색상 계속 흘러감
+        wave_r = math.sin(global_t) + 0.12 * math.sin(global_t * 2.7)
+        wave_g = math.sin(global_t + math.pi * 2 / 3) + 0.10 * math.sin(global_t * 2.7 + 1.0)
+        wave_b = math.sin(global_t + math.pi * 4 / 3) + 0.08 * math.sin(global_t * 2.7 + 2.0)
+        self.flash_color = (
+            min(255, max(170, 215 + int(35 * wave_r))),
+            min(255, max(165, 200 + int(38 * wave_g))),
+            min(255, max(200, 228 + int(27 * wave_b)))
+        )
 
         # 코어 글로우 유지
         self.core_glow_radius = 50 - progress * 25
@@ -1303,28 +1305,34 @@ class BallSpawnAnimation:
         # 코어 글로우 페이드아웃
         self.core_glow_alpha = int(100 * (1 - progress))
 
-        # === 잔여 안개 (Phase 2에서 이어짐, 매우 서서히 소멸) ===
-        if progress < 0.6:
-            fog_remain = (1.0 - progress / 0.6) ** 1.5
-            fog_shimmer = 0.6 + 0.4 * math.sin(progress * math.pi * 2)
-            self.flash_alpha = int(30 * fog_remain * fog_shimmer)
+        # === 환각적 잔여 안개 + 빛의 파동 (Phase 3) ===
+        global_t = self.elapsed_time * math.pi * 0.5
+        if progress < 0.65:
+            fog_remain = (1.0 - progress / 0.65) ** 1.2
+            fog_shimmer = 0.5 + 0.5 * math.sin(progress * math.pi * 2.5)
+            self.flash_alpha = int(40 * fog_remain * fog_shimmer)
+            # 오로라 색상 계속 흘러감
+            wave_r = math.sin(global_t)
+            wave_g = math.sin(global_t + math.pi * 2 / 3)
+            wave_b = math.sin(global_t + math.pi * 4 / 3)
             self.flash_color = (
-                int(175 - progress * 30),
-                int(220 + progress * 15),
-                255
+                min(255, max(170, 210 + int(35 * wave_r))),
+                min(255, max(165, 198 + int(38 * wave_g))),
+                min(255, max(200, 225 + int(27 * wave_b)))
             )
         elif progress > 0.78:
-            # 빛의 파동: 화면 전체가 "샤" 하고 밝아졌다 사라짐
+            # 빛의 파동: 화면 전체 몽환적 파동
             wave_t = (progress - 0.78) / 0.22
-            # 전체 화면 빛의 파동 (빠르게 밝아졌다 서서히 사라짐)
-            wave_pulse = math.sin(wave_t * math.pi) ** 0.6
-            fade = (1 - wave_t) ** 0.7
-            self.flash_alpha = int(120 * wave_pulse * fade)
-            # 색상: 따뜻한 화이트 → 쿨 라벤더로 자연스럽게 변주
-            blend = wave_t ** 0.5
+            wave_pulse = math.sin(wave_t * math.pi) ** 0.55
+            fade = (1 - wave_t) ** 0.6
+            self.flash_alpha = int(140 * wave_pulse * fade)
+            # 파동 색상도 오로라 기반
+            blend = wave_t ** 0.4
+            wr = math.sin(global_t)
+            wg = math.sin(global_t + math.pi * 2 / 3)
             self.flash_color = (
-                int(255 * (1 - blend) + 195 * blend),
-                int(248 * (1 - blend) + 215 * blend),
+                min(255, max(190, int(245 * (1 - blend) + (210 + 30 * wr) * blend))),
+                min(255, max(185, int(238 * (1 - blend) + (200 + 30 * wg) * blend))),
                 255
             )
             self.shockwave_alpha = 0
