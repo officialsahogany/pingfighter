@@ -2125,8 +2125,9 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
     try:
         from pingfighter import get_display_mode as _get_dm
         display_mode = _get_dm()
-        if display_mode in ("borderless", "fullscreen"):
-            display_mode = "windowed"  # 전체화면/보더리스 제거됨 → 창모드로 폴백
+        if display_mode in ("borderless", "large_windowed"):
+            display_mode = "windowed"  # 보더리스/큰창모드 제거됨 → 창모드로 폴백
+        # fullscreen은 '플래그십모드'로 유지
     except Exception:
         display_mode = "windowed"
 
@@ -2351,12 +2352,14 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
             disp_label = font_medium.render("화면 모드", True, (255, 255, 255))
             screen.blit(disp_label, (panel_x + margin_x, disp_y))
 
-            dpill_w, dpill_h = 120, 36
-            _dpill_gap = 10
-            cm_rect = pygame.Rect(slider_x, disp_y - 8, dpill_w, dpill_h)
-            win_rect = pygame.Rect(slider_x + dpill_w + _dpill_gap, disp_y - 8, dpill_w, dpill_h)
+            dpill_w, dpill_h = 110, 36
+            _dpill_gap = 8
+            fs_rect = pygame.Rect(slider_x, disp_y - 8, dpill_w, dpill_h)
+            cm_rect = pygame.Rect(slider_x + dpill_w + _dpill_gap, disp_y - 8, dpill_w, dpill_h)
+            win_rect = pygame.Rect(slider_x + (dpill_w + _dpill_gap) * 2, disp_y - 8, dpill_w, dpill_h)
             for rect, label, is_sel in [
-                (cm_rect, "시네마모드", display_mode == "cinema"),
+                (fs_rect, "플래그십", display_mode == "fullscreen"),
+                (cm_rect, "시네마", display_mode == "cinema"),
                 (win_rect, "창모드", display_mode == "windowed"),
             ]:
                 col = (60, 90, 130) if is_sel else (45, 55, 70)
@@ -2368,6 +2371,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
             # 설명 텍스트
             desc_y = disp_y + 50
             _disp_descs = {
+                "fullscreen": "네이티브 해상도 전체화면 (최고 화질)",
                 "cinema": "해상도를 낮춰 성능을 높이고 화면을 꽉 채웁니다",
                 "windowed": "필러 배경 포함 창모드로 표시합니다",
             }
@@ -2424,7 +2428,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                     if current_tab == "controls" and focus == "scheme":
                         control_scheme = "keyboard"
                     elif current_tab == "display" and focus == "dispmode":
-                        _dm_order = ["cinema", "windowed"]
+                        _dm_order = ["fullscreen", "cinema", "windowed"]
                         _dm_idx = _dm_order.index(display_mode) if display_mode in _dm_order else 0
                         display_mode = _dm_order[max(0, _dm_idx - 1)]
                     elif current_tab == "sound" and focus == "bgm":
@@ -2453,7 +2457,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                     if current_tab == "controls" and focus == "scheme":
                         control_scheme = "mouse_keyboard"
                     elif current_tab == "display" and focus == "dispmode":
-                        _dm_order = ["cinema", "windowed"]
+                        _dm_order = ["fullscreen", "cinema", "windowed"]
                         _dm_idx = _dm_order.index(display_mode) if display_mode in _dm_order else 0
                         display_mode = _dm_order[min(len(_dm_order) - 1, _dm_idx + 1)]
                     elif current_tab == "sound" and focus == "bgm":
@@ -2513,7 +2517,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                             print(f"[디스플레이 전환 오류] {_e}")
                         return
                     elif current_tab == "display" and focus == "dispmode":
-                        _dm_order = ["cinema", "windowed"]
+                        _dm_order = ["fullscreen", "cinema", "windowed"]
                         _dm_idx = _dm_order.index(display_mode) if display_mode in _dm_order else 0
                         display_mode = _dm_order[(_dm_idx + 1) % len(_dm_order)]
                     elif current_tab == "controls" and focus == "scheme":
@@ -2602,6 +2606,9 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         continue
 
                 if current_tab == "display":
+                    if fs_rect.collidepoint(mp):
+                        display_mode = "fullscreen"
+                        continue
                     if cm_rect.collidepoint(mp):
                         display_mode = "cinema"
                         continue
