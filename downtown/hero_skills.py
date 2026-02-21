@@ -3499,216 +3499,96 @@ class HellFire(HeroSkill):
         self.glitch_lines = []
 
     def _draw_dokkaebi_face(self, screen: pygame.Surface, bx: int, by: int):
-        """공 위에 고퀄리티 도깨비 얼굴을 글리치하게 그리기 (Ultra Premium)"""
-        face_size = 150
-        face_surf = _psurf((face_size * 2, face_size * 2), pygame.SRCALPHA)
-        cx, cy = face_size, face_size
+        """공 위에 반투명 도깨비 얼굴을 글리치하게 그리기"""
+        face_size = 150  # 얼굴 크기 (3배)
+        face_surf = pygame.Surface((face_size * 2, face_size * 2), pygame.SRCALPHA)
+        cx, cy = face_size, face_size  # 중심
 
+        # 도깨비 색상 (푸른 불빛)
         base_alpha = int(255 * self.face_alpha_pulse)
-        t = self.glitch_timer
+        face_color = (80, 200, 255, min(255, int(base_alpha * 0.4)))  # 반투명
+        eye_color = (255, 100, 50, min(255, int(base_alpha * 0.7)))  # 붉은 눈
+        horn_color = (100, 220, 255, min(255, int(base_alpha * 0.5)))
 
-        # === 얼굴 뒤 에너지 오라 (다층 번짐) ===
-        for aura_i in range(4):
-            aura_r = 85 + aura_i * 12
-            aura_a = max(0, int(base_alpha * (0.08 - aura_i * 0.015)))
-            aura_pulse = 0.7 + 0.3 * _sin(t * 5.0 + aura_i * 1.2)
-            aura_a = int(aura_a * aura_pulse)
-            if aura_a > 0:
-                ar = int(60 + 40 * _sin(t * 3.0 + aura_i))
-                ag = int(160 + 60 * _sin(t * 4.0 + aura_i * 0.7))
-                pygame.draw.circle(face_surf, (ar, ag, 255, aura_a), (cx, cy), aura_r)
-
-        # === 뿔 (고퀄리티 - 그라디언트 + 능선) ===
-        horn_positions = [(-1, -54, -72, -30), (1, 54, 72, 30)]  # (방향, base_x, tip_x, inner_x)
-        for h_dir, h_bx, h_tx, h_ix in horn_positions:
-            # 뿔 외곽 (진한 색)
-            horn_outer_a = min(255, int(base_alpha * 0.55))
-            pygame.draw.polygon(face_surf, (70, 180, 240, horn_outer_a), [
-                (cx + h_bx, cy - 42),
-                (cx + h_tx, cy - 120),
-                (cx + h_ix, cy - 51),
-            ])
-            # 뿔 내부 밝은 면 (하이라이트)
-            horn_inner_a = min(255, int(base_alpha * 0.35))
-            mid_x = cx + (h_bx + h_tx) // 2
-            mid_y = cy - 80
-            pygame.draw.polygon(face_surf, (130, 230, 255, horn_inner_a), [
-                (cx + h_bx + h_dir * 3, cy - 45),
-                (cx + h_tx + h_dir * 2, cy - 115),
-                (mid_x, mid_y),
-            ])
-            # 뿔 능선 라인
-            ridge_a = min(255, int(base_alpha * 0.4))
-            pygame.draw.line(face_surf, (160, 240, 255, ridge_a),
-                            (cx + h_bx - h_dir * 5, cy - 44),
-                            (cx + h_tx, cy - 118), 1)
-            # 뿔 끝 발광
-            tip_glow_a = min(255, int(base_alpha * 0.6 * (0.5 + 0.5 * _sin(t * 8.0 + h_dir * 2.0))))
-            pygame.draw.circle(face_surf, (180, 240, 255, tip_glow_a), (cx + h_tx, cy - 118), 5)
-            pygame.draw.circle(face_surf, (220, 250, 255, tip_glow_a // 2), (cx + h_tx, cy - 118), 9)
-
-        # === 얼굴 윤곽 (다층 그라디언트) ===
-        # 외곽 글로우
-        face_glow_a = min(255, int(base_alpha * 0.15))
-        pygame.draw.ellipse(face_surf, (60, 150, 230, face_glow_a),
-                           (cx - 75, cy - 56, 150, 122))
-        # 메인 얼굴
-        face_main_a = min(255, int(base_alpha * 0.4))
-        pygame.draw.ellipse(face_surf, (70, 190, 250, face_main_a),
-                           (cx - 68, cy - 50, 136, 112))
-        # 내부 밝은 면 (볼 부분)
-        face_inner_a = min(255, int(base_alpha * 0.12))
-        pygame.draw.ellipse(face_surf, (120, 220, 255, face_inner_a),
-                           (cx - 55, cy - 38, 110, 85))
-        # 얼굴 윤곽선 (선명한 테두리)
-        face_edge_a = min(255, int(base_alpha * 0.5))
-        pygame.draw.ellipse(face_surf, (100, 210, 255, face_edge_a),
-                           (cx - 68, cy - 50, 136, 112), 2)
-
-        # === 이마 문양 (도깨비 부적 문양) ===
-        mark_a = min(255, int(base_alpha * 0.35))
-        # 중앙 세로선
-        pygame.draw.line(face_surf, (150, 230, 255, mark_a),
-                        (cx, cy - 42), (cx, cy - 20), 2)
-        # 좌우 곡선 (눈썹 위)
-        for m_dir in [-1, 1]:
-            mark_pts = []
-            for mi in range(8):
-                m_t = mi / 7.0
-                mx = cx + m_dir * (10 + 30 * m_t)
-                my = cy - 42 + 15 * m_t * m_t
-                mark_pts.append((int(mx), int(my)))
-            if len(mark_pts) >= 2:
-                pygame.draw.lines(face_surf, (140, 220, 255, mark_a), False, mark_pts, 1)
-
-        # === 눈 (고퀄리티 - 다층 구조) ===
-        for e_dir in [-1, 1]:
-            e_cx = cx + e_dir * 33
-            e_cy = cy - 10
-            # 눈 외곽 글로우 (붉은 오라)
-            eye_glow_a = min(255, int(base_alpha * 0.3))
-            pygame.draw.circle(face_surf, (255, 80, 30, eye_glow_a), (e_cx, e_cy), 22)
-            # 눈 형태 (삼각형 + 곡선 결합)
-            eye_main_a = min(255, int(base_alpha * 0.75))
-            # 외곽 삼각 눈 (날카로운 형태)
-            pygame.draw.polygon(face_surf, (255, 90, 40, eye_main_a), [
-                (e_cx + e_dir * 20, e_cy - 2),  # 외곽 꼭짓점
-                (e_cx - e_dir * 8, e_cy - 22),  # 위 꼭짓점
-                (e_cx - e_dir * 8, e_cy + 12),  # 아래 꼭짓점
-            ])
-            # 눈동자 (밝은 노랑-주황)
-            pupil_a = min(255, int(base_alpha * 0.9))
-            pupil_pulse = 0.8 + 0.2 * _sin(t * 10.0 + e_dir * 1.5)
-            p_size = int(6 * pupil_pulse)
-            pygame.draw.circle(face_surf, (255, 200, 80, pupil_a), (e_cx + e_dir * 5, e_cy), p_size)
-            # 눈 중심 하이라이트 (백색 반짝임)
-            highlight_a = min(255, int(base_alpha * 0.7 * pupil_pulse))
-            pygame.draw.circle(face_surf, (255, 255, 220, highlight_a), (e_cx + e_dir * 3, e_cy - 3), 2)
-            # 눈 테두리 강조
-            eye_edge_a = min(255, int(base_alpha * 0.5))
-            pygame.draw.polygon(face_surf, (255, 130, 60, eye_edge_a), [
-                (e_cx + e_dir * 20, e_cy - 2),
-                (e_cx - e_dir * 8, e_cy - 22),
-                (e_cx - e_dir * 8, e_cy + 12),
-            ], 1)
-            # 눈 아래 붉은 줄 (도깨비 특유의 문양)
-            streak_a = min(255, int(base_alpha * 0.3))
-            pygame.draw.line(face_surf, (255, 80, 60, streak_a),
-                            (e_cx - e_dir * 5, e_cy + 14),
-                            (e_cx + e_dir * 5, e_cy + 24), 1)
-
-        # === 코 (작은 삼각형) ===
-        nose_a = min(255, int(base_alpha * 0.3))
-        pygame.draw.polygon(face_surf, (100, 200, 255, nose_a), [
-            (cx, cy + 5), (cx - 5, cy + 14), (cx + 5, cy + 14),
+        # === 뿔 (2개) ===
+        # 왼쪽 뿔
+        pygame.draw.polygon(face_surf, horn_color, [
+            (cx - 54, cy - 45),
+            (cx - 72, cy - 114),
+            (cx - 30, cy - 54),
+        ])
+        # 오른쪽 뿔
+        pygame.draw.polygon(face_surf, horn_color, [
+            (cx + 54, cy - 45),
+            (cx + 72, cy - 114),
+            (cx + 30, cy - 54),
         ])
 
-        # === 입 (고퀄리티 - 크게 벌린 입 + 날카로운 이빨) ===
-        mouth_a = min(255, int(base_alpha * 0.6))
-        teeth_a = min(255, int(base_alpha * 0.6))
-        # 입 배경 (어두운 내부)
-        pygame.draw.ellipse(face_surf, (20, 80, 140, mouth_a),
-                           (cx - 45, cy + 18, 90, 40))
-        # 입 밝은 테두리
-        mouth_edge_a = min(255, int(base_alpha * 0.45))
-        pygame.draw.ellipse(face_surf, (80, 200, 255, mouth_edge_a),
-                           (cx - 45, cy + 18, 90, 40), 2)
-        # 윗니 (날카로운 삼각형, 불규칙)
-        teeth_sizes = [7, 10, 8, 11, 7, 9, 8]
-        tx_start = -36
-        for ti, t_size in enumerate(teeth_sizes):
-            tx_pos = tx_start + ti * 11
-            t_height = t_size + int(3 * _sin(t * 6.0 + ti * 1.5))
-            pygame.draw.polygon(face_surf, (200, 240, 255, teeth_a), [
-                (cx + tx_pos - 4, cy + 19),
-                (cx + tx_pos + 4, cy + 19),
-                (cx + tx_pos, cy + 19 + t_height),
+        # === 얼굴 윤곽 (둥근 사각) ===
+        pygame.draw.ellipse(face_surf, face_color,
+                           (cx - 66, cy - 48, 132, 108))
+
+        # === 눈 (무서운 삼각형 눈) ===
+        # 왼쪽 눈
+        pygame.draw.polygon(face_surf, eye_color, [
+            (cx - 48, cy - 12),
+            (cx - 18, cy - 30),
+            (cx - 18, cy + 6),
+        ])
+        # 오른쪽 눈
+        pygame.draw.polygon(face_surf, eye_color, [
+            (cx + 48, cy - 12),
+            (cx + 18, cy - 30),
+            (cx + 18, cy + 6),
+        ])
+
+        # === 입 (크게 벌린 입 - 톱니 모양) ===
+        mouth_color = (60, 180, 255, min(255, int(base_alpha * 0.6)))
+        teeth_color = (255, 255, 255, min(255, int(base_alpha * 0.5)))
+        # 입 배경
+        pygame.draw.ellipse(face_surf, mouth_color,
+                           (cx - 42, cy + 18, 84, 36))
+        # 이빨 (톱니)
+        for tx in range(-30, 33, 15):
+            pygame.draw.polygon(face_surf, teeth_color, [
+                (cx + tx - 6, cy + 18),
+                (cx + tx + 6, cy + 18),
+                (cx + tx, cy + 30),
             ])
-        # 아랫니 (위에서 아래로)
-        for ti in range(5):
-            tx_pos = -25 + ti * 13
-            t_height = 6 + int(2 * _sin(t * 5.0 + ti * 2.0))
-            pygame.draw.polygon(face_surf, (180, 230, 255, teeth_a // 2), [
-                (cx + tx_pos - 3, cy + 55),
-                (cx + tx_pos + 3, cy + 55),
-                (cx + tx_pos, cy + 55 - t_height),
-            ])
-        # 입 안쪽 글로우 (붉은빛 - 도깨비불 에너지)
-        inner_glow_a = min(255, int(base_alpha * 0.2 * (0.6 + 0.4 * _sin(t * 7.0))))
-        pygame.draw.ellipse(face_surf, (200, 100, 50, inner_glow_a),
-                           (cx - 30, cy + 28, 60, 20))
 
-        # === 얼굴 주변 에너지 위스프 (떠다니는 불꽃) ===
-        for wi in range(6):
-            w_angle = t * 2.5 + wi * (math.pi * 2 / 6)
-            w_dist = 80 + 15 * _sin(t * 4.0 + wi * 1.3)
-            wx = cx + w_dist * _cos(w_angle) * 0.8
-            wy = cy + w_dist * _sin(w_angle) * 0.55
-            w_pulse = 0.4 + 0.6 * abs(_sin(t * 8.0 + wi * 2.0))
-            wa = min(255, int(base_alpha * 0.25 * w_pulse))
-            if wa > 0:
-                w_size = int(3 + 2 * w_pulse)
-                pygame.draw.circle(face_surf, (100, 220, 255, wa), (int(wx), int(wy)), w_size)
-                pygame.draw.circle(face_surf, (60, 160, 240, wa // 3), (int(wx), int(wy)), w_size + 4)
+        # === 글리치 효과 적용 ===
+        glitched_surf = pygame.Surface((face_size * 2, face_size * 2), pygame.SRCALPHA)
 
-        # === 글리치 효과 적용 (최적화 - 블록 단위) ===
-        glitched_surf = _psurf((face_size * 2, face_size * 2), pygame.SRCALPHA)
-        glitched_surf.blit(face_surf, (0, 0))
+        # 글리치 라인별 수평 이동
+        for y_line in range(face_size * 2):
+            # 기본 복사
+            glitch_offset = 0
+            for gl in self.glitch_lines:
+                if abs(y_line - (face_size + gl['y_offset'])) < gl['height']:
+                    glitch_offset = gl['x_shift']
+                    break
 
-        for gl in self.glitch_lines:
-            gl_y = face_size + gl['y_offset']
-            gl_h = gl['height']
-            gl_x = gl['x_shift']
-            y_start = max(0, gl_y - gl_h)
-            y_end = min(face_size * 2, gl_y + gl_h)
-            if y_end > y_start and gl_x != 0:
-                # 블록 단위로 복사 (라인 단위보다 훨씬 빠름)
-                block_w = face_size * 2
-                block_h = y_end - y_start
-                block_surf = _psurf((block_w, block_h), pygame.SRCALPHA)
-                block_surf.blit(face_surf, (0, 0), (0, y_start, block_w, block_h))
-                # 색상 틴트
-                tint_surf = _psurf((block_w, block_h), pygame.SRCALPHA)
-                tint_surf.fill((*gl['color_shift'], 30))
-                block_surf.blit(tint_surf, (0, 0), special_flags=pygame.BLEND_ADD)
-                # 원본 영역 지우고 오프셋 적용
-                glitched_surf.fill((0, 0, 0, 0), (0, y_start, block_w, block_h))
-                glitched_surf.blit(block_surf, (gl_x, y_start))
+            # 라인 복사 + 오프셋
+            if glitch_offset != 0:
+                for x_px in range(face_size * 2):
+                    src_x = x_px - glitch_offset
+                    if 0 <= src_x < face_size * 2:
+                        color = face_surf.get_at((src_x, y_line))
+                        if color[3] > 0:
+                            glitched_surf.set_at((x_px, y_line), color)
+            else:
+                # 오프셋 없으면 원본 그대로
+                glitched_surf.blit(face_surf, (0, y_line),
+                                  (0, y_line, face_size * 2, 1))
 
-        # === RGB 분리 효과 (크로마틱 어버레이션 - 3채널) ===
-        if random.random() < 0.45:
-            rgb_offset = random.randint(3, 8)
+        # === RGB 분리 효과 (크로마틱 어버레이션) ===
+        if random.random() < 0.4:
+            rgb_offset = random.randint(3, 9)
+            rgb_surf = pygame.Surface((face_size * 2, face_size * 2), pygame.SRCALPHA)
             # 빨간 채널 오프셋
-            r_surf = _psurf((face_size * 2, face_size * 2), pygame.SRCALPHA)
-            r_surf.blit(glitched_surf, (rgb_offset, 0))
-            r_surf.fill((255, 0, 0, 25), special_flags=pygame.BLEND_RGBA_MULT)
-            screen.blit(r_surf, (bx - face_size + rgb_offset, by - face_size),
-                       special_flags=pygame.BLEND_ADD)
-            # 파란 채널 반대 오프셋
-            b_surf = _psurf((face_size * 2, face_size * 2), pygame.SRCALPHA)
-            b_surf.blit(glitched_surf, (-rgb_offset // 2, 0))
-            b_surf.fill((0, 0, 255, 15), special_flags=pygame.BLEND_RGBA_MULT)
-            screen.blit(b_surf, (bx - face_size - rgb_offset // 2, by - face_size),
+            rgb_surf.blit(glitched_surf, (rgb_offset, 0))
+            rgb_surf.fill((255, 0, 0, 30), special_flags=pygame.BLEND_RGBA_MULT)
+            screen.blit(rgb_surf, (bx - face_size + rgb_offset, by - face_size),
                        special_flags=pygame.BLEND_ADD)
 
         # 메인 얼굴 그리기
