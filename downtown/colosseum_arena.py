@@ -6558,10 +6558,10 @@ class GuardWarriorSystem:
                 cy = py + icon_full // 2
                 cx = px + icon_full // 2
                 bg_s = _get_arena_surface(icon_full, icon_full)
-                pygame.draw.circle(bg_s, (30, 30, 40, 180),
+                pygame.draw.circle(bg_s, (30, 30, 40, 255),
                                    (icon_full // 2, icon_full // 2), icon_full // 2)
                 perk_color = perk.get("icon_color", (200, 200, 200))
-                pygame.draw.circle(bg_s, (*perk_color[:3], 120),
+                pygame.draw.circle(bg_s, (*perk_color[:3], 255),
                                    (icon_full // 2, icon_full // 2), icon_full // 2, 2)
                 screen.blit(bg_s, (px, py))
                 if draw_icon_func:
@@ -6595,10 +6595,10 @@ class GuardWarriorSystem:
                 cy = py + icon_full // 2
                 cx = px + icon_full // 2
                 bg_s = _get_arena_surface(icon_full, icon_full)
-                pygame.draw.circle(bg_s, (30, 30, 40, 180),
+                pygame.draw.circle(bg_s, (30, 30, 40, 255),
                                    (icon_full // 2, icon_full // 2), icon_full // 2)
                 perk_color = perk.get("icon_color", (200, 200, 200))
-                pygame.draw.circle(bg_s, (*perk_color[:3], 120),
+                pygame.draw.circle(bg_s, (*perk_color[:3], 255),
                                    (icon_full // 2, icon_full // 2), icon_full // 2, 2)
                 screen.blit(bg_s, (px, py))
                 if draw_icon_func:

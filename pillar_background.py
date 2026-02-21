@@ -2027,13 +2027,12 @@ class PillarBackgroundRenderer:
 
         if is_defense:
             # ──── 고퀄리티 방패 아이콘 ────
-            # 배경 그라데이션 (진한 남색)
+            # 배경 그라데이션 (진한 남색, 불투명)
             for _gi in range(btn_h):
-                _ga = 160 + int(40 * (_gi / btn_h))
                 _gr = int(20 + 15 * (_gi / btn_h))
                 _gg = int(35 + 20 * (_gi / btn_h))
                 _gb = int(70 + 30 * (_gi / btn_h))
-                pygame.draw.line(_icon_surf, (_gr, _gg, _gb, _ga), (0, _gi), (btn_w, _gi))
+                pygame.draw.line(_icon_surf, (_gr, _gg, _gb, 255), (0, _gi), (btn_w, _gi))
 
             # 방패 본체 - 넓은 육각 실드 형태
             _sw = icon_s  # 방패 반너비
@@ -2050,7 +2049,7 @@ class PillarBackgroundRenderer:
             ]
             # 방패 그림자
             _shadow_pts = [(px + 1, py + 1) for px, py in _shield_body]
-            pygame.draw.polygon(_icon_surf, (10, 15, 35, 120), _shadow_pts)
+            pygame.draw.polygon(_icon_surf, (10, 15, 35, 255), _shadow_pts)
             # 방패 몸체 (진한 파란색)
             pygame.draw.polygon(_icon_surf, (50, 100, 180, 255), _shield_body)
             # 방패 상단 하이라이트 (밝은 영역)
@@ -2061,27 +2060,26 @@ class PillarBackgroundRenderer:
                 (cx - _sw + 2, cy - int(_sh * 0.2)),
                 (cx - _sw + 2, cy - int(_sh * 0.55) + 1),
             ]
-            pygame.draw.polygon(_icon_surf, (80, 150, 230, 100), _highlight_body)
+            pygame.draw.polygon(_icon_surf, (80, 150, 230, 255), _highlight_body)
             # 방패 테두리 (밝은 금속)
-            pygame.draw.polygon(_icon_surf, (140, 200, 255, 220), _shield_body, max(1, int(1.5 * _s)))
+            pygame.draw.polygon(_icon_surf, (140, 200, 255, 255), _shield_body, max(1, int(1.5 * _s)))
             # 방패 내부 십자 문양
             _cross_w = max(1, int(1.2 * _s))
             _cross_len = int(_sh * 0.55)
-            _cross_c = (180, 220, 255, 180)
+            _cross_c = (180, 220, 255, 255)
             pygame.draw.line(_icon_surf, _cross_c, (cx, cy - _cross_len), (cx, cy + _cross_len), _cross_w)
             pygame.draw.line(_icon_surf, _cross_c, (cx - int(_cross_len * 0.6), cy), (cx + int(_cross_len * 0.6), cy), _cross_w)
             # 방패 중앙 보석 (작은 원)
-            pygame.draw.circle(_icon_surf, (120, 200, 255, 200), (cx, cy), max(2, int(2.5 * _s)))
-            pygame.draw.circle(_icon_surf, (200, 240, 255, 180), (cx, cy), max(1, int(1.5 * _s)))
+            pygame.draw.circle(_icon_surf, (120, 200, 255, 255), (cx, cy), max(2, int(2.5 * _s)))
+            pygame.draw.circle(_icon_surf, (200, 240, 255, 255), (cx, cy), max(1, int(1.5 * _s)))
         else:
             # ──── 고퀄리티 검 아이콘 ────
-            # 배경 그라데이션 (진한 적색)
+            # 배경 그라데이션 (진한 적색, 불투명)
             for _gi in range(btn_h):
-                _ga = 160 + int(40 * (_gi / btn_h))
                 _gr = int(65 + 25 * (_gi / btn_h))
                 _gg = int(20 + 15 * (_gi / btn_h))
                 _gb = int(20 + 15 * (_gi / btn_h))
-                pygame.draw.line(_icon_surf, (_gr, _gg, _gb, _ga), (0, _gi), (btn_w, _gi))
+                pygame.draw.line(_icon_surf, (_gr, _gg, _gb, 255), (0, _gi), (btn_w, _gi))
 
             # 칼날 (위→아래, 폴리곤으로 두께 표현)
             _bl = int(icon_s * 1.3)  # 칼날 길이
@@ -2097,17 +2095,17 @@ class PillarBackgroundRenderer:
             ]
             # 칼날 그림자
             _bs_pts = [(px + 1, py + 1) for px, py in _blade_pts]
-            pygame.draw.polygon(_icon_surf, (30, 10, 10, 100), _bs_pts)
+            pygame.draw.polygon(_icon_surf, (30, 10, 10, 255), _bs_pts)
             # 칼날 본체 (은색 그라데이션)
             pygame.draw.polygon(_icon_surf, (200, 210, 220, 255), _blade_pts)
             # 칼날 좌측 어두운면
-            pygame.draw.line(_icon_surf, (140, 145, 155, 200),
+            pygame.draw.line(_icon_surf, (140, 145, 155, 255),
                            (cx, _tip_y), (cx - _bw - 1, _guard_y - 2), 1)
             # 칼날 중앙 하이라이트 (날 반사광)
-            pygame.draw.line(_icon_surf, (240, 245, 255, 200),
+            pygame.draw.line(_icon_surf, (240, 245, 255, 255),
                            (cx, _tip_y + 2), (cx, _guard_y - 1), max(1, int(1 * _s)))
             # 칼날 테두리
-            pygame.draw.polygon(_icon_surf, (160, 170, 190, 180), _blade_pts, 1)
+            pygame.draw.polygon(_icon_surf, (160, 170, 190, 255), _blade_pts, 1)
 
             # 가드 (크로스가드 - 가로 직사각형)
             _gw = int(icon_s * 0.9)  # 가드 반너비
@@ -2121,9 +2119,9 @@ class PillarBackgroundRenderer:
                 (cx - _gw - 1, _guard_y),
             ]
             pygame.draw.polygon(_icon_surf, (180, 150, 80, 255), _guard_pts)  # 금색 가드
-            pygame.draw.polygon(_icon_surf, (230, 200, 120, 200), _guard_pts, 1)  # 테두리
+            pygame.draw.polygon(_icon_surf, (230, 200, 120, 255), _guard_pts, 1)  # 테두리
             # 가드 하이라이트
-            pygame.draw.line(_icon_surf, (255, 230, 150, 150),
+            pygame.draw.line(_icon_surf, (255, 230, 150, 255),
                            (cx - _gw + 2, _guard_y - _gh + 1), (cx + _gw - 2, _guard_y - _gh + 1), 1)
 
             # 손잡이 (그립)
@@ -2136,20 +2134,20 @@ class PillarBackgroundRenderer:
             # 그립 감김 패턴
             for _wi in range(_handle_len):
                 if _wi % 2 == 0:
-                    pygame.draw.line(_icon_surf, (160, 110, 60, 150),
+                    pygame.draw.line(_icon_surf, (160, 110, 60, 255),
                                    (cx - _hw, _handle_top + _wi), (cx + _hw, _handle_top + _wi), 1)
 
             # 폼멜 (손잡이 끝 장식)
             _pommel_y = _handle_top + _handle_len + 1
             pygame.draw.circle(_icon_surf, (200, 160, 60, 255), (cx, _pommel_y), max(2, int(2 * _s)))
-            pygame.draw.circle(_icon_surf, (255, 220, 100, 180), (cx, _pommel_y), max(1, int(1.2 * _s)))
+            pygame.draw.circle(_icon_surf, (255, 220, 100, 255), (cx, _pommel_y), max(1, int(1.2 * _s)))
 
         # 테두리 (둥근 프레임)
         border_color = (80, 150, 255) if is_defense else (255, 100, 80)
         pygame.draw.rect(_icon_surf, border_color,
                          (0, 0, btn_w, btn_h), 2, border_radius=4)
         # 내부 글로우 테두리
-        _inner_glow = (60, 120, 220, 60) if is_defense else (220, 80, 60, 60)
+        _inner_glow = (60, 120, 220, 255) if is_defense else (220, 80, 60, 255)
         pygame.draw.rect(_icon_surf, _inner_glow,
                          (2, 2, btn_w - 4, btn_h - 4), 1, border_radius=3)
 
