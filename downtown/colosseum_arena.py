@@ -14776,6 +14776,9 @@ class ColosseumsArena:
                 if opponent_id:
                     for h in self.ai_henchman_map.get(opponent_id, []):
                         taken_ids.add(h.get("id"))
+        # 자기 자신의 기존 AI 하수인 제외 (4강→결승 시 중복 배정 방지)
+        for h in self.ai_henchman_map.get(hero_id, []):
+            taken_ids.add(h.get("id"))
         # 플레이어 하수인 제외
         for h in self.henchman_list:
             taken_ids.add(h.get("id"))
