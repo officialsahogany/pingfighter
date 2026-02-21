@@ -6541,7 +6541,7 @@ class GuardWarriorSystem:
         # --- 플레이어 퍽 → 필러 하단 배경 (게임 영역 아래), 왼쪽부터 ---
         if player_perks:
             px_start = game_offset_x + margin
-            py = game_offset_y + game_scaled_h + margin + 3
+            py = game_offset_y + game_scaled_h + margin + 10
 
             for i, perk in enumerate(player_perks):
                 px = px_start + i * (icon_full + icon_gap)
@@ -6573,7 +6573,7 @@ class GuardWarriorSystem:
 
         # --- 상대 퍽 → 필러 상단 배경 (게임 영역 위), 오른쪽부터 ---
         if enemy_perks:
-            py = game_offset_y - icon_full - margin + 3
+            py = game_offset_y - icon_full - margin - 5
             if py < 2:
                 py = 2
             n_enemy = len(enemy_perks)
