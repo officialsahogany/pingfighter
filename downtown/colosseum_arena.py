@@ -10145,6 +10145,12 @@ class ColosseumsArena:
                     if _button_click_sound:
                         _button_click_sound.play()
                     self.recruited_hero = self.bet_hero
+                    # 투기장에서 선택했던 스킬 인덱스 저장 (추가훈련 퍽 시 -1 = 양쪽 모두)
+                    _rh_id = self.bet_hero.get("id", "")
+                    if self.hero_has_both_skills.get(_rh_id, False):
+                        self.recruited_hero_skill_idx = -1
+                    else:
+                        self.recruited_hero_skill_idx = self.hero_selected_skills.get(_rh_id, 0)
                     self.total_winnings = 0
                     self.winnings_collected = True
                     self.exit_requested = True
@@ -19698,6 +19704,7 @@ class ColosseumsArena:
             "final_gold": self.player_gold + self.total_winnings,
             "completed": self.state in (TournamentState.TOURNAMENT_END, TournamentState.VICTORY_CELEBRATION),
             "recruited_hero": getattr(self, 'recruited_hero', None),
+            "recruited_hero_skill_idx": getattr(self, 'recruited_hero_skill_idx', 0),
         }
 
 

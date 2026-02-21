@@ -2206,8 +2206,9 @@ class DowntownManager:
                         'name': hero.get('name'),
                         'color': hero.get('color'),
                         'title': hero.get('title', ''),
+                        'selected_skill': result.get('recruited_hero_skill_idx', 0),
                     })
-                    print(f"[Arena] 호위무사 등용: {hero.get('name')}")
+                    print(f"[Arena] 호위무사 등용: {hero.get('name')} (스킬={result.get('recruited_hero_skill_idx', 0)})")
                 arena_running = False
                 running = False
 

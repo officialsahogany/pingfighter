@@ -301,8 +301,13 @@ class InGameBodyguard:
         self._entrance_guard_line = None    # 호위무사 등장 후 대사 텍스트 (예약)
         self._entrance_hero_color = (255, 255, 255)  # 영웅 대사 색상
 
-    def setup(self, hero_data: dict):
-        """호위무사 설정 (투기장 우승 후 등용된 영웅)"""
+    def setup(self, hero_data: dict, skill_selections: dict = None):
+        """호위무사 설정 (투기장 우승 후 등용된 영웅)
+
+        Args:
+            hero_data: 영웅 데이터 dict
+            skill_selections: 스킬 선택 dict {hero_id: skill_index} (투기장과 동일)
+        """
         self.hero_data = hero_data
         self.active = True
 
@@ -338,10 +343,12 @@ class InGameBodyguard:
                 hero_paddle_renderer=self._hero_paddle_renderer,
             )
             # 플레이어 측(하단) 호위무사로 설정
+            # skill_selections 전달: 투기장에서 선택했던 스킬만 사용
             self._guard_system.setup(
                 guards_top=[],                # 상단(보스 측)은 없음
                 guards_bottom=[hero_data],    # 하단(플레이어 측)에 배치
                 initial_delay=(12.0, 18.0),
+                skill_selections=skill_selections,
             )
             # 호위무사 등장 대사 전달 (입장 완료 시 말풍선으로 표시)
             if self._entrance_guard_line:

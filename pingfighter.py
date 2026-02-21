@@ -99672,8 +99672,12 @@ def run_downtown_hub(next_stage_display: int) -> bool:
                 from game_mechanics.ingame_bodyguard import get_bodyguard
                 _latest_guard = _recruited[-1]  # 가장 최근 등용한 영웅
                 bodyguard = get_bodyguard()
-                bodyguard.setup(_latest_guard)
-                print(f"[Bodyguard] 호위무사 동기화 완료: {_latest_guard.get('name')}")
+                # 투기장에서 선택했던 스킬만 사용하도록 skill_selections 전달
+                _guard_id = _latest_guard.get('id', '')
+                _guard_skill_idx = _latest_guard.get('selected_skill', 0)
+                _skill_sel = {_guard_id: _guard_skill_idx} if _guard_id else None
+                bodyguard.setup(_latest_guard, skill_selections=_skill_sel)
+                print(f"[Bodyguard] 호위무사 동기화 완료: {_latest_guard.get('name')} (스킬={_guard_skill_idx})")
             except Exception as _bg_err:
                 print(f"[Bodyguard] 호위무사 동기화 실패: {_bg_err}")
 
