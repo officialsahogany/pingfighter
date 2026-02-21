@@ -57,6 +57,9 @@ class Stage5ChineseMarket:
         
         # 불꽃탄 충돌 애니메이션
         self.impact_fire_zones = []  # 충돌 지점의 불꽃 애니메이션들
+
+        # 화염 glow 서피스 캐시 (매프레임 Surface 생성 방지)
+        self._glow_cache = {}  # key: (size, color_idx, alpha_q) → Surface
         
         # 홍련꽃 홀로그램 애니메이션 (단일 패턴)
         self.lotus_fade_phase = 0  # 맥동 효과 위상
@@ -348,25 +351,37 @@ class Stage5ChineseMarket:
                 tassel_y = y + 25
                 pygame.draw.line(screen, GOLD, (x, y + 25), (tassel_x, tassel_y + 8), 1)
     
+    def _get_glow_surface(self, size, color_idx, alpha_q):
+        """캐시된 glow 서피스 반환 (매프레임 Surface 생성 방지)"""
+        key = (size, color_idx, alpha_q)
+        if key not in self._glow_cache:
+            # 캐시 크기 제한
+            if len(self._glow_cache) > 200:
+                self._glow_cache.clear()
+            color = FIRE_GRADIENT[color_idx]
+            surf = pygame.Surface((size * 4, size * 4), pygame.SRCALPHA)
+            pygame.draw.circle(surf, (*color, alpha_q), (size * 2, size * 2), size * 2)
+            self._glow_cache[key] = surf
+        return self._glow_cache[key]
+
     def draw_fire_effects(self, screen):
-        """화염 효과"""
+        """화염 효과 (glow 캐시 최적화)"""
         for particle in self.fire_particles:
             alpha = particle['life'] / 100
             color_index = min(3, int((1 - alpha) * 4))
             color = FIRE_GRADIENT[color_index]
-            
+
             # 화염 파티클
             size = int(particle['size'] * alpha)
             if size > 0:
                 pygame.draw.circle(screen, color, (int(particle['x']), int(particle['y'])), size)
-                
-                # 광휘 효과
+
+                # 광휘 효과 (캐시된 서피스 사용)
                 if size > 3:
-                    glow_surface = pygame.Surface((size * 4, size * 4), pygame.SRCALPHA)
-                    pygame.draw.circle(glow_surface, (*color, int(50 * alpha)), 
-                                     (size * 2, size * 2), size * 2)
-                    screen.blit(glow_surface, 
-                              (particle['x'] - size * 2, particle['y'] - size * 2))
+                    alpha_q = int(50 * alpha) // 5 * 5  # 5단위 양자화
+                    glow = self._get_glow_surface(size, color_index, alpha_q)
+                    screen.blit(glow,
+                                (particle['x'] - size * 2, particle['y'] - size * 2))
     
     # ================================================================
     # 프로시저럴 중국 전통 목재 마루 바닥 생성 (12레이어)

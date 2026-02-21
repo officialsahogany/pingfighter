@@ -7870,12 +7870,17 @@ def _draw_pillar_ui(screen, renderer):
                 scaled_gauge_h = gauge_h
             pillar_y = GAME_OFFSET_Y + GAME_SCALED_HEIGHT - scaled_gauge_h - 10  # 하단에서 10px 위
 
-            # 스케일링 적용 (scale 사용 - smoothscale보다 빠름)
+            # 스케일링 적용 (캐시된 dest Surface 재사용으로 매프레임 Surface 할당 방지)
             if GAME_SCALE_FACTOR != 1.0:
                 scaled_w = int(_player_gauge_surface.get_width() * GAME_SCALE_FACTOR)
                 scaled_h = int(_player_gauge_surface.get_height() * GAME_SCALE_FACTOR)
-                scaled_gauge = pygame.transform.scale(_player_gauge_surface, (scaled_w, scaled_h))
-                screen.blit(scaled_gauge, (pillar_x, pillar_y))
+                global _gauge_scaled_cache, _gauge_scaled_cache_size
+                if _gauge_scaled_cache is None or _gauge_scaled_cache_size != (scaled_w, scaled_h):
+                    _gauge_scaled_cache = pygame.Surface((scaled_w, scaled_h), pygame.SRCALPHA)
+                    _gauge_scaled_cache_size = (scaled_w, scaled_h)
+                _gauge_scaled_cache.fill((0, 0, 0, 0))
+                pygame.transform.scale(_player_gauge_surface, (scaled_w, scaled_h), _gauge_scaled_cache)
+                screen.blit(_gauge_scaled_cache, (pillar_x, pillar_y))
             else:
                 screen.blit(_player_gauge_surface, (pillar_x, pillar_y))
       except Exception as e:
@@ -7893,8 +7898,13 @@ def _draw_pillar_ui(screen, renderer):
             if GAME_SCALE_FACTOR != 1.0:
                 top_scaled_w = int(_player_gauge_surface_top.get_width() * GAME_SCALE_FACTOR)
                 top_scaled_h = int(_player_gauge_surface_top.get_height() * GAME_SCALE_FACTOR)
-                top_scaled = pygame.transform.scale(_player_gauge_surface_top, (top_scaled_w, top_scaled_h))
-                screen.blit(top_scaled, (top_pillar_x, top_pillar_y))
+                global _gauge_top_scaled_cache, _gauge_top_scaled_cache_size
+                if _gauge_top_scaled_cache is None or _gauge_top_scaled_cache_size != (top_scaled_w, top_scaled_h):
+                    _gauge_top_scaled_cache = pygame.Surface((top_scaled_w, top_scaled_h), pygame.SRCALPHA)
+                    _gauge_top_scaled_cache_size = (top_scaled_w, top_scaled_h)
+                _gauge_top_scaled_cache.fill((0, 0, 0, 0))
+                pygame.transform.scale(_player_gauge_surface_top, (top_scaled_w, top_scaled_h), _gauge_top_scaled_cache)
+                screen.blit(_gauge_top_scaled_cache, (top_pillar_x, top_pillar_y))
             else:
                 screen.blit(_player_gauge_surface_top, (top_pillar_x, top_pillar_y))
       except Exception:
@@ -7922,10 +7932,15 @@ def _draw_pillar_ui(screen, renderer):
             # pillar_x_left, pillar_y_left는 실제 화면에 blit되는 좌표
             _player_gauge_surface_left_screen_pos = (pillar_x_left, pillar_y_left)
 
-            # 스케일링 적용 (scale 사용 - smoothscale보다 빠름)
+            # 스케일링 적용 (캐시된 dest Surface 재사용으로 매프레임 Surface 할당 방지)
             if GAME_SCALE_FACTOR != 1.0:
-                scaled_gauge_left = pygame.transform.scale(_player_gauge_surface_left, (scaled_gauge_w, scaled_gauge_h))
-                screen.blit(scaled_gauge_left, (pillar_x_left, pillar_y_left))
+                global _gauge_left_scaled_cache, _gauge_left_scaled_cache_size
+                if _gauge_left_scaled_cache is None or _gauge_left_scaled_cache_size != (scaled_gauge_w, scaled_gauge_h):
+                    _gauge_left_scaled_cache = pygame.Surface((scaled_gauge_w, scaled_gauge_h), pygame.SRCALPHA)
+                    _gauge_left_scaled_cache_size = (scaled_gauge_w, scaled_gauge_h)
+                _gauge_left_scaled_cache.fill((0, 0, 0, 0))
+                pygame.transform.scale(_player_gauge_surface_left, (scaled_gauge_w, scaled_gauge_h), _gauge_left_scaled_cache)
+                screen.blit(_gauge_left_scaled_cache, (pillar_x_left, pillar_y_left))
             else:
                 screen.blit(_player_gauge_surface_left, (pillar_x_left, pillar_y_left))
       except Exception as e:
