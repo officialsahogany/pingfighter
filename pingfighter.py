@@ -9093,8 +9093,8 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         print(f"[디스플레이] 창모드({_mode_str}) 전환 완료", flush=True)
 
     elif mode == "fullscreen":
-        # === 전체화면으로 전환 (보더리스 윈도우, 네이티브 해상도) ===
-        print("[디스플레이] 전체화면으로 전환 시작...", flush=True)
+        # === 플래그십모드: 보더리스 전체화면 + SCALED GPU 파이프라인 ===
+        print("[디스플레이] 플래그십모드로 전환 시작...", flush=True)
 
         # 시네마모드에서 전환 시 해상도 복원
         if sys.platform == 'win32' and _original_resolution:
@@ -9106,65 +9106,115 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         if sys.platform == 'win32':
             native = _get_native_resolution() or _get_current_resolution()
             if native:
-                FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT = native
+                monitor_w, monitor_h = native
             else:
-                FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT = 1920, 1080
+                monitor_w, monitor_h = 1920, 1080
         else:
             display_info = pygame.display.Info()
-            FULLSCREEN_WIDTH = display_info.current_w
-            FULLSCREEN_HEIGHT = display_info.current_h
+            monitor_w, monitor_h = display_info.current_w, display_info.current_h
 
         FULLSCREEN_MODE = False
         _is_fullscreen_active = True
 
-        # SCALED 모드에서 전환 시 display 리셋 필요 (플래그 해제 전에 체크)
-        _was_scaled = _use_scaled_mode
-        _use_scaled_mode = False
-        if _was_scaled:
-            pygame.display.quit()
-            pygame.display.init()
+        # MARGIN 포함 합성 크기 계산 (필러 + 게임 영역)
+        _fs_margin = 70
+        _fs_base_h = monitor_h - _fs_margin * 2
+        _fs_win_scale = _fs_base_h / HEIGHT
+        _fs_game_w = int(WIDTH * _fs_win_scale)
+        _fs_pillar_pad_x = int(_fs_game_w * 0.30)
+        _fs_comp_w = _fs_game_w + _fs_pillar_pad_x * 2
+        _fs_comp_h = monitor_h  # 전체화면이므로 높이는 모니터 전체
+        if _fs_comp_w > monitor_w:
+            _fs_comp_w = monitor_w
 
-        # 보더리스 윈도우로 전체화면 (호환성 최적)
-        os.environ['SDL_VIDEO_WINDOW_POS'] = '0,0'
-        if _current_platform == 'Darwin':
-            REAL_SCREEN = pygame.display.set_mode((FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT), pygame.NOFRAME | pygame.DOUBLEBUF)
+        # 정수배 합성 크기 결정 (target/N >= 게임 크기인 최대 N)
+        _fs_comp_w_try = _fs_comp_w // 2
+        _fs_comp_h_try = _fs_comp_h // 2
+        if _fs_comp_w_try >= WIDTH and _fs_comp_h_try >= HEIGHT:
+            _fs_comp_w_final = _fs_comp_w_try
+            _fs_comp_h_final = _fs_comp_h_try
+            _fs_scale_n = 2
         else:
-            REAL_SCREEN = pygame.display.set_mode((FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT), pygame.NOFRAME)
-        if 'SDL_VIDEO_WINDOW_POS' in os.environ:
-            del os.environ['SDL_VIDEO_WINDOW_POS']
+            _fs_comp_w_final = _fs_comp_w
+            _fs_comp_h_final = _fs_comp_h
+            _fs_scale_n = 1
+        _fs_pad_x = (_fs_comp_w_final - WIDTH) // 2
+        _fs_pad_y = (_fs_comp_h_final - HEIGHT) // 2
 
-        if _custom_cursor_enabled:
-            pygame.mouse.set_visible(False)
+        # SCALED + NOFRAME 합성 모드 시도
+        _fs_scaled_ok = False
+        pygame.display.quit()
+        pygame.display.init()
+        try:
+            os.environ['SDL_VIDEO_WINDOW_POS'] = '0,0'
+            REAL_SCREEN = pygame.display.set_mode(
+                (_fs_comp_w_final, _fs_comp_h_final),
+                pygame.SCALED | pygame.NOFRAME
+            )
+            if 'SDL_VIDEO_WINDOW_POS' in os.environ:
+                del os.environ['SDL_VIDEO_WINDOW_POS']
+            _fs_scaled_ok = True
+        except pygame.error as _fs_err:
+            print(f"[플래그십] SCALED|NOFRAME 실패({_fs_err}), 소프트웨어 스케일링 폴백", flush=True)
+            if 'SDL_VIDEO_WINDOW_POS' in os.environ:
+                del os.environ['SDL_VIDEO_WINDOW_POS']
 
-        actual_w, actual_h = REAL_SCREEN.get_size()
-        FULLSCREEN_WIDTH = actual_w
-        FULLSCREEN_HEIGHT = actual_h
-
-        # 스케일링 계산 (초기화 코드와 동일)
-        MARGIN = 70
-        scale_y = (FULLSCREEN_HEIGHT - MARGIN * 2) / HEIGHT
-        scaled_width_check = int(WIDTH * scale_y)
-        if scaled_width_check > FULLSCREEN_WIDTH:
-            GAME_SCALE_FACTOR = FULLSCREEN_WIDTH / WIDTH
+        if _fs_scaled_ok:
+            # --- GPU SCALED 합성 성공: 게임 1:1, GPU가 업스케일 ---
+            _use_scaled_mode = True
+            if _custom_cursor_enabled:
+                pygame.mouse.set_visible(False)
+            FULLSCREEN_WIDTH = _fs_comp_w_final
+            FULLSCREEN_HEIGHT = _fs_comp_h_final
+            GAME_SCALE_FACTOR = 1.0
+            GAME_SCALED_WIDTH = WIDTH
+            GAME_SCALED_HEIGHT = HEIGHT
+            GAME_OFFSET_X = _fs_pad_x
+            GAME_OFFSET_Y = _fs_pad_y
+            _set_font_scale(1.0)
+            SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert()
+            pillar_renderer = init_pillar_background(
+                _fs_comp_w_final, _fs_comp_h_final, WIDTH, HEIGHT,
+                offset_x=_fs_pad_x, offset_y=_fs_pad_y,
+                original_game_width=WIDTH, original_game_height=HEIGHT
+            )
+            _mode_str = f"SCALED x{_fs_scale_n}"
         else:
-            GAME_SCALE_FACTOR = scale_y
+            # --- 폴백: 기존 CPU 소프트웨어 스케일링 ---
+            _use_scaled_mode = False
+            os.environ['SDL_VIDEO_WINDOW_POS'] = '0,0'
+            if _current_platform == 'Darwin':
+                REAL_SCREEN = pygame.display.set_mode((monitor_w, monitor_h), pygame.NOFRAME | pygame.DOUBLEBUF)
+            else:
+                REAL_SCREEN = pygame.display.set_mode((monitor_w, monitor_h), pygame.NOFRAME)
+            if 'SDL_VIDEO_WINDOW_POS' in os.environ:
+                del os.environ['SDL_VIDEO_WINDOW_POS']
+            if _custom_cursor_enabled:
+                pygame.mouse.set_visible(False)
+            actual_w, actual_h = REAL_SCREEN.get_size()
+            FULLSCREEN_WIDTH = actual_w
+            FULLSCREEN_HEIGHT = actual_h
+            MARGIN = 70
+            scale_y = (FULLSCREEN_HEIGHT - MARGIN * 2) / HEIGHT
+            scaled_width_check = int(WIDTH * scale_y)
+            if scaled_width_check > FULLSCREEN_WIDTH:
+                GAME_SCALE_FACTOR = FULLSCREEN_WIDTH / WIDTH
+            else:
+                GAME_SCALE_FACTOR = scale_y
+            GAME_SCALED_WIDTH = int(WIDTH * GAME_SCALE_FACTOR)
+            GAME_SCALED_HEIGHT = int(HEIGHT * GAME_SCALE_FACTOR)
+            GAME_OFFSET_X = (FULLSCREEN_WIDTH - GAME_SCALED_WIDTH) // 2
+            GAME_OFFSET_Y = (FULLSCREEN_HEIGHT - GAME_SCALED_HEIGHT) // 2
+            _set_font_scale(GAME_SCALE_FACTOR)
+            SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert()
+            pillar_renderer = init_pillar_background(
+                actual_w, actual_h, GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT,
+                offset_x=GAME_OFFSET_X, offset_y=GAME_OFFSET_Y,
+                original_game_width=WIDTH, original_game_height=HEIGHT
+            )
+            _mode_str = "폴백"
 
-        GAME_SCALED_WIDTH = int(WIDTH * GAME_SCALE_FACTOR)
-        GAME_SCALED_HEIGHT = int(HEIGHT * GAME_SCALE_FACTOR)
-        GAME_OFFSET_X = (FULLSCREEN_WIDTH - GAME_SCALED_WIDTH) // 2
-        GAME_OFFSET_Y = (FULLSCREEN_HEIGHT - GAME_SCALED_HEIGHT) // 2
-
-        _set_font_scale(GAME_SCALE_FACTOR)
-
-        SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert()
-
-        pillar_renderer = init_pillar_background(
-            FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT,
-            GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT,
-            offset_x=GAME_OFFSET_X, offset_y=GAME_OFFSET_Y,
-            original_game_width=WIDTH, original_game_height=HEIGHT
-        )
-        invalidate_pillar_bg_cache()  # 필러 캐시 무효화 (해상도 변경)
+        invalidate_pillar_bg_cache()
         _set_dm_fullscreen(True, SCREEN)
 
         pygame.display.flip = _fullscreen_flip
@@ -9180,7 +9230,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
 
         pygame.display.set_caption("PINGFIGHTER")
         _current_display_mode = "fullscreen"
-        print(f"[디스플레이] 전체화면 전환 완료: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
+        print(f"[디스플레이] 플래그십모드({_mode_str}) 전환 완료: 합성 {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
 
     elif mode == "cinema":
         # === 시네마모드: OS 해상도를 낮춰서 전체화면 ===
