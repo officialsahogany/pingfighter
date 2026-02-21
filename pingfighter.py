@@ -128355,8 +128355,12 @@ def handle_ball():
                 for _barrier in _bone_sk.barriers:
                     if not _barrier['alive'] or not _barrier['built']:
                         continue
+                    # X좌표 겹침 체크 (공이 장벽 범위 안에 있을 때만 반사)
+                    _bx_left = int(_barrier['x'])
+                    _bx_right = _bx_left + int(_barrier['width'])
+                    _ball_x_overlap = (BALL.right > _bx_left and BALL.left < _bx_right)
                     # 상단 장벽 (is_top=True) → 공이 천장으로 나감 (BALL.top <= 0) 방지
-                    if _barrier['is_top'] and BALL.top <= 0:
+                    if _barrier['is_top'] and BALL.top <= 0 and _ball_x_overlap:
                         BALL.top = int(_barrier['y']) + int(_barrier['height'] / 2) + 2
                         ball_vel[1] = abs(ball_vel[1]) * 1.05
                         _barrier['alive'] = False
@@ -128370,7 +128374,7 @@ def handle_ball():
                         _bone_blocked = True
                         break
                     # 하단 장벽 (is_top=False) → 공이 바닥으로 나감 (BALL.bottom >= HEIGHT) 방지
-                    elif not _barrier['is_top'] and BALL.bottom >= HEIGHT:
+                    elif not _barrier['is_top'] and BALL.bottom >= HEIGHT and _ball_x_overlap:
                         BALL.bottom = int(_barrier['y']) - int(_barrier['height'] / 2) - 2
                         ball_vel[1] = -abs(ball_vel[1]) * 1.05
                         _barrier['alive'] = False
