@@ -138569,10 +138569,10 @@ def main(stage_num, new_boss_mode=False):
                     globals()['_gauge_debug_count'] = 0
         main.keyF4_pressed = keys[pygame.K_F4]
 
-        # F9키로 시네마모드 전환
+        # F9키로 플래그십모드 전환
         if keys[pygame.K_F9] and not getattr(main, 'keyF9_pressed', False):
-            if get_display_mode() != "cinema":
-                switch_display_mode("cinema")
+            if get_display_mode() != "fullscreen":
+                switch_display_mode("fullscreen")
         main.keyF9_pressed = keys[pygame.K_F9]
 
         # F10키로 창모드 전환
