@@ -827,6 +827,10 @@ class BallSpawnAnimation:
         # Phase 3 잔상 트레일
         self.phase3_trail: List[Tuple[float, float]] = []
 
+        # Phase 3 빛의 파동 충격파
+        self.shockwave_radius = 0.0
+        self.shockwave_alpha = 0
+
         # 파티클 스폰 타이머
         self.particle_spawn_timer = 0
         self.lightning_spawn_timer = 0
@@ -883,6 +887,8 @@ class BallSpawnAnimation:
         self.hologram_rings.clear()
         self.energy_rings.clear()
         self.phase3_trail.clear()
+        self.shockwave_radius = 0.0
+        self.shockwave_alpha = 0
 
         # 초기 파티클 생성
         self._spawn_initial_particles()
@@ -1307,13 +1313,18 @@ class BallSpawnAnimation:
                 int(220 + progress * 15),
                 255
             )
-        elif progress > 0.9:
-            # 도착 직전 플래시
-            arrival_progress = (progress - 0.9) / 0.1
-            self.flash_alpha = int(100 * arrival_progress * (1 - arrival_progress) * 4)
-            self.flash_color = (255, 255, 220)
+        elif progress > 0.82:
+            # 빛의 파동 충격파 (공 도착 시 "샤" 하고 퍼지며 사라짐)
+            wave_t = (progress - 0.82) / 0.18
+            ease = 1 - (1 - wave_t) ** 2.5  # ease-out: 빠르게 퍼지다 느려짐
+            self.shockwave_radius = ease * 380
+            self.shockwave_alpha = int(200 * (1 - wave_t) ** 1.3)
+            # 살짝 화면 플래시 동반
+            self.flash_alpha = int(50 * max(0, 1 - wave_t * 2.5))
+            self.flash_color = (240, 245, 255)
         else:
             self.flash_alpha = 0
+            self.shockwave_alpha = 0
 
     def _spawn_enhanced_lightning(self, progress: float):
         """강화된 번개 생성"""
@@ -1408,6 +1419,10 @@ class BallSpawnAnimation:
         if self.ball_visible and self.ball_alpha > 0:
             self._draw_ball(surface, ball_color)
 
+        # 빛의 파동 충격파
+        if self.shockwave_alpha > 0 and self.shockwave_radius > 5:
+            self._draw_shockwave(surface)
+
         # 플래시 오버레이
         if self.flash_alpha > 0:
             flash_surf = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
@@ -1446,6 +1461,38 @@ class BallSpawnAnimation:
 
         surface.blit(glow_surf,
                      (int(self.center_x - center), int(self.center_y - center)))
+
+    def _draw_shockwave(self, surface: pygame.Surface):
+        """빛의 파동 충격파 - 공 위치에서 원형으로 퍼지며 사라짐"""
+        cx, cy = int(self.ball_x), int(self.ball_y)
+        r = int(self.shockwave_radius)
+        alpha = self.shockwave_alpha
+        if r < 3 or alpha < 2:
+            return
+
+        sw_surf = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
+
+        # 링 레이어 (내부 밝고 얇음 → 외부 넓고 흐림)
+        ring_defs = [
+            (-8,  6,  1.0),   # 내부 코어 링: 얇고 밝음
+            (-3,  10, 0.65),  # 중내부
+            (4,   16, 0.40),  # 중외부
+            (14,  26, 0.18),  # 외부 글로우: 넓고 은은
+        ]
+
+        for offset, width, a_mult in ring_defs:
+            ring_r = max(1, r + offset)
+            ring_a = min(255, int(alpha * a_mult))
+            if ring_a < 2:
+                continue
+            # 색상: 내부(따뜻한 화이트) → 외부(쿨 블루)
+            c_r = min(255, int(225 + 30 * a_mult))
+            c_g = min(255, int(235 + 20 * a_mult))
+            c_b = 255
+            w = min(width, ring_r)
+            pygame.draw.circle(sw_surf, (c_r, c_g, c_b, ring_a), (cx, cy), ring_r, w)
+
+        surface.blit(sw_surf, (0, 0))
 
     def _draw_afterimage_trail(self, surface: pygame.Surface, ball_color: Tuple[int, int, int]):
         """Phase 3 잔상 트레일 그리기 - 공의 이동 경로를 따라 페이딩 고스트 표시"""
