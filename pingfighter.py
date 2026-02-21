@@ -121326,20 +121326,14 @@ def _update_arena_capture_phase(screen):
         except Exception:
             pass
 
-        # 조작 안내 큰 문구 (처음 2.5초간 자연스럽게 페이드인/아웃)
-        _hint_t = arena_capture_timer
-        _HINT_FADE_IN = 0.3
-        _HINT_HOLD = 1.8
-        _HINT_FADE_OUT = 0.4
-        _HINT_TOTAL = _HINT_FADE_IN + _HINT_HOLD + _HINT_FADE_OUT
-        if _hint_t < _HINT_TOTAL:
-            if _hint_t < _HINT_FADE_IN:
-                _hint_alpha = int(255 * (_hint_t / _HINT_FADE_IN))
-            elif _hint_t < _HINT_FADE_IN + _HINT_HOLD:
-                _hint_alpha = 255
-            else:
-                _hint_alpha = int(255 * (1.0 - (_hint_t - _HINT_FADE_IN - _HINT_HOLD) / _HINT_FADE_OUT))
-            _hint_alpha = max(0, min(255, _hint_alpha))
+        # 조작 안내 큰 문구
+        _boss_trapped_hint = (arena_capture_deployed_net is not None
+                              and arena_capture_deployed_net.get("trapped", False))
+        if _boss_trapped_hint:
+            # ── 생포 성공! 클릭하여 끌어당기기 안내 (깜빡이는 강조) ──
+            _trap_phase = arena_capture_deployed_net.get("phase", 0.0)
+            _blink = int(180 + 75 * _cap_math.sin(_trap_phase * 8.0))
+            _hint_alpha = max(0, min(255, _blink))
             try:
                 _hint_big_font = getattr(_update_arena_capture_phase, '_title_font_big', None)
                 if _hint_big_font is None:
@@ -121350,12 +121344,11 @@ def _update_arena_capture_phase(screen):
                         _hint_big_font = pygame.freetype.SysFont("malgun gothic", 24)
                     _update_arena_capture_phase._title_font_big = _hint_big_font
                 if _hint_big_font:
-                    _hint_text = "A/D 키로 움직이면서 마우스를 클릭하여 적을 생포하세요!"
-                    _hs, _hr = _hint_big_font.render(_hint_text, (255, 60, 60))
+                    _hint_text = "🖱️ 클릭하여 끌어당기세요!"
+                    _hs, _hr = _hint_big_font.render(_hint_text, (100, 255, 100))
                     _hw = _hr.width + 12
                     _hh = _hr.height + 12
                     _hint_surf = pygame.Surface((_hw, _hh), pygame.SRCALPHA)
-                    # 외곽선 (가독성)
                     for _ox, _oy in [(-1,0),(1,0),(0,-1),(0,1)]:
                         _os, _ = _hint_big_font.render(_hint_text, (0, 0, 0))
                         _hint_surf.blit(_os, (6 + _ox, 6 + _oy))
@@ -121364,6 +121357,44 @@ def _update_arena_capture_phase(screen):
                     screen.blit(_hint_surf, (GAME_CENTER_X - _hw // 2, 350 - _hh // 2))
             except Exception:
                 pass
+        else:
+            # ── 기본 조작 안내 (처음 2.5초간 자연스럽게 페이드인/아웃) ──
+            _hint_t = arena_capture_timer
+            _HINT_FADE_IN = 0.3
+            _HINT_HOLD = 1.8
+            _HINT_FADE_OUT = 0.4
+            _HINT_TOTAL = _HINT_FADE_IN + _HINT_HOLD + _HINT_FADE_OUT
+            if _hint_t < _HINT_TOTAL:
+                if _hint_t < _HINT_FADE_IN:
+                    _hint_alpha = int(255 * (_hint_t / _HINT_FADE_IN))
+                elif _hint_t < _HINT_FADE_IN + _HINT_HOLD:
+                    _hint_alpha = 255
+                else:
+                    _hint_alpha = int(255 * (1.0 - (_hint_t - _HINT_FADE_IN - _HINT_HOLD) / _HINT_FADE_OUT))
+                _hint_alpha = max(0, min(255, _hint_alpha))
+                try:
+                    _hint_big_font = getattr(_update_arena_capture_phase, '_title_font_big', None)
+                    if _hint_big_font is None:
+                        font_path = resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"))
+                        try:
+                            _hint_big_font = pygame.freetype.Font(font_path, 24)
+                        except Exception:
+                            _hint_big_font = pygame.freetype.SysFont("malgun gothic", 24)
+                        _update_arena_capture_phase._title_font_big = _hint_big_font
+                    if _hint_big_font:
+                        _hint_text = "A/D 키로 움직이면서 마우스를 클릭하여 적을 생포하세요!"
+                        _hs, _hr = _hint_big_font.render(_hint_text, (255, 60, 60))
+                        _hw = _hr.width + 12
+                        _hh = _hr.height + 12
+                        _hint_surf = pygame.Surface((_hw, _hh), pygame.SRCALPHA)
+                        for _ox, _oy in [(-1,0),(1,0),(0,-1),(0,1)]:
+                            _os, _ = _hint_big_font.render(_hint_text, (0, 0, 0))
+                            _hint_surf.blit(_os, (6 + _ox, 6 + _oy))
+                        _hint_surf.blit(_hs, (6, 6))
+                        _hint_surf.set_alpha(_hint_alpha)
+                        screen.blit(_hint_surf, (GAME_CENTER_X - _hw // 2, 350 - _hh // 2))
+                except Exception:
+                    pass
 
     # ─────── RESULT 페이즈 ───────
     elif arena_capture_phase == "result":
@@ -138589,9 +138620,14 @@ def main(stage_num, new_boss_mode=False):
             # 마우스 클릭으로 배속 버튼 변경 (REAL_SCREEN 좌표 사용)
             _mb = pygame.mouse.get_pressed()
             if _mb[0] and not getattr(main, '_arena_mouse_pressed', False):
-                # 🕸️ 포획 페이즈 중 그물 발사
+                # 🕸️ 포획 페이즈 중 그물 발사 / 끌어당기기
                 if arena_capture_phase == "active":
-                    _fire_capture_net()
+                    # 이미 그물에 생포된 상태 → 클릭으로 즉시 끌어당기기
+                    if (arena_capture_deployed_net is not None
+                            and arena_capture_deployed_net.get("trapped", False)):
+                        arena_capture_deployed_net["timer"] = 0  # 즉시 result(끌어오기) 전환
+                    else:
+                        _fire_capture_net()
                 else:
                     if not arena_speed_btn_rects:
                         _update_arena_speed_btn_rects()
