@@ -2207,7 +2207,33 @@ class AnimatedBackgroundStage30:
                         screen.blit(deep_surf, (cx + rise_shake_x - deep_w // 2,
                                                 ground_y - deep_h // 2))
         else:
-            self._draw_judgment_statue_scaled(screen, cx, cy, s)
+            # 바람의 분노: 석상 X축 자전 효과 (cos으로 수평 압축 → 3D 회전 착시)
+            if (self.judgment_variant == 'wind' and
+                    abs(self.judgment_wind_spin_speed) > 0.01):
+                x_scale_factor = math.cos(self.judgment_wind_spin_angle)
+                abs_x_scale = max(0.05, abs(x_scale_factor))
+                # 석상 바운딩 박스 기반 임시 서피스
+                margin_x = int(45 * s)
+                margin_top = int(40 * s)
+                margin_bot = int(12 * s)
+                tw = margin_x * 2
+                th = margin_top + margin_bot
+                temp_surf = pygame.Surface((tw, th), pygame.SRCALPHA)
+                # 임시 서피스 중앙에 석상 그리기
+                temp_cx = tw // 2
+                temp_cy = margin_top
+                self._draw_judgment_statue_scaled(temp_surf, temp_cx, temp_cy, s)
+                # 수평 스케일링 (자전 효과)
+                new_w = max(1, int(tw * abs_x_scale))
+                scaled_surf = pygame.transform.scale(temp_surf, (new_w, th))
+                if x_scale_factor < 0:
+                    scaled_surf = pygame.transform.flip(scaled_surf, True, False)
+                # 원래 위치에 중심 정렬하여 블릿
+                blit_x = cx - new_w // 2
+                blit_y = cy - margin_top
+                screen.blit(scaled_surf, (blit_x, blit_y))
+            else:
+                self._draw_judgment_statue_scaled(screen, cx, cy, s)
 
         # ── 상승 파편 (떨어지는 흙/돌) ──
         for d in self.judgment_rise_debris:
