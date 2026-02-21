@@ -34,8 +34,8 @@ HENCH_ENTER_DURATION = 0.5     # 등장 시간 (초)
 HENCH_CAST_DURATION = 0.8      # 시전 포즈 시간
 HENCH_EXIT_DURATION = 0.4      # 퇴장 시간
 
-# 하수인 쿨타임 총 배율 (기본 스킬 쿨타임 × 4.2)
-HENCHMAN_TOTAL_CD_MULT = 4.2
+# 하수인 쿨타임 총 배율 (기본 스킬 쿨타임 × 3.0)
+HENCHMAN_TOTAL_CD_MULT = 3.0
 
 # 하수인 등장 Y 위치 (호위무사와 동일)
 HENCH_TOP_Y = 45   # TOP_PADDLE_Y(25) + 20 — 호위무사 상단 Y와 동일 (상반신 잘림 방지)
