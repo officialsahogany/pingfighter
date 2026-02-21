@@ -2924,10 +2924,10 @@ def _handle_menu_events(
                 pygame.quit()
                 raise SystemExit
             if event.key == pygame.K_F9:
-                # F9: 시네마모드 전환
+                # F9: 플래그십모드 전환
                 from pingfighter import switch_display_mode, get_display_mode
-                if get_display_mode() != "cinema":
-                    switch_display_mode("cinema")
+                if get_display_mode() != "fullscreen":
+                    switch_display_mode("fullscreen")
                 continue
             if event.key == pygame.K_F10:
                 # F10: 창모드 전환
