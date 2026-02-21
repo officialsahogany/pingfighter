@@ -192,11 +192,15 @@ def _get_native_resolution():
         return None
 
 # 더블 모니터용: 가장 큰 모니터 정보 캐시
-_largest_monitor_info = None  # {'x': int, 'y': int, 'w': int, 'h': int}
+# 'x','y': 가상 좌표 (DPI 스케일됨, 창 배치용)
+# 'w','h': 물리적 해상도 (DPI 무관, 창 크기 계산용)
+# 'vw','vh': 가상 크기 (DPI 스케일됨)
+_largest_monitor_info = None
 
 def _detect_largest_monitor():
-    """모든 모니터를 열거하고 가장 큰(해상도 높은) 모니터의 위치/크기 반환 (Windows 전용)
-    Returns: {'x': left, 'y': top, 'w': width, 'h': height} or None"""
+    """모든 모니터를 열거하고 물리적 해상도 기준 가장 큰 모니터 반환 (Windows 전용)
+    GetMonitorInfoW = DPI 스케일된 가상 좌표 (창 위치 지정용)
+    EnumDisplaySettingsW = 실제 물리적 해상도 (창 크기 계산용)"""
     global _largest_monitor_info
     if sys.platform != 'win32':
         return None
@@ -213,7 +217,35 @@ def _detect_largest_monitor():
                 ("szDevice", ctypes.c_wchar * 32),
             ]
 
+        class DEVMODE(ctypes.Structure):
+            _fields_ = [
+                ("dmDeviceName", ctypes.c_wchar * 32),
+                ("dmSpecVersion", wintypes.WORD),
+                ("dmDriverVersion", wintypes.WORD),
+                ("dmSize", wintypes.WORD),
+                ("dmDriverExtra", wintypes.WORD),
+                ("dmFields", wintypes.DWORD),
+                ("dmPositionX", wintypes.LONG),
+                ("dmPositionY", wintypes.LONG),
+                ("dmDisplayOrientation", wintypes.DWORD),
+                ("dmDisplayFixedOutput", wintypes.DWORD),
+                ("dmColor", ctypes.c_short),
+                ("dmDuplex", ctypes.c_short),
+                ("dmYResolution", ctypes.c_short),
+                ("dmTTOption", ctypes.c_short),
+                ("dmCollate", ctypes.c_short),
+                ("dmFormName", ctypes.c_wchar * 32),
+                ("dmLogPixels", wintypes.WORD),
+                ("dmBitsPerPel", wintypes.DWORD),
+                ("dmPelsWidth", wintypes.DWORD),
+                ("dmPelsHeight", wintypes.DWORD),
+                ("dmDisplayFlags", wintypes.DWORD),
+                ("dmDisplayFrequency", wintypes.DWORD),
+            ]
+
+        user32 = ctypes.windll.user32
         monitors = []
+
         MONITORENUMPROC = ctypes.WINFUNCTYPE(
             ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p,
             ctypes.POINTER(wintypes.RECT), ctypes.c_long
@@ -222,27 +254,43 @@ def _detect_largest_monitor():
         def _enum_callback(hMonitor, hdcMonitor, lprcMonitor, dwData):
             info = MONITORINFOEX()
             info.cbSize = ctypes.sizeof(MONITORINFOEX)
-            ctypes.windll.user32.GetMonitorInfoW(hMonitor, ctypes.byref(info))
+            user32.GetMonitorInfoW(hMonitor, ctypes.byref(info))
             r = info.rcMonitor
+            virt_w = r.right - r.left
+            virt_h = r.bottom - r.top
+
+            # EnumDisplaySettingsW로 물리적(실제) 해상도 가져오기
+            devmode = DEVMODE()
+            devmode.dmSize = ctypes.sizeof(DEVMODE)
+            phys_w, phys_h = virt_w, virt_h  # 폴백: 가상 크기
+            # ENUM_CURRENT_SETTINGS = -1
+            if user32.EnumDisplaySettingsW(info.szDevice, -1, ctypes.byref(devmode)):
+                if devmode.dmPelsWidth > 0 and devmode.dmPelsHeight > 0:
+                    phys_w = devmode.dmPelsWidth
+                    phys_h = devmode.dmPelsHeight
+
             monitors.append({
-                'x': r.left, 'y': r.top,
-                'w': r.right - r.left, 'h': r.bottom - r.top,
+                'x': r.left, 'y': r.top,       # 가상 좌표 (창 배치용)
+                'w': phys_w, 'h': phys_h,       # 물리적 해상도 (크기 계산용)
+                'vw': virt_w, 'vh': virt_h,     # 가상 크기 (DPI 스케일됨)
                 'device': info.szDevice,
             })
             return 1
 
-        ctypes.windll.user32.EnumDisplayMonitors(
-            None, None, MONITORENUMPROC(_enum_callback), 0
-        )
+        _cb = MONITORENUMPROC(_enum_callback)
+        user32.EnumDisplayMonitors(None, None, _cb, 0)
 
         if not monitors:
             return None
 
-        # 면적(w*h) 기준으로 가장 큰 모니터 선택
+        # 물리적 면적(w*h) 기준으로 가장 큰 모니터 선택
         largest = max(monitors, key=lambda m: m['w'] * m['h'])
         _largest_monitor_info = largest
-        print(f"[모니터] 감지된 모니터 {len(monitors)}개: {[(m['w'], m['h'], m['x'], m['y']) for m in monitors]}", flush=True)
-        print(f"[모니터] 가장 큰 모니터: {largest['w']}x{largest['h']} @ ({largest['x']}, {largest['y']})", flush=True)
+        print(f"[모니터] 감지된 모니터 {len(monitors)}개:", flush=True)
+        for m in monitors:
+            _dpi_pct = round(m['w'] / m['vw'] * 100) if m['vw'] > 0 else 100
+            print(f"  - {m['device'].strip()}: 물리 {m['w']}x{m['h']}, 가상 {m['vw']}x{m['vh']} ({_dpi_pct}% DPI), 위치 ({m['x']},{m['y']})", flush=True)
+        print(f"[모니터] 선택: {largest['w']}x{largest['h']} @ ({largest['x']},{largest['y']})", flush=True)
         return largest
     except Exception as e:
         print(f"[모니터] 모니터 감지 실패: {e}", flush=True)
@@ -252,18 +300,19 @@ def _detect_largest_monitor():
 _detect_largest_monitor()
 
 def _get_largest_monitor_pos(win_w, win_h):
-    """가장 큰 모니터의 중앙에 창을 배치하기 위한 좌표 반환
-    Args: win_w, win_h - 창 크기
+    """가장 큰 모니터의 중앙에 창을 배치하기 위한 좌표 반환 (가상 좌표 사용)
+    Args: win_w, win_h - 창 크기 (가상 좌표 기준)
     Returns: (x, y) 또는 None"""
     if _largest_monitor_info is None:
         return None
     m = _largest_monitor_info
-    cx = m['x'] + (m['w'] - win_w) // 2
-    cy = m['y'] + (m['h'] - win_h) // 2
+    # 가상 크기 기준으로 중앙 계산 (SDL은 가상 좌표 사용)
+    cx = m['x'] + (m['vw'] - win_w) // 2
+    cy = m['y'] + (m['vh'] - win_h) // 2
     return (cx, cy)
 
 def _get_largest_monitor_resolution():
-    """가장 큰 모니터의 해상도 반환. Returns: (w, h) or None"""
+    """가장 큰 모니터의 물리적 해상도 반환. Returns: (w, h) or None"""
     if _largest_monitor_info is None:
         return None
     return (_largest_monitor_info['w'], _largest_monitor_info['h'])
