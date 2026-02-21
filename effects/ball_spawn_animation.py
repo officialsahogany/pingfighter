@@ -1077,15 +1077,15 @@ class BallSpawnAnimation:
         # 3. 기본 안개 알파
         fog_alpha = int(105 * envelope * pulse)
 
-        # 4. 부드러운 색상 변주 (각 RGB 채널 독립 사인파 변조)
-        phase_t = progress * math.pi * 4  # 2 색상 사이클
-        r = 195 + int(45 * math.sin(phase_t))
-        g = 200 + int(40 * math.sin(phase_t + math.pi * 0.7))
-        b = 240 + int(15 * math.sin(phase_t + math.pi * 1.4))
+        # 4. 느린 색상 변주 (빛 색상 위주: 웜화이트 → 쿨화이트 → 미세 라벤더)
+        phase_t = progress * math.pi * 1.2  # 0.6 사이클 (매우 느리게)
+        r = 228 + int(18 * math.sin(phase_t))
+        g = 232 + int(15 * math.sin(phase_t + 0.5))
+        b = 248 + int(7 * math.sin(phase_t + 1.0))
         self.flash_color = (
-            min(255, max(140, r)),
-            min(255, max(140, g)),
-            min(255, max(210, b))
+            min(255, max(210, r)),
+            min(255, max(215, g)),
+            min(255, max(240, b))
         )
 
         # 5. Phase 1 종료 직전: 부드러운 전환 상승
