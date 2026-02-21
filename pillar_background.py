@@ -2003,8 +2003,8 @@ class PillarBackgroundRenderer:
         import math
 
         _s = game_scale if game_scale > 0 else 1.0
-        btn_w = max(20, int(36 * _s))
-        btn_h = max(20, int(36 * _s))
+        btn_w = max(20, int(54 * _s))
+        btn_h = max(20, int(54 * _s))
 
         # 위치: 하단 필러 영역, 스킬 슬롯 오른쪽
         _bottom_pillar_y = self.game_offset_y + self.game_height
@@ -2023,7 +2023,7 @@ class PillarBackgroundRenderer:
         _icon_surf = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
         cx = btn_w // 2
         cy = btn_h // 2
-        icon_s = max(5, int(12 * _s))
+        icon_s = max(5, int(18 * _s))
 
         if is_defense:
             # ──── 고퀄리티 방패 아이콘 ────
