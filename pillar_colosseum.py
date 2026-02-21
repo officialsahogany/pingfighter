@@ -602,54 +602,105 @@ class CircularStadiumFrame:
             if 0 <= dx < self.screen_width and 0 <= dy < self.screen_height:
                 if not (self.game_x - 40 < dx < self.game_x + self.game_width + 40 and
                         self.game_y - 40 < dy < self.game_y + self.game_height + 40):
-                    # 방패 장식
+                    # 방패 장식 (고퀄리티)
+                    # 그림자
+                    pygame.draw.ellipse(surface, (60, 45, 30),
+                                        (dx - 11, dy - 14, 24, 30))
+                    # 외곽 테두리
                     pygame.draw.ellipse(surface, self.COLORS['bronze'],
-                                      (dx - 12, dy - 15, 24, 30))
+                                        (dx - 12, dy - 15, 24, 30))
+                    # 금색 테두리선
                     pygame.draw.ellipse(surface, self.COLORS['gold'],
-                                      (dx - 10, dy - 13, 20, 26), 2)
+                                        (dx - 12, dy - 15, 24, 30), 2)
+                    # 내부 면
                     pygame.draw.ellipse(surface, self.COLORS['copper'],
-                                      (dx - 6, dy - 8, 12, 16))
+                                        (dx - 8, dy - 10, 16, 20))
+                    # 내부 하이라이트
+                    pygame.draw.ellipse(surface, self.COLORS['gold_light'],
+                                        (dx - 5, dy - 8, 8, 10))
+                    # 중앙 보스 (장식 원)
+                    pygame.draw.circle(surface, self.COLORS['gold'], (dx, dy), 4)
+                    pygame.draw.circle(surface, self.COLORS['gold_light'], (dx, dy), 2)
+                    # 리벳 4개
+                    for rv_a in [0, 90, 180, 270]:
+                        ra = math.radians(rv_a)
+                        rx = dx + int(8 * math.cos(ra))
+                        ry = dy + int(10 * math.sin(ra))
+                        pygame.draw.circle(surface, self.COLORS['gold_dark'],
+                                           (rx, ry), 2)
+                        pygame.draw.circle(surface, self.COLORS['gold_light'],
+                                           (rx - 1, ry - 1), 1)
 
     def _draw_seat_tiers(self, surface):
-        """동심원 좌석 단 그리기 (관중석 영역만, 5줄)"""
+        """동심원 좌석 단 그리기 (고퀄리티 - 개별 좌석 라인 + 3D 단차)"""
         inner_radius = max(self.game_width, self.game_height) // 2 + 20
 
-        # 5줄만 좌석
         tier_height = 28
-        num_tiers = 6  # 관중석 배경용
+        num_tiers = 6
+
+        sl = self.COLORS['seat_light']
+        sm = self.COLORS['seat_medium']
+        ss = self.COLORS['seat_shadow']
+        sh = self.COLORS['stone_highlight']
 
         for i in range(num_tiers):
             radius = inner_radius + i * tier_height
-
-            # 좌석 단 색상
-            if i % 2 == 0:
-                color = self.COLORS['seat_light']
-            else:
-                color = self.COLORS['seat_medium']
+            color = sl if i % 2 == 0 else sm
 
             # 원형 좌석 단
-            pygame.draw.circle(surface, color, (self.center_x, self.center_y),
-                             radius + tier_height, tier_height)
+            pygame.draw.circle(surface, color,
+                               (self.center_x, self.center_y),
+                               radius + tier_height, tier_height)
 
-            # 단 경계선 (3D 효과)
-            pygame.draw.circle(surface, self.COLORS['seat_shadow'],
-                             (self.center_x, self.center_y), radius, 2)
-            pygame.draw.circle(surface, self.COLORS['stone_highlight'],
-                             (self.center_x, self.center_y), radius + tier_height - 2, 1)
+            # 단 하단 그림자 (두꺼운 3D 단차)
+            pygame.draw.circle(surface, ss,
+                               (self.center_x, self.center_y), radius, 3)
+            # 단 상단 하이라이트
+            pygame.draw.circle(surface, sh,
+                               (self.center_x, self.center_y),
+                               radius + tier_height - 2, 1)
+
+            # 개별 좌석 구분선 (방사형 짧은 선)
+            seat_color = tuple(max(0, c - 12) for c in color)
+            num_seats_in_row = int(2 * math.pi * (radius + tier_height // 2) / 16)
+            for si in range(num_seats_in_row):
+                sa = si * (2 * math.pi / num_seats_in_row)
+                # 통로 영역 건너뛰기
+                skip_seat = False
+                for aisle_a in [math.pi * 0.5, math.pi * 1.17, math.pi * 1.83]:
+                    if abs(sa - aisle_a) < 0.1:
+                        skip_seat = True
+                        break
+                if skip_seat:
+                    continue
+                sx1 = self.center_x + int(radius * math.cos(sa))
+                sy1 = self.center_y + int(radius * math.sin(sa))
+                sx2 = self.center_x + int((radius + tier_height) * math.cos(sa))
+                sy2 = self.center_y + int((radius + tier_height) * math.sin(sa))
+                # 게임 영역 내부는 건너뛰기
+                if (self.game_x < sx1 < self.game_x + self.game_width and
+                        self.game_y < sy1 < self.game_y + self.game_height):
+                    continue
+                pygame.draw.line(surface, seat_color, (sx1, sy1), (sx2, sy2), 1)
 
     def _draw_arches(self, surface):
-        """아치 구조 그리기 (관중석 바로 뒤)"""
-        # 관중석 끝나는 위치 바로 뒤
+        """아치 구조 그리기 (고퀄리티 - 키스톤 + 보석석 + 기둥부)"""
         arch_radius = max(self.game_width, self.game_height) // 2 + 25 + 5 * 28 + 10
 
         num_arches = 16
-        arch_width = 35
-        arch_height = 30
+        aw = 35  # arch width
+        ah = 30  # arch height
+        p = self.COLORS['pillar']
+        pl = self.COLORS['pillar_light']
+        ps = self.COLORS['pillar_shadow']
+        ss = self.COLORS['stone_shadow']
+        g = self.COLORS['gold']
+        gd = self.COLORS['gold_dark']
+        gl = self.COLORS['gold_light']
 
         for i in range(num_arches):
             angle = i * (2 * math.pi / num_arches)
 
-            # 통로 위치 건너뛰기
             skip = False
             for aisle_angle in [math.pi * 0.5, math.pi * 1.17, math.pi * 1.83]:
                 if abs(angle - aisle_angle) < 0.25:
@@ -663,29 +714,69 @@ class CircularStadiumFrame:
 
             if not (self.game_x - 20 < x < self.game_x + self.game_width + 20 and
                     self.game_y - 20 < y < self.game_y + self.game_height + 20):
-                # 아치 배경
-                pygame.draw.ellipse(surface, self.COLORS['stone_shadow'],
-                                   (x - arch_width // 2, y - arch_height, arch_width, arch_height * 2))
-                # 아치 테두리
-                arch_rect = (x - arch_width // 2, y - arch_height, arch_width, arch_height * 2)
-                pygame.draw.arc(surface, self.COLORS['pillar'], arch_rect, 0, math.pi, 5)
-                pygame.draw.arc(surface, self.COLORS['pillar_light'], arch_rect, 0, math.pi, 2)
-                # 아치 장식
-                pygame.draw.arc(surface, self.COLORS['gold'], arch_rect, 0.2, math.pi - 0.2, 2)
+                hw = aw // 2
+
+                # 아치 내부 (깊은 그림자)
+                pygame.draw.ellipse(surface, (45, 35, 25),
+                                    (x - hw + 2, y - ah + 2, aw, ah * 2))
+                pygame.draw.ellipse(surface, ss,
+                                    (x - hw, y - ah, aw, ah * 2))
+
+                # 아치 프레임 (두꺼운 석조 테두리)
+                arch_rect = (x - hw, y - ah, aw, ah * 2)
+                pygame.draw.arc(surface, ps, arch_rect, 0, math.pi, 6)
+                pygame.draw.arc(surface, p, arch_rect, 0, math.pi, 4)
+                pygame.draw.arc(surface, pl, arch_rect, 0.1, math.pi - 0.1, 2)
+
+                # 금색 내부 장식선
+                pygame.draw.arc(surface, gd, arch_rect, 0.3, math.pi - 0.3, 1)
+
+                # 키스톤 (아치 정상)
+                ky = y - ah - 2
+                k_pts = [(x, ky - 6), (x - 5, ky + 3), (x + 5, ky + 3)]
+                pygame.draw.polygon(surface, g, k_pts)
+                pygame.draw.polygon(surface, gl, k_pts, 1)
+                # 키스톤 중앙 점
+                pygame.draw.circle(surface, gl, (x, ky - 1), 2)
+
+                # 양쪽 미니 기둥
+                for side in [-1, 1]:
+                    cpx = x + side * (hw + 3)
+                    # 기둥 본체
+                    pygame.draw.rect(surface, ps,
+                                     (cpx - 2, y - 8, 5, 22))
+                    pygame.draw.rect(surface, p,
+                                     (cpx - 2, y - 8, 4, 22))
+                    pygame.draw.rect(surface, pl,
+                                     (cpx - 2, y - 8, 2, 22))
+                    # 주두
+                    pygame.draw.rect(surface, g,
+                                     (cpx - 4, y - 11, 8, 3))
+                    # 주초
+                    pygame.draw.rect(surface, ps,
+                                     (cpx - 3, y + 14, 7, 3))
 
     def _draw_pillars(self, surface):
-        """기둥 구조 그리기 (관중석 뒤에만)"""
-        # 관중석 끝나는 위치부터
+        """기둥 구조 그리기 (고퀄리티 - 플루팅 + 코린트식 주두 + 주초)"""
         crowd_end_radius = max(self.game_width, self.game_height) // 2 + 25 + 5 * 28 + 25
         outer_radius = int(math.sqrt(self.screen_width**2 + self.screen_height**2))
 
         num_pillars = 12
-        pillar_width = 22
+        pw = 22  # pillar width
+
+        p = self.COLORS['pillar']
+        pl = self.COLORS['pillar_light']
+        ps = self.COLORS['pillar_shadow']
+        pd = self.COLORS['pillar_dark']
+        g = self.COLORS['gold']
+        gl = self.COLORS['gold_light']
+        gd = self.COLORS['gold_dark']
+        sd = self.COLORS['stone_dark']
+        sh = self.COLORS['stone_highlight']
 
         for i in range(num_pillars):
             angle = i * (2 * math.pi / num_pillars)
 
-            # 통로 위치 건너뛰기
             skip = False
             for aisle_angle in [math.pi * 0.5, math.pi * 1.17, math.pi * 1.83]:
                 if abs(angle - aisle_angle) < 0.3:
@@ -694,7 +785,6 @@ class CircularStadiumFrame:
             if skip:
                 continue
 
-            # 관중석 뒤부터 기둥 배치
             for r in range(int(crowd_end_radius), int(outer_radius), 70):
                 px = self.center_x + int(r * math.cos(angle))
                 py = self.center_y + int(r * math.sin(angle))
@@ -702,24 +792,65 @@ class CircularStadiumFrame:
                 if 0 <= px < self.screen_width and 0 <= py < self.screen_height:
                     if not (self.game_x < px < self.game_x + self.game_width and
                             self.game_y < py < self.game_y + self.game_height):
-                        # 기둥 그림자
-                        pygame.draw.rect(surface, self.COLORS['pillar_dark'],
-                                        (px - pillar_width//2 + 3, py - 28, pillar_width, 60))
-                        # 기둥 본체
-                        pygame.draw.rect(surface, self.COLORS['pillar'],
-                                        (px - pillar_width//2, py - 30, pillar_width - 2, 60),
-                                        border_radius=3)
-                        # 기둥 하이라이트
-                        pygame.draw.rect(surface, self.COLORS['pillar_light'],
-                                        (px - pillar_width//2 + 1, py - 30, 4, 60))
-                        # 기둥 상단 장식 (코린트식)
-                        pygame.draw.rect(surface, self.COLORS['gold'],
-                                        (px - pillar_width//2 - 4, py - 35, pillar_width + 8, 6))
-                        pygame.draw.rect(surface, self.COLORS['gold_light'],
-                                        (px - pillar_width//2 - 4, py - 35, pillar_width + 8, 2))
-                        # 기둥 하단 받침
-                        pygame.draw.rect(surface, self.COLORS['stone_dark'],
-                                        (px - pillar_width//2 - 3, py + 28, pillar_width + 6, 5))
+                        hw = pw // 2  # half width
+                        col_top = py - 30
+                        col_h = 60
+
+                        # ── 기둥 그림자 (드롭쉐도우) ──
+                        pygame.draw.rect(surface, pd,
+                                         (px - hw + 3, col_top + 2, pw, col_h))
+
+                        # ── 기둥 본체 ──
+                        pygame.draw.rect(surface, p,
+                                         (px - hw, col_top, pw - 2, col_h),
+                                         border_radius=3)
+
+                        # ── 플루팅 (세로 홈 3줄) ──
+                        flute_color = ps
+                        flute_hi = pl
+                        for fi in range(3):
+                            fx = px - hw + 5 + fi * 5
+                            pygame.draw.line(surface, flute_color,
+                                             (fx, col_top + 6), (fx, col_top + col_h - 6), 1)
+                            pygame.draw.line(surface, flute_hi,
+                                             (fx + 1, col_top + 6), (fx + 1, col_top + col_h - 6), 1)
+
+                        # ── 기둥 좌측 하이라이트 ──
+                        pygame.draw.rect(surface, pl,
+                                         (px - hw + 1, col_top, 3, col_h))
+
+                        # ── 코린트식 주두 (Capital) ──
+                        cap_y = col_top - 8
+                        # 아바쿠스 (상판)
+                        pygame.draw.rect(surface, g,
+                                         (px - hw - 5, cap_y, pw + 10, 4))
+                        pygame.draw.rect(surface, gl,
+                                         (px - hw - 5, cap_y, pw + 10, 2))
+                        # 에키누스 (곡면부)
+                        pygame.draw.rect(surface, gd,
+                                         (px - hw - 3, cap_y + 4, pw + 6, 4))
+                        # 볼류트(소용돌이) 장식 - 양쪽 작은 원
+                        pygame.draw.circle(surface, g,
+                                           (px - hw - 2, cap_y + 6), 3)
+                        pygame.draw.circle(surface, g,
+                                           (px + hw, cap_y + 6), 3)
+                        pygame.draw.circle(surface, gl,
+                                           (px - hw - 3, cap_y + 5), 1)
+                        pygame.draw.circle(surface, gl,
+                                           (px + hw + 1, cap_y + 5), 1)
+
+                        # ── 주초 (Base) ──
+                        base_y = col_top + col_h
+                        # 토러스 (둥근 돌림띠)
+                        pygame.draw.rect(surface, sd,
+                                         (px - hw - 4, base_y, pw + 8, 3))
+                        pygame.draw.rect(surface, sh,
+                                         (px - hw - 4, base_y, pw + 8, 1))
+                        # 플린스 (바닥판)
+                        pygame.draw.rect(surface, pd,
+                                         (px - hw - 5, base_y + 3, pw + 10, 4))
+                        pygame.draw.rect(surface, p,
+                                         (px - hw - 5, base_y + 3, pw + 10, 2))
 
     def _draw_aisles(self, surface):
         """통로 그리기 (계단 디테일)"""
@@ -1105,47 +1236,98 @@ class CircularStadiumFrame:
         self._draw_torches(screen)
 
     def _draw_torches(self, screen):
-        """횃불 그리기 (모멘텀에 따라 불꽃 크기 변화)"""
-        momentum_boost = 1.0 + self._momentum_level * 0.6  # 최대 1.6배 불꽃
+        """횃불 그리기 (고퀄리티 - 다층 불꽃 + 금속 거치대 + 엠버)"""
+        momentum_boost = 1.0 + self._momentum_level * 0.6
 
         for torch in self.torches:
             tx, ty = torch['x'], torch['y']
             phase = torch['phase']
 
-            # 화면 범위 체크
             if not (0 <= tx < self.screen_width and 0 <= ty < self.screen_height):
                 continue
 
-            # 횃불 받침대
-            pygame.draw.rect(screen, self.COLORS['torch_holder'],
-                            (tx - 4, ty, 8, 20))
+            # 다중 사인파 intensity
+            intensity = (0.7
+                + 0.15 * math.sin(self.time * 8 + phase)
+                + 0.10 * math.sin(self.time * 13 + phase * 1.7))
+            sway = int(2.0 * math.sin(self.time * 3.5 + phase))
 
-            # 불꽃 크기 변화 (모멘텀 반영)
-            flame_size = int((8 + int(3 * math.sin(self.time * 8 + phase))) * momentum_boost)
-            flame_height = int((12 + int(4 * math.sin(self.time * 10 + phase))) * momentum_boost)
+            flame_h = int((14 + 5 * math.sin(self.time * 6 + phase)
+                           + 3 * math.sin(self.time * 11 + phase * 1.3)) * momentum_boost)
 
-            # 불꽃 글로우 (캐시된 서피스 재사용)
-            screen.blit(self._torch_glow_surface, (tx - 20, ty - flame_height - 10), special_flags=pygame.BLEND_ADD)
+            # ── 금속 거치대 ──
+            dark_m = (55, 45, 35)
+            mid_m = (80, 65, 50)
+            light_m = (105, 90, 70)
+            # 기둥
+            pygame.draw.rect(screen, dark_m, (tx - 3, ty + 1, 3, 18))
+            pygame.draw.rect(screen, mid_m, (tx, ty + 1, 3, 18))
+            pygame.draw.rect(screen, light_m, (tx + 3, ty + 1, 1, 18))
+            # 화구
+            bowl = [(tx - 6, ty + 2), (tx - 4, ty - 2),
+                    (tx + 4, ty - 2), (tx + 6, ty + 2),
+                    (tx + 4, ty + 3), (tx - 4, ty + 3)]
+            pygame.draw.polygon(screen, mid_m, bowl)
+            pygame.draw.lines(screen, light_m, False,
+                              [(tx - 6, ty + 2), (tx - 4, ty - 2),
+                               (tx + 4, ty - 2), (tx + 6, ty + 2)], 1)
 
-            # 모멘텀 높을 때 추가 글로우
+            # ── 메인 글로우 ──
+            screen.blit(self._torch_glow_surface,
+                        (tx + sway - 20, ty - flame_h // 2 - 10),
+                        special_flags=pygame.BLEND_ADD)
             if self._momentum_level > 0.5:
-                screen.blit(self._torch_glow_surface, (tx - 20, ty - flame_height - 15), special_flags=pygame.BLEND_ADD)
+                screen.blit(self._torch_glow_surface,
+                            (tx + sway - 20, ty - flame_h // 2 - 15),
+                            special_flags=pygame.BLEND_ADD)
 
-            # 불꽃
-            flame_points = [
-                (tx, ty - flame_height),
-                (tx - flame_size, ty - 2),
-                (tx + flame_size, ty - 2),
+            # ── 외곽 불꽃 (앰버) ──
+            outer_c = (210, int(130 * intensity), 25)
+            outer_pts = [
+                (tx + sway // 2, ty - 1),
+                (tx - 7 + sway // 3, ty - flame_h * 0.35),
+                (tx - 4 + sway, ty - flame_h * 0.7),
+                (tx + sway, ty - flame_h),
+                (tx + 4 + sway, ty - flame_h * 0.7),
+                (tx + 7 + sway // 3, ty - flame_h * 0.35),
+                (tx + sway // 2, ty - 1),
             ]
-            pygame.draw.polygon(screen, self.COLORS['torch_flame'], flame_points)
+            pygame.draw.polygon(screen, outer_c, outer_pts)
 
-            # 불꽃 내부
-            inner_points = [
-                (tx, ty - flame_height + 4),
-                (tx - flame_size // 2, ty - 4),
-                (tx + flame_size // 2, ty - 4),
+            # ── 중간 불꽃 (오렌지) ──
+            mid_c = (255, int(185 * intensity), 45)
+            mid_pts = [
+                (tx + sway // 2, ty - 2),
+                (tx - 5 + sway, ty - flame_h * 0.4),
+                (tx - 2 + sway, ty - flame_h * 0.75),
+                (tx + sway, ty - flame_h + 2),
+                (tx + 2 + sway, ty - flame_h * 0.75),
+                (tx + 5 + sway, ty - flame_h * 0.4),
+                (tx + sway // 2, ty - 2),
             ]
-            pygame.draw.polygon(screen, self.COLORS['torch_glow'], inner_points)
+            pygame.draw.polygon(screen, mid_c, mid_pts)
+
+            # ── 내부 불꽃 (골든 옐로) ──
+            inner_c = (255, int(240 * intensity), int(120 * intensity))
+            inner_h = flame_h * 0.6
+            inner_pts = [
+                (tx + sway, ty - 3),
+                (tx - 3 + sway, ty - inner_h * 0.5),
+                (tx + sway, ty - int(inner_h)),
+                (tx + 3 + sway, ty - inner_h * 0.5),
+            ]
+            pygame.draw.polygon(screen, inner_c, inner_pts)
+
+            # ── 코어 (크림 화이트) ──
+            core_c = (255, 255, int(200 * intensity + 50))
+            core_h = flame_h * 0.3
+            core_pts = [
+                (tx + sway, ty - 4),
+                (tx - 1 + sway, ty - core_h * 0.5),
+                (tx + sway, ty - int(core_h)),
+                (tx + 1 + sway, ty - core_h * 0.5),
+            ]
+            pygame.draw.polygon(screen, core_c, core_pts)
 
     def draw_foreground(self, screen: pygame.Surface):
         """전경 효과 (캐시된 비네트 blit)"""
