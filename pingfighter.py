@@ -8950,12 +8950,9 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
     from display_manager import set_fullscreen_mode as _set_dm_fullscreen
     from pixel_font_manager import set_fullscreen_font_scale as _set_font_scale
 
-    if mode in ("windowed", "large_windowed"):
-        # === 창모드 / 큰창모드로 전환 ===
-        _height_ratio = 0.95 if mode == "large_windowed" else 0.85
-        _width_cap = 0.98 if mode == "large_windowed" else 0.90
-        _mode_label = "큰창모드" if mode == "large_windowed" else "창모드"
-        print(f"[디스플레이] {_mode_label}로 전환 시작... (비율: {_height_ratio})", flush=True)
+    if mode == "windowed":
+        # === 창모드로 전환 ===
+        print("[디스플레이] 창모드로 전환 시작...", flush=True)
 
         # Windows: 해상도 원래대로 복원
         if sys.platform == 'win32' and _original_resolution:
@@ -8963,7 +8960,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             import time
             time.sleep(0.3)  # 해상도 복원 대기
 
-        # 네이티브 모니터 해상도 가져오기
+        # 네이티브 모니터 해상도 가져오기 (70% 계산용)
         if sys.platform == 'win32':
             native = _get_native_resolution() or _get_current_resolution()
             if native:
@@ -8978,17 +8975,17 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         _is_fullscreen_active = True
 
         # 구 공식으로 목표 창 사이즈 계산 → 정수배 합성
-        _init_base_h = int(monitor_h * _height_ratio)
+        _init_base_h = int(monitor_h * 0.85)
         _init_win_scale = _init_base_h / HEIGHT
         _init_game_w = int(WIDTH * _init_win_scale)
         _init_pillar_pad_x = int(_init_game_w * 0.30)
         _init_pillar_pad_y = max(int(_init_base_h * 0.065), 30)
         _init_target_w = _init_game_w + _init_pillar_pad_x * 2
         _init_target_h = _init_base_h + _init_pillar_pad_y * 2
-        if _init_target_w > int(monitor_w * _width_cap):
-            _init_target_w = int(monitor_w * _width_cap)
-        if _init_target_h > int(monitor_h * _height_ratio):
-            _init_target_h = int(monitor_h * _height_ratio)
+        if _init_target_w > int(monitor_w * 0.90):
+            _init_target_w = int(monitor_w * 0.90)
+        if _init_target_h > int(monitor_h * 0.85):
+            _init_target_h = int(monitor_h * 0.85)
 
         # 정수배 합성 크기 결정
         _comp_w_try = _init_target_w // 2
@@ -9038,17 +9035,17 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             )
         else:
             _use_scaled_mode = False
-            _init_base_h = int(monitor_h * _height_ratio)
+            _init_base_h = int(monitor_h * 0.85)
             _init_win_scale = _init_base_h / HEIGHT
             _init_game_w = int(WIDTH * _init_win_scale)
             _init_pillar_pad_x = int(_init_game_w * 0.30)
             _init_pillar_pad_y = max(int(_init_base_h * 0.065), 30)
             _t_w = _init_game_w + _init_pillar_pad_x * 2
             _t_h = _init_base_h + _init_pillar_pad_y * 2
-            if _t_w > int(monitor_w * _width_cap):
-                _t_w = int(monitor_w * _width_cap)
-            if _t_h > int(monitor_h * _height_ratio):
-                _t_h = int(monitor_h * _height_ratio)
+            if _t_w > int(monitor_w * 0.90):
+                _t_w = int(monitor_w * 0.90)
+            if _t_h > int(monitor_h * 0.85):
+                _t_h = int(monitor_h * 0.85)
             os.environ['SDL_VIDEO_CENTERED'] = '1'
             REAL_SCREEN = pygame.display.set_mode((_t_w, _t_h), pygame.DOUBLEBUF | pygame.RESIZABLE)
             if 'SDL_VIDEO_CENTERED' in os.environ:
@@ -9091,9 +9088,9 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             pass
 
         pygame.display.set_caption("PINGFIGHTER")
-        _current_display_mode = mode  # "windowed" 또는 "large_windowed"
+        _current_display_mode = "windowed"
         _mode_str = "SCALED 합성" if _sw_scaled_ok else "폴백"
-        print(f"[디스플레이] {_mode_label}({_mode_str}) 전환 완료", flush=True)
+        print(f"[디스플레이] 창모드({_mode_str}) 전환 완료", flush=True)
 
     elif mode == "fullscreen":
         # === 전체화면으로 전환 (보더리스 윈도우, 네이티브 해상도) ===
