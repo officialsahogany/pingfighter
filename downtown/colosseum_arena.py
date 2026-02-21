@@ -1336,9 +1336,9 @@ class TournamentRound(Enum):
 # 하이라이트 리플레이 녹화 시스템
 # ============================================================================
 class HighlightRecorder:
-    """투기장 하이라이트 녹화 - 원본 해상도 캡처 (최고 화질)"""
-    CAPTURE_INTERVAL = 2   # 매 2프레임마다 캡처 (30fps)
-    BUFFER_SIZE = 90       # 3초 분량 (30fps × 3s)
+    """투기장 하이라이트 녹화 - 원본 해상도 60fps 캡처 (최고 화질)"""
+    CAPTURE_INTERVAL = 1   # 매 프레임 캡처 (60fps)
+    BUFFER_SIZE = 180      # 3초 분량 (60fps × 3s)
     MAX_CLIPS = 3          # 최대 저장 클립 수
 
     def __init__(self):
