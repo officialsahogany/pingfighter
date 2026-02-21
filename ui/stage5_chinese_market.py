@@ -167,59 +167,45 @@ class Stage5ChineseMarket:
         # 불타는 스타디움 라인 파티클 업데이트
         self._update_fire_lines()
     
-    def draw_border(self, screen):
-        """Stage 2와 동일한 두께의 중국 전통 테두리"""
-        border_thickness = 10  # Stage 2와 동일
-        # SCREEN Surface 전체를 감싸는 테두리 (SCREEN은 이미 게임 전체 영역)
+    def _generate_border_cache(self):
+        """테두리를 캐시 Surface에 프리렌더링 (완전 정적 → 1회만 생성)"""
+        surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        border_thickness = 10
         x_offset = 0
         game_w = self.width
         game_h = self.height
 
-        # 기본 테두리 - 진한 붉은색 (게임 영역에만)
-        pygame.draw.rect(screen, DARK_RED, (x_offset, 0, game_w, border_thickness))
-        pygame.draw.rect(screen, DARK_RED, (x_offset, game_h - border_thickness, game_w, border_thickness))
-        pygame.draw.rect(screen, DARK_RED, (x_offset, 0, border_thickness, game_h))
-        pygame.draw.rect(screen, DARK_RED, (x_offset + game_w - border_thickness, 0, border_thickness, game_h))
+        pygame.draw.rect(surf, DARK_RED, (x_offset, 0, game_w, border_thickness))
+        pygame.draw.rect(surf, DARK_RED, (x_offset, game_h - border_thickness, game_w, border_thickness))
+        pygame.draw.rect(surf, DARK_RED, (x_offset, 0, border_thickness, game_h))
+        pygame.draw.rect(surf, DARK_RED, (x_offset + game_w - border_thickness, 0, border_thickness, game_h))
 
-        # 내부 금색 테두리
         inner_thickness = 2
-        pygame.draw.rect(screen, GOLD,
-                        (x_offset + border_thickness - inner_thickness, border_thickness - inner_thickness,
-                         game_w - 2*(border_thickness - inner_thickness), inner_thickness))
-        pygame.draw.rect(screen, GOLD,
-                        (x_offset + border_thickness - inner_thickness, game_h - border_thickness,
-                         game_w - 2*(border_thickness - inner_thickness), inner_thickness))
-        pygame.draw.rect(screen, GOLD,
-                        (x_offset + border_thickness - inner_thickness, border_thickness - inner_thickness,
-                         inner_thickness, game_h - 2*(border_thickness - inner_thickness)))
-        pygame.draw.rect(screen, GOLD,
-                        (x_offset + game_w - border_thickness, border_thickness - inner_thickness,
-                         inner_thickness, game_h - 2*(border_thickness - inner_thickness)))
+        pygame.draw.rect(surf, GOLD, (x_offset + border_thickness - inner_thickness, border_thickness - inner_thickness, game_w - 2*(border_thickness - inner_thickness), inner_thickness))
+        pygame.draw.rect(surf, GOLD, (x_offset + border_thickness - inner_thickness, game_h - border_thickness, game_w - 2*(border_thickness - inner_thickness), inner_thickness))
+        pygame.draw.rect(surf, GOLD, (x_offset + border_thickness - inner_thickness, border_thickness - inner_thickness, inner_thickness, game_h - 2*(border_thickness - inner_thickness)))
+        pygame.draw.rect(surf, GOLD, (x_offset + game_w - border_thickness, border_thickness - inner_thickness, inner_thickness, game_h - 2*(border_thickness - inner_thickness)))
 
-        # 중국 전통 문양 (간단한 기하학 패턴)
         pattern_size = 20
         for i in range(0, game_w, pattern_size * 2):
-            # 상단 문양
-            self.draw_chinese_pattern(screen, x_offset + i + pattern_size//2, border_thickness//2, 4, GOLD)
-            # 하단 문양
-            self.draw_chinese_pattern(screen, x_offset + i + pattern_size//2, game_h - border_thickness//2, 4, GOLD)
-
+            self.draw_chinese_pattern(surf, x_offset + i + pattern_size//2, border_thickness//2, 4, GOLD)
+            self.draw_chinese_pattern(surf, x_offset + i + pattern_size//2, game_h - border_thickness//2, 4, GOLD)
         for i in range(0, game_h, pattern_size * 2):
-            # 좌측 문양
-            self.draw_chinese_pattern(screen, x_offset + border_thickness//2, i + pattern_size//2, 4, GOLD)
-            # 우측 문양
-            self.draw_chinese_pattern(screen, x_offset + game_w - border_thickness//2, i + pattern_size//2, 4, GOLD)
+            self.draw_chinese_pattern(surf, x_offset + border_thickness//2, i + pattern_size//2, 4, GOLD)
+            self.draw_chinese_pattern(surf, x_offset + game_w - border_thickness//2, i + pattern_size//2, 4, GOLD)
 
-        # 코너 장식 (중국 동전 모양)
         corner_radius = 6
-        # 좌상단
-        self.draw_chinese_coin(screen, x_offset + border_thickness//2, border_thickness//2, corner_radius, GOLD)
-        # 우상단
-        self.draw_chinese_coin(screen, x_offset + game_w - border_thickness//2, border_thickness//2, corner_radius, GOLD)
-        # 좌하단
-        self.draw_chinese_coin(screen, x_offset + border_thickness//2, game_h - border_thickness//2, corner_radius, GOLD)
-        # 우하단
-        self.draw_chinese_coin(screen, x_offset + game_w - border_thickness//2, game_h - border_thickness//2, corner_radius, GOLD)
+        self.draw_chinese_coin(surf, x_offset + border_thickness//2, border_thickness//2, corner_radius, GOLD)
+        self.draw_chinese_coin(surf, x_offset + game_w - border_thickness//2, border_thickness//2, corner_radius, GOLD)
+        self.draw_chinese_coin(surf, x_offset + border_thickness//2, game_h - border_thickness//2, corner_radius, GOLD)
+        self.draw_chinese_coin(surf, x_offset + game_w - border_thickness//2, game_h - border_thickness//2, corner_radius, GOLD)
+        return surf
+
+    def draw_border(self, screen):
+        """캐시된 테두리 blit (170+ draw 호출 → 1 blit)"""
+        if not hasattr(self, '_border_cache') or self._border_cache is None:
+            self._border_cache = self._generate_border_cache()
+        screen.blit(self._border_cache, (0, 0))
     
     def draw_chinese_pattern(self, screen, x, y, size, color):
         """간단한 중국 전통 문양"""
