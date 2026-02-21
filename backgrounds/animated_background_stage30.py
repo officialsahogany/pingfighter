@@ -290,7 +290,7 @@ class AnimatedBackgroundStage30:
         }
 
     def _prerender_floor(self):
-        """바닥 프리렌더 - 울트라 고퀄리티 리얼 모래 아레나 텍스처"""
+        """바닥 프리렌더 - 맥시멈 고퀄리티 리얼 모래 아레나 텍스처"""
         sand = self.colors['sand']              # (155, 130, 95)
         sand_dark = self.colors['sand_dark']    # (125, 105, 75)
         sand_light = self.colors['sand_light']  # (175, 150, 115)
@@ -301,175 +301,268 @@ class AnimatedBackgroundStage30:
         def clamp(v):
             return max(0, min(255, int(v)))
 
-        # 다중 사인파 노이즈 (Perlin-like 연속 색상 변화)
+        # 6-옥타브 사인파 노이즈 (고해상도 Perlin-like)
+        _sin = math.sin  # 로컬 참조로 속도 향상
         def multi_noise(x, y, seed=0):
             v = 0.0
-            v += 0.40 * math.sin(x * 0.025 + y * 0.018 + seed)
-            v += 0.25 * math.sin(x * 0.047 - y * 0.033 + seed * 1.7)
-            v += 0.20 * math.sin(x * 0.091 + y * 0.072 + seed * 2.3)
-            v += 0.15 * math.sin(x * 0.153 - y * 0.121 + seed * 3.1)
+            v += 0.30 * _sin(x * 0.019 + y * 0.014 + seed)
+            v += 0.22 * _sin(x * 0.038 - y * 0.027 + seed * 1.7)
+            v += 0.18 * _sin(x * 0.071 + y * 0.058 + seed * 2.3)
+            v += 0.14 * _sin(x * 0.127 - y * 0.098 + seed * 3.1)
+            v += 0.10 * _sin(x * 0.211 + y * 0.173 + seed * 4.7)
+            v += 0.06 * _sin(x * 0.347 - y * 0.289 + seed * 6.1)
             return max(-1.0, min(1.0, v))
 
         # ═══════════════════════════════════════════════════════════
-        # 1. 베이스 + 연속 색상 노이즈 (4px 그리드 - 부드러운 변화)
+        # 1. 베이스 + 2px 연속 노이즈 (밝기 + 색온도 + 채도 3채널)
         # ═══════════════════════════════════════════════════════════
         self.floor_surface.fill(sand)
         noise_surf = pygame.Surface((W, H), pygame.SRCALPHA)
-        step = 4
+        step = 2
         for gy in range(0, H, step):
             for gx in range(0, W, step):
-                n1 = multi_noise(gx, gy, seed=0)       # 밝기 변화
-                n2 = multi_noise(gx, gy, seed=50.0)     # 색온도 변화
-                bright = n1 * 12.0
-                warm = n2 * 6.0
-                r = clamp(sand[0] + bright + warm)
-                g = clamp(sand[1] + bright + warm * 0.5)
-                b = clamp(sand[2] + bright - warm * 0.3)
-                pygame.draw.rect(noise_surf, (r, g, b, 80),
+                n1 = multi_noise(gx, gy, seed=0)        # 밝기
+                n2 = multi_noise(gx, gy, seed=50.0)      # 색온도
+                n3 = multi_noise(gx, gy, seed=120.0)     # 채도/질감
+                bright = n1 * 14.0
+                warm = n2 * 7.0
+                sat = n3 * 4.0
+                r = clamp(sand[0] + bright + warm + sat)
+                g = clamp(sand[1] + bright + warm * 0.5 + sat * 0.3)
+                b = clamp(sand[2] + bright - warm * 0.4 - sat * 0.5)
+                pygame.draw.rect(noise_surf, (r, g, b, 85),
                                  (gx, gy, step, step))
         self.floor_surface.blit(noise_surf, (0, 0))
 
         # ═══════════════════════════════════════════════════════════
-        # 2. 방사형 그라데이션 (중앙 밝고 따뜻 → 가장자리 어둡고 서늘)
+        # 2. 방사형 그라데이션 (28링 - 더 부드러움)
         # ═══════════════════════════════════════════════════════════
         grad_surf = pygame.Surface((W, H), pygame.SRCALPHA)
-        max_dist = math.sqrt(cx ** 2 + cy ** 2)
-        for ring in range(24, 0, -1):
-            frac = ring / 24.0
+        max_dist = _sin(0) + math.sqrt(cx ** 2 + cy ** 2)
+        for ring in range(28, 0, -1):
+            frac = ring / 28.0
             radius = int(max_dist * frac)
-            pygame.draw.circle(grad_surf, (35, 25, 12, int(6 * (1.0 - frac))),
+            pygame.draw.circle(grad_surf, (32, 22, 10, int(5 * (1.0 - frac))),
                                (cx, cy), radius)
-        for ring in range(10, 0, -1):
-            frac = ring / 10.0
-            radius = int(200 * frac)
-            pygame.draw.circle(grad_surf, (255, 235, 190, int(4 * (1.0 - frac))),
+        for ring in range(12, 0, -1):
+            frac = ring / 12.0
+            radius = int(220 * frac)
+            pygame.draw.circle(grad_surf, (255, 238, 195, int(3.5 * (1.0 - frac))),
                                (cx, cy), radius)
         self.floor_surface.blit(grad_surf, (0, 0))
 
         # ═══════════════════════════════════════════════════════════
-        # 3. 대규모 색상 패치 (습기/건조/황토/회갈색 영역)
+        # 3. 대규모 색상 패치 (6종 색조 영역 - 총 42개)
         # ═══════════════════════════════════════════════════════════
         patch_surf = pygame.Surface((W, H), pygame.SRCALPHA)
         random.seed(301)
-        patch_defs = []
-        for _ in range(10):
-            patch_defs.append((random.randint(40, W-40), random.randint(40, H-40),
-                               random.randint(45, 100), sand_light, random.randint(10, 18)))
-        for _ in range(10):
-            patch_defs.append((random.randint(40, W-40), random.randint(40, H-40),
-                               random.randint(35, 80), sand_dark, random.randint(12, 22)))
-        for _ in range(6):
-            patch_defs.append((random.randint(40, W-40), random.randint(40, H-40),
-                               random.randint(40, 70), (170, 140, 90), random.randint(8, 14)))
-        for _ in range(5):
-            patch_defs.append((random.randint(40, W-40), random.randint(40, H-40),
-                               random.randint(30, 60), (135, 120, 100), random.randint(8, 14)))
-        for px, py, pr, pc, pa in patch_defs:
-            for r in range(pr, 0, -3):
-                frac = r / pr
-                pygame.draw.circle(patch_surf, (pc[0], pc[1], pc[2], int(pa * frac * frac)),
-                                   (px, py), r)
+        patch_types = [
+            (sand_light, 10, 18, 45, 100, 10),   # 건조 밝은
+            (sand_dark, 12, 22, 35, 80, 10),      # 습기 어두운
+            ((170, 140, 90), 8, 14, 40, 70, 6),   # 황토
+            ((135, 120, 100), 8, 14, 30, 60, 5),  # 회갈색
+            ((160, 125, 85), 6, 12, 35, 65, 5),   # 붉은 모래
+            ((145, 135, 110), 6, 10, 25, 50, 6),  # 풍화 회색
+        ]
+        for pc, a_min, a_max, r_min, r_max, count in patch_types:
+            for _ in range(count):
+                px = random.randint(30, W-30)
+                py = random.randint(30, H-30)
+                pr = random.randint(r_min, r_max)
+                pa = random.randint(a_min, a_max)
+                for r in range(pr, 0, -2):
+                    frac = r / pr
+                    pygame.draw.circle(patch_surf,
+                                       (pc[0], pc[1], pc[2], int(pa * frac * frac)),
+                                       (px, py), r)
         random.seed()
         self.floor_surface.blit(patch_surf, (0, 0))
 
         # ═══════════════════════════════════════════════════════════
-        # 4. 모래 알갱이 (4-레이어: 클러스터 + 균일 + 미세 + 석영 반짝임)
+        # 4. 습기 스며든 얼룩 (비정형 다각형 패치)
+        # ═══════════════════════════════════════════════════════════
+        stain_surf = pygame.Surface((W, H), pygame.SRCALPHA)
+        random.seed(188)
+        for _ in range(8):
+            scx = random.randint(100, W-100)
+            scy = random.randint(100, H-100)
+            num_pts = random.randint(6, 10)
+            s_radius = random.randint(15, 40)
+            pts = []
+            for i in range(num_pts):
+                a = (i / num_pts) * math.pi * 2
+                r = s_radius * random.uniform(0.6, 1.0)
+                pts.append((int(scx + r * math.cos(a)), int(scy + r * math.sin(a))))
+            sa = random.randint(8, 18)
+            # 어두운 습기 얼룩
+            pygame.draw.polygon(stain_surf, (sand_dark[0]-8, sand_dark[1]-8,
+                                             sand_dark[2]-5, sa), pts)
+            # 가장자리 더 어둡게
+            pygame.draw.polygon(stain_surf, (sand_dark[0]-15, sand_dark[1]-15,
+                                             sand_dark[2]-10, sa // 2), pts, 1)
+        random.seed()
+        self.floor_surface.blit(stain_surf, (0, 0))
+
+        # ═══════════════════════════════════════════════════════════
+        # 5. 미세 그림자 노이즈 (불규칙 음영 얼룩 - 깊이감)
+        # ═══════════════════════════════════════════════════════════
+        shadow_surf = pygame.Surface((W, H), pygame.SRCALPHA)
+        random.seed(777)
+        for _ in range(120):
+            sx = random.randint(0, W-1)
+            sy = random.randint(0, H-1)
+            sr = random.randint(3, 12)
+            sa = random.randint(4, 12)
+            is_dark = random.random() < 0.6
+            if is_dark:
+                pygame.draw.circle(shadow_surf, (sand_dark[0]-10, sand_dark[1]-10,
+                                                  sand_dark[2]-8, sa), (sx, sy), sr)
+            else:
+                pygame.draw.circle(shadow_surf, (sand_light[0]+5, sand_light[1]+5,
+                                                  sand_light[2]+3, sa), (sx, sy), sr)
+        random.seed()
+        self.floor_surface.blit(shadow_surf, (0, 0))
+
+        # ═══════════════════════════════════════════════════════════
+        # 6. 모래 알갱이 (5-레이어: 대형 클러스터 + 타원형 + 중간 + 미세 + 석영)
         # ═══════════════════════════════════════════════════════════
         grain_surf = pygame.Surface((W, H), pygame.SRCALPHA)
         random.seed(42)
-        # A: 굵은 알갱이 클러스터 (군집 분포)
+        # A: 대형 클러스터 (군집) - 바람 방향으로 타원형
         cluster_centers = [(random.randint(20, W-20), random.randint(20, H-20))
-                           for _ in range(30)]
+                           for _ in range(40)]
         for ccx, ccy in cluster_centers:
-            for _ in range(random.randint(5, 12)):
-                gx = ccx + random.randint(-25, 25)
-                gy = ccy + random.randint(-25, 25)
+            wind_dir = random.uniform(-0.3, 0.3)  # 바람 방향
+            for _ in range(random.randint(6, 14)):
+                dx = random.randint(-30, 30)
+                dy = random.randint(-20, 20)
+                gx = ccx + dx + int(dy * wind_dir)
+                gy = ccy + dy
                 if 2 <= gx < W-2 and 2 <= gy < H-2:
                     gs = random.randint(2, 4)
                     shade = random.randint(-15, 15)
-                    ga = random.randint(35, 65)
+                    ga = random.randint(35, 70)
                     gc = (clamp(sand[0]+shade), clamp(sand[1]+shade-2),
                           clamp(sand[2]+shade-4), ga)
-                    pygame.draw.circle(grain_surf, gc, (gx, gy), gs)
+                    # 타원형 알갱이 (바람에 눕힌 형태)
+                    ew = gs + random.randint(0, 2)
+                    eh = max(1, gs - random.randint(0, 1))
+                    pygame.draw.ellipse(grain_surf, gc,
+                                        (gx - ew, gy - eh, ew*2, eh*2))
+                    # 하이라이트
                     if gs >= 3:
-                        hl = (clamp(sand_light[0]+shade), clamp(sand_light[1]+shade),
-                              clamp(sand_light[2]+shade), ga // 3)
-                        pygame.draw.circle(grain_surf, hl, (gx-1, gy-1), gs-1)
-        # B: 중간 모래 (균일 분포 + 색온도 변화)
-        for _ in range(800):
-            gx = random.randint(2, W-2)
-            gy = random.randint(2, H-2)
+                        hl = (clamp(sand_light[0]+shade+10), clamp(sand_light[1]+shade+8),
+                              clamp(sand_light[2]+shade+5), ga // 3)
+                        pygame.draw.ellipse(grain_surf, hl,
+                                            (gx - ew + 1, gy - eh, ew, eh))
+        # B: 중간 모래 (색온도 변화)
+        for _ in range(1000):
+            gx = random.randint(1, W-2)
+            gy = random.randint(1, H-2)
             gs = random.randint(1, 2)
-            shade = random.randint(-20, 20)
-            warm_shift = random.randint(-5, 5)
-            ga = random.randint(35, 70)
+            shade = random.randint(-22, 22)
+            warm_shift = random.randint(-6, 6)
+            ga = random.randint(35, 75)
             gc = (clamp(sand[0]+shade+warm_shift), clamp(sand[1]+shade+warm_shift//2),
                   clamp(sand[2]+shade-warm_shift//2), ga)
             pygame.draw.circle(grain_surf, gc, (gx, gy), gs)
         # C: 미세 모래 (고밀도 1px)
-        for _ in range(2500):
+        for _ in range(3500):
             gx = random.randint(0, W-1)
             gy = random.randint(0, H-1)
-            shade = random.randint(-22, 22)
-            ga = random.randint(25, 60)
+            shade = random.randint(-25, 25)
+            ga = random.randint(25, 65)
             grain_surf.set_at((gx, gy), (clamp(sand[0]+shade),
                                          clamp(sand[1]+shade),
                                          clamp(sand[2]+shade), ga))
-        # D: 석영/운모 반짝임 (밝은 미세 하이라이트)
-        for _ in range(300):
+        # D: 석영/운모 반짝임 클러스터
+        mica_centers = [(random.randint(30, W-30), random.randint(30, H-30))
+                        for _ in range(20)]
+        for mcx, mcy in mica_centers:
+            for _ in range(random.randint(3, 8)):
+                mx = mcx + random.randint(-15, 15)
+                my = mcy + random.randint(-15, 15)
+                if 0 <= mx < W and 0 <= my < H:
+                    grain_surf.set_at((mx, my),
+                                      (random.randint(220, 245),
+                                       random.randint(205, 225),
+                                       random.randint(165, 185),
+                                       random.randint(50, 120)))
+        # 개별 산란 석영
+        for _ in range(200):
             gx = random.randint(0, W-1)
             gy = random.randint(0, H-1)
-            grain_surf.set_at((gx, gy), (230, 215, 175, random.randint(40, 100)))
+            grain_surf.set_at((gx, gy), (235, 220, 180, random.randint(40, 90)))
         random.seed()
         self.floor_surface.blit(grain_surf, (0, 0))
 
         # ═══════════════════════════════════════════════════════════
-        # 5. 바람 물결 (밝은면/어두운면 쌍 리플 + 넓은 흐름선)
+        # 7. 바람 물결 (밝/어두 쌍 리플 + 그라데이션 폭 밴드 + 흐름선)
         # ═══════════════════════════════════════════════════════════
         wind_surf = pygame.Surface((W, H), pygame.SRCALPHA)
         random.seed(77)
-        for group in range(12):
-            base_x = random.randint(50, W-120)
-            base_y = random.randint(50, H-50)
-            angle = random.uniform(-0.25, 0.25)
-            length = random.randint(70, 180)
-            num_lines = random.randint(5, 9)
-            spacing = random.uniform(3.5, 6.0)
+        # 리플 그룹 (밝은면/어두운면 쌍)
+        for group in range(15):
+            base_x = random.randint(40, W-130)
+            base_y = random.randint(40, H-40)
+            angle = random.uniform(-0.3, 0.3)
+            length = random.randint(80, 200)
+            num_lines = random.randint(5, 10)
+            spacing = random.uniform(3.0, 6.5)
             for i in range(num_lines):
                 offset_y = (i - num_lines / 2) * spacing
-                wave_amp = random.uniform(1.5, 4.0)
-                wave_freq = random.uniform(2.0, 3.5)
+                wave_amp = random.uniform(1.5, 4.5)
+                wave_freq = random.uniform(2.0, 4.0)
+                # 중심이 두껍고 끝이 가늘어지는 리플
                 pts_l, pts_d = [], []
-                for seg in range(12):
-                    t = seg / 11.0
+                for seg in range(16):
+                    t = seg / 15.0
                     px = base_x + length * t * math.cos(angle)
                     py = base_y + length * t * math.sin(angle) + offset_y
-                    wave = math.sin(t * math.pi * wave_freq + group * 0.7) * wave_amp
+                    wave = _sin(t * math.pi * wave_freq + group * 0.7) * wave_amp
                     pts_l.append((int(px), int(py + wave)))
                     pts_d.append((int(px), int(py + wave + 1.5)))
-                la = random.randint(15, 28)
+                # 알파 페이드 (끝으로 갈수록 투명)
+                la_base = random.randint(16, 30)
+                da_base = random.randint(12, 24)
+                # 밝은 능선
                 if len(pts_l) >= 2:
-                    pygame.draw.lines(wind_surf,
-                                      (clamp(sand_light[0]+5), clamp(sand_light[1]+5),
-                                       sand_light[2], la), False, pts_l, 1)
-                da = random.randint(12, 22)
+                    # 중심부는 두꺼운 선, 양 끝은 가느다란 선
+                    mid = len(pts_l) // 2
+                    q1, q3 = mid // 2, mid + mid // 2
+                    if q1 > 0:
+                        pygame.draw.lines(wind_surf,
+                                          (clamp(sand_light[0]+5), clamp(sand_light[1]+5),
+                                           sand_light[2], la_base // 2),
+                                          False, pts_l[:q1+1], 1)
+                    if q1 < q3:
+                        pygame.draw.lines(wind_surf,
+                                          (clamp(sand_light[0]+8), clamp(sand_light[1]+8),
+                                           clamp(sand_light[2]+3), la_base),
+                                          False, pts_l[q1:q3+1], 2)
+                    if q3 < len(pts_l) - 1:
+                        pygame.draw.lines(wind_surf,
+                                          (clamp(sand_light[0]+5), clamp(sand_light[1]+5),
+                                           sand_light[2], la_base // 2),
+                                          False, pts_l[q3:], 1)
+                # 어두운 골
                 if len(pts_d) >= 2:
                     pygame.draw.lines(wind_surf,
                                       (clamp(sand_dark[0]-5), clamp(sand_dark[1]-5),
-                                       clamp(sand_dark[2]-3), da), False, pts_d, 1)
+                                       clamp(sand_dark[2]-3), da_base), False, pts_d, 1)
         # 넓은 흐름선
-        for _ in range(20):
-            sx = random.randint(20, W-20)
-            sy = random.randint(20, H-20)
-            l = random.randint(100, 250)
-            a = random.uniform(-0.12, 0.12)
-            wa = random.randint(8, 16)
-            shade = random.randint(-3, 3)
+        for _ in range(25):
+            sx = random.randint(10, W-10)
+            sy = random.randint(10, H-10)
+            l = random.randint(100, 280)
+            a = random.uniform(-0.15, 0.15)
+            wa = random.randint(8, 18)
+            shade = random.randint(-4, 4)
             points = []
-            for seg in range(14):
-                t = seg / 13.0
+            for seg in range(18):
+                t = seg / 17.0
                 px = sx + l * t
-                py = sy + l * t * math.tan(a) + math.sin(t * math.pi * 4) * 1.5
+                py = sy + l * t * math.tan(a) + _sin(t * math.pi * 4.5) * 1.8
                 points.append((int(px), int(py)))
             if len(points) >= 2:
                 pygame.draw.lines(wind_surf,
@@ -479,29 +572,71 @@ class AnimatedBackgroundStage30:
         self.floor_surface.blit(wind_surf, (0, 0))
 
         # ═══════════════════════════════════════════════════════════
-        # 6. 모래 언덕 능선 (빛/그림자 쌍 곡선)
+        # 8. 모래 소용돌이 자국 (원형 바람 흔적)
+        # ═══════════════════════════════════════════════════════════
+        swirl_surf = pygame.Surface((W, H), pygame.SRCALPHA)
+        random.seed(444)
+        for _ in range(4):
+            swx = random.randint(120, W-120)
+            swy = random.randint(120, H-120)
+            sw_r = random.randint(20, 45)
+            num_arcs = random.randint(8, 14)
+            for i in range(num_arcs):
+                start_a = random.uniform(0, math.pi * 2)
+                arc_len = random.uniform(math.pi * 0.5, math.pi * 1.5)
+                arc_r = sw_r * random.uniform(0.3, 1.0)
+                arc_pts = []
+                for seg in range(10):
+                    t = seg / 9.0
+                    a = start_a + arc_len * t
+                    spiral_r = arc_r * (1.0 + t * 0.3)
+                    arc_pts.append((int(swx + spiral_r * math.cos(a)),
+                                    int(swy + spiral_r * _sin(a))))
+                sa = random.randint(10, 20)
+                if random.random() < 0.5:
+                    sc = (clamp(sand_light[0]+3), clamp(sand_light[1]+3),
+                          sand_light[2], sa)
+                else:
+                    sc = (clamp(sand_dark[0]-3), clamp(sand_dark[1]-3),
+                          clamp(sand_dark[2]-2), sa)
+                if len(arc_pts) >= 2:
+                    pygame.draw.lines(swirl_surf, sc, False, arc_pts, 1)
+        random.seed()
+        self.floor_surface.blit(swirl_surf, (0, 0))
+
+        # ═══════════════════════════════════════════════════════════
+        # 9. 모래 언덕 능선 (그라데이션 폭 + 빛/그림자)
         # ═══════════════════════════════════════════════════════════
         dune_surf = pygame.Surface((W, H), pygame.SRCALPHA)
         random.seed(133)
-        for _ in range(6):
-            dx = random.randint(60, W-60)
-            dy = random.randint(80, H-80)
-            d_len = random.randint(120, 300)
-            d_angle = random.uniform(-0.2, 0.2)
-            d_curve = random.uniform(-20, 20)
-            pts_top, pts_bot = [], []
-            for seg in range(20):
-                t = seg / 19.0
+        for _ in range(8):
+            dx = random.randint(50, W-50)
+            dy = random.randint(60, H-60)
+            d_len = random.randint(100, 320)
+            d_angle = random.uniform(-0.25, 0.25)
+            d_curve = random.uniform(-25, 25)
+            # 능선: 밝은면 (2px) + 어두운면 (1px) + 확산 글로우
+            pts_top, pts_mid, pts_bot = [], [], []
+            for seg in range(24):
+                t = seg / 23.0
                 px = dx + d_len * t * math.cos(d_angle)
-                base_py = dy + d_len * t * math.sin(d_angle) + d_curve * math.sin(t * math.pi)
-                pts_top.append((int(px), int(base_py - 1)))
-                pts_bot.append((int(px), int(base_py + 1)))
-            la = random.randint(10, 18)
-            da = random.randint(8, 14)
+                base_py = dy + d_len * t * _sin(d_angle) + d_curve * _sin(t * math.pi)
+                pts_top.append((int(px), int(base_py - 2)))
+                pts_mid.append((int(px), int(base_py)))
+                pts_bot.append((int(px), int(base_py + 2)))
+            la = random.randint(12, 20)
+            da = random.randint(8, 16)
+            # 확산 글로우 (넓은 밝은 밴드)
             if len(pts_top) >= 2:
                 pygame.draw.lines(dune_surf,
+                                  (sand_light[0], sand_light[1], sand_light[2], la // 3),
+                                  False, pts_top, 4)
+            # 밝은 능선
+            if len(pts_mid) >= 2:
+                pygame.draw.lines(dune_surf,
                                   (sand_light[0], sand_light[1], sand_light[2], la),
-                                  False, pts_top, 2)
+                                  False, pts_mid, 2)
+            # 어두운 골
             if len(pts_bot) >= 2:
                 pygame.draw.lines(dune_surf,
                                   (sand_dark[0], sand_dark[1], sand_dark[2], da),
@@ -510,20 +645,48 @@ class AnimatedBackgroundStage30:
         self.floor_surface.blit(dune_surf, (0, 0))
 
         # ═══════════════════════════════════════════════════════════
-        # 7. 자갈/돌 (캐스트 섀도우 + 하이라이트 + 미세 점)
+        # 10. 자갈/돌 (다각형 불규칙 + 캐스트 섀도우 + 하이라이트)
         # ═══════════════════════════════════════════════════════════
         pebble_surf = pygame.Surface((W, H), pygame.SRCALPHA)
         random.seed(55)
         stone_pal = [
             (110,95,70), (130,115,85), (120,108,82), (140,125,100),
             (100,88,65), (135,120,95), (115,105,80), (145,130,105),
+            (125,100,72), (118,112,90), (142,128,98),
         ]
-        for _ in range(60):
+        # 중/대형 자갈 (다각형)
+        for _ in range(35):
+            px = random.randint(90, W-90)
+            py = random.randint(20, H-20)
+            ps = random.randint(3, 5)
+            pc = random.choice(stone_pal)
+            pa = random.randint(60, 110)
+            num_verts = random.randint(5, 8)
+            verts = []
+            for i in range(num_verts):
+                a = (i / num_verts) * math.pi * 2
+                r = ps * random.uniform(0.6, 1.0)
+                verts.append((int(px + r * math.cos(a)), int(py + r * _sin(a))))
+            # 캐스트 섀도우
+            sh_verts = [(v[0]+1, v[1]+2) for v in verts]
+            pygame.draw.polygon(pebble_surf,
+                                (max(0,pc[0]-35), max(0,pc[1]-35),
+                                 max(0,pc[2]-30), pa//4), sh_verts)
+            # 본체
+            pygame.draw.polygon(pebble_surf, (*pc, pa), verts)
+            # 밝은 상단면
+            top_verts = [(v[0]-1, v[1]-1) for v in verts[:num_verts//2+1]]
+            if len(top_verts) >= 2:
+                pygame.draw.lines(pebble_surf,
+                                  (min(255,pc[0]+40), min(255,pc[1]+40),
+                                   min(255,pc[2]+35), pa//2), False, top_verts, 1)
+        # 소형 자갈 (원/타원형)
+        for _ in range(50):
             px = random.randint(85, W-85)
             py = random.randint(15, H-15)
-            ps = random.randint(1, 3)
+            ps = random.randint(1, 2)
             pc = random.choice(stone_pal)
-            pa = random.randint(55, 100)
+            pa = random.randint(50, 90)
             if ps >= 2:
                 pygame.draw.ellipse(pebble_surf,
                                     (max(0,pc[0]-30), max(0,pc[1]-30),
@@ -535,93 +698,116 @@ class AnimatedBackgroundStage30:
                                    (min(255,pc[0]+35), min(255,pc[1]+35),
                                     min(255,pc[2]+30), pa//2),
                                    (px-1, py-1), max(1, ps-1))
-        for _ in range(80):
+        # 미세 자갈 점
+        for _ in range(100):
             px = random.randint(85, W-85)
             py = random.randint(15, H-15)
             pc = random.choice(stone_pal)
-            pebble_surf.set_at((px, py), (*pc, random.randint(40, 75)))
+            pebble_surf.set_at((px, py), (*pc, random.randint(40, 80)))
         random.seed()
         self.floor_surface.blit(pebble_surf, (0, 0))
 
         # ═══════════════════════════════════════════════════════════
-        # 8. 마른 균열 (밝은 가장자리 + 분기)
+        # 11. 마른 균열 (두께 변화 + 깊이 그림자 + 밝은 엣지 + 분기)
         # ═══════════════════════════════════════════════════════════
         crack_surf = pygame.Surface((W, H), pygame.SRCALPHA)
         random.seed(99)
+        cr_deep = (clamp(sand_dark[0]-20), clamp(sand_dark[1]-20), clamp(sand_dark[2]-15))
         cr_dark = (clamp(sand_dark[0]-12), clamp(sand_dark[1]-12), clamp(sand_dark[2]-10))
         cr_light = (clamp(sand_light[0]+5), clamp(sand_light[1]+5), clamp(sand_light[2]+3))
-        for _ in range(12):
-            start_x = random.randint(100, W-100)
-            start_y = random.randint(80, H-80)
+        for _ in range(14):
+            start_x = random.randint(90, W-90)
+            start_y = random.randint(70, H-70)
             angle = random.uniform(0, math.pi * 2)
+            seg_count = random.randint(5, 12)
             pts = [(start_x, start_y)]
-            for _ in range(random.randint(5, 10)):
-                seg_len = random.randint(8, 22)
+            for _ in range(seg_count):
+                seg_len = random.randint(7, 24)
                 angle += random.uniform(-0.5, 0.5)
                 pts.append((pts[-1][0] + int(seg_len * math.cos(angle)),
-                            pts[-1][1] + int(seg_len * math.sin(angle))))
-            ca = random.randint(22, 38)
+                            pts[-1][1] + int(seg_len * _sin(angle))))
+            ca = random.randint(24, 42)
             if len(pts) >= 2:
+                # 깊이 그림자 (2px 폭)
+                deep_pts = [(p[0], p[1]+1) for p in pts]
+                pygame.draw.lines(crack_surf, (*cr_deep, ca // 2), False, deep_pts, 2)
+                # 메인 균열
                 pygame.draw.lines(crack_surf, (*cr_dark, ca), False, pts, 1)
+                # 밝은 엣지 (위쪽)
                 light_pts = [(p[0], p[1]-1) for p in pts]
-                pygame.draw.lines(crack_surf, (*cr_light, ca//3), False, light_pts, 1)
-            for _ in range(random.randint(1, 3)):
+                pygame.draw.lines(crack_surf, (*cr_light, ca // 3), False, light_pts, 1)
+            # 분기 균열 (더 많은 가지)
+            for _ in range(random.randint(2, 4)):
                 if len(pts) < 3:
                     break
                 bi = random.randint(1, len(pts)-1)
                 bx, by = pts[bi]
-                ba = angle + random.uniform(-1.2, 1.2)
+                ba = angle + random.uniform(-1.3, 1.3)
                 b_pts = [(bx, by)]
-                for _ in range(random.randint(2, 5)):
-                    bl = random.randint(5, 14)
-                    ba += random.uniform(-0.6, 0.6)
+                for _ in range(random.randint(2, 6)):
+                    bl = random.randint(4, 16)
+                    ba += random.uniform(-0.7, 0.7)
                     b_pts.append((b_pts[-1][0]+int(bl*math.cos(ba)),
-                                  b_pts[-1][1]+int(bl*math.sin(ba))))
+                                  b_pts[-1][1]+int(bl*_sin(ba))))
                 if len(b_pts) >= 2:
-                    pygame.draw.lines(crack_surf, (*cr_dark, random.randint(15, 28)),
+                    pygame.draw.lines(crack_surf, (*cr_dark, random.randint(15, 30)),
                                       False, b_pts, 1)
         random.seed()
         self.floor_surface.blit(crack_surf, (0, 0))
 
         # ═══════════════════════════════════════════════════════════
-        # 9. 닳은 바닥 + 발자국 흔적
+        # 12. 닳은 바닥 + 발자국 + 끌린 자국
         # ═══════════════════════════════════════════════════════════
         wear_surf = pygame.Surface((W, H), pygame.SRCALPHA)
-        for r in range(80, 0, -3):
-            frac = r / 80.0
+        # 중앙 전투 영역 마모
+        for r in range(85, 0, -2):
+            frac = r / 85.0
             pygame.draw.ellipse(wear_surf,
                                 (sand_dark[0], sand_dark[1], sand_dark[2], int(4*(1.0-frac))),
                                 (cx-r, cy-int(r*0.55), r*2, int(r*1.1)))
+        # 패들 영역 마모
         for pad_y in [55, H-55]:
-            for r in range(55, 0, -3):
-                frac = r / 55.0
+            for r in range(60, 0, -2):
+                frac = r / 60.0
                 pygame.draw.ellipse(wear_surf,
                                     (sand_light[0], sand_light[1], sand_light[2], int(3*(1.0-frac))),
                                     (cx-r, pad_y-int(r*0.35), r*2, int(r*0.7)))
         random.seed(222)
-        for _ in range(15):
-            fx = random.randint(120, W-120)
-            fy = random.randint(80, H-80)
-            fw, fh = random.randint(4, 8), random.randint(3, 5)
+        # 발자국 흔적
+        for _ in range(20):
+            fx = random.randint(110, W-110)
+            fy = random.randint(70, H-70)
+            fw, fh = random.randint(4, 9), random.randint(3, 6)
             pygame.draw.ellipse(wear_surf,
-                                (sand_dark[0], sand_dark[1], sand_dark[2], random.randint(6, 14)),
+                                (sand_dark[0], sand_dark[1], sand_dark[2], random.randint(6, 16)),
                                 (fx-fw, fy-fh, fw*2, fh*2))
+        # 끌린 자국 (짧은 직선 마모)
+        for _ in range(8):
+            dx = random.randint(120, W-120)
+            dy = random.randint(100, H-100)
+            dl = random.randint(15, 40)
+            da = random.uniform(-0.4, 0.4)
+            d_alpha = random.randint(6, 14)
+            pts = [(dx, dy), (dx + int(dl * math.cos(da)), dy + int(dl * _sin(da)))]
+            pygame.draw.line(wear_surf,
+                             (sand_dark[0]-5, sand_dark[1]-5, sand_dark[2]-3, d_alpha),
+                             pts[0], pts[1], 2)
         random.seed()
         self.floor_surface.blit(wear_surf, (0, 0))
 
         # ═══════════════════════════════════════════════════════════
-        # 10. 비네트 (24링)
+        # 13. 비네트 (28링)
         # ═══════════════════════════════════════════════════════════
         vignette_surf = pygame.Surface((W, H), pygame.SRCALPHA)
         vig_max = math.sqrt(cx**2 + cy**2)
-        for ring in range(24):
-            radius = int(vig_max * (1.0 - ring * 0.032))
-            pygame.draw.circle(vignette_surf, (30, 22, 12, int(2 + ring * 1.5)),
+        for ring in range(28):
+            radius = int(vig_max * (1.0 - ring * 0.028))
+            pygame.draw.circle(vignette_surf, (28, 20, 10, int(2 + ring * 1.3)),
                                (cx, cy), radius)
         self.floor_surface.blit(vignette_surf, (0, 0))
 
         # ═══════════════════════════════════════════════════════════
-        # 11. 투기장 원형 마킹
+        # 14. 투기장 원형 마킹
         # ═══════════════════════════════════════════════════════════
         mark_surf = pygame.Surface((W, H), pygame.SRCALPHA)
         pygame.draw.circle(mark_surf,
@@ -633,7 +819,7 @@ class AnimatedBackgroundStage30:
         self.floor_surface.blit(mark_surf, (0, 0))
 
         # ═══════════════════════════════════════════════════════════
-        # 12. 횃불 조명 풀
+        # 15. 횃불 조명 풀
         # ═══════════════════════════════════════════════════════════
         torch_light_surf = pygame.Surface((W, H), pygame.SRCALPHA)
         left_x = self.GAME_AREA_X + 25
@@ -647,7 +833,7 @@ class AnimatedBackgroundStage30:
         self.floor_surface.blit(torch_light_surf, (0, 0))
 
         # ═══════════════════════════════════════════════════════════
-        # 13. 석재 타일 경계선
+        # 16. 석재 타일 경계선
         # ═══════════════════════════════════════════════════════════
         tile_surf = pygame.Surface((W, H), pygame.SRCALPHA)
         tc = (sand_dark[0], sand_dark[1], sand_dark[2], 30)
