@@ -4191,6 +4191,9 @@ class GuardWarriorSystem:
                 # 심해의 먹물(AbyssInk): is_active 꺼져도 dissolving 분해 애니메이션 정리 필요
                 _ink_lingering = (getattr(skill, 'skill_id', '') == 'abyss_ink'
                                   and getattr(skill, 'dissolving', False))
+                # 촉수 휘감기(TentacleWrap): is_active 꺼져도 retracting 되감기 애니메이션 정리 필요
+                _tentacle_lingering = (getattr(skill, 'skill_id', '') == 'tentacle_wrap'
+                                       and getattr(skill, 'retracting', False))
                 if skill.is_active:
                     skill_id = getattr(skill, 'skill_id', '')
                     # 드래곤 브레스: 공을 따라다니며 화염 발사
@@ -4262,10 +4265,10 @@ class GuardWarriorSystem:
                     elif _eff_id3 == 'oil_spill':
                         if not skill.oil_projectiles and not skill.oil_puddles:
                             skill.is_active = False
-                elif _ghost_lingering or _balloon_lingering or _ink_lingering:
+                elif _ghost_lingering or _balloon_lingering or _ink_lingering or _tentacle_lingering:
                     # 유령소환 잔여 이펙트 정리 (dying_ghosts, particles, teleport_effects)
                     # 익살스런파티 잔여 풍선 터짐 애니메이션 + 이펙트 정리
-                    # 심해의 먹물 분해 애니메이션 정리
+                    # 심해의 먹물 분해 애니메이션 / 촉수 휘감기 되감기 애니메이션 정리
                     _fallback_paddle = guard_paddle or (top_paddle if is_top_guard else bottom_paddle)
                     _fallback_target = target or (bottom_paddle if is_top_guard else top_paddle)
                     skill.update(dt, _fallback_paddle, _fallback_target, ball, game_state)
@@ -5833,7 +5836,10 @@ class GuardWarriorSystem:
                 # 심해의 먹물(AbyssInk): is_active 꺼져도 dissolving 분해 애니메이션 그려야 함
                 has_ink_lingering = (getattr(skill, 'skill_id', '') == 'abyss_ink'
                                      and getattr(skill, 'dissolving', False))
-                if (skill.is_active or has_lingering or has_balloon_lingering or has_ink_lingering) and hasattr(skill, 'draw'):
+                # 촉수 휘감기(TentacleWrap): is_active 꺼져도 retracting 되감기 애니메이션 그려야 함
+                has_tentacle_lingering = (getattr(skill, 'skill_id', '') == 'tentacle_wrap'
+                                           and getattr(skill, 'retracting', False))
+                if (skill.is_active or has_lingering or has_balloon_lingering or has_ink_lingering or has_tentacle_lingering) and hasattr(skill, 'draw'):
                     try:
                         # 귀신발걸음: draw 전에 현재 호위무사 위치로 동기화
                         skill_id = getattr(skill, 'skill_id', '')

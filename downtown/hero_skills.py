@@ -735,12 +735,20 @@ class TentacleWrap(HeroSkill):
         self.tentacles = []
         self.target_is_top = False
         self.caster_is_top = False
-        self.phase = 'travel'  # 'travel' (이동 중) → 'wrap' (감싸는 중)
+        self.phase = 'travel'  # 'travel' → 'wrap' → 'retract'
         self.travel_progress = 0  # 이동 진행도 (0~1)
         self.wrap_timer = 0  # 감싸기 지속 시간
         self.slow_applied = False  # 둔화 적용 여부
         self.slow_amount = 0.4  # 60% 감소 = 40%만 유지
         self.time = 0  # 애니메이션 시간
+
+        # 되감기(retract) 페이즈 상태 (is_active=False 이후에도 지속)
+        self.retracting = False
+        self.retract_timer = 0.0
+        self.retract_duration = 0.7  # 되감기 총 시간 (빠르게)
+        self.retract_tentacles = []  # 되감기 촉수 정보
+        self.retract_break_particles = []  # 끊어질 때 튀는 파편
+        self.retract_slime_drips = []  # 점액 방울 낙하
 
         # 색상 팔레트 (크라켄 hero_paddles.py와 동일)
         self.colors = {
@@ -755,6 +763,7 @@ class TentacleWrap(HeroSkill):
             'biolum_soft': (60, 200, 160),        # 부드러운 발광
             'glow': (100, 200, 180),              # 글로우
             'slime': (100, 180, 150),             # 점액
+            'break_flash': (120, 255, 220),       # 끊어질 때 섬광
         }
 
     def _get_hero_body_position(self, paddle, b=8):
@@ -961,9 +970,182 @@ class TentacleWrap(HeroSkill):
             game_state[f'{target_prefix}_slow_amount'] = 1.0
             game_state[f'{target_prefix}_tentacle_slowed'] = False
         game_state['tentacle_wrap_active'] = False
+        self.slow_applied = False
+
+        # 되감기 애니메이션 시작 (즉시 사라지지 않음)
+        self._init_retract(caster_paddle, target_paddle)
         self.tentacles = []
         self.phase = 'travel'
-        self.slow_applied = False
+
+    def _init_retract(self, caster_paddle, target_paddle):
+        """되감기 애니메이션 초기화 - 촉수가 끊어지며 빠르게 되돌아감"""
+        self.retracting = True
+        self.retract_timer = 0.0
+
+        b = getattr(self, 'b', 8)
+        caster_cx, caster_torso_y, _, _ = self._get_hero_body_position(caster_paddle, b)
+        target_cx, target_torso_y, _, _ = self._get_hero_body_position(target_paddle, b)
+        direction = 1 if caster_paddle.is_top else -1
+
+        self.retract_tentacles = []
+        self.retract_break_particles = []
+        self.retract_slime_drips = []
+
+        for idx, t in enumerate(self.tentacles):
+            start_x = t['start_x']
+            start_y = t['start_y']
+            target_x = t['target_x']
+            target_y = t['target_y']
+
+            # wrap 단계의 코일 경로에서 중간 끊김점 계산 (0.4~0.6 지점)
+            break_t = random.uniform(0.35, 0.55)
+
+            # 끊김점 위치: 시작~타겟 사이 break_t 지점
+            mid_x = start_x + (target_x - start_x) * break_t
+            mid_y = start_y + (target_y - start_y) * break_t
+            # 물결 오프셋 추가
+            mid_x += _sin(self.time * 3 + t['wave_offset']) * 15
+
+            self.retract_tentacles.append({
+                'start_x': start_x,
+                'start_y': start_y,
+                'break_x': mid_x,
+                'break_y': mid_y,
+                'target_x': target_x,
+                'target_y': target_y,
+                'offset_x': t['offset_x'],
+                'offset_y': t['offset_y'],
+                'thickness': t['thickness'],
+                'wave_offset': t['wave_offset'],
+                'wave_speed': t['wave_speed'],
+                'biolum_phase': t['biolum_phase'],
+                'retract_progress': 0.0,  # 0→1: 끊김점이 시작점으로 수축
+                'break_angle': random.uniform(0, math.pi * 2),
+                # 타겟 쪽 잔해 (끊어진 부분이 떨어짐)
+                'remnant_x': mid_x,
+                'remnant_y': mid_y,
+                'remnant_vx': random.uniform(-40, 40),
+                'remnant_vy': random.uniform(20, 80) * direction,
+                'remnant_size': t['thickness'] * 1.5,
+                'remnant_alpha': 220,
+                'remnant_rotation': random.uniform(0, 360),
+                'remnant_rot_speed': random.uniform(-200, 200),
+                'sucker_count': t.get('sucker_count', 6),
+                # 되감기 탄성 (스프링 효과용)
+                'spring_overshoot': random.uniform(0.05, 0.12),
+                'retract_delay': idx * 0.03,  # 촉수마다 약간의 시차
+            })
+
+            # 끊어질 때 파편/파티클 생성
+            for _ in range(4):
+                angle = random.uniform(0, math.pi * 2)
+                speed = random.uniform(60, 180)
+                self.retract_break_particles.append({
+                    'x': mid_x + random.uniform(-5, 5),
+                    'y': mid_y + random.uniform(-5, 5),
+                    'vx': _cos(angle) * speed,
+                    'vy': _sin(angle) * speed,
+                    'size': random.uniform(2, 6),
+                    'alpha': 255,
+                    'life': random.uniform(0.3, 0.6),
+                    'type': random.choice(['slime', 'glow', 'fragment']),
+                    'rotation': random.uniform(0, 360),
+                    'rot_speed': random.uniform(-300, 300),
+                })
+
+            # 점액 방울 (끊어진 부위에서 떨어짐)
+            for _ in range(2):
+                self.retract_slime_drips.append({
+                    'x': mid_x + random.uniform(-8, 8),
+                    'y': mid_y + random.uniform(-3, 3),
+                    'vy': random.uniform(30, 80),
+                    'size': random.uniform(3, 7),
+                    'alpha': 200,
+                    'stretch': 1.0,
+                })
+
+    def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        """오버라이드: 되감기 애니메이션을 is_active=False 이후에도 업데이트"""
+        # 쿨타임 감소
+        if self.current_cooldown > 0:
+            self.current_cooldown -= dt
+        if self.activation_flash_timer > 0:
+            self.activation_flash_timer -= dt
+
+        # 활성 효과 업데이트
+        if self.is_active:
+            self.active_timer -= dt
+            self._update_active_effect(dt, caster_paddle, target_paddle, ball, game_state)
+            if self.active_timer <= 0:
+                self._end_effect(caster_paddle, target_paddle, ball, game_state)
+                self.is_active = False
+
+        # 되감기 애니메이션 (is_active=False 이후에도 계속)
+        if self.retracting:
+            self.retract_timer += dt
+            self.time += dt  # 물결 애니메이션 유지
+            progress = min(1.0, self.retract_timer / self.retract_duration)
+
+            # 촉수 되감기 업데이트
+            for rt in self.retract_tentacles:
+                delay = rt.get('retract_delay', 0)
+                if self.retract_timer < delay:
+                    continue
+                local_time = self.retract_timer - delay
+                local_progress = min(1.0, local_time / (self.retract_duration - delay))
+                # ease-in-out 이징 (빠르게 시작, 끝에서 탄성 바운스)
+                if local_progress < 0.8:
+                    # 빠른 수축 (ease-in)
+                    t = local_progress / 0.8
+                    rt['retract_progress'] = t * t * (3 - 2 * t)  # smoothstep
+                else:
+                    # 탄성 오버슈트 (끝에서 살짝 지나갔다가 복귀)
+                    overshoot = rt.get('spring_overshoot', 0.08)
+                    t = (local_progress - 0.8) / 0.2
+                    base = 1.0
+                    bounce = _sin(t * math.pi) * overshoot * (1 - t)
+                    rt['retract_progress'] = base + bounce
+
+                # 물결 업데이트
+                rt['wave_offset'] += dt * rt['wave_speed']
+                rt['biolum_phase'] += dt * 3
+
+                # 잔해(타겟 쪽 끊어진 조각) 물리
+                rt['remnant_vy'] += 120 * dt  # 중력
+                rt['remnant_x'] += rt['remnant_vx'] * dt
+                rt['remnant_y'] += rt['remnant_vy'] * dt
+                rt['remnant_alpha'] = max(0, rt['remnant_alpha'] - dt * 350)
+                rt['remnant_size'] = max(0, rt['remnant_size'] - dt * 4)
+                rt['remnant_rotation'] += rt['remnant_rot_speed'] * dt
+
+            # 파편 파티클 업데이트
+            for bp in self.retract_break_particles:
+                bp['life'] -= dt
+                bp['vx'] *= 0.94
+                bp['vy'] *= 0.94
+                bp['vy'] += 80 * dt  # 약한 중력
+                bp['x'] += bp['vx'] * dt
+                bp['y'] += bp['vy'] * dt
+                bp['alpha'] = max(0, bp['alpha'] - dt * 450)
+                bp['size'] = max(0, bp['size'] - dt * 5)
+                bp['rotation'] += bp['rot_speed'] * dt
+            self.retract_break_particles = [
+                bp for bp in self.retract_break_particles if bp['life'] > 0
+            ]
+
+            # 점액 방울 낙하
+            for sd in self.retract_slime_drips:
+                sd['vy'] += 200 * dt  # 중력
+                sd['y'] += sd['vy'] * dt
+                sd['alpha'] = max(0, sd['alpha'] - dt * 200)
+                sd['stretch'] = min(3.0, sd['stretch'] + dt * 4)
+
+            # 되감기 완료
+            if self.retract_timer >= self.retract_duration + 0.2:
+                self.retracting = False
+                self.retract_tentacles = []
+                self.retract_break_particles = []
+                self.retract_slime_drips = []
 
     def reset_for_new_round(self, game_state: dict):
         """라운드 전환 시 촉수 및 둔화 상태 초기화"""
@@ -979,6 +1161,11 @@ class TentacleWrap(HeroSkill):
         self.tentacles = []
         self.phase = 'travel'
         self.slow_applied = False
+        self.retracting = False
+        self.retract_timer = 0.0
+        self.retract_tentacles = []
+        self.retract_break_particles = []
+        self.retract_slime_drips = []
         super().reset_for_new_round(game_state)
 
     def _draw_sucker(self, screen, x, y, size, alpha=255):
@@ -1040,6 +1227,14 @@ class TentacleWrap(HeroSkill):
         screen.blit(glow_surf, (int(x) - glow_size, int(y) - glow_size), special_flags=pygame.BLEND_ADD)
 
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
+        # 되감기 애니메이션 그리기
+        if self.retracting:
+            self._draw_retract(screen, caster_paddle)
+            return
+
+        if not self.is_active:
+            return
+
         # 영웅의 실제 몸통 위치 계산
         b = getattr(self, 'b', 8)
         caster_cx, caster_torso_y, _, _ = self._get_hero_body_position(caster_paddle, b)
@@ -1230,6 +1425,211 @@ class TentacleWrap(HeroSkill):
                 pygame.draw.circle(slime_surf, (*self.colors['slime'], 120),
                                  (slime_size + 2, slime_size + 2), slime_size)
                 screen.blit(slime_surf, (int(slime_x) - slime_size - 2, int(slime_y) - slime_size - 2))
+
+    def _draw_retract(self, screen, caster_paddle):
+        """되감기 애니메이션: 촉수가 끊어지며 빠르게 시전자에게 되돌아감"""
+        b = getattr(self, 'b', 8)
+        caster_cx, caster_torso_y, _, _ = self._get_hero_body_position(caster_paddle, b)
+        direction = 1 if caster_paddle.is_top else -1
+        global_progress = min(1.0, self.retract_timer / self.retract_duration)
+
+        # === 1. 잔해 (타겟 쪽 끊어진 촉수 조각들이 떨어짐) ===
+        for rt in self.retract_tentacles:
+            ra = int(max(0, min(255, rt['remnant_alpha'])))
+            rs = max(1, int(rt['remnant_size']))
+            if ra > 3 and rs > 1:
+                rem_surf = _psurf((rs * 2 + 8, rs * 2 + 8), pygame.SRCALPHA)
+                rc = rs + 4
+                # 불규칙 형태 (회전하는 촉수 파편)
+                rot_rad = math.radians(rt['remnant_rotation'])
+                points = []
+                for ai in range(0, 360, 50):
+                    rad = math.radians(ai)
+                    r = rs * (0.5 + 0.5 * _sin(rad * 2 + rt['break_angle']))
+                    px = _cos(rad + rot_rad) * r
+                    py = _sin(rad + rot_rad) * r
+                    points.append((int(rc + px), int(rc + py)))
+                if len(points) >= 3:
+                    # 외곽
+                    pygame.draw.polygon(rem_surf, (*self.colors['tentacle_core'], int(ra * 0.5)),
+                                       points)
+                    # 메인
+                    pygame.draw.polygon(rem_surf, (*self.colors['tentacle_mid'], ra), points)
+                screen.blit(rem_surf, (int(rt['remnant_x']) - rc, int(rt['remnant_y']) - rc))
+
+                # 잔해에서 점액 흘림
+                if ra > 80:
+                    drip_len = int(rs * 0.5 * (1 - global_progress))
+                    if drip_len > 1:
+                        drip_a = int(ra * 0.4)
+                        pygame.draw.line(screen, (*self.colors['slime'], drip_a),
+                                        (int(rt['remnant_x']), int(rt['remnant_y'])),
+                                        (int(rt['remnant_x']), int(rt['remnant_y']) + drip_len), 2)
+
+        # === 2. 시전자 쪽 촉수 되감기 ===
+        for rt in self.retract_tentacles:
+            delay = rt.get('retract_delay', 0)
+            if self.retract_timer < delay:
+                # 아직 시작 안 함 - 전체 길이로 그림 (끊김점까지)
+                retract_p = 0.0
+            else:
+                retract_p = rt['retract_progress']
+
+            # 시작점은 항상 크라켄 현재 위치
+            start_x = caster_cx + rt['offset_x']
+            start_y = caster_torso_y + rt['offset_y']
+
+            # 끊김점이 되감기 진행도에 따라 시작점으로 수축
+            cur_break_x = start_x + (rt['break_x'] - start_x) * (1.0 - min(1.0, retract_p))
+            cur_break_y = start_y + (rt['break_y'] - start_y) * (1.0 - min(1.0, retract_p))
+
+            # 두 점이 너무 가까우면 안 그림
+            dx = cur_break_x - start_x
+            dy = cur_break_y - start_y
+            dist = math.sqrt(dx * dx + dy * dy)
+            if dist < 3:
+                continue
+
+            # 촉수 경로 (베지어 곡선 + 물결)
+            ctrl1_x = start_x + rt['offset_x'] * 0.5
+            ctrl1_y = start_y + direction * 25
+            mid_wave = _sin(self.time * 4 + rt['wave_offset']) * 15 * (1 - retract_p)
+            ctrl2_x = (start_x + cur_break_x) / 2 + mid_wave
+            ctrl2_y = (start_y + cur_break_y) / 2
+
+            points = []
+            segments = max(8, int(24 * (1 - retract_p * 0.5)))
+            for i in range(segments + 1):
+                seg_t = i / segments
+                x = self._cubic_bezier(seg_t, start_x, ctrl1_x, ctrl2_x, cur_break_x)
+                y = self._cubic_bezier(seg_t, start_y, ctrl1_y, ctrl2_y, cur_break_y)
+                # 물결 효과 (되감기 중에는 격렬하게 흔들림, 점점 감소)
+                shake_intensity = 12 * (1 - retract_p * 0.8)
+                wave = _sin(seg_t * math.pi * 4 + rt['wave_offset'] + self.time * 8) * shake_intensity * _sin(seg_t * math.pi)
+                x += wave
+                points.append((int(x), int(y)))
+
+            if len(points) > 1:
+                # 촉수 세그먼트 그리기 (3레이어: 외곽→본체→하이라이트)
+                alpha_mod = 1.0 - retract_p * 0.3  # 되감기 끝에서 약간 투명
+                for i in range(len(points) - 1):
+                    seg_progress = i / max(1, len(points) - 1)
+                    current_thickness = int(rt['thickness'] * (1.0 - seg_progress * 0.5))
+                    current_thickness = max(2, current_thickness)
+                    p1, p2 = points[i], points[i + 1]
+                    # 외곽/그림자
+                    ea = int(255 * alpha_mod)
+                    pygame.draw.line(screen, (*self.colors['tentacle_core'], ea),
+                                    p1, p2, current_thickness + 3)
+                    # 본체
+                    pygame.draw.line(screen, (*self.colors['tentacle_mid'], ea),
+                                    p1, p2, current_thickness + 1)
+                    # 하이라이트
+                    pygame.draw.line(screen, (*self.colors['tentacle_outer'], int(ea * 0.8)),
+                                    p1, p2, max(1, current_thickness - 1))
+
+                # 빨판 (되감기 중에도 보이되, 진행에 따라 감소)
+                if retract_p < 0.7:
+                    sucker_interval = max(4, len(points) // max(1, rt['sucker_count'] // 2))
+                    for j in range(sucker_interval, len(points) - 1, sucker_interval):
+                        px, py = points[j]
+                        sucker_size = int(rt['thickness'] * 0.35 * (1 - retract_p))
+                        if sucker_size > 1:
+                            self._draw_sucker(screen, px, py, sucker_size)
+
+                # 끊어진 끝부분 - 불규칙한 끝단 + 점액 흘림 + 발광
+                if retract_p < 0.9 and len(points) > 0:
+                    end_x, end_y = points[-1]
+                    end_alpha = int(200 * (1 - retract_p))
+
+                    # 끊어진 불규칙 끝 (갈라진 촉수 끝)
+                    num_frays = 4
+                    for fi in range(num_frays):
+                        f_angle = (fi / num_frays) * math.pi * 2 + self.time * 3 + rt['break_angle']
+                        f_len = int((6 + rt['thickness'] * 0.5) * (1 - retract_p))
+                        fx = end_x + int(_cos(f_angle) * f_len)
+                        fy = end_y + int(_sin(f_angle) * f_len)
+                        fw = max(1, int(rt['thickness'] * 0.25 * (1 - retract_p)))
+                        pygame.draw.line(screen, (*self.colors['tentacle_outer'], end_alpha),
+                                        (int(end_x), int(end_y)), (fx, fy), fw)
+
+                    # 점액 물방울 (끝에서 떨어지는 효과)
+                    if retract_p < 0.5:
+                        drip_length = int(8 * (1 - retract_p * 2))
+                        drip_a = int(120 * (1 - retract_p * 2))
+                        if drip_length > 1 and drip_a > 3:
+                            pygame.draw.line(screen, (*self.colors['slime'], drip_a),
+                                            (int(end_x), int(end_y)),
+                                            (int(end_x), int(end_y) + drip_length), 2)
+                            # 방울 끝 물방울
+                            pygame.draw.circle(screen, (*self.colors['slime'], drip_a),
+                                              (int(end_x), int(end_y) + drip_length + 2), 2)
+
+                    # 끊김점 발광 펄스
+                    glow_a = int(end_alpha * 0.4 * (0.5 + 0.5 * _sin(self.time * 10 + rt['break_angle'])))
+                    if glow_a > 3:
+                        glow_r = max(2, int(8 * (1 - retract_p)))
+                        glow_surf = _psurf((glow_r * 2 + 4, glow_r * 2 + 4), pygame.SRCALPHA)
+                        gc = glow_r + 2
+                        pygame.draw.circle(glow_surf, (*self.colors['break_flash'], glow_a),
+                                          (gc, gc), glow_r)
+                        pygame.draw.circle(glow_surf, (*self.colors['biolum'], int(glow_a * 0.6)),
+                                          (gc, gc), max(1, glow_r // 2))
+                        screen.blit(glow_surf, (int(end_x) - gc, int(end_y) - gc))
+
+        # === 3. 끊김 파편 파티클 ===
+        for bp in self.retract_break_particles:
+            ba = int(max(0, min(255, bp['alpha'])))
+            bs = max(1, int(bp['size']))
+            if ba < 3 or bs < 1:
+                continue
+            bp_surf = _psurf((bs * 2 + 4, bs * 2 + 4), pygame.SRCALPHA)
+            bc = bs + 2
+
+            if bp['type'] == 'glow':
+                # 발광 파편
+                pygame.draw.circle(bp_surf, (*self.colors['biolum'], ba), (bc, bc), bs)
+                pygame.draw.circle(bp_surf, (*self.colors['break_flash'], int(ba * 0.5)),
+                                  (bc, bc), max(1, bs + 1))
+            elif bp['type'] == 'slime':
+                # 점액 방울
+                pygame.draw.circle(bp_surf, (*self.colors['slime'], ba), (bc, bc), bs)
+            else:
+                # 촉수 파편
+                rot_rad = math.radians(bp['rotation'])
+                pts = []
+                for ai in range(0, 360, 60):
+                    rad = math.radians(ai)
+                    r = bs * (0.5 + 0.5 * _sin(rad * 2))
+                    pts.append((int(bc + _cos(rad + rot_rad) * r),
+                               int(bc + _sin(rad + rot_rad) * r)))
+                if len(pts) >= 3:
+                    pygame.draw.polygon(bp_surf, (*self.colors['tentacle_mid'], ba), pts)
+            screen.blit(bp_surf, (int(bp['x']) - bc, int(bp['y']) - bc))
+
+        # === 4. 점액 방울 낙하 ===
+        for sd in self.retract_slime_drips:
+            sa = int(max(0, min(255, sd['alpha'])))
+            if sa < 3:
+                continue
+            ss = max(1, int(sd['size']))
+            stretch = sd.get('stretch', 1.0)
+            # 세로로 늘어나는 물방울
+            sw = max(1, int(ss * 2 + 4))
+            sh = max(1, int((ss * 2 + 4) * stretch))
+            sd_surf = _psurf((sw, sh), pygame.SRCALPHA)
+            scx, scy = sw // 2, sh // 2
+            # 늘어진 타원형 물방울
+            pygame.draw.ellipse(sd_surf, (*self.colors['slime'], sa),
+                               (scx - ss, max(0, scy - int(ss * stretch)),
+                                ss * 2, int(ss * 2 * stretch)))
+            # 하이라이트
+            if ss > 2:
+                hl_a = int(sa * 0.4)
+                pygame.draw.ellipse(sd_surf, (*self.colors['tentacle_highlight'], hl_a),
+                                   (scx - ss // 2, max(0, scy - int(ss * stretch * 0.6)),
+                                    ss, int(ss * stretch * 0.5)))
+            screen.blit(sd_surf, (int(sd['x']) - scx, int(sd['y']) - scy))
 
     def reset_for_new_round(self, game_state: dict):
         """라운드 전환 시 촉수 휘감기 스킬 강제 종료"""
