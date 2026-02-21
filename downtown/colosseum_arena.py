@@ -7618,11 +7618,22 @@ class ColosseumsArena:
                 if w and (not self.bet_hero or w["id"] != self.bet_hero["id"]):
                     self._assign_ai_perks(w, 1 + self.ai_bonus_perks)
             # AI 결승 진출자에게 하수인 배정 (가중치: 2명 74%, 1명 15%, 0명 11%)
+            # ★ 결승 하수인 후보: 4강 패자 + 8강 패자 (4강 패자만으로는 후보 부족)
+            # 4강 패자 2명은 결승 진출자의 호위무사 + 플레이어 포획으로 모두 taken될 수 있음
             losers_sf = []
+            seen_ids = set()
             for m in self.matches[TournamentRound.SEMI_FINAL]:
                 if m.winner:
                     loser = m.hero1 if m.winner == m.hero2 else m.hero2
                     losers_sf.append(loser)
+                    seen_ids.add(loser.get("id"))
+            # 8강 패자도 후보에 추가 (중복 방지)
+            for m in self.matches[TournamentRound.QUARTER_FINAL]:
+                if m.winner:
+                    loser = m.hero1 if m.winner == m.hero2 else m.hero2
+                    if loser.get("id") not in seen_ids:
+                        losers_sf.append(loser)
+                        seen_ids.add(loser.get("id"))
             for w in winners:
                 if w and (not self.bet_hero or w["id"] != self.bet_hero["id"]):
                     self._assign_ai_henchmen(w, losers_sf, self.matches[TournamentRound.FINAL], round_type="final")
