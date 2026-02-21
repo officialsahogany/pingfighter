@@ -28844,6 +28844,185 @@ SMASHER_PADDLE_IMG = create_smasher_paddle_surface()
 OPTIMUS_PADDLE_IMG = create_optimus_paddle_surface()
 
 
+# ========== 아케이드 캐릭터 아이들 애니메이션 시스템 ==========
+
+def _draw_smasher_idle_glow(overlay: pygame.Surface, t: float, w: int, h: int):
+    """스매셔 아이들: 바이저 맥동 + 쉴드 에너지 + 코어 악센트 + 스러스터"""
+    cx = w // 2  # 125
+    pulse = 0.5 + 0.5 * math.sin(t * 3.5)
+    slow_pulse = 0.5 + 0.5 * math.sin(t * 2.0)
+
+    # 바이저 글로우 맥동
+    visor_alpha = int(25 + 45 * pulse)
+    pygame.draw.ellipse(overlay, (140, 210, 255, visor_alpha),
+                        (cx - 11, 33, 22, 7))
+    # 바이저 내부 하이라이트
+    pygame.draw.ellipse(overlay, (200, 240, 255, int(15 + 20 * pulse)),
+                        (cx - 6, 35, 12, 3))
+
+    # 에너지 쉴드 맥동 (오른쪽)
+    shield_pulse = 0.5 + 0.5 * math.sin(t * 4.0 + 1.0)
+    shield_alpha = int(15 + 30 * shield_pulse)
+    shield_cx = cx + 48
+    shield_cy = 56
+    pygame.draw.circle(overlay, (70, 160, 255, shield_alpha),
+                       (shield_cx, shield_cy), 16)
+    pygame.draw.circle(overlay, (120, 210, 255, int(10 + 15 * shield_pulse)),
+                       (shield_cx, shield_cy), 9)
+
+    # 코어 악센트 라인 맥동 (가슴 중앙)
+    core_alpha = int(12 + 20 * slow_pulse)
+    pygame.draw.line(overlay, (118, 214, 255, core_alpha),
+                     (cx, 55), (cx, 72), 2)
+    pygame.draw.line(overlay, (82, 178, 248, int(8 + 14 * slow_pulse)),
+                     (cx - 5, 63), (cx + 5, 63), 1)
+
+    # 스러스터 아이들 글로우 (하단)
+    thruster_flicker = 0.3 + 0.7 * math.sin(t * 5.5 + 2.0)
+    thruster_alpha = int(12 + 22 * thruster_flicker)
+    pygame.draw.ellipse(overlay, (118, 214, 255, thruster_alpha),
+                        (cx - 18, h - 18, 36, 10))
+    pygame.draw.ellipse(overlay, (255, 234, 170, int(8 + 12 * thruster_flicker)),
+                        (cx - 8, h - 14, 16, 5))
+
+
+def _draw_optimus_idle_glow(overlay: pygame.Surface, t: float, w: int, h: int):
+    """옵티머스 아이들: 눈/센서 LED + 파워코어 + 관절 LED + 헥스코어"""
+    cx = w // 2  # 208
+    cy = int(h * 0.8)  # 576
+
+    pulse = 0.5 + 0.5 * math.sin(t * 3.0)
+    fast_pulse = 0.5 + 0.5 * math.sin(t * 5.0 + 0.7)
+
+    # 눈/센서 LED 맥동 (머리 영역)
+    head_y = cy - 64
+    eye_alpha = int(30 + 50 * pulse)
+    for eye_offset in [-14, 14]:
+        pygame.draw.circle(overlay, (120, 235, 255, eye_alpha),
+                           (cx + eye_offset, head_y + 22), 6)
+        pygame.draw.circle(overlay, (200, 250, 255, int(20 + 25 * pulse)),
+                           (cx + eye_offset, head_y + 22), 3)
+
+    # 파워코어 글로우 (가슴 중앙 헥스코어)
+    core_pulse = 0.4 + 0.6 * math.sin(t * 2.5 + 0.3)
+    core_alpha = int(25 + 40 * core_pulse)
+    core_y = cy - 20
+    pygame.draw.circle(overlay, (120, 235, 255, core_alpha),
+                       (cx, core_y), 18)
+    pygame.draw.circle(overlay, (180, 245, 255, int(15 + 25 * core_pulse)),
+                       (cx, core_y), 10)
+
+    # 관절 LED 깜빡임 (어깨, 무릎)
+    joint_alpha = int(15 + 25 * fast_pulse)
+    joint_positions = [
+        (cx - 52, cy - 12),  # 왼쪽 어깨
+        (cx + 52, cy - 12),  # 오른쪽 어깨
+        (cx - 36, cy + 80),  # 왼쪽 무릎
+        (cx + 44, cy + 80),  # 오른쪽 무릎
+    ]
+    for jx, jy in joint_positions:
+        pygame.draw.circle(overlay, (120, 235, 255, joint_alpha), (jx, jy), 4)
+
+    # 전체 보디 아우라 (미세)
+    aura_pulse = 0.5 + 0.5 * math.sin(t * 1.8)
+    aura_alpha = int(6 + 10 * aura_pulse)
+    pygame.draw.ellipse(overlay, (120, 235, 255, aura_alpha),
+                        (cx - 100, cy - 80, 200, 200))
+
+
+def _draw_soldier_idle_glow(overlay: pygame.Surface, t: float, w: int, h: int):
+    """코만도 아이들: 고글 렌즈 반사 + NVG LED 점멸 + 라디오 화면"""
+    cx = w // 2  # 160
+    block = 7
+
+    # 고글 렌즈 반사 맥동
+    goggle_pulse = 0.5 + 0.5 * math.sin(t * 2.8)
+    goggle_alpha = int(18 + 28 * goggle_pulse)
+    goggle_y = 33
+    # 양쪽 고글 렌즈
+    for offset in [-9, 9]:
+        pygame.draw.ellipse(overlay, (45, 180, 220, goggle_alpha),
+                            (cx + offset - 7, goggle_y - 4, 14, 8))
+        # 렌즈 하이라이트
+        pygame.draw.ellipse(overlay, (120, 220, 255, int(10 + 15 * goggle_pulse)),
+                            (cx + offset - 3, goggle_y - 2, 6, 3))
+
+    # NVG LED 인디케이터 점멸 (녹색)
+    led_cycle = math.sin(t * 1.5)
+    if led_cycle > 0.2:
+        led_brightness = min(1.0, (led_cycle - 0.2) / 0.5)
+        led_alpha = int(40 + 50 * led_brightness)
+        nvg_y = 23
+        for offset in [-int(0.35 * block), int(0.35 * block)]:
+            pygame.draw.circle(overlay, (0, 255, 80, led_alpha),
+                               (cx + offset, nvg_y), 3)
+            # LED 글로우
+            pygame.draw.circle(overlay, (0, 200, 60, int(led_alpha * 0.4)),
+                               (cx + offset, nvg_y), 6)
+
+    # 라디오 화면 깜빡임
+    radio_pulse = 0.3 + 0.7 * math.sin(t * 3.2 + 1.5)
+    radio_alpha = int(12 + 18 * radio_pulse)
+    radio_x = cx + int(2.6 * block)
+    radio_y = 54
+    pygame.draw.rect(overlay, (32, 180, 100, radio_alpha),
+                     (radio_x + 2, radio_y, 4, 3))
+
+
+def _draw_blacksmith_idle_glow(overlay: pygame.Surface, t: float, w: int, h: int):
+    """발토르 아이들: 망치 미세 글로우 + 눈 하이라이트"""
+    cx = w // 2
+
+    # 눈 영역 미세 하이라이트 (캐릭터 얼굴 부근)
+    eye_pulse = 0.5 + 0.5 * math.sin(t * 2.5)
+    eye_alpha = int(10 + 18 * eye_pulse)
+    eye_y = 25
+    for offset in [-6, 6]:
+        pygame.draw.circle(overlay, (255, 200, 120, eye_alpha),
+                           (cx + offset, eye_y), 3)
+
+    # 체온/열기 아우라 (대장장이 특유의 열기)
+    heat_pulse = 0.5 + 0.5 * math.sin(t * 1.2 + 0.8)
+    heat_alpha = int(5 + 8 * heat_pulse)
+    pygame.draw.ellipse(overlay, (255, 140, 60, heat_alpha),
+                        (cx - 30, 20, 60, 70))
+
+
+def _apply_character_idle_effects(base_img: pygame.Surface, character_type: str) -> pygame.Surface:
+    """아케이드 캐릭터 대기 상태 미세 애니메이션 효과 적용"""
+    t = pygame.time.get_ticks() / 1000.0
+    w, h = base_img.get_size()
+
+    # 캐릭터별 호흡/흔들림 파라미터
+    if character_type == "blacksmith":
+        breathe_y = int(math.sin(t * 1.5) * 1.8)
+        sway_x = int(math.sin(t * 0.8 + 0.5) * 0.9)
+    elif character_type == "soldier":
+        breathe_y = int(math.sin(t * 1.8) * 1.5)
+        sway_x = int(math.sin(t * 1.0 + 0.5) * 0.6)
+    else:
+        breathe_y = int(math.sin(t * 2.2) * 1.3)
+        sway_x = int(math.sin(t * 1.1 + 0.5) * 0.7)
+
+    result = pygame.Surface((w, h), pygame.SRCALPHA)
+    result.blit(base_img, (sway_x, breathe_y))
+
+    # 캐릭터별 글로우 오버레이
+    overlay = pygame.Surface((w, h), pygame.SRCALPHA)
+
+    if character_type == "smasher":
+        _draw_smasher_idle_glow(overlay, t, w, h)
+    elif character_type == "optimus":
+        _draw_optimus_idle_glow(overlay, t, w, h)
+    elif character_type == "soldier":
+        _draw_soldier_idle_glow(overlay, t, w, h)
+    elif character_type == "blacksmith":
+        _draw_blacksmith_idle_glow(overlay, t, w, h)
+
+    result.blit(overlay, (0, 0))
+    return result
+
+
 # ========== 옵티머스 암 스킬 UI 아이콘 및 핵심 함수들 ==========
 def create_optimus_arm_skill_icon(size: int = 64) -> pygame.Surface:
     """옵티머스 암 스킬 아이콘 생성 (기계팔 그림)"""
@@ -93445,7 +93624,8 @@ def draw_objects():
                     include_right_arm=True,
                 )
             else:
-                base_ufo_img = SOLDIER_PADDLE_IMG if include_right_arm else SOLDIER_PADDLE_IMG_NO_RIGHT_ARM
+                _soldier_idle_base = SOLDIER_PADDLE_IMG if include_right_arm else SOLDIER_PADDLE_IMG_NO_RIGHT_ARM
+                base_ufo_img = _apply_character_idle_effects(_soldier_idle_base, "soldier")
         elif selected_character_type == "blacksmith":
             if blacksmith_umbrella_open:
                 if BLACKSMITH_UMBRELLA_ANIM_FRAMES > 0:
@@ -93470,9 +93650,9 @@ def draw_objects():
                     blacksmith_hammer_head_surface_point = None
             else:
                 if blacksmith_hammer_available or blacksmith_hammer_shock_charging:
-                    base_ufo_img = BLACKSMITH_PADDLE_IMG
+                    base_ufo_img = _apply_character_idle_effects(BLACKSMITH_PADDLE_IMG, "blacksmith")
                 else:
-                    base_ufo_img = BLACKSMITH_PADDLE_NO_HAMMER_IMG
+                    base_ufo_img = _apply_character_idle_effects(BLACKSMITH_PADDLE_NO_HAMMER_IMG, "blacksmith")
                     blacksmith_hammer_head_surface_point = None
         elif selected_character_type == "optimus":
             global optimus_walking_active, optimus_walking_timer
@@ -93489,14 +93669,14 @@ def draw_objects():
                 if swing_active:
                     base_ufo_img = create_optimus_paddle_surface()
                 else:
-                    base_ufo_img = OPTIMUS_PADDLE_IMG
+                    base_ufo_img = _apply_character_idle_effects(OPTIMUS_PADDLE_IMG, "optimus")
         elif selected_character_type == "smasher":
             if smasher_walking_active:
                 base_ufo_img = create_smasher_paddle_walking()
             elif smasher_hit_pose_timer > 0:
                 base_ufo_img = create_smasher_paddle_surface()
             else:
-                base_ufo_img = SMASHER_PADDLE_IMG
+                base_ufo_img = _apply_character_idle_effects(SMASHER_PADDLE_IMG, "smasher")
         else:
             base_ufo_img = PLAYER_IMG
     # print(f"🎮 일반 모드: base_ufo_img 크기 = {base_ufo_img.get_size()}")
