@@ -1336,11 +1336,11 @@ class TournamentRound(Enum):
 # 하이라이트 리플레이 녹화 시스템
 # ============================================================================
 class HighlightRecorder:
-    """투기장 하이라이트 녹화 - 50% 축소 캡처로 메모리 최적화 (원본 대비 1/4 메모리)"""
+    """투기장 하이라이트 녹화 - 75% 해상도 캡처로 화질/메모리 균형"""
     CAPTURE_INTERVAL = 2   # 매 2프레임마다 캡처 (30fps)
-    BUFFER_SIZE = 150      # 5초 분량 (30fps × 5s)
+    BUFFER_SIZE = 120      # 4초 분량 (30fps × 4s)
     MAX_CLIPS = 3          # 최대 저장 클립 수
-    SCALE_FACTOR = 0.5     # 캡처 해상도 축소 비율 (50%)
+    SCALE_FACTOR = 0.75    # 캡처 해상도 축소 비율 (75%)
 
     def __init__(self):
         from collections import deque
@@ -1363,7 +1363,7 @@ class HighlightRecorder:
         self.recording = False
 
     def capture_frame(self, screen: pygame.Surface):
-        """매 프레임 호출 - 50% 축소 캡처로 메모리 절약"""
+        """매 프레임 호출 - 75% 해상도 캡처"""
         if not self.recording:
             return
         self.frame_counter += 1
@@ -1374,7 +1374,7 @@ class HighlightRecorder:
             if self._scaled_size is None:
                 sw, sh = screen.get_size()
                 self._scaled_size = (int(sw * self.SCALE_FACTOR), int(sh * self.SCALE_FACTOR))
-            scaled = pygame.transform.scale(screen, self._scaled_size)
+            scaled = pygame.transform.smoothscale(screen, self._scaled_size)
             self.frame_buffer.append(scaled)
         except Exception:
             pass  # 캡처 실패 시 무시
@@ -1405,7 +1405,7 @@ class HighlightRecorder:
             return None
         frame = clip[frame_idx]
         if target_size and frame.get_size() != target_size:
-            return pygame.transform.scale(frame, target_size)
+            return pygame.transform.smoothscale(frame, target_size)
         return frame
 
     def clear(self):
@@ -16990,7 +16990,7 @@ class ColosseumsArena:
         frame_surf = clip[frame_idx]
         screen_size = self.screen.get_size()
         if frame_surf.get_size() != screen_size:
-            full_surf = pygame.transform.scale(frame_surf, screen_size)
+            full_surf = pygame.transform.smoothscale(frame_surf, screen_size)
         else:
             full_surf = frame_surf
 
