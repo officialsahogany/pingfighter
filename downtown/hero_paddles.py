@@ -923,55 +923,26 @@ class HeroPaddleRenderer:
             "slime": (100, 180, 150),
         }
 
-        # === 물방울 파티클 효과 ===
-        for i in range(6):
-            drop_x = cx + int(_sin(self.time * 2 + i * 1.2) * 2.5 * b) + lean_offset
-            drop_y = torso_y - int(2 * b) + int((self.time * 0.5 + i * 0.3) % 1 * 4 * b)
-            drop_alpha = int(150 * (1 - ((self.time * 0.5 + i * 0.3) % 1)))
-            drop_size = max(1, int(0.12 * b))
-            drop_surf = self._get_surface(drop_size * 4, drop_size * 4)
-            pygame.draw.circle(drop_surf, (*p["water_drop"], drop_alpha), (drop_size * 2, drop_size * 2), drop_size)
-            screen.blit(drop_surf, (int(drop_x) - drop_size * 2, int(drop_y) - drop_size * 2))
-
-        # === 심해 압력파 효과 (몸통 주변 맥동하는 링) ===
-        pressure_center_x = cx + lean_offset
-        pressure_center_y = torso_y + int(0.5 * b)
-        for ring_i in range(4):
-            ring_phase = (self.time * 1.2 + ring_i * 0.7) % 2.5
-            if ring_phase < 2.0:
-                ring_progress = ring_phase / 2.0  # 0~1 확장 진행
-                ring_radius = int((1.5 + ring_progress * 3.5) * b)
-                ring_alpha = int(55 * (1.0 - ring_progress) * (0.6 + biolum_pulse * 0.4))
-                ring_thickness = max(1, int((0.12 - ring_progress * 0.08) * b))
-                ring_w = ring_radius * 2
-                ring_h = int(ring_radius * 1.3)
-                if ring_w > 4 and ring_h > 4:
-                    ring_surf = self._get_surface(ring_w + 4, ring_h + 4)
-                    ring_color = (
-                        min(255, p["glow"][0] + int(30 * biolum_pulse)),
-                        min(255, p["glow"][1] + int(20 * biolum_pulse)),
-                        min(255, p["glow"][2] + int(15 * biolum_pulse)),
-                        ring_alpha
-                    )
-                    pygame.draw.ellipse(ring_surf, ring_color,
-                        (2, 2, ring_w, ring_h), ring_thickness)
-                    screen.blit(ring_surf,
-                        (pressure_center_x - ring_w // 2 - 2, pressure_center_y - ring_h // 2 - 2),
-                        special_flags=pygame.BLEND_ADD)
-
-        # === 심해 압력 왜곡 점들 (링 사이 떠다니는 미립자) ===
-        for dp_i in range(10):
-            dp_angle = self.time * 0.8 + dp_i * 0.628
-            dp_dist = (1.8 + _sin(self.time * 1.5 + dp_i * 1.1) * 0.8) * b
-            dp_x = pressure_center_x + int(_cos(dp_angle) * dp_dist)
-            dp_y = pressure_center_y + int(_sin(dp_angle) * dp_dist * 0.7)
-            dp_alpha = int(80 * (0.5 + _sin(self.time * 3 + dp_i) * 0.5))
-            dp_sz = max(1, int(0.06 * b * (0.7 + _sin(self.time * 4 + dp_i * 0.9) * 0.3)))
-            dp_surf = self._get_surface(dp_sz * 4, dp_sz * 4)
-            pygame.draw.circle(dp_surf, (*p["biolum_soft"], dp_alpha),
-                (dp_sz * 2, dp_sz * 2), dp_sz)
-            screen.blit(dp_surf, (dp_x - dp_sz * 2, dp_y - dp_sz * 2),
-                special_flags=pygame.BLEND_ADD)
+        # === 발밑 심해 생물발광 글로우 (바닥에 퍼지는 빛) ===
+        foot_glow_y = torso_y + int(4.5 * b)
+        glow_rx = int(3.0 * b)
+        glow_ry = int(0.6 * b)
+        glow_surf = self._get_surface(glow_rx * 2 + 4, glow_ry * 2 + 4)
+        g_cx, g_cy = glow_rx + 2, glow_ry + 2
+        for ring in range(3):
+            ring_alpha = int((25 - ring * 7) * (0.6 + biolum_pulse * 0.4))
+            rx = max(3, int((3.0 - ring * 0.7) * b))
+            ry = max(2, int((0.6 - ring * 0.13) * b))
+            glow_color = (
+                min(255, p["glow"][0] + int(20 * biolum_pulse)),
+                min(255, p["glow"][1] + int(15 * biolum_pulse)),
+                min(255, p["glow"][2] + int(10 * biolum_pulse)),
+                max(0, ring_alpha)
+            )
+            pygame.draw.ellipse(glow_surf, glow_color,
+                              (g_cx - rx, g_cy - ry, rx * 2, ry * 2))
+        screen.blit(glow_surf, (cx - g_cx + lean_offset, foot_glow_y - g_cy),
+                   special_flags=pygame.BLEND_ADD)
 
         # === 촉수 다리 (6개, 더 상세한 세그먼트) ===
         hip_y = torso_y + int(1.8 * b)
@@ -6425,72 +6396,23 @@ class HeroPaddleRenderer:
             "hat_purple": (120, 45, 150),
         }
 
-        # === 카오틱 멀티컬러 오라 (무지개빛 광기 오라) ===
-        aura_size = int(5.0 * b)
-        aura_surf = self._get_surface(aura_size * 2, aura_size * 2)
-        aura_cx_j, aura_cy_j = aura_size, aura_size
-        for ring in range(4):
+        # === 발밑 카오틱 글로우 (무지개빛 세트 조명) ===
+        foot_glow_y = torso_y + int(3.8 * b)
+        glow_rx = int(2.5 * b)
+        glow_ry = int(0.55 * b)
+        glow_surf = self._get_surface(glow_rx * 2 + 4, glow_ry * 2 + 4)
+        g_cx, g_cy = glow_rx + 2, glow_ry + 2
+        for ring in range(3):
             hue_phase = self.time * 2.5 + ring * 1.2
             r_c = int(127 + 127 * _sin(hue_phase))
             g_c = int(127 + 127 * _sin(hue_phase + 2.094))
             b_c = int(127 + 127 * _sin(hue_phase + 4.189))
-            aura_alpha = int((22 - ring * 5) * (0.6 + 0.4 * _sin(self.time * 3.0 + ring)))
-            aura_r = int((2.2 - ring * 0.4) * b)
-            pygame.draw.circle(aura_surf, (r_c, g_c, b_c, max(0, aura_alpha)),
-                             (aura_cx_j, aura_cy_j), aura_r)
-        screen.blit(aura_surf, (cx - aura_size + lean_offset,
-                                torso_y - int(0.5 * b) - aura_size // 2),
-                   special_flags=pygame.BLEND_ADD)
-
-        # === 매니아컬 에너지 오라 (불규칙 들쭉날쭉 오라) ===
-        jagged_size = int(4.5 * b)
-        jagged_surf = self._get_surface(jagged_size * 2, jagged_size * 2)
-        j_cx, j_cy = jagged_size, jagged_size
-        jagged_pulse = 0.5 + 0.5 * _sin(self.time * 4.0)
-        num_spikes = 16
-        for _jlayer in range(2):
-            base_r = int((1.8 - _jlayer * 0.35) * b)
-            hue_off = self.time * 3.0 + _jlayer * 1.5
-            lr = int(127 + 127 * _sin(hue_off + 0.0))
-            lg = int(127 + 127 * _sin(hue_off + 2.094))
-            lb = int(127 + 127 * _sin(hue_off + 4.189))
-            l_alpha = int((16 - _jlayer * 6) * jagged_pulse)
-            j_pts = []
-            for _jspike in range(num_spikes):
-                _jangle = _jspike * (2 * math.pi / num_spikes)
-                noise = _sin(self.time * 5.0 + _jspike * 2.7 + _jlayer) * 0.35
-                r_mod = base_r * (1.0 + noise)
-                px = j_cx + int(_cos(_jangle) * r_mod)
-                py = j_cy + int(_sin(_jangle) * r_mod)
-                j_pts.append((px, py))
-            if len(j_pts) >= 3:
-                pygame.draw.polygon(jagged_surf, (lr, lg, lb, max(0, l_alpha)), j_pts)
-        screen.blit(jagged_surf, (cx - jagged_size + lean_offset,
-                                  torso_y - int(0.5 * b) - jagged_size // 2),
-                   special_flags=pygame.BLEND_ADD)
-
-        # === 컨페티 파티클 시스템 (떠다니는 색종이 조각) ===
-        conf_sw, conf_sh = int(8 * b), int(10 * b)
-        confetti_surf = self._get_surface(conf_sw, conf_sh)
-        conf_ox, conf_oy = conf_sw // 2, conf_sh // 2
-        for ci in range(12):
-            seed = ci * 3.7
-            c_x = conf_ox + int(_sin(self.time * 1.2 + seed) * 2.5 * b)
-            c_y = conf_oy + int(_cos(self.time * 0.8 + seed * 0.6) * 3.5 * b)
-            c_y += int(((self.time * 30 + seed * 17) % (8 * b)) - 4 * b)
-            c_hue = self.time * 1.5 + ci * 0.52
-            cr = int(180 + 75 * _sin(c_hue))
-            cg = int(180 + 75 * _sin(c_hue + 2.094))
-            cb = int(180 + 75 * _sin(c_hue + 4.189))
-            c_size = max(2, int(0.1 * b))
-            c_rot = self.time * 3.0 + seed
-            hw = max(1, int(c_size * abs(_cos(c_rot))))
-            hh = max(1, int(c_size * abs(_sin(c_rot * 0.7))))
-            if 0 < c_x < conf_sw - hw * 2 and 0 < c_y < conf_sh - hh * 2:
-                pygame.draw.rect(confetti_surf, (cr, cg, cb, 120),
-                               (c_x, c_y, hw * 2, hh * 2))
-        screen.blit(confetti_surf,
-                   (cx - conf_ox + lean_offset, torso_y - int(2 * b) - conf_oy),
+            ring_alpha = int((28 - ring * 8) * (0.6 + 0.4 * _sin(self.time * 3.0 + ring)))
+            rx = max(3, int((2.5 - ring * 0.6) * b))
+            ry = max(2, int((0.55 - ring * 0.12) * b))
+            pygame.draw.ellipse(glow_surf, (r_c, g_c, b_c, max(0, ring_alpha)),
+                              (g_cx - rx, g_cy - ry, rx * 2, ry * 2))
+        screen.blit(glow_surf, (cx - g_cx + lean_offset, foot_glow_y - g_cy),
                    special_flags=pygame.BLEND_ADD)
 
         # === 코트 꼬리 (뒤에서 나풀거림, 다리 뒤쪽) ===
