@@ -5008,6 +5008,22 @@ class GuardWarriorSystem:
         self._guard_dash_duration = max(0.08, min(distance / self.GUARD_DASH_SPEED, 0.4))
         self._guard_dash_afterimages = []
         self._guard_dash_cooldown = self.GUARD_DASH_COOLDOWN
+        # 🔊 대쉬 사운드 재생
+        try:
+            if not hasattr(ColosseumsArena, '_skill_sound_cache'):
+                ColosseumsArena._skill_sound_cache = {}
+            if 'extradash' not in ColosseumsArena._skill_sound_cache:
+                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                filepath = os.path.join(project_root, "sounds", "extradash.wav")
+                if os.path.exists(filepath):
+                    ColosseumsArena._skill_sound_cache['extradash'] = pygame.mixer.Sound(filepath)
+                else:
+                    ColosseumsArena._skill_sound_cache['extradash'] = None
+            snd = ColosseumsArena._skill_sound_cache.get('extradash')
+            if snd:
+                snd.play()
+        except Exception:
+            pass
         print(f"[Guard Dash] 호위무사 긴급 대쉬! {self.x_bottom:.0f} → {target_x:.0f} "
               f"(거리={distance:.0f}px, 소요={self._guard_dash_duration:.2f}s)")
 
