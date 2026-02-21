@@ -3955,7 +3955,7 @@ class AnimatedBackgroundStage30:
                     self._torch_glow_cache[glow_key] = gs
                 screen.blit(self._torch_glow_cache[glow_key],
                             (tx + sway_i - glow_radius,
-                             ty - flame_h // 2 - glow_radius),
+                             ty - flame_h - glow_radius + sy(2)),
                             special_flags=pygame.BLEND_ADD)
 
             # ── 4. 외부 불꽃 (가장 바깥 - 따뜻한 앰버) ──
