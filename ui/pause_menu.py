@@ -220,6 +220,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
         display_mode = _get_dm()
         if display_mode in ('borderless', 'fullscreen'):
             display_mode = 'windowed'  # 전체화면/보더리스 제거됨 → 창모드로 폴백
+        # large_windowed는 그대로 유지
     except Exception:
         display_mode = "windowed"
 
@@ -385,16 +386,18 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
             _draw_pill(kb_rect, '키보드만', control_scheme == 'keyboard', locals().get('focus','bgm') == 'scheme')
             _draw_pill(mk_rect, '마우스+키보드', control_scheme == 'mouse_keyboard', locals().get('focus','bgm') == 'scheme')
         elif current_tab == 'display':
-            # 화면 모드 선택 (시네마모드 / 창모드)
+            # 화면 모드 선택 (시네마모드 / 창모드 / 큰창모드)
             disp_label = font_medium.render("화면 모드", True, const.WHITE)
             ctx.screen.blit(disp_label, (panel_x + margin_x, bgm_slider_y + slider_height // 2 - 10))
-            dpill_w, dpill_h = 120, 36
-            _dpill_gap = 10
+            dpill_w, dpill_h = 110, 36
+            _dpill_gap = 8
             cm_rect = pygame.Rect(bgm_slider_x, bgm_slider_y - 8, dpill_w, dpill_h)
             win_rect = pygame.Rect(bgm_slider_x + dpill_w + _dpill_gap, bgm_slider_y - 8, dpill_w, dpill_h)
+            lwin_rect = pygame.Rect(bgm_slider_x + (dpill_w + _dpill_gap) * 2, bgm_slider_y - 8, dpill_w, dpill_h)
             for _drect, _dlabel, _dsel in [
                 (cm_rect, '시네마모드', display_mode == 'cinema'),
                 (win_rect, '창모드', display_mode == 'windowed'),
+                (lwin_rect, '큰창모드', display_mode == 'large_windowed'),
             ]:
                 _dcol = (60, 90, 130) if _dsel else (45, 55, 70)
                 pygame.draw.rect(ctx.screen, _dcol, _drect, border_radius=18)
@@ -405,7 +408,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
             _desc_y = bgm_slider_y + 45
             _disp_descs = {
                 'cinema': "해상도를 낮춰 성능을 높이고 화면을 꽉 채웁니다",
-                'windowed': "필러 배경 포함 창모드로 표시합니다",
+                'windowed': "필러 배경 포함 창모드로 표시합니다 (85%)",
+                'large_windowed': "더 큰 창모드로 표시합니다 (95%)",
             }
             _desc_t = font_small.render(_disp_descs.get(display_mode, ''), True, (150, 180, 200))
             ctx.screen.blit(_desc_t, _desc_t.get_rect(centerx=ctx.width // 2, top=_desc_y))
@@ -547,7 +551,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         if locals().get('focus','bgm') in ('scheme','back'):
                             control_scheme = 'keyboard'
                     elif current_tab == 'display' and focus == 'dispmode':
-                        _dm_order = ['cinema', 'windowed']
+                        _dm_order = ['cinema', 'windowed', 'large_windowed']
                         _dm_idx = _dm_order.index(display_mode) if display_mode in _dm_order else 0
                         display_mode = _dm_order[max(0, _dm_idx - 1)]
                     elif focus == "bgm":
@@ -576,7 +580,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         if locals().get('focus','bgm') in ('scheme','back'):
                             control_scheme = 'mouse_keyboard'
                     elif current_tab == 'display' and focus == 'dispmode':
-                        _dm_order = ['cinema', 'windowed']
+                        _dm_order = ['cinema', 'windowed', 'large_windowed']
                         _dm_idx = _dm_order.index(display_mode) if display_mode in _dm_order else 0
                         display_mode = _dm_order[min(len(_dm_order) - 1, _dm_idx + 1)]
                     elif focus == "bgm":
@@ -622,7 +626,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     focus = order[(order.index(focus) + 1) % len(order)] if focus in order else order[0]
                 elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
                     if current_tab == 'display' and focus == 'dispmode':
-                        _dm_order = ['cinema', 'windowed']
+                        _dm_order = ['cinema', 'windowed', 'large_windowed']
                         _dm_idx = _dm_order.index(display_mode) if display_mode in _dm_order else 0
                         display_mode = _dm_order[(_dm_idx + 1) % len(_dm_order)]
                     elif current_tab == 'controls' and focus == 'scheme':
@@ -707,6 +711,9 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                             continue
                         if 'win_rect' in locals() and win_rect.collidepoint(mouse_pos):
                             display_mode = 'windowed'
+                            continue
+                        if 'lwin_rect' in locals() and lwin_rect.collidepoint(mouse_pos):
+                            display_mode = 'large_windowed'
                             continue
 
                     # BGM 체크박스 클릭 처리
