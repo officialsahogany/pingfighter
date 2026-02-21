@@ -1250,7 +1250,7 @@ class TentacleWrap(HeroSkill):
 
 
 class AbyssInk(HeroSkill):
-    """심해의 먹물 - 크라켄이 먹물을 발사하여 상대방에게 혼란을 준다 [고퀄리티]"""
+    """심해의 먹물 - 크라켄이 먹물을 발사하여 상대방에게 혼란을 준다 [울트라 고퀄리티]"""
     def __init__(self):
         super().__init__(
             skill_id="abyss_ink",
@@ -1279,6 +1279,8 @@ class AbyssInk(HeroSkill):
         self._proj_blobs = []
         self._trail_particles = []
         self._proj_rotation = 0.0  # 발사체 회전 각도
+        self._ribbon_trail = []  # 리본 트레일 (연속 잉크 줄기)
+        self._proj_tendrils = []  # 발사체 주위 소형 촉수
 
         # 스플래시 관련
         self.splash_center_x = 0
@@ -1290,6 +1292,8 @@ class AbyssInk(HeroSkill):
         self.splash_timer = 0
         self.splash_duration = 0.4
         self.splash_droplets = []  # 튀는 방울 (미리 생성)
+        self.splash_shockwave = 0.0  # 충격파 반경
+        self.splash_splatters = []  # 잉크 튀김 자국
         self.active_duration = 3.0
         self.active_timer = 0
 
@@ -1297,6 +1301,11 @@ class AbyssInk(HeroSkill):
         self.ink_bubbles = []       # 기포
         self.ink_tendrils = []      # 먹물 가지/촉수
         self.ink_shimmer_time = 0.0  # 표면 일렁임 타이머
+        self.ink_currents = []      # 먹물 내부 흐름
+        self.ink_mist = []          # 떠오르는 안개/연기
+        self.ink_eye_phase = 0.0    # 심해의 눈 (혼란 상징) 페이즈
+        self.ink_caustics = []      # 수면 빛 반사 패턴
+        self.ink_vortex_angle = 0.0 # 소용돌이 회전
 
         # 혼란 적용 여부
         self.confusion_applied = False
@@ -1309,8 +1318,10 @@ class AbyssInk(HeroSkill):
         self.dissolve_duration = 1.5
         self.dissolve_fragments = []
         self.dissolve_wisps = []
+        self.dissolve_vortex_particles = []  # 소용돌이 흡수 파티클
+        self.dissolve_flash_alpha = 0  # 최종 섬광
 
-        # 색상 팔레트 (심해 테마)
+        # 색상 팔레트 (심해 테마 - 확장)
         self.colors = {
             'ink_deep': (20, 8, 45),
             'ink_core': (35, 18, 70),
@@ -1322,97 +1333,185 @@ class AbyssInk(HeroSkill):
             'bubble_base': (80, 50, 130),
             'bubble_highlight': (140, 110, 200),
             'tendril': (45, 22, 80),
+            # 확장 팔레트
+            'biolum_cyan': (60, 200, 180),     # 생물발광 시안
+            'biolum_green': (40, 180, 120),    # 생물발광 그린
+            'deep_black': (10, 4, 25),         # 심해 흑색
+            'eye_iris': (180, 40, 200),        # 눈 홍채
+            'eye_pupil': (8, 2, 18),           # 눈 동공
+            'eye_glow': (200, 80, 255),        # 눈 발광
+            'vortex_edge': (110, 60, 180),     # 소용돌이 가장자리
+            'mist_purple': (60, 30, 100),      # 안개 보라
+            'caustic_light': (120, 90, 180),   # 수면 빛
+            'ribbon_trail': (55, 25, 95),      # 리본 트레일
         }
 
     def _init_projectile_particles(self):
         """발사체 구성 파티클 미리 생성 (매 프레임 랜덤 방지)"""
         self._proj_blobs = []
-        for _ in range(8):
+        for _ in range(12):  # 12개로 증가
             self._proj_blobs.append({
-                'offset_x': random.uniform(-12, 12),
-                'offset_y': random.uniform(-12, 12),
-                'size': random.uniform(8, 16),
+                'offset_x': random.uniform(-14, 14),
+                'offset_y': random.uniform(-14, 14),
+                'size': random.uniform(6, 18),
                 'phase': random.uniform(0, math.pi * 2),
-                'speed': random.uniform(1.5, 3.0),
+                'speed': random.uniform(1.5, 3.5),
+                'layer': random.choice(['deep', 'mid', 'outer']),
             })
         self._trail_particles = []
+        self._ribbon_trail = []
+        # 발사체 주위 소형 촉수 (3~4개)
+        self._proj_tendrils = []
+        for _ in range(4):
+            self._proj_tendrils.append({
+                'angle': random.uniform(0, math.pi * 2),
+                'length': random.uniform(20, 40),
+                'speed': random.uniform(2.0, 4.0),
+                'phase': random.uniform(0, math.pi * 2),
+                'width': random.uniform(2, 5),
+            })
 
     def _init_splash_droplets(self):
         """스플래시 시 튀는 방울 미리 생성"""
         self.splash_droplets = []
-        for _ in range(16):
+        for _ in range(24):  # 24개로 증가
             angle = random.uniform(0, math.pi * 2)
-            speed = random.uniform(100, 350)
+            speed = random.uniform(100, 450)
             self.splash_droplets.append({
                 'angle': angle,
                 'speed': speed,
                 'x': 0.0, 'y': 0.0,
-                'size': random.uniform(3, 9),
+                'size': random.uniform(2, 11),
                 'alpha': 255,
-                'gravity': random.uniform(50, 120),
+                'gravity': random.uniform(50, 150),
                 'vx': _cos(angle) * speed,
                 'vy': _sin(angle) * speed,
+                'trail': [],  # 각 방울의 잔상 트레일
+            })
+        # 충격파 초기화
+        self.splash_shockwave = 0.0
+        # 잉크 튀김 자국 (바닥에 남는 얼룩)
+        self.splash_splatters = []
+        for _ in range(8):
+            angle = random.uniform(0, math.pi * 2)
+            dist = random.uniform(0.3, 0.9)
+            self.splash_splatters.append({
+                'x': _cos(angle) * self.splash_max_radius * self.splash_width_scale * dist,
+                'y': _sin(angle) * self.splash_max_radius * dist,
+                'size': random.uniform(10, 30),
+                'alpha': 0,  # 점점 나타남
+                'shape_seed': random.uniform(0, math.pi * 2),
+                'target_alpha': random.randint(140, 220),
             })
 
     def _init_ink_pool(self):
         """active 단계 먹물 웅덩이 초기화"""
         self.ink_blobs = []
-        # 메인 블롭들 (큰 먹물 덩어리)
-        for _ in range(10):
+        # 메인 블롭들 (큰 먹물 덩어리) - 더 많고 다양
+        for _ in range(14):
             angle = random.uniform(0, math.pi * 2)
             dist = random.uniform(0, 0.75)
             self.ink_blobs.append({
                 'x': self.splash_center_x + _cos(angle) * self.splash_max_radius * self.splash_width_scale * dist,
                 'y': self.splash_center_y + _sin(angle) * self.splash_max_radius * dist,
-                'size': random.uniform(35, 85),
+                'size': random.uniform(35, 90),
                 'alpha': 220,
                 'wobble': random.uniform(0, math.pi * 2),
                 'wobble_speed': random.uniform(1.2, 2.5),
-                'shape_seed': random.uniform(0, math.pi * 2),  # 형태 시드
+                'shape_seed': random.uniform(0, math.pi * 2),
                 'pulse_phase': random.uniform(0, math.pi * 2),
+                'depth': random.choice(['deep', 'mid', 'surface']),
             })
         # 작은 입자들
-        for _ in range(12):
+        for _ in range(16):
             angle = random.uniform(0, math.pi * 2)
             dist = random.uniform(0.3, 1.0)
             self.ink_blobs.append({
                 'x': self.splash_center_x + _cos(angle) * self.splash_max_radius * self.splash_width_scale * dist,
                 'y': self.splash_center_y + _sin(angle) * self.splash_max_radius * dist,
-                'size': random.uniform(8, 22),
+                'size': random.uniform(8, 25),
                 'alpha': 180,
                 'wobble': random.uniform(0, math.pi * 2),
                 'wobble_speed': random.uniform(2.0, 4.0),
                 'shape_seed': random.uniform(0, math.pi * 2),
                 'pulse_phase': random.uniform(0, math.pi * 2),
+                'depth': 'surface',
             })
 
-        # 기포
+        # 기포 - 더 많고 상세
         self.ink_bubbles = []
-        for _ in range(8):
+        for _ in range(14):
             angle = random.uniform(0, math.pi * 2)
-            dist = random.uniform(0, 0.6)
+            dist = random.uniform(0, 0.7)
             self.ink_bubbles.append({
                 'x': self.splash_center_x + _cos(angle) * self.splash_max_radius * self.splash_width_scale * dist,
                 'y': self.splash_center_y + _sin(angle) * self.splash_max_radius * dist,
-                'size': random.uniform(3, 7),
-                'life': random.uniform(0.5, 1.5),
-                'max_life': random.uniform(0.5, 1.5),
-                'rise_speed': random.uniform(15, 35),
-                'drift_x': random.uniform(-10, 10),
+                'size': random.uniform(2, 8),
+                'life': random.uniform(0.5, 2.0),
+                'max_life': random.uniform(0.5, 2.0),
+                'rise_speed': random.uniform(12, 40),
+                'drift_x': random.uniform(-12, 12),
+                'wobble_phase': random.uniform(0, math.pi * 2),
             })
 
-        # 먹물 촉수/가지 (가장자리에서 뻗어나감)
+        # 먹물 촉수/가지 (가장자리에서 뻗어나감) - 더 상세
         self.ink_tendrils = []
-        for _ in range(6):
+        for _ in range(8):
             angle = random.uniform(0, math.pi * 2)
             self.ink_tendrils.append({
                 'angle': angle,
-                'length': random.uniform(0.7, 1.1),
-                'width': random.uniform(6, 14),
+                'length': random.uniform(0.7, 1.2),
+                'width': random.uniform(5, 16),
                 'wobble': random.uniform(0, math.pi * 2),
-                'wobble_speed': random.uniform(1.0, 2.0),
-                'segments': random.randint(4, 7),
+                'wobble_speed': random.uniform(1.0, 2.5),
+                'segments': random.randint(5, 9),
+                'tip_glow': random.uniform(0, math.pi * 2),
+                'branch_count': random.randint(0, 2),
             })
+
+        # 내부 흐름 (소용돌이 스트림)
+        self.ink_currents = []
+        for _ in range(6):
+            self.ink_currents.append({
+                'start_angle': random.uniform(0, math.pi * 2),
+                'arc_length': random.uniform(0.8, 2.5),
+                'radius': random.uniform(0.2, 0.7),
+                'width': random.uniform(2, 5),
+                'speed': random.uniform(0.5, 1.5),
+                'phase': random.uniform(0, math.pi * 2),
+                'alpha': random.randint(40, 90),
+            })
+
+        # 수면 안개
+        self.ink_mist = []
+        for _ in range(10):
+            angle = random.uniform(0, math.pi * 2)
+            dist = random.uniform(0.2, 0.8)
+            self.ink_mist.append({
+                'x': self.splash_center_x + _cos(angle) * self.splash_max_radius * self.splash_width_scale * dist,
+                'y': self.splash_center_y + _sin(angle) * self.splash_max_radius * dist,
+                'size': random.uniform(20, 50),
+                'alpha': random.uniform(20, 50),
+                'drift_x': random.uniform(-8, 8),
+                'drift_y': random.uniform(-15, -5),
+                'expand': random.uniform(3, 8),
+                'life': random.uniform(1.0, 2.5),
+                'max_life': random.uniform(1.0, 2.5),
+            })
+
+        # 수면 코스틱 (빛 반사 무늬)
+        self.ink_caustics = []
+        for _ in range(5):
+            self.ink_caustics.append({
+                'angle': random.uniform(0, math.pi * 2),
+                'dist': random.uniform(0.1, 0.5),
+                'size': random.uniform(15, 40),
+                'speed': random.uniform(0.3, 0.8),
+                'phase': random.uniform(0, math.pi * 2),
+            })
+
+        self.ink_eye_phase = 0.0
+        self.ink_vortex_angle = 0.0
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.target_is_top = target_paddle.is_top
@@ -1426,14 +1525,23 @@ class AbyssInk(HeroSkill):
         self.ink_blobs = []
         self.ink_bubbles = []
         self.ink_tendrils = []
+        self.ink_currents = []
+        self.ink_mist = []
+        self.ink_caustics = []
         self.ink_shimmer_time = 0.0
+        self.ink_eye_phase = 0.0
+        self.ink_vortex_angle = 0.0
         self.splash_radius = 0
         self.splash_timer = 0
         self.splash_droplets = []
+        self.splash_splatters = []
+        self.splash_shockwave = 0.0
         self.dissolving = False
         self.dissolve_timer = 0.0
         self.dissolve_fragments = []
         self.dissolve_wisps = []
+        self.dissolve_vortex_particles = []
+        self.dissolve_flash_alpha = 0
 
         self._init_projectile_particles()
 
@@ -1453,30 +1561,49 @@ class AbyssInk(HeroSkill):
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         if self.phase == 'travel':
             self.projectile_progress += dt * self.projectile_speed
-            self._proj_rotation += dt * 180  # 회전
+            self._proj_rotation += dt * 220  # 더 빠른 회전
 
             # 발사체 파티클 유기적 움직임
             for pb in self._proj_blobs:
                 pb['phase'] += dt * pb['speed']
 
-            # 트레일 파티클 생성
-            if self.projectile_progress > 0.05:
+            # 발사체 촉수 업데이트
+            for pt in self._proj_tendrils:
+                pt['phase'] += dt * pt['speed']
+
+            # 트레일 파티클 생성 (더 풍부)
+            if self.projectile_progress > 0.03:
                 cur_x = self.projectile_x + (self.projectile_target_x - self.projectile_x) * self.projectile_progress
                 cur_y = self.projectile_y + (self.projectile_target_y - self.projectile_y) * self.projectile_progress
-                self._trail_particles.append({
-                    'x': cur_x + random.uniform(-8, 8),
-                    'y': cur_y + random.uniform(-8, 8),
-                    'size': random.uniform(4, 10),
+                # 기본 트레일
+                for _ in range(2):
+                    self._trail_particles.append({
+                        'x': cur_x + random.uniform(-10, 10),
+                        'y': cur_y + random.uniform(-10, 10),
+                        'size': random.uniform(3, 12),
+                        'alpha': random.uniform(150, 230),
+                        'life': random.uniform(0.3, 0.6),
+                        'layer': random.choice(['deep', 'glow']),
+                    })
+                # 리본 트레일 (포인트 추가)
+                self._ribbon_trail.append({
+                    'x': cur_x, 'y': cur_y,
                     'alpha': 200,
-                    'life': 0.4,
+                    'width': random.uniform(6, 14),
                 })
 
             # 트레일 업데이트
             for tp in self._trail_particles:
                 tp['life'] -= dt
-                tp['alpha'] = max(0, tp['alpha'] - dt * 500)
-                tp['size'] = max(0, tp['size'] - dt * 12)
+                tp['alpha'] = max(0, tp['alpha'] - dt * 400)
+                tp['size'] = max(0, tp['size'] - dt * 10)
             self._trail_particles = [tp for tp in self._trail_particles if tp['life'] > 0]
+
+            # 리본 트레일 페이드
+            for rp in self._ribbon_trail:
+                rp['alpha'] = max(0, rp['alpha'] - dt * 250)
+                rp['width'] = max(0, rp['width'] - dt * 8)
+            self._ribbon_trail = [rp for rp in self._ribbon_trail if rp['alpha'] > 3]
 
             if self.projectile_progress >= 1.0:
                 self.phase = 'splash'
@@ -1486,6 +1613,8 @@ class AbyssInk(HeroSkill):
                 self.splash_timer = 0
                 self._init_splash_droplets()
                 self._trail_particles = []
+                self._ribbon_trail = []
+                self._proj_tendrils = []
                 # 먹물 펼침 사운드 재생
                 try:
                     import os
@@ -1501,14 +1630,30 @@ class AbyssInk(HeroSkill):
             self.splash_radius = min(self.splash_max_radius,
                                      20 + self.splash_expand_speed * self.splash_timer)
 
-            # 튀는 방울 물리 업데이트
+            # 충격파 팽창
+            self.splash_shockwave += dt * 600
+            if self.splash_shockwave > self.splash_max_radius * 2.5:
+                self.splash_shockwave = self.splash_max_radius * 2.5
+
+            # 튀는 방울 물리 업데이트 (잔상 트레일 포함)
             for drop in self.splash_droplets:
-                drop['vx'] *= 0.97  # 공기저항
-                drop['vy'] += drop['gravity'] * dt  # 중력
+                drop['vx'] *= 0.97
+                drop['vy'] += drop['gravity'] * dt
                 drop['x'] += drop['vx'] * dt
                 drop['y'] += drop['vy'] * dt
-                drop['alpha'] = max(0, drop['alpha'] - dt * 300)
-                drop['size'] = max(0, drop['size'] - dt * 3)
+                drop['alpha'] = max(0, drop['alpha'] - dt * 250)
+                drop['size'] = max(0, drop['size'] - dt * 2.5)
+                # 방울 잔상
+                if drop['alpha'] > 30 and drop['size'] > 1:
+                    drop['trail'].append({'x': drop['x'], 'y': drop['y'],
+                                          'alpha': drop['alpha'] * 0.4, 'size': drop['size'] * 0.6})
+                    if len(drop['trail']) > 5:
+                        drop['trail'].pop(0)
+
+            # 잉크 튀김 자국 페이드 인
+            for sp in self.splash_splatters:
+                if sp['alpha'] < sp['target_alpha']:
+                    sp['alpha'] = min(sp['target_alpha'], sp['alpha'] + dt * 500)
 
             if self.splash_timer >= self.splash_duration:
                 self.phase = 'active'
@@ -1516,32 +1661,59 @@ class AbyssInk(HeroSkill):
 
         elif self.phase == 'active':
             self.ink_shimmer_time += dt
+            self.ink_eye_phase += dt * 1.2
+            self.ink_vortex_angle += dt * 30  # 소용돌이 회전
 
             # 먹물 블롭 애니메이션
             for blob in self.ink_blobs:
                 blob['wobble'] += dt * blob['wobble_speed']
                 blob['pulse_phase'] += dt * 1.5
-                # 천천히 팽창
-                blob['size'] += dt * 1.5
+                blob['size'] += dt * 1.2
 
             # 기포 업데이트
             for bubble in self.ink_bubbles:
                 bubble['y'] -= bubble['rise_speed'] * dt
-                bubble['x'] += bubble['drift_x'] * dt
+                bubble['x'] += bubble['drift_x'] * dt + _sin(bubble.get('wobble_phase', 0)) * dt * 5
+                bubble['wobble_phase'] = bubble.get('wobble_phase', 0) + dt * 3
                 bubble['life'] -= dt
                 if bubble['life'] <= 0:
-                    # 기포 재생성
                     angle = random.uniform(0, math.pi * 2)
                     dist = random.uniform(0, 0.6)
                     bubble['x'] = self.splash_center_x + _cos(angle) * self.splash_max_radius * self.splash_width_scale * dist
                     bubble['y'] = self.splash_center_y + _sin(angle) * self.splash_max_radius * dist
-                    bubble['size'] = random.uniform(3, 7)
+                    bubble['size'] = random.uniform(2, 8)
                     bubble['life'] = bubble['max_life']
-                    bubble['drift_x'] = random.uniform(-10, 10)
+                    bubble['drift_x'] = random.uniform(-12, 12)
 
             # 촉수 웨이브
             for tendril in self.ink_tendrils:
                 tendril['wobble'] += dt * tendril['wobble_speed']
+                tendril['tip_glow'] = tendril.get('tip_glow', 0) + dt * 2.5
+
+            # 내부 흐름 업데이트
+            for current in self.ink_currents:
+                current['phase'] += dt * current['speed']
+
+            # 안개 업데이트
+            for mist in self.ink_mist:
+                mist['x'] += mist['drift_x'] * dt
+                mist['y'] += mist['drift_y'] * dt
+                mist['size'] += mist['expand'] * dt
+                mist['life'] -= dt
+                if mist['life'] <= 0:
+                    angle = random.uniform(0, math.pi * 2)
+                    dist = random.uniform(0.2, 0.8)
+                    mist['x'] = self.splash_center_x + _cos(angle) * self.splash_max_radius * self.splash_width_scale * dist
+                    mist['y'] = self.splash_center_y + _sin(angle) * self.splash_max_radius * dist
+                    mist['size'] = random.uniform(20, 50)
+                    mist['alpha'] = random.uniform(20, 50)
+                    mist['life'] = mist['max_life']
+                    mist['drift_x'] = random.uniform(-8, 8)
+                    mist['drift_y'] = random.uniform(-15, -5)
+
+            # 코스틱 업데이트
+            for caustic in self.ink_caustics:
+                caustic['phase'] += dt * caustic['speed']
 
             # 혼란 판정
             target_center_x = target_paddle.x + 40
@@ -1577,6 +1749,7 @@ class AbyssInk(HeroSkill):
         # 분해 애니메이션 시작 (즉시 제거하지 않음)
         self.dissolving = True
         self.dissolve_timer = 0.0
+        self.dissolve_flash_alpha = 180  # 초기 섬광
         self._init_dissolve()
 
         # 게임 로직 상태만 초기화
@@ -1585,46 +1758,60 @@ class AbyssInk(HeroSkill):
         self.splash_radius = 0
 
     def _init_dissolve(self):
-        """분해 파편 및 연기 초기화"""
+        """분해 파편 및 연기 초기화 - 울트라 고퀄리티"""
         self.dissolve_fragments = []
-        # 먹물 블롭들을 분해 파편으로 변환
+        # 먹물 블롭들을 분해 파편으로 변환 (더 많은 파편)
         for blob in self.ink_blobs:
             if blob['alpha'] > 5:
-                # 각 블롭을 2~4개 파편으로 분할
-                num_frags = random.randint(2, 4)
+                num_frags = random.randint(3, 6)
                 for _ in range(num_frags):
                     angle = random.uniform(0, math.pi * 2)
-                    speed = random.uniform(15, 60)
+                    speed = random.uniform(20, 80)
                     self.dissolve_fragments.append({
                         'x': blob['x'] + random.uniform(-10, 10),
                         'y': blob['y'] + random.uniform(-10, 10),
                         'vx': _cos(angle) * speed,
-                        'vy': _sin(angle) * speed - random.uniform(10, 30),
+                        'vy': _sin(angle) * speed - random.uniform(10, 40),
                         'size': blob['size'] / num_frags * random.uniform(0.5, 1.2),
                         'alpha': min(255, blob['alpha']),
                         'rotation': random.uniform(0, 360),
-                        'rot_speed': random.uniform(-120, 120),
+                        'rot_speed': random.uniform(-180, 180),
                         'shape_seed': random.uniform(0, math.pi * 2),
                         'shrink_rate': random.uniform(0.4, 0.8),
+                        'glow': random.random() < 0.3,  # 30% 확률로 발광 파편
                     })
 
-        # 증발 연기 생성
+        # 증발 연기 생성 (더 풍부)
         self.dissolve_wisps = []
-        num_wisps = 12
-        for _ in range(num_wisps):
+        for _ in range(18):
             angle = random.uniform(0, math.pi * 2)
-            dist = random.uniform(0, 0.7)
+            dist = random.uniform(0, 0.8)
             wx = self.splash_center_x + _cos(angle) * self.splash_max_radius * self.splash_width_scale * dist
             wy = self.splash_center_y + _sin(angle) * self.splash_max_radius * dist
             self.dissolve_wisps.append({
                 'x': wx,
                 'y': wy,
-                'size': random.uniform(15, 40),
-                'alpha': random.uniform(120, 200),
-                'rise_speed': random.uniform(30, 80),
-                'drift_x': random.uniform(-20, 20),
-                'expand_rate': random.uniform(8, 20),
-                'delay': random.uniform(0, 0.4),  # 시차를 두고 증발
+                'size': random.uniform(15, 50),
+                'alpha': random.uniform(120, 220),
+                'rise_speed': random.uniform(25, 90),
+                'drift_x': random.uniform(-25, 25),
+                'expand_rate': random.uniform(8, 25),
+                'delay': random.uniform(0, 0.5),
+                'color_shift': random.uniform(0, 1),  # 색상 변이 (보라~시안)
+            })
+
+        # 소용돌이 흡수 파티클 (중심으로 빨려드는 효과)
+        self.dissolve_vortex_particles = []
+        for _ in range(20):
+            angle = random.uniform(0, math.pi * 2)
+            dist = random.uniform(0.4, 1.0)
+            self.dissolve_vortex_particles.append({
+                'angle': angle,
+                'dist': dist * self.splash_max_radius * self.splash_width_scale,
+                'speed': random.uniform(60, 150),
+                'size': random.uniform(3, 10),
+                'alpha': random.uniform(100, 200),
+                'spin_speed': random.uniform(100, 250),
             })
 
         # 기포도 파편으로 변환
@@ -1638,11 +1825,15 @@ class AbyssInk(HeroSkill):
                 'rotation': 0, 'rot_speed': 0,
                 'shape_seed': 0,
                 'shrink_rate': random.uniform(0.6, 1.0),
+                'glow': True,
             })
 
         self.ink_blobs = []
         self.ink_bubbles = []
         self.ink_tendrils = []
+        self.ink_currents = []
+        self.ink_mist = []
+        self.ink_caustics = []
 
     def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         """오버라이드: 분해 애니메이션을 is_active=False 이후에도 업데이트"""
@@ -1664,17 +1855,27 @@ class AbyssInk(HeroSkill):
         if self.dissolving:
             self.dissolve_timer += dt
 
+            # 섬광 페이드아웃
+            self.dissolve_flash_alpha = max(0, self.dissolve_flash_alpha - dt * 300)
+
             # 파편 업데이트
+            progress = min(1.0, self.dissolve_timer / self.dissolve_duration)
             for frag in self.dissolve_fragments:
-                frag['vx'] *= 0.96  # 감속
-                frag['vy'] *= 0.96
-                frag['vy'] -= 8 * dt  # 미세한 상승
+                frag['vx'] *= 0.95
+                frag['vy'] *= 0.95
+                frag['vy'] -= 12 * dt  # 더 강한 상승
                 frag['x'] += frag['vx'] * dt
                 frag['y'] += frag['vy'] * dt
                 frag['rotation'] += frag['rot_speed'] * dt
-                progress = min(1.0, self.dissolve_timer / self.dissolve_duration)
-                frag['alpha'] = max(0, frag['alpha'] * (1 - progress * 1.2))
+                frag['alpha'] = max(0, frag['alpha'] * (1 - progress * 1.3))
                 frag['size'] = max(0, frag['size'] - frag['shrink_rate'] * dt * frag['size'])
+
+            # 소용돌이 파티클 (중심으로 수렴)
+            for vp in self.dissolve_vortex_particles:
+                vp['angle'] += vp['spin_speed'] * dt * (1 + progress * 2)
+                vp['dist'] = max(0, vp['dist'] - vp['speed'] * dt * (0.5 + progress))
+                vp['alpha'] = max(0, vp['alpha'] * (1 - progress * 0.8))
+                vp['size'] = max(0, vp['size'] * (1 - dt * 0.5))
 
             # 연기 업데이트
             for wisp in self.dissolve_wisps:
@@ -1684,7 +1885,6 @@ class AbyssInk(HeroSkill):
                     wisp['x'] += wisp['drift_x'] * dt
                     wisp['size'] += wisp['expand_rate'] * dt
                     fade_progress = min(1.0, active_time / (self.dissolve_duration - wisp['delay']))
-                    # ease-in 페이드: 처음엔 천천히, 나중에 빠르게 사라짐
                     wisp['alpha'] = max(0, wisp['alpha'] * (1 - fade_progress ** 1.5))
 
             # 분해 완료
@@ -1692,6 +1892,7 @@ class AbyssInk(HeroSkill):
                 self.dissolving = False
                 self.dissolve_fragments = []
                 self.dissolve_wisps = []
+                self.dissolve_vortex_particles = []
                 self.phase = 'travel'
                 self.projectile_progress = 0.0
 
@@ -1712,211 +1913,574 @@ class AbyssInk(HeroSkill):
             self._draw_active(screen)
 
     def _draw_travel(self, screen):
-        """1단계: 고퀄리티 발사체"""
+        """1단계: 울트라 고퀄리티 발사체 - 소용돌이 먹물 탄환"""
         progress = min(1.0, self.projectile_progress)
         current_x = self.projectile_x + (self.projectile_target_x - self.projectile_x) * progress
         current_y = self.projectile_y + (self.projectile_target_y - self.projectile_y) * progress
 
-        # 트레일 파티클
+        # --- 리본 트레일 (연속 잉크 줄기) ---
+        if len(self._ribbon_trail) >= 2:
+            for i in range(1, len(self._ribbon_trail)):
+                rp = self._ribbon_trail[i]
+                pp = self._ribbon_trail[i - 1]
+                a = int(max(0, min(255, rp['alpha'])))
+                w = max(1, int(rp['width']))
+                if a > 3 and w > 0:
+                    # 그라데이션 리본 - 외곽 글로우 + 코어
+                    surf_w = abs(int(rp['x'] - pp['x'])) + w * 2 + 10
+                    surf_h = abs(int(rp['y'] - pp['y'])) + w * 2 + 10
+                    if surf_w > 1 and surf_h > 1:
+                        rs = _psurf((surf_w, surf_h), pygame.SRCALPHA)
+                        ox = w + 5 - min(0, int(rp['x'] - pp['x']))
+                        oy = w + 5 - min(0, int(rp['y'] - pp['y']))
+                        p1 = (ox + max(0, int(pp['x'] - min(pp['x'], rp['x']))),
+                              oy + max(0, int(pp['y'] - min(pp['y'], rp['y']))))
+                        p2 = (ox + max(0, int(rp['x'] - min(pp['x'], rp['x']))),
+                              oy + max(0, int(rp['y'] - min(pp['y'], rp['y']))))
+                        # 외곽 글로우
+                        pygame.draw.line(rs, (*self.colors['ink_outer'], int(a * 0.3)),
+                                        p1, p2, w + 4)
+                        # 코어
+                        pygame.draw.line(rs, (*self.colors['ribbon_trail'], a),
+                                        p1, p2, max(1, w))
+                        # 내부 빛
+                        pygame.draw.line(rs, (*self.colors['ink_glow'], int(a * 0.4)),
+                                        p1, p2, max(1, w // 2))
+                        screen.blit(rs, (int(min(pp['x'], rp['x'])) - w - 5,
+                                        int(min(pp['y'], rp['y'])) - w - 5))
+
+        # --- 트레일 파티클 ---
         for tp in self._trail_particles:
             if tp['alpha'] > 5 and tp['size'] > 0.5:
                 s = int(tp['size'])
-                ts = _psurf((s * 2 + 2, s * 2 + 2), pygame.SRCALPHA)
+                ts = _psurf((s * 2 + 6, s * 2 + 6), pygame.SRCALPHA)
                 a = int(max(0, min(255, tp['alpha'])))
-                pygame.draw.circle(ts, (*self.colors['ink_mid'], a), (s + 1, s + 1), s)
-                screen.blit(ts, (int(tp['x']) - s - 1, int(tp['y']) - s - 1))
+                if tp.get('layer') == 'glow':
+                    pygame.draw.circle(ts, (*self.colors['biolum_cyan'], int(a * 0.4)),
+                                      (s + 3, s + 3), s + 2)
+                    pygame.draw.circle(ts, (*self.colors['ink_glow'], a), (s + 3, s + 3), s)
+                else:
+                    pygame.draw.circle(ts, (*self.colors['ink_mid'], int(a * 0.5)),
+                                      (s + 3, s + 3), s + 1)
+                    pygame.draw.circle(ts, (*self.colors['ink_core'], a), (s + 3, s + 3), s)
+                screen.blit(ts, (int(tp['x']) - s - 3, int(tp['y']) - s - 3))
 
-        # 외곽 글로우 (큰 반투명 원)
-        glow_size = 48
+        # --- 외곽 글로우 (다층 대기 효과) ---
+        glow_size = 56
         glow_surf = _psurf((glow_size * 2, glow_size * 2), pygame.SRCALPHA)
-        pygame.draw.circle(glow_surf, (*self.colors['ink_outer'], 60), (glow_size, glow_size), glow_size)
-        pygame.draw.circle(glow_surf, (*self.colors['ink_glow'], 40), (glow_size, glow_size), glow_size - 8)
+        # 최외곽 대기 글로우
+        pygame.draw.circle(glow_surf, (*self.colors['ink_outer'], 30),
+                          (glow_size, glow_size), glow_size)
+        # 중간 글로우
+        pygame.draw.circle(glow_surf, (*self.colors['ink_mid'], 50),
+                          (glow_size, glow_size), glow_size - 10)
+        # 내부 글로우
+        pygame.draw.circle(glow_surf, (*self.colors['ink_glow'], 40),
+                          (glow_size, glow_size), glow_size - 20)
+        # 생물발광 힌트
+        biolum_pulse = int(20 + 10 * _sin(self._proj_rotation * 0.08))
+        pygame.draw.circle(glow_surf, (*self.colors['biolum_cyan'], biolum_pulse),
+                          (glow_size, glow_size), glow_size - 15)
         screen.blit(glow_surf, (int(current_x) - glow_size, int(current_y) - glow_size))
 
-        # 메인 발사체 서피스
-        proj_size = 44
+        # --- 발사체 주위 소형 촉수 ---
+        for pt in self._proj_tendrils:
+            t_angle = pt['angle'] + _sin(pt['phase']) * 0.6
+            rot_rad = math.radians(self._proj_rotation)
+            t_angle += rot_rad * 0.3
+            t_len = pt['length'] + _sin(pt['phase'] * 1.5) * 8
+            segments = 5
+            prev_tx = current_x
+            prev_ty = current_y
+            for seg in range(segments):
+                t = (seg + 1) / segments
+                seg_a = t_angle + _sin(pt['phase'] + seg * 0.5) * 0.4
+                sx = current_x + _cos(seg_a) * t_len * t
+                sy = current_y + _sin(seg_a) * t_len * t
+                w = max(1, int(pt['width'] * (1 - t * 0.7)))
+                a = int(160 * (1 - t * 0.5))
+                pygame.draw.line(screen, (*self.colors['tendril'], a),
+                                (int(prev_tx), int(prev_ty)), (int(sx), int(sy)), w)
+                prev_tx, prev_ty = sx, sy
+            # 촉수 끝 발광
+            tip_a = int(60 + 30 * _sin(pt['phase'] * 2))
+            tip_surf = _psurf((10, 10), pygame.SRCALPHA)
+            pygame.draw.circle(tip_surf, (*self.colors['biolum_cyan'], tip_a), (5, 5), 4)
+            screen.blit(tip_surf, (int(prev_tx) - 5, int(prev_ty) - 5))
+
+        # --- 메인 발사체 서피스 ---
+        proj_size = 50
         proj_surf = _psurf((proj_size * 2, proj_size * 2), pygame.SRCALPHA)
         cx, cy = proj_size, proj_size
 
         # 안정적인 먹물 덩어리 (미리 생성된 파티클 사용)
+        rot_rad = math.radians(self._proj_rotation)
         for pb in self._proj_blobs:
-            ox = pb['offset_x'] + _sin(pb['phase']) * 3
-            oy = pb['offset_y'] + _cos(pb['phase'] * 0.7) * 3
-            s = int(pb['size'] + _sin(pb['phase'] * 1.3) * 2)
-            # 회전 적용
-            rot_rad = math.radians(self._proj_rotation)
+            ox = pb['offset_x'] + _sin(pb['phase']) * 4
+            oy = pb['offset_y'] + _cos(pb['phase'] * 0.7) * 4
+            s = int(pb['size'] + _sin(pb['phase'] * 1.3) * 2.5)
             rx = ox * _cos(rot_rad) - oy * _sin(rot_rad)
             ry = ox * _sin(rot_rad) + oy * _cos(rot_rad)
-            pygame.draw.circle(proj_surf, (*self.colors['ink_core'], 220),
+            layer = pb.get('layer', 'mid')
+            if layer == 'deep':
+                color = self.colors['ink_deep']
+                alpha = 240
+            elif layer == 'outer':
+                color = self.colors['ink_outer']
+                alpha = 180
+            else:
+                color = self.colors['ink_core']
+                alpha = 210
+            # 블롭 외곽 글로우
+            if s > 3:
+                pygame.draw.circle(proj_surf, (*self.colors['ink_mid'], int(alpha * 0.3)),
+                                  (int(cx + rx), int(cy + ry)), s + 2)
+            pygame.draw.circle(proj_surf, (*color, alpha),
                              (int(cx + rx), int(cy + ry)), s)
 
-        # 코어 (발광 중심)
-        core_pulse = 10 + _sin(self._proj_rotation * 0.05) * 3
-        pygame.draw.circle(proj_surf, (*self.colors['ink_deep'], 255), (cx, cy), int(core_pulse))
-        pygame.draw.circle(proj_surf, (*self.colors['ink_glow'], 120), (cx, cy), int(core_pulse + 4))
+        # 소용돌이 패턴 (코어 주위 회전 선)
+        for i in range(3):
+            swirl_angle = rot_rad * 2 + i * (math.pi * 2 / 3)
+            for seg in range(8):
+                t = seg / 8
+                r = 5 + t * 12
+                a_off = swirl_angle + t * 1.5
+                sx = cx + int(_cos(a_off) * r)
+                sy = cy + int(_sin(a_off) * r)
+                sw = max(1, int(3 * (1 - t)))
+                sa = int(120 * (1 - t * 0.7))
+                pygame.draw.circle(proj_surf, (*self.colors['ink_glow'], sa), (sx, sy), sw)
+
+        # 코어 (다층 발광 중심)
+        core_pulse = 11 + _sin(self._proj_rotation * 0.05) * 3
+        pygame.draw.circle(proj_surf, (*self.colors['deep_black'], 255), (cx, cy), int(core_pulse))
+        pygame.draw.circle(proj_surf, (*self.colors['ink_deep'], 240), (cx, cy), int(core_pulse + 2))
+        pygame.draw.circle(proj_surf, (*self.colors['ink_glow'], 100), (cx, cy), int(core_pulse + 6))
+        # 생물발광 펄스
+        biolum_r = int(core_pulse + 3 + _sin(self._proj_rotation * 0.1) * 2)
+        biolum_a = int(50 + 30 * _sin(self._proj_rotation * 0.08))
+        pygame.draw.circle(proj_surf, (*self.colors['biolum_cyan'], biolum_a), (cx, cy), biolum_r)
 
         screen.blit(proj_surf, (int(current_x) - proj_size, int(current_y) - proj_size))
 
-        # 꼬리 잔상 (안정적)
-        for i in range(6):
-            tail_p = max(0, progress - i * 0.06)
+        # --- 꼬리 잔상 (그라데이션 체인) ---
+        for i in range(8):
+            tail_p = max(0, progress - i * 0.05)
             if tail_p > 0:
                 tx = self.projectile_x + (self.projectile_target_x - self.projectile_x) * tail_p
                 ty = self.projectile_y + (self.projectile_target_y - self.projectile_y) * tail_p
-                a = int(150 - i * 25)
-                s = int(14 - i * 2)
+                a = int(140 - i * 17)
+                s = int(16 - i * 1.8)
                 if s > 0 and a > 0:
-                    ts = _psurf((s * 2 + 2, s * 2 + 2), pygame.SRCALPHA)
-                    pygame.draw.circle(ts, (*self.colors['ink_core'], a), (s + 1, s + 1), s)
-                    screen.blit(ts, (int(tx) - s - 1, int(ty) - s - 1))
+                    ts = _psurf((s * 2 + 6, s * 2 + 6), pygame.SRCALPHA)
+                    # 외곽
+                    pygame.draw.circle(ts, (*self.colors['ink_outer'], int(a * 0.3)),
+                                      (s + 3, s + 3), s + 2)
+                    # 코어
+                    pygame.draw.circle(ts, (*self.colors['ink_core'], a), (s + 3, s + 3), s)
+                    screen.blit(ts, (int(tx) - s - 3, int(ty) - s - 3))
 
     def _draw_splash(self, screen):
-        """2단계: 고퀄리티 스플래시"""
+        """2단계: 울트라 고퀄리티 스플래시 - 충격파 + 잉크 폭발"""
         wr = int(self.splash_radius * self.splash_width_scale)
         hr = int(self.splash_radius)
         if wr < 5 or hr < 5:
             return
 
-        surf_w = wr * 2 + 60
-        surf_h = hr * 2 + 60
+        # --- 충격파 링 (가장 먼저 그림) ---
+        if self.splash_shockwave > 10:
+            sw_r = int(self.splash_shockwave)
+            sw_wr = int(sw_r * self.splash_width_scale)
+            sw_alpha = max(0, int(120 * (1 - self.splash_shockwave / (self.splash_max_radius * 2.5))))
+            if sw_alpha > 3:
+                sw_surf = _psurf((sw_wr * 2 + 20, sw_r * 2 + 20), pygame.SRCALPHA)
+                sw_cx, sw_cy = sw_wr + 10, sw_r + 10
+                # 외곽 링
+                pygame.draw.ellipse(sw_surf, (*self.colors['ink_glow'], sw_alpha),
+                                   (10, 10, sw_wr * 2, sw_r * 2), 3)
+                # 내부 더 밝은 링
+                inner_r = max(1, sw_r - 8)
+                inner_wr = max(1, sw_wr - 8)
+                inner_a = min(255, int(sw_alpha * 0.6))
+                if inner_a > 3:
+                    pygame.draw.ellipse(sw_surf, (*self.colors['biolum_cyan'], inner_a),
+                                       (10 + sw_wr - inner_wr, 10 + sw_r - inner_r,
+                                        inner_wr * 2, inner_r * 2), 2)
+                screen.blit(sw_surf, (int(self.splash_center_x - sw_cx),
+                                     int(self.splash_center_y - sw_cy)))
+
+        # --- 잉크 튀김 자국 (바닥 얼룩) ---
+        for sp in self.splash_splatters:
+            if sp['alpha'] > 3:
+                s = max(2, int(sp['size']))
+                sa = int(max(0, min(255, sp['alpha'])))
+                ss = _psurf((s * 2 + 4, s * 2 + 4), pygame.SRCALPHA)
+                sc = s + 2
+                points = []
+                for angle_i in range(0, 360, 40):
+                    rad = math.radians(angle_i)
+                    r = s * (0.6 + 0.4 * _sin(rad * 3 + sp['shape_seed']))
+                    points.append((int(sc + _cos(rad) * r), int(sc + _sin(rad) * r)))
+                if len(points) >= 3:
+                    pygame.draw.polygon(ss, (*self.colors['ink_deep'], sa), points)
+                screen.blit(ss, (int(self.splash_center_x + sp['x'] - sc),
+                                int(self.splash_center_y + sp['y'] - sc)))
+
+        # --- 메인 스플래시 ---
+        surf_w = wr * 2 + 80
+        surf_h = hr * 2 + 80
         splash_surf = _psurf((surf_w, surf_h), pygame.SRCALPHA)
         scx, scy = surf_w // 2, surf_h // 2
 
-        # 불규칙한 스플래시 (복수 레이어)
+        # 불규칙한 스플래시 (5레이어 → 더 풍부한 깊이감)
         for layer_i, (color, scale, alpha) in enumerate([
-            (self.colors['ink_outer'], 1.05, 80),
-            (self.colors['ink_mid'], 0.92, 160),
-            (self.colors['ink_core'], 0.78, 210),
+            (self.colors['ink_outer'], 1.1, 50),
+            (self.colors['ink_mid'], 1.0, 90),
+            (self.colors['ink_core'], 0.88, 170),
+            (self.colors['ink_deep'], 0.72, 220),
+            (self.colors['deep_black'], 0.55, 240),
         ]):
             points = []
-            for angle in range(0, 360, 12):
+            for angle in range(0, 360, 10):
                 rad = math.radians(angle)
-                wobble = 0.82 + 0.18 * _sin(rad * 5 + self.splash_timer * 12 + layer_i * 0.5)
+                wobble = 0.78 + 0.22 * _sin(rad * 5 + self.splash_timer * 14 + layer_i * 0.7)
                 px = scx + int(_cos(rad) * wr * scale * wobble)
                 py = scy + int(_sin(rad) * hr * scale * wobble)
                 points.append((px, py))
             if len(points) >= 3:
                 pygame.draw.polygon(splash_surf, (*color, alpha), points)
 
-        # 테두리 (발광)
-        border_points = []
-        for angle in range(0, 360, 10):
-            rad = math.radians(angle)
-            wobble = 0.85 + 0.15 * _sin(rad * 5 + self.splash_timer * 12)
-            px = scx + int(_cos(rad) * wr * wobble)
-            py = scy + int(_sin(rad) * hr * wobble)
-            border_points.append((px, py))
-        if len(border_points) >= 3:
-            pygame.draw.polygon(splash_surf, (*self.colors['ink_glow'], 180), border_points, 3)
+        # 테두리 (다중 발광 링)
+        for ring_i, (ring_color, ring_scale, ring_alpha, ring_width) in enumerate([
+            (self.colors['biolum_cyan'], 1.02, 60, 1),
+            (self.colors['ink_glow'], 1.0, 150, 2),
+            (self.colors['ink_highlight'], 0.96, 100, 1),
+        ]):
+            border_points = []
+            for angle in range(0, 360, 8):
+                rad = math.radians(angle)
+                wobble = 0.82 + 0.18 * _sin(rad * 5 + self.splash_timer * 14 + ring_i * 0.3)
+                px = scx + int(_cos(rad) * wr * ring_scale * wobble)
+                py = scy + int(_sin(rad) * hr * ring_scale * wobble)
+                border_points.append((px, py))
+            if len(border_points) >= 3:
+                pygame.draw.polygon(splash_surf, (*ring_color, ring_alpha),
+                                   border_points, ring_width)
+
+        # 중심 임팩트 플래시
+        flash_decay = max(0, 1.0 - self.splash_timer / 0.15)
+        if flash_decay > 0:
+            flash_a = int(180 * flash_decay)
+            flash_r = int(30 * flash_decay)
+            if flash_r > 2:
+                pygame.draw.circle(splash_surf, (*self.colors['ink_shimmer'], flash_a),
+                                  (scx, scy), flash_r)
+                pygame.draw.circle(splash_surf, (255, 220, 255, int(flash_a * 0.5)),
+                                  (scx, scy), max(1, flash_r // 2))
 
         screen.blit(splash_surf, (int(self.splash_center_x - scx), int(self.splash_center_y - scy)))
 
-        # 튀는 방울 (물리 기반)
+        # --- 튀는 방울 (물리 기반 + 잔상 트레일) ---
         for drop in self.splash_droplets:
             if drop['alpha'] > 5 and drop['size'] > 0.5:
+                # 잔상 트레일 먼저
+                for tr in drop.get('trail', []):
+                    ts = max(1, int(tr['size']))
+                    ta = int(max(0, min(255, tr['alpha'])))
+                    if ta > 3:
+                        trs = _psurf((ts * 2 + 2, ts * 2 + 2), pygame.SRCALPHA)
+                        pygame.draw.circle(trs, (*self.colors['ink_mid'], ta),
+                                          (ts + 1, ts + 1), ts)
+                        screen.blit(trs, (int(self.splash_center_x + tr['x']) - ts - 1,
+                                         int(self.splash_center_y + tr['y']) - ts - 1))
+                # 메인 방울
                 dx = self.splash_center_x + drop['x']
                 dy = self.splash_center_y + drop['y']
                 s = max(1, int(drop['size']))
                 a = int(max(0, min(255, drop['alpha'])))
-                ds = _psurf((s * 2 + 4, s * 2 + 4), pygame.SRCALPHA)
-                pygame.draw.circle(ds, (*self.colors['ink_glow'], a // 2), (s + 2, s + 2), s + 2)
-                pygame.draw.circle(ds, (*self.colors['ink_core'], a), (s + 2, s + 2), s)
-                screen.blit(ds, (int(dx) - s - 2, int(dy) - s - 2))
+                ds = _psurf((s * 2 + 6, s * 2 + 6), pygame.SRCALPHA)
+                # 외곽 글로우
+                pygame.draw.circle(ds, (*self.colors['ink_glow'], int(a * 0.4)),
+                                  (s + 3, s + 3), s + 2)
+                # 코어
+                pygame.draw.circle(ds, (*self.colors['ink_core'], a), (s + 3, s + 3), s)
+                # 하이라이트 스펙
+                if s > 2:
+                    pygame.draw.circle(ds, (*self.colors['ink_highlight'], int(a * 0.5)),
+                                      (s + 2, s + 1), max(1, s // 3))
+                screen.blit(ds, (int(dx) - s - 3, int(dy) - s - 3))
 
     def _draw_active(self, screen):
-        """3단계: 고퀄리티 먹물 웅덩이"""
-        # --- 배경 영역 글로우 ---
+        """3단계: 울트라 고퀄리티 먹물 웅덩이 - 심해의 심연"""
         wr = int(self.splash_max_radius * self.splash_width_scale)
         hr = int(self.splash_max_radius)
-        glow_surf = _psurf((wr * 2 + 40, hr * 2 + 40), pygame.SRCALPHA)
-        gcx, gcy = wr + 20, hr + 20
 
-        # 부드러운 외곽 글로우 (타원)
-        pulse = 1.0 + 0.03 * _sin(self.ink_shimmer_time * 2)
-        pygame.draw.ellipse(glow_surf, (*self.colors['ink_outer'], 35),
+        # === 1. 최하층: 대기 글로우 (다층) ===
+        glow_surf = _psurf((wr * 2 + 60, hr * 2 + 60), pygame.SRCALPHA)
+        gcx, gcy = wr + 30, hr + 30
+        pulse = 1.0 + 0.04 * _sin(self.ink_shimmer_time * 2)
+        # 최외곽 안개 글로우
+        pygame.draw.ellipse(glow_surf, (*self.colors['mist_purple'], 20),
+                           (int(gcx - wr * pulse * 1.15), int(gcy - hr * pulse * 1.15),
+                            int(wr * 2 * pulse * 1.15), int(hr * 2 * pulse * 1.15)))
+        # 중간 글로우
+        pygame.draw.ellipse(glow_surf, (*self.colors['ink_outer'], 40),
                            (int(gcx - wr * pulse), int(gcy - hr * pulse),
                             int(wr * 2 * pulse), int(hr * 2 * pulse)))
-        pygame.draw.ellipse(glow_surf, (*self.colors['ink_mid'], 55),
-                           (int(gcx - wr * 0.85), int(gcy - hr * 0.85),
-                            int(wr * 1.7), int(hr * 1.7)))
+        # 내부 글로우
+        pygame.draw.ellipse(glow_surf, (*self.colors['ink_mid'], 60),
+                           (int(gcx - wr * 0.82), int(gcy - hr * 0.82),
+                            int(wr * 1.64), int(hr * 1.64)))
         screen.blit(glow_surf, (int(self.splash_center_x - gcx), int(self.splash_center_y - gcy)))
 
-        # --- 먹물 촉수/가지 (가장자리에서 뻗어나옴) ---
+        # === 2. 먹물 촉수/가지 (분기 포함) ===
         for tendril in self.ink_tendrils:
             self._draw_tendril(screen, tendril)
 
-        # --- 메인 먹물 블롭들 ---
-        for blob in self.ink_blobs:
-            if blob['alpha'] > 5:
+        # === 3. 메인 먹물 블롭들 (깊이별 렌더링) ===
+        # deep 레이어 먼저, surface 레이어 나중에
+        for depth_layer in ['deep', 'mid', 'surface']:
+            for blob in self.ink_blobs:
+                if blob['alpha'] <= 5 or blob.get('depth', 'mid') != depth_layer:
+                    continue
                 pulse_mod = 1.0 + 0.06 * _sin(blob['pulse_phase'])
                 size = int(blob['size'] * pulse_mod + _sin(blob['wobble']) * 5)
                 if size < 2:
                     continue
 
-                surf = _psurf((size * 2 + 12, size * 2 + 12), pygame.SRCALPHA)
-                c = size + 6
+                surf = _psurf((size * 2 + 16, size * 2 + 16), pygame.SRCALPHA)
+                c = size + 8
 
-                # 불규칙한 형태 (12각형 기반)
+                # 불규칙한 형태 (18각형 기반 - 더 부드러운 윤곽)
                 points_outer = []
+                points_mid = []
                 points_inner = []
-                for angle in range(0, 360, 30):
+                for angle in range(0, 360, 20):
                     rad = math.radians(angle)
-                    r_out = size * (0.75 + 0.3 * _sin(rad * 3 + blob['shape_seed'] + blob['wobble'] * 0.5))
-                    r_in = r_out * 0.7
+                    r_out = size * (0.72 + 0.32 * _sin(rad * 3 + blob['shape_seed'] + blob['wobble'] * 0.5))
+                    r_mid = r_out * 0.8
+                    r_in = r_out * 0.55
                     points_outer.append((c + int(_cos(rad) * r_out), c + int(_sin(rad) * r_out)))
+                    points_mid.append((c + int(_cos(rad) * r_mid), c + int(_sin(rad) * r_mid)))
                     points_inner.append((c + int(_cos(rad) * r_in), c + int(_sin(rad) * r_in)))
 
                 a = int(max(0, min(255, blob['alpha'])))
-                if len(points_outer) >= 3:
-                    # 외곽 (흐릿)
-                    pygame.draw.polygon(surf, (*self.colors['ink_outer'], int(a * 0.35)), points_outer)
-                    # 메인
-                    pygame.draw.polygon(surf, (*self.colors['ink_core'], a), points_outer)
-                    # 내부 깊은 색
-                    pygame.draw.polygon(surf, (*self.colors['ink_deep'], int(a * 0.8)), points_inner)
 
-                    # 표면 반사 (작은 하이라이트)
+                # 깊이에 따른 색상 변화
+                if depth_layer == 'deep':
+                    outer_color = self.colors['ink_outer']
+                    main_color = self.colors['ink_core']
+                    inner_color = self.colors['deep_black']
+                    a_mod = 0.9
+                elif depth_layer == 'surface':
+                    outer_color = self.colors['ink_mid']
+                    main_color = self.colors['ink_outer']
+                    inner_color = self.colors['ink_core']
+                    a_mod = 0.7
+                else:
+                    outer_color = self.colors['ink_outer']
+                    main_color = self.colors['ink_core']
+                    inner_color = self.colors['ink_deep']
+                    a_mod = 1.0
+
+                if len(points_outer) >= 3:
+                    # 외곽 소프트 글로우
+                    pygame.draw.polygon(surf, (*outer_color, int(a * 0.25 * a_mod)), points_outer)
+                    # 메인 바디
+                    pygame.draw.polygon(surf, (*main_color, int(a * a_mod)), points_outer)
+                    # 중간 그라데이션
+                    if len(points_mid) >= 3:
+                        pygame.draw.polygon(surf, (*inner_color, int(a * 0.7 * a_mod)), points_mid)
+                    # 내부 심연
+                    if len(points_inner) >= 3:
+                        pygame.draw.polygon(surf, (*self.colors['deep_black'], int(a * 0.6 * a_mod)), points_inner)
+
+                    # 표면 반사 (움직이는 하이라이트)
                     shimmer_x = c + int(_sin(self.ink_shimmer_time * 1.5 + blob['shape_seed']) * size * 0.3)
-                    shimmer_y = c - int(size * 0.2)
-                    shimmer_size = max(2, int(size * 0.15))
-                    shimmer_a = int(40 + 25 * _sin(self.ink_shimmer_time * 2.5 + blob['shape_seed']))
+                    shimmer_y = c - int(size * 0.2) + int(_cos(self.ink_shimmer_time * 0.8) * size * 0.1)
+                    shimmer_size = max(2, int(size * 0.18))
+                    shimmer_a = int(35 + 30 * _sin(self.ink_shimmer_time * 2.5 + blob['shape_seed']))
                     pygame.draw.circle(surf, (*self.colors['ink_shimmer'], shimmer_a),
                                      (shimmer_x, shimmer_y), shimmer_size)
+                    # 2차 반사
+                    s2_x = c + int(_cos(self.ink_shimmer_time * 1.2 + blob['shape_seed'] + 1) * size * 0.2)
+                    s2_y = c + int(_sin(self.ink_shimmer_time * 0.9 + blob['shape_seed']) * size * 0.15)
+                    s2_size = max(1, int(size * 0.1))
+                    s2_a = int(20 + 15 * _sin(self.ink_shimmer_time * 3 + blob['shape_seed'] + 2))
+                    pygame.draw.circle(surf, (*self.colors['ink_highlight'], s2_a),
+                                     (s2_x, s2_y), s2_size)
 
                 screen.blit(surf, (int(blob['x'] - c), int(blob['y'] - c)))
 
-        # --- 기포 ---
+        # === 4. 내부 흐름 (소용돌이 스트림) ===
+        for current in self.ink_currents:
+            phase = current['phase']
+            start = current['start_angle'] + phase
+            arc = current['arc_length']
+            r_ratio = current['radius']
+            w = max(1, int(current['width']))
+            ca = current['alpha']
+            segments = 12
+            prev_sx = None
+            prev_sy = None
+            for seg in range(segments + 1):
+                t = seg / segments
+                ang = start + arc * t
+                r_x = wr * r_ratio * (1 + 0.1 * _sin(ang * 2 + phase))
+                r_y = hr * r_ratio * (1 + 0.1 * _cos(ang * 2 + phase))
+                sx = self.splash_center_x + _cos(ang) * r_x
+                sy = self.splash_center_y + _sin(ang) * r_y
+                if prev_sx is not None:
+                    seg_a = int(ca * (1 - abs(t - 0.5) * 1.6))
+                    if seg_a > 3:
+                        pygame.draw.line(screen, (*self.colors['ink_glow'], seg_a),
+                                        (int(prev_sx), int(prev_sy)),
+                                        (int(sx), int(sy)), w)
+                prev_sx, prev_sy = sx, sy
+
+        # === 5. 수면 코스틱 (빛 반사 무늬) ===
+        for caustic in self.ink_caustics:
+            ca_angle = caustic['angle'] + caustic['phase']
+            ca_dist = caustic['dist']
+            ca_size = int(caustic['size'] * (0.8 + 0.2 * _sin(caustic['phase'] * 2)))
+            ca_x = self.splash_center_x + _cos(ca_angle) * wr * ca_dist
+            ca_y = self.splash_center_y + _sin(ca_angle) * hr * ca_dist
+            ca_alpha = int(25 + 15 * _sin(caustic['phase'] * 3))
+            if ca_alpha > 3 and ca_size > 2:
+                cs = _psurf((ca_size * 2 + 4, ca_size * 2 + 4), pygame.SRCALPHA)
+                cc = ca_size + 2
+                # 불규칙 코스틱 패턴
+                points = []
+                for ai in range(0, 360, 60):
+                    rad = math.radians(ai)
+                    r = ca_size * (0.5 + 0.5 * _sin(rad * 2 + caustic['phase']))
+                    points.append((int(cc + _cos(rad) * r), int(cc + _sin(rad) * r)))
+                if len(points) >= 3:
+                    pygame.draw.polygon(cs, (*self.colors['caustic_light'], ca_alpha), points)
+                screen.blit(cs, (int(ca_x - cc), int(ca_y - cc)))
+
+        # === 6. 기포 (상세 렌더링) ===
         for bubble in self.ink_bubbles:
             life_ratio = max(0, bubble['life'] / bubble['max_life'])
             if life_ratio > 0:
                 s = max(1, int(bubble['size'] * (0.5 + life_ratio * 0.5)))
-                ba = int(180 * life_ratio)
+                ba = int(200 * life_ratio)
+                bs = _psurf((s * 2 + 8, s * 2 + 8), pygame.SRCALPHA)
+                bc = s + 4
+                # 기포 외곽 글로우
+                pygame.draw.circle(bs, (*self.colors['ink_glow'], int(ba * 0.2)), (bc, bc), s + 2)
                 # 기포 본체
-                bs = _psurf((s * 2 + 6, s * 2 + 6), pygame.SRCALPHA)
-                bc = s + 3
                 pygame.draw.circle(bs, (*self.colors['bubble_base'], ba), (bc, bc), s)
-                # 기포 하이라이트 (반달)
-                hl_size = max(1, s - 1)
-                pygame.draw.circle(bs, (*self.colors['bubble_highlight'], int(ba * 0.6)),
-                                 (bc - 1, bc - 1), hl_size, 1)
+                # 기포 내부 (반투명)
+                if s > 2:
+                    pygame.draw.circle(bs, (*self.colors['bubble_highlight'], int(ba * 0.3)),
+                                      (bc, bc), max(1, s - 1))
+                # 하이라이트 스펙 (반달 모양)
+                if s > 3:
+                    hl_x = bc - int(s * 0.3)
+                    hl_y = bc - int(s * 0.3)
+                    pygame.draw.circle(bs, (*self.colors['bubble_highlight'], int(ba * 0.7)),
+                                      (hl_x, hl_y), max(1, s // 3))
+                    # 작은 빛점
+                    pygame.draw.circle(bs, (220, 200, 255, int(ba * 0.5)),
+                                      (hl_x + 1, hl_y - 1), max(1, s // 5))
                 screen.blit(bs, (int(bubble['x'] - bc), int(bubble['y'] - bc)))
 
-        # --- 혼란 적용 시 영역 표시 ---
+        # === 7. 안개/연기 (떠오르는 입자) ===
+        for mist in self.ink_mist:
+            life_ratio = max(0, mist['life'] / mist['max_life'])
+            if life_ratio > 0:
+                ms = max(2, int(mist['size']))
+                ma = int(max(0, min(255, mist['alpha'] * life_ratio)))
+                if ma > 3:
+                    ms_surf = _psurf((ms * 2 + 4, ms * 2 + 4), pygame.SRCALPHA)
+                    mc = ms + 2
+                    pygame.draw.circle(ms_surf, (*self.colors['mist_purple'], int(ma * 0.5)),
+                                      (mc, mc), ms)
+                    pygame.draw.circle(ms_surf, (*self.colors['ink_outer'], int(ma * 0.3)),
+                                      (mc, mc), max(1, int(ms * 0.6)))
+                    screen.blit(ms_surf, (int(mist['x'] - mc), int(mist['y'] - mc)))
+
+        # === 8. 심해의 눈 (혼란 상징 - 중앙 소용돌이 눈) ===
         if self.confusion_applied:
-            confusion_surf = _psurf((wr * 2 + 20, hr * 2 + 20), pygame.SRCALPHA)
-            ccx, ccy = wr + 10, hr + 10
-            # 맥동하는 외곽선
-            pulse_a = int(30 + 20 * _sin(self.ink_shimmer_time * 3))
-            pygame.draw.ellipse(confusion_surf, (*self.colors['ink_glow'], pulse_a),
-                               (10, 10, wr * 2, hr * 2), 2)
-            screen.blit(confusion_surf, (int(self.splash_center_x - ccx), int(self.splash_center_y - ccy)))
+            eye_open = min(1.0, self.confusion_timer / 0.5)  # 0.5초에 걸쳐 눈 뜸
+            eye_size = int(28 * eye_open)
+            if eye_size > 3:
+                eye_surf = _psurf((eye_size * 2 + 20, eye_size * 2 + 20), pygame.SRCALPHA)
+                ec = eye_size + 10
+
+                # 눈 외곽 글로우
+                glow_a = int(60 + 30 * _sin(self.ink_eye_phase * 3))
+                pygame.draw.circle(eye_surf, (*self.colors['eye_glow'], glow_a),
+                                  (ec, ec), eye_size + 6)
+
+                # 눈 바깥 링 (동공 테두리)
+                pygame.draw.circle(eye_surf, (*self.colors['eye_iris'], int(180 * eye_open)),
+                                  (ec, ec), eye_size)
+
+                # 홍채 (내부 고리)
+                iris_size = max(2, int(eye_size * 0.7))
+                iris_color = (
+                    int(180 + 40 * _sin(self.ink_eye_phase * 2)),
+                    int(40 + 20 * _sin(self.ink_eye_phase * 1.5 + 1)),
+                    int(200 + 30 * _cos(self.ink_eye_phase * 2.5)),
+                )
+                pygame.draw.circle(eye_surf, (*iris_color, int(200 * eye_open)),
+                                  (ec, ec), iris_size)
+
+                # 홍채 패턴 (방사상 선)
+                for ri in range(8):
+                    r_ang = ri * (math.pi / 4) + self.ink_eye_phase * 0.5
+                    r_inner = iris_size * 0.3
+                    r_outer = iris_size * 0.95
+                    lx1 = ec + int(_cos(r_ang) * r_inner)
+                    ly1 = ec + int(_sin(r_ang) * r_inner)
+                    lx2 = ec + int(_cos(r_ang) * r_outer)
+                    ly2 = ec + int(_sin(r_ang) * r_outer)
+                    pygame.draw.line(eye_surf, (*self.colors['eye_glow'], int(80 * eye_open)),
+                                    (lx1, ly1), (lx2, ly2), 1)
+
+                # 동공 (수축/확장)
+                pupil_size = max(2, int(iris_size * (0.35 + 0.1 * _sin(self.ink_eye_phase * 4))))
+                pygame.draw.circle(eye_surf, (*self.colors['eye_pupil'], int(240 * eye_open)),
+                                  (ec, ec), pupil_size)
+
+                # 동공 내 빛점 (반사)
+                spec_x = ec - int(pupil_size * 0.3)
+                spec_y = ec - int(pupil_size * 0.3)
+                pygame.draw.circle(eye_surf, (255, 220, 255, int(150 * eye_open)),
+                                  (spec_x, spec_y), max(1, pupil_size // 3))
+
+                screen.blit(eye_surf, (int(self.splash_center_x - ec),
+                                      int(self.splash_center_y - ec)))
+
+            # 소용돌이 링
+            vortex_surf = _psurf((wr * 2 + 30, hr * 2 + 30), pygame.SRCALPHA)
+            vcx, vcy = wr + 15, hr + 15
+            for ring_i in range(3):
+                ring_offset = self.ink_vortex_angle + ring_i * 120
+                ring_a = int(25 + 15 * _sin(self.ink_shimmer_time * 3 + ring_i))
+                ring_points = []
+                for ai in range(0, 360, 8):
+                    rad = math.radians(ai + ring_offset)
+                    dist_mod = 0.85 + 0.15 * _sin(rad * 3 + self.ink_shimmer_time * 2)
+                    rx = vcx + int(_cos(rad) * wr * dist_mod)
+                    ry = vcy + int(_sin(rad) * hr * dist_mod)
+                    ring_points.append((rx, ry))
+                if len(ring_points) >= 3:
+                    pygame.draw.polygon(vortex_surf, (*self.colors['vortex_edge'], ring_a),
+                                       ring_points, 2)
+            screen.blit(vortex_surf, (int(self.splash_center_x - vcx),
+                                     int(self.splash_center_y - vcy)))
 
     def _draw_tendril(self, screen, tendril):
-        """먹물 촉수/가지 하나 그리기"""
+        """먹물 촉수/가지 하나 그리기 - 고퀄리티 (분기 + 빛 팁)"""
         base_angle = tendril['angle']
         length = tendril['length']
         width = tendril['width']
         wobble = tendril['wobble']
+        tip_glow = tendril.get('tip_glow', 0)
+        branch_count = tendril.get('branch_count', 0)
 
         wr = self.splash_max_radius * self.splash_width_scale
         hr = self.splash_max_radius
@@ -1924,34 +2488,135 @@ class AbyssInk(HeroSkill):
         prev_x = self.splash_center_x + _cos(base_angle) * wr * 0.5
         prev_y = self.splash_center_y + _sin(base_angle) * hr * 0.5
 
+        segment_positions = [(prev_x, prev_y)]
+
         for seg in range(tendril['segments']):
             t = (seg + 1) / tendril['segments']
-            seg_angle = base_angle + _sin(wobble + seg * 0.8) * 0.3
+            seg_angle = base_angle + _sin(wobble + seg * 0.8) * 0.35
             dist = (0.5 + t * 0.5) * length
             nx = self.splash_center_x + _cos(seg_angle) * wr * dist
             ny = self.splash_center_y + _sin(seg_angle) * hr * dist
 
             seg_width = max(1, int(width * (1.0 - t * 0.7)))
-            alpha = int(180 * (1.0 - t * 0.6))
+            alpha = int(190 * (1.0 - t * 0.5))
 
-            # 촉수 세그먼트
-            ts = _psurf((abs(int(nx - prev_x)) + seg_width * 2 + 20,
-                                abs(int(ny - prev_y)) + seg_width * 2 + 20), pygame.SRCALPHA)
-            ox = seg_width + 10 - min(0, int(nx - prev_x))
-            oy = seg_width + 10 - min(0, int(ny - prev_y))
-            p1 = (ox + max(0, int(prev_x - min(prev_x, nx))), oy + max(0, int(prev_y - min(prev_y, ny))))
-            p2 = (ox + max(0, int(nx - min(prev_x, nx))), oy + max(0, int(ny - min(prev_y, ny))))
+            # 3층 촉수 세그먼트 (외곽글로우 + 본체 + 하이라이트)
+            surf_w = abs(int(nx - prev_x)) + seg_width * 2 + 24
+            surf_h = abs(int(ny - prev_y)) + seg_width * 2 + 24
+            if surf_w > 1 and surf_h > 1:
+                ts = _psurf((surf_w, surf_h), pygame.SRCALPHA)
+                ox = seg_width + 12 - min(0, int(nx - prev_x))
+                oy = seg_width + 12 - min(0, int(ny - prev_y))
+                p1 = (ox + max(0, int(prev_x - min(prev_x, nx))),
+                      oy + max(0, int(prev_y - min(prev_y, ny))))
+                p2 = (ox + max(0, int(nx - min(prev_x, nx))),
+                      oy + max(0, int(ny - min(prev_y, ny))))
 
-            pygame.draw.line(ts, (*self.colors['tendril'], alpha), p1, p2, seg_width)
-            screen.blit(ts, (int(min(prev_x, nx)) - seg_width - 10, int(min(prev_y, ny)) - seg_width - 10))
+                # 외곽 글로우
+                pygame.draw.line(ts, (*self.colors['ink_outer'], int(alpha * 0.3)),
+                                p1, p2, seg_width + 4)
+                # 본체
+                pygame.draw.line(ts, (*self.colors['tendril'], alpha), p1, p2, seg_width)
+                # 하이라이트 (중심선)
+                if seg_width > 2:
+                    hl_w = max(1, seg_width // 3)
+                    pygame.draw.line(ts, (*self.colors['ink_mid'], int(alpha * 0.5)),
+                                    p1, p2, hl_w)
 
+                screen.blit(ts, (int(min(prev_x, nx)) - seg_width - 12,
+                                int(min(prev_y, ny)) - seg_width - 12))
+
+            segment_positions.append((nx, ny))
             prev_x, prev_y = nx, ny
 
+        # 촉수 끝 생물발광 팁
+        tip_a = int(80 + 50 * _sin(tip_glow * 2))
+        tip_size = max(2, int(width * 0.4))
+        tip_surf = _psurf((tip_size * 2 + 8, tip_size * 2 + 8), pygame.SRCALPHA)
+        tc = tip_size + 4
+        pygame.draw.circle(tip_surf, (*self.colors['biolum_cyan'], int(tip_a * 0.4)),
+                          (tc, tc), tip_size + 3)
+        pygame.draw.circle(tip_surf, (*self.colors['biolum_cyan'], tip_a),
+                          (tc, tc), tip_size)
+        pygame.draw.circle(tip_surf, (*self.colors['biolum_green'], int(tip_a * 0.6)),
+                          (tc, tc), max(1, tip_size // 2))
+        screen.blit(tip_surf, (int(prev_x - tc), int(prev_y - tc)))
+
+        # 분기 촉수 (짧은 가지)
+        if branch_count > 0 and len(segment_positions) > 3:
+            for bi in range(branch_count):
+                branch_idx = min(len(segment_positions) - 2,
+                                max(1, len(segment_positions) // 2 + bi))
+                bx, by = segment_positions[branch_idx]
+                branch_angle = base_angle + (0.6 if bi % 2 == 0 else -0.6) + _sin(wobble + bi) * 0.2
+                branch_len = length * 0.3
+                b_prev_x, b_prev_y = bx, by
+                for bs in range(3):
+                    bt = (bs + 1) / 3
+                    ba = branch_angle + _sin(wobble + bs * 0.5 + bi) * 0.3
+                    bd = 0.3 * bt * branch_len
+                    bnx = bx + _cos(ba) * wr * bd
+                    bny = by + _sin(ba) * hr * bd
+                    bw = max(1, int(width * 0.4 * (1 - bt * 0.8)))
+                    b_alpha = int(120 * (1 - bt * 0.7))
+                    pygame.draw.line(screen, (*self.colors['tendril'], b_alpha),
+                                    (int(b_prev_x), int(b_prev_y)),
+                                    (int(bnx), int(bny)), bw)
+                    b_prev_x, b_prev_y = bnx, bny
+
     def _draw_dissolve(self, screen):
-        """분해 애니메이션 렌더링"""
+        """분해 애니메이션 렌더링 - 울트라 고퀄리티 (소용돌이 흡수 + 섬광)"""
         progress = min(1.0, self.dissolve_timer / self.dissolve_duration)
 
-        # 1. 증발 연기 (먹물이 기화되는 효과)
+        # 0. 초기 섬광 (먹물 폭발/소멸 시작)
+        if self.dissolve_flash_alpha > 3:
+            fa = int(max(0, min(255, self.dissolve_flash_alpha)))
+            flash_r = int(self.splash_max_radius * 0.6)
+            flash_wr = int(flash_r * self.splash_width_scale)
+            fs = _psurf((flash_wr * 2 + 20, flash_r * 2 + 20), pygame.SRCALPHA)
+            fc = flash_wr + 10
+            fr = flash_r + 10
+            pygame.draw.ellipse(fs, (*self.colors['eye_glow'], int(fa * 0.4)),
+                               (10, 10, flash_wr * 2, flash_r * 2))
+            pygame.draw.ellipse(fs, (*self.colors['ink_shimmer'], int(fa * 0.6)),
+                               (int(fc - flash_wr * 0.5), int(fr - flash_r * 0.5),
+                                flash_wr, flash_r))
+            screen.blit(fs, (int(self.splash_center_x - fc),
+                            int(self.splash_center_y - fr)))
+
+        # 1. 전체 영역 잔상 (서서히 사라지는 영역 글로우)
+        if progress < 0.8:
+            wr = int(self.splash_max_radius * self.splash_width_scale)
+            hr = int(self.splash_max_radius)
+            fade_a = int(40 * (1 - progress / 0.8))
+            if fade_a > 2:
+                gs = _psurf((wr * 2 + 30, hr * 2 + 30), pygame.SRCALPHA)
+                gcx, gcy = wr + 15, hr + 15
+                pygame.draw.ellipse(gs, (*self.colors['ink_outer'], fade_a),
+                                   (15, 15, wr * 2, hr * 2))
+                pygame.draw.ellipse(gs, (*self.colors['mist_purple'], int(fade_a * 0.5)),
+                                   (int(gcx - wr * 0.7), int(gcy - hr * 0.7),
+                                    int(wr * 1.4), int(hr * 1.4)))
+                screen.blit(gs, (int(self.splash_center_x - gcx),
+                                int(self.splash_center_y - gcy)))
+
+        # 2. 소용돌이 흡수 파티클 (중심으로 빨려드는 효과)
+        for vp in self.dissolve_vortex_particles:
+            if vp['alpha'] < 3 or vp['size'] < 0.5:
+                continue
+            vx = self.splash_center_x + _cos(math.radians(vp['angle'])) * vp['dist']
+            vy = self.splash_center_y + _sin(math.radians(vp['angle'])) * vp['dist']
+            vs = max(1, int(vp['size']))
+            va = int(max(0, min(255, vp['alpha'])))
+            v_surf = _psurf((vs * 2 + 6, vs * 2 + 6), pygame.SRCALPHA)
+            vc = vs + 3
+            # 생물발광 파티클
+            pygame.draw.circle(v_surf, (*self.colors['biolum_cyan'], int(va * 0.3)),
+                              (vc, vc), vs + 2)
+            pygame.draw.circle(v_surf, (*self.colors['ink_glow'], va), (vc, vc), vs)
+            screen.blit(v_surf, (int(vx - vc), int(vy - vc)))
+
+        # 3. 증발 연기 (색상 변이 포함 - 보라 → 시안 그라데이션)
         for wisp in self.dissolve_wisps:
             if self.dissolve_timer < wisp['delay']:
                 continue
@@ -1959,52 +2624,74 @@ class AbyssInk(HeroSkill):
             if a < 3:
                 continue
             s = max(1, int(wisp['size']))
-            ws = _psurf((s * 2 + 4, s * 2 + 4), pygame.SRCALPHA)
-            wc = s + 2
-            # 연기 (여러 겹 반투명 원)
-            pygame.draw.circle(ws, (*self.colors['ink_outer'], int(a * 0.3)), (wc, wc), s)
-            pygame.draw.circle(ws, (*self.colors['ink_mid'], int(a * 0.5)), (wc, wc), max(1, int(s * 0.7)))
-            pygame.draw.circle(ws, (*self.colors['ink_core'], int(a * 0.4)), (wc, wc), max(1, int(s * 0.4)))
+            ws = _psurf((s * 2 + 6, s * 2 + 6), pygame.SRCALPHA)
+            wc = s + 3
+
+            # 색상 변이 (보라 → 시안으로 전이)
+            color_shift = wisp.get('color_shift', 0)
+            shift = color_shift * progress  # 시간이 지날수록 시안으로
+            outer_r = int(self.colors['ink_outer'][0] * (1 - shift) + self.colors['biolum_cyan'][0] * shift)
+            outer_g = int(self.colors['ink_outer'][1] * (1 - shift) + self.colors['biolum_cyan'][1] * shift)
+            outer_b = int(self.colors['ink_outer'][2] * (1 - shift) + self.colors['biolum_cyan'][2] * shift)
+            outer_r = max(0, min(255, outer_r))
+            outer_g = max(0, min(255, outer_g))
+            outer_b = max(0, min(255, outer_b))
+
+            # 다층 연기
+            pygame.draw.circle(ws, (outer_r, outer_g, outer_b, int(a * 0.3)), (wc, wc), s)
+            pygame.draw.circle(ws, (*self.colors['ink_mid'], int(a * 0.5)),
+                              (wc, wc), max(1, int(s * 0.7)))
+            pygame.draw.circle(ws, (*self.colors['ink_core'], int(a * 0.35)),
+                              (wc, wc), max(1, int(s * 0.4)))
             screen.blit(ws, (int(wisp['x']) - wc, int(wisp['y']) - wc))
 
-        # 2. 파편 (먹물 조각이 흩어지며 사라짐)
+        # 4. 파편 (먹물 조각이 흩어지며 사라짐 - 발광 파편 포함)
         for frag in self.dissolve_fragments:
             a = int(max(0, min(255, frag['alpha'])))
             s = max(1, int(frag['size']))
             if a < 3 or s < 1:
                 continue
 
-            fs = _psurf((s * 2 + 6, s * 2 + 6), pygame.SRCALPHA)
-            fc = s + 3
+            fs = _psurf((s * 2 + 8, s * 2 + 8), pygame.SRCALPHA)
+            fc = s + 4
 
             # 불규칙 형태 회전
             points = []
             rot_rad = math.radians(frag['rotation'])
-            for angle_i in range(0, 360, 45):
+            for angle_i in range(0, 360, 40):
                 rad = math.radians(angle_i)
-                r = s * (0.6 + 0.4 * _sin(rad * 2 + frag['shape_seed']))
+                r = s * (0.55 + 0.45 * _sin(rad * 2 + frag['shape_seed']))
                 px = _cos(rad + rot_rad) * r
                 py = _sin(rad + rot_rad) * r
                 points.append((int(fc + px), int(fc + py)))
 
             if len(points) >= 3:
-                pygame.draw.polygon(fs, (*self.colors['ink_core'], a), points)
-                # 외곽 글로우
-                pygame.draw.polygon(fs, (*self.colors['ink_glow'], int(a * 0.3)), points, max(1, s // 4))
+                if frag.get('glow', False):
+                    # 발광 파편
+                    pygame.draw.polygon(fs, (*self.colors['biolum_cyan'], int(a * 0.3)), points)
+                    pygame.draw.polygon(fs, (*self.colors['ink_glow'], a), points)
+                else:
+                    # 일반 파편
+                    pygame.draw.polygon(fs, (*self.colors['ink_core'], a), points)
+                    # 외곽 글로우
+                    pygame.draw.polygon(fs, (*self.colors['ink_glow'], int(a * 0.25)),
+                                       points, max(1, s // 4))
 
             screen.blit(fs, (int(frag['x']) - fc, int(frag['y']) - fc))
 
-        # 3. 전체 영역 잔상 (서서히 사라지는 영역 글로우)
-        if progress < 0.7:
-            wr = int(self.splash_max_radius * self.splash_width_scale)
-            hr = int(self.splash_max_radius)
-            fade_a = int(30 * (1 - progress / 0.7))
-            if fade_a > 2:
-                gs = _psurf((wr * 2 + 20, hr * 2 + 20), pygame.SRCALPHA)
-                gcx, gcy = wr + 10, hr + 10
-                pygame.draw.ellipse(gs, (*self.colors['ink_outer'], fade_a),
-                                   (10, 10, wr * 2, hr * 2))
-                screen.blit(gs, (int(self.splash_center_x - gcx), int(self.splash_center_y - gcy)))
+        # 5. 최종 중심 소멸 점 (마지막 빛)
+        if progress > 0.5 and progress < 0.95:
+            final_a = int(80 * (1 - (progress - 0.5) / 0.45))
+            final_r = max(2, int(8 * (1 - (progress - 0.5) / 0.45)))
+            if final_a > 3:
+                final_s = _psurf((final_r * 2 + 8, final_r * 2 + 8), pygame.SRCALPHA)
+                fcc = final_r + 4
+                pygame.draw.circle(final_s, (*self.colors['biolum_cyan'], int(final_a * 0.5)),
+                                  (fcc, fcc), final_r + 3)
+                pygame.draw.circle(final_s, (*self.colors['eye_glow'], final_a),
+                                  (fcc, fcc), final_r)
+                screen.blit(final_s, (int(self.splash_center_x - fcc),
+                                     int(self.splash_center_y - fcc)))
 
     def reset_for_new_round(self, game_state: dict):
         """라운드 전환 시 심해의 먹물 스킬 강제 종료"""
@@ -2012,17 +2699,28 @@ class AbyssInk(HeroSkill):
         self.ink_blobs = []
         self.ink_bubbles = []
         self.ink_tendrils = []
+        self.ink_currents = []
+        self.ink_mist = []
+        self.ink_caustics = []
+        self.ink_eye_phase = 0.0
+        self.ink_vortex_angle = 0.0
         self.phase = 'travel'
         self.projectile_progress = 0.0
         self.splash_timer = 0
         self.active_timer = 0
         self._trail_particles = []
         self._proj_blobs = []
+        self._ribbon_trail = []
+        self._proj_tendrils = []
         self.splash_droplets = []
+        self.splash_splatters = []
+        self.splash_shockwave = 0.0
         self.dissolving = False
         self.dissolve_timer = 0.0
         self.dissolve_fragments = []
         self.dissolve_wisps = []
+        self.dissolve_vortex_particles = []
+        self.dissolve_flash_alpha = 0
         if self.confusion_applied:
             target_prefix = 'top_paddle' if self.target_is_top else 'bottom_paddle'
             game_state[f'{target_prefix}_confused'] = False
