@@ -1669,6 +1669,7 @@ class AbyssInk(HeroSkill):
         self.ink_blobs = []
         self.target_is_top = False
         self.caster_is_top = False
+        self._ink_comp_surf = None  # 합성 서피스 (캐릭터 가림 방지용)
 
         # 4단계 애니메이션: travel -> splash -> active -> dissolving
         self.phase = 'travel'
@@ -2303,6 +2304,9 @@ class AbyssInk(HeroSkill):
                 self.phase = 'travel'
                 self.projectile_progress = 0.0
 
+    # 먹물 합성 서피스 최대 불투명도 (캐릭터/소환물 가림 방지)
+    _INK_MAX_OPACITY = 170
+
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         # 분해 애니메이션 그리기
         if self.dissolving:
@@ -2314,10 +2318,19 @@ class AbyssInk(HeroSkill):
 
         if self.phase == 'travel':
             self._draw_travel(screen)
-        elif self.phase == 'splash':
-            self._draw_splash(screen)
-        elif self.phase == 'active':
-            self._draw_active(screen)
+        elif self.phase in ('splash', 'active'):
+            # 합성 서피스에 먹물을 그린 뒤 최대 불투명도를 제한하여
+            # 아래에 그려진 캐릭터/소환물이 보이도록 함
+            if self._ink_comp_surf is None or self._ink_comp_surf.get_size() != screen.get_size():
+                self._ink_comp_surf = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
+            else:
+                self._ink_comp_surf.fill((0, 0, 0, 0))
+            if self.phase == 'splash':
+                self._draw_splash(self._ink_comp_surf)
+            else:
+                self._draw_active(self._ink_comp_surf)
+            self._ink_comp_surf.set_alpha(self._INK_MAX_OPACITY)
+            screen.blit(self._ink_comp_surf, (0, 0))
 
     def _draw_travel(self, screen):
         """1단계: 울트라 고퀄리티 발사체 - 소용돌이 먹물 탄환"""
