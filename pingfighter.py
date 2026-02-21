@@ -3250,6 +3250,28 @@ else:
         REAL_SCREEN = pygame.display.set_mode((_comp_w, _comp_h), pygame.SCALED)
         os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
         os.environ.pop('SDL_VIDEO_CENTERED', None)
+
+        # SDL SCALED가 잘못된 디스플레이 기준으로 스케일 결정할 수 있음
+        # ctypes로 윈도우 크기를 목표 크기로 강제 지정 + 정확한 위치 배치
+        if _scale_n >= 2 and sys.platform == 'win32':
+            try:
+                import ctypes as _ct
+                _sdl2_p = os.path.join(os.path.dirname(pygame.__file__), "SDL2.dll")
+                _sdl2_lib = _ct.CDLL(_sdl2_p)
+                _sdl2_lib.SDL_GetKeyboardFocus.restype = _ct.c_void_p
+                _sdl_win = _sdl2_lib.SDL_GetKeyboardFocus()
+                if _sdl_win:
+                    _sdl2_lib.SDL_SetWindowSize.argtypes = [_ct.c_void_p, _ct.c_int, _ct.c_int]
+                    _sdl2_lib.SDL_SetWindowSize(_sdl_win, _init_target_w, _init_target_h)
+                    # 큰 모니터 중앙에 재배치
+                    _repos = _get_largest_monitor_pos(_init_target_w, _init_target_h)
+                    if _repos:
+                        _sdl2_lib.SDL_SetWindowPosition.argtypes = [_ct.c_void_p, _ct.c_int, _ct.c_int]
+                        _sdl2_lib.SDL_SetWindowPosition(_sdl_win, _repos[0], _repos[1])
+                    print(f"[디스플레이] SDL 윈도우 크기 강제: {_init_target_w}x{_init_target_h}", flush=True)
+            except Exception as _resize_err:
+                print(f"[디스플레이] SDL 윈도우 리사이즈 실패: {_resize_err}", flush=True)
+
         _scaled_ok = True
     except pygame.error as _scaled_err:
         print(f"[디스플레이] pygame.SCALED 실패({_scaled_err}), 소프트웨어 스케일링으로 폴백", flush=True)
@@ -9202,6 +9224,25 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             REAL_SCREEN = pygame.display.set_mode((_comp_w, _comp_h), pygame.SCALED)
             os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
             os.environ.pop('SDL_VIDEO_CENTERED', None)
+
+            # SDL SCALED 윈도우 크기 강제 (더블 모니터 대응)
+            if _scale_n >= 2 and sys.platform == 'win32':
+                try:
+                    import ctypes as _ct
+                    _sdl2_p = os.path.join(os.path.dirname(pygame.__file__), "SDL2.dll")
+                    _sdl2_lib = _ct.CDLL(_sdl2_p)
+                    _sdl2_lib.SDL_GetKeyboardFocus.restype = _ct.c_void_p
+                    _sdl_win = _sdl2_lib.SDL_GetKeyboardFocus()
+                    if _sdl_win:
+                        _sdl2_lib.SDL_SetWindowSize.argtypes = [_ct.c_void_p, _ct.c_int, _ct.c_int]
+                        _sdl2_lib.SDL_SetWindowSize(_sdl_win, _init_target_w, _init_target_h)
+                        _repos = _get_largest_monitor_pos(_init_target_w, _init_target_h)
+                        if _repos:
+                            _sdl2_lib.SDL_SetWindowPosition.argtypes = [_ct.c_void_p, _ct.c_int, _ct.c_int]
+                            _sdl2_lib.SDL_SetWindowPosition(_sdl_win, _repos[0], _repos[1])
+                except Exception:
+                    pass
+
             _sw_scaled_ok = True
         except pygame.error:
             os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
