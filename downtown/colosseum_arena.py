@@ -1779,10 +1779,10 @@ ARENA_PERK_POOL = [
     {
         "id": "magic_barrier",
         "name": "마법결계",
-        "description": "15% 확률로 6초간 상대의 스킬을 패링하는 보호막 생성",
+        "description": "12% 확률로 5초간 상대의 스킬을 패링하는 보호막 생성",
         "icon_color": (120, 200, 255),   # 밝은 파랑 (결계)
         "effect_type": "magic_immunity",
-        "value": 0.15,
+        "value": 0.12,
     },
     {
         "id": "laurel_shield",
