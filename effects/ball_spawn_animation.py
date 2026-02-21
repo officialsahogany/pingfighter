@@ -1126,8 +1126,8 @@ class BallSpawnAnimation:
         # 잔여 파티클 빠르게 제거 - 최적화: 더 빠르게 페이드아웃
         self.quantum_particles = [p for p in self.quantum_particles if random.random() > 0.12]
 
-        # 플래시 페이드아웃
-        self.flash_alpha = max(0, int(255 * (1 - progress)))
+        # 플래시 빠른 페이드아웃 (0.25초 내 완전 소멸 → 번개 가시성 확보)
+        self.flash_alpha = max(0, int(255 * max(0, 1 - progress * 6)))
 
         # 코어 글로우 유지
         self.core_glow_radius = 50 - progress * 25
