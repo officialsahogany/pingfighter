@@ -319,8 +319,8 @@ class HenchmanSystem:
             skill = slot.skill_instance
             if not skill:
                 continue
-            _oil_lingering = self._skill_has_lingering_effects(skill)
-            if skill.is_active or _oil_lingering:
+            _has_lingering = self._skill_has_lingering_effects(skill)
+            if skill.is_active or _has_lingering:
                 try:
                     guard_paddle = _GuardPaddle(slot.x, slot.y, is_top=self.is_top)
                     skill.update(dt, guard_paddle, skill_target_paddle, ball, game_state)
@@ -335,15 +335,6 @@ class HenchmanSystem:
                     # duration=0 스킬은 active_timer 체크 스킵 (자체 관리)
                     if skill.active_timer <= 0 and skill.duration > 0:
                         skill.is_active = False
-            else:
-                # 비활성 스킬도 dying_clones 등 후처리가 필요한 경우 업데이트
-                # (ShadowClone 등 소멸 애니메이션이 is_active=False 후에도 필요)
-                if hasattr(skill, 'dying_clones') and skill.dying_clones:
-                    try:
-                        skill.update(dt, _GuardPaddle(slot.x, slot.y, is_top=self.is_top),
-                                     skill_target_paddle, ball, game_state)
-                    except Exception:
-                        pass
 
         # 스킬 업데이트 후 casting 상태 재검증:
         # 채널링 스킬이 이 프레임에서 비활성화되었으면 즉시 exiting으로 전환
@@ -536,15 +527,27 @@ class HenchmanSystem:
 
     @staticmethod
     def _skill_has_lingering_effects(skill) -> bool:
-        """스킬에 아직 진행 중인 잔여 이펙트가 있는지 확인 (OilSpill 발사체/웅덩이, AbyssInk 분해 등)"""
+        """스킬에 아직 진행 중인 잔여 이펙트가 있는지 확인
+        (is_active=False 이후에도 업데이트/렌더가 필요한 모든 잔여 상태)"""
         if not skill:
             return False
+        # 범용: dying/소멸 엔티티 (ShadowClone, GhostSummon, SkeletonArcher, BoneBarrier)
+        for attr in ('dying_clones', 'dying_ghosts', 'dying_archers',
+                     'dying_barriers', '_teleport_effects', 'explosion_effects'):
+            if getattr(skill, attr, None):
+                return True
+        # 스킬별 고유 잔여 상태
         skill_id = getattr(skill, 'skill_id', '')
         if skill_id == 'oil_spill':
             return bool(getattr(skill, 'oil_projectiles', [])
                         or getattr(skill, 'oil_puddles', []))
         if skill_id == 'abyss_ink':
             return getattr(skill, 'dissolving', False)
+        if skill_id == 'dwarf_magic':
+            # 축소 효과 지속 중 (CRITICAL: 업데이트 안 하면 패들 영구 축소)
+            return getattr(skill, 'hit_target', False)
+        if skill_id == 'tentacle_wrap':
+            return getattr(skill, 'retracting', False)
         return False
 
     _skill_sound_cache = {}
@@ -756,9 +759,8 @@ class HenchmanSystem:
             skill = slot.skill_instance
             # 스킬 이펙트 그리기 (활성 상태 또는 소멸 애니메이션/잔여 이펙트)
             if skill:
-                has_dying = hasattr(skill, 'dying_clones') and skill.dying_clones
-                _oil_lingering = self._skill_has_lingering_effects(skill)
-                if skill.is_active or has_dying or _oil_lingering:
+                _has_lingering = self._skill_has_lingering_effects(skill)
+                if skill.is_active or _has_lingering:
                     try:
                         guard_paddle = _GuardPaddle(slot.x, slot.y, is_top=self.is_top)
                         skill.draw(screen, guard_paddle, draw_target_paddle, ball, game_state)
