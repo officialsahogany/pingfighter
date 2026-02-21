@@ -12794,14 +12794,6 @@ class BoneBarrier(HeroSkill):
             pygame.draw.line(screen, bone_sh,
                            (x + 3, y + h // 2 - 1), (x + w - 3, y + h // 2 - 1), 1)
 
-            # ── 네크로 문양 (중앙 룬 마크) ──
-            center_x = x + w // 2
-            rune_a = int(50 * pulse)
-            rune_size = min(h - 2, 8)
-            pygame.draw.line(screen, (*necro_glow, rune_a),
-                           (center_x - rune_size, y), (center_x + rune_size, y), 1)
-            pygame.draw.line(screen, (*necro_glow, rune_a),
-                           (center_x, y - rune_size // 2), (center_x, y + rune_size // 2), 1)
 
     def _draw_dying_barrier(self, screen, dying):
         """뼈 장막 파괴 애니메이션 (고퀄리티)"""
