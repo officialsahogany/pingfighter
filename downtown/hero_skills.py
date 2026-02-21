@@ -10089,6 +10089,9 @@ class DeadPossession(HeroSkill):
             return True
         if hasattr(self.possessed_skill, 'oil_puddles') and self.possessed_skill.oil_puddles:
             return True
+        # BoneBarrier: 장벽이 남아있으면 지속 중 (라운드 넘겨도 유지)
+        if hasattr(self.possessed_skill, 'barriers') and self.possessed_skill.barriers:
+            return True
         return False
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
@@ -10248,9 +10251,17 @@ class DeadPossession(HeroSkill):
         self.possession_name = ""
 
     def reset_for_new_round(self, game_state: dict):
-        """라운드 전환 시 빙의 스킬도 정리"""
-        if self.possessed_skill and self.possessed_skill.is_active:
-            self.possessed_skill.reset_for_new_round(game_state)
+        """라운드 전환 시 빙의 스킬도 정리 (뼈 장막 등 지속 효과는 유지)"""
+        if self.possessed_skill:
+            if self.possessed_skill.is_active:
+                self.possessed_skill.reset_for_new_round(game_state)
+            # 빙의 스킬이 라운드 넘김 후에도 효과가 지속되면 유지 (예: 뼈 장막)
+            if self.possessed_skill.is_active or self._possessed_has_ongoing_effects():
+                self.is_active = True
+                self.active_timer = self.possessed_skill.active_timer
+                self.ghost_particles = []
+                self.possession_flash = 0.0
+                return
         self.possessed_skill = None
         self.is_active = False
         self.active_timer = 0.0
