@@ -3727,8 +3727,8 @@ class AnimatedBackgroundStage30:
                 if bg_key not in self._torch_base_glow_cache:
                     bgs = pygame.Surface((base_glow_r * 2, base_glow_r * 3), pygame.SRCALPHA)
                     for r in range(base_glow_r, 0, -2):
-                        a = int(12 * (r / base_glow_r))
-                        pygame.draw.ellipse(bgs, (255, 140, 50, a),
+                        a = int(10 * (r / base_glow_r))
+                        pygame.draw.ellipse(bgs, (255, 190, 90, a),
                                             (base_glow_r - r, base_glow_r * 3 // 2 - r,
                                              r * 2, r * 2))
                     self._torch_base_glow_cache[bg_key] = bgs
@@ -3799,11 +3799,11 @@ class AnimatedBackgroundStage30:
                     gs = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
                     for r in range(glow_radius, 0, -2):
                         frac = r / glow_radius
-                        a = int(30 * frac * frac)
-                        # 중심부는 밝은 노랑, 외곽은 주황/붉은 톤
+                        a = int(22 * frac * frac)
+                        # 중심부는 밝은 노랑, 외곽은 따뜻한 앰버 톤
                         rr = 255
-                        gg = int(180 * frac + 60 * (1 - frac))
-                        bb = int(40 * frac)
+                        gg = int(200 * frac + 120 * (1 - frac))
+                        bb = int(80 * frac + 20 * (1 - frac))
                         pygame.draw.circle(gs, (rr, gg, bb, a),
                                            (glow_radius, glow_radius), r)
                     self._torch_glow_cache[glow_key] = gs
@@ -3812,8 +3812,8 @@ class AnimatedBackgroundStage30:
                              ty - flame_h // 2 - glow_radius),
                             special_flags=pygame.BLEND_ADD)
 
-            # ── 4. 외부 불꽃 (가장 바깥 - 붉은/어두운 주황) ──
-            outer_dark = (200, int(70 * intensity), 10)
+            # ── 4. 외부 불꽃 (가장 바깥 - 따뜻한 앰버) ──
+            outer_dark = (210, int(130 * intensity), 25)
             od_pts = [
                 (tx - sx(1) + sway_i // 2, ty - sy(1)),
                 (tx - sx(9) + sway_i // 3, ty - flame_h * 0.35),
@@ -3827,8 +3827,8 @@ class AnimatedBackgroundStage30:
             ]
             pygame.draw.polygon(screen, outer_dark, od_pts)
 
-            # ── 5. 중간 불꽃 (주황) ──
-            mid_color = (255, int(150 * intensity), 20)
+            # ── 5. 중간 불꽃 (따뜻한 오렌지) ──
+            mid_color = (255, int(185 * intensity), 45)
             mid_pts = [
                 (tx + sway_i // 2, ty - sy(2)),
                 (tx - sx(7) + sway_i // 2, ty - flame_h * 0.4),
@@ -3842,8 +3842,8 @@ class AnimatedBackgroundStage30:
             ]
             pygame.draw.polygon(screen, mid_color, mid_pts)
 
-            # ── 6. 내부 불꽃 (밝은 노랑) ──
-            inner_color = (255, int(235 * intensity), int(90 * intensity))
+            # ── 6. 내부 불꽃 (밝은 골든 옐로) ──
+            inner_color = (255, int(240 * intensity), int(120 * intensity))
             inner_h = flame_h * 0.65
             in_pts = [
                 (tx + sway_i // 2, ty - sy(4)),
@@ -3856,8 +3856,8 @@ class AnimatedBackgroundStage30:
             ]
             pygame.draw.polygon(screen, inner_color, in_pts)
 
-            # ── 7. 코어 불꽃 (흰색/연노랑 - 가장 뜨거운 중심부) ──
-            core_color = (255, 255, int(180 * intensity + 60))
+            # ── 7. 코어 불꽃 (크림 화이트 - 가장 뜨거운 중심부) ──
+            core_color = (255, 255, int(200 * intensity + 50))
             core_h = flame_h * 0.35
             core_pts = [
                 (tx + sway_i, ty - sy(5)),
@@ -3876,13 +3876,13 @@ class AnimatedBackgroundStage30:
                 ey = ty + int(ember['ry'] * scale_y)
                 e_alpha = min(255, int(220 * life_ratio))
                 e_size = max(1, int(ember['size'] * scale_x * life_ratio))
-                # 불씨 색상: 밝은 노랑 → 주황 → 붉은색으로 페이드
+                # 불씨 색상: 밝은 노랑 → 앰버 → 어두운 오렌지로 은은하게 페이드
                 if life_ratio > 0.6:
-                    e_col = (255, int(220 * life_ratio), int(60 * life_ratio))
+                    e_col = (255, int(230 * life_ratio), int(90 * life_ratio))
                 elif life_ratio > 0.3:
-                    e_col = (255, int(140 * life_ratio), 10)
+                    e_col = (240, int(170 * life_ratio), int(40 * life_ratio))
                 else:
-                    e_col = (200, int(80 * life_ratio), 5)
+                    e_col = (200, int(120 * life_ratio), 20)
                 if e_size >= 2:
                     es = pygame.Surface((e_size * 2, e_size * 2), pygame.SRCALPHA)
                     pygame.draw.circle(es, (*e_col, e_alpha),
