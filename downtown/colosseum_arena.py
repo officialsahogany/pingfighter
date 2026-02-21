@@ -5696,7 +5696,7 @@ class GuardWarriorSystem:
                   f"{skill.korean_name} 발동 성공! (위치: x={guard_paddle.centerx:.0f})")
         else:
             # 야생의 포효: 공이 범위 밖이면 순찰 모드로 전환하여 대기
-            if skill_id == 'wild_roar':
+            if getattr(skill, 'skill_id', '') == 'wild_roar':
                 if is_top:
                     self.phase_top = "patrolling"
                     self.anim_timer_top = 0.0
