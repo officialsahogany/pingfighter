@@ -440,138 +440,220 @@ class DowntownRenderer:
             # 건물 자체는 별도 레이어에서 처리
 
     def _draw_ground_tile(self, screen, x, y, tx=None, ty=None):
-        """바닥 타일 - 잔디/풀밭 스타일 (캐싱 적용)"""
+        """바닥 타일 - 고퀄리티 잔디/지형 (캐싱 적용)"""
         color = self.theme_data['ground_color']
 
-        # 타일 좌표로 패턴 변형 (랜덤하지만 일관된 패턴)
-        # tx, ty가 전달되면 사용, 아니면 화면 좌표에서 계산 (하위 호환성)
         tile_x = tx if tx is not None else x // TILE_SIZE
         tile_y = ty if ty is not None else y // TILE_SIZE
         pattern_seed = (tile_x * 7 + tile_y * 13) % 4
 
-        # 캐시 키 생성 (패턴 포함)
-        cache_key = ('ground_grass', color, pattern_seed)
-
-        # 캐시된 타일이 있으면 사용
+        cache_key = ('ground_grass_v2', color, pattern_seed)
         if cache_key in self.tile_surfaces:
             screen.blit(self.tile_surfaces[cache_key], (x, y))
             return
 
-        # 새 타일 생성
         tile_surf = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
-
-        # 기본 잔디색
         base_r, base_g, base_b = color
         tile_surf.fill(color)
 
-        # 잔디 텍스처 패턴
-        grass_dark = (max(0, base_r - 15), max(0, base_g - 10), max(0, base_b - 15))
-        grass_light = (min(255, base_r + 10), min(255, base_g + 15), min(255, base_b + 5))
+        random.seed(tile_x * 100 + tile_y + pattern_seed)
 
-        # 작은 풀 디테일 추가
-        random.seed(tile_x * 100 + tile_y)
-        for _ in range(8):
-            gx = random.randint(2, TILE_SIZE - 4)
-            gy = random.randint(2, TILE_SIZE - 4)
-            grass_color = grass_dark if random.random() > 0.5 else grass_light
-            # 작은 풀잎 모양
-            pygame.draw.line(tile_surf, grass_color, (gx, gy + 3), (gx, gy), 1)
-            pygame.draw.line(tile_surf, grass_color, (gx, gy + 3), (gx + 1, gy + 1), 1)
+        # --- 1) 노이즈 텍스처 (흙/풀 경계 점) ---
+        for _ in range(25):
+            nx = random.randint(0, TILE_SIZE - 1)
+            ny = random.randint(0, TILE_SIZE - 1)
+            v = random.randint(-12, 12)
+            dot_c = (max(0, min(255, base_r + v)),
+                     max(0, min(255, base_g + v)),
+                     max(0, min(255, base_b + v)))
+            tile_surf.set_at((nx, ny), dot_c)
 
-        # 약간의 색상 변화 (패턴별)
-        if pattern_seed == 1:
+        # --- 2) 패턴별 흙/돌 패치 ---
+        if pattern_seed == 0:
+            # 작은 흙 패치
+            dx, dy = random.randint(8, 28), random.randint(8, 28)
+            dirt_c = (max(0, base_r + 15), max(0, base_g - 10), max(0, base_b - 15))
+            pygame.draw.ellipse(tile_surf, dirt_c, (dx, dy, 10, 7))
+            dirt_edge = (max(0, base_r + 5), max(0, base_g - 5), max(0, base_b - 10))
+            pygame.draw.ellipse(tile_surf, dirt_edge, (dx, dy, 10, 7), 1)
+        elif pattern_seed == 1:
+            # 색상 오버레이 (진한 초록 대)
             overlay = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
-            overlay.fill((0, 10, 0, 20))
+            overlay.fill((0, 12, 0, 22))
             tile_surf.blit(overlay, (0, 0))
         elif pattern_seed == 2:
+            # 갈색빛 오버레이 + 조약돌
             overlay = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
-            overlay.fill((10, 5, 0, 15))
+            overlay.fill((12, 6, 0, 18))
             tile_surf.blit(overlay, (0, 0))
+            for _ in range(3):
+                px, py = random.randint(4, 35), random.randint(4, 35)
+                pebble_c = (min(255, base_r + 25), min(255, base_g + 15), min(255, base_b + 10))
+                pygame.draw.circle(tile_surf, pebble_c, (px, py), random.randint(1, 2))
+        else:
+            # 이끼 패치
+            mx, my = random.randint(5, 30), random.randint(5, 30)
+            moss_c = (max(0, min(255, base_r - 10)),
+                      max(0, min(255, base_g + 20)),
+                      max(0, min(255, base_b - 15)))
+            pygame.draw.ellipse(tile_surf, moss_c, (mx, my, 8, 5))
 
-        # 캐시에 저장
+        # --- 3) 풀 클러스터 (3선분 곡선형 풀잎) ---
+        grass_dark = (max(0, base_r - 15), max(0, base_g - 8), max(0, base_b - 15))
+        grass_mid = (max(0, min(255, base_r - 5)),
+                     max(0, min(255, base_g + 10)),
+                     max(0, min(255, base_b - 5)))
+        grass_light = (min(255, base_r + 10), min(255, base_g + 18), min(255, base_b + 5))
+        grass_colors = [grass_dark, grass_mid, grass_light]
+
+        num_blades = random.randint(12, 18)
+        for _ in range(num_blades):
+            gx = random.randint(2, TILE_SIZE - 3)
+            gy = random.randint(4, TILE_SIZE - 2)
+            gc = random.choice(grass_colors)
+            blade_h = random.randint(3, 7)
+            lean = random.randint(-2, 2)
+            # 3선분 곡선 풀잎
+            mid_y = gy - blade_h // 2
+            pygame.draw.line(tile_surf, gc, (gx, gy), (gx + lean // 2, mid_y), 1)
+            pygame.draw.line(tile_surf, gc, (gx + lean // 2, mid_y), (gx + lean, gy - blade_h), 1)
+
+        # --- 4) 타일 경계 그라데이션 (자연스러운 이음새) ---
+        edge_overlay = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
+        # 상단/하단 가장자리 살짝 어둡게
+        for ey in range(2):
+            alpha = 15 - ey * 7
+            pygame.draw.line(edge_overlay, (0, 0, 0, alpha), (0, ey), (TILE_SIZE - 1, ey))
+            pygame.draw.line(edge_overlay, (0, 0, 0, alpha), (0, TILE_SIZE - 1 - ey), (TILE_SIZE - 1, TILE_SIZE - 1 - ey))
+        tile_surf.blit(edge_overlay, (0, 0))
+
         self.tile_surfaces[cache_key] = tile_surf
         screen.blit(tile_surf, (x, y))
 
     def _draw_road_tile(self, screen, x, y, tx=None, ty=None):
-        """도로 타일 - 육각형 돌길 스타일 (캐싱 적용)"""
+        """도로 타일 - 고퀄리티 육각형 돌길 (캐싱 적용)"""
         color = self.theme_data['road_color']
 
-        # 타일 좌표로 패턴 결정 (tx, ty가 전달되면 사용)
         tile_x = tx if tx is not None else x // TILE_SIZE
         tile_y = ty if ty is not None else y // TILE_SIZE
         pattern_seed = (tile_x * 11 + tile_y * 17) % 6
 
-        # 캐시 키 생성 (패턴 포함)
-        cache_key = ('road_hex', color, pattern_seed)
-
-        # 캐시된 타일이 있으면 사용
+        cache_key = ('road_hex_v2', color, pattern_seed)
         if cache_key in self.tile_surfaces:
             screen.blit(self.tile_surfaces[cache_key], (x, y))
             return
 
-        # 새 타일 생성
         tile_surf = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
-
-        # 기본 색상
         base_r, base_g, base_b = color
 
-        # 약간 어두운 배경 (틈새 색상)
-        gap_color = (max(0, base_r - 30), max(0, base_g - 25), max(0, base_b - 20))
+        # 모르타르/틈새 배경 (약간 거친 텍스처)
+        gap_color = (max(0, base_r - 35), max(0, base_g - 30), max(0, base_b - 25))
         tile_surf.fill(gap_color)
 
-        # 육각형 돌 그리기
-        stone_color = color
-        stone_light = (min(255, base_r + 15), min(255, base_g + 12), min(255, base_b + 10))
-        stone_dark = (max(0, base_r - 20), max(0, base_g - 18), max(0, base_b - 15))
-
-        # 육각형 크기 및 배치 (타일 내에 작은 육각형들)
-        hex_size = 10  # 육각형 반지름
-        hex_h = hex_size * 1.732  # 높이 (sqrt(3))
-
-        # 육각형 패턴 (2x2 배열로 타일을 채움)
         random.seed(tile_x * 50 + tile_y + pattern_seed)
 
+        # 틈새에 미세 노이즈
+        for _ in range(15):
+            nx, ny = random.randint(0, TILE_SIZE - 1), random.randint(0, TILE_SIZE - 1)
+            v = random.randint(-8, 8)
+            nc = (max(0, min(255, gap_color[0] + v)),
+                  max(0, min(255, gap_color[1] + v)),
+                  max(0, min(255, gap_color[2] + v)))
+            tile_surf.set_at((nx, ny), nc)
+
+        # 색상 변형용
+        stone_light = (min(255, base_r + 18), min(255, base_g + 15), min(255, base_b + 12))
+        stone_dark = (max(0, base_r - 22), max(0, base_g - 20), max(0, base_b - 18))
+        stone_darker = (max(0, base_r - 35), max(0, base_g - 32), max(0, base_b - 28))
+
+        # --- 돌 배치 (8-9개, 다양한 크기) ---
         positions = [
             (TILE_SIZE // 4, TILE_SIZE // 4),
             (TILE_SIZE * 3 // 4, TILE_SIZE // 4),
             (TILE_SIZE // 4, TILE_SIZE * 3 // 4),
             (TILE_SIZE * 3 // 4, TILE_SIZE * 3 // 4),
             (TILE_SIZE // 2, TILE_SIZE // 2),
+            (TILE_SIZE // 2, 3),
+            (3, TILE_SIZE // 2),
+            (TILE_SIZE - 4, TILE_SIZE // 2),
+            (TILE_SIZE // 2, TILE_SIZE - 4),
         ]
 
-        for cx, cy in positions:
-            # 약간의 위치 변형
-            cx += random.randint(-3, 3)
-            cy += random.randint(-3, 3)
+        for idx, (cx, cy) in enumerate(positions):
+            cx += random.randint(-2, 2)
+            cy += random.randint(-2, 2)
 
-            # 육각형 포인트 계산
+            # 다양한 크기 (중앙 돌이 약간 더 큼)
+            hex_size = 10 if idx < 5 else 7
+            hex_size += random.randint(-1, 1)
+
+            # 육각형 포인트
             hex_points = []
+            angle_offset = math.pi / 6 + random.uniform(-0.1, 0.1)
             for i in range(6):
-                angle = math.pi / 6 + i * math.pi / 3  # 30도 회전된 육각형
-                px = cx + hex_size * math.cos(angle)
-                py = cy + hex_size * math.sin(angle)
+                angle = angle_offset + i * math.pi / 3
+                r_var = hex_size + random.uniform(-0.5, 0.5)  # 미세 불규칙
+                px = cx + r_var * math.cos(angle)
+                py = cy + r_var * math.sin(angle)
                 hex_points.append((px, py))
 
-            # 색상 변형
-            color_var = random.randint(-10, 10)
+            # 돌 색상 (개별 변형)
+            cv = random.randint(-12, 12)
             current_stone = (
-                max(0, min(255, base_r + color_var)),
-                max(0, min(255, base_g + color_var - 3)),
-                max(0, min(255, base_b + color_var - 5))
+                max(0, min(255, base_r + cv)),
+                max(0, min(255, base_g + cv - 3)),
+                max(0, min(255, base_b + cv - 5))
             )
 
-            # 육각형 그리기
+            # 돌 본체
             pygame.draw.polygon(tile_surf, current_stone, hex_points)
 
-            # 하이라이트 (위쪽 면)
-            highlight_points = [hex_points[5], hex_points[0], hex_points[1]]
-            pygame.draw.lines(tile_surf, stone_light, False, highlight_points, 1)
+            # 하이라이트 (상단 면)
+            highlight_pts = [hex_points[5], hex_points[0], hex_points[1]]
+            pygame.draw.lines(tile_surf, stone_light, False, highlight_pts, 1)
 
-            # 그림자 (아래쪽 면)
-            shadow_points = [hex_points[2], hex_points[3], hex_points[4]]
-            pygame.draw.lines(tile_surf, stone_dark, False, shadow_points, 1)
+            # 그림자 (하단 면)
+            shadow_pts = [hex_points[2], hex_points[3], hex_points[4]]
+            pygame.draw.lines(tile_surf, stone_dark, False, shadow_pts, 1)
 
-        # 캐시에 저장
+            # --- 돌 표면 텍스처 (미세 점) ---
+            for _ in range(random.randint(2, 5)):
+                tx2 = cx + random.randint(-hex_size + 2, hex_size - 2)
+                ty2 = cy + random.randint(-hex_size + 2, hex_size - 2)
+                tv = random.randint(-8, 4)
+                tc = (max(0, min(255, current_stone[0] + tv)),
+                      max(0, min(255, current_stone[1] + tv)),
+                      max(0, min(255, current_stone[2] + tv)))
+                if 0 <= tx2 < TILE_SIZE and 0 <= ty2 < TILE_SIZE:
+                    tile_surf.set_at((int(tx2), int(ty2)), tc)
+
+            # --- 균열선 (일부 돌에만) ---
+            if random.random() < 0.3:
+                crack_start_x = cx + random.randint(-3, 3)
+                crack_start_y = cy + random.randint(-3, 3)
+                crack_end_x = crack_start_x + random.randint(-4, 4)
+                crack_end_y = crack_start_y + random.randint(-4, 4)
+                pygame.draw.line(tile_surf, stone_darker,
+                                (int(crack_start_x), int(crack_start_y)),
+                                (int(crack_end_x), int(crack_end_y)), 1)
+
+        # --- 돌 사이 이끼/잡초 (틈새 장식) ---
+        for _ in range(random.randint(1, 3)):
+            mx = random.randint(3, TILE_SIZE - 3)
+            my = random.randint(3, TILE_SIZE - 3)
+            moss_c = (max(0, min(255, gap_color[0] + 15)),
+                      max(0, min(255, gap_color[1] + 30)),
+                      max(0, min(255, gap_color[2] - 5)))
+            pygame.draw.circle(tile_surf, moss_c, (mx, my), 1)
+
+        # --- 중앙 밟힌 마모 자국 (어두운 부분) ---
+        if pattern_seed in (0, 3):
+            wear_overlay = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
+            pygame.draw.ellipse(wear_overlay, (0, 0, 0, 12),
+                               (TILE_SIZE // 4, TILE_SIZE // 4,
+                                TILE_SIZE // 2, TILE_SIZE // 2))
+            tile_surf.blit(wear_overlay, (0, 0))
+
         self.tile_surfaces[cache_key] = tile_surf
         screen.blit(tile_surf, (x, y))
 
@@ -586,107 +668,144 @@ class DowntownRenderer:
         self._draw_road_tile(screen, x, y, tx, ty)
 
     def _draw_decoration_tile(self, screen, x, y, tx=None, ty=None):
-        """장식 타일 - 꽃밭, 화단 스타일 (캐싱 적용)"""
-        # 타일 좌표로 패턴 결정 (tx, ty가 전달되면 사용)
+        """장식 타일 - 고퀄리티 꽃밭 (캐싱 적용)"""
         tile_x = tx if tx is not None else x // TILE_SIZE
         tile_y = ty if ty is not None else y // TILE_SIZE
         pattern_seed = (tile_x * 23 + tile_y * 31) % 8
 
-        # 캐시 키 생성
-        cache_key = ('decoration_flower', pattern_seed)
-
-        # 캐시된 타일이 있으면 사용
+        cache_key = ('decoration_flower_v2', pattern_seed)
         if cache_key in self.tile_surfaces:
             screen.blit(self.tile_surfaces[cache_key], (x, y))
             return
 
-        # 새 타일 생성
         tile_surf = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
 
-        # 꽃 색상 팔레트 (파스텔 톤)
+        # 꽃 색상 팔레트 (2톤 그라데이션용 - 밝은톤/어두운톤)
         flower_palettes = [
-            # 빨강/핑크 계열
             [(255, 150, 150), (255, 100, 130), (255, 180, 180), (220, 80, 100)],
-            # 파랑/보라 계열
             [(150, 150, 255), (130, 100, 255), (180, 180, 255), (100, 80, 220)],
-            # 노랑/주황 계열
             [(255, 220, 100), (255, 180, 50), (255, 240, 150), (230, 160, 30)],
-            # 혼합 (빨강+파랑)
             [(255, 130, 180), (180, 130, 255), (255, 180, 200), (200, 150, 255)],
-            # 혼합 (빨강+노랑)
             [(255, 150, 100), (255, 200, 100), (255, 100, 80), (255, 180, 120)],
-            # 보라/핑크
             [(220, 100, 220), (255, 150, 200), (200, 80, 180), (255, 180, 220)],
-            # 파랑 계열
             [(100, 180, 255), (80, 150, 230), (150, 200, 255), (60, 130, 200)],
-            # 다양한 색상 혼합
             [(255, 100, 100), (100, 100, 255), (255, 200, 100), (255, 150, 200)],
         ]
 
-        # 이 타일의 꽃 색상
         random.seed(tile_x * 200 + tile_y + pattern_seed)
         flower_colors = flower_palettes[pattern_seed]
 
-        # 꽃 그리기 (여러 개)
-        num_flowers = random.randint(6, 12)
-        for _ in range(num_flowers):
-            fx = random.randint(4, TILE_SIZE - 4)
-            fy = random.randint(4, TILE_SIZE - 4)
-            flower_color = random.choice(flower_colors)
+        stem_color = (70, 130, 55)
+        stem_light = (90, 155, 70)
+        leaf_color = (60, 120, 45)
+        leaf_light = (85, 150, 65)
+
+        # --- 1) 배경 풀밭 (다양한 높이의 풀) ---
+        grass_colors = [(75, 145, 65), (90, 165, 75), (65, 130, 55), (100, 175, 80)]
+        for _ in range(10):
+            gx = random.randint(1, TILE_SIZE - 2)
+            gy = random.randint(2, TILE_SIZE - 1)
+            gc = random.choice(grass_colors)
+            blade_h = random.randint(3, 8)
+            lean = random.randint(-2, 2)
+            mid_y = gy - blade_h // 2
+            pygame.draw.line(tile_surf, gc, (gx, gy), (gx + lean // 2, mid_y), 1)
+            pygame.draw.line(tile_surf, gc, (gx + lean // 2, mid_y), (gx + lean, gy - blade_h), 1)
+
+        # --- 2) 꽃 그리기 (업그레이드된 디테일) ---
+        num_flowers = random.randint(5, 9)
+        for fi in range(num_flowers):
+            fx = random.randint(5, TILE_SIZE - 5)
+            fy = random.randint(5, TILE_SIZE - 6)
+            fc = random.choice(flower_colors)
+            # 어두운 톤 (그라데이션)
+            fc_dark = (max(0, fc[0] - 40), max(0, fc[1] - 40), max(0, fc[2] - 40))
+            fc_bright = (min(255, fc[0] + 30), min(255, fc[1] + 30), min(255, fc[2] + 20))
             flower_type = random.randint(0, 3)
 
+            # 줄기 (모든 꽃에 공통)
+            stem_h = random.randint(4, 7)
+            stem_c = stem_color if random.random() > 0.5 else stem_light
+            pygame.draw.line(tile_surf, stem_c,
+                           (fx, fy + 2), (fx, fy + stem_h), 1)
+
+            # 줄기에 잎 (50% 확률)
+            if random.random() < 0.5:
+                leaf_y = fy + stem_h // 2 + 1
+                leaf_dir = random.choice([-1, 1])
+                lc = leaf_color if random.random() > 0.5 else leaf_light
+                pygame.draw.line(tile_surf, lc,
+                               (fx, leaf_y), (fx + leaf_dir * 3, leaf_y - 1), 1)
+                pygame.draw.line(tile_surf, lc,
+                               (fx, leaf_y), (fx + leaf_dir * 2, leaf_y + 1), 1)
+
             if flower_type == 0:
-                # 작은 꽃 (5개 꽃잎)
+                # 5꽃잎 (2톤 그라데이션)
                 petal_size = random.randint(2, 4)
                 for i in range(5):
-                    angle = i * 2 * math.pi / 5
+                    angle = i * 2 * math.pi / 5 + random.uniform(-0.15, 0.15)
                     px = fx + int(math.cos(angle) * petal_size)
                     py = fy + int(math.sin(angle) * petal_size)
-                    pygame.draw.circle(tile_surf, flower_color, (px, py), 2)
-                # 중앙
-                pygame.draw.circle(tile_surf, (255, 230, 100), (fx, fy), 2)
+                    # 외곽 어두운 색, 내부 밝은 색
+                    pygame.draw.circle(tile_surf, fc_dark, (px, py), 2)
+                    pygame.draw.circle(tile_surf, fc, (px, py), 1)
+                # 중앙 (밝은 노랑)
+                pygame.draw.circle(tile_surf, (255, 235, 110), (fx, fy), 2)
+                pygame.draw.circle(tile_surf, (255, 210, 80), (fx, fy), 1)
 
             elif flower_type == 1:
-                # 튤립 스타일
-                pygame.draw.ellipse(tile_surf, flower_color,
-                                   (fx - 2, fy - 4, 5, 6))
-                # 줄기
-                pygame.draw.line(tile_surf, (80, 140, 60),
-                               (fx, fy + 2), (fx, fy + 6), 1)
+                # 튤립 (그라데이션)
+                pygame.draw.ellipse(tile_surf, fc_dark,
+                                   (fx - 3, fy - 4, 6, 7))
+                pygame.draw.ellipse(tile_surf, fc,
+                                   (fx - 2, fy - 3, 4, 5))
+                # 꽃잎 하이라이트
+                pygame.draw.line(tile_surf, fc_bright,
+                               (fx - 1, fy - 2), (fx - 1, fy), 1)
 
             elif flower_type == 2:
-                # 작은 점 꽃 (라벤더 스타일)
-                for i in range(3):
-                    py_offset = i * 2
-                    pygame.draw.circle(tile_surf, flower_color,
-                                      (fx, fy - py_offset), 2)
-                # 줄기
-                pygame.draw.line(tile_surf, (80, 140, 60),
-                               (fx, fy + 1), (fx, fy + 5), 1)
+                # 라벤더 (점 꽃 클러스터)
+                for i in range(4):
+                    py_off = i * 2
+                    c = fc if i % 2 == 0 else fc_dark
+                    pygame.draw.circle(tile_surf, c,
+                                      (fx + random.randint(-1, 1), fy - py_off), 2)
 
             else:
-                # 단순 원형 꽃
-                pygame.draw.circle(tile_surf, flower_color, (fx, fy), 3)
+                # 원형 꽃 (그림자 + 본체 + 하이라이트)
+                pygame.draw.circle(tile_surf, fc_dark, (fx + 1, fy + 1), 3)  # 그림자
+                pygame.draw.circle(tile_surf, fc, (fx, fy), 3)
+                pygame.draw.circle(tile_surf, fc_bright, (fx - 1, fy - 1), 1)  # 하이라이트
                 # 중앙
-                center_color = (
-                    min(255, flower_color[0] + 40),
-                    min(255, flower_color[1] + 40),
-                    min(255, flower_color[2] - 20)
-                )
-                pygame.draw.circle(tile_surf, center_color, (fx, fy), 1)
+                center_c = (min(255, fc[0] + 50), min(255, fc[1] + 50), max(0, fc[2] - 20))
+                pygame.draw.circle(tile_surf, center_c, (fx, fy), 1)
 
-        # 풀잎 몇 개 추가
-        grass_color = (80, 150, 70)
-        grass_light = (100, 180, 80)
-        for _ in range(4):
-            gx = random.randint(2, TILE_SIZE - 2)
-            gy = random.randint(TILE_SIZE - 8, TILE_SIZE - 2)
-            g_color = grass_color if random.random() > 0.5 else grass_light
-            # 풀잎
-            pygame.draw.line(tile_surf, g_color, (gx, gy), (gx - 1, gy - 5), 1)
-            pygame.draw.line(tile_surf, g_color, (gx, gy), (gx + 1, gy - 4), 1)
+        # --- 3) 나비/벌레 장식 (일부 타일만) ---
+        if pattern_seed in (0, 3, 5):
+            bx = random.randint(6, TILE_SIZE - 6)
+            by = random.randint(4, TILE_SIZE // 2)
+            wing_c = random.choice(flower_colors)
+            wing_bright = (min(255, wing_c[0] + 40), min(255, wing_c[1] + 40), min(255, wing_c[2] + 40))
+            # 나비 몸체
+            pygame.draw.line(tile_surf, (60, 50, 40), (bx, by - 1), (bx, by + 1), 1)
+            # 날개
+            pygame.draw.circle(tile_surf, wing_c, (bx - 2, by - 1), 2)
+            pygame.draw.circle(tile_surf, wing_c, (bx + 2, by - 1), 2)
+            pygame.draw.circle(tile_surf, wing_bright, (bx - 2, by), 1)
+            pygame.draw.circle(tile_surf, wing_bright, (bx + 2, by), 1)
+            # 더듬이
+            pygame.draw.line(tile_surf, (60, 50, 40), (bx, by - 1), (bx - 1, by - 3), 1)
+            pygame.draw.line(tile_surf, (60, 50, 40), (bx, by - 1), (bx + 1, by - 3), 1)
 
-        # 캐시에 저장
+        # --- 4) 꽃 그림자 (부드러운 반투명) ---
+        shadow_overlay = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
+        for _ in range(random.randint(2, 4)):
+            sx = random.randint(6, TILE_SIZE - 6)
+            sy = random.randint(TILE_SIZE // 2, TILE_SIZE - 4)
+            pygame.draw.ellipse(shadow_overlay, (0, 0, 0, 15),
+                               (sx - 3, sy, 6, 3))
+        tile_surf.blit(shadow_overlay, (0, 0))
+
         self.tile_surfaces[cache_key] = tile_surf
         screen.blit(tile_surf, (x, y))
 
