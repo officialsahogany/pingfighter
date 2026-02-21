@@ -617,6 +617,10 @@ class DemonEye(HeroSkill):
                 'alpha': random.randint(100, 200)
             })
 
+        # 🔍 DEBUG: ghostwalk 사운드 생성 추적
+        import traceback
+        print(f"[DEBUG GHOSTWALK] DemonEye._apply_effect() 호출! caster_is_top={self.caster_is_top}")
+        traceback.print_stack(limit=10)
         return {
             'screen_effect': ScreenEffect.FLASH,
             'flash_color': (150, 50, 200),

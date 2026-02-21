@@ -103343,8 +103343,9 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         result = main(30)  # 스테이지 30 = 투기장
     finally:
         # 투기장 모드 종료 시 초기화
-        # 🔇 스킬 사운드 즉시 중지 (ghostwalk 등이 다음 화면에서 들리는 버그 방지)
+        # 🔇 스킬 사운드 즉시 중지 + 캐시 삭제 (ghostwalk 등이 다음 화면에서 들리는 버그 방지)
         arena_stop_all_skill_sounds()
+        _arena_skill_sound_cache.clear()  # 🔥 pingfighter 사운드 캐시도 완전 삭제
         win_goal = _saved_win_goal  # 승점 복원
         arena_mode_enabled = False
         _arena_guard_tutorial_active = False

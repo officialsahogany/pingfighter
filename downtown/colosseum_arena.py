@@ -5726,12 +5726,15 @@ class GuardWarriorSystem:
         if not result:
             return
         # 투기장 배틀 중이 아니면 사운드 재생 차단
+        # 🔥 FIX: import 실패 시에도 안전하게 차단 (except pass 제거)
+        _arena_enabled = False
         try:
             import pingfighter as _pf_snd
-            if not getattr(_pf_snd, 'arena_mode_enabled', False):
-                return
+            _arena_enabled = getattr(_pf_snd, 'arena_mode_enabled', False)
         except Exception:
-            pass
+            pass  # import 실패 = 투기장 모드 아님 → 차단
+        if not _arena_enabled:
+            return
         sound_key = result.get('sound')
         if not sound_key:
             return
@@ -5752,6 +5755,11 @@ class GuardWarriorSystem:
 
         sound = ColosseumsArena._skill_sound_cache.get(sound_key)
         if sound:
+            # 🔍 DEBUG: ghostwalk 사운드 재생 추적
+            if sound_key == 'ghostwalk':
+                import traceback
+                print(f"[DEBUG GHOSTWALK] _play_skill_sound 호출! arena_enabled={_arena_enabled}")
+                traceback.print_stack(limit=10)
             sound.play()
             # pingfighter의 패들 사운드 중복 방지 플래그 설정
             try:
@@ -8909,10 +8917,12 @@ class ColosseumsArena:
         if self.highlight_recorder:
             self.highlight_recorder.stop()
 
-        # 모든 스킬 사운드 즉시 중지
-        for snd in getattr(ColosseumsArena, '_skill_sound_cache', {}).values():
+        # 모든 스킬 사운드 즉시 중지 + 캐시 삭제 (ghost playback 방지)
+        _cache = getattr(ColosseumsArena, '_skill_sound_cache', {})
+        for snd in _cache.values():
             if snd:
                 snd.stop()
+        _cache.clear()  # 🔥 캐시 완전 삭제 → 다음 배틀에서 새로 로드
 
         # 스킬 매니저의 모든 활성 스킬 강제 종료 (루프 사운드 포함)
         if self.skill_manager:
