@@ -12678,32 +12678,15 @@ class BoneBarrier(HeroSkill):
                 # 관절
                 pygame.draw.circle(screen, (*bone_br, alpha), (x1, y1), 2)
                 pygame.draw.circle(screen, (*bone_dk, alpha), (x2, y2), 2)
-                # 초록 에너지 잔여
-                if adj < 0.8:
-                    trail_a = int(100 * (1.0 - adj / 0.8))
-                    pygame.draw.circle(screen, (*necro_glow, trail_a), (x1, y1), 3)
 
-            # 조립 스파크 + 마법 에너지
+            # 조립 스파크
             if build_progress > 0.3:
                 spark_intensity = (build_progress - 0.3) / 0.7
                 spark_n = int(8 * spark_intensity)
                 for si in range(spark_n):
                     sx = x + random.randint(0, w)
                     sy = y + random.randint(-8, 8)
-                    s_bright = random.random()
-                    if s_bright > 0.6:
-                        pygame.draw.circle(screen, (*necro_glow, random.randint(60, 140)), (sx, sy), 2)
-                        pygame.draw.circle(screen, (180, 255, 200, random.randint(30, 70)), (sx, sy), 4)
-                    else:
-                        pygame.draw.circle(screen, (200, 220, 180, random.randint(40, 100)), (sx, sy), 1)
-                # 중심 수렴 에너지 라인
-                if build_progress > 0.6:
-                    center_x = x + w // 2
-                    line_a = int(60 * (build_progress - 0.6) / 0.4)
-                    for li in range(3):
-                        lx = x + int(w * (li + 0.5) / 3)
-                        pygame.draw.line(screen, (*necro_glow, line_a),
-                                        (lx, y - 12), (lx, y + 12), 1)
+                    pygame.draw.circle(screen, (200, 220, 180, random.randint(40, 100)), (sx, sy), 1)
         else:
             # === 완성된 뼈 장벽 (Ultra Premium) ===
             is_top = barrier.get('is_top', False)
