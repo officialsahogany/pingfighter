@@ -123267,7 +123267,7 @@ def reset_round(is_stage_start=False):
     global special_active, special_ready
     global quake_active, quake_timer
     global speed_defense_active, speed_defense_timer
-    global horizontal_bounce_count, ball_angle
+    global horizontal_bounce_count, ball_angle, ball_vel
     global drive_active, drive_spin_speed
     global rolling_active, rolling_timer, rolling_direction, rolling_speed, rolling_stun_timer, rolling_dash_available_timer, rolling_cooldown, rolling_charges, rolling_charge_timer, rolling_consecutive_count  #  대쉬 관련 변수 추가
     global charging_token_index, max_rolling_charge_time  # 순차 충전 시스템 변수
@@ -128747,7 +128747,7 @@ def handle_ball():
     ball_offscreen_hidden = BALL.centerx < -50 or BALL.centery < -50
     # 👁 오딘의 눈 변신 상태(penalty_active)에서도 플레이어 득점은 정상 처리
     # (변신 상태의 페널티는 이동/대쉬 제한만 적용, 득점 차단은 하지 않음)
-    if BALL.top <= 0 and not ball_in_kuromi and not odins_eye_anim_blocking_score and not ball_offscreen_hidden:
+    if BALL.top <= 0 and not ball_in_kuromi and not odins_eye_anim_blocking_score and not ball_offscreen_hidden and not is_waiting_for_serve:
         # 튜토리얼 모드(스테이지 50)에서는 점수 계산하지 않고 단순히 튕김
         if current_stage == 50:
             ball_vel[1] = abs(ball_vel[1])  # 아래로 향하도록
@@ -129324,7 +129324,7 @@ def handle_ball():
     odins_eye_anim_blocking_loss = odins_eye_death_anim_active or odins_eye_revival_anim_active
     # 공이 화면 밖(-50 이하)에 있으면 패배 처리 안함 (애니메이션 중 공 위치)
     ball_offscreen_hidden_loss = BALL.centerx < -50 or BALL.centery < -50
-    if BALL.bottom >= HEIGHT and not rock_hit and not stopwatch_active and not ball_in_kuromi and not bowling_trap_holding and not ball_spawn_animation_active and not odins_eye_anim_blocking_loss and not ball_offscreen_hidden_loss:
+    if BALL.bottom >= HEIGHT and not rock_hit and not stopwatch_active and not ball_in_kuromi and not bowling_trap_holding and not ball_spawn_animation_active and not odins_eye_anim_blocking_loss and not ball_offscreen_hidden_loss and not is_waiting_for_serve:
         # 스마트폰 사전 방어: 패배 직전 스톱워치 자동 발동 시도
         try:
             import items as _items_mod
