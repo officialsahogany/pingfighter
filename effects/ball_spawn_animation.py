@@ -36,17 +36,27 @@ class QuantumParticle:
         self.size = random.uniform(2, 6)
         self.speed = random.uniform(0.02, 0.05)  # 각속도
 
-        # 색상 (전기 블루 ~ 양자 퍼플 ~ 핑크 그라데이션)
+        # 색상 (풍부한 6종 팔레트 - 전기/양자/핑크/시안/앰버/화이트)
         color_choice = random.random()
-        if color_choice < 0.4:
-            # 전기 블루
-            self.color = (random.randint(100, 200), random.randint(180, 255), 255)
-        elif color_choice < 0.7:
-            # 양자 퍼플
-            self.color = (random.randint(150, 220), random.randint(80, 150), 255)
-        else:
+        if color_choice < 0.25:
+            # 전기 블루 (밝고 선명)
+            self.color = (random.randint(120, 200), random.randint(200, 255), 255)
+        elif color_choice < 0.45:
+            # 양자 퍼플 (깊고 풍부)
+            self.color = (random.randint(160, 230), random.randint(80, 160), 255)
+        elif color_choice < 0.6:
             # 에너지 핑크/화이트
-            self.color = (255, random.randint(150, 255), random.randint(200, 255))
+            self.color = (255, random.randint(160, 255), random.randint(210, 255))
+        elif color_choice < 0.75:
+            # 시안/민트 (청록빛)
+            self.color = (random.randint(80, 160), 255, random.randint(220, 255))
+        elif color_choice < 0.88:
+            # 골든 앰버 (따뜻한 에너지)
+            self.color = (255, random.randint(200, 240), random.randint(100, 160))
+        else:
+            # 퓨어 화이트 (밝은 코어)
+            v = random.randint(230, 255)
+            self.color = (v, v, random.randint(240, 255))
 
         # 밝기 변화
         self.brightness_phase = random.uniform(0, math.pi * 2)
@@ -80,15 +90,17 @@ class QuantumParticle:
         self.brightness_phase += self.brightness_speed * dt
 
     def draw(self, surface: pygame.Surface, alpha_mult: float = 1.0):
-        """입자와 잔상 그리기"""
+        """입자와 잔상 그리기 (고해상도 글로우)"""
         # 밝기 계산
         brightness = 0.5 + 0.5 * math.sin(self.brightness_phase)
 
-        # 잔상 그리기
+        # 잔상 그리기 (그라데이션 컬러 트레일)
         for i, (tx, ty, ts) in enumerate(self.trail):
-            trail_alpha = int(50 * (i / len(self.trail)) * alpha_mult) if self.trail else 0
+            trail_ratio = i / max(1, len(self.trail))
+            trail_alpha = int(60 * trail_ratio * alpha_mult)
             if trail_alpha > 0:
-                trail_color = tuple(int(c * 0.5) for c in self.color)
+                # 잔상 색상: 꼬리부터 머리까지 그라데이션
+                trail_color = tuple(int(c * (0.35 + 0.45 * trail_ratio)) for c in self.color)
                 trail_surf = pygame.Surface((int(ts * 2), int(ts * 2)), pygame.SRCALPHA)
                 pygame.draw.circle(trail_surf, (*trail_color, trail_alpha),
                                    (int(ts), int(ts)), int(ts * 0.7))
@@ -98,20 +110,32 @@ class QuantumParticle:
         alpha = int(200 * brightness * alpha_mult)
         glow_color = tuple(min(255, int(c * brightness * 1.2)) for c in self.color)
 
-        # 글로우 효과
-        glow_size = int(self.size * 2)
+        # 확장된 글로우 (더 넓고 부드러운 그라데이션)
+        glow_size = int(self.size * 2.5)
         glow_surf = pygame.Surface((glow_size * 4, glow_size * 4), pygame.SRCALPHA)
-        for r in range(glow_size * 2, 0, -2):
-            glow_alpha = int(alpha * (r / (glow_size * 2)) * 0.3)
-            pygame.draw.circle(glow_surf, (*glow_color, glow_alpha),
-                               (glow_size * 2, glow_size * 2), r)
-        surface.blit(glow_surf, (int(self.x - glow_size * 2), int(self.y - glow_size * 2)))
+        gc = glow_size * 2  # surface center
 
-        # 중심 코어
+        # 부드러운 이차곡선 페이드 글로우
+        for r in range(glow_size * 2, 0, -1):
+            ratio = r / (glow_size * 2)
+            glow_alpha = int(alpha * ratio * ratio * 0.22)
+            if glow_alpha > 0:
+                pygame.draw.circle(glow_surf, (*glow_color, glow_alpha), (gc, gc), r)
+
+        surface.blit(glow_surf, (int(self.x - gc), int(self.y - gc)))
+
+        # 중심 코어 (밝은 핵 + 내부 하이라이트)
         core_surf = pygame.Surface((int(self.size * 4), int(self.size * 4)), pygame.SRCALPHA)
+        cc = int(self.size * 2)
+        # 외곽 코어
         pygame.draw.circle(core_surf, (*glow_color, min(255, alpha + 55)),
-                           (int(self.size * 2), int(self.size * 2)), int(self.size))
-        surface.blit(core_surf, (int(self.x - self.size * 2), int(self.y - self.size * 2)))
+                           (cc, cc), int(self.size))
+        # 밝은 내부 코어 (하이라이트)
+        inner_color = tuple(min(255, c + 60) for c in glow_color)
+        inner_alpha = min(255, int(alpha * 1.15))
+        pygame.draw.circle(core_surf, (*inner_color, inner_alpha),
+                           (cc, cc), max(1, int(self.size * 0.5)))
+        surface.blit(core_surf, (int(self.x - cc), int(self.y - cc)))
 
 
 class EnhancedLightningBolt:
@@ -141,7 +165,7 @@ class EnhancedLightningBolt:
         # 페이드인 시간 (전체 수명의 20%)
         self.fade_in_time = self.max_lifetime * 0.2
 
-        # 색상 (밝고 투명한 느낌의 색상)
+        # 색상 (풍부한 투명 전기빛 팔레트)
         color_base = random.choice([
             (200, 230, 255),   # 라이트 블루
             (230, 200, 255),   # 라이트 퍼플
@@ -149,6 +173,9 @@ class EnhancedLightningBolt:
             (220, 255, 255),   # 시안
             (255, 220, 255),   # 핑크
             (255, 255, 255),   # 퓨어 화이트
+            (180, 255, 230),   # 민트 그린
+            (255, 230, 200),   # 웜 앰버
+            (210, 210, 255),   # 라벤더
         ])
         self.color = color_base
 
@@ -277,12 +304,14 @@ class EnhancedLightningBolt:
         # 번개 서피스 생성 (투명 배경)
         lightning_surf = pygame.Surface((width, height), pygame.SRCALPHA)
 
-        # 그라데이션 글로우 레이어 (외부에서 내부로, 투명하게)
+        # 고해상도 그라데이션 글로우 (6단계 - 더 부드러운 확산)
         glow_layers = [
-            (12, 0.08),  # 가장 외부 - 매우 투명
-            (8, 0.15),   # 중간 외부
-            (5, 0.25),   # 중간
-            (3, 0.4),    # 중간 내부
+            (16, 0.03),  # 최외부 헤일로 - 아주 연한 확산
+            (12, 0.06),  # 외부
+            (9, 0.12),   # 중간 외부
+            (7, 0.18),   # 중간
+            (5, 0.28),   # 중간 내부
+            (3, 0.42),   # 내부
         ]
 
         for glow_size, glow_opacity in glow_layers:
@@ -384,12 +413,15 @@ class ElectricArc:
         self.arc_length = random.uniform(math.pi / 4, math.pi / 2)
         self.rotation_speed = random.uniform(3, 8) * random.choice([-1, 1])
 
-        # 색상
+        # 색상 (풍부한 전기 아크 팔레트)
         self.color = random.choice([
             (150, 200, 255),  # 블루
             (200, 150, 255),  # 퍼플
             (255, 255, 200),  # 옐로우
             (200, 255, 255),  # 시안
+            (160, 255, 220),  # 민트
+            (255, 200, 230),  # 소프트 핑크
+            (230, 220, 255),  # 라벤더
         ])
 
         self.lifetime = random.uniform(0.3, 0.8)
@@ -472,13 +504,15 @@ class Spark:
         # 중력 영향
         self.gravity = random.uniform(100, 300)
 
-        # 색상 (밝은 전기색)
+        # 색상 (풍부한 스파크 팔레트)
         self.color = random.choice([
             (255, 255, 200),  # 밝은 노랑
             (255, 200, 100),  # 주황
             (200, 220, 255),  # 라이트 블루
             (255, 255, 255),  # 화이트
             (255, 200, 255),  # 핑크
+            (200, 255, 230),  # 민트
+            (255, 240, 150),  # 골든
         ])
 
         self.size = random.uniform(1.5, 4)
@@ -1239,59 +1273,87 @@ class BallSpawnAnimation:
             surface.blit(flash_surf, (0, 0))
 
     def _draw_core_glow(self, surface: pygame.Surface):
-        """중심 코어 글로우 그리기 (강화됨)"""
+        """중심 코어 글로우 그리기 (고해상도 10단계 그라데이션)"""
         glow_surf = pygame.Surface((int(self.core_glow_radius * 4),
                                      int(self.core_glow_radius * 4)), pygame.SRCALPHA)
         center = int(self.core_glow_radius * 2)
 
-        # 여러 레이어의 글로우 (더 많은 레이어)
+        # 고해상도 10단계 그라데이션 (외부 → 내부)
         colors = [
-            (255, 255, 255),  # 흰색 코어
-            (220, 240, 255),  # 라이트 블루 1
-            (200, 220, 255),  # 라이트 블루 2
-            (180, 200, 255),  # 블루 1
-            (160, 180, 255),  # 블루 2
-            (180, 150, 255),  # 퍼플
+            (140, 120, 255),  # 외부 딥 퍼플
+            (155, 140, 255),  # 퍼플
+            (170, 160, 255),  # 라벤더
+            (180, 180, 255),  # 블루 퍼플
+            (190, 200, 255),  # 블루 2
+            (200, 215, 255),  # 블루 1
+            (215, 230, 255),  # 라이트 블루 2
+            (230, 240, 255),  # 라이트 블루 1
+            (245, 248, 255),  # 거의 화이트
+            (255, 255, 255),  # 퓨어 화이트 코어
         ]
 
+        num_layers = len(colors)
         for i, color in enumerate(colors):
-            radius = int(self.core_glow_radius * (1 - i * 0.15))
-            alpha = int(self.core_glow_alpha * (1 - i * 0.15))
+            # 외부(큰 원)부터 내부(작은 원)까지 부드러운 그라데이션
+            ratio = i / num_layers
+            radius = int(self.core_glow_radius * (1.0 - ratio * 0.85))
+            alpha = int(self.core_glow_alpha * (0.25 + ratio * 0.75))
             if radius > 0 and alpha > 0:
-                pygame.draw.circle(glow_surf, (*color, alpha), (center, center), radius)
+                pygame.draw.circle(glow_surf, (*color, min(255, alpha)),
+                                   (center, center), radius)
 
         surface.blit(glow_surf,
                      (int(self.center_x - center), int(self.center_y - center)))
 
     def _draw_ball(self, surface: pygame.Surface, ball_color: Tuple[int, int, int]):
-        """공 그리기 (강화된 글로우)"""
+        """공 그리기 (고해상도 글로우 + 코로나 효과)"""
         radius = int(self.ball_radius * self.ball_scale)
         if radius <= 0:
             return
 
         # 공 서피스
-        ball_surf = pygame.Surface((radius * 6, radius * 6), pygame.SRCALPHA)
-        center = radius * 3
+        ball_surf = pygame.Surface((radius * 8, radius * 8), pygame.SRCALPHA)
+        center = radius * 4
 
-        # 외부 글로우 (더 넓고 강하게)
-        for r in range(radius * 3, radius, -2):
-            glow_alpha = int(self.ball_alpha * 0.25 * (r - radius) / (radius * 2))
-            glow_color = tuple(min(255, int(c * 1.1)) for c in ball_color)
-            pygame.draw.circle(ball_surf, (*glow_color, glow_alpha), (center, center), r)
+        # 외부 코로나 (아주 연한 넓은 확산광)
+        corona_color = tuple(min(255, int(c * 0.8 + 50)) for c in ball_color)
+        for r in range(radius * 4, radius * 3, -1):
+            corona_alpha = int(self.ball_alpha * 0.04 * (r - radius * 3) / radius)
+            if corona_alpha > 0:
+                pygame.draw.circle(ball_surf, (*corona_color, corona_alpha),
+                                   (center, center), r)
+
+        # 메인 글로우 (부드러운 이차곡선 페이드)
+        glow_color = tuple(min(255, int(c * 1.1)) for c in ball_color)
+        for r in range(radius * 3, radius, -1):
+            ratio = (r - radius) / (radius * 2)
+            glow_alpha = int(self.ball_alpha * 0.2 * ratio * ratio)
+            if glow_alpha > 0:
+                pygame.draw.circle(ball_surf, (*glow_color, glow_alpha),
+                                   (center, center), r)
 
         # 메인 공
-        pygame.draw.circle(ball_surf, (*ball_color, self.ball_alpha), (center, center), radius)
+        pygame.draw.circle(ball_surf, (*ball_color, self.ball_alpha),
+                           (center, center), radius)
 
-        # 하이라이트 (더 밝게)
-        highlight_pos = (center - radius // 3, center - radius // 3)
-        highlight_radius = max(2, radius // 3)
-        pygame.draw.circle(ball_surf, (255, 255, 255, int(self.ball_alpha * 0.9)),
-                           highlight_pos, highlight_radius)
+        # 내부 그라데이션 (공 안쪽 밝은 부분)
+        inner_color = tuple(min(255, c + 40) for c in ball_color)
+        inner_r = max(1, int(radius * 0.7))
+        pygame.draw.circle(ball_surf, (*inner_color, int(self.ball_alpha * 0.4)),
+                           (center, center), inner_r)
 
-        # 작은 하이라이트
-        small_highlight = (center - radius // 4, center - radius // 4)
-        pygame.draw.circle(ball_surf, (255, 255, 255, int(self.ball_alpha)),
-                           small_highlight, max(1, radius // 5))
+        # 메인 하이라이트 (자연스러운 빛 반사)
+        hl_x = center - radius // 3
+        hl_y = center - radius // 3
+        hl_r = max(2, radius // 3)
+        pygame.draw.circle(ball_surf, (255, 255, 255, int(self.ball_alpha * 0.85)),
+                           (hl_x, hl_y), hl_r)
+
+        # 작은 하이라이트 (선명한 포인트)
+        sm_x = center - radius // 4
+        sm_y = center - radius // 4
+        pygame.draw.circle(ball_surf, (255, 255, 255, self.ball_alpha),
+                           (sm_x, sm_y), max(1, radius // 5))
 
         surface.blit(ball_surf, (int(self.ball_x - center), int(self.ball_y - center)))
 
