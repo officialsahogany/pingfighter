@@ -91992,47 +91992,125 @@ def draw_objects():
             # 화면 효과 그리기 (플래시, 흔들림 등)
             arena_skill_manager.draw_screen_effects(SCREEN)
 
-            # 🔥 도깨비불 공 이펙트 그리기
+            # 🔥 도깨비불 공 이펙트 그리기 (Ultra Premium)
             if arena_skill_manager.game_state.get('dokkaebi_ball', False) and BALL:
                 _dokkaebi_time = pygame.time.get_ticks() / 1000.0
                 _ball_cx, _ball_cy = BALL.centerx, BALL.centery
                 _ball_r = BALL.width // 2
+                _dt = _dokkaebi_time
 
-                # 도깨비불 외곽 글로우 (청록색/푸른색 반복)
-                for i in range(4):
-                    _glow_r = _ball_r + 8 + i * 6
-                    _glow_alpha = int(120 - i * 25)
-                    # 깜빡이는 효과
-                    _flicker = 0.7 + 0.3 * math.sin(_dokkaebi_time * 10 + i)
+                # ── 1. 외곽 대기 오라 (6겹, 넓은 범위 번짐) ──
+                for i in range(6):
+                    _glow_r = _ball_r + 10 + i * 7
+                    _glow_alpha = int(100 - i * 14)
+                    _flicker = 0.6 + 0.4 * math.sin(_dt * 10 + i * 1.3)
                     _glow_alpha = int(_glow_alpha * _flicker)
-                    _glow_surf = pygame.Surface((_glow_r * 2, _glow_r * 2), pygame.SRCALPHA)
-                    # 푸른색/청록색 그라데이션
-                    _r = int(50 + 50 * math.sin(_dokkaebi_time * 5))
-                    _g = int(180 + 40 * math.sin(_dokkaebi_time * 7))
-                    _b = 255
-                    pygame.draw.circle(_glow_surf, (_r, _g, _b, _glow_alpha), (_glow_r, _glow_r), _glow_r)
-                    SCREEN.blit(_glow_surf, (_ball_cx - _glow_r, _ball_cy - _glow_r), special_flags=pygame.BLEND_ADD)
+                    if _glow_alpha > 0:
+                        _glow_surf = pygame.Surface((_glow_r * 2, _glow_r * 2), pygame.SRCALPHA)
+                        # 색상 그라디언트 (층마다 변화)
+                        _cr = int(40 + 60 * math.sin(_dt * 4.0 + i * 0.8))
+                        _cg = int(160 + 60 * math.sin(_dt * 6.0 + i * 0.5))
+                        _cb = 255
+                        pygame.draw.circle(_glow_surf, (_cr, _cg, _cb, _glow_alpha), (_glow_r, _glow_r), _glow_r)
+                        SCREEN.blit(_glow_surf, (_ball_cx - _glow_r, _ball_cy - _glow_r), special_flags=pygame.BLEND_ADD)
 
-                # 도깨비불 본체 (푸른 불꽃 모양)
-                _core_surf = pygame.Surface((_ball_r * 4, _ball_r * 4), pygame.SRCALPHA)
-                _core_cx, _core_cy = _ball_r * 2, _ball_r * 2
-                # 불꽃 모양 (위로 뾰족하게)
-                _flame_points = []
-                for angle in range(0, 360, 30):
-                    _rad = math.radians(angle)
-                    # 위쪽으로 길쭉한 타원형
-                    _dist = _ball_r * (1.2 + 0.3 * math.sin(_dokkaebi_time * 8 + angle / 30))
-                    if 60 < angle < 120:  # 위쪽은 더 길게
-                        _dist *= 1.5
-                    _fx = _core_cx + math.sin(_rad) * _dist * 0.8
-                    _fy = _core_cy - math.cos(_rad) * _dist
-                    _flame_points.append((_fx, _fy))
-                if len(_flame_points) >= 3:
-                    pygame.draw.polygon(_core_surf, (100, 220, 255, 200), _flame_points)
-                # 중심 하이라이트
-                pygame.draw.circle(_core_surf, (200, 255, 255, 255), (_core_cx, _core_cy), int(_ball_r * 0.6))
-                pygame.draw.circle(_core_surf, (255, 255, 255, 200), (_core_cx, _core_cy - 2), int(_ball_r * 0.3))
-                SCREEN.blit(_core_surf, (_ball_cx - _ball_r * 2, _ball_cy - _ball_r * 2), special_flags=pygame.BLEND_ADD)
+                # ── 2. 외곽 불꽃 실루엣 (크고 흔들리는 외곽 불꽃) ──
+                _outer_surf_size = _ball_r * 6
+                _outer_surf = pygame.Surface((_outer_surf_size, _outer_surf_size), pygame.SRCALPHA)
+                _outer_cx, _outer_cy = _outer_surf_size // 2, _outer_surf_size // 2
+                _outer_flame = []
+                for _ai in range(24):
+                    _rad = math.radians(_ai * 15)
+                    _base_dist = _ball_r * (1.6 + 0.5 * math.sin(_dt * 6.0 + _ai * 0.6))
+                    # 위쪽으로 길쭉하게 (불꽃 형태)
+                    if 3 < _ai < 9:
+                        _base_dist *= 1.6 + 0.3 * math.sin(_dt * 9.0 + _ai)
+                    # 좌우 약간 넓게
+                    _fx = _outer_cx + math.sin(_rad) * _base_dist * 0.85
+                    _fy = _outer_cy - math.cos(_rad) * _base_dist
+                    _outer_flame.append((_fx, _fy))
+                if len(_outer_flame) >= 3:
+                    pygame.draw.polygon(_outer_surf, (50, 140, 220, 60), _outer_flame)
+                    pygame.draw.polygon(_outer_surf, (70, 170, 245, 40), _outer_flame, 2)
+                SCREEN.blit(_outer_surf, (_ball_cx - _outer_cx, _ball_cy - _outer_cy), special_flags=pygame.BLEND_ADD)
+
+                # ── 3. 메인 불꽃 본체 (다층 그라디언트 - 4레이어) ──
+                _core_surf_size = _ball_r * 5
+                _core_surf = pygame.Surface((_core_surf_size, _core_surf_size), pygame.SRCALPHA)
+                _core_cx, _core_cy = _core_surf_size // 2, _core_surf_size // 2
+
+                _flame_layers = [
+                    (1.0, 0.85, (80, 190, 255, 140), 18),   # 외곽 - 넓고 반투명
+                    (0.82, 0.75, (100, 210, 255, 180), 16),  # 중간1
+                    (0.65, 0.6, (140, 230, 255, 210), 14),   # 중간2
+                    (0.48, 0.45, (190, 245, 255, 230), 12),  # 내부 - 밝은 코어
+                ]
+                for _lr, _lr_inner, _lcolor, _lseg in _flame_layers:
+                    _layer_pts = []
+                    for _li in range(_lseg):
+                        _rad = math.radians(_li * (360 / _lseg))
+                        _ldist = _ball_r * (_lr + 0.2 * math.sin(_dt * 8.0 + _li * 0.7))
+                        if math.degrees(_rad) > 30 and math.degrees(_rad) < 150:
+                            _ldist *= 1.5 + 0.2 * math.sin(_dt * 10.0 + _li)
+                        _lx = _core_cx + math.sin(_rad) * _ldist * 0.8
+                        _ly = _core_cy - math.cos(_rad) * _ldist
+                        _layer_pts.append((_lx, _ly))
+                    if len(_layer_pts) >= 3:
+                        pygame.draw.polygon(_core_surf, _lcolor, _layer_pts)
+
+                # ── 4. 내부 에너지 흐름 (회전하는 나선 패턴) ──
+                for _si in range(3):
+                    _spiral_pts = []
+                    for _sj in range(12):
+                        _s_angle = _dt * 4.0 + _si * (math.pi * 2 / 3) + _sj * 0.4
+                        _s_dist = _ball_r * (0.3 + _sj * 0.06)
+                        _sx = _core_cx + _s_dist * math.cos(_s_angle)
+                        _sy = _core_cy + _s_dist * math.sin(_s_angle) * 0.7 - _sj * 1.5
+                        _spiral_pts.append((int(_sx), int(_sy)))
+                    if len(_spiral_pts) >= 2:
+                        _s_alpha = int(60 + 40 * math.sin(_dt * 6.0 + _si * 2.0))
+                        pygame.draw.lines(_core_surf, (160, 240, 255, _s_alpha), False, _spiral_pts, 1)
+
+                # ── 5. 중심 코어 (다층 하이라이트) ──
+                pygame.draw.circle(_core_surf, (160, 240, 255, 200), (_core_cx, _core_cy), int(_ball_r * 0.7))
+                pygame.draw.circle(_core_surf, (200, 250, 255, 240), (_core_cx, _core_cy), int(_ball_r * 0.5))
+                pygame.draw.circle(_core_surf, (235, 255, 255, 255), (_core_cx, _core_cy), int(_ball_r * 0.3))
+                # 상단 하이라이트 (불꽃 중심 위쪽)
+                pygame.draw.circle(_core_surf, (255, 255, 255, 200), (_core_cx, _core_cy - 3), int(_ball_r * 0.2))
+
+                SCREEN.blit(_core_surf, (_ball_cx - _core_cx, _ball_cy - _core_cy), special_flags=pygame.BLEND_ADD)
+
+                # ── 6. 도깨비 눈 (불꽃 속에서 빛나는 두 눈) ──
+                _eye_pulse = 0.5 + 0.5 * math.sin(_dt * 8.0)
+                _eye_alpha = int(180 * _eye_pulse)
+                if _eye_alpha > 20:
+                    for _edir in [-1, 1]:
+                        _ex = _ball_cx + _edir * int(_ball_r * 0.35)
+                        _ey = _ball_cy - int(_ball_r * 0.15)
+                        # 눈 글로우
+                        _eye_glow_surf = pygame.Surface((16, 16), pygame.SRCALPHA)
+                        pygame.draw.circle(_eye_glow_surf, (255, 100, 40, _eye_alpha // 3), (8, 8), 8)
+                        SCREEN.blit(_eye_glow_surf, (_ex - 8, _ey - 8), special_flags=pygame.BLEND_ADD)
+                        # 눈 코어
+                        _eye_core_surf = pygame.Surface((8, 8), pygame.SRCALPHA)
+                        pygame.draw.circle(_eye_core_surf, (255, 180, 80, _eye_alpha), (4, 4), 3)
+                        pygame.draw.circle(_eye_core_surf, (255, 240, 200, min(255, _eye_alpha + 40)), (4, 4), 1)
+                        SCREEN.blit(_eye_core_surf, (_ex - 4, _ey - 4), special_flags=pygame.BLEND_ADD)
+
+                # ── 7. 엣지 스파크 (불꽃 주변 불똥) ──
+                for _spi in range(5):
+                    _sp_angle = _dt * 5.0 + _spi * (math.pi * 2 / 5)
+                    _sp_dist = _ball_r * (1.8 + 0.6 * math.sin(_dt * 12.0 + _spi * 3.0))
+                    _sp_x = _ball_cx + _sp_dist * math.sin(_sp_angle) * 0.7
+                    _sp_y = _ball_cy - _sp_dist * math.cos(_sp_angle) * 0.9
+                    _sp_bright = 0.3 + 0.7 * abs(math.sin(_dt * 15.0 + _spi * 2.5))
+                    _sp_a = int(140 * _sp_bright)
+                    if _sp_a > 10:
+                        _sp_sz = max(1, int(2 * _sp_bright))
+                        _sp_surf = pygame.Surface((_sp_sz * 2 + 6, _sp_sz * 2 + 6), pygame.SRCALPHA)
+                        pygame.draw.circle(_sp_surf, (100, 220, 255, _sp_a // 3), (_sp_sz + 3, _sp_sz + 3), _sp_sz + 3)
+                        pygame.draw.circle(_sp_surf, (200, 250, 255, _sp_a), (_sp_sz + 3, _sp_sz + 3), _sp_sz)
+                        SCREEN.blit(_sp_surf, (int(_sp_x) - _sp_sz - 3, int(_sp_y) - _sp_sz - 3), special_flags=pygame.BLEND_ADD)
 
         except Exception:
             pass  # 스킬 그리기 오류 무시
@@ -92187,40 +92265,118 @@ def draw_objects():
         except Exception:
             pass
 
-        # 🔥 인게임 호위무사 도깨비불 공 이펙트 그리기
+        # 🔥 인게임 호위무사 도깨비불 공 이펙트 그리기 (Ultra Premium)
         if _ingame_bodyguard_dokkaebi_ball and BALL:
             _dokkaebi_time = pygame.time.get_ticks() / 1000.0
             _ball_cx, _ball_cy = BALL.centerx, BALL.centery
             _ball_r = BALL.width // 2
-            # 도깨비불 외곽 글로우 (청록색/푸른색 반복)
-            for i in range(4):
-                _glow_r = _ball_r + 8 + i * 6
-                _glow_alpha = int(120 - i * 25)
-                _flicker = 0.7 + 0.3 * math.sin(_dokkaebi_time * 10 + i)
+            _dt = _dokkaebi_time
+
+            # ── 1. 외곽 대기 오라 (6겹) ──
+            for i in range(6):
+                _glow_r = _ball_r + 10 + i * 7
+                _glow_alpha = int(100 - i * 14)
+                _flicker = 0.6 + 0.4 * math.sin(_dt * 10 + i * 1.3)
                 _glow_alpha = int(_glow_alpha * _flicker)
-                _glow_surf = pygame.Surface((_glow_r * 2, _glow_r * 2), pygame.SRCALPHA)
-                _r = int(50 + 50 * math.sin(_dokkaebi_time * 5))
-                _g = int(180 + 40 * math.sin(_dokkaebi_time * 7))
-                _b = 255
-                pygame.draw.circle(_glow_surf, (_r, _g, _b, _glow_alpha), (_glow_r, _glow_r), _glow_r)
-                SCREEN.blit(_glow_surf, (_ball_cx - _glow_r, _ball_cy - _glow_r), special_flags=pygame.BLEND_ADD)
-            # 도깨비불 본체 (푸른 불꽃 모양)
-            _core_surf = pygame.Surface((_ball_r * 4, _ball_r * 4), pygame.SRCALPHA)
-            _core_cx, _core_cy = _ball_r * 2, _ball_r * 2
-            _flame_points = []
-            for angle in range(0, 360, 30):
-                _rad = math.radians(angle)
-                _dist = _ball_r * (1.2 + 0.3 * math.sin(_dokkaebi_time * 8 + angle / 30))
-                if 60 < angle < 120:
-                    _dist *= 1.5
-                _fx = _core_cx + math.sin(_rad) * _dist * 0.8
-                _fy = _core_cy - math.cos(_rad) * _dist
-                _flame_points.append((_fx, _fy))
-            if len(_flame_points) >= 3:
-                pygame.draw.polygon(_core_surf, (100, 220, 255, 200), _flame_points)
-            pygame.draw.circle(_core_surf, (200, 255, 255, 255), (_core_cx, _core_cy), int(_ball_r * 0.6))
-            pygame.draw.circle(_core_surf, (255, 255, 255, 200), (_core_cx, _core_cy - 2), int(_ball_r * 0.3))
-            SCREEN.blit(_core_surf, (_ball_cx - _ball_r * 2, _ball_cy - _ball_r * 2), special_flags=pygame.BLEND_ADD)
+                if _glow_alpha > 0:
+                    _glow_surf = pygame.Surface((_glow_r * 2, _glow_r * 2), pygame.SRCALPHA)
+                    _cr = int(40 + 60 * math.sin(_dt * 4.0 + i * 0.8))
+                    _cg = int(160 + 60 * math.sin(_dt * 6.0 + i * 0.5))
+                    pygame.draw.circle(_glow_surf, (_cr, _cg, 255, _glow_alpha), (_glow_r, _glow_r), _glow_r)
+                    SCREEN.blit(_glow_surf, (_ball_cx - _glow_r, _ball_cy - _glow_r), special_flags=pygame.BLEND_ADD)
+
+            # ── 2. 외곽 불꽃 실루엣 ──
+            _outer_surf_size = _ball_r * 6
+            _outer_surf = pygame.Surface((_outer_surf_size, _outer_surf_size), pygame.SRCALPHA)
+            _outer_cx, _outer_cy = _outer_surf_size // 2, _outer_surf_size // 2
+            _outer_flame = []
+            for _ai in range(24):
+                _rad = math.radians(_ai * 15)
+                _base_dist = _ball_r * (1.6 + 0.5 * math.sin(_dt * 6.0 + _ai * 0.6))
+                if 3 < _ai < 9:
+                    _base_dist *= 1.6 + 0.3 * math.sin(_dt * 9.0 + _ai)
+                _fx = _outer_cx + math.sin(_rad) * _base_dist * 0.85
+                _fy = _outer_cy - math.cos(_rad) * _base_dist
+                _outer_flame.append((_fx, _fy))
+            if len(_outer_flame) >= 3:
+                pygame.draw.polygon(_outer_surf, (50, 140, 220, 60), _outer_flame)
+                pygame.draw.polygon(_outer_surf, (70, 170, 245, 40), _outer_flame, 2)
+            SCREEN.blit(_outer_surf, (_ball_cx - _outer_cx, _ball_cy - _outer_cy), special_flags=pygame.BLEND_ADD)
+
+            # ── 3. 메인 불꽃 본체 (다층 그라디언트) ──
+            _core_surf_size = _ball_r * 5
+            _core_surf = pygame.Surface((_core_surf_size, _core_surf_size), pygame.SRCALPHA)
+            _core_cx, _core_cy = _core_surf_size // 2, _core_surf_size // 2
+
+            _flame_layers = [
+                (1.0, 0.85, (80, 190, 255, 140), 18),
+                (0.82, 0.75, (100, 210, 255, 180), 16),
+                (0.65, 0.6, (140, 230, 255, 210), 14),
+                (0.48, 0.45, (190, 245, 255, 230), 12),
+            ]
+            for _lr, _lr_inner, _lcolor, _lseg in _flame_layers:
+                _layer_pts = []
+                for _li in range(_lseg):
+                    _rad = math.radians(_li * (360 / _lseg))
+                    _ldist = _ball_r * (_lr + 0.2 * math.sin(_dt * 8.0 + _li * 0.7))
+                    if math.degrees(_rad) > 30 and math.degrees(_rad) < 150:
+                        _ldist *= 1.5 + 0.2 * math.sin(_dt * 10.0 + _li)
+                    _lx = _core_cx + math.sin(_rad) * _ldist * 0.8
+                    _ly = _core_cy - math.cos(_rad) * _ldist
+                    _layer_pts.append((_lx, _ly))
+                if len(_layer_pts) >= 3:
+                    pygame.draw.polygon(_core_surf, _lcolor, _layer_pts)
+
+            # ── 4. 내부 에너지 흐름 (나선 패턴) ──
+            for _si in range(3):
+                _spiral_pts = []
+                for _sj in range(12):
+                    _s_angle = _dt * 4.0 + _si * (math.pi * 2 / 3) + _sj * 0.4
+                    _s_dist = _ball_r * (0.3 + _sj * 0.06)
+                    _sx = _core_cx + _s_dist * math.cos(_s_angle)
+                    _sy = _core_cy + _s_dist * math.sin(_s_angle) * 0.7 - _sj * 1.5
+                    _spiral_pts.append((int(_sx), int(_sy)))
+                if len(_spiral_pts) >= 2:
+                    _s_alpha = int(60 + 40 * math.sin(_dt * 6.0 + _si * 2.0))
+                    pygame.draw.lines(_core_surf, (160, 240, 255, _s_alpha), False, _spiral_pts, 1)
+
+            # ── 5. 중심 코어 ──
+            pygame.draw.circle(_core_surf, (160, 240, 255, 200), (_core_cx, _core_cy), int(_ball_r * 0.7))
+            pygame.draw.circle(_core_surf, (200, 250, 255, 240), (_core_cx, _core_cy), int(_ball_r * 0.5))
+            pygame.draw.circle(_core_surf, (235, 255, 255, 255), (_core_cx, _core_cy), int(_ball_r * 0.3))
+            pygame.draw.circle(_core_surf, (255, 255, 255, 200), (_core_cx, _core_cy - 3), int(_ball_r * 0.2))
+
+            SCREEN.blit(_core_surf, (_ball_cx - _core_cx, _ball_cy - _core_cy), special_flags=pygame.BLEND_ADD)
+
+            # ── 6. 도깨비 눈 ──
+            _eye_pulse = 0.5 + 0.5 * math.sin(_dt * 8.0)
+            _eye_alpha = int(180 * _eye_pulse)
+            if _eye_alpha > 20:
+                for _edir in [-1, 1]:
+                    _ex = _ball_cx + _edir * int(_ball_r * 0.35)
+                    _ey = _ball_cy - int(_ball_r * 0.15)
+                    _eye_glow_surf = pygame.Surface((16, 16), pygame.SRCALPHA)
+                    pygame.draw.circle(_eye_glow_surf, (255, 100, 40, _eye_alpha // 3), (8, 8), 8)
+                    SCREEN.blit(_eye_glow_surf, (_ex - 8, _ey - 8), special_flags=pygame.BLEND_ADD)
+                    _eye_core_surf = pygame.Surface((8, 8), pygame.SRCALPHA)
+                    pygame.draw.circle(_eye_core_surf, (255, 180, 80, _eye_alpha), (4, 4), 3)
+                    pygame.draw.circle(_eye_core_surf, (255, 240, 200, min(255, _eye_alpha + 40)), (4, 4), 1)
+                    SCREEN.blit(_eye_core_surf, (_ex - 4, _ey - 4), special_flags=pygame.BLEND_ADD)
+
+            # ── 7. 엣지 스파크 ──
+            for _spi in range(5):
+                _sp_angle = _dt * 5.0 + _spi * (math.pi * 2 / 5)
+                _sp_dist = _ball_r * (1.8 + 0.6 * math.sin(_dt * 12.0 + _spi * 3.0))
+                _sp_x = _ball_cx + _sp_dist * math.sin(_sp_angle) * 0.7
+                _sp_y = _ball_cy - _sp_dist * math.cos(_sp_angle) * 0.9
+                _sp_bright = 0.3 + 0.7 * abs(math.sin(_dt * 15.0 + _spi * 2.5))
+                _sp_a = int(140 * _sp_bright)
+                if _sp_a > 10:
+                    _sp_sz = max(1, int(2 * _sp_bright))
+                    _sp_surf = pygame.Surface((_sp_sz * 2 + 6, _sp_sz * 2 + 6), pygame.SRCALPHA)
+                    pygame.draw.circle(_sp_surf, (100, 220, 255, _sp_a // 3), (_sp_sz + 3, _sp_sz + 3), _sp_sz + 3)
+                    pygame.draw.circle(_sp_surf, (200, 250, 255, _sp_a), (_sp_sz + 3, _sp_sz + 3), _sp_sz)
+                    SCREEN.blit(_sp_surf, (int(_sp_x) - _sp_sz - 3, int(_sp_y) - _sp_sz - 3), special_flags=pygame.BLEND_ADD)
 
     try:
         from item_effects.foul_whistle import get_foul_whistle_instance
