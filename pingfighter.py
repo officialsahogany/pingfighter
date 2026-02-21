@@ -92188,7 +92188,7 @@ def draw_objects():
                 _sa = max(0, min(255, _sa))
                 # 스케일: 처음 살짝 커졌다 정상으로
                 _sscale = 1.0 + 0.3 * max(0.0, 1.0 - _prog / 0.15) if _prog < 0.15 else 1.0
-                _base_sz = 36
+                _base_sz = 72
                 _isz = int(_base_sz * _sscale)
                 _half = (_isz + 12) // 2
                 _icon_sf = pygame.Surface((_isz + 12, _isz + 12), pygame.SRCALPHA)
