@@ -3882,23 +3882,7 @@ class AnimatedBackgroundStage30:
             flame_h = int(torch['flame_height'] * scale_y)
             sway_i = int(sway)
 
-            # ── 1. 벽면 조명 반사 (받침대 뒤쪽 은은한 빛) ──
-            base_glow_r = int(18 * intensity * scale_x)
-            if base_glow_r > 2:
-                bg_key = base_glow_r
-                if bg_key not in self._torch_base_glow_cache:
-                    bgs = pygame.Surface((base_glow_r * 2, base_glow_r * 3), pygame.SRCALPHA)
-                    for r in range(base_glow_r, 0, -2):
-                        a = int(10 * (r / base_glow_r))
-                        pygame.draw.ellipse(bgs, (255, 190, 90, a),
-                                            (base_glow_r - r, base_glow_r * 3 // 2 - r,
-                                             r * 2, r * 2))
-                    self._torch_base_glow_cache[bg_key] = bgs
-                screen.blit(self._torch_base_glow_cache[bg_key],
-                            (tx - base_glow_r, ty - base_glow_r),
-                            special_flags=pygame.BLEND_ADD)
-
-            # ── 2. 금속 거치대 (입체감 있는 브래킷) ──
+            # ── 1. 금속 거치대 (입체감 있는 브래킷) ──
             sx = lambda v: int(v * scale_x)
             sy = lambda v: int(v * scale_y)
 
