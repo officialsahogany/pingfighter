@@ -3083,7 +3083,7 @@ class HeroPaddleRenderer:
 
             # === 핸드 글로우 이펙트 (슬램 활성 시 핑크/퍼플 글로우) ===
             hand_glow_intensity = abs(arm_slam) if slam_active else 0.15
-            hand_glow_r = int(0.55 * b)
+            hand_glow_r = int(0.275 * b)
             hand_glow_surf = self._get_surface(hand_glow_r * 2, hand_glow_r * 2)
             hg_pulse = 0.5 + 0.5 * _sin(self.time * 4.5 + side * 1.5)
             hg_alpha = int(max(8, 40 * hand_glow_intensity) * hg_pulse)
