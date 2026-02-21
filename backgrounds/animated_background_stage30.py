@@ -2207,11 +2207,14 @@ class AnimatedBackgroundStage30:
                         screen.blit(deep_surf, (cx + rise_shake_x - deep_w // 2,
                                                 ground_y - deep_h // 2))
         else:
-            # 바람의 분노: 석상 X축 자전 효과 (cos으로 수평 압축 → 3D 회전 착시)
+            # 바람의 분노: 석상 X축 자전 효과 (입체감 있는 3D 회전)
             if (self.judgment_variant == 'wind' and
                     abs(self.judgment_wind_spin_speed) > 0.01):
-                x_scale_factor = math.cos(self.judgment_wind_spin_angle)
-                abs_x_scale = max(0.05, abs(x_scale_factor))
+                raw_cos = math.cos(self.judgment_wind_spin_angle)
+                raw_sin = math.sin(self.judgment_wind_spin_angle)
+                # 입체감: 최소 두께 35% (석상은 납작한 종이가 아닌 입체물)
+                DEPTH_RATIO = 0.35
+                abs_x_scale = max(DEPTH_RATIO, abs(raw_cos))
                 # 석상 바운딩 박스 기반 임시 서피스
                 margin_x = int(45 * s)
                 margin_top = int(40 * s)
@@ -2226,8 +2229,84 @@ class AnimatedBackgroundStage30:
                 # 수평 스케일링 (자전 효과)
                 new_w = max(1, int(tw * abs_x_scale))
                 scaled_surf = pygame.transform.scale(temp_surf, (new_w, th))
-                if x_scale_factor < 0:
+                if raw_cos < 0:
                     scaled_surf = pygame.transform.flip(scaled_surf, True, False)
+                # ── 입체감 1: 회전 방향에 따른 명암 (빛/그림자) ──
+                # sin > 0 → 오른쪽이 앞면(밝음), 왼쪽이 뒷면(어둠)
+                # sin < 0 → 반대
+                shade_intensity = abs(raw_sin)  # 0(정면)~1(측면) - 측면일수록 명암 강함
+                if shade_intensity > 0.05:
+                    shade_surf = pygame.Surface((new_w, th), pygame.SRCALPHA)
+                    # 어두운 면 (회전 반대쪽)
+                    shadow_alpha = int(90 * shade_intensity)
+                    # 밝은 면 (회전 앞쪽)
+                    highlight_alpha = int(45 * shade_intensity)
+                    half_w = new_w // 2
+                    # sin 부호로 밝은/어두운 면 방향 결정
+                    if (raw_sin > 0) != (raw_cos < 0):
+                        # 왼쪽 어둡게, 오른쪽 밝게
+                        shadow_rect = pygame.Rect(0, 0, half_w, th)
+                        hl_rect = pygame.Rect(half_w, 0, new_w - half_w, th)
+                    else:
+                        # 오른쪽 어둡게, 왼쪽 밝게
+                        shadow_rect = pygame.Rect(half_w, 0, new_w - half_w, th)
+                        hl_rect = pygame.Rect(0, 0, half_w, th)
+                    shade_surf.fill((0, 0, 0, shadow_alpha), shadow_rect)
+                    shade_surf.fill((255, 255, 240, highlight_alpha), hl_rect)
+                    scaled_surf.blit(shade_surf, (0, 0))
+                # ── 입체감 2: 측면 두께 표현 (옆면이 보일 때 대리석 측면 렌더링) ──
+                side_visibility = max(0, shade_intensity - 0.2) / 0.8  # 0.2 이하에서는 안 보임
+                if side_visibility > 0.05:
+                    side_w = max(2, int(8 * s * side_visibility))
+                    side_alpha = int(200 * min(1.0, side_visibility * 1.5))
+                    # 측면 색상 (어두운 대리석)
+                    side_col_dark = (110, 100, 88, side_alpha)
+                    side_col_mid = (135, 125, 112, int(side_alpha * 0.8))
+                    side_col_edge = (90, 80, 68, int(side_alpha * 0.6))
+                    # 회전 방향에 따라 어느 쪽에 측면을 그릴지 결정
+                    if (raw_sin > 0) != (raw_cos < 0):
+                        # 왼쪽에 측면
+                        side_x = 0
+                    else:
+                        # 오른쪽에 측면
+                        side_x = new_w - side_w
+                    # 석상 높이 범위에만 측면 그리기 (마운드 위~머리 아래)
+                    body_top = int(margin_top - 32 * s)  # 머리 위쪽
+                    body_bot = int(margin_top + 8 * s)   # 마운드 아래
+                    body_top = max(0, body_top)
+                    body_bot = min(th, body_bot)
+                    side_surf = pygame.Surface((side_w, body_bot - body_top), pygame.SRCALPHA)
+                    # 그라디언트 측면 (위→아래 밝기 변화)
+                    for sy in range(body_bot - body_top):
+                        vert_ratio = sy / max(1, body_bot - body_top - 1)
+                        # 중앙이 밝고 위아래가 어두운 곡면 느낌
+                        curve = 1.0 - abs(vert_ratio - 0.4) * 1.2
+                        curve = max(0.3, min(1.0, curve))
+                        r = int(side_col_dark[0] * (1 - curve) + side_col_mid[0] * curve)
+                        g = int(side_col_dark[1] * (1 - curve) + side_col_mid[1] * curve)
+                        b = int(side_col_dark[2] * (1 - curve) + side_col_mid[2] * curve)
+                        a = int(side_alpha * (0.6 + 0.4 * curve))
+                        pygame.draw.line(side_surf, (r, g, b, a),
+                                         (0, sy), (side_w - 1, sy))
+                    # 측면 엣지 하이라이트 (볼록한 느낌)
+                    edge_x = 0 if side_x == 0 else side_w - 1
+                    for sy in range(body_bot - body_top):
+                        vert_r = sy / max(1, body_bot - body_top - 1)
+                        edge_a = int(side_alpha * 0.4 * (1.0 - abs(vert_r - 0.35) * 1.5))
+                        edge_a = max(0, min(255, edge_a))
+                        if edge_a > 5:
+                            pygame.draw.line(side_surf, (180, 170, 155, edge_a),
+                                             (edge_x, sy), (edge_x, sy))
+                    scaled_surf.blit(side_surf, (side_x, body_top))
+                # ── 입체감 3: 측면 전환 시 엣지 글로우 (석상 테두리 빛 반사) ──
+                if abs(raw_cos) < 0.5:
+                    edge_glow_a = int(60 * (1.0 - abs(raw_cos) * 2))
+                    glow_w = max(1, int(2 * s))
+                    glow_surf = pygame.Surface((glow_w, th), pygame.SRCALPHA)
+                    glow_surf.fill((200, 190, 170, edge_glow_a))
+                    # 양쪽 엣지에 글로우
+                    scaled_surf.blit(glow_surf, (0, 0))
+                    scaled_surf.blit(glow_surf, (max(0, new_w - glow_w), 0))
                 # 원래 위치에 중심 정렬하여 블릿
                 blit_x = cx - new_w // 2
                 blit_y = cy - margin_top
