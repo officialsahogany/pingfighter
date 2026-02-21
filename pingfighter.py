@@ -9164,31 +9164,26 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
                 print(f"[플래그십] SCALED|FULLSCREEN 실패({_fs_err}), CPU 폴백", flush=True)
 
             if _fs_scaled_ok:
+                # --- 창모드와 동일한 파이프라인: 게임 1:1 + GPU 2x ---
+                # CPU 스케일링 제거 → 픽셀 퍼펙트 선명도 + 프레임 드랍 없음
                 _use_scaled_mode = True
                 if _custom_cursor_enabled:
                     pygame.mouse.set_visible(False)
                 FULLSCREEN_WIDTH = _fs_comp_w
                 FULLSCREEN_HEIGHT = _fs_comp_h
-                # comp 내에서 시네마 비율로 CPU 스케일 (마진 = 화면70px / GPU2x = comp35px)
-                _fs_margin_comp = 65
-                scale_y = (_fs_comp_h - _fs_margin_comp * 2) / HEIGHT
-                scaled_width_check = int(WIDTH * scale_y)
-                if scaled_width_check > _fs_comp_w:
-                    GAME_SCALE_FACTOR = _fs_comp_w / WIDTH
-                else:
-                    GAME_SCALE_FACTOR = scale_y
-                GAME_SCALED_WIDTH = int(WIDTH * GAME_SCALE_FACTOR)
-                GAME_SCALED_HEIGHT = int(HEIGHT * GAME_SCALE_FACTOR)
-                GAME_OFFSET_X = (_fs_comp_w - GAME_SCALED_WIDTH) // 2
-                GAME_OFFSET_Y = (_fs_comp_h - GAME_SCALED_HEIGHT) // 2
-                _set_font_scale(GAME_SCALE_FACTOR)
+                GAME_SCALE_FACTOR = 1.0       # CPU 스케일링 없음! (창모드와 동일)
+                GAME_SCALED_WIDTH = WIDTH      # 게임 원본 크기 그대로
+                GAME_SCALED_HEIGHT = HEIGHT
+                GAME_OFFSET_X = (_fs_comp_w - WIDTH) // 2   # 합성 버퍼 중앙
+                GAME_OFFSET_Y = (_fs_comp_h - HEIGHT) // 2
+                _set_font_scale(1.0)
                 SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert()
                 pillar_renderer = init_pillar_background(
                     _fs_comp_w, _fs_comp_h, GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT,
                     offset_x=GAME_OFFSET_X, offset_y=GAME_OFFSET_Y,
                     original_game_width=WIDTH, original_game_height=HEIGHT
                 )
-                _fs_mode_str = f"GPU 2x ({_fs_comp_w}x{_fs_comp_h} → {monitor_w}x{monitor_h})"
+                _fs_mode_str = f"GPU 2x 1:1 ({_fs_comp_w}x{_fs_comp_h} → {monitor_w}x{monitor_h}, 게임 {WIDTH}x{HEIGHT} 원본)"
             else:
                 _fs_can_gpu_2x = False  # 폴백으로 전환
 
