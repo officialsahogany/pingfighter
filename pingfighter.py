@@ -7247,8 +7247,8 @@ def _get_scaled_screen():
         if _scaled_surface_cache is None or _scaled_surface_size != target_size:
             _scaled_surface_cache = pygame.Surface(target_size).convert()
             _scaled_surface_size = target_size
-        # nearest-neighbor: 픽셀아트 스타일 선명한 스케일링 (smoothscale은 흐릿)
-        pygame.transform.scale(SCREEN, target_size, _scaled_surface_cache)
+        # smoothscale: bilinear 보간 (폰트/그림 부드럽게, nearest는 비정수배에서 깨짐)
+        pygame.transform.smoothscale(SCREEN, target_size, _scaled_surface_cache)
         result = _scaled_surface_cache
 
     if VALTHOR_PERF_DEBUG:
@@ -9171,7 +9171,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
                 FULLSCREEN_WIDTH = _fs_comp_w
                 FULLSCREEN_HEIGHT = _fs_comp_h
                 # comp 내에서 시네마 비율로 nearest-neighbor 스케일
-                _fs_margin_comp = 35  # 화면 마진 = 35*2*GPU2x = 140px
+                _fs_margin_comp = 55  # 화면 마진 = 55*2*GPU2x = 220px
                 scale_y = (_fs_comp_h - _fs_margin_comp * 2) / HEIGHT
                 scaled_width_check = int(WIDTH * scale_y)
                 if scaled_width_check > _fs_comp_w:
