@@ -1159,29 +1159,28 @@ class BallSpawnAnimation:
         # 잔여 파티클 빠르게 제거 - 최적화: 더 빠르게 페이드아웃
         self.quantum_particles = [p for p in self.quantum_particles if random.random() > 0.12]
 
-        # === 안개 부드러운 페이드아웃 (Phase 1에서 이어지는 잔여 안개) ===
-        if progress < 0.12:
-            # 초반: 전환 플래시 빠르게 감쇠 (번개 가시성 확보)
-            self.flash_alpha = max(0, int(180 * (1 - progress / 0.12)))
-            t = progress / 0.12
+        # === 안개 부드러운 페이드아웃 (Phase 2 전체 지속) ===
+        if progress < 0.15:
+            # 초반: 전환 플래시 감쇠 (번개 가시성 확보)
+            t = progress / 0.15
+            self.flash_alpha = max(0, int(160 * (1 - t * 0.6)))  # 160→64
             self.flash_color = (
-                int(225 * (1 - t) + 200 * t),
-                int(240 * (1 - t) + 215 * t),
-                255
-            )
-        elif progress < 0.65:
-            # 중반: 잔여 안개 리드미컬하게 서서히 소멸
-            remain_t = (progress - 0.12) / 0.53
-            remain = (1.0 - remain_t) ** 1.8
-            shimmer = 0.6 + 0.4 * math.sin(remain_t * math.pi * 3)
-            self.flash_alpha = int(45 * remain * shimmer)
-            self.flash_color = (
-                int(200 - remain_t * 20),
-                int(215 + remain_t * 10),
+                int(225 * (1 - t) + 195 * t),
+                int(240 * (1 - t) + 210 * t),
                 255
             )
         else:
-            self.flash_alpha = 0
+            # 중~후반: 리드미컬 잔여 안개 (Phase 2 끝까지 서서히)
+            remain_t = (progress - 0.15) / 0.85
+            remain = (1.0 - remain_t) ** 1.2
+            shimmer = 0.65 + 0.35 * math.sin(remain_t * math.pi * 2.5)
+            self.flash_alpha = int(55 * remain * shimmer)
+            # 색상: 라벤더 → 민트로 서서히
+            self.flash_color = (
+                int(195 - remain_t * 30),
+                int(210 + remain_t * 20),
+                255
+            )
 
         # 코어 글로우 유지
         self.core_glow_radius = 50 - progress * 25
@@ -1298,11 +1297,23 @@ class BallSpawnAnimation:
         # 코어 글로우 페이드아웃
         self.core_glow_alpha = int(100 * (1 - progress))
 
-        # 도착 직전 플래시
-        if progress > 0.9:
+        # === 잔여 안개 (Phase 2에서 이어짐, 매우 서서히 소멸) ===
+        if progress < 0.6:
+            fog_remain = (1.0 - progress / 0.6) ** 1.5
+            fog_shimmer = 0.6 + 0.4 * math.sin(progress * math.pi * 2)
+            self.flash_alpha = int(30 * fog_remain * fog_shimmer)
+            self.flash_color = (
+                int(175 - progress * 30),
+                int(220 + progress * 15),
+                255
+            )
+        elif progress > 0.9:
+            # 도착 직전 플래시
             arrival_progress = (progress - 0.9) / 0.1
             self.flash_alpha = int(100 * arrival_progress * (1 - arrival_progress) * 4)
             self.flash_color = (255, 255, 220)
+        else:
+            self.flash_alpha = 0
 
     def _spawn_enhanced_lightning(self, progress: float):
         """강화된 번개 생성"""
