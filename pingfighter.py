@@ -7229,10 +7229,14 @@ def invalidate_pillar_bg_cache():
     _pillar_bg_cache = None
     _pillar_bg_cache_dirty = True
 
+_ss_2x_cache = None  # 슈퍼샘플링용 2x 중간 서피스
+_ss_2x_size = None
+
 def _get_scaled_screen():
-    """최적화된 스케일링: 프리얼로케이트된 서피스에 scale (매 프레임 Surface 할당 방지)"""
+    """최적화된 스케일링: 2-pass 슈퍼샘플링 (정수배 업→다운샘플) 또는 직접 스케일"""
     global SCREEN, GAME_SCALE_FACTOR, GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT
     global _scaled_surface_cache, _scaled_surface_size
+    global _ss_2x_cache, _ss_2x_size
 
     # 성능 측정
     if VALTHOR_PERF_DEBUG:
@@ -7247,8 +7251,18 @@ def _get_scaled_screen():
         if _scaled_surface_cache is None or _scaled_surface_size != target_size:
             _scaled_surface_cache = pygame.Surface(target_size).convert()
             _scaled_surface_size = target_size
-        # smoothscale: bilinear 보간 (폰트/그림 부드럽게, nearest는 비정수배에서 깨짐)
-        pygame.transform.smoothscale(SCREEN, target_size, _scaled_surface_cache)
+
+        if 1.0 < GAME_SCALE_FACTOR < 2.0 and _use_scaled_mode:
+            # 2-pass 슈퍼샘플링: 2x 정수배 업 → smoothscale 다운샘플 (고화질)
+            _2x_size = (WIDTH * 2, HEIGHT * 2)
+            if _ss_2x_cache is None or _ss_2x_size != _2x_size:
+                _ss_2x_cache = pygame.Surface(_2x_size).convert()
+                _ss_2x_size = _2x_size
+            pygame.transform.scale(SCREEN, _2x_size, _ss_2x_cache)        # 2x nearest (깨끗한 정수배)
+            pygame.transform.smoothscale(_ss_2x_cache, target_size, _scaled_surface_cache)  # 다운샘플
+        else:
+            # 직접 smoothscale (2x 이상이거나 SCALED 모드 아닌 경우)
+            pygame.transform.smoothscale(SCREEN, target_size, _scaled_surface_cache)
         result = _scaled_surface_cache
 
     if VALTHOR_PERF_DEBUG:
