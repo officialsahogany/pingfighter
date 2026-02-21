@@ -1224,6 +1224,26 @@ class BallSpawnAnimation:
         self.ball_alpha = 255
         self.ball_scale = 1.0
 
+        # 소용돌이 링: 넘실넘실 움직이다 연기처럼 사라짐
+        for ring in self.vortex_rings:
+            ring.angle += ring.rotation_speed * dt
+            # 넘실넘실 반지름 진동
+            ring.radius += math.sin(phase_time * 2.5 + ring.angle) * dt * 20
+            # 위로 천천히 올라감 (연기)
+            ring.center_y -= dt * 12
+            # 서서히 수축
+            ring.radius *= (1 - dt * 0.35)
+        self.vortex_rings = [r for r in self.vortex_rings if r.radius > 3]
+
+        # 잔여 전기 스파크 (중앙 주변, 간간이)
+        if random.random() < 0.06:
+            spark_angle = random.uniform(0, math.pi * 2)
+            self.sparks.append(
+                Spark(self.center_x + random.uniform(-40, 40),
+                      self.center_y + random.uniform(-40, 40),
+                      spark_angle)
+            )
+
         # 홀로그램 링 효과 (깜빡이며 따라다님)
         self.hologram_spawn_timer += dt
         if self.hologram_spawn_timer >= 0.15:
@@ -1372,9 +1392,20 @@ class BallSpawnAnimation:
         if not self.active and not self.ball_visible:
             return
 
-        # 소용돌이 링 그리기
-        for ring in self.vortex_rings:
-            ring.draw(surface)
+        # 소용돌이 링 그리기 (Phase 3에서 서서히 투명해짐)
+        if self.vortex_rings:
+            vortex_alpha = 1.0
+            if self.current_phase >= 3:
+                p3_time = self.elapsed_time - self.PHASE_1_DURATION - self.PHASE_2_DURATION
+                p3_progress = p3_time / self.PHASE_3_DURATION
+                vortex_alpha = max(0, (1.0 - p3_progress * 1.4))
+            if vortex_alpha > 0.02:
+                vortex_surf = pygame.Surface(
+                    (self.screen_width, self.screen_height), pygame.SRCALPHA)
+                for ring in self.vortex_rings:
+                    ring.draw(vortex_surf)
+                vortex_surf.set_alpha(int(255 * vortex_alpha))
+                surface.blit(vortex_surf, (0, 0))
 
         # 에너지 링 그리기
         for ring in self.energy_rings:
