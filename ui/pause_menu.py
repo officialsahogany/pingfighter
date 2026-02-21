@@ -220,7 +220,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
         display_mode = _get_dm()
         if display_mode in ('borderless', 'large_windowed'):
             display_mode = 'windowed'  # 보더리스/큰창모드 제거됨 → 창모드로 폴백
-        # fullscreen은 '플래그십모드'로 유지
+        # fullscreen은 '전체화면'로 유지
     except Exception:
         display_mode = "windowed"
 
@@ -386,7 +386,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
             _draw_pill(kb_rect, '키보드만', control_scheme == 'keyboard', locals().get('focus','bgm') == 'scheme')
             _draw_pill(mk_rect, '마우스+키보드', control_scheme == 'mouse_keyboard', locals().get('focus','bgm') == 'scheme')
         elif current_tab == 'display':
-            # 화면 모드 선택 (플래그십모드 / 시네마모드 / 창모드)
+            # 화면 모드 선택 (전체화면 / 시네마모드 / 창모드)
             disp_label = font_medium.render("화면 모드", True, const.WHITE)
             ctx.screen.blit(disp_label, (panel_x + margin_x, bgm_slider_y + slider_height // 2 - 10))
             dpill_w, dpill_h = 110, 36
@@ -395,8 +395,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
             cm_rect = pygame.Rect(bgm_slider_x + dpill_w + _dpill_gap, bgm_slider_y - 8, dpill_w, dpill_h)
             win_rect = pygame.Rect(bgm_slider_x + (dpill_w + _dpill_gap) * 2, bgm_slider_y - 8, dpill_w, dpill_h)
             for _drect, _dlabel, _dsel in [
-                (fs_rect, '플래그십', display_mode == 'fullscreen'),
-                (cm_rect, '시네마', display_mode == 'cinema'),
+                (fs_rect, '전체화면', display_mode == 'fullscreen'),
+                (cm_rect, '전체화면(저화질)', display_mode == 'cinema'),
                 (win_rect, '창모드', display_mode == 'windowed'),
             ]:
                 _dcol = (60, 90, 130) if _dsel else (45, 55, 70)

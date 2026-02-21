@@ -2127,7 +2127,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
         display_mode = _get_dm()
         if display_mode in ("borderless", "large_windowed"):
             display_mode = "windowed"  # 보더리스/큰창모드 제거됨 → 창모드로 폴백
-        # fullscreen은 '플래그십모드'로 유지
+        # fullscreen은 '전체화면'로 유지
     except Exception:
         display_mode = "windowed"
 
@@ -2358,8 +2358,8 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
             cm_rect = pygame.Rect(slider_x + dpill_w + _dpill_gap, disp_y - 8, dpill_w, dpill_h)
             win_rect = pygame.Rect(slider_x + (dpill_w + _dpill_gap) * 2, disp_y - 8, dpill_w, dpill_h)
             for rect, label, is_sel in [
-                (fs_rect, "플래그십", display_mode == "fullscreen"),
-                (cm_rect, "시네마", display_mode == "cinema"),
+                (fs_rect, "전체화면", display_mode == "fullscreen"),
+                (cm_rect, "전체화면(저화질)", display_mode == "cinema"),
                 (win_rect, "창모드", display_mode == "windowed"),
             ]:
                 col = (60, 90, 130) if is_sel else (45, 55, 70)
@@ -2924,7 +2924,7 @@ def _handle_menu_events(
                 pygame.quit()
                 raise SystemExit
             if event.key == pygame.K_F9:
-                # F9: 플래그십모드 전환
+                # F9: 전체화면 전환
                 from pingfighter import switch_display_mode, get_display_mode
                 if get_display_mode() != "fullscreen":
                     switch_display_mode("fullscreen")
