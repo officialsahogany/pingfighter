@@ -7079,7 +7079,7 @@ class HeroPaddleRenderer:
 
         # ─── 신비의 시길 (발밑 비스듬히 눕힌 소환진) ───
         sigil_cx = cx + lean_offset
-        sigil_cy = leg_base_y + int(0.6 * b)
+        sigil_cy = cy + int(2.2 * b) + int(0.6 * b)
         sigil_rx = int(2.2 * b)            # X 반지름 (가로 넓게)
         sigil_ry = int(0.7 * b)            # Y 반지름 (원근 압축)
         sigil_w = sigil_rx * 2 + 4
