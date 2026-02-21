@@ -11327,36 +11327,33 @@ class SkeletonArcher(HeroSkill):
                                  (int(p['x']), int(p['y'])), int(p['size']))
 
     def _draw_archer(self, screen: pygame.Surface, archer: dict):
-        """해골 궁수 고퀄리티 렌더링 - 활을 상/하 방향으로 겨냥"""
+        """해골 궁수 Ultra Premium 렌더링 - 활을 상/하 방향으로 겨냥"""
         x = int(archer['x'])
-        y = int(archer['y'] + archer['body_bob']) + 14  # +14: 하단 붕뜸 보정
+        y = int(archer['y'] + archer['body_bob']) + 14
 
-        # 시간 기반 애니메이션 값
         t = archer['spawn_time']
-
-        # 등장 애니메이션 (뼈 조립)
         emerge_progress = min(1.0, t / self.EMERGE_DURATION)
         if emerge_progress < 1.0:
             alpha = int(240 * min(1.0, emerge_progress * 1.5))
         else:
             alpha = 240
 
-        # 궁수가 상단인지 하단인지 (활 방향 결정)
-        is_bottom = not self.caster_is_top  # 하단 궁수면 위를 쏨
-        aim_dir = -1 if is_bottom else 1    # -1=위로, 1=아래로
+        is_bottom = not self.caster_is_top
+        aim_dir = -1 if is_bottom else 1
 
         surf_w, surf_h = 80, 100
         surf = _psurf((surf_w, surf_h), pygame.SRCALPHA)
-        cx = surf_w // 2  # 40
-        cy = 65  # 궁수 몸통 중심
+        cx = surf_w // 2
+        cy = 65
 
-        # === 색상 정의 (황금 궁수 분기) ===
+        # === 색상 정의 ===
         is_golden = archer.get('is_golden', False)
         if is_golden:
             bone_bright = (255, 235, 140, alpha)
             bone_color = (240, 210, 90, alpha)
             bone_shadow = (190, 160, 50, alpha)
             bone_dark = (150, 120, 30, alpha)
+            bone_cream = (255, 245, 180, alpha)
             eye_glow = (255, 200, 50, alpha)
             eye_core = (255, 255, 180, alpha)
             soul_color = (255, 220, 80)
@@ -11365,53 +11362,66 @@ class SkeletonArcher(HeroSkill):
             bone_color = (200, 195, 170, alpha)
             bone_shadow = (155, 145, 118, alpha)
             bone_dark = (120, 110, 90, alpha)
+            bone_cream = (235, 228, 210, alpha)
             eye_glow = (80, 255, 120, alpha)
             eye_core = (180, 255, 200, alpha)
             soul_color = (100, 255, 130)
 
-        # === 뼈 조립 애니메이션 계산 ===
-        # 각 부위가 순차적으로 모여드는 오프셋
         def _assemble_offset(part_idx, total_parts=9):
-            """부위별 조립 오프셋 계산 - 사방에서 날아와 제자리로"""
             if emerge_progress >= 1.0:
                 return 0, 0
-            # 각 부위별 시작/종료 타이밍 (순차적)
             part_start = (part_idx / total_parts) * 0.4
             part_progress = max(0.0, min(1.0, (emerge_progress - part_start) / 0.6))
-            # ease-out
             ease = 1.0 - (1.0 - part_progress) ** 3
-            # 시작 위치 (사방에서)
             angle = (part_idx / total_parts) * math.pi * 2 + part_idx * 1.3
             start_dist = 40 + part_idx * 8
             ox = int(math.cos(angle) * start_dist * (1.0 - ease))
             oy = int(math.sin(angle) * start_dist * (1.0 - ease))
             return ox, oy
 
-        # === 후드/망토 ===
+        # === 후드/망토 (고퀄리티 - 천 질감 + 찢어진 가장자리) ===
         if is_golden:
             cloak_color = (100, 70, 20, int(alpha * 0.7))
+            cloak_mid = (120, 85, 25, int(alpha * 0.5))
             cloak_edge = (140, 100, 30, int(alpha * 0.5))
         else:
             cloak_color = (50, 45, 35, int(alpha * 0.7))
+            cloak_mid = (60, 55, 42, int(alpha * 0.55))
             cloak_edge = (70, 60, 45, int(alpha * 0.5))
         co = _assemble_offset(8)
         cloak_sway = int(3 * _sin(t * 2.5))
+        cloak_sway2 = int(2 * _sin(t * 3.2 + 1.0))
+        # 메인 망토
         pygame.draw.polygon(surf, cloak_color, [
-            (cx - 8 + co[0], cy - 28 + co[1]),
-            (cx + 8 + co[0], cy - 28 + co[1]),
-            (cx + 12 + cloak_sway + co[0], cy + 8 + co[1]),
-            (cx - 12 - cloak_sway + co[0], cy + 8 + co[1]),
+            (cx - 9 + co[0], cy - 29 + co[1]),
+            (cx + 9 + co[0], cy - 29 + co[1]),
+            (cx + 13 + cloak_sway + co[0], cy + 10 + co[1]),
+            (cx - 13 - cloak_sway + co[0], cy + 10 + co[1]),
         ])
-        for i in range(5):
-            tear_x = cx - 10 + i * 5 + int(2 * _sin(t * 3 + i)) + co[0]
-            tear_y = cy + 6 + (i % 3) + co[1]
-            pygame.draw.line(surf, cloak_edge, (tear_x, cy + 5 + co[1]), (tear_x, tear_y + 3), 1)
+        # 망토 내부 밝은 면 (주름 표현)
+        pygame.draw.polygon(surf, cloak_mid, [
+            (cx - 4 + co[0], cy - 27 + co[1]),
+            (cx + 4 + co[0], cy - 27 + co[1]),
+            (cx + 6 + cloak_sway2 + co[0], cy + 6 + co[1]),
+            (cx - 6 - cloak_sway2 + co[0], cy + 6 + co[1]),
+        ])
+        # 찢어진 하단 (불규칙 패턴)
+        for i in range(7):
+            tear_x = cx - 12 + i * 4 + int(2 * _sin(t * 3 + i * 0.8)) + co[0]
+            tear_base = cy + 8 + co[1]
+            tear_len = 2 + (i % 3) * 2 + int(1 * _sin(t * 2.0 + i))
+            pygame.draw.line(surf, cloak_edge, (tear_x, tear_base), (tear_x, tear_base + tear_len), 1)
+        # 망토 테두리
+        pygame.draw.line(surf, cloak_edge, (cx - 13 - cloak_sway + co[0], cy + 10 + co[1]),
+                        (cx + 13 + cloak_sway + co[0], cy + 10 + co[1]), 1)
 
-        # === 골반 ===
+        # === 골반 (디테일 추가) ===
         po = _assemble_offset(4)
-        pygame.draw.ellipse(surf, bone_shadow, (cx - 6 + po[0], cy + 2 + po[1], 12, 5))
+        pygame.draw.ellipse(surf, bone_shadow, (cx - 7 + po[0], cy + 1 + po[1], 14, 6))
+        pygame.draw.ellipse(surf, bone_color, (cx - 6 + po[0], cy + 2 + po[1], 12, 4))
+        pygame.draw.circle(surf, bone_bright, (cx + po[0], cy + 3 + po[1]), 1)
 
-        # === 다리 ===
+        # === 다리 (관절 디테일 강화) ===
         walk_phase = archer['step_phase'] if not archer['is_drawing'] else 0
         for side_idx, side in enumerate([-1, 1]):
             lo = _assemble_offset(5 + side_idx)
@@ -11422,146 +11432,258 @@ class SkeletonArcher(HeroSkill):
             knee_y = hip_y + 10
             foot_x = knee_x + int(leg_swing)
             foot_y = knee_y + 10
+            # 대퇴골 (두꺼운 뼈 + 그림자)
+            pygame.draw.line(surf, bone_shadow, (hip_x + 1, hip_y + 1), (knee_x + 1, knee_y + 1), 3)
             pygame.draw.line(surf, bone_color, (hip_x, hip_y), (knee_x, knee_y), 3)
+            pygame.draw.line(surf, bone_cream, (hip_x, hip_y), ((hip_x + knee_x) // 2, (hip_y + knee_y) // 2), 1)
+            # 경골
+            pygame.draw.line(surf, bone_shadow, (knee_x + 1, knee_y + 1), (foot_x + 1, foot_y + 1), 2)
             pygame.draw.line(surf, bone_color, (knee_x, knee_y), (foot_x, foot_y), 2)
-            pygame.draw.circle(surf, bone_bright, (knee_x, knee_y), 2)
-            pygame.draw.line(surf, bone_shadow, (foot_x, foot_y), (foot_x + side * 3, foot_y + 1), 2)
+            # 무릎 관절 (돌기)
+            pygame.draw.circle(surf, bone_bright, (knee_x, knee_y), 3)
+            pygame.draw.circle(surf, bone_shadow, (knee_x, knee_y), 3, 1)
+            pygame.draw.circle(surf, bone_cream, (knee_x - side, knee_y - 1), 1)
+            # 발 (발가락 뼈)
+            pygame.draw.line(surf, bone_color, (foot_x, foot_y), (foot_x + side * 3, foot_y + 1), 2)
+            pygame.draw.line(surf, bone_shadow, (foot_x + side * 3, foot_y + 1), (foot_x + side * 5, foot_y), 1)
 
-        # === 척추 ===
+        # === 척추 (추체 + 극돌기 디테일) ===
         so = _assemble_offset(2)
         spine_top = cy - 28 + so[1]
         spine_bot = cy + 3 + so[1]
         spine_x = cx + so[0]
+        # 척추 그림자
+        pygame.draw.line(surf, bone_shadow, (spine_x + 1, spine_top + 1), (spine_x + 1, spine_bot + 1), 3)
         pygame.draw.line(surf, bone_color, (spine_x, spine_top), (spine_x, spine_bot), 3)
-        for i in range(5):
-            vy = spine_top + (spine_bot - spine_top) * i / 4
+        # 하이라이트
+        pygame.draw.line(surf, bone_cream, (spine_x - 1, spine_top), (spine_x - 1, spine_bot), 1)
+        for i in range(6):
+            vy = spine_top + (spine_bot - spine_top) * i / 5
+            # 추체
             pygame.draw.circle(surf, bone_bright, (spine_x, int(vy)), 2)
             pygame.draw.circle(surf, bone_shadow, (spine_x, int(vy)), 2, 1)
+            # 극돌기 (등쪽 돌출)
+            pygame.draw.line(surf, bone_shadow, (spine_x, int(vy)), (spine_x + 3, int(vy) - 1), 1)
 
-        # === 갈비뼈 ===
+        # === 갈비뼈 (곡선형 + 음영) ===
         ro = _assemble_offset(3)
         rib_ys = [cy - 24, cy - 19, cy - 14, cy - 9]
-        rib_widths = [9, 11, 10, 7]
+        rib_widths = [9, 12, 11, 8]
         for i, (ry, rw) in enumerate(zip(rib_ys, rib_widths)):
             for side in [-1, 1]:
                 p1 = (cx + side * 1 + ro[0], ry + ro[1])
                 p2 = (cx + side * (rw - 2) + ro[0], ry + 2 + ro[1])
                 p3 = (cx + side * rw + ro[0], ry + 4 + ro[1])
+                # 갈비뼈 그림자
+                pygame.draw.line(surf, bone_shadow, (p1[0] + 1, p1[1] + 1), (p2[0] + 1, p2[1] + 1), 2)
+                pygame.draw.line(surf, bone_shadow, (p2[0] + 1, p2[1] + 1), (p3[0] + 1, p3[1] + 1), 1)
+                # 갈비뼈 본체
                 pygame.draw.line(surf, bone_color, p1, p2, 2)
                 pygame.draw.line(surf, bone_color, p2, p3, 1)
+                # 하이라이트 (윗면)
+                if side == -1:
+                    pygame.draw.line(surf, bone_cream, p1, ((p1[0] + p2[0]) // 2, (p1[1] + p2[1]) // 2), 1)
 
         # === 쇄골 ===
+        pygame.draw.line(surf, bone_shadow, (cx - 10 + ro[0] + 1, cy - 25 + ro[1]),
+                        (cx + 10 + ro[0] + 1, cy - 25 + ro[1]), 2)
         pygame.draw.line(surf, bone_bright, (cx - 10 + ro[0], cy - 26 + ro[1]),
                         (cx + 10 + ro[0], cy - 26 + ro[1]), 2)
+        # 견갑 관절
+        for side in [-1, 1]:
+            pygame.draw.circle(surf, bone_bright, (cx + side * 10 + ro[0], cy - 26 + ro[1]), 2)
 
-        # === 두개골 ===
+        # === 두개골 (고퀄리티 - 봉합선 + 균열 + 광대뼈) ===
         ho = _assemble_offset(0)
         skull_y = cy - 36 + ho[1]
         skull_x = cx + ho[0]
+        # 두개골 그림자
+        pygame.draw.ellipse(surf, bone_shadow, (skull_x - 10, skull_y - 9, 20, 17))
+        # 두개골 본체
         pygame.draw.ellipse(surf, bone_color, (skull_x - 9, skull_y - 9, 18, 16))
-        pygame.draw.ellipse(surf, bone_bright, (skull_x - 7, skull_y - 8, 10, 8))
+        # 이마 하이라이트
+        pygame.draw.ellipse(surf, bone_bright, (skull_x - 7, skull_y - 8, 10, 7))
+        # 두개골 윤곽
         pygame.draw.ellipse(surf, bone_shadow, (skull_x - 9, skull_y - 9, 18, 16), 1)
+        # 봉합선 (두개골 고유 패턴)
+        suture_a = int(alpha * 0.3)
+        pygame.draw.line(surf, (*bone_shadow[:3], suture_a), (skull_x, skull_y - 8), (skull_x, skull_y - 3), 1)
+        pygame.draw.line(surf, (*bone_shadow[:3], suture_a), (skull_x - 4, skull_y - 5), (skull_x + 4, skull_y - 5), 1)
+        # 광대뼈 돌출
+        for side in [-1, 1]:
+            pygame.draw.line(surf, bone_bright, (skull_x + side * 7, skull_y + 1),
+                            (skull_x + side * 9, skull_y + 3), 1)
+
+        # 눈구멍 (고퀄리티 - 깊은 구멍 + 발광 눈동자)
         for side in [-1, 1]:
             ex = skull_x + side * 4
             ey = skull_y - 1
-            pygame.draw.circle(surf, bone_dark, (ex, ey), 3)
-            pulse = 0.7 + 0.3 * _sin(t * 3 + side)
-            glow_r = int(2 * pulse)
+            # 깊은 눈구멍
+            pygame.draw.circle(surf, bone_dark, (ex, ey), 4)
+            pygame.draw.circle(surf, (int(bone_dark[0] * 0.6), int(bone_dark[1] * 0.6), int(bone_dark[2] * 0.6), alpha), (ex, ey), 3)
+            # 발광 눈동자
+            pulse = 0.6 + 0.4 * _sin(t * 3.5 + side * 1.2)
+            glow_r = int(2.5 * pulse)
+            # 외곽 글로우
+            glow_a = int(alpha * 0.3 * pulse)
+            pygame.draw.circle(surf, (*eye_glow[:3], glow_a), (ex, ey), glow_r + 2)
+            # 메인 글로우
             pygame.draw.circle(surf, eye_glow, (ex, ey), max(1, glow_r))
-            if pulse > 0.8:
+            # 코어 하이라이트
+            if pulse > 0.7:
                 pygame.draw.circle(surf, eye_core, (ex, ey - 1), 1)
+
+        # 코구멍
         pygame.draw.circle(surf, bone_dark, (skull_x - 1, skull_y + 3), 1)
         pygame.draw.circle(surf, bone_dark, (skull_x + 1, skull_y + 3), 1)
+        # 이빨 (불규칙)
         jaw_y = skull_y + 5
-        for tx in range(-4, 5, 2):
-            tooth_h = 2 if abs(tx) <= 2 else 1
-            pygame.draw.line(surf, bone_bright, (skull_x + tx, jaw_y), (skull_x + tx, jaw_y + tooth_h), 1)
+        tooth_heights = [1, 2, 3, 2, 3, 2, 1]
+        for ti, th in enumerate(tooth_heights):
+            tx = skull_x - 3 + ti
+            pygame.draw.line(surf, bone_bright, (tx, jaw_y), (tx, jaw_y + th), 1)
+        # 턱 라인
         pygame.draw.line(surf, bone_shadow, (skull_x - 5, jaw_y), (skull_x + 5, jaw_y), 1)
+        pygame.draw.line(surf, bone_dark, (skull_x - 4, jaw_y + 1), (skull_x + 4, jaw_y + 2), 1)
 
-        # === 후드 ===
+        # === 후드 (디테일 강화 - 주름 + 봉제선) ===
         if is_golden:
             hood_color = (110, 80, 25, int(alpha * 0.8))
             hood_edge_color = (150, 110, 35, int(alpha * 0.6))
+            hood_inner = (90, 65, 20, int(alpha * 0.5))
         else:
             hood_color = (55, 50, 38, int(alpha * 0.8))
             hood_edge_color = (80, 70, 50, int(alpha * 0.6))
+            hood_inner = (42, 38, 28, int(alpha * 0.5))
+        # 후드 본체
         pygame.draw.polygon(surf, hood_color, [
-            (skull_x - 11, skull_y - 5), (skull_x + 11, skull_y - 5),
-            (skull_x + 8, skull_y - 12), (skull_x, skull_y - 14), (skull_x - 8, skull_y - 12),
+            (skull_x - 12, skull_y - 4), (skull_x + 12, skull_y - 4),
+            (skull_x + 9, skull_y - 13), (skull_x, skull_y - 16), (skull_x - 9, skull_y - 13),
         ])
+        # 후드 내부 (깊이감)
+        pygame.draw.polygon(surf, hood_inner, [
+            (skull_x - 9, skull_y - 5), (skull_x + 9, skull_y - 5),
+            (skull_x + 6, skull_y - 11), (skull_x, skull_y - 13), (skull_x - 6, skull_y - 11),
+        ])
+        # 후드 테두리
         pygame.draw.lines(surf, hood_edge_color, False, [
-            (skull_x - 11, skull_y - 5), (skull_x - 8, skull_y - 12),
-            (skull_x, skull_y - 14), (skull_x + 8, skull_y - 12), (skull_x + 11, skull_y - 5),
+            (skull_x - 12, skull_y - 4), (skull_x - 9, skull_y - 13),
+            (skull_x, skull_y - 16), (skull_x + 9, skull_y - 13), (skull_x + 12, skull_y - 4),
         ], 1)
+        # 후드 주름 라인
+        pygame.draw.line(surf, hood_inner, (skull_x - 3, skull_y - 14), (skull_x - 5, skull_y - 5), 1)
+        pygame.draw.line(surf, hood_inner, (skull_x + 3, skull_y - 14), (skull_x + 5, skull_y - 5), 1)
 
-        # === 활과 팔 (상/하 방향 겨냥) ===
+        # === 활과 팔 (Ultra Premium) ===
         if is_golden:
             bow_wood = (220, 180, 60, alpha)
             bow_dark = (180, 140, 30, alpha)
             bow_highlight = (255, 220, 100, alpha)
+            bow_grip = (160, 120, 25, alpha)
             string_color = (255, 240, 170, alpha)
+            string_glow = (255, 250, 200, int(alpha * 0.4))
             arrow_shaft = (240, 210, 100, alpha)
             arrowhead_color = (255, 200, 50, alpha)
+            energy_color = (255, 220, 80)
         else:
             bow_wood = (160, 110, 55, alpha)
             bow_dark = (120, 80, 40, alpha)
             bow_highlight = (190, 140, 70, alpha)
+            bow_grip = (100, 70, 35, alpha)
             string_color = (210, 200, 170, alpha)
+            string_glow = (180, 220, 170, int(alpha * 0.3))
             arrow_shaft = (200, 190, 160, alpha)
             arrowhead_color = (140, 180, 120, alpha)
+            energy_color = (80, 255, 120)
 
         ao = _assemble_offset(1)
 
         if archer['is_drawing'] and emerge_progress >= 1.0:
             draw_progress = min(1.0, archer['draw_timer'] / self.ARROW_DRAW_TIME)
+            bow_side = 1 if archer['vx'] >= 0 else -1
 
-            # 활을 위/아래 방향으로 들어올림
-            # aim_dir: -1(위로 쏨=하단), 1(아래로 쏨=상단)
-            bow_side = 1 if archer['vx'] >= 0 else -1  # 이동방향쪽에 활
-
-            # 활 잡는 팔: 어깨 → 팔꿈치 → 손 (상/하 방향)
+            # 활 잡는 팔
             shoulder_x = cx + bow_side * 5
             shoulder_y = cy - 24
             hand_x = cx + bow_side * 8
-            hand_y = cy - 28 + aim_dir * (-14)  # 위/아래로 뻗음
-
+            hand_y = cy - 28 + aim_dir * (-14)
             elbow_x = (shoulder_x + hand_x) // 2 + bow_side * 3
             elbow_y = (shoulder_y + hand_y) // 2
 
+            pygame.draw.line(surf, bone_shadow, (shoulder_x + 1, shoulder_y + 1), (elbow_x + 1, elbow_y + 1), 2)
             pygame.draw.line(surf, bone_color, (shoulder_x, shoulder_y), (elbow_x, elbow_y), 2)
+            pygame.draw.line(surf, bone_shadow, (elbow_x + 1, elbow_y + 1), (hand_x + 1, hand_y + 1), 2)
             pygame.draw.line(surf, bone_color, (elbow_x, elbow_y), (hand_x, hand_y), 2)
             pygame.draw.circle(surf, bone_bright, (elbow_x, elbow_y), 2)
+            pygame.draw.circle(surf, bone_shadow, (elbow_x, elbow_y), 2, 1)
 
-            # 활 (세로 방향 - 상하로 겨냥)
-            bow_half = 14
-            bow_top_x = hand_x - bow_side * 4
+            # === 활 (Ultra Premium - 곡선 + 그립 + 장식 + 룬) ===
+            bow_half = 15
             bow_top_y = hand_y - bow_half
-            bow_bot_x = hand_x + bow_side * 4
             bow_bot_y = hand_y + bow_half
-            bow_mid_x = hand_x
-            bow_mid_y = hand_y
+            bow_curve = bow_side * 9
 
-            # 활 곡선 (좌우로 휘어진 세로 활)
-            # 3점 곡선으로 그리기
-            bow_curve = bow_side * 8
+            # 활 곡선 포인트 (더 부드럽게 - 13포인트)
             points_bow = []
-            for bi in range(9):
-                bt = bi / 8.0
+            for bi in range(13):
+                bt = bi / 12.0
                 by_pos = bow_top_y + (bow_bot_y - bow_top_y) * bt
-                bx_pos = hand_x + int(bow_curve * _sin(bt * math.pi))
+                curve_val = _sin(bt * math.pi)
+                # 활의 양쪽 끝이 안쪽으로 살짝 휘는 리커브 형태
+                recurve = 0
+                if bt < 0.15 or bt > 0.85:
+                    recurve = -bow_side * 2 * (1.0 - min(bt, 1.0 - bt) / 0.15)
+                bx_pos = hand_x + int(bow_curve * curve_val) + int(recurve)
                 points_bow.append((bx_pos, int(by_pos)))
-            if len(points_bow) > 2:
-                pygame.draw.lines(surf, bow_dark, False, points_bow, 3)
-                pygame.draw.lines(surf, bow_wood, False, points_bow, 2)
-            # 활 끝 장식
-            pygame.draw.circle(surf, bow_highlight, (points_bow[0][0], points_bow[0][1]), 2)
-            pygame.draw.circle(surf, bow_highlight, (points_bow[-1][0], points_bow[-1][1]), 2)
 
-            # 시위 (활 양끝 → 당기는 지점)
+            if len(points_bow) > 2:
+                # 활 그림자
+                shadow_pts = [(p[0] + 1, p[1] + 1) for p in points_bow]
+                pygame.draw.lines(surf, bone_shadow, False, shadow_pts, 4)
+                # 활 외곽 (진한)
+                pygame.draw.lines(surf, bow_dark, False, points_bow, 3)
+                # 활 본체
+                pygame.draw.lines(surf, bow_wood, False, points_bow, 2)
+                # 활 하이라이트 (안쪽 면)
+                inner_pts = [(p[0] - bow_side, p[1]) for p in points_bow[2:-2]]
+                if len(inner_pts) >= 2:
+                    pygame.draw.lines(surf, bow_highlight, False, inner_pts, 1)
+
+            # 그립 감기 (손잡이 부분)
+            grip_center = len(points_bow) // 2
+            for gi in range(-2, 3):
+                gi_idx = grip_center + gi
+                if 0 <= gi_idx < len(points_bow):
+                    gx, gy = points_bow[gi_idx]
+                    pygame.draw.line(surf, bow_grip, (gx - bow_side, gy - 1), (gx + bow_side, gy + 1), 1)
+
+            # 활 끝 장식 (뿔/뼈 장식)
+            for tip_idx in [0, -1]:
+                tx, ty = points_bow[tip_idx]
+                pygame.draw.circle(surf, bow_highlight, (tx, ty), 3)
+                pygame.draw.circle(surf, bow_dark, (tx, ty), 3, 1)
+                pygame.draw.circle(surf, bow_highlight, (tx, ty), 1)
+
+            # 활 룬 마크 (에너지 문양)
+            if draw_progress > 0.3:
+                rune_a = int(alpha * 0.3 * draw_progress)
+                for ri in range(3):
+                    ri_idx = 3 + ri * 3
+                    if ri_idx < len(points_bow):
+                        rx, ry = points_bow[ri_idx]
+                        pygame.draw.circle(surf, (*energy_color, rune_a), (rx, ry), 1)
+
+            # === 시위 (에너지 충전 글로우 포함) ===
             pull_dist = int(14 * draw_progress)
-            pull_x = hand_x - bow_side * pull_dist  # 반대방향으로 당김
+            pull_x = hand_x - bow_side * pull_dist
             pull_y = hand_y
 
+            # 시위 글로우 (에너지 충전 시)
+            if draw_progress > 0.4:
+                glow_a = int(alpha * 0.2 * (draw_progress - 0.4) / 0.6)
+                pygame.draw.line(surf, string_glow, points_bow[0], (pull_x, pull_y), 2)
+                pygame.draw.line(surf, string_glow, points_bow[-1], (pull_x, pull_y), 2)
+            # 시위 본체
             pygame.draw.line(surf, string_color, points_bow[0], (pull_x, pull_y), 1)
             pygame.draw.line(surf, string_color, points_bow[-1], (pull_x, pull_y), 1)
 
@@ -11570,102 +11692,159 @@ class SkeletonArcher(HeroSkill):
             pull_shoulder_y = cy - 22
             pull_elbow_x = pull_shoulder_x
             pull_elbow_y = (pull_shoulder_y + pull_y) // 2
+            pygame.draw.line(surf, bone_shadow, (pull_shoulder_x + 1, pull_shoulder_y + 1), (pull_elbow_x + 1, pull_elbow_y + 1), 2)
             pygame.draw.line(surf, bone_color, (pull_shoulder_x, pull_shoulder_y), (pull_elbow_x, pull_elbow_y), 2)
             pygame.draw.line(surf, bone_color, (pull_elbow_x, pull_elbow_y), (pull_x, pull_y), 2)
             pygame.draw.circle(surf, bone_bright, (pull_elbow_x, pull_elbow_y), 2)
             pygame.draw.circle(surf, bone_color, (pull_x, pull_y), 2)
 
-            # 화살 (시위 → 활 너머 적 방향으로)
+            # === 화살 (Ultra Premium - 시위에 얹힌 상태) ===
             if draw_progress > 0.15:
                 arrow_tip_x = hand_x
-                arrow_tip_y = hand_y + aim_dir * 20  # 화살촉: 적 방향
+                arrow_tip_y = hand_y + aim_dir * 20
+                # 화살대 그림자
+                pygame.draw.line(surf, bone_shadow, (pull_x + 1, pull_y + 1), (arrow_tip_x + 1, arrow_tip_y + 1), 2)
+                # 화살대 본체
                 pygame.draw.line(surf, arrow_shaft, (pull_x, pull_y), (arrow_tip_x, arrow_tip_y), 2)
-                # 화살촉
+                # 화살대 하이라이트
+                mid_ax = (pull_x + arrow_tip_x) // 2
+                mid_ay = (pull_y + arrow_tip_y) // 2
+                pygame.draw.line(surf, bone_cream, (pull_x, pull_y), (mid_ax, mid_ay), 1)
+                # 화살촉 (더 날카롭게)
                 pygame.draw.polygon(surf, arrowhead_color, [
-                    (arrow_tip_x, arrow_tip_y + aim_dir * 5),
-                    (arrow_tip_x - 3, arrow_tip_y),
-                    (arrow_tip_x + 3, arrow_tip_y),
+                    (arrow_tip_x, arrow_tip_y + aim_dir * 6),
+                    (arrow_tip_x - 3, arrow_tip_y - aim_dir * 1),
+                    (arrow_tip_x + 3, arrow_tip_y - aim_dir * 1),
                 ])
-                # 깃털
-                feather_color = (80, 70, 55, alpha)
-                for fx_off in [-2, 2]:
-                    pygame.draw.line(surf, feather_color,
-                                   (pull_x, pull_y),
-                                   (pull_x + fx_off, pull_y - aim_dir * 5), 1)
-                # 독 파티클
-                if draw_progress > 0.5 and random.random() < 0.3:
-                    pygame.draw.circle(surf, (80, 220, 100, int(alpha * 0.6)),
-                                     (arrow_tip_x + random.randint(-2, 2),
-                                      arrow_tip_y + aim_dir * random.randint(1, 4)), 1)
+                # 화살촉 하이라이트
+                pygame.draw.line(surf, bow_highlight, (arrow_tip_x, arrow_tip_y + aim_dir * 5),
+                                (arrow_tip_x - 1, arrow_tip_y), 1)
+                # 깃털 (3장 - 더 디테일하게)
+                feather_colors = [
+                    (80, 70, 55, alpha),
+                    (70, 62, 48, int(alpha * 0.8)),
+                    (90, 78, 60, int(alpha * 0.7)),
+                ]
+                for fi, fc in enumerate(feather_colors):
+                    fx_off = [-3, 0, 3][fi]
+                    fy_off = [0, -1, 0][fi]
+                    pygame.draw.line(surf, fc,
+                                   (pull_x + fx_off, pull_y + fy_off),
+                                   (pull_x + fx_off - bow_side, pull_y - aim_dir * 5 + fy_off), 1)
+                # 독/에너지 파티클
+                if draw_progress > 0.5 and random.random() < 0.35:
+                    for _ in range(2):
+                        pygame.draw.circle(surf, (*energy_color, int(alpha * 0.5)),
+                                         (arrow_tip_x + random.randint(-3, 3),
+                                          arrow_tip_y + aim_dir * random.randint(1, 5)), 1)
+                # 에너지 충전 이펙트 (화살촉 주변)
+                if draw_progress > 0.7:
+                    charge_a = int(alpha * 0.3 * (draw_progress - 0.7) / 0.3)
+                    pygame.draw.circle(surf, (*energy_color, charge_a),
+                                     (arrow_tip_x, arrow_tip_y + aim_dir * 3), 4)
         else:
-            # === 대기 포즈 - 활을 옆에 편하게 들고 서 있음 ===
+            # === 대기 포즈 (디테일 강화) ===
             dir_sign = 1 if archer['vx'] >= 0 else -1
             shoulder_x = cx + dir_sign * 3 + ao[0]
             shoulder_y = cy - 24 + ao[1]
             hand_x = cx + dir_sign * 10 + ao[0]
             hand_y = cy - 10 + ao[1]
+            # 팔
+            pygame.draw.line(surf, bone_shadow, (shoulder_x + 1, shoulder_y + 1), (hand_x + 1, hand_y + 1), 2)
             pygame.draw.line(surf, bone_color, (shoulder_x, shoulder_y), (hand_x, hand_y), 2)
-            # 활 (세로로 들고 있음)
-            pygame.draw.line(surf, bow_wood, (hand_x, hand_y - 16), (hand_x, hand_y + 8), 2)
-            pygame.draw.line(surf, bow_dark, (hand_x, hand_y - 16), (hand_x, hand_y + 8), 1)
-            pygame.draw.line(surf, string_color, (hand_x, hand_y - 16), (hand_x, hand_y + 8), 1)
+            # 활 (세로로 들고 있음 - 디테일 추가)
+            bow_rest_top = hand_y - 16
+            bow_rest_bot = hand_y + 8
+            # 활 그림자
+            pygame.draw.line(surf, bow_dark, (hand_x + 1, bow_rest_top + 1), (hand_x + 1, bow_rest_bot + 1), 3)
+            # 활 본체
+            pygame.draw.line(surf, bow_wood, (hand_x, bow_rest_top), (hand_x, bow_rest_bot), 2)
+            # 활 하이라이트
+            pygame.draw.line(surf, bow_highlight, (hand_x - 1, bow_rest_top + 2), (hand_x - 1, bow_rest_bot - 2), 1)
+            # 시위
+            pygame.draw.line(surf, string_color, (hand_x - dir_sign * 2, bow_rest_top), (hand_x - dir_sign * 2, bow_rest_bot), 1)
+            # 활 끝 장식
+            pygame.draw.circle(surf, bow_highlight, (hand_x, bow_rest_top), 2)
+            pygame.draw.circle(surf, bow_highlight, (hand_x, bow_rest_bot), 2)
             # 반대팔
             other_x = cx - dir_sign * 3 + ao[0]
             other_hx = cx - dir_sign * 6 + ao[0]
             other_hy = cy - 8 + ao[1]
             pygame.draw.line(surf, bone_color, (other_x, shoulder_y), (other_hx, other_hy), 2)
 
-        # === 바닥 그림자 ===
-        shadow_w = 30
-        shadow_h = 8
+        # === 바닥 그림자 (더 부드럽게) ===
+        shadow_w = 32
+        shadow_h = 10
         shadow_surf = _psurf((shadow_w, shadow_h), pygame.SRCALPHA)
-        pygame.draw.ellipse(shadow_surf, (15, 20, 12, int(alpha * 0.25)), (0, 0, shadow_w, shadow_h))
+        pygame.draw.ellipse(shadow_surf, (12, 16, 10, int(alpha * 0.2)), (0, 0, shadow_w, shadow_h))
+        pygame.draw.ellipse(shadow_surf, (18, 22, 14, int(alpha * 0.12)), (3, 2, shadow_w - 6, shadow_h - 4))
         screen.blit(shadow_surf, (x - shadow_w // 2, int(archer['y']) + 30))
 
         # === 궁수 블릿 ===
         screen.blit(surf, (x - surf_w // 2, y - 65))
 
-        # === 조립 중 초록 에너지 이펙트 ===
+        # === 조립 중 초록 에너지 이펙트 (강화) ===
         if emerge_progress < 1.0:
-            num_sparks = int(12 * (1.0 - emerge_progress))
+            num_sparks = int(16 * (1.0 - emerge_progress))
             for i in range(num_sparks):
                 spark_angle = (i / max(1, num_sparks)) * math.pi * 2 + t * 8
-                spark_dist = int(30 * (1.0 - emerge_progress))
+                spark_dist = int(35 * (1.0 - emerge_progress))
                 sx = x + int(math.cos(spark_angle) * spark_dist)
                 sy = y - 20 + int(math.sin(spark_angle) * spark_dist)
-                spark_alpha = int(180 * (1.0 - emerge_progress))
-                pygame.draw.circle(screen, (*soul_color, spark_alpha), (sx, sy), random.randint(1, 3))
-            # 중심 수렴 라인
+                spark_alpha = int(200 * (1.0 - emerge_progress))
+                s_size = random.randint(1, 3)
+                pygame.draw.circle(screen, (*soul_color, spark_alpha), (sx, sy), s_size)
+                # 스파크 글로우
+                if s_size >= 2:
+                    pygame.draw.circle(screen, (*soul_color, spark_alpha // 3), (sx, sy), s_size + 2)
+            # 수렴 라인
             if emerge_progress > 0.3:
-                for i in range(4):
-                    la = i * math.pi / 2 + t * 3
-                    ldist = int(25 * (1.0 - emerge_progress))
+                for i in range(6):
+                    la = i * math.pi / 3 + t * 3
+                    ldist = int(30 * (1.0 - emerge_progress))
                     lx = x + int(math.cos(la) * ldist)
                     ly = y - 20 + int(math.sin(la) * ldist)
-                    line_alpha = int(120 * (1.0 - emerge_progress))
+                    line_alpha = int(140 * (1.0 - emerge_progress))
                     pygame.draw.line(screen, (*soul_color, line_alpha), (lx, ly), (x, y - 20), 1)
+            # 마법진 (바닥에 소환진)
+            if emerge_progress > 0.1 and emerge_progress < 0.8:
+                circle_a = int(100 * (1.0 - abs(emerge_progress - 0.4) / 0.4))
+                circle_r = int(20 * min(1.0, emerge_progress * 3))
+                pygame.draw.circle(screen, (*soul_color, circle_a), (x, int(archer['y']) + 32), circle_r, 1)
 
-        # === 소울 파티클 (완성 후 상시) ===
+        # === 소울 파티클 (완성 후 상시 - 강화) ===
         if emerge_progress >= 1.0:
-            if random.random() < 0.2:
+            # 눈에서 나오는 소울 파티클
+            if random.random() < 0.25:
                 eye_side = random.choice([-1, 1])
                 px = x + eye_side * 4 + random.randint(-2, 2)
-                py = y - 38 + random.randint(-5, 0)
-                pygame.draw.circle(screen, (*soul_color, random.randint(40, 100)),
-                                 (px, py), random.randint(1, 3))
-            if random.random() < 0.08:
-                px = x + random.randint(-12, 12)
-                py = y - random.randint(10, 45)
-                pygame.draw.circle(screen, (*soul_color, random.randint(30, 80)),
+                py = y - 38 + random.randint(-6, 0)
+                p_alpha = random.randint(50, 120)
+                p_size = random.randint(1, 3)
+                pygame.draw.circle(screen, (*soul_color, p_alpha), (px, py), p_size)
+                if p_size >= 2:
+                    pygame.draw.circle(screen, (*soul_color, p_alpha // 3), (px, py), p_size + 2)
+            # 몸 주위 떠다니는 소울
+            if random.random() < 0.1:
+                px = x + random.randint(-14, 14)
+                py = y - random.randint(10, 50)
+                pygame.draw.circle(screen, (*soul_color, random.randint(30, 90)),
                                  (px, py), random.randint(1, 2))
+            # 바닥 네크로 에너지
+            if random.random() < 0.06:
+                gx = x + random.randint(-12, 12)
+                gy = int(archer['y']) + 28 + random.randint(-2, 4)
+                pygame.draw.circle(screen, (*soul_color, random.randint(20, 50)),
+                                 (gx, gy), random.randint(1, 2))
             # 황금 궁수 전용: 빛나는 오라
-            if is_golden and random.random() < 0.15:
+            if is_golden and random.random() < 0.18:
                 glow_angle = random.uniform(0, math.pi * 2)
-                glow_dist = random.randint(8, 18)
+                glow_dist = random.randint(8, 20)
                 gx = x + int(math.cos(glow_angle) * glow_dist)
                 gy = y - 25 + int(math.sin(glow_angle) * glow_dist)
-                pygame.draw.circle(screen, (255, 215, 50, random.randint(30, 70)),
-                                 (gx, gy), random.randint(1, 2))
+                g_a = random.randint(35, 80)
+                pygame.draw.circle(screen, (255, 215, 50, g_a), (gx, gy), random.randint(1, 3))
+                pygame.draw.circle(screen, (255, 215, 50, g_a // 3), (gx, gy), random.randint(3, 5))
 
     def _draw_dying_archer(self, screen: pygame.Surface, dying: dict):
         """사망 애니메이션 - 뼈 파편이 물리 기반으로 사방에 흩어짐 + 영혼 이탈"""
@@ -11761,7 +11940,7 @@ class SkeletonArcher(HeroSkill):
                     pygame.draw.circle(screen, (180, 170, 140, dust_alpha), (dx, dy), 1)
 
     def _draw_arrow(self, screen: pygame.Surface, arrow: dict):
-        """화살 고퀄리티 렌더링 - 일반(독) / 황금 화살"""
+        """화살 Ultra Premium 렌더링 - 일반(독) / 황금 화살"""
         x = int(arrow['x'])
         y = int(arrow['y'])
         angle = arrow['angle']
@@ -11770,80 +11949,148 @@ class SkeletonArcher(HeroSkill):
         perp_cos = math.cos(angle + math.pi / 2)
         perp_sin = math.sin(angle + math.pi / 2)
         is_golden = arrow.get('is_golden', False)
+        t_now = pygame.time.get_ticks() / 1000.0
 
-        # 색상 분기
         if is_golden:
             shaft_dark = (200, 170, 50)
+            shaft_mid = (230, 200, 75)
             shaft_light = (255, 230, 100)
             head_outer = (220, 180, 40)
             head_inner = (255, 220, 80)
-            feather_color = (180, 140, 30)
+            head_edge = (180, 150, 30)
+            feather_dark = (160, 120, 25)
+            feather_light = (200, 160, 40)
+            feather_edge = (220, 180, 50)
             trail_color = (255, 200, 50)
             drip_color = (255, 220, 80)
+            energy_color = (255, 230, 100)
         else:
             shaft_dark = (170, 162, 140)
+            shaft_mid = (190, 182, 158)
             shaft_light = (210, 200, 178)
-            head_outer = (100, 160, 90)
-            head_inner = (130, 200, 110)
-            feather_color = (70, 60, 50)
+            head_outer = (90, 150, 80)
+            head_inner = (120, 190, 100)
+            head_edge = (70, 120, 60)
+            feather_dark = (60, 52, 42)
+            feather_light = (80, 70, 55)
+            feather_edge = (90, 80, 65)
             trail_color = (80, 220, 100)
             drip_color = (80, 220, 100)
+            energy_color = (100, 255, 130)
 
-        # 화살대
-        tail_x = x - int(cos_a * self.ARROW_LENGTH)
-        tail_y = y - int(sin_a * self.ARROW_LENGTH)
-        pygame.draw.line(screen, shaft_dark, (tail_x, tail_y), (x, y), 3)
-        pygame.draw.line(screen, shaft_light, (tail_x, tail_y), (x, y), 1)
-
-        # 화살촉 (삼각형)
-        head_x = x + int(cos_a * 6)
-        head_y = y + int(sin_a * 6)
-        left_x = x + int(perp_cos * 4)
-        left_y = y + int(perp_sin * 4)
-        right_x = x - int(perp_cos * 4)
-        right_y = y - int(perp_sin * 4)
-        pygame.draw.polygon(screen, head_outer, [
-            (head_x, head_y), (left_x, left_y), (right_x, right_y)
-        ])
-        inner_head_x = x + int(cos_a * 4)
-        inner_head_y = y + int(sin_a * 4)
-        pygame.draw.polygon(screen, head_inner, [
-            (inner_head_x, inner_head_y),
-            (x + int(perp_cos * 2), y + int(perp_sin * 2)),
-            (x - int(perp_cos * 2), y - int(perp_sin * 2)),
-        ])
-
-        # 깃털 (꼬리 부분, 2장)
-        for side in [-1, 1]:
-            feather_x = tail_x + int(perp_cos * 3 * side)
-            feather_y = tail_y + int(perp_sin * 3 * side)
-            back_x = tail_x - int(cos_a * 4)
-            back_y = tail_y - int(sin_a * 4)
-            pygame.draw.line(screen, feather_color, (tail_x, tail_y), (feather_x, feather_y), 1)
-            pygame.draw.line(screen, feather_color, (feather_x, feather_y),
-                           (back_x + int(perp_cos * side), back_y + int(perp_sin * side)), 1)
-
-        # 트레일 (5단계)
-        for i in range(5):
-            t = (i + 1) * 0.25
-            tx = int(arrow['x'] - arrow['vx'] * t)
-            ty = int(arrow['y'] - arrow['vy'] * t)
-            trail_alpha = 100 - i * 20
-            trail_size = max(1, 3 - i)
+        # === 에너지 트레일 (8단계 - 그라디언트 꼬리) ===
+        for i in range(8):
+            trail_t = (i + 1) * 0.18
+            tx = int(arrow['x'] - arrow['vx'] * trail_t)
+            ty = int(arrow['y'] - arrow['vy'] * trail_t)
+            trail_alpha = 120 - i * 14
+            trail_size = max(1, 4 - i // 2)
             if trail_alpha > 0:
+                # 외곽 글로우
+                if trail_size >= 2:
+                    pygame.draw.circle(screen, (*trail_color, trail_alpha // 3), (tx, ty), trail_size + 2)
+                # 코어
                 pygame.draw.circle(screen, (*trail_color, trail_alpha), (tx, ty), trail_size)
 
-        # 황금 화살: 빛나는 글로우
-        if is_golden:
-            glow_surf = _psurf((20, 20), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (255, 220, 80, 40), (10, 10), 10)
-            screen.blit(glow_surf, (x - 10, y - 10), special_flags=pygame.BLEND_ADD)
+        # === 바람 효과 라인 (화살 주변 공기 흐름) ===
+        for wi in range(3):
+            w_offset = 3 + wi * 2
+            w_start_x = x - int(cos_a * (5 + wi * 4)) + int(perp_cos * w_offset * (1 if wi % 2 == 0 else -1))
+            w_start_y = y - int(sin_a * (5 + wi * 4)) + int(perp_sin * w_offset * (1 if wi % 2 == 0 else -1))
+            w_end_x = w_start_x - int(cos_a * (6 + wi * 2))
+            w_end_y = w_start_y - int(sin_a * (6 + wi * 2))
+            w_alpha = int(60 - wi * 15)
+            if w_alpha > 0:
+                pygame.draw.line(screen, (*energy_color, w_alpha), (w_start_x, w_start_y), (w_end_x, w_end_y), 1)
 
-        # 방울 (화살촉에서 떨어짐)
-        if random.random() < 0.15:
+        # === 화살대 (그림자 + 본체 + 하이라이트) ===
+        tail_x = x - int(cos_a * self.ARROW_LENGTH)
+        tail_y = y - int(sin_a * self.ARROW_LENGTH)
+        # 그림자
+        pygame.draw.line(screen, shaft_dark, (tail_x + 1, tail_y + 1), (x + 1, y + 1), 3)
+        # 본체
+        pygame.draw.line(screen, shaft_mid, (tail_x, tail_y), (x, y), 3)
+        # 하이라이트 (상단면)
+        pygame.draw.line(screen, shaft_light, (tail_x, tail_y), (x, y), 1)
+        # 노크 (화살 끝 홈)
+        nock_x = tail_x - int(cos_a * 2)
+        nock_y = tail_y - int(sin_a * 2)
+        pygame.draw.circle(screen, shaft_dark, (tail_x, tail_y), 1)
+
+        # === 화살촉 (Ultra Premium - 날카로운 리프형) ===
+        head_len = 8
+        head_x = x + int(cos_a * head_len)
+        head_y = y + int(sin_a * head_len)
+        # 촉 날개 (좌우 돌출)
+        wing_back = 3  # 날개가 뒤로 꺾이는 정도
+        left_x = x + int(perp_cos * 5) - int(cos_a * wing_back)
+        left_y = y + int(perp_sin * 5) - int(sin_a * wing_back)
+        right_x = x - int(perp_cos * 5) + int(cos_a * wing_back)
+        right_y = y - int(perp_sin * 5) + int(sin_a * wing_back)
+        # 촉 그림자
+        pygame.draw.polygon(screen, head_edge, [
+            (head_x + 1, head_y + 1), (left_x + 1, left_y + 1), (x + 1, y + 1), (right_x + 1, right_y + 1)
+        ])
+        # 촉 외곽 (다이아몬드형)
+        pygame.draw.polygon(screen, head_outer, [
+            (head_x, head_y), (left_x, left_y), (x, y), (right_x, right_y)
+        ])
+        # 촉 내부 하이라이트 (한쪽 면만 밝게)
+        inner_head_x = x + int(cos_a * 5)
+        inner_head_y = y + int(sin_a * 5)
+        pygame.draw.polygon(screen, head_inner, [
+            (inner_head_x, inner_head_y),
+            (x + int(perp_cos * 3), y + int(perp_sin * 3)),
+            (x, y),
+        ])
+        # 촉 테두리
+        pygame.draw.lines(screen, head_edge, True, [
+            (head_x, head_y), (left_x, left_y), (x, y), (right_x, right_y)
+        ], 1)
+        # 촉 중앙 능선
+        pygame.draw.line(screen, head_inner, (x, y), (head_x, head_y), 1)
+
+        # === 깃털 (3장 - 부채꼴 배치 + 디테일) ===
+        for fi, side in enumerate([-1, 0, 1]):
+            perp_offset = side * 3.5
+            back_dist = 5 + abs(side)
+            feather_base_x = tail_x
+            feather_base_y = tail_y
+            feather_tip_x = tail_x - int(cos_a * back_dist) + int(perp_cos * perp_offset)
+            feather_tip_y = tail_y - int(sin_a * back_dist) + int(perp_sin * perp_offset)
+            feather_mid_x = (feather_base_x + feather_tip_x) // 2 + int(perp_cos * side * 1.5)
+            feather_mid_y = (feather_base_y + feather_tip_y) // 2 + int(perp_sin * side * 1.5)
+
+            # 깃털 면
+            f_color = feather_dark if side != 0 else feather_light
+            pygame.draw.polygon(screen, f_color, [
+                (feather_base_x, feather_base_y),
+                (feather_mid_x, feather_mid_y),
+                (feather_tip_x, feather_tip_y),
+            ])
+            # 깃대 (중심선)
+            pygame.draw.line(screen, feather_edge, (feather_base_x, feather_base_y),
+                           (feather_tip_x, feather_tip_y), 1)
+
+        # === 황금 화살 글로우 (더 넓은 오라) ===
+        if is_golden:
+            glow_surf = _psurf((28, 28), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (255, 220, 80, 30), (14, 14), 14)
+            pygame.draw.circle(glow_surf, (255, 240, 120, 20), (14, 14), 8)
+            screen.blit(glow_surf, (x - 14, y - 14), special_flags=pygame.BLEND_ADD)
+
+        # === 독/에너지 방울 (화살촉에서 떨어짐) ===
+        if random.random() < 0.2:
             drip_x = head_x + random.randint(-3, 3)
-            drip_y = head_y + random.randint(1, 4)
-            pygame.draw.circle(screen, (*drip_color, 120), (drip_x, drip_y), 1)
+            drip_y = head_y + random.randint(1, 5)
+            pygame.draw.circle(screen, (*drip_color, 140), (drip_x, drip_y), 1)
+            # 방울 꼬리
+            pygame.draw.circle(screen, (*drip_color, 60), (drip_x, drip_y - 2), 1)
+        # 촉 근처 에너지 파티클
+        if random.random() < 0.12:
+            ep_x = head_x + random.randint(-4, 4)
+            ep_y = head_y + random.randint(-4, 4)
+            pygame.draw.circle(screen, (*energy_color, random.randint(40, 90)), (ep_x, ep_y), 1)
 
 
 # ============================================================================
@@ -12121,20 +12368,25 @@ class BoneBarrier(HeroSkill):
             self._draw_dying_barrier(screen, dying)
 
     def _draw_barrier(self, screen, barrier):
+        """뼈 장막 고퀄리티 렌더링 (Ultra Premium)"""
         x = int(barrier['x'])
         y = int(barrier['y'])
         w = barrier['width']
         h = barrier['height']
         build_progress = min(1.0, barrier['build_timer'] / self.BUILD_TIME)
+        t_now = pygame.time.get_ticks() / 1000.0
 
         bone_c = (210, 200, 175)
         bone_dk = (160, 150, 120)
         bone_br = (230, 225, 200)
         bone_sh = (120, 110, 85)
+        bone_cream = (235, 228, 210)
         spike_c = (200, 190, 160)
+        spike_br = (225, 218, 195)
+        necro_glow = (80, 255, 120)
 
         if not barrier['built']:
-            # === 건설 중: 뼈 조각들이 사방에서 날아와 조립 ===
+            # === 건설 중: 뼈 조각들이 사방에서 날아와 조립 (고퀄리티) ===
             for seg in barrier['bone_segments']:
                 delay_norm = seg['delay'] / self.BUILD_TIME
                 adj = max(0.0, min(1.0, (build_progress - delay_norm) / max(0.01, 1.0 - delay_norm)))
@@ -12143,7 +12395,7 @@ class BoneBarrier(HeroSkill):
                 cur_x = seg['start_x'] + (seg['final_x'] - seg['start_x']) * ease
                 cur_y = seg['start_y'] + (seg['final_y'] - seg['start_y']) * ease
                 cur_rot = seg['start_rot'] + (seg['final_rot'] - seg['start_rot']) * ease
-                alpha = int(220 * min(1.0, adj * 2.5))
+                alpha = int(230 * min(1.0, adj * 2.5))
                 if alpha < 10:
                     continue
 
@@ -12153,65 +12405,170 @@ class BoneBarrier(HeroSkill):
                 x2 = int(cur_x - _cos(cur_rot) * half)
                 y2 = int(cur_y - _sin(cur_rot) * half)
 
+                # 뼈 그림자
                 line_w = 3 if adj > 0.5 else 2
-                pygame.draw.line(screen, bone_c, (x1, y1), (x2, y2), line_w)
-                pygame.draw.circle(screen, bone_br, (x1, y1), 2)
-                pygame.draw.circle(screen, bone_dk, (x2, y2), 2)
+                pygame.draw.line(screen, (*bone_sh, int(alpha * 0.4)), (x1 + 1, y1 + 1), (x2 + 1, y2 + 1), line_w + 1)
+                # 뼈 본체
+                pygame.draw.line(screen, (*bone_c, alpha), (x1, y1), (x2, y2), line_w)
+                # 뼈 하이라이트
+                mx, my = (x1 + x2) // 2, (y1 + y2) // 2
+                pygame.draw.line(screen, (*bone_br, int(alpha * 0.6)), (x1, y1), (mx, my), max(1, line_w - 1))
+                # 관절
+                pygame.draw.circle(screen, (*bone_br, alpha), (x1, y1), 2)
+                pygame.draw.circle(screen, (*bone_dk, alpha), (x2, y2), 2)
+                # 초록 에너지 잔여
+                if adj < 0.8:
+                    trail_a = int(100 * (1.0 - adj / 0.8))
+                    pygame.draw.circle(screen, (*necro_glow, trail_a), (x1, y1), 3)
 
-            # 조립 스파크
-            if build_progress > 0.4:
-                spark_n = int(4 * (build_progress - 0.4) / 0.6)
-                for _ in range(spark_n):
+            # 조립 스파크 + 마법 에너지
+            if build_progress > 0.3:
+                spark_intensity = (build_progress - 0.3) / 0.7
+                spark_n = int(8 * spark_intensity)
+                for si in range(spark_n):
                     sx = x + random.randint(0, w)
-                    sy = y + random.randint(-6, 6)
-                    pygame.draw.circle(screen, (200, 220, 180), (sx, sy), 1)
+                    sy = y + random.randint(-8, 8)
+                    s_bright = random.random()
+                    if s_bright > 0.6:
+                        pygame.draw.circle(screen, (*necro_glow, random.randint(60, 140)), (sx, sy), 2)
+                        pygame.draw.circle(screen, (180, 255, 200, random.randint(30, 70)), (sx, sy), 4)
+                    else:
+                        pygame.draw.circle(screen, (200, 220, 180, random.randint(40, 100)), (sx, sy), 1)
+                # 중심 수렴 에너지 라인
+                if build_progress > 0.6:
+                    center_x = x + w // 2
+                    line_a = int(60 * (build_progress - 0.6) / 0.4)
+                    for li in range(3):
+                        lx = x + int(w * (li + 0.5) / 3)
+                        pygame.draw.line(screen, (*necro_glow, line_a),
+                                        (lx, y - 12), (lx, y + 12), 1)
         else:
-            # === 완성된 뼈 장벽 ===
-            # 그림자
+            # === 완성된 뼈 장벽 (Ultra Premium) ===
+            is_top = barrier.get('is_top', False)
+            pulse = 0.85 + 0.15 * _sin(t_now * 3.0)
+
+            # ── 네크로 에너지 글로우 (뼈 주변 은은한 초록빛) ──
+            glow_a = int(25 * pulse)
+            glow_surf = _psurf((w + 16, h + 16), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, (*necro_glow, glow_a),
+                           (0, 0, w + 16, h + 16), border_radius=6)
+            screen.blit(glow_surf, (x - 8, y - h // 2 - 8), special_flags=pygame.BLEND_ADD)
+
+            # ── 그림자 ──
             pygame.draw.rect(screen, bone_sh,
                            (x + 2, y - h // 2 + 2, w, h), border_radius=3)
-            # 본체
+
+            # ── 본체 (3층 그라디언트) ──
             pygame.draw.rect(screen, bone_dk,
                            (x, y - h // 2, w, h), border_radius=3)
             pygame.draw.rect(screen, bone_c,
                            (x + 1, y - h // 2 + 1, w - 2, h - 2), border_radius=2)
+            # 내부 밝은 면
+            inner_h = max(1, h - 4)
+            pygame.draw.rect(screen, bone_cream,
+                           (x + 3, y - inner_h // 2, w - 6, inner_h), border_radius=1)
 
-            # 뼈 텍스처
-            for i in range(w // 12):
-                lx = x + 6 + i * 12
-                pygame.draw.line(screen, bone_dk, (lx, y - h // 2 + 2), (lx, y + h // 2 - 2), 1)
-                pygame.draw.circle(screen, bone_br, (lx, y), 2)
-                pygame.draw.circle(screen, bone_dk, (lx, y), 2, 1)
+            # ── 뼈 세그먼트 텍스처 (관절 + 골수 + 균열) ──
+            seg_count = max(1, w // 10)
+            for i in range(seg_count):
+                lx = x + 5 + int(i * (w - 10) / max(1, seg_count - 1)) if seg_count > 1 else x + w // 2
+                # 세그먼트 분리선
+                pygame.draw.line(screen, bone_dk, (lx, y - h // 2 + 1), (lx, y + h // 2 - 1), 1)
+                # 관절 돌기
+                joint_pulse = 0.8 + 0.2 * _sin(t_now * 2.0 + i * 0.8)
+                pygame.draw.circle(screen, bone_br, (lx, y), 3)
+                pygame.draw.circle(screen, bone_c, (lx, y), 3, 1)
+                # 관절 중심 점
+                pygame.draw.circle(screen, bone_dk, (lx, y), 1)
+                # 골수 표시 (관절 사이)
+                if i < seg_count - 1:
+                    next_lx = x + 5 + int((i + 1) * (w - 10) / max(1, seg_count - 1))
+                    mid_x = (lx + next_lx) // 2
+                    marrow_a = int(40 * joint_pulse)
+                    pygame.draw.line(screen, (*bone_cream, marrow_a),
+                                   (lx + 3, y), (next_lx - 3, y), 1)
+                # 미세 균열 (일부 세그먼트)
+                if i % 3 == 1:
+                    crack_y = y - h // 2 + 2
+                    pygame.draw.line(screen, bone_sh, (lx + 2, crack_y), (lx + 4, crack_y + 3), 1)
 
-            # 가시 스파이크 (필드 방향으로만)
+            # ── 가시 스파이크 (고퀄리티 - 그림자 + 하이라이트 + 독기) ──
             spike_heights = barrier.get('spike_heights', [])
-            is_top = barrier.get('is_top', False)
             num_spikes = len(spike_heights) if spike_heights else w // 14
             for i in range(num_spikes):
                 sx = x + int((i + 0.5) * w / max(1, num_spikes))
                 sh = spike_heights[i] if i < len(spike_heights) else 7
-                if is_top:
-                    # 상단 영웅 → 가시가 아래(필드)로 향함
-                    pygame.draw.polygon(screen, spike_c, [
-                        (sx - 3, y + h // 2), (sx, y + h // 2 + sh), (sx + 3, y + h // 2)])
-                    pygame.draw.polygon(screen, bone_br, [
-                        (sx - 2, y + h // 2), (sx, y + h // 2 + sh - 1), (sx + 1, y + h // 2)])
-                else:
-                    # 하단 영웅 → 가시가 위(필드)로 향함
-                    pygame.draw.polygon(screen, spike_c, [
-                        (sx - 3, y - h // 2), (sx, y - h // 2 - sh), (sx + 3, y - h // 2)])
-                    pygame.draw.polygon(screen, bone_br, [
-                        (sx - 2, y - h // 2), (sx, y - h // 2 - sh + 1), (sx + 1, y - h // 2)])
+                spike_wobble = int(1 * _sin(t_now * 4.0 + i * 1.5))
 
-            # 하이라이트
+                if is_top:
+                    base_y = y + h // 2
+                    tip_y = base_y + sh + spike_wobble
+                    # 가시 그림자
+                    pygame.draw.polygon(screen, bone_sh, [
+                        (sx - 3, base_y + 1), (sx + 1, tip_y + 1), (sx + 4, base_y + 1)])
+                    # 가시 본체
+                    pygame.draw.polygon(screen, spike_c, [
+                        (sx - 3, base_y), (sx, tip_y), (sx + 3, base_y)])
+                    # 가시 하이라이트 (밝은 면)
+                    pygame.draw.polygon(screen, spike_br, [
+                        (sx - 2, base_y), (sx, tip_y), (sx, base_y)])
+                    # 가시 능선
+                    pygame.draw.line(screen, bone_dk, (sx, base_y), (sx, tip_y), 1)
+                    # 독기 파티클
+                    if random.random() < 0.04:
+                        pygame.draw.circle(screen, (*necro_glow, random.randint(40, 80)),
+                                         (sx + random.randint(-2, 2), tip_y + random.randint(1, 4)), 1)
+                else:
+                    base_y = y - h // 2
+                    tip_y = base_y - sh - spike_wobble
+                    pygame.draw.polygon(screen, bone_sh, [
+                        (sx - 3, base_y - 1), (sx + 1, tip_y - 1), (sx + 4, base_y - 1)])
+                    pygame.draw.polygon(screen, spike_c, [
+                        (sx - 3, base_y), (sx, tip_y), (sx + 3, base_y)])
+                    pygame.draw.polygon(screen, spike_br, [
+                        (sx - 2, base_y), (sx, tip_y), (sx, base_y)])
+                    pygame.draw.line(screen, bone_dk, (sx, base_y), (sx, tip_y), 1)
+                    if random.random() < 0.04:
+                        pygame.draw.circle(screen, (*necro_glow, random.randint(40, 80)),
+                                         (sx + random.randint(-2, 2), tip_y - random.randint(1, 4)), 1)
+
+            # ── 상단/하단 하이라이트 ──
             pygame.draw.line(screen, bone_br,
                            (x + 3, y - h // 2 + 1), (x + w - 3, y - h // 2 + 1), 1)
+            # 하단 그림자 라인
+            pygame.draw.line(screen, bone_sh,
+                           (x + 3, y + h // 2 - 1), (x + w - 3, y + h // 2 - 1), 1)
+
+            # ── 네크로 문양 (중앙 룬 마크) ──
+            center_x = x + w // 2
+            rune_a = int(50 * pulse)
+            rune_size = min(h - 2, 8)
+            pygame.draw.line(screen, (*necro_glow, rune_a),
+                           (center_x - rune_size, y), (center_x + rune_size, y), 1)
+            pygame.draw.line(screen, (*necro_glow, rune_a),
+                           (center_x, y - rune_size // 2), (center_x, y + rune_size // 2), 1)
+            # 테두리 은은한 초록 아웃라인
+            edge_a = int(30 * pulse)
+            pygame.draw.rect(screen, (*necro_glow, edge_a),
+                           (x, y - h // 2, w, h), border_radius=3, width=1)
 
     def _draw_dying_barrier(self, screen, dying):
+        """뼈 장막 파괴 애니메이션 (고퀄리티)"""
         t = dying['death_time']
         progress = t / self.DEATH_DURATION
         if progress >= 1.0:
             return
+
+        alpha = max(0, int(255 * (1.0 - progress)))
+        necro_glow = (80, 255, 120)
+
+        # 충격파 (파괴 순간)
+        if progress < 0.35:
+            wave_ratio = progress / 0.35
+            wave_r = int(30 * wave_ratio)
+            wave_a = int(120 * (1.0 - wave_ratio))
+            pygame.draw.circle(screen, (*necro_glow, wave_a),
+                             (int(dying['x']), int(dying['y'])), wave_r, 2)
 
         for frag in dying['fragments']:
             fx = frag['x'] + frag['vx'] * t
@@ -12224,9 +12581,33 @@ class BoneBarrier(HeroSkill):
             x2 = int(fx - _cos(rot) * half)
             y2 = int(fy - _sin(rot) * half)
 
-            fade = max(0.3, 1.0 - progress)
+            fade = max(0.2, 1.0 - progress)
+            # 뼈 그림자
+            sh_c = (int(120 * fade), int(110 * fade), int(85 * fade))
+            pygame.draw.line(screen, sh_c, (x1 + 1, y1 + 1), (x2 + 1, y2 + 1), 2)
+            # 뼈 본체
             c = (int(210 * fade), int(200 * fade), int(175 * fade))
             pygame.draw.line(screen, c, (x1, y1), (x2, y2), 2)
+            # 뼈 하이라이트
+            br_c = (int(230 * fade), int(225 * fade), int(200 * fade))
+            mx, my = (x1 + x2) // 2, (y1 + y2) // 2
+            pygame.draw.line(screen, br_c, (x1, y1), (mx, my), 1)
+            # 관절점
+            pygame.draw.circle(screen, br_c, (x1, y1), 1)
+            # 초록 잔여 에너지
+            if progress < 0.5 and random.random() < 0.15:
+                g_a = int(80 * (1.0 - progress * 2))
+                pygame.draw.circle(screen, (*necro_glow, g_a), (x1, y1), 2)
+
+        # 뼈 먼지
+        if progress > 0.2:
+            dust_n = int(5 * (progress - 0.2) / 0.8)
+            for di in range(dust_n):
+                dx = int(dying['x']) + random.randint(-40, 40)
+                dy = int(dying['y']) + random.randint(-4, 4)
+                d_a = int(60 * (1.0 - progress))
+                if d_a > 5:
+                    pygame.draw.circle(screen, (190, 180, 150, d_a), (dx, dy), 1)
 
 
 # ============================================================================
