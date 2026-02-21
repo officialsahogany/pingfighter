@@ -10095,7 +10095,8 @@ class DeadPossession(HeroSkill):
         """랜덤 스킬 선택 및 즉시 발동"""
         # 자신의 스킬(balloon_wall, riddle_trick)은 제외하고 모든 영웅 스킬 풀에서 선택
         all_skill_classes = []
-        exclude_ids = {"balloon_wall", "riddle_trick"}
+        # demon_step(귀신발걸음) 제외: ghost_step_start 등 game_state 부작용 + ghostwalk 사운드 오재생
+        exclude_ids = {"balloon_wall", "riddle_trick", "demon_step"}
 
         for hero_id, skill_classes in HERO_SKILL_CLASSES.items():
             if hero_id in ("joker",):
