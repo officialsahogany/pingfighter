@@ -191,6 +191,83 @@ def _get_native_resolution():
         print(f"네이티브 해상도 가져오기 실패: {e}")
         return None
 
+# 더블 모니터용: 가장 큰 모니터 정보 캐시
+_largest_monitor_info = None  # {'x': int, 'y': int, 'w': int, 'h': int}
+
+def _detect_largest_monitor():
+    """모든 모니터를 열거하고 가장 큰(해상도 높은) 모니터의 위치/크기 반환 (Windows 전용)
+    Returns: {'x': left, 'y': top, 'w': width, 'h': height} or None"""
+    global _largest_monitor_info
+    if sys.platform != 'win32':
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        class MONITORINFOEX(ctypes.Structure):
+            _fields_ = [
+                ("cbSize", wintypes.DWORD),
+                ("rcMonitor", wintypes.RECT),
+                ("rcWork", wintypes.RECT),
+                ("dwFlags", wintypes.DWORD),
+                ("szDevice", ctypes.c_wchar * 32),
+            ]
+
+        monitors = []
+        MONITORENUMPROC = ctypes.WINFUNCTYPE(
+            ctypes.c_int, ctypes.c_void_p, ctypes.c_void_p,
+            ctypes.POINTER(wintypes.RECT), ctypes.c_long
+        )
+
+        def _enum_callback(hMonitor, hdcMonitor, lprcMonitor, dwData):
+            info = MONITORINFOEX()
+            info.cbSize = ctypes.sizeof(MONITORINFOEX)
+            ctypes.windll.user32.GetMonitorInfoW(hMonitor, ctypes.byref(info))
+            r = info.rcMonitor
+            monitors.append({
+                'x': r.left, 'y': r.top,
+                'w': r.right - r.left, 'h': r.bottom - r.top,
+                'device': info.szDevice,
+            })
+            return 1
+
+        ctypes.windll.user32.EnumDisplayMonitors(
+            None, None, MONITORENUMPROC(_enum_callback), 0
+        )
+
+        if not monitors:
+            return None
+
+        # 면적(w*h) 기준으로 가장 큰 모니터 선택
+        largest = max(monitors, key=lambda m: m['w'] * m['h'])
+        _largest_monitor_info = largest
+        print(f"[모니터] 감지된 모니터 {len(monitors)}개: {[(m['w'], m['h'], m['x'], m['y']) for m in monitors]}", flush=True)
+        print(f"[모니터] 가장 큰 모니터: {largest['w']}x{largest['h']} @ ({largest['x']}, {largest['y']})", flush=True)
+        return largest
+    except Exception as e:
+        print(f"[모니터] 모니터 감지 실패: {e}", flush=True)
+        return None
+
+# 게임 시작 시 즉시 감지
+_detect_largest_monitor()
+
+def _get_largest_monitor_pos(win_w, win_h):
+    """가장 큰 모니터의 중앙에 창을 배치하기 위한 좌표 반환
+    Args: win_w, win_h - 창 크기
+    Returns: (x, y) 또는 None"""
+    if _largest_monitor_info is None:
+        return None
+    m = _largest_monitor_info
+    cx = m['x'] + (m['w'] - win_w) // 2
+    cy = m['y'] + (m['h'] - win_h) // 2
+    return (cx, cy)
+
+def _get_largest_monitor_resolution():
+    """가장 큰 모니터의 해상도 반환. Returns: (w, h) or None"""
+    if _largest_monitor_info is None:
+        return None
+    return (_largest_monitor_info['w'], _largest_monitor_info['h'])
+
 def _change_windows_resolution(width, height):
     """Windows 화면 해상도를 변경합니다"""
     if sys.platform != 'win32':
@@ -368,10 +445,12 @@ _use_scaled_mode = False  # True: pygame.SCALED 활성, 수동 스케일링 건�
 
 def _setup_fullscreen_mode():
     global FULLSCREEN_MODE, FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT
-    # 원래 해상도가 저장되어 있으면 그것을 사용 (해상도 변경 전 값)
-    # _setup_game_resolution()에서 해상도를 변경했기 때문에 _get_current_resolution()은
-    # 변경된 낮은 해상도를 반환함 → 레터박스 문제 발생
-    if _original_resolution:
+    # 더블 모니터: 가장 큰 모니터 해상도 우선 사용
+    largest_res = _get_largest_monitor_resolution()
+    if largest_res:
+        FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT = largest_res
+        print(f"[Fullscreen] Monitor (최대): {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}")
+    elif _original_resolution:
         FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT = _original_resolution
         print(f"[Fullscreen] Monitor (원본): {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}")
     else:
@@ -3067,8 +3146,11 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     print(f"[전체화면] display_manager에 전체화면 모드 설정 완료 (SCREEN Surface 전달)", flush=True)
 else:
     # === 창모드: SCALED 정수배 합성 (구 공식 창 사이즈 + SDL GPU 업스케일링) ===
-    # 1단계: 구 공식으로 목표 창 사이즈 계산 (폴백과 동일한 공식)
-    if sys.platform == 'win32':
+    # 1단계: 구 공식으로 목표 창 사이즈 계산 (더블 모니터 시 가장 큰 모니터 사용)
+    _init_largest = _get_largest_monitor_resolution()
+    if _init_largest:
+        _init_monitor_w, _init_monitor_h = _init_largest
+    elif sys.platform == 'win32':
         _win_native = _get_native_resolution() or _get_current_resolution()
         if _win_native:
             _init_monitor_w, _init_monitor_h = _win_native
@@ -3105,20 +3187,25 @@ else:
     _comp_pad_y = (_comp_h - HEIGHT) // 2
 
     # 3단계: SCALED 모드 시도 (SDL이 자동 정수배 업스케일링)
+    # 더블 모니터: 가장 큰 모니터 중앙에 창 배치
+    _init_win_pos = _get_largest_monitor_pos(_init_target_w, _init_target_h)
     _scaled_ok = False
     try:
         print(f"[디스플레이] 창모드(SCALED x{_scale_n}) 시작... 합성={_comp_w}x{_comp_h} → 목표 {_init_target_w}x{_init_target_h}", flush=True)
         pygame.display.quit()
         pygame.display.init()
-        os.environ['SDL_VIDEO_CENTERED'] = '1'
+        if _init_win_pos:
+            os.environ['SDL_VIDEO_WINDOW_POS'] = f'{_init_win_pos[0]},{_init_win_pos[1]}'
+        else:
+            os.environ['SDL_VIDEO_CENTERED'] = '1'
         REAL_SCREEN = pygame.display.set_mode((_comp_w, _comp_h), pygame.SCALED)
-        if 'SDL_VIDEO_CENTERED' in os.environ:
-            del os.environ['SDL_VIDEO_CENTERED']
+        os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
+        os.environ.pop('SDL_VIDEO_CENTERED', None)
         _scaled_ok = True
     except pygame.error as _scaled_err:
         print(f"[디스플레이] pygame.SCALED 실패({_scaled_err}), 소프트웨어 스케일링으로 폴백", flush=True)
-        if 'SDL_VIDEO_CENTERED' in os.environ:
-            del os.environ['SDL_VIDEO_CENTERED']
+        os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
+        os.environ.pop('SDL_VIDEO_CENTERED', None)
 
     if _scaled_ok:
         # --- SCALED 합성 모드: 게임 1:1 + 필러 배경, GPU N배 업스케일링 ---
@@ -3154,7 +3241,10 @@ else:
         print(f"[디스플레이] 창모드(SCALED x{_scale_n}) 완료: 합성 {_comp_w}x{_comp_h}, 게임 1:1, SDL GPU 스케일링", flush=True)
     else:
         # --- 폴백: 기존 소프트웨어 스케일링 (필러 포함) ---
-        if sys.platform == 'win32':
+        _fb_largest = _get_largest_monitor_resolution()
+        if _fb_largest:
+            _init_monitor_w, _init_monitor_h = _fb_largest
+        elif sys.platform == 'win32':
             _win_native = _get_native_resolution() or _get_current_resolution()
             if _win_native:
                 _init_monitor_w, _init_monitor_h = _win_native
@@ -3176,10 +3266,15 @@ else:
         if _init_target_h > int(_init_monitor_h * 0.85):
             _init_target_h = int(_init_monitor_h * 0.85)
 
-        os.environ['SDL_VIDEO_CENTERED'] = '1'
+        # 더블 모니터: 가장 큰 모니터 중앙에 배치
+        _fb_win_pos = _get_largest_monitor_pos(_init_target_w, _init_target_h)
+        if _fb_win_pos:
+            os.environ['SDL_VIDEO_WINDOW_POS'] = f'{_fb_win_pos[0]},{_fb_win_pos[1]}'
+        else:
+            os.environ['SDL_VIDEO_CENTERED'] = '1'
         REAL_SCREEN = pygame.display.set_mode((_init_target_w, _init_target_h), pygame.DOUBLEBUF | pygame.RESIZABLE)
-        if 'SDL_VIDEO_CENTERED' in os.environ:
-            del os.environ['SDL_VIDEO_CENTERED']
+        os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
+        os.environ.pop('SDL_VIDEO_CENTERED', None)
 
         if _custom_cursor_enabled:
             pygame.mouse.set_visible(False)
@@ -9000,8 +9095,11 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             import time
             time.sleep(0.3)  # 해상도 복원 대기
 
-        # 네이티브 모니터 해상도 가져오기 (70% 계산용)
-        if sys.platform == 'win32':
+        # 네이티브 모니터 해상도 가져오기 (더블 모니터: 가장 큰 모니터 사용)
+        _win_largest = _get_largest_monitor_resolution()
+        if _win_largest:
+            monitor_w, monitor_h = _win_largest
+        elif sys.platform == 'win32':
             native = _get_native_resolution() or _get_current_resolution()
             if native:
                 monitor_w, monitor_h = native
@@ -9042,18 +9140,23 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         _comp_pad_y = (_comp_h - HEIGHT) // 2
 
         # SCALED 합성 모드 시도 → 실패 시 소프트웨어 스케일링 폴백
+        # 더블 모니터: 가장 큰 모니터 중앙에 창 배치
+        _win_pos = _get_largest_monitor_pos(_init_target_w, _init_target_h)
         _sw_scaled_ok = False
         try:
             pygame.display.quit()
             pygame.display.init()
-            os.environ['SDL_VIDEO_CENTERED'] = '1'
+            if _win_pos:
+                os.environ['SDL_VIDEO_WINDOW_POS'] = f'{_win_pos[0]},{_win_pos[1]}'
+            else:
+                os.environ['SDL_VIDEO_CENTERED'] = '1'
             REAL_SCREEN = pygame.display.set_mode((_comp_w, _comp_h), pygame.SCALED)
-            if 'SDL_VIDEO_CENTERED' in os.environ:
-                del os.environ['SDL_VIDEO_CENTERED']
+            os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
+            os.environ.pop('SDL_VIDEO_CENTERED', None)
             _sw_scaled_ok = True
         except pygame.error:
-            if 'SDL_VIDEO_CENTERED' in os.environ:
-                del os.environ['SDL_VIDEO_CENTERED']
+            os.environ.pop('SDL_VIDEO_WINDOW_POS', None)
+            os.environ.pop('SDL_VIDEO_CENTERED', None)
 
         if _sw_scaled_ok:
             _use_scaled_mode = True
@@ -9144,8 +9247,11 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             import time
             time.sleep(0.3)
 
-        # 네이티브 모니터 해상도 감지
-        if sys.platform == 'win32':
+        # 네이티브 모니터 해상도 감지 (더블 모니터: 가장 큰 모니터 사용)
+        _fs_largest = _get_largest_monitor_resolution()
+        if _fs_largest:
+            monitor_w, monitor_h = _fs_largest
+        elif sys.platform == 'win32':
             native = _get_native_resolution() or _get_current_resolution()
             if native:
                 monitor_w, monitor_h = native
@@ -9269,7 +9375,9 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         if not _fs_gpu_frac_ok:
             # === 폴백: NOFRAME + CPU 스케일링 (DWM 우회) ===
             _use_scaled_mode = False
-            os.environ['SDL_VIDEO_WINDOW_POS'] = '0,0'
+            # 더블 모니터: 가장 큰 모니터 좌상단에 배치
+            _nf_pos = _largest_monitor_info
+            os.environ['SDL_VIDEO_WINDOW_POS'] = f'{_nf_pos["x"]},{_nf_pos["y"]}' if _nf_pos else '0,0'
             if _current_platform == 'Darwin':
                 REAL_SCREEN = pygame.display.set_mode((monitor_w, monitor_h), pygame.NOFRAME | pygame.DOUBLEBUF)
             else:
@@ -9427,8 +9535,11 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             import time
             time.sleep(0.3)
 
-        # 네이티브 모니터 해상도
-        if sys.platform == 'win32':
+        # 네이티브 모니터 해상도 (더블 모니터: 가장 큰 모니터 사용)
+        _bl_largest = _get_largest_monitor_resolution()
+        if _bl_largest:
+            monitor_w, monitor_h = _bl_largest
+        elif sys.platform == 'win32':
             native = _get_native_resolution() or _get_current_resolution()
             if native:
                 monitor_w, monitor_h = native
@@ -9448,8 +9559,9 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             pygame.display.quit()
             pygame.display.init()
 
-        # 보더리스 윈도우 (프레임 없이 모니터 해상도로)
-        os.environ['SDL_VIDEO_WINDOW_POS'] = '0,0'
+        # 보더리스 윈도우 (더블 모니터: 가장 큰 모니터에 배치)
+        _bl_pos = _largest_monitor_info
+        os.environ['SDL_VIDEO_WINDOW_POS'] = f'{_bl_pos["x"]},{_bl_pos["y"]}' if _bl_pos else '0,0'
         if _current_platform == 'Darwin':
             REAL_SCREEN = pygame.display.set_mode((monitor_w, monitor_h), pygame.NOFRAME | pygame.DOUBLEBUF)
         else:
