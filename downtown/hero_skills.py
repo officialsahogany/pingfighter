@@ -11940,7 +11940,7 @@ class SkeletonArcher(HeroSkill):
                     pygame.draw.circle(screen, (180, 170, 140, dust_alpha), (dx, dy), 1)
 
     def _draw_arrow(self, screen: pygame.Surface, arrow: dict):
-        """화살 Ultra Premium 렌더링 - 일반(독) / 황금 화살"""
+        """화살 렌더링 - 길쭉하고 날렵한 화살 디자인"""
         x = int(arrow['x'])
         y = int(arrow['y'])
         angle = arrow['angle']
@@ -11958,9 +11958,7 @@ class SkeletonArcher(HeroSkill):
             head_outer = (220, 180, 40)
             head_inner = (255, 220, 80)
             head_edge = (180, 150, 30)
-            feather_dark = (160, 120, 25)
-            feather_light = (200, 160, 40)
-            feather_edge = (220, 180, 50)
+            feather_colors = [(160, 120, 25), (200, 160, 40), (220, 180, 50)]
             trail_color = (255, 200, 50)
             drip_color = (255, 220, 80)
             energy_color = (255, 230, 100)
@@ -11971,126 +11969,110 @@ class SkeletonArcher(HeroSkill):
             head_outer = (90, 150, 80)
             head_inner = (120, 190, 100)
             head_edge = (70, 120, 60)
-            feather_dark = (60, 52, 42)
-            feather_light = (80, 70, 55)
-            feather_edge = (90, 80, 65)
+            feather_colors = [(60, 52, 42), (80, 70, 55), (90, 80, 65)]
             trail_color = (80, 220, 100)
             drip_color = (80, 220, 100)
             energy_color = (100, 255, 130)
 
-        # === 에너지 트레일 (8단계 - 그라디언트 꼬리) ===
-        for i in range(8):
-            trail_t = (i + 1) * 0.18
+        # 화살 전체 길이 계산 (긴 비율)
+        shaft_len = self.ARROW_LENGTH  # 화살대 길이
+        head_len = 6                    # 화살촉 길이
+        # 화살촉 끝 좌표
+        tip_x = x + int(cos_a * head_len)
+        tip_y = y + int(sin_a * head_len)
+        # 화살대 끝(꼬리) 좌표
+        tail_x = x - int(cos_a * shaft_len)
+        tail_y = y - int(sin_a * shaft_len)
+
+        # === 에너지 트레일 (가느다란 줄기형) ===
+        for i in range(6):
+            trail_t = (i + 1) * 0.15
             tx = int(arrow['x'] - arrow['vx'] * trail_t)
             ty = int(arrow['y'] - arrow['vy'] * trail_t)
-            trail_alpha = 120 - i * 14
-            trail_size = max(1, 4 - i // 2)
+            trail_alpha = 90 - i * 14
             if trail_alpha > 0:
-                # 외곽 글로우
-                if trail_size >= 2:
-                    pygame.draw.circle(screen, (*trail_color, trail_alpha // 3), (tx, ty), trail_size + 2)
-                # 코어
-                pygame.draw.circle(screen, (*trail_color, trail_alpha), (tx, ty), trail_size)
+                pygame.draw.circle(screen, (*trail_color, trail_alpha), (tx, ty), 1)
 
-        # === 바람 효과 라인 (화살 주변 공기 흐름) ===
-        for wi in range(3):
-            w_offset = 3 + wi * 2
-            w_start_x = x - int(cos_a * (5 + wi * 4)) + int(perp_cos * w_offset * (1 if wi % 2 == 0 else -1))
-            w_start_y = y - int(sin_a * (5 + wi * 4)) + int(perp_sin * w_offset * (1 if wi % 2 == 0 else -1))
-            w_end_x = w_start_x - int(cos_a * (6 + wi * 2))
-            w_end_y = w_start_y - int(sin_a * (6 + wi * 2))
-            w_alpha = int(60 - wi * 15)
-            if w_alpha > 0:
-                pygame.draw.line(screen, (*energy_color, w_alpha), (w_start_x, w_start_y), (w_end_x, w_end_y), 1)
+        # === 바람 효과 라인 (얇고 짧은 공기 흐름) ===
+        for wi in range(2):
+            w_off = (2 + wi) * (1 if wi % 2 == 0 else -1)
+            w_sx = x - int(cos_a * (6 + wi * 5)) + int(perp_cos * w_off)
+            w_sy = y - int(sin_a * (6 + wi * 5)) + int(perp_sin * w_off)
+            w_ex = w_sx - int(cos_a * 5)
+            w_ey = w_sy - int(sin_a * 5)
+            pygame.draw.line(screen, (*energy_color, 40), (w_sx, w_sy), (w_ex, w_ey), 1)
 
-        # === 화살대 (그림자 + 본체 + 하이라이트) ===
-        tail_x = x - int(cos_a * self.ARROW_LENGTH)
-        tail_y = y - int(sin_a * self.ARROW_LENGTH)
-        # 그림자
-        pygame.draw.line(screen, shaft_dark, (tail_x + 1, tail_y + 1), (x + 1, y + 1), 3)
-        # 본체
-        pygame.draw.line(screen, shaft_mid, (tail_x, tail_y), (x, y), 3)
-        # 하이라이트 (상단면)
-        pygame.draw.line(screen, shaft_light, (tail_x, tail_y), (x, y), 1)
-        # 노크 (화살 끝 홈)
-        nock_x = tail_x - int(cos_a * 2)
-        nock_y = tail_y - int(sin_a * 2)
-        pygame.draw.circle(screen, shaft_dark, (tail_x, tail_y), 1)
+        # === 화살대 (가느다란 1~2px 라인) ===
+        # 그림자 (1px 오프셋)
+        pygame.draw.line(screen, shaft_dark,
+                         (tail_x + 1, tail_y + 1), (x + 1, y + 1), 1)
+        # 본체 (2px - 날렵한 화살대)
+        pygame.draw.line(screen, shaft_mid, (tail_x, tail_y), (x, y), 2)
+        # 하이라이트 (중앙 1px 밝은 선)
+        hl_start_x = tail_x + int(cos_a * 2)
+        hl_start_y = tail_y + int(sin_a * 2)
+        hl_end_x = x - int(cos_a * 1)
+        hl_end_y = y - int(sin_a * 1)
+        pygame.draw.line(screen, shaft_light, (hl_start_x, hl_start_y), (hl_end_x, hl_end_y), 1)
 
-        # === 화살촉 (Ultra Premium - 날카로운 리프형) ===
-        head_len = 8
-        head_x = x + int(cos_a * head_len)
-        head_y = y + int(sin_a * head_len)
-        # 촉 날개 (좌우 돌출)
-        wing_back = 3  # 날개가 뒤로 꺾이는 정도
-        left_x = x + int(perp_cos * 5) - int(cos_a * wing_back)
-        left_y = y + int(perp_sin * 5) - int(sin_a * wing_back)
-        right_x = x - int(perp_cos * 5) + int(cos_a * wing_back)
-        right_y = y - int(perp_sin * 5) + int(sin_a * wing_back)
-        # 촉 그림자
-        pygame.draw.polygon(screen, head_edge, [
-            (head_x + 1, head_y + 1), (left_x + 1, left_y + 1), (x + 1, y + 1), (right_x + 1, right_y + 1)
-        ])
-        # 촉 외곽 (다이아몬드형)
+        # === 화살촉 (좁고 날카로운 삼각형) ===
+        # 촉 좌우 폭 = ±2.5px (매우 날렵)
+        wing_w = 2.5
+        wing_back = 1  # 뒤로 살짝 꺾임
+        left_x = x + int(perp_cos * wing_w) - int(cos_a * wing_back)
+        left_y = y + int(perp_sin * wing_w) - int(sin_a * wing_back)
+        right_x = x - int(perp_cos * wing_w) - int(cos_a * wing_back)
+        right_y = y - int(perp_sin * wing_w) - int(sin_a * wing_back)
+        # 촉 본체 (날카로운 삼각형)
         pygame.draw.polygon(screen, head_outer, [
-            (head_x, head_y), (left_x, left_y), (x, y), (right_x, right_y)
+            (tip_x, tip_y), (left_x, left_y), (right_x, right_y)
         ])
-        # 촉 내부 하이라이트 (한쪽 면만 밝게)
-        inner_head_x = x + int(cos_a * 5)
-        inner_head_y = y + int(sin_a * 5)
+        # 촉 하이라이트 (한쪽 면)
         pygame.draw.polygon(screen, head_inner, [
-            (inner_head_x, inner_head_y),
-            (x + int(perp_cos * 3), y + int(perp_sin * 3)),
+            (tip_x, tip_y),
+            (left_x, left_y),
             (x, y),
         ])
-        # 촉 테두리
+        # 촉 테두리 (날카로움 강조)
         pygame.draw.lines(screen, head_edge, True, [
-            (head_x, head_y), (left_x, left_y), (x, y), (right_x, right_y)
+            (tip_x, tip_y), (left_x, left_y), (right_x, right_y)
         ], 1)
         # 촉 중앙 능선
-        pygame.draw.line(screen, head_inner, (x, y), (head_x, head_y), 1)
+        pygame.draw.line(screen, head_inner, (x, y), (tip_x, tip_y), 1)
 
-        # === 깃털 (3장 - 부채꼴 배치 + 디테일) ===
-        for fi, side in enumerate([-1, 0, 1]):
-            perp_offset = side * 3.5
-            back_dist = 5 + abs(side)
-            feather_base_x = tail_x
-            feather_base_y = tail_y
-            feather_tip_x = tail_x - int(cos_a * back_dist) + int(perp_cos * perp_offset)
-            feather_tip_y = tail_y - int(sin_a * back_dist) + int(perp_sin * perp_offset)
-            feather_mid_x = (feather_base_x + feather_tip_x) // 2 + int(perp_cos * side * 1.5)
-            feather_mid_y = (feather_base_y + feather_tip_y) // 2 + int(perp_sin * side * 1.5)
-
+        # === 깃털 (2장 - 좁고 날렵한 V자 배치) ===
+        for side in [-1, 1]:
+            # 깃털: 꼬리에서 뒤쪽-옆으로 뻗는 얇은 삼각형
+            f_base_x = tail_x + int(cos_a * 1)
+            f_base_y = tail_y + int(sin_a * 1)
+            f_tip_x = tail_x - int(cos_a * 5) + int(perp_cos * side * 2.5)
+            f_tip_y = tail_y - int(sin_a * 5) + int(perp_sin * side * 2.5)
+            f_edge_x = tail_x - int(cos_a * 3) + int(perp_cos * side * 0.5)
+            f_edge_y = tail_y - int(sin_a * 3) + int(perp_sin * side * 0.5)
             # 깃털 면
-            f_color = feather_dark if side != 0 else feather_light
-            pygame.draw.polygon(screen, f_color, [
-                (feather_base_x, feather_base_y),
-                (feather_mid_x, feather_mid_y),
-                (feather_tip_x, feather_tip_y),
+            f_col = feather_colors[0] if side == -1 else feather_colors[1]
+            pygame.draw.polygon(screen, f_col, [
+                (f_base_x, f_base_y), (f_edge_x, f_edge_y), (f_tip_x, f_tip_y)
             ])
             # 깃대 (중심선)
-            pygame.draw.line(screen, feather_edge, (feather_base_x, feather_base_y),
-                           (feather_tip_x, feather_tip_y), 1)
+            pygame.draw.line(screen, feather_colors[2],
+                           (f_base_x, f_base_y), (f_tip_x, f_tip_y), 1)
 
-        # === 황금 화살 글로우 (더 넓은 오라) ===
+        # 노크 (화살 끝 작은 점)
+        pygame.draw.circle(screen, shaft_dark, (tail_x, tail_y), 1)
+
+        # === 황금 화살 글로우 ===
         if is_golden:
-            glow_surf = _psurf((28, 28), pygame.SRCALPHA)
-            pygame.draw.circle(glow_surf, (255, 220, 80, 30), (14, 14), 14)
-            pygame.draw.circle(glow_surf, (255, 240, 120, 20), (14, 14), 8)
-            screen.blit(glow_surf, (x - 14, y - 14), special_flags=pygame.BLEND_ADD)
+            glow_surf = _psurf((20, 20), pygame.SRCALPHA)
+            pygame.draw.circle(glow_surf, (255, 220, 80, 25), (10, 10), 10)
+            pygame.draw.circle(glow_surf, (255, 240, 120, 15), (10, 10), 5)
+            screen.blit(glow_surf, (x - 10, y - 10), special_flags=pygame.BLEND_ADD)
 
-        # === 독/에너지 방울 (화살촉에서 떨어짐) ===
-        if random.random() < 0.2:
-            drip_x = head_x + random.randint(-3, 3)
-            drip_y = head_y + random.randint(1, 5)
-            pygame.draw.circle(screen, (*drip_color, 140), (drip_x, drip_y), 1)
-            # 방울 꼬리
-            pygame.draw.circle(screen, (*drip_color, 60), (drip_x, drip_y - 2), 1)
-        # 촉 근처 에너지 파티클
-        if random.random() < 0.12:
-            ep_x = head_x + random.randint(-4, 4)
-            ep_y = head_y + random.randint(-4, 4)
-            pygame.draw.circle(screen, (*energy_color, random.randint(40, 90)), (ep_x, ep_y), 1)
+        # === 독/에너지 방울 (촉에서 한 방울) ===
+        if random.random() < 0.15:
+            drip_x = tip_x + random.randint(-1, 1)
+            drip_y = tip_y + random.randint(1, 3)
+            pygame.draw.circle(screen, (*drip_color, 120), (drip_x, drip_y), 1)
 
 
 # ============================================================================
