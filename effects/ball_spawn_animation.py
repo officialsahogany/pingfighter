@@ -903,7 +903,7 @@ class BallSpawnAnimation:
         self.energy_ring_timer = 0
 
     def _spawn_initial_particles(self):
-        """초기 양자 입자들 생성"""
+        """초기 양자 입자들 생성 + 에너지 버스트"""
         max_radius = min(self.screen_width, self.screen_height) * 0.4
 
         # 양자 입자 (80-120개로 증가)
@@ -918,6 +918,24 @@ class BallSpawnAnimation:
             self.vortex_rings.append(
                 VortexRing(self.center_x, self.center_y, ring_radius)
             )
+
+        # 초기 에너지 버스트 - 시작부터 강렬한 번개 다발
+        for _ in range(6):
+            angle = random.uniform(0, math.pi * 2)
+            start_dist = max_radius * random.uniform(0.7, 1.0)
+            start_x = self.center_x + math.cos(angle) * start_dist
+            start_y = self.center_y + math.sin(angle) * start_dist
+            end_dist = max_radius * random.uniform(0.3, 0.6)
+            end_angle = angle + random.uniform(-0.3, 0.3)
+            end_x = self.center_x + math.cos(end_angle) * end_dist
+            end_y = self.center_y + math.sin(end_angle) * end_dist
+            self.lightning_bolts.append(
+                EnhancedLightningBolt(start_x, start_y, end_x, end_y)
+            )
+
+        # 초기 플래시 (에너지 점화)
+        self.flash_alpha = 120
+        self.flash_color = (200, 220, 255)
 
     def stop(self):
         """애니메이션 중지"""
@@ -982,9 +1000,14 @@ class BallSpawnAnimation:
         for ring in self.vortex_rings:
             ring.update(progress, dt)
 
-        # 강화된 번개 생성 (더 자주, 더 화려하게)
+        # 강화된 번개 생성 (후반부 점진적 감소)
         self.lightning_spawn_timer += dt
-        spawn_interval = max(0.03, 0.2 - progress * 0.17)  # 더 자주 생성
+        if progress < 0.8:
+            spawn_interval = max(0.03, 0.2 - progress * 0.17)  # 전반~중반: 점점 빠르게
+        else:
+            # 후반 20%: 점진적으로 줄어듦 (자연스러운 페이드아웃)
+            fadeout = (progress - 0.8) / 0.2  # 0→1
+            spawn_interval = 0.03 + fadeout * 0.3  # 0.03s → 0.33s
 
         if self.lightning_spawn_timer >= spawn_interval:
             self.lightning_spawn_timer = 0
@@ -1022,9 +1045,20 @@ class BallSpawnAnimation:
                     QuantumParticle(self.center_x, self.center_y, max_radius)
                 )
 
-        # 중심 코어 글로우 증가
-        self.core_glow_radius = 20 + progress * 40
-        self.core_glow_alpha = int(100 + progress * 155)
+        # 중심 코어 글로우 (초기 펄스 + 점진적 증가)
+        if progress < 0.06:
+            # 초기 에너지 펄스: 밝게 시작 → 감소 → 다시 빌드업
+            burst = 1.0 - (progress / 0.06)
+            self.core_glow_radius = 30 + burst * 45 + progress * 40
+            self.core_glow_alpha = int(180 + burst * 75)
+        else:
+            self.core_glow_radius = 20 + progress * 40
+            self.core_glow_alpha = int(100 + progress * 155)
+
+        # 초기 플래시 페이드아웃 (에너지 점화 효과)
+        if progress < 0.04:
+            self.flash_alpha = max(self.flash_alpha, int(100 * (1 - progress / 0.04)))
+            self.flash_color = (200, 220, 255)
 
         # Phase 1 종료 직전 플래시 효과 (더 강하게)
         if progress > 0.92:
@@ -1044,6 +1078,26 @@ class BallSpawnAnimation:
         # 위아래 부양 효과
         self.levitate_offset = math.sin(phase_time * self.levitate_speed * 2) * 10
         self.ball_y = self.center_y + self.levitate_offset
+
+        # 잔여 번개 점진적 소멸 (Phase 1에서 넘어온 번개 업데이트 + 페이드 스폰)
+        self.lightning_bolts = [bolt for bolt in self.lightning_bolts if bolt.update(dt)]
+        self.chain_lightnings = [chain for chain in self.chain_lightnings if chain.update(dt)]
+
+        if progress < 0.5:
+            self.lightning_spawn_timer += dt
+            fade_interval = 0.1 + progress * 0.5  # 0.1s → 0.35s (점점 느려짐)
+            if self.lightning_spawn_timer >= fade_interval:
+                self.lightning_spawn_timer = 0
+                # 약한 번개 1개 (중심 근처, 점점 작아지는 범위)
+                max_r = 50 * (1 - progress * 2)
+                angle = random.uniform(0, math.pi * 2)
+                sx = self.center_x + math.cos(angle) * max_r
+                sy = self.center_y + math.sin(angle) * max_r
+                ex = self.center_x + random.uniform(-12, 12)
+                ey = self.center_y + random.uniform(-12, 12)
+                self.lightning_bolts.append(
+                    EnhancedLightningBolt(sx, sy, ex, ey, branch_depth=1)
+                )
 
         # 에너지 링 방출 - 최적화: 간격 늘리고 개수 제한
         self.energy_ring_timer += dt
