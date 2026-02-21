@@ -128,25 +128,23 @@ class AnimatedBackgroundStage2:
                 'z_depth': random.uniform(0.5, 1.0)  # 깊이감을 위한 z값
             })
         
-        # 덩굴 위치와 속성 (고퀄리티 - 더 많은 세그먼트와 디테일)
+        # 덩굴 위치와 속성 (완전 정적)
         self.vines = []
-        for i in range(8):  # 8개 덩굴 (기존 6개)
-            vine = {
+        for i in range(6):
+            self.vines.append({
                 'x': random.randint(50, self.width - 50),
-                'base_y': 0,
-                'length': random.randint(120, 220),  # 더 긴 덩굴
-                'thickness': random.randint(3, 7),
-                'segments': [],
-                'leaves': [],
-                'vine_seed': random.randint(0, 100000)  # 고유 시드
-            }
-            # 16개 세그먼트 (기존 10개 → 더 부드러운 곡선)
-            for j in range(16):
-                vine['segments'].append({
-                    'offset_x': random.uniform(-8, 8),
-                    'size': random.uniform(0.7, 1.3)
+                'base_y': 0,  # 천장에서 시작하도록 고정
+                'length': random.randint(100, 180),  # 더 길게 조정
+                'thickness': random.randint(3, 6),
+                'segments': [],  # 덩굴 세그먼트들
+                'leaves': []  # 덩굴에 달린 잎들
+            })
+            # 덩굴 세그먼트 생성
+            for j in range(10):
+                self.vines[i]['segments'].append({
+                    'offset_x': random.uniform(-5, 5),
+                    'size': random.uniform(0.8, 1.2)
                 })
-            self.vines.append(vine)
         
         # 돌맹이들 제거 (사용자 요청)
         self.rocks = []
@@ -154,7 +152,7 @@ class AnimatedBackgroundStage2:
         # 🌿 리얼리스틱 덤불 시스템 (스크린샷 스타일)
         self.realistic_bushes = []
         
-        # 보스 패들 주변 덤불 (상단 벽 근처) - 고밀도 배치
+        # 보스 패들 주변 덤불 (상단 벽 근처)
         boss_positions = [
             {'x': 50, 'y': 40, 'size': 'large', 'variant': 0},    # 왼쪽 상단
             {'x': 550, 'y': 35, 'size': 'medium', 'variant': 1},  # 오른쪽 상단
@@ -162,13 +160,9 @@ class AnimatedBackgroundStage2:
             {'x': 575, 'y': 75, 'size': 'medium', 'variant': 0},  # 오른쪽 중간
             {'x': 100, 'y': 25, 'size': 'small', 'variant': 1},   # 왼쪽 위 모서리
             {'x': 500, 'y': 20, 'size': 'large', 'variant': 2},   # 오른쪽 위 모서리
-            {'x': 10, 'y': 55, 'size': 'large', 'variant': 1},    # 극좌측 가장자리
-            {'x': 620, 'y': 50, 'size': 'large', 'variant': 0},   # 극우측 가장자리
-            {'x': 150, 'y': 15, 'size': 'medium', 'variant': 2},  # 좌측 안쪽 상단
-            {'x': 450, 'y': 10, 'size': 'medium', 'variant': 1},  # 우측 안쪽 상단
         ]
-
-        # 플레이어 패들 주변 덤불 (하단 벽 근처) - 고밀도 배치
+        
+        # 플레이어 패들 주변 덤불 (하단 벽 근처)
         player_positions = [
             {'x': 50, 'y': 710, 'size': 'medium', 'variant': 1},   # 왼쪽 하단
             {'x': 550, 'y': 705, 'size': 'large', 'variant': 0},   # 오른쪽 하단
@@ -176,10 +170,6 @@ class AnimatedBackgroundStage2:
             {'x': 575, 'y': 675, 'size': 'medium', 'variant': 1},  # 오른쪽 중간
             {'x': 100, 'y': 725, 'size': 'small', 'variant': 0},   # 왼쪽 아래 모서리
             {'x': 500, 'y': 720, 'size': 'large', 'variant': 2},   # 오른쪽 아래 모서리
-            {'x': 10, 'y': 695, 'size': 'large', 'variant': 0},    # 극좌측 가장자리
-            {'x': 620, 'y': 690, 'size': 'large', 'variant': 2},   # 극우측 가장자리
-            {'x': 150, 'y': 735, 'size': 'medium', 'variant': 1},  # 좌측 안쪽 하단
-            {'x': 450, 'y': 730, 'size': 'medium', 'variant': 0},  # 우측 안쪽 하단
         ]
         
         # 덤불 크기 정의
@@ -235,108 +225,95 @@ class AnimatedBackgroundStage2:
         self.destroyed_rocks = []  # 파괴된 바위 추적
     
     def generate_bush_clusters(self, base_size, variant, area='boss'):
-        """고퀄리티 정글 덤불 클러스터 생성 (10레이어 렌더링용)"""
+        """스크린샷 스타일의 덤불 클러스터 생성 (완전 정적)"""
         clusters = []
-
-        # 클러스터 수 대폭 증가 (더 풍성한 덤불)
+        
+        # 플레이어 덤불은 더 덤불스럽게 (더 많은 클러스터, 더 불규칙)
         if area == 'player':
-            cluster_count = 14 + (variant % 5)  # 14-18개 클러스터
-            irregularity_factor = 1.6
-            density_factor = 1.3
-        else:
-            cluster_count = 10 + (variant % 4)  # 10-13개 클러스터
-            irregularity_factor = 1.2
-            density_factor = 1.1
-
+            cluster_count = 8 + (variant % 4)  # 플레이어: 8-11개 클러스터
+            irregularity_factor = 1.5  # 더 불규칙한 모양
+            density_factor = 1.2  # 더 밀집된 형태
+        else:  # boss
+            cluster_count = 6 + (variant % 3)  # 보스: 6-8개 클러스터
+            irregularity_factor = 1.0  # 기본 불규칙성
+            density_factor = 1.0  # 기본 밀도
+        
         for i in range(cluster_count):
+            # 시드 기반으로 완전히 결정적인 값들 생성
             seed = hash((base_size, variant, i, area)) % 10000
-            angle_offset = (seed % 100) / 100.0 * 0.7 * irregularity_factor - 0.35 * irregularity_factor
+            angle_offset = (seed % 100) / 100.0 * 0.6 * irregularity_factor - 0.3 * irregularity_factor
             distance_factor = ((seed // 100) % 100) / 100.0 * 0.6 + 0.2
-            size_factor = ((seed // 10000) % 100) / 100.0 * 0.5 + 0.45
-            darkness_factor = ((seed // 1000000) % 100) / 100.0 * 0.35 + 0.65
-
+            size_factor = ((seed // 10000) % 100) / 100.0 * 0.6 + 0.4
+            darkness_factor = ((seed // 1000000) % 100) / 100.0 * 0.4 + 0.6
+            
             angle = (i / cluster_count) * 2 * math.pi + angle_offset
             distance = distance_factor * base_size * density_factor
-
-            # 폴리곤 포인트 대폭 증가 (더 부드러운 형태)
-            num_points = 22 if area == 'player' else 18
+            
+            # 클러스터 포인트들을 미리 계산해서 저장
             cluster_points = []
-
+            # 플레이어 덤불은 더 많은 포인트로 더 복잡한 모양
+            num_points = 15 if area == 'player' else 12
+            
             for j in range(num_points):
                 point_seed = hash((seed, j, area)) % 10000
-                base_variation = ((point_seed % 100) / 100.0) * 0.45 * irregularity_factor + 0.55
-
+                variation = ((point_seed % 100) / 100.0) * 0.5 * irregularity_factor + 0.5
+                
                 point_angle = (j / num_points) * 2 * math.pi
-
-                # 다중 사인파로 자연스러운 불규칙 반경
-                wave1 = math.sin(point_angle * 2.3 + seed * 0.01) * 0.12
-                wave2 = math.sin(point_angle * 3.7 - seed * 0.02) * 0.08
-                wave3 = math.sin(point_angle * 5.1 + seed * 0.03) * 0.05
-
+                # 플레이어 덤불은 더 불규칙한 반경
                 if area == 'player':
-                    radius_noise = ((point_seed // 100) % 100) / 100.0 * 0.35 - 0.175
-                    radius = (size_factor * base_size) * (base_variation + radius_noise + wave1 + wave2 + wave3)
+                    radius_noise = ((point_seed // 100) % 100) / 100.0 * 0.4 - 0.2  # -0.2 ~ 0.2
+                    radius = (size_factor * base_size) * (variation + radius_noise)
                 else:
-                    radius = (size_factor * base_size) * (base_variation + wave1 + wave2)
-
+                    radius = (size_factor * base_size) * variation
+                
                 point_x = math.cos(angle) * distance + math.cos(point_angle) * radius
                 point_y = math.sin(angle) * distance + math.sin(point_angle) * radius
                 cluster_points.append((point_x, point_y))
-
-            # 서브클러스터 포인트 (내부 디테일용 - ambient occlusion 등)
-            sub_points = []
-            sub_count = 10 if area == 'player' else 8
-            for j in range(sub_count):
-                sub_seed = hash((seed, j, 'sub')) % 10000
-                sub_angle = (j / sub_count) * 2 * math.pi
-                sub_radius = (size_factor * base_size) * 0.4 * (((sub_seed % 100) / 100.0) * 0.4 + 0.6)
-                sx = math.cos(angle) * distance + math.cos(sub_angle) * sub_radius
-                sy = math.sin(angle) * distance + math.sin(sub_angle) * sub_radius
-                sub_points.append((sx, sy))
-
+            
             cluster = {
                 'offset_x': math.cos(angle) * distance,
                 'offset_y': math.sin(angle) * distance,
                 'size': size_factor * base_size,
                 'darkness': darkness_factor,
                 'variant_mod': variant,
-                'static_points': cluster_points,
-                'sub_points': sub_points,
-                'area_type': area
+                'static_points': cluster_points,  # 미리 계산된 포인트들
+                'area_type': area  # 영역 타입 저장
             }
             clusters.append(cluster)
-
+        
         return clusters
     
     def generate_bush_leaves(self, base_size, variant, area='boss'):
-        """고퀄리티 개별 잎사귀 + 열매 생성 (7종 잎 + 베리)"""
+        """덤불 위 개별 잎사귀들 생성 (완전 정적)"""
         leaves = []
-
-        # 잎사귀 수 대폭 증가
+        
+        # 플레이어 덤불은 더 많은 잎사귀로 더 덤불스럽게
         if area == 'player':
-            leaf_count = 28 + (variant % 10)  # 28-37개
-        else:
-            leaf_count = 18 + (variant % 8)   # 18-25개
-
-        leaf_types = ['oval', 'pointed', 'serrated', 'fern', 'monstera', 'palm_frond', 'banana']
-
+            leaf_count = 15 + (variant % 8)  # 플레이어: 15-22개 잎사귀
+        else:  # boss
+            leaf_count = 10 + (variant % 6)  # 보스: 10-15개 잎사귀
+        
+        leaf_types = ['oval', 'pointed', 'serrated']
+        
         for i in range(leaf_count):
+            # 시드 기반으로 완전히 결정적인 값들 생성
             seed = hash((base_size, variant, i, 'leaf', area)) % 100000
-
-            angle = (seed % 360) * math.pi / 180
-            distance_factor = ((seed // 360) % 100) / 100.0 * 0.9 + 0.25
-
+            
+            angle = (seed % 360) * math.pi / 180  # 0 ~ 2π
+            distance_factor = ((seed // 360) % 100) / 100.0 * 0.8 + 0.3  # 0.3 ~ 1.1
+            
+            # 플레이어 덤불은 더 다양한 크기의 잎사귀
             if area == 'player':
-                size = ((seed // 36000) % 9) + 3   # 3-11
+                size = ((seed // 36000) % 7) + 3  # 3 ~ 9 (더 넓은 범위)
             else:
-                size = ((seed // 36000) % 7) + 4   # 4-10
-
-            rotation = (seed % 360)
-            color_variant = (seed // 100) % 8       # 0-7 (확장된 팔레트)
-            leaf_type = leaf_types[(seed // 10000) % len(leaf_types)]
-
+                size = ((seed // 36000) % 5) + 4  # 4 ~ 8
+            
+            rotation = (seed % 360)  # 0 ~ 360도
+            color_variant = (seed // 100) % 4  # 0 ~ 3
+            leaf_type = leaf_types[(seed // 10000) % 3]  # oval, pointed, serrated
+            
             distance = distance_factor * base_size
-
+            
             leaf = {
                 'offset_x': math.cos(angle) * distance,
                 'offset_y': math.sin(angle) * distance,
@@ -346,26 +323,7 @@ class AnimatedBackgroundStage2:
                 'type': leaf_type
             }
             leaves.append(leaf)
-
-        # 열매/꽃 추가 (3-6개)
-        berry_count = 3 + (hash((base_size, variant, 'berry_count')) % 4)
-        for i in range(berry_count):
-            seed = hash((base_size, variant, i, 'berry', area)) % 100000
-            angle = (seed % 360) * math.pi / 180
-            distance = ((seed // 360) % 100) / 100.0 * base_size * 0.7 + base_size * 0.15
-            size = max(2, ((seed // 36000) % 3) + 2)
-            color_idx = (seed // 100) % 4
-
-            leaf = {
-                'offset_x': math.cos(angle) * distance,
-                'offset_y': math.sin(angle) * distance,
-                'size': size,
-                'rotation': 0,
-                'color_variant': color_idx,
-                'type': 'berry'
-            }
-            leaves.append(leaf)
-
+        
         return leaves
 
     def _init_bush_spatial_grid(self):
@@ -1221,146 +1179,49 @@ class AnimatedBackgroundStage2:
             surface.blit(leaf_surface, (x - size * 2, y - size * 2))
     
     def draw_vine_scaled(self, surface, vine, scale_x, scale_y):
-        """고퀄리티 덩굴 렌더링 (나무껍질 + 잎 + 덩굴손 + 이끼)"""
+        """스케일 적용된 덩굴 그리기"""
         x = vine['x'] * scale_x
         base_y = vine['base_y'] * scale_y
-        seg_count = len(vine['segments'])
         length_scaled = vine['length'] * scale_y
-        thickness_scaled = max(2, int(vine['thickness'] * min(scale_x, scale_y)))
-        vine_seed = vine.get('vine_seed', hash(vine['x']) % 10000)
+        thickness_scaled = max(1, int(vine['thickness'] * min(scale_x, scale_y)))
 
-        # 세그먼트 좌표 사전 계산
+        # 덩굴 그림자 (완전 정적)
+        for i, segment in enumerate(vine['segments']):
+            segment_y = base_y + (i * length_scaled / 10)
+            shadow_x = x + segment['offset_x'] * scale_x + 3
+            shadow_y = segment_y + 3
+
+            thickness = max(1, int(thickness_scaled * segment['size']))
+            pygame.draw.circle(surface, (0, 0, 0, 30),
+                             (int(shadow_x), int(shadow_y)), thickness)
+
+        # 덩굴 본체 (완전 정적)
         points = []
         for i, segment in enumerate(vine['segments']):
-            seg_y = base_y + (i * length_scaled / seg_count)
-            seg_x = x + segment['offset_x'] * scale_x
-            points.append((seg_x, seg_y))
+            segment_y = base_y + (i * length_scaled / 10)
+            segment_x = x + segment['offset_x'] * scale_x
+            points.append((segment_x, segment_y))
 
-        if len(points) < 2:
-            return
+            # 덩굴 마디 그리기
+            thickness = max(1, int(thickness_scaled * segment['size']))
+            color_variation = 20 + i * 2
+            color = (color_variation, 60 + color_variation, color_variation)
+            pygame.draw.circle(surface, color,
+                             (int(segment_x), int(segment_y)), thickness)
 
-        # ── Layer 1: 그림자 ──
-        for i in range(len(points) - 1):
-            t = max(1, int(thickness_scaled * vine['segments'][i]['size'] * 0.8))
-            pygame.draw.line(surface, (0, 20, 0),
-                            (int(points[i][0] + 4), int(points[i][1] + 4)),
-                            (int(points[i + 1][0] + 4), int(points[i + 1][1] + 4)), t + 2)
+        # 덩굴 연결선
+        if len(points) > 1:
+            pygame.draw.lines(surface, (40, 80, 40), False, points, thickness_scaled)
 
-        # ── Layer 2: 어두운 외곽 (나무껍질 질감) ──
-        for i in range(len(points) - 1):
-            seg = vine['segments'][i]
-            t = max(2, int(thickness_scaled * seg['size']))
-            bark_dark = (22 + i, 42 + i * 2, 18 + i)
-            pygame.draw.line(surface, bark_dark,
-                            (int(points[i][0]), int(points[i][1])),
-                            (int(points[i + 1][0]), int(points[i + 1][1])), t + 1)
-
-        # ── Layer 3: 밝은 줄기 ──
-        for i in range(len(points) - 1):
-            seg = vine['segments'][i]
-            t = max(1, int(thickness_scaled * seg['size'] * 0.65))
-            bark_light = (32 + i * 2, 62 + i * 2, 28 + i)
-            pygame.draw.line(surface, bark_light,
-                            (int(points[i][0]) - 1, int(points[i][1])),
-                            (int(points[i + 1][0]) - 1, int(points[i + 1][1])), t)
-
-        # ── Layer 4: 나무껍질 줄무늬 (세로 라인) ──
-        for i in range(len(points) - 1):
-            seg = vine['segments'][i]
-            t = max(1, int(thickness_scaled * seg['size']))
-            if t >= 3 and i % 2 == 0:
-                stripe_c = (18 + i, 35 + i, 15 + i)
-                mid_x = (points[i][0] + points[i + 1][0]) / 2
-                mid_y = (points[i][1] + points[i + 1][1]) / 2
-                pygame.draw.line(surface, stripe_c,
-                                (int(mid_x + 1), int(mid_y - 2)),
-                                (int(mid_x + 1), int(mid_y + 2)), 1)
-
-        # ── Layer 5: 마디 (두꺼운 고리) ──
-        for i in range(0, len(points), 2):
-            px, py = points[i]
-            t = max(2, int(thickness_scaled * vine['segments'][i]['size'] * 1.2))
-            node_dark = (28 + i, 52 + i * 2, 22 + i)
-            node_light = (42 + i * 2, 72 + i * 2, 35 + i)
-            pygame.draw.circle(surface, node_dark, (int(px), int(py)), t)
-            pygame.draw.circle(surface, node_light, (int(px) - 1, int(py) - 1), max(1, t - 1))
-
-        # ── Layer 6: 잎사귀 (다양한 형태) ──
-        leaf_colors = [(40, 110, 42), (50, 130, 48), (45, 120, 40), (55, 142, 52)]
-        for i in range(2, len(points), 2):
-            lf_seed = hash((vine_seed, i, 'leaf')) % 10000
-            if lf_seed % 3 == 0:  # 약 1/3 확률로 잎 생성
-                continue
-            px, py = points[i]
-            side = 1 if (lf_seed % 2 == 0) else -1
-            ls = max(3, int((4 + (lf_seed % 5)) * min(scale_x, scale_y)))
-            lc = leaf_colors[lf_seed % len(leaf_colors)]
-            offset = int(10 * scale_x) * side
-
-            leaf_type = (lf_seed // 100) % 3
-            lx = px + offset
-            ly = py
-
-            # 줄기 연결선
-            stem_c = (30, 55, 25)
-            pygame.draw.line(surface, stem_c, (int(px), int(py)), (int(lx), int(ly)), 1)
-
-            if leaf_type == 0:
-                # 타원 잎 + 잎맥
-                pygame.draw.ellipse(surface, lc,
-                                   (int(lx) - ls // 2, int(ly) - ls // 4, ls, ls // 2))
-                vein_c = tuple(max(0, v - 22) for v in lc)
-                pygame.draw.line(surface, vein_c,
-                                (int(lx) - ls // 3, int(ly)), (int(lx) + ls // 3, int(ly)), 1)
-            elif leaf_type == 1:
-                # 뾰족한 잎
-                pts = [
-                    (int(lx), int(ly) - ls // 2),
-                    (int(lx) + ls // 3 * side, int(ly)),
-                    (int(lx), int(ly) + ls // 2)
-                ]
-                pygame.draw.polygon(surface, lc, pts)
-            else:
-                # 둥근 잎
-                pygame.draw.circle(surface, lc, (int(lx), int(ly)), max(2, ls // 2))
-
-            # 잎 밝은 가장자리
-            bright_lc = tuple(min(255, v + 20) for v in lc)
-            pygame.draw.circle(surface, bright_lc, (int(lx), int(ly) - 1), max(1, ls // 3))
-
-        # ── Layer 7: 덩굴손 (나선형 컬) ──
-        for tendril_idx in range(2):
-            t_seed = hash((vine_seed, tendril_idx, 'tendril')) % 10000
-            seg_idx = min(len(points) - 1, 8 + (t_seed % (len(points) - 8)) if len(points) > 8 else len(points) - 1)
-            tx, ty = points[seg_idx]
-            curl_dir = 1 if (t_seed % 2 == 0) else -1
-            curl_len = int((12 + t_seed % 12) * min(scale_x, scale_y))
-            tightness = 0.3 + (t_seed % 50) / 100.0
-
-            tendril_c = (32, 62, 28)
-            prev_cx, prev_cy = int(tx), int(ty)
-            for j in range(curl_len):
-                angle = j * tightness * curl_dir
-                cx = int(tx + math.sin(angle) * (j * 0.5) * curl_dir)
-                cy = int(ty + j * min(scale_x, scale_y))
-                pygame.draw.line(surface, tendril_c, (prev_cx, prev_cy), (cx, cy), 1)
-                prev_cx, prev_cy = cx, cy
-
-        # ── Layer 8: 이끼 패치 ──
-        for moss_idx in range(2):
-            m_seed = hash((vine_seed, moss_idx, 'moss')) % 10000
-            seg_idx = min(len(points) - 1, 3 + (m_seed % max(1, len(points) - 6)))
-            mx, my = points[seg_idx]
-            mw = int((6 + m_seed % 8) * min(scale_x, scale_y))
-            ml = int((8 + (m_seed // 100) % 12) * scale_y)
-
-            for j in range(ml):
-                alpha_f = 1.0 - j / max(1, ml)
-                w = max(1, int(mw * alpha_f * 0.5))
-                mc = tuple(max(0, int(v * (0.65 + 0.35 * alpha_f))) for v in (28, 52, 22))
-                pygame.draw.line(surface, mc,
-                                (int(mx) - w, int(my) + j),
-                                (int(mx) + w, int(my) + j), 1)
+        # 덩굴에 작은 잎 추가
+        for i in range(0, len(points), 3):
+            if i < len(points):
+                leaf_x, leaf_y = points[i]
+                leaf_offset = int(10 * scale_x)
+                pygame.draw.circle(surface, (50, 150, 50),
+                                 (int(leaf_x + leaf_offset), int(leaf_y)), max(2, int(4 * min(scale_x, scale_y))))
+                pygame.draw.circle(surface, (50, 150, 50),
+                                 (int(leaf_x - leaf_offset), int(leaf_y)), max(2, int(4 * min(scale_x, scale_y))))
 
     def draw_vine(self, surface, vine):
         """자연스러운 덩굴 그리기"""
@@ -1545,8 +1406,7 @@ class AnimatedBackgroundStage2:
                 'offset_y': cluster['offset_y'] * scale_y,
                 'size': cluster['size'] * min(scale_x, scale_y),
                 'darkness': cluster['darkness'],
-                'static_points': [(p[0] * scale_x, p[1] * scale_y) for p in cluster['static_points']],
-                'sub_points': [(p[0] * scale_x, p[1] * scale_y) for p in cluster.get('sub_points', [])]
+                'static_points': [(p[0] * scale_x, p[1] * scale_y) for p in cluster['static_points']]
             }
             scaled_bush['clusters'].append(scaled_cluster)
         # 잎사귀 스케일링
@@ -1563,267 +1423,161 @@ class AnimatedBackgroundStage2:
         self.draw_realistic_bush(surface, scaled_bush)
 
     def draw_realistic_bush(self, surface, bush):
-        """고퀄리티 정글 덤불 렌더링 (10레이어 시스템)"""
+        """스크린샷 스타일의 리얼리스틱 덤불 렌더링"""
         x = bush['x']
         y = bush['y']
         base_size = bush['base_size']
         variant = bush['variant']
-
-        # 흔들림 효과
+        
+        # 흔들림 효과 적용
         rustle_x = math.sin(bush['rustle_angle']) * bush['rustle_amount']
         rustle_y = math.cos(bush['rustle_angle'] * 1.5) * bush['rustle_amount'] * 0.3
-
-        # ═══════════════════════════════════════════════════════
-        # 확장된 6톤 컬러 팔레트 (그림자 → 하이라이트)
-        # ═══════════════════════════════════════════════════════
-        palettes = [
-            # Variant 0: Deep tropical green
-            [(12, 38, 15), (22, 55, 25), (32, 75, 35), (45, 98, 48), (62, 125, 62), (85, 155, 78)],
-            # Variant 1: Warm jungle green (황록 계열)
-            [(18, 42, 12), (28, 62, 22), (40, 82, 32), (55, 105, 45), (72, 130, 58), (95, 158, 72)],
-            # Variant 2: Cool forest green (청록 계열)
-            [(10, 35, 20), (18, 52, 30), (28, 72, 42), (40, 95, 55), (55, 120, 70), (78, 152, 88)],
+        
+        # 덤불 그림자 (타원형, 더 부드럽게) - 캐시된 Surface 사용
+        shadow_width = base_size * 2.2
+        shadow_height = base_size * 0.8
+        shadow_surface = _get_cached_surface(int(shadow_width), int(shadow_height))
+        
+        # 그라데이션 그림자
+        for i in range(int(shadow_height // 2)):
+            alpha = int(40 * (1 - i / (shadow_height // 2)))
+            color = (0, 0, 0, alpha)
+            pygame.draw.ellipse(shadow_surface, color, 
+                               (0, i, shadow_width, shadow_height - i*2))
+        
+        surface.blit(shadow_surface, (x - shadow_width//2 + 8 + rustle_x, 
+                                     y + base_size//2 + 5 + rustle_y))
+        
+        # 1단계: 베이스 클러스터 (가장 어두운 뒷배경)
+        base_colors = [
+            [(25, 60, 25), (35, 80, 35), (30, 70, 30)],    # variant 0: 어두운 녹색
+            [(30, 65, 30), (40, 85, 40), (35, 75, 35)],    # variant 1: 중간 녹색  
+            [(35, 70, 35), (45, 90, 45), (40, 80, 40)]     # variant 2: 밝은 녹색
         ]
-        colors = palettes[variant % 3]
-
-        # ═══════════════════════════════════════════════════════
-        # Layer 1: 넓은 그라데이션 그림자
-        # ═══════════════════════════════════════════════════════
-        shadow_w = int(base_size * 2.8)
-        shadow_h = int(base_size * 1.0)
-        shadow_surf = _get_cached_surface(shadow_w, shadow_h)
-        half_h = max(1, shadow_h // 2)
-        for ring in range(half_h):
-            alpha = int(38 * (1 - ring / half_h))
-            r = shadow_w - ring * 2
-            b = shadow_h - ring * 2
-            if r > 0 and b > 0:
-                pygame.draw.ellipse(shadow_surf, (0, 0, 0, alpha),
-                                   (ring, ring, r, b))
-        surface.blit(shadow_surf, (int(x - shadow_w // 2 + 6 + rustle_x),
-                                   int(y + base_size // 2 + 3 + rustle_y)))
-
-        # ═══════════════════════════════════════════════════════
-        # Layer 2: 최후방 폴리지 (가장 어둡고 크게 - 실루엣)
-        # ═══════════════════════════════════════════════════════
+        
+        colors = base_colors[variant % 3]
+        
         for cluster in bush['clusters']:
-            cx = x + cluster['offset_x'] + rustle_x
-            cy = y + cluster['offset_y'] + rustle_y
-            d = cluster['darkness']
-            c = tuple(max(0, int(v * d * 0.5)) for v in colors[0])
-            pts = [(cx + p[0] * 1.12 + rustle_x, cy + p[1] * 1.12 + rustle_y)
-                   for p in cluster['static_points']]
-            if len(pts) >= 3:
-                pygame.draw.polygon(surface, c, pts)
-
-        # ═══════════════════════════════════════════════════════
-        # Layer 3: 어두운 베이스 클러스터
-        # ═══════════════════════════════════════════════════════
+            cluster_x = x + cluster['offset_x'] + rustle_x
+            cluster_y = y + cluster['offset_y'] + rustle_y
+            cluster_size = cluster['size']
+            darkness = cluster['darkness']
+            
+            # 클러스터 색상 (어두운 베이스)
+            base_color = colors[0]
+            dark_color = tuple(int(c * darkness * 0.7) for c in base_color)
+            
+            # 미리 계산된 포인트들 사용 (완전 정적)
+            points = []
+            for static_point in cluster['static_points']:
+                point_x = cluster_x + static_point[0] + rustle_x
+                point_y = cluster_y + static_point[1] + rustle_y
+                points.append((point_x, point_y))
+            
+            # 베이스 클러스터 그리기
+            if len(points) >= 3:
+                pygame.draw.polygon(surface, dark_color, points)
+        
+        # 2단계: 중간 레이어 (조금 더 밝은 색상)
         for cluster in bush['clusters']:
-            cx = x + cluster['offset_x'] + rustle_x
-            cy = y + cluster['offset_y'] + rustle_y
-            d = cluster['darkness']
-            c = tuple(int(v * d * 0.68) for v in colors[1])
-            pts = [(cx + p[0] + rustle_x, cy + p[1] + rustle_y)
-                   for p in cluster['static_points']]
-            if len(pts) >= 3:
-                pygame.draw.polygon(surface, c, pts)
-
-        # ═══════════════════════════════════════════════════════
-        # Layer 4: 중간-어두운 레이어 (엣지 디테일)
-        # ═══════════════════════════════════════════════════════
+            cluster_x = x + cluster['offset_x'] + rustle_x
+            cluster_y = y + cluster['offset_y'] + rustle_y
+            cluster_size = cluster['size'] * 0.8  # 조금 작게
+            darkness = cluster['darkness']
+            
+            mid_color = colors[1]
+            color = tuple(int(c * darkness * 0.85) for c in mid_color)
+            
+            # 중간 레이어 클러스터 (미리 계산된 포인트 사용)
+            points = []
+            scale = 0.8  # 조금 작게
+            for static_point in cluster['static_points']:
+                point_x = cluster_x + static_point[0] * scale + rustle_x
+                point_y = cluster_y + static_point[1] * scale + rustle_y
+                points.append((point_x, point_y))
+            
+            if len(points) >= 3:
+                pygame.draw.polygon(surface, color, points)
+        
+        # 3단계: 상단 하이라이트 레이어 (가장 밝은 색상)
         for cluster in bush['clusters']:
-            cx = x + cluster['offset_x'] + rustle_x
-            cy = y + cluster['offset_y'] + rustle_y
-            d = cluster['darkness']
-            c = tuple(min(255, int(v * d * 0.82)) for v in colors[2])
-            pts = [(cx + p[0] * 0.88 + rustle_x, cy + p[1] * 0.88 + rustle_y)
-                   for p in cluster['static_points']]
-            if len(pts) >= 3:
-                pygame.draw.polygon(surface, c, pts)
-
-        # ═══════════════════════════════════════════════════════
-        # Layer 5: 코어 중간 클러스터
-        # ═══════════════════════════════════════════════════════
-        for cluster in bush['clusters']:
-            cx = x + cluster['offset_x'] + rustle_x
-            cy = y + cluster['offset_y'] + rustle_y
-            d = cluster['darkness']
-            c = tuple(min(255, int(v * d * 0.95)) for v in colors[3])
-            pts = [(cx + p[0] * 0.72 + rustle_x, cy + p[1] * 0.72 + rustle_y)
-                   for p in cluster['static_points']]
-            if len(pts) >= 3:
-                pygame.draw.polygon(surface, c, pts)
-
-        # ═══════════════════════════════════════════════════════
-        # Layer 6: 밝은 하이라이트 클러스터
-        # ═══════════════════════════════════════════════════════
-        for cluster in bush['clusters']:
-            cx = x + cluster['offset_x'] + rustle_x
-            cy = y + cluster['offset_y'] + rustle_y
-            d = cluster['darkness']
-            c = tuple(min(255, int(v * d)) for v in colors[4])
-            pts = [(cx + p[0] * 0.55 + rustle_x, cy + p[1] * 0.55 + rustle_y)
-                   for p in cluster['static_points']]
-            if len(pts) >= 3:
-                pygame.draw.polygon(surface, c, pts)
-
-        # ═══════════════════════════════════════════════════════
-        # Layer 7: Ambient Occlusion (클러스터 사이 깊은 그림자)
-        # ═══════════════════════════════════════════════════════
-        ao_color = tuple(max(0, v - 8) for v in colors[0])
-        for i, c1 in enumerate(bush['clusters']):
-            for c2 in bush['clusters'][i + 1:i + 3]:
-                mid_x = x + (c1['offset_x'] + c2['offset_x']) / 2 + rustle_x
-                mid_y = y + (c1['offset_y'] + c2['offset_y']) / 2 + rustle_y
-                dist = math.sqrt((c1['offset_x'] - c2['offset_x']) ** 2 +
-                                 (c1['offset_y'] - c2['offset_y']) ** 2)
-                if dist < base_size * 0.8:
-                    ao_size = max(2, int(min(c1['size'], c2['size']) * 0.22))
-                    pygame.draw.circle(surface, ao_color, (int(mid_x), int(mid_y)), ao_size)
-
-        # ═══════════════════════════════════════════════════════
-        # Layer 8: 개별 잎사귀 (7종 타입 + 잎맥 디테일)
-        # ═══════════════════════════════════════════════════════
-        leaf_palette = [
-            (40, 105, 42), (52, 128, 50), (60, 145, 58), (48, 115, 45),
-            (55, 135, 52), (65, 155, 62), (42, 98, 38), (58, 140, 55)
+            cluster_x = x + cluster['offset_x'] + rustle_x
+            cluster_y = y + cluster['offset_y'] + rustle_y
+            cluster_size = cluster['size'] * 0.6  # 더 작게
+            darkness = cluster['darkness']
+            
+            highlight_color = colors[2]
+            color = tuple(int(c * darkness) for c in highlight_color)
+            
+            # 하이라이트 클러스터 (미리 계산된 포인트 사용)
+            points = []
+            scale = 0.6  # 더 작게
+            for static_point in cluster['static_points']:
+                point_x = cluster_x + static_point[0] * scale + rustle_x
+                point_y = cluster_y + static_point[1] * scale + rustle_y
+                points.append((point_x, point_y))
+            
+            if len(points) >= 3:
+                pygame.draw.polygon(surface, color, points)
+        
+        # 4단계: 개별 잎사귀 디테일
+        leaf_colors = [
+            (50, 120, 50), (60, 140, 60), (70, 160, 70), (45, 110, 45)
         ]
-        berry_colors = [(180, 35, 30), (200, 60, 25), (160, 25, 40), (220, 180, 25)]
-
+        
         for leaf in bush['leaves']:
-            lx = x + leaf['offset_x'] + rustle_x * 0.7
-            ly = y + leaf['offset_y'] + rustle_y * 0.7
-            ls = leaf['size']
-            lt = leaf['type']
-
-            if lt == 'berry':
-                # 열매
-                bc = berry_colors[leaf['color_variant'] % len(berry_colors)]
-                pygame.draw.circle(surface, bc, (int(lx), int(ly)), max(1, ls))
-                # 하이라이트
-                hl = tuple(min(255, v + 60) for v in bc)
-                pygame.draw.circle(surface, hl, (int(lx) - 1, int(ly) - 1), max(1, ls // 2))
-                continue
-
-            lc = leaf_palette[leaf['color_variant'] % len(leaf_palette)]
-
-            if lt == 'oval':
-                pygame.draw.ellipse(surface, lc,
-                                   (lx - ls // 2, ly - ls // 4, ls, ls // 2))
-                vein_c = tuple(max(0, v - 25) for v in lc)
-                pygame.draw.line(surface, vein_c,
-                                (int(lx - ls // 3), int(ly)), (int(lx + ls // 3), int(ly)), 1)
-
-            elif lt == 'pointed':
-                pts = [
-                    (lx, ly - ls // 2),
-                    (lx + ls // 3, ly),
-                    (lx + ls // 6, ly + ls // 3),
-                    (lx - ls // 6, ly + ls // 3),
-                    (lx - ls // 3, ly)
+            leaf_x = x + leaf['offset_x'] + rustle_x * 0.7  # 잎은 덜 흔들림
+            leaf_y = y + leaf['offset_y'] + rustle_y * 0.7
+            leaf_size = leaf['size']
+            leaf_color = leaf_colors[leaf['color_variant']]
+            
+            if leaf['type'] == 'oval':
+                # 타원형 잎
+                pygame.draw.ellipse(surface, leaf_color,
+                                   (leaf_x - leaf_size//2, leaf_y - leaf_size//4,
+                                    leaf_size, leaf_size//2))
+            elif leaf['type'] == 'pointed':
+                # 뾰족한 잎
+                points = [
+                    (leaf_x, leaf_y - leaf_size//2),  # 위쪽 끝
+                    (leaf_x + leaf_size//3, leaf_y),
+                    (leaf_x, leaf_y + leaf_size//2),  # 아래쪽 끝
+                    (leaf_x - leaf_size//3, leaf_y)
                 ]
-                pygame.draw.polygon(surface, lc, pts)
-                vein_c = tuple(max(0, v - 25) for v in lc)
-                pygame.draw.line(surface, vein_c, (int(lx), int(ly - ls // 2)),
-                                (int(lx), int(ly + ls // 3)), 1)
-
-            elif lt == 'fern':
-                # 양치류 잎 (작은 타원 나열)
-                for j in range(-2, 3):
-                    fx = lx + j * max(1, ls // 4)
-                    fw = max(2, ls // 3)
-                    fh = max(3, ls * 2 // 3)
-                    pygame.draw.ellipse(surface, lc, (int(fx) - fw // 2, int(ly) - fh // 2, fw, fh))
-                # 줄기
-                vein_c = tuple(max(0, v - 30) for v in lc)
-                pygame.draw.line(surface, vein_c,
-                                (int(lx - ls // 2), int(ly)), (int(lx + ls // 2), int(ly)), 1)
-
-            elif lt == 'monstera':
-                # 몬스테라 잎 (큰 원 + 구멍)
-                r = max(2, ls // 2)
-                pygame.draw.circle(surface, lc, (int(lx), int(ly)), r)
-                hole_c = tuple(max(0, v - 28) for v in colors[0])
-                if ls > 5:
-                    pygame.draw.circle(surface, hole_c,
-                                     (int(lx - ls // 5), int(ly - ls // 6)), max(1, ls // 6))
-                    pygame.draw.circle(surface, hole_c,
-                                     (int(lx + ls // 5), int(ly + ls // 6)), max(1, ls // 6))
-
-            elif lt == 'palm_frond':
-                # 야자수 잎 (방사형 줄기)
-                for j in range(-3, 4):
-                    angle_d = j * 18
-                    fx = lx + math.cos(math.radians(angle_d + 90)) * ls
-                    fy = ly + math.sin(math.radians(angle_d + 90)) * ls * 0.6
-                    pygame.draw.line(surface, lc, (int(lx), int(ly)),
-                                    (int(fx), int(fy)), max(1, ls // 5))
-
-            elif lt == 'banana':
-                # 바나나 잎 (길쭉한 곡선)
-                pts = [
-                    (lx - ls // 6, ly - ls),
-                    (lx + ls // 4, ly - ls // 2),
-                    (lx + ls // 3, ly),
-                    (lx + ls // 4, ly + ls // 2),
-                    (lx - ls // 6, ly + ls),
-                    (lx - ls // 3, ly)
-                ]
-                pygame.draw.polygon(surface, lc, pts)
-                vein_c = tuple(max(0, v - 20) for v in lc)
-                pygame.draw.line(surface, vein_c, (int(lx - ls // 6), int(ly - ls)),
-                                (int(lx - ls // 6), int(ly + ls)), 1)
-
+                pygame.draw.polygon(surface, leaf_color, points)
             else:  # serrated
-                r = max(2, ls // 2)
-                pygame.draw.circle(surface, lc, (int(lx), int(ly)), r)
-                for j in range(6):
-                    sa = j * 60
-                    sx = lx + math.cos(math.radians(sa)) * ls // 3
-                    sy = ly + math.sin(math.radians(sa)) * ls // 3
-                    pygame.draw.circle(surface, lc, (int(sx), int(sy)), max(1, ls // 4))
-
-        # ═══════════════════════════════════════════════════════
-        # Layer 9: Specular highlights (모든 variant에 적용)
-        # ═══════════════════════════════════════════════════════
-        num_hl = 3 if base_size >= 50 else 2
-        hl_seed = hash((int(x), int(y), variant, int(base_size))) % 10000
-        for i in range(num_hl):
-            h_s = hash((hl_seed, i)) % 10000
-            hx = (h_s % 100) / 100.0 * base_size - base_size // 2
-            hy = ((h_s // 100) % 100) / 100.0 * base_size - base_size * 0.6
-            hs = max(2, int(base_size // (7 + i * 2)))
-            bright = tuple(min(255, v + 45) for v in colors[5])
-            pygame.draw.circle(surface, bright,
-                             (int(x + hx + rustle_x), int(y + hy + rustle_y)), hs)
-            core = tuple(min(255, v + 25) for v in bright)
-            pygame.draw.circle(surface, core,
-                             (int(x + hx + rustle_x), int(y + hy + rustle_y)), max(1, hs // 2))
-
-        # ═══════════════════════════════════════════════════════
-        # Layer 10: 이슬방울 (수분감 디테일)
-        # ═══════════════════════════════════════════════════════
-        if base_size >= 40:
-            for i in range(4):
-                dew_seed = hash((hl_seed, 'dew', i)) % 10000
-                dx = (dew_seed % 100) / 100.0 * base_size * 0.8 - base_size * 0.4
-                dy = ((dew_seed // 100) % 100) / 100.0 * base_size * 0.6 - base_size * 0.3
-                ds = max(1, 2 + (dew_seed // 10000) % 2)
-                dew_color = (195, 225, 248)
-                pygame.draw.circle(surface, dew_color,
-                                 (int(x + dx + rustle_x), int(y + dy + rustle_y)), ds)
-                # 이슬 하이라이트
-                pygame.draw.circle(surface, (230, 245, 255),
-                                 (int(x + dx + rustle_x - 1), int(y + dy + rustle_y - 1)), max(1, ds - 1))
+                # 톱니 모양 잎
+                pygame.draw.circle(surface, leaf_color, 
+                                 (int(leaf_x), int(leaf_y)), leaf_size//2)
+                # 작은 톱니들
+                for i in range(4):
+                    angle = i * 90 + 45
+                    edge_x = leaf_x + math.cos(math.radians(angle)) * leaf_size//3
+                    edge_y = leaf_y + math.sin(math.radians(angle)) * leaf_size//3
+                    pygame.draw.circle(surface, leaf_color,
+                                     (int(edge_x), int(edge_y)), 2)
+        
+        # 5단계: 최상위 광택 효과 (햇빛 받는 부분)
+        if variant == 0:  # 첫 번째 스타일만 광택
+            highlight_spots = [
+                (x - base_size//4 + rustle_x, y - base_size//3 + rustle_y, base_size//8),
+                (x + base_size//3 + rustle_x, y - base_size//5 + rustle_y, base_size//10)
+            ]
+            
+            for spot_x, spot_y, spot_size in highlight_spots:
+                bright_color = (min(255, colors[2][0] + 60),
+                               min(255, colors[2][1] + 40),
+                               min(255, colors[2][2] + 30))
+                pygame.draw.circle(surface, bright_color,
+                                 (int(spot_x), int(spot_y)), spot_size)
 
     def _prerender_bush_to_surface(self, bush, scale_x, scale_y):
         """덤불을 개별 Surface에 프리렌더 (캐시용)"""
-        # 덤불 바운딩 박스 계산 (고퀄리티 확장 반영)
+        # 덤불 바운딩 박스 계산
         base_size = bush['base_size']
-        padding = 50  # 여유 공간 (10레이어 실루엣 확장 반영)
-        surf_width = int((base_size * 3.5 + padding) * scale_x)
-        surf_height = int((base_size * 3.5 + padding) * scale_y)
+        padding = 30  # 여유 공간
+        surf_width = int((base_size * 3 + padding) * scale_x)
+        surf_height = int((base_size * 3 + padding) * scale_y)
 
         bush_surface = pygame.Surface((surf_width, surf_height), pygame.SRCALPHA)
 
@@ -1847,8 +1601,7 @@ class AnimatedBackgroundStage2:
                 'offset_y': cluster['offset_y'] * scale_y,
                 'size': cluster['size'] * min(scale_x, scale_y),
                 'darkness': cluster['darkness'],
-                'static_points': [(p[0] * scale_x, p[1] * scale_y) for p in cluster['static_points']],
-                'sub_points': [(p[0] * scale_x, p[1] * scale_y) for p in cluster.get('sub_points', [])]
+                'static_points': [(p[0] * scale_x, p[1] * scale_y) for p in cluster['static_points']]
             })
         for leaf in bush['leaves']:
             temp_bush['leaves'].append({
