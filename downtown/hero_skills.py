@@ -13302,7 +13302,7 @@ class BombSurprise(HeroSkill):
 
     # 자폭(시전자에게 폭발) 시 약화 수치
     SELF_KNOCKBACK_SCALE = 0.30   # 넉백 30% (70% 감소)
-    SELF_STUN_DURATION = 1.5      # 스턴 1.5초
+    SELF_STUN_DURATION = 0.8      # 스턴 0.8초
     SELF_SCREEN_SHAKE = 12        # 화면 흔들림 약화 (정상: 35)
     SELF_SHAKE_DURATION = 0.3     # 흔들림 시간 약화 (정상: 0.67)
 
