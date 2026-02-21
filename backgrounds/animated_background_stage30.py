@@ -368,32 +368,33 @@ class AnimatedBackgroundStage30:
                                    (tx, ty + 10), r)
         self.floor_surface.blit(torch_light_surf, (0, 0))
 
-        # 석재 타일 경계선 (게임 영역 가장자리를 따라 은은한 돌바닥 느낌)
-        tile_color = (sand_dark[0] - 5, sand_dark[1] - 5, sand_dark[2] - 5)
+        # 석재 타일 경계선 (반투명으로 은은하게)
+        tile_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+        tile_alpha = 30
+        tile_color = (sand_dark[0], sand_dark[1], sand_dark[2], tile_alpha)
         ga_x = self.GAME_AREA_X  # 80
         ga_ex = self.GAME_AREA_END_X  # 680
         # 좌우 세로선 (게임 영역 안쪽 가장자리)
         for inset in [12, 24]:
-            pygame.draw.line(self.floor_surface, tile_color,
+            pygame.draw.line(tile_surf, tile_color,
                              (ga_x + inset, 20), (ga_x + inset, self.height - 20), 1)
-            pygame.draw.line(self.floor_surface, tile_color,
+            pygame.draw.line(tile_surf, tile_color,
                              (ga_ex - inset, 20), (ga_ex - inset, self.height - 20), 1)
         # 상하 가로선 (필드 가장자리)
         for inset in [12, 24]:
-            pygame.draw.line(self.floor_surface, tile_color,
+            pygame.draw.line(tile_surf, tile_color,
                              (ga_x + 5, inset), (ga_ex - 5, inset), 1)
-            pygame.draw.line(self.floor_surface, tile_color,
+            pygame.draw.line(tile_surf, tile_color,
                              (ga_x + 5, self.height - inset), (ga_ex - 5, self.height - inset), 1)
         # 타일 교차점에 미세한 점 장식
-        random.seed(88)
         for inset_x in [12, 24]:
             for inset_y in [12, 24]:
-                for corner_pts in [(ga_x + inset_x, inset_y),
-                                   (ga_ex - inset_x, inset_y),
-                                   (ga_x + inset_x, self.height - inset_y),
-                                   (ga_ex - inset_x, self.height - inset_y)]:
-                    pygame.draw.circle(self.floor_surface, tile_color, corner_pts, 1)
-        random.seed()
+                for pt in [(ga_x + inset_x, inset_y),
+                           (ga_ex - inset_x, inset_y),
+                           (ga_x + inset_x, self.height - inset_y),
+                           (ga_ex - inset_x, self.height - inset_y)]:
+                    pygame.draw.circle(tile_surf, tile_color, pt, 1)
+        self.floor_surface.blit(tile_surf, (0, 0))
 
     def _prerender_arena(self):
         """경기장 라인 프리렌더 - 이집트 프리미엄 스타일 (중앙선, 중앙원, 코너)"""
