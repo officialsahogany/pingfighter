@@ -1059,15 +1059,44 @@ class BallSpawnAnimation:
             self.core_glow_radius = 20 + progress * 40
             self.core_glow_alpha = int(100 + progress * 155)
 
-        # 초기 플래시 페이드아웃 (에너지 점화 효과)
-        if progress < 0.04:
-            self.flash_alpha = max(self.flash_alpha, int(100 * (1 - progress / 0.04)))
-            self.flash_color = (200, 220, 255)
+        # === 리드미컬 안개 효과 (Phase 1 전체) ===
+        # 1. 감쇠 엔벨로프: 초반 강하게 → 자연스럽게 줄어듦
+        envelope = max(0, (1.0 - progress * 0.55) ** 1.4)
 
-        # Phase 1 종료 직전 플래시 효과 (더 강하게)
-        if progress > 0.92:
-            self.flash_alpha = int(255 * (progress - 0.92) * 12.5)
-            self.flash_color = (220, 240, 255)
+        # 2. 리드미컬 호흡 (느린 맥동 + 미세 반짝임 합성)
+        slow_breath = math.sin(progress * math.pi * 5)       # 2.5 사이클 호흡
+        fast_shimmer = math.sin(progress * math.pi * 17) * 0.12  # 미세 반짝임
+        pulse = 0.52 + 0.48 * (slow_breath * 0.88 + fast_shimmer)
+
+        # 3. 기본 안개 알파
+        fog_alpha = int(105 * envelope * pulse)
+
+        # 4. 부드러운 색상 변주 (각 RGB 채널 독립 사인파 변조)
+        phase_t = progress * math.pi * 4  # 2 색상 사이클
+        r = 195 + int(45 * math.sin(phase_t))
+        g = 200 + int(40 * math.sin(phase_t + math.pi * 0.7))
+        b = 240 + int(15 * math.sin(phase_t + math.pi * 1.4))
+        self.flash_color = (
+            min(255, max(140, r)),
+            min(255, max(140, g)),
+            min(255, max(210, b))
+        )
+
+        # 5. Phase 1 종료 직전: 부드러운 전환 상승
+        if progress > 0.88:
+            end_t = (progress - 0.88) / 0.12
+            transition_alpha = int(200 * (end_t ** 2))
+            fog_alpha = max(fog_alpha, transition_alpha)
+            # 순백으로 부드럽게 블렌드
+            blend = end_t ** 2
+            cr, cg, cb = self.flash_color
+            self.flash_color = (
+                int(cr * (1 - blend) + 225 * blend),
+                int(cg * (1 - blend) + 240 * blend),
+                int(cb * (1 - blend) + 255 * blend)
+            )
+
+        self.flash_alpha = min(255, max(0, fog_alpha))
 
     def _update_phase_2(self, dt: float):
         """Phase 2: 공 부양 (1.5초) - 에너지 링 효과 추가 (최적화됨)"""
@@ -1130,8 +1159,29 @@ class BallSpawnAnimation:
         # 잔여 파티클 빠르게 제거 - 최적화: 더 빠르게 페이드아웃
         self.quantum_particles = [p for p in self.quantum_particles if random.random() > 0.12]
 
-        # 플래시 빠른 페이드아웃 (0.25초 내 완전 소멸 → 번개 가시성 확보)
-        self.flash_alpha = max(0, int(255 * max(0, 1 - progress * 6)))
+        # === 안개 부드러운 페이드아웃 (Phase 1에서 이어지는 잔여 안개) ===
+        if progress < 0.12:
+            # 초반: 전환 플래시 빠르게 감쇠 (번개 가시성 확보)
+            self.flash_alpha = max(0, int(180 * (1 - progress / 0.12)))
+            t = progress / 0.12
+            self.flash_color = (
+                int(225 * (1 - t) + 200 * t),
+                int(240 * (1 - t) + 215 * t),
+                255
+            )
+        elif progress < 0.65:
+            # 중반: 잔여 안개 리드미컬하게 서서히 소멸
+            remain_t = (progress - 0.12) / 0.53
+            remain = (1.0 - remain_t) ** 1.8
+            shimmer = 0.6 + 0.4 * math.sin(remain_t * math.pi * 3)
+            self.flash_alpha = int(45 * remain * shimmer)
+            self.flash_color = (
+                int(200 - remain_t * 20),
+                int(215 + remain_t * 10),
+                255
+            )
+        else:
+            self.flash_alpha = 0
 
         # 코어 글로우 유지
         self.core_glow_radius = 50 - progress * 25
