@@ -172,6 +172,8 @@ class AnimatedBackgroundStage30:
         self.judgment_wind_particles = []           # 바람 파티클
         self.judgment_fan_swing_progress = 0.0      # 부채 휘두르기 진행도
         self.judgment_wind_charge_intensity = 0.0   # 바람 충전 강도
+        self.judgment_wind_spin_angle = 0.0          # 바람 자전 각도 (rad)
+        self.judgment_wind_spin_speed = 0.0          # 바람 자전 속도 (rad/s)
         # 이벤트 플래그 (핸들러에서 consume 방식으로 사용)
         self.judgment_bolt_throw_started = False   # BOLT_THROW 진입 시 True → 핸들러가 읽고 False
         self.judgment_bolt_explosion_started = False  # BOLT_EXPLOSION 진입 시 True → 핸들러가 읽고 False
@@ -965,6 +967,8 @@ class AnimatedBackgroundStage30:
         self.judgment_wind_particles = []
         self.judgment_fan_swing_progress = 0.0
         self.judgment_wind_charge_intensity = 0.0
+        self.judgment_wind_spin_angle = 0.0
+        self.judgment_wind_spin_speed = 0.0
         self.judgment_fan_swing_started = False
         self.judgment_sandstorm_hit_top = False
         self.judgment_sandstorm_hit_bottom = False
@@ -1535,6 +1539,11 @@ class AnimatedBackgroundStage30:
                 wp['life'] -= dt
                 wp['size'] = max(0, wp['size'] - dt * 1.5)
             self.judgment_wind_particles = [wp for wp in self.judgment_wind_particles if wp['life'] > 0]
+            # 석상 자전 (부채 휘두르면서 천천히 시작)
+            if progress > 0.3:
+                spin_ramp = (progress - 0.3) / 0.7  # 0→1
+                self.judgment_wind_spin_speed = spin_ramp * 5.0  # 최대 5 rad/s
+            self.judgment_wind_spin_angle += self.judgment_wind_spin_speed * dt
             # 플래시 감소
             self.judgment_flash_alpha = max(0, self.judgment_flash_alpha - int(dt * 400))
             if progress >= 1.0:
@@ -1554,6 +1563,25 @@ class AnimatedBackgroundStage30:
             self.judgment_left_arm_progress = 0.0
             self.judgment_right_arm_progress = max(0, -0.2 + arm_fold * 0.2)
             self.judgment_fan_swing_progress = max(0, 1.0 - progress * 2.0)
+
+            # 석상 자전 (바람 지속 중 빠르게 → 끝날때쯤 감속 → 정지)
+            if progress < 0.15:
+                # 0~15%: 가속 (FAN_SWING에서 이어받아 최고 속도로)
+                accel_p = progress / 0.15
+                self.judgment_wind_spin_speed = 5.0 + accel_p * 7.0  # 5→12 rad/s
+            elif progress < 0.65:
+                # 15~65%: 최고 속도 유지
+                self.judgment_wind_spin_speed = 12.0
+            elif progress < 0.90:
+                # 65~90%: 점진적 감속
+                decel_p = (progress - 0.65) / 0.25
+                ease_decel = decel_p * decel_p  # ease-in (처음 느리게 감속, 뒤로 갈수록 빠르게)
+                self.judgment_wind_spin_speed = 12.0 * (1.0 - ease_decel * 0.9)  # 12→1.2
+            else:
+                # 90~100%: 거의 정지 (느리게 멈춤)
+                stop_p = (progress - 0.90) / 0.10
+                self.judgment_wind_spin_speed = max(0, 1.2 * (1.0 - stop_p))
+            self.judgment_wind_spin_angle += self.judgment_wind_spin_speed * dt
 
             # ── 나선형 소용돌이 상수 ──
             VORTEX_GROWTH_RATE = 0.15    # 초당 15% 크기 성장
@@ -1697,6 +1725,8 @@ class AnimatedBackgroundStage30:
                 self.judgment_right_arm_progress = 0.0
                 self.judgment_wind_sandstorms.clear()
                 self.judgment_wind_particles.clear()
+                self.judgment_wind_spin_speed = 0.0
+                self.judgment_wind_spin_angle = 0.0
                 print(f"[신의심판] SANDSTORM → RETURN 전환")
 
         elif self.judgment_phase == self.JUDGMENT_RETURN:
@@ -1973,6 +2003,8 @@ class AnimatedBackgroundStage30:
         self.judgment_wind_particles.clear()
         self.judgment_fan_swing_progress = 0.0
         self.judgment_wind_charge_intensity = 0.0
+        self.judgment_wind_spin_angle = 0.0
+        self.judgment_wind_spin_speed = 0.0
         self.judgment_fan_swing_started = False
         self.judgment_sandstorm_hit_top = False
         self.judgment_sandstorm_hit_bottom = False
@@ -3762,29 +3794,6 @@ class AnimatedBackgroundStage30:
                 screen.blit(hs_surf, (hx - h_size - 1, hy - h_size - 1),
                             special_flags=pygame.BLEND_ADD)
 
-        # 3.7 횃불 바닥 동적 조명 (intensity 연동)
-        if not hasattr(self, '_torch_floor_glow_cache'):
-            self._torch_floor_glow_cache = {}
-        for torch in self.torches:
-            t_intensity = torch['intensity']
-            pool_r = int(30 * t_intensity * scale_x)
-            if pool_r < 3:
-                continue
-            pool_key = pool_r
-            if pool_key not in self._torch_floor_glow_cache:
-                ps = pygame.Surface((pool_r * 2, pool_r * 2), pygame.SRCALPHA)
-                for r in range(pool_r, 0, -3):
-                    frac = r / pool_r
-                    pa = int(6 * frac * frac)
-                    pygame.draw.circle(ps, (255, 200, 110, pa),
-                                       (pool_r, pool_r), r)
-                self._torch_floor_glow_cache[pool_key] = ps
-            ftx = int(torch['x'] * scale_x + offset_x)
-            fty = int((torch['y'] + 12) * scale_y + offset_y)
-            screen.blit(self._torch_floor_glow_cache[pool_key],
-                        (ftx - pool_r, fty - pool_r),
-                        special_flags=pygame.BLEND_ADD)
-
         # 4. 경기장 라인 (중앙선, 중앙원, 코너)
         arena = self.arena_surface
         if scale_x != 1.0 or scale_y != 1.0:
@@ -3937,25 +3946,24 @@ class AnimatedBackgroundStage30:
             pygame.draw.circle(screen, (150, 135, 110),
                                (tx - sx(1), ty + sy(13)), max(1, sx(1)))
 
-            # ── 3. 메인 글로우 (불꽃 주변 발광) ──
-            glow_radius = int(30 * intensity * scale_x)
+            # ── 3. 메인 글로우 (불꽃 상단에만 은은한 발광) ──
+            glow_radius = int(18 * intensity * scale_x)
             if glow_radius > 2:
                 glow_key = glow_radius
                 if glow_key not in self._torch_glow_cache:
                     gs = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
                     for r in range(glow_radius, 0, -2):
                         frac = r / glow_radius
-                        a = int(22 * frac * frac)
-                        # 중심부는 밝은 노랑, 외곽은 따뜻한 앰버 톤
+                        a = int(15 * frac * frac)
                         rr = 255
-                        gg = int(200 * frac + 120 * (1 - frac))
+                        gg = int(210 * frac + 140 * (1 - frac))
                         bb = int(80 * frac + 20 * (1 - frac))
                         pygame.draw.circle(gs, (rr, gg, bb, a),
                                            (glow_radius, glow_radius), r)
                     self._torch_glow_cache[glow_key] = gs
                 screen.blit(self._torch_glow_cache[glow_key],
                             (tx + sway_i - glow_radius,
-                             ty - flame_h - glow_radius + sy(2)),
+                             ty - flame_h - glow_radius),
                             special_flags=pygame.BLEND_ADD)
 
             # ── 4. 외부 불꽃 (가장 바깥 - 따뜻한 앰버) ──
