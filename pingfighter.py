@@ -22554,6 +22554,11 @@ def arena_play_skill_sound(result):
 
     snd = _arena_skill_sound_cache.get(sound_key)
     if snd:
+        # 🔍 DEBUG: ghostwalk 사운드 재생 추적
+        if sound_key == 'ghostwalk':
+            import traceback
+            print(f"[DEBUG GHOSTWALK] arena_play_skill_sound 호출! arena_mode={arena_mode_enabled}")
+            traceback.print_stack(limit=10)
         snd.play()
         _arena_skill_sound_this_frame = True  # 이번 프레임에서 패들 사운드 스킵
         return True
@@ -52391,20 +52396,20 @@ def go_to_next_round():
         if animated_bg_stage30.is_judgment_active():
             print(f"[신의심판] 라운드 전환으로 강제 초기화 (페이즈: {animated_bg_stage30.get_judgment_phase_name()})")
             animated_bg_stage30.reset_judgment()
-            # 지진 사운드 정지
-            if _judgment_quake_sound_playing:
-                try:
-                    if SOUND_GOD_EARTHQUAKE:
-                        SOUND_GOD_EARTHQUAKE.stop()
-                except Exception:
-                    pass
-            # 바람 회오리 사운드 정지
-            if _judgment_wind_sound_playing:
-                try:
-                    if SOUND_GOD_WIND:
-                        SOUND_GOD_WIND.stop()
-                except Exception:
-                    pass
+        # 지진 사운드 정지 (judgment 활성 여부와 무관하게 항상 정지)
+        if _judgment_quake_sound_playing:
+            try:
+                if SOUND_GOD_EARTHQUAKE:
+                    SOUND_GOD_EARTHQUAKE.stop()
+            except Exception:
+                pass
+        # 바람 회오리 사운드 정지 (judgment 활성 여부와 무관하게 항상 정지)
+        if _judgment_wind_sound_playing:
+            try:
+                if SOUND_GOD_WIND:
+                    SOUND_GOD_WIND.stop()
+            except Exception:
+                pass
     _judgment_quake_sound_playing = False
     _judgment_ball_speed_backup = None
     _judgment_prev_earthquake_active = False
@@ -123666,20 +123671,20 @@ def reset_round(is_stage_start=False):
         if animated_bg_stage30.is_judgment_active():
             print(f"[신의심판] 라운드 전환으로 강제 초기화 (페이즈: {animated_bg_stage30.get_judgment_phase_name()})")
             animated_bg_stage30.reset_judgment()
-            # 지진 사운드 정지
-            if _judgment_quake_sound_playing:
-                try:
-                    if SOUND_GOD_EARTHQUAKE:
-                        SOUND_GOD_EARTHQUAKE.stop()
-                except Exception:
-                    pass
-            # 바람 회오리 사운드 정지
-            if _judgment_wind_sound_playing:
-                try:
-                    if SOUND_GOD_WIND:
-                        SOUND_GOD_WIND.stop()
-                except Exception:
-                    pass
+        # 지진 사운드 정지 (judgment 활성 여부와 무관하게 항상 정지)
+        if _judgment_quake_sound_playing:
+            try:
+                if SOUND_GOD_EARTHQUAKE:
+                    SOUND_GOD_EARTHQUAKE.stop()
+            except Exception:
+                pass
+        # 바람 회오리 사운드 정지 (judgment 활성 여부와 무관하게 항상 정지)
+        if _judgment_wind_sound_playing:
+            try:
+                if SOUND_GOD_WIND:
+                    SOUND_GOD_WIND.stop()
+            except Exception:
+                pass
     _judgment_quake_sound_playing = False
     _judgment_ball_speed_backup = None
     _judgment_prev_earthquake_active = False
