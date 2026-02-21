@@ -7580,7 +7580,7 @@ class ColosseumsArena:
             for w in winners:
                 if w and (not self.bet_hero or w["id"] != self.bet_hero["id"]):
                     self._assign_ai_perks(w, 1 + self.ai_bonus_perks)
-            # AI 4강 진출자에게 하수인 1명 배정 (8강 패자 중 랜덤)
+            # AI 4강 진출자에게 하수인 1명 배정 (8강 패자 중 랜덤, 80% 확률)
             losers_qf = []
             for m in self.matches[TournamentRound.QUARTER_FINAL]:
                 if m.winner:
@@ -7588,7 +7588,7 @@ class ColosseumsArena:
                     losers_qf.append(loser)
             for w in winners:
                 if w and (not self.bet_hero or w["id"] != self.bet_hero["id"]):
-                    self._assign_ai_henchmen(w, losers_qf, self.matches[TournamentRound.SEMI_FINAL])
+                    self._assign_ai_henchmen(w, losers_qf, self.matches[TournamentRound.SEMI_FINAL], round_type="semi")
             self.current_round = TournamentRound.SEMI_FINAL
         elif self.current_round == TournamentRound.SEMI_FINAL:
             # 4강 → 결승
@@ -7617,7 +7617,7 @@ class ColosseumsArena:
             for w in winners:
                 if w and (not self.bet_hero or w["id"] != self.bet_hero["id"]):
                     self._assign_ai_perks(w, 1 + self.ai_bonus_perks)
-            # AI 결승 진출자에게 하수인 추가 배정 (4강 패자 중 랜덤)
+            # AI 결승 진출자에게 하수인 배정 (가중치: 2명 74%, 1명 15%, 0명 11%)
             losers_sf = []
             for m in self.matches[TournamentRound.SEMI_FINAL]:
                 if m.winner:
@@ -7625,7 +7625,7 @@ class ColosseumsArena:
                     losers_sf.append(loser)
             for w in winners:
                 if w and (not self.bet_hero or w["id"] != self.bet_hero["id"]):
-                    self._assign_ai_henchmen(w, losers_sf, self.matches[TournamentRound.FINAL])
+                    self._assign_ai_henchmen(w, losers_sf, self.matches[TournamentRound.FINAL], round_type="final")
             self.current_round = TournamentRound.FINAL
 
     def _init_guard_warriors_for_battle(self, match: Match):
@@ -14731,13 +14731,14 @@ class ColosseumsArena:
         print(f"[Perk] AI {hero['name']}에게 랜덤 퍽 {count}개 부여: "
               f"{[p['name'] for p in self.hero_perks[hero_id]]}")
 
-    def _assign_ai_henchmen(self, hero: Dict, losers: list, matches: list = None):
-        """AI 영웅에게 패자 중 1명을 하수인으로 배정
+    def _assign_ai_henchmen(self, hero: Dict, losers: list, matches: list = None, round_type: str = "semi"):
+        """AI 영웅에게 패자 중 하수인을 배정
 
         Args:
             hero: 하수인을 받을 AI 영웅
             losers: 하수인 후보 (이전 라운드 패자들)
             matches: 현재 라운드 매치 리스트 (같은 경기 상대 호위무사 충돌 방지용)
+            round_type: "semi" (4강) 또는 "final" (결승)
         """
         hero_id = hero["id"]
         taken_ids = set()
@@ -14778,19 +14779,38 @@ class ColosseumsArena:
         if not candidates:
             return
 
-        # 포획 확률 (AI도 포획에 실패할 수 있음)
-        AI_CAPTURE_RATE = 0.75  # 75% 성공률
-        if random.random() > AI_CAPTURE_RATE:
-            print(f"[Henchman AI] {hero['name']}의 하수인 포획 실패!")
-            return
-
-        chosen = random.choice(candidates)
         if hero_id not in self.ai_henchman_map:
             self.ai_henchman_map[hero_id] = []
-        self.ai_henchman_map[hero_id].append(dict(chosen))
-        # 랜덤 스킬 배정
-        self.hero_selected_skills[chosen["id"]] = random.randint(0, 1)
-        print(f"[Henchman AI] {hero['name']}에게 하수인 배정: {chosen['name']}")
+
+        if round_type == "final":
+            # 결승: 가중치 기반으로 총 하수인 수 직접 결정
+            # 2명 보유 74%, 1명만 보유 15%, 0명 11%
+            current_count = len(self.ai_henchman_map[hero_id])
+            target_total = random.choices([2, 1, 0], weights=[74, 15, 11])[0]
+            needed = target_total - current_count
+            if needed <= 0:
+                print(f"[Henchman AI] {hero['name']} 결승 하수인 결정: 목표={target_total}명, 현재={current_count}명 → 추가 불필요")
+                return
+            added = []
+            for _ in range(needed):
+                if not candidates:
+                    break
+                chosen = random.choice(candidates)
+                candidates.remove(chosen)
+                self.ai_henchman_map[hero_id].append(dict(chosen))
+                self.hero_selected_skills[chosen["id"]] = random.randint(0, 1)
+                added.append(chosen['name'])
+            print(f"[Henchman AI] {hero['name']} 결승 하수인 결정: 목표={target_total}명, 현재={current_count}명 → {len(added)}명 추가 배정: {added}")
+        else:
+            # 4강: 80% 성공률로 1명 포획 시도
+            AI_CAPTURE_RATE_SEMI = 0.80
+            if random.random() > AI_CAPTURE_RATE_SEMI:
+                print(f"[Henchman AI] {hero['name']}의 하수인 포획 실패! (4강 80%)")
+                return
+            chosen = random.choice(candidates)
+            self.ai_henchman_map[hero_id].append(dict(chosen))
+            self.hero_selected_skills[chosen["id"]] = random.randint(0, 1)
+            print(f"[Henchman AI] {hero['name']}에게 하수인 배정: {chosen['name']} (4강)")
 
     def get_hero_perk_multipliers(self, hero_id: str) -> Dict[str, float]:
         """영웅의 퍽에서 멀티플라이어 계산"""
