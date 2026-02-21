@@ -46,7 +46,7 @@ HENCH_ICON_SIZE = 42
 
 # 채널링 스킬 ID (하수인이 스킬 지속 중 화면에 남아야 하는 스킬)
 # 나머지 스킬은 시전 포즈 후 즉시 퇴장하고, 스킬 이펙트만 독립적으로 지속
-HENCH_CHANNELED_SKILLS = frozenset({'steam_barrier', 'gatling_burst', 'tentacle_wrap', 'puppet_control', 'doll_curse'})
+HENCH_CHANNELED_SKILLS = frozenset({'steam_barrier', 'gatling_burst', 'tentacle_wrap', 'puppet_control', 'doll_curse', 'dragon_breath'})
 # 채널링 스킬의 최대 체류 시간 (안전 타임아웃)
 HENCH_CHANNEL_MAX_STAY = 12.0
 
