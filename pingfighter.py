@@ -81157,6 +81157,8 @@ def draw_stage7_tetro_laser(surface: pygame.Surface) -> None:
 
     def draw_tetromino_at(cx: float, cy: float, tetro_type: str, cell_size: int, alpha: int, rotation: int = 0):
         """지정 위치에 테트로미노 블럭 그리기."""
+        if cell_size < 1 or alpha < 1:
+            return
         layout = tetro_layouts[tetro_type]
         color = tetro_colors[tetro_type]
         # 회전 적용 (90도 단위)
