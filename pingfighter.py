@@ -9170,7 +9170,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
                 FULLSCREEN_WIDTH = _fs_comp_w
                 FULLSCREEN_HEIGHT = _fs_comp_h
                 # comp 내에서 시네마 비율로 CPU 스케일 (마진 = 화면70px / GPU2x = comp35px)
-                _fs_margin_comp = 50
+                _fs_margin_comp = 65
                 scale_y = (_fs_comp_h - _fs_margin_comp * 2) / HEIGHT
                 scaled_width_check = int(WIDTH * scale_y)
                 if scaled_width_check > _fs_comp_w:
