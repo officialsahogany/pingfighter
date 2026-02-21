@@ -9140,8 +9140,8 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         FULLSCREEN_WIDTH = actual_w
         FULLSCREEN_HEIGHT = actual_h
 
-        # 시네마모드보다 게임 영역을 크게 (MARGIN 30 vs 시네마 70)
-        MARGIN = 30
+        # 시네마모드보다 게임 영역을 약간 크게 (MARGIN 50 vs 시네마 70)
+        MARGIN = 50
         scale_y = (FULLSCREEN_HEIGHT - MARGIN * 2) / HEIGHT
         scaled_width_check = int(WIDTH * scale_y)
         if scaled_width_check > FULLSCREEN_WIDTH:
