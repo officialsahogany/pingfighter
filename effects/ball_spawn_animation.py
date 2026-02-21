@@ -824,6 +824,9 @@ class BallSpawnAnimation:
         self.hologram_rings: List[HologramRing] = []
         self.energy_rings: List[EnergyRing] = []
 
+        # Phase 3 잔상 트레일
+        self.phase3_trail: List[Tuple[float, float]] = []
+
         # 파티클 스폰 타이머
         self.particle_spawn_timer = 0
         self.lightning_spawn_timer = 0
@@ -879,6 +882,7 @@ class BallSpawnAnimation:
         self.sparks.clear()
         self.hologram_rings.clear()
         self.energy_rings.clear()
+        self.phase3_trail.clear()
 
         # 초기 파티클 생성
         self._spawn_initial_particles()
@@ -1219,6 +1223,24 @@ class BallSpawnAnimation:
         self.energy_rings = [ring for ring in self.energy_rings
                              if ring.update(dt, (self.ball_x, self.ball_y))]
 
+        # 번개 볼트 업데이트 (Phase 3에서도 유지)
+        self.lightning_bolts = [bolt for bolt in self.lightning_bolts if bolt.update(dt)]
+
+        # 잔상 트레일 기록
+        self.phase3_trail.append((self.ball_x, self.ball_y))
+        if len(self.phase3_trail) > 25:
+            self.phase3_trail = self.phase3_trail[-25:]
+
+        # 번개 테더 (트레일 위치 → 현재 공 위치로 연결)
+        if len(self.phase3_trail) >= 4 and random.random() < 0.35:
+            trail_idx = random.randint(0, max(0, len(self.phase3_trail) - 5))
+            tx, ty = self.phase3_trail[trail_idx]
+            dist = math.hypot(self.ball_x - tx, self.ball_y - ty)
+            if dist > 15:
+                self.lightning_bolts.append(
+                    EnhancedLightningBolt(tx, ty, self.ball_x, self.ball_y, is_main=True)
+                )
+
         # 파티클 페이드아웃
         self.quantum_particles = [p for p in self.quantum_particles
                                    if random.random() > 0.08]
@@ -1317,6 +1339,10 @@ class BallSpawnAnimation:
         if self.core_glow_alpha > 0 and self.core_glow_radius > 0:
             self._draw_core_glow(surface)
 
+        # 잔상 트레일 그리기 (Phase 3)
+        if self.current_phase == 3 and len(self.phase3_trail) > 1:
+            self._draw_afterimage_trail(surface, ball_color)
+
         # 공 그리기
         if self.ball_visible and self.ball_alpha > 0:
             self._draw_ball(surface, ball_color)
@@ -1359,6 +1385,58 @@ class BallSpawnAnimation:
 
         surface.blit(glow_surf,
                      (int(self.center_x - center), int(self.center_y - center)))
+
+    def _draw_afterimage_trail(self, surface: pygame.Surface, ball_color: Tuple[int, int, int]):
+        """Phase 3 잔상 트레일 그리기 - 공의 이동 경로를 따라 페이딩 고스트 표시"""
+        trail = self.phase3_trail
+        trail_len = len(trail)
+        if trail_len < 2:
+            return
+
+        radius = int(self.ball_radius * self.ball_scale)
+        if radius <= 0:
+            return
+
+        # 단일 서피스에 전체 트레일 렌더 (SRCALPHA 생성 1회)
+        trail_surf = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
+
+        # 잔상 색상 팔레트 (기본 → 연보라 → 시안)
+        ghost_colors = [
+            ball_color,
+            tuple(min(255, int(c * 0.7 + 80)) for c in ball_color),
+            (180, 200, 255),
+            (160, 180, 240),
+            (140, 160, 220),
+        ]
+
+        # 매 3번째 위치마다 잔상 (성능 최적화)
+        step = max(1, trail_len // 8)
+        for i in range(0, trail_len - 1, step):
+            # 트레일 내 위치 비율 (0=가장 오래된, 1=최신)
+            ratio = i / trail_len
+            # 오래된 잔상일수록 투명
+            alpha = int(120 * ratio * ratio)
+            if alpha < 8:
+                continue
+
+            tx, ty = trail[i]
+            # 오래된 잔상일수록 작은 크기
+            ghost_r = max(2, int(radius * (0.3 + ratio * 0.5)))
+
+            # 색상 선택 (오래된 → 보라/시안 톤, 최신 → 원래 색상)
+            color_idx = min(len(ghost_colors) - 1, int((1 - ratio) * len(ghost_colors)))
+            gc = ghost_colors[color_idx]
+
+            # 글로우
+            glow_r = int(ghost_r * 2.0)
+            if glow_r > 0:
+                pygame.draw.circle(trail_surf, (*gc, max(1, alpha // 3)),
+                                   (int(tx), int(ty)), glow_r)
+            # 코어
+            pygame.draw.circle(trail_surf, (*gc, alpha),
+                               (int(tx), int(ty)), ghost_r)
+
+        surface.blit(trail_surf, (0, 0))
 
     def _draw_ball(self, surface: pygame.Surface, ball_color: Tuple[int, int, int]):
         """공 그리기 (고해상도 글로우 + 코로나 효과)"""
