@@ -20306,6 +20306,7 @@ arena_capture_net_active = False
 arena_capture_net_speed = -14.0         # 위로 발사
 arena_capture_shots_left = 3
 arena_capture_net_rope = []             # 로프 궤적 포인트
+arena_capture_rope_target = None        # 포획 성공 시 밧줄 연결 대상 좌표 (cx, cy) - 끊김 방지
 # 펼쳐진 그물 (deployed net)
 arena_capture_deployed_net = None       # {"rect", "timer", "max_timer", "shape", "trapped", "phase"}
 # 상대 도주 AI (상단 영웅)
@@ -102393,13 +102394,14 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         global arena_capture_net_x, arena_capture_net_y, arena_capture_net_speed
         global arena_capture_net_rope, arena_capture_caught_anim, arena_capture_escape_anim
         global arena_capture_deployed_net, arena_capture_pull_start_x, arena_capture_pull_start_y
-        global arena_capture_residual_net, arena_capture_speech_line
+        global arena_capture_residual_net, arena_capture_speech_line, arena_capture_rope_target
         arena_capture_do_capture = globals().pop('_arena_pending_do_capture', False)
         arena_capture_phase = None
         arena_capture_timer = 0.0
         arena_capture_result_flag = None
         arena_capture_speech_line = None
         arena_capture_net_active = False
+        arena_capture_rope_target = None
         arena_capture_shots_left = 3
         arena_capture_flee_x = 380.0
         arena_capture_flee_y = 60.0
@@ -120328,6 +120330,7 @@ def _fire_capture_net():
     """그물 투사체 발사"""
     global arena_capture_net_active, arena_capture_net_x, arena_capture_net_y
     global arena_capture_net_speed, arena_capture_shots_left, arena_capture_net_rope
+    global arena_capture_rope_target
     if arena_capture_net_active or arena_capture_shots_left <= 0:
         return
     if arena_capture_phase != "active":
@@ -120340,6 +120343,7 @@ def _fire_capture_net():
     arena_capture_net_speed = -14.0
     arena_capture_net_active = True
     arena_capture_net_rope = [(px, py)]
+    arena_capture_rope_target = None  # 이전 밧줄 연결 해제
     arena_capture_shots_left -= 1
     # 사운드
     _load_capture_grab_sound()
@@ -120433,7 +120437,7 @@ def _update_arena_capture_phase(screen):
     global arena_capture_flee_dir, arena_capture_flee_dodge_timer
     global arena_capture_caught_anim, arena_capture_escape_anim
     global arena_capture_pull_start_x, arena_capture_pull_start_y
-    global arena_capture_net_rope, arena_capture_deployed_net
+    global arena_capture_net_rope, arena_capture_deployed_net, arena_capture_rope_target
     global arena_capture_residual_net, arena_capture_speech_line
     global arena_battle_result
     import pygame as pygame
@@ -120658,6 +120662,8 @@ def _update_arena_capture_phase(screen):
                     "phase": 0.0,
                 }
                 if trapped:
+                    # 포획 성공: 밧줄 연결 대상 저장 (끊김 방지)
+                    arena_capture_rope_target = (net_rect.centerx, net_rect.centery)
                     # 포획 성공 사운드 재생
                     _load_capture_net_sound()
                     if _capture_net_sound:
@@ -120745,6 +120751,11 @@ def _update_arena_capture_phase(screen):
         # 펼쳐진 그물
         if arena_capture_deployed_net is not None:
             _draw_deployed_capture_net(screen, arena_capture_deployed_net)
+        # 포획 성공 시 지속 밧줄 (투사체 → 그물 전환 시 끊김 방지)
+        if arena_capture_rope_target is not None and not arena_capture_net_active:
+            _draw_capture_persistent_rope(screen, PLAYER.centerx, PLAYER.centery,
+                                          arena_capture_rope_target[0], arena_capture_rope_target[1],
+                                          arena_capture_timer)
         # UI: 잔여 발수 + 타이머 + 조작 안내
         try:
             _cap_ui_font = getattr(_update_arena_capture_phase, '_ui_font', None)
@@ -120986,7 +120997,9 @@ def _update_arena_capture_phase(screen):
                         screen.blit(nsurf, (ncx - surf_w // 2, ncy - surf_h // 2))
 
             # ── 밧줄 이펙트 (고퀄리티: 꼬인 밧줄 + 긴장 물결 + 매듭) ──
-            rope_grow = min(1.0, t / ROPE_GROW_DUR)  # 0→1 over 0.5초
+            # active 페이즈에서 이미 밧줄이 연결되어 있으므로 처음부터 완전 표시
+            arena_capture_rope_target = None  # persistent rope는 여기서 pull rope로 대체
+            rope_grow = 1.0  # 밧줄 끊김 없이 즉시 전체 표시
             if rope_grow > 0.05:
                 px, py = PLAYER.centerx, PLAYER.centery
                 bx, by = int(cur_x), int(cur_y)
@@ -121207,6 +121220,68 @@ def _update_arena_capture_phase(screen):
             animated_bg_stage30.judgment_cooldown = _cap_random.uniform(50.0, 60.0)
         arena_battle_result = True
         print(f"[CAPTURE] 포획 페이즈 완료. 결과={arena_capture_result_flag}")
+
+
+def _draw_capture_persistent_rope(screen, px, py, tx, ty, timer):
+    """포획 성공 시 플레이어↔그물 사이 지속 밧줄 (끊김 방지용)"""
+    import math as _m
+    chain_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
+    dist = max(1.0, ((px - tx)**2 + (py - ty)**2)**0.5)
+    num_segs = max(4, int(dist / 14))
+    rope_alpha = 210
+
+    dx = tx - px
+    dy = ty - py
+
+    # 세그먼트별 포인트 (약간의 처짐 + 미세 흔들림)
+    seg_points = []
+    for i in range(num_segs + 1):
+        frac = i / num_segs
+        base_x = px + dx * frac
+        base_y = py + dy * frac
+        # 카테너리 처짐 (중앙 약간)
+        sag = 15.0 * 4.0 * frac * (1.0 - frac)
+        # 수직 방향
+        perp_x = -dy / dist if dist > 0 else 0
+        perp_y = dx / dist if dist > 0 else 1
+        # 미세 흔들림
+        wave = _m.sin(timer * 4.0 + frac * 8.0) * 2.0
+        twist = _m.sin(timer * 6.0 + frac * 12.0) * 1.5
+        final_x = base_x + perp_x * (sag + wave + twist)
+        final_y = base_y + perp_y * (sag + wave + twist)
+        seg_points.append((final_x, final_y))
+
+    # 꼬인 밧줄 (2가닥)
+    for i in range(len(seg_points) - 1):
+        p1 = seg_points[i]
+        p2 = seg_points[i + 1]
+        sdx = p2[0] - p1[0]
+        sdy = p2[1] - p1[1]
+        sl = max(1.0, (sdx**2 + sdy**2)**0.5)
+        nx_d = -sdy / sl
+        ny_d = sdx / sl
+        tw = _m.sin(timer * 10.0 + i * 0.9) * 2.0
+
+        pygame.draw.line(chain_surf, (190, 165, 120, rope_alpha),
+                         (int(p1[0] + nx_d * tw), int(p1[1] + ny_d * tw)),
+                         (int(p2[0] + nx_d * tw), int(p2[1] + ny_d * tw)), 3)
+        pygame.draw.line(chain_surf, (140, 110, 70, rope_alpha),
+                         (int(p1[0] - nx_d * tw), int(p1[1] - ny_d * tw)),
+                         (int(p2[0] - nx_d * tw), int(p2[1] - ny_d * tw)), 3)
+        pygame.draw.line(chain_surf, (220, 200, 160, max(0, rope_alpha - 60)),
+                         (int(p1[0]), int(p1[1])), (int(p2[0]), int(p2[1])), 1)
+
+    # 매듭 포인트
+    for i in range(0, len(seg_points), max(1, num_segs // 4)):
+        kx, ky = int(seg_points[i][0]), int(seg_points[i][1])
+        pygame.draw.circle(chain_surf, (170, 140, 95, rope_alpha), (kx, ky), 4)
+        pygame.draw.circle(chain_surf, (210, 185, 140, min(rope_alpha, 180)), (kx, ky), 4, 1)
+
+    # 끝단 고리
+    pygame.draw.circle(chain_surf, (180, 155, 110, rope_alpha), (int(px), int(py)), 5, 2)
+    pygame.draw.circle(chain_surf, (180, 155, 110, rope_alpha), (int(tx), int(ty)), 5, 2)
+
+    screen.blit(chain_surf, (0, 0))
 
 
 def _draw_deployed_capture_net(screen, dnet):
