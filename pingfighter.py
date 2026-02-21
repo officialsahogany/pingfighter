@@ -9116,56 +9116,39 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
         FULLSCREEN_MODE = False
         _is_fullscreen_active = True
 
-        # MARGIN 포함 합성 크기 계산 (필러 + 게임 영역)
-        _fs_margin = 70
-        _fs_base_h = monitor_h - _fs_margin * 2
-        _fs_win_scale = _fs_base_h / HEIGHT
-        _fs_game_w = int(WIDTH * _fs_win_scale)
-        _fs_pillar_pad_x = int(_fs_game_w * 0.30)
-        _fs_comp_w = _fs_game_w + _fs_pillar_pad_x * 2
-        _fs_comp_h = monitor_h  # 전체화면이므로 높이는 모니터 전체
-        if _fs_comp_w > monitor_w:
-            _fs_comp_w = monitor_w
+        # 모니터 비율에 맞는 합성 버퍼 크기 계산
+        # SDL SCALED|FULLSCREEN이 이 크기 → 모니터 전체화면으로 GPU 업스케일
+        _fs_aspect = monitor_w / monitor_h
+        _fs_comp_h = max(HEIGHT + 50, monitor_h // 2)  # 게임(750)+여백 또는 모니터 절반
+        _fs_comp_w = int(_fs_comp_h * _fs_aspect)      # 모니터 비율 유지
+        if _fs_comp_w < WIDTH + 50:                     # 게임 너비 보장
+            _fs_comp_w = WIDTH + 50
+            _fs_comp_h = int(_fs_comp_w / _fs_aspect)
+        _fs_pad_x = (_fs_comp_w - WIDTH) // 2
+        _fs_pad_y = (_fs_comp_h - HEIGHT) // 2
+        _fs_gpu_scale = round(monitor_h / _fs_comp_h, 2)
 
-        # 정수배 합성 크기 결정 (target/N >= 게임 크기인 최대 N)
-        _fs_comp_w_try = _fs_comp_w // 2
-        _fs_comp_h_try = _fs_comp_h // 2
-        if _fs_comp_w_try >= WIDTH and _fs_comp_h_try >= HEIGHT:
-            _fs_comp_w_final = _fs_comp_w_try
-            _fs_comp_h_final = _fs_comp_h_try
-            _fs_scale_n = 2
-        else:
-            _fs_comp_w_final = _fs_comp_w
-            _fs_comp_h_final = _fs_comp_h
-            _fs_scale_n = 1
-        _fs_pad_x = (_fs_comp_w_final - WIDTH) // 2
-        _fs_pad_y = (_fs_comp_h_final - HEIGHT) // 2
-
-        # SCALED + NOFRAME 합성 모드 시도
+        # SCALED + FULLSCREEN: SDL이 comp → 모니터 전체화면 GPU 업스케일
+        # (FULLSCREEN + SCALED = fullscreen-desktop 모드, OS 해상도 변경 없음)
         _fs_scaled_ok = False
         pygame.display.quit()
         pygame.display.init()
         try:
-            os.environ['SDL_VIDEO_WINDOW_POS'] = '0,0'
             REAL_SCREEN = pygame.display.set_mode(
-                (_fs_comp_w_final, _fs_comp_h_final),
-                pygame.SCALED | pygame.NOFRAME
+                (_fs_comp_w, _fs_comp_h),
+                pygame.SCALED | pygame.FULLSCREEN
             )
-            if 'SDL_VIDEO_WINDOW_POS' in os.environ:
-                del os.environ['SDL_VIDEO_WINDOW_POS']
             _fs_scaled_ok = True
         except pygame.error as _fs_err:
-            print(f"[플래그십] SCALED|NOFRAME 실패({_fs_err}), 소프트웨어 스케일링 폴백", flush=True)
-            if 'SDL_VIDEO_WINDOW_POS' in os.environ:
-                del os.environ['SDL_VIDEO_WINDOW_POS']
+            print(f"[플래그십] SCALED|FULLSCREEN 실패({_fs_err}), 소프트웨어 스케일링 폴백", flush=True)
 
         if _fs_scaled_ok:
             # --- GPU SCALED 합성 성공: 게임 1:1, GPU가 업스케일 ---
             _use_scaled_mode = True
             if _custom_cursor_enabled:
                 pygame.mouse.set_visible(False)
-            FULLSCREEN_WIDTH = _fs_comp_w_final
-            FULLSCREEN_HEIGHT = _fs_comp_h_final
+            FULLSCREEN_WIDTH = _fs_comp_w
+            FULLSCREEN_HEIGHT = _fs_comp_h
             GAME_SCALE_FACTOR = 1.0
             GAME_SCALED_WIDTH = WIDTH
             GAME_SCALED_HEIGHT = HEIGHT
@@ -9174,11 +9157,11 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
             _set_font_scale(1.0)
             SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert()
             pillar_renderer = init_pillar_background(
-                _fs_comp_w_final, _fs_comp_h_final, WIDTH, HEIGHT,
+                _fs_comp_w, _fs_comp_h, WIDTH, HEIGHT,
                 offset_x=_fs_pad_x, offset_y=_fs_pad_y,
                 original_game_width=WIDTH, original_game_height=HEIGHT
             )
-            _mode_str = f"SCALED x{_fs_scale_n}"
+            _mode_str = f"SCALED|FULLSCREEN ({_fs_comp_w}x{_fs_comp_h} →x{_fs_gpu_scale} GPU)"
         else:
             # --- 폴백: 기존 CPU 소프트웨어 스케일링 ---
             _use_scaled_mode = False
