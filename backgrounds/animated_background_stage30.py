@@ -221,23 +221,40 @@ class AnimatedBackgroundStage30:
         self._prerender_border()
 
     def _init_torches(self):
-        """횃불 위치 초기화 - 게임 영역 내 양쪽 가장자리에 대칭 배치"""
+        """횃불 위치 초기화 - 게임 영역 내 양쪽 가장자리에 대칭 배치 (고퀄리티)"""
         torches = []
-        # 게임 영역(80~679) 내에서 좌우 대칭 배치
-        # 왼쪽: 80+25=105, 오른쪽: 680-25=655
         left_x = self.GAME_AREA_X + 25
         right_x = self.GAME_AREA_END_X - 25
         positions = [
-            (left_x, 150), (left_x, 375), (left_x, 600),   # 왼쪽
-            (right_x, 150), (right_x, 375), (right_x, 600),  # 오른쪽
+            (left_x, 150), (left_x, 375), (left_x, 600),
+            (right_x, 150), (right_x, 375), (right_x, 600),
         ]
         for x, y in positions:
+            # 엠버(불씨) 파티클 초기화
+            embers = []
+            for _ in range(6):
+                embers.append({
+                    'rx': random.uniform(-4, 4),
+                    'ry': random.uniform(-10, -30),
+                    'life': random.randint(20, 60),
+                    'max_life': 60,
+                    'vx': random.uniform(-0.3, 0.3),
+                    'vy': random.uniform(-0.5, -1.2),
+                    'size': random.uniform(1.0, 2.5),
+                })
             torches.append({
                 'x': x, 'y': y,
                 'flame_height': random.uniform(18, 28),
                 'flicker_offset': random.uniform(0, math.pi * 2),
-                'intensity': random.uniform(0.8, 1.0)
+                'flicker_offset2': random.uniform(0, math.pi * 2),
+                'flicker_offset3': random.uniform(0, math.pi * 2),
+                'intensity': random.uniform(0.8, 1.0),
+                'sway': 0.0,
+                'embers': embers,
             })
+        # 글로우 캐시 초기화
+        self._torch_glow_cache = {}
+        self._torch_base_glow_cache = {}
         return torches
 
     def _init_spectators(self):
@@ -712,10 +729,37 @@ class AnimatedBackgroundStage30:
         # 관중 웨이브 타이머
         self.crowd_wave_timer += dt * 2
 
-        # 횃불 업데이트
+        # 횃불 업데이트 (고퀄리티 멀티 레이어 애니메이션)
         for torch in self.torches:
-            torch['intensity'] = 0.7 + 0.3 * math.sin(self.time * 8 + torch['flicker_offset'])
-            torch['flame_height'] = 20 + 8 * math.sin(self.time * 6 + torch['flicker_offset'])
+            off1 = torch['flicker_offset']
+            off2 = torch['flicker_offset2']
+            off3 = torch['flicker_offset3']
+            # 다중 사인파 합성으로 자연스러운 불꽃 흔들림
+            torch['intensity'] = (0.7
+                + 0.15 * math.sin(self.time * 8 + off1)
+                + 0.10 * math.sin(self.time * 13 + off2)
+                + 0.05 * math.sin(self.time * 21 + off3))
+            torch['flame_height'] = (22
+                + 5 * math.sin(self.time * 6 + off1)
+                + 3 * math.sin(self.time * 10 + off2)
+                + 2 * math.sin(self.time * 17 + off3))
+            # 좌우 흔들림 (바람 효과)
+            torch['sway'] = (
+                2.0 * math.sin(self.time * 3.5 + off1)
+                + 1.0 * math.sin(self.time * 7 + off2))
+            # 엠버 파티클 업데이트
+            for ember in torch['embers']:
+                ember['ry'] += ember['vy']
+                ember['rx'] += ember['vx'] + 0.1 * math.sin(self.time * 5 + ember['rx'])
+                ember['life'] -= 1
+                if ember['life'] <= 0:
+                    ember['rx'] = random.uniform(-4, 4)
+                    ember['ry'] = random.uniform(-8, -14)
+                    ember['life'] = random.randint(25, 60)
+                    ember['max_life'] = ember['life']
+                    ember['vx'] = random.uniform(-0.3, 0.3)
+                    ember['vy'] = random.uniform(-0.5, -1.2)
+                    ember['size'] = random.uniform(1.0, 2.5)
 
         # 먼지 파티클 업데이트
         for i, particle in enumerate(self.dust_particles):
@@ -3667,62 +3711,199 @@ class AnimatedBackgroundStage30:
             screen.blit(spark_surf, (bx - sc, by - sc), special_flags=pygame.BLEND_ADD)
 
     def _draw_torches(self, screen, scale_x, scale_y, offset_x, offset_y):
-        """횃불 그리기"""
+        """횃불 그리기 (고퀄리티 - 다층 불꽃 + 엠버 + 금속 거치대)"""
         for torch in self.torches:
             tx = int(torch['x'] * scale_x + offset_x)
             ty = int(torch['y'] * scale_y + offset_y)
-
-            # 횃불 받침대
-            holder_color = (70, 55, 40)
-            pygame.draw.rect(screen, holder_color,
-                           (tx - 3, ty, 6, 18))
-            # 받침대 상단 장식
-            pygame.draw.rect(screen, (90, 75, 55),
-                           (tx - 5, ty - 3, 10, 5))
-
-            # 불꽃
-            flame_h = int(torch['flame_height'] * scale_y)
             intensity = torch['intensity']
+            sway = torch['sway'] * scale_x
+            flame_h = int(torch['flame_height'] * scale_y)
+            sway_i = int(sway)
 
-            # 외부 불꽃 (주황)
-            outer_color = (255, int(140 * intensity), 20)
-            points = [
-                (tx, ty - 2),
-                (tx - 7, ty - flame_h // 2),
-                (tx - 2, ty - flame_h * 0.7),
-                (tx, ty - flame_h),
-                (tx + 2, ty - flame_h * 0.7),
-                (tx + 7, ty - flame_h // 2)
+            # ── 1. 벽면 조명 반사 (받침대 뒤쪽 은은한 빛) ──
+            base_glow_r = int(18 * intensity * scale_x)
+            if base_glow_r > 2:
+                bg_key = base_glow_r
+                if bg_key not in self._torch_base_glow_cache:
+                    bgs = pygame.Surface((base_glow_r * 2, base_glow_r * 3), pygame.SRCALPHA)
+                    for r in range(base_glow_r, 0, -2):
+                        a = int(12 * (r / base_glow_r))
+                        pygame.draw.ellipse(bgs, (255, 140, 50, a),
+                                            (base_glow_r - r, base_glow_r * 3 // 2 - r,
+                                             r * 2, r * 2))
+                    self._torch_base_glow_cache[bg_key] = bgs
+                screen.blit(self._torch_base_glow_cache[bg_key],
+                            (tx - base_glow_r, ty - base_glow_r),
+                            special_flags=pygame.BLEND_ADD)
+
+            # ── 2. 금속 거치대 (입체감 있는 브래킷) ──
+            sx = lambda v: int(v * scale_x)
+            sy = lambda v: int(v * scale_y)
+
+            # 기둥 본체 (그라디언트 효과 - 3단 음영)
+            dark_metal = (50, 40, 30)
+            mid_metal = (75, 60, 45)
+            light_metal = (100, 85, 65)
+            # 그림자 면 (왼쪽)
+            pygame.draw.rect(screen, dark_metal,
+                             (tx - sx(4), ty + sy(1), sx(3), sy(20)))
+            # 본체 면
+            pygame.draw.rect(screen, mid_metal,
+                             (tx - sx(1), ty + sy(1), sx(3), sy(20)))
+            # 하이라이트 면 (오른쪽)
+            pygame.draw.rect(screen, light_metal,
+                             (tx + sx(2), ty + sy(1), sx(1), sy(20)))
+
+            # 상단 화구 (불을 담는 그릇 모양)
+            bowl_pts = [
+                (tx - sx(7), ty + sy(2)),
+                (tx - sx(5), ty - sy(3)),
+                (tx + sx(5), ty - sy(3)),
+                (tx + sx(7), ty + sy(2)),
+                (tx + sx(4), ty + sy(4)),
+                (tx - sx(4), ty + sy(4)),
             ]
-            pygame.draw.polygon(screen, outer_color, points)
+            pygame.draw.polygon(screen, mid_metal, bowl_pts)
+            # 화구 테두리 (금속 광택)
+            pygame.draw.lines(screen, light_metal, False, [
+                (tx - sx(7), ty + sy(2)),
+                (tx - sx(5), ty - sy(3)),
+                (tx + sx(5), ty - sy(3)),
+                (tx + sx(7), ty + sy(2)),
+            ], max(1, sx(1)))
+            # 화구 안쪽 어두운 면
+            pygame.draw.polygon(screen, dark_metal, [
+                (tx - sx(4), ty + sy(1)),
+                (tx - sx(3), ty - sy(1)),
+                (tx + sx(3), ty - sy(1)),
+                (tx + sx(4), ty + sy(1)),
+            ])
 
-            # 내부 불꽃 (노랑)
-            inner_color = (255, int(230 * intensity), int(80 * intensity))
-            inner_h = flame_h * 0.6
-            inner_points = [
-                (tx, ty - 4),
-                (tx - 3, ty - flame_h // 3),
-                (tx, ty - int(inner_h)),
-                (tx + 3, ty - flame_h // 3)
-            ]
-            pygame.draw.polygon(screen, inner_color, inner_points)
+            # 하단 리벳 장식 2개
+            rivet_color = (120, 105, 80)
+            pygame.draw.circle(screen, rivet_color,
+                               (tx, ty + sy(7)), max(1, sx(2)))
+            pygame.draw.circle(screen, rivet_color,
+                               (tx, ty + sy(14)), max(1, sx(2)))
+            # 리벳 하이라이트
+            pygame.draw.circle(screen, (150, 135, 110),
+                               (tx - sx(1), ty + sy(6)), max(1, sx(1)))
+            pygame.draw.circle(screen, (150, 135, 110),
+                               (tx - sx(1), ty + sy(13)), max(1, sx(1)))
 
-            # 글로우 효과 (프리렌더 캐시)
-            glow_radius = int(25 * intensity * scale_x)
-            if glow_radius > 0:
-                if not hasattr(self, '_torch_glow_cache'):
-                    self._torch_glow_cache = {}
+            # ── 3. 메인 글로우 (불꽃 주변 발광) ──
+            glow_radius = int(30 * intensity * scale_x)
+            if glow_radius > 2:
                 glow_key = glow_radius
                 if glow_key not in self._torch_glow_cache:
                     gs = pygame.Surface((glow_radius * 2, glow_radius * 2), pygame.SRCALPHA)
-                    for r in range(glow_radius, 0, -3):
-                        alpha = int(25 * (r / glow_radius))
-                        pygame.draw.circle(gs, (255, 160, 60, alpha),
-                                         (glow_radius, glow_radius), r)
+                    for r in range(glow_radius, 0, -2):
+                        frac = r / glow_radius
+                        a = int(30 * frac * frac)
+                        # 중심부는 밝은 노랑, 외곽은 주황/붉은 톤
+                        rr = 255
+                        gg = int(180 * frac + 60 * (1 - frac))
+                        bb = int(40 * frac)
+                        pygame.draw.circle(gs, (rr, gg, bb, a),
+                                           (glow_radius, glow_radius), r)
                     self._torch_glow_cache[glow_key] = gs
                 screen.blit(self._torch_glow_cache[glow_key],
-                           (tx - glow_radius, ty - flame_h // 2 - glow_radius),
-                           special_flags=pygame.BLEND_ADD)
+                            (tx + sway_i - glow_radius,
+                             ty - flame_h // 2 - glow_radius),
+                            special_flags=pygame.BLEND_ADD)
+
+            # ── 4. 외부 불꽃 (가장 바깥 - 붉은/어두운 주황) ──
+            outer_dark = (200, int(70 * intensity), 10)
+            od_pts = [
+                (tx - sx(1) + sway_i // 2, ty - sy(1)),
+                (tx - sx(9) + sway_i // 3, ty - flame_h * 0.35),
+                (tx - sx(6) + sway_i // 2, ty - flame_h * 0.6),
+                (tx - sx(3) + sway_i, ty - flame_h * 0.85),
+                (tx + sway_i, ty - flame_h - sy(3)),
+                (tx + sx(3) + sway_i, ty - flame_h * 0.85),
+                (tx + sx(6) + sway_i // 2, ty - flame_h * 0.6),
+                (tx + sx(9) + sway_i // 3, ty - flame_h * 0.35),
+                (tx + sx(1) + sway_i // 2, ty - sy(1)),
+            ]
+            pygame.draw.polygon(screen, outer_dark, od_pts)
+
+            # ── 5. 중간 불꽃 (주황) ──
+            mid_color = (255, int(150 * intensity), 20)
+            mid_pts = [
+                (tx + sway_i // 2, ty - sy(2)),
+                (tx - sx(7) + sway_i // 2, ty - flame_h * 0.4),
+                (tx - sx(3) + sway_i, ty - flame_h * 0.65),
+                (tx - sx(1) + sway_i, ty - flame_h * 0.85),
+                (tx + sway_i, ty - flame_h),
+                (tx + sx(1) + sway_i, ty - flame_h * 0.85),
+                (tx + sx(3) + sway_i, ty - flame_h * 0.65),
+                (tx + sx(7) + sway_i // 2, ty - flame_h * 0.4),
+                (tx + sway_i // 2, ty - sy(2)),
+            ]
+            pygame.draw.polygon(screen, mid_color, mid_pts)
+
+            # ── 6. 내부 불꽃 (밝은 노랑) ──
+            inner_color = (255, int(235 * intensity), int(90 * intensity))
+            inner_h = flame_h * 0.65
+            in_pts = [
+                (tx + sway_i // 2, ty - sy(4)),
+                (tx - sx(4) + sway_i, ty - inner_h * 0.45),
+                (tx - sx(1) + sway_i, ty - inner_h * 0.8),
+                (tx + sway_i, ty - int(inner_h)),
+                (tx + sx(1) + sway_i, ty - inner_h * 0.8),
+                (tx + sx(4) + sway_i, ty - inner_h * 0.45),
+                (tx + sway_i // 2, ty - sy(4)),
+            ]
+            pygame.draw.polygon(screen, inner_color, in_pts)
+
+            # ── 7. 코어 불꽃 (흰색/연노랑 - 가장 뜨거운 중심부) ──
+            core_color = (255, 255, int(180 * intensity + 60))
+            core_h = flame_h * 0.35
+            core_pts = [
+                (tx + sway_i, ty - sy(5)),
+                (tx - sx(2) + sway_i, ty - core_h * 0.5),
+                (tx + sway_i, ty - int(core_h)),
+                (tx + sx(2) + sway_i, ty - core_h * 0.5),
+            ]
+            pygame.draw.polygon(screen, core_color, core_pts)
+
+            # ── 8. 엠버(불씨) 파티클 ──
+            for ember in torch['embers']:
+                if ember['life'] <= 0:
+                    continue
+                life_ratio = ember['life'] / ember['max_life']
+                ex = tx + int(ember['rx'] * scale_x) + sway_i
+                ey = ty + int(ember['ry'] * scale_y)
+                e_alpha = min(255, int(220 * life_ratio))
+                e_size = max(1, int(ember['size'] * scale_x * life_ratio))
+                # 불씨 색상: 밝은 노랑 → 주황 → 붉은색으로 페이드
+                if life_ratio > 0.6:
+                    e_col = (255, int(220 * life_ratio), int(60 * life_ratio))
+                elif life_ratio > 0.3:
+                    e_col = (255, int(140 * life_ratio), 10)
+                else:
+                    e_col = (200, int(80 * life_ratio), 5)
+                if e_size >= 2:
+                    es = pygame.Surface((e_size * 2, e_size * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(es, (*e_col, e_alpha),
+                                       (e_size, e_size), e_size)
+                    screen.blit(es, (ex - e_size, ey - e_size),
+                                special_flags=pygame.BLEND_ADD)
+                else:
+                    try:
+                        screen.set_at((ex, ey), e_col)
+                    except (IndexError, TypeError):
+                        pass
+
+            # ── 9. 불꽃 끝단 하이라이트 (팁 글로우) ──
+            tip_y = ty - flame_h + sway_i
+            tip_r = max(2, int(4 * intensity * scale_x))
+            tip_surf = pygame.Surface((tip_r * 2, tip_r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(tip_surf, (255, 255, 200, int(60 * intensity)),
+                               (tip_r, tip_r), tip_r)
+            screen.blit(tip_surf,
+                        (tx + sway_i - tip_r, tip_y - tip_r),
+                        special_flags=pygame.BLEND_ADD)
 
     def _draw_spectators(self, screen, scale_x, scale_y, offset_x, offset_y):
         """관중 실루엣 그리기"""
