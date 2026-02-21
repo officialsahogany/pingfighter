@@ -2245,9 +2245,12 @@ class AbyssInk(HeroSkill):
 
         # 활성 효과 업데이트
         if self.is_active:
-            self.active_timer -= dt
+            # travel/splash 단계에서는 active_timer를 감소시키지 않음
+            # → 'active' 단계(먹물 웅덩이 + 혼란)에 duration 3.0초 전부 할당
+            if self.phase == 'active':
+                self.active_timer -= dt
             self._update_active_effect(dt, caster_paddle, target_paddle, ball, game_state)
-            if self.active_timer <= 0:
+            if self.active_timer <= 0 and self.phase == 'active':
                 self._end_effect(caster_paddle, target_paddle, ball, game_state)
                 self.is_active = False
 

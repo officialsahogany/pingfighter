@@ -536,13 +536,15 @@ class HenchmanSystem:
 
     @staticmethod
     def _skill_has_lingering_effects(skill) -> bool:
-        """스킬에 아직 진행 중인 잔여 이펙트가 있는지 확인 (OilSpill 발사체/웅덩이 등)"""
+        """스킬에 아직 진행 중인 잔여 이펙트가 있는지 확인 (OilSpill 발사체/웅덩이, AbyssInk 분해 등)"""
         if not skill:
             return False
         skill_id = getattr(skill, 'skill_id', '')
         if skill_id == 'oil_spill':
             return bool(getattr(skill, 'oil_projectiles', [])
                         or getattr(skill, 'oil_puddles', []))
+        if skill_id == 'abyss_ink':
+            return getattr(skill, 'dissolving', False)
         return False
 
     _skill_sound_cache = {}
