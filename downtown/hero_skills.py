@@ -12429,13 +12429,6 @@ class BoneBarrier(HeroSkill):
             is_top = barrier.get('is_top', False)
             pulse = 0.85 + 0.15 * _sin(t_now * 3.0)
 
-            # ── 네크로 에너지 글로우 (뼈 주변 은은한 초록빛) ──
-            glow_a = int(25 * pulse)
-            glow_surf = _psurf((w + 16, h + 16), pygame.SRCALPHA)
-            pygame.draw.rect(glow_surf, (*necro_glow, glow_a),
-                           (0, 0, w + 16, h + 16), border_radius=6)
-            screen.blit(glow_surf, (x - 8, y - h // 2 - 8), special_flags=pygame.BLEND_ADD)
-
             # ── 그림자 ──
             pygame.draw.rect(screen, bone_sh,
                            (x + 2, y - h // 2 + 2, w, h), border_radius=3)
@@ -12529,10 +12522,6 @@ class BoneBarrier(HeroSkill):
                            (center_x - rune_size, y), (center_x + rune_size, y), 1)
             pygame.draw.line(screen, (*necro_glow, rune_a),
                            (center_x, y - rune_size // 2), (center_x, y + rune_size // 2), 1)
-            # 테두리 은은한 초록 아웃라인
-            edge_a = int(30 * pulse)
-            pygame.draw.rect(screen, (*necro_glow, edge_a),
-                           (x, y - h // 2, w, h), border_radius=3, width=1)
 
     def _draw_dying_barrier(self, screen, dying):
         """뼈 장막 파괴 애니메이션 (고퀄리티)"""
