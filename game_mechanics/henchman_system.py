@@ -46,7 +46,7 @@ HENCH_ICON_SIZE = 42
 
 # 채널링 스킬 ID (하수인이 스킬 지속 중 화면에 남아야 하는 스킬)
 # 나머지 스킬은 시전 포즈 후 즉시 퇴장하고, 스킬 이펙트만 독립적으로 지속
-HENCH_CHANNELED_SKILLS = frozenset({'steam_barrier'})
+HENCH_CHANNELED_SKILLS = frozenset({'steam_barrier', 'gatling_burst'})
 # 채널링 스킬의 최대 체류 시간 (안전 타임아웃)
 HENCH_CHANNEL_MAX_STAY = 12.0
 
@@ -455,6 +455,16 @@ class HenchmanSystem:
             slot.anim_timer = 0.0
             # 쿨타임 시작
             slot.cooldown = slot.cooldown_max
+            # 개틀링 버스트 변신 상태 초기화 (잔류 방지)
+            if self.hero_paddle_renderer and slot.hero_id == "android":
+                state = self.hero_paddle_renderer._get_state(slot.hero_id)
+                state['gatling_firing'] = False
+                state['gatling_recoil'] = 0
+                state['gatling_mounting'] = False
+                state['gatling_mount_progress'] = 0.0
+                state['gatling_dismounting'] = False
+                state['gatling_dismount_progress'] = 0.0
+                state['gatling_aim_angle'] = None
 
     def _activate_skill(self, slot: HenchmanSlot, ball=None):
         """하수인 스킬 발동"""
@@ -761,6 +771,19 @@ class HenchmanSystem:
         """단일 하수인 캐릭터 렌더링"""
         ix, iy = int(slot.x), int(slot.y)
         color = slot.hero_color
+
+        # 개틀링 버스트 변신 상태 동기화 (hero_paddles 렌더러 연동)
+        if self.hero_paddle_renderer and slot.hero_id == "android":
+            game_state = self.skill_manager.game_state if self.skill_manager else {}
+            side = 'top' if self.is_top else 'bottom'
+            state = self.hero_paddle_renderer._get_state(slot.hero_id)
+            state['gatling_firing'] = game_state.get(f'gatling_burst_active_{side}', False)
+            state['gatling_recoil'] = game_state.get(f'gatling_recoil_{side}', 0)
+            state['gatling_mounting'] = game_state.get(f'gatling_mounting_{side}', False)
+            state['gatling_mount_progress'] = game_state.get(f'gatling_mount_progress_{side}', 0.0)
+            state['gatling_dismounting'] = game_state.get(f'gatling_dismounting_{side}', False)
+            state['gatling_dismount_progress'] = game_state.get(f'gatling_dismount_progress_{side}', 0.0)
+            state['gatling_aim_angle'] = game_state.get(f'gatling_aim_angle_{side}', None)
 
         # 글로우 효과
         glow_r = 30
