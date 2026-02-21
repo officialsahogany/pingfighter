@@ -21229,194 +21229,424 @@ def _show_arena_all_perks_owned_message():
 
 
 def _draw_magic_immunity_barrier(screen, center_x, center_y, base_radius, imm_timer, imm_duration, flash_timer=0.0, beam_target=None, is_top=False):
-    """마법결계 퍽 보호막 이펙트 (에너지 거울 쉴드, 반달형 - 영웅 앞쪽에 생성)"""
+    """마법결계 퍽 보호막 이펙트 (Ultra Premium - 고대 마법진 에너지 쉴드)"""
     if imm_timer <= 0:
         return
 
     current_time = pygame.time.get_ticks()
+    t = current_time * 0.001  # 초 단위 시간
     elapsed = imm_duration - imm_timer
 
     # === 페이드인 / 페이드아웃 알파 계산 ===
-    fade_in_dur = 0.5
-    fade_out_dur = 1.5
+    fade_in_dur = 0.6
+    fade_out_dur = 1.8
 
     if elapsed < fade_in_dur:
         fp = elapsed / fade_in_dur
-        alpha_mult = fp ** 0.5
-        expand_mult = 1.0 + (1.0 - fp) * 0.4
+        alpha_mult = fp ** 0.4
+        expand_mult = 1.0 + (1.0 - fp) * 0.5
     elif imm_timer < fade_out_dur:
         fp = imm_timer / fade_out_dur
         alpha_mult = fp
-        expand_mult = 0.9 + 0.1 * fp
+        expand_mult = 0.88 + 0.12 * fp
     else:
         alpha_mult = 1.0
         expand_mult = 1.0
 
-    pulse = 0.88 + 0.12 * math.sin(current_time * 0.008)
-    base_a = int(220 * alpha_mult * pulse)
+    pulse = 0.85 + 0.15 * math.sin(t * 5.0)
+    breath = 0.97 + 0.03 * math.sin(t * 2.3)
+    base_a = int(230 * alpha_mult * pulse)
     if base_a <= 0:
         return
 
     # === 쉴드 크기/방향 ===
-    shield_half_w = int(base_radius * 1.4 * expand_mult)
-    shield_curve_h = int(base_radius * 0.55 * expand_mult)
-    shield_inner_h = int(shield_curve_h * 0.45)
+    shield_half_w = int(base_radius * 1.5 * expand_mult * breath)
+    shield_curve_h = int(base_radius * 0.6 * expand_mult * breath)
+    shield_inner_h = int(shield_curve_h * 0.4)
     offset_y = int(base_radius * 0.85)
 
     arc_dir = 1 if is_top else -1
 
     # === 서피스 생성 ===
-    margin = 55
+    margin = 70
     surf_size = max(shield_half_w * 2, shield_curve_h + offset_y) * 2 + margin * 2
     surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
     cx = surf_size // 2
     cy = surf_size // 2
     s_cy = cy + arc_dir * offset_y
-    segments = 24
+    segments = 36  # 더 부드러운 곡선
 
-    def arc_points(half_w, h, cy_base=None):
+    def arc_points(half_w, h, cy_base=None, seg_count=None):
         if cy_base is None:
             cy_base = s_cy
+        if seg_count is None:
+            seg_count = segments
         pts = []
-        for i in range(segments + 1):
-            angle = math.pi * i / segments
+        for i in range(seg_count + 1):
+            angle = math.pi * i / seg_count
             px = cx + half_w * math.cos(angle)
             py = cy_base + arc_dir * h * math.sin(angle)
             pts.append((int(px), int(py)))
         return pts
 
-    # ── 1. 외곽 글로우 (3겹, 부드러운 보라색 번짐) ──
-    for layer in range(3):
-        gw = shield_half_w + 6 + layer * 7
-        gh = shield_curve_h + 4 + layer * 5
-        ga = max(0, int(base_a * (0.15 - layer * 0.04)))
+    def arc_points_f(half_w, h, cy_base=None, seg_count=None):
+        """float 버전 - 정밀 계산용"""
+        if cy_base is None:
+            cy_base = s_cy
+        if seg_count is None:
+            seg_count = segments
+        pts = []
+        for i in range(seg_count + 1):
+            angle = math.pi * i / seg_count
+            px = cx + half_w * math.cos(angle)
+            py = cy_base + arc_dir * h * math.sin(angle)
+            pts.append((px, py))
+        return pts
+
+    # ── 1. 외곽 대기 번짐 (5겹, 넓은 보라-청색 오라) ──
+    for layer in range(5):
+        gw = shield_half_w + 8 + layer * 9
+        gh = shield_curve_h + 5 + layer * 7
+        ga = max(0, int(base_a * (0.12 - layer * 0.02)))
         if ga > 0:
-            s = math.sin(current_time * 0.003 + layer * 0.7)
-            r = int(140 + 40 * max(0, s))
-            g = int(50 + 30 * abs(s))
-            b = int(200 + 55 * max(0, -s))
+            s_val = math.sin(t * 1.8 + layer * 0.9)
+            c_val = math.cos(t * 1.2 + layer * 1.3)
+            r = int(100 + 60 * max(0, s_val))
+            g = int(40 + 50 * max(0, c_val))
+            b = int(200 + 55 * max(0, -s_val))
             outer = arc_points(gw, gh)
-            inner = arc_points(gw, max(0, gh - 5 - layer * 3))
+            inner = arc_points(gw, max(0, gh - 6 - layer * 4))
             poly = outer + inner[::-1]
             if len(poly) >= 3:
                 pygame.draw.polygon(surf, (r, g, b, ga), poly)
 
-    # ── 2. 메인 쉴드 바디 (반달형 에너지 거울) ──
-    outer_pts = arc_points(shield_half_w, shield_curve_h)
-    inner_pts = arc_points(int(shield_half_w * 0.92), shield_inner_h)
-    body_poly = outer_pts + inner_pts[::-1]
-    if len(body_poly) >= 3:
-        t_phase = current_time * 0.004
-        br = int(120 + 35 * math.sin(t_phase))
-        bg = int(55 + 25 * math.sin(t_phase + 1.5))
-        bb = int(200 + 45 * math.sin(t_phase + 3.0))
-        body_a = int(base_a * 0.30)
-        pygame.draw.polygon(surf, (br, bg, bb, body_a), body_poly)
+    # ── 2. 멀티레이어 쉴드 바디 (4층 그라디언트 - 깊이감) ──
+    body_layers = [
+        (1.0, 1.0, 0.92, 0.25, (100, 40, 180)),    # 외곽 - 진한 보라
+        (0.93, 0.92, 0.82, 0.18, (120, 60, 210)),   # 중간1 - 중간 보라
+        (0.82, 0.78, 0.68, 0.15, (150, 90, 240)),    # 중간2 - 밝은 보라
+        (0.68, 0.62, 0.5, 0.12, (180, 130, 255)),    # 내부 - 밝은 라벤더
+    ]
+    t_phase = t * 2.5
+    for out_r, in_r, inner_r, alpha_ratio, base_color in body_layers:
+        outer_pts = arc_points(int(shield_half_w * out_r), int(shield_curve_h * in_r))
+        inner_pts_l = arc_points(int(shield_half_w * inner_r), int(shield_inner_h * in_r))
+        body_poly = outer_pts + inner_pts_l[::-1]
+        if len(body_poly) >= 3:
+            color_shift = 0.5 + 0.5 * math.sin(t_phase + out_r * 2.0)
+            br = min(255, int(base_color[0] + 30 * color_shift))
+            bg = min(255, int(base_color[1] + 25 * color_shift))
+            bb = min(255, int(base_color[2]))
+            body_a = int(base_a * alpha_ratio)
+            pygame.draw.polygon(surf, (br, bg, bb, body_a), body_poly)
 
-    # 중심부 밝은 영역 (거울 반사광)
-    mid_outer = arc_points(int(shield_half_w * 0.7), int(shield_curve_h * 0.85))
-    mid_inner = arc_points(int(shield_half_w * 0.65), int(shield_inner_h * 0.9))
-    mid_poly = mid_outer + mid_inner[::-1]
-    if len(mid_poly) >= 3:
-        ref_a = int(base_a * 0.12 * (0.7 + 0.3 * math.sin(current_time * 0.006)))
-        pygame.draw.polygon(surf, (190, 150, 255, ref_a), mid_poly)
+    # ── 3. 프리즘 이리데센스 (무지개빛 표면 반사) ──
+    prism_phase = t * 1.5
+    for pi in range(3):
+        p_t = (pi + 0.3) / 3.0
+        p_w = int(shield_half_w * (0.5 + 0.45 * p_t))
+        p_h = int(shield_curve_h * (0.55 + 0.35 * p_t))
+        p_inner_w = int(p_w * 0.85)
+        p_inner_h = int(shield_inner_h * (0.6 + 0.3 * p_t))
 
-    # ── 3. 표면 에너지 웨이브 (수평 스캔라인) ──
-    for wi in range(5):
-        wt = (wi + 0.5) / 5
-        wa = int(base_a * 0.22 * (0.5 + 0.5 * math.sin(current_time * 0.012 + wi * 1.5)))
+        # 이리데센스 색상 (시간에 따라 무지개처럼 변화)
+        hue_shift = prism_phase + pi * 1.2 + p_t * 3.0
+        ir = int(160 + 80 * math.sin(hue_shift))
+        ig = int(140 + 80 * math.sin(hue_shift + 2.094))
+        ib = int(200 + 55 * math.sin(hue_shift + 4.189))
+        ir = max(0, min(255, ir))
+        ig = max(0, min(255, ig))
+        ib = max(0, min(255, ib))
+
+        sweep = 0.5 + 0.5 * math.sin(t * 3.0 + pi * 2.5)
+        ia = int(base_a * 0.08 * sweep)
+        if ia > 0:
+            p_outer = arc_points(p_w, p_h)
+            p_inner_pts = arc_points(p_inner_w, p_inner_h)
+            p_poly = p_outer + p_inner_pts[::-1]
+            if len(p_poly) >= 3:
+                pygame.draw.polygon(surf, (ir, ig, ib, ia), p_poly)
+
+    # ── 4. 표면 에너지 웨이브 (흐르는 곡선 파동 8개) ──
+    for wi in range(8):
+        wt = (wi + 0.5) / 8
+        wave_pulse = 0.5 + 0.5 * math.sin(t * 7.0 + wi * 1.2)
+        wa = int(base_a * 0.18 * wave_pulse)
         if wa > 0:
             w_h = shield_inner_h + (shield_curve_h - shield_inner_h) * wt
-            w_half_w = int(shield_half_w * (0.92 + 0.08 * wt))
-            wave_off = 2.5 * math.sin(current_time * 0.007 + wi * 2.3)
+            w_half_w = int(shield_half_w * (0.88 + 0.12 * wt))
+            wave_off = 3.0 * math.sin(t * 4.5 + wi * 2.0)
+            wave_drift = 1.5 * math.cos(t * 3.2 + wi * 1.7)
             pts = []
             for j in range(segments + 1):
                 angle = math.pi * j / segments
-                px = cx + w_half_w * math.cos(angle)
-                py = s_cy + arc_dir * (w_h * math.sin(angle) + wave_off)
+                micro_wave = 1.5 * math.sin(angle * 5.0 + t * 8.0 + wi * 0.8)
+                px = cx + (w_half_w + wave_drift) * math.cos(angle)
+                py = s_cy + arc_dir * (w_h * math.sin(angle) + wave_off + micro_wave)
                 pts.append((int(px), int(py)))
             if len(pts) >= 2:
-                pygame.draw.lines(surf, (170, 110, 255, wa), False, pts, 1)
+                # 파동 색상 그라디언트 (위치에 따라)
+                wr = int(140 + 70 * wt)
+                wg = int(80 + 60 * (1.0 - wt))
+                wb = 255
+                pygame.draw.lines(surf, (wr, wg, wb, wa), False, pts, 1)
 
-    # ── 4. 외곽 엣지 하이라이트 (밝은 테두리) ──
-    for ei in range(2):
-        ea = max(0, int(base_a * (0.65 - ei * 0.2)))
+    # ── 5. 마법진 패턴 (회전하는 헥사곤 + 룬 문양) ──
+    rune_rot = t * 0.8  # 천천히 회전
+    rune_center_y = s_cy + arc_dir * int(shield_curve_h * 0.45)
+    rune_radius = int(shield_half_w * 0.35)
+    rune_a = int(base_a * 0.35)
+
+    if rune_a > 0:
+        # 외곽 헥사곤
+        hex_pts = []
+        for hi in range(6):
+            h_angle = rune_rot + hi * math.pi / 3.0
+            hx = cx + rune_radius * math.cos(h_angle)
+            hy = rune_center_y + arc_dir * rune_radius * 0.5 * math.sin(h_angle)
+            hex_pts.append((int(hx), int(hy)))
+        if len(hex_pts) >= 3:
+            pygame.draw.polygon(surf, (160, 120, 255, rune_a // 3), hex_pts)
+            pygame.draw.lines(surf, (180, 150, 255, rune_a), True, hex_pts, 1)
+
+        # 내곽 역헥사곤 (반대 방향 회전)
+        inner_hex = []
+        inner_r = int(rune_radius * 0.55)
+        for hi in range(6):
+            h_angle = -rune_rot * 1.3 + hi * math.pi / 3.0
+            hx = cx + inner_r * math.cos(h_angle)
+            hy = rune_center_y + arc_dir * inner_r * 0.5 * math.sin(h_angle)
+            inner_hex.append((int(hx), int(hy)))
+        if len(inner_hex) >= 3:
+            pygame.draw.lines(surf, (200, 170, 255, rune_a), True, inner_hex, 1)
+
+        # 다윗의 별 (두 삼각형 - 신비로운 문양)
+        for tri_offset in [0, math.pi / 6.0]:
+            tri_pts = []
+            tri_r = int(rune_radius * 0.78)
+            for ti in range(3):
+                t_angle = rune_rot * 0.6 + tri_offset + ti * math.pi * 2.0 / 3.0
+                tx = cx + tri_r * math.cos(t_angle)
+                ty = rune_center_y + arc_dir * tri_r * 0.4 * math.sin(t_angle)
+                tri_pts.append((int(tx), int(ty)))
+            if len(tri_pts) >= 3:
+                pygame.draw.lines(surf, (190, 160, 255, int(rune_a * 0.7)), True, tri_pts, 1)
+
+        # 룬 정점 발광
+        for hi in range(6):
+            h_angle = rune_rot + hi * math.pi / 3.0
+            hx = cx + rune_radius * math.cos(h_angle)
+            hy = rune_center_y + arc_dir * rune_radius * 0.5 * math.sin(h_angle)
+            glow_pulse = 0.5 + 0.5 * math.sin(t * 6.0 + hi * 1.05)
+            ga = int(rune_a * glow_pulse)
+            if ga > 0:
+                pygame.draw.circle(surf, (220, 200, 255, ga), (int(hx), int(hy)), 3)
+                pygame.draw.circle(surf, (170, 130, 255, ga // 3), (int(hx), int(hy)), 6)
+
+        # 중심 코어 (밝은 에너지 포인트)
+        core_pulse = 0.7 + 0.3 * math.sin(t * 4.0)
+        core_a = int(rune_a * core_pulse)
+        pygame.draw.circle(surf, (240, 230, 255, core_a), (cx, rune_center_y), 4)
+        pygame.draw.circle(surf, (200, 170, 255, core_a // 2), (cx, rune_center_y), 8)
+        pygame.draw.circle(surf, (160, 120, 255, core_a // 4), (cx, rune_center_y), 13)
+
+    # ── 6. 외곽 엣지 더블 림 (밝은 이중 테두리 + 내부 글로우) ──
+    # 외곽 밝은 테두리 (3겹)
+    for ei in range(3):
+        ea = max(0, int(base_a * (0.7 - ei * 0.18)))
         if ea > 0:
-            p = current_time * 0.006 + ei
-            er = int(190 + 50 * math.sin(p))
-            eg = int(140 + 50 * math.sin(p + 2.0))
-            eb = int(235 + 20 * math.sin(p + 4.0))
-            edge = arc_points(shield_half_w + ei, shield_curve_h + ei)
+            p = t * 3.5 + ei * 0.7
+            er = int(180 + 60 * math.sin(p))
+            eg = int(130 + 60 * math.sin(p + 2.0))
+            eb = min(255, int(230 + 25 * math.sin(p + 4.0)))
+            edge = arc_points(shield_half_w + ei * 2, shield_curve_h + ei * 2)
             if len(edge) >= 2:
-                pygame.draw.lines(surf, (er, eg, eb, ea), False, edge, max(1, 2 - ei))
+                pygame.draw.lines(surf, (er, eg, eb, ea), False, edge, max(1, 3 - ei))
 
-    # 내곽 엣지
-    ie_a = int(base_a * 0.25)
-    if ie_a > 0:
-        ie = arc_points(int(shield_half_w * 0.92), shield_inner_h)
-        if len(ie) >= 2:
-            pygame.draw.lines(surf, (150, 90, 235, ie_a), False, ie, 1)
+    # 내곽 테두리 (부드러운 글로우)
+    for ie_i in range(2):
+        ie_a = int(base_a * (0.3 - ie_i * 0.1))
+        if ie_a > 0:
+            ie_scale = 0.90 - ie_i * 0.05
+            ie = arc_points(int(shield_half_w * ie_scale), int(shield_inner_h * (1.0 + ie_i * 0.1)))
+            if len(ie) >= 2:
+                ie_color_shift = math.sin(t * 2.8 + ie_i * 1.5)
+                ie_r = int(140 + 40 * ie_color_shift)
+                ie_b = int(230 + 25 * ie_color_shift)
+                pygame.draw.lines(surf, (ie_r, 80, ie_b, ie_a), False, ie, 1)
 
-    # ── 5. 이동하는 반사 포인트 (외곽 아크 따라 슬라이딩) ──
-    for ri in range(3):
-        rune_phase = (current_time * 0.0015 + ri * 0.33) % 1.0
+    # ── 7. 전기 아크 (테두리 따라 번개 효과) ──
+    arc_count = 4
+    for ai in range(arc_count):
+        arc_phase = (t * 2.0 + ai * 0.25) % 1.0
+        arc_start = arc_phase
+        arc_len = 0.12 + 0.06 * math.sin(t * 12.0 + ai * 3.0)
+        arc_a = int(base_a * (0.4 + 0.4 * max(0, math.sin(t * 15.0 + ai * 4.0))))
+        if arc_a > 0:
+            arc_pts = []
+            num_seg = 8
+            for si in range(num_seg + 1):
+                frac = arc_start + arc_len * si / num_seg
+                frac = max(0.0, min(1.0, frac))
+                a_angle = math.pi * frac
+                base_x = cx + (shield_half_w + 1) * math.cos(a_angle)
+                base_y = s_cy + arc_dir * (shield_curve_h + 1) * math.sin(a_angle)
+                # 번개 지그재그
+                if 0 < si < num_seg:
+                    jitter = 4.0 * math.sin(t * 25.0 + si * 7.3 + ai * 11.0)
+                    norm_x = -math.sin(a_angle)
+                    norm_y = arc_dir * math.cos(a_angle)
+                    base_x += norm_x * jitter
+                    base_y += norm_y * jitter
+                arc_pts.append((int(base_x), int(base_y)))
+            if len(arc_pts) >= 2:
+                pygame.draw.lines(surf, (200, 180, 255, arc_a), False, arc_pts, 1)
+                # 밝은 코어
+                core_a = min(255, int(arc_a * 1.3))
+                for pk in range(len(arc_pts) - 1):
+                    mid_x = (arc_pts[pk][0] + arc_pts[pk + 1][0]) // 2
+                    mid_y = (arc_pts[pk][1] + arc_pts[pk + 1][1]) // 2
+                    pygame.draw.circle(surf, (230, 220, 255, core_a // 2), (mid_x, mid_y), 1)
+
+    # ── 8. 이동하는 반사 포인트 (5개, 더 화려한 발광) ──
+    for ri in range(5):
+        rune_phase = (t * 0.9 + ri * 0.2) % 1.0
         rune_angle = math.pi * rune_phase
-        rx = cx + (shield_half_w + 1) * math.cos(rune_angle)
-        ry = s_cy + arc_dir * (shield_curve_h + 1) * math.sin(rune_angle)
-        ra = int(base_a * (0.5 + 0.4 * math.sin(current_time * 0.02 + ri * 2.0)))
-        rsz = int(2 + 1.5 * math.sin(current_time * 0.015 + ri * 1.8))
+        rx = cx + (shield_half_w + 2) * math.cos(rune_angle)
+        ry = s_cy + arc_dir * (shield_curve_h + 2) * math.sin(rune_angle)
+        glow_cycle = 0.5 + 0.5 * math.sin(t * 12.0 + ri * 2.5)
+        ra = int(base_a * (0.5 + 0.4 * glow_cycle))
+        rsz = int(2 + 2.0 * glow_cycle)
         if ra > 0 and rsz > 0:
-            pygame.draw.circle(surf, (220, 190, 255, ra), (int(rx), int(ry)), rsz)
-            pygame.draw.circle(surf, (180, 120, 250, ra // 3), (int(rx), int(ry)), rsz + 4)
+            # 3단계 발광 (외곽 → 중간 → 코어)
+            pygame.draw.circle(surf, (140, 100, 240, ra // 4), (int(rx), int(ry)), rsz + 7)
+            pygame.draw.circle(surf, (190, 160, 255, ra // 2), (int(rx), int(ry)), rsz + 3)
+            pygame.draw.circle(surf, (235, 220, 255, ra), (int(rx), int(ry)), rsz)
 
-    # ── 6. 엣지 파티클 (외곽선 따라 떠다니는 입자) ──
-    for pi_idx in range(6):
-        p_t = (current_time * 0.002 + pi_idx * 0.167) % 1.0
+    # ── 9. 엣지 파티클 (10개, 꼬리 있는 발광 입자) ──
+    for pi_idx in range(10):
+        p_t = (t * 1.2 + pi_idx * 0.1) % 1.0
         p_angle = math.pi * p_t
-        p_drift = 4 * math.sin(current_time * 0.009 + pi_idx * 1.4)
-        px = cx + (shield_half_w + 5 + p_drift) * math.cos(p_angle)
-        py = s_cy + arc_dir * (shield_curve_h + 5 + p_drift) * math.sin(p_angle)
-        pa = int(base_a * (0.3 + 0.3 * math.sin(current_time * 0.018 + pi_idx * 0.9)))
-        psz = int(1 + 1 * math.sin(current_time * 0.014 + pi_idx))
-        if pa > 0 and psz > 0:
-            pb = 0.6 + 0.4 * math.sin(current_time * 0.016 + pi_idx)
-            pygame.draw.circle(surf, (int(170 * pb), int(100 * pb), int(255 * pb), pa), (int(px), int(py)), psz)
+        p_drift = 5 * math.sin(t * 5.5 + pi_idx * 1.6)
+        p_rise = 3 * math.cos(t * 3.8 + pi_idx * 2.1)
+        px = cx + (shield_half_w + 6 + p_drift) * math.cos(p_angle)
+        py = s_cy + arc_dir * (shield_curve_h + 6 + p_drift + p_rise) * math.sin(p_angle)
+        p_brightness = 0.5 + 0.5 * math.sin(t * 10.0 + pi_idx * 1.3)
+        pa = int(base_a * (0.3 + 0.35 * p_brightness))
+        psz = max(1, int(1 + 2 * p_brightness))
 
-    # ── 7. 페이드인 확산 효과 (쉴드 형상 전개) ──
+        if pa > 0 and psz > 0:
+            # 색상 변조 (청보라 ↔ 분홍보라)
+            color_shift = math.sin(t * 4.0 + pi_idx * 0.9)
+            pr = int(160 + 60 * max(0, color_shift))
+            pg = int(80 + 40 * max(0, -color_shift))
+            pb_c = 255
+
+            # 파티클 꼬리 (이전 위치 2개)
+            for trail in range(2):
+                trail_angle = math.pi * ((t * 1.2 + pi_idx * 0.1 - (trail + 1) * 0.015) % 1.0)
+                trail_x = cx + (shield_half_w + 6 + p_drift) * math.cos(trail_angle)
+                trail_y = s_cy + arc_dir * (shield_curve_h + 6 + p_drift) * math.sin(trail_angle)
+                trail_a = pa // (3 + trail * 2)
+                trail_sz = max(1, psz - trail)
+                if trail_a > 0:
+                    pygame.draw.circle(surf, (pr, pg, pb_c, trail_a), (int(trail_x), int(trail_y)), trail_sz)
+
+            # 메인 파티클
+            pygame.draw.circle(surf, (pr, pg, pb_c, pa), (int(px), int(py)), psz)
+            pygame.draw.circle(surf, (220, 200, 255, int(pa * 0.6)), (int(px), int(py)), max(1, psz - 1))
+
+    # ── 10. 쉴드 표면 라이트 스윕 (좌→우 이동하는 광택 반사) ──
+    sweep_pos = (math.sin(t * 2.0) + 1.0) * 0.5  # 0~1 좌우 왕복
+    sweep_x = cx - shield_half_w + int(shield_half_w * 2 * sweep_pos)
+    sweep_w = int(shield_half_w * 0.3)
+    sweep_a = int(base_a * 0.10)
+    if sweep_a > 0:
+        for sw_i in range(segments + 1):
+            sw_angle = math.pi * sw_i / segments
+            sw_px = cx + shield_half_w * 0.95 * math.cos(sw_angle)
+            sw_dist = abs(sw_px - sweep_x)
+            if sw_dist < sweep_w:
+                sw_intensity = 1.0 - sw_dist / sweep_w
+                sw_outer_y = s_cy + arc_dir * shield_curve_h * 0.95 * math.sin(sw_angle)
+                sw_inner_y = s_cy + arc_dir * shield_inner_h * math.sin(sw_angle)
+                sw_alpha = int(sweep_a * sw_intensity * sw_intensity)
+                if sw_alpha > 0:
+                    pygame.draw.line(surf, (220, 200, 255, sw_alpha),
+                                     (int(sw_px), int(sw_outer_y)), (int(sw_px), int(sw_inner_y)), 1)
+
+    # ── 11. 페이드인 확산 효과 (마법진 전개 + 쉴드 형성) ──
     if elapsed < fade_in_dur:
         rp = elapsed / fade_in_dur
-        exp_w = int(shield_half_w * (0.3 + rp * 0.7))
-        exp_h = int(shield_curve_h * (0.3 + rp * 0.7))
-        exp_a = int(160 * (1.0 - rp))
+        # 확산하는 쉴드 윤곽
+        exp_w = int(shield_half_w * (0.2 + rp * 0.8))
+        exp_h = int(shield_curve_h * (0.2 + rp * 0.8))
+        exp_a = int(200 * (1.0 - rp))
         if exp_a > 0:
             exp_pts = arc_points(exp_w, exp_h)
             if len(exp_pts) >= 2:
-                pygame.draw.lines(surf, (200, 160, 255, exp_a), False, exp_pts, 3)
-        fl_a = int(100 * (1.0 - rp) ** 2)
+                pygame.draw.lines(surf, (210, 180, 255, exp_a), False, exp_pts, 3)
+            # 두 번째 확산파
+            exp2_w = int(shield_half_w * (0.1 + rp * 1.1))
+            exp2_h = int(shield_curve_h * (0.1 + rp * 1.1))
+            exp2_a = int(120 * max(0, 1.0 - rp * 1.5))
+            if exp2_a > 0:
+                exp2_pts = arc_points(exp2_w, exp2_h)
+                if len(exp2_pts) >= 2:
+                    pygame.draw.lines(surf, (180, 140, 255, exp2_a), False, exp2_pts, 2)
+
+        # 중심 플래시 폭발
+        fl_a = int(160 * (1.0 - rp) ** 1.5)
         if fl_a > 0:
             mid_y = s_cy + arc_dir * int(shield_curve_h * 0.4)
-            pygame.draw.circle(surf, (210, 170, 255, fl_a), (cx, mid_y), int(shield_half_w * 0.25 * rp))
+            flash_r = int(shield_half_w * 0.4 * rp)
+            pygame.draw.circle(surf, (230, 210, 255, fl_a), (cx, mid_y), flash_r)
+            pygame.draw.circle(surf, (255, 245, 255, min(255, fl_a * 2)), (cx, mid_y), max(1, flash_r // 3))
 
-    # ── 8. 페이드아웃 깜빡임 효과 ──
+        # 방사형 라인 (마법진 전개)
+        if rp < 0.7:
+            line_a = int(140 * (1.0 - rp / 0.7))
+            mid_y = s_cy + arc_dir * int(shield_curve_h * 0.4)
+            for li in range(8):
+                l_angle = li * math.pi / 4.0 + rp * math.pi
+                l_len = int(shield_half_w * 0.6 * rp)
+                lx = cx + l_len * math.cos(l_angle)
+                ly = mid_y + arc_dir * l_len * 0.4 * math.sin(l_angle)
+                if line_a > 0:
+                    pygame.draw.line(surf, (190, 160, 255, line_a), (cx, mid_y), (int(lx), int(ly)), 1)
+
+    # ── 12. 페이드아웃 깜빡임 + 파편화 효과 ──
     if imm_timer < fade_out_dur:
         fo_p = imm_timer / fade_out_dur
-        flicker = abs(math.sin(current_time * 0.03))
-        fl_a = int(70 * fo_p * flicker)
+        # 깜빡임
+        flicker = abs(math.sin(t * 18.0))
+        fl_a = int(90 * fo_p * flicker)
         if fl_a > 0:
             fl_pts = arc_points(shield_half_w + 3, shield_curve_h + 3)
             if len(fl_pts) >= 2:
-                pygame.draw.lines(surf, (200, 140, 255, fl_a), False, fl_pts, 2)
+                pygame.draw.lines(surf, (200, 150, 255, fl_a), False, fl_pts, 2)
+        # 파편 분리 효과 (소멸 시 쉴드 조각이 떨어져 나감)
+        if fo_p < 0.5:
+            frag_intensity = 1.0 - fo_p * 2.0
+            for fi in range(6):
+                f_angle = math.pi * (fi + 0.5) / 6.0
+                f_dist = int((1.0 - fo_p * 2.0) * 8 + 3)
+                f_x = cx + (shield_half_w + f_dist) * math.cos(f_angle)
+                f_y = s_cy + arc_dir * (shield_curve_h + f_dist) * math.sin(f_angle)
+                f_a = int(100 * frag_intensity * abs(math.sin(t * 20.0 + fi * 2.0)))
+                if f_a > 0:
+                    pygame.draw.circle(surf, (180, 140, 255, f_a), (int(f_x), int(f_y)), 2)
 
     screen.blit(surf, (center_x - cx, center_y - cy))
 
-    # ── 9. 스킬 차단 번쩍임 효과 (쉴드 형상 플래시) ──
+    # ── 13. 스킬 차단 플래시 (Ultra Premium - 다층 충격파) ──
     if flash_timer > 0:
         f_elapsed = 1.0 - flash_timer / ARENA_BARRIER_FLASH_DURATION
-        _peak = 0.15
+        _peak = 0.12
         if f_elapsed < _peak:
-            fl_intensity = (f_elapsed / _peak) ** 0.6
+            fl_intensity = (f_elapsed / _peak) ** 0.5
         else:
-            fl_intensity = ((1.0 - f_elapsed) / (1.0 - _peak)) ** 1.8
+            fl_intensity = ((1.0 - f_elapsed) / (1.0 - _peak)) ** 2.0
 
         fl_surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
         fl_cx = surf_size // 2
@@ -21432,38 +21662,68 @@ def _draw_magic_immunity_barrier(screen, center_x, center_y, base_radius, imm_ti
                 pts.append((int(px), int(py)))
             return pts
 
-        fw = int(shield_half_w * (1.0 + f_elapsed * 0.3))
-        fh = int(shield_curve_h * (1.0 + f_elapsed * 0.3))
-        fi_h = int(shield_inner_h * (1.0 + f_elapsed * 0.2))
+        fw = int(shield_half_w * (1.0 + f_elapsed * 0.35))
+        fh = int(shield_curve_h * (1.0 + f_elapsed * 0.35))
+        fi_h = int(shield_inner_h * (1.0 + f_elapsed * 0.25))
 
-        # 백색 플래시 (쉴드 형상)
+        # 1차: 백색-보라 쉴드 형상 플래시
         f_outer = fl_arc(fw, fh)
-        f_inner = fl_arc(int(fw * 0.9), fi_h)
+        f_inner = fl_arc(int(fw * 0.88), fi_h)
         f_poly = f_outer + f_inner[::-1]
-        w_a = int(180 * fl_intensity)
+        w_a = int(200 * fl_intensity)
         if len(f_poly) >= 3 and w_a > 0:
-            pygame.draw.polygon(fl_surf, (235, 215, 255, w_a), f_poly)
+            pygame.draw.polygon(fl_surf, (240, 220, 255, w_a), f_poly)
 
-        # 테두리 링
-        ring_a = int(240 * fl_intensity)
-        if ring_a > 0:
-            ring_pts = fl_arc(fw + 2, fh + 2)
-            if len(ring_pts) >= 2:
-                ring_th = max(2, int(4 * fl_intensity))
-                pygame.draw.lines(fl_surf, (210, 170, 255, ring_a), False, ring_pts, ring_th)
+        # 2차: 내부 밝은 코어 플래시
+        core_fw = int(fw * 0.6)
+        core_fh = int(fh * 0.6)
+        core_fi = int(fi_h * 0.5)
+        c_outer = fl_arc(core_fw, core_fh)
+        c_inner = fl_arc(core_fw - 5, core_fi)
+        c_poly = c_outer + c_inner[::-1]
+        ca = int(160 * fl_intensity)
+        if len(c_poly) >= 3 and ca > 0:
+            pygame.draw.polygon(fl_surf, (255, 250, 255, ca), c_poly)
 
-        # 확산 충격파
-        exp_fw = int(shield_half_w * (1.0 + f_elapsed * 0.8))
-        exp_fh = int(shield_curve_h * (1.0 + f_elapsed * 0.8))
-        exp_a = int(120 * fl_intensity * max(0, 1.0 - f_elapsed * 0.7))
-        if exp_a > 0:
-            exp_pts = fl_arc(exp_fw, exp_fh)
-            if len(exp_pts) >= 2:
-                pygame.draw.lines(fl_surf, (190, 150, 255, exp_a), False, exp_pts, max(2, int(3 * fl_intensity)))
+        # 테두리 이중 링
+        for ring_i in range(2):
+            ring_a = int((250 - ring_i * 60) * fl_intensity)
+            if ring_a > 0:
+                ring_pts = fl_arc(fw + 2 + ring_i * 4, fh + 2 + ring_i * 4)
+                if len(ring_pts) >= 2:
+                    ring_th = max(2, int((4 - ring_i) * fl_intensity))
+                    r_color = (220 - ring_i * 30, 180 - ring_i * 30, 255)
+                    pygame.draw.lines(fl_surf, (*r_color, ring_a), False, ring_pts, ring_th)
+
+        # 다층 확산 충격파 (3파)
+        for wave_i in range(3):
+            w_delay = wave_i * 0.08
+            w_elapsed = max(0, f_elapsed - w_delay)
+            w_ratio = min(1.0, w_elapsed / (1.0 - w_delay)) if (1.0 - w_delay) > 0 else 0
+            exp_fw = int(shield_half_w * (1.0 + w_ratio * (0.6 + wave_i * 0.3)))
+            exp_fh = int(shield_curve_h * (1.0 + w_ratio * (0.6 + wave_i * 0.3)))
+            exp_a = int((130 - wave_i * 30) * fl_intensity * max(0, 1.0 - w_ratio * 0.8))
+            if exp_a > 0:
+                exp_pts = fl_arc(exp_fw, exp_fh)
+                if len(exp_pts) >= 2:
+                    exp_th = max(1, int((3 - wave_i) * fl_intensity))
+                    pygame.draw.lines(fl_surf, (190 + wave_i * 20, 150 + wave_i * 20, 255, exp_a), False, exp_pts, exp_th)
+
+        # 차단 지점 스파크 (쉴드 중심에서 불꽃)
+        mid_flash_y = fl_s_cy + arc_dir * int(shield_curve_h * 0.45)
+        spark_a = int(220 * fl_intensity)
+        if spark_a > 0:
+            for si in range(8):
+                s_angle = si * math.pi / 4.0 + f_elapsed * math.pi * 4.0
+                s_len = int(15 * fl_intensity * (1.0 + f_elapsed * 0.5))
+                sx = fl_cx + s_len * math.cos(s_angle)
+                sy = mid_flash_y + s_len * math.sin(s_angle)
+                pygame.draw.line(fl_surf, (230, 210, 255, spark_a // 2), (fl_cx, mid_flash_y), (int(sx), int(sy)), 1)
+            pygame.draw.circle(fl_surf, (255, 250, 255, min(255, spark_a)), (fl_cx, mid_flash_y), max(1, int(5 * fl_intensity)))
 
         screen.blit(fl_surf, (center_x - fl_cx, center_y - fl_cy))
 
-    # ── 10. 등대빔 효과 (쉴드 중심에서 시전자까지) ──
+    # ── 14. 등대빔 효과 (Ultra Premium - 다층 광선 + 임팩트 이펙트) ──
     if flash_timer > 0 and beam_target is not None:
         beam_tx, beam_ty = beam_target
         beam_sx = center_x
@@ -21474,11 +21734,11 @@ def _draw_magic_immunity_barrier(screen, center_x, center_y, base_radius, imm_ti
         if dist > 10:
             angle = math.atan2(dy, dx)
             b_elapsed = 1.0 - flash_timer / ARENA_BARRIER_FLASH_DURATION
-            _peak = 0.15
+            _peak = 0.12
             if b_elapsed < _peak:
-                fl_intensity = (b_elapsed / _peak) ** 0.6
+                fl_intensity = (b_elapsed / _peak) ** 0.5
             else:
-                fl_intensity = ((1.0 - b_elapsed) / (1.0 - _peak)) ** 1.8
+                fl_intensity = ((1.0 - b_elapsed) / (1.0 - _peak)) ** 2.0
 
             beam_surf = pygame.Surface((760, 750), pygame.SRCALPHA)
             perp_cos = math.cos(angle + math.pi / 2)
@@ -21486,10 +21746,13 @@ def _draw_magic_immunity_barrier(screen, center_x, center_y, base_radius, imm_ti
             cos_a = math.cos(angle)
             sin_a = math.sin(angle)
 
+            # 5층 광선 (외곽부터 코어까지)
             for layer, (near_w, far_w, color, alpha_mult) in enumerate([
-                (18, 65, (140, 100, 255), 0.3),
-                (10, 38, (180, 150, 255), 0.5),
-                (4, 16, (245, 235, 255), 0.8),
+                (24, 80, (100, 60, 220), 0.15),   # 최외곽 번짐
+                (18, 60, (130, 90, 245), 0.25),    # 외곽
+                (12, 42, (160, 130, 255), 0.4),    # 중간
+                (6, 24, (200, 180, 255), 0.6),     # 내부
+                (2, 10, (245, 240, 255), 0.9),     # 코어
             ]):
                 beam_alpha = int(alpha_mult * 255 * fl_intensity)
                 if beam_alpha <= 0:
@@ -21504,12 +21767,23 @@ def _draw_magic_immunity_barrier(screen, center_x, center_y, base_radius, imm_ti
                           (int(fr_pt[0]), int(fr_pt[1])), (int(nr[0]), int(nr[1]))]
                 pygame.draw.polygon(beam_surf, (*color, beam_alpha), points)
 
-            impact_a = int(160 * fl_intensity)
+            # 임팩트 다층 글로우
+            impact_a = int(200 * fl_intensity)
             if impact_a > 0:
                 ex, ey = int(beam_tx), int(beam_ty)
-                pygame.draw.circle(beam_surf, (170, 130, 255, impact_a // 3), (ex, ey), 38, 0)
-                pygame.draw.circle(beam_surf, (210, 190, 255, impact_a // 2), (ex, ey), 20, 0)
-                pygame.draw.circle(beam_surf, (245, 235, 255, impact_a), (ex, ey), 8, 0)
+                pygame.draw.circle(beam_surf, (120, 80, 230, impact_a // 5), (ex, ey), 50, 0)
+                pygame.draw.circle(beam_surf, (150, 110, 245, impact_a // 4), (ex, ey), 35, 0)
+                pygame.draw.circle(beam_surf, (180, 150, 255, impact_a // 3), (ex, ey), 24, 0)
+                pygame.draw.circle(beam_surf, (215, 195, 255, impact_a // 2), (ex, ey), 14, 0)
+                pygame.draw.circle(beam_surf, (245, 240, 255, impact_a), (ex, ey), 6, 0)
+
+                # 임팩트 스파크 방사
+                for si in range(6):
+                    s_angle = si * math.pi / 3.0 + b_elapsed * math.pi * 3.0
+                    s_len = int(20 * fl_intensity)
+                    sx = ex + s_len * math.cos(s_angle)
+                    sy = ey + s_len * math.sin(s_angle)
+                    pygame.draw.line(beam_surf, (210, 190, 255, impact_a // 2), (ex, ey), (int(sx), int(sy)), 1)
 
             screen.blit(beam_surf, (0, 0))
 
