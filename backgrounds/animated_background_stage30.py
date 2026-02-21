@@ -172,8 +172,6 @@ class AnimatedBackgroundStage30:
         self.judgment_wind_particles = []           # 바람 파티클
         self.judgment_fan_swing_progress = 0.0      # 부채 휘두르기 진행도
         self.judgment_wind_charge_intensity = 0.0   # 바람 충전 강도
-        self.judgment_wind_spin_angle = 0.0          # 바람 자전 각도 (rad)
-        self.judgment_wind_spin_speed = 0.0          # 바람 자전 속도 (rad/s)
         # 이벤트 플래그 (핸들러에서 consume 방식으로 사용)
         self.judgment_bolt_throw_started = False   # BOLT_THROW 진입 시 True → 핸들러가 읽고 False
         self.judgment_bolt_explosion_started = False  # BOLT_EXPLOSION 진입 시 True → 핸들러가 읽고 False
@@ -1189,8 +1187,6 @@ class AnimatedBackgroundStage30:
         self.judgment_wind_particles = []
         self.judgment_fan_swing_progress = 0.0
         self.judgment_wind_charge_intensity = 0.0
-        self.judgment_wind_spin_angle = 0.0
-        self.judgment_wind_spin_speed = 0.0
         self.judgment_fan_swing_started = False
         self.judgment_sandstorm_hit_top = False
         self.judgment_sandstorm_hit_bottom = False
@@ -1761,11 +1757,6 @@ class AnimatedBackgroundStage30:
                 wp['life'] -= dt
                 wp['size'] = max(0, wp['size'] - dt * 1.5)
             self.judgment_wind_particles = [wp for wp in self.judgment_wind_particles if wp['life'] > 0]
-            # 석상 자전 (부채 휘두르면서 천천히 시작)
-            if progress > 0.3:
-                spin_ramp = (progress - 0.3) / 0.7  # 0→1
-                self.judgment_wind_spin_speed = spin_ramp * 5.0  # 최대 5 rad/s
-            self.judgment_wind_spin_angle += self.judgment_wind_spin_speed * dt
             # 플래시 감소
             self.judgment_flash_alpha = max(0, self.judgment_flash_alpha - int(dt * 400))
             if progress >= 1.0:
@@ -1780,30 +1771,24 @@ class AnimatedBackgroundStage30:
             # 7초: 나선형 소용돌이 1개가 달팽이처럼 원으로 퍼져나감
             progress = min(1.0, self.judgment_timer / self.SANDSTORM_DURATION)
             s = self.judgment_scale
-            # 팔 서서히 원위치
-            arm_fold = min(1.0, progress * 2.0)
+            # 천천히 부채질 (오른팔 느린 왕복 + 부채 유지)
             self.judgment_left_arm_progress = 0.0
-            self.judgment_right_arm_progress = max(0, -0.2 + arm_fold * 0.2)
-            self.judgment_fan_swing_progress = max(0, 1.0 - progress * 2.0)
-
-            # 석상 자전 (바람 지속 중 빠르게 → 끝날때쯤 감속 → 정지)
-            if progress < 0.15:
-                # 0~15%: 가속 (FAN_SWING에서 이어받아 최고 속도로)
-                accel_p = progress / 0.15
-                self.judgment_wind_spin_speed = 5.0 + accel_p * 7.0  # 5→12 rad/s
-            elif progress < 0.65:
-                # 15~65%: 최고 속도 유지
-                self.judgment_wind_spin_speed = 12.0
-            elif progress < 0.90:
-                # 65~90%: 점진적 감속
-                decel_p = (progress - 0.65) / 0.25
-                ease_decel = decel_p * decel_p  # ease-in (처음 느리게 감속, 뒤로 갈수록 빠르게)
-                self.judgment_wind_spin_speed = 12.0 * (1.0 - ease_decel * 0.9)  # 12→1.2
+            if progress < 0.85:
+                # 0~85%: 느린 왕복 부채질 (sin 파형, ~1.8초 주기)
+                fan_osc = math.sin(self.judgment_timer * 3.5)
+                # 오른팔: 0.3~0.9 사이를 천천히 왕복
+                self.judgment_right_arm_progress = 0.6 + 0.3 * fan_osc
+                # 부채 펼침 유지
+                self.judgment_fan_swing_progress = 0.5
+                # 바람 충전 강도: 부채질에 따라 살짝 맥동
+                self.judgment_wind_charge_intensity = 0.3 + 0.2 * max(0, fan_osc)
             else:
-                # 90~100%: 거의 정지 (느리게 멈춤)
-                stop_p = (progress - 0.90) / 0.10
-                self.judgment_wind_spin_speed = max(0, 1.2 * (1.0 - stop_p))
-            self.judgment_wind_spin_angle += self.judgment_wind_spin_speed * dt
+                # 85~100%: 부채질 멈추고 팔 원위치
+                stop_p = (progress - 0.85) / 0.15
+                ease_stop = stop_p * stop_p  # ease-in
+                self.judgment_right_arm_progress = 0.6 * (1.0 - ease_stop)
+                self.judgment_fan_swing_progress = 0.5 * (1.0 - ease_stop)
+                self.judgment_wind_charge_intensity = 0.3 * (1.0 - ease_stop)
 
             # ── 나선형 소용돌이 상수 ──
             VORTEX_GROWTH_RATE = 0.15    # 초당 15% 크기 성장
@@ -1947,8 +1932,7 @@ class AnimatedBackgroundStage30:
                 self.judgment_right_arm_progress = 0.0
                 self.judgment_wind_sandstorms.clear()
                 self.judgment_wind_particles.clear()
-                self.judgment_wind_spin_speed = 0.0
-                self.judgment_wind_spin_angle = 0.0
+                self.judgment_wind_charge_intensity = 0.0
                 print(f"[신의심판] SANDSTORM → RETURN 전환")
 
         elif self.judgment_phase == self.JUDGMENT_RETURN:
@@ -2225,8 +2209,6 @@ class AnimatedBackgroundStage30:
         self.judgment_wind_particles.clear()
         self.judgment_fan_swing_progress = 0.0
         self.judgment_wind_charge_intensity = 0.0
-        self.judgment_wind_spin_angle = 0.0
-        self.judgment_wind_spin_speed = 0.0
         self.judgment_fan_swing_started = False
         self.judgment_sandstorm_hit_top = False
         self.judgment_sandstorm_hit_bottom = False
@@ -2429,112 +2411,7 @@ class AnimatedBackgroundStage30:
                         screen.blit(deep_surf, (cx + rise_shake_x - deep_w // 2,
                                                 ground_y - deep_h // 2))
         else:
-            # 바람의 분노: 석상 X축 자전 효과 (입체감 있는 3D 회전)
-            if (self.judgment_variant == 'wind' and
-                    abs(self.judgment_wind_spin_speed) > 0.01):
-                raw_cos = math.cos(self.judgment_wind_spin_angle)
-                raw_sin = math.sin(self.judgment_wind_spin_angle)
-                # 입체감: 최소 두께 35% (석상은 납작한 종이가 아닌 입체물)
-                DEPTH_RATIO = 0.35
-                abs_x_scale = max(DEPTH_RATIO, abs(raw_cos))
-                # 석상 바운딩 박스 기반 임시 서피스
-                margin_x = int(45 * s)
-                margin_top = int(40 * s)
-                margin_bot = int(12 * s)
-                tw = margin_x * 2
-                th = margin_top + margin_bot
-                temp_surf = pygame.Surface((tw, th), pygame.SRCALPHA)
-                # 임시 서피스 중앙에 석상 그리기
-                temp_cx = tw // 2
-                temp_cy = margin_top
-                self._draw_judgment_statue_scaled(temp_surf, temp_cx, temp_cy, s)
-                # 수평 스케일링 (자전 효과)
-                new_w = max(1, int(tw * abs_x_scale))
-                scaled_surf = pygame.transform.scale(temp_surf, (new_w, th))
-                if raw_cos < 0:
-                    scaled_surf = pygame.transform.flip(scaled_surf, True, False)
-                # ── 입체감 1: 회전 방향에 따른 명암 (빛/그림자) ──
-                # sin > 0 → 오른쪽이 앞면(밝음), 왼쪽이 뒷면(어둠)
-                # sin < 0 → 반대
-                shade_intensity = abs(raw_sin)  # 0(정면)~1(측면) - 측면일수록 명암 강함
-                if shade_intensity > 0.05:
-                    shade_surf = pygame.Surface((new_w, th), pygame.SRCALPHA)
-                    # 어두운 면 (회전 반대쪽)
-                    shadow_alpha = int(90 * shade_intensity)
-                    # 밝은 면 (회전 앞쪽)
-                    highlight_alpha = int(45 * shade_intensity)
-                    half_w = new_w // 2
-                    # sin 부호로 밝은/어두운 면 방향 결정
-                    if (raw_sin > 0) != (raw_cos < 0):
-                        # 왼쪽 어둡게, 오른쪽 밝게
-                        shadow_rect = pygame.Rect(0, 0, half_w, th)
-                        hl_rect = pygame.Rect(half_w, 0, new_w - half_w, th)
-                    else:
-                        # 오른쪽 어둡게, 왼쪽 밝게
-                        shadow_rect = pygame.Rect(half_w, 0, new_w - half_w, th)
-                        hl_rect = pygame.Rect(0, 0, half_w, th)
-                    shade_surf.fill((0, 0, 0, shadow_alpha), shadow_rect)
-                    shade_surf.fill((255, 255, 240, highlight_alpha), hl_rect)
-                    scaled_surf.blit(shade_surf, (0, 0))
-                # ── 입체감 2: 측면 두께 표현 (옆면이 보일 때 대리석 측면 렌더링) ──
-                side_visibility = max(0, shade_intensity - 0.2) / 0.8  # 0.2 이하에서는 안 보임
-                if side_visibility > 0.05:
-                    side_w = max(2, int(8 * s * side_visibility))
-                    side_alpha = int(200 * min(1.0, side_visibility * 1.5))
-                    # 측면 색상 (어두운 대리석)
-                    side_col_dark = (110, 100, 88, side_alpha)
-                    side_col_mid = (135, 125, 112, int(side_alpha * 0.8))
-                    side_col_edge = (90, 80, 68, int(side_alpha * 0.6))
-                    # 회전 방향에 따라 어느 쪽에 측면을 그릴지 결정
-                    if (raw_sin > 0) != (raw_cos < 0):
-                        # 왼쪽에 측면
-                        side_x = 0
-                    else:
-                        # 오른쪽에 측면
-                        side_x = new_w - side_w
-                    # 석상 높이 범위에만 측면 그리기 (마운드 위~머리 아래)
-                    body_top = int(margin_top - 32 * s)  # 머리 위쪽
-                    body_bot = int(margin_top + 8 * s)   # 마운드 아래
-                    body_top = max(0, body_top)
-                    body_bot = min(th, body_bot)
-                    side_surf = pygame.Surface((side_w, body_bot - body_top), pygame.SRCALPHA)
-                    # 그라디언트 측면 (위→아래 밝기 변화)
-                    for sy in range(body_bot - body_top):
-                        vert_ratio = sy / max(1, body_bot - body_top - 1)
-                        # 중앙이 밝고 위아래가 어두운 곡면 느낌
-                        curve = 1.0 - abs(vert_ratio - 0.4) * 1.2
-                        curve = max(0.3, min(1.0, curve))
-                        r = int(side_col_dark[0] * (1 - curve) + side_col_mid[0] * curve)
-                        g = int(side_col_dark[1] * (1 - curve) + side_col_mid[1] * curve)
-                        b = int(side_col_dark[2] * (1 - curve) + side_col_mid[2] * curve)
-                        a = int(side_alpha * (0.6 + 0.4 * curve))
-                        pygame.draw.line(side_surf, (r, g, b, a),
-                                         (0, sy), (side_w - 1, sy))
-                    # 측면 엣지 하이라이트 (볼록한 느낌)
-                    edge_x = 0 if side_x == 0 else side_w - 1
-                    for sy in range(body_bot - body_top):
-                        vert_r = sy / max(1, body_bot - body_top - 1)
-                        edge_a = int(side_alpha * 0.4 * (1.0 - abs(vert_r - 0.35) * 1.5))
-                        edge_a = max(0, min(255, edge_a))
-                        if edge_a > 5:
-                            pygame.draw.line(side_surf, (180, 170, 155, edge_a),
-                                             (edge_x, sy), (edge_x, sy))
-                    scaled_surf.blit(side_surf, (side_x, body_top))
-                # ── 입체감 3: 측면 전환 시 엣지 글로우 (석상 테두리 빛 반사) ──
-                if abs(raw_cos) < 0.5:
-                    edge_glow_a = int(60 * (1.0 - abs(raw_cos) * 2))
-                    glow_w = max(1, int(2 * s))
-                    glow_surf = pygame.Surface((glow_w, th), pygame.SRCALPHA)
-                    glow_surf.fill((200, 190, 170, edge_glow_a))
-                    # 양쪽 엣지에 글로우
-                    scaled_surf.blit(glow_surf, (0, 0))
-                    scaled_surf.blit(glow_surf, (max(0, new_w - glow_w), 0))
-                # 원래 위치에 중심 정렬하여 블릿
-                blit_x = cx - new_w // 2
-                blit_y = cy - margin_top
-                screen.blit(scaled_surf, (blit_x, blit_y))
-            else:
-                self._draw_judgment_statue_scaled(screen, cx, cy, s)
+            self._draw_judgment_statue_scaled(screen, cx, cy, s)
 
         # ── 상승 파편 (떨어지는 흙/돌) ──
         for d in self.judgment_rise_debris:
