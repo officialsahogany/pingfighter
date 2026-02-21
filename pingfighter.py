@@ -3257,6 +3257,13 @@ _top_orb_font_cached = None        # 캐시된 freetype 폰트 (파일 I/O 방�
 _top_orb_text_cache = {}           # 텍스트 Surface 캐시 {text: (main, shadow)}
 _top_orb_reuse_glow = None         # 재사용 외곽 글로우 Surface
 _top_orb_reuse_sparkle = None      # 재사용 파티클 Surface
+# === 게이지 스케일링 캐시 (매 프레임 Surface 생성 방지) ===
+_gauge_scaled_cache = None          # 우측 하단 게이지 스케일 캐시
+_gauge_scaled_cache_size = (0, 0)   # 캐시된 크기
+_gauge_top_scaled_cache = None      # 우측 상단 게이지 스케일 캐시
+_gauge_top_scaled_cache_size = (0, 0)
+_gauge_left_scaled_cache = None     # 좌측 게이지 스케일 캐시
+_gauge_left_scaled_cache_size = (0, 0)
 _top_orb_reuse_token_layer = None  # 재사용 토큰 글로우 레이어 Surface
 _top_orb_reuse_glow2 = None        # 재사용 펄스 글로우 Surface
 _player_gauge_surface_left_screen_pos = (0, 0)  # 좌측 필러 Surface의 화면 좌표 (툴팁용)
@@ -7240,8 +7247,8 @@ def _get_scaled_screen():
         if _scaled_surface_cache is None or _scaled_surface_size != target_size:
             _scaled_surface_cache = pygame.Surface(target_size).convert()
             _scaled_surface_size = target_size
-        # 기존 서피스에 scale (매 프레임 새 Surface 할당 없음)
-        pygame.transform.scale(SCREEN, target_size, _scaled_surface_cache)
+        # smoothscale: bilinear 보간으로 부드러운 화질 (scale은 nearest-neighbor로 깍둑)
+        pygame.transform.smoothscale(SCREEN, target_size, _scaled_surface_cache)
         result = _scaled_surface_cache
 
     if VALTHOR_PERF_DEBUG:
@@ -9148,7 +9155,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
                 FULLSCREEN_WIDTH = _fs_comp_w
                 FULLSCREEN_HEIGHT = _fs_comp_h
                 # comp 내에서 시네마 비율로 CPU 스케일 (마진 = 화면70px / GPU2x = comp35px)
-                _fs_margin_comp = 35
+                _fs_margin_comp = 50
                 scale_y = (_fs_comp_h - _fs_margin_comp * 2) / HEIGHT
                 scaled_width_check = int(WIDTH * scale_y)
                 if scaled_width_check > _fs_comp_w:
