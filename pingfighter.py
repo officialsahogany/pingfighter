@@ -121210,7 +121210,7 @@ def _update_arena_capture_phase(screen):
 
 
 def _draw_deployed_capture_net(screen, dnet):
-    """펼쳐진 그물 그리기 (고퀄리티: 다이아몬드 메쉬 + 매듭 + 테두리 밧줄)"""
+    """펼쳐진 그물 그리기 (초고퀄리티: 리얼 그물망 + 역동적 펼침 애니메이션)"""
     import math as _m
     rect = dnet["rect"]
     shape = dnet["shape"]
@@ -121218,14 +121218,36 @@ def _draw_deployed_capture_net(screen, dnet):
     life_ratio = max(0.0, dnet["timer"] / dnet["max_timer"]) if dnet["max_timer"] > 0 else 0.0
     phase = dnet["phase"]
 
-    # 펼침 애니메이션 (처음 0.3초 동안 확장)
-    expand = min(1.0, phase / 0.3)
+    # ═══════════════════════════════════════════════════
+    # ── 1단계: 역동적 펼침 애니메이션 (3단계 모션) ──
+    # ═══════════════════════════════════════════════════
+    # Phase 1 (0~0.12s): 폭발적 확장 → 120% 오버슈트
+    # Phase 2 (0.12~0.25s): 바운스 백 → 95%로 수축
+    # Phase 3 (0.25~0.4s): 안착 → 100%
+    BURST_END = 0.12
+    BOUNCE_END = 0.25
+    SETTLE_END = 0.4
+    if phase < BURST_END:
+        # 급격한 확장 (ease-out quad)
+        t_norm = phase / BURST_END
+        expand = 1.2 * (1.0 - (1.0 - t_norm) * (1.0 - t_norm))
+    elif phase < BOUNCE_END:
+        # 바운스 백 (120% → 95%)
+        t_norm = (phase - BURST_END) / (BOUNCE_END - BURST_END)
+        expand = 1.2 - 0.25 * t_norm
+    elif phase < SETTLE_END:
+        # 안착 (95% → 100%)
+        t_norm = (phase - BOUNCE_END) / (SETTLE_END - BOUNCE_END)
+        eased = t_norm * t_norm * (3.0 - 2.0 * t_norm)  # smoothstep
+        expand = 0.95 + 0.05 * eased
+    else:
+        expand = 1.0
 
     # dissolve 효과 (미스 시 빠르게 수축)
     if trapped:
         shrink = 0.9 + 0.1 * life_ratio
-        alpha = int(200 * life_ratio + 50)
-        jitter = 1.5
+        alpha = int(220 * life_ratio + 35)
+        jitter = 1.2 + _m.sin(phase * 3.0) * 0.3
     else:
         shrink = life_ratio ** 1.2
         alpha = int(150 * life_ratio)
@@ -121244,13 +121266,14 @@ def _draw_deployed_capture_net(screen, dnet):
     cx = rect.centerx
     cy = rect.centery
 
-    surf_w = w + 30
-    surf_h = h + 30
+    pad = 40
+    surf_w = w + pad * 2
+    surf_h = h + pad * 2
     surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
-    ox = surf_w / 2
-    oy = surf_h / 2
+    ox = surf_w / 2.0
+    oy = surf_h / 2.0
 
-    # 폴리곤 변환 (shape는 원본 rect 크기 기준 좌표)
+    # ── 폴리곤 외곽선 변환 ──
     sx_ratio = w / rect.width if rect.width > 0 else 1
     sy_ratio = h / rect.height if rect.height > 0 else 1
     transformed = []
@@ -121259,128 +121282,285 @@ def _draw_deployed_capture_net(screen, dnet):
         ty = oy + (py - rect.height / 2) * sy_ratio + _m.cos(phase * 4 + py) * jitter
         transformed.append((tx, ty))
 
-    if len(transformed) >= 3:
-        # ── 외곽 글로우 (포획 시) ──
-        if trapped:
-            glow_alpha = int(alpha * 0.25)
+    if len(transformed) < 3:
+        return
+
+    # ═══════════════════════════════════════
+    # ── 2단계: 펼침 시 방사형 파동 이펙트 ──
+    # ═══════════════════════════════════════
+    if phase < 0.6:
+        ripple_t = phase / 0.6
+        ripple_alpha = int(80 * (1.0 - ripple_t))
+        ripple_r = int(max(w, h) * 0.6 * ripple_t)
+        if ripple_alpha > 3 and ripple_r > 2:
+            ripple_color = (150, 220, 255, ripple_alpha) if trapped else (180, 170, 140, ripple_alpha)
+            pygame.draw.ellipse(surf, ripple_color,
+                                (int(ox - ripple_r), int(oy - ripple_r * 0.6),
+                                 ripple_r * 2, int(ripple_r * 1.2)), 2)
+        # 두 번째 파동 (0.1초 딜레이)
+        if phase > 0.1:
+            ripple_t2 = (phase - 0.1) / 0.5
+            ripple_t2 = min(1.0, ripple_t2)
+            r_alpha2 = int(50 * (1.0 - ripple_t2))
+            r_r2 = int(max(w, h) * 0.45 * ripple_t2)
+            if r_alpha2 > 3 and r_r2 > 2:
+                pygame.draw.ellipse(surf, (150, 220, 255, r_alpha2) if trapped else (180, 170, 140, r_alpha2),
+                                    (int(ox - r_r2), int(oy - r_r2 * 0.6),
+                                     r_r2 * 2, int(r_r2 * 1.2)), 1)
+
+    # ═══════════════════════════════════════════
+    # ── 3단계: 외곽 글로우 (은은한 발광) ──
+    # ═══════════════════════════════════════════
+    if trapped:
+        # 이중 글로우
+        for glow_scale, glow_a_mult in [(1.18, 0.12), (1.08, 0.2)]:
+            glow_alpha = int(alpha * glow_a_mult)
             glow_pts = []
             for (tx, ty) in transformed:
-                gx = ox + (tx - ox) * 1.12
-                gy = oy + (ty - oy) * 1.12
-                glow_pts.append((gx, gy))
+                glow_pts.append((ox + (tx - ox) * glow_scale, oy + (ty - oy) * glow_scale))
             if len(glow_pts) >= 3:
-                pygame.draw.polygon(surf, (80, 180, 255, glow_alpha), glow_pts)
+                pygame.draw.polygon(surf, (70, 160, 240, glow_alpha), glow_pts)
 
-        # ── 그물 배경 (반투명 채움) ──
-        if trapped:
-            net_color = (70, 130, 170, int(alpha * 0.4))
-        else:
-            net_color = (120, 115, 100, int(alpha * 0.3))
-        pygame.draw.polygon(surf, net_color, transformed)
+    # ── 반투명 배경 ──
+    if trapped:
+        net_bg = (50, 110, 150, int(alpha * 0.25))
+    else:
+        net_bg = (110, 105, 90, int(alpha * 0.2))
+    pygame.draw.polygon(surf, net_bg, transformed)
 
-        # ── 다이아몬드 메쉬 패턴 ──
-        mesh_rows = 6
-        mesh_cols = 8
-        mesh_alpha = int(alpha * 0.7)
-        if trapped:
-            mesh_color = (140, 200, 230, mesh_alpha)
-            knot_color = (180, 230, 255, min(mesh_alpha + 40, 255))
-        else:
-            mesh_color = (155, 145, 125, mesh_alpha)
-            knot_color = (185, 175, 155, mesh_alpha)
+    # ═══════════════════════════════════════════════════════
+    # ── 4단계: 리얼 그물망 (현수선 처짐 + 꼬인 실 + 매듭) ──
+    # ═══════════════════════════════════════════════════════
+    MESH_ROWS = 7
+    MESH_COLS = 9
 
-        # 메쉬 포인트 그리드 생성 (그물 내부에 다이아몬드 격자)
-        mesh_pts = []
-        for row in range(mesh_rows + 1):
-            row_pts = []
-            for col in range(mesh_cols + 1):
-                # 정규화 좌표 (0~1)
-                u = col / mesh_cols
-                v = row / mesh_rows
-                # 타원 범위 내로 매핑
-                eu = (u - 0.5) * 2.0  # -1 ~ 1
-                ev = (v - 0.5) * 2.0
-                # 타원 내부 체크 (약간 여유)
-                if eu * eu + ev * ev > 1.15:
-                    row_pts.append(None)
-                    continue
-                # 물리적 좌표
-                mx = ox + eu * (w * 0.45)
-                my = oy + ev * (h * 0.45)
-                # 웨이브 애니메이션
-                wave = _m.sin(phase * 4.0 + u * 6.0 + v * 4.0) * jitter * 0.8
-                mx += wave
-                my += _m.cos(phase * 3.5 + v * 5.0 + u * 3.0) * jitter * 0.6
-                row_pts.append((mx, my))
-            mesh_pts.append(row_pts)
+    if trapped:
+        strand_color_base = (120, 185, 215)
+        strand_hi_color = (170, 225, 250)
+        knot_fill = (90, 170, 210)
+        knot_hi = (200, 240, 255)
+        knot_shadow = (50, 100, 140)
+    else:
+        strand_color_base = (145, 135, 115)
+        strand_hi_color = (185, 175, 155)
+        knot_fill = (130, 120, 100)
+        knot_hi = (195, 185, 165)
+        knot_shadow = (90, 80, 65)
 
-        # 다이아몬드 격자 라인 그리기
-        for row in range(mesh_rows + 1):
-            for col in range(mesh_cols + 1):
-                pt = mesh_pts[row][col] if col < len(mesh_pts[row]) else None
-                if pt is None:
-                    continue
-                # 오른쪽 이웃
-                if col < mesh_cols:
-                    pt_r = mesh_pts[row][col + 1] if (col + 1) < len(mesh_pts[row]) else None
-                    if pt_r is not None:
-                        pygame.draw.line(surf, mesh_color, (int(pt[0]), int(pt[1])),
-                                         (int(pt_r[0]), int(pt_r[1])), 1)
-                # 아래 이웃
-                if row < mesh_rows:
-                    pt_d = mesh_pts[row + 1][col] if col < len(mesh_pts[row + 1]) else None
-                    if pt_d is not None:
-                        pygame.draw.line(surf, mesh_color, (int(pt[0]), int(pt[1])),
-                                         (int(pt_d[0]), int(pt_d[1])), 1)
-                # 대각선 (다이아몬드 패턴)
-                if row < mesh_rows and col < mesh_cols:
-                    pt_dr = mesh_pts[row + 1][col + 1] if (col + 1) < len(mesh_pts[row + 1]) else None
-                    if pt_dr is not None:
-                        pygame.draw.line(surf, mesh_color, (int(pt[0]), int(pt[1])),
-                                         (int(pt_dr[0]), int(pt_dr[1])), 1)
-                if row < mesh_rows and col > 0:
-                    pt_dl = mesh_pts[row + 1][col - 1] if (col - 1) >= 0 and (col - 1) < len(mesh_pts[row + 1]) else None
-                    if pt_dl is not None:
-                        pygame.draw.line(surf, mesh_color, (int(pt[0]), int(pt[1])),
-                                         (int(pt_dl[0]), int(pt_dl[1])), 1)
+    strand_alpha = int(alpha * 0.85)
 
-                # 매듭 포인트 (교차점마다 작은 원)
-                pygame.draw.circle(surf, knot_color, (int(pt[0]), int(pt[1])), 2)
+    # ── 그물 노드(매듭점) 좌표 계산 ──
+    # 다이아몬드 배치: 짝수행은 정렬, 홀수행은 반칸 오프셋
+    nodes = {}  # (row, col) -> (x, y) or None
+    hw = w * 0.46
+    hh = h * 0.44
 
-        # ── 테두리 밧줄 (두꺼운 외곽 로프) ──
-        border_alpha = min(alpha + 30, 255)
-        if trapped:
-            rope_outer = (100, 180, 220, border_alpha)
-            rope_inner = (160, 220, 245, min(border_alpha, 200))
-        else:
-            rope_outer = (160, 145, 115, border_alpha)
-            rope_inner = (195, 180, 150, min(border_alpha, 200))
+    # 펼침 진행도에 따른 노드별 확산 (중앙→외곽 순서로 펼쳐짐)
+    expand_progress = min(1.0, phase / SETTLE_END)
 
-        n_border = len(transformed)
-        for i in range(n_border):
-            p1 = transformed[i]
-            p2 = transformed[(i + 1) % n_border]
-            # 두꺼운 외곽 (3px)
-            pygame.draw.line(surf, rope_outer,
-                             (int(p1[0]), int(p1[1])), (int(p2[0]), int(p2[1])), 3)
-            # 밝은 내곽 하이라이트 (1px)
-            pygame.draw.line(surf, rope_inner,
-                             (int(p1[0]), int(p1[1])), (int(p2[0]), int(p2[1])), 1)
+    for row in range(MESH_ROWS + 1):
+        for col in range(MESH_COLS + 1):
+            # 다이아몬드 오프셋
+            is_odd_row = (row % 2 == 1)
+            u = col / MESH_COLS
+            v = row / MESH_ROWS
+            if is_odd_row:
+                u += 0.5 / MESH_COLS  # 반칸 오프셋
 
-        # 테두리 매듭 (6포인트마다)
-        for i in range(0, n_border, max(1, n_border // 8)):
-            kx, ky = int(transformed[i][0]), int(transformed[i][1])
-            pygame.draw.circle(surf, rope_outer, (kx, ky), 4)
-            pygame.draw.circle(surf, rope_inner, (kx, ky), 2)
+            eu = (u - 0.5) * 2.0
+            ev = (v - 0.5) * 2.0
 
-        # ── 포획 시 조임 이펙트 (내부 긴장선) ──
-        if trapped and phase > 0.3:
-            tighten_alpha = int(alpha * 0.3 * min(1.0, (phase - 0.3) / 0.5))
-            # 수평 조임선
-            for ty_off in [-h * 0.15, 0, h * 0.15]:
-                pygame.draw.line(surf, (200, 240, 255, tighten_alpha),
-                                 (int(ox - w * 0.35), int(oy + ty_off)),
-                                 (int(ox + w * 0.35), int(oy + ty_off)), 1)
+            # 타원 경계 체크
+            if eu * eu + ev * ev > 1.05:
+                nodes[(row, col)] = None
+                continue
+
+            # 기본 좌표
+            base_x = ox + eu * hw
+            base_y = oy + ev * hh
+
+            # ── 중력 처짐 (하단 노드가 더 많이 처짐) ──
+            gravity_sag = (v * v) * 4.0  # 아래쪽일수록 더 처짐
+            # 가장자리도 약간 처짐
+            edge_dist = (eu * eu + ev * ev)
+            edge_sag = edge_dist * 2.0
+
+            # ── 펼침 애니메이션: 노드별 지연 (중앙→외곽) ──
+            node_dist = (eu * eu + ev * ev) ** 0.5  # 0~1
+            node_delay = node_dist * 0.3  # 외곽 노드는 0.3초 늦게
+            node_expand = max(0.0, min(1.0, (phase - node_delay) / max(0.01, SETTLE_END - node_delay)))
+            # ease-out elastic 느낌
+            if node_expand < 1.0:
+                if node_expand < 0.6:
+                    ne = node_expand / 0.6
+                    node_scale = 1.15 * (1.0 - (1.0 - ne) ** 2)
+                else:
+                    ne = (node_expand - 0.6) / 0.4
+                    node_scale = 1.15 - 0.15 * ne
+            else:
+                node_scale = 1.0
+
+            final_x = ox + (base_x - ox) * node_scale
+            final_y = oy + (base_y - oy) * node_scale + gravity_sag + edge_sag
+
+            # ── 웨이브 애니메이션 (바람에 흔들리는 느낌) ──
+            wave_x = _m.sin(phase * 3.0 + u * 8.0 + v * 5.0) * jitter * 1.2
+            wave_y = _m.cos(phase * 2.5 + v * 7.0 + u * 3.0) * jitter * 0.9
+            final_x += wave_x
+            final_y += wave_y
+
+            nodes[(row, col)] = (final_x, final_y)
+
+    # ── 그물 실(strand) 그리기: 현수선 곡선 ──
+    def _draw_catenary_strand(surf, p1, p2, color, alpha_val, sag_amount=3.0):
+        """두 매듭 사이를 현수선(카테너리) 곡선으로 연결"""
+        x1, y1 = p1
+        x2, y2 = p2
+        segs = 6
+        pts = []
+        for s in range(segs + 1):
+            t_s = s / segs
+            # 선형 보간 + 포물선 처짐
+            lx = x1 + (x2 - x1) * t_s
+            ly = y1 + (y2 - y1) * t_s
+            # 포물선 처짐 (중앙이 최대)
+            sag = sag_amount * 4.0 * t_s * (1.0 - t_s)
+            ly += sag
+            pts.append((int(lx), int(ly)))
+        for s in range(len(pts) - 1):
+            # 실 두께: 중앙이 약간 가늘어짐 (장력 표현)
+            mid_thin = 1 if (s == len(pts) // 2 - 1 or s == len(pts) // 2) else 2
+            c = (*color, alpha_val)
+            pygame.draw.line(surf, c, pts[s], pts[s + 1], mid_thin)
+        return pts
+
+    # 다이아몬드 패턴 연결: (row, col) ↔ 대각선 이웃들
+    for row in range(MESH_ROWS + 1):
+        is_odd = (row % 2 == 1)
+        for col in range(MESH_COLS + 1):
+            n1 = nodes.get((row, col))
+            if n1 is None:
+                continue
+
+            # ── 대각선 아래-오른쪽 연결 ──
+            if row < MESH_ROWS:
+                next_row = row + 1
+                next_is_odd = (next_row % 2 == 1)
+                # 다이아몬드: 짝수→홀수 = 같은 col, 홀수→짝수 = col+1
+                if not is_odd:
+                    # 짝수행 → 홀수행: (row+1, col) 과 (row+1, col-1)
+                    for dc in [0, -1]:
+                        nc = col + dc
+                        n2 = nodes.get((next_row, nc))
+                        if n2 is not None:
+                            sag = 2.0 + abs(n1[1] - oy) / hh * 2.5
+                            _draw_catenary_strand(surf, n1, n2, strand_color_base, strand_alpha, sag)
+                else:
+                    # 홀수행 → 짝수행: (row+1, col) 과 (row+1, col+1)
+                    for dc in [0, 1]:
+                        nc = col + dc
+                        n2 = nodes.get((next_row, nc))
+                        if n2 is not None:
+                            sag = 2.0 + abs(n1[1] - oy) / hh * 2.5
+                            _draw_catenary_strand(surf, n1, n2, strand_color_base, strand_alpha, sag)
+
+    # ── 매듭(knot) 그리기: 3D 느낌 (그림자 + 하이라이트) ──
+    for row in range(MESH_ROWS + 1):
+        for col in range(MESH_COLS + 1):
+            nd = nodes.get((row, col))
+            if nd is None:
+                continue
+            kx, ky = int(nd[0]), int(nd[1])
+            knot_a = strand_alpha
+
+            # 매듭 크기 (테두리 근처는 약간 크게)
+            eu_approx = abs((col / MESH_COLS - 0.5) * 2.0)
+            ev_approx = abs((row / MESH_ROWS - 0.5) * 2.0)
+            is_border = (eu_approx > 0.7 or ev_approx > 0.7)
+            kr = 4 if is_border else 3
+
+            # 그림자 (오른쪽 아래)
+            pygame.draw.circle(surf, (*knot_shadow, max(0, knot_a - 40)), (kx + 1, ky + 1), kr)
+            # 메인 바디
+            pygame.draw.circle(surf, (*knot_fill, knot_a), (kx, ky), kr)
+            # 하이라이트 (왼쪽 위 밝은점)
+            pygame.draw.circle(surf, (*knot_hi, min(knot_a, 200)), (kx - 1, ky - 1), max(1, kr - 2))
+            # 매듭 십자 감김 무늬 (큰 매듭만)
+            if is_border and kr >= 4:
+                wrap_a = min(knot_a, 160)
+                pygame.draw.line(surf, (*strand_hi_color, wrap_a), (kx - 3, ky), (kx + 3, ky), 1)
+                pygame.draw.line(surf, (*strand_hi_color, wrap_a), (kx, ky - 3), (kx, ky + 3), 1)
+
+    # ═══════════════════════════════════════════════
+    # ── 5단계: 두꺼운 테두리 밧줄 (꼬인 로프 텍스처) ──
+    # ═══════════════════════════════════════════════
+    border_alpha = min(alpha + 40, 255)
+    if trapped:
+        rope_dark = (70, 140, 185, border_alpha)
+        rope_main = (100, 175, 215, border_alpha)
+        rope_light = (165, 225, 250, min(border_alpha, 200))
+    else:
+        rope_dark = (120, 108, 85, border_alpha)
+        rope_main = (155, 140, 112, border_alpha)
+        rope_light = (195, 182, 155, min(border_alpha, 200))
+
+    n_border = len(transformed)
+    for i in range(n_border):
+        p1 = transformed[i]
+        p2 = transformed[(i + 1) % n_border]
+        ix1, iy1 = int(p1[0]), int(p1[1])
+        ix2, iy2 = int(p2[0]), int(p2[1])
+        seg_dx = ix2 - ix1
+        seg_dy = iy2 - iy1
+        seg_l = max(1.0, (seg_dx**2 + seg_dy**2)**0.5)
+        # 수직 방향
+        perp_x = -seg_dy / seg_l
+        perp_y = seg_dx / seg_l
+        twist = _m.sin(phase * 8.0 + i * 0.7) * 1.5
+
+        # 어두운 가닥 (그림자)
+        pygame.draw.line(surf, rope_dark,
+                         (int(ix1 + perp_x * twist), int(iy1 + perp_y * twist)),
+                         (int(ix2 + perp_x * twist), int(iy2 + perp_y * twist)), 4)
+        # 메인 가닥
+        pygame.draw.line(surf, rope_main,
+                         (int(ix1 - perp_x * twist * 0.5), int(iy1 - perp_y * twist * 0.5)),
+                         (int(ix2 - perp_x * twist * 0.5), int(iy2 - perp_y * twist * 0.5)), 3)
+        # 하이라이트
+        pygame.draw.line(surf, rope_light, (ix1, iy1), (ix2, iy2), 1)
+
+    # 테두리 매듭 (균등 분포)
+    knot_interval = max(1, n_border // 9)
+    for i in range(0, n_border, knot_interval):
+        kx, ky = int(transformed[i][0]), int(transformed[i][1])
+        # 그림자
+        pygame.draw.circle(surf, rope_dark, (kx + 1, ky + 1), 5)
+        # 바디
+        pygame.draw.circle(surf, rope_main, (kx, ky), 5)
+        # 하이라이트
+        pygame.draw.circle(surf, rope_light, (kx - 1, ky - 1), 3)
+        # 감김 무늬
+        pygame.draw.line(surf, rope_light, (kx - 4, ky - 1), (kx + 4, ky + 1), 1)
+        pygame.draw.line(surf, rope_light, (kx - 1, ky - 4), (kx + 1, ky + 4), 1)
+
+    # ═══════════════════════════════════════
+    # ── 6단계: 포획 시 조임 이펙트 ──
+    # ═══════════════════════════════════════
+    if trapped and phase > SETTLE_END:
+        tighten_t = min(1.0, (phase - SETTLE_END) / 0.8)
+        tighten_alpha = int(alpha * 0.2 * tighten_t)
+        # 수렴하는 조임선 (외곽 → 중앙으로)
+        for k in range(4):
+            angle = k * _m.pi / 4 + phase * 1.5
+            r_out = max(w, h) * 0.5 * (1.0 - tighten_t * 0.3)
+            r_in = r_out * 0.3
+            x_out = ox + _m.cos(angle) * r_out
+            y_out = oy + _m.sin(angle) * r_out * (h / max(1, w))
+            x_in = ox + _m.cos(angle) * r_in
+            y_in = oy + _m.sin(angle) * r_in * (h / max(1, w))
+            tcolor = (200, 240, 255, tighten_alpha) if trapped else (180, 170, 150, tighten_alpha)
+            pygame.draw.line(surf, tcolor,
+                             (int(x_out), int(y_out)), (int(x_in), int(y_in)), 1)
 
     screen.blit(surf, (cx - surf_w // 2, cy - surf_h // 2))
 
@@ -121542,106 +121722,201 @@ def _draw_capture_net_projectile(screen, nx, ny, rope_points):
 
 
 def _draw_capture_net_deployed(screen, cx, cy, expand_progress):
-    """포획 성공 시 그물 덮기 애니메이션 (고퀄리티: 메쉬 + 조임 + 매듭)"""
+    """포획 성공 시 그물 덮기 애니메이션 (초고퀄리티: 리얼 그물망 + 현수선 + 매듭)"""
     import math as _m
     import time as _time_mod
     _t = _time_mod.perf_counter()
 
-    # 그물 크기 (확장 애니메이션)
-    max_w, max_h = 100, 55
-    w = int(max_w * expand_progress)
-    h = int(max_h * expand_progress)
+    # 그물 크기 (바운스 확장 애니메이션)
+    max_w, max_h = 105, 58
+    # 바운스 확장: 오버슈트 → 수축 → 안착
+    if expand_progress < 0.4:
+        t_n = expand_progress / 0.4
+        ep = 1.15 * (1.0 - (1.0 - t_n) ** 2)
+    elif expand_progress < 0.7:
+        t_n = (expand_progress - 0.4) / 0.3
+        ep = 1.15 - 0.18 * t_n
+    else:
+        t_n = (expand_progress - 0.7) / 0.3
+        ep = 0.97 + 0.03 * min(1.0, t_n)
+    w = int(max_w * ep)
+    h = int(max_h * ep)
     if w < 4 or h < 4:
         return
 
-    pad = 12
+    pad = 18
     surf_w = w + pad * 2
     surf_h = h + pad * 2
     net_surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
     s_cx = surf_w // 2
     s_cy = surf_h // 2
 
-    # ── 글로우 (은은한 외곽 발광) ──
-    glow_alpha = int(60 * expand_progress)
-    pygame.draw.ellipse(net_surf, (100, 200, 180, glow_alpha),
-                        (s_cx - w // 2 - 4, s_cy - h // 2 - 4, w + 8, h + 8))
+    # ── 이중 글로우 ──
+    for gw_off, ga_mult in [(6, 0.15), (3, 0.25)]:
+        ga = int(80 * expand_progress * ga_mult)
+        pygame.draw.ellipse(net_surf, (90, 190, 170, ga),
+                            (s_cx - w // 2 - gw_off, s_cy - h // 2 - gw_off,
+                             w + gw_off * 2, h + gw_off * 2))
 
-    # ── 반투명 배경 (그물 내부) ──
-    bg_alpha = int(80 * expand_progress)
-    pygame.draw.ellipse(net_surf, (80, 140, 120, bg_alpha),
+    # ── 반투명 배경 ──
+    bg_alpha = int(55 * expand_progress)
+    pygame.draw.ellipse(net_surf, (60, 120, 105, bg_alpha),
                         (s_cx - w // 2, s_cy - h // 2, w, h))
 
-    # ── 다이아몬드 메쉬 패턴 ──
-    mesh_rows = 5
-    mesh_cols = 7
-    mesh_alpha = int(180 * expand_progress)
-    mesh_color = (130, 185, 160, mesh_alpha)
-    knot_color = (170, 220, 200, min(mesh_alpha + 30, 255))
+    # ═══════════════════════════════════════════════
+    # ── 리얼 그물망 (현수선 + 다이아몬드 + 3D 매듭) ──
+    # ═══════════════════════════════════════════════
+    ROWS = 5
+    COLS = 7
+    strand_alpha = int(200 * expand_progress)
+    strand_color = (120, 180, 155)
+    strand_hi = (165, 220, 195)
+    knot_fill = (85, 160, 140)
+    knot_hi = (185, 235, 215)
+    knot_shadow = (45, 100, 85)
 
-    for row in range(mesh_rows + 1):
-        for col in range(mesh_cols + 1):
-            u = col / mesh_cols
-            v = row / mesh_rows
+    hw = w * 0.44
+    hh = h * 0.42
+
+    # 노드 좌표 계산 (다이아몬드 배치 + 중력 처짐)
+    nodes = {}
+    for row in range(ROWS + 1):
+        for col in range(COLS + 1):
+            is_odd = (row % 2 == 1)
+            u = col / COLS
+            v = row / ROWS
+            if is_odd:
+                u += 0.5 / COLS
             eu = (u - 0.5) * 2.0
             ev = (v - 0.5) * 2.0
-            if eu * eu + ev * ev > 1.1:
+            if eu * eu + ev * ev > 1.08:
+                nodes[(row, col)] = None
                 continue
-            mx = s_cx + eu * (w * 0.42)
-            my = s_cy + ev * (h * 0.42)
-            # 미세 웨이브
-            mx += _m.sin(_t * 5.0 + u * 8.0 + v * 5.0) * 1.2
-            my += _m.cos(_t * 4.5 + v * 7.0) * 0.8
 
-            # 오른쪽 이웃 연결
-            if col < mesh_cols:
-                nu = (col + 1) / mesh_cols
-                neu = (nu - 0.5) * 2.0
-                if neu * neu + ev * ev <= 1.1:
-                    nx_pt = s_cx + neu * (w * 0.42) + _m.sin(_t * 5.0 + nu * 8.0 + v * 5.0) * 1.2
-                    ny_pt = my  # 같은 행
-                    pygame.draw.line(net_surf, mesh_color, (int(mx), int(my)), (int(nx_pt), int(ny_pt)), 1)
+            # 노드별 지연 확산
+            nd = (eu * eu + ev * ev) ** 0.5
+            n_delay = nd * 0.15
+            n_ep = max(0.0, min(1.0, (expand_progress - n_delay) / max(0.01, 1.0 - n_delay)))
 
-            # 아래 이웃 연결
-            if row < mesh_rows:
-                nv = (row + 1) / mesh_rows
-                nev = (nv - 0.5) * 2.0
-                if eu * eu + nev * nev <= 1.1:
-                    ny_pt = s_cy + nev * (h * 0.42) + _m.cos(_t * 4.5 + nv * 7.0) * 0.8
-                    pygame.draw.line(net_surf, mesh_color, (int(mx), int(my)), (int(mx), int(ny_pt)), 1)
+            mx = s_cx + eu * hw * n_ep
+            my = s_cy + ev * hh * n_ep
+            # 중력 처짐
+            my += (v * v) * 3.0
+            # 웨이브
+            mx += _m.sin(_t * 4.0 + u * 7.0 + v * 5.0) * 1.0 * expand_progress
+            my += _m.cos(_t * 3.5 + v * 6.0 + u * 4.0) * 0.7 * expand_progress
+            nodes[(row, col)] = (mx, my)
 
-            # 대각선 (다이아몬드)
-            if row < mesh_rows and col < mesh_cols:
-                nu = (col + 1) / mesh_cols
-                nv2 = (row + 1) / mesh_rows
-                neu2 = (nu - 0.5) * 2.0
-                nev2 = (nv2 - 0.5) * 2.0
-                if neu2 * neu2 + nev2 * nev2 <= 1.1:
-                    dx_pt = s_cx + neu2 * (w * 0.42) + _m.sin(_t * 5.0 + nu * 8.0 + nv2 * 5.0) * 1.2
-                    dy_pt = s_cy + nev2 * (h * 0.42) + _m.cos(_t * 4.5 + nv2 * 7.0) * 0.8
-                    pygame.draw.line(net_surf, mesh_color, (int(mx), int(my)), (int(dx_pt), int(dy_pt)), 1)
+    # 현수선 실 그리기
+    def _catenary(surf, p1, p2, color, a_val, sag=2.5):
+        x1, y1 = p1
+        x2, y2 = p2
+        segs = 5
+        pts = []
+        for s in range(segs + 1):
+            ts = s / segs
+            lx = x1 + (x2 - x1) * ts
+            ly = y1 + (y2 - y1) * ts + sag * 4.0 * ts * (1.0 - ts)
+            pts.append((int(lx), int(ly)))
+        for s in range(len(pts) - 1):
+            th = 1 if s == len(pts) // 2 else 2
+            pygame.draw.line(surf, (*color, a_val), pts[s], pts[s + 1], th)
 
-            # 매듭 포인트
-            pygame.draw.circle(net_surf, knot_color, (int(mx), int(my)), 2)
+    for row in range(ROWS + 1):
+        is_odd = (row % 2 == 1)
+        for col in range(COLS + 1):
+            n1 = nodes.get((row, col))
+            if n1 is None:
+                continue
+            if row < ROWS:
+                nr = row + 1
+                if not is_odd:
+                    for dc in [0, -1]:
+                        n2 = nodes.get((nr, col + dc))
+                        if n2 is not None:
+                            sag = 1.5 + abs(n1[1] - s_cy) / max(1, hh) * 2.0
+                            _catenary(net_surf, n1, n2, strand_color, strand_alpha, sag)
+                else:
+                    for dc in [0, 1]:
+                        n2 = nodes.get((nr, col + dc))
+                        if n2 is not None:
+                            sag = 1.5 + abs(n1[1] - s_cy) / max(1, hh) * 2.0
+                            _catenary(net_surf, n1, n2, strand_color, strand_alpha, sag)
 
-    # ── 두꺼운 외곽 밧줄 ──
-    border_alpha = int(220 * expand_progress)
-    rope_color = (150, 190, 170, border_alpha)
-    rope_hi = (190, 225, 210, min(border_alpha, 180))
-    pygame.draw.ellipse(net_surf, rope_color,
-                        (s_cx - w // 2, s_cy - h // 2, w, h), 3)
-    pygame.draw.ellipse(net_surf, rope_hi,
-                        (s_cx - w // 2 + 1, s_cy - h // 2 + 1, w - 2, h - 2), 1)
+    # 3D 매듭 그리기
+    for row in range(ROWS + 1):
+        for col in range(COLS + 1):
+            nd = nodes.get((row, col))
+            if nd is None:
+                continue
+            kx, ky = int(nd[0]), int(nd[1])
+            ka = strand_alpha
+            eu_a = abs((col / COLS - 0.5) * 2.0)
+            ev_a = abs((row / ROWS - 0.5) * 2.0)
+            is_border = (eu_a > 0.65 or ev_a > 0.65)
+            kr = 3 if is_border else 2
+            pygame.draw.circle(net_surf, (*knot_shadow, max(0, ka - 50)), (kx + 1, ky + 1), kr)
+            pygame.draw.circle(net_surf, (*knot_fill, ka), (kx, ky), kr)
+            pygame.draw.circle(net_surf, (*knot_hi, min(ka, 190)), (kx - 1, ky - 1), max(1, kr - 1))
+            if is_border:
+                pygame.draw.line(net_surf, (*strand_hi, min(ka, 140)), (kx - 2, ky), (kx + 2, ky), 1)
 
-    # ── 조임 표시 (상단에 밧줄 교차) ──
+    # ── 두꺼운 외곽 밧줄 (꼬인 로프) ──
+    b_alpha = int(230 * expand_progress)
+    rope_dk = (65, 130, 115, b_alpha)
+    rope_mn = (100, 170, 150, b_alpha)
+    rope_lt = (160, 215, 195, min(b_alpha, 185))
+
+    # 타원 둘레 포인트 생성
+    n_pts = 28
+    border_pts = []
+    for i in range(n_pts):
+        angle = (i / n_pts) * _m.tau
+        bx = s_cx + _m.cos(angle) * (w / 2)
+        by = s_cy + _m.sin(angle) * (h / 2)
+        border_pts.append((bx, by))
+
+    for i in range(n_pts):
+        p1 = border_pts[i]
+        p2 = border_pts[(i + 1) % n_pts]
+        ix1, iy1 = int(p1[0]), int(p1[1])
+        ix2, iy2 = int(p2[0]), int(p2[1])
+        sdx = ix2 - ix1
+        sdy = iy2 - iy1
+        sl = max(1.0, (sdx**2 + sdy**2)**0.5)
+        px = -sdy / sl
+        py = sdx / sl
+        tw = _m.sin(_t * 7.0 + i * 0.6) * 1.2
+        pygame.draw.line(net_surf, rope_dk,
+                         (int(ix1 + px * tw), int(iy1 + py * tw)),
+                         (int(ix2 + px * tw), int(iy2 + py * tw)), 3)
+        pygame.draw.line(net_surf, rope_mn,
+                         (int(ix1 - px * tw * 0.5), int(iy1 - py * tw * 0.5)),
+                         (int(ix2 - px * tw * 0.5), int(iy2 - py * tw * 0.5)), 2)
+        pygame.draw.line(net_surf, rope_lt, (ix1, iy1), (ix2, iy2), 1)
+
+    # 테두리 매듭
+    for i in range(0, n_pts, max(1, n_pts // 7)):
+        kx, ky = int(border_pts[i][0]), int(border_pts[i][1])
+        pygame.draw.circle(net_surf, rope_dk, (kx + 1, ky + 1), 4)
+        pygame.draw.circle(net_surf, rope_mn, (kx, ky), 4)
+        pygame.draw.circle(net_surf, rope_lt, (kx - 1, ky - 1), 2)
+
+    # ── 조임 표시 ──
     if expand_progress > 0.5:
-        tie_alpha = int(200 * min(1.0, (expand_progress - 0.5) * 2.0))
-        tie_y = s_cy - h // 2 - 2
-        pygame.draw.line(net_surf, (180, 160, 120, tie_alpha),
-                         (s_cx - 8, tie_y), (s_cx + 8, tie_y), 2)
-        pygame.draw.line(net_surf, (180, 160, 120, tie_alpha),
-                         (s_cx - 5, tie_y - 3), (s_cx + 5, tie_y + 3), 1)
-        pygame.draw.line(net_surf, (180, 160, 120, tie_alpha),
-                         (s_cx + 5, tie_y - 3), (s_cx - 5, tie_y + 3), 1)
+        tie_a = int(210 * min(1.0, (expand_progress - 0.5) * 2.0))
+        tie_y = s_cy - h // 2 - 3
+        # 리본 매듭
+        pygame.draw.line(net_surf, (175, 155, 115, tie_a), (s_cx - 10, tie_y), (s_cx + 10, tie_y), 2)
+        # X 감김
+        pygame.draw.line(net_surf, (175, 155, 115, tie_a), (s_cx - 6, tie_y - 4), (s_cx + 6, tie_y + 4), 1)
+        pygame.draw.line(net_surf, (175, 155, 115, tie_a), (s_cx + 6, tie_y - 4), (s_cx - 6, tie_y + 4), 1)
+        # 늘어진 끈 두 가닥
+        for side in [-1, 1]:
+            end_x = s_cx + side * 12
+            end_y = tie_y + 8
+            pygame.draw.line(net_surf, (160, 140, 100, max(0, tie_a - 40)),
+                             (s_cx + side * 4, tie_y), (end_x, end_y), 1)
 
     screen.blit(net_surf, (int(cx) - surf_w // 2, int(cy) - surf_h // 2))
 
