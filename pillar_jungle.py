@@ -533,19 +533,25 @@ class MossyStoneFrame:
                 random.randint(18, 28), 'front'))
 
     def _create_stone(self, x, y, size, layer):
-        """간단한 돌 생성"""
-        num_points = random.randint(6, 9)
+        """돌 생성 (고퀄리티 - 더 많은 폴리곤 포인트, 멀티 사인파 노이즈)"""
+        num_points = random.randint(10, 14)
         points = []
+        phase1 = random.uniform(0, 6.283)
+        phase2 = random.uniform(0, 6.283)
         for i in range(num_points):
             angle = i * (6.283 / num_points)
-            radius = size * (0.45 + random.uniform(0.1, 0.4))
-            points.append((radius * math.cos(angle), radius * math.sin(angle) * random.uniform(0.75, 1.0)))
+            # 멀티 사인파 노이즈로 자연스러운 돌 형태
+            noise = 0.12 * math.sin(angle * 3 + phase1) + 0.06 * math.sin(angle * 7 + phase2)
+            radius = size * (0.45 + random.uniform(0.1, 0.35) + noise)
+            squash = random.uniform(0.78, 1.0)
+            points.append((radius * math.cos(angle), radius * math.sin(angle) * squash))
 
         return {
             'x': x, 'y': y, 'size': size, 'points': points,
             'rotation': random.uniform(-15, 15),
             'shade': random.uniform(0.9, 1.1),
-            'layer': layer
+            'layer': layer,
+            'seed': random.randint(0, 9999),
         }
 
     def _generate_rich_moss(self):
@@ -970,7 +976,7 @@ class MossyStoneFrame:
         # 안개 효과 제거 (그라데이션과 충돌하여 사각형 경계 생성함)
 
     def _draw_background_vine(self, surface, vine):
-        """배경 덩굴 그리기"""
+        """배경 덩굴 그리기 (고퀄리티 - 다층 덩굴, 디테일 잎)"""
         x, y = vine['x'], vine['y']
         length = vine['length']
         thickness = vine['thickness']
@@ -984,19 +990,36 @@ class MossyStoneFrame:
             points.append((int(vx), int(vy)))
 
         if len(points) >= 2:
-            # 어두운 덩굴
-            pygame.draw.lines(surface, self.COLORS['jungle_dark'], False, points, thickness + 1)
-            pygame.draw.lines(surface, self.COLORS['jungle_leaf_dark'], False, points, thickness)
+            # 그림자
+            shadow_pts = [(p[0] + 2, p[1] + 2) for p in points]
+            pygame.draw.lines(surface, (0, 0, 0, 15), False, shadow_pts, thickness + 2)
 
-            # 작은 잎들
+            # 어두운 바깥쪽
+            pygame.draw.lines(surface, self.COLORS['jungle_dark'], False, points, thickness + 2)
+            # 중간 톤
+            pygame.draw.lines(surface, self.COLORS['jungle_leaf_dark'], False, points, thickness)
+            # 하이라이트
+            hl_pts = [(p[0] - 1, p[1]) for p in points]
+            pygame.draw.lines(surface, (*self.COLORS['jungle_leaf_mid'], 100), False, hl_pts,
+                              max(1, thickness // 2))
+
+            # 디테일 잎들
             for i in range(2, len(points) - 1, 3):
                 px, py = points[i]
                 side = 1 if i % 2 == 0 else -1
+                lx = px + side * 6
+                # 잎 그림자
+                pygame.draw.ellipse(surface, (0, 0, 0, 15),
+                                    (lx - 5, py - 3, 10, 8))
+                # 잎 어두운 바탕
+                pygame.draw.ellipse(surface, self.COLORS['jungle_leaf_dark'],
+                                    (lx - 4, py - 3, 8, 6))
+                # 잎 밝은 안쪽
                 pygame.draw.ellipse(surface, self.COLORS['jungle_leaf_mid'],
-                                  (px + side * 6 - 4, py - 3, 8, 6))
+                                    (lx - 3, py - 2, 6, 4))
 
     def _draw_jungle_tree(self, surface, tree):
-        """정글 나무 그리기 (구불구불한 큰 나무)"""
+        """정글 나무 그리기 (고퀄리티 - 6층 줄기, 상세 껍질, 다층 가지)"""
         trunk_points = tree['trunk_points']
         branches = tree['branches']
         bark_details = tree['bark_details']
@@ -1011,78 +1034,138 @@ class MossyStoneFrame:
         else:
             shade = 1.0
 
-        # 뿌리 그리기
+        # 뿌리 그리기 (더 상세)
         if len(trunk_points) > 0:
             base_x, base_y, base_t = trunk_points[0]
             for root in roots:
                 rad = math.radians(root['angle'])
                 end_x = base_x + math.cos(rad) * root['length']
                 end_y = base_y + math.sin(rad) * root['length'] * 0.5
+                rt = int(root['thickness'])
 
-                root_color = tuple(int(c * shade * 0.8) for c in self.COLORS['trunk_darkest'])
-                pygame.draw.line(surface, root_color, (int(base_x), int(base_y)),
-                               (int(end_x), int(end_y)), int(root['thickness']))
+                # 뿌리 그림자
+                pygame.draw.line(surface, (0, 0, 0, 15),
+                                 (int(base_x + 2), int(base_y + 2)),
+                                 (int(end_x + 2), int(end_y + 2)), rt + 2)
+                # 뿌리 어두운 바탕
+                root_dark = tuple(int(c * shade * 0.7) for c in self.COLORS['trunk_darkest'])
+                pygame.draw.line(surface, root_dark,
+                                 (int(base_x), int(base_y)), (int(end_x), int(end_y)), rt + 1)
+                # 뿌리 중간
+                root_mid = tuple(int(c * shade * 0.9) for c in self.COLORS['trunk_dark'])
+                pygame.draw.line(surface, root_mid,
+                                 (int(base_x), int(base_y)), (int(end_x), int(end_y)), rt)
+                # 뿌리 하이라이트
+                root_light = tuple(int(c * shade) for c in self.COLORS['trunk_mid'])
+                pygame.draw.line(surface, (*root_light, 110),
+                                 (int(base_x - 1), int(base_y)),
+                                 (int(end_x - 1), int(end_y)), max(1, rt // 2))
 
-        # 줄기 그리기
+        # 줄기 그리기 (6층)
         if len(trunk_points) >= 2:
-            # 그림자
+            # 넓은 그림자
             for i in range(len(trunk_points) - 1):
                 x1, y1, t1 = trunk_points[i]
                 x2, y2, t2 = trunk_points[i + 1]
-                pygame.draw.line(surface, (0, 0, 0, 25),
-                               (int(x1 + 4), int(y1 + 4)), (int(x2 + 4), int(y2 + 4)), int(t1) + 3)
+                pygame.draw.line(surface, (0, 0, 0, 18),
+                                 (int(x1 + 5), int(y1 + 5)), (int(x2 + 5), int(y2 + 5)), int(t1) + 5)
 
-            # 줄기 본체 (어두운 쪽)
+            # 가장 어두운 바깥쪽
+            for i in range(len(trunk_points) - 1):
+                x1, y1, t1 = trunk_points[i]
+                x2, y2, t2 = trunk_points[i + 1]
+                color = tuple(int(c * shade * 0.7) for c in self.COLORS['trunk_darkest'])
+                pygame.draw.line(surface, color, (int(x1), int(y1)), (int(x2), int(y2)), int(t1) + 3)
+
+            # 어두운 면
             for i in range(len(trunk_points) - 1):
                 x1, y1, t1 = trunk_points[i]
                 x2, y2, t2 = trunk_points[i + 1]
                 color = tuple(int(c * shade) for c in self.COLORS['trunk_darkest'])
-                pygame.draw.line(surface, color, (int(x1), int(y1)), (int(x2), int(y2)), int(t1) + 2)
+                pygame.draw.line(surface, color, (int(x1), int(y1)), (int(x2), int(y2)), int(t1) + 1)
 
-            # 줄기 본체 (중간)
+            # 중간 톤
             for i in range(len(trunk_points) - 1):
                 x1, y1, t1 = trunk_points[i]
                 x2, y2, t2 = trunk_points[i + 1]
                 color = tuple(int(c * shade) for c in self.COLORS['trunk_dark'])
                 pygame.draw.line(surface, color, (int(x1 - 1), int(y1)), (int(x2 - 1), int(y2)), int(t1))
 
-            # 하이라이트 (한쪽 면)
+            # 밝은 면 (왼쪽 하이라이트)
             for i in range(len(trunk_points) - 1):
                 x1, y1, t1 = trunk_points[i]
                 x2, y2, t2 = trunk_points[i + 1]
                 color = tuple(int(c * shade) for c in self.COLORS['trunk_mid'])
-                pygame.draw.line(surface, (*color, 150), (int(x1 - 3), int(y1)), (int(x2 - 3), int(y2)),
-                               max(2, int(t1) // 3))
+                pygame.draw.line(surface, (*color, 155),
+                                 (int(x1 - 3), int(y1)), (int(x2 - 3), int(y2)),
+                                 max(2, int(t1) // 3))
 
-        # 가지 그리기
+            # 미세 하이라이트 (가장 밝은)
+            for i in range(len(trunk_points) - 1):
+                x1, y1, t1 = trunk_points[i]
+                x2, y2, t2 = trunk_points[i + 1]
+                color = tuple(int(c * shade) for c in self.COLORS['trunk_light'])
+                pygame.draw.line(surface, (*color, 70),
+                                 (int(x1 - 4), int(y1)), (int(x2 - 4), int(y2)),
+                                 max(1, int(t1) // 5))
+
+        # 가지 그리기 (다층)
         for branch in branches:
             bx, by = branch['start_x'], branch['start_y']
             rad = math.radians(branch['angle'])
             end_x = bx + math.cos(rad) * branch['length']
             end_y = by + math.sin(rad) * branch['length']
+            bt = int(branch['thickness'])
 
-            branch_color = tuple(int(c * shade * 0.9) for c in self.COLORS['trunk_dark'])
-            pygame.draw.line(surface, branch_color, (int(bx), int(by)),
-                           (int(end_x), int(end_y)), int(branch['thickness']))
+            # 가지 그림자
+            pygame.draw.line(surface, (0, 0, 0, 12),
+                             (int(bx + 2), int(by + 2)), (int(end_x + 2), int(end_y + 2)), bt + 2)
+            # 어두운 바탕
+            branch_dark = tuple(int(c * shade * 0.8) for c in self.COLORS['trunk_darkest'])
+            pygame.draw.line(surface, branch_dark,
+                             (int(bx), int(by)), (int(end_x), int(end_y)), bt + 1)
+            # 중간 톤
+            branch_mid = tuple(int(c * shade * 0.9) for c in self.COLORS['trunk_dark'])
+            pygame.draw.line(surface, branch_mid,
+                             (int(bx), int(by)), (int(end_x), int(end_y)), bt)
+            # 하이라이트
+            branch_light = tuple(int(c * shade) for c in self.COLORS['trunk_mid'])
+            pygame.draw.line(surface, (*branch_light, 110),
+                             (int(bx - 1), int(by)), (int(end_x - 1), int(end_y)), max(1, bt // 2))
 
-        # 나무 껍질 텍스처
+        # 나무 껍질 텍스처 (더 상세)
         for detail in bark_details:
             dx, dy = detail['x'], detail['y']
             size = detail['size']
 
             if detail['type'] == 'moss':
-                moss_color = tuple(int(c * shade) for c in self.COLORS['trunk_moss'])
-                pygame.draw.circle(surface, moss_color, (int(dx), int(dy)), size)
+                # 멀티-레이어 이끼
+                moss_dark = tuple(int(c * shade * 0.8) for c in self.COLORS['trunk_moss'])
+                moss_light = tuple(min(255, int(c * shade * 1.1)) for c in self.COLORS['trunk_moss'])
+                pygame.draw.circle(surface, moss_dark, (int(dx), int(dy)), size + 1)
+                pygame.draw.circle(surface, moss_light, (int(dx - 1), int(dy - 1)), size)
+                # 이끼 미세 텍스처
+                for _ in range(3):
+                    ox = int(dx + random.randint(-size, size))
+                    oy = int(dy + random.randint(-size, size))
+                    pygame.draw.circle(surface, moss_dark, (ox, oy), 1)
             elif detail['type'] == 'bark':
-                bark_color = tuple(int(c * shade * 0.7) for c in self.COLORS['trunk_darkest'])
-                pygame.draw.line(surface, bark_color, (int(dx), int(dy - size)),
-                               (int(dx), int(dy + size)), 2)
+                # 나무 껍질 줄 (자연스러운 두 줄)
+                bark_dark = tuple(int(c * shade * 0.6) for c in self.COLORS['trunk_darkest'])
+                bark_light = tuple(int(c * shade * 0.9) for c in self.COLORS['trunk_dark'])
+                pygame.draw.line(surface, bark_dark,
+                                 (int(dx), int(dy - size)), (int(dx + 1), int(dy + size)), 2)
+                pygame.draw.line(surface, bark_light,
+                                 (int(dx - 1), int(dy - size + 1)), (int(dx), int(dy + size - 1)), 1)
             else:  # lichen
-                lichen_color = tuple(int(c * shade) for c in self.COLORS['jungle_mist'])
-                pygame.draw.circle(surface, (*lichen_color, 100), (int(dx), int(dy)), size // 2)
+                # 자연스러운 지의류 (다층)
+                lichen_base = tuple(int(c * shade) for c in self.COLORS['jungle_mist'])
+                lichen_light = tuple(min(255, int(c * shade * 1.2)) for c in self.COLORS['jungle_mist'])
+                pygame.draw.circle(surface, (*lichen_base, 75), (int(dx), int(dy)), size // 2 + 1)
+                pygame.draw.circle(surface, (*lichen_light, 55), (int(dx - 1), int(dy - 1)), size // 2)
 
     def _draw_undergrowth_fern(self, surface, fern):
-        """밑바닥 양치식물 그리기"""
+        """밑바닥 양치식물 그리기 (고퀄리티 - 다층 줄기, 서브 리프)"""
         x, y = fern['x'], fern['y']
         size = fern['size']
         angle = fern['angle']
@@ -1096,26 +1179,40 @@ class MossyStoneFrame:
             frond_angle = rad + (f - num_fronds // 2) * 0.25
             frond_len = size * (0.7 + random.random() * 0.3)
 
-            # 줄기
+            # 줄기 (두께 그라디언트)
             end_x = x + math.cos(frond_angle) * frond_len
             end_y = y + math.sin(frond_angle) * frond_len
 
-            color = tuple(int(c * shade) for c in self.COLORS['jungle_leaf_dark'])
-            pygame.draw.line(surface, color, (int(x), int(y)), (int(end_x), int(end_y)), 2)
+            dark = tuple(int(c * shade * 0.8) for c in self.COLORS['jungle_leaf_dark'])
+            mid = tuple(int(c * shade) for c in self.COLORS['jungle_leaf_dark'])
+            pygame.draw.line(surface, dark, (int(x), int(y)), (int(end_x), int(end_y)), 3)
+            pygame.draw.line(surface, mid, (int(x), int(y)), (int(end_x), int(end_y)), 2)
 
-            # 작은 잎들
-            for i in range(4):
-                t = (i + 1) / 5
+            # 작은 잎들 (더 많은 쌍, 서브 리프 포함)
+            for i in range(5):
+                t = (i + 1) / 6
                 stem_x = x + (end_x - x) * t
                 stem_y = y + (end_y - y) * t
-                leaf_len = size * 0.25 * (1 - t * 0.5)
+                leaf_len = size * 0.28 * (1 - t * 0.5)
+
+                if leaf_len < 2:
+                    continue
 
                 for side in [-1, 1]:
-                    leaf_angle = frond_angle + (1.2 * side)
+                    leaf_angle = frond_angle + (1.1 * side)
                     lx = stem_x + math.cos(leaf_angle) * leaf_len
                     ly = stem_y + math.sin(leaf_angle) * leaf_len
-                    leaf_color = tuple(int(c * shade) for c in self.COLORS['jungle_leaf_mid'])
-                    pygame.draw.line(surface, leaf_color, (int(stem_x), int(stem_y)), (int(lx), int(ly)), 1)
+                    # 어두운 바탕
+                    leaf_dark = tuple(int(c * shade * 0.85) for c in self.COLORS['jungle_leaf_dark'])
+                    pygame.draw.line(surface, leaf_dark,
+                                     (int(stem_x), int(stem_y)), (int(lx), int(ly)), 2)
+                    # 밝은 오버레이
+                    mix = t * 0.4
+                    leaf_color = tuple(int(self.COLORS['jungle_leaf_mid'][k] * shade * (1 - mix) +
+                                           self.COLORS['jungle_leaf_light'][k] * shade * mix)
+                                       for k in range(3))
+                    pygame.draw.line(surface, leaf_color,
+                                     (int(stem_x), int(stem_y)), (int(lx), int(ly)), 1)
 
     def _draw_wrapping_vine(self, surface, vine):
         """나무를 감싸는 덩굴 그리기"""
@@ -1156,18 +1253,41 @@ class MossyStoneFrame:
             pygame.draw.lines(surface, (*light_color, 120), False,
                             [(p[0] - 1, p[1]) for p in int_points], max(1, thickness // 3))
 
-        # 덩굴 잎 (옵션)
+        # 나무껍질 마디 (덩굴 조인트)
+        if thickness >= 4:
+            for i in range(2, len(int_points) - 1, 3):
+                node_color = tuple(int(c * shade * 0.85) for c in self.COLORS['wrap_vine_dark'])
+                pygame.draw.circle(surface, node_color, int_points[i], thickness // 2 + 1)
+                pygame.draw.circle(surface, mid_color, int_points[i], thickness // 2)
+
+        # 덩굴 잎 (옵션) - 고퀄리티
         if has_leaves:
             for i in range(3, len(int_points) - 1, 4):
                 px, py = int_points[i]
                 side = 1 if i % 2 == 0 else -1
 
-                # 작은 하트 모양 잎
                 leaf_size = random.randint(6, 12)
+                lx = px + side * 8
+                # 잎 줄기
+                pygame.draw.line(surface, tuple(int(c * shade) for c in self.COLORS['wrap_vine_dark']),
+                                 (px, py), (lx, py), 1)
+                # 잎 어두운 바탕
+                leaf_dark = tuple(int(c * shade * 0.8) for c in self.COLORS['broad_leaf_dark'])
+                pygame.draw.ellipse(surface, leaf_dark,
+                                    (lx - leaf_size // 2 - 1, py - leaf_size // 2 - 1,
+                                     leaf_size + 2, int(leaf_size * 1.2) + 2))
+                # 잎 본체
                 leaf_color = tuple(int(c * shade) for c in self.COLORS['broad_leaf_mid'])
                 pygame.draw.ellipse(surface, leaf_color,
-                                  (px + side * 8 - leaf_size // 2, py - leaf_size // 2,
-                                   leaf_size, int(leaf_size * 1.2)))
+                                    (lx - leaf_size // 2, py - leaf_size // 2,
+                                     leaf_size, int(leaf_size * 1.2)))
+                # 잎 하이라이트
+                leaf_light = tuple(int(c * shade) for c in self.COLORS['broad_leaf_light'])
+                inner_w = max(2, leaf_size - 4)
+                inner_h = max(2, int(leaf_size * 1.2) - 4)
+                pygame.draw.ellipse(surface, (*leaf_light, 120),
+                                    (lx - inner_w // 2, py - inner_h // 2,
+                                     inner_w, inner_h))
 
     def _draw_broad_leaf(self, surface, leaf):
         """큰 활엽수 잎사귀 그리기 (고품질 디테일)"""
@@ -1301,78 +1421,215 @@ class MossyStoneFrame:
         surface.blit(rotated, rect)
 
     def _draw_stone(self, surface, stone):
-        """돌 그리기"""
+        """돌 그리기 (고퀄리티 - 10레이어)"""
         x, y = int(stone['x']), int(stone['y'])
         size = stone['size']
         shade = stone['shade']
         points = stone['points']
+        seed = stone.get('seed', int(x * 7 + y * 13) % 9999)
 
         surf_size = size * 3
         stone_surf = pygame.Surface((surf_size, surf_size), pygame.SRCALPHA)
         center = surf_size // 2
 
-        # 그림자
+        # 1. 넓은 부드러운 그림자
+        shadow_pts2 = [(p[0] + center + 5, p[1] + center + 5) for p in points]
+        pygame.draw.polygon(stone_surf, (0, 0, 0, 18), shadow_pts2)
         shadow_pts = [(p[0] + center + 3, p[1] + center + 3) for p in points]
-        pygame.draw.polygon(stone_surf, (0, 0, 0, 40), shadow_pts)
+        pygame.draw.polygon(stone_surf, (0, 0, 0, 35), shadow_pts)
 
-        # 본체
+        # 2. 바깥 테두리 (가장 어두운)
         base_pts = [(p[0] + center, p[1] + center) for p in points]
-        pygame.draw.polygon(stone_surf, tuple(int(c * shade * 0.65) for c in self.COLORS['stone_darkest']), base_pts)
+        pygame.draw.polygon(stone_surf, tuple(int(c * shade * 0.5) for c in self.COLORS['stone_darkest']), base_pts)
 
-        mid_pts = [(p[0] * 0.88 + center, p[1] * 0.88 + center) for p in points]
-        pygame.draw.polygon(stone_surf, tuple(int(c * shade * 0.85) for c in self.COLORS['stone_dark']), mid_pts)
+        # 3. 어두운 본체
+        inner1 = [(p[0] * 0.95 + center, p[1] * 0.95 + center) for p in points]
+        pygame.draw.polygon(stone_surf, tuple(int(c * shade * 0.65) for c in self.COLORS['stone_darkest']), inner1)
 
-        # 하이라이트
-        pygame.draw.ellipse(stone_surf, (*self.COLORS['stone_light'], 100),
-                           (center - size//4, center - size//4, size//2, size//3))
+        # 4. 어두운 중간톤
+        inner2 = [(p[0] * 0.88 + center, p[1] * 0.88 + center) for p in points]
+        pygame.draw.polygon(stone_surf, tuple(int(c * shade * 0.78) for c in self.COLORS['stone_dark']), inner2)
+
+        # 5. 중간톤
+        inner3 = [(p[0] * 0.78 + center, p[1] * 0.78 + center) for p in points]
+        pygame.draw.polygon(stone_surf, tuple(int(c * shade * 0.9) for c in self.COLORS['stone_mid']), inner3)
+
+        # 6. 밝은 중앙
+        inner4 = [(p[0] * 0.62 + center, p[1] * 0.62 + center) for p in points]
+        pygame.draw.polygon(stone_surf, tuple(min(255, int(c * shade)) for c in self.COLORS['stone_light']), inner4)
+
+        # 7. 균열 텍스처
+        crack_color = tuple(int(c * shade * 0.45) for c in self.COLORS['stone_crack'])
+        num_cracks = 2 + seed % 3
+        for i in range(num_cracks):
+            cs = (seed * (i + 1) * 31 + 17) % 997
+            angle_r = (cs % 360) * 0.01745
+            dist = size * 0.15 + (cs % 30) * 0.005 * size
+            cx = center + math.cos(angle_r) * dist
+            cy = center + math.sin(angle_r) * dist
+            crack_len = size * 0.25 + (cs % 20) * 0.008 * size
+            crack_a = ((cs * 3) % 360) * 0.01745
+            ex = cx + math.cos(crack_a) * crack_len
+            ey = cy + math.sin(crack_a) * crack_len
+            pygame.draw.line(stone_surf, crack_color, (int(cx), int(cy)), (int(ex), int(ey)), 1)
+            # 갈라진 분기
+            if cs % 3 == 0:
+                bx, by = (cx + ex) / 2, (cy + ey) / 2
+                ba = crack_a + 0.6 + (cs % 40) * 0.01
+                bex = bx + math.cos(ba) * crack_len * 0.4
+                bey = by + math.sin(ba) * crack_len * 0.4
+                pygame.draw.line(stone_surf, crack_color, (int(bx), int(by)), (int(bex), int(bey)), 1)
+
+        # 8. 결 텍스처 (돌 질감 - 중심 근처의 점들)
+        grain_dark = tuple(int(c * shade * 0.55) for c in self.COLORS['stone_darkest'])
+        grain_light = (*tuple(min(255, int(c * shade * 1.1)) for c in self.COLORS['stone_highlight']), 50)
+        half = size // 2
+        for i in range(size // 4):
+            gs = (seed * (i + 1) * 47 + 23) % 997
+            gx = center + (gs % size) - half
+            gy = center + ((gs * 11) % size) - half
+            # 중심으로부터 거리 체크 (돌 안쪽만)
+            dist_sq = (gx - center) ** 2 + (gy - center) ** 2
+            if dist_sq < (half * 0.75) ** 2:
+                if gs % 3 == 0:
+                    pygame.draw.circle(stone_surf, grain_dark, (int(gx), int(gy)), 1)
+                elif gs % 3 == 1:
+                    pygame.draw.circle(stone_surf, grain_light, (int(gx), int(gy)), 1)
+
+        # 9. 스페큘러 하이라이트 (반사광)
+        hl_color = (*self.COLORS['stone_highlight'], 80)
+        hx = center - size // 5
+        hy = center - size // 4
+        hw = max(4, size // 2)
+        hh = max(3, size // 3)
+        pygame.draw.ellipse(stone_surf, hl_color, (hx, hy, hw, hh))
+
+        # 10. 가장자리 이끼/지의류 파편
+        for i in range(2 + seed % 3):
+            ms = (seed * (i + 1) * 67 + 11) % 997
+            idx = ms % len(base_pts)
+            mp = base_pts[idx]
+            lichen_c = (*tuple(int(c * shade * 0.8) for c in self.COLORS['moss_dark']), 70)
+            pygame.draw.circle(stone_surf, lichen_c, (int(mp[0]), int(mp[1])), 2 + ms % 3)
 
         rotated = pygame.transform.rotate(stone_surf, stone['rotation'])
         rect = rotated.get_rect(center=(x, y))
         surface.blit(rotated, rect)
 
     def _draw_moss(self, surface, moss):
-        """이끼 그리기"""
+        """이끼 그리기 (고퀄리티 - 다층 유기적 렌더링)"""
         x, y = int(moss['x']), int(moss['y'])
         w, h = moss['width'], moss['height']
         shade = moss['shade']
 
         if moss['type'] == 'fluffy':
-            for _ in range(8):
-                ox = x + random.randint(-w//2, w//2)
-                oy = y + random.randint(-h//2, h//2)
-                r = random.randint(3, 7)
+            # 다층 유기적 이끼 클러스터
+            for _ in range(16):
+                ox = x + random.randint(-w // 2, w // 2)
+                oy = y + random.randint(-h // 2, h // 2)
+                r = random.randint(3, 8)
+                # 어두운 바탕
+                dark = tuple(int(c * shade * 0.7) for c in self.COLORS['moss_darkest'])
+                pygame.draw.circle(surface, dark, (ox, oy), r + 1)
+                # 중간 톤
                 color = tuple(int(c * shade) for c in random.choice([
-                    self.COLORS['moss_dark'], self.COLORS['moss_mid'], self.COLORS['moss_light']]))
+                    self.COLORS['moss_dark'], self.COLORS['moss_mid']]))
                 pygame.draw.circle(surface, color, (ox, oy), r)
+                # 밝은 하이라이트
+                if random.random() < 0.4:
+                    light = tuple(int(c * shade) for c in self.COLORS['moss_light'])
+                    pygame.draw.circle(surface, light, (ox - 1, oy - 1), max(1, r - 2))
+            # 포자 디테일 (미세한 밝은 점들)
+            for _ in range(8):
+                sx = x + random.randint(-w // 2, w // 2)
+                sy = y + random.randint(-h // 2, h // 2)
+                pygame.draw.circle(surface,
+                                   tuple(int(c * shade) for c in self.COLORS['moss_bright']),
+                                   (sx, sy), 1)
 
         elif moss['type'] == 'carpet':
-            color = tuple(int(c * shade) for c in self.COLORS['moss_mid'])
-            pygame.draw.ellipse(surface, color, (x - w//2, y - h//2, w, h))
+            # 다층 카펫 이끼
+            darkest = tuple(int(c * shade * 0.75) for c in self.COLORS['moss_darkest'])
+            dark = tuple(int(c * shade * 0.9) for c in self.COLORS['moss_dark'])
+            mid = tuple(int(c * shade) for c in self.COLORS['moss_mid'])
+            light = tuple(int(c * shade) for c in self.COLORS['moss_light'])
+            # 어두운 테두리
+            pygame.draw.ellipse(surface, darkest, (x - w // 2 - 1, y - h // 2 - 1, w + 2, h + 2))
+            # 중간 바탕
+            pygame.draw.ellipse(surface, dark, (x - w // 2, y - h // 2, w, h))
+            # 밝은 안쪽
+            pygame.draw.ellipse(surface, mid, (x - w // 3, y - h // 3, w * 2 // 3, h * 2 // 3))
+            # 하이라이트
+            if w > 12:
+                pygame.draw.ellipse(surface, (*light, 120),
+                                    (x - w // 5, y - h // 4, w * 2 // 5, h // 3))
+            # 텍스처 점
+            for _ in range(5):
+                tx = x + random.randint(-w // 3, w // 3)
+                ty = y + random.randint(-h // 3, h // 3)
+                pygame.draw.circle(surface, darkest, (tx, ty), 1)
 
         else:  # thick
-            dark = tuple(int(c * shade * 0.85) for c in self.COLORS['moss_darkest'])
+            darkest = tuple(int(c * shade * 0.65) for c in self.COLORS['moss_darkest'])
+            dark = tuple(int(c * shade * 0.85) for c in self.COLORS['moss_dark'])
             mid = tuple(int(c * shade) for c in self.COLORS['moss_mid'])
-            pygame.draw.ellipse(surface, dark, (x - w//2, y - h//2, w, h))
-            pygame.draw.ellipse(surface, mid, (x - w//2 + 2, y - h//2 + 2, w - 4, h - 4))
+            light = tuple(int(c * shade) for c in self.COLORS['moss_light'])
+            bright = tuple(min(255, int(c * shade)) for c in self.COLORS['moss_bright'])
+            # 4층 그라디언트
+            pygame.draw.ellipse(surface, darkest, (x - w // 2 - 2, y - h // 2 - 2, w + 4, h + 4))
+            pygame.draw.ellipse(surface, dark, (x - w // 2, y - h // 2, w, h))
+            pygame.draw.ellipse(surface, mid, (x - w // 2 + 2, y - h // 2 + 2, w - 4, h - 4))
+            pygame.draw.ellipse(surface, light, (x - w // 2 + 4, y - h // 2 + 3, w - 8, h - 6))
+            # 하이라이트 반점
+            if w > 15:
+                pygame.draw.ellipse(surface, (*bright, 90),
+                                    (x - w // 6, y - h // 4, w // 3, h // 4))
+            # 프린지 (가장자리 디테일)
+            for _ in range(5):
+                angle = random.uniform(0, 6.283)
+                dist = max(w, h) * 0.45
+                fx = x + int(math.cos(angle) * dist)
+                fy = y + int(math.sin(angle) * dist * h / max(w, 1))
+                pygame.draw.circle(surface, dark, (fx, fy), random.randint(2, 4))
 
     def _draw_small_plant(self, surface, plant):
-        """작은 식물 그리기"""
+        """작은 식물 그리기 (고퀄리티 - 두께 그라디언트, 잎 끝 디테일)"""
         x, y = plant['x'], plant['y']
 
         if plant['type'] == 'grass':
             for i in range(plant['count']):
-                angle = -90 + (i - plant['count']//2) * 14
+                angle = -90 + (i - plant['count'] // 2) * 14
                 rad = math.radians(angle)
                 length = plant['size']
+                ex = x + math.cos(rad) * length
+                ey = y + math.sin(rad) * length
+                # 어두운 바탕 잎
+                pygame.draw.line(surface, self.COLORS['tropical_dark'],
+                                 (x, y), (int(ex), int(ey)), 3)
+                # 밝은 중앙선
                 pygame.draw.line(surface, self.COLORS['tropical_mid'],
-                               (x, y), (int(x + math.cos(rad) * length), int(y + math.sin(rad) * length)), 2)
+                                 (x, y), (int(ex), int(ey)), 2)
+                # 끝에 밝은 포인트
+                tip_x = x + math.cos(rad) * length * 0.7
+                tip_y = y + math.sin(rad) * length * 0.7
+                pygame.draw.line(surface, self.COLORS['tropical_light'],
+                                 (int(tip_x), int(tip_y)), (int(ex), int(ey)), 1)
         else:  # sprout
+            # 줄기
+            pygame.draw.line(surface, self.COLORS['vine_dark'], (x, y), (x, y - plant['size']), 3)
             pygame.draw.line(surface, self.COLORS['vine_mid'], (x, y), (x, y - plant['size']), 2)
-            pygame.draw.ellipse(surface, self.COLORS['tropical_light'], (x - 5, y - plant['size'] - 3, 5, 8))
-            pygame.draw.ellipse(surface, self.COLORS['tropical_light'], (x, y - plant['size'] - 3, 5, 8))
+            # 잎 (그림자 + 본체 + 하이라이트)
+            top = y - plant['size']
+            for side, sx in [(-1, x - 5), (1, x)]:
+                pygame.draw.ellipse(surface, self.COLORS['tropical_dark'],
+                                    (sx - 1, top - 4, 7, 10))
+                pygame.draw.ellipse(surface, self.COLORS['tropical_light'],
+                                    (sx, top - 3, 5, 8))
+                pygame.draw.ellipse(surface, (*self.COLORS['tropical_highlight'], 120),
+                                    (sx + 1, top - 2, 3, 5))
 
     def _draw_thick_vine(self, surface, vine):
-        """두꺼운 덩굴 그리기"""
+        """두꺼운 덩굴 그리기 (고퀄리티 - 9레이어)"""
         x, y = vine['x'], vine['y']
         thickness = vine['thickness']
 
@@ -1384,12 +1641,83 @@ class MossyStoneFrame:
             cy += math.sin(rad) * seg['length']
             points.append((cx, cy))
 
-        if len(points) >= 2:
-            pygame.draw.lines(surface, self.COLORS['vine_darkest'], False, points, thickness + 2)
-            pygame.draw.lines(surface, self.COLORS['vine_dark'], False, points, thickness)
+        if len(points) < 2:
+            return
+
+        int_points = [(int(p[0]), int(p[1])) for p in points]
+
+        # 1. 그림자
+        shadow_pts = [(p[0] + 3, p[1] + 3) for p in int_points]
+        pygame.draw.lines(surface, (0, 0, 0, 25), False, shadow_pts, thickness + 4)
+
+        # 2. 가장 어두운 바깥쪽 (아웃라인)
+        pygame.draw.lines(surface, self.COLORS['vine_darkest'], False, int_points, thickness + 3)
+
+        # 3. 어두운 나무껍질
+        pygame.draw.lines(surface, self.COLORS['vine_dark'], False, int_points, thickness + 1)
+
+        # 4. 중간 톤
+        pygame.draw.lines(surface, self.COLORS['vine_mid'], False, int_points, max(1, thickness - 1))
+
+        # 5. 하이라이트 (한쪽 면)
+        highlight_pts = [(p[0] - 2, p[1] - 1) for p in int_points]
+        pygame.draw.lines(surface, (*self.COLORS['vine_light'], 130), False, highlight_pts,
+                          max(2, thickness // 3))
+
+        # 6. 나무껍질 줄무늬 텍스처
+        bark_color = tuple(int(c * 0.7) for c in self.COLORS['vine_darkest'])
+        for i in range(len(int_points) - 1):
+            mx = (int_points[i][0] + int_points[i + 1][0]) // 2
+            my = (int_points[i][1] + int_points[i + 1][1]) // 2
+            dx = int_points[i + 1][0] - int_points[i][0]
+            dy = int_points[i + 1][1] - int_points[i][1]
+            seg_len = max(1, int(math.sqrt(dx * dx + dy * dy)))
+            if seg_len > 5:
+                perp_x = -dy / seg_len * (thickness * 0.3)
+                perp_y = dx / seg_len * (thickness * 0.3)
+                pygame.draw.line(surface, bark_color,
+                                 (int(mx - perp_x), int(my - perp_y)),
+                                 (int(mx + perp_x), int(my + perp_y)), 1)
+
+        # 7. 마디 (조인트)
+        for i in range(1, len(int_points) - 1):
+            node_dark = tuple(int(c * 0.8) for c in self.COLORS['vine_dark'])
+            pygame.draw.circle(surface, node_dark, int_points[i], thickness // 2 + 2)
+            pygame.draw.circle(surface, self.COLORS['vine_mid'], int_points[i], thickness // 2)
+
+        # 8. 작은 잎들 (간격마다)
+        for i in range(1, len(int_points) - 1, 2):
+            px, py = int_points[i]
+            side = 1 if i % 4 < 2 else -1
+            leaf_s = thickness + 2
+            lx = px + side * (thickness + 3)
+            ly = py - 2
+            # 잎 줄기
+            pygame.draw.line(surface, self.COLORS['vine_dark'], (px, py), (lx, ly), 1)
+            # 잎 몸체 (어두운 바탕 + 밝은 안쪽)
+            pygame.draw.ellipse(surface, self.COLORS['tropical_dark'],
+                                (lx - leaf_s // 2, ly - leaf_s // 3, leaf_s, int(leaf_s * 0.7)))
+            pygame.draw.ellipse(surface, self.COLORS['tropical_mid'],
+                                (lx - leaf_s // 2 + 1, ly - leaf_s // 3 + 1,
+                                 leaf_s - 2, int(leaf_s * 0.7) - 2))
+
+        # 9. 덩굴손 (끝에 말린 곡선)
+        if len(int_points) >= 2:
+            last = int_points[-1]
+            prev = int_points[-2]
+            angle = math.atan2(last[1] - prev[1], last[0] - prev[0])
+            tendril_pts = [last]
+            tx, ty = float(last[0]), float(last[1])
+            for t in range(8):
+                curl = angle + t * 0.4
+                tx += math.cos(curl) * 4
+                ty += math.sin(curl) * 4
+                tendril_pts.append((int(tx), int(ty)))
+            if len(tendril_pts) >= 2:
+                pygame.draw.lines(surface, self.COLORS['vine_tendril'], False, tendril_pts, 1)
 
     def _draw_fern_static(self, surface, fern):
-        """양치식물 정적 그리기"""
+        """양치식물 정적 그리기 (고퀄리티 - 두께 그라디언트, 서브 리프, 피들헤드)"""
         x, y = fern['x'], fern['y']
         angle = fern['angle']
         length = fern['length']
@@ -1399,28 +1727,76 @@ class MossyStoneFrame:
         end_x = x + math.cos(rad) * length
         end_y = y + math.sin(rad) * length
 
-        # 줄기
-        pygame.draw.line(surface, self.COLORS['fern_dark'], (int(x), int(y)), (int(end_x), int(end_y)), 3)
+        # 줄기 (두께 그라디언트)
+        for t_step in range(10):
+            t = t_step / 9
+            sx1 = x + (end_x - x) * t
+            sy1 = y + (end_y - y) * t
+            sx2 = x + (end_x - x) * min(1.0, t + 0.12)
+            sy2 = y + (end_y - y) * min(1.0, t + 0.12)
+            stem_thick = max(1, int(3 * (1 - t * 0.6)))
+            mix = t * 0.3
+            stem_color = tuple(int(self.COLORS['fern_dark'][j] * (1 - mix) +
+                                   self.COLORS['fern_mid'][j] * mix) for j in range(3))
+            pygame.draw.line(surface, stem_color,
+                             (int(sx1), int(sy1)), (int(sx2), int(sy2)), stem_thick)
 
-        # 잎
+        # 잎 쌍 (서브 리프 포함)
         for i in range(num_pairs):
             t = (i + 1) / (num_pairs + 1)
             stem_x = x + (end_x - x) * t
             stem_y = y + (end_y - y) * t
-            frond_len = int(length * 0.3 * (1 - t * 0.5))
+            frond_len = int(length * 0.35 * (1 - t * 0.6))
 
-            if frond_len < 5:
+            if frond_len < 4:
                 continue
 
             for side in [-1, 1]:
-                frond_angle = rad + (1.2 * side)
+                frond_angle = rad + (1.1 * side)
                 fx = stem_x + math.cos(frond_angle) * frond_len
                 fy = stem_y + math.sin(frond_angle) * frond_len
-                pygame.draw.line(surface, self.COLORS['fern_light'],
-                               (int(stem_x), int(stem_y)), (int(fx), int(fy)), 2)
+
+                # 부 잎줄기 (어두운)
+                pygame.draw.line(surface, self.COLORS['fern_dark'],
+                                 (int(stem_x), int(stem_y)), (int(fx), int(fy)), 2)
+
+                # 작은 잎사귀들 (잎줄기 위에)
+                sub_pairs = max(2, frond_len // 6)
+                for j in range(sub_pairs):
+                    st = (j + 1) / (sub_pairs + 1)
+                    sub_x = stem_x + (fx - stem_x) * st
+                    sub_y = stem_y + (fy - stem_y) * st
+                    sub_len = frond_len * 0.3 * (1 - st * 0.5)
+
+                    if sub_len < 2:
+                        continue
+
+                    for sub_side in [-1, 1]:
+                        sub_angle = frond_angle + (0.8 * sub_side)
+                        sx = sub_x + math.cos(sub_angle) * sub_len
+                        sy = sub_y + math.sin(sub_angle) * sub_len
+                        # 색상 그라디언트 (끝으로 갈수록 밝게)
+                        mix = st * 0.5
+                        leaf_color = tuple(int(self.COLORS['fern_mid'][k] * (1 - mix) +
+                                               self.COLORS['fern_light'][k] * mix) for k in range(3))
+                        pygame.draw.line(surface, leaf_color,
+                                         (int(sub_x), int(sub_y)), (int(sx), int(sy)), 1)
+
+        # 끝 말린 부분 (피들헤드)
+        curl_pts = [(int(end_x), int(end_y))]
+        cx_c, cy_c = end_x, end_y
+        curl_angle = rad
+        for t in range(6):
+            curl_angle += 0.5
+            curl_len = 3 * (1 - t / 6)
+            cx_c += math.cos(curl_angle) * curl_len
+            cy_c += math.sin(curl_angle) * curl_len
+            curl_pts.append((int(cx_c), int(cy_c)))
+        if len(curl_pts) >= 2:
+            pygame.draw.lines(surface, self.COLORS['fern_light'], False, curl_pts, 1)
 
     def _draw_palm_leaf_static(self, surface, leaf):
-        """야자수 잎 정적 그리기"""
+        """야자수 잎 정적 그리기 (고퀄리티 - 다각형 잎, 잎맥, 그라디언트)"""
         x, y = leaf['x'], leaf['y']
         angle = leaf['angle']
         length = leaf['length']
@@ -1429,46 +1805,71 @@ class MossyStoneFrame:
 
         rad = math.radians(angle)
 
-        # 줄기
+        # 줄기 (곡선, 두께 그라디언트)
         spine_pts = []
-        for i in range(10):
-            t = i / 9
+        for i in range(12):
+            t = i / 11
             droop_off = droop * t * t * length * 0.4
             px = x + math.cos(rad) * length * t
             py = y + math.sin(rad) * length * t + droop_off
             spine_pts.append((int(px), int(py)))
 
         if len(spine_pts) >= 2:
-            pygame.draw.lines(surface, self.COLORS['tropical_vein'], False, spine_pts, 3)
+            # 줄기 그림자
+            shadow_pts = [(p[0] + 2, p[1] + 2) for p in spine_pts]
+            pygame.draw.lines(surface, (0, 0, 0, 18), False, shadow_pts, 4)
+            # 줄기 어두운 쪽
+            pygame.draw.lines(surface, self.COLORS['tropical_vein'], False, spine_pts, 4)
+            # 줄기 밝은 쪽
+            light_pts = [(p[0] - 1, p[1]) for p in spine_pts]
+            pygame.draw.lines(surface, self.COLORS['tropical_mid'], False, light_pts, 2)
 
-        # 잎
+        # 잎사귀 쌍 (다각형)
         for i in range(num_fronds):
             t = (i + 1.5) / (num_fronds + 2)
             idx = min(int(t * len(spine_pts)), len(spine_pts) - 1)
             stem_x, stem_y = spine_pts[idx]
 
             len_factor = 1 - abs(t - 0.5) * 1.4
-            frond_len = int(length * 0.4 * max(0.35, len_factor))
-            if frond_len < 8:
+            frond_len = int(length * 0.42 * max(0.35, len_factor))
+            if frond_len < 6:
                 continue
 
             if idx < len(spine_pts) - 1:
-                dx = spine_pts[idx + 1][0] - spine_pts[idx][0]
-                dy = spine_pts[idx + 1][1] - spine_pts[idx][1]
-                spine_angle = math.atan2(dy, dx)
+                ddx = spine_pts[idx + 1][0] - spine_pts[idx][0]
+                ddy = spine_pts[idx + 1][1] - spine_pts[idx][1]
+                spine_angle = math.atan2(ddy, ddx)
             else:
                 spine_angle = rad
 
             for side in [-1, 1]:
-                frond_angle = spine_angle + (1.4 * side)
+                frond_angle = spine_angle + (1.3 * side)
                 fx = stem_x + math.cos(frond_angle) * frond_len
                 fy = stem_y + math.sin(frond_angle) * frond_len
 
-                # 간단한 선으로 대체
-                pygame.draw.line(surface, self.COLORS['tropical_mid'],
-                               (stem_x, stem_y), (int(fx), int(fy)), 3)
-                pygame.draw.line(surface, self.COLORS['tropical_light'],
-                               (stem_x, stem_y), (int((stem_x + fx) / 2), int((stem_y + fy) / 2)), 2)
+                # 잎의 폭 (중간이 넓고 양 끝이 좁은 다각형)
+                mid_x = (stem_x + fx) / 2
+                mid_y = (stem_y + fy) / 2
+                perp = frond_angle + 1.5708  # pi/2
+                width = frond_len * 0.15
+
+                p1 = (int(stem_x), int(stem_y))
+                p2 = (int(mid_x + math.cos(perp) * width), int(mid_y + math.sin(perp) * width))
+                p3 = (int(fx), int(fy))
+                p4 = (int(mid_x - math.cos(perp) * width), int(mid_y - math.sin(perp) * width))
+
+                # 어두운 바탕
+                pygame.draw.polygon(surface, self.COLORS['tropical_dark'], [p1, p2, p3, p4])
+                # 밝은 오버레이 (중앙)
+                isc = 0.7
+                ip2 = (int(mid_x + math.cos(perp) * width * isc),
+                       int(mid_y + math.sin(perp) * width * isc))
+                ip4 = (int(mid_x - math.cos(perp) * width * isc),
+                       int(mid_y - math.sin(perp) * width * isc))
+                pygame.draw.polygon(surface, self.COLORS['tropical_mid'], [p1, ip2, p3, ip4])
+                # 잎맥 (중앙선)
+                pygame.draw.line(surface, self.COLORS['tropical_vein'],
+                                 (int(stem_x), int(stem_y)), (int(fx), int(fy)), 1)
 
     def _draw_monstera_static(self, surface, leaf):
         """몬스테라 잎 정적 그리기"""
@@ -1505,7 +1906,7 @@ class MossyStoneFrame:
         surface.blit(rotated, rect)
 
     def _draw_flower_static(self, surface, flower):
-        """꽃 정적 그리기"""
+        """꽃 정적 그리기 (고퀄리티 - 꽃잎 그라디언트, 중앙 디테일)"""
         x, y = int(flower['x']), int(flower['y'])
         size = flower['size']
         petals = flower['petals']
@@ -1517,18 +1918,40 @@ class MossyStoneFrame:
             'pink': self.COLORS['flower_pink'],
         }
         color = color_map.get(flower['color'], self.COLORS['flower_white'])
+        # 어두운 꽃잎 색 생성
+        dark_color = tuple(max(0, c - 40) for c in color)
+        light_color = tuple(min(255, c + 15) for c in color)
 
+        # 꽃잎 그림자
+        for i in range(petals):
+            angle = i * (360 / petals)
+            rad = math.radians(angle)
+            px = x + int(math.cos(rad) * size) + 1
+            py = y + int(math.sin(rad) * size) + 1
+            pygame.draw.circle(surface, (0, 0, 0, 20), (px, py), size // 2 + 1)
+
+        # 꽃잎 (어두운 바탕)
         for i in range(petals):
             angle = i * (360 / petals)
             rad = math.radians(angle)
             px = x + int(math.cos(rad) * size)
             py = y + int(math.sin(rad) * size)
+            pygame.draw.circle(surface, dark_color, (px, py), size // 2 + 1)
             pygame.draw.circle(surface, color, (px, py), size // 2)
+            # 꽃잎 하이라이트
+            pygame.draw.circle(surface, (*light_color, 140),
+                               (px - 1, py - 1), max(1, size // 3))
 
-        pygame.draw.circle(surface, self.COLORS['flower_center'], (x, y), size // 3)
+        # 중앙 (다층)
+        center_size = size // 3
+        center_dark = tuple(max(0, c - 30) for c in self.COLORS['flower_center'])
+        pygame.draw.circle(surface, center_dark, (x, y), center_size + 1)
+        pygame.draw.circle(surface, self.COLORS['flower_center'], (x, y), center_size)
+        # 중앙 하이라이트
+        pygame.draw.circle(surface, (255, 240, 180, 120), (x - 1, y - 1), max(1, center_size // 2))
 
     def _draw_thin_vine_static(self, surface, vine):
-        """얇은 덩굴 정적 그리기"""
+        """얇은 덩굴 정적 그리기 (고퀄리티 - 다층, 잎, 덩굴손)"""
         x, y = vine['x'], vine['y']
         length = vine['length']
         direction = vine['direction']
@@ -1546,29 +1969,88 @@ class MossyStoneFrame:
             points.append((int(px), int(py)))
 
         if len(points) >= 2:
-            pygame.draw.lines(surface, self.COLORS['vine_dark'], False, points, thickness + 1)
+            # 그림자
+            shadow_pts = [(p[0] + 1, p[1] + 1) for p in points]
+            pygame.draw.lines(surface, (0, 0, 0, 18), False, shadow_pts, thickness + 2)
+            # 어두운 바깥쪽
+            pygame.draw.lines(surface, self.COLORS['vine_darkest'], False, points, thickness + 1)
+            # 중간 톤
             pygame.draw.lines(surface, self.COLORS['vine_mid'], False, points, thickness)
+            # 하이라이트
+            hl_pts = [(p[0] - 1, p[1]) for p in points]
+            pygame.draw.lines(surface, (*self.COLORS['vine_light'], 100), False, hl_pts,
+                              max(1, thickness // 2))
+
+            # 작은 잎 (2-3개)
+            for i in range(3, len(points) - 1, 4):
+                px, py = points[i]
+                side = 1 if i % 2 == 0 else -1
+                lx = px + side * 5
+                pygame.draw.ellipse(surface, self.COLORS['tropical_dark'],
+                                    (lx - 3, py - 2, 6, 5))
+                pygame.draw.ellipse(surface, self.COLORS['tropical_mid'],
+                                    (lx - 2, py - 1, 4, 3))
+
+            # 끝 덩굴손 (말린 부분)
+            last = points[-1]
+            prev = points[-2]
+            angle = math.atan2(last[1] - prev[1], last[0] - prev[0])
+            tx, ty = float(last[0]), float(last[1])
+            tendril_pts = [last]
+            for t in range(5):
+                curl_a = angle + t * 0.5
+                tx += math.cos(curl_a) * 3
+                ty += math.sin(curl_a) * 3
+                tendril_pts.append((int(tx), int(ty)))
+            if len(tendril_pts) >= 2:
+                pygame.draw.lines(surface, self.COLORS['vine_tendril'], False, tendril_pts, 1)
 
     def _draw_hanging_vine_static(self, surface, vine):
-        """매달린 덩굴 정적 그리기"""
+        """매달린 덩굴 정적 그리기 (고퀄리티 - 곡선, 다층, 상세 잎)"""
         x, y = vine['x'], vine['y']
         length = vine['length']
 
+        # 자연스러운 곡선 (살짝 흔들림)
         points = []
-        for i in range(8):
-            t = i / 7
-            points.append((int(x), int(y + length * t)))
+        for i in range(10):
+            t = i / 9
+            sway = math.sin(t * 4 + x * 0.1) * 3
+            points.append((int(x + sway), int(y + length * t)))
 
         if len(points) >= 2:
-            pygame.draw.lines(surface, self.COLORS['vine_dark'], False, points, 2)
+            # 그림자
+            shadow_pts = [(p[0] + 1, p[1] + 1) for p in points]
+            pygame.draw.lines(surface, (0, 0, 0, 15), False, shadow_pts, 3)
+            # 어두운 바깥쪽
+            pygame.draw.lines(surface, self.COLORS['vine_darkest'], False, points, 3)
+            # 중간 톤
+            pygame.draw.lines(surface, self.COLORS['vine_mid'], False, points, 2)
+            # 하이라이트
+            hl_pts = [(p[0] - 1, p[1]) for p in points]
+            pygame.draw.lines(surface, (*self.COLORS['vine_light'], 90), False, hl_pts, 1)
 
-        # 잎 몇 개
-        for i in range(2):
-            t = (i + 1) / 3
-            ly = y + length * t
+        # 잎들 (더 많이, 더 상세)
+        for i in range(3):
+            t = (i + 1) / 4
+            idx = min(int(t * len(points)), len(points) - 1)
+            lx, ly = points[idx]
             side = 1 if i % 2 == 0 else -1
+            leaf_x = lx + side * 7
+            # 잎 줄기
+            pygame.draw.line(surface, self.COLORS['vine_dark'], (lx, ly), (leaf_x, ly - 1), 1)
+            # 잎 몸체 (다층)
+            pygame.draw.ellipse(surface, self.COLORS['tropical_dark'],
+                                (leaf_x - 6, ly - 4, 12, 8))
             pygame.draw.ellipse(surface, self.COLORS['tropical_mid'],
-                              (int(x + side * 8 - 6), int(ly - 4), 12, 8))
+                                (leaf_x - 5, ly - 3, 10, 6))
+            pygame.draw.ellipse(surface, (*self.COLORS['tropical_light'], 120),
+                                (leaf_x - 3, ly - 2, 6, 4))
+
+        # 끝에 물방울 형태
+        if len(points) > 0:
+            bx, by = points[-1]
+            pygame.draw.circle(surface, self.COLORS['vine_dark'], (bx, by + 2), 2)
+            pygame.draw.circle(surface, self.COLORS['vine_mid'], (bx, by + 2), 1)
 
     def update(self, dt):
         """업데이트"""
