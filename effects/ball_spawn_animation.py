@@ -1320,22 +1320,6 @@ class BallSpawnAnimation:
                 min(255, max(165, 198 + int(38 * wave_g))),
                 min(255, max(200, 225 + int(27 * wave_b)))
             )
-        elif progress > 0.78:
-            # 빛의 파동: 화면 전체 몽환적 파동
-            wave_t = (progress - 0.78) / 0.22
-            wave_pulse = math.sin(wave_t * math.pi) ** 0.55
-            fade = (1 - wave_t) ** 0.6
-            self.flash_alpha = int(140 * wave_pulse * fade)
-            # 파동 색상도 오로라 기반
-            blend = wave_t ** 0.4
-            wr = math.sin(global_t)
-            wg = math.sin(global_t + math.pi * 2 / 3)
-            self.flash_color = (
-                min(255, max(190, int(245 * (1 - blend) + (210 + 30 * wr) * blend))),
-                min(255, max(185, int(238 * (1 - blend) + (200 + 30 * wg) * blend))),
-                255
-            )
-            self.shockwave_alpha = 0
         else:
             self.flash_alpha = 0
             self.shockwave_alpha = 0
