@@ -6533,7 +6533,7 @@ class GuardWarriorSystem:
         game_scaled_h = int(SCREEN_HEIGHT * game_scale)
 
         _s = game_scale
-        icon_size = max(16, int(30 * _s))
+        icon_size = max(32, int(60 * _s))
         icon_full = icon_size + 4
         icon_gap = max(3, int(4 * _s))
         margin = max(4, int(6 * _s))
