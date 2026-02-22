@@ -9581,7 +9581,8 @@ class ColosseumsArena:
         """메인 업데이트"""
         # 인장 획득 연출 진행 중이면 연출만 업데이트
         if self._seal_acquisition_active and self._seal_acquisition_effect:
-            still_active = self._seal_acquisition_effect.update(dt)
+            # LegendaryAcquisitionEffect.update()는 dt를 밀리초 단위로 받음
+            still_active = self._seal_acquisition_effect.update(dt * 1000)
             if not still_active:
                 # 연출 완료 → 결과 설정 후 퇴장
                 self._seal_acquisition_active = False
