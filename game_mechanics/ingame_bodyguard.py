@@ -644,6 +644,13 @@ class InGameBodyguard:
         if gs.get('top_paddle_electric_stun', False):
             boss_effects['electric_stun'] = True
 
+        # ── 달빛베기 커브 효과 ──
+        _ds_spin = gs.get('dark_slash_spin_strength', 0)
+        if _ds_spin > 0:
+            boss_effects['dark_slash_spin_strength'] = _ds_spin
+            boss_effects['dark_slash_spin_direction'] = gs.pop('dark_slash_spin_direction', 1)
+            gs['dark_slash_spin_strength'] = 0  # 1회만 적용
+
         # ── 화면 흔들림 (스킬 game_state 직접 설정) ──
         _gs_shake = gs.pop('screen_shake', 0)
         if _gs_shake:

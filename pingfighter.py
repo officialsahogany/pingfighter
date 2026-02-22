@@ -94570,6 +94570,52 @@ def draw_objects():
             text_y = BOSS.top - 40
             SCREEN.blit(text_surface, (text_x, text_y))
 
+    # ⚡ 호위무사 천둥뇌구 감전 이펙트 (아케이드 모드 - 전기 아크)
+    elif globals().get('_bodyguard_electric_stun_active', False) and not arena_mode_enabled:
+        _es_cx, _es_cy = BOSS.centerx, BOSS.centery + 20
+        _es_hw = BOSS.width // 2 + 5
+        _es_hh = 28
+        _es_arc_core = [(255, 255, 255), (255, 255, 230), (255, 250, 200)]
+        _es_arc_outer = [(120, 180, 255), (80, 140, 255), (160, 200, 255), (255, 240, 120), (255, 220, 80)]
+        # 주요 전류 아크
+        for _es_i in range(1):
+            _es_sx = _es_cx + random.randint(-_es_hw // 3, _es_hw // 3)
+            _es_sy = _es_cy + random.randint(-_es_hh // 2, _es_hh // 2)
+            _es_alen = random.randint(12, 22)
+            _es_a = random.uniform(0, math.pi * 2)
+            _es_ex = _es_sx + int(math.cos(_es_a) * _es_alen)
+            _es_ey = _es_sy + int(math.sin(_es_a) * _es_alen)
+            _es_segs = random.randint(3, 4)
+            _es_pts = [(_es_sx, _es_sy)]
+            for _es_j in range(1, _es_segs):
+                _es_frac = _es_j / _es_segs
+                _es_mx = _es_sx + (_es_ex - _es_sx) * _es_frac + random.uniform(-2.5, 2.5)
+                _es_my = _es_sy + (_es_ey - _es_sy) * _es_frac + random.uniform(-2, 2)
+                _es_pts.append((int(_es_mx), int(_es_my)))
+            _es_pts.append((int(_es_ex), int(_es_ey)))
+            if len(_es_pts) >= 2:
+                pygame.draw.lines(SCREEN, random.choice(_es_arc_outer), False, _es_pts, 2)
+                pygame.draw.lines(SCREEN, random.choice(_es_arc_core), False, _es_pts, 1)
+        # 분기 전류
+        for _ in range(random.randint(4, 7)):
+            _es_bx = _es_cx + random.randint(-_es_hw, _es_hw)
+            _es_by = _es_cy + random.randint(-_es_hh, _es_hh)
+            _es_ba = random.uniform(0, math.pi * 2)
+            _es_bl = random.uniform(8, 18)
+            _es_bpts = [(_es_bx, _es_by)]
+            for _es_bj in range(1, random.randint(2, 4) + 1):
+                _es_bfrac = _es_bj / 3
+                _es_bnx = _es_bx + math.cos(_es_ba) * _es_bl * _es_bfrac + random.uniform(-4, 4)
+                _es_bny = _es_by + math.sin(_es_ba) * _es_bl * _es_bfrac + random.uniform(-4, 4)
+                _es_bpts.append((int(_es_bnx), int(_es_bny)))
+            if len(_es_bpts) >= 2:
+                pygame.draw.lines(SCREEN, random.choice(_es_arc_outer + _es_arc_core), False, _es_bpts, 1)
+        # 스파크 포인트
+        for _ in range(random.randint(1, 2)):
+            _es_spx = _es_cx + random.randint(-_es_hw, _es_hw)
+            _es_spy = _es_cy + random.randint(-_es_hh, _es_hh)
+            pygame.draw.circle(SCREEN, random.choice([(255, 255, 255), (255, 255, 200), (200, 230, 255)]),
+                             (_es_spx, _es_spy), random.randint(1, 2))
     #  일반 스턴 및 헤드샷 시 머리 위 빙글빙글 도는 별 효과 (라그나로크가 아닌 경우만)
     # 투기장에서는 _draw_arena_stun_stars()가 전용 처리하므로 중복 방지
     elif (boss_stunned_timer > 0 or (head_shot_active and head_shot_timer > 0)) and not arena_mode_enabled:
@@ -137450,6 +137496,8 @@ def main(stage_num, new_boss_mode=False):
     global arena_skill_check_timer  # 투기장 스킬 시스템 전역 변수 (arena_skill_manager는 위에서 이미 선언)
     global arena_freeze_frames  # 하수인 스킬 freeze 프레임 카운터
     global arena_perk_comeback_aura_timer  # 기사회생 오오라 애니메이션 타이머
+    global boss_plasma_slowed, boss_plasma_slow_amount, boss_plasma_slow_timer  # 호위무사 둔화 효과용
+    global boss_confused_timer  # 호위무사 혼란 효과용
     nine_just_pressed = False
     last_nine_state = False
     
@@ -144596,6 +144644,19 @@ def main(stage_num, new_boss_mode=False):
                                 if abs(_bs_offset) > 0.01:
                                     BOSS.x += int(_bs_offset)
                                     BOSS.x = max(0, min(BOSS.x, WIDTH - BOSS.width))
+                            # ⚡ 천둥뇌구 감전 이펙트 (사운드 + 비주얼 플래그)
+                            if _bg_fx.get('electric_stun'):
+                                _play_electric_shock_sound()
+                                globals()['_bodyguard_electric_stun_active'] = True
+                            else:
+                                if globals().get('_bodyguard_electric_stun_active', False):
+                                    _stop_electric_shock_sound()
+                                globals()['_bodyguard_electric_stun_active'] = False
+                            # ⚔️ 달빛베기 커브 효과 (아케이드 모드 호위무사)
+                            if _bg_fx.get('dark_slash_spin_strength', 0) > 0:
+                                globals()['ball_spin_strength'] = _bg_fx['dark_slash_spin_strength']
+                                globals()['ball_spin_direction'] = _bg_fx.get('dark_slash_spin_direction', 1)
+                                globals()['drive_ball_active'] = True
                             # 화면 정지 (달빛베기 / 도깨비불)
                             if _bg_fx.get('freeze'):
                                 freeze_now = True

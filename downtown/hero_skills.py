@@ -262,6 +262,12 @@ class DarkSlash(HeroSkill):
         self.dark_slash_active = False
         self.caster_is_top = False
 
+    def use(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        """서브 전에는 달빛베기 시전 불가 (공이 정지 상태이면 아직 서브 전)"""
+        if ball and (abs(ball.vx) < 0.5 and abs(ball.vy) < 0.5):
+            return None
+        return super().use(caster_paddle, target_paddle, ball, game_state)
+
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         # 원래 공 속도/방향 저장
         self.original_ball_speed = math.sqrt(ball.vx ** 2 + ball.vy ** 2)
