@@ -2199,11 +2199,17 @@ class DowntownManager:
                 # 호위무사 인장 아이템 처리 (새 방식)
                 seal_item = result.get('seal_item')
                 if seal_item:
-                    # 인장 아이템을 player_data에 저장 (pingfighter.py에서 인벤토리에 추가)
-                    if 'pending_seal_items' not in self.player_data:
-                        self.player_data['pending_seal_items'] = []
-                    self.player_data['pending_seal_items'].append(seal_item)
-                    print(f"[Arena] 인장 아이템 생성: {seal_item.get('hero_name', '???')}의 인장")
+                    # 인장 아이템을 즉시 인벤토리에 추가 (광장에서 TAB으로 확인 가능)
+                    try:
+                        from pingfighter import store_passive_item
+                        store_passive_item(dict(seal_item))
+                        print(f"[Arena] 인장 아이템 인벤토리 즉시 추가: {seal_item.get('hero_name', '???')}의 인장")
+                    except Exception as _seal_err:
+                        # 즉시 추가 실패 시 pending으로 폴백
+                        if 'pending_seal_items' not in self.player_data:
+                            self.player_data['pending_seal_items'] = []
+                        self.player_data['pending_seal_items'].append(seal_item)
+                        print(f"[Arena] 인장 즉시 추가 실패, pending 저장: {_seal_err}")
                 # 호위무사 등용 처리 (레거시 폴백)
                 elif result.get('recruited_hero'):
                     if 'recruited_heroes' not in self.player_data:
