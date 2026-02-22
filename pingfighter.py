@@ -94661,7 +94661,10 @@ def draw_objects():
         global _stage4_flame_angle, _stage4_flame_hit_timer
         global _stage4_flame_hit_x, _stage4_flame_hit_y, _stage4_flame_particles
         # 보스 이동 속도에 비례한 동적 공전 속도
-        _boss_abs_spd = abs(boss_current_speed) if boss_current_speed else 0
+        try:
+            _boss_abs_spd = abs(boss_current_speed)
+        except Exception:
+            _boss_abs_spd = 0
         _flame_orbit_speed = 0.015 + min(_boss_abs_spd / BOSS_MAX_SPEED, 1.0) * 0.07  # 0.015(정지) ~ 0.085(최대속도)
         _stage4_flame_angle += _flame_orbit_speed
         _flame_cx = boss_rect.centerx + _boss_dash_stun_shake_x
