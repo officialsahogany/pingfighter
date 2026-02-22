@@ -4194,6 +4194,9 @@ class GuardWarriorSystem:
                 # 촉수 휘감기(TentacleWrap): is_active 꺼져도 retracting 되감기 애니메이션 정리 필요
                 _tentacle_lingering = (getattr(skill, 'skill_id', '') == 'tentacle_wrap'
                                        and getattr(skill, 'retracting', False))
+                # 난쟁이마술(DwarfMagic): is_active 꺼져도 shrink_timer/복원 애니메이션 처리 필요
+                _dwarf_lingering = (getattr(skill, 'skill_id', '') == 'dwarf_magic'
+                                    and getattr(skill, 'hit_target', False))
                 if skill.is_active:
                     skill_id = getattr(skill, 'skill_id', '')
                     # 드래곤 브레스: 공을 따라다니며 화염 발사
@@ -4265,10 +4268,11 @@ class GuardWarriorSystem:
                     elif _eff_id3 == 'oil_spill':
                         if not skill.oil_projectiles and not skill.oil_puddles:
                             skill.is_active = False
-                elif _ghost_lingering or _balloon_lingering or _ink_lingering or _tentacle_lingering:
+                elif _ghost_lingering or _balloon_lingering or _ink_lingering or _tentacle_lingering or _dwarf_lingering:
                     # 유령소환 잔여 이펙트 정리 (dying_ghosts, particles, teleport_effects)
                     # 익살스런파티 잔여 풍선 터짐 애니메이션 + 이펙트 정리
                     # 심해의 먹물 분해 애니메이션 / 촉수 휘감기 되감기 애니메이션 정리
+                    # 난쟁이마술 축소 타이머 + 복원 애니메이션 처리
                     _fallback_paddle = guard_paddle or (top_paddle if is_top_guard else bottom_paddle)
                     _fallback_target = target or (bottom_paddle if is_top_guard else top_paddle)
                     skill.update(dt, _fallback_paddle, _fallback_target, ball, game_state)

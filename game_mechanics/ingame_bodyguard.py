@@ -427,11 +427,10 @@ class InGameBodyguard:
         if gs.pop('top_paddle_confused', False):
             boss_effects['confuse_frames'] = 180  # 3초
 
-        # 축소
-        if gs.pop('top_paddle_shrink', False):
+        # 축소 (DwarfMagic은 매 프레임 scale을 갱신하므로 pop이 아닌 get 사용)
+        if gs.get('top_paddle_shrink', False):
             boss_effects['shrink'] = True
-            boss_effects['shrink_scale'] = gs.pop('top_paddle_shrink_scale', 0.5)
-            boss_effects['shrink_frames'] = 180  # 3초
+            boss_effects['shrink_scale'] = gs.get('top_paddle_shrink_scale', 0.5)
 
         # ── 연화: 꼭두각시 조종 (PUPPET) ──
         if gs.pop('top_paddle_locked', False):

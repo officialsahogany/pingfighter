@@ -144163,10 +144163,28 @@ def main(stage_num, new_boss_mode=False):
                             # 혼란
                             if 'confuse_frames' in _bg_fx:
                                 boss_confused_timer = max(boss_confused_timer, _bg_fx['confuse_frames'])
-                            # 축소
+                            # 축소 (난쟁이마술: 매 프레임 scale 적용)
                             if _bg_fx.get('shrink'):
-                                boss_speed_reduction_active = True
-                                boss_speed_reduction_factor = _bg_fx.get('shrink_scale', 0.5)
+                                _shrink_scale = _bg_fx.get('shrink_scale', 0.5)
+                                _target_w = int(BOSS_WIDTH * _shrink_scale)
+                                _target_h = int(BOSS_HEIGHT * _shrink_scale)
+                                _center_x = BOSS.centerx
+                                BOSS.width = _target_w
+                                BOSS.height = _target_h
+                                BOSS.centerx = _center_x
+                                BOSS.y = BOSS_Y  # Y 위치 고정
+                                # 이동속도 50% 감소 (축소 페널티, 투기장과 동일)
+                                boss_plasma_slowed = True
+                                boss_plasma_slow_amount = max(boss_plasma_slow_amount, 0.5)
+                                boss_plasma_slow_timer = max(boss_plasma_slow_timer, 3)
+                            else:
+                                # 축소 해제 시 원래 크기 복원
+                                if BOSS.width != BOSS_WIDTH:
+                                    _center_x = BOSS.centerx
+                                    BOSS.width = BOSS_WIDTH
+                                    BOSS.height = BOSS_HEIGHT
+                                    BOSS.centerx = _center_x
+                                    BOSS.y = BOSS_Y
                             # 꼭두각시 조종 (보스 위치 강제 고정)
                             if _bg_fx.get('puppet'):
                                 px = _bg_fx.get('puppet_x')
