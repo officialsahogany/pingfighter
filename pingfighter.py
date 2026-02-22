@@ -144194,6 +144194,17 @@ def main(stage_num, new_boss_mode=False):
                                 if py is not None:
                                     BOSS.y = int(py)
                                 boss_stunned_timer = max(boss_stunned_timer, 3)
+                            # 🏜️ 모래감옥 (보스 이동 범위 제한)
+                            if _bg_fx.get('sand_prison'):
+                                _sp_cx = _bg_fx.get('sand_prison_center_x')
+                                _sp_r = _bg_fx.get('sand_prison_range')
+                                if _sp_cx is not None and _sp_r is not None:
+                                    _sp_left = _sp_cx - _sp_r
+                                    _sp_right = _sp_cx + _sp_r - BOSS.width
+                                    if BOSS.x < _sp_left:
+                                        BOSS.x = _sp_left
+                                    elif BOSS.x > _sp_right:
+                                        BOSS.x = _sp_right
                             # 🐂 뿔 박치기 넉백 (오니마루 호위무사)
                             if _bg_fx.get('horn_charge_knockback'):
                                 _kb_dir = _bg_fx.get('horn_charge_knockback_dir', 1)

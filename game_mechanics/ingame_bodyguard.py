@@ -438,6 +438,12 @@ class InGameBodyguard:
             boss_effects['puppet_x'] = gs.pop('top_paddle_locked_x', None)
             boss_effects['puppet_y'] = gs.pop('top_paddle_locked_y', None)
 
+        # ── 신기루: 모래감옥 (이동 범위 제한) ──
+        if gs.get('top_paddle_sand_prison', False):
+            boss_effects['sand_prison'] = True
+            boss_effects['sand_prison_center_x'] = gs.get('sand_prison_center_x')
+            boss_effects['sand_prison_range'] = gs.get('sand_prison_range')
+
         # ── 오니마루: 뿔 박치기 넉백 ──
         if gs.get('horn_charge_apply_knockback'):
             boss_effects['horn_charge_knockback'] = True
