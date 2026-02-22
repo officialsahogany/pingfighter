@@ -5049,6 +5049,14 @@ class GuardWarriorSystem:
                     self.anim_timer_bottom = 0.0
                 return
 
+            # === 꼭두각시 조종: 연화가 스킬 종료까지 제자리 고정 ===
+            elif eff_id == 'puppet_control' and eff_skill and eff_skill.is_active:
+                return
+
+            elif eff_id == 'puppet_control' and eff_skill and not eff_skill.is_active:
+                self._transition_after_casting(is_top)
+                return
+
             # === 촉수 휘감기: 크라켄이 촉수휘감기가 끝날 때까지 대기 후 퇴장 ===
             elif eff_id == 'tentacle_wrap' and eff_skill and eff_skill.is_active:
                 # 촉수휘감기 활성 상태 → 현재 위치에서 대기 (타이머 기반 퇴장 안 함)
