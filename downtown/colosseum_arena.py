@@ -5729,15 +5729,17 @@ class GuardWarriorSystem:
         """스킬 결과에서 사운드 키를 꺼내 재생 (독립실행 모드용)"""
         if not result:
             return
-        # 투기장 배틀 중이 아니면 사운드 재생 차단
-        # 🔥 FIX: import 실패 시에도 안전하게 차단 (except pass 제거)
+        # 투기장 배틀 또는 인게임 호위무사 모드에서만 사운드 재생
         _arena_enabled = False
         try:
             import pingfighter as _pf_snd
             _arena_enabled = getattr(_pf_snd, 'arena_mode_enabled', False)
         except Exception:
-            pass  # import 실패 = 투기장 모드 아님 → 차단
-        if not _arena_enabled:
+            pass
+        # 인게임 호위무사 모드도 사운드 재생 허용
+        _bodyguard_mode = (self.skill_manager and
+                           getattr(self.skill_manager, 'game_state', {}).get('is_ingame_bodyguard', False))
+        if not _arena_enabled and not _bodyguard_mode:
             return
         sound_key = result.get('sound')
         if not sound_key:
