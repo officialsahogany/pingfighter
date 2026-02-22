@@ -94106,7 +94106,18 @@ def draw_objects():
     _boss_stun_timer_draw = boss_dash_stun_timer
     _boss_dash_stun_shake_x = 0
     _boss_dash_stun_shake_y = 0
-    if _boss_stun_timer_draw > 0:
+    # ⚡ 호위무사 천둥뇌구 감전 중 부르르 떨림 + 전기 틴트
+    _bg_electric_active = globals().get('_bodyguard_electric_stun_active', False) and not arena_mode_enabled
+    if _bg_electric_active:
+        # 파란/하얀 전기 틴트 (감전 전용)
+        _es_tint = pygame.Surface(rotated_boss.get_size(), pygame.SRCALPHA)
+        _es_pulse = 0.7 + 0.3 * math.sin(pygame.time.get_ticks() * 0.03)
+        _es_tint.fill((int(150 * _es_pulse), int(180 * _es_pulse), int(255 * _es_pulse), 255))
+        rotated_boss.blit(_es_tint, (0, 0), special_flags=pygame.BLEND_RGB_MULT)
+        # 강한 떨림 효과 (감전 특유의 부르르 떨림)
+        _boss_dash_stun_shake_x = random.randint(-3, 3)
+        _boss_dash_stun_shake_y = random.randint(-2, 2)
+    elif _boss_stun_timer_draw > 0:
         # 어두운 보라색 틴트 (플레이어와 동일)
         _boss_stun_tint = pygame.Surface(rotated_boss.get_size(), pygame.SRCALPHA)
         _boss_stun_pulse = 0.6 + 0.4 * math.sin(pygame.time.get_ticks() * 0.02)
@@ -144659,14 +144670,12 @@ def main(stage_num, new_boss_mode=False):
                                 if abs(_bs_offset) > 0.01:
                                     BOSS.x += int(_bs_offset)
                                     BOSS.x = max(0, min(BOSS.x, WIDTH - BOSS.width))
-                            # ⚡ 천둥뇌구 감전 이펙트 (사운드 + 비주얼 플래그)
+                            # ⚡ 천둥뇌구 감전: 사운드 시작 + 스턴 유지
                             if _bg_fx.get('electric_stun'):
                                 _play_electric_shock_sound()
                                 globals()['_bodyguard_electric_stun_active'] = True
-                            else:
-                                if globals().get('_bodyguard_electric_stun_active', False):
-                                    _stop_electric_shock_sound()
-                                globals()['_bodyguard_electric_stun_active'] = False
+                                # 감전 동안 스턴 유지 (매 프레임 갱신)
+                                boss_stunned_timer = max(boss_stunned_timer, 6)
                             # ⚔️ 달빛베기 커브 효과 (아케이드 모드 호위무사)
                             if _bg_fx.get('dark_slash_spin_strength', 0) > 0:
                                 globals()['ball_spin_strength'] = _bg_fx['dark_slash_spin_strength']
@@ -144750,6 +144759,19 @@ def main(stage_num, new_boss_mode=False):
                                 ball_vel[1] = _vortex_c['launch_vy']
                 except Exception:
                     pass
+                # ⚡ 천둥뇌구 감전 해제 (electric_stun이 없으면 사운드/플래그 정리)
+                # _bg_fx가 빈 dict일 때도 실행되도록 if _bg_fx: 블록 바깥에 배치
+                if globals().get('_bodyguard_electric_stun_active', False):
+                    _bg_es_still = False
+                    try:
+                        _bg_es_bg = get_bodyguard()
+                        if _bg_es_bg.active:
+                            _bg_es_still = _bg_es_bg._skill_manager.game_state.get('top_paddle_electric_stun', False)
+                    except Exception:
+                        pass
+                    if not _bg_es_still:
+                        _stop_electric_shock_sound()
+                        globals()['_bodyguard_electric_stun_active'] = False
 
             if not freeze_now:
                 # 코만도 총알 시스템 업데이트
