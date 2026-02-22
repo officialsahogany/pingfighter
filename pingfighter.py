@@ -144565,7 +144565,8 @@ def main(stage_num, new_boss_mode=False):
                             if _bg_fx.get('generic_knockback'):
                                 _gk_dir = _bg_fx.get('generic_knockback_dir', 1)
                                 _gk_vel = _bg_fx.get('generic_knockback_vel', 120)
-                                boss_knockback_vel = _apply_boss_knockback_velocity(_gk_dir * _gk_vel / 60.0)
+                                # 스킬 vel(px/초)을 프레임 단위로 변환 (감속 0.85 고려: /10 ≈ 적정 넉백)
+                                boss_knockback_vel = _apply_boss_knockback_velocity(_gk_dir * _gk_vel / 10.0)
                                 boss_knockback_timer = max(boss_knockback_timer, 18)  # 0.3초 넉백 모션
                                 boss_stunned_timer = max(boss_stunned_timer, 36)  # 0.6초 경직
                                 globals()['screen_shake_timer'] = 12
