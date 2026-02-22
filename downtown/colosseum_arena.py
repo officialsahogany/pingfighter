@@ -7300,7 +7300,9 @@ class ColosseumsArena:
         self.recruited_hero = None              # 우승 시 등용한 호위무사 (인게임용)
         self.seal_item_data = None              # 인장 아이템 데이터 (결과 전달용)
         self._seal_acquisition_active = False   # 인장 획득 연출 진행 중 여부
-        self._seal_acquisition_effect = None    # 전설 획득 연출 인스턴스
+        self._seal_confetti_particles = []      # 색종이 파티클
+        self._seal_animation_timer = 0          # 연출 애니메이션 타이머
+        self._seal_icon_surface = None          # 인장 아이콘 서피스 (캐시)
 
         # 배팅 정보
         self.selected_match: Optional[Match] = None
@@ -9579,16 +9581,19 @@ class ColosseumsArena:
 
     def update(self, dt: float):
         """메인 업데이트"""
-        # 인장 획득 연출 진행 중이면 연출만 업데이트
-        if self._seal_acquisition_active and self._seal_acquisition_effect:
-            # LegendaryAcquisitionEffect.update()는 dt를 밀리초 단위로 받음
-            still_active = self._seal_acquisition_effect.update(dt * 1000)
-            if not still_active:
-                # 연출 완료 → 결과 설정 후 퇴장
-                self._seal_acquisition_active = False
-                self.total_winnings = 0
-                self.winnings_collected = True
-                self.exit_requested = True
+        # 인장 획득 연출 진행 중이면 색종이 물리만 업데이트
+        if self._seal_acquisition_active:
+            self._seal_animation_timer += 1
+            for p in self._seal_confetti_particles:
+                p["x"] += p["vx"]
+                p["y"] += p["vy"]
+                p["rotation"] += p["rotation_speed"]
+                p["vy"] += 0.25  # 중력
+                if p["y"] > SCREEN_HEIGHT + 100:
+                    p["y"] = random.randint(-300, -100)
+                    p["x"] = random.randint(0, SCREEN_WIDTH)
+                    p["vy"] = random.uniform(4, 12)
+                    p["vx"] = random.uniform(-6, 6)
             return
 
         # dt 스파이크 방지: start_battle()이 update() 내에서 블로킹 호출되므로
@@ -10040,12 +10045,15 @@ class ColosseumsArena:
 
     def handle_event(self, event: pygame.event.Event) -> bool:
         """이벤트 처리, 종료 시 True 반환"""
-        # 인장 획득 연출 중 이벤트 처리 (스페이스로 스킵)
-        if self._seal_acquisition_active and self._seal_acquisition_effect:
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                self._seal_acquisition_effect.handle_space_press()
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                self._seal_acquisition_effect.handle_space_press()
+        # 인장 획득 연출 중 이벤트 처리 (클릭/스페이스로 아이템 받기)
+        if self._seal_acquisition_active:
+            if (event.type == pygame.KEYDOWN and event.key in (pygame.K_SPACE, pygame.K_RETURN)) or \
+               (event.type == pygame.MOUSEBUTTONDOWN):
+                # 아이템 받기 → 연출 종료, 결과 전달
+                self._seal_acquisition_active = False
+                self.total_winnings = 0
+                self.winnings_collected = True
+                self.exit_requested = True
             return False
 
         # ============ 관리자 영웅 선택 오버레이 이벤트 처리 ============
@@ -10603,42 +10611,55 @@ class ColosseumsArena:
                         "selected_skill": _skill_idx,
                         "body_part": "accessory",
                     }
-                    # 전설 획득 연출 시작
+                    # 가챠 스타일 결과 화면 시작
+                    _hero_name = self.bet_hero.get("name", "???")
+                    _hero_color = self.bet_hero.get("color", (200, 160, 80))
+                    # 인장 아이콘 생성 (영웅 색상 반영)
+                    _seal_icon = pygame.Surface((32, 32), pygame.SRCALPHA)
+                    pygame.draw.circle(_seal_icon, (180, 140, 60), (16, 16), 14)
+                    pygame.draw.circle(_seal_icon, tuple(_hero_color), (16, 16), 12)
+                    pygame.draw.line(_seal_icon, (120, 80, 30), (16, 6), (16, 26), 2)
+                    pygame.draw.line(_seal_icon, (120, 80, 30), (10, 14), (22, 14), 2)
+                    pygame.draw.circle(_seal_icon, (255, 215, 0), (16, 16), 14, 2)
+                    self._seal_icon_surface = _seal_icon
+                    # 색종이 파티클 초기화
+                    _confetti_colors = [
+                        (255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0),
+                        (255, 0, 255), (0, 255, 255), (255, 128, 0), (128, 0, 255),
+                        (255, 255, 255), (255, 215, 0), (255, 100, 100),
+                        (100, 255, 100), (100, 100, 255), (255, 255, 100),
+                    ]
+                    self._seal_confetti_particles = []
+                    for _ci in range(140):
+                        _csize = random.randint(6, 14)
+                        _ccolor = random.choice(_confetti_colors)
+                        _cshape = random.choice(["rect", "circle", "diamond", "triangle"])
+                        self._seal_confetti_particles.append({
+                            "x": random.randint(0, SCREEN_WIDTH),
+                            "y": random.randint(-300, -100),
+                            "vx": random.uniform(-4, 4),
+                            "vy": random.uniform(3, 9),
+                            "color": _ccolor,
+                            "size": _csize,
+                            "rotation": random.uniform(0, 360),
+                            "rotation_speed": random.uniform(-10, 10),
+                            "shape": _cshape,
+                        })
+                    self._seal_animation_timer = 0
+                    self._seal_acquisition_active = True
+                    # 사운드 재생
                     try:
-                        from effects.legendary_acquisition import LegendaryAcquisitionEffect
-                        self._seal_acquisition_effect = LegendaryAcquisitionEffect()
-                        _hero_name = self.bet_hero.get("name", "???")
-                        self._seal_acquisition_effect.trigger(
-                            "hero_seal",
-                            f"{_hero_name}의 인장",
-                            item_icon=None,
-                            paddle_pos=None
+                        _snd_path = os.path.join(
+                            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                            "sounds", "legendopen.wav"
                         )
-                        self._seal_acquisition_active = True
-                        # 인장 획득 사운드 재생
-                        try:
-                            import os, sys
-                            def _res_path(rp):
-                                try:
-                                    bp = sys._MEIPASS
-                                except AttributeError:
-                                    bp = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                                rp = rp.replace('/', os.sep).replace('\\', os.sep)
-                                return os.path.join(bp, rp)
-                            _snd_path = _res_path(os.path.join("sounds", "legendopen.wav"))
-                            if os.path.exists(_snd_path):
-                                pygame.mixer.Sound(_snd_path).play()
-                        except Exception:
-                            pass
-                        print(f"[Arena] 인장 획득 연출 시작: {_hero_name}의 인장")
-                    except Exception as _acq_err:
-                        print(f"[Arena] 인장 연출 실패, 직접 등용: {_acq_err}")
-                        # 연출 실패 시 기존 방식으로 폴백
-                        self.recruited_hero = self.bet_hero
-                        self.recruited_hero_skill_idx = _skill_idx
-                        self.total_winnings = 0
-                        self.winnings_collected = True
-                        self.exit_requested = True
+                        if hasattr(sys, '_MEIPASS'):
+                            _snd_path = os.path.join(sys._MEIPASS, "sounds", "legendopen.wav")
+                        if os.path.exists(_snd_path):
+                            pygame.mixer.Sound(_snd_path).play()
+                    except Exception:
+                        pass
+                    print(f"[Arena] 인장 획득 연출 시작: {_hero_name}의 인장")
                     return
 
         elif self.state == TournamentState.DIFFICULTY_SELECT:
@@ -11358,20 +11379,165 @@ class ColosseumsArena:
         pygame.draw.arc(surface, color, (cx - hw, cy - hh - s // 3, hw * 2, s // 2),
                         0.3, 2.8, 1)
 
+    def _draw_seal_acquisition_screen(self):
+        """인장 획득 가챠 스타일 결과 화면 그리기"""
+        scr = self.screen
+        W, H = SCREEN_WIDTH, SCREEN_HEIGHT
+        t = self._seal_animation_timer
+
+        # 배경: 어두운 그라데이션
+        scr.fill((5, 15, 35))
+        # 그리드 라인
+        for gx in range(0, W, 40):
+            pygame.draw.line(scr, (15, 30, 55), (gx, 0), (gx, H), 1)
+        for gy in range(0, H, 40):
+            pygame.draw.line(scr, (15, 30, 55), (0, gy), (W, gy), 1)
+        # 홀로그램 스캔라인
+        _scan_surf = pygame.Surface((W, 3), pygame.SRCALPHA)
+        _scan_surf.fill((0, 255, 255, 40))
+        _scan_offset = (t * 3) % H
+        for _si in range(3):
+            _sy = (_scan_offset + _si * 20) % H
+            scr.blit(_scan_surf, (0, _sy))
+
+        # 색종이 파티클 그리기
+        for p in self._seal_confetti_particles:
+            if p["y"] > -50:
+                _ps = p["size"]
+                _pc = p["color"]
+                _px, _py = int(p["x"]), int(p["y"])
+                _pshape = p["shape"]
+                _psurf = pygame.Surface((_ps * 2, _ps * 2), pygame.SRCALPHA)
+                if _pshape == "rect":
+                    pygame.draw.rect(_psurf, _pc, (0, 0, _ps * 2, _ps))
+                elif _pshape == "circle":
+                    pygame.draw.circle(_psurf, _pc, (_ps, _ps), _ps)
+                elif _pshape == "triangle":
+                    pygame.draw.polygon(_psurf, _pc, [(_ps, 0), (0, _ps * 2), (_ps * 2, _ps * 2)])
+                else:  # diamond
+                    pygame.draw.polygon(_psurf, _pc, [(_ps, 0), (_ps * 2, _ps), (_ps, _ps * 2), (0, _ps)])
+                _rotated = pygame.transform.rotate(_psurf, p["rotation"])
+                scr.blit(_rotated, (_px - _rotated.get_width() // 2, _py - _rotated.get_height() // 2))
+
+        # 홀로그램 컨테이너
+        _cw, _ch = min(700, W - 60), min(550, H - 80)
+        _cx = (W - _cw) // 2
+        _cy = (H - _ch) // 2 - 15
+        # 글로우 테두리
+        for _gi in range(4):
+            _ga = max(0, 80 - _gi * 20)
+            _gs = pygame.Surface((_cw + _gi * 20, _ch + _gi * 20), pygame.SRCALPHA)
+            pygame.draw.rect(_gs, (0, 255, 255, _ga), (0, 0, _cw + _gi * 20, _ch + _gi * 20), 3, border_radius=18)
+            scr.blit(_gs, (_cx - _gi * 10, _cy - _gi * 10))
+        # 컨테이너 배경
+        _cont = pygame.Surface((_cw, _ch), pygame.SRCALPHA)
+        for _row in range(_ch):
+            _ratio = _row / _ch
+            _r = int(0 + _ratio * 25)
+            _g = int(30 + _ratio * 35)
+            _b = int(65 + _ratio * 40)
+            _a = int(220 - _ratio * 100)
+            pygame.draw.line(_cont, (_r, _g, _b, _a), (0, _row), (_cw, _row))
+        scr.blit(_cont, (_cx, _cy))
+        # 네온 테두리
+        pygame.draw.rect(scr, (0, 255, 255), (_cx, _cy, _cw, _ch), 3, border_radius=15)
+        pygame.draw.rect(scr, (255, 0, 255), (_cx + 4, _cy + 4, _cw - 8, _ch - 8), 2, border_radius=12)
+
+        # 타이틀 패널
+        _tp_w, _tp_h = _cw - 80, 80
+        _tp_x = _cx + 40
+        _tp_y = _cy + 30
+        _tp_surf = pygame.Surface((_tp_w, _tp_h), pygame.SRCALPHA)
+        pygame.draw.rect(_tp_surf, (0, 50, 100, 150), (0, 0, _tp_w, _tp_h))
+        scr.blit(_tp_surf, (_tp_x, _tp_y))
+        pygame.draw.rect(scr, (0, 255, 255), (_tp_x, _tp_y, _tp_w, _tp_h), 2)
+
+        # "축하합니다!" 텍스트
+        _congrats_font = self._get_cached_font(44, "_seal_font_congrats")
+        _congrats_text = "◆ 축하합니다! ◆"
+        # 글로우 효과
+        for _ti in range(3):
+            _ta = max(0, 150 - _ti * 40)
+            _tg = _congrats_font.render(_congrats_text, True, (0, 255, 255))
+            _tg.set_alpha(_ta)
+            _tgr = _tg.get_rect(center=(W // 2 - _ti * 2, _tp_y + _tp_h // 2 - _ti * 2))
+            scr.blit(_tg, _tgr)
+        _tm = _congrats_font.render(_congrats_text, True, (255, 255, 255))
+        _tmr = _tm.get_rect(center=(W // 2, _tp_y + _tp_h // 2))
+        scr.blit(_tm, _tmr)
+
+        # 인장 아이콘 (크게 + 빛나는 효과 + 떠다니는 모션)
+        _icon_cx = W // 2
+        _float_off = _sin(t * 0.1) * 10
+        _icon_cy = int(_cy + 180 + _float_off)
+        _hero_color = self.seal_item_data.get("color", (200, 160, 80)) if self.seal_item_data else (200, 160, 80)
+        # 홀로그램 펄스 글로우
+        _pulse = 1 + 0.1 * _sin(t * 0.05)
+        for _gli in range(15):
+            _gla = max(0, 80 - _gli * 5)
+            _glr = int(50 * _pulse + _gli * 2)
+            _gl_surf = pygame.Surface((_glr * 2, _glr * 2), pygame.SRCALPHA)
+            pygame.draw.circle(_gl_surf, (*_hero_color, _gla), (_glr, _glr), _glr)
+            scr.blit(_gl_surf, (_icon_cx - _glr, _icon_cy - _glr))
+        # 사이안 네온 글로우
+        for _ngi in range(10):
+            _nga = max(0, 100 - _ngi * 10)
+            _ngr = 40 + _ngi * 2
+            _ng_surf = pygame.Surface((_ngr * 2, _ngr * 2), pygame.SRCALPHA)
+            pygame.draw.circle(_ng_surf, (0, 255, 255, _nga), (_ngr, _ngr), _ngr)
+            scr.blit(_ng_surf, (_icon_cx - _ngr, _icon_cy - _ngr))
+        # 아이콘 그리기 (120x120 확대)
+        if self._seal_icon_surface:
+            _big_icon = pygame.transform.smoothscale(self._seal_icon_surface, (100, 100))
+            _bir = _big_icon.get_rect(center=(_icon_cx, _icon_cy))
+            scr.blit(_big_icon, _bir)
+        # 홀로그램 테두리 원
+        pygame.draw.circle(scr, (0, 255, 255), (_icon_cx, _icon_cy), 54, 3)
+        pygame.draw.circle(scr, (255, 0, 255), (_icon_cx, _icon_cy), 54, 1)
+        # 링 애니메이션
+        _ring_r = 54 + int(15 * abs(_sin(t * 0.03)))
+        _ring_a = int(80 * (1 - abs(_sin(t * 0.03))))
+        _ring_surf = pygame.Surface((_ring_r * 2, _ring_r * 2), pygame.SRCALPHA)
+        pygame.draw.circle(_ring_surf, (0, 255, 255, _ring_a), (_ring_r, _ring_r), _ring_r, 2)
+        scr.blit(_ring_surf, (_icon_cx - _ring_r, _icon_cy - _ring_r))
+
+        # 아이템 이름 패널
+        _hero_name = self.seal_item_data.get("hero_name", "???") if self.seal_item_data else "???"
+        _seal_name = f"{_hero_name}의 인장"
+        _np_w, _np_h = _cw - 100, 80
+        _np_x = _cx + 50
+        _np_y = _cy + _ch - 190
+        _np_surf = pygame.Surface((_np_w, _np_h), pygame.SRCALPHA)
+        pygame.draw.rect(_np_surf, (0, 30, 60, 180), (0, 0, _np_w, _np_h))
+        scr.blit(_np_surf, (_np_x, _np_y))
+        pygame.draw.rect(scr, (0, 255, 255), (_np_x, _np_y, _np_w, _np_h), 2)
+        # 이름 텍스트
+        _name_font = self._get_cached_font(34, "_seal_font_name")
+        # 그림자
+        _ns = _name_font.render(_seal_name, True, (50, 50, 50))
+        _nsr = _ns.get_rect(center=(W // 2 + 2, _np_y + _np_h // 2 + 2))
+        scr.blit(_ns, _nsr)
+        # 메인 텍스트
+        _nm = _name_font.render(_seal_name, True, (255, 255, 255))
+        _nmr = _nm.get_rect(center=(W // 2, _np_y + _np_h // 2))
+        scr.blit(_nm, _nmr)
+
+        # "아이템 받기" 버튼
+        _btn_w, _btn_h = min(350, _cw - 200), 55
+        _btn_x = (W - _btn_w) // 2
+        _btn_y = _cy + _ch - 80
+        pygame.draw.rect(scr, (10, 35, 70), (_btn_x, _btn_y, _btn_w, _btn_h), border_radius=14)
+        pygame.draw.rect(scr, (0, 220, 255), (_btn_x, _btn_y, _btn_w, _btn_h), 3, border_radius=14)
+        _btn_font = self._get_cached_font(30, "_seal_font_btn")
+        _bt = _btn_font.render("아이템 받기", True, (255, 255, 255))
+        _btr = _bt.get_rect(center=(_btn_x + _btn_w // 2, _btn_y + _btn_h // 2))
+        scr.blit(_bt, _btr)
+
     def draw(self):
         """메인 그리기"""
-        # 인장 획득 연출 진행 중이면 연출만 그리기
-        if self._seal_acquisition_active and self._seal_acquisition_effect:
-            self.screen.fill((0, 0, 0))
-            try:
-                _font_large = self.fonts.get("large") if self.fonts else None
-                _font_huge = self.fonts.get("huge") if self.fonts else None
-                if _font_large is None:
-                    import pygame.freetype
-                    _font_large = pygame.freetype.SysFont(None, 28)
-                self._seal_acquisition_effect.draw(self.screen, _font_large, _font_huge)
-            except Exception as _draw_err:
-                print(f"[Arena] 인장 연출 그리기 실패: {_draw_err}")
+        # 인장 획득 연출 진행 중이면 가챠 스타일 결과 화면 그리기
+        if self._seal_acquisition_active:
+            self._draw_seal_acquisition_screen()
             return
 
         if self.state == TournamentState.HERO_PREVIEW:
