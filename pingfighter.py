@@ -144497,10 +144497,15 @@ def main(stage_num, new_boss_mode=False):
                             if 'confuse_frames' in _bg_fx:
                                 boss_confused_timer = max(boss_confused_timer, _bg_fx['confuse_frames'])
                             # 축소 (난쟁이마술: 매 프레임 scale 적용)
+                            # 보스 기본 크기 계산 (리그 스케일 + 광폭화 반영)
+                            _bg_base_w = int(130 * get_league_boss_paddle_scale(ai_mode))
+                            if enraged_boss_active and enraged_boss_current_scale > 1.0:
+                                _bg_base_w = int(_bg_base_w * enraged_boss_current_scale)
+                            _bg_base_h = 40
                             if _bg_fx.get('shrink'):
                                 _shrink_scale = _bg_fx.get('shrink_scale', 0.5)
-                                _target_w = int(BOSS_WIDTH * _shrink_scale)
-                                _target_h = int(BOSS_HEIGHT * _shrink_scale)
+                                _target_w = int(_bg_base_w * _shrink_scale)
+                                _target_h = int(_bg_base_h * _shrink_scale)
                                 _center_x = BOSS.centerx
                                 BOSS.width = _target_w
                                 BOSS.height = _target_h
@@ -144512,10 +144517,10 @@ def main(stage_num, new_boss_mode=False):
                                 boss_plasma_slow_timer = max(boss_plasma_slow_timer, 3)
                             else:
                                 # 축소 해제 시 원래 크기 복원
-                                if BOSS.width != BOSS_WIDTH:
+                                if BOSS.width != _bg_base_w:
                                     _center_x = BOSS.centerx
-                                    BOSS.width = BOSS_WIDTH
-                                    BOSS.height = BOSS_HEIGHT
+                                    BOSS.width = _bg_base_w
+                                    BOSS.height = _bg_base_h
                                     BOSS.centerx = _center_x
                                     BOSS.y = BOSS_Y
                             # 꼭두각시 조종 (보스 위치 강제 고정)
@@ -144607,7 +144612,6 @@ def main(stage_num, new_boss_mode=False):
                                              'guard_demon_step_ball_hit'):
                                 _bg_hit = _bg_fx.get(_hit_key)
                                 if _bg_hit:
-                                    print(f"[PF_GUARD_HIT] {_hit_key} applied! guard_id={_bg_hit.get('guard_id')}, is_top={_bg_hit.get('is_top_guard')}")
                                     import math as _math
                                     _is_top_guard = _bg_hit['is_top_guard']
                                     _hit_offset = _bg_hit.get('hit_offset', 0)

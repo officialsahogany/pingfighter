@@ -477,7 +477,10 @@ class InGameBodyguard:
             'width': bottom_paddle.width, 'height': bottom_paddle.height,
         }
 
-        self._guard_system.update(dt, top_paddle, bottom_paddle, ball)
+        try:
+            self._guard_system.update(dt, top_paddle, bottom_paddle, ball)
+        except Exception:
+            pass  # GuardWarriorSystem 내부 오류 시에도 충돌 결과는 game_state에 보존
 
         # ── 백업 충돌 체크: GuardWarriorSystem 내부 충돌이 누락될 경우 직접 감지 ──
         gs = self._skill_manager.game_state
@@ -503,7 +506,6 @@ class InGameBodyguard:
                         'guard_id': _guard["id"] if _guard else None,
                     }
                     self._guard_system._guard_ball_cooldown = 0.15
-                    print(f"[BG_BACKUP_HIT] 백업 충돌 감지! guard=({_xb:.0f},{_yb:.0f}) ball=({ball.x:.0f},{ball.y:.0f})")
             # 차원소환 호위무사
             _ds = self._guard_system._dimensional_summon
             if (_ds and _ds.get('phase') in ('patrolling', 'casting')
@@ -522,7 +524,6 @@ class InGameBodyguard:
                         'guard_id': _ds_guard["id"] if _ds_guard else None,
                     }
                     self._guard_system._guard_ball_cooldown = 0.15
-                    print(f"[BG_BACKUP_HIT] 차원소환 백업 충돌! ds=({_ds['x']:.0f},{_ds['y']:.0f}) ball=({ball.x:.0f},{ball.y:.0f})")
 
         # game_state에서 보스(top_paddle) 상태 효과 추출 → pingfighter.py에 전달
         gs = self._skill_manager.game_state
