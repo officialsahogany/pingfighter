@@ -479,6 +479,19 @@ class InGameBodyguard:
 
         self._guard_system.update(dt, top_paddle, bottom_paddle, ball)
 
+        # [DEBUG] 호위무사 업데이트 확인
+        if hasattr(self, '_dbg_cnt2'):
+            self._dbg_cnt2 += 1
+        else:
+            self._dbg_cnt2 = 0
+        if self._dbg_cnt2 % 120 == 0 and ball:
+            _ph = self._guard_system.phase_bottom
+            _xb = self._guard_system.x_bottom
+            _yb = self._guard_system.y_bottom
+            _ds = self._guard_system._dimensional_summon
+            _ds_ph = _ds['phase'] if _ds else 'None'
+            print(f"[BG_DBG] phase_b={_ph}, x_b={_xb:.0f}, y_b={_yb:.0f} | dim_summon_phase={_ds_ph} | ball=({ball.x:.0f},{ball.y:.0f}) vy={ball.vy:.1f}")
+
         # game_state에서 보스(top_paddle) 상태 효과 추출 → pingfighter.py에 전달
         gs = self._skill_manager.game_state
         boss_effects = {}

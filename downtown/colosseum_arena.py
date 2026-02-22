@@ -4472,6 +4472,18 @@ class GuardWarriorSystem:
             # 순찰 호위무사 패들 충돌 감지 (반사 - 영웅 패들과 동일한 물리)
             self._check_guard_patrol_ball_collision(ball, game_state)
 
+        # [DEBUG] 호위무사-공 충돌 디버그 (매 60프레임)
+        if ball and hasattr(self, '_dbg_frame_cnt'):
+            self._dbg_frame_cnt += 1
+        elif ball:
+            self._dbg_frame_cnt = 0
+        if ball and getattr(self, '_dbg_frame_cnt', 0) % 120 == 0:
+            _ds = self._dimensional_summon
+            _ds_info = f"dim_summon: phase={_ds['phase']}, x={_ds['x']:.0f}, y={_ds['y']:.0f}, alpha={_ds.get('_alpha',1):.1f}" if _ds else "dim_summon: None"
+            _main_info = f"main_guard: phase_b={self.phase_bottom}, x_b={self.x_bottom:.0f}, y_b={self.y_bottom:.0f}"
+            _ball_info = f"ball: x={ball.x:.0f}, y={ball.y:.0f}, vy={getattr(ball,'vy',0):.1f}"
+            print(f"[GUARD_COLLISION_DBG] {_main_info} | {_ds_info} | {_ball_info} | cd={self._guard_ball_cooldown:.2f}")
+
         # 활성 호위무사 스킬 이펙트 업데이트 (호위무사 위치 기반)
         for hero_id, skills in self.skill_instances.items():
             # 매혹된 호위무사는 원래 진영이 아닌 caster 편으로 동작
