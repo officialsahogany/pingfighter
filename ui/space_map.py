@@ -727,6 +727,75 @@ class SpaceMap:
     def _in_planet(px, py, cx, cy, r):
         return (px - cx) ** 2 + (py - cy) ** 2 < r * r
 
+    # ── 공통: 3D 구체 셰이딩 오버레이 ──
+    def _draw_sphere_shading(self, surf, cx, cy, r, alpha=255):
+        """행성 위에 3D 구 형태 셰이딩을 오버레이한다.
+        - 림 다크닝 (가장자리 어두워짐)
+        - 이동하는 광원 (self.time 기반)
+        - 스페큘러 하이라이트 (반짝이는 점)
+        """
+        if r < 6:
+            return
+        # --- 림 다크닝: 가장자리를 어둡게 ---
+        rim = pygame.Surface((r * 2 + 4, r * 2 + 4), pygame.SRCALPHA)
+        rc = r + 2
+        steps = min(r, 20)
+        for i in range(steps):
+            t = i / steps  # 0=center, 1=edge
+            rim_r = int(r * (1.0 - t * 0.02))
+            darkness = int(50 * (t ** 2.5))  # 가장자리일수록 급격히 어두워짐
+            da = min(255, int(darkness * alpha / 255))
+            if da > 0 and rim_r > 0:
+                pygame.draw.circle(rim, (0, 0, 0, da), (rc, rc), rim_r, max(1, r // steps + 1))
+        # 가장자리 끝 추가 어둡게
+        for ei in range(max(1, r // 6)):
+            ea = min(255, int(35 * alpha / 255))
+            pygame.draw.circle(rim, (0, 0, 0, ea), (rc, rc), r - ei, 1)
+        surf.blit(rim, (cx - rc, cy - rc))
+
+        # --- 광원 방향 (천천히 회전) ---
+        light_ang = self.time * 0.06
+        lx = math.cos(light_ang)
+        ly = math.sin(light_ang) * 0.5  # y 방향 약간 압축
+
+        # --- 그림자 반구: 광원 반대편을 어둡게 ---
+        shadow = pygame.Surface((r * 2 + 4, r * 2 + 4), pygame.SRCALPHA)
+        # 그림자 중심 (광원 반대 방향으로 오프셋)
+        sh_cx = rc + int(-lx * r * 0.35)
+        sh_cy = rc + int(-ly * r * 0.35)
+        sh_layers = min(r, 12)
+        for si in range(sh_layers):
+            t = si / sh_layers
+            sh_r = int(r * (1.0 - t * 0.3))
+            sa = min(255, int(28 * (1.0 - t) * alpha / 255))
+            if sa > 0 and sh_r > 0:
+                pygame.draw.circle(shadow, (0, 0, 0, sa), (sh_cx, sh_cy), sh_r)
+        surf.blit(shadow, (cx - rc, cy - rc))
+
+        # --- 스페큘러 하이라이트 (광원 방향에 밝은 점) ---
+        spec_x = cx + int(lx * r * 0.35)
+        spec_y = cy + int(ly * r * 0.35)
+        spec_r = max(2, r // 5)
+        spec = pygame.Surface((spec_r * 2 + 8, spec_r * 2 + 8), pygame.SRCALPHA)
+        sc = spec_r + 4
+        for gi in range(spec_r + 3, 0, -1):
+            t = gi / (spec_r + 3)
+            ga = min(255, int(40 * t * alpha / 255))
+            pygame.draw.circle(spec, (255, 255, 255, ga), (sc, sc), gi)
+        # 중심 강한 하이라이트
+        core_r = max(1, spec_r // 3)
+        ca = min(255, int(70 * alpha / 255))
+        pygame.draw.circle(spec, (255, 255, 255, ca), (sc, sc), core_r)
+        surf.blit(spec, (spec_x - sc, spec_y - sc))
+
+        # --- 대기 프레넬 (가장자리 밝은 빛 테두리) ---
+        fres = pygame.Surface((r * 2 + 6, r * 2 + 6), pygame.SRCALPHA)
+        fc = r + 3
+        for fi in range(3):
+            fa = min(255, int(18 * alpha / 255))
+            pygame.draw.circle(fres, (180, 200, 255, fa), (fc, fc), r - fi, 1)
+        surf.blit(fres, (cx - fc, cy - fc))
+
     # ── 행성 1: 조선시대 (궁궐/곡선지붕/산/벚꽃/개울) ──
     def _draw_planet_joseon(self, surf, cx, cy, r, alpha=255):
         glow = (255, 200, 80)
@@ -1483,11 +1552,21 @@ class SpaceMap:
         8: '_draw_planet_shadow',
     }
 
+    # 행성별 자전 속도 (도/초) — 성격에 맞게 차등
+    _PLANET_ROT_SPEEDS = {
+        1: 3.0,   # 조선 — 차분
+        2: 2.5,   # 정글 — 느릿
+        3: 4.0,   # 멘헤라 — 불안정
+        4: 2.0,   # 사원 — 장중
+        5: 3.5,   # 해양 — 파도리듬
+        6: 4.5,   # 화염 — 격렬
+        7: 0.5,   # 테트리스 — 거의 정지
+        8: 1.5,   # 그림자 — 은밀
+    }
+
     def _draw_dest_planet(self, surf, cx, cy, radius, planet_num, alpha=255):
         renderer_name = self._PLANET_RENDERERS.get(planet_num)
-        if renderer_name:
-            getattr(self, renderer_name)(surf, cx, cy, radius, alpha)
-        else:
+        if not renderer_name:
             # 폴백: 기본 렌더링
             config = PLANET_CONFIGS.get(planet_num, {})
             base = config.get("theme_color", (100, 100, 100))
@@ -1496,6 +1575,44 @@ class SpaceMap:
             pygame.draw.circle(surf, base, (cx, cy), radius)
             self._draw_highlight(surf, cx, cy, radius, base, alpha)
             pygame.draw.circle(surf, glow, (cx, cy), radius + 1, 1)
+            return
+
+        # --- 회전 + 3D 구체 렌더링 ---
+        pad = max(20, radius // 2)  # 회전 시 잘림 방지 여유
+        size = (radius + pad) * 2
+        # 임시 서피스에 행성을 중앙에 그린다
+        tmp = pygame.Surface((size, size), pygame.SRCALPHA)
+        tc = size // 2  # 임시 서피스 중앙
+        getattr(self, renderer_name)(tmp, tc, tc, radius, alpha)
+
+        # 자전 회전 적용
+        rot_speed = self._PLANET_ROT_SPEEDS.get(planet_num, 2.0)
+        rot_deg = (self.time * rot_speed) % 360
+        if abs(rot_deg) > 0.01:
+            rotated = pygame.transform.rotate(tmp, rot_deg)
+        else:
+            rotated = tmp
+
+        # 원형 마스크 클리핑 (BLEND_RGBA_MIN 방식 — 빠름)
+        clip_size = radius * 2 + 4
+        mc = radius + 2  # 클립 서피스 중앙
+
+        # 회전된 행성을 클립 서피스에 중앙 정렬 blit
+        clipped = pygame.Surface((clip_size, clip_size), pygame.SRCALPHA)
+        rr = rotated.get_rect()
+        clipped.blit(rotated, (mc - rr.width // 2, mc - rr.height // 2))
+
+        # 원형 마스크 생성: 원 안쪽만 (255,255,255,255), 바깥은 (0,0,0,0)
+        mask = pygame.Surface((clip_size, clip_size), pygame.SRCALPHA)
+        pygame.draw.circle(mask, (255, 255, 255, 255), (mc, mc), radius)
+
+        # BLEND_RGBA_MIN 으로 원 바깥 알파를 0으로 제거
+        clipped.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+
+        surf.blit(clipped, (cx - mc, cy - mc))
+
+        # 3D 구체 셰이딩 오버레이 (회전하지 않음 — 광원 고정감)
+        self._draw_sphere_shading(surf, cx, cy, radius, alpha)
 
     # ──────────────────────────────────────────────
     #  콕핏 HUD 동적 요소
