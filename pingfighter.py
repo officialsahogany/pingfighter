@@ -93662,6 +93662,20 @@ def draw_objects():
             BOSS.x = BOSS.x - width_diff // 2
             BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
 
+    # 🔮 호위무사 난쟁이마술 축소 시 보스 이미지도 축소 (아케이드 모드)
+    if not arena_mode_enabled:
+        try:
+            from game_mechanics.ingame_bodyguard import get_bodyguard
+            _bg_shrink = get_bodyguard()
+            if _bg_shrink.active:
+                _bg_shrink_gs = _bg_shrink._skill_manager.game_state
+                if _bg_shrink_gs.get('top_paddle_shrink', False):
+                    _bg_shrink_scale = _bg_shrink_gs.get('top_paddle_shrink_scale', 0.5)
+                    boss_w = int(boss_w * _bg_shrink_scale)
+                    boss_h = int(boss_h * _bg_shrink_scale)
+        except Exception:
+            pass
+
     if not boss_img_prescaled:
         boss_img = pygame.transform.scale(boss_img, (boss_w, boss_h))
     if current_stage != 7:
