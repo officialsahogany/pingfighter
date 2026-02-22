@@ -11478,7 +11478,7 @@ class ColosseumsArena:
         pygame.draw.rect(scr, (0, 255, 255), (_tp_x, _tp_y, _tp_w, _tp_h), 2)
 
         # "축하합니다!" 텍스트
-        _congrats_font = self._get_cached_font(44, "_seal_font_congrats")
+        _congrats_font = self._load_korean_font(44)
         _congrats_text = "◆ 축하합니다! ◆"
         # 글로우 효과
         for _ti in range(3):
@@ -11537,7 +11537,7 @@ class ColosseumsArena:
         scr.blit(_np_surf, (_np_x, _np_y))
         pygame.draw.rect(scr, (0, 255, 255), (_np_x, _np_y, _np_w, _np_h), 2)
         # 이름 텍스트
-        _name_font = self._get_cached_font(34, "_seal_font_name")
+        _name_font = self._load_korean_font(34)
         # 그림자
         _ns = _name_font.render(_seal_name, True, (50, 50, 50))
         _nsr = _ns.get_rect(center=(W // 2 + 2, _np_y + _np_h // 2 + 2))
@@ -11553,7 +11553,7 @@ class ColosseumsArena:
         _btn_y = _cy + _ch - 80
         pygame.draw.rect(scr, (10, 35, 70), (_btn_x, _btn_y, _btn_w, _btn_h), border_radius=14)
         pygame.draw.rect(scr, (0, 220, 255), (_btn_x, _btn_y, _btn_w, _btn_h), 3, border_radius=14)
-        _btn_font = self._get_cached_font(30, "_seal_font_btn")
+        _btn_font = self._load_korean_font(30)
         _bt = _btn_font.render("아이템 받기", True, (255, 255, 255))
         _btr = _bt.get_rect(center=(_btn_x + _btn_w // 2, _btn_y + _btn_h // 2))
         scr.blit(_bt, _btr)
