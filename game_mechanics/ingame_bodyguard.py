@@ -1000,11 +1000,20 @@ class InGameBodyguard:
 # 싱글턴 인스턴스
 # ============================================================================
 _bodyguard_instance = None
+_bodyguard_instance_2 = None
 
 
 def get_bodyguard() -> InGameBodyguard:
-    """인게임 호위무사 싱글턴 인스턴스"""
+    """인게임 호위무사 싱글턴 인스턴스 (1번)"""
     global _bodyguard_instance
     if _bodyguard_instance is None:
         _bodyguard_instance = InGameBodyguard()
     return _bodyguard_instance
+
+
+def get_bodyguard2() -> InGameBodyguard:
+    """인게임 호위무사 싱글턴 인스턴스 (2번)"""
+    global _bodyguard_instance_2
+    if _bodyguard_instance_2 is None:
+        _bodyguard_instance_2 = InGameBodyguard()
+    return _bodyguard_instance_2

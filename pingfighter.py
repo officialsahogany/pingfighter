@@ -25507,38 +25507,59 @@ def sync_equipped_passive_effects():
         if "transcendent_crown" in equipped_names:
             recalculate_transcendent_crown_effects()
 
-    # 호위무사 인장 장착 → 호위무사 활성화/비활성화
+    # 호위무사 인장 장착 → 호위무사 활성화/비활성화 (최대 2명)
     try:
-        from game_mechanics.ingame_bodyguard import get_bodyguard
-        _equipped_seal = next(
-            (item for item in equipped_items if isinstance(item, dict) and item.get("name") == "hero_seal"),
-            None
-        )
+        from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
+        _equipped_seals = [
+            item for item in equipped_items
+            if isinstance(item, dict) and item.get("name") == "hero_seal"
+        ]
+        # 호위무사 1번: 첫 번째 인장
+        _seal1 = _equipped_seals[0] if len(_equipped_seals) >= 1 else None
         _bg = get_bodyguard()
-        if _equipped_seal:
-            # 인장이 장착되어 있음 → 호위무사 설정
-            _seal_hero_id = _equipped_seal.get("hero_id", "")
+        if _seal1:
+            _seal_hero_id = _seal1.get("hero_id", "")
             _current_hero_id = _bg.hero_data.get("id", "") if _bg.hero_data else ""
             if not _bg.active or _seal_hero_id != _current_hero_id:
-                # 새 인장 장착 또는 다른 영웅 인장으로 교체
                 _hero_data = {
-                    "id": _equipped_seal.get("hero_id", ""),
-                    "name": _equipped_seal.get("hero_name", ""),
-                    "color": tuple(_equipped_seal.get("hero_color", (200, 200, 200))),
-                    "title": _equipped_seal.get("hero_title", ""),
+                    "id": _seal1.get("hero_id", ""),
+                    "name": _seal1.get("hero_name", ""),
+                    "color": tuple(_seal1.get("hero_color", (200, 200, 200))),
+                    "title": _seal1.get("hero_title", ""),
                 }
-                _seal_skill_idx = _equipped_seal.get("selected_skill", 0)
+                _seal_skill_idx = _seal1.get("selected_skill", 0)
                 _skill_sel = {_hero_data["id"]: _seal_skill_idx} if _hero_data["id"] else None
-                # 재장착 시 쿨타임 보너스 없이 풀 쿨타임 (꼼수 방지)
                 _is_first = not getattr(_bg, '_seal_setup_done', False)
                 _bg.setup(_hero_data, skill_selections=_skill_sel, first_spawn=_is_first)
                 _bg._seal_setup_done = True
-                print(f"[Bodyguard] 인장 장착 → 호위무사 활성화: {_hero_data['name']} (first={_is_first})")
+                print(f"[Bodyguard1] 인장 장착 → 호위무사 활성화: {_hero_data['name']} (first={_is_first})")
         else:
-            # 인장이 장착되어 있지 않음 → 호위무사 비활성화
             if _bg.active:
                 _bg.reset()
-                print("[Bodyguard] 인장 해제 → 호위무사 비활성화")
+                print("[Bodyguard1] 인장 해제 → 호위무사 비활성화")
+        # 호위무사 2번: 두 번째 인장
+        _seal2 = _equipped_seals[1] if len(_equipped_seals) >= 2 else None
+        _bg2 = get_bodyguard2()
+        if _seal2:
+            _seal_hero_id2 = _seal2.get("hero_id", "")
+            _current_hero_id2 = _bg2.hero_data.get("id", "") if _bg2.hero_data else ""
+            if not _bg2.active or _seal_hero_id2 != _current_hero_id2:
+                _hero_data2 = {
+                    "id": _seal2.get("hero_id", ""),
+                    "name": _seal2.get("hero_name", ""),
+                    "color": tuple(_seal2.get("hero_color", (200, 200, 200))),
+                    "title": _seal2.get("hero_title", ""),
+                }
+                _seal_skill_idx2 = _seal2.get("selected_skill", 0)
+                _skill_sel2 = {_hero_data2["id"]: _seal_skill_idx2} if _hero_data2["id"] else None
+                _is_first2 = not getattr(_bg2, '_seal_setup_done', False)
+                _bg2.setup(_hero_data2, skill_selections=_skill_sel2, first_spawn=_is_first2)
+                _bg2._seal_setup_done = True
+                print(f"[Bodyguard2] 인장 장착 → 호위무사 활성화: {_hero_data2['name']} (first={_is_first2})")
+        else:
+            if _bg2.active:
+                _bg2.reset()
+                print("[Bodyguard2] 인장 해제 → 호위무사 비활성화")
     except Exception as _seal_err:
         print(f"[Bodyguard] 인장 동기화 실패: {_seal_err}")
 
@@ -52533,19 +52554,19 @@ def go_to_next_round():
     # 🛡️ 인게임 호위무사 활성 스킬 리셋 (라운드 전환 시)
     if not arena_mode_enabled:
         try:
-            from game_mechanics.ingame_bodyguard import get_bodyguard
-            _bg_round_reset = get_bodyguard()
-            if _bg_round_reset.active:
-                _bg_round_reset.reset_active_skills()
-                # 도깨비불 공 이펙트 플래그 초기화
-                globals()['_ingame_bodyguard_dokkaebi_ball'] = False
-                if _bg_round_reset._skill_manager:
-                    _bg_round_reset._skill_manager.game_state['dokkaebi_ball'] = False
-                    _bg_round_reset._skill_manager.game_state['ball_on_fire'] = False
-                    _bg_round_reset._skill_manager.game_state['hell_fire_freeze'] = False
-                    _bg_round_reset._skill_manager.game_state['dark_slash_freeze'] = False
-                    _bg_round_reset._skill_manager.game_state['horn_charge_active'] = False
-                    _bg_round_reset._skill_manager.game_state['horn_charge_apply_knockback'] = False
+            from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
+            for _bg_round_reset in [get_bodyguard(), get_bodyguard2()]:
+                if _bg_round_reset.active:
+                    _bg_round_reset.reset_active_skills()
+                    if _bg_round_reset._skill_manager:
+                        _bg_round_reset._skill_manager.game_state['dokkaebi_ball'] = False
+                        _bg_round_reset._skill_manager.game_state['ball_on_fire'] = False
+                        _bg_round_reset._skill_manager.game_state['hell_fire_freeze'] = False
+                        _bg_round_reset._skill_manager.game_state['dark_slash_freeze'] = False
+                        _bg_round_reset._skill_manager.game_state['horn_charge_active'] = False
+                        _bg_round_reset._skill_manager.game_state['horn_charge_apply_knockback'] = False
+            # 도깨비불 공 이펙트 플래그 초기화
+            globals()['_ingame_bodyguard_dokkaebi_ball'] = False
         except Exception:
             pass
 
@@ -93125,15 +93146,14 @@ def draw_objects():
         draw_plasma_wave(SCREEN)
         draw_plasma_contact_effects(SCREEN)  # 접촉 이펙트 렌더링 (굴절 + 스파크)
 
-    # 🛡️ 인게임 호위무사 캐릭터 및 스킬 이펙트 그리기 (일반 스테이지)
+    # 🛡️ 인게임 호위무사 캐릭터 및 스킬 이펙트 그리기 (일반 스테이지, 최대 2명)
     if not arena_mode_enabled:
         try:
-            from game_mechanics.ingame_bodyguard import get_bodyguard
-            _bodyguard = get_bodyguard()
-            if _bodyguard.active:
-                _bodyguard.draw(SCREEN, boss_rect=BOSS, player_rect=PLAYER, ball_rect=BALL)
-                # 💬 영웅 등장 대사 말풍선 (호위무사 등장 전 표시)
-                _bodyguard.draw_entrance_speech(SCREEN, PLAYER)
+            from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
+            for _bodyguard in [get_bodyguard(), get_bodyguard2()]:
+                if _bodyguard.active:
+                    _bodyguard.draw(SCREEN, boss_rect=BOSS, player_rect=PLAYER, ball_rect=BALL)
+                    _bodyguard.draw_entrance_speech(SCREEN, PLAYER)
         except Exception:
             pass
 
@@ -93706,17 +93726,18 @@ def draw_objects():
             BOSS.x = BOSS.x - width_diff // 2
             BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
 
-    # 🔮 호위무사 난쟁이마술 축소 시 보스 이미지도 축소 (아케이드 모드)
+    # 🔮 호위무사 난쟁이마술 축소 시 보스 이미지도 축소 (아케이드 모드, 최대 2명)
     if not arena_mode_enabled:
         try:
-            from game_mechanics.ingame_bodyguard import get_bodyguard
-            _bg_shrink = get_bodyguard()
-            if _bg_shrink.active:
-                _bg_shrink_gs = _bg_shrink._skill_manager.game_state
-                if _bg_shrink_gs.get('top_paddle_shrink', False):
-                    _bg_shrink_scale = _bg_shrink_gs.get('top_paddle_shrink_scale', 0.5)
-                    boss_w = int(boss_w * _bg_shrink_scale)
-                    boss_h = int(boss_h * _bg_shrink_scale)
+            from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
+            for _bg_shrink in [get_bodyguard(), get_bodyguard2()]:
+                if _bg_shrink.active and _bg_shrink._skill_manager:
+                    _bg_shrink_gs = _bg_shrink._skill_manager.game_state
+                    if _bg_shrink_gs.get('top_paddle_shrink', False):
+                        _bg_shrink_scale = _bg_shrink_gs.get('top_paddle_shrink_scale', 0.5)
+                        boss_w = int(boss_w * _bg_shrink_scale)
+                        boss_h = int(boss_h * _bg_shrink_scale)
+                        break  # 축소는 하나만 적용 (중복 축소 방지)
         except Exception:
             pass
 
@@ -124315,18 +124336,18 @@ def reset_round(is_stage_start=False):
     # 🛡️ 인게임 호위무사 활성 스킬 리셋 (두 번째 라운드 전환)
     if not arena_mode_enabled:
         try:
-            from game_mechanics.ingame_bodyguard import get_bodyguard
-            _bg_round_reset = get_bodyguard()
-            if _bg_round_reset.active:
-                _bg_round_reset.reset_active_skills()
-                globals()['_ingame_bodyguard_dokkaebi_ball'] = False
-                if _bg_round_reset._skill_manager:
-                    _bg_round_reset._skill_manager.game_state['dokkaebi_ball'] = False
-                    _bg_round_reset._skill_manager.game_state['ball_on_fire'] = False
-                    _bg_round_reset._skill_manager.game_state['hell_fire_freeze'] = False
-                    _bg_round_reset._skill_manager.game_state['dark_slash_freeze'] = False
-                    _bg_round_reset._skill_manager.game_state['horn_charge_active'] = False
-                    _bg_round_reset._skill_manager.game_state['horn_charge_apply_knockback'] = False
+            from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
+            for _bg_round_reset in [get_bodyguard(), get_bodyguard2()]:
+                if _bg_round_reset.active:
+                    _bg_round_reset.reset_active_skills()
+                    if _bg_round_reset._skill_manager:
+                        _bg_round_reset._skill_manager.game_state['dokkaebi_ball'] = False
+                        _bg_round_reset._skill_manager.game_state['ball_on_fire'] = False
+                        _bg_round_reset._skill_manager.game_state['hell_fire_freeze'] = False
+                        _bg_round_reset._skill_manager.game_state['dark_slash_freeze'] = False
+                        _bg_round_reset._skill_manager.game_state['horn_charge_active'] = False
+                        _bg_round_reset._skill_manager.game_state['horn_charge_apply_knockback'] = False
+            globals()['_ingame_bodyguard_dokkaebi_ball'] = False
         except Exception:
             pass
 
@@ -137185,10 +137206,11 @@ def show_result(won):
         #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
         acceleration_skill_level = 0
         acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
-        # 호위무사 시스템 초기화 (게임 오버 시)
+        # 호위무사 시스템 초기화 (게임 오버 시, 최대 2명)
         try:
-            from game_mechanics.ingame_bodyguard import get_bodyguard
+            from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
             get_bodyguard().reset()
+            get_bodyguard2().reset()
             _bodyguard_stance_popup_effects.clear()
         except Exception:
             pass
@@ -139211,10 +139233,11 @@ def main(stage_num, new_boss_mode=False):
             #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
             acceleration_skill_level = 0
             acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
-            # 호위무사 시스템 초기화 (ESC 메뉴 복귀 시)
+            # 호위무사 시스템 초기화 (ESC 메뉴 복귀 시, 최대 2명)
             try:
-                from game_mechanics.ingame_bodyguard import get_bodyguard
+                from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
                 get_bodyguard().reset()
+                get_bodyguard2().reset()
                 _bodyguard_stance_popup_effects.clear()
             except Exception:
                 pass
@@ -141548,10 +141571,11 @@ def main(stage_num, new_boss_mode=False):
                     #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
                     acceleration_skill_level = 0
                     acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
-                    # 호위무사 시스템 초기화 (강제 종료 시)
+                    # 호위무사 시스템 초기화 (강제 종료 시, 최대 2명)
                     try:
-                        from game_mechanics.ingame_bodyguard import get_bodyguard
+                        from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
                         get_bodyguard().reset()
+                        get_bodyguard2().reset()
                         _bodyguard_stance_popup_effects.clear()
                     except Exception:
                         pass
@@ -143460,17 +143484,17 @@ def main(stage_num, new_boss_mode=False):
             if arena_mode_enabled and arena_skill_manager:
                 freeze_dark_slash = arena_skill_manager.game_state.get('dark_slash_freeze', False)
                 freeze_hell_fire = arena_skill_manager.game_state.get('hell_fire_freeze', False)
-            # 인게임 호위무사의 도깨비불/달빛베기 화면 정지도 포함
+            # 인게임 호위무사의 도깨비불/달빛베기 화면 정지도 포함 (최대 2명)
             if not arena_mode_enabled:
                 try:
-                    from game_mechanics.ingame_bodyguard import get_bodyguard
-                    _bg_check = get_bodyguard()
-                    if _bg_check.active and _bg_check._skill_manager:
-                        _bg_gs = _bg_check._skill_manager.game_state
-                        if _bg_gs.get('hell_fire_freeze', False):
-                            freeze_hell_fire = True
-                        if _bg_gs.get('dark_slash_freeze', False):
-                            freeze_dark_slash = True
+                    from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
+                    for _bg_check in [get_bodyguard(), get_bodyguard2()]:
+                        if _bg_check.active and _bg_check._skill_manager:
+                            _bg_gs = _bg_check._skill_manager.game_state
+                            if _bg_gs.get('hell_fire_freeze', False):
+                                freeze_hell_fire = True
+                            if _bg_gs.get('dark_slash_freeze', False):
+                                freeze_dark_slash = True
                 except Exception:
                     pass
             freeze_capture = (arena_mode_enabled and arena_capture_phase is not None)
@@ -144580,24 +144604,28 @@ def main(stage_num, new_boss_mode=False):
                 except Exception:
                     pass
 
-            # ⚔️ 스토리모드 호위무사 E키 스탠스 토글 (공격 ↔ 수비)
+            # ⚔️ 스토리모드 호위무사 E키 스탠스 토글 (공격 ↔ 수비, 최대 2명 동시 전환)
             if not arena_mode_enabled:
                 try:
                     _k_e_now = keys[pygame.K_e]
                     if _k_e_now and not _bodyguard_key_e_pressed:
-                        from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg_e
-                        _bg_e = _get_bg_e()
-                        if _bg_e.active:
-                            _new_mode = _bg_e.toggle_stance()
-                            # 팝업 이펙트 (호위무사 또는 플레이어 패들 위)
+                        from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg_e, get_bodyguard2 as _get_bg_e2
+                        _new_mode = None
+                        for _bg_e in [_get_bg_e(), _get_bg_e2()]:
+                            if _bg_e.active:
+                                _new_mode = _bg_e.toggle_stance()
+                        # 팝업 이펙트 (첫 번째 활성 호위무사 위치)
+                        if _new_mode:
                             _popup_x, _popup_y = 380, 680
-                            _bgs = _bg_e._guard_system
-                            if _bgs and getattr(_bgs, 'phase_bottom', None) and _bgs.x_bottom > 80:
-                                _popup_x = _bgs.x_bottom
-                                _popup_y = _bgs.y_bottom - 24
-                            elif PLAYER:
-                                _popup_x = PLAYER.centerx
-                                _popup_y = PLAYER.y - 24
+                            _bg_e_first = _get_bg_e()
+                            if _bg_e_first.active:
+                                _bgs = _bg_e_first._guard_system
+                                if _bgs and getattr(_bgs, 'phase_bottom', None) and _bgs.x_bottom > 80:
+                                    _popup_x = _bgs.x_bottom
+                                    _popup_y = _bgs.y_bottom - 24
+                                elif PLAYER:
+                                    _popup_x = PLAYER.centerx
+                                    _popup_y = PLAYER.y - 24
                             _bodyguard_stance_popup_effects.append({
                                 "mode": _new_mode,
                                 "x": _popup_x, "y": _popup_y,
@@ -144611,12 +144639,14 @@ def main(stage_num, new_boss_mode=False):
                 except Exception:
                     pass
 
-            # 🛡️ 인게임 호위무사 업데이트 (일반 스테이지, 투기장 아닐 때)
+            # 🛡️ 인게임 호위무사 업데이트 (일반 스테이지, 투기장 아닐 때, 최대 2명)
             if not arena_mode_enabled:
                 try:
-                    from game_mechanics.ingame_bodyguard import get_bodyguard
-                    _bodyguard = get_bodyguard()
-                    if _bodyguard.active:
+                    from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
+                    _bg_dokkaebi_any = False  # 도깨비불 플래그 (어느 호위무사든 활성이면 True)
+                    for _bodyguard in [get_bodyguard(), get_bodyguard2()]:
+                        if not _bodyguard.active:
+                            continue
                         _bg_fx = _bodyguard.update(
                             1.0 / 60.0 if (not freeze_now or freeze_dark_slash or freeze_hell_fire) else 0.0,
                             boss_rect=BOSS,
@@ -144641,7 +144671,6 @@ def main(stage_num, new_boss_mode=False):
                             if 'confuse_frames' in _bg_fx:
                                 boss_confused_timer = max(boss_confused_timer, _bg_fx['confuse_frames'])
                             # 축소 (난쟁이마술: 매 프레임 scale 적용)
-                            # 보스 기본 크기 계산 (리그 스케일 + 광폭화 반영)
                             _bg_base_w = int(130 * get_league_boss_paddle_scale(ai_mode))
                             if enraged_boss_active and enraged_boss_current_scale > 1.0:
                                 _bg_base_w = int(_bg_base_w * enraged_boss_current_scale)
@@ -144654,20 +144683,18 @@ def main(stage_num, new_boss_mode=False):
                                 BOSS.width = _target_w
                                 BOSS.height = _target_h
                                 BOSS.centerx = _center_x
-                                BOSS.y = BOSS_Y  # Y 위치 고정
-                                # 이동속도 50% 감소 (축소 페널티, 투기장과 동일)
+                                BOSS.y = BOSS_Y
                                 boss_plasma_slowed = True
                                 boss_plasma_slow_amount = max(boss_plasma_slow_amount, 0.5)
                                 boss_plasma_slow_timer = max(boss_plasma_slow_timer, 3)
                             else:
-                                # 축소 해제 시 원래 크기 복원
                                 if BOSS.width != _bg_base_w:
                                     _center_x = BOSS.centerx
                                     BOSS.width = _bg_base_w
                                     BOSS.height = _bg_base_h
                                     BOSS.centerx = _center_x
                                     BOSS.y = BOSS_Y
-                            # 꼭두각시 조종 (보스 위치 강제 고정)
+                            # 꼭두각시 조종
                             if _bg_fx.get('puppet'):
                                 px = _bg_fx.get('puppet_x')
                                 py = _bg_fx.get('puppet_y')
@@ -144676,7 +144703,7 @@ def main(stage_num, new_boss_mode=False):
                                 if py is not None:
                                     BOSS.y = int(py)
                                 boss_stunned_timer = max(boss_stunned_timer, 3)
-                            # 🏜️ 모래감옥 (보스 이동 범위 제한)
+                            # 모래감옥
                             if _bg_fx.get('sand_prison'):
                                 _sp_cx = _bg_fx.get('sand_prison_center_x')
                                 _sp_r = _bg_fx.get('sand_prison_range')
@@ -144687,39 +144714,33 @@ def main(stage_num, new_boss_mode=False):
                                         BOSS.x = _sp_left
                                     elif BOSS.x > _sp_right:
                                         BOSS.x = _sp_right
-                            # 🐂 뿔 박치기 넉백 (오니마루 호위무사)
+                            # 뿔 박치기 넉백
                             if _bg_fx.get('horn_charge_knockback'):
                                 _kb_dir = _bg_fx.get('horn_charge_knockback_dir', 1)
                                 _kb_vel = _bg_fx.get('horn_charge_knockback_vel', 73)
                                 _target_is_top = _bg_fx.get('horn_charge_target_is_top', True)
-                                # 화면 흔들림 (다이너마이트급)
                                 globals()['screen_shake_timer'] = 24
                                 globals()['screen_shake_intensity'] = 35
                                 if _target_is_top:
-                                    # 보스(상단)에게 넉백
                                     boss_knockback_vel = _apply_boss_knockback_velocity(_kb_dir * _kb_vel)
                                     boss_knockback_timer = max(boss_knockback_timer, 18)
-                                    # IMPACT(0.2s)+RETURNING(0.5s)=0.7s=42f → 45f로 끊김 없이 PHASE_STUN에 연결
                                     boss_stunned_timer = max(boss_stunned_timer, 45)
                                 else:
-                                    # 플레이어(하단)에게 넉백
                                     player_knockback_vel = _kb_dir * _kb_vel
                                     player_stunned_timer = 45
-                            # 🔫 범용 넉백 (개틀링 버스트, 환영수리검, 해골 궁수 등)
-                            # 투기장과 동일: boss_knockback_vel + boss_stunned_timer만 사용
-                            # (boss_knockback_timer 미사용 → stunned_timer 중에 자연 감속)
+                            # 범용 넉백
                             if _bg_fx.get('generic_knockback'):
                                 _gk_dir = _bg_fx.get('generic_knockback_dir', 1)
-                                boss_knockback_vel = _gk_dir * 14.0  # 투기장과 동일 초기속도
-                                boss_stunned_timer = max(boss_stunned_timer, 36)  # 0.6초 경직
+                                boss_knockback_vel = _gk_dir * 14.0
+                                boss_stunned_timer = max(boss_stunned_timer, 36)
                                 globals()['screen_shake_timer'] = 12
                                 globals()['screen_shake_intensity'] = 15
-                            # 💣 폭탄 서프라이즈 넉백 (프레임 기반 지속)
+                            # 폭탄 서프라이즈 넉백
                             if _bg_fx.get('bomb_kb_active'):
                                 _bk_vel = _bg_fx.get('bomb_kb_vel', 0)
                                 _bk_dir = _bg_fx.get('bomb_kb_dir', 0)
                                 _bk_frames = _bg_fx.get('bomb_kb_frames', 0)
-                                _bg_gs = get_bodyguard()._skill_manager.game_state
+                                _bg_gs = _bodyguard._skill_manager.game_state
                                 if _bk_frames > 0 and _bk_vel > 0:
                                     BOSS.x += int(_bk_dir * _bk_vel * (1.0/60.0) * 60)
                                     _bk_frames -= 1
@@ -144730,37 +144751,34 @@ def main(stage_num, new_boss_mode=False):
                                     BOSS.x = max(0, min(BOSS.x, WIDTH - BOSS.width))
                                 else:
                                     _bg_gs['top_paddle_bomb_kb_active'] = False
-                            # 🍌 바나나 슬라이스 미끄러짐
+                            # 바나나 슬라이스 미끄러짐
                             if _bg_fx.get('banana_slip_active'):
                                 _bs_offset = _bg_fx.get('banana_slip_offset', 0)
                                 if abs(_bs_offset) > 0.01:
                                     BOSS.x += int(_bs_offset)
                                     BOSS.x = max(0, min(BOSS.x, WIDTH - BOSS.width))
-                            # ⚡ 천둥뇌구 감전: 사운드 시작 + 스턴 유지
+                            # 천둥뇌구 감전
                             if _bg_fx.get('electric_stun'):
                                 _play_electric_shock_sound()
                                 globals()['_bodyguard_electric_stun_active'] = True
-                                # 감전 동안 스턴 유지 (매 프레임 갱신)
                                 boss_stunned_timer = max(boss_stunned_timer, 6)
-                            # ⚔️ 달빛베기 커브 효과 (아케이드 모드 호위무사)
+                            # 달빛베기 커브 효과
                             if _bg_fx.get('dark_slash_spin_strength', 0) > 0:
                                 globals()['ball_spin_strength'] = _bg_fx['dark_slash_spin_strength']
                                 globals()['ball_spin_direction'] = _bg_fx.get('dark_slash_spin_direction', 1)
                                 globals()['drive_ball_active'] = True
-                            # 화면 정지 (달빛베기 / 도깨비불)
+                            # 화면 정지
                             if _bg_fx.get('freeze'):
                                 freeze_now = True
-                            # 🔥 도깨비불 공 이펙트 플래그
+                            # 도깨비불 공 이펙트 플래그
                             if _bg_fx.get('dokkaebi_ball'):
-                                globals()['_ingame_bodyguard_dokkaebi_ball'] = True
-                            else:
-                                globals()['_ingame_bodyguard_dokkaebi_ball'] = False
-                            # 공 속도 변경 (중력제어, 달빛베기 가속, 도깨비불 등)
+                                _bg_dokkaebi_any = True
+                            # 공 속도 변경
                             if 'ball_vx' in _bg_fx:
                                 ball_vel[0] = _bg_fx['ball_vx']
                             if 'ball_vy' in _bg_fx:
                                 ball_vel[1] = _bg_fx['ball_vy']
-                            # 공 위치 보정 (스팀베리어 반사 시 ball.y 보정 등)
+                            # 공 위치 보정
                             if 'ball_x' in _bg_fx:
                                 BALL.centerx = int(_bg_fx['ball_x'])
                             if 'ball_y' in _bg_fx:
@@ -144769,7 +144787,7 @@ def main(stage_num, new_boss_mode=False):
                             if _bg_fx.get('screen_shake'):
                                 globals()['screen_shake_timer'] = 12
                                 globals()['screen_shake_intensity'] = _bg_fx.get('shake_intensity', 15)
-                            # 🛡️ 호위무사 공 충돌 반사 (순찰/일반/귀신발걸음)
+                            # 호위무사 공 충돌 반사
                             for _hit_key in ('guard_patrol_ball_hit',
                                              'guard_general_ball_hit',
                                              'guard_demon_step_ball_hit'):
@@ -144785,13 +144803,11 @@ def main(stage_num, new_boss_mode=False):
                                     else:
                                         ball_vel[1] = -abs(_reflect_speed)
                                     ball_vel[0] += _hit_offset * 4.0
-                                    # 호위무사가 친 것은 플레이어 타격으로 간주
                                     last_hit_by = "player"
                                     try:
                                         game_vars.ball.last_hit_by = "player"
                                     except Exception:
                                         pass
-                                    # 무기 휘두르기 + 에너지 폭발 이펙트
                                     _guard_id = _bg_hit.get('guard_id')
                                     if _guard_id and _bodyguard._hero_paddle_renderer:
                                         _bodyguard._hero_paddle_renderer.trigger_weapon_swing(_guard_id)
@@ -144799,7 +144815,6 @@ def main(stage_num, new_boss_mode=False):
                                         create_energy_explosion(BALL.centerx, BALL.centery, scale=0.8)
                                     except Exception:
                                         pass
-                                    # 사운드 재생
                                     try:
                                         play_paddle_sound()
                                     except Exception:
@@ -144807,14 +144822,13 @@ def main(stage_num, new_boss_mode=False):
                                             play_sound_with_volume(SOUND_HIT)
                                         except Exception:
                                             pass
-                                    break  # 한 프레임에 하나만 처리
-                            # 👻 유령소환 빙의: 공 숨김/발사 처리
+                                    break
+                            # 유령소환 빙의
                             if _bg_fx.get('ghost_ball_hidden'):
                                 ball_in_kuromi = True
                                 ball_vel[0] = 0.0
                                 ball_vel[1] = 0.0
                             elif ball_in_kuromi and _bodyguard.active:
-                                # ghost_ball_hidden이 해제됨 → 공 복원 (안전장치)
                                 _bg_gs_ghost = _bodyguard._skill_manager.game_state
                                 if not _bg_gs_ghost.get('ghost_summon_ball_hidden', False):
                                     ball_in_kuromi = False
@@ -144823,23 +144837,25 @@ def main(stage_num, new_boss_mode=False):
                                 BALL.x = int(_ghost_rel['ball_x']) - BALL.width // 2
                                 BALL.y = int(_ghost_rel['ball_y']) - BALL.height // 2
                                 ball_in_kuromi = False
-                            # 🌪️ 모래회오리 빙의: 공 포획/발사 처리
+                            # 모래회오리 빙의
                             _vortex_c = _bg_fx.get('sand_vortex_capture')
                             if _vortex_c:
                                 BALL.x = int(_vortex_c['ball_x'])
                                 BALL.y = int(_vortex_c['ball_y'])
                                 ball_vel[0] = _vortex_c['launch_vx']
                                 ball_vel[1] = _vortex_c['launch_vy']
+                    globals()['_ingame_bodyguard_dokkaebi_ball'] = _bg_dokkaebi_any
                 except Exception:
                     pass
                 # ⚡ 천둥뇌구 감전 해제 (electric_stun이 없으면 사운드/플래그 정리)
-                # _bg_fx가 빈 dict일 때도 실행되도록 if _bg_fx: 블록 바깥에 배치
                 if globals().get('_bodyguard_electric_stun_active', False):
                     _bg_es_still = False
                     try:
-                        _bg_es_bg = get_bodyguard()
-                        if _bg_es_bg.active:
-                            _bg_es_still = _bg_es_bg._skill_manager.game_state.get('top_paddle_electric_stun', False)
+                        for _bg_es_bg in [get_bodyguard(), get_bodyguard2()]:
+                            if _bg_es_bg.active and _bg_es_bg._skill_manager:
+                                if _bg_es_bg._skill_manager.game_state.get('top_paddle_electric_stun', False):
+                                    _bg_es_still = True
+                                    break
                     except Exception:
                         pass
                     if not _bg_es_still:
