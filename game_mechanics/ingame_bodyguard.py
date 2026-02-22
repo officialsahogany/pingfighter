@@ -700,16 +700,19 @@ class InGameBodyguard:
             if not isinstance(color, (tuple, list)) or len(color) < 3:
                 color = (255, 255, 255)
 
-            # 폰트 로드
+            # 폰트 로드 (루트 또는 fonts/ 폴더에서 탐색)
             font = None
             try:
-                font_path = os.path.join(
-                    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                    "fonts", "NanumSquareB.ttf"
-                )
-                font = _ft.Font(font_path, 16)
+                _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                for _rel in ("NanumSquareB.ttf", os.path.join("fonts", "NanumSquareB.ttf")):
+                    _fp = os.path.join(_root, _rel)
+                    if os.path.exists(_fp):
+                        font = _ft.Font(_fp, 16)
+                        break
+                if font is None:
+                    font = _ft.SysFont("malgun gothic", 16)
             except Exception:
-                font = _ft.SysFont("", 16)
+                font = _ft.SysFont("malgun gothic", 16)
             if not font:
                 return
 
