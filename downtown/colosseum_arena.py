@@ -10639,7 +10639,7 @@ class ColosseumsArena:
                     # 1) 보물상자 애니메이션 생성
                     try:
                         from effects.legendary_acquisition import LegendaryAcquisitionEffect
-                        self._seal_effect = LegendaryAcquisitionEffect()
+                        self._seal_effect = LegendaryAcquisitionEffect(width=SCREEN_WIDTH, height=SCREEN_HEIGHT)
                         self._seal_effect.trigger(
                             "hero_seal",
                             f"{_hero_name}의 인장",
