@@ -145143,6 +145143,37 @@ def main(stage_num, new_boss_mode=False):
                                 BALL.y = int(_vortex_c['ball_y'])
                                 ball_vel[0] = _vortex_c['launch_vx']
                                 ball_vel[1] = _vortex_c['launch_vy']
+                            # 🔥 드래곤 브레스 화염지대 생성
+                            _bg_dragon_fires = _bg_fx.get('spawn_dragon_fire_zones')
+                            if _bg_dragon_fires:
+                                for _bg_df_req in _bg_dragon_fires:
+                                    _bg_fz = {
+                                        "x": _bg_df_req['x'],
+                                        "y": _bg_df_req['y'],
+                                        "width": _bg_df_req.get('width', 100),
+                                        "height": _bg_df_req.get('height', 50),
+                                        "duration": _bg_df_req.get('duration', 120),
+                                        "flames": [],
+                                        "spread_timer": 0,
+                                        "push_timer": 0,
+                                        "source": "dragon_breath"
+                                    }
+                                    for _ in range(10):
+                                        _bg_fz["flames"].append({
+                                            "x": _bg_fz["x"] + random.uniform(-30, 30),
+                                            "y": _bg_fz["y"] + random.uniform(-12, 12),
+                                            "size": random.uniform(8, 20),
+                                            "lifetime": random.uniform(15, 30),
+                                            "color_phase": random.uniform(0, 1)
+                                        })
+                                    fire_zones.append(_bg_fz)
+                                    try:
+                                        _bg_df_ch = SOUND_FIREBOMB.play()
+                                        if _bg_df_ch:
+                                            _bg_df_ch.set_volume(0.3)
+                                            _bg_df_ch.fadeout(2000)
+                                    except:
+                                        pass
                     globals()['_ingame_bodyguard_dokkaebi_ball'] = _bg_dokkaebi_any
                 except Exception:
                     pass

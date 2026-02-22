@@ -492,6 +492,10 @@ class InGameBodyguard:
             'width': bottom_paddle.width, 'height': bottom_paddle.height,
         }
 
+        # hero_paddle_renderer.update(dt) 호출 (self.time 증가 → 촉수/날개 등 절차적 애니메이션)
+        if self._hero_paddle_renderer:
+            self._hero_paddle_renderer.update(dt)
+
         try:
             self._guard_system.update(dt, top_paddle, bottom_paddle, ball)
         except Exception:
