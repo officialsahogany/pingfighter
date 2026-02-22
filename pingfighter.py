@@ -144607,6 +144607,7 @@ def main(stage_num, new_boss_mode=False):
                                              'guard_demon_step_ball_hit'):
                                 _bg_hit = _bg_fx.get(_hit_key)
                                 if _bg_hit:
+                                    print(f"[PF_GUARD_HIT] {_hit_key} applied! guard_id={_bg_hit.get('guard_id')}, is_top={_bg_hit.get('is_top_guard')}")
                                     import math as _math
                                     _is_top_guard = _bg_hit['is_top_guard']
                                     _hit_offset = _bg_hit.get('hit_offset', 0)

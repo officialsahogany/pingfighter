@@ -4472,17 +4472,13 @@ class GuardWarriorSystem:
             # 순찰 호위무사 패들 충돌 감지 (반사 - 영웅 패들과 동일한 물리)
             self._check_guard_patrol_ball_collision(ball, game_state)
 
-        # [DEBUG] 호위무사-공 충돌 디버그 (매 60프레임)
+        # [DEBUG] 호위무사 상태 요약 (매 300프레임 = 5초)
         if ball and hasattr(self, '_dbg_frame_cnt'):
             self._dbg_frame_cnt += 1
         elif ball:
             self._dbg_frame_cnt = 0
-        if ball and getattr(self, '_dbg_frame_cnt', 0) % 120 == 0:
-            _ds = self._dimensional_summon
-            _ds_info = f"dim_summon: phase={_ds['phase']}, x={_ds['x']:.0f}, y={_ds['y']:.0f}, alpha={_ds.get('_alpha',1):.1f}" if _ds else "dim_summon: None"
-            _main_info = f"main_guard: phase_b={self.phase_bottom}, x_b={self.x_bottom:.0f}, y_b={self.y_bottom:.0f}"
-            _ball_info = f"ball: x={ball.x:.0f}, y={ball.y:.0f}, vy={getattr(ball,'vy',0):.1f}"
-            print(f"[GUARD_COLLISION_DBG] {_main_info} | {_ds_info} | {_ball_info} | cd={self._guard_ball_cooldown:.2f}")
+        if ball and getattr(self, '_dbg_frame_cnt', 0) % 300 == 0:
+            print(f"[GUARD_STATUS] phase_b={self.phase_bottom}, pos=({self.x_bottom:.0f},{self.y_bottom:.0f}), cd={self._guard_ball_cooldown:.2f}, ball_cd_outer={'OK' if self._guard_ball_cooldown <= 0 else 'BLOCKED'}")
 
         # 활성 호위무사 스킬 이펙트 업데이트 (호위무사 위치 기반)
         for hero_id, skills in self.skill_instances.items():
@@ -5853,6 +5849,9 @@ class GuardWarriorSystem:
         for is_top in (True, False):
             phase = self.phase_top if is_top else self.phase_bottom
             if phase != "patrolling":
+                # [DEBUG] 하단 호위무사 phase가 patrolling이 아닐 때 공이 근처에 있으면 출력
+                if not is_top and ball and 640 < ball.y < 710 and getattr(ball, 'vy', 0) > 0:
+                    print(f"[PATROL_COL_DBG] SKIP: phase_bottom={phase} (not patrolling), ball=({ball.x:.0f},{ball.y:.0f}) vy={getattr(ball,'vy',0):.1f}")
                 continue
 
             gx = self.x_top if is_top else self.x_bottom
@@ -5868,6 +5867,12 @@ class GuardWarriorSystem:
                 BALL_SIZE * 2 + 4
             )
 
+            # [DEBUG] 공이 호위무사 근처 (Y축 ±50)에 있을 때 매 프레임 출력
+            if not is_top and abs(ball.y - gy) < 50:
+                _collides = guard_rect.colliderect(ball_rect)
+                _bvy = getattr(ball, 'vy', 0)
+                print(f"[PATROL_COL_DBG] NEAR: guard=({gx:.0f},{gy:.0f}) rect={guard_rect} | ball=({ball.x:.0f},{ball.y:.0f}) rect={ball_rect} | collides={_collides} vy={_bvy:.1f}")
+
             if guard_rect.colliderect(ball_rect):
                 ball_vy = getattr(ball, 'vy', 0)
                 # 공이 호위무사 쪽으로 오는 방향만 반사 (관통 방지)
@@ -5876,8 +5881,10 @@ class GuardWarriorSystem:
                 if is_top and ball_vy >= 0:
                     continue
                 if not is_top and ball_vy <= 0:
+                    print(f"[PATROL_COL_DBG] COLLIDE but vy<=0: vy={ball_vy:.1f}, skipping")
                     continue
 
+                print(f"[PATROL_COL_DBG] ★ HIT! guard=({gx:.0f},{gy:.0f}) ball=({ball.x:.0f},{ball.y:.0f}) vy={ball_vy:.1f}")
                 hit_offset = (ball_rect.centerx - guard_rect.centerx) / (PADDLE_WIDTH / 2)
                 hit_offset = max(-1.0, min(1.0, hit_offset))
                 guard = self.active_top if is_top else self.active_bottom

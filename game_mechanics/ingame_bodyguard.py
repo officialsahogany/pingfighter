@@ -479,18 +479,50 @@ class InGameBodyguard:
 
         self._guard_system.update(dt, top_paddle, bottom_paddle, ball)
 
-        # [DEBUG] 호위무사 업데이트 확인
-        if hasattr(self, '_dbg_cnt2'):
-            self._dbg_cnt2 += 1
-        else:
-            self._dbg_cnt2 = 0
-        if self._dbg_cnt2 % 120 == 0 and ball:
-            _ph = self._guard_system.phase_bottom
+        # ── 백업 충돌 체크: GuardWarriorSystem 내부 충돌이 누락될 경우 직접 감지 ──
+        gs = self._skill_manager.game_state
+        if (ball and ball.vy > 0
+                and not gs.get('guard_patrol_ball_hit')
+                and getattr(self._guard_system, '_guard_ball_cooldown', 0) <= 0):
+            _phase_b = self._guard_system.phase_bottom
             _xb = self._guard_system.x_bottom
             _yb = self._guard_system.y_bottom
+            # 메인 호위무사 (patrolling/casting 중)
+            if _phase_b in ("patrolling", "casting"):
+                _guard_rect = pygame.Rect(
+                    int(_xb - 40), int(_yb), 80, 12)
+                _ball_rect = pygame.Rect(
+                    int(ball.x) - 12, int(ball.y) - 12, 24, 24)
+                if _guard_rect.colliderect(_ball_rect):
+                    _hit_offset = (_ball_rect.centerx - _guard_rect.centerx) / 40.0
+                    _hit_offset = max(-1.0, min(1.0, _hit_offset))
+                    _guard = self._guard_system.active_bottom
+                    gs['guard_patrol_ball_hit'] = {
+                        'is_top_guard': False,
+                        'hit_offset': _hit_offset,
+                        'guard_id': _guard["id"] if _guard else None,
+                    }
+                    self._guard_system._guard_ball_cooldown = 0.15
+                    print(f"[BG_BACKUP_HIT] 백업 충돌 감지! guard=({_xb:.0f},{_yb:.0f}) ball=({ball.x:.0f},{ball.y:.0f})")
+            # 차원소환 호위무사
             _ds = self._guard_system._dimensional_summon
-            _ds_ph = _ds['phase'] if _ds else 'None'
-            print(f"[BG_DBG] phase_b={_ph}, x_b={_xb:.0f}, y_b={_yb:.0f} | dim_summon_phase={_ds_ph} | ball=({ball.x:.0f},{ball.y:.0f}) vy={ball.vy:.1f}")
+            if (_ds and _ds.get('phase') in ('patrolling', 'casting')
+                    and not gs.get('guard_patrol_ball_hit')):
+                _ds_rect = pygame.Rect(
+                    int(_ds['x'] - 40), int(_ds['y']), 80, 12)
+                _ball_rect = pygame.Rect(
+                    int(ball.x) - 12, int(ball.y) - 12, 24, 24)
+                if _ds_rect.colliderect(_ball_rect):
+                    _hit_offset = (_ball_rect.centerx - _ds_rect.centerx) / 40.0
+                    _hit_offset = max(-1.0, min(1.0, _hit_offset))
+                    _ds_guard = _ds['guard']
+                    gs['guard_patrol_ball_hit'] = {
+                        'is_top_guard': False,
+                        'hit_offset': _hit_offset,
+                        'guard_id': _ds_guard["id"] if _ds_guard else None,
+                    }
+                    self._guard_system._guard_ball_cooldown = 0.15
+                    print(f"[BG_BACKUP_HIT] 차원소환 백업 충돌! ds=({_ds['x']:.0f},{_ds['y']:.0f}) ball=({ball.x:.0f},{ball.y:.0f})")
 
         # game_state에서 보스(top_paddle) 상태 효과 추출 → pingfighter.py에 전달
         gs = self._skill_manager.game_state
