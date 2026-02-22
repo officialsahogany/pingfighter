@@ -144268,24 +144268,45 @@ def main(stage_num, new_boss_mode=False):
                             if _bg_fx.get('screen_shake'):
                                 globals()['screen_shake_timer'] = 12
                                 globals()['screen_shake_intensity'] = _bg_fx.get('shake_intensity', 15)
-                            # 🛡️ 순찰 호위무사 공 충돌 반사 + 사운드
-                            _bg_patrol_hit = _bg_fx.get('guard_patrol_ball_hit')
-                            if _bg_patrol_hit:
-                                import math as _math
-                                _is_top_guard = _bg_patrol_hit['is_top_guard']
-                                _hit_offset = _bg_patrol_hit.get('hit_offset', 0)
-                                _current_speed = _math.hypot(ball_vel[0], ball_vel[1])
-                                _reflect_speed = max(_current_speed * 1.03, 6.0)
-                                if _is_top_guard:
-                                    ball_vel[1] = abs(_reflect_speed)
-                                else:
-                                    ball_vel[1] = -abs(_reflect_speed)
-                                ball_vel[0] += _hit_offset * 4.0
-                                # 사운드 재생
-                                try:
-                                    play_sound_with_volume(SOUND_HIT)
-                                except Exception:
-                                    pass
+                            # 🛡️ 호위무사 공 충돌 반사 (순찰/일반/귀신발걸음)
+                            for _hit_key in ('guard_patrol_ball_hit',
+                                             'guard_general_ball_hit',
+                                             'guard_demon_step_ball_hit'):
+                                _bg_hit = _bg_fx.get(_hit_key)
+                                if _bg_hit:
+                                    import math as _math
+                                    _is_top_guard = _bg_hit['is_top_guard']
+                                    _hit_offset = _bg_hit.get('hit_offset', 0)
+                                    _current_speed = _math.hypot(ball_vel[0], ball_vel[1])
+                                    _reflect_speed = max(_current_speed * 1.03, 6.0)
+                                    if _is_top_guard:
+                                        ball_vel[1] = abs(_reflect_speed)
+                                    else:
+                                        ball_vel[1] = -abs(_reflect_speed)
+                                    ball_vel[0] += _hit_offset * 4.0
+                                    # 호위무사가 친 것은 플레이어 타격으로 간주
+                                    last_hit_by = "player"
+                                    try:
+                                        game_vars.ball.last_hit_by = "player"
+                                    except Exception:
+                                        pass
+                                    # 무기 휘두르기 + 에너지 폭발 이펙트
+                                    _guard_id = _bg_hit.get('guard_id')
+                                    if _guard_id and _bodyguard._hero_paddle_renderer:
+                                        _bodyguard._hero_paddle_renderer.trigger_weapon_swing(_guard_id)
+                                    try:
+                                        create_energy_explosion(BALL.centerx, BALL.centery, scale=0.8)
+                                    except Exception:
+                                        pass
+                                    # 사운드 재생
+                                    try:
+                                        play_paddle_sound()
+                                    except Exception:
+                                        try:
+                                            play_sound_with_volume(SOUND_HIT)
+                                        except Exception:
+                                            pass
+                                    break  # 한 프레임에 하나만 처리
                 except Exception:
                     pass
 

@@ -259,14 +259,18 @@ class _PaddleProxy:
 
 
 class _BallProxy:
-    """공 Rect + 속도를 래핑 (스킬이 수정한 속도 변경을 추적)"""
+    """공 Rect + 속도를 래핑 (스킬이 수정한 속도 변경을 추적)
+
+    ArenaBall과 동일하게 x/y = 중심 좌표 사용 (GuardWarriorSystem 충돌 감지 호환)
+    """
     def __init__(self, rect, vx=0, vy=0):
-        self.x = rect.x
-        self.y = rect.y
+        # ArenaBall 호환: x/y는 중심 좌표 (top-left가 아님!)
+        self.x = getattr(rect, 'centerx', rect.x + rect.width // 2)
+        self.y = getattr(rect, 'centery', rect.y + rect.height // 2)
         self.width = rect.width
         self.height = rect.height
-        self.centerx = getattr(rect, 'centerx', rect.x + rect.width // 2)
-        self.centery = getattr(rect, 'centery', rect.y + rect.height // 2)
+        self.centerx = self.x
+        self.centery = self.y
         self.vx = vx
         self.vy = vy
         # 원본 속도 저장 (스킬에 의한 변경량 추적용)
@@ -278,6 +282,10 @@ class _BallProxy:
         """스킬이 공 속도를 변경했는지 확인"""
         return (self.vx != self._original_vx or
                 self.vy != self._original_vy)
+
+
+# 호위무사 순찰 Y 위치 (플레이어 패들 710보다 위에 배치 → 공을 먼저 가로챔)
+_BODYGUARD_PATROL_Y = 670
 
 
 # ============================================================================
@@ -405,6 +413,11 @@ class InGameBodyguard:
         if bottom_paddle is None:
             bottom_paddle = _PaddleProxy(pygame.Rect(380, 710, 120, 40), is_top=False)
 
+        # 순찰 중 호위무사 Y를 플레이어 패들보다 위에 고정 (공 가로채기)
+        _phase = self._guard_system.phase_bottom
+        if _phase in ("patrolling", "patrol_entering", None):
+            self._guard_system.y_bottom = _BODYGUARD_PATROL_Y
+
         self._guard_system.update(dt, top_paddle, bottom_paddle, ball)
 
         # game_state에서 보스(top_paddle) 상태 효과 추출 → pingfighter.py에 전달
@@ -496,10 +509,18 @@ class InGameBodyguard:
             boss_effects['screen_shake'] = True
             boss_effects['shake_intensity'] = _gs_shake if isinstance(_gs_shake, (int, float)) else 15
 
-        # ── 순찰 호위무사 공 충돌 ──
+        # ── 호위무사 공 충돌 (순찰/일반/귀신발걸음) ──
         _patrol_hit = gs.pop('guard_patrol_ball_hit', None)
         if _patrol_hit:
             boss_effects['guard_patrol_ball_hit'] = _patrol_hit
+
+        _general_hit = gs.pop('guard_general_ball_hit', None)
+        if _general_hit:
+            boss_effects['guard_general_ball_hit'] = _general_hit
+
+        _demon_hit = gs.pop('guard_demon_step_ball_hit', None)
+        if _demon_hit:
+            boss_effects['guard_demon_step_ball_hit'] = _demon_hit
 
         # ── 화면 효과 (screen_effects 리스트) ──
         for fx in self._skill_manager.screen_effects:
@@ -523,6 +544,11 @@ class InGameBodyguard:
             top_paddle = _PaddleProxy(pygame.Rect(380, 25, 120, 40), is_top=True)
         if bottom_paddle is None:
             bottom_paddle = _PaddleProxy(pygame.Rect(380, 710, 120, 40), is_top=False)
+
+        # 순찰 중 호위무사 Y를 플레이어 패들보다 위에 고정 (update와 동일)
+        _phase = self._guard_system.phase_bottom
+        if _phase in ("patrolling", "patrol_entering", None):
+            self._guard_system.y_bottom = _BODYGUARD_PATROL_Y
 
         self._guard_system.draw(
             screen,
