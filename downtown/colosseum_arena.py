@@ -4050,7 +4050,8 @@ class GuardWarriorSystem:
             portal_y = req.get('portal_y', 80.0)
             cd_mult = self.guard_cd_mult_bottom
             base_cd = skill.cooldown if skill else 20.0
-            initial_cd = base_cd * cd_mult + 1.5 + 3.0  # 하강시간 + 여유
+            full_cd = base_cd * cd_mult + 1.5 + 3.0  # 하강시간 + 여유
+            initial_cd = full_cd * 0.3  # 첫 등장 시 쿨타임 70% 이미 진행
 
             self._dimensional_summon = {
                 'guard': hero_data,
@@ -5912,6 +5913,37 @@ class GuardWarriorSystem:
                 }
                 self._guard_ball_cooldown = 0.15
                 return
+
+        # --- 차원소환 호위무사 충돌 체크 ---
+        ds = self._dimensional_summon
+        if ds and ds.get('phase') in ('patrolling', 'casting'):
+            gx = ds['x']
+            gy = ds['y']
+            guard_rect = pygame.Rect(
+                int(gx - PADDLE_WIDTH // 2), int(gy),
+                PADDLE_WIDTH, PADDLE_HEIGHT
+            )
+            ball_rect = pygame.Rect(
+                int(ball.x) - BALL_SIZE - 2,
+                int(ball.y) - BALL_SIZE - 2,
+                BALL_SIZE * 2 + 4,
+                BALL_SIZE * 2 + 4
+            )
+
+            if guard_rect.colliderect(ball_rect):
+                ball_vy = getattr(ball, 'vy', 0)
+                # 하단 호위무사: 공이 아래로 내려오는 중 (vy > 0) → 위로 반사
+                if ball_vy > 0:
+                    hit_offset = (ball_rect.centerx - guard_rect.centerx) / (PADDLE_WIDTH / 2)
+                    hit_offset = max(-1.0, min(1.0, hit_offset))
+                    guard = ds['guard']
+                    game_state['guard_patrol_ball_hit'] = {
+                        'is_top_guard': False,
+                        'hit_offset': hit_offset,
+                        'guard_id': guard["id"] if guard else None,
+                    }
+                    self._guard_ball_cooldown = 0.15
+                    return
 
     def _trigger_ball_hit_skill(self, is_top, guard, ball, game_state):
         """호위무사가 공을 칠 때 ON_BALL_HIT 스킬 발동"""

@@ -649,20 +649,21 @@ class InGameBodyguard:
     _portrait_positions = {}       # key → smooth Y 위치
 
     def draw_portrait_ui(self, screen, game_offset_x=0, game_offset_y=0,
-                         game_scale=1.0):
+                         game_scale=1.0, mouse_pos=None):
         """투기장 draw_cooldown_queue 와 동일한 초상화 카드 UI
 
         왼쪽 필러 하단에 호위무사 스킬별 얼굴 카드를 쿨타임 순으로 표시.
+        mouse_pos가 주어지면 호버 중인 카드 정보를 반환.
         """
         if not self.active or not self._guard_system or not pygame:
-            return
+            return None
 
         try:
             entries = self._guard_system.get_all_cooldown_entries()
         except Exception:
-            return
+            return None
         if not entries:
-            return
+            return None
 
         # 정렬 (발동 중 → 준비 완료 → 쿨타임 짧은 순)
         entries.sort(key=lambda e: (
@@ -714,6 +715,8 @@ class InGameBodyguard:
             _portrait_renderer = get_portrait_renderer()
         except Exception:
             pass
+
+        _hover_result = None
 
         for idx, entry in enumerate(entries):
             target_y = start_y + idx * (card_h + card_gap)
@@ -783,11 +786,38 @@ class InGameBodyguard:
 
             screen.blit(card, (card_x, draw_y))
 
+            # ── 마우스 호버 체크 ──
+            if mouse_pos and _hover_result is None:
+                _card_rect = pygame.Rect(card_x, draw_y, card_w, card_h)
+                if _card_rect.collidepoint(mouse_pos):
+                    _sk = entry.get("skill")
+                    _hero_name = entry.get("hero_name", "?")
+                    _phase_str = None
+                    if is_active:
+                        _phase_str = "casting"
+                    elif entry.get("source_type") == "dimensional_summon":
+                        _phase_str = "patrolling"
+                    _hover_result = {
+                        "type": entry.get("source_type", "guard"),
+                        "name": _hero_name,
+                        "color": hero_color,
+                        "cooldown": cd_rem,
+                        "phase": _phase_str,
+                        "is_next": False,
+                        "skill": _sk,
+                        "skills": [_sk] if _sk else [],
+                        "side": entry.get("side", "bottom"),
+                        "screen_x": card_x + card_w + 2,
+                        "screen_y": draw_y,
+                    }
+
         # 오래된 position 키 정리
         active_keys = {e.get("key", f"e{i}") for i, e in enumerate(entries)}
         stale = [k for k in InGameBodyguard._portrait_positions if k not in active_keys]
         for k in stale:
             del InGameBodyguard._portrait_positions[k]
+
+        return _hover_result
 
     def draw_entrance_speech(self, screen, player_rect):
         """영웅의 등장 전 대사 말풍선 그리기 (플레이어 패들 위에 표시)"""

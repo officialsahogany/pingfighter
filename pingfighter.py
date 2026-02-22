@@ -8606,16 +8606,18 @@ def _fullscreen_flip():
 
         # 🛡️ 인게임 호위무사 초상화 UI (일반 스테이지, 투기장 쿨타임 큐와 동일 스타일)
         _story_stance_btn_rect = None
+        _story_guard_hover = None
         if not arena_mode_enabled:
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg
                 _bg = _get_bg()
                 if _bg.active:
-                    _bg.draw_portrait_ui(
+                    _story_guard_hover = _bg.draw_portrait_ui(
                         REAL_SCREEN,
                         game_offset_x=GAME_OFFSET_X,
                         game_offset_y=GAME_OFFSET_Y,
                         game_scale=GAME_SCALE_FACTOR,
+                        mouse_pos=_original_mouse_get_pos(),
                     )
                     # ⚔️ 호위무사 스탠스 토글 아이콘 (투기장과 동일)
                     try:
@@ -8628,6 +8630,8 @@ def _fullscreen_flip():
                         pass
             except Exception:
                 pass
+        if _story_guard_hover:
+            _draw_guard_hover_tooltip(REAL_SCREEN, _story_guard_hover)
         globals()['_story_guard_stance_toggle_rect'] = _story_stance_btn_rect
 
         # 🎚️ 투기장 배속 버튼 (좌측 필러 하단, REAL_SCREEN에 직접)
@@ -8863,16 +8867,18 @@ def _fullscreen_update(*args, **kwargs):
 
         # 🛡️ 인게임 호위무사 초상화 UI (일반 스테이지)
         _story_stance_btn_rect2 = None
+        _story_guard_hover2 = None
         if not arena_mode_enabled:
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg2
                 _bg2 = _get_bg2()
                 if _bg2.active:
-                    _bg2.draw_portrait_ui(
+                    _story_guard_hover2 = _bg2.draw_portrait_ui(
                         REAL_SCREEN,
                         game_offset_x=GAME_OFFSET_X,
                         game_offset_y=GAME_OFFSET_Y,
                         game_scale=GAME_SCALE_FACTOR,
+                        mouse_pos=_original_mouse_get_pos(),
                     )
                     try:
                         _story_stance_btn_rect2 = renderer.draw_guard_stance_toggle(
@@ -8884,6 +8890,8 @@ def _fullscreen_update(*args, **kwargs):
                         pass
             except Exception:
                 pass
+        if _story_guard_hover2:
+            _draw_guard_hover_tooltip(REAL_SCREEN, _story_guard_hover2)
         globals()['_story_guard_stance_toggle_rect'] = _story_stance_btn_rect2
 
         # 🎚️ 투기장 배속 버튼 (좌측 필러 하단, REAL_SCREEN에 직접)
