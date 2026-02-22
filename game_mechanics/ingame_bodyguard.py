@@ -579,6 +579,19 @@ class InGameBodyguard:
         if _demon_hit:
             boss_effects['guard_demon_step_ball_hit'] = _demon_hit
 
+        # ── 유령소환: 공 숨김/발사 (수수께끼 묘기 빙의 시) ──
+        if gs.get('ghost_summon_ball_hidden', False):
+            boss_effects['ghost_ball_hidden'] = True
+        _ghost_release = gs.pop('ghost_summon_ball_release', None)
+        if _ghost_release:
+            boss_effects['ghost_ball_release'] = _ghost_release
+            gs['ghost_summon_ball_hidden'] = False
+
+        # ── 모래회오리: 공 포획/발사 (수수께끼 묘기 빙의 시) ──
+        _vortex_cap = gs.pop('sand_vortex_ball_captured', None)
+        if _vortex_cap:
+            boss_effects['sand_vortex_capture'] = _vortex_cap
+
         # ── 화면 효과 (screen_effects 리스트) ──
         for fx in self._skill_manager.screen_effects:
             boss_effects['screen_shake'] = True

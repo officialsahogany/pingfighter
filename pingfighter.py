@@ -144516,6 +144516,21 @@ def main(stage_num, new_boss_mode=False):
                                         except Exception:
                                             pass
                                     break  # 한 프레임에 하나만 처리
+                            # 👻 유령소환 빙의: 공 숨김/발사 처리
+                            if _bg_fx.get('ghost_ball_hidden'):
+                                ball_vel[0] = 0.0
+                                ball_vel[1] = 0.0
+                            _ghost_rel = _bg_fx.get('ghost_ball_release')
+                            if _ghost_rel:
+                                BALL.x = int(_ghost_rel['ball_x']) - BALL.width // 2
+                                BALL.y = int(_ghost_rel['ball_y']) - BALL.height // 2
+                            # 🌪️ 모래회오리 빙의: 공 포획/발사 처리
+                            _vortex_c = _bg_fx.get('sand_vortex_capture')
+                            if _vortex_c:
+                                BALL.x = int(_vortex_c['ball_x'])
+                                BALL.y = int(_vortex_c['ball_y'])
+                                ball_vel[0] = _vortex_c['launch_vx']
+                                ball_vel[1] = _vortex_c['launch_vy']
                 except Exception:
                     pass
 
