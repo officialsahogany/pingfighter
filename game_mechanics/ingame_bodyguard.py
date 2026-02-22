@@ -368,6 +368,15 @@ class InGameBodyguard:
                 self._guard_system._entrance_guard_line_bottom = self._entrance_guard_line
             # 순찰 모드 즉시 시작 (기본 동작: 맵에서 상시 순찰)
             self._guard_system.activate_patrol_immediate()
+            # 첫 등장 시 쿨타임 70% 소비 상태로 시작 (빠른 첫 스킬 발동)
+            _gs = self._guard_system
+            if _gs.cooldown_bottom > 0:
+                _gs.cooldown_bottom *= 0.3
+            # 듀얼 스킬 쿨다운도 동일하게 적용
+            hero_id = hero_data.get("id", "")
+            _scds = _gs.guard_skill_cooldowns.get(hero_id, [])
+            for i in range(len(_scds)):
+                _scds[i] *= 0.3
             print(f"[Bodyguard] 호위무사 설정 완료 (GuardWarriorSystem): "
                   f"{hero_data.get('name', '???')} (id={hero_data.get('id')})")
         except Exception as e:
