@@ -6391,10 +6391,10 @@ class GuardWarriorSystem:
             # 매혹 호위무사면 저장된 좌표 사용, 아니면 일반 호위무사 좌표
             if charmed_top and 'x' in self._bubble_top:
                 bx = self._bubble_top['x'] + shake_x
-                by = self._bubble_top['y'] + shake_y + 15
+                by = self._bubble_top['y'] + shake_y + 50
             else:
                 bx = self.x_top + shake_x
-                by = self.y_top + shake_y + 15
+                by = self.y_top + shake_y + 50
             timer = self._bubble_top['timer']
             theme = self._bubble_top.get('color', (200, 100, 60))
             if self._bubble_top.get('is_entrance'):
@@ -6410,10 +6410,10 @@ class GuardWarriorSystem:
                 and (self.phase_bottom is not None or charmed_bottom)):
             if charmed_bottom and 'x' in self._bubble_bottom:
                 bx = self._bubble_bottom['x'] + shake_x
-                by = self._bubble_bottom['y'] + shake_y - 50
+                by = self._bubble_bottom['y'] + shake_y - 85
             else:
                 bx = self.x_bottom + shake_x
-                by = self.y_bottom + shake_y - 50
+                by = self.y_bottom + shake_y - 85
             timer = self._bubble_bottom['timer']
             theme = self._bubble_bottom.get('color', (200, 100, 60))
             # 등장 대사는 둥근 말풍선으로 표시
