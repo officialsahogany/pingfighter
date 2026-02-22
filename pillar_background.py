@@ -2142,30 +2142,59 @@ class PillarBackgroundRenderer:
             pygame.draw.circle(_icon_surf, (200, 160, 60, 255), (cx, _pommel_y), max(2, int(2 * _s)))
             pygame.draw.circle(_icon_surf, (255, 220, 100, 255), (cx, _pommel_y), max(1, int(1.2 * _s)))
 
-        # 테두리 (둥근 프레임)
-        border_color = (80, 150, 255) if is_defense else (255, 100, 80)
-        pygame.draw.rect(_icon_surf, border_color,
-                         (0, 0, btn_w, btn_h), 2, border_radius=4)
-        # 내부 글로우 테두리
-        _inner_glow = (60, 120, 220, 255) if is_defense else (220, 80, 60, 255)
-        pygame.draw.rect(_icon_surf, _inner_glow,
-                         (2, 2, btn_w - 4, btn_h - 4), 1, border_radius=3)
+        # ── 외곽 글로우 (screen에 직접 그려서 버튼 바깥으로 빛남) ──
+        _glow_pad = max(3, int(4 * _s))
+        _glow_rect = pygame.Rect(btn_x - _glow_pad, btn_y - _glow_pad,
+                                  btn_w + _glow_pad * 2, btn_h + _glow_pad * 2)
+        if is_defense:
+            _glow_colors = [(40, 120, 255, 60), (60, 160, 255, 35)]
+        else:
+            _glow_colors = [(255, 80, 40, 60), (255, 130, 60, 35)]
+        _glow_s = pygame.Surface((_glow_rect.w, _glow_rect.h), pygame.SRCALPHA)
+        for _gi, _gc in enumerate(_glow_colors):
+            _pad = _gi * 2
+            pygame.draw.rect(_glow_s, _gc,
+                             (_pad, _pad, _glow_rect.w - _pad * 2, _glow_rect.h - _pad * 2),
+                             max(2, int(3 * _s)) - _gi, border_radius=max(5, int(7 * _s)) - _gi)
+        screen.blit(_glow_s, (_glow_rect.x, _glow_rect.y))
+
+        # ── 두꺼운 외곽 테두리 (밝은 골드/실버) ──
+        _bw_outer = max(2, int(3 * _s))
+        if is_defense:
+            pygame.draw.rect(_icon_surf, (180, 220, 255, 255),
+                             (0, 0, btn_w, btn_h), _bw_outer, border_radius=max(4, int(5 * _s)))
+        else:
+            pygame.draw.rect(_icon_surf, (255, 200, 120, 255),
+                             (0, 0, btn_w, btn_h), _bw_outer, border_radius=max(4, int(5 * _s)))
+
+        # ── 내부 밝은 라인 테두리 ──
+        _inner_pad = _bw_outer + 1
+        if is_defense:
+            pygame.draw.rect(_icon_surf, (100, 180, 255, 255),
+                             (_inner_pad, _inner_pad, btn_w - _inner_pad * 2, btn_h - _inner_pad * 2),
+                             1, border_radius=max(2, int(3 * _s)))
+        else:
+            pygame.draw.rect(_icon_surf, (255, 160, 80, 255),
+                             (_inner_pad, _inner_pad, btn_w - _inner_pad * 2, btn_h - _inner_pad * 2),
+                             1, border_radius=max(2, int(3 * _s)))
 
         screen.blit(_icon_surf, (btn_x, btn_y))
 
-        # 모드 텍스트
+        # 모드 텍스트 (더 크고 밝게)
         try:
-            font_size = max(8, int(9 * _s))
+            font_size = max(9, int(11 * _s))
             font = self._get_font(font_size)
             label = "수비" if is_defense else "공격"
-            text_color = (150, 200, 255) if is_defense else (255, 180, 150)
+            text_color = (180, 220, 255) if is_defense else (255, 210, 160)
             text_surf = font.render(label, True, text_color)
-            text_rect = text_surf.get_rect(centerx=cx, top=btn_y + btn_h + max(1, int(2 * _s)))
+            text_rect = text_surf.get_rect(centerx=btn_x + btn_w // 2,
+                                            top=btn_y + btn_h + max(2, int(3 * _s)))
             screen.blit(text_surf, text_rect)
         except Exception:
             pass
 
-        return pygame.Rect(btn_x, btn_y, btn_w, btn_h)
+        return pygame.Rect(btn_x - _glow_pad, btn_y - _glow_pad,
+                           btn_w + _glow_pad * 2, btn_h + _glow_pad * 2)
 
     def draw_right_pillar_ui(self, screen, player_score=0, boss_score=0,
                              boss_gauge=0, boss_gauge_max=500,
