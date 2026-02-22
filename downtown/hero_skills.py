@@ -580,30 +580,30 @@ class DemonEye(HeroSkill):
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.caster_is_top = caster_paddle.is_top
         self.aura_timer = 0
+        self._is_henchman = getattr(caster_paddle, 'is_bodyguard', False)
 
-        # [DEBUG] 귀신발걸음 발동 시점 X좌표 확인
-        _paddle_x = getattr(caster_paddle, 'x', 'N/A')
-        _paddle_centerx = getattr(caster_paddle, 'centerx', 'N/A')
-        # 이동속도 50% 증가 (1.5배)
-        speed_key = 'top_paddle_speed_boost' if caster_paddle.is_top else 'bottom_paddle_speed_boost'
-        game_state[speed_key] = 1.5  # 50% 증가 = 1.5배
         game_state['demon_eye_active'] = True
         game_state['demon_eye_caster_is_top'] = caster_paddle.is_top
 
-        # 패들 사이즈 20% 증가
-        size_key = 'top_paddle_size_boost' if caster_paddle.is_top else 'bottom_paddle_size_boost'
-        game_state[size_key] = 1.2  # 20% 증가
-
-        # 🔥 귀신발걸음 y축 이동 트리거 (game_state 플래그로 전달)
-        # AIPaddleController는 직접 호출, PaddleWrapper는 플래그로 전달
-        if hasattr(caster_paddle, 'start_ghost_step'):
-            caster_paddle.start_ghost_step()
+        if self._is_henchman:
+            # 하수인 귀신발걸음: 하수인 자체가 Y축 이동 (영웅 패들은 안 움직임)
+            game_state['henchman_demon_eye_active'] = True
+            game_state['henchman_demon_eye_is_top'] = caster_paddle.is_top
         else:
-            # PaddleWrapper인 경우 game_state 플래그로 전달
-            if caster_paddle.is_top:
-                game_state['ghost_step_start_top'] = True
+            # 호위무사/영웅 귀신발걸음: 기존 동작 (영웅 패들 이동)
+            speed_key = 'top_paddle_speed_boost' if caster_paddle.is_top else 'bottom_paddle_speed_boost'
+            game_state[speed_key] = 1.5
+            size_key = 'top_paddle_size_boost' if caster_paddle.is_top else 'bottom_paddle_size_boost'
+            game_state[size_key] = 1.2
+
+            # Y축 이동 트리거 (영웅 패들)
+            if hasattr(caster_paddle, 'start_ghost_step'):
+                caster_paddle.start_ghost_step()
             else:
-                game_state['ghost_step_start_bottom'] = True
+                if caster_paddle.is_top:
+                    game_state['ghost_step_start_top'] = True
+                else:
+                    game_state['ghost_step_start_bottom'] = True
 
         # 오오라 파티클 초기화
         self.aura_particles = []
@@ -617,10 +617,6 @@ class DemonEye(HeroSkill):
                 'alpha': random.randint(100, 200)
             })
 
-        # 🔍 DEBUG: ghostwalk 사운드 생성 추적
-        import traceback
-        print(f"[DEBUG GHOSTWALK] DemonEye._apply_effect() 호출! caster_is_top={self.caster_is_top}")
-        traceback.print_stack(limit=10)
         return {
             'screen_effect': ScreenEffect.FLASH,
             'flash_color': (150, 50, 200),
@@ -644,13 +640,16 @@ class DemonEye(HeroSkill):
             p['alpha'] = int(150 + 50 * _sin(self.aura_timer * 5 + p['angle']))
 
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
-        # 이동속도 원래대로
-        speed_key = 'top_paddle_speed_boost' if self.caster_is_top else 'bottom_paddle_speed_boost'
-        game_state[speed_key] = 1.0
-        # 패들 사이즈 원래대로
-        size_key = 'top_paddle_size_boost' if self.caster_is_top else 'bottom_paddle_size_boost'
-        game_state[size_key] = 1.0
+        if not getattr(self, '_is_henchman', False):
+            # 호위무사/영웅: 패들 부스트 원래대로
+            speed_key = 'top_paddle_speed_boost' if self.caster_is_top else 'bottom_paddle_speed_boost'
+            game_state[speed_key] = 1.0
+            size_key = 'top_paddle_size_boost' if self.caster_is_top else 'bottom_paddle_size_boost'
+            game_state[size_key] = 1.0
+        # 하수인/공통 플래그 정리
         game_state['demon_eye_active'] = False
+        game_state.pop('henchman_demon_eye_active', None)
+        game_state.pop('henchman_demon_eye_is_top', None)
         self.aura_particles = []
 
     def reset_for_new_round(self, game_state: dict):

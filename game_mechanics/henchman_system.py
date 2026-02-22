@@ -46,7 +46,11 @@ HENCH_ICON_SIZE = 42
 
 # 채널링 스킬 ID (하수인이 스킬 지속 중 화면에 남아야 하는 스킬)
 # 나머지 스킬은 시전 포즈 후 즉시 퇴장하고, 스킬 이펙트만 독립적으로 지속
-HENCH_CHANNELED_SKILLS = frozenset({'steam_barrier', 'gatling_burst', 'tentacle_wrap', 'puppet_control', 'doll_curse', 'dragon_breath'})
+HENCH_CHANNELED_SKILLS = frozenset({'steam_barrier', 'gatling_burst', 'tentacle_wrap', 'puppet_control', 'doll_curse', 'dragon_breath', 'demon_step'})
+
+# 하수인 귀신발걸음 Y축 이동 상수
+HENCH_GHOST_STEP_SPEED = 4.0          # 전진 이동 속도
+HENCH_GHOST_STEP_RETURN_SPEED = 16.8  # 복귀 이동 속도
 # 채널링 스킬의 최대 체류 시간 (안전 타임아웃)
 HENCH_CHANNEL_MAX_STAY = 12.0
 
@@ -144,6 +148,11 @@ class HenchmanSlot:
         self.icon_rect = pygame.Rect(0, 0, 0, 0)  # 필러 아이콘 영역
         self.ready_flash_timer = 0.0   # 쿨타임 완충 시 반짝임 타이머 (초)
         self._was_on_cooldown = False   # 쿨타임→완충 전환 감지용
+        # 귀신발걸음 Y축 이동 상태
+        self.ghost_step_active = False
+        self.ghost_step_original_y = 0.0
+        self.ghost_step_phase = 0     # 0: 전진, 1: 복귀
+        self.ghost_step_hit_count = 0  # 공 충돌 횟수
 
     @property
     def hero_id(self):
@@ -387,6 +396,10 @@ class HenchmanSystem:
         skill_id = getattr(skill, 'skill_id', '') if skill else ''
         is_channeled = skill_id in HENCH_CHANNELED_SKILLS
 
+        # 귀신발걸음: 시전 후 Y축 이동 처리
+        if skill_id == 'demon_step' and slot.anim_timer >= HENCH_CAST_DURATION:
+            self._update_ghost_step_movement(slot, dt, ball)
+
         if is_channeled:
             # === 채널링 스킬: 스킬 효과 종료까지 대기 ===
             skill_done = (not skill.is_active) if skill else True
@@ -426,6 +439,11 @@ class HenchmanSystem:
             skill_done = True
 
         if slot.anim_timer >= HENCH_CAST_DURATION and skill_done:
+            # 귀신발걸음: 퇴장 시 Y 위치 복원
+            if skill_id == 'demon_step' and slot.ghost_step_active:
+                slot.y = slot.ghost_step_original_y
+                slot.ghost_step_active = False
+                slot.ghost_step_phase = 0
             slot.phase = "exiting"
             slot.anim_timer = 0.0
 
@@ -456,6 +474,90 @@ class HenchmanSystem:
                 state['gatling_dismounting'] = False
                 state['gatling_dismount_progress'] = 0.0
                 state['gatling_aim_angle'] = None
+
+    def _update_ghost_step_movement(self, slot: HenchmanSlot, dt: float, ball):
+        """하수인 무겐 귀신발걸음 Y축 이동 + 공 충돌 처리"""
+        if not slot.ghost_step_active:
+            # 시작
+            slot.ghost_step_active = True
+            slot.ghost_step_original_y = slot.y
+            slot.ghost_step_phase = 0  # 전진
+            slot.ghost_step_hit_count = 0
+
+        game_state = self.skill_manager.game_state if self.skill_manager else {}
+
+        if self.is_top:
+            # 상단 하수인: 아래로 전진 → 위로 복귀
+            max_y = SCREEN_HEIGHT - 50
+            if slot.ghost_step_phase == 0:
+                new_y = slot.y + HENCH_GHOST_STEP_SPEED
+                if new_y < max_y:
+                    slot.y = new_y
+                else:
+                    slot.y = max_y
+                    slot.ghost_step_phase = 1
+            else:
+                new_y = slot.y - HENCH_GHOST_STEP_RETURN_SPEED
+                if new_y > slot.ghost_step_original_y:
+                    slot.y = new_y
+                else:
+                    slot.y = slot.ghost_step_original_y
+                    slot.ghost_step_active = False
+                    slot.ghost_step_phase = 0
+                    game_state['ghost_step_force_end'] = True
+        else:
+            # 하단 하수인: 위로 전진 → 아래로 복귀
+            min_y = 50
+            if slot.ghost_step_phase == 0:
+                new_y = slot.y - HENCH_GHOST_STEP_SPEED
+                if new_y > min_y:
+                    slot.y = new_y
+                else:
+                    slot.y = min_y
+                    slot.ghost_step_phase = 1
+            else:
+                new_y = slot.y + HENCH_GHOST_STEP_RETURN_SPEED
+                if new_y < slot.ghost_step_original_y:
+                    slot.y = new_y
+                else:
+                    slot.y = slot.ghost_step_original_y
+                    slot.ghost_step_active = False
+                    slot.ghost_step_phase = 0
+                    game_state['ghost_step_force_end'] = True
+
+        # 공 충돌 감지 (타격판정)
+        if ball and slot.ghost_step_active and slot.ghost_step_hit_count < 3:
+            self._check_henchman_ball_collision(slot, ball, game_state)
+
+    def _check_henchman_ball_collision(self, slot: HenchmanSlot, ball, game_state: dict):
+        """하수인 귀신발걸음 중 공 충돌 판정"""
+        guard_w = PADDLE_WIDTH
+        guard_h = PADDLE_HEIGHT
+        guard_rect = pygame.Rect(
+            int(slot.x - guard_w // 2), int(slot.y),
+            guard_w, guard_h
+        )
+        ball_rect = pygame.Rect(
+            int(ball.x), int(ball.y),
+            getattr(ball, 'width', 20),
+            getattr(ball, 'height', 20)
+        )
+        if not guard_rect.colliderect(ball_rect):
+            return
+
+        ball_vy = getattr(ball, 'vy', 0)
+        # 상단 하수인은 위에서 내려오는 공만 / 하단 하수인은 아래서 올라오는 공만
+        if self.is_top and ball_vy >= 0:
+            return  # 공이 이미 아래로 가는 중 → 상단 하수인이 칠 수 없음
+        if not self.is_top and ball_vy <= 0:
+            return  # 공이 이미 위로 가는 중 → 하단 하수인이 칠 수 없음
+
+        slot.ghost_step_hit_count += 1
+        hit_offset = (ball_rect.centerx - guard_rect.centerx) / (guard_w / 2)
+        game_state['guard_demon_step_ball_hit'] = {
+            'is_top_guard': self.is_top,
+            'hit_offset': hit_offset,
+        }
 
     def _activate_skill(self, slot: HenchmanSlot, ball=None):
         """하수인 스킬 발동"""

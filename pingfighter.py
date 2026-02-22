@@ -144114,7 +144114,9 @@ def main(stage_num, new_boss_mode=False):
 
                     # 🎭 투기장 패들 위치 고정 (꼭두각시 조종, 인형의 저주 등)
                     # 귀신발걸음 활성화 여부 확인 (Y축 이동 중에는 Y좌표 lock 스킵)
-                    _demon_eye_active_for_lock = arena_game_state.get('demon_eye_active', False)
+                    # 하수인 귀신발걸음은 하수인이 이동하므로 영웅 패들 lock 스킵 불필요
+                    _demon_eye_active_for_lock = (arena_game_state.get('demon_eye_active', False)
+                                                  and not arena_game_state.get('henchman_demon_eye_active', False))
                     _demon_eye_caster_is_top_for_lock = arena_game_state.get('demon_eye_caster_is_top', True)
 
                     # [DEBUG] 귀신발걸음 X좌표 추적 (시작 시점)
@@ -144149,8 +144151,10 @@ def main(stage_num, new_boss_mode=False):
 
                     _demon_eye_active = arena_game_state.get('demon_eye_active', False)
                     _demon_eye_caster_is_top = arena_game_state.get('demon_eye_caster_is_top', True)
+                    # 하수인 귀신발걸음은 하수인 자체가 Y축 이동 (henchman_system.py에서 처리)
+                    _henchman_ghost_step = arena_game_state.get('henchman_demon_eye_active', False)
 
-                    if _demon_eye_active:
+                    if _demon_eye_active and not _henchman_ghost_step:
 
                         if _demon_eye_caster_is_top:
                             # 상단 영웅 귀신발걸음 Y축 이동 (아래로 전진 → 복귀 반복)
@@ -144218,7 +144222,7 @@ def main(stage_num, new_boss_mode=False):
                                     arena_game_state['bottom_paddle_speed_boost'] = 1.0
                                     arena_game_state['bottom_paddle_size_boost'] = 1.0
                                     arena_game_state['ghost_step_force_end'] = True
-                    else:
+                    elif not _demon_eye_active:
                         # 귀신발걸음 종료 시 원위치 복귀 및 상태 초기화
                         if arena_top_ghost_step_active:
                             BOSS.y = int(arena_top_ghost_step_original_y)
