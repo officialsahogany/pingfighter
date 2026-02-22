@@ -5,7 +5,7 @@
 
 - 호위무사와 달리 자동 순찰/자동 시전 없음
 - 플레이어가 필러 아이콘을 클릭해야만 발동
-- 쿨타임 3.8배 (기본 쿨타임 × HENCHMAN_TOTAL_CD_MULT)
+- 쿨타임 감쇠 공식 (짧은 스킬 ×3.0, 긴 스킬일수록 배율 감소, 최소 ×1.8)
 - 여러 명의 하수인을 동시에 보유 가능
 """
 import random
@@ -34,8 +34,28 @@ HENCH_ENTER_DURATION = 0.5     # 등장 시간 (초)
 HENCH_CAST_DURATION = 0.8      # 시전 포즈 시간
 HENCH_EXIT_DURATION = 0.4      # 퇴장 시간
 
-# 하수인 쿨타임 총 배율 (기본 스킬 쿨타임 × 3.0)
-HENCHMAN_TOTAL_CD_MULT = 3.0
+# 하수인 쿨타임 감쇠 공식 상수
+# 기본 쿨타임이 THRESHOLD 이하이면 MAX_MULT 적용,
+# 초과하면 1초당 DECAY_RATE씩 배율 감소 (MIN_MULT 이하로는 안 내려감)
+HENCHMAN_CD_MAX_MULT = 3.0      # 최대 배율 (짧은 스킬)
+HENCHMAN_CD_MIN_MULT = 1.8      # 최소 배율 (긴 스킬)
+HENCHMAN_CD_THRESHOLD = 12.0    # 감쇠 시작 기준 (초)
+HENCHMAN_CD_DECAY_RATE = 0.04   # 1초당 배율 감소량
+
+
+def calc_henchman_cooldown(base_cd: float) -> float:
+    """하수인 쿨타임 계산 (감쇠 공식).
+
+    기본 쿨타임이 짧은 스킬은 ×3.0, 긴 스킬은 배율이 점점 줄어듦.
+    예) 9초→27초, 20초→53.6초, 28초→66초, 38초→74.5초
+    """
+    if base_cd <= HENCHMAN_CD_THRESHOLD:
+        mult = HENCHMAN_CD_MAX_MULT
+    else:
+        mult = HENCHMAN_CD_MAX_MULT - HENCHMAN_CD_DECAY_RATE * (base_cd - HENCHMAN_CD_THRESHOLD)
+        mult = max(mult, HENCHMAN_CD_MIN_MULT)
+    return base_cd * mult
+
 
 # 하수인 등장 Y 위치 (호위무사와 동일)
 HENCH_TOP_Y = 45   # TOP_PADDLE_Y(25) + 20 — 호위무사 상단 Y와 동일 (상반신 잘림 방지)
@@ -241,8 +261,8 @@ class HenchmanSystem:
                 continue
             # game_state 연결
             skill.game_state = self.skill_manager.game_state
-            # 쿨타임 계산
-            cd = skill.cooldown * HENCHMAN_TOTAL_CD_MULT
+            # 쿨타임 계산 (감쇠 공식: 긴 스킬일수록 배율 감소)
+            cd = calc_henchman_cooldown(skill.cooldown)
             slot = HenchmanSlot(hero_data, skill, cooldown_max=cd)
             self.slots.append(slot)
             print(f"[Henchman] 하수인 등록: {hero_data.get('name', '?')} "
