@@ -94660,7 +94660,10 @@ def draw_objects():
     if current_stage == 4:
         global _stage4_flame_angle, _stage4_flame_hit_timer
         global _stage4_flame_hit_x, _stage4_flame_hit_y, _stage4_flame_particles
-        _stage4_flame_angle += 0.04  # 공전 속도
+        # 보스 이동 속도에 비례한 동적 공전 속도
+        _boss_abs_spd = abs(boss_current_speed) if boss_current_speed else 0
+        _flame_orbit_speed = 0.015 + min(_boss_abs_spd / BOSS_MAX_SPEED, 1.0) * 0.07  # 0.015(정지) ~ 0.085(최대속도)
+        _stage4_flame_angle += _flame_orbit_speed
         _flame_cx = boss_rect.centerx + _boss_dash_stun_shake_x
         _flame_cy = boss_rect.centery + bob_offset + _boss_dash_stun_shake_y + boss_offset_y
         _flame_orbit_rx = 38  # 타원 공전 반경 X
@@ -94702,64 +94705,96 @@ def draw_objects():
             pygame.draw.circle(SCREEN, (200, 50, 20, 120), (_tail_x, _tail_y), _ts)
             pygame.draw.circle(SCREEN, (255, 120, 40), (_tail_x, _tail_y), max(1, _ts - 1))
 
-        # 공 타격 판정: 도깨비불이 공에 닿으면 타격 이펙트
-        _ball_cx = BALL.centerx
-        _ball_cy = BALL.centery
-        if ball_vel[1] < 0:  # 공이 위로 올라갈 때만 (보스 쪽으로)
+        # 공 타격 판정: 보스 패들이 공을 칠 때 도깨비불 타격 이펙트
+        if boss_hit_animation_active and _stage4_flame_hit_timer <= 0:
+            _stage4_flame_hit_timer = 24  # 더 긴 지속시간
+            _stage4_flame_hit_x = BALL.centerx
+            _stage4_flame_hit_y = BALL.centery
+            # 3개 불꽃이 타격 지점으로 수렴하는 파티클 폭발
+            _stage4_flame_particles = []
             for fi in range(3):
                 _fa = _stage4_flame_angle + fi * (2 * math.pi / 3)
-                _fx = _flame_cx + int(math.cos(_fa) * _flame_orbit_rx)
-                _fy = _flame_cy + int(math.sin(_fa) * _flame_orbit_ry)
-                _dist = math.hypot(_fx - _ball_cx, _fy - _ball_cy)
-                if _dist < 18 and _stage4_flame_hit_timer <= 0:
-                    _stage4_flame_hit_timer = 15
-                    _stage4_flame_hit_x = int(_ball_cx)
-                    _stage4_flame_hit_y = int(_ball_cy)
-                    # 파티클 생성 (불꽃 폭발)
-                    _stage4_flame_particles = []
-                    for pi in range(12):
-                        _pa = random.uniform(0, math.pi * 2)
-                        _pv = random.uniform(2, 6)
-                        _stage4_flame_particles.append({
-                            'x': float(_stage4_flame_hit_x),
-                            'y': float(_stage4_flame_hit_y),
-                            'vx': math.cos(_pa) * _pv,
-                            'vy': math.sin(_pa) * _pv,
-                            'life': random.randint(8, 15),
-                            'r': random.randint(2, 4),
-                        })
-                    break
+                _src_x = _flame_cx + int(math.cos(_fa) * _flame_orbit_rx)
+                _src_y = _flame_cy + int(math.sin(_fa) * _flame_orbit_ry)
+                # 각 불꽃에서 타격 지점 방향으로 궤적 파티클
+                for ti in range(5):
+                    _t = ti / 4.0
+                    _stage4_flame_particles.append({
+                        'x': float(_src_x + (_stage4_flame_hit_x - _src_x) * _t),
+                        'y': float(_src_y + (_stage4_flame_hit_y - _src_y) * _t),
+                        'vx': random.uniform(-1.5, 1.5),
+                        'vy': random.uniform(1.0, 4.0),
+                        'life': random.randint(12, 22),
+                        'r': random.randint(3, 6),
+                    })
+            # 타격 지점 중심 폭발 파티클
+            for pi in range(18):
+                _pa = random.uniform(0, math.pi * 2)
+                _pv = random.uniform(2.5, 8)
+                _stage4_flame_particles.append({
+                    'x': float(_stage4_flame_hit_x),
+                    'y': float(_stage4_flame_hit_y),
+                    'vx': math.cos(_pa) * _pv,
+                    'vy': math.sin(_pa) * _pv + 1.0,
+                    'life': random.randint(10, 20),
+                    'r': random.randint(2, 5),
+                })
 
         # 타격 이펙트 렌더링
         if _stage4_flame_hit_timer > 0:
             _stage4_flame_hit_timer -= 1
-            _hit_prog = _stage4_flame_hit_timer / 15.0
-            # 충격파 링
-            _ring_r = int(20 * (1.0 - _hit_prog))
-            _ring_a = int(200 * _hit_prog)
-            _ring_s = pygame.Surface((_ring_r * 2 + 4, _ring_r * 2 + 4), pygame.SRCALPHA)
+            _hit_prog = _stage4_flame_hit_timer / 24.0
+            # 충격파 링 1 (큰 외곽)
+            _ring_r = int(45 * (1.0 - _hit_prog))
+            _ring_a = int(220 * _hit_prog)
             if _ring_r > 2:
-                pygame.draw.circle(_ring_s, (255, 100, 30, _ring_a), (_ring_r + 2, _ring_r + 2), _ring_r, 2)
-                SCREEN.blit(_ring_s, (_stage4_flame_hit_x - _ring_r - 2, _stage4_flame_hit_y - _ring_r - 2))
-            # 중심 플래시
-            if _hit_prog > 0.5:
-                _flash_r = int(12 * _hit_prog)
-                _flash_s = pygame.Surface((_flash_r * 2 + 2, _flash_r * 2 + 2), pygame.SRCALPHA)
-                pygame.draw.circle(_flash_s, (255, 200, 80, int(180 * _hit_prog)), (_flash_r + 1, _flash_r + 1), _flash_r)
-                SCREEN.blit(_flash_s, (_stage4_flame_hit_x - _flash_r - 1, _stage4_flame_hit_y - _flash_r - 1),
+                _ring_s = pygame.Surface((_ring_r * 2 + 6, _ring_r * 2 + 6), pygame.SRCALPHA)
+                pygame.draw.circle(_ring_s, (255, 80, 20, _ring_a), (_ring_r + 3, _ring_r + 3), _ring_r, 3)
+                SCREEN.blit(_ring_s, (_stage4_flame_hit_x - _ring_r - 3, _stage4_flame_hit_y - _ring_r - 3))
+            # 충격파 링 2 (작은 내곽, 약간 지연)
+            _ring_r2 = int(30 * max(0, 1.0 - _hit_prog * 1.3))
+            if _ring_r2 > 2:
+                _ring_s2 = pygame.Surface((_ring_r2 * 2 + 4, _ring_r2 * 2 + 4), pygame.SRCALPHA)
+                pygame.draw.circle(_ring_s2, (255, 160, 50, int(_ring_a * 0.7)), (_ring_r2 + 2, _ring_r2 + 2), _ring_r2, 2)
+                SCREEN.blit(_ring_s2, (_stage4_flame_hit_x - _ring_r2 - 2, _stage4_flame_hit_y - _ring_r2 - 2))
+            # 중심 플래시 (크고 밝게)
+            if _hit_prog > 0.3:
+                _flash_r = int(22 * _hit_prog)
+                _flash_s = pygame.Surface((_flash_r * 2 + 4, _flash_r * 2 + 4), pygame.SRCALPHA)
+                pygame.draw.circle(_flash_s, (255, 200, 80, int(200 * _hit_prog)), (_flash_r + 2, _flash_r + 2), _flash_r)
+                SCREEN.blit(_flash_s, (_stage4_flame_hit_x - _flash_r - 2, _stage4_flame_hit_y - _flash_r - 2),
                            special_flags=pygame.BLEND_RGBA_ADD)
+                # 내부 코어 플래시 (흰색)
+                _core_r = max(2, int(10 * _hit_prog))
+                pygame.draw.circle(SCREEN, (255, 240, 200), (_stage4_flame_hit_x, _stage4_flame_hit_y), _core_r)
+            # 화면 붉은 번쩍임 (첫 3프레임)
+            if _hit_prog > 0.85:
+                _screen_flash = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
+                _screen_flash.fill((255, 60, 20, int(40 * (_hit_prog - 0.85) / 0.15)))
+                SCREEN.blit(_screen_flash, (0, 0))
 
         # 파티클 업데이트/렌더링
         for p in _stage4_flame_particles:
             p['x'] += p['vx']
             p['y'] += p['vy']
-            p['vx'] *= 0.9
-            p['vy'] *= 0.9
+            p['vx'] *= 0.92
+            p['vy'] *= 0.92
             p['life'] -= 1
             if p['life'] > 0:
-                _pa = max(30, int(255 * (p['life'] / 15.0)))
-                _pr = max(1, p['r'] - (15 - p['life']) // 5)
-                pygame.draw.circle(SCREEN, (255, max(40, 80 + p['life'] * 10), 20), (int(p['x']), int(p['y'])), _pr)
+                _life_ratio = p['life'] / 20.0
+                _pr = max(1, int(p['r'] * _life_ratio))
+                # 밝은 불꽃색 → 어두운 잔불
+                _cr = 255
+                _cg = max(30, int(180 * _life_ratio))
+                _cb = max(10, int(60 * _life_ratio))
+                pygame.draw.circle(SCREEN, (_cr, _cg, _cb), (int(p['x']), int(p['y'])), _pr)
+                # 글로우 레이어
+                if _pr > 2:
+                    _glow_s = pygame.Surface((_pr * 4, _pr * 4), pygame.SRCALPHA)
+                    pygame.draw.circle(_glow_s, (_cr, _cg // 2, _cb // 2, int(60 * _life_ratio)),
+                                     (_pr * 2, _pr * 2), _pr * 2)
+                    SCREEN.blit(_glow_s, (int(p['x']) - _pr * 2, int(p['y']) - _pr * 2),
+                               special_flags=pygame.BLEND_RGBA_ADD)
         _stage4_flame_particles = [p for p in _stage4_flame_particles if p['life'] > 0]
 
     #  Stage 5 보스 피격 효과 (움찔거림) - 일반 그리기에도 적용
