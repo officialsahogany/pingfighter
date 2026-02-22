@@ -11717,8 +11717,9 @@ class SkeletonArcher(HeroSkill):
                 continue
 
             # === 공과 충돌 체크 (상대가 친 공에만 즉사) ===
-            if ball is not None:
+            if ball is not None and not game_state.get('is_ingame_bodyguard', False):
                 # 내가 친 공은 무시: 캐스터가 하단이면 위로 가는 공(vy<0)은 아군 공
+                # (인게임 호위무사 모드에서는 공-궁수 충돌 완전 비활성화)
                 ball_from_opponent = (
                     (not self.caster_is_top and ball.vy > 0) or
                     (self.caster_is_top and ball.vy < 0)
