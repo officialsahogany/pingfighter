@@ -538,6 +538,153 @@ class InGameBodyguard:
             game_scale=game_scale,
         )
 
+    # ── 초상화 UI 내부 캐시 ──
+    _portrait_card_surf = None
+    _portrait_overlay_surf = None
+    _portrait_card_size = (0, 0)
+    _portrait_positions = {}       # key → smooth Y 위치
+
+    def draw_portrait_ui(self, screen, game_offset_x=0, game_offset_y=0,
+                         game_scale=1.0):
+        """투기장 draw_cooldown_queue 와 동일한 초상화 카드 UI
+
+        왼쪽 필러 하단에 호위무사 스킬별 얼굴 카드를 쿨타임 순으로 표시.
+        """
+        if not self.active or not self._guard_system or not pygame:
+            return
+
+        try:
+            entries = self._guard_system.get_all_cooldown_entries()
+        except Exception:
+            return
+        if not entries:
+            return
+
+        # 정렬 (발동 중 → 준비 완료 → 쿨타임 짧은 순)
+        entries.sort(key=lambda e: (
+            0 if e["is_active"] else (1 if e["cooldown_remaining"] <= 0 else 2),
+            e["cooldown_remaining"],
+        ))
+
+        # 레이아웃 계산
+        pillar_x = 0
+        pillar_w = game_offset_x if game_offset_x > 0 else 80
+        pillar_y = game_offset_y
+        pillar_h = int(SCREEN_HEIGHT * game_scale) if game_scale > 0 else SCREEN_HEIGHT
+
+        _scale = pillar_w / 80.0
+        card_w = max(20, int(28 * _scale))
+        card_h = max(10, int(9 * _scale))
+        card_gap = max(1, int(2 * _scale))
+        margin_x = max(1, int(3 * _scale))
+        total_h = len(entries) * (card_h + card_gap) - card_gap
+
+        # 세로: 하단 정렬 (왼쪽 필러 아래쪽)
+        y_end = pillar_y + pillar_h - int(10 * _scale)
+        start_y = y_end - total_h
+        # 가로: 오른쪽 정렬 (인게임 영역 바로 왼쪽)
+        card_x = pillar_x + pillar_w - card_w - margin_x
+
+        # Surface 캐시
+        if InGameBodyguard._portrait_card_size != (card_w, card_h):
+            InGameBodyguard._portrait_card_surf = pygame.Surface(
+                (card_w, card_h), pygame.SRCALPHA)
+            InGameBodyguard._portrait_overlay_surf = pygame.Surface(
+                (card_w, card_h), pygame.SRCALPHA)
+            InGameBodyguard._portrait_card_size = (card_w, card_h)
+
+        ticks = pygame.time.get_ticks()
+        dt = 1.0 / 60.0
+        _sin = __import__('math').sin
+
+        # _load_facecard 가져오기 (지연 임포트)
+        try:
+            from downtown.colosseum_arena import _load_facecard
+        except ImportError:
+            _load_facecard = None
+
+        # 폴백 portrait renderer
+        _portrait_renderer = None
+        try:
+            from downtown.hero_portraits import get_portrait_renderer
+            _portrait_renderer = get_portrait_renderer()
+        except Exception:
+            pass
+
+        for idx, entry in enumerate(entries):
+            target_y = start_y + idx * (card_h + card_gap)
+            ekey = entry.get("key", f"e{idx}")
+
+            # 스무스 Y lerp
+            cur_y = InGameBodyguard._portrait_positions.get(ekey, target_y)
+            cur_y += (target_y - cur_y) * min(1.0, 8.0 * dt)
+            InGameBodyguard._portrait_positions[ekey] = cur_y
+            draw_y = int(cur_y)
+
+            hero_id = entry["hero_id"]
+            hero_color = entry["hero_color"]
+            cd_rem = entry["cooldown_remaining"]
+            cd_max = entry["cooldown_max"]
+            is_active = entry["is_active"]
+            is_ready = cd_rem <= 0 and not is_active
+
+            # ── 카드 = 얼굴 초상화 ──
+            card = InGameBodyguard._portrait_card_surf
+            card.fill((15, 12, 20, 255))
+
+            # 페이스카드 우선, 없으면 프로시저럴
+            _fc = _load_facecard(hero_id, card_w, card_h) if _load_facecard else None
+            if _fc is not None:
+                card.blit(_fc, (0, 0))
+            elif _portrait_renderer:
+                try:
+                    portrait = _portrait_renderer.render_portrait(
+                        hero_id, hero_color, card_w, card_h)
+                    card.blit(portrait, (0, 0))
+                except Exception:
+                    pygame.draw.rect(card, hero_color, (0, 0, card_w, card_h),
+                                     border_radius=2)
+
+            # ── 쿨타임 명암 오버레이 ──
+            overlay = InGameBodyguard._portrait_overlay_surf
+            if is_active:
+                pulse = 0.5 + 0.5 * _sin(ticks / 150.0)
+                overlay.fill((255, 200, 60, int(50 * pulse)))
+                card.blit(overlay, (0, 0))
+            elif not is_ready and cd_max > 0:
+                cd_ratio = 1.0 - min(1.0, cd_rem / cd_max)
+                dark_w = max(0, int(card_w * (1.0 - cd_ratio)))
+                if dark_w > 0:
+                    overlay.fill((0, 0, 0, 140))
+                    card.blit(overlay, (card_w - dark_w, 0),
+                              (0, 0, dark_w, card_h))
+
+            # ── 테두리 ──
+            if is_active:
+                pulse = 0.7 + 0.3 * _sin(ticks / 200.0)
+                pygame.draw.rect(card, (255, 220, 80, int(220 * pulse)),
+                                 (0, 0, card_w, card_h), 2, border_radius=2)
+            elif is_ready:
+                pulse = 0.6 + 0.4 * _sin(ticks / 350.0)
+                pygame.draw.rect(card, (100, 220, 150, int(160 * pulse)),
+                                 (0, 0, card_w, card_h), 1, border_radius=2)
+            else:
+                pygame.draw.rect(card, (50, 50, 60, 120),
+                                 (0, 0, card_w, card_h), 1, border_radius=2)
+
+            # 진영 표시 (왼쪽 파란 줄 = 플레이어측)
+            _sc = max(1, int(2 * _scale))
+            side_color = (220, 70, 70) if entry.get("side") == "top" else (70, 120, 220)
+            pygame.draw.rect(card, (*side_color, 180), (0, 1, _sc, card_h - 2))
+
+            screen.blit(card, (card_x, draw_y))
+
+        # 오래된 position 키 정리
+        active_keys = {e.get("key", f"e{i}") for i, e in enumerate(entries)}
+        stale = [k for k in InGameBodyguard._portrait_positions if k not in active_keys]
+        for k in stale:
+            del InGameBodyguard._portrait_positions[k]
+
     def draw_entrance_speech(self, screen, player_rect):
         """영웅의 등장 전 대사 말풍선 그리기 (플레이어 패들 위에 표시)"""
         if not self._entrance_hero_line or self._entrance_hero_timer <= 0:

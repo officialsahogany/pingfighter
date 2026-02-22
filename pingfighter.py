@@ -8600,13 +8600,13 @@ def _fullscreen_flip():
         elif _guard_hover and _guard_hover.get("side") != "top":
             _draw_guard_hover_tooltip(REAL_SCREEN, _guard_hover)
 
-        # 🛡️ 인게임 호위무사 필러 아이콘 (일반 스테이지, 투기장 UI와 동일)
+        # 🛡️ 인게임 호위무사 초상화 UI (일반 스테이지, 투기장 쿨타임 큐와 동일 스타일)
         if not arena_mode_enabled:
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg
                 _bg = _get_bg()
                 if _bg.active:
-                    _bg.draw_pillar_icon(
+                    _bg.draw_portrait_ui(
                         REAL_SCREEN,
                         game_offset_x=GAME_OFFSET_X,
                         game_offset_y=GAME_OFFSET_Y,
@@ -8846,13 +8846,13 @@ def _fullscreen_update(*args, **kwargs):
         elif _guard_hover2 and _guard_hover2.get("side") != "top":
             _draw_guard_hover_tooltip(REAL_SCREEN, _guard_hover2)
 
-        # 🛡️ 인게임 호위무사 필러 아이콘 (일반 스테이지)
+        # 🛡️ 인게임 호위무사 초상화 UI (일반 스테이지)
         if not arena_mode_enabled:
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg2
                 _bg2 = _get_bg2()
                 if _bg2.active:
-                    _bg2.draw_pillar_icon(
+                    _bg2.draw_portrait_ui(
                         REAL_SCREEN,
                         game_offset_x=GAME_OFFSET_X,
                         game_offset_y=GAME_OFFSET_Y,
