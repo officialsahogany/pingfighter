@@ -579,9 +579,9 @@ class InGameBodyguard:
         margin_x = max(1, int(3 * _scale))
         total_h = len(entries) * (card_h + card_gap) - card_gap
 
-        # 세로: 하단 정렬 (왼쪽 필러 아래쪽)
-        y_end = pillar_y + pillar_h - int(10 * _scale)
-        start_y = y_end - total_h
+        # 세로: 중앙 정렬 (투기장과 동일)
+        center_y = pillar_y + (pillar_h - total_h) // 2
+        start_y = max(pillar_y + 5, center_y)
         # 가로: 오른쪽 정렬 (인게임 영역 바로 왼쪽)
         card_x = pillar_x + pillar_w - card_w - margin_x
 
