@@ -51852,12 +51852,311 @@ try:
 except:
     BOSS_IMG_STAGE3 = pygame.Surface((BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT), pygame.SRCALPHA)
     BOSS_IMG_STAGE3.fill(MAGENTA)  # 보스 3의 기본 색상 (보라색 예시)
-try:
-    BOSS_IMG_STAGE4 = pygame.image.load(resource_path("boss_stage4.png")).convert_alpha()
-    BOSS_IMG_STAGE4 = pygame.transform.scale(BOSS_IMG_STAGE4, (BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT))
-except:
-    BOSS_IMG_STAGE4 = pygame.Surface((BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT), pygame.SRCALPHA)
-    BOSS_IMG_STAGE4.fill((200, 200, 150))
+def _create_stage4_boss_image(w=130, h=70):
+    """스테이지 4 퐁크 보스 - 가부좌 공중부양 수도승 (고퀄리티 프로그래매틱 드로잉)"""
+    surf = pygame.Surface((w, h), pygame.SRCALPHA)
+    cx = w // 2  # 65
+
+    # === 색상 팔레트 (사원/수도승 테마) ===
+    SKIN = (225, 195, 155)
+    SKIN_LT = (240, 212, 175)
+    SKIN_DK = (195, 162, 120)
+    SKIN_SH = (168, 138, 98)
+    ROBE = (218, 148, 38)         # 사프란 오렌지
+    ROBE_LT = (238, 178, 68)
+    ROBE_MID = (198, 128, 28)
+    ROBE_DK = (168, 98, 18)
+    ROBE_SH = (138, 78, 12)
+    ROBE_FOLD = (178, 108, 22)
+    SASH = (178, 48, 38)          # 짙은 빨간 띠
+    SASH_LT = (208, 68, 52)
+    BEAD = (118, 78, 48)
+    BEAD_LT = (155, 112, 72)
+    BEAD_DK = (82, 52, 32)
+    GOLD = (218, 188, 98)
+    GOLD_LT = (245, 218, 138)
+    GOLD_DK = (178, 148, 58)
+    GLOW = (255, 198, 78)
+    GLOW_MID = (255, 168, 48)
+    GLOW_DIM = (218, 138, 28)
+    EYE_LINE = (58, 38, 28)
+    LIP = (198, 148, 128)
+
+    # === 1. 공중부양 에너지 글로우 (하단) ===
+    glow_y = h - 6
+    # 바깥 → 안쪽 점점 밝아지는 타원 레이어
+    for i in range(5):
+        gw = 68 - i * 10
+        gh = 8 - i
+        ga = 22 + i * 18
+        gs = pygame.Surface((gw, gh * 2), pygame.SRCALPHA)
+        pygame.draw.ellipse(gs, (*GLOW_DIM, ga), (0, 0, gw, gh * 2))
+        surf.blit(gs, (cx - gw // 2, glow_y - gh + i))
+    # 중심 하이라이트
+    cgs = pygame.Surface((20, 4), pygame.SRCALPHA)
+    pygame.draw.ellipse(cgs, (*GLOW, 120), (0, 0, 20, 4))
+    surf.blit(cgs, (cx - 10, glow_y - 1))
+    # 에너지 광선 (미세)
+    for i in range(7):
+        rx = cx + (i - 3) * 9
+        rl = 7 + (3 - abs(i - 3)) * 2
+        ra = 18 + (3 - abs(i - 3)) * 8
+        rs = pygame.Surface((2, rl), pygame.SRCALPHA)
+        pygame.draw.line(rs, (*GLOW_MID, ra), (1, 0), (1, rl - 1), 1)
+        surf.blit(rs, (rx, glow_y - rl - 1))
+
+    # === 2. 전체 오라 (미세한 금빛 오라) ===
+    aura_s = pygame.Surface((w, h), pygame.SRCALPHA)
+    pygame.draw.ellipse(aura_s, (*GLOW_DIM, 12), (cx - 48, 2, 96, h - 8))
+    pygame.draw.ellipse(aura_s, (*GLOW, 18), (cx - 36, 6, 72, h - 18))
+    surf.blit(aura_s, (0, 0), special_flags=pygame.BLEND_RGBA_ADD)
+
+    # === 3. 가부좌 다리 (연꽃 자세) ===
+    leg_y = h - 20
+
+    # 가사 아래 쫙 펼쳐진 부분 (그림자)
+    robe_bottom = [
+        (cx - 42, leg_y - 4), (cx + 42, leg_y - 4),
+        (cx + 38, leg_y + 13), (cx - 38, leg_y + 13),
+    ]
+    pygame.draw.polygon(surf, ROBE_SH, robe_bottom)
+
+    # 왼쪽 다리 (오른쪽 위에 걸침)
+    pygame.draw.ellipse(surf, ROBE_DK, (cx - 38, leg_y - 4, 36, 16))
+    pygame.draw.ellipse(surf, ROBE, (cx - 36, leg_y - 2, 32, 12))
+    pygame.draw.ellipse(surf, ROBE_LT, (cx - 33, leg_y, 26, 8))
+    # 오른쪽 다리
+    pygame.draw.ellipse(surf, ROBE_DK, (cx + 2, leg_y - 4, 36, 16))
+    pygame.draw.ellipse(surf, ROBE, (cx + 4, leg_y - 2, 32, 12))
+    pygame.draw.ellipse(surf, ROBE_LT, (cx + 7, leg_y, 26, 8))
+
+    # 발바닥 노출 (가부좌 특유 - 무릎 위에 올린 발)
+    # 왼발 (오른쪽 무릎 위)
+    pygame.draw.ellipse(surf, SKIN_DK, (cx + 20, leg_y - 5, 14, 8))
+    pygame.draw.ellipse(surf, SKIN, (cx + 21, leg_y - 4, 12, 6))
+    pygame.draw.ellipse(surf, SKIN_LT, (cx + 23, leg_y - 3, 8, 4))
+    # 오른발 (왼쪽 무릎 위)
+    pygame.draw.ellipse(surf, SKIN_DK, (cx - 34, leg_y - 5, 14, 8))
+    pygame.draw.ellipse(surf, SKIN, (cx - 33, leg_y - 4, 12, 6))
+    pygame.draw.ellipse(surf, SKIN_LT, (cx - 31, leg_y - 3, 8, 4))
+
+    # 가사 주름 (다리 위)
+    for i in range(7):
+        fx = cx - 32 + i * 10
+        pygame.draw.line(surf, ROBE_FOLD, (fx, leg_y - 3), (fx + 1, leg_y + 11), 1)
+
+    # === 4. 몸통 (가사/승복) ===
+    torso_top = leg_y - 22
+    torso_bot = leg_y - 2
+
+    # 몸통 그림자
+    body_sh = [
+        (cx - 30, torso_top + 1), (cx + 30, torso_top + 1),
+        (cx + 38, torso_bot + 1), (cx - 38, torso_bot + 1),
+    ]
+    pygame.draw.polygon(surf, ROBE_SH, body_sh)
+
+    # 몸통 본체
+    body_pts = [
+        (cx - 29, torso_top), (cx + 29, torso_top),
+        (cx + 37, torso_bot), (cx - 37, torso_bot),
+    ]
+    pygame.draw.polygon(surf, ROBE, body_pts)
+
+    # 안쪽 밝은 영역
+    inner_pts = [
+        (cx - 22, torso_top + 3), (cx + 22, torso_top + 3),
+        (cx + 30, torso_bot - 2), (cx - 30, torso_bot - 2),
+    ]
+    pygame.draw.polygon(surf, ROBE_LT, inner_pts)
+
+    # V자 깃 (가사 여밈)
+    collar_pts = [(cx - 14, torso_top), (cx, torso_top + 12), (cx + 14, torso_top)]
+    pygame.draw.lines(surf, ROBE_DK, False, collar_pts, 2)
+    # 깃 안쪽 피부 노출 (목/가슴 상단)
+    collar_inner = [(cx - 10, torso_top + 1), (cx, torso_top + 9), (cx + 10, torso_top + 1)]
+    pygame.draw.polygon(surf, SKIN_DK, collar_inner)
+    pygame.draw.polygon(surf, SKIN, [(cx - 8, torso_top + 2), (cx, torso_top + 7), (cx + 8, torso_top + 2)])
+
+    # 가사 주름선
+    for i in range(5):
+        fx = cx - 16 + i * 8
+        pygame.draw.line(surf, ROBE_FOLD, (fx, torso_top + 5), (fx + 2, torso_bot - 2), 1)
+
+    # 허리 띠 (장삼 끈)
+    sash_r = pygame.Rect(cx - 34, torso_bot - 5, 68, 5)
+    pygame.draw.rect(surf, SASH, sash_r, border_radius=2)
+    pygame.draw.rect(surf, SASH_LT, sash_r.inflate(-2, -2), border_radius=1)
+    # 매듭 장식
+    pygame.draw.circle(surf, GOLD_DK, (cx, sash_r.centery), 3)
+    pygame.draw.circle(surf, GOLD, (cx, sash_r.centery), 2)
+    pygame.draw.circle(surf, GOLD_LT, (cx - 1, sash_r.centery - 1), 1)
+
+    # === 5. 팔 + 소매 (합장/무드라 자세) ===
+    hand_y = leg_y - 7
+
+    # 왼팔 (소매 포함)
+    # 상완
+    pygame.draw.line(surf, ROBE_SH, (cx - 27, torso_top + 7), (cx - 16, hand_y + 2), 8)
+    pygame.draw.line(surf, ROBE_DK, (cx - 27, torso_top + 7), (cx - 16, hand_y + 2), 6)
+    pygame.draw.line(surf, ROBE, (cx - 27, torso_top + 7), (cx - 16, hand_y + 2), 4)
+    # 오른팔 (소매 포함)
+    pygame.draw.line(surf, ROBE_SH, (cx + 27, torso_top + 7), (cx + 16, hand_y + 2), 8)
+    pygame.draw.line(surf, ROBE_DK, (cx + 27, torso_top + 7), (cx + 16, hand_y + 2), 6)
+    pygame.draw.line(surf, ROBE, (cx + 27, torso_top + 7), (cx + 16, hand_y + 2), 4)
+
+    # 넓은 소매 끝단 (왼쪽)
+    sleeve_l = [
+        (cx - 26, torso_top + 5), (cx - 32, torso_top + 14),
+        (cx - 22, torso_top + 20), (cx - 18, torso_top + 10),
+    ]
+    pygame.draw.polygon(surf, ROBE_MID, sleeve_l)
+    pygame.draw.polygon(surf, ROBE_LT, [(s[0] + 1, s[1] + 1) for s in sleeve_l[:3]] + [sleeve_l[3]])
+    # 넓은 소매 끝단 (오른쪽)
+    sleeve_r = [
+        (cx + 26, torso_top + 5), (cx + 32, torso_top + 14),
+        (cx + 22, torso_top + 20), (cx + 18, torso_top + 10),
+    ]
+    pygame.draw.polygon(surf, ROBE_MID, sleeve_r)
+    pygame.draw.polygon(surf, ROBE_LT, [(s[0] - 1, s[1] + 1) for s in sleeve_r[:3]] + [sleeve_r[3]])
+
+    # 무드라 손 (무릎 위에 포개진 손)
+    # 아래 손 (왼손)
+    pygame.draw.ellipse(surf, SKIN_SH, (cx - 13, hand_y - 2, 13, 9))
+    pygame.draw.ellipse(surf, SKIN_DK, (cx - 12, hand_y - 1, 11, 7))
+    pygame.draw.ellipse(surf, SKIN, (cx - 11, hand_y, 9, 5))
+    # 위 손 (오른손)
+    pygame.draw.ellipse(surf, SKIN_SH, (cx, hand_y - 2, 13, 9))
+    pygame.draw.ellipse(surf, SKIN_DK, (cx + 1, hand_y - 1, 11, 7))
+    pygame.draw.ellipse(surf, SKIN, (cx + 2, hand_y, 9, 5))
+    # 엄지 맞닿음 (선정인 무드라)
+    pygame.draw.circle(surf, SKIN_LT, (cx, hand_y), 2)
+    pygame.draw.circle(surf, SKIN, (cx, hand_y + 1), 1)
+
+    # === 6. 염주 (목걸이) ===
+    import math as _m4
+    bead_n = 11
+    for i in range(bead_n):
+        angle = _m4.pi * 0.12 + (_m4.pi * 0.76) * i / (bead_n - 1)
+        bx = cx + int(_m4.cos(angle) * 20)
+        by = torso_top + int(_m4.sin(angle) * 13) - 2
+        br = 2
+        pygame.draw.circle(surf, BEAD_DK, (bx, by), br + 1)
+        pygame.draw.circle(surf, BEAD, (bx, by), br)
+        pygame.draw.circle(surf, BEAD_LT, (bx - 1, by - 1), 1)
+        # 중심구슬 = 금색
+        if i == bead_n // 2:
+            pygame.draw.circle(surf, GOLD_DK, (bx, by), br + 1)
+            pygame.draw.circle(surf, GOLD, (bx, by), br)
+            pygame.draw.circle(surf, GOLD_LT, (bx - 1, by - 1), 1)
+    # 염주 술 (중앙 아래로 늘어뜨림)
+    tassel_x = cx
+    tassel_top = torso_top + 10
+    pygame.draw.line(surf, BEAD_DK, (tassel_x, tassel_top), (tassel_x, tassel_top + 8), 1)
+    pygame.draw.circle(surf, GOLD, (tassel_x, tassel_top + 9), 2)
+    pygame.draw.circle(surf, GOLD_LT, (tassel_x - 1, tassel_top + 8), 1)
+
+    # === 7. 머리 (삭발한 수도승) ===
+    head_y = torso_top - 12
+    head_w, head_h = 22, 20
+
+    # 머리 그림자
+    pygame.draw.ellipse(surf, SKIN_SH, (cx - head_w // 2 - 1, head_y - 1, head_w + 2, head_h + 2))
+    # 머리 본체
+    pygame.draw.ellipse(surf, SKIN_DK, (cx - head_w // 2, head_y, head_w, head_h))
+    pygame.draw.ellipse(surf, SKIN, (cx - head_w // 2 + 1, head_y + 1, head_w - 2, head_h - 2))
+    # 정수리 하이라이트 (반사광)
+    pygame.draw.ellipse(surf, SKIN_LT, (cx - 5, head_y + 2, 10, 7))
+    hl_s = pygame.Surface((6, 4), pygame.SRCALPHA)
+    pygame.draw.ellipse(hl_s, (255, 245, 230, 80), (0, 0, 6, 4))
+    surf.blit(hl_s, (cx - 3, head_y + 3))
+
+    # 삭발 도트 (미세한 점들)
+    for i in range(12):
+        dx = cx + int(_m4.cos(i * 0.55 + 0.3) * 7)
+        dy = head_y + 3 + int(_m4.sin(i * 0.55 + 0.3) * 4)
+        dot_s = pygame.Surface((2, 2), pygame.SRCALPHA)
+        pygame.draw.circle(dot_s, (*SKIN_DK, 60), (1, 1), 1)
+        surf.blit(dot_s, (dx, dy))
+
+    # 이마 주름 (수행자 표현)
+    for i in range(3):
+        wy = head_y + 6 + i * 2
+        ww = 8 - i * 1
+        pygame.draw.line(surf, (*SKIN_DK,), (cx - ww, wy), (cx + ww, wy), 1)
+
+    # 감은 눈 (명상 - 선정 표현, 평온한 표정)
+    eye_y = head_y + 10
+    for side in [-1, 1]:
+        ex = cx + side * 5
+        # 눈 감은 곡선 (아래로 살짝 볼록)
+        pygame.draw.arc(surf, EYE_LINE, (ex - 4, eye_y - 2, 8, 5),
+                        _m4.radians(10), _m4.radians(170), 2)
+        # 속눈썹 힌트
+        pygame.draw.arc(surf, EYE_LINE, (ex - 3, eye_y - 3, 6, 4),
+                        _m4.radians(30), _m4.radians(150), 1)
+
+    # 눈썹 (부드럽게 아치형)
+    for side in [-1, 1]:
+        bx = cx + side * 5
+        by = eye_y - 4
+        pygame.draw.arc(surf, SKIN_SH, (bx - 5, by - 3, 10, 5),
+                        _m4.radians(15), _m4.radians(165), 1)
+
+    # 코 (섬세한 음영)
+    pygame.draw.line(surf, SKIN_DK, (cx, eye_y + 2), (cx, eye_y + 6), 1)
+    pygame.draw.line(surf, SKIN_SH, (cx + 1, eye_y + 5), (cx + 2, eye_y + 6), 1)
+    pygame.draw.line(surf, SKIN_SH, (cx - 1, eye_y + 5), (cx - 2, eye_y + 6), 1)
+
+    # 입 (평온한 미소)
+    lip_y = eye_y + 8
+    pygame.draw.arc(surf, LIP, (cx - 4, lip_y - 3, 8, 5),
+                    _m4.radians(200), _m4.radians(340), 1)
+    # 입술 하이라이트
+    pygame.draw.line(surf, (*SKIN_LT,), (cx - 3, lip_y - 1), (cx + 3, lip_y - 1), 1)
+
+    # 귀 (긴 귀 - 부처상 스타일)
+    for side in [-1, 1]:
+        ear_x = cx + side * (head_w // 2)
+        ear_y = head_y + head_h // 2
+        # 긴 귓불
+        pygame.draw.ellipse(surf, SKIN_SH, (ear_x - 3, ear_y - 4, 6, 14))
+        pygame.draw.ellipse(surf, SKIN_DK, (ear_x - 2, ear_y - 3, 4, 12))
+        pygame.draw.ellipse(surf, SKIN, (ear_x - 1, ear_y - 2, 3, 10))
+
+    # 백호 (이마 중앙 점 - 깨달음의 상징)
+    third_y = head_y + 5
+    # 글로우
+    te_s = pygame.Surface((8, 8), pygame.SRCALPHA)
+    pygame.draw.circle(te_s, (*GOLD, 50), (4, 4), 4)
+    surf.blit(te_s, (cx - 4, third_y - 4), special_flags=pygame.BLEND_RGBA_ADD)
+    # 본체
+    pygame.draw.circle(surf, GOLD_DK, (cx, third_y), 3)
+    pygame.draw.circle(surf, GOLD, (cx, third_y), 2)
+    pygame.draw.circle(surf, GOLD_LT, (cx - 1, third_y - 1), 1)
+
+    # === 8. 어깨 장식 (가사 매듭) ===
+    for side in [-1, 1]:
+        kx = cx + side * 28
+        ky = torso_top + 3
+        pygame.draw.circle(surf, GOLD_DK, (kx, ky), 4)
+        pygame.draw.circle(surf, GOLD, (kx, ky), 3)
+        pygame.draw.circle(surf, GOLD_LT, (kx - 1, ky - 1), 1)
+
+    # === 9. 하단 에너지 파티클 (부양 강조) ===
+    for i in range(5):
+        px = cx + (i - 2) * 14
+        py = h - 10 + (i % 2) * 3
+        ps = 2 - (abs(i - 2)) * 0.3
+        pa = 60 + (2 - abs(i - 2)) * 25
+        ps_s = pygame.Surface((int(ps * 4), int(ps * 4)), pygame.SRCALPHA)
+        r = max(1, int(ps))
+        pygame.draw.circle(ps_s, (*GLOW, int(pa)), (int(ps * 2), int(ps * 2)), r)
+        surf.blit(ps_s, (px - int(ps * 2), py - int(ps * 2)), special_flags=pygame.BLEND_RGBA_ADD)
+
+    return surf
+
+BOSS_IMG_STAGE4 = _create_stage4_boss_image(BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT)
 try:
     BOSS_IMG_STAGE5 = pygame.image.load(resource_path("boss_stage5.png")).convert_alpha()
     BOSS_IMG_STAGE5 = pygame.transform.scale(BOSS_IMG_STAGE5, (BOSS_IMG_STAGE5_WIDTH, BOSS_IMG_STAGE5_HEIGHT))
