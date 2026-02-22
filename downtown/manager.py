@@ -2196,8 +2196,16 @@ class DowntownManager:
                 # 결과 처리
                 result = arena.get_result()
                 self.player_data['gold'] = self.player_data.get('gold', 0) + result['winnings']
-                # 호위무사 등용 처리
-                if result.get('recruited_hero'):
+                # 호위무사 인장 아이템 처리 (새 방식)
+                seal_item = result.get('seal_item')
+                if seal_item:
+                    # 인장 아이템을 player_data에 저장 (pingfighter.py에서 인벤토리에 추가)
+                    if 'pending_seal_items' not in self.player_data:
+                        self.player_data['pending_seal_items'] = []
+                    self.player_data['pending_seal_items'].append(seal_item)
+                    print(f"[Arena] 인장 아이템 생성: {seal_item.get('hero_name', '???')}의 인장")
+                # 호위무사 등용 처리 (레거시 폴백)
+                elif result.get('recruited_hero'):
                     if 'recruited_heroes' not in self.player_data:
                         self.player_data['recruited_heroes'] = []
                     hero = result['recruited_hero']
@@ -2208,7 +2216,7 @@ class DowntownManager:
                         'title': hero.get('title', ''),
                         'selected_skill': result.get('recruited_hero_skill_idx', 0),
                     })
-                    print(f"[Arena] 호위무사 등용: {hero.get('name')} (스킬={result.get('recruited_hero_skill_idx', 0)})")
+                    print(f"[Arena] 호위무사 등용 (레거시): {hero.get('name')} (스킬={result.get('recruited_hero_skill_idx', 0)})")
                 arena_running = False
                 running = False
 

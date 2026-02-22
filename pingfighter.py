@@ -24127,6 +24127,7 @@ ITEM_SLOT_BASE_MAP = {
     "doping_potion": "accessory",
     "berserk_potion": "accessory",
     "odins_eye": "belt",
+    "hero_seal": "accessory",
 }
 
 PASSIVE_OPTION_RANGES = {
@@ -25505,6 +25506,38 @@ def sync_equipped_passive_effects():
         # 초월자의 관이 장착되어 있으면 스킬 보너스 재계산 (강화 보너스 반영)
         if "transcendent_crown" in equipped_names:
             recalculate_transcendent_crown_effects()
+
+    # 호위무사 인장 장착 → 호위무사 활성화/비활성화
+    try:
+        from game_mechanics.ingame_bodyguard import get_bodyguard
+        _equipped_seal = next(
+            (item for item in equipped_items if isinstance(item, dict) and item.get("name") == "hero_seal"),
+            None
+        )
+        _bg = get_bodyguard()
+        if _equipped_seal:
+            # 인장이 장착되어 있음 → 호위무사 설정
+            _seal_hero_id = _equipped_seal.get("hero_id", "")
+            _current_hero_id = _bg.hero_data.get("id", "") if _bg.hero_data else ""
+            if not _bg.active or _seal_hero_id != _current_hero_id:
+                # 새 인장 장착 또는 다른 영웅 인장으로 교체
+                _hero_data = {
+                    "id": _equipped_seal.get("hero_id", ""),
+                    "name": _equipped_seal.get("hero_name", ""),
+                    "color": tuple(_equipped_seal.get("hero_color", (200, 200, 200))),
+                    "title": _equipped_seal.get("hero_title", ""),
+                }
+                _seal_skill_idx = _equipped_seal.get("selected_skill", 0)
+                _skill_sel = {_hero_data["id"]: _seal_skill_idx} if _hero_data["id"] else None
+                _bg.setup(_hero_data, skill_selections=_skill_sel)
+                print(f"[Bodyguard] 인장 장착 → 호위무사 활성화: {_hero_data['name']}")
+        else:
+            # 인장이 장착되어 있지 않음 → 호위무사 비활성화
+            if _bg.active:
+                _bg.reset()
+                print("[Bodyguard] 인장 해제 → 호위무사 비활성화")
+    except Exception as _seal_err:
+        print(f"[Bodyguard] 인장 동기화 실패: {_seal_err}")
 
     # 다우징팬들럼 등 액티브 상태 표시가 필요한 모듈은 위에서 활성/비활성 처리됨
     apply_equipment_paddle_modifiers()
@@ -70446,7 +70479,7 @@ def store_active_item(item_data):
         # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
         return
     # 패시브 아이템들은 엑티브 슬롯에 추가하지 않음
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "hero_seal"]:
         return
     allow_overflow = item_data.pop("allow_overflow", False)
     is_overflow_pickup = len(item_state_adapter.active_items()) >= get_effective_max_item_slots()
@@ -70487,7 +70520,7 @@ def store_arena_top_active_item(item_data):
         return
 
     # 패시브 아이템들은 상단 영웅 슬롯에 추가하지 않음 (액티브 아이템만)
-    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye"]:
+    if item_data["name"] in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "bulkup", "sensor", "dashholder", "gravitybelt", "dowsing_pendulum", "technical_vest", "commando_arm", "fuel_pouch", "bluetooth_ring", "foul_whistle", "star_detector", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "bulletproof_hat", "spiked_helmet", "angel_blessing", "sacred_laurel", "zeus_lightning", "hades_helm", "gold_bar", "gold_digger", "transcendent_crown", "odins_eye", "hero_seal"]:
         return
 
     # 최대 3개까지만 보관
@@ -71428,6 +71461,14 @@ def store_passive_item(item_data):
         bonus_pct = gold_digger_bonus_pct
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
         print(f"⛏️ 골드디거 획득! 골드 획득량 +{bonus_pct}% 증가!")
+    elif item_data["name"] == "hero_seal":
+        # 호위무사 인장 (투기장 우승 보상)
+        # 중복 소지 가능 (여러 영웅 인장 소유 가능)
+        items.hero_seal_obtained = True
+        item_data["type"] = "passive"
+        hero_name = item_data.get("hero_name", "???")
+        show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
+        print(f"📜 {hero_name}의 인장 획득! 장신구에 장착하면 호위무사가 등장합니다.")
     else:
         # 알 수 없는 패시브 아이템 처리
         print(f"     : {item_data['name']}")
@@ -100170,19 +100211,31 @@ def run_downtown_hub(next_stage_display: int) -> bool:
         # 맵 시드 동기화 (세이브 시 사용)
         downtown_map_seed = manager.player_data.get('downtown_map_seed', None)
 
-        # 호위무사 등용 데이터 동기화 (투기장 우승 후)
+        # 호위무사 인장 아이템 인벤토리 추가 (투기장 우승 후)
+        _pending_seals = manager.player_data.get('pending_seal_items', [])
+        for _seal in _pending_seals:
+            try:
+                store_passive_item(dict(_seal))
+                _hero_name = _seal.get('hero_name', '???')
+                print(f"[Arena] 인장 아이템 인벤토리 추가: {_hero_name}의 인장")
+            except Exception as _seal_err:
+                print(f"[Arena] 인장 인벤토리 추가 실패: {_seal_err}")
+        # 인장 추가 후 대기열 비우기
+        if _pending_seals:
+            manager.player_data['pending_seal_items'] = []
+
+        # 호위무사 등용 데이터 동기화 (레거시 - recruited_heroes 기반 폴백)
         _recruited = manager.player_data.get('recruited_heroes', [])
         if _recruited:
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard
-                _latest_guard = _recruited[-1]  # 가장 최근 등용한 영웅
+                _latest_guard = _recruited[-1]
                 bodyguard = get_bodyguard()
-                # 투기장에서 선택했던 스킬만 사용하도록 skill_selections 전달
                 _guard_id = _latest_guard.get('id', '')
                 _guard_skill_idx = _latest_guard.get('selected_skill', 0)
                 _skill_sel = {_guard_id: _guard_skill_idx} if _guard_id else None
                 bodyguard.setup(_latest_guard, skill_selections=_skill_sel)
-                print(f"[Bodyguard] 호위무사 동기화 완료: {_latest_guard.get('name')} (스킬={_guard_skill_idx})")
+                print(f"[Bodyguard] 호위무사 동기화 완료 (레거시): {_latest_guard.get('name')} (스킬={_guard_skill_idx})")
             except Exception as _bg_err:
                 print(f"[Bodyguard] 호위무사 동기화 실패: {_bg_err}")
 
@@ -118283,6 +118336,16 @@ def get_item_icon(item_name):
     elif item_name == "pandora_box":
         pygame.draw.rect(default_icon, (255, 0, 255), (8, 8, 16, 16))
         pygame.draw.rect(default_icon, (255, 215, 0), (8, 8, 16, 16), 2)
+    elif item_name == "hero_seal":
+        # 호위무사 인장 아이콘 (금빛 도장 디자인)
+        # 외곽 원 (인장 틀)
+        pygame.draw.circle(default_icon, (180, 140, 60), (16, 16), 14)
+        pygame.draw.circle(default_icon, (220, 180, 80), (16, 16), 12)
+        # 내부 장식 (검 문양)
+        pygame.draw.line(default_icon, (120, 80, 30), (16, 6), (16, 26), 2)
+        pygame.draw.line(default_icon, (120, 80, 30), (10, 14), (22, 14), 2)
+        # 테두리
+        pygame.draw.circle(default_icon, (255, 215, 0), (16, 16), 14, 2)
     else:
         # 기본 물음표 아이콘
         pygame.draw.circle(default_icon, (100, 100, 100), (16, 16), 12)
@@ -150187,6 +150250,7 @@ def get_item_name_korean(item_name):
         "regeneration_potion": "재생물약",
         "gold_bar": "금괴",
         "gold_digger": "골드디거",
+        "hero_seal": "호위무사의 인장",
         # 전설탭 전용: baby (헤르메스 아이콘과 동일)
         "baby": "베이비",
         "empty_legendary": "빈전설",
@@ -150206,6 +150270,16 @@ def get_item_display_name(item) -> str:
         if isinstance(item, dict):
             name_key = item.get("name", "")
             prefix = item.get("name_prefix", "")
+            # 호위무사 인장: 영웅 이름 포함 동적 표시
+            if name_key == "hero_seal":
+                hero_name = item.get("hero_name", "")
+                if hero_name:
+                    base_name = f"{hero_name}의 인장"
+                else:
+                    base_name = "호위무사의 인장"
+                if prefix:
+                    return f"{prefix} {base_name}".strip()
+                return base_name
         else:
             name_key = str(item)
             prefix = ""
@@ -150294,6 +150368,7 @@ def get_item_description(item_name):
         "regeneration_potion": "재생물약: 모든 스킬 쿨타임을 초기화 시키고 대쉬토큰을 모두 회복합니다.",
         "gold_bar": "금괴: 매우 가치가 높은 귀금속으로 상점에 고가에 판매할 수 있습니다. ",
         "gold_digger": "골드디거: 숙련된 광부의 황금 장갑입니다. 장착 시  골드 획득량이 30%~70% 증가합니다.",
+        "hero_seal": "호위무사의 인장: 투기장에서 우승한 영웅의 인장입니다. 장신구에 장착하면 아케이드 모드에서 해당 호위무사가 등장합니다.",
         "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 북유럽 신화 최강의 무기가 깨어났습니다!",
         "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
         "poseidon_trident": "포세이돈의 삼지창: 바다의 신이 휘두르는 전설의 삼지창! 바다의 힘이 당신과 함께합니다!",

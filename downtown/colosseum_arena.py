@@ -7298,6 +7298,9 @@ class ColosseumsArena:
             TournamentRound.FINAL: 3000,
         }
         self.recruited_hero = None              # 우승 시 등용한 호위무사 (인게임용)
+        self.seal_item_data = None              # 인장 아이템 데이터 (결과 전달용)
+        self._seal_acquisition_active = False   # 인장 획득 연출 진행 중 여부
+        self._seal_acquisition_effect = None    # 전설 획득 연출 인스턴스
 
         # 배팅 정보
         self.selected_match: Optional[Match] = None
@@ -9576,6 +9579,17 @@ class ColosseumsArena:
 
     def update(self, dt: float):
         """메인 업데이트"""
+        # 인장 획득 연출 진행 중이면 연출만 업데이트
+        if self._seal_acquisition_active and self._seal_acquisition_effect:
+            still_active = self._seal_acquisition_effect.update(dt)
+            if not still_active:
+                # 연출 완료 → 결과 설정 후 퇴장
+                self._seal_acquisition_active = False
+                self.total_winnings = 0
+                self.winnings_collected = True
+                self.exit_requested = True
+            return
+
         # dt 스파이크 방지: start_battle()이 update() 내에서 블로킹 호출되므로
         # 배틀 종료 후 clock.tick()이 배틀 전체 시간(~60초)을 반환함.
         # 이로 인해 GUARD_NOTIFY 등 타이머 기반 상태가 즉시 스킵되는 버그 방지.
@@ -10025,6 +10039,14 @@ class ColosseumsArena:
 
     def handle_event(self, event: pygame.event.Event) -> bool:
         """이벤트 처리, 종료 시 True 반환"""
+        # 인장 획득 연출 중 이벤트 처리 (스페이스로 스킵)
+        if self._seal_acquisition_active and self._seal_acquisition_effect:
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                self._seal_acquisition_effect.handle_space_press()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                self._seal_acquisition_effect.handle_space_press()
+            return False
+
         # ============ 관리자 영웅 선택 오버레이 이벤트 처리 ============
         if self.admin_hero_select_active:
             return self._handle_admin_hero_select_event(event)
@@ -10556,22 +10578,66 @@ class ColosseumsArena:
                     self.exit_requested = True
                     return
 
-                # 호위무사 등용 버튼
+                # 호위무사 등용 버튼 → 인장 획득 연출 시작
                 hero_rect = pygame.Rect(center_x + 15, btn_y, btn_w, btn_h)
                 if hero_rect.collidepoint(mx, my):
                     _load_button_click_sound()
                     if _button_click_sound:
                         _button_click_sound.play()
-                    self.recruited_hero = self.bet_hero
-                    # 투기장에서 선택했던 스킬 인덱스 저장 (추가훈련 퍽 시 -1 = 양쪽 모두)
+                    # 인장 아이템 데이터 생성
                     _rh_id = self.bet_hero.get("id", "")
                     if self.hero_has_both_skills.get(_rh_id, False):
-                        self.recruited_hero_skill_idx = -1
+                        _skill_idx = -1
                     else:
-                        self.recruited_hero_skill_idx = self.hero_selected_skills.get(_rh_id, 0)
-                    self.total_winnings = 0
-                    self.winnings_collected = True
-                    self.exit_requested = True
+                        _skill_idx = self.hero_selected_skills.get(_rh_id, 0)
+                    self.seal_item_data = {
+                        "name": "hero_seal",
+                        "type": "passive",
+                        "color": self.bet_hero.get("color", (200, 160, 80)),
+                        "effect": "hero_seal",
+                        "hero_id": _rh_id,
+                        "hero_name": self.bet_hero.get("name", "???"),
+                        "hero_color": list(self.bet_hero.get("color", (200, 200, 200))),
+                        "hero_title": self.bet_hero.get("title", ""),
+                        "selected_skill": _skill_idx,
+                        "body_part": "accessory",
+                    }
+                    # 전설 획득 연출 시작
+                    try:
+                        from effects.legendary_acquisition import LegendaryAcquisitionEffect
+                        self._seal_acquisition_effect = LegendaryAcquisitionEffect()
+                        _hero_name = self.bet_hero.get("name", "???")
+                        self._seal_acquisition_effect.trigger(
+                            "hero_seal",
+                            f"{_hero_name}의 인장",
+                            item_icon=None,
+                            paddle_pos=None
+                        )
+                        self._seal_acquisition_active = True
+                        # 인장 획득 사운드 재생
+                        try:
+                            import os, sys
+                            def _res_path(rp):
+                                try:
+                                    bp = sys._MEIPASS
+                                except AttributeError:
+                                    bp = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                                rp = rp.replace('/', os.sep).replace('\\', os.sep)
+                                return os.path.join(bp, rp)
+                            _snd_path = _res_path(os.path.join("sounds", "legendopen.wav"))
+                            if os.path.exists(_snd_path):
+                                pygame.mixer.Sound(_snd_path).play()
+                        except Exception:
+                            pass
+                        print(f"[Arena] 인장 획득 연출 시작: {_hero_name}의 인장")
+                    except Exception as _acq_err:
+                        print(f"[Arena] 인장 연출 실패, 직접 등용: {_acq_err}")
+                        # 연출 실패 시 기존 방식으로 폴백
+                        self.recruited_hero = self.bet_hero
+                        self.recruited_hero_skill_idx = _skill_idx
+                        self.total_winnings = 0
+                        self.winnings_collected = True
+                        self.exit_requested = True
                     return
 
         elif self.state == TournamentState.DIFFICULTY_SELECT:
@@ -11293,6 +11359,20 @@ class ColosseumsArena:
 
     def draw(self):
         """메인 그리기"""
+        # 인장 획득 연출 진행 중이면 연출만 그리기
+        if self._seal_acquisition_active and self._seal_acquisition_effect:
+            self.screen.fill((0, 0, 0))
+            try:
+                _font_large = self.fonts.get("large") if self.fonts else None
+                _font_huge = self.fonts.get("huge") if self.fonts else None
+                if _font_large is None:
+                    import pygame.freetype
+                    _font_large = pygame.freetype.SysFont(None, 28)
+                self._seal_acquisition_effect.draw(self.screen, _font_large, _font_huge)
+            except Exception as _draw_err:
+                print(f"[Arena] 인장 연출 그리기 실패: {_draw_err}")
+            return
+
         if self.state == TournamentState.HERO_PREVIEW:
             self._draw_hero_preview()
         elif self.state == TournamentState.VS_PREVIEW:
@@ -20123,6 +20203,7 @@ class ColosseumsArena:
             "completed": self.state in (TournamentState.TOURNAMENT_END, TournamentState.VICTORY_CELEBRATION),
             "recruited_hero": getattr(self, 'recruited_hero', None),
             "recruited_hero_skill_idx": getattr(self, 'recruited_hero_skill_idx', 0),
+            "seal_item": getattr(self, 'seal_item_data', None),
         }
 
 

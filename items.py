@@ -1670,6 +1670,16 @@ ITEM_TYPES = [
         "duration": 600,
         "unlock_condition": None,
         "body_part": "arm"  # 팔 부위
+    },
+    {
+        "name": "hero_seal",  # 호위무사 인장 (투기장 우승 보상 전용)
+        "color": (200, 160, 80),  # 금빛 인장 색상
+        "effect": "hero_seal",
+        "icon": None,
+        "chance": 0,  # 필드 드롭 없음 (투기장 전용)
+        "duration": 0,
+        "unlock_condition": None,
+        "body_part": "accessory"  # 장신구 부위
     }
 ]
 
@@ -1724,6 +1734,7 @@ smartphone_obtained = False  # 스마트폰 아이템 획득 여부
 knee_pads_obtained = False  # 무릎보호대 아이템 획득 여부
 gold_bar_obtained = False  # 금괴 아이템 획득 여부
 gold_digger_obtained = False  # 골드디거 아이템 획득 여부
+hero_seal_obtained = False  # 호위무사 인장 획득 여부 (여러 개 소지 가능)
 
 
 active_item_slot = None
@@ -1797,7 +1808,8 @@ unlocked_items = {
     "gold_digger": True,
 
     # 액티브 아이템
-    "regeneration_potion": True  # 재생물약
+    "regeneration_potion": True,  # 재생물약
+    "hero_seal": True  # 호위무사 인장
 }
 
 # 현재 떠 있는 아이템 리스트
@@ -1811,7 +1823,8 @@ PASSIVE_DUPLICATE_ALLOWED = {
     "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle",
     "smartphone", "knee_pads", "gold_digger",
     "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing",
-    "sacred_laurel", "transcendent_crown", "odins_eye"
+    "sacred_laurel", "transcendent_crown", "odins_eye",
+    "hero_seal"
 }
 
 
@@ -2280,7 +2293,7 @@ def update_items(player_rect, apply_effect_func, store_passive_func=None, store_
             # 전설 아이템 중복 획득 허용 (더 이상 체크하지 않음)
 
             # 패시브 아이템과 엑티브 아이템 구분
-            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger"]:
+            if item_name in ["speedboots", "speedgear", "battery", "slot_add", "revival", "master", "cooltime", "chargebag", "spikeboots", "dashgear", "sensor", "bulkup", "dashholder", "gravitybelt", "dowsing_pendulum", "commando_arm", "technical_vest", "fuel_pouch", "bluetooth_ring", "star_detector", "foul_whistle", "smartphone", "knee_pads", "ragnarok_hammer", "hermes_shoes", "poseidon_trident", "angel_blessing", "sacred_laurel", "transcendent_crown", "odins_eye", "bulletproof_hat", "spiked_helmet", "gold_bar", "gold_digger", "hero_seal"]:
                 # 패시브 아이템 처리
                 if store_passive_func:
                     item_data = {
