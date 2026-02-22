@@ -129055,6 +129055,63 @@ def handle_ball():
         except Exception:
             pass
 
+    # --- 뼈장막 안전망 (스토리모드 호위무사용) ---
+    # 호위무사의 뼈장막도 투기장과 동일하게 빠른 공 통과 방지
+    if not arena_mode_enabled:
+        try:
+            from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg_bone
+            _bg_bone = _get_bg_bone()
+            if _bg_bone.active and _bg_bone._guard_system:
+                _bone_barrier_skills_story = []
+                _gs_bone = _bg_bone._guard_system
+                if hasattr(_gs_bone, 'guard_skill_instances'):
+                    for _gs_skills_s in _gs_bone.guard_skill_instances.values():
+                        for _sk_s in (_gs_skills_s if isinstance(_gs_skills_s, list) else [_gs_skills_s]):
+                            if hasattr(_sk_s, 'barriers') and _sk_s.barriers:
+                                _bone_barrier_skills_story.append(_sk_s)
+                _bone_blocked_story = False
+                for _bone_sk_s in _bone_barrier_skills_story:
+                    for _barrier_s in _bone_sk_s.barriers:
+                        if not _barrier_s['alive'] or not _barrier_s['built']:
+                            continue
+                        _bx_left_s = int(_barrier_s['x'])
+                        _bx_right_s = _bx_left_s + int(_barrier_s['width'])
+                        _ball_x_overlap_s = (BALL.right > _bx_left_s and BALL.left < _bx_right_s)
+                        # 상단 장벽 → 공이 천장으로 나감 방지
+                        if _barrier_s['is_top'] and BALL.top <= 0 and _ball_x_overlap_s:
+                            BALL.top = int(_barrier_s['y']) + int(_barrier_s['height'] / 2) + 2
+                            ball_vel[1] = abs(ball_vel[1]) * 1.05
+                            _barrier_s['alive'] = False
+                            _bone_sk_s._spawn_death_fragments(_barrier_s)
+                            try:
+                                _bb_snd_s = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bonebreak.wav")))
+                                _bb_snd_s.set_volume(0.7)
+                                _bb_snd_s.play()
+                            except Exception:
+                                pass
+                            _bone_blocked_story = True
+                            break
+                        # 하단 장벽 → 공이 바닥으로 나감 방지
+                        elif not _barrier_s['is_top'] and BALL.bottom >= HEIGHT and _ball_x_overlap_s:
+                            BALL.bottom = int(_barrier_s['y']) - int(_barrier_s['height'] / 2) - 2
+                            ball_vel[1] = -abs(ball_vel[1]) * 1.05
+                            _barrier_s['alive'] = False
+                            _bone_sk_s._spawn_death_fragments(_barrier_s)
+                            try:
+                                _bb_snd_s = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bonebreak.wav")))
+                                _bb_snd_s.set_volume(0.7)
+                                _bb_snd_s.play()
+                            except Exception:
+                                pass
+                            _bone_blocked_story = True
+                            break
+                    if _bone_blocked_story:
+                        break
+                if _bone_blocked_story:
+                    return
+        except Exception:
+            pass
+
     # --- 천장 충돌 (플레이어 점수) ---
     # 투기장 모드에서 이미 결과가 결정된 경우 득점 처리 건너뛰기
     if arena_mode_enabled and arena_battle_result is not None:
