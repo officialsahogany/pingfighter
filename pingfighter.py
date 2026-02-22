@@ -2688,6 +2688,8 @@ from ui.stage3_menhera_world import Stage3MenheraWorld  #  멘헤라 월드 맵
 from ui.stage4_shaolin_temple import ShaolinTempleBackground  # ️ 소림사 사원 맵
 # from backgrounds.animated_background_stage5 import AnimatedBackgroundStage5
 from ui.stage5_chinese_market import Stage5ChineseMarket  #  중국 전통시장 맵
+from ui.space_map import SpaceMap  # 🌌 우주 행성 맵
+from ui.boss_select_screen import BossSelectScreen  # 🎯 보스 선출 화면
 from backgrounds.animated_background_stage6 import AnimatedBackgroundStage6
 from backgrounds.animated_background_stage7 import AnimatedBackgroundStage7
 from backgrounds.animated_background_stage8 import AnimatedBackgroundStage8
@@ -10399,6 +10401,20 @@ optimus_arm_wall_impact_x = 0            # 벽 충돌 X 위치 (주먹이 꽂힌
 optimus_arm_wall_impact_y = 0            # 벽 충돌 Y 위치
 optimus_arm_plasma_sparks = []           # 플라즈마 스파크 파티클
 optimus_arm_trail_particles = []         # 팔 이동 궤적 파티클
+
+# ========== 우주 행성 맵 시스템 ==========
+cleared_planets = []  # 클리어한 행성 번호 목록 (게임 오버/ESC 복귀 시 리셋)
+
+def show_space_map_transition(from_planet, to_planet):
+    """우주맵 행성 이동 + 보스 선출 애니메이션 래퍼 함수"""
+    global cleared_planets
+    space_map = SpaceMap(SCREEN, WIDTH, HEIGHT)
+    space_map.show_travel_animation(from_planet, to_planet, cleared_planets)
+
+    boss_screen = BossSelectScreen(SCREEN, WIDTH, HEIGHT)
+    selected_boss = boss_screen.show_selection(to_planet)
+    print(f"[SpaceMap] 행성 {to_planet} 보스 선출: {selected_boss}")
+    return selected_boss
 
 # ========== 스테이지 클리어 선택지 시스템 (뱀파이어 서바이벌 스타일) ==========
 # 선택지 UI 상태
@@ -102259,6 +102275,7 @@ def show_victory_screen(stage_cleared, reward):
     global stage3_hearts_collected, stage4_crows_collected
     global final_round_wins, final_round_losses
     global gacha_reroll_stage, gacha_reroll_streak
+    global cleared_planets
 
     # 인게임 상태 비활성화 (구슬 숨김 - 승리화면)
     set_ingame_active(False)
@@ -102275,6 +102292,11 @@ def show_victory_screen(stage_cleared, reward):
 
     logic_stage_cleared = stage_cleared
     display_stage_cleared = stage_logic_to_display(logic_stage_cleared)
+
+    # 🌌 클리어한 행성 목록에 추가
+    global cleared_planets
+    if display_stage_cleared not in cleared_planets:
+        cleared_planets.append(display_stage_cleared)
 
     # ========== 스테이지 클리어 시 선택지 UI는 더 이상 표시하지 않음 ==========
     # 옵티머스 스킬 선택은 게이지가 400/300에 도달했을 때 게임 중 표시됨
@@ -103631,6 +103653,9 @@ def show_victory_screen(stage_cleared, reward):
                     print(f"[스테이지 전환] 저장 파일 삭제 완료 - 다음 스테이지 {next_stage_display} 진입")
                 except Exception:
                     pass
+
+                # 🌌 우주 맵: 이전 행성 → 다음 행성 이동 + 보스 선출
+                show_space_map_transition(from_planet=next_stage_display - 1, to_planet=next_stage_display)
 
                 if next_stage_display == 2:
                     preload_stage_intro_resources(STAGE2_INTRO_VIDEO_PATH)
@@ -115058,6 +115083,11 @@ def start_game_with_difficulty(character_id, difficulty_mode):
 
     # 기본 지급 장비를 실제 장착 상태로 반영
     sync_equipped_passive_effects()
+
+    # 🌌 우주 맵: 출발 → 행성 1 이동 + 보스 선출
+    global cleared_planets
+    cleared_planets = []  # 새 게임 시작 시 초기화
+    show_space_map_transition(from_planet=0, to_planet=1)
 
     # 스테이지 1 인트로 표시
     preload_stage_intro_resources(STAGE1_INTRO_VIDEO_PATH)
@@ -137608,6 +137638,7 @@ def show_result(won):
             pass
         #  게임 세션 종료 표시
         game_session_active = False
+        cleared_planets = []  # 🌌 우주 맵 클리어 상태 초기화
         # 테크니컬조끼 비활성화
         deactivate_technical_vest()
         # 레이저스코프 비활성화
@@ -138099,6 +138130,7 @@ def main(stage_num, new_boss_mode=False):
     global game_should_exit  #  게임 종료 플래그
     global player_score, boss_score  # 점수 변수 (스테이지 시작 시 초기화)
     global game_session_active  #  게임 세션 활성화 여부
+    global cleared_planets  # 🌌 우주 행성 맵 클리어 상태
     global rolling_charges, rolling_charge_timer, acceleration_skill_level, acceleration_height_bonus  #  대쉬 & 스킬 관련
     global aipill_active  # AI 필 상태
 
@@ -139635,6 +139667,7 @@ def main(stage_num, new_boss_mode=False):
             academy.reset_all_skills()  # 스킬 초기화
             reset_cleanse_skill()  # 클렌즈 스킬 초기화
             game_session_active = False  #  게임 세션 종료
+            cleared_planets = []  # 🌌 우주 맵 클리어 상태 초기화
             # 테크니컬조끼 비활성화
             deactivate_technical_vest()
             # 레이저스코프 비활성화
@@ -141985,6 +142018,7 @@ def main(stage_num, new_boss_mode=False):
                     academy.reset_all_skills()  # 아카데미 스킬 초기화
                     reset_cleanse_skill()  # 클렌즈 스킬 초기화
                     game_session_active = False  #  게임 세션 종료
+                    cleared_planets = []  # 🌌 우주 맵 클리어 상태 초기화
                     # 스테이지4 중력자기장 사운드 정지 (ESC 메뉴에서 종료 시)
                     stop_stage4_magnetic_sound()
                     # 테크니컬조끼 비활성화
