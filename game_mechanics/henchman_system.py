@@ -587,7 +587,7 @@ class HenchmanSystem:
                 state['gatling_aim_angle'] = None
 
     def _update_ghost_step_movement(self, slot: HenchmanSlot, dt: float, ball):
-        """하수인 무겐 귀신발걸음 Y축 이동 + 공 충돌 처리"""
+        """하수인 무겐 귀신발걸음 Y축 이동 + X축 공 추적 + 공 충돌 처리"""
         if not slot.ghost_step_active:
             # 시작
             slot.ghost_step_active = True
@@ -596,6 +596,11 @@ class HenchmanSystem:
             slot.ghost_step_hit_count = 0
 
         game_state = self.skill_manager.game_state if self.skill_manager else {}
+
+        # X축: 공의 X좌표를 따라감 (호위무사와 동일)
+        if ball:
+            bx = max(GAME_AREA_X + 30, min(ball.x, GAME_AREA_X + GAME_AREA_WIDTH - 30))
+            slot.x = bx
 
         if self.is_top:
             # 상단 하수인: 아래로 전진 → 위로 복귀
