@@ -553,9 +553,10 @@ class InGameBodyguard:
             boss_effects['slow_amount'] = gs.pop('top_paddle_slow_amount', 0.5)
             boss_effects['slow_frames'] = 180  # 3초
 
-        # 혼란 (조작 반전)
-        if gs.pop('top_paddle_confused', False):
-            boss_effects['confuse_frames'] = 180  # 3초
+        # 혼란 (조작 반전) - get 사용 (AbyssInk 등이 duration 동안 매 프레임 유지,
+        # 타이머 만료 시 직접 False 설정하므로 pop하면 첫 프레임에 소실됨)
+        if gs.get('top_paddle_confused', False):
+            boss_effects['confuse_frames'] = 6  # 매 프레임 갱신 (스킬이 해제할 때까지 유지)
 
         # 축소 (DwarfMagic은 매 프레임 scale을 갱신하므로 pop이 아닌 get 사용)
         if gs.get('top_paddle_shrink', False):

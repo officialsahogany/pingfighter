@@ -144807,12 +144807,19 @@ def main(stage_num, new_boss_mode=False):
                                     break  # 한 프레임에 하나만 처리
                             # 👻 유령소환 빙의: 공 숨김/발사 처리
                             if _bg_fx.get('ghost_ball_hidden'):
+                                ball_in_kuromi = True
                                 ball_vel[0] = 0.0
                                 ball_vel[1] = 0.0
+                            elif ball_in_kuromi and _bodyguard.active:
+                                # ghost_ball_hidden이 해제됨 → 공 복원 (안전장치)
+                                _bg_gs_ghost = _bodyguard._skill_manager.game_state
+                                if not _bg_gs_ghost.get('ghost_summon_ball_hidden', False):
+                                    ball_in_kuromi = False
                             _ghost_rel = _bg_fx.get('ghost_ball_release')
                             if _ghost_rel:
                                 BALL.x = int(_ghost_rel['ball_x']) - BALL.width // 2
                                 BALL.y = int(_ghost_rel['ball_y']) - BALL.height // 2
+                                ball_in_kuromi = False
                             # 🌪️ 모래회오리 빙의: 공 포획/발사 처리
                             _vortex_c = _bg_fx.get('sand_vortex_capture')
                             if _vortex_c:
