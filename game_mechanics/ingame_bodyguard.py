@@ -418,6 +418,18 @@ class InGameBodyguard:
         if _phase in ("patrolling", "patrol_entering", None):
             self._guard_system.y_bottom = _BODYGUARD_PATROL_Y
 
+        # hero_paddle_top / hero_paddle_bottom 갱신 (해골궁수 등 스킬이 참조)
+        # 투기장 SkillManager.update()가 매 프레임 설정하는 것과 동일
+        gs = self._skill_manager.game_state
+        gs['hero_paddle_top'] = {
+            'x': top_paddle.x, 'y': top_paddle.y,
+            'width': top_paddle.width, 'height': top_paddle.height,
+        }
+        gs['hero_paddle_bottom'] = {
+            'x': bottom_paddle.x, 'y': bottom_paddle.y,
+            'width': bottom_paddle.width, 'height': bottom_paddle.height,
+        }
+
         self._guard_system.update(dt, top_paddle, bottom_paddle, ball)
 
         # game_state에서 보스(top_paddle) 상태 효과 추출 → pingfighter.py에 전달
