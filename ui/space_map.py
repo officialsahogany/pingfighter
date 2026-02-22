@@ -594,7 +594,7 @@ class SpaceMap:
         # 엔진 불꽃 (멀티 레이어)
         if engine_power > 0.1:
             for fi in range(3):
-                fl = random.randint(10, int(30 * engine_power))
+                fl = random.randint(10, max(11, int(30 * engine_power)))
                 fy = iy + random.randint(-2, 2) + (fi - 1) * int(4 * s)
                 pygame.draw.line(surf, (200, 220, 255),
                                  (ix - int(12 * s), fy),
