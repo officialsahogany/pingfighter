@@ -7979,14 +7979,16 @@ def _draw_pillar_ui(screen, renderer):
         globals()['_pillar_active_item_slot_rects'] = []
 
     # 호위무사 스탠스 토글 버튼 (하단 필러, 투기장 전용)
+    # REAL_SCREEN에 그려야 함 (renderer 좌표가 풀스크린 기준)
     _stance_btn_rect = None
     if arena_mode_enabled and arena_guard_system:
         _has_guards = (hasattr(arena_guard_system, 'guard_warriors_bottom')
                        and arena_guard_system.guard_warriors_bottom)
         if _has_guards:
             try:
+                _draw_target = REAL_SCREEN if (_is_fullscreen_active and REAL_SCREEN is not None) else screen
                 _stance_btn_rect = renderer.draw_guard_stance_toggle(
-                    screen,
+                    _draw_target,
                     stance_mode=arena_guard_stance_mode,
                     game_scale=GAME_SCALE_FACTOR if 'GAME_SCALE_FACTOR' in globals() else 1.0
                 )
