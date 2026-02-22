@@ -276,6 +276,9 @@ class _BallProxy:
         # 원본 속도 저장 (스킬에 의한 변경량 추적용)
         self._original_vx = vx
         self._original_vy = vy
+        # 원본 위치 저장 (스킬에 의한 위치 변경 추적용 - 스팀베리어 등)
+        self._original_x = self.x
+        self._original_y = self.y
 
     @property
     def vel_changed(self):
@@ -551,10 +554,12 @@ class InGameBodyguard:
             boss_effects['shrink_scale'] = gs.get('top_paddle_shrink_scale', 0.5)
 
         # ── 연화: 꼭두각시 조종 (PUPPET) ──
-        if gs.pop('top_paddle_locked', False):
+        # get 사용 (pop 금지!) — 스킬이 _apply_effect에서 1회만 locked=True 설정,
+        # _update_active_effect에서는 _locked_x/_locked_y만 갱신하므로 pop하면 2프레임째부터 작동 안 함
+        if gs.get('top_paddle_locked', False):
             boss_effects['puppet'] = True
-            boss_effects['puppet_x'] = gs.pop('top_paddle_locked_x', None)
-            boss_effects['puppet_y'] = gs.pop('top_paddle_locked_y', None)
+            boss_effects['puppet_x'] = gs.get('top_paddle_locked_x')
+            boss_effects['puppet_y'] = gs.get('top_paddle_locked_y')
 
         # ── 신기루: 모래감옥 (이동 범위 제한) ──
         if gs.get('top_paddle_sand_prison', False):
@@ -580,10 +585,32 @@ class InGameBodyguard:
         if gs.get('dokkaebi_ball', False):
             boss_effects['dokkaebi_ball'] = True
 
-        # ── 공 속도 변경 (중력제어, 달빛베기 가속, 도깨비불 등) ──
+        # ── 공 속도/위치 변경 (중력제어, 달빛베기, 스팀베리어, 드래곤 등) ──
         if ball and ball.vel_changed:
             boss_effects['ball_vx'] = ball.vx
             boss_effects['ball_vy'] = ball.vy
+        # 공 위치 변경도 전달 (스팀베리어 등이 ball.y를 보정)
+        if ball and (ball.x != ball._original_x or ball.y != ball._original_y):
+            boss_effects['ball_x'] = ball.x
+            boss_effects['ball_y'] = ball.y
+
+        # ── 바람 효과 (용의 날개) ──
+        _wind = gs.get('wind_force', 0)
+        if _wind:
+            boss_effects['wind_force'] = _wind
+
+        # ── 드래곤 브레스 화염지대 ──
+        _fire_zones = gs.pop('spawn_dragon_fire_zones', None)
+        if _fire_zones:
+            boss_effects['spawn_dragon_fire_zones'] = _fire_zones
+
+        # ── 드래곤 브레스 화염 공 이펙트 ──
+        if gs.get('ball_on_fire', False):
+            boss_effects['ball_on_fire'] = True
+
+        # ── 스팀베리어 성스러운 공 이펙트 ──
+        if gs.get('ball_holy', False):
+            boss_effects['ball_holy'] = True
 
         # ── 범용 넉백 (개틀링 버스트, 환영수리검, 해골 궁수 등) ──
         if gs.get('top_paddle_knockback', False):

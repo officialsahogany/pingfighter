@@ -144554,6 +144554,7 @@ def main(stage_num, new_boss_mode=False):
                                 if _target_is_top:
                                     # 보스(상단)에게 넉백
                                     boss_knockback_vel = _apply_boss_knockback_velocity(_kb_dir * _kb_vel)
+                                    boss_knockback_timer = max(boss_knockback_timer, 18)
                                     # IMPACT(0.2s)+RETURNING(0.5s)=0.7s=42f → 45f로 끊김 없이 PHASE_STUN에 연결
                                     boss_stunned_timer = max(boss_stunned_timer, 45)
                                 else:
@@ -144563,7 +144564,9 @@ def main(stage_num, new_boss_mode=False):
                             # 🔫 범용 넉백 (개틀링 버스트, 환영수리검, 해골 궁수 등)
                             if _bg_fx.get('generic_knockback'):
                                 _gk_dir = _bg_fx.get('generic_knockback_dir', 1)
-                                boss_knockback_vel = _gk_dir * 14.0  # 초기 속도 14.0
+                                _gk_vel = _bg_fx.get('generic_knockback_vel', 120)
+                                boss_knockback_vel = _apply_boss_knockback_velocity(_gk_dir * _gk_vel / 60.0)
+                                boss_knockback_timer = max(boss_knockback_timer, 18)  # 0.3초 넉백 모션
                                 boss_stunned_timer = max(boss_stunned_timer, 36)  # 0.6초 경직
                                 globals()['screen_shake_timer'] = 12
                                 globals()['screen_shake_intensity'] = 15
@@ -144602,6 +144605,11 @@ def main(stage_num, new_boss_mode=False):
                                 ball_vel[0] = _bg_fx['ball_vx']
                             if 'ball_vy' in _bg_fx:
                                 ball_vel[1] = _bg_fx['ball_vy']
+                            # 공 위치 보정 (스팀베리어 반사 시 ball.y 보정 등)
+                            if 'ball_x' in _bg_fx:
+                                BALL.centerx = int(_bg_fx['ball_x'])
+                            if 'ball_y' in _bg_fx:
+                                BALL.centery = int(_bg_fx['ball_y'])
                             # 화면 흔들림
                             if _bg_fx.get('screen_shake'):
                                 globals()['screen_shake_timer'] = 12
