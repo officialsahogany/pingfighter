@@ -53081,6 +53081,9 @@ def go_to_next_round():
     _stage4_flame_rush_timer = 0
     _stage4_flame_rush_target_x = 0
     _stage4_flame_rush_target_y = 0
+    global _stage4_cloth_prev_boss_x, _stage4_cloth_velocity
+    _stage4_cloth_prev_boss_x = None
+    _stage4_cloth_velocity = 0.0
     # 광폭화 자기장 발사체 초기화
     global magnetic_projectile_active
     magnetic_projectile_active = False
@@ -53221,6 +53224,10 @@ _stage4_flame_particles = []       # 타격 파티클 리스트
 _stage4_flame_rush_timer = 0       # 도깨비불 돌진 애니메이션 타이머
 _stage4_flame_rush_target_x = 0    # 돌진 목표 X
 _stage4_flame_rush_target_y = 0    # 돌진 목표 Y
+
+# === 스테이지 4 퐁크 옷깃 흔들림 시스템 ===
+_stage4_cloth_prev_boss_x = None   # 이전 프레임 보스 X 좌표
+_stage4_cloth_velocity = 0.0       # 보스 이동 속도 (부드럽게 보간)
 
 # === 광폭화 자기장 발사 시스템 ===
 magnetic_projectile_active = False  # 발사된 자기장 활성화 상태
@@ -94662,6 +94669,50 @@ def draw_objects():
                         pygame.draw.ellipse(SCREEN, (200, 40, 40), inner)
             except Exception:
                 pass
+
+    # === 스테이지 4 퐁크 옷깃/승복 자락 흔들림 ===
+    if current_stage == 4:
+        global _stage4_cloth_prev_boss_x, _stage4_cloth_velocity
+        _cloth_boss_x = boss_rect.centerx + _boss_dash_stun_shake_x
+        _cloth_boss_y = boss_rect.centery + bob_offset + _boss_dash_stun_shake_y + boss_offset_y
+        # 보스 이동 속도 계산 (부드럽게 보간)
+        if _stage4_cloth_prev_boss_x is not None:
+            _cloth_dx = _cloth_boss_x - _stage4_cloth_prev_boss_x
+            _stage4_cloth_velocity = _stage4_cloth_velocity * 0.7 + _cloth_dx * 0.3
+        _stage4_cloth_prev_boss_x = _cloth_boss_x
+        _cloth_t = pygame.time.get_ticks()
+        _cloth_vel = _stage4_cloth_velocity
+        # 승복 좌우 자락 (어깨에서 아래로 흘러내리는 천)
+        _cloth_strips = [
+            # (부착X오프셋, 부착Y오프셋, 길이, 폭, 색상)
+            (-28, 8, 18, 3, (158, 95, 18)),   # 왼쪽 어깨 자락 (진한)
+            (-25, 10, 14, 2, (188, 118, 28)),  # 왼쪽 안쪽 자락
+            (28, 8, 18, 3, (158, 95, 18)),     # 오른쪽 어깨 자락
+            (25, 10, 14, 2, (188, 118, 28)),   # 오른쪽 안쪽 자락
+            (-18, 18, 12, 2, (128, 72, 12)),   # 왼쪽 허리띠 술
+            (18, 18, 12, 2, (128, 72, 12)),    # 오른쪽 허리띠 술
+        ]
+        for _ci, (_cx_off, _cy_off, _c_len, _c_w, _c_col) in enumerate(_cloth_strips):
+            _c_base_x = _cloth_boss_x + _cx_off
+            _c_base_y = _cloth_boss_y + _cy_off
+            # 바람 효과: 이동 반대 방향으로 천이 날림
+            _wind = -_cloth_vel * 0.8  # 이동 반대방향
+            # 자연스러운 흔들림 (각 자락마다 다른 위상)
+            _idle_sway = math.sin(_cloth_t * 0.004 + _ci * 1.7) * 2.0
+            _idle_sway2 = math.sin(_cloth_t * 0.007 + _ci * 2.3) * 1.0
+            # 세그먼트별로 점점 더 많이 흔들림 (끝으로 갈수록 크게)
+            _seg_count = 4
+            _prev_x, _prev_y = _c_base_x, _c_base_y
+            for _si in range(_seg_count):
+                _seg_ratio = (_si + 1) / _seg_count
+                _seg_y = _c_base_y + int(_c_len * _seg_ratio)
+                # X 편향: 바람 + 아이들 흔들림 (끝으로 갈수록 증폭)
+                _sway = (_wind + _idle_sway + _idle_sway2 * _seg_ratio) * _seg_ratio * _seg_ratio
+                _seg_x = _c_base_x + int(_sway)
+                # 두께: 끝으로 갈수록 얇아짐
+                _seg_w = max(1, int(_c_w * (1.0 - _seg_ratio * 0.5)))
+                pygame.draw.line(SCREEN, _c_col, (int(_prev_x), int(_prev_y)), (_seg_x, _seg_y), _seg_w)
+                _prev_x, _prev_y = _seg_x, _seg_y
 
     # === 스테이지 4 도깨비불 3개 공전 + 돌진 타격 이펙트 ===
     if current_stage == 4:
