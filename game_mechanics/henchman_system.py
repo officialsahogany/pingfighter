@@ -34,6 +34,15 @@ HENCH_ENTER_DURATION = 0.5     # 등장 시간 (초)
 HENCH_CAST_DURATION = 0.8      # 시전 포즈 시간
 HENCH_EXIT_DURATION = 0.4      # 퇴장 시간
 
+# 대기(waiting) 페이즈 상수 — 야생의포효 등 공 접근 필요 스킬용
+HENCH_WAIT_MAX_TIME = 8.0      # 최대 대기 시간 (초) — 초과 시 스킬 없이 퇴장
+HENCH_PATROL_SPEED = 120.0     # 대기 중 어슬렁거리기 이동 속도 (px/s)
+HENCH_PATROL_PAUSE_MIN = 0.4   # 멈춤 최소 시간 (초)
+HENCH_PATROL_PAUSE_MAX = 1.2   # 멈춤 최대 시간 (초)
+
+# 공 접근 필요 스킬 ID (entering 후 바로 시전하지 않고 대기 페이즈로 전환)
+HENCH_BALL_PROXIMITY_SKILLS = frozenset({'wild_roar'})
+
 # 하수인 쿨타임 감쇠 공식 상수
 # 기본 쿨타임이 THRESHOLD 이하이면 MAX_MULT 적용,
 # 초과하면 1초당 DECAY_RATE씩 배율 감소 (MIN_MULT 이하로는 안 내려감)
@@ -173,6 +182,10 @@ class HenchmanSlot:
         self.ghost_step_original_y = 0.0
         self.ghost_step_phase = 0     # 0: 전진, 1: 복귀
         self.ghost_step_hit_count = 0  # 공 충돌 횟수
+        # 대기(waiting) 페이즈 상태 — 야생의포효 등 공 접근 대기 스킬용
+        self.wait_timer = 0.0          # 대기 경과 시간
+        self.patrol_dir = 1            # 어슬렁거리기 방향 (1: 오른쪽, -1: 왼쪽)
+        self.patrol_pause = 0.0        # 잠시 멈춤 타이머
 
     @property
     def hero_id(self):
@@ -326,6 +339,8 @@ class HenchmanSystem:
 
                 if slot.phase == "entering":
                     self._update_entering(slot, dt, ball)
+                elif slot.phase == "waiting":
+                    self._update_waiting(slot, dt, top_paddle, bottom_paddle, ball)
                 elif slot.phase == "casting":
                     self._update_casting(slot, dt, top_paddle, bottom_paddle, ball)
                 elif slot.phase == "exiting":
@@ -396,13 +411,89 @@ class HenchmanSystem:
 
         if progress >= 1.0:
             slot.x = slot.target_x
-            slot.phase = "casting"
+            # 공 접근 필요 스킬 → 대기(waiting) 페이즈로 전환
+            skill_id = getattr(slot.skill_instance, 'skill_id', '') if slot.skill_instance else ''
+            if skill_id in HENCH_BALL_PROXIMITY_SKILLS:
+                slot.phase = "waiting"
+                slot.anim_timer = 0.0
+                slot.wait_timer = 0.0
+                slot.patrol_pause = random.uniform(HENCH_PATROL_PAUSE_MIN, HENCH_PATROL_PAUSE_MAX)
+                slot.patrol_dir = random.choice([-1, 1])
+                print(f"[Henchman] {slot.hero_name} 대기 시작 (공 접근 대기)")
+            else:
+                slot.phase = "casting"
+                slot.anim_timer = 0.0
+                try:
+                    self._activate_skill(slot, ball)
+                except Exception as e:
+                    # 스킬 발동 실패해도 casting→exiting 흐름은 유지
+                    print(f"[Henchman] _activate_skill 예외: {e}")
+
+    def _update_waiting(self, slot: HenchmanSlot, dt: float,
+                        top_paddle, bottom_paddle, ball):
+        """공 접근 대기 페이즈 — 어슬렁거리다가 공이 가까이 오면 스킬 발동
+
+        야생의포효 등 공이 접근해야 발동 가능한 스킬용.
+        호위무사처럼 좌우로 천천히 순찰하면서 공 접근을 감시.
+        """
+        slot.wait_timer += dt
+
+        # --- 타임아웃: 최대 대기 시간 초과 시 스킬 없이 퇴장 ---
+        if slot.wait_timer >= HENCH_WAIT_MAX_TIME:
+            print(f"[Henchman] {slot.hero_name} 대기 타임아웃 → 퇴장")
+            slot.phase = "exiting"
             slot.anim_timer = 0.0
+            return
+
+        # --- 어슬렁거리기 (좌우 패트롤) ---
+        if slot.patrol_pause > 0:
+            slot.patrol_pause -= dt
+        else:
+            move = HENCH_PATROL_SPEED * dt * slot.patrol_dir
+            slot.x += move
+            # 게임 영역 경계 체크
+            left_bound = GAME_AREA_X + 60
+            right_bound = GAME_AREA_X + GAME_AREA_WIDTH - 60
+            if slot.x <= left_bound:
+                slot.x = left_bound
+                slot.patrol_dir = 1
+                slot.patrol_pause = random.uniform(HENCH_PATROL_PAUSE_MIN, HENCH_PATROL_PAUSE_MAX)
+            elif slot.x >= right_bound:
+                slot.x = right_bound
+                slot.patrol_dir = -1
+                slot.patrol_pause = random.uniform(HENCH_PATROL_PAUSE_MIN, HENCH_PATROL_PAUSE_MAX)
+            # 랜덤 방향 전환
+            if random.random() < 0.005:
+                slot.patrol_dir = -slot.patrol_dir
+                slot.patrol_pause = random.uniform(HENCH_PATROL_PAUSE_MIN, HENCH_PATROL_PAUSE_MAX)
+
+        # --- 공 접근 감지 → 스킬 발동 ---
+        skill = slot.skill_instance
+        if skill and ball:
+            game_state = self.skill_manager.game_state if self.skill_manager else {}
+            guard_paddle = _GuardPaddle(slot.x, slot.y, is_top=self.is_top)
+            if self.is_top:
+                target_paddle = _PaddleProxy(pygame.Rect(380, 710, 120, 40), is_top=False)
+            else:
+                target_paddle = _PaddleProxy(pygame.Rect(380, 25, 120, 40), is_top=True)
+
+            # skill.update()를 호출하면 _ball_in_range 플래그가 갱신됨
+            skill.caster_is_top = self.is_top
+            skill.current_cooldown = 0  # 쿨타임 0으로 유지 (대기 중이므로)
             try:
-                self._activate_skill(slot, ball)
-            except Exception as e:
-                # 스킬 발동 실패해도 casting→exiting 흐름은 유지
-                print(f"[Henchman] _activate_skill 예외: {e}")
+                skill.update(dt, guard_paddle, target_paddle, ball, game_state)
+            except Exception:
+                pass
+
+            # 공이 범위 내에 진입 → 즉시 스킬 발동
+            if getattr(skill, '_ball_in_range', False):
+                print(f"[Henchman] {slot.hero_name} 공 접근 감지! → 스킬 발동")
+                slot.phase = "casting"
+                slot.anim_timer = 0.0
+                try:
+                    self._activate_skill(slot, ball)
+                except Exception as e:
+                    print(f"[Henchman] _activate_skill 예외: {e}")
 
     def _update_casting(self, slot: HenchmanSlot, dt: float,
                         top_paddle, bottom_paddle, ball):
