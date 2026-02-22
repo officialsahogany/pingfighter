@@ -25529,8 +25529,11 @@ def sync_equipped_passive_effects():
                 }
                 _seal_skill_idx = _equipped_seal.get("selected_skill", 0)
                 _skill_sel = {_hero_data["id"]: _seal_skill_idx} if _hero_data["id"] else None
-                _bg.setup(_hero_data, skill_selections=_skill_sel)
-                print(f"[Bodyguard] 인장 장착 → 호위무사 활성화: {_hero_data['name']}")
+                # 재장착 시 쿨타임 보너스 없이 풀 쿨타임 (꼼수 방지)
+                _is_first = not getattr(_bg, '_seal_setup_done', False)
+                _bg.setup(_hero_data, skill_selections=_skill_sel, first_spawn=_is_first)
+                _bg._seal_setup_done = True
+                print(f"[Bodyguard] 인장 장착 → 호위무사 활성화: {_hero_data['name']} (first={_is_first})")
         else:
             # 인장이 장착되어 있지 않음 → 호위무사 비활성화
             if _bg.active:

@@ -312,12 +312,13 @@ class InGameBodyguard:
         self._entrance_guard_line = None    # 호위무사 등장 후 대사 텍스트 (예약)
         self._entrance_hero_color = (255, 255, 255)  # 영웅 대사 색상
 
-    def setup(self, hero_data: dict, skill_selections: dict = None):
+    def setup(self, hero_data: dict, skill_selections: dict = None, first_spawn: bool = True):
         """호위무사 설정 (투기장 우승 후 등용된 영웅)
 
         Args:
             hero_data: 영웅 데이터 dict
             skill_selections: 스킬 선택 dict {hero_id: skill_index} (투기장과 동일)
+            first_spawn: True면 첫 등장 쿨타임 보너스(-70%) 적용, False면 풀 쿨타임
         """
         self.hero_data = hero_data
         self.active = True
@@ -368,15 +369,17 @@ class InGameBodyguard:
                 self._guard_system._entrance_guard_line_bottom = self._entrance_guard_line
             # 순찰 모드 즉시 시작 (기본 동작: 맵에서 상시 순찰)
             self._guard_system.activate_patrol_immediate()
-            # 첫 등장 시 쿨타임 70% 소비 상태로 시작 (빠른 첫 스킬 발동)
-            _gs = self._guard_system
-            if _gs.cooldown_bottom > 0:
-                _gs.cooldown_bottom *= 0.3
-            # 듀얼 스킬 쿨다운도 동일하게 적용
-            hero_id = hero_data.get("id", "")
-            _scds = _gs.guard_skill_cooldowns.get(hero_id, [])
-            for i in range(len(_scds)):
-                _scds[i] *= 0.3
+            # 첫 등장 시에만 쿨타임 70% 소비 상태로 시작 (빠른 첫 스킬 발동)
+            # 인장 탈착 후 재장착 시에는 풀 쿨타임 (꼼수 방지)
+            if first_spawn:
+                _gs = self._guard_system
+                if _gs.cooldown_bottom > 0:
+                    _gs.cooldown_bottom *= 0.3
+                # 듀얼 스킬 쿨다운도 동일하게 적용
+                hero_id = hero_data.get("id", "")
+                _scds = _gs.guard_skill_cooldowns.get(hero_id, [])
+                for i in range(len(_scds)):
+                    _scds[i] *= 0.3
             print(f"[Bodyguard] 호위무사 설정 완료 (GuardWarriorSystem): "
                   f"{hero_data.get('name', '???')} (id={hero_data.get('id')})")
         except Exception as e:

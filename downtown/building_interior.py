@@ -8201,6 +8201,7 @@ class BuildingInterior:
             "knee_pads": "킥차져",
             "bluetooth_ring": "블루투스링",
             "bulletproof_hat": "방탄모자",
+            "hero_seal": "호위무사의 인장",
         }
         return name_map.get(item_name, item_name)
 
@@ -8242,6 +8243,8 @@ class BuildingInterior:
             "sacred_laurel": 3360,
             "transcendent_crown": 4560,
             "odins_eye": 3750,
+            # 호위무사 인장
+            "hero_seal": 3333,
         }
         return price_map.get(item_name, 500)
 
