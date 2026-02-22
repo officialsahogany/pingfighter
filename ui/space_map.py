@@ -793,7 +793,7 @@ class SpaceMap:
                 fy = cy + random.randint(-r + 3, r - 3)
                 if self._in_planet(fx, fy, cx, cy, r - 2):
                     pygame.draw.circle(surf, (255, random.randint(160, 220), random.randint(180, 220)),
-                                       (fx, fy), max(1, random.randint(1, r // 20)))
+                                       (fx, fy), max(1, random.randint(1, max(2, r // 20))))
             # 태극 문양 (중앙)
             if r > 35:
                 tr = max(4, r // 7)
@@ -907,7 +907,7 @@ class SpaceMap:
                 hy = cy + int(d * math.sin(ang))
                 if not self._in_planet(hx, hy, cx, cy, r - 3):
                     continue
-                hs = max(2, random.randint(r // 12, r // 6))
+                hs = max(2, random.randint(max(1, r // 12), max(2, r // 6)))
                 hc = (255, random.randint(60, 160), random.randint(100, 180))
                 pygame.draw.circle(surf, hc, (hx - hs // 3, hy - hs // 4), hs // 2)
                 pygame.draw.circle(surf, hc, (hx + hs // 3, hy - hs // 4), hs // 2)
@@ -940,7 +940,7 @@ class SpaceMap:
                 tx = cx + random.randint(-r + 3, r - 3)
                 ty = cy + random.randint(-r + 3, r - 3)
                 if self._in_planet(tx, ty, cx, cy, r - 2):
-                    tl = max(2, random.randint(2, r // 8))
+                    tl = max(2, random.randint(2, max(3, r // 8)))
                     pygame.draw.line(surf, (200, 200, 255, 60), (tx, ty), (tx, ty + tl), 1)
             # 균열 (어두운 보라 가지치기 선)
             if r > 20:
@@ -1036,7 +1036,7 @@ class SpaceMap:
                 sx = cx + random.randint(-r // 2, r // 2)
                 sy = cy + random.randint(-r + 5, r - 5)
                 if self._in_planet(sx, sy, cx, cy, r - 2):
-                    sr = max(1, random.randint(1, r // 15))
+                    sr = max(1, random.randint(1, max(2, r // 15)))
                     pygame.draw.circle(surf, (200, 180, 140), (sx, sy), sr)
             random.seed()
         self._draw_highlight(surf, cx, cy, r, base, alpha)
