@@ -56951,6 +56951,9 @@ def _show_debug_bodyguard_panel(screen):
         _desc_font = pygame.font.SysFont("malgungothic", 13)
         _skill_font = pygame.font.SysFont("malgungothic", 18, bold=True)
 
+    # 진입 시 이벤트 큐 비우기 (F3 KEYDOWN 이벤트가 남아있으면 즉시 종료되는 버그 방지)
+    pygame.event.clear()
+
     # ===== 1단계: 영웅 선택 =====
     selected_hero = None
     scroll_y = 0
