@@ -1744,250 +1744,146 @@ class AnimatedBackgroundStage2:
         
         # 공통 하이라이트 제거 - 바위 왼쪽 상단 원형 디자인 삭제
     
+    def _draw_rock_hq(self, surface, x, y, size, colors, fixed_points, rock_seed,
+                      roundness=1.0, aspect_y=1.0, is_golden=False):
+        """고퀄리티 바위 공통 렌더링 (방향성 조명 + 질감 + 균열 + 하이라이트)"""
+        # --- 1) 외곽 점 계산 (형태 보정) ---
+        main_points = []
+        for px_r, py_r in fixed_points:
+            if roundness < 1.0:
+                # 각진 형태 (roundness=0 → 원본, 1 → 완전 원형)
+                point_x = x + px_r * size
+                point_y = y + py_r * size * aspect_y
+            else:
+                angle = math.atan2(py_r, px_r)
+                radius = math.sqrt(px_r ** 2 + py_r ** 2) * size * 0.75
+                point_x = x + math.cos(angle) * radius
+                point_y = y + math.sin(angle) * radius * aspect_y
+            main_points.append((point_x, point_y))
+
+        if len(main_points) < 3:
+            return
+
+        # --- 2) 5단계 레이어 (부드러운 입체 그라데이션) ---
+        # colors[0]=dark, [1]=mid, [2]=light → 5단 보간
+        c0, c1, c2 = colors[0], colors[1], colors[2]
+        layers = [
+            (1.00, c0),                    # 외곽 (가장 어두운)
+            (0.88, tuple((a + b) // 2 for a, b in zip(c0, c1))),  # dark-mid 중간
+            (0.75, c1),                    # 중간톤
+            (0.60, tuple((a + b) // 2 for a, b in zip(c1, c2))),  # mid-light 중간
+            (0.42, c2),                    # 내부 (가장 밝은)
+        ]
+
+        for scale, lc in layers:
+            lp = []
+            for px, py in main_points:
+                lp.append((x + (px - x) * scale, y + (py - y) * scale))
+            if len(lp) >= 3:
+                pygame.draw.polygon(surface, lc, lp)
+
+        # --- 3) 방향성 조명 (좌상단 밝게 / 우하단 어둡게) ---
+        light_overlay = _get_cached_surface(int(size * 2.5), int(size * 2.5))
+        hs = int(size * 1.25)
+        # 하이라이트 (좌상단)
+        highlight_c = (255, 255, 255, 22) if not is_golden else (255, 255, 200, 35)
+        pygame.draw.circle(light_overlay, highlight_c,
+                          (int(hs - size * 0.25), int(hs - size * 0.25)), int(size * 0.5))
+        # 그림자 (우하단)
+        shadow_c = (0, 0, 0, 25)
+        pygame.draw.circle(light_overlay, shadow_c,
+                          (int(hs + size * 0.2), int(hs + size * 0.25)), int(size * 0.45))
+        surface.blit(light_overlay, (x - hs, y - hs))
+
+        # --- 4) 표면 질감 (시드 기반 결정적) ---
+        random.seed(rock_seed + 100)
+
+        # 미세 얼룩 (색상 변주 점)
+        num_speckles = max(2, size // 8)
+        for _ in range(num_speckles):
+            sx = x + random.randint(int(-size * 0.35), int(size * 0.35))
+            sy = y + random.randint(int(-size * 0.35), int(size * 0.35))
+            sv = random.randint(-18, 12)
+            sc = (max(0, min(255, c1[0] + sv)),
+                  max(0, min(255, c1[1] + sv)),
+                  max(0, min(255, c1[2] + sv)))
+            sr = 1 if size < 40 else random.randint(1, 2)
+            pygame.draw.circle(surface, sc, (int(sx), int(sy)), sr)
+
+        # 균열선 (1~2개)
+        num_cracks = random.randint(1, 2) if size >= 35 else (1 if random.random() < 0.5 else 0)
+        crack_c = (max(0, c0[0] - 25), max(0, c0[1] - 25), max(0, c0[2] - 25))
+        for _ in range(num_cracks):
+            ca = random.uniform(0, 2 * math.pi)
+            cl = size * random.uniform(0.2, 0.45)
+            cx1 = x + math.cos(ca) * size * 0.1
+            cy1 = y + math.sin(ca) * size * 0.1
+            # 꺾이는 균열 (2~3 세그먼트)
+            segs = random.randint(2, 3)
+            prev = (int(cx1), int(cy1))
+            for si in range(segs):
+                ca += random.uniform(-0.6, 0.6)
+                seg_len = cl / segs
+                nx = prev[0] + int(math.cos(ca) * seg_len)
+                ny = prev[1] + int(math.sin(ca) * seg_len)
+                pygame.draw.line(surface, crack_c, prev, (nx, ny), 1)
+                prev = (nx, ny)
+
+        # --- 5) 테두리 (어두운 외곽선으로 입체감) ---
+        edge_c = (max(0, c0[0] - 20), max(0, c0[1] - 20), max(0, c0[2] - 20))
+        pygame.draw.polygon(surface, edge_c, main_points, 1)
+
+        # --- 6) 스페큘러 하이라이트 (반사광 점) ---
+        hl_x = x - size * 0.18
+        hl_y = y - size * 0.22
+        if is_golden:
+            hl_c = (255, 255, 220)
+            hl_r = max(2, size // 10)
+        else:
+            hl_c = (min(255, c2[0] + 35), min(255, c2[1] + 35), min(255, c2[2] + 35))
+            hl_r = max(1, size // 12)
+        pygame.draw.circle(surface, hl_c, (int(hl_x), int(hl_y)), hl_r)
+
+        # --- 7) 황금 바위 전용 테두리 ---
+        if is_golden:
+            pygame.draw.polygon(surface, (255, 255, 100), main_points, 2)
+
+        random.seed()
+
     def draw_golden_rock(self, surface, x, y, size, colors, fixed_points, rock_seed):
         """황금 바위 (빛나는 특별한 형태)"""
-        # 황금 바위 기본 형태
-        points = []
-        for point_ratio in fixed_points:
-            px = x + point_ratio[0] * size
-            py = y + point_ratio[1] * size
-            points.append((px, py))
-        
-        if len(points) >= 3:
-            # 황금색 그라데이션 효과
-            # 가장 밝은 층
-            pygame.draw.polygon(surface, colors[2], points)
-            
-            # 중간 층 (약간 작게)
-            mid_points = []
-            for point in points:
-                mid_x = x + (point[0] - x) * 0.85
-                mid_y = y + (point[1] - y) * 0.85
-                mid_points.append((mid_x, mid_y))
-            if len(mid_points) >= 3:
-                pygame.draw.polygon(surface, colors[1], mid_points)
-            
-            # 가장 어두운 중심부 (더 작게)
-            inner_points = []
-            for point in points:
-                inner_x = x + (point[0] - x) * 0.6
-                inner_y = y + (point[1] - y) * 0.6
-                inner_points.append((inner_x, inner_y))
-            if len(inner_points) >= 3:
-                pygame.draw.polygon(surface, colors[0], inner_points)
-            
-            # 황금 테두리
-            pygame.draw.polygon(surface, (255, 255, 100), points, 2)
-    
+        self._draw_rock_hq(surface, x, y, size, colors, fixed_points, rock_seed,
+                           roundness=0.0, aspect_y=1.0, is_golden=True)
+
     def draw_dark_granite_rock(self, surface, x, y, size, colors, fixed_points, rock_seed):
-        """어두운 화강암 (둥근 형태)"""
-        # 미리 생성된 고정 점들 사용
-        main_points = []
-        for point_x_ratio, point_y_ratio in fixed_points:
-            point_x = x + point_x_ratio * size
-            point_y = y + point_y_ratio * size
-            main_points.append((point_x, point_y))
-        
-        # 3단계 레이어로 입체감 (부드러운 그라데이션)
-        for layer in range(3):
-            layer_color = colors[layer]
-            scale = 1.0 - layer * 0.15  # 부드러운 단계
-            
-            layer_points = []
-            for px, py in main_points:
-                lx = x + (px - x) * scale
-                ly = y + (py - y) * scale
-                layer_points.append((lx, ly))
-            
-            if len(layer_points) >= 3:
-                pygame.draw.polygon(surface, layer_color, layer_points)
-        
-        # 부드러운 음영 효과 - 시드 기반으로 고정
-        random.seed(rock_seed)
-        for i in range(2):  # 라인 수 줄임
-            angle = random.uniform(0, 2 * math.pi)
-            line_length = size * 0.3  # 길이 줄임
-            start_x = x + math.cos(angle) * size * 0.2
-            start_y = y + math.sin(angle) * size * 0.2
-            end_x = start_x + math.cos(angle + 0.3) * line_length
-            end_y = start_y + math.sin(angle + 0.3) * line_length
-            edge_color = tuple(max(0, c - 20) for c in colors[1])
-            pygame.draw.line(surface, edge_color, (int(start_x), int(start_y)), 
-                           (int(end_x), int(end_y)), 1)  # 두께도 줄임
-        random.seed()  # 시드 복원
-    
+        """어두운 화강암 (각진 형태)"""
+        self._draw_rock_hq(surface, x, y, size, colors, fixed_points, rock_seed,
+                           roundness=0.0, aspect_y=1.0)
+
     def draw_light_granite_rock(self, surface, x, y, size, colors, fixed_points, rock_seed):
         """밝은 화강암 (둥글고 부드러운 형태)"""
-        # 미리 생성된 고정 점들을 둥글게 보정
-        main_points = []
-        for point_x_ratio, point_y_ratio in fixed_points:
-            # 둥근 모양으로 보정
-            angle = math.atan2(point_y_ratio, point_x_ratio)
-            radius = math.sqrt(point_x_ratio**2 + point_y_ratio**2) * size * 0.7
-            point_x = x + math.cos(angle) * radius
-            point_y = y + math.sin(angle) * radius * 0.85  # 타원형
-            main_points.append((point_x, point_y))
-        
-        # 3단계 레이어 (부드러운 그라데이션)
-        for layer in range(3):
-            layer_color = colors[layer]
-            scale = 1.0 - layer * 0.15
-            
-            layer_points = []
-            for px, py in main_points:
-                lx = x + (px - x) * scale
-                ly = y + (py - y) * scale
-                layer_points.append((lx, ly))
-            
-            if len(layer_points) >= 3:
-                pygame.draw.polygon(surface, layer_color, layer_points)
-        
-        # 밝은 알갱이 텍스처 제거 - 원형 grain 디자인 삭제
-    
+        self._draw_rock_hq(surface, x, y, size, colors, fixed_points, rock_seed,
+                           roundness=1.0, aspect_y=0.85)
+
     def draw_reddish_stone_rock(self, surface, x, y, size, colors, fixed_points, rock_seed):
         """적갈색 바위 (둥근 덩어리 형태)"""
-        # 미리 생성된 고정 점들을 둥글게 보정
-        main_points = []
-        for point_x_ratio, point_y_ratio in fixed_points:
-            # 둥근 모양으로 보정
-            angle = math.atan2(point_y_ratio, point_x_ratio)
-            radius = math.sqrt(point_x_ratio**2 + point_y_ratio**2) * size * 0.75
-            point_x = x + math.cos(angle) * radius
-            point_y = y + math.sin(angle) * radius * 0.88
-            main_points.append((point_x, point_y))
-        
-        # 3단계 레이어 (적갈색 톤)
-        for layer in range(3):
-            layer_color = colors[layer]
-            scale = 1.0 - layer * 0.18
-            
-            layer_points = []
-            for px, py in main_points:
-                lx = x + (px - x) * scale
-                ly = y + (py - y) * scale
-                layer_points.append((lx, ly))
-            
-            if len(layer_points) >= 3:
-                pygame.draw.polygon(surface, layer_color, layer_points)
-        
-        # 적갈색 바위 특유의 얼룩 패턴 제거 - 원형 spot 디자인 삭제
-    
+        self._draw_rock_hq(surface, x, y, size, colors, fixed_points, rock_seed,
+                           roundness=1.0, aspect_y=0.88)
+
     def draw_yellowish_stone_rock(self, surface, x, y, size, colors, fixed_points, rock_seed):
         """황갈색 바위 (둥근 형태)"""
-        # 미리 생성된 고정 점들을 둥글게 수정
-        main_points = []
-        for point_x_ratio, point_y_ratio in fixed_points:
-            # 둥근 모양으로 조정
-            angle = math.atan2(point_y_ratio, point_x_ratio)
-            radius = math.sqrt(point_x_ratio**2 + point_y_ratio**2) * size * 0.75
-            point_x = x + math.cos(angle) * radius
-            point_y = y + math.sin(angle) * radius * 0.9  # 약간 타원형
-            main_points.append((point_x, point_y))
-        
-        # 3단계 레이어 (황갈색 톤)
-        for layer in range(3):
-            layer_color = colors[layer]
-            scale = 1.0 - layer * 0.16
-            
-            layer_points = []
-            for px, py in main_points:
-                lx = x + (px - x) * scale
-                ly = y + (py - y) * scale
-                layer_points.append((lx, ly))
-            
-            if len(layer_points) >= 3:
-                pygame.draw.polygon(surface, layer_color, layer_points)
-        
-        # 황갈색 바위 특유의 그라데이션 라인 - 시드 기반으로 고정
-        random.seed(rock_seed + 300)
-        for i in range(3):
-            line_angle = random.uniform(0, math.pi)
-            line_start_x = x - size * 0.3 + random.randint(-5, 5)
-            line_start_y = y - size * 0.2 + i * size * 0.2
-            line_end_x = x + size * 0.3 + random.randint(-5, 5)
-            line_end_y = line_start_y + random.randint(-3, 3)
-            line_color = tuple(max(0, c - 20) for c in colors[1])
-            pygame.draw.line(surface, line_color, (int(line_start_x), int(line_start_y)), 
-                           (int(line_end_x), int(line_end_y)), 2)
-        random.seed()  # 시드 복원
-    
+        self._draw_rock_hq(surface, x, y, size, colors, fixed_points, rock_seed,
+                           roundness=1.0, aspect_y=0.9)
+
     def draw_gray_stone_rock(self, surface, x, y, size, colors, fixed_points, rock_seed):
-        """회색 바위 (둥근 형태, 참조 이미지 여섯 번째 바위)"""
-        # 미리 생성된 고정 점들을 둥근 형태로 수정
-        main_points = []
-        for point_x_ratio, point_y_ratio in fixed_points:
-            # 둥근 모양으로 조정 (각도 완화)
-            angle = math.atan2(point_y_ratio, point_x_ratio)
-            radius = math.sqrt(point_x_ratio**2 + point_y_ratio**2) * size * 0.7
-            point_x = x + math.cos(angle) * radius
-            point_y = y + math.sin(angle) * radius * 0.8  # 세로로 약간 늘어진 타원
-            main_points.append((point_x, point_y))
-        
-        # 3단계 레이어 (부드러운 회색 그라데이션)
-        for layer in range(3):
-            layer_color = colors[layer]
-            scale = 1.0 - layer * 0.14
-            
-            layer_points = []
-            for px, py in main_points:
-                lx = x + (px - x) * scale
-                ly = y + (py - y) * scale
-                layer_points.append((lx, ly))
-            
-            if len(layer_points) >= 3:
-                pygame.draw.polygon(surface, layer_color, layer_points)
-        
-        # 회색 바위 특유의 부드러운 텍스처 - 시드 기반으로 고정
-        random.seed(rock_seed + 400)
-        for i in range(5):
-            texture_x = x + random.randint(-size//4, size//4)
-            texture_y = y + random.randint(-size//4, size//4)
-            texture_size = random.randint(2, 4)
-            texture_color = tuple(min(255, c + random.randint(-5, 10)) for c in colors[2])
-            pygame.draw.circle(surface, texture_color, (texture_x, texture_y), texture_size)
-        random.seed()  # 시드 복원
-    
+        """회색 바위 (둥근 형태)"""
+        self._draw_rock_hq(surface, x, y, size, colors, fixed_points, rock_seed,
+                           roundness=1.0, aspect_y=0.8)
+
     def draw_mixed_stone_rock(self, surface, x, y, size, colors, fixed_points, rock_seed):
         """혼합 바위 (둥근 형태)"""
-        # 미리 생성된 고정 점들을 둥글게 보정
-        main_points = []
-        for point_x_ratio, point_y_ratio in fixed_points:
-            # 둥근 모양으로 보정
-            angle = math.atan2(point_y_ratio, point_x_ratio)
-            radius = math.sqrt(point_x_ratio**2 + point_y_ratio**2) * size * 0.8
-            point_x = x + math.cos(angle) * radius
-            point_y = y + math.sin(angle) * radius * 0.85
-            main_points.append((point_x, point_y))
-        
-        # 3단계 레이어 (혼합 색상)
-        for layer in range(3):
-            layer_color = colors[layer]
-            scale = 1.0 - layer * 0.17
-            
-            layer_points = []
-            for px, py in main_points:
-                lx = x + (px - x) * scale
-                ly = y + (py - y) * scale
-                layer_points.append((lx, ly))
-            
-            if len(layer_points) >= 3:
-                pygame.draw.polygon(surface, layer_color, layer_points)
-        
-        # 혼합 바위 특성 (부드러운 패턴) - 시드 기반으로 고정
-        random.seed(rock_seed + 500)
-        # 부드러운 음영
-        for i in range(2):
-            angle = random.uniform(0, 2 * math.pi)
-            line_length = size * 0.25  # 길이 줄임
-            start_x = x + math.cos(angle) * size * 0.15
-            start_y = y + math.sin(angle) * size * 0.15
-            end_x = start_x + math.cos(angle + 0.2) * line_length
-            end_y = start_y + math.sin(angle + 0.2) * line_length
-            edge_color = tuple(max(0, c - 15) for c in colors[1])
-            pygame.draw.line(surface, edge_color, (int(start_x), int(start_y)), 
-                           (int(end_x), int(end_y)), 1)
-        
-        # 알갱이 텍스처 제거 - 원형 grain 디자인 삭제
+        self._draw_rock_hq(surface, x, y, size, colors, fixed_points, rock_seed,
+                           roundness=1.0, aspect_y=0.85)
     
     def draw_rock_fragments(self, surface):
         """바위 파편 그리기 애니메이션"""
