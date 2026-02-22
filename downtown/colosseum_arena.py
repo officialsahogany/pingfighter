@@ -7334,6 +7334,7 @@ class ColosseumsArena:
         self.highlight_recorder: Optional[HighlightRecorder] = None
         self.highlight_clip_index = 0
         self.highlight_frame_index = 0
+        self.highlight_frame_progress = 0.0  # float 보간용
         self.highlight_phase = "fade_in"  # fade_in / playing / fade_out
         self.highlight_phase_timer = 0.0
         self.highlight_btn_rect: Optional[pygame.Rect] = None  # 하이라이트 버튼 영역
@@ -17701,6 +17702,7 @@ class ColosseumsArena:
             return
         self.highlight_clip_index = 0
         self.highlight_frame_index = 0
+        self.highlight_frame_progress = 0.0  # float 보간용
         self.highlight_phase = "fade_in"
         self.highlight_phase_timer = 0.0
         self.state = TournamentState.HIGHLIGHT_REPLAY
@@ -17731,14 +17733,19 @@ class ColosseumsArena:
                 self.highlight_phase = "playing"
                 self.highlight_phase_timer = 0.0
                 self.highlight_frame_index = 0
+                self.highlight_frame_progress = 0.0
 
         elif self.highlight_phase == "playing":
-            # 4초간 재생 (프레임 진행)
+            # 4초간 재생 (프레임 진행) - 부드러운 보간을 위해 float 저장
             if len(clip) > 0:
-                # 4초 동안 전체 클립을 균등 재생
                 progress = min(1.0, self.highlight_phase_timer / 4.0)
+                # float 프레임 인덱스 (인접 프레임 블렌딩용)
+                self.highlight_frame_progress = min(
+                    progress * (len(clip) - 1),
+                    len(clip) - 1
+                )
                 self.highlight_frame_index = min(
-                    int(progress * len(clip)),
+                    int(self.highlight_frame_progress),
                     len(clip) - 1
                 )
             if self.highlight_phase_timer >= 4.0:
@@ -17756,6 +17763,7 @@ class ColosseumsArena:
                     self.highlight_phase = "fade_in"
                     self.highlight_phase_timer = 0.0
                     self.highlight_frame_index = 0
+                    self.highlight_frame_progress = 0.0
 
     def _draw_highlight_replay(self):
         """하이라이트 리플레이 렌더링"""
@@ -17772,10 +17780,6 @@ class ColosseumsArena:
         if not clip:
             return
 
-        # 현재 프레임 가져오기 (원본 해상도 - 스케일링 불필요)
-        frame_idx = max(0, min(self.highlight_frame_index, len(clip) - 1))
-        full_surf = clip[frame_idx]
-
         # 페이드 알파 계산
         fade_alpha = 255
         if self.highlight_phase == "fade_in":
@@ -17783,10 +17787,30 @@ class ColosseumsArena:
         elif self.highlight_phase == "fade_out":
             fade_alpha = int(max(0, (1.0 - self.highlight_phase_timer / 0.5) * 255))
 
-        # 프레임에 알파 적용
-        if fade_alpha < 255:
-            full_surf.set_alpha(fade_alpha)
-        self.screen.blit(full_surf, (0, 0))
+        # 인접 프레임 블렌딩으로 부드러운 재생
+        fp = getattr(self, 'highlight_frame_progress', float(self.highlight_frame_index))
+        idx_a = max(0, min(int(fp), len(clip) - 1))
+        idx_b = min(idx_a + 1, len(clip) - 1)
+        blend_t = fp - int(fp)  # 소수부 (0.0 ~ 1.0)
+
+        frame_a = clip[idx_a]
+        if idx_a != idx_b and blend_t > 0.01:
+            # 두 프레임 사이 알파 블렌딩
+            frame_b = clip[idx_b]
+            frame_a.set_alpha(255)
+            frame_b.set_alpha(int(blend_t * 255))
+            if fade_alpha < 255:
+                frame_a.set_alpha(fade_alpha)
+                frame_b.set_alpha(int(blend_t * fade_alpha))
+            self.screen.blit(frame_a, (0, 0))
+            self.screen.blit(frame_b, (0, 0))
+        else:
+            # 블렌딩 불필요 (정확히 프레임 위치)
+            if fade_alpha < 255:
+                frame_a.set_alpha(fade_alpha)
+            else:
+                frame_a.set_alpha(255)
+            self.screen.blit(frame_a, (0, 0))
 
         # 상단 "HIGHLIGHT" 텍스트 오버레이
         if self.fonts and fade_alpha > 50:
