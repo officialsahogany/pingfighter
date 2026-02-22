@@ -34,7 +34,7 @@ class Banana:
     # 기본 상수
     THROW_SPEED = 20  # 투척 속도 (증가)
     SLIP_DURATION = 48  # 미끄러짐 지속 시간 (0.8초 = 48프레임)
-    SLIP_SPEED = 11  # 미끄러짐 속도 (-30%)
+    SLIP_SPEED = 15  # 미끄러짐 속도 (투기장 바나나 슬라이스와 동일)
     LAND_DURATION = 180  # 착지 후 유지 시간 (3초 = 180프레임)
     PREPARE_TIME = 18  # 준비 동작 시간 (0.3초 = 18프레임)
     GRAVITY = 0.0  # 중력 없음 - 직선 비행
@@ -323,9 +323,11 @@ class Banana:
             })
 
     def get_boss_slip_offset(self) -> float:
-        """보스 미끄러짐 오프셋 반환."""
+        """보스 미끄러짐 오프셋 반환 (선형 감속 - 투기장 바나나 슬라이스와 동일)."""
         if self.boss_slipping:
-            return self.boss_slip_direction * self.SLIP_SPEED
+            # 선형 감속: 시작 시 최대 속도, 끝날 때 0
+            strength = self.boss_slip_timer / self.SLIP_DURATION  # 1.0 → 0.0
+            return self.boss_slip_direction * self.SLIP_SPEED * strength
         return 0
 
     def is_boss_slipping(self) -> bool:
