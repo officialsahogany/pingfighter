@@ -94703,8 +94703,8 @@ def draw_objects():
             pygame.draw.circle(SCREEN, (255, 120, 40), (_tail_x, _tail_y), max(1, _ts - 1))
 
         # 공 타격 판정: 도깨비불이 공에 닿으면 타격 이펙트
-        _ball_cx = ball_pos[0]
-        _ball_cy = ball_pos[1]
+        _ball_cx = BALL.centerx
+        _ball_cy = BALL.centery
         if ball_vel[1] < 0:  # 공이 위로 올라갈 때만 (보스 쪽으로)
             for fi in range(3):
                 _fa = _stage4_flame_angle + fi * (2 * math.pi / 3)
