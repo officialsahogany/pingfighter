@@ -440,94 +440,105 @@ class DowntownRenderer:
             # 건물 자체는 별도 레이어에서 처리
 
     def _draw_ground_tile(self, screen, x, y, tx=None, ty=None):
-        """바닥 타일 - 자연스러운 잔디/지형 (캐싱 적용, 높은 변이)"""
+        """바닥 타일 - 현실감 잔디/지형 (캐싱 적용, 높은 변이)"""
         color = self.theme_data['ground_color']
 
         tile_x = tx if tx is not None else x // TILE_SIZE
         tile_y = ty if ty is not None else y // TILE_SIZE
-        # 타일 고유 시드 (좌표 기반 해시 → 높은 변이)
         tile_hash = ((tile_x * 7919 + tile_y * 6271) ^ (tile_x * 31 + tile_y * 47)) & 0xFFFF
-        pattern_seed = tile_hash % 48  # 48가지 패턴
 
-        # 타일별 미세 색상 변주 (인접 타일과 다른 기본색)
-        color_shift = ((tile_hash >> 4) % 7) - 3  # -3 ~ +3
-        base_r = max(0, min(255, color[0] + color_shift))
-        base_g = max(0, min(255, color[1] + color_shift + ((tile_hash >> 7) % 3) - 1))
-        base_b = max(0, min(255, color[2] + color_shift - ((tile_hash >> 9) % 3)))
+        # 타일별 미세 색상 변주
+        cs = ((tile_hash >> 4) % 5) - 2  # -2 ~ +2 (작은 변동)
+        base_r = max(0, min(255, color[0] + cs))
+        base_g = max(0, min(255, color[1] + cs + ((tile_hash >> 7) % 3) - 1))
+        base_b = max(0, min(255, color[2] + cs))
         tile_color = (base_r, base_g, base_b)
 
-        cache_key = ('ground_v3', color, tile_hash)
+        cache_key = ('ground_v4', color, tile_hash)
         if cache_key in self.tile_surfaces:
             screen.blit(self.tile_surfaces[cache_key], (x, y))
             return
 
         tile_surf = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
         tile_surf.fill(tile_color)
-
         random.seed(tile_hash)
 
-        # --- 1) 노이즈 텍스처 (자연스러운 지면 질감) ---
-        for _ in range(30):
-            nx = random.randint(0, TILE_SIZE - 1)
-            ny = random.randint(0, TILE_SIZE - 1)
-            v = random.randint(-15, 15)
-            dot_c = (max(0, min(255, base_r + v)),
-                     max(0, min(255, base_g + v + random.randint(-3, 3))),
-                     max(0, min(255, base_b + v)))
-            tile_surf.set_at((nx, ny), dot_c)
+        # --- 1) 부드러운 색상 패치 (반투명 원/타원으로 자연스러운 색 변화) ---
+        patch_overlay = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
+        for _ in range(random.randint(3, 6)):
+            px = random.randint(-4, TILE_SIZE)
+            py = random.randint(-4, TILE_SIZE)
+            pw = random.randint(8, 18)
+            ph = random.randint(6, 14)
+            # 밝거나 어두운 풀색 패치
+            if random.random() < 0.5:
+                pc = (0, random.randint(5, 15), 0, random.randint(10, 25))
+            else:
+                pc = (random.randint(5, 12), random.randint(3, 8), 0, random.randint(8, 20))
+            pygame.draw.ellipse(patch_overlay, pc, (px, py, pw, ph))
+        tile_surf.blit(patch_overlay, (0, 0))
 
-        # --- 2) 패턴별 지형 디테일 (다양한 조합) ---
-        feat = pattern_seed % 6
+        # --- 2) 지형 디테일 (일부 타일에만, 확률 기반) ---
+        feat = tile_hash % 8
         if feat == 0:
-            # 흙 패치
-            dx, dy = random.randint(6, 30), random.randint(6, 30)
-            w, h = random.randint(6, 13), random.randint(4, 9)
-            dirt_c = (min(255, base_r + 18), max(0, base_g - 12), max(0, base_b - 18))
-            pygame.draw.ellipse(tile_surf, dirt_c, (dx, dy, w, h))
+            # 작은 흙 얼룩 (부드러운 타원)
+            dx, dy = random.randint(8, 28), random.randint(8, 28)
+            w, h = random.randint(7, 12), random.randint(5, 8)
+            dirt_c = (min(255, base_r + 12), max(0, base_g - 8), max(0, base_b - 10), 80)
+            ds = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
+            pygame.draw.ellipse(ds, dirt_c, (dx, dy, w, h))
+            tile_surf.blit(ds, (0, 0))
         elif feat == 1:
-            # 조약돌 2~4개
-            for _ in range(random.randint(2, 4)):
-                px, py = random.randint(3, 36), random.randint(3, 36)
-                pc = (min(255, base_r + random.randint(15, 30)),
-                      min(255, base_g + random.randint(8, 20)),
-                      min(255, base_b + random.randint(5, 15)))
-                pygame.draw.circle(tile_surf, pc, (px, py), random.randint(1, 2))
-        elif feat == 2:
-            # 이끼 얼룩
+            # 조약돌 1~2개
             for _ in range(random.randint(1, 2)):
-                mx, my = random.randint(4, 32), random.randint(4, 32)
-                mw, mh = random.randint(5, 10), random.randint(3, 7)
-                moss_c = (max(0, base_r - 12), min(255, base_g + 22), max(0, base_b - 18))
-                pygame.draw.ellipse(tile_surf, moss_c, (mx, my, mw, mh))
-        elif feat == 3:
-            # 낙엽/잔가지
-            for _ in range(random.randint(1, 3)):
-                lx, ly = random.randint(4, 35), random.randint(4, 35)
-                lc = (min(255, base_r + random.randint(20, 40)),
-                      max(0, base_g - random.randint(5, 15)),
-                      max(0, base_b - random.randint(10, 25)))
-                pygame.draw.circle(tile_surf, lc, (lx, ly), 1)
-                pygame.draw.line(tile_surf, lc, (lx, ly), (lx + random.randint(-2, 2), ly + random.randint(-2, 2)), 1)
-        # feat 4,5: 아무 장식 없음 (깨끗한 잔디)
+                px, py = random.randint(6, 33), random.randint(6, 33)
+                pv = random.randint(15, 25)
+                pc = (min(255, base_r + pv), min(255, base_g + pv - 5), min(255, base_b + pv - 3))
+                pygame.draw.circle(tile_surf, pc, (px, py), random.randint(1, 2))
+                # 조약돌 하이라이트
+                pc_l = (min(255, pc[0] + 10), min(255, pc[1] + 10), min(255, pc[2] + 10))
+                tile_surf.set_at((px - 1, max(0, py - 1)), pc_l)
+        elif feat == 2:
+            # 진한 풀 구역 (반투명 오버레이)
+            mx, my = random.randint(4, 26), random.randint(4, 26)
+            mw, mh = random.randint(8, 14), random.randint(6, 10)
+            ms = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
+            pygame.draw.ellipse(ms, (0, 18, 0, 30), (mx, my, mw, mh))
+            tile_surf.blit(ms, (0, 0))
+        # feat 3~7: 깨끗한 잔디 (대부분 타일은 장식 없이 깔끔)
 
-        # --- 3) 풀잎 (곡선형, 다양한 방향/높이) ---
-        grass_colors = [
-            (max(0, base_r - 15), max(0, base_g - 6), max(0, base_b - 15)),
-            (max(0, min(255, base_r - 5)), min(255, base_g + 12), max(0, min(255, base_b - 5))),
-            (min(255, base_r + 8), min(255, base_g + 20), min(255, base_b + 3)),
-            (max(0, base_r - 10), min(255, base_g + 6), max(0, base_b - 8)),
+        # --- 3) 풀 텍스처 (짧고 은은한 점/선 클러스터) ---
+        # 풀 색조 (base보다 약간 진한/밝은 녹색 계열)
+        grass_tones = [
+            (max(0, base_r - 8), max(0, min(255, base_g + 8)), max(0, base_b - 6)),
+            (max(0, base_r - 4), max(0, min(255, base_g + 14)), max(0, base_b - 3)),
+            (min(255, base_r + 3), max(0, min(255, base_g + 5)), max(0, base_b - 2)),
         ]
 
-        num_blades = random.randint(10, 20)
-        for _ in range(num_blades):
-            gx = random.randint(1, TILE_SIZE - 2)
-            gy = random.randint(3, TILE_SIZE - 1)
-            gc = random.choice(grass_colors)
-            blade_h = random.randint(3, 8)
-            lean = random.randint(-3, 3)
-            mid_y = gy - blade_h * 2 // 3
-            pygame.draw.line(tile_surf, gc, (gx, gy), (gx + lean // 2, mid_y), 1)
-            pygame.draw.line(tile_surf, gc, (gx + lean // 2, mid_y), (gx + lean, gy - blade_h), 1)
+        # 풀 클러스터 3~5곳 (각 클러스터에 짧은 풀 2~4개)
+        num_clusters = random.randint(3, 5)
+        for _ in range(num_clusters):
+            cx = random.randint(3, TILE_SIZE - 4)
+            cy = random.randint(3, TILE_SIZE - 3)
+            cluster_size = random.randint(2, 4)
+            gc = random.choice(grass_tones)
+            for _ in range(cluster_size):
+                bx = cx + random.randint(-3, 3)
+                by = cy + random.randint(-2, 2)
+                bh = random.randint(2, 4)  # 짧은 풀
+                lean = random.randint(-1, 1)
+                if 1 <= bx < TILE_SIZE - 1 and bh < by < TILE_SIZE:
+                    pygame.draw.line(tile_surf, gc, (bx, by), (bx + lean, by - bh), 1)
+
+        # --- 4) 미세 텍스처 점 (부드럽고 적은 수) ---
+        for _ in range(random.randint(4, 8)):
+            nx = random.randint(0, TILE_SIZE - 1)
+            ny = random.randint(0, TILE_SIZE - 1)
+            v = random.randint(-6, 6)
+            dot_c = (max(0, min(255, base_r + v)),
+                     max(0, min(255, base_g + v)),
+                     max(0, min(255, base_b + v)))
+            tile_surf.set_at((nx, ny), dot_c)
 
         self.tile_surfaces[cache_key] = tile_surf
         screen.blit(tile_surf, (x, y))
