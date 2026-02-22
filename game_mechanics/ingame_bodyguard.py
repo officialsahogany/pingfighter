@@ -384,6 +384,51 @@ class InGameBodyguard:
         self._entrance_hero_timer = 0.0
         self._entrance_guard_line = None
 
+    # ── 공격/수비 스탠스 토글 ──
+
+    @property
+    def stance_mode(self) -> str:
+        """현재 스탠스 모드 ('attack' 또는 'defense')"""
+        if self._guard_system:
+            return getattr(self._guard_system, 'stance_mode_bottom', 'attack')
+        return 'attack'
+
+    def toggle_stance(self) -> str:
+        """공격 ↔ 수비 스탠스 전환. 쿨타임 즉시 조정. 새 모드 문자열 반환."""
+        gs = self._guard_system
+        if not gs:
+            return 'attack'
+
+        old = gs.stance_mode_bottom
+        new = "defense" if old == "attack" else "attack"
+        gs.stance_mode_bottom = new
+
+        # 쿨타임 배율 즉시 적용 (투기장과 동일)
+        if old == "attack" and new == "defense":
+            mult = gs.DEFENSE_SKILL_CD_MULT
+        elif old == "defense" and new == "attack":
+            mult = 1.0 / gs.DEFENSE_SKILL_CD_MULT
+        else:
+            mult = 1.0
+
+        if mult != 1.0:
+            gs.cooldown_bottom *= mult
+            gs.cooldown_max_bottom *= mult
+            for gw in gs.guard_warriors_bottom:
+                gid = gw.get("id", "")
+                scds = gs.guard_skill_cooldowns.get(gid, [])
+                smaxs = gs.guard_skill_cooldowns_max.get(gid, [])
+                for i in range(len(scds)):
+                    scds[i] *= mult
+                for i in range(len(smaxs)):
+                    smaxs[i] *= mult
+            p2 = getattr(gs, '_patrol2_bottom', None)
+            if p2:
+                p2['cooldown'] *= mult
+                p2['cooldown_max'] *= mult
+
+        return new
+
     def update(self, dt: float, boss_rect=None, player_rect=None,
                ball_rect=None, ball_vx=0, ball_vy=0) -> dict:
         """매 프레임 업데이트

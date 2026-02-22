@@ -58,6 +58,8 @@ _splash_screen = None
 _arena_skill_slot_data = None
 _gauge_debug_count = 0
 _ingame_bodyguard_dokkaebi_ball = False
+_bodyguard_stance_popup_effects = []          # 스토리모드 호위무사 스탠스 전환 팝업
+_bodyguard_key_e_pressed = False              # E키 이전 프레임 눌림 상태
 _is_ingame_active = False
 _odins_prev_player_x = 0
 _optimus_arm_mb_prev = True
@@ -8601,6 +8603,7 @@ def _fullscreen_flip():
             _draw_guard_hover_tooltip(REAL_SCREEN, _guard_hover)
 
         # 🛡️ 인게임 호위무사 초상화 UI (일반 스테이지, 투기장 쿨타임 큐와 동일 스타일)
+        _story_stance_btn_rect = None
         if not arena_mode_enabled:
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg
@@ -8612,8 +8615,18 @@ def _fullscreen_flip():
                         game_offset_y=GAME_OFFSET_Y,
                         game_scale=GAME_SCALE_FACTOR,
                     )
+                    # ⚔️ 호위무사 스탠스 토글 아이콘 (투기장과 동일)
+                    try:
+                        _story_stance_btn_rect = renderer.draw_guard_stance_toggle(
+                            REAL_SCREEN,
+                            stance_mode=_bg.stance_mode,
+                            game_scale=GAME_SCALE_FACTOR if 'GAME_SCALE_FACTOR' in globals() else 1.0,
+                        )
+                    except Exception:
+                        pass
             except Exception:
                 pass
+        globals()['_story_guard_stance_toggle_rect'] = _story_stance_btn_rect
 
         # 🎚️ 투기장 배속 버튼 (좌측 필러 하단, REAL_SCREEN에 직접)
         if globals().get('arena_mode_enabled', False):
@@ -8847,6 +8860,7 @@ def _fullscreen_update(*args, **kwargs):
             _draw_guard_hover_tooltip(REAL_SCREEN, _guard_hover2)
 
         # 🛡️ 인게임 호위무사 초상화 UI (일반 스테이지)
+        _story_stance_btn_rect2 = None
         if not arena_mode_enabled:
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg2
@@ -8858,8 +8872,17 @@ def _fullscreen_update(*args, **kwargs):
                         game_offset_y=GAME_OFFSET_Y,
                         game_scale=GAME_SCALE_FACTOR,
                     )
+                    try:
+                        _story_stance_btn_rect2 = renderer.draw_guard_stance_toggle(
+                            REAL_SCREEN,
+                            stance_mode=_bg2.stance_mode,
+                            game_scale=GAME_SCALE_FACTOR if 'GAME_SCALE_FACTOR' in globals() else 1.0,
+                        )
+                    except Exception:
+                        pass
             except Exception:
                 pass
+        globals()['_story_guard_stance_toggle_rect'] = _story_stance_btn_rect2
 
         # 🎚️ 투기장 배속 버튼 (좌측 필러 하단, REAL_SCREEN에 직접)
         if globals().get('arena_mode_enabled', False):
@@ -92813,6 +92836,67 @@ def draw_objects():
             print(f"[StancePopup] draw error: {_stance_popup_err}")
             arena_stance_popup_effects.clear()
 
+    # ⚔️ 스토리모드 호위무사 스탠스 전환 팝업 이펙트
+    if not arena_mode_enabled and _bodyguard_stance_popup_effects:
+        try:
+            _bsp_dt = 1.0 / 60.0
+            _bsp_remove = []
+            for _bsi, _bse in enumerate(_bodyguard_stance_popup_effects):
+                _bse["timer"] += _bsp_dt
+                if _bse["timer"] >= _bse["duration"]:
+                    _bsp_remove.append(_bsi)
+                    continue
+                _bprog = _bse["timer"] / _bse["duration"]
+                _bfy = _bse["y"] - _bprog * 50
+                _bfx = _bse["x"]
+                if _bprog < 0.08:
+                    _bsa = int(255 * (_bprog / 0.08))
+                elif _bprog < 0.45:
+                    _bsa = 255
+                else:
+                    _bsa = int(255 * (1.0 - (_bprog - 0.45) / 0.55))
+                _bsa = max(0, min(255, _bsa))
+                _bscale = 1.0 + 0.3 * max(0.0, 1.0 - _bprog / 0.15) if _bprog < 0.15 else 1.0
+                _bisz = int(72 * _bscale)
+                _bhalf = (_bisz + 12) // 2
+                _bicon = pygame.Surface((_bisz + 12, _bisz + 12), pygame.SRCALPHA)
+                _bicx = _bhalf
+                _bicy = _bhalf
+                if _bse["mode"] == "attack":
+                    pygame.draw.circle(_bicon, (255, 60, 30, _bsa // 3), (_bicx, _bicy), _bhalf - 1)
+                    pygame.draw.circle(_bicon, (255, 80, 40, _bsa // 2), (_bicx, _bicy), _bhalf - 4)
+                    _bbt = _bicy - _bisz // 2 + 4
+                    _bbb = _bicy + _bisz // 4 - 1
+                    _bbw = max(2, _bisz // 7)
+                    pygame.draw.line(_bicon, (255, 240, 200, _bsa), (_bicx, _bbt), (_bicx, _bbb), _bbw + 2)
+                    pygame.draw.line(_bicon, (255, 100, 60, _bsa), (_bicx, _bbt), (_bicx, _bbb), _bbw)
+                    pygame.draw.polygon(_bicon, (255, 120, 70, _bsa), [
+                        (_bicx, _bbt - 4), (_bicx - _bbw, _bbt + 1), (_bicx + _bbw, _bbt + 1)])
+                    _bgy = _bbb + 2
+                    _bghw = _bisz // 3
+                    pygame.draw.line(_bicon, (240, 200, 80, _bsa), (_bicx - _bghw, _bgy), (_bicx + _bghw, _bgy), max(2, _bbw))
+                    pygame.draw.line(_bicon, (180, 130, 60, _bsa), (_bicx, _bgy + 2), (_bicx, _bgy + _bisz // 4), max(2, _bbw))
+                    pygame.draw.circle(_bicon, (220, 170, 70, _bsa), (_bicx, _bgy + _bisz // 4 + 1), max(2, _bbw))
+                else:
+                    pygame.draw.circle(_bicon, (30, 80, 255, _bsa // 3), (_bicx, _bicy), _bhalf - 1)
+                    pygame.draw.circle(_bicon, (40, 100, 255, _bsa // 2), (_bicx, _bicy), _bhalf - 4)
+                    _bsw = _bisz // 3 + 1
+                    _bsh = _bisz // 2
+                    _bshield = [
+                        (_bicx, _bicy - _bsh + 1), (_bicx + _bsw, _bicy - _bsh + 5),
+                        (_bicx + _bsw, _bicy + 3), (_bicx, _bicy + _bsh - 1),
+                        (_bicx - _bsw, _bicy + 3), (_bicx - _bsw, _bicy - _bsh + 5)]
+                    pygame.draw.polygon(_bicon, (70, 140, 255, _bsa), _bshield)
+                    pygame.draw.polygon(_bicon, (150, 200, 255, _bsa), _bshield, 2)
+                    _bcr = _bsw // 2
+                    pygame.draw.line(_bicon, (200, 230, 255, _bsa), (_bicx, _bicy - _bcr - 3), (_bicx, _bicy + _bcr + 3), 2)
+                    pygame.draw.line(_bicon, (200, 230, 255, _bsa), (_bicx - _bcr - 1, _bicy), (_bicx + _bcr + 1, _bicy), 2)
+                SCREEN.blit(_bicon, (int(_bfx) - _bhalf, int(_bfy) - _bhalf))
+            for _bri in reversed(_bsp_remove):
+                _bodyguard_stance_popup_effects.pop(_bri)
+        except Exception:
+            _bodyguard_stance_popup_effects.clear()
+
     # 옵티머스 비상충전 시각 효과 그리기
     if selected_character_type == "optimus":
         draw_emergency_charge_effects(SCREEN)
@@ -136786,6 +136870,7 @@ def show_result(won):
         try:
             from game_mechanics.ingame_bodyguard import get_bodyguard
             get_bodyguard().reset()
+            _bodyguard_stance_popup_effects.clear()
         except Exception:
             pass
         # 인게임 골드 초기화 (게임 오버 시)
@@ -138809,6 +138894,7 @@ def main(stage_num, new_boss_mode=False):
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard
                 get_bodyguard().reset()
+                _bodyguard_stance_popup_effects.clear()
             except Exception:
                 pass
             # 인게임 골드 초기화 (ESC 메뉴 복귀 시)
@@ -141145,6 +141231,7 @@ def main(stage_num, new_boss_mode=False):
                     try:
                         from game_mechanics.ingame_bodyguard import get_bodyguard
                         get_bodyguard().reset()
+                        _bodyguard_stance_popup_effects.clear()
                     except Exception:
                         pass
                     # 인게임 골드 초기화 (강제 종료 시)
@@ -141499,6 +141586,40 @@ def main(stage_num, new_boss_mode=False):
                         _mode_label = "수비" if _new_stance == "defense" else "공격"
                         _guard_cd_remain = getattr(_gs, '_guard_dash_cooldown', 0) if _gs else 0
                         print(f"[Guard] 호위무사 스탠스 전환: {_mode_label}모드 (대쉬CD={_guard_cd_remain:.1f}s 유지)")
+
+            # ⚔️ 스토리모드 호위무사 스탠스 토글 클릭 처리
+            if (
+                event.type == pygame.MOUSEBUTTONDOWN
+                and event.button == 1
+                and not globals().get('arena_mode_enabled', False)
+            ):
+                _story_stance_rect = globals().get('_story_guard_stance_toggle_rect')
+                if _story_stance_rect:
+                    _real_mp_sg = _original_mouse_get_pos()
+                    if _story_stance_rect.collidepoint(_real_mp_sg):
+                        try:
+                            from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg_click
+                            _bg_click = _get_bg_click()
+                            if _bg_click.active:
+                                _new_mode_c = _bg_click.toggle_stance()
+                                _popup_xc, _popup_yc = 380, 680
+                                _bgsc = _bg_click._guard_system
+                                if _bgsc and getattr(_bgsc, 'phase_bottom', None) and _bgsc.x_bottom > 80:
+                                    _popup_xc = _bgsc.x_bottom
+                                    _popup_yc = _bgsc.y_bottom - 24
+                                elif PLAYER:
+                                    _popup_xc = PLAYER.centerx
+                                    _popup_yc = PLAYER.y - 24
+                                _bodyguard_stance_popup_effects.append({
+                                    "mode": _new_mode_c, "x": _popup_xc, "y": _popup_yc,
+                                    "timer": 0.0, "duration": 1.2,
+                                })
+                                try:
+                                    play_button_click_sound()
+                                except Exception:
+                                    pass
+                        except Exception:
+                            pass
 
             # 🗡️ 하수인 아이콘 클릭 처리
             if (
@@ -144131,6 +144252,37 @@ def main(stage_num, new_boss_mode=False):
                             top_speech_timer=arena_top_speech_timer,
                             bottom_speech_timer=arena_bottom_speech_timer,
                         )
+                except Exception:
+                    pass
+
+            # ⚔️ 스토리모드 호위무사 E키 스탠스 토글 (공격 ↔ 수비)
+            if not arena_mode_enabled:
+                try:
+                    _k_e_now = keys[pygame.K_e]
+                    if _k_e_now and not _bodyguard_key_e_pressed:
+                        from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg_e
+                        _bg_e = _get_bg_e()
+                        if _bg_e.active:
+                            _new_mode = _bg_e.toggle_stance()
+                            # 팝업 이펙트 (호위무사 또는 플레이어 패들 위)
+                            _popup_x, _popup_y = 380, 680
+                            _bgs = _bg_e._guard_system
+                            if _bgs and getattr(_bgs, 'phase_bottom', None) and _bgs.x_bottom > 80:
+                                _popup_x = _bgs.x_bottom
+                                _popup_y = _bgs.y_bottom - 24
+                            elif PLAYER:
+                                _popup_x = PLAYER.centerx
+                                _popup_y = PLAYER.y - 24
+                            _bodyguard_stance_popup_effects.append({
+                                "mode": _new_mode,
+                                "x": _popup_x, "y": _popup_y,
+                                "timer": 0.0, "duration": 1.2,
+                            })
+                            try:
+                                play_button_click_sound()
+                            except Exception:
+                                pass
+                    globals()['_bodyguard_key_e_pressed'] = _k_e_now
                 except Exception:
                     pass
 
