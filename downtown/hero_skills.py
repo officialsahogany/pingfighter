@@ -9538,7 +9538,7 @@ class Charm(HeroSkill):
         self._dim_portal_particles = []   # 소용돌이 파티클
         self._dim_portal_angle = 0.0      # 소용돌이 회전각
         self._dim_portal_scale = 0.0      # 포탈 열림 스케일 (0→1)
-        self._dim_duration = 40.0         # 소환 지속시간
+        self._dim_duration = 30.0         # 소환 지속시간
         self._dim_elapsed = 0.0
         self._dim_lightning_arcs = []     # 전기 아크 이펙트
 
@@ -9834,7 +9834,7 @@ class Charm(HeroSkill):
         # ─── 차원의 문 모드: 지속시간 종료 처리 ───
         if self._dimensional_mode:
             if self._dim_phase == "summoned_active":
-                # 소환 활동 종료 → 복귀 포탈 열기
+                # 소환 활동 종료 → 복귀 포탈 열기 + 호위무사 상승 시작
                 self._dim_phase = "portal_return_opening"
                 self._dim_timer = 1.0
                 self._dim_portal_scale = 0.0
@@ -9842,6 +9842,8 @@ class Charm(HeroSkill):
                 self._dim_lightning_arcs = []
                 self.is_active = True
                 self.active_timer = 2.0  # return_opening(1.0) + closing(1.0)
+                # 호위무사에게 포탈로 상승 시작 요청
+                game_state['dimensional_summon_request'] = {'phase': 'ascend'}
                 try:
                     project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                     snd_path = os.path.join(project_root, "sounds", "bencylove.wav")
@@ -10135,14 +10137,9 @@ class Charm(HeroSkill):
         self._dim_lightning_arcs = []
 
     def reset_for_new_round(self, game_state: dict):
-        """라운드 전환 시 매혹은 유지 (초기화하지 않음!)
-        차원의 문 모드에서는 소환된 호위무사 해제"""
-        if self._dimensional_mode and self._dim_summoned_hero_id:
-            game_state['dimensional_summon_request'] = {'phase': 'dismiss'}
-            self._dimensional_mode = False
-            self._dim_phase = "idle"
-            self._dim_summoned_hero_id = None
-            self.is_active = False
+        """라운드 전환 시 매혹/차원소환 모두 유지 (초기화하지 않음!)"""
+        # 차원의 문 모드: 라운드 넘어가도 소환 유지
+        pass
 
     # ------------------------------------------------------------------
     #  차원의 문 (스토리모드 전용) - apply / update / draw
@@ -10165,10 +10162,10 @@ class Charm(HeroSkill):
         # 랜덤 영웅 선택 (밴시, 현재 호위무사 제외)
         self._dim_summoned_hero_id = self._pick_random_hero(game_state)
 
-        # 총 지속시간: 포탈열림(1.5) + 도착닫힘(1.0) + 활동(40) + 복귀열림(1.0) + 최종닫힘(1.0)
+        # 총 지속시간: 포탈열림(1.5) + 도착닫힘(1.0) + 활동(30) + 복귀열림(1.0) + 최종닫힘(1.0)
         self.duration = 1.5 + 1.0 + self._dim_duration + 1.0 + 1.0
         self.active_timer = 1.5 + 1.0 + self._dim_duration  # _end_effect에서 portal_return_opening 시작
-        self.cooldown = 70.0
+        self.cooldown = 40.0
         self.charm_aura_timer = 0.0
 
         # 포탈 사운드
@@ -10226,6 +10223,8 @@ class Charm(HeroSkill):
                 game_state['dimensional_summon_request'] = {
                     'phase': 'summon',
                     'hero_id': self._dim_summoned_hero_id,
+                    'portal_x': self._dim_portal_x,
+                    'portal_y': self._dim_portal_y,
                 }
                 print(f"[Charm/DimensionalGate] 소환 요청: {self._dim_summoned_hero_id}")
 

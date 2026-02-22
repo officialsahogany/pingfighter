@@ -4045,27 +4045,34 @@ class GuardWarriorSystem:
                 if self.skill_manager:
                     skill.game_state = self.skill_manager.game_state
 
-            # 차원소환 딕트 생성 (_patrol2 패턴 동일)
-            side = random.choice(['left', 'right'])
-            start_x = (GAME_AREA_X - 60) if side == "left" else (GAME_AREA_X + GAME_AREA_WIDTH + 60)
+            # 차원소환 딕트 생성 - 포탈 위치에서 하강 등장
+            portal_x = req.get('portal_x', 380.0)
+            portal_y = req.get('portal_y', 80.0)
             cd_mult = self.guard_cd_mult_bottom
             base_cd = skill.cooldown if skill else 20.0
-            initial_cd = base_cd * cd_mult + GUARD_ENTER_DURATION + 3.0
+            initial_cd = base_cd * cd_mult + 1.5 + 3.0  # 하강시간 + 여유
 
             self._dimensional_summon = {
                 'guard': hero_data,
                 'is_top': False,
-                'x': float(start_x),
-                'y': float(BOTTOM_PADDLE_Y),
-                'phase': 'patrol_entering',
+                'x': float(portal_x),
+                'y': float(portal_y),
+                'phase': 'portal_descending',   # 포탈에서 하강
                 'anim_timer': 0.0,
-                'side': side,
+                'side': random.choice(['left', 'right']),
                 'cooldown': initial_cd,
                 'cooldown_max': initial_cd,
                 'skill': skill,
                 'patrol_target': None,
                 'patrol_wait': 0.0,
                 'patrol_speed': random.uniform(120.0, 170.0),
+                '_portal_x': float(portal_x),
+                '_portal_y': float(portal_y),
+                '_descend_start_x': float(portal_x),
+                '_descend_start_y': float(portal_y),
+                '_descend_target_x': GAME_AREA_X + GAME_AREA_WIDTH // 2 + random.uniform(-80, 80),
+                '_descend_target_y': float(BOTTOM_PADDLE_Y),
+                '_alpha': 0.0,  # 페이드인용
             }
 
             # skill_instances에 등록 (get_all_cooldown_entries 참조)
@@ -4075,6 +4082,29 @@ class GuardWarriorSystem:
                 self.guard_skill_cooldowns_max[hero_id] = [base_cd * cd_mult]
 
             print(f"[DimensionalGate] 호위무사 소환: {hero_data.get('name', hero_id)}")
+
+        elif phase == 'ascend':
+            # 호위무사가 포탈 위치로 상승 시작
+            if self._dimensional_summon:
+                ds = self._dimensional_summon
+                ds['_ascend_start_x'] = ds['x']
+                ds['_ascend_start_y'] = ds['y']
+                portal_x = ds.get('_portal_x', 380.0)
+                portal_y = ds.get('_portal_y', 80.0)
+                ds['_ascend_target_x'] = portal_x
+                ds['_ascend_target_y'] = portal_y
+                ds['phase'] = 'portal_ascending'
+                ds['anim_timer'] = 0.0
+                # 활성 스킬 종료
+                sk = ds.get('skill')
+                if sk and sk.is_active:
+                    try:
+                        gs = self.skill_manager.game_state if self.skill_manager else {}
+                        sk._end_effect(None, None, None, gs)
+                    except Exception:
+                        pass
+                    sk.is_active = False
+                print(f"[DimensionalGate] 호위무사 상승 시작: {ds['guard'].get('name', '?')}")
 
         elif phase == 'dismiss':
             if self._dimensional_summon:
@@ -4100,7 +4130,7 @@ class GuardWarriorSystem:
                 print(f"[DimensionalGate] 호위무사 복귀: {hero_id}")
 
     def _update_dimensional_summon(self, dt, top_paddle, bottom_paddle, ball):
-        """차원소환 호위무사 업데이트 (_update_patrol2와 동일 로직)"""
+        """차원소환 호위무사 업데이트"""
         ds = self._dimensional_summon
         if not ds:
             return
@@ -4108,21 +4138,21 @@ class GuardWarriorSystem:
         phase = ds['phase']
         ds['anim_timer'] += dt
 
-        # === patrol_entering: 입장 ===
-        if phase == 'patrol_entering':
+        # === portal_descending: 포탈에서 하강 등장 (1.0초) ===
+        if phase == 'portal_descending':
             ds['cooldown'] -= dt
-            if ds['anim_timer'] < self.PATROL_ENTRY_DELAY:
-                return
+            DESCEND_DURATION = 1.0
+            progress = min(1.0, ds['anim_timer'] / DESCEND_DURATION)
+            # ease-out: 빠르게 출발, 부드럽게 착지
+            eased = 1.0 - (1.0 - progress) ** 2
 
-            enter_timer = ds['anim_timer'] - self.PATROL_ENTRY_DELAY
-            progress = min(1.0, enter_timer / GUARD_ENTER_DURATION)
-            eased = self._ease_in_out(progress)
-
-            if '_enter_target_x' not in ds:
-                ds['_enter_target_x'] = GAME_AREA_X + GAME_AREA_WIDTH // 2 + random.uniform(-80, 80)
-            start_x = (GAME_AREA_X - 60) if ds['side'] == "left" else (GAME_AREA_X + GAME_AREA_WIDTH + 60)
-            target_x = ds['_enter_target_x']
-            ds['x'] = start_x + (target_x - start_x) * eased
+            sx = ds['_descend_start_x']
+            sy = ds['_descend_start_y']
+            tx = ds['_descend_target_x']
+            ty = ds['_descend_target_y']
+            ds['x'] = sx + (tx - sx) * eased
+            ds['y'] = sy + (ty - sy) * eased
+            ds['_alpha'] = min(1.0, progress * 2.0)  # 빠르게 페이드인
 
             guard = ds['guard']
             if guard and self.hero_paddle_renderer:
@@ -4131,7 +4161,39 @@ class GuardWarriorSystem:
             if progress >= 1.0:
                 ds['phase'] = 'patrolling'
                 ds['anim_timer'] = 0.0
-                print(f"[DimensionalGate] {guard.get('name', '?')} 순찰 시작!")
+                ds['_alpha'] = 1.0
+                print(f"[DimensionalGate] {guard.get('name', '?')} 착지 → 순찰 시작!")
+            return
+
+        # === portal_ascending: 포탈로 상승 복귀 (1.0초) ===
+        if phase == 'portal_ascending':
+            ASCEND_DURATION = 1.0
+            progress = min(1.0, ds['anim_timer'] / ASCEND_DURATION)
+            # ease-in: 천천히 시작, 빠르게 가속
+            eased = progress ** 2
+
+            sx = ds.get('_ascend_start_x', ds['x'])
+            sy = ds.get('_ascend_start_y', ds['y'])
+            tx = ds.get('_ascend_target_x', 380.0)
+            ty = ds.get('_ascend_target_y', 80.0)
+            ds['x'] = sx + (tx - sx) * eased
+            ds['y'] = sy + (ty - sy) * eased
+            ds['_alpha'] = max(0.0, 1.0 - progress * 0.8)  # 서서히 페이드아웃
+
+            guard = ds['guard']
+            if guard and self.hero_paddle_renderer:
+                self.hero_paddle_renderer.update_movement(guard["id"], ds['x'], dt)
+
+            if progress >= 1.0:
+                # 상승 완료 - dismiss는 Charm에서 portal_return_opening 끝날 때 보냄
+                # 여기서는 대기 (포탈 닫힘 후 dismiss 처리)
+                ds['phase'] = 'portal_ascended'
+                ds['_alpha'] = 0.0
+                print(f"[DimensionalGate] {guard.get('name', '?')} 포탈 도달")
+            return
+
+        # === portal_ascended: 포탈에 도달, dismiss 대기 ===
+        if phase == 'portal_ascended':
             return
 
         # === patrolling: 순찰 + 스킬 쿨타임 ===
@@ -4140,7 +4202,6 @@ class GuardWarriorSystem:
 
             ds['cooldown'] -= dt
             if ds['cooldown'] <= 0:
-                # 스킬 발동
                 self._dimensional_summon_trigger_skill(top_paddle, bottom_paddle, ball)
             return
 
@@ -4247,11 +4308,25 @@ class GuardWarriorSystem:
         if not ds:
             return
         phase = ds['phase']
-        if phase == 'patrol_entering' and ds['anim_timer'] < self.PATROL_ENTRY_DELAY:
+        # 포탈에 도달해서 사라진 상태면 그리지 않음
+        if phase == 'portal_ascended':
             return
-        self._draw_guard(screen, ds['guard'],
-                         ds['x'] + shake_x, ds['y'] + shake_y,
-                         is_top=False)
+        alpha = ds.get('_alpha', 1.0)
+        if alpha <= 0.01:
+            return
+        # 하강/상승 중 반투명 처리
+        if alpha < 0.99 and phase in ('portal_descending', 'portal_ascending'):
+            # 임시 서피스에 그려서 알파 적용
+            temp = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
+            self._draw_guard(temp, ds['guard'],
+                             ds['x'] + shake_x, ds['y'] + shake_y,
+                             is_top=False)
+            temp.set_alpha(int(alpha * 255))
+            screen.blit(temp, (0, 0))
+        else:
+            self._draw_guard(screen, ds['guard'],
+                             ds['x'] + shake_x, ds['y'] + shake_y,
+                             is_top=False)
 
     def _draw_patrol2(self, screen, shake_x, shake_y):
         """2번째 호위무사 렌더링"""
@@ -4367,8 +4442,9 @@ class GuardWarriorSystem:
                 'width': PADDLE_WIDTH, 'height': PADDLE_HEIGHT,
                 'is_top': self._charmed.get('caster_is_top', True),
             })
-        # 차원소환 호위무사
-        if self._dimensional_summon and self._dimensional_summon.get('phase') not in (None, 'idle'):
+        # 차원소환 호위무사 (하강/상승/사라진 상태에서는 히트박스 없음)
+        if self._dimensional_summon and self._dimensional_summon.get('phase') in (
+                'patrolling', 'casting'):
             guard_rects.append({
                 'cx': self._dimensional_summon['x'],
                 'cy': self._dimensional_summon['y'],
