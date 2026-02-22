@@ -7300,6 +7300,8 @@ class ColosseumsArena:
         self.recruited_hero = None              # 우승 시 등용한 호위무사 (인게임용)
         self.seal_item_data = None              # 인장 아이템 데이터 (결과 전달용)
         self._seal_acquisition_active = False   # 인장 획득 연출 진행 중 여부
+        self._seal_phase = "none"               # "none" / "chest" / "result"
+        self._seal_effect = None                # LegendaryAcquisitionEffect 인스턴스
         self._seal_confetti_particles = []      # 색종이 파티클
         self._seal_animation_timer = 0          # 연출 애니메이션 타이머
         self._seal_icon_surface = None          # 인장 아이콘 서피스 (캐시)
@@ -9581,19 +9583,28 @@ class ColosseumsArena:
 
     def update(self, dt: float):
         """메인 업데이트"""
-        # 인장 획득 연출 진행 중이면 색종이 물리만 업데이트
+        # 인장 획득 연출 진행 중
         if self._seal_acquisition_active:
-            self._seal_animation_timer += 1
-            for p in self._seal_confetti_particles:
-                p["x"] += p["vx"]
-                p["y"] += p["vy"]
-                p["rotation"] += p["rotation_speed"]
-                p["vy"] += 0.25  # 중력
-                if p["y"] > SCREEN_HEIGHT + 100:
-                    p["y"] = random.randint(-300, -100)
-                    p["x"] = random.randint(0, SCREEN_WIDTH)
-                    p["vy"] = random.uniform(4, 12)
-                    p["vx"] = random.uniform(-6, 6)
+            if self._seal_phase == "chest" and self._seal_effect:
+                # 보물상자 애니메이션 업데이트 (dt를 밀리초로 전달)
+                self._seal_effect.update(dt * 1000)
+                # Phase 2(아이템 표시) 도달 시 → 가챠 결과 화면으로 전환
+                if self._seal_effect.phase >= 2:
+                    self._seal_phase = "result"
+                    self._seal_animation_timer = 0
+            elif self._seal_phase == "result":
+                # 색종이 물리 업데이트
+                self._seal_animation_timer += 1
+                for p in self._seal_confetti_particles:
+                    p["x"] += p["vx"]
+                    p["y"] += p["vy"]
+                    p["rotation"] += p["rotation_speed"]
+                    p["vy"] += 0.25
+                    if p["y"] > SCREEN_HEIGHT + 100:
+                        p["y"] = random.randint(-300, -100)
+                        p["x"] = random.randint(0, SCREEN_WIDTH)
+                        p["vy"] = random.uniform(4, 12)
+                        p["vx"] = random.uniform(-6, 6)
             return
 
         # dt 스파이크 방지: start_battle()이 update() 내에서 블로킹 호출되므로
@@ -10045,15 +10056,26 @@ class ColosseumsArena:
 
     def handle_event(self, event: pygame.event.Event) -> bool:
         """이벤트 처리, 종료 시 True 반환"""
-        # 인장 획득 연출 중 이벤트 처리 (클릭/스페이스로 아이템 받기)
+        # 인장 획득 연출 중 이벤트 처리
         if self._seal_acquisition_active:
-            if (event.type == pygame.KEYDOWN and event.key in (pygame.K_SPACE, pygame.K_RETURN)) or \
-               (event.type == pygame.MOUSEBUTTONDOWN):
-                # 아이템 받기 → 연출 종료, 결과 전달
-                self._seal_acquisition_active = False
-                self.total_winnings = 0
-                self.winnings_collected = True
-                self.exit_requested = True
+            if self._seal_phase == "chest":
+                # 보물상자 애니메이션 중 → 클릭/스페이스로 스킵 불가 (자동 전환 대기)
+                pass
+            elif self._seal_phase == "result":
+                # 가챠 결과 화면 → 클릭/스페이스로 아이템 받기
+                if (event.type == pygame.KEYDOWN and event.key in (pygame.K_SPACE, pygame.K_RETURN)) or \
+                   (event.type == pygame.MOUSEBUTTONDOWN):
+                    self._seal_acquisition_active = False
+                    self._seal_phase = "none"
+                    if self._seal_effect:
+                        try:
+                            self._seal_effect.force_skip()
+                        except Exception:
+                            pass
+                        self._seal_effect = None
+                    self.total_winnings = 0
+                    self.winnings_collected = True
+                    self.exit_requested = True
             return False
 
         # ============ 관리자 영웅 선택 오버레이 이벤트 처리 ============
@@ -10611,10 +10633,25 @@ class ColosseumsArena:
                         "selected_skill": _skill_idx,
                         "body_part": "accessory",
                     }
-                    # 가챠 스타일 결과 화면 시작
+                    # 보물상자 + 가챠 결과 화면 결합 연출 시작
                     _hero_name = self.bet_hero.get("name", "???")
                     _hero_color = self.bet_hero.get("color", (200, 160, 80))
-                    # 인장 아이콘 생성 (영웅 색상 반영)
+                    # 1) 보물상자 애니메이션 생성
+                    try:
+                        from effects.legendary_acquisition import LegendaryAcquisitionEffect
+                        self._seal_effect = LegendaryAcquisitionEffect()
+                        self._seal_effect.trigger(
+                            "hero_seal",
+                            f"{_hero_name}의 인장",
+                            item_icon=None,
+                            paddle_pos=None
+                        )
+                        self._seal_phase = "chest"
+                    except Exception as _eff_err:
+                        print(f"[Arena] 보물상자 연출 생성 실패, 결과화면 직행: {_eff_err}")
+                        self._seal_phase = "result"
+                        self._seal_effect = None
+                    # 2) 인장 아이콘 생성 (영웅 색상 반영)
                     _seal_icon = pygame.Surface((32, 32), pygame.SRCALPHA)
                     pygame.draw.circle(_seal_icon, (180, 140, 60), (16, 16), 14)
                     pygame.draw.circle(_seal_icon, tuple(_hero_color), (16, 16), 12)
@@ -10622,7 +10659,7 @@ class ColosseumsArena:
                     pygame.draw.line(_seal_icon, (120, 80, 30), (10, 14), (22, 14), 2)
                     pygame.draw.circle(_seal_icon, (255, 215, 0), (16, 16), 14, 2)
                     self._seal_icon_surface = _seal_icon
-                    # 색종이 파티클 초기화
+                    # 3) 색종이 파티클 초기화 (결과 화면 전환 시 사용)
                     _confetti_colors = [
                         (255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0),
                         (255, 0, 255), (0, 255, 255), (255, 128, 0), (128, 0, 255),
@@ -10647,18 +10684,6 @@ class ColosseumsArena:
                         })
                     self._seal_animation_timer = 0
                     self._seal_acquisition_active = True
-                    # 사운드 재생
-                    try:
-                        _snd_path = os.path.join(
-                            os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                            "sounds", "legendopen.wav"
-                        )
-                        if hasattr(sys, '_MEIPASS'):
-                            _snd_path = os.path.join(sys._MEIPASS, "sounds", "legendopen.wav")
-                        if os.path.exists(_snd_path):
-                            pygame.mixer.Sound(_snd_path).play()
-                    except Exception:
-                        pass
                     print(f"[Arena] 인장 획득 연출 시작: {_hero_name}의 인장")
                     return
 
@@ -11535,9 +11560,23 @@ class ColosseumsArena:
 
     def draw(self):
         """메인 그리기"""
-        # 인장 획득 연출 진행 중이면 가챠 스타일 결과 화면 그리기
+        # 인장 획득 연출 진행 중
         if self._seal_acquisition_active:
-            self._draw_seal_acquisition_screen()
+            if self._seal_phase == "chest" and self._seal_effect:
+                # 보물상자 애니메이션 그리기
+                self.screen.fill((0, 0, 0))
+                try:
+                    _font_large = self.fonts.get("large") if self.fonts else None
+                    _font_huge = self.fonts.get("huge") if self.fonts else None
+                    if _font_large is None:
+                        import pygame.freetype
+                        _font_large = pygame.freetype.SysFont(None, 28)
+                    self._seal_effect.draw(self.screen, _font_large, _font_huge)
+                except Exception as _draw_err:
+                    print(f"[Arena] 보물상자 연출 그리기 실패: {_draw_err}")
+            else:
+                # 가챠 결과 화면 그리기
+                self._draw_seal_acquisition_screen()
             return
 
         if self.state == TournamentState.HERO_PREVIEW:
