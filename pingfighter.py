@@ -125505,7 +125505,7 @@ def calculate_bounce(paddle):
         # 🌱 주니어리그: 속도 증가율 -20% 감소
         junior_mult = get_junior_speed_increase_multiplier()
         boss_min = 1.0 + (0.012 * junior_mult * arena_accel_mult)  # [투기장: +60% 가속]
-        boss_max = 1.0 + (0.054 * junior_mult * arena_accel_mult)  # [투기장: +60% 가속]
+        boss_max = 1.0 + (0.0333 * junior_mult * arena_accel_mult)  # [투기장: +60% 가속]
         boss_multiplier = random.uniform(boss_min, boss_max)  # 보스 추가 가속
         speed *= boss_multiplier
         # 🔍 [SPEED DEBUG] 보스 추가 가속
