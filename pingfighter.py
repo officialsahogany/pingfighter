@@ -56904,6 +56904,228 @@ def draw_shaking_screen():
         else:
             screen_shake_offset_x = 0
             screen_shake_offset_y = 0
+def _show_debug_bodyguard_panel(screen):
+    """[F3 디버그] 투기장 영웅 선택 → 스킬 선택 → 호위무사 소환 패널
+
+    Returns:
+        (hero_dict, skill_index) 또는 None (취소 시)
+    """
+    try:
+        from downtown.colosseum_arena import ARENA_HEROES
+        from downtown.hero_skills import HERO_SKILL_CLASSES
+    except ImportError as e:
+        print(f"[Debug] 모듈 로드 실패: {e}")
+        return None
+
+    # 스킬 한글 이름 매핑
+    SKILL_KR_NAMES = {
+        "mugen": ["달빛 베기", "귀신발걸음"],
+        "kraken": ["촉수 휘감기", "심해의 먹물"],
+        "chronos": ["중력가속", "난쟁이마술"],
+        "onimaru": ["도깨비불", "뿔 박치기"],
+        "maria": ["꼭두각시 조종", "인형의 저주"],
+        "ignis": ["드래곤 브레스", "용의 날개"],
+        "gear": ["스팀 배리어", "기름 투척"],
+        "kurokage": ["그림자분신", "환영수리검"],
+        "banshee": ["매혹", "유령소환"],
+        "necro": ["뼈 장막", "해골 궁수"],
+        "joker": ["익살스런파티", "수수께끼 묘기"],
+        "mirage": ["모래감옥", "모래회오리"],
+        "android": ["폭탄 서프라이즈", "개틀링 버스트"],
+        "ra": ["천둥 낙뢰", "천둥 뇌구"],
+        "monkeyking": ["바나나 슬라이스", "야생의 포효"],
+    }
+
+    clock = pygame.time.Clock()
+    heroes = list(ARENA_HEROES)
+
+    # 폰트 준비
+    try:
+        _title_font = pygame.font.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 20)
+        _name_font = pygame.font.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 16)
+        _desc_font = pygame.font.Font(resource_path(os.path.join("fonts", "NanumSquareR.ttf")), 13)
+        _skill_font = pygame.font.Font(resource_path(os.path.join("fonts", "NanumSquareB.ttf")), 18)
+    except Exception:
+        _title_font = pygame.font.SysFont("malgungothic", 20, bold=True)
+        _name_font = pygame.font.SysFont("malgungothic", 16, bold=True)
+        _desc_font = pygame.font.SysFont("malgungothic", 13)
+        _skill_font = pygame.font.SysFont("malgungothic", 18, bold=True)
+
+    # ===== 1단계: 영웅 선택 =====
+    selected_hero = None
+    scroll_y = 0
+    hover_idx = -1
+
+    # 그리드 설정: 3열
+    cols = 3
+    card_w, card_h = 220, 72
+    gap_x, gap_y = 10, 8
+    grid_start_y = 60
+    total_rows = (len(heroes) + cols - 1) // cols
+    total_content_h = total_rows * (card_h + gap_y)
+
+    while selected_hero is None:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return None
+            if event.type == pygame.KEYDOWN:
+                if event.key in (pygame.K_ESCAPE, pygame.K_F3):
+                    return None
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mx, my = event.pos
+                if event.button == 1:
+                    for i, hero in enumerate(heroes):
+                        row, col = divmod(i, cols)
+                        cx = 30 + col * (card_w + gap_x)
+                        cy = grid_start_y + row * (card_h + gap_y) + scroll_y
+                        if pygame.Rect(cx, cy, card_w, card_h).collidepoint(mx, my):
+                            selected_hero = hero
+                            break
+                elif event.button == 4:  # scroll up
+                    scroll_y = min(scroll_y + 30, 0)
+                elif event.button == 5:  # scroll down
+                    max_scroll = -(total_content_h - (HEIGHT - grid_start_y - 20))
+                    scroll_y = max(scroll_y - 30, min(max_scroll, 0))
+
+        # 마우스 호버 감지
+        mx, my = pygame.mouse.get_pos()
+        hover_idx = -1
+        for i, hero in enumerate(heroes):
+            row, col = divmod(i, cols)
+            cx = 30 + col * (card_w + gap_x)
+            cy = grid_start_y + row * (card_h + gap_y) + scroll_y
+            if pygame.Rect(cx, cy, card_w, card_h).collidepoint(mx, my):
+                hover_idx = i
+                break
+
+        # --- 그리기 ---
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 200))
+        screen.blit(overlay, (0, 0))
+
+        # 타이틀
+        _t = _title_font.render("[F3 디버그] 호위무사 소환 - 영웅 선택", True, (255, 215, 0))
+        screen.blit(_t, (WIDTH // 2 - _t.get_width() // 2, 15))
+        _esc = _desc_font.render("ESC: 취소", True, (180, 180, 180))
+        screen.blit(_esc, (WIDTH - _esc.get_width() - 20, 18))
+
+        # 영웅 카드 그리기
+        for i, hero in enumerate(heroes):
+            row, col = divmod(i, cols)
+            cx = 30 + col * (card_w + gap_x)
+            cy = grid_start_y + row * (card_h + gap_y) + scroll_y
+            if cy + card_h < 50 or cy > HEIGHT:
+                continue
+
+            # 카드 배경
+            is_hover = (i == hover_idx)
+            bg_color = (50, 50, 70, 230) if not is_hover else (70, 70, 100, 250)
+            border_color = hero.get("color", (150, 150, 150)) if is_hover else (80, 80, 100)
+
+            card_surf = pygame.Surface((card_w, card_h), pygame.SRCALPHA)
+            card_surf.fill(bg_color)
+            screen.blit(card_surf, (cx, cy))
+            pygame.draw.rect(screen, border_color, (cx, cy, card_w, card_h), 2, border_radius=4)
+
+            # 색상 바
+            h_color = hero.get("color", (150, 150, 150))
+            pygame.draw.rect(screen, h_color, (cx + 2, cy + 2, 6, card_h - 4))
+
+            # 이름 + 타이틀
+            name_surf = _name_font.render(hero["name"], True, h_color)
+            screen.blit(name_surf, (cx + 14, cy + 8))
+            title_surf = _desc_font.render(hero.get("title", ""), True, (200, 200, 200))
+            screen.blit(title_surf, (cx + 14, cy + 28))
+
+            # 스킬 요약
+            hero_id = hero["id"]
+            skills = SKILL_KR_NAMES.get(hero_id, ["스킬1", "스킬2"])
+            skill_text = f"{skills[0]} / {skills[1]}"
+            sk_surf = _desc_font.render(skill_text, True, (150, 200, 255))
+            screen.blit(sk_surf, (cx + 14, cy + 48))
+
+        pygame.display.flip()
+        clock.tick(30)
+
+    # ===== 2단계: 스킬 선택 =====
+    hero_id = selected_hero["id"]
+    skill_names = SKILL_KR_NAMES.get(hero_id, ["스킬 1", "스킬 2"])
+    skill_classes = HERO_SKILL_CLASSES.get(hero_id, [])
+    skill_hover = -1
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return None
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    return None  # 취소
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                mx, my = event.pos
+                for si in range(len(skill_names)):
+                    btn_w, btn_h = 300, 70
+                    btn_x = WIDTH // 2 - btn_w // 2
+                    btn_y = 320 + si * (btn_h + 20)
+                    if pygame.Rect(btn_x, btn_y, btn_w, btn_h).collidepoint(mx, my):
+                        return (selected_hero, si)
+
+        # 마우스 호버
+        mx, my = pygame.mouse.get_pos()
+        skill_hover = -1
+        for si in range(len(skill_names)):
+            btn_w, btn_h = 300, 70
+            btn_x = WIDTH // 2 - btn_w // 2
+            btn_y = 320 + si * (btn_h + 20)
+            if pygame.Rect(btn_x, btn_y, btn_w, btn_h).collidepoint(mx, my):
+                skill_hover = si
+                break
+
+        # --- 그리기 ---
+        overlay = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 220))
+        screen.blit(overlay, (0, 0))
+
+        h_color = selected_hero.get("color", (200, 200, 200))
+
+        # 타이틀
+        _t = _title_font.render("[F3 디버그] 스킬 선택", True, (255, 215, 0))
+        screen.blit(_t, (WIDTH // 2 - _t.get_width() // 2, 180))
+
+        # 영웅 이름
+        hero_label = f"{selected_hero['name']} - {selected_hero.get('title', '')}"
+        _hn = _name_font.render(hero_label, True, h_color)
+        screen.blit(_hn, (WIDTH // 2 - _hn.get_width() // 2, 220))
+
+        _info = _desc_font.render("스킬을 클릭하면 호위무사가 소환됩니다 (ESC: 취소)", True, (180, 180, 180))
+        screen.blit(_info, (WIDTH // 2 - _info.get_width() // 2, 260))
+
+        # 스킬 버튼
+        for si in range(len(skill_names)):
+            btn_w, btn_h = 300, 70
+            btn_x = WIDTH // 2 - btn_w // 2
+            btn_y = 320 + si * (btn_h + 20)
+
+            is_hover = (si == skill_hover)
+            bg = (60, 60, 90, 240) if not is_hover else (80, 80, 130, 255)
+            border = h_color if is_hover else (100, 100, 130)
+
+            btn_surf = pygame.Surface((btn_w, btn_h), pygame.SRCALPHA)
+            btn_surf.fill(bg)
+            screen.blit(btn_surf, (btn_x, btn_y))
+            pygame.draw.rect(screen, border, (btn_x, btn_y, btn_w, btn_h), 2, border_radius=6)
+
+            # 스킬 번호 + 이름
+            idx_label = f"스킬 {si + 1}"
+            _sl = _desc_font.render(idx_label, True, (180, 180, 180))
+            screen.blit(_sl, (btn_x + 20, btn_y + 10))
+
+            _sn = _skill_font.render(skill_names[si], True, (255, 255, 255))
+            screen.blit(_sn, (btn_x + 20, btn_y + 32))
+
+        pygame.display.flip()
+        clock.tick(30)
+
+
 def show_speech(text, duration=60):
     global speech_timer, speech_text, speech_max_timer
     speech_timer = duration
@@ -138824,12 +139046,24 @@ def main(stage_num, new_boss_mode=False):
                 skip_tutorial_chapter()
         main.keyCtrl_pressed = keys[pygame.K_LCTRL] or keys[pygame.K_RCTRL]
 
-        # F3키로 프로파일러 표시 토글 (투기장 모드에서는 배속 키로 사용)
+        # F3키로 디버그 호위무사 선택 패널 (투기장 모드에서는 배속 키로 사용)
         if not arena_mode_enabled:
             if keys[pygame.K_F3] and not getattr(main, 'keyF3_pressed', False):
-                if profiler:
-                    profiler.toggle_visibility()
-                    print(f" : {'ON' if profiler.visible else 'OFF'}")
+                _debug_bodyguard_result = _show_debug_bodyguard_panel(SCREEN)
+                if _debug_bodyguard_result:
+                    _dbg_hero, _dbg_skill_idx = _debug_bodyguard_result
+                    try:
+                        from game_mechanics.ingame_bodyguard import get_bodyguard
+                        _bg = get_bodyguard()
+                        _bg.reset()
+                        _skill_sel = {_dbg_hero["id"]: _dbg_skill_idx}
+                        _bg.setup(_dbg_hero, skill_selections=_skill_sel)
+                        show_speech(f"{_dbg_hero['name']} 호위무사 등장!", duration=120)
+                        print(f"[Debug] 호위무사 소환: {_dbg_hero['name']} (스킬={_dbg_skill_idx})")
+                    except Exception as _dbg_err:
+                        print(f"[Debug] 호위무사 소환 실패: {_dbg_err}")
+                        import traceback; traceback.print_exc()
+                pygame.event.clear()
         main.keyF3_pressed = keys[pygame.K_F3]
 
         # F4키로 좌표계 디버그 토글 (투기장 모드에서는 배속 키로 사용)
