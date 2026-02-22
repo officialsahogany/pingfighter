@@ -727,159 +727,198 @@ class SpaceMap:
     def _in_planet(px, py, cx, cy, r):
         return (px - cx) ** 2 + (py - cy) ** 2 < r * r
 
-    # ── 행성 1: 조선시대 (궁궐/기와/성벽/벚꽃/논밭) ──
+    # ── 행성 1: 조선시대 (궁궐/곡선지붕/산/벚꽃/개울) ──
     def _draw_planet_joseon(self, surf, cx, cy, r, alpha=255):
         glow = (255, 200, 80)
-        base = (170, 130, 60)
+        base = (160, 125, 55)
         self._draw_atmo_glow(surf, cx, cy, r, glow, alpha)
         pygame.draw.circle(surf, base, (cx, cy), r)
         if r > 12:
             random.seed(1137)
-            # 논밭 격자 (연두 패치워크로 지면 채움)
-            step = max(4, r // 5)
-            for gx in range(-r, r, step):
-                for gy in range(-r, r, step):
-                    if not self._in_planet(cx + gx + step // 2, cy + gy + step // 2, cx, cy, r - 2):
-                        continue
-                    g = random.randint(90, 160)
-                    pygame.draw.rect(surf, (g - 40, g, g // 3),
-                                     (cx + gx, cy + gy, step - 1, step - 1))
-            # 산맥 (짙은 녹색 반원 여러 개)
-            for _ in range(5):
+            # 부드러운 지형 (편심 원 패치 — 논밭/초원 질감)
+            for _ in range(max(8, r // 3)):
+                ox = random.randint(-r // 3, r // 3)
+                oy = random.randint(-r // 3, r // 3)
+                pr = random.randint(max(3, r // 6), max(5, r // 3))
+                if not self._in_planet(cx + ox, cy + oy, cx, cy, r - 2):
+                    continue
+                g = random.randint(90, 170)
+                pygame.draw.circle(surf, (g - 30, g, g // 3), (cx + ox, cy + oy), pr)
+            # 개울 (사인 곡선)
+            if r > 16:
+                pts = []
+                for step in range(16):
+                    t = step / 15
+                    sx = cx - int(r * 0.55) + int(r * 1.1 * t)
+                    sy = cy + int(r * 0.22 * math.sin(t * math.pi * 3))
+                    if self._in_planet(sx, sy, cx, cy, r - 2):
+                        pts.append((sx, sy))
+                if len(pts) > 2:
+                    pygame.draw.lines(surf, (70, 120, 170), False, pts, max(1, r // 16))
+                    pygame.draw.lines(surf, (95, 150, 205), False, pts, max(1, r // 28))
+            # 둥근 산 (겹 타원 + 하이라이트 호)
+            for _ in range(6):
                 ang = random.uniform(0, math.pi * 2)
-                d = random.uniform(r * 0.2, r * 0.7)
+                d = random.uniform(r * 0.1, r * 0.7)
                 mx = cx + int(d * math.cos(ang))
                 my = cy + int(d * math.sin(ang))
-                mw = random.randint(max(3, r // 8), max(6, r // 4))
-                mh = max(2, mw // 2)
-                if self._in_planet(mx, my, cx, cy, r - 3):
-                    pygame.draw.ellipse(surf, (40 + random.randint(0, 30),
-                                               80 + random.randint(0, 40), 30),
-                                        (mx - mw, my - mh, mw * 2, mh * 2))
-            # 기와지붕 궁궐 (사다리꼴 + 삼각지붕)
-            if r > 20:
+                if not self._in_planet(mx, my, cx, cy, r - 3):
+                    continue
+                mw = max(4, int(r * random.uniform(0.12, 0.3)))
+                mh = max(3, int(mw * 0.65))
+                mc = (30 + random.randint(0, 40), 75 + random.randint(0, 50), 25)
+                pygame.draw.ellipse(surf, mc, (mx - mw, my - mh, mw * 2, mh * 2))
+                hl = (min(255, mc[0] + 35), min(255, mc[1] + 35), min(255, mc[2] + 25))
+                pygame.draw.arc(surf, hl,
+                                (mx - mw, my - mh, mw * 2, mh * 2),
+                                math.pi * 0.15, math.pi * 0.85, 1)
+            # 곡선 기와지붕 궁궐 (호+타원)
+            if r > 22:
                 for _ in range(3):
-                    bx = cx + random.randint(-r * 2 // 3, r * 2 // 3)
-                    by = cy + random.randint(-r * 2 // 3, r * 2 // 3)
-                    if not self._in_planet(bx, by, cx, cy, r - 5):
+                    bx = cx + random.randint(-r // 2, r // 2)
+                    by = cy + random.randint(-r // 2, r // 2)
+                    if not self._in_planet(bx, by, cx, cy, r - 6):
                         continue
-                    bw = max(4, r // 5)
-                    bh = max(3, r // 7)
-                    # 건물 몸체
-                    pygame.draw.rect(surf, (180, 160, 120), (bx - bw // 2, by, bw, bh))
-                    # 기와지붕 (빨간 삼각형)
-                    roof_h = max(2, bh * 2 // 3)
-                    pygame.draw.polygon(surf, (160, 40, 30), [
-                        (bx - bw // 2 - 2, by),
-                        (bx + bw // 2 + 2, by),
-                        (bx, by - roof_h)])
-                    # 기와선
-                    pygame.draw.line(surf, (120, 25, 20),
-                                     (bx - bw // 2 - 2, by), (bx + bw // 2 + 2, by), 1)
-            # 성벽 (호 형태)
-            if r > 25:
-                wall_r = int(r * 0.55)
-                pygame.draw.arc(surf, (130, 110, 70),
-                                (cx - wall_r, cy - wall_r, wall_r * 2, wall_r * 2),
-                                math.pi * 0.3, math.pi * 1.2, max(1, r // 20))
-                # 성문 (작은 사각형)
-                gx = cx + int(wall_r * math.cos(math.pi * 0.75))
-                gy = cy + int(wall_r * math.sin(math.pi * 0.75))
-                gs = max(2, r // 12)
-                pygame.draw.rect(surf, (100, 80, 50), (gx - gs, gy - gs, gs * 2, gs * 2))
-            # 벚꽃 (핑크 점)
+                    bw = max(5, int(r * 0.18))
+                    bh = max(3, int(bw * 0.6))
+                    pygame.draw.ellipse(surf, (195, 175, 135),
+                                        (bx - bw // 2, by, bw, bh))
+                    rw = bw + 4
+                    rh = max(4, bh)
+                    pygame.draw.arc(surf, (175, 35, 28),
+                                    (bx - rw // 2, by - rh, rw, rh * 2),
+                                    0, math.pi, max(2, r // 16))
+                    pygame.draw.arc(surf, (145, 28, 22),
+                                    (bx - rw // 2 - 1, by - rh + 1, rw + 2, rh * 2),
+                                    0, math.pi, 1)
+            # 벚꽃 클러스터 (핑크 원 구름)
             for _ in range(max(5, r // 4)):
-                fx = cx + random.randint(-r + 3, r - 3)
-                fy = cy + random.randint(-r + 3, r - 3)
-                if self._in_planet(fx, fy, cx, cy, r - 2):
-                    pygame.draw.circle(surf, (255, random.randint(160, 220), random.randint(180, 220)),
-                                       (fx, fy), max(1, random.randint(1, max(2, r // 20))))
-            # 태극 문양 (중앙)
-            if r > 35:
-                tr = max(4, r // 7)
-                pygame.draw.circle(surf, (200, 50, 50), (cx - tr // 3, cy - tr // 4), tr * 2 // 3)
-                pygame.draw.circle(surf, (40, 70, 160), (cx + tr // 3, cy + tr // 4), tr * 2 // 3)
+                ang = random.uniform(0, math.pi * 2)
+                d = random.uniform(r * 0.08, r * 0.85)
+                fx = cx + int(d * math.cos(ang))
+                fy = cy + int(d * math.sin(ang))
+                if not self._in_planet(fx, fy, cx, cy, r - 2):
+                    continue
+                for _ in range(random.randint(2, 5)):
+                    off = max(1, r // 14)
+                    px = fx + random.randint(-off, off)
+                    py = fy + random.randint(-off, off)
+                    ps = max(1, random.randint(1, max(2, r // 18)))
+                    pygame.draw.circle(surf, (255, random.randint(150, 230),
+                                               random.randint(170, 230)), (px, py), ps)
+            # 아치 다리 + 태극
+            if r > 30:
+                pygame.draw.arc(surf, (155, 135, 105),
+                                (cx - r // 4, cy, r // 2, r // 4),
+                                0, math.pi, max(1, r // 22))
+                tr = max(3, r // 8)
+                pygame.draw.circle(surf, (200, 50, 50),
+                                   (cx - tr // 3, cy - tr // 3), tr * 2 // 3)
+                pygame.draw.circle(surf, (40, 70, 160),
+                                   (cx + tr // 3, cy + tr // 3), tr * 2 // 3)
             random.seed()
         self._draw_highlight(surf, cx, cy, r, base, alpha)
         pygame.draw.circle(surf, (255, 210, 120), (cx, cy), r + 1, 1)
 
-    # ── 행성 2: 정글 (밀림 나무/덩굴/늪/원시부족/악어) ──
+    # ── 행성 2: 정글 (밀림캐노피/강/줄기/덩굴/안개) ──
     def _draw_planet_jungle(self, surf, cx, cy, r, alpha=255):
         glow = (100, 200, 80)
-        base = (30, 80, 35)
+        base = (25, 70, 30)
         self._draw_atmo_glow(surf, cx, cy, r, glow, alpha)
         pygame.draw.circle(surf, base, (cx, cy), r)
         if r > 12:
             random.seed(2137)
-            # 밀림 캐노피 (짙은 초록 원 빽빽이)
-            for _ in range(max(12, r // 2)):
+            # 밀림 캐노피 (다양한 크기 겹원 + 잎 하이라이트 호)
+            for _ in range(max(15, r)):
                 ang = random.uniform(0, math.pi * 2)
-                d = random.uniform(0, r * 0.85)
+                d = random.uniform(0, r * 0.88)
                 px = cx + int(d * math.cos(ang))
                 py = cy + int(d * math.sin(ang))
                 if not self._in_planet(px, py, cx, cy, r - 2):
                     continue
-                cr = random.randint(max(2, r // 12), max(4, r // 6))
-                g = random.randint(60, 180)
+                cr = max(2, int(r * random.uniform(0.04, 0.14)))
+                g = random.randint(50, 180)
                 pygame.draw.circle(surf, (g // 3, g, g // 4), (px, py), cr)
-                # 잎 하이라이트
-                pygame.draw.circle(surf, (g // 2, min(255, g + 40), g // 3),
-                                   (px - cr // 3, py - cr // 3), max(1, cr // 2))
-            # 늪지 강 (어두운 곡선 여러 줄기)
-            for _ in range(4):
-                start_a = random.uniform(0, math.pi * 2)
+                pygame.draw.arc(surf, (g // 2, min(255, g + 50), g // 3),
+                                (px - cr, py - cr, cr * 2, cr * 2),
+                                math.pi * 0.2, math.pi * 1.1, 1)
+            # 구불구불 강
+            for _ in range(2):
+                sa = random.uniform(0, math.pi * 2)
                 pts = []
-                for step in range(10):
-                    t = step / 9
-                    ang = start_a + t * math.pi * random.uniform(0.5, 1.2)
-                    d = r * (0.05 + t * 0.7)
-                    px = cx + int(d * math.cos(ang))
-                    py = cy + int(d * math.sin(ang))
-                    pts.append((px, py))
-                if len(pts) > 1:
-                    pygame.draw.lines(surf, (20, 50, 30), False, pts, max(1, r // 18))
-                    # 물 반사
-                    pygame.draw.lines(surf, (40, 80, 50), False, pts, max(1, r // 30))
-            # 덩굴 (곡선 줄기 + 잎)
+                for step in range(18):
+                    t = step / 17
+                    ang2 = sa + t * math.pi * random.uniform(0.8, 1.5)
+                    d2 = r * (0.08 + t * 0.75)
+                    px2 = cx + int(d2 * math.cos(ang2))
+                    py2 = cy + int(d2 * math.sin(ang2))
+                    if self._in_planet(px2, py2, cx, cy, r):
+                        pts.append((px2, py2))
+                if len(pts) > 2:
+                    pygame.draw.lines(surf, (25, 55, 35), False, pts, max(2, r // 12))
+                    pygame.draw.lines(surf, (45, 85, 55), False, pts, max(1, r // 20))
+            # 거대 나무 줄기 + 수관
+            if r > 20:
+                for _ in range(3):
+                    tx = cx + random.randint(-r // 2, r // 2)
+                    ty = cy + random.randint(-r // 3, r // 3)
+                    if not self._in_planet(tx, ty, cx, cy, r - 5):
+                        continue
+                    th = max(4, r // 4)
+                    tw = max(2, r // 14)
+                    pygame.draw.line(surf, (80, 50, 25),
+                                     (tx, ty + th // 2), (tx, ty - th // 2), tw)
+                    # 수관 (나무 꼭대기 둥근 캐노피)
+                    ccr = max(3, tw * 3)
+                    pygame.draw.circle(surf, (40, random.randint(100, 150), 35),
+                                       (tx, ty - th // 2), ccr)
+                    pygame.draw.circle(surf, (50, random.randint(130, 180), 40),
+                                       (tx - ccr // 2, ty - th // 2 - ccr // 3),
+                                       max(2, ccr * 2 // 3))
+            # 덩굴 (곡선 + 끝 잎)
             if r > 20:
                 for _ in range(5):
-                    vx = cx + random.randint(-r * 2 // 3, r * 2 // 3)
-                    vy = cy + random.randint(-r * 2 // 3, r * 2 // 3)
+                    vx = cx + random.randint(-r // 2, r // 2)
+                    vy = cy + random.randint(-r // 2, r // 2)
                     if not self._in_planet(vx, vy, cx, cy, r - 4):
                         continue
-                    vlen = max(3, r // 5)
                     pts = [(vx, vy)]
-                    for vi in range(4):
-                        vx += random.randint(-vlen // 3, vlen // 3)
-                        vy += random.randint(1, vlen // 2)
+                    for vi in range(5):
+                        vx += random.randint(-max(1, r // 8), max(1, r // 8))
+                        vy += max(1, r // 10)
                         pts.append((vx, vy))
-                    pygame.draw.lines(surf, (60, 120, 40), False, pts, 1)
-            # 원시부족 오두막 (삼각형 지붕)
-            if r > 30:
-                for _ in range(2):
-                    hx = cx + random.randint(-r // 2, r // 2)
-                    hy = cy + random.randint(-r // 2, r // 2)
-                    if not self._in_planet(hx, hy, cx, cy, r - 6):
-                        continue
-                    hs = max(3, r // 8)
-                    pygame.draw.rect(surf, (120, 90, 50), (hx - hs, hy, hs * 2, hs))
-                    pygame.draw.polygon(surf, (80, 60, 30), [
-                        (hx - hs - 1, hy), (hx + hs + 1, hy), (hx, hy - hs)])
-            # 악어 눈 (노란 점 쌍)
+                    pygame.draw.lines(surf, (50, 100, 30), False, pts, 1)
+                    pygame.draw.circle(surf, (60, 140, 35), pts[-1], max(1, r // 20))
+            # 악어 눈 쌍 (동공 포함)
             if r > 25:
                 for _ in range(2):
                     ex = cx + random.randint(-r // 2, r // 2)
-                    ey = cy + random.randint(-r // 2, r // 2)
+                    ey = cy + random.randint(0, r // 2)
                     if self._in_planet(ex, ey, cx, cy, r - 4):
-                        es = max(1, r // 25)
-                        pygame.draw.circle(surf, (220, 200, 30), (ex - es, ey), es)
-                        pygame.draw.circle(surf, (220, 200, 30), (ex + es, ey), es)
+                        es = max(1, r // 22)
+                        pygame.draw.circle(surf, (220, 200, 30), (ex - es * 2, ey), es)
+                        pygame.draw.circle(surf, (220, 200, 30), (ex + es * 2, ey), es)
+                        pygame.draw.circle(surf, (40, 15, 0), (ex - es * 2, ey), max(1, es // 2))
+                        pygame.draw.circle(surf, (40, 15, 0), (ex + es * 2, ey), max(1, es // 2))
+            # 안개/이끼 (반투명 타원)
+            if r > 20:
+                for _ in range(5):
+                    fx = cx + random.randint(-r + 5, r - 5)
+                    fy = cy + random.randint(-r + 5, r - 5)
+                    if not self._in_planet(fx, fy, cx, cy, r - 3):
+                        continue
+                    fr = max(3, int(r * random.uniform(0.08, 0.2)))
+                    fs = pygame.Surface((fr * 2 + 4, fr * 2 + 4), pygame.SRCALPHA)
+                    for ci in range(fr, 0, -2):
+                        fa = max(1, int(12 * ci / fr))
+                        pygame.draw.circle(fs, (100, 160, 80, fa), (fr + 2, fr + 2), ci)
+                    surf.blit(fs, (fx - fr - 2, fy - fr - 2))
             random.seed()
         self._draw_highlight(surf, cx, cy, r, (50, 120, 50), alpha)
         self._draw_ring(surf, cx, cy, r, (80, 160, 70), alpha)
         pygame.draw.circle(surf, (80, 180, 60), (cx, cy), r + 1, 1)
 
-    # ── 행성 3: 멘헤라 (인형/하트/붕대/알약/눈물/균열) ──
+    # ── 행성 3: 멘헤라 (소용돌이/하트/붕대/알약/눈물) ──
     def _draw_planet_menhera(self, surf, cx, cy, r, alpha=255):
         glow = (255, 120, 220)
         base = (160, 50, 130)
@@ -887,78 +926,86 @@ class SpaceMap:
         pygame.draw.circle(surf, base, (cx, cy), r)
         if r > 12:
             random.seed(3137)
-            # 핑크/보라 소용돌이 밴드 (빽빽이)
-            for by in range(-r + 2, r, max(2, r // 10)):
-                bw = int(math.sqrt(max(0, r * r - by * by)))
-                if bw < 2:
-                    continue
-                wave = int(4 * math.sin(by * 0.25 + by * 0.01))
-                col = (180 + random.randint(-30, 40),
-                       30 + random.randint(0, 50),
-                       140 + random.randint(-30, 40))
-                pygame.draw.line(surf, col,
-                                 (cx - bw + wave, cy + by),
-                                 (cx + bw + wave, cy + by), 1)
-            # 하트 문양 (빽빽이)
-            for _ in range(max(5, r // 6)):
+            # 소용돌이 텍스쳐 (나선 색 밴드)
+            for sp in range(2):
+                offset = sp * math.pi
+                for step in range(60):
+                    t = step / 59
+                    ang = offset + t * math.pi * 6
+                    d = t * r * 0.9
+                    px = cx + int(d * math.cos(ang))
+                    py = cy + int(d * math.sin(ang))
+                    if self._in_planet(px, py, cx, cy, r - 1):
+                        sc = (180 + random.randint(-20, 30), 40 + random.randint(0, 40),
+                              140 + random.randint(-20, 30))
+                        pygame.draw.circle(surf, sc, (px, py), max(1, r // 12))
+            # 하트 (겹원 + 삼각)
+            for _ in range(max(4, r // 7)):
                 ang = random.uniform(0, math.pi * 2)
                 d = random.uniform(r * 0.05, r * 0.8)
                 hx = cx + int(d * math.cos(ang))
                 hy = cy + int(d * math.sin(ang))
                 if not self._in_planet(hx, hy, cx, cy, r - 3):
                     continue
-                hs = max(2, random.randint(max(1, r // 12), max(2, r // 6)))
-                hc = (255, random.randint(60, 160), random.randint(100, 180))
-                pygame.draw.circle(surf, hc, (hx - hs // 3, hy - hs // 4), hs // 2)
-                pygame.draw.circle(surf, hc, (hx + hs // 3, hy - hs // 4), hs // 2)
-                pygame.draw.polygon(surf, hc, [(hx - hs, hy), (hx + hs, hy), (hx, hy + hs)])
-            # 붕대 (X자 교차선)
+                hs = max(2, int(r * random.uniform(0.06, 0.14)))
+                hc = (255, random.randint(60, 180), random.randint(100, 200))
+                pygame.draw.circle(surf, hc, (hx - hs // 3, hy - hs // 4), max(1, hs // 2))
+                pygame.draw.circle(surf, hc, (hx + hs // 3, hy - hs // 4), max(1, hs // 2))
+                pygame.draw.polygon(surf, hc,
+                                    [(hx - hs, hy), (hx + hs, hy), (hx, hy + hs)])
+            # 붕대 (X자 + 중앙 매듭)
             if r > 20:
-                for _ in range(4):
+                for _ in range(3):
                     bx = cx + random.randint(-r // 2, r // 2)
-                    by = cy + random.randint(-r // 2, r // 2)
-                    if not self._in_planet(bx, by, cx, cy, r - 5):
+                    by2 = cy + random.randint(-r // 2, r // 2)
+                    if not self._in_planet(bx, by2, cx, cy, r - 5):
                         continue
                     bl = max(3, r // 6)
-                    pygame.draw.line(surf, (240, 220, 200), (bx - bl, by - bl), (bx + bl, by + bl), max(1, r // 25))
-                    pygame.draw.line(surf, (240, 220, 200), (bx - bl, by + bl), (bx + bl, by - bl), max(1, r // 25))
-            # 알약 (캡슐형 = 양쪽 반원 + 사각형)
+                    bw = max(1, r // 22)
+                    pygame.draw.line(surf, (245, 225, 205),
+                                     (bx - bl, by2 - bl), (bx + bl, by2 + bl), bw)
+                    pygame.draw.line(surf, (245, 225, 205),
+                                     (bx - bl, by2 + bl), (bx + bl, by2 - bl), bw)
+                    pygame.draw.circle(surf, (230, 210, 190), (bx, by2), max(1, bw + 1))
+            # 알약 (타원 조합)
             if r > 25:
                 for _ in range(2):
                     px = cx + random.randint(-r // 2, r // 2)
                     py = cy + random.randint(-r // 2, r // 2)
                     if not self._in_planet(px, py, cx, cy, r - 5):
                         continue
-                    pw = max(3, r // 8)
+                    pw = max(3, r // 7)
                     ph = max(2, pw // 3)
-                    pygame.draw.rect(surf, (255, 200, 200), (px - pw, py - ph, pw, ph * 2))
-                    pygame.draw.rect(surf, (200, 80, 120), (px, py - ph, pw, ph * 2))
-                    pygame.draw.circle(surf, (255, 200, 200), (px - pw, py), ph)
-                    pygame.draw.circle(surf, (200, 80, 120), (px + pw, py), ph)
-            # 눈물 자국 (흰색 짧은 세로선)
+                    pygame.draw.ellipse(surf, (255, 200, 200),
+                                        (px - pw, py - ph, pw, ph * 2))
+                    pygame.draw.ellipse(surf, (200, 80, 120),
+                                        (px, py - ph, pw, ph * 2))
+            # 눈물 (타원 물방울)
             for _ in range(max(4, r // 5)):
                 tx = cx + random.randint(-r + 3, r - 3)
                 ty = cy + random.randint(-r + 3, r - 3)
                 if self._in_planet(tx, ty, cx, cy, r - 2):
                     tl = max(2, random.randint(2, max(3, r // 8)))
-                    pygame.draw.line(surf, (200, 200, 255, 60), (tx, ty), (tx, ty + tl), 1)
-            # 균열 (어두운 보라 가지치기 선)
+                    pygame.draw.ellipse(surf, (180, 200, 255),
+                                        (tx - 1, ty, 2, tl))
+            # 균열 (곡선 가지치기)
             if r > 20:
                 for _ in range(3):
                     sx = cx + random.randint(-r // 3, r // 3)
                     sy = cy + random.randint(-r // 3, r // 3)
                     pts = [(sx, sy)]
-                    for _ in range(5):
-                        sx += random.randint(-r // 6, r // 6)
-                        sy += random.randint(-r // 10, r // 5)
+                    for _ in range(6):
+                        sx += random.randint(-max(1, r // 6), max(1, r // 6))
+                        sy += random.randint(-max(1, r // 10), max(1, r // 5))
                         pts.append((sx, sy))
-                    pygame.draw.lines(surf, (80, 10, 60), False, pts, max(1, r // 30))
+                    if len(pts) > 2:
+                        pygame.draw.lines(surf, (80, 10, 60), False, pts, 1)
             random.seed()
         self._draw_highlight(surf, cx, cy, r, (200, 80, 170), alpha)
         self._draw_ring(surf, cx, cy, r, (200, 80, 180), alpha)
         pygame.draw.circle(surf, (220, 100, 200), (cx, cy), r + 1, 1)
 
-    # ── 행성 4: 사원 (탑/기둥/계단/불상/향로/만다라) ──
+    # ── 행성 4: 사원 (돔/기둥/만다라/향연기/계단) ──
     def _draw_planet_temple(self, surf, cx, cy, r, alpha=255):
         glow = (220, 180, 100)
         base = (140, 100, 60)
@@ -966,83 +1013,82 @@ class SpaceMap:
         pygame.draw.circle(surf, base, (cx, cy), r)
         if r > 12:
             random.seed(4137)
-            # 사암 지면 (가로 줄 빽빽이 + 색 변화)
-            for by in range(-r + 2, r, max(2, r // 12)):
-                bw = int(math.sqrt(max(0, r * r - by * by)))
-                if bw < 2:
-                    continue
-                shade = random.randint(-20, 20)
-                col = (_clamp(135 + shade), _clamp(95 + shade), _clamp(55 + shade // 2))
-                pygame.draw.line(surf, col, (cx - bw, cy + by), (cx + bw, cy + by), 1)
-            # 탑/파고다 (겹 사다리꼴)
+            # 사암 텍스쳐 (동심 편심원 + 미세 색변화)
+            for ri in range(r - 2, max(2, r // 5), -max(2, r // 10)):
+                ox = random.randint(-2, 2)
+                oy = random.randint(-2, 2)
+                shade = random.randint(-15, 15)
+                col = (_clamp(138 + shade), _clamp(98 + shade), _clamp(58 + shade // 2))
+                pygame.draw.circle(surf, col, (cx + ox, cy + oy), ri)
+            # 돔 사원 (반원형 건물 + 기둥)
             if r > 18:
                 for _ in range(3):
-                    tx = cx + random.randint(-r * 2 // 3, r * 2 // 3)
-                    ty = cy + random.randint(-r // 3, r * 2 // 3)
-                    if not self._in_planet(tx, ty, cx, cy, r - 5):
+                    bx = cx + random.randint(-r // 2, r // 2)
+                    by = cy + random.randint(-r // 3, r // 2)
+                    if not self._in_planet(bx, by, cx, cy, r - 5):
                         continue
-                    tw = max(3, r // 7)
-                    floors = random.randint(2, 4)
-                    fh = max(2, r // 12)
-                    for fi in range(floors):
-                        fw = tw - fi * max(1, tw // (floors + 1))
-                        if fw < 2:
-                            break
-                        fy = ty - fi * fh
-                        pygame.draw.rect(surf, (170, 140, 90),
-                                         (tx - fw, fy - fh, fw * 2, fh))
-                        # 처마 (밝은 선)
-                        pygame.draw.line(surf, (200, 170, 110),
-                                         (tx - fw - 1, fy - fh), (tx + fw + 1, fy - fh), 1)
-                    # 꼭대기 첨탑
-                    top_y = ty - floors * fh
-                    pygame.draw.line(surf, (200, 170, 100), (tx, top_y), (tx, top_y - max(2, fh)), 1)
-            # 기둥열 (세로선 쌍)
-            if r > 25:
-                for _ in range(4):
-                    px = cx + random.randint(-r // 2, r // 2)
-                    py = cy + random.randint(-r // 3, r // 2)
-                    if not self._in_planet(px, py, cx, cy, r - 4):
-                        continue
-                    ph = max(3, r // 5)
+                    bw = max(4, int(r * 0.16))
+                    # 돔 채우기
+                    pygame.draw.ellipse(surf, (170, 140, 90),
+                                        (bx - bw, by - bw // 3, bw * 2, bw))
+                    # 돔 호
+                    pygame.draw.arc(surf, (180, 150, 95),
+                                    (bx - bw, by - bw, bw * 2, bw * 2),
+                                    0, math.pi, max(2, r // 14))
+                    # 기둥 (둥근 세로)
                     pw = max(1, r // 20)
-                    pygame.draw.rect(surf, (180, 155, 100), (px - pw, py, pw * 2, ph))
-                    # 기둥 머리
-                    pygame.draw.rect(surf, (200, 175, 120), (px - pw - 1, py - 1, pw * 2 + 2, 2))
-            # 계단 (가로선 계단형)
-            if r > 30:
-                stx = cx + random.randint(-r // 3, r // 3)
-                sty = cy + random.randint(0, r // 3)
-                stw = max(4, r // 4)
-                for si in range(4):
-                    sw = stw - si * max(1, stw // 5)
+                    ph = max(3, bw * 2 // 3)
+                    pygame.draw.ellipse(surf, (185, 160, 105),
+                                        (bx - bw + 2, by, pw * 2, ph))
+                    pygame.draw.ellipse(surf, (185, 160, 105),
+                                        (bx + bw - pw * 2 - 2, by, pw * 2, ph))
+                    # 첨탑
+                    pygame.draw.circle(surf, (210, 185, 120), (bx, by - bw), max(1, pw))
+                    pygame.draw.line(surf, (200, 175, 110),
+                                     (bx, by - bw), (bx, by - bw - max(2, bw // 3)), 1)
+            # 계단 (호 형태)
+            if r > 28:
+                stx = cx + random.randint(-r // 4, r // 4)
+                sty = cy + random.randint(r // 6, r // 3)
+                for si in range(5):
+                    sw = max(3, int(r * 0.2) - si * max(1, r // 15))
                     if sw < 2:
                         break
-                    pygame.draw.rect(surf, (155, 125, 80),
-                                     (stx - sw, sty - si * 2, sw * 2, 2))
-            # 만다라 (동심원 + 8방 선)
-            if r > 30:
+                    pygame.draw.arc(surf, (160, 130, 85),
+                                    (stx - sw, sty - si * 2 - sw // 2, sw * 2, sw),
+                                    0, math.pi, 1)
+            # 만다라 (동심원 + 12방사선 + 끝 장식)
+            if r > 28:
                 for ri in range(4, 0, -1):
-                    mr = max(2, r // 4 * ri // 4)
+                    mr = max(2, r * ri // 12)
                     pygame.draw.circle(surf, (200, 170, 100), (cx, cy), mr, 1)
-                for i in range(8):
-                    ang = i * math.pi / 4
+                for i in range(12):
+                    ang = i * math.pi / 6
                     el = max(3, r // 3)
                     ex = cx + int(el * math.cos(ang))
                     ey = cy + int(el * math.sin(ang))
                     pygame.draw.line(surf, (190, 160, 90), (cx, cy), (ex, ey), 1)
-            # 향로 연기 (작은 반투명 원)
-            for _ in range(max(3, r // 8)):
+                    pygame.draw.circle(surf, (210, 180, 110), (ex, ey), max(1, r // 22))
+            # 향로 연기 (곡선 나선 + 뭉치)
+            for _ in range(max(3, r // 6)):
                 sx = cx + random.randint(-r // 2, r // 2)
                 sy = cy + random.randint(-r + 5, r - 5)
-                if self._in_planet(sx, sy, cx, cy, r - 2):
-                    sr = max(1, random.randint(1, max(2, r // 15)))
-                    pygame.draw.circle(surf, (200, 180, 140), (sx, sy), sr)
+                if not self._in_planet(sx, sy, cx, cy, r - 2):
+                    continue
+                pts = [(sx, sy)]
+                for si in range(4):
+                    sx += random.randint(-max(1, r // 12), max(1, r // 12))
+                    sy -= max(1, r // 14)
+                    pts.append((sx, sy))
+                if len(pts) > 1:
+                    pygame.draw.lines(surf, (195, 175, 140), False, pts, 1)
+                sr = max(1, random.randint(1, max(2, r // 16)))
+                pygame.draw.circle(surf, (200, 185, 150), (sx, sy), sr)
             random.seed()
         self._draw_highlight(surf, cx, cy, r, base, alpha)
         pygame.draw.circle(surf, (200, 160, 90), (cx, cy), r + 1, 1)
 
-    # ── 행성 5: 해상전투 (대양/파도/전함/대포/등대/폭풍) ──
+    # ── 행성 5: 해상전투 (대양/파도곡선/섬/범선/등대/소용돌이) ──
     def _draw_planet_ocean(self, surf, cx, cy, r, alpha=255):
         glow = (80, 150, 255)
         base = (30, 60, 140)
@@ -1050,97 +1096,109 @@ class SpaceMap:
         pygame.draw.circle(surf, base, (cx, cy), r)
         if r > 12:
             random.seed(5137)
-            # 바다 물결 (빽빽한 파도선)
-            for by in range(-r + 2, r, max(2, r // 10)):
+            # 바다 깊이 그라디언트 (동심원 음영)
+            for ri in range(r - 2, max(2, r // 6), -max(2, r // 8)):
+                t = ri / max(1, r)
+                b = int(100 + 60 * t)
+                g = int(50 + 40 * t)
+                pygame.draw.circle(surf, (20 + int(15 * t), g, _clamp(b)),
+                                   (cx, cy), ri)
+            # 파도 곡선 (부드러운 사인파)
+            for by in range(-r + 3, r, max(3, r // 8)):
                 bw = int(math.sqrt(max(0, r * r - by * by)))
                 if bw < 3:
                     continue
                 pts = []
-                wave_a = max(1, r // 14)
-                phase = by * 0.07
-                for sx in range(-bw, bw + 1, max(2, bw // 12)):
-                    wy = by + int(wave_a * math.sin(sx * 0.1 + phase))
+                wave_a = max(1, r // 16)
+                phase = by * 0.08
+                for sx in range(-bw, bw + 1, max(2, bw // 10)):
+                    wy = by + int(wave_a * math.sin(sx * 0.12 + phase))
                     pts.append((cx + sx, cy + wy))
                 if len(pts) > 1:
-                    depth = abs(by) / r
-                    b = _clamp(120 + int(80 * (1 - depth)))
-                    pygame.draw.lines(surf, (20, 50 + int(40 * depth), b),
+                    depth = abs(by) / max(1, r)
+                    b = _clamp(140 + int(80 * (1 - depth)))
+                    pygame.draw.lines(surf, (40, 70 + int(40 * depth), b),
                                       False, pts, 1)
-            # 대륙 섬 (불규칙 다각형)
+            # 초록 섬 (부드러운 타원)
             for _ in range(4):
                 ang = random.uniform(0, math.pi * 2)
-                d = random.uniform(r * 0.15, r * 0.65)
+                d = random.uniform(r * 0.15, r * 0.6)
                 ix = cx + int(d * math.cos(ang))
                 iy = cy + int(d * math.sin(ang))
                 if not self._in_planet(ix, iy, cx, cy, r - 4):
                     continue
-                ir = random.randint(max(2, r // 12), max(4, r // 7))
-                pts = []
-                for vi in range(6):
-                    va = vi / 6 * math.pi * 2
-                    vr = ir * random.uniform(0.5, 1.0)
-                    pts.append((ix + int(vr * math.cos(va)), iy + int(vr * math.sin(va))))
-                pygame.draw.polygon(surf, (70 + random.randint(0, 30),
-                                           110 + random.randint(0, 30),
-                                           50 + random.randint(0, 20)), pts)
-            # 전함 (삼각형 + 사각형 조합)
-            if r > 20:
+                iw = max(3, int(r * random.uniform(0.08, 0.18)))
+                ih = max(2, int(iw * random.uniform(0.5, 0.8)))
+                ic = (60 + random.randint(0, 40), 120 + random.randint(0, 40),
+                      40 + random.randint(0, 25))
+                pygame.draw.ellipse(surf, ic, (ix - iw, iy - ih, iw * 2, ih * 2))
+                pygame.draw.ellipse(surf, (200, 190, 140),
+                                    (ix - iw, iy - ih, iw * 2, ih * 2), 1)
+            # 범선 (곡선 선체 + 호형 돛)
+            if r > 22:
                 for _ in range(3):
-                    sx = cx + random.randint(-r * 2 // 3, r * 2 // 3)
-                    sy = cy + random.randint(-r * 2 // 3, r * 2 // 3)
+                    sx = cx + random.randint(-r // 2, r // 2)
+                    sy = cy + random.randint(-r // 2, r // 2)
                     if not self._in_planet(sx, sy, cx, cy, r - 5):
                         continue
-                    sw = max(3, r // 7)
-                    sh = max(1, sw // 3)
-                    # 선체
-                    pygame.draw.rect(surf, (100, 90, 80), (sx - sw // 2, sy, sw, sh))
-                    # 뱃머리
-                    pygame.draw.polygon(surf, (110, 100, 85), [
-                        (sx + sw // 2, sy), (sx + sw // 2, sy + sh), (sx + sw // 2 + sh, sy + sh // 2)])
-                    # 돛대
-                    pygame.draw.line(surf, (140, 130, 110), (sx, sy), (sx, sy - max(2, sw // 2)), 1)
-                    # 돛 (삼각형)
-                    pygame.draw.polygon(surf, (220, 210, 190), [
-                        (sx, sy - max(2, sw // 2)),
-                        (sx + max(1, sw // 3), sy - max(1, sw // 4)),
-                        (sx, sy)])
-            # 등대 (상단 원 + 세로 사각형)
-            if r > 30:
-                lx = cx + random.randint(-r // 3, r // 3)
-                ly = cy + random.randint(-r // 3, r // 3)
+                    sw = max(4, r // 7)
+                    sh = max(2, sw // 3)
+                    pygame.draw.ellipse(surf, (100, 85, 65),
+                                        (sx - sw // 2, sy, sw, sh))
+                    mh = max(3, sw * 2 // 3)
+                    pygame.draw.line(surf, (140, 130, 110),
+                                     (sx, sy), (sx, sy - mh), 1)
+                    pygame.draw.arc(surf, (230, 220, 200),
+                                    (sx, sy - mh, max(2, sw // 2), mh),
+                                    -math.pi * 0.1, math.pi * 1.1, max(1, r // 25))
+            # 등대 (둥근 + 빛 방출)
+            if r > 28:
+                lx = cx + random.randint(-r // 4, r // 4)
+                ly = cy + random.randint(-r // 4, r // 4)
                 if self._in_planet(lx, ly, cx, cy, r - 5):
-                    lh = max(4, r // 6)
-                    lw = max(1, r // 20)
-                    pygame.draw.rect(surf, (200, 190, 170), (lx - lw, ly - lh, lw * 2, lh))
-                    pygame.draw.circle(surf, (255, 255, 150), (lx, ly - lh - 1), max(2, lw + 1))
-            # 폭풍 구름 소용돌이
+                    lh = max(5, r // 5)
+                    lw = max(2, r // 16)
+                    pygame.draw.ellipse(surf, (210, 200, 180),
+                                        (lx - lw, ly - lh, lw * 2, lh))
+                    for li in range(3):
+                        la = -math.pi / 2 + (li - 1) * 0.3
+                        lex = lx + int(max(4, lh * 0.6) * math.cos(la))
+                        ley = ly - lh + int(max(4, lh * 0.6) * math.sin(la))
+                        pygame.draw.line(surf, (255, 255, 180),
+                                         (lx, ly - lh), (lex, ley), 1)
+                    pygame.draw.circle(surf, (255, 255, 200), (lx, ly - lh), max(1, lw))
+            # 소용돌이 (나선)
             if r > 25:
                 for _ in range(2):
                     sa = random.uniform(0, math.pi * 2)
-                    sd = random.uniform(r * 0.2, r * 0.55)
-                    sx = cx + int(sd * math.cos(sa))
-                    sy = cy + int(sd * math.sin(sa))
-                    sr = max(4, r // 6)
-                    ss = pygame.Surface((sr * 2 + 4, sr * 2 + 4), pygame.SRCALPHA)
-                    for ci in range(sr, 0, -1):
-                        a = max(1, int(20 * ci / sr))
-                        pygame.draw.circle(ss, (200, 215, 240, a), (sr + 2, sr + 2), ci)
-                    surf.blit(ss, (sx - sr - 2, sy - sr - 2))
-                    # 나선
+                    sd = random.uniform(r * 0.2, r * 0.5)
+                    scx2 = cx + int(sd * math.cos(sa))
+                    scy2 = cy + int(sd * math.sin(sa))
+                    if not self._in_planet(scx2, scy2, cx, cy, r - 5):
+                        continue
+                    sr = max(3, r // 7)
                     pts = []
-                    for si in range(12):
-                        t = si / 11
-                        sa2 = t * math.pi * 2
-                        sd2 = sr * 0.1 + t * sr * 0.6
-                        pts.append((sx + int(sd2 * math.cos(sa2)), sy + int(sd2 * math.sin(sa2))))
+                    for si in range(16):
+                        t = si / 15
+                        sa2 = t * math.pi * 3
+                        sd2 = sr * 0.08 + t * sr * 0.8
+                        pts.append((scx2 + int(sd2 * math.cos(sa2)),
+                                    scy2 + int(sd2 * math.sin(sa2))))
                     if len(pts) > 2:
-                        pygame.draw.lines(surf, (180, 200, 230), False, pts, 1)
+                        pygame.draw.lines(surf, (60, 100, 180), False, pts, 1)
+            # 물거품 (흰 점)
+            for _ in range(max(3, r // 5)):
+                fx = cx + random.randint(-r + 3, r - 3)
+                fy = cy + random.randint(-r + 3, r - 3)
+                if self._in_planet(fx, fy, cx, cy, r - 2):
+                    pygame.draw.circle(surf, (200, 220, 255),
+                                       (fx, fy), max(1, random.randint(1, max(2, r // 22))))
             random.seed()
         self._draw_highlight(surf, cx, cy, r, (50, 100, 180), alpha)
         self._draw_ring(surf, cx, cy, r, (60, 120, 200), alpha)
         pygame.draw.circle(surf, (80, 160, 255), (cx, cy), r + 1, 1)
 
-    # ── 행성 6: 화염 (용암강/화산/불기둥/균열/잿더미) ──
+    # ── 행성 6: 화염 (용암/화산/불꽃/균열곡선/잿빛) ──
     def _draw_planet_fire(self, surf, cx, cy, r, alpha=255):
         glow = (255, 100, 50)
         base = (80, 20, 10)
@@ -1153,82 +1211,97 @@ class SpaceMap:
             pygame.draw.circle(gs, (_clamp(255 - i * 2), _clamp(80 - i), 20, a),
                                (gcx, gcx), r + i)
         surf.blit(gs, (cx - grr - 2, cy - grr - 2))
-
         pygame.draw.circle(surf, base, (cx, cy), r)
         if r > 12:
             random.seed(6137)
-            # 균열 격자 (불규칙 선으로 표면 분할 = 굳은 용암)
+            # 용암 텍스쳐 (편심 뜨거운 원 패치)
             for _ in range(max(8, r // 3)):
+                ox = random.randint(-r // 2, r // 2)
+                oy = random.randint(-r // 2, r // 2)
+                if not self._in_planet(cx + ox, cy + oy, cx, cy, r - 2):
+                    continue
+                pr = random.randint(max(2, r // 8), max(4, r // 3))
+                heat = random.randint(0, 60)
+                pygame.draw.circle(surf, (80 + heat, 15 + heat // 4, 5),
+                                   (cx + ox, cy + oy), pr)
+            # 용암 균열 (곡선 가지치기)
+            for _ in range(max(6, r // 4)):
                 sx = cx + random.randint(-r + 3, r - 3)
                 sy = cy + random.randint(-r + 3, r - 3)
                 if not self._in_planet(sx, sy, cx, cy, r - 2):
                     continue
                 pts = [(sx, sy)]
-                for _ in range(random.randint(3, 6)):
-                    sx += random.randint(-r // 5, r // 5)
-                    sy += random.randint(-r // 5, r // 5)
+                for _ in range(random.randint(3, 7)):
+                    sx += random.randint(-max(1, r // 5), max(1, r // 5))
+                    sy += random.randint(-max(1, r // 5), max(1, r // 5))
                     pts.append((sx, sy))
-                pygame.draw.lines(surf, (200, random.randint(60, 120), 10), False, pts, 1)
-            # 용암 강 (밝은 주황/노랑 두꺼운 곡선)
-            for _ in range(6):
-                start_a = random.uniform(0, math.pi * 2)
+                if len(pts) > 1:
+                    pygame.draw.lines(surf, (220, random.randint(80, 160), 15),
+                                      False, pts, 1)
+            # 용암 강 (밝은 곡선 — 글로우 + 코어)
+            for _ in range(4):
+                sa = random.uniform(0, math.pi * 2)
                 pts = []
-                for step in range(8):
-                    t = step / 7
-                    ang = start_a + t * math.pi * random.uniform(0.4, 0.9)
-                    d = r * (0.05 + t * 0.7)
+                for step in range(10):
+                    t = step / 9
+                    ang = sa + t * math.pi * random.uniform(0.5, 1.0)
+                    d = r * (0.05 + t * 0.75)
                     px = cx + int(d * math.cos(ang))
                     py = cy + int(d * math.sin(ang))
                     pts.append((px, py))
                 if len(pts) > 1:
-                    # 용암 코어 (밝은 노랑)
-                    pygame.draw.lines(surf, (255, random.randint(200, 255), random.randint(30, 80)),
-                                      False, pts, max(1, r // 15))
-                    # 가장자리 글로우 (주황)
-                    pygame.draw.lines(surf, (255, random.randint(100, 160), 10),
+                    pygame.draw.lines(surf, (200, random.randint(80, 130), 10),
                                       False, pts, max(2, r // 10))
-            # 화산 (원뿔 + 분화구)
+                    pygame.draw.lines(surf, (255, random.randint(200, 255), random.randint(40, 100)),
+                                      False, pts, max(1, r // 18))
+            # 화산 (둥근 산 + 분화구 글로우)
             if r > 20:
                 for _ in range(3):
-                    vx = cx + random.randint(-r * 2 // 3, r * 2 // 3)
-                    vy = cy + random.randint(-r * 2 // 3, r * 2 // 3)
+                    vx = cx + random.randint(-r // 2, r // 2)
+                    vy = cy + random.randint(-r // 2, r // 2)
                     if not self._in_planet(vx, vy, cx, cy, r - 5):
                         continue
-                    vr = max(3, r // 6)
-                    # 산체
-                    pygame.draw.polygon(surf, (60, 15, 5), [
-                        (vx - vr, vy + vr // 2), (vx + vr, vy + vr // 2), (vx, vy - vr)])
-                    # 분화구 (붉은 원)
-                    pygame.draw.circle(surf, (255, 120, 30), (vx, vy - vr + max(1, vr // 3)),
-                                       max(1, vr // 3))
-                    # 연기 (작은 점)
-                    for _ in range(3):
-                        sx = vx + random.randint(-vr // 2, vr // 2)
-                        sy = vy - vr - random.randint(1, max(2, vr // 2))
-                        pygame.draw.circle(surf, (120, 80, 60), (sx, sy), max(1, vr // 5))
-            # 불기둥 (세로선 + 상단 불꽃)
+                    vr = max(4, r // 5)
+                    # 산체 (타원)
+                    pygame.draw.ellipse(surf, (55, 12, 5),
+                                        (vx - vr, vy - vr // 3, vr * 2, vr))
+                    # 분화구 글로우 (동심 원)
+                    cr = max(2, vr // 3)
+                    for gi in range(cr, 0, -1):
+                        ga = max(1, int(40 * gi / cr))
+                        pygame.draw.circle(surf, (255, 150 + int(80 * gi / cr), 30, ga),
+                                           (vx, vy - vr // 3 + cr // 2), gi)
+                    for _ in range(2):
+                        smx = vx + random.randint(-cr, cr)
+                        smy = vy - vr // 3 - random.randint(1, max(2, vr // 2))
+                        pygame.draw.circle(surf, (100, 70, 50), (smx, smy), max(1, cr // 3))
+            # 불기둥 (호형 + 불꽃 글로우)
             if r > 25:
                 for _ in range(3):
                     fx = cx + random.randint(-r // 2, r // 2)
                     fy = cy + random.randint(-r // 2, r // 2)
                     if not self._in_planet(fx, fy, cx, cy, r - 4):
                         continue
-                    fh = max(3, r // 5)
-                    pygame.draw.line(surf, (255, 200, 50), (fx, fy), (fx, fy - fh), max(1, r // 25))
-                    pygame.draw.circle(surf, (255, 255, 100), (fx, fy - fh), max(1, r // 18))
-            # 불꽃 파티클 (빽빽이)
-            for _ in range(max(10, r // 3)):
+                    fh = max(4, r // 4)
+                    pygame.draw.arc(surf, (255, 200, 50),
+                                    (fx - max(1, r // 20), fy - fh,
+                                     max(2, r // 10), fh),
+                                    -math.pi * 0.1, math.pi * 1.1, max(1, r // 22))
+                    pygame.draw.circle(surf, (255, 255, 120), (fx, fy - fh), max(1, r // 16))
+                    pygame.draw.circle(surf, (255, 200, 50), (fx, fy - fh), max(1, r // 12))
+            # 불꽃 파티클
+            for _ in range(max(8, r // 3)):
                 fx = cx + random.randint(-r + 2, r - 2)
                 fy = cy + random.randint(-r + 2, r - 2)
                 if self._in_planet(fx, fy, cx, cy, r - 1):
-                    fs = max(1, random.randint(1, max(2, r // 18)))
-                    pygame.draw.circle(surf, (255, random.randint(80, 220), 0), (fx, fy), fs)
+                    fs = max(1, random.randint(1, max(2, r // 20)))
+                    pygame.draw.circle(surf, (255, random.randint(100, 230), 0), (fx, fy), fs)
             random.seed()
         self._draw_highlight(surf, cx, cy, r, (230, 100, 60), alpha)
         self._draw_ring(surf, cx, cy, r, (255, 80, 30), alpha)
         pygame.draw.circle(surf, (255, 120, 40), (cx, cy), r + 1, 1)
 
-    # ── 행성 7: 테트리스 (빽빽한 블록/네온 격자/스코어/라인클리어) ──
+    # ── 행성 7: 테트리스 (네온블록/글로우격자/라인클리어) ──
     def _draw_planet_tetris(self, surf, cx, cy, r, alpha=255):
         glow = (160, 200, 255)
         base = (15, 18, 40)
@@ -1241,49 +1314,48 @@ class SpaceMap:
                 (0, 240, 0), (240, 0, 0), (0, 0, 240), (240, 160, 0),
             ]
             block_sz = max(3, r // 8)
-            # 블록 빽빽이 (90% 채움)
+            # 네온 블록 (원형 경계 안)
             for gx in range(-r + 1, r, block_sz):
                 for gy in range(-r + 1, r, block_sz):
-                    if not self._in_planet(cx + gx + block_sz // 2,
-                                           cy + gy + block_sz // 2, cx, cy, r - 1):
+                    bcx2 = cx + gx + block_sz // 2
+                    bcy2 = cy + gy + block_sz // 2
+                    if not self._in_planet(bcx2, bcy2, cx, cy, r - 1):
                         continue
-                    if random.random() < 0.9:
+                    if random.random() < 0.88:
                         col = random.choice(tetro_colors)
                         bx = cx + gx
                         by = cy + gy
-                        dim = tuple(max(0, c // 4) for c in col)
-                        pygame.draw.rect(surf, dim, (bx, by, block_sz - 1, block_sz - 1))
-                        # 하이라이트 (좌상)
-                        hl = tuple(min(255, c + 60) for c in col)
-                        pygame.draw.line(surf, hl, (bx, by), (bx + block_sz - 2, by), 1)
-                        pygame.draw.line(surf, hl, (bx, by), (bx, by + block_sz - 2), 1)
-                        # 테두리
-                        pygame.draw.rect(surf, col, (bx, by, block_sz - 1, block_sz - 1), 1)
+                        dim = tuple(max(0, c * 2 // 5) for c in col)
+                        pygame.draw.rect(surf, dim,
+                                         (bx + 1, by + 1, block_sz - 2, block_sz - 2))
+                        pygame.draw.rect(surf, col,
+                                         (bx, by, block_sz - 1, block_sz - 1), 1)
+                        hl = tuple(min(255, c + 80) for c in col)
+                        pygame.draw.line(surf, hl, (bx + 1, by + 1),
+                                         (bx + block_sz - 3, by + 1), 1)
                     else:
-                        # 빈 칸 = 어두운 격자
-                        bx = cx + gx
-                        by = cy + gy
-                        pygame.draw.rect(surf, (20, 25, 50), (bx, by, block_sz - 1, block_sz - 1), 1)
-            # 라인 클리어 효과 (가로 밝은 줄)
+                        pygame.draw.rect(surf, (18, 22, 48),
+                                         (cx + gx, cy + gy, block_sz - 1, block_sz - 1), 1)
+            # 라인 클리어 (글로우 밴드)
             if r > 20:
                 for _ in range(2):
                     ly = cy + random.randint(-r // 2, r // 2)
                     bw = int(math.sqrt(max(0, r * r - (ly - cy) ** 2)))
                     if bw > 3:
-                        ls = pygame.Surface((bw * 2, block_sz), pygame.SRCALPHA)
-                        ls.fill((255, 255, 255, 30))
-                        surf.blit(ls, (cx - bw, ly))
-            # 네온 격자 오버레이
-            if r > 25:
+                        ls = pygame.Surface((bw * 2, block_sz + 2), pygame.SRCALPHA)
+                        ls.fill((255, 255, 255, 25))
+                        surf.blit(ls, (cx - bw, ly - 1))
+            # 격자 오버레이 (부드러운)
+            if r > 22:
                 for gx in range(-r, r + 1, block_sz):
                     bw = int(math.sqrt(max(0, r * r - gx * gx)))
                     if bw > 1:
-                        pygame.draw.line(surf, (40, 50, 90),
+                        pygame.draw.line(surf, (30, 40, 80),
                                          (cx + gx, cy - bw), (cx + gx, cy + bw), 1)
                 for gy in range(-r, r + 1, block_sz):
                     bw = int(math.sqrt(max(0, r * r - gy * gy)))
                     if bw > 1:
-                        pygame.draw.line(surf, (40, 50, 90),
+                        pygame.draw.line(surf, (30, 40, 80),
                                          (cx - bw, cy + gy), (cx + bw, cy + gy), 1)
             random.seed()
         self._draw_highlight(surf, cx, cy, r, (80, 110, 200), alpha)
@@ -1292,23 +1364,22 @@ class SpaceMap:
         if r > 20:
             pygame.draw.circle(surf, (80, 140, 255), (cx, cy), r + 3, 1)
 
-    # ── 행성 8: 그림자 (어둠도시/칼날/나선/달/닌자) ──
+    # ── 행성 8: 그림자 (안개도시/나선/달빛/수리검/칼날호) ──
     def _draw_planet_shadow(self, surf, cx, cy, r, alpha=255):
         glow = (100, 130, 180)
         base = (18, 20, 32)
         # 어두운 글로우
-        gr = r + 35
-        gs = pygame.Surface((gr * 2 + 4, gr * 2 + 4), pygame.SRCALPHA)
-        gcx = gr + 2
+        grr = r + 35
+        gs = pygame.Surface((grr * 2 + 4, grr * 2 + 4), pygame.SRCALPHA)
+        gcx = grr + 2
         for i in range(35, 0, -2):
             a = max(1, int(20 * alpha / 255 * (1 - i / 35)))
             pygame.draw.circle(gs, (40, 45, 70, a), (gcx, gcx), r + i)
-        surf.blit(gs, (cx - gr - 2, cy - gr - 2))
-
+        surf.blit(gs, (cx - grr - 2, cy - grr - 2))
         pygame.draw.circle(surf, base, (cx, cy), r)
         if r > 12:
             random.seed(8137)
-            # 어둠 소용돌이 나선 (여러 겹)
+            # 어둠 소용돌이 (부드러운 나선)
             for sp in range(3):
                 pts = []
                 offset = sp * math.pi * 2 / 3
@@ -1323,30 +1394,41 @@ class SpaceMap:
                 if len(pts) > 2:
                     pygame.draw.lines(surf, (25 + sp * 5, 28 + sp * 5, 45 + sp * 5),
                                       False, pts, 1)
-            # 도시 실루엣 (불규칙 직사각형 스카이라인 = 하단 반)
+            # 도시 실루엣 (둥근 빌딩 타원 + 첨탑)
             if r > 20:
                 sky_y = cy + r // 6
-                for bx_off in range(-r + 3, r - 3, max(3, r // 8)):
+                for _ in range(max(5, r // 5)):
+                    bx_off = random.randint(-r + 5, r - 5)
                     if not self._in_planet(cx + bx_off, sky_y, cx, cy, r - 2):
                         continue
-                    bh = random.randint(max(2, r // 10), max(5, r // 4))
-                    bw = max(2, r // 12)
-                    bc = (25 + random.randint(0, 15), 28 + random.randint(0, 15),
-                          45 + random.randint(0, 15))
-                    pygame.draw.rect(surf, bc, (cx + bx_off, sky_y - bh, bw, bh))
-                    # 창문 불빛 (노란 점)
+                    bh = random.randint(max(3, r // 8), max(5, r // 3))
+                    bw = max(2, r // 10)
+                    bc = (22 + random.randint(0, 12), 25 + random.randint(0, 12),
+                          40 + random.randint(0, 15))
+                    pygame.draw.ellipse(surf, bc,
+                                        (cx + bx_off - bw // 2, sky_y - bh, bw, bh))
+                    if random.random() < 0.4:
+                        pygame.draw.circle(surf, (40, 45, 65),
+                                           (cx + bx_off, sky_y - bh - max(1, bh // 5)),
+                                           max(1, bw // 4))
                     for wy in range(sky_y - bh + 2, sky_y - 1, max(2, bh // 3)):
-                        if random.random() < 0.5:
-                            pygame.draw.rect(surf, (180, 170, 80),
-                                             (cx + bx_off + 1, wy, 1, 1))
-            # 초승달 (상단)
+                        if random.random() < 0.4:
+                            pygame.draw.circle(surf, (180, 170, 80),
+                                               (cx + bx_off, wy), 1)
+            # 초승달 (글로우 + 마스킹)
             if r > 25:
                 mx = cx + r // 4
                 my = cy - r // 3
-                mr = max(3, r // 7)
-                pygame.draw.circle(surf, (180, 190, 210), (mx, my), mr)
+                mr = max(3, r // 6)
+                for gi in range(mr + 3, 0, -1):
+                    ga = max(1, int(15 * gi / (mr + 3)))
+                    ms = pygame.Surface((gi * 2 + 4, gi * 2 + 4), pygame.SRCALPHA)
+                    pygame.draw.circle(ms, (120, 130, 160, ga),
+                                       (gi + 2, gi + 2), gi)
+                    surf.blit(ms, (mx - gi - 2, my - gi - 2))
+                pygame.draw.circle(surf, (190, 200, 220), (mx, my), mr)
                 pygame.draw.circle(surf, base, (mx + mr // 2, my - mr // 4), mr)
-            # 수리검 (8각별)
+            # 수리검 (부드러운 8각별)
             if r > 25:
                 for _ in range(3):
                     sx = cx + random.randint(-r // 2, r // 2)
@@ -1357,34 +1439,34 @@ class SpaceMap:
                     pts = []
                     for i in range(8):
                         ang = i * math.pi / 4
-                        d = sr if i % 2 == 0 else sr // 2
+                        d = sr if i % 2 == 0 else max(1, sr // 2)
                         pts.append((sx + int(d * math.cos(ang)),
                                     sy + int(d * math.sin(ang))))
                     pygame.draw.polygon(surf, (70, 80, 110), pts)
                     pygame.draw.polygon(surf, (100, 115, 150), pts, 1)
-            # 안개 (반투명 원 빽빽이)
-            for _ in range(max(6, r // 4)):
+            # 안개 (부드러운 반투명 구름)
+            for _ in range(max(8, r // 3)):
                 fx = cx + random.randint(-r + 3, r - 3)
                 fy = cy + random.randint(-r + 3, r - 3)
                 if not self._in_planet(fx, fy, cx, cy, r - 2):
                     continue
-                fr = random.randint(max(2, r // 10), max(4, r // 5))
+                fr = random.randint(max(2, r // 10), max(4, r // 4))
                 fs = pygame.Surface((fr * 2 + 4, fr * 2 + 4), pygame.SRCALPHA)
                 for ci in range(fr, 0, -2):
                     fa = max(1, int(8 * ci / fr))
-                    pygame.draw.circle(fs, (30, 35, 55, fa), (fr + 2, fr + 2), ci)
+                    pygame.draw.circle(fs, (28, 32, 52, fa), (fr + 2, fr + 2), ci)
                 surf.blit(fs, (fx - fr - 2, fy - fr - 2))
-            # 칼날 (대각선)
-            if r > 30:
+            # 칼날 빛 (호형 반사)
+            if r > 28:
                 for _ in range(2):
-                    kx = cx + random.randint(-r // 3, r // 3)
-                    ky = cy + random.randint(-r // 3, r // 3)
-                    kl = max(4, r // 4)
-                    ang = random.uniform(0, math.pi)
-                    pygame.draw.line(surf, (140, 150, 180),
-                                     (kx, ky),
-                                     (kx + int(kl * math.cos(ang)),
-                                      ky + int(kl * math.sin(ang))), 1)
+                    ka = random.uniform(0, math.pi * 2)
+                    kd = random.uniform(r * 0.15, r * 0.5)
+                    kx = cx + int(kd * math.cos(ka))
+                    ky = cy + int(kd * math.sin(ka))
+                    kl = max(5, r // 3)
+                    pygame.draw.arc(surf, (140, 155, 185),
+                                    (kx - kl // 2, ky - kl // 4, kl, kl // 2),
+                                    ka, ka + math.pi * 0.6, 1)
             random.seed()
         self._draw_highlight(surf, cx, cy, r, (40, 45, 70), alpha)
         pygame.draw.circle(surf, (50, 55, 80), (cx, cy), r + 1, 1)
