@@ -2775,6 +2775,9 @@ class GuardWarriorSystem:
         # 매혹(Charm)된 호위무사 독립 추적
         self._charmed = None  # dict or None
 
+        # 차원소환 호위무사 (스토리모드 전용)
+        self._dimensional_summon = None  # dict or None
+
     def setup(self, guards_top, guards_bottom, initial_delay=(10.0, 15.0), skill_selections=None):
         """배틀 시작 시 호위무사 설정
 
@@ -4004,6 +4007,252 @@ class GuardWarriorSystem:
             import traceback
             traceback.print_exc()
 
+    # ------------------------------------------------------------------
+    #  차원소환 (Dimensional Gate) - 스토리모드 전용
+    # ------------------------------------------------------------------
+    def _handle_dimensional_summon(self, game_state):
+        """차원소환 요청 처리 (Charm 스킬에서 game_state로 전달됨)"""
+        req = game_state.pop('dimensional_summon_request', None)
+        if not req:
+            return
+
+        phase = req.get('phase')
+
+        if phase == 'summon':
+            hero_id = req.get('hero_id', '')
+            if not hero_id:
+                return
+
+            # ARENA_HEROES에서 hero_data 찾기
+            hero_data = None
+            for h in ARENA_HEROES:
+                if h.get("id") == hero_id:
+                    hero_data = dict(h)  # 복사본
+                    break
+            if not hero_data:
+                hero_data = {"id": hero_id, "name": hero_id, "color": (150, 100, 220)}
+
+            # 스킬 인스턴스 생성
+            from downtown.hero_skills import HERO_SKILL_CLASSES
+            skill_classes = HERO_SKILL_CLASSES.get(hero_id, [])
+            skill = None
+            if skill_classes:
+                chosen_cls = random.choice(skill_classes)
+                skill = chosen_cls()
+                skill.caster_is_top = False  # 플레이어 진영
+                skill.current_cooldown = 5.0  # 첫 발동 딜레이
+                # game_state 연결
+                if self.skill_manager:
+                    skill.game_state = self.skill_manager.game_state
+
+            # 차원소환 딕트 생성 (_patrol2 패턴 동일)
+            side = random.choice(['left', 'right'])
+            start_x = (GAME_AREA_X - 60) if side == "left" else (GAME_AREA_X + GAME_AREA_WIDTH + 60)
+            cd_mult = self.guard_cd_mult_bottom
+            base_cd = skill.cooldown if skill else 20.0
+            initial_cd = base_cd * cd_mult + GUARD_ENTER_DURATION + 3.0
+
+            self._dimensional_summon = {
+                'guard': hero_data,
+                'is_top': False,
+                'x': float(start_x),
+                'y': float(BOTTOM_PADDLE_Y),
+                'phase': 'patrol_entering',
+                'anim_timer': 0.0,
+                'side': side,
+                'cooldown': initial_cd,
+                'cooldown_max': initial_cd,
+                'skill': skill,
+                'patrol_target': None,
+                'patrol_wait': 0.0,
+                'patrol_speed': random.uniform(120.0, 170.0),
+            }
+
+            # skill_instances에 등록 (get_all_cooldown_entries 참조)
+            if skill and hero_id not in self.skill_instances:
+                self.skill_instances[hero_id] = [skill]
+                self.guard_skill_cooldowns[hero_id] = [initial_cd]
+                self.guard_skill_cooldowns_max[hero_id] = [base_cd * cd_mult]
+
+            print(f"[DimensionalGate] 호위무사 소환: {hero_data.get('name', hero_id)}")
+
+        elif phase == 'dismiss':
+            if self._dimensional_summon:
+                hero_id = self._dimensional_summon['guard'].get('id', '')
+                # 활성 스킬 정리
+                sk = self._dimensional_summon.get('skill')
+                if sk and sk.is_active:
+                    try:
+                        gs = self.skill_manager.game_state if self.skill_manager else {}
+                        sk._end_effect(None, None, None, gs)
+                    except Exception:
+                        pass
+                    sk.is_active = False
+                # skill_instances에서 제거 (원래 호위무사와 충돌 방지)
+                # 단, 기존 guard_warriors에 같은 hero_id가 있으면 제거하지 않음
+                is_existing = any(g.get("id") == hero_id for g in
+                                  self.guard_warriors_top + self.guard_warriors_bottom)
+                if not is_existing:
+                    self.skill_instances.pop(hero_id, None)
+                    self.guard_skill_cooldowns.pop(hero_id, None)
+                    self.guard_skill_cooldowns_max.pop(hero_id, None)
+                self._dimensional_summon = None
+                print(f"[DimensionalGate] 호위무사 복귀: {hero_id}")
+
+    def _update_dimensional_summon(self, dt, top_paddle, bottom_paddle, ball):
+        """차원소환 호위무사 업데이트 (_update_patrol2와 동일 로직)"""
+        ds = self._dimensional_summon
+        if not ds:
+            return
+
+        phase = ds['phase']
+        ds['anim_timer'] += dt
+
+        # === patrol_entering: 입장 ===
+        if phase == 'patrol_entering':
+            ds['cooldown'] -= dt
+            if ds['anim_timer'] < self.PATROL_ENTRY_DELAY:
+                return
+
+            enter_timer = ds['anim_timer'] - self.PATROL_ENTRY_DELAY
+            progress = min(1.0, enter_timer / GUARD_ENTER_DURATION)
+            eased = self._ease_in_out(progress)
+
+            if '_enter_target_x' not in ds:
+                ds['_enter_target_x'] = GAME_AREA_X + GAME_AREA_WIDTH // 2 + random.uniform(-80, 80)
+            start_x = (GAME_AREA_X - 60) if ds['side'] == "left" else (GAME_AREA_X + GAME_AREA_WIDTH + 60)
+            target_x = ds['_enter_target_x']
+            ds['x'] = start_x + (target_x - start_x) * eased
+
+            guard = ds['guard']
+            if guard and self.hero_paddle_renderer:
+                self.hero_paddle_renderer.update_movement(guard["id"], ds['x'], dt)
+
+            if progress >= 1.0:
+                ds['phase'] = 'patrolling'
+                ds['anim_timer'] = 0.0
+                print(f"[DimensionalGate] {guard.get('name', '?')} 순찰 시작!")
+            return
+
+        # === patrolling: 순찰 + 스킬 쿨타임 ===
+        if phase == 'patrolling':
+            self._update_patrol2_movement(dt, ds, ball=ball, is_top=False, bottom_paddle=bottom_paddle)
+
+            ds['cooldown'] -= dt
+            if ds['cooldown'] <= 0:
+                # 스킬 발동
+                self._dimensional_summon_trigger_skill(top_paddle, bottom_paddle, ball)
+            return
+
+        # === casting: 스킬 시전 중 ===
+        if phase == 'casting':
+            if ds['anim_timer'] >= GUARD_CAST_DURATION:
+                ds['phase'] = 'patrolling'
+                ds['anim_timer'] = 0.0
+                ds['y'] = float(BOTTOM_PADDLE_Y)
+
+    def _dimensional_summon_trigger_skill(self, top_paddle, bottom_paddle, ball):
+        """차원소환 호위무사 스킬 발동"""
+        ds = self._dimensional_summon
+        if not ds:
+            return
+
+        guard = ds['guard']
+        skill = ds.get('skill')
+        if not skill:
+            ds['cooldown'] = 8.0
+            return
+
+        # 쿨타임 리셋
+        cd_mult = self.guard_cd_mult_bottom
+        base_cd = skill.cooldown if skill else 20.0
+        ds['cooldown'] = base_cd * cd_mult
+        ds['cooldown_max'] = ds['cooldown']
+
+        # 스킬 쿨다운 UI 동기화
+        hero_id = guard.get('id', '')
+        if hero_id in self.guard_skill_cooldowns:
+            self.guard_skill_cooldowns[hero_id] = [ds['cooldown']]
+            self.guard_skill_cooldowns_max[hero_id] = [ds['cooldown']]
+
+        try:
+            game_state = self.skill_manager.game_state if self.skill_manager else {}
+
+            gp = _GuardPaddle(ds['x'], ds['y'], False)
+            gp.x = int(ds['x']) - gp.width // 2
+            gp.centerx = int(ds['x'])
+            gp.y = int(ds['y'])
+            gp.centery = int(ds['y']) + gp.height // 2
+            self.guard_paddles[hero_id] = gp
+
+            target_paddle = top_paddle
+
+            skill.caster_is_top = False
+            skill.current_cooldown = 0
+            if skill.is_active:
+                try:
+                    skill._end_effect(gp, target_paddle, ball, game_state)
+                except Exception:
+                    pass
+                skill.is_active = False
+
+            try:
+                skill.update(0.016, gp, target_paddle, ball, game_state)
+            except Exception:
+                pass
+
+            caster_prefix = 'bottom_paddle'
+            saved = self._save_caster_state(game_state, caster_prefix)
+            result = skill.use(gp, target_paddle, ball, game_state)
+            self._restore_caster_state(game_state, caster_prefix, saved)
+
+            if result and not skill.is_active and skill.duration <= 0:
+                skill.is_active = True
+
+            if result:
+                self._play_skill_sound(result)
+                self._apply_status_effects(result, target_paddle)
+                # 글로벌 game_state 키 차단 (메인 영웅에 영향 방지)
+                _eff_id2, _ = self._unwrap_possessed_skill(skill)
+                if _eff_id2 == 'horn_charge':
+                    game_state['horn_charge_active'] = False
+                elif _eff_id2 == 'demon_step':
+                    game_state['demon_eye_active'] = False
+                    game_state.pop('ghost_step_start_top', None)
+                    game_state.pop('ghost_step_start_bottom', None)
+                elif _eff_id2 == 'steam_barrier':
+                    game_state['steam_barrier_caster_frozen'] = False
+                    game_state['steam_barrier_thaw_speed'] = 0.0
+                # 말풍선
+                bubble_text = f"{skill.korean_name}!"
+                bubble_color = guard.get("color") or (200, 200, 200)
+                if not isinstance(bubble_color, (tuple, list)) or len(bubble_color) < 3:
+                    bubble_color = (200, 200, 200)
+                self._bubble_bottom = {'text': bubble_text, 'timer': self._bubble_duration,
+                                       'x': ds['x'], 'y': ds['y'], 'color': bubble_color}
+                print(f"[DimensionalGate] {guard.get('name', '?')} → {skill.korean_name} 발동!")
+            else:
+                print(f"[DimensionalGate] {guard.get('name', '?')} → {skill.korean_name} 발동 실패")
+
+            ds['phase'] = 'casting'
+            ds['anim_timer'] = 0.0
+        except Exception as e:
+            print(f"[DimensionalGate] 스킬 발동 오류: {e}")
+            import traceback
+            traceback.print_exc()
+
+    def _draw_dimensional_summon(self, screen, shake_x, shake_y):
+        """차원소환 호위무사 렌더링"""
+        ds = self._dimensional_summon
+        if not ds:
+            return
+        phase = ds['phase']
+        if phase == 'patrol_entering' and ds['anim_timer'] < self.PATROL_ENTRY_DELAY:
+            return
+        self._draw_guard(screen, ds['guard'],
+                         ds['x'] + shake_x, ds['y'] + shake_y,
+                         is_top=False)
+
     def _draw_patrol2(self, screen, shake_x, shake_y):
         """2번째 호위무사 렌더링"""
         for p2 in (self._patrol2_top, self._patrol2_bottom):
@@ -4070,7 +4319,9 @@ class GuardWarriorSystem:
         if not self.guard_warriors_top and not self.guard_warriors_bottom:
             # 매혹으로 호위무사가 임시 추가/견인 중인 경우에도 체크
             game_state = self.skill_manager.game_state if self.skill_manager else {}
-            if not game_state.get('charm_active') and not game_state.get('_charmed_guard'):
+            if (not game_state.get('charm_active') and not game_state.get('_charmed_guard')
+                    and not self._dimensional_summon
+                    and not game_state.get('dimensional_summon_request')):
                 return
 
         # 말풍선 타이머 감소
@@ -4116,11 +4367,23 @@ class GuardWarriorSystem:
                 'width': PADDLE_WIDTH, 'height': PADDLE_HEIGHT,
                 'is_top': self._charmed.get('caster_is_top', True),
             })
+        # 차원소환 호위무사
+        if self._dimensional_summon and self._dimensional_summon.get('phase') not in (None, 'idle'):
+            guard_rects.append({
+                'cx': self._dimensional_summon['x'],
+                'cy': self._dimensional_summon['y'],
+                'width': PADDLE_WIDTH, 'height': PADDLE_HEIGHT,
+                'is_top': False,
+            })
         game_state['active_guard_rects'] = guard_rects
 
         # === 매혹 (Charm) 스킬 처리 ===
         self._handle_charm_requests(game_state)
         self._update_charmed_guard(dt, top_paddle, bottom_paddle, ball)
+
+        # === 차원소환 (Dimensional Gate) 처리 ===
+        self._handle_dimensional_summon(game_state)
+        self._update_dimensional_summon(dt, top_paddle, bottom_paddle, ball)
 
         # 🔥 호위무사 귀신발걸음 공 충돌 감지 (1회 발동당 3회까지)
         if self._guard_ball_cooldown > 0:
@@ -4170,6 +4433,16 @@ class GuardWarriorSystem:
                 guard_paddle.centerx = int(p2['x'])
                 guard_paddle.y = int(p2['y'])
                 guard_paddle.centery = int(p2['y']) + guard_paddle.height // 2
+            # 차원소환 호위무사: 가상 패들 위치를 dimensional_summon 좌표로 갱신
+            elif (self._dimensional_summon and self._dimensional_summon['guard'].get("id") == hero_id):
+                _ds = self._dimensional_summon
+                if guard_paddle is None:
+                    guard_paddle = _GuardPaddle(_ds['x'], _ds['y'], False)
+                    self.guard_paddles[hero_id] = guard_paddle
+                guard_paddle.x = int(_ds['x']) - guard_paddle.width // 2
+                guard_paddle.centerx = int(_ds['x'])
+                guard_paddle.y = int(_ds['y'])
+                guard_paddle.centery = int(_ds['y']) + guard_paddle.height // 2
             elif guard_paddle is None:
                 guard_paddle = top_paddle if is_top_guard else bottom_paddle
             target = bottom_paddle if is_top_guard else top_paddle
@@ -5934,6 +6207,12 @@ class GuardWarriorSystem:
         except Exception as e:
             print(f"[Guard] patrol2 draw error: {e}")
 
+        # === 차원소환 호위무사 렌더링 ===
+        try:
+            self._draw_dimensional_summon(screen, shake_x, shake_y)
+        except Exception as e:
+            print(f"[Guard] dimensional summon draw error: {e}")
+
         # === 매혹 순찰 중 호위무사 렌더링 ===
         try:
             self._draw_charmed_guard(screen, shake_x, shake_y)
@@ -6751,6 +7030,29 @@ class GuardWarriorSystem:
                     "skill": skills[0] if skills else None,
                     "key": f"guard_{gid}_{skills[0].skill_id if skills else 'none'}",
                 })
+
+        # --- 차원소환 호위무사 (임시) ---
+        if self._dimensional_summon and self._dimensional_summon.get('phase') not in (None, 'idle'):
+            ds = self._dimensional_summon
+            gid = ds['guard'].get('id', '')
+            sk = ds.get('skill')
+            ds_cd = max(0.0, ds.get('cooldown', 0.0))
+            ds_cd_max = ds.get('cooldown_max', 30.0)
+            if ds_cd_max <= 0:
+                ds_cd_max = 30.0
+            entries.append({
+                "hero_id": gid,
+                "hero_name": ds['guard'].get("name", "?"),
+                "hero_color": ds['guard'].get("color", (150, 100, 220)),
+                "cooldown_remaining": ds_cd,
+                "cooldown_max": ds_cd_max,
+                "is_active": getattr(sk, 'activation_flash_timer', 0) > 0 if sk else False,
+                "source_type": "dimensional_summon",
+                "side": "bottom",
+                "skill": sk,
+                "key": f"dim_summon_{gid}",
+            })
+
         return entries
 
     def reset_active_skills(self):
@@ -6803,6 +7105,8 @@ class GuardWarriorSystem:
         self._patrol2_bottom = None
         # 매혹 호위무사 초기화
         self._charmed = None
+        # 차원소환 호위무사 초기화
+        self._dimensional_summon = None
         # 호위무사 긴급 대쉬 초기화
         self._guard_dash_active = False
         self._guard_dash_cooldown = 0.0

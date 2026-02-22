@@ -342,6 +342,8 @@ class InGameBodyguard:
 
         # 최소 skill_manager 생성
         self._skill_manager = _MinimalSkillManager()
+        # 호위무사 hero_id를 game_state에 등록 (차원소환 시 중복 방지용)
+        self._skill_manager.game_state['_bodyguard_hero_id'] = hero_data.get('id', '')
 
         # GuardWarriorSystem 생성 및 설정
         try:

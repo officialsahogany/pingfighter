@@ -9528,6 +9528,20 @@ class Charm(HeroSkill):
         self.return_progress = 0.0
         self.return_speed = 1.5      # progress/초  (약 0.7초 복귀)
 
+        # === 차원의 문 모드 (스토리모드 전용) ===
+        self._dimensional_mode = False
+        self._dim_phase = "idle"          # idle/portal_opening/summoned_active/portal_closing/done
+        self._dim_timer = 0.0
+        self._dim_portal_x = 0.0
+        self._dim_portal_y = 0.0
+        self._dim_summoned_hero_id = None
+        self._dim_portal_particles = []   # 소용돌이 파티클
+        self._dim_portal_angle = 0.0      # 소용돌이 회전각
+        self._dim_portal_scale = 0.0      # 포탈 열림 스케일 (0→1)
+        self._dim_duration = 40.0         # 소환 지속시간
+        self._dim_elapsed = 0.0
+        self._dim_lightning_arcs = []     # 전기 아크 이펙트
+
     # ------------------------------------------------------------------
     #  can_use
     # ------------------------------------------------------------------
@@ -9551,15 +9565,19 @@ class Charm(HeroSkill):
             self._update_active_effect(dt, caster_paddle, target_paddle, ball, game_state)
             if self.active_timer <= 0:
                 self._end_effect(caster_paddle, target_paddle, ball, game_state)
-                # _end_effect에서 returning 페이즈로 전환하며
-                # is_active=True, active_timer=1.0을 설정할 수 있음 → 그때는 꺼지면 안됨
-                if self.charm_phase != "returning":
+                # _end_effect에서 returning/portal_closing 페이즈로 전환하며
+                # is_active=True, active_timer를 설정할 수 있음 → 그때는 꺼지면 안됨
+                if self.charm_phase != "returning" and self._dim_phase not in ("portal_closing",):
                     self.is_active = False
 
     # ------------------------------------------------------------------
     #  _apply_effect  (Phase 1 시작)
     # ------------------------------------------------------------------
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        # ─── 스토리모드(호위무사) → 차원의 문 소환 ───
+        if game_state.get('is_ingame_bodyguard'):
+            return self._apply_dimensional_gate(caster_paddle, target_paddle, ball, game_state)
+
         # 매혹 지속시간 10~20초 랜덤
         self.duration = random.uniform(10.0, 20.0)
         self.active_timer = self.duration
@@ -9647,6 +9665,11 @@ class Charm(HeroSkill):
     #  _update_active_effect
     # ------------------------------------------------------------------
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
+        # ─── 차원의 문 모드 ───
+        if self._dimensional_mode:
+            self._update_dimensional(dt, caster_paddle, target_paddle, ball, game_state)
+            return
+
         self.phase_timer += dt
         self.charm_aura_timer += dt
 
@@ -9807,6 +9830,39 @@ class Charm(HeroSkill):
     #  _end_effect  (Phase 4 시작 - 복귀)
     # ------------------------------------------------------------------
     def _end_effect(self, caster_paddle, target_paddle, ball, game_state: dict):
+        # ─── 차원의 문 모드: 포탈 닫기 처리 ───
+        if self._dimensional_mode:
+            if self._dim_phase == "summoned_active":
+                # 소환 활동 → 포탈 닫기
+                self._dim_phase = "portal_closing"
+                self._dim_timer = 1.5
+                self._dim_portal_scale = 1.0
+                self._dim_portal_particles = []
+                game_state['dimensional_summon_request'] = {'phase': 'dismiss'}
+                self.is_active = True
+                self.active_timer = 1.5  # 닫기 애니메이션 시간
+                try:
+                    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    snd_path = os.path.join(project_root, "sounds", "bencylove.wav")
+                    if os.path.exists(snd_path):
+                        snd = pygame.mixer.Sound(snd_path)
+                        snd.set_volume(0.7)
+                        snd.play()
+                except Exception:
+                    pass
+            elif self._dim_phase == "portal_closing":
+                self._dim_phase = "idle"
+                self._dimensional_mode = False
+                self.is_active = False
+            else:
+                # 예외적 종료 (라운드 끝 등)
+                if self._dim_summoned_hero_id:
+                    game_state['dimensional_summon_request'] = {'phase': 'dismiss'}
+                self._dim_phase = "idle"
+                self._dimensional_mode = False
+                self.is_active = False
+            return
+
         game_state['charm_active'] = False
         self.charm_particles = []
 
@@ -9866,6 +9922,11 @@ class Charm(HeroSkill):
     # ------------------------------------------------------------------
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         if not self.is_active:
+            return
+
+        # ─── 차원의 문 모드 ───
+        if self._dimensional_mode:
+            self._draw_dimensional(screen, game_state)
             return
 
         # === Phase 1: 자력 에너지 탄 ===
@@ -10062,10 +10123,348 @@ class Charm(HeroSkill):
         self.proj_orbs = []
         self.pull_chain_particles = []
         self.charm_elapsed = 0.0
+        # 차원의 문 리셋
+        self._dimensional_mode = False
+        self._dim_phase = "idle"
+        self._dim_timer = 0.0
+        self._dim_portal_particles = []
+        self._dim_summoned_hero_id = None
+        self._dim_portal_scale = 0.0
+        self._dim_elapsed = 0.0
+        self._dim_lightning_arcs = []
 
     def reset_for_new_round(self, game_state: dict):
-        """라운드 전환 시 매혹은 유지 (초기화하지 않음!)"""
-        pass
+        """라운드 전환 시 매혹은 유지 (초기화하지 않음!)
+        차원의 문 모드에서는 소환된 호위무사 해제"""
+        if self._dimensional_mode and self._dim_summoned_hero_id:
+            game_state['dimensional_summon_request'] = {'phase': 'dismiss'}
+            self._dimensional_mode = False
+            self._dim_phase = "idle"
+            self._dim_summoned_hero_id = None
+            self.is_active = False
+
+    # ------------------------------------------------------------------
+    #  차원의 문 (스토리모드 전용) - apply / update / draw
+    # ------------------------------------------------------------------
+    def _apply_dimensional_gate(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
+        """차원의 문 소환 발동 (스토리모드 전용)"""
+        self._dimensional_mode = True
+        self._dim_phase = "portal_opening"
+        self._dim_timer = 1.5     # 포탈 열리는 시간
+        self._dim_elapsed = 0.0
+        self._dim_portal_scale = 0.0
+        self._dim_portal_angle = 0.0
+        self._dim_portal_particles = []
+        self._dim_lightning_arcs = []
+
+        # 포탈 위치: 보스 진영 중앙 상단
+        self._dim_portal_x = 380.0
+        self._dim_portal_y = 80.0
+
+        # 랜덤 영웅 선택 (밴시, 현재 호위무사 제외)
+        self._dim_summoned_hero_id = self._pick_random_hero(game_state)
+
+        # 총 지속시간: 포탈열림(1.5) + 활동(40) + 포탈닫힘(1.5)
+        self.duration = 1.5 + self._dim_duration + 1.5
+        self.active_timer = 1.5 + self._dim_duration  # _end_effect에서 portal_closing 시작
+        self.cooldown = 70.0
+        self.charm_aura_timer = 0.0
+
+        # 포탈 사운드
+        try:
+            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            snd_path = os.path.join(project_root, "sounds", "bencylove.wav")
+            if os.path.exists(snd_path):
+                snd = pygame.mixer.Sound(snd_path)
+                snd.set_volume(0.8)
+                snd.play()
+        except Exception:
+            pass
+
+        return {
+            'screen_effect': ScreenEffect.FLASH,
+            'flash_color': (60, 40, 160),
+        }
+
+    def _pick_random_hero(self, game_state: dict) -> str:
+        """소환할 랜덤 영웅 선택 (밴시 + 현재 호위무사 제외)"""
+        from downtown.hero_skills import HERO_SKILL_CLASSES
+        exclude = {'banshee'}
+        bodyguard_id = game_state.get('_bodyguard_hero_id')
+        if bodyguard_id:
+            exclude.add(bodyguard_id)
+        candidates = [hid for hid in HERO_SKILL_CLASSES if hid not in exclude]
+        return random.choice(candidates) if candidates else 'knight'
+
+    def _update_dimensional(self, dt, caster_paddle, target_paddle, ball, game_state):
+        """차원의 문 phase 별 업데이트"""
+        self.charm_aura_timer += dt
+        self._dim_portal_angle += dt * 3.0  # 소용돌이 회전
+
+        # === portal_opening: 포탈 열리는 중 (1.5초) ===
+        if self._dim_phase == "portal_opening":
+            self._dim_timer -= dt
+            # 스케일 0→1 (ease-out)
+            progress = 1.0 - max(0.0, self._dim_timer / 1.5)
+            self._dim_portal_scale = 1.0 - (1.0 - progress) ** 2
+
+            # 소용돌이 파티클 생성
+            if random.random() < 0.6:
+                angle = random.uniform(0, math.pi * 2)
+                dist = random.uniform(30, 60)
+                self._dim_portal_particles.append({
+                    'x': self._dim_portal_x + math.cos(angle) * dist,
+                    'y': self._dim_portal_y + math.sin(angle) * dist * 0.7,
+                    'angle': angle,
+                    'dist': dist,
+                    'speed': random.uniform(2.0, 4.0),
+                    'life': random.uniform(0.4, 0.8),
+                    'max_life': 0.8,
+                    'size': random.uniform(2, 5),
+                })
+
+            # 전기 아크 생성
+            if random.random() < 0.3 and self._dim_portal_scale > 0.3:
+                arc_angle = random.uniform(0, math.pi * 2)
+                self._dim_lightning_arcs.append({
+                    'angle': arc_angle,
+                    'length': random.uniform(8, 20),
+                    'life': random.uniform(0.05, 0.15),
+                    'max_life': 0.15,
+                    'segments': random.randint(2, 4),
+                })
+
+            self._update_dim_particles(dt)
+
+            if self._dim_timer <= 0:
+                # 포탈 열림 완료 → 소환 요청
+                self._dim_phase = "summoned_active"
+                self._dim_elapsed = 0.0
+                self._dim_portal_scale = 1.0
+                game_state['dimensional_summon_request'] = {
+                    'phase': 'summon',
+                    'hero_id': self._dim_summoned_hero_id,
+                }
+                print(f"[Charm/DimensionalGate] 소환 요청: {self._dim_summoned_hero_id}")
+
+        # === summoned_active: 소환된 호위무사 활동 중 (40초) ===
+        elif self._dim_phase == "summoned_active":
+            self._dim_elapsed += dt
+
+            # 잔상 미니 파티클 (포탈 위치에 약한 잔향)
+            if random.random() < 0.15:
+                angle = random.uniform(0, math.pi * 2)
+                self._dim_portal_particles.append({
+                    'x': self._dim_portal_x + math.cos(angle) * 15,
+                    'y': self._dim_portal_y + math.sin(angle) * 10,
+                    'angle': angle,
+                    'dist': 15,
+                    'speed': random.uniform(1.0, 2.0),
+                    'life': random.uniform(0.3, 0.6),
+                    'max_life': 0.6,
+                    'size': random.uniform(1, 3),
+                })
+
+            self._update_dim_particles(dt)
+
+            # 포탈 잔상 천천히 축소
+            self._dim_portal_scale = max(0.15, 1.0 - self._dim_elapsed * 0.02)
+
+        # === portal_closing: 포탈 닫히는 중 (1.5초) ===
+        elif self._dim_phase == "portal_closing":
+            self._dim_timer -= dt
+            # 포탈 다시 커졌다가 닫힘
+            remaining = max(0.0, self._dim_timer)
+            if remaining > 0.75:
+                # 전반 0.75초: 다시 완전히 열림
+                progress = (1.5 - remaining) / 0.75
+                self._dim_portal_scale = 0.15 + 0.85 * min(1.0, progress)
+            else:
+                # 후반 0.75초: 닫힘
+                progress = remaining / 0.75
+                self._dim_portal_scale = progress
+
+            # 닫히면서 파티클 폭발
+            if random.random() < 0.5:
+                angle = random.uniform(0, math.pi * 2)
+                dist = random.uniform(20, 50)
+                self._dim_portal_particles.append({
+                    'x': self._dim_portal_x + math.cos(angle) * dist * self._dim_portal_scale,
+                    'y': self._dim_portal_y + math.sin(angle) * dist * 0.7 * self._dim_portal_scale,
+                    'angle': angle,
+                    'dist': dist,
+                    'speed': random.uniform(3.0, 6.0),
+                    'life': random.uniform(0.3, 0.6),
+                    'max_life': 0.6,
+                    'size': random.uniform(2, 4),
+                })
+
+            # 전기 아크 (닫히면서 강하게)
+            if random.random() < 0.5 and self._dim_portal_scale > 0.2:
+                arc_angle = random.uniform(0, math.pi * 2)
+                self._dim_lightning_arcs.append({
+                    'angle': arc_angle,
+                    'length': random.uniform(10, 25),
+                    'life': random.uniform(0.05, 0.12),
+                    'max_life': 0.12,
+                    'segments': random.randint(2, 5),
+                })
+
+            self._update_dim_particles(dt)
+
+            if self._dim_timer <= 0:
+                self._dim_phase = "idle"
+                self._dimensional_mode = False
+                self.is_active = False
+                print("[Charm/DimensionalGate] 포탈 닫힘 완료")
+
+    def _update_dim_particles(self, dt):
+        """차원의 문 파티클 업데이트"""
+        # 소용돌이 파티클: 중심으로 수렴
+        alive = []
+        for p in self._dim_portal_particles:
+            p['life'] -= dt
+            if p['life'] > 0:
+                # 중심으로 나선 수렴
+                p['angle'] += dt * p['speed']
+                p['dist'] = max(0, p['dist'] - dt * 40)
+                p['x'] = self._dim_portal_x + math.cos(p['angle']) * p['dist']
+                p['y'] = self._dim_portal_y + math.sin(p['angle']) * p['dist'] * 0.7
+                alive.append(p)
+        self._dim_portal_particles = alive
+
+        # 전기 아크 업데이트
+        alive_arcs = []
+        for arc in self._dim_lightning_arcs:
+            arc['life'] -= dt
+            if arc['life'] > 0:
+                alive_arcs.append(arc)
+        self._dim_lightning_arcs = alive_arcs
+
+    def _draw_dimensional(self, screen, game_state):
+        """차원의 문 포탈 렌더링 (디아블로 스타일)"""
+        if self._dim_phase == "idle":
+            return
+
+        cx = int(self._dim_portal_x)
+        cy = int(self._dim_portal_y)
+        scale = self._dim_portal_scale
+        if scale < 0.01:
+            return
+
+        pw = int(45 * scale)    # 포탈 너비 (가로)
+        ph = int(65 * scale)    # 포탈 높이 (세로 타원)
+        if pw < 2 or ph < 2:
+            return
+
+        # 1) 바닥 글로우 (보라빛)
+        glow_w = pw * 3
+        glow_h = ph * 3
+        if glow_w > 0 and glow_h > 0:
+            glow_surf = _psurf((glow_w, glow_h), pygame.SRCALPHA)
+            pulse = (math.sin(self.charm_aura_timer * 4) + 1) * 0.5
+            glow_alpha = int(30 + 25 * pulse)
+            pygame.draw.ellipse(glow_surf, (80, 40, 180, glow_alpha), (0, 0, glow_w, glow_h))
+            screen.blit(glow_surf, (cx - glow_w // 2, cy - glow_h // 2),
+                        special_flags=pygame.BLEND_ADD)
+
+        # 2) 검은 코어 (공허)
+        core_surf = _psurf((pw * 2, ph * 2), pygame.SRCALPHA)
+        pygame.draw.ellipse(core_surf, (8, 2, 18, 230), (0, 0, pw * 2, ph * 2))
+        screen.blit(core_surf, (cx - pw, cy - ph))
+
+        # 3) 에너지 링 (다중 레이어, 파란→보라)
+        for i in range(4):
+            ring_w = pw + i * 3 + 2
+            ring_h = ph + i * 3 + 2
+            pulse_offset = math.sin(self.charm_aura_timer * (5 + i) + i * 0.8) * 0.3 + 0.7
+            alpha = int((160 - i * 30) * pulse_offset)
+            if alpha < 10:
+                continue
+            ring_surf = _psurf((ring_w * 2 + 4, ring_h * 2 + 4), pygame.SRCALPHA)
+            # 파란→보라 그라데이션
+            r = min(255, 70 + i * 40)
+            g = min(255, 40 + i * 15)
+            b = min(255, 200 + i * 15)
+            pygame.draw.ellipse(ring_surf, (r, g, b, alpha),
+                                (0, 0, ring_w * 2 + 4, ring_h * 2 + 4), max(2, 3 - i))
+            screen.blit(ring_surf, (cx - ring_w - 2, cy - ring_h - 2),
+                        special_flags=pygame.BLEND_ADD)
+
+        # 4) 소용돌이 파티클 (타원 궤도)
+        num_swirl = 16
+        for j in range(num_swirl):
+            angle = self._dim_portal_angle + j * (math.pi * 2 / num_swirl)
+            # 시간에 따라 반경 변화
+            r_mult = 0.55 + 0.15 * math.sin(self.charm_aura_timer * 3 + j * 0.5)
+            px = cx + int(math.cos(angle) * pw * r_mult)
+            py = cy + int(math.sin(angle) * ph * r_mult)
+            sz = max(1, int(2 + 1.5 * math.sin(self.charm_aura_timer * 6 + j)))
+            # 파란/보라/시안 교대
+            if j % 3 == 0:
+                color = (100, 140, 255, 200)
+            elif j % 3 == 1:
+                color = (160, 80, 240, 180)
+            else:
+                color = (80, 200, 255, 160)
+            dot_s = _psurf((sz * 2, sz * 2), pygame.SRCALPHA)
+            pygame.draw.circle(dot_s, color, (sz, sz), sz)
+            screen.blit(dot_s, (px - sz, py - sz), special_flags=pygame.BLEND_ADD)
+
+        # 5) 내부 소용돌이 (작은 원호)
+        inner_count = 8
+        for k in range(inner_count):
+            angle = -self._dim_portal_angle * 1.5 + k * (math.pi * 2 / inner_count)
+            r_mult = 0.3 + 0.1 * math.sin(self.charm_aura_timer * 5 + k)
+            ix = cx + int(math.cos(angle) * pw * r_mult)
+            iy = cy + int(math.sin(angle) * ph * r_mult)
+            alpha = int(120 + 60 * math.sin(self.charm_aura_timer * 4 + k * 0.7))
+            color = (60, 80, 200, alpha)
+            dot_s = _psurf((4, 4), pygame.SRCALPHA)
+            pygame.draw.circle(dot_s, color, (2, 2), 2)
+            screen.blit(dot_s, (ix - 2, iy - 2), special_flags=pygame.BLEND_ADD)
+
+        # 6) 전기 아크 (번개선)
+        for arc in self._dim_lightning_arcs:
+            ratio = arc['life'] / arc['max_life']
+            arc_alpha = int(220 * ratio)
+            start_angle = arc['angle']
+            arc_len = arc['length'] * scale
+            # 시작점: 포탈 가장자리
+            sx = cx + int(math.cos(start_angle) * pw)
+            sy = cy + int(math.sin(start_angle) * ph)
+            # 번개 세그먼트
+            points = [(sx, sy)]
+            for seg in range(arc['segments']):
+                frac = (seg + 1) / arc['segments']
+                nx = sx + int(math.cos(start_angle) * arc_len * frac)
+                ny = sy + int(math.sin(start_angle) * arc_len * frac)
+                nx += random.randint(-4, 4)
+                ny += random.randint(-4, 4)
+                points.append((nx, ny))
+            if len(points) >= 2:
+                arc_color = (150, 180, 255, arc_alpha)
+                arc_s = _psurf((int(pw * 3), int(ph * 3)), pygame.SRCALPHA)
+                offset_x = cx - int(pw * 1.5)
+                offset_y = cy - int(ph * 1.5)
+                adj_points = [(p[0] - offset_x, p[1] - offset_y) for p in points]
+                try:
+                    pygame.draw.lines(arc_s, arc_color, False, adj_points, 1)
+                except Exception:
+                    pass
+                screen.blit(arc_s, (offset_x, offset_y), special_flags=pygame.BLEND_ADD)
+
+        # 7) 흩어지는 파티클
+        for p in self._dim_portal_particles:
+            ratio = p['life'] / p['max_life']
+            alpha = int(180 * ratio)
+            sz = max(1, int(p['size'] * ratio))
+            c = (100, 120, 255, alpha) if int(p['angle'] * 10) % 2 == 0 else (160, 80, 220, alpha)
+            ps = _psurf((sz * 2, sz * 2), pygame.SRCALPHA)
+            pygame.draw.circle(ps, c, (sz, sz), sz)
+            screen.blit(ps, (int(p['x'] - sz), int(p['y'] - sz)), special_flags=pygame.BLEND_ADD)
+
+        # 8) summoned_active 상태: 미니 포탈 잔상 텍스트 효과 없음 (포탈이 작아진 상태)
 
 
 class DeadPossession(HeroSkill):
