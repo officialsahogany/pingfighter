@@ -88885,6 +88885,120 @@ def draw_player_gauge():
                         pygame.draw.circle(_gd_gs, (*_gd_glow, _gl_a),
                                          (_gl_r + 2, _gl_r + 2), _gl_r)
                         SCREEN.blit(_gd_gs, (_gd_x - _gl_r - 2, _gd_y - _gl_r - 2))
+        else:
+            # === 스토리모드 호위무사 대쉬 토큰 구슬 (수비모드 전용) ===
+            try:
+                from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg_orb
+                _bg_orb = _get_bg_orb()
+                if _bg_orb.active and _bg_orb.stance_mode == "defense":
+                    _gs_story = _bg_orb._guard_system
+                    _gd_cd = getattr(_gs_story, '_guard_dash_cooldown', 0.0)
+                    _gd_cd_max = getattr(_gs_story, 'GUARD_DASH_COOLDOWN', 15.0)
+                    _gd_ready = _gd_cd <= 0
+                    _gd_progress = max(0.0, 1.0 - (_gd_cd / _gd_cd_max)) if _gd_cd_max > 0 else 1.0
+
+                    _gd_r = max(12, int(orb_radius * 0.66))
+                    _gd_fw = 6
+                    _gd_x = orb_center_x
+                    _gd_y = orb_center_y - orb_radius - _gd_r - 35
+
+                    _gd_empty = (12, 18, 40)
+                    _gd_full = (40, 110, 200)
+                    _gd_glow = (80, 170, 255)
+
+                    # 1. 그림자
+                    _gd_shadow_s = pygame.Surface((_gd_r * 2 + 20, _gd_r * 2 + 20), pygame.SRCALPHA)
+                    for _gsi in range(4):
+                        _gsr = _gd_r + _gd_fw + 3 - _gsi
+                        _gsa = 45 - _gsi * 10
+                        pygame.draw.circle(_gd_shadow_s, (3, 3, 10, _gsa),
+                                         (_gd_r + 12, _gd_r + 12), _gsr)
+                    SCREEN.blit(_gd_shadow_s, (_gd_x - _gd_r - 10, _gd_y - _gd_r - 10))
+
+                    # 2. 프레임
+                    pygame.draw.circle(SCREEN, (25, 30, 50), (_gd_x, _gd_y), _gd_r + _gd_fw)
+                    pygame.draw.circle(SCREEN, (70, 80, 110), (_gd_x, _gd_y), _gd_r + _gd_fw, 3)
+                    pygame.draw.circle(SCREEN, (100, 115, 150), (_gd_x, _gd_y), _gd_r + _gd_fw, 2)
+                    pygame.draw.circle(SCREEN, (50, 55, 75), (_gd_x, _gd_y), _gd_r + _gd_fw - 3, 2)
+                    _gd_bevel_rect = (_gd_x - _gd_r - _gd_fw + 2, _gd_y - _gd_r - _gd_fw + 2,
+                                     (_gd_r + _gd_fw - 2) * 2, (_gd_r + _gd_fw - 2) * 2)
+                    pygame.draw.arc(SCREEN, (130, 145, 170), _gd_bevel_rect,
+                                  math.radians(200), math.radians(340), 2)
+                    pygame.draw.arc(SCREEN, (20, 22, 35), _gd_bevel_rect,
+                                  math.radians(20), math.radians(160), 2)
+                    _gd_stud_d = _gd_r + _gd_fw // 2
+                    for _gd_sa in [0, 90, 180, 270]:
+                        _gd_srad = math.radians(_gd_sa - 90)
+                        _gd_sx = int(_gd_x + math.cos(_gd_srad) * _gd_stud_d)
+                        _gd_sy = int(_gd_y + math.sin(_gd_srad) * _gd_stud_d)
+                        pygame.draw.circle(SCREEN, (30, 35, 55), (_gd_sx, _gd_sy), 4)
+                        pygame.draw.circle(SCREEN, (80, 95, 130), (_gd_sx, _gd_sy), 3)
+                        pygame.draw.circle(SCREEN, (50, 100, 180), (_gd_sx, _gd_sy), 2)
+                        pygame.draw.circle(SCREEN, (100, 160, 230), (_gd_sx, _gd_sy), 1)
+                    pygame.draw.circle(SCREEN, (15, 18, 30), (_gd_x, _gd_y), _gd_r + 1, 2)
+                    pygame.draw.circle(SCREEN, (50, 60, 80), (_gd_x, _gd_y), _gd_r, 1)
+
+                    # 3. 구슬 배경
+                    for _gbr in range(_gd_r, 0, -2):
+                        _gb_ratio = _gbr / _gd_r
+                        _gb_r = int(8 + 10 * (1 - _gb_ratio))
+                        _gb_g = int(12 + 15 * (1 - _gb_ratio))
+                        _gb_b = int(30 + 20 * (1 - _gb_ratio))
+                        pygame.draw.circle(SCREEN, (_gb_r, _gb_g, _gb_b), (_gd_x, _gd_y), _gbr)
+
+                    # 4. 충전 상태 채우기
+                    if _gd_progress > 0:
+                        _gd_fill_h = int(_gd_r * 2 * _gd_progress)
+                        for _gy_off in range(_gd_fill_h + 1):
+                            _gy = _gd_y + _gd_r - _gy_off
+                            _gdy = abs(_gy - _gd_y)
+                            if _gdy < _gd_r - 1:
+                                _gdx = math.sqrt((_gd_r - 1) * (_gd_r - 1) - _gdy * _gdy)
+                                _ratio = _gy_off / (_gd_r * 2) if _gd_r > 0 else 0
+                                _gc_r = int(_gd_empty[0] + (_gd_full[0] - _gd_empty[0]) * (0.5 + 0.5 * _ratio))
+                                _gc_g = int(_gd_empty[1] + (_gd_full[1] - _gd_empty[1]) * (0.5 + 0.5 * _ratio))
+                                _gc_b = int(_gd_empty[2] + (_gd_full[2] - _gd_empty[2]) * (0.5 + 0.5 * _ratio))
+                                pygame.draw.line(SCREEN, (_gc_r, _gc_g, _gc_b),
+                                               (int(_gd_x - _gdx), int(_gy)),
+                                               (int(_gd_x + _gdx), int(_gy)))
+
+                    # 5. 내부 파티클
+                    _gd_sparkle = pygame.Surface((_gd_r * 2, _gd_r * 2), pygame.SRCALPHA)
+                    for _gpi in range(5):
+                        _gpa = time_now * 0.001 + _gpi * 1.3
+                        _gpd = (_gd_r - 6) * (0.3 + 0.4 * abs(math.sin(_gpa * 0.7 + _gpi)))
+                        _gppx = int(_gd_r + math.cos(_gpa) * _gpd)
+                        _gppy = int(_gd_r + math.sin(_gpa * 0.8) * _gpd)
+                        _gpdx = _gppx - _gd_r
+                        _gpdy = _gppy - _gd_r
+                        if _gpdx * _gpdx + _gpdy * _gpdy < (_gd_r - 4) * (_gd_r - 4):
+                            _gp_a = int(30 + 20 * abs(math.sin(_gpa * 1.1)))
+                            pygame.draw.circle(_gd_sparkle, (100, 180, 255, _gp_a), (_gppx, _gppy), 1)
+                    SCREEN.blit(_gd_sparkle, (_gd_x - _gd_r, _gd_y - _gd_r))
+
+                    # 6. 유리 하이라이트
+                    _gd_hl = pygame.Surface((_gd_r * 2, _gd_r * 2), pygame.SRCALPHA)
+                    pygame.draw.ellipse(_gd_hl, (255, 255, 255, 25),
+                                      (6, 4, int(_gd_r * 1.0), int(_gd_r * 0.4)))
+                    pygame.draw.ellipse(_gd_hl, (255, 255, 255, 40),
+                                      (10, 7, int(_gd_r * 0.6), int(_gd_r * 0.25)))
+                    pygame.draw.circle(_gd_hl, (255, 255, 255, 90),
+                                     (_gd_r // 3, _gd_r // 3), max(2, _gd_r // 10))
+                    SCREEN.blit(_gd_hl, (_gd_x - _gd_r, _gd_y - _gd_r))
+
+                    # 7. 준비완료 글로우
+                    if _gd_ready:
+                        _gd_pulse = 0.5 + 0.5 * math.sin(time_now * 0.005)
+                        _gd_ga = int(60 * _gd_pulse)
+                        for _gl in range(3):
+                            _gl_r = _gd_r + 6 + _gl * 4
+                            _gl_a = max(0, _gd_ga - _gl * 15)
+                            _gd_gs = pygame.Surface((_gl_r * 2 + 4, _gl_r * 2 + 4), pygame.SRCALPHA)
+                            pygame.draw.circle(_gd_gs, (*_gd_glow, _gl_a),
+                                             (_gl_r + 2, _gl_r + 2), _gl_r)
+                            SCREEN.blit(_gd_gs, (_gd_x - _gl_r - 2, _gd_y - _gl_r - 2))
+            except Exception:
+                pass
 
         # === 토큰 카운트 텍스트는 맨 마지막에 그림 (아래 코드 참조) ===
 
