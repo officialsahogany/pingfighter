@@ -144193,6 +144193,35 @@ def main(stage_num, new_boss_mode=False):
                                     # 플레이어(하단)에게 넉백
                                     player_knockback_vel = _kb_dir * _kb_vel
                                     player_stunned_timer = 45
+                            # 🔫 범용 넉백 (개틀링 버스트, 환영수리검, 해골 궁수 등)
+                            if _bg_fx.get('generic_knockback'):
+                                _gk_dir = _bg_fx.get('generic_knockback_dir', 1)
+                                boss_knockback_vel = _gk_dir * 14.0  # 초기 속도 14.0
+                                boss_stunned_timer = max(boss_stunned_timer, 36)  # 0.6초 경직
+                                globals()['screen_shake_timer'] = 12
+                                globals()['screen_shake_intensity'] = 15
+                            # 💣 폭탄 서프라이즈 넉백 (프레임 기반 지속)
+                            if _bg_fx.get('bomb_kb_active'):
+                                _bk_vel = _bg_fx.get('bomb_kb_vel', 0)
+                                _bk_dir = _bg_fx.get('bomb_kb_dir', 0)
+                                _bk_frames = _bg_fx.get('bomb_kb_frames', 0)
+                                _bg_gs = get_bodyguard()._skill_manager.game_state
+                                if _bk_frames > 0 and _bk_vel > 0:
+                                    BOSS.x += int(_bk_dir * _bk_vel * (1.0/60.0) * 60)
+                                    _bk_frames -= 1
+                                    if _bk_frames < 6:
+                                        _bk_vel *= 0.75
+                                    _bg_gs['top_paddle_bomb_kb_vel'] = _bk_vel
+                                    _bg_gs['top_paddle_bomb_kb_frames'] = _bk_frames
+                                    BOSS.x = max(0, min(BOSS.x, WIDTH - BOSS.width))
+                                else:
+                                    _bg_gs['top_paddle_bomb_kb_active'] = False
+                            # 🍌 바나나 슬라이스 미끄러짐
+                            if _bg_fx.get('banana_slip_active'):
+                                _bs_offset = _bg_fx.get('banana_slip_offset', 0)
+                                if abs(_bs_offset) > 0.01:
+                                    BOSS.x += int(_bs_offset)
+                                    BOSS.x = max(0, min(BOSS.x, WIDTH - BOSS.width))
                             # 화면 정지 (달빛베기 / 도깨비불)
                             if _bg_fx.get('freeze'):
                                 freeze_now = True

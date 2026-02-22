@@ -462,12 +462,41 @@ class InGameBodyguard:
             boss_effects['ball_vx'] = ball.vx
             boss_effects['ball_vy'] = ball.vy
 
+        # ── 범용 넉백 (개틀링 버스트, 환영수리검, 해골 궁수 등) ──
+        if gs.get('top_paddle_knockback', False):
+            boss_effects['generic_knockback'] = True
+            boss_effects['generic_knockback_dir'] = gs.get('top_paddle_knockback_dir', 1)
+            boss_effects['generic_knockback_vel'] = gs.get('top_paddle_knockback_vel', 120)
+            gs['top_paddle_knockback'] = False  # 1회성 신호 소비
+
+        # ── 폭탄 서프라이즈 넉백 (프레임 기반 지속 넉백) ──
+        if gs.get('top_paddle_bomb_kb_active', False):
+            boss_effects['bomb_kb_active'] = True
+            boss_effects['bomb_kb_dir'] = gs.get('top_paddle_bomb_kb_dir', 0)
+            boss_effects['bomb_kb_vel'] = gs.get('top_paddle_bomb_kb_vel', 0)
+            boss_effects['bomb_kb_frames'] = gs.get('top_paddle_bomb_kb_frames', 0)
+
+        # ── 바나나 슬라이스 미끄러짐 ──
+        if gs.get('top_paddle_banana_slip_active', False):
+            boss_effects['banana_slip_active'] = True
+            boss_effects['banana_slip_offset'] = gs.get('top_paddle_banana_slip_offset', 0)
+
+        # ── 감전 이펙트 (천둥 뇌구) ──
+        if gs.get('top_paddle_electric_stun', False):
+            boss_effects['electric_stun'] = True
+
+        # ── 화면 흔들림 (스킬 game_state 직접 설정) ──
+        _gs_shake = gs.pop('screen_shake', 0)
+        if _gs_shake:
+            boss_effects['screen_shake'] = True
+            boss_effects['shake_intensity'] = _gs_shake if isinstance(_gs_shake, (int, float)) else 15
+
         # ── 순찰 호위무사 공 충돌 ──
         _patrol_hit = gs.pop('guard_patrol_ball_hit', None)
         if _patrol_hit:
             boss_effects['guard_patrol_ball_hit'] = _patrol_hit
 
-        # ── 화면 효과 (흔들림/플래시) ──
+        # ── 화면 효과 (screen_effects 리스트) ──
         for fx in self._skill_manager.screen_effects:
             boss_effects['screen_shake'] = True
             boss_effects['shake_intensity'] = fx.get('intensity', 15)
