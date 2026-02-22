@@ -10655,6 +10655,14 @@ class ColosseumsArena:
                             paddle_pos=None
                         )
                         self._seal_phase = "chest"
+                        # legendopen.wav 사운드 재생
+                        try:
+                            _base = sys._MEIPASS if hasattr(sys, '_MEIPASS') else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                            _snd_path = os.path.join(_base, "sounds", "legendopen.wav")
+                            if os.path.exists(_snd_path):
+                                pygame.mixer.Sound(_snd_path).play()
+                        except Exception:
+                            pass
                     except Exception as _eff_err:
                         print(f"[Arena] 보물상자 연출 생성 실패, 결과화면 직행: {_eff_err}")
                         self._seal_phase = "result"
