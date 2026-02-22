@@ -2969,6 +2969,50 @@ class AnimatedBackgroundStage30:
         extra_thick = max(2, int(3 * s))
 
         # ════════════════════════════════════════
+        # 0. 신성 오라 (Divine Aura - 석상 배경 후광)
+        # ════════════════════════════════════════
+        if s >= 1.5:
+            # 후광 중심 (머리 위쪽)
+            aura_cx, aura_cy = cx, cy - int(20 * s)
+            # 외곽 글로우 (크고 희미한 원형 - 골든 컬러)
+            aura_r_outer = int(35 * s)
+            aura_surf = _get_cached_surface(aura_r_outer * 2 + 8, aura_r_outer * 2 + 8)
+            # 다층 글로우 (안쪽일수록 밝고 작게)
+            pulse = 0.7 + 0.3 * math.sin(self.time * 2.5)
+            for layer_i, (r_frac, alpha_base) in enumerate([
+                (1.0, 12), (0.75, 18), (0.55, 25), (0.35, 35)
+            ]):
+                layer_r = int(aura_r_outer * r_frac)
+                if layer_r > 2:
+                    layer_alpha = int(alpha_base * pulse)
+                    glow_col = (220, 195, 100, min(255, layer_alpha))
+                    pygame.draw.circle(aura_surf, glow_col,
+                                       (aura_r_outer + 4, aura_r_outer + 4), layer_r)
+            screen.blit(aura_surf,
+                        (aura_cx - aura_r_outer - 4, aura_cy - aura_r_outer - 4),
+                        special_flags=pygame.BLEND_ADD)
+
+            # 방사형 광선 (빛줄기 - 간헐적 반짝임)
+            if s >= 2.5:
+                ray_count = 12
+                for ri in range(ray_count):
+                    ray_angle = (ri / ray_count) * math.pi * 2 + self.time * 0.3
+                    ray_len = int((18 + 8 * math.sin(self.time * 3 + ri * 1.7)) * s)
+                    ray_alpha = int((15 + 10 * math.sin(self.time * 4 + ri * 2.3)) * pulse)
+                    if ray_alpha > 5:
+                        rx1 = aura_cx + int(8 * s * math.cos(ray_angle))
+                        ry1 = aura_cy + int(8 * s * math.sin(ray_angle))
+                        rx2 = aura_cx + int(ray_len * math.cos(ray_angle))
+                        ry2 = aura_cy + int(ray_len * math.sin(ray_angle))
+                        ray_surf = _get_cached_surface(abs(rx2 - rx1) + 8, abs(ry2 - ry1) + 8)
+                        # 광선 끝 글로우 점
+                        gr = max(1, int(1.5 * s))
+                        pygame.draw.circle(ray_surf, (255, 230, 140, min(60, ray_alpha * 2)),
+                                           (abs(rx2 - rx1) // 2 + 4, abs(ry2 - ry1) // 2 + 4), gr)
+                        pygame.draw.line(screen, (220, 200, 120),
+                                         (rx1, ry1), (rx2, ry2), 1)
+
+        # ════════════════════════════════════════
         # 1. 흙 마운드 & 잔해 (석상 기단부 - 고퀄리티)
         # ════════════════════════════════════════
         ground_y = cy + int(2 * s)
@@ -3078,7 +3122,7 @@ class AnimatedBackgroundStage30:
                 pygame.draw.line(screen, crack_col, p1, p2, 1)
 
         # ════════════════════════════════════════
-        # 2. 상체 메인 바디 (고퀄리티 근육 디테일)
+        # 2. 상체 메인 바디 (영웅적 체형 - V자 실루엣)
         # ════════════════════════════════════════
         torso_pts = [
             # 하단 파단면 (더 복잡한 깨짐 패턴)
@@ -3092,132 +3136,219 @@ class AnimatedBackgroundStage30:
             (cx + int(5 * s), cy - int(3 * s)),
             (cx + int(7 * s), cy - int(5 * s)),
             (cx + int(9 * s), cy - int(1 * s)),
-            # 오른쪽 옆구리 (허리→삼각근)
+            # 오른쪽 옆구리 (허리→삼각근, V자 실루엣)
             (cx + int(8 * s), cy - int(8 * s)),
-            (cx + int(12 * s), cy - int(15 * s)),
-            (cx + int(12 * s), cy - int(17 * s)),
-            (cx + int(11 * s), cy - int(19 * s)),
-            # 상단 어깨선
-            (cx + int(10 * s), cy - int(20 * s)),
-            (cx - int(10 * s), cy - int(20 * s)),
+            (cx + int(10 * s), cy - int(12 * s)),
+            (cx + int(13 * s), cy - int(15 * s)),  # 넓은 광배근
+            (cx + int(14 * s), cy - int(17 * s)),   # 더 넓은 어깨
+            (cx + int(13 * s), cy - int(19 * s)),
+            # 상단 어깨선 (둥근 승모근 형태)
+            (cx + int(12 * s), cy - int(20.5 * s)),  # 어깨 끝
+            (cx + int(6 * s), cy - int(21 * s)),     # 승모근 정점
+            (cx, cy - int(20 * s)),                   # 승모근 중앙 (살짝 내려감)
+            (cx - int(6 * s), cy - int(21 * s)),
+            (cx - int(12 * s), cy - int(20.5 * s)),
             # 왼쪽 어깨→옆구리
-            (cx - int(11 * s), cy - int(19 * s)),
-            (cx - int(12 * s), cy - int(17 * s)),
-            (cx - int(12 * s), cy - int(15 * s)),
+            (cx - int(13 * s), cy - int(19 * s)),
+            (cx - int(14 * s), cy - int(17 * s)),
+            (cx - int(13 * s), cy - int(15 * s)),
+            (cx - int(10 * s), cy - int(12 * s)),
             (cx - int(8 * s), cy - int(8 * s)),
         ]
         pygame.draw.polygon(screen, marble, torso_pts)
         pygame.draw.polygon(screen, marble_dark, torso_pts, lw)
 
-        # 2b) 좌측 그림자 (입체감 - 빛이 오른쪽에서 옴)
+        # 2b) 좌측 전면 그림자 (입체감 - 빛이 우상단에서 옴)
         l_shadow_pts = [
-            (cx - int(12 * s), cy - int(17 * s)),
-            (cx - int(12 * s), cy - int(15 * s)),
+            (cx - int(13 * s), cy - int(19 * s)),
+            (cx - int(14 * s), cy - int(17 * s)),
+            (cx - int(13 * s), cy - int(15 * s)),
+            (cx - int(10 * s), cy - int(12 * s)),
             (cx - int(8 * s), cy - int(8 * s)),
             (cx - int(9 * s), cy - int(2 * s)),
             (cx - int(7 * s), cy - int(5 * s)),
             (cx - int(5 * s), cy - int(6 * s)),
-            (cx - int(7 * s), cy - int(14 * s)),
+            (cx - int(6 * s), cy - int(14 * s)),
             (cx - int(9 * s), cy - int(18 * s)),
-            (cx - int(11 * s), cy - int(19 * s)),
+            (cx - int(12 * s), cy - int(20.5 * s)),
         ]
         if len(l_shadow_pts) >= 3:
             pygame.draw.polygon(screen, marble_mid, l_shadow_pts)
 
-        # 2c) 오른쪽 림라이트 (빛 반사)
+        # 2c) 오른쪽 림라이트 (빛 반사 - 넓은 광배근)
         if s >= 1.5:
             rim_light_pts = [
-                (cx + int(11 * s), cy - int(19 * s)),
+                (cx + int(13 * s), cy - int(19 * s)),
+                (cx + int(14 * s), cy - int(17 * s)),
+                (cx + int(13 * s), cy - int(15 * s)),
+                (cx + int(11 * s), cy - int(15 * s)),
                 (cx + int(12 * s), cy - int(17 * s)),
-                (cx + int(12 * s), cy - int(15 * s)),
-                (cx + int(10 * s), cy - int(15 * s)),
-                (cx + int(10 * s), cy - int(17 * s)),
+                (cx + int(12 * s), cy - int(19 * s)),
             ]
             pygame.draw.polygon(screen, marble_light, rim_light_pts)
 
-        # ═══ 3. 근육 디테일 ═══
-
-        # 3a) 쇄골 (collarbone)
-        pygame.draw.line(screen, marble_mid,
-                         (cx - int(2 * s), cy - int(19 * s)),
-                         (cx - int(9 * s), cy - int(18 * s)), lw)
-        pygame.draw.line(screen, marble_mid,
-                         (cx + int(2 * s), cy - int(19 * s)),
-                         (cx + int(9 * s), cy - int(18 * s)), lw)
+        # 2d) 중앙 흉골 라인 (가슴 분리선 하이라이트)
         if s >= 2:
-            pygame.draw.line(screen, marble_light,
-                             (cx - int(2 * s), cy - int(19.5 * s)),
-                             (cx - int(8 * s), cy - int(18.5 * s)), 1)
-            pygame.draw.line(screen, marble_light,
-                             (cx + int(2 * s), cy - int(19.5 * s)),
-                             (cx + int(8 * s), cy - int(18.5 * s)), 1)
+            pygame.draw.line(screen, marble_bright,
+                             (cx, cy - int(20 * s)),
+                             (cx, cy - int(13 * s)), 1)
 
-        # 3b) 삼각근 (deltoid) 윤곽
+        # ═══ 3. 근육 디테일 (강화된 해부학적 디테일) ═══
+
+        # 3a) 쇄골 (collarbone - 넓어진 어깨에 맞춤)
+        pygame.draw.line(screen, marble_mid,
+                         (cx - int(2 * s), cy - int(20 * s)),
+                         (cx - int(10 * s), cy - int(19 * s)), lw)
+        pygame.draw.line(screen, marble_mid,
+                         (cx + int(2 * s), cy - int(20 * s)),
+                         (cx + int(10 * s), cy - int(19 * s)), lw)
+        if s >= 2:
+            # 쇄골 상단 하이라이트 (뼈가 돌출된 느낌)
+            pygame.draw.line(screen, marble_bright,
+                             (cx - int(2 * s), cy - int(20.5 * s)),
+                             (cx - int(9 * s), cy - int(19.5 * s)), 1)
+            pygame.draw.line(screen, marble_bright,
+                             (cx + int(2 * s), cy - int(20.5 * s)),
+                             (cx + int(9 * s), cy - int(19.5 * s)), 1)
+            # 쇄골 하단 그림자
+            pygame.draw.line(screen, marble_shadow,
+                             (cx - int(3 * s), cy - int(19.5 * s)),
+                             (cx - int(9 * s), cy - int(18.5 * s)), 1)
+            pygame.draw.line(screen, marble_shadow,
+                             (cx + int(3 * s), cy - int(19.5 * s)),
+                             (cx + int(9 * s), cy - int(18.5 * s)), 1)
+
+        # 3b) 삼각근 (deltoid) 윤곽 - 넓어진 어깨
         pygame.draw.arc(screen, marble_dark,
-                        (cx - int(13 * s), cy - int(20 * s), int(6 * s), int(8 * s)),
+                        (cx - int(15 * s), cy - int(21 * s), int(7 * s), int(9 * s)),
                         -0.3, math.pi * 0.5, lw)
         pygame.draw.arc(screen, marble_dark,
-                        (cx + int(8 * s), cy - int(20 * s), int(6 * s), int(8 * s)),
+                        (cx + int(9 * s), cy - int(21 * s), int(7 * s), int(9 * s)),
                         math.pi * 0.5, math.pi + 0.3, lw)
+        # 삼각근 내부 분리선 (전면/측면/후면)
+        if s >= 2:
+            pygame.draw.line(screen, marble_mid,
+                             (cx - int(12 * s), cy - int(20 * s)),
+                             (cx - int(11 * s), cy - int(16 * s)), 1)
+            pygame.draw.line(screen, marble_mid,
+                             (cx + int(12 * s), cy - int(20 * s)),
+                             (cx + int(11 * s), cy - int(16 * s)), 1)
 
-        # 3c) 대흉근 (pectoral muscles - 상세)
-        chest_w = int(8 * s)
-        chest_h = int(5 * s)
+        # 3c) 대흉근 (pectoral muscles - 더 크고 입체적)
+        chest_w = int(9 * s)
+        chest_h = int(6 * s)
         if chest_w > 3 and chest_h > 2:
-            # 왼쪽 대흉근 주 윤곽
-            pygame.draw.arc(screen, marble_dark,
-                            (cx - int(9 * s), cy - int(17 * s), chest_w, chest_h),
-                            -0.3, math.pi * 0.8, thick)
-            # 왼쪽 대흉근 하부 그림자
+            # 왼쪽 대흉근 (채워진 형태)
+            l_pec_pts = [
+                (cx - int(1 * s), cy - int(19 * s)),
+                (cx - int(9 * s), cy - int(17 * s)),
+                (cx - int(10 * s), cy - int(15 * s)),
+                (cx - int(8 * s), cy - int(13 * s)),
+                (cx - int(1 * s), cy - int(13.5 * s)),
+            ]
+            pygame.draw.polygon(screen, marble, l_pec_pts)
+            pygame.draw.polygon(screen, marble_dark, l_pec_pts, lw)
+            # 왼쪽 대흉근 하부 그림자 (하이라이트/그림자 분리)
             pygame.draw.arc(screen, marble_shadow,
-                            (cx - int(8 * s), cy - int(16 * s), int(7 * s), int(4 * s)),
-                            0.0, math.pi * 0.6, lw)
-            # 오른쪽 대흉근 주 윤곽
-            pygame.draw.arc(screen, marble_dark,
-                            (cx + int(1 * s), cy - int(17 * s), chest_w, chest_h),
-                            math.pi * 0.2, math.pi * 1.3, thick)
-            # 오른쪽 대흉근 하부 그림자
-            pygame.draw.arc(screen, marble_shadow,
-                            (cx + int(2 * s), cy - int(16 * s), int(7 * s), int(4 * s)),
-                            math.pi * 0.4, math.pi * 1.0, lw)
-            # 가슴 중앙 골 (흉골)
-            pygame.draw.line(screen, marble_shadow,
-                             (cx, cy - int(17 * s)),
-                             (cx, cy - int(13 * s)), lw)
+                            (cx - int(9 * s), cy - int(16 * s), int(8 * s), int(4 * s)),
+                            0.0, math.pi * 0.7, lw)
+            # 왼쪽 대흉근 상부 하이라이트
+            if s >= 2:
+                pygame.draw.line(screen, marble_bright,
+                                 (cx - int(2 * s), cy - int(18 * s)),
+                                 (cx - int(7 * s), cy - int(17 * s)), 1)
 
-        # 3d) 복부 근육 (abdominals)
+            # 오른쪽 대흉근 (채워진 형태)
+            r_pec_pts = [
+                (cx + int(1 * s), cy - int(19 * s)),
+                (cx + int(9 * s), cy - int(17 * s)),
+                (cx + int(10 * s), cy - int(15 * s)),
+                (cx + int(8 * s), cy - int(13 * s)),
+                (cx + int(1 * s), cy - int(13.5 * s)),
+            ]
+            pygame.draw.polygon(screen, marble, r_pec_pts)
+            pygame.draw.polygon(screen, marble_dark, r_pec_pts, lw)
+            pygame.draw.arc(screen, marble_shadow,
+                            (cx + int(2 * s), cy - int(16 * s), int(8 * s), int(4 * s)),
+                            math.pi * 0.3, math.pi * 1.0, lw)
+            if s >= 2:
+                pygame.draw.line(screen, marble_bright,
+                                 (cx + int(2 * s), cy - int(18 * s)),
+                                 (cx + int(7 * s), cy - int(17 * s)), 1)
+
+            # 가슴 중앙 골 (흉골 - 깊은 V홈)
+            pygame.draw.line(screen, marble_shadow,
+                             (cx, cy - int(19 * s)),
+                             (cx, cy - int(13 * s)), thick)
+            if s >= 2:
+                pygame.draw.line(screen, marble_deep,
+                                 (cx, cy - int(18 * s)),
+                                 (cx, cy - int(14 * s)), 1)
+
+        # 3d) 복부 근육 (abdominals - 8-pack 강화)
         pygame.draw.line(screen, marble_mid,
                          (cx, cy - int(13 * s)), (cx, cy - int(5 * s)), lw)
         if s >= 2:
-            # 복근 수평 분리선 (6-pack)
-            for ab_y_off in [-12, -10, -8]:
+            # 복근 수평 분리선 (8-pack: 4단 좌우)
+            for ab_y_off in [-12.5, -10.5, -8.5, -6.5]:
                 ab_y = cy + int(ab_y_off * s)
+                # 좌측 복근 분리선
                 pygame.draw.line(screen, marble_mid,
-                                 (cx - int(3.5 * s), ab_y),
+                                 (cx - int(4 * s), ab_y),
                                  (cx - int(0.5 * s), ab_y), 1)
+                # 우측 복근 분리선
                 pygame.draw.line(screen, marble_mid,
                                  (cx + int(0.5 * s), ab_y),
-                                 (cx + int(3.5 * s), ab_y), 1)
-            # 복근 블록 하이라이트
-            for ab_y_off in [-13, -11, -9]:
+                                 (cx + int(4 * s), ab_y), 1)
+            # 복근 블록 하이라이트 (각 블록 중앙에 밝은 점)
+            for ab_y_off in [-13, -11, -9, -7]:
                 ab_y = cy + int(ab_y_off * s)
+                # 좌측 하이라이트
                 pygame.draw.line(screen, marble_light,
-                                 (cx - int(2 * s), ab_y + int(0.5 * s)),
+                                 (cx - int(2.5 * s), ab_y + int(0.5 * s)),
                                  (cx - int(1 * s), ab_y + int(0.5 * s)), 1)
+                # 우측 하이라이트
                 pygame.draw.line(screen, marble_light,
                                  (cx + int(1 * s), ab_y + int(0.5 * s)),
-                                 (cx + int(2 * s), ab_y + int(0.5 * s)), 1)
+                                 (cx + int(2.5 * s), ab_y + int(0.5 * s)), 1)
+            # 복근 외곽선 (복직근 테두리)
+            pygame.draw.line(screen, marble_mid,
+                             (cx - int(4 * s), cy - int(13 * s)),
+                             (cx - int(4 * s), cy - int(6 * s)), 1)
+            pygame.draw.line(screen, marble_mid,
+                             (cx + int(4 * s), cy - int(13 * s)),
+                             (cx + int(4 * s), cy - int(6 * s)), 1)
 
-        # 3e) 외복사근 / 늑골 (oblique / serratus)
+        # 3e) 외복사근 / 전거근 (oblique / serratus - 톱니 형태)
         if s >= 1.5:
-            for ob_i in range(3):
-                ob_y = cy - int((14 - ob_i * 2.5) * s)
+            # 전거근 (serratus anterior) - 갈비뼈 위 톱니 형태
+            for ob_i in range(4):
+                ob_y = cy - int((15 - ob_i * 2) * s)
+                # 좌측 (톱니 모양)
                 pygame.draw.line(screen, marble_mid,
-                                 (cx - int(4 * s), ob_y),
-                                 (cx - int(7 * s), ob_y - int(1 * s)), 1)
+                                 (cx - int(4.5 * s), ob_y),
+                                 (cx - int(8 * s), ob_y - int(1.5 * s)), 1)
+                # 좌측 하이라이트
+                if s >= 2.5:
+                    pygame.draw.line(screen, marble_light,
+                                     (cx - int(5 * s), ob_y - int(0.3 * s)),
+                                     (cx - int(7 * s), ob_y - int(1 * s)), 1)
+                # 우측
                 pygame.draw.line(screen, marble_mid,
-                                 (cx + int(4 * s), ob_y),
-                                 (cx + int(7 * s), ob_y - int(1 * s)), 1)
+                                 (cx + int(4.5 * s), ob_y),
+                                 (cx + int(8 * s), ob_y - int(1.5 * s)), 1)
+                if s >= 2.5:
+                    pygame.draw.line(screen, marble_light,
+                                     (cx + int(5 * s), ob_y - int(0.3 * s)),
+                                     (cx + int(7 * s), ob_y - int(1 * s)), 1)
+            # 외복사근 V라인 (골반 위)
+            if s >= 2:
+                pygame.draw.line(screen, marble_mid,
+                                 (cx - int(4 * s), cy - int(6 * s)),
+                                 (cx - int(7 * s), cy - int(3 * s)), 1)
+                pygame.draw.line(screen, marble_mid,
+                                 (cx + int(4 * s), cy - int(6 * s)),
+                                 (cx + int(7 * s), cy - int(3 * s)), 1)
 
         # ═══ 4. 토가 (의상) 디테일 ═══
 
@@ -3247,9 +3378,9 @@ class AnimatedBackgroundStage30:
                              (cx - int(9 * s), cy - int(17.5 * s)),
                              (cx + int(4 * s), cy - int(5.5 * s)), 1)
 
-        # 4c) 어깨 핀/브로치 (토가 고정)
-        brooch_x = cx - int(10 * s)
-        brooch_y = cy - int(19 * s)
+        # 4c) 어깨 핀/브로치 (토가 고정 - 넓어진 어깨 좌표)
+        brooch_x = cx - int(11 * s)
+        brooch_y = cy - int(20 * s)
         br_r = max(1, int(1.5 * s))
         pygame.draw.circle(screen, gold, (brooch_x, brooch_y), br_r)
         pygame.draw.circle(screen, gold_light, (brooch_x, brooch_y), max(1, br_r - 1))
@@ -3347,107 +3478,296 @@ class AnimatedBackgroundStage30:
                              (cx + int(7 * s), cy - int(5 * s)),
                              (cx + int(6 * s), cy - int(8 * s)), 1)
 
-        # ═══ 7. 대리석 텍스처 (미세한 결과 풍화) ═══
+        # ═══ 7. 대리석 텍스처 (프리미엄 - 균열, 결, 풍화) ═══
         if s >= 2:
+            # 7a) 대리석 결 (veins) - 더 복잡하고 자연스러운 패턴
             vein_data = [
-                ((-6, -15), (-3, -12), (1, -10)),
-                ((2, -16), (5, -14), (6, -11)),
-                ((-4, -10), (-2, -8), (0, -7)),
+                # 좌측 가슴~복부 관통 결
+                ((-7, -17), (-5, -15), (-3, -12), (-2, -10), (0, -8)),
+                # 우측 상부 결
+                ((3, -18), (5, -16), (7, -14), (6, -11)),
+                # 복부 가로 결
+                ((-4, -10), (-2, -8), (1, -7), (3, -8)),
+                # 좌측 옆구리 결
+                ((-9, -14), (-7, -12), (-6, -9)),
+                # 우측 하부 결
+                ((4, -7), (6, -5), (7, -3)),
             ]
             for vein in vein_data:
                 pts = [(cx + int(vx * s), cy + int(vy * s)) for vx, vy in vein]
                 if len(pts) >= 2:
                     pygame.draw.lines(screen, marble_vein, False, pts, 1)
-            # 풍화 자국 (작은 반점)
-            for wx, wy in [(-3, -14), (5, -16), (-7, -10), (4, -8), (-1, -6)]:
+
+            # 7b) 풍화 자국 (크랙, 칩, 반점)
+            # 크랙 (깊은 갈라짐)
+            crack_data = [
+                ((-5, -16), (-4.5, -14.5), (-5.5, -13), (-4, -11)),  # 좌측 대각선 크랙
+                ((6, -15), (5.5, -13), (6.5, -11)),                  # 우측 크랙
+                ((0, -5), (1, -3.5), (-0.5, -2)),                    # 하단 중앙 크랙
+            ]
+            for crack in crack_data:
+                pts = [(cx + int(cx2 * s), cy + int(cy2 * s)) for cx2, cy2 in crack]
+                if len(pts) >= 2:
+                    pygame.draw.lines(screen, marble_shadow, False, pts, 1)
+                    # 크랙 옆 밝은 선 (빛에 의한 엣지 하이라이트)
+                    hl_pts = [(px + 1, py - 1) for px, py in pts]
+                    pygame.draw.lines(screen, marble_vein, False, hl_pts, 1)
+
+            # 반점 (풍화된 부분)
+            weather_spots = [
+                (-3, -14, 0.4), (5, -16, 0.3), (-7, -10, 0.5),
+                (4, -8, 0.3), (-1, -6, 0.4), (8, -12, 0.3),
+                (-8, -15, 0.3), (2, -4, 0.35), (-6, -7, 0.3),
+            ]
+            for wx, wy, wr in weather_spots:
+                spot_r = max(1, int(wr * s))
                 pygame.draw.circle(screen, marble_mid,
-                                   (cx + int(wx * s), cy + int(wy * s)),
-                                   max(1, int(0.3 * s)))
+                                   (cx + int(wx * s), cy + int(wy * s)), spot_r)
+                # 반점 하이라이트 (볼록한 느낌)
+                if spot_r > 1:
+                    pygame.draw.circle(screen, marble_light,
+                                       (cx + int(wx * s) - 1, cy + int(wy * s) - 1),
+                                       max(1, spot_r - 1))
+
+            # 7c) 칩/파임 (깨진 돌 조각이 떨어져나간 흔적)
+            if s >= 3:
+                chip_data = [
+                    (-10, -16, 1.5), (9, -13, 1.2), (-3, -3, 1.0),
+                    (7, -17, 0.8), (-11, -12, 1.0),
+                ]
+                for chip_x, chip_y, chip_sz in chip_data:
+                    cpx = cx + int(chip_x * s)
+                    cpy = cy + int(chip_y * s)
+                    cr = max(1, int(chip_sz * s * 0.3))
+                    # 파인 부분 (어두운 그림자)
+                    pygame.draw.circle(screen, marble_shadow, (cpx, cpy), cr)
+                    # 파인 부분 엣지 하이라이트
+                    pygame.draw.arc(screen, marble_light,
+                                    (cpx - cr, cpy - cr, cr * 2, cr * 2),
+                                    math.pi * 0.8, math.pi * 1.5, 1)
 
         # ═══ 8. 목 (강화된 디테일) ═══
         neck_w = max(3, int(4 * s))
         neck_top = cy - int(22 * s)
-        neck_bot = cy - int(19.5 * s)
-        # 목 본체
-        pygame.draw.line(screen, marble, (cx, neck_bot), (cx, neck_top), neck_w)
-        # 목 왼쪽 그림자
+        neck_bot = cy - int(20 * s)
+        # 목 본체 (두꺼운 원통형)
+        neck_w2 = max(4, int(5 * s))
+        pygame.draw.line(screen, marble, (cx, neck_bot), (cx, neck_top), neck_w2)
+        # 목 좌측 그림자
         pygame.draw.line(screen, marble_mid,
-                         (cx - int(1.5 * s), neck_bot),
-                         (cx - int(1 * s), neck_top), lw)
-        # 목 오른쪽 하이라이트
+                         (cx - int(2 * s), neck_bot),
+                         (cx - int(1.5 * s), neck_top), lw)
+        # 목 우측 하이라이트
         pygame.draw.line(screen, marble_light,
-                         (cx + int(1 * s), neck_bot),
-                         (cx + int(0.5 * s), neck_top), lw)
-        # 승모근 연결 (목→어깨)
+                         (cx + int(1.5 * s), neck_bot),
+                         (cx + int(1 * s), neck_top), lw)
+        # 목 근육 디테일 (흉쇄유돌근)
+        if s >= 2:
+            pygame.draw.line(screen, marble_mid,
+                             (cx - int(1 * s), neck_bot + int(0.5 * s)),
+                             (cx - int(2.5 * s), neck_top - int(0.5 * s)), 1)
+            pygame.draw.line(screen, marble_mid,
+                             (cx + int(1 * s), neck_bot + int(0.5 * s)),
+                             (cx + int(2.5 * s), neck_top - int(0.5 * s)), 1)
+        # 승모근 연결 (목→어깨, 넓은 어깨에 맞춤)
         if s >= 1.5:
-            pygame.draw.line(screen, marble_mid,
-                             (cx - int(2 * s), cy - int(20 * s)),
-                             (cx - int(8 * s), cy - int(19 * s)), lw)
-            pygame.draw.line(screen, marble_mid,
-                             (cx + int(2 * s), cy - int(20 * s)),
-                             (cx + int(8 * s), cy - int(19 * s)), lw)
+            # 승모근 폴리곤 (목에서 어깨로 넓어지는 형태)
+            trap_l_pts = [
+                (cx - int(2 * s), cy - int(21 * s)),
+                (cx - int(6 * s), cy - int(21 * s)),
+                (cx - int(10 * s), cy - int(20 * s)),
+                (cx - int(5 * s), cy - int(20 * s)),
+            ]
+            trap_r_pts = [
+                (cx + int(2 * s), cy - int(21 * s)),
+                (cx + int(6 * s), cy - int(21 * s)),
+                (cx + int(10 * s), cy - int(20 * s)),
+                (cx + int(5 * s), cy - int(20 * s)),
+            ]
+            pygame.draw.polygon(screen, marble, trap_l_pts)
+            pygame.draw.polygon(screen, marble_mid, trap_l_pts, 1)
+            pygame.draw.polygon(screen, marble, trap_r_pts)
+            pygame.draw.polygon(screen, marble_light, trap_r_pts, 1)
 
         # ── 팔 ──
         self._draw_judgment_arms(screen, cx, cy, s, marble, marble_mid, marble_dark, gold, gold_light)
 
         # ════════════════════════════════════════
-        # 10. 머리 (고퀄리티 조각상 디테일)
+        # 10. 머리 (고퀄리티 조각상 - 조각된 두상 폴리곤)
         # ════════════════════════════════════════
         head_y = cy - int(24 * s)
         head_r = max(3, int(6.5 * s))
 
-        # 10a) 머리 기본 형태
-        pygame.draw.circle(screen, marble, (cx, head_y), head_r)
-        # 왼쪽 반구 그림자 (입체감)
-        pygame.draw.arc(screen, marble_mid,
-                        (cx - head_r, head_y - head_r, head_r * 2, head_r * 2),
-                        math.pi * 0.3, math.pi * 0.9, thick)
-        # 오른쪽 하이라이트
-        pygame.draw.arc(screen, marble_bright,
-                        (cx - head_r, head_y - head_r, head_r * 2, head_r * 2),
-                        -math.pi * 0.3, math.pi * 0.2, lw)
+        # 10a) 조각된 두상 형태 (원형 → 크라니움+광대뼈+턱선 폴리곤)
+        hw = head_r  # 머리 반폭
+        # 두개골 상단은 넓고 둥글게, 하단은 턱으로 좁아지는 형태
+        head_pts = [
+            # 정수리~이마 (넓은 두개골)
+            (cx - int(hw * 0.35), head_y - int(hw * 0.95)),
+            (cx - int(hw * 0.7), head_y - int(hw * 0.8)),
+            (cx - int(hw * 0.92), head_y - int(hw * 0.5)),
+            (cx - int(hw * 1.0), head_y - int(hw * 0.15)),
+            # 좌측 관자놀이~광대뼈 (측두부)
+            (cx - int(hw * 1.0), head_y + int(hw * 0.15)),
+            (cx - int(hw * 0.95), head_y + int(hw * 0.4)),
+            (cx - int(hw * 0.85), head_y + int(hw * 0.55)),  # 광대뼈 돌출
+            # 좌측 턱선 (jaw)
+            (cx - int(hw * 0.7), head_y + int(hw * 0.72)),
+            (cx - int(hw * 0.45), head_y + int(hw * 0.88)),
+            # 턱 끝 (chin)
+            (cx - int(hw * 0.15), head_y + int(hw * 0.98)),
+            (cx, head_y + int(hw * 1.02)),
+            (cx + int(hw * 0.15), head_y + int(hw * 0.98)),
+            # 우측 턱선
+            (cx + int(hw * 0.45), head_y + int(hw * 0.88)),
+            (cx + int(hw * 0.7), head_y + int(hw * 0.72)),
+            # 우측 광대뼈
+            (cx + int(hw * 0.85), head_y + int(hw * 0.55)),
+            (cx + int(hw * 0.95), head_y + int(hw * 0.4)),
+            (cx + int(hw * 1.0), head_y + int(hw * 0.15)),
+            # 우측 두개골
+            (cx + int(hw * 1.0), head_y - int(hw * 0.15)),
+            (cx + int(hw * 0.92), head_y - int(hw * 0.5)),
+            (cx + int(hw * 0.7), head_y - int(hw * 0.8)),
+            (cx + int(hw * 0.35), head_y - int(hw * 0.95)),
+        ]
+        # 두상 기본 채우기
+        pygame.draw.polygon(screen, marble, head_pts)
+        # 좌측 그림자 (입체감 - 빛이 우측 상단에서 옴)
+        head_shadow_pts = [
+            (cx - int(hw * 1.0), head_y - int(hw * 0.15)),
+            (cx - int(hw * 1.0), head_y + int(hw * 0.15)),
+            (cx - int(hw * 0.95), head_y + int(hw * 0.4)),
+            (cx - int(hw * 0.85), head_y + int(hw * 0.55)),
+            (cx - int(hw * 0.7), head_y + int(hw * 0.72)),
+            (cx - int(hw * 0.45), head_y + int(hw * 0.88)),
+            (cx - int(hw * 0.15), head_y + int(hw * 0.98)),
+            (cx, head_y + int(hw * 0.6)),
+            (cx - int(hw * 0.5), head_y),
+            (cx - int(hw * 0.92), head_y - int(hw * 0.5)),
+        ]
+        if len(head_shadow_pts) >= 3:
+            pygame.draw.polygon(screen, marble_mid, head_shadow_pts)
+        # 우측 상단 하이라이트 (이마~관자놀이)
+        if s >= 1.5:
+            head_hl_pts = [
+                (cx + int(hw * 0.1), head_y - int(hw * 0.85)),
+                (cx + int(hw * 0.6), head_y - int(hw * 0.75)),
+                (cx + int(hw * 0.85), head_y - int(hw * 0.4)),
+                (cx + int(hw * 0.9), head_y),
+                (cx + int(hw * 0.5), head_y - int(hw * 0.2)),
+                (cx + int(hw * 0.2), head_y - int(hw * 0.55)),
+            ]
+            if len(head_hl_pts) >= 3:
+                pygame.draw.polygon(screen, marble_light, head_hl_pts)
+        # 턱선 하이라이트 (강조)
+        if s >= 2:
+            pygame.draw.lines(screen, marble_bright, False, [
+                (cx + int(hw * 0.7), head_y + int(hw * 0.72)),
+                (cx + int(hw * 0.45), head_y + int(hw * 0.88)),
+                (cx + int(hw * 0.15), head_y + int(hw * 0.98)),
+                (cx, head_y + int(hw * 1.02)),
+            ], 1)
         # 윤곽선
-        pygame.draw.circle(screen, marble_dark, (cx, head_y), head_r, lw)
+        pygame.draw.polygon(screen, marble_dark, head_pts, lw)
 
-        # 10b) 눈두덩 (brow ridge) - 깊은 그림자
+        # 10b) 눈두덩 (brow ridge) - 두꺼운 돌출형 능선
         brow_y = head_y - int(1.5 * s)
         if s >= 1.5:
-            pygame.draw.line(screen, marble_dark,
-                             (cx - int(4.5 * s), brow_y - int(0.5 * s)),
-                             (cx + int(4.5 * s), brow_y - int(0.5 * s)), thick)
-            # 눈두덩 아래 깊은 그림자
+            # 능선 폴리곤 (두꺼운 입체형)
+            brow_pts_l = [
+                (cx - int(1 * s), brow_y - int(1.2 * s)),
+                (cx - int(4.8 * s), brow_y - int(0.8 * s)),
+                (cx - int(5 * s), brow_y + int(0.3 * s)),
+                (cx - int(1 * s), brow_y + int(0.6 * s)),
+            ]
+            brow_pts_r = [
+                (cx + int(1 * s), brow_y - int(1.2 * s)),
+                (cx + int(4.8 * s), brow_y - int(0.8 * s)),
+                (cx + int(5 * s), brow_y + int(0.3 * s)),
+                (cx + int(1 * s), brow_y + int(0.6 * s)),
+            ]
+            pygame.draw.polygon(screen, marble, brow_pts_l)
+            pygame.draw.polygon(screen, marble, brow_pts_r)
+            # 능선 상단 하이라이트
+            pygame.draw.line(screen, marble_bright,
+                             (cx - int(4.5 * s), brow_y - int(0.8 * s)),
+                             (cx - int(1 * s), brow_y - int(1.2 * s)), lw)
+            pygame.draw.line(screen, marble_bright,
+                             (cx + int(1 * s), brow_y - int(1.2 * s)),
+                             (cx + int(4.5 * s), brow_y - int(0.8 * s)), lw)
+            # 능선 하단 깊은 그림자 (눈구멍 위 드리운 그림자)
             pygame.draw.line(screen, marble_shadow,
-                             (cx - int(4 * s), brow_y + int(0.5 * s)),
-                             (cx + int(4 * s), brow_y + int(0.5 * s)), lw)
-            # 눈두덩 윗면 하이라이트
-            pygame.draw.line(screen, marble_light,
-                             (cx - int(4 * s), brow_y - int(1 * s)),
-                             (cx + int(4 * s), brow_y - int(1 * s)), 1)
+                             (cx - int(4.5 * s), brow_y + int(0.5 * s)),
+                             (cx - int(1 * s), brow_y + int(0.7 * s)), thick)
+            pygame.draw.line(screen, marble_shadow,
+                             (cx + int(1 * s), brow_y + int(0.7 * s)),
+                             (cx + int(4.5 * s), brow_y + int(0.5 * s)), thick)
+            # 미간 주름 (찌푸린 표정)
+            if s >= 2:
+                pygame.draw.line(screen, marble_dark,
+                                 (cx - int(1.2 * s), brow_y - int(1 * s)),
+                                 (cx - int(0.5 * s), brow_y + int(0.3 * s)), 1)
+                pygame.draw.line(screen, marble_dark,
+                                 (cx + int(1.2 * s), brow_y - int(1 * s)),
+                                 (cx + int(0.5 * s), brow_y + int(0.3 * s)), 1)
 
-        # 10c) 눈 (상세 - 움푹 들어간 눈구멍)
+        # 10c) 눈 (신성한 빛나는 눈 - 석상의 핵심 포인트)
         eye_y = head_y - int(0.5 * s)
         if s >= 2:
             for eye_side in [-1, 1]:
                 ex = cx + int(eye_side * 2.5 * s)
-                # 눈구멍 그림자
-                socket_r = max(1, int(1.5 * s))
-                pygame.draw.circle(screen, marble_shadow, (ex, eye_y), socket_r)
-                # 눈알
-                eye_ball_r = max(1, int(1 * s))
-                pygame.draw.circle(screen, marble_mid, (ex, eye_y), eye_ball_r)
-                # 동공 힌트
-                pygame.draw.circle(screen, marble_deep, (ex, eye_y), max(1, int(0.4 * s)))
-                # 눈꺼풀 라인
+                # 깊은 눈구멍 (다층 그림자)
+                socket_r = max(1, int(1.8 * s))
+                pygame.draw.circle(screen, marble_deep, (ex, eye_y), socket_r)
+                pygame.draw.circle(screen, marble_shadow, (ex, eye_y), max(1, int(1.4 * s)))
+                # 눈알 형태 (타원형)
+                eye_w = max(2, int(2.2 * s))
+                eye_h = max(1, int(1.2 * s))
+                eye_rect = (ex - eye_w // 2, eye_y - eye_h // 2, eye_w, eye_h)
+                pygame.draw.ellipse(screen, marble_mid, eye_rect)
+                # ★ 신성한 눈빛 글로우 (황금빛)
+                glow_pulse = 0.6 + 0.4 * math.sin(self.time * 3.5 + eye_side * 0.5)
+                eye_glow_r = max(2, int(2.5 * s * glow_pulse))
+                eye_glow_surf = _get_cached_surface(eye_glow_r * 2 + 4, eye_glow_r * 2 + 4)
+                eye_glow_alpha = int(40 * glow_pulse)
+                pygame.draw.circle(eye_glow_surf,
+                                   (255, 220, 100, min(255, eye_glow_alpha)),
+                                   (eye_glow_r + 2, eye_glow_r + 2), eye_glow_r)
+                screen.blit(eye_glow_surf,
+                            (ex - eye_glow_r - 2, eye_y - eye_glow_r - 2),
+                            special_flags=pygame.BLEND_ADD)
+                # 동공 (밝은 빛으로 대체)
+                pupil_r = max(1, int(0.6 * s))
+                pupil_col = (
+                    min(255, int(200 + 55 * glow_pulse)),
+                    min(255, int(180 + 50 * glow_pulse)),
+                    min(255, int(80 + 40 * glow_pulse))
+                )
+                pygame.draw.circle(screen, pupil_col, (ex, eye_y), pupil_r)
+                # 눈빛 하이라이트 점
+                pygame.draw.circle(screen, (255, 255, 230),
+                                   (ex - int(0.3 * s * eye_side), eye_y - int(0.3 * s)),
+                                   max(1, int(0.3 * s)))
+                # 눈꺼풀 라인 (위아래 모두)
                 pygame.draw.arc(screen, marble_dark,
                                 (ex - socket_r, eye_y - socket_r, socket_r * 2, socket_r * 2),
-                                0.2, math.pi - 0.2, 1)
+                                0.15, math.pi - 0.15, lw)
+                pygame.draw.arc(screen, marble_shadow,
+                                (ex - socket_r, eye_y - int(socket_r * 0.5),
+                                 socket_r * 2, socket_r),
+                                math.pi + 0.3, 2 * math.pi - 0.3, 1)
         elif s >= 1:
-            pygame.draw.line(screen, marble_dark,
-                             (cx - int(3.5 * s), eye_y),
-                             (cx - int(1.5 * s), eye_y), lw)
-            pygame.draw.line(screen, marble_dark,
-                             (cx + int(1.5 * s), eye_y),
-                             (cx + int(3.5 * s), eye_y), lw)
+            # 작은 스케일에서도 빛나는 점으로 표시
+            for eye_side in [-1, 1]:
+                ex = cx + int(eye_side * 2.5 * s)
+                pygame.draw.line(screen, marble_dark,
+                                 (cx + int(eye_side * 3.5 * s), eye_y),
+                                 (cx + int(eye_side * 1.5 * s), eye_y), lw)
+                # 작은 글로우 점
+                glow_p = 0.5 + 0.5 * math.sin(self.time * 3)
+                pygame.draw.circle(screen, (int(200 * glow_p), int(180 * glow_p), int(80 * glow_p)),
+                                   (ex, eye_y), max(1, int(0.5 * s)))
 
         # 10d) 코 (상세 - 브릿지 + 끝 + 콧볼)
         nose_top = head_y + int(0.5 * s)
@@ -3560,44 +3880,123 @@ class AnimatedBackgroundStage30:
                              int(4 * s), int(3 * s)),
                             math.pi * 0.5, math.pi + 0.3, lw)
         # ════════════════════════════════════════
-        # 12. 머리카락 (고퀄리티 곱슬 - 다층 볼륨)
+        # 12. 머리카락 (프리미엄 곱슬 - 다층 볼륨 + 흐르는 컬)
         # ════════════════════════════════════════
         hr = int(7.5 * s)
+        hair_dark = (75, 68, 58)
+        hair_mid = marble_shadow
+        hair_light = marble_mid
+        hair_hl = marble_light
 
-        # 12a) 메인 헤어 볼륨 (두꺼운 윤곽)
-        pygame.draw.arc(screen, marble_dark,
-                        (cx - hr, head_y - hr, hr * 2, int(10 * s)),
-                        0.15, math.pi - 0.15, extra_thick)
+        # 12a) 헤어 매스 (두꺼운 볼륨 - 폴리곤으로 풍성하게)
+        hair_mass_pts = [
+            # 왼쪽 사이드번 시작
+            (cx - int(6.5 * s), head_y + int(3 * s)),
+            (cx - int(7 * s), head_y + int(1 * s)),
+            (cx - int(7.5 * s), head_y - int(1 * s)),
+            # 왼쪽 상단 볼륨
+            (cx - int(7.2 * s), head_y - int(4 * s)),
+            (cx - int(6.5 * s), head_y - int(6 * s)),
+            # 정수리
+            (cx - int(4.5 * s), head_y - int(7.5 * s)),
+            (cx - int(2 * s), head_y - int(8 * s)),
+            (cx, head_y - int(8.2 * s)),
+            (cx + int(2 * s), head_y - int(8 * s)),
+            (cx + int(4.5 * s), head_y - int(7.5 * s)),
+            # 오른쪽 상단 볼륨
+            (cx + int(6.5 * s), head_y - int(6 * s)),
+            (cx + int(7.2 * s), head_y - int(4 * s)),
+            (cx + int(7.5 * s), head_y - int(1 * s)),
+            (cx + int(7 * s), head_y + int(1 * s)),
+            # 오른쪽 사이드번
+            (cx + int(6.5 * s), head_y + int(3 * s)),
+            # 아래쪽 (머리 안쪽 곡선)
+            (cx + int(5.5 * s), head_y + int(1 * s)),
+            (cx + int(5 * s), head_y - int(2 * s)),
+            (cx + int(3 * s), head_y - int(5 * s)),
+            (cx, head_y - int(6 * s)),
+            (cx - int(3 * s), head_y - int(5 * s)),
+            (cx - int(5 * s), head_y - int(2 * s)),
+            (cx - int(5.5 * s), head_y + int(1 * s)),
+        ]
+        pygame.draw.polygon(screen, hair_mid, hair_mass_pts)
+        pygame.draw.polygon(screen, hair_dark, hair_mass_pts, lw)
 
-        # 12b) 내부 볼륨 레이어
-        inner_hr = hr - int(1 * s)
-        if inner_hr > 2:
-            pygame.draw.arc(screen, marble_shadow,
-                            (cx - inner_hr, head_y - inner_hr - int(0.5 * s),
-                             inner_hr * 2, int(8 * s)),
-                            0.3, math.pi - 0.3, thick)
+        # 12b) 헤어 볼륨 하이라이트 (윗면 밝은 톤)
+        hair_hl_pts = [
+            (cx - int(4 * s), head_y - int(7.2 * s)),
+            (cx - int(1 * s), head_y - int(7.8 * s)),
+            (cx + int(2 * s), head_y - int(7.5 * s)),
+            (cx + int(5 * s), head_y - int(6 * s)),
+            (cx + int(3 * s), head_y - int(5.5 * s)),
+            (cx, head_y - int(6.5 * s)),
+            (cx - int(3 * s), head_y - int(5.8 * s)),
+        ]
+        if len(hair_hl_pts) >= 3:
+            pygame.draw.polygon(screen, hair_light, hair_hl_pts)
 
-        # 12c) 개별 곱슬 컬 (스케일 충분시)
-        if s >= 2:
-            curl_count = int(6 * s / 2)
+        # 12c) 개별 곱슬 컬 (정수리~이마 라인 따라 - 대형 곱슬)
+        if s >= 1.5:
+            curl_count = max(5, int(8 * s / 2))
             for ci in range(curl_count):
-                ca = math.pi * 0.15 + (math.pi * 0.7) * ci / max(1, curl_count - 1)
-                curl_cx = cx + int((hr - int(1 * s)) * math.cos(ca))
-                curl_cy = head_y - int((hr - int(2 * s)) * math.sin(ca))
-                curl_r = max(1, int(1.5 * s))
-                pygame.draw.arc(screen, marble_shadow,
+                t = ci / max(1, curl_count - 1)
+                # 정수리 아크를 따라 위치
+                ca = math.pi * 0.12 + (math.pi * 0.76) * t
+                cr = hr + int(0.5 * s)
+                curl_cx = cx + int(cr * math.cos(ca))
+                curl_cy = head_y - int((cr - int(2 * s)) * math.sin(ca))
+                curl_r = max(2, int(2.2 * s))
+                # 곱슬 볼륨 (채워진 원 + 그림자)
+                pygame.draw.circle(screen, hair_mid, (curl_cx, curl_cy), curl_r)
+                # 곱슬 내부 하이라이트
+                pygame.draw.circle(screen, hair_light,
+                                   (curl_cx - int(0.3 * s), curl_cy - int(0.4 * s)),
+                                   max(1, curl_r - int(0.8 * s)))
+                # 곱슬 윤곽 아크
+                pygame.draw.arc(screen, hair_dark,
                                 (curl_cx - curl_r, curl_cy - curl_r,
                                  curl_r * 2, curl_r * 2),
-                                ci * 0.5, ci * 0.5 + math.pi, 1)
+                                ca - 0.3, ca + math.pi * 0.8, lw)
 
-        # 12d) 사이드번 (옆머리 → 수염 연결)
+        # 12d) 머리결 흐름선 (볼륨 방향을 따라 흐르는 선)
+        if s >= 2:
+            for fi in range(5):
+                t = (fi + 1) / 6
+                flow_start_a = math.pi * 0.85 - t * 0.3
+                flow_pts = []
+                for seg in range(6):
+                    st = seg / 5
+                    a = flow_start_a - st * (math.pi * 0.55)
+                    fr = hr - int(1 * s) + int(fi * 0.4 * s)
+                    fx = cx + int(fr * math.cos(a))
+                    fy = head_y - int((fr - int(2.5 * s)) * math.sin(a))
+                    flow_pts.append((fx, fy))
+                if len(flow_pts) >= 2:
+                    flow_col = hair_dark if fi % 2 == 0 else hair_mid
+                    pygame.draw.lines(screen, flow_col, False, flow_pts, 1)
+
+        # 12e) 사이드번 (옆머리 → 수염 연결, 두껍고 입체적)
         if s >= 1.5:
-            pygame.draw.line(screen, marble_dark,
-                             (cx - int(5.5 * s), head_y + int(1 * s)),
-                             (cx - int(5 * s), head_y + int(4 * s)), lw)
-            pygame.draw.line(screen, marble_dark,
-                             (cx + int(5.5 * s), head_y + int(1 * s)),
-                             (cx + int(5 * s), head_y + int(4 * s)), lw)
+            for side in [-1, 1]:
+                sb_pts = [
+                    (cx + int(side * 6.2 * s), head_y + int(0.5 * s)),
+                    (cx + int(side * 6.8 * s), head_y + int(1.5 * s)),
+                    (cx + int(side * 6.5 * s), head_y + int(3.5 * s)),
+                    (cx + int(side * 5.5 * s), head_y + int(4.5 * s)),
+                    (cx + int(side * 5 * s), head_y + int(3 * s)),
+                    (cx + int(side * 5.5 * s), head_y + int(1 * s)),
+                ]
+                pygame.draw.polygon(screen, hair_mid, sb_pts)
+                pygame.draw.polygon(screen, hair_dark, sb_pts, 1)
+                # 사이드번 내부 컬 디테일
+                if s >= 2.5:
+                    for sb_i in range(2):
+                        sb_y = head_y + int((1.5 + sb_i * 1.5) * s)
+                        sb_x = cx + int(side * 6 * s)
+                        pygame.draw.arc(screen, hair_dark,
+                                        (sb_x - int(s), sb_y - int(s),
+                                         int(2 * s), int(2 * s)),
+                                        0, math.pi, 1)
 
         # ════════════════════════════════════════
         # 13. 월계관 (고퀄리티 올리브 잎 + 베리)
@@ -3684,18 +4083,18 @@ class AnimatedBackgroundStage30:
         marble_light = (200, 192, 178)
         marble_shadow = (105, 95, 85)
         marble_bright = (218, 210, 198)
-        upper_w = max(3, int(4 * s))
-        fore_w = max(2, int(3 * s))
-        upper_len = int(10 * s)
+        upper_w = max(3, int(5 * s))
+        fore_w = max(2, int(4 * s))
+        upper_len = int(11 * s)
         fore_len = int(10 * s)
         lw = max(1, int(s))
         thick = max(1, int(2 * s))
         bicep_r = max(1, int(2.5 * s))
         elbow_r = max(2, int(2.5 * s))
 
-        # 어깨 위치
-        l_shoulder = (cx - int(10 * s), cy - int(19 * s))
-        r_shoulder = (cx + int(10 * s), cy - int(19 * s))
+        # 어깨 위치 (넓어진 어깨에 맞춤)
+        l_shoulder = (cx - int(12 * s), cy - int(20 * s))
+        r_shoulder = (cx + int(12 * s), cy - int(20 * s))
 
         # ── 왼팔 ──
         la_base = math.radians(140)
