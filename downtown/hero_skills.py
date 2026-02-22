@@ -1731,6 +1731,12 @@ class AbyssInk(HeroSkill):
         self.dissolve_vortex_particles = []  # 소용돌이 흡수 파티클
         self.dissolve_flash_alpha = 0  # 최종 섬광
 
+        # 전환 오버랩 (자연스러운 페이즈 연결)
+        self.dissolve_overlap_duration = 0.5   # active→dissolve 크로스페이드 시간
+        self._active_fade_alpha = 1.0          # 오버랩 중 active 레이어 페이드 비율
+        self._pool_fade_in = 1.0               # splash→active 페이드인 진행도
+        self._pool_fade_in_duration = 0.35     # 페이드인 소요 시간
+
         # 색상 팔레트 (심해 테마 - 확장)
         self.colors = {
             'ink_deep': (20, 8, 45),
@@ -1922,6 +1928,7 @@ class AbyssInk(HeroSkill):
 
         self.ink_eye_phase = 0.0
         self.ink_vortex_angle = 0.0
+        self._pool_fade_in = 0.0  # 페이드인 시작
 
     def _apply_effect(self, caster_paddle, target_paddle, ball, game_state: dict) -> dict:
         self.target_is_top = target_paddle.is_top
@@ -1952,6 +1959,8 @@ class AbyssInk(HeroSkill):
         self.dissolve_wisps = []
         self.dissolve_vortex_particles = []
         self.dissolve_flash_alpha = 0
+        self._active_fade_alpha = 1.0
+        self._pool_fade_in = 1.0
 
         self._init_projectile_particles()
 
@@ -2074,6 +2083,10 @@ class AbyssInk(HeroSkill):
             self.ink_eye_phase += dt * 1.2
             self.ink_vortex_angle += dt * 30  # 소용돌이 회전
 
+            # splash→active 페이드인
+            if self._pool_fade_in < 1.0:
+                self._pool_fade_in = min(1.0, self._pool_fade_in + dt / self._pool_fade_in_duration)
+
             # 먹물 블롭 애니메이션
             for blob in self.ink_blobs:
                 blob['wobble'] += dt * blob['wobble_speed']
@@ -2159,7 +2172,7 @@ class AbyssInk(HeroSkill):
         # 분해 애니메이션 시작 (즉시 제거하지 않음)
         self.dissolving = True
         self.dissolve_timer = 0.0
-        self.dissolve_flash_alpha = 180  # 초기 섬광
+        self.dissolve_flash_alpha = 100  # 초기 섬광 (부드러운 전환용)
         self._init_dissolve()
 
         # 게임 로직 상태만 초기화
@@ -2238,12 +2251,9 @@ class AbyssInk(HeroSkill):
                 'glow': True,
             })
 
-        self.ink_blobs = []
-        self.ink_bubbles = []
-        self.ink_tendrils = []
-        self.ink_currents = []
-        self.ink_mist = []
-        self.ink_caustics = []
+        # active 컴포넌트는 오버랩 기간 동안 유지 (자연스러운 전환)
+        # → update()의 dissolving 섹션에서 오버랩 종료 후 정리
+        self._active_fade_alpha = 1.0
 
     def update(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         """오버라이드: 분해 애니메이션을 is_active=False 이후에도 업데이트"""
@@ -2270,6 +2280,34 @@ class AbyssInk(HeroSkill):
 
             # 섬광 페이드아웃
             self.dissolve_flash_alpha = max(0, self.dissolve_flash_alpha - dt * 300)
+
+            # 오버랩 기간: active 레이어 페이드아웃 + 애니메이션 유지
+            if self.dissolve_timer < self.dissolve_overlap_duration:
+                overlap_t = self.dissolve_timer / self.dissolve_overlap_duration
+                self._active_fade_alpha = 1.0 - overlap_t
+                # active 레이어 애니메이션 계속 (정지 방지)
+                self.ink_shimmer_time += dt
+                self.ink_vortex_angle += dt * 20
+                for blob in self.ink_blobs:
+                    blob['wobble'] += dt * blob['wobble_speed']
+                    blob['pulse_phase'] += dt * 1.5
+                for bubble in self.ink_bubbles:
+                    bubble['y'] -= bubble['rise_speed'] * dt * 0.5
+                    bubble['life'] -= dt * 2
+                for tendril in self.ink_tendrils:
+                    tendril['wobble'] += dt * tendril['wobble_speed']
+                for mist in self.ink_mist:
+                    mist['life'] -= dt * 2
+                    mist['y'] += mist['drift_y'] * dt
+            elif self.ink_blobs:
+                # 오버랩 종료: active 컴포넌트 정리
+                self.ink_blobs = []
+                self.ink_bubbles = []
+                self.ink_tendrils = []
+                self.ink_currents = []
+                self.ink_mist = []
+                self.ink_caustics = []
+                self._active_fade_alpha = 0.0
 
             # 파편 업데이트
             progress = min(1.0, self.dissolve_timer / self.dissolve_duration)
@@ -2306,6 +2344,14 @@ class AbyssInk(HeroSkill):
                 self.dissolve_fragments = []
                 self.dissolve_wisps = []
                 self.dissolve_vortex_particles = []
+                # active 잔여 컴포넌트 확실히 정리
+                self.ink_blobs = []
+                self.ink_bubbles = []
+                self.ink_tendrils = []
+                self.ink_currents = []
+                self.ink_mist = []
+                self.ink_caustics = []
+                self._active_fade_alpha = 0.0
                 self.phase = 'travel'
                 self.projectile_progress = 0.0
 
@@ -2315,6 +2361,16 @@ class AbyssInk(HeroSkill):
     def draw(self, screen: pygame.Surface, caster_paddle, target_paddle, ball, game_state: dict):
         # 분해 애니메이션 그리기
         if self.dissolving:
+            # 오버랩 기간: 페이드아웃되는 active 레이어를 dissolve 아래에 블렌딩
+            if self._active_fade_alpha > 0.02 and self.ink_blobs:
+                if self._ink_comp_surf is None or self._ink_comp_surf.get_size() != screen.get_size():
+                    self._ink_comp_surf = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
+                else:
+                    self._ink_comp_surf.fill((0, 0, 0, 0))
+                self._draw_active(self._ink_comp_surf)
+                fade_alpha = max(0, int(self._INK_MAX_OPACITY * self._active_fade_alpha))
+                self._ink_comp_surf.set_alpha(fade_alpha)
+                screen.blit(self._ink_comp_surf, (0, 0))
             self._draw_dissolve(screen)
             return
 
@@ -2334,7 +2390,12 @@ class AbyssInk(HeroSkill):
                 self._draw_splash(self._ink_comp_surf)
             else:
                 self._draw_active(self._ink_comp_surf)
-            self._ink_comp_surf.set_alpha(self._INK_MAX_OPACITY)
+            # splash→active 페이드인 적용
+            if self.phase == 'active' and self._pool_fade_in < 1.0:
+                alpha = max(0, int(self._INK_MAX_OPACITY * self._pool_fade_in))
+            else:
+                alpha = self._INK_MAX_OPACITY
+            self._ink_comp_surf.set_alpha(alpha)
             screen.blit(self._ink_comp_surf, (0, 0))
 
     def _draw_travel(self, screen):
