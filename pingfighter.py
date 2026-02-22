@@ -144566,12 +144566,11 @@ def main(stage_num, new_boss_mode=False):
                                     player_knockback_vel = _kb_dir * _kb_vel
                                     player_stunned_timer = 45
                             # 🔫 범용 넉백 (개틀링 버스트, 환영수리검, 해골 궁수 등)
+                            # 투기장과 동일: boss_knockback_vel + boss_stunned_timer만 사용
+                            # (boss_knockback_timer 미사용 → stunned_timer 중에 자연 감속)
                             if _bg_fx.get('generic_knockback'):
                                 _gk_dir = _bg_fx.get('generic_knockback_dir', 1)
-                                _gk_vel = _bg_fx.get('generic_knockback_vel', 120)
-                                # 스킬 vel(px/초)을 프레임 단위로 변환 (감속 0.85 고려: /10 ≈ 적정 넉백)
-                                boss_knockback_vel = _apply_boss_knockback_velocity(_gk_dir * _gk_vel / 10.0)
-                                boss_knockback_timer = max(boss_knockback_timer, 18)  # 0.3초 넉백 모션
+                                boss_knockback_vel = _gk_dir * 14.0  # 투기장과 동일 초기속도
                                 boss_stunned_timer = max(boss_stunned_timer, 36)  # 0.6초 경직
                                 globals()['screen_shake_timer'] = 12
                                 globals()['screen_shake_intensity'] = 15
