@@ -93108,8 +93108,9 @@ def draw_objects():
                 _glow_alpha = int(_glow_alpha * _flicker)
                 if _glow_alpha > 0:
                     _glow_surf = pygame.Surface((_glow_r * 2, _glow_r * 2), pygame.SRCALPHA)
-                    _cr = int(40 + 60 * math.sin(_dt * 4.0 + i * 0.8))
-                    _cg = int(160 + 60 * math.sin(_dt * 6.0 + i * 0.5))
+                    _cr = max(0, min(255, int(40 + 60 * math.sin(_dt * 4.0 + i * 0.8))))
+                    _cg = max(0, min(255, int(160 + 60 * math.sin(_dt * 6.0 + i * 0.5))))
+                    _glow_alpha = max(0, min(255, _glow_alpha))
                     pygame.draw.circle(_glow_surf, (_cr, _cg, 255, _glow_alpha), (_glow_r, _glow_r), _glow_r)
                     SCREEN.blit(_glow_surf, (_ball_cx - _glow_r, _ball_cy - _glow_r), special_flags=pygame.BLEND_ADD)
 
