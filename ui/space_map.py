@@ -1032,6 +1032,383 @@ class SpaceMap:
                                          max(1, int(3 * engine_power)))
 
     # ──────────────────────────────────────────────
+    #  착륙 시퀀스: 수직 우주선
+    # ──────────────────────────────────────────────
+    def _draw_ship_vertical(self, surf, x, y, scale=1.0, engine_power=1.0):
+        """우주선을 수직(노즈 위, 엔진 아래)으로 그린다."""
+        ship_sz = int(80 * scale) + 30
+        tmp = pygame.Surface((ship_sz * 2, ship_sz * 2), pygame.SRCALPHA)
+        tc = ship_sz
+        self._draw_ship(tmp, tc, tc, scale, engine_power)
+        rotated = pygame.transform.rotate(tmp, 90)
+        rr = rotated.get_rect(center=(int(x), int(y)))
+        surf.blit(rotated, rr)
+
+    # ──────────────────────────────────────────────
+    #  착륙 시퀀스: 착륙 파티클
+    # ──────────────────────────────────────────────
+    def _spawn_landing_particles(self, x, y, count=2):
+        """수직 하강용 엔진 파티클 (아래 방향)."""
+        for _ in range(count):
+            p = _EngineParticle(x + random.uniform(-4, 4), y)
+            p.vx = random.uniform(-2.0, 2.0)
+            p.vy = random.uniform(2.0, 7.0)   # 아래로
+            p.life = random.uniform(0.2, 0.5)
+            p.max_life = p.life
+            self.engine_particles.append(p)
+
+    # ──────────────────────────────────────────────
+    #  착륙 시퀀스: 도킹 기지
+    # ──────────────────────────────────────────────
+    def _draw_docking_base(self, surf, cx, cy, scale=1.0, open_t=0.0):
+        """착륙 도크 (팔각형 플랫폼 + 도킹 암 + 점멸등)."""
+        s = scale
+        ix, iy = int(cx), int(cy)
+
+        # 플랫폼 (팔각형)
+        pr = int(25 * s)
+        pts = []
+        for i in range(8):
+            ang = i * math.pi / 4 + math.pi / 8
+            pts.append((ix + int(pr * math.cos(ang)),
+                        iy + int(pr * math.sin(ang))))
+        pygame.draw.polygon(surf, (90, 100, 120), pts)
+        pygame.draw.polygon(surf, (130, 145, 170), pts, max(1, int(2 * s)))
+        # 내부 원형 패드
+        pygame.draw.circle(surf, (70, 80, 100), (ix, iy), int(16 * s))
+        pygame.draw.circle(surf, (110, 125, 150), (ix, iy), int(16 * s), 1)
+        # 십자 마커
+        ml = int(10 * s)
+        mc = (80, 200, 255)
+        pygame.draw.line(surf, mc, (ix - ml, iy), (ix + ml, iy), 1)
+        pygame.draw.line(surf, mc, (ix, iy - ml), (ix, iy + ml), 1)
+
+        # 도킹 암 (좌우 — open_t로 개방)
+        arm_len = int(18 * s)
+        arm_gap = int(8 * s * open_t)  # 0이면 닫힘, 열리면 벌어짐
+        arm_y_top = iy - arm_gap
+        arm_y_bot = iy + arm_gap
+        arm_c = (150, 165, 190)
+        pygame.draw.line(surf, arm_c,
+                         (ix - arm_len, arm_y_top), (ix + arm_len, arm_y_top),
+                         max(1, int(3 * s)))
+        pygame.draw.line(surf, arm_c,
+                         (ix - arm_len, arm_y_bot), (ix + arm_len, arm_y_bot),
+                         max(1, int(3 * s)))
+        # 암 끝 클램프
+        for ax in [ix - arm_len, ix + arm_len]:
+            pygame.draw.rect(surf, (120, 135, 160),
+                             (ax - int(3 * s), arm_y_top - int(2 * s),
+                              int(6 * s), arm_gap * 2 + int(4 * s)))
+
+        # 점멸 착륙등 (4방위)
+        blink = math.sin(self.time * 5) > 0
+        for i in range(4):
+            ang = i * math.pi / 2
+            lx = ix + int((pr - 3) * math.cos(ang))
+            ly = iy + int((pr - 3) * math.sin(ang))
+            lc = (0, 255, 100) if blink else (0, 80, 40)
+            gs = pygame.Surface((8, 8), pygame.SRCALPHA)
+            pygame.draw.circle(gs, (*lc, 120), (4, 4), 3)
+            pygame.draw.circle(gs, lc, (4, 4), 1)
+            surf.blit(gs, (lx - 4, ly - 4))
+
+        # 펄스 글로우 링
+        pulse = 0.5 + 0.5 * math.sin(self.time * 3)
+        ga = min(255, int(25 * pulse))
+        gs2 = pygame.Surface((pr * 2 + 8, pr * 2 + 8), pygame.SRCALPHA)
+        gc = pr + 4
+        pygame.draw.circle(gs2, (80, 200, 255, ga), (gc, gc), pr + 2, 2)
+        surf.blit(gs2, (ix - gc, iy - gc))
+
+    # ──────────────────────────────────────────────
+    #  착륙 시퀀스: 행성 표면 뷰
+    # ──────────────────────────────────────────────
+    _SURFACE_RENDERERS = {
+        1: '_draw_surface_joseon',
+    }
+
+    def _draw_planet_surface(self, surf, planet_num, t, alpha=255):
+        """행성 표면 렌더러 디스패처. t = 0(고공) ~ 1(지표면)."""
+        renderer = self._SURFACE_RENDERERS.get(planet_num)
+        if renderer:
+            getattr(self, renderer)(surf, t, alpha)
+        else:
+            # 폴백: 테마 컬러 기반 단순 지형
+            cfg = PLANET_CONFIGS.get(planet_num, {})
+            base = cfg.get("theme_color", (80, 100, 80))
+            self._draw_surface_generic(surf, base, t, alpha)
+
+    def _draw_surface_generic(self, surf, base_color, t, alpha=255):
+        """범용 표면 — 컬러 기반 단순 지형 + 구름."""
+        W, H = surf.get_width(), surf.get_height()
+        # 지형 배경
+        surf.fill((*base_color, alpha))
+        random.seed(7777)
+        # 지형 패치
+        for _ in range(25):
+            px = random.randint(0, W)
+            py = random.randint(0, H)
+            pr = random.randint(30, 120)
+            c = tuple(min(255, max(0, base_color[i] + random.randint(-30, 30)))
+                      for i in range(3))
+            ps = pygame.Surface((pr * 2, pr * 2), pygame.SRCALPHA)
+            pygame.draw.circle(ps, (*c, min(255, int(alpha * 0.7))),
+                               (pr, pr), pr)
+            surf.blit(ps, (px - pr, py - pr))
+        random.seed()
+        # 구름
+        cloud_a = max(0, int(220 * (1.0 - t * 2.5) * alpha / 255))
+        if cloud_a > 3:
+            random.seed(8888)
+            for _ in range(15):
+                cx = random.randint(-40, W + 40)
+                cy = random.randint(-20, H + 20)
+                cw = random.randint(60, 180)
+                ch = random.randint(20, 50)
+                cs = pygame.Surface((cw, ch), pygame.SRCALPHA)
+                pygame.draw.ellipse(cs, (255, 255, 255, min(255, cloud_a)),
+                                    (0, 0, cw, ch))
+                surf.blit(cs, (cx - cw // 2, cy - ch // 2))
+            random.seed()
+
+    def _draw_surface_joseon(self, surf, t, alpha=255):
+        """조선시대 행성 표면 (초원/개울/산/벚꽃/궁궐)."""
+        W, H = surf.get_width(), surf.get_height()
+        # 기본 지형색
+        surf.fill((130, 150, 60, alpha))
+
+        random.seed(1137)
+        # 초원/논밭 패치
+        for _ in range(35):
+            px = random.randint(-50, W + 50)
+            py = random.randint(-50, H + 50)
+            pr = random.randint(40, 150)
+            g = random.randint(80, 170)
+            c = (g - 30, g, g // 3)
+            ps = pygame.Surface((pr * 2, pr * 2), pygame.SRCALPHA)
+            pygame.draw.circle(ps, (*c, min(255, int(alpha * 0.6))),
+                               (pr, pr), pr)
+            surf.blit(ps, (px - pr, py - pr))
+
+        # 개울 (사인 곡선 — 넓게)
+        pts_stream = []
+        for step in range(30):
+            st = step / 29
+            sx = int(W * st)
+            sy = H // 2 + int(80 * math.sin(st * math.pi * 2.5)) + 60
+            pts_stream.append((sx, sy))
+        if len(pts_stream) > 2:
+            pygame.draw.lines(surf, (60, 110, 170), False, pts_stream, 4)
+            pygame.draw.lines(surf, (90, 145, 200), False, pts_stream, 2)
+
+        # 산 (큰 타원)
+        for _ in range(8):
+            mx = random.randint(0, W)
+            my = random.randint(-30, H // 3)
+            mw = random.randint(60, 200)
+            mh = random.randint(40, 100)
+            mc = (30 + random.randint(0, 40), 75 + random.randint(0, 50), 25)
+            pygame.draw.ellipse(surf, mc, (mx - mw, my - mh // 2, mw * 2, mh))
+            # 산 하이라이트
+            hl = (min(255, mc[0] + 30), min(255, mc[1] + 30), mc[2] + 15)
+            pygame.draw.arc(surf, hl,
+                            (mx - mw, my - mh // 2, mw * 2, mh),
+                            math.pi * 0.1, math.pi * 0.9, 2)
+
+        # 벚꽃 나무 클러스터
+        detail_a = min(255, int(255 * max(0, t * 2 - 0.3)))
+        if detail_a > 10:
+            for _ in range(20):
+                fx = random.randint(30, W - 30)
+                fy = random.randint(30, H - 30)
+                # 나무 줄기
+                pygame.draw.line(surf, (100, 70, 40),
+                                 (fx, fy), (fx, fy + random.randint(8, 20)), 2)
+                # 벚꽃 구름
+                for _ in range(random.randint(3, 7)):
+                    bx = fx + random.randint(-12, 12)
+                    by = fy + random.randint(-15, 5)
+                    br = random.randint(3, 8)
+                    ba = min(255, int(detail_a * 0.8))
+                    bs = pygame.Surface((br * 2 + 2, br * 2 + 2), pygame.SRCALPHA)
+                    pygame.draw.circle(bs, (255, random.randint(150, 230),
+                                            random.randint(170, 220), ba),
+                                       (br + 1, br + 1), br)
+                    surf.blit(bs, (bx - br - 1, by - br - 1))
+
+        # 궁궐 건물 (원거리 — t가 낮을 때)
+        if t < 0.7:
+            for _ in range(5):
+                bx = random.randint(50, W - 50)
+                by = random.randint(H // 3, H * 2 // 3)
+                bw = random.randint(30, 70)
+                bh = random.randint(15, 35)
+                ba = min(255, int(200 * alpha / 255))
+                # 건물 몸체
+                pygame.draw.rect(surf, (195, 175, 135),
+                                 (bx - bw // 2, by, bw, bh))
+                # 기와지붕
+                rw = bw + 8
+                rh = max(6, bh)
+                pygame.draw.arc(surf, (175, 35, 28),
+                                (bx - rw // 2, by - rh, rw, rh * 2),
+                                0, math.pi, 3)
+
+        random.seed()
+
+        # 구름 레이어 (고도에 따라 — t 작을수록 많이 보임)
+        cloud_a = max(0, int(200 * (1.0 - t * 2.2) * alpha / 255))
+        if cloud_a > 3:
+            random.seed(2024)
+            for _ in range(18):
+                cx = random.randint(-60, W + 60)
+                cy = random.randint(-30, H + 30)
+                cw = random.randint(80, 220)
+                ch = random.randint(25, 60)
+                cs = pygame.Surface((cw, ch), pygame.SRCALPHA)
+                # 다층 구름 (부드럽게)
+                for ci in range(3):
+                    coff = ci * 3
+                    ca = max(1, cloud_a // (ci + 1))
+                    pygame.draw.ellipse(cs, (255, 255, 255, ca),
+                                        (coff, coff, cw - coff * 2, ch - coff * 2))
+                surf.blit(cs, (cx - cw // 2, cy - ch // 2))
+            random.seed()
+
+    # ──────────────────────────────────────────────
+    #  착륙 시퀀스: 경기장 (투기장)
+    # ──────────────────────────────────────────────
+    def _draw_landing_arena(self, surf, cx, cy, scale=1.0, planet_num=1):
+        """핑파이터 경기장. 행성별 테마."""
+        if planet_num == 1:
+            self._draw_arena_joseon(surf, cx, cy, scale)
+        else:
+            # 범용 아레나
+            self._draw_arena_generic(surf, cx, cy, scale, planet_num)
+
+    def _draw_arena_generic(self, surf, cx, cy, scale, planet_num):
+        """범용 경기장."""
+        s = scale
+        ix, iy = int(cx), int(cy)
+        cfg = PLANET_CONFIGS.get(planet_num, {})
+        tc = cfg.get("theme_color", (120, 120, 120))
+        # 외벽
+        ow = int(120 * s)
+        oh = int(90 * s)
+        pygame.draw.rect(surf, tc, (ix - ow // 2, iy - oh // 2, ow, oh))
+        pygame.draw.rect(surf, tuple(min(255, c + 40) for c in tc),
+                         (ix - ow // 2, iy - oh // 2, ow, oh), 2)
+        # 코트
+        cw = int(80 * s)
+        ch_c = int(60 * s)
+        pygame.draw.rect(surf, (200, 200, 190),
+                         (ix - cw // 2, iy - ch_c // 2, cw, ch_c))
+        pygame.draw.line(surf, (255, 255, 255),
+                         (ix - cw // 2, iy), (ix + cw // 2, iy), 1)
+        pygame.draw.rect(surf, (255, 255, 255),
+                         (ix - cw // 2, iy - ch_c // 2, cw, ch_c), 1)
+
+    def _draw_arena_joseon(self, surf, cx, cy, scale):
+        """조선시대 핑파이터 경기장."""
+        s = scale
+        ix, iy = int(cx), int(cy)
+
+        # 외벽 (성벽)
+        ow = int(140 * s)
+        oh = int(110 * s)
+        wall_c = (160, 135, 95)
+        pygame.draw.rect(surf, wall_c,
+                         (ix - ow // 2, iy - oh // 2, ow, oh))
+        # 성벽 상단 하이라이트
+        pygame.draw.rect(surf, (185, 165, 120),
+                         (ix - ow // 2, iy - oh // 2, ow, int(4 * s)))
+        # 성벽 테두리
+        pygame.draw.rect(surf, (120, 100, 70),
+                         (ix - ow // 2, iy - oh // 2, ow, oh), max(1, int(2 * s)))
+
+        # 마당 (밝은 탄색)
+        yw = int(120 * s)
+        yh = int(90 * s)
+        pygame.draw.rect(surf, (210, 195, 160),
+                         (ix - yw // 2, iy - yh // 2, yw, yh))
+
+        # 기와지붕 본관
+        main_w = int(80 * s)
+        main_h = int(25 * s)
+        main_y = iy - int(30 * s)
+        pygame.draw.rect(surf, (195, 175, 135),
+                         (ix - main_w // 2, main_y, main_w, main_h))
+        # 지붕 (곡선 아크)
+        rw = main_w + int(16 * s)
+        rh = int(20 * s)
+        pygame.draw.arc(surf, (175, 35, 28),
+                        (ix - rw // 2, main_y - rh, rw, rh * 2),
+                        0, math.pi, max(2, int(3 * s)))
+        pygame.draw.arc(surf, (145, 28, 22),
+                        (ix - rw // 2 - 1, main_y - rh + 1, rw + 2, rh * 2),
+                        0, math.pi, 1)
+        # 기둥
+        for col_off in [-main_w // 3, 0, main_w // 3]:
+            pygame.draw.line(surf, (150, 130, 95),
+                             (ix + col_off, main_y),
+                             (ix + col_off, main_y + main_h),
+                             max(1, int(2 * s)))
+
+        # 좌우 문루 (작은 건물)
+        for side in [-1, 1]:
+            gx = ix + side * int(50 * s)
+            gy = iy + int(10 * s)
+            gw = int(25 * s)
+            gh = int(15 * s)
+            pygame.draw.rect(surf, (190, 170, 130), (gx - gw // 2, gy, gw, gh))
+            grw = gw + int(8 * s)
+            grh = int(12 * s)
+            pygame.draw.arc(surf, (175, 35, 28),
+                            (gx - grw // 2, gy - grh, grw, grh * 2),
+                            0, math.pi, max(1, int(2 * s)))
+
+        # 경기장 코트 (핑파이터 필드)
+        cw = int(70 * s)
+        ch_c = int(50 * s)
+        court_y = iy - int(2 * s)
+        # 코트 바닥
+        pygame.draw.rect(surf, (190, 185, 165),
+                         (ix - cw // 2, court_y - ch_c // 2, cw, ch_c))
+        # 중앙선
+        pygame.draw.line(surf, (255, 255, 255),
+                         (ix - cw // 2, court_y),
+                         (ix + cw // 2, court_y), 1)
+        # 코트 외곽선
+        pygame.draw.rect(surf, (255, 255, 255),
+                         (ix - cw // 2, court_y - ch_c // 2, cw, ch_c), 1)
+
+        # 등롱 (좌우)
+        for side in [-1, 1]:
+            lx = ix + side * int(55 * s)
+            ly = iy - int(20 * s)
+            # 기둥
+            pygame.draw.line(surf, (120, 100, 70),
+                             (lx, ly), (lx, ly + int(25 * s)), max(1, int(2 * s)))
+            # 등 (빨간 원)
+            lr = max(2, int(4 * s))
+            gs = pygame.Surface((lr * 2 + 6, lr * 2 + 6), pygame.SRCALPHA)
+            lrc = lr + 3
+            for gi in range(lr + 2, 0, -1):
+                ga = min(255, int(60 * gi / (lr + 2)))
+                pygame.draw.circle(gs, (255, 80, 30, ga), (lrc, lrc), gi)
+            pygame.draw.circle(gs, (255, 50, 20), (lrc, lrc), lr)
+            surf.blit(gs, (lx - lrc, ly - lrc))
+
+        # 태극 무늬 (중앙 장식)
+        if s > 0.5:
+            tr = max(3, int(6 * s))
+            pygame.draw.circle(surf, (200, 50, 50),
+                               (ix - tr // 3, iy + int(25 * s)), tr * 2 // 3)
+            pygame.draw.circle(surf, (40, 70, 160),
+                               (ix + tr // 3, iy + int(27 * s)), tr * 2 // 3)
+
+    # ──────────────────────────────────────────────
     #  목표 행성 (고퀄리티)
     # ──────────────────────────────────────────────
     # ──────────────────────────────────────────────
@@ -2205,9 +2582,10 @@ class SpaceMap:
     def show_travel_animation(self, from_planet, to_planet,
                               cleared_planets=None):
         """
-        시네마틱 우주 여행 (6단계)
+        시네마틱 우주 여행 (9단계)
         P1: 1인칭 콕핏 워프  P2: 시점 전환  P3: 3인칭 횡스크롤
-        P4: 행성 접근  P5: 도착  P6: 줌아웃 은하맵
+        P4: 행성 접근  P5: 도착  P6: 클로즈업 줌인
+        P7: 지표면+경기장  P8: 수직 착륙+도킹  P9: 크로스페이드 전환
         """
         if cleared_planets is None:
             cleared_planets = []
@@ -2217,7 +2595,8 @@ class SpaceMap:
 
         FPS = 60
         # Phase 듀레이션 (초)
-        DUR = {1: 3.0, 2: 2.0, 3: 3.0, 4: 2.0, 5: 1.5, 6: 1.5}
+        DUR = {1: 3.0, 2: 2.0, 3: 3.0, 4: 2.0, 5: 1.5,
+               6: 2.5, 7: 2.5, 8: 2.0, 9: 1.5}
         FRAMES = {k: int(v * FPS) for k, v in DUR.items()}
 
         # 우주선 크루즈 위치
@@ -2480,40 +2859,236 @@ class SpaceMap:
                 if frame >= FRAMES[5]:
                     phase = 6
                     frame = 0
-                    self._render_galaxy_map(cleared_planets, to_planet)
 
-            # ════════════════ Phase 6: 줌아웃 은하 맵 ════════════════
+            # ════════════════ Phase 6: 행성 클로즈업 줌인 ════════════════
             elif phase == 6:
                 t = frame / FRAMES[6]
                 et = _ease_in_out(t)
 
-                scene_a = max(0, int(255 * (1.0 - et * 1.5)))
-                map_a = min(255, int(255 * et * 1.5))
+                self.screen.fill((2, 2, 8))
+
+                # 별 빠르게 페이드아웃
+                star_a = max(0.0, 1.0 - t * 3.0)
+                if star_a > 0.02:
+                    self._draw_stars_layer(self.screen, self.stars_far, star_a * 0.5)
+                    self._draw_stars_layer(self.screen, self.stars_mid, star_a)
+
+                # 대기권 진입 셰이크
+                shake_amt = max(0, 4 * (1.0 - et))
+                shx = int(shake_amt * math.sin(self.time * 18))
+                shy = int(shake_amt * math.cos(self.time * 22))
+
+                if et < 0.35:
+                    # 구체 행성이 점점 커짐 (77px → 화면 가득)
+                    grow_t = et / 0.35
+                    planet_r = int(pr_big + 12 + (self.W * 1.2 - pr_big) * grow_t)
+                    sphere_a = max(0, int(255 * (1.0 - (et - 0.15) * 5)))
+                    self._draw_dest_planet(
+                        self.screen, self.W // 2 + shx, self.H // 2 + shy,
+                        planet_r, to_planet, max(10, sphere_a))
+                else:
+                    sphere_a = 0
+
+                # 표면 뷰 페이드인 (et 0.25부터)
+                if et > 0.25:
+                    surf_t = min(1.0, (et - 0.25) / 0.6)
+                    surf_a = min(255, int(255 * surf_t))
+                    surface = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+                    surface_detail = 0.1 + surf_t * 0.4
+                    self._draw_planet_surface(
+                        surface, to_planet, surface_detail, surf_a)
+                    self.screen.blit(surface, (shx, shy))
+
+                # "대기권 진입" 텍스트
+                if 0.05 < t < 0.7:
+                    txt_a = _clamp(int(255 * min(1.0, t * 5) *
+                                       max(0, 1.0 - (t - 0.4) * 4)))
+                    if txt_a > 5:
+                        ent = self.font_big.render("대기권 진입", True,
+                                                   (255, 200, 100))
+                        ent.set_alpha(txt_a)
+                        self.screen.blit(ent, ent.get_rect(
+                            center=(self.W // 2, self.H * 0.25)))
+
+                pygame.display.flip()
+                if frame >= FRAMES[6]:
+                    phase = 7
+                    frame = 0
+
+            # ════════════════ Phase 7: 지표면 접근 + 경기장 등장 ════════════════
+            elif phase == 7:
+                t = frame / FRAMES[7]
+                et = _ease_in_out(t)
+
+                self.screen.fill((2, 2, 8))
+
+                # 표면 뷰 (풀 디테일로 진행)
+                surface = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+                surface_detail = 0.5 + et * 0.5  # 0.5 → 1.0
+                self._draw_planet_surface(surface, to_planet, surface_detail)
+                self.screen.blit(surface, (0, 0))
+
+                # 경기장 페이드인 + 스케일 확대
+                arena_a = min(255, int(255 * min(1.0, t * 2.5)))
+                arena_scale = 0.3 + et * 0.7  # 0.3 → 1.0
+                if arena_a > 5:
+                    arena_surf = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+                    self._draw_landing_arena(
+                        arena_surf, self.W // 2, self.H // 2 + int(20 * (1 - et)),
+                        arena_scale, to_planet)
+                    arena_surf.set_alpha(arena_a)
+                    self.screen.blit(arena_surf, (0, 0))
+
+                # 도킹 기지 등장 (후반부)
+                if t > 0.5:
+                    dock_t = (t - 0.5) / 0.5
+                    dock_a = min(255, int(255 * dock_t * 2))
+                    dock_surf = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+                    self._draw_docking_base(
+                        dock_surf,
+                        self.W // 2 + int(80 * arena_scale),
+                        self.H // 2 + int(10 * arena_scale),
+                        arena_scale * 0.8, 0.0)
+                    dock_surf.set_alpha(dock_a)
+                    self.screen.blit(dock_surf, (0, 0))
+
+                # 행성 이름
+                name_a = min(255, int(255 * min(1.0, t * 3)))
+                if name_a > 5:
+                    ns = self.font_big.render(tname, True, (255, 230, 150))
+                    ns.set_alpha(name_a)
+                    self.screen.blit(ns, ns.get_rect(
+                        center=(self.W // 2, int(self.H * 0.12))))
+
+                pygame.display.flip()
+                if frame >= FRAMES[7]:
+                    # 지표면 배경을 캐싱 (Phase 8에서 정적 배경으로 재사용)
+                    self._landing_bg = self.screen.copy()
+                    phase = 8
+                    frame = 0
+
+            # ════════════════ Phase 8: 우주선 수직 하강 + 도킹 ════════════════
+            elif phase == 8:
+                t = frame / FRAMES[8]
+                et = _ease_out_cubic(t)
+
+                # 정적 배경 (Phase 7 끝 캐싱)
+                if hasattr(self, '_landing_bg') and self._landing_bg:
+                    self.screen.blit(self._landing_bg, (0, 0))
+                else:
+                    self.screen.fill((130, 150, 60))
+
+                # 도킹 기지 (암 개방 애니메이션)
+                dock_open = max(0.0, min(1.0, (t - 0.4) * 3.0))
+                dock_cx = self.W // 2 + int(80 * 0.8)
+                dock_cy = self.H // 2 + int(10 * 0.8)
+                self._draw_docking_base(
+                    self.screen, dock_cx, dock_cy, 0.8, dock_open)
+
+                # 우주선 하강
+                ship_x = dock_cx
+                ship_start_y = -60
+                ship_end_y = dock_cy
+                ship_y = ship_start_y + (ship_end_y - ship_start_y) * et
+                ship_scale = 1.1 - et * 0.3  # 1.1 → 0.8
+                engine_pwr = max(0.05, 1.0 - et * 0.9)
+
+                # 그림자 (우주선 아래)
+                if et > 0.1:
+                    shadow_a = min(80, int(80 * et))
+                    shadow_w = int(30 * ship_scale * (0.5 + et * 0.5))
+                    shadow_h = max(2, shadow_w // 4)
+                    shadow_s = pygame.Surface(
+                        (shadow_w * 2, shadow_h * 2), pygame.SRCALPHA)
+                    pygame.draw.ellipse(
+                        shadow_s, (0, 0, 0, shadow_a),
+                        (0, 0, shadow_w * 2, shadow_h * 2))
+                    self.screen.blit(
+                        shadow_s,
+                        (int(ship_x - shadow_w), int(ship_end_y + 15 - shadow_h)))
+
+                # 착륙 먼지 파티클 (착지 직전)
+                if t > 0.6:
+                    self._spawn_landing_particles(
+                        int(ship_x), int(ship_y + 20 * ship_scale),
+                        max(1, int(3 * (t - 0.6) * 3)))
+                self._update_engine_particles(dt)
+                self._draw_engine_particles(self.screen)
+
+                # 우주선 (도킹 직전까지 표시)
+                ship_alpha_t = max(0.0, 1.0 - max(0, (t - 0.85)) * 7)
+                if ship_alpha_t > 0.05:
+                    ship_surf = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+                    bob = math.sin(self.time * 4) * max(0, 3 * (1.0 - et))
+                    self._draw_ship_vertical(
+                        ship_surf, ship_x, ship_y + bob,
+                        ship_scale, engine_pwr)
+                    ship_surf.set_alpha(max(1, int(255 * ship_alpha_t)))
+                    self.screen.blit(ship_surf, (0, 0))
+
+                # 도킹 플래시 (t > 0.85)
+                if t > 0.85:
+                    flash_t = (t - 0.85) / 0.15
+                    flash_r = int(40 * flash_t)
+                    flash_a = max(0, int(220 * (1.0 - flash_t)))
+                    if flash_a > 2 and flash_r > 0:
+                        fs = pygame.Surface(
+                            (flash_r * 2 + 4, flash_r * 2 + 4), pygame.SRCALPHA)
+                        fc = flash_r + 2
+                        for fi in range(flash_r, 0, -2):
+                            fa = max(1, int(flash_a * fi / flash_r))
+                            pygame.draw.circle(
+                                fs, (255, 255, 255, fa), (fc, fc), fi)
+                        self.screen.blit(
+                            fs, (dock_cx - fc, dock_cy - fc))
+
+                # "착륙 완료" 텍스트
+                if t > 0.8:
+                    land_a = min(255, int(255 * (t - 0.8) * 5))
+                    lt = self.font_big.render("착륙 완료", True, (200, 255, 200))
+                    lt.set_alpha(land_a)
+                    self.screen.blit(lt, lt.get_rect(
+                        center=(self.W // 2, int(self.H * 0.2))))
+
+                pygame.display.flip()
+                if frame >= FRAMES[8]:
+                    self._render_galaxy_map(cleared_planets, to_planet)
+                    phase = 9
+                    frame = 0
+
+            # ════════════════ Phase 9: 크로스페이드 전환 ════════════════
+            elif phase == 9:
+                t = frame / FRAMES[9]
+                et = _ease_in_out(t)
 
                 self.screen.fill((3, 3, 12))
-                mc = self.map_surface.copy()
-                mc.set_alpha(map_a)
-                self.screen.blit(mc, (0, 0))
 
-                if scene_a > 10:
-                    zoom = max(0.1, 1.0 - et)
-                    sw = int(self.W * zoom)
-                    sh = int(self.H * zoom)
-                    if sw > 10 and sh > 10:
-                        ti = to_planet - 1
-                        if ti < len(self.planet_positions):
-                            tcx, tcy = self.planet_positions[ti]
-                        else:
-                            tcx, tcy = self.W // 2, self.H // 2
-                        zs = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
-                        zs.fill((3, 3, 12))
-                        self._draw_dest_planet(
-                            zs, self.W // 2, self.H // 2,
-                            int(pr_big * zoom), to_planet, scene_a)
-                        scaled = pygame.transform.smoothscale(zs, (sw, sh))
-                        scaled.set_alpha(scene_a)
-                        self.screen.blit(scaled,
-                                         (tcx - sw // 2, tcy - sh // 2))
+                # 레이어 1: 착륙 장면 페이드아웃
+                scene_a = max(0, int(255 * (1.0 - et * 2.0)))
+                if scene_a > 5 and hasattr(self, '_landing_bg') and self._landing_bg:
+                    bg_copy = self._landing_bg.copy()
+                    bg_copy.set_alpha(scene_a)
+                    self.screen.blit(bg_copy, (0, 0))
+
+                # 레이어 2: 행성 전체 구체 (잠시 보였다 사라짐)
+                planet_show_a = min(255, int(255 * min(et * 3, max(0, 2.5 - et * 2.5))))
+                if planet_show_a > 5:
+                    ti = to_planet - 1
+                    if ti < len(self.planet_positions):
+                        pcx, pcy = self.planet_positions[ti]
+                    else:
+                        pcx, pcy = self.W // 2, self.H // 2
+                    pzoom = max(0.3, 1.0 - et * 0.7)
+                    self._draw_dest_planet(
+                        self.screen, pcx, pcy,
+                        int(pr_big * pzoom), to_planet, planet_show_a)
+
+                # 레이어 3: 은하맵 페이드인
+                map_a = min(255, int(255 * max(0, et * 2.0 - 0.5)))
+                if map_a > 5:
+                    mc = self.map_surface.copy()
+                    mc.set_alpha(map_a)
+                    self.screen.blit(mc, (0, 0))
 
                 if map_a > 100:
                     ts = self.font_big.render("은하계 항해", True,
@@ -2523,7 +3098,7 @@ class SpaceMap:
                         center=(self.W // 2, 35)))
 
                 pygame.display.flip()
-                if frame >= FRAMES[6]:
+                if frame >= FRAMES[9]:
                     break
 
         # 스킵 시 은하맵 한 프레임
@@ -2534,5 +3109,9 @@ class SpaceMap:
             self.screen.blit(ts, ts.get_rect(center=(self.W // 2, 35)))
             pygame.display.flip()
             pygame.time.delay(300)
+
+        # 캐시 정리
+        if hasattr(self, '_landing_bg'):
+            self._landing_bg = None
 
         pygame.event.clear()
