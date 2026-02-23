@@ -4461,28 +4461,25 @@ class AnimatedBackgroundStage30:
                         for spi in range(len(sw_pts) - 1):
                             pygame.draw.line(screen, sw_col, sw_pts[spi], sw_pts[spi + 1], 1)
 
-            # ── 공전 바람 에너지 파티클 (멀티레이어 글로우) ──
+            # ── 공전 바람 스트릭 (얇은 바람 선) ──
             for ep in self.judgment_fan_energy_particles:
                 if ep.get('current_alpha', 0) < 5:
                     continue
                 px = fan_center_x + int(ep['dist'] * math.cos(ep['angle']))
                 py = fan_center_y + int(ep['dist'] * math.sin(ep['angle']))
-                ep_size = max(1, int(ep['size']))
                 ep_alpha = ep.get('current_alpha', ep['alpha'])
-                if ep_size >= 2:
-                    ep_surf = _get_cached_surface(ep_size * 6, ep_size * 6)
-                    glow_a = min(50, ep_alpha // 4)
-                    pygame.draw.circle(ep_surf, (200, 230, 180, glow_a),
-                                       (ep_size * 3, ep_size * 3), ep_size * 3)
-                    mid_a = min(100, ep_alpha // 2)
-                    pygame.draw.circle(ep_surf, (*ep['color'], min(255, mid_a)),
-                                       (ep_size * 3, ep_size * 3), ep_size * 2)
-                    pygame.draw.circle(ep_surf, (255, 250, 220, min(255, ep_alpha)),
-                                       (ep_size * 3, ep_size * 3), ep_size)
-                    screen.blit(ep_surf, (px - ep_size * 3, py - ep_size * 3),
-                                special_flags=pygame.BLEND_ADD)
-                else:
-                    pygame.draw.circle(screen, ep['color'], (px, py), 1)
+                # 바람 방향 (공전 접선 방향 = 각도 + 90도)
+                tang_ang = ep['angle'] + math.pi * 0.5
+                streak_len = max(2, int(ep['size'] * 3.5))
+                # 선 시작/끝점
+                sx1 = px - int(streak_len * math.cos(tang_ang))
+                sy1 = py - int(streak_len * math.sin(tang_ang))
+                sx2 = px + int(streak_len * math.cos(tang_ang))
+                sy2 = py + int(streak_len * math.sin(tang_ang))
+                streak_col = (min(255, ep['color'][0]),
+                              min(255, ep['color'][1]),
+                              min(255, ep['color'][2]))
+                pygame.draw.line(screen, streak_col, (sx1, sy1), (sx2, sy2), 1)
         elif self.judgment_variant == 'lightning':
             # ══════ 제우스의 번개 (번개의 분노 전용 - 고퀄리티) ══════
             if self.judgment_bolt_hidden:
@@ -4522,20 +4519,6 @@ class AnimatedBackgroundStage30:
                 px = bolt_x + int(zx * s * perp_x) + int(bolt_len * zt * bdir_x)
                 py = bolt_y + int(zx * s * perp_y) + int(bolt_len * zt * bdir_y)
                 segs.append((px, py))
-
-            # ── 번개 배경 글로우 (전체를 감싸는 부드러운 발광) ──
-            if s >= 1.5:
-                bolt_mid_x = (bolt_x + segs[-1][0]) // 2
-                bolt_mid_y = (bolt_y + segs[-1][1]) // 2
-                bg_glow_r = int(bolt_len * 0.5 + intensity * 5 * s)
-                if bg_glow_r > 3:
-                    bg_surf = _get_cached_surface(bg_glow_r * 2 + 4, bg_glow_r * 2 + 4)
-                    bg_alpha = min(40, int(10 + 25 * intensity * pulse))
-                    pygame.draw.circle(bg_surf, (100, 140, 255, bg_alpha),
-                                       (bg_glow_r + 2, bg_glow_r + 2), bg_glow_r)
-                    screen.blit(bg_surf,
-                                (bolt_mid_x - bg_glow_r - 2, bolt_mid_y - bg_glow_r - 2),
-                                special_flags=pygame.BLEND_ADD)
 
             # ── 분기 번개 (메인 경로에서 갈라지는 작은 번개) ──
             if intensity > 0.1:
