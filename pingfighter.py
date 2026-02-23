@@ -64183,8 +64183,16 @@ def handle_player(keys):
     # stale keys 배열은 키를 뗀 후에도 True로 남아있을 수 있음
     pygame.event.pump()
     _fresh_keys_init = pygame.key.get_pressed()
-    _init_down = _fresh_keys_init[pygame.K_DOWN] if pygame.K_DOWN < len(_fresh_keys_init) else False
-    _init_s = _fresh_keys_init[pygame.K_s] if pygame.K_s < len(_fresh_keys_init) else False
+    # 🔧 pygame 2.x: K_DOWN/K_LEFT 등 SDL2 키코드는 len(keys)보다 크므로 len 비교 금지
+    # keys[pygame.K_DOWN]은 내부 매핑으로 정상 동작하므로 try/except로 안전 접근
+    try:
+        _init_down = bool(_fresh_keys_init[pygame.K_DOWN])
+    except (IndexError, TypeError):
+        _init_down = False
+    try:
+        _init_s = bool(_fresh_keys_init[pygame.K_s])
+    except (IndexError, TypeError):
+        _init_s = False
     # 🔧 MOVE_EVENT_DOWN도 병합: 방향키 ↓가 이벤트로는 감지되었으나 get_pressed()에서 누락되는 경우 보완
     down_pressed_raw = _init_down or _init_s or bool(MOVE_EVENT_DOWN)
     up_pressed_raw = is_move_up_pressed(keys)
@@ -64345,8 +64353,14 @@ def handle_player(keys):
     # 한글 IME 환경에서는 get_pressed()가 ↓ 입력을 놓치는 경우가 있어
     # 이벤트 플래그로 보정하지만, 키 스냅샷과 불일치가 지속되면 드리프트를 막기 위해 해제한다.
     # 🔧 버그 수정: _is_down_pressed_any는 pump/refresh로 stale 데이터 반환 가능 -> 직접 키 체크
-    _event_check_down = keys[pygame.K_DOWN] if pygame.K_DOWN < len(keys) else False
-    _event_check_s = keys[pygame.K_s] if pygame.K_s < len(keys) else False
+    try:
+        _event_check_down = bool(keys[pygame.K_DOWN])
+    except (IndexError, TypeError):
+        _event_check_down = False
+    try:
+        _event_check_s = bool(keys[pygame.K_s])
+    except (IndexError, TypeError):
+        _event_check_s = False
     if MOVE_EVENT_DOWN and not _event_check_down and not _event_check_s:
         MOVE_EVENT_DOWN = False
     if MOVE_EVENT_UP and not is_move_up_pressed(keys):
@@ -64380,8 +64394,14 @@ def handle_player(keys):
     # pygame.event.pump()로 이벤트 큐를 처리해 키 상태를 최신화
     pygame.event.pump()
     _fresh_keys = pygame.key.get_pressed()
-    _final_down = _fresh_keys[pygame.K_DOWN] if pygame.K_DOWN < len(_fresh_keys) else False
-    _final_s = _fresh_keys[pygame.K_s] if pygame.K_s < len(_fresh_keys) else False
+    try:
+        _final_down = bool(_fresh_keys[pygame.K_DOWN])
+    except (IndexError, TypeError):
+        _final_down = False
+    try:
+        _final_s = bool(_fresh_keys[pygame.K_s])
+    except (IndexError, TypeError):
+        _final_s = False
     _final_mouse_right = False
     try:
         _final_mouse_right = bool(pygame.mouse.get_pressed()[2])
@@ -144050,8 +144070,14 @@ def main(stage_num, new_boss_mode=False):
                         SNAP_right_state = is_move_right_pressed(keys_now) or MOVE_EVENT_RIGHT
                         # 🔧 버그 수정: is_move_down_pressed가 pump/refresh로 stale 데이터 반환 가능
                         # 직접 keys_now 배열에서 체크하여 정확한 현재 상태 사용
-                        _snap_down_direct = keys_now[pygame.K_DOWN] if pygame.K_DOWN < len(keys_now) else False
-                        _snap_s_direct = keys_now[pygame.K_s] if pygame.K_s < len(keys_now) else False
+                        try:
+                            _snap_down_direct = bool(keys_now[pygame.K_DOWN])
+                        except (IndexError, TypeError):
+                            _snap_down_direct = False
+                        try:
+                            _snap_s_direct = bool(keys_now[pygame.K_s])
+                        except (IndexError, TypeError):
+                            _snap_s_direct = False
                         SNAP_down_state = _snap_down_direct or _snap_s_direct or MOVE_EVENT_DOWN
                         SNAP_up_state = is_move_up_pressed(keys_now) or MOVE_EVENT_UP
                         space_state2 = bool(keys_now[pygame.K_SPACE]) or (_scheme_snap2 == 'mouse_keyboard' and bool(mb_now and len(mb_now) >= 1 and mb_now[0]))
