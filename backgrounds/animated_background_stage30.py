@@ -2969,50 +2969,6 @@ class AnimatedBackgroundStage30:
         extra_thick = max(2, int(3 * s))
 
         # ════════════════════════════════════════
-        # 0. 신성 오라 (Divine Aura - 석상 배경 후광)
-        # ════════════════════════════════════════
-        if s >= 1.5:
-            # 후광 중심 (머리 위쪽)
-            aura_cx, aura_cy = cx, cy - int(20 * s)
-            # 외곽 글로우 (크고 희미한 원형 - 골든 컬러)
-            aura_r_outer = int(35 * s)
-            aura_surf = _get_cached_surface(aura_r_outer * 2 + 8, aura_r_outer * 2 + 8)
-            # 다층 글로우 (안쪽일수록 밝고 작게)
-            pulse = 0.7 + 0.3 * math.sin(self.time * 2.5)
-            for layer_i, (r_frac, alpha_base) in enumerate([
-                (1.0, 12), (0.75, 18), (0.55, 25), (0.35, 35)
-            ]):
-                layer_r = int(aura_r_outer * r_frac)
-                if layer_r > 2:
-                    layer_alpha = int(alpha_base * pulse)
-                    glow_col = (220, 195, 100, min(255, layer_alpha))
-                    pygame.draw.circle(aura_surf, glow_col,
-                                       (aura_r_outer + 4, aura_r_outer + 4), layer_r)
-            screen.blit(aura_surf,
-                        (aura_cx - aura_r_outer - 4, aura_cy - aura_r_outer - 4),
-                        special_flags=pygame.BLEND_ADD)
-
-            # 방사형 광선 (빛줄기 - 간헐적 반짝임)
-            if s >= 2.5:
-                ray_count = 12
-                for ri in range(ray_count):
-                    ray_angle = (ri / ray_count) * math.pi * 2 + self.time * 0.3
-                    ray_len = int((18 + 8 * math.sin(self.time * 3 + ri * 1.7)) * s)
-                    ray_alpha = int((15 + 10 * math.sin(self.time * 4 + ri * 2.3)) * pulse)
-                    if ray_alpha > 5:
-                        rx1 = aura_cx + int(8 * s * math.cos(ray_angle))
-                        ry1 = aura_cy + int(8 * s * math.sin(ray_angle))
-                        rx2 = aura_cx + int(ray_len * math.cos(ray_angle))
-                        ry2 = aura_cy + int(ray_len * math.sin(ray_angle))
-                        ray_surf = _get_cached_surface(abs(rx2 - rx1) + 8, abs(ry2 - ry1) + 8)
-                        # 광선 끝 글로우 점
-                        gr = max(1, int(1.5 * s))
-                        pygame.draw.circle(ray_surf, (255, 230, 140, min(60, ray_alpha * 2)),
-                                           (abs(rx2 - rx1) // 2 + 4, abs(ry2 - ry1) // 2 + 4), gr)
-                        pygame.draw.line(screen, (220, 200, 120),
-                                         (rx1, ry1), (rx2, ry2), 1)
-
-        # ════════════════════════════════════════
         # 1. 흙 마운드 & 잔해 (석상 기단부 - 고퀄리티)
         # ════════════════════════════════════════
         ground_y = cy + int(2 * s)
