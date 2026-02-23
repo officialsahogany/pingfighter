@@ -67,8 +67,6 @@ class BodyguardFollower:
         self.spawn_alpha = 0
         self.is_spawned = False
 
-        # 이름 태그용 폰트 (나중에 초기화)
-        self._name_font = None
 
     def spawn_at(self, x: float, y: float):
         """광장 진입 시 초기 위치 설정."""
@@ -177,8 +175,6 @@ class BodyguardFollower:
         # 영웅 캐릭터 스프라이트 (HeroPaddleRenderer 사용)
         self._draw_hero_sprite(screen, draw_x, draw_y)
 
-        # 이름 태그
-        self._draw_name_tag(screen, draw_x, draw_y)
 
     def _draw_shadow(self, screen, x, y):
         """그림자 그리기."""
@@ -229,38 +225,6 @@ class BodyguardFollower:
         pygame.draw.ellipse(screen, (min(255, r + 50), min(255, g + 50), min(255, b + 50)),
                             (int(x) - 12, int(y) - 15, 24, 30), width=2)
 
-    def _draw_name_tag(self, screen, x, y):
-        """영웅 이름 태그 (머리 위)."""
-        if self.spawn_alpha < 200:
-            return
-
-        # 폰트 초기화
-        if self._name_font is None:
-            try:
-                from .constants import resource_path
-                import os
-                font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
-                self._name_font = pygame.font.Font(font_path, 11)
-            except Exception:
-                self._name_font = pygame.font.Font(None, 12)
-
-        # 이름 렌더링
-        name_text = self.hero_name
-        text_surf = self._name_font.render(name_text, True, (255, 255, 255))
-        text_w = text_surf.get_width()
-        text_h = text_surf.get_height()
-
-        # 배경 박스
-        tag_x = int(x) - text_w // 2 - 3
-        tag_y = int(y) - self.render_height - text_h - 2
-        bg_surf = pygame.Surface((text_w + 6, text_h + 4), pygame.SRCALPHA)
-        r, g, b = self.hero_color
-        pygame.draw.rect(bg_surf, (r, g, b, 160), (0, 0, text_w + 6, text_h + 4),
-                         border_radius=3)
-        pygame.draw.rect(bg_surf, (255, 255, 255, 80), (0, 0, text_w + 6, text_h + 4),
-                         width=1, border_radius=3)
-        screen.blit(bg_surf, (tag_x, tag_y))
-        screen.blit(text_surf, (tag_x + 3, tag_y + 2))
 
 
 class BodyguardFollowerManager:
