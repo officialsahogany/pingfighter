@@ -10419,9 +10419,9 @@ cleared_planets = []  # 클리어한 행성 번호 목록 (게임 오버/ESC 복
 def show_space_map_transition(from_planet, to_planet):
     """우주맵 행성 이동 + 보스 선출 애니메이션 래퍼 함수"""
     global cleared_planets
-    # 우주 여행 애니메이션 비활성화
-    # space_map = SpaceMap(SCREEN, WIDTH, HEIGHT)
-    # space_map.show_travel_animation(from_planet, to_planet, cleared_planets)
+    # 착륙 장면만 간단히 표시 (지형 + 경기장)
+    space_map = SpaceMap(SCREEN, WIDTH, HEIGHT)
+    space_map.show_landing_scene(to_planet, duration=2.0)
 
     boss_screen = BossSelectScreen(SCREEN, WIDTH, HEIGHT)
     selected_boss = boss_screen.show_selection(to_planet)

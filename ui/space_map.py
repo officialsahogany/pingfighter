@@ -4253,6 +4253,51 @@ class SpaceMap:
     # ══════════════════════════════════════════════
     #  메인 공개 API
     # ══════════════════════════════════════════════
+    def show_landing_scene(self, to_planet, duration=2.0):
+        """행성 착륙 완료 장면만 표시 (지형 + 경기장, 페이드인).
+        duration: 표시 시간(초)."""
+        clock = pygame.time.Clock()
+        total_frames = int(duration * 60)
+        FADE_IN = 30  # 0.5초 페이드인
+
+        for frame in range(total_frames):
+            for ev in pygame.event.get():
+                if ev.type == pygame.QUIT:
+                    return
+                if ev.type == pygame.KEYDOWN:
+                    if ev.key in (pygame.K_ESCAPE, pygame.K_SPACE, pygame.K_RETURN):
+                        return
+
+            # 표면 렌더
+            surf = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+            self._draw_planet_surface(surf, to_planet, 1.0)  # t=1.0 (지표면)
+            self.screen.blit(surf, (0, 0))
+
+            # 경기장
+            arena_surf = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+            self._draw_landing_arena(arena_surf, self.W // 2, self.H // 2,
+                                     1.0, to_planet)
+            self.screen.blit(arena_surf, (0, 0))
+
+            # 페이드인
+            if frame < FADE_IN:
+                fade_a = int(255 * (1.0 - frame / FADE_IN))
+                fade_s = pygame.Surface((self.W, self.H))
+                fade_s.fill((0, 0, 0))
+                fade_s.set_alpha(fade_a)
+                self.screen.blit(fade_s, (0, 0))
+
+            # 페이드아웃 (마지막 30프레임)
+            if frame > total_frames - FADE_IN:
+                fade_a = int(255 * (frame - (total_frames - FADE_IN)) / FADE_IN)
+                fade_s = pygame.Surface((self.W, self.H))
+                fade_s.fill((0, 0, 0))
+                fade_s.set_alpha(fade_a)
+                self.screen.blit(fade_s, (0, 0))
+
+            pygame.display.flip()
+            clock.tick(60)
+
     def show_travel_animation(self, from_planet, to_planet,
                               cleared_planets=None):
         """
