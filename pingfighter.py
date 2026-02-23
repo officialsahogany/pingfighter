@@ -10417,16 +10417,10 @@ optimus_arm_trail_particles = []         # 팔 이동 궤적 파티클
 cleared_planets = []  # 클리어한 행성 번호 목록 (게임 오버/ESC 복귀 시 리셋)
 
 def show_space_map_transition(from_planet, to_planet):
-    """우주맵 행성 이동 + 보스 선출 애니메이션 래퍼 함수"""
+    """우주맵 행성 이동 — 착륙 하강 장면만 표시"""
     global cleared_planets
-    # 착륙 장면만 간단히 표시 (지형 + 경기장)
     space_map = SpaceMap(SCREEN, WIDTH, HEIGHT)
-    space_map.show_landing_scene(to_planet, duration=2.0)
-
-    boss_screen = BossSelectScreen(SCREEN, WIDTH, HEIGHT)
-    selected_boss = boss_screen.show_selection(to_planet)
-    print(f"[SpaceMap] 행성 {to_planet} 보스 선출: {selected_boss}")
-    return selected_boss
+    space_map.show_landing_scene(to_planet, duration=3.5, fade_out=False)
 
 # ========== 스테이지 클리어 선택지 시스템 (뱀파이어 서바이벌 스타일) ==========
 # 선택지 UI 상태
@@ -115264,10 +115258,6 @@ def start_game_with_difficulty(character_id, difficulty_mode):
     global cleared_planets
     cleared_planets = []  # 새 게임 시작 시 초기화
     show_space_map_transition(from_planet=0, to_planet=1)
-
-    # 스테이지 1: 착륙 하강 장면 (동영상 대신) → 페이드아웃 없이 바로 게임 연결
-    space_map_landing = SpaceMap(SCREEN, WIDTH, HEIGHT)
-    space_map_landing.show_landing_scene(to_planet=1, duration=3.5, fade_out=False)
     # 선택한 난이도 정보 표시
     difficulty_names = {
         "junior": " 주니어리그",
