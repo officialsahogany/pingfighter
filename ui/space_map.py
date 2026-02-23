@@ -3705,22 +3705,6 @@ class SpaceMap:
                 self._draw_hud_dynamic(self.screen,
                                        0.3 + t * 0.6, tname, 1.0 - t * 0.3)
 
-                # 텍스트
-                if t < 0.3:
-                    wa = _clamp(t / 0.3 * 255)
-                    ws = self.font_med.render("워프 드라이브 가동", True,
-                                              (80, 200, 255))
-                    ws.set_alpha(wa)
-                    self.screen.blit(ws, ws.get_rect(
-                        center=(self.W // 2, self.H * 0.25)))
-                elif t > 0.7:
-                    ea = _clamp((t - 0.7) / 0.3 * 255)
-                    es = self.font_med.render(f"목표: {tname}", True,
-                                              (255, 230, 150))
-                    es.set_alpha(ea)
-                    self.screen.blit(es, es.get_rect(
-                        center=(self.W // 2, self.H * 0.25)))
-
                 # 크로스페이드 오버레이
                 if _prev_phase_frame is not None and frame <= BLEND_FRAMES:
                     _ba = int(255 * (1.0 - frame / BLEND_FRAMES) ** 1.5)
@@ -3814,14 +3798,6 @@ class SpaceMap:
                 self._draw_speed_lines(self.screen, et * 0.5)
                 self._draw_engine_particles(self.screen)
 
-                if 0.2 < t < 0.8:
-                    ta = int(255 * math.sin((t - 0.2) / 0.6 * math.pi))
-                    ts = self.font_big.render("은하계 항해", True,
-                                              (200, 210, 240))
-                    ts.set_alpha(ta)
-                    self.screen.blit(ts, ts.get_rect(
-                        center=(self.W // 2, 35)))
-
                 # 크로스페이드 오버레이
                 if _prev_phase_frame is not None and frame <= BLEND_FRAMES:
                     _ba = int(255 * (1.0 - frame / BLEND_FRAMES) ** 1.5)
@@ -3887,17 +3863,6 @@ class SpaceMap:
                     self._draw_god_rays(self.screen, self.W + 50,
                                         int(self.H * 0.4),
                                         dest_i, gc)
-
-                ts = self.font_big.render("은하계 항해", True, (200, 210, 240))
-                self.screen.blit(ts, ts.get_rect(center=(self.W // 2, 35)))
-
-                if t > 0.3:
-                    ha = _clamp((t - 0.3) * 4 * 255)
-                    gc = tcfg.get("glow_color", (200, 200, 200))
-                    hs = self.font_med.render(f"목표: {tname}", True, gc)
-                    hs.set_alpha(ha)
-                    self.screen.blit(hs, hs.get_rect(
-                        center=(self.W // 2, self.H - 40)))
 
                 # 크로스페이드 오버레이
                 if _prev_phase_frame is not None and frame <= BLEND_FRAMES:
@@ -3995,16 +3960,6 @@ class SpaceMap:
                     self._draw_energy_wave(self.screen, int(sx),
                                            int(ship_yb + bob), wave_r,
                                            wave_i, self.time)
-
-                ts = self.font_big.render("은하계 항해", True, (200, 210, 240))
-                self.screen.blit(ts, ts.get_rect(center=(self.W // 2, 35)))
-
-                na = _clamp(t * 2 * 255)
-                gc = tcfg.get("glow_color", (200, 200, 200))
-                ns = self.font_med.render(tname, True, gc)
-                ns.set_alpha(na)
-                self.screen.blit(ns, ns.get_rect(
-                    center=(int(px), int(p_y) + int(pr) + 28)))
 
                 # 크로스페이드 오버레이
                 if _prev_phase_frame is not None and frame <= BLEND_FRAMES:
@@ -4211,40 +4166,6 @@ class SpaceMap:
                         self._draw_ship(self.screen, sx_a, ship_yb, sc_s, 0.2)
                     self._draw_engine_particles(self.screen)
 
-                # ─── UI 텍스트 (줌 진행에 따라 전환) ───
-                # "은하계 항해" (초반)
-                title_a = max(0, int(255 * (1.0 - ez * 4)))
-                if title_a > 5:
-                    _ts = self.font_big.render("은하계 항해", True,
-                                               (200, 210, 240))
-                    _ts.set_alpha(title_a)
-                    self.screen.blit(_ts, _ts.get_rect(
-                        center=(self.W // 2, 35)))
-                # "도착!" (줌 0.05~0.25)
-                arrive_a = max(0, int(255 * min(1.0, ez * 8) *
-                                     max(0.0, 1.0 - max(0.0, ez - 0.15) * 8)))
-                if arrive_a > 5:
-                    _at = self.font_big.render(f"{tname} 도착!", True,
-                                               (255, 230, 150))
-                    _at.set_alpha(arrive_a)
-                    self.screen.blit(_at, _at.get_rect(
-                        center=(self.W // 2, self.H * 0.72)))
-                # "대기권 진입" (줌 0.15~0.45)
-                atmo_a = max(0, int(255 * min(1.0, max(0.0, ez - 0.12) * 6) *
-                                   max(0.0, 1.0 - max(0.0, ez - 0.35) * 6)))
-                if atmo_a > 5:
-                    _et = self.font_big.render("대기권 진입", True,
-                                               (255, 200, 100))
-                    _et.set_alpha(atmo_a)
-                    self.screen.blit(_et, _et.get_rect(
-                        center=(self.W // 2, self.H * 0.25)))
-                # 행성 이름 (줌 0.6~)
-                name_a = max(0, min(255, int(255 * max(0.0, ez - 0.55) * 4)))
-                if name_a > 5:
-                    _ns = self.font_big.render(tname, True, (255, 230, 150))
-                    _ns.set_alpha(name_a)
-                    self.screen.blit(_ns, _ns.get_rect(
-                        center=(self.W // 2, int(self.H * 0.12))))
 
                 # ─── 크로스페이드 오버레이 (Phase 4→5 전환용) ───
                 if _prev_phase_frame is not None and frame <= BLEND_FRAMES:
@@ -4387,20 +4308,6 @@ class SpaceMap:
                                            wave_r, 0.4 * (1.0 - flash_t),
                                            self.time)
 
-                # "착륙 완료" 텍스트 (글로우 추가)
-                if t > 0.8:
-                    land_a = min(255, int(255 * (t - 0.8) * 5))
-                    # 텍스트 글로우
-                    lt_glow = self.font_big.render("착륙 완료", True,
-                                                    (100, 200, 100))
-                    lt_glow.set_alpha(land_a // 3)
-                    for gx, gy in [(-2, 0), (2, 0), (0, -2), (0, 2)]:
-                        self.screen.blit(lt_glow, lt_glow.get_rect(
-                            center=(self.W // 2 + gx, int(self.H * 0.2) + gy)))
-                    lt = self.font_big.render("착륙 완료", True, (200, 255, 200))
-                    lt.set_alpha(land_a)
-                    self.screen.blit(lt, lt.get_rect(
-                        center=(self.W // 2, int(self.H * 0.2))))
 
                 # 크로스페이드 오버레이
                 if _prev_phase_frame is not None and frame <= BLEND_FRAMES:
