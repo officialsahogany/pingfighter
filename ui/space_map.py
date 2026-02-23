@@ -729,72 +729,195 @@ class SpaceMap:
 
     # ── 공통: 3D 구체 셰이딩 오버레이 ──
     def _draw_sphere_shading(self, surf, cx, cy, r, alpha=255):
-        """행성 위에 3D 구 형태 셰이딩을 오버레이한다.
-        - 림 다크닝 (가장자리 어두워짐)
-        - 이동하는 광원 (self.time 기반)
-        - 스페큘러 하이라이트 (반짝이는 점)
+        """행성 위에 초고퀄 3D 구 형태 셰이딩을 오버레이한다.
+        강한 림 다크닝 + 방향성 광원 + 터미네이터 라인 +
+        대형 스페큘러 + 대기 산란 + 위도/경도 그리드
         """
         if r < 6:
             return
-        # --- 림 다크닝: 가장자리를 어둡게 ---
-        rim = pygame.Surface((r * 2 + 4, r * 2 + 4), pygame.SRCALPHA)
-        rc = r + 2
-        steps = min(r, 20)
-        for i in range(steps):
-            t = i / steps  # 0=center, 1=edge
-            rim_r = int(r * (1.0 - t * 0.02))
-            darkness = int(50 * (t ** 2.5))  # 가장자리일수록 급격히 어두워짐
-            da = min(255, int(darkness * alpha / 255))
-            if da > 0 and rim_r > 0:
-                pygame.draw.circle(rim, (0, 0, 0, da), (rc, rc), rim_r, max(1, r // steps + 1))
-        # 가장자리 끝 추가 어둡게
-        for ei in range(max(1, r // 6)):
-            ea = min(255, int(35 * alpha / 255))
+
+        sz = r * 2 + 4
+        rc = r + 2  # 임시 서피스 중앙
+
+        # --- 광원 방향 (천천히 회전) ---
+        light_ang = self.time * 0.08
+        lx = math.cos(light_ang)
+        ly = math.sin(light_ang) * 0.55
+
+        # ====== 1. 강력한 림 다크닝 (가장자리 극도로 어둡게) ======
+        rim = pygame.Surface((sz, sz), pygame.SRCALPHA)
+        rim_bands = min(r, 35)
+        for i in range(rim_bands):
+            t = i / rim_bands  # 0 = 바깥, 1 = 안쪽
+            band_r = r - int((1.0 - t) * r * 0.55)
+            # 바깥 밴드일수록 어둡고 굵게
+            darkness = int(180 * ((1.0 - t) ** 1.6))
+            da = min(255, darkness * alpha // 255)
+            thick = max(1, int(r * 0.55 / rim_bands) + 1)
+            if da > 1 and band_r > 0:
+                pygame.draw.circle(rim, (0, 0, 0, da), (rc, rc), band_r, thick)
+        # 최외곽 추가 다크 링 (매우 어두운 테두리)
+        for ei in range(max(2, r // 4)):
+            ea = min(255, int(120 * alpha / 255))
             pygame.draw.circle(rim, (0, 0, 0, ea), (rc, rc), r - ei, 1)
         surf.blit(rim, (cx - rc, cy - rc))
 
-        # --- 광원 방향 (천천히 회전) ---
-        light_ang = self.time * 0.06
-        lx = math.cos(light_ang)
-        ly = math.sin(light_ang) * 0.5  # y 방향 약간 압축
-
-        # --- 그림자 반구: 광원 반대편을 어둡게 ---
-        shadow = pygame.Surface((r * 2 + 4, r * 2 + 4), pygame.SRCALPHA)
-        # 그림자 중심 (광원 반대 방향으로 오프셋)
-        sh_cx = rc + int(-lx * r * 0.35)
-        sh_cy = rc + int(-ly * r * 0.35)
-        sh_layers = min(r, 12)
+        # ====== 2. 방향성 그림자 (어두운 반구 — 강력) ======
+        shadow = pygame.Surface((sz, sz), pygame.SRCALPHA)
+        # 그림자 중심을 광원 반대쪽으로 크게 오프셋
+        sh_off = 0.45
+        sh_cx = rc + int(-lx * r * sh_off)
+        sh_cy = rc + int(-ly * r * sh_off)
+        sh_layers = min(r, 25)
         for si in range(sh_layers):
-            t = si / sh_layers
-            sh_r = int(r * (1.0 - t * 0.3))
-            sa = min(255, int(28 * (1.0 - t) * alpha / 255))
-            if sa > 0 and sh_r > 0:
+            t = si / sh_layers  # 0 = 가장 바깥, 1 = 중심
+            sh_r = int(r * (1.05 - t * 0.35))
+            # 바깥 레이어일수록 강한 어둠
+            sa = min(255, int(90 * (1.0 - t * 0.7) * alpha / 255))
+            if sa > 1 and sh_r > 0:
                 pygame.draw.circle(shadow, (0, 0, 0, sa), (sh_cx, sh_cy), sh_r)
         surf.blit(shadow, (cx - rc, cy - rc))
 
-        # --- 스페큘러 하이라이트 (광원 방향에 밝은 점) ---
-        spec_x = cx + int(lx * r * 0.35)
-        spec_y = cy + int(ly * r * 0.35)
-        spec_r = max(2, r // 5)
-        spec = pygame.Surface((spec_r * 2 + 8, spec_r * 2 + 8), pygame.SRCALPHA)
-        sc = spec_r + 4
-        for gi in range(spec_r + 3, 0, -1):
-            t = gi / (spec_r + 3)
-            ga = min(255, int(40 * t * alpha / 255))
+        # ====== 3. 터미네이터 라인 (낮/밤 경계의 미묘한 밝은 선) ======
+        if r > 15:
+            term = pygame.Surface((sz, sz), pygame.SRCALPHA)
+            # 광원에 수직인 방향으로 호를 그림
+            perp_ang = light_ang + math.pi / 2
+            for ti in range(3):
+                toff = (ti - 1) * max(1, r // 20)
+                term_cx = rc + int(-lx * r * 0.05) + int(math.cos(perp_ang) * toff * 0.1)
+                term_cy = rc + int(-ly * r * 0.05) + int(math.sin(perp_ang) * toff * 0.1)
+                ta = min(255, int(22 * alpha / 255))
+                # 반원 호
+                start_a = perp_ang - math.pi * 0.45
+                end_a = perp_ang + math.pi * 0.45
+                tr = r - abs(toff) * 2
+                if tr > 5:
+                    pygame.draw.arc(term, (200, 210, 235, ta),
+                                    (term_cx - tr, term_cy - tr, tr * 2, tr * 2),
+                                    start_a, end_a, 1)
+            surf.blit(term, (cx - rc, cy - rc))
+
+        # ====== 4. 디퓨즈 라이트 (광원 방향 전체를 밝게) ======
+        diffuse = pygame.Surface((sz, sz), pygame.SRCALPHA)
+        diff_cx = rc + int(lx * r * 0.3)
+        diff_cy = rc + int(ly * r * 0.3)
+        diff_layers = min(r, 18)
+        for di in range(diff_layers):
+            t = di / diff_layers
+            diff_r = int(r * (0.85 - t * 0.4))
+            da = min(255, int(30 * (1.0 - t) * alpha / 255))
+            if da > 1 and diff_r > 0:
+                pygame.draw.circle(diffuse, (255, 255, 240, da),
+                                   (diff_cx, diff_cy), diff_r)
+        surf.blit(diffuse, (cx - rc, cy - rc))
+
+        # ====== 5. 대형 스페큘러 하이라이트 (밝고 넓은 반짝임) ======
+        spec_x = cx + int(lx * r * 0.38)
+        spec_y = cy + int(ly * r * 0.38)
+        spec_r = max(3, int(r * 0.3))
+        spec_sz = spec_r * 2 + 12
+        spec = pygame.Surface((spec_sz, spec_sz), pygame.SRCALPHA)
+        sc = spec_sz // 2
+        # 넓은 글로우
+        for gi in range(spec_r + 5, 0, -1):
+            t = gi / (spec_r + 5)
+            ga = min(255, int(80 * t * t * alpha / 255))
             pygame.draw.circle(spec, (255, 255, 255, ga), (sc, sc), gi)
-        # 중심 강한 하이라이트
-        core_r = max(1, spec_r // 3)
-        ca = min(255, int(70 * alpha / 255))
-        pygame.draw.circle(spec, (255, 255, 255, ca), (sc, sc), core_r)
+        # 날카로운 코어
+        core_r = max(1, spec_r // 2)
+        for ci in range(core_r, 0, -1):
+            t = ci / core_r
+            ca = min(255, int(160 * t * alpha / 255))
+            pygame.draw.circle(spec, (255, 255, 255, ca), (sc, sc), ci)
         surf.blit(spec, (spec_x - sc, spec_y - sc))
 
-        # --- 대기 프레넬 (가장자리 밝은 빛 테두리) ---
-        fres = pygame.Surface((r * 2 + 6, r * 2 + 6), pygame.SRCALPHA)
-        fc = r + 3
-        for fi in range(3):
-            fa = min(255, int(18 * alpha / 255))
-            pygame.draw.circle(fres, (180, 200, 255, fa), (fc, fc), r - fi, 1)
-        surf.blit(fres, (cx - fc, cy - fc))
+        # 보조 스페큘러 (약간 오프셋 — 이중 반짝임)
+        if r > 18:
+            sub_x = cx + int(lx * r * 0.22)
+            sub_y = cy + int(ly * r * 0.22)
+            sub_r = max(2, int(r * 0.12))
+            sub = pygame.Surface((sub_r * 2 + 6, sub_r * 2 + 6), pygame.SRCALPHA)
+            ssc = sub_r + 3
+            for si in range(sub_r + 2, 0, -1):
+                sa = min(255, int(45 * si / (sub_r + 2) * alpha / 255))
+                pygame.draw.circle(sub, (255, 255, 245, sa), (ssc, ssc), si)
+            surf.blit(sub, (sub_x - ssc, sub_y - ssc))
+
+        # ====== 6. 대기 산란 — 광원 쪽 림 글로우 (프레넬) ======
+        if r > 10:
+            atm = pygame.Surface((sz + 8, sz + 8), pygame.SRCALPHA)
+            ac = rc + 4
+            # 광원 쪽에만 밝은 테두리 (반원 호)
+            atm_bands = max(3, r // 6)
+            for ai in range(atm_bands):
+                ar = r + 1 - ai
+                if ar < r // 2:
+                    break
+                aa = min(255, int(55 * (1.0 - ai / atm_bands) * alpha / 255))
+                # 광원 방향의 반원 호
+                start = light_ang - math.pi * 0.55
+                end = light_ang + math.pi * 0.55
+                if ar > 2:
+                    pygame.draw.arc(atm, (200, 220, 255, aa),
+                                    (ac - ar, ac - ar, ar * 2, ar * 2),
+                                    start, end, max(1, 2 - ai // 3))
+            # 어두운 쪽에도 미미한 파란 림 (앰비언트 반사)
+            for ai in range(max(1, atm_bands // 3)):
+                ar = r + 1 - ai
+                if ar < r // 2:
+                    break
+                aa = min(255, int(18 * alpha / 255))
+                start = light_ang + math.pi * 0.6
+                end = light_ang + math.pi * 1.4
+                if ar > 2:
+                    pygame.draw.arc(atm, (80, 120, 200, aa),
+                                    (ac - ar, ac - ar, ar * 2, ar * 2),
+                                    start, end, 1)
+            surf.blit(atm, (cx - ac, cy - ac))
+
+        # ====== 7. 위도/경도 그리드 라인 (구체 느낌 극대화) ======
+        if r > 20:
+            grid = pygame.Surface((sz, sz), pygame.SRCALPHA)
+            ga = min(255, int(25 * alpha / 255))
+            gc = (180, 200, 255, ga)
+
+            # 위도선 (수평 타원들 — 구면 투영)
+            lat_count = 5
+            for li in range(1, lat_count):
+                # y 위치: -r ~ +r 범위에서 등간격
+                frac = li / lat_count  # 0.2, 0.4, 0.6, 0.8
+                lat_y = rc + int(r * (frac * 2 - 1))
+                # 이 위도에서의 가시 폭 (구면 삼각함수)
+                cos_lat = math.sqrt(max(0, 1.0 - (frac * 2 - 1) ** 2))
+                lat_w = int(r * cos_lat)
+                if lat_w > 3:
+                    lat_h = max(1, int(lat_w * 0.08) + 1)
+                    pygame.draw.ellipse(grid, gc,
+                                        (rc - lat_w, lat_y - lat_h,
+                                         lat_w * 2, lat_h * 2), 1)
+
+            # 경도선 (수직 타원들 — 자전 오프셋 적용)
+            lon_count = 6
+            rot_offset = (self.time * 0.3) % (math.pi * 2 / lon_count)
+            for li in range(lon_count):
+                ang = (li * math.pi / lon_count) + rot_offset
+                # 이 경도선의 x 오프셋 (시점에서의 투영)
+                cos_lon = math.cos(ang)
+                lon_x = rc + int(r * cos_lon * 0.95)
+                # 폭 = sin(ang) — 정면은 좁고 옆면은 넓게
+                sin_lon = abs(math.sin(ang))
+                lon_w = max(1, int(r * sin_lon * 0.15))
+                lon_h = int(r * 0.92)
+                if lon_h > 3:
+                    pygame.draw.ellipse(grid, gc,
+                                        (lon_x - lon_w, rc - lon_h,
+                                         lon_w * 2, lon_h * 2), 1)
+            # 그리드도 원형 마스크 적용
+            gmask = pygame.Surface((sz, sz), pygame.SRCALPHA)
+            pygame.draw.circle(gmask, (255, 255, 255, 255), (rc, rc), r - 1)
+            grid.blit(gmask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+            surf.blit(grid, (cx - rc, cy - rc))
 
     # ── 행성 1: 조선시대 (궁궐/곡선지붕/산/벚꽃/개울) ──
     def _draw_planet_joseon(self, surf, cx, cy, r, alpha=255):
