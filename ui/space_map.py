@@ -1327,11 +1327,11 @@ class SpaceMap:
         """조선시대 행성 표면 — 초고퀄리티.
         t: 0(고공) ~ 1(지표면). 실제 Stage 1 맵 색상 반영."""
         W, H = surf.get_width(), surf.get_height()
-        # 경기장 중앙 영역 — 건물/나무 배치 금지 구역
+        # 경기장 직접 영역만 건물/나무 배치 금지 (경기장 크기 + 여유 10px)
         _cz_x, _cz_y = W // 2, H // 2
-        _cz_r = int(min(W, H) * 0.28)  # 중앙 28% 반경
+        _cz_hw, _cz_hh = 100, 85  # 경기장 반폭~90 + 반높이~75 + 여유
         def _in_center(px, py):
-            return abs(px - _cz_x) < _cz_r and abs(py - _cz_y) < _cz_r
+            return abs(px - _cz_x) < _cz_hw and abs(py - _cz_y) < _cz_hh
 
         # ===== 기본 지형 — 하늘~대지 그라디언트 =====
         sky_blend = max(0.0, 1.0 - t * 3)
