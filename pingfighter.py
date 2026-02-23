@@ -8647,6 +8647,37 @@ def _fullscreen_flip():
             _draw_guard_hover_tooltip(REAL_SCREEN, _story_guard_hover)
         globals()['_story_guard_stance_toggle_rect'] = _story_stance_btn_rect
 
+        # 🛡️ 인게임 호위무사 2번 초상화 UI (일반 스테이지, flip 경로)
+        _story_guard_hover_b2 = None
+        if not arena_mode_enabled:
+            try:
+                from game_mechanics.ingame_bodyguard import get_bodyguard2 as _get_bg2_flip
+                _bg2_flip = _get_bg2_flip()
+                if _bg2_flip.active:
+                    _bg1_offset_flip = 0
+                    try:
+                        from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg1_flip_ref
+                        _bg1_flip_ref = _get_bg1_flip_ref()
+                        if _bg1_flip_ref.active:
+                            _bg1_offset_flip = _bg1_flip_ref.get_portrait_total_height(
+                                game_offset_x=GAME_OFFSET_X,
+                                game_scale=GAME_SCALE_FACTOR,
+                            )
+                    except Exception:
+                        pass
+                    _story_guard_hover_b2 = _bg2_flip.draw_portrait_ui(
+                        REAL_SCREEN,
+                        game_offset_x=GAME_OFFSET_X,
+                        game_offset_y=GAME_OFFSET_Y,
+                        game_scale=GAME_SCALE_FACTOR,
+                        mouse_pos=_original_mouse_get_pos(),
+                        y_offset=_bg1_offset_flip,
+                    )
+            except Exception:
+                pass
+        if _story_guard_hover_b2:
+            _draw_guard_hover_tooltip(REAL_SCREEN, _story_guard_hover_b2)
+
         # 🎚️ 투기장 배속 버튼 (좌측 필러 하단, REAL_SCREEN에 직접)
         if globals().get('arena_mode_enabled', False):
             try:
@@ -8877,6 +8908,35 @@ def _fullscreen_update(*args, **kwargs):
             _draw_guard_hover_tooltip(REAL_SCREEN, _queue_hover2)
         elif _guard_hover2 and _guard_hover2.get("side") != "top":
             _draw_guard_hover_tooltip(REAL_SCREEN, _guard_hover2)
+
+        # 🛡️ 인게임 호위무사 1번 초상화 UI (일반 스테이지, update 경로)
+        _story_stance_btn_rect1_upd = None
+        _story_guard_hover1_upd = None
+        if not arena_mode_enabled:
+            try:
+                from game_mechanics.ingame_bodyguard import get_bodyguard as _get_bg1_upd
+                _bg1_upd = _get_bg1_upd()
+                if _bg1_upd.active:
+                    _story_guard_hover1_upd = _bg1_upd.draw_portrait_ui(
+                        REAL_SCREEN,
+                        game_offset_x=GAME_OFFSET_X,
+                        game_offset_y=GAME_OFFSET_Y,
+                        game_scale=GAME_SCALE_FACTOR,
+                        mouse_pos=_original_mouse_get_pos(),
+                    )
+                    try:
+                        _story_stance_btn_rect1_upd = renderer.draw_guard_stance_toggle(
+                            REAL_SCREEN,
+                            stance_mode=_bg1_upd.stance_mode,
+                            game_scale=GAME_SCALE_FACTOR if 'GAME_SCALE_FACTOR' in globals() else 1.0,
+                        )
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+        if _story_guard_hover1_upd:
+            _draw_guard_hover_tooltip(REAL_SCREEN, _story_guard_hover1_upd)
+        globals()['_story_guard_stance_toggle_rect'] = _story_stance_btn_rect1_upd or globals().get('_story_guard_stance_toggle_rect')
 
         # 🛡️ 인게임 호위무사 2번 초상화 UI (일반 스테이지)
         _story_stance_btn_rect2 = None
