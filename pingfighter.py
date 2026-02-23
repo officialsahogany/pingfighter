@@ -94177,7 +94177,12 @@ def draw_objects():
     #     elif BOSS.x < WIDTH // 2:
     #         tilt_angle_boss = 10
     # === 보스 회전 처리 ===
-    # 보스 패들 충돌 애니메이션 처리 (스테이지 6 = 네메시스는 기울어지는 애니메이션 비활성화)
+    # 스테이지 4, 6은 기울어지는 애니메이션 스킵하지만, 타이머는 감소시켜야 함
+    if boss_hit_animation_active and current_stage in (4, 6):
+        boss_hit_animation_timer -= 1
+        if boss_hit_animation_timer <= 0:
+            boss_hit_animation_active = False
+    # 보스 패들 충돌 애니메이션 처리 (기울어지는 모션은 스테이지 4, 6 제외)
     if boss_hit_animation_active and current_stage not in (4, 6):
         # 스테이지별 기본 지속시간 계산
         if current_stage == 1:
@@ -94757,7 +94762,9 @@ def draw_objects():
         # --- 타격 시 빠른 회전 트리거 (0.3초 = 18프레임, 2바퀴) ---
         _SPIN_DURATION = 18
         _SPIN_TOTAL_ANGLE = math.pi * 4  # 2바퀴 = 4π
-        if boss_hit_animation_active and _stage4_flame_rush_timer <= 0:
+        # 상승 엣지 감지: 이전 프레임에서 스핀이 비활성 → 현재 히트 감지 시에만 트리거
+        # (스핀 중 재트리거 방지: rush_timer가 0이 된 직후에도 hit_active가 남아있으면 무시)
+        if boss_hit_animation_active and _stage4_flame_rush_timer <= 0 and _stage4_flame_hit_timer <= 0:
             _stage4_flame_rush_timer = _SPIN_DURATION
             # 회전 시작과 동시에 타격 이펙트 발동 (보스 아래쪽, 공 타격 지점)
             _stage4_flame_hit_timer = 8
