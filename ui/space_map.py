@@ -1324,220 +1324,377 @@ class SpaceMap:
             random.seed()
 
     def _draw_surface_joseon(self, surf, t, alpha=255):
-        """조선시대 행성 표면 — 고퀄리티 (화강암/단청/논밭/산/벚꽃/궁궐).
+        """조선시대 행성 표면 — 초고퀄리티.
         t: 0(고공) ~ 1(지표면). 실제 Stage 1 맵 색상 반영."""
         W, H = surf.get_width(), surf.get_height()
 
-        # ===== 기본 지형 — 자연 톤 그라디언트 =====
-        # 하늘에서 땅으로 세로 그라디언트 (고도 느낌)
-        sky_blend = max(0.0, 1.0 - t * 3)  # 높을수록 하늘빛
-        for row in range(0, H, 4):
+        # ===== 기본 지형 — 하늘~대지 그라디언트 =====
+        sky_blend = max(0.0, 1.0 - t * 3)
+        for row in range(0, H, 3):
             fy = row / H
-            # 상단: 하늘/안개, 하단: 풀/흙
-            gr = int((110 + fy * 30) * (1 - sky_blend) + (140 + fy * 20) * sky_blend)
-            gg = int((135 + fy * 25) * (1 - sky_blend) + (160 + fy * 15) * sky_blend)
-            gb = int((50 + fy * 15) * (1 - sky_blend) + (120 + fy * 30) * sky_blend)
+            gr = int((105 + fy * 35) * (1 - sky_blend) + (135 + fy * 25) * sky_blend)
+            gg = int((130 + fy * 30) * (1 - sky_blend) + (155 + fy * 20) * sky_blend)
+            gb = int((45 + fy * 18) * (1 - sky_blend) + (115 + fy * 35) * sky_blend)
             pygame.draw.rect(surf, (min(255, gr), min(255, gg), min(255, gb), alpha),
-                             (0, row, W, 5))
+                             (0, row, W, 4))
 
         random.seed(1137)
 
-        # ===== 논밭/초원 패치 (부드러운 컬러 변주) =====
-        for _ in range(50):
+        # ===== 논밭/초원 패치 (자연 지형 — 다층 소프트) =====
+        for _ in range(55):
             px = random.randint(-80, W + 80)
             py = random.randint(-80, H + 80)
-            pr = random.randint(40, 180)
-            g = random.randint(80, 170)
-            c = (g - 30 + random.randint(-10, 10),
-                 g + random.randint(-10, 10),
-                 g // 3 + random.randint(-5, 10))
-            c = tuple(max(0, min(255, v)) for v in c)
+            pr = random.randint(40, 200)
+            g = random.randint(75, 175)
+            c = (max(0, g - 35 + random.randint(-12, 12)),
+                 max(0, g + random.randint(-12, 12)),
+                 max(0, g // 3 + random.randint(-8, 12)))
             ps = pygame.Surface((pr * 2, pr * 2), pygame.SRCALPHA)
-            # 다층 소프트 블러 패치
             for li in range(pr, max(1, pr // 3), -max(1, pr // 6)):
-                la = max(1, int(40 * alpha / 255 * li / pr))
+                la = max(1, int(45 * alpha / 255 * li / pr))
                 pygame.draw.circle(ps, (*c, la), (pr, pr), li)
             surf.blit(ps, (px - pr, py - pr))
 
-        # ===== 개울 (사인 곡선 — 3층 물결 + 반사광) =====
-        for stream_i in range(2):
-            pts_s = []
-            y_off = 60 + stream_i * (H // 3)
-            for step in range(40):
-                st = step / 39
-                sx = int(W * st)
-                sy = y_off + int(70 * math.sin(st * math.pi * 2.5 + stream_i))
-                pts_s.append((sx, sy))
-            if len(pts_s) > 2:
-                # 넓은 물 바닥
-                pygame.draw.lines(surf, (45, 85, 140), False, pts_s, 6)
-                # 중간 물
-                pygame.draw.lines(surf, (65, 115, 175), False, pts_s, 3)
-                # 밝은 반사
-                pts_hl = [(p[0], p[1] - 1) for p in pts_s]
-                pygame.draw.lines(surf, (100, 160, 215), False, pts_hl, 1)
+        # ===== 산맥 — 원경 (수묵화 느낌, 연한 실루엣) =====
+        for _ in range(7):
+            mx = random.randint(-80, W + 80)
+            my = random.randint(-70, H // 5)
+            mw = random.randint(120, 320)
+            mh = random.randint(55, 150)
+            mc_g = 60 + random.randint(0, 30)
+            mc = (mc_g - 15, mc_g + 15, mc_g - 20)
+            ma = min(255, int(130 * alpha / 255))
+            ms = pygame.Surface((mw * 2, mh + 4), pygame.SRCALPHA)
+            # 삼각형 실루엣 + 타원 블렌딩
+            tri_pts = [(mw, 0), (0, mh), (mw * 2, mh)]
+            pygame.draw.polygon(ms, (*mc, ma), tri_pts)
+            pygame.draw.ellipse(ms, (*mc, ma // 2),
+                                (mw // 4, mh // 3, mw * 3 // 2, mh))
+            surf.blit(ms, (mx - mw, my - mh // 3))
+            # 안개 대 (산 사이)
+            fog_s = pygame.Surface((mw * 2, 12), pygame.SRCALPHA)
+            fog_s.fill((180, 195, 210, max(1, ma // 4)))
+            surf.blit(fog_s, (mx - mw, my + mh // 2))
 
-        # ===== 산맥 (다층 — 원경/중경/근경) =====
-        # 원경 산 (연하게)
-        for _ in range(6):
-            mx = random.randint(-50, W + 50)
-            my = random.randint(-60, H // 4)
-            mw = random.randint(100, 280)
-            mh = random.randint(50, 130)
-            mc = (45 + random.randint(0, 30), 80 + random.randint(0, 40), 40)
-            ma = min(255, int(150 * alpha / 255))
-            ms = pygame.Surface((mw * 2, mh + 2), pygame.SRCALPHA)
-            pygame.draw.ellipse(ms, (*mc, ma), (0, 0, mw * 2, mh * 2))
-            surf.blit(ms, (mx - mw, my - mh // 2))
-        # 중경 산 (선명하게)
+        # ===== 산맥 — 중경 (뚜렷한 삼각형 + 눈 + 능선) =====
         for _ in range(5):
             mx = random.randint(0, W)
             my = random.randint(0, H // 3)
-            mw = random.randint(80, 200)
-            mh = random.randint(40, 100)
-            mc = (30 + random.randint(0, 35), 70 + random.randint(0, 50), 28)
-            pygame.draw.ellipse(surf, mc, (mx - mw, my - mh // 2, mw * 2, mh))
-            # 하이라이트 아크
-            hl_c = (min(255, mc[0] + 35), min(255, mc[1] + 35), mc[2] + 15)
-            pygame.draw.arc(surf, hl_c,
-                            (mx - mw, my - mh // 2, mw * 2, mh),
-                            math.pi * 0.1, math.pi * 0.85, 2)
-            # 눈 덮인 봉우리 (큰 산)
-            if mh > 70 and mw > 120:
-                snow_w = max(10, mw // 3)
-                snow_h = max(5, mh // 4)
-                pygame.draw.ellipse(surf, (240, 240, 235),
-                                    (mx - snow_w // 2, my - mh // 2 - 2,
-                                     snow_w, snow_h))
+            mw = random.randint(90, 220)
+            mh = random.randint(45, 110)
+            mc_g = random.randint(30, 65)
+            mc = (mc_g, mc_g + 40 + random.randint(0, 20), mc_g - 5)
+            # 산 본체 (삼각형)
+            peak_x = mx + random.randint(-mw // 5, mw // 5)
+            tri = [(peak_x, my - mh // 2),
+                   (mx - mw, my + mh // 2),
+                   (mx + mw, my + mh // 2)]
+            pygame.draw.polygon(surf, mc, tri)
+            # 능선 하이라이트
+            hl_c = (min(255, mc[0] + 40), min(255, mc[1] + 35), mc[2] + 20)
+            pygame.draw.line(surf, hl_c,
+                             tri[0], (mx - mw // 3, my + mh // 4), 2)
+            # 그림자 면
+            sh_c = (max(0, mc[0] - 15), max(0, mc[1] - 15), max(0, mc[2] - 10))
+            sh_tri = [tri[0], (mx + mw // 4, my + mh // 4), tri[2]]
+            sh_s = pygame.Surface((mw * 2 + 2, mh + 2), pygame.SRCALPHA)
+            sh_pts = [(p[0] - mx + mw, p[1] - my + mh // 2) for p in sh_tri]
+            pygame.draw.polygon(sh_s, (*sh_c, 80), sh_pts)
+            surf.blit(sh_s, (mx - mw, my - mh // 2))
+            # 눈 덮인 봉우리
+            if mh > 60:
+                snow_pts = [tri[0],
+                            (peak_x - mw // 5, my - mh // 2 + mh // 3),
+                            (peak_x + mw // 6, my - mh // 2 + mh // 4)]
+                pygame.draw.polygon(surf, (235, 240, 238), snow_pts)
+                pygame.draw.polygon(surf, (220, 225, 230), snow_pts, 1)
 
-        # ===== 벚꽃 나무 클러스터 (디테일 — t에 따라 등장) =====
+        # ===== 개울 (사인 곡선 — 둑 + 3층 물결 + 반사 + 바위) =====
+        for stream_i in range(2):
+            pts_s = []
+            y_off = 65 + stream_i * (H // 3)
+            for step in range(50):
+                st = step / 49
+                sx = int(W * st)
+                sy = y_off + int(65 * math.sin(st * math.pi * 2.5 + stream_i))
+                pts_s.append((sx, sy))
+            if len(pts_s) > 2:
+                # 둑 (갈색)
+                pts_bank_l = [(p[0], p[1] + 4) for p in pts_s]
+                pts_bank_r = [(p[0], p[1] - 4) for p in pts_s]
+                pygame.draw.lines(surf, (90, 75, 50), False, pts_bank_l, 2)
+                pygame.draw.lines(surf, (95, 80, 55), False, pts_bank_r, 2)
+                # 넓은 물 바닥
+                pygame.draw.lines(surf, (40, 80, 135), False, pts_s, 7)
+                # 중간 물
+                pygame.draw.lines(surf, (60, 110, 170), False, pts_s, 4)
+                # 밝은 반사
+                pts_hl = [(p[0], p[1] - 1) for p in pts_s]
+                pygame.draw.lines(surf, (100, 165, 220), False, pts_hl, 1)
+                # 물결 하이라이트 (점선)
+                for si in range(3, len(pts_s) - 3, 6):
+                    wx, wy = pts_s[si]
+                    pygame.draw.line(surf, (130, 190, 235),
+                                     (wx - 3, wy - 2), (wx + 3, wy - 2), 1)
+                # 바위
+                for _ in range(3):
+                    ri = random.randint(5, len(pts_s) - 5)
+                    rx, ry = pts_s[ri]
+                    rr = random.randint(2, 5)
+                    pygame.draw.circle(surf, (75, 70, 65), (rx, ry), rr)
+                    pygame.draw.circle(surf, (95, 90, 82), (rx - 1, ry - 1), rr - 1)
+
+        # ===== 소나무 숲 (삼각형 실루엣 — 원경) =====
+        for _ in range(18):
+            px = random.randint(10, W - 10)
+            py_t = random.randint(H // 6, H // 2)
+            ph = random.randint(15, 35)
+            pw = random.randint(8, 16)
+            # 줄기
+            pygame.draw.line(surf, (70, 50, 30), (px, py_t), (px, py_t + ph), 2)
+            # 3단 삼각형 수관
+            for layer_i in range(3):
+                ly = py_t - layer_i * ph // 5
+                lw = pw - layer_i * 2
+                lh_l = ph // 4
+                g_var = random.randint(-15, 15)
+                tc = (25 + g_var, 65 + g_var, 20 + g_var)
+                tc = tuple(max(0, min(255, v)) for v in tc)
+                tri = [(px, ly - lh_l), (px - lw, ly), (px + lw, ly)]
+                pygame.draw.polygon(surf, tc, tri)
+                # 하이라이트 (왼쪽 면)
+                pygame.draw.line(surf, (min(255, tc[0] + 25),
+                                        min(255, tc[1] + 20), tc[2] + 10),
+                                 tri[0], tri[1], 1)
+
+        # ===== 대나무 숲 (직선 줄기 + 가는 잎) =====
+        for _ in range(12):
+            bx = random.randint(20, W - 20)
+            by = random.randint(H // 4, H - 40)
+            bh = random.randint(25, 50)
+            # 줄기 (녹색)
+            pygame.draw.line(surf, (80, 120, 55), (bx, by), (bx, by + bh), 2)
+            pygame.draw.line(surf, (100, 145, 70), (bx - 1, by), (bx - 1, by + bh), 1)
+            # 마디
+            for ni in range(2, bh, max(6, bh // 4)):
+                pygame.draw.line(surf, (60, 100, 40),
+                                 (bx - 2, by + ni), (bx + 2, by + ni), 1)
+            # 잎 (좌우로 뻗은 가는 선)
+            for _ in range(random.randint(3, 6)):
+                lby = by + random.randint(0, bh // 2)
+                dx = random.choice([-1, 1]) * random.randint(6, 18)
+                dy = random.randint(-5, 3)
+                pygame.draw.line(surf, (70, 115, 45),
+                                 (bx, lby), (bx + dx, lby + dy), 1)
+
+        # ===== 벚꽃 나무 (디테일 — t에 따라 등장) =====
         detail_a = min(255, int(255 * max(0, t * 2 - 0.2)))
         if detail_a > 10:
-            for _ in range(30):
-                fx = random.randint(20, W - 20)
-                fy = random.randint(H // 5, H - 30)
-                trunk_h = random.randint(12, 30)
-                # 나무 줄기 (갈색 + 그림자)
-                pygame.draw.line(surf, (80, 55, 30),
-                                 (fx + 1, fy), (fx + 1, fy + trunk_h), 3)
+            for _ in range(25):
+                fx = random.randint(25, W - 25)
+                fy = random.randint(H // 5, H - 35)
+                trunk_h = random.randint(14, 35)
+                # 나무 그림자
+                sh_s = pygame.Surface((trunk_h, 6), pygame.SRCALPHA)
+                pygame.draw.ellipse(sh_s, (0, 0, 0, 25),
+                                    (0, 0, trunk_h, 6))
+                surf.blit(sh_s, (fx - 2, fy + trunk_h))
+                # 줄기 (두꺼운 갈색 + 하이라이트)
+                pygame.draw.line(surf, (65, 45, 25),
+                                 (fx + 1, fy + 2), (fx + 1, fy + trunk_h), 4)
                 pygame.draw.line(surf, (110, 80, 45),
                                  (fx, fy), (fx, fy + trunk_h), 2)
-                # 가지
-                for bi in range(random.randint(2, 4)):
-                    bx_e = fx + random.randint(-15, 15)
-                    by_e = fy - random.randint(0, 8)
-                    pygame.draw.line(surf, (100, 70, 40),
-                                     (fx, fy + 3), (bx_e, by_e), 1)
-                # 벚꽃 구름 (소프트 글로우)
-                for _ in range(random.randint(4, 10)):
-                    bx = fx + random.randint(-18, 18)
-                    by = fy + random.randint(-20, 3)
-                    br = random.randint(3, 10)
+                pygame.draw.line(surf, (135, 105, 65),
+                                 (fx - 1, fy + 2), (fx - 1, fy + trunk_h - 2), 1)
+                # 가지 (곡선)
+                for bi in range(random.randint(3, 5)):
+                    bx_e = fx + random.randint(-20, 20)
+                    by_e = fy - random.randint(-2, 10)
+                    mid_x = (fx + bx_e) // 2 + random.randint(-5, 5)
+                    mid_y = (fy + by_e) // 2 - random.randint(2, 8)
+                    pygame.draw.line(surf, (95, 65, 35),
+                                     (fx, fy + 3), (mid_x, mid_y), 1)
+                    pygame.draw.line(surf, (95, 65, 35),
+                                     (mid_x, mid_y), (bx_e, by_e), 1)
+                # 벚꽃 구름 (소프트 글로우 — 더 풍성)
+                for _ in range(random.randint(6, 14)):
+                    bx_p = fx + random.randint(-22, 22)
+                    by_p = fy + random.randint(-24, 2)
+                    br = random.randint(3, 11)
                     ba = min(255, int(detail_a * 0.7))
-                    bs = pygame.Surface((br * 2 + 4, br * 2 + 4), pygame.SRCALPHA)
-                    bc = br + 2
-                    # 글로우 겹침
-                    for gi in range(br + 1, 0, -1):
-                        ga = max(1, int(ba * gi / (br + 1) * 0.5))
-                        pygame.draw.circle(bs, (255, random.randint(160, 240),
-                                                random.randint(180, 230), ga),
-                                           (bc, bc), gi)
-                    surf.blit(bs, (bx - bc, by - bc))
+                    bs = pygame.Surface((br * 2 + 6, br * 2 + 6), pygame.SRCALPHA)
+                    bc = br + 3
+                    for gi in range(br + 2, 0, -1):
+                        ga = max(1, int(ba * gi / (br + 2) * 0.45))
+                        pnk = (255, 155 + random.randint(0, 80),
+                               175 + random.randint(0, 55), ga)
+                        pygame.draw.circle(bs, pnk, (bc, bc), gi)
+                    surf.blit(bs, (bx_p - bc, by_p - bc))
 
-        # ===== 궁궐/전통 건축물 (상세) =====
-        for _ in range(8):
-            bx = random.randint(40, W - 40)
+        # ===== 궁궐/전통 건축물 (고퀄리티) =====
+        for _ in range(10):
+            bx = random.randint(50, W - 50)
             by = random.randint(H // 4, H * 3 // 4)
-            bw = random.randint(30, 80)
-            bh = random.randint(15, 40)
-            # 기단 (석축)
+            bw = random.randint(35, 90)
+            bh = random.randint(18, 45)
+            # 건물 그림자
+            sh_s = pygame.Surface((bw + 16, 8), pygame.SRCALPHA)
+            pygame.draw.ellipse(sh_s, (0, 0, 0, 30), (0, 0, bw + 16, 8))
+            surf.blit(sh_s, (bx - bw // 2 - 8, by + bh + max(3, bh // 4)))
+            # 기단 (석축 2단)
             base_h = max(3, bh // 4)
-            pygame.draw.rect(surf, (72, 68, 62),
-                             (bx - bw // 2 - 2, by + bh, bw + 4, base_h))
+            pygame.draw.rect(surf, (62, 58, 52),
+                             (bx - bw // 2 - 3, by + bh + 1, bw + 6, base_h))
+            pygame.draw.rect(surf, (78, 73, 66),
+                             (bx - bw // 2 - 1, by + bh, bw + 2, base_h - 1))
+            # 석축 줄눈
+            for gi in range(0, bw + 4, max(6, bw // 6)):
+                pygame.draw.line(surf, (48, 44, 38),
+                                 (bx - bw // 2 - 2 + gi, by + bh),
+                                 (bx - bw // 2 - 2 + gi, by + bh + base_h), 1)
             # 몸체 (벽체)
-            pygame.draw.rect(surf, (195, 175, 135),
-                             (bx - bw // 2, by, bw, bh))
-            # 단청 무늬 줄 (처마 아래)
-            dancheong_y = by + 2
-            dw = bw - 4
+            pygame.draw.rect(surf, (200, 180, 140), (bx - bw // 2, by, bw, bh))
+            # 창살 무늬 (격자)
+            if bw > 40:
+                for wi in range(bx - bw // 2 + 6, bx + bw // 2 - 4, max(5, bw // 6)):
+                    for wj in range(by + 6, by + bh - 2, max(4, bh // 3)):
+                        pygame.draw.rect(surf, (160, 140, 100),
+                                         (wi, wj, 3, max(2, bh // 4)), 1)
+            # 단청 무늬 줄 (처마 아래 — 3색)
+            dcw = bw - 4
             pygame.draw.line(surf, (140, 45, 35),
-                             (bx - dw // 2, dancheong_y),
-                             (bx + dw // 2, dancheong_y), 1)
+                             (bx - dcw // 2, by + 1),
+                             (bx + dcw // 2, by + 1), 1)
+            pygame.draw.line(surf, (200, 160, 80),
+                             (bx - dcw // 2, by + 2),
+                             (bx + dcw // 2, by + 2), 1)
             pygame.draw.line(surf, (35, 55, 95),
-                             (bx - dw // 2, dancheong_y + 2),
-                             (bx + dw // 2, dancheong_y + 2), 1)
-            # 기와지붕 (다층 아크)
-            rw = bw + int(12)
-            rh = max(8, bh)
-            # 지붕 본체
-            pygame.draw.arc(surf, (55, 55, 50),
-                            (bx - rw // 2, by - rh, rw, rh * 2),
-                            0, math.pi, max(3, bw // 12))
-            # 지붕 하이라이트
-            pygame.draw.arc(surf, (85, 80, 72),
-                            (bx - rw // 2 + 2, by - rh + 2, rw - 4, rh * 2 - 4),
-                            0.1, math.pi - 0.1, max(1, bw // 18))
-            # 처마 끝 곡선
-            pygame.draw.arc(surf, (70, 65, 58),
-                            (bx - rw // 2 - 2, by - rh - 1, rw + 4, rh * 2 + 2),
+                             (bx - dcw // 2, by + 3),
+                             (bx + dcw // 2, by + 3), 1)
+            # 기와지붕 (삼각형 + 아크 복합)
+            rw = bw + int(16)
+            rh = max(10, bh)
+            # 지붕 본체 (삼각형 기반)
+            roof_pts = [(bx, by - rh // 2),
+                        (bx - rw // 2, by),
+                        (bx + rw // 2, by)]
+            pygame.draw.polygon(surf, (50, 50, 48), roof_pts)
+            # 지붕 하이라이트 면
+            hl_pts = [roof_pts[0], roof_pts[1],
+                      (bx, by - 2)]
+            pygame.draw.polygon(surf, (70, 68, 62), hl_pts)
+            # 처마 곡선 (좌우 날개)
+            pygame.draw.arc(surf, (65, 62, 55),
+                            (bx - rw // 2 - 2, by - rh, rw + 4, rh * 2),
+                            0, math.pi, max(2, bw // 15))
+            # 용마루 (꼭대기 장식선)
+            pygame.draw.line(surf, (80, 75, 68),
+                             (bx - rw // 4, by - rh // 2 + 2),
+                             (bx + rw // 4, by - rh // 2 + 2), 2)
+            pygame.draw.circle(surf, (200, 160, 80),
+                               (bx, by - rh // 2 + 1), 2)
+            # 처마 끝 금장
+            pygame.draw.arc(surf, (180, 140, 60),
+                            (bx - rw // 2 - 3, by - rh - 1, rw + 6, rh * 2 + 2),
                             0, math.pi, 1)
-            # 기둥 (나무)
+            # 기둥 (나무 — 빨간색 + 하이라이트)
             for col_off in range(-bw // 2 + 5, bw // 2, max(8, bw // 3)):
-                pygame.draw.line(surf, (140, 45, 35),
-                                 (bx + col_off, by + 3),
+                pygame.draw.line(surf, (120, 40, 30),
+                                 (bx + col_off + 1, by + 4),
+                                 (bx + col_off + 1, by + bh), max(1, 3))
+                pygame.draw.line(surf, (155, 60, 45),
+                                 (bx + col_off, by + 4),
                                  (bx + col_off, by + bh), max(1, 2))
 
-        # ===== 길/산책로 =====
+        # ===== 길/산책로 (둑 + 자갈 텍스처) =====
         path_pts = []
-        for step in range(25):
-            st = step / 24
-            px_p = W // 4 + int(W // 2 * st)
-            py_p = H * 2 // 3 + int(30 * math.sin(st * math.pi * 1.5))
+        for step in range(30):
+            st = step / 29
+            px_p = W // 5 + int(W * 3 // 5 * st)
+            py_p = H * 2 // 3 + int(35 * math.sin(st * math.pi * 1.5))
             path_pts.append((px_p, py_p))
         if len(path_pts) > 2:
-            pygame.draw.lines(surf, (150, 135, 110), False, path_pts, 5)
-            pygame.draw.lines(surf, (170, 155, 130), False, path_pts, 2)
+            # 길 가장자리 (어두운 둑)
+            pygame.draw.lines(surf, (110, 95, 70), False, path_pts, 7)
+            # 길 본체
+            pygame.draw.lines(surf, (155, 140, 115), False, path_pts, 5)
+            # 밝은 중심
+            pygame.draw.lines(surf, (175, 160, 135), False, path_pts, 2)
+            # 자갈 텍스처
+            for si in range(2, len(path_pts) - 2, 3):
+                gx, gy = path_pts[si]
+                for _ in range(2):
+                    dx = random.randint(-2, 2)
+                    dy = random.randint(-1, 1)
+                    pygame.draw.circle(surf, (140, 125, 100),
+                                       (gx + dx, gy + dy), 1)
 
-        # ===== 논 (물 반사 직사각형) =====
-        for _ in range(6):
-            rx = random.randint(20, W - 80)
-            ry = random.randint(H // 3, H - 50)
-            rw_f = random.randint(30, 70)
-            rh_f = random.randint(20, 40)
-            # 논둑
-            pygame.draw.rect(surf, (100, 120, 50),
-                             (rx, ry, rw_f, rh_f), 1)
-            # 물 표면
-            water_s = pygame.Surface((rw_f - 2, rh_f - 2), pygame.SRCALPHA)
-            water_s.fill((80, 120, 90, 60))
-            surf.blit(water_s, (rx + 1, ry + 1))
+        # ===== 논 (물 반사 + 벼 줄 + 논둑 질감) =====
+        for _ in range(7):
+            rx = random.randint(25, W - 90)
+            ry = random.randint(H // 3, H - 55)
+            rw_f = random.randint(35, 80)
+            rh_f = random.randint(22, 45)
+            # 논둑 (두꺼운 흙 경계)
+            pygame.draw.rect(surf, (85, 105, 42),
+                             (rx - 2, ry - 2, rw_f + 4, rh_f + 4))
+            pygame.draw.rect(surf, (100, 125, 55),
+                             (rx - 1, ry - 1, rw_f + 2, rh_f + 2), 1)
+            # 물 표면 (그라데이션)
+            water_s = pygame.Surface((rw_f, rh_f), pygame.SRCALPHA)
+            for wy in range(rh_f):
+                wa = 50 + wy * 20 // rh_f
+                pygame.draw.line(water_s, (70, 115, 85, wa),
+                                 (0, wy), (rw_f, wy))
+            surf.blit(water_s, (rx, ry))
+            # 벼 줄 (세로선)
+            for ri in range(rx + 3, rx + rw_f - 2, max(4, rw_f // 8)):
+                pygame.draw.line(surf, (90, 135, 55, 80),
+                                 (ri, ry + 2), (ri, ry + rh_f - 2), 1)
+            # 하늘 반사 (밝은 줄)
+            pygame.draw.line(surf, (120, 170, 200, 40),
+                             (rx + 2, ry + rh_f // 3),
+                             (rx + rw_f - 2, ry + rh_f // 3), 1)
+
+        # ===== 바위 산개 =====
+        for _ in range(15):
+            rx = random.randint(10, W - 10)
+            ry = random.randint(H // 3, H - 20)
+            rw = random.randint(3, 10)
+            rh = random.randint(2, 7)
+            pygame.draw.ellipse(surf, (72, 68, 62), (rx, ry, rw, rh))
+            pygame.draw.ellipse(surf, (92, 88, 80), (rx + 1, ry, rw - 2, rh - 1))
 
         random.seed()
 
-        # ===== 구름 레이어 (고도별 — 다층 소프트 클라우드) =====
+        # ===== 구름 레이어 (다층 소프트 클라우드 + 그림자) =====
         cloud_a = max(0, int(200 * (1.0 - t * 2.2) * alpha / 255))
         if cloud_a > 3:
             random.seed(2024)
-            for _ in range(22):
+            for _ in range(24):
                 cx_c = random.randint(-80, W + 80)
                 cy_c = random.randint(-40, H + 40)
-                cw_c = random.randint(100, 280)
-                ch_c = random.randint(30, 75)
+                cw_c = random.randint(100, 300)
+                ch_c = random.randint(30, 80)
                 cs = pygame.Surface((cw_c, ch_c), pygame.SRCALPHA)
-                # 5층 소프트 구름
-                for ci in range(5):
-                    coff = ci * 4
-                    ca = max(1, int(cloud_a * (1.0 - ci * 0.18)))
+                # 6층 소프트 구름
+                for ci in range(6):
+                    coff = ci * 3
+                    ca = max(1, int(cloud_a * (1.0 - ci * 0.15)))
                     if cw_c - coff * 2 > 4 and ch_c - coff * 2 > 4:
                         pygame.draw.ellipse(
                             cs, (255, 255, 255, min(255, ca)),
                             (coff, coff, cw_c - coff * 2, ch_c - coff * 2))
+                # 구름 가장자리 핑크빛 (일출/일몰)
+                edge_a = max(1, cloud_a // 6)
+                pygame.draw.ellipse(cs, (255, 220, 200, edge_a),
+                                    (0, ch_c // 3, cw_c, ch_c // 2))
                 # 구름 그림자
                 shadow_s = pygame.Surface((cw_c, ch_c // 2), pygame.SRCALPHA)
                 sha = max(1, cloud_a // 5)
                 pygame.draw.ellipse(shadow_s, (0, 0, 0, sha),
                                     (5, 0, cw_c - 10, ch_c // 2))
-                surf.blit(shadow_s, (cx_c - cw_c // 2 + 3, cy_c + ch_c // 3))
+                surf.blit(shadow_s, (cx_c - cw_c // 2 + 4, cy_c + ch_c // 3))
                 surf.blit(cs, (cx_c - cw_c // 2, cy_c - ch_c // 2))
             random.seed()
 
@@ -1582,7 +1739,7 @@ class SpaceMap:
                          (ix - cw // 2, iy - ch_c // 2, cw, ch_c), 1)
 
     def _draw_arena_joseon(self, surf, cx, cy, scale):
-        """조선시대 핑파이터 경기장 — Stage 1 맵 스타일."""
+        """조선시대 핑파이터 경기장 — 초고퀄리티 Stage 1."""
         s = scale
         ix, iy = int(cx), int(cy)
 
@@ -1593,6 +1750,7 @@ class SpaceMap:
         grout = (42, 38, 34)
         dancheong_red = (140, 45, 35)
         dancheong_blue = (35, 55, 95)
+        dancheong_green = (35, 90, 55)
         gold = (200, 160, 80)
         gold_bright = (230, 190, 100)
         gold_dark = (160, 120, 50)
@@ -1600,98 +1758,201 @@ class SpaceMap:
         cream = (245, 235, 210)
         ink = (30, 25, 20)
         wood_red = (130, 50, 40)
+        wood_red_hl = (160, 70, 55)
 
         # ── 전체 영역 크기 ──
-        ow = int(160 * s)
-        oh = int(130 * s)
+        ow = int(180 * s)
+        oh = int(150 * s)
         ox = ix - ow // 2
         oy = iy - oh // 2
 
-        # ===== 1. 외벽 기단 (화강암 석축 2단) =====
-        base_h = max(4, int(10 * s))
+        # ===== 0. 주변 정원 (경기장 바깥 — 나무, 관목, 돌) =====
+        if s > 0.3:
+            random.seed(5555)
+            # 잔디/흙 패치 (경기장 주변)
+            for _ in range(int(20 * s)):
+                gx = ix + random.randint(-int(100 * s), int(100 * s))
+                gy = iy + random.randint(-int(80 * s), int(80 * s))
+                gr = random.randint(max(3, int(8 * s)), max(5, int(20 * s)))
+                gc_v = random.randint(90, 140)
+                gs = pygame.Surface((gr * 2, gr * 2), pygame.SRCALPHA)
+                pygame.draw.circle(gs, (gc_v - 30, gc_v, gc_v // 3, 35),
+                                   (gr, gr), gr)
+                surf.blit(gs, (gx - gr, gy - gr))
+            # 소나무 (삼각형 — 경기장 주변)
+            for _ in range(int(8 * s)):
+                tx = ix + random.choice([-1, 1]) * random.randint(
+                    int(75 * s), int(95 * s))
+                ty = iy + random.randint(-int(50 * s), int(50 * s))
+                th = max(8, int(random.randint(15, 30) * s))
+                tw = max(4, th // 2)
+                # 줄기
+                pygame.draw.line(surf, (70, 50, 30),
+                                 (tx, ty), (tx, ty + th), max(1, int(2 * s)))
+                # 3단 수관
+                for li in range(3):
+                    ly = ty - li * th // 5
+                    lw = tw - li * max(1, tw // 4)
+                    lh_t = max(3, th // 4)
+                    tri = [(tx, ly - lh_t), (tx - lw, ly + 1), (tx + lw, ly + 1)]
+                    g_v = 35 + random.randint(0, 25)
+                    pygame.draw.polygon(surf, (g_v, g_v + 35, g_v - 5), tri)
+            # 정원석 (둥근 돌)
+            for _ in range(int(6 * s)):
+                rx = ix + random.choice([-1, 1]) * random.randint(
+                    int(60 * s), int(85 * s))
+                ry = iy + random.randint(-int(40 * s), int(40 * s))
+                rr = max(2, int(random.randint(3, 7) * s))
+                pygame.draw.ellipse(surf, stone_dark,
+                                    (rx - rr, ry - rr // 2, rr * 2, rr))
+                pygame.draw.ellipse(surf, stone_light,
+                                    (rx - rr + 1, ry - rr // 2,
+                                     rr * 2 - 2, rr - 1))
+            # 벚꽃 나무 (경기장 좌우)
+            for side in [-1, 1]:
+                tx = ix + side * int(82 * s)
+                ty = iy - int(15 * s)
+                th = max(10, int(25 * s))
+                # 줄기 + 하이라이트
+                pygame.draw.line(surf, (65, 45, 25),
+                                 (tx + 1, ty), (tx + 1, ty + th), max(2, int(3 * s)))
+                pygame.draw.line(surf, (110, 80, 45),
+                                 (tx, ty), (tx, ty + th), max(1, int(2 * s)))
+                # 가지 + 꽃구름
+                for bi in range(5):
+                    bx_e = tx + random.randint(-int(15 * s), int(15 * s))
+                    by_e = ty - random.randint(0, int(10 * s))
+                    pygame.draw.line(surf, (95, 65, 35),
+                                     (tx, ty + 3), (bx_e, by_e), 1)
+                    for _ in range(random.randint(3, 7)):
+                        fx = bx_e + random.randint(-6, 6)
+                        fy = by_e + random.randint(-6, 4)
+                        fr = max(1, random.randint(2, max(3, int(5 * s))))
+                        fs = pygame.Surface((fr * 2 + 2, fr * 2 + 2),
+                                            pygame.SRCALPHA)
+                        for fi in range(fr, 0, -1):
+                            fa = max(1, 60 * fi // fr)
+                            pygame.draw.circle(
+                                fs, (255, 180 + random.randint(0, 50),
+                                     200 + random.randint(0, 30), fa),
+                                (fr + 1, fr + 1), fi)
+                        surf.blit(fs, (fx - fr - 1, fy - fr - 1))
+            random.seed()
+
+        # ===== 1. 외벽 기단 (화강암 석축 3단 + 그림자) =====
+        base_h = max(5, int(12 * s))
+        # 기단 그림자
+        sh_s = pygame.Surface((ow + 12, 6), pygame.SRCALPHA)
+        pygame.draw.ellipse(sh_s, (0, 0, 0, 35), (0, 0, ow + 12, 6))
+        surf.blit(sh_s, (ox - 6, oy + oh + base_h))
         # 하단 석축 (어두운)
         pygame.draw.rect(surf, stone_dark,
-                         (ox - 3, oy + oh, ow + 6, base_h + 2))
-        # 상단 석축
+                         (ox - 4, oy + oh, ow + 8, base_h + 2))
+        # 중단 석축
         pygame.draw.rect(surf, stone,
-                         (ox - 1, oy + oh - 1, ow + 2, base_h))
+                         (ox - 2, oy + oh - 1, ow + 4, base_h))
+        # 상단 마감
+        pygame.draw.rect(surf, stone_light,
+                         (ox, oy + oh - 2, ow, 2))
         # 석축 줄눈
-        for gi in range(0, ow + 4, max(6, int(12 * s))):
+        for gi in range(0, ow + 6, max(5, int(10 * s))):
             pygame.draw.line(surf, grout,
-                             (ox - 2 + gi, oy + oh),
-                             (ox - 2 + gi, oy + oh + base_h), 1)
+                             (ox - 3 + gi, oy + oh),
+                             (ox - 3 + gi, oy + oh + base_h), 1)
+        # 수평 줄눈
+        if base_h > 6:
+            pygame.draw.line(surf, grout,
+                             (ox - 4, oy + oh + base_h // 2),
+                             (ox + ow + 4, oy + oh + base_h // 2), 1)
 
-        # ===== 2. 성벽 (황토 + 석재 질감) =====
-        pygame.draw.rect(surf, (160, 140, 105), (ox, oy, ow, oh))
-        # 성벽 석재 질감 (미세 패치)
+        # ===== 2. 성벽 (황토 + 석재 질감 + 그림자) =====
+        pygame.draw.rect(surf, (165, 145, 110), (ox, oy, ow, oh))
+        # 석재 질감
         random.seed(7777)
-        for _ in range(int(25 * s)):
-            px = ox + random.randint(2, ow - 4)
-            py_s = oy + random.randint(2, oh - 4)
-            pw = random.randint(3, max(4, int(10 * s)))
-            ph = random.randint(2, max(3, int(7 * s)))
-            sc = random.choice([stone_light, stone, (150, 135, 110)])
+        for _ in range(int(35 * s)):
+            px = ox + random.randint(2, max(3, ow - 4))
+            py_s = oy + random.randint(2, max(3, oh - 4))
+            pw = random.randint(3, max(4, int(12 * s)))
+            ph = random.randint(2, max(3, int(8 * s)))
+            sc = random.choice([stone_light, stone, (155, 140, 115),
+                                (148, 132, 108)])
             ps = pygame.Surface((pw, ph), pygame.SRCALPHA)
-            ps.fill((*sc, random.randint(40, 80)))
+            ps.fill((*sc, random.randint(35, 75)))
             surf.blit(ps, (px, py_s))
         random.seed()
-
-        # 성벽 하이라이트 (상단 — 빛 받는 면)
-        hl_s = pygame.Surface((ow, max(2, int(4 * s))), pygame.SRCALPHA)
-        hl_s.fill((210, 195, 160, 70))
+        # 성벽 하이라이트 (상단)
+        hl_s = pygame.Surface((ow, max(3, int(5 * s))), pygame.SRCALPHA)
+        hl_s.fill((215, 200, 165, 75))
         surf.blit(hl_s, (ox, oy))
+        # 성벽 하단 그림자
+        sh_s2 = pygame.Surface((ow, max(2, int(4 * s))), pygame.SRCALPHA)
+        sh_s2.fill((0, 0, 0, 25))
+        surf.blit(sh_s2, (ox, oy + oh - max(2, int(4 * s))))
 
-        # ===== 3. 금장 테두리 + 단청 ─ Stage 1 스타일 =====
-        bw = max(1, int(2 * s))
-        # 금테 외곽
-        pygame.draw.rect(surf, gold_dark, (ox, oy, ow, oh), bw + 1)
-        pygame.draw.rect(surf, gold, (ox + 1, oy + 1, ow - 2, oh - 2), bw)
-        # 단청 줄 (빨강/파랑 교대)
-        for offset_i, offset_v in enumerate([max(2, int(4 * s)),
-                                             max(3, int(7 * s)),
-                                             max(4, int(10 * s))]):
-            dc = dancheong_red if offset_i % 2 == 0 else dancheong_blue
-            da = 90 - offset_i * 15
-            ds = pygame.Surface((ow - offset_v * 2, oh - offset_v * 2), pygame.SRCALPHA)
-            pygame.draw.rect(ds, (*dc, max(10, da)),
-                             (0, 0, ow - offset_v * 2, oh - offset_v * 2), 1)
-            surf.blit(ds, (ox + offset_v, oy + offset_v))
+        # ===== 3. 금장 테두리 + 단청 + 뇌문 =====
+        bw_l = max(1, int(2 * s))
+        # 금테 3중
+        pygame.draw.rect(surf, gold_dark, (ox - 1, oy - 1, ow + 2, oh + 2), bw_l + 2)
+        pygame.draw.rect(surf, gold, (ox, oy, ow, oh), bw_l + 1)
+        pygame.draw.rect(surf, gold_bright, (ox + 1, oy + 1, ow - 2, oh - 2), bw_l)
+        # 단청 줄 (빨강/금/파랑/녹 교대 — 4줄)
+        for offset_i, offset_v in enumerate([max(3, int(5 * s)),
+                                             max(4, int(8 * s)),
+                                             max(5, int(11 * s)),
+                                             max(6, int(14 * s))]):
+            colors = [dancheong_red, gold_dark, dancheong_blue, dancheong_green]
+            dc = colors[offset_i % 4]
+            da = 95 - offset_i * 12
+            if ow - offset_v * 2 > 4 and oh - offset_v * 2 > 4:
+                ds = pygame.Surface((ow - offset_v * 2, oh - offset_v * 2),
+                                    pygame.SRCALPHA)
+                pygame.draw.rect(ds, (*dc, max(10, da)),
+                                 (0, 0, ow - offset_v * 2, oh - offset_v * 2), 1)
+                surf.blit(ds, (ox + offset_v, oy + offset_v))
 
-        # 뇌문(thunder pattern) 장식 — 코너 4곳
-        tp = max(2, int(5 * s))
-        for corner_x, corner_y in [(ox + tp + 2, oy + tp + 2),
-                                    (ox + ow - tp - 2, oy + tp + 2),
-                                    (ox + tp + 2, oy + oh - tp - 2),
-                                    (ox + ow - tp - 2, oy + oh - tp - 2)]:
-            # 금장 사각 장식
+        # 뇌문 장식 — 코너 4곳 (이중 사각 + 단청 꽃무늬)
+        tp = max(3, int(6 * s))
+        for corner_x, corner_y in [(ox + tp + 3, oy + tp + 3),
+                                    (ox + ow - tp - 3, oy + tp + 3),
+                                    (ox + tp + 3, oy + oh - tp - 3),
+                                    (ox + ow - tp - 3, oy + oh - tp - 3)]:
+            # 외곽 금장
             pygame.draw.rect(surf, gold_bright,
                              (corner_x - tp, corner_y - tp, tp * 2, tp * 2), 1)
-            # 내부 단청 사각
+            # 내부 빨강
             inner_r = max(1, tp - 1)
             pygame.draw.rect(surf, dancheong_red,
                              (corner_x - inner_r, corner_y - inner_r,
                               inner_r * 2, inner_r * 2))
-            # 중앙 청색 점
-            pygame.draw.rect(surf, dancheong_blue,
-                             (corner_x - 1, corner_y - 1, 2, 2))
+            # 중앙 금 십자
+            pygame.draw.line(surf, gold,
+                             (corner_x - 1, corner_y), (corner_x + 1, corner_y), 1)
+            pygame.draw.line(surf, gold,
+                             (corner_x, corner_y - 1), (corner_x, corner_y + 1), 1)
+            # 청색 점 4개
+            for dx, dy in [(-1, -1), (1, -1), (-1, 1), (1, 1)]:
+                if inner_r > 2:
+                    pygame.draw.rect(surf, dancheong_blue,
+                                     (corner_x + dx * (inner_r - 2),
+                                      corner_y + dy * (inner_r - 2), 1, 1))
 
-        # ===== 4. 마당 바닥 (화강암 석조 타일) =====
-        yw = int(130 * s)
-        yh = int(100 * s)
+        # ===== 4. 마당 바닥 (화강암 석조 타일 + 방사 그라데이션) =====
+        yw = int(145 * s)
+        yh = int(115 * s)
         yx = ix - yw // 2
         yy = iy - yh // 2
         # 베이스 석재
         pygame.draw.rect(surf, stone, (yx, yy, yw, yh))
-        # 방사형 그라데이션 (중앙 밝게)
-        for ring in range(8, 0, -1):
-            frac = ring / 8.0
+        # 방사형 그라데이션 (중앙 밝게 — 12단계)
+        for ring in range(12, 0, -1):
+            frac = ring / 12.0
             rr = int(min(yw, yh) // 2 * frac)
-            a = max(1, int(12 * (1.0 - frac)))
+            a = max(1, int(15 * (1.0 - frac)))
             gs = pygame.Surface((rr * 2 + 2, rr * 2 + 2), pygame.SRCALPHA)
-            pygame.draw.circle(gs, (195, 185, 165, a), (rr + 1, rr + 1), rr)
+            pygame.draw.circle(gs, (200, 190, 170, a), (rr + 1, rr + 1), rr)
             surf.blit(gs, (ix - rr - 1, iy - rr - 1))
-        # 타일 줄눈
-        tile_sz = max(6, int(14 * s))
+        # 타일 줄눈 (벽돌 패턴)
+        tile_sz = max(5, int(12 * s))
         for ty in range(yy, yy + yh, tile_sz):
             pygame.draw.line(surf, grout, (yx, ty), (yx + yw, ty), 1)
         row_n = 0
@@ -1700,242 +1961,430 @@ class SpaceMap:
             for tx in range(yx + x_off, yx + yw, tile_sz):
                 pygame.draw.line(surf, grout, (tx, ty), (tx, ty + tile_sz), 1)
             row_n += 1
-        # 타일 색상 변화 (미세 — 밝은 패치)
+        # 타일 색상 변주
         random.seed(8888)
-        for _ in range(int(18 * s)):
-            ptx = yx + random.randint(2, yw - 4)
-            pty = yy + random.randint(2, yh - 4)
+        for _ in range(int(25 * s)):
+            ptx = yx + random.randint(2, max(3, yw - 4))
+            pty = yy + random.randint(2, max(3, yh - 4))
             ptw = random.randint(tile_sz - 2, tile_sz + 2)
             pth = random.randint(tile_sz - 2, tile_sz + 2)
-            tc_choice = random.choice([stone_light, (82, 74, 65), (65, 65, 72)])
-            ts = pygame.Surface((ptw, pth), pygame.SRCALPHA)
-            ts.fill((*tc_choice, random.randint(25, 55)))
-            surf.blit(ts, (ptx, pty))
+            tc_choice = random.choice([stone_light, (82, 74, 65),
+                                       (65, 65, 72), (88, 82, 75)])
+            ts_s = pygame.Surface((ptw, pth), pygame.SRCALPHA)
+            ts_s.fill((*tc_choice, random.randint(20, 50)))
+            surf.blit(ts_s, (ptx, pty))
         random.seed()
+        # 마당 테두리 (석재 경계선)
+        pygame.draw.rect(surf, stone_dark, (yx, yy, yw, yh), 2)
+        pygame.draw.rect(surf, stone_light, (yx + 1, yy + 1, yw - 2, yh - 2), 1)
 
-        # ===== 5. 코트 (핑파이터 경기장) =====
-        cw = int(85 * s)
-        ch_c = int(65 * s)
+        # ===== 5. 코트 (핑파이터 경기장 — 고퀄리티) =====
+        cw = int(90 * s)
+        ch_c = int(70 * s)
         court_x = ix - cw // 2
         court_y = iy - ch_c // 2
+        # 코트 그림자
+        csh = pygame.Surface((cw + 6, ch_c + 6), pygame.SRCALPHA)
+        csh.fill((0, 0, 0, 20))
+        surf.blit(csh, (court_x - 1, court_y + 2))
         # 코트 바닥 — 밝은 크림색
         pygame.draw.rect(surf, cream, (court_x, court_y, cw, ch_c))
-        # 코트 내부 타일 텍스처
-        ct_sz = max(4, int(8 * s))
+        # 타일 텍스처 (체커)
+        ct_sz = max(3, int(7 * s))
         for cty in range(court_y, court_y + ch_c, ct_sz):
             for ctx in range(court_x, court_x + cw, ct_sz):
                 if (cty // ct_sz + ctx // ct_sz) % 2 == 0:
-                    cs = pygame.Surface((ct_sz, ct_sz), pygame.SRCALPHA)
-                    cs.fill((220, 205, 180, 30))
-                    surf.blit(cs, (ctx, cty))
-        # 금장 코트 테두리
+                    cs_t = pygame.Surface((ct_sz, ct_sz), pygame.SRCALPHA)
+                    cs_t.fill((218, 203, 178, 28))
+                    surf.blit(cs_t, (ctx, cty))
+        # 나무결 텍스처 (수평선)
+        for cty in range(court_y + 2, court_y + ch_c - 2, max(3, int(4 * s))):
+            wa = random.randint(8, 20)
+            pygame.draw.line(surf, (210, 195, 170, wa),
+                             (court_x + 2, cty), (court_x + cw - 2, cty), 1)
+        # 금장 코트 테두리 (3중)
         pygame.draw.rect(surf, gold_dark,
-                         (court_x - 1, court_y - 1, cw + 2, ch_c + 2), max(1, int(2 * s)))
+                         (court_x - 2, court_y - 2, cw + 4, ch_c + 4),
+                         max(1, int(2 * s)))
         pygame.draw.rect(surf, gold,
-                         (court_x, court_y, cw, ch_c), max(1, int(1 * s)))
-        # 중앙선 (금)
+                         (court_x - 1, court_y - 1, cw + 2, ch_c + 2),
+                         max(1, int(1 * s)))
+        pygame.draw.rect(surf, gold_bright,
+                         (court_x, court_y, cw, ch_c), 1)
+        # 중앙선 (금 + 단청)
+        ml_w = max(1, int(2 * s))
         pygame.draw.line(surf, gold,
-                         (court_x, iy), (court_x + cw, iy), max(1, int(1 * s)))
-        # 중앙선 양쪽 단청 줄
-        if s > 0.4:
+                         (court_x, iy), (court_x + cw, iy), ml_w)
+        if s > 0.35:
             dl = max(1, int(1 * s))
-            pygame.draw.line(surf, (*dancheong_red, 160),
+            # 단청 줄 3색
+            pygame.draw.line(surf, (*dancheong_red, 180),
                              (court_x + 2, iy - dl - 1),
                              (court_x + cw - 2, iy - dl - 1), 1)
-            pygame.draw.line(surf, (*dancheong_blue, 160),
+            pygame.draw.line(surf, (*gold_dark, 140),
+                             (court_x + 2, iy - dl - 2),
+                             (court_x + cw - 2, iy - dl - 2), 1)
+            pygame.draw.line(surf, (*dancheong_blue, 180),
                              (court_x + 2, iy + dl + 1),
                              (court_x + cw - 2, iy + dl + 1), 1)
+            pygame.draw.line(surf, (*gold_dark, 140),
+                             (court_x + 2, iy + dl + 2),
+                             (court_x + cw - 2, iy + dl + 2), 1)
         # 서브 영역 선
-        sv_off = max(3, int(10 * s))
+        sv_off = max(3, int(12 * s))
         pygame.draw.line(surf, (*gold_dark, 120),
                          (court_x, court_y + sv_off),
                          (court_x + cw, court_y + sv_off), 1)
         pygame.draw.line(surf, (*gold_dark, 120),
                          (court_x, court_y + ch_c - sv_off),
                          (court_x + cw, court_y + ch_c - sv_off), 1)
+        # 네트 시각화 (중앙선 위 점선)
+        if s > 0.4:
+            for nx in range(court_x + 3, court_x + cw - 2, max(3, int(5 * s))):
+                pygame.draw.line(surf, (*stone_dark, 100),
+                                 (nx, iy - max(1, int(2 * s))),
+                                 (nx, iy + max(1, int(2 * s))), 1)
 
-        # ===== 6. 태극 문양 (코트 중앙) =====
-        if s > 0.35:
-            tr = max(4, int(10 * s))
-            # 태극 글로우
-            for gi in range(tr + 6, tr, -1):
-                ga = max(1, int(25 * (gi - tr) / 6))
+        # ===== 6. 태극 문양 + 건곤감리 (코트 중앙) =====
+        if s > 0.3:
+            tr = max(5, int(12 * s))
+            # 태극 글로우 (이중)
+            for gi in range(tr + 8, tr, -1):
+                ga = max(1, int(20 * (gi - tr) / 8))
                 gs = pygame.Surface((gi * 2 + 2, gi * 2 + 2), pygame.SRCALPHA)
-                pygame.draw.circle(gs, (25, 25, 200, ga),
+                pygame.draw.circle(gs, (30, 30, 180, ga),
                                    (gi + 1, gi + 1), gi)
                 surf.blit(gs, (ix - gi - 1, iy - gi - 1))
-            # 태극 외곽원
+            # 태극 외곽원 (금 + 검정)
+            pygame.draw.circle(surf, ink, (ix, iy), tr + 2, max(1, int(1 * s)))
             pygame.draw.circle(surf, gold, (ix, iy), tr + 1, max(1, int(1 * s)))
             # 빨강 반원 (상)
             pygame.draw.circle(surf, (200, 50, 50), (ix, iy), tr)
-            # 파랑 하반원 덮기
+            # 파랑 하반원
             pygame.draw.rect(surf, (40, 70, 160),
                              (ix - tr, iy, tr * 2, tr))
-            # S-커브 효과 (음양)
+            # S-커브 (음양)
             small_r = max(2, tr // 2)
             pygame.draw.circle(surf, (200, 50, 50),
                                (ix, iy + small_r), small_r)
             pygame.draw.circle(surf, (40, 70, 160),
                                (ix, iy - small_r), small_r)
             # 중심점
+            dot_r = max(1, small_r // 2)
             pygame.draw.circle(surf, (200, 50, 50),
-                               (ix, iy - small_r), max(1, small_r // 2))
+                               (ix, iy - small_r), dot_r)
             pygame.draw.circle(surf, (40, 70, 160),
-                               (ix, iy + small_r), max(1, small_r // 2))
+                               (ix, iy + small_r), dot_r)
+            # 건곤감리 (4괘 — 태극 주변)
+            if s > 0.5:
+                bar_l = max(3, int(6 * s))
+                bar_w = max(1, int(1 * s))
+                gap = max(2, int(3 * s))
+                dist = tr + max(5, int(8 * s))
+                # 건 (☰ 하늘) — 상
+                for bi in range(3):
+                    by_b = iy - dist - bi * gap
+                    pygame.draw.line(surf, ink,
+                                     (ix - bar_l, by_b), (ix + bar_l, by_b), bar_w)
+                # 곤 (☷ 땅) — 하
+                for bi in range(3):
+                    by_b = iy + dist + bi * gap
+                    pygame.draw.line(surf, ink,
+                                     (ix - bar_l, by_b), (ix - 1, by_b), bar_w)
+                    pygame.draw.line(surf, ink,
+                                     (ix + 1, by_b), (ix + bar_l, by_b), bar_w)
+                # 감 (☵ 물) — 좌
+                for bi in range(3):
+                    bx_b = ix - dist - bi * gap
+                    if bi == 1:  # 중간만 실선
+                        pygame.draw.line(surf, ink,
+                                         (bx_b, iy - bar_l),
+                                         (bx_b, iy + bar_l), bar_w)
+                    else:  # 끊어진 선
+                        pygame.draw.line(surf, ink,
+                                         (bx_b, iy - bar_l),
+                                         (bx_b, iy - 1), bar_w)
+                        pygame.draw.line(surf, ink,
+                                         (bx_b, iy + 1),
+                                         (bx_b, iy + bar_l), bar_w)
+                # 리 (☲ 불) — 우
+                for bi in range(3):
+                    bx_b = ix + dist + bi * gap
+                    if bi == 1:  # 중간만 끊어진 선
+                        pygame.draw.line(surf, ink,
+                                         (bx_b, iy - bar_l),
+                                         (bx_b, iy - 1), bar_w)
+                        pygame.draw.line(surf, ink,
+                                         (bx_b, iy + 1),
+                                         (bx_b, iy + bar_l), bar_w)
+                    else:  # 실선
+                        pygame.draw.line(surf, ink,
+                                         (bx_b, iy - bar_l),
+                                         (bx_b, iy + bar_l), bar_w)
 
-        # ===== 7. 기와지붕 본관 (상단) =====
-        main_w = int(90 * s)
-        main_h = int(22 * s)
-        main_y_pos = iy - int(42 * s)
-        # 기단
-        bh = max(2, int(4 * s))
+        # ===== 7. 기와지붕 본관 (상단 — 고퀄리티) =====
+        main_w = int(100 * s)
+        main_h = int(24 * s)
+        main_y_pos = iy - int(48 * s)
+        # 건물 그림자
+        bsh = pygame.Surface((main_w + 20, 6), pygame.SRCALPHA)
+        pygame.draw.ellipse(bsh, (0, 0, 0, 30),
+                            (0, 0, main_w + 20, 6))
+        surf.blit(bsh, (ix - main_w // 2 - 10, main_y_pos + main_h + max(2, int(4 * s))))
+        # 기단 (2단 석축 + 줄눈)
+        bh_m = max(3, int(5 * s))
+        pygame.draw.rect(surf, stone_dark,
+                         (ix - main_w // 2 - 3, main_y_pos + main_h,
+                          main_w + 6, bh_m + 1))
         pygame.draw.rect(surf, stone,
-                         (ix - main_w // 2 - 2, main_y_pos + main_h,
-                          main_w + 4, bh))
+                         (ix - main_w // 2 - 1, main_y_pos + main_h - 1,
+                          main_w + 2, bh_m))
         pygame.draw.line(surf, stone_light,
-                         (ix - main_w // 2 - 2, main_y_pos + main_h),
-                         (ix + main_w // 2 + 2, main_y_pos + main_h), 1)
-        # 벽체 (크림)
+                         (ix - main_w // 2 - 1, main_y_pos + main_h - 1),
+                         (ix + main_w // 2 + 1, main_y_pos + main_h - 1), 1)
+        # 석축 줄눈
+        for gi in range(0, main_w + 4, max(5, int(8 * s))):
+            pygame.draw.line(surf, grout,
+                             (ix - main_w // 2 - 2 + gi, main_y_pos + main_h),
+                             (ix - main_w // 2 - 2 + gi,
+                              main_y_pos + main_h + bh_m), 1)
+        # 벽체 (크림 + 격자 창살)
         pygame.draw.rect(surf, beige,
                          (ix - main_w // 2, main_y_pos, main_w, main_h))
-        # 단청 줄 (처마 아래)
-        pygame.draw.line(surf, dancheong_red,
-                         (ix - main_w // 2 + 2, main_y_pos + 1),
-                         (ix + main_w // 2 - 2, main_y_pos + 1), 1)
-        pygame.draw.line(surf, dancheong_blue,
-                         (ix - main_w // 2 + 2, main_y_pos + 3),
-                         (ix + main_w // 2 - 2, main_y_pos + 3), 1)
-        pygame.draw.line(surf, gold_dark,
-                         (ix - main_w // 2 + 2, main_y_pos + 2),
-                         (ix + main_w // 2 - 2, main_y_pos + 2), 1)
-        # 기둥 (나무 — 빨간색)
+        # 창살 격자
+        if s > 0.4:
+            win_gap = max(6, int(12 * s))
+            for wi in range(ix - main_w // 2 + win_gap,
+                            ix + main_w // 2 - 4, win_gap):
+                win_h = max(3, main_h - 8)
+                win_y = main_y_pos + 5
+                pygame.draw.rect(surf, (180, 160, 125),
+                                 (wi, win_y, max(3, int(5 * s)), win_h), 1)
+                # 격자 가로줄
+                for wj in range(win_y + 2, win_y + win_h - 1,
+                                max(2, win_h // 3)):
+                    pygame.draw.line(surf, (170, 150, 115),
+                                     (wi, wj), (wi + max(3, int(5 * s)), wj), 1)
+        # 단청 줄 (처마 아래 — 4색 줄)
+        for di, dc in enumerate([dancheong_red, gold_dark,
+                                  dancheong_blue, dancheong_green]):
+            pygame.draw.line(surf, dc,
+                             (ix - main_w // 2 + 3, main_y_pos + di + 1),
+                             (ix + main_w // 2 - 3, main_y_pos + di + 1), 1)
+        # 기둥 (나무 — 빨간색 + 하이라이트 + 주련)
         pillar_gap = max(8, main_w // 5)
         for col_off in range(-main_w // 2 + pillar_gap, main_w // 2, pillar_gap):
-            pw = max(1, int(2 * s))
+            pw_p = max(2, int(3 * s))
+            # 기둥 본체
             pygame.draw.line(surf, wood_red,
-                             (ix + col_off, main_y_pos + 4),
-                             (ix + col_off, main_y_pos + main_h), pw)
-        # 기와지붕 (회색 다층)
-        rw = main_w + int(18 * s)
-        rh = max(10, int(18 * s))
+                             (ix + col_off, main_y_pos + 5),
+                             (ix + col_off, main_y_pos + main_h), pw_p)
+            # 하이라이트
+            pygame.draw.line(surf, wood_red_hl,
+                             (ix + col_off - 1, main_y_pos + 5),
+                             (ix + col_off - 1, main_y_pos + main_h), 1)
+        # 기와지붕 (삼각형 + 아크 복합)
+        rw = main_w + int(22 * s)
+        rh = max(12, int(20 * s))
         # 지붕 그림자
         pygame.draw.arc(surf, stone_dark,
-                        (ix - rw // 2 - 1, main_y_pos - rh - 1, rw + 2, rh * 2 + 2),
-                        0, math.pi, max(2, int(4 * s)))
-        # 지붕 본체 (회색 기와)
-        pygame.draw.arc(surf, (55, 55, 50),
+                        (ix - rw // 2 - 2, main_y_pos - rh - 2, rw + 4, rh * 2 + 4),
+                        0, math.pi, max(3, int(5 * s)))
+        # 지붕 본체 (회색 기와 — 삼각 + 아크)
+        roof_pts = [(ix, main_y_pos - rh),
+                    (ix - rw // 2, main_y_pos),
+                    (ix + rw // 2, main_y_pos)]
+        pygame.draw.polygon(surf, (50, 50, 48), roof_pts)
+        # 하이라이트 면 (왼쪽)
+        hl_pts = [roof_pts[0], roof_pts[1],
+                  (ix, main_y_pos - 2)]
+        pygame.draw.polygon(surf, (65, 63, 58), hl_pts)
+        # 기와 줄 (지붕 위 수평선)
+        for ri in range(1, rh, max(2, int(3 * s))):
+            ry_l = main_y_pos - rh + ri
+            rx_span = rw // 2 * ri // rh
+            pygame.draw.line(surf, (58, 56, 52),
+                             (ix - rx_span, ry_l),
+                             (ix + rx_span, ry_l), 1)
+        # 용마루 (꼭대기 장식 — 금 + 조각)
+        pygame.draw.line(surf, (80, 75, 68),
+                         (ix - rw // 4, main_y_pos - rh + 2),
+                         (ix + rw // 4, main_y_pos - rh + 2), 2)
+        # 용마루 중앙 장식 (금)
+        pygame.draw.circle(surf, gold, (ix, main_y_pos - rh + 1), max(2, int(3 * s)))
+        pygame.draw.circle(surf, gold_bright, (ix, main_y_pos - rh + 1),
+                           max(1, int(2 * s)))
+        # 처마 끝 (날개 곡선 + 금장)
+        pygame.draw.arc(surf, (60, 58, 52),
                         (ix - rw // 2, main_y_pos - rh, rw, rh * 2),
                         0, math.pi, max(2, int(3 * s)))
-        # 지붕 하이라이트
-        pygame.draw.arc(surf, (85, 80, 72),
-                        (ix - rw // 2 + 2, main_y_pos - rh + 2, rw - 4, rh * 2 - 4),
-                        0.1, math.pi - 0.1, max(1, int(2 * s)))
-        # 용마루 (꼭대기 라인)
-        pygame.draw.line(surf, (70, 65, 58),
-                         (ix - rw // 2 + 4, main_y_pos - rh // 2 + 1),
-                         (ix + rw // 2 - 4, main_y_pos - rh // 2 + 1),
-                         max(1, int(1 * s)))
-        # 처마 끝 금장
         pygame.draw.arc(surf, gold_dark,
                         (ix - rw // 2 - 2, main_y_pos - rh - 1, rw + 4, rh * 2 + 2),
                         0, math.pi, 1)
-
-        # ===== 8. 좌우 문루 (작은 건물) =====
+        # 처마 끝 장식 (좌우 꼭짓점 — 치미)
         for side in [-1, 1]:
-            gx = ix + side * int(55 * s)
-            gy = iy + int(15 * s)
-            gw = int(28 * s)
-            gh = int(16 * s)
+            cx_c = ix + side * rw // 2
+            pygame.draw.circle(surf, gold, (cx_c, main_y_pos), max(1, int(2 * s)))
+
+        # ===== 8. 좌우 문루 (작은 건물 — 향상) =====
+        for side in [-1, 1]:
+            gx = ix + side * int(62 * s)
+            gy = iy + int(18 * s)
+            gw = int(32 * s)
+            gh = int(18 * s)
+            # 그림자
+            gsh = pygame.Surface((gw + 8, 4), pygame.SRCALPHA)
+            pygame.draw.ellipse(gsh, (0, 0, 0, 25), (0, 0, gw + 8, 4))
+            surf.blit(gsh, (gx - gw // 2 - 4, gy + gh + max(2, int(3 * s))))
             # 기단
             pygame.draw.rect(surf, stone,
                              (gx - gw // 2 - 1, gy + gh, gw + 2, max(2, int(3 * s))))
             # 벽체
             pygame.draw.rect(surf, beige, (gx - gw // 2, gy, gw, gh))
-            # 단청 줄
+            # 단청 줄 (3색)
             pygame.draw.line(surf, dancheong_red,
                              (gx - gw // 2 + 1, gy + 1),
                              (gx + gw // 2 - 1, gy + 1), 1)
-            # 기둥
-            for co in [-gw // 3, gw // 3]:
+            pygame.draw.line(surf, gold_dark,
+                             (gx - gw // 2 + 1, gy + 2),
+                             (gx + gw // 2 - 1, gy + 2), 1)
+            pygame.draw.line(surf, dancheong_blue,
+                             (gx - gw // 2 + 1, gy + 3),
+                             (gx + gw // 2 - 1, gy + 3), 1)
+            # 기둥 + 하이라이트
+            for co in [-gw // 3, 0, gw // 3]:
+                pw_g = max(1, int(2 * s))
                 pygame.draw.line(surf, wood_red,
-                                 (gx + co, gy + 2),
-                                 (gx + co, gy + gh), max(1, int(1 * s)))
-            # 지붕
-            grw = gw + int(10 * s)
-            grh = max(6, int(12 * s))
-            pygame.draw.arc(surf, (55, 55, 50),
-                            (gx - grw // 2, gy - grh, grw, grh * 2),
-                            0, math.pi, max(1, int(2 * s)))
+                                 (gx + co, gy + 4),
+                                 (gx + co, gy + gh), pw_g)
+                pygame.draw.line(surf, wood_red_hl,
+                                 (gx + co - 1, gy + 4),
+                                 (gx + co - 1, gy + gh), 1)
+            # 지붕 (삼각)
+            grw = gw + int(12 * s)
+            grh = max(7, int(14 * s))
+            g_roof = [(gx, gy - grh // 2),
+                      (gx - grw // 2, gy),
+                      (gx + grw // 2, gy)]
+            pygame.draw.polygon(surf, (52, 52, 48), g_roof)
+            pygame.draw.polygon(surf, (65, 63, 58),
+                                [g_roof[0], g_roof[1], (gx, gy - 1)])
             pygame.draw.arc(surf, gold_dark,
                             (gx - grw // 2 - 1, gy - grh - 1, grw + 2, grh * 2 + 2),
                             0, math.pi, 1)
 
-        # ===== 9. 등롱 (4개 — 코트 모서리) =====
+        # ===== 9. 등롱 (4개 — 글로우 + 술 장식) =====
         lantern_positions = [
-            (ix - int(48 * s), iy - int(28 * s)),
-            (ix + int(48 * s), iy - int(28 * s)),
-            (ix - int(48 * s), iy + int(35 * s)),
-            (ix + int(48 * s), iy + int(35 * s)),
+            (ix - int(52 * s), iy - int(30 * s)),
+            (ix + int(52 * s), iy - int(30 * s)),
+            (ix - int(52 * s), iy + int(40 * s)),
+            (ix + int(52 * s), iy + int(40 * s)),
         ]
         for lx, ly in lantern_positions:
-            # 등롱 기둥
+            # 등롱 기둥 (돌)
+            pygame.draw.line(surf, stone_dark,
+                             (lx, ly + max(3, int(4 * s))),
+                             (lx, ly + int(20 * s)), max(1, int(2 * s)))
             pygame.draw.line(surf, stone,
-                             (lx, ly + max(2, int(3 * s))),
-                             (lx, ly + int(18 * s)), max(1, int(2 * s)))
-            # 등롱 몸체 (빨간 사각)
-            lr = max(2, int(4 * s))
-            lh = max(3, int(6 * s))
-            # 글로우
-            glow_s = pygame.Surface((lr * 4 + 4, lh * 2 + 4), pygame.SRCALPHA)
-            gw_c = lr * 2 + 2
-            gh_c = lh + 2
-            for gi in range(3, 0, -1):
-                ga = max(1, 25 * gi)
-                pygame.draw.rect(glow_s,
-                                 (255, 120, 40, ga),
-                                 (gw_c - lr * gi, gh_c - lh * gi // 2,
-                                  lr * gi * 2, lh * gi), border_radius=1)
-            surf.blit(glow_s, (lx - lr * 2 - 2, ly - lh - 2))
-            # 몸체
-            pygame.draw.rect(surf, (180, 40, 30),
-                             (lx - lr, ly - lh // 2, lr * 2, lh))
+                             (lx - 1, ly + max(3, int(4 * s))),
+                             (lx - 1, ly + int(20 * s)), 1)
+            # 등롱 몸체 크기
+            lr = max(3, int(5 * s))
+            lh_l = max(4, int(7 * s))
+            # 글로우 (3단 소프트)
+            glow_s = pygame.Surface((lr * 6 + 4, lh_l * 3 + 4), pygame.SRCALPHA)
+            gw_cx = lr * 3 + 2
+            gh_cy = lh_l * 3 // 2 + 2
+            for gi in range(4, 0, -1):
+                ga = max(1, 20 * gi)
+                pygame.draw.ellipse(glow_s,
+                                    (255, 130, 40, ga),
+                                    (gw_cx - lr * gi, gh_cy - lh_l * gi // 2,
+                                     lr * gi * 2, lh_l * gi))
+            surf.blit(glow_s, (lx - lr * 3 - 2, ly - lh_l * 3 // 2 - 2))
+            # 몸체 (빨간 사각 + 그라데이션)
+            for li in range(lh_l):
+                la_r = 160 + li * 30 // lh_l
+                pygame.draw.line(surf, (la_r, 40, 30),
+                                 (lx - lr, ly - lh_l // 2 + li),
+                                 (lx + lr, ly - lh_l // 2 + li), 1)
             # 금장 테두리
             pygame.draw.rect(surf, gold_dark,
-                             (lx - lr, ly - lh // 2, lr * 2, lh), 1)
-            # 꼭대기
+                             (lx - lr, ly - lh_l // 2, lr * 2, lh_l), 1)
+            # 꼭대기 (지붕 장식)
             pygame.draw.line(surf, stone_dark,
-                             (lx - lr - 1, ly - lh // 2),
-                             (lx + lr + 1, ly - lh // 2), 1)
+                             (lx - lr - 2, ly - lh_l // 2),
+                             (lx + lr + 2, ly - lh_l // 2), 1)
+            pygame.draw.circle(surf, gold, (lx, ly - lh_l // 2 - 1), 1)
+            # 술 장식 (하단 — 빨간 술)
+            if s > 0.4:
+                tassel_l = max(2, int(4 * s))
+                pygame.draw.line(surf, (180, 40, 30),
+                                 (lx, ly + lh_l // 2),
+                                 (lx, ly + lh_l // 2 + tassel_l), 1)
+                pygame.draw.circle(surf, (200, 50, 35),
+                                   (lx, ly + lh_l // 2 + tassel_l), 1)
 
-        # ===== 10. 벚꽃 장식 (코트 주변) =====
-        if s > 0.45:
+        # ===== 10. 벚꽃 장식 (코트 주변 — 풍성) =====
+        if s > 0.4:
             random.seed(3456)
-            for _ in range(int(12 * s)):
-                bx = ix + random.randint(-int(65 * s), int(65 * s))
-                by = iy + random.randint(-int(55 * s), int(55 * s))
-                br = max(1, random.randint(1, int(3 * s)))
-                ba = random.randint(100, 200)
-                bs = pygame.Surface((br * 2 + 4, br * 2 + 4), pygame.SRCALPHA)
-                bc_p = br + 2
-                # 꽃잎 글로우
-                pygame.draw.circle(bs, (255, 180, 200, ba // 3), (bc_p, bc_p), br + 1)
-                pygame.draw.circle(bs, (255, 200, 210, ba), (bc_p, bc_p), br)
+            for _ in range(int(18 * s)):
+                bx = ix + random.randint(-int(70 * s), int(70 * s))
+                by = iy + random.randint(-int(60 * s), int(60 * s))
+                br = max(1, random.randint(1, max(2, int(3 * s))))
+                ba = random.randint(90, 210)
+                bs = pygame.Surface((br * 2 + 6, br * 2 + 6), pygame.SRCALPHA)
+                bc_p = br + 3
+                # 글로우 + 꽃잎
+                pygame.draw.circle(bs, (255, 170, 190, ba // 4), (bc_p, bc_p), br + 2)
+                pygame.draw.circle(bs, (255, 185, 205, ba // 2), (bc_p, bc_p), br + 1)
+                pygame.draw.circle(bs, (255, 205, 215, ba), (bc_p, bc_p), br)
                 surf.blit(bs, (bx - bc_p, by - bc_p))
             random.seed()
 
-        # ===== 11. 착륙 패드 (도킹용 — 코트 아래) =====
-        if s > 0.4:
-            pad_y = iy + int(42 * s)
-            pad_r = max(4, int(8 * s))
+        # ===== 11. 깃발 (좌우 문루 옆 — 태극기풍) =====
+        if s > 0.5:
+            for side_f in [-1, 1]:
+                fx = ix + side_f * int(70 * s)
+                fy = iy - int(35 * s)
+                fh = max(10, int(20 * s))
+                # 깃대
+                pygame.draw.line(surf, stone,
+                                 (fx, fy), (fx, fy + fh), max(1, int(1 * s)))
+                # 깃발 (삼각형)
+                fw = max(5, int(10 * s))
+                flag_pts = [(fx, fy),
+                            (fx + side_f * fw, fy + fh // 3),
+                            (fx, fy + fh * 2 // 3)]
+                pygame.draw.polygon(surf, dancheong_red, flag_pts)
+                pygame.draw.polygon(surf, gold, flag_pts, 1)
+
+        # ===== 12. 착륙 패드 (도킹용 — 향상) =====
+        if s > 0.35:
+            pad_y = iy + int(48 * s)
+            pad_r = max(5, int(10 * s))
+            # 패드 글로우
+            for gi in range(pad_r + 4, pad_r, -1):
+                ga = max(1, 15 * (gi - pad_r))
+                gs = pygame.Surface((gi * 2 + 2, gi * 2 + 2), pygame.SRCALPHA)
+                pygame.draw.circle(gs, (100, 200, 150, ga),
+                                   (gi + 1, gi + 1), gi)
+                surf.blit(gs, (ix - gi - 1, pad_y - gi - 1))
             # 원형 패드
             pygame.draw.circle(surf, stone_light, (ix, pad_y), pad_r + 2)
             pygame.draw.circle(surf, stone, (ix, pad_y), pad_r)
-            # 방향 마커 (십자)
+            # 방향 마커 (십자 + 대각선)
             ml = max(2, pad_r - 2)
             pygame.draw.line(surf, gold, (ix - ml, pad_y), (ix + ml, pad_y), 1)
             pygame.draw.line(surf, gold, (ix, pad_y - ml), (ix, pad_y + ml), 1)
-            # 외곽 원
+            dml = max(1, ml * 2 // 3)
+            pygame.draw.line(surf, (*gold_dark, 120),
+                             (ix - dml, pad_y - dml), (ix + dml, pad_y + dml), 1)
+            pygame.draw.line(surf, (*gold_dark, 120),
+                             (ix + dml, pad_y - dml), (ix - dml, pad_y + dml), 1)
+            # 외곽 원 (이중)
             pygame.draw.circle(surf, gold_dark, (ix, pad_y), pad_r + 2, 1)
+            pygame.draw.circle(surf, gold, (ix, pad_y), pad_r + 4, 1)
 
     # ──────────────────────────────────────────────
     #  목표 행성 (고퀄리티)
