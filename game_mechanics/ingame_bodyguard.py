@@ -498,8 +498,24 @@ class InGameBodyguard:
 
         try:
             self._guard_system.update(dt, top_paddle, bottom_paddle, ball)
+        except Exception as _guard_err:
+            print(f"[Bodyguard] GuardWarriorSystem update error: {_guard_err}")
+            import traceback; traceback.print_exc()
+
+        # ── 폭탄 서프라이즈 방어적 보정: 스턴/넉백 신호가 소실되었을 경우 재설정 ──
+        gs = self._skill_manager.game_state
+        try:
+            for _skills in self._guard_system.skill_instances.values():
+                for _sk in _skills:
+                    if (getattr(_sk, 'skill_id', '') == 'bomb_surprise'
+                            and not _sk.bomb_active
+                            and _sk._knockback_target == 'top'
+                            and _sk._stun_applied):
+                        # 보스 쪽 폭발인데 스턴 신호가 없으면 재설정
+                        if not gs.get('top_paddle_stunned', False):
+                            gs['top_paddle_stunned'] = True
         except Exception:
-            pass  # GuardWarriorSystem 내부 오류 시에도 충돌 결과는 game_state에 보존
+            pass
 
         # ── 백업 충돌 체크: GuardWarriorSystem 내부 충돌이 누락될 경우 직접 감지 ──
         gs = self._skill_manager.game_state
@@ -551,8 +567,12 @@ class InGameBodyguard:
         # ── 기본 상태 이상 ──
 
         # 스턴
-        if gs.pop('top_paddle_stunned', False):
+        _bomb_stun = gs.pop('top_paddle_stunned', False)
+        if _bomb_stun:
             boss_effects['stun_frames'] = 90  # 1.5초
+            # 폭탄 서프라이즈 스턴 여부도 확인
+            if gs.get('top_paddle_bomb_kb_active', False):
+                print(f"[Bodyguard] 💣 bomb STUN extracted (with KB active)")
 
         # 둔화
         if gs.pop('top_paddle_slowed', False):
@@ -642,6 +662,8 @@ class InGameBodyguard:
             boss_effects['bomb_kb_dir'] = gs.get('top_paddle_bomb_kb_dir', 0)
             boss_effects['bomb_kb_vel'] = gs.get('top_paddle_bomb_kb_vel', 0)
             boss_effects['bomb_kb_frames'] = gs.get('top_paddle_bomb_kb_frames', 0)
+            print(f"[Bodyguard] 💣 bomb_kb extracted: dir={boss_effects['bomb_kb_dir']} "
+                  f"vel={boss_effects['bomb_kb_vel']:.1f} frames={boss_effects['bomb_kb_frames']}")
 
         # ── 바나나 슬라이스 미끄러짐 ──
         if gs.get('top_paddle_banana_slip_active', False):
@@ -725,6 +747,17 @@ class InGameBodyguard:
             bottom_paddle=bottom_paddle,
             ball=ball,
         )
+
+        # 패들 위 스킬 오버레이 (폭탄 서프라이즈 등 — 패들 이미지 위에 그려야 보임)
+        try:
+            self._guard_system.draw_skills_overlay(
+                screen,
+                top_paddle=top_paddle,
+                bottom_paddle=bottom_paddle,
+                ball=ball,
+            )
+        except Exception:
+            pass
 
     def draw_pillar_icon(self, screen, game_offset_x=0, game_offset_y=0,
                          game_scale=1.0):

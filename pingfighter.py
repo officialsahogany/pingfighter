@@ -93542,8 +93542,8 @@ def draw_objects():
                 if _bodyguard.active:
                     _bodyguard.draw(SCREEN, boss_rect=BOSS, player_rect=PLAYER, ball_rect=BALL)
                     _bodyguard.draw_entrance_speech(SCREEN, PLAYER)
-        except Exception:
-            pass
+        except Exception as _bg_draw_err:
+            print(f"[Bodyguard] draw error: {_bg_draw_err}")
 
         # 🔥 인게임 호위무사 도깨비불 공 이펙트 그리기 (Ultra Premium)
         if _ingame_bodyguard_dokkaebi_ball and BALL:
@@ -145505,8 +145505,9 @@ def main(stage_num, new_boss_mode=False):
                                     except:
                                         pass
                     globals()['_ingame_bodyguard_dokkaebi_ball'] = _bg_dokkaebi_any
-                except Exception:
-                    pass
+                except Exception as _bg_update_err:
+                    print(f"[Bodyguard] effects apply error: {_bg_update_err}")
+                    import traceback; traceback.print_exc()
                 # ⚡ 천둥뇌구 감전 해제 (electric_stun이 없으면 사운드/플래그 정리)
                 if globals().get('_bodyguard_electric_stun_active', False):
                     _bg_es_still = False
