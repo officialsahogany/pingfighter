@@ -4253,9 +4253,11 @@ class SpaceMap:
     # ══════════════════════════════════════════════
     #  메인 공개 API
     # ══════════════════════════════════════════════
-    def show_landing_scene(self, to_planet, duration=3.5, fade_out=True):
+    def show_landing_scene(self, to_planet, duration=3.5, fade_out=True,
+                           ingame_frame=None):
         """하늘에서 하강하며 지형이 드러나고 경기장이 커지는 착륙 장면.
-        duration: 전체 시간(초). fade_out: False면 끝에 페이드아웃 없이 유지."""
+        duration: 전체 시간(초). fade_out: False면 끝에 페이드아웃 없이 유지.
+        ingame_frame: 실제 인게임 화면 Surface (경기장 대신 사용)."""
         clock = pygame.time.Clock()
         total_frames = int(duration * 60)
         FADE_IN = 20   # 초반 페이드인
@@ -4309,22 +4311,33 @@ class SpaceMap:
 
             # ── 경기장 (점점 커지며 등장) ──
             if arena_scale > 0.05:
-                arena_surf = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
-                self._draw_landing_arena(arena_surf, self.W // 2, self.H // 2,
-                                         arena_scale, to_planet)
-                # 줌 적용
-                if cam_zoom > 1.01:
-                    zw_a = int(self.W / cam_zoom)
-                    zh_a = int(self.H / cam_zoom)
-                    crop_x_a = (self.W - zw_a) // 2
-                    crop_y_a = (self.H - zh_a) // 2
-                    cropped_a = arena_surf.subsurface(
-                        (crop_x_a, crop_y_a, zw_a, zh_a))
-                    scaled_a = pygame.transform.scale(cropped_a,
-                                                      (self.W, self.H))
-                    self.screen.blit(scaled_a, (0, 0))
+                if ingame_frame is not None:
+                    # 실제 인게임 화면을 경기장으로 사용
+                    ig_w = int(self.W * arena_scale)
+                    ig_h = int(self.H * arena_scale)
+                    if ig_w > 4 and ig_h > 4:
+                        scaled_ig = pygame.transform.smoothscale(
+                            ingame_frame, (ig_w, ig_h))
+                        ix = (self.W - ig_w) // 2
+                        iy = (self.H - ig_h) // 2
+                        self.screen.blit(scaled_ig, (ix, iy))
                 else:
-                    self.screen.blit(arena_surf, (0, 0))
+                    # 폴백: 커스텀 경기장 드로잉
+                    arena_surf = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+                    self._draw_landing_arena(arena_surf, self.W // 2, self.H // 2,
+                                             arena_scale, to_planet)
+                    if cam_zoom > 1.01:
+                        zw_a = int(self.W / cam_zoom)
+                        zh_a = int(self.H / cam_zoom)
+                        crop_x_a = (self.W - zw_a) // 2
+                        crop_y_a = (self.H - zh_a) // 2
+                        cropped_a = arena_surf.subsurface(
+                            (crop_x_a, crop_y_a, zw_a, zh_a))
+                        scaled_a = pygame.transform.scale(cropped_a,
+                                                          (self.W, self.H))
+                        self.screen.blit(scaled_a, (0, 0))
+                    else:
+                        self.screen.blit(arena_surf, (0, 0))
 
             # ── 페이드인 (검은 화면에서) ──
             if frame < FADE_IN:

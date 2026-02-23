@@ -115260,10 +115260,9 @@ def start_game_with_difficulty(character_id, difficulty_mode):
     # 기본 지급 장비를 실제 장착 상태로 반영
     sync_equipped_passive_effects()
 
-    # 🌌 우주 맵: 출발 → 행성 1 이동 + 보스 선출
+    # 🌌 우주 맵: 하강 연출은 main() 내부에서 실제 인게임 화면으로 처리
     global cleared_planets
     cleared_planets = []  # 새 게임 시작 시 초기화
-    show_space_map_transition(from_planet=0, to_planet=1)
     # 선택한 난이도 정보 표시
     difficulty_names = {
         "junior": " 주니어리그",
