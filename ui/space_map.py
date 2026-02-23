@@ -3609,7 +3609,16 @@ class SpaceMap:
         # 은하 맵 프리렌더
         self._render_galaxy_map(cleared_planets, to_planet)
 
-        phase = 1
+        # 스테이지 2부터는 Phase 1,2 생략 → Phase 3부터 시작
+        if to_planet > 1:
+            phase = 3
+            # Phase 3 시작 시 필요한 별/성운 초기화
+            for layer in [self.stars_dust, self.stars_far, self.stars_mid,
+                          self.stars_near, self.stars_front]:
+                self._update_stars(layer, 1.0)
+            self._update_nebulae(1.0)
+        else:
+            phase = 1
         frame = 0
         skipped = False
         _prev_phase_frame = None
