@@ -14,7 +14,7 @@ PLANET_CONFIGS = {
         "size": 28,                           # 행성 반지름
         "boss_roster": [
             {"name": "풍악보이", "implemented": True},
-            {"name": "???", "implemented": False},
+            {"name": "포도대장", "implemented": True},
             {"name": "???", "implemented": False},
         ],
     },

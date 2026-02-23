@@ -143,6 +143,39 @@ BOSS_CONFIGS = {
     },
 }
 
+# ============= 스테이지별 보스 변형 (같은 스테이지 내 다른 보스) =============
+BOSS_VARIANTS = {
+    1: {
+        "풍악보이": BOSS_CONFIGS[1],
+        "포도대장": {
+            "name": "포도대장",
+            "color": (100, 70, 40),         # 갈색 (조선 포도청 복식)
+            "accel": 0.850,                 # 풍악보이보다 약간 빠름
+            "decel": 0.850,
+            "max_speed": 6.5,
+            "instant_stop": 0.700,
+            "predict_distance": 155,
+            "skill_power": 1.0,
+            "fail_error": 300,              # 풍악보이(315)보다 정확
+            "special_skill": "arrest_rope",  # 포승줄
+            "dash_cooldown_range": (38.0, 52.0),
+            "dash_trigger_chance": 0.32,
+            "dash_stun_duration": 0.58,
+            "dash_max_distance": 295,
+        },
+    },
+}
+
+
+def get_boss_config_by_name(stage, boss_name=None):
+    """보스 이름으로 config 조회. boss_name이 None이면 기본 BOSS_CONFIGS[stage] 반환."""
+    if boss_name and stage in BOSS_VARIANTS:
+        variant = BOSS_VARIANTS[stage].get(boss_name)
+        if variant:
+            return variant
+    return BOSS_CONFIGS.get(stage, BOSS_CONFIGS[1])
+
+
 # ============= 스테이지별 배경 설정 =============
 STAGE_BACKGROUNDS = {
     1: {

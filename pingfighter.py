@@ -10314,6 +10314,9 @@ _BOSS_NAME_SWAP_MAP = {5: 6, 6: 5}
 
 def get_boss_name(logic_stage: int, default: str = "보스") -> str:
     """로직 스테이지 번호를 디스플레이 스테이지로 변환하여 보스 이름 반환"""
+    # 보스 변형이 선출된 경우 해당 이름 반환
+    if current_boss_name and logic_stage == 1:
+        return current_boss_name
     display_stage = _BOSS_NAME_SWAP_MAP.get(logic_stage, logic_stage)
     return boss_names.get(display_stage, default)
 
@@ -46458,6 +46461,13 @@ blood_particles = []  # 피 파티클 리스트 [x, y, vx, vy, size, alpha, life
 boss_red_intensity = 0  # 붉은 정도 (0 ~ 255)
 boss_special_gauge = 0  # 보스 필살기 게이지
 boss_special_ready = False
+# === 보스 변형 시스템 (한 스테이지에 여러 보스) ===
+current_boss_name = None  # None = 기본 보스, "포도대장" 등 = 변형 보스
+# 포승줄 스킬 상태
+arrest_rope_active = False
+arrest_rope_timer = 0
+arrest_rope_visual_timer = 0  # 시각 이펙트용
+arrest_rope_target_x = 0
 # 사이코볼
 emotional_overdrive_active = False
 emotional_overdrive_timer = 0
@@ -51851,6 +51861,21 @@ except Exception as e:
     print(f"[WARN] Stage 1 boss animation load failed: {e}")
     stage1_boss_sprite = None
     STAGE1_BOSS_ANIMATION_AVAILABLE = False
+# Stage 1 보스 (포도대장) 프로시저럴 스프라이트 초기화
+try:
+    from entities.pododaejang_boss_sprite import (
+        get_pododaejang_boss_sprite,
+        init_pododaejang_boss_sprite,
+        reset_pododaejang_boss_sprite,
+        PododaejangBossSprite
+    )
+    pododaejang_boss_sprite = init_pododaejang_boss_sprite()
+    PODODAEJANG_BOSS_ANIMATION_AVAILABLE = True
+    print("[Stage1] Pododaejang boss sprite loaded")
+except Exception as e:
+    print(f"[WARN] Pododaejang boss sprite load failed: {e}")
+    pododaejang_boss_sprite = None
+    PODODAEJANG_BOSS_ANIMATION_AVAILABLE = False
 # Stage 2 보스 (악어장군) 걷기 애니메이션 초기화
 try:
     from entities.stage2_boss_sprite import (
@@ -65174,6 +65199,10 @@ def handle_player(keys):
         speed_factor = 1.0
         player_slow_factor = PLAYER_SLOW_DEFAULT_FACTOR
 
+    # 포도대장 포승줄: 이동속도 50% 감소
+    if arrest_rope_active:
+        speed_factor *= 0.5
+
     # 코만도 물자보급요청(홀드) 중 이동속도 -40% 감속
     # 조건: 코만도이며 ↓키를 누르고 있고, 물자보급 대기/홀드 상태일 때만 적용
     #  - hold_time>0: 홀드 진행 중
@@ -72997,6 +73026,72 @@ def deactivate_whip():
         whip_deactivation_timer = whip_deactivation_duration
         # 이미 회전 중이었다면 기존 속도를 유지하고, 아닐 경우 최소 속도 보장
         whip_rotation_speed = max(whip_rotation_speed, 20.0)
+
+# === 포도대장 포승줄 스킬 ===
+def activate_arrest_rope():
+    """포승줄 발동 — 플레이어 패들 이동속도 3초간 50% 감소"""
+    global arrest_rope_active, arrest_rope_timer, arrest_rope_visual_timer, arrest_rope_target_x
+    arrest_rope_active = True
+    arrest_rope_timer = 180  # 3초 (60fps 기준)
+    arrest_rope_visual_timer = 0
+    arrest_rope_target_x = PLAYER.centerx if PLAYER else WIDTH // 2
+    print(f"[포도대장] 포승줄 발동! 패들 이동속도 50% 감소 (3초)")
+
+def deactivate_arrest_rope():
+    """포승줄 해제"""
+    global arrest_rope_active, arrest_rope_timer
+    arrest_rope_active = False
+    arrest_rope_timer = 0
+    print(f"[포도대장] 포승줄 해제!")
+
+def update_arrest_rope():
+    """포승줄 타이머 업데이트 (매 프레임 호출)"""
+    global arrest_rope_active, arrest_rope_timer, arrest_rope_visual_timer
+    if arrest_rope_active:
+        arrest_rope_timer -= 1
+        arrest_rope_visual_timer += 1
+        if arrest_rope_timer <= 0:
+            deactivate_arrest_rope()
+
+def draw_arrest_rope_effect(screen):
+    """포승줄 시각 이펙트 렌더링"""
+    if not arrest_rope_active:
+        return
+
+    import math as _math
+    # 보스에서 플레이어 방향으로 밧줄 이펙트
+    boss_cx = BOSS.centerx if BOSS else WIDTH // 2
+    boss_cy = BOSS.y + BOSS.height if BOSS else 65
+    player_cy = PLAYER.y if PLAYER else 710
+    target_x = arrest_rope_target_x
+
+    # 밧줄 색상 (깜빡임)
+    flash = 0.7 + 0.3 * _math.sin(arrest_rope_visual_timer * 0.15)
+    rope_color = (int(175 * flash), int(145 * flash), int(95 * flash))
+    rope_glow = (int(200 * flash), int(170 * flash), int(110 * flash), 80)
+
+    # 밧줄 세그먼트 (곡선으로 연결)
+    segments = 12
+    for i in range(segments):
+        t1 = i / segments
+        t2 = (i + 1) / segments
+        # 보스에서 플레이어까지 보간
+        x1 = int(boss_cx + (target_x - boss_cx) * t1 + _math.sin(t1 * _math.pi * 3 + arrest_rope_visual_timer * 0.1) * 15)
+        y1 = int(boss_cy + (player_cy - boss_cy) * t1)
+        x2 = int(boss_cx + (target_x - boss_cx) * t2 + _math.sin(t2 * _math.pi * 3 + arrest_rope_visual_timer * 0.1) * 15)
+        y2 = int(boss_cy + (player_cy - boss_cy) * t2)
+        pygame.draw.line(screen, rope_color, (x1, y1), (x2, y2), 3)
+
+    # 플레이어 주변 묶인 이펙트 (원형)
+    bind_pulse = 0.8 + 0.2 * _math.sin(arrest_rope_visual_timer * 0.2)
+    bind_radius = int(40 * bind_pulse)
+    glow_surf = pygame.Surface((bind_radius * 2, bind_radius * 2), pygame.SRCALPHA)
+    pygame.draw.circle(glow_surf, rope_glow, (bind_radius, bind_radius), bind_radius)
+    screen.blit(glow_surf, (int(target_x - bind_radius), int(player_cy - bind_radius)),
+                special_flags=pygame.BLEND_ADD)
+    # 묶인 원 테두리
+    pygame.draw.circle(screen, rope_color, (int(target_x), int(player_cy)), bind_radius, 2)
+
 
 def activate_whip():
     global whip_active, whip_timer, whip_wave_phase, whip_original_ball_speed, whip_wave_particles
@@ -93979,13 +94074,19 @@ def draw_objects():
                 boss_img = BOSS_IMG_STAGE1
                 boss_w, boss_h = BOSS_IMG_STAGE1_WIDTH, BOSS_IMG_STAGE1_HEIGHT
     elif current_stage == 1:
-        # Stage 1 보스 (풍악보이) 걷기 애니메이션 적용 - 세로가 긴 스프라이트
-        if STAGE1_BOSS_ANIMATION_AVAILABLE and stage1_boss_sprite is not None:
+        # Stage 1 보스 - 포도대장 또는 풍악보이
+        boss_x_pos = BOSS.x if BOSS else WIDTH // 2
+        if current_boss_name == "포도대장" and PODODAEJANG_BOSS_ANIMATION_AVAILABLE and pododaejang_boss_sprite is not None:
             boss_img_prescaled = True
-            # 애니메이션 업데이트 (보스 X 좌표 기반)
-            boss_x_pos = BOSS.x if BOSS else WIDTH // 2
-            stage1_boss_sprite.update(boss_x_pos, 1/60)  # 60fps 기준
-            # 현재 프레임 가져오기 (세로가 긴 스프라이트 사이즈)
+            pododaejang_boss_sprite.update(boss_x_pos, 1/60)
+            boss_w, boss_h = BOSS_IMG_STAGE1_WIDTH, BOSS_IMG_STAGE1_HEIGHT
+            boss_img = pododaejang_boss_sprite.get_current_frame((boss_w, boss_h))
+            if boss_img is None:
+                boss_img = BOSS_IMG_STAGE1
+                boss_img_prescaled = False
+        elif STAGE1_BOSS_ANIMATION_AVAILABLE and stage1_boss_sprite is not None:
+            boss_img_prescaled = True
+            stage1_boss_sprite.update(boss_x_pos, 1/60)
             boss_w, boss_h = BOSS_IMG_STAGE1_WIDTH, BOSS_IMG_STAGE1_HEIGHT
             boss_img = stage1_boss_sprite.get_current_frame((boss_w, boss_h))
             if boss_img is None:
@@ -108496,8 +108597,14 @@ def show_drive_monitor_demo(background):
         else:
             # 실제 스테이지별 보스 이미지 사용
             if current_stage == 1:
-                # Stage 1 보스 걷기 애니메이션 적용 (세로가 긴 스프라이트)
-                if STAGE1_BOSS_ANIMATION_AVAILABLE and stage1_boss_sprite is not None:
+                # Stage 1 보스 - 포도대장 또는 풍악보이
+                if current_boss_name == "포도대장" and PODODAEJANG_BOSS_ANIMATION_AVAILABLE and pododaejang_boss_sprite is not None:
+                    pododaejang_boss_sprite.update(boss_x, 1/60)
+                    boss_img = pododaejang_boss_sprite.get_current_frame((BOSS_IMG_STAGE1_WIDTH, BOSS_IMG_STAGE1_HEIGHT))
+                    if boss_img is None:
+                        boss_img = BOSS_IMG_STAGE1
+                        boss_img = pygame.transform.scale(boss_img, (BOSS_IMG_STAGE1_WIDTH, BOSS_IMG_STAGE1_HEIGHT))
+                elif STAGE1_BOSS_ANIMATION_AVAILABLE and stage1_boss_sprite is not None:
                     stage1_boss_sprite.update(boss_x, 1/60)
                     boss_img = stage1_boss_sprite.get_current_frame((BOSS_IMG_STAGE1_WIDTH, BOSS_IMG_STAGE1_HEIGHT))
                     if boss_img is None:
@@ -119364,9 +119471,14 @@ def complete_stage_intro_transition(hold_ms: int = INTRO_TRANSITION_HOLD_MS) -> 
 
 def show_stage1_intro():
     stage_text = "STAGE 1"
-    boss_name = "풍악보이"
-    stage_color = (255, 220, 220)
-    boss_color_video = (220, 110, 200)
+    if current_boss_name == "포도대장":
+        boss_name = "포도대장"
+        stage_color = (200, 180, 140)
+        boss_color_video = (100, 70, 40)
+    else:
+        boss_name = "풍악보이"
+        stage_color = (255, 220, 220)
+        boss_color_video = (220, 110, 200)
 
     played_video = False
     if STAGE1_INTRO_VIDEO_PATH:
@@ -131728,7 +131840,9 @@ def handle_ball():
             # print(f"스테이지1 보스 게이지 충전: +50 (현재: {boss_special_gauge}/500)")  # 디버그 비활성화
             # 스테이지 1 보스 히트 애니메이션 트리거
             try:
-                if stage1_boss_sprite:
+                if current_boss_name == "포도대장" and pododaejang_boss_sprite:
+                    pododaejang_boss_sprite.trigger_hit(BALL.centerx, BOSS.centerx)
+                elif stage1_boss_sprite:
                     stage1_boss_sprite.trigger_hit(BALL.centerx, BOSS.centerx)
             except Exception as e:
                 print(f"⚠️ 히트 애니메이션 트리거 실패: {e}")
@@ -132349,14 +132463,24 @@ def handle_ball():
             drive_hit_boss = False
             print("!")
         #  AI 학습: 보스가 공을 성공적으로 맞췄음 (제거됨)
-        # ️ 상모돌리기 발동 체크 (스테이지 1, 보스 충돌 시 12% 확률, 게이지 200 필요)
-        if not new_boss_mode_active and current_stage == 1 and boss_special_gauge >= 200 and random.random() <= 0.12:
-            activate_whip()
-            show_speech("상모돌리기!!", duration=whip_duration)
-            # 게이지 200 소모
-            boss_special_gauge -= 200
-            if boss_special_gauge < 0:
-                boss_special_gauge = 0
+        # ️ 스테이지 1 보스 필살기 발동 체크 (보스 충돌 시, 게이지 200 필요)
+        if not new_boss_mode_active and current_stage == 1 and boss_special_gauge >= 200:
+            if current_boss_name == "포도대장":
+                # 포승줄 발동 (15% 확률)
+                if random.random() <= 0.15 and not arrest_rope_active:
+                    activate_arrest_rope()
+                    show_speech("포승줄!!", duration=180)
+                    boss_special_gauge -= 200
+                    if boss_special_gauge < 0:
+                        boss_special_gauge = 0
+            else:
+                # 상모돌리기 발동 (12% 확률)
+                if random.random() <= 0.12:
+                    activate_whip()
+                    show_speech("상모돌리기!!", duration=whip_duration)
+                    boss_special_gauge -= 200
+                    if boss_special_gauge < 0:
+                        boss_special_gauge = 0
         #  새로운 보스 모드에서 상단 보스의 스킬 발동 체크
         if new_boss_mode_active:
             print(f" handle_ball       ! selected_top_boss={selected_top_boss}")  # 
@@ -137842,6 +137966,10 @@ def show_result(won):
         #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
         acceleration_skill_level = 0
         acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
+        # 보스 변형 + 포승줄 초기화
+        current_boss_name = None
+        arrest_rope_active = False
+        arrest_rope_timer = 0
         # 호위무사 시스템 초기화 (게임 오버 시, 최대 2명)
         try:
             from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
@@ -138926,6 +139054,41 @@ def main(stage_num, new_boss_mode=False):
             # 여기서는 플래그만 설정하고, 실제 활성화는 첫 update에서 처리됨
             print(f"🔥 [광폭화 보스] 스테이지 7(테트리서) 초인테트리서 모드 즉시 발동! (게이지 0에서 충전)")
 
+    # === 보스 변형 선출 (한 스테이지에 여러 보스가 있을 때) ===
+    global current_boss_name, arrest_rope_active, arrest_rope_timer
+    arrest_rope_active = False
+    arrest_rope_timer = 0
+    from config.stage_configs import BOSS_VARIANTS, get_boss_config_by_name
+    if stage_num in BOSS_VARIANTS and len(BOSS_VARIANTS[stage_num]) > 1:
+        # 보스 룰렛 선출
+        try:
+            from config.planet_configs import select_random_boss
+            selected = select_random_boss(stage_num)
+            if selected:
+                current_boss_name = selected["name"]
+            else:
+                current_boss_name = None
+        except Exception as e:
+            print(f"[Boss Select] 보스 선출 실패, 기본 보스 사용: {e}")
+            current_boss_name = None
+
+        # 선출된 보스 config를 boss_speed_config에 임시 적용
+        if current_boss_name:
+            variant_cfg = get_boss_config_by_name(stage_num, current_boss_name)
+            boss_speed_config[stage_num] = {
+                "accel": variant_cfg["accel"],
+                "decel": variant_cfg["decel"],
+                "max_speed": variant_cfg["max_speed"],
+                "instant_stop": variant_cfg["instant_stop"],
+                "predict_chance": 0.45 + (stage_num - 1) * 0.05,
+                "predict_error": 95 - (stage_num - 1) * 5,
+                "fail_chance": 0.010 - (stage_num - 1) * 0.001,
+                "fail_error": variant_cfg["fail_error"],
+            }
+            print(f"[Boss Select] Stage {stage_num}: '{current_boss_name}' 선출!")
+    else:
+        current_boss_name = None
+
     #  통합 보스 설정: 스테이지별 + 리그별 완전 연계
     config = get_final_boss_config(stage_num, ai_mode)
     BOSS_ACCELERATION = config["accel"]
@@ -138958,7 +139121,10 @@ def main(stage_num, new_boss_mode=False):
     # 스테이지별 배경, 보스 컬러
     if stage_num == 1:
         CURRENT_BG = STAGE1_BG
-        BOSS_COLOR = WHITE
+        if current_boss_name == "포도대장":
+            BOSS_COLOR = (100, 70, 40)  # 갈색 (포도대장)
+        else:
+            BOSS_COLOR = WHITE
         # Stage 1 BGM 재생
         bgm_manager.play_stage_bgm(1)
     elif stage_num == 2:
@@ -139887,6 +140053,10 @@ def main(stage_num, new_boss_mode=False):
             #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
             acceleration_skill_level = 0
             acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
+            # 보스 변형 + 포승줄 초기화
+            current_boss_name = None
+            arrest_rope_active = False
+            arrest_rope_timer = 0
             # 호위무사 시스템 초기화 (ESC 메뉴 복귀 시, 최대 2명)
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
@@ -142244,6 +142414,10 @@ def main(stage_num, new_boss_mode=False):
                     #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
                     acceleration_skill_level = 0
                     acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
+                    # 보스 변형 + 포승줄 초기화
+                    current_boss_name = None
+                    arrest_rope_active = False
+                    arrest_rope_timer = 0
                     # 호위무사 시스템 초기화 (강제 종료 시, 최대 2명)
                     try:
                         from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
@@ -143443,6 +143617,7 @@ def main(stage_num, new_boss_mode=False):
                 # 배경 객체의 각성 애니메이션 업데이트는 background.update()에서 자동으로 처리됨
                 
                 handle_whip()  # 상모돌리기 처리도 파워스매싱 정지 시간 중에는 건너뛰기
+                update_arrest_rope()  # 포도대장 포승줄 타이머 업데이트
                 # handle_balloon()  # Stage 1 보스 풍선파티 스킬 제거됨
                 handle_spinning_top()  # Stage 1 보스 팽이치기 스킬
                 handle_quake()
@@ -146012,6 +146187,7 @@ def main(stage_num, new_boss_mode=False):
         draw_water_trail()  #  물자국 그리기
         # draw_balloons()  # Stage 1 보스 풍선파티 스킬 제거됨
         # draw_whip_waves(SCREEN)  #  상모돌리기 파동 효과 그리기 - 제거됨
+        draw_arrest_rope_effect(SCREEN)  # 포도대장 포승줄 이펙트
         draw_spinning_top(SCREEN)  # Stage 1 보스 팽이치기 그리기
         # 풍선 터지는 효과는 effects_manager에서 통합 관리
         draw_item_obtained_effect()  #  아이템 획득 효과 그리기 - 옛날 버전 활성화
