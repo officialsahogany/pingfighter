@@ -1434,7 +1434,6 @@ class SpaceMap:
         """조선시대 핑파이터 경기장 — Stage 1 맵 스타일."""
         s = scale
         ix, iy = int(cx), int(cy)
-        _clamp = self._clamp
 
         # ── 색상 팔레트 (Stage 1 참조) ──
         stone = (72, 68, 62)
