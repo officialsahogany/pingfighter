@@ -4253,9 +4253,9 @@ class SpaceMap:
     # ══════════════════════════════════════════════
     #  메인 공개 API
     # ══════════════════════════════════════════════
-    def show_landing_scene(self, to_planet, duration=3.5):
+    def show_landing_scene(self, to_planet, duration=3.5, fade_out=True):
         """하늘에서 하강하며 지형이 드러나고 경기장이 커지는 착륙 장면.
-        duration: 전체 시간(초)."""
+        duration: 전체 시간(초). fade_out: False면 끝에 페이드아웃 없이 유지."""
         clock = pygame.time.Clock()
         total_frames = int(duration * 60)
         FADE_IN = 20   # 초반 페이드인
@@ -4335,7 +4335,7 @@ class SpaceMap:
                 self.screen.blit(fade_s, (0, 0))
 
             # ── 페이드아웃 (마지막) ──
-            if frame > total_frames - FADE_OUT:
+            if fade_out and frame > total_frames - FADE_OUT:
                 fade_a = int(255 * (frame - (total_frames - FADE_OUT)) / FADE_OUT)
                 fade_s = pygame.Surface((self.W, self.H))
                 fade_s.fill((0, 0, 0))

@@ -115265,9 +115265,9 @@ def start_game_with_difficulty(character_id, difficulty_mode):
     cleared_planets = []  # 새 게임 시작 시 초기화
     show_space_map_transition(from_planet=0, to_planet=1)
 
-    # 스테이지 1 인트로 표시
-    preload_stage_intro_resources(STAGE1_INTRO_VIDEO_PATH)
-    show_stage1_intro()
+    # 스테이지 1: 착륙 하강 장면 (동영상 대신) → 페이드아웃 없이 바로 게임 연결
+    space_map_landing = SpaceMap(SCREEN, WIDTH, HEIGHT)
+    space_map_landing.show_landing_scene(to_planet=1, duration=3.5, fade_out=False)
     # 선택한 난이도 정보 표시
     difficulty_names = {
         "junior": " 주니어리그",
