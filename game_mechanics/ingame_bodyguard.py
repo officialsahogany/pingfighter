@@ -806,11 +806,12 @@ class InGameBodyguard:
     _portrait_positions = {}       # key → smooth Y 위치
 
     def draw_portrait_ui(self, screen, game_offset_x=0, game_offset_y=0,
-                         game_scale=1.0, mouse_pos=None):
+                         game_scale=1.0, mouse_pos=None, y_offset=0):
         """투기장 draw_cooldown_queue 와 동일한 초상화 카드 UI
 
         왼쪽 필러 하단에 호위무사 스킬별 얼굴 카드를 쿨타임 순으로 표시.
         mouse_pos가 주어지면 호버 중인 카드 정보를 반환.
+        y_offset: 세로 위치 오프셋 (2번째 호위무사 UI를 아래에 배치할 때 사용)
         """
         if not self.active or not self._guard_system or not pygame:
             return None
@@ -842,8 +843,8 @@ class InGameBodyguard:
         total_h = len(entries) * (card_h + card_gap) - card_gap
 
         # 세로: 중앙 정렬 (투기장과 동일)
-        center_y = pillar_y + (pillar_h - total_h) // 2
-        start_y = max(pillar_y + 5, center_y)
+        center_y = pillar_y + (pillar_h - total_h) // 2 + y_offset
+        start_y = max(pillar_y + 5 + y_offset, center_y)
         # 가로: 오른쪽 정렬 (인게임 영역 바로 왼쪽)
         card_x = pillar_x + pillar_w - card_w - margin_x
 
@@ -975,6 +976,22 @@ class InGameBodyguard:
             del InGameBodyguard._portrait_positions[k]
 
         return _hover_result
+
+    def get_portrait_total_height(self, game_offset_x=0, game_scale=1.0):
+        """초상화 UI의 총 높이를 반환 (2번째 호위무사 y_offset 계산용)."""
+        if not self.active or not self._guard_system:
+            return 0
+        try:
+            entries = self._guard_system.get_all_cooldown_entries()
+        except Exception:
+            return 0
+        if not entries:
+            return 0
+        pillar_w = game_offset_x if game_offset_x > 0 else 80
+        _scale = pillar_w / 80.0
+        card_h = max(10, int(9 * _scale))
+        card_gap = max(1, int(2 * _scale))
+        return len(entries) * (card_h + card_gap) + card_gap
 
     def draw_entrance_speech(self, screen, player_rect):
         """영웅의 등장 전 대사 말풍선 그리기 (플레이어 패들 위에 표시)"""
