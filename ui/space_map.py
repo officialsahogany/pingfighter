@@ -2993,6 +2993,8 @@ class SpaceMap:
         phase = 1
         frame = 0
         skipped = False
+        _prev_phase_frame = None
+        BLEND_FRAMES = 30  # 0.5초 크로스페이드
 
         while True:
             dt = self.clock.tick(FPS) / 1000.0
@@ -3047,8 +3049,19 @@ class SpaceMap:
                     self.screen.blit(es, es.get_rect(
                         center=(self.W // 2, self.H * 0.25)))
 
+                # 크로스페이드 오버레이
+                if _prev_phase_frame is not None and frame <= BLEND_FRAMES:
+                    _ba = int(255 * (1.0 - frame / BLEND_FRAMES) ** 1.5)
+                    if _ba > 3:
+                        _pf = _prev_phase_frame.copy()
+                        _pf.set_alpha(_ba)
+                        self.screen.blit(_pf, (0, 0))
+                    if frame >= BLEND_FRAMES:
+                        _prev_phase_frame = None
+
                 pygame.display.flip()
                 if frame >= FRAMES[1]:
+                    _prev_phase_frame = self.screen.copy()
                     phase = 2
                     frame = 0
 
@@ -3104,8 +3117,19 @@ class SpaceMap:
                     self.screen.blit(ts, ts.get_rect(
                         center=(self.W // 2, 35)))
 
+                # 크로스페이드 오버레이
+                if _prev_phase_frame is not None and frame <= BLEND_FRAMES:
+                    _ba = int(255 * (1.0 - frame / BLEND_FRAMES) ** 1.5)
+                    if _ba > 3:
+                        _pf = _prev_phase_frame.copy()
+                        _pf.set_alpha(_ba)
+                        self.screen.blit(_pf, (0, 0))
+                    if frame >= BLEND_FRAMES:
+                        _prev_phase_frame = None
+
                 pygame.display.flip()
                 if frame >= FRAMES[2]:
+                    _prev_phase_frame = self.screen.copy()
                     phase = 3
                     frame = 0
 
@@ -3148,8 +3172,19 @@ class SpaceMap:
                     self.screen.blit(hs, hs.get_rect(
                         center=(self.W // 2, self.H - 40)))
 
+                # 크로스페이드 오버레이
+                if _prev_phase_frame is not None and frame <= BLEND_FRAMES:
+                    _ba = int(255 * (1.0 - frame / BLEND_FRAMES) ** 1.5)
+                    if _ba > 3:
+                        _pf = _prev_phase_frame.copy()
+                        _pf.set_alpha(_ba)
+                        self.screen.blit(_pf, (0, 0))
+                    if frame >= BLEND_FRAMES:
+                        _prev_phase_frame = None
+
                 pygame.display.flip()
                 if frame >= FRAMES[3]:
+                    _prev_phase_frame = self.screen.copy()
                     phase = 4
                     frame = 0
 
@@ -3201,8 +3236,19 @@ class SpaceMap:
                 self.screen.blit(ns, ns.get_rect(
                     center=(int(px), int(p_y) + int(pr) + 28)))
 
+                # 크로스페이드 오버레이
+                if _prev_phase_frame is not None and frame <= BLEND_FRAMES:
+                    _ba = int(255 * (1.0 - frame / BLEND_FRAMES) ** 1.5)
+                    if _ba > 3:
+                        _pf = _prev_phase_frame.copy()
+                        _pf.set_alpha(_ba)
+                        self.screen.blit(_pf, (0, 0))
+                    if frame >= BLEND_FRAMES:
+                        _prev_phase_frame = None
+
                 pygame.display.flip()
                 if frame >= FRAMES[4]:
+                    _prev_phase_frame = self.screen.copy()
                     phase = 5
                     frame = 0
 
@@ -3220,8 +3266,11 @@ class SpaceMap:
                 self._draw_dest_planet(self.screen, int(px_f), int(p_y),
                                        int(pr_f), to_planet)
 
-                sx_a = cruise_x + (px_f - 90 - cruise_x) * min(1.0, t * 3)
-                self._draw_ship(self.screen, sx_a, ship_yb, 0.9, 0.2)
+                # Phase 4 끝 우주선 위치(cruise_x - 30)에서 시작하여 연속성 유지
+                ship5_start = cruise_x - 30
+                sx_a = ship5_start + (px_f - 90 - ship5_start) * min(1.0, t * 2)
+                sc_5 = 0.8 + 0.1 * min(1.0, t * 2)  # 0.8 → 0.9
+                self._draw_ship(self.screen, sx_a, ship_yb, sc_5, 0.2)
                 self._draw_engine_particles(self.screen)
 
                 aa = _clamp(t * 3 * 255)
@@ -3234,8 +3283,19 @@ class SpaceMap:
                 ts = self.font_big.render("은하계 항해", True, (200, 210, 240))
                 self.screen.blit(ts, ts.get_rect(center=(self.W // 2, 35)))
 
+                # 크로스페이드 오버레이
+                if _prev_phase_frame is not None and frame <= BLEND_FRAMES:
+                    _ba = int(255 * (1.0 - frame / BLEND_FRAMES) ** 1.5)
+                    if _ba > 3:
+                        _pf = _prev_phase_frame.copy()
+                        _pf.set_alpha(_ba)
+                        self.screen.blit(_pf, (0, 0))
+                    if frame >= BLEND_FRAMES:
+                        _prev_phase_frame = None
+
                 pygame.display.flip()
                 if frame >= FRAMES[5]:
+                    _prev_phase_frame = self.screen.copy()
                     phase = 6
                     frame = 0
 
@@ -3251,6 +3311,39 @@ class SpaceMap:
                 if star_a > 0.02:
                     self._draw_stars_layer(self.screen, self.stars_far, star_a * 0.5)
                     self._draw_stars_layer(self.screen, self.stars_mid, star_a)
+
+                # 성운 페이드아웃 (Phase 5에서 0.3으로 표시)
+                if t < 0.25:
+                    neb_fade = max(0.0, 0.3 * (1.0 - t * 4))
+                    self._draw_nebulae(self.screen, neb_fade)
+
+                # "은하계 항해" 제목 페이드아웃
+                if t < 0.2:
+                    _title_a = int(255 * (1.0 - t * 5))
+                    _ts = self.font_big.render("은하계 항해", True,
+                                               (200, 210, 240))
+                    _ts.set_alpha(_title_a)
+                    self.screen.blit(_ts, _ts.get_rect(
+                        center=(self.W // 2, 35)))
+
+                # "도착!" 텍스트 페이드아웃
+                if t < 0.15:
+                    _da = int(255 * (1.0 - t / 0.15))
+                    _dt = self.font_big.render(f"{tname} 도착!", True,
+                                               (255, 230, 150))
+                    _dt.set_alpha(_da)
+                    self.screen.blit(_dt, _dt.get_rect(
+                        center=(self.W // 2, self.H * 0.72)))
+
+                # 우주선 잔상 페이드아웃 (Phase 5 끝 위치 근사)
+                if t < 0.25:
+                    _sf = max(0.0, 1.0 - t / 0.25)
+                    _ship_s = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+                    # Phase 5 끝 위치: px_f → W*0.5, ship은 px_f-90 근처
+                    _sx5 = self.W * 0.5 - 90
+                    self._draw_ship(_ship_s, _sx5, ship_yb, 0.9, 0.1)
+                    _ship_s.set_alpha(int(255 * _sf))
+                    self.screen.blit(_ship_s, (0, 0))
 
                 # 대기권 진입 셰이크
                 shake_amt = max(0, 4 * (1.0 - et))
@@ -3289,8 +3382,19 @@ class SpaceMap:
                         self.screen.blit(ent, ent.get_rect(
                             center=(self.W // 2, self.H * 0.25)))
 
+                # 크로스페이드 오버레이
+                if _prev_phase_frame is not None and frame <= BLEND_FRAMES:
+                    _ba = int(255 * (1.0 - frame / BLEND_FRAMES) ** 1.5)
+                    if _ba > 3:
+                        _pf = _prev_phase_frame.copy()
+                        _pf.set_alpha(_ba)
+                        self.screen.blit(_pf, (0, 0))
+                    if frame >= BLEND_FRAMES:
+                        _prev_phase_frame = None
+
                 pygame.display.flip()
                 if frame >= FRAMES[6]:
+                    _prev_phase_frame = self.screen.copy()
                     phase = 7
                     frame = 0
 
@@ -3339,10 +3443,21 @@ class SpaceMap:
                     self.screen.blit(ns, ns.get_rect(
                         center=(self.W // 2, int(self.H * 0.12))))
 
+                # 크로스페이드 오버레이
+                if _prev_phase_frame is not None and frame <= BLEND_FRAMES:
+                    _ba = int(255 * (1.0 - frame / BLEND_FRAMES) ** 1.5)
+                    if _ba > 3:
+                        _pf = _prev_phase_frame.copy()
+                        _pf.set_alpha(_ba)
+                        self.screen.blit(_pf, (0, 0))
+                    if frame >= BLEND_FRAMES:
+                        _prev_phase_frame = None
+
                 pygame.display.flip()
                 if frame >= FRAMES[7]:
                     # 지표면 배경을 캐싱 (Phase 8에서 정적 배경으로 재사용)
                     self._landing_bg = self.screen.copy()
+                    _prev_phase_frame = self.screen.copy()
                     phase = 8
                     frame = 0
 
@@ -3359,8 +3474,9 @@ class SpaceMap:
 
                 # 도킹 기지 (암 개방 애니메이션)
                 dock_open = max(0.0, min(1.0, (t - 0.4) * 3.0))
-                dock_cx = self.W // 2 + int(80 * 0.8)
-                dock_cy = self.H // 2 + int(10 * 0.8)
+                # Phase 7 끝과 동일 좌표 (arena_scale=1.0 기준)
+                dock_cx = self.W // 2 + 80
+                dock_cy = self.H // 2 + 10
                 self._draw_docking_base(
                     self.screen, dock_cx, dock_cy, 0.8, dock_open)
 
@@ -3429,9 +3545,20 @@ class SpaceMap:
                     self.screen.blit(lt, lt.get_rect(
                         center=(self.W // 2, int(self.H * 0.2))))
 
+                # 크로스페이드 오버레이
+                if _prev_phase_frame is not None and frame <= BLEND_FRAMES:
+                    _ba = int(255 * (1.0 - frame / BLEND_FRAMES) ** 1.5)
+                    if _ba > 3:
+                        _pf = _prev_phase_frame.copy()
+                        _pf.set_alpha(_ba)
+                        self.screen.blit(_pf, (0, 0))
+                    if frame >= BLEND_FRAMES:
+                        _prev_phase_frame = None
+
                 pygame.display.flip()
                 if frame >= FRAMES[8]:
                     self._render_galaxy_map(cleared_planets, to_planet)
+                    _prev_phase_frame = self.screen.copy()
                     phase = 9
                     frame = 0
 
@@ -3475,6 +3602,16 @@ class SpaceMap:
                     ts.set_alpha(map_a)
                     self.screen.blit(ts, ts.get_rect(
                         center=(self.W // 2, 35)))
+
+                # 크로스페이드 오버레이
+                if _prev_phase_frame is not None and frame <= BLEND_FRAMES:
+                    _ba = int(255 * (1.0 - frame / BLEND_FRAMES) ** 1.5)
+                    if _ba > 3:
+                        _pf = _prev_phase_frame.copy()
+                        _pf.set_alpha(_ba)
+                        self.screen.blit(_pf, (0, 0))
+                    if frame >= BLEND_FRAMES:
+                        _prev_phase_frame = None
 
                 pygame.display.flip()
                 if frame >= FRAMES[9]:
