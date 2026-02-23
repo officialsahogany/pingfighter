@@ -683,6 +683,157 @@ class SpaceMap:
                 n.y = random.uniform(0, self.H)
                 n.surface = n._render()
 
+    # ──────────────────────────────────────────────
+    #  우주 환경 이펙트 (고퀄리티)
+    # ──────────────────────────────────────────────
+    def _draw_warp_tunnel(self, surf, intensity, t):
+        """워프 터널 — 동심원 + 에너지 링 + 색수차."""
+        W, H = self.W, self.H
+        cx, cy = W // 2, H // 2
+        ts = pygame.Surface((W, H), pygame.SRCALPHA)
+        # 동심원 (중앙에서 바깥으로 확장)
+        for i in range(18, 0, -1):
+            frac = i / 18.0
+            r = int(max(W, H) * 0.7 * frac)
+            phase_off = self.time * 3 + i * 0.5
+            pulse = 0.5 + 0.5 * math.sin(phase_off)
+            a = int(35 * intensity * frac * pulse)
+            if a < 2 or r < 5:
+                continue
+            # 색수차 (빨강/파랑 오프셋)
+            ra = max(1, int(a * 0.7))
+            pygame.draw.circle(ts, (80, 140, 255, min(255, a)), (cx, cy), r, max(1, int(3 * frac)))
+            pygame.draw.circle(ts, (160, 100, 255, min(255, ra)), (cx + 2, cy), r + 2, max(1, int(2 * frac)))
+            pygame.draw.circle(ts, (100, 200, 255, min(255, ra)), (cx - 1, cy), r - 1, max(1, int(1 * frac + 1)))
+        # 중앙 광원 (목적지 빛)
+        for gi in range(30, 0, -3):
+            ga = int(20 * intensity * gi / 30)
+            pygame.draw.circle(ts, (200, 220, 255, min(255, ga)), (cx, cy), gi)
+        # 에너지 스파크 (방사형)
+        random.seed(int(self.time * 10) % 9999)
+        for _ in range(int(12 * intensity)):
+            angle = random.uniform(0, math.pi * 2)
+            dist = random.uniform(40, max(W, H) * 0.45)
+            sx_s = cx + int(math.cos(angle) * dist)
+            sy_s = cy + int(math.sin(angle) * dist)
+            sl = random.randint(5, 25)
+            ex = sx_s + int(math.cos(angle) * sl)
+            ey = sy_s + int(math.sin(angle) * sl)
+            sa = int(90 * intensity * random.uniform(0.5, 1.0))
+            pygame.draw.line(ts, (180, 200, 255, min(255, sa)),
+                             (sx_s, sy_s), (ex, ey), 1)
+        random.seed()
+        surf.blit(ts, (0, 0))
+
+    def _draw_cosmic_dust(self, surf, density, t):
+        """우주 먼지 + 미립자 — 깊이감 있는 부유 파티클."""
+        W, H = self.W, self.H
+        ds = pygame.Surface((W, H), pygame.SRCALPHA)
+        random.seed(4242)
+        for _ in range(int(60 * density)):
+            # 3D 깊이 시뮬레이션
+            depth = random.uniform(0.2, 1.0)
+            bx = (random.uniform(-20, W + 20) - self.time * 15 * depth) % (W + 40) - 20
+            by = random.uniform(-10, H + 10) + math.sin(self.time * 0.5 + bx * 0.01) * 8
+            size = max(1, int(3 * depth))
+            # 따뜻한/차가운 색상 혼합
+            warmth = random.uniform(0, 1)
+            r = int(150 + 100 * warmth)
+            g = int(140 + 60 * warmth)
+            b = int(200 - 80 * warmth)
+            a = int(40 * density * depth)
+            if a < 2:
+                continue
+            # 소프트 글로우
+            gr = size + 2
+            gs = pygame.Surface((gr * 2, gr * 2), pygame.SRCALPHA)
+            pygame.draw.circle(gs, (r, g, b, min(255, a // 2)), (gr, gr), gr)
+            pygame.draw.circle(gs, (r, g, b, min(255, a)), (gr, gr), size)
+            ds.blit(gs, (int(bx) - gr, int(by) - gr))
+        random.seed()
+        surf.blit(ds, (0, 0))
+
+    def _draw_god_rays(self, surf, cx, cy, intensity, color=(255, 240, 200)):
+        """신성한 빛줄기 (볼류메트릭 고드레이)."""
+        W, H = self.W, self.H
+        rs = pygame.Surface((W, H), pygame.SRCALPHA)
+        random.seed(7070)
+        for i in range(16):
+            angle = (i / 16.0) * math.pi * 2 + self.time * 0.15
+            spread = random.uniform(0.03, 0.08)
+            length = random.uniform(0.4, 0.9) * max(W, H)
+            base_a = int(18 * intensity * random.uniform(0.6, 1.0))
+            if base_a < 2:
+                continue
+            # 각 빛줄기를 삼각형 폴리곤으로
+            tip_x = cx + math.cos(angle) * length
+            tip_y = cy + math.sin(angle) * length
+            left_x = cx + math.cos(angle - spread) * 30
+            left_y = cy + math.sin(angle - spread) * 30
+            right_x = cx + math.cos(angle + spread) * 30
+            right_y = cy + math.sin(angle + spread) * 30
+            pts = [(int(left_x), int(left_y)),
+                   (int(tip_x), int(tip_y)),
+                   (int(right_x), int(right_y))]
+            pygame.draw.polygon(rs, (*color, min(255, base_a)), pts)
+            # 얇은 코어 (밝은 중심선)
+            core_a = min(255, int(base_a * 1.5))
+            pygame.draw.line(rs, (*color, core_a),
+                             (cx, cy), (int(tip_x), int(tip_y)), 1)
+        random.seed()
+        # 중앙 글로우
+        for gi in range(25, 0, -3):
+            ga = int(15 * intensity * gi / 25)
+            pygame.draw.circle(rs, (*color, min(255, ga)), (cx, cy), gi)
+        surf.blit(rs, (0, 0))
+
+    def _draw_aurora(self, surf, y_base, intensity, t):
+        """오로라 / 대기 발광 — 물결치는 커튼."""
+        W, H = self.W, self.H
+        if intensity < 0.02:
+            return
+        aus = pygame.Surface((W, H), pygame.SRCALPHA)
+        colors = [(50, 220, 130), (30, 150, 200), (120, 80, 220),
+                  (200, 100, 180), (80, 200, 255)]
+        for ci, col in enumerate(colors):
+            pts = []
+            y_off = y_base + ci * 12
+            for x in range(0, W + 10, 6):
+                wave1 = math.sin(x * 0.008 + t * 0.8 + ci * 1.5) * 30
+                wave2 = math.sin(x * 0.015 - t * 1.2 + ci * 0.7) * 15
+                wave3 = math.sin(x * 0.003 + t * 0.3) * 45
+                y = y_off + wave1 + wave2 + wave3
+                pts.append((x, int(y)))
+            # 위 꼭짓점 → 아래 채움
+            bottom_pts = [(x, int(y + 40 + ci * 8)) for x, y in reversed(pts)]
+            poly = pts + bottom_pts
+            if len(poly) > 3:
+                a = int(25 * intensity * (1.0 - ci * 0.15))
+                pygame.draw.polygon(aus, (*col, min(255, max(1, a))), poly)
+        surf.blit(aus, (0, 0))
+
+    def _draw_energy_wave(self, surf, cx, cy, radius, intensity, t):
+        """에너지 충격파 — 행성 근처 중력장 시각화."""
+        if intensity < 0.02 or radius < 5:
+            return
+        ews = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+        for i in range(4):
+            phase = t * 2.0 + i * 1.57
+            wave_r = radius + int(20 * math.sin(phase)) + i * 8
+            if wave_r < 5:
+                continue
+            a = int(30 * intensity * (1.0 - i * 0.2) *
+                    (0.5 + 0.5 * math.sin(phase * 0.7)))
+            if a < 2:
+                continue
+            # 링
+            pygame.draw.circle(ews, (100, 180, 255, min(255, a)),
+                               (cx, cy), wave_r, max(1, 3 - i))
+            # 외곽 글로우
+            pygame.draw.circle(ews, (60, 120, 200, min(255, a // 2)),
+                               (cx, cy), wave_r + 3, 1)
+        surf.blit(ews, (0, 0))
+
     def _draw_nebulae(self, surf, alpha_mult=1.0):
         for n in self.nebulae:
             ns = n.surface
@@ -3018,21 +3169,59 @@ class SpaceMap:
                 t = frame / FRAMES[1]
                 warp_int = _ease_in_out(min(1.0, t * 1.5))
 
+                # 워프 가속에 따른 배경 색조 변화 (깊은 우주 → 에너지 블루)
+                bg_b = int(8 + 12 * warp_int)
+                bg_p = int(2 + 5 * warp_int)
+                self.screen.fill((bg_p, bg_p, bg_b))
+
                 self._update_warp_stars(dt, 1.0 + t * 2.0)
                 self._draw_warp_stars(self.screen, warp_int)
                 self._draw_nebulae(self.screen, 0.3 * warp_int)
 
-                # 스캔라인
-                if random.random() < 0.3:
-                    sy = random.randint(0, self.H)
-                    pygame.draw.line(self.screen, (30, 50, 80),
-                                     (0, sy), (self.W, sy), 1)
+                # 워프 터널 (동심원 + 에너지 링)
+                self._draw_warp_tunnel(self.screen, warp_int * 0.8, t)
 
-                # 콕핏
-                shake_i = 0.5 + t * 1.5
+                # 우주 먼지 (속도감)
+                self._draw_cosmic_dust(self.screen, 0.3 * warp_int, t)
+
+                # 목적지 빛줄기 (후반 강화)
+                if t > 0.3:
+                    ray_int = (t - 0.3) / 0.7 * warp_int * 0.5
+                    gc = tcfg.get("glow_color", (200, 200, 200))
+                    self._draw_god_rays(self.screen, self.W // 2, self.H // 2,
+                                        ray_int, gc)
+
+                # 에너지 충격파 (워프 펄스)
+                if t > 0.15:
+                    pulse_r = int(50 + 200 * (t - 0.15) / 0.85)
+                    self._draw_energy_wave(self.screen, self.W // 2,
+                                           self.H // 2, pulse_r,
+                                           warp_int * 0.4, self.time)
+
+                # 스캔라인 (더 밀도 높게 + 컬러)
+                for _ in range(int(3 * warp_int)):
+                    if random.random() < 0.4:
+                        sly = random.randint(0, self.H)
+                        sc_r = random.randint(15, 40)
+                        sc_b = random.randint(50, 100)
+                        pygame.draw.line(self.screen, (sc_r, sc_r + 15, sc_b),
+                                         (0, sly), (self.W, sly), 1)
+
+                # 콕핏 (증폭된 셰이크)
+                shake_i = 0.5 + t * 2.5
                 sx = random.uniform(-shake_i, shake_i)
                 sy = random.uniform(-shake_i, shake_i)
                 self.screen.blit(self.cockpit_surface, (int(sx), int(sy)))
+
+                # 콕핏 윈도우 에지 글로우 (워프 에너지 반사)
+                edge_a = int(30 * warp_int)
+                if edge_a > 3:
+                    eg = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+                    pygame.draw.rect(eg, (60, 120, 255, edge_a),
+                                     (0, 0, self.W, self.H), 8)
+                    pygame.draw.rect(eg, (100, 160, 255, edge_a // 2),
+                                     (3, 3, self.W - 6, self.H - 6), 4)
+                    self.screen.blit(eg, (0, 0))
 
                 # 동적 HUD
                 self._draw_hud_dynamic(self.screen,
@@ -3075,12 +3264,22 @@ class SpaceMap:
                 t = frame / FRAMES[2]
                 et = _ease_in_out(t)
 
+                # 배경 색조 전환 (워프 잔여 에너지 → 심우주)
+                bg_fade = max(0.0, 1.0 - et * 1.5)
+                bg_b = int(8 + 10 * bg_fade)
+                bg_p = int(2 + 4 * bg_fade)
+                self.screen.fill((bg_p, bg_p, bg_b))
+
                 fp_alpha = max(0.0, 1.0 - et * 2.0)
 
                 # 워프 별 페이드아웃
                 if fp_alpha > 0.1:
                     self._update_warp_stars(dt, max(0.3, 2.0 - t * 3))
                     self._draw_warp_stars(self.screen, fp_alpha)
+
+                # 워프 터널 잔상 (초반 페이드아웃)
+                if fp_alpha > 0.2:
+                    self._draw_warp_tunnel(self.screen, fp_alpha * 0.4, t * 0.5)
 
                 # 횡스크롤 별 페이드인
                 sa = min(1.0, et * 1.5)
@@ -3092,15 +3291,33 @@ class SpaceMap:
                 self._draw_stars_layer(self.screen, self.stars_mid, sa)
                 self._draw_stars_layer(self.screen, self.stars_near, sa * 0.7)
 
-                # 성운 전환
+                # 성운 전환 (더 깊고 장엄하게)
                 self._update_nebulae(0.3 + et * 0.5)
-                self._draw_nebulae(self.screen, sa * 0.5)
+                self._draw_nebulae(self.screen, sa * 0.6)
 
-                # 콕핏 페이드아웃
+                # 우주 먼지 (전환 중 떠다니는 입자)
+                self._draw_cosmic_dust(self.screen, 0.15 + sa * 0.2, self.time)
+
+                # 콕핏 페이드아웃 + 에지 글로우 소멸
                 if fp_alpha > 0.05:
                     cc = self.cockpit_surface.copy()
                     cc.set_alpha(_clamp(255 * fp_alpha))
                     self.screen.blit(cc, (0, 0))
+                    # 콕핏 에지 글로우 잔상
+                    edge_a = int(20 * fp_alpha)
+                    if edge_a > 2:
+                        eg = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+                        pygame.draw.rect(eg, (40, 90, 200, edge_a),
+                                         (0, 0, self.W, self.H), 6)
+                        self.screen.blit(eg, (0, 0))
+
+                # 에너지 파동 (워프 해제 충격파 - 초반)
+                if t < 0.4:
+                    wave_r = int(100 + 300 * t / 0.4)
+                    wave_i = max(0.0, 0.5 * (1.0 - t / 0.4))
+                    self._draw_energy_wave(self.screen, self.W // 2,
+                                           self.H // 2, wave_r,
+                                           wave_i, self.time)
 
                 # 우주선 등장 (중앙에서 → 크루즈 위치)
                 if et > 0.3:
@@ -3109,6 +3326,11 @@ class SpaceMap:
                     sy = self.H * 0.5 + (ship_yb - self.H * 0.5) * st
                     sc = 0.3 + st * 1.0
                     self._draw_ship(self.screen, sx, sy, sc, 0.5 + st * 0.5)
+                    # 우주선 엔진 빛줄기
+                    if st > 0.3:
+                        gc = tcfg.get("glow_color", (200, 200, 200))
+                        self._draw_god_rays(self.screen, int(sx), int(sy),
+                                            st * 0.15, gc)
 
                 self._update_speed_lines(et * 0.5)
                 self._draw_speed_lines(self.screen, et * 0.5)
@@ -3146,11 +3368,14 @@ class SpaceMap:
                               self.stars_near, self.stars_front]:
                     self._update_stars(layer, 1.0)
                 self._update_nebulae(1.0)
-                self._draw_nebulae(self.screen, 0.6)
+                self._draw_nebulae(self.screen, 0.7)
 
                 self._draw_stars_layer(self.screen, self.stars_dust, 0.3)
                 self._draw_stars_layer(self.screen, self.stars_far)
                 self._draw_stars_layer(self.screen, self.stars_mid)
+
+                # 우주 먼지 (깊이감)
+                self._draw_cosmic_dust(self.screen, 0.35, self.time)
 
                 self._update_scroll_planets(1.0)
                 self._draw_scroll_planets(self.screen)
@@ -3158,13 +3383,32 @@ class SpaceMap:
                 self._draw_stars_layer(self.screen, self.stars_near)
                 self._draw_stars_layer(self.screen, self.stars_front, 0.8)
 
+                # 오로라 (상단 먼 거리에서 희미하게)
+                aurora_i = 0.15 + 0.1 * math.sin(self.time * 0.7)
+                self._draw_aurora(self.screen, 30, aurora_i, self.time)
+
                 self._update_speed_lines(1.0)
                 self._draw_speed_lines(self.screen, min(1.0, t * 3))
 
                 self._draw_engine_particles(self.screen)
 
+                # 우주선 + 엔진 글로우
                 bob = math.sin(self.time * 2.5) * 8
                 self._draw_ship(self.screen, cruise_x, ship_yb + bob, 1.3, 1.0)
+
+                # 우주선 주변 에너지 스트림 (미세한 빛줄기)
+                gc = tcfg.get("glow_color", (200, 200, 200))
+                self._draw_god_rays(self.screen, int(cruise_x - 40),
+                                    int(ship_yb + bob),
+                                    0.1 + 0.05 * math.sin(self.time * 2),
+                                    gc)
+
+                # 목적지 방향 빛 (우하단에서 은은하게)
+                if t > 0.4:
+                    dest_i = min(0.2, (t - 0.4) * 0.5)
+                    self._draw_god_rays(self.screen, self.W + 50,
+                                        int(self.H * 0.4),
+                                        dest_i, gc)
 
                 ts = self.font_big.render("은하계 항해", True, (200, 210, 240))
                 self.screen.blit(ts, ts.get_rect(center=(self.W // 2, 35)))
@@ -3208,6 +3452,11 @@ class SpaceMap:
                 self._draw_stars_layer(self.screen, self.stars_far)
                 self._draw_stars_layer(self.screen, self.stars_mid)
 
+                # 우주 먼지 (행성에 가까워지며 점차 희미)
+                self._draw_cosmic_dust(self.screen,
+                                       0.3 * max(0.1, 1.0 - t * 1.5),
+                                       self.time)
+
                 self._update_scroll_planets(slow)
                 self._draw_scroll_planets(self.screen)
                 self._draw_stars_layer(self.screen, self.stars_near)
@@ -3219,8 +3468,37 @@ class SpaceMap:
                 ep = _ease_in_out(t)
                 px = self.W + 100 + (pend_x - self.W - 100) * ep
                 pr = pr_sm + (pr_big - pr_sm) * ep
+
+                # 행성 대기 글로우 (접근할수록 강렬)
+                if pr > 20:
+                    gc = tcfg.get("glow_color", (200, 200, 200))
+                    atmo_s = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+                    glow_r = int(pr * 1.6)
+                    glow_a = min(50, int(60 * ep))
+                    for gi in range(3):
+                        gr = glow_r + gi * 8
+                        ga = max(1, glow_a - gi * 15)
+                        pygame.draw.circle(atmo_s,
+                                           (gc[0], gc[1], gc[2], ga),
+                                           (int(px), int(p_y)), gr, 3)
+                    self.screen.blit(atmo_s, (0, 0))
+
                 self._draw_dest_planet(self.screen, int(px), int(p_y),
                                        int(pr), to_planet)
+
+                # 행성 에지에서 빛줄기 (중력 렌즈 효과)
+                if ep > 0.3:
+                    gc = tcfg.get("glow_color", (200, 200, 200))
+                    lens_i = min(0.3, (ep - 0.3) * 0.6)
+                    self._draw_god_rays(self.screen, int(px), int(p_y),
+                                        lens_i, gc)
+
+                # 오로라 (행성 근처에서 희미하게 발현)
+                if ep > 0.5:
+                    aurora_i = min(0.2, (ep - 0.5) * 0.4)
+                    self._draw_aurora(self.screen,
+                                      int(p_y - pr * 0.8),
+                                      aurora_i, self.time)
 
                 self._draw_engine_particles(self.screen)
 
@@ -3230,6 +3508,15 @@ class SpaceMap:
                 sc = max(0.8, 1.3 - t * 0.5)
                 ep_e = max(0.2, 1.0 - t * 0.8)
                 self._draw_ship(self.screen, sx, ship_yb + bob, sc, ep_e)
+
+                # 에너지 파동 (감속 시 방출)
+                if t > 0.3 and t < 0.7:
+                    wave_t = (t - 0.3) / 0.4
+                    wave_r = int(40 + 150 * wave_t)
+                    wave_i = 0.25 * (1.0 - wave_t)
+                    self._draw_energy_wave(self.screen, int(sx),
+                                           int(ship_yb + bob), wave_r,
+                                           wave_i, self.time)
 
                 ts = self.font_big.render("은하계 항해", True, (200, 210, 240))
                 self.screen.blit(ts, ts.get_rect(center=(self.W // 2, 35)))
@@ -3286,14 +3573,22 @@ class SpaceMap:
                 if star_a > 0.02:
                     self._draw_stars_layer(self.screen, self.stars_far, star_a * 0.5)
                     self._draw_stars_layer(self.screen, self.stars_mid, star_a)
+                    # 우주 먼지 (별과 함께 사라짐)
+                    self._draw_cosmic_dust(self.screen, 0.2 * star_a, self.time)
                 neb_a = max(0.0, 0.3 * (1.0 - ez * 4.0))
                 if neb_a > 0.02:
                     self._draw_nebulae(self.screen, neb_a)
 
+                # ─── 대기권 오로라 (ez 0.1~0.5에서 빛나다 사라짐) ───
+                if 0.05 < ez < 0.55:
+                    aur_t = min(1.0, (ez - 0.05) * 4) * max(0.0, 1.0 - (ez - 0.3) * 4)
+                    self._draw_aurora(self.screen, int(self.H * 0.15),
+                                      0.25 * aur_t, self.time)
+
                 # ─── 대기권 진동 셰이크 (중반부) ───
                 shake_zone = max(0.0, min(1.0, (ez - 0.15) * 5)) * \
                              max(0.0, 1.0 - max(0.0, (ez - 0.45)) * 4)
-                shake_amt = 5.0 * shake_zone
+                shake_amt = 6.0 * shake_zone
                 shx = int(shake_amt * math.sin(self.time * 18))
                 shy = int(shake_amt * math.cos(self.time * 22))
 
@@ -3317,6 +3612,28 @@ class SpaceMap:
                         fs = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
                         fs.fill((*tcol, fill_a))
                         self.screen.blit(fs, (0, 0))
+
+                # ─── 대기권 진입 이펙트 (ez 0.15~0.5) ───
+                if 0.12 < ez < 0.55:
+                    atmo_zone = min(1.0, (ez - 0.12) * 5) * \
+                                max(0.0, 1.0 - (ez - 0.35) * 5)
+                    # 대기 마찰열 글로우 (화면 가장자리)
+                    heat_a = int(40 * atmo_zone)
+                    if heat_a > 3:
+                        hs = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+                        tcol2 = tcfg.get("glow_color", (255, 150, 50))
+                        pygame.draw.rect(hs, (tcol2[0], tcol2[1] // 2,
+                                              tcol2[2] // 3, heat_a),
+                                         (0, 0, self.W, self.H), 12)
+                        pygame.draw.rect(hs, (255, 200, 100, heat_a // 2),
+                                         (4, 4, self.W - 8, self.H - 8), 6)
+                        self.screen.blit(hs, (shx, shy))
+                    # 에너지 파동 (대기 충돌 파)
+                    if atmo_zone > 0.3:
+                        wave_r = int(80 + 200 * atmo_zone)
+                        self._draw_energy_wave(self.screen, self.W // 2,
+                                               self.H // 2, wave_r,
+                                               0.3 * atmo_zone, self.time)
 
                 # ─── 표면 뷰 (ez > 0.2에서 페이드인, 구체 위에 오버레이) ───
                 if ez > 0.2:
@@ -3346,6 +3663,26 @@ class SpaceMap:
                     else:
                         cached_surf.set_alpha(surf_a)
                         self.screen.blit(cached_surf, (shx, shy))
+
+                # ─── 지면 위 대기 효과 (ez > 0.4) ───
+                if ez > 0.4:
+                    atmo_t = min(1.0, (ez - 0.4) / 0.4)
+                    # 하늘에서 내려오는 빛줄기 (갓 레이)
+                    gc = tcfg.get("glow_color", (200, 200, 200))
+                    sky_ray_i = 0.15 * atmo_t
+                    self._draw_god_rays(self.screen,
+                                        self.W // 2 - 100 + shx,
+                                        -30 + shy, sky_ray_i, gc)
+                    # 지평선 글로우
+                    if atmo_t > 0.3:
+                        hz_a = int(30 * min(1.0, (atmo_t - 0.3) * 3))
+                        hz_s = pygame.Surface((self.W, 80), pygame.SRCALPHA)
+                        for hy in range(80):
+                            ha = max(1, hz_a - hy * hz_a // 80)
+                            pygame.draw.line(hz_s, (gc[0], gc[1], gc[2], ha),
+                                             (0, hy), (self.W, hy))
+                        self.screen.blit(hz_s,
+                                         (0, self.H // 2 - 20 + shy))
 
                 # ─── 경기장 (ez > 0.55에서 등장, 줌과 함께 확대) ───
                 if ez > 0.55:
@@ -3462,6 +3799,22 @@ class SpaceMap:
                 else:
                     self.screen.fill((130, 150, 60))
 
+                # 대기 중 열 아지랑이 효과 (화면 미세 흔들림)
+                heat_shim = max(0.0, 1.0 - et * 1.5) * 2.0
+                if heat_shim > 0.3:
+                    hsx = int(heat_shim * math.sin(self.time * 12))
+                    hsy = int(heat_shim * 0.5 * math.cos(self.time * 15))
+                else:
+                    hsx, hsy = 0, 0
+
+                # 하늘 빛줄기 (상단에서 내려오는 갓 레이)
+                gc = tcfg.get("glow_color", (200, 200, 200))
+                sky_int = max(0.0, 0.2 * (1.0 - et * 0.8))
+                if sky_int > 0.02:
+                    self._draw_god_rays(self.screen,
+                                        self.W // 2 + hsx, -20 + hsy,
+                                        sky_int, gc)
+
                 # 도킹 기지 (암 개방 애니메이션)
                 dock_open = max(0.0, min(1.0, (t - 0.4) * 3.0))
                 # Phase 7 끝과 동일 좌표 (cam_zoom=1.4, arena_scale=1.4)
@@ -3478,25 +3831,42 @@ class SpaceMap:
                 ship_scale = 1.1 - et * 0.3  # 1.1 → 0.8
                 engine_pwr = max(0.05, 1.0 - et * 0.9)
 
-                # 그림자 (우주선 아래)
+                # 그림자 (우주선 아래, 향상된 소프트 쉐도우)
                 if et > 0.1:
                     shadow_a = min(80, int(80 * et))
                     shadow_w = int(30 * ship_scale * (0.5 + et * 0.5))
                     shadow_h = max(2, shadow_w // 4)
                     shadow_s = pygame.Surface(
-                        (shadow_w * 2, shadow_h * 2), pygame.SRCALPHA)
+                        (shadow_w * 2 + 8, shadow_h * 2 + 8), pygame.SRCALPHA)
+                    # 이중 그림자 (소프트 + 코어)
+                    pygame.draw.ellipse(
+                        shadow_s, (0, 0, 0, shadow_a // 2),
+                        (0, 0, shadow_w * 2 + 8, shadow_h * 2 + 8))
                     pygame.draw.ellipse(
                         shadow_s, (0, 0, 0, shadow_a),
-                        (0, 0, shadow_w * 2, shadow_h * 2))
+                        (4, 4, shadow_w * 2, shadow_h * 2))
                     self.screen.blit(
                         shadow_s,
-                        (int(ship_x - shadow_w), int(ship_end_y + 15 - shadow_h)))
+                        (int(ship_x - shadow_w - 4),
+                         int(ship_end_y + 15 - shadow_h - 4)))
 
-                # 착륙 먼지 파티클 (착지 직전)
-                if t > 0.6:
+                # 엔진 글로우 (우주선 아래 빛)
+                if engine_pwr > 0.1:
+                    eng_r = int(15 + 25 * engine_pwr)
+                    eng_a = int(40 * engine_pwr)
+                    for ei in range(3):
+                        er = eng_r + ei * 8
+                        ea = max(1, eng_a - ei * 12)
+                        pygame.draw.circle(self.screen,
+                                           (100, 180, 255, min(255, ea)),
+                                           (int(ship_x), int(ship_y + 20)),
+                                           er, 2)
+
+                # 착륙 먼지 파티클 (착지 직전 - 더 많은 파티클)
+                if t > 0.5:
+                    dust_cnt = max(1, int(5 * (t - 0.5) * 4))
                     self._spawn_landing_particles(
-                        int(ship_x), int(ship_y + 20 * ship_scale),
-                        max(1, int(3 * (t - 0.6) * 3)))
+                        int(ship_x), int(ship_y + 20 * ship_scale), dust_cnt)
                 self._update_engine_particles(dt)
                 self._draw_engine_particles(self.screen)
 
@@ -3511,25 +3881,44 @@ class SpaceMap:
                     ship_surf.set_alpha(max(1, int(255 * ship_alpha_t)))
                     self.screen.blit(ship_surf, (0, 0))
 
-                # 도킹 플래시 (t > 0.85)
+                # 도킹 플래시 (t > 0.85, 증폭된 다중 링)
                 if t > 0.85:
                     flash_t = (t - 0.85) / 0.15
-                    flash_r = int(40 * flash_t)
-                    flash_a = max(0, int(220 * (1.0 - flash_t)))
+                    flash_r = int(50 * flash_t)
+                    flash_a = max(0, int(255 * (1.0 - flash_t)))
                     if flash_a > 2 and flash_r > 0:
                         fs = pygame.Surface(
-                            (flash_r * 2 + 4, flash_r * 2 + 4), pygame.SRCALPHA)
-                        fc = flash_r + 2
+                            (flash_r * 2 + 8, flash_r * 2 + 8), pygame.SRCALPHA)
+                        fc = flash_r + 4
+                        # 외곽 글로우
                         for fi in range(flash_r, 0, -2):
                             fa = max(1, int(flash_a * fi / flash_r))
                             pygame.draw.circle(
                                 fs, (255, 255, 255, fa), (fc, fc), fi)
+                        # 내부 밝은 코어
+                        core_r = max(1, flash_r // 3)
+                        for ci in range(core_r, 0, -1):
+                            ca = min(255, flash_a + 50)
+                            pygame.draw.circle(
+                                fs, (255, 255, 220, ca), (fc, fc), ci)
                         self.screen.blit(
                             fs, (dock_cx - fc, dock_cy - fc))
+                    # 에너지 파동 (도킹 충격파)
+                    wave_r = int(20 + 120 * flash_t)
+                    self._draw_energy_wave(self.screen, dock_cx, dock_cy,
+                                           wave_r, 0.4 * (1.0 - flash_t),
+                                           self.time)
 
-                # "착륙 완료" 텍스트
+                # "착륙 완료" 텍스트 (글로우 추가)
                 if t > 0.8:
                     land_a = min(255, int(255 * (t - 0.8) * 5))
+                    # 텍스트 글로우
+                    lt_glow = self.font_big.render("착륙 완료", True,
+                                                    (100, 200, 100))
+                    lt_glow.set_alpha(land_a // 3)
+                    for gx, gy in [(-2, 0), (2, 0), (0, -2), (0, 2)]:
+                        self.screen.blit(lt_glow, lt_glow.get_rect(
+                            center=(self.W // 2 + gx, int(self.H * 0.2) + gy)))
                     lt = self.font_big.render("착륙 완료", True, (200, 255, 200))
                     lt.set_alpha(land_a)
                     self.screen.blit(lt, lt.get_rect(
@@ -3566,6 +3955,10 @@ class SpaceMap:
                     bg_copy.set_alpha(scene_a)
                     self.screen.blit(bg_copy, (0, 0))
 
+                # 우주 먼지 (맵 전환 중 분위기)
+                self._draw_cosmic_dust(self.screen,
+                                       0.15 * min(1.0, et * 2), self.time)
+
                 # 레이어 2: 행성 전체 구체 (잠시 보였다 사라짐)
                 planet_show_a = min(255, int(255 * min(et * 3, max(0, 2.5 - et * 2.5))))
                 if planet_show_a > 5:
@@ -3578,6 +3971,11 @@ class SpaceMap:
                     self._draw_dest_planet(
                         self.screen, pcx, pcy,
                         int(pr_big * pzoom), to_planet, planet_show_a)
+                    # 행성 주변 빛줄기
+                    if planet_show_a > 30:
+                        gc = tcfg.get("glow_color", (200, 200, 200))
+                        self._draw_god_rays(self.screen, pcx, pcy,
+                                            0.1 * planet_show_a / 255, gc)
 
                 # 레이어 3: 은하맵 페이드인
                 map_a = min(255, int(255 * max(0, et * 2.0 - 0.5)))
@@ -3587,6 +3985,13 @@ class SpaceMap:
                     self.screen.blit(mc, (0, 0))
 
                 if map_a > 100:
+                    # 제목 글로우
+                    ts_g = self.font_big.render("은하계 항해", True,
+                                                 (100, 120, 180))
+                    ts_g.set_alpha(map_a // 3)
+                    for gx, gy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                        self.screen.blit(ts_g, ts_g.get_rect(
+                            center=(self.W // 2 + gx, 35 + gy)))
                     ts = self.font_big.render("은하계 항해", True,
                                               (200, 210, 240))
                     ts.set_alpha(map_a)
