@@ -1783,6 +1783,82 @@ class SpaceMap:
         ox = ix - ow // 2
         oy = iy - oh // 2
 
+        # ===== 0. 주변 정원 (경기장 바깥 — 나무, 관목, 돌) =====
+        if s > 0.3:
+            random.seed(5555)
+            # 잔디/흙 패치 (경기장 주변)
+            for _ in range(int(20 * s)):
+                gx = ix + random.randint(-int(100 * s), int(100 * s))
+                gy = iy + random.randint(-int(80 * s), int(80 * s))
+                # 경기장 내부 스킵
+                if abs(gx - ix) < ow // 2 + 5 and abs(gy - iy) < oh // 2 + 5:
+                    continue
+                gr = random.randint(max(3, int(8 * s)), max(5, int(20 * s)))
+                gc_v = random.randint(90, 140)
+                gs = pygame.Surface((gr * 2, gr * 2), pygame.SRCALPHA)
+                pygame.draw.circle(gs, (gc_v - 30, gc_v, gc_v // 3, 35),
+                                   (gr, gr), gr)
+                surf.blit(gs, (gx - gr, gy - gr))
+            # 소나무 (삼각형 — 경기장 주변)
+            for _ in range(int(8 * s)):
+                tx = ix + random.choice([-1, 1]) * random.randint(
+                    int(75 * s), int(95 * s))
+                ty = iy + random.randint(-int(50 * s), int(50 * s))
+                th = max(8, int(random.randint(15, 30) * s))
+                tw = max(4, th // 2)
+                # 줄기
+                pygame.draw.line(surf, (70, 50, 30),
+                                 (tx, ty), (tx, ty + th), max(1, int(2 * s)))
+                # 3단 수관
+                for li in range(3):
+                    ly = ty - li * th // 5
+                    lw = tw - li * max(1, tw // 4)
+                    lh_t = max(3, th // 4)
+                    tri = [(tx, ly - lh_t), (tx - lw, ly + 1), (tx + lw, ly + 1)]
+                    g_v = 35 + random.randint(0, 25)
+                    pygame.draw.polygon(surf, (g_v, g_v + 35, g_v - 5), tri)
+            # 정원석 (둥근 돌)
+            for _ in range(int(6 * s)):
+                rx = ix + random.choice([-1, 1]) * random.randint(
+                    int(60 * s), int(85 * s))
+                ry = iy + random.randint(-int(40 * s), int(40 * s))
+                rr = max(2, int(random.randint(3, 7) * s))
+                pygame.draw.ellipse(surf, stone_dark,
+                                    (rx - rr, ry - rr // 2, rr * 2, rr))
+                pygame.draw.ellipse(surf, stone_light,
+                                    (rx - rr + 1, ry - rr // 2,
+                                     rr * 2 - 2, rr - 1))
+            # 벚꽃 나무 (경기장 좌우)
+            for side in [-1, 1]:
+                tx = ix + side * int(82 * s)
+                ty = iy - int(15 * s)
+                th = max(10, int(25 * s))
+                # 줄기 + 하이라이트
+                pygame.draw.line(surf, (65, 45, 25),
+                                 (tx + 1, ty), (tx + 1, ty + th), max(2, int(3 * s)))
+                pygame.draw.line(surf, (110, 80, 45),
+                                 (tx, ty), (tx, ty + th), max(1, int(2 * s)))
+                # 가지 + 꽃구름
+                for bi in range(5):
+                    bx_e = tx + random.randint(-int(15 * s), int(15 * s))
+                    by_e = ty - random.randint(0, int(10 * s))
+                    pygame.draw.line(surf, (95, 65, 35),
+                                     (tx, ty + 3), (bx_e, by_e), 1)
+                    for _ in range(random.randint(3, 7)):
+                        fx = bx_e + random.randint(-6, 6)
+                        fy = by_e + random.randint(-6, 4)
+                        fr = max(1, random.randint(2, max(3, int(5 * s))))
+                        fs = pygame.Surface((fr * 2 + 2, fr * 2 + 2),
+                                            pygame.SRCALPHA)
+                        for fi in range(fr, 0, -1):
+                            fa = max(1, 60 * fi // fr)
+                            pygame.draw.circle(
+                                fs, (255, 180 + random.randint(0, 50),
+                                     200 + random.randint(0, 30), fa),
+                                (fr + 1, fr + 1), fi)
+                        surf.blit(fs, (fx - fr - 1, fy - fr - 1))
+            random.seed()
+
         # ===== 1. 외벽 기단 (화강암 석축 3단 + 그림자) =====
         base_h = max(5, int(12 * s))
         # 기단 그림자
