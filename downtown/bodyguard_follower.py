@@ -202,20 +202,23 @@ class BodyguardFollower:
         screen.blit(glow_surf, (int(x) - 15, int(y) - 10))
 
     def _draw_humanoid(self, screen, x, y):
-        """프로시저럴 휴머노이드 그리기 (NPC _draw_human 패턴 기반)."""
+        """프로시저럴 휴머노이드 그리기 - 4방향 자연스러운 렌더링."""
+        d = self.direction  # 0=하, 1=좌, 2=우, 3=상
+        is_side = d in (1, 2)  # 좌우 = 측면 뷰
+        facing_right = (d == 2)
+        facing_back = (d == 3)
+
         body_color = self.hero_color
         skin_color = (255, 220, 180)
         npc_id = self._appearance_seed
 
-        # 어두운/밝은 색상 계산
         body_dark = tuple(max(0, c - 30) for c in body_color)
         body_light = tuple(min(255, c + 30) for c in body_color)
         skin_dark = tuple(max(0, c - 25) for c in skin_color)
-
-        # 머리카락 색상 (영웅 색 기반 어두운 톤)
         hair_color = tuple(max(0, c - 60) for c in body_color)
+        shoe_color = (40, 30, 25)
 
-        # 걷기/정지 애니메이션
+        # --- 걷기 애니메이션 ---
         is_walking = self.is_moving
         if is_walking:
             wp = self.walk_progress
@@ -228,212 +231,348 @@ class BodyguardFollower:
             leg_swing = 0
             body_lean = 0
 
-        # 위치 계산 (중심 기준)
-        center_x = int(x + body_lean)
+        center_x = int(x)
         feet_y = int(y + self.height // 3)
 
-        # === 신발/발 ===
-        shoe_color = (40, 30, 25)
-        shoe_w, shoe_h = 8, 5
-
         if is_walking:
-            left_foot_forward = int(leg_swing)
-            right_foot_forward = -int(leg_swing)
+            left_foot_swing = int(leg_swing)
+            right_foot_swing = -int(leg_swing)
             left_lift = int(max(0, leg_swing) * 0.8)
             right_lift = int(max(0, -leg_swing) * 0.8)
         else:
-            left_foot_forward = 0
-            right_foot_forward = 0
+            left_foot_swing = 0
+            right_foot_swing = 0
             left_lift = 0
             right_lift = 0
 
-        # 왼발
-        left_foot_x = center_x - 3 + left_foot_forward
-        left_foot_y = feet_y - shoe_h - left_lift
-        pygame.draw.ellipse(screen, shoe_color,
-                            (left_foot_x - shoe_w // 2, left_foot_y, shoe_w, shoe_h))
+        # ================================================================
+        # 측면 뷰 (좌/우)
+        # ================================================================
+        if is_side:
+            flip = -1 if facing_right else 1  # 좌: +x 앞쪽, 우: -x 앞쪽
 
-        # 오른발
-        right_foot_x = center_x + 3 + right_foot_forward
-        right_foot_y = feet_y - shoe_h - right_lift
-        pygame.draw.ellipse(screen, shoe_color,
-                            (right_foot_x - shoe_w // 2, right_foot_y, shoe_w, shoe_h))
+            # 몸통 기울기 (이동 방향으로 살짝)
+            lean_x = int(body_lean * (-flip))
+            cx = center_x + lean_x
 
-        # === 다리 (바지) ===
-        leg_w, leg_h = 6, 14
-        pants_color = body_dark
+            # --- 뒤쪽 팔 (몸통 뒤에 먼저 그림) ---
+            arm_w, arm_h = 4, 12
+            torso_w_side = 10  # 측면 몸통 폭 (좁음)
+            torso_h = 16
+            torso_y = feet_y - 5 - 14 - torso_h + bob_offset + 2
+            arm_y = torso_y + 2
 
-        left_leg_y = feet_y - shoe_h - leg_h - left_lift
-        pygame.draw.rect(screen, pants_color,
-                         (left_foot_x - leg_w // 2, left_leg_y, leg_w, leg_h),
-                         border_radius=2)
+            if is_walking:
+                back_arm_swing = int(-leg_swing * 0.6)  # 뒷팔은 다리 반대
+            else:
+                back_arm_swing = int(1.5 * math.sin(self.effect_timer * 1.0 + 0.8))
 
-        right_leg_y = feet_y - shoe_h - leg_h - right_lift
-        pygame.draw.rect(screen, pants_color,
-                         (right_foot_x - leg_w // 2, right_leg_y, leg_w, leg_h),
-                         border_radius=2)
+            back_arm_x = cx + flip * 1  # 몸 안쪽에 살짝
+            pygame.draw.rect(screen, body_dark,
+                             (back_arm_x - arm_w // 2, arm_y + back_arm_swing,
+                              arm_w, arm_h - 2), border_radius=2)
+            pygame.draw.ellipse(screen, skin_color,
+                                (back_arm_x - 2, arm_y + arm_h - 4 + back_arm_swing, 4, 4))
 
-        # === 상체/몸통 ===
-        torso_w, torso_h = self.width - 4, 16
-        torso_y = feet_y - shoe_h - leg_h - torso_h + bob_offset + 2
-        torso_x = center_x - torso_w // 2
+            # --- 뒤쪽 다리 + 발 ---
+            leg_w_side, leg_h = 5, 14
+            shoe_w, shoe_h = 7, 5
 
-        pygame.draw.rect(screen, body_color,
-                         (torso_x, torso_y, torso_w, torso_h), border_radius=4)
-        pygame.draw.rect(screen, body_light,
-                         (torso_x + 1, torso_y + 2, 3, torso_h - 4), border_radius=1)
+            # 뒤쪽 다리: 걸을 때 앞뒤(화면상 X축)로 스윙
+            back_foot_x = cx + flip * (-right_foot_swing)  # 이동방향으로 스윙
+            back_foot_y = feet_y - shoe_h - right_lift
+            back_leg_y = feet_y - shoe_h - leg_h - right_lift
 
-        # === 팔 ===
-        arm_w, arm_h = 5, 12
-        arm_y = torso_y + 2
+            pygame.draw.rect(screen, tuple(max(0, c - 15) for c in body_dark),
+                             (back_foot_x - leg_w_side // 2, back_leg_y,
+                              leg_w_side, leg_h), border_radius=2)
+            pygame.draw.ellipse(screen, tuple(max(0, c - 10) for c in shoe_color),
+                                (back_foot_x - shoe_w // 2, back_foot_y, shoe_w, shoe_h))
 
-        if is_walking:
-            left_arm_swing = int(leg_swing * 0.6)
-            right_arm_swing = int(-leg_swing * 0.6)
+            # --- 앞쪽 다리 + 발 ---
+            front_foot_x = cx + flip * (-left_foot_swing)
+            front_foot_y = feet_y - shoe_h - left_lift
+            front_leg_y = feet_y - shoe_h - leg_h - left_lift
+
+            pygame.draw.rect(screen, body_dark,
+                             (front_foot_x - leg_w_side // 2, front_leg_y,
+                              leg_w_side, leg_h), border_radius=2)
+            pygame.draw.ellipse(screen, shoe_color,
+                                (front_foot_x - shoe_w // 2, front_foot_y, shoe_w, shoe_h))
+
+            # --- 몸통 (측면 = 좁게) ---
+            torso_x = cx - torso_w_side // 2
+            pygame.draw.rect(screen, body_color,
+                             (torso_x, torso_y, torso_w_side, torso_h), border_radius=3)
+            # 하이라이트 (앞쪽 면)
+            hl_x = torso_x + (torso_w_side - 3 if facing_right else 0)
+            pygame.draw.rect(screen, body_light,
+                             (hl_x, torso_y + 2, 3, torso_h - 4), border_radius=1)
+
+            # --- 앞쪽 팔 (몸통 위에) ---
+            if is_walking:
+                front_arm_swing = int(leg_swing * 0.6)
+            else:
+                front_arm_swing = int(1.5 * math.sin(self.effect_timer * 1.0))
+
+            front_arm_x = cx + flip * (-1)  # 몸 바깥쪽에
+            pygame.draw.rect(screen, body_color,
+                             (front_arm_x - arm_w // 2, arm_y + front_arm_swing,
+                              arm_w, arm_h - 2), border_radius=2)
+            pygame.draw.ellipse(screen, skin_color,
+                                (front_arm_x - 2, arm_y + arm_h - 4 + front_arm_swing,
+                                 4, 4))
+
+            # --- 목 ---
+            neck_w, neck_h = 5, 4
+            neck_y = torso_y - neck_h + 2
+            pygame.draw.rect(screen, skin_color,
+                             (cx - neck_w // 2, neck_y, neck_w, neck_h + 2))
+
+            # --- 머리 (측면: 약간 좁게) ---
+            head_w, head_h = 13, 15
+            if is_walking:
+                head_bob = int(math.sin(self.walk_progress * 2) * 0.6)
+            else:
+                head_bob = 0
+            head_y = neck_y - head_h + 4 + bob_offset
+            head_x = cx - head_w // 2 + head_bob * (-flip)
+
+            pygame.draw.ellipse(screen, skin_color, (head_x, head_y, head_w, head_h))
+
+            # 머리카락
+            pygame.draw.ellipse(screen, hair_color,
+                                (head_x - 1, head_y - 2, head_w + 2, head_h // 2 + 5))
+            # 뒷머리 (측면에서 보임)
+            back_hair_x = head_x + (head_w - 2 if not facing_right else -3)
+            pygame.draw.ellipse(screen, hair_color,
+                                (back_hair_x, head_y + 1, 5, head_h - 2))
+
+            # 눈 (하나만, 측면이므로)
+            eye_cx = cx + flip * (-3)
+            eye_y = head_y + head_h // 2 - 1
+            pygame.draw.ellipse(screen, (255, 255, 255),
+                                (eye_cx - 2, eye_y - 2, 5, 4))
+            pygame.draw.circle(screen, (40, 30, 20),
+                               (eye_cx + (flip * (-1)), eye_y), 2)
+            pygame.draw.circle(screen, (255, 255, 255),
+                               (eye_cx + (flip * (-1)), eye_y - 1), 1)
+
+            # 눈썹
+            brow_y = eye_y - 4
+            brow_color = tuple(max(0, c - 20) for c in hair_color)
+            pygame.draw.line(screen, brow_color,
+                             (eye_cx - 3, brow_y), (eye_cx + 2, brow_y - 1), 1)
+
+            # 코 (측면 돌출)
+            nose_x = cx + flip * (-head_w // 2 - 1)
+            nose_y = eye_y + 3
+            pygame.draw.polygon(screen, skin_dark, [
+                (nose_x, nose_y - 1), (nose_x + flip * (-2), nose_y + 1),
+                (nose_x, nose_y + 2)
+            ])
+
+            # 입
+            mouth_y = head_y + head_h - 4
+            mouth_x = cx + flip * (-2)
+            pygame.draw.line(screen, (180, 80, 80),
+                             (mouth_x - 2, mouth_y), (mouth_x + 1, mouth_y), 1)
+
+        # ================================================================
+        # 정면/후면 뷰 (상/하)
+        # ================================================================
         else:
-            left_arm_swing = int(1.5 * math.sin(self.effect_timer * 1.0))
-            right_arm_swing = int(1.5 * math.sin(self.effect_timer * 1.0 + 0.8))
+            # 몸통 기울기 (걸음걸이 좌우 흔들림)
+            cx = center_x + int(body_lean)
 
-        # 왼팔
-        pygame.draw.rect(screen, body_dark,
-                         (torso_x - arm_w + 1,
-                          arm_y + left_arm_swing, arm_w, arm_h - 2),
-                         border_radius=2)
-        pygame.draw.ellipse(screen, skin_color,
-                            (torso_x - arm_w + 2,
-                             arm_y + arm_h - 4 + left_arm_swing, 4, 4))
+            shoe_w, shoe_h = 8, 5
 
-        # 오른팔
-        pygame.draw.rect(screen, body_color,
-                         (torso_x + torso_w - 2,
-                          arm_y + right_arm_swing, arm_w, arm_h - 2),
-                         border_radius=2)
-        pygame.draw.ellipse(screen, skin_color,
-                            (torso_x + torso_w - 1,
-                             arm_y + arm_h - 4 + right_arm_swing, 4, 4))
+            # --- 발 (상하 이동 → 좌우로 벌어지는 걸음) ---
+            left_foot_x = cx - 3 + left_foot_swing
+            left_foot_y = feet_y - shoe_h - left_lift
+            pygame.draw.ellipse(screen, shoe_color,
+                                (left_foot_x - shoe_w // 2, left_foot_y, shoe_w, shoe_h))
 
-        # === 목 ===
-        neck_w, neck_h = 6, 4
-        neck_y = torso_y - neck_h + 2
-        pygame.draw.rect(screen, skin_color,
-                         (center_x - neck_w // 2, neck_y, neck_w, neck_h + 2))
+            right_foot_x = cx + 3 + right_foot_swing
+            right_foot_y = feet_y - shoe_h - right_lift
+            pygame.draw.ellipse(screen, shoe_color,
+                                (right_foot_x - shoe_w // 2, right_foot_y, shoe_w, shoe_h))
 
-        # === 머리 ===
-        face_types = ["round", "oval", "square", "long"]
-        face_type = face_types[(npc_id // 3) % len(face_types)]
+            # --- 다리 ---
+            leg_w, leg_h = 6, 14
+            pants_color = body_dark
 
-        if face_type == "round":
-            head_w, head_h = 15, 15
-        elif face_type == "oval":
-            head_w, head_h = 13, 17
-        elif face_type == "square":
-            head_w, head_h = 14, 14
-        else:
-            head_w, head_h = 12, 18
+            left_leg_y = feet_y - shoe_h - leg_h - left_lift
+            pygame.draw.rect(screen, pants_color,
+                             (left_foot_x - leg_w // 2, left_leg_y, leg_w, leg_h),
+                             border_radius=2)
 
-        if is_walking:
-            head_sway = int(math.sin(self.walk_progress * 2) * 0.8)
-        else:
-            head_sway = 0
+            right_leg_y = feet_y - shoe_h - leg_h - right_lift
+            pygame.draw.rect(screen, pants_color,
+                             (right_foot_x - leg_w // 2, right_leg_y, leg_w, leg_h),
+                             border_radius=2)
 
-        head_y = neck_y - head_h + 4 + bob_offset
-        head_x = center_x - head_w // 2 + head_sway
+            # --- 몸통 ---
+            torso_w, torso_h = self.width - 4, 16
+            torso_y = feet_y - shoe_h - leg_h - torso_h + bob_offset + 2
+            torso_x = cx - torso_w // 2
 
-        # 얼굴
-        pygame.draw.ellipse(screen, skin_color, (head_x, head_y, head_w, head_h))
+            pygame.draw.rect(screen, body_color,
+                             (torso_x, torso_y, torso_w, torso_h), border_radius=4)
+            if not facing_back:
+                pygame.draw.rect(screen, body_light,
+                                 (torso_x + 1, torso_y + 2, 3, torso_h - 4),
+                                 border_radius=1)
 
-        # 머리카락 (영웅 색상 기반)
-        hair_styles = ["short", "medium", "long", "spiky", "curly"]
-        hair_style = hair_styles[npc_id % len(hair_styles)]
+            # --- 팔 ---
+            arm_w, arm_h = 5, 12
+            arm_y = torso_y + 2
 
-        if hair_style == "short":
-            pygame.draw.ellipse(screen, hair_color,
-                                (head_x - 1, head_y - 2, head_w + 2, head_h // 2 + 4))
-            pygame.draw.rect(screen, hair_color,
-                             (head_x, head_y, head_w, 6), border_radius=3)
-        elif hair_style == "medium":
-            pygame.draw.ellipse(screen, hair_color,
-                                (head_x - 2, head_y - 3, head_w + 4, head_h // 2 + 5))
-            pygame.draw.ellipse(screen, hair_color,
-                                (head_x - 3, head_y + 2, 5, 10))
-            pygame.draw.ellipse(screen, hair_color,
-                                (head_x + head_w - 2, head_y + 2, 5, 10))
-        elif hair_style == "long":
-            pygame.draw.ellipse(screen, hair_color,
-                                (head_x - 2, head_y - 3, head_w + 4, head_h // 2 + 5))
-            pygame.draw.ellipse(screen, hair_color,
-                                (head_x - 4, head_y + 2, 6, 16))
-            pygame.draw.ellipse(screen, hair_color,
-                                (head_x + head_w - 2, head_y + 2, 6, 16))
-        elif hair_style == "spiky":
-            pygame.draw.ellipse(screen, hair_color,
-                                (head_x - 1, head_y - 1, head_w + 2, head_h // 2 + 3))
-            for i in range(5):
-                spike_x = head_x + 2 + i * 3
-                pygame.draw.polygon(screen, hair_color, [
-                    (spike_x, head_y + 2),
-                    (spike_x + 2, head_y - 4 - i % 2 * 2),
-                    (spike_x + 4, head_y + 2)
-                ])
-        else:  # curly
-            pygame.draw.ellipse(screen, hair_color,
-                                (head_x - 2, head_y - 3, head_w + 4, head_h // 2 + 6))
-            for i in range(4):
-                curl_x = head_x - 1 + i * 4
-                pygame.draw.circle(screen, hair_color, (curl_x + 2, head_y + 1), 3)
+            if is_walking:
+                left_arm_swing = int(leg_swing * 0.6)
+                right_arm_swing = int(-leg_swing * 0.6)
+            else:
+                left_arm_swing = int(1.5 * math.sin(self.effect_timer * 1.0))
+                right_arm_swing = int(1.5 * math.sin(self.effect_timer * 1.0 + 0.8))
 
-        # 눈 (방향 기반)
-        eye_y_pos = head_y + head_h // 2 - 1
-        eye_offset = 2 if self.direction == 2 else (-2 if self.direction == 1 else 0)
-        eye_spacing = 4
-        eye_w, eye_h = 5, 4
+            # 왼팔
+            pygame.draw.rect(screen, body_dark,
+                             (torso_x - arm_w + 1,
+                              arm_y + left_arm_swing, arm_w, arm_h - 2),
+                             border_radius=2)
+            pygame.draw.ellipse(screen, skin_color,
+                                (torso_x - arm_w + 2,
+                                 arm_y + arm_h - 4 + left_arm_swing, 4, 4))
 
-        if self.direction != 3:  # 뒤돌아볼 때는 눈 안 보임
+            # 오른팔
+            pygame.draw.rect(screen, body_color if not facing_back else body_dark,
+                             (torso_x + torso_w - 2,
+                              arm_y + right_arm_swing, arm_w, arm_h - 2),
+                             border_radius=2)
+            pygame.draw.ellipse(screen, skin_color,
+                                (torso_x + torso_w - 1,
+                                 arm_y + arm_h - 4 + right_arm_swing, 4, 4))
+
+            # --- 목 ---
+            neck_w, neck_h = 6, 4
+            neck_y = torso_y - neck_h + 2
+            pygame.draw.rect(screen, skin_color,
+                             (cx - neck_w // 2, neck_y, neck_w, neck_h + 2))
+
+            # --- 머리 ---
+            face_types = ["round", "oval", "square", "long"]
+            face_type = face_types[(npc_id // 3) % len(face_types)]
+
+            if face_type == "round":
+                head_w, head_h = 15, 15
+            elif face_type == "oval":
+                head_w, head_h = 13, 17
+            elif face_type == "square":
+                head_w, head_h = 14, 14
+            else:
+                head_w, head_h = 12, 18
+
+            if is_walking:
+                head_sway = int(math.sin(self.walk_progress * 2) * 0.8)
+            else:
+                head_sway = 0
+
+            head_y = neck_y - head_h + 4 + bob_offset
+            head_x = cx - head_w // 2 + head_sway
+
+            pygame.draw.ellipse(screen, skin_color, (head_x, head_y, head_w, head_h))
+
+            # --- 머리카락 ---
+            hair_styles = ["short", "medium", "long", "spiky", "curly"]
+            hair_style = hair_styles[npc_id % len(hair_styles)]
+
+            if hair_style == "short":
+                pygame.draw.ellipse(screen, hair_color,
+                                    (head_x - 1, head_y - 2, head_w + 2, head_h // 2 + 4))
+                pygame.draw.rect(screen, hair_color,
+                                 (head_x, head_y, head_w, 6), border_radius=3)
+            elif hair_style == "medium":
+                pygame.draw.ellipse(screen, hair_color,
+                                    (head_x - 2, head_y - 3, head_w + 4, head_h // 2 + 5))
+                pygame.draw.ellipse(screen, hair_color,
+                                    (head_x - 3, head_y + 2, 5, 10))
+                pygame.draw.ellipse(screen, hair_color,
+                                    (head_x + head_w - 2, head_y + 2, 5, 10))
+            elif hair_style == "long":
+                pygame.draw.ellipse(screen, hair_color,
+                                    (head_x - 2, head_y - 3, head_w + 4, head_h // 2 + 5))
+                pygame.draw.ellipse(screen, hair_color,
+                                    (head_x - 4, head_y + 2, 6, 16))
+                pygame.draw.ellipse(screen, hair_color,
+                                    (head_x + head_w - 2, head_y + 2, 6, 16))
+            elif hair_style == "spiky":
+                pygame.draw.ellipse(screen, hair_color,
+                                    (head_x - 1, head_y - 1, head_w + 2, head_h // 2 + 3))
+                for i in range(5):
+                    spike_x = head_x + 2 + i * 3
+                    pygame.draw.polygon(screen, hair_color, [
+                        (spike_x, head_y + 2),
+                        (spike_x + 2, head_y - 4 - i % 2 * 2),
+                        (spike_x + 4, head_y + 2)
+                    ])
+            else:  # curly
+                pygame.draw.ellipse(screen, hair_color,
+                                    (head_x - 2, head_y - 3, head_w + 4, head_h // 2 + 6))
+                for i in range(4):
+                    curl_x = head_x - 1 + i * 4
+                    pygame.draw.circle(screen, hair_color, (curl_x + 2, head_y + 1), 3)
+
+            # --- 후면: 머리카락만, 얼굴 없음 ---
+            if facing_back:
+                # 뒷머리 추가 커버
+                pygame.draw.ellipse(screen, hair_color,
+                                    (head_x - 1, head_y + head_h // 3,
+                                     head_w + 2, head_h // 2))
+                return
+
+            # --- 정면 얼굴 ---
+            eye_y_pos = head_y + head_h // 2 - 1
+            eye_spacing = 4
+            eye_w, eye_h = 5, 4
+
             # 눈 흰자
             pygame.draw.ellipse(screen, (255, 255, 255),
-                                (center_x - eye_spacing - eye_w // 2 + eye_offset,
+                                (cx - eye_spacing - eye_w // 2,
                                  eye_y_pos - eye_h // 2, eye_w, eye_h))
             pygame.draw.ellipse(screen, (255, 255, 255),
-                                (center_x + eye_spacing - eye_w // 2 + eye_offset,
+                                (cx + eye_spacing - eye_w // 2,
                                  eye_y_pos - eye_h // 2, eye_w, eye_h))
 
             # 눈동자
             pupil_color = (40, 30, 20)
-            pupil_offset_x = 1 if self.direction == 2 else (-1 if self.direction == 1 else 0)
             pygame.draw.circle(screen, pupil_color,
-                               (center_x - eye_spacing + eye_offset + pupil_offset_x,
-                                eye_y_pos), 2)
+                               (cx - eye_spacing, eye_y_pos), 2)
             pygame.draw.circle(screen, pupil_color,
-                               (center_x + eye_spacing + eye_offset + pupil_offset_x,
-                                eye_y_pos), 2)
+                               (cx + eye_spacing, eye_y_pos), 2)
             # 하이라이트
             pygame.draw.circle(screen, (255, 255, 255),
-                               (center_x - eye_spacing + eye_offset + pupil_offset_x,
-                                eye_y_pos - 1), 1)
+                               (cx - eye_spacing, eye_y_pos - 1), 1)
             pygame.draw.circle(screen, (255, 255, 255),
-                               (center_x + eye_spacing + 1 + eye_offset + pupil_offset_x,
-                                eye_y_pos - 1), 1)
+                               (cx + eye_spacing + 1, eye_y_pos - 1), 1)
 
             # 눈썹
             brow_y = eye_y_pos - 4
             brow_color = tuple(max(0, c - 20) for c in hair_color)
             pygame.draw.line(screen, brow_color,
-                             (center_x - eye_spacing - 2 + eye_offset, brow_y),
-                             (center_x - eye_spacing + 2 + eye_offset, brow_y - 1), 1)
+                             (cx - eye_spacing - 2, brow_y),
+                             (cx - eye_spacing + 2, brow_y - 1), 1)
             pygame.draw.line(screen, brow_color,
-                             (center_x + eye_spacing - 1 + eye_offset, brow_y - 1),
-                             (center_x + eye_spacing + 3 + eye_offset, brow_y), 1)
+                             (cx + eye_spacing - 1, brow_y - 1),
+                             (cx + eye_spacing + 3, brow_y), 1)
 
-        # 코
-        nose_y = eye_y_pos + 3
-        if self.direction != 3:
-            pygame.draw.circle(screen, skin_dark, (center_x, nose_y + 1), 1)
+            # 코
+            nose_y = eye_y_pos + 3
+            pygame.draw.circle(screen, skin_dark, (cx, nose_y + 1), 1)
 
-        # 입 (기본 미소)
-        mouth_y = head_y + head_h - 4
-        if self.direction != 3:
+            # 입 (미소)
+            mouth_y = head_y + head_h - 4
             pygame.draw.arc(screen, (180, 80, 80),
-                            (center_x - 3, mouth_y - 1, 6, 4), 3.14, 0, 1)
+                            (cx - 3, mouth_y - 1, 6, 4), 3.14, 0, 1)
 
     def _draw_name_tag(self, screen, x, y):
         """영웅 이름 태그 (머리 위)."""
