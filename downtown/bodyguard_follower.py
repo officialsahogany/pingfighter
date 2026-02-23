@@ -3,10 +3,132 @@
 # 실제 영웅 스프라이트(HeroPaddleRenderer)를 사용하여 렌더링
 
 import pygame
+import pygame.freetype
 import math
 import random
+import os
 
-from .constants import SCREEN_WIDTH, SCREEN_HEIGHT
+from .constants import SCREEN_WIDTH, SCREEN_HEIGHT, resource_path
+
+# ------------------------------------------------------------------
+# 영웅 컨셉별 광장 대사 (캐주얼/일상)
+# ------------------------------------------------------------------
+HERO_IDLE_DIALOGUES = {
+    "mugen": [
+        "...검은 내 영혼의 연장이다.",
+        "이 광장에도 어둠이 숨어있군.",
+        "네 뒤는 내가 지킨다.",
+        "바람이 차갑군... 전장의 냄새다.",
+        "쓸데없는 소리는 하지 마라.",
+    ],
+    "kraken": [
+        "...깊은 바다가 그립군.",
+        "이 곳의 공기는 너무 건조해.",
+        "촉수가 근질거린다...",
+        "먹이 냄새가 나는 건 기분 탓인가.",
+        "물이 있는 곳으로 가자.",
+    ],
+    "chronos": [
+        "흐흐... 재미있는 곳이군.",
+        "마법의 기운이 느껴져.",
+        "주문을 외우고 싶어지는 날씨야.",
+        "조심해, 저주는 어디에나 있으니까.",
+        "오늘 점괘가 좋지 않아.",
+    ],
+    "onimaru": [
+        "크하하! 싸울 놈은 없나!",
+        "뿔이 근질근질하다...",
+        "이런 평화로운 곳도 나쁘진 않군.",
+        "술 한 잔 하고 싶군.",
+        "약한 놈들뿐이야...",
+    ],
+    "maria": [
+        "인형들이 속삭이고 있어...",
+        "이 광장, 무대로 딱 좋겠다.",
+        "누가 나한테 말 거는 거야...?",
+        "후후... 재미있는 사람들이 많네.",
+        "인형이 되고 싶지 않으면 조심해.",
+    ],
+    "ignis": [
+        "드래곤의 불꽃이 타오른다!",
+        "명예를 위해 검을 들었다.",
+        "이 갑옷이 좀 덥긴 하지...",
+        "용기란 두려움을 이기는 것이다.",
+        "함께 싸울 수 있어 영광이다.",
+    ],
+    "gear": [
+        "이 톱니바퀴 좀 봐! 완벽해!",
+        "새로운 발명 아이디어가 떠올랐어!",
+        "증기 엔진 점검할 시간이야.",
+        "이 광장에 공방을 차리고 싶다...",
+        "기계는 배신하지 않아.",
+    ],
+    "kurokage": [
+        "....",
+        "그림자 속에 적이 있다.",
+        "발소리를 줄여라.",
+        "닌자는 말이 필요 없다.",
+        "...뒤를 조심해.",
+    ],
+    "banshee": [
+        "저승의 바람이 불어오네...",
+        "내 비명을 듣고 싶어...?",
+        "유령이 되는 건 나쁘지 않아.",
+        "이 세상은 너무 시끄러워.",
+        "차가운 곳이 좋아...",
+    ],
+    "necro": [
+        "해골들이 인사하고 싶대.",
+        "죽음은 끝이 아니야, 시작이지.",
+        "이 광장 밑에 뭔가 묻혀있어.",
+        "뼈로 만든 왕좌가 그리워.",
+        "후후... 재미있는 영혼이 보여.",
+    ],
+    "joker": [
+        "하하하! 재미있는 곳이군!",
+        "서프라이즈~ 기대해도 좋아!",
+        "광대는 항상 웃어야 해!",
+        "카드 한 장 뽑아볼래?",
+        "지루한 건 참을 수 없어!",
+    ],
+    "mirage": [
+        "사막의 신기루를 보여줄까?",
+        "모래바람이 불어올 때가 됐어.",
+        "환상과 현실의 경계... 모호하지.",
+        "이 광장도 신기루일지 몰라.",
+        "너는 진짜 네가 맞아...?",
+    ],
+    "android": [
+        "[시스템 정상 가동 중]",
+        "[경계 모드 활성화]",
+        "[전투 데이터 분석 중...]",
+        "[감정 모듈... 에러]",
+        "[호위 임무 수행 중]",
+    ],
+    "ra": [
+        "번개의 힘이 차오른다!",
+        "매의 눈으로 모든 것을 본다.",
+        "태양신의 가호가 함께하길.",
+        "하늘을 날고 싶은 날이군.",
+        "천둥소리가 그립다...",
+    ],
+    "monkeyking": [
+        "우끼끼! 여기 재밌는 데잖아!",
+        "바나나 없어? 배고파!",
+        "나무 위가 더 편한데...",
+        "누구든 한 판 붙자!",
+        "밀림이 그립다... 우끼.",
+    ],
+}
+
+# 기본 대사 (매핑 안 된 영웅용)
+DEFAULT_DIALOGUES = [
+    "...",
+    "주변을 경계 중이다.",
+    "함께라서 든든하군.",
+    "언제든 준비되어 있다.",
+    "조용한 하루로군.",
+]
 
 
 class BodyguardFollower:
@@ -14,6 +136,8 @@ class BodyguardFollower:
 
     # 영웅 렌더러 싱글톤 (클래스 레벨 공유)
     _renderer = None
+    # 한글 폰트 캐시 (클래스 레벨 공유)
+    _speech_font = None
 
     @classmethod
     def _get_renderer(cls):
@@ -25,6 +149,43 @@ class BodyguardFollower:
             except Exception as e:
                 print(f"[BodyguardFollower] HeroPaddleRenderer 로드 실패: {e}")
         return cls._renderer
+
+    @classmethod
+    def _get_speech_font(cls):
+        """말풍선용 한글 폰트 (캐시)."""
+        if cls._speech_font is None:
+            font_size = 21
+            # 1차: 픽셀 폰트
+            try:
+                pixel_font_path = resource_path("PFStardust.ttf")
+                if os.path.exists(pixel_font_path):
+                    cls._speech_font = pygame.freetype.Font(pixel_font_path, font_size)
+            except Exception:
+                pass
+            # 2차: NanumSquare
+            if cls._speech_font is None:
+                try:
+                    font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
+                    if os.path.exists(font_path):
+                        cls._speech_font = pygame.freetype.Font(font_path, font_size)
+                except Exception:
+                    pass
+            # 3차: 시스템 폰트
+            if cls._speech_font is None:
+                try:
+                    if os.path.exists("C:/Windows/Fonts/malgun.ttf"):
+                        cls._speech_font = pygame.freetype.Font("C:/Windows/Fonts/malgun.ttf", font_size)
+                    elif os.path.exists("/System/Library/Fonts/AppleSDGothicNeo.ttc"):
+                        cls._speech_font = pygame.freetype.Font("/System/Library/Fonts/AppleSDGothicNeo.ttc", font_size)
+                except Exception:
+                    pass
+            # 4차: 기본 폰트
+            if cls._speech_font is None:
+                try:
+                    cls._speech_font = pygame.freetype.SysFont("malgungothic", font_size)
+                except Exception:
+                    cls._speech_font = pygame.freetype.SysFont(None, font_size)
+        return cls._speech_font
 
     def __init__(self, hero_data: dict, follow_index: int = 0):
         """
@@ -67,6 +228,18 @@ class BodyguardFollower:
         self.spawn_alpha = 0
         self.is_spawned = False
 
+        # --- idle 동작 시스템 ---
+        self.idle_timer = 0.0           # 정지 경과 시간
+        self.idle_action_active = False  # idle 동작 진행 중
+        self.idle_action_type = None     # "look_around", "fidget" 등
+        self.idle_action_timer = 0.0     # idle 동작 경과
+        self.idle_action_duration = 0.0  # idle 동작 지속 시간
+        self.idle_look_direction = 0     # 딴청 방향
+
+        # --- 대화 시스템 ---
+        self.speech_bubble = None   # 현재 표시 중인 대사
+        self.speech_timer = 0.0     # 대사 남은 시간
+        self.talk_cooldown = 0.0    # 대화 쿨다운
 
     def spawn_at(self, x: float, y: float):
         """광장 진입 시 초기 위치 설정."""
@@ -84,6 +257,14 @@ class BodyguardFollower:
             return
 
         self.effect_timer += dt
+
+        # 대화 타이머
+        if self.speech_bubble:
+            self.speech_timer -= dt
+            if self.speech_timer <= 0:
+                self.speech_bubble = None
+        if self.talk_cooldown > 0:
+            self.talk_cooldown -= dt
 
         # 페이드인
         if self.spawn_alpha < 255:
@@ -130,8 +311,17 @@ class BodyguardFollower:
                 self.direction = 1 if self.vx < 0 else 2
             else:
                 self.direction = 3 if self.vy < 0 else 0
+            # 이동 시 idle 타이머 리셋
+            self.idle_timer = 0.0
+            self.idle_action_active = False
         else:
-            self.direction = player_direction
+            if not self.idle_action_active:
+                self.direction = player_direction
+            # idle 타이머 누적
+            self.idle_timer += dt
+
+        # --- idle 동작 처리 ---
+        self._update_idle(dt)
 
         # 영웅 렌더러 애니메이션 업데이트
         renderer = self._get_renderer()
@@ -139,6 +329,57 @@ class BodyguardFollower:
             renderer.update(dt)
             # update_movement는 X 위치 변화로 좌우 이동/side_blend 계산
             renderer.update_movement(self.hero_id, self.x, dt)
+
+    # ------------------------------------------------------------------
+    # Idle 동작
+    # ------------------------------------------------------------------
+
+    def _update_idle(self, dt):
+        """5초 이상 정지 시 자체 idle 동작."""
+        if self.idle_action_active:
+            self.idle_action_timer += dt
+            if self.idle_action_timer >= self.idle_action_duration:
+                # idle 동작 종료
+                self.idle_action_active = False
+                self.idle_action_type = None
+                self.idle_timer = 0.0  # 리셋하여 다시 5초 후 발동
+            return
+
+        # 5초 이상 정지하면 idle 동작 시작
+        if self.idle_timer >= 5.0:
+            self._start_idle_action()
+
+    def _start_idle_action(self):
+        """랜덤 idle 동작 시작."""
+        self.idle_action_active = True
+        self.idle_action_timer = 0.0
+
+        # 랜덤 동작 선택
+        action = random.choice(["look_around", "look_around", "fidget"])
+        self.idle_action_type = action
+
+        if action == "look_around":
+            # 좌우 두리번거리기
+            self.idle_action_duration = random.uniform(2.5, 4.0)
+            self.idle_look_direction = random.choice([1, 2])  # 좌 or 우
+        elif action == "fidget":
+            # 제자리 안절부절
+            self.idle_action_duration = random.uniform(1.5, 3.0)
+
+    def _get_idle_direction(self):
+        """idle 동작 중 방향 반환. None이면 기본 방향 사용."""
+        if not self.idle_action_active:
+            return None
+        if self.idle_action_type == "look_around":
+            # 주기적으로 좌↔우 전환
+            phase = self.idle_action_timer / max(self.idle_action_duration, 0.1)
+            if phase < 0.3:
+                return self.idle_look_direction
+            elif phase < 0.6:
+                return 3 - self.idle_look_direction  # 1↔2 (좌↔우)
+            else:
+                return self.idle_look_direction
+        return None
 
     def _get_direction_offset(self, player_direction: int):
         """플레이어 방향 기준 뒤쪽 오프셋 계산."""
@@ -150,6 +391,37 @@ class BodyguardFollower:
             3: (0, d),     # 플레이어 위 향함 → 팔로워 아래에
         }
         return offsets.get(player_direction, (0, -d))
+
+    # ------------------------------------------------------------------
+    # 대화 시스템
+    # ------------------------------------------------------------------
+
+    def can_talk(self):
+        """대화 가능 여부."""
+        return self.talk_cooldown <= 0 and self.speech_bubble is None
+
+    def start_dialogue(self):
+        """대화 시작 - 영웅 컨셉별 랜덤 대사 반환."""
+        if not self.can_talk():
+            return None
+
+        dialogues = HERO_IDLE_DIALOGUES.get(self.hero_id, DEFAULT_DIALOGUES)
+        dialogue = random.choice(dialogues)
+
+        self.speech_bubble = dialogue
+        self.speech_timer = 4.0
+        self.talk_cooldown = 3.0  # 3초 쿨다운
+
+        # 대화 시작 시 idle 중단, 플레이어 쪽 바라봄
+        self.idle_action_active = False
+        self.idle_timer = 0.0
+
+        return dialogue
+
+    def get_rect(self):
+        """클릭 판정용 렉트."""
+        w, h = 40, 50
+        return pygame.Rect(int(self.x) - w // 2, int(self.y) - h // 2, w, h)
 
     # ------------------------------------------------------------------
     # 렌더링
@@ -175,6 +447,9 @@ class BodyguardFollower:
         # 영웅 캐릭터 스프라이트 (HeroPaddleRenderer 사용)
         self._draw_hero_sprite(screen, draw_x, draw_y)
 
+        # 말풍선
+        if self.speech_bubble:
+            self._draw_speech_bubble(screen, draw_x, draw_y)
 
     def _draw_shadow(self, screen, x, y):
         """그림자 그리기."""
@@ -190,24 +465,28 @@ class BodyguardFollower:
         """HeroPaddleRenderer를 사용하여 실제 영웅 스프라이트 그리기."""
         renderer = self._get_renderer()
         if not renderer:
-            # 렌더러 없으면 폴백: 심플 컬러 원
             self._draw_fallback(screen, x, y)
             return
 
+        # idle 동작 중이면 방향 오버라이드
+        idle_dir = self._get_idle_direction()
+        d = idle_dir if idle_dir is not None else self.direction
+
         # 방향 → facing 변환
-        # HeroPaddleRenderer는 facing="down"(정면), facing="up"(후면)만 지원
-        # 좌우 이동은 update_movement의 side_blend로 자동 처리됨
-        d = self.direction
         if d == 3:  # 위를 바라봄 = 뒷모습
             facing = "up"
         else:  # 아래/좌/우 = 정면 (좌우는 side_blend로 처리)
             facing = "down"
 
-        # 영웅 스프라이트 렌더링
+        # idle fidget: 미세한 상하 바운스
+        y_offset = 0
+        if self.idle_action_active and self.idle_action_type == "fidget":
+            y_offset = math.sin(self.idle_action_timer * 6) * 2
+
         renderer.draw_hero_paddle(
             screen,
             self.hero_id,
-            x, y,
+            x, y + y_offset,
             self.render_width,
             self.render_height,
             facing=facing,
@@ -218,13 +497,47 @@ class BodyguardFollower:
     def _draw_fallback(self, screen, x, y):
         """HeroPaddleRenderer 없을 때 폴백 렌더링."""
         r, g, b = self.hero_color
-        # 몸체
         pygame.draw.ellipse(screen, self.hero_color,
                             (int(x) - 12, int(y) - 15, 24, 30), border_radius=4)
-        # 외곽선
         pygame.draw.ellipse(screen, (min(255, r + 50), min(255, g + 50), min(255, b + 50)),
                             (int(x) - 12, int(y) - 15, 24, 30), width=2)
 
+    def _draw_speech_bubble(self, screen, x, y):
+        """말풍선 그리기."""
+        font = self._get_speech_font()
+        if not font:
+            return
+
+        text_surface, text_rect = font.render(self.speech_bubble, (40, 40, 40))
+        text_w = text_rect.width + 24
+        text_h = text_rect.height + 15
+
+        bubble_x = x - text_w // 2
+        bubble_y = y - 55  # 스프라이트 위
+
+        # 화면 밖 방지
+        bubble_x = max(5, min(SCREEN_WIDTH - text_w - 5, bubble_x))
+
+        # 말풍선 배경
+        bubble_surf = pygame.Surface((text_w, text_h + 12), pygame.SRCALPHA)
+        pygame.draw.rect(bubble_surf, (255, 255, 255, 240),
+                         (0, 0, text_w, text_h), border_radius=12)
+        pygame.draw.rect(bubble_surf, (80, 80, 80),
+                         (0, 0, text_w, text_h), 2, border_radius=12)
+
+        # 꼬리
+        pygame.draw.polygon(bubble_surf, (255, 255, 255, 240), [
+            (text_w // 2 - 9, text_h),
+            (text_w // 2 + 9, text_h),
+            (text_w // 2, text_h + 12),
+        ])
+        pygame.draw.line(bubble_surf, (80, 80, 80),
+                         (text_w // 2 - 9, text_h), (text_w // 2, text_h + 12), 2)
+        pygame.draw.line(bubble_surf, (80, 80, 80),
+                         (text_w // 2 + 9, text_h), (text_w // 2, text_h + 12), 2)
+
+        screen.blit(bubble_surf, (int(bubble_x), int(bubble_y)))
+        screen.blit(text_surface, (int(bubble_x) + 12, int(bubble_y) + 7))
 
 
 class BodyguardFollowerManager:
@@ -233,9 +546,11 @@ class BodyguardFollowerManager:
     def __init__(self):
         self.followers = []
         self._last_seal_ids = []
+        self._refresh_cooldown = 0.0  # 주기적 갱신용 타이머
 
-    def refresh_from_equipped_seals(self):
-        """장착된 hero_seal 아이템을 읽어 팔로워 생성/갱신."""
+    def refresh_from_equipped_seals(self, player_x=None, player_y=None):
+        """장착된 hero_seal 아이템을 읽어 팔로워 생성/갱신.
+        인장 해제 시 팔로워가 사라지고, 장착 시에만 존재."""
         seals = []
         try:
             import pingfighter
@@ -247,16 +562,21 @@ class BodyguardFollowerManager:
 
         # 변경 여부 확인
         new_ids = [s.get("hero_id", "") for s in seals]
-        if new_ids == self._last_seal_ids and self.followers:
-            return
+        if new_ids == self._last_seal_ids:
+            return False  # 변경 없음
 
         self._last_seal_ids = new_ids
 
-        # 팔로워 재생성
+        # 팔로워 재생성 (인장 없으면 빈 리스트 = 팔로워 없음)
         self.followers.clear()
         for idx, seal in enumerate(seals[:2]):
             follower = BodyguardFollower(seal, follow_index=idx)
+            # 위치 정보가 있으면 즉시 스폰
+            if player_x is not None and player_y is not None:
+                follower.spawn_at(player_x, player_y)
             self.followers.append(follower)
+
+        return True  # 변경됨
 
     def spawn_all(self, player_x: float, player_y: float):
         """모든 팔로워를 플레이어 근처에 스폰."""
@@ -266,6 +586,12 @@ class BodyguardFollowerManager:
     def update(self, dt: float, player_x: float, player_y: float,
                player_direction: int, player_is_moving: bool):
         """모든 팔로워 업데이트."""
+        # 주기적으로 장착 상태 갱신 (2초마다)
+        self._refresh_cooldown -= dt
+        if self._refresh_cooldown <= 0:
+            self._refresh_cooldown = 2.0
+            self.refresh_from_equipped_seals(player_x, player_y)
+
         for follower in self.followers:
             follower.update(dt, player_x, player_y, player_direction, player_is_moving)
 
@@ -273,3 +599,32 @@ class BodyguardFollowerManager:
         """모든 팔로워 그리기 (Y-sort 없이 단독 사용 시)."""
         for follower in self.followers:
             follower.draw(screen, camera_offset)
+
+    # ------------------------------------------------------------------
+    # 대화 상호작용
+    # ------------------------------------------------------------------
+
+    def try_talk_to_follower_at(self, world_x, world_y, player_x, player_y, max_dist=100):
+        """월드 좌표(클릭 위치)로 팔로워 대화 시도. 성공 시 대사 반환."""
+        for follower in self.followers:
+            if not follower.is_spawned:
+                continue
+            rect = follower.get_rect()
+            if rect.collidepoint(world_x, world_y):
+                # 플레이어와의 거리 체크
+                dist = math.sqrt((player_x - follower.x) ** 2 +
+                                 (player_y - follower.y) ** 2)
+                if dist <= max_dist:
+                    return follower.start_dialogue()
+        return None
+
+    def try_talk_to_nearest_follower(self, player_x, player_y, radius=70):
+        """플레이어 근처 팔로워에게 말 걸기 (SPACE키용). 성공 시 대사 반환."""
+        for follower in self.followers:
+            if not follower.is_spawned:
+                continue
+            dist = math.sqrt((player_x - follower.x) ** 2 +
+                             (player_y - follower.y) ** 2)
+            if dist <= radius and follower.can_talk():
+                return follower.start_dialogue()
+        return None

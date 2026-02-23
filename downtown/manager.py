@@ -718,7 +718,14 @@ class DowntownManager:
                 self._try_exit()
                 return
 
-        # 2. 상호작용 대상이 없으면 NPC 대화 시도
+        # 2. 호위무사 팔로워 대화 시도
+        follower_dialogue = self.bodyguard_followers.try_talk_to_nearest_follower(
+            self.player.x, self.player.y, radius=70
+        )
+        if follower_dialogue:
+            return
+
+        # 3. 상호작용 대상이 없으면 NPC 대화 시도
         self._handle_npc_talk()
 
     def _handle_mouse_click(self, mouse_pos):
@@ -734,6 +741,14 @@ class DowntownManager:
         world_x = mouse_pos[0] + camera_offset[0]
         world_y = mouse_pos[1] + camera_offset[1]
 
+        # 1. 호위무사 팔로워 클릭 체크
+        follower_dialogue = self.bodyguard_followers.try_talk_to_follower_at(
+            world_x, world_y, self.player.x, self.player.y, max_dist=100
+        )
+        if follower_dialogue:
+            return
+
+        # 1.5. NPC 클릭 체크
         clicked_npc = self._check_npc_click(world_x, world_y)
         if clicked_npc:
             # NPC 클릭 시 대화 시도
@@ -742,7 +757,7 @@ class DowntownManager:
                 # 대화 성공 - NPC가 알아서 말풍선 표시
                 return
 
-        # 1.5. 대화 가능한 NPC가 없으면 동물 클릭 체크
+        # 1.7. 대화 가능한 NPC가 없으면 동물 클릭 체크
         clicked_animal = self._check_animal_click(world_x, world_y)
         if clicked_animal:
             # 동물 상호작용 - 소리 재생
