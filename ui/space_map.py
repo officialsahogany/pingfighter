@@ -348,54 +348,157 @@ class SpaceMap:
     def _render_cockpit(self):
         W, H = self.W, self.H
         surf = pygame.Surface((W, H), pygame.SRCALPHA)
-        frame = (20, 35, 50, 200)
-        border = (60, 130, 180, 180)
-        accent = (80, 200, 255, 120)
+        frame = (20, 35, 50, 210)
+        frame_dk = (12, 22, 35, 220)
+        border = (60, 140, 190, 200)
+        border_hi = (90, 180, 230, 160)
+        accent = (80, 200, 255, 140)
+        accent_dim = (40, 100, 140, 100)
+        rivet = (45, 70, 95, 160)
 
-        # 하단 콘솔 패널
+        # ===== 하단 콘솔 패널 (다층 3D) =====
         pts_b = [(0, H), (0, H - 120), (60, H - 140),
                  (W // 2 - 120, H - 100), (W // 2, H - 80),
                  (W // 2 + 120, H - 100), (W - 60, H - 140),
                  (W, H - 120), (W, H)]
         pygame.draw.polygon(surf, frame, pts_b)
+        # 콘솔 상단 하이라이트 (3D 베벨)
+        pts_b_hl = [(0, H - 118), (60, H - 138),
+                    (W // 2 - 118, H - 98), (W // 2, H - 78),
+                    (W // 2 + 118, H - 98), (W - 60, H - 138),
+                    (W, H - 118)]
+        pygame.draw.lines(surf, border_hi, False, pts_b_hl, 1)
         pygame.draw.lines(surf, border, False, pts_b[1:-1], 2)
+        # 콘솔 내부 패널 라인
+        for py_off in [H - 110, H - 90, H - 70]:
+            pygame.draw.line(surf, (30, 50, 70, 80), (10, py_off), (W - 10, py_off), 1)
 
-        # 상단 패널
-        pts_t = [(0, 0), (0, 70), (100, 55), (W // 2, 40),
-                 (W - 100, 55), (W, 70), (W, 0)]
+        # ===== 상단 패널 (두꺼운 HUD 바이저) =====
+        pts_t = [(0, 0), (0, 75), (100, 58), (W // 2, 42),
+                 (W - 100, 58), (W, 75), (W, 0)]
         pygame.draw.polygon(surf, frame, pts_t)
+        # 바이저 하단 하이라이트
+        pts_t_hl = [(0, 73), (100, 56), (W // 2, 40),
+                    (W - 100, 56), (W, 73)]
+        pygame.draw.lines(surf, border_hi, False, pts_t_hl, 1)
         pygame.draw.lines(surf, border, False, pts_t[1:-1], 2)
+        # 상단 내부 스캔라인
+        for sy in range(5, 38, 6):
+            pygame.draw.line(surf, (25, 45, 65, 40), (80, sy), (W - 80, sy), 1)
 
-        # 좌우 프레임
-        for sx in [0, W - 40]:
-            pygame.draw.rect(surf, (15, 25, 40, 180), (sx, 70, 40, H - 190))
-            bx = sx + (39 if sx == 0 else 0)
-            pygame.draw.line(surf, border, (bx, 70), (bx, H - 120), 1)
+        # ===== 좌우 프레임 (3D 두꺼운 기둥 + 리벳) =====
+        for sx in [0, W - 42]:
+            # 메인 프레임 (어두운 면)
+            pygame.draw.rect(surf, frame_dk, (sx, 75, 42, H - 195))
+            # 밝은 면 (안쪽 엣지)
+            inner_x = sx + 40 if sx == 0 else sx + 1
+            pygame.draw.rect(surf, (25, 42, 60, 180), (inner_x, 75, 2, H - 195))
+            # 테두리 라인
+            bx = sx + 41 if sx == 0 else sx
+            pygame.draw.line(surf, border, (bx, 75), (bx, H - 120), 1)
+            # 리벳 (장식 볼트)
+            for ry in range(90, H - 140, 30):
+                rx = sx + 6 if sx == 0 else sx + 34
+                pygame.draw.circle(surf, rivet, (rx, ry), 2)
+                pygame.draw.circle(surf, (60, 90, 120, 100), (rx - 1, ry - 1), 1)
 
-        # HUD 장식 — 좌측 바
-        for i in range(5):
-            pygame.draw.rect(surf, accent, (8, 90 + i * 18, 25 - i * 3, 3))
+        # ===== HUD 장식 — 좌측 파워 바 (그라디언트) =====
+        for i in range(7):
+            bw = 28 - i * 3
+            by = 90 + i * 16
+            # 바 배경
+            pygame.draw.rect(surf, accent_dim, (6, by, bw, 4), border_radius=1)
+            # 바 밝은 부분
+            pygame.draw.rect(surf, accent, (6, by, max(2, bw - 4), 2), border_radius=1)
 
-        # 우상단 스캐너
-        cx, cy = W - 22, 110
-        pygame.draw.circle(surf, accent, (cx, cy), 15, 1)
-        pygame.draw.line(surf, accent, (cx - 10, cy), (cx + 10, cy), 1)
-        pygame.draw.line(surf, accent, (cx, cy - 10), (cx, cy + 10), 1)
+        # ===== 우상단 스캐너 (3D 링 + 눈금) =====
+        scx, scy = W - 22, 115
+        # 스캐너 배경
+        sc_bg = pygame.Surface((36, 36), pygame.SRCALPHA)
+        pygame.draw.circle(sc_bg, (10, 20, 35, 160), (18, 18), 16)
+        surf.blit(sc_bg, (scx - 18, scy - 18))
+        # 외곽 링
+        pygame.draw.circle(surf, border, (scx, scy), 16, 2)
+        pygame.draw.circle(surf, accent, (scx, scy), 17, 1)
+        # 십자선
+        pygame.draw.line(surf, accent_dim, (scx - 12, scy), (scx + 12, scy), 1)
+        pygame.draw.line(surf, accent_dim, (scx, scy - 12), (scx, scy + 12), 1)
+        # 눈금 틱 (4방향)
+        for ang in [0, math.pi / 2, math.pi, math.pi * 1.5]:
+            tx1 = scx + int(13 * math.cos(ang))
+            ty1 = scy + int(13 * math.sin(ang))
+            tx2 = scx + int(16 * math.cos(ang))
+            ty2 = scy + int(16 * math.sin(ang))
+            pygame.draw.line(surf, accent, (tx1, ty1), (tx2, ty2), 1)
 
-        # 하단 콘솔 버튼
-        for i in range(8):
-            bx = W // 2 - 80 + i * 22
-            pygame.draw.rect(surf, (30, 70, 100, 100),
-                             (bx, H - 50, 16, 8), border_radius=2)
+        # ===== 좌하단 미니 디스플레이 (파형) =====
+        disp_x, disp_y = 6, H - 160
+        pygame.draw.rect(surf, (8, 18, 30, 180), (disp_x, disp_y, 30, 20))
+        pygame.draw.rect(surf, accent_dim, (disp_x, disp_y, 30, 20), 1)
+        # 간단한 사인파
+        pts_wave = []
+        for wi in range(28):
+            wx = disp_x + 1 + wi
+            wy = disp_y + 10 + int(6 * math.sin(wi * 0.5))
+            pts_wave.append((wx, wy))
+        if len(pts_wave) > 2:
+            pygame.draw.lines(surf, (0, 200, 100, 120), False, pts_wave, 1)
 
-        # 조준 십자
+        # ===== 하단 콘솔 버튼 (3D 버튼 + LED) =====
+        for i in range(10):
+            bx = W // 2 - 100 + i * 21
+            # 버튼 그림자
+            pygame.draw.rect(surf, (15, 35, 55, 120),
+                             (bx + 1, H - 48, 16, 8), border_radius=2)
+            # 버튼 본체
+            pygame.draw.rect(surf, (35, 75, 110, 140),
+                             (bx, H - 49, 16, 8), border_radius=2)
+            # 버튼 하이라이트
+            pygame.draw.rect(surf, (55, 100, 140, 80),
+                             (bx + 1, H - 49, 14, 3), border_radius=1)
+            # LED 표시등
+            led_c = accent if i % 3 == 0 else (40, 80, 60, 100)
+            pygame.draw.circle(surf, led_c, (bx + 8, H - 55), 2)
+
+        # ===== 좌우 콘솔 장식 (토글 스위치) =====
+        for tsx, flip in [(70, False), (W - 90, True)]:
+            for ti in range(3):
+                ty = H - 60 + ti * 12
+                # 스위치 레일
+                pygame.draw.rect(surf, (25, 45, 65, 150), (tsx, ty, 12, 4), border_radius=1)
+                # 스위치 핸들
+                handle_x = tsx + (8 if (ti + (1 if flip else 0)) % 2 == 0 else 1)
+                pygame.draw.rect(surf, (70, 120, 160, 180),
+                                 (handle_x, ty - 1, 4, 6), border_radius=1)
+
+        # ===== 조준 십자 (멀티 레이어) =====
         cx, cy = W // 2, H // 2
-        cc = (80, 200, 255, 60)
-        pygame.draw.line(surf, cc, (cx - 30, cy), (cx - 10, cy), 1)
-        pygame.draw.line(surf, cc, (cx + 10, cy), (cx + 30, cy), 1)
-        pygame.draw.line(surf, cc, (cx, cy - 30), (cx, cy - 10), 1)
-        pygame.draw.line(surf, cc, (cx, cy + 10), (cx, cy + 30), 1)
-        pygame.draw.circle(surf, (60, 150, 220, 40), (cx, cy), 20, 1)
+        # 외곽 원
+        pygame.draw.circle(surf, (40, 100, 160, 30), (cx, cy), 28, 1)
+        # 내곽 원
+        pygame.draw.circle(surf, (60, 160, 230, 50), (cx, cy), 18, 1)
+        # 십자선 (두 단계)
+        cc_outer = (60, 150, 220, 40)
+        cc_inner = (80, 200, 255, 70)
+        for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
+            # 외곽 선
+            pygame.draw.line(surf, cc_outer,
+                             (cx + dx * 35, cy + dy * 35),
+                             (cx + dx * 14, cy + dy * 14), 1)
+            # 내곽 선 (더 밝고 짧게)
+            pygame.draw.line(surf, cc_inner,
+                             (cx + dx * 12, cy + dy * 12),
+                             (cx + dx * 6, cy + dy * 6), 1)
+        # 중앙 점
+        pygame.draw.circle(surf, (80, 200, 255, 45), (cx, cy), 2, 1)
+        # 코너 마커
+        for mx, my in [(1, 1), (1, -1), (-1, 1), (-1, -1)]:
+            pygame.draw.line(surf, cc_outer,
+                             (cx + mx * 22, cy + my * 22),
+                             (cx + mx * 22, cy + my * 16), 1)
+            pygame.draw.line(surf, cc_outer,
+                             (cx + mx * 22, cy + my * 22),
+                             (cx + mx * 16, cy + my * 22), 1)
 
         return surf
 
@@ -435,17 +538,56 @@ class SpaceMap:
             if b < 5:
                 continue
             sz = max(1, int(1 + dr * 3))
-            col = (_clamp(s.color[0] * b / 255),
-                   _clamp(s.color[1] * b / 255),
-                   _clamp(s.color[2] * b / 255))
-            # 트레일
+            cr = _clamp(s.color[0] * b / 255)
+            cg = _clamp(s.color[1] * b / 255)
+            cb = _clamp(s.color[2] * b / 255)
+            col = (cr, cg, cb)
+            # 트레일 (그라디언트 — 머리 밝고 꼬리 희미)
             if dr > 0.1:
                 td = max(0, s.dist - s.speed * 0.02 * s.trail_len)
                 tx = cx + math.cos(s.angle) * td
                 ty = cy + math.sin(s.angle) * td
+                # 메인 트레일
                 pygame.draw.line(surf, col, (int(tx), int(ty)),
+                                 (int(x), int(y)), max(1, sz))
+                # 밝은 코어 트레일 (더 짧고 밝게)
+                core_d = max(0, s.dist - s.speed * 0.01 * s.trail_len * 0.4)
+                core_tx = cx + math.cos(s.angle) * core_d
+                core_ty = cy + math.sin(s.angle) * core_d
+                bright = (min(255, cr + 80), min(255, cg + 80), min(255, cb + 80))
+                pygame.draw.line(surf, bright, (int(core_tx), int(core_ty)),
                                  (int(x), int(y)), max(1, sz - 1))
+                # 글로우 트레일 (외곽 소프트)
+                if sz >= 2 and b > 100:
+                    glow_d = max(0, s.dist - s.speed * 0.015 * s.trail_len * 0.6)
+                    glow_tx = cx + math.cos(s.angle) * glow_d
+                    glow_ty = cy + math.sin(s.angle) * glow_d
+                    gs = pygame.Surface((abs(int(x - glow_tx)) + sz * 4 + 8,
+                                         abs(int(y - glow_ty)) + sz * 4 + 8),
+                                        pygame.SRCALPHA)
+                    ox = min(int(x), int(glow_tx)) - sz * 2 - 4
+                    oy = min(int(y), int(glow_ty)) - sz * 2 - 4
+                    ga = min(255, int(b * 0.12))
+                    pygame.draw.line(gs, (cr, cg, cb, ga),
+                                     (int(glow_tx) - ox, int(glow_ty) - oy),
+                                     (int(x) - ox, int(y) - oy),
+                                     max(1, sz + 2))
+                    surf.blit(gs, (ox, oy))
+            # 별 머리: 글로우 헤일로 + 밝은 코어
+            if sz >= 2 and b > 60:
+                hr = sz + 2
+                hs = pygame.Surface((hr * 2 + 4, hr * 2 + 4), pygame.SRCALPHA)
+                hc = hr + 2
+                for hi in range(hr, 0, -1):
+                    ha = min(255, int(35 * hi / hr * intensity))
+                    pygame.draw.circle(hs, (cr, cg, cb, ha), (hc, hc), hi)
+                surf.blit(hs, (int(x) - hc, int(y) - hc))
             pygame.draw.circle(surf, col, (int(x), int(y)), sz)
+            # 초밝은 중심
+            if sz >= 2:
+                pygame.draw.circle(surf, (min(255, cr + 100), min(255, cg + 100),
+                                          min(255, cb + 100)),
+                                   (int(x), int(y)), max(1, sz // 2))
 
     # ──────────────────────────────────────────────
     #  횡스크롤 별 업데이트/그리기
@@ -464,22 +606,71 @@ class SpaceMap:
             b = s.brightness * twinkle * alpha_mult
             if b < 5:
                 continue
-            r = _clamp(s.color[0] * b / 255)
-            g = _clamp(s.color[1] * b / 255)
-            bl = _clamp(s.color[2] * b / 255)
+            cr = _clamp(s.color[0] * b / 255)
+            cg = _clamp(s.color[1] * b / 255)
+            cb = _clamp(s.color[2] * b / 255)
             ix, iy = int(s.x), int(s.y)
             if not (0 <= ix < self.W and 0 <= iy < self.H):
                 continue
-            col = (r, g, bl)
+            col = (cr, cg, cb)
             if s.size <= 1:
+                # 작은 별도 약한 글로우
+                if b > 120:
+                    gs = pygame.Surface((6, 6), pygame.SRCALPHA)
+                    ga = min(255, int(b * 0.15 * alpha_mult))
+                    pygame.draw.circle(gs, (cr, cg, cb, ga), (3, 3), 2)
+                    surf.blit(gs, (ix - 3, iy - 3))
                 surf.set_at((ix, iy), col)
             else:
+                # 소프트 글로우 헤일로 (별 주변 부드러운 빛)
+                if b > 80:
+                    halo_r = s.size + max(2, int(b / 40))
+                    hs = pygame.Surface((halo_r * 2 + 4, halo_r * 2 + 4), pygame.SRCALPHA)
+                    hc = halo_r + 2
+                    for hi in range(halo_r, 0, -1):
+                        ha = min(255, int(25 * (hi / halo_r) * alpha_mult))
+                        pygame.draw.circle(hs, (cr, cg, cb, ha), (hc, hc), hi)
+                    surf.blit(hs, (ix - hc, iy - hc))
+                # 메인 별 (중심 밝게)
                 pygame.draw.circle(surf, col, (ix, iy), s.size)
-                # 큰 별 십자 글로우
-                if s.size >= 3 and b > 150:
-                    gl = s.size + 2
-                    pygame.draw.line(surf, col, (ix - gl, iy), (ix + gl, iy), 1)
-                    pygame.draw.line(surf, col, (ix, iy - gl), (ix, iy + gl), 1)
+                if s.size >= 2:
+                    # 밝은 코어
+                    core_c = (min(255, cr + 60), min(255, cg + 60), min(255, cb + 60))
+                    pygame.draw.circle(surf, core_c, (ix, iy), max(1, s.size - 1))
+                # 큰 별: 4방향 광선 + 대각선 보조 광선
+                if s.size >= 3 and b > 120:
+                    # 메인 십자 광선
+                    gl = s.size + 3 + int(b / 80)
+                    ray_a = min(255, int(b * 0.6 * alpha_mult))
+                    rs = pygame.Surface((gl * 2 + 4, gl * 2 + 4), pygame.SRCALPHA)
+                    rc = gl + 2
+                    # 수평 광선 (그라디언트)
+                    for ri in range(gl, 0, -1):
+                        ra = max(1, int(ray_a * ri / gl))
+                        rs.set_at((rc + ri, rc), (cr, cg, cb, ra))
+                        rs.set_at((rc - ri, rc), (cr, cg, cb, ra))
+                        rs.set_at((rc, rc + ri), (cr, cg, cb, ra))
+                        rs.set_at((rc, rc - ri), (cr, cg, cb, ra))
+                    # 대각선 보조 광선 (짧고 약하게)
+                    dgl = max(2, gl // 2)
+                    for di in range(dgl, 0, -1):
+                        da = max(1, int(ray_a * 0.4 * di / dgl))
+                        for dx, dy in [(1, 1), (1, -1), (-1, 1), (-1, -1)]:
+                            px = rc + dx * di
+                            py = rc + dy * di
+                            if 0 <= px < rs.get_width() and 0 <= py < rs.get_height():
+                                rs.set_at((px, py), (cr, cg, cb, da))
+                    surf.blit(rs, (ix - rc, iy - rc))
+                # 초대형 별: 렌즈 플레어 링
+                if s.size >= 4 and b > 180:
+                    flare_r = s.size + 5
+                    fs = pygame.Surface((flare_r * 2 + 4, flare_r * 2 + 4), pygame.SRCALPHA)
+                    fc = flare_r + 2
+                    fa = min(255, int(20 * alpha_mult))
+                    pygame.draw.circle(fs, (cr, cg, cb, fa), (fc, fc), flare_r, 1)
+                    pygame.draw.circle(fs, (cr, cg, cb, max(1, fa // 2)),
+                                       (fc, fc), flare_r + 1, 1)
+                    surf.blit(fs, (ix - fc, iy - fc))
 
     # ──────────────────────────────────────────────
     #  성운
@@ -581,99 +772,259 @@ class SpaceMap:
         s = scale
         ix, iy = int(x), int(y)
 
-        # 엔진 후광 (SRCALPHA 서피스)
+        # ===== 엔진 후광 (대형 글로우 + 컬러 레이어) =====
         if engine_power > 0.1:
-            gr = int(20 * s * engine_power)
+            # 외곽 넓은 블루 글로우
+            gr = int(28 * s * engine_power)
             gs = pygame.Surface((gr * 2 + 4, gr * 2 + 4), pygame.SRCALPHA)
-            for rr in range(gr, 0, -2):
-                a = max(1, int(25 * engine_power * rr / gr))
-                pygame.draw.circle(gs, (100, 150, 255, a),
-                                   (gr + 2, gr + 2), rr)
-            surf.blit(gs, (ix - int(15 * s) - gr - 2, iy - gr - 2))
+            gc = gr + 2
+            for rr in range(gr, 0, -1):
+                t = rr / gr
+                a = max(1, int(30 * engine_power * t))
+                pygame.draw.circle(gs, (60, 120, 255, a), (gc, gc), rr)
+            # 내부 하얀 코어 글로우
+            cr2 = max(3, int(gr * 0.35))
+            for rr in range(cr2, 0, -1):
+                a = max(1, int(50 * engine_power * rr / cr2))
+                pygame.draw.circle(gs, (200, 220, 255, a), (gc, gc), rr)
+            surf.blit(gs, (ix - int(15 * s) - gc, iy - gc))
 
-        # 엔진 불꽃 (멀티 레이어)
+        # ===== 엔진 불꽃 (5레이어 — 플라즈마 ~ 배기가스) =====
         if engine_power > 0.1:
-            for fi in range(3):
-                fl = random.randint(10, max(11, int(30 * engine_power)))
-                fy = iy + random.randint(-2, 2) + (fi - 1) * int(4 * s)
-                pygame.draw.line(surf, (200, 220, 255),
-                                 (ix - int(12 * s), fy),
-                                 (ix - int((12 + fl * 0.3) * s), fy),
-                                 max(1, int(2 * s)))
-                pygame.draw.line(surf, (255, 180, 50),
-                                 (ix - int(12 * s), fy),
-                                 (ix - int((12 + fl * 0.7) * s), fy),
-                                 max(1, int(3 * s)))
-                pygame.draw.line(surf, (255, 80, 20),
-                                 (ix - int(14 * s), fy),
-                                 (ix - int((14 + fl) * s),
-                                  fy + random.randint(-2, 2)),
+            # 엔진 노즐 위치 (상/중/하 3구)
+            nozzle_offsets = [int(-3 * s), 0, int(3 * s)]
+            for noff in nozzle_offsets:
+                nz_y = iy + noff
+                fl = random.randint(10, max(11, int(35 * engine_power)))
+                # L5: 가장 바깥 — 어두운 적색 배기
+                pygame.draw.line(surf, (180, 40, 10),
+                                 (ix - int(14 * s), nz_y + random.randint(-1, 1)),
+                                 (ix - int((14 + fl * 1.1) * s),
+                                  nz_y + random.randint(-3, 3)),
                                  max(1, int(1 * s)))
+                # L4: 주황 화염
+                pygame.draw.line(surf, (255, 120, 30),
+                                 (ix - int(13 * s), nz_y),
+                                 (ix - int((13 + fl * 0.85) * s), nz_y),
+                                 max(1, int(2 * s)))
+                # L3: 밝은 노랑
+                pygame.draw.line(surf, (255, 200, 60),
+                                 (ix - int(12 * s), nz_y),
+                                 (ix - int((12 + fl * 0.6) * s), nz_y),
+                                 max(1, int(2 * s)))
+                # L2: 하얀 코어
+                pygame.draw.line(surf, (220, 230, 255),
+                                 (ix - int(12 * s), nz_y),
+                                 (ix - int((12 + fl * 0.35) * s), nz_y),
+                                 max(1, int(3 * s)))
+                # L1: 가장 안쪽 — 블루 플라즈마
+                pygame.draw.line(surf, (150, 190, 255),
+                                 (ix - int(11 * s), nz_y),
+                                 (ix - int((11 + fl * 0.15) * s), nz_y),
+                                 max(1, int(2 * s)))
+            # 랜덤 불꽃 스파크
+            for _ in range(max(1, int(4 * engine_power))):
+                sp_x = ix - int(random.randint(15, 25) * s)
+                sp_y = iy + random.randint(int(-5 * s), int(5 * s))
+                pygame.draw.circle(surf, (255, random.randint(120, 255),
+                                          random.randint(20, 80)),
+                                   (sp_x, sp_y), max(1, int(s)))
 
-        # 주 선체
+        # ===== 주 선체 (3레이어 — 어두운 하단 + 본체 + 밝은 상단) =====
+        # 하단 그림자 면 (어두운 배 밑)
+        body_dark = [
+            (ix + int(24 * s), iy + int(1 * s)),
+            (ix + int(14 * s), iy + int(5 * s)),
+            (ix - int(5 * s), iy + int(9 * s)),
+            (ix - int(13 * s), iy + int(7 * s)),
+            (ix - int(13 * s), iy + int(1 * s)),
+            (ix + int(14 * s), iy + int(1 * s)),
+        ]
+        pygame.draw.polygon(surf, (110, 120, 145), body_dark)
+
+        # 본체 (미드톤)
         body = [
-            (ix + int(25 * s), iy),
-            (ix + int(15 * s), iy - int(5 * s)),
-            (ix - int(5 * s), iy - int(8 * s)),
-            (ix - int(12 * s), iy - int(6 * s)),
-            (ix - int(12 * s), iy + int(6 * s)),
-            (ix - int(5 * s), iy + int(8 * s)),
-            (ix + int(15 * s), iy + int(5 * s)),
+            (ix + int(26 * s), iy),
+            (ix + int(16 * s), iy - int(6 * s)),
+            (ix - int(5 * s), iy - int(9 * s)),
+            (ix - int(13 * s), iy - int(7 * s)),
+            (ix - int(13 * s), iy + int(7 * s)),
+            (ix - int(5 * s), iy + int(9 * s)),
+            (ix + int(16 * s), iy + int(6 * s)),
         ]
-        pygame.draw.polygon(surf, (180, 195, 220), body)
-        # 하이라이트
+        pygame.draw.polygon(surf, (170, 185, 210), body)
+
+        # 상단 하이라이트 면 (3D 라이팅)
         hl = [
-            (ix + int(22 * s), iy - int(1 * s)),
-            (ix + int(12 * s), iy - int(4 * s)),
-            (ix - int(3 * s), iy - int(6 * s)),
-            (ix - int(3 * s), iy - int(2 * s)),
-            (ix + int(12 * s), iy - int(1 * s)),
+            (ix + int(24 * s), iy - int(1 * s)),
+            (ix + int(14 * s), iy - int(5 * s)),
+            (ix - int(4 * s), iy - int(7 * s)),
+            (ix - int(4 * s), iy - int(2 * s)),
+            (ix + int(14 * s), iy - int(1 * s)),
         ]
-        pygame.draw.polygon(surf, (210, 225, 245), hl)
+        pygame.draw.polygon(surf, (215, 228, 248), hl)
 
-        # 상단 윙
-        wt = [(ix - int(2 * s), iy - int(8 * s)),
-              (ix - int(8 * s), iy - int(18 * s)),
-              (ix - int(14 * s), iy - int(16 * s)),
-              (ix - int(12 * s), iy - int(8 * s))]
-        pygame.draw.polygon(surf, (120, 140, 180), wt)
-        pygame.draw.polygon(surf, (150, 170, 210), wt, 1)
-        pygame.draw.circle(surf, (255, 50, 50),
-                           (ix - int(10 * s), iy - int(17 * s)),
+        # 선체 중앙 스트라이프 (패널 라인)
+        pygame.draw.line(surf, (140, 155, 180),
+                         (ix + int(22 * s), iy),
+                         (ix - int(12 * s), iy), 1)
+        # 패널 분할 세로선
+        for px_off in [-2, 5, 12]:
+            px = ix + int(px_off * s)
+            pygame.draw.line(surf, (150, 165, 190),
+                             (px, iy - int(4 * s)),
+                             (px, iy + int(4 * s)), 1)
+
+        # ===== 엔진 나셀 (좌측 엔진 하우징 — 3D 원통형) =====
+        nac_x = ix - int(10 * s)
+        nac_w = int(5 * s)
+        nac_h = int(14 * s)
+        # 어두운 면
+        pygame.draw.ellipse(surf, (80, 90, 120),
+                            (nac_x - nac_w, iy - nac_h // 2, nac_w * 2, nac_h))
+        # 하이라이트 (상단 절반)
+        pygame.draw.ellipse(surf, (120, 135, 170),
+                            (nac_x - nac_w, iy - nac_h // 2,
+                             nac_w * 2, nac_h // 2))
+        # 노즐 구멍 (3개)
+        for noff in [-3, 0, 3]:
+            pygame.draw.circle(surf, (30, 35, 55),
+                               (ix - int(13 * s), iy + int(noff * s)),
+                               max(1, int(2 * s)))
+            pygame.draw.circle(surf, (80, 100, 160),
+                               (ix - int(13 * s), iy + int(noff * s)),
+                               max(1, int(2 * s)), 1)
+
+        # ===== 상단 윙 (3D — 그림자/본체/하이라이트) =====
+        wt = [(ix - int(2 * s), iy - int(9 * s)),
+              (ix - int(9 * s), iy - int(20 * s)),
+              (ix - int(16 * s), iy - int(18 * s)),
+              (ix - int(13 * s), iy - int(9 * s))]
+        pygame.draw.polygon(surf, (100, 115, 155), wt)  # 기본 면
+        # 윙 상면 하이라이트
+        wt_hl = [(ix - int(2 * s), iy - int(9 * s)),
+                 (ix - int(9 * s), iy - int(20 * s)),
+                 (ix - int(7 * s), iy - int(19 * s)),
+                 (ix - int(2 * s), iy - int(10 * s))]
+        pygame.draw.polygon(surf, (150, 170, 210), wt_hl)
+        pygame.draw.polygon(surf, (130, 150, 195), wt, 1)
+        # 내비 라이트 (빨간) + 글로우
+        nav_x = ix - int(11 * s)
+        nav_y = iy - int(19 * s)
+        nav_gs = pygame.Surface((12, 12), pygame.SRCALPHA)
+        for gi in range(5, 0, -1):
+            pygame.draw.circle(nav_gs, (255, 50, 50, max(1, 40 - gi * 6)),
+                               (6, 6), gi)
+        surf.blit(nav_gs, (nav_x - 6, nav_y - 6))
+        pygame.draw.circle(surf, (255, 80, 80), (nav_x, nav_y),
                            max(1, int(2 * s)))
+        # 윙 끝 무기 포드
+        pygame.draw.line(surf, (90, 100, 130),
+                         (ix - int(15 * s), iy - int(17 * s)),
+                         (ix - int(18 * s), iy - int(17 * s)),
+                         max(1, int(2 * s)))
 
-        # 하단 윙
-        wb = [(ix - int(2 * s), iy + int(8 * s)),
-              (ix - int(8 * s), iy + int(18 * s)),
-              (ix - int(14 * s), iy + int(16 * s)),
-              (ix - int(12 * s), iy + int(8 * s))]
-        pygame.draw.polygon(surf, (120, 140, 180), wb)
-        pygame.draw.polygon(surf, (150, 170, 210), wb, 1)
-        pygame.draw.circle(surf, (50, 255, 50),
-                           (ix - int(10 * s), iy + int(17 * s)),
+        # ===== 하단 윙 (3D 미러) =====
+        wb = [(ix - int(2 * s), iy + int(9 * s)),
+              (ix - int(9 * s), iy + int(20 * s)),
+              (ix - int(16 * s), iy + int(18 * s)),
+              (ix - int(13 * s), iy + int(9 * s))]
+        pygame.draw.polygon(surf, (90, 105, 140), wb)  # 하단은 더 어둡게
+        # 윙 하면 엣지 라이트
+        wb_hl = [(ix - int(13 * s), iy + int(9 * s)),
+                 (ix - int(16 * s), iy + int(18 * s)),
+                 (ix - int(15 * s), iy + int(17 * s)),
+                 (ix - int(13 * s), iy + int(10 * s))]
+        pygame.draw.polygon(surf, (120, 135, 175), wb_hl)
+        pygame.draw.polygon(surf, (110, 130, 170), wb, 1)
+        # 내비 라이트 (초록) + 글로우
+        nav_x2 = ix - int(11 * s)
+        nav_y2 = iy + int(19 * s)
+        nav_gs2 = pygame.Surface((12, 12), pygame.SRCALPHA)
+        for gi in range(5, 0, -1):
+            pygame.draw.circle(nav_gs2, (50, 255, 50, max(1, 40 - gi * 6)),
+                               (6, 6), gi)
+        surf.blit(nav_gs2, (nav_x2 - 6, nav_y2 - 6))
+        pygame.draw.circle(surf, (80, 255, 80), (nav_x2, nav_y2),
                            max(1, int(2 * s)))
+        # 윙 끝 무기 포드
+        pygame.draw.line(surf, (90, 100, 130),
+                         (ix - int(15 * s), iy + int(17 * s)),
+                         (ix - int(18 * s), iy + int(17 * s)),
+                         max(1, int(2 * s)))
 
-        # 콕핏 캐노피
-        cp = [(ix + int(20 * s), iy),
-              (ix + int(12 * s), iy - int(3 * s)),
-              (ix + int(6 * s), iy - int(2 * s)),
-              (ix + int(6 * s), iy + int(2 * s)),
-              (ix + int(12 * s), iy + int(3 * s))]
-        pygame.draw.polygon(surf, (80, 180, 255), cp)
-        pygame.draw.line(surf, (160, 220, 255),
-                         (ix + int(18 * s), iy - int(1 * s)),
+        # ===== 콕핏 캐노피 (다층 유리 반사) =====
+        cp = [(ix + int(22 * s), iy),
+              (ix + int(14 * s), iy - int(4 * s)),
+              (ix + int(7 * s), iy - int(3 * s)),
+              (ix + int(7 * s), iy + int(3 * s)),
+              (ix + int(14 * s), iy + int(4 * s))]
+        # 어두운 유리 배경
+        pygame.draw.polygon(surf, (30, 80, 160), cp)
+        # 유리 하이라이트 (상부)
+        cp_hl = [(ix + int(21 * s), iy - int(1 * s)),
+                 (ix + int(14 * s), iy - int(3 * s)),
+                 (ix + int(8 * s), iy - int(2 * s)),
+                 (ix + int(14 * s), iy - int(1 * s))]
+        pygame.draw.polygon(surf, (100, 200, 255), cp_hl)
+        # 캐노피 프레임
+        pygame.draw.polygon(surf, (150, 180, 220), cp, 1)
+        # 유리 반사 라인 (대각선 빛줄기)
+        pygame.draw.line(surf, (180, 230, 255),
+                         (ix + int(19 * s), iy - int(1 * s)),
+                         (ix + int(12 * s), iy - int(3 * s)), 1)
+        pygame.draw.line(surf, (140, 200, 240),
+                         (ix + int(16 * s), iy),
                          (ix + int(10 * s), iy - int(2 * s)), 1)
+        # HUD 빛 (콕핏 내부에서 나오는 미약한 빛)
+        hud_gs = pygame.Surface((int(10 * s), int(6 * s)), pygame.SRCALPHA)
+        hud_gs.fill((50, 200, 255, 8))
+        surf.blit(hud_gs, (ix + int(8 * s), iy - int(3 * s)))
 
-        # 외곽선
-        pygame.draw.polygon(surf, (100, 120, 160), body, 1)
+        # ===== 안테나/센서 (기수 첨단) =====
+        pygame.draw.line(surf, (190, 205, 230),
+                         (ix + int(26 * s), iy),
+                         (ix + int(30 * s), iy), max(1, int(1 * s)))
+        # 안테나 끝 점
+        pygame.draw.circle(surf, (100, 200, 255),
+                           (ix + int(30 * s), iy), max(1, int(1 * s)))
 
-        # 실드 글로우 (SRCALPHA 서피스)
-        sr = int(22 * s)
-        sa = _clamp(15 + 10 * math.sin(self.time * 3))
-        ss = pygame.Surface((sr * 2 + 4, sr * 2 + 4), pygame.SRCALPHA)
-        pygame.draw.circle(ss, (80, 180, 255, sa),
-                           (sr + 2, sr + 2), sr, 1)
-        surf.blit(ss, (ix + int(5 * s) - sr - 2, iy - sr - 2))
+        # ===== 선체 외곽선 (주요 엣지) =====
+        pygame.draw.polygon(surf, (80, 95, 130), body, 1)
+
+        # ===== 러닝 라이트 (깜빡이는 표시등) =====
+        blink = math.sin(self.time * 4) > 0.0  # 점멸
+        if blink:
+            # 선수 백색 라이트
+            bw_gs = pygame.Surface((8, 8), pygame.SRCALPHA)
+            pygame.draw.circle(bw_gs, (255, 255, 255, 60), (4, 4), 3)
+            pygame.draw.circle(bw_gs, (255, 255, 255, 180), (4, 4), 1)
+            surf.blit(bw_gs, (ix + int(24 * s) - 4, iy - 4))
+            # 선미 호박색 라이트
+            ba_gs = pygame.Surface((8, 8), pygame.SRCALPHA)
+            pygame.draw.circle(ba_gs, (255, 180, 50, 50), (4, 4), 3)
+            pygame.draw.circle(ba_gs, (255, 200, 80, 150), (4, 4), 1)
+            surf.blit(ba_gs, (ix - int(12 * s) - 4, iy - 4))
+
+        # ===== 실드 글로우 (이중 타원 에너지 쉴드) =====
+        sr = int(28 * s)
+        sa = _clamp(12 + 10 * math.sin(self.time * 3))
+        ss = pygame.Surface((sr * 2 + 4, int(sr * 1.2) + 4), pygame.SRCALPHA)
+        sc_x, sc_y = sr + 2, int(sr * 0.6) + 2
+        # 외곽 쉴드
+        pygame.draw.ellipse(ss, (60, 150, 255, sa),
+                            (0, 0, sr * 2 + 4, int(sr * 1.2) + 4), 1)
+        # 내곽 쉴드
+        inner_a = max(1, sa // 2)
+        pygame.draw.ellipse(ss, (100, 200, 255, inner_a),
+                            (4, 2, sr * 2 - 4, int(sr * 1.2)), 1)
+        surf.blit(ss, (ix + int(3 * s) - sc_x, iy - sc_y))
+
+        # ===== 반사 하이라이트 (선체 위 빛 스펙) =====
+        if s > 0.5:
+            ref = pygame.Surface((int(20 * s), int(4 * s)), pygame.SRCALPHA)
+            ref.fill((255, 255, 255, 12))
+            surf.blit(ref, (ix + int(2 * s), iy - int(6 * s)))
 
         # 엔진 파티클 스폰
         if engine_power > 0.3:
