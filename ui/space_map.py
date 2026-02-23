@@ -2995,6 +2995,12 @@ class SpaceMap:
         _prev_phase_frame = None
         BLEND_FRAMES = 30  # 0.5초 크로스페이드
 
+        # ── 연속 줌 시스템 (Phase 5-7을 하나의 줌으로 통합) ──
+        _zoom_dur = DUR[5] + DUR[6] + DUR[7]   # 6.5초
+        _z5 = DUR[5] / _zoom_dur               # ~0.231
+        _z6 = (DUR[5] + DUR[6]) / _zoom_dur    # ~0.615
+        _zoom_surf_cache = {}                   # 표면 렌더 캐시
+
         while True:
             dt = self.clock.tick(FPS) / 1000.0
             self.time += dt
@@ -3251,230 +3257,181 @@ class SpaceMap:
                     phase = 5
                     frame = 0
 
-            # ════════════════ Phase 5: 도착 연출 ════════════════
-            elif phase == 5:
-                t = frame / FRAMES[5]
+            # ════════════════════════════════════════════════════
+            #  Phase 5-6-7: 연속 줌 시스템 (하나의 몰입 시퀀스)
+            #  _zoom: 0.0(도착) → 1.0(지표면+경기장) 단일 파라미터
+            # ════════════════════════════════════════════════════
+            elif phase in (5, 6, 7):
+                t = frame / FRAMES[phase]
 
-                self._draw_stars_layer(self.screen, self.stars_dust, 0.3)
-                self._draw_stars_layer(self.screen, self.stars_far)
-                self._draw_stars_layer(self.screen, self.stars_mid)
-                self._draw_nebulae(self.screen, 0.3)
+                # ─── 글로벌 줌 값 계산 (3페이즈 통합) ───
+                if phase == 5:
+                    _zoom = t * _z5                          # 0 → 0.231
+                elif phase == 6:
+                    _zoom = _z5 + t * (DUR[6] / _zoom_dur)  # 0.231 → 0.615
+                else:
+                    _zoom = _z6 + t * (DUR[7] / _zoom_dur)  # 0.615 → 1.0
+                ez = _ease_in_out(_zoom)
 
-                px_f = pend_x + (self.W * 0.5 - pend_x) * min(1.0, t * 2)
-                pr_f = pr_big + 12 * min(1.0, t * 2)
-                self._draw_dest_planet(self.screen, int(px_f), int(p_y),
-                                       int(pr_f), to_planet)
+                # ─── 배경색: 우주 → 행성 테마 컬러로 점진 전환 ───
+                tcol = tcfg.get("theme_color", (80, 100, 80))
+                bg_blend = min(1.0, ez * 2.5)
+                bg_r = int(2 * (1 - bg_blend) + tcol[0] * bg_blend * 0.25)
+                bg_g = int(2 * (1 - bg_blend) + tcol[1] * bg_blend * 0.25)
+                bg_b = int(8 * (1 - bg_blend) + tcol[2] * bg_blend * 0.25)
+                self.screen.fill((min(255, bg_r), min(255, bg_g), min(255, bg_b)))
 
-                # Phase 4 끝 우주선 위치(cruise_x - 30)에서 시작하여 연속성 유지
-                ship5_start = cruise_x - 30
-                sx_a = ship5_start + (px_f - 90 - ship5_start) * min(1.0, t * 2)
-                sc_5 = 0.8 + 0.1 * min(1.0, t * 2)  # 0.8 → 0.9
-                self._draw_ship(self.screen, sx_a, ship_yb, sc_5, 0.2)
-                self._draw_engine_particles(self.screen)
-
-                aa = _clamp(t * 3 * 255)
-                at = self.font_big.render(f"{tname} 도착!", True,
-                                          (255, 230, 150))
-                at.set_alpha(aa)
-                self.screen.blit(at, at.get_rect(
-                    center=(self.W // 2, self.H * 0.72)))
-
-                ts = self.font_big.render("은하계 항해", True, (200, 210, 240))
-                self.screen.blit(ts, ts.get_rect(center=(self.W // 2, 35)))
-
-                # 크로스페이드 오버레이
-                if _prev_phase_frame is not None and frame <= BLEND_FRAMES:
-                    _ba = int(255 * (1.0 - frame / BLEND_FRAMES) ** 1.5)
-                    if _ba > 3:
-                        _pf = _prev_phase_frame.copy()
-                        _pf.set_alpha(_ba)
-                        self.screen.blit(_pf, (0, 0))
-                    if frame >= BLEND_FRAMES:
-                        _prev_phase_frame = None
-
-                pygame.display.flip()
-                if frame >= FRAMES[5]:
-                    _prev_phase_frame = self.screen.copy()
-                    phase = 6
-                    frame = 0
-
-            # ════════════════ Phase 6: 행성 클로즈업 줌인 ════════════════
-            elif phase == 6:
-                t = frame / FRAMES[6]
-                et = _ease_in_out(t)
-
-                self.screen.fill((2, 2, 8))
-
-                # 별 빠르게 페이드아웃
-                star_a = max(0.0, 1.0 - t * 3.0)
+                # ─── 별/성운: 점진 페이드아웃 ───
+                star_a = max(0.0, 1.0 - ez * 3.0)
                 if star_a > 0.02:
                     self._draw_stars_layer(self.screen, self.stars_far, star_a * 0.5)
                     self._draw_stars_layer(self.screen, self.stars_mid, star_a)
+                neb_a = max(0.0, 0.3 * (1.0 - ez * 4.0))
+                if neb_a > 0.02:
+                    self._draw_nebulae(self.screen, neb_a)
 
-                # 성운 페이드아웃 (Phase 5에서 0.3으로 표시)
-                if t < 0.25:
-                    neb_fade = max(0.0, 0.3 * (1.0 - t * 4))
-                    self._draw_nebulae(self.screen, neb_fade)
-
-                # "은하계 항해" 제목 페이드아웃
-                if t < 0.2:
-                    _title_a = int(255 * (1.0 - t * 5))
-                    _ts = self.font_big.render("은하계 항해", True,
-                                               (200, 210, 240))
-                    _ts.set_alpha(_title_a)
-                    self.screen.blit(_ts, _ts.get_rect(
-                        center=(self.W // 2, 35)))
-
-                # "도착!" 텍스트 페이드아웃
-                if t < 0.15:
-                    _da = int(255 * (1.0 - t / 0.15))
-                    _dt = self.font_big.render(f"{tname} 도착!", True,
-                                               (255, 230, 150))
-                    _dt.set_alpha(_da)
-                    self.screen.blit(_dt, _dt.get_rect(
-                        center=(self.W // 2, self.H * 0.72)))
-
-                # 대기권 진입 셰이크
-                shake_amt = max(0, 4 * (1.0 - et))
+                # ─── 대기권 진동 셰이크 (중반부) ───
+                shake_zone = max(0.0, min(1.0, (ez - 0.15) * 5)) * \
+                             max(0.0, 1.0 - max(0.0, (ez - 0.45)) * 4)
+                shake_amt = 5.0 * shake_zone
                 shx = int(shake_amt * math.sin(self.time * 18))
                 shy = int(shake_amt * math.cos(self.time * 22))
 
-                if et < 0.35:
-                    # 구체 행성이 점점 커짐 — 반경 캡(300px)으로 프레임 드랍 방지
-                    grow_t = et / 0.35
-                    raw_r = int(pr_big + 12 + (self.W * 1.2 - pr_big) * grow_t)
-                    planet_r = min(raw_r, 300)
-                    sphere_a = max(0, int(255 * (1.0 - (et - 0.15) * 5)))
+                # ─── 행성 구체 (계속 확대 → 화면 밖으로) ───
+                # 행성 위치: pend_x → 중앙으로 이동
+                planet_cx = pend_x + (self.W * 0.5 - pend_x) * min(1.0, ez * 4)
+                planet_cy = p_y + (self.H * 0.5 - p_y) * min(1.0, ez * 4)
+                # 반경: pr_big → 화면 초과 (연속 확대)
+                planet_r = int(pr_big + (self.W * 1.8 - pr_big) * ez)
+                # 구체 알파: ez 0.5 넘으면 페이드아웃
+                sphere_a = max(0, int(255 * max(0.0, 1.0 - max(0.0, ez - 0.35) / 0.25)))
+                if sphere_a > 5 and planet_r > 10:
+                    # 성능: 반경 캡 300px, 초과분은 배경색 채움
+                    capped_r = min(planet_r, 300)
                     self._draw_dest_planet(
-                        self.screen, self.W // 2 + shx, self.H // 2 + shy,
-                        planet_r, to_planet, max(10, sphere_a))
+                        self.screen, int(planet_cx) + shx,
+                        int(planet_cy) + shy,
+                        capped_r, to_planet, sphere_a)
+                    if planet_r > 300:
+                        fill_a = min(sphere_a, int(255 * (planet_r - 300) / 500))
+                        fs = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+                        fs.fill((*tcol, fill_a))
+                        self.screen.blit(fs, (0, 0))
 
-                    # 반경 초과분은 행성 테마 컬러 배경으로 채움
-                    if raw_r > 300:
-                        fill_a = min(255, int(255 * ((raw_r - 300) / 600)))
-                        tcol = tcfg.get("theme_color", (80, 100, 80))
-                        fill_s = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
-                        fill_s.fill((*tcol, fill_a))
-                        self.screen.blit(fill_s, (0, 0))
-
-                # 표면 뷰 페이드인 (et 0.25부터) — 캐시 사용
-                if et > 0.25:
-                    surf_t = min(1.0, (et - 0.25) / 0.6)
+                # ─── 표면 뷰 (ez > 0.2에서 페이드인, 구체 위에 오버레이) ───
+                if ez > 0.2:
+                    surf_t = min(1.0, (ez - 0.2) / 0.4)  # 0.2→0.6: 0→1
                     surf_a = min(255, int(255 * surf_t))
-                    # 5단계 캐시로 매 프레임 재렌더 방지
-                    cache_key = int(surf_t * 4)  # 0,1,2,3,4
-                    if not hasattr(self, '_p6_surf_cache'):
-                        self._p6_surf_cache = {}
-                    if cache_key not in self._p6_surf_cache:
+                    surf_detail = 0.1 + min(1.0, (ez - 0.2) / 0.8) * 0.9
+                    # 캐시: 6단계
+                    cache_key = int(surf_detail * 5)
+                    if cache_key not in _zoom_surf_cache:
                         _cs = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
-                        surface_detail = 0.1 + surf_t * 0.4
-                        self._draw_planet_surface(_cs, to_planet, surface_detail)
-                        self._p6_surf_cache[cache_key] = _cs
-                    cached = self._p6_surf_cache[cache_key]
-                    cached.set_alpha(surf_a)
-                    self.screen.blit(cached, (shx, shy))
+                        self._draw_planet_surface(_cs, to_planet, surf_detail)
+                        _zoom_surf_cache[cache_key] = _cs
+                    cached_surf = _zoom_surf_cache[cache_key]
 
-                # "대기권 진입" 텍스트
-                if 0.05 < t < 0.7:
-                    txt_a = _clamp(int(255 * min(1.0, t * 5) *
-                                       max(0, 1.0 - (t - 0.4) * 4)))
-                    if txt_a > 5:
-                        ent = self.font_big.render("대기권 진입", True,
-                                                   (255, 200, 100))
-                        ent.set_alpha(txt_a)
-                        self.screen.blit(ent, ent.get_rect(
-                            center=(self.W // 2, self.H * 0.25)))
+                    # 카메라 줌 (후반부: ez > 0.5)
+                    cam_zoom = 1.0 + max(0.0, (ez - 0.5) / 0.5) * 0.4
+                    cam_dy = int(max(0.0, (ez - 0.5) / 0.5) * 40)
 
-                # 크로스페이드 오버레이
-                if _prev_phase_frame is not None and frame <= BLEND_FRAMES:
-                    _ba = int(255 * (1.0 - frame / BLEND_FRAMES) ** 1.5)
-                    if _ba > 3:
-                        _pf = _prev_phase_frame.copy()
-                        _pf.set_alpha(_ba)
-                        self.screen.blit(_pf, (0, 0))
-                    if frame >= BLEND_FRAMES:
-                        _prev_phase_frame = None
+                    if cam_zoom > 1.01:
+                        zw = int(self.W * cam_zoom)
+                        zh = int(self.H * cam_zoom)
+                        zoomed = pygame.transform.scale(cached_surf, (zw, zh))
+                        ox = (zw - self.W) // 2
+                        oy = (zh - self.H) // 2 + cam_dy
+                        zoomed.set_alpha(surf_a)
+                        self.screen.blit(zoomed, (-ox + shx, -oy + shy))
+                    else:
+                        cached_surf.set_alpha(surf_a)
+                        self.screen.blit(cached_surf, (shx, shy))
 
-                pygame.display.flip()
-                if frame >= FRAMES[6]:
-                    # Phase 6 캐시 정리
-                    if hasattr(self, '_p6_surf_cache'):
-                        self._p6_surf_cache.clear()
-                    _prev_phase_frame = self.screen.copy()
-                    phase = 7
-                    frame = 0
+                # ─── 경기장 (ez > 0.55에서 등장, 줌과 함께 확대) ───
+                if ez > 0.55:
+                    arena_t = (ez - 0.55) / 0.45   # 0→1
+                    arena_a = min(255, int(255 * min(1.0, arena_t * 2.5)))
+                    arena_base_scale = 0.25 + _ease_in_out(arena_t) * 0.75
+                    cam_zoom_a = 1.0 + max(0.0, (ez - 0.5) / 0.5) * 0.4
+                    arena_scale = arena_base_scale * cam_zoom_a
+                    cam_dy_a = int(max(0.0, (ez - 0.5) / 0.5) * 40)
+                    arena_cy = self.H // 2 + int(20 * (1 - arena_t)) - cam_dy_a // 2
+                    if arena_a > 5:
+                        arena_surf = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+                        self._draw_landing_arena(
+                            arena_surf, self.W // 2, arena_cy,
+                            arena_scale, to_planet)
+                        arena_surf.set_alpha(arena_a)
+                        self.screen.blit(arena_surf, (0, 0))
 
-            # ════════════════ Phase 7: 지표면 접근 + 경기장 등장 ════════════════
-            elif phase == 7:
-                t = frame / FRAMES[7]
-                et = _ease_in_out(t)
+                    # 도킹 기지 (ez > 0.8)
+                    if ez > 0.8:
+                        dock_t = (ez - 0.8) / 0.2
+                        dock_a = min(255, int(255 * dock_t * 2))
+                        if dock_a > 5:
+                            dock_surf = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+                            self._draw_docking_base(
+                                dock_surf,
+                                self.W // 2 + int(80 * arena_scale),
+                                arena_cy + int(10 * arena_scale),
+                                arena_scale * 0.8, 0.0)
+                            dock_surf.set_alpha(dock_a)
+                            self.screen.blit(dock_surf, (0, 0))
 
-                self.screen.fill((2, 2, 8))
+                # ─── 우주선 (줌 초반에만 표시, 점진 페이드아웃) ───
+                ship_vis = max(0.0, 1.0 - max(0.0, ez - 0.1) * 3.3)
+                if ship_vis > 0.03:
+                    # 우주선 위치: 행성 왼쪽에서 행성 근처로
+                    ship5_start = cruise_x - 30
+                    sx_a = ship5_start + (planet_cx - 90 - ship5_start) * \
+                           min(1.0, ez * 4)
+                    sc_s = 0.8 + 0.1 * min(1.0, ez * 4)
+                    if ship_vis < 1.0:
+                        _ss = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+                        self._draw_ship(_ss, sx_a, ship_yb, sc_s,
+                                        max(0.05, 0.2 * ship_vis))
+                        _ss.set_alpha(int(255 * ship_vis))
+                        self.screen.blit(_ss, (0, 0))
+                    else:
+                        self._draw_ship(self.screen, sx_a, ship_yb, sc_s, 0.2)
+                    self._draw_engine_particles(self.screen)
 
-                # ─── 카메라 줌 파라미터 (지면에 접근하면서 확대) ───
-                cam_zoom = 1.0 + et * 0.4   # 1.0 → 1.4 (40% 줌인)
-                cam_dy = int(et * 40)        # 카메라 아래로 패닝
-
-                # 표면 뷰 — 캐시 사용 (3단계)
-                surf_cache_key = int(et * 2)  # 0, 1, 2
-                if not hasattr(self, '_p7_surf_cache'):
-                    self._p7_surf_cache = {}
-                if surf_cache_key not in self._p7_surf_cache:
-                    _s7 = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
-                    surface_detail = 0.5 + et * 0.5
-                    self._draw_planet_surface(_s7, to_planet, surface_detail)
-                    self._p7_surf_cache[surf_cache_key] = _s7
-                base_surface = self._p7_surf_cache[surf_cache_key]
-
-                # 카메라 줌 적용: scale + 오프셋
-                if cam_zoom > 1.01:
-                    zw = int(self.W * cam_zoom)
-                    zh = int(self.H * cam_zoom)
-                    zoomed = pygame.transform.scale(base_surface, (zw, zh))
-                    # 중앙 정렬 + 아래로 패닝
-                    ox = (zw - self.W) // 2
-                    oy = (zh - self.H) // 2 + cam_dy
-                    self.screen.blit(zoomed, (-ox, -oy))
-                else:
-                    self.screen.blit(base_surface, (0, 0))
-
-                # ─── 경기장: 카메라 줌에 맞춰 함께 커짐 ───
-                arena_a = min(255, int(255 * min(1.0, t * 2.5)))
-                # 경기장 자체 스케일 × 카메라 줌 → 지면 접근과 함께 자연스럽게 확대
-                arena_base_scale = 0.3 + et * 0.7   # 0.3 → 1.0
-                arena_scale = arena_base_scale * cam_zoom
-                # 경기장 Y: 줌과 함께 살짝 아래로
-                arena_cy = self.H // 2 + int(20 * (1 - et)) - cam_dy // 2
-                if arena_a > 5:
-                    arena_surf = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
-                    self._draw_landing_arena(
-                        arena_surf, self.W // 2, arena_cy,
-                        arena_scale, to_planet)
-                    arena_surf.set_alpha(arena_a)
-                    self.screen.blit(arena_surf, (0, 0))
-
-                # 도킹 기지 등장 (후반부)
-                if t > 0.5:
-                    dock_t = (t - 0.5) / 0.5
-                    dock_a = min(255, int(255 * dock_t * 2))
-                    dock_surf = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
-                    self._draw_docking_base(
-                        dock_surf,
-                        self.W // 2 + int(80 * arena_scale),
-                        arena_cy + int(10 * arena_scale),
-                        arena_scale * 0.8, 0.0)
-                    dock_surf.set_alpha(dock_a)
-                    self.screen.blit(dock_surf, (0, 0))
-
-                # 행성 이름
-                name_a = min(255, int(255 * min(1.0, t * 3)))
+                # ─── UI 텍스트 (줌 진행에 따라 전환) ───
+                # "은하계 항해" (초반)
+                title_a = max(0, int(255 * (1.0 - ez * 4)))
+                if title_a > 5:
+                    _ts = self.font_big.render("은하계 항해", True,
+                                               (200, 210, 240))
+                    _ts.set_alpha(title_a)
+                    self.screen.blit(_ts, _ts.get_rect(
+                        center=(self.W // 2, 35)))
+                # "도착!" (줌 0.05~0.25)
+                arrive_a = max(0, int(255 * min(1.0, ez * 8) *
+                                     max(0.0, 1.0 - max(0.0, ez - 0.15) * 8)))
+                if arrive_a > 5:
+                    _at = self.font_big.render(f"{tname} 도착!", True,
+                                               (255, 230, 150))
+                    _at.set_alpha(arrive_a)
+                    self.screen.blit(_at, _at.get_rect(
+                        center=(self.W // 2, self.H * 0.72)))
+                # "대기권 진입" (줌 0.15~0.45)
+                atmo_a = max(0, int(255 * min(1.0, max(0.0, ez - 0.12) * 6) *
+                                   max(0.0, 1.0 - max(0.0, ez - 0.35) * 6)))
+                if atmo_a > 5:
+                    _et = self.font_big.render("대기권 진입", True,
+                                               (255, 200, 100))
+                    _et.set_alpha(atmo_a)
+                    self.screen.blit(_et, _et.get_rect(
+                        center=(self.W // 2, self.H * 0.25)))
+                # 행성 이름 (줌 0.6~)
+                name_a = max(0, min(255, int(255 * max(0.0, ez - 0.55) * 4)))
                 if name_a > 5:
-                    ns = self.font_big.render(tname, True, (255, 230, 150))
-                    ns.set_alpha(name_a)
-                    self.screen.blit(ns, ns.get_rect(
+                    _ns = self.font_big.render(tname, True, (255, 230, 150))
+                    _ns.set_alpha(name_a)
+                    self.screen.blit(_ns, _ns.get_rect(
                         center=(self.W // 2, int(self.H * 0.12))))
 
-                # 크로스페이드 오버레이
+                # ─── 크로스페이드 오버레이 (Phase 4→5 전환용) ───
                 if _prev_phase_frame is not None and frame <= BLEND_FRAMES:
                     _ba = int(255 * (1.0 - frame / BLEND_FRAMES) ** 1.5)
                     if _ba > 3:
@@ -3485,14 +3442,13 @@ class SpaceMap:
                         _prev_phase_frame = None
 
                 pygame.display.flip()
-                if frame >= FRAMES[7]:
-                    # 지표면 배경을 캐싱 (Phase 8에서 정적 배경으로 재사용)
-                    self._landing_bg = self.screen.copy()
-                    # Phase 7 캐시 정리
-                    if hasattr(self, '_p7_surf_cache'):
-                        self._p7_surf_cache.clear()
+                if frame >= FRAMES[phase]:
+                    if phase == 7:
+                        # Phase 7 끝: 착륙 배경 캐시, 표면 캐시 정리
+                        self._landing_bg = self.screen.copy()
+                        _zoom_surf_cache.clear()
                     _prev_phase_frame = self.screen.copy()
-                    phase = 8
+                    phase += 1
                     frame = 0
 
             # ════════════════ Phase 8: 우주선 수직 하강 + 도킹 ════════════════
