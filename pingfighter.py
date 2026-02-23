@@ -2003,24 +2003,13 @@ def _adapt_input_events(events):
 def _patched_event_get(*args, **kwargs):
     events = _orig_pygame_event_get(*args, **kwargs)
     _apply_global_hotkeys(events)
+    _update_move_event_flags(events)
     if INPUT_TRACE:
         for ev in events:
             if ev.type in (pygame.KEYDOWN, pygame.KEYUP):
                 ev_sc = getattr(ev, "scancode", None)
                 ev_uni = getattr(ev, "unicode", "")
                 ev_mod = getattr(ev, "mod", 0)
-                # 이동키 상태를 이벤트/스캔코드/유니코드 기반으로 갱신 (IME/레이아웃 불문)
-                try:
-                    if is_move_left_event(ev):
-                        globals()["MOVE_EVENT_LEFT"] = ev.type == pygame.KEYDOWN
-                    elif is_move_right_event(ev):
-                        globals()["MOVE_EVENT_RIGHT"] = ev.type == pygame.KEYDOWN
-                    elif is_move_down_event(ev):
-                        globals()["MOVE_EVENT_DOWN"] = ev.type == pygame.KEYDOWN
-                    elif is_move_up_event(ev):
-                        globals()["MOVE_EVENT_UP"] = ev.type == pygame.KEYDOWN
-                except Exception:
-                    pass
                 print(
                     "[INPUT_TRACE][EVENT]"
                     f" type={'DOWN' if ev.type == pygame.KEYDOWN else 'UP'}"
@@ -2028,15 +2017,37 @@ def _patched_event_get(*args, **kwargs):
                     f" focus={pygame.key.get_focused()}"
                 )
             elif ev.type in (pygame.ACTIVEEVENT, pygame.WINDOWFOCUSGAINED, pygame.WINDOWFOCUSLOST):
-                globals()["MOVE_EVENT_LEFT"] = False
-                globals()["MOVE_EVENT_RIGHT"] = False
-                globals()["MOVE_EVENT_DOWN"] = False
-                globals()["MOVE_EVENT_UP"] = False
                 print(f"[INPUT_TRACE][FOCUS] type={ev.type} gain={getattr(ev,'gain',None)} state={getattr(ev,'state',None)} focus={pygame.key.get_focused()}")
     return events
+def _update_move_event_flags(events):
+    """MOVE_EVENT_* 플래그를 이벤트에서 항상 업데이트.
+    방향키(← → ↓ ↑) + 대쉬 조합이 안 먹히는 문제 해결:
+    폴링(get_pressed)만으로는 pump() 타이밍 차이로 키 상태가 누락될 수 있어
+    이벤트 기반 플래그를 항상 유지해 대쉬 로직의 보조 입력으로 활용한다."""
+    for ev in events:
+        if ev.type in (pygame.KEYDOWN, pygame.KEYUP):
+            try:
+                if is_move_left_event(ev):
+                    globals()["MOVE_EVENT_LEFT"] = ev.type == pygame.KEYDOWN
+                elif is_move_right_event(ev):
+                    globals()["MOVE_EVENT_RIGHT"] = ev.type == pygame.KEYDOWN
+                elif is_move_down_event(ev):
+                    globals()["MOVE_EVENT_DOWN"] = ev.type == pygame.KEYDOWN
+                elif is_move_up_event(ev):
+                    globals()["MOVE_EVENT_UP"] = ev.type == pygame.KEYDOWN
+            except Exception:
+                pass
+        elif ev.type in (pygame.ACTIVEEVENT, pygame.WINDOWFOCUSGAINED, pygame.WINDOWFOCUSLOST):
+            globals()["MOVE_EVENT_LEFT"] = False
+            globals()["MOVE_EVENT_RIGHT"] = False
+            globals()["MOVE_EVENT_DOWN"] = False
+            globals()["MOVE_EVENT_UP"] = False
+
 def _event_get_with_hotkeys(*args, **kwargs):
     events = _orig_pygame_event_get(*args, **kwargs)
-    return _apply_global_hotkeys(events)
+    _apply_global_hotkeys(events)
+    _update_move_event_flags(events)
+    return events
 
 # 입력 후킹 설정: 기본적으로 핫키 래퍼를 적용하고, INPUT_TRACE 시 추적 래퍼 사용
 pygame.event.get = _patched_event_get if INPUT_TRACE else _event_get_with_hotkeys
@@ -64174,7 +64185,8 @@ def handle_player(keys):
     _fresh_keys_init = pygame.key.get_pressed()
     _init_down = _fresh_keys_init[pygame.K_DOWN] if pygame.K_DOWN < len(_fresh_keys_init) else False
     _init_s = _fresh_keys_init[pygame.K_s] if pygame.K_s < len(_fresh_keys_init) else False
-    down_pressed_raw = _init_down or _init_s
+    # 🔧 MOVE_EVENT_DOWN도 병합: 방향키 ↓가 이벤트로는 감지되었으나 get_pressed()에서 누락되는 경우 보완
+    down_pressed_raw = _init_down or _init_s or bool(MOVE_EVENT_DOWN)
     up_pressed_raw = is_move_up_pressed(keys)
     # 마우스 클릭을 스페이스/다운 상태로 항상 병합해 검출 (패키징 기본 스킴에서도 동작)
     # 단, 필러 영역 위에서는 마우스 좌클릭을 무시
@@ -64375,7 +64387,7 @@ def handle_player(keys):
         _final_mouse_right = bool(pygame.mouse.get_pressed()[2])
     except Exception:
         pass
-    if down_pressed_raw and not _final_down and not _final_s and not _final_mouse_right:
+    if down_pressed_raw and not _final_down and not _final_s and not _final_mouse_right and not MOVE_EVENT_DOWN:
         down_pressed_raw = False
     down_pressed = down_pressed_raw
     # 🔧 버그 수정: 키 릴리즈 감지 시 연속 대시 허용 플래그 설정
