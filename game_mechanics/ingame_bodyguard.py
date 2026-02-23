@@ -390,6 +390,19 @@ class InGameBodyguard:
 
     def reset(self):
         """호위무사 시스템 리셋"""
+        # 🔫 개틀링 버스트 변신 상태 초기화 (퇴장 시)
+        if self._hero_paddle_renderer and self.hero_data and self.hero_data.get('id') == 'android':
+            try:
+                state = self._hero_paddle_renderer._get_state('android')
+                state['gatling_firing'] = False
+                state['gatling_recoil'] = 0
+                state['gatling_mounting'] = False
+                state['gatling_mount_progress'] = 0.0
+                state['gatling_dismounting'] = False
+                state['gatling_dismount_progress'] = 0.0
+                state['gatling_aim_angle'] = None
+            except Exception:
+                pass
         if self._guard_system:
             self._guard_system.reset()
         self.hero_data = None
@@ -495,6 +508,20 @@ class InGameBodyguard:
         # hero_paddle_renderer.update(dt) 호출 (self.time 증가 → 촉수/날개 등 절차적 애니메이션)
         if self._hero_paddle_renderer:
             self._hero_paddle_renderer.update(dt)
+
+        # 🔫 개틀링 버스트 견착/발사 시 영웅 패들 변신 상태 동기화
+        if self._hero_paddle_renderer:
+            hero_positions = gs.get('hero_positions', {})
+            for hero_id, is_top in hero_positions.items():
+                if hero_id == 'android':
+                    side = 'top' if is_top else 'bottom'
+                    state = self._hero_paddle_renderer._get_state(hero_id)
+                    state['gatling_firing'] = gs.get(f'gatling_burst_active_{side}', False)
+                    state['gatling_recoil'] = gs.get(f'gatling_recoil_{side}', 0)
+                    state['gatling_mounting'] = gs.get(f'gatling_mounting_{side}', False)
+                    state['gatling_mount_progress'] = gs.get(f'gatling_mount_progress_{side}', 0.0)
+                    state['gatling_dismounting'] = gs.get(f'gatling_dismounting_{side}', False)
+                    state['gatling_dismount_progress'] = gs.get(f'gatling_dismount_progress_{side}', 0.0)
 
         try:
             self._guard_system.update(dt, top_paddle, bottom_paddle, ball)
