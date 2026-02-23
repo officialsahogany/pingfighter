@@ -327,8 +327,14 @@ class BodyguardFollower:
         renderer = self._get_renderer()
         if renderer:
             renderer.update(dt)
-            # update_movement는 X 위치 변화로 좌우 이동/side_blend 계산
             renderer.update_movement(self.hero_id, self.x, dt)
+
+            # idle 동작: 렌더러 상태 직접 오버라이드
+            if self.idle_action_active:
+                if self.idle_action_type == "look_around":
+                    self._apply_idle_look_to_renderer(renderer)
+                elif self.idle_action_type == "fidget":
+                    self._apply_idle_fidget_to_renderer(renderer)
 
     # ------------------------------------------------------------------
     # Idle 동작
@@ -366,20 +372,49 @@ class BodyguardFollower:
             # 제자리 안절부절
             self.idle_action_duration = random.uniform(1.5, 3.0)
 
-    def _get_idle_direction(self):
-        """idle 동작 중 방향 반환. None이면 기본 방향 사용."""
-        if not self.idle_action_active:
-            return None
-        if self.idle_action_type == "look_around":
-            # 주기적으로 좌↔우 전환
-            phase = self.idle_action_timer / max(self.idle_action_duration, 0.1)
-            if phase < 0.3:
-                return self.idle_look_direction
-            elif phase < 0.6:
-                return 3 - self.idle_look_direction  # 1↔2 (좌↔우)
-            else:
-                return self.idle_look_direction
-        return None
+    def _apply_idle_look_to_renderer(self, renderer):
+        """idle look_around 중 렌더러의 side_blend/move_dir 직접 설정."""
+        if self.hero_id not in renderer.hero_states:
+            return
+        state = renderer.hero_states[self.hero_id]
+        phase = self.idle_action_timer / max(self.idle_action_duration, 0.1)
+
+        # 좌↔우 전환 (부드러운 보간)
+        if phase < 0.25:
+            # 정면 → 한쪽으로
+            blend = min(1.0, phase / 0.25)
+            target_dir = -1.0 if self.idle_look_direction == 1 else 1.0
+        elif phase < 0.5:
+            # 한쪽 유지
+            blend = 1.0
+            target_dir = -1.0 if self.idle_look_direction == 1 else 1.0
+        elif phase < 0.75:
+            # 반대쪽으로 전환
+            sub = (phase - 0.5) / 0.25
+            blend = 1.0
+            dir1 = -1.0 if self.idle_look_direction == 1 else 1.0
+            dir2 = -dir1
+            target_dir = dir1 + (dir2 - dir1) * sub
+        else:
+            # 반대쪽 → 정면으로 돌아오기
+            blend = max(0.0, 1.0 - (phase - 0.75) / 0.25)
+            target_dir = 1.0 if self.idle_look_direction == 1 else -1.0
+
+        state["side_blend"] = state["side_blend"] * 0.7 + (0.75 * blend) * 0.3
+        state["move_dir"] = state["move_dir"] * 0.7 + target_dir * 0.3
+        # 약간의 머리 기울임
+        state["head_tilt"] = math.sin(self.idle_action_timer * 2.0) * 0.4 * blend
+
+    def _apply_idle_fidget_to_renderer(self, renderer):
+        """idle fidget 중 렌더러의 body_bob/arm_swing 설정."""
+        if self.hero_id not in renderer.hero_states:
+            return
+        state = renderer.hero_states[self.hero_id]
+        t = self.idle_action_timer
+        # 몸 들썩임 + 팔 미세 흔들림
+        state["body_bob"] = math.sin(t * 5) * 0.5
+        state["arm_swing"] = math.sin(t * 3.7) * 0.3
+        state["head_tilt"] = math.sin(t * 2.5) * 0.35
 
     def _get_direction_offset(self, player_direction: int):
         """플레이어 방향 기준 뒤쪽 오프셋 계산."""
@@ -478,15 +513,17 @@ class BodyguardFollower:
         else:  # 아래/좌/우 = 정면 (좌우는 side_blend로 처리)
             facing = "down"
 
-        # idle fidget: 미세한 상하 바운스
+        # idle fidget: 상하 바운스 + 좌우 흔들림
+        x_offset = 0
         y_offset = 0
         if self.idle_action_active and self.idle_action_type == "fidget":
-            y_offset = math.sin(self.idle_action_timer * 6) * 2
+            y_offset = math.sin(self.idle_action_timer * 5) * 3
+            x_offset = math.sin(self.idle_action_timer * 3.3) * 2
 
         renderer.draw_hero_paddle(
             screen,
             self.hero_id,
-            x, y + y_offset,
+            x + x_offset, y + y_offset,
             self.render_width,
             self.render_height,
             facing=facing,
