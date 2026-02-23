@@ -94798,8 +94798,8 @@ def draw_objects():
 
         _flame_cx = boss_rect.centerx + _boss_dash_stun_shake_x
         _flame_cy = boss_rect.centery + bob_offset + _boss_dash_stun_shake_y + boss_offset_y
-        _flame_orbit_rx = 42
-        _flame_orbit_ry = 24
+        _flame_orbit_rx = 52
+        _flame_orbit_ry = 30
         _flame_now = pygame.time.get_ticks()
 
         # --- 도깨비불 3개 그리기 ---
