@@ -4286,9 +4286,14 @@ class SpaceMap:
             surface_detail = min(1.0, et * 1.3)
             # 카메라 줌: 1.0(먼 곳) → 2.8(지표 클로즈업)
             cam_zoom = 1.0 + et * 1.8
-            # 경기장 스케일: 0(안 보임) → 1.0(풀사이즈)
-            arena_appear = max(0.0, (et - 0.15) / 0.85)  # 15% 지점부터 등장
-            arena_scale = arena_appear * 1.0
+            # 경기장 스케일
+            if ingame_frame is not None:
+                # 인게임 프레임: 처음부터 작게 보이고 점점 커짐 (0.12 → 1.0)
+                arena_scale = 0.12 + 0.88 * et
+            else:
+                # 커스텀 경기장: 15% 지점부터 등장
+                arena_appear = max(0.0, (et - 0.15) / 0.85)
+                arena_scale = arena_appear * 1.0
 
             # ── 표면 렌더 (캐시 — 10단계) ──
             cache_key = int(surface_detail * 10)
