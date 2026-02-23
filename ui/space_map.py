@@ -4253,12 +4253,20 @@ class SpaceMap:
     # ══════════════════════════════════════════════
     #  메인 공개 API
     # ══════════════════════════════════════════════
-    def show_landing_scene(self, to_planet, duration=2.0):
-        """행성 착륙 완료 장면만 표시 (지형 + 경기장, 페이드인).
-        duration: 표시 시간(초)."""
+    def show_landing_scene(self, to_planet, duration=3.5):
+        """하늘에서 하강하며 지형이 드러나고 경기장이 커지는 착륙 장면.
+        duration: 전체 시간(초)."""
         clock = pygame.time.Clock()
         total_frames = int(duration * 60)
-        FADE_IN = 30  # 0.5초 페이드인
+        FADE_IN = 20   # 초반 페이드인
+        FADE_OUT = 25  # 끝 페이드아웃
+
+        # 줌 캐시 (표면은 t값이 바뀔 때만 재렌더)
+        _surf_cache_key = -1
+        _surf_cached = None
+
+        def _ease_out(x):
+            return 1.0 - (1.0 - x) ** 2.5
 
         for frame in range(total_frames):
             for ev in pygame.event.get():
@@ -4268,18 +4276,57 @@ class SpaceMap:
                     if ev.key in (pygame.K_ESCAPE, pygame.K_SPACE, pygame.K_RETURN):
                         return
 
-            # 표면 렌더
-            surf = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
-            self._draw_planet_surface(surf, to_planet, 1.0)  # t=1.0 (지표면)
-            self.screen.blit(surf, (0, 0))
+            t = frame / total_frames       # 0 → 1
+            et = _ease_out(t)              # ease-out (처음 빠르고 끝에 느리게)
 
-            # 경기장
-            arena_surf = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
-            self._draw_landing_arena(arena_surf, self.W // 2, self.H // 2,
-                                     1.0, to_planet)
-            self.screen.blit(arena_surf, (0, 0))
+            # ── 하강 파라미터 ──
+            # surface_detail: 0(고공/구름) → 1(지표면)
+            surface_detail = min(1.0, et * 1.3)
+            # 카메라 줌: 1.0(먼 곳) → 2.8(지표 클로즈업)
+            cam_zoom = 1.0 + et * 1.8
+            # 경기장 스케일: 0(안 보임) → 1.0(풀사이즈)
+            arena_appear = max(0.0, (et - 0.15) / 0.85)  # 15% 지점부터 등장
+            arena_scale = arena_appear * 1.0
 
-            # 페이드인
+            # ── 표면 렌더 (캐시 — 10단계) ──
+            cache_key = int(surface_detail * 10)
+            if cache_key != _surf_cache_key:
+                _surf_cached = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+                self._draw_planet_surface(_surf_cached, to_planet, surface_detail)
+                _surf_cache_key = cache_key
+
+            # ── 줌 적용: 표면을 확대해서 중앙 크롭 ──
+            if cam_zoom > 1.01:
+                zw = int(self.W / cam_zoom)
+                zh = int(self.H / cam_zoom)
+                crop_x = (self.W - zw) // 2
+                crop_y = (self.H - zh) // 2
+                cropped = _surf_cached.subsurface((crop_x, crop_y, zw, zh))
+                scaled = pygame.transform.scale(cropped, (self.W, self.H))
+                self.screen.blit(scaled, (0, 0))
+            else:
+                self.screen.blit(_surf_cached, (0, 0))
+
+            # ── 경기장 (점점 커지며 등장) ──
+            if arena_scale > 0.05:
+                arena_surf = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+                self._draw_landing_arena(arena_surf, self.W // 2, self.H // 2,
+                                         arena_scale, to_planet)
+                # 줌 적용
+                if cam_zoom > 1.01:
+                    zw_a = int(self.W / cam_zoom)
+                    zh_a = int(self.H / cam_zoom)
+                    crop_x_a = (self.W - zw_a) // 2
+                    crop_y_a = (self.H - zh_a) // 2
+                    cropped_a = arena_surf.subsurface(
+                        (crop_x_a, crop_y_a, zw_a, zh_a))
+                    scaled_a = pygame.transform.scale(cropped_a,
+                                                      (self.W, self.H))
+                    self.screen.blit(scaled_a, (0, 0))
+                else:
+                    self.screen.blit(arena_surf, (0, 0))
+
+            # ── 페이드인 (검은 화면에서) ──
             if frame < FADE_IN:
                 fade_a = int(255 * (1.0 - frame / FADE_IN))
                 fade_s = pygame.Surface((self.W, self.H))
@@ -4287,9 +4334,9 @@ class SpaceMap:
                 fade_s.set_alpha(fade_a)
                 self.screen.blit(fade_s, (0, 0))
 
-            # 페이드아웃 (마지막 30프레임)
-            if frame > total_frames - FADE_IN:
-                fade_a = int(255 * (frame - (total_frames - FADE_IN)) / FADE_IN)
+            # ── 페이드아웃 (마지막) ──
+            if frame > total_frames - FADE_OUT:
+                fade_a = int(255 * (frame - (total_frames - FADE_OUT)) / FADE_OUT)
                 fade_s = pygame.Surface((self.W, self.H))
                 fade_s.fill((0, 0, 0))
                 fade_s.set_alpha(fade_a)
