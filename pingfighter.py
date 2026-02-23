@@ -10416,10 +10416,17 @@ optimus_arm_trail_particles = []         # 팔 이동 궤적 파티클
 # ========== 우주 행성 맵 시스템 ==========
 cleared_planets = []  # 클리어한 행성 번호 목록 (게임 오버/ESC 복귀 시 리셋)
 
-def show_space_map_transition(from_planet, to_planet):
-    """우주맵 행성 이동 — 현재는 스킵 (인게임 줌인으로 대체)"""
+def show_space_map_transition(from_planet, to_planet, ingame_frame=None):
+    """우주맵 행성 이동 — 지형 하강 + 인게임 화면 줌인"""
     global cleared_planets
-    pass  # 줌인 착륙 연출은 main() 내부에서 실제 게임 화면으로 처리
+    try:
+        from ui.space_map import SpaceMap
+        smap = SpaceMap(SCREEN, WIDTH, HEIGHT)
+        smap.show_landing_scene(
+            to_planet=to_planet, duration=3.5, fade_out=False,
+            ingame_frame=ingame_frame)
+    except Exception as e:
+        print(f"[WARNING] 하강 연출 실패: {e}")
 
 # ========== 스테이지 클리어 선택지 시스템 (뱀파이어 서바이벌 스타일) ==========
 # 선택지 UI 상태
@@ -103823,8 +103830,8 @@ def show_victory_screen(stage_cleared, reward):
                 except Exception:
                     pass
 
-                # 🌌 우주 맵: 이전 행성 → 다음 행성 이동 + 보스 선출
-                show_space_map_transition(from_planet=next_stage_display - 1, to_planet=next_stage_display)
+                # 🌌 우주 맵: 하강 연출은 main() 내부에서 실제 인게임 화면으로 처리
+                # (여기서는 스킵 — main()에서 draw_field() 캡처 후 줌인)
 
                 if next_stage_display == 2:
                     preload_stage_intro_resources(STAGE2_INTRO_VIDEO_PATH)
@@ -139657,71 +139664,18 @@ def main(stage_num, new_boss_mode=False):
     if _pending_ammo_restore:
         apply_pending_ammo_restore()
 
-    # === 하강 줌인 연출 (실제 인게임 화면 사용) ===
+    # === 하강 줌인 연출 (지형 + 인게임 화면) ===
     # 튜토리얼(스테이지 50) 제외, 일반 스테이지만 재생
     if stage_num != 50 and stage_num > 0:
-        # 1) 게임 배경 한 프레임 렌더링하여 캡처
+        # 게임 배경 한 프레임을 렌더링하여 캡처
         draw_field()
-        _zoomin_captured = SCREEN.copy()
-
-        # 2) 줌인 애니메이션 루프 (2.5초, 60fps)
-        _ZOOMIN_DURATION_MS = 2500
-        _zoomin_start = pygame.time.get_ticks()
-        _zoomin_clock = pygame.time.Clock()
-        _zoomin_running = True
-
-        while _zoomin_running:
-            for ev in pygame.event.get():
-                if ev.type == pygame.QUIT:
-                    pygame.quit()
-                    return
-                if ev.type == pygame.KEYDOWN and ev.key in (pygame.K_SPACE, pygame.K_RETURN, pygame.K_ESCAPE):
-                    _zoomin_running = False  # 스킵
-
-            elapsed = pygame.time.get_ticks() - _zoomin_start
-            t = min(1.0, elapsed / _ZOOMIN_DURATION_MS)
-
-            if t >= 1.0:
-                _zoomin_running = False
-
-            # ease-out: 처음 빠르게 커지다가 끝에서 부드럽게 정착
-            ease = 1.0 - (1.0 - t) ** 2.5
-
-            # 스케일: 0.15 → 1.0 (작은 점에서 전체 화면으로)
-            scale = 0.15 + 0.85 * ease
-
-            # 캡처 프레임을 스케일링
-            sw = int(WIDTH * scale)
-            sh = int(HEIGHT * scale)
-            if sw < 4:
-                sw = 4
-            if sh < 4:
-                sh = 4
-            scaled_frame = pygame.transform.smoothscale(_zoomin_captured, (sw, sh))
-
-            # 화면 중앙에 배치
-            SCREEN.fill((0, 0, 0))
-            bx = (WIDTH - sw) // 2
-            by = (HEIGHT - sh) // 2
-            SCREEN.blit(scaled_frame, (bx, by))
-
-            # 초반에 살짝 밝기 오버레이 (하강 느낌)
-            if t < 0.4:
-                _white_a = int(180 * (1.0 - t / 0.4) ** 2)
-                if _white_a > 2:
-                    _wsurf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-                    _wsurf.fill((255, 255, 255, _white_a))
-                    SCREEN.blit(_wsurf, (0, 0))
-
-            pygame.display.flip()
-            _zoomin_clock.tick(60)
-
-        # 줌인 완료 후 최종 프레임 표시 (정확히 1:1)
-        SCREEN.blit(_zoomin_captured, (0, 0))
-        pygame.display.flip()
-        del _zoomin_captured  # 메모리 해제
-
-        # 타이머 리셋 (줌인 중 누적된 시간 무시)
+        _ingame_captured = SCREEN.copy()
+        # 하강 연출 (지형 위에 인게임 화면이 점점 커짐)
+        show_space_map_transition(
+            from_planet=max(0, stage_num - 1), to_planet=stage_num,
+            ingame_frame=_ingame_captured)
+        del _ingame_captured
+        # 타이머 리셋 (애니메이션 중 누적된 시간 무시)
         clock.tick()
         pygame.time.delay(1)
         clock.tick()
@@ -140184,6 +140138,24 @@ def main(stage_num, new_boss_mode=False):
                     except Exception as _dbg_err:
                         print(f"[Debug] 호위무사 소환 실패: {_dbg_err}")
                         import traceback; traceback.print_exc()
+                    # 인장 아이템 인벤토리에 추가
+                    try:
+                        _seal_data = {
+                            "name": "hero_seal",
+                            "type": "passive",
+                            "color": _dbg_hero.get("color", (200, 160, 80)),
+                            "effect": "hero_seal",
+                            "hero_id": _dbg_hero.get("id", ""),
+                            "hero_name": _dbg_hero.get("name", "???"),
+                            "hero_color": list(_dbg_hero.get("color", (200, 200, 200))),
+                            "hero_title": _dbg_hero.get("title", ""),
+                            "selected_skill": _dbg_skill_idx,
+                            "body_part": "accessory",
+                        }
+                        store_passive_item(_seal_data)
+                        print(f"[Debug] {_dbg_hero.get('name', '???')}의 인장 인벤토리에 추가됨")
+                    except Exception as _seal_err:
+                        print(f"[Debug] 인장 추가 실패: {_seal_err}")
                 pygame.event.clear()
         main.keyF3_pressed = keys[pygame.K_F3]
 
