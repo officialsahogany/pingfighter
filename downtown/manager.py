@@ -23,6 +23,7 @@ from .shop import Shop
 from .building_interior import BuildingInterior
 from .performance_stage import PerformanceStage, PerformanceStageManager
 from .colosseum_arena import ColosseumsArena
+from .bodyguard_follower import BodyguardFollowerManager
 
 # 인게임 메뉴 함수 import
 try:
@@ -161,6 +162,7 @@ class DowntownManager:
         self.renderer = DowntownRenderer()
         self.npc_manager = NPCManager()
         self.performance_stage_manager = PerformanceStageManager()
+        self.bodyguard_followers = BodyguardFollowerManager()
 
         # 상태
         self.state = DowntownState.ENTERING
@@ -435,6 +437,10 @@ class DowntownManager:
 
         # NPC 초기화
         self.npc_manager.initialize(self.downtown_map, stage_number)
+
+        # 호위무사 팔로워 초기화 (장착된 인장 기반)
+        self.bodyguard_followers.refresh_from_equipped_seals()
+        self.bodyguard_followers.spawn_all(spawn_pos[0], spawn_pos[1])
 
         # 공연 스테이지 초기화
         self.performance_stage_manager.clear()
@@ -1080,6 +1086,12 @@ class DowntownManager:
         # NPC 업데이트
         self.npc_manager.update(dt, self.downtown_map)
 
+        # 호위무사 팔로워 업데이트
+        self.bodyguard_followers.update(
+            dt, self.player.x, self.player.y,
+            self.player.direction, self.player.is_moving
+        )
+
         # 공연 스테이지 업데이트
         self.performance_stage_manager.update(dt)
 
@@ -1152,12 +1164,18 @@ class DowntownManager:
         # 건물
         self.buildings.draw(self.screen, camera_offset)
 
-        # NPC (건물과 플레이어 사이에 Y 정렬되어 그려짐)
-        self.npc_manager.draw(self.screen, camera_offset)
-
-        # 플레이어
+        # NPC + 호위무사 팔로워 + 플레이어를 Y좌표로 정렬하여 깊이 기반 렌더링
+        drawables = []
+        for npc in sorted(self.npc_manager.npcs, key=lambda n: n.y):
+            drawables.append((npc.y, npc))
+        for follower in self.bodyguard_followers.followers:
+            if follower.is_spawned:
+                drawables.append((follower.y, follower))
         if self.state != DowntownState.IN_BUILDING:
-            self.player.draw(self.screen, camera_offset)
+            drawables.append((self.player.y, self.player))
+        drawables.sort(key=lambda d: d[0])
+        for _, entity in drawables:
+            entity.draw(self.screen, camera_offset)
 
         # 스폰/출구 오오라 (모든 것 위에 - 잘 보이도록)
         self.renderer.draw_spawn_exit_auras(self.screen, self.downtown_map)
@@ -2225,6 +2243,11 @@ class DowntownManager:
                     print(f"[Arena] 호위무사 등용 (레거시): {hero.get('name')} (스킬={result.get('recruited_hero_skill_idx', 0)})")
                 arena_running = False
                 running = False
+
+                # 투기장 후 호위무사 팔로워 갱신 (새 인장 장착 반영)
+                self.bodyguard_followers.refresh_from_equipped_seals()
+                if self.bodyguard_followers.followers:
+                    self.bodyguard_followers.spawn_all(self.player.x, self.player.y)
 
                 # 투기장 BGM → 광장 BGM 복구
                 try:
