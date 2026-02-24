@@ -2754,11 +2754,11 @@ class SpaceMap:
         if arena_scale < 0.08 or ig_w < 12 or ig_h < 12:
             return
 
-        # ── 스케일 비례 두께 ──
-        bw = max(6, int(28 * arena_scale))       # 나무 프레임 두께
-        tile_h = max(4, int(14 * arena_scale))    # 기와 높이
-        dc_w = max(2, int(8 * arena_scale))       # 단청 띠 두께
-        corner_r = max(6, int(22 * arena_scale))  # 모서리 장식
+        # ── 스케일 비례 두께 (넓은 프레임) ──
+        bw = max(12, int(52 * arena_scale))      # 나무 프레임 두께
+        tile_h = max(6, int(22 * arena_scale))    # 기와 높이
+        dc_w = max(3, int(14 * arena_scale))      # 단청 띠 두께
+        corner_r = max(10, int(38 * arena_scale)) # 모서리 장식
 
         # 프레임은 경기장 가장자리 중심으로 안/밖 반반
         half_in = bw // 2
