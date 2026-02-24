@@ -44,6 +44,10 @@ class PododaejangBossSprite:
         self.hit_direction = 1     # 공이 날아온 방향
         self.hit_intensity = 0.0   # 0~1 히트 강도 (시간에 따라 감소)
 
+        # 오른팔 좌표 (rope_weapon에서 참조)
+        self._right_hand_x = 0
+        self._right_hand_y = 0
+
         # 프레임 캐시
         self._cache_key = None
         self._cached_frame = None
@@ -277,7 +281,7 @@ class PododaejangBossSprite:
                                shoe_w - 2, shoe_h - 2), 1)
 
     def _draw_robe(self, surface, cx, cy, b, lean_offset, torso_y, step, p):
-        """관복 하단 (치마 부분) — 넓게 펼쳐지는 관복"""
+        """관복 하단 (치마 부분) — 넓게 펼쳐지는 관복 + 너풀거림"""
         hip_y = torso_y + int(1.6 * b)
         hem_y = cy + int(2.5 * b)
 
@@ -286,31 +290,53 @@ class PododaejangBossSprite:
         sway = _sin(self.time * 2.5) * speed_factor * 0.15 * b
         inertia = -self.lean * 2.0 * b
 
-        # 관복 치마 (사다리꼴)
-        robe_points = [
+        # === 너풀거림 파라미터 ===
+        flutter_amp = speed_factor * 0.35 * b + 0.05 * b  # 이동 시 강하게, 정지 시 미세
+        flutter_freq = 5.0 if self.direction != 0 else 1.8  # 이동 시 빠르게
+
+        # 관복 치마 하단 — 물결 포인트 (좌→우 8개 정점)
+        num_hem_pts = 8
+        hem_left = cx - int(1.5 * b) + lean_offset + int(-sway + inertia * 0.3)
+        hem_right = cx + int(1.5 * b) + lean_offset + int(sway + inertia * 0.3)
+
+        # 위쪽 (허리) 2개 정점
+        robe_top = [
             (cx - int(1.1 * b) + lean_offset, hip_y),
             (cx + int(1.1 * b) + lean_offset, hip_y),
-            (cx + int(1.5 * b) + lean_offset + int(sway + inertia * 0.3), hem_y),
-            (cx - int(1.5 * b) + lean_offset + int(-sway + inertia * 0.3), hem_y),
         ]
+
+        # 아래쪽 물결 정점 (오른쪽→왼쪽)
+        robe_bottom = []
+        for i in range(num_hem_pts):
+            t = i / (num_hem_pts - 1)
+            bx = hem_right + int((hem_left - hem_right) * t)
+            # 각 정점마다 위상이 다른 물결
+            wave = _sin(self.time * flutter_freq + t * math.pi * 2.5 + i * 0.7) * flutter_amp
+            # 가장자리가 더 크게 너풀거림
+            edge_factor = 1.0 + abs(t - 0.5) * 0.8
+            by = hem_y + int(wave * edge_factor)
+            robe_bottom.append((bx, by))
+
+        robe_points = robe_top + robe_bottom
         # 그림자
         shadow_pts = [(x + 2, y + 2) for x, y in robe_points]
         pygame.draw.polygon(surface, (15, 18, 35), shadow_pts)
         # 본체
         pygame.draw.polygon(surface, p["uniform"], robe_points)
 
-        # 관복 주름 (5줄)
+        # 관복 주름 (5줄) — 주름도 너풀거림 반영
         for i in range(5):
             fx = cx + (i - 2) * int(0.38 * b) + lean_offset
             fold_drift = int((sway + inertia * 0.3) * (i - 2) * 0.08)
+            fold_wave = _sin(self.time * flutter_freq * 0.8 + i * 1.2) * flutter_amp * 0.3
             pygame.draw.line(surface, p["uniform_light"],
                            (fx, hip_y + int(0.15 * b)),
-                           (fx + fold_drift, hem_y - int(0.1 * b)), 1)
+                           (fx + fold_drift, hem_y - int(0.1 * b) + int(fold_wave)), 1)
 
-        # 관복 하단 테두리
-        pygame.draw.line(surface, p["uniform_edge"],
-                        (robe_points[3][0], hem_y),
-                        (robe_points[2][0], hem_y), 1)
+        # 관복 하단 물결 테두리
+        for i in range(len(robe_bottom) - 1):
+            pygame.draw.line(surface, p["uniform_edge"],
+                           robe_bottom[i], robe_bottom[i + 1], 1)
 
     def _draw_torso(self, surface, cx, cy, b, lean_offset, torso_y, p):
         """상체 (관복 상의 + 배지)"""
@@ -389,8 +415,10 @@ class PododaejangBossSprite:
                         border_radius=1)
 
     def _draw_arms(self, surface, cx, cy, b, lean_offset, torso_y, step, p):
-        """양팔 (관복 소매)"""
+        """양팔 (관복 소매) — 소매 너풀거림 + 히트 시 후려치기"""
         speed_factor = min(self.velocity / 80.0, 1.5) if self.direction != 0 else 0
+        flutter_amp = speed_factor * 0.2 * b + 0.03 * b
+        flutter_freq = 4.5 if self.direction != 0 else 1.5
 
         for side in [-1, 1]:
             # 어깨 위치
@@ -401,6 +429,27 @@ class PododaejangBossSprite:
             phase_offset = 0 if side == -1 else math.pi
             arm_swing = _sin(step + phase_offset) * speed_factor * 0.3
 
+            # === 히트 시 오른팔(side==1) 후려치기 모션 ===
+            hit_arm_angle = 0.0
+            hit_arm_extend = 0.0
+            if self.is_hit and side == 1:
+                progress = self.hit_timer / self.hit_duration
+                if progress < 0.3:
+                    # 0~30%: 팔을 빠르게 앞으로 뻗음 (후려치기)
+                    t = progress / 0.3
+                    hit_arm_angle = -0.8 * t  # 아래쪽으로 회전
+                    hit_arm_extend = 1.5 * t * b  # 앞으로 뻗기
+                elif progress < 0.6:
+                    # 30~60%: 최대 뻗은 상태 유지 + 약간 떨림
+                    t = (progress - 0.3) / 0.3
+                    hit_arm_angle = -0.8 + 0.1 * _sin(t * math.pi * 4)
+                    hit_arm_extend = 1.5 * b * (1.0 - t * 0.2)
+                else:
+                    # 60~100%: 서서히 복귀
+                    t = (progress - 0.6) / 0.4
+                    hit_arm_angle = -0.8 * (1.0 - t)
+                    hit_arm_extend = 1.5 * b * 0.8 * (1.0 - t)
+
             # 팔꿈치
             elbow_x = shoulder_x + side * int(0.3 * b)
             elbow_y = shoulder_y + int(0.9 * b) + int(arm_swing * 0.2 * b)
@@ -409,22 +458,32 @@ class PododaejangBossSprite:
             hand_x = elbow_x + side * int(0.25 * b)
             hand_y = elbow_y + int(0.7 * b) + int(arm_swing * 0.3 * b)
 
-            # 소매 (상완)
+            # 히트 모션 적용 (오른팔만)
+            if self.is_hit and side == 1:
+                # 팔을 아래쪽+앞쪽으로 뻗기
+                hand_y += int(hit_arm_extend * _cos(hit_arm_angle))
+                hand_x += int(hit_arm_extend * 0.3 * self.hit_direction)
+                elbow_y += int(hit_arm_extend * 0.4)
+
+            # 소매 (상완) — 너풀거림 적용
+            sleeve_wave_l = _sin(self.time * flutter_freq + side * 1.5) * flutter_amp
+            sleeve_wave_r = _sin(self.time * flutter_freq + side * 1.5 + 1.2) * flutter_amp
             sleeve_pts = [
                 (shoulder_x - int(0.3 * b), shoulder_y - int(0.1 * b)),
                 (shoulder_x + int(0.3 * b), shoulder_y - int(0.1 * b)),
-                (elbow_x + int(0.25 * b), elbow_y),
-                (elbow_x - int(0.25 * b), elbow_y),
+                (elbow_x + int(0.25 * b) + int(sleeve_wave_r), elbow_y),
+                (elbow_x - int(0.25 * b) + int(sleeve_wave_l), elbow_y),
             ]
             pygame.draw.polygon(surface, p["uniform"], sleeve_pts)
             pygame.draw.polygon(surface, p["uniform_edge"], sleeve_pts, 1)
 
-            # 소매 (하완)
+            # 소매 (하완) — 너풀거림
+            cuff_wave = _sin(self.time * flutter_freq * 1.2 + side * 2.0) * flutter_amp * 0.7
             forearm_pts = [
-                (elbow_x - int(0.22 * b), elbow_y - int(0.05 * b)),
-                (elbow_x + int(0.22 * b), elbow_y - int(0.05 * b)),
-                (hand_x + int(0.15 * b), hand_y),
-                (hand_x - int(0.15 * b), hand_y),
+                (elbow_x - int(0.22 * b) + int(sleeve_wave_l * 0.5), elbow_y - int(0.05 * b)),
+                (elbow_x + int(0.22 * b) + int(sleeve_wave_r * 0.5), elbow_y - int(0.05 * b)),
+                (int(hand_x) + int(0.15 * b) + int(cuff_wave), int(hand_y)),
+                (int(hand_x) - int(0.15 * b) + int(cuff_wave), int(hand_y)),
             ]
             pygame.draw.polygon(surface, p["uniform_light"], forearm_pts)
 
@@ -434,11 +493,19 @@ class PododaejangBossSprite:
             pygame.draw.circle(surface, p["skin_shadow"],
                              (int(hand_x), int(hand_y)), hand_r, 1)
 
+        # 오른팔 hand 좌표를 저장 (rope_weapon에서 사용)
+        self._right_hand_x = hand_x
+        self._right_hand_y = hand_y
+
     def _draw_rope_weapon(self, surface, cx, cy, b, lean_offset, torso_y, p):
-        """포승줄 (오른손에 들고 있는 밧줄 무기)"""
-        # 오른손 위치 기준
-        hand_x = cx + int(1.5 * b) + lean_offset
-        hand_y = torso_y + int(1.8 * b)
+        """포승줄 (오른손에 들고 있는 밧줄 무기) — 히트 시 채찍처럼 휘두름"""
+        # 오른손 위치 (히트 모션 반영)
+        if hasattr(self, '_right_hand_x') and self._right_hand_x:
+            hand_x = self._right_hand_x
+            hand_y = self._right_hand_y
+        else:
+            hand_x = cx + int(1.5 * b) + lean_offset
+            hand_y = torso_y + int(1.8 * b)
 
         # 포승줄 코일 (감긴 밧줄)
         coil_cx = int(hand_x + 0.3 * b)
@@ -458,12 +525,56 @@ class PododaejangBossSprite:
         pygame.draw.circle(surface, p["rope_dark"],
                          (coil_cx, coil_cy), inner_r)
 
-        # 아래로 늘어진 밧줄 끝
+        # === 히트 시: 포승줄 채찍 궤적 ===
+        if self.is_hit:
+            progress = self.hit_timer / self.hit_duration
+            if progress < 0.6:
+                # 채찍 궤적 — 손에서 아래쪽으로 휘두름
+                whip_t = min(progress / 0.35, 1.0)
+                whip_len = 2.5 * b * whip_t
+                whip_dir = self.hit_direction
+                # 채찍 끝 위치
+                whip_end_x = coil_cx + int(whip_dir * whip_len * 0.4)
+                whip_end_y = coil_cy + int(whip_len)
+                # 채찍 곡선 (5세그먼트)
+                segments = 8
+                line_w = max(2, int(0.12 * b))
+                for i in range(segments):
+                    t = i / segments
+                    t2 = (i + 1) / segments
+                    # S자 곡선 궤적
+                    wave = _sin(t * math.pi * 2 - self.time * 15) * 0.4 * b * t * whip_t
+                    wave2 = _sin(t2 * math.pi * 2 - self.time * 15) * 0.4 * b * t2 * whip_t
+                    sx = coil_cx + int((whip_end_x - coil_cx) * t + wave)
+                    sy = coil_cy + int((whip_end_y - coil_cy) * t)
+                    ex = coil_cx + int((whip_end_x - coil_cx) * t2 + wave2)
+                    ey = coil_cy + int((whip_end_y - coil_cy) * t2)
+                    # 끝으로 갈수록 가늘어짐
+                    seg_w = max(1, int(line_w * (1.0 - t * 0.6)))
+                    pygame.draw.line(surface, p["rope"], (sx, sy), (ex, ey), seg_w)
+                # 채찍 끝 타격 이펙트 (초반에만)
+                if progress < 0.35:
+                    impact_alpha = int(200 * (1.0 - progress / 0.35))
+                    impact_r = max(2, int(0.3 * b * whip_t))
+                    impact_surf = pygame.Surface((impact_r * 2, impact_r * 2), pygame.SRCALPHA)
+                    pygame.draw.circle(impact_surf, (255, 220, 150, impact_alpha),
+                                     (impact_r, impact_r), impact_r)
+                    surface.blit(impact_surf,
+                               (int(whip_end_x) - impact_r, int(whip_end_y) - impact_r))
+            else:
+                # 60~100%: 복귀 — 일반 늘어진 밧줄
+                self._draw_rope_idle(surface, coil_cx, coil_cy, b, p)
+        else:
+            # 평상시 늘어진 밧줄
+            self._draw_rope_idle(surface, coil_cx, coil_cy, b, p)
+
+    def _draw_rope_idle(self, surface, coil_cx, coil_cy, b, p):
+        """포승줄 — 평상시 아래로 늘어진 밧줄"""
         rope_sway = _sin(self.time * 2.0) * 0.15 * b
         rope_end_x = coil_cx + int(rope_sway)
         rope_end_y = coil_cy + int(1.2 * b)
 
-        # 곡선 밧줄 (3개 세그먼트)
+        # 곡선 밧줄 (6세그먼트)
         segments = 6
         for i in range(segments):
             t = i / segments

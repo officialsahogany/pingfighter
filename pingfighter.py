@@ -42553,6 +42553,9 @@ BOSS_IMG_HEIGHT = 80
 # 스테이지 1 전용 사이즈 (세로가 긴 스프라이트에 맞춤)
 BOSS_IMG_STAGE1_WIDTH = 80
 BOSS_IMG_STAGE1_HEIGHT = 160
+# 포도대장 전용 사이즈 (20% 확대)
+BOSS_IMG_PODO_WIDTH = 96
+BOSS_IMG_PODO_HEIGHT = 192
 # 스테이지 4, 5 전용 사이즈
 BOSS_IMG_STAGE4_WIDTH = 125  # 10% 증가 (114→125)
 BOSS_IMG_STAGE4_HEIGHT = 68  # 10% 증가 (62→68)
@@ -94150,7 +94153,7 @@ def draw_objects():
         if current_boss_name == "포도대장" and PODODAEJANG_BOSS_ANIMATION_AVAILABLE and pododaejang_boss_sprite is not None:
             boss_img_prescaled = True
             pododaejang_boss_sprite.update(boss_x_pos, 1/60)
-            boss_w, boss_h = BOSS_IMG_STAGE1_WIDTH, BOSS_IMG_STAGE1_HEIGHT
+            boss_w, boss_h = BOSS_IMG_PODO_WIDTH, BOSS_IMG_PODO_HEIGHT
             boss_img = pododaejang_boss_sprite.get_current_frame((boss_w, boss_h))
             if boss_img is None:
                 boss_img = BOSS_IMG_STAGE1
@@ -108681,10 +108684,10 @@ def show_drive_monitor_demo(background):
                 # Stage 1 보스 - 포도대장 또는 풍악보이
                 if current_boss_name == "포도대장" and PODODAEJANG_BOSS_ANIMATION_AVAILABLE and pododaejang_boss_sprite is not None:
                     pododaejang_boss_sprite.update(boss_x, 1/60)
-                    boss_img = pododaejang_boss_sprite.get_current_frame((BOSS_IMG_STAGE1_WIDTH, BOSS_IMG_STAGE1_HEIGHT))
+                    boss_img = pododaejang_boss_sprite.get_current_frame((BOSS_IMG_PODO_WIDTH, BOSS_IMG_PODO_HEIGHT))
                     if boss_img is None:
                         boss_img = BOSS_IMG_STAGE1
-                        boss_img = pygame.transform.scale(boss_img, (BOSS_IMG_STAGE1_WIDTH, BOSS_IMG_STAGE1_HEIGHT))
+                        boss_img = pygame.transform.scale(boss_img, (BOSS_IMG_PODO_WIDTH, BOSS_IMG_PODO_HEIGHT))
                 elif STAGE1_BOSS_ANIMATION_AVAILABLE and stage1_boss_sprite is not None:
                     stage1_boss_sprite.update(boss_x, 1/60)
                     boss_img = stage1_boss_sprite.get_current_frame((BOSS_IMG_STAGE1_WIDTH, BOSS_IMG_STAGE1_HEIGHT))
