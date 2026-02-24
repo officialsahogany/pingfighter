@@ -74246,9 +74246,12 @@ def update_fan_throw():
     fan_throw_timer -= 1
     fan_throw_spin += 0.3
 
-    # 이동
-    fan_throw_x += fan_throw_vx
-    fan_throw_y += fan_throw_vy
+    # 나비 날갯짓 패턴 이동 (빠르게↔느리게 반복 + 좌우 사행)
+    elapsed = 180 - fan_throw_timer  # 경과 프레임
+    speed_mod = 0.6 + 0.5 * math.sin(elapsed * 0.25)  # 0.1~1.1 속도 변조
+    sway = math.sin(elapsed * 0.15) * 1.8  # 좌우 사행
+    fan_throw_x += fan_throw_vx * speed_mod + sway
+    fan_throw_y += fan_throw_vy * speed_mod
 
     # 게임 영역 밖 소멸
     if (fan_throw_x < GAME_AREA_OFFSET_X - 30 or fan_throw_x > GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH + 30
@@ -74262,7 +74265,7 @@ def update_fan_throw():
 
     # 플레이어 충돌 체크
     if not fan_throw_hit and PLAYER:
-        hit_radius = 16
+        hit_radius = 24
         px = PLAYER.centerx
         py = PLAYER.centery
         dx = fan_throw_x - px
@@ -74342,7 +74345,7 @@ def draw_fan_throw_effect(screen):
 
     # --- 2) 투사체 ---
     if fan_throw_active:
-        _draw_fan_shape(screen, int(fan_throw_x), int(fan_throw_y), fan_throw_spin, 14)
+        _draw_fan_shape(screen, int(fan_throw_x), int(fan_throw_y), fan_throw_spin, 28)
 
     # --- 3) 독립 타격 이펙트 ---
     if fan_throw_hit_effect_timer > 0:
