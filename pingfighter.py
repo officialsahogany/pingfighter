@@ -133509,15 +133509,7 @@ def handle_ball():
                 boss_special_gauge -= 150
                 if boss_special_gauge < 0:
                     boss_special_gauge = 0
-        # 각시탈 소용돌이 (20% 확률, 게이지 150) — 각시탈 전용
-        if current_stage == 1 and current_boss_name == "각시탈" and not fan_wind_active and not fan_wind_charging and not fan_wind_used_this_round and boss_special_gauge >= 150:
-            if random.random() < 0.20:
-                activate_fan_wind()
-                _wind_shouts = ["소용돌이!", "빨려들어라~!", "회오리바람!"]
-                show_speech(random.choice(_wind_shouts), duration=90)
-                boss_special_gauge -= 150
-                if boss_special_gauge < 0:
-                    boss_special_gauge = 0
+        # 각시탈 소용돌이 — 공 타격 시 20% 확률로 발동 (handle_ball 보스 충돌부로 이동됨)
         #  handle_ball에서의 파워스매싱은 이미 handle_player에서 처리되므로 제거
         # (중복 발동 방지를 위해 주석 처리)
     # --- 보스 충돌 ---
@@ -133791,6 +133783,16 @@ def handle_ball():
 
         # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
         update_ball_rally("boss")
+
+        # 각시탈 소용돌이 — 공 타격 시 20% 확률로 발동 (게이지 150)
+        if current_stage == 1 and current_boss_name == "각시탈" and not fan_wind_active and not fan_wind_charging and not fan_wind_used_this_round and boss_special_gauge >= 150:
+            if random.random() < 0.20:
+                activate_fan_wind()
+                _wind_shouts = ["소용돌이!", "빨려들어라~!", "회오리바람!"]
+                show_speech(random.choice(_wind_shouts), duration=90)
+                boss_special_gauge -= 150
+                if boss_special_gauge < 0:
+                    boss_special_gauge = 0
 
         # 투기장 모드: 관중 반응 (상단 영웅 히트)
         if arena_mode_enabled and current_stage == 30 and pillar_renderer is not None:
