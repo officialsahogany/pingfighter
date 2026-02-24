@@ -46543,6 +46543,12 @@ arrest_rope_target_y = 0.0        # 목표 Y
 # 포박 관련
 arrest_rope_bind_x = 0.0          # 포박 이펙트 X (플레이어 따라감)
 arrest_rope_bind_y = 0.0          # 포박 이펙트 Y
+# 포졸소환 스킬 상태
+patrol_guards_active = False
+patrol_guards_timer = 0
+patrol_guards_duration = 300       # 5초 (60fps × 5)
+patrol_guards = []                 # 포졸 리스트
+patrol_guards_used_this_round = False  # 라운드당 1회
 # 사이코볼
 emotional_overdrive_active = False
 emotional_overdrive_timer = 0
@@ -53078,6 +53084,12 @@ def go_to_next_round():
     spinning_tops = []
     spinning_top_used_this_round = False  # 다음 라운드에서 다시 사용 가능
     top_collision_cooldown = 0
+    # 포졸소환 리셋
+    global patrol_guards_active, patrol_guards_timer, patrol_guards, patrol_guards_used_this_round
+    patrol_guards_active = False
+    patrol_guards_timer = 0
+    patrol_guards = []
+    patrol_guards_used_this_round = False
     if BOSS and hasattr(BOSS, 'whip_sound') and BOSS.whip_sound:
         BOSS.whip_sound.stop()  #  보스 상모돌리기 사운드 중지
     # 정글지진 사운드 정지 (라운드 전환 시 사운드 버그 수정)
@@ -73936,6 +73948,227 @@ def activate_spinning_top():
     else:
         pass  # print(f"🎯 팽이치기! 2개 팽이 생성!")
 
+# === 포도대장 포졸소환 스킬 ===
+def activate_patrol_guards():
+    """포졸소환 스킬 활성화 — 보스 근처에 포졸 2명 배치"""
+    global patrol_guards_active, patrol_guards_timer, patrol_guards, patrol_guards_used_this_round
+
+    patrol_guards_active = True
+    patrol_guards_timer = patrol_guards_duration
+    patrol_guards_used_this_round = True
+
+    boss_bottom_y = (BOSS.y + BOSS.height + 30) if BOSS else 95
+    game_left = GAME_AREA_OFFSET_X + 60
+    game_right = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 60
+    third = (game_right - game_left) / 3
+
+    patrol_guards = []
+    for i in range(2):
+        spawn_x = game_left + third * (i + 1)
+        patrol_guards.append({
+            "x": float(spawn_x),
+            "y": float(boss_bottom_y),
+            "target_x": None,
+            "wait_timer": random.randint(10, 30),  # 소환 직후 잠시 대기
+            "patrol_speed": random.uniform(110.0, 180.0),
+            "direction": 1 if i == 0 else -1,
+            "walk_frame": 0.0,
+            "alpha": 255,
+            "push_vx": 0.0,   # 공 충돌 시 밀림
+            "push_timer": 0,
+        })
+
+    try:
+        play_sound_with_volume(SOUND_THROW_BEFORE)
+    except Exception:
+        pass
+
+
+def update_patrol_guards():
+    """포졸 어슬렁거리기 업데이트 (매 프레임)"""
+    global patrol_guards_active, patrol_guards_timer, patrol_guards
+
+    if not patrol_guards_active or not patrol_guards:
+        return
+
+    patrol_guards_timer -= 1
+
+    game_left = GAME_AREA_OFFSET_X + 40
+    game_right = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 40
+    dt = 1.0 / 60.0  # 60fps 기준
+
+    for guard in patrol_guards:
+        # 페이드아웃 (마지막 30프레임)
+        if patrol_guards_timer <= 30:
+            guard["alpha"] = max(0, int(255 * (patrol_guards_timer / 30.0)))
+
+        # 밀림 처리 (공 충돌 후)
+        if guard["push_timer"] > 0:
+            guard["push_timer"] -= 1
+            guard["x"] += guard["push_vx"]
+            guard["push_vx"] *= 0.85  # 감속
+            guard["x"] = max(game_left, min(game_right, guard["x"]))
+            continue
+
+        # 대기 중
+        if guard["wait_timer"] > 0:
+            guard["wait_timer"] -= 1
+            # 제자리 미세 흔들림
+            guard["walk_frame"] += 0.02
+            continue
+
+        # 목표 없으면 새 목표 설정
+        if guard["target_x"] is None:
+            guard["target_x"] = random.uniform(game_left + 20, game_right - 20)
+            guard["patrol_speed"] = random.uniform(110.0, 180.0)
+
+        # 목표로 이동
+        diff = guard["target_x"] - guard["x"]
+        if abs(diff) < 3.0:
+            # 도착
+            guard["x"] = guard["target_x"]
+            guard["target_x"] = None
+            guard["wait_timer"] = random.randint(24, 90)  # 0.4~1.5초 대기
+        else:
+            direction = 1 if diff > 0 else -1
+            guard["direction"] = direction
+            move = direction * guard["patrol_speed"] * dt
+            if abs(move) > abs(diff):
+                move = diff
+            guard["x"] += move
+            guard["x"] = max(game_left, min(game_right, guard["x"]))
+            # 걸음 애니메이션
+            guard["walk_frame"] += abs(move) * 0.15
+
+    # 타이머 종료
+    if patrol_guards_timer <= 0:
+        patrol_guards_active = False
+        patrol_guards = []
+
+
+def check_patrol_guard_collision():
+    """포졸과 공의 충돌 체크"""
+    global ball_vel
+
+    if not patrol_guards_active or not patrol_guards:
+        return False
+
+    for guard in patrol_guards:
+        if guard["alpha"] < 128:  # 페이드아웃 중이면 충돌 없음
+            continue
+
+        guard_radius = 18
+        dx = BALL.centerx - guard["x"]
+        dy = BALL.centery - guard["y"]
+        distance = math.sqrt(dx * dx + dy * dy)
+
+        if distance < guard_radius + BALL_RADIUS:
+            # 공 랜덤 방향 반사
+            random_angle = random.uniform(0, 2 * math.pi)
+            speed = math.sqrt(ball_vel[0] ** 2 + ball_vel[1] ** 2)
+            ball_vel[0] = math.cos(random_angle) * speed
+            ball_vel[1] = math.sin(random_angle) * speed
+
+            # 포졸 밀림
+            if distance > 0:
+                push_angle = math.atan2(-dy, -dx)
+            else:
+                push_angle = random.uniform(0, 2 * math.pi)
+            guard["push_vx"] = math.cos(push_angle) * 8.0
+            guard["push_timer"] = 10
+
+            # 이펙트
+            create_impact_effect(guard["x"], guard["y"], [0, 0], is_player=False)
+            play_paddle_sound()
+            return True
+
+    return False
+
+
+def draw_patrol_guards(screen):
+    """포졸 프로시저럴 렌더링"""
+    if not patrol_guards_active or not patrol_guards:
+        return
+
+    import math as _math
+
+    for guard in patrol_guards:
+        gx = int(guard["x"])
+        gy = int(guard["y"])
+        alpha = guard["alpha"]
+        direction = guard["direction"]  # 1=right, -1=left
+        walk = guard["walk_frame"]
+
+        # 걸음 흔들림
+        walk_offset_y = int(_math.sin(walk * 0.8) * 2)
+        leg_phase = _math.sin(walk * 0.8)
+
+        surf = pygame.Surface((32, 44), pygame.SRCALPHA)
+        cx, cy = 16, 22  # 중심
+
+        # --- 다리 (먼저 — 아래 레이어) ---
+        leg_color = (50, 50, 80, alpha)   # 남색 바지
+        shoe_color = (60, 40, 20, alpha)  # 갈색 신발
+        leg_spread = int(leg_phase * 3)
+        # 왼발
+        pygame.draw.line(surf, leg_color, (cx - 3, cy + 10), (cx - 3 - leg_spread, cy + 18), 3)
+        pygame.draw.circle(surf, shoe_color, (cx - 3 - leg_spread, cy + 19), 2)
+        # 오른발
+        pygame.draw.line(surf, leg_color, (cx + 3, cy + 10), (cx + 3 + leg_spread, cy + 18), 3)
+        pygame.draw.circle(surf, shoe_color, (cx + 3 + leg_spread, cy + 19), 2)
+
+        # --- 몸통 (남색 관복) ---
+        body_color = (40, 55, 100, alpha)
+        body_light = (55, 70, 120, alpha)
+        # 관복 몸통 (사다리꼴)
+        body_points = [(cx - 7, cy - 4), (cx + 7, cy - 4), (cx + 9, cy + 11), (cx - 9, cy + 11)]
+        pygame.draw.polygon(surf, body_color, body_points)
+        # 관복 밝은 앞면
+        front_points = [(cx - 2, cy - 4), (cx + 2, cy - 4), (cx + 3, cy + 11), (cx - 3, cy + 11)]
+        pygame.draw.polygon(surf, body_light, front_points)
+        # 허리띠
+        belt_color = (120, 90, 50, alpha)
+        pygame.draw.line(surf, belt_color, (cx - 8, cy + 4), (cx + 8, cy + 4), 2)
+
+        # --- 팔 ---
+        arm_color = (40, 55, 100, alpha)
+        skin_color = (210, 180, 140, alpha)
+        arm_swing = int(leg_phase * 2)
+        # 왼팔 (곤봉 들기)
+        pygame.draw.line(surf, arm_color, (cx - 7, cy - 1), (cx - 11, cy + 5 - arm_swing), 2)
+        pygame.draw.circle(surf, skin_color, (cx - 11, cy + 5 - arm_swing), 2)
+        # 곤봉
+        stick_color = (100, 60, 30, alpha)
+        pygame.draw.line(surf, stick_color, (cx - 11, cy + 3 - arm_swing), (cx - 11, cy - 6 - arm_swing), 2)
+        # 오른팔
+        pygame.draw.line(surf, arm_color, (cx + 7, cy - 1), (cx + 11, cy + 5 + arm_swing), 2)
+        pygame.draw.circle(surf, skin_color, (cx + 11, cy + 5 + arm_swing), 2)
+
+        # --- 머리 ---
+        head_color = (210, 180, 140, alpha)
+        pygame.draw.circle(surf, head_color, (cx, cy - 8), 5)
+        # 눈
+        eye_color = (30, 30, 30, alpha)
+        eye_dx = 2 * direction
+        pygame.draw.circle(surf, eye_color, (cx + eye_dx - 1, cy - 9), 1)
+        pygame.draw.circle(surf, eye_color, (cx + eye_dx + 2, cy - 9), 1)
+
+        # --- 흑립 (갓 모양 모자) ---
+        hat_color = (20, 20, 20, alpha)
+        hat_rim_color = (35, 35, 35, alpha)
+        # 모자 윗부분 (둥근 원통)
+        pygame.draw.ellipse(surf, hat_color, (cx - 4, cy - 17, 8, 6))
+        # 모자 챙 (넓은 타원)
+        pygame.draw.ellipse(surf, hat_rim_color, (cx - 8, cy - 13, 16, 4))
+        pygame.draw.ellipse(surf, hat_color, (cx - 7, cy - 13, 14, 3))
+
+        # 방향에 따라 좌우반전
+        if direction == -1:
+            surf = pygame.transform.flip(surf, True, False)
+
+        screen.blit(surf, (gx - 16, gy - 22 + walk_offset_y))
+
+
 def handle_spinning_top():
     """팽이 업데이트 처리"""
     global spinning_top_active, spinning_top_timer, spinning_tops, whip_animation_timer, top_collision_cooldown, golden_top_star_cooldown
@@ -75018,6 +75251,7 @@ def _draw_stage_specific_elements() -> None:
     draw_stage7_tetrominoes(SCREEN)
     draw_stage7_tetro_debris(SCREEN)
     draw_laser_cannon_gauge()
+    draw_patrol_guards(SCREEN)
     draw_spinning_top(SCREEN)
 
 
@@ -80838,6 +81072,7 @@ def draw_overlay_ui():
     draw_stage7_guard_blocks(SCREEN)
     draw_stage7_tetrominoes(SCREEN)
     draw_stage7_tetro_debris(SCREEN)
+    draw_patrol_guards(SCREEN)
     draw_spinning_top(SCREEN)
 
     update_trade_point_stars()
@@ -132212,12 +132447,20 @@ def handle_ball():
                 
                 # print("1:       !")
         
-        # Stage 1 보스 팽이치기 스킬 발동 체크 (20% 확률, 게이지 150 필요)
-        if current_stage == 1 and not spinning_top_active and not spinning_top_used_this_round and boss_special_gauge >= 150:
+        # Stage 1 보스 팽이치기 스킬 발동 체크 (20% 확률, 게이지 150 필요) — 풍악보이 전용
+        if current_stage == 1 and current_boss_name != "포도대장" and not spinning_top_active and not spinning_top_used_this_round and boss_special_gauge >= 150:
             if random.random() < 0.20:  # 20% 확률
                 activate_spinning_top()
                 show_speech("팽이치기!", duration=90)
-                # 게이지 150 소모
+                boss_special_gauge -= 150
+                if boss_special_gauge < 0:
+                    boss_special_gauge = 0
+        # 포도대장 포졸소환 (20% 확률, 게이지 150) — 포도대장 전용
+        if current_stage == 1 and current_boss_name == "포도대장" and not patrol_guards_active and not patrol_guards_used_this_round and boss_special_gauge >= 150:
+            if random.random() < 0.20:
+                activate_patrol_guards()
+                _guard_shouts = ["포졸들아!", "잡아들여라!", "에워싸라!"]
+                show_speech(random.choice(_guard_shouts), duration=90)
                 boss_special_gauge -= 150
                 if boss_special_gauge < 0:
                     boss_special_gauge = 0
@@ -138454,11 +138697,15 @@ def show_result(won):
         #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
         acceleration_skill_level = 0
         acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
-        # 보스 변형 + 포승줄 초기화
+        # 보스 변형 + 포승줄 + 포졸소환 초기화
         current_boss_name = None
         arrest_rope_active = False
         arrest_rope_timer = 0
         arrest_rope_phase = "idle"
+        patrol_guards_active = False
+        patrol_guards_timer = 0
+        patrol_guards = []
+        patrol_guards_used_this_round = False
         # 호위무사 시스템 초기화 (게임 오버 시, 최대 2명)
         try:
             from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
@@ -139546,9 +139793,14 @@ def main(stage_num, new_boss_mode=False):
 
     # === 보스 변형 선출 (한 스테이지에 여러 보스가 있을 때) ===
     global current_boss_name, arrest_rope_active, arrest_rope_timer, arrest_rope_phase
+    global patrol_guards_active, patrol_guards_timer, patrol_guards, patrol_guards_used_this_round
     arrest_rope_active = False
     arrest_rope_timer = 0
     arrest_rope_phase = "idle"
+    patrol_guards_active = False
+    patrol_guards_timer = 0
+    patrol_guards = []
+    patrol_guards_used_this_round = False
     from config.stage_configs import BOSS_VARIANTS, get_boss_config_by_name
     if stage_num in BOSS_VARIANTS and len(BOSS_VARIANTS[stage_num]) > 1:
         # 보스 룰렛 선출
@@ -140544,11 +140796,15 @@ def main(stage_num, new_boss_mode=False):
             #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
             acceleration_skill_level = 0
             acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
-            # 보스 변형 + 포승줄 초기화
+            # 보스 변형 + 포승줄 + 포졸소환 초기화
             current_boss_name = None
             arrest_rope_active = False
             arrest_rope_timer = 0
             arrest_rope_phase = "idle"
+            patrol_guards_active = False
+            patrol_guards_timer = 0
+            patrol_guards = []
+            patrol_guards_used_this_round = False
             # 호위무사 시스템 초기화 (ESC 메뉴 복귀 시, 최대 2명)
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
@@ -142910,11 +143166,15 @@ def main(stage_num, new_boss_mode=False):
                     #  가속화 스킬 레벨 초기화 (대쉬 사운드 원래대로)
                     acceleration_skill_level = 0
                     acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
-                    # 보스 변형 + 포승줄 초기화
+                    # 보스 변형 + 포승줄 + 포졸소환 초기화
                     current_boss_name = None
                     arrest_rope_active = False
                     arrest_rope_timer = 0
                     arrest_rope_phase = "idle"
+                    patrol_guards_active = False
+                    patrol_guards_timer = 0
+                    patrol_guards = []
+                    patrol_guards_used_this_round = False
                     # 호위무사 시스템 초기화 (강제 종료 시, 최대 2명)
                     try:
                         from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
@@ -144115,6 +144375,7 @@ def main(stage_num, new_boss_mode=False):
                 
                 handle_whip()  # 상모돌리기 처리도 파워스매싱 정지 시간 중에는 건너뛰기
                 update_arrest_rope()  # 포도대장 포승줄 타이머 업데이트
+                update_patrol_guards()  # 포도대장 포졸소환 업데이트
                 # handle_balloon()  # Stage 1 보스 풍선파티 스킬 제거됨
                 handle_spinning_top()  # Stage 1 보스 팽이치기 스킬
                 handle_quake()
@@ -144366,6 +144627,7 @@ def main(stage_num, new_boss_mode=False):
                             # print("")
                 # check_balloon_collisions()  # Stage 1 보스 풍선파티 스킬 제거됨
                 check_spinning_top_collision()  # Stage 1 보스 팽이치기 충돌 체크
+                check_patrol_guard_collision()  # 포도대장 포졸소환 충돌 체크
                 
                 #  Stage 1 이벤트 풍선 충돌 감지
                 if BALLOON_EVENT_AVAILABLE and stage1_events and current_stage == 1:
@@ -146684,6 +146946,7 @@ def main(stage_num, new_boss_mode=False):
         # draw_balloons()  # Stage 1 보스 풍선파티 스킬 제거됨
         # draw_whip_waves(SCREEN)  #  상모돌리기 파동 효과 그리기 - 제거됨
         draw_arrest_rope_effect(SCREEN)  # 포도대장 포승줄 이펙트
+        draw_patrol_guards(SCREEN)  # 포도대장 포졸소환 그리기
         draw_spinning_top(SCREEN)  # Stage 1 보스 팽이치기 그리기
         # 풍선 터지는 효과는 effects_manager에서 통합 관리
         draw_item_obtained_effect()  #  아이템 획득 효과 그리기 - 옛날 버전 활성화
