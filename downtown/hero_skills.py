@@ -14064,10 +14064,6 @@ class BombSurprise(HeroSkill):
         game_state[f'{prefix}_bomb_kb_frames'] = kb_frames
         tag = "SELF" if is_self_explosion else "ENEMY"
         self._knockback_target = explode_target
-        print(f"[BombSurprise] 💣 EXPLODE! target={explode_target} tag={tag} "
-              f"prefix={prefix} kb_vel={kb_vel:.1f} kb_frames={kb_frames} "
-              f"stun_dur={stun_dur:.1f} caster_is_top={self.caster_is_top} "
-              f"bomb_loc={self.bomb_location}")
 
         # 화면 흔들림
         game_state['screen_shake'] = shake_amt

@@ -525,9 +525,8 @@ class InGameBodyguard:
 
         try:
             self._guard_system.update(dt, top_paddle, bottom_paddle, ball)
-        except Exception as _guard_err:
-            print(f"[Bodyguard] GuardWarriorSystem update error: {_guard_err}")
-            import traceback; traceback.print_exc()
+        except Exception:
+            pass
 
         # ── 폭탄 서프라이즈 방어적 보정: 스턴/넉백 신호가 소실되었을 경우 재설정 ──
         gs = self._skill_manager.game_state
@@ -598,8 +597,7 @@ class InGameBodyguard:
         if _bomb_stun:
             boss_effects['stun_frames'] = 90  # 1.5초
             # 폭탄 서프라이즈 스턴 여부도 확인
-            if gs.get('top_paddle_bomb_kb_active', False):
-                print(f"[Bodyguard] 💣 bomb STUN extracted (with KB active)")
+            pass
 
         # 둔화
         if gs.pop('top_paddle_slowed', False):
@@ -689,8 +687,6 @@ class InGameBodyguard:
             boss_effects['bomb_kb_dir'] = gs.get('top_paddle_bomb_kb_dir', 0)
             boss_effects['bomb_kb_vel'] = gs.get('top_paddle_bomb_kb_vel', 0)
             boss_effects['bomb_kb_frames'] = gs.get('top_paddle_bomb_kb_frames', 0)
-            print(f"[Bodyguard] 💣 bomb_kb extracted: dir={boss_effects['bomb_kb_dir']} "
-                  f"vel={boss_effects['bomb_kb_vel']:.1f} frames={boss_effects['bomb_kb_frames']}")
 
         # ── 바나나 슬라이스 미끄러짐 ──
         if gs.get('top_paddle_banana_slip_active', False):
@@ -775,7 +771,20 @@ class InGameBodyguard:
             ball=ball,
         )
 
-        # 패들 위 스킬 오버레이 (폭탄 서프라이즈 등 — 패들 이미지 위에 그려야 보임)
+        # NOTE: draw_skills_overlay()는 보스 스프라이트 뒤에 가려지므로
+        # pingfighter.py draw_objects()에서 보스 이미지 blit 이후 별도 호출
+
+    def draw_skills_overlay(self, screen, boss_rect=None, player_rect=None, ball_rect=None):
+        """패들 위 스킬 오버레이 — 보스 스프라이트 렌더링 이후에 호출할 것"""
+        if not self.active or not self._guard_system:
+            return
+        top_paddle = _PaddleProxy(boss_rect, is_top=True) if boss_rect else None
+        bottom_paddle = _PaddleProxy(player_rect, is_top=False) if player_rect else None
+        ball = _BallProxy(ball_rect) if ball_rect else None
+        if top_paddle is None:
+            top_paddle = _PaddleProxy(pygame.Rect(380, 25, 120, 40), is_top=True)
+        if bottom_paddle is None:
+            bottom_paddle = _PaddleProxy(pygame.Rect(380, 710, 120, 40), is_top=False)
         try:
             self._guard_system.draw_skills_overlay(
                 screen,
