@@ -3449,6 +3449,19 @@ _gauge_left_scaled_cache_size = (0, 0)
 _top_orb_reuse_token_layer = None  # 재사용 토큰 글로우 레이어 Surface
 _top_orb_reuse_glow2 = None        # 재사용 펄스 글로우 Surface
 _player_gauge_surface_left_screen_pos = (0, 0)  # 좌측 필러 Surface의 화면 좌표 (툴팁용)
+# === 보스 대쉬 토큰 구슬 캐시 (아케이드 모드 우측 상단 필러) ===
+_boss_orb_static_base = None       # 정적 레이어 캐시 A (프레임+배경)
+_boss_orb_static_top = None        # 정적 레이어 캐시 B (글래스+볼트)
+_boss_orb_cached_radius = -1       # 캐시 유효성 검사용 반지름
+_boss_orb_cached_surf_size = (0, 0)
+_boss_orb_reuse_glow = None        # 재사용 외곽 글로우 Surface
+_boss_orb_reuse_sparkle = None     # 재사용 파티클 Surface
+_boss_orb_reuse_token_layer = None # 재사용 토큰 글로우 레이어
+_boss_orb_reuse_glow2 = None       # 재사용 펄스 글로우 Surface
+_boss_orb_font_cached = None       # 캐시된 freetype 폰트
+_boss_orb_text_cache = {}          # 텍스트 Surface 캐시
+_boss_orb_div_cache = None         # 분할선 캐시
+_boss_orb_div_max = -1             # 분할선 캐시 유효성 검사용
 
 # ============================================================
 # 스매셔 스킬 아이콘 시스템 (왼쪽 필러에 표시)
@@ -74430,9 +74443,11 @@ def activate_fan_wind():
     fan_wind_charge_timer = 60  # 1초 부채질 선딜
     fan_wind_growth_scale = 0.0
     fan_wind_used_this_round = True
-    # 소용돌이 위치 미리 결정
-    fan_wind_zone_x = float(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2 + random.randint(-80, 80))
-    fan_wind_zone_y = 130.0
+    # 소용돌이 위치: 보스 패들 바로 앞에서 생성
+    boss_cx = float(BOSS.centerx if BOSS else GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2)
+    boss_bottom = float((BOSS.y + BOSS.height + 10) if BOSS else 75)
+    fan_wind_zone_x = boss_cx + random.randint(-30, 30)
+    fan_wind_zone_y = boss_bottom
     # 나머지 초기화
     fan_wind_active = False
     fan_wind_timer = 240
@@ -74593,54 +74608,82 @@ def draw_fan_wind_effect(screen):
                              (int(wx), int(wy)),
                              (int(wx + dx_n * w_len), int(wy + dy_n * w_len)), 1)
 
-    # --- 소용돌이 본체 (성장 스케일 적용) ---
+    # --- 소용돌이 본체 (모래회오리 구조 + 바람 색상) ---
     scale = fan_wind_growth_scale if is_charging else 1.0
     fade = min(1.0, fan_wind_timer / 30.0) if (is_active and fan_wind_timer < 30) else 1.0
     eff_fade = fade * max(0.15, scale)
 
-    # 기본 반경 50% 확대: 26 → 39
     base_vortex_r = 39
-    vortex_r = max(3, int(base_vortex_r * scale))
+    vortex_r = max(4, int(base_vortex_r * scale))
+    alpha = int(255 * eff_fade)
+    rot = t * 200  # 회전 각도 (도)
+    age = t
 
-    surf_sz = base_vortex_r * 5
-    v_surf = pygame.Surface((surf_sz, surf_sz), pygame.SRCALPHA)
-    vcx = surf_sz // 2
-    vcy = surf_sz // 2
+    surf_size = int(vortex_r * 3.5)
+    if surf_size >= 4:
+        vortex_surf = pygame.Surface((surf_size * 2, surf_size * 2), pygame.SRCALPHA)
+        cx_s, cy_s = surf_size, surf_size
 
-    # 부드러운 동심원 그라디언트 (안개 느낌)
-    for gr in range(max(1, int(vortex_r * 1.6)), 0, -2):
-        gf = gr / max(1, vortex_r * 1.6)  # 1(외곽)→0(중심)
-        ga = int((18 + 22 * (1.0 - gf)) * eff_fade)
-        gc = int(200 + 55 * (1.0 - gf))
-        pygame.draw.circle(v_surf, (gc, gc, min(255, gc + 20), ga), (vcx, vcy), gr)
+        # 1) 바깥쪽 바람구름 (8개 반투명 대형 원)
+        for i in range(8):
+            cloud_angle = math.radians(rot * 0.5 + i * 45 + age * 60)
+            cloud_dist = vortex_r * (0.6 + 0.4 * math.sin(age * 2 + i))
+            cloud_x = cx_s + math.cos(cloud_angle) * cloud_dist
+            cloud_y = cy_s + math.sin(cloud_angle) * cloud_dist
+            cloud_r = int(vortex_r * random.uniform(0.35, 0.6))
+            cloud_alpha = max(0, min(255, int(alpha * 0.25)))
+            r_c = min(255, 160 + int(40 * math.sin(i * 0.7)))
+            g_c = min(255, 190 + int(30 * math.sin(i * 1.1)))
+            b_c = 255
+            pygame.draw.circle(vortex_surf, (r_c, g_c, b_c, cloud_alpha),
+                               (int(cloud_x), int(cloud_y)), max(1, cloud_r))
 
-    # 중심부 어두운 눈
-    eye_r = max(2, int(vortex_r * 0.22))
-    pygame.draw.circle(v_surf, (50, 65, 100, int(110 * eff_fade)), (vcx, vcy), eye_r)
+        # 2) 중간층 빠른 회전 나선 (8겹)
+        for layer in range(8):
+            radius = vortex_r - layer * 4
+            if radius < 4:
+                break
+            layer_alpha = max(0, min(255, int(alpha * 0.7) - layer * 20))
+            r_c = min(255, 170 + layer * 8)
+            g_c = min(255, 200 + layer * 5)
+            b_c = 255
+            color = (r_c, g_c, b_c, layer_alpha)
+            points = []
+            angle_start = math.radians(rot * 1.3 + layer * 40)
+            for a_deg in range(0, 420, 8):
+                rad = math.radians(a_deg) + angle_start
+                r = radius * (1 - a_deg / 1400)
+                if r < 2:
+                    break
+                px = cx_s + math.cos(rad) * r
+                py = cy_s + math.sin(rad) * r
+                points.append((int(px), int(py)))
+            if len(points) > 2:
+                line_w = max(1, 4 - layer // 2)
+                pygame.draw.lines(vortex_surf, color, False, points, line_w)
 
-    # 나선 팔 2개 (깔끔한 곡선, 부드러운 페이드)
-    for arm in range(2):
-        base_a = t * 4.5 + arm * math.pi
-        seg_count = 24
-        prev = None
-        for si in range(seg_count):
-            frac = si / float(seg_count)
-            r = vortex_r * 0.15 + frac * vortex_r * 1.5
-            a = base_a + frac * math.pi * 3.0
-            sx = vcx + int(math.cos(a) * r)
-            sy = vcy + int(math.sin(a) * r)
-            # 선 굵기: 중심 2px → 외곽 1px
-            lw = max(1, int(2.5 - frac * 1.5))
-            # 투명도: 중심 밝고 외곽 희미
-            la = int((160 - frac * 120) * eff_fade)
-            color = (230, 240, 255, la)
-            if prev:
-                pygame.draw.line(v_surf, color, prev, (sx, sy), lw)
-            prev = (sx, sy)
+        # 3) 내부 밝은 코어
+        core_alpha = max(0, min(255, int(alpha * 0.5)))
+        pygame.draw.circle(vortex_surf, (200, 220, 255, core_alpha), (cx_s, cy_s), max(1, int(vortex_r * 0.35)))
+        pygame.draw.circle(vortex_surf, (220, 235, 255, max(0, min(255, int(alpha * 0.7)))),
+                           (cx_s, cy_s), max(1, int(vortex_r * 0.2)))
+        pygame.draw.circle(vortex_surf, (240, 248, 255, min(255, int(alpha * 0.9))),
+                           (cx_s, cy_s), max(1, 5))
 
-    screen.blit(v_surf, (zx - vcx, zy - vcy))
+        # 4) 바람 알갱이 노이즈 (12개)
+        for _ in range(12):
+            grain_angle = random.uniform(0, math.pi * 2)
+            grain_dist = random.uniform(4, vortex_r * 0.9)
+            gx = cx_s + math.cos(grain_angle) * grain_dist
+            gy = cy_s + math.sin(grain_angle) * grain_dist
+            grain_alpha = max(0, min(255, int(alpha * random.uniform(0.3, 0.7))))
+            grain_size = random.randint(1, 3)
+            pygame.draw.circle(vortex_surf, (200, 220, 250, grain_alpha),
+                               (int(gx), int(gy)), grain_size)
 
-    # --- 포획 중: 공 주위 깔끔한 회전 링 ---
+        screen.blit(vortex_surf, (zx - surf_size, zy - surf_size))
+
+    # --- 포획 중: 공 주위 회전 링 ---
     if fan_wind_captured:
         cap_r = max(5, int(fan_wind_capture_radius))
         for i in range(6):
@@ -74648,17 +74691,7 @@ def draw_fan_wind_effect(screen):
             dot_x = zx + int(math.cos(a) * cap_r * 1.15)
             dot_y = zy + int(math.sin(a) * cap_r * 1.15)
             da = max(30, int(120 * eff_fade) - i * 15)
-            pygame.draw.circle(screen, (220, 235, 255, da), (dot_x, dot_y), 2)
-
-    # --- 바람 파티클 (소량, 은은하게) ---
-    if random.random() < 0.3 * eff_fade:
-        p_a = random.uniform(0, math.pi * 2)
-        p_d = random.uniform(vortex_r * 0.4, vortex_r * 2.0)
-        px = zx + int(math.cos(p_a) * p_d)
-        py = zy + int(math.sin(p_a) * p_d)
-        ds = random.randint(1, 2)
-        da = int(random.randint(40, 100) * eff_fade)
-        pygame.draw.circle(screen, (210, 225, 245, da), (px, py), ds)
+            pygame.draw.circle(screen, (210, 230, 255, da), (dot_x, dot_y), 2)
 
 
 # === 포도대장 포졸소환 스킬 ===
@@ -137670,6 +137703,11 @@ def handle_boss():
             BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
         return  # 튜토리얼 AI 완료
     
+    # Stage 1 각시탈 스킬 시전 중 보스 이동 불가 (부채질 1초 / 부채던지기 0.5초)
+    if current_stage == 1 and (fan_wind_charging or fan_throw_windup_active):
+        boss_current_speed = 0
+        return
+
     # Stage 1 상모돌리기 강제 해제 모션 중 후딜 상태
     if current_stage == 1 and boss_stunned_after_whip:
         # 완전 통제 불능 - 이동 불가
