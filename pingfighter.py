@@ -128000,8 +128000,8 @@ def calculate_bounce(paddle):
         refresh_perfect_timing_indicator()
         # 일반 충돌과 동일한 속도 처리
         #  속도에 관계없이 일정한 가속 적용 (완화된 증가율)
-        # 🏟️ 랠리 공속 증가율 보정 (일반: -50%, 투기장: -75%)
-        arena_accel_mult = 0.4 if arena_mode_enabled else 0.75
+        # 🏟️ 랠리 공속 증가율 보정
+        arena_accel_mult = 1.6 if arena_mode_enabled else 1.5
         # 🌱 주니어리그: 속도 증가율 -20% 감소
         junior_mult = get_junior_speed_increase_multiplier()
         base_min = 1.0 + (0.02 * junior_mult * arena_accel_mult)
@@ -128017,7 +128017,7 @@ def calculate_bounce(paddle):
     else:
         # 일반 충돌 시 동일한 가속 (완화된 증가율)
         # 🌱 주니어리그: 속도 증가율 -20% 감소
-        arena_accel_mult = 0.4 if arena_mode_enabled else 0.75
+        arena_accel_mult = 1.6 if arena_mode_enabled else 1.5
         junior_mult = get_junior_speed_increase_multiplier()
         base_min = 1.0 + (0.024 * junior_mult * arena_accel_mult)
         base_max = 1.0 + (0.084 * junior_mult * arena_accel_mult)
@@ -128034,7 +128034,7 @@ def calculate_bounce(paddle):
         # 🌱 주니어리그: 속도 증가율 -20% 감소
         junior_mult = get_junior_speed_increase_multiplier()
         boss_min = 1.0 + (0.012 * junior_mult * arena_accel_mult)
-        boss_max = 1.0 + (0.0333 * junior_mult * arena_accel_mult)
+        boss_max = 1.0 + (0.054 * junior_mult * arena_accel_mult)
         boss_multiplier = random.uniform(boss_min, boss_max)  # 보스 추가 가속
         speed *= boss_multiplier
         # 🔍 [SPEED DEBUG] 보스 추가 가속
