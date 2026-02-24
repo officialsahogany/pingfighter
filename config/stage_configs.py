@@ -148,20 +148,10 @@ BOSS_VARIANTS = {
     1: {
         "풍악보이": BOSS_CONFIGS[1],
         "포도대장": {
+            **BOSS_CONFIGS[1],              # 풍악보이와 동일 스탯
             "name": "포도대장",
             "color": (100, 70, 40),         # 갈색 (조선 포도청 복식)
-            "accel": 0.850,                 # 풍악보이보다 약간 빠름
-            "decel": 0.850,
-            "max_speed": 6.5,
-            "instant_stop": 0.700,
-            "predict_distance": 155,
-            "skill_power": 1.0,
-            "fail_error": 300,              # 풍악보이(315)보다 정확
             "special_skill": "arrest_rope",  # 포승줄
-            "dash_cooldown_range": (38.0, 52.0),
-            "dash_trigger_chance": 0.32,
-            "dash_stun_duration": 0.58,
-            "dash_max_distance": 295,
         },
     },
 }
