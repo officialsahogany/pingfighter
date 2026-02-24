@@ -91467,12 +91467,12 @@ def draw_player_gauge():
                 _boss_orb_x = 80
                 _boss_orb_y = orb_radius_base + 15
 
-                # === 네이비/코발트 블루 색상 테마 (보스 전용, 플레이어 빨강과 구분) ===
-                _boss_empty_color = (10, 15, 45)
-                _boss_full_color = (40, 100, 220)
-                _boss_frame_dark = (10, 12, 35)
-                _boss_frame_light = (30, 45, 100)
-                _boss_frame_highlight = (55, 80, 160)
+                # === 보라빛 색상 테마 (투기장 상단 영웅과 동일) ===
+                _boss_empty_color = (30, 15, 50)
+                _boss_full_color = (140, 60, 200)
+                _boss_frame_dark = (25, 15, 40)
+                _boss_frame_light = (70, 40, 100)
+                _boss_frame_highlight = (120, 80, 160)
 
                 # === 캐시 초기화/리빌드 (반지름 또는 Surface 크기 변경 시만) ===
                 _need_rebuild = (_boss_orb_cached_radius != _boss_orb_radius or
@@ -91488,16 +91488,16 @@ def draw_player_gauge():
                     for _i in range(4):
                         _r = _boss_orb_radius + _boss_fw + 3 - _i
                         _a = 50 - _i * 12
-                        pygame.draw.circle(_SB, (5, 8, 18, _a), (_boss_orb_x + 3, _boss_orb_y + 3), _r)
+                        pygame.draw.circle(_SB, (10, 5, 15, _a), (_boss_orb_x + 3, _boss_orb_y + 3), _r)
                     pygame.draw.circle(_SB, _boss_frame_dark, (_boss_orb_x, _boss_orb_y), _boss_orb_radius + _boss_fw)
                     pygame.draw.circle(_SB, _boss_frame_light, (_boss_orb_x, _boss_orb_y), _boss_orb_radius + _boss_fw, 4)
                     pygame.draw.circle(_SB, _boss_frame_highlight, (_boss_orb_x, _boss_orb_y), _boss_orb_radius + _boss_fw, 2)
-                    pygame.draw.circle(_SB, (25, 35, 75), (_boss_orb_x, _boss_orb_y), _boss_orb_radius + _boss_fw - 4, 2)
-                    pygame.draw.circle(_SB, (60, 80, 140), (_boss_orb_x, _boss_orb_y), _boss_orb_radius + _boss_fw - 5, 1)
+                    pygame.draw.circle(_SB, (60, 35, 70), (_boss_orb_x, _boss_orb_y), _boss_orb_radius + _boss_fw - 4, 2)
+                    pygame.draw.circle(_SB, (110, 80, 130), (_boss_orb_x, _boss_orb_y), _boss_orb_radius + _boss_fw - 5, 1)
                     _bevel = (_boss_orb_x - _boss_orb_radius - _boss_fw + 2, _boss_orb_y - _boss_orb_radius - _boss_fw + 2,
                              (_boss_orb_radius + _boss_fw - 2) * 2, (_boss_orb_radius + _boss_fw - 2) * 2)
-                    pygame.draw.arc(_SB, (140, 160, 220, 180), _bevel, math.radians(200), math.radians(340), 3)
-                    pygame.draw.arc(_SB, (10, 12, 30, 160), _bevel, math.radians(20), math.radians(160), 3)
+                    pygame.draw.arc(_SB, (180, 160, 200, 180), _bevel, math.radians(200), math.radians(340), 3)
+                    pygame.draw.arc(_SB, (20, 12, 25, 160), _bevel, math.radians(20), math.radians(160), 3)
                     # 스터드 장식
                     _n_studs = 8
                     for _i in range(_n_studs):
@@ -91505,20 +91505,20 @@ def draw_player_gauge():
                         _d = _boss_orb_radius + _boss_fw // 2
                         _sx = int(_boss_orb_x + math.cos(_a) * _d)
                         _sy = int(_boss_orb_y + math.sin(_a) * _d)
-                        pygame.draw.circle(_SB, (20, 30, 60, 255), (_sx, _sy), 6)
-                        pygame.draw.circle(_SB, (50, 70, 130, 255), (_sx, _sy), 5)
-                        pygame.draw.circle(_SB, (80, 110, 180, 255), (_sx, _sy), 4)
-                        pygame.draw.circle(_SB, (40, 80, 200, 255), (_sx, _sy), 3)
-                        pygame.draw.circle(_SB, (80, 140, 255, 255), (_sx, _sy), 2)
-                        pygame.draw.circle(_SB, (180, 200, 255, 200), (_sx - 1, _sy - 1), 1)
-                    pygame.draw.circle(_SB, (8, 12, 25), (_boss_orb_x, _boss_orb_y), _boss_orb_radius + 2, 2)
-                    pygame.draw.circle(_SB, (25, 40, 75), (_boss_orb_x, _boss_orb_y), _boss_orb_radius + 1, 1)
+                        pygame.draw.circle(_SB, (40, 25, 50, 255), (_sx, _sy), 6)
+                        pygame.draw.circle(_SB, (100, 70, 120, 255), (_sx, _sy), 5)
+                        pygame.draw.circle(_SB, (150, 110, 180, 255), (_sx, _sy), 4)
+                        pygame.draw.circle(_SB, (120, 40, 180, 255), (_sx, _sy), 3)
+                        pygame.draw.circle(_SB, (180, 80, 240, 255), (_sx, _sy), 2)
+                        pygame.draw.circle(_SB, (220, 180, 255, 200), (_sx - 1, _sy - 1), 1)
+                    pygame.draw.circle(_SB, (15, 10, 20), (_boss_orb_x, _boss_orb_y), _boss_orb_radius + 2, 2)
+                    pygame.draw.circle(_SB, (60, 40, 70), (_boss_orb_x, _boss_orb_y), _boss_orb_radius + 1, 1)
                     # 배경 그라데이션
                     for _br in range(_boss_orb_radius, 0, -2):
                         _ratio = _br / _boss_orb_radius
                         _r = int(_boss_empty_color[0] + 15 * (1 - _ratio))
                         _g = int(_boss_empty_color[1] + 8 * (1 - _ratio))
-                        _b = int(_boss_empty_color[2] + 8 * (1 - _ratio))
+                        _b = int(_boss_empty_color[2] + 20 * (1 - _ratio))
                         pygame.draw.circle(_SB, (_r, _g, _b), (_boss_orb_x, _boss_orb_y), _br)
 
                     # --- 정적 탑 B: 글래스 하이라이트 + 볼트 장식 ---
@@ -91535,7 +91535,7 @@ def draw_player_gauge():
                     pygame.draw.circle(_hl_surf, (255, 255, 255, 130), (_boss_orb_radius // 3, _boss_orb_radius // 3), 3)
                     pygame.draw.circle(_hl_surf, (255, 255, 255, 90), (_boss_orb_radius // 3 + 1, _boss_orb_radius // 3 + 1), 2)
                     _rim_surf = pygame.Surface((_hl_sz, _hl_sz), pygame.SRCALPHA)
-                    pygame.draw.arc(_rim_surf, (120, 160, 255, 35), (2, 2, _boss_orb_radius * 2, _boss_orb_radius * 2),
+                    pygame.draw.arc(_rim_surf, (200, 150, 255, 35), (2, 2, _boss_orb_radius * 2, _boss_orb_radius * 2),
                                    math.radians(30), math.radians(150), 2)
                     _ST.blit(_hl_surf, (_boss_orb_x - _boss_orb_radius - 2, _boss_orb_y - _boss_orb_radius - 2))
                     _ST.blit(_rim_surf, (_boss_orb_x - _boss_orb_radius - 2, _boss_orb_y - _boss_orb_radius - 2))
@@ -91544,12 +91544,12 @@ def draw_player_gauge():
                     for _ba in _bolt_angles:
                         _bx = int(_boss_orb_x + math.cos(_ba) * (_boss_orb_radius + 5))
                         _by = int(_boss_orb_y + math.sin(_ba) * (_boss_orb_radius + 5))
-                        pygame.draw.circle(_ST, (20, 30, 60, 255), (_bx, _by), 6)
-                        pygame.draw.circle(_ST, (50, 70, 130, 255), (_bx, _by), 5)
-                        pygame.draw.circle(_ST, (80, 110, 180, 255), (_bx, _by), 4)
-                        pygame.draw.circle(_ST, (40, 80, 220, 255), (_bx, _by), 3)
-                        pygame.draw.circle(_ST, (80, 140, 255, 255), (_bx, _by), 2)
-                        pygame.draw.circle(_ST, (180, 210, 255, 160), (_bx - 1, _by - 1), 1)
+                        pygame.draw.circle(_ST, (40, 25, 50, 255), (_bx, _by), 6)
+                        pygame.draw.circle(_ST, (100, 70, 120, 255), (_bx, _by), 5)
+                        pygame.draw.circle(_ST, (150, 110, 180, 255), (_bx, _by), 4)
+                        pygame.draw.circle(_ST, (140, 40, 200, 255), (_bx, _by), 3)
+                        pygame.draw.circle(_ST, (200, 80, 255, 255), (_bx, _by), 2)
+                        pygame.draw.circle(_ST, (230, 190, 255, 160), (_bx - 1, _by - 1), 1)
 
                     # --- 재사용 Surface 사전 할당 ---
                     _boss_orb_reuse_glow = pygame.Surface((_boss_orb_radius * 2 + 50, _boss_orb_radius * 2 + 50), pygame.SRCALPHA)
@@ -91576,7 +91576,7 @@ def draw_player_gauge():
                 for _i in range(4):
                     _r = _boss_orb_radius + 10 + 12 - _i * 3
                     _a = int(20 * _bg_pulse * (4 - _i) / 4)
-                    pygame.draw.circle(_boss_orb_reuse_glow, (40, 80, 220, _a),
+                    pygame.draw.circle(_boss_orb_reuse_glow, (140, 60, 200, _a),
                                      (_boss_orb_radius + 25, _boss_orb_radius + 25), _r)
                 _BOSS_ORB.blit(_boss_orb_reuse_glow, (_boss_orb_x - _boss_orb_radius - 25, _boss_orb_y - _boss_orb_radius - 25))
 
@@ -91596,7 +91596,7 @@ def draw_player_gauge():
                         _dx2 = _ppx - _boss_orb_radius
                         _dy2 = _ppy - _boss_orb_radius
                         if _dx2 * _dx2 + _dy2 * _dy2 < (_boss_orb_radius - 5) * (_boss_orb_radius - 5):
-                            pygame.draw.circle(_boss_orb_reuse_sparkle, (80, 150, 255, _p_alpha), (_ppx, _ppy), _p_size)
+                            pygame.draw.circle(_boss_orb_reuse_sparkle, (180, 120, 255, _p_alpha), (_ppx, _ppy), _p_size)
                 _BOSS_ORB.blit(_boss_orb_reuse_sparkle, (_boss_orb_x - _boss_orb_radius, _boss_orb_y - _boss_orb_radius))
 
                 # === 5. 섹터별 토큰 상태 (동적) ===
@@ -91627,13 +91627,13 @@ def draw_player_gauge():
                                 _l_pts.append((_s_px, _s_py))
                             _l_alpha = 80 - _l * 20
                             _boss_orb_reuse_token_layer.fill((0, 0, 0, 0))
-                            pygame.draw.polygon(_boss_orb_reuse_token_layer, (140, 180, 255, _l_alpha), _l_pts)
+                            pygame.draw.polygon(_boss_orb_reuse_token_layer, (200, 160, 255, _l_alpha), _l_pts)
                             _BOSS_ORB.blit(_boss_orb_reuse_token_layer, (0, 0))
                     elif _boss_charge_progress > 0 and _ti == _boss_available:
                         # 충전 중인 토큰 (쿨다운 진행 표시 - 아래에서 위로 채워짐)
-                        _c_color = (int(10 + 30 * _boss_charge_progress),
-                                   int(15 + 85 * _boss_charge_progress),
-                                   int(45 + 175 * _boss_charge_progress))
+                        _c_color = (int(30 + 110 * _boss_charge_progress),
+                                   int(15 + 45 * _boss_charge_progress),
+                                   int(50 + 150 * _boss_charge_progress))
                         _c_fill_h = _boss_orb_radius * 2 * _boss_charge_progress
                         _c_clip_y = _boss_orb_y + _boss_orb_radius - _c_fill_h
                         _c_pts = []
@@ -91692,7 +91692,7 @@ def draw_player_gauge():
                     _bg_pulse2 = 0.5 + 0.5 * math.sin(time_now * 0.004)
                     _bg_glow_alpha = int(50 * _bg_pulse2)
                     _boss_orb_reuse_glow2.fill((0, 0, 0, 0))
-                    pygame.draw.circle(_boss_orb_reuse_glow2, (60, 120, 255, _bg_glow_alpha),
+                    pygame.draw.circle(_boss_orb_reuse_glow2, (180, 80, 255, _bg_glow_alpha),
                                      (_boss_orb_radius + 15, _boss_orb_radius + 15), _boss_orb_radius + 12)
                     _BOSS_ORB.blit(_boss_orb_reuse_glow2, (_boss_orb_x - _boss_orb_radius - 15, _boss_orb_y - _boss_orb_radius - 15))
 
