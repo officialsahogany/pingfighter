@@ -46529,11 +46529,20 @@ boss_special_gauge = 0  # 보스 필살기 게이지
 boss_special_ready = False
 # === 보스 변형 시스템 (한 스테이지에 여러 보스) ===
 current_boss_name = None  # None = 기본 보스, "포도대장" 등 = 변형 보스
-# 포승줄 스킬 상태
-arrest_rope_active = False
-arrest_rope_timer = 0
-arrest_rope_visual_timer = 0  # 시각 이펙트용
-arrest_rope_target_x = 0
+# 포승줄 스킬 상태 (상태머신: idle → throwing → bound/miss → idle)
+arrest_rope_phase = "idle"         # "idle" | "throwing" | "bound" | "miss"
+arrest_rope_active = False         # 속도 감소 플래그 (bound일 때만 True) — 기존 호환
+arrest_rope_timer = 0              # 현재 phase 타이머 (프레임)
+arrest_rope_visual_timer = 0       # 비주얼 애니메이션용
+# 투사체 관련
+arrest_rope_throw_progress = 0.0   # 0~1 투사 진행률
+arrest_rope_start_x = 0.0         # 보스 위치 X (발사 시점)
+arrest_rope_start_y = 0.0         # 보스 위치 Y
+arrest_rope_target_x = 0.0        # 목표 X (플레이어 발사 시점 위치)
+arrest_rope_target_y = 0.0        # 목표 Y
+# 포박 관련
+arrest_rope_bind_x = 0.0          # 포박 이펙트 X (플레이어 따라감)
+arrest_rope_bind_y = 0.0          # 포박 이펙트 Y
 # 사이코볼
 emotional_overdrive_active = False
 emotional_overdrive_timer = 0
@@ -73099,70 +73108,335 @@ def deactivate_whip():
         # 이미 회전 중이었다면 기존 속도를 유지하고, 아닐 경우 최소 속도 보장
         whip_rotation_speed = max(whip_rotation_speed, 20.0)
 
-# === 포도대장 포승줄 스킬 ===
+# === 포도대장 포승줄 스킬 (상태머신: idle → throwing → bound/miss → idle) ===
 def activate_arrest_rope():
-    """포승줄 발동 — 플레이어 패들 이동속도 3초간 50% 감소"""
-    global arrest_rope_active, arrest_rope_timer, arrest_rope_visual_timer, arrest_rope_target_x
-    arrest_rope_active = True
-    arrest_rope_timer = 180  # 3초 (60fps 기준)
+    """포승줄 발동 — throwing 단계 시작 (밧줄이 보스에서 플레이어를 향해 날아감)"""
+    global arrest_rope_phase, arrest_rope_timer, arrest_rope_visual_timer
+    global arrest_rope_start_x, arrest_rope_start_y
+    global arrest_rope_target_x, arrest_rope_target_y
+    global arrest_rope_throw_progress, arrest_rope_active
+
+    arrest_rope_phase = "throwing"
+    arrest_rope_timer = 0
     arrest_rope_visual_timer = 0
-    arrest_rope_target_x = PLAYER.centerx if PLAYER else WIDTH // 2
-    # print(f"[포도대장] 포승줄 발동! 패들 이동속도 50% 감소 (3초)")
+    arrest_rope_throw_progress = 0.0
+    arrest_rope_active = False  # throwing 중에는 아직 속도 감소 없음
+
+    # 보스 위치 (발사 시작점)
+    arrest_rope_start_x = float(BOSS.centerx if BOSS else WIDTH // 2)
+    arrest_rope_start_y = float(BOSS.y + BOSS.height if BOSS else 65)
+    # 플레이어 위치 (목표) — 발사 시점의 플레이어 위치
+    arrest_rope_target_x = float(PLAYER.centerx if PLAYER else WIDTH // 2)
+    arrest_rope_target_y = float(PLAYER.y if PLAYER else 710)
+
+    try:
+        play_sound_with_volume(SOUND_THROW_BEFORE)
+    except Exception:
+        pass
 
 def deactivate_arrest_rope():
     """포승줄 해제"""
-    global arrest_rope_active, arrest_rope_timer
+    global arrest_rope_active, arrest_rope_timer, arrest_rope_phase
     arrest_rope_active = False
     arrest_rope_timer = 0
-    # print(f"[포도대장] 포승줄 해제!")
+    arrest_rope_phase = "idle"
 
 def update_arrest_rope():
-    """포승줄 타이머 업데이트 (매 프레임 호출)"""
-    global arrest_rope_active, arrest_rope_timer, arrest_rope_visual_timer
-    if arrest_rope_active:
+    """포승줄 상태머신 업데이트 (매 프레임 호출)"""
+    global arrest_rope_phase, arrest_rope_active, arrest_rope_timer, arrest_rope_visual_timer
+    global arrest_rope_throw_progress, arrest_rope_bind_x, arrest_rope_bind_y
+
+    import math as _math
+
+    if arrest_rope_phase == "idle":
+        return
+
+    arrest_rope_visual_timer += 1
+
+    if arrest_rope_phase == "throwing":
+        # --- 투사체 날아가는 단계 (25프레임 ≈ 0.42초) ---
+        arrest_rope_timer += 1
+        throw_duration = 25
+        # easeOutQuad 이징: 처음 빠르고 끝에 감속
+        raw_t = min(arrest_rope_timer / throw_duration, 1.0)
+        arrest_rope_throw_progress = 1.0 - (1.0 - raw_t) * (1.0 - raw_t)
+
+        if arrest_rope_timer >= throw_duration:
+            # 도착 — 히트 판정
+            player_cx = PLAYER.centerx if PLAYER else WIDTH // 2
+            hit_range = (PLAYER.width * 0.6) if PLAYER else 93
+            dist = abs(arrest_rope_target_x - player_cx)
+            if dist < hit_range:
+                # 히트! → bound 단계
+                arrest_rope_phase = "bound"
+                arrest_rope_active = True
+                arrest_rope_timer = 180  # 3초
+                arrest_rope_bind_x = float(player_cx)
+                arrest_rope_bind_y = float(PLAYER.y if PLAYER else 710)
+                try:
+                    play_sound_with_volume(SOUND_THROW)
+                except Exception:
+                    pass
+            else:
+                # 미스! → miss 단계
+                arrest_rope_phase = "miss"
+                arrest_rope_timer = 30  # 0.5초 미스 연출
+                arrest_rope_active = False
+
+    elif arrest_rope_phase == "bound":
+        # --- 포박 단계 (3초, 플레이어 따라감) ---
         arrest_rope_timer -= 1
-        arrest_rope_visual_timer += 1
+        # 매 프레임 플레이어 위치 추적
+        arrest_rope_bind_x = float(PLAYER.centerx if PLAYER else WIDTH // 2)
+        arrest_rope_bind_y = float(PLAYER.y if PLAYER else 710)
         if arrest_rope_timer <= 0:
             deactivate_arrest_rope()
 
+    elif arrest_rope_phase == "miss":
+        # --- 미스 연출 (0.5초) ---
+        arrest_rope_timer -= 1
+        if arrest_rope_timer <= 0:
+            arrest_rope_phase = "idle"
+
 def draw_arrest_rope_effect(screen):
-    """포승줄 시각 이펙트 렌더링"""
-    if not arrest_rope_active:
+    """포승줄 시각 이펙트 렌더링 — 3개 단계별 다른 연출"""
+    if arrest_rope_phase == "idle":
         return
 
     import math as _math
-    # 보스에서 플레이어 방향으로 밧줄 이펙트
-    boss_cx = BOSS.centerx if BOSS else WIDTH // 2
-    boss_cy = BOSS.y + BOSS.height if BOSS else 65
-    player_cy = PLAYER.y if PLAYER else 710
-    target_x = arrest_rope_target_x
 
-    # 밧줄 색상 (깜빡임)
-    flash = 0.7 + 0.3 * _math.sin(arrest_rope_visual_timer * 0.15)
+    # 공통 색상
+    vt = arrest_rope_visual_timer
+    flash = 0.85 + 0.15 * _math.sin(vt * 0.15)
     rope_color = (int(175 * flash), int(145 * flash), int(95 * flash))
-    rope_glow = (int(200 * flash), int(170 * flash), int(110 * flash), 80)
+    rope_dark = (140, 110, 65)
+    rope_light = (200, 175, 125)
+    rope_glow_color = (200, 170, 110, 80)
 
-    # 밧줄 세그먼트 (곡선으로 연결)
-    segments = 12
+    boss_cx = arrest_rope_start_x
+    boss_cy = arrest_rope_start_y
+
+    if arrest_rope_phase == "throwing":
+        _draw_rope_throwing(screen, boss_cx, boss_cy, rope_color, rope_dark, rope_light, vt)
+    elif arrest_rope_phase == "bound":
+        _draw_rope_bound(screen, boss_cx, boss_cy, rope_color, rope_dark, rope_light, rope_glow_color, vt)
+    elif arrest_rope_phase == "miss":
+        _draw_rope_miss(screen, boss_cx, boss_cy, rope_color, rope_dark, vt)
+
+def _draw_rope_throwing(screen, boss_cx, boss_cy, rope_color, rope_dark, rope_light, vt):
+    """포승줄 투사 — 보스→목표 날아가는 밧줄"""
+    import math as _math
+    prog = arrest_rope_throw_progress
+    tx = arrest_rope_target_x
+    ty = arrest_rope_target_y
+
+    # 밧줄 끝(올가미) 현재 위치
+    tip_x = boss_cx + (tx - boss_cx) * prog
+    tip_y = boss_cy + (ty - boss_cy) * prog
+
+    # === 보스→밧줄끝 연결 밧줄 (카테너리 곡선 처짐) ===
+    segments = 14
+    sag_amount = 25 * (1.0 - prog * 0.5)  # 진행될수록 팽팽해짐
     for i in range(segments):
         t1 = i / segments
         t2 = (i + 1) / segments
-        # 보스에서 플레이어까지 보간
-        x1 = int(boss_cx + (target_x - boss_cx) * t1 + _math.sin(t1 * _math.pi * 3 + arrest_rope_visual_timer * 0.1) * 15)
-        y1 = int(boss_cy + (player_cy - boss_cy) * t1)
-        x2 = int(boss_cx + (target_x - boss_cx) * t2 + _math.sin(t2 * _math.pi * 3 + arrest_rope_visual_timer * 0.1) * 15)
-        y2 = int(boss_cy + (player_cy - boss_cy) * t2)
-        pygame.draw.line(screen, rope_color, (x1, y1), (x2, y2), 3)
+        # 보스→밧줄끝 보간
+        x1 = boss_cx + (tip_x - boss_cx) * t1
+        y1 = boss_cy + (tip_y - boss_cy) * t1
+        x2 = boss_cx + (tip_x - boss_cx) * t2
+        y2 = boss_cy + (tip_y - boss_cy) * t2
+        # 처짐 (포물선 — 중앙이 가장 많이 처짐)
+        sag1 = _math.sin(t1 * _math.pi) * sag_amount
+        sag2 = _math.sin(t2 * _math.pi) * sag_amount
+        # 미세한 흔들림
+        wave1 = _math.sin(t1 * _math.pi * 3 + vt * 0.3) * 4 * (1.0 - prog * 0.7)
+        wave2 = _math.sin(t2 * _math.pi * 3 + vt * 0.3) * 4 * (1.0 - prog * 0.7)
+        # 두께: 시작 3px → 끝 2px
+        w = max(1, int(3 - t1 * 1.5))
+        pygame.draw.line(screen, rope_dark,
+                        (int(x1 + wave1), int(y1 + sag1) + 1),
+                        (int(x2 + wave2), int(y2 + sag2) + 1), w)
+        pygame.draw.line(screen, rope_color,
+                        (int(x1 + wave1), int(y1 + sag1)),
+                        (int(x2 + wave2), int(y2 + sag2)), w)
 
-    # 플레이어 주변 묶인 이펙트 (원형)
-    bind_pulse = 0.8 + 0.2 * _math.sin(arrest_rope_visual_timer * 0.2)
-    bind_radius = int(40 * bind_pulse)
-    glow_surf = pygame.Surface((bind_radius * 2, bind_radius * 2), pygame.SRCALPHA)
-    pygame.draw.circle(glow_surf, rope_glow, (bind_radius, bind_radius), bind_radius)
-    screen.blit(glow_surf, (int(target_x - bind_radius), int(player_cy - bind_radius)),
-                special_flags=pygame.BLEND_ADD)
-    # 묶인 원 테두리
-    pygame.draw.circle(screen, rope_color, (int(target_x), int(player_cy)), bind_radius, 2)
+    # === 밧줄 끝 — 올가미 (회전하며 날아감) ===
+    lasso_r = max(6, int(14 * (0.5 + 0.5 * prog)))
+    lasso_angle = vt * 0.4  # 회전
+    # 올가미 원
+    pygame.draw.circle(screen, rope_dark, (int(tip_x) + 1, int(tip_y) + 1), lasso_r, 2)
+    pygame.draw.circle(screen, rope_light, (int(tip_x), int(tip_y)), lasso_r, 2)
+    # 올가미 중심 십자 (회전)
+    cross_dx = int(_math.cos(lasso_angle) * lasso_r * 0.5)
+    cross_dy = int(_math.sin(lasso_angle) * lasso_r * 0.5)
+    pygame.draw.line(screen, rope_color,
+                    (int(tip_x) - cross_dx, int(tip_y) - cross_dy),
+                    (int(tip_x) + cross_dx, int(tip_y) + cross_dy), 1)
+
+    # === 잔상 트레일 ===
+    for trail_i in range(3):
+        trail_prog = max(0, prog - trail_i * 0.06)
+        trail_x = boss_cx + (tx - boss_cx) * trail_prog
+        trail_y = boss_cy + (ty - boss_cy) * trail_prog
+        trail_alpha = max(0, 80 - trail_i * 25)
+        trail_r = max(2, lasso_r - trail_i * 2)
+        trail_surf = pygame.Surface((trail_r * 2, trail_r * 2), pygame.SRCALPHA)
+        pygame.draw.circle(trail_surf, (175, 145, 95, trail_alpha), (trail_r, trail_r), trail_r)
+        screen.blit(trail_surf, (int(trail_x) - trail_r, int(trail_y) - trail_r))
+
+    # === 보스 쪽 밧줄 고정점 ===
+    pygame.draw.circle(screen, rope_dark, (int(boss_cx), int(boss_cy)), 4)
+    pygame.draw.circle(screen, rope_light, (int(boss_cx), int(boss_cy)), 3, 1)
+
+def _draw_rope_bound(screen, boss_cx, boss_cy, rope_color, rope_dark, rope_light, rope_glow_color, vt):
+    """포승줄 포박 — 보스↔플레이어 연결 + 묶인 이펙트"""
+    import math as _math
+    bind_x = arrest_rope_bind_x
+    bind_y = arrest_rope_bind_y
+
+    # 보스 현재 위치 (이동 중이므로 실시간)
+    cur_boss_cx = float(BOSS.centerx if BOSS else WIDTH // 2)
+    cur_boss_cy = float(BOSS.y + BOSS.height if BOSS else 65)
+
+    # === 보스→플레이어 밧줄 (S자 곡선) ===
+    dx = bind_x - cur_boss_cx
+    total_dist = _math.sqrt(dx * dx + (bind_y - cur_boss_cy) ** 2)
+    tension = min(total_dist / 500.0, 1.0)  # 0~1: 거리 멀수록 팽팽
+    sag = 30 * (1.0 - tension * 0.7)  # 팽팽하면 처짐 줄어듦
+    wave_amp = 8 * (1.0 - tension * 0.5)
+
+    segments = 16
+    for i in range(segments):
+        t1 = i / segments
+        t2 = (i + 1) / segments
+        x1 = cur_boss_cx + (bind_x - cur_boss_cx) * t1
+        y1 = cur_boss_cy + (bind_y - cur_boss_cy) * t1
+        x2 = cur_boss_cx + (bind_x - cur_boss_cx) * t2
+        y2 = cur_boss_cy + (bind_y - cur_boss_cy) * t2
+        # 처짐 + 물결
+        sag1 = _math.sin(t1 * _math.pi) * sag
+        sag2 = _math.sin(t2 * _math.pi) * sag
+        wave1 = _math.sin(t1 * _math.pi * 4 + vt * 0.08) * wave_amp
+        wave2 = _math.sin(t2 * _math.pi * 4 + vt * 0.08) * wave_amp
+        w = max(1, int(3 - abs(t1 - 0.5) * 3))
+        # 그림자
+        pygame.draw.line(screen, rope_dark,
+                        (int(x1 + wave1) + 1, int(y1 + sag1) + 1),
+                        (int(x2 + wave2) + 1, int(y2 + sag2) + 1), w)
+        pygame.draw.line(screen, rope_color,
+                        (int(x1 + wave1), int(y1 + sag1)),
+                        (int(x2 + wave2), int(y2 + sag2)), w)
+
+    # === 보스 쪽 고정점 ===
+    pygame.draw.circle(screen, rope_dark, (int(cur_boss_cx), int(cur_boss_cy)), 4)
+    pygame.draw.circle(screen, rope_light, (int(cur_boss_cx), int(cur_boss_cy)), 3, 1)
+
+    # === 플레이어 포박 이펙트 ===
+    bx, by = int(bind_x), int(bind_y)
+
+    # 1) 묶인 글로우 (펄스)
+    bind_pulse = 0.75 + 0.25 * _math.sin(vt * 0.18)
+    glow_r = int(42 * bind_pulse)
+    glow_surf = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
+    pygame.draw.circle(glow_surf, rope_glow_color, (glow_r, glow_r), glow_r)
+    screen.blit(glow_surf, (bx - glow_r, by - glow_r), special_flags=pygame.BLEND_ADD)
+
+    # 2) X자 포박 밧줄 (2겹 — 교차)
+    bind_rot = vt * 0.03  # 미세 회전
+    for layer in range(2):
+        angle = bind_rot + layer * _math.pi / 4
+        hw = 28 + layer * 4
+        for thick in range(2):
+            # 밧줄 가닥
+            sx = bx + int(_math.cos(angle) * hw)
+            sy = by + int(_math.sin(angle) * hw * 0.4) - 5
+            ex = bx - int(_math.cos(angle) * hw)
+            ey = by - int(_math.sin(angle) * hw * 0.4) - 5
+            c = rope_dark if thick == 0 else rope_color
+            offset = 1 if thick == 0 else 0
+            pygame.draw.line(screen, c, (sx + offset, sy + offset), (ex + offset, ey + offset),
+                           3 if thick == 0 else 2)
+
+    # 3) 매듭 (중앙)
+    knot_pulse = 0.9 + 0.1 * _math.sin(vt * 0.25)
+    knot_r = max(3, int(5 * knot_pulse))
+    pygame.draw.circle(screen, rope_dark, (bx + 1, by - 4), knot_r)
+    pygame.draw.circle(screen, rope_light, (bx, by - 5), knot_r)
+    pygame.draw.circle(screen, rope_color, (bx, by - 5), knot_r, 1)
+
+    # 4) 남은 시간 표시 (밧줄 테두리 원 — 시간에 따라 줄어듦)
+    remain_ratio = max(0, arrest_rope_timer / 180.0)
+    arc_r = 35
+    arc_start = -_math.pi / 2
+    arc_end = arc_start + 2 * _math.pi * remain_ratio
+    arc_segments = max(4, int(24 * remain_ratio))
+    if arc_segments > 1:
+        for i in range(arc_segments):
+            a1 = arc_start + (arc_end - arc_start) * i / arc_segments
+            a2 = arc_start + (arc_end - arc_start) * (i + 1) / arc_segments
+            px1 = bx + int(_math.cos(a1) * arc_r)
+            py1 = by - 5 + int(_math.sin(a1) * arc_r)
+            px2 = bx + int(_math.cos(a2) * arc_r)
+            py2 = by - 5 + int(_math.sin(a2) * arc_r)
+            alpha_val = int(180 * remain_ratio)
+            pygame.draw.line(screen, (175, 145, 95, alpha_val), (px1, py1), (px2, py2), 2)
+
+def _draw_rope_miss(screen, boss_cx, boss_cy, rope_color, rope_dark, vt):
+    """포승줄 미스 — 밧줄이 바닥에 떨어지는 연출"""
+    import math as _math
+    tx = arrest_rope_target_x
+    ty = arrest_rope_target_y
+
+    # 미스 타이머 진행 (30→0)
+    miss_progress = 1.0 - (arrest_rope_timer / 30.0)  # 0→1
+
+    # 밧줄이 바닥으로 처지면서 사라짐
+    droop = miss_progress * 80  # 아래로 처짐
+    fade = max(0, 1.0 - miss_progress * 1.5)  # 페이드아웃
+
+    if fade <= 0:
+        return
+
+    # 보스→목표 밧줄 (처지면서)
+    segments = 10
+    for i in range(segments):
+        t1 = i / segments
+        t2 = (i + 1) / segments
+        x1 = boss_cx + (tx - boss_cx) * t1
+        y1 = boss_cy + (ty - boss_cy) * t1
+        x2 = boss_cx + (tx - boss_cx) * t2
+        y2 = boss_cy + (ty - boss_cy) * t2
+        # 전체적으로 아래로 처짐 (끝쪽 더 많이)
+        droop1 = droop * t1 * t1
+        droop2 = droop * t2 * t2
+        sag1 = _math.sin(t1 * _math.pi) * (30 + droop * 0.5)
+        sag2 = _math.sin(t2 * _math.pi) * (30 + droop * 0.5)
+        alpha = int(200 * fade)
+        c = (int(175 * fade), int(145 * fade), int(95 * fade))
+        w = max(1, int(2 * fade))
+        pygame.draw.line(screen, c,
+                        (int(x1), int(y1 + sag1 + droop1)),
+                        (int(x2), int(y2 + sag2 + droop2)), w)
+
+    # 올가미 (바닥에 펼쳐짐)
+    lasso_x = int(tx)
+    lasso_y = int(ty + droop * 0.3)
+    lasso_r = max(3, int(12 * fade))
+    # 펼쳐지는 원 (miss 시 넓어짐)
+    spread_r = lasso_r + int(miss_progress * 8)
+    c_fade = (int(175 * fade), int(145 * fade), int(95 * fade))
+    pygame.draw.circle(screen, c_fade, (lasso_x, lasso_y), spread_r, max(1, int(2 * fade)))
+
+    # "실패!" 텍스트 (미스 시 잠깐 표시)
+    if miss_progress < 0.6:
+        text_alpha = int(255 * (1.0 - miss_progress / 0.6))
+        try:
+            miss_font = pygame.font.Font(None, 20)
+            miss_surf = miss_font.render("Miss!", True, (200, 160, 100))
+            miss_surf.set_alpha(text_alpha)
+            screen.blit(miss_surf, (lasso_x - miss_surf.get_width() // 2, lasso_y - 20))
+        except Exception:
+            pass
 
 
 def activate_whip():
@@ -132549,8 +132823,8 @@ def handle_ball():
         # ️ 스테이지 1 보스 필살기 발동 체크 (보스 충돌 시, 게이지 200 필요)
         if not new_boss_mode_active and current_stage == 1 and boss_special_gauge >= 200:
             if current_boss_name == "포도대장":
-                # 포승줄 발동 (15% 확률)
-                if random.random() <= 0.15 and not arrest_rope_active:
+                # 포승줄 발동 (15% 확률) — idle 상태일 때만
+                if random.random() <= 0.15 and arrest_rope_phase == "idle":
                     activate_arrest_rope()
                     show_speech("포승줄!!", duration=180)
                     boss_special_gauge -= 200
@@ -138060,6 +138334,7 @@ def show_result(won):
         current_boss_name = None
         arrest_rope_active = False
         arrest_rope_timer = 0
+        arrest_rope_phase = "idle"
         # 호위무사 시스템 초기화 (게임 오버 시, 최대 2명)
         try:
             from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
@@ -139146,9 +139421,10 @@ def main(stage_num, new_boss_mode=False):
             # print(f"🔥 [광폭화 보스] 스테이지 7(테트리서) 초인테트리서 모드 즉시 발동! (게이지 0에서 충전)")
 
     # === 보스 변형 선출 (한 스테이지에 여러 보스가 있을 때) ===
-    global current_boss_name, arrest_rope_active, arrest_rope_timer
+    global current_boss_name, arrest_rope_active, arrest_rope_timer, arrest_rope_phase
     arrest_rope_active = False
     arrest_rope_timer = 0
+    arrest_rope_phase = "idle"
     from config.stage_configs import BOSS_VARIANTS, get_boss_config_by_name
     if stage_num in BOSS_VARIANTS and len(BOSS_VARIANTS[stage_num]) > 1:
         # 보스 룰렛 선출
@@ -140148,6 +140424,7 @@ def main(stage_num, new_boss_mode=False):
             current_boss_name = None
             arrest_rope_active = False
             arrest_rope_timer = 0
+            arrest_rope_phase = "idle"
             # 호위무사 시스템 초기화 (ESC 메뉴 복귀 시, 최대 2명)
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
@@ -142513,6 +142790,7 @@ def main(stage_num, new_boss_mode=False):
                     current_boss_name = None
                     arrest_rope_active = False
                     arrest_rope_timer = 0
+                    arrest_rope_phase = "idle"
                     # 호위무사 시스템 초기화 (강제 종료 시, 최대 2명)
                     try:
                         from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
