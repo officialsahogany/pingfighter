@@ -5309,8 +5309,14 @@ class SpaceMap:
             cam_zoom = 1.0 + et * 1.8
             # 경기장 스케일
             if ingame_frame is not None:
-                # 인게임 프레임: 처음부터 작게 보이고 점점 커짐 (0.12 → 1.0)
-                arena_scale = 0.12 + 0.88 * et
+                # 인게임 프레임: 1초간 작은 경기장 유지 → 이후 확대
+                hold_ratio = 1.0 / duration  # ~0.286 (1초/3.5초)
+                if t < hold_ratio:
+                    arena_scale = 0.12
+                else:
+                    grow_t = (t - hold_ratio) / (1.0 - hold_ratio)
+                    grow_et = 1.0 - (1.0 - grow_t) ** 2.5
+                    arena_scale = 0.12 + 0.88 * grow_et
             else:
                 # 커스텀 경기장: 15% 지점부터 등장
                 arena_appear = max(0.0, (et - 0.15) / 0.85)
