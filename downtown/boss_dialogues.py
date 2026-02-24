@@ -302,6 +302,49 @@ BOSS_DIALOGUES = {
 }
 
 
+# ── 보스 변형별 대사 (한 스테이지에 여러 보스가 있을 때) ──
+# 키: (스테이지, 보스이름) → 대사 딕셔너리
+BOSS_VARIANT_DIALOGUES = {
+    # ─── 스테이지 1: 포도대장 (위엄있는 조선 포도청 대장, 사극 말투) ───
+    (1, "포도대장"): {
+        BATTLE_START: [
+            "이 몸은 포도청 대장이니라! 덤벼보거라!",
+            "어명을 받들어 너를 잡으러 왔느니라!",
+            "썩 물렀거라... 하면 물러날 것이냐!",
+            "포도청의 위엄을 보여주마!",
+        ],
+        SCORED: [
+            "호령 한 번에 꼼짝 못 하는구나!",
+            "하하! 이것이 포도청의 실력이니라!",
+            "네 이놈! 어디로 도망치려느냐!",
+            "관아의 법도를 어기면 이렇게 되느니라!",
+        ],
+        CONCEDED: [
+            "이런... 잠시 방심하였구나.",
+            "흥! 요행이로다!",
+            "제법이로구나... 허나 다음은 없느니라!",
+            "건방진 것! 이 몸을 놀리느냐!",
+        ],
+        LOSING: [
+            "이 몸이 밀리다니... 있을 수 없는 일이니라!",
+            "포도대장이 지다니! 체면이 말이 아니구나!",
+        ],
+        WINNING: [
+            "이대로 포박하여 옥에 가두리라!",
+            "더 이상 발버둥 쳐봤자 소용없느니라!",
+        ],
+        MATCH_POINT: [
+            "최후의 포승줄이다! 각오하거라!",
+            "곧 옥에 가두리니 순순히 잡히거라!",
+        ],
+        IN_DANGER: [
+            "포도대장은 끝까지 물러서지 않느니라!",
+            "이 몸의 체면이 걸려있느니라!",
+        ],
+    },
+}
+
+
 class BossDialogueManager:
     """스테이지 보스 상황 대사 관리자
 
@@ -330,7 +373,7 @@ class BossDialogueManager:
         self._current_stage = stage
 
     def update(self, stage, player_score, boss_score, win_goal,
-               speech_timer, show_dialogue_func):
+               speech_timer, show_dialogue_func, boss_name=None):
         """매 프레임 호출
 
         Args:
@@ -340,8 +383,10 @@ class BossDialogueManager:
             win_goal: 승리 목표 점수
             speech_timer: 스킬 외침 남은 프레임 (> 0이면 대사 건너뜀)
             show_dialogue_func: show_boss_dialogue 함수
+            boss_name: 보스 변형 이름 (None이면 기본 보스)
         """
         self._current_stage = stage
+        self._boss_name = boss_name
         self._cooldown = max(0, self._cooldown - 1)
 
         # 개막 대사 처리
@@ -402,7 +447,16 @@ class BossDialogueManager:
                 self._cooldown = self.COOLDOWN // 4
                 return False
 
-        lines = BOSS_DIALOGUES.get(stage, {}).get(situation, [])
+        # 보스 변형 대사 우선 탐색
+        boss_name = getattr(self, '_boss_name', None)
+        lines = None
+        if boss_name:
+            variant_data = BOSS_VARIANT_DIALOGUES.get((stage, boss_name), {})
+            lines = variant_data.get(situation, [])
+
+        # 변형 대사 없으면 기본 대사
+        if not lines:
+            lines = BOSS_DIALOGUES.get(stage, {}).get(situation, [])
         if not lines:
             return False
 

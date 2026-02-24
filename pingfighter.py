@@ -57757,6 +57757,7 @@ def boss_dialogue_update():
                 win_goal=deuce_goal if deuce_mode else win_goal,
                 speech_timer=speech_timer,
                 show_dialogue_func=show_boss_dialogue,
+                boss_name=current_boss_name,
             )
     except Exception:
         pass
@@ -132944,7 +132945,13 @@ def handle_ball():
                 # 포승줄 발동 (15% 확률) — idle 상태일 때만
                 if random.random() <= 0.15 and arrest_rope_phase == "idle":
                     activate_arrest_rope()
-                    show_speech("포승줄!!", duration=180)
+                    _rope_shouts = [
+                        "이 놈! 꼼짝 마라!",
+                        "포승줄을 받아라!",
+                        "네 이놈! 포박이다!",
+                        "썩 묶여라!",
+                    ]
+                    show_speech(random.choice(_rope_shouts), duration=180)
                     boss_special_gauge -= 200
                     if boss_special_gauge < 0:
                         boss_special_gauge = 0
