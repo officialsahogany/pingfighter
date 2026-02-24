@@ -1153,6 +1153,7 @@ from events.weather_event import (
     draw_weather_warning,
     reset_weather_state,
     is_weather_active,
+    get_weather_type,
     get_weather_direction,
     is_fire_active,
     get_fire_base_speed_multiplier,
@@ -128000,8 +128001,9 @@ def calculate_bounce(paddle):
         refresh_perfect_timing_indicator()
         # 일반 충돌과 동일한 속도 처리
         #  속도에 관계없이 일정한 가속 적용 (완화된 증가율)
-        # 🏟️ 랠리 공속 증가율 보정
-        arena_accel_mult = 1.6 if arena_mode_enabled else 0.75
+        # 🏟️ 랠리 공속 증가율 보정 (아케이드: 강풍/미풍 시 1.6, 그 외 0.75)
+        _wt = get_weather_type() if not arena_mode_enabled and is_weather_active() else None
+        arena_accel_mult = 1.6 if arena_mode_enabled else (1.6 if _wt in ("breeze", "gust") else 0.75)
         # 🌱 주니어리그: 속도 증가율 -20% 감소
         junior_mult = get_junior_speed_increase_multiplier()
         base_min = 1.0 + (0.02 * junior_mult * arena_accel_mult)
@@ -128017,7 +128019,8 @@ def calculate_bounce(paddle):
     else:
         # 일반 충돌 시 동일한 가속 (완화된 증가율)
         # 🌱 주니어리그: 속도 증가율 -20% 감소
-        arena_accel_mult = 1.6 if arena_mode_enabled else 0.75
+        _wt = get_weather_type() if not arena_mode_enabled and is_weather_active() else None
+        arena_accel_mult = 1.6 if arena_mode_enabled else (1.6 if _wt in ("breeze", "gust") else 0.75)
         junior_mult = get_junior_speed_increase_multiplier()
         base_min = 1.0 + (0.024 * junior_mult * arena_accel_mult)
         base_max = 1.0 + (0.084 * junior_mult * arena_accel_mult)
