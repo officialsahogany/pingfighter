@@ -27,11 +27,11 @@ if sys.platform == 'win32':
         # Per-Monitor DPI Aware 설정 (Windows 8.1+)
         try:
             ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PROCESS_PER_MONITOR_DPI_AWARE
-            print("[Windows] DPI Awareness: Per-Monitor DPI Aware", flush=True)
+            # print("[Windows] DPI Awareness: Per-Monitor DPI Aware", flush=True)
         except Exception:
             # Windows 8 이하: System DPI Aware
             ctypes.windll.user32.SetProcessDPIAware()
-            print("[Windows] DPI Awareness: System DPI Aware", flush=True)
+            # print("[Windows] DPI Awareness: System DPI Aware", flush=True)
     except Exception as e:
         print(f"[Windows] DPI 설정 실패: {e}", flush=True)
 
@@ -43,7 +43,7 @@ if sys.platform == 'darwin':
     os.environ.setdefault('SDL_RENDER_DRIVER', 'opengl')
     # 비디오 드라이버 힌트
     os.environ.setdefault('SDL_VIDEODRIVER', 'cocoa')
-    print("[macOS] SDL 환경변수 설정 완료 (HiDPI 비활성화)", flush=True)
+    # print("[macOS] SDL 환경변수 설정 완료 (HiDPI 비활성화)", flush=True)
 
 # 실행 파일로 직접 구동할 때도 items 등에서 import pingfighter가 동일 모듈을 참조하도록 별칭을 등록
 sys.modules.setdefault("pingfighter", sys.modules[__name__])
@@ -500,15 +500,15 @@ def _setup_fullscreen_mode():
     largest_res = _get_largest_monitor_resolution()
     if largest_res:
         FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT = largest_res
-        print(f"[Fullscreen] Monitor (최대): {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}")
+        # print(f"[Fullscreen] Monitor (최대): {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}")
     elif _original_resolution:
         FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT = _original_resolution
-        print(f"[Fullscreen] Monitor (원본): {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}")
+        # print(f"[Fullscreen] Monitor (원본): {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}")
     else:
         monitor_res = _get_current_resolution()
         if monitor_res:
             FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT = monitor_res
-            print(f"[Fullscreen] Monitor: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}")
+            # print(f"[Fullscreen] Monitor: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}")
         else:
             FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT = 1920, 1080
 
@@ -915,7 +915,7 @@ def preload_common_surfaces():
         (512, 512),   # 초대형 이펙트
     ]
 
-    print("[PRELOAD] Surface 캐시 워밍업 시작...", flush=True)
+    # print("[PRELOAD] Surface 캐시 워밍업 시작...", flush=True)
     for width, height in common_sizes:
         # 투명 Surface
         key_alpha = (width, height, True)
@@ -948,13 +948,13 @@ def preload_common_surfaces():
         if key not in _flash_surface_cache:
             _flash_surface_cache[key] = pygame.Surface((width, height), pygame.SRCALPHA)
 
-    print(f"[PRELOAD] Surface 캐시 워밍업 완료: {len(_surface_cache)} surfaces, {len(_glow_surface_cache)} glow, {len(_dialog_bg_cache)} dialog", flush=True)
+    # print(f"[PRELOAD] Surface 캐시 워밍업 완료: {len(_surface_cache)} surfaces, {len(_glow_surface_cache)} glow, {len(_dialog_bg_cache)} dialog", flush=True)
 
 def preload_fonts():
     """자주 사용되는 폰트를 미리 로드"""
     global _preloaded_fonts
 
-    print("[PRELOAD] 폰트 프리로드 시작...", flush=True)
+    # print("[PRELOAD] 폰트 프리로드 시작...", flush=True)
 
     # 시스템 기본 폰트 프리로드 (크기별)
     font_sizes = [12, 14, 16, 18, 20, 22, 24, 28, 32, 36, 48]
@@ -982,11 +982,11 @@ def preload_fonts():
     except Exception as e:
         print(f"[PRELOAD] 한글 폰트 로드 실패: {e}", flush=True)
 
-    print(f"[PRELOAD] 폰트 프리로드 완료: {len(_preloaded_fonts)} fonts", flush=True)
+    # print(f"[PRELOAD] 폰트 프리로드 완료: {len(_preloaded_fonts)} fonts", flush=True)
 
 def preload_particle_surfaces():
     """파티클 이펙트용 Surface 미리 생성"""
-    print("[PRELOAD] 파티클 Surface 프리로드 시작...", flush=True)
+    # print("[PRELOAD] 파티클 Surface 프리로드 시작...", flush=True)
 
     # 혈액 파티클 크기들
     blood_sizes = [2, 3, 4, 5, 6, 8, 10, 12]
@@ -998,11 +998,11 @@ def preload_particle_surfaces():
     tear_sizes = [4, 6, 8, 10, 12, 16]
     # _tear_scale_cache는 실제 이미지 필요하므로 여기서는 스킵
 
-    print(f"[PRELOAD] 파티클 Surface 프리로드 완료: {len(_blood_particle_cache)} blood surfaces", flush=True)
+    # print(f"[PRELOAD] 파티클 Surface 프리로드 완료: {len(_blood_particle_cache)} blood surfaces", flush=True)
 
 def preload_game_images():
     """자주 사용되는 게임 이미지를 미리 로드하고 convert()"""
-    print("[PRELOAD] 게임 이미지 프리로드 시작...", flush=True)
+    # print("[PRELOAD] 게임 이미지 프리로드 시작...", flush=True)
 
     preloaded_count = 0
 
@@ -1025,12 +1025,12 @@ def preload_game_images():
         except Exception as e:
             pass  # 이미지가 없어도 게임 진행에 문제없음
 
-    print(f"[PRELOAD] 게임 이미지 프리로드 완료: {preloaded_count} images", flush=True)
+    # print(f"[PRELOAD] 게임 이미지 프리로드 완료: {preloaded_count} images", flush=True)
 
 def run_garbage_collection():
     """가비지 컬렉션 실행으로 메모리 정리"""
     import gc
-    print("[PRELOAD] 가비지 컬렉션 실행 중...", flush=True)
+    # print("[PRELOAD] 가비지 컬렉션 실행 중...", flush=True)
 
     # 가비지 컬렉션 실행
     gc.collect()
@@ -1039,19 +1039,19 @@ def run_garbage_collection():
     # 기본값 (700, 10, 10)에서 게임에 맞게 조정
     gc.set_threshold(1000, 15, 15)  # 더 느슨하게 설정하여 GC 빈도 감소
 
-    print("[PRELOAD] 가비지 컬렉션 완료", flush=True)
+    # print("[PRELOAD] 가비지 컬렉션 완료", flush=True)
 
 def preload_all_optimizations():
     """모든 최적화 작업을 한 번에 실행"""
     global _preload_complete
 
     if _preload_complete:
-        print("[PRELOAD] 이미 최적화 완료됨, 스킵", flush=True)
+        # print("[PRELOAD] 이미 최적화 완료됨, 스킵", flush=True)
         return
 
-    print("=" * 50, flush=True)
-    print("[PRELOAD] 게임 최적화 시작", flush=True)
-    print("=" * 50, flush=True)
+    # print("=" * 50, flush=True)
+    # print("[PRELOAD] 게임 최적화 시작", flush=True)
+    # print("=" * 50, flush=True)
 
     # 1. Surface 캐시 워밍업
     preload_common_surfaces()
@@ -1069,9 +1069,9 @@ def preload_all_optimizations():
     run_garbage_collection()
 
     _preload_complete = True
-    print("=" * 50, flush=True)
-    print("[PRELOAD] 게임 최적화 완료!", flush=True)
-    print("=" * 50, flush=True)
+    # print("=" * 50, flush=True)
+    # print("[PRELOAD] 게임 최적화 완료!", flush=True)
+    # print("=" * 50, flush=True)
 
 if _splash_screen:
     update_splash(0.15, "설정 로딩 중...")
@@ -1083,7 +1083,7 @@ from config.settings_system import get_settings_manager
 # (게임 루프에서 처음 호출 시 5초 지연 발생 방지)
 try:
     _early_settings_manager = get_settings_manager()
-    print("[PRELOAD] SettingsManager 사전 초기화 완료")
+    # print("[PRELOAD] SettingsManager 사전 초기화 완료")
 except Exception as _e:
     print(f"[PRELOAD] SettingsManager 초기화 실패: {_e}")
 
@@ -1553,10 +1553,10 @@ def show_loading_screen(message: str, target_progress: float | None = None) -> N
     global _loading_menu_background, _loading_star_field, _loading_neon_particles
     global _loading_scan_lines, _loading_last_frame_time, _loading_animation_time
     global _loading_blazing_sun
-    print(f"[show_loading_screen] 호출됨: '{message}', target={target_progress}, 현재progress={_loading_progress}", flush=True)
+    # print(f"[show_loading_screen] 호출됨: '{message}', target={target_progress}, 현재progress={_loading_progress}", flush=True)
     try:
         if not pygame.display.get_init():
-            print(f"[show_loading_screen] pygame.display 미초기화 - 스킵", flush=True)
+            # print(f"[show_loading_screen] pygame.display 미초기화 - 스킵", flush=True)
             return
 
         if _loading_start_time is None:
@@ -1801,12 +1801,12 @@ def show_loading_screen(message: str, target_progress: float | None = None) -> N
             draw_frame(progress)
             if elapsed >= anim_duration:
                 _loading_progress = progress
-                print(f"[show_loading_screen] 애니메이션 완료: {anim_duration}초 경과", flush=True)
+                # print(f"[show_loading_screen] 애니메이션 완료: {anim_duration}초 경과", flush=True)
                 break
             time.sleep(1 / 60)
 
         _loading_progress = max(_loading_progress, target)
-        print(f"[show_loading_screen] 종료: progress={_loading_progress}", flush=True)
+        # print(f"[show_loading_screen] 종료: progress={_loading_progress}", flush=True)
     except Exception as e:
         # 로딩 화면 실패는 게임 진행을 막지 않도록 무시
         import traceback
@@ -1989,7 +1989,7 @@ def _log_input_trace(frame: int,
 def _drive_dbg(message: str) -> None:
     """Lightweight drive debug printing (off by default)."""
     if DRIVE_DEBUG:
-        print(f"[DRIVE_DEBUG] {message}")
+        pass  # print(f"[DRIVE_DEBUG] {message}")
 
 def _adapt_input_events(events):
     """입력 어댑터(안전 모드)
@@ -2231,7 +2231,7 @@ def ensure_cv2_loaded() -> bool:
 
             cv2 = cv2_module  # type: ignore
             CV2_IMPORT_ERROR = None
-            print(f"[StageIntro] cv2 dynamically loaded from {cand}")
+            # print(f"[StageIntro] cv2 dynamically loaded from {cand}")
             return True
         except Exception as exc:  # pylint: disable=broad-except
             CV2_IMPORT_ERROR = exc
@@ -2254,7 +2254,7 @@ def ensure_moviepy_loaded() -> bool:
             moviepy_editor = mp  # type: ignore
             _configure_moviepy_ffmpeg(mp)
             MOVIEPY_IMPORT_ERROR = None
-            print(f"[StageIntro] moviepy 2.x loaded successfully")
+            # print(f"[StageIntro] moviepy 2.x loaded successfully")
             return True
     except Exception as exc:  # pylint: disable=broad-except
         MOVIEPY_IMPORT_ERROR = exc
@@ -2266,7 +2266,7 @@ def ensure_moviepy_loaded() -> bool:
         moviepy_editor = mp  # type: ignore
         _configure_moviepy_ffmpeg(mp)
         MOVIEPY_IMPORT_ERROR = None
-        print(f"[StageIntro] moviepy 1.x (editor) loaded successfully")
+        # print(f"[StageIntro] moviepy 1.x (editor) loaded successfully")
         return True
     except Exception as exc:  # pylint: disable=broad-except
         MOVIEPY_IMPORT_ERROR = exc
@@ -2338,7 +2338,7 @@ def ensure_moviepy_loaded() -> bool:
 
             moviepy_editor = mp  # type: ignore
             MOVIEPY_IMPORT_ERROR = None
-            print(f"[StageIntro] moviepy dynamically loaded from {cand}")
+            # print(f"[StageIntro] moviepy dynamically loaded from {cand}")
             return True
         except ModuleNotFoundError:
             try:
@@ -2347,7 +2347,7 @@ def ensure_moviepy_loaded() -> bool:
                 if hasattr(mp, "VideoFileClip"):
                     moviepy_editor = mp  # type: ignore
                     MOVIEPY_IMPORT_ERROR = None
-                    print(f"[StageIntro] moviepy dynamically loaded from {cand}")
+                    # print(f"[StageIntro] moviepy dynamically loaded from {cand}")
                     return True
             except Exception as exc:  # pylint: disable=broad-except
                 MOVIEPY_IMPORT_ERROR = exc
@@ -2674,15 +2674,15 @@ if "--migration-mode" in sys.argv or "--migration" in sys.argv:
         from ai.boss_ai_system import get_boss_ai_system, init_boss_ai, AIDifficulty
         
         MIGRATION_MODE = True
-        print("\n" + "="*60)
-        print("🚀 마이그레이션 모드 활성화")
-        print("="*60)
-        print("[OK] New architecture and legacy code work together")
-        print("[OK] Collision system runs on new architecture")
-        print("[OK] AI system is modularized and operational")
-        print("[OK] Performance monitoring is enabled")
-        print("[OK] Debug information will be output to console")
-        print("="*60 + "\n")
+        # print("\n" + "="*60)
+        # print("🚀 마이그레이션 모드 활성화")
+        # print("="*60)
+        # print("[OK] New architecture and legacy code work together")
+        # print("[OK] Collision system runs on new architecture")
+        # print("[OK] AI system is modularized and operational")
+        # print("[OK] Performance monitoring is enabled")
+        # print("[OK] Debug information will be output to console")
+        # print("="*60 + "\n")
         
         # 충돌 시스템 초기화
         collision_system = CollisionSystem()
@@ -2715,16 +2715,16 @@ from config.stage_configs import *
 try:
     from boss_ai_integration import EnhancedBossAI
     AI_AVAILABLE = True
-    print("AI  !")
+    # print("AI  !")
 except ImportError as e:
     AI_AVAILABLE = False
-    print(f" AI    : {e}")
-    print("AI . TensorFlow : pip install tensorflow")
+    # print(f" AI    : {e}")
+    # print("AI . TensorFlow : pip install tensorflow")
 #  플레이어 실력 분석 시스템 임포트
 try:
     from player_skill_analyzer import get_player_analyzer, PlayerSkillAnalyzer
     SKILL_ANALYZER_AVAILABLE = True
-    print("!")
+    # print("!")
 except ImportError as e:
     SKILL_ANALYZER_AVAILABLE = False
     print(f"    : {e}")
@@ -2736,7 +2736,7 @@ try:
     from game_logic.smooth_boss_movement import get_smooth_movement, apply_smooth_boss_movement
     from game_logic.boss_movement_integration import integrate_smooth_movement, apply_smooth_movement_in_ai
     SMOOTH_MOVEMENT_AVAILABLE = True
-    print("!")
+    # print("!")
 except ImportError as e:
     SMOOTH_MOVEMENT_AVAILABLE = False
     print(f"     : {e}")
@@ -2752,7 +2752,7 @@ except ImportError as e:
 try:
     from events.stage1_event_integration import Stage1EventManager
     BALLOON_EVENT_AVAILABLE = True
-    print("Stage 1     !")
+    # print("Stage 1     !")
 except ImportError as e:
     BALLOON_EVENT_AVAILABLE = False
     print(f"      : {e}")
@@ -2761,7 +2761,7 @@ except ImportError as e:
 try:
     from events.stage5_event_integration import Stage5EventManager
     FIRE_EVENT_AVAILABLE = True
-    print("Stage 5     !")
+    # print("Stage 5     !")
 except ImportError as e:
     FIRE_EVENT_AVAILABLE = False
     print(f"      : {e}")
@@ -2773,7 +2773,7 @@ bridge = get_bridge()
 # 하프 대쉬 시스템 초기화
 if HALF_DASH_ENABLED:
     half_dash_system = integrate_half_dash_with_game()
-    print("")
+    # print("")
 
 # ========== PHASE 101: 통합 시스템 초기화 ==========
 unified_renderer = None  # SCREEN 생성 후 초기화
@@ -2786,7 +2786,7 @@ balloon_event_delay = 0
 balloon_event_reserved_score = 0  #  이벤트 예약 시점의 점수 저장
 if BALLOON_EVENT_AVAILABLE:
     stage1_events = Stage1EventManager()
-    print("Stage 1")
+    # print("Stage 1")
 
 #  Stage 5 이벤트 매니저 초기화
 stage5_events = None
@@ -2795,7 +2795,7 @@ fire_event_reserved_score = 0  #  이벤트 예약 시점의 점수 저장
 player_stun_immunity_timer = 0  # ️ 스턴 면역 타이머 (넉백 후 0.4초간 스턴 면역)
 if FIRE_EVENT_AVAILABLE:
     stage5_events = Stage5EventManager()
-    print("Stage 5")
+    # print("Stage 5")
 #  점진적 리팩토링: 게임 변수 관리
 from core.game_variables import get_game_vars
 game_vars = get_game_vars()
@@ -2897,7 +2897,7 @@ def set_modern_loop_flag(value: bool) -> None:
     global USE_MODERN_GAME_LOOP
     USE_MODERN_GAME_LOOP = bool(value)
     status = "ON" if USE_MODERN_GAME_LOOP else "OFF"
-    print(f"[INFO] 모던 루프 설정이 {status}으로 변경되었습니다 (옵션 메뉴)")
+    # print(f"[INFO] 모던 루프 설정이 {status}으로 변경되었습니다 (옵션 메뉴)")
 
 CLI_PARSER = argparse.ArgumentParser(add_help=False)
 CLI_PARSER.add_argument("--modern-loop", action="store_true", dest="modern_loop")
@@ -2906,16 +2906,16 @@ _CLI_ARGS, _CLI_UNUSED = CLI_PARSER.parse_known_args()
 
 if _CLI_ARGS.modern_loop:
     USE_MODERN_GAME_LOOP = True
-    print("[INFO] --modern-loop 플래그 감지: Experimental GameLoop 활성화")
+    # print("[INFO] --modern-loop 플래그 감지: Experimental GameLoop 활성화")
 
 if _bool_from_env("PINGFIGHTER_MODERN_LOOP"):
     USE_MODERN_GAME_LOOP = True
-    print("[INFO] PINGFIGHTER_MODERN_LOOP 환경 변수 활성화: Experimental GameLoop 사용")
+    # print("[INFO] PINGFIGHTER_MODERN_LOOP 환경 변수 활성화: Experimental GameLoop 사용")
 
 if _CLI_ARGS.smoke_test or _bool_from_env("PINGFIGHTER_SMOKE_TEST"):
     USE_MODERN_GAME_LOOP = True
     SMOKE_TEST_ENABLED = True
-    print("[INFO] 모던 루프 스모크 테스트 모드 활성화")
+    # print("[INFO] 모던 루프 스모크 테스트 모드 활성화")
 
 def draw_glow_circle(pos, radius, color, glow_intensity=3):
     """광채 효과가 있는 원 그리기 - Phase 101: unified_renderer 사용"""
@@ -3014,7 +3014,7 @@ if FULLSCREEN_MODE:
         _monitor_res = _get_current_resolution()
         if _monitor_res and _monitor_res[0] > 0 and _monitor_res[1] > 0:
             FULLSCREEN_WIDTH, FULLSCREEN_HEIGHT = _monitor_res
-            print(f"[전체화면] Windows 현재 해상도: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
+            # print(f"[전체화면] Windows 현재 해상도: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
             if _original_resolution and _original_resolution != _monitor_res:
                 print(f"[전체화면] (원본: {_original_resolution[0]}x{_original_resolution[1]} -> 성능용 변경)", flush=True)
         else:
@@ -3022,13 +3022,13 @@ if FULLSCREEN_MODE:
             display_info = pygame.display.Info()
             FULLSCREEN_WIDTH = display_info.current_w
             FULLSCREEN_HEIGHT = display_info.current_h
-            print(f"[전체화면] pygame 감지 해상도 (fallback): {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
+            # print(f"[전체화면] pygame 감지 해상도 (fallback): {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
     else:
         # macOS/Linux: pygame.display.Info() 사용
         display_info = pygame.display.Info()
         FULLSCREEN_WIDTH = display_info.current_w
         FULLSCREEN_HEIGHT = display_info.current_h
-        print(f"[전체화면] pygame 감지 해상도: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
+        # print(f"[전체화면] pygame 감지 해상도: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
 
     # 스플래시 창 크기(600x750)가 잘못 감지된 경우 보정
     if FULLSCREEN_WIDTH == 600 and FULLSCREEN_HEIGHT == 750:
@@ -3039,7 +3039,7 @@ if FULLSCREEN_MODE:
         display_info = pygame.display.Info()
         FULLSCREEN_WIDTH = display_info.current_w
         FULLSCREEN_HEIGHT = display_info.current_h
-        print(f"[전체화면] 재감지된 해상도: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
+        # print(f"[전체화면] 재감지된 해상도: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
 
 # 전역 변수 선언
 REAL_SCREEN = None
@@ -3136,7 +3136,7 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     if _current_platform == 'Darwin':
         # macOS: FULLSCREEN_DESKTOP으로 데스크탑 해상도 유지 (Retina 대응)
         _fullscreen_flags = pygame.FULLSCREEN | pygame.DOUBLEBUF
-        print("[macOS] FULLSCREEN + DOUBLEBUF 모드 사용", flush=True)
+        # print("[macOS] FULLSCREEN + DOUBLEBUF 모드 사용", flush=True)
     else:
         # Windows/Linux: 기본 FULLSCREEN
         _fullscreen_flags = pygame.FULLSCREEN
@@ -3150,7 +3150,7 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
 
     # 실제 생성된 화면 크기 확인 (DPI 스케일링 대응)
     actual_width, actual_height = REAL_SCREEN.get_size()
-    print(f"[전체화면] 요청: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}, 실제: {actual_width}x{actual_height}", flush=True)
+    # print(f"[전체화면] 요청: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}, 실제: {actual_width}x{actual_height}", flush=True)
 
     # macOS에서 Retina 스케일링으로 인해 크기가 다를 수 있음
     if _current_platform == 'Darwin' and (actual_width != FULLSCREEN_WIDTH or actual_height != FULLSCREEN_HEIGHT):
@@ -3208,7 +3208,7 @@ if FULLSCREEN_MODE and FULLSCREEN_WIDTH > 0:
     # display_manager에 전체화면 모드 설정 전달
     from display_manager import set_fullscreen_mode
     set_fullscreen_mode(True, SCREEN)
-    print(f"[전체화면] display_manager에 전체화면 모드 설정 완료 (SCREEN Surface 전달)", flush=True)
+    # print(f"[전체화면] display_manager에 전체화면 모드 설정 완료 (SCREEN Surface 전달)", flush=True)
 else:
     # === 창모드: SCALED 정수배 합성 (구 공식 창 사이즈 + SDL GPU 업스케일링) ===
     # 1단계: 구 공식으로 목표 창 사이즈 계산 (더블 모니터 시 가장 큰 모니터 사용)
@@ -3284,7 +3284,7 @@ else:
                     if _repos:
                         _sdl2_lib.SDL_SetWindowPosition.argtypes = [_ct.c_void_p, _ct.c_int, _ct.c_int]
                         _sdl2_lib.SDL_SetWindowPosition(_sdl_win, _repos[0], _repos[1])
-                    print(f"[디스플레이] SDL 윈도우 크기 강제: {_init_target_w}x{_init_target_h}", flush=True)
+                    # print(f"[디스플레이] SDL 윈도우 크기 강제: {_init_target_w}x{_init_target_h}", flush=True)
             except Exception as _resize_err:
                 print(f"[디스플레이] SDL 윈도우 리사이즈 실패: {_resize_err}", flush=True)
 
@@ -3325,7 +3325,7 @@ else:
         from display_manager import set_fullscreen_mode
         set_fullscreen_mode(True, SCREEN)
 
-        print(f"[디스플레이] 창모드(SCALED x{_scale_n}) 완료: 합성 {_comp_w}x{_comp_h}, 게임 1:1, SDL GPU 스케일링", flush=True)
+        # print(f"[디스플레이] 창모드(SCALED x{_scale_n}) 완료: 합성 {_comp_w}x{_comp_h}, 게임 1:1, SDL GPU 스케일링", flush=True)
     else:
         # --- 폴백: 기존 소프트웨어 스케일링 (필러 포함) ---
         _fb_largest = _get_largest_monitor_resolution()
@@ -9158,7 +9158,7 @@ def capture_screenshot():
 
         # 파일 저장
         pygame.image.save(capture_surface, filepath)
-        print(f"📸 스크린샷 저장: {filepath}")
+        # print(f"📸 스크린샷 저장: {filepath}")
         return True
 
     except Exception as e:
@@ -9635,7 +9635,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
 
         pygame.display.set_caption("PINGFIGHTER")
         _current_display_mode = "fullscreen"
-        print(f"[디스플레이] 전체화면모드({_fs_mode_str}) 전환 완료: 합성 {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}, 게임 {GAME_SCALED_WIDTH}x{GAME_SCALED_HEIGHT}, 스케일 {GAME_SCALE_FACTOR:.3f}x", flush=True)
+        # print(f"[디스플레이] 전체화면모드({_fs_mode_str}) 전환 완료: 합성 {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}, 게임 {GAME_SCALED_WIDTH}x{GAME_SCALED_HEIGHT}, 스케일 {GAME_SCALE_FACTOR:.3f}x", flush=True)
 
     elif mode == "cinema":
         # === 시네마모드: OS 해상도를 낮춰서 전체화면 ===
@@ -9733,7 +9733,7 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
 
         pygame.display.set_caption("PINGFIGHTER")
         _current_display_mode = "cinema"
-        print(f"[디스플레이] 시네마모드 전환 완료: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
+        # print(f"[디스플레이] 시네마모드 전환 완료: {FULLSCREEN_WIDTH}x{FULLSCREEN_HEIGHT}", flush=True)
 
     elif mode == "borderless":
         # === 전체창모드(보더리스 윈도우) 전환 ===
@@ -10084,7 +10084,7 @@ def _loading_task_4_final_optimization():
     # 가비지 컬렉션으로 메모리 정리
     run_garbage_collection()
     _preload_complete = True
-    print("[PRELOAD] 모든 최적화 작업 완료!", flush=True)
+    # print("[PRELOAD] 모든 최적화 작업 완료!", flush=True)
 
 # === 실제 로딩 실행 (백그라운드 스레드 + 로딩 화면) ===
 # 최적화 작업이 각 로딩 단계에 통합되어 있음:
@@ -10385,7 +10385,7 @@ def get_boss_name(logic_stage: int, default: str = "보스") -> str:
 # 게임 기본 설정
 #  레트로 픽셀 폰트 - 네오둥근모
 FONT = get_font(40)  # pixel_font_manager가 자동으로 처리
-print("!")
+# print("!")
 FPS = TARGET_FPS  # from constants.py
 # UI 매니저 초기화
 ui_manager.init_ui_manager(SCREEN, FONT, WIDTH, HEIGHT)
@@ -12127,17 +12127,17 @@ def apply_stage_choice_effect(choice_id: str) -> bool:
         # 스타포인트 2개 지급
         if hasattr(items, 'star_points'):
             items.star_points = getattr(items, 'star_points', 0) + 2
-        print(f"[StageChoice] 스타체인지! 스타포인트 +2 (총 {getattr(items, 'star_points', 0)})")
+        # print(f"[StageChoice] 스타체인지! 스타포인트 +2 (총 {getattr(items, 'star_points', 0)})")
         return True
 
     # 일반 스킬 레벨업
     if choice_id in optimus_skill_levels:
         old_level = optimus_skill_levels[choice_id]
         optimus_skill_levels[choice_id] = old_level + 1
-        print(f"[StageChoice] {choice_id} 레벨업! Lv.{old_level} → Lv.{optimus_skill_levels[choice_id]}")
+        # print(f"[StageChoice] {choice_id} 레벨업! Lv.{old_level} → Lv.{optimus_skill_levels[choice_id]}")
         return True
 
-    print(f"[StageChoice] 알 수 없는 스킬: {choice_id}")
+    # print(f"[StageChoice] 알 수 없는 스킬: {choice_id}")
     return False
 
 def reset_stage_clear_choices():
@@ -20137,7 +20137,7 @@ if not SMOKE_TEST_ENABLED:
             try:
                 pygame.mixer.init()
                 mixer_initialized = True
-                print("[INFO] SDL_AUDIODRIVER=dummy로 오디오를 무음 모드로 초기화했습니다.")
+                # print("[INFO] SDL_AUDIODRIVER=dummy로 오디오를 무음 모드로 초기화했습니다.")
             except pygame.error as dummy_exc:
                 AUDIO_DISABLED = True
                 print(f"[WARN] dummy 오디오 드라이버로도 초기화 실패: {dummy_exc}")
@@ -20147,7 +20147,7 @@ if not SMOKE_TEST_ENABLED:
         pygame.mixer.set_num_channels(32)  # 동시 재생 가능한 채널 수 증가
 else:
     AUDIO_DISABLED = True
-    print("[INFO] 오디오 초기화 생략 (스모크 테스트 모드)")
+    # print("[INFO] 오디오 초기화 생략 (스모크 테스트 모드)")
 
 if AUDIO_DISABLED:
     sound_effects = {key: None for key in SOUND_PATHS}
@@ -21215,6 +21215,7 @@ def _arena_comeback_deactivate(is_top):
         # print(f"🔥 기사회생 해제 (하단) 스킬쿨 배율 복원: {arena_perk_skill_cd_mult_bottom:.2f}")
     else:
         # print(f"[DEBUG 기사회생]   ({_side}) 발동 중이 아니므로 해제 스킵")
+        pass
 
 
 def _draw_comeback_aura(screen, center_x, center_y, base_w, base_h, aura_timer):
@@ -23401,6 +23402,7 @@ def get_final_boss_config(stage, league_mode):
     if stage == 50:
         if DEBUG_TUTORIAL:
             # print(f"튜토리얼 보스 설정 적용 - 속도 50% 증가된 값 사용")
+            pass
         return base_config
     
     # 2️⃣ 리그별 보정 적용
@@ -26287,7 +26289,7 @@ technical_vest_icon = None  # 전역 변수로 선언
 try:
     technical_vest_icon = pygame.image.load(resource_path("items/technical_vest.png")).convert_alpha()
     technical_vest_icon = pygame.transform.scale(technical_vest_icon, (ICON_SIZE, ICON_SIZE))
-    print("Technical vest icon loaded successfully")
+    # print("Technical vest icon loaded successfully")
 except Exception as e:
     print(f"Failed to load technical vest icon: {e}")
     technical_vest_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
@@ -26299,7 +26301,7 @@ commando_arm_icon = None  # 전역 변수로 선언
 try:
     commando_arm_icon = pygame.image.load(resource_path("items/commando_arm.png")).convert_alpha()
     commando_arm_icon = pygame.transform.scale(commando_arm_icon, (ICON_SIZE, ICON_SIZE))
-    print("Commando arm icon loaded successfully")
+    # print("Commando arm icon loaded successfully")
 except Exception as e:
     print(f"Failed to load commando arm icon: {e}")
     commando_arm_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
@@ -26311,7 +26313,7 @@ bluetooth_ring_icon = None  # 전역 변수로 선언
 try:
     bluetooth_ring_icon = pygame.image.load(resource_path("items/bluetooth_ring.png")).convert_alpha()
     bluetooth_ring_icon = pygame.transform.scale(bluetooth_ring_icon, (ICON_SIZE, ICON_SIZE))
-    print("Bluetooth ring icon loaded successfully")
+    # print("Bluetooth ring icon loaded successfully")
 except Exception as e:
     print(f"Failed to load bluetooth ring icon: {e}")
     bluetooth_ring_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
@@ -26323,7 +26325,7 @@ devil_dice_icon = None  # 전역 변수로 선언
 try:
     devil_dice_icon = pygame.image.load(resource_path("items/devil_dice.png")).convert_alpha()
     devil_dice_icon = pygame.transform.scale(devil_dice_icon, (ICON_SIZE, ICON_SIZE))
-    print("Devil dice icon loaded successfully")
+    # print("Devil dice icon loaded successfully")
 except Exception as e:
     print(f"Failed to load devil dice icon: {e}")
     devil_dice_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
@@ -26335,7 +26337,7 @@ pandora_box_icon = None  # 전역 변수로 선언
 try:
     pandora_box_icon = pygame.image.load(resource_path("items/pandora_box.png")).convert_alpha()
     pandora_box_icon = pygame.transform.scale(pandora_box_icon, (ICON_SIZE, ICON_SIZE))
-    print("Pandora box icon loaded successfully")
+    # print("Pandora box icon loaded successfully")
 except Exception as e:
     print(f"Failed to load pandora box icon: {e}")
     pandora_box_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
@@ -26347,7 +26349,7 @@ fuel_pouch_icon = None  # 전역 변수로 선언
 try:
     fuel_pouch_icon = pygame.image.load(resource_path("items/fuel_pouch.png")).convert_alpha()
     fuel_pouch_icon = pygame.transform.scale(fuel_pouch_icon, (ICON_SIZE, ICON_SIZE))
-    print("Fuel pouch icon loaded successfully")
+    # print("Fuel pouch icon loaded successfully")
 except Exception as e:
     print(f"Failed to load fuel pouch icon: {e}")
     fuel_pouch_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
@@ -26359,7 +26361,7 @@ smartphone_icon = None  # 전역 변수로 선언
 try:
     smartphone_icon = pygame.image.load(resource_path("items/smartphone.png")).convert_alpha()
     smartphone_icon = pygame.transform.scale(smartphone_icon, (ICON_SIZE, ICON_SIZE))
-    print("Smartphone icon loaded successfully")
+    # print("Smartphone icon loaded successfully")
 except Exception as e:
     print(f"Failed to load smartphone icon: {e}")
     # 스마트폰 모양 그리기
@@ -26376,7 +26378,7 @@ dowsing_pendulum_icon = None  # 전역 변수로 선언
 try:
     dowsing_pendulum_icon = pygame.image.load(resource_path("items/dowsing_pendulum.png")).convert_alpha()
     dowsing_pendulum_icon = pygame.transform.scale(dowsing_pendulum_icon, (ICON_SIZE, ICON_SIZE))
-    print("Dowsing pendulum icon loaded successfully")
+    # print("Dowsing pendulum icon loaded successfully")
 except Exception as e:
     print(f"Failed to load dowsing pendulum icon: {e}")
     dowsing_pendulum_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
@@ -26388,7 +26390,7 @@ molotov_icon = None  # 전역 변수로 선언
 try:
     molotov_icon = pygame.image.load(resource_path("items/molotov.png")).convert_alpha()
     molotov_icon = pygame.transform.scale(molotov_icon, (ICON_SIZE, ICON_SIZE))
-    print("Molotov icon loaded successfully")
+    # print("Molotov icon loaded successfully")
 except Exception as e:
     print(f"Failed to load molotov icon: {e}")
     molotov_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
@@ -26400,9 +26402,9 @@ grenade_icon = None  # 전역 변수로 선언
 try:
     grenade_icon = pygame.image.load(resource_path("items/grenade.png")).convert_alpha()
     grenade_icon = pygame.transform.scale(grenade_icon, (ICON_SIZE, ICON_SIZE))
-    print("Grenade icon loaded successfully")
+    # print("Grenade icon loaded successfully")
 except Exception as e:
-    print(f"Failed to load grenade icon: {e}")
+    # print(f"Failed to load grenade icon: {e}")
     grenade_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
     pygame.draw.circle(grenade_icon, (80, 100, 80), (16, 16), 12)
     pygame.draw.rect(grenade_icon, (60, 60, 60), (14, 8, 4, 6))
@@ -26412,7 +26414,7 @@ spider_mine_icon = None  # 전역 변수로 선언
 try:
     spider_mine_icon = pygame.image.load(resource_path("items/spider_mine.png")).convert_alpha()
     spider_mine_icon = pygame.transform.scale(spider_mine_icon, (ICON_SIZE, ICON_SIZE))
-    print("Spider mine icon loaded successfully")
+    # print("Spider mine icon loaded successfully")
 except Exception as e:
     print(f"Failed to load spider mine icon: {e}")
     spider_mine_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
@@ -26437,7 +26439,7 @@ flare_icon = None  # 전역 변수로 선언
 try:
     flare_icon = pygame.image.load(resource_path("items/flare.png")).convert_alpha()
     flare_icon = pygame.transform.scale(flare_icon, (ICON_SIZE, ICON_SIZE))
-    print("Flare icon loaded successfully")
+    # print("Flare icon loaded successfully")
 except Exception as e:
     print(f"Failed to load flare icon: {e}")
     flare_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
@@ -26448,9 +26450,9 @@ smoke_grenade_icon = None  # 전역 변수로 선언
 try:
     smoke_grenade_icon = pygame.image.load(resource_path("items/smoke_grenade.png")).convert_alpha()
     smoke_grenade_icon = pygame.transform.scale(smoke_grenade_icon, (ICON_SIZE, ICON_SIZE))
-    print("Smoke grenade icon loaded successfully")
+    # print("Smoke grenade icon loaded successfully")
 except Exception as e:
-    print(f"Failed to load smoke grenade icon: {e}")
+    # print(f"Failed to load smoke grenade icon: {e}")
     smoke_grenade_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
     pygame.draw.circle(smoke_grenade_icon, (150, 150, 150), (16, 16), 12)
     pygame.draw.circle(smoke_grenade_icon, (200, 200, 200), (16, 16), 8)
@@ -26460,7 +26462,7 @@ stopwatch_icon = None  # 전역 변수로 선언
 try:
     stopwatch_icon = pygame.image.load(resource_path("items/stopwatch_icon.png")).convert_alpha()
     stopwatch_icon = pygame.transform.scale(stopwatch_icon, (ICON_SIZE, ICON_SIZE))
-    print("Stopwatch icon loaded successfully")
+    # print("Stopwatch icon loaded successfully")
 except Exception as e:
     print(f"Failed to load stopwatch icon: {e}")
     stopwatch_icon = pygame.Surface((ICON_SIZE, ICON_SIZE), pygame.SRCALPHA)
@@ -30216,7 +30218,7 @@ def draw_optimus_arm_skill_ui(surface: pygame.Surface) -> None:
 
     # 디버그: UI 위치 확인
     if _optimus_arm_ui_debug_counter % 60 == 1:
-        # print(f"[DEBUG] 옵티머스 암 UI 위치: x={ui_x}, y={ui_y}, icon_size={icon_size}")
+        pass  # print(f"[DEBUG] 옵티머스 암 UI 위치: x={ui_x}, y={ui_y}, icon_size={icon_size}")
 
     now_ms = pygame.time.get_ticks()
 
@@ -30935,11 +30937,11 @@ try:
     ufo_path = "/Volumes/T7/윈도우용최신/game/bosspong/ufo_player.png"
     if os.path.exists(ufo_path):
         PLAYER_IMG = pygame.image.load(ufo_path).convert_alpha()
-        print(f"[OK] UFO player image loaded: {ufo_path}")
+        # print(f"[OK] UFO player image loaded: {ufo_path}")
     else:
         # resource_path로 시도
         PLAYER_IMG = pygame.image.load(resource_path("ufo_player.png")).convert_alpha()
-        print(f"[OK] UFO player image loaded: resource_path")
+        # print(f"[OK] UFO player image loaded: resource_path")
     
     PLAYER_IMG = pygame.transform.scale(PLAYER_IMG, (250, 100))  # 세로 늘리기
 except Exception as e:
@@ -51917,7 +51919,7 @@ try:
     )
     stage1_boss_sprite = init_stage1_boss_sprite()
     STAGE1_BOSS_ANIMATION_AVAILABLE = True
-    print("[Stage1] Boss walking animation loaded")
+    # print("[Stage1] Boss walking animation loaded")
 except Exception as e:
     print(f"[WARN] Stage 1 boss animation load failed: {e}")
     stage1_boss_sprite = None
@@ -51932,7 +51934,7 @@ try:
     )
     pododaejang_boss_sprite = init_pododaejang_boss_sprite()
     PODODAEJANG_BOSS_ANIMATION_AVAILABLE = True
-    print("[Stage1] Pododaejang boss sprite loaded")
+    # print("[Stage1] Pododaejang boss sprite loaded")
 except Exception as e:
     print(f"[WARN] Pododaejang boss sprite load failed: {e}")
     pododaejang_boss_sprite = None
@@ -51946,7 +51948,7 @@ try:
     )
     stage2_boss_sprite = init_stage2_boss_sprite()
     STAGE2_BOSS_ANIMATION_AVAILABLE = True
-    print("[Stage2] Boss walking animation loaded")
+    # print("[Stage2] Boss walking animation loaded")
 except Exception as e:
     print(f"[WARN] Stage 2 boss animation load failed: {e}")
     stage2_boss_sprite = None
@@ -51961,7 +51963,7 @@ try:
     )
     stage8_boss_sprite = init_stage8_boss_sprite()
     STAGE8_BOSS_ANIMATION_AVAILABLE = True
-    print("[Stage8] Boss walking animation loaded")
+    # print("[Stage8] Boss walking animation loaded")
 except Exception as e:
     print(f"[WARN] Stage 8 boss animation load failed: {e}")
     stage8_boss_sprite = None
@@ -52496,7 +52498,7 @@ def debug_stage2_quake(tag, **fields):
         else:
             parts.append(f"{key}={value}")
     payload = ", ".join(parts)
-    print(f"[Stage2Quake:{tag}] {payload}")
+    # print(f"[Stage2Quake:{tag}] {payload}")
 # Stage 2 특수 기술: 정글지진
 quake_active = False
 quake_duration = 80
@@ -52775,10 +52777,10 @@ def go_to_next_round():
     if current_stage == 4 and round_wins == 3:
         if animated_bg_stage4 is not None and not animated_bg_stage4.temple_destroyed:
             animated_bg_stage4.start_destruction_animation()
-            print("Stage 4: Temple destruction animation started at round start!")
+            # print("Stage 4: Temple destruction animation started at round start!")
             # 붉은달 이벤트 시작 시 phase2 BGM으로 변경
             bgm_manager.bgm_manager.play_bgm('stage4_phase2')
-            print("Stage 4: BGM changed to phase2 (Red Moon event)")
+            # print("Stage 4: BGM changed to phase2 (Red Moon event)")
 
     # Stage 7에서 크리스탈 실드 활성화가 예약되어 있으면 애니메이션 시작
     if current_stage == 7 and pillar_renderer is not None:
@@ -52796,7 +52798,7 @@ def go_to_next_round():
                 additional_offset_y = (GAME_SCALED_HEIGHT - sh) // 2
                 boss_center_x += additional_offset_x
                 boss_center_y += additional_offset_y
-            print(f"[Stage7] 크리스탈 실드 애니메이션 시작! 보스 중앙: ({boss_center_x}, {boss_center_y})")
+            # print(f"[Stage7] 크리스탈 실드 애니메이션 시작! 보스 중앙: ({boss_center_x}, {boss_center_y})")
             pillar_renderer.start_crystal_shield_animation(boss_center_x, boss_center_y)
     # Stage 8: 경기 시작(0-0) 시 초각성 상태/연출 플래그 리셋
     if current_stage == 8 and round_wins == 0 and round_losses == 0:
@@ -58606,7 +58608,7 @@ def handle_lightning_master_skills():
             lightning_strike_timer = lightning_strike_duration
             lightning_strike_last_used = time_now
             show_speech("번개 충격!", duration=lightning_strike_duration)
-            print("!")
+            # print("!")
 def handle_ice_queen_skills():
     """아이스 퀸의 스킬 처리"""
     global ice_barrier_active, ice_barrier_timer, ice_barrier_last_used
@@ -58620,7 +58622,7 @@ def handle_ice_queen_skills():
             ice_barrier_timer = ice_barrier_duration
             ice_barrier_last_used = time_now
             show_speech("얼음 방벽!", duration=ice_barrier_duration)
-            print("!")
+            # print("!")
 def handle_fire_knight_skills():
     """파이어 나이트의 스킬 처리"""
     global fire_charge_active, fire_charge_timer, fire_charge_last_used
@@ -58634,7 +58636,7 @@ def handle_fire_knight_skills():
             fire_charge_timer = fire_charge_duration
             fire_charge_last_used = time_now
             show_speech("화염 돌진!", duration=fire_charge_duration)
-            print("!")
+            # print("!")
 def handle_wind_spirit_skills():
     """윈드 스피릿의 스킬 처리"""
     global wind_burst_active, wind_burst_timer, wind_burst_last_used
@@ -58648,7 +58650,7 @@ def handle_wind_spirit_skills():
             wind_burst_timer = wind_burst_duration
             wind_burst_last_used = time_now
             show_speech("바람 폭발!", duration=wind_burst_duration)
-            print("!")
+            # print("!")
 def handle_new_boss_skills_timer():
     """새로운 보스들의 스킬 타이머 처리"""
     global lightning_strike_active, lightning_strike_timer
@@ -58675,7 +58677,7 @@ def handle_new_boss_skills_timer():
             check_ball_speed_safety()
         if lightning_strike_timer <= 0:
             lightning_strike_active = False
-            print("!")
+            # print("!")
     # 아이스 퀸 스킬 타이머 - 얼음 방벽 활성화 시 공 속도 50% 감소
     if ice_barrier_active and ice_barrier_timer > 0:
         ice_barrier_timer -= 1
@@ -58685,13 +58687,13 @@ def handle_new_boss_skills_timer():
             ball_vel[1] *= 0.98  # Y축 속도 감소
         if ice_barrier_timer <= 0:
             ice_barrier_active = False
-            print("!")
+            # print("!")
     # 파이어 나이트 스킬 타이머
     if fire_charge_active and fire_charge_timer > 0:
         fire_charge_timer -= 1
         if fire_charge_timer <= 0:
             fire_charge_active = False
-            print("!")
+            # print("!")
     # 윈드 스피릿 스킬 타이머 - 바람 폭발 시 공을 랜덤하게 튕겨냄
     if wind_burst_active and wind_burst_timer > 0:
         wind_burst_timer -= 1
@@ -58704,7 +58706,7 @@ def handle_new_boss_skills_timer():
             print(f"  !    : ({wind_force_x:.1f}, {wind_force_y:.1f})")
         if wind_burst_timer <= 0:
             wind_burst_active = False
-            print("!")
+            # print("!")
 
 def fire_soldier_bullet():
     """코만도 캐릭터가 총알을 발사하는 함수"""
@@ -61428,7 +61430,7 @@ def draw_soldier_weapon_ui(screen):
             text_y = bullet_y + bullet_height + 10
             screen.blit(reload_surface, (text_x, text_y))
         except Exception as e:
-            # print(f"[DEBUG] 재장전 텍스트 렌더링 실패: {e}")
+            pass  # print(f"[DEBUG] 재장전 텍스트 렌더링 실패: {e}")
     
     # 현재 무기 이름 표시 (강조 효과 있을 때 더 크게)
     weapon_names = {
@@ -61505,7 +61507,7 @@ def draw_soldier_weapon_ui(screen):
         #         pass
 
     except Exception as e:
-        # print(f"[DEBUG] 무기 이름 렌더링 실패: {e}")
+        pass  # print(f"[DEBUG] 무기 이름 렌더링 실패: {e}")
 
     # === 권총 탄약 소진 시 비활성화 오버레이 ===
     if current_weapon == "pistol" and soldier_pistol_ammo <= 0:
@@ -61642,13 +61644,13 @@ def trigger_boss_knockback(bullet_x, bullet_y):
     
     # 디버그 정보 출력
     # print(f"🔫 코만도 총알 넉백 발동!")
-    print(f"   총알 위치: X={bullet_x}, Y={bullet_y}")
-    print(f"   보스 중심: X={boss_center_x}")
-    print(f"   상대 위치: {bullet_relative_to_boss}")
-    print(f"   넉백 방향: {knockback_direction_x} ({'왼쪽' if knockback_direction_x < 0 else '오른쪽'})")
-    print(f"   넉백 강도: {BOSS_KNOCKBACK_STRENGTH}픽셀")
-    print(f"   지속 시간: {BOSS_KNOCKBACK_DURATION}프레임 ({BOSS_KNOCKBACK_DURATION/60:.2f}초)")
-    print(f"   최종 오프셋: X={boss_knockback_offset_x}, Y={boss_knockback_offset_y}")
+    # print(f"   총알 위치: X={bullet_x}, Y={bullet_y}")
+    # print(f"   보스 중심: X={boss_center_x}")
+    # print(f"   상대 위치: {bullet_relative_to_boss}")
+    # print(f"   넉백 방향: {knockback_direction_x} ({'왼쪽' if knockback_direction_x < 0 else '오른쪽'})")
+    # print(f"   넉백 강도: {BOSS_KNOCKBACK_STRENGTH}픽셀")
+    # print(f"   지속 시간: {BOSS_KNOCKBACK_DURATION}프레임 ({BOSS_KNOCKBACK_DURATION/60:.2f}초)")
+    # print(f"   최종 오프셋: X={boss_knockback_offset_x}, Y={boss_knockback_offset_y}")
 
 def update_boss_knockback():
     """보스 패들 넉백 효과 업데이트"""
@@ -61656,7 +61658,7 @@ def update_boss_knockback():
     
     if boss_knockback_active:
         # print(f"[DEBUG 넉백] 프레임 {BOSS_KNOCKBACK_DURATION - boss_knockback_timer + 1}/{BOSS_KNOCKBACK_DURATION}")
-        print(f"            오프셋: X={boss_knockback_offset_x}, Y={boss_knockback_offset_y}")
+        # print(f"            오프셋: X={boss_knockback_offset_x}, Y={boss_knockback_offset_y}")
         
         # 타이머 감소
         boss_knockback_timer -= 1
@@ -61935,13 +61937,13 @@ def update_soldier_bullets():
                     head_shot_timer = HEAD_SHOT_DURATION  # 1초간 스턴
                     head_shot_text_timer = HEAD_SHOT_TEXT_DURATION  # 1초간 텍스트 표시
                     boss_stunned_timer = HEAD_SHOT_DURATION  # 별 효과를 위한 타이머 (1초)
-                    print("💥 헤드샷! 보스 1초간 스턴!")
+                    # print("💥 헤드샷! 보스 1초간 스턴!")
                 elif shot_roll < head_chance + leg_chance:
                     # 레그샷 발동 (헤드샷이 발동하지 않은 경우에만)
                     leg_shot_active = True
                     leg_shot_timer = LEG_SHOT_DURATION  # 2.2초간 지속
                     leg_shot_text_timer = LEG_SHOT_TEXT_DURATION  # 1초간 텍스트 표시
-                    print("🎯 레그샷! 보스 이동속도 30% 감소!")
+                    # print("🎯 레그샷! 보스 이동속도 30% 감소!")
                 else:
                     # 일반 명중 (0.3초 스턴)
                     boss_stunned_timer = 18  # 0.3초 스턴
@@ -61973,7 +61975,7 @@ def update_soldier_bullets():
                         "life": 30
                     })
                 
-                print("💥 총알이 보스에게 명중! 보스 스턴!")
+                # print("💥 총알이 보스에게 명중! 보스 스턴!")
                 
                 # 코만도 권총으로 보스 명중 시 게이지 25+ 증가
                 global special_gauge, special_ready
@@ -61982,12 +61984,12 @@ def update_soldier_bullets():
                 # 헤드샷/레그샷 시 추가 보너스
                 if shot_roll < head_chance:
                     gauge_increase = 50  # 헤드샷 시 50 증가
-                    print("🎯 헤드샷 보너스! 게이지 50 증가!")
+                    # print("🎯 헤드샷 보너스! 게이지 50 증가!")
                 elif shot_roll < head_chance + leg_chance:
                     gauge_increase = 40  # 레그샷 시 40 증가  
-                    print("🎯 레그샷 보너스! 게이지 40 증가!")
+                    # print("🎯 레그샷 보너스! 게이지 40 증가!")
                 else:
-                    print("🎯 코만도 권총 명중! 게이지 30 증가!")
+                    pass  # print("🎯 코만도 권총 명중! 게이지 30 증가!")
 
                 # 게이지 증가 적용
                 gauge_increase = _apply_blacksmith_berserk_gauge_bonus(gauge_increase)
@@ -62004,7 +62006,7 @@ def update_soldier_bullets():
                 if special_gauge >= 350:
                     special_ready = True
 
-                print(f"코만도 권총 게이지 충전: {old_gauge} → {special_gauge} (+{gauge_increase})")
+                # print(f"코만도 권총 게이지 충전: {old_gauge} → {special_gauge} (+{gauge_increase})")
 
                 if current_stage in boss_health_stages:
                     soldier_pistol_boss_hit_count += 1
@@ -63267,28 +63269,29 @@ def handle_player(keys):
                 _stop_optimus_charge_sound()
         # 디버그: 충전 입력 및 차단 사유 로깅 (환경변수 PINGF_CHARGE_DEBUG=1)
         if os.environ.get("PINGF_CHARGE_DEBUG", "0").lower() not in ("0", "false", "off"):
-            print(
-                "[OPT_CHARGE_DEBUG]"
-                f" down={down_held}"
-                f" active={optimus_charge_active}"
-                f" drained={optimus_drained}"
-                f" rolling={rolling_active}"
-                f" stun={rolling_stun_timer>0 or player_stunned}"
-                f" serve_wait={is_waiting_for_serve}"
-                f" long_boost={long_boost_active}"
-                f" serve_block={(optimus_charge_block_until_ms - now_ms) if optimus_charge_block_until_ms > now_ms else 0}"
-                f" gauge={special_gauge:.1f}/{get_max_gauge():.1f}"
-                f" hold_ms={optimus_charge_hold_ms}"
-            )
+            pass
+            # print(
+            #     "[OPT_CHARGE_DEBUG]"
+            #     f" down={down_held}"
+            #     f" active={optimus_charge_active}"
+            #     f" drained={optimus_drained}"
+            #     f" rolling={rolling_active}"
+            #     f" stun={rolling_stun_timer>0 or player_stunned}"
+            #     f" serve_wait={is_waiting_for_serve}"
+            #     f" long_boost={long_boost_active}"
+            #     f" serve_block={(optimus_charge_block_until_ms - now_ms) if optimus_charge_block_until_ms > now_ms else 0}"
+            #     f" gauge={special_gauge:.1f}/{get_max_gauge():.1f}"
+            #     f" hold_ms={optimus_charge_hold_ms}"
+            # )
 
     # ⚡ 스매셔 플라즈마 자기장 스킬 (W/상 키 홀드)
-    def _handle_smasher_plasma_field(now_ms: int, up_held: bool) -> None:
+    # def _handle_smasher_plasma_field(now_ms: int, up_held: bool) -> None:
         """스매셔 전용: W/↑키 홀드로 플라즈마 자기장 차징 및 발사."""
         global plasma_field_charging, plasma_field_charge_time, plasma_field_charge_start_time
         global plasma_field_gauge_consumed, plasma_field_size, plasma_field_particles
         global plasma_wave_active, plasma_wave_x, plasma_wave_y, plasma_wave_radius
         global plasma_wave_slow_amount, plasma_wave_duration, plasma_wave_particles, plasma_wave_trail
-        global special_gauge, special_ready, plasma_charge_sound_playing
+        global plasma_charge_sound_playing
 
         if selected_character_type != "smasher":
             if plasma_field_charging:
@@ -64118,10 +64121,10 @@ def handle_player(keys):
             globals()["tutorial_consecutive_dash_count"] = (
                 tutorial_consecutive_dash_count + 1
             )
-            print(
-                f"튜토리얼: 연속대쉬 성공! {globals()['tutorial_consecutive_dash_count']}/1"
-            )
-            show_tutorial_success_feedback("연속대쉬 성공!", "great")
+            # print(
+            #     f"튜토리얼: 연속대쉬 성공! {globals()['tutorial_consecutive_dash_count']}/1"
+            # )
+            # show_tutorial_success_feedback("연속대쉬 성공!", "great")
             check_tutorial_dash_missions_complete()
 
         if dash is not None:
@@ -64144,9 +64147,11 @@ def handle_player(keys):
         #         final_gauge_cost = int(final_gauge_cost * external_cost_mul)
         # consume_special_gauge(final_gauge_cost)
         if DEBUG_MODE:
-            print(
-                f"    대쉬! (연속: {get_roll('rolling_consecutive_count')}, 토큰: {get_roll('rolling_charges')}, 게이지: {special_gauge})"
-            )
+            # print(
+            #     f"    대쉬! (연속: {get_roll('rolling_consecutive_count')}, 토큰: {get_roll('rolling_charges')}, 게이지: {special_gauge})"
+            # )
+            # pass
+            pass
 
         recent_dash_time = pygame.time.get_ticks()
         mega_smashing_bonus_applied = False
@@ -64235,7 +64240,7 @@ def handle_player(keys):
         serve_completed_timer -= 1
         # 디버그 로그: 매 초 또는 마지막 5프레임에만 출력하여 소음 감소
         if serve_completed_timer % 60 == 0 or serve_completed_timer <= 5:
-            print(f"⏱️ serve_completed_timer: {serve_completed_timer} ({serve_completed_timer/60:.1f}초 남음)")
+            pass  # print(f"⏱️ serve_completed_timer: {serve_completed_timer} ({serve_completed_timer/60:.1f}초 남음)")
     if serve_power_smash_lockout > 0:
         serve_power_smash_lockout -= 1
     #  새로운 보스 모드에서는 하단 보스가 플레이어 역할
@@ -64259,7 +64264,7 @@ def handle_player(keys):
         try:
             if is_move_down_pressed(keys_seq):
                 if os.environ.get("PINGF_CHARGE_DEBUG", "0").lower() not in ("0", "false", "off") and selected_character_type == "optimus":
-                    print("[OPT_CHARGE_DEBUG] down_detect=move_down_pressed true")
+                    pass  # print("[OPT_CHARGE_DEBUG] down_detect=move_down_pressed true")
                 return True
             # 한글 자모 키코드도 런타임 조회해 포함 (pygame.key.key_code가 0~len(keys_seq) 범위 값을 줄 때만)
             for sym in ("ㄴ", "ᄂ"):
@@ -64269,10 +64274,10 @@ def handle_player(keys):
                     code = None
                 if code is not None and code >= 0 and code < len(keys_seq) and keys_seq[code]:
                     if os.environ.get("PINGF_CHARGE_DEBUG", "0").lower() not in ("0", "false", "off") and selected_character_type == "optimus":
-                        print(f"[OPT_CHARGE_DEBUG] down_detect=hangul sym={sym} code={code}")
+                        pass  # print(f"[OPT_CHARGE_DEBUG] down_detect=hangul sym={sym} code={code}")
                     return True
             if os.environ.get("PINGF_CHARGE_DEBUG", "0").lower() not in ("0", "false", "off") and selected_character_type == "optimus":
-                print(f"[OPT_CHARGE_DEBUG] down_detect=false len={len(keys_seq)} code_candidates={[pygame.key.key_code(s) for s in ('ㄴ','ᄂ') if hasattr(pygame.key,'key_code')]}")
+                pass  # print(f"[OPT_CHARGE_DEBUG] down_detect=false len={len(keys_seq)} code_candidates={[pygame.key.key_code(s) for s in ('ㄴ','ᄂ') if hasattr(pygame.key,'key_code')]}")
         except Exception:
             pass
         return False
@@ -64685,7 +64690,7 @@ def handle_player(keys):
                 blacksmith_umbrella_retract_grace_timer = 0
                 # 디버그: 토르쉴드 배치 시작 로그
                 if VALTHOR_PERF_DEBUG:
-                    print(f"[THOR SHIELD] DEPLOY START - anim_frames={BLACKSMITH_UMBRELLA_ANIM_FRAMES}, cache_size={len(_blacksmith_paddle_cache)}")
+                    # print(f"[THOR SHIELD] DEPLOY START - anim_frames={BLACKSMITH_UMBRELLA_ANIM_FRAMES}, cache_size={len(_blacksmith_paddle_cache)}")
                     _thor_shield_frame_times.clear()  # 프레임 타임 초기화
                 if SOUND_BLACKSMITH_UMBRELLA_OPEN:
                     play_sound_with_volume(SOUND_BLACKSMITH_UMBRELLA_OPEN)
@@ -64972,7 +64977,7 @@ def handle_player(keys):
             
     # 디버그: 물자보급 조건 상태 확인 (↓키를 눌렀을 때만)
     if down_pressed and selected_character_type == "soldier" and supply_drop_state.hold_time == 0:
-        print(f"🔍 물자보급 조건: is_waiting_for_serve={is_waiting_for_serve}, is_player_serve={is_player_serve}, serve_timer={serve_completed_timer}, can_use={can_use_supply_drop}")
+        pass  # print(f"🔍 물자보급 조건: is_waiting_for_serve={is_waiting_for_serve}, is_player_serve={is_player_serve}, serve_timer={serve_completed_timer}, can_use={can_use_supply_drop}")
     
     # ↓키 홀드 체크 (코만도 캐릭터만)
     # 👁 오딘의 눈 변신 상태에서는 물자보급 사용 불가
@@ -64987,14 +64992,14 @@ def handle_player(keys):
         if is_soldier_skill_on_cooldown("supply_drop"):
             if supply_drop_state.hold_time == 0 and frame_count % 60 == 0:  # 1초마다만 출력
                 remaining = get_soldier_skill_cooldown_seconds("supply_drop")
-                print(f"⏳ 물자보급 쿨타임 중: {remaining:.1f}초 남음")
+                # print(f"⏳ 물자보급 쿨타임 중: {remaining:.1f}초 남음")
         elif can_use_supply_drop and special_gauge >= supply_drop_state.config.gauge_cost:
             supply_drop_state.hold_time += 1
 
             # 홀드 진행률 디버그
             if supply_drop_state.hold_time % 10 == 0:  # 0.17초마다 출력
                 progress = (supply_drop_state.hold_time / supply_drop_state.config.hold_required) * 100
-                print(f"📻 물자보급 홀드 중: {progress:.1f}% ({supply_drop_state.hold_time}/{supply_drop_state.config.hold_required})")
+                # print(f"📻 물자보급 홀드 중: {progress:.1f}% ({supply_drop_state.hold_time}/{supply_drop_state.config.hold_required})")
 
             if (
                 supply_drop_state.hold_time == supply_drop_state.config.hold_threshold
@@ -65008,9 +65013,9 @@ def handle_player(keys):
                 timer_value = random.randint(90, 300)  # 1.5초~5초 (60fps 기준)
                 cost = supply_drop_state.config.gauge_cost
                 next_gauge = max(0, special_gauge - cost)
-                print(f"✅ 물자보급 발동 성공! special_gauge: {special_gauge} -> {next_gauge}")
-                print(f"🎁 타이머 설정: {timer_value} 프레임 ({timer_value/60:.1f}초 후 비행기 출현)")
-                print(f"⏱️ serve_completed_timer 상태: {serve_completed_timer}")
+                # print(f"✅ 물자보급 발동 성공! special_gauge: {special_gauge} -> {next_gauge}")
+                # print(f"🎁 타이머 설정: {timer_value} 프레임 ({timer_value/60:.1f}초 후 비행기 출현)")
+                # print(f"⏱️ serve_completed_timer 상태: {serve_completed_timer}")
                 supply_drop_state.active = True
                 consume_special_gauge(cost)
                 supply_drop_state.timer = timer_value
@@ -65026,8 +65031,8 @@ def handle_player(keys):
                 # (기존: soldier_control_lock_timer 30프레임)
                 player_knockback_vel = 0  # 넉백 없음 (유지)
 
-                print("📻 물자보급 요청! 무전기 모션 시작")
-                print(f"물자보급 발동! {timer_value/60:.1f}초 후 비행기 출현")
+                # print("📻 물자보급 요청! 무전기 모션 시작")
+                # print(f"물자보급 발동! {timer_value/60:.1f}초 후 비행기 출현")
 
                 # 스킬 쿨타임 시작 (60초)
                 trigger_soldier_skill_cooldown("supply_drop")
@@ -65041,11 +65046,11 @@ def handle_player(keys):
                         reasons.append(f"serve_timer={serve_completed_timer}({serve_completed_timer/60:.1f}초)")
                 if special_gauge < supply_drop_state.config.gauge_cost:
                     reasons.append(f"gauge부족={special_gauge}/{supply_drop_state.config.gauge_cost}")
-                print(f"❌ 물자보급 사용 불가: {', '.join(reasons)}")
+                # print(f"❌ 물자보급 사용 불가: {', '.join(reasons)}")
     else:
         # ↓키를 떼면 홀드 시간 초기화
         if supply_drop_state.hold_time > 0:
-            print(f"📻 물자보급 홀드 중단: {supply_drop_state.hold_time}/{supply_drop_state.config.hold_required}")
+            pass  # print(f"📻 물자보급 홀드 중단: {supply_drop_state.hold_time}/{supply_drop_state.config.hold_required}")
         supply_drop_state.hold_time = 0
 
         fire_support_radio_locked = False
@@ -65081,7 +65086,7 @@ def handle_player(keys):
             if elapsed_time > 1700:  # 1.7초 경과
                 tutorial_dash_helper_active = False  # 도우미 끄기
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: 대쉬 도우미 1.7초 경과로 비활성화")
+                    pass  # print("튜토리얼: 대쉬 도우미 1.7초 경과로 비활성화")
     # 마우스 조작 (비활성화됨)
     # if input_manager.get_control_mode() == "마우스":
     #     if mouse_controls.get("space", False):
@@ -65344,7 +65349,7 @@ def handle_player(keys):
                     _hg_on_deactivate('long_boost')
                 except Exception:
                     pass
-                print("")
+                # print("")
     global doping_potion_active, doping_potion_timer, doping_potion_toast_timer
     global berserk_potion_active, berserk_potion_timer
     sync_doping_potion_from_global_manager()
@@ -65575,19 +65580,19 @@ def handle_player(keys):
                     # 🧊 중요: current_speed를 0으로 설정하여 일반 이동이 적용되지 않도록 함
                     current_speed = 0
                     if DEBUG_MODE:
-                        print(f"[ICE DEBUG] 대쉬 종료 -> 미끄러짐 시작! dir={dash_direction}, speed={ice_dash_slide_speed}")
+                        pass  # print(f"[ICE DEBUG] 대쉬 종료 -> 미끄러짐 시작! dir={dash_direction}, speed={ice_dash_slide_speed}")
 
                     # 🧊 첫 번째 미끄러짐 이동을 즉시 실행 (지연 방지)
                     ice_slide_offset = ice_dash_slide_speed * ice_dash_slide_direction
                     PLAYER.x += int(ice_slide_offset)
                     PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
                     if DEBUG_MODE:
-                        print(f"[ICE SLIDE] 즉시 첫 이동! offset={ice_slide_offset}, new_x={PLAYER.x}")
+                        pass  # print(f"[ICE SLIDE] 즉시 첫 이동! offset={ice_slide_offset}, new_x={PLAYER.x}")
 
                     # 벽에 바로 닿았는지 체크
                     if PLAYER.x <= 0 or PLAYER.x >= WIDTH - PADDLE_WIDTH:
                         if DEBUG_MODE:
-                            print(f"[ICE DEBUG] 즉시 벽에 닿음! x={PLAYER.x}")
+                            pass  # print(f"[ICE DEBUG] 즉시 벽에 닿음! x={PLAYER.x}")
                         ice_dash_sliding = False
                         ice_dash_slide_speed = 0
                     # 얼음에서는 미끄러짐으로 이동 처리 (current_speed = 0 유지)
@@ -65615,7 +65620,7 @@ def handle_player(keys):
                     except Exception:
                         pass
                     if DEBUG_MODE:
-                        print(f"[ICE DEBUG] 대쉬 감속구간 -> 즉시 미끄러짐 전환! dir={dash_direction}, speed={ice_dash_slide_speed}")
+                        pass  # print(f"[ICE DEBUG] 대쉬 감속구간 -> 즉시 미끄러짐 전환! dir={dash_direction}, speed={ice_dash_slide_speed}")
                 # 구르기 중에는 순간적으로 매우 빠르게 이동 후 빠르게 감속
                 elif rolling_timer_value > 20:  # 처음 10프레임은 매우 빠르게
                     current_speed = _rolling_get("rolling_direction") * 40  # 매우 빠른 속도
@@ -65713,7 +65718,7 @@ def handle_player(keys):
                         pass  # 해금되지 않으면 무시
                     # 쿨타임 체크
                     elif get_smasher_skill_cooldown_remaining("recovery") > 0:
-                        print(f"[리커버리] 쿨타임 중!")
+                        pass  # print(f"[리커버리] 쿨타임 중!")
                     # 게이지 확인
                     elif special_gauge >= RECOVERY_GAUGE_COST:
                         # 리커버리 발동!
@@ -65743,9 +65748,9 @@ def handle_player(keys):
                         # 스매셔 스킬 쿨타임 적용
                         trigger_smasher_skill_cooldown("recovery")
 
-                        print(f"[리커버리] 통제불능 해제! 게이지 -{RECOVERY_GAUGE_COST}")
+                        # print(f"[리커버리] 통제불능 해제! 게이지 -{RECOVERY_GAUGE_COST}")
                     else:
-                        print(f"[리커버리] 게이지 부족: {special_gauge}/{RECOVERY_GAUGE_COST}")
+                        pass  # print(f"[리커버리] 게이지 부족: {special_gauge}/{RECOVERY_GAUGE_COST}")
             # ========== 리커버리 스킬 체크 끝 ==========
 
             _prev_stun = _rolling_get("rolling_stun_timer")
@@ -65834,7 +65839,7 @@ def handle_player(keys):
                     if tutorial_half_dash_pending:
                         tutorial_half_dash_pending = False
                         if DEBUG_TUTORIAL:
-                            # print(f"튜토리얼: 하프대쉬 스턴 종료 - 공 충돌 없어서 카운팅 안함")
+                            pass  # print(f"튜토리얼: 하프대쉬 스턴 종료 - 공 충돌 없어서 카운팅 안함")
             # 통제 불가능 중에는 조작 불가
             if not gravitybelt_obtained:
                 # 무중력벨트가 없을 때만 감속 적용
@@ -66113,7 +66118,7 @@ def handle_player(keys):
                         if current_consecutive >= 2 and tutorial_consecutive_dash_count < 1:
                             tutorial_consecutive_dash_count += 1
                             if DEBUG_TUTORIAL:
-                                # print(f"튜토리얼: 연속대쉬 성공! {tutorial_consecutive_dash_count}/1")
+                                pass  # print(f"튜토리얼: 연속대쉬 성공! {tutorial_consecutive_dash_count}/1")
                             show_tutorial_success_feedback("연속대쉬 성공!", "great")
                             # Check if all missions are complete
                             check_tutorial_dash_missions_complete()
@@ -66155,7 +66160,7 @@ def handle_player(keys):
                     # if special_gauge < special_gauge_max:
                     #     special_ready = False
                     if DEBUG_MODE:
-                        print(f"    대쉬! (연속: {get_roll('rolling_consecutive_count')}, 토큰: {get_roll('rolling_charges')}, 게이지: {special_gauge})")
+                        pass  # print(f"    대쉬! (연속: {get_roll('rolling_consecutive_count')}, 토큰: {get_roll('rolling_charges')}, 게이지: {special_gauge})")
                 elif right_before_down and down_pressed and not dash_down_first_lock and current_charges > 0:
                     # 후딜 상태에서 오른쪽 대쉬 실행 (아래키 + 오른쪽키 필요)
                     # 연속대쉬는 키를 계속 누르고 있어도 발동됨 (백업본 0123 로직 복원)
@@ -66376,7 +66381,7 @@ def handle_player(keys):
                         if rolling_consecutive_count >= 2 and tutorial_consecutive_dash_count < 1:
                             tutorial_consecutive_dash_count += 1
                             if DEBUG_TUTORIAL:
-                                # print(f"튜토리얼: 연속대쉬 성공! {tutorial_consecutive_dash_count}/1")
+                                pass  # print(f"튜토리얼: 연속대쉬 성공! {tutorial_consecutive_dash_count}/1")
                             show_tutorial_success_feedback("연속대쉬 성공!", "great")
                             # Check if all missions are complete
                             check_tutorial_dash_missions_complete()
@@ -66410,7 +66415,7 @@ def handle_player(keys):
                     # if special_gauge < special_gauge_max:
                     #     special_ready = False
                     if DEBUG_MODE:
-                        print(f"    대쉬! (연속: {rolling_consecutive_count}, 토큰: {rolling_charges}, 게이지: {special_gauge})")
+                        pass  # print(f"    대쉬! (연속: {rolling_consecutive_count}, 토큰: {rolling_charges}, 게이지: {special_gauge})")
         else:
             #  구르기 쿨타임 감소 (대쉬부스트 효과 적용)
             rolling_cooldown_value = _rolling_get("rolling_cooldown")
@@ -66674,9 +66679,9 @@ def handle_player(keys):
             _can_cancel_into_dash = not rolling_active or (rolling_active and rolling_timer <= DASH_CANCEL_THRESHOLD)
             # 🔍 디버그: 연속 대쉬 캔슬 조건 체크 (대쉬 중일 때만 출력)
             if rolling_active and down_pressed and (is_move_left_pressed(keys) or MOVE_EVENT_LEFT or is_move_right_pressed(keys) or MOVE_EVENT_RIGHT):
-                print(f"[DASH_CANCEL_DEBUG] rolling_active={rolling_active}, rolling_timer={rolling_timer}, threshold={DASH_CANCEL_THRESHOLD}")
-                print(f"  -> can_cancel={_can_cancel_into_dash}, can_use_rolling={can_use_rolling}, can_use_half={can_use_half_dash}")
-                print(f"  -> rolling_charges={rolling_charges}, rolling_stun_timer={rolling_stun_timer}")
+                pass  # print(f"[DASH_CANCEL_DEBUG] rolling_active={rolling_active}, rolling_timer={rolling_timer}, threshold={DASH_CANCEL_THRESHOLD}")
+                # print(f"  -> can_cancel={_can_cancel_into_dash}, can_use_rolling={can_use_rolling}, can_use_half={can_use_half_dash}")
+                # print(f"  -> rolling_charges={rolling_charges}, rolling_stun_timer={rolling_stun_timer}")
             if HALF_DASH_ENABLED and down_pressed and not dash_down_first_lock and can_use_half_dash and _can_cancel_into_dash:
                 # 현재 방향키가 눌려 있고 ↓가 눌려 있으면 "방향+↓ 하프대쉬" 시도로 간주한다.
                 left_before_down_half = (is_move_left_pressed(keys) or MOVE_EVENT_LEFT)
@@ -66918,7 +66923,7 @@ def handle_player(keys):
                             if current_stage == 50 and tutorial_dash_counter_active:
                                 tutorial_half_dash_pending = True
                                 if DEBUG_TUTORIAL:
-                                    # print(f"튜토리얼: 하프대쉬 발동 - 공 충돌 대기 중")
+                                    pass  # print(f"튜토리얼: 하프대쉬 발동 - 공 충돌 대기 중")
                             
                             # 하프 대쉬도 토큰 소모 (게이지는 소모 없음)
                             current_charges = max(0, rolling_charges - half_dash_token_cost)
@@ -67233,7 +67238,7 @@ def handle_player(keys):
                         if rolling_consecutive_count >= 2 and tutorial_consecutive_dash_count < 1:
                             tutorial_consecutive_dash_count += 1
                             if DEBUG_TUTORIAL:
-                                # print(f"튜토리얼: 연속대쉬 성공! {tutorial_consecutive_dash_count}/1")
+                                pass  # print(f"튜토리얼: 연속대쉬 성공! {tutorial_consecutive_dash_count}/1")
                             show_tutorial_success_feedback("연속대쉬 성공!", "great")
                             # Check if all missions are complete
                             check_tutorial_dash_missions_complete()
@@ -67278,7 +67283,7 @@ def handle_player(keys):
                     # #  게이지 감소 시 special_ready 상태 업데이트
                     # if special_gauge < special_gauge_max:
                     #     special_ready = False
-                    print(f"  ! ( {rolling_consecutive_count},  : {final_gauge_cost},  : {rolling_charges}, : {special_gauge})")
+                    # print(f"  ! ( {rolling_consecutive_count},  : {final_gauge_cost},  : {rolling_charges}, : {special_gauge})")
                     #  대쉬 사용 기록
                     recent_dash_time = pygame.time.get_ticks()
                     mega_smashing_bonus_applied = False  # 고스트샷 보너스 리셋 (새로운 콤보 가능)
@@ -67497,7 +67502,7 @@ def handle_player(keys):
                         if rolling_consecutive_count >= 2 and tutorial_consecutive_dash_count < 1:
                             tutorial_consecutive_dash_count += 1
                             if DEBUG_TUTORIAL:
-                                # print(f"튜토리얼: 연속대쉬 성공! {tutorial_consecutive_dash_count}/1")
+                                pass  # print(f"튜토리얼: 연속대쉬 성공! {tutorial_consecutive_dash_count}/1")
                             show_tutorial_success_feedback("연속대쉬 성공!", "great")
                             # Check if all missions are complete
                             check_tutorial_dash_missions_complete()
@@ -67542,7 +67547,7 @@ def handle_player(keys):
                     # #  게이지 감소 시 special_ready 상태 업데이트
                     # if special_gauge < special_gauge_max:
                     #     special_ready = False
-                    print(f"  ! ( {rolling_consecutive_count},  : {final_gauge_cost},  : {rolling_charges}, : {special_gauge})")
+                    # print(f"  ! ( {rolling_consecutive_count},  : {final_gauge_cost},  : {rolling_charges}, : {special_gauge})")
                     #  대쉬 사용 기록
                     recent_dash_time = pygame.time.get_ticks()
                     mega_smashing_bonus_applied = False  # 고스트샷 보너스 리셋 (새로운 콤보 가능)
@@ -67932,9 +67937,9 @@ def handle_player(keys):
                 # 넉백 받으면 0.4초간 스턴 면역
                 if player_stun_immunity_timer <= 0:
                     player_stun_immunity_timer = 24  # 0.4초 = 24프레임 (60fps 기준)
-                    print(f" Stage {current_stage}: 화염 넉백 {player_flame_zone_knockback_vel:.1f}, 0.4s 면역")
+                    # print(f" Stage {current_stage}: 화염 넉백 {player_flame_zone_knockback_vel:.1f}, 0.4s 면역")
                 else:
-                    print(f" Stage {current_stage}: 화염 넉백 {player_flame_zone_knockback_vel:.1f} (면역 유지)")
+                    pass  # print(f" Stage {current_stage}: 화염 넉백 {player_flame_zone_knockback_vel:.1f} (면역 유지)")
             
             player_in_flame_zone = True
         else:
@@ -68182,14 +68187,14 @@ def handle_player(keys):
                                     soldier_control_lock_timer,
                                     FIRE_SUPPORT_CONTROL_LOCK_FRAMES,
                                 )
-                                print("✈️ 화력지원 요청! 폭격기 호출 중")
+                                # print("✈️ 화력지원 요청! 폭격기 호출 중")
                 elif current_weapon == "net_gun":
                     net_gun = net_gun_instance or get_net_gun_instance()
                     if net_gun and net_gun.can_fire():
                         current_time = pygame.time.get_ticks()
                         if round_start_time > 0 and current_time - round_start_time < 3000:
                             remaining_time = (3000 - (current_time - round_start_time)) / 1000
-                            print(f"🕸️ 화기류 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
+                            # print(f"🕸️ 화기류 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
                         else:
                             boss_rect = pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height)
                             if net_gun.fire(PLAYER, boss_rect):
@@ -68202,21 +68207,21 @@ def handle_player(keys):
                     current_time = pygame.time.get_ticks()
                     if round_start_time > 0 and current_time - round_start_time < 3000:
                         remaining_time = (3000 - (current_time - round_start_time)) / 1000
-                        print(f"💥 화기류 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
+                        # print(f"💥 화기류 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
                     else:
                         if suicide_drone_active:
                             _detonate_suicide_drone("manual")
                         else:
                             if soldier_drone_ammo > 0 and _launch_suicide_drone():
                                 soldier_control_lock_timer = 0
-                                print(f"🚁 자폭드론 발진! 남은 탄약 {soldier_drone_ammo}/{SUICIDE_DRONE_MAX_AMMO}")
+                                # print(f"🚁 자폭드론 발진! 남은 탄약 {soldier_drone_ammo}/{SUICIDE_DRONE_MAX_AMMO}")
                 elif current_weapon == "bowling_trap":
                     bowling_trap = get_bowling_trap_instance()
                     if bowling_trap.can_install():
                         current_time = pygame.time.get_ticks()
                         if round_start_time > 0 and current_time - round_start_time < 3000:
                             remaining_time = (3000 - (current_time - round_start_time)) / 1000
-                            print(f"🎳 화기류 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
+                            # print(f"🎳 화기류 사용 제한 중 (남은 시간: {remaining_time:.1f}초)")
                         else:
                             if bowling_trap.start_install(PLAYER):
                                 # 설치 시작 시 조작 잠금
@@ -68470,7 +68475,7 @@ def handle_player(keys):
 
         # 디버그: 매 10프레임마다 출력
         if DEBUG_MODE and ice_dash_slide_timer % 10 == 0:
-            print(f"[ICE SLIDE] x: {old_x:.1f} -> {PLAYER.x:.1f}, speed={ice_dash_slide_speed:.2f}, dir={ice_dash_slide_direction}")
+            pass  # print(f"[ICE SLIDE] x: {old_x:.1f} -> {PLAYER.x:.1f}, speed={ice_dash_slide_speed:.2f}, dir={ice_dash_slide_direction}")
         ice_dash_slide_timer -= 1
 
         # 속도 감소 (마찰)
@@ -68480,13 +68485,13 @@ def handle_player(keys):
         if PLAYER.x <= 0 or PLAYER.x >= WIDTH - PADDLE_WIDTH:
             # 벽에 닿으면 즉시 종료
             if DEBUG_MODE:
-                print(f"[ICE DEBUG] 벽에 닿아서 미끄러짐 종료! x={PLAYER.x}")
+                pass  # print(f"[ICE DEBUG] 벽에 닿아서 미끄러짐 종료! x={PLAYER.x}")
             ice_dash_sliding = False
             ice_dash_slide_speed = 0
         elif ice_dash_slide_speed < 1.0:
             # 속도가 충분히 느려지면 종료
             if DEBUG_MODE:
-                print(f"[ICE DEBUG] 속도 느려져서 미끄러짐 종료! speed={ice_dash_slide_speed:.2f}")
+                pass  # print(f"[ICE DEBUG] 속도 느려져서 미끄러짐 종료! speed={ice_dash_slide_speed:.2f}")
             ice_dash_sliding = False
             ice_dash_slide_speed = 0
 
@@ -68931,7 +68936,7 @@ def handle_player(keys):
             kuromi_spit_trail_active = False
             kuromi_spit_trail_positions.clear()
             if DEBUG_BOSS:
-                print("쿠로미 뱉기 궤적 종료 - 플레이어 패들 충돌")
+                pass  # print("쿠로미 뱉기 궤적 종료 - 플레이어 패들 충돌")
 
         # 무승부 판정 시스템: 패들 충돌 시 벽 카운트 리셋
         wall_bounce_count = 0
@@ -68945,7 +68950,7 @@ def handle_player(keys):
                 current_max = get_max_gauge() if 'get_max_gauge' in dir() else special_gauge_max
                 old_gauge = special_gauge
                 special_gauge = min(current_max, special_gauge + elec_charge)
-                print(f"[Optimus] 일렉패드 발동! {old_gauge} → {special_gauge} (+{elec_charge})")
+                # print(f"[Optimus] 일렉패드 발동! {old_gauge} → {special_gauge} (+{elec_charge})")
 
         # 디버그: 충돌 위치 정보
         collision_x = BALL.centerx - effective_centerx
@@ -68953,7 +68958,7 @@ def handle_player(keys):
         max_half = umbrella_half_right if collision_x >= 0 else umbrella_half_left
         edge_distance = abs(collision_x) - max_half
         if DEBUG_HANDLE_PLAYER_VERBOSE:
-            print(f" handle_player ! : {collision_side}, : {collision_x:.1f}, : {edge_distance:.1f}, Y: {ball_vel[1]:.1f}")
+            pass  # print(f" handle_player ! : {collision_side}, : {collision_x:.1f}, : {edge_distance:.1f}, Y: {ball_vel[1]:.1f}")
         #  고스트샷 종료 (플레이어 패들에 돌아왔을 때)
         # 고스트샷 첫 2초 동안은 패들 충돌을 무시하고 계속 진행
         if mega_smashing_active:
@@ -69114,7 +69119,7 @@ def handle_player(keys):
                 if 'tutorial_dash_helper_active' in globals() and tutorial_dash_helper_active:
                     tutorial_dash_helper_active = False
                     if DEBUG_TUTORIAL:
-                        # print("튜토리얼: 대쉬 성공으로 도우미 비활성화")
+                        pass  # print("튜토리얼: 대쉬 성공으로 도우미 비활성화")
                 
                 # 첫 대쉬 시 토큰 설명 대화 표시
                 if 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
@@ -69125,7 +69130,7 @@ def handle_player(keys):
                         ball_vel[0] = 0
                         ball_vel[1] = 0
                         if DEBUG_TUTORIAL:
-                            # print("튜토리얼: 첫 대쉬 성공! 토큰 시스템 설명 대화 표시")
+                            pass  # print("튜토리얼: 첫 대쉬 성공! 토큰 시스템 설명 대화 표시")
                         
                         # 대화 시작 전에 게임 화면 그리기
                         draw_field()
@@ -69138,7 +69143,7 @@ def handle_player(keys):
                             ball_vel[0] = tutorial_saved_ball_vel[0]
                             ball_vel[1] = tutorial_saved_ball_vel[1]
                             if DEBUG_TUTORIAL:
-                                # print("튜토리얼: 대쉬 토큰 설명 완료")
+                                pass  # print("튜토리얼: 대쉬 토큰 설명 완료")
                             
                             # 토큰이 추가되었으면 서브 알림창 비활성화 (챕터 2에서는 대시 토큰 메시지 후 서브 알림 불필요)
                             global tutorial_token_just_added
@@ -69146,7 +69151,7 @@ def handle_player(keys):
                                 tutorial_serve_reminder_active = False  # 챕터 2에서는 토큰 추가 후 서브 알림 비활성화
                                 tutorial_token_just_added = False
                                 if DEBUG_TUTORIAL:
-                                    # print("튜토리얼: 토큰 추가 후 서브 알림창 비활성화 (챕터 2)")
+                                    pass  # print("튜토리얼: 토큰 추가 후 서브 알림창 비활성화 (챕터 2)")
                 
                 # 대쉬 카운터는 아래에서 통합 처리 (중복 방지)
                 pass  # 대화 처리만 하고 카운팅은 하지 않음
@@ -69158,7 +69163,7 @@ def handle_player(keys):
             if tutorial_gauge_tutorial_shown and not tutorial_speed_dialogue_shown:
                 tutorial_player_hit_count += 1
                 if DEBUG_TUTORIAL:
-                    # print(f"튜토리얼: 플레이어 공 타격 횟수: {tutorial_player_hit_count}/6")
+                    pass  # print(f"튜토리얼: 플레이어 공 타격 횟수: {tutorial_player_hit_count}/6")
                 
                 # 성공 피드백 표시
                 if tutorial_player_hit_count == 1:
@@ -69183,7 +69188,7 @@ def handle_player(keys):
                     ball_vel[0] = 0
                     ball_vel[1] = 0
                     if DEBUG_TUTORIAL:
-                        # print("튜토리얼 [handle_player]: 6회 타격 완료 - 속도 튜토리얼 시작!")
+                        pass  # print("튜토리얼 [handle_player]: 6회 타격 완료 - 속도 튜토리얼 시작!")
         
         # 테크니컬조끼 효과 발동 (30% 확률로 연막 생성)
         on_ball_paddle_collision_technical_vest(PLAYER)
@@ -69199,12 +69204,12 @@ def handle_player(keys):
                 chapter4_dialogue_completed = True
                 chapter4_serve_reminder_active = True  # Chapter 4 서브 알림 활성화 (변수명 수정)
                 chapter4_serve_reminder_timer = int(1.5 * FPS)  # 1.5초
-                print("🎮 Chapter 4: 조교 대화 완료 상태로 설정 - Chapter 4 서브 알림 활성화")
+                # print("🎮 Chapter 4: 조교 대화 완료 상태로 설정 - Chapter 4 서브 알림 활성화")
             
             # 대화 완료 후 첫 타격 체크
             if chapter4_dialogue_completed and not chapter4_first_hit_after_dialogue:
                 chapter4_first_hit_after_dialogue = True
-                print(f"🎮 Chapter 4: 대화 후 첫 타격! 현재 게이지: {special_gauge}")
+                # print(f"🎮 Chapter 4: 대화 후 첫 타격! 현재 게이지: {special_gauge}")
             
             # 게이지가 500 도달시 파워스매싱 도우미 표시
             if (chapter4_first_hit_after_dialogue and 
@@ -69243,20 +69248,20 @@ def handle_player(keys):
                 direction_x = ball_vel[0] / current_speed
                 direction_y = ball_vel[1] / current_speed
                 stopwatch_original_ball_vel = [direction_x * original_speed, direction_y * original_speed]
-                print(f"     -")
+                # print(f"     -")
         
         # 드라이브 발동 확인 (drive_ball_active로 충분함)
         if drive_activated:
-            print("!")
+            pass  # print("!")
         # 사운드 쿨다운이 없을 때만 사운드 재생 (쿠로미가 공을 먹는 중이 아닐 때만)
         if player_sound_cooldown <= 0 and not ball_in_kuromi:
             play_paddle_sound()
             player_sound_cooldown = 20  # 약 0.33초 쿨다운
             if DEBUG_HANDLE_PLAYER_VERBOSE:
-                print(f" handle_player   ( : 20)")
+                pass  # print(f" handle_player   ( : 20)")
         else:
             if DEBUG_HANDLE_PLAYER_VERBOSE:
-                print(f"    ( : {player_sound_cooldown})")
+                pass  # print(f"    ( : {player_sound_cooldown})")
         #  플레이어 히트 기록
         is_perfect = perfect_timing_active and perfect_direction is not None
         record_player_hit(is_perfect_timing=is_perfect, is_power_smash=drive_activated)
@@ -69282,7 +69287,7 @@ def handle_player(keys):
             if current_stage == 50 and 'tutorial_dash_helper_active' in globals() and tutorial_dash_helper_active:
                 tutorial_dash_helper_active = False
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: 대쉬 성공으로 도우미 비활성화")
+                    pass  # print("튜토리얼: 대쉬 성공으로 도우미 비활성화")
             
             # 튜토리얼 대쉬 카운터 증가
             if current_stage == 50 and tutorial_dash_counter_active:
@@ -69296,7 +69301,7 @@ def handle_player(keys):
                         else:
                             show_tutorial_success_feedback("하프대쉬 완료!", "great")
                         if DEBUG_TUTORIAL:
-                            # print(f"튜토리얼: 하프대쉬로 공 타격 성공 {tutorial_half_dash_count}/2")
+                            pass  # print(f"튜토리얼: 하프대쉬로 공 타격 성공 {tutorial_half_dash_count}/2")
                         
                         # 완료 체크
                         check_tutorial_dash_missions_complete()
@@ -69311,7 +69316,7 @@ def handle_player(keys):
                     tutorial_dash_count += 1
                     tutorial_dash_already_counted = True  # 이번 대쉬에서 카운팅 완료
                     if DEBUG_TUTORIAL:
-                        # print(f"튜토리얼: 대쉬 성공 {tutorial_dash_count}/2")
+                        pass  # print(f"튜토리얼: 대쉬 성공 {tutorial_dash_count}/2")
                     
                     # 성공 피드백 표시
                     if tutorial_dash_count == 1:
@@ -69330,7 +69335,7 @@ def handle_player(keys):
             if 'tutorial_dash_helper_active' in globals() and tutorial_dash_helper_active:
                 tutorial_dash_helper_active = False
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: 대쉬 성공으로 도우미 비활성화")
+                    pass  # print("튜토리얼: 대쉬 성공으로 도우미 비활성화")
             
             # 하프대쉬 체크
             if tutorial_half_dash_pending:
@@ -69342,7 +69347,7 @@ def handle_player(keys):
                     else:
                         show_tutorial_success_feedback("하프대쉬 완료!", "great")
                     if DEBUG_TUTORIAL:
-                        # print(f"튜토리얼: 하프대쉬로 공 타격 성공 {tutorial_half_dash_count}/2")
+                        pass  # print(f"튜토리얼: 하프대쉬로 공 타격 성공 {tutorial_half_dash_count}/2")
                     
                     # 완료 체크
                     check_tutorial_dash_missions_complete()
@@ -69355,7 +69360,7 @@ def handle_player(keys):
                 tutorial_dash_count += 1
                 tutorial_dash_already_counted = True  # 이번 대쉬에서 카운팅 완료
                 if DEBUG_TUTORIAL:
-                    # print(f"튜토리얼: 대쉬 상태에서 공 타격 성공 {tutorial_dash_count}/2")
+                    pass  # print(f"튜토리얼: 대쉬 상태에서 공 타격 성공 {tutorial_dash_count}/2")
                 
                 # 성공 피드백 표시
                 if tutorial_dash_count == 1:
@@ -69375,7 +69380,7 @@ def handle_player(keys):
                     ball_vel[0] = 0
                     ball_vel[1] = 0
                     if DEBUG_TUTORIAL:
-                        # print("튜토리얼: 첫 대쉬 성공! 토큰 시스템 설명 대화 표시")
+                        pass  # print("튜토리얼: 첫 대쉬 성공! 토큰 시스템 설명 대화 표시")
                     
                     # 대화 시작 전에 게임 화면 그리기
                     draw_field()
@@ -69388,35 +69393,35 @@ def handle_player(keys):
                         ball_vel[0] = tutorial_saved_ball_vel[0]
                         ball_vel[1] = tutorial_saved_ball_vel[1]
                         if DEBUG_TUTORIAL:
-                            # print("튜토리얼: 대쉬 토큰 설명 완료")
+                            pass  # print("튜토리얼: 대쉬 토큰 설명 완료")
                         
                         # 토큰이 추가되었으면 서브 알림창 비활성화 (챕터 2에서는 대시 토큰 메시지 후 서브 알림 불필요)
                         if 'tutorial_token_just_added' in globals() and tutorial_token_just_added:
                             tutorial_serve_reminder_active = False  # 챕터 2에서는 토큰 추가 후 서브 알림 비활성화
                             tutorial_token_just_added = False
                             if DEBUG_TUTORIAL:
-                                # print("튜토리얼: 토큰 추가 후 서브 알림창 비활성화 (챕터 2)")
+                                pass  # print("튜토리얼: 토큰 추가 후 서브 알림창 비활성화 (챕터 2)")
             #  대쉬 활용 능력 상세 분석
             ball_distance = abs(BALL.centery - PLAYER.centery)
             ball_speed = math.hypot(ball_vel[0], ball_vel[1])
             # 생명 구조 상황 판정 (위험한 상황에서 대쉬로 공을 맞춘 경우)
             if ball_distance > 100 or ball_speed > 10:  # 멀거나 빠른 공
                 record_dash_life_save()
-                print("!")
+                # print("!")
             # 대쉬 방어 구조 판정 (불가능한 영역에서 가드) - 신규
             paddle_width = PLAYER.width
             ball_x_distance = abs(BALL.centerx - PLAYER.centerx)
             if ball_x_distance > paddle_width * 1.5:  # 패들 범위 밖에서 가드
                 record_dash_defensive_save()
-                print("!")
+                # print("!")
             # 공격적 대쉬 성공 (승리 기여) 판정
             if ball_speed > 12:  # 강력한 반격
                 record_dash_victory()
-                print("!")
+                # print("!")
             # 대쉬 클러치 승리 판정 (상대가 못막고 바로 승리) - 신규  
             if ball_speed > 15 and ball_vel[1] < 0:  # 매우 빠른 공을 위로 반격
                 record_dash_clutch_victory()
-                print("!")
+                # print("!")
             # 공속도 적응 점수 기록 - 신규
             record_speed_adaptation(ball_speed)
             recent_dash_time = 0  # 성공 기록 후 초기화
@@ -69452,11 +69457,11 @@ def handle_player(keys):
                     special_gauge = 0
                 return
 
-            print(f"Aipill   -   !  : {special_gauge}")  # 
+            # print(f"Aipill   -   !  : {special_gauge}")  # 
             # Aipill 활성화 시 공이 맞을 때마다 게이지 90 감소만
             old_gauge = special_gauge
             special_gauge = max(0, special_gauge - 90)
-            print(f"Aipill   -  : {old_gauge} → {special_gauge}")  # 
+            # print(f"Aipill   -  : {old_gauge} → {special_gauge}")  # 
             #  게이지 감소 시 special_ready 상태 업데이트
             if special_gauge < 350:  # 파워스매시 발동 조건
                 special_ready = False
@@ -69464,9 +69469,9 @@ def handle_player(keys):
             if special_gauge <= 0:
                 deactivate_aipill("gauge_depleted")
                 special_gauge = 0
-                print("Aipill")  # 
+                # print("Aipill")  # 
             # Aipill 활성화 시에는 절대 게이지 증가 금지
-            print("Aipill")  # 
+            # print("Aipill")  # 
             return
         #  게이지 충전을 handle_player에서만 처리 (handle_ball 충돌 시에는 충전하지 않음)
         # 대쉬 중이거나 대쉬 직후(스턴 상태), 드라이브 발동 시에는 게이지 충전 차단
@@ -69488,7 +69493,7 @@ def handle_player(keys):
             # (백업 경로 handle_ball과 동일하게 stage 조건 없이 챕터만 확인)
             if ('tutorial_current_chapter' in globals() and tutorial_current_chapter == 4):
                 base_gauge_gain = 500  # Chapter 4: 패들 히트 시 게이지 500 충전
-                print(f"🔍 DEBUG: Chapter 4 패들 히트! 게이지 500 충전 설정")
+                # print(f"🔍 DEBUG: Chapter 4 패들 히트! 게이지 500 충전 설정")
             elif ('tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None):
                 base_gauge_gain = 200  # Chapter 3 드라이브 튜토리얼: 게이지 충전 200
             else:
@@ -69509,7 +69514,7 @@ def handle_player(keys):
                             )
                         except Exception:
                             dbg_weapon = "<unknown>"
-                        print(f"[SoldierGauge] weapon={dbg_weapon} non_pistol={_is_soldier_non_pistol_selected()} base={base_gauge_gain}")
+                        # print(f"[SoldierGauge] weapon={dbg_weapon} non_pistol={_is_soldier_non_pistol_selected()} base={base_gauge_gain}")
                 elif selected_character_type == "blacksmith":
                     if blacksmith_umbrella_open:
                         base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 60, 디바인스톤 80, 강화 디바인스톤 100
@@ -69526,7 +69531,7 @@ def handle_player(keys):
             if is_bluetooth_ring_active():
                 bt_bonus = bluetooth_ring_gain_pct
                 total_gauge_gain = int(total_gauge_gain * (1 + bt_bonus / 100.0))
-                print(f"   +{bt_bonus}%: {total_gauge_gain}")
+                # print(f"   +{bt_bonus}%: {total_gauge_gain}")
 
             # ⛏️ 골드디거 게이지 충전량 증가 적용
             if is_gold_digger_equipped():
@@ -69539,24 +69544,24 @@ def handle_player(keys):
                 paddle_charge_multiplier = multipliers.get('paddle_gauge_charge', 1.0)
                 total_gauge_gain = int(total_gauge_gain * paddle_charge_multiplier)
                 if paddle_charge_multiplier != 1.0:
-                    print(f"    : {paddle_charge_multiplier:.1f}x → {total_gauge_gain}")
+                    pass  # print(f"    : {paddle_charge_multiplier:.1f}x → {total_gauge_gain}")
             
             # Chapter 4: 매 타격마다 500 게이지 충전 (스테이지 번호와 무관)
             if ('tutorial_current_chapter' in globals() and tutorial_current_chapter == 4):
                 total_gauge_gain = 500
-                print(f"🎮 Chapter 4: 500 게이지 충전!")
+                # print(f"🎮 Chapter 4: 500 게이지 충전!")
 
             if blocking_skill_bonus and selected_character_type == "blacksmith":
                 total_gauge_gain = int(round(total_gauge_gain * 2))
                 blacksmith_blocking_bonus_pending = False
                 if DEBUG_HANDLE_PLAYER_VERBOSE:
-                    print(f"[BLOCKING!] gauge bonus applied → {total_gauge_gain}")
+                    pass  # print(f"[BLOCKING!] gauge bonus applied → {total_gauge_gain}")
 
             if DEBUG_HANDLE_PLAYER_VERBOSE:
-                print(f" DEBUG:  handle_player   ({total_gauge_gain})")
+                pass  # print(f" DEBUG:  handle_player   ({total_gauge_gain})")
             if selected_character_type == "optimus":
                 if DEBUG_HANDLE_PLAYER_VERBOSE:
-                    print(" DEBUG:  handle_player   (optimus - no gauge charge)")
+                    pass  # print(" DEBUG:  handle_player   (optimus - no gauge charge)")
             else:
                 total_gauge_gain = _apply_blacksmith_berserk_gauge_bonus(total_gauge_gain)
 
@@ -69587,19 +69592,19 @@ def handle_player(keys):
             player_collision_cooldown = 15
         elif rolling_active:
             if DEBUG_HANDLE_PLAYER_VERBOSE:
-                print(f" DEBUG:    handle_player   !")
+                pass  # print(f" DEBUG:    handle_player   !")
         elif rolling_stun_timer > 0:
             if DEBUG_HANDLE_PLAYER_VERBOSE:
-                print(f" DEBUG:    handle_player   ! ( : {rolling_stun_timer})")
+                pass  # print(f" DEBUG:    handle_player   ! ( : {rolling_stun_timer})")
         elif player_collision_cooldown > 0:
             if DEBUG_HANDLE_PLAYER_VERBOSE:
-                print(f" DEBUG:       ! ( : {player_collision_cooldown})")
+                pass  # print(f" DEBUG:       ! ( : {player_collision_cooldown})")
         elif drive_activated:
             if DEBUG_HANDLE_PLAYER_VERBOSE:
-                print(f" DEBUG:      !")
+                pass  # print(f" DEBUG:      !")
         else:
             if DEBUG_HANDLE_PLAYER_VERBOSE:
-                print(f" DEBUG:  handle_player")
+                pass  # print(f" DEBUG:  handle_player")
         
         #  파워스매싱은 이제 퍼펙트 타이밍 윈도우에서 처리됨 (드라이브와 동일한 타이밍)
         # handle_player에서는 제거하고 메인 루프의 퍼펙트 타이밍 윈도우에서 처리
@@ -69890,7 +69895,7 @@ def spawn_quest_tablet():
     # 다음 쿨타임 설정 (15~25초)
     quest_tablet_spawn_cooldown = _rand.randint(900, 1500)
     quest_tablet_spawn_timer = 0
-    print(f"📜 [석판] 석판 스폰! 위치=({x}, {y}), 수집={quest_tablets_collected}/{quest_tablets_target}")
+    # print(f"📜 [석판] 석판 스폰! 위치=({x}, {y}), 수집={quest_tablets_collected}/{quest_tablets_target}")
 
 def update_quest_tablets(dt_frames=1):
     """석판 업데이트 (스폰 타이머, 충돌 감지, 이펙트)"""
@@ -69947,7 +69952,7 @@ def update_quest_tablets(dt_frames=1):
                         play_sound_with_volume(sfx)
                 except:
                     pass
-                print(f"📜 [석판] 석판 파괴! (대쉬로 접촉)")
+                # print(f"📜 [석판] 석판 파괴! (대쉬로 접촉)")
             else:
                 # 일반 이동으로 닿으면 수집!
                 tablets_to_remove.append(tablet)
@@ -69956,7 +69961,7 @@ def update_quest_tablets(dt_frames=1):
                 # QUEST_DATA 동적 업데이트 (툴팁 표시용)
                 if "collect_tablets" in QUEST_DATA:
                     QUEST_DATA["collect_tablets"]["condition_desc"] = f"석판 5개 수집 ({quest_tablets_collected}/{quest_tablets_target})"
-                print(f"📜 [석판] 석판 수집! ({quest_tablets_collected}/{quest_tablets_target})")
+                # print(f"📜 [석판] 석판 수집! ({quest_tablets_collected}/{quest_tablets_target})")
                 # 효과음
                 try:
                     sfx = SOUND_ITEM_GET
@@ -70158,7 +70163,7 @@ def check_and_complete_quests():
                     "name": "순수한 실력",
                     "reward_gold": 1000
                 })
-                print(f"📜 [퀘스트 완료] 순수한 실력 - 액티브 아이템 미사용 승리!")
+                # print(f"📜 [퀘스트 완료] 순수한 실력 - 액티브 아이템 미사용 승리!")
 
         elif quest_id == "perfect_victory":
             # 5:0 승리
@@ -70168,7 +70173,7 @@ def check_and_complete_quests():
                     "name": "완벽한 승리",
                     "reward_gold": 1000
                 })
-                print(f"📜 [퀘스트 완료] 완벽한 승리 - 5:0 클리어!")
+                # print(f"📜 [퀘스트 완료] 완벽한 승리 - 5:0 클리어!")
 
         elif quest_id == "collect_tablets":
             # 석판 5개 수집
@@ -70178,7 +70183,7 @@ def check_and_complete_quests():
                     "name": "석판 수집가",
                     "reward_gold": 800
                 })
-                print(f"📜 [퀘스트 완료] 석판 수집가 - 석판 {quest_tablets_collected}개 수집!")
+                # print(f"📜 [퀘스트 완료] 석판 수집가 - 석판 {quest_tablets_collected}개 수집!")
 
     # 보상 지급 및 퀘스트 목록에서 제거
     for quest in completed_quests:
@@ -70186,7 +70191,7 @@ def check_and_complete_quests():
         add_ingame_gold(quest["reward_gold"], source="quest")
         active_quests.remove(quest["id"])
         quest_completed_rewards.append(quest)
-        print(f"📜 [보상 지급] {quest['name']}: +{quest['reward_gold']}G (인게임 골드로 지급)")
+        # print(f"📜 [보상 지급] {quest['name']}: +{quest['reward_gold']}G (인게임 골드로 지급)")
 
     return completed_quests
 
@@ -70285,7 +70290,7 @@ def save_game_progress(stage_number: int) -> bool:
         try:
             if hasattr(academy, 'skill_system') and academy.skill_system:
                 save_data["skill_system"] = academy.skill_system.to_save_dict()
-                print(f"[저장] 아카데미 스킬 시스템 저장 완료 - 스킬: {len(academy.skill_system.skill_levels)}개")
+                # print(f"[저장] 아카데미 스킬 시스템 저장 완료 - 스킬: {len(academy.skill_system.skill_levels)}개")
         except Exception as skill_err:
             print(f"[저장] 아카데미 스킬 시스템 저장 실패: {skill_err}")
 
@@ -70301,7 +70306,7 @@ def save_game_progress(stage_number: int) -> bool:
             }
             active_runtime_skills = {k: v for k, v in runtime_skill_levels.items() if v > 0}
             if active_runtime_skills:
-                print(f"[저장] 런타임 스킬 저장 완료 - 활성 스킬: {active_runtime_skills}")
+                pass  # print(f"[저장] 런타임 스킬 저장 완료 - 활성 스킬: {active_runtime_skills}")
         except Exception as runtime_err:
             print(f"[저장] 런타임 스킬 저장 실패: {runtime_err}")
 
@@ -70309,7 +70314,7 @@ def save_game_progress(stage_number: int) -> bool:
         try:
             save_data["smasher_skill_unlocked"] = dict(_smasher_skill_unlocked)
             unlocked_skills = [k for k, v in _smasher_skill_unlocked.items() if v]
-            print(f"[저장] 스매셔 스킬 해금 상태 저장 완료 - 해금된 스킬: {unlocked_skills}")
+            # print(f"[저장] 스매셔 스킬 해금 상태 저장 완료 - 해금된 스킬: {unlocked_skills}")
         except Exception as smasher_err:
             print(f"[저장] 스매셔 스킬 해금 상태 저장 실패: {smasher_err}")
 
@@ -70396,8 +70401,8 @@ def save_game_progress(stage_number: int) -> bool:
 
                 soldier_weapons_data["ammo_states"] = weapon_ammo_states
                 save_data["soldier_weapons"] = soldier_weapons_data
-                print(f"[저장] 코만도 화기류 저장 완료 - {soldier_controller.weapons}, 노후화: {list(soldier_controller.degraded)}")
-                print(f"[저장] 탄환 상태: {weapon_ammo_states}")
+                # print(f"[저장] 코만도 화기류 저장 완료 - {soldier_controller.weapons}, 노후화: {list(soldier_controller.degraded)}")
+                # print(f"[저장] 탄환 상태: {weapon_ammo_states}")
         except Exception as weapon_err:
             print(f"[저장] 코만도 화기류 저장 실패: {weapon_err}")
 
@@ -70405,8 +70410,8 @@ def save_game_progress(stage_number: int) -> bool:
         with open(save_path, 'w', encoding='utf-8') as f:
             json.dump(save_data, f, indent=2, ensure_ascii=False)
 
-        print(f"[저장] 게임 진행 상황 저장 완료 (스테이지 {stage_number}, 경로: {save_path})")
-        print(f"[저장] 패시브 아이템 {len(serializable_passive_items)}개, 액티브 아이템 {len(serializable_active_items)}개 저장됨")
+        # print(f"[저장] 게임 진행 상황 저장 완료 (스테이지 {stage_number}, 경로: {save_path})")
+        # print(f"[저장] 패시브 아이템 {len(serializable_passive_items)}개, 액티브 아이템 {len(serializable_active_items)}개 저장됨")
         return True
 
     except Exception as e:
@@ -70496,7 +70501,7 @@ def apply_loaded_progress(save_data: dict) -> bool:
                             # 롤 옵션 복원
                             if "rolls" in item_data:
                                 apply_roll_bonuses_from_item(item_data)
-                            print(f"[로드] 골드디거 효과 활성화 완료")
+                            # print(f"[로드] 골드디거 효과 활성화 완료")
 
                         # 👑 초월자의 관 효과 복원 (복원 시)
                         if item_name == "transcendent_crown":
@@ -70504,14 +70509,14 @@ def apply_loaded_progress(save_data: dict) -> bool:
                             items.transcendent_crown_obtained = True
                             # 스킬 보너스는 recalculate_transcendent_crown_effects()에서 계산
                             # (강화 보너스를 포함하려면 passive_item_list에 아이템이 먼저 추가되어야 함)
-                            print(f"[로드] 초월자의 관 발견 - 스킬 효과는 장착 시 활성화됨")
+                            # print(f"[로드] 초월자의 관 발견 - 스킬 효과는 장착 시 활성화됨")
                     passive_item_list.append(item_data)
             # ⚠️ 초월자의 관 효과는 장착 시에만 활성화됨
             # recalculate_transcendent_crown_effects()는 sync_equipped_passive_effects()에서 호출됨
             # (이 시점에서는 아직 장비 슬롯에 아이템이 장착되지 않았으므로 여기서 호출하면 안 됨)
             if items.transcendent_crown_obtained:
-                print(f"[로드] 초월자의 관 - 장비 슬롯에 장착되면 효과가 활성화됩니다")
-            print(f"[로드] 패시브 아이템 {len(passive_item_list)}개 복원 완료 (아이콘 재로드)")
+                pass  # print(f"[로드] 초월자의 관 - 장비 슬롯에 장착되면 효과가 활성화됩니다")
+            # print(f"[로드] 패시브 아이템 {len(passive_item_list)}개 복원 완료 (아이콘 재로드)")
 
         # 액티브 아이템 복원
         saved_active_items = save_data.get("active_items", [])
@@ -70533,7 +70538,7 @@ def apply_loaded_progress(save_data: dict) -> bool:
             # 전역 쿨타임도 초기화
             global last_item_use_time
             last_item_use_time = 0
-            print(f"[로드] 액티브 아이템 {len(active_item_slot)}개 복원 완료 (아이콘 재로드, 쿨타임 초기화)")
+            # print(f"[로드] 액티브 아이템 {len(active_item_slot)}개 복원 완료 (아이콘 재로드, 쿨타임 초기화)")
 
         # 아카데미 스킬 포인트 복원
         try:
@@ -70548,7 +70553,7 @@ def apply_loaded_progress(save_data: dict) -> bool:
             skill_system_data = save_data.get("skill_system")
             if skill_system_data and hasattr(academy, 'skill_system') and academy.skill_system:
                 academy.skill_system.load_from_dict(skill_system_data)
-                print(f"[로드] 아카데미 스킬 시스템 복원 완료")
+                # print(f"[로드] 아카데미 스킬 시스템 복원 완료")
         except Exception as skill_err:
             print(f"[로드] 아카데미 스킬 시스템 복원 실패: {skill_err}")
 
@@ -70563,9 +70568,9 @@ def apply_loaded_progress(save_data: dict) -> bool:
                 runtime_swiftness_bonus = runtime_skills_data.get("swiftness_bonus", 0)
                 active_runtime_skills = {k: v for k, v in runtime_skill_levels.items() if v > 0}
                 if active_runtime_skills:
-                    print(f"[로드] 런타임 스킬 복원 완료 - 활성 스킬: {active_runtime_skills}")
+                    pass  # print(f"[로드] 런타임 스킬 복원 완료 - 활성 스킬: {active_runtime_skills}")
                 else:
-                    print(f"[로드] 런타임 스킬 복원 완료 (활성 스킬 없음)")
+                    pass  # print(f"[로드] 런타임 스킬 복원 완료 (활성 스킬 없음)")
         except Exception as runtime_err:
             print(f"[로드] 런타임 스킬 복원 실패: {runtime_err}")
 
@@ -70579,7 +70584,7 @@ def apply_loaded_progress(save_data: dict) -> bool:
                     if skill_name in _smasher_skill_unlocked:
                         _smasher_skill_unlocked[skill_name] = is_unlocked
                 unlocked_skills = [k for k, v in _smasher_skill_unlocked.items() if v]
-                print(f"[로드] 스매셔 스킬 해금 상태 복원 완료 - 해금된 스킬: {unlocked_skills}")
+                # print(f"[로드] 스매셔 스킬 해금 상태 복원 완료 - 해금된 스킬: {unlocked_skills}")
         except Exception as smasher_err:
             print(f"[로드] 스매셔 스킬 해금 상태 복원 실패: {smasher_err}")
 
@@ -70632,14 +70637,14 @@ def apply_loaded_progress(save_data: dict) -> bool:
                     "weapons_list": weapons_list,
                     "ammo_states": ammo_states,
                 }
-                print(f"[로드] 탄환 상태 대기 데이터 저장: {ammo_states}")
+                # print(f"[로드] 탄환 상태 대기 데이터 저장: {ammo_states}")
 
-                print(f"[로드] 코만도 화기류 복원 완료 - {soldier_controller.weapons}")
-                print(f"[로드] 노후화 상태: reload_counts={soldier_controller.reload_counts}, degraded={soldier_controller.degraded}")
+                # print(f"[로드] 코만도 화기류 복원 완료 - {soldier_controller.weapons}")
+                # print(f"[로드] 노후화 상태: reload_counts={soldier_controller.reload_counts}, degraded={soldier_controller.degraded}")
         except Exception as weapon_err:
             print(f"[로드] 코만도 화기류 복원 실패: {weapon_err}")
 
-        print(f"[로드] 게임 진행 상황 적용 완료")
+        # print(f"[로드] 게임 진행 상황 적용 완료")
         return True
 
     except Exception as e:
@@ -70661,7 +70666,7 @@ def apply_pending_ammo_restore() -> bool:
         weapons_list = _pending_ammo_restore.get("weapons_list", [])
         ammo_states = _pending_ammo_restore.get("ammo_states", {})
 
-        print(f"[로드] 대기 탄환 상태 적용 시작: weapons_list={weapons_list}, ammo_states={ammo_states}")
+        # print(f"[로드] 대기 탄환 상태 적용 시작: weapons_list={weapons_list}, ammo_states={ammo_states}")
 
         # 바주카 탄환 복원
         if "bazooka" in ammo_states and "bazooka" in weapons_list:
@@ -70670,7 +70675,7 @@ def apply_pending_ammo_restore() -> bool:
                 if bazooka_inst:
                     bazooka_state = ammo_states["bazooka"]
                     bazooka_inst.ammo_count = bazooka_state.get("ammo_count", bazooka_inst.max_ammo)
-                    print(f"[로드] 바주카 탄환 복원: {bazooka_inst.ammo_count}/{bazooka_inst.max_ammo}")
+                    # print(f"[로드] 바주카 탄환 복원: {bazooka_inst.ammo_count}/{bazooka_inst.max_ammo}")
             except Exception as e:
                 print(f"[로드] 바주카 탄환 복원 실패: {e}")
 
@@ -70682,7 +70687,7 @@ def apply_pending_ammo_restore() -> bool:
                     ak47_state = ammo_states["ak47"]
                     ak47_inst.current_ammo = ak47_state.get("current_ammo", ak47_inst.max_ammo)
                     ak47_inst.remaining_time = ak47_state.get("remaining_time", ak47_inst.duration)
-                    print(f"[로드] AK-47 탄환 복원: {ak47_inst.current_ammo}/{ak47_inst.max_ammo}")
+                    # print(f"[로드] AK-47 탄환 복원: {ak47_inst.current_ammo}/{ak47_inst.max_ammo}")
             except Exception as e:
                 print(f"[로드] AK-47 탄환 복원 실패: {e}")
 
@@ -70693,7 +70698,7 @@ def apply_pending_ammo_restore() -> bool:
                 if net_gun_inst:
                     net_gun_state = ammo_states["net_gun"]
                     net_gun_inst.ammo_count = net_gun_state.get("ammo_count", net_gun_inst.MAX_AMMO)
-                    print(f"[로드] 그물덫총 탄환 복원: {net_gun_inst.ammo_count}/{net_gun_inst.MAX_AMMO}")
+                    # print(f"[로드] 그물덫총 탄환 복원: {net_gun_inst.ammo_count}/{net_gun_inst.MAX_AMMO}")
             except Exception as e:
                 print(f"[로드] 그물덫총 탄환 복원 실패: {e}")
 
@@ -70704,7 +70709,7 @@ def apply_pending_ammo_restore() -> bool:
                 if fire_support_inst:
                     fire_support_state = ammo_states["fire_support"]
                     fire_support_inst.ammo_count = fire_support_state.get("ammo_count", fire_support_inst.max_ammo)
-                    print(f"[로드] 화력지원 탄환 복원: {fire_support_inst.ammo_count}/{fire_support_inst.max_ammo}")
+                    # print(f"[로드] 화력지원 탄환 복원: {fire_support_inst.ammo_count}/{fire_support_inst.max_ammo}")
             except Exception as e:
                 print(f"[로드] 화력지원 탄환 복원 실패: {e}")
 
@@ -70713,7 +70718,7 @@ def apply_pending_ammo_restore() -> bool:
             global soldier_drone_ammo
             drone_state = ammo_states["suicide_drone"]
             soldier_drone_ammo = drone_state.get("ammo", 3)
-            print(f"[로드] 자폭드론 탄환 복원: {soldier_drone_ammo}")
+            # print(f"[로드] 자폭드론 탄환 복원: {soldier_drone_ammo}")
 
         # 볼링트랩 탄환 복원 및 장착 상태 복원
         # print(f"[로드] 볼링트랩 조건 확인: 'bowling_trap' in ammo_states={('bowling_trap' in ammo_states)}, 'bowling_trap' in weapons_list={('bowling_trap' in weapons_list)}")
@@ -70741,7 +70746,7 @@ def apply_pending_ammo_restore() -> bool:
             except Exception as e:
                 print(f"[로드] 볼링트랩 탄환 복원 실패: {e}")
         else:
-            # print(f"[로드] 볼링트랩 탄환 복원 스킵 - 조건 불충족")
+            pass  # print(f"[로드] 볼링트랩 탄환 복원 스킵 - 조건 불충족")
 
         # 노후화 상태 재적용
         if _pending_weapon_degradation:
@@ -70749,7 +70754,7 @@ def apply_pending_ammo_restore() -> bool:
                 soldier_controller.reload_counts = dict(_pending_weapon_degradation.get("reload_counts", {}))
                 soldier_controller.degradation_thresholds = dict(_pending_weapon_degradation.get("degradation_thresholds", {}))
                 soldier_controller.degraded = set(_pending_weapon_degradation.get("degraded", []))
-                print(f"[로드] 노후화 상태 재적용 완료: degraded={soldier_controller.degraded}")
+                # print(f"[로드] 노후화 상태 재적용 완료: degraded={soldier_controller.degraded}")
             except Exception as e:
                 print(f"[로드] 노후화 상태 재적용 실패: {e}")
 
@@ -70757,7 +70762,7 @@ def apply_pending_ammo_restore() -> bool:
         _pending_ammo_restore = {}
         _pending_weapon_degradation = {}
 
-        print(f"[로드] 대기 탄환 상태 적용 완료")
+        # print(f"[로드] 대기 탄환 상태 적용 완료")
         return True
 
     except Exception as e:
@@ -70783,7 +70788,7 @@ def delete_save_data() -> bool:
         save_path = os.path.join(_get_save_directory(), GAME_SAVE_FILE)
         if os.path.exists(save_path):
             os.remove(save_path)
-            print(f"[저장] 세이브 데이터 삭제 완료: {save_path}")
+            # print(f"[저장] 세이브 데이터 삭제 완료: {save_path}")
         return True
     except Exception as e:
         print(f"[저장 오류] 세이브 데이터 삭제 실패: {e}")
@@ -70897,7 +70902,7 @@ def apply_health_boss_damage(amount: int, *, source: str = "unknown", trigger_fl
         except Exception:
             pass
 
-    print(f"[{source}] 체력형 보스 피해: -{amount} → {boss_current_health}/{boss_max_health}")
+    # print(f"[{source}] 체력형 보스 피해: -{amount} → {boss_current_health}/{boss_max_health}")
 
     if previous_health > 0 and boss_current_health <= 0:
         try:
@@ -70980,7 +70985,7 @@ def try_trigger_foul_whistle(loss_type: str) -> bool:
     except Exception:
         pass
 
-    print("📢 심판이 무효를 선언합니다! 라운드가 다시 시작됩니다.")
+    # print("📢 심판이 무효를 선언합니다! 라운드가 다시 시작됩니다.")
     return True
 def store_active_item(item_data):
     global active_item_slot, selected_item_index, aipill_active, last_item_use_time, long_boost_active
@@ -70989,7 +70994,7 @@ def store_active_item(item_data):
         return
     # long_boost가 이미 활성화되어 있으면 long_boost 아이템 획득 불가
     if item_data["name"] == "long_boost" and long_boost_active:
-        print("!")
+        # print("!")
         return
     if item_data["name"] == "fire_support" and selected_character_type != "soldier":
         # 화력지원은 군인 전용 화기이므로 다른 캐릭터는 획득하지 않는다.
@@ -71435,7 +71440,7 @@ def store_passive_item(item_data):
     apply_roll_bonuses_from_item(item_data)
     # Aipill 활성화 시에는 아이템 획득 불가
     if aipill_active:
-        print("Aipill     .")
+        # print("Aipill     .")
         return
     
     # 모든 패시브 아이템에 대해 아이콘 설정 (아이템 관리창과 동일한 아이콘 사용)
@@ -71457,7 +71462,7 @@ def store_passive_item(item_data):
     if item_data["name"] == "slot_add":
         # 최대 슬롯 5개 제한 (기본 3개 + 배낭 2개) - 배낭 1개당 +2칸
         _set_max_item_slots(min(5, MAX_ITEM_SLOTS + 2))
-        print("액티브 슬롯 +2 !")
+        # print("액티브 슬롯 +2 !")
         # 획득 개수 카운트 증가
         items.slot_add_obtained += 1
     elif item_data["name"] == "speedboots":
@@ -71469,9 +71474,9 @@ def store_passive_item(item_data):
             apply_roll_bonuses_from_item(item_data)
             # ️ 새 시스템으로도 업데이트
             handle_item_collection("speedboots")
-            print("!   6% !")
+            # print("!   6% !")
         else:
-            print("이미 스피드부츠를 보유 중입니다.")
+            pass  # print("이미 스피드부츠를 보유 중입니다.")
     elif item_data["name"] == "speedgear":
         # 스피드기어 영구 효과 적용
         if not speedgear_obtained:
@@ -71481,22 +71486,23 @@ def store_passive_item(item_data):
             handle_item_collection("speedgear")
             # 아이템 획득 효과 표시 (옛날 버전)
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
-            print("!     150% !")
+            # print("!     150% !")
             # 무중력벨트 + 스피드기어 시너지 효과 확인
             if gravitybelt_obtained:
                 # 전설의 벨트 시너지 - 전설 애니메이션 트리거
-                print("+   !   60% !")
+                # print("+   !   60% !")
+                pass
     elif item_data["name"] == "battery":
         # 배터리 영구 효과 적용
-        print(f"   ...  battery_obtained: {battery_obtained}")
+        # print(f"   ...  battery_obtained: {battery_obtained}")
         if not battery_obtained:
             battery_obtained = True
             items.battery_obtained = True  # items.py의 변수도 업데이트
             # 아이템 획득 효과 표시 (옛날 버전)
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
-            print("!     !")
+            # print("!     !")
         else:
-            print("이미 배터리팩을 보유 중입니다.")
+            pass  # print("이미 배터리팩을 보유 중입니다.")
     elif item_data["name"] == "revival":
         # 부활 아이템 획득
         if not revival_obtained:
@@ -71506,9 +71512,9 @@ def store_passive_item(item_data):
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             # 기존 라인 주석 처리
             # show_item_acquisition("revival", "부활", None, False, (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
-            print("!      !")
+            # print("!      !")
         else:
-            print("이미 부활 아이템을 보유 중입니다.")
+            pass  # print("이미 부활 아이템을 보유 중입니다.")
     elif item_data["name"] == "master":
         # 장인 아이템 획득
         if not master_obtained:
@@ -71518,9 +71524,9 @@ def store_passive_item(item_data):
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             # 기존 라인 주석 처리
             # show_item_acquisition("master", "장인", None, False, (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
-            print("!   30%    0.8 ,   10% !")
+            # print("!   30%    0.8 ,   10% !")
         else:
-            print("이미 장인의 망치를 보유 중입니다.")
+            pass  # print("이미 장인의 망치를 보유 중입니다.")
     elif item_data["name"] == "cooltime":
         # 쿨타임 아이템 획득
         if not cooltime_obtained:
@@ -71531,9 +71537,9 @@ def store_passive_item(item_data):
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             # 기존 라인 주석 처리
             # show_item_acquisition("cooltime", "쿨타임", None, False, (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
-            print("!    쿨타임 감소 적용 !")
+            # print("!    쿨타임 감소 적용 !")
         else:
-            print(".")
+            pass  # print(".")
     elif item_data["name"] == "chargebag":
         # 충전가방 아이템 획득
         if not chargebag_obtained:
@@ -71544,9 +71550,9 @@ def store_passive_item(item_data):
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             # 기존 라인 주석 처리
             # show_item_acquisition("chargebag", "충전가방", None, False, (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
-            print("!   : 벽 반사 게이지 보너스 적용")
+            # print("!   : 벽 반사 게이지 보너스 적용")
         else:
-            print(".")
+            pass  # print(".")
     elif item_data["name"] == "spikeboots":
         # 스파이크부츠 아이템 획득
         if not spikeboots_obtained:
@@ -71555,14 +71561,14 @@ def store_passive_item(item_data):
             # 대쉬 매니저에 보너스 업데이트
             if dash is not None:
                 dash.update_bonuses(dashholder_obtained, dashgear_obtained, True)
-            print("!     30%   15% !")
+            # print("!     30%   15% !")
             # 아이템 획득 효과 표시 (옛날 버전)
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             # 기존 라인 주석 처리
             # show_item_acquisition("spikeboots", "스파이크부츠", None, False,
             #                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         else:
-            print(".")
+            pass  # print(".")
     elif item_data["name"] == "dashgear":
         # 대쉬기어 아이템 획득
         if not dashgear_obtained:
@@ -71571,14 +71577,14 @@ def store_passive_item(item_data):
             # 대쉬 매니저에 보너스 업데이트
             if dash is not None:
                 dash.update_bonuses(dashholder_obtained, True, spikeboots_obtained)
-            print("!   10%    20% !")
+            # print("!   10%    20% !")
             # 아이템 획득 효과 표시 (옛날 버전)
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             # 기존 라인 주석 처리
             # show_item_acquisition("dashgear", "대쉬기어", None, False,
             #                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         else:
-            print(".")
+            pass  # print(".")
     elif item_data["name"] == "bulkup":
         # 벌크업 아이템 획득
         if not bulkup_obtained:
@@ -71588,9 +71594,9 @@ def store_passive_item(item_data):
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             # 기존 라인 주석 처리
             # show_item_acquisition("bulkup", "볼크업", None, False, (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT//2)))
-            print(" !    10% ! (장착 시 적용)")
+            # print(" !    10% ! (장착 시 적용)")
         else:
-            print(".")
+            pass  # print(".")
     elif item_data["name"] == "sensor":
         # 위험감지센서 아이템 획득
         if not danger_sensor_obtained:
@@ -71601,14 +71607,14 @@ def store_passive_item(item_data):
             sensor_enabled = True  # 호환성을 위해 두 변수 모두 설정
             items.sensor_obtained = True  # items.py의 변수도 업데이트
             apply_sensor_cooldown_option(item_data)  # 롤 옵션 기반 쿨타임 적용
-            print("!       !")
+            # print("!       !")
             # 아이템 획득 효과 표시 (옛날 버전)
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             # 기존 라인 주석 처리
             # show_item_acquisition("sensor", "위험감지센서", None, False,
             #                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         else:
-            print(".")
+            pass  # print(".")
     elif item_data["name"] == "dashholder":
         # 대쉬홀더 아이템 획득
         dashholder_obtained = True
@@ -71618,7 +71624,7 @@ def store_passive_item(item_data):
         except Exception:
             pass
         globals()["dashholder_count"] = dashholder_count + 1
-        print("!     !")
+        # print("!     !")
         # 아이템 획득 효과 표시 (옛날 버전)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
     elif item_data["name"] == "dowsing_pendulum":
@@ -71635,7 +71641,7 @@ def store_passive_item(item_data):
         apply_roll_bonuses_from_item(item_data)  # 롤옵션 먼저 적용
         vest_state = {'current_stage': current_stage}
         activate_technical_vest(vest_state, current_stage)
-        print("!      30%  3  !")
+        # print("!      30%  3  !")
         # 아이템 획득 효과 표시 (옛날 버전)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
         # 기존 라인 주석 처리
@@ -71654,7 +71660,7 @@ def store_passive_item(item_data):
         }
         activate_fuel_pouch(fuel_state, current_stage)
         special_gauge_max = get_max_gauge()
-        print("!    100 !")
+        # print("!    100 !")
         # 아이템 획득 효과 표시 (옛날 버전)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
         # 기존 라인 주석 처리
@@ -71668,7 +71674,7 @@ def store_passive_item(item_data):
             'current_stage': current_stage
         }
         activate_bluetooth_ring(ring_state, current_stage)
-        print("!    25% !")
+        # print("!    25% !")
         # 아이템 획득 효과 표시 (옛날 버전)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
         # 기존 라인 주석 처리
@@ -71687,7 +71693,7 @@ def store_passive_item(item_data):
         except Exception as e:
             print(f"[WARN] 별탐지기 활성화 실패: {e}")
         else:
-            print("🔭 별탐지기 획득! 스타포인트 드랍 시 추가 별 등장 확률이 적용되었습니다.")
+            pass  # print("🔭 별탐지기 획득! 스타포인트 드랍 시 추가 별 등장 확률이 적용되었습니다.")
 
         ensure_passive_rolls(item_data)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
@@ -71698,7 +71704,7 @@ def store_passive_item(item_data):
         ensure_passive_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
-        print("🪖 방탄모자 획득! 스턴 저항이 적용되었습니다.")
+        # print("🪖 방탄모자 획득! 스턴 저항이 적용되었습니다.")
     elif item_data["name"] == "spiked_helmet":
         # 가시투구 아이템 획득 (패시브)
         import items
@@ -71706,7 +71712,7 @@ def store_passive_item(item_data):
         ensure_passive_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
-        print("⛑️ 가시투구 획득! 넉백 저항이 적용되었습니다.")
+        # print("⛑️ 가시투구 획득! 넉백 저항이 적용되었습니다.")
     elif item_data["name"] == "smartphone":
         # 스마트폰 아이템 획득 (패시브)
         import items
@@ -71719,9 +71725,9 @@ def store_passive_item(item_data):
             }
             smartphone.activate(phone_state, current_stage)
             if DEBUG_MODE:
-                # print(f"[DEBUG] 스마트폰 활성화 상태: {smartphone.active}")
+                pass  # print(f"[DEBUG] 스마트폰 활성화 상태: {smartphone.active}")
         if DEBUG_MODE:
-            # print("스마트폰 획득! 위험 시 자동 아이템 사용!")
+            pass  # print("스마트폰 획득! 위험 시 자동 아이템 사용!")
 
         # 패시브 아이템 리스트에 추가 (중요!)
         ensure_passive_rolls(item_data)
@@ -71743,7 +71749,7 @@ def store_passive_item(item_data):
         except Exception as e:
             print(f"[WARN] 반칙호루라기 활성화 실패: {e}")
         else:
-            print("📢 반칙호루라기 획득! 패배를 무효로 만들 기회가 생겼습니다.")
+            pass  # print("📢 반칙호루라기 획득! 패배를 무효로 만들 기회가 생겼습니다.")
 
         # 아이템 관리 화면 동기화
 
@@ -71768,7 +71774,7 @@ def store_passive_item(item_data):
         if not gravitybelt_obtained:
             gravitybelt_obtained = True
             items.gravitybelt_obtained = True  # items.py의 변수도 업데이트
-            print("!        !")
+            # print("!        !")
             # 아이템 획득 효과 표시 (옛날 버전)
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             # 기존 라인 주석 처리
@@ -71777,9 +71783,10 @@ def store_passive_item(item_data):
             # 무중력벨트 + 스피드기어 시너지 효과 확인
             if speedgear_obtained:
                 # 전설의 벨트 시너지 - 전설 애니메이션 트리거
-                print("+   !   60% !")
+                # print("+   !   60% !")
+                pass
         else:
-            print(".")
+            pass  # print(".")
     elif item_data["name"] == "commando_arm":
         # 코만도암 아이템 획득
         # 최대 2개(왼팔/오른팔)까지만 스택
@@ -71789,14 +71796,14 @@ def store_passive_item(item_data):
             items.commando_arm_obtained = True
             # 롤 옵션 반영: 투척 속도/폭발 범위/연막 지속
             apply_roll_bonuses_from_item(item_data)
-            print("!     적용 (투척 속도/폭발 범위/연막 지속 롤)!")
+            # print("!     적용 (투척 속도/폭발 범위/연막 지속 롤)!")
             # 아이템 획득 효과 표시 (옛날 버전)
             show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
             # 기존 라인 주석 처리
             # show_item_acquisition("commando_arm", "코만도암", None, False,
             #                     (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
         else:
-            print("코만도암 최대 스택(2) 보유 중")
+            # print("코만도암 최대 스택(2) 보유 중")
             skip_append = True
     elif item_data["name"] == "ragnarok_hammer":
         # 라그나로크 해머 전설 아이템 획득
@@ -71815,7 +71822,7 @@ def store_passive_item(item_data):
             # 전설 아이템 획득 애니메이션 트리거 (효과는 장착 시 발동)
             trigger_legendary_acquisition("ragnarok_hammer", "라그나로크 해머", item_icon, 
                                          (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
-            print("🔴 라그나로크 해머 첫 획득! 신들의 황혼이 시작됩니다!")
+            # print("🔴 라그나로크 해머 첫 획득! 신들의 황혼이 시작됩니다!")
         item_data["type"] = "legendary"
         ensure_legendary_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
@@ -71835,7 +71842,7 @@ def store_passive_item(item_data):
             # 전설 아이템 획득 애니메이션 트리거 (효과는 장착 시 발동)
             trigger_legendary_acquisition("hermes_shoes", "헤르메스의 신발", item_icon,
                                          (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
-            print("⚡ 헤르메스의 신발 첫 획득! 신들의 속도를 얻었습니다!")
+            # print("⚡ 헤르메스의 신발 첫 획득! 신들의 속도를 얻었습니다!")
         item_data["type"] = "legendary"
         ensure_legendary_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
@@ -71853,7 +71860,7 @@ def store_passive_item(item_data):
                 pass
             trigger_legendary_acquisition("poseidon_trident", "포세이돈의 삼지창", item_icon,
                                          (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
-            print("🌊 포세이돈의 삼지창 첫 획득! 바다의 힘이 깃들었습니다!")
+            # print("🌊 포세이돈의 삼지창 첫 획득! 바다의 힘이 깃들었습니다!")
         item_data["type"] = "legendary"
         ensure_legendary_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
@@ -71889,7 +71896,7 @@ def store_passive_item(item_data):
                 pass
             trigger_legendary_acquisition("sacred_laurel", "신성 월계수", item_icon,
                                          (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
-            print("🌿 신성 월계수 첫 획득! 장착 시 성스러운 월계수 잎이 당신을 보호합니다!")
+            # print("🌿 신성 월계수 첫 획득! 장착 시 성스러운 월계수 잎이 당신을 보호합니다!")
         item_data["type"] = "legendary"
         ensure_legendary_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
@@ -71917,7 +71924,7 @@ def store_passive_item(item_data):
             # 전설 아이템 획득 애니메이션 트리거 (효과는 장착 시 발동)
             trigger_legendary_acquisition("transcendent_crown", "초월자의 관", item_icon,
                                          (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
-            print("👑 초월자의 관 첫 획득! 장착 시 모든 투자된 스킬 레벨이 상승합니다!")
+            # print("👑 초월자의 관 첫 획득! 장착 시 모든 투자된 스킬 레벨이 상승합니다!")
         item_data["type"] = "legendary"
         ensure_legendary_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
@@ -71943,7 +71950,7 @@ def store_passive_item(item_data):
                 print(f"오딘의 눈 효과 적용 오류: {e}")
             trigger_legendary_acquisition("odins_eye", "오딘의 눈", item_icon,
                                          (item_data.get("x", WIDTH//2), item_data.get("y", HEIGHT - 100)))
-            print("👁 오딘의 눈 첫 획득! 장착 시 라운드 패배 시 부활 기회가 생깁니다!")
+            # print("👁 오딘의 눈 첫 획득! 장착 시 라운드 패배 시 부활 기회가 생깁니다!")
         item_data["type"] = "legendary"
         ensure_legendary_rolls(item_data)
         apply_roll_bonuses_from_item(item_data)
@@ -71955,9 +71962,9 @@ def store_passive_item(item_data):
             item_data["type"] = "passive"
             # 금괴 효과 활성화 (미착용 시 이동속도 -30%)
             activate_gold_bar()
-            print("💰 금괴 획득! 상점에서 2000골드+에 판매 가능! 미착용 시 이동속도 -30%")
+            # print("💰 금괴 획득! 상점에서 2000골드+에 판매 가능! 미착용 시 이동속도 -30%")
         else:
-            print("이미 금괴를 보유 중입니다.")
+            # print("이미 금괴를 보유 중입니다.")
             skip_append = True
     elif item_data["name"] == "gold_digger":
         # 골드디거 패시브 아이템 획득 (팔 부위, 골드 획득량 30%~70% 증가)
@@ -71968,7 +71975,7 @@ def store_passive_item(item_data):
             from item_effects.gold_digger import activate_gold_digger, equip_gold_digger
             activate_gold_digger()
             equip_gold_digger()  # 장착 상태로 설정 (골드 보너스 적용을 위해 필수)
-            print("⛏️ 골드디거 첫 획득!")
+            # print("⛏️ 골드디거 첫 획득!")
         item_data["type"] = "passive"
         # 롤 옵션 적용 (30%~70%)
         ensure_passive_rolls(item_data)
@@ -71976,7 +71983,7 @@ def store_passive_item(item_data):
         # 롤 옵션 값 가져오기
         bonus_pct = gold_digger_bonus_pct
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
-        print(f"⛏️ 골드디거 획득! 골드 획득량 +{bonus_pct}% 증가!")
+        # print(f"⛏️ 골드디거 획득! 골드 획득량 +{bonus_pct}% 증가!")
     elif item_data["name"] == "hero_seal":
         # 호위무사 인장 (투기장 우승 보상)
         # 중복 소지 가능 (여러 영웅 인장 소유 가능)
@@ -71984,11 +71991,12 @@ def store_passive_item(item_data):
         item_data["type"] = "passive"
         hero_name = item_data.get("hero_name", "???")
         show_item_obtained_effect(item_data, item_data.get("x"), item_data.get("y"))
-        print(f"📜 {hero_name}의 인장 획득! 장신구에 장착하면 호위무사가 등장합니다.")
+        # print(f"📜 {hero_name}의 인장 획득! 장신구에 장착하면 호위무사가 등장합니다.")
     else:
         # 알 수 없는 패시브 아이템 처리
-        print(f"     : {item_data['name']}")
-    
+        # print(f"     : {item_data['name']}")
+        pass
+
     # 모든 패시브 아이템을 중복 허용으로 리스트에 추가
     item_name = item_data["name"]
     appended = False
@@ -72046,7 +72054,7 @@ def activate_emotional_overdrive():
         # 채널을 저장해서 나중에 중지할 수 있도록
         globals()['psycho_sound_channel'] = channel
     except:
-        print(": sounds/psychoball.wav")
+        pass  # print(": sounds/psychoball.wav")
 def handle_emotional_overdrive():
     global emotional_overdrive_active, emotional_overdrive_timer
     global overdrive_flash_timer, overdrive_trails, ball_vel
@@ -72071,7 +72079,7 @@ def handle_emotional_overdrive():
                     ellipse_distance = float('inf')
                 if ellipse_distance <= 1:
                     # 사이코볼 즉시 종료
-                    print("!")
+                    # print("!")
                     emotional_overdrive_active = False
                     emotional_overdrive_timer = 0
                     overdrive_trails.clear()
@@ -72100,7 +72108,7 @@ def handle_emotional_overdrive():
                         ball_vel[0] = 0
                         ball_vel[1] = -10
                     
-                    print(f"    ! : ({ball_vel[0]:.1f}, {ball_vel[1]:.1f})")
+                    # print(f"    ! : ({ball_vel[0]:.1f}, {ball_vel[1]:.1f})")
                     
                     # 무효화 시각 효과 - 보라색 파티클 폭발
                     for i in range(20):
@@ -72378,7 +72386,7 @@ def handle_wall():
                 else:
                     walls.append(pending_wall)
                 pending_wall = None
-            print("!    .")
+            # print("!    .")
             # 설치 종료 시, 벽돌 트리거로 재생 중이던 건설 사운드는 정리(다른 건설이 없으면 정지됨)
             try:
                 pause_blacksmith_construction_sound()
@@ -72587,7 +72595,7 @@ def handle_wall():
             if smoke_grenade["y"] >= smoke_grenade["target_y"]:
                 smoke_grenade["arrived"] = True
                 smoke_grenade["y"] = smoke_grenade["target_y"]
-                print(f"  ! 1")
+                # print(f"  ! 1")
                 # 착지 효과음
                 try:
                     play_paddle_sound()
@@ -72603,7 +72611,7 @@ def handle_wall():
                 base_duration = 600  # 10초 지속 (9초 + 1초 페이드아웃)
                 smoke_duration = _commando_duration_bonus(base_duration, per_stack_pct=0.50)
                 if items.commando_arm_obtained:
-                    print(f"  !  : {smoke_duration/60:.1f} (: {base_duration/60:.1f})")
+                    pass  # print(f"  !  : {smoke_duration/60:.1f} (: {base_duration/60:.1f})")
                 
                 smoke_zone = {
                     "x": smoke_grenade["x"],
@@ -72638,7 +72646,7 @@ def handle_wall():
                 smoke_grenades.remove(smoke_grenade)
                 # 연막 분출 효과음 (이미 사용 시 재생했으므로 제거)
                 # 연막이 생성되는 시각적 효과만 표시
-                print(f"  ! 9 .")
+                # print(f"  ! 9 .")
     # 연막 지역 업데이트
     for smoke_zone in smoke_zones[:]:
         smoke_zone["duration"] -= 1
@@ -72659,17 +72667,17 @@ def handle_wall():
                 # 디버그: 화로 위치와 연막 위치 출력
                 brazier_x, brazier_y = animated_bg_stage4.get_brazier_position()
                 distance = math.sqrt((smoke_zone["x"] - brazier_x)**2 + (smoke_zone["y"] - brazier_y)**2)
-                print(f"   - :({smoke_zone['x']:.0f},{smoke_zone['y']:.0f}),"
-                      f"화로위치:({brazier_x},{brazier_y}), 연막반경:{smoke_zone['radius']:.0f}, "
-                      f"거리:{distance:.1f}")
+                # print(f"   - :({smoke_zone['x']:.0f},{smoke_zone['y']:.0f}),"
+                #       f"화로위치:({brazier_x},{brazier_y}), 연막반경:{smoke_zone['radius']:.0f}, "
+                #       f"거리:{distance:.1f}")
                 
-                lit = animated_bg_stage4.check_smoke_touches_brazier(
-                    smoke_zone["x"], smoke_zone["y"], smoke_zone["radius"])
+                # lit = animated_bg_stage4.check_smoke_touches_brazier(
+                    # smoke_zone["x"], smoke_zone["y"], smoke_zone["radius"])
                 if lit:
-                    print(f"     !")
+                    # print(f"     !")
                     smoke_zone['has_lit_brazier'] = True
                 else:
-                    print(f"    -")
+                    pass  # print(f"    -")
                 smoke_zone['brazier_checked'] = True  # 중복 체크 방지
         # 투명도 조절 (서서히 나타났다가 사라짐)
         if smoke_zone["duration"] > 540:  # 처음 1초: 페이드인
@@ -72737,7 +72745,7 @@ def handle_wall():
                         ball_vel[1] *= speed_factor
                         
                         new_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-                        print(f"     !  60% ! ({current_speed:.1f} → {new_speed:.1f})")
+                        # print(f"     !  60% ! ({current_speed:.1f} → {new_speed:.1f})")
                     # 이미 연막 안에 있는 경우 60% 속도 유지
                     else:
                         # 60% 속도 유지 (더 이상 감속하지 않음)
@@ -72757,22 +72765,22 @@ def handle_wall():
                     # 처음 진입 시에만 메시지 출력
                     if not hasattr(smoke_zone, "affecting_ball"):
                         smoke_zone["affecting_ball"] = True
-                        print(f"     !   ... ( : {current_speed:.1f})")
+                        # print(f"     !   ... ( : {current_speed:.1f})")
                 else:
                     # 느린 공은 디버프 적용 안함
                     if not hasattr(smoke_zone, "slow_ball_ignored"):
                         smoke_zone["slow_ball_ignored"] = True
-                        print(f"     ! ( : {current_speed:.1f} <= 15.0)")
+                        # print(f"     ! ( : {current_speed:.1f} <= 15.0)")
             else:
                 # 플레이어가 친 공은 연막 효과 무시
                 if not hasattr(smoke_zone, "player_ball_ignored"):
                     smoke_zone["player_ball_ignored"] = True
-                    print(f"      !")
+                    # print(f"      !")
         else:
             # 연막을 벗어나면 플래그 제거
             if hasattr(smoke_zone, "affecting_ball"):
                 del smoke_zone["affecting_ball"]
-                print(f"")
+                # print(f"")
             if hasattr(smoke_zone, "original_speed"):
                 del smoke_zone["original_speed"]
             if hasattr(smoke_zone, "slow_ball_ignored"):
@@ -72784,7 +72792,7 @@ def handle_wall():
             # Stage 4에서 화로를 통해 소환된 몽크가 있으면 30초 후 귀환 타이머 시작
             if current_stage == 4 and animated_bg_stage4 and smoke_zone.get('has_lit_brazier', False):
                 animated_bg_stage4.trigger_smoke_grenade_monk_return()
-                print(f"  !  30   .")
+                # print(f"  !  30   .")
             smoke_zones.remove(smoke_zone)
     # 조명탄 업데이트
     for flare in flares[:]:
@@ -72797,7 +72805,7 @@ def handle_wall():
             if flare["y"] <= 10:
                 flare["arrived"] = True
                 flare["y"] = 10  # 벽 위치에 고정
-                print(f"조명탄 벽에 도달! 1.5초 후 폭발.")
+                # print(f"조명탄 벽에 도달! 1.5초 후 폭발.")
             # 좌우 벽 충돌 시 반사 (벽 뒤로 넘어가지 않도록)
             wall_margin = 10  # 벽 경계 여유
             if flare["x"] <= wall_margin:
@@ -72823,7 +72831,7 @@ def handle_wall():
                 flare["arrived"] = True
                 flare["x"] = flare["target_x"]  # 정확한 위치에 고정
                 flare["y"] = flare["target_y"]
-                print(f"  ! 1.5  .")
+                # print(f"  ! 1.5  .")
         elif not flare["exploded"]:
             # 도착 후 타이머 증가
             flare["timer"] += 1
@@ -72841,7 +72849,7 @@ def handle_wall():
                 base_radius = 180  # 조명 반경
                 flare_radius = _commando_range_bonus(base_radius, per_stack_pct=0.10)
                 if items.commando_arm_obtained:
-                    print(f"  !   : {flare_radius} (: {base_radius})")
+                    pass  # print(f"  !   : {flare_radius} (: {base_radius})")
                 
                 flare_zone = {
                     "x": flare["x"],
@@ -72856,16 +72864,16 @@ def handle_wall():
                 boss_distance = calculate_distance(get_center_pos(BOSS), (flare["x"], flare["y"]))
                 if boss_distance <= flare_radius:  # 폭발 반경 내에 있으면
                     boss_confused_timer = THREE_SECONDS_FRAMES  # 3초간 보스 혼란
-                    print(f"  !  3  !")
+                    # print(f"  !  3  !")
                     
                     # 코만도 캐릭터의 조명탄 보스 명중 시 게이지 증가 (스택 반영)
                     if selected_character_type == "soldier":
                         base_gauge = 50
                         gauge_increase = _commando_gauge_bonus(base_gauge, per_stack_bonus=20)
                         if items.commando_arm_obtained:
-                            print(f"🎯 코만도암 보너스! 조명탄 게이지 {gauge_increase} 증가!")
+                            pass  # print(f"🎯 코만도암 보너스! 조명탄 게이지 {gauge_increase} 증가!")
                         else:
-                            print("💡 조명탄 명중! 게이지 50 증가!")
+                            pass  # print("💡 조명탄 명중! 게이지 50 증가!")
 
                         # 게이지 증가 적용
                         gauge_increase = _apply_blacksmith_berserk_gauge_bonus(gauge_increase)
@@ -72882,16 +72890,16 @@ def handle_wall():
                         if special_gauge >= 350:
                             special_ready = True
 
-                        print(f"조명탄 게이지 충전: {old_gauge} → {special_gauge} (+{gauge_increase})")
+                        # print(f"조명탄 게이지 충전: {old_gauge} → {special_gauge} (+{gauge_increase})")
                 else:
-                    print(f"  ! : {boss_distance:.0f}")
+                    pass  # print(f"  ! : {boss_distance:.0f}")
                 flares.remove(flare)
                 # 효과음
                 try:
                     play_wall_sound()
                 except:
                     pass
-                print(f"  !  5  !")
+                # print(f"  !  5  !")
     # 조명 지대 업데이트 (섬광 효과)
     for zone in flare_zones[:]:
         zone["duration"] -= 1
@@ -72949,7 +72957,7 @@ def handle_wall():
             fire_width = _commando_range_bonus(base_width, per_stack_pct=0.10)
             fire_height = _commando_range_bonus(base_height, per_stack_pct=0.10)
             if items.commando_arm_obtained:
-                print(f"  !   : {fire_width}x{fire_height} (: {base_width}x{base_height})")
+                pass  # print(f"  !   : {fire_width}x{fire_height} (: {base_width}x{base_height})")
             
             fire_zone = {
                 "x": molotov["x"],
@@ -72977,7 +72985,7 @@ def handle_wall():
                 play_sound_with_volume(SOUND_FIREBOMB)  #  화염병 폭발 사운드 재생
             except:
                 pass
-            print(f"  !    : X={fire_zone['x']:.1f}, Y={fire_zone['y']:.1f}")
+            # print(f"  !    : X={fire_zone['x']:.1f}, Y={fire_zone['y']:.1f}")
     # 화염 지대 업데이트
     for fire_zone in fire_zones[:]:
         fire_zone["duration"] -= 1
@@ -73055,9 +73063,9 @@ def handle_wall():
                     if boss_fire_hit_count >= 3:
                         boss_current_health = max(0, boss_current_health - 1)  # 3회마다 체력 1 감소
                         boss_fire_hit_count = 0  # 카운터 리셋
-                        print(f"  !   -1 (: {boss_current_health}/{boss_max_health})")
+                        # print(f"  !   -1 (: {boss_current_health}/{boss_max_health})")
                     else:
-                        print(f"   {boss_fire_hit_count}/3")
+                        pass  # print(f"   {boss_fire_hit_count}/3")
                 # 시각적 피드백용 작은 흔들림 효과
                 if random.random() < 0.3:  # 30% 확률로 작은 흔들림
                     BOSS.x += random.randint(-3, 3)
@@ -73096,14 +73104,14 @@ def activate_arrest_rope():
     arrest_rope_timer = 180  # 3초 (60fps 기준)
     arrest_rope_visual_timer = 0
     arrest_rope_target_x = PLAYER.centerx if PLAYER else WIDTH // 2
-    print(f"[포도대장] 포승줄 발동! 패들 이동속도 50% 감소 (3초)")
+    # print(f"[포도대장] 포승줄 발동! 패들 이동속도 50% 감소 (3초)")
 
 def deactivate_arrest_rope():
     """포승줄 해제"""
     global arrest_rope_active, arrest_rope_timer
     arrest_rope_active = False
     arrest_rope_timer = 0
-    print(f"[포도대장] 포승줄 해제!")
+    # print(f"[포도대장] 포승줄 해제!")
 
 def update_arrest_rope():
     """포승줄 타이머 업데이트 (매 프레임 호출)"""
@@ -73460,7 +73468,7 @@ def check_balloon_collisions():
         # 충돌 감지 (공 반지름 + 풍선 반지름)
         collision_distance = BALL_RADIUS + balloon["radius"]
         if distance <= collision_distance:
-            print(f"  !  : 30")
+            # print(f"  !  : 30")
             #  풍선 터지는 효과음 재생
             play_sound_with_volume(SOUND_BALLOON_BOOM)
             # 풍선 터뜨리기 효과
@@ -73522,15 +73530,15 @@ def activate_spinning_top():
             "star_spawned": False  # 별을 이미 생성했는지 여부
         })
         if is_golden:
-            print(f"🎲 황금 팽이 생성! (팽이 {i+1})")
+            pass  # print(f"🎲 황금 팽이 생성! (팽이 {i+1})")
 
     # 채찍 효과음 재생
     whip_sound.play(maxtime=600)  # 0.6초 재생
 
     if enraged_boss_active:
-        # print(f"🔥 [광폭화] 팽이치기! 4개 팽이 생성!")
+        pass  # print(f"🔥 [광폭화] 팽이치기! 4개 팽이 생성!")
     else:
-        print(f"🎯 팽이치기! 2개 팽이 생성!")
+        pass  # print(f"🎯 팽이치기! 2개 팽이 생성!")
 
 def handle_spinning_top():
     """팽이 업데이트 처리"""
@@ -73613,9 +73621,9 @@ def handle_spinning_top():
                                 top2["star_spawned"] = True
                             
                             golden_top_star_cooldown = 30  # 0.5초 쿨타임
-                            print(f"   !   !")
+                            # print(f"   !   !")
                 
-                print(f"  !   !")
+                # print(f"  !   !")
         
         # 각 팽이 업데이트
         for i, top in enumerate(spinning_tops):
@@ -73672,7 +73680,7 @@ def handle_spinning_top():
         # 스킬 종료
         spinning_top_active = False
         spinning_tops = []
-        print("!")
+        # print("!")
 
 def check_spinning_top_collision():
     """팽이와 공의 충돌 체크"""
@@ -73708,7 +73716,7 @@ def check_spinning_top_collision():
                     trade_point_system.spawn_star(top["x"], top["y"], "golden_top")
                     top["star_spawned"] = True  # 이 팽이에서 별 생성 완료
                     golden_top_star_cooldown = 30  # 0.5초 쿨타임 (60 FPS)
-                    print(f"   !   !")
+                    # print(f"   !   !")
             
             # 무작위 방향으로 반사
             random_angle = random.uniform(0, 2 * math.pi)
@@ -73737,7 +73745,7 @@ def check_spinning_top_collision():
             # 효과음 재생
             play_paddle_sound()
 
-            print(f"  !  !  : {math.degrees(random_angle):.0f}°")
+            # print(f"  !  !  : {math.degrees(random_angle):.0f}°")
             return True
     
     return False
@@ -76948,7 +76956,7 @@ def reset_tutorial_state_for_entry():
     _tutorial_balloon_machine_shot_fired = False
     _tutorial_balloon_shot_delay_start = 0
 
-    print(f"[TUTORIAL] 초기화 완료: _ingame_tutorial_wait_first_hit={_ingame_tutorial_wait_first_hit}, _ingame_tutorial_completed={_ingame_tutorial_completed}")
+    # print(f"[TUTORIAL] 초기화 완료: _ingame_tutorial_wait_first_hit={_ingame_tutorial_wait_first_hit}, _ingame_tutorial_completed={_ingame_tutorial_completed}")
 
 
 def start_ingame_tutorial():
@@ -77033,7 +77041,7 @@ def advance_ingame_tutorial():
         try:
             bgm_manager.play_stage_bgm(1)  # 스테이지 1 BGM
         except Exception as e:
-            # print(f"[DEBUG] 스테이지 BGM 복원 실패: {e}")
+            pass  # print(f"[DEBUG] 스테이지 BGM 복원 실패: {e}")
         return  # 더 이상 진행하지 않음
 
     # wait_for가 있는 단계에서 아직 대기 상태가 아니면 대기 상태로 전환
@@ -77193,7 +77201,7 @@ def advance_ingame_tutorial():
             try:
                 bgm_manager.play_stage_bgm(1)  # 스테이지 1 BGM
             except Exception as e:
-                # print(f"[DEBUG] 스테이지 BGM 복원 실패: {e}")
+                pass  # print(f"[DEBUG] 스테이지 BGM 복원 실패: {e}")
 
 
 def on_player_dash_for_tutorial(is_half_dash: bool = False):
@@ -77540,7 +77548,7 @@ def spawn_tutorial_active_item():
                 break
 
         if not item_type_data:
-            print("[ERROR] 게이지충전 아이템 타입을 찾을 수 없음")
+            # print("[ERROR] 게이지충전 아이템 타입을 찾을 수 없음")
             return
 
         # revealed=False로 물음표 상태로 시작
@@ -77582,7 +77590,7 @@ def spawn_tutorial_passive_item():
                 break
 
         if not speedboots_type:
-            print("[ERROR] 스피드부츠 아이템 타입을 찾을 수 없음")
+            # print("[ERROR] 스피드부츠 아이템 타입을 찾을 수 없음")
             return
 
         # revealed=False로 물음표 상태로 시작
@@ -80390,7 +80398,7 @@ def draw_overlay_ui() -> None:
             global _optimus_ui_debug_cnt
             _optimus_ui_debug_cnt = globals().get("_optimus_ui_debug_cnt", 0) + 1
             if _optimus_ui_debug_cnt % 60 == 1:
-                # print(f"[DEBUG] draw_overlay_ui: optimus 조건 진입, new_boss_mode={new_boss_mode_active}")
+                pass  # print(f"[DEBUG] draw_overlay_ui: optimus 조건 진입, new_boss_mode={new_boss_mode_active}")
             globals()["_optimus_ui_debug_cnt"] = _optimus_ui_debug_cnt
             draw_optimus_arm_skill_ui(SCREEN)
 
@@ -80745,7 +80753,7 @@ def reset_stage7_guard_state(*, reset_timer: bool = True) -> None:
                 global stage7_persistent_boss_gauge
                 stage7_persistent_boss_gauge = 0.0
                 if STAGE7_DEBUG.get('GAUGE', False):
-                    print("[Stage7Gauge][ResetGuard] stage != 7 → persistent cleared")
+                    pass  # print("[Stage7Gauge][ResetGuard] stage != 7 → persistent cleared")
         except NameError:
             pass
 
@@ -80762,7 +80770,7 @@ def initialize_stage7_guard_state(now: int | None = None) -> None:
     global stage7_persistent_boss_gauge
     stage7_persistent_boss_gauge = boss_special_gauge
     if STAGE7_DEBUG.get('GAUGE', False):
-        print(f"[Stage7Gauge][Init] persistent set to {stage7_persistent_boss_gauge}")
+        pass  # print(f"[Stage7Gauge][Init] persistent set to {stage7_persistent_boss_gauge}")
 
 
 def update_stage7_gauge_charge(is_active: bool) -> None:
@@ -80822,7 +80830,7 @@ def update_stage7_gauge_charge(is_active: bool) -> None:
     stage7_persistent_boss_gauge = boss_special_gauge
     if STAGE7_DEBUG.get('GAUGE', False):
         mode_str = "🔥광폭화" if is_berserk else ""
-        print(f"[Stage7Gauge][Charge]{mode_str} +{charge_units} → {boss_special_gauge}")
+        # print(f"[Stage7Gauge][Charge]{mode_str} +{charge_units} → {boss_special_gauge}")
 
 
 STAGE7_GUARD_CELL_SIZE = 20
@@ -80992,7 +81000,7 @@ def spawn_stage7_guard_blocks(now: int | None = None) -> bool:
     boss_special_gauge = max(0, boss_special_gauge - required_gauge)
     stage7_persistent_boss_gauge = boss_special_gauge
     if STAGE7_DEBUG.get('GAUGE', False):
-        print(f"[Stage7Gauge][Spawn] cost {required_gauge} → {boss_special_gauge}")
+        pass  # print(f"[Stage7Gauge][Spawn] cost {required_gauge} → {boss_special_gauge}")
 
     block_top = chosen_top
 
@@ -82071,13 +82079,13 @@ def update_stage7_tetro_laser(now: int | None = None) -> None:
                                         destroy_stage7_tetromino(mino, by_smoke=True)
                         except Exception:
                             pass
-                        print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! 3D 폭발큐브 녹이기 시작!")
+                        # print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! 3D 폭발큐브 녹이기 시작!")
                     else:
-                        print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! (폭발큐브 이미 숨김/재조립 중)")
+                        pass  # print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! (폭발큐브 이미 숨김/재조립 중)")
                 else:
-                    print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! (폭발큐브 비활성)")
+                    pass  # print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! (폭발큐브 비활성)")
             else:
-                print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! (animated_bg_stage7 없음)")
+                pass  # print(f"[Stage7TetroLaser] 💥 테트로미노 광선 발사! (animated_bg_stage7 없음)")
 
             # 사운드 재생
             try:
@@ -82090,7 +82098,7 @@ def update_stage7_tetro_laser(now: int | None = None) -> None:
     if stage7_tetro_laser_active:
         if now - stage7_tetro_laser_start_ms >= STAGE7_TETRO_LASER_DURATION_MS:
             stage7_tetro_laser_active = False
-            print(f"[Stage7TetroLaser] 광선 종료")
+            # print(f"[Stage7TetroLaser] 광선 종료")
 
 
 def draw_stage7_tetro_laser(surface: pygame.Surface) -> None:
@@ -83430,16 +83438,16 @@ def draw_stage7_boss_gauge_bar():
     time_now = pygame.time.get_ticks()
     if STAGE7_DEBUG.get('GAUGE', False) and time_now - stage7_gauge_debug_stage_log_ticks > 1000:
         stage7_gauge_debug_stage_log_ticks = time_now
-        print(f"[Stage7Gauge] stage={current_stage}, boss={boss_special_gauge}, displayed={displayed_boss_gauge}")
+        # print(f"[Stage7Gauge] stage={current_stage}, boss={boss_special_gauge}, displayed={displayed_boss_gauge}")
 
     if current_stage != 7:
         time_now = pygame.time.get_ticks()
         if STAGE7_DEBUG.get('GAUGE', False) and current_stage != stage7_gauge_debug_last_stage and time_now - stage7_gauge_debug_stage_log_ticks > 500:
             stage7_gauge_debug_last_stage = current_stage
             stage7_gauge_debug_stage_log_ticks = time_now
-            print(f"[Stage7Gauge] 현재 스테이지={current_stage} → 게이지 비활성")
+            # print(f"[Stage7Gauge] 현재 스테이지={current_stage} → 게이지 비활성")
         if stage7_gauge_debug_active and STAGE7_DEBUG.get('GAUGE', False):
-            print("[Stage7Gauge] 스테이지 7 종료 → 게이지 디버그 비활성화")
+            pass  # print("[Stage7Gauge] 스테이지 7 종료 → 게이지 디버그 비활성화")
         stage7_gauge_debug_active = False
         return
 
@@ -83456,9 +83464,11 @@ def draw_stage7_boss_gauge_bar():
         stage7_gauge_debug_active = True
         stage7_gauge_debug_last_log = time_now
         if STAGE7_DEBUG.get('GAUGE', False):
-            print(
-                f"[Stage7Gauge] 활성화: boss={boss_special_gauge:.1f}, displayed={displayed_boss_gauge:.1f}, tick={time_now}"
-            )
+            # print(
+            #     f"[Stage7Gauge] 활성화: boss={boss_special_gauge:.1f}, displayed={displayed_boss_gauge:.1f}, tick={time_now}"
+            # )
+            # pass
+            pass
 
     # 게이지 바 외곽/배경
     outer_rect = pygame.Rect(gauge_x - 6, gauge_y - 12, gauge_width + 12, gauge_height + 24)
@@ -83726,7 +83736,7 @@ def update_stage7_super_state(now: int | None = None) -> None:
                     play_wall_sound()
                 except Exception:
                     pass
-                print(f"[Stage7Super] {STAGE7_SUPER_NAME} 발동! (게이지 소모형)")
+                # print(f"[Stage7Super] {STAGE7_SUPER_NAME} 발동! (게이지 소모형)")
 
             # 발동 중: 초당 25 드레인, 0이면 종료
             if stage7_super_active:
@@ -85336,7 +85346,7 @@ def update_stage8_shurikens() -> None:
                 stage8_shuriken_gauge_ticks_left = 4  # 0.5초 간격 4회(총 2초)
                 stage8_shuriken_gauge_tick_timer = STAGE8_SHURIKEN_GAUGE_TICK_FRAMES
             else:
-                print("[SLOW-IMMUNE] 표창 무시 (클렌즈 면역 상태)")
+                pass  # print("[SLOW-IMMUNE] 표창 무시 (클렌즈 면역 상태)")
             # 피 튀기는 파티클 효과 생성
             create_blood_particles(rect.centerx, rect.centery, sh["vx"], sh["vy"])
             continue
@@ -86483,7 +86493,7 @@ def draw_player_gauge():
                     _player_gauge_surface_left.blit(shadow_surface, shadow_rect)
                 _player_gauge_surface_left.blit(text_surface, text_rect)
             except Exception as e:
-                print(f"[GAUGE TEXT ERROR] {e}", flush=True)
+                pass  # print(f"[GAUGE TEXT ERROR] {e}", flush=True)
 
     # === 일반 모드: 기존 캐릭터별 프레임 디자인 ===
     elif selected_character_type == "soldier":
@@ -90068,7 +90078,7 @@ def draw_player_gauge():
                 _player_gauge_surface.blit(shadow_surface, shadow_rect)
             _player_gauge_surface.blit(text_surface, text_rect)
         except Exception as e:
-            print(f"[DASH TOKEN TEXT ERROR] {e}", flush=True)
+            pass  # print(f"[DASH TOKEN TEXT ERROR] {e}", flush=True)
 
     else:
         # 일반 모드: 기존 위치 사용 (게이지바 하단)
@@ -91728,7 +91738,7 @@ def update_nemesis_sub_boss_skill():
         # 3점 이상 획득 상태 + 쿨타임 종료 시 자동 재발동
         if round_wins >= 3 and nemesis_sub_boss_skill_cooldown > 0 and current_time >= nemesis_sub_boss_skill_cooldown:
             if activate_nemesis_sub_boss_skill():
-                print("[Stage5 네메시스] 보조 보스 전기 에너지 스킬 자동 재발동! (쿨타임 종료)")
+                pass  # print("[Stage5 네메시스] 보조 보스 전기 에너지 스킬 자동 재발동! (쿨타임 종료)")
         return
 
     # 스킬 지속 시간 체크
@@ -99287,7 +99297,7 @@ def draw_objects():
                     # 첫 프레임 이동 + 즉시 감속 (실행 순서 문제 해결)
                     PLAYER.x += int(player_knockback_vel)
                     PLAYER.x = max(0, min(WIDTH - PADDLE_WIDTH, PLAYER.x))
-                    print(f"🧊 [HAIL HIT] 넉백! {old_x:.1f} → {PLAYER.x:.1f} (vel={player_knockback_vel:.2f}, dir={knockback_dir})")
+                    # print(f"🧊 [HAIL HIT] 넉백! {old_x:.1f} → {PLAYER.x:.1f} (vel={player_knockback_vel:.2f}, dir={knockback_dir})")
                     # 즉시 감속 적용 (다음 프레임과의 갭 제거)
                     player_knockback_vel *= 0.85 * _get_knockback_resist_scale()
         draw_hail_particles(SCREEN, WIDTH, HEIGHT)
@@ -100049,7 +100059,7 @@ def draw_objects():
             if bazooka.equipped and bazooka.firing_pose_timer > 0:
                 bazooka.draw_firing_pose(SCREEN, PLAYER)
         except Exception as e:
-            # print(f"바주카포 발사 자세 애니메이션 오류: {e}")
+            pass  # print(f"바주카포 발사 자세 애니메이션 오류: {e}")
 
         # === AK-47 발사 포즈 애니메이션 그리기 ===
         try:
@@ -101039,7 +101049,7 @@ def run_downtown_hub(next_stage_display: int) -> bool:
             try:
                 store_passive_item(dict(_seal))
                 _hero_name = _seal.get('hero_name', '???')
-                print(f"[Arena] 인장 아이템 인벤토리 추가: {_hero_name}의 인장")
+                # print(f"[Arena] 인장 아이템 인벤토리 추가: {_hero_name}의 인장")
             except Exception as _seal_err:
                 print(f"[Arena] 인장 인벤토리 추가 실패: {_seal_err}")
         # 인장 추가 후 대기열 비우기
@@ -101057,7 +101067,7 @@ def run_downtown_hub(next_stage_display: int) -> bool:
                 _guard_skill_idx = _latest_guard.get('selected_skill', 0)
                 _skill_sel = {_guard_id: _guard_skill_idx} if _guard_id else None
                 bodyguard.setup(_latest_guard, skill_selections=_skill_sel)
-                print(f"[Bodyguard] 호위무사 동기화 완료 (레거시): {_latest_guard.get('name')} (스킬={_guard_skill_idx})")
+                # print(f"[Bodyguard] 호위무사 동기화 완료 (레거시): {_latest_guard.get('name')} (스킬={_guard_skill_idx})")
             except Exception as _bg_err:
                 print(f"[Bodyguard] 호위무사 동기화 실패: {_bg_err}")
 
@@ -102706,8 +102716,8 @@ def show_victory_screen(stage_cleared, reward):
 
     # 인게임 골드를 광장 골드로 이전
     earned_gold = transfer_ingame_gold_to_downtown()
-    print(f"💰 스테이지 클리어! 획득 골드: {earned_gold}G → 광장 골드로 이전")
-    print(f"   └ 릴레이: {earned_rally_gold}G, 대쉬: {earned_dash_gold}G, 스킬: {earned_skill_gold}G, 퍽: {earned_perk_gold}G, 퀘스트: {earned_quest_gold}G")
+    # print(f"💰 스테이지 클리어! 획득 골드: {earned_gold}G → 광장 골드로 이전")
+    # print(f"   └ 릴레이: {earned_rally_gold}G, 대쉬: {earned_dash_gold}G, 스킬: {earned_skill_gold}G, 퍽: {earned_perk_gold}G, 퀘스트: {earned_quest_gold}G")
 
     # 광폭화 보스 승리 시 런타임 스킬 선택지 보상 (기존 유지)
     enraged_skill_choices = 0
@@ -102877,7 +102887,7 @@ def show_victory_screen(stage_cleared, reward):
         return False
 
     # 골드 시스템: 획득 골드 출력
-    print(f"   획득 골드: {earned_gold}G")
+    # print(f"   획득 골드: {earned_gold}G")
     # 폰트 설정 (타이틀 폰트를 부드럽게 변경)
     font_title = FontStyle.title()    # 타이틀용 48pt 픽셀 폰트
     font_subtitle = FontStyle.menu()  # 서브타이틀용 28pt 픽셀 폰트
@@ -103977,7 +103987,7 @@ def show_victory_screen(stage_cleared, reward):
         if pending_transition:
             mode, target_stage = pending_transition
             if mode == 'start':
-                print("!  !")
+                # print("!  !")
                 # 메인 메뉴 복귀 전 구슬 애니메이션 상태 완전 리셋
                 reset_orb_animation_state()
                 show_start_screen()
@@ -104011,7 +104021,7 @@ def show_victory_screen(stage_cleared, reward):
                 # 광장에서 다음 스테이지로 넘어가면 저장 데이터 삭제
                 try:
                     delete_save_data()
-                    print(f"[스테이지 전환] 저장 파일 삭제 완료 - 다음 스테이지 {next_stage_display} 진입")
+                    # print(f"[스테이지 전환] 저장 파일 삭제 완료 - 다음 스테이지 {next_stage_display} 진입")
                 except Exception:
                     pass
 
@@ -104531,7 +104541,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
                     guard_system.unlock_extra_skills(is_top=True)
                 if arena_perk_guard_extra_skill_bottom:
                     guard_system.unlock_extra_skills(is_top=False)
-                print(f"[Guard] start_arena_battle 호위무사 설정 완료: top={len(_top_guards)}, bottom={len(_bottom_guards)}")
+                # print(f"[Guard] start_arena_battle 호위무사 설정 완료: top={len(_top_guards)}, bottom={len(_bottom_guards)}")
             arena_guard_system = guard_system
         except Exception as e:
             print(f"[Guard] start_arena_battle 호위무사 설정 오류: {e}")
@@ -104609,7 +104619,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
                     hero_paddle_renderer=arena_hero_paddle_renderer,
                 )
                 arena_henchman_system = _hench_sys
-                print(f"[Henchman] 하수인 시스템 설정 완료: {len(_henchman_list)}명")
+                # print(f"[Henchman] 하수인 시스템 설정 완료: {len(_henchman_list)}명")
             else:
                 arena_henchman_system = None
         except Exception as e:
@@ -104630,7 +104640,7 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
                     hero_paddle_renderer=arena_hero_paddle_renderer,
                 )
                 arena_ai_henchman_system = _ai_hench_sys
-                print(f"[Henchman] AI 하수인 시스템 설정 완료: {len(_ai_henchman_list)}명")
+                # print(f"[Henchman] AI 하수인 시스템 설정 완료: {len(_ai_henchman_list)}명")
             else:
                 arena_ai_henchman_system = None
         except Exception as e:
@@ -104675,9 +104685,9 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         arena_captured_guard_y = 0.0
         arena_captured_guard_timer = 0.0
         if arena_captured_guard and not arena_captured_guard_used:
-            print(f"[CapturedGuard] 1회용 소환 가능: {arena_captured_guard.get('name', '?')}")
+            pass  # print(f"[CapturedGuard] 1회용 소환 가능: {arena_captured_guard.get('name', '?')}")
         else:
-            print("[CapturedGuard] 1회용 소환 없음")
+            pass  # print("[CapturedGuard] 1회용 소환 없음")
 
         # ★ 인게임 포획 페이즈 초기화
         global arena_capture_phase, arena_capture_timer, arena_capture_result_flag
@@ -104719,9 +104729,9 @@ def start_arena_battle(top_hero: dict, bottom_hero: dict):
         arena_capture_pull_start_x = 380.0
         arena_capture_pull_start_y = 60.0
         if arena_capture_do_capture:
-            print("[CAPTURE] 인게임 포획 활성화 (승리 시 포획 페이즈 진입)")
+            pass  # print("[CAPTURE] 인게임 포획 활성화 (승리 시 포획 페이즈 진입)")
         else:
-            print("[CAPTURE] 인게임 포획 비활성화 (결승전)")
+            pass  # print("[CAPTURE] 인게임 포획 비활성화 (결승전)")
 
         # 신의심판 이벤트 활성화
         if animated_bg_stage30 is not None:
@@ -105076,7 +105086,7 @@ def show_start_screen():
     # 디버깅: 게임 세션이 활성 상태에서 메인메뉴가 호출되면 호출 스택 출력 (비정상 상황)
     if game_session_active:
         import traceback
-        print(f"[DEBUG] show_start_screen() 비정상 호출! - 현재 스테이지: {current_stage}, 세션 활성: {game_session_active}")
+        # print(f"[DEBUG] show_start_screen() 비정상 호출! - 현재 스테이지: {current_stage}, 세션 활성: {game_session_active}")
         # print(f"[DEBUG] 호출 스택:")
         traceback.print_stack(limit=10)
 
@@ -105552,7 +105562,7 @@ def show_tutorial_intro_dialogue():
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_F8:
                     # F8키로 튜토리얼 챕터 스킵
-                    print("🎮 F8 키: 대화 중 챕터 스킵 요청")
+                    # print("🎮 F8 키: 대화 중 챕터 스킵 요청")
                     dialogue_complete = True
                     return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
                 elif event.key == pygame.K_SPACE:
@@ -105872,7 +105882,7 @@ def show_tutorial_boss_return_dialogue():
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_F8:
                         # F8키로 튜토리얼 챕터 스킵
-                        print("🎮 F8 키: 속도 대화 중 챕터 스킵 요청")
+                        # print("🎮 F8 키: 속도 대화 중 챕터 스킵 요청")
                         return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
                     elif event.key == pygame.K_SPACE:
                         if text_complete:
@@ -106751,16 +106761,16 @@ def draw_tutorial_serve_reminder():
     
     # 디버그: 함수 호출과 변수 상태 확인
     if tutorial_bonus_token_message or tutorial_bonus_token_timer > 0:
-        print(f"DEBUG draw_tutorial_serve_reminder 호출: message={tutorial_bonus_token_message}, timer={tutorial_bonus_token_timer}")
+        pass  # print(f"DEBUG draw_tutorial_serve_reminder 호출: message={tutorial_bonus_token_message}, timer={tutorial_bonus_token_timer}")
     
     # 연습용 대쉬토큰 메시지 표시 (3초간)
     if 'tutorial_bonus_token_message' in globals() and tutorial_bonus_token_message:
         current_time = pygame.time.get_ticks()
         elapsed_time = current_time - tutorial_bonus_token_timer
-        print(f"DEBUG: 메시지 표시 조건 만족 - elapsed={elapsed_time}ms")
+        # print(f"DEBUG: 메시지 표시 조건 만족 - elapsed={elapsed_time}ms")
         
         if elapsed_time < 3000:  # 3초간 표시
-            print(f"DEBUG: 3초 이내, 알림창 그리기 시작")
+            # print(f"DEBUG: 3초 이내, 알림창 그리기 시작")
             # 폰트 설정
             font_large = FontStyle.subtitle()  # 32pt
             font_huge = FontStyle.title()     # 48pt
@@ -107007,7 +107017,7 @@ def show_tutorial_drive_dialogue():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_F8:
                     # F8키로 튜토리얼 챕터 스킵
-                    print("🎮 F8 키: 드라이브 대화 중 챕터 스킵 요청")
+                    # print("🎮 F8 키: 드라이브 대화 중 챕터 스킵 요청")
                     return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
                 elif event.key in [pygame.K_SPACE, pygame.K_RETURN]:
                     # 텍스트가 다 표시되지 않았으면 전체 표시, 아니면 다음 대화로
@@ -107186,7 +107196,7 @@ def show_tutorial_drive_helper_dialogue():
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_F8:
                         # F8키로 튜토리얼 챕터 스킵
-                        print("🎮 F8 키: 드라이브 도우미 대화 중 챕터 스킵 요청")
+                        # print("🎮 F8 키: 드라이브 도우미 대화 중 챕터 스킵 요청")
                         return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
                     elif event.key == pygame.K_SPACE:
                         if text_complete:
@@ -107333,7 +107343,7 @@ def show_tutorial_drive_completion_dialogue():
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_F8:
                         # F8키로 챕터 4로 스킵
-                        print("🎮 F8 키: 드라이브 완료 대화 중 챕터 스킵 요청")
+                        # print("🎮 F8 키: 드라이브 완료 대화 중 챕터 스킵 요청")
                         return "skip_to_chapter4"
                     elif event.key == pygame.K_SPACE:
                         if text_complete:
@@ -107575,7 +107585,7 @@ def show_tutorial_power_practice_dialogue():
             pygame.display.flip()
             clock.tick(60)
     
-    print("🎮 Chapter 4: show_tutorial_power_practice_dialogue 완료, True 반환")
+    # print("🎮 Chapter 4: show_tutorial_power_practice_dialogue 완료, True 반환")
     return True
 
 def show_tutorial_power_demonstration():
@@ -107727,7 +107737,7 @@ def show_tutorial_power_demonstration():
                         # 공을 조교 앞으로 이동
                         demo_ball_x = boss_x
                         demo_ball_y = boss_y + 50
-                        print(f"시범 {current_demo + 1}: {demo_sequence[current_demo]} 방향 시작")
+                        # print(f"시범 {current_demo + 1}: {demo_sequence[current_demo]} 방향 시작")
         
         # 시범 진행 로직
         if current_demo < len(demo_sequence):
@@ -107811,7 +107821,7 @@ def show_tutorial_power_demonstration():
                     power_smashing_particles.clear()
                     power_smashing_trails.clear()
                     if current_demo < len(demo_sequence):
-                        print(f"다음 시범 준비: {demo_sequence[current_demo]}")
+                        pass  # print(f"다음 시범 준비: {demo_sequence[current_demo]}")
         
         # 공 물리 업데이트
         if demo_ball_speed > 0 and demo_phase == "flying":
@@ -109245,7 +109255,7 @@ def show_tutorial_dash_dialogue():
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_F8:
                         # F8키로 튜토리얼 챕터 스킵
-                        print("🎮 F8 키: 대쉬 대화 중 챕터 스킵 요청")
+                        # print("🎮 F8 키: 대쉬 대화 중 챕터 스킵 요청")
                         return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
                     elif event.key == pygame.K_SPACE:
                         # 대쉬 시연 중에는 스페이스바 무시
@@ -110120,7 +110130,7 @@ def draw_tutorial_drive_counter():
 
 def show_chapter_title(chapter_num, title, subtitle=None):
     """챕터 타이틀 표시 (페이드 효과 포함)"""
-    print(f"🎬 show_chapter_title 호출: Chapter {chapter_num} - {title}")
+    # print(f"🎬 show_chapter_title 호출: Chapter {chapter_num} - {title}")
     clock = pygame.time.Clock()
     
     # 폰트 설정
@@ -110190,7 +110200,7 @@ def show_chapter_title(chapter_num, title, subtitle=None):
     SCREEN.fill((0, 0, 0))
     pygame.display.flip()
     
-    print(f"[OK] Chapter {chapter_num} - {title} display complete")
+    # print(f"[OK] Chapter {chapter_num} - {title} display complete")
     return True
 
 # (reverted) 공통 카운터 배지는 사용하지 않음
@@ -110246,7 +110256,7 @@ def show_tutorial_speed_dialogue():
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_F8:
                         # F8키로 튜토리얼 챕터 스킵
-                        print("🎮 F8 키: 속도 대화 중 챕터 스킵 요청")
+                        # print("🎮 F8 키: 속도 대화 중 챕터 스킵 요청")
                         return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
                     elif event.key == pygame.K_SPACE:
                         if text_complete:
@@ -110358,7 +110368,7 @@ def show_tutorial_angle_dialogue():
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_F8:
                         # F8키로 튜토리얼 챕터 스킵
-                        print("🎮 F8 키: 속도 대화 중 챕터 스킵 요청")
+                        # print("🎮 F8 키: 속도 대화 중 챕터 스킵 요청")
                         return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
                     elif event.key == pygame.K_SPACE:
                         if text_complete:
@@ -110562,7 +110572,7 @@ def show_tutorial_gauge_dialogue():
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_F8:
                         # F8키로 튜토리얼 챕터 스킵
-                        print("🎮 F8 키: 속도 대화 중 챕터 스킵 요청")
+                        # print("🎮 F8 키: 속도 대화 중 챕터 스킵 요청")
                         return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
                     elif event.key == pygame.K_SPACE:
                         if text_complete:
@@ -110902,7 +110912,7 @@ def show_tutorial_dash_token_dialogue():
                 elif event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_F8:
                         # F8키로 튜토리얼 챕터 스킵
-                        print("🎮 F8 키: 속도 대화 중 챕터 스킵 요청")
+                        # print("🎮 F8 키: 속도 대화 중 챕터 스킵 요청")
                         return "skip_chapter"  # 특별한 반환값으로 챕터 스킵 신호
                     elif event.key == pygame.K_SPACE:
                         if text_complete:
@@ -110924,13 +110934,13 @@ def show_tutorial_dash_token_dialogue():
                                     tutorial_practice_bonus_token = True
                                     tutorial_token_just_added = True  # 플래그 설정
                                     if DEBUG_TUTORIAL:
-                                        # print("튜토리얼: 도우미 대화에서 대쉬홀더 효과 임시 추가 (대쉬토큰 2개로 증가)")
+                                        pass  # print("튜토리얼: 도우미 대화에서 대쉬홀더 효과 임시 추가 (대쉬토큰 2개로 증가)")
                                     
                                     # 토큰 추가 효과를 위한 메시지와 타이머 설정
                                     tutorial_bonus_token_message = "대쉬토큰이 추가되었습니다. 연속대쉬를 사용해보세요!"
                                     tutorial_bonus_token_timer = pygame.time.get_ticks()
                                     if DEBUG_TUTORIAL:
-                                        # print(f"튜토리얼: 토큰 추가 메시지 설정 - {tutorial_bonus_token_message}")
+                                        pass  # print(f"튜토리얼: 토큰 추가 메시지 설정 - {tutorial_bonus_token_message}")
                                     
                                     # 서브 알림창 메시지는 대화가 끝난 후 메인 게임 루프에서 설정
                             
@@ -111148,7 +111158,7 @@ def check_tutorial_dash_missions_complete():
             ball_vel[0] = 0
             ball_vel[1] = 0
             if DEBUG_TUTORIAL:
-                # print("튜토리얼: 모든 대쉬 미션 완료! 축하 대화 표시")
+                pass  # print("튜토리얼: 모든 대쉬 미션 완료! 축하 대화 표시")
             
             # 대화 시작 전에 게임 화면 그리기
             draw_field()
@@ -111159,7 +111169,7 @@ def check_tutorial_dash_missions_complete():
             if show_tutorial_dash_completion_dialogue():
                 # 대화 완료 후 Chapter 3로 이동
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: Chapter 3 - DRIVE로 이동")
+                    pass  # print("튜토리얼: Chapter 3 - DRIVE로 이동")
                 
                 # 챕터 번호 업데이트 및 Chapter 3 초기화
                 global tutorial_current_chapter, rolling_charges, special_gauge
@@ -111171,7 +111181,7 @@ def check_tutorial_dash_missions_complete():
                 
                 tutorial_current_chapter = 3
                 if DEBUG_TUTORIAL:
-                    # print(f"튜토리얼: 챕터 변경 - Chapter {tutorial_current_chapter}")
+                    pass  # print(f"튜토리얼: 챕터 변경 - Chapter {tutorial_current_chapter}")
                 
                 # Chapter 2 종료 시 연습용 대쉬토큰 제거
                 rolling_charges = 1  # 기본 토큰 1개로 복구
@@ -111187,7 +111197,7 @@ def check_tutorial_dash_missions_complete():
                 # Chapter 3 시작시 게이지 0으로 초기화
                 special_gauge = 0
                 if DEBUG_TUTORIAL:
-                    # print(f"튜토리얼: Chapter 3 시작 - 게이지 초기화 (0/{tutorial_drive_chapter_max_gauge})")
+                    pass  # print(f"튜토리얼: Chapter 3 시작 - 게이지 초기화 (0/{tutorial_drive_chapter_max_gauge})")
                 
                 # 드라이브 관련 변수 초기화
                 tutorial_drive_helper_dialogue_shown = False
@@ -111208,9 +111218,9 @@ def check_tutorial_dash_missions_complete():
                 tutorial_half_dash_count = 0
                 tutorial_consecutive_dash_count = 0
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: Chapter 2 대쉬 카운터 UI 비활성화")
+                    pass  # print("튜토리얼: Chapter 2 대쉬 카운터 UI 비활성화")
                 
-                print("[OK] Chapter 3 variables initialized")
+                # print("[OK] Chapter 3 variables initialized")
                 
                 # Chapter 3 타이틀 표시 (검은 배경에 CHAPTER 3 DRIVE 표시)
                 show_chapter_title(3, "DRIVE", "드라이브")
@@ -111252,7 +111262,7 @@ def check_tutorial_special_missions_complete():
             show_tutorial_success_feedback("🎉 튜토리얼 완료! 🎉", "perfect")
             
             if DEBUG_TUTORIAL:
-                # print("🎉 튜토리얼 모든 챕터 완료!")
+                pass  # print("🎉 튜토리얼 모든 챕터 완료!")
         
         return True
     
@@ -112018,7 +112028,7 @@ def show_character_selection():
             return
         now = pygame.time.get_ticks()
         if now - _preview_last_dbg_tick >= 150:  # 150ms 주기 제한
-            print(f"[CharPreview] {msg}")
+            # print(f"[CharPreview] {msg}")
             _preview_last_dbg_tick = now
 
     def reset_preview_state():
@@ -115359,7 +115369,7 @@ def start_game_with_difficulty(character_id, difficulty_mode):
         # 코만도 캐릭터는 기본적으로 코만도암 패시브 아이템 소지
         items.commando_arm_obtained = True
         items.commando_arm_count = max(getattr(items, "commando_arm_count", 0), 1)
-        print("💪 코만도 캐릭터 선택! 코만도암 패시브 아이템 자동 장착!")
+        # print("💪 코만도 캐릭터 선택! 코만도암 패시브 아이템 자동 장착!")
     elif character_id == "blacksmith":
         selected_character_type = "blacksmith"
         # 발토르 캐릭터는 기본적으로 장인의 망치 패시브 아이템 소지
@@ -115428,7 +115438,7 @@ def start_game_with_difficulty(character_id, difficulty_mode):
             passive_items = item_state_adapter.passive_items()
             if not any(item.get("name") == "knee_pads" for item in passive_items):
                 item_state_adapter.append_passive_item(knee_pads_data)
-            print("🦵 메카닉 패들 기본 장비: 킥차져 자동 장착")
+            # print("🦵 메카닉 패들 기본 장비: 킥차져 자동 장착")
         except Exception as e:
             print(f"[WARN] 스매셔 킥차져 초기화 실패: {e}")
 
@@ -115446,7 +115456,7 @@ def start_game_with_difficulty(character_id, difficulty_mode):
                 }
                 item_state_adapter.append_active_item(energy_drink_item)
                 _set_selected_item_index(len(active_items) - 1)
-                print("[SMASHER] Energy drink bonus granted!")
+                # print("[SMASHER] Energy drink bonus granted!")
 
     # 기본 지급 장비를 실제 장착 상태로 반영
     sync_equipped_passive_effects()
@@ -115462,7 +115472,7 @@ def start_game_with_difficulty(character_id, difficulty_mode):
     }
     difficulty_name = difficulty_names.get(difficulty_mode, difficulty_mode)
     # 게임 시작 (스테이지 1부터)
-    print(f"  ! : {character_id}, : {difficulty_mode}")
+    # print(f"  ! : {character_id}, : {difficulty_mode}")
 
     # 필러 UI 활성화
     global _pillar_ui_enabled
@@ -115474,7 +115484,7 @@ def show_developer_stage_select():
     global ai_mode
     ai_mode = "mythic"
     apply_player_paddle_scale(ai_mode)
-    print(":")
+    # print(":")
     stage_buttons = []
     rows = 3
     cols = 5
@@ -117479,13 +117489,13 @@ def show_item_manager_menu():
                 if event.key == pygame.K_p:  # P키
                     global game_paused
                     game_paused = not game_paused
-                    print(f"   : {'ON' if game_paused else 'OFF'}")
+                    # print(f"   : {'ON' if game_paused else 'OFF'}")
                     continue  # 일시정지 토글 후 다른 키 처리 건너뛰기
                 elif event.key == pygame.K_QUOTE:
                     # 입력 디버그 토글
                     global INPUT_DEBUG
                     INPUT_DEBUG = not INPUT_DEBUG
-                    print(f"[INPUT DEBUG] {'ON' if INPUT_DEBUG else 'OFF'}")
+                    # print(f"[INPUT DEBUG] {'ON' if INPUT_DEBUG else 'OFF'}")
                     continue
                 elif event.key == pygame.K_TAB:
                     # 탭 전환 (4개 카테고리)
@@ -117835,12 +117845,12 @@ def apply_selected_items(
         elif item_name == "gravitybelt":
             gravitybelt_obtained = True
             items.gravitybelt_obtained = True
-            print(f" : {gravitybelt_obtained}")
+            # print(f" : {gravitybelt_obtained}")
             # 무중력벨트가 선택되었을 때 즉시 적용
             if "gravitybelt" in selected_passive_items:
                 gravitybelt_obtained = True
                 items.gravitybelt_obtained = True
-                print(f"  : {gravitybelt_obtained}")
+                # print(f"  : {gravitybelt_obtained}")
         elif item_name == "dowsing_pendulum":
             # 다우징펜들럼 아이템 적용
             items.dowsing_pendulum_obtained = True
@@ -117905,8 +117915,8 @@ def apply_selected_items(
         items.dashholder_count = dashholder_count_local
     except Exception:
         pass
-    print(f"  : {selected_active_items}")
-    print(f"  : {selected_passive_items}")
+    # print(f"  : {selected_active_items}")
+    # print(f"  : {selected_passive_items}")
     # 화기류 아이템 적용 (코만도 전용 무기 시스템)
     from item_effects.bazooka import get_bazooka_instance
     from item_effects.ak47 import get_ak47_instance
@@ -117993,7 +118003,7 @@ def apply_selected_items(
     if "gravitybelt" in selected_passive_items:
         gravitybelt_obtained = True
         items.gravitybelt_obtained = True
-        print(f"  : {gravitybelt_obtained}")
+        # print(f"  : {gravitybelt_obtained}")
         # 전역 변수 직접 수정
         globals()['gravitybelt_obtained'] = True
     # 무중력벨트 + 스피드기어 시너지 효과 확인
@@ -118052,7 +118062,7 @@ def apply_selected_items(
                     item_data["enhancement_bonus_pct"] = DT_ENHANCEMENT_BONUSES.get(enh_level, 0)
                 passive_item_list.append(item_data)
                 activated_legendary_items.append(legendary_item.korean_name)
-                print(f"  [{legendary_item.korean_name}]   !")
+                # print(f"  [{legendary_item.korean_name}]   !")
 
             # 전설 아이템 활성화
             # NOTE: 천사의 가호는 개발자모드에서 픽업 시 발동하지 않음
@@ -118076,9 +118086,9 @@ def apply_selected_items(
                 legendary_manager.activate_item(item_name, legendary_game_state)
 
         if activated_legendary_items:
-            print(f"  [{', '.join(activated_legendary_items)}] !")
+            pass  # print(f"  [{', '.join(activated_legendary_items)}] !")
 
-        print(f"  : {selected_legendary_items}")
+        # print(f"  : {selected_legendary_items}")
 
     # 장비 슬롯 상태 기반으로 효과 재정렬 (전설/센서 등은 장착 시에만 활성화)
     sync_equipped_passive_effects()
@@ -119250,7 +119260,7 @@ class _IntroInputTracer:
                 f.write(f"[IntroInputTrace] {self.name} - {reason}\n")
                 for line in self.buf:
                     f.write(line + "\n")
-            print(f"[INTRO DEBUG] trace saved: {path}")
+            # print(f"[INTRO DEBUG] trace saved: {path}")
         except Exception as _:
             pass
 
@@ -119308,7 +119318,7 @@ def play_stage_intro_video(
 
     absolute_path = os.fspath(video_path)
     if not os.path.isfile(absolute_path):
-        print(f"[StageIntro] Video not found: {absolute_path}")
+        # print(f"[StageIntro] Video not found: {absolute_path}")
         return False, None
 
     if not ensure_cv2_loaded():
@@ -119323,7 +119333,7 @@ def play_stage_intro_video(
 
     cap = cv2.VideoCapture(absolute_path)
     if not cap.isOpened():
-        print(f"[StageIntro] Failed to open video: {absolute_path}")
+        # print(f"[StageIntro] Failed to open video: {absolute_path}")
         return False, None
 
     fps = cap.get(cv2.CAP_PROP_FPS)
@@ -119511,7 +119521,7 @@ def complete_stage_intro_transition(hold_ms: int = INTRO_TRANSITION_HOLD_MS) -> 
         # 키/마우스 다운/업 이벤트를 함께 정리해 선입력 잔류 제거
         pygame.event.clear([pygame.KEYDOWN, pygame.KEYUP, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP])
         try:
-            print(f"[INTRO DEBUG] transition cleared (hold={hold_ms})")
+            pass  # print(f"[INTRO DEBUG] transition cleared (hold={hold_ms})")
         except Exception:
             pass
         return
@@ -119535,7 +119545,7 @@ def complete_stage_intro_transition(hold_ms: int = INTRO_TRANSITION_HOLD_MS) -> 
     # 페이드 종료 시에도 한 번 더 정리 (업/다운 쌍이 같은 프레임에 들어온 경우 대비)
     pygame.event.clear([pygame.KEYDOWN, pygame.KEYUP, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP])
     try:
-        print(f"[INTRO DEBUG] transition cleared (hold={hold_ms})")
+        pass  # print(f"[INTRO DEBUG] transition cleared (hold={hold_ms})")
     except Exception:
         pass
 
@@ -120494,7 +120504,7 @@ def show_stage8_boss_dialogue():
         aspect_ratio = boss_portrait.get_width() / boss_portrait.get_height()
         target_width = int(target_height * aspect_ratio)
         boss_portrait = pygame.transform.smoothscale(boss_portrait, (target_width, target_height))
-        print(f"✅ 스테이지 8 보스 초상화 로드 (JRPG): {target_width}x{target_height}")
+        # print(f"✅ 스테이지 8 보스 초상화 로드 (JRPG): {target_width}x{target_height}")
     except Exception as e:
         print(f"⚠️ 스테이지 8 보스 초상화 로드 실패: {e}")
         # 폴백 초상화
@@ -120509,7 +120519,7 @@ def show_stage8_boss_dialogue():
         aspect_ratio = boss_portrait_angry.get_width() / boss_portrait_angry.get_height()
         target_width = int(target_height * aspect_ratio)
         boss_portrait_angry = pygame.transform.smoothscale(boss_portrait_angry, (target_width, target_height))
-        print(f"✅ 스테이지 8 보스 화난 초상화 로드: {target_width}x{target_height}")
+        # print(f"✅ 스테이지 8 보스 화난 초상화 로드: {target_width}x{target_height}")
     except Exception as e:
         print(f"⚠️ 스테이지 8 보스 화난 초상화 로드 실패: {e}")
         # 폴백: 일반 초상화 사용
@@ -120826,7 +120836,7 @@ def show_stage8_boss_dialogue():
 
     # 대화 완료
     stage8_boss_dialogue_shown = True
-    print("✅ 스테이지 8 보스 대화 완료 (JRPG 스타일)")
+    # print("✅ 스테이지 8 보스 대화 완료 (JRPG 스타일)")
     return True
 
 
@@ -120966,7 +120976,7 @@ def spawn_trade_point_star(x, y, source_type="wall"):
     """트레이드 포인트 별 생성 - 새로운 시스템 사용"""
     global trade_point_system
     trade_point_system.spawn_star(x, y, source_type)
-    print(f"    ! (: {source_type})")
+    # print(f"    ! (: {source_type})")
 
 def update_trade_point_stars():
     """트레이드 포인트 별과 파티클 업데이트 - 새로운 시스템 사용"""
@@ -120991,7 +121001,7 @@ def update_trade_point_stars():
         elif current_stage == 4:
             stage4_crows_collected = trade_point_collected
             
-        print(f"   ! : {trade_point_collected}")
+        # print(f"   ! : {trade_point_collected}")
         
         # Runtime skill system: starpoint collected
         on_starpoint_collected(1)
@@ -121034,7 +121044,7 @@ def update_trade_point_stars():
             try:
                 on_starpoint_collected(1)
             except Exception as e:
-                print(f"[RuntimeSkill ERROR] {e}")
+                pass  # print(f"[RuntimeSkill ERROR] {e}")
 
             # 레거시 변수 업데이트 (호환성)
             if current_stage == 3:
@@ -121042,7 +121052,7 @@ def update_trade_point_stars():
             elif current_stage == 4:
                 stage4_crows_collected += 1
             
-            print(f"   ! : {trade_point_collected}")
+            # print(f"   ! : {trade_point_collected}")
             
             # 텍스트 효과 추가
             trade_point_texts.append({
@@ -121278,7 +121288,7 @@ def update_stage3_hearts():
         if heart_rect.colliderect(PLAYER) and heart['life'] > 0:
             # 트레이드 포인트용 카운터만 증가 (스킬 게이지는 증가하지 않음)
             stage3_hearts_collected += 1
-            print(f"  !   : {stage3_hearts_collected}")
+            # print(f"  !   : {stage3_hearts_collected}")
             
             # Star Point +1 텍스트 효과 추가 (세련된 버전)
             stage3_trade_point_texts.append({
@@ -122060,7 +122070,7 @@ def check_deuce_system():
         deuce_losses = 4  # 4:4 상태를 유지
         deuce_goal = 6  # 첫 번째 듀스는 6점
         show_fade_text("DEUCE!")
-        print("듀스!")
+        # print("듀스!")
         return "deuce_started"
     # 듀스 모드에서 5:5 동점이 되면 듀스 재시작 (7점으로)
     if deuce_mode and deuce_wins == 5 and deuce_losses == 5:
@@ -122068,7 +122078,7 @@ def check_deuce_system():
         deuce_losses = 5  # 5:5 상태를 유지
         deuce_goal = 7  # 두 번째 듀스는 7점 (최대 점수)
         show_fade_text("DEUCE!")
-        print("듀스! (7점 목표)")
+        # print("듀스! (7점 목표)")
         #  Stage 1 풍선 이벤트 - 듀스 재시작 시 3점 트리거 리셋 및 예약 취소
         if current_stage == 1 and BALLOON_EVENT_AVAILABLE and stage1_events:
             stage1_events.reset_for_deuce()
@@ -122076,13 +122086,13 @@ def check_deuce_system():
             if balloon_event_delay > 0:
                 balloon_event_delay = 0
                 balloon_event_reserved_score = 0
-                print("-")
-            print("-   3")
+                # print("-")
+            # print("-   3")
         
         #  Stage 5 화염 이벤트 - 듀스 재시작 시 리셋 (타이머는 계속 진행)
         if current_stage == 5 and FIRE_EVENT_AVAILABLE and stage5_events:
             stage5_events.reset_for_deuce()
-            print("-    (  )")
+            # print("-    (  )")
         return "deuce_restart"
     
     # 6:6이 되어도 듀스 없음 - 7점 먼저 내면 승리
@@ -122479,7 +122489,7 @@ def _activate_captured_guard_summon():
     arena_captured_guard_x = -50.0  # 화면 왼쪽에서 시작
     arena_captured_guard_y = 600.0  # 플레이어 진영 근처
     arena_captured_guard_timer = 0.0
-    print(f"[CapturedGuard] 소환 시작! {arena_captured_guard.get('name', '?')}")
+    # print(f"[CapturedGuard] 소환 시작! {arena_captured_guard.get('name', '?')}")
 
 
 def _update_and_draw_captured_guard_summon(screen):
@@ -122518,7 +122528,7 @@ def _update_and_draw_captured_guard_summon(screen):
             arena_captured_guard_active = False
             arena_captured_guard_phase = None
             arena_captured_guard_used = True
-            print("[CapturedGuard] 소환 완료, 1회용 소진")
+            # print("[CapturedGuard] 소환 완료, 1회용 소진")
             return
 
     # 그리기 (내부 좌표계 SCREEN에)
@@ -122570,7 +122580,7 @@ def _trigger_captured_guard_skill():
                 skill = random.choice(skills)
                 if hasattr(skill, 'activate'):
                     skill.activate()
-                    print(f"[CapturedGuard] 스킬 발동: {hero_id}")
+                    # print(f"[CapturedGuard] 스킬 발동: {hero_id}")
                     return
     except Exception as e:
         print(f"[CapturedGuard] 스킬 발동 실패 (guard_system): {e}")
@@ -122583,11 +122593,11 @@ def _trigger_captured_guard_skill():
                 skill = random.choice(hero_skills)
                 if hasattr(skill, 'activate'):
                     skill.activate()
-                    print(f"[CapturedGuard] 스킬 발동 (skill_manager): {hero_id}")
+                    # print(f"[CapturedGuard] 스킬 발동 (skill_manager): {hero_id}")
                     return
     except Exception as e:
         print(f"[CapturedGuard] 스킬 발동 실패 (skill_manager): {e}")
-    print(f"[CapturedGuard] 스킬 발동 불가 - 스킬 인스턴스 없음: {hero_id}")
+    # print(f"[CapturedGuard] 스킬 발동 불가 - 스킬 인스턴스 없음: {hero_id}")
 
 
 # ============================================================
@@ -122667,7 +122677,7 @@ def _fire_capture_net():
             _capture_grab_sound.play()
         except Exception:
             pass
-    print(f"[CAPTURE] 그물 발사! 잔여 {arena_capture_shots_left}발")
+    # print(f"[CAPTURE] 그물 발사! 잔여 {arena_capture_shots_left}발")
 
 def _draw_arena_capture_speech(screen, line, hero_x, hero_y, elapsed, success=True):
     """포획 결과 대사 말풍선 그리기 (캐릭터 위치 기준 말풍선)"""
@@ -122986,13 +122996,13 @@ def _update_arena_capture_phase(screen):
                             _capture_net_sound.play()
                         except Exception:
                             pass
-                    print(f"[CAPTURE] 그물 펼침 → 포획 성공! {top_name}")
+                    # print(f"[CAPTURE] 그물 펼침 → 포획 성공! {top_name}")
                 else:
-                    print(f"[CAPTURE] 그물 펼침 → 미스! 잔여 {arena_capture_shots_left}발")
+                    pass  # print(f"[CAPTURE] 그물 펼침 → 미스! 잔여 {arena_capture_shots_left}발")
             elif arena_capture_net_y < -40:
                 arena_capture_net_active = False
                 arena_capture_net_rope = []
-                print(f"[CAPTURE] 화면 밖 미스! 잔여 {arena_capture_shots_left}발")
+                # print(f"[CAPTURE] 화면 밖 미스! 잔여 {arena_capture_shots_left}발")
 
         # ── 펼쳐진 그물 업데이트 ──
         if arena_capture_deployed_net is not None:
@@ -123013,7 +123023,7 @@ def _update_arena_capture_phase(screen):
                         _cap_hero_id = top_hero.get("id", "")
                         _cap_lines = CAPTURE_SUCCESS_LINES.get(_cap_hero_id, ["크윽... 이렇게 끝인가...", "억울하다..."])
                         arena_capture_speech_line = _cap_random.choice(_cap_lines)
-                        print(f"[CAPTURE] 대사 설정: '{arena_capture_speech_line}' (hero={_cap_hero_id})")
+                        # print(f"[CAPTURE] 대사 설정: '{arena_capture_speech_line}' (hero={_cap_hero_id})")
                     except Exception as e:
                         print(f"[CAPTURE] 대사 설정 오류: {e}")
                         arena_capture_speech_line = "크윽... 이렇게 끝인가..."
@@ -123025,8 +123035,8 @@ def _update_arena_capture_phase(screen):
                         "rect": pygame.Rect(dnet["rect"]),
                         "shape": list(dnet["shape"]),
                     }
-                    print(f"[CAPTURE-DEBUG] ▶ RESULT 진입! pull_start=({dnet['rect'].centerx},{dnet['rect'].centery}) BOSS=({BOSS.centerx},{BOSS.centery}) PLAYER=({PLAYER.centerx},{PLAYER.centery})")
-                    print(f"[CAPTURE-DEBUG]   top_hero={arena_top_hero} renderer={arena_hero_paddle_renderer is not None}")
+                    # print(f"[CAPTURE-DEBUG] ▶ RESULT 진입! pull_start=({dnet['rect'].centerx},{dnet['rect'].centery}) BOSS=({BOSS.centerx},{BOSS.centery}) PLAYER=({PLAYER.centerx},{PLAYER.centery})")
+                    # print(f"[CAPTURE-DEBUG]   top_hero={arena_top_hero} renderer={arena_hero_paddle_renderer is not None}")
                     arena_capture_deployed_net = None
             else:
                 # 미스 → 그물 용해 후 계속
@@ -123051,9 +123061,9 @@ def _update_arena_capture_phase(screen):
                     if _cap_random.random() < 0.5:
                         _cap_lines = CAPTURE_DODGE_LINES.get(_cap_hero_id, ["흥, 내가 쉽게 잡힐 것 같으냐.", "놓쳤군!"])
                         arena_capture_speech_line = _cap_random.choice(_cap_lines)
-                        print(f"[CAPTURE] 회피 대사: '{arena_capture_speech_line}' (hero={_cap_hero_id})")
+                        # print(f"[CAPTURE] 회피 대사: '{arena_capture_speech_line}' (hero={_cap_hero_id})")
                     else:
-                        print(f"[CAPTURE] 회피 대사 50% 미발동 (hero={_cap_hero_id})")
+                        pass  # print(f"[CAPTURE] 회피 대사 50% 미발동 (hero={_cap_hero_id})")
                 except Exception as e:
                     print(f"[CAPTURE] 회피 대사 오류: {e}")
                 print(f"[CAPTURE] 포획 실패! {top_name} 도주")
@@ -123565,7 +123575,7 @@ def _update_arena_capture_phase(screen):
         if animated_bg_stage30 is not None:
             animated_bg_stage30.judgment_cooldown = _cap_random.uniform(50.0, 60.0)
         arena_battle_result = True
-        print(f"[CAPTURE] 포획 페이즈 완료. 결과={arena_capture_result_flag}")
+        # print(f"[CAPTURE] 포획 페이즈 완료. 결과={arena_capture_result_flag}")
 
 
 def _draw_capture_persistent_rope(screen, px, py, tx, ty, timer):
@@ -124769,12 +124779,12 @@ def reset_round(is_stage_start=False):
     # 단, 보조 보스(배슬)가 살아있을 때만 발동 (배슬 전용 스킬)
     if current_stage == 6 and not is_stage_start and nemesis_sub_boss_skill_triggered and nemesis_sub_boss_alive:
         if activate_nemesis_sub_boss_skill():
-            print("[Stage5 네메시스] 보조 보스 전기 에너지 스킬 발동! (3점 획득 후)")
+            # print("[Stage5 네메시스] 보조 보스 전기 에너지 스킬 발동! (3점 획득 후)")
             nemesis_sub_boss_skill_triggered = False  # 발동 후 플래그 리셋
     elif current_stage == 6 and not is_stage_start and nemesis_sub_boss_skill_triggered and not nemesis_sub_boss_alive:
         # 배슬이 파괴된 상태에서 스킬 예약이 있으면 취소
         nemesis_sub_boss_skill_triggered = False
-        print("[Stage5 네메시스] 보조 보스 파괴됨 - 전기 스킬 예약 취소")
+        # print("[Stage5 네메시스] 보조 보스 파괴됨 - 전기 스킬 예약 취소")
 
     # 스테이지 6 (네메시스) 인터셉터 초기화 - 스테이지 시작 시 난이도별 소환
     global interceptors, interceptor_launch_time, interceptor_cooldown
@@ -124953,7 +124963,7 @@ def reset_round(is_stage_start=False):
             stop_supply_radio_loop(force=True)
             supply_drop_state.hold_time = 0
             try:
-                print(f"[물자보급] 라운드 전환 중 대기 상태 유지: {supply_drop_state.timer}프레임 후 출현 예정")
+                pass  # print(f"[물자보급] 라운드 전환 중 대기 상태 유지: {supply_drop_state.timer}프레임 후 출현 예정")
             except:
                 pass
         else:
@@ -125063,7 +125073,7 @@ def reset_round(is_stage_start=False):
     if current_stage == 2 and animated_bg_stage2:
         if animated_bg_stage2.start_boss_rage_animation():
             animated_bg_stage2.cry_sound = SOUND_CRY  # cry.wav 사운드 전달
-            print(":    !")
+            # print(":    !")
     
     # 공 리셋
     ball_vel = [0, 0]
@@ -125084,7 +125094,7 @@ def reset_round(is_stage_start=False):
     global _judgment_wind_sound_playing
     if current_stage == 30 and animated_bg_stage30 is not None:
         if animated_bg_stage30.is_judgment_active():
-            print(f"[신의심판] 라운드 전환으로 강제 초기화 (페이즈: {animated_bg_stage30.get_judgment_phase_name()})")
+            # print(f"[신의심판] 라운드 전환으로 강제 초기화 (페이즈: {animated_bg_stage30.get_judgment_phase_name()})")
             animated_bg_stage30.reset_judgment()
         # 지진 사운드 정지 (judgment 활성 여부와 무관하게 항상 정지)
         if _judgment_quake_sound_playing:
@@ -125313,10 +125323,10 @@ def reset_round(is_stage_start=False):
         weather_result = check_weather_event_on_round_start()
         if weather_result["started"]:
             if DEBUG_WEATHER:
-                print(f"🌪️ 날씨 이벤트 시작: {weather_result['message']}")
+                pass  # print(f"🌪️ 날씨 이벤트 시작: {weather_result['message']}")
         elif weather_result["ended"]:
             if DEBUG_WEATHER:
-                print(f"☀️ 날씨 이벤트 종료: {weather_result['message']}")
+                pass  # print(f"☀️ 날씨 이벤트 종료: {weather_result['message']}")
 
     # 점수에 따라 서브 텍스트 보여줄지 결정
     # 스테이지 첫 시작 시 (is_stage_start=True) 또는 게임 종료 조건 충족 시 서브 텍스트 생략
@@ -125401,7 +125411,7 @@ def reset_round(is_stage_start=False):
         except Exception:
             pass
         if STAGE7_DEBUG.get('GAUGE', False):
-            print(f"[Stage7Gauge][ResetRound] Restore persistent gauge={boss_special_gauge}")
+            pass  # print(f"[Stage7Gauge][ResetRound] Restore persistent gauge={boss_special_gauge}")
 
     #  상모돌리기 상태 초기화 (라운드 시작 시)
     whip_active = False
@@ -125507,7 +125517,7 @@ def choose_server(show_text=True):
         if 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
             is_player_serve = False  # 대쉬 연습 시 보스가 서브
             if DEBUG_TUTORIAL:
-                # print("튜토리얼: 대쉬 연습 - 보스가 서브합니다")
+                pass  # print("튜토리얼: 대쉬 연습 - 보스가 서브합니다")
         else:
             is_player_serve = True  # 일반 튜토리얼은 플레이어 서브
     elif current_stage == 6:
@@ -125523,7 +125533,7 @@ def choose_server(show_text=True):
     global stage3_tail_whip_cooldown
     if current_stage == 3 and is_player_serve:
         stage3_tail_whip_cooldown = 300  # 5초 (60FPS * 5)
-        print("Stage 3:   -   5")
+        # print("Stage 3:   -   5")
     
     is_waiting_for_serve = True
     waiting_start_time = pygame.time.get_ticks()
@@ -125540,7 +125550,7 @@ def choose_server(show_text=True):
         kuromi_spit_trail_positions = []
         kuromi_spit_trail_color_phase = 0
         if DEBUG_BOSS:
-            print("Stage 3: 쿠로미 궤적 이펙트 초기화")
+            pass  # print("Stage 3: 쿠로미 궤적 이펙트 초기화")
     
     # 전설 아이템 라운드 효과 초기화 (물방울 파티클 등)
     legendary_manager = get_legendary_manager()
@@ -125852,7 +125862,7 @@ def calculate_bounce(paddle):
         # 80% 확률로 방어 (20% 확률로 통과)
         if random.random() < SPEED_DEFENSE_BLOCK_RATE:
             # 방어 성공 - 정상 속도로 반사 (스피드 디펜스는 막을 확률만 있고 속도는 그대로)
-            print(f"🛡️ 스피드 디펜스 방어 성공! (80% 확률)")
+            # print(f"🛡️ 스피드 디펜스 방어 성공! (80% 확률)")
             # 방어 효과음
             try:
                 play_sound_with_volume(SOUND_DEFENSE_BLOCK)
@@ -125932,7 +125942,7 @@ def calculate_bounce(paddle):
                     ball_vel[1] *= speed_ratio
                     # DEBUG: 원속 복원 로그는 DEBUG_BOUNCE_SPEED=1일 때만 출력
                     if os.environ.get("DEBUG_BOUNCE_SPEED", "0") == "1":
-                        print(f"   !   ! ({current_speed:.1f} → {original_speed:.1f})")
+                        pass  # print(f"   !   ! ({current_speed:.1f} → {original_speed:.1f})")
                 # 속도 복원 후 플래그 제거
                 del smoke_zone["original_speed"]
                 del smoke_zone["affecting_ball"]
@@ -125957,7 +125967,7 @@ def calculate_bounce(paddle):
                     if random.random() < 0.5:
                         # 스턴공 발동 - 공속 50% 증가 (나중에 적용하기 위해 플래그만 설정)
                         ragnarok_speed_boost_active = True
-                        print(f"⚡ 라그나로크 스턴공 발동 준비! (calculate_bounce)")
+                        # print(f"⚡ 라그나로크 스턴공 발동 준비! (calculate_bounce)")
                     else:
                         print(f"[라그나로크] 스턴공 발동 실패 (50% 확률)")
 
@@ -126130,7 +126140,7 @@ def calculate_bounce(paddle):
             drive_activated = True  #  드라이브 발동 표시
             trigger_smasher_contact_animation(BALL.centerx - paddle.centerx)
             special_gauge -= 150  #  드라이브 발동 시 150 게이지 소모
-            print(f"   !  ! ( 150 ,  : {special_gauge})")
+            # print(f"   !  ! ( 150 ,  : {special_gauge})")
             play_sound_with_volume(SOUND_DRIVE)  # 플레이어 드라이브 발동 효과음
             # 스매셔 스킬 쿨타임 적용
             trigger_smasher_skill_cooldown("drive")
@@ -126146,18 +126156,18 @@ def calculate_bounce(paddle):
                     if tutorial_left_drive_count < 2:
                         tutorial_left_drive_count += 1
                         if DEBUG_TUTORIAL:
-                            # print(f"튜토리얼: 왼쪽 드라이브 성공 {tutorial_left_drive_count}/2")
+                            pass  # print(f"튜토리얼: 왼쪽 드라이브 성공 {tutorial_left_drive_count}/2")
                 elif perfect_direction == 1:  # 오른쪽 드라이브  
                     if tutorial_right_drive_count < 2:
                         tutorial_right_drive_count += 1
                         if DEBUG_TUTORIAL:
-                            # print(f"튜토리얼: 오른쪽 드라이브 성공 {tutorial_right_drive_count}/2")
+                            pass  # print(f"튜토리얼: 오른쪽 드라이브 성공 {tutorial_right_drive_count}/2")
                 
                 # 총 드라이브 수 업데이트
                 tutorial_drive_count = tutorial_left_drive_count + tutorial_right_drive_count
                 
                 if DEBUG_TUTORIAL:
-                    # print(f"튜토리얼: 드라이브 성공 {tutorial_drive_count}/4 (왼쪽: {tutorial_left_drive_count}/2, 오른쪽: {tutorial_right_drive_count}/2)")
+                    pass  # print(f"튜토리얼: 드라이브 성공 {tutorial_drive_count}/4 (왼쪽: {tutorial_left_drive_count}/2, 오른쪽: {tutorial_right_drive_count}/2)")
                 
                 # 성공 피드백 표시
                 if tutorial_drive_count == 1:
@@ -126181,7 +126191,7 @@ def calculate_bounce(paddle):
                         ball_vel[0] = 0
                         ball_vel[1] = 0
                         if DEBUG_TUTORIAL:
-                            # print("튜토리얼: 드라이브 4회 완료! 축하 대화 표시")
+                            pass  # print("튜토리얼: 드라이브 4회 완료! 축하 대화 표시")
                         
                         # 대화 시작 전에 게임 화면 그리기
                         draw_field()
@@ -126190,30 +126200,30 @@ def calculate_bounce(paddle):
                         
                         # 드라이브 완료 대화 표시
                         dialogue_result = show_tutorial_drive_completion_dialogue()
-                        print(f"🔍 DEBUG: dialogue_result = {dialogue_result}")
+                        # print(f"🔍 DEBUG: dialogue_result = {dialogue_result}")
                         
                         # 대화 완료 후 Chapter 4로 전환
                         if dialogue_result == "proceed_to_chapter4" or dialogue_result == "skip_to_chapter4":
-                            print("📚 드라이브 완료 대화 후 Chapter 4로 전환")
+                            # print("📚 드라이브 완료 대화 후 Chapter 4로 전환")
                             global tutorial_current_chapter
                             tutorial_current_chapter = 4
-                            print(f"🔍 DEBUG: tutorial_current_chapter 변경됨 = {tutorial_current_chapter}")
+                            # print(f"🔍 DEBUG: tutorial_current_chapter 변경됨 = {tutorial_current_chapter}")
                             # 챕터별 임시 게이지 오버라이드 해제 (Chapter 4는 500 고정)
                             tutorial_chapter1_max_gauge = None
                             tutorial_chapter2_max_gauge = None
                             tutorial_drive_chapter_max_gauge = None
-                            print(f"🎮 Chapter 4: 게이지 오버라이드 해제 완료 - drive_gauge: {tutorial_drive_chapter_max_gauge}")
+                            # print(f"🎮 Chapter 4: 게이지 오버라이드 해제 완료 - drive_gauge: {tutorial_drive_chapter_max_gauge}")
                             
                             # Chapter 4 타이틀 표시
                             show_chapter_title(4, "POWER SMASHING", "파워 스매싱")
                             
                             # Chapter 4 초기화: 최대 게이지를 500으로 설정
                             special_gauge_max = get_max_gauge()  # 500 반환
-                            print(f"🎮 Chapter 4 시작: 최대 게이지 {special_gauge_max}로 설정")
+                            # print(f"🎮 Chapter 4 시작: 최대 게이지 {special_gauge_max}로 설정")
                             
                             # 게이지 업데이트 강제 적용
                             game_state.special_gauge_max = special_gauge_max
-                            print(f"🔍 DEBUG: game_state.special_gauge_max도 {game_state.special_gauge_max}로 업데이트")
+                            # print(f"🔍 DEBUG: game_state.special_gauge_max도 {game_state.special_gauge_max}로 업데이트")
                             
                             # Chapter 4 파워스매싱 튜토리얼 초기화
                             tutorial_power_practice_shown = False
@@ -126233,11 +126243,11 @@ def calculate_bounce(paddle):
                             chapter4_power_helper_timer = 0  # Chapter 4 파워스매싱 도우미 타이머 초기화
                             
                             # Chapter 4 전환 직후 디버그 출력
-                            print(f"[CHAPTER 4 INIT] Chapter 4 initialized successfully!")
-                            print(f"[CHAPTER 4 INIT] tutorial_needs_power_practice: {tutorial_needs_power_practice}")
-                            print(f"[CHAPTER 4 INIT] tutorial_power_practice_shown: {tutorial_power_practice_shown}")
-                            print(f"[CHAPTER 4 INIT] tutorial_current_chapter: {tutorial_current_chapter}")
-                            print(f"[CHAPTER 4 INIT] special_gauge_max: {special_gauge_max}")
+                            # print(f"[CHAPTER 4 INIT] Chapter 4 initialized successfully!")
+                            # print(f"[CHAPTER 4 INIT] tutorial_needs_power_practice: {tutorial_needs_power_practice}")
+                            # print(f"[CHAPTER 4 INIT] tutorial_power_practice_shown: {tutorial_power_practice_shown}")
+                            # print(f"[CHAPTER 4 INIT] tutorial_current_chapter: {tutorial_current_chapter}")
+                            # print(f"[CHAPTER 4 INIT] special_gauge_max: {special_gauge_max}")
                             
                             # 드라이브 카운터 비활성화
                             tutorial_drive_counter_active = False
@@ -126246,7 +126256,7 @@ def calculate_bounce(paddle):
                             # Chapter 4 대화를 즉시 표시 (타이틀 후 바로)
                             # 먼저 게임 화면을 그려서 검은 화면이 아닌 게임 화면 위에 대화가 표시되도록 함
                             if DEBUG_TUTORIAL:
-                                # print("튜토리얼: Chapter 4 - POWER SMASHING 대화 즉시 시작 (handle_player)")
+                                pass  # print("튜토리얼: Chapter 4 - POWER SMASHING 대화 즉시 시작 (handle_player)")
                             draw_field()
                             draw_objects()
                             pygame.display.flip()
@@ -126259,7 +126269,7 @@ def calculate_bounce(paddle):
                                 chapter4_serve_reminder_active = True  # Chapter 4 서브 알림창 활성화 (변수명 수정)
                                 chapter4_serve_reminder_timer = int(1.5 * FPS)  # 1.5초간 표시
                                 if DEBUG_TUTORIAL:
-                                    # print("튜토리얼: 파워스매싱 연습 대화 완료, 서브 알림 활성화 (handle_player)")
+                                    pass  # print("튜토리얼: 파워스매싱 연습 대화 완료, 서브 알림 활성화 (handle_player)")
                         
                         # 공 속도 복원
                         if tutorial_saved_ball_vel:
@@ -126277,7 +126287,7 @@ def calculate_bounce(paddle):
             # 최대 커브량 제한 (너무 과도하지 않게)
             ball_spin_strength = min(spin_cap, ball_spin_strength)
             ball_spin_direction = perfect_direction
-            print(f"   - : {speed:.2f}, : {base_spin:.3f}, : {additional_spin:.3f},  : {ball_spin_strength:.3f}")
+            # print(f"   - : {speed:.2f}, : {base_spin:.3f}, : {additional_spin:.3f},  : {ball_spin_strength:.3f}")
             drive_ball_active = True   # 드라이브 공 상태 활성화 (연두색)
             drive_hit_boss = False     # 드라이브 상태 초기화
             #  드라이브 별빛가루 파티클 생성
@@ -126371,7 +126381,7 @@ def calculate_bounce(paddle):
             ball_spin_strength = base_spin + speed_bonus_multiplier
             spin_cap = 0.6
             ball_spin_strength = min(spin_cap, ball_spin_strength)  # 최대치 제한
-            print(f"  +   : +{additional_speed:.2f} ( : {drive_speed_increase:.2f},  : {ball_spin_strength:.3f})")
+            # print(f"  +   : +{additional_speed:.2f} ( : {drive_speed_increase:.2f},  : {ball_spin_strength:.3f})")
         elif abs(rel_x) > 0.75:  # 스매시 zone
             smash_min = 0.015 * junior_mult * arena_accel_mult  # 1.5% → 2.4% (투기장)
             smash_max = 0.05 * junior_mult * arena_accel_mult   # 5% → 8% (투기장)
@@ -126385,7 +126395,7 @@ def calculate_bounce(paddle):
             ball_spin_strength = base_spin + speed_bonus_multiplier
             spin_cap = 0.6
             ball_spin_strength = min(spin_cap, ball_spin_strength)  # 최대치 제한
-            print(f"  +   : +{additional_speed:.2f} ( : {drive_speed_increase:.2f},  : {ball_spin_strength:.3f})")
+            # print(f"  +   : +{additional_speed:.2f} ( : {drive_speed_increase:.2f},  : {ball_spin_strength:.3f})")
             curve = random.uniform(-5, 5)
             vector = vector.rotate(curve)
             ball_angle += random.uniform(3, 7) * (-1 if rel_x < 0 else 1)
@@ -126469,7 +126479,7 @@ def calculate_bounce(paddle):
         ball_vel[0] *= speed_boost_multiplier
         ball_vel[1] *= speed_boost_multiplier
         new_ball_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-        print(f"⚡ 라그나로크 스턴공 발동! 속도: {new_ball_speed:.1f} (50% 증가)")
+        # print(f"⚡ 라그나로크 스턴공 발동! 속도: {new_ball_speed:.1f} (50% 증가)")
         # 사운드 효과 재생
         try:
             play_ragnarok_shot_sound()
@@ -126494,7 +126504,7 @@ def calculate_bounce(paddle):
                 game_vars.ball.vel[1] = ball_vel[1]
             except Exception:
                 pass
-            print(f"[DRONE] 보스 반격(보정): {current_speed:.2f} -> {restore_speed:.2f}, vel=({ball_vel[0]:.2f},{ball_vel[1]:.2f})")
+            # print(f"[DRONE] 보스 반격(보정): {current_speed:.2f} -> {restore_speed:.2f}, vel=({ball_vel[0]:.2f},{ball_vel[1]:.2f})")
         suicide_drone_ball_boost_active = False
         suicide_drone_ball_speed_backup = 0.0
 
@@ -126599,7 +126609,7 @@ def deflect_fragment_to_boss(fragment):
             bg_fragment['vy'] = dir_y * fragment_speed
             # 파편이 반사되었음을 표시 (보스 피격 감지용)
             bg_fragment['deflected'] = True
-            print(f"파편 반사 완료: 속도 ({bg_fragment['vx']:.1f}, {bg_fragment['vy']:.1f})")
+            # print(f"파편 반사 완료: 속도 ({bg_fragment['vx']:.1f}, {bg_fragment['vy']:.1f})")
             break
 
 def update_fireball_explosion_particles():
@@ -127021,7 +127031,7 @@ def handle_ball():
             globals()['magnetic_projectile_x'] = float(BOSS.centerx)
             globals()['magnetic_projectile_y'] = float(BOSS.centery)
             globals()['magnetic_projectile_radius'] = stage4_magnetic_radius
-            print(f"⚡ 자기장 발사! 플레이어를 향해 날아갑니다!")
+            # print(f"⚡ 자기장 발사! 플레이어를 향해 날아갑니다!")
             recover_speed = max(player_last_shot_speed, BALL_BASE_SPEED)
             direction = pygame.math.Vector2(ball_vel)
             if direction.length() == 0:
@@ -127098,9 +127108,9 @@ def handle_ball():
         if magnetic_projectile_y > HEIGHT + magnetic_projectile_radius:
             globals()['magnetic_projectile_active'] = False
             if enraged_boss_active:
-                # print(f"🔥⚡ [광폭화] 유도 자기장 발사체 화면 밖으로 사라짐")
+                pass  # print(f"🔥⚡ [광폭화] 유도 자기장 발사체 화면 밖으로 사라짐")
             else:
-                print(f"⚡ 자기장 발사체 화면 밖으로 사라짐")
+                pass  # print(f"⚡ 자기장 발사체 화면 밖으로 사라짐")
     #  서브 대기
     if is_waiting_for_serve:
         if is_player_serve:
@@ -127129,7 +127139,7 @@ def handle_ball():
             explosion_speed = new_speed * speed_multiplier
             ball_vel[0] = math.cos(angle) * explosion_speed
             ball_vel[1] = math.sin(angle) * explosion_speed
-            print(f"  ! : {new_speed:.1f} → : {explosion_speed:.1f} ({speed_multiplier:.1f}), : {math.degrees(angle):.1f}°")
+            # print(f"  ! : {new_speed:.1f} → : {explosion_speed:.1f} ({speed_multiplier:.1f}), : {math.degrees(angle):.1f}°")
             # ️ 양자역학 효과 발동 - 공이 여러 양자 상태로 분열
             # quantum_explosion_active = True  # 미사용 변수 주석 처리
             # quantum_explosion_time = current_time  # 미사용 변수 주석 처리
@@ -127171,7 +127181,7 @@ def handle_ball():
                     quantum_balls[i]['entangled_with'] = i + 1
                     quantum_balls[i+1]['entangled_with'] = i
                     quantum_balls[i+1]['spin'] = 'down' if quantum_balls[i]['spin'] == 'up' else 'up'
-            print(f"  ! {quantum_superposition_count}")
+            # print(f"  ! {quantum_superposition_count}")
             # 폭발 효과를 위한 추가 파티클 생성
             for ghost in mega_smashing_ghosts:
                 ghost['scatter_vx'] = random.uniform(-20, 20)
@@ -127276,7 +127286,7 @@ def update_quantum_effects():
         quantum_wave_function.clear()
         quantum_entanglement_pairs.clear()
         quantum_collapse_timer = 0
-        print("-")
+        # print("-")
         return
     
     # 양자 붕괴 타이머 감소
@@ -127342,7 +127352,7 @@ def update_quantum_effects():
                     ball_vel[0] = max_prob_ball['vx']
                     ball_vel[1] = max_prob_ball['vy']
                     quantum_measurement_made = True
-                    print(f"  !")
+                    # print(f"  !")
             # 모든 양자 공 붕괴
             qball['collapsed'] = True
     
@@ -127350,7 +127360,7 @@ def update_quantum_effects():
     if all(qball['collapsed'] for qball in quantum_balls):
         quantum_explosion_active = False
         quantum_balls.clear()
-        print("-")
+        # print("-")
 
 def render_mega_smashing_effects():
     """고스트샷 전용 이펙트 렌더링 - 원한의 귀신들"""
@@ -127696,7 +127706,7 @@ def handle_ball():
             globals()['magnetic_projectile_x'] = float(BOSS.centerx)
             globals()['magnetic_projectile_y'] = float(BOSS.centery)
             globals()['magnetic_projectile_radius'] = stage4_magnetic_radius
-            print(f"⚡ 자기장 발사! 플레이어를 향해 날아갑니다!")
+            # print(f"⚡ 자기장 발사! 플레이어를 향해 날아갑니다!")
             recover_speed = max(player_last_shot_speed, BALL_BASE_SPEED)
             direction = pygame.math.Vector2(ball_vel)
             if direction.length() == 0:
@@ -127773,9 +127783,9 @@ def handle_ball():
         if magnetic_projectile_y > HEIGHT + magnetic_projectile_radius:
             globals()['magnetic_projectile_active'] = False
             if enraged_boss_active:
-                # print(f"🔥⚡ [광폭화] 유도 자기장 발사체 화면 밖으로 사라짐")
+                pass  # print(f"🔥⚡ [광폭화] 유도 자기장 발사체 화면 밖으로 사라짐")
             else:
-                print(f"⚡ 자기장 발사체 화면 밖으로 사라짐")
+                pass  # print(f"⚡ 자기장 발사체 화면 밖으로 사라짐")
     #  서브 대기
     if is_waiting_for_serve:
         if is_player_serve:
@@ -127834,7 +127844,7 @@ def handle_ball():
                 if is_player_in_smoke():
                     # 화염탄은 사라지지만 피해 없음
                     create_fireball_explosion(pos[0], pos[1])  # 시각 효과는 표시
-                    print("!")
+                    # print("!")
                     # 홍련 게이지 충전도 차단
                     continue  # 화염탄 제거
                 else:
@@ -127843,7 +127853,7 @@ def handle_ball():
                         if try_apply_player_stun(0.3, source="stage5_fireball", knockback_scaled=True) > 0:
                             player_knockback_vel = apply_knockback_resist(_scale_knockback(random.choice([-12, 12])))
                     else:
-                        print("!")
+                        pass  # print("!")
                     #  화염탄 폭발 이펙트 생성
                     create_fireball_explosion(pos[0], pos[1])
                     #  홍련 게이지 충전
@@ -127857,9 +127867,9 @@ def handle_ball():
                 # Stage5ChineseMarket에 충돌 애니메이션 추가
                 if animated_bg_stage5 is not None and hasattr(animated_bg_stage5, 'add_fire_impact'):
                     animated_bg_stage5.add_fire_impact(pos[0], pos[1])
-                    print(f"   ! : ({pos[0]}, {pos[1]})")
+                    # print(f"   ! : ({pos[0]}, {pos[1]})")
                 else:
-                    print("animated_bg_stage5 None add_fire_impact  !")
+                    pass  # print("animated_bg_stage5 None add_fire_impact  !")
                 create_fireball_explosion(pos[0], pos[1])
                 continue  # 화염탄 제거
                 
@@ -127952,7 +127962,7 @@ def handle_ball():
                 if try_apply_player_stun(0.3, source="flame_trail", knockback_scaled=True) > 0:
                     player_knockback_vel = apply_knockback_resist(_scale_knockback(random.choice([-24, 24])))
             else:
-                print("!")
+                pass  # print("!")
             #  대규모 화염 폭발 이벤트
             explosion_x = PLAYER.centerx
             explosion_y = PLAYER.top
@@ -128183,7 +128193,8 @@ def handle_ball():
                 vertical_force = vertical_pull
         # 디버깅 출력 (가끔씩만)
         if time_now % 120 == 0:  # 2초마다
-            print(f"  :  {elapsed_time:.2f}s,  {horizontal_force:.3f},  {vertical_force:.3f}")
+            # print(f"  :  {elapsed_time:.2f}s,  {horizontal_force:.3f},  {vertical_force:.3f}")
+            pass
     # --- 드라이브 이동 ---
     if drive_active:
         ball_vel[0] += drive_spin_speed
@@ -128217,103 +128228,103 @@ def handle_ball():
     #         f"HEIGHT*0.75: {HEIGHT * 0.75:.1f}"
     #     )
     # 공이 화면의 절반 이하(플레이어와 중간지점의 가운데)로 내려왔을 때만 탐지
-    if (
-        sensor_equipped
-        and danger_sensor_enabled
-        and danger_sensor_auto_dash_enabled  # 자동 대쉬 옵션이 켜져 있을 때만 작동
-        and not umbrella_blocks_sensor
-        and ball_vel[1] > 0
-        and BALL.centery > HEIGHT * 0.75
-    ):  # 공이 아래로 내려오고 화면 3/4 지점 이하
-        current_time = pygame.time.get_ticks()
-        # 쿨타임 체크 (패시브 롤 옵션 기반 13~20초)
-        if not hasattr(handle_ball, 'danger_sensor_last_activation_time'):
-            handle_ball.danger_sensor_last_activation_time = 0
-        cooldown_ms = danger_sensor_cooldown_ms
-        # 쿨타임 중이면 위험감지센서만 비활성화하고 공 이동은 계속
-        sensor_can_activate = current_time - handle_ball.danger_sensor_last_activation_time >= cooldown_ms
-        # 공의 예상 위치 계산
-        time_to_reach_player = (PLAYER.centery - BALL.centery) / ball_vel[1] if ball_vel[1] > 0 else 0
-        if time_to_reach_player > 0 and time_to_reach_player < 60:  # 1초 이내에 도달할 예정
-            predicted_x = BALL.centerx + ball_vel[0] * time_to_reach_player
-            # 플레이어가 현재 속도로 이동했을 때 도달할 수 있는지 계산
-            player_speed = 8  # 플레이어 기본 이동 속도
-            player_max_distance = player_speed * time_to_reach_player  # 플레이어 최대 이동 거리
-            distance_to_predicted = abs(predicted_x - PLAYER.centerx)
-            # 디버그 로그 비활성화 (홍련 뱀 디버그 로그 가림 문제)
-            # print(f"  - time_to_reach: {time_to_reach_player:.1f}, predicted_x: {predicted_x:.1f}, distance: {distance_to_predicted:.1f}, max_distance: {player_max_distance:.1f}")
-            # 도달할 수 없는 상황이면 자동 대쉬 (쿨타임 체크 포함)
-            if distance_to_predicted > player_max_distance + PADDLE_WIDTH // 2 and sensor_can_activate:
-                # 대쉬 방향 결정
-                dash_direction = 1 if predicted_x > PLAYER.centerx else -1
-                # 디버그 로그 비활성화
-                # print(f"   - charges: {rolling_charges}, active: {rolling_active}, waiting: {is_waiting_for_serve}")
-                # 대쉬 실행 - 위험감지센서는 게이지와 토큰 소모 없이 사용
-                # 대쉬 감속 구간 캔슬: rolling_active 중이어도 감속 후반부면 연속 대쉬 허용
-                _can_cancel_sensor = not rolling_active or (rolling_active and rolling_timer <= DASH_CANCEL_THRESHOLD)
-                # 스턴/감전 상태에서는 자동 대쉬 불가
-                _player_stun_blocked_sensor = player_stunned_timer > 0 or player_stunned or player_missile_stunned_timer > 0
-                if _can_cancel_sensor and not is_waiting_for_serve and not _player_stun_blocked_sensor:
-                    global is_danger_sensor_dash
-                    # 🔧 버그 수정: 센서 대시에서도 키 릴리즈 플래그 설정
-                    globals()['dash_key_released_since_last'] = False
-                    rolling_active = True
-                    # 🌑 오딘의 눈 대쉬 다이브
-                    try:
-                        from legendary_items import get_legendary_manager as _glm_sd
-                        _sd_mgr = _glm_sd()
-                        if _sd_mgr:
-                            _sd_oe = _sd_mgr.get_item("odins_eye")
-                            if _sd_oe and _sd_oe.active and _sd_oe.is_transformed():
-                                _sd_oe.start_dash_dive(PLAYER.centerx, PLAYER.centery)
-                    except Exception:
-                        pass
-                    is_danger_sensor_dash = True  # 위험감지센서 대쉬 플래그 설정
-                    # 포세이돈의 삼지창 물결 효과 발동 (위험감지센서 자동 대쉬)
-                    try:
-                        legendary_manager = get_legendary_manager()
-                        if legendary_manager:
-                            trident = legendary_manager.get_item("poseidon_trident")
-                            if trident and trident.active:
-                                # trigger_dash_wave가 True를 반환하면 효과 발동 성공, False면 쿨타임 중
-                                if trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, dash_direction):
-                                    play_poseidon_wave_sound()  # 효과 발동 시에만 사운드 재생
-                    except:
-                        pass  # 전설 아이템 접근 실패 시 무시
+    # if (
+        # sensor_equipped
+        # and danger_sensor_enabled
+        # and danger_sensor_auto_dash_enabled  # 자동 대쉬 옵션이 켜져 있을 때만 작동
+        # and not umbrella_blocks_sensor
+        # and ball_vel[1] > 0
+        # and BALL.centery > HEIGHT * 0.75
+    # ):  # 공이 아래로 내려오고 화면 3/4 지점 이하
+    current_time = pygame.time.get_ticks()
+    # 쿨타임 체크 (패시브 롤 옵션 기반 13~20초)
+    if not hasattr(handle_ball, 'danger_sensor_last_activation_time'):
+        handle_ball.danger_sensor_last_activation_time = 0
+    cooldown_ms = danger_sensor_cooldown_ms
+    # 쿨타임 중이면 위험감지센서만 비활성화하고 공 이동은 계속
+    sensor_can_activate = current_time - handle_ball.danger_sensor_last_activation_time >= cooldown_ms
+    # 공의 예상 위치 계산
+    time_to_reach_player = (PLAYER.centery - BALL.centery) / ball_vel[1] if ball_vel[1] > 0 else 0
+    if time_to_reach_player > 0 and time_to_reach_player < 60:  # 1초 이내에 도달할 예정
+        predicted_x = BALL.centerx + ball_vel[0] * time_to_reach_player
+        # 플레이어가 현재 속도로 이동했을 때 도달할 수 있는지 계산
+        player_speed = 8  # 플레이어 기본 이동 속도
+        player_max_distance = player_speed * time_to_reach_player  # 플레이어 최대 이동 거리
+        distance_to_predicted = abs(predicted_x - PLAYER.centerx)
+        # 디버그 로그 비활성화 (홍련 뱀 디버그 로그 가림 문제)
+        # print(f"  - time_to_reach: {time_to_reach_player:.1f}, predicted_x: {predicted_x:.1f}, distance: {distance_to_predicted:.1f}, max_distance: {player_max_distance:.1f}")
+        # 도달할 수 없는 상황이면 자동 대쉬 (쿨타임 체크 포함)
+        if distance_to_predicted > player_max_distance + PADDLE_WIDTH // 2 and sensor_can_activate:
+            # 대쉬 방향 결정
+            dash_direction = 1 if predicted_x > PLAYER.centerx else -1
+            # 디버그 로그 비활성화
+            # print(f"   - charges: {rolling_charges}, active: {rolling_active}, waiting: {is_waiting_for_serve}")
+            # 대쉬 실행 - 위험감지센서는 게이지와 토큰 소모 없이 사용
+            # 대쉬 감속 구간 캔슬: rolling_active 중이어도 감속 후반부면 연속 대쉬 허용
+            _can_cancel_sensor = not rolling_active or (rolling_active and rolling_timer <= DASH_CANCEL_THRESHOLD)
+            # 스턴/감전 상태에서는 자동 대쉬 불가
+            _player_stun_blocked_sensor = player_stunned_timer > 0 or player_stunned or player_missile_stunned_timer > 0
+            if _can_cancel_sensor and not is_waiting_for_serve and not _player_stun_blocked_sensor:
+                global is_danger_sensor_dash
+                # 🔧 버그 수정: 센서 대시에서도 키 릴리즈 플래그 설정
+                globals()['dash_key_released_since_last'] = False
+                rolling_active = True
+                # 🌑 오딘의 눈 대쉬 다이브
+                try:
+                    from legendary_items import get_legendary_manager as _glm_sd
+                    _sd_mgr = _glm_sd()
+                    if _sd_mgr:
+                        _sd_oe = _sd_mgr.get_item("odins_eye")
+                        if _sd_oe and _sd_oe.active and _sd_oe.is_transformed():
+                            _sd_oe.start_dash_dive(PLAYER.centerx, PLAYER.centery)
+                except Exception:
+                    pass
+                is_danger_sensor_dash = True  # 위험감지센서 대쉬 플래그 설정
+                # 포세이돈의 삼지창 물결 효과 발동 (위험감지센서 자동 대쉬)
+                try:
+                    legendary_manager = get_legendary_manager()
+                    if legendary_manager:
+                        trident = legendary_manager.get_item("poseidon_trident")
+                        if trident and trident.active:
+                            # trigger_dash_wave가 True를 반환하면 효과 발동 성공, False면 쿨타임 중
+                            if trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, dash_direction):
+                                play_poseidon_wave_sound()  # 효과 발동 시에만 사운드 재생
+                except:
+                    pass  # 전설 아이템 접근 실패 시 무시
                     
-                    #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과
-                    acceleration_bonus = get_runtime_skill_bonus("dash_acceleration")
-                    if acceleration_bonus > 0:
-                        acceleration_skill_level = int(acceleration_bonus * 10 / 7)  # 레벨 계산 (0.3 -> 1레벨)
-                        acceleration_height_bonus = int(PADDLE_HEIGHT * acceleration_bonus)  # 추가 높이만 계산
-                        # PLAYER.height는 수정하지 않음 (이미지 크기 유지)
-                        acceleration_active = True
-                        # 레이저 빔 효과는 draw_objects()에서 처리
-                        acceleration_flash_particles.clear()  # 파티클 대신 레이저 빔 사용
+                #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과
+                acceleration_bonus = get_runtime_skill_bonus("dash_acceleration")
+                if acceleration_bonus > 0:
+                    acceleration_skill_level = int(acceleration_bonus * 10 / 7)  # 레벨 계산 (0.3 -> 1레벨)
+                    acceleration_height_bonus = int(PADDLE_HEIGHT * acceleration_bonus)  # 추가 높이만 계산
+                    # PLAYER.height는 수정하지 않음 (이미지 크기 유지)
+                    acceleration_active = True
+                    # 레이저 빔 효과는 draw_objects()에서 처리
+                    acceleration_flash_particles.clear()  # 파티클 대신 레이저 빔 사용
                     
-                    # 대시기어 효과: 대시 거리 증가 (롤 옵션 적용)
-                    base_rolling_timer = apply_dashgear_distance(15.0)  # 기본 대쉬 시간
-                    # 아카데미 스킬 효과 적용: 대쉬 거리 증가 (도약)
-                    jump_bonus = get_runtime_skill_bonus("dash_jump")  # 도약: 대쉬거리 증가
-                    total_distance_bonus = jump_bonus
-                    base_rolling_timer *= (1 + total_distance_bonus)
-                    # 스킬 효과 적용: 대쉬 거리 증가
-                    skill_distance_boost = skill.apply_dash_distance_boost(base_rolling_timer)
-                    # 👁 오딘의 눈: 변신 상태 대쉬 거리 50% 증가
-                    skill_distance_boost *= _get_odin_dash_distance_mult()
-                    rolling_timer = int(skill_distance_boost)
-                    # 연속대쉬 타이밍 계산을 위해 초기 타이머 및 시작 시간 저장
-                    globals()["_dash_initial_timer"] = rolling_timer
-                    globals()["_dash_start_time"] = pygame.time.get_ticks()
-                    rolling_direction = dash_direction
-                    # rolling_charges -= 1  #  위험감지센서 자동 대쉬는 토큰을 소모하지 않음
-                    #  위험감지센서 자동 대쉬는 게이지와 토큰을 소모하지 않음
-                    # 쿨타임 설정 (기록만)
-                    handle_ball.danger_sensor_last_activation_time = current_time
-                    # 대쉬 효과음 재생
-                    play_dash_sound()
-                else:
-                    print(f"   - charges: {rolling_charges}, active: {rolling_active}, waiting: {is_waiting_for_serve}")
+                # 대시기어 효과: 대시 거리 증가 (롤 옵션 적용)
+                base_rolling_timer = apply_dashgear_distance(15.0)  # 기본 대쉬 시간
+                # 아카데미 스킬 효과 적용: 대쉬 거리 증가 (도약)
+                jump_bonus = get_runtime_skill_bonus("dash_jump")  # 도약: 대쉬거리 증가
+                total_distance_bonus = jump_bonus
+                base_rolling_timer *= (1 + total_distance_bonus)
+                # 스킬 효과 적용: 대쉬 거리 증가
+                skill_distance_boost = skill.apply_dash_distance_boost(base_rolling_timer)
+                # 👁 오딘의 눈: 변신 상태 대쉬 거리 50% 증가
+                skill_distance_boost *= _get_odin_dash_distance_mult()
+                rolling_timer = int(skill_distance_boost)
+                # 연속대쉬 타이밍 계산을 위해 초기 타이머 및 시작 시간 저장
+                globals()["_dash_initial_timer"] = rolling_timer
+                globals()["_dash_start_time"] = pygame.time.get_ticks()
+                rolling_direction = dash_direction
+                # rolling_charges -= 1  #  위험감지센서 자동 대쉬는 토큰을 소모하지 않음
+                #  위험감지센서 자동 대쉬는 게이지와 토큰을 소모하지 않음
+                # 쿨타임 설정 (기록만)
+                handle_ball.danger_sensor_last_activation_time = current_time
+                # 대쉬 효과음 재생
+                play_dash_sound()
+            else:
+                pass  # print(f"   - charges: {rolling_charges}, active: {rolling_active}, waiting: {is_waiting_for_serve}")
     
     # 스마트폰 패시브 아이템 업데이트
     import items
@@ -128326,7 +128337,7 @@ def handle_ball():
                 temp_state = {'current_stage': current_stage, 'active_items': active_item_slot}
                 smartphone.activate(temp_state, current_stage)
                 if DEBUG_MODE:
-                    # print(f"[DEBUG] 스마트폰 재활성화! active={smartphone.active}")
+                    pass  # print(f"[DEBUG] 스마트폰 재활성화! active={smartphone.active}")
             
             # 스마트폰용 임시 game_state 구성 (전역 game_state를 덮어쓰지 않음)
             smartphone_state = {
@@ -128381,8 +128392,9 @@ def handle_ball():
         if is_water_affected and current_speed > 20:
             adaptive_decay_rate *= 0.92  # 추가 8% 감속
             if pygame.time.get_ticks() % 60 < 16:  # 1초마다
-                print(f"🔍 [물회오리 감속] 포세이돈 효과 추가 감속 적용! 현재 속도: {current_speed:.1f}")
-            
+                # print(f"🔍 [물회오리 감속] 포세이돈 효과 추가 감속 적용! 현재 속도: {current_speed:.1f}")
+                pass
+
         ball_impact_boost *= adaptive_decay_rate
         # 최소값 보정
         if ball_impact_boost < ball_min_boost:
@@ -128407,7 +128419,7 @@ def handle_ball():
         if drive_ball_active:
             drive_ball_active = False
             drive_hit_boss = False
-            print("!")
+            # print("!")
 
     # --- 🌪️ 날씨 효과 (돌풍) - 공에 적용 ---
     if is_weather_active():
@@ -128462,7 +128474,7 @@ def handle_ball():
             speed_ratio = MAX_BALL_VELOCITY / current_speed
             ball_vel[0] *= speed_ratio
             ball_vel[1] *= speed_ratio
-            print(f"    : {current_speed:.1f} → {MAX_BALL_VELOCITY}")
+            # print(f"    : {current_speed:.1f} → {MAX_BALL_VELOCITY}")
     
     # --- 공 이동 (Sub-stepping으로 터널링 방지) ---
     # 스탑워치 활성화 시 공 이동 중지
@@ -128584,13 +128596,13 @@ def handle_ball():
                                 old_speed = math.sqrt(old_ball_vel[0]**2 + old_ball_vel[1]**2)
                                 new_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
                                 if is_vortex_reflection:
-                                    print(f"🌊 [메인 루프] 회오리 반사! 속도: {old_speed:.1f} → {new_speed:.1f}")
-                                    print(f"🔍 [물회오리 디버그] ball_vel 변경: ({old_ball_vel[0]:.1f}, {old_ball_vel[1]:.1f}) → ({ball_vel[0]:.1f}, {ball_vel[1]:.1f})")
+                                    pass  # print(f"🌊 [메인 루프] 회오리 반사! 속도: {old_speed:.1f} → {new_speed:.1f}")
+                                    # print(f"🔍 [물회오리 디버그] ball_vel 변경: ({old_ball_vel[0]:.1f}, {old_ball_vel[1]:.1f}) → ({ball_vel[0]:.1f}, {ball_vel[1]:.1f})")
                                 elif boss_hit_detected:
-                                    print(f"🌊 [메인 루프] 보스 반격 속도 조정! 속도: {old_speed:.1f} → {new_speed:.1f}")
-                                    print(f"🔍 [물회오리 디버그] boss_hit_count={trident.boss_hit_count}, ball_vel 변경: ({old_ball_vel[0]:.1f}, {old_ball_vel[1]:.1f}) → ({ball_vel[0]:.1f}, {ball_vel[1]:.1f})")
+                                    pass  # print(f"🌊 [메인 루프] 보스 반격 속도 조정! 속도: {old_speed:.1f} → {new_speed:.1f}")
+                                    # print(f"🔍 [물회오리 디버그] boss_hit_count={trident.boss_hit_count}, ball_vel 변경: ({old_ball_vel[0]:.1f}, {old_ball_vel[1]:.1f}) → ({ball_vel[0]:.1f}, {ball_vel[1]:.1f})")
                                 else:
-                                    print(f"🌊 [메인 루프] 포세이돈 효과 적용: {old_speed:.1f} → {new_speed:.1f}")
+                                    pass  # print(f"🌊 [메인 루프] 포세이돈 효과 적용: {old_speed:.1f} → {new_speed:.1f}")
                             # vortex_affected 상태에서는 ball_vel 변경 건너뜀
             except Exception as e:
                 # 전설 아이템 매니저 접근 실패 시 기본 속도 사용
@@ -128672,7 +128684,7 @@ def handle_ball():
                             except Exception:
                                 globals()["last_hit_by"] = "player"
             except Exception as e:
-                print(f"[ERROR] Divine(build) integration: {e}")
+                pass  # print(f"[ERROR] Divine(build) integration: {e}")
 
             # 볼링트랩 포획 상태 확인 - 포획 중이면 공 정지
             bowling_trap_holding_ball = False
@@ -128841,7 +128853,7 @@ def handle_ball():
                 # 실제 봉 충돌 체크
                 deflection = animated_bg_stage4.get_monk_staff_deflection(BALL.centerx, BALL.centery)
                 if deflection:
-                    print(f" DEBUG:    ! deflection: {deflection}")
+                    # print(f" DEBUG:    ! deflection: {deflection}")
                     # 현재 속도 계산
                     current_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
                     
@@ -128872,7 +128884,7 @@ def handle_ball():
                     
                     boost_percentage = (speed_boost - 1) * 100
                     final_speed = math.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-                    print(f"    !  {boost_percentage:.0f}%  ({current_speed:.1f} → {new_speed:.1f} → 최종: {final_speed:.1f})")
+                    # print(f"    !  {boost_percentage:.0f}%  ({current_speed:.1f} → {new_speed:.1f} → 최종: {final_speed:.1f})")
                     
                     # 타격 효과음 재생
                     try:
@@ -129050,7 +129062,7 @@ def handle_ball():
                                 play_wall_sound()
                         else:
                             play_wall_sound()
-                        print(f"벽돌 완전 파괴! ({hit_count}/2)")
+                        # print(f"벽돌 완전 파괴! ({hit_count}/2)")
 
                         # 벽돌 파괴 효과 생성 및 제거
                         if group_walls is not None:
@@ -129069,7 +129081,7 @@ def handle_ball():
                     else:
                         # 일반 벽돌 타격 소리
                         play_wall_sound()
-                        print(f"벽돌 타격 ({hit_count}/2)")
+                        # print(f"벽돌 타격 ({hit_count}/2)")
 
                     # 충전가방 효과
                     if chargebag_obtained and not aipill_active:
@@ -129100,7 +129112,7 @@ def handle_ball():
                             old_gauge = special_gauge
                             current_max = get_max_gauge()
                             special_gauge = min(current_max, special_gauge + chargebag_gain)
-                            print(f"충전가방! 게이지 충전: {old_gauge} → {special_gauge} (+{chargebag_gain})")
+                            # print(f"충전가방! 게이지 충전: {old_gauge} → {special_gauge} (+{chargebag_gain})")
 
                     wall_hit = True
                     break  # 한 번에 하나의 벽돌만 처리
@@ -129386,7 +129398,7 @@ def handle_ball():
                         handle_ball._crystal_shield_cooldown = 8
 
                         create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=is_player_ball)
-                        print(f"[Stage7] 크리스탈 실드 블록 파괴! 남은 블록: {pillar_renderer.get_crystal_shield_count()}")
+                        # print(f"[Stage7] 크리스탈 실드 블록 파괴! 남은 블록: {pillar_renderer.get_crystal_shield_count()}")
                         break  # 한 번에 하나만 처리
 
                 # 쿨다운 감소
@@ -129424,7 +129436,7 @@ def handle_ball():
                         else:
                             play_sound_with_volume(SOUND_STONEBREAK_LARGE)
                         
-                        print(f"💥 파워 스매싱으로 바위 관통!")
+                        # print(f"💥 파워 스매싱으로 바위 관통!")
                         # 공의 속도와 방향은 유지 (관통)
                         continue  # 다음 스텝으로 진행
                 
@@ -129447,7 +129459,7 @@ def handle_ball():
                         power_smashing_direction = None
                         power_smashing_trails.clear()
                         power_smashing_particles.clear()
-                        print("!")
+                        # print("!")
                     
                     # 충돌 법선 계산
                     collision_normal_x = BALL.centerx - rock_x
@@ -129541,13 +129553,13 @@ def handle_ball():
                     # 바위 크기별 효과음
                     if rock_size <= 45:
                         play_sound_with_volume(SOUND_STONEBREAK_SMALL)
-                        print(f"   ! (: {rock_size})")
+                        # print(f"   ! (: {rock_size})")
                     elif rock_size <= 65:
                         play_sound_with_volume(SOUND_STONEBREAK_MEDIUM)
-                        print(f"   ! (: {rock_size})")
+                        # print(f"   ! (: {rock_size})")
                     else:
                         play_sound_with_volume(SOUND_STONEBREAK_LARGE)
-                        print(f"   ! (: {rock_size})")
+                        # print(f"   ! (: {rock_size})")
                     
                     # 남은 스텝 건너뛰기
                     break
@@ -129644,7 +129656,7 @@ def handle_ball():
                                     ball_vel[1] = normal_y * min_speed
                             
                             rock_hit = True
-                            print(f"    !   !")
+                            # print(f"    !   !")
                             break
     
     # --- Stage 4 까마귀 충돌 검사 ---
@@ -129678,7 +129690,8 @@ def handle_ball():
                 # 시체 수집! (별은 이미 공이 까마귀를 맞췄을 때 생성됨)
                 if animated_bg_stage4.collect_corpse(corpse_data['index']):
                     # 시체 수집 효과음만 재생
-                    print(f"   !")
+                    # print(f"   !")
+                    pass
         
         # 3. 플레이어와 달 크레이터 파편 충돌 (화상 효과 및 대쉬 반사)
         global player_burn_timer, player_burn_effect, player_knockback_y
@@ -129709,8 +129722,8 @@ def handle_ball():
                             abs(bg_fragment['y'] - fragment['y']) < 5):
                             bg_fragment['impact'] = True
                             break
-                    print(f"연막이 달의 파편을 막았습니다!")
-                    print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f})")
+                    # print(f"연막이 달의 파편을 막았습니다!")
+                    # print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f})")
                 elif is_cleanse_immune():
                     # 클렌즈 면역 상태 - 파편 효과 무시
                     # 파편 제거 (다단히트 방지)
@@ -129719,13 +129732,13 @@ def handle_ball():
                             abs(bg_fragment['y'] - fragment['y']) < 5):
                             bg_fragment['impact'] = True
                             break
-                    print(f"✨ 클렌즈 면역으로 달의 파편을 무시했습니다!")
-                    print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f})")
+                    # print(f"✨ 클렌즈 면역으로 달의 파편을 무시했습니다!")
+                    # print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f})")
                 elif rolling_active:
                     # 🦵 대쉬 중일 때 - 파편을 보스에게 반사!
                     deflect_fragment_to_boss(fragment)
-                    print(f"대쉬로 달의 파편을 퐁크에게 반사!")
-                    print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f}) → 보스: ({BOSS.centerx}, {BOSS.centery})")
+                    # print(f"대쉬로 달의 파편을 퐁크에게 반사!")
+                    # print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f}) → 보스: ({BOSS.centerx}, {BOSS.centery})")
                     
                     # 반사 효과음 재생 (대쉬 효과음 사용)
                     try:
@@ -129770,7 +129783,7 @@ def handle_ball():
                             pass
 
                         # print(f"🔥 플레이어 다단히트! 게이지 -2, 화상 + 넉백")
-                        print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f}), 패들: ({PLAYER.centerx}, {PLAYER.centery})")
+                        # print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f}), 패들: ({PLAYER.centerx}, {PLAYER.centery})")
                 # break 제거 - 다단히트를 위해 모든 파편 검사 (관통 시스템)
 
         # 4. 보스와 반사된 달 크레이터 파편 충돌 (스테이지 4 대쉬 반사 시스템)
@@ -129824,8 +129837,8 @@ def handle_ball():
                         except:
                             pass
                         
-                        print(f"퐁크 피격! 달의 파편 반사 성공! 게이지 -50, 0.5초 스턴 + 넉백")
-                        print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f}) → 보스: ({BOSS.centerx}, {BOSS.centery})")
+                        # print(f"퐁크 피격! 달의 파편 반사 성공! 게이지 -50, 0.5초 스턴 + 넉백")
+                        # print(f"  파편 위치: ({fragment['x']:.0f}, {fragment['y']:.0f}) → 보스: ({BOSS.centerx}, {BOSS.centery})")
                         break  # 한 프레임에 하나의 파편만 처리
 
     # --- 홀리베리어 충돌 처리 (바닥에 닿기 전에 공 반사) ---
@@ -129833,7 +129846,7 @@ def handle_ball():
         if check_holy_barrier_collision(BALL, ball_vel):
             # 공이 홀리베리어에 반사됨 - last_hit_by 변경 없음 (보스가 친 공 그대로 유지)
             # ball_vel은 holy_barrier.py에서 이미 반전됨
-            print("✨ 홀리베리어가 공을 반사했습니다!")
+            # print("✨ 홀리베리어가 공을 반사했습니다!")
             try:
                 play_wall_sound()
             except:
@@ -129856,14 +129869,14 @@ def handle_ball():
             if last_wall_hit == 'right':  # 이전이 우벽이었으면 좌우 왕복
                 wall_bounce_count += 1
                 time_without_paddle = current_time - last_paddle_hit_time
-                print(f"    : {wall_bounce_count}/{DRAW_BOUNCE_LIMIT},   : {time_without_paddle/1000:.1f}")
+                # print(f"    : {wall_bounce_count}/{DRAW_BOUNCE_LIMIT},   : {time_without_paddle/1000:.1f}")
 
                 # 무승부 판정 체크 (두 조건 모두 만족해야 함)
                 # 투기장 모드에서 이미 결과가 결정된 경우 무승부 처리 건너뛰기
                 if wall_bounce_count >= DRAW_BOUNCE_LIMIT and time_without_paddle >= DRAW_TIME_LIMIT:
                     if arena_mode_enabled and arena_battle_result is not None:
                         return  # 이미 승부가 결정됨 - 무승부 판정 방지
-                    print(f" !  {DRAW_BOUNCE_LIMIT}  + {DRAW_TIME_LIMIT/1000}  !")
+                    # print(f" !  {DRAW_BOUNCE_LIMIT}  + {DRAW_TIME_LIMIT/1000}  !")
                     # 무승부 처리: 점수는 그대로, 라운드만 재시작
                     go_to_next_round()
                     # 재대결 메시지 표시
@@ -129954,12 +129967,12 @@ def handle_ball():
                 except Exception:
                     pass
                 chargebag_gain = int(current_gain_tmp * (bonus_pct / 100.0))
-                print(f" DEBUG:     ( : {chargebag_gain})")
+                # print(f" DEBUG:     ( : {chargebag_gain})")
                 old_gauge = special_gauge
                 #  동적 최대치 계산 적용
                 current_max = get_max_gauge()
                 special_gauge = min(current_max, special_gauge + chargebag_gain)
-                print(f" !  : {old_gauge} → {special_gauge} (+{chargebag_gain})")
+                # print(f" !  : {old_gauge} → {special_gauge} (+{chargebag_gain})")
     elif BALL.right >= WIDTH:
         BALL.right = WIDTH
         ball_vel[0] *= -1
@@ -129995,12 +130008,12 @@ def handle_ball():
                 except Exception:
                     pass
                 chargebag_gain = int(current_gain_tmp * (bonus_pct / 100.0))
-                print(f" DEBUG:     ( : {chargebag_gain})")
+                # print(f" DEBUG:     ( : {chargebag_gain})")
                 old_gauge = special_gauge
                 #  동적 최대치 계산 적용
                 current_max = get_max_gauge()
                 special_gauge = min(current_max, special_gauge + chargebag_gain)
-                print(f" !  : {old_gauge} → {special_gauge} (+{chargebag_gain})")
+                # print(f" !  : {old_gauge} → {special_gauge} (+{chargebag_gain})")
         
         # 무승부 판정 시스템: 좌우 벽 연속 충돌 카운트
         current_time = pygame.time.get_ticks()
@@ -130008,14 +130021,14 @@ def handle_ball():
             if last_wall_hit == 'left':  # 이전이 좌벽이었으면 좌우 왕복
                 wall_bounce_count += 1
                 time_without_paddle = current_time - last_paddle_hit_time
-                print(f"    : {wall_bounce_count}/{DRAW_BOUNCE_LIMIT},   : {time_without_paddle/1000:.1f}")
+                # print(f"    : {wall_bounce_count}/{DRAW_BOUNCE_LIMIT},   : {time_without_paddle/1000:.1f}")
 
                 # 무승부 판정 체크 (두 조건 모두 만족해야 함)
                 # 투기장 모드에서 이미 결과가 결정된 경우 무승부 처리 건너뛰기
                 if wall_bounce_count >= DRAW_BOUNCE_LIMIT and time_without_paddle >= DRAW_TIME_LIMIT:
                     if arena_mode_enabled and arena_battle_result is not None:
                         return  # 이미 승부가 결정됨 - 무승부 판정 방지
-                    print(f" !  {DRAW_BOUNCE_LIMIT}  + {DRAW_TIME_LIMIT/1000}  !")
+                    # print(f" !  {DRAW_BOUNCE_LIMIT}  + {DRAW_TIME_LIMIT/1000}  !")
                     # 무승부 처리: 점수는 그대로, 라운드만 재시작
                     go_to_next_round()
                     # 재대결 메시지 표시
@@ -130297,7 +130310,7 @@ def handle_ball():
                         odins_eye.reset_for_new_round()
             except Exception:
                 pass
-            print(f" [ ]  ! deuce_wins: {deuce_wins}, round_wins: {round_wins}")
+            # print(f" [ ]  ! deuce_wins: {deuce_wins}, round_wins: {round_wins}")
             stop_dash_delay_sound()  # 점수판 표시 전 후딜 사운드 중지
             arena_stop_all_skill_sounds()  # 개틀링 등 스킬 루프 사운드 즉시 중지
             # 투기장 모드: 영웅 이름 사용
@@ -130394,7 +130407,7 @@ def handle_ball():
                     # print(f"[DEBUG 기사회생] ★ 조건 충족! 상단 기사회생 발동 (round_wins=={round_wins})")
                     _arena_comeback_activate(True)
                 else:
-                    # print(f"[DEBUG 기사회생]   상단 발동 조건 불충족: has={arena_perk_comeback_has_top}, wins={round_wins}, tenacity={tenacity_top_triggered}")
+                    pass  # print(f"[DEBUG 기사회생]   상단 발동 조건 불충족: has={arena_perk_comeback_has_top}, wins={round_wins}, tenacity={tenacity_top_triggered}")
                 # 상대(상단)가 4점에 도달하면 하단(플레이어) 기사회생 발동
                 # (이 블록은 하단 득점이므로 round_losses 변화 없음)
 
@@ -130471,15 +130484,15 @@ def handle_ball():
                     additional_offset_y = (GAME_SCALED_HEIGHT - sh) // 2
                     boss_center_x += additional_offset_x
                     boss_center_y += additional_offset_y
-                print(f"[Stage7] 크리스탈 실드 활성화! BOSS.x={BOSS.x}, BOSS.y={BOSS.y}, OFFSET=({GAME_OFFSET_X}, {GAME_OFFSET_Y}), SCALE={GAME_SCALE_FACTOR}")
-                print(f"[Stage7] 보스 중앙 (REAL_SCREEN): ({boss_center_x}, {boss_center_y})")
+                # print(f"[Stage7] 크리스탈 실드 활성화! BOSS.x={BOSS.x}, BOSS.y={BOSS.y}, OFFSET=({GAME_OFFSET_X}, {GAME_OFFSET_Y}), SCALE={GAME_SCALE_FACTOR}")
+                # print(f"[Stage7] 보스 중앙 (REAL_SCREEN): ({boss_center_x}, {boss_center_y})")
                 pillar_renderer.activate_crystal_shield(boss_center_x, boss_center_y)
 
             # Stage 5 네메시스에서 플레이어가 3점 획득 시 다음 라운드에 스킬 발동 예약 (코드상 stage 6 = 실제 스테이지 5 네메시스)
             # 단, 보조 보스(배슬)가 살아있을 때만 예약 (배슬 전용 스킬)
             if current_stage == 6 and round_wins == 3 and nemesis_sub_boss_alive:
                 nemesis_sub_boss_skill_triggered = True
-                print("[Stage5 네메시스] 보조 보스 전기 스킬 다음 라운드 발동 예약!")
+                # print("[Stage5 네메시스] 보조 보스 전기 스킬 다음 라운드 발동 예약!")
 
             stop_dash_delay_sound()  # 점수판 표시 전 후딜 사운드 중지
             arena_stop_all_skill_sounds()  # 개틀링 등 스킬 루프 사운드 즉시 중지
@@ -130651,13 +130664,13 @@ def handle_ball():
             # 바위 크기에 따라 다른 효과음 재생
             if rock_size <= 45:  # 작은 바위 (25-45)
                 play_sound_with_volume(SOUND_STONEBREAK_SMALL)
-                print(f"   ! (: {rock_size})")
+                # print(f"   ! (: {rock_size})")
             elif rock_size <= 65:  # 중간 바위 (45-65)
                 play_sound_with_volume(SOUND_STONEBREAK_MEDIUM)
-                print(f"   ! (: {rock_size})")
+                # print(f"   ! (: {rock_size})")
             else:  # 큰 바위 (65-90)
                 play_sound_with_volume(SOUND_STONEBREAK_LARGE)
-                print(f"   ! (: {rock_size})")
+                # print(f"   ! (: {rock_size})")
         else:
             # 기존 충돌 체크 (떨어지는 바위는 파괴 안됨)
             crisis_rocks = animated_bg_stage2.get_crisis_rocks()
@@ -130745,7 +130758,7 @@ def handle_ball():
                             ball_vel[1] = normal_y * min_speed
                     
                     rock_hit = True
-                    print(f"    !   !")
+                    # print(f"    !   !")
                     break
     # --- 바닥 충돌 (보스 점수) - 바위에 맞지 않았을 때만 ---
     # 패배 직전 '미리' 스톱워치 발동: 바닥과의 거리 기준으로 선제 발동해 바로 아래에서 멈추는 문제를 방지
@@ -130851,7 +130864,7 @@ def handle_ball():
         # 튜토리얼 스테이지 특별 처리 (모든 챕터에서 적용)
         if current_stage == 50 and tutorial_practice_mode:
             if DEBUG_TUTORIAL:
-                # print(f"튜토리얼: 플레이어가 공을 놓침 - Chapter {tutorial_current_chapter}")
+                pass  # print(f"튜토리얼: 플레이어가 공을 놓침 - Chapter {tutorial_current_chapter}")
             # 조교 실수 대화 표시 (점수는 그대로)
             show_tutorial_miss_dialogue()
             # 라운드 리셋하여 다시 서브
@@ -130911,7 +130924,7 @@ def handle_ball():
                                     ball_vel[0] = 0
                                     ball_vel[1] = 0
 
-                                    print(f"👁 오딘의 눈 [듀스]: 부활 성공! 어둠의 기운 수집 중... (확률: {odins_eye.revival_chance:.0f}%, 굴림: {roll:.1f})")
+                                    # print(f"👁 오딘의 눈 [듀스]: 부활 성공! 어둠의 기운 수집 중... (확률: {odins_eye.revival_chance:.0f}%, 굴림: {roll:.1f})")
                                     return  # 패배 처리 중단, 애니메이션 진행
                                 else:
                                     print(f"👁 오딘의 눈 [듀스]: 부활 실패 (확률: {odins_eye.revival_chance:.0f}%, 굴림: {roll:.1f})")
@@ -130933,7 +130946,7 @@ def handle_ball():
 
                                     return  # 패배 처리 중단, 애니메이션 진행
                                 else:
-                                    print(f"👁 오딘의 눈 [듀스]: 이미 부활 사용함 - 일반 패배!")
+                                    pass  # print(f"👁 오딘의 눈 [듀스]: 이미 부활 사용함 - 일반 패배!")
             except Exception as e:
                 import traceback
                 print(f"👁 오딘의 눈 [듀스] 부활 체크 오류: {e}")
@@ -131016,7 +131029,7 @@ def handle_ball():
                                     ball_vel[0] = 0
                                     ball_vel[1] = 0
 
-                                    print(f"👁 오딘의 눈: 부활 성공! 어둠의 기운 수집 중... (확률: {odins_eye.revival_chance:.0f}%, 굴림: {roll:.1f})")
+                                    # print(f"👁 오딘의 눈: 부활 성공! 어둠의 기운 수집 중... (확률: {odins_eye.revival_chance:.0f}%, 굴림: {roll:.1f})")
                                     return  # 패배 처리 중단, 애니메이션 진행
                                 else:
                                     print(f"👁 오딘의 눈: 부활 실패 (확률: {odins_eye.revival_chance:.0f}%, 굴림: {roll:.1f})")
@@ -131038,11 +131051,11 @@ def handle_ball():
 
                                     return  # 패배 처리 중단, 애니메이션 진행
                                 else:
-                                    print(f"👁 오딘의 눈: 이미 부활 사용함 - 일반 패배!")
+                                    pass  # print(f"👁 오딘의 눈: 이미 부활 사용함 - 일반 패배!")
                         else:
-                            print(f"👁 오딘의 눈: active={odins_eye.active if odins_eye else 'None'}")
+                            pass  # print(f"👁 오딘의 눈: active={odins_eye.active if odins_eye else 'None'}")
                     else:
-                        print(f"👁 오딘의 눈: 장착되어 있지 않음. equipped_names={equipped_names}")
+                        pass  # print(f"👁 오딘의 눈: 장착되어 있지 않음. equipped_names={equipped_names}")
             except Exception as e:
                 import traceback
                 print(f"👁 오딘의 눈 부활 체크 오류: {e}")
@@ -131105,7 +131118,7 @@ def handle_ball():
                     # print(f"[DEBUG 기사회생] ★ 조건 충족! 하단 기사회생 발동 (round_losses=={round_losses})")
                     _arena_comeback_activate(False)
                 else:
-                    # print(f"[DEBUG 기사회생]   하단 발동 조건 불충족: has={arena_perk_comeback_has_bottom}, losses={round_losses}, tenacity={tenacity_triggered}")
+                    pass  # print(f"[DEBUG 기사회생]   하단 발동 조건 불충족: has={arena_perk_comeback_has_bottom}, losses={round_losses}, tenacity={tenacity_triggered}")
                 # 하단(플레이어)이 4점에 도달하면 상단(상대) 기사회생 발동 (상대 AI용)
                 # (이 블록은 상단 득점이므로 round_wins 변화 없음)
 
@@ -131204,7 +131217,7 @@ def handle_ball():
         # 튜토리얼에서 디버깅 로그
         if current_stage == 50 and slow_ball_timer % 60 == 1:  # 1초마다
             if DEBUG_TUTORIAL:
-                # print(f"🐌 튜토리얼 slow_ball_timer 작동: 현재속도={current_speed:.2f} < 임계값={BALL_BASE_SPEED * 0.85:.2f}, 타이머={slow_ball_timer}/{THREE_SECONDS_FRAMES}")
+                pass  # print(f"🐌 튜토리얼 slow_ball_timer 작동: 현재속도={current_speed:.2f} < 임계값={BALL_BASE_SPEED * 0.85:.2f}, 타이머={slow_ball_timer}/{THREE_SECONDS_FRAMES}")
         if slow_ball_timer >= THREE_SECONDS_FRAMES:
             direction = pygame.math.Vector2(ball_vel).normalize()
             ball_vel[0] = direction.x * BALL_BASE_SPEED
@@ -131212,10 +131225,11 @@ def handle_ball():
             slow_ball_timer = 0
             if current_stage == 50:
                 if DEBUG_TUTORIAL:
-                    # print(f"⚡ 튜토리얼 속도 보정 완료: {current_speed:.2f} → {BALL_BASE_SPEED}")
+                    pass  # print(f"⚡ 튜토리얼 속도 보정 완료: {current_speed:.2f} → {BALL_BASE_SPEED}")
     else:
         if slow_ball_timer > 0 and current_stage == 50:  # 타이머 리셋 시에만
-            print(f"[OK] Tutorial slow_ball_timer reset: current_speed={current_speed:.2f} >= threshold={BALL_BASE_SPEED * 0.85:.2f}")
+            # print(f"[OK] Tutorial slow_ball_timer reset: current_speed={current_speed:.2f} >= threshold={BALL_BASE_SPEED * 0.85:.2f}")
+            pass
         slow_ball_timer = 0
         # === Stage 3 눈물샤워 충돌 처리 ===
     # 가속화 스킬이 활성화된 경우 충돌 범위를 확장
@@ -131230,7 +131244,7 @@ def handle_ball():
                 player_knockback_vel = apply_knockback_resist(_scale_knockback(random.choice([-12, 12])))
                 _kb_debug(f"tear_shower knockback set to {player_knockback_vel:.2f}")
         else:
-            print("!")
+            pass  # print("!")
         #  성능 최적화: 파티클 개수를 절반으로 줄임 (12 → 6)
         for _ in range(6):
             angle = random.uniform(200, 340)
@@ -131332,7 +131346,7 @@ def handle_ball():
                         arena_skill_manager.game_state['magic_immunity_bottom'] = True
                         arena_skill_manager.game_state['magic_immunity_timer_bottom'] = ARENA_MAGIC_IMMUNITY_DURATION
                         arena_show_speech_bubble(False, '마법결계!', hero_id=hero_id)
-                        print(f"[마법결계] 하단 영웅 마법 면역 발동! ({ARENA_MAGIC_IMMUNITY_DURATION}초)")
+                        # print(f"[마법결계] 하단 영웅 마법 면역 발동! ({ARENA_MAGIC_IMMUNITY_DURATION}초)")
 
                 # 번뜩이는 영감: 하단 영웅이 공을 쳤을 때 스킬쿨 즉시 충전 판정
                 _insp_chance = arena_skill_manager.game_state.get('instant_cooldown_chance_bottom', 0.0)
@@ -131349,7 +131363,7 @@ def handle_ball():
                             except:
                                 pass
                         arena_show_speech_bubble(False, '번뜩이는 영감!', hero_id=hero_id)
-                        print(f"[번뜩이는 영감] 하단 영웅 스킬 쿨타임 즉시 충전!")
+                        # print(f"[번뜩이는 영감] 하단 영웅 스킬 쿨타임 즉시 충전!")
             except Exception:
                 pass
 
@@ -131367,7 +131381,7 @@ def handle_ball():
         collision_side = "LEFT" if collision_x < 0 else "RIGHT"
         edge_distance = abs(collision_x) - (PADDLE_WIDTH / 2)
         if DEBUG_HANDLE_BALL_VERBOSE:
-            print(f" handle_ball ! (handle_player  ) : {collision_side}, : {collision_x:.1f}, : {edge_distance:.1f}, Y: {ball_vel[1]:.1f}")
+            pass  # print(f" handle_ball ! (handle_player  ) : {collision_side}, : {collision_x:.1f}, : {edge_distance:.1f}, Y: {ball_vel[1]:.1f}")
         # ️ 충돌 이벤트 발생
         emit_event(EventType.BALL_HIT_PLAYER, {
             'collision_x': collision_x,
@@ -131422,14 +131436,14 @@ def handle_ball():
                         _charging_state["max_time"] = new_charge_timer
                         _charging_state["index"] = _next_charge_idx
                     if DEBUG_HANDLE_BALL_VERBOSE:
-                        print(f"  ! (handle_ball)    (: {new_charge_timer})")
+                        pass  # print(f"  ! (handle_ball)    (: {new_charge_timer})")
                         # print(f"[DEBUG] (handle_ball)    : {new_charge_timer}")  # 디버그 비활성화
                 else:
                     if DEBUG_HANDLE_BALL_VERBOSE:
-                        print(f"  ! (handle_ball)   : {rolling_charges}/{max_charges}")
+                        pass  # print(f"  ! (handle_ball)   : {rolling_charges}/{max_charges}")
             else:
                 if DEBUG_HANDLE_BALL_VERBOSE:
-                    print(f"     ({elapsed_time:.1f}/2.0) -    (handle_ball)")
+                    pass  # print(f"     ({elapsed_time:.1f}/2.0) -    (handle_ball)")
         if current_stage == 4 and boss_special_ready_stage4:
             stage4_magnetic_active = True
             # 광폭화 시 자기장 지속시간 50% 증가 (200 → 300프레임), 반경 25% 증가 (160 → 200px)
@@ -131538,7 +131552,7 @@ def handle_ball():
                 direction_x = ball_vel[0] / current_speed
                 direction_y = ball_vel[1] / current_speed
                 stopwatch_original_ball_vel = [direction_x * original_speed, direction_y * original_speed]
-                print(f"     -")
+                # print(f"     -")
         
         player_last_shot_speed = math.hypot(ball_vel[0], ball_vel[1])
         if ragnarok_first_shot_speed <= 0.0:
@@ -131549,28 +131563,28 @@ def handle_ball():
         #  새로운 보스 모드에서 하단 보스의 스킬 발동 체크
         if new_boss_mode_active:
             if DEBUG_HANDLE_BALL_VERBOSE:
-                print(f" handle_ball       ! selected_bottom_boss={selected_bottom_boss}")
+                pass  # print(f" handle_ball       ! selected_bottom_boss={selected_bottom_boss}")
             if selected_bottom_boss == 1:
                 if DEBUG_HANDLE_BALL_VERBOSE:
-                    print("!")
+                    pass  # print("!")
                 handle_fire_knight_skills()  # 파이어 나이트 스킬
             elif selected_bottom_boss == 2:
                 if DEBUG_HANDLE_BALL_VERBOSE:
-                    print("!")
+                    pass  # print("!")
                 handle_wind_spirit_skills()  # 윈드 스피릿 스킬
         #  드라이브 공이 보스 패들에 맞고 다시 플레이어 패들에 맞으면 원래 색상으로 복구
         if drive_ball_active and drive_hit_boss:
             drive_ball_active = False
             drive_hit_boss = False
             drive_speed_increase = 0.0  #  드라이브 속도 증가량 리셋
-            print("!")
+            # print("!")
         # handle_player에서 이미 사운드를 재생하므로 여기서는 재생하지 않음
         # handle_player에서 놓친 충돌의 경우에만 사운드 재생 (쿠로미가 공을 먹는 중이 아닐 때만)
         if not player_collision_handled and player_sound_cooldown <= 0 and not ball_in_kuromi:
             play_paddle_sound()
             player_sound_cooldown = 20  # 약 0.33초 쿨다운
             if DEBUG_HANDLE_BALL_VERBOSE:
-                print("handle_ball   (handle_player  )")
+                pass  # print("handle_ball   (handle_player  )")
         if not (
             selected_character_type == "blacksmith"
             and blacksmith_umbrella_open
@@ -131640,7 +131654,7 @@ def handle_ball():
                 ball_vel[0] = 0
                 ball_vel[1] = 0
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: 플레이어가 조교 공을 받아쳤습니다 - 게이지 튜토리얼 시작!")
+                    pass  # print("튜토리얼: 플레이어가 조교 공을 받아쳤습니다 - 게이지 튜토리얼 시작!")
             
             # 플레이어가 공을 친 횟수 증가는 이제 handle_player에서 처리
             # (handle_ball은 백업 충돌 처리용이므로 중복 카운팅 방지)
@@ -131656,11 +131670,11 @@ def handle_ball():
                 ball_vel[0] = 0
                 ball_vel[1] = 0
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: 6회 타격 완료! 속도 튜토리얼 시작!")
+                    pass  # print("튜토리얼: 6회 타격 완료! 속도 튜토리얼 시작!")
         
         # handle_player에서 놓친 충돌의 경우에만 백업으로 게이지 충전
         if not QUIET_DEBUG and DEBUG_HANDLE_BALL_VERBOSE:
-            print(f" DEBUG: handle_ball   - handle_player")
+            pass  # print(f" DEBUG: handle_ball   - handle_player")
         # handle_player가 놓친 충돌에 대해서만 게이지 충전
         # 대쉬 중이거나 대쉬 직후(스턴 상태), 드라이브 발동 시에도 게이지 충전 차단
         # 단, Chapter 3 드라이브 튜토리얼에서는 드라이브 활성화 여부와 관계없이 충전 허용
@@ -131678,7 +131692,7 @@ def handle_ball():
             if ('tutorial_current_chapter' in globals() and tutorial_current_chapter == 4):
                 base_gauge_gain = 500  # Chapter 4: 패들 히트 시 게이지 500 충전 (백업 경로)
                 if DEBUG_HANDLE_BALL_VERBOSE:
-                    print(f"🔍 DEBUG: Chapter 4 패들 히트! (handle_ball 백업) 게이지 500 충전 설정")
+                    pass  # print(f"🔍 DEBUG: Chapter 4 패들 히트! (handle_ball 백업) 게이지 500 충전 설정")
             elif ('tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None):
                 base_gauge_gain = 200  # Chapter 3 드라이브 튜토리얼: 게이지 충전 200
             else:
@@ -131698,7 +131712,7 @@ def handle_ball():
                                 )
                             except Exception:
                                 dbg_weapon = "<unknown>"
-                            print(f"[SoldierGauge][backup] weapon={dbg_weapon} non_pistol=True base={base_gauge_gain}")
+                            # print(f"[SoldierGauge][backup] weapon={dbg_weapon} non_pistol=True base={base_gauge_gain}")
                 elif selected_character_type == "blacksmith":
                     if blacksmith_umbrella_open:
                         base_gauge_gain = get_blacksmith_umbrella_gauge_gain()  # 발토르 토르쉴드 활성: 기본 60, 디바인스톤 80, 강화 디바인스톤 100
@@ -131714,7 +131728,7 @@ def handle_ball():
                 bt_bonus = bluetooth_ring_gain_pct
                 total_gauge_gain = int(total_gauge_gain * (1 + bt_bonus / 100.0))
                 if DEBUG_HANDLE_BALL_VERBOSE:
-                    print(f"   +{bt_bonus}%: {total_gauge_gain}")
+                    pass  # print(f"   +{bt_bonus}%: {total_gauge_gain}")
 
             # ⛏️ 골드디거 게이지 충전량 증가 적용
             if is_gold_digger_equipped():
@@ -131727,10 +131741,10 @@ def handle_ball():
                 paddle_charge_multiplier = multipliers.get('paddle_gauge_charge', 1.0)
                 total_gauge_gain = int(total_gauge_gain * paddle_charge_multiplier)
                 if DEBUG_HANDLE_BALL_VERBOSE and paddle_charge_multiplier != 1.0:
-                    print(f"    : {paddle_charge_multiplier:.1f}x → {total_gauge_gain}")
+                    pass  # print(f"    : {paddle_charge_multiplier:.1f}x → {total_gauge_gain}")
 
             if DEBUG_HANDLE_BALL_VERBOSE:
-                print(f" DEBUG:  handle_ball    (handle_player  ) ({total_gauge_gain})")
+                pass  # print(f" DEBUG:  handle_ball    (handle_player  ) ({total_gauge_gain})")
 
             # 상모돌리기 활성화 시 플레이어 패들 충돌 시 종료
             if whip_active:
@@ -131747,7 +131761,7 @@ def handle_ball():
             
             if selected_character_type == "optimus":
                 if DEBUG_HANDLE_BALL_VERBOSE:
-                    print(" DEBUG:  handle_ball    (optimus - no gauge charge)")
+                    pass  # print(" DEBUG:  handle_ball    (optimus - no gauge charge)")
             else:
                 total_gauge_gain = _apply_blacksmith_berserk_gauge_bonus(total_gauge_gain)
 
@@ -131776,7 +131790,7 @@ def handle_ball():
             player_collision_cooldown = 15
         else:
             if DEBUG_HANDLE_BALL_VERBOSE:
-                print(f" DEBUG:  handle_ball    (: {player_collision_cooldown}, rolling: {rolling_active}, stun: {rolling_stun_timer}, drive_ball: {drive_ball_active})")
+                pass  # print(f" DEBUG:  handle_ball    (: {player_collision_cooldown}, rolling: {rolling_active}, stun: {rolling_stun_timer}, drive_ball: {drive_ball_active})")
         #  게이지 상태 실시간 업데이트 (게이지가 감소했을 때도 반영)
         if special_gauge < 350:  # 파워스매시 발동 조건
             special_ready = False
@@ -131792,9 +131806,9 @@ def handle_ball():
                 # 최소 Y 속도 보장 (충분한 속도로 보스 쪽으로)
                 if abs(ball_vel[1]) < 8:
                     ball_vel[1] = -8
-                print(f"   !   : Y={ball_vel[1]}")
+                # print(f"   !   : Y={ball_vel[1]}")
             else:
-                print(f"   !       !")
+                pass  # print(f"   !       !")
             
             #  스테이지 1: 상모돌리기 강제 해제 모션 시작
             if current_stage == 1:
@@ -131806,7 +131820,7 @@ def handle_ball():
                 whip_deactivation_timer = whip_deactivation_duration  # 1.2초 타이머 시작
                 whip_rotation_speed = 20.0  # 초기 회전 속도 (더 빠르게)
                 
-                print("1:       !")
+                # print("1:       !")
         
         # Stage 1 보스 팽이치기 스킬 발동 체크 (20% 확률, 게이지 150 필요)
         if current_stage == 1 and not spinning_top_active and not spinning_top_used_this_round and boss_special_gauge >= 150:
@@ -131891,7 +131905,7 @@ def handle_ball():
                     # 보스가 반격하면 부스트 속도의 1/3 (= 원래 속도)으로 복원
                     restore_speed = suicide_drone_ball_speed_backup if suicide_drone_ball_speed_backup > 0 else current_speed / 3.0
                     scale = restore_speed / current_speed
-                    print(f"[DRONE] 보스 반격: 현재속도 {current_speed:.2f} -> 복원속도 {restore_speed:.2f} (backup {suicide_drone_ball_speed_backup:.2f})")
+                    # print(f"[DRONE] 보스 반격: 현재속도 {current_speed:.2f} -> 복원속도 {restore_speed:.2f} (backup {suicide_drone_ball_speed_backup:.2f})")
                     ball_vel[0] *= scale
                     ball_vel[1] *= scale
                     try:
@@ -131899,7 +131913,7 @@ def handle_ball():
                         game_vars.ball.vel[1] = ball_vel[1]
                     except Exception:
                         pass
-                    print(f"[DRONE] 보스 반격 후 vel=({ball_vel[0]:.2f},{ball_vel[1]:.2f})")
+                    # print(f"[DRONE] 보스 반격 후 vel=({ball_vel[0]:.2f},{ball_vel[1]:.2f})")
                 suicide_drone_ball_boost_active = False
                 suicide_drone_ball_speed_backup = 0.0
         except Exception:
@@ -131999,7 +132013,7 @@ def handle_ball():
             kuromi_spit_trail_active = False
             kuromi_spit_trail_positions.clear()
             if DEBUG_BOSS:
-                print("쿠로미 뱉기 궤적 종료 - 보스 패들 충돌")
+                pass  # print("쿠로미 뱉기 궤적 종료 - 보스 패들 충돌")
         
         # 무승부 판정 시스템: 패들 충돌 시 벽 카운트 리셋
         wall_bounce_count = 0
@@ -132021,7 +132035,7 @@ def handle_ball():
             if not tutorial_boss_returned:
                 tutorial_boss_returned = True
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: 보스가 공을 받아쳤습니다!")
+                    pass  # print("튜토리얼: 보스가 공을 받아쳤습니다!")
                 # 게임을 일시정지하고 대화 표시 준비
                 if not tutorial_boss_return_dialogue_shown:
                     # 현재 공의 속도 저장 (대화 후 복원용)
@@ -132031,7 +132045,7 @@ def handle_ball():
                     ball_vel[0] = 0
                     ball_vel[1] = 0
                     if DEBUG_TUTORIAL:
-                        # print("튜토리얼: 대화창 표시 준비 완료")
+                        pass  # print("튜토리얼: 대화창 표시 준비 완료")
         
         #  파워스매싱 상태 확인 (보스 충돌 직전에)
         was_power_smashing = power_smashing_parabola_active
@@ -132039,11 +132053,11 @@ def handle_ball():
         if mega_smashing_active:
             # 보스 방어 횟수 증가
             mega_smashing_boss_defense_count += 1
-            print(f"   !  !")
+            # print(f"   !  !")
             #  고스트샷 방어 시 공속도 50% 감소
             ball_vel[0] *= 0.5
             ball_vel[1] *= 0.5
-            print(f"    50% !  : ({ball_vel[0]:.1f}, {ball_vel[1]:.1f})")
+            # print(f"    50% !  : ({ball_vel[0]:.1f}, {ball_vel[1]:.1f})")
             # 1번 방어 시 즉시 고스트샷 종료로 변경
             if mega_smashing_boss_defense_count >= 1:
                 #  귀신들 흩어짐 효과 발동
@@ -132068,7 +132082,7 @@ def handle_ball():
                         scatter_speed = random.uniform(15, 25)
                         ghost['scatter_vx'] = dx * scatter_speed
                         ghost['scatter_vy'] = dy * scatter_speed
-                    print("!")
+                    # print("!")
                 # 고스트샷 종료 (보스가 2번 방어)
                 mega_smashing_active = False
                 mega_smashing_bonus_applied = False
@@ -132080,7 +132094,7 @@ def handle_ball():
                 quantum_wave_function.clear()
                 quantum_entanglement_pairs.clear()
                 quantum_collapse_timer = 0
-                print("! (  )")
+                # print("! (  )")
             # 일반 충돌로 처리하기 위해 아래로 계속 진행
         # 일반 충돌 처리 (고스트샷도 종료 후 일반 충돌 처리)
         last_hit_by = "boss"  # 보스가 공을 쳤음을 기록
@@ -132163,7 +132177,7 @@ def handle_ball():
                         arena_skill_manager.game_state['magic_immunity_top'] = True
                         arena_skill_manager.game_state['magic_immunity_timer_top'] = ARENA_MAGIC_IMMUNITY_DURATION
                         arena_show_speech_bubble(True, '마법결계!', hero_id=hero_id)
-                        print(f"[마법결계] 상단 영웅 마법 면역 발동! ({ARENA_MAGIC_IMMUNITY_DURATION}초)")
+                        # print(f"[마법결계] 상단 영웅 마법 면역 발동! ({ARENA_MAGIC_IMMUNITY_DURATION}초)")
 
                 # 번뜩이는 영감: 상단 영웅이 공을 쳤을 때 스킬쿨 즉시 충전 판정
                 _insp_chance = arena_skill_manager.game_state.get('instant_cooldown_chance_top', 0.0)
@@ -132180,7 +132194,7 @@ def handle_ball():
                             except:
                                 pass
                         arena_show_speech_bubble(True, '번뜩이는 영감!', hero_id=hero_id)
-                        print(f"[번뜩이는 영감] 상단 영웅 스킬 쿨타임 즉시 충전!")
+                        # print(f"[번뜩이는 영감] 상단 영웅 스킬 쿨타임 즉시 충전!")
             except Exception:
                 pass
 
@@ -132288,7 +132302,7 @@ def handle_ball():
             ragnarok_speed_boost_active = False
 
             reduced_speed = math.hypot(ball_vel[0], ball_vel[1])
-            print(f"   !   : {reduced_speed:.1f} (기준 {baseline_speed:.1f} → 목표 {target_speed:.1f})")
+            # print(f"   !   : {reduced_speed:.1f} (기준 {baseline_speed:.1f} → 목표 {target_speed:.1f})")
 
             # 화면 흔들림 0.2초 추가
             screen_shake_timer = 12  # 0.2초 (60 FPS)
@@ -132343,7 +132357,7 @@ def handle_ball():
                     # 반사 후에도 부스트 속도의 1/3(= 원래 속도)으로 재보정
                     restore_speed = suicide_drone_ball_speed_backup if suicide_drone_ball_speed_backup > 0 else current_speed / 3.0
                     scale = restore_speed / current_speed
-                    print(f"[DRONE] 보스 반격(반사 후): 현재속도 {current_speed:.2f} -> 복원속도 {restore_speed:.2f} (backup {suicide_drone_ball_speed_backup:.2f})")
+                    # print(f"[DRONE] 보스 반격(반사 후): 현재속도 {current_speed:.2f} -> 복원속도 {restore_speed:.2f} (backup {suicide_drone_ball_speed_backup:.2f})")
                     ball_vel[0] *= scale
                     ball_vel[1] *= scale
                     try:
@@ -132351,7 +132365,7 @@ def handle_ball():
                         game_vars.ball.vel[1] = ball_vel[1]
                     except Exception:
                         pass
-                    print(f"[DRONE] 보스 반격 후 최종 vel=({ball_vel[0]:.2f},{ball_vel[1]:.2f})")
+                    # print(f"[DRONE] 보스 반격 후 최종 vel=({ball_vel[0]:.2f},{ball_vel[1]:.2f})")
                 suicide_drone_ball_boost_active = False
                 suicide_drone_ball_speed_backup = 0.0
         except Exception:
@@ -132373,7 +132387,7 @@ def handle_ball():
                         game_vars.ball.vel[1] = ball_vel[1]
                     except Exception:
                         pass
-                    print(f"[RAGNAROK] 보스 반격 감속: {current_speed:.2f} -> {target_speed:.2f} (orig {restore_speed:.2f})")
+                    # print(f"[RAGNAROK] 보스 반격 감속: {current_speed:.2f} -> {target_speed:.2f} (orig {restore_speed:.2f})")
             except Exception:
                 pass
 
@@ -132460,18 +132474,19 @@ def handle_ball():
                     source_type="hongryun_hurt"
                 )
                 
-                print(f" Stage 5  ! ( {hurt_chance*100:.0f}%)   !")
+                # print(f" Stage 5  ! ( {hurt_chance*100:.0f}%)   !")
         
         #  스피드디펜스 상태에서 보스가 공을 칠 때 (속도 감소 제거됨)
         if current_stage == 2 and speed_defense_active:
             # 스피드디펜스는 보스 이동 속도만 증가, 공 속도는 변경하지 않음
-            print(f"  ! (  )")
+            # print(f"  ! (  )")
+            pass
         #  체력형 보스 데미지 적용 (파워스매싱, 드라이브, 라그나로크, 일반 공격)
         if current_stage in boss_health_stages:
             # 라그나로크 스턴공 체크 (최우선 - 파워스매싱보다 우선)
             if was_stun_ball:
                 damage = 2  # 라그나로크 스턴공 데미지 (2)
-                print(f"     2 !")
+                # print(f"     2 !")
             # 파워스매싱 상태 체크
             elif was_power_smashing:
                 damage = boss_damage_values["power"]  # 파워스매싱 데미지 (3)
@@ -132482,7 +132497,7 @@ def handle_ball():
                     power_smashing_direction = None
                     power_smashing_trails.clear()
                     power_smashing_particles.clear()
-                    print("6:     !")
+                    # print("6:     !")
             # 드라이브 상태 체크
             elif drive_ball_active:
                 damage = boss_damage_values["drive"]  # 드라이브 데미지 (2)
@@ -132493,7 +132508,7 @@ def handle_ball():
                     drive_speed_increase = 0.0
                     ball_spin_strength = 0.0
                     ball_spin_direction = 0
-                    print("6:     !")
+                    # print("6:     !")
             else:
                 damage = boss_damage_values["basic"]  # 기본 공격 데미지 (1)
             boss_current_health = max(0, boss_current_health - damage)
@@ -132503,10 +132518,10 @@ def handle_ball():
                 stage6_boss_hit_timer = HALF_SECOND_FRAMES  # 0.5초간 깜빡임 (60 FPS 기준)
                 stage6_boss_hit_flash = True
                 SOUND_STAGE6_BOSS_HIT.play()  # 피격 사운드 재생
-                print(f"  6  ! : {boss_current_health}/{boss_max_health}")
+                # print(f"  6  ! : {boss_current_health}/{boss_max_health}")
             #  보스 체력이 0이 되면 즉시 승리
             if boss_current_health <= 0:
-                print("보스 체력 0! 플레이어 승리!")
+                # print("보스 체력 0! 플레이어 승리!")
                 # 네메시스(스테이지 6) 패배 시 폭발 애니메이션 시작 (게임 루프에서 진행)
                 if current_stage == 6:
                     start_nemesis_death_animation()
@@ -132522,7 +132537,7 @@ def handle_ball():
             if drive_ball_active:
                 drive_ball_active = False
                 drive_hit_boss = False
-                print(":")
+                # print(":")
             # 충돌 쿨다운 설정
             boss_collision_cooldown = 10
             return  # 체력형 보스에서는 여기서 종료하여 정지화면 방지
@@ -132532,7 +132547,7 @@ def handle_ball():
         if drive_ball_active:
             drive_ball_active = False
             drive_hit_boss = False
-            print("!")
+            # print("!")
         #  AI 학습: 보스가 공을 성공적으로 맞췄음 (제거됨)
         # ️ 스테이지 1 보스 필살기 발동 체크 (보스 충돌 시, 게이지 200 필요)
         if not new_boss_mode_active and current_stage == 1 and boss_special_gauge >= 200:
@@ -132554,12 +132569,12 @@ def handle_ball():
                         boss_special_gauge = 0
         #  새로운 보스 모드에서 상단 보스의 스킬 발동 체크
         if new_boss_mode_active:
-            print(f" handle_ball       ! selected_top_boss={selected_top_boss}")  # 
+            # print(f" handle_ball       ! selected_top_boss={selected_top_boss}")  # 
             if selected_top_boss == 1:
-                print("!")
+                # print("!")
                 handle_lightning_master_skills()  # 라이트닝 마스터 스킬
             elif selected_top_boss == 2:
-                print("!")
+                # print("!")
                 handle_ice_queen_skills()  # 아이스 퀸 스킬
         #  가속화 스킬은 이제 패들 사이즈 증가로 변경됨 (공속도 복원 제거)
         #  드라이브 공이 보스 패들에 닿으면 효과 50% 감소 + 드라이브 증가 공속의 90% 감소
@@ -132579,11 +132594,11 @@ def handle_ball():
                 ball_vel[1] *= speed_ratio
                 # 남은 드라이브 증가량 업데이트 (10%만 남김)
                 drive_speed_increase *= 0.1
-                print(f"         90% !")
-                print(f"    : {current_speed:.2f} → {new_speed:.2f} (-{speed_reduction:.2f})")
-                print(f"     : {drive_speed_increase:.2f}")
+                # print(f"         90% !")
+                # print(f"    : {current_speed:.2f} → {new_speed:.2f} (-{speed_reduction:.2f})")
+                # print(f"     : {drive_speed_increase:.2f}")
             else:
-                print("")
+                pass  # print("")
             #  드라이브 반격 속도 제한 시스템 (플레이어 대응 가능한 수준으로)
             current_speed_after = math.hypot(ball_vel[0], ball_vel[1])
             max_drive_counter_speed = 16.0  # 드라이브 반격 최대 속도 제한
@@ -132591,9 +132606,9 @@ def handle_ball():
                 speed_limit_ratio = max_drive_counter_speed / current_speed_after
                 ball_vel[0] *= speed_limit_ratio
                 ball_vel[1] *= speed_limit_ratio
-                print(f"     !")
-                print(f"    : {current_speed_after:.2f} →  : {max_drive_counter_speed:.2f}")
-                print(f"")
+                # print(f"     !")
+                # print(f"    : {current_speed_after:.2f} →  : {max_drive_counter_speed:.2f}")
+                # print(f"")
             #  추가 안전 장치: 플레이어 방향으로 향하는 빠른 공의 추가 감속
             if ball_vel[1] > 0:  # 플레이어 방향으로 향하는 공
                 player_direction_speed = math.hypot(ball_vel[0], ball_vel[1])
@@ -132602,9 +132617,9 @@ def handle_ball():
                     safety_ratio = max_player_direction_speed / player_direction_speed
                     ball_vel[0] *= safety_ratio
                     ball_vel[1] *= safety_ratio
-                    print(f"     !")
-                    print(f"   {player_direction_speed:.2f} → {max_player_direction_speed:.2f}")
-                    print(f"")
+                    # print(f"     !")
+                    # print(f"   {player_direction_speed:.2f} → {max_player_direction_speed:.2f}")
+                    # print(f"")
         #  상모돌리기 중 플레이어가 공을 맞춘 후 보스 패들에 재충돌 시 상모돌리기 강제종료 + 속도 복구
         if whip_active and whip_hit_by_player:
             #  상모돌리기 강제종료
@@ -132618,7 +132633,7 @@ def handle_ball():
                 ball_vel[0] = random.uniform(-12, -8)  # 왼쪽으로
             ball_vel[1] = abs(whip_original_ball_speed[1]) if whip_original_ball_speed[1] != 0 else 10
             whip_hit_by_player = False  # 상태 리셋
-            print(f"   !  : [{ball_vel[0]:.1f}, {ball_vel[1]:.1f}]")
+            # print(f"   !  : [{ball_vel[0]:.1f}, {ball_vel[1]:.1f}]")
         # 감지센서용 보스 히트 타이머 설정 (무제한)
         boss_hit_timer = 999999
         # 충돌 쿨다운 설정
@@ -132713,7 +132728,7 @@ def handle_ball():
             quantum_wave_function.clear()
             quantum_entanglement_pairs.clear()
             quantum_collapse_timer = 0
-            print(f"   ! ( )")
+            # print(f"   ! ( )")
         # --- 스테이지별 보스 스킬 ---
         #  새로운 보스 모드에서는 기존 보스 스킬 발동 비활성화 (중복 방지)
         if not new_boss_mode_active and current_stage == 1:
@@ -132812,7 +132827,7 @@ def initialize_enhanced_ai():
     """딥러닝 AI 시스템 초기화"""
     global enhanced_ai, ai_enabled, ai_mode
     if not AI_AVAILABLE:
-        print("AI   .  AI .")
+        # print("AI   .  AI .")
         ai_enabled = False
         return False
 def initialize_player_analyzer(reset_session: bool = False):
@@ -132823,7 +132838,7 @@ def initialize_player_analyzer(reset_session: bool = False):
     """
     global player_analyzer, player_analyzer_profiles
     if not SKILL_ANALYZER_AVAILABLE:
-        print(".")
+        # print(".")
         return False
 
     # 현재 캐릭터 타입 파악 (없으면 default)
@@ -132843,9 +132858,9 @@ def initialize_player_analyzer(reset_session: bool = False):
             player_analyzer_profiles[char_type] = PlayerSkillAnalyzer()
             # 추적용 메타 필드
             player_analyzer_profiles[char_type]._char_type = char_type
-            print(f"Player analyzer created for '{char_type}'")
+            # print(f"Player analyzer created for '{char_type}'")
         except Exception as e:
-            print(f"    : {e}")
+            # print(f"    : {e}")
             return False
 
     player_analyzer = player_analyzer_profiles[char_type]
@@ -132853,10 +132868,10 @@ def initialize_player_analyzer(reset_session: bool = False):
     try:
         enhanced_ai = EnhancedBossAI(ai_mode)
         ai_enabled = True
-        print(f"  AI  ! (: {ai_mode})")
+        # print(f"  AI  ! (: {ai_mode})")
         return True
     except Exception as e:
-        print(f" AI  : {e}")
+        # print(f" AI  : {e}")
         ai_enabled = False
         return False
 def get_ai_decision(boss, ball, player):
@@ -132898,18 +132913,18 @@ def toggle_ai_mode():
     global ai_mode, enhanced_ai, MIGRATION_MODE, boss_ai_system
     
     if not AI_AVAILABLE and not (MIGRATION_MODE and boss_ai_system):
-        print("AI   .")
+        # print("AI   .")
         return
     
     if ai_mode == "junior":
         ai_mode = "champion"
-        print("!")
+        # print("!")
     elif ai_mode == "champion":
         ai_mode = "mythic"
-        print("!")
+        # print("!")
     else:  # mythic
         ai_mode = "junior"
-        print("!")
+        # print("!")
 
     apply_player_paddle_scale(ai_mode)
 
@@ -133156,7 +133171,7 @@ def _boss_try_emergency_dash() -> bool:
     #     f"[BossDash] Stage {current_stage} ({ai_mode}) dash → "
     #     f"cooldown={cooldown_sec:.1f}s (base:{min_s:.1f}~{max_s:.1f}s, mult:{cooldown_mult})"
     # )
-    return True
+    # return True
 
 
 # 보스 이동 방향 추적 (바나나 미끄러짐용)
@@ -133571,10 +133586,10 @@ def handle_boss_pro():
                     _update_boss_crack_stuck_state(True, pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height))
                 else:
                     _update_boss_crack_stuck_state(False, proposed_boss_rect)
-                print(f"Boss collision detected! Boss rect: x={proposed_boss_rect.x}, y={proposed_boss_rect.y}, w={proposed_boss_rect.width}, h={proposed_boss_rect.height}")
-                print(f"Crack: x={collision_crack['x']}, y={collision_crack['y']}, angle={collision_crack['angle']}, length={collision_crack['length']}")
+                # print(f"Boss collision detected! Boss rect: x={proposed_boss_rect.x}, y={proposed_boss_rect.y}, w={proposed_boss_rect.width}, h={proposed_boss_rect.height}")
+                # print(f"Crack: x={collision_crack['x']}, y={collision_crack['y']}, angle={collision_crack['angle']}, length={collision_crack['length']}")
                 if not moved_to_contact:
-                    print(f"Boss movement blocked, staying at x={BOSS.x}")
+                    pass  # print(f"Boss movement blocked, staying at x={BOSS.x}")
             else:
                 BOSS.x = new_position
                 boss_current_speed = new_velocity
@@ -133629,7 +133644,7 @@ def handle_boss_pro():
                 else:
                     _update_boss_crack_stuck_state(False, proposed_boss_rect)
                 if random.random() < 0.1:
-                    print(f"[CRACK BLOCKED] Boss cannot move from x={BOSS.x} to x={proposed_x}")
+                    pass  # print(f"[CRACK BLOCKED] Boss cannot move from x={BOSS.x} to x={proposed_x}")
             else:
                 BOSS.x = proposed_x
                 # 화면 경계 제한 (스턴이 없을 때만) - 게임 영역 내로 제한
@@ -133877,7 +133892,7 @@ def handle_boss_champion():
             future_x += random.randint(-int(mistake_magnitude), int(mistake_magnitude))
             boss_fail_timer = 25  # 짧은 실수 지속시간
             if random.random() < 0.1:
-                print(f"  AI:  ! ={current_speed:.1f}, =±{mistake_magnitude:.0f}")
+                pass  # print(f"  AI:  ! ={current_speed:.1f}, =±{mistake_magnitude:.0f}")
         # 스테이지별 정확도 (실수율이 이미 적용된 상태)
         if current_stage >= 4:
             accuracy = 0.95  # 95% 정확도 (챔피언리그는 더 정확)
@@ -133945,10 +133960,10 @@ def handle_boss_champion():
                     _update_boss_crack_stuck_state(True, pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height))
                 else:
                     _update_boss_crack_stuck_state(False, proposed_boss_rect)
-                print(f"Boss collision detected! Boss rect: x={proposed_boss_rect.x}, y={proposed_boss_rect.y}, w={proposed_boss_rect.width}, h={proposed_boss_rect.height}")
-                print(f"Crack: x={collision_crack['x']}, y={collision_crack['y']}, angle={collision_crack['angle']}, length={collision_crack['length']}")
+                # print(f"Boss collision detected! Boss rect: x={proposed_boss_rect.x}, y={proposed_boss_rect.y}, w={proposed_boss_rect.width}, h={proposed_boss_rect.height}")
+                # print(f"Crack: x={collision_crack['x']}, y={collision_crack['y']}, angle={collision_crack['angle']}, length={collision_crack['length']}")
                 if not moved_to_contact:
-                    print(f"Boss movement blocked, staying at x={BOSS.x}")
+                    pass  # print(f"Boss movement blocked, staying at x={BOSS.x}")
             else:
                 BOSS.x = new_position
                 boss_current_speed = new_velocity
@@ -134003,7 +134018,7 @@ def handle_boss_champion():
             else:
                 _update_boss_crack_stuck_state(False, proposed_boss_rect)
             if random.random() < 0.1:
-                print(f"[CRACK BLOCKED] Boss cannot move from x={BOSS.x} to x={proposed_x}")
+                pass  # print(f"[CRACK BLOCKED] Boss cannot move from x={BOSS.x} to x={proposed_x}")
         else:
             BOSS.x = proposed_x
             # 화면 경계 제한 (스턴이 없을 때만) - 게임 영역 내로 제한
@@ -134200,7 +134215,7 @@ def handle_boss_mythic():
             else:
                 _update_boss_crack_stuck_state(False, proposed_boss_rect)
             if random.random() < 0.1:
-                print(f"[CRACK BLOCKED - Confused] Boss cannot move from x={BOSS.x} to x={proposed_x}")
+                pass  # print(f"[CRACK BLOCKED - Confused] Boss cannot move from x={BOSS.x} to x={proposed_x}")
         else:
             BOSS.x = proposed_x
             BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
@@ -134328,8 +134343,9 @@ def handle_boss_mythic():
             anticipated_boost = 1.1 + perfect_timing_probability * 0.2
         predicted_x *= anticipated_boost
         if random.random() < 0.1:  # 디버그 빈도 감소
-            print(f"  AI:   ! ={current_speed:.1f}, ={perfect_timing_probability:.1f}, ={anticipated_boost:.2f}")
+            # print(f"  AI:   ! ={current_speed:.1f}, ={perfect_timing_probability:.1f}, ={anticipated_boost:.2f}")
     # 5️⃣ 드라이브 공 특수 처리
+            pass
     drive_correction = 0
     try:
         if 'drive_ball_active' in globals() and drive_ball_active:
@@ -134339,7 +134355,8 @@ def handle_boss_mythic():
                 drive_correction = curve_strength * predict_frames * 4
                 predicted_x += drive_correction
                 if random.random() < 0.15:  # 드라이브 디버그 빈도 감소
-                    print(f"  AI:   !  ={drive_correction:.1f}")
+                    # print(f"  AI:   !  ={drive_correction:.1f}")
+                    pass
     except:
         pass
     # 6️⃣ 최종 목표 위치 결정
@@ -134502,7 +134519,8 @@ def handle_boss_mythic():
             _update_boss_crack_stuck_state(True, pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height))
     # 9️⃣ 디버그 정보 (가끔씩만)
     if random.random() < 0.02:  # 2% 확률
-        print(f"  AI: ={current_speed:.1f}, =[{predictions[0]:.0f},{predictions[1]:.0f},{predictions[2]:.0f}], ={predicted_x:.0f}, ={target_distance:.0f}")
+        # print(f"  AI: ={current_speed:.1f}, =[{predictions[0]:.0f},{predictions[1]:.0f},{predictions[2]:.0f}], ={predicted_x:.0f}, ={target_distance:.0f}")
+        pass
 def handle_boss_junior():
     """초보자 모드: Disabled보다 훨씬 쉬운 AI (연습용)"""
     global boss_current_speed, boss_fail_timer
@@ -134710,8 +134728,9 @@ def handle_boss_junior():
         mistake_scale = min(200, max(100, current_speed * 8))
         future_x += random.randint(-int(mistake_scale), int(mistake_scale))
         if random.random() < 0.05:  # 가끔 디버그
-            print(f"  AI:  ! ={current_speed:.1f}, =±{mistake_scale:.0f}")
+            # print(f"  AI:  ! ={current_speed:.1f}, =±{mistake_scale:.0f}")
     # 향상된 이동 로직
+            pass
     target_distance = future_x - BOSS.centerx
     if abs(target_distance) < 25:  #  주니어리그: 더 큰 허용 범위 (정확도 낮음)
         boss_current_speed *= 0.85  # 느린 감속
@@ -134767,10 +134786,10 @@ def handle_boss_junior():
                     _update_boss_crack_stuck_state(True, pygame.Rect(BOSS.x, BOSS.y, BOSS.width, BOSS.height))
                 else:
                     _update_boss_crack_stuck_state(False, proposed_boss_rect)
-                print(f"Boss collision detected! Boss rect: x={proposed_boss_rect.x}, y={proposed_boss_rect.y}, w={proposed_boss_rect.width}, h={proposed_boss_rect.height}")
-                print(f"Crack: x={collision_crack['x']}, y={collision_crack['y']}, angle={collision_crack['angle']}, length={collision_crack['length']}")
+                # print(f"Boss collision detected! Boss rect: x={proposed_boss_rect.x}, y={proposed_boss_rect.y}, w={proposed_boss_rect.width}, h={proposed_boss_rect.height}")
+                # print(f"Crack: x={collision_crack['x']}, y={collision_crack['y']}, angle={collision_crack['angle']}, length={collision_crack['length']}")
                 if not moved_to_contact:
-                    print(f"Boss movement blocked, staying at x={BOSS.x}")
+                    pass  # print(f"Boss movement blocked, staying at x={BOSS.x}")
             else:
                 BOSS.x = new_position
                 boss_current_speed = new_velocity
@@ -134825,7 +134844,7 @@ def handle_boss_junior():
             else:
                 _update_boss_crack_stuck_state(False, proposed_boss_rect)
             if random.random() < 0.1:
-                print(f"[CRACK BLOCKED] Boss cannot move from x={BOSS.x} to x={proposed_x}")
+                pass  # print(f"[CRACK BLOCKED] Boss cannot move from x={BOSS.x} to x={proposed_x}")
         else:
             BOSS.x = proposed_x
             # 화면 경계 제한 (스턴이 없을 때만)
@@ -134843,9 +134862,9 @@ def optimize_ai_memory_for_round():
         #  성능 통계 압축 (최근 50개만 유지)
         if len(ai_performance_stats["confidence_history"]) > 50:
             ai_performance_stats["confidence_history"] = ai_performance_stats["confidence_history"][-50:]
-        print("AI")
+        # print("AI")
     except Exception as e:
-        print(f" AI    : {e}")
+        pass  # print(f" AI    : {e}")
 def optimize_ai_memory_for_stage_transition():
     """스테이지 간 AI 메모리 최적화 (강력한 정리)"""
     global enhanced_ai, ai_decisions_history, ai_performance_stats
@@ -134853,7 +134872,7 @@ def optimize_ai_memory_for_stage_transition():
         return
     try:
         #  강력한 메모리 정리
-        print(": AI   ...")
+        # print(": AI   ...")
         # 결정 기록 완전 정리
         ai_decisions_history.clear()
         # 성능 통계 압축 (최근 20개만 유지)
@@ -134865,9 +134884,9 @@ def optimize_ai_memory_for_stage_transition():
         #  AI 메모리 최적화 (GodMode만 필요시)
             if hasattr(enhanced_ai, 'performance_history') and len(enhanced_ai.performance_history) > 100:
                 enhanced_ai.performance_history = enhanced_ai.performance_history[-100:]
-        print(": AI   !")
+        # print(": AI   !")
     except Exception as e:
-        print(f" AI    : {e}")
+        pass  # print(f" AI    : {e}")
 def draw_ai_visualization():
     """AI 상태 및 성능 시각화 (극한 최적화 - 거의 비활성화)"""
     if not ai_enabled or not AI_AVAILABLE:
@@ -135076,7 +135095,7 @@ def record_dash_life_save():
     if player_analyzer:
         try:
             player_analyzer.stats.dash_life_saves += 1
-            print(f"    ! ( {player_analyzer.stats.dash_life_saves})")
+            # print(f"    ! ( {player_analyzer.stats.dash_life_saves})")
         except:
             pass  # 조용히 실패
 def record_dash_victory():
@@ -135085,7 +135104,7 @@ def record_dash_victory():
     if player_analyzer:
         try:
             player_analyzer.stats.dash_victories += 1
-            print(f"    ! ( {player_analyzer.stats.dash_victories})")
+            # print(f"    ! ( {player_analyzer.stats.dash_victories})")
         except:
             pass  # 조용히 실패
 def score_to_grade(score):
@@ -135346,7 +135365,7 @@ def record_victory_result(player_wins, boss_wins):
             perfect_victory_bonus_timer = 180  # 3초간 메시지 표시
             victory_bonus_type = "perfect"
             
-            print("5:0 완승! 보너스 트레이드 포인트 +3")
+            # print("5:0 완승! 보너스 트레이드 포인트 +3")
     
     # 5:1 승리 시 보너스 트레이드 포인트 지급
     elif player_wins == 5 and boss_wins == 1:
@@ -135361,7 +135380,7 @@ def record_victory_result(player_wins, boss_wins):
             perfect_victory_bonus_timer = 180  # 3초간 메시지 표시
             victory_bonus_type = "dominant"
             
-            print("5:1 승리! 보너스 트레이드 포인트 +2")
+            # print("5:1 승리! 보너스 트레이드 포인트 +2")
     
     # 5:2 승리 시 보너스 트레이드 포인트 지급
     elif player_wins == 5 and boss_wins == 2:
@@ -135375,7 +135394,7 @@ def record_victory_result(player_wins, boss_wins):
             perfect_victory_bonus_timer = 180  # 3초간 메시지 표시
             victory_bonus_type = "victory"
             
-            print("5:2 소소한 승리! 보너스 트레이드 포인트 +1")
+            # print("5:2 소소한 승리! 보너스 트레이드 포인트 +1")
     
     if player_analyzer:
         try:
@@ -135872,12 +135891,13 @@ def handle_boss():
         if boss_stun_timer == 0 and ragnarok_shock_playing:
             stop_ragnarok_shock_sound()
             ragnarok_shock_playing = False
-            print("-")
+            # print("-")
 
         if boss_stun_timer % 20 == 0:  # 매 20프레임마다 디버그 출력
-            print(f"   !  : {boss_stun_timer/60:.1f}, : {boss_current_speed}")
+            # print(f"   !  : {boss_stun_timer/60:.1f}, : {boss_current_speed}")
 
         # 스턴 중에도 바주카포 발사체 충돌 체크는 계속 수행
+            pass
         _process_bazooka_collisions()
         return  # 스턴 중에는 모든 처리 차단
     
@@ -136013,7 +136033,7 @@ def handle_boss():
                     if 'SOUND_GRENADE' in globals():
                         play_sound_with_volume(SOUND_GRENADE)  # 폭발 사운드
                     else:
-                        # print("🔊 바주카포 폭발 사운드 재생 (사운드 파일 없음)")
+                        pass  # print("🔊 바주카포 폭발 사운드 재생 (사운드 파일 없음)")
                 except:
                     print("🔊 바주카포 사운드 재생 실패")
                 
@@ -136041,7 +136061,7 @@ def handle_boss():
         BOSS.x = BOSS.x  # 위치 고정 (현재 위치 유지)
         if head_shot_timer <= 0:
             head_shot_active = False
-            print("🎯 헤드샷 스턴 종료!")
+            # print("🎯 헤드샷 스턴 종료!")
         return  # 헤드샷 스턴 중에는 AI 완전 정지
 
     # 스테이지 2: 보스 이동 방향 추적 (바나나 미끄러짐용)
@@ -136072,7 +136092,7 @@ def handle_boss():
             corrected = True
         # 디버그: 보스가 경계에 도달했을 때 출력
         if BOSS.x <= final_min_x + 2 or BOSS.x >= final_max_x - 2:
-            print(f"[EDGE OK] width={BOSS.width}, x={BOSS.x}, right={BOSS.x + BOSS.width}, bounds=[{final_min_x}, {final_max_x + BOSS.width}], corrected={corrected}")
+            pass  # print(f"[EDGE OK] width={BOSS.width}, x={BOSS.x}, right={BOSS.x + BOSS.width}, bounds=[{final_min_x}, {final_max_x + BOSS.width}], corrected={corrected}")
 
     #  리그별 AI 모드 체크 및 분기 (4단계 리그 시스템)
     if ai_enabled and ai_mode == "junior":
@@ -136229,7 +136249,8 @@ def handle_boss():
                 BOSS.x = contact_x
                 BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
             if random.random() < 0.1:  # 10% chance to print
-                print(f"[CRACK BLOCKED - Tutorial] Boss cannot move from x={BOSS.x} to x={proposed_x}")
+                # print(f"[CRACK BLOCKED - Tutorial] Boss cannot move from x={BOSS.x} to x={proposed_x}")
+                pass
         else:
             BOSS.x = proposed_x
             BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
@@ -136648,7 +136669,8 @@ def handle_boss():
             BOSS.x = contact_x
             BOSS.centerx = BOSS.x + BOSS.width // 2
         if random.random() < 0.1:  # 10% chance to print debug
-            print(f"[CRACK BLOCKED - Main AI] Boss cannot move from x={BOSS.x} to x={proposed_x}")
+            # print(f"[CRACK BLOCKED - Main AI] Boss cannot move from x={BOSS.x} to x={proposed_x}")
+            pass
     else:
         BOSS.centerx += boss_current_speed
         # 게임 영역 내로 제한 (공과 동일하게 0 ~ WIDTH 범위 사용)
@@ -136712,9 +136734,9 @@ def handle_boss():
                                 # Stage 2 악어장군: 스피드디펜스 발동 시 게이지 80 소모
                                 if current_stage == 2:
                                     boss_special_gauge = max(0, boss_special_gauge - 80)
-                                    print(f"스피드 디펜스 발동! 게이지 80 소모 (현재: {boss_special_gauge}/500)")
+                                    # print(f"스피드 디펜스 발동! 게이지 80 소모 (현재: {boss_special_gauge}/500)")
                                 else:
-                                    print(f"스피드 디펜스 발동! 거리 차이: {distance_to_predicted:.1f}, 최대 이동 가능: {boss_max_move:.1f}")
+                                    pass  # print(f"스피드 디펜스 발동! 거리 차이: {distance_to_predicted:.1f}, 최대 이동 가능: {boss_max_move:.1f}")
         if speed_defense_timer > 0:
             speed_defense_timer -= 1
         if speed_defense_active and speed_defense_timer <= 0:
@@ -137197,7 +137219,7 @@ def start_nemesis_death_animation():
     except Exception:
         pass
 
-    print("[Nemesis] 패배 애니메이션 시작!")
+    # print("[Nemesis] 패배 애니메이션 시작!")
 
 
 def update_nemesis_death_animation():
@@ -137356,13 +137378,13 @@ def update_nemesis_death_animation():
                         trade_point_system.spawn_star(star_x, star_y, "nemesis_defeat")
                     except Exception:
                         pass
-                print(f"[Nemesis] 패배! 스타포인트 {num_stars}개 드랍!")
+                # print(f"[Nemesis] 패배! 스타포인트 {num_stars}개 드랍!")
 
     # === Phase 2: 화면 정지 + 대기 후 종료 (4초~9초, 5초간 정지) ===
     else:
         if nemesis_death_phase != 2:
             nemesis_death_phase = 2
-            print(f"[Nemesis] Phase 2 시작! 5초간 화면 정지...")
+            # print(f"[Nemesis] Phase 2 시작! 5초간 화면 정지...")
         post_elapsed = elapsed - NEMESIS_DEATH_DURATION
 
         # 파편들 계속 업데이트 (서서히 사라짐)
@@ -137379,7 +137401,7 @@ def update_nemesis_death_animation():
             nemesis_death_particles.clear()
             nemesis_death_explosions.clear()
             nemesis_death_boss_fragments.clear()
-            print("[Nemesis] 패배 애니메이션 완료! → show_result(True) 호출 예정")
+            # print("[Nemesis] 패배 애니메이션 완료! → show_result(True) 호출 예정")
             return True  # 애니메이션 완료, show_result 호출 필요
 
     # 파티클 업데이트
@@ -137599,15 +137621,15 @@ def show_result(won):
                 animated_bg_stage30.judgment_phase = animated_bg_stage30.JUDGMENT_IDLE
                 animated_bg_stage30.judgment_cooldown = 999.0
             _top_name = arena_top_hero.get('name', '?') if arena_top_hero else '?'
-            print(f"[CAPTURE] 포획 페이즈 시작! 대상: {_top_name}")
+            # print(f"[CAPTURE] 포획 페이즈 시작! 대상: {_top_name}")
             return
         arena_battle_result = won  # True=하단(플레이어AI) 승리, False=상단 승리
         _bottom_name = arena_bottom_hero.get('name', '?') if arena_bottom_hero else '?'
         _top_name = arena_top_hero.get('name', '?') if arena_top_hero else '?'
         if won:
-            # print(f"[DEBUG 반칙왕] 🏆 show_result: 하단 '{_bottom_name}' 승리! (arena_battle_result=True)")
+            pass  # print(f"[DEBUG 반칙왕] 🏆 show_result: 하단 '{_bottom_name}' 승리! (arena_battle_result=True)")
         else:
-            # print(f"[DEBUG 반칙왕] 💀 show_result: 상단 '{_top_name}' 승리! 하단 '{_bottom_name}' 패배! (arena_battle_result=False)")
+            pass  # print(f"[DEBUG 반칙왕] 💀 show_result: 상단 '{_top_name}' 승리! 하단 '{_bottom_name}' 패배! (arena_battle_result=False)")
         return
 
     stop_blacksmith_construction_sound()
@@ -137634,7 +137656,7 @@ def show_result(won):
     globals()["wall_group_hits"].clear()
     #  Aipill 초기화 (다음 라운드로 넘어가면 Aipill 효과 종료)
     if aipill_active:
-        print("Aipill  .")
+        # print("Aipill  .")
         deactivate_aipill("round_transition")
     #  상모돌리기 완전 초기화 (스테이지 종료 시)
     whip_active = False
@@ -137702,7 +137724,7 @@ def show_result(won):
         #  최종 점수 저장 (승리 시점의 점수)
         final_round_wins = round_wins
         final_round_losses = round_losses
-        print(f"   : {final_round_wins}:{final_round_losses}")
+        # print(f"   : {final_round_wins}:{final_round_losses}")
 
         # 네메시스 폭발 애니메이션은 show_result 호출 전에 이미 실행됨
 
@@ -137731,30 +137753,30 @@ def show_result(won):
             # 완벽한 승리 (5:0) - 3회 선택
             skill_selection_count = 3
             show_perfect_victory_effect()
-            print(f"[Victory] 완벽한 승리! 런타임 스킬 {skill_selection_count}회 선택")
+            # print(f"[Victory] 완벽한 승리! 런타임 스킬 {skill_selection_count}회 선택")
         elif final_round_wins == 5 and final_round_losses == 1:
             # 우수한 승리 (5:1) - 2회 선택
             skill_selection_count = 2
             show_excellent_victory_effect()
-            print(f"[Victory] 우수한 승리! 런타임 스킬 {skill_selection_count}회 선택")
+            # print(f"[Victory] 우수한 승리! 런타임 스킬 {skill_selection_count}회 선택")
         elif final_round_wins == 5 and final_round_losses == 2:
             # 일반 승리 (5:2) - 1회 선택
             skill_selection_count = 1
             show_normal_victory_effect()
-            print(f"[Victory] 일반 승리! 런타임 스킬 {skill_selection_count}회 선택")
+            # print(f"[Victory] 일반 승리! 런타임 스킬 {skill_selection_count}회 선택")
         else:
             # 그 외 (듀스 등) - 1회 선택
             skill_selection_count = 1
-            print(f"[Victory] 승리! 런타임 스킬 {skill_selection_count}회 선택")
+            # print(f"[Victory] 승리! 런타임 스킬 {skill_selection_count}회 선택")
 
         # 런타임 스킬 선택 화면 호출 (횟수만큼 반복)
         # exclude_instant=True: 스테이지 클리어 보상이므로 즉시형 스킬(풀게이징, 차원개방) 제외
         # 주의: show_runtime_skill_choices 내부에서 이미 apply_runtime_skill_effect를 호출함
         for i in range(skill_selection_count):
-            print(f"[Victory] 런타임 스킬 선택 {i + 1}/{skill_selection_count}")
+            # print(f"[Victory] 런타임 스킬 선택 {i + 1}/{skill_selection_count}")
             selected_skill = show_runtime_skill_choices(exclude_instant=True)
             if selected_skill:
-                print(f"[Victory] 스킬 선택됨: {selected_skill}")
+                pass  # print(f"[Victory] 스킬 선택됨: {selected_skill}")
 
         # === 광폭화 보스 승리 시 추가 런타임 스킬 선택 (일반 스킬 선택 후) ===
         # 광폭화 보너스 스킬 선택 횟수를 여기서 직접 계산 (show_victory_screen 호출 전)
@@ -137778,7 +137800,7 @@ def show_result(won):
                     # print(f"🔥 [광폭화 보너스] 런타임 스킬 선택 {i + 1}/{enraged_skill_choices}")
                     selected_skill = show_runtime_skill_choices(exclude_instant=True)
                     if selected_skill:
-                        # print(f"🔥 [광폭화 보너스] 스킬 선택됨: {selected_skill}")
+                        pass  # print(f"🔥 [광폭화 보너스] 스킬 선택됨: {selected_skill}")
                 pygame.event.clear()  # 선택 중 쌓인 입력 제거
 
         #  뽑기 시작
@@ -138466,19 +138488,19 @@ def main(stage_num, new_boss_mode=False):
         try:
             # 전역 변수를 새 GameState로 마이그레이션
             migration_bridge = init_migration(globals())
-            print("[OK] Migration bridge initialized")
+            # print("[OK] Migration bridge initialized")
             
             # 새 게임 서비스 시작
             from services.game_service import GameService
             game_service = GameService()
             game_service.start_game(display_stage_num)
-            print(f"[OK] Starting stage {display_stage_num} with GameService")
+            # print(f"[OK] Starting stage {display_stage_num} with GameService")
         except Exception as e:
             print(f"⚠️ 마이그레이션 초기화 실패: {e}")
             migration_bridge = None
 
     stage_num = stage_display_to_logic(display_stage_num)
-    print(f"[StageSelect] 진입: display={display_stage_num}, logic={stage_num}")
+    # print(f"[StageSelect] 진입: display={display_stage_num}, logic={stage_num}")
 
     # 플레이어 자동조종 AI가 활성화되어 있으면 스테이지 시작 시 컨트롤러를 리셋
     if player_ai_enabled:
@@ -138974,15 +138996,16 @@ def main(stage_num, new_boss_mode=False):
         downtown_ap_is_first_stage = True  # 첫 광장 플래그
         game_session_active = True  # 게임 세션 활성화
         record_game_start()  # 새 세션을 실력 분석에 반영
-        print(":")
+        # print(":")
     else:
         # 스테이지 전환 시 스킬 포인트는 유지
-        print(f"  {display_stage_num} :")
+        # print(f"  {display_stage_num} :")
+        pass
     
     # 매 스테이지마다 수집 카운터는 초기화 (스킬 포인트와는 별개)
     trade_point_collected = 0  # 현재 스테이지 트레이드 포인트 카운터 초기화
     trade_point_system.reset()  # 별 시스템 리셋
-    print(f"  {display_stage_num}:")
+    # print(f"  {display_stage_num}:")
     if current_stage == 3:
         stage3_hearts_collected = 0  # Stage 3 시작 시 하트 수집 카운터 초기화 (레거시)
     elif current_stage == 4:
@@ -138999,7 +139022,7 @@ def main(stage_num, new_boss_mode=False):
         falling_tears = []
         player_slow_timer = 0  # 플레이어 속도 저하 디버프 초기화
         player_slow_timer_max = 0
-        print("Stage 4 :")
+        # print("Stage 4 :")
     
     #  Stage 2 위기 상황 바위 트리거 리셋
     if current_stage == 2 and animated_bg_stage2:
@@ -139010,12 +139033,12 @@ def main(stage_num, new_boss_mode=False):
         animated_bg_stage2.boss_rage_timer = 0
         animated_bg_stage2.boss_red_tint = 0
         animated_bg_stage2.boss_shake_offset_y = 0
-        print("Stage 2:")
+        # print("Stage 2:")
     
     # Stage 4 배경 초기화 (사원 복구, 달 정상화)
     if animated_bg_stage4:
         animated_bg_stage4.reset()
-        print("Stage 4: 배경 초기화 완료")
+        # print("Stage 4: 배경 초기화 완료")
     #  체력형 보스 스테이지에서는 패배 조건을 5점으로 설정
     global win_goal, boss_current_health, boss_displayed_health, boss_damage_preview_health
     if current_stage in boss_health_stages:
@@ -139039,7 +139062,7 @@ def main(stage_num, new_boss_mode=False):
         bottom_names = ["파이어 나이트", "윈드 스피릿"]
         top_name = top_names[selected_top_boss - 1]
         bottom_name = bottom_names[selected_bottom_boss - 1]
-        print(f" NEW BOSS BATTLE: {top_name} vs {bottom_name}")
+        # print(f" NEW BOSS BATTLE: {top_name} vs {bottom_name}")
     # 듀스 시스템 초기화
     reset_deuce_system()
 
@@ -139093,7 +139116,7 @@ def main(stage_num, new_boss_mode=False):
             globals()['screen_shake_timer'] = 60
             globals()['screen_shake_intensity'] = 8
             if DEBUG_BOSS:
-                # print(f"🔥 [광폭화 보스] 스테이지 3 쿠로미 즉시 각성 + 광폭화 이펙트 적용!")
+                pass  # print(f"🔥 [광폭화 보스] 스테이지 3 쿠로미 즉시 각성 + 광폭화 이펙트 적용!")
 
         # 스테이지 4 광폭화: 사원 파괴 스테이지 시작부터 즉시 발동
         if stage_num == 4 and animated_bg_stage4 is not None:
@@ -139156,7 +139179,7 @@ def main(stage_num, new_boss_mode=False):
                 "fail_chance": 0.010 - (stage_num - 1) * 0.001,
                 "fail_error": variant_cfg["fail_error"],
             }
-            print(f"[Boss Select] Stage {stage_num}: '{current_boss_name}' 선출!")
+            # print(f"[Boss Select] Stage {stage_num}: '{current_boss_name}' 선출!")
     else:
         current_boss_name = None
 
@@ -139320,18 +139343,18 @@ def main(stage_num, new_boss_mode=False):
         if not fuel_pouch_in_list:
             deactivate_fuel_pouch()
             items.fuel_pouch_obtained = False
-            print("")
+            # print("")
         else:
-            print("(  )")
+            pass  # print("(  )")
             
         # 블루투스링: passive_item_list에 없으면 초기화  
         bluetooth_ring_in_list = any(item.get("name") == "bluetooth_ring" for item in passive_item_list)
         if not bluetooth_ring_in_list:
             deactivate_bluetooth_ring()
             items.bluetooth_ring_obtained = False
-            print("")
+            # print("")
         else:
-            print("(  )")
+            pass  # print("(  )")
 
         foul_whistle_in_list = any(item.get("name") == "foul_whistle" for item in passive_item_list)
         foul_whistle_instance = get_foul_whistle_instance()
@@ -139366,7 +139389,7 @@ def main(stage_num, new_boss_mode=False):
                 except Exception:
                     pass
 
-        print("")
+        # print("")
 
         # 위험감지센서: passive_item_list에 있으면 강화 정보 포함하여 쿨타임 적용
         sensor_in_list = None
@@ -139383,7 +139406,7 @@ def main(stage_num, new_boss_mode=False):
             sensor_enabled = True
             items.sensor_obtained = True
             apply_sensor_cooldown_option(sensor_in_list)
-            print(f"[센서 초기화] 강화 정보 포함 쿨타임 적용 (장착됨): enhancement_level={sensor_in_list.get('enhancement_level', 0)}, cooldown_ms={globals().get('danger_sensor_cooldown_ms', 15000)}")
+            # print(f"[센서 초기화] 강화 정보 포함 쿨타임 적용 (장착됨): enhancement_level={sensor_in_list.get('enhancement_level', 0)}, cooldown_ms={globals().get('danger_sensor_cooldown_ms', 15000)}")
 
     #  Stage 1 이벤트 매니저 리셋
     global balloon_event_delay, balloon_event_reserved_score
@@ -139391,7 +139414,7 @@ def main(stage_num, new_boss_mode=False):
     balloon_event_reserved_score = 0
     if BALLOON_EVENT_AVAILABLE and stage1_events:
         stage1_events.reset()
-        print("Stage 1")
+        # print("Stage 1")
     
     #  Stage 5 이벤트 매니저 리셋
     global fire_event_delay, fire_event_reserved_score, player_stun_immunity_timer
@@ -139400,7 +139423,7 @@ def main(stage_num, new_boss_mode=False):
     player_stun_immunity_timer = 0
     if FIRE_EVENT_AVAILABLE and stage5_events:
         stage5_events.reset()
-        print("Stage 5")
+        # print("Stage 5")
     
     #  스테이지 전환 시 플레이어 스턴/넉백 상태 초기화 (Stage 6→5 버그 수정)
     # (global 선언은 함수 시작 부분에 이미 있음)
@@ -139430,11 +139453,11 @@ def main(stage_num, new_boss_mode=False):
 
     # AI 알약 상태 초기화 (스테이지 전환 시 비활성화)
     if aipill_active:
-        print("AI")
+        pass  # print("AI")
     deactivate_aipill("round_transition", allow_override=True)
     deactivate_berserk_potion()
     
-    print("/")
+    # print("/")
 
     # 위험감지센서: 스테이지 전환 시 강화 정보 포함하여 쿨타임 재적용
     # (다운타운에서 강화한 센서도 적용되도록) - 장착된 센서만 적용
@@ -139442,7 +139465,7 @@ def main(stage_num, new_boss_mode=False):
         if item and item.get("name") == "sensor" and item.get("_equipped_slot"):
             # 장착된 센서만 쿨타임 재적용 (강화 정보 포함)
             apply_sensor_cooldown_option(item)
-            print(f"[센서 스테이지전환] 쿨타임 재적용 (장착됨): enhancement_level={item.get('enhancement_level', 0)}, enhancement_bonus_pct={item.get('enhancement_bonus_pct', 0)}")
+            # print(f"[센서 스테이지전환] 쿨타임 재적용 (장착됨): enhancement_level={item.get('enhancement_level', 0)}, enhancement_bonus_pct={item.get('enhancement_bonus_pct', 0)}")
             break
 
     # 아이템 스폰 타이머 초기화 (일반 스폰 딜레이 사용)
@@ -139502,7 +139525,7 @@ def main(stage_num, new_boss_mode=False):
         
         if skip_chapter2_init:
             # 챕터2 재시작 - 챕터2 관련 상태만 유지하고 나머지는 초기화
-            print("🔄 챕터2 상태 유지하며 부분 초기화")
+            # print("🔄 챕터2 상태 유지하며 부분 초기화")
             # 챕터2 상태 유지 플래그 해제
             tutorial_skip_chapter2_init = False
             
@@ -139559,7 +139582,7 @@ def main(stage_num, new_boss_mode=False):
                 global rolling_charges, special_gauge, displayed_gauge
                 
                 # 챕터3 재시작 - 챕터3 관련 상태만 유지하고 나머지는 초기화
-                print("🔄 챕터3 상태 유지하며 부분 초기화")
+                # print("🔄 챕터3 상태 유지하며 부분 초기화")
                 # 챕터3 상태 유지 플래그 해제
                 tutorial_skip_chapter3_init = False
                 
@@ -139619,7 +139642,7 @@ def main(stage_num, new_boss_mode=False):
                     dashholder_obtained = False  # 대쉬홀더 효과 제거
                     tutorial_bonus_token_message = None
                     if DEBUG_TUTORIAL:
-                        # print("튜토리얼: Chapter 3 시작 - 연습용 대쉬토큰 제거")
+                        pass  # print("튜토리얼: Chapter 3 시작 - 연습용 대쉬토큰 제거")
                 
                 # 게이지 초기화
                 special_gauge = 0
@@ -139639,7 +139662,7 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_power_center_done = False
                 tutorial_power_right_done = False
                 
-                print("[OK] Chapter 3 시작 상태로 초기화 완료")
+                # print("[OK] Chapter 3 시작 상태로 초기화 완료")
                 tutorial_pending_chapter_title = tutorial_pending_chapter_title or (3, "DRIVE", "드라이브")
             else:
                 # 초기 튜토리얼 시작 - 모든 변수 초기화
@@ -139648,7 +139671,7 @@ def main(stage_num, new_boss_mode=False):
                 keys = pygame.key.get_pressed()
                 if keys[pygame.K_4]:
                     tutorial_current_chapter = 4  # Chapter 4로 바로 시작
-                    print("🔍 DEBUG: 4번키 감지 - Chapter 4에서 시작")
+                    # print("🔍 DEBUG: 4번키 감지 - Chapter 4에서 시작")
                     # Chapter 4 관련 변수 초기화
                     tutorial_needs_power_practice = True
                     tutorial_power_practice_shown = False
@@ -139727,18 +139750,18 @@ def main(stage_num, new_boss_mode=False):
             
             # 튜토리얼 상태 완전 초기화 완료
             if DEBUG_TUTORIAL:
-                # print("🔄 튜토리얼 상태 완전 초기화됨")
+                pass  # print("🔄 튜토리얼 상태 완전 초기화됨")
     
     if stage_num == 50:
         if DEBUG_TUTORIAL:
-            # print("튜토리얼 스테이지 50 시작")
+            pass  # print("튜토리얼 스테이지 50 시작")
         # 튜토리얼 보스 속도 설정 확인
         if DEBUG_TUTORIAL:
-            # print(f"튜토리얼 보스 속도 설정:")
-        print(f"  - BOSS_ACCELERATION: {BOSS_ACCELERATION}")
-        print(f"  - BOSS_MAX_SPEED: {BOSS_MAX_SPEED}")
-        print(f"  - BOSS_DECELERATION: {BOSS_DECELERATION}")
-        print(f"  - BOSS_INSTANT_STOP: {BOSS_INSTANT_STOP_DECELERATION}")
+            pass  # print(f"튜토리얼 보스 속도 설정:")
+        # print(f"  - BOSS_ACCELERATION: {BOSS_ACCELERATION}")
+        # print(f"  - BOSS_MAX_SPEED: {BOSS_MAX_SPEED}")
+        # print(f"  - BOSS_DECELERATION: {BOSS_DECELERATION}")
+        # print(f"  - BOSS_INSTANT_STOP: {BOSS_INSTANT_STOP_DECELERATION}")
         
         # Chapter 3 드라이브 튜토리얼 체크
         # Note: 이 체크는 메인 루프에서 처리됨 (변수 스코프 문제 회피)
@@ -139746,12 +139769,12 @@ def main(stage_num, new_boss_mode=False):
         # Chapter 2 대쉬 튜토리얼 체크
         if tutorial_needs_dash_practice and not tutorial_dash_practice_shown:
             if DEBUG_TUTORIAL:
-                # print("튜토리얼: Chapter 2 - DASH 연습 시작")
+                pass  # print("튜토리얼: Chapter 2 - DASH 연습 시작")
             
             # Chapter 2 최대 게이지를 300으로 설정
             tutorial_chapter2_max_gauge = 300
             if DEBUG_TUTORIAL:
-                # print("튜토리얼: Chapter 2 최대 게이지를 300으로 설정")
+                pass  # print("튜토리얼: Chapter 2 최대 게이지를 300으로 설정")
             
             # 대화 시작 전에 게임 화면 그리기
             draw_field()
@@ -139760,7 +139783,7 @@ def main(stage_num, new_boss_mode=False):
             dash_dialogue_result = show_tutorial_dash_dialogue()
             if dash_dialogue_result == "skip_chapter":
                 # 8번키로 챕터 스킵 요청 - Chapter 2에서는 Chapter 3로 직접 이동
-                print("🎮 대쉬 대화에서 챕터 스킵 요청됨 - Chapter 3으로 직접 이동")
+                # print("🎮 대쉬 대화에서 챕터 스킵 요청됨 - Chapter 3으로 직접 이동")
                 
                 # Chapter 2 완료 요약 화면 표시
                 show_chapter_completion_summary(2)
@@ -139772,7 +139795,7 @@ def main(stage_num, new_boss_mode=False):
                     tutorial_practice_bonus_token = False
                     tutorial_bonus_token_message = None  # 메시지 제거
                     if DEBUG_TUTORIAL:
-                        # print("튜토리얼: Chapter 2 스킵 - 연습용 대쉬토큰 제거 (토큰 1개로 초기화)")
+                        pass  # print("튜토리얼: Chapter 2 스킵 - 연습용 대쉬토큰 제거 (토큰 1개로 초기화)")
                 
                 # Chapter 3 타이틀 표시
                 show_chapter_title(3, "DRIVE", "드라이브")
@@ -139780,7 +139803,7 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_needs_dash_practice = False
                 tutorial_skip_chapter3_init = True
                 tutorial_pending_chapter_title = (3, "DRIVE", "드라이브")
-                print("🎉 Chapter 2 스킵 완료, Chapter 3 - DRIVE 준비")
+                # print("🎉 Chapter 2 스킵 완료, Chapter 3 - DRIVE 준비")
                 return main(50)
             elif dash_dialogue_result:
                 # 대쉬 대화 후 바로 오버레이 도우미 활성화 (서브 도우미와 동일한 방식)
@@ -139789,7 +139812,7 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_dash_practice_shown = True
                 tutorial_practice_mode = True
                 if DEBUG_TUTORIAL:
-                    # print(f"튜토리얼: 대쉬 연습 대화 완료, 오버레이 도우미 활성화={tutorial_dash_helper_active}")
+                    pass  # print(f"튜토리얼: 대쉬 연습 대화 완료, 오버레이 도우미 활성화={tutorial_dash_helper_active}")
                 
                 # Chapter 2: 플레이어가 먼저 서브하도록 설정
                 is_waiting_for_serve = True
@@ -139798,7 +139821,7 @@ def main(stage_num, new_boss_mode=False):
                 ball_vel[1] = 0
                 BALL[0] = WIDTH // 2
                 BALL[1] = HEIGHT - 100  # 플레이어 앞에 공 배치
-                print("🎯 Chapter 2: 플레이어가 먼저 서브!")
+                # print("🎯 Chapter 2: 플레이어가 먼저 서브!")
                 
                 # Chapter 1 공속도 초기화
                 tutorial_saved_ball_vel = None
@@ -139806,12 +139829,12 @@ def main(stage_num, new_boss_mode=False):
             # Chapter 1 - BASIC 표시 (대화 전에)
             show_chapter_title(1, "BASIC", "기본 연습")
             if DEBUG_TUTORIAL:
-                # print("튜토리얼: Chapter 1 - BASIC 표시 완료")
+                pass  # print("튜토리얼: Chapter 1 - BASIC 표시 완료")
             
             # Chapter 1 최대 게이지를 100으로 설정
             tutorial_chapter1_max_gauge = 100
             if DEBUG_TUTORIAL:
-                # print("튜토리얼: Chapter 1 최대 게이지를 100으로 설정")
+                pass  # print("튜토리얼: Chapter 1 최대 게이지를 100으로 설정")
             
             # 대화 시작 전에 게임 화면 그리기
             draw_field()
@@ -139819,11 +139842,11 @@ def main(stage_num, new_boss_mode=False):
             pygame.display.flip()
             
             if DEBUG_TUTORIAL:
-                # print("튜토리얼 대화 표시 시작")
+                pass  # print("튜토리얼 대화 표시 시작")
             intro_dialogue_result = show_tutorial_intro_dialogue()
             if intro_dialogue_result == "skip_chapter":
                 # 8번키로 챕터 스킵 요청 - Chapter 1에서는 Chapter 2로 직접 이동
-                print("🎮 인트로 대화에서 챕터 스킵 요청됨 - Chapter 2로 직접 이동")
+                # print("🎮 인트로 대화에서 챕터 스킵 요청됨 - Chapter 2로 직접 이동")
                 
                 # Chapter 1 완료 요약 화면 표시
                 show_chapter_completion_summary(1)
@@ -139844,29 +139867,29 @@ def main(stage_num, new_boss_mode=False):
                 # 8번키 스킵 시에도 서브 알림창 활성화 (일관성 위해)
                 tutorial_serve_reminder_active = True
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: 8번키 스킵 후 서브 알림창 활성화")
+                    pass  # print("튜토리얼: 8번키 스킵 후 서브 알림창 활성화")
                 
                 # 게임 계속 진행을 위한 설정
                 reset_round()  # 라운드 리셋
                 
-                print("🎉 Chapter 1 스킵 완료, Chapter 2 - DASH 시작")
+                # print("🎉 Chapter 1 스킵 완료, Chapter 2 - DASH 시작")
                 # continue로 메인 루프 계속 진행
             elif intro_dialogue_result:
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼 대화 완료")
+                    pass  # print("튜토리얼 대화 완료")
                 tutorial_dialogue_shown = True
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: Chapter 1 - BASIC 시작")
+                    pass  # print("튜토리얼: Chapter 1 - BASIC 시작")
                 
                 tutorial_practice_mode = True  # 대화 후 실습 모드 시작
                 # reset_round()에서 이미 플레이어에게 서브권이 부여됨 (스테이지 50은 항상 플레이어 서브)
                 if DEBUG_TUTORIAL:
-                    # print(f"튜토리얼 실습 모드 시작: is_player_serve={is_player_serve}, is_waiting_for_serve={is_waiting_for_serve}")
+                    pass  # print(f"튜토리얼 실습 모드 시작: is_player_serve={is_player_serve}, is_waiting_for_serve={is_waiting_for_serve}")
                 
                 # 인트로 대화 후 서브 알림창 활성화
                 tutorial_serve_reminder_active = True
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: 서브 알림창 활성화")
+                    pass  # print("튜토리얼: 서브 알림창 활성화")
     
     # 코만도 캐릭터 코만도암 패시브 아이템 확인 및 설정 (최신 롤 옵션 적용)
     if selected_character_type == "soldier":
@@ -139906,7 +139929,7 @@ def main(stage_num, new_boss_mode=False):
             if not any(item["name"] == "grenade" for item in active_item_slot):
                 active_item_slot.append(grenade_data)
             soldier_initial_grenade_given = True
-            print("💪 코만도 캐릭터 게임 시작 - 코만도암(최신 롤 적용) + 수류탄 1회 지급")
+            # print("💪 코만도 캐릭터 게임 시작 - 코만도암(최신 롤 적용) + 수류탄 1회 지급")
 
     # === 저장된 탄환 상태 복원 (계속하기로 로드한 경우) ===
     # 무기 초기화 후에 저장된 탄환 상태를 적용해야 함
@@ -139934,7 +139957,7 @@ def main(stage_num, new_boss_mode=False):
     _debug_anim_start_time = pygame.time.get_ticks()
     _DEBUG_ANIM_VERBOSE = COORDINATE_DEBUG_MODE  # F4 디버그 모드와 연동
     if _DEBUG_ANIM_VERBOSE:
-        # print(f"[DEBUG ANIM] === 애니메이션 초기화 시작 === ticks: {_debug_anim_start_time}")
+        pass  # print(f"[DEBUG ANIM] === 애니메이션 초기화 시작 === ticks: {_debug_anim_start_time}")
 
     # EXE 패키징 시 초기 로딩 지연 문제 해결을 위한 타이머 리셋
     # (SettingsManager는 이미 스플래시 화면에서 사전 초기화됨)
@@ -139942,7 +139965,7 @@ def main(stage_num, new_boss_mode=False):
     pygame.time.delay(1)
     clock.tick()
     if _DEBUG_ANIM_VERBOSE:
-        # print(f"[DEBUG ANIM] 타이머 리셋 완료: +{pygame.time.get_ticks() - _debug_anim_start_time}ms")
+        pass  # print(f"[DEBUG ANIM] 타이머 리셋 완료: +{pygame.time.get_ticks() - _debug_anim_start_time}ms")
 
     # 효과음 미리 로딩 (재생 시 지연 방지)
     stagestart_sound = None
@@ -139952,7 +139975,7 @@ def main(stage_num, new_boss_mode=False):
             stagestart_sound = pygame.mixer.Sound(sound_path)
             stagestart_sound.set_volume(0.7)
             if _DEBUG_ANIM_VERBOSE:
-                # print(f"[DEBUG ANIM] 사운드 로딩 완료: +{pygame.time.get_ticks() - _debug_anim_start_time}ms")
+                pass  # print(f"[DEBUG ANIM] 사운드 로딩 완료: +{pygame.time.get_ticks() - _debug_anim_start_time}ms")
     except Exception as e:
         print(f"[WARNING] 스테이지 시작 사운드 로딩 실패: {e}")
 
@@ -139964,7 +139987,7 @@ def main(stage_num, new_boss_mode=False):
         # 애니메이션 시스템 초기화
         init_ball_spawn_animation(WIDTH, HEIGHT)
         if _DEBUG_ANIM_VERBOSE:
-            # print(f"[DEBUG ANIM] 애니메이션 시스템 초기화 완료: +{pygame.time.get_ticks() - _debug_anim_start_time}ms")
+            pass  # print(f"[DEBUG ANIM] 애니메이션 시스템 초기화 완료: +{pygame.time.get_ticks() - _debug_anim_start_time}ms")
         # 플레이어/보스 Y 좌표 계산
         player_y = HEIGHT - 80  # 플레이어 패들 위치
         boss_y = 80  # 보스 패들 위치
@@ -139978,7 +140001,7 @@ def main(stage_num, new_boss_mode=False):
         if _is_fullscreen_active:
             start_orb_spawn_animation()
         if _DEBUG_ANIM_VERBOSE:
-            # print(f"[DEBUG ANIM] 애니메이션 시작 완료: +{pygame.time.get_ticks() - _debug_anim_start_time}ms")
+            pass  # print(f"[DEBUG ANIM] 애니메이션 시작 완료: +{pygame.time.get_ticks() - _debug_anim_start_time}ms")
         # 사운드는 첫 렌더링 프레임에서 재생 (아래 게임 루프에서)
     else:
         ball_spawn_animation_active = False
@@ -139997,9 +140020,9 @@ def main(stage_num, new_boss_mode=False):
     _first_frame_of_game_loop = True
 
     if USE_MODERN_GAME_LOOP:
-        print("[INFO] Experimental GameLoop 활성화")
+        # print("[INFO] Experimental GameLoop 활성화")
         if SMOKE_TEST_ENABLED:
-            print(f"[INFO] Smoke test 모드: {SMOKE_TEST_FRAMES} 프레임만 실행")
+            pass  # print(f"[INFO] Smoke test 모드: {SMOKE_TEST_FRAMES} 프레임만 실행")
         loop = create_game_loop(
             SCREEN,
             get_legacy_game_loop_hooks(),
@@ -140044,7 +140067,7 @@ def main(stage_num, new_boss_mode=False):
             globals()['optimus_skill_choice_pending'] = False
 
             if selected_skill:
-                print(f"[Optimus] 스킬 선택 완료: {selected_skill} (게이지 {globals().get('optimus_skill_choice_threshold', 0)}에서 발동)")
+                pass  # print(f"[Optimus] 스킬 선택 완료: {selected_skill} (게이지 {globals().get('optimus_skill_choice_threshold', 0)}에서 발동)")
 
             # 이벤트 큐 클리어 (선택 중 쌓인 입력 제거)
             pygame.event.clear()
@@ -140297,19 +140320,19 @@ def main(stage_num, new_boss_mode=False):
 
             # 첫 10프레임 디버그 출력 (F4 디버그 모드에서만)
             if COORDINATE_DEBUG_MODE and _debug_frame_count <= 10:
-                # print(f"[DEBUG ANIM] Frame {_debug_frame_count}: dt_ms={dt_ms}, dt_sec={dt_sec:.4f}, elapsed={now_ms - _debug_anim_start_time}ms")
+                pass  # print(f"[DEBUG ANIM] Frame {_debug_frame_count}: dt_ms={dt_ms}, dt_sec={dt_sec:.4f}, elapsed={now_ms - _debug_anim_start_time}ms")
 
             # 첫 프레임에 사운드 재생 (화면이 실제로 그려지는 시점)
             if not _debug_sound_played and stagestart_sound:
                 stagestart_sound.play()
                 _debug_sound_played = True
                 if COORDINATE_DEBUG_MODE:
-                    # print(f"[DEBUG ANIM] 🔊 사운드 재생! elapsed={now_ms - _debug_anim_start_time}ms")
+                    pass  # print(f"[DEBUG ANIM] 🔊 사운드 재생! elapsed={now_ms - _debug_anim_start_time}ms")
 
             # dt 상한 제한 (혹시 첫 프레임에 지연이 있더라도 애니메이션이 점프하지 않도록)
             if dt_sec > 0.033:  # 30fps 기준으로 제한
                 if COORDINATE_DEBUG_MODE:
-                    # print(f"[DEBUG ANIM] ⚠️ dt 제한 적용: {dt_sec:.4f} -> 0.016")
+                    pass  # print(f"[DEBUG ANIM] ⚠️ dt 제한 적용: {dt_sec:.4f} -> 0.016")
                 dt_sec = 0.016  # 60fps 정상 값
 
             update_ball_spawn_animation(dt_sec)
@@ -140387,7 +140410,7 @@ def main(stage_num, new_boss_mode=False):
                         _skill_sel = {_dbg_hero["id"]: _dbg_skill_idx}
                         _bg.setup(_dbg_hero, skill_selections=_skill_sel)
                         show_speech(f"{_dbg_hero['name']} 호위무사 등장!", duration=120)
-                        print(f"[Debug] 호위무사 소환: {_dbg_hero['name']} (스킬={_dbg_skill_idx})")
+                        # print(f"[Debug] 호위무사 소환: {_dbg_hero['name']} (스킬={_dbg_skill_idx})")
                     except Exception as _dbg_err:
                         print(f"[Debug] 호위무사 소환 실패: {_dbg_err}")
                         import traceback; traceback.print_exc()
@@ -140406,7 +140429,7 @@ def main(stage_num, new_boss_mode=False):
                             "body_part": "accessory",
                         }
                         store_passive_item(_seal_data)
-                        print(f"[Debug] {_dbg_hero.get('name', '???')}의 인장 인벤토리에 추가됨")
+                        # print(f"[Debug] {_dbg_hero.get('name', '???')}의 인장 인벤토리에 추가됨")
                     except Exception as _seal_err:
                         print(f"[Debug] 인장 추가 실패: {_seal_err}")
                 pygame.event.clear()
@@ -140595,16 +140618,16 @@ def main(stage_num, new_boss_mode=False):
         if keys[pygame.K_F8] and not getattr(main, 'key8_pressed', False):
             if current_stage == 30 and arena_mode_enabled:
                 # 투기장: 퍽 선택 메뉴
-                print("[ArenaPerk F8] 퍽 선택 메뉴 열기")
+                # print("[ArenaPerk F8] 퍽 선택 메뉴 열기")
                 show_arena_perk_select_menu()
                 main.key8_pressed = keys[pygame.K_F8]
             elif current_stage != 50:
                 # 일반 스테이지: 날씨 이벤트 디버그 메뉴
-                print("🌤️ F8 키: 날씨 이벤트 디버그 메뉴")
+                # print("🌤️ F8 키: 날씨 이벤트 디버그 메뉴")
                 show_weather_debug_menu()
                 main.key8_pressed = keys[pygame.K_F8]
         if current_stage == 50 and keys[pygame.K_F8] and not getattr(main, 'key8_pressed', False):
-            print("🎮 F8 키: 현재 챕터 완료 및 다음 챕터로 이동")
+            # print("🎮 F8 키: 현재 챕터 완료 및 다음 챕터로 이동")
             
             current_chapter_before_skip = globals().get('tutorial_current_chapter', 1)
 
@@ -140627,7 +140650,7 @@ def main(stage_num, new_boss_mode=False):
                 
                 if tutorial_current_chapter == 1:
                     # Chapter 1의 모든 진행 사항 완료
-                    print("   📝 Chapter 1 모든 진행 사항 완료 처리")
+                    # print("   📝 Chapter 1 모든 진행 사항 완료 처리")
                     tutorial_dialogue_shown = True
                     tutorial_serve_instruction_shown = True
                     tutorial_boss_returned = True
@@ -140654,7 +140677,7 @@ def main(stage_num, new_boss_mode=False):
                     
                 elif tutorial_current_chapter == 2 or tutorial_needs_dash_practice:
                     # Chapter 2의 모든 진행 사항 완료
-                    print("   📝 Chapter 2 모든 진행 사항 완료 처리")
+                    # print("   📝 Chapter 2 모든 진행 사항 완료 처리")
                     tutorial_dash_gauge_dialogue_shown = True
                     tutorial_dash_token_dialogue_shown = True
                     tutorial_dash_completion_dialogue_shown = True
@@ -140679,7 +140702,7 @@ def main(stage_num, new_boss_mode=False):
                     
                 elif tutorial_current_chapter == 3 or tutorial_needs_drive_practice:
                     # Chapter 3의 모든 진행 사항 완료
-                    print("   📝 Chapter 3 모든 진행 사항 완료 처리")
+                    # print("   📝 Chapter 3 모든 진행 사항 완료 처리")
                     tutorial_drive_helper_dialogue_shown = True
                     tutorial_drive_completion_dialogue_shown = True
                     tutorial_drive_count = 4  # 드라이브 4회 완료
@@ -140708,7 +140731,7 @@ def main(stage_num, new_boss_mode=False):
                     tutorial_current_chapter = 3
                 # Chapter 2 (대쉬 연습) 진행 중 -> Chapter 3 (드라이브)로 이동
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: Chapter 2 (DASH) 완료, Chapter 3 - DRIVE로 이동")
+                    pass  # print("튜토리얼: Chapter 2 (DASH) 완료, Chapter 3 - DRIVE로 이동")
                 
                 # Chapter 2 완료 요약 화면 표시
                 show_chapter_completion_summary(2)
@@ -140721,7 +140744,7 @@ def main(stage_num, new_boss_mode=False):
 
                 # 스테이지 50 재시작 (드라이브 튜토리얼로)
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: Chapter 3 - DRIVE 시작, 스테이지 50 재시작")
+                    pass  # print("튜토리얼: Chapter 3 - DRIVE 시작, 스테이지 50 재시작")
                 tutorial_pending_chapter_title = (3, "DRIVE", "드라이브")
 
                 return main(50)  # 스테이지 50으로 다시 시작하여 드라이브 튜토리얼 진행
@@ -140734,14 +140757,14 @@ def main(stage_num, new_boss_mode=False):
                 if 'tutorial_drive_chapter_max_gauge' in globals() and tutorial_drive_chapter_max_gauge is not None:
                     # Chapter 3 (드라이브) 진행 중 -> Chapter 4로 이동
                     if DEBUG_TUTORIAL:
-                        # print("튜토리얼: Chapter 3 (DRIVE) 완료, Chapter 4 - POWER SMASHING으로 이동")
-                    print(f"🔍 DEBUG: 8번키 - 전환 전 chapter = {tutorial_current_chapter}")
+                        pass  # print("튜토리얼: Chapter 3 (DRIVE) 완료, Chapter 4 - POWER SMASHING으로 이동")
+                    # print(f"🔍 DEBUG: 8번키 - 전환 전 chapter = {tutorial_current_chapter}")
                     tutorial_current_chapter = 4
-                    print(f"🔍 DEBUG: 8번키 - 전환 후 chapter = {tutorial_current_chapter}")
+                    # print(f"🔍 DEBUG: 8번키 - 전환 후 chapter = {tutorial_current_chapter}")
                     tutorial_chapter1_max_gauge = None
                     tutorial_chapter2_max_gauge = None
                     tutorial_drive_chapter_max_gauge = None
-                    print(f"🔍 DEBUG: 게이지 오버라이드 해제 완료, 새 max_gauge = {get_max_gauge()}")
+                    # print(f"🔍 DEBUG: 게이지 오버라이드 해제 완료, 새 max_gauge = {get_max_gauge()}")
                     show_chapter_completion_summary(3)
                     show_chapter_title(4, "POWER SMASHING", "파워 스매싱")
                     special_gauge = 0
@@ -140752,11 +140775,11 @@ def main(stage_num, new_boss_mode=False):
                     chapter4_dialogue_completed = True
                     chapter4_serve_reminder_active = True
                     chapter4_serve_reminder_timer = pygame.time.get_ticks()
-                    print("📚 Chapter 4 시작: 서브 알림 활성화")
+                    # print("📚 Chapter 4 시작: 서브 알림 활성화")
                 else:
                     # 드라이브 챕터를 새로 시작해야 하는 상태
                     if DEBUG_TUTORIAL:
-                        # print("튜토리얼: Chapter 3 준비 상태 감지, 드라이브 튜토리얼을 재시작")
+                        pass  # print("튜토리얼: Chapter 3 준비 상태 감지, 드라이브 튜토리얼을 재시작")
                     show_chapter_completion_summary(2)
                     show_chapter_title(3, "DRIVE", "드라이브")
                     tutorial_skip_chapter3_init = True
@@ -140768,7 +140791,7 @@ def main(stage_num, new_boss_mode=False):
             elif tutorial_current_chapter == 4:
                 # Chapter 4 진행 중 -> 튜토리얼 완료
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: Chapter 4 (POWER SMASHING) 완료, 튜토리얼 종료")
+                    pass  # print("튜토리얼: Chapter 4 (POWER SMASHING) 완료, 튜토리얼 종료")
                 
                 # Chapter 4 완료 요약 화면 표시
                 show_chapter_completion_summary(4)
@@ -140784,7 +140807,7 @@ def main(stage_num, new_boss_mode=False):
                 # 튜토리얼 완료 메시지 표시 후 메인 메뉴로
                 # (실제 게임에서는 여기에 완료 대화나 엔딩을 추가할 수 있음)
                 if DEBUG_TUTORIAL:
-                    # print("🎉 튜토리얼 모든 챕터 완료!")
+                    pass  # print("🎉 튜토리얼 모든 챕터 완료!")
                 # 인게임 상태 비활성화 (구슬 숨김 - 튜토리얼 완료)
                 set_ingame_active(False)
                 return "main_menu"  # 메인 메뉴로 돌아감
@@ -140792,7 +140815,7 @@ def main(stage_num, new_boss_mode=False):
             elif current_chapter_before_skip == 1:
                 # Chapter 1 (BASIC) 진행 중 -> Chapter 2 (DASH)로 이동
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: Chapter 1 (BASIC) 완료, Chapter 2 - DASH로 이동")
+                    pass  # print("튜토리얼: Chapter 1 (BASIC) 완료, Chapter 2 - DASH로 이동")
                 
                 # Chapter 1 완료 요약 화면 표시
                 show_chapter_completion_summary(1)
@@ -140802,11 +140825,11 @@ def main(stage_num, new_boss_mode=False):
                 
                 # Chapter 1 게이지 설정 해제
                 tutorial_chapter1_max_gauge = None
-                print(f"DEBUG: Chapter 1 게이지 해제: {tutorial_chapter1_max_gauge}")
+                # print(f"DEBUG: Chapter 1 게이지 해제: {tutorial_chapter1_max_gauge}")
                 
                 # Chapter 2 최대 게이지를 300으로 설정
                 tutorial_chapter2_max_gauge = 300
-                print(f"DEBUG: Chapter 2 게이지 설정: {tutorial_chapter2_max_gauge}")
+                # print(f"DEBUG: Chapter 2 게이지 설정: {tutorial_chapter2_max_gauge}")
 
                 # 게이지 초기화
                 special_gauge = 0
@@ -140815,7 +140838,7 @@ def main(stage_num, new_boss_mode=False):
                 # Chapter 2 타이틀 즉시 표시
                 show_chapter_title(2, "DASH", "대쉬 연습")
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: Chapter 2 최대 게이지를 300으로 설정")
+                    pass  # print("튜토리얼: Chapter 2 최대 게이지를 300으로 설정")
                 
                 # 대쉬 연습 플래그 설정
                 tutorial_current_chapter = 2  # Chapter 2로 설정
@@ -140831,7 +140854,7 @@ def main(stage_num, new_boss_mode=False):
                 
                 # 스테이지 50 재시작 (대쉬 튜토리얼로)
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: Chapter 2 - DASH 시작, 스테이지 50 재시작")
+                    pass  # print("튜토리얼: Chapter 2 - DASH 시작, 스테이지 50 재시작")
                 
                 # 챕터2 상태를 유지하기 위한 전역 플래그 설정
                 tutorial_skip_chapter2_init = True
@@ -140840,7 +140863,7 @@ def main(stage_num, new_boss_mode=False):
             else:
                 # 알 수 없는 상태에서는 보수적으로 Chapter 2부터 다시 시작
                 if DEBUG_TUTORIAL:
-                    # print(f"⚠️ 튜토리얼: 예기치 않은 챕터 상태({current_chapter_before_skip}) 감지, Chapter 2부터 재시작")
+                    pass  # print(f"⚠️ 튜토리얼: 예기치 않은 챕터 상태({current_chapter_before_skip}) 감지, Chapter 2부터 재시작")
                 show_chapter_completion_summary(1)
                 show_chapter_title(2, "DASH", "대쉬 연습")
                 tutorial_skip_chapter2_init = True
@@ -141139,9 +141162,9 @@ def main(stage_num, new_boss_mode=False):
                             cooldown_seconds = blacksmith_turret_manual_cooldown / FPS
                             # print(f"[DEBUG 발토르] 포탑 수동 발사! 게이지 -60, 쿨다운 {cooldown_seconds:.2f}초")
                         else:
-                            # print("[DEBUG 발토르] 포탑 수동 발사 실패 - 게이지 부족")
+                            pass  # print("[DEBUG 발토르] 포탑 수동 발사 실패 - 게이지 부족")
                     else:
-                        # print("[DEBUG 발토르] 포탑 수동 발사 대기중 - 쿨다운")
+                        pass  # print("[DEBUG 발토르] 포탑 수동 발사 대기중 - 쿨다운")
                 # 👁 오딘의 눈 변신 상태에서는 해머쇼크 사용 불가
                 elif hammer_ready and not is_odins_eye_transformed():
                     blacksmith_hammer_shock_charging = True
@@ -141256,14 +141279,15 @@ def main(stage_num, new_boss_mode=False):
                 )
                 if dash_debug_enabled:
                     debug_frame = globals().get("frame_counter", -1)
-                    print(
-                        f"[DASH_DEBUG_STATE] frame={debug_frame} "
-                        f"cur_down={current_down_state} "
-                        f"last_down={last_down_state} "
-                        f"down_just={down_just_pressed} "
-                        f"SNAP_down={globals().get('SNAP_down_state', False)} "
-                        f"MOVE_EVENT_DOWN={globals().get('MOVE_EVENT_DOWN', False)}"
-                    )
+                    # print(
+                    #     f"[DASH_DEBUG_STATE] frame={debug_frame} "
+                    #     f"cur_down={current_down_state} "
+                    #     f"last_down={last_down_state} "
+                    #     f"down_just={down_just_pressed} "
+                    #     f"SNAP_down={globals().get('SNAP_down_state', False)} "
+                    #     f"MOVE_EVENT_DOWN={globals().get('MOVE_EVENT_DOWN', False)}"
+                    # )
+                    # pass
             except Exception:
                 pass
             if selected_character_type == "blacksmith":
@@ -141587,7 +141611,7 @@ def main(stage_num, new_boss_mode=False):
                             special_gauge = current_max  # 파워스매시 게이지 소모: 350
                     #  파워스매싱 발동 효과음 재생
                     play_sound_with_volume(SOUND_POWER_SMASH)
-                    print("!")
+                    # print("!")
                     # 스매셔 스킬 쿨타임 적용
                     trigger_smasher_skill_cooldown("power_smashing")
                     #  파워스매싱 성공 기록
@@ -141609,7 +141633,7 @@ def main(stage_num, new_boss_mode=False):
                         power_smashing_freeze_active = False
                         power_smashing_parabola_active = False  # 고스트샷은 파워스매싱 포물선 사용 안함
                         power_smashing_start_time = pygame.time.get_ticks()  # 고스트샷 시작 시간 설정
-                        print(f"     !")
+                        # print(f"     !")
                     #  파워스매싱 발동 시 강제 충돌 처리 (범위 차이 문제 해결)
                     # 가속화 스킬이 활성화된 경우 충돌 범위를 확장
                     power_player_rect = PLAYER.copy()
@@ -141619,7 +141643,7 @@ def main(stage_num, new_boss_mode=False):
                     if not BALL.colliderect(power_player_rect) and ball_to_paddle_distance <= 30 and ball_vel[1] > 0:
                         # 공을 패들 근처로 강제 이동시켜 충돌 발생시키기
                         BALL.centery = PLAYER.top - BALL_RADIUS
-                        print(f"    !   : Y={BALL.centery}")
+                        # print(f"    !   : Y={BALL.centery}")
                         # 강제 충돌 처리 실행
                         drive_activated = calculate_bounce(PLAYER)
                         # ⚡ 에너지 폭발 이펙트 (20% 작게 - 파워스매싱)
@@ -141628,7 +141652,7 @@ def main(stage_num, new_boss_mode=False):
                         # 메가드라이브일 때는 공을 위로 보내도록 y 속도를 음수로 설정
                         if mega_smashing_active:
                             ball_vel[1] = -abs(ball_vel[1])  # 공을 위로(보스 방향으로) 보냄
-                            print(f"  -    : Y={ball_vel[1]}")
+                            # print(f"  -    : Y={ball_vel[1]}")
                         # 타격 이펙트 생성
                         create_impact_effect(BALL.centerx, BALL.centery, ball_vel, is_player=True)
                         # 충돌 애니메이션
@@ -141742,22 +141766,22 @@ def main(stage_num, new_boss_mode=False):
                         if power_smashing_direction == -1 and not tutorial_power_left_done:
                             tutorial_power_left_done = True
                             if DEBUG_TUTORIAL:
-                                # print("튜토리얼: 왼쪽 파워스매싱 성공!")
+                                pass  # print("튜토리얼: 왼쪽 파워스매싱 성공!")
                         elif power_smashing_direction == 0 and not tutorial_power_center_done:
                             tutorial_power_center_done = True
                             if DEBUG_TUTORIAL:
-                                # print("튜토리얼: 중앙 파워스매싱 성공!")
+                                pass  # print("튜토리얼: 중앙 파워스매싱 성공!")
                         elif power_smashing_direction == 1 and not tutorial_power_right_done:
                             tutorial_power_right_done = True
                             if DEBUG_TUTORIAL:
-                                # print("튜토리얼: 오른쪽 파워스매싱 성공!")
+                                pass  # print("튜토리얼: 오른쪽 파워스매싱 성공!")
                         
                         # 전체 카운트 업데이트
                         completed_count = sum([tutorial_power_left_done, tutorial_power_center_done, tutorial_power_right_done])
                         if completed_count > tutorial_power_count:
                             tutorial_power_count = completed_count
                             if DEBUG_TUTORIAL:
-                                # print(f"튜토리얼: 파워스매싱 진행 {tutorial_power_count}/3")
+                                pass  # print(f"튜토리얼: 파워스매싱 진행 {tutorial_power_count}/3")
                             # 모든 미션 완료 체크
                             check_tutorial_special_missions_complete()
                     
@@ -141879,10 +141903,10 @@ def main(stage_num, new_boss_mode=False):
                         #     f"[DRIVE_INPUT] dir={dir_code} gap={gap} age={input_age} "
                         #     f"L={left_press_frame} R={right_press_frame} S={space_press_frame}"
                         # )
-                        _drive_dbg(
-                            f"DRIVE chosen={dir_code} gap={gap} age={input_age} "
-                            f"gauge={special_gauge} frame={frame_counter}"
-                        )
+                        # _drive_dbg(
+                            # f"DRIVE chosen={dir_code} gap={gap} age={input_age} "
+                            # f"gauge={special_gauge} frame={frame_counter}"
+                        # )
                         # 사용된 프레임 초기화(반대 방향 잔류도 함께 정리)
                         left_press_frame = -1
                         right_press_frame = -1
@@ -141895,7 +141919,7 @@ def main(stage_num, new_boss_mode=False):
                         or right_just_pressed
                     ):
                         perfect_timing_input_used = True  # 입력은 사용됨으로 표시 (연타 방지)
-                        print("! (←/→+  )  !")
+                        # print("! (←/→+  )  !")
                         if player_ai_enabled:
                             _drive_dbg(
                                 "AI drive miss "
@@ -141911,13 +141935,16 @@ def main(stage_num, new_boss_mode=False):
         #  파워스매싱은 이제 동일한 타이밍 윈도우에서 우선순위로 처리됨
         elif space_just_pressed and drive_global_cooldown > 0:
             # 전역 쿨다운 중일 때 스페이스바를 누른 경우 (가장 우선적으로 체크)
-            print(f"    ! ({drive_global_cooldown}  ) -  !")
+            # print(f"    ! ({drive_global_cooldown}  ) -  !")
+            pass
         elif space_just_pressed and perfect_timing_input_used:
             # 이미 이 윈도우에서 입력을 사용한 경우
-            print("! ( )")
+            # print("! ( )")
+            pass
         elif space_just_pressed and perfect_timing_cooldown > 0:
             # 쿨다운 중일 때 스페이스바를 누른 경우
-            print(f"    ! ({perfect_timing_cooldown}  )")
+            # print(f"    ! ({perfect_timing_cooldown}  )")
+            pass
         # 윈도우 시간 초과 시 리셋
         if perfect_timing_frame_count > perfect_timing_window:
             perfect_timing_active = False
@@ -141930,7 +141957,7 @@ def main(stage_num, new_boss_mode=False):
             right_press_frame = -1
             space_press_frame = -1
             down_press_frame = -1
-            print("")
+            # print("")
         #  개선된 윈도우 비활성화 조건: X축 범위도 체크
         ball_x_out_of_range = abs(BALL.centerx - PLAYER.centerx) > (PADDLE_WIDTH / 2 + BALL_RADIUS + 30)
         if (ball_to_paddle_distance > 100 or
@@ -142143,14 +142170,14 @@ def main(stage_num, new_boss_mode=False):
                                  event.key == 106 or  # J키 코드값 (ASCII)
                                  getattr(event, 'unicode', '').lower() in ('j', 'ㅈ'))
                 if j_key_pressed:
-                    print(f"[J-KEY-RAW] J/ㅈ키 KEYDOWN 감지! scancode={scancode}, key={event.key}, unicode='{getattr(event, 'unicode', '')}', character={selected_character_type}, paused={game_paused}")
+                    pass  # print(f"[J-KEY-RAW] J/ㅈ키 KEYDOWN 감지! scancode={scancode}, key={event.key}, unicode='{getattr(event, 'unicode', '')}', character={selected_character_type}, paused={game_paused}")
                 if event.key == pygame.K_t:
                     genie_assistant.activate(SCREEN, selected_character_type)
                     continue
                 #  일시정지 토글 (P키)
                 if event.key == pygame.K_p:
                     game_paused = not game_paused
-                    print(f"   : {'ON' if game_paused else 'OFF'}")
+                    # print(f"   : {'ON' if game_paused else 'OFF'}")
                     continue  # 일시정지 토글 후 다른 키 처리 건너뛰기
                 #  AI 모드 전환 (N키)
                 elif event.key == pygame.K_n:
@@ -142187,9 +142214,9 @@ def main(stage_num, new_boss_mode=False):
                                         "size": random.randint(3, 8),
                                         "color": random.choice([(255, 255, 100), (100, 200, 255), (255, 180, 50)])
                                     })
-                                print(f"⚡ [Optimus] 비상충전 발동! {old_gauge} → {special_gauge} (+{charge_value}, {int(charge_amount*100)}%) [max={current_max}]")
+                                # print(f"⚡ [Optimus] 비상충전 발동! {old_gauge} → {special_gauge} (+{charge_value}, {int(charge_amount*100)}%) [max={current_max}]")
                             else:
-                                print("⚠️ [Optimus] 비상충전 이미 사용됨 (스테이지당 1회)")
+                                pass  # print("⚠️ [Optimus] 비상충전 이미 사용됨 (스테이지당 1회)")
                     continue
                 # 인게임 캐릭터 정보 표시 (Tab)
                 elif event.key == pygame.K_TAB:
@@ -142368,9 +142395,9 @@ def main(stage_num, new_boss_mode=False):
                         pillar_h = int(650 * GAME_SCALE_FACTOR)
                         if surf_ox <= raw_mx <= surf_ox + pillar_w and surf_oy <= raw_my <= surf_oy + pillar_h:
                             is_on_pillar = True
-                            print(f"[PILLAR BLOCK] 필러 영역 클릭 감지: raw=({raw_mx},{raw_my}), surf=({surf_ox},{surf_oy}), size=({pillar_w},{pillar_h})")
+                            # print(f"[PILLAR BLOCK] 필러 영역 클릭 감지: raw=({raw_mx},{raw_my}), surf=({surf_ox},{surf_oy}), size=({pillar_w},{pillar_h})")
                     except Exception as e:
-                        print(f"[PILLAR ERROR] {e}")
+                        pass  # print(f"[PILLAR ERROR] {e}")
                     if not soldier_weapon_menu_active and not is_on_pillar:
                         soldier_mouse_fire_hold = True
                 elif event.type == pygame.MOUSEBUTTONUP and getattr(event, 'button', 0) == 1:
@@ -142689,14 +142716,14 @@ def main(stage_num, new_boss_mode=False):
                         tutorial_serve_helper_active = False
                         tutorial_serve_helper_shown = True  # 도우미를 봤음으로 표시
                         if DEBUG_TUTORIAL:
-                            # print("튜토리얼: 스페이스바 입력으로 서브 도우미 즉시 비활성화 (서브 여부 무관)")
+                            pass  # print("튜토리얼: 스페이스바 입력으로 서브 도우미 즉시 비활성화 (서브 여부 무관)")
                 
                 # 튜토리얼 서브 알림창 스페이스바로 비활성화
                 if current_stage == 50 and 'tutorial_serve_reminder_active' in globals():
                     if tutorial_serve_reminder_active:
                         tutorial_serve_reminder_active = False
                         if DEBUG_TUTORIAL:
-                            # print("튜토리얼: 스페이스바 입력으로 서브 알림창 비활성화")
+                            pass  # print("튜토리얼: 스페이스바 입력으로 서브 알림창 비활성화")
 
                 # 전설 아이템 효과가 스페이스바를 기다리는 중이면 처리
                 if handle_legendary_space_press():
@@ -142722,20 +142749,20 @@ def main(stage_num, new_boss_mode=False):
                         if tutorial_serve_helper_active:
                             tutorial_serve_helper_active = False
                             if DEBUG_TUTORIAL:
-                                # print("튜토리얼: 스페이스바 입력으로 서브 도우미 즉시 비활성화")
+                                pass  # print("튜토리얼: 스페이스바 입력으로 서브 도우미 즉시 비활성화")
                     
                     # 튜토리얼 서브 알림창 비활성화 (서브 실행 시)
                     if current_stage == 50 and 'tutorial_serve_reminder_active' in globals():
                         if tutorial_serve_reminder_active:
                             tutorial_serve_reminder_active = False
                             if DEBUG_TUTORIAL:
-                                # print("튜토리얼: 서브 실행으로 서브 알림창 비활성화")
+                                pass  # print("튜토리얼: 서브 실행으로 서브 알림창 비활성화")
                     
                     # 튜토리얼 모드에서 도우미 후 첫 서브 처리
                     if current_stage == 50 and tutorial_wait_for_first_serve:
                         tutorial_wait_for_first_serve = False  # 첫 서브 완료
                         if DEBUG_TUTORIAL:
-                            # print("튜토리얼: 플레이어가 서브를 시작합니다!")
+                            pass  # print("튜토리얼: 플레이어가 서브를 시작합니다!")
                     
                     # 서브 실행 및 상태 업데이트
                     serve_result = physics_manager.serve_ball(is_player_serve, current_stage, ai_mode)
@@ -142761,14 +142788,14 @@ def main(stage_num, new_boss_mode=False):
                     if current_stage == 50 and 'tutorial_practice_mode' in globals():
                         if tutorial_practice_mode:
                             if DEBUG_TUTORIAL:
-                                # print("튜토리얼: 플레이어가 서브를 했습니다!")
+                                pass  # print("튜토리얼: 플레이어가 서브를 했습니다!")
                             # 서브 도우미를 봤음으로 표시 (스페이스바를 눌렀으므로)
                             tutorial_serve_helper_shown = True
                             # 서브 도우미 즉시 비활성화
                             if 'tutorial_serve_helper_active' in globals():
                                 tutorial_serve_helper_active = False
                                 if DEBUG_TUTORIAL:
-                                    # print("튜토리얼: 서브 도우미 비활성화")
+                                    pass  # print("튜토리얼: 서브 도우미 비활성화")
             # 아이템 사용 - Aipill 활성화 시에는 아이템 사용 불가
             item_use_pressed = False
             direct_item_index = -1  # 숫자키로 직접 선택된 아이템 인덱스
@@ -142779,7 +142806,7 @@ def main(stage_num, new_boss_mode=False):
                 if event.key >= pygame.K_1 and event.key <= pygame.K_6:
                     # 디버그: 숫자키 감지 여부 확인
                     _num = event.key - pygame.K_1 + 1
-                    print(f"[ITEM_KEY_DEBUG] 숫자키 {_num} 감지됨, build_menu={blacksmith_build_menu_active}, soldier_menu={selected_character_type == 'soldier' and soldier_weapon_menu_active}, slot_len={len(active_item_slot) if active_item_slot else 0}")
+                    # print(f"[ITEM_KEY_DEBUG] 숫자키 {_num} 감지됨, build_menu={blacksmith_build_menu_active}, soldier_menu={selected_character_type == 'soldier' and soldier_weapon_menu_active}, slot_len={len(active_item_slot) if active_item_slot else 0}")
                 if (
                     event.key >= pygame.K_1
                     and event.key <= pygame.K_6
@@ -142789,7 +142816,7 @@ def main(stage_num, new_boss_mode=False):
                     number_key = event.key - pygame.K_1  # 0~5로 변환
                     if active_item_slot and number_key < len(active_item_slot):
                         direct_item_index = number_key
-                        print(f"[ITEM_KEY_DEBUG] 아이템 인덱스 {number_key} 설정됨!")
+                        # print(f"[ITEM_KEY_DEBUG] 아이템 인덱스 {number_key} 설정됨!")
                 # 아이템 슬롯 좌/우 선택(A/D) 기능 삭제(숫자키 직선택만 유지)
             # 버리기 메뉴가 활성화된 상태에서 클릭 처리
             if _discard_menu_active and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -142848,7 +142875,7 @@ def main(stage_num, new_boss_mode=False):
                             pass
                         _mode_label = "수비" if _new_stance == "defense" else "공격"
                         _guard_cd_remain = getattr(_gs, '_guard_dash_cooldown', 0) if _gs else 0
-                        print(f"[Guard] 호위무사 스탠스 전환: {_mode_label}모드 (대쉬CD={_guard_cd_remain:.1f}s 유지)")
+                        # print(f"[Guard] 호위무사 스탠스 전환: {_mode_label}모드 (대쉬CD={_guard_cd_remain:.1f}s 유지)")
 
             # ⚔️ 스토리모드 호위무사 스탠스 토글 클릭 처리
             if (
@@ -142964,7 +142991,7 @@ def main(stage_num, new_boss_mode=False):
                 if ball_spawn_animation_active:
                     _blocked_reasons.append("ball_spawn_anim")
                 if _blocked_reasons:
-                    print(f"[ITEM_DEBUG] 숫자키 {direct_item_index+1} 눌림, 사용 차단: {', '.join(_blocked_reasons)}")
+                    pass  # print(f"[ITEM_DEBUG] 숫자키 {direct_item_index+1} 눌림, 사용 차단: {', '.join(_blocked_reasons)}")
             if (
                 not aipill_active
                 and active_item_slot
@@ -143042,10 +143069,10 @@ def main(stage_num, new_boss_mode=False):
                     else:
                         # 쿨타임 중일 때 피드백
                         if not individual_cooldown_ok:
-                            print("...")
+                            pass  # print("...")
                         if not global_cooldown_ok:
                             remaining_time = (active_item_cooldown_ms - (current_time - last_item_use_time)) / MILLISECONDS_PER_SECOND
-                            print(f"  ... {remaining_time:.1f}")
+                            # print(f"  ... {remaining_time:.1f}")
 
         # ✨ 스매셔 클렌즈 스킬 - 폴링 방식 (한글 IME 호환)
         # pygame.key.get_pressed()는 IME와 관계없이 물리적 키 상태를 확인
@@ -143072,7 +143099,7 @@ def main(stage_num, new_boss_mode=False):
 
             if cleanse_input_triggered and is_smasher_skill_unlocked("cleanse"):
                 if DEBUG_MODE:
-                    print(f"[CLEANSE-POLL] W키(ㅈ키) 폴링 감지! character={selected_character_type}")
+                    pass  # print(f"[CLEANSE-POLL] W키(ㅈ키) 폴링 감지! character={selected_character_type}")
                 has_status = check_player_has_status_effect(
                     player_stunned_timer=player_stunned_timer,
                     player_missile_stunned_timer=player_missile_stunned_timer,
@@ -143087,11 +143114,11 @@ def main(stage_num, new_boss_mode=False):
                     player_stunned=player_stunned  # 스테이지5 네메시스 레이저 감전
                 )
                 if DEBUG_MODE:
-                    print(f"[CLEANSE-POLL] gauge={special_gauge}, has_status={has_status}, cooldown={cleanse_poll.cooldown_timer}, active={cleanse_poll.active}")
+                    pass  # print(f"[CLEANSE-POLL] gauge={special_gauge}, has_status={has_status}, cooldown={cleanse_poll.cooldown_timer}, active={cleanse_poll.active}")
                 # 스킬 쿨타임 체크
                 if get_smasher_skill_cooldown_remaining("cleanse") > 0:
                     if DEBUG_MODE:
-                        print(f"[CLEANSE] 쿨타임 중!")
+                        pass  # print(f"[CLEANSE] 쿨타임 중!")
                 elif cleanse_poll.can_activate(special_gauge, has_status):
                     # 클렌즈 발동!
                     cleanse_poll.activate(PLAYER.centerx, PLAYER.centery)
@@ -143122,7 +143149,7 @@ def main(stage_num, new_boss_mode=False):
                     # 스매셔 스킬 쿨타임 적용
                     trigger_smasher_skill_cooldown("cleanse")
                     if DEBUG_MODE:
-                        print("✨ [CLEANSE] 클렌즈 발동! 모든 상태이상 해제!")
+                        pass  # print("✨ [CLEANSE] 클렌즈 발동! 모든 상태이상 해제!")
 
             # 키/마우스 상태 업데이트 (다음 프레임에서 중복 발동 방지)
             cleanse_poll._w_key_was_pressed = w_key_poll
@@ -143296,7 +143323,7 @@ def main(stage_num, new_boss_mode=False):
                 # 효과 종료 - 원래 스폰 시간으로 복구
                 pandora_box_active = False
                 next_item_spawn_delay = pandora_box_original_spawn_delay
-                print(f"    !   : {next_item_spawn_delay}ms")
+                # print(f"    !   : {next_item_spawn_delay}ms")
         
         # 스탑워치 효과 업데이트
         if stopwatch_active:
@@ -143306,7 +143333,7 @@ def main(stage_num, new_boss_mode=False):
                 if stopwatch_timer == 0:
                     # 시간 정지 종료, 속도 회복 시작
                     stopwatch_recovery_timer = STOPWATCH_RECOVERY_TIME
-                    print("...")
+                    # print("...")
             elif stopwatch_recovery_timer > 0:
                 # 속도 회복 중
                 stopwatch_recovery_timer -= 1
@@ -143409,7 +143436,7 @@ def main(stage_num, new_boss_mode=False):
                         # player_collision_handled = False  # 제거됨
                         player_collision_cooldown = 0
                         boss_collision_cooldown = 0
-                        print("")
+                        # print("")
         # 복구 직후 위 방향 고정 타이머 처리: 다른 시스템이 속도를 바꾸더라도 위쪽 진행을 보장
         if 'stopwatch_upward_lock_timer' in globals() and stopwatch_upward_lock_timer > 0:
             stopwatch_upward_lock_timer -= 1
@@ -143583,7 +143610,7 @@ def main(stage_num, new_boss_mode=False):
                         power_smashing_parabola_active = True
                         power_smashing_rng = random.Random(random.randrange(1 << 30))
                     else:
-                        print(f"    ! mega_smashing_active={mega_smashing_active}")
+                        pass  # print(f"    ! mega_smashing_active={mega_smashing_active}")
                     power_smashing_start_time = current_time
                     # 파워스매시 발사 후 special_active를 False로 설정하여 게이지 충전 허용
                     special_active = False
@@ -143612,10 +143639,10 @@ def main(stage_num, new_boss_mode=False):
                         trigger_smasher_contact_animation(smasher_pending_contact_offset)
                     #  파워스매싱 공 발사 효과음 재생
                     play_sound_with_volume(SOUND_POWER_SMASH_LAUNCH)
-                    print("!    !")
+                    # print("!    !")
                     # 고스트샷 상태 확인
                     if mega_smashing_active:
-                        print(f"       !")
+                        pass  # print(f"       !")
             
             #  Stage 1 이벤트 업데이트 (항상 업데이트하여 풍선 유지)
             balloon_event_paused = False
@@ -143642,7 +143669,7 @@ def main(stage_num, new_boss_mode=False):
                         # 이벤트를 즉시 발동
                         stage5_events.trigger_event(SCREEN, current_stage,
                                                    SOUND_STAGE1_DOOR, SOUND_STAGE1_MACHINE, SOUND_FIREBALL)
-                        print(f"  !     !")
+                        # print(f"  !     !")
 
                     # 이벤트 업데이트 (타이머도 여기서 감소됨)
                     stage5_events.update()  # 이벤트가 끝나도 화염탄 업데이트를 위해 계속 호출
@@ -143706,10 +143733,10 @@ def main(stage_num, new_boss_mode=False):
                     # 디버그: 2초마다 상태 출력
                     if DEBUG_BOSS and time_now % 2000 < 20:
                         rocks_count = len(animated_bg_stage2.crisis_rocks) if animated_bg_stage2 else 0
-                        print(f"[물대포DEBUG] phase={water_cannon_phase}, last_quake={last_quake_time}, delay={water_cannon_quake_delay}ms, since_quake={time_since_quake}ms, rocks={rocks_count}, round_wins={round_wins}, enraged={enraged_boss_active}, unlocked={water_cannon_unlocked}, quake_delay_passed={quake_delay_passed}")
+                        # print(f"[물대포DEBUG] phase={water_cannon_phase}, last_quake={last_quake_time}, delay={water_cannon_quake_delay}ms, since_quake={time_since_quake}ms, rocks={rocks_count}, round_wins={round_wins}, enraged={enraged_boss_active}, unlocked={water_cannon_unlocked}, quake_delay_passed={quake_delay_passed}")
                     if quake_delay_passed and water_cannon_phase == "idle" and water_cannon_unlocked:
                         if DEBUG_BOSS:
-                            # print(f"💦 물대포 발동! 정글지진 후 {time_since_quake/1000:.1f}초 경과 (광폭화={enraged_boss_active})")
+                            pass  # print(f"💦 물대포 발동! 정글지진 후 {time_since_quake/1000:.1f}초 경과 (광폭화={enraged_boss_active})")
                         activate_water_cannon()
                     update_water_cannon()
                     update_water_cannon_fragments()
@@ -143745,15 +143772,15 @@ def main(stage_num, new_boss_mode=False):
                                 kuromi_eating_cooldown = 1200  # 20초 쿨타임 시작 (60 FPS * 20초)
                                 animated_bg_stage3.start_eating((BALL.centerx, BALL.centery))  # 공 위치 전달
                                 if DEBUG_BOSS:
-                                    print("🍽️ 쿠로미가 공을 먹기 시작! (6% 확률 성공)")
+                                    pass  # print("🍽️ 쿠로미가 공을 먹기 시작! (6% 확률 성공)")
                             else:
                                 if DEBUG_BOSS:
-                                    # print("[DEBUG] 쿠로미가 공을 먹지 않음 (6% 확률 실패)")
+                                    pass  # print("[DEBUG] 쿠로미가 공을 먹지 않음 (6% 확률 실패)")
                         elif not ball_in_kuromi_area and kuromi_ball_entered:
                             # 공이 영역을 벗어나면 플래그 리셋
                             kuromi_ball_entered = False
                             if DEBUG_BOSS:
-                                # print("[DEBUG] 공이 쿠로미 영역을 벗어남 - 다음 진입시 다시 체크 가능")
+                                pass  # print("[DEBUG] 공이 쿠로미 영역을 벗어남 - 다음 진입시 다시 체크 가능")
                     
                     # 쿠로미 신비로운 궤적 업데이트
                     if kuromi_spit_trail_active:
@@ -143815,7 +143842,7 @@ def main(stage_num, new_boss_mode=False):
                                 kuromi_spit_trail_color_phase = 0
 
                                 if DEBUG_BOSS:
-                                    print(f"💥 쿠로미가 공을 뱉어냄! 속도: ({new_vx:.1f}, {new_vy:.1f})")
+                                    pass  # print(f"💥 쿠로미가 공을 뱉어냄! 속도: ({new_vx:.1f}, {new_vy:.1f})")
                     
                     # 꼬리 채찍 쿨다운 감소 (쿠로미가 각성했을 때만, 사이코볼이 활성화되지 않았을 때만)
                     if animated_bg_stage3 and animated_bg_stage3.kuromi_awakened and stage3_tail_whip_cooldown > 0 and not stage3_tail_whip_active and not emotional_overdrive_active:
@@ -143830,7 +143857,7 @@ def main(stage_num, new_boss_mode=False):
                             if animated_bg_stage3:
                                 animated_bg_stage3.activate_tail_whip((BALL.centerx, BALL.centery))
                             if DEBUG_BOSS:
-                                print("Stage 3: 꼬리 채찍 발동!")
+                                pass  # print("Stage 3: 꼬리 채찍 발동!")
                     
                     # 쿠로미 공 먹기 쿨다운 감소
                     if kuromi_eating_cooldown > 0:
@@ -143849,10 +143876,10 @@ def main(stage_num, new_boss_mode=False):
                             # 애니메이션 배경의 꼬리와 충돌 체크
                             if animated_bg_stage3 and not stage3_tail_hit_ball:
                                 collision_result = animated_bg_stage3.check_tail_collision(BALL)
-                                print(f" [DEBUG]   - Progress: {progress:.2f}, : {collision_result},  : ({BALL.centerx}, {BALL.centery})")
+                                # print(f" [DEBUG]   - Progress: {progress:.2f}, : {collision_result},  : ({BALL.centerx}, {BALL.centery})")
                                 if collision_result:
                                     # 꼬리에 맞은 경우 - 멘헤라걸 중앙으로 끌어당기는 효과
-                                    print(f" [HIT!]    ! ball_vel : ({ball_vel[0]:.2f}, {ball_vel[1]:.2f})")
+                                    # print(f" [HIT!]    ! ball_vel : ({ball_vel[0]:.2f}, {ball_vel[1]:.2f})")
                                     stage3_tail_hit_ball = True
                                     stage3_tail_curve_active = True
                                     stage3_tail_curve_timer = 120  # 2초간 커브 효과
@@ -143881,7 +143908,7 @@ def main(stage_num, new_boss_mode=False):
                                     
                                     # ball_impact_boost 설정으로 즉시 속도 변화 적용
                                     ball_impact_boost = 1.0  # 부스트 리셋하여 새로운 속도가 바로 적용되도록
-                                    print(f" [HIT!] ball_vel : ({ball_vel[0]:.2f}, {ball_vel[1]:.2f}), ball_impact_boost: {ball_impact_boost}")
+                                    # print(f" [HIT!] ball_vel : ({ball_vel[0]:.2f}, {ball_vel[1]:.2f}), ball_impact_boost: {ball_impact_boost}")
                                     
                                     # 커브 방향 설정 (공의 현재 위치에 따라)
                                     if BALL.centerx < center_x:
@@ -143896,7 +143923,7 @@ def main(stage_num, new_boss_mode=False):
                                     except:
                                         pass
                                     
-                                    print(f"   !    (: {'' if stage3_tail_curve_direction < 0 else ''})")
+                                    # print(f"   !    (: {'' if stage3_tail_curve_direction < 0 else ''})")
                                     
                                     #  프리즘 파티클 버스트 생성 (꼬리 채찍 히트 시)
                                     create_prism_particle_burst(BALL.centerx, BALL.centery)
@@ -143908,7 +143935,7 @@ def main(stage_num, new_boss_mode=False):
                                     star_x = BALL.centerx + random.randint(-30, 30)
                                     star_y = BALL.centery + random.randint(-30, 30)
                                     trade_point_system.spawn_star(star_x, star_y, "menhera_tail")
-                                    print(f" Stage 3:   !   ! : ({star_x}, {star_y})")
+                                    # print(f" Stage 3:   !   ! : ({star_x}, {star_y})")
                         else:
                             # 애니메이션 종료
                             stage3_tail_whip_active = False
@@ -143917,7 +143944,7 @@ def main(stage_num, new_boss_mode=False):
                                 animated_bg_stage3.deactivate_tail_whip()
                             # 다음 꼬리 채찍 쿨다운 설정
                             stage3_tail_whip_cooldown = random.randint(1500, 2100)  # 25~35초
-                            print(".  :", stage3_tail_whip_cooldown // 60,"")
+                            # print(".  :", stage3_tail_whip_cooldown // 60,"")
                     
                     # 커브 효과 처리
                     if stage3_tail_curve_active:
@@ -143937,7 +143964,7 @@ def main(stage_num, new_boss_mode=False):
                         else:
                             # 커브 효과 종료
                             stage3_tail_curve_active = False
-                            print("")
+                            # print("")
                 # check_balloon_collisions()  # Stage 1 보스 풍선파티 스킬 제거됨
                 check_spinning_top_collision()  # Stage 1 보스 팽이치기 충돌 체크
                 
@@ -143952,7 +143979,7 @@ def main(stage_num, new_boss_mode=False):
                         
                         # trade_point_system이 None이 아닌지 확인
                         if trade_point_system is None:
-                            print(f" [ERROR] trade_point_system None!")
+                            pass  # print(f" [ERROR] trade_point_system None!")
                         
                         collision = stage1_events.check_balloon_collisions(
                             BALL, BALL_RADIUS, ball_vel, 
@@ -144013,7 +144040,7 @@ def main(stage_num, new_boss_mode=False):
                 else:
                     # 디버그: 코만도이 아닐 때 물자보급 활성 상태 확인
                     if supply_drop_state.active and frame_count % 60 == 0:
-                        print(f"⚠️ [경고] 물자보급 활성화되었지만 캐릭터가 코만도이 아님! (현재: {selected_character_type})")
+                        pass  # print(f"⚠️ [경고] 물자보급 활성화되었지만 캐릭터가 코만도이 아님! (현재: {selected_character_type})")
                 
                 # 전설 아이템 매니저 업데이트 (물리 업데이트 전에 실행)
                 try:
@@ -144055,7 +144082,7 @@ def main(stage_num, new_boss_mode=False):
                                 last_hit_by = "player"
                                 game_vars.ball.last_hit_by = "player"
 
-                                print("👁 오딘의 눈: 부활 완료! 어둠의 기운이 라운드 종료까지 유지됩니다.")
+                                # print("👁 오딘의 눈: 부활 완료! 어둠의 기운이 라운드 종료까지 유지됩니다.")
 
                                 # 어둠의 늪 스킬 활성화
                                 odins_eye.enable_dark_swamp()
@@ -144242,7 +144269,7 @@ def main(stage_num, new_boss_mode=False):
                                         pass
                                     # 디버그 로그
                                     if DEBUG_HANDLE_BALL_VERBOSE:
-                                        print(f"👻 잔상 반사! 위치=({_hit_x}, {_hit_y})")
+                                        pass  # print(f"👻 잔상 반사! 위치=({_hit_x}, {_hit_y})")
 
                         # 포세이돈의 삼지창 처리 (장착 여부 확인)
                         trident = legendary_manager.get_item("poseidon_trident")
@@ -144338,7 +144365,7 @@ def main(stage_num, new_boss_mode=False):
                                                     special_gauge = _current_max
                                                 if special_gauge >= 350:
                                                     special_ready = True
-                                                print(f"🌿 월계수 잎 충돌! 게이지 +{_laurel_total_gain} (현재: {special_gauge})")
+                                                # print(f"🌿 월계수 잎 충돌! 게이지 +{_laurel_total_gain} (현재: {special_gauge})")
                                         except Exception as _laurel_gauge_err:
                                             print(f"[WARNING] 월계수 게이지 획득 오류: {_laurel_gauge_err}")
                 except Exception as e:
@@ -144455,7 +144482,7 @@ def main(stage_num, new_boss_mode=False):
 
             # 디버그: 툴팁 일시정지 상태 확인
             if freeze_tooltip:
-                print(f"[FREEZE_TOOLTIP DEBUG] freeze_tooltip=True, game_paused={game_paused}, by_tooltip={game_paused_by_tooltip}", flush=True)
+                pass  # print(f"[FREEZE_TOOLTIP DEBUG] freeze_tooltip=True, game_paused={game_paused}, by_tooltip={game_paused_by_tooltip}", flush=True)
 
             # 일시정지 중에도 옵티머스 에너지 타임스탬프 동기화 필요
             # (handle_player 내부의 update_optimus_energy가 호출되지 않으므로)
@@ -144635,7 +144662,7 @@ def main(stage_num, new_boss_mode=False):
                                 _dbg_skills = arena_skill_manager.active_skills.get(_dbg_hid, [])
                                 for _dbg_sk in _dbg_skills:
                                     if hasattr(_dbg_sk, 'current_cooldown') and hasattr(_dbg_sk, 'cooldown'):
-                                        # print(f"[DEBUG 기사회생]   {_dbg_side} '{getattr(_dbg_sk, 'skill_id', '?')}' cd={_dbg_sk.current_cooldown:.2f}/{_dbg_sk.cooldown:.2f}")
+                                        pass  # print(f"[DEBUG 기사회생]   {_dbg_side} '{getattr(_dbg_sk, 'skill_id', '?')}' cd={_dbg_sk.current_cooldown:.2f}/{_dbg_sk.cooldown:.2f}")
 
                 # 🎯 패들 속도 추적 (뿔 박치기 위치 예측용)
                 _prev_player_x = globals().get("_arena_prev_player_x", PLAYER.centerx)
@@ -144885,10 +144912,10 @@ def main(stage_num, new_boss_mode=False):
                                 _bomb_gs[f'{_bomb_prefix}_bomb_kb_frames'] = _bomb_frames
                                 # 경계 클램핑
                                 _bomb_rect.x = max(0, min(_bomb_rect.x, WIDTH - _bomb_rect.width))
-                                print(f"[BombKB-DEBUG] APPLY → {_bomb_prefix} dir={_bomb_dir} vel={_bomb_vel:.1f} frames={_bomb_frames} x:{_bomb_old_x}→{_bomb_rect.x}")
+                                # print(f"[BombKB-DEBUG] APPLY → {_bomb_prefix} dir={_bomb_dir} vel={_bomb_vel:.1f} frames={_bomb_frames} x:{_bomb_old_x}→{_bomb_rect.x}")
                             else:
                                 _bomb_gs[f'{_bomb_prefix}_bomb_kb_active'] = False
-                                print(f"[BombKB-DEBUG] DEACTIVATED → {_bomb_prefix}")
+                                # print(f"[BombKB-DEBUG] DEACTIVATED → {_bomb_prefix}")
 
                     # 🔥 스킬에 의한 공 속도 변경 반영 (지옥의 불꽃 등)
                     ball_vel[0] = ball_wrapper.vx
@@ -145092,7 +145119,7 @@ def main(stage_num, new_boss_mode=False):
                         _kb_dir = _horn_gs.get('horn_charge_knockback_dir', 1)
                         _kb_vel = _horn_gs.get('horn_charge_knockback_vel', 104)
                         _target_is_top = _horn_gs.get('horn_charge_target_is_top', False)
-                        print(f"🐂 [HORN CHARGE] pingfighter.py에서 넉백 신호 수신! apply={True}, dir={_kb_dir}, vel={_kb_vel}")
+                        # print(f"🐂 [HORN CHARGE] pingfighter.py에서 넉백 신호 수신! apply={True}, dir={_kb_dir}, vel={_kb_vel}")
 
                         # 🔥 착지 시 화면 흔들림 (다이너마이트급)
                         globals()['screen_shake_timer'] = 24  # 0.4초
@@ -145104,14 +145131,14 @@ def main(stage_num, new_boss_mode=False):
                             # IMPACT(0.2s)+RETURNING(0.5s)=0.7s=42f → 45f로 끊김 없이 PHASE_STUN에 연결
                             boss_stunned_timer = 45
                             globals()['horn_charge_boss_knockback_active'] = True  # 부드러운 감속용 플래그
-                            print(f"🐂 [HORN CHARGE] 보스 넉백! dir={_kb_dir}, vel={boss_knockback_vel:.2f}, stun={boss_stunned_timer}")
+                            # print(f"🐂 [HORN CHARGE] 보스 넉백! dir={_kb_dir}, vel={boss_knockback_vel:.2f}, stun={boss_stunned_timer}")
                         else:
                             # 플레이어(하단)에게 넉백 적용 (다이너마이트와 동일)
                             _prev_player_x = PLAYER.x
                             player_knockback_vel = _kb_dir * _kb_vel
                             player_stunned_timer = 45  # IMPACT+RETURNING 끝까지 커버
                             globals()['horn_charge_player_knockback_active'] = True  # 부드러운 감속용 플래그
-                            print(f"🐂 [HORN CHARGE] 플레이어 넉백 적용! PLAYER.x={_prev_player_x}, dir={_kb_dir}, vel={player_knockback_vel:.2f}, stun={player_stunned_timer}")
+                            # print(f"🐂 [HORN CHARGE] 플레이어 넉백 적용! PLAYER.x={_prev_player_x}, dir={_kb_dir}, vel={player_knockback_vel:.2f}, stun={player_stunned_timer}")
 
                         # 넉백 적용 완료 플래그 해제
                         _horn_gs['horn_charge_apply_knockback'] = False
@@ -145921,7 +145948,7 @@ def main(stage_num, new_boss_mode=False):
                         leg_shot_timer -= 1
                         if leg_shot_timer <= 0:
                             leg_shot_active = False
-                            print("레그샷 효과 종료 - 보스 이동속도 정상화")
+                            # print("레그샷 효과 종료 - 보스 이동속도 정상화")
                     # 레그샷 텍스트 타이머 업데이트
                     if leg_shot_text_timer > 0:
                         leg_shot_text_timer -= 1
@@ -145973,7 +146000,7 @@ def main(stage_num, new_boss_mode=False):
                             globals()["boss_dash_timer"] = 0
                             globals()["boss_dash_stun_timer"] = 0
 
-                            print(f"[Dynamite] 폭발! 보스 스턴 {knockback_info['stun_duration'] / 60:.1f}초, 넉백 방향={direction}, 파워={power}")
+                            # print(f"[Dynamite] 폭발! 보스 스턴 {knockback_info['stun_duration'] / 60:.1f}초, 넉백 방향={direction}, 파워={power}")
 
                 # 🍌 바나나 시스템 업데이트 (모든 캐릭터 공용)
                 from item_effects.banana import get_banana_instance
@@ -146392,12 +146419,12 @@ def main(stage_num, new_boss_mode=False):
                 # 대쉬 도우미 표시 - 디버그 추가
                 if 'tutorial_dash_helper_active' in globals():
                     if tutorial_dash_helper_active:
-                        print(f"대쉬 도우미 활성 상태: {tutorial_dash_helper_active}")
+                        # print(f"대쉬 도우미 활성 상태: {tutorial_dash_helper_active}")
                         draw_tutorial_dash_helper()
                     # else:
                     #     print(f"대쉬 도우미 비활성: {tutorial_dash_helper_active}")
                 else:
-                    print("tutorial_dash_helper_active 변수가 globals()에 없음")
+                    pass  # print("tutorial_dash_helper_active 변수가 globals()에 없음")
                 
                 # 튜토리얼 서브 알림창 오버레이 표시 (연습용 대쉬토큰 메시지도 처리)
                 # 튜토리얼 서브 알림창 표시
@@ -146406,7 +146433,7 @@ def main(stage_num, new_boss_mode=False):
                 
                 # 연습용 대쉬토큰 메시지 표시 (독립적으로 체크)
                 if 'tutorial_bonus_token_message' in globals() and tutorial_bonus_token_message:
-                    print(f"DEBUG: 토큰 메시지 표시 호출: {tutorial_bonus_token_message}")  # 디버그
+                    # print(f"DEBUG: 토큰 메시지 표시 호출: {tutorial_bonus_token_message}")  # 디버그
                     draw_tutorial_serve_reminder()
                 
                 # 튜토리얼 드라이브 알림창 오버레이 표시 (2초 동안만)
@@ -146417,7 +146444,7 @@ def main(stage_num, new_boss_mode=False):
                         if pygame.time.get_ticks() - tutorial_drive_reminder_timer > 2000:
                             tutorial_drive_reminder_active = False
                             if DEBUG_TUTORIAL:
-                                # print("튜토리얼: 드라이브 알림창 2초 경과로 자동 비활성화")
+                                pass  # print("튜토리얼: 드라이브 알림창 2초 경과로 자동 비활성화")
                         else:
                             draw_tutorial_drive_reminder()
                     else:
@@ -146427,21 +146454,21 @@ def main(stage_num, new_boss_mode=False):
                 if 'tutorial_needs_dash_practice' in globals() and tutorial_needs_dash_practice:
                     if 'tutorial_dash_practice_shown' in globals() and not tutorial_dash_practice_shown:
                         if DEBUG_TUTORIAL:
-                            # print("튜토리얼: Chapter 2 대쉬 대화 표시 (메인 루프)")
+                            pass  # print("튜토리얼: Chapter 2 대쉬 대화 표시 (메인 루프)")
                         # 게임 일시정지 상태로 설정
                         tutorial_pause_for_dialogue = True
                         # Chapter 2 최대 게이지를 300으로 설정
                         if 'tutorial_chapter2_max_gauge' not in globals() or tutorial_chapter2_max_gauge != 300:
                             tutorial_chapter2_max_gauge = 300
                             if DEBUG_TUTORIAL:
-                                # print("튜토리얼: Chapter 2 최대 게이지를 300으로 설정 (메인 루프)")
+                                pass  # print("튜토리얼: Chapter 2 최대 게이지를 300으로 설정 (메인 루프)")
                         
                         dash_dialogue_result = show_tutorial_dash_dialogue()
                         if dash_dialogue_result == "skip_chapter":
                             # 8번키로 챕터 스킵 요청 - Chapter 2 → Chapter 3
                             # 기존 초기화 구간(스테이지 재시작 경로)과 동일하게
                             # 요약 화면 → 챕터 타이틀(검은 화면) 순서로 표시하고 상태를 정리한다.
-                            print("🎮 대쉬 대화에서 챕터 스킵 요청됨 - Chapter 3으로 직접 이동")
+                            # print("🎮 대쉬 대화에서 챕터 스킵 요청됨 - Chapter 3으로 직접 이동")
 
                             # Chapter 2 완료 요약 화면
                             show_chapter_completion_summary(2)
@@ -146453,7 +146480,7 @@ def main(stage_num, new_boss_mode=False):
                                 tutorial_practice_bonus_token = False
                                 tutorial_bonus_token_message = None
                                 if DEBUG_TUTORIAL:
-                                    # print("튜토리얼: Chapter 2 스킵 - 연습용 대쉬토큰 제거 (토큰 1개로 초기화)")
+                                    pass  # print("튜토리얼: Chapter 2 스킵 - 연습용 대쉬토큰 제거 (토큰 1개로 초기화)")
 
                             # 챕터 상태 전환: 2 → 3
                             tutorial_needs_dash_practice = False
@@ -146478,7 +146505,7 @@ def main(stage_num, new_boss_mode=False):
                             tutorial_dash_practice_shown = True
                             tutorial_practice_mode = True
                             if DEBUG_TUTORIAL:
-                                # print(f"튜토리얼: 대쉬 연습 대화 완료 (메인 루프), 오버레이 도우미 활성화={tutorial_dash_helper_active}")
+                                pass  # print(f"튜토리얼: 대쉬 연습 대화 완료 (메인 루프), 오버레이 도우미 활성화={tutorial_dash_helper_active}")
                             
                             # Chapter 2: 플레이어가 먼저 서브하도록 설정
                             is_waiting_for_serve = True
@@ -146487,7 +146514,7 @@ def main(stage_num, new_boss_mode=False):
                             ball_vel[1] = 0
                             BALL[0] = WIDTH // 2
                             BALL[1] = HEIGHT - 100  # 플레이어 앞에 공 배치
-                            print("🎯 Chapter 2: 플레이어가 먼저 서브!")
+                            # print("🎯 Chapter 2: 플레이어가 먼저 서브!")
                             
                             # Chapter 1 공속도 초기화 (Chapter 2용 새 속도)
                             tutorial_saved_ball_vel = None
@@ -146499,7 +146526,7 @@ def main(stage_num, new_boss_mode=False):
                     if not getattr(main, 'tutorial_dash_gauge_dialogue_shown', False):
                         if special_gauge >= 160:
                             if DEBUG_TUTORIAL:
-                                # print("튜토리얼: 대쉬 챕터 - 160 게이지 도달! 게이지 설명 대화 표시")
+                                pass  # print("튜토리얼: 대쉬 챕터 - 160 게이지 도달! 게이지 설명 대화 표시")
                             # 게임 일시정지 상태로 설정
                             tutorial_pause_for_dialogue = True
                             # 게이지 대화 표시 (일반 튜토리얼과 완전히 동일)
@@ -146507,7 +146534,7 @@ def main(stage_num, new_boss_mode=False):
                                 main.tutorial_dash_gauge_dialogue_shown = True
                                 tutorial_pause_for_dialogue = False
                                 if DEBUG_TUTORIAL:
-                                    # print("튜토리얼: 대쉬 챕터 - 게이지 대화 완료")
+                                    pass  # print("튜토리얼: 대쉬 챕터 - 게이지 대화 완료")
                 
                 # 서브 도우미 표시 (도우미를 아직 표시하지 않은 경우만 활성화, 대쉬 연습 중이 아닐 때만)
                 if is_waiting_for_serve and is_player_serve and 'tutorial_boss_returned' in globals() and not tutorial_boss_returned and not tutorial_serve_helper_shown:
@@ -146519,18 +146546,19 @@ def main(stage_num, new_boss_mode=False):
                         if 'tutorial_serve_helper_active' in globals() and not tutorial_serve_helper_active:
                             tutorial_serve_helper_active = True
                             if DEBUG_TUTORIAL:
-                                # print("튜토리얼: 서브 도우미 활성화")
+                                pass  # print("튜토리얼: 서브 도우미 활성화")
                         elif 'tutorial_serve_helper_active' not in globals():
                             tutorial_serve_helper_active = True
                             if DEBUG_TUTORIAL:
-                                # print("튜토리얼: 서브 도우미 초기 활성화")
+                                pass  # print("튜토리얼: 서브 도우미 초기 활성화")
                     
                 # Chapter 4 전용 서브 알림 (대화 완료 직후 1.5초 노출)
                 # 디버그: 조건 체크
                 if current_stage == 50 and 'tutorial_current_chapter' in globals() and tutorial_current_chapter == 4:
                     if 'chapter4_serve_reminder_active' not in globals():
                         if pygame.time.get_ticks() % 600 == 0:  # 10초마다 한 번만
-                            print("⚠️ Chapter 4: chapter4_serve_reminder_active 변수가 없음")
+                            # print("⚠️ Chapter 4: chapter4_serve_reminder_active 변수가 없음")
+                            pass
                     elif not chapter4_serve_reminder_active:
                         pass  # 비활성 상태는 정상
                     else:
@@ -146543,10 +146571,11 @@ def main(stage_num, new_boss_mode=False):
                         if chapter4_serve_reminder_timer > 0:
                             chapter4_serve_reminder_timer -= 1
                             if chapter4_serve_reminder_timer % 30 == 0:  # 0.5초마다 디버그
-                                print(f"🎮 Chapter 4 서브 알림 표시 중... 남은 시간: {chapter4_serve_reminder_timer}")
+                                # print(f"🎮 Chapter 4 서브 알림 표시 중... 남은 시간: {chapter4_serve_reminder_timer}")
+                                pass
                         if chapter4_serve_reminder_timer <= 0:
                             chapter4_serve_reminder_active = False
-                            print("🎮 Chapter 4 서브 알림 종료")
+                            # print("🎮 Chapter 4 서브 알림 종료")
                         else:
                             # 알림 UI (서브 도우미 스타일)
                             font_large = FontStyle.subtitle() if 'FontStyle' in globals() else pygame.font.Font(None, 28)
@@ -146599,8 +146628,9 @@ def main(stage_num, new_boss_mode=False):
             current_time = pygame.time.get_ticks()
             if current_time - main.last_chapter_debug > 1000:
                 current_max_gauge = get_max_gauge()
-                print(f"[TUTORIAL STATE] Chapter: {tutorial_current_chapter}, needs_drive: {tutorial_needs_drive_practice}, " +
-                      f"shown: {tutorial_drive_practice_shown}, gauge: {special_gauge:.0f}/{current_max_gauge}")
+                # print(f"[TUTORIAL STATE] Chapter: {tutorial_current_chapter}, needs_drive: {tutorial_needs_drive_practice}, " +
+                #       f"shown: {tutorial_drive_practice_shown}, gauge: {special_gauge:.0f}/{current_max_gauge}")
+                # pass
                 main.last_chapter_debug = current_time
             
             # Chapter 3 드라이브 완료 후 Chapter 4로 전환 (백업용 - 대화 중 전환되지 않았을 경우)
@@ -146608,27 +146638,27 @@ def main(stage_num, new_boss_mode=False):
             if (current_stage == 50 and tutorial_current_chapter == 3 and 
                 tutorial_drive_completion_dialogue_shown and tutorial_drive_count >= 4):
                 # Chapter 4로 전환
-                print("📚 Chapter 3 완료 확인! Chapter 4로 전환 (백업 - 메인 루프)")
-                print(f"🔍 DEBUG: 전환 전 chapter = {tutorial_current_chapter}")
+                # print("📚 Chapter 3 완료 확인! Chapter 4로 전환 (백업 - 메인 루프)")
+                # print(f"🔍 DEBUG: 전환 전 chapter = {tutorial_current_chapter}")
                 tutorial_current_chapter = 4
-                print(f"🔍 DEBUG: 전환 후 chapter = {tutorial_current_chapter}")
+                # print(f"🔍 DEBUG: 전환 후 chapter = {tutorial_current_chapter}")
                 # 챕터별 임시 게이지 오버라이드 해제 (Chapter 4는 500 고정)
                 tutorial_chapter1_max_gauge = None
                 tutorial_chapter2_max_gauge = None
                 tutorial_drive_chapter_max_gauge = None
-                print(f"🔍 DEBUG: 게이지 오버라이드 해제 완료, 새 max_gauge = {get_max_gauge()}")
-                print(f"🎮 Chapter 4: 게이지 오버라이드 해제 완료 (백업) - drive_gauge: {tutorial_drive_chapter_max_gauge}")
+                # print(f"🔍 DEBUG: 게이지 오버라이드 해제 완료, 새 max_gauge = {get_max_gauge()}")
+                # print(f"🎮 Chapter 4: 게이지 오버라이드 해제 완료 (백업) - drive_gauge: {tutorial_drive_chapter_max_gauge}")
                 
                 # Chapter 4 타이틀 표시 (파워스매싱)
                 show_chapter_title(4, "POWER SMASHING", "파워 스매싱")
                 
                 # Chapter 4 초기화: 최대 게이지를 500으로 설정
                 special_gauge_max = get_max_gauge()  # 500 반환
-                print(f"🎮 Chapter 4 시작: 최대 게이지 {special_gauge_max}로 설정")
+                # print(f"🎮 Chapter 4 시작: 최대 게이지 {special_gauge_max}로 설정")
                 
                 # 게이지 업데이트 강제 적용 (백업)
                 game_state.special_gauge_max = special_gauge_max
-                print(f"🔍 DEBUG: (백업) game_state.special_gauge_max도 {game_state.special_gauge_max}로 업데이트")
+                # print(f"🔍 DEBUG: (백업) game_state.special_gauge_max도 {game_state.special_gauge_max}로 업데이트")
                 
                 # Chapter 4 파워스매싱 튜토리얼 초기화
                 tutorial_power_practice_shown = False
@@ -146642,10 +146672,10 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_power_reminder_timer = 0
                 
                 # Chapter 4 백업 전환 디버그 출력
-                print(f"[CHAPTER 4 BACKUP INIT] Chapter 4 initialized via backup route!")
-                print(f"[CHAPTER 4 BACKUP INIT] tutorial_needs_power_practice: {tutorial_needs_power_practice}")
-                print(f"[CHAPTER 4 BACKUP INIT] tutorial_power_practice_shown: {tutorial_power_practice_shown}")
-                print(f"[CHAPTER 4 BACKUP INIT] special_gauge_max: {special_gauge_max}")
+                # print(f"[CHAPTER 4 BACKUP INIT] Chapter 4 initialized via backup route!")
+                # print(f"[CHAPTER 4 BACKUP INIT] tutorial_needs_power_practice: {tutorial_needs_power_practice}")
+                # print(f"[CHAPTER 4 BACKUP INIT] tutorial_power_practice_shown: {tutorial_power_practice_shown}")
+                # print(f"[CHAPTER 4 BACKUP INIT] special_gauge_max: {special_gauge_max}")
                 
                 # 드라이브 카운터 비활성화
                 tutorial_drive_counter_active = False
@@ -146654,7 +146684,7 @@ def main(stage_num, new_boss_mode=False):
                 # Chapter 4 대화를 즉시 표시 (타이틀 후 바로)
                 # 먼저 게임 화면을 그려서 검은 화면이 아닌 게임 화면 위에 대화가 표시되도록 함
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: Chapter 4 - POWER SMASHING 대화 즉시 시작 (백업 메인 루프)")
+                    pass  # print("튜토리얼: Chapter 4 - POWER SMASHING 대화 즉시 시작 (백업 메인 루프)")
                 draw_field()
                 draw_objects()
                 pygame.display.flip()
@@ -146667,7 +146697,7 @@ def main(stage_num, new_boss_mode=False):
                     chapter4_serve_reminder_active = True  # Chapter 4 서브 알림창 활성화 (변수명 수정)
                     chapter4_serve_reminder_timer = int(1.5 * FPS)
                     if DEBUG_TUTORIAL:
-                        # print("튜토리얼: 파워스매싱 연습 대화 완료 (백업 메인 루프)")
+                        pass  # print("튜토리얼: 파워스매싱 연습 대화 완료 (백업 메인 루프)")
                 
                 # 공 속도 복원
                 if tutorial_saved_ball_vel:
@@ -146681,12 +146711,13 @@ def main(stage_num, new_boss_mode=False):
                 main.chapter4_debug_counter = 0
             main.chapter4_debug_counter += 1
             if main.chapter4_debug_counter % 60 == 0:  # Print every second
-                print(f"[CH4 DEBUG] needs_power: {tutorial_needs_power_practice}, shown: {tutorial_power_practice_shown}, chapter: {tutorial_current_chapter}")
+                # print(f"[CH4 DEBUG] needs_power: {tutorial_needs_power_practice}, shown: {tutorial_power_practice_shown}, chapter: {tutorial_current_chapter}")
         
         # Fallback: 혹시 대화가 표시되지 않았다면 여기서 표시
+                pass
         if current_stage == 50 and tutorial_needs_power_practice and not tutorial_power_practice_shown:
             if DEBUG_TUTORIAL:
-                # print("튜토리얼: Chapter 4 - POWER SMASHING 연습 시작 (메인 루프)")
+                pass  # print("튜토리얼: Chapter 4 - POWER SMASHING 연습 시작 (메인 루프)")
             
             # 대화 시작 전에 게임 화면 그리기
             draw_field()
@@ -146701,14 +146732,14 @@ def main(stage_num, new_boss_mode=False):
                 chapter4_serve_reminder_active = True  # Chapter 4 서브 알림창 활성화 (변수명 수정)
                 chapter4_serve_reminder_timer = int(1.5 * FPS)
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: 파워스매싱 연습 대화 완료, Chapter 4 서브 알림창 활성화")
+                    pass  # print("튜토리얼: 파워스매싱 연습 대화 완료, Chapter 4 서브 알림창 활성화")
         
         # Chapter 4 - 게이지 500 도달 시 도우미 대화 (Chapter 3 조건문 밖으로 이동)
         if (current_stage == 50 and 
                 tutorial_needs_power_practice and tutorial_power_practice_shown and
                 not tutorial_power_helper_dialogue_shown and special_gauge >= 500):
             
-            print("🎯 Chapter 4: 500 게이지 도달! 도우미 대화 표시")
+            # print("🎯 Chapter 4: 500 게이지 도달! 도우미 대화 표시")
             tutorial_power_helper_dialogue_shown = True
             
             # 대화 시작 전에 게임 화면 그리기
@@ -146718,7 +146749,7 @@ def main(stage_num, new_boss_mode=False):
             
             show_tutorial_power_helper_dialogue()
             if DEBUG_TUTORIAL:
-                # print("튜토리얼: 파워스매싱 도우미 대화 완료")
+                pass  # print("튜토리얼: 파워스매싱 도우미 대화 완료")
             tutorial_power_reminder_active = True  # 서브 알림창 활성화
         
         # Chapter 4 - 파워스매싱 3방향 완료 체크는 이제 check_tutorial_special_missions_complete()에서 처리됨
@@ -146726,7 +146757,7 @@ def main(stage_num, new_boss_mode=False):
         # Chapter 3 - 드라이브 연습 (메인 루프 내, 적절한 들여쓰기)
         if current_stage == 50 and tutorial_needs_drive_practice and not tutorial_drive_practice_shown:
             if DEBUG_TUTORIAL:
-                # print("튜토리얼: Chapter 3 - DRIVE 연습 시작 (메인 루프)")
+                pass  # print("튜토리얼: Chapter 3 - DRIVE 연습 시작 (메인 루프)")
             
             # 대화 시작 전에 게임 화면 그리기
             draw_field()
@@ -146736,7 +146767,7 @@ def main(stage_num, new_boss_mode=False):
             drive_dialogue_result = show_tutorial_drive_dialogue()
             if drive_dialogue_result == "skip_chapter":
                 # 8번키로 챕터 스킵 요청 - Chapter 3에서는 Chapter 4로 진행해야 함
-                print("🎮 드라이브 대화에서 챕터 스킵 요청됨 - Chapter 4로 이동")
+                # print("🎮 드라이브 대화에서 챕터 스킵 요청됨 - Chapter 4로 이동")
 
                 # Chapter 3 완료 요약 화면 표시
                 show_chapter_completion_summary(3)
@@ -146785,23 +146816,23 @@ def main(stage_num, new_boss_mode=False):
                     chapter4_serve_reminder_active = True
                     chapter4_serve_reminder_timer = int(1.5 * FPS)
                     if DEBUG_TUTORIAL:
-                        # print("튜토리얼: 파워스매싱 연습 대화 완료 (챕터3 스킵 경로)")
+                        pass  # print("튜토리얼: 파워스매싱 연습 대화 완료 (챕터3 스킵 경로)")
             elif drive_dialogue_result:
                 # 드라이브 알림 변수는 main 함수 시작부에서 global 선언됨
                 tutorial_drive_practice_shown = True
                 tutorial_practice_mode = True
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: 드라이브 연습 대화 완료")
+                    pass  # print("튜토리얼: 드라이브 연습 대화 완료")
                 
                 # Chapter 3 대화 완료 후 게이지를 0으로 초기화
                 special_gauge = 0
                 displayed_gauge = 0
                 if DEBUG_TUTORIAL:
-                    # print(f"튜토리얼: Chapter 3 대화 완료 - 게이지 초기화 (0/{tutorial_drive_chapter_max_gauge})")
+                    pass  # print(f"튜토리얼: Chapter 3 대화 완료 - 게이지 초기화 (0/{tutorial_drive_chapter_max_gauge})")
                 
                 # 서브 알림창 활성화 (Chapter 3 대화 후 서브를 안내)
                 tutorial_serve_reminder_active = True
-                print("🎯 Chapter 3: 서브 알림창 활성화")
+                # print("🎯 Chapter 3: 서브 알림창 활성화")
                 
                 # 160 게이지 도달시 도우미 대화 표시를 위한 플래그
                 tutorial_drive_helper_dialogue_shown = False  # 아직 도우미 대화 안봄
@@ -146823,7 +146854,7 @@ def main(stage_num, new_boss_mode=False):
             tutorial_needs_drive_practice and tutorial_drive_practice_shown and
             not tutorial_drive_helper_dialogue_shown and special_gauge >= 160):
             
-            print("🎯 Chapter 3: 160 게이지 도달! 도우미 대화 표시")
+            # print("🎯 Chapter 3: 160 게이지 도달! 도우미 대화 표시")
             tutorial_drive_helper_dialogue_shown = True
             
             # 게임 일시정지
@@ -146850,7 +146881,7 @@ def main(stage_num, new_boss_mode=False):
                 tutorial_displayed_right_drive_count = 0.0
                 # 서브 알림창 비활성화 (도우미 대화 후에는 필요 없음)
                 tutorial_serve_reminder_active = False
-                print("🎯 도우미 대화 완료: 드라이브 카운터와 알림 활성화, 서브 알림창 비활성화")
+                # print("🎯 도우미 대화 완료: 드라이브 카운터와 알림 활성화, 서브 알림창 비활성화")
             
             # 공 속도 복원
             if tutorial_saved_ball_vel:
@@ -146866,7 +146897,7 @@ def main(stage_num, new_boss_mode=False):
         if current_stage == 50 and tutorial_pause_for_dialogue:
             if not tutorial_boss_return_dialogue_shown:
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: 대화창 표시 시작")
+                    pass  # print("튜토리얼: 대화창 표시 시작")
                 # 현재 화면을 먼저 업데이트
                 pygame.display.flip()
                 # 대화 표시
@@ -146880,12 +146911,12 @@ def main(stage_num, new_boss_mode=False):
                             ball_vel[0] = random.choice([-2, 2])
                             ball_vel[1] = 8  # 아래로 향하는 적절한 속도
                             if DEBUG_TUTORIAL:
-                                # print(f"튜토리얼: 공 속도 복원 (보정됨) - {ball_vel} (원래속도: {saved_speed:.2f})")
+                                pass  # print(f"튜토리얼: 공 속도 복원 (보정됨) - {ball_vel} (원래속도: {saved_speed:.2f})")
                         else:
                             ball_vel[0] = tutorial_saved_ball_vel[0]
                             ball_vel[1] = tutorial_saved_ball_vel[1]
                             if DEBUG_TUTORIAL:
-                                # print(f"튜토리얼: 공 속도 복원 - {ball_vel}")
+                                pass  # print(f"튜토리얼: 공 속도 복원 - {ball_vel}")
                     else:
                         ball_vel[1] = 5  # 기본적으로 아래로 향하도록
                 continue  # 다음 프레임으로
@@ -146893,7 +146924,7 @@ def main(stage_num, new_boss_mode=False):
             # 튜토리얼: 플레이어가 조교 공을 받아친 후 각도 튜토리얼만 표시 (게이지는 대쉬 챕터로 이동)
             if current_stage == 50 and tutorial_pause_for_dialogue and tutorial_player_returned_ball and not tutorial_gauge_tutorial_shown:
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: 각도 튜토리얼 대화 표시")
+                    pass  # print("튜토리얼: 각도 튜토리얼 대화 표시")
                 # 현재 화면 그리기 (배경용)
                 draw_field()
                 draw_objects()
@@ -146909,18 +146940,18 @@ def main(stage_num, new_boss_mode=False):
                             ball_vel[0] = random.choice([-2, 2])
                             ball_vel[1] = 8  # 아래로 향하는 적절한 속도
                             if DEBUG_TUTORIAL:
-                                # print(f"튜토리얼: 각도 튜토리얼 후 공 속도 복원 (보정됨) - {ball_vel} (원래속도: {saved_speed:.2f})")
+                                pass  # print(f"튜토리얼: 각도 튜토리얼 후 공 속도 복원 (보정됨) - {ball_vel} (원래속도: {saved_speed:.2f})")
                         else:
                             ball_vel[0] = tutorial_saved_ball_vel[0]
                             ball_vel[1] = tutorial_saved_ball_vel[1]
                             if DEBUG_TUTORIAL:
-                                # print(f"튜토리얼: 각도 튜토리얼 후 공 속도 복원 - {ball_vel}")
+                                pass  # print(f"튜토리얼: 각도 튜토리얼 후 공 속도 복원 - {ball_vel}")
                 continue  # 다음 프레임으로
             
             # 튜토리얼: 6회 타격 후 속도 튜토리얼 표시
             if current_stage == 50 and tutorial_pause_for_dialogue and tutorial_speed_dialogue_shown and tutorial_player_hit_count >= 6:
                 if DEBUG_TUTORIAL:
-                    # print("튜토리얼: 속도 튜토리얼 대화 표시")
+                    pass  # print("튜토리얼: 속도 튜토리얼 대화 표시")
                 # 현재 화면 그리기 (배경용)
                 draw_field()
                 draw_objects()
@@ -146929,13 +146960,13 @@ def main(stage_num, new_boss_mode=False):
                 speed_dialogue_result = show_tutorial_speed_dialogue()
                 if speed_dialogue_result == "skip_chapter":
                     # 8번키로 챕터 스킵 요청 - Chapter 1에서 Chapter 2로 이동
-                    print("🎮 속도 대화에서 챕터 스킵 요청됨 - Chapter 2로 이동")
+                    # print("🎮 속도 대화에서 챕터 스킵 요청됨 - Chapter 2로 이동")
                     
                     # 속도 대화는 Chapter 1 중간에 나오므로 Chapter 2로 이동
                     tutorial_pause_for_dialogue = False
                     round_wins += 1
                     if DEBUG_TUTORIAL:
-                        # print(f"튜토리얼: 속도 대화 스킵, Chapter 2로 이동 (점수: {round_wins})")
+                        pass  # print(f"튜토리얼: 속도 대화 스킵, Chapter 2로 이동 (점수: {round_wins})")
                     
                     # 게이지 초기화
                     special_gauge = 0
@@ -146950,20 +146981,20 @@ def main(stage_num, new_boss_mode=False):
                     tutorial_needs_dash_practice = True
                     tutorial_dash_practice_shown = False
                     
-                    print("🎉 Chapter 1 스킵 완료, Chapter 2 - DASH 시작")
+                    # print("🎉 Chapter 1 스킵 완료, Chapter 2 - DASH 시작")
                     continue  # 다음 프레임으로
                 elif speed_dialogue_result:
                     tutorial_pause_for_dialogue = False
                     # 속도 대화 완료 후 라운드 승리 처리
                     round_wins += 1
                     if DEBUG_TUTORIAL:
-                        # print(f"튜토리얼: 속도 대화 완료, 라운드 승리 처리 (점수: {round_wins})")
+                        pass  # print(f"튜토리얼: 속도 대화 완료, 라운드 승리 처리 (점수: {round_wins})")
                     
                     # 다음 라운드로 넘어가기 전에 플레이어 게이지를 0으로 초기화
                     special_gauge = 0
                     displayed_gauge = 0
                     if DEBUG_TUTORIAL:
-                        # print("튜토리얼: 대쉬 챕터 진입 전 게이지 초기화")
+                        pass  # print("튜토리얼: 대쉬 챕터 진입 전 게이지 초기화")
                     
                     # Chapter 2 타이틀 표시 (대쉬)
                     show_chapter_title(2, "DASH", "대쉬 연습")
@@ -146979,22 +147010,22 @@ def main(stage_num, new_boss_mode=False):
                             ball_vel[0] = random.choice([-2, 2])
                             ball_vel[1] = 8  # 아래로 향하는 적절한 속도
                             if DEBUG_TUTORIAL:
-                                # print(f"튜토리얼: Chapter1→2 전환 공 속도 복원 (보정됨) - {ball_vel} (원래속도: {saved_speed:.2f})")
+                                pass  # print(f"튜토리얼: Chapter1→2 전환 공 속도 복원 (보정됨) - {ball_vel} (원래속도: {saved_speed:.2f})")
                         else:
                             ball_vel[0] = tutorial_saved_ball_vel[0]
                             ball_vel[1] = tutorial_saved_ball_vel[1]
                             if DEBUG_TUTORIAL:
-                                # print(f"튜토리얼: Chapter1→2 전환 공 속도 복원 - {ball_vel}")
+                                pass  # print(f"튜토리얼: Chapter1→2 전환 공 속도 복원 - {ball_vel}")
                     else:
                         # 저장된 속도가 없으면 기본 Chapter 2 속도 설정
                         ball_vel[0] = random.choice([-2, 2])
                         ball_vel[1] = 8  # 아래로 향하는 적절한 속도
                         if DEBUG_TUTORIAL:
-                            # print(f"튜토리얼: Chapter1→2 전환 기본 속도 설정 - {ball_vel}")
+                            pass  # print(f"튜토리얼: Chapter1→2 전환 기본 속도 설정 - {ball_vel}")
                     
                     # Chapter 전환 시 완전한 게임 상태 초기화 (라운드 시작과 동일)
                     if DEBUG_TUTORIAL:
-                        # print("튜토리얼: Chapter 1→2 전환 게임 상태 완전 초기화 시작")
+                        pass  # print("튜토리얼: Chapter 1→2 전환 게임 상태 완전 초기화 시작")
 
                     # 1. 플레이어/보스 위치 초기화
                     game_center_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
@@ -147003,12 +147034,12 @@ def main(stage_num, new_boss_mode=False):
                     BOSS.centerx = game_center_x
                     BOSS.top = 25
                     if DEBUG_TUTORIAL:
-                        # print(f"튜토리얼: 플레이어/보스 위치 초기화 - Player: ({PLAYER.centerx}, {PLAYER.bottom}), Boss: ({BOSS.centerx}, {BOSS.top})")
+                        pass  # print(f"튜토리얼: 플레이어/보스 위치 초기화 - Player: ({PLAYER.centerx}, {PLAYER.bottom}), Boss: ({BOSS.centerx}, {BOSS.top})")
                     
                     # 2. physics_manager를 통한 공 위치 초기화 (보스 서브로)
                     physics_manager.reset_ball(is_player_serve=False)
                     if DEBUG_TUTORIAL:
-                        # print(f"튜토리얼: 공 위치 초기화 - Ball: ({BALL.centerx}, {BALL.centery})")
+                        pass  # print(f"튜토리얼: 공 위치 초기화 - Ball: ({BALL.centerx}, {BALL.centery})")
                     
                     # 3. 플레이어 상태 초기화
                     rolling_active = False
@@ -147027,17 +147058,17 @@ def main(stage_num, new_boss_mode=False):
                         pass
                     current_speed = 0
                     if DEBUG_TUTORIAL:
-                        # print("튜토리얼: 플레이어 상태 초기화 완료 (롤링, 스턴, 이동속도 리셋)")
+                        pass  # print("튜토리얼: 플레이어 상태 초기화 완료 (롤링, 스턴, 이동속도 리셋)")
                     
                     # 4. 시각 효과 초기화
                     if DEBUG_TUTORIAL:
-                        # print("튜토리얼: 시각 효과 초기화 완료")
+                        pass  # print("튜토리얼: 시각 효과 초기화 완료")
                     
                     # Chapter 2 설정 완료, 메인 루프 계속 진행
                     if DEBUG_TUTORIAL:
-                        # print("튜토리얼: Chapter 1→2 전환 완전한 게임 상태 초기화 완료")
+                        pass  # print("튜토리얼: Chapter 1→2 전환 완전한 게임 상태 초기화 완료")
                     if DEBUG_TUTORIAL:
-                        # print("튜토리얼: Chapter 1 완료, Chapter 2 - DASH 시작")
+                        pass  # print("튜토리얼: Chapter 1 완료, Chapter 2 - DASH 시작")
                     # continue는 이미 while 루프를 계속 진행하므로 추가 작업 불필요
 
         # 실전 튜토리얼 UI는 pygame.display.flip() 래핑 함수에서 그려짐
@@ -147621,7 +147652,7 @@ def show_player_info():
                 SCREEN.blit(esc_text, esc_rect)
                 pygame.display.flip()
             except Exception as e:
-                print(f"   (player_analyzer ): {e}")
+                pass  # print(f"   (player_analyzer ): {e}")
                 # 렌더링 실패해도 계속 실행
         # return은 while 루프 안에 있어야 함 (위의 ESCAPE 키 처리에서 리턴됨)
     
@@ -147814,7 +147845,7 @@ def show_player_info():
                             SCREEN.blit(line_surface, line_rect)
                             y_pos += 18
                 except Exception as e:
-                    print(f"   : {e}")
+                    # print(f"   : {e}")
                     error_text = font_small.render(f"피드백 로드 오류: {str(e)[:20]}", True, (255, 100, 100))
                     error_rect = error_text.get_rect(center=(WIDTH//2, HEIGHT//2))
                     SCREEN.blit(error_text, error_rect)
@@ -147825,8 +147856,8 @@ def show_player_info():
             SCREEN.blit(control_surface, control_rect)
         except Exception as e:
             # 오류 발생 시 자세한 메시지 표시 및 로그 출력
-            print(f" show_player_info : {e}")
-            print(f"  : {type(e).__name__}")
+            # print(f" show_player_info : {e}")
+            # print(f"  : {type(e).__name__}")
             import traceback
             traceback.print_exc()
             error_text = font_medium.render("정보를 불러올 수 없습니다.", True, (255, 100, 100))
@@ -147868,32 +147899,32 @@ def show_weather_debug_menu():
         if weather_type == "breeze":
             force_start_breeze_event(duration=3)
             if DEBUG_WEATHER:
-                print("🌬️ [DEBUG] 미풍 이벤트 강제 발동!")
+                pass  # print("🌬️ [DEBUG] 미풍 이벤트 강제 발동!")
         elif weather_type == "gust":
             force_start_gust_event(duration=2)
             if DEBUG_WEATHER:
-                # print("💨 [DEBUG] 강풍 이벤트 강제 발동!")
+                pass  # print("💨 [DEBUG] 강풍 이벤트 강제 발동!")
         elif weather_type == "fire":
             force_start_fire_event(duration=3)
             if DEBUG_WEATHER:
-                # print("🔥 [DEBUG] 화재 이벤트 강제 발동!")
+                pass  # print("🔥 [DEBUG] 화재 이벤트 강제 발동!")
         elif weather_type == "ice":
             force_start_ice_event(duration=3)
             if DEBUG_WEATHER:
-                print("🧊 [DEBUG] 빙판 이벤트 강제 발동!")
+                pass  # print("🧊 [DEBUG] 빙판 이벤트 강제 발동!")
         elif weather_type == "rain":
             force_start_rain_event(duration=3)
             if DEBUG_WEATHER:
-                print("🌧️ [DEBUG] 소나기 이벤트 강제 발동!")
+                pass  # print("🌧️ [DEBUG] 소나기 이벤트 강제 발동!")
         elif weather_type == "hail":
             force_start_hail_event(duration=3)
             if DEBUG_WEATHER:
-                print("🧊 [DEBUG] 우박 이벤트 강제 발동!")
+                pass  # print("🧊 [DEBUG] 우박 이벤트 강제 발동!")
         elif weather_type == "clear":
             reset_weather_state()
             reset_hail_state()
             if DEBUG_WEATHER:
-                print("☀️ [DEBUG] 날씨 효과 해제!")
+                pass  # print("☀️ [DEBUG] 날씨 효과 해제!")
 
     while menu_running:
         # 마우스 위치
@@ -147995,7 +148026,7 @@ def show_weather_debug_menu():
                     weather_type = weather_options[selected_index][1]
                     if weather_type == "breeze":
                         force_start_breeze_event(duration=3)
-                        print("🌬️ [DEBUG] 미풍 이벤트 강제 발동!")
+                        # print("🌬️ [DEBUG] 미풍 이벤트 강제 발동!")
                     elif weather_type == "gust":
                         force_start_gust_event(duration=2)
                         # print("💨 [DEBUG] 강풍 이벤트 강제 발동!")
@@ -148004,24 +148035,24 @@ def show_weather_debug_menu():
                         # print("🔥 [DEBUG] 화재 이벤트 강제 발동!")
                     elif weather_type == "ice":
                         force_start_ice_event(duration=3)
-                        print("🧊 [DEBUG] 빙판 이벤트 강제 발동!")
+                        # print("🧊 [DEBUG] 빙판 이벤트 강제 발동!")
                     elif weather_type == "rain":
                         force_start_rain_event(duration=3)
-                        print("🌧️ [DEBUG] 소나기 이벤트 강제 발동!")
+                        # print("🌧️ [DEBUG] 소나기 이벤트 강제 발동!")
                     elif weather_type == "hail":
                         force_start_hail_event(duration=3)
-                        print("🧊 [DEBUG] 우박 이벤트 강제 발동!")
+                        # print("🧊 [DEBUG] 우박 이벤트 강제 발동!")
                     elif weather_type == "clear":
                         reset_weather_state()
                         reset_hail_state()
-                        print("☀️ [DEBUG] 날씨 효과 해제!")
+                        # print("☀️ [DEBUG] 날씨 효과 해제!")
                     elif weather_type == "cancel":
                         pass
                     menu_running = False
                 # 숫자키로 직접 선택
                 elif event.key == pygame.K_1:
                     force_start_breeze_event(duration=3)
-                    print("🌬️ [DEBUG] 미풍 이벤트 강제 발동!")
+                    # print("🌬️ [DEBUG] 미풍 이벤트 강제 발동!")
                     menu_running = False
                 elif event.key == pygame.K_2:
                     force_start_gust_event(duration=2)
@@ -148033,20 +148064,20 @@ def show_weather_debug_menu():
                     menu_running = False
                 elif event.key == pygame.K_4:
                     force_start_ice_event(duration=3)
-                    print("🧊 [DEBUG] 빙판 이벤트 강제 발동!")
+                    # print("🧊 [DEBUG] 빙판 이벤트 강제 발동!")
                     menu_running = False
                 elif event.key == pygame.K_5:
                     force_start_rain_event(duration=3)
-                    print("🌧️ [DEBUG] 소나기 이벤트 강제 발동!")
+                    # print("🌧️ [DEBUG] 소나기 이벤트 강제 발동!")
                     menu_running = False
                 elif event.key == pygame.K_6:
                     force_start_hail_event(duration=3)
-                    print("🧊 [DEBUG] 우박 이벤트 강제 발동!")
+                    # print("🧊 [DEBUG] 우박 이벤트 강제 발동!")
                     menu_running = False
                 elif event.key == pygame.K_F3:
                     reset_weather_state()
                     reset_hail_state()
-                    print("☀️ [DEBUG] 날씨 효과 해제!")
+                    # print("☀️ [DEBUG] 날씨 효과 해제!")
                     menu_running = False
 
         pygame.time.Clock().tick(60)
@@ -151798,12 +151829,12 @@ def show_item_management_menu(item_list, selected_index, item_type):
                         apply_roll_bonuses_from_equipped()
                         # 아이템 이름을 한글/수식어로 표시
                         item_name_korean = get_item_display_name(removed_item)
-                        print(f"{item_name_korean}  .")
+                        # print(f"{item_name_korean}  .")
                         return
                     elif is_sensor_item and selected == 1:  # 센서 ON/OFF
                         sensor_enabled = not sensor_enabled
                         status_text = "ON" if sensor_enabled else "OFF"
-                        print(f" {status_text}  .")
+                        # print(f" {status_text}  .")
                         return
                     else:  # 취소
                         return
@@ -151874,13 +151905,13 @@ def show_item_management_menu(item_list, selected_index, item_type):
                                     items.hermes_shoes_obtained = False
                             # 아이템 이름을 한글로 표시
                             item_name_korean = get_item_name_korean(removed_item['name'])
-                            print(f"{item_name_korean}  .")
+                            # print(f"{item_name_korean}  .")
                             return
                         elif is_sensor_item and i == 1:  # 센서 ON/OFF
                             globals()["danger_sensor_enabled"] = not globals().get("danger_sensor_enabled", True)
                             globals()["sensor_enabled"] = globals()["danger_sensor_enabled"]  # 호환성 변수 동기화
                             status_text = "ON" if globals()["danger_sensor_enabled"] else "OFF"
-                            print(f" {status_text}  .")
+                            # print(f" {status_text}  .")
                             sync_equipped_passive_effects()
                             return
                         else:  # 취소
@@ -152529,7 +152560,7 @@ def show_stage_selection(show_character_hint=True):
                     # 선택된 스테이지 반환
                     play_button_click_sound()
                     chosen_stage = stages[selected_index]["num"]
-                    print(f"[StageSelect] 선택된 스테이지: {chosen_stage}")
+                    # print(f"[StageSelect] 선택된 스테이지: {chosen_stage}")
                     return chosen_stage
                 elif is_move_left_event(event):
                     selected_index = (selected_index - 1) % len(stages)
@@ -152561,7 +152592,7 @@ def show_stage_selection(show_character_hint=True):
                         selected_index = i
                         play_button_click_sound()
                         chosen_stage = stages[selected_index]["num"]
-                        print(f"[StageSelect] 선택된 스테이지(마우스): {chosen_stage}")
+                        # print(f"[StageSelect] 선택된 스테이지(마우스): {chosen_stage}")
                         return chosen_stage
 
 
@@ -153772,19 +153803,19 @@ if __name__ == "__main__":
         print(f"[시작 로그 기록 실패]: {e}")
 
     try:
-        print("[게임 시작] 인트로 컷씬 시작...")
+        # print("[게임 시작] 인트로 컷씬 시작...")
         # 인트로 컷씬 표시 (명언 + 스토리)
         opening.show_intro_cutscene(SCREEN, WIDTH, HEIGHT)
-        print("[게임 시작] 인트로 컷씬 완료")
+        # print("[게임 시작] 인트로 컷씬 완료")
 
-        print("[게임 시작] 오프닝 애니메이션 시작...")
+        # print("[게임 시작] 오프닝 애니메이션 시작...")
         # 오프닝 애니메이션 표시
         opening.show_opening_animation(SCREEN, WIDTH, HEIGHT)
-        print("[게임 시작] 오프닝 애니메이션 완료")
+        # print("[게임 시작] 오프닝 애니메이션 완료")
 
-        print("[게임 시작] 메인 게임 루프 시작...")
+        # print("[게임 시작] 메인 게임 루프 시작...")
         game_loop()
-        print("[게임 종료] 정상 종료")
+        # print("[게임 종료] 정상 종료")
     except Exception as e:
         # 오류 정보 수집
         error_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -153809,12 +153840,12 @@ if __name__ == "__main__":
         try:
             with open(log_file, "w", encoding="utf-8") as f:
                 f.write(error_msg)
-            print(f"\n로그 파일이 저장되었습니다: {log_file}")
-            print("\n이 파일을 열어서 내용을 복사해주세요.")
+            # print(f"\n로그 파일이 저장되었습니다: {log_file}")
+            # print("\n이 파일을 열어서 내용을 복사해주세요.")
         except Exception as log_error:
             print(f"\n로그 파일 저장 실패: {log_error}")
 
-        print("\n아무 키나 누르면 종료됩니다...")
+        # print("\n아무 키나 누르면 종료됩니다...")
         try:
             input()
         except:
