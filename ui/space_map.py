@@ -2744,6 +2744,183 @@ class SpaceMap:
                                  (0, row), (W, row))
             surf.blit(mist_s, (0, H * 2 // 3))
 
+    # ──────────────────────────────────────────────────────────
+    #  조선시대 스타일 경기장 외곽 테두리
+    # ──────────────────────────────────────────────────────────
+    def _draw_joseon_arena_border(self, screen, ix, iy, ig_w, ig_h, arena_scale):
+        """경기장(인게임 화면) 주변에 조선시대 양식의 외곽 장식을 그린다.
+        ix, iy: 경기장 좌상단 좌표, ig_w, ig_h: 경기장 크기,
+        arena_scale: 0.12→1.0 (스케일에 비례해 두께/디테일 조절)."""
+        if arena_scale < 0.08 or ig_w < 8 or ig_h < 8:
+            return
+
+        # ── 스케일 비례 두께 ──
+        border_w = max(3, int(18 * arena_scale))   # 나무 프레임 두께
+        dancheong = max(2, int(10 * arena_scale))   # 단청 띠 두께
+        tile_h = max(2, int(8 * arena_scale))       # 기와 높이
+        corner_r = max(3, int(14 * arena_scale))    # 모서리 장식 크기
+
+        # ── 경기장 외곽 좌표 ──
+        ox = ix - border_w
+        oy = iy - border_w - tile_h
+        ow = ig_w + border_w * 2
+        oh = ig_h + border_w * 2 + tile_h
+
+        brd = pygame.Surface((ow + 4, oh + 4), pygame.SRCALPHA)
+        # 로컬 좌표 오프셋
+        lx, ly = 2, 2
+
+        # ===== 1) 나무 프레임 (진한 갈색 → 밝은 갈색 그라데이션) =====
+        dark_wood = (62, 38, 22)
+        mid_wood = (95, 60, 32)
+        light_wood = (125, 82, 42)
+        highlight = (155, 110, 60)
+
+        # 상단 (기와 아래)
+        pygame.draw.rect(brd, dark_wood,
+                         (lx, ly + tile_h, ow, border_w))
+        pygame.draw.rect(brd, mid_wood,
+                         (lx + 1, ly + tile_h + 1, ow - 2, border_w - 2))
+        # 하단
+        pygame.draw.rect(brd, dark_wood,
+                         (lx, ly + oh - border_w, ow, border_w))
+        pygame.draw.rect(brd, mid_wood,
+                         (lx + 1, ly + oh - border_w + 1, ow - 2, border_w - 2))
+        # 좌측
+        pygame.draw.rect(brd, dark_wood,
+                         (lx, ly + tile_h, border_w, oh - tile_h))
+        pygame.draw.rect(brd, mid_wood,
+                         (lx + 1, ly + tile_h + 1, border_w - 2, oh - tile_h - 2))
+        # 우측
+        pygame.draw.rect(brd, dark_wood,
+                         (lx + ow - border_w, ly + tile_h, border_w, oh - tile_h))
+        pygame.draw.rect(brd, mid_wood,
+                         (lx + ow - border_w + 1, ly + tile_h + 1,
+                          border_w - 2, oh - tile_h - 2))
+
+        # 나무 결 (세로 줄무늬 — 좌/우)
+        if arena_scale > 0.25:
+            grain_step = max(3, int(5 * arena_scale))
+            for gx in range(lx + 2, lx + border_w - 1, grain_step):
+                pygame.draw.line(brd, (*light_wood, 50),
+                                 (gx, ly + tile_h), (gx, ly + oh), 1)
+            for gx in range(lx + ow - border_w + 2, lx + ow - 1, grain_step):
+                pygame.draw.line(brd, (*light_wood, 50),
+                                 (gx, ly + tile_h), (gx, ly + oh), 1)
+            # 가로 줄무늬 — 상/하
+            for gy in range(ly + tile_h + 2, ly + tile_h + border_w - 1, grain_step):
+                pygame.draw.line(brd, (*light_wood, 50),
+                                 (lx, gy), (lx + ow, gy), 1)
+            for gy in range(ly + oh - border_w + 2, ly + oh - 1, grain_step):
+                pygame.draw.line(brd, (*light_wood, 50),
+                                 (lx, gy), (lx + ow, gy), 1)
+
+        # ===== 2) 단청 띠 (빨강-초록-파랑-금색 반복 패턴) =====
+        dancheong_colors = [
+            (180, 42, 38),   # 적색 (주홍)
+            (38, 120, 62),   # 녹색 (녹청)
+            (42, 68, 148),   # 청색 (군청)
+            (195, 155, 45),  # 금색 (황금)
+        ]
+        if dancheong >= 2 and arena_scale > 0.15:
+            dc_y_top = ly + tile_h + 1
+            dc_y_bot = ly + oh - border_w + 1
+            stripe_h = max(1, dancheong // len(dancheong_colors))
+            for ci, dc in enumerate(dancheong_colors):
+                sy = ci * stripe_h
+                if sy + stripe_h > border_w:
+                    break
+                # 상단 단청
+                pygame.draw.rect(brd, (*dc, 180),
+                                 (lx + border_w, dc_y_top + sy,
+                                  ow - border_w * 2, stripe_h))
+                # 하단 단청
+                pygame.draw.rect(brd, (*dc, 180),
+                                 (lx + border_w, dc_y_bot + sy,
+                                  ow - border_w * 2, stripe_h))
+            # 좌/우 단청 (세로)
+            dc_x_l = lx + 1
+            dc_x_r = lx + ow - border_w + 1
+            for ci, dc in enumerate(dancheong_colors):
+                sx = ci * stripe_h
+                if sx + stripe_h > border_w:
+                    break
+                pygame.draw.rect(brd, (*dc, 180),
+                                 (dc_x_l + sx, ly + tile_h + border_w,
+                                  stripe_h, oh - tile_h - border_w * 2))
+                pygame.draw.rect(brd, (*dc, 180),
+                                 (dc_x_r + sx, ly + tile_h + border_w,
+                                  stripe_h, oh - tile_h - border_w * 2))
+
+        # ===== 3) 기와 지붕 (상단 장식) =====
+        if tile_h >= 2:
+            # 기와 배경 (짙은 회색)
+            tile_dark = (48, 42, 38)
+            tile_mid = (72, 65, 58)
+            tile_light = (95, 88, 78)
+            pygame.draw.rect(brd, tile_dark, (lx, ly, ow, tile_h))
+            # 기와 골 패턴
+            tile_w = max(3, int(8 * arena_scale))
+            for tx in range(lx, lx + ow, tile_w):
+                tw = min(tile_w, lx + ow - tx)
+                if tw < 2:
+                    break
+                # 볼록한 기와 한 장
+                pygame.draw.rect(brd, tile_mid, (tx + 1, ly, tw - 1, tile_h - 1))
+                # 기와 상단 하이라이트
+                pygame.draw.line(brd, tile_light, (tx + 1, ly), (tx + tw - 2, ly), 1)
+                # 기와 홈 (어두운 선)
+                pygame.draw.line(brd, tile_dark, (tx, ly), (tx, ly + tile_h), 1)
+            # 기와 처마 선 (하단 곡선 느낌)
+            pygame.draw.line(brd, tile_light,
+                             (lx, ly + tile_h - 1), (lx + ow, ly + tile_h - 1), 1)
+
+            # 처마 양 끝 살짝 올라간 곡선 (한옥 특유의 추녀)
+            if arena_scale > 0.3 and ow > 30:
+                eave_lift = max(2, int(5 * arena_scale))
+                # 왼쪽 추녀
+                for ei in range(min(eave_lift * 3, ow // 6)):
+                    ey = ly + tile_h - 1 - int(eave_lift * (1 - ei / (eave_lift * 3)) ** 2)
+                    pygame.draw.circle(brd, tile_mid, (lx + ei, ey), 1)
+                # 오른쪽 추녀
+                for ei in range(min(eave_lift * 3, ow // 6)):
+                    ey = ly + tile_h - 1 - int(eave_lift * (1 - ei / (eave_lift * 3)) ** 2)
+                    pygame.draw.circle(brd, tile_mid, (lx + ow - 1 - ei, ey), 1)
+
+        # ===== 4) 모서리 장식 (꽃무늬 + 금색 테) =====
+        if corner_r >= 4 and arena_scale > 0.2:
+            corners = [
+                (lx, ly + tile_h),                          # 좌상
+                (lx + ow - corner_r, ly + tile_h),          # 우상
+                (lx, ly + oh - corner_r),                   # 좌하
+                (lx + ow - corner_r, ly + oh - corner_r),   # 우하
+            ]
+            gold = (195, 155, 45)
+            gold_hi = (225, 195, 85)
+            for cx, cy in corners:
+                # 금색 사각 테
+                pygame.draw.rect(brd, gold,
+                                 (cx, cy, corner_r, corner_r))
+                pygame.draw.rect(brd, dark_wood,
+                                 (cx + 1, cy + 1, corner_r - 2, corner_r - 2))
+                # 중앙 꽃 문양 (간단한 십자+원)
+                ccx = cx + corner_r // 2
+                ccy = cy + corner_r // 2
+                pr = max(1, corner_r // 4)
+                pygame.draw.circle(brd, gold_hi, (ccx, ccy), pr)
+                if pr >= 2:
+                    pygame.draw.line(brd, (180, 42, 38),
+                                     (ccx - pr, ccy), (ccx + pr, ccy), 1)
+                    pygame.draw.line(brd, (180, 42, 38),
+                                     (ccx, ccy - pr), (ccx, ccy + pr), 1)
+
+        # ===== 5) 프레임 외곽선 (금색 가는 선) =====
+        pygame.draw.rect(brd, (175, 140, 55, 200),
+                         (lx, ly + tile_h, ow, oh - tile_h), 1)
+
+        # ── 최종 블릿 ──
+        screen.blit(brd, (ox - 2, oy - 2))
+
     def _draw_surface_jungle(self, surf, t, alpha=255):
         """정글/늪지 행성 표면 — 고퀄리티. Stage 2 악어장군 테마.
         t: 0(고공) ~ 1(지표면)."""
@@ -5353,6 +5530,10 @@ class SpaceMap:
                         ix = (self.W - ig_w) // 2
                         iy = (self.H - ig_h) // 2
                         self.screen.blit(scaled_ig, (ix, iy))
+                        # 조선시대 스타일 경기장 외곽 테두리 (스테이지 1)
+                        if to_planet == 1:
+                            self._draw_joseon_arena_border(
+                                self.screen, ix, iy, ig_w, ig_h, arena_scale)
                 else:
                     # 폴백: 커스텀 경기장 드로잉
                     arena_surf = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
