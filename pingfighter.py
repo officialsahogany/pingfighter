@@ -132642,7 +132642,7 @@ def handle_ball():
                 # print("1:       !")
         
         # Stage 1 보스 팽이치기 스킬 발동 체크 (20% 확률, 게이지 150 필요) — 풍악보이 전용
-        if current_stage == 1 and current_boss_name != "포도대장" and not spinning_top_active and not spinning_top_used_this_round and boss_special_gauge >= 150:
+        if current_stage == 1 and current_boss_name == "풍악보이" and not spinning_top_active and not spinning_top_used_this_round and boss_special_gauge >= 150:
             if random.random() < 0.20:  # 20% 확률
                 activate_spinning_top()
                 show_speech("팽이치기!", duration=90)
