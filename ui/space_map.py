@@ -5627,19 +5627,27 @@ class SpaceMap:
             # ── 경기장 (점점 커지며 등장) ──
             if arena_scale > 0.05:
                 if ingame_frame is not None:
-                    # 실제 인게임 화면을 경기장으로 사용
+                    # 인게임 화면 크기 (점점 커짐)
                     ig_w = int(self.W * arena_scale)
                     ig_h = int(self.H * arena_scale)
                     if ig_w > 4 and ig_h > 4:
+                        # ── 스타디움: 고정 크기 (화면의 55%) 먼저 그리기 ──
+                        if to_planet == 1:
+                            stad_scale = 0.55
+                            stad_w = int(self.W * stad_scale)
+                            stad_h = int(self.H * stad_scale)
+                            stad_ix = (self.W - stad_w) // 2
+                            stad_iy = (self.H - stad_h) // 2
+                            self._draw_joseon_arena_border(
+                                self.screen, stad_ix, stad_iy,
+                                stad_w, stad_h, stad_scale)
+
+                        # ── 인게임 화면: 위에 덮어서 점점 커짐 ──
                         scaled_ig = pygame.transform.smoothscale(
                             ingame_frame, (ig_w, ig_h))
                         ix = (self.W - ig_w) // 2
                         iy = (self.H - ig_h) // 2
                         self.screen.blit(scaled_ig, (ix, iy))
-                        # 조선시대 스타일 경기장 외곽 테두리 (스테이지 1)
-                        if to_planet == 1:
-                            self._draw_joseon_arena_border(
-                                self.screen, ix, iy, ig_w, ig_h, arena_scale)
                 else:
                     # 폴백: 커스텀 경기장 드로잉
                     arena_surf = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
