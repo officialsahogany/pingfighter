@@ -64076,6 +64076,15 @@ def handle_player(keys):
         except Exception as e:
             print(f"[WARN] Player AI 입력 생성 실패: {e}")
 
+    def _break_arrest_rope_on_dash():
+        """포승줄 포박 중 대쉬 → 즉시 끊어짐 (모든 대쉬 경로에서 호출)"""
+        global arrest_rope_phase, arrest_rope_active, arrest_rope_timer
+        if arrest_rope_phase == "bound":
+            arrest_rope_phase = "releasing"
+            arrest_rope_active = False
+            arrest_rope_timer = 28  # 끊어지는 연출
+            show_speech("끊어냈다!", duration=60)
+
     def _start_dash(direction: int, *, tutorial_reset: bool = True) -> int:
         """공통 대쉬 시작 준비. 사용 가능한 토큰 수를 반환한다."""
         global dash_gold_multiplier_active, dash_key_released_since_last
@@ -64088,6 +64097,8 @@ def handle_player(keys):
         if tutorial_reset and current_stage == 50 and 'tutorial_dash_already_counted' in globals():
             globals()["tutorial_dash_already_counted"] = False
         set_roll("rolling_active", True)
+        # 포승줄 포박 중 대쉬 → 즉시 끊어짐
+        _break_arrest_rope_on_dash()
         # 대시 골드 보너스 활성화 (다음 랠리 2배)
         dash_gold_multiplier_active = True
         set_roll("rolling_direction", direction)
@@ -64176,13 +64187,7 @@ def handle_player(keys):
         if _start_dash(direction, tutorial_reset=tutorial_reset) <= 0:
             return False
 
-        # 포승줄 포박 중 대쉬 → 즉시 끊어짐
-        global arrest_rope_phase, arrest_rope_active, arrest_rope_timer
-        if arrest_rope_phase == "bound":
-            arrest_rope_phase = "releasing"
-            arrest_rope_active = False
-            arrest_rope_timer = 28  # 끊어지는 연출
-            show_speech("끊어냈다!", duration=60)
+        # 포승줄 끊어짐은 _start_dash() 내부의 _break_arrest_rope_on_dash()에서 처리
 
         global is_half_dash_active, half_dash_effect_timer, _current_dash_is_half
         global poseidon_dash_pending, poseidon_dash_x, poseidon_dash_y
@@ -66992,6 +66997,7 @@ def handle_player(keys):
                             # 🔧 버그 수정: 하프 대시에서도 키 릴리즈 플래그 설정
                             globals()['dash_key_released_since_last'] = False
                             rolling_active = True
+                            _break_arrest_rope_on_dash()
                             # 🌑 오딘의 눈 대쉬 다이브
                             try:
                                 from legendary_items import get_legendary_manager as _glm_hd
@@ -67260,6 +67266,7 @@ def handle_player(keys):
                     # 🔧 버그 수정: 일반 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
                     rolling_active = True
+                    _break_arrest_rope_on_dash()
                     # 🌑 오딘의 눈 대쉬 다이브
                     try:
                         from legendary_items import get_legendary_manager as _glm_ld
@@ -67524,6 +67531,7 @@ def handle_player(keys):
                     # 🔧 버그 수정: 일반 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
                     rolling_active = True
+                    _break_arrest_rope_on_dash()
                     # 🌑 오딘의 눈 대쉬 다이브
                     try:
                         from legendary_items import get_legendary_manager as _glm_rd
@@ -129355,6 +129363,7 @@ def handle_ball():
                     # 🔧 버그 수정: 센서 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
                     rolling_active = True
+                    _break_arrest_rope_on_dash()
                     # 🌑 오딘의 눈 대쉬 다이브
                     try:
                         from legendary_items import get_legendary_manager as _glm_sd
