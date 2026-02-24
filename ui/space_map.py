@@ -2762,13 +2762,13 @@ class SpaceMap:
             screen.blit(cached_surf, (cached_ox, cached_oy))
             return
 
-        # ── 스타디움 치수 (경기장 대비 비율) ──
-        stand_w = max(8, int(ig_w * 0.38))   # 좌/우 관중석 폭
-        stand_top = max(8, int(ig_h * 0.32)) # 상단 관중석 높이
-        stand_bot = max(8, int(ig_h * 0.28)) # 하단 관중석 높이
-        rail_h = max(3, int(12 * arena_scale))  # 난간 높이
-        roof_h = max(5, int(ig_h * 0.10))    # 기와지붕 높이
-        pillar_w = max(4, int(18 * arena_scale))  # 기둥 폭
+        # ── 스타디움 치수 (경기장 대비 비율 — 컴팩트) ──
+        stand_w = max(6, int(ig_w * 0.18))   # 좌/우 관중석 폭
+        stand_top = max(6, int(ig_h * 0.15)) # 상단 관중석 높이
+        stand_bot = max(6, int(ig_h * 0.13)) # 하단 관중석 높이
+        rail_h = max(2, int(8 * arena_scale))   # 난간 높이
+        roof_h = max(4, int(ig_h * 0.06))    # 기와지붕 높이
+        pillar_w = max(3, int(12 * arena_scale))  # 기둥 폭
 
         # 전체 서피스 크기
         total_w = ig_w + stand_w * 2 + pillar_w * 2
