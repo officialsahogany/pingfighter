@@ -1603,71 +1603,157 @@ class SpaceMap:
                         pygame.draw.circle(bs, pnk, (bc, bc), gi)
                     surf.blit(bs, (bx_p - bc, by_p - bc))
 
-        # ===== 헬퍼: 기와지붕 그리기 =====
-        def _draw_tiled_roof(sx, sy, rw, rh, double=False):
-            """기와지붕 — sx,sy = 건물 상단 중앙, rw = 지붕 폭, rh = 지붕 높이"""
-            # 지붕 본체 (사다리꼴)
-            roof_pts = [(sx, sy - rh),
-                        (sx - rw // 2, sy),
-                        (sx + rw // 2, sy)]
-            pygame.draw.polygon(surf, (42, 42, 40), roof_pts)
-            # 밝은 면 (왼쪽 반)
-            pygame.draw.polygon(surf, (62, 60, 55),
-                                [roof_pts[0], roof_pts[1], (sx - 2, sy)])
-            # 기와 골 (가로선 3줄)
-            for ri in range(3):
-                ry_l = sy - rh + (ri + 1) * rh // 4
-                hw = rw // 2 - ri * 3
-                pygame.draw.line(surf, (55, 53, 48), (sx - hw, ry_l), (sx + hw, ry_l), 1)
-            # 처마 곡선 (우아한 날개)
-            pygame.draw.arc(surf, (58, 55, 48),
-                            (sx - rw // 2 - 4, sy - rh, rw + 8, rh * 2),
-                            0, math.pi, max(2, rw // 18))
-            # 금장 처마
-            pygame.draw.arc(surf, (185, 148, 62),
-                            (sx - rw // 2 - 5, sy - rh - 1, rw + 10, rh * 2 + 2),
-                            0, math.pi, 1)
-            # 용마루 (장식선 + 보주)
-            pygame.draw.line(surf, (72, 68, 62),
-                             (sx - rw // 4, sy - rh + 2),
-                             (sx + rw // 4, sy - rh + 2), 3)
-            pygame.draw.circle(surf, (215, 175, 85), (sx, sy - rh + 1), 3)
-            # 처마 끝 치미/취두 (좌우 꼬리 장식)
-            pygame.draw.line(surf, (70, 65, 55),
-                             (sx - rw // 2, sy), (sx - rw // 2 - 3, sy - 4), 2)
-            pygame.draw.line(surf, (70, 65, 55),
-                             (sx + rw // 2, sy), (sx + rw // 2 + 3, sy - 4), 2)
-            # 이중 지붕 (겹처마)
+        # ===== 헬퍼: 기와지붕 (궁궐급 디테일) =====
+        def _draw_tiled_roof(sx, sy, rw, rh, double=False, palace=False):
+            """기와지붕. palace=True면 합각/팔작 지붕 + 잡상."""
+            # --- 겹처마 (하층 지붕, double일 때) ---
             if double and rh > 12:
-                sub_w = rw - 8
-                sub_h = rh // 3
-                sub_pts = [(sx, sy - sub_h),
-                           (sx - sub_w // 2, sy),
-                           (sx + sub_w // 2, sy)]
-                pygame.draw.polygon(surf, (52, 50, 46), sub_pts)
-                pygame.draw.arc(surf, (62, 58, 52),
-                                (sx - sub_w // 2 - 2, sy - sub_h, sub_w + 4, sub_h * 2),
-                                0, math.pi, 1)
+                sub_w = rw - 4
+                sub_h = rh // 3 + 2
+                # 하층 지붕면
+                sub_l = [(sx - sub_w // 2, sy),
+                         (sx - sub_w // 2 + sub_w // 6, sy - sub_h // 2),
+                         (sx + sub_w // 2 - sub_w // 6, sy - sub_h // 2),
+                         (sx + sub_w // 2, sy)]
+                pygame.draw.polygon(surf, (52, 50, 46), sub_l)
+                # 하층 처마 곡선
+                pygame.draw.arc(surf, (60, 56, 50),
+                                (sx - sub_w // 2 - 3, sy - sub_h,
+                                 sub_w + 6, sub_h * 2), 0, math.pi, 2)
+                # 하층 금장
+                pygame.draw.arc(surf, (180, 145, 58),
+                                (sx - sub_w // 2 - 4, sy - sub_h - 1,
+                                 sub_w + 8, sub_h * 2 + 2), 0, math.pi, 1)
+            # --- 주 지붕 (팔작/맞배) ---
+            if palace and rw > 30:
+                # 팔작지붕: 사다리꼴 상부 + 삼각형 합각
+                top_w = rw * 2 // 3
+                roof_trap = [(sx - top_w // 2, sy - rh),
+                             (sx + top_w // 2, sy - rh),
+                             (sx + rw // 2, sy),
+                             (sx - rw // 2, sy)]
+                pygame.draw.polygon(surf, (40, 40, 38), roof_trap)
+                # 좌측 밝은 면
+                pygame.draw.polygon(surf, (58, 56, 52),
+                                    [roof_trap[0], roof_trap[3],
+                                     (sx - rw // 4, sy - rh // 3)])
+                # 합각 삼각형 (좌우 측면 — 벽 보이는 부분)
+                gable_h = rh // 3
+                # 좌
+                gable_l = [(sx - rw // 2, sy),
+                           (sx - top_w // 2, sy - rh),
+                           (sx - rw // 2, sy - rh + gable_h)]
+                pygame.draw.polygon(surf, (200, 182, 142), gable_l)
+                pygame.draw.polygon(surf, (160, 75, 40), gable_l, 1)
+                # 우
+                gable_r = [(sx + rw // 2, sy),
+                           (sx + top_w // 2, sy - rh),
+                           (sx + rw // 2, sy - rh + gable_h)]
+                pygame.draw.polygon(surf, (190, 172, 135), gable_r)
+                pygame.draw.polygon(surf, (160, 75, 40), gable_r, 1)
+                # 합각 내부 문양 (X자 장식)
+                gcx = (gable_l[0][0] + gable_l[1][0] + gable_l[2][0]) // 3
+                gcy = (gable_l[0][1] + gable_l[1][1] + gable_l[2][1]) // 3
+                pygame.draw.line(surf, (140, 62, 32), (gcx - 3, gcy - 2), (gcx + 3, gcy + 2), 1)
+                pygame.draw.line(surf, (140, 62, 32), (gcx + 3, gcy - 2), (gcx - 3, gcy + 2), 1)
+            else:
+                # 맞배지붕 (삼각형)
+                roof_pts = [(sx, sy - rh),
+                            (sx - rw // 2, sy),
+                            (sx + rw // 2, sy)]
+                pygame.draw.polygon(surf, (40, 40, 38), roof_pts)
+                pygame.draw.polygon(surf, (58, 56, 52),
+                                    [roof_pts[0], roof_pts[1], (sx - 2, sy)])
+            # --- 기와 골 (가로 줄) ---
+            rows = max(3, rh // 5)
+            for ri in range(rows):
+                ry_l = sy - rh + (ri + 1) * rh // (rows + 1)
+                frac = (ri + 1) / (rows + 1)
+                hw = int(rw // 2 * (1.0 - frac * 0.3))
+                pygame.draw.line(surf, (52, 50, 45), (sx - hw, ry_l), (sx + hw, ry_l), 1)
+                # 기와 세로 점선 (암키와 표현)
+                if rw > 40:
+                    for ti in range(sx - hw + 4, sx + hw - 2, max(4, rw // 12)):
+                        pygame.draw.line(surf, (48, 46, 42),
+                                         (ti, ry_l - 1), (ti, ry_l + 1), 1)
+            # --- 처마 곡선 (날렵한 추녀) ---
+            pygame.draw.arc(surf, (55, 52, 46),
+                            (sx - rw // 2 - 5, sy - rh, rw + 10, rh * 2),
+                            0, math.pi, max(2, rw // 16))
+            # 금장 처마
+            pygame.draw.arc(surf, (188, 152, 65),
+                            (sx - rw // 2 - 6, sy - rh - 1, rw + 12, rh * 2 + 2),
+                            0, math.pi, 1)
+            # --- 용마루 (두꺼운 마룻대 + 양성/양성바름) ---
+            ridge_hw = rw // 4
+            pygame.draw.line(surf, (68, 65, 58),
+                             (sx - ridge_hw, sy - rh + 2),
+                             (sx + ridge_hw, sy - rh + 2), 4)
+            # 양성바름 (석회 흰선)
+            pygame.draw.line(surf, (180, 175, 165),
+                             (sx - ridge_hw + 1, sy - rh + 1),
+                             (sx + ridge_hw - 1, sy - rh + 1), 1)
+            # 보주/절병통
+            pygame.draw.circle(surf, (218, 180, 88), (sx, sy - rh), 3)
+            pygame.draw.circle(surf, (245, 215, 120), (sx, sy - rh), 2)
+            # --- 치미/취두 (좌우 꼬리 장식) ---
+            pygame.draw.line(surf, (65, 60, 52),
+                             (sx - rw // 2, sy), (sx - rw // 2 - 4, sy - 6), 2)
+            pygame.draw.line(surf, (65, 60, 52),
+                             (sx + rw // 2, sy), (sx + rw // 2 + 4, sy - 6), 2)
+            # 치미 끝 금장
+            pygame.draw.circle(surf, (195, 160, 65),
+                               (sx - rw // 2 - 4, sy - 6), 1)
+            pygame.draw.circle(surf, (195, 160, 65),
+                               (sx + rw // 2 + 4, sy - 6), 1)
+            # --- 잡상 (palace일 때 — 추녀 위 작은 동물 장식) ---
+            if palace and rw > 40:
+                for side in [-1, 1]:
+                    jx_s = sx + side * (rw // 2 - 6)
+                    jy_s = sy - 3
+                    for ji in range(min(3, rw // 20)):
+                        jxx = jx_s - side * ji * 4
+                        pygame.draw.rect(surf, (75, 70, 62), (jxx - 1, jy_s - 2, 3, 2))
 
-        # ===== 헬퍼: 단청 무늬 =====
-        def _draw_dancheong(sx, sy, w, rows=5):
-            """처마 아래 단청 장식 줄"""
-            dc_colors = [(150, 38, 28), (210, 168, 72), (38, 52, 105),
-                         (48, 118, 58), (185, 78, 38)]
+        # ===== 헬퍼: 단청 무늬 (화려한 머리초/뇌록) =====
+        def _draw_dancheong(sx, sy, w, rows=7):
+            """처마 아래 단청 장식. rows가 클수록 화려."""
+            dc_colors = [
+                (158, 35, 25), (205, 165, 68), (35, 50, 108),
+                (45, 115, 55), (188, 75, 35), (130, 42, 82), (210, 132, 48),
+            ]
             for di in range(min(rows, len(dc_colors))):
-                if sy + 1 + di < sy + 40:
+                if sy + 1 + di < sy + 50:
                     pygame.draw.line(surf, dc_colors[di],
                                      (sx - w // 2, sy + 1 + di),
                                      (sx + w // 2, sy + 1 + di), 1)
+            # 머리초 패턴 (좌우 끝에 짧은 장식 줄)
+            if w > 20 and rows >= 5:
+                for side in [-1, 1]:
+                    ex = sx + side * (w // 2 - 2)
+                    pygame.draw.rect(surf, (158, 35, 25),
+                                     (ex - 2, sy + 1, 4, min(rows, 5)))
+                    pygame.draw.rect(surf, (210, 168, 70),
+                                     (ex - 1, sy + 2, 2, min(rows - 2, 3)))
 
-        # ===== 헬퍼: 빨간 기둥 =====
-        def _draw_red_pillars(sx, sy_top, sy_bot, bw, spacing=None):
+        # ===== 헬퍼: 빨간 기둥 (초석+두공 포함) =====
+        def _draw_red_pillars(sx, sy_top, sy_bot, bw, spacing=None, with_gongpo=False):
             sp = spacing or max(7, bw // 4)
             for col_off in range(-bw // 2 + 4, bw // 2, sp):
                 px = sx + col_off
-                pygame.draw.line(surf, (105, 32, 22), (px + 1, sy_top), (px + 1, sy_bot), 4)
-                pygame.draw.line(surf, (142, 52, 38), (px, sy_top), (px, sy_bot), 2)
-                pygame.draw.line(surf, (178, 82, 58), (px - 1, sy_top + 1), (px - 1, sy_bot - 1), 1)
+                # 초석 (기둥 받침돌)
+                pygame.draw.rect(surf, (100, 95, 85),
+                                 (px - 3, sy_bot, 6, 3))
+                # 기둥 본체 (3단 질감)
+                pygame.draw.line(surf, (100, 28, 18), (px + 1, sy_top), (px + 1, sy_bot), 5)
+                pygame.draw.line(surf, (138, 48, 32), (px, sy_top), (px, sy_bot), 3)
+                pygame.draw.line(surf, (175, 78, 52), (px - 1, sy_top + 1), (px - 1, sy_bot - 1), 1)
+                # 기둥 머리 장식 (주두)
+                pygame.draw.rect(surf, (125, 42, 28), (px - 3, sy_top - 1, 6, 2))
+                # 공포 (두공 — 기둥 상부 받침 구조)
+                if with_gongpo:
+                    pygame.draw.rect(surf, (110, 38, 25), (px - 4, sy_top - 3, 8, 2))
+                    pygame.draw.rect(surf, (135, 52, 35), (px - 3, sy_top - 2, 6, 1))
 
         # ===== 궁궐/전각 (대형 건축물, 중앙 회피) =====
         for _ in range(8):
@@ -1675,66 +1761,106 @@ class SpaceMap:
             by = random.randint(H // 4, H * 3 // 4)
             if _in_center(bx, by):
                 continue
-            bw = random.randint(50, 110)
-            bh = random.randint(22, 52)
-            is_big = bw > 75
-            # 그림자
-            sh_s = pygame.Surface((bw + 28, 14), pygame.SRCALPHA)
-            pygame.draw.ellipse(sh_s, (0, 0, 0, 22), (0, 0, bw + 28, 14))
-            surf.blit(sh_s, (bx - bw // 2 - 14, by + bh + max(4, bh // 4)))
-            # 기단 (석축 3단 + 계단)
-            base_h = max(5, bh // 3)
-            for bi, bc in enumerate([(52, 48, 42), (65, 60, 53), (80, 76, 68)]):
+            bw = random.randint(50, 115)
+            bh = random.randint(24, 55)
+            is_big = bw > 70
+            # 그림자 (넓고 부드럽게)
+            sh_s = pygame.Surface((bw + 32, 16), pygame.SRCALPHA)
+            pygame.draw.ellipse(sh_s, (0, 0, 0, 20), (0, 0, bw + 32, 16))
+            surf.blit(sh_s, (bx - bw // 2 - 16, by + bh + max(5, bh // 3)))
+            # === 기단 (3단 석축 + 줄눈 + 계단 + 답도) ===
+            base_h = max(6, bh // 3)
+            for bi, bc in enumerate([(48, 45, 40), (62, 58, 50), (78, 74, 65)]):
                 offs = (2 - bi) * 2
                 pygame.draw.rect(surf, bc,
-                                 (bx - bw // 2 - 5 + offs, by + bh + bi, bw + 10 - offs * 2, base_h - bi))
-            # 계단 (정면)
-            stair_w = max(8, bw // 5)
-            for si in range(3):
-                pygame.draw.rect(surf, (90, 85, 78),
-                                 (bx - stair_w // 2, by + bh + base_h - si * 2, stair_w, 2))
-            # 줄눈
-            for gi in range(0, bw + 8, max(5, bw // 9)):
-                pygame.draw.line(surf, (40, 36, 30),
-                                 (bx - bw // 2 - 4 + gi, by + bh),
-                                 (bx - bw // 2 - 4 + gi, by + bh + base_h), 1)
-            # 벽체 (황토)
-            pygame.draw.rect(surf, (215, 195, 155), (bx - bw // 2, by, bw, bh))
-            pygame.draw.rect(surf, (198, 178, 138), (bx - bw // 2, by, bw, bh), 1)
-            # 문/창 — 격자 (정교한 꽃살문)
-            if bw > 40:
+                                 (bx - bw // 2 - 6 + offs, by + bh + bi,
+                                  bw + 12 - offs * 2, base_h - bi))
+            # 석축 줄눈 (가로+세로)
+            for gi in range(0, bw + 10, max(4, bw // 10)):
+                pygame.draw.line(surf, (38, 35, 28),
+                                 (bx - bw // 2 - 5 + gi, by + bh),
+                                 (bx - bw // 2 - 5 + gi, by + bh + base_h), 1)
+            for gi in range(base_h):
+                if gi % 3 == 0:
+                    pygame.draw.line(surf, (38, 35, 28),
+                                     (bx - bw // 2 - 5, by + bh + gi),
+                                     (bx + bw // 2 + 5, by + bh + gi), 1)
+            # 계단 (정면 — 3단)
+            stair_w = max(10, bw // 4)
+            for si in range(4):
+                sw = stair_w - si * 2
+                pygame.draw.rect(surf, (88, 84, 76),
+                                 (bx - sw // 2, by + bh + base_h - si * 2, sw, 2))
+            # 답도 (계단 가운데 장식 돌판)
+            if stair_w > 10:
+                pygame.draw.rect(surf, (110, 105, 95),
+                                 (bx - 2, by + bh + 1, 4, base_h + 2))
+                pygame.draw.circle(surf, (130, 120, 100), (bx, by + bh + base_h // 2 + 1), 1)
+            # === 벽체 (황토 회벽) ===
+            pygame.draw.rect(surf, (218, 200, 158), (bx - bw // 2, by, bw, bh))
+            # 벽체 테두리
+            pygame.draw.rect(surf, (195, 178, 138), (bx - bw // 2, by, bw, bh), 1)
+            # === 문/창 — 꽃살문 + 교창 ===
+            if bw > 38:
                 win_l = bx - bw // 2 + 5
                 win_r = bx + bw // 2 - 5
-                win_t = by + 6
+                win_t = by + max(8, bh // 4)
                 win_b = by + bh - 3
-                # 문틀
-                pygame.draw.rect(surf, (130, 70, 35), (win_l - 1, win_t - 1,
+                # 문틀 (빨간 나무)
+                pygame.draw.rect(surf, (125, 65, 32), (win_l - 1, win_t - 1,
                                  win_r - win_l + 2, win_b - win_t + 2), 1)
-                for wi in range(win_l, win_r, max(4, bw // 8)):
-                    for wj in range(win_t, win_b, max(4, bh // 4)):
-                        sw = min(3, (win_r - wi))
-                        sh = min(max(2, bh // 5), (win_b - wj))
-                        if sw > 0 and sh > 0:
-                            pygame.draw.rect(surf, (168, 148, 108), (wi, wj, sw, sh), 1)
-                # 큰 건물: 중앙 대문
+                # 격자 (꽃살문 — 대각선 포함)
+                cell_w = max(4, bw // 8)
+                cell_h = max(4, bh // 5)
+                for wi in range(win_l, win_r, cell_w):
+                    for wj in range(win_t, win_b, cell_h):
+                        cw = min(cell_w - 1, win_r - wi)
+                        ch = min(cell_h - 1, win_b - wj)
+                        if cw > 2 and ch > 2:
+                            # 종이면 (미색)
+                            pygame.draw.rect(surf, (232, 225, 208), (wi, wj, cw, ch))
+                            # 살대 (세로+가로)
+                            pygame.draw.rect(surf, (165, 142, 105), (wi, wj, cw, ch), 1)
+                            # 꽃살 대각선 (큰 칸만)
+                            if cw > 4 and ch > 4:
+                                pygame.draw.line(surf, (158, 135, 98),
+                                                 (wi, wj), (wi + cw, wj + ch), 1)
+                # 큰 건물: 중앙 대문 (쌍여닫이)
                 if is_big:
-                    dw = max(6, bw // 6)
-                    dh = bh - 6
-                    pygame.draw.rect(surf, (100, 55, 28),
-                                     (bx - dw // 2, by + 4, dw, dh))
-                    pygame.draw.rect(surf, (120, 68, 35),
-                                     (bx - dw // 2, by + 4, dw, dh), 1)
-                    # 문고리
-                    pygame.draw.circle(surf, (200, 170, 80), (bx - 1, by + 4 + dh // 2), 1)
-                    pygame.draw.circle(surf, (200, 170, 80), (bx + 1, by + 4 + dh // 2), 1)
-            # 단청
-            _draw_dancheong(bx, by, bw - 2)
-            # 기둥
-            _draw_red_pillars(bx, by + 6, by + bh, bw)
-            # 기와지붕
-            rw = bw + 22
-            rh = max(14, bh + 6)
-            _draw_tiled_roof(bx, by, rw, rh, double=is_big)
+                    dw = max(8, bw // 5)
+                    dh = bh - max(8, bh // 4)
+                    dl = bx - dw // 2
+                    dt = by + max(8, bh // 4)
+                    # 문짝 (어두운 나무)
+                    pygame.draw.rect(surf, (88, 48, 22), (dl, dt, dw, dh))
+                    # 문짝 나눔선 (가운데)
+                    pygame.draw.line(surf, (60, 32, 15),
+                                     (bx, dt), (bx, dt + dh), 1)
+                    # 문짝 판자 질감
+                    for pi in range(dl + 2, dl + dw - 1, max(2, dw // 4)):
+                        pygame.draw.line(surf, (75, 40, 18),
+                                         (pi, dt + 1), (pi, dt + dh - 1), 1)
+                    # 문틀
+                    pygame.draw.rect(surf, (115, 62, 30), (dl, dt, dw, dh), 1)
+                    # 문고리 (금색 둥근 고리)
+                    for mx_off in [-dw // 4, dw // 4]:
+                        pygame.draw.circle(surf, (205, 175, 82),
+                                           (bx + mx_off, dt + dh // 2), 2)
+                        pygame.draw.circle(surf, (230, 200, 105),
+                                           (bx + mx_off, dt + dh // 2), 1)
+                    # 문 상부 빗살 (교창)
+                    for li in range(dl + 1, dl + dw, max(2, dw // 6)):
+                        pygame.draw.line(surf, (100, 55, 25),
+                                         (li, dt), (li, dt + 3), 1)
+            # === 단청 (화려한 머리초) ===
+            _draw_dancheong(bx, by, bw - 2, rows=7 if is_big else 5)
+            # === 기둥 (공포 포함) ===
+            _draw_red_pillars(bx, by + max(8, bh // 4), by + bh, bw,
+                              with_gongpo=is_big)
+            # === 기와지붕 (팔작지붕 — 궁궐급) ===
+            rw = bw + 24
+            rh = max(16, bh + 8)
+            _draw_tiled_roof(bx, by, rw, rh, double=is_big, palace=is_big)
 
         # ===== 한옥/민가 (작은 건물, 중앙 회피) =====
         for _ in range(8):
