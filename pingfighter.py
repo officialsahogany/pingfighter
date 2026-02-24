@@ -128228,103 +128228,97 @@ def handle_ball():
     #         f"HEIGHT*0.75: {HEIGHT * 0.75:.1f}"
     #     )
     # 공이 화면의 절반 이하(플레이어와 중간지점의 가운데)로 내려왔을 때만 탐지
-    # if (
-        # sensor_equipped
-        # and danger_sensor_enabled
-        # and danger_sensor_auto_dash_enabled  # 자동 대쉬 옵션이 켜져 있을 때만 작동
-        # and not umbrella_blocks_sensor
-        # and ball_vel[1] > 0
-        # and BALL.centery > HEIGHT * 0.75
-    # ):  # 공이 아래로 내려오고 화면 3/4 지점 이하
-    current_time = pygame.time.get_ticks()
-    # 쿨타임 체크 (패시브 롤 옵션 기반 13~20초)
-    if not hasattr(handle_ball, 'danger_sensor_last_activation_time'):
-        handle_ball.danger_sensor_last_activation_time = 0
-    cooldown_ms = danger_sensor_cooldown_ms
-    # 쿨타임 중이면 위험감지센서만 비활성화하고 공 이동은 계속
-    sensor_can_activate = current_time - handle_ball.danger_sensor_last_activation_time >= cooldown_ms
-    # 공의 예상 위치 계산
-    time_to_reach_player = (PLAYER.centery - BALL.centery) / ball_vel[1] if ball_vel[1] > 0 else 0
-    if time_to_reach_player > 0 and time_to_reach_player < 60:  # 1초 이내에 도달할 예정
-        predicted_x = BALL.centerx + ball_vel[0] * time_to_reach_player
-        # 플레이어가 현재 속도로 이동했을 때 도달할 수 있는지 계산
-        player_speed = 8  # 플레이어 기본 이동 속도
-        player_max_distance = player_speed * time_to_reach_player  # 플레이어 최대 이동 거리
-        distance_to_predicted = abs(predicted_x - PLAYER.centerx)
-        # 디버그 로그 비활성화 (홍련 뱀 디버그 로그 가림 문제)
-        # print(f"  - time_to_reach: {time_to_reach_player:.1f}, predicted_x: {predicted_x:.1f}, distance: {distance_to_predicted:.1f}, max_distance: {player_max_distance:.1f}")
-        # 도달할 수 없는 상황이면 자동 대쉬 (쿨타임 체크 포함)
-        if distance_to_predicted > player_max_distance + PADDLE_WIDTH // 2 and sensor_can_activate:
-            # 대쉬 방향 결정
-            dash_direction = 1 if predicted_x > PLAYER.centerx else -1
-            # 디버그 로그 비활성화
-            # print(f"   - charges: {rolling_charges}, active: {rolling_active}, waiting: {is_waiting_for_serve}")
-            # 대쉬 실행 - 위험감지센서는 게이지와 토큰 소모 없이 사용
-            # 대쉬 감속 구간 캔슬: rolling_active 중이어도 감속 후반부면 연속 대쉬 허용
-            _can_cancel_sensor = not rolling_active or (rolling_active and rolling_timer <= DASH_CANCEL_THRESHOLD)
-            # 스턴/감전 상태에서는 자동 대쉬 불가
-            _player_stun_blocked_sensor = player_stunned_timer > 0 or player_stunned or player_missile_stunned_timer > 0
-            if _can_cancel_sensor and not is_waiting_for_serve and not _player_stun_blocked_sensor:
-                global is_danger_sensor_dash
-                # 🔧 버그 수정: 센서 대시에서도 키 릴리즈 플래그 설정
-                globals()['dash_key_released_since_last'] = False
-                rolling_active = True
-                # 🌑 오딘의 눈 대쉬 다이브
-                try:
-                    from legendary_items import get_legendary_manager as _glm_sd
-                    _sd_mgr = _glm_sd()
-                    if _sd_mgr:
-                        _sd_oe = _sd_mgr.get_item("odins_eye")
-                        if _sd_oe and _sd_oe.active and _sd_oe.is_transformed():
-                            _sd_oe.start_dash_dive(PLAYER.centerx, PLAYER.centery)
-                except Exception:
-                    pass
-                is_danger_sensor_dash = True  # 위험감지센서 대쉬 플래그 설정
-                # 포세이돈의 삼지창 물결 효과 발동 (위험감지센서 자동 대쉬)
-                try:
-                    legendary_manager = get_legendary_manager()
-                    if legendary_manager:
-                        trident = legendary_manager.get_item("poseidon_trident")
-                        if trident and trident.active:
-                            # trigger_dash_wave가 True를 반환하면 효과 발동 성공, False면 쿨타임 중
-                            if trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, dash_direction):
-                                play_poseidon_wave_sound()  # 효과 발동 시에만 사운드 재생
-                except:
-                    pass  # 전설 아이템 접근 실패 시 무시
-                    
-                #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과
-                acceleration_bonus = get_runtime_skill_bonus("dash_acceleration")
-                if acceleration_bonus > 0:
-                    acceleration_skill_level = int(acceleration_bonus * 10 / 7)  # 레벨 계산 (0.3 -> 1레벨)
-                    acceleration_height_bonus = int(PADDLE_HEIGHT * acceleration_bonus)  # 추가 높이만 계산
-                    # PLAYER.height는 수정하지 않음 (이미지 크기 유지)
-                    acceleration_active = True
-                    # 레이저 빔 효과는 draw_objects()에서 처리
-                    acceleration_flash_particles.clear()  # 파티클 대신 레이저 빔 사용
-                    
-                # 대시기어 효과: 대시 거리 증가 (롤 옵션 적용)
-                base_rolling_timer = apply_dashgear_distance(15.0)  # 기본 대쉬 시간
-                # 아카데미 스킬 효과 적용: 대쉬 거리 증가 (도약)
-                jump_bonus = get_runtime_skill_bonus("dash_jump")  # 도약: 대쉬거리 증가
-                total_distance_bonus = jump_bonus
-                base_rolling_timer *= (1 + total_distance_bonus)
-                # 스킬 효과 적용: 대쉬 거리 증가
-                skill_distance_boost = skill.apply_dash_distance_boost(base_rolling_timer)
-                # 👁 오딘의 눈: 변신 상태 대쉬 거리 50% 증가
-                skill_distance_boost *= _get_odin_dash_distance_mult()
-                rolling_timer = int(skill_distance_boost)
-                # 연속대쉬 타이밍 계산을 위해 초기 타이머 및 시작 시간 저장
-                globals()["_dash_initial_timer"] = rolling_timer
-                globals()["_dash_start_time"] = pygame.time.get_ticks()
-                rolling_direction = dash_direction
-                # rolling_charges -= 1  #  위험감지센서 자동 대쉬는 토큰을 소모하지 않음
-                #  위험감지센서 자동 대쉬는 게이지와 토큰을 소모하지 않음
-                # 쿨타임 설정 (기록만)
-                handle_ball.danger_sensor_last_activation_time = current_time
-                # 대쉬 효과음 재생
-                play_dash_sound()
-            else:
-                pass  # print(f"   - charges: {rolling_charges}, active: {rolling_active}, waiting: {is_waiting_for_serve}")
+    if (
+        sensor_equipped
+        and danger_sensor_enabled
+        and danger_sensor_auto_dash_enabled
+        and not umbrella_blocks_sensor
+        and ball_vel[1] > 0
+        and BALL.centery > HEIGHT * 0.75
+    ):  # 공이 아래로 내려오고 화면 3/4 지점 이하
+        current_time = pygame.time.get_ticks()
+        # 쿨타임 체크 (패시브 롤 옵션 기반 13~20초)
+        if not hasattr(handle_ball, 'danger_sensor_last_activation_time'):
+            handle_ball.danger_sensor_last_activation_time = 0
+        cooldown_ms = danger_sensor_cooldown_ms
+        # 쿨타임 중이면 위험감지센서만 비활성화하고 공 이동은 계속
+        sensor_can_activate = current_time - handle_ball.danger_sensor_last_activation_time >= cooldown_ms
+        # 공의 예상 위치 계산
+        time_to_reach_player = (PLAYER.centery - BALL.centery) / ball_vel[1] if ball_vel[1] > 0 else 0
+        if time_to_reach_player > 0 and time_to_reach_player < 60:  # 1초 이내에 도달할 예정
+            predicted_x = BALL.centerx + ball_vel[0] * time_to_reach_player
+            # 플레이어가 현재 속도로 이동했을 때 도달할 수 있는지 계산
+            player_speed = 8  # 플레이어 기본 이동 속도
+            player_max_distance = player_speed * time_to_reach_player  # 플레이어 최대 이동 거리
+            distance_to_predicted = abs(predicted_x - PLAYER.centerx)
+            # 도달할 수 없는 상황이면 자동 대쉬 (쿨타임 체크 포함)
+            if distance_to_predicted > player_max_distance + PADDLE_WIDTH // 2 and sensor_can_activate:
+                # 대쉬 방향 결정
+                dash_direction = 1 if predicted_x > PLAYER.centerx else -1
+                # 대쉬 실행 - 위험감지센서는 게이지와 토큰 소모 없이 사용
+                # 대쉬 감속 구간 캔슬: rolling_active 중이어도 감속 후반부면 연속 대쉬 허용
+                _can_cancel_sensor = not rolling_active or (rolling_active and rolling_timer <= DASH_CANCEL_THRESHOLD)
+                # 스턴/감전 상태에서는 자동 대쉬 불가
+                _player_stun_blocked_sensor = player_stunned_timer > 0 or player_stunned or player_missile_stunned_timer > 0
+                if _can_cancel_sensor and not is_waiting_for_serve and not _player_stun_blocked_sensor:
+                    global is_danger_sensor_dash
+                    # 🔧 버그 수정: 센서 대시에서도 키 릴리즈 플래그 설정
+                    globals()['dash_key_released_since_last'] = False
+                    rolling_active = True
+                    # 🌑 오딘의 눈 대쉬 다이브
+                    try:
+                        from legendary_items import get_legendary_manager as _glm_sd
+                        _sd_mgr = _glm_sd()
+                        if _sd_mgr:
+                            _sd_oe = _sd_mgr.get_item("odins_eye")
+                            if _sd_oe and _sd_oe.active and _sd_oe.is_transformed():
+                                _sd_oe.start_dash_dive(PLAYER.centerx, PLAYER.centery)
+                    except Exception:
+                        pass
+                    is_danger_sensor_dash = True  # 위험감지센서 대쉬 플래그 설정
+                    # 포세이돈의 삼지창 물결 효과 발동 (위험감지센서 자동 대쉬)
+                    try:
+                        legendary_manager = get_legendary_manager()
+                        if legendary_manager:
+                            trident = legendary_manager.get_item("poseidon_trident")
+                            if trident and trident.active:
+                                # trigger_dash_wave가 True를 반환하면 효과 발동 성공, False면 쿨타임 중
+                                if trident.trigger_dash_wave(PLAYER.centerx, PLAYER.centery, dash_direction):
+                                    play_poseidon_wave_sound()  # 효과 발동 시에만 사운드 재생
+                    except:
+                        pass  # 전설 아이템 접근 실패 시 무시
+
+                    #  가속화 스킬: 대쉬 시작 시 패들 사이즈 증가 및 섬광 효과
+                    acceleration_bonus = get_runtime_skill_bonus("dash_acceleration")
+                    if acceleration_bonus > 0:
+                        acceleration_skill_level = int(acceleration_bonus * 10 / 7)  # 레벨 계산 (0.3 -> 1레벨)
+                        acceleration_height_bonus = int(PADDLE_HEIGHT * acceleration_bonus)  # 추가 높이만 계산
+                        # PLAYER.height는 수정하지 않음 (이미지 크기 유지)
+                        acceleration_active = True
+                        # 레이저 빔 효과는 draw_objects()에서 처리
+                        acceleration_flash_particles.clear()  # 파티클 대신 레이저 빔 사용
+
+                    # 대시기어 효과: 대시 거리 증가 (롤 옵션 적용)
+                    base_rolling_timer = apply_dashgear_distance(15.0)  # 기본 대쉬 시간
+                    # 아카데미 스킬 효과 적용: 대쉬 거리 증가 (도약)
+                    jump_bonus = get_runtime_skill_bonus("dash_jump")  # 도약: 대쉬거리 증가
+                    total_distance_bonus = jump_bonus
+                    base_rolling_timer *= (1 + total_distance_bonus)
+                    # 스킬 효과 적용: 대쉬 거리 증가
+                    skill_distance_boost = skill.apply_dash_distance_boost(base_rolling_timer)
+                    # 👁 오딘의 눈: 변신 상태 대쉬 거리 50% 증가
+                    skill_distance_boost *= _get_odin_dash_distance_mult()
+                    rolling_timer = int(skill_distance_boost)
+                    # 연속대쉬 타이밍 계산을 위해 초기 타이머 및 시작 시간 저장
+                    globals()["_dash_initial_timer"] = rolling_timer
+                    globals()["_dash_start_time"] = pygame.time.get_ticks()
+                    rolling_direction = dash_direction
+                    # rolling_charges -= 1  #  위험감지센서 자동 대쉬는 토큰을 소모하지 않음
+                    #  위험감지센서 자동 대쉬는 게이지와 토큰을 소모하지 않음
+                    # 쿨타임 설정 (기록만)
+                    handle_ball.danger_sensor_last_activation_time = current_time
+                    # 대쉬 효과음 재생
+                    play_dash_sound()
     
     # 스마트폰 패시브 아이템 업데이트
     import items
