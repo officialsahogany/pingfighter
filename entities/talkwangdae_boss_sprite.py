@@ -586,7 +586,7 @@ class TalkwangdaeBossSprite:
     def _draw_mask_head(self, surface, cx, b, lean_offset, torso_y, p):
         """하회탈 머리 (탈 벗겨짐 애니메이션 포함)"""
         head_cx = cx + lean_offset
-        head_y = torso_y - int(2.0 * b)
+        head_y = torso_y - int(1.35 * b)
 
         # 히트 시 탈 기울어짐/떠오름
         mask_y_off = self.mask_offset_y * b
