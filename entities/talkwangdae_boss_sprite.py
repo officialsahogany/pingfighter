@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-탈광대 (하회탈 광대) 프로시저럴 보스 스프라이트
+각시탈 (하회탈 광대) 프로시저럴 보스 스프라이트
 투기장 영웅 스타일 고퀄리티 프로시저럴 렌더링
 - 하회탈 + 색동저고리 + 부채
 - 이동 애니메이션 (좌/우/아이들)
@@ -17,7 +17,7 @@ _cos = math.cos
 
 class TalkwangdaeBossSprite:
     """
-    탈광대 프로시저럴 보스 스프라이트
+    각시탈 프로시저럴 보스 스프라이트
     하회탈 쓴 광대 — 색동저고리, 부채, 과장된 광대 동작
     포도대장과 동일한 구조 (투기장 영웅 스타일)
     """
@@ -169,11 +169,11 @@ class TalkwangdaeBossSprite:
             surface.blit(frame, rect)
 
     # ===================================================================
-    #  프로시저럴 렌더링 — 탈광대 캐릭터
+    #  프로시저럴 렌더링 — 각시탈 캐릭터
     # ===================================================================
 
     def _draw_character(self, surface, cx, cy, b, w, h):
-        """탈광대 전체 캐릭터 렌더링"""
+        """각시탈 전체 캐릭터 렌더링"""
         lean = self.lean
         body_bob = self.body_bob
         step = self.step_phase
@@ -206,7 +206,7 @@ class TalkwangdaeBossSprite:
         self._draw_mask_head(surface, cx, b, lean_offset, torso_y, p)
 
     def _get_palette(self, flash=0.0):
-        """탈광대 색상 팔레트"""
+        """각시탈 색상 팔레트"""
         def _f(base):
             return tuple(min(255, int(c + (255 - c) * flash)) for c in base)
 
@@ -459,7 +459,7 @@ class TalkwangdaeBossSprite:
                          border_radius=1)
 
     def _draw_arms(self, surface, cx, cy, b, lean_offset, torso_y, step, p):
-        """양팔 (색동 소매 + 오른손 부채)"""
+        """양팔 (색동 소매 + 오른손 부채) — 히트 시 부채 후려치기"""
         speed_factor = min(self.velocity / 80.0, 1.5) if self.direction != 0 else 0
         flutter_amp = speed_factor * 0.25 * b + 0.04 * b
         flutter_freq = 5.0 if self.direction != 0 else 1.8
@@ -472,16 +472,40 @@ class TalkwangdaeBossSprite:
             # 광대스러운 과장된 팔 움직임
             arm_swing = _sin(step + phase_offset) * speed_factor * 0.4
 
-            # 히트 시 팔 벌어짐
-            hit_spread = 0.0
+            # === 히트 시 오른팔(side==1) 부채 후려치기 모션 ===
+            hit_arm_angle = 0.0
+            hit_arm_extend = 0.0
             if self.is_hit and side == 1:
-                hit_spread = self.hit_intensity * 0.4 * b
+                progress = self.hit_timer / self.hit_duration
+                if progress < 0.25:
+                    # 0~25%: 팔을 빠르게 아래+앞으로 뻗음 (후려치기)
+                    t = progress / 0.25
+                    ease = t * t  # ease-in
+                    hit_arm_angle = -0.9 * ease
+                    hit_arm_extend = 1.8 * ease * b
+                elif progress < 0.50:
+                    # 25~50%: 최대 뻗은 상태 + 잔떨림 (임팩트)
+                    t = (progress - 0.25) / 0.25
+                    hit_arm_angle = -0.9 + 0.12 * _sin(t * math.pi * 5)
+                    hit_arm_extend = 1.8 * b * (1.0 - t * 0.15)
+                else:
+                    # 50~100%: 서서히 복귀
+                    t = (progress - 0.50) / 0.50
+                    ease = t * t * (3 - 2 * t)  # smoothstep
+                    hit_arm_angle = -0.9 * (1.0 - ease)
+                    hit_arm_extend = 1.8 * b * 0.85 * (1.0 - ease)
 
-            elbow_x = shoulder_x + side * int(0.35 * b + hit_spread)
+            elbow_x = shoulder_x + side * int(0.35 * b)
             elbow_y = shoulder_y + int(0.9 * b) + int(arm_swing * 0.2 * b)
 
-            hand_x = elbow_x + side * int(0.28 * b + hit_spread * 0.5)
+            hand_x = elbow_x + side * int(0.28 * b)
             hand_y = elbow_y + int(0.7 * b) + int(arm_swing * 0.3 * b)
+
+            # 히트 모션 적용 (오른팔만 — 부채든 손)
+            if self.is_hit and side == 1:
+                hand_y += int(hit_arm_extend * _cos(hit_arm_angle))
+                hand_x += int(hit_arm_extend * 0.35 * self.hit_direction)
+                elbow_y += int(hit_arm_extend * 0.4)
 
             # 색동 소매 (상완) — 너풀거림
             sleeve_wave_l = _sin(self.time * flutter_freq + side * 1.5) * flutter_amp
@@ -517,16 +541,18 @@ class TalkwangdaeBossSprite:
             pygame.draw.circle(surface, p["skin_shadow"],
                                (int(hand_x), int(hand_y)), hand_r, 1)
 
-            # 오른손에 부채
+            # 오른손에 부채 (히트 시 후려치기 각도 전달)
             if side == 1:
-                self._draw_fan(surface, hand_x, hand_y, b, p)
+                self._draw_fan(surface, hand_x, hand_y, b, p, hit_arm_angle)
 
-    def _draw_fan(self, surface, hx, hy, b, p):
-        """부채 (오른손)"""
+    def _draw_fan(self, surface, hx, hy, b, p, hit_arm_angle=0.0):
+        """부채 (오른손) — 히트 시 후려치기 방향으로 회전"""
         # 부채 흔들림
         fan_angle_offset = _sin(self.time * 3.0) * 8.0
         if self.is_hit:
-            fan_angle_offset += self.hit_intensity * 25.0 * self.hit_direction
+            # 후려치기 시 부채가 아래/앞으로 꺾이는 각도
+            fan_angle_offset += math.degrees(hit_arm_angle) * 1.2
+            fan_angle_offset += self.hit_intensity * 15.0 * self.hit_direction
 
         angle_base = math.radians(-50 + fan_angle_offset)
         fan_r = b * 2.2
@@ -545,6 +571,28 @@ class TalkwangdaeBossSprite:
             fan_points.append((int(fx), int(fy)))
 
         if len(fan_points) >= 3:
+            # 후려치기 중 잔상 트레일 (임팩트 구간)
+            if self.is_hit and self.hit_intensity > 0.3:
+                progress = self.hit_timer / self.hit_duration
+                if progress < 0.50:
+                    trail_alpha = int(60 * self.hit_intensity)
+                    # 부채가 지나간 자리에 반투명 잔상 2개
+                    for ti in range(1, 3):
+                        trail_offset_angle = math.radians(ti * 12 * self.hit_direction)
+                        trail_pts = []
+                        for px, py in fan_points:
+                            dx = px - int(hx)
+                            dy = py - int(hy)
+                            cos_t = _cos(trail_offset_angle)
+                            sin_t = _sin(trail_offset_angle)
+                            rx = dx * cos_t - dy * sin_t
+                            ry = dx * sin_t + dy * cos_t
+                            trail_pts.append((int(hx + rx), int(hy + ry)))
+                        if len(trail_pts) >= 3:
+                            trail_surf = self._get_surface(surface.get_width(), surface.get_height())
+                            pygame.draw.polygon(trail_surf, (255, 240, 200, trail_alpha // ti), trail_pts)
+                            surface.blit(trail_surf, (0, 0))
+
             # 그림자
             shadow_pts = [(x + 1, y + 1) for x, y in fan_points]
             pygame.draw.polygon(surface, (80, 60, 40), shadow_pts)
@@ -552,6 +600,14 @@ class TalkwangdaeBossSprite:
             pygame.draw.polygon(surface, p["fan_paper"], fan_points)
             # 테두리
             pygame.draw.polygon(surface, p["fan_edge"], fan_points, max(1, int(b * 0.15)))
+
+            # 임팩트 순간 부채 가장자리 발광
+            if self.is_hit and self.hit_intensity > 0.5:
+                progress = self.hit_timer / self.hit_duration
+                if 0.15 < progress < 0.45:
+                    glow_alpha = int(120 * self.hit_intensity)
+                    pygame.draw.polygon(surface, (255, 255, 200, glow_alpha),
+                                        fan_points, max(2, int(b * 0.2)))
 
         # 부채살
         for i in range(num_ribs):
@@ -745,20 +801,20 @@ _talkwangdae_instance = None
 
 
 def init_talkwangdae_boss_sprite():
-    """탈광대 보스 스프라이트 초기화"""
+    """각시탈 보스 스프라이트 초기화"""
     global _talkwangdae_instance
     try:
         _talkwangdae_instance = TalkwangdaeBossSprite()
-        print("[Sprite] 탈광대 프로시저럴 스프라이트 초기화 완료")
+        print("[Sprite] 각시탈 프로시저럴 스프라이트 초기화 완료")
         return _talkwangdae_instance
     except Exception as e:
-        print(f"[Sprite] 탈광대 스프라이트 초기화 실패: {e}")
+        print(f"[Sprite] 각시탈 스프라이트 초기화 실패: {e}")
         _talkwangdae_instance = None
         return None
 
 
 def get_talkwangdae_boss_sprite():
-    """탈광대 보스 스프라이트 싱글톤 반환"""
+    """각시탈 보스 스프라이트 싱글톤 반환"""
     global _talkwangdae_instance
     if _talkwangdae_instance is None:
         init_talkwangdae_boss_sprite()
@@ -766,7 +822,7 @@ def get_talkwangdae_boss_sprite():
 
 
 def reset_talkwangdae_boss_sprite():
-    """탈광대 보스 스프라이트 리셋"""
+    """각시탈 보스 스프라이트 리셋"""
     global _talkwangdae_instance
     if _talkwangdae_instance:
         _talkwangdae_instance.direction = 0

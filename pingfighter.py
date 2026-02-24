@@ -17710,7 +17710,7 @@ def _swap_boss_in_current_stage():
     if stage == 1:
         if new_boss == "포도대장":
             BOSS_COLOR = (100, 70, 40)
-        elif new_boss == "탈광대":
+        elif new_boss == "각시탈":
             BOSS_COLOR = (200, 50, 50)
         else:
             BOSS_COLOR = WHITE
@@ -42695,7 +42695,7 @@ BOSS_IMG_STAGE1_HEIGHT = 160
 # 포도대장 전용 사이즈 (20% 확대)
 BOSS_IMG_PODO_WIDTH = 96
 BOSS_IMG_PODO_HEIGHT = 192
-# 탈광대 전용 사이즈
+# 각시탈 전용 사이즈
 BOSS_IMG_TALKWANGDAE_WIDTH = 92
 BOSS_IMG_TALKWANGDAE_HEIGHT = 184
 # 스테이지 4, 5 전용 사이즈
@@ -46691,11 +46691,11 @@ patrol_guards_timer = 0
 patrol_guards_duration = 300       # 5초 (60fps × 5)
 patrol_guards = []                 # 포졸 리스트
 patrol_guards_used_this_round = False  # 라운드당 1회
-# 탈광대 탈바꿈 스킬
+# 각시탈 탈바꿈 스킬
 mask_swap_active = False
 mask_swap_timer = 0
 mask_swap_visual_timer = 0
-# 탈광대 부채바람 스킬
+# 각시탈 부채바람 스킬
 fan_wind_active = False
 fan_wind_timer = 0
 fan_wind_zone_x = 0.0
@@ -52110,7 +52110,7 @@ except Exception as e:
     print(f"[WARN] Pododaejang boss sprite load failed: {e}")
     pododaejang_boss_sprite = None
     PODODAEJANG_BOSS_ANIMATION_AVAILABLE = False
-# Stage 1 보스 (탈광대) 프로시저럴 스프라이트 초기화
+# Stage 1 보스 (각시탈) 프로시저럴 스프라이트 초기화
 try:
     from entities.talkwangdae_boss_sprite import (
         get_talkwangdae_boss_sprite,
@@ -53257,7 +53257,7 @@ def go_to_next_round():
     patrol_guards_timer = 0
     patrol_guards = []
     patrol_guards_used_this_round = False
-    # 탈광대 스킬 리셋
+    # 각시탈 스킬 리셋
     global mask_swap_active, mask_swap_timer, mask_swap_visual_timer
     global fan_wind_active, fan_wind_timer, fan_wind_used_this_round
     mask_swap_active = False
@@ -74132,7 +74132,7 @@ def activate_spinning_top():
     else:
         pass  # print(f"🎯 팽이치기! 2개 팽이 생성!")
 
-# === 탈광대 탈바꿈 스킬 ===
+# === 각시탈 탈바꿈 스킬 ===
 def activate_mask_swap():
     """탈바꿈 발동 — 공 궤도 편향 + 탈 교체 이펙트"""
     global mask_swap_active, mask_swap_timer, mask_swap_visual_timer, ball_vel
@@ -74183,7 +74183,7 @@ def draw_mask_swap_effect(screen):
         screen.blit(s, (int(mx - size), int(my - size)))
 
 
-# === 탈광대 부채바람 스킬 ===
+# === 각시탈 부채바람 스킬 ===
 def activate_fan_wind():
     """부채바람 발동 — 필드 중앙에 바람 존 생성"""
     global fan_wind_active, fan_wind_timer, fan_wind_zone_x, fan_wind_zone_y
@@ -95109,7 +95109,7 @@ def draw_objects():
             if boss_img is None:
                 boss_img = BOSS_IMG_STAGE1
                 boss_img_prescaled = False
-        elif current_boss_name == "탈광대" and TALKWANGDAE_BOSS_ANIMATION_AVAILABLE and talkwangdae_boss_sprite is not None:
+        elif current_boss_name == "각시탈" and TALKWANGDAE_BOSS_ANIMATION_AVAILABLE and talkwangdae_boss_sprite is not None:
             boss_img_prescaled = True
             talkwangdae_boss_sprite.update(boss_x_pos, 1/60)
             boss_w, boss_h = BOSS_IMG_TALKWANGDAE_WIDTH, BOSS_IMG_TALKWANGDAE_HEIGHT
@@ -109647,7 +109647,7 @@ def show_drive_monitor_demo(background):
                     if boss_img is None:
                         boss_img = BOSS_IMG_STAGE1
                         boss_img = pygame.transform.scale(boss_img, (BOSS_IMG_PODO_WIDTH, BOSS_IMG_PODO_HEIGHT))
-                elif current_boss_name == "탈광대" and TALKWANGDAE_BOSS_ANIMATION_AVAILABLE and talkwangdae_boss_sprite is not None:
+                elif current_boss_name == "각시탈" and TALKWANGDAE_BOSS_ANIMATION_AVAILABLE and talkwangdae_boss_sprite is not None:
                     talkwangdae_boss_sprite.update(boss_x, 1/60)
                     boss_img = talkwangdae_boss_sprite.get_current_frame((BOSS_IMG_TALKWANGDAE_WIDTH, BOSS_IMG_TALKWANGDAE_HEIGHT))
                     if boss_img is None:
@@ -120524,8 +120524,8 @@ def show_stage1_intro():
         boss_name = "포도대장"
         stage_color = (200, 180, 140)
         boss_color_video = (100, 70, 40)
-    elif current_boss_name == "탈광대":
-        boss_name = "탈광대"
+    elif current_boss_name == "각시탈":
+        boss_name = "각시탈"
         stage_color = (255, 200, 200)
         boss_color_video = (200, 50, 50)
     else:
@@ -132805,8 +132805,8 @@ def handle_ball():
                 boss_special_gauge -= 150
                 if boss_special_gauge < 0:
                     boss_special_gauge = 0
-        # 탈광대 부채바람 (20% 확률, 게이지 150) — 탈광대 전용
-        if current_stage == 1 and current_boss_name == "탈광대" and not fan_wind_active and not fan_wind_used_this_round and boss_special_gauge >= 150:
+        # 각시탈 부채바람 (20% 확률, 게이지 150) — 각시탈 전용
+        if current_stage == 1 and current_boss_name == "각시탈" and not fan_wind_active and not fan_wind_used_this_round and boss_special_gauge >= 150:
             if random.random() < 0.20:
                 activate_fan_wind()
                 _wind_shouts = ["부채바람!", "바람이 분다~!", "날아가라~!"]
@@ -132910,7 +132910,7 @@ def handle_ball():
             try:
                 if current_boss_name == "포도대장" and pododaejang_boss_sprite:
                     pododaejang_boss_sprite.trigger_hit(BALL.centerx, BOSS.centerx)
-                elif current_boss_name == "탈광대" and talkwangdae_boss_sprite:
+                elif current_boss_name == "각시탈" and talkwangdae_boss_sprite:
                     talkwangdae_boss_sprite.trigger_hit(BALL.centerx, BOSS.centerx)
                 elif stage1_boss_sprite:
                     stage1_boss_sprite.trigger_hit(BALL.centerx, BOSS.centerx)
@@ -133549,7 +133549,7 @@ def handle_ball():
                     boss_special_gauge -= 200
                     if boss_special_gauge < 0:
                         boss_special_gauge = 0
-            elif current_boss_name == "탈광대":
+            elif current_boss_name == "각시탈":
                 # 탈바꿈 발동 (15% 확률)
                 if random.random() <= 0.15 and not mask_swap_active:
                     activate_mask_swap()
@@ -139067,7 +139067,7 @@ def show_result(won):
         patrol_guards_timer = 0
         patrol_guards = []
         patrol_guards_used_this_round = False
-        # 탈광대 스킬 초기화 (게임 오버 시)
+        # 각시탈 스킬 초기화 (게임 오버 시)
         mask_swap_active = False
         mask_swap_timer = 0
         mask_swap_visual_timer = 0
@@ -140169,7 +140169,7 @@ def main(stage_num, new_boss_mode=False):
     patrol_guards_timer = 0
     patrol_guards = []
     patrol_guards_used_this_round = False
-    # 탈광대 스킬 초기화 (스테이지 초기화 시)
+    # 각시탈 스킬 초기화 (스테이지 초기화 시)
     global mask_swap_active, mask_swap_timer, mask_swap_visual_timer
     global fan_wind_active, fan_wind_timer, fan_wind_used_this_round
     mask_swap_active = False
@@ -140243,8 +140243,8 @@ def main(stage_num, new_boss_mode=False):
         CURRENT_BG = STAGE1_BG
         if current_boss_name == "포도대장":
             BOSS_COLOR = (100, 70, 40)  # 갈색 (포도대장)
-        elif current_boss_name == "탈광대":
-            BOSS_COLOR = (200, 50, 50)  # 붉은색 (탈광대)
+        elif current_boss_name == "각시탈":
+            BOSS_COLOR = (200, 50, 50)  # 붉은색 (각시탈)
         else:
             BOSS_COLOR = WHITE
         # Stage 1 BGM 재생
@@ -141184,7 +141184,7 @@ def main(stage_num, new_boss_mode=False):
             patrol_guards_timer = 0
             patrol_guards = []
             patrol_guards_used_this_round = False
-            # 탈광대 스킬 초기화 (ESC 메뉴 복귀 시)
+            # 각시탈 스킬 초기화 (ESC 메뉴 복귀 시)
             mask_swap_active = False
             mask_swap_timer = 0
             mask_swap_visual_timer = 0
@@ -143566,7 +143566,7 @@ def main(stage_num, new_boss_mode=False):
                     patrol_guards_timer = 0
                     patrol_guards = []
                     patrol_guards_used_this_round = False
-                    # 탈광대 스킬 초기화 (강제 종료 시)
+                    # 각시탈 스킬 초기화 (강제 종료 시)
                     mask_swap_active = False
                     mask_swap_timer = 0
                     mask_swap_visual_timer = 0
@@ -144774,8 +144774,8 @@ def main(stage_num, new_boss_mode=False):
                 handle_whip()  # 상모돌리기 처리도 파워스매싱 정지 시간 중에는 건너뛰기
                 update_arrest_rope()  # 포도대장 포승줄 타이머 업데이트
                 update_patrol_guards()  # 포도대장 포졸소환 업데이트
-                update_mask_swap()  # 탈광대 탈바꿈 업데이트
-                update_fan_wind()  # 탈광대 부채바람 업데이트
+                update_mask_swap()  # 각시탈 탈바꿈 업데이트
+                update_fan_wind()  # 각시탈 부채바람 업데이트
                 # handle_balloon()  # Stage 1 보스 풍선파티 스킬 제거됨
                 handle_spinning_top()  # Stage 1 보스 팽이치기 스킬
                 handle_quake()
@@ -145028,7 +145028,7 @@ def main(stage_num, new_boss_mode=False):
                 # check_balloon_collisions()  # Stage 1 보스 풍선파티 스킬 제거됨
                 check_spinning_top_collision()  # Stage 1 보스 팽이치기 충돌 체크
                 check_patrol_guard_collision()  # 포도대장 포졸소환 충돌 체크
-                check_fan_wind_effect()  # 탈광대 부채바람 공 편향 체크
+                check_fan_wind_effect()  # 각시탈 부채바람 공 편향 체크
 
                 #  Stage 1 이벤트 풍선 충돌 감지
                 if BALLOON_EVENT_AVAILABLE and stage1_events and current_stage == 1:
@@ -147348,8 +147348,8 @@ def main(stage_num, new_boss_mode=False):
         # draw_whip_waves(SCREEN)  #  상모돌리기 파동 효과 그리기 - 제거됨
         draw_arrest_rope_effect(SCREEN)  # 포도대장 포승줄 이펙트
         draw_patrol_guards(SCREEN)  # 포도대장 포졸소환 그리기
-        draw_mask_swap_effect(SCREEN)  # 탈광대 탈바꿈 이펙트
-        draw_fan_wind_effect(SCREEN)  # 탈광대 부채바람 이펙트
+        draw_mask_swap_effect(SCREEN)  # 각시탈 탈바꿈 이펙트
+        draw_fan_wind_effect(SCREEN)  # 각시탈 부채바람 이펙트
         draw_spinning_top(SCREEN)  # Stage 1 보스 팽이치기 그리기
         # 풍선 터지는 효과는 effects_manager에서 통합 관리
         draw_item_obtained_effect()  #  아이템 획득 효과 그리기 - 옛날 버전 활성화
