@@ -17579,6 +17579,145 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
     return selected_result
 
 
+def _swap_boss_in_current_stage():
+    """F6 보스 교체 — 현재 스테이지에서 선택 가능한 보스 목록을 보여주고 교체"""
+    global current_boss_name, BOSS_COLOR
+    global mask_swap_active, mask_swap_timer, mask_swap_visual_timer
+    global fan_wind_active, fan_wind_timer, fan_wind_used_this_round
+    global patrol_guards_active, patrol_guards_timer, patrol_guards, patrol_guards_used_this_round
+    global spinning_top_active, spinning_top_timer, spinning_tops, spinning_top_used_this_round
+
+    from config.planet_configs import get_available_bosses
+    from config.stage_configs import get_boss_config_by_name
+
+    stage = current_stage
+    available = get_available_bosses(stage)
+    if len(available) <= 1:
+        show_speech("교체 가능한 보스가 없습니다", duration=90)
+        return
+
+    boss_names = [b["name"] for b in available]
+    selected_idx = boss_names.index(current_boss_name) if current_boss_name in boss_names else 0
+
+    # 선택 UI 루프
+    clock = pygame.time.Clock()
+    _font = get_font(20, style="bold")
+    _font_sm = get_font(16, style="regular")
+    running = True
+
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+                return
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+                    return
+                elif event.key in (pygame.K_LEFT, pygame.K_UP):
+                    selected_idx = (selected_idx - 1) % len(boss_names)
+                elif event.key in (pygame.K_RIGHT, pygame.K_DOWN):
+                    selected_idx = (selected_idx + 1) % len(boss_names)
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    running = False
+                elif event.key == pygame.K_F6:
+                    # F6 다시 누르면 다음 보스로 순환 후 즉시 적용
+                    selected_idx = (selected_idx + 1) % len(boss_names)
+                    running = False
+
+        # 렌더링
+        overlay = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 160))
+        REAL_SCREEN.blit(overlay, (0, 0))
+
+        # 타이틀
+        title_surf = _font.render(f"보스 교체 (Stage {stage})", True, (255, 255, 255))
+        title_rect = title_surf.get_rect(centerx=INTERNAL_WIDTH // 2, y=INTERNAL_HEIGHT // 2 - 80)
+        REAL_SCREEN.blit(title_surf, title_rect)
+
+        # 보스 목록
+        for i, name in enumerate(boss_names):
+            is_selected = (i == selected_idx)
+            is_current = (name == current_boss_name)
+
+            # 배경 박스
+            box_w, box_h = 180, 36
+            box_x = INTERNAL_WIDTH // 2 - box_w // 2
+            box_y = INTERNAL_HEIGHT // 2 - 30 + i * 44
+
+            if is_selected:
+                pygame.draw.rect(REAL_SCREEN, (255, 220, 80), (box_x, box_y, box_w, box_h), border_radius=6)
+                text_color = (20, 20, 20)
+            else:
+                pygame.draw.rect(REAL_SCREEN, (40, 40, 60), (box_x, box_y, box_w, box_h), border_radius=6)
+                pygame.draw.rect(REAL_SCREEN, (80, 80, 100), (box_x, box_y, box_w, box_h), 1, border_radius=6)
+                text_color = (200, 200, 200)
+
+            # 보스 이름
+            label = name
+            if is_current:
+                label += " (현재)"
+            name_surf = _font_sm.render(label, True, text_color)
+            name_rect = name_surf.get_rect(center=(box_x + box_w // 2, box_y + box_h // 2))
+            REAL_SCREEN.blit(name_surf, name_rect)
+
+        # 안내 텍스트
+        help_surf = _font_sm.render("←→ 선택  Enter 확정  ESC 취소", True, (150, 150, 150))
+        help_rect = help_surf.get_rect(centerx=INTERNAL_WIDTH // 2, y=INTERNAL_HEIGHT // 2 + len(boss_names) * 44)
+        REAL_SCREEN.blit(help_surf, help_rect)
+
+        pygame.display.flip()
+        clock.tick(30)
+
+    # 선택된 보스 적용
+    new_boss = boss_names[selected_idx]
+    if new_boss == current_boss_name:
+        return  # 같은 보스면 아무것도 안함
+
+    # 기존 스킬 상태 초기화
+    mask_swap_active = False
+    mask_swap_timer = 0
+    mask_swap_visual_timer = 0
+    fan_wind_active = False
+    fan_wind_timer = 0
+    fan_wind_used_this_round = False
+    patrol_guards_active = False
+    patrol_guards_timer = 0
+    patrol_guards = []
+    patrol_guards_used_this_round = False
+    spinning_top_active = False
+    spinning_top_timer = 0
+    spinning_tops = []
+    spinning_top_used_this_round = False
+
+    # 보스 이름 변경
+    current_boss_name = new_boss
+
+    # 보스 config 적용
+    variant_cfg = get_boss_config_by_name(stage, new_boss)
+    boss_speed_config[stage] = {
+        "accel": variant_cfg["accel"],
+        "decel": variant_cfg["decel"],
+        "max_speed": variant_cfg["max_speed"],
+        "instant_stop": variant_cfg["instant_stop"],
+        "predict_chance": 0.45 + (stage - 1) * 0.05,
+        "predict_error": 95 - (stage - 1) * 5,
+        "fail_chance": 0.010 - (stage - 1) * 0.001,
+        "fail_error": variant_cfg["fail_error"],
+    }
+
+    # BOSS_COLOR 갱신
+    if stage == 1:
+        if new_boss == "포도대장":
+            BOSS_COLOR = (100, 70, 40)
+        elif new_boss == "탈광대":
+            BOSS_COLOR = (200, 50, 50)
+        else:
+            BOSS_COLOR = WHITE
+
+    show_speech(f"{new_boss} 등장!", duration=120)
+
+
 def show_all_runtime_skills_menu() -> str | None:
     """
     모든 런타임 스킬을 보여주고 선택할 수 있는 메뉴 (디버그용)
@@ -141368,6 +141507,11 @@ def main(stage_num, new_boss_mode=False):
                 BOSS_MAX_SPEED = int(BOSS_MAX_SPEED / enraged_boss_speed_scale)
                 enraged_boss_aura_particles = []
         main.keyF5_pressed = keys[pygame.K_F5]
+
+        # F6키: 보스 교체 (현재 스테이지의 다른 보스로 즉시 교체)
+        if keys[pygame.K_F6] and not getattr(main, 'keyF6_pressed', False):
+            _swap_boss_in_current_stage()
+        main.keyF6_pressed = keys[pygame.K_F6]
 
         # 투기장 배속 변경 (F1~F4=직접배속, .키=빨라짐, ,키=느려짐, /키=기본배속 + 마우스 클릭)
         if arena_mode_enabled:
