@@ -17583,7 +17583,7 @@ def _swap_boss_in_current_stage():
     """F6 보스 교체 — 현재 스테이지에서 선택 가능한 보스 목록을 보여주고 교체"""
     global current_boss_name, BOSS_COLOR
     global mask_swap_active, mask_swap_timer, mask_swap_visual_timer
-    global fan_wind_active, fan_wind_timer, fan_wind_used_this_round
+    global fan_wind_active, fan_wind_timer, fan_wind_used_this_round, fan_wind_captured, fan_wind_capture_timer
     global patrol_guards_active, patrol_guards_timer, patrol_guards, patrol_guards_used_this_round
     global spinning_top_active, spinning_top_timer, spinning_tops, spinning_top_used_this_round
 
@@ -17681,6 +17681,8 @@ def _swap_boss_in_current_stage():
     fan_wind_active = False
     fan_wind_timer = 0
     fan_wind_used_this_round = False
+    fan_wind_captured = False
+    fan_wind_capture_timer = 0
     patrol_guards_active = False
     patrol_guards_timer = 0
     patrol_guards = []
@@ -46695,13 +46697,19 @@ patrol_guards_used_this_round = False  # 라운드당 1회
 mask_swap_active = False
 mask_swap_timer = 0
 mask_swap_visual_timer = 0
-# 각시탈 부채바람 스킬
+# 각시탈 부채바람 스킬 (소용돌이)
 fan_wind_active = False
 fan_wind_timer = 0
 fan_wind_zone_x = 0.0
-fan_wind_zone_y = 375.0
-fan_wind_direction = 1
+fan_wind_zone_y = 120.0          # 보스 진영 하단에서 시작
+fan_wind_drift_vx = 0.0          # X축 랜덤 드리프트 속도
+fan_wind_drift_timer = 0         # 드리프트 방향 전환 타이머
 fan_wind_used_this_round = False
+# 소용돌이에 공이 빨려들었을 때
+fan_wind_captured = False         # 공이 소용돌이에 빨려들었는가
+fan_wind_capture_timer = 0        # 빨려든 후 경과 프레임 (60 = 1초)
+fan_wind_capture_angle = 0.0      # 공이 소용돌이 주위를 도는 각도
+fan_wind_capture_radius = 0.0     # 공이 소용돌이 중심에서 떨어진 거리
 # 사이코볼
 emotional_overdrive_active = False
 emotional_overdrive_timer = 0
@@ -53259,13 +53267,15 @@ def go_to_next_round():
     patrol_guards_used_this_round = False
     # 각시탈 스킬 리셋
     global mask_swap_active, mask_swap_timer, mask_swap_visual_timer
-    global fan_wind_active, fan_wind_timer, fan_wind_used_this_round
+    global fan_wind_active, fan_wind_timer, fan_wind_used_this_round, fan_wind_captured, fan_wind_capture_timer
     mask_swap_active = False
     mask_swap_timer = 0
     mask_swap_visual_timer = 0
     fan_wind_active = False
     fan_wind_timer = 0
     fan_wind_used_this_round = False
+    fan_wind_captured = False
+    fan_wind_capture_timer = 0
     if BOSS and hasattr(BOSS, 'whip_sound') and BOSS.whip_sound:
         BOSS.whip_sound.stop()  #  보스 상모돌리기 사운드 중지
     # 정글지진 사운드 정지 (라운드 전환 시 사운드 버그 수정)
@@ -74183,88 +74193,196 @@ def draw_mask_swap_effect(screen):
         screen.blit(s, (int(mx - size), int(my - size)))
 
 
-# === 각시탈 부채바람 스킬 ===
+# === 각시탈 부채바람 스킬 (소용돌이) ===
 def activate_fan_wind():
-    """부채바람 발동 — 필드 중앙에 바람 존 생성"""
+    """부채바람 발동 — 소용돌이 생성, 보스 진영 하단에서 시작"""
     global fan_wind_active, fan_wind_timer, fan_wind_zone_x, fan_wind_zone_y
-    global fan_wind_direction, fan_wind_used_this_round
+    global fan_wind_drift_vx, fan_wind_drift_timer, fan_wind_used_this_round
+    global fan_wind_captured, fan_wind_capture_timer, fan_wind_capture_angle, fan_wind_capture_radius
     fan_wind_active = True
-    fan_wind_timer = 240  # 4초
+    fan_wind_timer = 240  # 4초 (60fps)
     fan_wind_used_this_round = True
-    # 바람 존 위치: 게임 영역 중앙
-    fan_wind_zone_x = float(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2)
-    fan_wind_zone_y = 375.0  # 필드 중앙 Y
-    # 바람 방향: 플레이어 반대쪽으로 (포지셔닝 방해)
-    player_cx = PLAYER.centerx if PLAYER else (GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2)
-    fan_wind_direction = -1 if player_cx > fan_wind_zone_x else 1
+    # 보스 진영 하단 근처에서 소용돌이 생성
+    fan_wind_zone_x = float(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2 + random.randint(-80, 80))
+    fan_wind_zone_y = 130.0  # 보스 진영 하단 부근
+    fan_wind_drift_vx = random.uniform(-1.2, 1.2)
+    fan_wind_drift_timer = random.randint(30, 60)
+    # 공 포획 상태 초기화
+    fan_wind_captured = False
+    fan_wind_capture_timer = 0
+    fan_wind_capture_angle = 0.0
+    fan_wind_capture_radius = 0.0
 
 
 def update_fan_wind():
-    """부채바람 타이머 업데이트"""
-    global fan_wind_active, fan_wind_timer
+    """소용돌이 이동 + 공 포획 업데이트"""
+    global fan_wind_active, fan_wind_timer, fan_wind_zone_x, fan_wind_zone_y
+    global fan_wind_drift_vx, fan_wind_drift_timer
+    global fan_wind_captured, fan_wind_capture_timer, fan_wind_capture_angle, fan_wind_capture_radius
+    global ball_vel
     if not fan_wind_active:
         return
+
     fan_wind_timer -= 1
-    if fan_wind_timer <= 0:
+
+    # --- 공이 소용돌이에 포획된 상태 ---
+    if fan_wind_captured:
+        fan_wind_capture_timer += 1
+        capture_duration = 60  # 1초
+
+        if fan_wind_capture_timer >= capture_duration:
+            # 1초 후: 랜덤 방향으로 발사
+            release_angle = random.uniform(0, math.pi * 2)
+            release_speed = random.uniform(6.0, 9.0)
+            ball_vel[0] = math.cos(release_angle) * release_speed
+            ball_vel[1] = math.sin(release_angle) * release_speed
+            # 플레이어쪽(아래)으로 향하도록 보장
+            if ball_vel[1] < 0:
+                ball_vel[1] = abs(ball_vel[1])
+            fan_wind_captured = False
+            fan_wind_capture_timer = 0
+        else:
+            # 소용돌이 주위를 빠르게 회전
+            progress = fan_wind_capture_timer / capture_duration
+            # 점점 중심으로 빨려들기 (반지름 감소) → 후반에 다시 넓어짐
+            if progress < 0.6:
+                fan_wind_capture_radius = max(3.0, fan_wind_capture_radius * 0.96)
+            else:
+                fan_wind_capture_radius = min(40.0, fan_wind_capture_radius * 1.06)
+            # 회전 속도 (점점 빨라짐)
+            spin_speed = 0.25 + progress * 0.35
+            fan_wind_capture_angle += spin_speed
+            # 공 위치를 소용돌이 중심 기준으로 강제 배치
+            if BALL:
+                BALL.centerx = int(fan_wind_zone_x + math.cos(fan_wind_capture_angle) * fan_wind_capture_radius)
+                BALL.centery = int(fan_wind_zone_y + math.sin(fan_wind_capture_angle) * fan_wind_capture_radius)
+            ball_vel[0] = 0.0
+            ball_vel[1] = 0.0
+
+    # --- 소용돌이 이동 (포획 중이 아닐 때도 이동) ---
+    # Y축: 천천히 아래로
+    fan_wind_zone_y += 0.6
+    # X축: 랜덤 드리프트
+    fan_wind_zone_x += fan_wind_drift_vx
+    fan_wind_drift_timer -= 1
+    if fan_wind_drift_timer <= 0:
+        fan_wind_drift_vx = random.uniform(-1.5, 1.5)
+        fan_wind_drift_timer = random.randint(25, 55)
+    # 게임 영역 내로 제한
+    left_bound = float(GAME_AREA_OFFSET_X + 30)
+    right_bound = float(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 30)
+    if fan_wind_zone_x < left_bound:
+        fan_wind_zone_x = left_bound
+        fan_wind_drift_vx = abs(fan_wind_drift_vx)
+    elif fan_wind_zone_x > right_bound:
+        fan_wind_zone_x = right_bound
+        fan_wind_drift_vx = -abs(fan_wind_drift_vx)
+
+    # 타이머 만료 또는 화면 밖으로 나가면 종료
+    if fan_wind_timer <= 0 or fan_wind_zone_y > 720:
+        # 포획 중이면 즉시 해제
+        if fan_wind_captured:
+            release_angle = random.uniform(-math.pi * 0.8, -math.pi * 0.2)
+            release_speed = 7.0
+            ball_vel[0] = math.cos(release_angle) * release_speed
+            ball_vel[1] = abs(math.sin(release_angle)) * release_speed
+            fan_wind_captured = False
         fan_wind_active = False
 
 
 def check_fan_wind_effect():
-    """공이 바람 존 안에 있으면 X속도 편향"""
+    """공이 소용돌이 반경 안에 들어오면 포획"""
+    global fan_wind_captured, fan_wind_capture_timer, fan_wind_capture_angle, fan_wind_capture_radius
     global ball_vel
-    if not fan_wind_active:
+    if not fan_wind_active or fan_wind_captured:
         return
-    # 바람 존: 폭 120, 높이 200
-    zone_half_w = 60
-    zone_half_h = 100
-    bx = BALL.centerx if BALL else 0
-    by = BALL.centery if BALL else 0
-    if (abs(bx - fan_wind_zone_x) < zone_half_w and
-            abs(by - fan_wind_zone_y) < zone_half_h):
-        ball_vel[0] += fan_wind_direction * 0.15
+    if not BALL:
+        return
+    bx = BALL.centerx
+    by = BALL.centery
+    dx = bx - fan_wind_zone_x
+    dy = by - fan_wind_zone_y
+    dist = math.sqrt(dx * dx + dy * dy)
+    vortex_radius = 28  # 소용돌이 포획 반경
+    if dist < vortex_radius:
+        fan_wind_captured = True
+        fan_wind_capture_timer = 0
+        fan_wind_capture_radius = max(dist, 8.0)
+        fan_wind_capture_angle = math.atan2(dy, dx)
+        ball_vel[0] = 0.0
+        ball_vel[1] = 0.0
 
 
 def draw_fan_wind_effect(screen):
-    """부채바람 시각 이펙트 — 바람 줄무늬 + 파티클"""
+    """소용돌이 시각 이펙트"""
     if not fan_wind_active:
         return
-    import math as _math
 
     zx = int(fan_wind_zone_x)
     zy = int(fan_wind_zone_y)
-    zone_w, zone_h = 120, 200
-    fade = min(1.0, fan_wind_timer / 30.0) if fan_wind_timer < 30 else 1.0
-    base_alpha = int(40 * fade)
     t = pygame.time.get_ticks() / 1000.0
+    fade = min(1.0, fan_wind_timer / 30.0) if fan_wind_timer < 30 else 1.0
 
-    # 반투명 존 영역
-    zone_surf = pygame.Surface((zone_w, zone_h), pygame.SRCALPHA)
-    pygame.draw.rect(zone_surf, (200, 230, 255, base_alpha), (0, 0, zone_w, zone_h), border_radius=8)
+    # --- 소용돌이 본체 ---
+    vortex_r = 26
+    # 반투명 소용돌이 원
+    v_surf = pygame.Surface((vortex_r * 4 + 4, vortex_r * 4 + 4), pygame.SRCALPHA)
+    vcx = vortex_r * 2 + 2
+    vcy = vortex_r * 2 + 2
+    # 외곽 발광 (연한 하늘색)
+    glow_alpha = int(35 * fade)
+    pygame.draw.circle(v_surf, (160, 210, 255, glow_alpha), (vcx, vcy), int(vortex_r * 1.8))
+    pygame.draw.circle(v_surf, (180, 220, 255, int(50 * fade)), (vcx, vcy), int(vortex_r * 1.3))
+    # 중심 (어두운 소용돌이 눈)
+    core_alpha = int(80 * fade)
+    pygame.draw.circle(v_surf, (40, 60, 100, core_alpha), (vcx, vcy), int(vortex_r * 0.4))
 
-    # 바람 줄무늬 (좌우로 흐르는 선)
-    for i in range(8):
-        ly = 20 + i * 22
-        offset = (t * 120 * fan_wind_direction + i * 30) % zone_w
-        line_alpha = int(60 * fade * (0.5 + 0.5 * _math.sin(t * 3 + i)))
-        pygame.draw.line(zone_surf, (180, 210, 255, line_alpha),
-                         (int(offset), ly), (int(offset + 30 * fan_wind_direction), ly), 2)
+    # 회전하는 나선 팔 (3개)
+    num_arms = 3
+    for arm in range(num_arms):
+        base_angle = t * 4.0 + arm * (math.pi * 2 / num_arms)
+        # 나선 점 12개
+        for si in range(12):
+            frac = si / 12.0
+            r = vortex_r * 0.3 + frac * vortex_r * 1.4
+            a = base_angle + frac * math.pi * 1.8
+            sx = vcx + int(math.cos(a) * r)
+            sy = vcy + int(math.sin(a) * r)
+            dot_r = max(1, int(2.5 - frac * 1.5))
+            arm_alpha = int((180 - frac * 120) * fade)
+            # 하늘색~흰색 그라데이션
+            cr = int(160 + frac * 80)
+            cg = int(200 + frac * 40)
+            cb = 255
+            pygame.draw.circle(v_surf, (cr, cg, cb, arm_alpha), (sx, sy), dot_r)
 
-    screen.blit(zone_surf, (zx - zone_w // 2, zy - zone_h // 2))
+    screen.blit(v_surf, (zx - vcx, zy - vcy))
 
-    # 나뭇잎 파티클 (랜덤)
-    if random.random() < 0.3 * fade:
-        px = zx + random.randint(-55, 55)
-        py = zy + random.randint(-95, 95)
-        leaf_size = random.randint(2, 4)
-        leaf_alpha = int(random.randint(100, 180) * fade)
-        leaf_color = random.choice([
-            (120, 180, 80, leaf_alpha),   # 연두
-            (180, 140, 60, leaf_alpha),   # 갈색
-            (200, 100, 100, leaf_alpha),  # 분홍
+    # --- 포획 중: 추가 회전 이펙트 ---
+    if fan_wind_captured:
+        spin_alpha = int(120 * fade)
+        cap_r = max(5, int(fan_wind_capture_radius))
+        for i in range(6):
+            a = fan_wind_capture_angle + i * (math.pi * 2 / 6)
+            px = zx + int(math.cos(a) * cap_r * 1.1)
+            py = zy + int(math.sin(a) * cap_r * 1.1)
+            pa = max(30, spin_alpha - i * 15)
+            pygame.draw.circle(screen, (220, 240, 255, pa), (px, py), 2)
+
+    # --- 주변 파티클 (바람에 날리는 먼지/꽃잎) ---
+    if random.random() < 0.35 * fade:
+        px = zx + random.randint(-35, 35)
+        py = zy + random.randint(-35, 35)
+        dot_size = random.randint(1, 3)
+        dot_alpha = int(random.randint(80, 160) * fade)
+        dot_color = random.choice([
+            (200, 230, 255, dot_alpha),
+            (160, 200, 240, dot_alpha),
+            (220, 210, 180, dot_alpha),
         ])
-        ls = pygame.Surface((leaf_size * 2, leaf_size * 2), pygame.SRCALPHA)
-        pygame.draw.ellipse(ls, leaf_color, (0, 0, leaf_size * 2, leaf_size))
-        screen.blit(ls, (px - leaf_size, py - leaf_size // 2))
+        ps = pygame.Surface((dot_size * 2, dot_size * 2), pygame.SRCALPHA)
+        pygame.draw.circle(ps, dot_color, (dot_size, dot_size), dot_size)
+        screen.blit(ps, (px - dot_size, py - dot_size))
 
 
 # === 포도대장 포졸소환 스킬 ===
@@ -132805,11 +132923,11 @@ def handle_ball():
                 boss_special_gauge -= 150
                 if boss_special_gauge < 0:
                     boss_special_gauge = 0
-        # 각시탈 부채바람 (20% 확률, 게이지 150) — 각시탈 전용
+        # 각시탈 소용돌이 (20% 확률, 게이지 150) — 각시탈 전용
         if current_stage == 1 and current_boss_name == "각시탈" and not fan_wind_active and not fan_wind_used_this_round and boss_special_gauge >= 150:
             if random.random() < 0.20:
                 activate_fan_wind()
-                _wind_shouts = ["부채바람!", "바람이 분다~!", "날아가라~!"]
+                _wind_shouts = ["소용돌이!", "빨려들어라~!", "회오리바람!"]
                 show_speech(random.choice(_wind_shouts), duration=90)
                 boss_special_gauge -= 150
                 if boss_special_gauge < 0:
@@ -140171,13 +140289,15 @@ def main(stage_num, new_boss_mode=False):
     patrol_guards_used_this_round = False
     # 각시탈 스킬 초기화 (스테이지 초기화 시)
     global mask_swap_active, mask_swap_timer, mask_swap_visual_timer
-    global fan_wind_active, fan_wind_timer, fan_wind_used_this_round
+    global fan_wind_active, fan_wind_timer, fan_wind_used_this_round, fan_wind_captured, fan_wind_capture_timer
     mask_swap_active = False
     mask_swap_timer = 0
     mask_swap_visual_timer = 0
     fan_wind_active = False
     fan_wind_timer = 0
     fan_wind_used_this_round = False
+    fan_wind_captured = False
+    fan_wind_capture_timer = 0
     from config.stage_configs import BOSS_VARIANTS, get_boss_config_by_name
     if stage_num in BOSS_VARIANTS and len(BOSS_VARIANTS[stage_num]) > 1:
         # 보스 룰렛 선출
