@@ -74195,7 +74195,7 @@ def update_fan_throw():
     if fan_throw_knockback_timer > 0:
         fan_throw_knockback_timer -= 1
         if PLAYER:
-            knockback_force = 12.0 * (fan_throw_knockback_timer / 18.0)
+            knockback_force = 24.0 * (fan_throw_knockback_timer / 18.0)
             new_x = PLAYER.x + int(fan_throw_knockback_dir * knockback_force)
             # 게임 영역 내로 제한
             new_x = max(GAME_AREA_OFFSET_X, min(new_x, GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - PLAYER.width))
@@ -74285,13 +74285,48 @@ def draw_fan_throw_effect(screen):
 
     screen.blit(fan_surf, (fx - fc, fy - fc))
 
-    # 히트 직후 충격 이펙트
-    if fan_throw_knockback_timer > 12 and PLAYER:
-        shock_r = int(20 * (fan_throw_knockback_timer / 18.0))
-        shock_alpha = int(150 * (fan_throw_knockback_timer / 18.0))
-        shock_s = pygame.Surface((shock_r * 2, shock_r * 2), pygame.SRCALPHA)
-        pygame.draw.circle(shock_s, (255, 220, 150, shock_alpha), (shock_r, shock_r), shock_r, 2)
-        screen.blit(shock_s, (PLAYER.centerx - shock_r, PLAYER.centery - shock_r))
+    # 히트 타격 이펙트
+    if fan_throw_knockback_timer > 0 and PLAYER:
+        progress = fan_throw_knockback_timer / 18.0
+        px, py = PLAYER.centerx, PLAYER.centery
+
+        # 1) 충격파 링 (바깥으로 퍼짐)
+        ring_r = int(15 + 45 * (1.0 - progress))
+        ring_alpha = int(200 * progress)
+        ring_w = max(2, int(4 * progress))
+        ring_s = pygame.Surface((ring_r * 2, ring_r * 2), pygame.SRCALPHA)
+        pygame.draw.circle(ring_s, (255, 200, 100, ring_alpha), (ring_r, ring_r), ring_r, ring_w)
+        screen.blit(ring_s, (px - ring_r, py - ring_r))
+
+        # 2) 초반 강한 플래시 (처음 6프레임)
+        if fan_throw_knockback_timer > 12:
+            flash_progress = (fan_throw_knockback_timer - 12) / 6.0
+            flash_r = int(30 * flash_progress)
+            flash_alpha = int(180 * flash_progress)
+            flash_s = pygame.Surface((flash_r * 2, flash_r * 2), pygame.SRCALPHA)
+            pygame.draw.circle(flash_s, (255, 255, 200, flash_alpha), (flash_r, flash_r), flash_r)
+            screen.blit(flash_s, (px - flash_r, py - flash_r))
+
+        # 3) 타격 스파크 파편 (8방향)
+        if fan_throw_knockback_timer > 10:
+            spark_t = (fan_throw_knockback_timer - 10) / 8.0
+            for si in range(8):
+                sa = si * math.pi / 4 + 0.3
+                sd = 10 + 30 * (1.0 - spark_t)
+                sx = px + int(math.cos(sa) * sd)
+                sy = py + int(math.sin(sa) * sd)
+                spark_len = max(2, int(6 * spark_t))
+                ex = sx + int(math.cos(sa) * spark_len)
+                ey = sy + int(math.sin(sa) * spark_len)
+                spark_alpha = int(220 * spark_t)
+                pygame.draw.line(screen, (255, 230, 130, min(255, spark_alpha)), (sx, sy), (ex, ey), 2)
+
+        # 4) 화면 흔들림 표시용 붉은 테두리 (처음 4프레임)
+        if fan_throw_knockback_timer > 14:
+            edge_alpha = int(100 * ((fan_throw_knockback_timer - 14) / 4.0))
+            edge_s = pygame.Surface((PLAYER.width + 12, PLAYER.height + 12), pygame.SRCALPHA)
+            pygame.draw.rect(edge_s, (255, 80, 80, edge_alpha), edge_s.get_rect(), 2, border_radius=4)
+            screen.blit(edge_s, (PLAYER.x - 6, PLAYER.y - 6))
 
 
 # === 각시탈 부채바람 스킬 (소용돌이) ===
