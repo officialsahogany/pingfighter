@@ -74195,7 +74195,7 @@ def update_fan_throw():
     if fan_throw_knockback_timer > 0:
         fan_throw_knockback_timer -= 1
         if PLAYER:
-            knockback_force = 6.0 * (fan_throw_knockback_timer / 18.0)
+            knockback_force = 12.0 * (fan_throw_knockback_timer / 18.0)
             new_x = PLAYER.x + int(fan_throw_knockback_dir * knockback_force)
             # 게임 영역 내로 제한
             new_x = max(GAME_AREA_OFFSET_X, min(new_x, GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - PLAYER.width))
