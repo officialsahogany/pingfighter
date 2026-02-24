@@ -132946,10 +132946,9 @@ def handle_ball():
                 if random.random() <= 0.15 and arrest_rope_phase == "idle":
                     activate_arrest_rope()
                     _rope_shouts = [
-                        "이 놈! 꼼짝 마라!",
-                        "포승줄을 받아라!",
-                        "네 이놈! 포박이다!",
-                        "썩 묶여라!",
+                        "포승줄 포박!",
+                        "포박이다!",
+                        "묶어라!",
                     ]
                     show_speech(random.choice(_rope_shouts), duration=180)
                     boss_special_gauge -= 200
