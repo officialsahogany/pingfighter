@@ -20659,6 +20659,7 @@ boss_current_speed = 0               # 현재 AI 보스 속도
 # 보스 대쉬 관련 설정 및 상태
 BOSS_DASH_GAUGE_COST = 50            # 보스 대쉬 게이지 소모량
 boss_dash_cooldown_until_ms = 0      # 다음 대쉬 가능 시각 (ms, 0이면 바로 사용 가능)
+boss_dash_cooldown_total_ms = 0      # 현재 쿨다운의 실제 총 시간 (ms, 구슬 충전률 계산용)
 
 # 보스 AI 움직임 파라미터
 BOSS_ACCELERATION = 0.798            # 가속도 (35% 감소: 1.2 → 0.798)
@@ -86235,13 +86236,14 @@ def _end_stage8_superspeed() -> None:
     """극정호신(구 초신가속) 종료 및 상태 초기화."""
     global stage8_superspeed_active, stage8_superspeed_end_ms, stage8_superspeed_text_end_ms, stage8_superspeed_freeze_end_ms
     global stage8_superspeed_cooldown_end_ms
-    global boss_dash_cooldown_until_ms
+    global boss_dash_cooldown_until_ms, boss_dash_cooldown_total_ms
     stage8_superspeed_active = False
     stage8_superspeed_cooldown_end_ms = pygame.time.get_ticks() + STAGE8_SUPERSPEED_COOLDOWN_MS
     stage8_superspeed_end_ms = 0
     stage8_superspeed_text_end_ms = 0
     stage8_superspeed_freeze_end_ms = 0
     boss_dash_cooldown_until_ms = 0
+    boss_dash_cooldown_total_ms = 0
     # 극정호신 종료 시 즉시 대쉬를 막기 위해 대쉬 상태도 초기화
     globals()["boss_dashing"] = False
     globals()["boss_dash_timer"] = 0
@@ -86256,7 +86258,7 @@ def _end_stage8_superspeed() -> None:
 def _start_stage8_superspeed(now: int) -> None:
     """극정호신 발동: 10초간 무제한 대쉬(무료, 확장거리) 상태."""
     global stage8_superspeed_active, stage8_superspeed_end_ms, stage8_superspeed_text_end_ms, stage8_superspeed_freeze_end_ms
-    global boss_special_gauge, boss_dash_cooldown_until_ms, stage8_superspeed_cooldown_end_ms
+    global boss_special_gauge, boss_dash_cooldown_until_ms, boss_dash_cooldown_total_ms, stage8_superspeed_cooldown_end_ms
     global stage8_shadow_casting, stage8_shuriken_casting, stage8_cloud_dash_active, stage8_cloud_active, stage8_cloud_rect
     global stage8_shuriken_cast_start_ms
 
@@ -86266,6 +86268,7 @@ def _start_stage8_superspeed(now: int) -> None:
     stage8_superspeed_text_end_ms = now + STAGE8_SUPERSPEED_TEXT_MS
     stage8_superspeed_freeze_end_ms = now + STAGE8_SUPERSPEED_FREEZE_MS
     boss_dash_cooldown_until_ms = 0
+    boss_dash_cooldown_total_ms = 0
     stage8_superspeed_cooldown_end_ms = 0
 
     # 다른 스킬 중단
@@ -86283,7 +86286,7 @@ def _stage8_superspeed_dash(now: int) -> None:
     """극정호신 전용 즉시 대쉬. 게이지/쿨타임 소모 없음."""
     global boss_dashing, boss_dash_timer, boss_dash_duration_frames
     global boss_dash_speed, boss_dash_target_x, boss_dash_direction
-    global boss_dash_cooldown_until_ms
+    global boss_dash_cooldown_until_ms, boss_dash_cooldown_total_ms
     ball_vx = float(ball_vel[0]) if "ball_vel" in globals() else 0.0
     ball_vy = float(ball_vel[1]) if "ball_vel" in globals() else 0.0
 
@@ -86335,12 +86338,13 @@ def _stage8_superspeed_dash(now: int) -> None:
 
     boss_dashing = True
     boss_dash_cooldown_until_ms = 0
+    boss_dash_cooldown_total_ms = 0
     # 대쉬 후 경직은 STAGE8_SUPERSPEED_DASH_STUN_FRAMES로 상단에서 처리
 def _stage8_superspeed_dash(now: int) -> None:
     """극정호신 전용 즉시 대쉬. 게이지/쿨타임 소모 없음."""
     global boss_dashing, boss_dash_timer, boss_dash_duration_frames
     global boss_dash_speed, boss_dash_target_x, boss_dash_direction
-    global boss_dash_cooldown_until_ms
+    global boss_dash_cooldown_until_ms, boss_dash_cooldown_total_ms
     ball_vx = float(ball_vel[0]) if "ball_vel" in globals() else 0.0
     ball_vy = float(ball_vel[1]) if "ball_vel" in globals() else 0.0
 
@@ -86391,6 +86395,7 @@ def _stage8_superspeed_dash(now: int) -> None:
 
     boss_dashing = True
     boss_dash_cooldown_until_ms = 0
+    boss_dash_cooldown_total_ms = 0
 
     # 대쉬 애니메이션 트리거
     try:
@@ -91448,15 +91453,12 @@ def draw_player_gauge():
                 _boss_on_cooldown = (boss_dash_cooldown_until_ms > 0 and _boss_now_ms < boss_dash_cooldown_until_ms)
                 _boss_available = 1 if (_boss_can_dash_gauge and not _boss_on_cooldown and not boss_dashing and boss_dash_stun_timer <= 0) else 0
 
-                # 충전 진행률 계산 (쿨다운 잔여 시간 기반)
+                # 충전 진행률 계산 (실제 쿨다운 총 시간 기반)
                 _boss_charge_progress = 0.0
                 if _boss_available == 0 and _boss_can_dash_gauge:
-                    if _boss_on_cooldown:
+                    if _boss_on_cooldown and boss_dash_cooldown_total_ms > 0:
                         _remaining = boss_dash_cooldown_until_ms - _boss_now_ms
-                        _stage_cfg = BOSS_CONFIGS.get(current_stage, {})
-                        _cd_range = _stage_cfg.get("dash_cooldown_range", (40.0, 55.0))
-                        _total_cd_ms = _cd_range[1] * 1000
-                        _boss_charge_progress = max(0.0, min(1.0, 1.0 - (_remaining / max(1, _total_cd_ms))))
+                        _boss_charge_progress = max(0.0, min(1.0, 1.0 - (_remaining / boss_dash_cooldown_total_ms)))
 
                 # 구슬 크기/위치 (상단 영웅 구슬과 동일 규격)
                 _boss_orb_radius = orb_radius
@@ -134657,7 +134659,7 @@ def _boss_try_emergency_dash() -> bool:
     global BOSS, BALL, ball_vel, current_stage
     global boss_dashing, boss_dash_timer, boss_dash_duration_frames
     global boss_dash_speed, boss_dash_target_x, boss_dash_direction
-    global boss_dash_cooldown_until_ms
+    global boss_dash_cooldown_until_ms, boss_dash_cooldown_total_ms
     global stage8_superspeed_active
     global ai_mode, ai_enabled
 
@@ -134867,8 +134869,11 @@ def _boss_try_emergency_dash() -> bool:
 
     if stage8_superspeed_active:
         boss_dash_cooldown_until_ms = 0
+        boss_dash_cooldown_total_ms = 0
     else:
-        boss_dash_cooldown_until_ms = now_ms + random.randint(min_ms, max_ms)
+        _actual_cd = random.randint(min_ms, max_ms)
+        boss_dash_cooldown_until_ms = now_ms + _actual_cd
+        boss_dash_cooldown_total_ms = _actual_cd  # 구슬 충전률 계산용 실제 쿨다운
 
     # 항상 디버그 출력 (쿨타임 테스트용) - 비활성화
     # cooldown_sec = (boss_dash_cooldown_until_ms - now_ms) / 1000.0 if boss_dash_cooldown_until_ms > now_ms else 0
