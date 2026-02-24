@@ -73154,9 +73154,9 @@ def update_arrest_rope():
     arrest_rope_visual_timer += 1
 
     if arrest_rope_phase == "throwing":
-        # --- 투사체 날아가는 단계 (25프레임 ≈ 0.42초) ---
+        # --- 투사체 날아가는 단계 (45프레임 ≈ 0.75초) ---
         arrest_rope_timer += 1
-        throw_duration = 25
+        throw_duration = 45
         # easeOutQuad 이징: 처음 빠르고 끝에 감속
         raw_t = min(arrest_rope_timer / throw_duration, 1.0)
         arrest_rope_throw_progress = 1.0 - (1.0 - raw_t) * (1.0 - raw_t)
@@ -73190,7 +73190,19 @@ def update_arrest_rope():
         arrest_rope_bind_x = float(PLAYER.centerx if PLAYER else WIDTH // 2)
         arrest_rope_bind_y = float(PLAYER.y if PLAYER else 710)
         if arrest_rope_timer <= 0:
-            deactivate_arrest_rope()
+            # 끊어지는 연출로 전환
+            arrest_rope_phase = "releasing"
+            arrest_rope_active = False  # 속도 디버프 즉시 해제
+            arrest_rope_timer = 28  # 끊어지는 연출 0.47초
+
+    elif arrest_rope_phase == "releasing":
+        # --- 줄 끊어지는 연출 ---
+        arrest_rope_timer -= 1
+        # 플레이어 위치 계속 추적 (끊어지는 지점 고정용)
+        arrest_rope_bind_x = float(PLAYER.centerx if PLAYER else WIDTH // 2)
+        arrest_rope_bind_y = float(PLAYER.y if PLAYER else 710)
+        if arrest_rope_timer <= 0:
+            arrest_rope_phase = "idle"
 
     elif arrest_rope_phase == "miss":
         # --- 미스 연출 (0.5초) ---
@@ -73220,6 +73232,8 @@ def draw_arrest_rope_effect(screen):
         _draw_rope_throwing(screen, boss_cx, boss_cy, rope_color, rope_dark, rope_light, vt)
     elif arrest_rope_phase == "bound":
         _draw_rope_bound(screen, boss_cx, boss_cy, rope_color, rope_dark, rope_light, rope_glow_color, vt)
+    elif arrest_rope_phase == "releasing":
+        _draw_rope_releasing(screen, boss_cx, boss_cy, rope_color, rope_dark, rope_light, vt)
     elif arrest_rope_phase == "miss":
         _draw_rope_miss(screen, boss_cx, boss_cy, rope_color, rope_dark, vt)
 
@@ -73437,6 +73451,110 @@ def _draw_rope_miss(screen, boss_cx, boss_cy, rope_color, rope_dark, vt):
             screen.blit(miss_surf, (lasso_x - miss_surf.get_width() // 2, lasso_y - 20))
         except Exception:
             pass
+
+
+def _draw_rope_releasing(screen, boss_cx, boss_cy, rope_color, rope_dark, rope_light, vt):
+    """포승줄 끊어지는 연출 — 밧줄이 중간에서 끊어져 양쪽으로 튕겨나감"""
+    import math as _math
+    release_duration = 28
+    progress = 1.0 - (arrest_rope_timer / release_duration)  # 0→1
+
+    bind_x = arrest_rope_bind_x
+    bind_y = arrest_rope_bind_y
+    cur_boss_cx = float(BOSS.centerx if BOSS else WIDTH // 2)
+    cur_boss_cy = float(BOSS.y + BOSS.height if BOSS else 65)
+
+    # 끊어지는 지점 (밧줄 중간)
+    snap_t = 0.45  # 약간 플레이어 쪽에서 끊김
+    snap_x = cur_boss_cx + (bind_x - cur_boss_cx) * snap_t
+    snap_y = cur_boss_cy + (bind_y - cur_boss_cy) * snap_t
+
+    fade = max(0, 1.0 - progress * 1.2)
+    if fade <= 0:
+        return
+
+    # 끊어지는 순간 반동 (양쪽으로 튕김)
+    recoil = _math.sin(progress * _math.pi) * 40  # 포물선 튕김
+    shake = _math.sin(progress * 30) * max(0, 8 * (1.0 - progress * 2))  # 초반 진동
+
+    # === 보스 쪽 밧줄 (끊어진 위쪽 절반 — 위로 튕겨 올라감) ===
+    boss_segments = 8
+    for i in range(boss_segments):
+        t1 = i / boss_segments
+        t2 = (i + 1) / boss_segments
+        x1 = cur_boss_cx + (snap_x - cur_boss_cx) * t1
+        y1 = cur_boss_cy + (snap_y - cur_boss_cy) * t1
+        x2 = cur_boss_cx + (snap_x - cur_boss_cx) * t2
+        y2 = cur_boss_cy + (snap_y - cur_boss_cy) * t2
+        # 끊어진 끝쪽이 위로 튕김 + 처짐
+        recoil1 = -recoil * t1 * t1 * 0.5
+        recoil2 = -recoil * t2 * t2 * 0.5
+        sag1 = _math.sin(t1 * _math.pi) * (15 + progress * 20) * fade
+        sag2 = _math.sin(t2 * _math.pi) * (15 + progress * 20) * fade
+        w = max(1, int(3 * fade))
+        c = (int(175 * fade), int(145 * fade), int(95 * fade))
+        pygame.draw.line(screen, c,
+                        (int(x1 + shake * t1), int(y1 + sag1 + recoil1)),
+                        (int(x2 + shake * t2), int(y2 + sag2 + recoil2)), w)
+
+    # 보스쪽 끊어진 끝 — 너덜너덜한 끝
+    boss_end_x = int(snap_x + shake)
+    boss_end_y = int(snap_y - recoil * 0.25)
+    for strand in range(3):
+        strand_angle = _math.pi * 0.5 + (strand - 1) * 0.5 + progress * 2
+        strand_len = int(6 * fade)
+        sx = boss_end_x + int(_math.cos(strand_angle) * strand_len)
+        sy = boss_end_y + int(_math.sin(strand_angle) * strand_len)
+        c = (int(175 * fade), int(145 * fade), int(95 * fade))
+        pygame.draw.line(screen, c, (boss_end_x, boss_end_y), (sx, sy), max(1, int(2 * fade)))
+
+    # === 플레이어 쪽 밧줄 (끊어진 아래쪽 — 아래로 떨어짐) ===
+    player_segments = 6
+    droop = progress * 60  # 아래로 처짐
+    for i in range(player_segments):
+        t1 = i / player_segments
+        t2 = (i + 1) / player_segments
+        x1 = snap_x + (bind_x - snap_x) * t1
+        y1 = snap_y + (bind_y - snap_y) * t1
+        x2 = snap_x + (bind_x - snap_x) * t2
+        y2 = snap_y + (bind_y - snap_y) * t2
+        # 아래로 떨어지면서 처짐
+        droop1 = droop * t1
+        droop2 = droop * t2
+        sag1 = _math.sin(t1 * _math.pi) * 10 * fade
+        sag2 = _math.sin(t2 * _math.pi) * 10 * fade
+        w = max(1, int(2 * fade))
+        c = (int(175 * fade), int(145 * fade), int(95 * fade))
+        pygame.draw.line(screen, c,
+                        (int(x1 - shake * t1), int(y1 + sag1 + droop1)),
+                        (int(x2 - shake * t2), int(y2 + sag2 + droop2)), w)
+
+    # === 플레이어 주변 묶인 밧줄 풀리는 이펙트 ===
+    unbind_expand = progress * 25  # 풀리면서 넓어짐
+    unbind_alpha = int(180 * fade)
+    if unbind_alpha > 0:
+        unbind_r = int(30 + unbind_expand)
+        c = (int(175 * fade), int(145 * fade), int(95 * fade))
+        pygame.draw.circle(screen, c, (int(bind_x), int(bind_y) - 5),
+                         unbind_r, max(1, int(2 * fade)))
+        # 풀어지는 밧줄 파편 (작은 조각들)
+        for frag in range(4):
+            frag_angle = frag * _math.pi / 2 + progress * 3
+            frag_dist = unbind_expand * 0.8 + 10
+            fx = int(bind_x + _math.cos(frag_angle) * frag_dist)
+            fy = int(bind_y - 5 + _math.sin(frag_angle) * frag_dist + droop * 0.3)
+            frag_len = max(2, int(5 * fade))
+            fx2 = fx + int(_math.cos(frag_angle + 0.5) * frag_len)
+            fy2 = fy + int(_math.sin(frag_angle + 0.5) * frag_len)
+            pygame.draw.line(screen, c, (fx, fy), (fx2, fy2), max(1, int(2 * fade)))
+
+    # === 끊어지는 지점 — 스파크 이펙트 (초반만) ===
+    if progress < 0.3:
+        spark_alpha = int(255 * (1.0 - progress / 0.3))
+        spark_r = max(3, int(8 * (1.0 - progress / 0.3)))
+        spark_surf = pygame.Surface((spark_r * 2, spark_r * 2), pygame.SRCALPHA)
+        pygame.draw.circle(spark_surf, (255, 230, 170, spark_alpha), (spark_r, spark_r), spark_r)
+        screen.blit(spark_surf, (int(snap_x) - spark_r, int(snap_y) - spark_r))
 
 
 def activate_whip():
