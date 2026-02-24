@@ -153,6 +153,12 @@ BOSS_VARIANTS = {
             "color": (100, 70, 40),         # 갈색 (조선 포도청 복식)
             "special_skill": "arrest_rope",  # 포승줄
         },
+        "탈광대": {
+            **BOSS_CONFIGS[1],              # 풍악보이와 동일 스탯
+            "name": "탈광대",
+            "color": (200, 50, 50),         # 붉은색 (하회탈)
+            "special_skill": "mask_swap",    # 탈바꿈
+        },
     },
 }
 

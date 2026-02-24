@@ -15,7 +15,7 @@ PLANET_CONFIGS = {
         "boss_roster": [
             {"name": "풍악보이", "implemented": True},
             {"name": "포도대장", "implemented": True},
-            {"name": "???", "implemented": False},
+            {"name": "탈광대", "implemented": True},
         ],
     },
     2: {
