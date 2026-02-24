@@ -74251,7 +74251,7 @@ def update_fan_throw():
     speed_mod = 0.6 + 0.5 * math.sin(elapsed * 0.25)  # 0.1~1.1 속도 변조
     sway = math.sin(elapsed * 0.15) * 1.8  # 좌우 사행
     fan_throw_x += fan_throw_vx * speed_mod + sway
-    fan_throw_y += fan_throw_vy * speed_mod
+    fan_throw_y += fan_throw_vy * speed_mod * 1.3  # Y축 30% 빠르게
 
     # 게임 영역 밖 소멸
     if (fan_throw_x < GAME_AREA_OFFSET_X - 30 or fan_throw_x > GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH + 30
