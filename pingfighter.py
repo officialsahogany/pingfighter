@@ -17678,11 +17678,17 @@ def _swap_boss_in_current_stage():
     fan_throw_active = False
     fan_throw_timer = 0
     fan_throw_knockback_timer = 0
+    fan_throw_windup_active = False
+    fan_throw_windup_timer = 0
+    fan_throw_hit_effect_timer = 0
     fan_wind_active = False
     fan_wind_timer = 0
     fan_wind_used_this_round = False
     fan_wind_captured = False
     fan_wind_capture_timer = 0
+    fan_wind_charging = False
+    fan_wind_charge_timer = 0
+    fan_wind_growth_scale = 0.0
     patrol_guards_active = False
     patrol_guards_timer = 0
     patrol_guards = []
@@ -46704,6 +46710,13 @@ fan_throw_timer = 0                # 최대 지속 (프레임)
 fan_throw_hit = False              # 플레이어 히트 여부
 fan_throw_knockback_timer = 0      # 넉백 지속 타이머
 fan_throw_knockback_dir = 0        # 넉백 방향 (-1 or 1)
+# 부채던지기 휘두르기 애니메이션 (0.5초 선딜)
+fan_throw_windup_active = False    # 휘두르기 중인지
+fan_throw_windup_timer = 0         # 30프레임 = 0.5초
+# 부채던지기 독립 타격 이펙트 (스턴과 별개)
+fan_throw_hit_effect_timer = 0     # 타격 이펙트 잔여 프레임
+fan_throw_hit_effect_x = 0.0
+fan_throw_hit_effect_y = 0.0
 # 각시탈 부채바람 스킬 (소용돌이)
 fan_wind_active = False
 fan_wind_timer = 0
@@ -46712,6 +46725,10 @@ fan_wind_zone_y = 120.0          # 보스 진영 하단에서 시작
 fan_wind_drift_vx = 0.0          # X축 랜덤 드리프트 속도
 fan_wind_drift_timer = 0         # 드리프트 방향 전환 타이머
 fan_wind_used_this_round = False
+# 부채바람 부채질 충전 애니메이션 (1초 선딜)
+fan_wind_charging = False          # 부채질 충전 중인지
+fan_wind_charge_timer = 0          # 60프레임 = 1초
+fan_wind_growth_scale = 0.0        # 소용돌이 성장 스케일 (0→1)
 # 소용돌이에 공이 빨려들었을 때
 fan_wind_captured = False         # 공이 소용돌이에 빨려들었는가
 fan_wind_capture_timer = 0        # 빨려든 후 경과 프레임 (60 = 1초)
@@ -53274,15 +53291,23 @@ def go_to_next_round():
     patrol_guards_used_this_round = False
     # 각시탈 스킬 리셋
     global fan_throw_active, fan_throw_timer, fan_throw_knockback_timer
+    global fan_throw_windup_active, fan_throw_windup_timer, fan_throw_hit_effect_timer
     global fan_wind_active, fan_wind_timer, fan_wind_used_this_round, fan_wind_captured, fan_wind_capture_timer
+    global fan_wind_charging, fan_wind_charge_timer, fan_wind_growth_scale
     fan_throw_active = False
     fan_throw_timer = 0
     fan_throw_knockback_timer = 0
+    fan_throw_windup_active = False
+    fan_throw_windup_timer = 0
+    fan_throw_hit_effect_timer = 0
     fan_wind_active = False
     fan_wind_timer = 0
     fan_wind_used_this_round = False
     fan_wind_captured = False
     fan_wind_capture_timer = 0
+    fan_wind_charging = False
+    fan_wind_charge_timer = 0
+    fan_wind_growth_scale = 0.0
     if BOSS and hasattr(BOSS, 'whip_sound') and BOSS.whip_sound:
         BOSS.whip_sound.stop()  #  보스 상모돌리기 사운드 중지
     # 정글지진 사운드 정지 (라운드 전환 시 사운드 버그 수정)
@@ -74159,7 +74184,16 @@ def activate_spinning_top():
 
 # === 각시탈 부채던지기 스킬 ===
 def activate_fan_throw():
-    """부채던지기 발동 — 보스가 플레이어를 향해 부채를 던짐"""
+    """부채던지기 발동 — 0.5초 휘두르기 애니메이션 후 투사체 발사"""
+    global fan_throw_windup_active, fan_throw_windup_timer
+    global fan_throw_hit
+    fan_throw_windup_active = True
+    fan_throw_windup_timer = 30  # 0.5초 선딜
+    fan_throw_hit = False
+
+
+def _launch_fan_throw():
+    """휘두르기 완료 후 실제 투사체 발사"""
     global fan_throw_active, fan_throw_x, fan_throw_y, fan_throw_vx, fan_throw_vy
     global fan_throw_spin, fan_throw_timer, fan_throw_hit
     fan_throw_active = True
@@ -74180,29 +74214,43 @@ def activate_fan_throw():
     dist = math.sqrt(dx * dx + dy * dy)
     if dist < 1:
         dist = 1
-    speed = 5.5  # 피할 수 있을 정도의 속도
-    fan_throw_vx = (dx / dist) * speed + random.uniform(-0.8, 0.8)  # 약간 랜덤 편향
+    speed = 5.5
+    fan_throw_vx = (dx / dist) * speed + random.uniform(-0.8, 0.8)
     fan_throw_vy = (dy / dist) * speed
     fan_throw_spin = 0.0
 
 
 def update_fan_throw():
-    """부채 투사체 이동 + 플레이어 충돌 (넉백은 화염탄 방식 player_knockback_vel 사용)"""
+    """부채던지기 휘두르기 + 투사체 이동 + 충돌"""
     global fan_throw_active, fan_throw_x, fan_throw_y, fan_throw_spin, fan_throw_timer
     global fan_throw_hit, fan_throw_knockback_timer, fan_throw_knockback_dir
+    global fan_throw_windup_active, fan_throw_windup_timer
+    global fan_throw_hit_effect_timer, fan_throw_hit_effect_x, fan_throw_hit_effect_y
     global player_knockback_vel
+
+    # --- 타격 이펙트 카운트다운 (독립) ---
+    if fan_throw_hit_effect_timer > 0:
+        fan_throw_hit_effect_timer -= 1
+
+    # --- 휘두르기 선딜 처리 ---
+    if fan_throw_windup_active:
+        fan_throw_windup_timer -= 1
+        if fan_throw_windup_timer <= 0:
+            fan_throw_windup_active = False
+            _launch_fan_throw()
+        return
 
     if not fan_throw_active:
         return
 
     fan_throw_timer -= 1
-    fan_throw_spin += 0.3  # 회전
+    fan_throw_spin += 0.3
 
     # 이동
     fan_throw_x += fan_throw_vx
     fan_throw_y += fan_throw_vy
 
-    # 게임 영역 밖으로 나가면 소멸
+    # 게임 영역 밖 소멸
     if (fan_throw_x < GAME_AREA_OFFSET_X - 30 or fan_throw_x > GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH + 30
             or fan_throw_y > HEIGHT + 30 or fan_throw_y < -30):
         fan_throw_active = False
@@ -74221,121 +74269,172 @@ def update_fan_throw():
         dy = fan_throw_y - py
         dist_sq = dx * dx + dy * dy
         if dist_sq < (hit_radius + PLAYER.width // 2) ** 2:
-            # 히트!
             fan_throw_hit = True
             fan_throw_active = False
-            # 화염탄 방식 넉백: 스턴 + 속도 기반 감속 (지수 감쇠)
+            # 화염탄 방식 넉백
             if player_stun_immunity_timer <= 0:
                 if try_apply_player_stun(0.3, source="stage1_fan_throw", knockback_scaled=True) > 0:
                     player_knockback_vel = apply_knockback_resist(_scale_knockback(random.choice([-12, 12])))
+            # 독립 타격 이펙트 시작
+            fan_throw_hit_effect_timer = 24
+            fan_throw_hit_effect_x = float(px)
+            fan_throw_hit_effect_y = float(py)
             show_speech("맞았지롱~!", duration=60)
 
 
-def draw_fan_throw_effect(screen):
-    """부채 투사체 렌더링 — 회전하는 부채"""
-    if not fan_throw_active:
-        return
-
-    fx = int(fan_throw_x)
-    fy = int(fan_throw_y)
-    fan_size = 14
-    spin = fan_throw_spin
-
-    # 부채 본체 (회전하는 부채꼴)
-    fan_surf = pygame.Surface((fan_size * 3, fan_size * 3), pygame.SRCALPHA)
-    fc = fan_size * 3 // 2
-
-    # 부채꼴 (6살)
+def _draw_fan_shape(screen, cx, cy, angle, size, alpha=255):
+    """부채 모양 그리기 유틸리티 (투사체, 휘두르기 공용)"""
+    surf_sz = size * 3
+    fan_surf = pygame.Surface((surf_sz, surf_sz), pygame.SRCALPHA)
+    fc = surf_sz // 2
     num_ribs = 6
     spread = math.radians(70)
-    base_angle = spin
-    start_a = base_angle - spread / 2
-    fan_r = fan_size * 1.4
+    start_a = angle - spread / 2
+    fan_r = size * 1.4
 
     fan_pts = [(fc, fc)]
     for i in range(num_ribs + 1):
         a = start_a + spread * i / num_ribs
-        px = fc + math.cos(a) * fan_r
-        py = fc + math.sin(a) * fan_r
-        fan_pts.append((int(px), int(py)))
+        fan_pts.append((int(fc + math.cos(a) * fan_r), int(fc + math.sin(a) * fan_r)))
 
     if len(fan_pts) >= 3:
-        # 그림자
         shadow = [(x + 1, y + 1) for x, y in fan_pts]
-        pygame.draw.polygon(fan_surf, (80, 60, 40, 120), shadow)
-        # 부채 면
-        pygame.draw.polygon(fan_surf, (220, 200, 160), fan_pts)
-        # 테두리
-        pygame.draw.polygon(fan_surf, (185, 55, 55), fan_pts, 2)
+        pygame.draw.polygon(fan_surf, (80, 60, 40, min(120, alpha)), shadow)
+        pygame.draw.polygon(fan_surf, (220, 200, 160, alpha), fan_pts)
+        pygame.draw.polygon(fan_surf, (185, 55, 55, alpha), fan_pts, 2)
 
-    # 부채살
     for i in range(num_ribs):
         a = start_a + spread * i / (num_ribs - 1)
         rx = fc + math.cos(a) * fan_r
         ry = fc + math.sin(a) * fan_r
-        pygame.draw.line(fan_surf, (140, 110, 70), (fc, fc), (int(rx), int(ry)), 1)
+        pygame.draw.line(fan_surf, (140, 110, 70, alpha), (fc, fc), (int(rx), int(ry)), 1)
 
-    screen.blit(fan_surf, (fx - fc, fy - fc))
+    screen.blit(fan_surf, (cx - fc, cy - fc))
 
-    # 히트 타격 이펙트
-    if fan_throw_knockback_timer > 0 and PLAYER:
-        progress = fan_throw_knockback_timer / 18.0
-        px, py = PLAYER.centerx, PLAYER.centery
 
-        # 1) 충격파 링 (바깥으로 퍼짐)
-        ring_r = int(15 + 45 * (1.0 - progress))
+def draw_fan_throw_effect(screen):
+    """부채던지기 전체 렌더링 (휘두르기 + 투사체 + 타격 이펙트)"""
+    # --- 1) 휘두르기 애니메이션 (0.5초) ---
+    if fan_throw_windup_active and BOSS:
+        progress = 1.0 - (fan_throw_windup_timer / 30.0)  # 0→1
+        boss_cx = BOSS.centerx
+        boss_cy = BOSS.y + BOSS.height + 5
+
+        # 부채를 좌→우→좌 빠르게 휘두르기 (사인파 3회)
+        swing_angle = math.sin(progress * math.pi * 6) * math.radians(60) + math.pi * 0.5
+        fan_size = int(12 + 4 * progress)  # 약간 커짐
+        _draw_fan_shape(screen, boss_cx, boss_cy, swing_angle, fan_size)
+
+        # 잔상 트레일 (2개)
+        for trail_i in range(1, 3):
+            trail_p = max(0.0, progress - trail_i * 0.06)
+            trail_angle = math.sin(trail_p * math.pi * 6) * math.radians(60) + math.pi * 0.5
+            trail_alpha = max(30, 120 - trail_i * 45)
+            _draw_fan_shape(screen, boss_cx, boss_cy, trail_angle, fan_size - trail_i, trail_alpha)
+
+        # 바람 이펙트 선 (좌우로 펄럭)
+        wind_alpha = int(100 * progress)
+        for wi in range(4):
+            wy = boss_cy + 4 + wi * 6
+            wx_off = math.sin(progress * math.pi * 8 + wi * 0.8) * 18
+            pygame.draw.line(screen, (200, 220, 255, wind_alpha),
+                             (boss_cx - 15 + int(wx_off), wy), (boss_cx + 15 + int(wx_off), wy), 1)
+
+    # --- 2) 투사체 ---
+    if fan_throw_active:
+        _draw_fan_shape(screen, int(fan_throw_x), int(fan_throw_y), fan_throw_spin, 14)
+
+    # --- 3) 독립 타격 이펙트 ---
+    if fan_throw_hit_effect_timer > 0:
+        max_dur = 24.0
+        progress = fan_throw_hit_effect_timer / max_dur  # 1→0
+        hx = int(fan_throw_hit_effect_x)
+        hy = int(fan_throw_hit_effect_y)
+
+        # 충격파 링 (바깥으로 퍼짐)
+        ring_r = int(12 + 50 * (1.0 - progress))
         ring_alpha = int(200 * progress)
         ring_w = max(2, int(4 * progress))
-        ring_s = pygame.Surface((ring_r * 2, ring_r * 2), pygame.SRCALPHA)
-        pygame.draw.circle(ring_s, (255, 200, 100, ring_alpha), (ring_r, ring_r), ring_r, ring_w)
-        screen.blit(ring_s, (px - ring_r, py - ring_r))
+        ring_s = pygame.Surface((ring_r * 2 + 4, ring_r * 2 + 4), pygame.SRCALPHA)
+        pygame.draw.circle(ring_s, (255, 200, 100, ring_alpha), (ring_r + 2, ring_r + 2), ring_r, ring_w)
+        screen.blit(ring_s, (hx - ring_r - 2, hy - ring_r - 2))
 
-        # 2) 초반 강한 플래시 (처음 6프레임)
-        if fan_throw_knockback_timer > 12:
-            flash_progress = (fan_throw_knockback_timer - 12) / 6.0
-            flash_r = int(30 * flash_progress)
-            flash_alpha = int(180 * flash_progress)
-            flash_s = pygame.Surface((flash_r * 2, flash_r * 2), pygame.SRCALPHA)
-            pygame.draw.circle(flash_s, (255, 255, 200, flash_alpha), (flash_r, flash_r), flash_r)
-            screen.blit(flash_s, (px - flash_r, py - flash_r))
+        # 두 번째 충격파 (약간 지연)
+        if progress < 0.8:
+            r2_p = progress / 0.8
+            r2_r = int(8 + 35 * (1.0 - r2_p))
+            r2_a = int(140 * r2_p)
+            r2_s = pygame.Surface((r2_r * 2 + 4, r2_r * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.circle(r2_s, (255, 160, 80, r2_a), (r2_r + 2, r2_r + 2), r2_r, max(1, int(3 * r2_p)))
+            screen.blit(r2_s, (hx - r2_r - 2, hy - r2_r - 2))
 
-        # 3) 타격 스파크 파편 (8방향)
-        if fan_throw_knockback_timer > 10:
-            spark_t = (fan_throw_knockback_timer - 10) / 8.0
-            for si in range(8):
-                sa = si * math.pi / 4 + 0.3
-                sd = 10 + 30 * (1.0 - spark_t)
-                sx = px + int(math.cos(sa) * sd)
-                sy = py + int(math.sin(sa) * sd)
-                spark_len = max(2, int(6 * spark_t))
+        # 초반 강한 플래시
+        if fan_throw_hit_effect_timer > 18:
+            flash_p = (fan_throw_hit_effect_timer - 18) / 6.0
+            flash_r = int(35 * flash_p)
+            if flash_r > 0:
+                flash_s = pygame.Surface((flash_r * 2, flash_r * 2), pygame.SRCALPHA)
+                pygame.draw.circle(flash_s, (255, 255, 220, int(200 * flash_p)), (flash_r, flash_r), flash_r)
+                screen.blit(flash_s, (hx - flash_r, hy - flash_r))
+
+        # 타격 스파크 파편 (10방향, 방사형)
+        if fan_throw_hit_effect_timer > 12:
+            spark_t = (fan_throw_hit_effect_timer - 12) / 12.0
+            for si in range(10):
+                sa = si * math.pi * 2 / 10 + 0.2
+                sd = 8 + 40 * (1.0 - spark_t)
+                sx = hx + int(math.cos(sa) * sd)
+                sy = hy + int(math.sin(sa) * sd)
+                spark_len = max(2, int(8 * spark_t))
                 ex = sx + int(math.cos(sa) * spark_len)
                 ey = sy + int(math.sin(sa) * spark_len)
-                spark_alpha = int(220 * spark_t)
-                pygame.draw.line(screen, (255, 230, 130, min(255, spark_alpha)), (sx, sy), (ex, ey), 2)
+                spark_c = (255, 230, 130, min(255, int(240 * spark_t)))
+                pygame.draw.line(screen, spark_c, (sx, sy), (ex, ey), 2)
 
-        # 4) 화면 흔들림 표시용 붉은 테두리 (처음 4프레임)
-        if fan_throw_knockback_timer > 14:
-            edge_alpha = int(100 * ((fan_throw_knockback_timer - 14) / 4.0))
-            edge_s = pygame.Surface((PLAYER.width + 12, PLAYER.height + 12), pygame.SRCALPHA)
-            pygame.draw.rect(edge_s, (255, 80, 80, edge_alpha), edge_s.get_rect(), 2, border_radius=4)
-            screen.blit(edge_s, (PLAYER.x - 6, PLAYER.y - 6))
+        # 부채 조각 파편 (히트 시 부채가 부서지는 느낌)
+        if fan_throw_hit_effect_timer > 14:
+            frag_t = (fan_throw_hit_effect_timer - 14) / 10.0
+            for fi in range(5):
+                fa = fi * math.pi * 2 / 5 + progress * 2
+                fd = 6 + 25 * (1.0 - frag_t)
+                fx = hx + int(math.cos(fa) * fd)
+                fy_pos = hy + int(math.sin(fa) * fd)
+                frag_sz = max(2, int(5 * frag_t))
+                frag_a = int(180 * frag_t)
+                fs = pygame.Surface((frag_sz * 2, frag_sz * 2), pygame.SRCALPHA)
+                # 부채 색상 조각
+                pygame.draw.polygon(fs, (220, 200, 160, frag_a),
+                                    [(0, frag_sz), (frag_sz, 0), (frag_sz * 2, frag_sz)])
+                screen.blit(fs, (fx - frag_sz, fy_pos - frag_sz))
+
+        # 붉은 테두리 플래시 (플레이어 주변)
+        if fan_throw_hit_effect_timer > 18 and PLAYER:
+            edge_p = (fan_throw_hit_effect_timer - 18) / 6.0
+            edge_alpha = int(120 * edge_p)
+            edge_s = pygame.Surface((PLAYER.width + 14, PLAYER.height + 14), pygame.SRCALPHA)
+            pygame.draw.rect(edge_s, (255, 80, 80, edge_alpha), edge_s.get_rect(), 3, border_radius=4)
+            screen.blit(edge_s, (PLAYER.x - 7, PLAYER.y - 7))
 
 
 # === 각시탈 부채바람 스킬 (소용돌이) ===
 def activate_fan_wind():
-    """부채바람 발동 — 소용돌이 생성, 보스 진영 하단에서 시작"""
+    """부채바람 발동 — 1초 부채질 충전 후 소용돌이 생성"""
+    global fan_wind_charging, fan_wind_charge_timer, fan_wind_growth_scale
     global fan_wind_active, fan_wind_timer, fan_wind_zone_x, fan_wind_zone_y
     global fan_wind_drift_vx, fan_wind_drift_timer, fan_wind_used_this_round
     global fan_wind_captured, fan_wind_capture_timer, fan_wind_capture_angle, fan_wind_capture_radius
-    fan_wind_active = True
-    fan_wind_timer = 240  # 4초 (60fps)
+    fan_wind_charging = True
+    fan_wind_charge_timer = 60  # 1초 부채질 선딜
+    fan_wind_growth_scale = 0.0
     fan_wind_used_this_round = True
-    # 보스 진영 하단 근처에서 소용돌이 생성
+    # 소용돌이 위치 미리 결정
     fan_wind_zone_x = float(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2 + random.randint(-80, 80))
-    fan_wind_zone_y = 130.0  # 보스 진영 하단 부근
+    fan_wind_zone_y = 130.0
+    # 나머지 초기화
+    fan_wind_active = False
+    fan_wind_timer = 240
     fan_wind_drift_vx = random.uniform(-1.2, 1.2)
     fan_wind_drift_timer = random.randint(30, 60)
-    # 공 포획 상태 초기화
     fan_wind_captured = False
     fan_wind_capture_timer = 0
     fan_wind_capture_angle = 0.0
@@ -74343,11 +74442,24 @@ def activate_fan_wind():
 
 
 def update_fan_wind():
-    """소용돌이 이동 + 공 포획 업데이트"""
+    """부채바람 충전 + 소용돌이 이동 + 공 포획"""
     global fan_wind_active, fan_wind_timer, fan_wind_zone_x, fan_wind_zone_y
     global fan_wind_drift_vx, fan_wind_drift_timer
     global fan_wind_captured, fan_wind_capture_timer, fan_wind_capture_angle, fan_wind_capture_radius
+    global fan_wind_charging, fan_wind_charge_timer, fan_wind_growth_scale
     global ball_vel
+
+    # --- 부채질 충전 단계 (1초) ---
+    if fan_wind_charging:
+        fan_wind_charge_timer -= 1
+        charge_progress = 1.0 - (fan_wind_charge_timer / 60.0)  # 0→1
+        fan_wind_growth_scale = charge_progress  # 소용돌이 크기 성장
+        if fan_wind_charge_timer <= 0:
+            fan_wind_charging = False
+            fan_wind_active = True
+            fan_wind_growth_scale = 1.0
+        return  # 충전 중에는 소용돌이 이동 안함
+
     if not fan_wind_active:
         return
 
@@ -74356,47 +74468,38 @@ def update_fan_wind():
     # --- 공이 소용돌이에 포획된 상태 ---
     if fan_wind_captured:
         fan_wind_capture_timer += 1
-        capture_duration = 60  # 1초
+        capture_duration = 60
 
         if fan_wind_capture_timer >= capture_duration:
-            # 1초 후: 랜덤 방향으로 발사
             release_angle = random.uniform(0, math.pi * 2)
             release_speed = random.uniform(12.0, 16.0)
             ball_vel[0] = math.cos(release_angle) * release_speed
             ball_vel[1] = math.sin(release_angle) * release_speed
-            # 플레이어쪽(아래)으로 향하도록 보장
             if ball_vel[1] < 0:
                 ball_vel[1] = abs(ball_vel[1])
             fan_wind_captured = False
             fan_wind_capture_timer = 0
         else:
-            # 소용돌이 주위를 빠르게 회전
             progress = fan_wind_capture_timer / capture_duration
-            # 점점 중심으로 빨려들기 (반지름 감소) → 후반에 다시 넓어짐
             if progress < 0.6:
                 fan_wind_capture_radius = max(3.0, fan_wind_capture_radius * 0.96)
             else:
-                fan_wind_capture_radius = min(40.0, fan_wind_capture_radius * 1.06)
-            # 회전 속도 (점점 빨라짐)
+                fan_wind_capture_radius = min(55.0, fan_wind_capture_radius * 1.06)
             spin_speed = 0.25 + progress * 0.35
             fan_wind_capture_angle += spin_speed
-            # 공 위치를 소용돌이 중심 기준으로 강제 배치
             if BALL:
                 BALL.centerx = int(fan_wind_zone_x + math.cos(fan_wind_capture_angle) * fan_wind_capture_radius)
                 BALL.centery = int(fan_wind_zone_y + math.sin(fan_wind_capture_angle) * fan_wind_capture_radius)
             ball_vel[0] = 0.0
             ball_vel[1] = 0.0
 
-    # --- 소용돌이 이동 (포획 중이 아닐 때도 이동) ---
-    # Y축: 천천히 아래로
+    # --- 소용돌이 이동 ---
     fan_wind_zone_y += 0.6
-    # X축: 랜덤 드리프트
     fan_wind_zone_x += fan_wind_drift_vx
     fan_wind_drift_timer -= 1
     if fan_wind_drift_timer <= 0:
         fan_wind_drift_vx = random.uniform(-1.5, 1.5)
         fan_wind_drift_timer = random.randint(25, 55)
-    # 게임 영역 내로 제한
     left_bound = float(GAME_AREA_OFFSET_X + 30)
     right_bound = float(GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 30)
     if fan_wind_zone_x < left_bound:
@@ -74406,9 +74509,7 @@ def update_fan_wind():
         fan_wind_zone_x = right_bound
         fan_wind_drift_vx = -abs(fan_wind_drift_vx)
 
-    # 타이머 만료 또는 화면 밖으로 나가면 종료
     if fan_wind_timer <= 0 or fan_wind_zone_y > 720:
-        # 포획 중이면 즉시 해제
         if fan_wind_captured:
             release_angle = random.uniform(-math.pi * 0.8, -math.pi * 0.2)
             release_speed = 13.0
@@ -74431,7 +74532,7 @@ def check_fan_wind_effect():
     dx = bx - fan_wind_zone_x
     dy = by - fan_wind_zone_y
     dist = math.sqrt(dx * dx + dy * dy)
-    vortex_radius = 28  # 소용돌이 포획 반경
+    vortex_radius = 42  # 포획 반경 50% 확대 (28 → 42)
     if dist < vortex_radius:
         fan_wind_captured = True
         fan_wind_capture_timer = 0
@@ -74442,71 +74543,179 @@ def check_fan_wind_effect():
 
 
 def draw_fan_wind_effect(screen):
-    """소용돌이 시각 이펙트"""
-    if not fan_wind_active:
+    """소용돌이 시각 이펙트 (현실적 바람 느낌 + 크기 성장 + 부채질 애니메이션)"""
+    is_charging = fan_wind_charging
+    is_active = fan_wind_active
+
+    if not is_charging and not is_active:
         return
 
     zx = int(fan_wind_zone_x)
     zy = int(fan_wind_zone_y)
     t = pygame.time.get_ticks() / 1000.0
-    fade = min(1.0, fan_wind_timer / 30.0) if fan_wind_timer < 30 else 1.0
 
-    # --- 소용돌이 본체 ---
-    vortex_r = 26
-    # 반투명 소용돌이 원
-    v_surf = pygame.Surface((vortex_r * 4 + 4, vortex_r * 4 + 4), pygame.SRCALPHA)
-    vcx = vortex_r * 2 + 2
-    vcy = vortex_r * 2 + 2
-    # 외곽 발광 (연한 하늘색)
-    glow_alpha = int(35 * fade)
-    pygame.draw.circle(v_surf, (160, 210, 255, glow_alpha), (vcx, vcy), int(vortex_r * 1.8))
-    pygame.draw.circle(v_surf, (180, 220, 255, int(50 * fade)), (vcx, vcy), int(vortex_r * 1.3))
-    # 중심 (어두운 소용돌이 눈)
-    core_alpha = int(80 * fade)
-    pygame.draw.circle(v_surf, (40, 60, 100, core_alpha), (vcx, vcy), int(vortex_r * 0.4))
+    # --- 부채질 충전 애니메이션 (보스 위치에서) ---
+    if is_charging and BOSS:
+        charge_p = 1.0 - (fan_wind_charge_timer / 60.0)  # 0→1
+        boss_cx = BOSS.centerx
+        boss_cy = BOSS.y + BOSS.height + 5
 
-    # 회전하는 나선 팔 (3개)
-    num_arms = 3
+        # 부채를 크게 부채질 (좌→우→좌 반복, 점점 빨라짐)
+        swing_freq = 3.0 + charge_p * 5.0  # 속도 증가
+        swing_angle = math.sin(charge_p * math.pi * swing_freq) * math.radians(50) + math.pi * 0.5
+        fan_size = int(14 + 6 * charge_p)
+        _draw_fan_shape(screen, boss_cx, boss_cy, swing_angle, fan_size)
+
+        # 잔상
+        for trail_i in range(1, 3):
+            trail_p = max(0.0, charge_p - trail_i * 0.05)
+            trail_angle = math.sin(trail_p * math.pi * swing_freq) * math.radians(50) + math.pi * 0.5
+            _draw_fan_shape(screen, boss_cx, boss_cy, trail_angle, fan_size - trail_i, max(30, 100 - trail_i * 35))
+
+        # 바람 줄기 (보스→소용돌이 방향)
+        wind_intensity = charge_p
+        for wi in range(int(3 + 5 * charge_p)):
+            w_progress = (wi / 8.0 + t * 2.0) % 1.0
+            wx = boss_cx + (zx - boss_cx) * w_progress + math.sin(t * 10 + wi) * 8
+            wy = boss_cy + (zy - boss_cy) * w_progress + math.cos(t * 8 + wi) * 4
+            w_len = 6 + int(10 * wind_intensity)
+            w_alpha = int(80 * wind_intensity * (1.0 - w_progress))
+            dx_n = zx - boss_cx
+            dy_n = zy - boss_cy
+            d_n = math.sqrt(dx_n * dx_n + dy_n * dy_n)
+            if d_n > 1:
+                dx_n /= d_n
+                dy_n /= d_n
+            pygame.draw.line(screen, (200, 230, 255, w_alpha),
+                             (int(wx), int(wy)),
+                             (int(wx + dx_n * w_len), int(wy + dy_n * w_len)), 1)
+
+    # --- 소용돌이 본체 (성장 스케일 적용) ---
+    scale = fan_wind_growth_scale if is_charging else 1.0
+    fade = min(1.0, fan_wind_timer / 30.0) if (is_active and fan_wind_timer < 30) else 1.0
+    eff_fade = fade * max(0.15, scale)  # 충전 중에도 약간 보임
+
+    # 기본 반경 50% 확대: 26 → 39
+    base_vortex_r = 39
+    vortex_r = max(3, int(base_vortex_r * scale))
+
+    surf_sz = base_vortex_r * 5
+    v_surf = pygame.Surface((surf_sz, surf_sz), pygame.SRCALPHA)
+    vcx = surf_sz // 2
+    vcy = surf_sz // 2
+
+    # 다층 발광 (외곽→내부)
+    for layer in range(4):
+        lr = vortex_r * (2.2 - layer * 0.4)
+        la = int((20 + layer * 10) * eff_fade)
+        lc_b = 200 + layer * 15
+        pygame.draw.circle(v_surf, (140 + layer * 20, 190 + layer * 10, min(255, lc_b), la),
+                           (vcx, vcy), max(1, int(lr)))
+
+    # 중심 어두운 눈
+    eye_r = max(1, int(vortex_r * 0.3))
+    pygame.draw.circle(v_surf, (30, 50, 90, int(100 * eff_fade)), (vcx, vcy), eye_r)
+    # 눈 안의 밝은 점
+    if eye_r > 2:
+        pygame.draw.circle(v_surf, (180, 210, 255, int(60 * eff_fade)), (vcx, vcy), max(1, eye_r // 2))
+
+    # 회전 나선 팔 (4개, 더 촘촘하고 사실적)
+    num_arms = 4
     for arm in range(num_arms):
-        base_angle = t * 4.0 + arm * (math.pi * 2 / num_arms)
-        # 나선 점 12개
-        for si in range(12):
-            frac = si / 12.0
-            r = vortex_r * 0.3 + frac * vortex_r * 1.4
-            a = base_angle + frac * math.pi * 1.8
+        base_angle = t * 5.0 + arm * (math.pi * 2 / num_arms)
+        points_in_arm = 20
+        prev_pt = None
+        for si in range(points_in_arm):
+            frac = si / float(points_in_arm)
+            # 로그 스파이럴 (더 현실적)
+            r = vortex_r * 0.2 + frac * vortex_r * 1.8
+            a = base_angle + frac * math.pi * 2.5  # 2.5 바퀴
+            # 약간의 떨림
+            r += math.sin(t * 6 + si * 0.5 + arm) * (1 + frac * 3)
             sx = vcx + int(math.cos(a) * r)
             sy = vcy + int(math.sin(a) * r)
-            dot_r = max(1, int(2.5 - frac * 1.5))
-            arm_alpha = int((180 - frac * 120) * fade)
-            # 하늘색~흰색 그라데이션
-            cr = int(160 + frac * 80)
-            cg = int(200 + frac * 40)
+            # 선 굵기: 안쪽 굵고 바깥 가늘게
+            line_w = max(1, int(3.0 * (1.0 - frac * 0.7)))
+            arm_alpha = int((200 - frac * 140) * eff_fade)
+            # 색상: 중심(밝은 하늘색) → 외곽(연한 흰색)
+            cr = int(140 + frac * 100)
+            cg = int(190 + frac * 50)
             cb = 255
-            pygame.draw.circle(v_surf, (cr, cg, cb, arm_alpha), (sx, sy), dot_r)
+            color = (min(255, cr), min(255, cg), cb, arm_alpha)
+            if prev_pt:
+                pygame.draw.line(v_surf, color, prev_pt, (sx, sy), line_w)
+            prev_pt = (sx, sy)
+
+    # 외곽 바람 고리 (회전하는 점선 원)
+    ring_r = int(vortex_r * 2.0)
+    num_ring_dots = 16
+    for ri in range(num_ring_dots):
+        ra = t * 3.0 + ri * (math.pi * 2 / num_ring_dots)
+        # 타원형으로 약간 찌그러짐
+        rx = vcx + int(math.cos(ra) * ring_r * 1.1)
+        ry = vcy + int(math.sin(ra) * ring_r * 0.9)
+        rd_alpha = int((60 + 40 * math.sin(t * 4 + ri)) * eff_fade)
+        dot_sz = max(1, int(2 * (0.5 + 0.5 * math.sin(t * 3 + ri * 0.7))))
+        pygame.draw.circle(v_surf, (200, 225, 255, rd_alpha), (rx, ry), dot_sz)
 
     screen.blit(v_surf, (zx - vcx, zy - vcy))
 
-    # --- 포획 중: 추가 회전 이펙트 ---
-    if fan_wind_captured:
-        spin_alpha = int(120 * fade)
-        cap_r = max(5, int(fan_wind_capture_radius))
-        for i in range(6):
-            a = fan_wind_capture_angle + i * (math.pi * 2 / 6)
-            px = zx + int(math.cos(a) * cap_r * 1.1)
-            py = zy + int(math.sin(a) * cap_r * 1.1)
-            pa = max(30, spin_alpha - i * 15)
-            pygame.draw.circle(screen, (220, 240, 255, pa), (px, py), 2)
+    # --- 바람 줄기 (소용돌이 주변 곡선) ---
+    if scale > 0.3:
+        num_streaks = int(6 * scale)
+        for si in range(num_streaks):
+            streak_base_a = t * 2.5 + si * (math.pi * 2 / max(1, num_streaks))
+            streak_r_start = vortex_r * 1.2
+            streak_r_end = vortex_r * 2.5
+            streak_pts = []
+            for sj in range(8):
+                sf = sj / 7.0
+                sr = streak_r_start + sf * (streak_r_end - streak_r_start)
+                sa = streak_base_a + sf * math.pi * 0.8
+                sr += math.sin(t * 5 + sj + si) * 3
+                streak_pts.append((zx + int(math.cos(sa) * sr), zy + int(math.sin(sa) * sr)))
+            if len(streak_pts) >= 2:
+                s_alpha = int(50 * eff_fade)
+                for sj in range(len(streak_pts) - 1):
+                    seg_alpha = int(s_alpha * (1.0 - sj / len(streak_pts)))
+                    pygame.draw.line(screen, (190, 220, 255, seg_alpha),
+                                     streak_pts[sj], streak_pts[sj + 1], 1)
 
-    # --- 주변 파티클 (바람에 날리는 먼지/꽃잎) ---
-    if random.random() < 0.35 * fade:
-        px = zx + random.randint(-35, 35)
-        py = zy + random.randint(-35, 35)
+    # --- 포획 중: 공 주위 회전 이펙트 ---
+    if fan_wind_captured:
+        cap_r = max(5, int(fan_wind_capture_radius))
+        for i in range(8):
+            a = fan_wind_capture_angle + i * (math.pi * 2 / 8)
+            px = zx + int(math.cos(a) * cap_r * 1.2)
+            py = zy + int(math.sin(a) * cap_r * 1.2)
+            pa = max(20, int(140 * eff_fade) - i * 12)
+            dot_sz = max(1, 3 - i // 3)
+            pygame.draw.circle(screen, (220, 240, 255, pa), (px, py), dot_sz)
+        # 포획 소용돌이 선
+        for i in range(3):
+            ca = fan_wind_capture_angle + i * math.pi * 2 / 3
+            c_inner_x = zx + int(math.cos(ca) * 4)
+            c_inner_y = zy + int(math.sin(ca) * 4)
+            c_outer_x = zx + int(math.cos(ca + 0.5) * cap_r * 1.3)
+            c_outer_y = zy + int(math.sin(ca + 0.5) * cap_r * 1.3)
+            pygame.draw.line(screen, (200, 230, 255, int(80 * eff_fade)),
+                             (c_inner_x, c_inner_y), (c_outer_x, c_outer_y), 1)
+
+    # --- 바람 파티클 (먼지/나뭇잎) ---
+    particle_range = int(base_vortex_r * 2.5 * max(0.3, scale))
+    if random.random() < 0.5 * eff_fade:
+        # 소용돌이 방향으로 회전하는 파티클
+        p_angle = random.uniform(0, math.pi * 2)
+        p_dist = random.uniform(vortex_r * 0.5, particle_range)
+        px = zx + int(math.cos(p_angle) * p_dist)
+        py = zy + int(math.sin(p_angle) * p_dist)
         dot_size = random.randint(1, 3)
-        dot_alpha = int(random.randint(80, 160) * fade)
+        dot_alpha = int(random.randint(60, 150) * eff_fade)
         dot_color = random.choice([
             (200, 230, 255, dot_alpha),
             (160, 200, 240, dot_alpha),
-            (220, 210, 180, dot_alpha),
+            (230, 230, 210, dot_alpha),
+            (180, 215, 245, dot_alpha),
         ])
         ps = pygame.Surface((dot_size * 2, dot_size * 2), pygame.SRCALPHA)
         pygame.draw.circle(ps, dot_color, (dot_size, dot_size), dot_size)
@@ -133053,7 +133262,7 @@ def handle_ball():
                 if boss_special_gauge < 0:
                     boss_special_gauge = 0
         # 각시탈 소용돌이 (20% 확률, 게이지 150) — 각시탈 전용
-        if current_stage == 1 and current_boss_name == "각시탈" and not fan_wind_active and not fan_wind_used_this_round and boss_special_gauge >= 150:
+        if current_stage == 1 and current_boss_name == "각시탈" and not fan_wind_active and not fan_wind_charging and not fan_wind_used_this_round and boss_special_gauge >= 150:
             if random.random() < 0.20:
                 activate_fan_wind()
                 _wind_shouts = ["소용돌이!", "빨려들어라~!", "회오리바람!"]
@@ -133798,7 +134007,7 @@ def handle_ball():
                         boss_special_gauge = 0
             elif current_boss_name == "각시탈":
                 # 부채던지기 발동 (15% 확률)
-                if random.random() <= 0.15 and not fan_throw_active:
+                if random.random() <= 0.15 and not fan_throw_active and not fan_throw_windup_active:
                     activate_fan_throw()
                     _fan_shouts = ["받아라~!", "부채 선물!", "날아간다~!"]
                     show_speech(random.choice(_fan_shouts), duration=90)
@@ -139318,9 +139527,15 @@ def show_result(won):
         fan_throw_active = False
         fan_throw_timer = 0
         fan_throw_knockback_timer = 0
+        fan_throw_windup_active = False
+        fan_throw_windup_timer = 0
+        fan_throw_hit_effect_timer = 0
         fan_wind_active = False
         fan_wind_timer = 0
         fan_wind_used_this_round = False
+        fan_wind_charging = False
+        fan_wind_charge_timer = 0
+        fan_wind_growth_scale = 0.0
         # 호위무사 시스템 초기화 (게임 오버 시, 최대 2명)
         try:
             from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
@@ -140418,15 +140633,23 @@ def main(stage_num, new_boss_mode=False):
     patrol_guards_used_this_round = False
     # 각시탈 스킬 초기화 (스테이지 초기화 시)
     global fan_throw_active, fan_throw_timer, fan_throw_knockback_timer
+    global fan_throw_windup_active, fan_throw_windup_timer, fan_throw_hit_effect_timer
     global fan_wind_active, fan_wind_timer, fan_wind_used_this_round, fan_wind_captured, fan_wind_capture_timer
+    global fan_wind_charging, fan_wind_charge_timer, fan_wind_growth_scale
     fan_throw_active = False
     fan_throw_timer = 0
     fan_throw_knockback_timer = 0
+    fan_throw_windup_active = False
+    fan_throw_windup_timer = 0
+    fan_throw_hit_effect_timer = 0
     fan_wind_active = False
     fan_wind_timer = 0
     fan_wind_used_this_round = False
     fan_wind_captured = False
     fan_wind_capture_timer = 0
+    fan_wind_charging = False
+    fan_wind_charge_timer = 0
+    fan_wind_growth_scale = 0.0
     from config.stage_configs import BOSS_VARIANTS, get_boss_config_by_name
     if stage_num in BOSS_VARIANTS and len(BOSS_VARIANTS[stage_num]) > 1:
         # 보스 룰렛 선출
@@ -141437,9 +141660,15 @@ def main(stage_num, new_boss_mode=False):
             fan_throw_active = False
             fan_throw_timer = 0
             fan_throw_knockback_timer = 0
+            fan_throw_windup_active = False
+            fan_throw_windup_timer = 0
+            fan_throw_hit_effect_timer = 0
             fan_wind_active = False
             fan_wind_timer = 0
             fan_wind_used_this_round = False
+            fan_wind_charging = False
+            fan_wind_charge_timer = 0
+            fan_wind_growth_scale = 0.0
             # 호위무사 시스템 초기화 (ESC 메뉴 복귀 시, 최대 2명)
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
@@ -143819,9 +144048,15 @@ def main(stage_num, new_boss_mode=False):
                     fan_throw_active = False
                     fan_throw_timer = 0
                     fan_throw_knockback_timer = 0
+                    fan_throw_windup_active = False
+                    fan_throw_windup_timer = 0
+                    fan_throw_hit_effect_timer = 0
                     fan_wind_active = False
                     fan_wind_timer = 0
                     fan_wind_used_this_round = False
+                    fan_wind_charging = False
+                    fan_wind_charge_timer = 0
+                    fan_wind_growth_scale = 0.0
                     # 호위무사 시스템 초기화 (강제 종료 시, 최대 2명)
                     try:
                         from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
