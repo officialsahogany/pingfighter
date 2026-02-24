@@ -2745,287 +2745,571 @@ class SpaceMap:
             surf.blit(mist_s, (0, H * 2 // 3))
 
     # ──────────────────────────────────────────────────────────
-    #  조선시대 경기장 스타디움 (관중석 + 기와지붕 + 난간 + 기둥)
+    #  조선시대 스타일 경기장 외곽 테두리 (인셋 — 경기장 위에 겹침)
     # ──────────────────────────────────────────────────────────
-    _joseon_stadium_cache = None   # (cache_key, surface)
-
     def _draw_joseon_arena_border(self, screen, ix, iy, ig_w, ig_h, arena_scale):
-        """경기장 주변에 조선시대 스타디움을 그린다.
-        관중석, 기와지붕, 나무 난간, 기둥, 깃발 포함."""
-        if arena_scale < 0.08 or ig_w < 16 or ig_h < 16:
+        """경기장 가장자리 위에 조선시대 양식의 프레임을 덧그린다.
+        인셋 방식: 경기장 영역 안쪽+바깥쪽 양쪽으로 걸치되,
+        화면 밖으로 나가지 않도록 클리핑."""
+        if arena_scale < 0.08 or ig_w < 12 or ig_h < 12:
             return
 
-        # 캐시 키 (10단계)
-        cache_key = (int(arena_scale * 10), ig_w, ig_h)
-        if self._joseon_stadium_cache and self._joseon_stadium_cache[0] == cache_key:
-            cached_surf, cached_ox, cached_oy = self._joseon_stadium_cache[1]
-            screen.blit(cached_surf, (cached_ox, cached_oy))
+        # ── 스케일 비례 두께 ──
+        bw = max(6, int(28 * arena_scale))       # 나무 프레임 두께
+        tile_h = max(4, int(14 * arena_scale))    # 기와 높이
+        dc_w = max(2, int(8 * arena_scale))       # 단청 띠 두께
+        corner_r = max(6, int(22 * arena_scale))  # 모서리 장식
+
+        # 프레임은 경기장 가장자리 중심으로 안/밖 반반
+        half_in = bw // 2
+        half_out = bw - half_in
+
+        # 서피스 크기 = 경기장 + 바깥 여유
+        sw = ig_w + half_out * 2 + 4
+        sh = ig_h + half_out * 2 + tile_h + 4
+        brd = pygame.Surface((sw, sh), pygame.SRCALPHA)
+
+        # brd 내 경기장의 로컬 좌표
+        ax = half_out + 2            # 경기장 좌측
+        ay = half_out + tile_h + 2   # 경기장 상단
+        aw = ig_w                    # 경기장 너비
+        ah = ig_h                    # 경기장 높이
+
+        # 색상
+        dark_wood = (55, 32, 18)
+        mid_wood = (88, 55, 28)
+        light_wood = (120, 78, 38)
+        gold = (195, 155, 45)
+        gold_hi = (225, 195, 85)
+
+        # ===== 1) 나무 프레임 — 네 변을 경기장 가장자리에 걸쳐 그림 =====
+        # 상변 (기와 바로 아래)
+        fy = ay - half_out
+        pygame.draw.rect(brd, dark_wood, (ax - half_out, fy, aw + bw, bw))
+        pygame.draw.rect(brd, mid_wood, (ax - half_out + 2, fy + 2, aw + bw - 4, bw - 4))
+        # 하변
+        fy_b = ay + ah - half_in
+        pygame.draw.rect(brd, dark_wood, (ax - half_out, fy_b, aw + bw, bw))
+        pygame.draw.rect(brd, mid_wood, (ax - half_out + 2, fy_b + 2, aw + bw - 4, bw - 4))
+        # 좌변
+        fx_l = ax - half_out
+        pygame.draw.rect(brd, dark_wood, (fx_l, ay - half_out, bw, ah + bw))
+        pygame.draw.rect(brd, mid_wood, (fx_l + 2, ay - half_out + 2, bw - 4, ah + bw - 4))
+        # 우변
+        fx_r = ax + aw - half_in
+        pygame.draw.rect(brd, dark_wood, (fx_r, ay - half_out, bw, ah + bw))
+        pygame.draw.rect(brd, mid_wood, (fx_r + 2, ay - half_out + 2, bw - 4, ah + bw - 4))
+
+        # 나무 하이라이트 (내곽 가장자리 밝은 선)
+        pygame.draw.rect(brd, (*light_wood, 160),
+                         (ax - 1, ay - 1, aw + 2, ah + 2), 1)
+
+        # 나무결 (스케일 클 때만)
+        if arena_scale > 0.3:
+            grain_step = max(4, int(6 * arena_scale))
+            # 좌변 세로결
+            for gx in range(fx_l + 3, fx_l + bw - 2, grain_step):
+                pygame.draw.line(brd, (*light_wood, 45),
+                                 (gx, ay - half_out), (gx, ay + ah + half_out), 1)
+            # 우변 세로결
+            for gx in range(fx_r + 3, fx_r + bw - 2, grain_step):
+                pygame.draw.line(brd, (*light_wood, 45),
+                                 (gx, ay - half_out), (gx, ay + ah + half_out), 1)
+            # 상변 가로결
+            for gy in range(ay - half_out + 3, ay - half_out + bw - 2, grain_step):
+                pygame.draw.line(brd, (*light_wood, 45),
+                                 (ax - half_out, gy), (ax + aw + half_out, gy), 1)
+            # 하변 가로결
+            for gy in range(fy_b + 3, fy_b + bw - 2, grain_step):
+                pygame.draw.line(brd, (*light_wood, 45),
+                                 (ax - half_out, gy), (ax + aw + half_out, gy), 1)
+
+        # ===== 2) 단청 띠 (주홍-녹청-군청-황금) =====
+        dc_colors = [
+            (190, 48, 38),   # 주홍
+            (38, 128, 62),   # 녹청
+            (48, 72, 158),   # 군청
+            (205, 165, 48),  # 황금
+        ]
+        if dc_w >= 2 and arena_scale > 0.15:
+            stripe = max(1, dc_w // len(dc_colors))
+            # 상변 단청 (프레임 안쪽 가장자리)
+            for ci, dc in enumerate(dc_colors):
+                dy = ay - half_out + 2 + ci * stripe
+                if dy + stripe > ay + half_in:
+                    break
+                pygame.draw.rect(brd, (*dc, 200),
+                                 (ax + half_in, dy, aw - bw, stripe))
+            # 하변 단청
+            for ci, dc in enumerate(dc_colors):
+                dy = fy_b + bw - 2 - (ci + 1) * stripe
+                if dy < fy_b:
+                    break
+                pygame.draw.rect(brd, (*dc, 200),
+                                 (ax + half_in, dy, aw - bw, stripe))
+            # 좌변 단청
+            for ci, dc in enumerate(dc_colors):
+                dx = fx_l + 2 + ci * stripe
+                if dx + stripe > ax:
+                    break
+                pygame.draw.rect(brd, (*dc, 200),
+                                 (dx, ay + half_in, stripe, ah - bw))
+            # 우변 단청
+            for ci, dc in enumerate(dc_colors):
+                dx = fx_r + bw - 2 - (ci + 1) * stripe
+                if dx < ax + aw:
+                    break
+                pygame.draw.rect(brd, (*dc, 200),
+                                 (dx, ay + half_in, stripe, ah - bw))
+
+        # ===== 3) 기와 지붕 (상단 — 프레임 위) =====
+        if tile_h >= 3:
+            tile_dark = (42, 38, 32)
+            tile_mid = (68, 60, 50)
+            tile_light = (92, 84, 72)
+            tile_top = ay - half_out - tile_h
+            tile_left = ax - half_out
+            tile_w_full = aw + bw
+
+            # 기와 배경
+            pygame.draw.rect(brd, tile_dark,
+                             (tile_left, tile_top, tile_w_full, tile_h))
+            # 기와 한 장씩
+            tw = max(4, int(10 * arena_scale))
+            for tx in range(tile_left, tile_left + tile_w_full, tw):
+                cw = min(tw, tile_left + tile_w_full - tx)
+                if cw < 2:
+                    break
+                pygame.draw.rect(brd, tile_mid,
+                                 (tx + 1, tile_top + 1, cw - 1, tile_h - 2))
+                # 상단 하이라이트
+                pygame.draw.line(brd, tile_light,
+                                 (tx + 1, tile_top + 1),
+                                 (tx + cw - 1, tile_top + 1), 1)
+                # 홈 선
+                pygame.draw.line(brd, tile_dark,
+                                 (tx, tile_top), (tx, tile_top + tile_h), 1)
+
+            # 처마 선
+            pygame.draw.line(brd, tile_light,
+                             (tile_left, tile_top + tile_h - 1),
+                             (tile_left + tile_w_full, tile_top + tile_h - 1), 1)
+
+            # 추녀 (양 끝 올림)
+            if arena_scale > 0.3 and tile_w_full > 40:
+                lift = max(2, int(6 * arena_scale))
+                span = min(lift * 4, tile_w_full // 5)
+                for ei in range(span):
+                    curve = int(lift * (1.0 - ei / span) ** 2)
+                    ey = tile_top + tile_h - 1 - curve
+                    # 왼쪽
+                    pygame.draw.line(brd, tile_mid,
+                                     (tile_left + ei, ey),
+                                     (tile_left + ei, ey + max(1, curve // 2)), 1)
+                    # 오른쪽
+                    pygame.draw.line(brd, tile_mid,
+                                     (tile_left + tile_w_full - 1 - ei, ey),
+                                     (tile_left + tile_w_full - 1 - ei,
+                                      ey + max(1, curve // 2)), 1)
+
+        # ===== 4) 모서리 장식 (금테 + 꽃문양) =====
+        if corner_r >= 5 and arena_scale > 0.18:
+            corners = [
+                (ax - half_out, ay - half_out),
+                (ax + aw + half_out - corner_r, ay - half_out),
+                (ax - half_out, ay + ah + half_out - corner_r),
+                (ax + aw + half_out - corner_r, ay + ah + half_out - corner_r),
+            ]
+            for cx, cy in corners:
+                # 금색 사각
+                pygame.draw.rect(brd, gold, (cx, cy, corner_r, corner_r))
+                pygame.draw.rect(brd, dark_wood,
+                                 (cx + 2, cy + 2, corner_r - 4, corner_r - 4))
+                # 꽃 문양
+                ccx = cx + corner_r // 2
+                ccy = cy + corner_r // 2
+                pr = max(2, corner_r // 3)
+                pygame.draw.circle(brd, gold_hi, (ccx, ccy), pr)
+                # 꽃잎 (4방향)
+                if pr >= 3:
+                    for ang in range(0, 360, 90):
+                        dx = int(pr * 0.7 * math.cos(math.radians(ang)))
+                        dy = int(pr * 0.7 * math.sin(math.radians(ang)))
+                        pygame.draw.circle(brd, (190, 48, 38),
+                                           (ccx + dx, ccy + dy), max(1, pr // 2))
+                    pygame.draw.circle(brd, gold_hi, (ccx, ccy), max(1, pr // 2))
+
+        # ===== 5) 외곽 금선 =====
+        pygame.draw.rect(brd, (*gold, 220),
+                         (ax - half_out - 1, ay - half_out - 1,
+                          aw + bw + 2, ah + bw + 2), 1)
+
+        # ── 최종 블릿 ──
+        blit_x = ix - half_out - 2
+        blit_y = iy - half_out - tile_h - 2
+        screen.blit(brd, (blit_x, blit_y))
+
+    def _draw_jungle_arena_border(self, screen, ix, iy, ig_w, ig_h, arena_scale):
+        """경기장 가장자리 위에 정글/늪지 양식의 프레임을 덧그린다.
+        돌담+덩굴+이끼+해골+악어이빨+초가지붕 등 Stage 2 테마."""
+        if arena_scale < 0.08 or ig_w < 12 or ig_h < 12:
             return
 
-        # ── 스타디움 치수 (경기장 대비 비율 — 컴팩트) ──
-        stand_w = max(6, int(ig_w * 0.18))   # 좌/우 관중석 폭
-        stand_top = max(6, int(ig_h * 0.15)) # 상단 관중석 높이
-        stand_bot = max(6, int(ig_h * 0.13)) # 하단 관중석 높이
-        rail_h = max(2, int(8 * arena_scale))   # 난간 높이
-        roof_h = max(4, int(ig_h * 0.06))    # 기와지붕 높이
-        pillar_w = max(3, int(12 * arena_scale))  # 기둥 폭
+        # ── 스케일 비례 두께 ──
+        bw = max(6, int(30 * arena_scale))        # 돌 프레임 두께
+        canopy_h = max(5, int(18 * arena_scale))   # 상단 초가/잎 캐노피 높이
+        vine_w = max(2, int(6 * arena_scale))      # 덩굴 띠 두께
+        corner_r = max(6, int(24 * arena_scale))   # 모서리 장식
 
-        # 전체 서피스 크기
-        total_w = ig_w + stand_w * 2 + pillar_w * 2
-        total_h = ig_h + stand_top + stand_bot + roof_h
-        surf = pygame.Surface((total_w + 4, total_h + 4), pygame.SRCALPHA)
+        half_in = bw // 2
+        half_out = bw - half_in
 
-        # 서피스 내 경기장 로컬 좌표
-        fx = pillar_w + stand_w + 2   # 경기장 좌측
-        fy = roof_h + stand_top + 2    # 경기장 상단
+        # 서피스 크기
+        sw = ig_w + half_out * 2 + 4
+        sh = ig_h + half_out * 2 + canopy_h + 4
+        brd = pygame.Surface((sw, sh), pygame.SRCALPHA)
+
+        # brd 내 경기장 로컬 좌표
+        ax = half_out + 2
+        ay = half_out + canopy_h + 2
+        aw = ig_w
+        ah = ig_h
 
         # ── 색상 팔레트 ──
-        dk_wood = (55, 32, 18)
-        md_wood = (92, 58, 30)
-        lt_wood = (125, 82, 42)
-        hi_wood = (158, 112, 58)
-        stone_dk = (72, 68, 62)
-        stone_md = (98, 92, 82)
-        stone_lt = (118, 112, 100)
-        cyan_wall = (65, 140, 155)
-        cyan_dk = (48, 105, 118)
-        seat_colors = [(95, 88, 78), (105, 98, 85), (88, 82, 72), (110, 102, 90)]
-        banner_red = (175, 42, 35)
-        banner_gold = (195, 155, 45)
-        gold_hi = (225, 195, 85)
-        dancheong = [(185, 45, 38), (38, 125, 60), (45, 70, 152), (200, 160, 45)]
+        rock_dark = (38, 40, 32)
+        rock_mid = (58, 62, 48)
+        rock_light = (78, 82, 65)
+        rock_hl = (95, 100, 78)
+        moss_dark = (22, 55, 18)
+        moss_mid = (35, 78, 28)
+        moss_bright = (52, 105, 38)
+        vine_dark = (20, 52, 15)
+        vine_mid = (32, 75, 25)
+        vine_bright = (50, 110, 38)
+        bone_color = (185, 175, 145)
+        bone_dark = (140, 130, 105)
+        gold_trim = (165, 140, 50)
+        gold_hi = (200, 175, 70)
+        skull_white = (195, 185, 160)
+        skull_shadow = (120, 110, 90)
+        tooth_white = (210, 205, 190)
+        tooth_shadow = (160, 150, 130)
 
-        random.seed(7799)
+        # ===== 1) 돌 프레임 — 네 변 (이끼 낀 암석) =====
+        # 상변
+        fy = ay - half_out
+        pygame.draw.rect(brd, rock_dark, (ax - half_out, fy, aw + bw, bw))
+        pygame.draw.rect(brd, rock_mid, (ax - half_out + 2, fy + 2, aw + bw - 4, bw - 4))
+        # 하변
+        fy_b = ay + ah - half_in
+        pygame.draw.rect(brd, rock_dark, (ax - half_out, fy_b, aw + bw, bw))
+        pygame.draw.rect(brd, rock_mid, (ax - half_out + 2, fy_b + 2, aw + bw - 4, bw - 4))
+        # 좌변
+        fx_l = ax - half_out
+        pygame.draw.rect(brd, rock_dark, (fx_l, ay - half_out, bw, ah + bw))
+        pygame.draw.rect(brd, rock_mid, (fx_l + 2, ay - half_out + 2, bw - 4, ah + bw - 4))
+        # 우변
+        fx_r = ax + aw - half_in
+        pygame.draw.rect(brd, rock_dark, (fx_r, ay - half_out, bw, ah + bw))
+        pygame.draw.rect(brd, rock_mid, (fx_r + 2, ay - half_out + 2, bw - 4, ah + bw - 4))
 
-        # ===== 1) 관중석 배경 (4면) =====
-        # 상단 관중석
-        pygame.draw.rect(surf, stone_dk,
-                         (fx - stand_w, fy - stand_top, ig_w + stand_w * 2, stand_top))
-        # 하단 관중석
-        pygame.draw.rect(surf, stone_dk,
-                         (fx - stand_w, fy + ig_h, ig_w + stand_w * 2, stand_bot))
-        # 좌측 관중석
-        pygame.draw.rect(surf, stone_dk,
-                         (fx - stand_w, fy, stand_w, ig_h))
-        # 우측 관중석
-        pygame.draw.rect(surf, stone_dk,
-                         (fx + ig_w, fy, stand_w, ig_h))
+        # 내곽 가장자리 밝은 선
+        pygame.draw.rect(brd, (*rock_hl, 140),
+                         (ax - 1, ay - 1, aw + 2, ah + 2), 1)
 
-        # ===== 2) 관중석 계단식 줄 (row) + 관중 =====
-        row_h = max(3, int(8 * arena_scale))
-
-        def _draw_stand_rows(x, y, w, h, horizontal=True):
-            """계단식 관중석 줄 그리기 + 관중 점"""
-            num_rows = max(2, h // row_h)
-            for ri in range(num_rows):
-                ry = y + ri * (h // num_rows)
-                rh = max(2, h // num_rows - 1)
-                # 좌석 줄 배경 (번갈아 색상)
-                sc = seat_colors[ri % len(seat_colors)]
-                pygame.draw.rect(surf, sc, (x, ry, w, rh))
-                # 줄 하단 그림자
-                pygame.draw.line(surf, stone_dk, (x, ry + rh), (x + w, ry + rh), 1)
-                # 관중 (작은 점들)
-                if arena_scale > 0.15:
-                    dot_step = max(2, int(4 / arena_scale))
-                    for dx in range(2, w - 1, dot_step):
-                        if random.random() < 0.7:  # 70% 좌석 점유
-                            dy = random.randint(1, max(1, rh - 2))
-                            # 머리 색상 (다양)
-                            head_c = random.choice([
-                                (45, 35, 28), (62, 48, 35), (38, 30, 22),
-                                (180, 160, 140), (55, 42, 32), (72, 55, 38)])
-                            dot_r = max(1, int(1.5 * arena_scale))
-                            pygame.draw.circle(surf, head_c,
-                                               (x + dx, ry + dy), dot_r)
-
-        # 상단 관중석 줄
-        _draw_stand_rows(fx - stand_w, fy - stand_top, ig_w + stand_w * 2, stand_top)
-        # 하단 관중석 줄
-        _draw_stand_rows(fx - stand_w, fy + ig_h, ig_w + stand_w * 2, stand_bot)
-        # 좌측 관중석 줄
-        _draw_stand_rows(fx - stand_w, fy, stand_w, ig_h)
-        # 우측 관중석 줄
-        _draw_stand_rows(fx + ig_w, fy, stand_w, ig_h)
-
-        # ===== 3) 나무 난간 (경기장 바로 주변) =====
-        # 상단 난간
-        pygame.draw.rect(surf, dk_wood,
-                         (fx - 2, fy - rail_h, ig_w + 4, rail_h))
-        pygame.draw.rect(surf, md_wood,
-                         (fx - 1, fy - rail_h + 1, ig_w + 2, rail_h - 2))
-        # 난간 세로 살대
-        if arena_scale > 0.2:
-            bar_step = max(4, int(12 * arena_scale))
-            for bx in range(fx, fx + ig_w, bar_step):
-                pygame.draw.line(surf, lt_wood,
-                                 (bx, fy - rail_h + 1), (bx, fy - 1), 1)
-        # 하단 난간
-        pygame.draw.rect(surf, dk_wood,
-                         (fx - 2, fy + ig_h, ig_w + 4, rail_h))
-        pygame.draw.rect(surf, md_wood,
-                         (fx - 1, fy + ig_h + 1, ig_w + 2, rail_h - 2))
-        if arena_scale > 0.2:
-            for bx in range(fx, fx + ig_w, bar_step):
-                pygame.draw.line(surf, lt_wood,
-                                 (bx, fy + ig_h + 1), (bx, fy + ig_h + rail_h - 1), 1)
-        # 좌측 난간
-        pygame.draw.rect(surf, dk_wood,
-                         (fx - rail_h - 2, fy - 2, rail_h, ig_h + 4))
-        pygame.draw.rect(surf, md_wood,
-                         (fx - rail_h - 1, fy - 1, rail_h - 2, ig_h + 2))
-        # 우측 난간
-        pygame.draw.rect(surf, dk_wood,
-                         (fx + ig_w + 2, fy - 2, rail_h, ig_h + 4))
-        pygame.draw.rect(surf, md_wood,
-                         (fx + ig_w + 3, fy - 1, rail_h - 2, ig_h + 2))
-
-        # 난간 상단 하이라이트
-        pygame.draw.line(surf, hi_wood,
-                         (fx - 2, fy - rail_h), (fx + ig_w + 2, fy - rail_h), 1)
-        pygame.draw.line(surf, hi_wood,
-                         (fx - 2, fy + ig_h + rail_h), (fx + ig_w + 2, fy + ig_h + rail_h), 1)
-
-        # ===== 4) 시안색 담벼락 (난간 바로 바깥, 관중석 안쪽 경계) =====
-        wall_h = max(2, int(6 * arena_scale))
-        # 상단 벽
-        pygame.draw.rect(surf, cyan_wall,
-                         (fx - rail_h - 2, fy - rail_h - wall_h,
-                          ig_w + rail_h * 2 + 4, wall_h))
-        pygame.draw.line(surf, cyan_dk,
-                         (fx - rail_h - 2, fy - rail_h - 1),
-                         (fx + ig_w + rail_h + 2, fy - rail_h - 1), 1)
-        # 하단 벽
-        pygame.draw.rect(surf, cyan_wall,
-                         (fx - rail_h - 2, fy + ig_h + rail_h,
-                          ig_w + rail_h * 2 + 4, wall_h))
-
-        # ===== 5) 기둥 (네 모서리) =====
-        pl_h = stand_top + ig_h + stand_bot  # 기둥 전체 높이
-        pl_y = fy - stand_top
-        corners_x = [fx - stand_w - pillar_w, fx + ig_w + stand_w]
-        for px in corners_x:
-            # 기둥 본체
-            pygame.draw.rect(surf, dk_wood,
-                             (px, pl_y, pillar_w, pl_h))
-            pygame.draw.rect(surf, md_wood,
-                             (px + 1, pl_y + 1, pillar_w - 2, pl_h - 2))
-            # 기둥 하이라이트 (왼쪽 면)
-            pygame.draw.line(surf, lt_wood,
-                             (px + 2, pl_y), (px + 2, pl_y + pl_h), 1)
-            # 기둥 단청 띠 (위아래)
-            if arena_scale > 0.2:
-                for di, dc in enumerate(dancheong):
-                    dh = max(1, int(3 * arena_scale))
-                    # 상단 띠
-                    pygame.draw.rect(surf, dc,
-                                     (px + 1, pl_y + 2 + di * dh,
-                                      pillar_w - 2, dh))
-                    # 하단 띠
-                    pygame.draw.rect(surf, dc,
-                                     (px + 1, pl_y + pl_h - 2 - (di + 1) * dh,
-                                      pillar_w - 2, dh))
-
-        # ===== 6) 기와 지붕 (상단 전체) =====
-        roof_y = fy - stand_top - roof_h
-        roof_w = total_w
-        tile_dk = (42, 38, 32)
-        tile_md = (68, 60, 50)
-        tile_lt = (92, 84, 72)
-
-        # 지붕 배경
-        pygame.draw.rect(surf, tile_dk, (2, roof_y, roof_w, roof_h))
-        # 기와 골
-        tw = max(4, int(10 * arena_scale))
-        for tx in range(2, 2 + roof_w, tw):
-            cw = min(tw, 2 + roof_w - tx)
-            if cw < 2:
-                break
-            pygame.draw.rect(surf, tile_md,
-                             (tx + 1, roof_y + 1, cw - 1, roof_h - 2))
-            pygame.draw.line(surf, tile_lt,
-                             (tx + 1, roof_y + 1), (tx + cw - 1, roof_y + 1), 1)
-            pygame.draw.line(surf, tile_dk,
-                             (tx, roof_y), (tx, roof_y + roof_h), 1)
-
-        # 처마 선
-        pygame.draw.line(surf, tile_lt,
-                         (2, roof_y + roof_h - 1),
-                         (2 + roof_w, roof_y + roof_h - 1), 1)
-
-        # 추녀 (양 끝 올림)
+        # 돌 질감 (불규칙 돌 블록 — 스케일 클 때만)
         if arena_scale > 0.25:
-            lift = max(3, int(8 * arena_scale))
-            span = min(lift * 5, roof_w // 4)
-            for ei in range(span):
-                curve = int(lift * (1.0 - ei / span) ** 2)
-                ey = roof_y + roof_h - 1 - curve
-                pygame.draw.line(surf, tile_md,
-                                 (2 + ei, ey), (2 + ei, ey + max(1, curve)), 1)
-                pygame.draw.line(surf, tile_md,
-                                 (2 + roof_w - 1 - ei, ey),
-                                 (2 + roof_w - 1 - ei, ey + max(1, curve)), 1)
+            random.seed(9101)
+            stone_step = max(4, int(7 * arena_scale))
+            # 상변/하변 가로 줄눈
+            for gy in range(fy + 3, fy + bw - 2, stone_step):
+                pygame.draw.line(brd, (*rock_dark, 60),
+                                 (ax - half_out, gy), (ax + aw + half_out, gy), 1)
+            for gy in range(fy_b + 3, fy_b + bw - 2, stone_step):
+                pygame.draw.line(brd, (*rock_dark, 60),
+                                 (ax - half_out, gy), (ax + aw + half_out, gy), 1)
+            # 좌변/우변 가로 줄눈
+            for gy in range(ay - half_out + 3, ay + ah + half_out - 2, stone_step):
+                pygame.draw.line(brd, (*rock_dark, 60),
+                                 (fx_l, gy), (fx_l + bw, gy), 1)
+                pygame.draw.line(brd, (*rock_dark, 60),
+                                 (fx_r, gy), (fx_r + bw, gy), 1)
+            # 세로 줄눈 (엇갈림)
+            for gx in range(ax - half_out + 4, ax + aw + half_out - 2, stone_step * 2):
+                row_offset = (gx // stone_step) % 2
+                for gy_s in range(fy + 3 + row_offset * (stone_step // 2),
+                                  fy + bw - 2, stone_step):
+                    pygame.draw.line(brd, (*rock_dark, 50),
+                                     (gx, gy_s), (gx, min(gy_s + stone_step - 1, fy + bw - 2)), 1)
+            random.seed()
 
-        # 지붕 위 용마루 (가운데 돌출)
-        ridge_h = max(2, int(4 * arena_scale))
-        ridge_w = max(20, roof_w // 3)
-        rx = 2 + (roof_w - ridge_w) // 2
-        pygame.draw.rect(surf, tile_dk, (rx, roof_y - ridge_h, ridge_w, ridge_h))
-        pygame.draw.rect(surf, tile_md, (rx + 1, roof_y - ridge_h + 1,
-                                          ridge_w - 2, ridge_h - 1))
-        # 단청 장식 (용마루 아래)
+        # ===== 2) 이끼/덩굴 레이어 (돌 위에 자라는 식물) =====
+        if arena_scale > 0.15:
+            random.seed(9102)
+            # 이끼 얼룩 (돌 프레임 위)
+            for _ in range(int(40 * arena_scale)):
+                mx = ax - half_out + random.randint(0, aw + bw - 1)
+                my = ay - half_out + random.randint(0, ah + bw - 1)
+                # 프레임 영역에만 (코트 안은 건너뜀)
+                in_frame = (mx < ax or mx > ax + aw or my < ay or my > ay + ah)
+                if not in_frame:
+                    continue
+                mr = random.randint(2, max(3, int(8 * arena_scale)))
+                ms = pygame.Surface((mr * 2, mr * 2), pygame.SRCALPHA)
+                mc = random.choice([moss_dark, moss_mid, (28, 62, 22)])
+                pygame.draw.circle(ms, (*mc, random.randint(40, 90)), (mr, mr), mr)
+                brd.blit(ms, (mx - mr, my - mr))
+
+            # 덩굴 (상단 벽에서 늘어짐)
+            for _ in range(int(16 * arena_scale)):
+                vx = ax + random.randint(5, max(6, aw - 5))
+                vy = ay - half_out + 2
+                vl = random.randint(max(5, int(8 * arena_scale)),
+                                    max(10, int(28 * arena_scale)))
+                for vi in range(vl):
+                    vx_o = vx + int(2.5 * math.sin(vi * 0.6 + vx * 0.1))
+                    vr = max(1, int(2.5 * arena_scale) - vi // max(3, vl // 3))
+                    if vr < 1:
+                        vr = 1
+                    vc = vine_mid if vi % 3 else vine_bright
+                    pygame.draw.circle(brd, vc, (vx_o, vy + vi), vr)
+                    # 작은 잎 (간헐적)
+                    if vi % max(3, vl // 4) == 0 and vi > 2:
+                        leaf_r = max(2, int(3 * arena_scale))
+                        side = random.choice([-1, 1])
+                        pygame.draw.ellipse(brd, moss_mid,
+                                            (vx_o + side * 2, vy + vi - 1,
+                                             leaf_r * 2, leaf_r))
+
+            # 하단 벽에서 올라오는 덩굴
+            for _ in range(int(10 * arena_scale)):
+                vx = ax + random.randint(5, max(6, aw - 5))
+                vy = ay + ah + half_out - 2
+                vl = random.randint(max(4, int(6 * arena_scale)),
+                                    max(8, int(18 * arena_scale)))
+                for vi in range(vl):
+                    vx_o = vx + int(2 * math.sin(vi * 0.5 + vx * 0.08))
+                    vr = max(1, int(2 * arena_scale) - vi // max(3, vl // 3))
+                    if vr < 1:
+                        vr = 1
+                    pygame.draw.circle(brd, vine_dark, (vx_o, vy - vi), vr)
+
+            # 좌우 벽 덩굴
+            for side_x in [fx_l + 2, fx_r + bw - 3]:
+                for _ in range(int(6 * arena_scale)):
+                    vy = ay + random.randint(int(8 * arena_scale),
+                                             max(10, ah - int(8 * arena_scale)))
+                    vl = random.randint(max(3, int(5 * arena_scale)),
+                                        max(6, int(14 * arena_scale)))
+                    direction = 1 if side_x < ax else -1
+                    for vi in range(vl):
+                        vx_o = side_x + direction * vi // 2
+                        vy_o = vy + int(2 * math.sin(vi * 0.6))
+                        pygame.draw.circle(brd, vine_dark, (vx_o, vy_o),
+                                           max(1, int(1.5 * arena_scale)))
+            random.seed()
+
+        # ===== 3) 초가/잎 캐노피 (상단 — 프레임 위) =====
+        if canopy_h >= 4:
+            canopy_top = ay - half_out - canopy_h
+            canopy_left = ax - half_out - 2
+            canopy_w_full = aw + bw + 4
+
+            # 캐노피 뼈대 (가로 나무 기둥)
+            pygame.draw.rect(brd, (60, 42, 20),
+                             (canopy_left, canopy_top + canopy_h - 2,
+                              canopy_w_full, max(2, int(3 * arena_scale))))
+            pygame.draw.rect(brd, (80, 58, 30),
+                             (canopy_left + 1, canopy_top + canopy_h - 1,
+                              canopy_w_full - 2, max(1, int(2 * arena_scale))))
+
+            # 초가/잎 지붕 (짚+넓은잎 질감)
+            random.seed(9103)
+            leaf_colors = [
+                (65, 78, 32), (55, 70, 28), (75, 88, 38),
+                (48, 62, 25), (82, 95, 42), (58, 72, 30),
+            ]
+            # 기본 배경 (어두운 초록)
+            pygame.draw.rect(brd, (45, 55, 22),
+                             (canopy_left, canopy_top, canopy_w_full, canopy_h))
+
+            # 잎/짚 한 겹씩
+            leaf_w = max(4, int(8 * arena_scale))
+            for tx in range(canopy_left, canopy_left + canopy_w_full, leaf_w):
+                cw_leaf = min(leaf_w, canopy_left + canopy_w_full - tx)
+                if cw_leaf < 2:
+                    break
+                lc = random.choice(leaf_colors)
+                # 기본 잎 블록
+                pygame.draw.rect(brd, lc,
+                                 (tx, canopy_top + 1, cw_leaf, canopy_h - 2))
+                # 상단 하이라이트 (빛 받는 면)
+                lc_hl = (min(255, lc[0] + 20), min(255, lc[1] + 18), min(255, lc[2] + 12))
+                pygame.draw.line(brd, lc_hl,
+                                 (tx + 1, canopy_top + 1),
+                                 (tx + cw_leaf - 1, canopy_top + 1), 1)
+                # 줄눈 (잎 사이 틈)
+                pygame.draw.line(brd, (35, 42, 18),
+                                 (tx, canopy_top), (tx, canopy_top + canopy_h), 1)
+
+            # 처마 (하단 — 매달린 잎/짚)
+            if arena_scale > 0.25:
+                for tx in range(canopy_left + 2, canopy_left + canopy_w_full - 2,
+                                max(3, int(5 * arena_scale))):
+                    droop = random.randint(2, max(3, int(6 * arena_scale)))
+                    dc = random.choice(leaf_colors)
+                    for di in range(droop):
+                        da = max(1, 200 - di * 40)
+                        pygame.draw.line(brd, (*dc, da),
+                                         (tx, canopy_top + canopy_h + di),
+                                         (tx + 1, canopy_top + canopy_h + di), 1)
+
+            # 양끝 처마 올림 (초가지붕 곡선)
+            if arena_scale > 0.3 and canopy_w_full > 40:
+                lift = max(2, int(5 * arena_scale))
+                span = min(lift * 4, canopy_w_full // 5)
+                for ei in range(span):
+                    curve = int(lift * (1.0 - ei / span) ** 2)
+                    ey = canopy_top + canopy_h - 1 - curve
+                    lc_e = random.choice(leaf_colors)
+                    # 왼쪽
+                    pygame.draw.line(brd, lc_e,
+                                     (canopy_left + ei, ey),
+                                     (canopy_left + ei, ey + max(1, curve // 2)), 1)
+                    # 오른쪽
+                    pygame.draw.line(brd, lc_e,
+                                     (canopy_left + canopy_w_full - 1 - ei, ey),
+                                     (canopy_left + canopy_w_full - 1 - ei,
+                                      ey + max(1, curve // 2)), 1)
+            random.seed()
+
+        # ===== 4) 악어이빨 테두리 (내곽 가장자리) =====
         if arena_scale > 0.2:
-            for di, dc in enumerate(dancheong):
-                dh = max(1, int(2 * arena_scale))
-                dy = roof_y - 1 - (di + 1) * dh
-                pygame.draw.rect(surf, dc,
-                                 (rx + 2, dy, ridge_w - 4, dh))
+            tooth_h = max(3, int(6 * arena_scale))
+            tooth_w = max(3, int(5 * arena_scale))
+            # 상단 이빨 (아래로 향함)
+            for tx in range(ax + 2, ax + aw - 2, tooth_w * 2):
+                tw_actual = min(tooth_w, ax + aw - tx - 2)
+                if tw_actual < 2:
+                    break
+                pygame.draw.polygon(brd, tooth_white,
+                                    [(tx, ay - 1),
+                                     (tx + tw_actual, ay - 1),
+                                     (tx + tw_actual // 2, ay + tooth_h - 1)])
+                pygame.draw.polygon(brd, tooth_shadow,
+                                    [(tx, ay - 1),
+                                     (tx + tw_actual, ay - 1),
+                                     (tx + tw_actual // 2, ay + tooth_h - 1)], 1)
+            # 하단 이빨 (위로 향함)
+            for tx in range(ax + 2, ax + aw - 2, tooth_w * 2):
+                tw_actual = min(tooth_w, ax + aw - tx - 2)
+                if tw_actual < 2:
+                    break
+                pygame.draw.polygon(brd, tooth_white,
+                                    [(tx, ay + ah),
+                                     (tx + tw_actual, ay + ah),
+                                     (tx + tw_actual // 2, ay + ah - tooth_h)])
+                pygame.draw.polygon(brd, tooth_shadow,
+                                    [(tx, ay + ah),
+                                     (tx + tw_actual, ay + ah),
+                                     (tx + tw_actual // 2, ay + ah - tooth_h)], 1)
 
-        # ===== 7) 현수막/깃발 (관중석 위) =====
-        if arena_scale > 0.2:
-            banner_w = max(6, int(20 * arena_scale))
-            banner_h_px = max(4, int(12 * arena_scale))
-            # 상단 관중석에 깃발들
-            for bi in range(3, ig_w + stand_w * 2 - banner_w, max(banner_w * 3, 20)):
-                bx = fx - stand_w + bi
-                by = fy - stand_top + max(2, int(4 * arena_scale))
-                bc = random.choice([banner_red, (38, 85, 145), (145, 42, 95),
-                                    (42, 120, 55), banner_gold])
-                pygame.draw.rect(surf, bc, (bx, by, banner_w, banner_h_px))
-                pygame.draw.rect(surf, (min(255, bc[0] + 40),
-                                         min(255, bc[1] + 40),
-                                         min(255, bc[2] + 40)),
-                                 (bx + 1, by + 1, banner_w - 2, banner_h_px - 2), 1)
+        # ===== 5) 모서리 장식 (해골+뼈 문양) =====
+        if corner_r >= 5 and arena_scale > 0.18:
+            corners = [
+                (ax - half_out, ay - half_out),
+                (ax + aw + half_out - corner_r, ay - half_out),
+                (ax - half_out, ay + ah + half_out - corner_r),
+                (ax + aw + half_out - corner_r, ay + ah + half_out - corner_r),
+            ]
+            for ccx, ccy in corners:
+                # 돌 베이스
+                pygame.draw.rect(brd, rock_dark, (ccx, ccy, corner_r, corner_r))
+                pygame.draw.rect(brd, rock_mid,
+                                 (ccx + 1, ccy + 1, corner_r - 2, corner_r - 2))
+                # 해골 문양
+                scx = ccx + corner_r // 2
+                scy = ccy + corner_r // 2
+                sr = max(2, corner_r // 3)
+                # 두개골 (상부 원형)
+                pygame.draw.circle(brd, skull_white, (scx, scy - 1), sr)
+                pygame.draw.circle(brd, skull_shadow, (scx, scy - 1), sr, 1)
+                # 턱 (하부)
+                if sr >= 3:
+                    pygame.draw.rect(brd, skull_white,
+                                     (scx - sr + 1, scy, sr * 2 - 2, max(1, sr // 2)))
+                    # 눈구멍
+                    eye_off = max(1, sr // 2)
+                    pygame.draw.circle(brd, rock_dark,
+                                       (scx - eye_off, scy - 1), max(1, sr // 3))
+                    pygame.draw.circle(brd, rock_dark,
+                                       (scx + eye_off, scy - 1), max(1, sr // 3))
+                    # 코
+                    pygame.draw.polygon(brd, rock_dark,
+                                        [(scx, scy),
+                                         (scx - 1, scy + 1),
+                                         (scx + 1, scy + 1)])
+                # 교차 뼈 (X자)
+                if corner_r >= 10:
+                    bone_l = max(2, corner_r // 3)
+                    pygame.draw.line(brd, bone_color,
+                                     (scx - bone_l, scy + sr),
+                                     (scx + bone_l, scy + sr + bone_l), 1)
+                    pygame.draw.line(brd, bone_color,
+                                     (scx + bone_l, scy + sr),
+                                     (scx - bone_l, scy + sr + bone_l), 1)
 
-        # ===== 8) 조명탑 (기둥 위 상단 양 끝) =====
-        if arena_scale > 0.2:
-            lamp_r = max(2, int(5 * arena_scale))
-            for px in corners_x:
-                lx = px + pillar_w // 2
-                ly = pl_y - lamp_r
-                # 등불 불빛 글로우
-                glow_r = lamp_r * 3
-                glow_s = pygame.Surface((glow_r * 2, glow_r * 2), pygame.SRCALPHA)
-                for gi in range(glow_r, 0, -1):
-                    ga = max(1, int(40 * gi / glow_r))
-                    pygame.draw.circle(glow_s, (255, 200, 80, ga),
-                                       (glow_r, glow_r), gi)
-                surf.blit(glow_s, (lx - glow_r, ly - glow_r))
-                # 등불 본체
-                pygame.draw.circle(surf, (255, 220, 120), (lx, ly), lamp_r)
-                pygame.draw.circle(surf, (255, 240, 180), (lx, ly), max(1, lamp_r - 1))
+        # ===== 6) 외곽 금/뼈 테두리 선 =====
+        # 바깥 금선
+        pygame.draw.rect(brd, (*gold_trim, 180),
+                         (ax - half_out - 1, ay - half_out - 1,
+                          aw + bw + 2, ah + bw + 2), 1)
+        # 안쪽 밝은 뼈색 선
+        pygame.draw.rect(brd, (*bone_dark, 120),
+                         (ax + 1, ay + 1, aw - 2, ah - 2), 1)
 
-        # ===== 9) 경기장 가장자리 금선 =====
-        pygame.draw.rect(surf, (*banner_gold, 200),
-                         (fx - 1, fy - 1, ig_w + 2, ig_h + 2), 1)
+        # ===== 7) 양쪽 횃불 장식 (큰 스케일에서만) =====
+        if arena_scale > 0.35:
+            torch_h = max(8, int(20 * arena_scale))
+            torch_w = max(3, int(5 * arena_scale))
+            for side_off in [-half_out - torch_w - 2, aw + half_out + 2]:
+                tx_t = ax + side_off
+                ty_t = ay + ah // 4
+                # 횃불 기둥 (나무)
+                pygame.draw.line(brd, (65, 45, 22),
+                                 (tx_t + torch_w // 2, ty_t),
+                                 (tx_t + torch_w // 2, ty_t + torch_h),
+                                 max(2, int(3 * arena_scale)))
+                pygame.draw.line(brd, (85, 60, 30),
+                                 (tx_t + torch_w // 2 - 1, ty_t + 1),
+                                 (tx_t + torch_w // 2 - 1, ty_t + torch_h - 1), 1)
+                # 불꽃 (여러 층 — 주황/노랑/빨강)
+                flame_cx = tx_t + torch_w // 2
+                flame_cy = ty_t - 1
+                flame_r = max(3, int(5 * arena_scale))
+                # 바깥 글로우 (주황)
+                glow_s = pygame.Surface((flame_r * 4, flame_r * 4), pygame.SRCALPHA)
+                pygame.draw.circle(glow_s, (255, 140, 30, 30),
+                                   (flame_r * 2, flame_r * 2), flame_r * 2)
+                brd.blit(glow_s, (flame_cx - flame_r * 2, flame_cy - flame_r * 2))
+                # 불꽃 본체 (빨간/주황)
+                pygame.draw.circle(brd, (220, 80, 20), (flame_cx, flame_cy), flame_r)
+                pygame.draw.circle(brd, (255, 160, 40),
+                                   (flame_cx, flame_cy - 1), max(1, flame_r - 1))
+                # 불꽃 코어 (노랑/흰)
+                pygame.draw.circle(brd, (255, 230, 100),
+                                   (flame_cx, flame_cy - 1), max(1, flame_r // 2))
+                # 불꽃 팁 (삼각형)
+                tip_h = max(2, flame_r)
+                pygame.draw.polygon(brd, (255, 200, 60),
+                                    [(flame_cx - 1, flame_cy - flame_r + 1),
+                                     (flame_cx + 1, flame_cy - flame_r + 1),
+                                     (flame_cx, flame_cy - flame_r - tip_h)])
 
-        random.seed()
-
-        # ── 최종 블릿 & 캐시 ──
-        blit_x = ix - (fx - 2)
-        blit_y = iy - (fy - 2)
-        self.__class__._joseon_stadium_cache = (cache_key, (surf, blit_x, blit_y))
-        screen.blit(surf, (blit_x, blit_y))
+        # ── 최종 블릿 ──
+        blit_x = ix - half_out - 2
+        blit_y = iy - half_out - canopy_h - 2
+        screen.blit(brd, (blit_x, blit_y))
 
     def _draw_surface_jungle(self, surf, t, alpha=255):
         """정글/늪지 행성 표면 — 고퀄리티. Stage 2 악어장군 테마.
@@ -5627,27 +5911,22 @@ class SpaceMap:
             # ── 경기장 (점점 커지며 등장) ──
             if arena_scale > 0.05:
                 if ingame_frame is not None:
-                    # 인게임 화면 크기 (점점 커짐)
+                    # 실제 인게임 화면을 경기장으로 사용
                     ig_w = int(self.W * arena_scale)
                     ig_h = int(self.H * arena_scale)
                     if ig_w > 4 and ig_h > 4:
-                        # ── 스타디움: 고정 크기 (화면의 55%) 먼저 그리기 ──
-                        if to_planet == 1:
-                            stad_scale = 0.55
-                            stad_w = int(self.W * stad_scale)
-                            stad_h = int(self.H * stad_scale)
-                            stad_ix = (self.W - stad_w) // 2
-                            stad_iy = (self.H - stad_h) // 2
-                            self._draw_joseon_arena_border(
-                                self.screen, stad_ix, stad_iy,
-                                stad_w, stad_h, stad_scale)
-
-                        # ── 인게임 화면: 위에 덮어서 점점 커짐 ──
                         scaled_ig = pygame.transform.smoothscale(
                             ingame_frame, (ig_w, ig_h))
                         ix = (self.W - ig_w) // 2
                         iy = (self.H - ig_h) // 2
                         self.screen.blit(scaled_ig, (ix, iy))
+                        # 테마별 경기장 외곽 테두리
+                        if to_planet == 1:
+                            self._draw_joseon_arena_border(
+                                self.screen, ix, iy, ig_w, ig_h, arena_scale)
+                        elif to_planet == 2:
+                            self._draw_jungle_arena_border(
+                                self.screen, ix, iy, ig_w, ig_h, arena_scale)
                 else:
                     # 폴백: 커스텀 경기장 드로잉
                     arena_surf = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
