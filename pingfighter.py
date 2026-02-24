@@ -17582,7 +17582,7 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
 def _swap_boss_in_current_stage():
     """F6 보스 교체 — 현재 스테이지에서 선택 가능한 보스 목록을 보여주고 교체"""
     global current_boss_name, BOSS_COLOR
-    global mask_swap_active, mask_swap_timer, mask_swap_visual_timer
+    global fan_throw_active, fan_throw_timer, fan_throw_knockback_timer
     global fan_wind_active, fan_wind_timer, fan_wind_used_this_round, fan_wind_captured, fan_wind_capture_timer
     global patrol_guards_active, patrol_guards_timer, patrol_guards, patrol_guards_used_this_round
     global spinning_top_active, spinning_top_timer, spinning_tops, spinning_top_used_this_round
@@ -17675,9 +17675,9 @@ def _swap_boss_in_current_stage():
         return  # 같은 보스면 아무것도 안함
 
     # 기존 스킬 상태 초기화
-    mask_swap_active = False
-    mask_swap_timer = 0
-    mask_swap_visual_timer = 0
+    fan_throw_active = False
+    fan_throw_timer = 0
+    fan_throw_knockback_timer = 0
     fan_wind_active = False
     fan_wind_timer = 0
     fan_wind_used_this_round = False
@@ -46693,10 +46693,17 @@ patrol_guards_timer = 0
 patrol_guards_duration = 300       # 5초 (60fps × 5)
 patrol_guards = []                 # 포졸 리스트
 patrol_guards_used_this_round = False  # 라운드당 1회
-# 각시탈 탈바꿈 스킬
-mask_swap_active = False
-mask_swap_timer = 0
-mask_swap_visual_timer = 0
+# 각시탈 부채던지기 스킬
+fan_throw_active = False           # 투사체 활성 여부
+fan_throw_x = 0.0                  # 부채 투사체 X
+fan_throw_y = 0.0                  # 부채 투사체 Y
+fan_throw_vx = 0.0                 # X 속도
+fan_throw_vy = 0.0                 # Y 속도
+fan_throw_spin = 0.0               # 회전 각도
+fan_throw_timer = 0                # 최대 지속 (프레임)
+fan_throw_hit = False              # 플레이어 히트 여부
+fan_throw_knockback_timer = 0      # 넉백 지속 타이머
+fan_throw_knockback_dir = 0        # 넉백 방향 (-1 or 1)
 # 각시탈 부채바람 스킬 (소용돌이)
 fan_wind_active = False
 fan_wind_timer = 0
@@ -53266,11 +53273,11 @@ def go_to_next_round():
     patrol_guards = []
     patrol_guards_used_this_round = False
     # 각시탈 스킬 리셋
-    global mask_swap_active, mask_swap_timer, mask_swap_visual_timer
+    global fan_throw_active, fan_throw_timer, fan_throw_knockback_timer
     global fan_wind_active, fan_wind_timer, fan_wind_used_this_round, fan_wind_captured, fan_wind_capture_timer
-    mask_swap_active = False
-    mask_swap_timer = 0
-    mask_swap_visual_timer = 0
+    fan_throw_active = False
+    fan_throw_timer = 0
+    fan_throw_knockback_timer = 0
     fan_wind_active = False
     fan_wind_timer = 0
     fan_wind_used_this_round = False
@@ -74150,55 +74157,152 @@ def activate_spinning_top():
     else:
         pass  # print(f"🎯 팽이치기! 2개 팽이 생성!")
 
-# === 각시탈 탈바꿈 스킬 ===
-def activate_mask_swap():
-    """탈바꿈 발동 — 공 궤도 편향 + 탈 교체 이펙트"""
-    global mask_swap_active, mask_swap_timer, mask_swap_visual_timer, ball_vel
-    mask_swap_active = True
-    mask_swap_timer = 60  # 1초 이펙트
-    mask_swap_visual_timer = 0
-    # 공의 X속도에 랜덤 편향
-    ball_vel[0] += random.uniform(-3.0, 3.0)
+# === 각시탈 부채던지기 스킬 ===
+def activate_fan_throw():
+    """부채던지기 발동 — 보스가 플레이어를 향해 부채를 던짐"""
+    global fan_throw_active, fan_throw_x, fan_throw_y, fan_throw_vx, fan_throw_vy
+    global fan_throw_spin, fan_throw_timer, fan_throw_hit
+    fan_throw_active = True
+    fan_throw_hit = False
+    fan_throw_timer = 180  # 3초 최대 지속
+
+    # 보스 위치에서 출발
+    boss_cx = float(BOSS.centerx if BOSS else WIDTH // 2)
+    boss_cy = float((BOSS.y + BOSS.height) if BOSS else 65)
+    fan_throw_x = boss_cx
+    fan_throw_y = boss_cy
+
+    # 플레이어를 향해 발사 (약간 예측 포함)
+    player_cx = float(PLAYER.centerx if PLAYER else WIDTH // 2)
+    player_cy = float(PLAYER.centery if PLAYER else 710)
+    dx = player_cx - boss_cx
+    dy = player_cy - boss_cy
+    dist = math.sqrt(dx * dx + dy * dy)
+    if dist < 1:
+        dist = 1
+    speed = 5.5  # 피할 수 있을 정도의 속도
+    fan_throw_vx = (dx / dist) * speed + random.uniform(-0.8, 0.8)  # 약간 랜덤 편향
+    fan_throw_vy = (dy / dist) * speed
+    fan_throw_spin = 0.0
 
 
-def update_mask_swap():
-    """탈바꿈 이펙트 업데이트"""
-    global mask_swap_active, mask_swap_timer, mask_swap_visual_timer
-    if not mask_swap_active:
+def update_fan_throw():
+    """부채 투사체 이동 + 플레이어 충돌 + 넉백 업데이트"""
+    global fan_throw_active, fan_throw_x, fan_throw_y, fan_throw_spin, fan_throw_timer
+    global fan_throw_hit, fan_throw_knockback_timer, fan_throw_knockback_dir
+
+    # --- 넉백 처리 ---
+    if fan_throw_knockback_timer > 0:
+        fan_throw_knockback_timer -= 1
+        if PLAYER:
+            knockback_force = 6.0 * (fan_throw_knockback_timer / 18.0)
+            new_x = PLAYER.x + int(fan_throw_knockback_dir * knockback_force)
+            # 게임 영역 내로 제한
+            new_x = max(GAME_AREA_OFFSET_X, min(new_x, GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - PLAYER.width))
+            PLAYER.x = new_x
+
+    if not fan_throw_active:
         return
-    mask_swap_timer -= 1
-    mask_swap_visual_timer += 1
-    if mask_swap_timer <= 0:
-        mask_swap_active = False
 
+    fan_throw_timer -= 1
+    fan_throw_spin += 0.3  # 회전
 
-def draw_mask_swap_effect(screen):
-    """탈바꿈 이펙트 — 보스 주위에 탈 회전 연출"""
-    if not mask_swap_active:
+    # 이동
+    fan_throw_x += fan_throw_vx
+    fan_throw_y += fan_throw_vy
+
+    # 게임 영역 밖으로 나가면 소멸
+    if (fan_throw_x < GAME_AREA_OFFSET_X - 30 or fan_throw_x > GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH + 30
+            or fan_throw_y > HEIGHT + 30 or fan_throw_y < -30):
+        fan_throw_active = False
         return
-    import math as _math
-    vt = mask_swap_visual_timer
-    boss_cx = BOSS.centerx if BOSS else WIDTH // 2
-    boss_cy = (BOSS.y + BOSS.height // 2) if BOSS else 45
 
-    # 3개 탈이 보스 주위를 원형 회전
-    mask_colors = [(245, 235, 220), (180, 50, 50), (50, 80, 180)]  # 흰탈, 붉은탈, 파란탈
-    orbit_r = 30 + vt * 0.3
-    fade = max(0, mask_swap_timer / 60.0)
+    if fan_throw_timer <= 0:
+        fan_throw_active = False
+        return
 
-    for i, mc in enumerate(mask_colors):
-        angle = vt * 0.15 + i * (2 * _math.pi / 3)
-        mx = boss_cx + _math.cos(angle) * orbit_r
-        my = boss_cy + _math.sin(angle) * orbit_r * 0.5  # 타원
-        alpha = int(200 * fade)
-        size = max(4, int(12 * fade))
-        s = pygame.Surface((size * 2, size * 2), pygame.SRCALPHA)
-        pygame.draw.circle(s, (*mc, alpha), (size, size), size)
-        # 눈 (작은 점 2개)
-        eye_alpha = int(255 * fade)
-        pygame.draw.circle(s, (30, 30, 30, eye_alpha), (size - 3, size - 2), max(1, size // 5))
-        pygame.draw.circle(s, (30, 30, 30, eye_alpha), (size + 3, size - 2), max(1, size // 5))
-        screen.blit(s, (int(mx - size), int(my - size)))
+    # 플레이어 충돌 체크
+    if not fan_throw_hit and PLAYER:
+        hit_radius = 16
+        px = PLAYER.centerx
+        py = PLAYER.centery
+        dx = fan_throw_x - px
+        dy = fan_throw_y - py
+        dist_sq = dx * dx + dy * dy
+        if dist_sq < (hit_radius + PLAYER.width // 2) ** 2:
+            # 히트!
+            fan_throw_hit = True
+            fan_throw_active = False
+            # 넉백 방향: 부채가 날아온 방향으로
+            fan_throw_knockback_dir = 1 if fan_throw_vx > 0 else -1
+            fan_throw_knockback_timer = 18  # 0.3초 넉백
+            show_speech("맞았지롱~!", duration=60)
+
+
+def draw_fan_throw_effect(screen):
+    """부채 투사체 렌더링 — 회전하는 부채"""
+    if not fan_throw_active:
+        return
+
+    fx = int(fan_throw_x)
+    fy = int(fan_throw_y)
+    fan_size = 14
+    spin = fan_throw_spin
+
+    # 부채 본체 (회전하는 부채꼴)
+    fan_surf = pygame.Surface((fan_size * 3, fan_size * 3), pygame.SRCALPHA)
+    fc = fan_size * 3 // 2
+
+    # 부채꼴 (6살)
+    num_ribs = 6
+    spread = math.radians(70)
+    base_angle = spin
+    start_a = base_angle - spread / 2
+    fan_r = fan_size * 1.4
+
+    fan_pts = [(fc, fc)]
+    for i in range(num_ribs + 1):
+        a = start_a + spread * i / num_ribs
+        px = fc + math.cos(a) * fan_r
+        py = fc + math.sin(a) * fan_r
+        fan_pts.append((int(px), int(py)))
+
+    if len(fan_pts) >= 3:
+        # 그림자
+        shadow = [(x + 1, y + 1) for x, y in fan_pts]
+        pygame.draw.polygon(fan_surf, (80, 60, 40, 120), shadow)
+        # 부채 면
+        pygame.draw.polygon(fan_surf, (220, 200, 160), fan_pts)
+        # 테두리
+        pygame.draw.polygon(fan_surf, (185, 55, 55), fan_pts, 2)
+
+    # 부채살
+    for i in range(num_ribs):
+        a = start_a + spread * i / (num_ribs - 1)
+        rx = fc + math.cos(a) * fan_r
+        ry = fc + math.sin(a) * fan_r
+        pygame.draw.line(fan_surf, (140, 110, 70), (fc, fc), (int(rx), int(ry)), 1)
+
+    # 잔상 트레일 (반투명)
+    trail_alpha = 80
+    trail_r = fan_size * 1.0
+    for ti in range(2):
+        tr_x = fx - int(fan_throw_vx * (ti + 1) * 2)
+        tr_y = fy - int(fan_throw_vy * (ti + 1) * 2)
+        ta = max(20, trail_alpha - ti * 35)
+        ts = pygame.Surface((int(trail_r * 2), int(trail_r * 2)), pygame.SRCALPHA)
+        pygame.draw.circle(ts, (220, 200, 160, ta), (int(trail_r), int(trail_r)), int(trail_r))
+        screen.blit(ts, (int(tr_x - trail_r), int(tr_y - trail_r)))
+
+    screen.blit(fan_surf, (fx - fc, fy - fc))
+
+    # 히트 직후 충격 이펙트
+    if fan_throw_knockback_timer > 12 and PLAYER:
+        shock_r = int(20 * (fan_throw_knockback_timer / 18.0))
+        shock_alpha = int(150 * (fan_throw_knockback_timer / 18.0))
+        shock_s = pygame.Surface((shock_r * 2, shock_r * 2), pygame.SRCALPHA)
+        pygame.draw.circle(shock_s, (255, 220, 150, shock_alpha), (shock_r, shock_r), shock_r, 2)
+        screen.blit(shock_s, (PLAYER.centerx - shock_r, PLAYER.centery - shock_r))
 
 
 # === 각시탈 부채바람 스킬 (소용돌이) ===
@@ -75697,7 +75801,7 @@ def _draw_stage_specific_elements() -> None:
     draw_stage7_tetro_debris(SCREEN)
     draw_laser_cannon_gauge()
     draw_patrol_guards(SCREEN)
-    draw_mask_swap_effect(SCREEN)
+    draw_fan_throw_effect(SCREEN)
     draw_fan_wind_effect(SCREEN)
     draw_spinning_top(SCREEN)
 
@@ -81520,7 +81624,7 @@ def draw_overlay_ui():
     draw_stage7_tetrominoes(SCREEN)
     draw_stage7_tetro_debris(SCREEN)
     draw_patrol_guards(SCREEN)
-    draw_mask_swap_effect(SCREEN)
+    draw_fan_throw_effect(SCREEN)
     draw_fan_wind_effect(SCREEN)
     draw_spinning_top(SCREEN)
 
@@ -133677,11 +133781,11 @@ def handle_ball():
                     if boss_special_gauge < 0:
                         boss_special_gauge = 0
             elif current_boss_name == "각시탈":
-                # 탈바꿈 발동 (15% 확률)
-                if random.random() <= 0.15 and not mask_swap_active:
-                    activate_mask_swap()
-                    _mask_shouts = ["탈바꿈!", "이 얼굴은 어때?", "히히히!"]
-                    show_speech(random.choice(_mask_shouts), duration=180)
+                # 부채던지기 발동 (15% 확률)
+                if random.random() <= 0.15 and not fan_throw_active:
+                    activate_fan_throw()
+                    _fan_shouts = ["받아라~!", "부채 선물!", "날아간다~!"]
+                    show_speech(random.choice(_fan_shouts), duration=90)
                     boss_special_gauge -= 200
                     if boss_special_gauge < 0:
                         boss_special_gauge = 0
@@ -139195,9 +139299,9 @@ def show_result(won):
         patrol_guards = []
         patrol_guards_used_this_round = False
         # 각시탈 스킬 초기화 (게임 오버 시)
-        mask_swap_active = False
-        mask_swap_timer = 0
-        mask_swap_visual_timer = 0
+        fan_throw_active = False
+        fan_throw_timer = 0
+        fan_throw_knockback_timer = 0
         fan_wind_active = False
         fan_wind_timer = 0
         fan_wind_used_this_round = False
@@ -140297,11 +140401,11 @@ def main(stage_num, new_boss_mode=False):
     patrol_guards = []
     patrol_guards_used_this_round = False
     # 각시탈 스킬 초기화 (스테이지 초기화 시)
-    global mask_swap_active, mask_swap_timer, mask_swap_visual_timer
+    global fan_throw_active, fan_throw_timer, fan_throw_knockback_timer
     global fan_wind_active, fan_wind_timer, fan_wind_used_this_round, fan_wind_captured, fan_wind_capture_timer
-    mask_swap_active = False
-    mask_swap_timer = 0
-    mask_swap_visual_timer = 0
+    fan_throw_active = False
+    fan_throw_timer = 0
+    fan_throw_knockback_timer = 0
     fan_wind_active = False
     fan_wind_timer = 0
     fan_wind_used_this_round = False
@@ -141314,9 +141418,9 @@ def main(stage_num, new_boss_mode=False):
             patrol_guards = []
             patrol_guards_used_this_round = False
             # 각시탈 스킬 초기화 (ESC 메뉴 복귀 시)
-            mask_swap_active = False
-            mask_swap_timer = 0
-            mask_swap_visual_timer = 0
+            fan_throw_active = False
+            fan_throw_timer = 0
+            fan_throw_knockback_timer = 0
             fan_wind_active = False
             fan_wind_timer = 0
             fan_wind_used_this_round = False
@@ -143696,9 +143800,9 @@ def main(stage_num, new_boss_mode=False):
                     patrol_guards = []
                     patrol_guards_used_this_round = False
                     # 각시탈 스킬 초기화 (강제 종료 시)
-                    mask_swap_active = False
-                    mask_swap_timer = 0
-                    mask_swap_visual_timer = 0
+                    fan_throw_active = False
+                    fan_throw_timer = 0
+                    fan_throw_knockback_timer = 0
                     fan_wind_active = False
                     fan_wind_timer = 0
                     fan_wind_used_this_round = False
@@ -144903,7 +145007,7 @@ def main(stage_num, new_boss_mode=False):
                 handle_whip()  # 상모돌리기 처리도 파워스매싱 정지 시간 중에는 건너뛰기
                 update_arrest_rope()  # 포도대장 포승줄 타이머 업데이트
                 update_patrol_guards()  # 포도대장 포졸소환 업데이트
-                update_mask_swap()  # 각시탈 탈바꿈 업데이트
+                update_fan_throw()  # 각시탈 부채던지기 업데이트
                 update_fan_wind()  # 각시탈 부채바람 업데이트
                 # handle_balloon()  # Stage 1 보스 풍선파티 스킬 제거됨
                 handle_spinning_top()  # Stage 1 보스 팽이치기 스킬
@@ -147477,7 +147581,7 @@ def main(stage_num, new_boss_mode=False):
         # draw_whip_waves(SCREEN)  #  상모돌리기 파동 효과 그리기 - 제거됨
         draw_arrest_rope_effect(SCREEN)  # 포도대장 포승줄 이펙트
         draw_patrol_guards(SCREEN)  # 포도대장 포졸소환 그리기
-        draw_mask_swap_effect(SCREEN)  # 각시탈 탈바꿈 이펙트
+        draw_fan_throw_effect(SCREEN)  # 각시탈 부채던지기 이펙트
         draw_fan_wind_effect(SCREEN)  # 각시탈 부채바람 이펙트
         draw_spinning_top(SCREEN)  # Stage 1 보스 팽이치기 그리기
         # 풍선 터지는 효과는 effects_manager에서 통합 관리
