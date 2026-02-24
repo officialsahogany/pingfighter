@@ -74241,7 +74241,7 @@ def update_fan_wind():
         if fan_wind_capture_timer >= capture_duration:
             # 1초 후: 랜덤 방향으로 발사
             release_angle = random.uniform(0, math.pi * 2)
-            release_speed = random.uniform(6.0, 9.0)
+            release_speed = random.uniform(12.0, 16.0)
             ball_vel[0] = math.cos(release_angle) * release_speed
             ball_vel[1] = math.sin(release_angle) * release_speed
             # 플레이어쪽(아래)으로 향하도록 보장
@@ -74291,7 +74291,7 @@ def update_fan_wind():
         # 포획 중이면 즉시 해제
         if fan_wind_captured:
             release_angle = random.uniform(-math.pi * 0.8, -math.pi * 0.2)
-            release_speed = 7.0
+            release_speed = 13.0
             ball_vel[0] = math.cos(release_angle) * release_speed
             ball_vel[1] = abs(math.sin(release_angle)) * release_speed
             fan_wind_captured = False
