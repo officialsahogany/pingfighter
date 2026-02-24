@@ -74187,19 +74187,10 @@ def activate_fan_throw():
 
 
 def update_fan_throw():
-    """부채 투사체 이동 + 플레이어 충돌 + 넉백 업데이트"""
+    """부채 투사체 이동 + 플레이어 충돌 (넉백은 화염탄 방식 player_knockback_vel 사용)"""
     global fan_throw_active, fan_throw_x, fan_throw_y, fan_throw_spin, fan_throw_timer
     global fan_throw_hit, fan_throw_knockback_timer, fan_throw_knockback_dir
-
-    # --- 넉백 처리 ---
-    if fan_throw_knockback_timer > 0:
-        fan_throw_knockback_timer -= 1
-        if PLAYER:
-            knockback_force = 24.0 * (fan_throw_knockback_timer / 18.0)
-            new_x = PLAYER.x + int(fan_throw_knockback_dir * knockback_force)
-            # 게임 영역 내로 제한
-            new_x = max(GAME_AREA_OFFSET_X, min(new_x, GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - PLAYER.width))
-            PLAYER.x = new_x
+    global player_knockback_vel
 
     if not fan_throw_active:
         return
@@ -74233,9 +74224,10 @@ def update_fan_throw():
             # 히트!
             fan_throw_hit = True
             fan_throw_active = False
-            # 넉백 방향: 부채가 날아온 방향으로
-            fan_throw_knockback_dir = 1 if fan_throw_vx > 0 else -1
-            fan_throw_knockback_timer = 18  # 0.3초 넉백
+            # 화염탄 방식 넉백: 스턴 + 속도 기반 감속 (지수 감쇠)
+            if player_stun_immunity_timer <= 0:
+                if try_apply_player_stun(0.3, source="stage1_fan_throw", knockback_scaled=True) > 0:
+                    player_knockback_vel = apply_knockback_resist(_scale_knockback(random.choice([-12, 12])))
             show_speech("맞았지롱~!", duration=60)
 
 
@@ -153829,7 +153821,7 @@ def show_stage_selection(show_character_hint=True):
             
             # 스테이지 번호
             num_text = font_large.render(str(stage["num"]), True, WHITE)
-            num_rect = num_text.get_rect(center=(card_rect.centerx, card_rect.y + 40))
+            num_rect = num_text.get_rect(centernqt=(card_rect.centerx, card_rect.y + 40))
             SCREEN.blit(num_text, num_rect)
             
             # 스테이지 이름
