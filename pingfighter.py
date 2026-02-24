@@ -126600,12 +126600,12 @@ def calculate_bounce(paddle):
         refresh_perfect_timing_indicator()
         # 일반 충돌과 동일한 속도 처리
         #  속도에 관계없이 일정한 가속 적용 (완화된 증가율)
-        # 🏟️ 투기장 랠리 공속 증가율 보정 (+60%)
-        arena_accel_mult = 1.6 if arena_mode_enabled else 1.5
+        # 🏟️ 투기장 랠리 공속 증가율 보정 (-50% 감소)
+        arena_accel_mult = 0.8 if arena_mode_enabled else 1.5
         # 🌱 주니어리그: 속도 증가율 -20% 감소
         junior_mult = get_junior_speed_increase_multiplier()
-        base_min = 1.0 + (0.02 * junior_mult * arena_accel_mult)  # 1.02 → 1.032 (투기장)
-        base_max = 1.0 + (0.07 * junior_mult * arena_accel_mult)  # 1.07 → 1.112 (투기장)
+        base_min = 1.0 + (0.02 * junior_mult * arena_accel_mult)  # 1.02 → 1.016 (투기장)
+        base_max = 1.0 + (0.07 * junior_mult * arena_accel_mult)  # 1.07 → 1.056 (투기장)
         base_multiplier = random.uniform(base_min, base_max)  # 기본 가속
         _debug_speed_after_base = speed * base_multiplier
         speed *= base_multiplier
@@ -126617,10 +126617,10 @@ def calculate_bounce(paddle):
     else:
         # 일반 충돌 시 동일한 가속 (완화된 증가율)
         # 🌱 주니어리그: 속도 증가율 -20% 감소
-        arena_accel_mult = 1.6 if arena_mode_enabled else 1.5
+        arena_accel_mult = 0.8 if arena_mode_enabled else 1.5
         junior_mult = get_junior_speed_increase_multiplier()
-        base_min = 1.0 + (0.024 * junior_mult * arena_accel_mult)  # [투기장: +60% 가속]
-        base_max = 1.0 + (0.084 * junior_mult * arena_accel_mult)  # [투기장: +60% 가속]
+        base_min = 1.0 + (0.024 * junior_mult * arena_accel_mult)  # [투기장: -50% 가속]
+        base_max = 1.0 + (0.084 * junior_mult * arena_accel_mult)  # [투기장: -50% 가속]
         base_multiplier = random.uniform(base_min, base_max)  # 기본 가속
         speed *= base_multiplier
         #  임팩트 부스트 적용
@@ -126633,8 +126633,8 @@ def calculate_bounce(paddle):
         # 보스 충돌 시 추가 가속 (속도에 관계없이 일정, 크게 완화)
         # 🌱 주니어리그: 속도 증가율 -20% 감소
         junior_mult = get_junior_speed_increase_multiplier()
-        boss_min = 1.0 + (0.012 * junior_mult * arena_accel_mult)  # [투기장: +60% 가속]
-        boss_max = 1.0 + (0.0333 * junior_mult * arena_accel_mult)  # [투기장: +60% 가속]
+        boss_min = 1.0 + (0.012 * junior_mult * arena_accel_mult)  # [투기장: -50% 가속]
+        boss_max = 1.0 + (0.0333 * junior_mult * arena_accel_mult)  # [투기장: -50% 가속]
         boss_multiplier = random.uniform(boss_min, boss_max)  # 보스 추가 가속
         speed *= boss_multiplier
         # 🔍 [SPEED DEBUG] 보스 추가 가속
@@ -126648,7 +126648,7 @@ def calculate_bounce(paddle):
         # 🌱 주니어리그: 속도 증가율 -20% 감소
         junior_mult = get_junior_speed_increase_multiplier()
         if abs(rel_x) < 0.05:  # 극중앙 맞춤
-            drive_center_rate = 0.03 * junior_mult * arena_accel_mult  # 3% → 4.8% (투기장)
+            drive_center_rate = 0.03 * junior_mult * arena_accel_mult  # 3% → 2.4% (투기장)
             additional_speed = speed * drive_center_rate
             speed *= (1.0 + drive_center_rate)
             drive_speed_increase += additional_speed
@@ -126660,8 +126660,8 @@ def calculate_bounce(paddle):
             ball_spin_strength = min(spin_cap, ball_spin_strength)  # 최대치 제한
             # print(f"  +   : +{additional_speed:.2f} ( : {drive_speed_increase:.2f},  : {ball_spin_strength:.3f})")
         elif abs(rel_x) > 0.75:  # 스매시 zone
-            smash_min = 0.015 * junior_mult * arena_accel_mult  # 1.5% → 2.4% (투기장)
-            smash_max = 0.05 * junior_mult * arena_accel_mult   # 5% → 8% (투기장)
+            smash_min = 0.015 * junior_mult * arena_accel_mult  # 1.5% → 1.2% (투기장)
+            smash_max = 0.05 * junior_mult * arena_accel_mult   # 5% → 4% (투기장)
             additional_rate = random.uniform(smash_min, smash_max)
             additional_speed = speed * additional_rate
             speed *= (1.0 + additional_rate)
@@ -126681,7 +126681,7 @@ def calculate_bounce(paddle):
         # 🌱 주니어리그: 속도 증가율 -20% 감소
         junior_mult = get_junior_speed_increase_multiplier()
         if abs(rel_x) < 0.05:  # 극중앙 맞춤
-            center_boost = 1.0 + (0.03 * junior_mult * arena_accel_mult)  # 1.03 → 1.048 (투기장)
+            center_boost = 1.0 + (0.03 * junior_mult * arena_accel_mult)  # 1.03 → 1.024 (투기장)
             speed *= center_boost  # 살짝 가속 보정
         elif abs(rel_x) < 0.15:  # 중앙 zone
             curve = random.uniform(-35, 35)
@@ -126689,8 +126689,8 @@ def calculate_bounce(paddle):
             spin = random.uniform(-2, 2)
             ball_angle += spin
         elif abs(rel_x) > 0.75:  # 스매시 zone
-            smash_min = 1.0 + (0.015 * junior_mult * arena_accel_mult)  # 1.015 → 1.024 (투기장)
-            smash_max = 1.0 + (0.05 * junior_mult * arena_accel_mult)   # 1.05 → 1.08 (투기장)
+            smash_min = 1.0 + (0.015 * junior_mult * arena_accel_mult)  # 1.015 → 1.012 (투기장)
+            smash_max = 1.0 + (0.05 * junior_mult * arena_accel_mult)   # 1.05 → 1.04 (투기장)
             speed *= random.uniform(smash_min, smash_max)  # 스매시존 가속
             curve = random.uniform(-5, 5)
             vector = vector.rotate(curve)
