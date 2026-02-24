@@ -64166,6 +64166,14 @@ def handle_player(keys):
         if _start_dash(direction, tutorial_reset=tutorial_reset) <= 0:
             return False
 
+        # 포승줄 포박 중 대쉬 → 즉시 끊어짐
+        global arrest_rope_phase, arrest_rope_active, arrest_rope_timer
+        if arrest_rope_phase == "bound":
+            arrest_rope_phase = "releasing"
+            arrest_rope_active = False
+            arrest_rope_timer = 28  # 끊어지는 연출
+            show_speech("끊어냈다!", duration=60)
+
         global is_half_dash_active, half_dash_effect_timer, _current_dash_is_half
         global poseidon_dash_pending, poseidon_dash_x, poseidon_dash_y
         global acceleration_active, acceleration_height_bonus, acceleration_skill_level
