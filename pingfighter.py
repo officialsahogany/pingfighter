@@ -63285,7 +63285,7 @@ def handle_player(keys):
             # )
 
     # ⚡ 스매셔 플라즈마 자기장 스킬 (W/상 키 홀드)
-    # def _handle_smasher_plasma_field(now_ms: int, up_held: bool) -> None:
+    def _handle_smasher_plasma_field(now_ms: int, up_held: bool) -> None:
         """스매셔 전용: W/↑키 홀드로 플라즈마 자기장 차징 및 발사."""
         global plasma_field_charging, plasma_field_charge_time, plasma_field_charge_start_time
         global plasma_field_gauge_consumed, plasma_field_size, plasma_field_particles
