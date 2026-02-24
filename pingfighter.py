@@ -74283,17 +74283,6 @@ def draw_fan_throw_effect(screen):
         ry = fc + math.sin(a) * fan_r
         pygame.draw.line(fan_surf, (140, 110, 70), (fc, fc), (int(rx), int(ry)), 1)
 
-    # 잔상 트레일 (반투명)
-    trail_alpha = 80
-    trail_r = fan_size * 1.0
-    for ti in range(2):
-        tr_x = fx - int(fan_throw_vx * (ti + 1) * 2)
-        tr_y = fy - int(fan_throw_vy * (ti + 1) * 2)
-        ta = max(20, trail_alpha - ti * 35)
-        ts = pygame.Surface((int(trail_r * 2), int(trail_r * 2)), pygame.SRCALPHA)
-        pygame.draw.circle(ts, (220, 200, 160, ta), (int(trail_r), int(trail_r)), int(trail_r))
-        screen.blit(ts, (int(tr_x - trail_r), int(tr_y - trail_r)))
-
     screen.blit(fan_surf, (fx - fc, fy - fc))
 
     # 히트 직후 충격 이펙트
