@@ -348,6 +348,8 @@ class InGameBodyguard:
         self._skill_manager = _MinimalSkillManager()
         # 호위무사 hero_id를 game_state에 등록 (차원소환 시 중복 방지용)
         self._skill_manager.game_state['_bodyguard_hero_id'] = hero_data.get('id', '')
+        # hero_positions 등록 (개틀링 버스트 변신 상태 동기화용 - False=하단)
+        self._skill_manager.game_state['hero_positions'] = {hero_data.get('id', ''): False}
 
         # GuardWarriorSystem 생성 및 설정
         try:
@@ -522,6 +524,7 @@ class InGameBodyguard:
                     state['gatling_mount_progress'] = gs.get(f'gatling_mount_progress_{side}', 0.0)
                     state['gatling_dismounting'] = gs.get(f'gatling_dismounting_{side}', False)
                     state['gatling_dismount_progress'] = gs.get(f'gatling_dismount_progress_{side}', 0.0)
+                    state['gatling_aim_angle'] = gs.get(f'gatling_aim_angle_{side}', None)
 
         try:
             self._guard_system.update(dt, top_paddle, bottom_paddle, ball)
