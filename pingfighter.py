@@ -134483,21 +134483,15 @@ def handle_ball():
         if not new_boss_mode_active and current_stage == 1:
             # Stage 1 보스 풍선파티 스킬 제거 - 풍선 기계 이벤트로 대체됨
             pass
-        elif not new_boss_mode_active and current_stage == 2:
+        elif not new_boss_mode_active and current_stage == 2 and current_boss_name == "악어장군":
             time_now = pygame.time.get_ticks()
-            # 정글지진 스킬 발동 체크: 게이지 500이면 100% 발동
+            # 정글지진 스킬 발동 체크: 게이지 500이면 100% 발동 (악어장군 전용)
             if time_now - quake_last_used_time >= QUAKE_COOLDOWN:
                 # 게이지 500이면 100% 확률, 그 외는 발동 안 함 (activate_quake에서 체크)
                 if boss_special_gauge >= 500:
                     if activate_quake(animated_bg_stage2):
                         show_speech("정글지진!", duration=quake_duration)
                         quake_last_used_time = time_now
-                        # 두더지왕 히트 애니메이션 (정글지진 시 솟아오름)
-                        try:
-                            if current_boss_name == "두더지왕" and molewang_boss_sprite:
-                                molewang_boss_sprite.trigger_hit(BOSS.centerx, BOSS.centerx - 1)
-                        except Exception:
-                            pass
             # 물대포는 게임 루프에서 매 프레임 체크 (98343줄 참조)
         elif not new_boss_mode_active and current_stage == 3:
             # 패들 충돌 시 충전된 게이지가 500 이상이 되었을 때만 필살기 준비 상태로 전환
@@ -138471,8 +138465,8 @@ def handle_boss():
     elif BOSS.x > final_max_x:
         BOSS.x = final_max_x
 
-    # --- Stage 2 보스 스피드 디펜스 (위험감지센서 역할) ---
-    if current_stage == 2:
+    # --- Stage 2 보스 스피드 디펜스 (악어장군 전용) ---
+    if current_stage == 2 and current_boss_name == "악어장군":
         # 서브 유예 기간 카운트다운 (난이도 하향)
         if serve_grace_period > 0:
             serve_grace_period -= 1
@@ -145600,8 +145594,8 @@ def main(stage_num, new_boss_mode=False):
                 handle_spinning_top()  # Stage 1 보스 팽이치기 스킬
                 handle_quake()
                 handle_gods_judgment()  # Stage 30 투기장 신의심판 이벤트
-                # Stage 2 악어장군 물대포 스킬 발동 및 업데이트
-                if current_stage == 2:
+                # Stage 2 악어장군 물대포 스킬 발동 및 업데이트 (악어장군 전용)
+                if current_stage == 2 and current_boss_name == "악어장군":
                     # 물대포 발동 체크: 정글지진 발동 후 발동
                     # 일반: 플레이어 3점 이상일 때만 해금
                     # 광폭화: 스테이지 시작부터 즉시 해금
@@ -145618,13 +145612,6 @@ def main(stage_num, new_boss_mode=False):
                         if DEBUG_BOSS:
                             pass  # print(f"💦 물대포 발동! 정글지진 후 {time_since_quake/1000:.1f}초 경과 (광폭화={enraged_boss_active})")
                         activate_water_cannon()
-                        # 두더지왕 히트 애니메이션 (물대포 발사 시 솟아오름)
-                        try:
-                            if current_boss_name == "두더지왕" and molewang_boss_sprite:
-                                target_x = water_cannon_target_rock.get("x", BOSS.centerx) if water_cannon_target_rock else BOSS.centerx
-                                molewang_boss_sprite.trigger_hit(target_x, BOSS.centerx)
-                        except Exception:
-                            pass
                     update_water_cannon()
                     update_water_cannon_fragments()
                     update_fragment_hit_effect()  # 파편 피격 이펙트 업데이트
