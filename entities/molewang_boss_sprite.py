@@ -288,8 +288,8 @@ class MolewangBossSprite:
         gy = ground_y + bob_offset
 
         speed_factor = min(self.velocity / 60.0, 2.0) if self.direction != 0 else 0
-        # 아이들 시에도 미세한 숨쉬기 파동
-        idle_pulse = 0.15 + _sin(self.time * 1.5) * 0.05
+        # 아이들 시에도 항상 보이는 숨쉬기 파동 (0.55~0.65)
+        idle_pulse = 0.6 + _sin(self.time * 1.5) * 0.05
         intensity = max(idle_pulse, speed_factor)
 
         t = self.time
