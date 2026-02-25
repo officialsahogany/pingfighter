@@ -212,14 +212,14 @@ class MolewangBossSprite:
         # 솟아오른 양만큼 몸체를 그릴지 결정
         emerge = self.emerge_amount
 
-        # 레이어 순서
+        # 레이어 순서 — 몸체는 절대 안 보임! 땅+팔+이펙트만
         # 1. 흙 파편 (땅 위로 튀는 것)
         self._draw_dirt_fx(surface, cx, ground_y, b, lean_offset, bob_offset, p)
-        # 2. 몸체 (히트 중이고 실제로 솟아오른 경우에만)
+        # 2. 히트 시 팔+발톱만 땅에서 직접 솟아나옴 (몸체 없음)
         if self.is_hit and emerge > 0.05:
-            self._draw_body_emerging(surface, cx, ground_y, b, lean_offset,
-                                     bob_offset, emerge, p)
-        # 3. 땅 표면 (항상 그림 — 몸체를 가리는 역할)
+            self._draw_arms_from_ground(surface, cx, ground_y, b,
+                                        lean_offset, bob_offset, p)
+        # 3. 땅 표면 (항상 그림)
         self._draw_ground(surface, cx, ground_y, b, lean_offset, bob_offset, p)
         # 4. 발톱 스크래치 이펙트 (히트 시)
         if self.is_hit:
@@ -545,7 +545,129 @@ class MolewangBossSprite:
                     (gcx - clip_surf.get_width() // 2,
                      body_top))
 
-    # ------- 타격 팔 + 발톱 -------
+    # ------- 땅에서 직접 솟아나는 팔+발톱 (몸체 없음) -------
+    def _draw_arms_from_ground(self, surface, cx, ground_y, b,
+                                lean_offset, bob_offset, p):
+        """히트 시 땅에서 직접 팔+발톱만 솟아나옴 (몸체/얼굴 전혀 없음)"""
+        gcx = cx + lean_offset
+        gy = ground_y + bob_offset
+        hit_shake_x = int(_sin(self.time * 50) * self.hit_intensity * 1.5) if self.is_hit else 0
+        progress = self.hit_timer / self.hit_duration
+
+        # 팔 출현 타이밍
+        arm_emerge = 0.0
+        claw_spread = 0.0
+        if progress < 0.15:
+            arm_emerge = (progress / 0.15) ** 0.5
+            claw_spread = 0.3 * arm_emerge
+        elif progress < 0.25:
+            arm_emerge = 1.0
+            t = (progress - 0.15) / 0.10
+            claw_spread = 0.3 + 0.7 * t
+        elif progress < 0.50:
+            arm_emerge = 1.0
+            claw_spread = 1.0
+        elif progress < 0.65:
+            arm_emerge = 1.0 - (progress - 0.50) / 0.15
+            claw_spread = 1.0 * arm_emerge
+        else:
+            arm_emerge = 0.0
+
+        if arm_emerge < 0.05:
+            return
+
+        for side in [-1, 1]:
+            is_strike_side = (side == self.hit_direction)
+            scale = 1.4 if is_strike_side else 0.95
+
+            # 팔 원점: 땅 표면 양옆에서 솟아나옴
+            origin_x = gcx + side * int(1.2 * b) + hit_shake_x
+            origin_y = gy  # 땅 표면
+
+            arm_len = int(2.0 * b * arm_emerge * scale)
+            arm_angle = side * (0.5 + claw_spread * 0.35)
+
+            # 팔꿈치 (위로 솟아나옴)
+            elbow_x = origin_x + int(_sin(arm_angle) * arm_len * 0.45)
+            elbow_y = origin_y - int(arm_len * 0.5 * arm_emerge)
+
+            # 손목
+            wrist_x = elbow_x + int(_sin(arm_angle * 1.3) * arm_len * 0.45)
+            wrist_y = elbow_y - int(arm_len * 0.25)
+
+            # 내려치기 모션
+            if is_strike_side and 0.20 < progress < 0.50:
+                strike_t = (progress - 0.20) / 0.30
+                wrist_y += int(1.8 * b * _sin(strike_t * math.pi))
+
+            # 상완
+            arm_thick = max(3, int(0.4 * b * scale))
+            pygame.draw.line(surface, p["body_dark"],
+                           (origin_x, origin_y),
+                           (elbow_x, elbow_y), arm_thick + 2)
+            pygame.draw.line(surface, p["body"],
+                           (origin_x, origin_y),
+                           (elbow_x, elbow_y), arm_thick)
+
+            # 하완
+            pygame.draw.line(surface, p["body_dark"],
+                           (elbow_x, elbow_y),
+                           (int(wrist_x), int(wrist_y)), arm_thick + 1)
+            pygame.draw.line(surface, p["body_light"],
+                           (elbow_x, elbow_y),
+                           (int(wrist_x), int(wrist_y)), arm_thick - 1)
+
+            # 거대한 손
+            hand_r = max(4, int(0.5 * b * scale))
+            hand_cx = int(wrist_x)
+            hand_cy = int(wrist_y)
+
+            pygame.draw.circle(surface, p["body_dark"],
+                             (hand_cx + 1, hand_cy + 1), hand_r)
+            pygame.draw.circle(surface, p["body"],
+                             (hand_cx, hand_cy), hand_r)
+            pygame.draw.circle(surface, p["body_light"],
+                             (hand_cx - max(1, int(0.06 * b)),
+                              hand_cy - max(1, int(0.06 * b))),
+                             max(1, int(hand_r * 0.4)))
+
+            # 발톱 5개 (부채꼴 — 위쪽으로 향함)
+            num_claws = 5
+            spread_angle = (0.4 + claw_spread * 0.5) * math.pi
+            for ci in range(num_claws):
+                ca = -spread_angle / 2 + ci * (spread_angle / (num_claws - 1))
+                ca += side * 0.15
+
+                claw_len = int(0.55 * b * scale * (0.8 + claw_spread * 0.4))
+                center_bonus = 1.0 - abs(ci - 2) * 0.12
+                claw_len = int(claw_len * center_bonus)
+
+                claw_sx = hand_cx + int(_sin(ca) * hand_r * 0.8)
+                claw_sy = hand_cy - int(_cos(ca) * hand_r * 0.5)
+                claw_ex = claw_sx + int(_sin(ca) * claw_len)
+                claw_ey = claw_sy - int(_cos(ca) * claw_len * 0.6)
+
+                mid_x = (claw_sx + claw_ex) // 2 + int(_sin(ca) * 0.12 * b)
+                mid_y = (claw_sy + claw_ey) // 2
+
+                claw_w = max(2, int(0.12 * b * scale))
+                pygame.draw.line(surface, p["claw_shadow"],
+                               (claw_sx + 1, claw_sy + 1),
+                               (claw_ex + 1, claw_ey + 1), claw_w)
+                pygame.draw.line(surface, p["claw"],
+                               (claw_sx, claw_sy),
+                               (mid_x, mid_y), claw_w)
+                pygame.draw.line(surface, p["claw"],
+                               (mid_x, mid_y),
+                               (claw_ex, claw_ey), max(1, claw_w - 1))
+                pygame.draw.line(surface, p["claw_shine"],
+                               (claw_sx, claw_sy),
+                               (mid_x, mid_y), 1)
+                pygame.draw.circle(surface, p["claw_shine"],
+                                 (claw_ex, claw_ey),
+                                 max(1, int(0.04 * b)))
+
+    # ------- 타격 팔 + 발톱 (레거시 — 미사용) -------
     def _draw_striking_arms(self, surf, cx, body_top, body_w, visible_h,
                              b, p, shake_x):
         """히트 시 양쪽에서 뻗어나오는 팔 + 거대한 발톱"""
