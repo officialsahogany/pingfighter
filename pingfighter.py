@@ -27252,7 +27252,7 @@ SPIDER_MINE_SELF_DESTRUCT_WARNING = 120  # 2초 후부터 경고
 SPIDER_MINE_SELF_DESTRUCT_FAST = 180     # 3초 후 빠른 깜빡임
 SPIDER_MINE_SELF_DESTRUCT_TIME = 240     # 4초 후 자폭
 SPIDER_MINE_SLOW_DURATION = 180  # 3초 지속
-SPIDER_MINE_SLOW_FACTOR = 0.7  # 이동속도 30% 감소
+SPIDER_MINE_SLOW_FACTOR = 0.5  # 이동속도 50% 감소
 SPIDER_MINE_TEXT_DURATION = 60  # 효과 텍스트 표시 시간
 SPIDER_MINE_WALL_OFFSET = 18
 SPIDER_MINE_FLOOR_CLEARANCE = 10
@@ -54702,7 +54702,7 @@ def apply_spider_mine_slow():
     spider_mine_slow_active = True
     spider_mine_slow_timer = SPIDER_MINE_SLOW_DURATION
     spider_mine_slow_text_timer = SPIDER_MINE_TEXT_DURATION
-    print("🕷️ 거미지뢰 폭발! 보스 이동속도가 30% 감소합니다.")
+    print("🕷️ 거미지뢰 폭발! 보스 이동속도가 50% 감소합니다.")
 
 
 def trigger_spider_mine_explosion(mine, reason="boss"):
