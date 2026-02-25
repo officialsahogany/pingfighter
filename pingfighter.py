@@ -52699,7 +52699,7 @@ _pingpong_ball_angle = 0.0  # 탁구공 회전 각도
 hit_animation_active = False
 hit_animation_timer = 0
 HIT_ANIMATION_DURATION = 6  # 프레임 수
-PLAYER_SLOW_DEFAULT_FACTOR = 0.3
+PLAYER_SLOW_DEFAULT_FACTOR = 0.5
 player_slow_timer = 0  # 눈물 디버프 지속 시간 (프레임 단위)
 player_slow_timer_max = 0  # 느려짐 이펙트 강도 계산용
 player_slow_factor = PLAYER_SLOW_DEFAULT_FACTOR  # 느려짐 배율(1.0=정상)
