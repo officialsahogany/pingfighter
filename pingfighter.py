@@ -134758,6 +134758,7 @@ def handle_ball():
                         quake_last_used_time = time_now
             # 물대포는 게임 루프에서 매 프레임 체크 (98343줄 참조)
         elif not new_boss_mode_active and current_stage == 2 and current_boss_name == "두더지왕":
+            global tunnel_raid_last_used
             time_now = pygame.time.get_ticks()
             # 땅굴 습격 스킬 발동 체크
             if not tunnel_raid_active:
