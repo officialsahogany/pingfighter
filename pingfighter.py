@@ -63550,6 +63550,7 @@ def handle_player(keys):
         global plasma_wave_active, plasma_wave_x, plasma_wave_y, plasma_wave_radius
         global plasma_wave_slow_amount, plasma_wave_duration, plasma_wave_particles, plasma_wave_trail
         global plasma_charge_sound_playing
+        global special_gauge, special_ready
 
         if selected_character_type != "smasher":
             if plasma_field_charging:
