@@ -276,25 +276,9 @@ class MolewangBossSprite:
             "scratch_red": (255, 120, 80),
         }
 
-    # ------- 땅 표면 (히트 시 하반신 가리기만) -------
+    # ------- 땅 표면 (현재 미사용) -------
     def _draw_ground(self, surface, cx, ground_y, b, lean_offset, bob_offset, p):
-        """히트 시 몸체 하반신을 가리는 흙 표면만 그림 (평소에는 아무것도 안 그림)"""
-        if not (self.is_hit and self.emerge_amount > 0.05):
-            return
-
-        gcx = cx + lean_offset
-        gy = ground_y + bob_offset
-
-        # 몸체 하반신 가리기용 흙 채우기
-        fill_rect = pygame.Rect(gcx - int(2.5 * b), gy + int(0.05 * b),
-                               int(5.0 * b), int(3.0 * b))
-        pygame.draw.rect(surface, p["ground_dark"], fill_rect)
-        for i in range(int(5.0 * b)):
-            fx = gcx - int(2.5 * b) + i
-            fy_wave = _sin(i * 0.3 + self.time * 2.0) * 0.08 * b
-            pygame.draw.line(surface, p["ground"],
-                           (fx, gy + int(0.02 * b + fy_wave)),
-                           (fx, gy + int(0.2 * b)), 1)
+        pass
 
     # ------- 솟아오르는 몸체 -------
     def _draw_body_emerging(self, surface, cx, ground_y, b, lean_offset,
