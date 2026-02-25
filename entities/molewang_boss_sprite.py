@@ -213,6 +213,10 @@ class MolewangBossSprite:
         emerge = self.emerge_amount
 
         # 레이어 순서
+        # 0. 지하 흙 융기 (평소 — 히트 아닐 때)
+        if not self.is_hit:
+            self._draw_underground_ripple(surface, cx, ground_y, b,
+                                          lean_offset, bob_offset, w, h)
         # 1. 흙 파편 (땅 위로 튀는 것)
         self._draw_dirt_fx(surface, cx, ground_y, b, lean_offset, bob_offset, p)
         # 2. 히트 시 몸체 솟아오름 (디그다 스타일)
@@ -279,112 +283,66 @@ class MolewangBossSprite:
     # ------- 지하 이동 표면 왜곡 (평소 상태) -------
     def _draw_underground_ripple(self, surface, cx, ground_y, b,
                                   lean_offset, bob_offset, w, h):
-        """보스가 땅속에서 이동할 때 화면 표면이 굴곡/왜곡되는 이펙트"""
+        """보스가 땅속에 있을 때 흙 융기 이펙트 — 깜빡임 없이 항상 표시"""
         gcx = cx + lean_offset
         gy = ground_y + bob_offset
-
-        speed_factor = min(self.velocity / 60.0, 2.0) if self.direction != 0 else 0
-        # 아이들 시에도 미세한 숨쉬기 파동
-        idle_pulse = 0.15 + _sin(self.time * 1.5) * 0.05
-        intensity = max(idle_pulse, speed_factor)
-
         t = self.time
 
-        # === 1. 동심원 파문 (보스 위치 중심으로 퍼지는 파동) ===
-        num_rings = 4
-        for ri in range(num_rings):
-            # 각 링이 시간차로 퍼져나감
-            ring_phase = (t * 1.8 + ri * 0.7) % 3.0
-            ring_progress = ring_phase / 3.0  # 0 ~ 1
+        speed_factor = min(self.velocity / 60.0, 2.0) if self.direction != 0 else 0
 
-            ring_radius = int((0.5 + ring_progress * 3.0) * b * intensity)
-            if ring_radius < 2:
-                continue
+        # --- 단일 알파 서피스 (매 프레임 1개만 생성) ---
+        fx_surf = pygame.Surface((w, h), pygame.SRCALPHA)
 
-            # 알파: 생성 시 강하고 → 퍼지면서 약해짐
-            ring_alpha = int(55 * intensity * (1.0 - ring_progress) ** 1.5)
-            if ring_alpha < 5:
-                continue
+        # === 1. 흙 융기 돔 (두더지 위치를 보여주는 볼록한 흙덩이) ===
+        # 숨쉬기: 부드럽게 위아래 (항상 보임)
+        breath = _sin(t * 2.0) * 2.0
+        mound_w = int(w * 0.45)
+        mound_h = int(8 + breath + speed_factor * 3)
 
-            # 이동 방향으로 타원형
-            stretch_x = 1.0 + speed_factor * 0.4
-            stretch_y = 0.6 + speed_factor * 0.15
+        # 어두운 흙 그림자 (아래)
+        pygame.draw.ellipse(fx_surf, (90, 65, 40, 100),
+                           (gcx - mound_w // 2, gy - mound_h // 2 + 2,
+                            mound_w, mound_h))
+        # 밝은 흙 융기 (위)
+        pygame.draw.ellipse(fx_surf, (145, 110, 70, 120),
+                           (gcx - mound_w // 2 + 1, gy - mound_h // 2,
+                            mound_w - 2, mound_h - 2))
+        # 하이라이트
+        hl_w = int(mound_w * 0.5)
+        hl_h = max(2, int(mound_h * 0.35))
+        pygame.draw.ellipse(fx_surf, (180, 150, 100, 70),
+                           (gcx - hl_w // 2, gy - mound_h // 2 + 1,
+                            hl_w, hl_h))
 
-            rx = int(ring_radius * stretch_x)
-            ry = int(ring_radius * stretch_y)
-            if rx < 2 or ry < 2:
-                continue
+        # === 2. 균열선 (융기 주변 갈라진 틈) ===
+        crack_col = (60, 45, 30, 90)
+        # 좌측 균열
+        cl_x = gcx - mound_w // 2 - 3
+        cl_y = gy + int(_sin(t * 1.0) * 1)
+        pygame.draw.line(fx_surf, crack_col,
+                        (cl_x, cl_y - 2), (cl_x - 5, cl_y + 3), 1)
+        pygame.draw.line(fx_surf, crack_col,
+                        (cl_x - 5, cl_y + 3), (cl_x - 3, cl_y + 7), 1)
+        # 우측 균열
+        cr_x = gcx + mound_w // 2 + 3
+        cr_y = gy + int(_sin(t * 1.0 + 1.5) * 1)
+        pygame.draw.line(fx_surf, crack_col,
+                        (cr_x, cr_y - 2), (cr_x + 5, cr_y + 3), 1)
+        pygame.draw.line(fx_surf, crack_col,
+                        (cr_x + 5, cr_y + 3), (cr_x + 3, cr_y + 7), 1)
 
-            ring_surf = pygame.Surface((rx * 2 + 4, ry * 2 + 4), pygame.SRCALPHA)
-            # 밝은 왜곡선 (표면이 밀려 올라온 느낌)
-            pygame.draw.ellipse(ring_surf, (200, 200, 220, ring_alpha),
-                              (2, 2, rx * 2, ry * 2), max(1, int(0.08 * b)))
-            surface.blit(ring_surf,
-                        (gcx - rx - 2, gy - ry - 2))
+        # === 3. 이동 시 추가 균열 + 흙 튀김 흔적 ===
+        if speed_factor > 0.15:
+            move_alpha = int(min(speed_factor, 1.5) * 60)
+            trail_dir = -self.direction  # 이동 반대쪽에 흔적
+            for ti in range(3):
+                tx = gcx + trail_dir * (mound_w // 2 + 6 + ti * 8)
+                ty = gy + int(_sin(t * 2.5 + ti * 1.2) * 2)
+                sz = max(2, int(4 - ti))
+                pygame.draw.ellipse(fx_surf, (120, 90, 55, move_alpha - ti * 15),
+                                   (tx - sz, ty - sz // 2, sz * 2, sz))
 
-        # === 2. 균열선 (이동 방향으로 뻗는 갈라짐) ===
-        if speed_factor > 0.2:
-            crack_alpha = int(40 * min(speed_factor, 1.5))
-            num_cracks = 3
-            for ci in range(num_cracks):
-                # 이동 방향 앞쪽에 균열
-                crack_offset = (ci - 1) * int(0.4 * b)
-                cx_start = gcx + self.direction * int(0.8 * b) + crack_offset
-                cy_start = gy + int(_sin(t * 4.0 + ci * 1.5) * 0.15 * b)
-
-                crack_len = int((1.0 + speed_factor * 0.8) * b)
-                cx_end = cx_start + self.direction * crack_len
-                cy_end = cy_start + int(_sin(t * 3.0 + ci * 2.2) * 0.25 * b)
-
-                # 균열 중간에 꺾임
-                cx_mid = (cx_start + cx_end) // 2 + int(
-                    _sin(t * 5.0 + ci * 3.0) * 0.2 * b)
-                cy_mid = (cy_start + cy_end) // 2 + int(
-                    _cos(t * 4.5 + ci * 1.8) * 0.15 * b)
-
-                crack_surf = pygame.Surface((w, h), pygame.SRCALPHA)
-                # 어두운 균열선
-                pygame.draw.line(crack_surf, (40, 35, 30, crack_alpha),
-                               (cx_start, cy_start), (cx_mid, cy_mid),
-                               max(1, int(0.06 * b)))
-                pygame.draw.line(crack_surf, (40, 35, 30, crack_alpha),
-                               (cx_mid, cy_mid), (cx_end, cy_end),
-                               max(1, int(0.04 * b)))
-                # 밝은 테두리 (융기)
-                pygame.draw.line(crack_surf, (180, 175, 160, crack_alpha // 2),
-                               (cx_start, cy_start - 1), (cx_mid, cy_mid - 1), 1)
-                surface.blit(crack_surf, (0, 0))
-
-        # === 3. 표면 굴곡 웨이브 (보스 주변 파형 왜곡) ===
-        wave_width = int(3.5 * b * max(0.5, intensity))
-        num_wave_pts = 16
-        wave_alpha = int(35 * intensity)
-        if wave_alpha > 5:
-            for layer in range(2):
-                # 두 레이어: 밝은 선(융기) + 어두운 선(함몰)
-                y_offset = (layer - 0.5) * 0.12 * b
-                color = (200, 195, 185, wave_alpha) if layer == 0 else (
-                    50, 45, 35, wave_alpha)
-
-                wave_surf = pygame.Surface((w, h), pygame.SRCALPHA)
-                pts = []
-                for wi in range(num_wave_pts + 1):
-                    wx_t = wi / num_wave_pts  # 0 ~ 1
-                    wx = gcx - wave_width // 2 + int(wx_t * wave_width)
-
-                    # 보스 중심 가까울수록 진폭 큼
-                    dist = abs(wx_t - 0.5) * 2.0  # 0(중심) ~ 1(가장자리)
-                    amp = (1.0 - dist * dist) * intensity * 0.35 * b
-
-                    # 웨이브 함수: 이동+시간 기반
-                    phase = self.step_phase * 0.8 + t * 2.5 + wx_t * 8.0 + layer * 1.5
-                    wy = gy + int(y_offset + _sin(phase) * amp)
-                    pts.append((wx, wy))
-
-                if len(pts) >= 2:
-                    pygame.draw.lines(wave_surf, color, False, pts,
-                                     max(1, int(0.05 * b)))
-                    surface.blit(wave_surf, (0, 0))
+        surface.blit(fx_surf, (0, 0))
 
     # ------- 땅 표면 (현재 미사용) -------
     def _draw_ground(self, surface, cx, ground_y, b, lean_offset, bob_offset, p):
