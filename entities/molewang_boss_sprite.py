@@ -296,121 +296,69 @@ class MolewangBossSprite:
                            (fx, gy + int(0.02 * b + fy_wave)),
                            (fx, gy + int(0.2 * b)), 1)
 
-    # ------- 솟아오르는 몸체 -------
+    # ------- 솟아오르는 요소 (몸통 없음 — 얼굴+왕관+팔만) -------
     def _draw_body_emerging(self, surface, cx, ground_y, b, lean_offset,
                              bob_offset, emerge, p):
-        """디그다 스타일 몸체 — emerge 양에 따라 땅에서 나옴"""
+        """히트 시 땅에서 솟아오르는 요소 — 돔/직사각형 몸통 없이 얼굴+왕관+팔만"""
         gcx = cx + lean_offset
         gy = ground_y + bob_offset
 
-        # emerge=1.0일 때 완전히 보이는 몸체 높이
         full_body_h = int(4.5 * b)
         body_w = int(2.6 * b)
 
-        # 현재 보이는 높이
         visible_h = int(full_body_h * emerge)
         if visible_h < 3:
             return
 
-        # 몸체 상단 Y (emerge에 따라 위로 올라감)
         body_top = gy - visible_h
 
-        # === 클리핑: 땅 위 부분만 그리기 ===
+        # 클리핑 서피스
         clip_surf = pygame.Surface((int(body_w + 4 * b), visible_h + int(0.5 * b)),
                                    pygame.SRCALPHA)
         clip_cx = clip_surf.get_width() // 2
         clip_body_top = 0
 
-        # 히트 시 흔들림
         hit_shake_x = 0
         if self.is_hit:
             hit_shake_x = int(_sin(self.time * 50) * self.hit_intensity * 1.5)
 
-        # === 몸통 (둥근 돔형 — 디그다 스타일) ===
-        # 상단: 둥근 돔
-        dome_rect = pygame.Rect(
-            clip_cx - body_w // 2 + hit_shake_x,
-            clip_body_top,
-            body_w, int(body_w * 1.1)
-        )
-        # 하단: 직선 (땅에 묻힌 부분)
-        lower_rect = pygame.Rect(
-            clip_cx - body_w // 2 + hit_shake_x,
-            clip_body_top + int(body_w * 0.5),
-            body_w, visible_h - int(body_w * 0.5)
-        )
-
-        # 그림자
-        pygame.draw.ellipse(clip_surf, p["body_dark"], dome_rect.move(2, 2))
-        pygame.draw.rect(clip_surf, p["body_dark"], lower_rect.move(2, 2))
-        # 본체
-        pygame.draw.ellipse(clip_surf, p["body"], dome_rect)
-        pygame.draw.rect(clip_surf, p["body"], lower_rect)
-        # 이음새 부분 부드럽게
-        seam_rect = pygame.Rect(
-            clip_cx - body_w // 2 + hit_shake_x,
-            clip_body_top + int(body_w * 0.4),
-            body_w, int(body_w * 0.3)
-        )
-        pygame.draw.rect(clip_surf, p["body"], seam_rect)
-
-        # 하이라이트 (왼쪽 상단 빛)
-        hl_w = int(body_w * 0.35)
-        hl_h = int(body_w * 0.6)
-        hl_rect = pygame.Rect(
-            clip_cx - body_w // 4 + hit_shake_x - int(0.1 * b),
-            clip_body_top + int(0.2 * b),
-            hl_w, hl_h
-        )
-        hl_surf = pygame.Surface((hl_w, hl_h), pygame.SRCALPHA)
-        pygame.draw.ellipse(hl_surf, (*p["body_light"], 100), (0, 0, hl_w, hl_h))
-        clip_surf.blit(hl_surf, hl_rect.topleft)
-
-        # === 얼굴 (emerge > 0.4일 때부터) ===
+        # === 얼굴 (emerge > 0.4) ===
         if emerge > 0.4:
-            face_alpha = min(1.0, (emerge - 0.4) / 0.3)
             face_cy = clip_body_top + int(body_w * 0.42)
             face_cx_adj = clip_cx + hit_shake_x
 
-            # --- 눈 (큰 동그란 눈 — 디그다 스타일) ---
+            # 눈
             for side in [-1, 1]:
                 eye_x = face_cx_adj + side * int(0.45 * b)
                 eye_y = face_cy - int(0.15 * b)
-
-                # 눈 전체 (검정 타원)
                 ew = max(3, int(0.22 * b))
                 eh = max(3, int(0.25 * b))
                 pygame.draw.ellipse(clip_surf, p["eye_black"],
                                   (eye_x - ew, eye_y - eh, ew * 2, eh * 2))
-                # 하이라이트 (눈동자 반사)
                 sh_r = max(1, int(0.08 * b))
                 pygame.draw.circle(clip_surf, p["eye_shine"],
                                  (eye_x - int(0.05 * b),
                                   eye_y - int(0.06 * b)), sh_r)
 
-            # --- 코 (큰 분홍 타원 — 디그다의 핵심 특징) ---
+            # 코
             nose_cx_local = face_cx_adj
             nose_cy_local = face_cy + int(0.35 * b)
             nose_w = max(4, int(0.45 * b))
             nose_h = max(3, int(0.3 * b))
-
-            # 코 그림자
             pygame.draw.ellipse(clip_surf, p["nose_dark"],
                               (nose_cx_local - nose_w // 2 + 1,
                                nose_cy_local - nose_h // 2 + 1,
                                nose_w, nose_h))
-            # 코 본체
             pygame.draw.ellipse(clip_surf, p["nose"],
                               (nose_cx_local - nose_w // 2,
                                nose_cy_local - nose_h // 2,
                                nose_w, nose_h))
-            # 코 하이라이트
             nh_r = max(1, int(0.1 * b))
             pygame.draw.circle(clip_surf, p["nose_light"],
                              (nose_cx_local - int(0.08 * b),
                               nose_cy_local - int(0.06 * b)), nh_r)
 
-            # --- 입 (히트 시에만 벌어짐) ---
+            # 입 (히트 시에만 벌어짐)
             if self.is_hit:
                 progress = self.hit_timer / self.hit_duration
                 mouth_open = 0.0
@@ -423,8 +371,6 @@ class MolewangBossSprite:
                     mouth_y = nose_cy_local + int(0.3 * b)
                     mouth_w = int(0.55 * b * mouth_open)
                     mouth_h = int(0.3 * b * mouth_open)
-
-                    # 입 안 (어두운 원)
                     mouth_rect = pygame.Rect(
                         nose_cx_local - mouth_w // 2,
                         mouth_y - mouth_h // 2,
@@ -432,7 +378,6 @@ class MolewangBossSprite:
                     )
                     pygame.draw.ellipse(clip_surf, p["mouth"], mouth_rect)
 
-                    # 이빨 (위쪽 2개)
                     if mouth_open > 0.3:
                         for side in [-1, 1]:
                             tx = nose_cx_local + side * int(0.12 * b)
@@ -447,26 +392,21 @@ class MolewangBossSprite:
                             pygame.draw.polygon(clip_surf, p["tooth_shadow"],
                                               tooth_pts, 1)
 
-        # === 왕관 (emerge > 0.6일 때부터) ===
+        # === 왕관 (emerge > 0.6) ===
         if emerge > 0.6:
-            crown_alpha = min(1.0, (emerge - 0.6) / 0.2)
             crown_cx_local = clip_cx + hit_shake_x
             crown_y = clip_body_top + int(0.05 * b)
-
-            # 히트 시 왕관 기울어짐
             crown_tilt = 0
             if self.is_hit:
                 crown_tilt = int(self.hit_intensity * self.hit_direction * 0.2 * b)
-
             self._draw_crown_on(clip_surf, crown_cx_local + crown_tilt,
                                crown_y, b, p)
 
-        # === 팔 + 발톱 (히트 시 양쪽에서 솟아나옴) ===
+        # === 팔 + 발톱 ===
         if self.is_hit and emerge > 0.3:
             self._draw_striking_arms(clip_surf, clip_cx, clip_body_top,
                                      body_w, visible_h, b, p, hit_shake_x)
 
-        # 클리핑 서피스를 메인에 블릿
         surface.blit(clip_surf,
                     (gcx - clip_surf.get_width() // 2,
                      body_top))
