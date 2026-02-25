@@ -17736,6 +17736,11 @@ def _swap_boss_in_current_stage():
             BOSS_COLOR = (200, 50, 50)
         else:
             BOSS_COLOR = WHITE
+    elif stage == 2:
+        if new_boss == "두더지왕":
+            BOSS_COLOR = (139, 90, 43)
+        else:
+            BOSS_COLOR = (0, 255, 0)
 
     show_speech(f"{new_boss} 등장!", duration=120)
 
@@ -42721,6 +42726,9 @@ BOSS_IMG_PODO_HEIGHT = 192
 # 각시탈 전용 사이즈
 BOSS_IMG_TALKWANGDAE_WIDTH = 92
 BOSS_IMG_TALKWANGDAE_HEIGHT = 184
+# 두더지왕 전용 사이즈 (스테이지 2 서브보스)
+BOSS_IMG_MOLEWANG_WIDTH = 96
+BOSS_IMG_MOLEWANG_HEIGHT = 192
 # 스테이지 4, 5 전용 사이즈
 BOSS_IMG_STAGE4_WIDTH = 125  # 10% 증가 (114→125)
 BOSS_IMG_STAGE4_HEIGHT = 68  # 10% 증가 (62→68)
@@ -52172,6 +52180,20 @@ except Exception as e:
     print(f"[WARN] Talkwangdae boss sprite load failed: {e}")
     talkwangdae_boss_sprite = None
     TALKWANGDAE_BOSS_ANIMATION_AVAILABLE = False
+# Stage 2 보스 (두더지왕) 프로시저럴 스프라이트 초기화
+try:
+    from entities.molewang_boss_sprite import (
+        get_molewang_boss_sprite,
+        init_molewang_boss_sprite,
+        reset_molewang_boss_sprite,
+        MolewangBossSprite
+    )
+    molewang_boss_sprite = init_molewang_boss_sprite()
+    MOLEWANG_BOSS_ANIMATION_AVAILABLE = True
+except Exception as e:
+    print(f"[WARN] Molewang boss sprite load failed: {e}")
+    molewang_boss_sprite = None
+    MOLEWANG_BOSS_ANIMATION_AVAILABLE = False
 # Stage 2 보스 (악어장군) 걷기 애니메이션 초기화
 try:
     from entities.stage2_boss_sprite import (
@@ -95837,10 +95859,19 @@ def draw_objects():
             boss_img = BOSS_IMG_STAGE1
             boss_w, boss_h = BOSS_IMG_STAGE1_WIDTH, BOSS_IMG_STAGE1_HEIGHT
     elif current_stage == 2:
-        # Stage 2 보스 (악어장군) 걷기 애니메이션 적용
+        # Stage 2 보스 렌더링 (악어장군 / 두더지왕)
         if speed_defense_active:
             boss_img = SPEED_DEFENSE_IMG
             boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
+        elif current_boss_name == "두더지왕" and MOLEWANG_BOSS_ANIMATION_AVAILABLE and molewang_boss_sprite is not None:
+            boss_img_prescaled = True
+            boss_x_pos = BOSS.x if BOSS else WIDTH // 2
+            molewang_boss_sprite.update(boss_x_pos, 1/60)
+            boss_w, boss_h = BOSS_IMG_MOLEWANG_WIDTH, BOSS_IMG_MOLEWANG_HEIGHT
+            boss_img = molewang_boss_sprite.get_current_frame((boss_w, boss_h))
+            if boss_img is None:
+                boss_img = BOSS_IMG_STAGE2
+                boss_img_prescaled = False
         elif STAGE2_BOSS_ANIMATION_AVAILABLE and stage2_boss_sprite is not None:
             boss_img_prescaled = True
             # 애니메이션 업데이트 (보스 X 좌표 기반)
@@ -133619,9 +133650,15 @@ def handle_ball():
                     stage1_boss_sprite.trigger_hit(BALL.centerx, BOSS.centerx)
             except Exception as e:
                 print(f"⚠️ 히트 애니메이션 트리거 실패: {e}")
-        # 스테이지 2 악어장군 게이지 충전 (+60)
+        # 스테이지 2 악어장군/두더지왕 게이지 충전 (+60)
         elif current_stage == 2:
             boss_special_gauge = min(boss_special_gauge + 60, 500)
+            # 두더지왕 히트 애니메이션 트리거
+            try:
+                if current_boss_name == "두더지왕" and molewang_boss_sprite:
+                    molewang_boss_sprite.trigger_hit(BALL.centerx, BOSS.centerx)
+            except Exception as e:
+                print(f"⚠️ 두더지왕 히트 애니메이션 트리거 실패: {e}")
             # print(f"스테이지2 악어장군 게이지 충전: +60 (현재: {boss_special_gauge}/500)")  # 디버그 비활성화
 
         # 스테이지 6 (네메시스) 방어막 해제 로직 - 비활성화됨 (방어벽 시스템 제거)
@@ -141011,7 +141048,10 @@ def main(stage_num, new_boss_mode=False):
         bgm_manager.play_stage_bgm(1)
     elif stage_num == 2:
         CURRENT_BG = STAGE2_BG
-        BOSS_COLOR = (100, 255, 100)
+        if current_boss_name == "두더지왕":
+            BOSS_COLOR = (139, 90, 43)  # 흙갈색 (두더지왕)
+        else:
+            BOSS_COLOR = (100, 255, 100)
         # Stage 2 BGM 재생
         bgm_manager.play_stage_bgm(2)
         # Stage 2 시작 시 보스 게이지 초기화

@@ -160,6 +160,15 @@ BOSS_VARIANTS = {
             "special_skill": "fan_throw",    # 부채던지기
         },
     },
+    2: {
+        "악어장군": BOSS_CONFIGS[2],
+        "두더지왕": {
+            **BOSS_CONFIGS[2],              # 악어장군과 동일 스탯
+            "name": "두더지왕",
+            "color": (139, 90, 43),         # 흙갈색 (두더지 모피)
+            "special_skill": "claw_dig",    # 발톱 파기
+        },
+    },
 }
 
 
