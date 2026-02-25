@@ -4334,8 +4334,8 @@ class SpaceMap:
                 (38, 30, 18), (28, 48, 20), (20, 38, 16)])
             pygame.draw.circle(surf, (*gc, ga), (gx, gy), 1)
 
-        # ===== 열대 산맥 — 원경 (안개 속 밀림 능선 + 대기원근법, 빼곡) =====
-        for _ in range(16):
+        # ===== 열대 산맥 — 원경 (안개 속 밀림 능선 + 대기원근법, 초빼곡) =====
+        for _ in range(22):
             mx = random.randint(-80, W + 80)
             my = random.randint(-70, H // 5)
             mw = random.randint(130, 400)
@@ -4481,8 +4481,8 @@ class SpaceMap:
                     if rr > 4:
                         pygame.draw.circle(surf, (42, 68, 35, 80), (rx, ry + 5), max(1, rr - 2))
 
-        # ===== 늪지 연못 (HD — 거울반사+수련+개구리, 중앙 회피) =====
-        for _ in range(5):
+        # ===== 늪지 연못 (HD — 거울반사+수련+개구리, 중앙 회피, 초빼곡) =====
+        for _ in range(8):
             px = random.randint(60, W - 60)
             py = random.randint(H // 3, H * 2 // 3)
             if _in_center(px, py):
@@ -4544,8 +4544,8 @@ class SpaceMap:
                     pygame.draw.circle(surf, (35, 75, 30), (frx - 1, fry - 1), 1)
                     pygame.draw.circle(surf, (35, 75, 30), (frx + 1, fry - 1), 1)
 
-        # ===== 거대 열대나무 원경 (밀림 캐노피 — 대기원근법, 빼곡) =====
-        for _ in range(22):
+        # ===== 거대 열대나무 원경 (밀림 캐노피 — 대기원근법, 초빼곡) =====
+        for _ in range(30):
             tx = random.randint(-50, W + 50)
             ty = random.randint(-40, H // 4)
             tw = random.randint(20, 50)
@@ -4581,8 +4581,8 @@ class SpaceMap:
                 pygame.draw.circle(hs, (*tc_hl, 40), (hr, hr), hr)
                 surf.blit(hs, (hx - hr, hy - hr))
 
-        # ===== 정글 나무 중경 (HD — 나무껍질+덩굴+기생식물, 중앙 회피, 빼곡) =====
-        for _ in range(38):
+        # ===== 정글 나무 중경 (HD — 나무껍질+덩굴+기생식물, 중앙 회피, 초빼곡) =====
+        for _ in range(50):
             tx = random.randint(15, W - 15)
             ty = random.randint(H // 6, H - 35)
             if _in_center(tx, ty):
@@ -4669,9 +4669,9 @@ class SpaceMap:
         # ===== 야자수 (HD 키 큰 열대 나무 — 중앙 회피) =====
         detail_a = min(255, int(255 * max(0, t * 2 - 0.2)))
         if detail_a > 10:
-            for _ in range(20):
-                px = random.randint(20, W - 20)
-                py = random.randint(H // 4, H - 50)
+            for _ in range(28):
+                px = random.randint(15, W - 15)
+                py = random.randint(H // 5, H - 40)
                 if _in_center(px, py):
                     continue
                 p_h = random.randint(35, 72)
@@ -4728,8 +4728,8 @@ class SpaceMap:
                     pygame.draw.circle(surf, (105, 78, 42), (cx_n - 1, cy_n - 1), 2)
                     pygame.draw.circle(surf, (125, 98, 55), (cx_n - 1, cy_n - 1), 1)
 
-        # ===== 대나무 숲 (HD 질감+바람효과+마디, 중앙 회피, 빼곡) =====
-        for _ in range(26):
+        # ===== 대나무 숲 (HD 질감+바람효과+마디, 중앙 회피, 초빼곡) =====
+        for _ in range(35):
             bx = random.randint(20, W - 20)
             by = random.randint(H // 4, H - 40)
             if _in_center(bx, by):
@@ -4775,8 +4775,8 @@ class SpaceMap:
                 pygame.draw.line(surf, lc, (bx + lbend + ldx, lby + ldy),
                                  (bx + lbend + ldx + ldir * 3, lby + ldy - 2), 1)
 
-        # ===== 오두막/원주민 건축물 (HD — 중앙 회피, 빼곡) =====
-        for _ in range(12):
+        # ===== 오두막/원주민 건축물 (HD — 중앙 회피, 초빼곡) =====
+        for _ in range(16):
             bx = random.randint(60, W - 60)
             by = random.randint(H // 3, H * 3 // 4)
             if _in_center(bx, by):
@@ -4843,10 +4843,10 @@ class SpaceMap:
                     pygame.draw.circle(surf, (220, 120, 30), (t_x, t_y - 1), 2)
                     pygame.draw.circle(surf, (255, 180, 50), (t_x, t_y - 1), 1)
 
-        # ===== 풀숲/수풀 (HD 3D 다층, 중앙 회피, 빼곡) =====
-        for _ in range(72):
-            bx = random.randint(5, W - 5)
-            by = random.randint(H // 6, H - 10)
+        # ===== 풀숲/수풀 (HD 3D 다층, 중앙 회피, 초빼곡) =====
+        for _ in range(90):
+            bx = random.randint(3, W - 3)
+            by = random.randint(H // 7, H - 5)
             if _in_center(bx, by):
                 continue
             bsize = random.randint(5, 22)
@@ -4878,8 +4878,8 @@ class SpaceMap:
                     bey = by + random.randint(-bsize // 3, bsize // 4)
                     pygame.draw.circle(surf, bc, (bex, bey), 1)
 
-        # ===== 버섯/양치류/열매 디테일 (HD, 중앙 회피, 빼곡) =====
-        for _ in range(45):
+        # ===== 버섯/양치류/열매 디테일 (HD, 중앙 회피, 초빼곡) =====
+        for _ in range(60):
             mx = random.randint(10, W - 10)
             my = random.randint(H // 5, H - 15)
             if _in_center(mx, my):
@@ -4946,8 +4946,8 @@ class SpaceMap:
                     ey = ly + int(ll * 0.5 * math.sin(math.radians(la)))
                     pygame.draw.line(surf, lc, (lx, ly), (ex, ey), 1)
 
-        # ===== 이끼 낀 바위 (HD, 중앙 회피, 빼곡) =====
-        for _ in range(25):
+        # ===== 이끼 낀 바위 (HD, 중앙 회피, 초빼곡) =====
+        for _ in range(32):
             rx = random.randint(15, W - 15)
             ry = random.randint(H // 5, H - 20)
             if _in_center(rx, ry):
@@ -4971,7 +4971,7 @@ class SpaceMap:
                     pygame.draw.circle(surf, (45, 82, 38), (rx + dx, ry + 2), 1)
 
         # ===== 토템 기둥 / 부족 장식 (HD) =====
-        for _ in range(6):
+        for _ in range(10):
             tx_t = random.randint(25, W - 25)
             ty_t = random.randint(int(H * 0.4), H - 20)
             if _in_center(tx_t, ty_t):
@@ -5001,7 +5001,7 @@ class SpaceMap:
                                  (tx_t + totem_w // 2 + 1, ty_t - totem_h)])
 
         # ===== 야생동물 (새, 뱀, 원숭이 실루엣) =====
-        for _ in range(14):
+        for _ in range(22):
             ax = random.randint(10, W - 10)
             ay = random.randint(int(H * 0.15), H - 10)
             if _in_center(ax, ay):
@@ -5048,8 +5048,117 @@ class SpaceMap:
                 pygame.draw.line(surf, mk_c, (ax - 1, ay - 2), (ax - 3, ay - 6), 1)
                 pygame.draw.line(surf, mk_c, (ax + 1, ay - 2), (ax + 3, ay - 6), 1)
 
+        # ===== 지면 뿌리/덩굴망 (밀림 바닥 가득) =====
+        for _ in range(40):
+            rx = random.randint(5, W - 5)
+            ry = random.randint(int(H * 0.3), H - 5)
+            if _in_center(rx, ry):
+                continue
+            root_c = random.choice([(42, 30, 15), (50, 35, 18), (38, 28, 14)])
+            # 뿌리 (여러 방향으로 뻗음)
+            for _ in range(random.randint(2, 5)):
+                ang = random.uniform(0, math.pi * 2)
+                r_len = random.randint(6, 20)
+                r_pts = [(rx, ry)]
+                cx_r, cy_r = rx, ry
+                for si in range(4):
+                    cx_r += int(r_len / 4 * math.cos(ang + random.uniform(-0.5, 0.5)))
+                    cy_r += int(r_len / 4 * math.sin(ang + random.uniform(-0.5, 0.5)))
+                    r_pts.append((cx_r, cy_r))
+                if len(r_pts) > 2:
+                    pygame.draw.lines(surf, root_c, False, r_pts, 1)
+
+        # ===== 대형 열대 잎 (몬스테라/바나나잎 느낌) =====
+        for _ in range(25):
+            lx = random.randint(10, W - 10)
+            ly = random.randint(int(H * 0.2), H - 10)
+            if _in_center(lx, ly):
+                continue
+            leaf_type = random.randint(0, 1)
+            lc = random.choice([(28, 68, 22), (35, 80, 28), (22, 60, 18), (40, 90, 32)])
+            if leaf_type == 0:
+                # 넓은 타원형 잎 (바나나잎)
+                l_len = random.randint(12, 28)
+                l_w = max(4, l_len // 3)
+                ang = random.uniform(-0.5, 0.5)
+                ex_l = lx + int(l_len * math.cos(ang))
+                ey_l = ly + int(l_len * math.sin(ang))
+                # 잎 몸체
+                leaf_s = pygame.Surface((l_len + 4, l_w * 2 + 4), pygame.SRCALPHA)
+                pygame.draw.ellipse(leaf_s, (*lc, min(255, int(alpha * 0.6))),
+                                    (2, 2, l_len, l_w * 2))
+                # 중심맥
+                pygame.draw.line(leaf_s, (lc[0] - 5, lc[1] + 10, lc[2] - 3, min(255, int(alpha * 0.7))),
+                                 (2, l_w + 2), (l_len, l_w + 2), 1)
+                # 측맥
+                for vi in range(3, l_len - 2, max(3, l_len // 5)):
+                    pygame.draw.line(leaf_s, (lc[0] - 3, lc[1] + 8, lc[2] - 2, min(255, int(alpha * 0.5))),
+                                     (vi, l_w + 2), (vi + 2, 3), 1)
+                    pygame.draw.line(leaf_s, (lc[0] - 3, lc[1] + 8, lc[2] - 2, min(255, int(alpha * 0.5))),
+                                     (vi, l_w + 2), (vi + 2, l_w * 2 - 1), 1)
+                surf.blit(leaf_s, (lx - 2, ly - l_w - 2))
+            else:
+                # 갈라진 잎 (몬스테라 느낌)
+                l_r = random.randint(8, 16)
+                leaf_s = pygame.Surface((l_r * 2 + 4, l_r * 2 + 4), pygame.SRCALPHA)
+                pygame.draw.circle(leaf_s, (*lc, min(255, int(alpha * 0.55))),
+                                   (l_r + 2, l_r + 2), l_r)
+                # 구멍/갈라짐
+                for _ in range(random.randint(2, 4)):
+                    hx = l_r + 2 + random.randint(-l_r // 2, l_r // 2)
+                    hy = l_r + 2 + random.randint(-l_r // 2, l_r // 2)
+                    hr = random.randint(2, max(2, l_r // 3))
+                    pygame.draw.circle(leaf_s, (0, 0, 0, 0), (hx, hy), hr)
+                # 줄기
+                pygame.draw.line(leaf_s, (lc[0] - 5, lc[1] + 8, lc[2] - 3, min(255, int(alpha * 0.6))),
+                                 (l_r + 2, l_r * 2 + 2), (l_r + 2, l_r + 2), 1)
+                surf.blit(leaf_s, (lx - l_r - 2, ly - l_r - 2))
+
+        # ===== 꽃 군락 (열대 꽃밭) =====
+        for _ in range(18):
+            fx = random.randint(10, W - 10)
+            fy_c = random.randint(int(H * 0.35), H - 8)
+            if _in_center(fx, fy_c):
+                continue
+            cluster_r = random.randint(8, 18)
+            fc = random.choice([(255, 95, 75), (255, 195, 45), (225, 75, 195),
+                                (255, 145, 45), (180, 55, 255), (255, 100, 100)])
+            for _ in range(random.randint(4, 10)):
+                dx_f = random.randint(-cluster_r, cluster_r)
+                dy_f = random.randint(-cluster_r // 2, cluster_r // 2)
+                fr = random.randint(1, 3)
+                pygame.draw.circle(surf, (*fc, min(255, int(alpha * 0.7))),
+                                   (fx + dx_f, fy_c + dy_f), fr)
+                # 꽃잎 (큰 꽃)
+                if fr > 1:
+                    for pi in range(4):
+                        pa = pi * 90 + random.randint(-15, 15)
+                        ppx = fx + dx_f + int(2 * math.cos(math.radians(pa)))
+                        ppy = fy_c + dy_f + int(1.5 * math.sin(math.radians(pa)))
+                        pygame.draw.circle(surf, (*fc, min(255, int(alpha * 0.5))), (ppx, ppy), 1)
+
+        # ===== 늪 이끼/부유물/수초 (물 위 가득) =====
+        for _ in range(20):
+            sx_m = random.randint(10, W - 10)
+            sy_m = random.randint(int(H * 0.25), H - 10)
+            if _in_center(sx_m, sy_m):
+                continue
+            # 이끼 패치
+            mc_i = random.choice([(25, 58, 20), (30, 65, 25), (20, 50, 16)])
+            mr_i = random.randint(5, 14)
+            ms_i = pygame.Surface((mr_i * 2, mr_i), pygame.SRCALPHA)
+            pygame.draw.ellipse(ms_i, (*mc_i, min(255, int(alpha * 0.4))),
+                                (0, 0, mr_i * 2, mr_i))
+            surf.blit(ms_i, (sx_m - mr_i, sy_m - mr_i // 2))
+            # 수초 (위로 뻗는 풀)
+            for _ in range(random.randint(2, 5)):
+                gx = sx_m + random.randint(-mr_i, mr_i)
+                gh = random.randint(5, 14)
+                gc_g = random.choice([(30, 72, 25), (25, 65, 20), (35, 80, 28)])
+                pygame.draw.line(surf, gc_g, (gx, sy_m), (gx + random.randint(-3, 3), sy_m - gh), 1)
+
         # ===== 매달린 덩굴 장식 (나무 사이) =====
-        for _ in range(10):
+        for _ in range(18):
             vx1 = random.randint(20, W // 2)
             vx2 = random.randint(W // 2, W - 20)
             vy = int(H * random.uniform(0.15, 0.5))
@@ -5078,7 +5187,7 @@ class SpaceMap:
         if t > 0.5:
             firefly_a = min(255, int(180 * (t - 0.5) * 2))
             random.seed(5050)
-            for _ in range(40):
+            for _ in range(55):
                 fx = random.randint(10, W - 10)
                 fy_f = random.randint(H // 4, H - 20)
                 if _in_center(fx, fy_f):
