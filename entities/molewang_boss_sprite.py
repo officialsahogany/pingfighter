@@ -212,14 +212,14 @@ class MolewangBossSprite:
         # 솟아오른 양만큼 몸체를 그릴지 결정
         emerge = self.emerge_amount
 
-        # 레이어 순서 — 몸체는 절대 안 보임! 땅+팔+이펙트만
+        # 레이어 순서
         # 1. 흙 파편 (땅 위로 튀는 것)
         self._draw_dirt_fx(surface, cx, ground_y, b, lean_offset, bob_offset, p)
-        # 2. 히트 시 팔+발톱만 땅에서 직접 솟아나옴 (몸체 없음)
+        # 2. 히트 시 몸체 솟아오름 (디그다 스타일)
         if self.is_hit and emerge > 0.05:
-            self._draw_arms_from_ground(surface, cx, ground_y, b,
-                                        lean_offset, bob_offset, p)
-        # 3. 땅 표면 (항상 그림)
+            self._draw_body_emerging(surface, cx, ground_y, b, lean_offset,
+                                     bob_offset, emerge, p)
+        # 3. 땅 표면 (항상 그림 — 흙 울렁거림만, 돌덩이 없음)
         self._draw_ground(surface, cx, ground_y, b, lean_offset, bob_offset, p)
         # 4. 발톱 스크래치 이펙트 (히트 시)
         if self.is_hit:
@@ -322,53 +322,17 @@ class MolewangBossSprite:
                               (mx - mound_w // 2 + 1, my - mound_h // 2,
                                mound_w - 2, max(2, mound_h // 2)))
 
-        # === 돌덩이 (디그다 특유의 바위들) ===
-        rocks = [
-            (-1.5, 0.1, 0.4), (-0.8, -0.05, 0.35), (-0.3, 0.08, 0.3),
-            (0.3, 0.05, 0.32), (0.9, -0.03, 0.38), (1.6, 0.1, 0.36),
-            (-1.1, 0.15, 0.25), (0.0, 0.12, 0.28), (1.2, 0.13, 0.27),
-        ]
-        for rx, ry, rsize in rocks:
-            rock_x = gcx + int(rx * b)
-            rock_y = gy + int(ry * b) + int(
-                _sin(self.time * 3.0 + rx * 2.5 + self.step_phase * 0.5)
-                * speed_factor * 0.12 * b)
-            rock_r = max(2, int(rsize * b))
-
-            # 돌 그림자
-            pygame.draw.circle(surface, p["rock_dark"],
-                             (rock_x + 1, rock_y + 1), rock_r)
-            # 돌 본체 — 다각형으로 울퉁불퉁하게
-            rock_pts = []
-            num_verts = 6
-            for vi in range(num_verts):
-                angle = (vi / num_verts) * math.pi * 2
-                # 불규칙한 반경
-                r_var = rock_r * (0.75 + 0.25 * _sin(angle * 3 + rx * 7))
-                rock_pts.append((
-                    rock_x + int(_cos(angle) * r_var),
-                    rock_y + int(_sin(angle) * r_var * 0.7)
-                ))
-            if len(rock_pts) >= 3:
-                pygame.draw.polygon(surface, p["rock"], rock_pts)
-                pygame.draw.polygon(surface, p["rock_dark"], rock_pts, 1)
-            # 하이라이트
-            pygame.draw.circle(surface, p["rock_light"],
-                             (rock_x - max(1, rock_r // 4),
-                              rock_y - max(1, rock_r // 4)),
-                             max(1, rock_r // 3))
-
-        # 땅 아래 영역 채우기 (몸체 하반신 가리기용)
-        fill_rect = pygame.Rect(gcx - int(2.5 * b), gy + int(0.15 * b),
-                               int(5.0 * b), int(3.0 * b))
-        pygame.draw.rect(surface, p["ground_dark"], fill_rect)
-        # 위쪽 경계를 울퉁불퉁하게
-        for i in range(int(5.0 * b)):
-            fx = gcx - int(2.5 * b) + i
-            fy_wave = _sin(i * 0.3 + self.time * 2.0) * 0.08 * b
-            pygame.draw.line(surface, p["ground"],
-                           (fx, gy + int(0.1 * b + fy_wave)),
-                           (fx, gy + int(0.3 * b)), 1)
+        # 히트 시 몸체 하반신 가리기용 흙 채우기
+        if self.is_hit and self.emerge_amount > 0.05:
+            fill_rect = pygame.Rect(gcx - int(2.5 * b), gy + int(0.05 * b),
+                                   int(5.0 * b), int(3.0 * b))
+            pygame.draw.rect(surface, p["ground_dark"], fill_rect)
+            for i in range(int(5.0 * b)):
+                fx = gcx - int(2.5 * b) + i
+                fy_wave = _sin(i * 0.3 + self.time * 2.0) * 0.08 * b
+                pygame.draw.line(surface, p["ground"],
+                               (fx, gy + int(0.02 * b + fy_wave)),
+                               (fx, gy + int(0.2 * b)), 1)
 
     # ------- 솟아오르는 몸체 -------
     def _draw_body_emerging(self, surface, cx, ground_y, b, lean_offset,
