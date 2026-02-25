@@ -3850,7 +3850,7 @@ class SpaceMap:
             pygame.draw.line(brd, razor_edge, (rx - rw, ry - rh), (rx + rw, ry - rh), 1)
             pygame.draw.line(brd, razor_edge, (rx - rw, ry + rh), (rx + rw, ry + rh), 1)
 
-        # ===== 10. 코너 — 곰인형 (상단) + 알약 (하단) =====
+        # ===== 10. 코너 — 곰인형 (상단, 풀바디) + 알약 (하단) =====
         # 상단 코너: 곰인형 (bear_black + bear_pink)
         bear_positions = [
             (ox - bw // 4, oy - bw // 4),
@@ -3858,38 +3858,96 @@ class SpaceMap:
         ]
         for bi, (bx_b, by_b) in enumerate(bear_positions):
             br = corner_r
-            # 몸 (앉은 자세)
             body_c = (30, 25, 30) if bi == 0 else (255, 180, 200)
-            ear_c = body_c
+            belly_c = (min(255, body_c[0] + 45), min(255, body_c[1] + 40),
+                       min(255, body_c[2] + 35))
             eye_c = (200, 60, 80)
-            # 귀 (2개)
+            # 다리 (앉은 자세)
+            leg_w = max(2, br // 3)
+            leg_h = max(3, br // 2)
+            pygame.draw.ellipse(brd, body_c,
+                                (bx_b - br // 2 - 1, by_b + br // 2, leg_w + 2, leg_h))
+            pygame.draw.ellipse(brd, body_c,
+                                (bx_b + br // 2 - leg_w, by_b + br // 2, leg_w + 2, leg_h))
+            # 팔
+            arm_w = max(2, br // 4)
+            arm_h = max(3, br // 2)
+            pygame.draw.ellipse(brd, body_c,
+                                (bx_b - br - arm_w + 2, by_b - br // 4, arm_w + 1, arm_h))
+            pygame.draw.ellipse(brd, body_c,
+                                (bx_b + br - 2, by_b - br // 4, arm_w + 1, arm_h))
+            # 몸통 (타원)
+            pygame.draw.ellipse(brd, body_c,
+                                (bx_b - br * 2 // 3, by_b - br // 4,
+                                 br * 4 // 3, br + br // 3))
+            # 배 (밝은)
+            pygame.draw.ellipse(brd, belly_c,
+                                (bx_b - br // 4, by_b + br // 6,
+                                 br // 2, br // 2))
+            # 귀
             ear_r = max(2, br // 3)
-            pygame.draw.circle(brd, ear_c, (bx_b - br // 2, by_b - br // 2), ear_r)
-            pygame.draw.circle(brd, ear_c, (bx_b + br // 2, by_b - br // 2), ear_r)
-            # 귀 안쪽 (핑크)
-            pygame.draw.circle(brd, (255, 150, 180),
-                               (bx_b - br // 2, by_b - br // 2), max(1, ear_r - 2))
-            pygame.draw.circle(brd, (255, 150, 180),
-                               (bx_b + br // 2, by_b - br // 2), max(1, ear_r - 2))
+            for ear_side in [-1, 1]:
+                ear_x = bx_b + ear_side * br // 2
+                ear_y = by_b - br // 2 - ear_r // 2
+                pygame.draw.circle(brd, body_c, (ear_x, ear_y), ear_r)
+                pygame.draw.circle(brd, (255, 150, 180),
+                                   (ear_x, ear_y), max(1, ear_r - 2))
             # 머리
             pygame.draw.circle(brd, body_c, (bx_b, by_b), br)
-            # 눈 (X자 — 멘헤라 스타일)
+            # 주둥이 (밝은 타원)
+            muzzle_w = max(3, br // 2)
+            muzzle_h = max(2, br // 3)
+            pygame.draw.ellipse(brd, belly_c,
+                                (bx_b - muzzle_w // 2, by_b + br // 6,
+                                 muzzle_w, muzzle_h))
+            # X 눈
             ex_sz = max(2, br // 4)
             for side in [-1, 1]:
                 ex_x = bx_b + side * br // 3
+                ex_y = by_b - br // 6
                 pygame.draw.line(brd, eye_c,
-                                 (ex_x - ex_sz, by_b - ex_sz),
-                                 (ex_x + ex_sz, by_b + ex_sz), max(1, int(arena_scale * 1.5)))
+                                 (ex_x - ex_sz, ex_y - ex_sz),
+                                 (ex_x + ex_sz, ex_y + ex_sz), max(1, int(arena_scale * 1.5)))
                 pygame.draw.line(brd, eye_c,
-                                 (ex_x + ex_sz, by_b - ex_sz),
-                                 (ex_x - ex_sz, by_b + ex_sz), max(1, int(arena_scale * 1.5)))
+                                 (ex_x + ex_sz, ex_y - ex_sz),
+                                 (ex_x - ex_sz, ex_y + ex_sz), max(1, int(arena_scale * 1.5)))
             # 코
-            pygame.draw.circle(brd, (200, 60, 80), (bx_b, by_b + br // 4), max(1, br // 6))
-            # 리본 (핑크 곰에만)
+            pygame.draw.circle(brd, eye_c, (bx_b, by_b + br // 4), max(1, br // 6))
+            # 입 (슬픈)
+            mouth_w = max(2, br // 4)
+            pygame.draw.arc(brd, (180, 40, 60),
+                            (bx_b - mouth_w, by_b + br // 3, mouth_w * 2, max(2, br // 4)),
+                            3.14, 6.28, 1)
+            # 눈물 (한쪽)
+            tear_x_b = bx_b - br // 3
+            tear_y_b = by_b + ex_sz
+            pygame.draw.ellipse(brd, (100, 180, 255),
+                                (tear_x_b - 1, tear_y_b, 2, max(2, br // 4)))
+            # 반창고 (곰 몸에)
+            bd_x_b = bx_b + random.randint(-br // 3, br // 3)
+            bd_y_b = by_b + random.randint(0, br // 3)
+            bd_l_b = max(3, br // 4)
+            pygame.draw.line(brd, (210, 185, 155),
+                             (bd_x_b - bd_l_b, bd_y_b), (bd_x_b + bd_l_b, bd_y_b),
+                             max(1, int(arena_scale * 1.5)))
+            # 리본 (핑크 곰만)
             if bi == 1:
-                rb_r = max(2, br // 4)
-                pygame.draw.circle(brd, (255, 80, 100),
-                                   (bx_b + br // 2, by_b - br // 3), rb_r)
+                rb_r = max(2, br // 3)
+                rb_x = bx_b + br // 2
+                rb_y = by_b - br // 2
+                rb_c = (255, 80, 120)
+                pygame.draw.ellipse(brd, rb_c,
+                                    (rb_x - rb_r * 2, rb_y - rb_r, rb_r * 2, rb_r * 2))
+                pygame.draw.ellipse(brd, rb_c,
+                                    (rb_x, rb_y - rb_r, rb_r * 2, rb_r * 2))
+                pygame.draw.circle(brd, (200, 60, 90), (rb_x, rb_y), max(1, rb_r // 2))
+                # 리본 꼬리
+                pygame.draw.line(brd, rb_c, (rb_x, rb_y),
+                                 (rb_x - rb_r, rb_y + rb_r * 2),
+                                 max(1, int(arena_scale)))
+                pygame.draw.line(brd, rb_c, (rb_x, rb_y),
+                                 (rb_x + rb_r, rb_y + rb_r * 2),
+                                 max(1, int(arena_scale)))
 
         # 하단 코너: 알약 캡슐
         pill_positions = [
@@ -3915,7 +3973,131 @@ class SpaceMap:
             pygame.draw.ellipse(brd, (255, 200, 220),
                                 (px - pw // 4, py - ph + 2, pw // 4, max(1, ph // 2)))
 
-        # ===== 11. 내부 테두리 + 네온 글로우 =====
+        # ===== 11. 꿰맨 자국 / 스티칭 (프레임 전체 테두리) =====
+        stitch_step = max(4, int(10 * arena_scale))
+        stitch_c = (230, 180, 200)
+        stitch_w = max(1, int(1.5 * arena_scale))
+        # 상단 스티칭
+        for sx_s in range(ox - bw // 3, ox + fw + bw // 3, stitch_step):
+            sy_s = oy - bw // 3
+            pygame.draw.line(brd, stitch_c,
+                             (sx_s, sy_s - 2), (sx_s + stitch_step // 2, sy_s + 2), stitch_w)
+        # 하단 스티칭
+        for sx_s in range(ox - bw // 3, ox + fw + bw // 3, stitch_step):
+            sy_s = oy + fh + bw // 3
+            pygame.draw.line(brd, stitch_c,
+                             (sx_s, sy_s - 2), (sx_s + stitch_step // 2, sy_s + 2), stitch_w)
+        # 좌측 스티칭
+        for sy_s in range(oy - bw // 3, oy + fh + bw // 3, stitch_step):
+            sx_s = ox - bw // 3
+            pygame.draw.line(brd, stitch_c,
+                             (sx_s - 2, sy_s), (sx_s + 2, sy_s + stitch_step // 2), stitch_w)
+        # 우측 스티칭
+        for sy_s in range(oy - bw // 3, oy + fh + bw // 3, stitch_step):
+            sx_s = ox + fw + bw // 3
+            pygame.draw.line(brd, stitch_c,
+                             (sx_s - 2, sy_s), (sx_s + 2, sy_s + stitch_step // 2), stitch_w)
+
+        # ===== 12. 안전핀 (프레임 위 — 반창고와 함께) =====
+        for _ in range(10):
+            pin_x = random.randint(ox - bw // 2 + 4, ox + fw + bw // 2 - 4)
+            pin_lo = oy - bw // 2 + 2
+            pin_hi = oy + fh + bw // 2 - 6
+            if pin_lo >= pin_hi:
+                continue
+            pin_y = random.randint(pin_lo, pin_hi)
+            if ox + 3 < pin_x < ox + fw - 3 and oy + 3 < pin_y < oy + fh - 3:
+                continue
+            pin_len = max(4, int(8 * arena_scale))
+            pin_c = (190, 195, 205)
+            pin_hl = (220, 225, 235)
+            # 핀 직선부
+            pygame.draw.line(brd, pin_c,
+                             (pin_x, pin_y), (pin_x + pin_len, pin_y), max(1, int(arena_scale)))
+            # 갈고리
+            hook_h = max(2, int(3 * arena_scale))
+            pygame.draw.line(brd, pin_c,
+                             (pin_x + pin_len, pin_y),
+                             (pin_x + pin_len - 2, pin_y + hook_h), max(1, int(arena_scale)))
+            pygame.draw.line(brd, pin_c,
+                             (pin_x + pin_len - 2, pin_y + hook_h),
+                             (pin_x + pin_len - 4, pin_y), max(1, int(arena_scale)))
+            # 머리 (동그란 고리)
+            pin_head_r = max(2, int(3 * arena_scale))
+            pygame.draw.circle(brd, pin_c, (pin_x, pin_y), pin_head_r, max(1, int(arena_scale)))
+            pygame.draw.circle(brd, pin_hl, (pin_x - 1, pin_y - 1), max(1, pin_head_r // 2))
+
+        # ===== 13. 눈물 드립 (프레임 하단에서 아래로 흘러내림) =====
+        for _ in range(8):
+            drip_x = random.randint(ox, ox + fw)
+            drip_y = oy + fh + bw // 2
+            drip_len = max(4, int(random.uniform(8, 20) * arena_scale))
+            drip_c = random.choice([
+                (100, 160, 255), (140, 180, 255), (255, 100, 160),
+            ])
+            for di in range(drip_len):
+                da = max(1, 50 - di * 3)
+                dx_off = int(math.sin(di * 0.2) * 1)
+                pygame.draw.circle(brd, (*drip_c, da),
+                                   (drip_x + dx_off, drip_y + di), max(1, int(arena_scale)))
+            # 끝 물방울
+            pygame.draw.circle(brd, (*drip_c, 60),
+                               (drip_x, drip_y + drip_len), max(1, int(2 * arena_scale)))
+
+        # ===== 14. 깨진 하트 (프레임 좌우) =====
+        for _ in range(4):
+            bhx_lo = ox - bw // 2 + 3
+            bhx_hi = ox - 3
+            bhr_lo = ox + fw + 3
+            bhr_hi = ox + fw + bw // 2 - 3
+            if bhx_lo < bhx_hi and bhr_lo < bhr_hi:
+                bhx = random.choice([random.randint(bhx_lo, bhx_hi),
+                                     random.randint(bhr_lo, bhr_hi)])
+            elif bhx_lo < bhx_hi:
+                bhx = random.randint(bhx_lo, bhx_hi)
+            elif bhr_lo < bhr_hi:
+                bhx = random.randint(bhr_lo, bhr_hi)
+            else:
+                continue
+            bhy = random.randint(oy + 10, max(oy + 11, oy + fh - 10))
+            bh_sz = max(3, int(6 * arena_scale))
+            bh_c = (200, 50, 80)
+            # 하트 (작은)
+            bhr_r = max(1, bh_sz // 2)
+            pygame.draw.circle(brd, bh_c, (bhx - bhr_r + 1, bhy - bhr_r // 2), bhr_r)
+            pygame.draw.circle(brd, bh_c, (bhx + bhr_r - 1, bhy - bhr_r // 2), bhr_r)
+            pygame.draw.polygon(brd, bh_c,
+                                [(bhx - bh_sz + 1, bhy), (bhx + bh_sz - 1, bhy),
+                                 (bhx, bhy + bh_sz)])
+            # 금 (지그재그)
+            crack_c2 = (40, 20, 30)
+            pygame.draw.line(brd, crack_c2,
+                             (bhx, bhy - bhr_r),
+                             (bhx + random.randint(-2, 2), bhy + bh_sz), 1)
+
+        # ===== 15. 체인 자물쇠 (좌우 체인 중간에 추가) =====
+        for side in [-1, 1]:
+            lock_x = ox + (fw + bw // 3 if side > 0 else -bw // 3)
+            lock_y = oy + fh // 2
+            lk_w = max(4, int(7 * arena_scale))
+            lk_h = max(5, int(9 * arena_scale))
+            # 걸쇠
+            pygame.draw.arc(brd, chain_mid,
+                            (lock_x - lk_w // 3, lock_y - lk_h,
+                             lk_w * 2 // 3, lk_h // 2), 0, 3.14, max(1, int(arena_scale)))
+            # 본체
+            pygame.draw.rect(brd, (180, 150, 50),
+                             (lock_x - lk_w // 2, lock_y - lk_h // 2, lk_w, lk_h))
+            pygame.draw.rect(brd, (200, 170, 60),
+                             (lock_x - lk_w // 2, lock_y - lk_h // 2, lk_w, lk_h), 1)
+            # 열쇠구멍
+            pygame.draw.circle(brd, (30, 25, 20),
+                               (lock_x, lock_y - lk_h // 6), max(1, lk_w // 5))
+            pygame.draw.line(brd, (30, 25, 20),
+                             (lock_x, lock_y - lk_h // 6),
+                             (lock_x, lock_y + lk_h // 4), 1)
+
+        # ===== 16. 내부 테두리 + 네온 글로우 =====
         # 코너 X 장식 (pillar 스타일)
         corners_x = [
             (ox - 3, oy - 3), (ox + fw + 3, oy - 3),
@@ -3932,45 +4114,65 @@ class SpaceMap:
         # 내부 테두리선 (어두운 엣지)
         pygame.draw.rect(brd, frame_edge,
                          (ox - 3, oy - 3, fw + 6, fh + 6), max(1, int(3 * arena_scale)))
-        # 핑크 네온 글로우
-        glow_s = pygame.Surface((fw + 8, fh + 8), pygame.SRCALPHA)
-        pygame.draw.rect(glow_s, (255, 100, 180, 80),
-                         (0, 0, fw + 8, fh + 8), max(1, int(3 * arena_scale)))
-        brd.blit(glow_s, (ox - 4, oy - 4))
+        # 핑크 네온 글로우 (2중)
+        for ngi in range(2):
+            glow_s = pygame.Surface((fw + 8 + ngi * 4, fh + 8 + ngi * 4), pygame.SRCALPHA)
+            neon_glow_c = (255, 100, 180) if ngi == 0 else (100, 200, 255)
+            pygame.draw.rect(glow_s, (*neon_glow_c, max(1, 65 - ngi * 35)),
+                             (0, 0, fw + 8 + ngi * 4, fh + 8 + ngi * 4),
+                             max(1, int((3 - ngi) * arena_scale)))
+            brd.blit(glow_s, (ox - 4 - ngi * 2, oy - 4 - ngi * 2))
 
-        # ===== 12. 네온 사인 글로우 (프레임 상하단) =====
-        neon_colors = [(255, 100, 180), (100, 220, 255), (200, 120, 255)]
-        for _ in range(6):
+        # ===== 17. 네온 사인 글로우 (프레임 상하단 — 증가) =====
+        neon_colors = [(255, 100, 180), (100, 220, 255), (200, 120, 255),
+                       (255, 80, 120), (80, 255, 200)]
+        for _ in range(10):
             nx = random.randint(ox, ox + fw)
             ny = random.choice([oy - bw // 3, oy + fh + bw // 3])
-            nc = neon_colors[random.randint(0, 2)]
-            nr = max(3, int(random.uniform(4, 8) * arena_scale))
-            # 네온 글로우 (다중)
-            for gi in range(3):
+            nc = neon_colors[random.randint(0, len(neon_colors) - 1)]
+            nr = max(3, int(random.uniform(4, 9) * arena_scale))
+            # 4중 글로우
+            for gi in range(4):
                 gs = pygame.Surface((nr * 4 + gi * 4, nr * 4 + gi * 4), pygame.SRCALPHA)
-                pygame.draw.circle(gs, (*nc, max(1, 30 - gi * 10)),
+                pygame.draw.circle(gs, (*nc, max(1, 35 - gi * 8)),
                                    (nr * 2 + gi * 2, nr * 2 + gi * 2), nr + gi * 2)
                 brd.blit(gs, (nx - nr * 2 - gi * 2, ny - nr * 2 - gi * 2))
             pygame.draw.circle(brd, nc, (nx, ny), max(1, nr // 2))
 
-        # ===== 13. 반짝이 파티클 =====
-        for _ in range(30):
+        # ===== 18. 반짝이 파티클 (밀도 증가) =====
+        for _ in range(45):
             sx = random.randint(ox - bw // 2, ox + fw + bw // 2)
             sy = random.choice([
-                random.randint(oy - bw // 2 - lace_h, oy - 1),
-                random.randint(oy + fh + 1, oy + fh + bw // 2 + lace_h)
+                random.randint(max(0, oy - bw // 2 - lace_h), max(1, oy - 1)),
+                random.randint(oy + fh + 1, min(brd_h - 1, oy + fh + bw // 2 + lace_h))
             ])
             sr = max(1, int(random.uniform(1, 3) * arena_scale))
             sa = random.randint(100, 230)
             sc = random.choice([
                 (255, 200, 230), (255, 255, 255), (200, 220, 255),
-                (255, 180, 200),
+                (255, 180, 200), (255, 150, 220), (220, 200, 255),
             ])
             ss = pygame.Surface((sr * 4, sr * 4), pygame.SRCALPHA)
             pygame.draw.circle(ss, (*sc, sa // 2), (sr * 2, sr * 2), sr * 2)
             pygame.draw.circle(ss, (255, 255, 255, min(255, sa)),
                                (sr * 2, sr * 2), sr)
             brd.blit(ss, (sx - sr * 2, sy - sr * 2))
+
+        # ===== 19. 좌우 하트 네온 라인 (프레임 내부 가장자리) =====
+        for side_h in [-1, 1]:
+            h_base_x = ox + (fw + 2 if side_h > 0 else -bw // 4)
+            for hy_i in range(oy + 10, oy + fh - 10, max(8, int(25 * arena_scale))):
+                h_r_n = max(2, int(4 * arena_scale))
+                h_c_n = random.choice([(255, 80, 140), (255, 120, 180), (255, 60, 100)])
+                # 미니 하트
+                pygame.draw.circle(brd, h_c_n,
+                                   (h_base_x - h_r_n // 2, hy_i), max(1, h_r_n // 2))
+                pygame.draw.circle(brd, h_c_n,
+                                   (h_base_x + h_r_n // 2, hy_i), max(1, h_r_n // 2))
+                pygame.draw.polygon(brd, h_c_n,
+                                    [(h_base_x - h_r_n, hy_i + 1),
+                                     (h_base_x + h_r_n, hy_i + 1),
+                                     (h_base_x, hy_i + h_r_n + 1)])
 
         random.seed()
 
@@ -5305,11 +5507,11 @@ class SpaceMap:
         def _in_center(px, py):
             return abs(px - _cz_x) < _cz_hw and abs(py - _cz_y) < _cz_hh
 
-        # ===== 기본 지형 — HD 1px 스무스 그라디언트 (보라빛 도시 야경) =====
-        sky_top = (20, 10, 45)        # 깊은 남보라 밤하늘
-        sky_mid = (45, 18, 65)        # 보라빛 도시 하늘 (빛 공해)
-        ground_mid = (35, 22, 48)     # 어두운 아스팔트
-        ground_bot = (25, 15, 35)     # 가장 어두운 도로
+        # ===== 기본 지형 — HD 1px 스무스 그라디언트 (더티핑크 + 보라 도시 야경) =====
+        sky_top = (22, 8, 38)         # 깊은 남보라 밤하늘
+        sky_mid = (52, 18, 58)        # 핑크빛 도시 하늘 (빛 공해)
+        ground_mid = (38, 20, 42)     # 어두운 아스팔트 (핑크 틴트)
+        ground_bot = (28, 14, 32)     # 가장 어두운 도로
         for y in range(H):
             fy = y / max(1, H - 1)
             if fy < 0.3:
@@ -5328,6 +5530,84 @@ class SpaceMap:
                 g = int(ground_mid[1] + (ground_bot[1] - ground_mid[1]) * ft)
                 b = int(ground_mid[2] + (ground_bot[2] - ground_mid[2]) * ft)
             pygame.draw.line(surf, (r, g, b, alpha), (0, y), (W, y))
+
+        # ===== 별 (100개 — 일부 하트/핑크빛) =====
+        random.seed(31369)
+        star_a = max(0, int(alpha * (1.0 - t * 1.5)))
+        if star_a > 5:
+            for _ in range(100):
+                sx = random.randint(0, W)
+                sy = random.randint(0, int(H * 0.35))
+                if _in_center(sx, sy):
+                    continue
+                s_type = random.random()
+                if s_type < 0.12:
+                    # 하트 모양 별 (12%)
+                    hs_r = random.randint(2, 4)
+                    hc = random.choice([(255, 150, 200), (255, 120, 180), (255, 180, 220)])
+                    h_s = pygame.Surface((hs_r * 4, hs_r * 4), pygame.SRCALPHA)
+                    hcx, hcy = hs_r * 2, hs_r * 2
+                    pygame.draw.circle(h_s, (*hc, min(255, star_a)),
+                                       (hcx - hs_r // 2, hcy - hs_r // 3), hs_r)
+                    pygame.draw.circle(h_s, (*hc, min(255, star_a)),
+                                       (hcx + hs_r // 2, hcy - hs_r // 3), hs_r)
+                    pygame.draw.polygon(h_s, (*hc, min(255, star_a)),
+                                        [(hcx - hs_r - 1, hcy), (hcx + hs_r + 1, hcy),
+                                         (hcx, hcy + hs_r + 1)])
+                    # 글로우
+                    pygame.draw.circle(h_s, (*hc, min(255, star_a // 4)),
+                                       (hcx, hcy), hs_r * 2)
+                    surf.blit(h_s, (sx - hs_r * 2, sy - hs_r * 2))
+                elif s_type < 0.35:
+                    # 밝은 핑크 별 (십자형)
+                    sr = random.randint(1, 3)
+                    sc = random.choice([(255, 200, 230), (240, 180, 220), (255, 220, 240)])
+                    sa = min(255, star_a + random.randint(0, 40))
+                    pygame.draw.line(surf, (*sc, sa), (sx - sr, sy), (sx + sr, sy), 1)
+                    pygame.draw.line(surf, (*sc, sa), (sx, sy - sr), (sx, sy + sr), 1)
+                    if sr > 1:
+                        d = max(1, sr - 1)
+                        sc2 = (sc[0], sc[1] - 10, sc[2] - 10)
+                        pygame.draw.line(surf, (*sc2, sa // 2),
+                                         (sx - d, sy - d), (sx + d, sy + d), 1)
+                        pygame.draw.line(surf, (*sc2, sa // 2),
+                                         (sx + d, sy - d), (sx - d, sy + d), 1)
+                else:
+                    # 일반 별 (점)
+                    sr = 1
+                    sc = random.choice([
+                        (220, 200, 240), (255, 230, 250), (200, 180, 230),
+                        (240, 210, 255), (180, 170, 210),
+                    ])
+                    sa = min(255, star_a - random.randint(0, 40))
+                    if sa > 3:
+                        pygame.draw.circle(surf, (*sc, sa), (sx, sy), sr)
+
+        # ===== 초승달 (어두운 핑크 글로우 — 멘헤라 분위기) =====
+        if star_a > 10:
+            moon_x = int(W * 0.78)
+            moon_y = int(H * 0.1)
+            moon_r = max(8, W // 30)
+            # 6중 핑크/보라 글로우
+            for gi in range(6):
+                gr = moon_r + 8 + gi * 6
+                gc = (200 - gi * 12, 80 - gi * 8, 140 - gi * 8)
+                ga = max(1, 25 - gi * 4)
+                gs = pygame.Surface((gr * 2, gr * 2), pygame.SRCALPHA)
+                pygame.draw.circle(gs, (*gc, ga), (gr, gr), gr)
+                surf.blit(gs, (moon_x - gr, moon_y - gr))
+            # 달 본체 (밝은 핑크/라벤더)
+            pygame.draw.circle(surf, (250, 230, 245, min(255, star_a)),
+                               (moon_x, moon_y), moon_r)
+            # 반달 그림자 (초승달 형태)
+            shadow_off = max(3, moon_r // 3)
+            pygame.draw.circle(surf, (22, 8, 38, min(255, star_a)),
+                               (moon_x + shadow_off, moon_y - shadow_off // 2),
+                               max(4, moon_r - 2))
+            # 달 테두리 빛
+            pygame.draw.circle(surf, (255, 200, 230, min(255, star_a // 2)),
+                               (moon_x, moon_y), moon_r + 1, 1)
+        random.seed()
 
         random.seed(31371)
 
@@ -5434,16 +5714,17 @@ class SpaceMap:
                                      (0, 0, ns_w + 6, ns_h + 6))
                     surf.blit(ns_s, (cx - ns_w // 2 - 3, ns_y - 3))
 
-        # ===== 수평 네온 빛 번짐 (도시 빛 공해) =====
-        for fi in range(7):
-            fog_y = int(H * (0.15 + fi * 0.1))
-            fog_a = max(0, int(40 * math.sin(fi * 1.0 + 0.3) * alpha / 255))
+        # ===== 수평 네온 빛 번짐 (핑크+보라 빛 공해) =====
+        for fi in range(9):
+            fog_y = int(H * (0.12 + fi * 0.09))
+            fog_a = max(0, int(45 * math.sin(fi * 0.9 + 0.2) * alpha / 255))
             if fog_a > 1:
                 fc = random.choice([
-                    (80, 30, 110), (100, 40, 130), (60, 20, 90),
-                    (90, 35, 120), (110, 50, 140),
+                    (100, 40, 90), (120, 50, 110), (80, 30, 75),
+                    (110, 45, 100), (130, 55, 120), (90, 35, 80),
+                    (140, 60, 100), (100, 50, 85),
                 ])
-                fog_h = max(1, int(22 + fi * 6))
+                fog_h = max(1, int(24 + fi * 5))
                 fog_s = pygame.Surface((W, fog_h), pygame.SRCALPHA)
                 fog_s.fill((*fc, fog_a))
                 surf.blit(fog_s, (0, fog_y))
@@ -6081,244 +6362,630 @@ class SpaceMap:
                 pygame.draw.line(surf, (55, 50, 60, alpha),
                                  (dx + 3, dy - 2), (dx + 1, dy - 5), 1)
 
-        # ===== 멘헤라 곰인형 (X눈 — 건물 위/거리에 배치) =====
-        for bi_m in range(10):
-            bx_m = random.randint(15, W - 15)
-            by_m = random.randint(int(H * 0.35), H - 10)
+        # ===== 멘헤라 곰인형 (X눈 — 초고퀄리티 풀바디, 액세서리) =====
+        for bi_m in range(14):
+            bx_m = random.randint(18, W - 18)
+            by_m = random.randint(int(H * 0.32), H - 12)
             if _in_center(bx_m, by_m):
                 continue
-            bear_s = random.randint(8, 16)  # 곰 크기
+            bear_s = random.randint(9, 18)
             bear_c = random.choice([
-                (140, 80, 100), (120, 70, 90), (160, 100, 120),
-                (100, 60, 80), (180, 120, 140),
+                (30, 25, 30), (255, 180, 200), (140, 80, 100),
+                (120, 100, 80), (200, 160, 180), (80, 60, 70),
             ])
-            bs = pygame.Surface((bear_s * 2, bear_s * 2 + 4), pygame.SRCALPHA)
-            # 몸통 (둥근 타원)
-            pygame.draw.ellipse(bs, (*bear_c, min(255, int(alpha * 0.8))),
-                                (bear_s // 4, bear_s // 2, bear_s * 3 // 2, bear_s + 2))
-            # 머리 (원)
-            head_r_m = max(3, bear_s * 2 // 5)
-            pygame.draw.circle(bs, (*bear_c, min(255, int(alpha * 0.85))),
-                               (bear_s, bear_s // 3 + 1), head_r_m)
-            # 귀 (2개)
+            bs_w, bs_h = bear_s * 3, bear_s * 4
+            bs = pygame.Surface((bs_w, bs_h), pygame.SRCALPHA)
+            cx_b, cy_b = bs_w // 2, bs_h // 3
+            ba = min(255, int(alpha * 0.85))
+            # 다리 (2개)
+            leg_w = max(2, bear_s // 3)
+            leg_h = max(4, bear_s // 2)
+            pygame.draw.ellipse(bs, (*bear_c, ba),
+                                (cx_b - bear_s // 2 - 1, cy_b + bear_s - 2, leg_w + 2, leg_h + 2))
+            pygame.draw.ellipse(bs, (*bear_c, ba),
+                                (cx_b + bear_s // 2 - leg_w, cy_b + bear_s - 2, leg_w + 2, leg_h + 2))
+            # 몸통
+            pygame.draw.ellipse(bs, (*bear_c, ba),
+                                (cx_b - bear_s // 2, cy_b, bear_s, bear_s + 2))
+            # 배 (밝은 부분)
+            belly_c = (min(255, bear_c[0] + 40), min(255, bear_c[1] + 35),
+                       min(255, bear_c[2] + 30))
+            belly_r = max(2, bear_s // 4)
+            pygame.draw.ellipse(bs, (*belly_c, max(1, ba // 2)),
+                                (cx_b - belly_r, cy_b + bear_s // 3, belly_r * 2, belly_r * 2))
+            # 팔 (2개)
+            arm_w = max(2, bear_s // 4)
+            arm_h = max(3, bear_s // 2)
+            pygame.draw.ellipse(bs, (*bear_c, ba),
+                                (cx_b - bear_s // 2 - arm_w + 1, cy_b + 2, arm_w + 1, arm_h))
+            pygame.draw.ellipse(bs, (*bear_c, ba),
+                                (cx_b + bear_s // 2 - 1, cy_b + 2, arm_w + 1, arm_h))
+            # 머리
+            head_r_m = max(4, bear_s * 2 // 5)
+            pygame.draw.circle(bs, (*bear_c, ba), (cx_b, cy_b - head_r_m + 4), head_r_m)
+            # 귀
             ear_r_m = max(2, head_r_m // 2)
-            pygame.draw.circle(bs, (*bear_c, min(255, int(alpha * 0.85))),
-                               (bear_s - head_r_m + 1, bear_s // 3 - head_r_m + 3), ear_r_m)
-            pygame.draw.circle(bs, (*bear_c, min(255, int(alpha * 0.85))),
-                               (bear_s + head_r_m - 1, bear_s // 3 - head_r_m + 3), ear_r_m)
-            # X 눈 (멘헤라 특유)
-            ex_l = bear_s - head_r_m // 2 - 1
-            ex_r = bear_s + head_r_m // 2
-            ey = bear_s // 3
-            xr = max(1, head_r_m // 4)
-            x_c = (220, 50, 80, min(255, int(alpha * 0.9)))
-            pygame.draw.line(bs, x_c, (ex_l - xr, ey - xr), (ex_l + xr, ey + xr), 1)
-            pygame.draw.line(bs, x_c, (ex_l + xr, ey - xr), (ex_l - xr, ey + xr), 1)
-            pygame.draw.line(bs, x_c, (ex_r - xr, ey - xr), (ex_r + xr, ey + xr), 1)
-            pygame.draw.line(bs, x_c, (ex_r + xr, ey - xr), (ex_r - xr, ey + xr), 1)
-            # 입 (아래로 처진 곡선)
-            mouth_y = bear_s // 3 + head_r_m // 3
-            pygame.draw.arc(bs, (180, 40, 60, min(255, int(alpha * 0.7))),
-                            (bear_s - head_r_m // 3, mouth_y, head_r_m * 2 // 3, head_r_m // 3),
+            for ear_side in [-1, 1]:
+                ear_x = cx_b + ear_side * (head_r_m - 2)
+                ear_y = cy_b - head_r_m - ear_r_m + 6
+                pygame.draw.circle(bs, (*bear_c, ba), (ear_x, ear_y), ear_r_m)
+                # 귀 안쪽 (핑크)
+                pygame.draw.circle(bs, (255, 150, 180, max(1, ba - 30)),
+                                   (ear_x, ear_y), max(1, ear_r_m - 2))
+            # X 눈 (멘헤라)
+            ey_y = cy_b - head_r_m + 5
+            xr = max(1, head_r_m // 3)
+            x_c = (220, 40, 70, min(255, int(alpha * 0.95)))
+            for ex_side in [-1, 1]:
+                ex_x = cx_b + ex_side * (head_r_m // 3 + 1)
+                pygame.draw.line(bs, x_c, (ex_x - xr, ey_y - xr),
+                                 (ex_x + xr, ey_y + xr), max(1, bear_s // 8))
+                pygame.draw.line(bs, x_c, (ex_x + xr, ey_y - xr),
+                                 (ex_x - xr, ey_y + xr), max(1, bear_s // 8))
+            # 입 (슬픈 곡선)
+            mouth_y = cy_b - head_r_m + head_r_m * 2 // 3 + 3
+            mouth_w = max(3, head_r_m // 2)
+            pygame.draw.arc(bs, (180, 40, 60, min(255, int(alpha * 0.8))),
+                            (cx_b - mouth_w, mouth_y, mouth_w * 2, max(2, head_r_m // 3)),
                             3.14, 6.28, 1)
-            surf.blit(bs, (bx_m - bear_s, by_m - bear_s))
-            # 곰 주변 핑크 글로우
-            g_s = pygame.Surface((bear_s * 4, bear_s * 4), pygame.SRCALPHA)
-            pygame.draw.circle(g_s, (200, 80, 120, 12), (bear_s * 2, bear_s * 2), bear_s * 2)
-            surf.blit(g_s, (bx_m - bear_s * 2, by_m - bear_s * 2))
+            # 눈물 (한쪽)
+            if random.random() < 0.5:
+                tear_x = cx_b - head_r_m // 3
+                tear_y = ey_y + xr + 1
+                pygame.draw.ellipse(bs, (100, 180, 255, min(255, int(alpha * 0.6))),
+                                    (tear_x - 1, tear_y, 2, max(2, head_r_m // 3)))
+            # 반창고 (몸에 붙은)
+            if random.random() < 0.4:
+                bd_x = cx_b + random.randint(-bear_s // 3, bear_s // 3)
+                bd_y = cy_b + random.randint(0, bear_s // 2)
+                bd_l = max(3, bear_s // 3)
+                pygame.draw.line(bs, (210, 185, 155, min(255, int(alpha * 0.7))),
+                                 (bd_x - bd_l, bd_y - bd_l // 2),
+                                 (bd_x + bd_l, bd_y + bd_l // 2), max(1, bear_s // 8))
+            # 리본/나비 (일부 곰에)
+            if random.random() < 0.35:
+                rb_x = cx_b + head_r_m - 2
+                rb_y = cy_b - head_r_m
+                rb_r = max(2, head_r_m // 3)
+                rb_c = random.choice([(255, 80, 120), (255, 150, 200), (200, 80, 255)])
+                pygame.draw.circle(bs, (*rb_c, ba), (rb_x - rb_r, rb_y), rb_r)
+                pygame.draw.circle(bs, (*rb_c, ba), (rb_x + rb_r, rb_y), rb_r)
+                pygame.draw.circle(bs, (min(255, rb_c[0] - 30), max(0, rb_c[1] - 20),
+                                        max(0, rb_c[2] - 20), ba),
+                                   (rb_x, rb_y), max(1, rb_r // 2))
+            surf.blit(bs, (bx_m - bs_w // 2, by_m - bs_h // 2))
+            # 핑크 글로우
+            g_s = pygame.Surface((bear_s * 5, bear_s * 5), pygame.SRCALPHA)
+            pygame.draw.circle(g_s, (200, 80, 120, 15),
+                               (bear_s * 5 // 2, bear_s * 5 // 2), bear_s * 5 // 2)
+            surf.blit(g_s, (bx_m - bear_s * 5 // 2, by_m - bear_s * 5 // 2))
 
-        # ===== 멘헤라 하트 네온사인 (건물 벽/거리) =====
-        for hi in range(8):
+        # ===== 멘헤라 하트 네온 (일반 + 깨진/피 묻은 하트) =====
+        for hi in range(12):
             hx = random.randint(10, W - 10)
-            hy = random.randint(int(H * 0.25), int(H * 0.8))
+            hy = random.randint(int(H * 0.22), int(H * 0.82))
             if _in_center(hx, hy):
                 continue
-            h_sz = random.randint(6, 14)
+            h_sz = random.randint(6, 16)
             h_c = random.choice([
                 (255, 60, 120), (255, 100, 160), (255, 40, 100),
-                (220, 50, 90), (255, 80, 140),
+                (220, 50, 90), (255, 80, 140), (200, 40, 80),
             ])
-            hs = pygame.Surface((h_sz * 2 + 4, h_sz * 2 + 4), pygame.SRCALPHA)
-            cx_h, cy_h = h_sz + 2, h_sz + 2
-            # 하트 형태 (2개 원 + 삼각형)
+            is_broken = random.random() < 0.3
+            hs_w = h_sz * 2 + 6
+            hs = pygame.Surface((hs_w, hs_w), pygame.SRCALPHA)
+            cx_h, cy_h = hs_w // 2, hs_w // 2
             hr = max(2, h_sz * 2 // 5)
-            pygame.draw.circle(hs, (*h_c, min(255, int(alpha * 0.85))),
-                               (cx_h - hr + 1, cy_h - hr // 2), hr)
-            pygame.draw.circle(hs, (*h_c, min(255, int(alpha * 0.85))),
-                               (cx_h + hr - 1, cy_h - hr // 2), hr)
-            pygame.draw.polygon(hs, (*h_c, min(255, int(alpha * 0.85))),
+            ha = min(255, int(alpha * 0.85))
+            # 하트 본체
+            pygame.draw.circle(hs, (*h_c, ha), (cx_h - hr + 1, cy_h - hr // 2), hr)
+            pygame.draw.circle(hs, (*h_c, ha), (cx_h + hr - 1, cy_h - hr // 2), hr)
+            pygame.draw.polygon(hs, (*h_c, ha),
                                 [(cx_h - h_sz + 1, cy_h - 1),
                                  (cx_h + h_sz - 1, cy_h - 1),
                                  (cx_h, cy_h + h_sz)])
-            # 하트 글로우 (3중)
-            for gi in range(3):
+            # 하이라이트
+            hl_c = (min(255, h_c[0] + 30), min(255, h_c[1] + 30), min(255, h_c[2] + 30))
+            pygame.draw.circle(hs, (*hl_c, max(1, ha // 3)),
+                               (cx_h - hr // 2, cy_h - hr), max(1, hr // 3))
+            if is_broken:
+                # 깨진 금 (지그재그)
+                crack_c = (40, 20, 30, min(255, int(alpha * 0.8)))
+                mid_x = cx_h
+                pts = [(mid_x, cy_h - hr)]
+                for ci_c in range(4):
+                    pts.append((mid_x + random.randint(-3, 3),
+                                cy_h - hr + (ci_c + 1) * (h_sz + hr) // 4))
+                if len(pts) > 1:
+                    pygame.draw.lines(hs, crack_c, False, pts, max(1, h_sz // 6))
+                # 피 방울 (하단)
+                for _ in range(random.randint(1, 3)):
+                    drip_x = cx_h + random.randint(-h_sz // 3, h_sz // 3)
+                    drip_y = cy_h + h_sz + random.randint(0, h_sz // 2)
+                    drip_r = max(1, random.randint(1, 3))
+                    pygame.draw.circle(hs, (180, 30, 50, min(255, int(alpha * 0.6))),
+                                       (drip_x, drip_y), drip_r)
+                    # 드립 줄기
+                    pygame.draw.line(hs, (160, 30, 45, min(255, int(alpha * 0.4))),
+                                     (drip_x, cy_h + h_sz), (drip_x, drip_y), 1)
+            # 4중 글로우
+            for gi in range(4):
                 g_r = h_sz + 3 + gi * 3
                 gs = pygame.Surface((g_r * 2, g_r * 2), pygame.SRCALPHA)
-                pygame.draw.circle(gs, (*h_c, max(1, 28 - gi * 8)),
+                pygame.draw.circle(gs, (*h_c, max(1, 30 - gi * 7)),
                                    (g_r, g_r), g_r)
                 surf.blit(gs, (hx - g_r, hy - g_r))
-            surf.blit(hs, (hx - h_sz - 2, hy - h_sz - 2))
+            surf.blit(hs, (hx - hs_w // 2, hy - hs_w // 2))
 
-        # ===== 반창고/붕대 (건물 외벽, 거리 바닥) =====
-        for bdi in range(12):
+        # ===== 반창고/붕대 (초고퀄 — 텍스처+구멍+피) =====
+        for bdi in range(18):
             bdx = random.randint(5, W - 5)
-            bdy = random.randint(int(H * 0.3), H - 5)
+            bdy = random.randint(int(H * 0.28), H - 5)
             if _in_center(bdx, bdy):
                 continue
-            is_x = random.random() < 0.35  # X자 반창고
-            bd_len = random.randint(8, 20)
-            bd_w = max(2, bd_len // 5)
-            bd_c = (210, 185, 155, min(255, int(alpha * 0.55)))
-            bd_blood = (180, 50, 50, min(255, int(alpha * 0.35)))
+            is_x = random.random() < 0.3
+            bd_len = random.randint(10, 24)
+            bd_w = max(2, bd_len // 4)
+            bd_c = (210, 185, 155)
+            bd_pad = (190, 160, 130)
+            bd_blood = (180, 50, 50)
+            bd_a = min(255, int(alpha * 0.6))
             if is_x:
-                # X자 반창고
-                pygame.draw.line(surf, bd_c,
+                pygame.draw.line(surf, (*bd_c, bd_a),
                                  (bdx - bd_len // 2, bdy - bd_len // 2),
                                  (bdx + bd_len // 2, bdy + bd_len // 2), bd_w)
-                pygame.draw.line(surf, bd_c,
+                pygame.draw.line(surf, (*bd_c, bd_a),
                                  (bdx + bd_len // 2, bdy - bd_len // 2),
                                  (bdx - bd_len // 2, bdy + bd_len // 2), bd_w)
-                # 혈흔
-                pygame.draw.circle(surf, bd_blood, (bdx, bdy), max(1, bd_w))
+                # 반창고 구멍 (가로줄)
+                for stripe in range(-bd_len // 2 + 2, bd_len // 2, max(2, bd_len // 6)):
+                    pygame.draw.line(surf, (*bd_pad, max(1, bd_a // 2)),
+                                     (bdx + stripe - 1, bdy + stripe - bd_w),
+                                     (bdx + stripe - 1, bdy + stripe + bd_w), 1)
+                pygame.draw.circle(surf, (*bd_blood, max(1, int(alpha * 0.4))),
+                                   (bdx, bdy), max(1, bd_w))
+                # 주변 피 흔적
+                if random.random() < 0.4:
+                    for _ in range(random.randint(1, 3)):
+                        bsx = bdx + random.randint(-bd_len // 3, bd_len // 3)
+                        bsy = bdy + random.randint(-2, bd_len // 3)
+                        pygame.draw.circle(surf, (*bd_blood, max(1, int(alpha * 0.25))),
+                                           (bsx, bsy), 1)
             else:
-                # 일자 반창고
-                angle = random.choice([0, 1])  # 0=가로, 1=세로
+                angle = random.choice([0, 1])
                 if angle == 0:
-                    pygame.draw.rect(surf, bd_c,
+                    pygame.draw.rect(surf, (*bd_c, bd_a),
                                      (bdx - bd_len // 2, bdy - bd_w // 2, bd_len, bd_w))
-                    # 반창고 구멍 (중앙 패드)
-                    pad_w = max(2, bd_len // 4)
-                    pygame.draw.rect(surf, (190, 160, 130, min(255, int(alpha * 0.5))),
+                    # 둥근 끝
+                    pygame.draw.circle(surf, (*bd_c, bd_a),
+                                       (bdx - bd_len // 2, bdy), max(1, bd_w // 2))
+                    pygame.draw.circle(surf, (*bd_c, bd_a),
+                                       (bdx + bd_len // 2, bdy), max(1, bd_w // 2))
+                    # 패드
+                    pad_w = max(3, bd_len // 3)
+                    pygame.draw.rect(surf, (*bd_pad, max(1, bd_a - 20)),
                                      (bdx - pad_w // 2, bdy - bd_w // 2, pad_w, bd_w))
+                    # 구멍 텍스처
+                    for stripe in range(bdx - bd_len // 2 + 2, bdx + bd_len // 2 - 1,
+                                        max(2, bd_len // 8)):
+                        pygame.draw.line(surf, (*bd_pad, max(1, bd_a // 3)),
+                                         (stripe, bdy - bd_w // 2),
+                                         (stripe, bdy + bd_w // 2), 1)
                 else:
-                    pygame.draw.rect(surf, bd_c,
+                    pygame.draw.rect(surf, (*bd_c, bd_a),
                                      (bdx - bd_w // 2, bdy - bd_len // 2, bd_w, bd_len))
-                    pad_h = max(2, bd_len // 4)
-                    pygame.draw.rect(surf, (190, 160, 130, min(255, int(alpha * 0.5))),
+                    pygame.draw.circle(surf, (*bd_c, bd_a),
+                                       (bdx, bdy - bd_len // 2), max(1, bd_w // 2))
+                    pygame.draw.circle(surf, (*bd_c, bd_a),
+                                       (bdx, bdy + bd_len // 2), max(1, bd_w // 2))
+                    pad_h = max(3, bd_len // 3)
+                    pygame.draw.rect(surf, (*bd_pad, max(1, bd_a - 20)),
                                      (bdx - bd_w // 2, bdy - pad_h // 2, bd_w, pad_h))
 
-        # ===== 알약/캡슐 (멘헤라 의약품 이미지) =====
-        for pli in range(10):
+        # ===== 알약/캡슐 + 약병 (멘헤라 의약품) =====
+        for pli in range(15):
             plx = random.randint(8, W - 8)
-            ply = random.randint(int(H * 0.4), H - 5)
+            ply = random.randint(int(H * 0.38), H - 5)
             if _in_center(plx, ply):
                 continue
-            pill_w = random.randint(5, 10)
-            pill_h = max(2, pill_w // 2)
-            pill_rot = random.choice([0, 1])  # 0=가로, 1=세로
-            pc1 = random.choice([
-                (255, 100, 150), (100, 200, 255), (255, 200, 80),
-                (200, 100, 255), (255, 150, 200),
-            ])
-            pc2 = (240, 235, 230)  # 캡슐 흰 부분
-            if pill_rot == 0:
-                # 가로 캡슐
-                pygame.draw.ellipse(surf, (*pc1, min(255, int(alpha * 0.7))),
-                                    (plx - pill_w // 2, ply - pill_h // 2,
-                                     pill_w // 2, pill_h))
-                pygame.draw.ellipse(surf, (*pc2, min(255, int(alpha * 0.7))),
-                                    (plx, ply - pill_h // 2,
-                                     pill_w // 2, pill_h))
+            p_type = random.random()
+            pa = min(255, int(alpha * 0.7))
+            if p_type < 0.6:
+                # 캡슐
+                pill_w = random.randint(6, 12)
+                pill_h = max(3, pill_w // 2)
+                pc1 = random.choice([
+                    (255, 100, 150), (100, 200, 255), (255, 200, 80),
+                    (200, 100, 255), (255, 150, 200), (80, 220, 180),
+                ])
+                pc2 = (240, 235, 230)
+                pill_rot = random.choice([0, 1])
+                if pill_rot == 0:
+                    pygame.draw.ellipse(surf, (*pc1, pa),
+                                        (plx - pill_w // 2, ply - pill_h // 2,
+                                         pill_w // 2, pill_h))
+                    pygame.draw.ellipse(surf, (*pc2, pa),
+                                        (plx, ply - pill_h // 2,
+                                         pill_w // 2, pill_h))
+                    # 구분선
+                    pygame.draw.line(surf, (200, 100, 140, max(1, pa // 2)),
+                                     (plx, ply - pill_h // 2), (plx, ply + pill_h // 2), 1)
+                    # 하이라이트
+                    pygame.draw.line(surf, (255, 240, 240, max(1, pa // 3)),
+                                     (plx - pill_w // 4, ply - pill_h // 2 + 1),
+                                     (plx + pill_w // 4, ply - pill_h // 2 + 1), 1)
+                else:
+                    pygame.draw.ellipse(surf, (*pc1, pa),
+                                        (plx - pill_h // 2, ply - pill_w // 2,
+                                         pill_h, pill_w // 2))
+                    pygame.draw.ellipse(surf, (*pc2, pa),
+                                        (plx - pill_h // 2, ply,
+                                         pill_h, pill_w // 2))
+            elif p_type < 0.8:
+                # 약병
+                bw_p = random.randint(5, 9)
+                bh_p = random.randint(8, 14)
+                # 병 몸체
+                pygame.draw.rect(surf, (200, 220, 240, pa),
+                                 (plx - bw_p // 2, ply - bh_p, bw_p, bh_p))
+                # 뚜껑
+                cap_h = max(2, bh_p // 5)
+                pygame.draw.rect(surf, (240, 240, 250, pa),
+                                 (plx - bw_p // 2 - 1, ply - bh_p - cap_h,
+                                  bw_p + 2, cap_h))
+                # 라벨
+                label_h = max(2, bh_p // 3)
+                lbl_c = random.choice([(255, 100, 150), (100, 180, 255), (200, 100, 255)])
+                pygame.draw.rect(surf, (*lbl_c, max(1, pa - 30)),
+                                 (plx - bw_p // 2 + 1, ply - bh_p + cap_h + 1,
+                                  bw_p - 2, label_h))
+                # 십자 마크
+                cx_p = plx
+                cy_p = ply - bh_p + cap_h + 1 + label_h // 2
+                pygame.draw.line(surf, (255, 255, 255, max(1, pa // 2)),
+                                 (cx_p - 1, cy_p), (cx_p + 1, cy_p), 1)
+                pygame.draw.line(surf, (255, 255, 255, max(1, pa // 2)),
+                                 (cx_p, cy_p - 1), (cx_p, cy_p + 1), 1)
             else:
-                # 세로 캡슐
-                pygame.draw.ellipse(surf, (*pc1, min(255, int(alpha * 0.7))),
-                                    (plx - pill_h // 2, ply - pill_w // 2,
-                                     pill_h, pill_w // 2))
-                pygame.draw.ellipse(surf, (*pc2, min(255, int(alpha * 0.7))),
-                                    (plx - pill_h // 2, ply,
-                                     pill_h, pill_w // 2))
+                # 주사기
+                syr_len = random.randint(10, 18)
+                syr_w = max(2, syr_len // 5)
+                # 실린더
+                pygame.draw.rect(surf, (220, 230, 240, pa),
+                                 (plx - syr_w // 2, ply - syr_len, syr_w, syr_len))
+                # 피스톤 손잡이
+                pygame.draw.rect(surf, (180, 190, 200, pa),
+                                 (plx - syr_w, ply - 2, syr_w * 2, 3))
+                # 바늘
+                pygame.draw.line(surf, (200, 205, 215, pa),
+                                 (plx, ply - syr_len), (plx, ply - syr_len - max(3, syr_len // 3)), 1)
+                # 액체 (핑크)
+                liq_h = max(2, syr_len // 3)
+                pygame.draw.rect(surf, (255, 100, 150, max(1, pa - 40)),
+                                 (plx - syr_w // 2 + 1, ply - liq_h - 2, syr_w - 2, liq_h))
 
-        # ===== 체인/쇠사슬 (건물 사이 매달린 장식) =====
-        for chi in range(6):
-            ch_x1 = random.randint(10, W - 50)
-            ch_x2 = ch_x1 + random.randint(30, 80)
-            ch_y = random.randint(int(H * 0.25), int(H * 0.65))
+        # ===== 체인/쇠사슬 (HD — 두꺼운 링크 + 자물쇠) =====
+        for chi in range(8):
+            ch_x1 = random.randint(10, W - 60)
+            ch_x2 = ch_x1 + random.randint(35, 90)
+            ch_y = random.randint(int(H * 0.22), int(H * 0.68))
             if _in_center((ch_x1 + ch_x2) // 2, ch_y):
                 continue
-            ch_c_dark = (50, 50, 55, min(255, int(alpha * 0.65)))
-            ch_c_light = (120, 120, 130, min(255, int(alpha * 0.5)))
-            # 체인 링크 (곡선)
-            link_count = max(4, (ch_x2 - ch_x1) // 6)
+            ch_dark = (45, 45, 52)
+            ch_mid = (80, 80, 90)
+            ch_light = (140, 140, 155)
+            cha = min(255, int(alpha * 0.7))
+            link_count = max(5, (ch_x2 - ch_x1) // 5)
             for li_c in range(link_count):
                 t_c = li_c / max(1, link_count - 1)
                 lx = int(ch_x1 + (ch_x2 - ch_x1) * t_c)
-                sag = int(15 * math.sin(t_c * math.pi))
+                sag = int(18 * math.sin(t_c * math.pi))
                 ly = ch_y + sag
-                # 타원형 링크
-                link_r = max(2, 3)
-                pygame.draw.ellipse(surf, ch_c_dark,
-                                    (lx - link_r, ly - link_r // 2,
-                                     link_r * 2, link_r), 1)
-                # 광택
+                lr_x = max(2, 4)
+                lr_y = max(2, 3)
                 if li_c % 2 == 0:
-                    pygame.draw.circle(surf, ch_c_light, (lx, ly), 1)
+                    pygame.draw.ellipse(surf, (*ch_dark, cha),
+                                        (lx - lr_x, ly - lr_y, lr_x * 2, lr_y * 2))
+                    pygame.draw.ellipse(surf, (*ch_mid, max(1, cha - 30)),
+                                        (lx - lr_x + 1, ly - lr_y + 1,
+                                         lr_x * 2 - 2, lr_y * 2 - 2), 1)
+                else:
+                    pygame.draw.ellipse(surf, (*ch_dark, cha),
+                                        (lx - lr_x + 1, ly - lr_y + 1,
+                                         lr_x * 2 - 2, lr_y * 2 - 2))
+                # 광택
+                pygame.draw.circle(surf, (*ch_light, max(1, cha // 2)),
+                                   (lx - 1, ly - 1), 1)
+            # 자물쇠 (체인 중앙에 매달림)
+            if random.random() < 0.45:
+                lock_x = (ch_x1 + ch_x2) // 2
+                lock_sag = int(18 * math.sin(0.5 * math.pi))
+                lock_y = ch_y + lock_sag + 3
+                lk_w = max(4, 6)
+                lk_h = max(5, 7)
+                # 걸쇠 (반원)
+                pygame.draw.arc(surf, (*ch_mid, cha),
+                                (lock_x - lk_w // 3, lock_y - lk_h // 2,
+                                 lk_w * 2 // 3, lk_h // 2), 0, 3.14, 1)
+                # 본체
+                pygame.draw.rect(surf, (180, 150, 50, cha),
+                                 (lock_x - lk_w // 2, lock_y, lk_w, lk_h))
+                pygame.draw.rect(surf, (200, 170, 60, max(1, cha - 30)),
+                                 (lock_x - lk_w // 2, lock_y, lk_w, lk_h), 1)
+                # 열쇠구멍
+                pygame.draw.circle(surf, (30, 25, 20, cha),
+                                   (lock_x, lock_y + lk_h // 3), max(1, lk_w // 5))
+                pygame.draw.line(surf, (30, 25, 20, cha),
+                                 (lock_x, lock_y + lk_h // 3),
+                                 (lock_x, lock_y + lk_h * 2 // 3), 1)
 
-        # ===== 면도날 (멘헤라 심볼 — 건물 벽 그래피티) =====
-        for rzi in range(5):
+        # ===== 면도날 (HD — 광택 + 피 묻은 날) =====
+        for rzi in range(8):
             rzx = random.randint(15, W - 15)
-            rzy = random.randint(int(H * 0.3), int(H * 0.75))
+            rzy = random.randint(int(H * 0.28), int(H * 0.78))
             if _in_center(rzx, rzy):
                 continue
-            rz_sz = random.randint(6, 12)
-            rz_c = (200, 205, 215, min(255, int(alpha * 0.55)))
-            rz_edge = (160, 165, 175, min(255, int(alpha * 0.45)))
-            # 면도날 직사각형
-            pygame.draw.rect(surf, rz_c,
-                             (rzx - rz_sz, rzy - rz_sz // 2, rz_sz * 2, rz_sz))
-            pygame.draw.rect(surf, rz_edge,
-                             (rzx - rz_sz, rzy - rz_sz // 2, rz_sz * 2, rz_sz), 1)
-            # 중앙 구멍
-            hole_r = max(1, rz_sz // 4)
-            pygame.draw.circle(surf, (30, 20, 40, min(255, int(alpha * 0.6))),
-                               (rzx, rzy), hole_r)
-            # 날 (상단 밝은 선)
-            pygame.draw.line(surf, (230, 235, 240, min(255, int(alpha * 0.6))),
-                             (rzx - rz_sz, rzy - rz_sz // 2),
-                             (rzx + rz_sz, rzy - rz_sz // 2), 1)
+            rz_sz = random.randint(7, 14)
+            rz_h = max(3, rz_sz * 2 // 3)
+            rza = min(255, int(alpha * 0.6))
+            # 본체
+            pygame.draw.rect(surf, (200, 205, 215, rza),
+                             (rzx - rz_sz, rzy - rz_h // 2, rz_sz * 2, rz_h))
+            # 광택 (상단 밝은 면)
+            pygame.draw.rect(surf, (230, 235, 245, max(1, rza - 20)),
+                             (rzx - rz_sz, rzy - rz_h // 2, rz_sz * 2, max(1, rz_h // 3)))
+            # 테두리
+            pygame.draw.rect(surf, (160, 165, 175, max(1, rza - 20)),
+                             (rzx - rz_sz, rzy - rz_h // 2, rz_sz * 2, rz_h), 1)
+            # 구멍 (2개)
+            hole_r = max(1, rz_sz // 5)
+            pygame.draw.circle(surf, (30, 20, 40, rza),
+                               (rzx - rz_sz // 3, rzy), hole_r)
+            pygame.draw.circle(surf, (30, 20, 40, rza),
+                               (rzx + rz_sz // 3, rzy), hole_r)
+            # 구멍 하이라이트
+            pygame.draw.circle(surf, (240, 242, 248, max(1, rza // 3)),
+                               (rzx - rz_sz // 3 - 1, rzy - 1), max(1, hole_r - 1))
+            # 날 엣지
+            pygame.draw.line(surf, (245, 248, 252, rza),
+                             (rzx - rz_sz, rzy - rz_h // 2),
+                             (rzx + rz_sz, rzy - rz_h // 2), 1)
+            # 피 자국 (날에)
+            if random.random() < 0.5:
+                for _ in range(random.randint(1, 3)):
+                    bx_r = rzx + random.randint(-rz_sz + 2, rz_sz - 2)
+                    by_r = rzy - rz_h // 2 + random.randint(-1, 1)
+                    pygame.draw.circle(surf, (180, 40, 45, max(1, int(alpha * 0.35))),
+                                       (bx_r, by_r), 1)
+                    # 피 드립
+                    drip_len = random.randint(2, 6)
+                    pygame.draw.line(surf, (160, 35, 40, max(1, int(alpha * 0.25))),
+                                     (bx_r, by_r), (bx_r, by_r + drip_len), 1)
 
-        # ===== 핑크 그런지 스플래터 (건물/도로 위 페인트 흔적) =====
-        for spi in range(16):
+        # ===== 핑크 그런지 스플래터 (건물/도로 — 밀도 증가) =====
+        for spi in range(25):
             spx = random.randint(5, W - 5)
-            spy = random.randint(int(H * 0.2), H - 3)
+            spy = random.randint(int(H * 0.18), H - 3)
             if _in_center(spx, spy):
                 continue
             sp_c = random.choice([
                 (140, 80, 100), (180, 120, 140), (160, 90, 110),
-                (120, 60, 80), (200, 140, 160),
+                (120, 60, 80), (200, 140, 160), (100, 50, 65),
             ])
-            sp_r = random.randint(4, 15)
+            sp_r = random.randint(5, 18)
             sp_s = pygame.Surface((sp_r * 2, sp_r * 2), pygame.SRCALPHA)
-            # 불규칙한 스플래터 (여러 원 겹침)
-            for _ in range(random.randint(3, 6)):
+            for _ in range(random.randint(4, 8)):
                 sx_o = random.randint(-sp_r // 2, sp_r // 2)
                 sy_o = random.randint(-sp_r // 2, sp_r // 2)
                 sr_o = random.randint(2, max(3, sp_r * 2 // 3))
-                pygame.draw.circle(sp_s, (*sp_c, max(1, int(alpha * 0.18))),
+                pygame.draw.circle(sp_s, (*sp_c, max(1, int(alpha * 0.2))),
                                    (sp_r + sx_o, sp_r + sy_o), sr_o)
+            # 드립 줄기 (스플래터에서 아래로)
+            if random.random() < 0.35:
+                drip_x = sp_r + random.randint(-sp_r // 3, sp_r // 3)
+                drip_len = random.randint(5, max(6, sp_r * 2))
+                pygame.draw.line(sp_s, (*sp_c, max(1, int(alpha * 0.15))),
+                                 (drip_x, sp_r + sp_r // 2),
+                                 (drip_x + random.randint(-2, 2), sp_r + sp_r // 2 + drip_len), 1)
             surf.blit(sp_s, (spx - sp_r, spy - sp_r))
 
-        # ===== 의료 십자 (병원/약국 네온사인) =====
-        for mci in range(4):
+        # ===== 의료 십자 네온 + 하트 모니터 (병원/약국) =====
+        for mci in range(6):
             mcx = random.randint(20, W - 20)
-            mcy = random.randint(int(H * 0.3), int(H * 0.7))
+            mcy = random.randint(int(H * 0.28), int(H * 0.72))
             if _in_center(mcx, mcy):
                 continue
-            mc_sz = random.randint(5, 10)
+            mc_sz = random.randint(6, 12)
             mc_c = random.choice([
-                (255, 60, 100), (60, 200, 255), (200, 60, 255),
+                (255, 60, 100), (60, 200, 255), (200, 60, 255), (255, 200, 80),
             ])
-            # 십자가 형태
-            pygame.draw.rect(surf, (*mc_c, min(255, int(alpha * 0.75))),
-                             (mcx - mc_sz // 3, mcy - mc_sz, mc_sz * 2 // 3, mc_sz * 2))
-            pygame.draw.rect(surf, (*mc_c, min(255, int(alpha * 0.75))),
-                             (mcx - mc_sz, mcy - mc_sz // 3, mc_sz * 2, mc_sz * 2 // 3))
-            # 글로우
-            for gi in range(3):
+            mc_a = min(255, int(alpha * 0.8))
+            if random.random() < 0.6:
+                # 십자가
+                pygame.draw.rect(surf, (*mc_c, mc_a),
+                                 (mcx - mc_sz // 3, mcy - mc_sz, mc_sz * 2 // 3, mc_sz * 2))
+                pygame.draw.rect(surf, (*mc_c, mc_a),
+                                 (mcx - mc_sz, mcy - mc_sz // 3, mc_sz * 2, mc_sz * 2 // 3))
+                # 테두리
+                pygame.draw.rect(surf, (min(255, mc_c[0] + 30), min(255, mc_c[1] + 30),
+                                        min(255, mc_c[2] + 30), max(1, mc_a // 2)),
+                                 (mcx - mc_sz, mcy - mc_sz, mc_sz * 2, mc_sz * 2), 1)
+            else:
+                # 하트 모니터 파형 (ECG)
+                ecg_w = mc_sz * 3
+                ecg_pts = []
+                for ei in range(ecg_w):
+                    ex = mcx - ecg_w // 2 + ei
+                    ep = ei / max(1, ecg_w)
+                    if 0.3 < ep < 0.4:
+                        ey_ecg = mcy - mc_sz
+                    elif 0.4 < ep < 0.5:
+                        ey_ecg = mcy + mc_sz // 2
+                    elif 0.5 < ep < 0.55:
+                        ey_ecg = mcy - mc_sz * 2 // 3
+                    else:
+                        ey_ecg = mcy
+                    ecg_pts.append((ex, ey_ecg))
+                if len(ecg_pts) > 2:
+                    pygame.draw.lines(surf, (*mc_c, mc_a), False, ecg_pts, 1)
+            # 4중 글로우
+            for gi in range(4):
                 g_r = mc_sz + 3 + gi * 3
                 gs = pygame.Surface((g_r * 2, g_r * 2), pygame.SRCALPHA)
-                pygame.draw.circle(gs, (*mc_c, max(1, 22 - gi * 6)),
+                pygame.draw.circle(gs, (*mc_c, max(1, 25 - gi * 6)),
                                    (g_r, g_r), g_r)
                 surf.blit(gs, (mcx - g_r, mcy - g_r))
+
+        # ===== 안전핀 (건물 벽/반창고 근처) =====
+        for spi_n in range(10):
+            spx_n = random.randint(10, W - 10)
+            spy_n = random.randint(int(H * 0.3), H - 8)
+            if _in_center(spx_n, spy_n):
+                continue
+            pin_len = random.randint(8, 16)
+            pin_a = min(255, int(alpha * 0.6))
+            pin_c = (180, 185, 195)
+            # 핀 바디 (직선)
+            pygame.draw.line(surf, (*pin_c, pin_a),
+                             (spx_n, spy_n), (spx_n + pin_len, spy_n), 1)
+            # 핀 하단 (갈고리)
+            pygame.draw.line(surf, (*pin_c, pin_a),
+                             (spx_n + pin_len, spy_n), (spx_n + pin_len - 2, spy_n + 3), 1)
+            pygame.draw.line(surf, (*pin_c, pin_a),
+                             (spx_n + pin_len - 2, spy_n + 3), (spx_n + pin_len - 4, spy_n), 1)
+            # 핀 머리 (원)
+            pygame.draw.circle(surf, (*pin_c, pin_a), (spx_n, spy_n), max(1, 2))
+            # 하이라이트
+            pygame.draw.circle(surf, (220, 225, 235, max(1, pin_a // 2)),
+                               (spx_n, spy_n), 1)
+
+        # ===== 눈물 줄기 (건물 벽에서 흘러내리는) =====
+        for tdi in range(8):
+            tdx = random.randint(15, W - 15)
+            tdy_start = random.randint(int(H * 0.25), int(H * 0.55))
+            if _in_center(tdx, tdy_start):
+                continue
+            tear_len = random.randint(20, 60)
+            tear_a = min(255, int(alpha * 0.35))
+            tear_c = random.choice([
+                (100, 160, 255), (140, 180, 255), (80, 140, 240),
+            ])
+            # 줄기 (약간 흔들림)
+            pts = []
+            for ti in range(tear_len):
+                tx_t = tdx + int(math.sin(ti * 0.15 + tdi) * 2)
+                ty_t = tdy_start + ti
+                pts.append((tx_t, ty_t))
+            if len(pts) > 2:
+                pygame.draw.lines(surf, (*tear_c, tear_a), False, pts, 1)
+            # 끝 물방울
+            pygame.draw.circle(surf, (*tear_c, min(255, tear_a + 20)),
+                               (pts[-1][0], pts[-1][1]), max(1, 2))
+
+        # ===== 울고 있는 눈 그래피티 (건물 벽) =====
+        for egi in range(5):
+            egx = random.randint(20, W - 20)
+            egy = random.randint(int(H * 0.3), int(H * 0.7))
+            if _in_center(egx, egy):
+                continue
+            e_sz = random.randint(6, 12)
+            e_a = min(255, int(alpha * 0.55))
+            e_c = random.choice([
+                (255, 100, 160), (100, 200, 255), (200, 100, 255),
+            ])
+            # 눈 윤곽 (아몬드형)
+            pygame.draw.ellipse(surf, (*e_c, e_a),
+                                (egx - e_sz, egy - e_sz // 2, e_sz * 2, e_sz))
+            # 동공
+            pupil_r = max(2, e_sz // 3)
+            pygame.draw.circle(surf, (30, 20, 40, e_a), (egx, egy), pupil_r)
+            # 동공 하이라이트
+            pygame.draw.circle(surf, (255, 255, 255, max(1, e_a // 2)),
+                               (egx - pupil_r // 2, egy - pupil_r // 2), max(1, pupil_r // 3))
+            # 눈물 (2줄)
+            for tear_side in [-1, 1]:
+                tear_sx = egx + tear_side * (e_sz // 3)
+                tear_sy = egy + e_sz // 2
+                tear_len_e = random.randint(6, max(7, e_sz))
+                for ti in range(tear_len_e):
+                    tx_e = tear_sx + int(math.sin(ti * 0.3) * tear_side)
+                    ty_e = tear_sy + ti
+                    ta = max(1, int(e_a * (1.0 - ti / tear_len_e) * 0.6))
+                    pygame.draw.circle(surf, (100, 180, 255, ta), (tx_e, ty_e), 1)
+
+        # ===== 카오모지 네온사인 (╥_╥) (._.) =====
+        kaomoji_patterns = [
+            # (╥_╥) — 3x5 패턴
+            [(0,0,1,1),(0,1,1,1),(0,2,1,1),(0,3,1,1),(0,4,1,1),
+             (1,2,1,1),
+             (2,0,1,1),(2,1,1,1),(2,2,1,1),(2,3,1,1),(2,4,1,1)],
+            # T_T — 간단
+            [(0,0,3,1),(1,0,1,3), (4,0,3,1),(5,0,1,3), (3,2,1,1)],
+            # ;_; — 세미콜론 눈물
+            [(0,0,1,1),(0,2,1,1),(0,3,1,1), (2,2,1,1),
+             (4,0,1,1),(4,2,1,1),(4,3,1,1)],
+        ]
+        for kmi in range(6):
+            kmx = random.randint(15, W - 30)
+            kmy = random.randint(int(H * 0.28), int(H * 0.72))
+            if _in_center(kmx, kmy):
+                continue
+            km_c = random.choice([
+                (255, 80, 160), (80, 220, 255), (255, 200, 80), (200, 80, 255),
+            ])
+            km_a = min(255, int(alpha * 0.75))
+            km_scale = random.randint(2, 3)
+            pattern = random.choice(kaomoji_patterns)
+            # 배경 패널
+            max_dx = max(dx + dw for dx, dy, dw, dh in pattern) * km_scale
+            max_dy = max(dy + dh for dx, dy, dw, dh in pattern) * km_scale
+            pygame.draw.rect(surf, (20, 10, 28, max(1, km_a - 40)),
+                             (kmx - 2, kmy - 2, max_dx + 4, max_dy + 4))
+            pygame.draw.rect(surf, (*km_c, max(1, km_a // 2)),
+                             (kmx - 2, kmy - 2, max_dx + 4, max_dy + 4), 1)
+            # 글리프
+            for dx, dy, dw, dh in pattern:
+                pygame.draw.rect(surf, (*km_c, km_a),
+                                 (kmx + dx * km_scale, kmy + dy * km_scale,
+                                  dw * km_scale, dh * km_scale))
+            # 글로우
+            g_w = max_dx + 10
+            g_h = max_dy + 10
+            gs = pygame.Surface((g_w, g_h), pygame.SRCALPHA)
+            pygame.draw.rect(gs, (*km_c, 18), (0, 0, g_w, g_h))
+            surf.blit(gs, (kmx - 5, kmy - 5))
+
+        # ===== 일기장/메모 조각 (날아다니는 종이) =====
+        for nti in range(6):
+            ntx = random.randint(10, W - 10)
+            nty = random.randint(int(H * 0.35), H - 10)
+            if _in_center(ntx, nty):
+                continue
+            note_w = random.randint(8, 16)
+            note_h = random.randint(10, 18)
+            note_a = min(255, int(alpha * 0.45))
+            # 종이
+            pygame.draw.rect(surf, (240, 235, 225, note_a),
+                             (ntx - note_w // 2, nty - note_h // 2, note_w, note_h))
+            # 줄
+            for li_n in range(nty - note_h // 2 + 3, nty + note_h // 2 - 1,
+                              max(2, note_h // 5)):
+                pygame.draw.line(surf, (180, 200, 220, max(1, note_a // 2)),
+                                 (ntx - note_w // 2 + 1, li_n),
+                                 (ntx + note_w // 2 - 1, li_n), 1)
+            # 글씨 (아무렇게나 — 핑크/빨강)
+            ink_c = random.choice([(200, 60, 80), (180, 40, 60), (220, 80, 100)])
+            for _ in range(random.randint(2, 4)):
+                lx_n = ntx - note_w // 2 + random.randint(2, max(3, note_w - 4))
+                ly_n = nty - note_h // 2 + random.randint(3, max(4, note_h - 3))
+                ll = random.randint(3, max(4, note_w - 4))
+                pygame.draw.line(surf, (*ink_c, max(1, note_a - 10)),
+                                 (lx_n, ly_n), (lx_n + ll, ly_n + random.randint(-1, 1)), 1)
+            # 구겨진 모서리
+            pygame.draw.polygon(surf, (220, 215, 205, max(1, note_a - 10)),
+                                [(ntx + note_w // 2 - 3, nty - note_h // 2),
+                                 (ntx + note_w // 2, nty - note_h // 2),
+                                 (ntx + note_w // 2, nty - note_h // 2 + 3)])
 
         # ===== 네온 반사 파티클 (도시 밤 분위기 — 핑크 강조) =====
         if t > 0.25:
@@ -6340,18 +7007,18 @@ class SpaceMap:
                                    (sr * 2, sr * 2), sr)
                 surf.blit(spark_s, (sx - sr * 2, sy - sr * 2))
 
-        # ===== 안개/스모그 (보라빛 도시 스모그) =====
+        # ===== 안개/스모그 (핑크빛 도시 스모그) =====
         mist_a = max(0, int(110 * (1.0 - t * 2.0) * alpha / 255))
         if mist_a > 2:
             random.seed(31379)
-            for _ in range(20):
+            for _ in range(24):
                 mx = random.randint(-40, W + 40)
                 my = random.randint(-20, H + 20)
-                mw = random.randint(55, 170)
-                mh = random.randint(16, 42)
+                mw = random.randint(55, 180)
+                mh = random.randint(16, 45)
                 mc = random.choice([
-                    (55, 28, 75), (65, 32, 85), (48, 22, 65),
-                    (60, 30, 80), (70, 35, 90),
+                    (65, 30, 60), (75, 35, 70), (55, 25, 50),
+                    (70, 32, 65), (80, 38, 72), (60, 28, 55),
                 ])
                 ms = pygame.Surface((mw, mh), pygame.SRCALPHA)
                 pygame.draw.ellipse(ms, (*mc, min(255, mist_a)),
@@ -6363,18 +7030,18 @@ class SpaceMap:
                 surf.blit(ms, (mx - mw // 2, my - mh // 2))
             random.seed()
 
-        # ===== 구름 (HD 다층 — 보라빛 도시 야경) =====
+        # ===== 구름 (HD 다층 — 핑크빛 도시 야경) =====
         cloud_a = max(0, int(170 * (1.0 - t * 2.5) * alpha / 255))
         if cloud_a > 3:
             random.seed(31380)
-            for _ in range(16):
+            for _ in range(18):
                 cx_c = random.randint(-40, W + 40)
                 cy_c = random.randint(-20, H + 20)
-                cw_c = random.randint(48, 155)
-                ch_c = random.randint(12, 38)
+                cw_c = random.randint(50, 165)
+                ch_c = random.randint(12, 40)
                 cc = random.choice([
-                    (48, 24, 62), (58, 28, 72), (42, 20, 55),
-                    (52, 26, 68),
+                    (55, 28, 55), (65, 32, 65), (48, 22, 48),
+                    (58, 26, 58), (70, 35, 60),
                 ])
                 cs = pygame.Surface((cw_c, ch_c), pygame.SRCALPHA)
                 pygame.draw.ellipse(cs, (*cc, min(255, cloud_a)),
@@ -6386,11 +7053,11 @@ class SpaceMap:
                 surf.blit(cs, (cx_c - cw_c // 2, cy_c - ch_c // 2))
             random.seed()
 
-        # ===== 대기 오버레이 (보라빛 도시 야경 분위기) =====
-        haze_a = max(0, int(50 * (1.0 - t * 2.5) * alpha / 255))
+        # ===== 대기 오버레이 (더티핑크+보라 도시 야경 분위기) =====
+        haze_a = max(0, int(55 * (1.0 - t * 2.5) * alpha / 255))
         if haze_a > 2:
             haze = pygame.Surface((W, H), pygame.SRCALPHA)
-            haze.fill((45, 18, 60, haze_a))
+            haze.fill((50, 20, 48, haze_a))
             surf.blit(haze, (0, 0))
 
     def _draw_surface_temple(self, surf, t, alpha=255):
