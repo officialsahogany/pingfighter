@@ -46694,6 +46694,7 @@ boss_special_gauge = 0  # 보스 필살기 게이지
 boss_special_ready = False
 # === 보스 변형 시스템 (한 스테이지에 여러 보스) ===
 current_boss_name = None  # None = 기본 보스, "포도대장" 등 = 변형 보스
+session_cleared_boss_names = {}  # 세션 동안 클리어한 스테이지별 보스 이름 {stage_num: boss_name}
 # 포승줄 스킬 상태 (상태머신: idle → throwing → bound/miss → idle)
 arrest_rope_phase = "idle"         # "idle" | "throwing" | "bound" | "miss"
 arrest_rope_active = False         # 속도 감소 플래그 (bound일 때만 True) — 기존 호환
@@ -138616,8 +138617,8 @@ def show_death_evaluation():
 
     try:
         for logic_stage in range(1, current_stage):
-            # 스왑하지 않음 - 실제 게임 진행 순서 유지
-            name = boss_names.get(logic_stage, "보스")
+            # 세션 중 저장된 보스 이름 우선 사용 (변형 보스 반영)
+            name = session_cleared_boss_names.get(logic_stage, boss_names.get(logic_stage, "보스"))
             # 보스 이미지 로드 (썸네일용)
             boss_thumb = None
             try:
@@ -139709,6 +139710,8 @@ def show_result(won):
             pass
 
         show_victory_screen(stage_cleared=current_stage, reward=reward)
+        # 클리어한 보스 이름 저장 (스테이지 전환 전에 캡처)
+        session_cleared_boss_names[current_stage] = get_boss_name(current_stage)
         current_stage += 1
         # 스테이지 전환 시 비상충전 사용 가능하게 리셋
         reset_emergency_charge_for_new_stage()
@@ -139800,6 +139803,7 @@ def show_result(won):
         acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
         # 보스 변형 + 포승줄 + 포졸소환 초기화
         current_boss_name = None
+        session_cleared_boss_names.clear()
         arrest_rope_active = False
         arrest_rope_timer = 0
         arrest_rope_phase = "idle"
@@ -141933,6 +141937,7 @@ def main(stage_num, new_boss_mode=False):
             acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
             # 보스 변형 + 포승줄 + 포졸소환 초기화
             current_boss_name = None
+            session_cleared_boss_names.clear()
             arrest_rope_active = False
             arrest_rope_timer = 0
             arrest_rope_phase = "idle"
@@ -144321,6 +144326,7 @@ def main(stage_num, new_boss_mode=False):
                     acceleration_height_bonus = 0  # 패들 높이 보너스 초기화
                     # 보스 변형 + 포승줄 + 포졸소환 초기화
                     current_boss_name = None
+                    session_cleared_boss_names.clear()
                     arrest_rope_active = False
                     arrest_rope_timer = 0
                     arrest_rope_phase = "idle"
