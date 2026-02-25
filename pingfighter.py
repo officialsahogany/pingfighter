@@ -154339,7 +154339,7 @@ def show_stage_selection(show_character_hint=True):
             
             # 스테이지 번호
             num_text = font_large.render(str(stage["num"]), True, WHITE)
-            num_rect = num_text.get_rect(centernqt=(card_rect.centerx, card_rect.y + 40))
+            num_rect = num_text.get_rect(center=(card_rect.centerx, card_rect.y + 40))
             SCREEN.blit(num_text, num_rect)
             
             # 스테이지 이름
