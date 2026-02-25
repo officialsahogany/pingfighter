@@ -140411,6 +140411,7 @@ def main(stage_num, new_boss_mode=False):
     global _arena_speed_tutorial_active, _arena_speed_tutorial_delay_frames
     global _arena_henchman_tutorial_active, _arena_henchman_tutorial_delay_frames
     global _arena_capture_tutorial_active
+    global tunnel_raid_last_used, tunnel_raid_active, tunnel_raid_phase, tunnel_raid_timer, tunnel_raid_trail
     if stage_num != 30 and arena_mode_enabled:
         print(f"[WARNING] 스테이지 {stage_num} 진입 시 arena_mode_enabled=True 감지! 강제 초기화")
         arena_mode_enabled = False
