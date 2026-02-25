@@ -16650,6 +16650,8 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
         draw_water_cannon_fragments(SCREEN)
         draw_fragment_hit_effect(SCREEN)  # 파편 피격 시 화면 효과
         valthor_perf_end("stage2_water_effects")
+        # Stage 2 두더지왕 땅굴 습격 이펙트 렌더링
+        draw_tunnel_raid_effects(SCREEN)
     elif current_stage == 3 and animated_bg_stage3 is not None:
         animated_bg_stage3.update(elapsed_ms, r_wins + r_losses)
         animated_bg_stage3.draw(SCREEN, ball_pos=(ball_cx, ball_cy))
@@ -27345,6 +27347,21 @@ water_cannon_fragments = []  # 물대포로 파괴된 바위 파편들
 water_cannon_fragment_hit_timer = 0  # 파편 피격 시 빨간 플래시 타이머
 water_cannon_fragment_hit_shake = 0  # 파편 피격 시 화면 셰이크
 water_cannon_target_highlight_timer = 0  # 목표 바위 강조 펄스 타이머
+# === Stage 2 두더지왕 땅굴 습격 스킬 ===
+tunnel_raid_active = False
+tunnel_raid_phase = "idle"          # idle / warn / charge / strike / return
+tunnel_raid_timer = 0
+tunnel_raid_original_boss_y = 0     # 보스 원래 Y 위치
+tunnel_raid_target_x = 0            # 플레이어 X 위치 (돌진 시점)
+tunnel_raid_visual_y = 0.0          # 두더지 시각적 Y 위치
+TUNNEL_RAID_COOLDOWN = 8000         # 8초 쿨다운
+tunnel_raid_last_used = -9999
+tunnel_raid_trail = []              # 땅굴 궤적 파티클 [(x, y, alpha, size)]
+TUNNEL_RAID_WARN_FRAMES = 30        # 경고 0.5초
+TUNNEL_RAID_CHARGE_FRAMES = 42      # 돌진 0.7초
+TUNNEL_RAID_STRIKE_FRAMES = 30      # 타격 0.5초
+TUNNEL_RAID_RETURN_FRAMES = 78      # 귀환 1.3초
+
 horizontal_bounce_count = 0
 boss_trail = []  # [(x, y, alpha)] 형식의 튜플 리스트
 long_boost_growing = False
@@ -53360,6 +53377,12 @@ def go_to_next_round():
     water_cannon_active = False
     water_cannon_fragments.clear()
     water_cannon_trail.clear()
+    # Stage 2 두더지왕 땅굴 습격 초기화 (라운드 전환 시)
+    global tunnel_raid_active, tunnel_raid_phase, tunnel_raid_timer, tunnel_raid_trail
+    tunnel_raid_active = False
+    tunnel_raid_phase = "idle"
+    tunnel_raid_timer = 0
+    tunnel_raid_trail.clear()
     #  홍련폭염 상태 초기화
     flame_trail_active = False
     flame_trail_positions.clear()
@@ -57054,6 +57077,235 @@ def get_fragment_hit_shake():
     shake_x = random.uniform(-6, 6) * intensity
     shake_y = random.uniform(-4, 4) * intensity
     return shake_x, shake_y
+
+
+# === Stage 2 두더지왕 땅굴 습격 스킬 함수 ===
+def activate_tunnel_raid():
+    """두더지왕 땅굴 습격 — Y축 돌진 → 플레이어 타격 → 넉백+스턴 → 귀환"""
+    global tunnel_raid_active, tunnel_raid_phase, tunnel_raid_timer
+    global tunnel_raid_original_boss_y, tunnel_raid_target_x, tunnel_raid_visual_y
+    global boss_special_gauge, tunnel_raid_trail
+
+    if tunnel_raid_active:
+        return False
+    if boss_special_gauge < 500:
+        return False
+
+    # 서브 유예 기간 중에는 발동 방지
+    if serve_grace_period > 0:
+        return False
+
+    boss_special_gauge = 0
+    tunnel_raid_active = True
+    tunnel_raid_phase = "warn"
+    tunnel_raid_timer = TUNNEL_RAID_WARN_FRAMES
+    tunnel_raid_original_boss_y = float(BOSS.centery)
+    tunnel_raid_target_x = PLAYER.centerx
+    tunnel_raid_visual_y = float(BOSS.centery)
+    tunnel_raid_trail.clear()
+
+    # 두더지왕 스프라이트 emerge 트리거 (경고 시 살짝 솟아오름)
+    try:
+        if molewang_boss_sprite:
+            molewang_boss_sprite.trigger_hit(PLAYER.centerx, BOSS.centerx)
+    except Exception:
+        pass
+
+    return True
+
+
+def update_tunnel_raid():
+    """땅굴 습격 Phase별 업데이트"""
+    global tunnel_raid_active, tunnel_raid_phase, tunnel_raid_timer
+    global tunnel_raid_visual_y, tunnel_raid_trail
+    global player_knockback_vel, screen_shake_timer, screen_shake_intensity
+
+    if not tunnel_raid_active:
+        return
+
+    tunnel_raid_timer -= 1
+
+    if tunnel_raid_phase == "warn":
+        # 경고 Phase: 흔들림 + 경고 표시
+        if tunnel_raid_timer <= 0:
+            tunnel_raid_phase = "charge"
+            tunnel_raid_timer = TUNNEL_RAID_CHARGE_FRAMES
+            # 돌진 시작 시 타겟 X 갱신
+            tunnel_raid_target_x = PLAYER.centerx
+
+    elif tunnel_raid_phase == "charge":
+        # 돌진 Phase: Y축 아래로 빠르게 이동
+        progress = 1.0 - (tunnel_raid_timer / TUNNEL_RAID_CHARGE_FRAMES)
+        # ease-in 가속 (느리다가 빨라짐)
+        eased = progress * progress
+        target_y = PLAYER.centery - 30  # 플레이어 바로 위
+        tunnel_raid_visual_y = tunnel_raid_original_boss_y + (target_y - tunnel_raid_original_boss_y) * eased
+
+        # 궤적 파티클 추가
+        if random.random() < 0.6:
+            tunnel_raid_trail.append({
+                "x": tunnel_raid_target_x + random.uniform(-15, 15),
+                "y": tunnel_raid_visual_y + random.uniform(-5, 5),
+                "alpha": 200,
+                "size": random.uniform(2, 5),
+            })
+
+        # 화면 미세 진동
+        if progress > 0.5:
+            screen_shake_timer = max(screen_shake_timer, 2)
+            screen_shake_intensity = max(screen_shake_intensity, int(3 * progress))
+
+        if tunnel_raid_timer <= 0:
+            tunnel_raid_phase = "strike"
+            tunnel_raid_timer = TUNNEL_RAID_STRIKE_FRAMES
+            tunnel_raid_visual_y = float(PLAYER.centery - 30)
+            # 타격! emerge 애니메이션
+            try:
+                if molewang_boss_sprite:
+                    molewang_boss_sprite.trigger_hit(PLAYER.centerx, tunnel_raid_target_x)
+            except Exception:
+                pass
+
+            # 넉백 + 스턴 적용
+            knockback_dir = random.choice([-1, 1])
+            player_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir * 12))
+            stun_applied = try_apply_player_stun(1.5, source="땅굴 습격", knockback_scaled=True)
+
+            # 강한 화면 셰이크
+            screen_shake_timer = max(screen_shake_timer, 20)
+            screen_shake_intensity = max(screen_shake_intensity, 12)
+
+            # 타격 위치에 큰 흙 파편
+            for _ in range(8):
+                tunnel_raid_trail.append({
+                    "x": PLAYER.centerx + random.uniform(-30, 30),
+                    "y": PLAYER.centery + random.uniform(-20, 10),
+                    "alpha": 255,
+                    "size": random.uniform(4, 8),
+                })
+
+    elif tunnel_raid_phase == "strike":
+        # 솟아오름 유지 (emerge 애니메이션 재생 중)
+        if tunnel_raid_timer <= 0:
+            tunnel_raid_phase = "return"
+            tunnel_raid_timer = TUNNEL_RAID_RETURN_FRAMES
+
+    elif tunnel_raid_phase == "return":
+        # 귀환 Phase: 원래 위치로 복귀
+        progress = 1.0 - (tunnel_raid_timer / TUNNEL_RAID_RETURN_FRAMES)
+        # ease-out 감속 (빠르다가 느려짐)
+        eased = 1.0 - (1.0 - progress) ** 2
+        strike_y = PLAYER.centery - 30
+        tunnel_raid_visual_y = strike_y + (tunnel_raid_original_boss_y - strike_y) * eased
+
+        # 귀환 궤적
+        if random.random() < 0.3:
+            tunnel_raid_trail.append({
+                "x": tunnel_raid_target_x + random.uniform(-10, 10),
+                "y": tunnel_raid_visual_y + random.uniform(-3, 3),
+                "alpha": 150,
+                "size": random.uniform(1.5, 3.5),
+            })
+
+        if tunnel_raid_timer <= 0:
+            tunnel_raid_active = False
+            tunnel_raid_phase = "idle"
+            tunnel_raid_visual_y = tunnel_raid_original_boss_y
+            tunnel_raid_trail.clear()
+
+    # 궤적 파티클 업데이트 (페이드 아웃)
+    alive = []
+    for p in tunnel_raid_trail:
+        p["alpha"] -= 6
+        if p["alpha"] > 0:
+            alive.append(p)
+    tunnel_raid_trail = alive
+
+
+def draw_tunnel_raid_effects(screen):
+    """땅굴 습격 시각 이펙트 렌더링"""
+    if not tunnel_raid_active:
+        return
+
+    # 1. 땅굴 궤적 파티클
+    for p in tunnel_raid_trail:
+        alpha = max(0, int(p["alpha"]))
+        sz = max(1, int(p["size"]))
+        color = (140, 100, 55, alpha)
+        s = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+        pygame.draw.circle(s, color, (sz, sz), sz)
+        screen.blit(s, (int(p["x"]) - sz, int(p["y"]) - sz))
+
+    # 2. 경고 Phase: 느낌표 + 흔들림 표시
+    if tunnel_raid_phase == "warn":
+        pulse = math.sin(tunnel_raid_timer * 0.5) * 0.5 + 0.5
+        warn_alpha = int(180 + 75 * pulse)
+
+        # 보스 위치에 경고 마커
+        bx = BOSS.centerx
+        by = int(tunnel_raid_visual_y)
+
+        # 느낌표 삼각형
+        tri_size = 14
+        tri_points = [
+            (bx, by - tri_size - 20),
+            (bx - int(tri_size * 0.7), by - 20 + int(tri_size * 0.5)),
+            (bx + int(tri_size * 0.7), by - 20 + int(tri_size * 0.5))
+        ]
+        warn_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        pygame.draw.polygon(warn_surf, (255, 80, 50, warn_alpha), tri_points)
+        pygame.draw.line(warn_surf, (255, 255, 200, warn_alpha),
+                        (bx, by - tri_size - 17), (bx, by - 22), 2)
+        pygame.draw.circle(warn_surf, (255, 255, 200, warn_alpha),
+                          (bx, by - 19), 1)
+        screen.blit(warn_surf, (0, 0))
+
+        # 플레이어 발밑 위험 표시 (X 마크)
+        px = PLAYER.centerx
+        py = PLAYER.centery
+        x_size = 12 + int(pulse * 4)
+        danger_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        pygame.draw.line(danger_surf, (255, 60, 40, int(150 * pulse)),
+                        (px - x_size, py - x_size), (px + x_size, py + x_size), 3)
+        pygame.draw.line(danger_surf, (255, 60, 40, int(150 * pulse)),
+                        (px + x_size, py - x_size), (px - x_size, py + x_size), 3)
+        screen.blit(danger_surf, (0, 0))
+
+    # 3. 돌진/귀환 Phase: 세로 균열 궤적
+    if tunnel_raid_phase in ("charge", "return"):
+        trail_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+        tx = tunnel_raid_target_x
+        vy = int(tunnel_raid_visual_y)
+
+        # 두더지 위치 표시 (흙 마커)
+        marker_alpha = 160
+        pygame.draw.ellipse(trail_surf, (120, 85, 45, marker_alpha),
+                           (tx - 18, vy - 8, 36, 16))
+        pygame.draw.ellipse(trail_surf, (160, 120, 70, marker_alpha),
+                           (tx - 14, vy - 6, 28, 12))
+
+        # 세로 균열선
+        crack_alpha = 80
+        for offset in [-6, 0, 6]:
+            start_y = int(tunnel_raid_original_boss_y)
+            end_y = vy
+            pygame.draw.line(trail_surf, (80, 60, 35, crack_alpha),
+                            (tx + offset, start_y), (tx + offset, end_y), 1)
+
+        screen.blit(trail_surf, (0, 0))
+
+    # 4. 타격 Phase: 임팩트 이펙트
+    if tunnel_raid_phase == "strike":
+        progress = 1.0 - (tunnel_raid_timer / TUNNEL_RAID_STRIKE_FRAMES)
+        if progress < 0.5:
+            # 임팩트 링
+            ring_radius = int(10 + progress * 60)
+            ring_alpha = int(200 * (1.0 - progress * 2))
+            impact_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            pygame.draw.circle(impact_surf, (180, 140, 80, ring_alpha),
+                             (int(tunnel_raid_target_x), int(PLAYER.centery - 10)),
+                             ring_radius, 3)
+            screen.blit(impact_surf, (0, 0))
 
 
 # 정글지진 효과음 멈추기
@@ -96047,6 +96299,11 @@ def draw_objects():
         float_offset += math.sin(float_time * 0.005) * 1.5
         boss_offset_y = float_offset
 
+    # === 스테이지 2 두더지왕 땅굴 습격 Y축 이동 ===
+    if current_stage == 2 and current_boss_name == "두더지왕" and tunnel_raid_active:
+        # 땅굴 습격 중에는 스프라이트를 tunnel_raid_visual_y 위치로 이동
+        boss_offset_y = tunnel_raid_visual_y - BOSS.centery
+
     # === 스테이지 6 (네메시스) 공중 부유 모션 ===
     # 항공모함이 천천히 위아래로 흔들리는 효과
     if current_stage == 6:
@@ -123509,6 +123766,8 @@ def draw_field():
         draw_water_cannon_fragment_danger_glow(SCREEN)
         draw_water_cannon_fragments(SCREEN)
         draw_fragment_hit_effect(SCREEN)
+        # Stage 2 두더지왕 땅굴 습격 이펙트 렌더링
+        draw_tunnel_raid_effects(SCREEN)
         # 원숭이가 던진 바나나를 인게임 화면에 그리기
         if pillar_renderer is not None:
             pillar_renderer.draw_bananas_ingame(SCREEN)
@@ -127061,6 +127320,11 @@ def reset_round(is_stage_start=False):
     water_cannon_active = False
     water_cannon_fragments.clear()
     water_cannon_trail.clear()
+    # Stage 2 두더지왕 땅굴 습격 초기화
+    tunnel_raid_active = False
+    tunnel_raid_phase = "idle"
+    tunnel_raid_timer = 0
+    tunnel_raid_trail.clear()
     speed_defense_active = False
     speed_defense_timer = 0
     horizontal_bounce_count = 0
@@ -134493,6 +134757,16 @@ def handle_ball():
                         show_speech("정글지진!", duration=quake_duration)
                         quake_last_used_time = time_now
             # 물대포는 게임 루프에서 매 프레임 체크 (98343줄 참조)
+        elif not new_boss_mode_active and current_stage == 2 and current_boss_name == "두더지왕":
+            time_now = pygame.time.get_ticks()
+            # 땅굴 습격 스킬 발동 체크
+            if not tunnel_raid_active:
+                if time_now - tunnel_raid_last_used >= TUNNEL_RAID_COOLDOWN:
+                    if boss_special_gauge >= 500:
+                        if activate_tunnel_raid():
+                            show_speech("땅굴 습격!", duration=90)
+                            tunnel_raid_last_used = time_now
+            update_tunnel_raid()
         elif not new_boss_mode_active and current_stage == 3:
             # 패들 충돌 시 충전된 게이지가 500 이상이 되었을 때만 필살기 준비 상태로 전환
             if not boss_special_ready and boss_special_gauge >= 500:
@@ -145615,6 +145889,9 @@ def main(stage_num, new_boss_mode=False):
                     update_water_cannon()
                     update_water_cannon_fragments()
                     update_fragment_hit_effect()  # 파편 피격 이펙트 업데이트
+                # Stage 2 두더지왕 땅굴 습격 매 프레임 업데이트
+                if current_stage == 2 and current_boss_name == "두더지왕":
+                    update_tunnel_raid()
                 handle_new_boss_skills_timer()  #  새로운 보스들 스킬 타이머 처리
                 handle_emotional_overdrive()
                 update_neutralize_particles()  # 사이코볼 무효화 파티클 업데이트
