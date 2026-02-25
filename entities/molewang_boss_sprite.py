@@ -276,63 +276,25 @@ class MolewangBossSprite:
             "scratch_red": (255, 120, 80),
         }
 
-    # ------- 땅 표면 (항상 표시) -------
+    # ------- 땅 표면 (히트 시 하반신 가리기만) -------
     def _draw_ground(self, surface, cx, ground_y, b, lean_offset, bob_offset, p):
-        """땅 표면 — 보스 위치에서 울렁거리는 흙더미 + 돌덩이"""
+        """히트 시 몸체 하반신을 가리는 흙 표면만 그림 (평소에는 아무것도 안 그림)"""
+        if not (self.is_hit and self.emerge_amount > 0.05):
+            return
+
         gcx = cx + lean_offset
         gy = ground_y + bob_offset
 
-        speed_factor = min(self.velocity / 80.0, 1.5) if self.direction != 0 else 0
-
-        # === 흙 울렁거림 (보스가 이동할 때 땅이 출렁) ===
-        num_mounds = 9
-        mound_half_w = int(2.2 * b)
-
-        # 솟아오를 때 구멍이 더 벌어짐
-        hole_expand = self.emerge_amount * 0.8 * b
-
-        for i in range(num_mounds):
-            t = (i / (num_mounds - 1)) * 2.0 - 1.0  # -1 ~ 1
-            mx = gcx + int(t * mound_half_w)
-
-            # 이동 시 웨이브 울렁거림
-            wave_amp = (0.15 + speed_factor * 0.25) * b
-            wave = _sin(self.time * 5.0 + t * 3.0 + self.step_phase) * wave_amp
-            # 가장자리가 더 크게 울렁
-            edge_factor = 0.5 + abs(t) * 0.5
-            wave *= edge_factor
-
-            # 솟아오를 때 양옆이 솟음
-            emerge_bump = 0.0
-            if self.emerge_amount > 0.05:
-                dist_from_center = abs(t)
-                # 중앙은 구멍 (몸체가 나옴), 양옆은 솟음
-                if dist_from_center > 0.3:
-                    emerge_bump = self.emerge_amount * 0.5 * b * (dist_from_center - 0.3)
-
-            my = gy + int(wave) - int(emerge_bump)
-
-            # 흙덩이 (타원)
-            mound_w = max(4, int(0.6 * b))
-            mound_h = max(3, int(0.35 * b + abs(wave) * 0.3))
-            pygame.draw.ellipse(surface, p["ground"],
-                              (mx - mound_w // 2, my - mound_h // 2,
-                               mound_w, mound_h))
-            pygame.draw.ellipse(surface, p["ground_light"],
-                              (mx - mound_w // 2 + 1, my - mound_h // 2,
-                               mound_w - 2, max(2, mound_h // 2)))
-
-        # 히트 시 몸체 하반신 가리기용 흙 채우기
-        if self.is_hit and self.emerge_amount > 0.05:
-            fill_rect = pygame.Rect(gcx - int(2.5 * b), gy + int(0.05 * b),
-                                   int(5.0 * b), int(3.0 * b))
-            pygame.draw.rect(surface, p["ground_dark"], fill_rect)
-            for i in range(int(5.0 * b)):
-                fx = gcx - int(2.5 * b) + i
-                fy_wave = _sin(i * 0.3 + self.time * 2.0) * 0.08 * b
-                pygame.draw.line(surface, p["ground"],
-                               (fx, gy + int(0.02 * b + fy_wave)),
-                               (fx, gy + int(0.2 * b)), 1)
+        # 몸체 하반신 가리기용 흙 채우기
+        fill_rect = pygame.Rect(gcx - int(2.5 * b), gy + int(0.05 * b),
+                               int(5.0 * b), int(3.0 * b))
+        pygame.draw.rect(surface, p["ground_dark"], fill_rect)
+        for i in range(int(5.0 * b)):
+            fx = gcx - int(2.5 * b) + i
+            fy_wave = _sin(i * 0.3 + self.time * 2.0) * 0.08 * b
+            pygame.draw.line(surface, p["ground"],
+                           (fx, gy + int(0.02 * b + fy_wave)),
+                           (fx, gy + int(0.2 * b)), 1)
 
     # ------- 솟아오르는 몸체 -------
     def _draw_body_emerging(self, surface, cx, ground_y, b, lean_offset,
