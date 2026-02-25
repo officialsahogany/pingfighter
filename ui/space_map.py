@@ -4334,8 +4334,8 @@ class SpaceMap:
                 (38, 30, 18), (28, 48, 20), (20, 38, 16)])
             pygame.draw.circle(surf, (*gc, ga), (gx, gy), 1)
 
-        # ===== 열대 산맥 — 원경 (안개 속 밀림 능선 + 대기원근법) =====
-        for _ in range(10):
+        # ===== 열대 산맥 — 원경 (안개 속 밀림 능선 + 대기원근법, 빼곡) =====
+        for _ in range(16):
             mx = random.randint(-80, W + 80)
             my = random.randint(-70, H // 5)
             mw = random.randint(130, 400)
@@ -4544,8 +4544,8 @@ class SpaceMap:
                     pygame.draw.circle(surf, (35, 75, 30), (frx - 1, fry - 1), 1)
                     pygame.draw.circle(surf, (35, 75, 30), (frx + 1, fry - 1), 1)
 
-        # ===== 거대 열대나무 원경 (밀림 캐노피 — 대기원근법) =====
-        for _ in range(14):
+        # ===== 거대 열대나무 원경 (밀림 캐노피 — 대기원근법, 빼곡) =====
+        for _ in range(22):
             tx = random.randint(-50, W + 50)
             ty = random.randint(-40, H // 4)
             tw = random.randint(20, 50)
@@ -4581,8 +4581,8 @@ class SpaceMap:
                 pygame.draw.circle(hs, (*tc_hl, 40), (hr, hr), hr)
                 surf.blit(hs, (hx - hr, hy - hr))
 
-        # ===== 정글 나무 중경 (HD — 나무껍질+덩굴+기생식물, 중앙 회피) =====
-        for _ in range(28):
+        # ===== 정글 나무 중경 (HD — 나무껍질+덩굴+기생식물, 중앙 회피, 빼곡) =====
+        for _ in range(38):
             tx = random.randint(15, W - 15)
             ty = random.randint(H // 6, H - 35)
             if _in_center(tx, ty):
@@ -4669,8 +4669,8 @@ class SpaceMap:
         # ===== 야자수 (HD 키 큰 열대 나무 — 중앙 회피) =====
         detail_a = min(255, int(255 * max(0, t * 2 - 0.2)))
         if detail_a > 10:
-            for _ in range(14):
-                px = random.randint(30, W - 30)
+            for _ in range(20):
+                px = random.randint(20, W - 20)
                 py = random.randint(H // 4, H - 50)
                 if _in_center(px, py):
                     continue
@@ -4728,8 +4728,8 @@ class SpaceMap:
                     pygame.draw.circle(surf, (105, 78, 42), (cx_n - 1, cy_n - 1), 2)
                     pygame.draw.circle(surf, (125, 98, 55), (cx_n - 1, cy_n - 1), 1)
 
-        # ===== 대나무 숲 (HD 질감+바람효과+마디, 중앙 회피) =====
-        for _ in range(18):
+        # ===== 대나무 숲 (HD 질감+바람효과+마디, 중앙 회피, 빼곡) =====
+        for _ in range(26):
             bx = random.randint(20, W - 20)
             by = random.randint(H // 4, H - 40)
             if _in_center(bx, by):
@@ -4775,8 +4775,8 @@ class SpaceMap:
                 pygame.draw.line(surf, lc, (bx + lbend + ldx, lby + ldy),
                                  (bx + lbend + ldx + ldir * 3, lby + ldy - 2), 1)
 
-        # ===== 오두막/원주민 건축물 (HD — 중앙 회피) =====
-        for _ in range(8):
+        # ===== 오두막/원주민 건축물 (HD — 중앙 회피, 빼곡) =====
+        for _ in range(12):
             bx = random.randint(60, W - 60)
             by = random.randint(H // 3, H * 3 // 4)
             if _in_center(bx, by):
@@ -4843,8 +4843,8 @@ class SpaceMap:
                     pygame.draw.circle(surf, (220, 120, 30), (t_x, t_y - 1), 2)
                     pygame.draw.circle(surf, (255, 180, 50), (t_x, t_y - 1), 1)
 
-        # ===== 풀숲/수풀 (HD 3D 다층, 중앙 회피) =====
-        for _ in range(55):
+        # ===== 풀숲/수풀 (HD 3D 다층, 중앙 회피, 빼곡) =====
+        for _ in range(72):
             bx = random.randint(5, W - 5)
             by = random.randint(H // 6, H - 10)
             if _in_center(bx, by):
@@ -4878,8 +4878,8 @@ class SpaceMap:
                     bey = by + random.randint(-bsize // 3, bsize // 4)
                     pygame.draw.circle(surf, bc, (bex, bey), 1)
 
-        # ===== 버섯/양치류/열매 디테일 (HD, 중앙 회피) =====
-        for _ in range(35):
+        # ===== 버섯/양치류/열매 디테일 (HD, 중앙 회피, 빼곡) =====
+        for _ in range(45):
             mx = random.randint(10, W - 10)
             my = random.randint(H // 5, H - 15)
             if _in_center(mx, my):
@@ -4946,8 +4946,8 @@ class SpaceMap:
                     ey = ly + int(ll * 0.5 * math.sin(math.radians(la)))
                     pygame.draw.line(surf, lc, (lx, ly), (ex, ey), 1)
 
-        # ===== 이끼 낀 바위 (HD, 중앙 회피) =====
-        for _ in range(18):
+        # ===== 이끼 낀 바위 (HD, 중앙 회피, 빼곡) =====
+        for _ in range(25):
             rx = random.randint(15, W - 15)
             ry = random.randint(H // 5, H - 20)
             if _in_center(rx, ry):
@@ -4970,13 +4970,115 @@ class SpaceMap:
                     dx = random.randint(2, max(3, rw_r - 3))
                     pygame.draw.circle(surf, (45, 82, 38), (rx + dx, ry + 2), 1)
 
+        # ===== 토템 기둥 / 부족 장식 (HD) =====
+        for _ in range(6):
+            tx_t = random.randint(25, W - 25)
+            ty_t = random.randint(int(H * 0.4), H - 20)
+            if _in_center(tx_t, ty_t):
+                continue
+            totem_h = random.randint(22, 42)
+            totem_w = max(4, totem_h // 5)
+            # 기둥 본체
+            pygame.draw.rect(surf, (72, 48, 25), (tx_t - totem_w // 2, ty_t - totem_h, totem_w, totem_h))
+            pygame.draw.rect(surf, (88, 62, 32), (tx_t - totem_w // 2, ty_t - totem_h, max(1, totem_w // 3), totem_h))
+            # 조각 얼굴 (2~3개 층)
+            face_count = max(1, totem_h // 12)
+            for fi in range(face_count):
+                fy_t = ty_t - totem_h + fi * (totem_h // face_count) + 3
+                fw = totem_w + 2
+                # 눈
+                pygame.draw.circle(surf, (200, 180, 80), (tx_t - totem_w // 4, fy_t + 2), 1)
+                pygame.draw.circle(surf, (200, 180, 80), (tx_t + totem_w // 4, fy_t + 2), 1)
+                # 입
+                pygame.draw.line(surf, (180, 60, 30), (tx_t - totem_w // 3, fy_t + 5),
+                                 (tx_t + totem_w // 3, fy_t + 5), 1)
+                # 장식 돌출
+                pygame.draw.rect(surf, (62, 42, 20), (tx_t - fw // 2, fy_t, fw, 2))
+            # 꼭대기 장식
+            pygame.draw.polygon(surf, (68, 45, 22),
+                                [(tx_t - totem_w // 2 - 1, ty_t - totem_h),
+                                 (tx_t, ty_t - totem_h - 5),
+                                 (tx_t + totem_w // 2 + 1, ty_t - totem_h)])
+
+        # ===== 야생동물 (새, 뱀, 원숭이 실루엣) =====
+        for _ in range(14):
+            ax = random.randint(10, W - 10)
+            ay = random.randint(int(H * 0.15), H - 10)
+            if _in_center(ax, ay):
+                continue
+            atype = random.randint(0, 3)
+            if atype == 0:
+                # 새 (나는 실루엣)
+                wing_w = random.randint(5, 12)
+                pygame.draw.line(surf, (25, 42, 20), (ax - wing_w, ay + 2), (ax, ay), 1)
+                pygame.draw.line(surf, (25, 42, 20), (ax, ay), (ax + wing_w, ay + 2), 1)
+            elif atype == 1:
+                # 앵무새 (나뭇가지 위)
+                bird_c = random.choice([(200, 55, 40), (40, 160, 50), (50, 100, 220), (220, 180, 30)])
+                pygame.draw.circle(surf, bird_c, (ax, ay), 2)
+                pygame.draw.circle(surf, (min(255, bird_c[0] + 30), min(255, bird_c[1] + 20),
+                                          min(255, bird_c[2] + 20)), (ax, ay - 2), 1)
+                # 꼬리
+                pygame.draw.line(surf, bird_c, (ax + 1, ay + 1), (ax + 4, ay + 3), 1)
+                # 부리
+                pygame.draw.line(surf, (220, 180, 50), (ax - 2, ay - 2), (ax - 3, ay - 2), 1)
+            elif atype == 2:
+                # 뱀 (S자 곡선)
+                snake_c = random.choice([(50, 120, 40), (100, 60, 30), (140, 110, 50)])
+                s_pts = []
+                sx_s, sy_s = ax, ay
+                for si in range(8):
+                    sx_s += random.randint(1, 3)
+                    sy_s += int(2 * math.sin(si * 1.2))
+                    s_pts.append((sx_s, sy_s))
+                if len(s_pts) > 2:
+                    pygame.draw.lines(surf, snake_c, False, s_pts, 1)
+                    # 머리
+                    pygame.draw.circle(surf, snake_c, s_pts[0], 1)
+            else:
+                # 원숭이 (나뭇가지 매달림)
+                mk_c = (75, 50, 30)
+                # 몸
+                pygame.draw.ellipse(surf, mk_c, (ax - 2, ay - 3, 4, 5))
+                # 머리
+                pygame.draw.circle(surf, mk_c, (ax, ay - 4), 2)
+                # 꼬리 (아래로 커브)
+                pygame.draw.arc(surf, mk_c, (ax + 1, ay, 5, 8), -1.5, 1.5, 1)
+                # 팔 (위로 — 나뭇가지 잡음)
+                pygame.draw.line(surf, mk_c, (ax - 1, ay - 2), (ax - 3, ay - 6), 1)
+                pygame.draw.line(surf, mk_c, (ax + 1, ay - 2), (ax + 3, ay - 6), 1)
+
+        # ===== 매달린 덩굴 장식 (나무 사이) =====
+        for _ in range(10):
+            vx1 = random.randint(20, W // 2)
+            vx2 = random.randint(W // 2, W - 20)
+            vy = int(H * random.uniform(0.15, 0.5))
+            if _in_center((vx1 + vx2) // 2, vy):
+                continue
+            v_pts = []
+            for step in range(12):
+                t_v = step / 11
+                vx_p = int(vx1 + (vx2 - vx1) * t_v)
+                sag = int(15 * math.sin(t_v * math.pi))
+                v_pts.append((vx_p, vy + sag))
+            if len(v_pts) > 2:
+                pygame.draw.lines(surf, (30, 65, 25), False, v_pts, 1)
+            # 잎 (덩굴 위)
+            for step in range(1, 11, 2):
+                t_v = step / 11
+                vx_p = int(vx1 + (vx2 - vx1) * t_v)
+                sag = int(15 * math.sin(t_v * math.pi))
+                lc = random.choice([(35, 78, 28), (42, 90, 32), (30, 72, 25)])
+                lr_v = random.randint(2, 4)
+                pygame.draw.ellipse(surf, lc, (vx_p - lr_v, vy + sag - 1, lr_v * 2, lr_v))
+
         random.seed()
 
         # ===== 반딧불이 (지표 가까울 때만) =====
         if t > 0.5:
             firefly_a = min(255, int(180 * (t - 0.5) * 2))
             random.seed(5050)
-            for _ in range(25):
+            for _ in range(40):
                 fx = random.randint(10, W - 10)
                 fy_f = random.randint(H // 4, H - 20)
                 if _in_center(fx, fy_f):
