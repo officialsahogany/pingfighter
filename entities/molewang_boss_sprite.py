@@ -297,30 +297,26 @@ class MolewangBossSprite:
         # === 1. 동심원 파문 (보스 위치 중심으로 퍼지는 파동) ===
         num_rings = 4
         for ri in range(num_rings):
-            # 각 링이 시간차로 퍼져나감
-            ring_phase = (t * 1.8 + ri * 0.7) % 3.0
+            ring_phase = (t * 1.2 + ri * 0.8) % 3.0
             ring_progress = ring_phase / 3.0  # 0 ~ 1
 
-            ring_radius = int((0.5 + ring_progress * 3.0) * b * intensity)
-            if ring_radius < 2:
+            # 반경: 최소 보장 + 퍼져나감 (b가 작으므로 w 기반으로 스케일)
+            ring_radius = int((3.0 + ring_progress * 12.0) * intensity)
+            if ring_radius < 3:
                 continue
 
-            # 알파: 생성 시 강하고 → 퍼지면서 약해짐
-            ring_alpha = int(55 * intensity * (1.0 - ring_progress) ** 1.5)
-            if ring_alpha < 5:
+            # 알파: 안정적으로 유지, 가장자리에서만 약해짐
+            ring_alpha = int(80 * intensity * max(0.2, (1.0 - ring_progress) ** 1.2))
+            if ring_alpha < 3:
                 continue
 
-            # 이동 방향으로 타원형
             stretch_x = 1.0 + speed_factor * 0.4
-            stretch_y = 0.6 + speed_factor * 0.15
+            stretch_y = 0.7 + speed_factor * 0.15
 
-            rx = int(ring_radius * stretch_x)
-            ry = int(ring_radius * stretch_y)
-            if rx < 2 or ry < 2:
-                continue
+            rx = max(3, int(ring_radius * stretch_x))
+            ry = max(3, int(ring_radius * stretch_y))
 
             ring_surf = pygame.Surface((rx * 2 + 4, ry * 2 + 4), pygame.SRCALPHA)
-            # 밝은 왜곡선 (표면이 밀려 올라온 느낌)
             pygame.draw.ellipse(ring_surf, (200, 200, 220, ring_alpha),
                               (2, 2, rx * 2, ry * 2), max(1, int(0.08 * b)))
             surface.blit(ring_surf,
@@ -360,34 +356,31 @@ class MolewangBossSprite:
                 surface.blit(crack_surf, (0, 0))
 
         # === 3. 표면 굴곡 웨이브 (보스 주변 파형 왜곡) ===
-        wave_width = int(3.5 * b * max(0.5, intensity))
+        wave_width = int(w * 0.85 * max(0.6, intensity))
         num_wave_pts = 16
-        wave_alpha = int(35 * intensity)
-        if wave_alpha > 5:
+        wave_alpha = int(60 * intensity)
+        if wave_alpha > 3:
             for layer in range(2):
-                # 두 레이어: 밝은 선(융기) + 어두운 선(함몰)
-                y_offset = (layer - 0.5) * 0.12 * b
+                y_offset = (layer - 0.5) * 2.0
                 color = (200, 195, 185, wave_alpha) if layer == 0 else (
                     50, 45, 35, wave_alpha)
 
                 wave_surf = pygame.Surface((w, h), pygame.SRCALPHA)
                 pts = []
                 for wi in range(num_wave_pts + 1):
-                    wx_t = wi / num_wave_pts  # 0 ~ 1
+                    wx_t = wi / num_wave_pts
                     wx = gcx - wave_width // 2 + int(wx_t * wave_width)
 
-                    # 보스 중심 가까울수록 진폭 큼
-                    dist = abs(wx_t - 0.5) * 2.0  # 0(중심) ~ 1(가장자리)
-                    amp = (1.0 - dist * dist) * intensity * 0.35 * b
+                    dist = abs(wx_t - 0.5) * 2.0
+                    amp = (1.0 - dist * dist) * intensity * 4.0
 
-                    # 웨이브 함수: 이동+시간 기반
                     phase = self.step_phase * 0.8 + t * 2.5 + wx_t * 8.0 + layer * 1.5
                     wy = gy + int(y_offset + _sin(phase) * amp)
                     pts.append((wx, wy))
 
                 if len(pts) >= 2:
                     pygame.draw.lines(wave_surf, color, False, pts,
-                                     max(1, int(0.05 * b)))
+                                     max(1, 2))
                     surface.blit(wave_surf, (0, 0))
 
     # ------- 땅 표면 (현재 미사용) -------
