@@ -296,10 +296,10 @@ class MolewangBossSprite:
                            (fx, gy + int(0.02 * b + fy_wave)),
                            (fx, gy + int(0.2 * b)), 1)
 
-    # ------- 솟아오르는 요소 (몸통 없음 — 얼굴+왕관+팔만) -------
+    # ------- 솟아오르는 몸체 -------
     def _draw_body_emerging(self, surface, cx, ground_y, b, lean_offset,
                              bob_offset, emerge, p):
-        """히트 시 땅에서 솟아오르는 요소 — 돔/직사각형 몸통 없이 얼굴+왕관+팔만"""
+        """디그다 스타일 몸체 — emerge 양에 따라 땅에서 나옴"""
         gcx = cx + lean_offset
         gy = ground_y + bob_offset
 
@@ -321,6 +321,40 @@ class MolewangBossSprite:
         hit_shake_x = 0
         if self.is_hit:
             hit_shake_x = int(_sin(self.time * 50) * self.hit_intensity * 1.5)
+
+        # === 몸통 (둥근 돔형) ===
+        dome_rect = pygame.Rect(
+            clip_cx - body_w // 2 + hit_shake_x,
+            clip_body_top,
+            body_w, int(body_w * 1.1)
+        )
+        lower_rect = pygame.Rect(
+            clip_cx - body_w // 2 + hit_shake_x,
+            clip_body_top + int(body_w * 0.5),
+            body_w, visible_h - int(body_w * 0.5)
+        )
+        pygame.draw.ellipse(clip_surf, p["body_dark"], dome_rect.move(2, 2))
+        pygame.draw.rect(clip_surf, p["body_dark"], lower_rect.move(2, 2))
+        pygame.draw.ellipse(clip_surf, p["body"], dome_rect)
+        pygame.draw.rect(clip_surf, p["body"], lower_rect)
+        seam_rect = pygame.Rect(
+            clip_cx - body_w // 2 + hit_shake_x,
+            clip_body_top + int(body_w * 0.4),
+            body_w, int(body_w * 0.3)
+        )
+        pygame.draw.rect(clip_surf, p["body"], seam_rect)
+
+        # 하이라이트
+        hl_w = int(body_w * 0.35)
+        hl_h = int(body_w * 0.6)
+        hl_rect = pygame.Rect(
+            clip_cx - body_w // 4 + hit_shake_x - int(0.1 * b),
+            clip_body_top + int(0.2 * b),
+            hl_w, hl_h
+        )
+        hl_surf = pygame.Surface((hl_w, hl_h), pygame.SRCALPHA)
+        pygame.draw.ellipse(hl_surf, (*p["body_light"], 100), (0, 0, hl_w, hl_h))
+        clip_surf.blit(hl_surf, hl_rect.topleft)
 
         # === 얼굴 (emerge > 0.4) ===
         if emerge > 0.4:
