@@ -57117,7 +57117,7 @@ def activate_tunnel_raid():
 def update_tunnel_raid():
     """땅굴 습격 Phase별 업데이트"""
     global tunnel_raid_active, tunnel_raid_phase, tunnel_raid_timer
-    global tunnel_raid_visual_y, tunnel_raid_trail
+    global tunnel_raid_visual_y, tunnel_raid_trail, tunnel_raid_target_x, tunnel_raid_original_boss_y
     global player_knockback_vel, screen_shake_timer, screen_shake_intensity
 
     if not tunnel_raid_active:
