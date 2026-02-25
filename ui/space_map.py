@@ -4210,12 +4210,28 @@ class SpaceMap:
         # ===== 8. 보석 장식 (프레임 곳곳) =====
         gem_colors = [(180, 40, 40), (40, 120, 180), (50, 160, 80),
                       (180, 50, 160), (200, 160, 40)]
+        # 안전한 범위 계산 (arena_scale이 작을 때 randint 에러 방지)
+        gem_top_lo = oy - bw // 2 + 3
+        gem_top_hi = oy - 2
+        gem_bot_lo = oy + fh + 2
+        gem_bot_hi = oy + fh + bw // 2 - 3
+        gem_left_lo = ox - bw // 2 + 3
+        gem_left_hi = ox - 2
+        gem_right_lo = ox + fw + 2
+        gem_right_hi = ox + fw + bw // 2 - 3
         for _ in range(20):
-            gx = random.randint(ox - bw // 2 + 3, ox + fw + bw // 2 - 3)
-            gy = random.choice([
-                random.randint(oy - bw // 2 + 3, oy - 2),
-                random.randint(oy + fh + 2, oy + fh + bw // 2 - 3)
-            ])
+            gx = random.randint(ox - bw // 2 + 3, max(ox - bw // 2 + 3, ox + fw + bw // 2 - 3))
+            if gem_top_lo < gem_top_hi and gem_bot_lo < gem_bot_hi:
+                gy = random.choice([
+                    random.randint(gem_top_lo, gem_top_hi),
+                    random.randint(gem_bot_lo, gem_bot_hi)
+                ])
+            elif gem_top_lo < gem_top_hi:
+                gy = random.randint(gem_top_lo, gem_top_hi)
+            elif gem_bot_lo < gem_bot_hi:
+                gy = random.randint(gem_bot_lo, gem_bot_hi)
+            else:
+                continue
             gc = gem_colors[random.randint(0, 4)]
             gr = max(2, int(random.uniform(2, 5) * arena_scale))
             # 보석 (다이아몬드 형태)
@@ -4232,11 +4248,18 @@ class SpaceMap:
                                  (gx, gy + gr), (gx - gr, gy)], 1)
         # 좌우 보석
         for _ in range(12):
-            gx = random.choice([
-                random.randint(ox - bw // 2 + 3, ox - 2),
-                random.randint(ox + fw + 2, ox + fw + bw // 2 - 3)
-            ])
-            gy = random.randint(oy + 5, oy + fh - 5)
+            if gem_left_lo < gem_left_hi and gem_right_lo < gem_right_hi:
+                gx = random.choice([
+                    random.randint(gem_left_lo, gem_left_hi),
+                    random.randint(gem_right_lo, gem_right_hi)
+                ])
+            elif gem_left_lo < gem_left_hi:
+                gx = random.randint(gem_left_lo, gem_left_hi)
+            elif gem_right_lo < gem_right_hi:
+                gx = random.randint(gem_right_lo, gem_right_hi)
+            else:
+                continue
+            gy = random.randint(oy + 5, max(oy + 5, oy + fh - 5))
             gc = gem_colors[random.randint(0, 4)]
             gr = max(2, int(random.uniform(2, 4) * arena_scale))
             pygame.draw.polygon(brd, gc,
