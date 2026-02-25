@@ -54702,7 +54702,7 @@ def apply_spider_mine_slow():
     spider_mine_slow_active = True
     spider_mine_slow_timer = SPIDER_MINE_SLOW_DURATION
     spider_mine_slow_text_timer = SPIDER_MINE_TEXT_DURATION
-    print("🕷️ 거미지뢰 폭발! 보스 이동속도가 50% 감소합니다.")
+    print("🕷️ 거미지뢰 폭발! 보스 이동속도가 30% 감소합니다.")
 
 
 def trigger_spider_mine_explosion(mine, reason="boss"):
