@@ -134757,17 +134757,7 @@ def handle_ball():
                         show_speech("정글지진!", duration=quake_duration)
                         quake_last_used_time = time_now
             # 물대포는 게임 루프에서 매 프레임 체크 (98343줄 참조)
-        elif not new_boss_mode_active and current_stage == 2 and current_boss_name == "두더지왕":
-            global tunnel_raid_last_used
-            time_now = pygame.time.get_ticks()
-            # 땅굴 습격 스킬 발동 체크
-            if not tunnel_raid_active:
-                if time_now - tunnel_raid_last_used >= TUNNEL_RAID_COOLDOWN:
-                    if boss_special_gauge >= 500:
-                        if activate_tunnel_raid():
-                            show_speech("땅굴 습격!", duration=90)
-                            tunnel_raid_last_used = time_now
-            update_tunnel_raid()
+        # 두더지왕 땅굴 습격은 매 프레임 루프에서 발동 체크 (145893줄)
         elif not new_boss_mode_active and current_stage == 3:
             # 패들 충돌 시 충전된 게이지가 500 이상이 되었을 때만 필살기 준비 상태로 전환
             if not boss_special_ready and boss_special_gauge >= 500:
@@ -145890,8 +145880,15 @@ def main(stage_num, new_boss_mode=False):
                     update_water_cannon()
                     update_water_cannon_fragments()
                     update_fragment_hit_effect()  # 파편 피격 이펙트 업데이트
-                # Stage 2 두더지왕 땅굴 습격 매 프레임 업데이트
+                # Stage 2 두더지왕 땅굴 습격 발동 체크 + 매 프레임 업데이트
                 if current_stage == 2 and current_boss_name == "두더지왕":
+                    time_now_tr = pygame.time.get_ticks()
+                    if not tunnel_raid_active:
+                        if time_now_tr - tunnel_raid_last_used >= TUNNEL_RAID_COOLDOWN:
+                            if boss_special_gauge >= 500:
+                                if activate_tunnel_raid():
+                                    show_speech("땅굴 습격!", duration=90)
+                                    tunnel_raid_last_used = time_now_tr
                     update_tunnel_raid()
                 handle_new_boss_skills_timer()  #  새로운 보스들 스킬 타이머 처리
                 handle_emotional_overdrive()
