@@ -5108,9 +5108,9 @@ class SpaceMap:
         # ===== 원경 — 고층 빌딩 스카이라인 (2단 깊이) =====
         skyline_a = max(0, int(alpha * 0.4))
         if skyline_a > 2:
-            # 1단 (가장 먼 — 흐릿한 대형 빌딩)
-            for ci in range(10):
-                cx = int(W * (0.03 + ci * 0.1 + random.uniform(-0.03, 0.03)))
+            # 1단 (가장 먼 — 흐릿한 대형 빌딩, 빼곡)
+            for ci in range(18):
+                cx = int(W * (0.01 + ci * 0.055 + random.uniform(-0.02, 0.02)))
                 base_y = int(H * random.uniform(0.1, 0.28))
                 b_h = random.randint(80, 200)
                 b_w = random.randint(18, 50)
@@ -5129,9 +5129,9 @@ class SpaceMap:
                             pygame.draw.rect(surf, (*wc, max(1, skyline_a // 3)),
                                              (wx, wy, 2, 2))
 
-            # 2단 (가까운 — 뚜렷한 빌딩)
-            for ci in range(14):
-                cx = int(W * (0.01 + ci * 0.07 + random.uniform(-0.02, 0.02)))
+            # 2단 (가까운 — 뚜렷한 빌딩, 빼곡)
+            for ci in range(22):
+                cx = int(W * (0.005 + ci * 0.046 + random.uniform(-0.015, 0.015)))
                 base_y = int(H * random.uniform(0.18, 0.4))
                 b_h = random.randint(55, 170)
                 b_w = random.randint(14, 42)
@@ -5266,14 +5266,28 @@ class SpaceMap:
                                          (px - road_w // 2 - 3, py),
                                          (px - road_w // 2 - 3, py + 3), 1)
 
-        # ===== 중경 건물 — 아키하바라 상가/빌딩 (초고퀄리티) =====
-        for bi in range(10):
-            bx = int(W * (0.03 + bi * 0.095 + random.uniform(-0.02, 0.02)))
-            by = int(H * random.uniform(0.3, 0.84))
+        # ===== 중경 건물 — 아키하바라 상가/빌딩 (초고퀄리티, 빼곡) =====
+        # 일본어 간판 텍스트 패턴 (카타카나/한자 느낌의 픽셀 블록)
+        jp_signs = [
+            # 각 항목: [(dx,dy,w,h), ...] 로 구성된 픽셀 글리프
+            [(0,0,1,5),(1,0,3,1),(1,2,3,1),(3,0,1,5)],   # ア
+            [(0,0,3,1),(1,1,1,4),(0,2,3,1)],               # エ
+            [(0,0,1,5),(1,2,2,1),(3,0,1,5)],               # ド
+            [(0,0,4,1),(2,0,1,5),(0,4,4,1)],               # ナ
+            [(0,0,1,5),(0,0,4,1),(0,4,4,1),(3,0,1,5)],     # 口
+            [(0,0,4,1),(0,0,1,5),(2,0,1,5),(0,2,4,1)],     # 目
+            [(0,0,1,5),(1,0,3,1),(1,4,3,1)],               # コ
+            [(0,0,4,1),(2,1,1,4),(0,2,3,1)],               # カ
+            [(0,2,4,1),(2,0,1,5)],                          # 十
+            [(0,0,4,1),(0,0,1,3),(0,2,4,1),(3,2,1,3),(0,4,4,1)],  # 電
+        ]
+        for bi in range(20):
+            bx = int(W * (0.01 + bi * 0.05 + random.uniform(-0.012, 0.012)))
+            by = int(H * random.uniform(0.28, 0.86))
             if _in_center(bx, by):
                 continue
-            b_w = random.randint(24, 52)
-            b_h = random.randint(50, 110)
+            b_w = random.randint(22, 55)
+            b_h = random.randint(48, 120)
             wall_c = random.choice([
                 (55, 35, 65), (65, 40, 72), (48, 30, 55),
                 (72, 45, 80), (58, 38, 68), (62, 38, 70),
@@ -5325,44 +5339,82 @@ class SpaceMap:
                     pygame.draw.line(surf, (50, 48, 55, alpha),
                                      (eqx, by - b_h - 3), (eqx, by - b_h - 12), 1)
 
-            # ===== 네온 간판 — 다중 레이어 글로우 =====
-            sign_count = random.randint(2, 4)
+            # ===== 네온 간판 — 일본어 간판 + 다중 레이어 글로우 =====
+            sign_count = random.randint(3, 6)
             for si in range(sign_count):
-                sy = by - b_h + random.randint(5, max(6, b_h - 12))
-                sw = random.randint(max(5, b_w // 2), b_w - 3)
-                sh = random.randint(5, 12)
-                sx = bx - sw // 2 + random.randint(-2, 2)
-                # 간판 배경
-                sign_bg = (25 + random.randint(0, 10), 10 + random.randint(0, 5),
-                           30 + random.randint(0, 10))
-                pygame.draw.rect(surf, (*sign_bg, alpha), (sx, sy, sw, sh))
-                # 간판 테두리
+                is_vertical = random.random() < 0.35  # 35% 세로 간판
                 neon_c = random.choice([
                     (255, 80, 180), (80, 200, 255), (255, 200, 50),
                     (180, 80, 255), (80, 255, 160), (255, 100, 100),
-                    (255, 150, 50), (100, 255, 255),
+                    (255, 150, 50), (100, 255, 255), (255, 60, 120),
+                    (120, 255, 200), (255, 180, 80), (200, 100, 255),
                 ])
-                pygame.draw.rect(surf, (*neon_c, min(255, int(alpha * 0.8))),
-                                 (sx, sy, sw, sh), 1)
-                # 네온 텍스트
-                text_y = sy + sh // 2
-                tx_s = sx + 2
-                for _ in range(random.randint(2, 6)):
-                    tw = random.randint(2, max(3, sw // 5))
-                    pygame.draw.line(surf, (*neon_c, alpha),
-                                     (tx_s, text_y), (tx_s + tw, text_y),
-                                     max(1, sh // 4))
-                    tx_s += tw + random.randint(1, 2)
-                    if tx_s > sx + sw - 2:
-                        break
-                # 3중 글로우 (내→외)
-                for gi in range(3):
-                    gw = sw + 4 + gi * 4
-                    gh = sh + 4 + gi * 4
-                    ga = max(1, 35 - gi * 10)
-                    gs = pygame.Surface((gw, gh), pygame.SRCALPHA)
-                    pygame.draw.rect(gs, (*neon_c, ga), (0, 0, gw, gh))
-                    surf.blit(gs, (sx - 2 - gi * 2, sy - 2 - gi * 2))
+                if is_vertical:
+                    # ===== 세로 네온 간판 (아키하바라 특유) =====
+                    v_w = random.randint(6, 10)
+                    v_h = random.randint(20, max(22, b_h * 2 // 3))
+                    side = random.choice([-1, 1])
+                    vx = bx + side * (b_w // 2 + random.randint(0, 3))
+                    vy = by - b_h + random.randint(3, max(4, b_h - v_h - 3))
+                    # 간판 배경
+                    sign_bg = (20 + random.randint(0, 10), 8 + random.randint(0, 5),
+                               25 + random.randint(0, 10))
+                    pygame.draw.rect(surf, (*sign_bg, alpha), (vx, vy, v_w, v_h))
+                    # 테두리
+                    pygame.draw.rect(surf, (*neon_c, min(255, int(alpha * 0.8))),
+                                     (vx, vy, v_w, v_h), 1)
+                    # 세로 일본어 글리프 (위→아래)
+                    char_count = max(1, v_h // 8)
+                    for ci in range(char_count):
+                        cy_t = vy + 2 + ci * max(6, (v_h - 4) // char_count)
+                        if cy_t + 5 > vy + v_h - 1:
+                            break
+                        glyph = random.choice(jp_signs)
+                        gx_off = vx + (v_w - 4) // 2
+                        for dx, dy, dw, dh in glyph:
+                            pygame.draw.rect(surf, (*neon_c, alpha),
+                                             (gx_off + dx, cy_t + dy, dw, dh))
+                    # 3중 글로우
+                    for gi in range(3):
+                        gw = v_w + 4 + gi * 4
+                        gh = v_h + 4 + gi * 4
+                        ga = max(1, 40 - gi * 12)
+                        gs = pygame.Surface((gw, gh), pygame.SRCALPHA)
+                        pygame.draw.rect(gs, (*neon_c, ga), (0, 0, gw, gh))
+                        surf.blit(gs, (vx - 2 - gi * 2, vy - 2 - gi * 2))
+                else:
+                    # ===== 가로 네온 간판 (일본어 텍스트 포함) =====
+                    sy = by - b_h + random.randint(5, max(6, b_h - 12))
+                    sw = random.randint(max(5, b_w // 2), b_w - 3)
+                    sh = random.randint(6, 14)
+                    sx = bx - sw // 2 + random.randint(-2, 2)
+                    # 간판 배경
+                    sign_bg = (25 + random.randint(0, 10), 10 + random.randint(0, 5),
+                               30 + random.randint(0, 10))
+                    pygame.draw.rect(surf, (*sign_bg, alpha), (sx, sy, sw, sh))
+                    # 간판 테두리
+                    pygame.draw.rect(surf, (*neon_c, min(255, int(alpha * 0.8))),
+                                     (sx, sy, sw, sh), 1)
+                    # 일본어 글리프 텍스트 (가로 배열)
+                    char_count = max(1, sw // 7)
+                    tx_s = sx + 2
+                    text_y_base = sy + max(1, (sh - 5) // 2)
+                    for ci in range(char_count):
+                        if tx_s + 5 > sx + sw - 1:
+                            break
+                        glyph = random.choice(jp_signs)
+                        for dx, dy, dw, dh in glyph:
+                            pygame.draw.rect(surf, (*neon_c, alpha),
+                                             (tx_s + dx, text_y_base + dy, dw, dh))
+                        tx_s += random.randint(5, 7)
+                    # 3중 글로우 (내→외)
+                    for gi in range(3):
+                        gw = sw + 4 + gi * 4
+                        gh = sh + 4 + gi * 4
+                        ga = max(1, 38 - gi * 11)
+                        gs = pygame.Surface((gw, gh), pygame.SRCALPHA)
+                        pygame.draw.rect(gs, (*neon_c, ga), (0, 0, gw, gh))
+                        surf.blit(gs, (sx - 2 - gi * 2, sy - 2 - gi * 2))
 
             # 창문 (HD — 커튼/블라인드 다양화)
             for wy in range(by - b_h + 4, by - 3, max(4, b_h // 12)):
@@ -5416,6 +5468,77 @@ class SpaceMap:
                              (bx - door_w // 2, by - door_h, door_w, door_h))
             pygame.draw.line(surf, (70, 55, 78, alpha),
                              (bx, by - door_h), (bx, by), 1)
+
+        # ===== 독립 네온사인/광고판 (빌딩 사이사이 추가) =====
+        for ni in range(14):
+            nx = random.randint(10, W - 10)
+            ny = int(H * random.uniform(0.25, 0.75))
+            if _in_center(nx, ny):
+                continue
+            n_type = random.randint(0, 2)
+            neon_c = random.choice([
+                (255, 80, 180), (80, 220, 255), (255, 200, 50),
+                (200, 80, 255), (80, 255, 160), (255, 60, 100),
+                (100, 255, 255), (255, 140, 60),
+            ])
+            if n_type == 0:
+                # 독립 세로 네온 기둥
+                nw = random.randint(5, 8)
+                nh = random.randint(18, 40)
+                pygame.draw.rect(surf, (20, 10, 25, alpha), (nx, ny, nw, nh))
+                pygame.draw.rect(surf, (*neon_c, min(255, int(alpha * 0.85))),
+                                 (nx, ny, nw, nh), 1)
+                # 세로 글리프
+                char_c = max(1, nh // 8)
+                for ci in range(char_c):
+                    cy_n = ny + 2 + ci * max(6, (nh - 4) // char_c)
+                    if cy_n + 5 > ny + nh - 1:
+                        break
+                    glyph = random.choice(jp_signs)
+                    for dx, dy, dw, dh in glyph:
+                        pygame.draw.rect(surf, (*neon_c, alpha),
+                                         (nx + (nw - 4) // 2 + dx, cy_n + dy, dw, dh))
+                # 글로우
+                for gi in range(3):
+                    gs = pygame.Surface((nw + 6 + gi * 4, nh + 6 + gi * 4), pygame.SRCALPHA)
+                    pygame.draw.rect(gs, (*neon_c, max(1, 35 - gi * 10)),
+                                     (0, 0, nw + 6 + gi * 4, nh + 6 + gi * 4))
+                    surf.blit(gs, (nx - 3 - gi * 2, ny - 3 - gi * 2))
+            elif n_type == 1:
+                # 대형 가로 광고판 (일본어)
+                nw = random.randint(18, 40)
+                nh = random.randint(8, 14)
+                pygame.draw.rect(surf, (22, 12, 28, alpha), (nx - nw // 2, ny, nw, nh))
+                pygame.draw.rect(surf, (*neon_c, min(255, int(alpha * 0.9))),
+                                 (nx - nw // 2, ny, nw, nh), 1)
+                # 가로 글리프
+                tx = nx - nw // 2 + 2
+                ty = ny + max(1, (nh - 5) // 2)
+                for ci in range(max(1, nw // 7)):
+                    if tx + 5 > nx + nw // 2 - 1:
+                        break
+                    glyph = random.choice(jp_signs)
+                    for dx, dy, dw, dh in glyph:
+                        pygame.draw.rect(surf, (*neon_c, alpha),
+                                         (tx + dx, ty + dy, dw, dh))
+                    tx += random.randint(5, 7)
+                # 글로우
+                for gi in range(3):
+                    gs = pygame.Surface((nw + 6 + gi * 4, nh + 6 + gi * 4), pygame.SRCALPHA)
+                    pygame.draw.rect(gs, (*neon_c, max(1, 32 - gi * 9)),
+                                     (0, 0, nw + 6 + gi * 4, nh + 6 + gi * 4))
+                    surf.blit(gs, (nx - nw // 2 - 3 - gi * 2, ny - 3 - gi * 2))
+            else:
+                # 화살표/아이콘 네온 (화살표 형태)
+                arr_w = random.randint(8, 15)
+                arr_h = random.randint(6, 10)
+                pts = [(nx, ny), (nx + arr_w, ny + arr_h // 2),
+                       (nx, ny + arr_h)]
+                pygame.draw.polygon(surf, (*neon_c, min(255, int(alpha * 0.8))), pts)
+                pygame.draw.polygon(surf, (*neon_c, min(255, int(alpha * 0.5))), pts, 1)
+                gs = pygame.Surface((arr_w + 10, arr_h + 10), pygame.SRCALPHA)
+                pygame.draw.ellipse(gs, (*neon_c, 20), (0, 0, arr_w + 10, arr_h + 10))
+                surf.blit(gs, (nx - 5, ny - 5))
 
         # ===== 자판기 (HD — 다층 디테일) =====
         for vi in range(12):
@@ -5577,8 +5700,8 @@ class SpaceMap:
                                       False, wire_pts, 1)
 
         # ===== 아케이드/게임센터 (HD — 네온 아치 입구) =====
-        for ai in range(3):
-            ax = int(W * (0.13 + ai * 0.3 + random.uniform(-0.04, 0.04)))
+        for ai in range(5):
+            ax = int(W * (0.06 + ai * 0.19 + random.uniform(-0.04, 0.04)))
             ay = int(H * random.uniform(0.5, 0.86))
             if _in_center(ax, ay):
                 continue
@@ -5613,8 +5736,8 @@ class SpaceMap:
             entrance_s.fill((200, 170, 240, min(255, int(alpha * 0.5))))
             surf.blit(entrance_s, (ax - aw // 4 - 2, ay - entrance_h - 2))
 
-        # ===== 인물 실루엣 (HD — 다양한 포즈/의상) =====
-        for pi in range(20):
+        # ===== 인물 실루엣 (HD — 다양한 포즈/의상, 붐비는 거리) =====
+        for pi in range(30):
             px = random.randint(8, W - 8)
             py = random.randint(int(H * 0.52), H - 4)
             if _in_center(px, py):
@@ -5645,7 +5768,7 @@ class SpaceMap:
                                    (px, py - p_h // 2 - head_r + 2), head_r)
 
         # ===== 도시 소품 (HD — 볼라드, 우체통, 자전거) =====
-        for di in range(16):
+        for di in range(22):
             dx = random.randint(8, W - 8)
             dy = random.randint(int(H * 0.52), H - 4)
             if _in_center(dx, dy):
