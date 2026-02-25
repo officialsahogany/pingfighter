@@ -73300,8 +73300,8 @@ def handle_wall():
                 #       f"화로위치:({brazier_x},{brazier_y}), 연막반경:{smoke_zone['radius']:.0f}, "
                 #       f"거리:{distance:.1f}")
                 
-                # lit = animated_bg_stage4.check_smoke_touches_brazier(
-                    # smoke_zone["x"], smoke_zone["y"], smoke_zone["radius"])
+                lit = animated_bg_stage4.check_smoke_touches_brazier(
+                    smoke_zone["x"], smoke_zone["y"], smoke_zone["radius"])
                 if lit:
                     # print(f"     !")
                     smoke_zone['has_lit_brazier'] = True
