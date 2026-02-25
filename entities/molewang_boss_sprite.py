@@ -121,7 +121,8 @@ class MolewangBossSprite:
                     t = (progress - 0.55) / 0.45
                     self.emerge_amount = 1.0 - t * t
         else:
-            self.emerge_amount *= 0.85  # 부드럽게 0으로
+            # 히트 끝나면 즉시 숨김 (0.85 감쇠는 0에 도달 못함 → 몸체 잔상 버그)
+            self.emerge_amount = 0.0
 
         self._update_dirt_particles(dt)
         self.prev_x = current_x
@@ -214,8 +215,8 @@ class MolewangBossSprite:
         # 레이어 순서
         # 1. 흙 파편 (땅 위로 튀는 것)
         self._draw_dirt_fx(surface, cx, ground_y, b, lean_offset, bob_offset, p)
-        # 2. 몸체 (emerge > 0일 때만)
-        if emerge > 0.01:
+        # 2. 몸체 (히트 중이고 실제로 솟아오른 경우에만)
+        if self.is_hit and emerge > 0.05:
             self._draw_body_emerging(surface, cx, ground_y, b, lean_offset,
                                      bob_offset, emerge, p)
         # 3. 땅 표면 (항상 그림 — 몸체를 가리는 역할)
