@@ -16652,6 +16652,7 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
         valthor_perf_end("stage2_water_effects")
         # Stage 2 두더지왕 땅굴 습격 이펙트 렌더링
         draw_tunnel_raid_effects(SCREEN)
+        draw_spinning_claw_effects(SCREEN)
     elif current_stage == 3 and animated_bg_stage3 is not None:
         animated_bg_stage3.update(elapsed_ms, r_wins + r_losses)
         animated_bg_stage3.draw(SCREEN, ball_pos=(ball_cx, ball_cy))
@@ -27366,6 +27367,16 @@ TUNNEL_RAID_WARN_FRAMES = 30        # 경고 0.5초
 TUNNEL_RAID_CHARGE_FRAMES = 50      # 돌진 (가시 스폰 완료까지)
 TUNNEL_RAID_STRIKE_FRAMES = 40      # 타격 0.67초
 TUNNEL_RAID_RETURN_FRAMES = 60      # 귀환 1초
+
+# 두더지왕 회전발톱 스킬
+spinning_claw_active = False
+spinning_claw_timer = 0
+spinning_claw_last_used = -9999
+SPINNING_CLAW_COOLDOWN = 10000       # 10초 쿨다운
+spinning_claw_direction = 0           # 스와이프 방향 (-1/1)
+spinning_claw_hit_x = 0
+spinning_claw_hit_y = 0
+SPINNING_CLAW_EFFECT_DURATION = 30    # 이펙트 0.5초
 
 horizontal_bounce_count = 0
 boss_trail = []  # [(x, y, alpha)] 형식의 튜플 리스트
@@ -53392,6 +53403,11 @@ def go_to_next_round():
     tunnel_raid_spikes.clear()
     tunnel_raid_spike_count = 0
     tunnel_raid_spike_timer = 0
+    # Stage 2 두더지왕 회전발톱 초기화
+    global spinning_claw_active, spinning_claw_timer, spinning_claw_last_used
+    spinning_claw_active = False
+    spinning_claw_timer = 0
+    spinning_claw_last_used = -9999
     #  홍련폭염 상태 초기화
     flame_trail_active = False
     flame_trail_positions.clear()
@@ -57556,6 +57572,106 @@ def draw_tunnel_raid_effects(screen):
                 ly_top = py_i - int(30 + prog * 120) + random.randint(-15, 15)
                 ly_bot = py_i + 5
                 pygame.draw.line(fx, (160, 120, 60, line_a), (lx, ly_bot), (lx, ly_top), 2)
+
+    screen.blit(fx, (0, 0))
+
+
+# ============================================================
+# 두더지왕 회전발톱 스킬
+# ============================================================
+def activate_spinning_claw():
+    """보스가 공을 칠 때 발톱 스와이프로 공에 강한 스핀을 건다."""
+    global spinning_claw_active, spinning_claw_timer, spinning_claw_direction
+    global spinning_claw_hit_x, spinning_claw_hit_y
+    global ball_spin_strength, ball_spin_direction
+
+    # 공이 보스 중앙 기준 어느 쪽인지로 스와이프 방향 결정
+    if BALL.centerx < BOSS.centerx:
+        spinning_claw_direction = 1   # 왼쪽에서 오른쪽으로 후려침 → 공이 오른쪽으로 커브
+    else:
+        spinning_claw_direction = -1  # 오른쪽에서 왼쪽으로 후려침 → 공이 왼쪽으로 커브
+
+    # 기존 스핀 시스템에 강한 스핀 적용
+    ball_spin_strength = 0.55
+    ball_spin_direction = spinning_claw_direction
+
+    # 이펙트 상태
+    spinning_claw_active = True
+    spinning_claw_timer = SPINNING_CLAW_EFFECT_DURATION
+    spinning_claw_hit_x = BALL.centerx
+    spinning_claw_hit_y = BALL.centery
+
+    # 사운드
+    try:
+        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "mooncut.wav")))
+        snd.set_volume(0.5)
+        snd.play()
+    except Exception:
+        pass
+
+    return True
+
+
+def update_spinning_claw():
+    """회전발톱 이펙트 타이머 감소."""
+    global spinning_claw_active, spinning_claw_timer
+    if not spinning_claw_active:
+        return
+    spinning_claw_timer -= 1
+    if spinning_claw_timer <= 0:
+        spinning_claw_active = False
+
+
+def draw_spinning_claw_effects(screen):
+    """회전발톱 발톱 스와이프 아크 + 공 주변 커브 잔상."""
+    if not spinning_claw_active:
+        return
+
+    fx = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    prog = 1.0 - (spinning_claw_timer / SPINNING_CLAW_EFFECT_DURATION)
+    alpha = int(220 * (1.0 - prog))
+
+    # --- 1. 발톱 스와이프 아크 (보스 위치) ---
+    cx, cy = BOSS.centerx, BOSS.centery + 15
+    d = spinning_claw_direction
+
+    # 스와이프 각도 (0→180도 진행)
+    sweep_angle = prog * math.pi
+    arc_radius = 40 + int(prog * 20)
+
+    # 발톱 자국 3개 (호 형태)
+    for i in range(3):
+        offset = (i - 1) * 0.25  # -0.25, 0, 0.25 라디안 간격
+        r = arc_radius - i * 6
+        start_a = (-0.5 + offset) * d + (sweep_angle * d * 0.5)
+        end_a = start_a + d * 1.2
+
+        pts = []
+        for step in range(8):
+            t = step / 7.0
+            a = start_a + (end_a - start_a) * t
+            px = cx + int(r * math.cos(a))
+            py = cy + int(r * 0.6 * math.sin(a))
+            pts.append((px, py))
+
+        if len(pts) >= 2:
+            claw_color = (200, 180, 140, alpha)
+            pygame.draw.lines(fx, claw_color, False, pts, 3)
+            # 끝점에 밝은 팁
+            tip = pts[-1]
+            pygame.draw.circle(fx, (255, 240, 180, alpha), tip, 3)
+
+    # --- 2. 공 주변 커브 방향 표시 ---
+    bx, by = BALL.centerx, BALL.centery
+    if prog < 0.7:
+        curve_alpha = int(180 * (1.0 - prog / 0.7))
+        # 커브 방향 화살표 잔상
+        for j in range(4):
+            trail_x = bx - d * (j * 8 + int(prog * 20))
+            trail_y = by + j * 3
+            trail_sz = max(1, 4 - j)
+            pygame.draw.circle(fx, (220, 200, 130, max(0, curve_alpha - j * 40)),
+                             (int(trail_x), int(trail_y)), trail_sz)
 
     screen.blit(fx, (0, 0))
 
@@ -124029,6 +124145,7 @@ def draw_field():
         draw_fragment_hit_effect(SCREEN)
         # Stage 2 두더지왕 땅굴 습격 이펙트 렌더링
         draw_tunnel_raid_effects(SCREEN)
+        draw_spinning_claw_effects(SCREEN)
         # 원숭이가 던진 바나나를 인게임 화면에 그리기
         if pillar_renderer is not None:
             pillar_renderer.draw_bananas_ingame(SCREEN)
@@ -127589,6 +127706,10 @@ def reset_round(is_stage_start=False):
     tunnel_raid_spikes.clear()
     tunnel_raid_spike_count = 0
     tunnel_raid_spike_timer = 0
+    # Stage 2 두더지왕 회전발톱 초기화
+    spinning_claw_active = False
+    spinning_claw_timer = 0
+    spinning_claw_last_used = -9999
     speed_defense_active = False
     speed_defense_timer = 0
     horizontal_bounce_count = 0
@@ -129849,6 +129970,8 @@ def handle_ball():
     global arena_flash_inspiration_timer_top, arena_flash_inspiration_timer_bottom
     # 기사회생 오오라 타이머
     global arena_perk_comeback_aura_timer
+    # 두더지왕 회전발톱
+    global spinning_claw_last_used
 
     # --- Stage 8 그림자분신: 매 프레임 상태 업데이트 ---
     if current_stage == 8:
@@ -134187,7 +134310,13 @@ def handle_ball():
                     molewang_boss_sprite.trigger_hit(BALL.centerx, BOSS.centerx)
             except Exception as e:
                 print(f"⚠️ 두더지왕 히트 애니메이션 트리거 실패: {e}")
-            # print(f"스테이지2 악어장군 게이지 충전: +60 (현재: {boss_special_gauge}/500)")  # 디버그 비활성화
+            # 두더지왕 회전발톱 발동 (쿨다운 10초)
+            if current_boss_name == "두더지왕":
+                time_now_sc = pygame.time.get_ticks()
+                if time_now_sc - spinning_claw_last_used >= SPINNING_CLAW_COOLDOWN:
+                    activate_spinning_claw()
+                    spinning_claw_last_used = time_now_sc
+                    show_speech("회전발톱!", duration=60)
 
         # 스테이지 6 (네메시스) 방어막 해제 로직 - 비활성화됨 (방어벽 시스템 제거)
         # if current_stage == 6 and nemesis_barrier_active and nemesis_barrier_trigger_cooldown <= 0:
@@ -140678,6 +140807,8 @@ def main(stage_num, new_boss_mode=False):
     global tunnel_raid_last_used, tunnel_raid_active, tunnel_raid_phase, tunnel_raid_timer, tunnel_raid_trail
     global tunnel_raid_spikes, tunnel_raid_spike_count, tunnel_raid_spike_timer
     global tunnel_raid_target_x, tunnel_raid_original_boss_y, tunnel_raid_visual_y
+    global spinning_claw_active, spinning_claw_timer, spinning_claw_last_used, spinning_claw_direction
+    global spinning_claw_hit_x, spinning_claw_hit_y
     if stage_num != 30 and arena_mode_enabled:
         print(f"[WARNING] 스테이지 {stage_num} 진입 시 arena_mode_enabled=True 감지! 강제 초기화")
         arena_mode_enabled = False
@@ -146157,6 +146288,7 @@ def main(stage_num, new_boss_mode=False):
                                     show_speech("땅굴 습격!", duration=90)
                                     tunnel_raid_last_used = time_now_tr
                     update_tunnel_raid()
+                    update_spinning_claw()
                 handle_new_boss_skills_timer()  #  새로운 보스들 스킬 타이머 처리
                 handle_emotional_overdrive()
                 update_neutralize_particles()  # 사이코볼 무효화 파티클 업데이트
