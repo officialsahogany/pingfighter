@@ -27411,7 +27411,8 @@ WEB_RESCUE_SHOOT_FRAMES = 15     # 실 발사 연출
 WEB_RESCUE_PULL_FRAMES = 15      # 보스→공 이동
 WEB_RESCUE_HOLD_FRAMES = 60      # 1초 홀드
 web_rescue_active = False
-web_rescue_phase = ""             # "shoot", "pull", "hold", "release"
+web_rescue_phase = ""             # "shoot", "hold_wait", "pull", "hold", "release"
+WEB_RESCUE_HOLD_WAIT_FRAMES = 60  # 거미줄 발사 후 1초 대기
 web_rescue_timer = 0
 web_rescue_last_used = -99999
 web_rescue_ball_x = 0             # 공 잡은 X위치
@@ -58022,6 +58023,16 @@ def update_web_rescue():
         BALL.centerx = int(web_rescue_ball_x)
         BALL.centery = int(web_rescue_ball_y)
         if web_rescue_timer >= WEB_RESCUE_SHOOT_FRAMES:
+            web_rescue_phase = "hold_wait"
+            web_rescue_timer = 0
+
+    elif web_rescue_phase == "hold_wait":
+        # 거미줄이 공을 잡은 채 1초 대기
+        ball_vel[0] = 0.0
+        ball_vel[1] = 0.0
+        BALL.centerx = int(web_rescue_ball_x)
+        BALL.centery = int(web_rescue_ball_y)
+        if web_rescue_timer >= WEB_RESCUE_HOLD_WAIT_FRAMES:
             web_rescue_phase = "pull"
             web_rescue_timer = 0
 
@@ -58089,6 +58100,24 @@ def draw_web_rescue(screen):
         if t > 0.6:
             wr = int(12 * (t - 0.6) / 0.4)
             pygame.draw.circle(fx, (255, 255, 255, 120), (ball_cx, ball_cy), max(1, wr), 1)
+
+    elif web_rescue_phase == "hold_wait":
+        # 보스 → 공 거미줄 연결 + 공에 거미줄 감싸기 연출
+        for i in range(3):
+            offset = (i - 1) * 5
+            wave = math.sin(web_rescue_timer * 0.3 + i * 2.0) * 4
+            pygame.draw.line(fx, (220, 220, 220, 180), (boss_cx + offset, boss_cy),
+                             (ball_cx + offset + int(wave), ball_cy), 2)
+        # 공 주위 거미줄 원 맥동
+        pulse = 1.0 + 0.15 * math.sin(web_rescue_timer * 0.2)
+        wr = int(14 * pulse)
+        pygame.draw.circle(fx, (255, 255, 255, 130), (ball_cx, ball_cy), max(1, wr), 2)
+        # 거미줄 무늬
+        for k in range(4):
+            angle = k * math.pi / 2 + web_rescue_timer * 0.05
+            ex = ball_cx + int(math.cos(angle) * wr)
+            ey = ball_cy + int(math.sin(angle) * wr)
+            pygame.draw.line(fx, (255, 255, 255, 90), (ball_cx, ball_cy), (ex, ey), 1)
 
     elif web_rescue_phase == "pull":
         # 보스 → 공 연결선 + 보스 잔상
