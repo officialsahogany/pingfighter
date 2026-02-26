@@ -134748,6 +134748,7 @@ def handle_ball():
         and not stage8_shadow_intangible
         and not stage8_cloud_dash_intangible
         and not stage8_stun_escape_intangible
+        and not web_rescue_active
     ):
         # 자폭드론 부스트 상태면 보스 맞는 순간 바로 복원 처리 (우선 적용)
         try:
