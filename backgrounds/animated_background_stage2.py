@@ -1552,19 +1552,6 @@ class AnimatedBackgroundStage2:
                     tc = tuple(max(0, int(v * d * 0.45)) for v in pal['mid'][t_seed % 3])
                 pygame.draw.circle(surface, tc, (int(tx), int(ty)), tr)
 
-        # === 클러스터 에지 윤곽선 (실루엣 강조) ===
-        for idx, cluster in enumerate(bush['clusters']):
-            if idx == 0:
-                continue  # 중심 클러스터는 스킵
-            cx = x + cluster['offset_x'] + rustle_x
-            cy = y + cluster['offset_y'] + rustle_y
-            d = cluster['darkness']
-            edge_c = tuple(max(0, int(v * d * 0.35)) for v in pal['dark'][idx % 3])
-            pts = [(cx + sp[0] + rustle_x, cy + sp[1] + rustle_y)
-                   for sp in cluster['static_points']]
-            if len(pts) >= 3:
-                pygame.draw.polygon(surface, edge_c, pts, 1)
-
         # === 잎사귀 디테일 ===
         leaf_pal = [
             (42, 102, 38), (52, 122, 48), (62, 142, 55), (38, 90, 35),
