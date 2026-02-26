@@ -20460,6 +20460,7 @@ SOUND_BAZOOKA_GOING = sound_effects['BAZOOKA_GOING']
 SOUND_THROWING_BANANA = sound_effects['THROWING_BANANA']
 SOUND_STEP_BANANA = sound_effects['STEP_BANANA']
 SOUND_STAGE5_WARNING = sound_effects['STAGE5_WARNING']
+SOUND_WHIPCRACK = sound_effects.get('WHIPCRACK')
 
 # 바나나 사운드를 pillar_jungle 모듈에 설정
 set_throwing_banana_sound(SOUND_THROWING_BANANA)
@@ -74951,6 +74952,9 @@ def update_fan_throw():
         if dist_sq < (hit_radius + PLAYER.width // 2) ** 2:
             fan_throw_hit = True
             fan_throw_active = False
+            # 부채던지기 타격 사운드
+            if SOUND_WHIPCRACK:
+                SOUND_WHIPCRACK.play()
             # 화염탄 방식 넉백
             if player_stun_immunity_timer <= 0:
                 if try_apply_player_stun(0.3, source="stage1_fan_throw", knockback_scaled=True) > 0:
