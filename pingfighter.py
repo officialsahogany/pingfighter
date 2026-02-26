@@ -27399,6 +27399,8 @@ WEB_TRAP_BALL_WARP = 0.15       # 공 방향 왜곡 ±0.15 라디안 (미사용)
 WEB_TRAP_PLAYER_SLOW = 0.40     # 플레이어 감속 ×0.40 (60% 감소)
 WEB_TRAP_Y_MIN = 630            # Y 범위 하한 (플레이어 진영)
 WEB_TRAP_Y_MAX = 700            # Y 범위 상한 (플레이어 진영 하단)
+WEB_TRAP_TRAVEL_FRAMES = 35     # 발사→도착 시간 (~0.58초)
+web_trap_projectile = None      # {"sx","sy","tx","ty","timer","duration"} 또는 None
 
 horizontal_bounce_count = 0
 boss_trail = []  # [(x, y, alpha)] 형식의 튜플 리스트
@@ -57736,21 +57738,29 @@ def draw_spinning_claw_effects(screen):
 
 # ============= 아라크네 거미줄 장판 스킬 =============
 def activate_web_trap():
-    """거미줄 장판 3개 생성."""
-    global web_traps, web_trap_last_used, boss_special_gauge
+    """거미줄 투사체 발사 — 보스 입에서 플레이어 진영으로 거미줄 발사."""
+    global web_trap_projectile, web_trap_last_used
     import random as _rng
 
-    for _ in range(WEB_TRAP_COUNT):
-        wx = _rng.randint(GAME_AREA_OFFSET_X + WEB_TRAP_RADIUS + 10,
-                          GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - WEB_TRAP_RADIUS - 10)
-        wy = _rng.randint(WEB_TRAP_Y_MIN, WEB_TRAP_Y_MAX)
-        web_traps.append({
-            "x": wx, "y": wy,
-            "radius": WEB_TRAP_RADIUS,
-            "timer": WEB_TRAP_DURATION,
-            "max_timer": WEB_TRAP_DURATION,
-            "phase": _rng.uniform(0, math.pi * 2),
-        })
+    # 이미 투사체가 날아가는 중이면 무시
+    if web_trap_projectile is not None:
+        return False
+
+    # 출발점: 보스 입 (패들 하단)
+    sx = float(BOSS.centerx if BOSS else WIDTH // 2)
+    sy = float((BOSS.y + BOSS.height + 5) if BOSS else 70)
+
+    # 도착점: 플레이어 진영 랜덤 위치
+    tx = float(_rng.randint(GAME_AREA_OFFSET_X + WEB_TRAP_RADIUS + 10,
+                             GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - WEB_TRAP_RADIUS - 10))
+    ty = float(_rng.randint(WEB_TRAP_Y_MIN, WEB_TRAP_Y_MAX))
+
+    web_trap_projectile = {
+        "sx": sx, "sy": sy,       # 출발점 (보스 입)
+        "tx": tx, "ty": ty,       # 도착점 (장판 위치)
+        "timer": 0,
+        "duration": WEB_TRAP_TRAVEL_FRAMES,
+    }
 
     web_trap_last_used = pygame.time.get_ticks()
 
@@ -57762,10 +57772,12 @@ def activate_web_trap():
     except Exception:
         pass
 
-    # 아라크네 히트 애니메이션
+    # 아라크네 입 벌림 애니메이션
     try:
         if spider_boss_sprite is not None:
-            spider_boss_sprite.trigger_hit(BOSS.centerx if BOSS else WIDTH // 2, BOSS.centerx if BOSS else WIDTH // 2)
+            spider_boss_sprite.trigger_hit(
+                BOSS.centerx if BOSS else WIDTH // 2,
+                BOSS.centerx if BOSS else WIDTH // 2)
     except Exception:
         pass
 
@@ -57774,8 +57786,26 @@ def activate_web_trap():
 
 
 def update_web_traps():
-    """거미줄 장판 타이머 갱신 + 플레이어 디버프 + 대쉬 파괴."""
-    global web_traps
+    """거미줄 투사체 이동 + 장판 타이머 갱신 + 대쉬 파괴."""
+    global web_traps, web_trap_projectile
+
+    # ─── 투사체 이동 처리 ───
+    if web_trap_projectile is not None:
+        web_trap_projectile["timer"] += 1
+        if web_trap_projectile["timer"] >= web_trap_projectile["duration"]:
+            # 도착! → 장판 생성 (펼쳐짐 연출 포함)
+            web_traps.append({
+                "x": int(web_trap_projectile["tx"]),
+                "y": int(web_trap_projectile["ty"]),
+                "radius": WEB_TRAP_RADIUS,
+                "timer": WEB_TRAP_DURATION,
+                "max_timer": WEB_TRAP_DURATION,
+                "phase": random.uniform(0, math.pi * 2),
+                "expand_timer": 12,  # 펼쳐짐 연출 (12프레임)
+            })
+            web_trap_projectile = None
+
+    # ─── 장판 업데이트 ───
     if not web_traps:
         return
 
@@ -57783,17 +57813,19 @@ def update_web_traps():
     for i, trap in enumerate(web_traps):
         trap["timer"] -= 1
         trap["phase"] += 0.05
+        # 펼쳐짐 타이머 감소
+        if trap.get("expand_timer", 0) > 0:
+            trap["expand_timer"] -= 1
         if trap["timer"] <= 0:
             expired.append(i)
             continue
 
-        # 대쉬로 거미줄 파괴: 플레이어가 대쉬 중이고 거미줄 범위 안에 있으면 파괴
-        if rolling_active and PLAYER:
+        # 대쉬로 거미줄 파괴 (펼쳐짐 완료 후에만)
+        if rolling_active and PLAYER and trap.get("expand_timer", 0) <= 0:
             r = trap["radius"]
             trap_rect = pygame.Rect(trap["x"] - r, trap["y"] - r, r * 2, r * 2)
             if PLAYER.colliderect(trap_rect):
                 expired.append(i)
-                # 파괴 사운드
                 try:
                     snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "steambarriorbreak.wav")))
                     snd.set_volume(0.6)
@@ -57802,7 +57834,7 @@ def update_web_traps():
                     pass
                 continue
 
-    # 만료/파괴된 거미줄 제거 (역순, 중복 인덱스 방지)
+    # 만료/파괴된 거미줄 제거
     for i in reversed(sorted(set(expired))):
         if i < len(web_traps):
             web_traps.pop(i)
@@ -57814,6 +57846,8 @@ def get_web_trap_player_slow():
     if not web_traps or not PLAYER:
         return 1.0
     for trap in web_traps:
+        if trap.get("expand_timer", 0) > 0:
+            continue  # 아직 펼쳐지는 중
         r = trap["radius"]
         trap_rect = pygame.Rect(trap["x"] - r, trap["y"] - r, r * 2, r * 2)
         if PLAYER.colliderect(trap_rect):
@@ -57822,17 +57856,62 @@ def get_web_trap_player_slow():
 
 
 def draw_web_traps(screen):
-    """거미줄 장판 렌더링 — 반투명 원 + 방사형 spokes + 동심원."""
-    if not web_traps:
+    """거미줄 투사체 + 장판 렌더링."""
+    if not web_traps and web_trap_projectile is None:
         return
 
     fx = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
 
+    # ─── 투사체 렌더링 (보스 입에서 타겟으로 날아가는 거미줄) ───
+    if web_trap_projectile is not None:
+        proj = web_trap_projectile
+        raw_t = min(proj["timer"] / max(1, proj["duration"]), 1.0)
+        # easeOutQuad: 처음 빠르고 도착 근처에서 감속
+        t = 1.0 - (1.0 - raw_t) * (1.0 - raw_t)
+
+        sx, sy = proj["sx"], proj["sy"]
+        tx, ty = proj["tx"], proj["ty"]
+        # 현재 투사체 위치
+        cx = sx + (tx - sx) * t
+        cy = sy + (ty - sy) * t
+
+        # 거미줄 실 — 보스 입에서 현재 위치까지 3줄 (약간 흔들림)
+        time_ms = pygame.time.get_ticks()
+        for strand in range(3):
+            strand_pts = []
+            segs = 12
+            for s in range(segs + 1):
+                st = s / segs
+                px = sx + (cx - sx) * st
+                py = sy + (cy - sy) * st
+                # 실 흔들림 (중간이 더 크게)
+                wave = math.sin(st * math.pi) * math.sin(time_ms * 0.012 + strand * 2.1)
+                px += wave * (6 + strand * 3)
+                strand_pts.append((int(px), int(py)))
+            if len(strand_pts) >= 2:
+                alpha = 160 - strand * 30
+                pygame.draw.lines(fx, (230, 230, 230, alpha), False, strand_pts, max(1, 2 - strand))
+
+        # 투사체 선단 — 작은 거미줄 뭉치
+        ball_r = max(4, int(8 * (0.5 + 0.5 * t)))
+        pygame.draw.circle(fx, (255, 255, 255, 200), (int(cx), int(cy)), ball_r)
+        pygame.draw.circle(fx, (220, 220, 220, 120), (int(cx), int(cy)), ball_r + 3)
+
+    # ─── 장판 렌더링 ───
     for trap in web_traps:
-        cx, cy = trap["x"], trap["y"]
+        trap_cx, trap_cy = trap["x"], trap["y"]
         r = trap["radius"]
         remaining = trap["timer"]
         phase = trap["phase"]
+
+        # 펼쳐짐 연출: expand_timer 동안 반경이 0→full로 확장
+        expand = trap.get("expand_timer", 0)
+        if expand > 0:
+            expand_ratio = 1.0 - (expand / 12.0)
+            # easeOutBack: 약간 튀는 느낌
+            expand_ratio = expand_ratio * expand_ratio * (2.7 * expand_ratio - 1.7)
+            expand_ratio = max(0.05, min(1.0, expand_ratio))
+            r = int(r * expand_ratio)
 
         # 만료 2초 전(120프레임) 깜빡임
         if remaining < 120 and (remaining // 8) % 2 == 0:
@@ -57841,34 +57920,38 @@ def draw_web_traps(screen):
         # 맥동 효과
         pulse = 1.0 + 0.05 * math.sin(phase * 2)
         pr = int(r * pulse)
+        if pr < 2:
+            continue
 
         # 반투명 원형 바탕
         base_alpha = min(120, int(160 * (remaining / trap["max_timer"])))
-        pygame.draw.circle(fx, (220, 220, 220, base_alpha // 2), (cx, cy), pr)
+        pygame.draw.circle(fx, (220, 220, 220, base_alpha // 2), (trap_cx, trap_cy), pr)
 
         # 방사형 spokes 8줄
         spoke_alpha = min(180, base_alpha + 40)
         for i in range(8):
             angle = (i / 8) * math.pi * 2 + phase * 0.3
-            ex = cx + int(pr * math.cos(angle))
-            ey = cy + int(pr * math.sin(angle))
-            pygame.draw.line(fx, (240, 240, 240, spoke_alpha), (cx, cy), (ex, ey), 1)
+            ex = trap_cx + int(pr * math.cos(angle))
+            ey = trap_cy + int(pr * math.sin(angle))
+            pygame.draw.line(fx, (240, 240, 240, spoke_alpha), (trap_cx, trap_cy), (ex, ey), 1)
 
         # 동심원 5겹 (유기적 흔들림)
         for ring in range(1, 6):
             ring_r = int(pr * ring / 5)
+            if ring_r < 2:
+                continue
             ring_pts = []
             for seg in range(16):
                 a = (seg / 16) * math.pi * 2
                 wobble = 1.0 + 0.08 * math.sin(a * 3 + phase + ring)
-                rx = cx + int(ring_r * wobble * math.cos(a))
-                ry = cy + int(ring_r * wobble * math.sin(a))
+                rx = trap_cx + int(ring_r * wobble * math.cos(a))
+                ry = trap_cy + int(ring_r * wobble * math.sin(a))
                 ring_pts.append((rx, ry))
             if len(ring_pts) >= 3:
                 pygame.draw.polygon(fx, (255, 255, 255, spoke_alpha // 2), ring_pts, 1)
 
         # 중앙 밝은 점
-        pygame.draw.circle(fx, (255, 255, 255, spoke_alpha), (cx, cy), 3)
+        pygame.draw.circle(fx, (255, 255, 255, spoke_alpha), (trap_cx, trap_cy), 3)
 
     screen.blit(fx, (0, 0))
 
