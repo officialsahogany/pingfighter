@@ -162,14 +162,14 @@ class AnimatedBackgroundStage2:
             {'x': 500, 'y': 20, 'size': 'large', 'variant': 2},   # 오른쪽 위 모서리
         ]
         
-        # 플레이어 패들 주변 덤불 (하단 벽 근처)
+        # 플레이어 패들 주변 덤불 (하단 벽 근처 - 캔버스 750px 초과 방지)
         player_positions = [
-            {'x': 50, 'y': 710, 'size': 'medium', 'variant': 1},   # 왼쪽 하단
-            {'x': 550, 'y': 705, 'size': 'large', 'variant': 0},   # 오른쪽 하단
+            {'x': 50, 'y': 695, 'size': 'medium', 'variant': 1},   # 왼쪽 하단
+            {'x': 550, 'y': 690, 'size': 'large', 'variant': 0},   # 오른쪽 하단
             {'x': 25, 'y': 670, 'size': 'small', 'variant': 2},    # 왼쪽 중간
             {'x': 575, 'y': 675, 'size': 'medium', 'variant': 1},  # 오른쪽 중간
-            {'x': 100, 'y': 725, 'size': 'small', 'variant': 0},   # 왼쪽 아래 모서리
-            {'x': 500, 'y': 720, 'size': 'large', 'variant': 2},   # 오른쪽 아래 모서리
+            {'x': 100, 'y': 710, 'size': 'small', 'variant': 0},   # 왼쪽 아래 모서리
+            {'x': 500, 'y': 690, 'size': 'large', 'variant': 2},   # 오른쪽 아래 모서리
         ]
         
         # 덤불 크기 정의
@@ -225,62 +225,58 @@ class AnimatedBackgroundStage2:
         self.destroyed_rocks = []  # 파괴된 바위 추적
     
     def generate_bush_clusters(self, base_size, variant, area='boss'):
-        """스크린샷 스타일의 덤불 클러스터 생성 (완전 정적)"""
+        """고퀄리티 덤불 클러스터 생성 - 부드러운 곡선 폴리곤"""
         clusters = []
-        
-        # 플레이어 덤불은 더 덤불스럽게 (더 많은 클러스터, 더 불규칙)
+
         if area == 'player':
-            cluster_count = 8 + (variant % 4)  # 플레이어: 8-11개 클러스터
-            irregularity_factor = 1.5  # 더 불규칙한 모양
-            density_factor = 1.2  # 더 밀집된 형태
-        else:  # boss
-            cluster_count = 6 + (variant % 3)  # 보스: 6-8개 클러스터
-            irregularity_factor = 1.0  # 기본 불규칙성
-            density_factor = 1.0  # 기본 밀도
-        
+            cluster_count = 9 + (variant % 3)   # 9-11개
+            irregularity = 0.18                  # 부드러운 불규칙
+            density = 0.85                       # 밀집 (겹침 많게)
+        else:
+            cluster_count = 7 + (variant % 3)   # 7-9개
+            irregularity = 0.14
+            density = 0.75
+
         for i in range(cluster_count):
-            # 시드 기반으로 완전히 결정적인 값들 생성
             seed = hash((base_size, variant, i, area)) % 10000
-            angle_offset = (seed % 100) / 100.0 * 0.6 * irregularity_factor - 0.3 * irregularity_factor
-            distance_factor = ((seed // 100) % 100) / 100.0 * 0.6 + 0.2
-            size_factor = ((seed // 10000) % 100) / 100.0 * 0.6 + 0.4
-            darkness_factor = ((seed // 1000000) % 100) / 100.0 * 0.4 + 0.6
-            
+            angle_offset = ((seed % 100) / 100.0 - 0.5) * 0.5
+            dist_factor = ((seed // 100) % 100) / 100.0 * 0.5 + 0.15
+            size_factor = ((seed // 10000) % 100) / 100.0 * 0.35 + 0.55
+            darkness_factor = ((seed // 1000000) % 100) / 100.0 * 0.35 + 0.65
+
             angle = (i / cluster_count) * 2 * math.pi + angle_offset
-            distance = distance_factor * base_size * density_factor
-            
-            # 클러스터 포인트들을 미리 계산해서 저장
+            distance = dist_factor * base_size * density
+
+            # 폴리곤 포인트 24개 → 부드러운 원형 곡선
+            num_points = 24
             cluster_points = []
-            # 플레이어 덤불은 더 많은 포인트로 더 복잡한 모양
-            num_points = 15 if area == 'player' else 12
-            
+            base_radius = size_factor * base_size
+
             for j in range(num_points):
                 point_seed = hash((seed, j, area)) % 10000
-                variation = ((point_seed % 100) / 100.0) * 0.5 * irregularity_factor + 0.5
-                
                 point_angle = (j / num_points) * 2 * math.pi
-                # 플레이어 덤불은 더 불규칙한 반경
-                if area == 'player':
-                    radius_noise = ((point_seed // 100) % 100) / 100.0 * 0.4 - 0.2  # -0.2 ~ 0.2
-                    radius = (size_factor * base_size) * (variation + radius_noise)
-                else:
-                    radius = (size_factor * base_size) * variation
-                
-                point_x = math.cos(angle) * distance + math.cos(point_angle) * radius
-                point_y = math.sin(angle) * distance + math.sin(point_angle) * radius
-                cluster_points.append((point_x, point_y))
-            
+
+                # 부드러운 반경 변동 (이웃 포인트와 연속적)
+                noise = ((point_seed % 100) / 100.0 - 0.5) * irregularity
+                # 2차 하모닉으로 유기적 형태
+                harmonic = math.sin(point_angle * 2 + seed * 0.01) * 0.06
+                radius = base_radius * (0.85 + noise + harmonic)
+
+                px = math.cos(angle) * distance + math.cos(point_angle) * radius
+                py = math.sin(angle) * distance + math.sin(point_angle) * radius
+                cluster_points.append((px, py))
+
             cluster = {
                 'offset_x': math.cos(angle) * distance,
                 'offset_y': math.sin(angle) * distance,
                 'size': size_factor * base_size,
                 'darkness': darkness_factor,
                 'variant_mod': variant,
-                'static_points': cluster_points,  # 미리 계산된 포인트들
-                'area_type': area  # 영역 타입 저장
+                'static_points': cluster_points,
+                'area_type': area
             }
             clusters.append(cluster)
-        
+
         return clusters
     
     def generate_bush_leaves(self, base_size, variant, area='boss'):
@@ -1423,154 +1419,102 @@ class AnimatedBackgroundStage2:
         self.draw_realistic_bush(surface, scaled_bush)
 
     def draw_realistic_bush(self, surface, bush):
-        """고퀄리티 베리덤불 렌더링 (스테이지1급 다층 텍스처)"""
+        """고퀄리티 덤불 렌더링 — 부드러운 곡선 클러스터 + 잎사귀"""
         x = bush['x']
         y = bush['y']
         base_size = bush['base_size']
         variant = bush['variant']
 
-        # 흔들림 효과 적용
         rustle_x = math.sin(bush['rustle_angle']) * bush['rustle_amount']
         rustle_y = math.cos(bush['rustle_angle'] * 1.5) * bush['rustle_amount'] * 0.3
 
-        # === 베리덤불 색상 팔레트 (4단계 깊이 + 베리색) ===
+        # === 색상 팔레트 (3단계 깊이) ===
         _palettes = [
-            {  # variant 0: 깊은 정글 베리덤불
+            {  # variant 0: 깊은 정글
                 'dark': [(15, 42, 18), (18, 48, 22), (12, 38, 16)],
                 'mid': [(28, 65, 32), (32, 75, 38), (25, 60, 28)],
-                'bright': [(40, 92, 42), (48, 105, 50), (36, 85, 40)],
-                'highlight': [(58, 125, 55), (65, 138, 60), (52, 115, 50)],
+                'bright': [(42, 98, 45), (50, 112, 52), (38, 90, 42)],
                 'accent': (62, 128, 52),
-                'berry': [(165, 32, 38), (140, 25, 55), (180, 45, 30)],
             },
-            {  # variant 1: 열대 베리덤불
+            {  # variant 1: 열대
                 'dark': [(18, 45, 15), (22, 52, 20), (16, 40, 14)],
                 'mid': [(32, 72, 28), (38, 82, 35), (28, 65, 25)],
-                'bright': [(45, 100, 40), (52, 112, 48), (42, 95, 38)],
-                'highlight': [(62, 132, 52), (70, 145, 58), (55, 120, 48)],
+                'bright': [(48, 105, 42), (55, 118, 50), (42, 95, 38)],
                 'accent': (68, 135, 45),
-                'berry': [(155, 28, 65), (120, 20, 85), (170, 40, 45)],
             },
-            {  # variant 2: 이끼낀 베리덤불
+            {  # variant 2: 이끼
                 'dark': [(16, 40, 20), (20, 46, 25), (14, 36, 18)],
                 'mid': [(30, 62, 35), (35, 72, 42), (26, 58, 30)],
-                'bright': [(42, 88, 48), (50, 100, 52), (38, 82, 44)],
-                'highlight': [(55, 118, 58), (62, 130, 62), (50, 108, 52)],
+                'bright': [(45, 92, 48), (52, 105, 55), (40, 85, 44)],
                 'accent': (58, 122, 58),
-                'berry': [(148, 35, 42), (125, 22, 68), (160, 48, 35)],
             }
         ]
         pal = _palettes[variant % 3]
 
-        # === 0단계: 다층 소프트 그림자 (2차 감쇠) ===
-        shadow_w = base_size * 2.5
-        shadow_h = base_size * 1.1
-        sw = int(shadow_w) + 6
-        sh = int(shadow_h) + 6
+        # === 그림자 ===
+        shadow_w = base_size * 2.2
+        shadow_h = base_size * 0.8
+        sw = int(shadow_w) + 4
+        sh = int(shadow_h) + 4
         shadow_surf = _get_cached_surface(sw, sh)
         half_h = max(1, int(shadow_h // 2))
         for i in range(half_h):
             p = i / half_h
-            alpha = int(60 * (1 - p) * (1 - p) * (1 - p * 0.3))
-            pygame.draw.ellipse(shadow_surf, (3, 10, 3, alpha),
-                               (3, i + 3, shadow_w, shadow_h - i * 2))
+            alpha = int(50 * (1 - p) * (1 - p))
+            pygame.draw.ellipse(shadow_surf, (5, 12, 5, alpha),
+                               (2, i + 2, shadow_w, shadow_h - i * 2))
         surface.blit(shadow_surf, (x - shadow_w // 2 + 6 + rustle_x,
                                   y + base_size // 2 + 2 + rustle_y))
 
-        # === 1단계: 다층 앰비언트 오클루전 (하단 어두움) ===
-        ao_r = int(base_size * 1.35)
-        for ao_i in range(3):
-            ao_c = tuple(max(0, int(c * (0.35 + ao_i * 0.08))) for c in pal['dark'][0])
-            ao_off = ao_i * 2
-            pygame.draw.ellipse(surface, ao_c,
-                               (int(x - (ao_r + ao_off) // 2 + rustle_x),
-                                int(y - (ao_r + ao_off) // 4 + ao_i + rustle_y),
-                                ao_r + ao_off, int((ao_r + ao_off) * 0.62)))
+        # === 앰비언트 오클루전 (덤불 바닥 어두움) ===
+        ao_r = int(base_size * 1.2)
+        ao_c = tuple(max(0, int(c * 0.4)) for c in pal['dark'][0])
+        pygame.draw.ellipse(surface, ao_c,
+                           (int(x - ao_r // 2 + rustle_x),
+                            int(y - ao_r // 4 + rustle_y),
+                            ao_r, int(ao_r * 0.6)))
 
-        # === 2단계: 깊은 베이스 클러스터 ===
+        # === 1단계: 베이스 클러스터 (가장 어두운 실루엣) ===
         for idx, cluster in enumerate(bush['clusters']):
             cx = x + cluster['offset_x'] + rustle_x
             cy = y + cluster['offset_y'] + rustle_y
-            darkness = cluster['darkness']
-            base_c = pal['dark'][idx % 3]
-            dark_color = tuple(max(0, int(c * darkness * 0.55)) for c in base_c)
-            points = [(cx + sp[0] + rustle_x, cy + sp[1] + rustle_y)
-                      for sp in cluster['static_points']]
-            if len(points) >= 3:
-                pygame.draw.polygon(surface, dark_color, points)
+            d = cluster['darkness']
+            c0 = pal['dark'][idx % 3]
+            color = tuple(max(0, int(v * d * 0.55)) for v in c0)
+            pts = [(cx + sp[0] + rustle_x, cy + sp[1] + rustle_y)
+                   for sp in cluster['static_points']]
+            if len(pts) >= 3:
+                pygame.draw.polygon(surface, color, pts)
 
-        # === 3단계: 중간 볼륨 레이어 ===
+        # === 2단계: 중간 볼륨 (0.80 스케일) ===
         for idx, cluster in enumerate(bush['clusters']):
             cx = x + cluster['offset_x'] + rustle_x
             cy = y + cluster['offset_y'] + rustle_y
-            darkness = cluster['darkness']
-            mid_c = pal['mid'][idx % 3]
-            color = tuple(max(0, int(c * darkness * 0.78)) for c in mid_c)
-            points = [(cx + sp[0] * 0.82 + rustle_x, cy + sp[1] * 0.82 + rustle_y)
-                      for sp in cluster['static_points']]
-            if len(points) >= 3:
-                pygame.draw.polygon(surface, color, points)
+            d = cluster['darkness']
+            c1 = pal['mid'][idx % 3]
+            color = tuple(max(0, int(v * d * 0.8)) for v in c1)
+            pts = [(cx + sp[0] * 0.80 + rustle_x, cy + sp[1] * 0.80 + rustle_y)
+                   for sp in cluster['static_points']]
+            if len(pts) >= 3:
+                pygame.draw.polygon(surface, color, pts)
 
-        # === 4단계: 상위 하이라이트 볼륨 (빛 방향 반영) ===
+        # === 3단계: 하이라이트 볼륨 (0.55 스케일, 위쪽 밝게) ===
         for idx, cluster in enumerate(bush['clusters']):
             cx = x + cluster['offset_x'] + rustle_x
             cy = y + cluster['offset_y'] + rustle_y
-            darkness = cluster['darkness']
-            bright_c = pal['bright'][idx % 3]
+            d = cluster['darkness']
+            c2 = pal['bright'][idx % 3]
             hf = 1.0 + max(0, (y - cy)) * 0.005
-            color = tuple(max(0, min(255, int(c * darkness * hf))) for c in bright_c)
-            points = [(cx + sp[0] * 0.58 + rustle_x, cy + sp[1] * 0.58 - 2 + rustle_y)
-                      for sp in cluster['static_points']]
-            if len(points) >= 3:
-                pygame.draw.polygon(surface, color, points)
+            color = tuple(max(0, min(255, int(v * d * hf))) for v in c2)
+            pts = [(cx + sp[0] * 0.55 + rustle_x, cy + sp[1] * 0.55 - 1.5 + rustle_y)
+                   for sp in cluster['static_points']]
+            if len(pts) >= 3:
+                pygame.draw.polygon(surface, color, pts)
 
-        # === 5단계: 최상위 광택 볼륨 (4번째 깊이 레이어) ===
-        for idx, cluster in enumerate(bush['clusters']):
-            cx = x + cluster['offset_x'] + rustle_x
-            cy = y + cluster['offset_y'] + rustle_y
-            darkness = cluster['darkness']
-            hl_c = pal['highlight'][idx % 3]
-            hf = 1.0 + max(0, (y - cy)) * 0.008
-            color = tuple(max(0, min(255, int(c * darkness * 0.7 * hf))) for c in hl_c)
-            points = [(cx + sp[0] * 0.38 + rustle_x, cy + sp[1] * 0.38 - 3 + rustle_y)
-                      for sp in cluster['static_points']]
-            if len(points) >= 3:
-                pygame.draw.polygon(surface, color, points)
-
-        # === 6단계: 가지/줄기 + 가시 ===
-        stem_dk = tuple(max(0, int(c * 0.35)) for c in pal['dark'][0])
-        stem_md = tuple(max(0, int(c * 0.55)) for c in pal['dark'][1])
-        for i in range(4 + variant):
-            b_seed = hash((base_size, variant, i, 'stem')) % 10000
-            angle = (b_seed % 360) * math.pi / 180
-            length = base_size * 0.4 * ((b_seed // 360 % 60) / 100.0 + 0.4)
-            sx0 = x + rustle_x
-            sy0 = y + rustle_y
-            sx1 = sx0 + math.cos(angle) * length
-            sy1 = sy0 + math.sin(angle) * length
-            # 메인 줄기 (2px) + 하이라이트 (1px)
-            pygame.draw.line(surface, stem_dk,
-                            (int(sx0), int(sy0)), (int(sx1), int(sy1)), 2)
-            pygame.draw.line(surface, stem_md,
-                            (int(sx0), int(sy0 - 1)), (int(sx1), int(sy1 - 1)), 1)
-            # 가시/돌기
-            for t in range(2):
-                t_seed = hash((b_seed, t, 'thorn')) % 10000
-                t_pos = 0.3 + (t_seed % 50) / 100.0 * 0.5
-                tx = sx0 + (sx1 - sx0) * t_pos
-                ty = sy0 + (sy1 - sy0) * t_pos
-                t_dir = 1 if t % 2 == 0 else -1
-                t_ang = angle + t_dir * (0.8 + (t_seed // 50 % 30) / 100.0)
-                t_len = 3 + (t_seed // 1000) % 4
-                tx1 = tx + math.cos(t_ang) * t_len
-                ty1 = ty + math.sin(t_ang) * t_len
-                pygame.draw.line(surface, stem_dk,
-                                (int(tx), int(ty)), (int(tx1), int(ty1)), 1)
-
-        # === 7단계: 고해상도 잎사귀 (그림자+본체+잎맥+하이라이트) ===
+        # === 잎사귀 디테일 ===
         leaf_pal = [
             (42, 102, 38), (52, 122, 48), (62, 142, 55), (38, 90, 35),
-            (55, 130, 45), (45, 110, 50), (48, 118, 42), (58, 135, 52)
+            (55, 130, 45), (45, 110, 50)
         ]
 
         for leaf in bush['leaves']:
@@ -1579,7 +1523,7 @@ class AnimatedBackgroundStage2:
             ls = leaf['size']
             lc = leaf_pal[leaf['color_variant'] % len(leaf_pal)]
 
-            hb = max(0.7, min(1.35, 1.0 + (y - ly) * 0.007))
+            hb = max(0.7, min(1.3, 1.0 + (y - ly) * 0.006))
             ac = tuple(max(0, min(255, int(c * hb))) for c in lc)
             dk = tuple(max(0, int(c * 0.5)) for c in ac)
             hl = tuple(min(255, c + 25) for c in ac)
@@ -1597,11 +1541,6 @@ class AnimatedBackgroundStage2:
                     pygame.draw.line(surface, vc,
                                    (int(lx - ls // 3), int(ly)),
                                    (int(lx + ls // 3), int(ly)), 1)
-                    # 측면맥
-                    for sv in (-1, 1):
-                        svx = lx + sv * ls // 5
-                        pygame.draw.line(surface, vc, (int(svx), int(ly)),
-                                       (int(svx + sv * ls // 6), int(ly - ls // 6)), 1)
                 pygame.draw.circle(surface, hl,
                                  (int(lx - ls // 6), int(ly - ls // 8)), max(1, ls // 6))
 
@@ -1625,12 +1564,6 @@ class AnimatedBackgroundStage2:
                     pygame.draw.line(surface, vc,
                                    (int(lx), int(ly - ls // 2)),
                                    (int(lx), int(ly + ls // 2)), 1)
-                    for sv in (-1, 1):
-                        for vy_off in (-ls // 4, ls // 4):
-                            pygame.draw.line(surface, vc,
-                                           (int(lx), int(ly + vy_off)),
-                                           (int(lx + sv * ls // 5),
-                                            int(ly + vy_off - sv * ls // 6)), 1)
                 pygame.draw.circle(surface, hl,
                                  (int(lx), int(ly - ls // 4)), max(1, ls // 5))
 
@@ -1650,119 +1583,28 @@ class AnimatedBackgroundStage2:
                 pygame.draw.circle(surface, hl,
                                  (int(lx), int(ly)), max(1, ls // 4))
 
-        # === 8단계: 베리(열매) 클러스터 ===
-        berry_colors = pal['berry']
-        berry_count = int(4 + base_size // 15)
-        for i in range(berry_count):
-            br_seed = hash((base_size, variant, i, 'berry')) % 100000
-            br_ang = (br_seed % 360) * math.pi / 180
-            br_dist = base_size * 0.45 * ((br_seed // 360 % 70) / 100.0 + 0.25)
-
-            bx = x + math.cos(br_ang) * br_dist + rustle_x * 0.6
-            by = y + math.sin(br_ang) * br_dist + rustle_y * 0.6
-            br_sz = max(2, int(2 + (br_seed // 36000) % 3))
-            br_c = berry_colors[(br_seed // 1000) % len(berry_colors)]
-
-            # 베리 그림자
-            br_dk = tuple(max(0, int(c * 0.35)) for c in br_c)
-            pygame.draw.circle(surface, br_dk, (int(bx + 1), int(by + 1)), br_sz + 1)
-            # 베리 본체
-            pygame.draw.circle(surface, br_c, (int(bx), int(by)), br_sz)
-            # 베리 중간톤 (상단 반구)
-            br_mid = tuple(min(255, int(c * 1.15)) for c in br_c)
-            pygame.draw.circle(surface, br_mid,
-                             (int(bx), int(by - 1)), max(1, br_sz - 1))
-            # 베리 광택 하이라이트
-            br_hl = tuple(min(255, c + 80) for c in br_c)
-            pygame.draw.circle(surface, br_hl,
-                             (int(bx - 1), int(by - 1)), max(1, br_sz // 2))
-            # 꼭지 (줄기 연결점)
-            stm_c = tuple(max(0, int(c * 0.4)) for c in pal['mid'][0])
-            pygame.draw.line(surface, stm_c,
-                            (int(bx), int(by - br_sz)),
-                            (int(bx + 1), int(by - br_sz - 2)), 1)
-
-        # === 9단계: 가장자리 프린지 (울퉁불퉁 실루엣) ===
-        fringe_count = 8 + variant * 2
-        for i in range(fringe_count):
-            f_seed = hash((base_size, variant, i, 'fringe2')) % 10000
-            fa = (f_seed % 360) * math.pi / 180
-            fd = base_size * 0.78 + (f_seed % 25) * 0.35
-
-            fx = x + math.cos(fa) * fd + rustle_x * 0.5
-            fy = y + math.sin(fa) * fd + rustle_y * 0.5
-            fs = 2 + (f_seed // 360) % 3
-
-            fc = leaf_pal[(f_seed // 100) % len(leaf_pal)]
-            fdk = tuple(max(0, int(c * 0.45)) for c in fc)
-            pygame.draw.circle(surface, fdk, (int(fx + 1), int(fy + 1)), fs)
-            pygame.draw.circle(surface, fc, (int(fx), int(fy)), fs)
-            fhl = tuple(min(255, c + 20) for c in fc)
-            pygame.draw.circle(surface, fhl,
-                             (int(fx - 1), int(fy - 1)), max(1, fs - 1))
-
-        # === 10단계: 다층 그레인 파티클 (스테이지1식 텍스처) ===
-        # 거친 파티클 (1~2px)
-        coarse_count = int(8 + base_size // 8)
-        for i in range(coarse_count):
-            g_seed = hash((base_size, variant, i, 'coarse')) % 10000
-            ga = (g_seed % 360) * math.pi / 180
-            gd = base_size * 0.5 * ((g_seed // 360 % 80) / 100.0 + 0.1)
-            gx = x + math.cos(ga) * gd + rustle_x * 0.4
-            gy = y + math.sin(ga) * gd + rustle_y * 0.4
-
-            if (g_seed // 1000) % 10 < 6:
-                gc = tuple(max(0, int(c * 0.35)) for c in pal['mid'][g_seed % 3])
-            else:
-                gc = tuple(min(255, int(c * 1.2)) for c in pal['bright'][g_seed % 3])
-            pygame.draw.circle(surface, gc,
-                             (int(gx), int(gy)), max(1, 1 + (g_seed // 5000) % 2))
-
-        # 미세 파티클 (1px 도트)
-        fine_count = int(12 + base_size // 5)
-        for i in range(fine_count):
-            f_seed = hash((base_size, variant, i, 'fine')) % 10000
-            fa2 = (f_seed % 360) * math.pi / 180
-            fd2 = base_size * 0.6 * ((f_seed // 360 % 90) / 100.0 + 0.05)
-            fx2 = int(x + math.cos(fa2) * fd2 + rustle_x * 0.3)
-            fy2 = int(y + math.sin(fa2) * fd2 + rustle_y * 0.3)
-
-            fc2 = tuple(max(0, int(c * (0.3 + (f_seed // 1000 % 40) / 100.0)))
-                       for c in pal['mid'][f_seed % 3])
-            try:
-                surface.set_at((fx2, fy2), fc2)
-            except IndexError:
-                pass
-
-        # === 11단계: 햇빛 반점 (3층 글로우) ===
-        spot_count = 3 + variant
+        # === 햇빛 반점 ===
+        spot_count = 2 + variant
         for i in range(spot_count):
-            s_seed = hash((base_size, variant, i, 'sun2')) % 10000
+            s_seed = hash((base_size, variant, i, 'sun')) % 10000
             sa = (s_seed % 180) * math.pi / 180 - math.pi / 2
-            sd = base_size * 0.28 * ((s_seed // 180) % 50 + 25) / 70.0
+            sd = base_size * 0.25 * ((s_seed // 180) % 50 + 25) / 70.0
 
             spx = x + math.cos(sa) * sd + rustle_x
             spy = y + math.sin(sa) * sd + rustle_y
-            ss = max(1, int(base_size) // (7 + i * 2))
+            ss = max(1, int(base_size) // (8 + i * 2))
 
-            # 외부 글로우
+            bright_c = (min(255, pal['accent'][0] + 45),
+                       min(255, pal['accent'][1] + 35),
+                       min(255, pal['accent'][2] + 20))
             if ss >= 2:
-                glow_c = (min(255, pal['accent'][0] + 12),
-                         min(255, pal['accent'][1] + 8),
-                         min(255, pal['accent'][2] + 4))
+                glow_c = (min(255, pal['accent'][0] + 15),
+                         min(255, pal['accent'][1] + 10),
+                         min(255, pal['accent'][2] + 5))
                 pygame.draw.circle(surface, glow_c,
-                                 (int(spx), int(spy)), ss + 2)
-            # 중간 글로우
-            mid_g = (min(255, pal['accent'][0] + 30),
-                    min(255, pal['accent'][1] + 22),
-                    min(255, pal['accent'][2] + 12))
-            pygame.draw.circle(surface, mid_g, (int(spx), int(spy)), max(1, ss))
-            # 밝은 핵
-            bright_c = (min(255, pal['accent'][0] + 55),
-                       min(255, pal['accent'][1] + 42),
-                       min(255, pal['accent'][2] + 25))
+                                 (int(spx), int(spy)), ss + 1)
             pygame.draw.circle(surface, bright_c,
-                             (int(spx), int(spy)), max(1, ss - 1))
+                             (int(spx), int(spy)), ss)
 
     def _prerender_bush_to_surface(self, bush, scale_x, scale_y):
         """덤불을 개별 Surface에 프리렌더 (캐시용)"""
