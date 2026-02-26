@@ -27397,8 +27397,8 @@ WEB_TRAP_RADIUS = 50            # 반지름 50px
 WEB_TRAP_BALL_SLOW = 0.70       # 공 감속 ×0.70 (미사용)
 WEB_TRAP_BALL_WARP = 0.15       # 공 방향 왜곡 ±0.15 라디안 (미사용)
 WEB_TRAP_PLAYER_SLOW = 0.40     # 플레이어 감속 ×0.40 (60% 감소)
-WEB_TRAP_Y_MIN = 630            # Y 범위 하한 (플레이어 진영)
-WEB_TRAP_Y_MAX = 700            # Y 범위 상한 (플레이어 진영 하단)
+WEB_TRAP_Y_MIN = 695            # Y 범위 하한 (패들 바로 위)
+WEB_TRAP_Y_MAX = 720            # Y 범위 상한 (패들 높이 근처)
 WEB_TRAP_TRAVEL_FRAMES = 35     # 발사→도착 시간 (~0.58초)
 web_trap_projectile = None      # {"sx","sy","tx","ty","timer","duration"} 또는 None
 
@@ -57750,9 +57750,9 @@ def activate_web_trap():
     sx = float(BOSS.centerx if BOSS else WIDTH // 2)
     sy = float((BOSS.y + BOSS.height + 5) if BOSS else 70)
 
-    # 도착점: 플레이어 진영 랜덤 위치
-    tx = float(_rng.randint(GAME_AREA_OFFSET_X + WEB_TRAP_RADIUS + 10,
-                             GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - WEB_TRAP_RADIUS - 10))
+    # 도착점: 게임 영역 X축 전체 중 랜덤 위치
+    tx = float(_rng.randint(GAME_AREA_OFFSET_X + 20,
+                             GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 20))
     ty = float(_rng.randint(WEB_TRAP_Y_MIN, WEB_TRAP_Y_MAX))
 
     web_trap_projectile = {
