@@ -27409,7 +27409,7 @@ WEB_RESCUE_COOLDOWN = 30000       # 30초 쿨다운
 WEB_RESCUE_GAUGE_COST = 50        # 게이지 50 소모
 WEB_RESCUE_TRIGGER_Y = 25         # 공 Y위치 이 이하일 때 트리거
 WEB_RESCUE_SHOOT_FRAMES = 15     # 실 발사 연출
-WEB_RESCUE_PULL_FRAMES = 15      # 보스→공 이동
+WEB_RESCUE_PULL_FRAMES = 50      # 보스→공 이동 (천천히)
 WEB_RESCUE_HOLD_FRAMES = 60      # 1초 홀드
 web_rescue_active = False
 web_rescue_phase = ""             # "shoot", "hold_wait", "pull", "hold", "release"
@@ -58072,9 +58072,9 @@ def update_web_rescue():
             web_rescue_timer = 0
 
     elif web_rescue_phase == "pull":
-        # 보스가 공 위치로 이동 (easeOutQuad)
+        # 보스가 공 위치로 천천히 이동 (easeInQuad — 느리게 출발, 점점 가속)
         t = min(1.0, web_rescue_timer / float(WEB_RESCUE_PULL_FRAMES))
-        eased = 1.0 - (1.0 - t) * (1.0 - t)  # easeOutQuad
+        eased = t * t  # easeInQuad
         if BOSS:
             BOSS.centerx = int(web_rescue_boss_start_x + (web_rescue_ball_x - web_rescue_boss_start_x) * eased)
         # 공은 고정
