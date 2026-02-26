@@ -57789,10 +57789,9 @@ def update_web_traps():
 
         # 대쉬로 거미줄 파괴: 플레이어가 대쉬 중이고 거미줄 범위 안에 있으면 파괴
         if rolling_active and PLAYER:
-            px, py = PLAYER.centerx, PLAYER.centery
-            dx = px - trap["x"]
-            dy = py - trap["y"]
-            if math.sqrt(dx * dx + dy * dy) < trap["radius"] + 20:
+            r = trap["radius"]
+            trap_rect = pygame.Rect(trap["x"] - r, trap["y"] - r, r * 2, r * 2)
+            if PLAYER.colliderect(trap_rect):
                 expired.append(i)
                 # 파괴 사운드
                 try:
@@ -57810,14 +57809,14 @@ def update_web_traps():
 
 
 def get_web_trap_player_slow():
-    """플레이어가 거미줄 위에 있으면 감속 배율 반환 (1.0 = 영향 없음)."""
+    """플레이어가 거미줄 위에 있으면 감속 배율 반환 (1.0 = 영향 없음).
+    패들은 가로로 긴 직사각형이므로 rect 충돌 사용."""
     if not web_traps or not PLAYER:
         return 1.0
-    px, py = PLAYER.centerx, PLAYER.centery
     for trap in web_traps:
-        dx = px - trap["x"]
-        dy = py - trap["y"]
-        if math.sqrt(dx * dx + dy * dy) < trap["radius"] + 20:
+        r = trap["radius"]
+        trap_rect = pygame.Rect(trap["x"] - r, trap["y"] - r, r * 2, r * 2)
+        if PLAYER.colliderect(trap_rect):
             return WEB_TRAP_PLAYER_SLOW
     return 1.0
 
