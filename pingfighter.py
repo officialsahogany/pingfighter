@@ -20928,7 +20928,7 @@ _ARENA_CAPTURE_TUTORIAL_STEPS = [
         "highlight": None,
         "expression": "thinking",
         "messages": [
-            "{KEY:A}{KEY:D}키로 이동하며 마우스 왼쪽 클릭으로",
+            "{KEY:A}{KEY:D}키로 이동하며 마우스 왼쪽 클릭 또는 {KEY:SPACE}키로",
             "그물덫을 발사해 상대를 포획하세요.",
         ],
     },
@@ -143346,6 +143346,15 @@ def main(stage_num, new_boss_mode=False):
                     if _captured_guard_btn_rect and _captured_guard_btn_rect.collidepoint(_mx, _my):
                         _activate_captured_guard_summon()
             main._arena_mouse_pressed = _mb[0]
+            # Space키: 포획 페이즈 중 그물 발사 / 끌어당기기
+            if keys[pygame.K_SPACE] and not getattr(main, '_arena_space_pressed', False):
+                if arena_capture_phase == "active":
+                    if (arena_capture_deployed_net is not None
+                            and arena_capture_deployed_net.get("trapped", False)):
+                        arena_capture_deployed_net["timer"] = 0
+                    else:
+                        _fire_capture_net()
+            main._arena_space_pressed = keys[pygame.K_SPACE]
             # Q키: 생포 호위무사 소환
             if keys[pygame.K_q] and not getattr(main, '_arena_q_pressed', False):
                 _activate_captured_guard_summon()
