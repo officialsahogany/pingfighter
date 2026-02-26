@@ -16659,6 +16659,7 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
         # Stage 2 아라크네 거미줄 장판 렌더링
         draw_web_traps(SCREEN)
         draw_web_rescue(SCREEN)
+        draw_spider_rage_projectiles(SCREEN)
     elif current_stage == 3 and animated_bg_stage3 is not None:
         animated_bg_stage3.update(elapsed_ms, r_wins + r_losses)
         animated_bg_stage3.draw(SCREEN, ball_pos=(ball_cx, ball_cy))
@@ -53109,6 +53110,7 @@ def go_to_next_round():
     global serve_power_smash_lockout
     global doping_potion_active, doping_potion_timer, doping_potion_use_count, doping_potion_toast_timer
     global hongryun_hit_count, hongryun_ready, HONGRYUN_MAX_HITS
+    global spider_rage_pending, spider_rage_active, spider_rage_timer, spider_rage_triggered
 
     preserved_doping_state = None
     # 라운드 시작 카운트 기록
@@ -124848,6 +124850,7 @@ def draw_field():
         # Stage 2 아라크네 거미줄 장판 렌더링
         draw_web_traps(SCREEN)
         draw_web_rescue(SCREEN)
+        draw_spider_rage_projectiles(SCREEN)
         # 원숭이가 던진 바나나를 인게임 화면에 그리기
         if pillar_renderer is not None:
             pillar_renderer.draw_bananas_ingame(SCREEN)
@@ -130633,6 +130636,7 @@ def handle_ball():
     global game_state  # GameState 인스턴스 추가
     global last_hit_by  # 마지막으로 공을 친 사람 추적
     global nemesis_sub_boss_skill_triggered  # 보조 보스 전기 스킬 발동 예약
+    global spider_rage_pending  # 아라크네 분노 이벤트 예약
     # 플레이어 & 보스 게이지/스킬 시스템
     global special_gauge, special_ready, special_active
     global boss_special_gauge, boss_special_ready, boss_red_intensity
@@ -142099,6 +142103,7 @@ def main(stage_num, new_boss_mode=False):
     global current_speed
     # 클렌즈 관련 추가 전역 변수
     global spider_mine_slow_active, smasher_power_recoil_timer
+    global spider_rage_pending, spider_rage_active, spider_rage_timer, spider_rage_triggered
     global player_burn_timer, player_burn_effect, player_knockback_y
     
     # 플레이어 위치 가운데로 고정
@@ -142232,7 +142237,15 @@ def main(stage_num, new_boss_mode=False):
         animated_bg_stage2.boss_red_tint = 0
         animated_bg_stage2.boss_shake_offset_y = 0
         # print("Stage 2:")
-    
+
+    # Stage 2 아라크네 분노 이벤트 리셋
+    if current_stage == 2 and current_boss_name == "아라크네":
+        spider_rage_pending = False
+        spider_rage_active = False
+        spider_rage_timer = 0
+        spider_rage_triggered = False
+        spider_rage_projectiles.clear()
+
     # Stage 4 배경 초기화 (사원 복구, 달 정상화)
     if animated_bg_stage4:
         animated_bg_stage4.reset()
@@ -147041,6 +147054,7 @@ def main(stage_num, new_boss_mode=False):
                 if current_stage == 2 and current_boss_name == "아라크네":
                     update_web_traps()
                     update_web_rescue()
+                    update_spider_rage()
                     # 거미줄 구출 트리거 — 공이 상단 벽 근처에서 올라갈 때
                     if (not web_rescue_active and BALL and BALL.top < WEB_RESCUE_TRIGGER_Y
                             and ball_vel[1] < 0 and boss_special_gauge >= WEB_RESCUE_GAUGE_COST):
