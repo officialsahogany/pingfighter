@@ -57132,14 +57132,15 @@ def _tunnel_raid_spawn_spike():
 
     # Y: 보스 위치 → 플레이어 위치 선형 보간
     spike_y = tunnel_raid_original_boss_y + (PLAYER.centery - tunnel_raid_original_boss_y) * progress
-    # X: 좌우 번갈아 퍼지는 패턴
-    spread = ((tunnel_raid_spike_count % 2) * 2 - 1) * (tunnel_raid_spike_count // 2 + 1) * 18
-    spike_x = tunnel_raid_target_x + spread + random.randint(-8, 8)
+    # X: 1줄 직선 (약간의 흔들림만)
+    spike_x = tunnel_raid_target_x + random.randint(-6, 6)
 
+    # 끝에 가까울수록 가시가 커짐
+    base_height = int(30 + 35 * progress)
     spike = {
         "x": spike_x,
         "y": spike_y,
-        "max_height": random.randint(35, 55),
+        "max_height": base_height + random.randint(-5, 5),
         "height": 0.0,
         "width": random.randint(5, 8),
         "phase": "rising",       # rising / hold / falling
@@ -57214,7 +57215,7 @@ def update_tunnel_raid():
         if tunnel_raid_spike_count >= TUNNEL_RAID_MAX_SPIKES and tunnel_raid_timer <= 0:
             tunnel_raid_phase = "strike"
             tunnel_raid_timer = TUNNEL_RAID_STRIKE_FRAMES
-            tunnel_raid_visual_y = float(PLAYER.centery - 30)
+            tunnel_raid_visual_y = float(PLAYER.centery - 80)
 
             # emerge 애니메이션
             try:
@@ -57223,13 +57224,73 @@ def update_tunnel_raid():
             except Exception:
                 pass
 
+            # 플레이어 발밑에 거대한 돌출 가시 생성 (메인 어퍼컷)
+            strike_spike = {
+                "x": tunnel_raid_target_x + random.randint(-4, 4),
+                "y": PLAYER.centery + 10,
+                "max_height": 120,
+                "height": 0.0,
+                "width": 14,
+                "phase": "rising",
+                "phase_timer": 0,
+                "rise_time": 6,
+                "hold_time": 50,
+                "fall_time": 20,
+                "timer": 0,
+                "wobble": 0.0,
+                "offset": 0.0,
+            }
+            tunnel_raid_spikes.append(strike_spike)
+            # 양옆 보조 가시 2개
+            for dx in [-28, 28]:
+                side_spike = {
+                    "x": tunnel_raid_target_x + dx + random.randint(-4, 4),
+                    "y": PLAYER.centery + 10,
+                    "max_height": random.randint(60, 80),
+                    "height": 0.0,
+                    "width": random.randint(8, 11),
+                    "phase": "rising",
+                    "phase_timer": 0,
+                    "rise_time": 7,
+                    "hold_time": 40,
+                    "fall_time": 18,
+                    "timer": 0,
+                    "wobble": 0.0,
+                    "offset": random.uniform(0, 6.28),
+                }
+                tunnel_raid_spikes.append(side_spike)
+
+            # 흙 폭발 파티클 (팍 터지는 느낌)
+            px, py = tunnel_raid_target_x, PLAYER.centery
+            for _ in range(30):
+                angle = random.uniform(0, math.pi * 2)
+                speed = random.uniform(2.0, 7.0)
+                tunnel_raid_trail.append({
+                    "x": px + random.uniform(-10, 10),
+                    "y": py + random.uniform(-5, 10),
+                    "alpha": random.randint(200, 255),
+                    "size": random.uniform(3, 8),
+                    "vy": -abs(speed * math.sin(angle)) - 1.5,
+                    "vx": speed * math.cos(angle),
+                })
+
             # 넉백 + 스턴
             knockback_dir = random.choice([-1, 1])
-            player_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir * 12))
-            try_apply_player_stun(1.5, source="땅굴 습격", knockback_scaled=True)
+            player_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir * 14))
+            try_apply_player_stun(1.8, source="땅굴 습격", knockback_scaled=True)
 
-            screen_shake_timer = max(screen_shake_timer, 20)
-            screen_shake_intensity = max(screen_shake_intensity, 12)
+            screen_shake_timer = max(screen_shake_timer, 30)
+            screen_shake_intensity = max(screen_shake_intensity, 18)
+
+            # 돌출 사운드
+            try:
+                sound_path = resource_path(os.path.join("sounds", "godearthquake.wav"))
+                if os.path.exists(sound_path):
+                    snd = pygame.mixer.Sound(sound_path)
+                    snd.set_volume(0.6)
+                    snd.play()
+            except Exception:
+                pass
 
     elif tunnel_raid_phase == "strike":
         if tunnel_raid_timer <= 0:
@@ -57284,6 +57345,13 @@ def update_tunnel_raid():
     for p in tunnel_raid_trail:
         p["alpha"] -= 5
         p["y"] += p.get("vy", 0)
+        p["x"] = p.get("x", 0) + p.get("vx", 0)
+        # 중력
+        if "vy" in p:
+            p["vy"] += 0.15
+        # vx 감쇠
+        if "vx" in p:
+            p["vx"] *= 0.96
         if p["alpha"] > 0:
             alive.append(p)
     tunnel_raid_trail = alive
@@ -57375,11 +57443,26 @@ def draw_tunnel_raid_effects(screen):
     # --- 4. 타격 임팩트 ---
     if tunnel_raid_phase == "strike":
         prog = 1.0 - (tunnel_raid_timer / TUNNEL_RAID_STRIKE_FRAMES)
-        if prog < 0.5:
-            rr = int(10 + prog * 60)
-            ra = int(200 * (1.0 - prog * 2))
-            pygame.draw.circle(fx, (180, 140, 80, ra),
-                             (int(tunnel_raid_target_x), int(PLAYER.centery - 10)), rr, 3)
+        px_i, py_i = int(tunnel_raid_target_x), int(PLAYER.centery)
+
+        if prog < 0.6:
+            # 충격파 원
+            rr = int(15 + prog * 100)
+            ra = int(220 * (1.0 - prog / 0.6))
+            pygame.draw.circle(fx, (200, 160, 80, ra), (px_i, py_i - 20), rr, 4)
+            # 내부 밝은 원
+            rr2 = int(8 + prog * 50)
+            ra2 = int(160 * (1.0 - prog / 0.6))
+            pygame.draw.circle(fx, (255, 220, 140, ra2), (px_i, py_i - 20), rr2, 2)
+
+        # 위로 솟는 흙 파편 줄무늬
+        if prog < 0.4:
+            line_a = int(200 * (1.0 - prog / 0.4))
+            for i in range(5):
+                lx = px_i + random.randint(-20, 20)
+                ly_top = py_i - int(30 + prog * 120) + random.randint(-15, 15)
+                ly_bot = py_i + 5
+                pygame.draw.line(fx, (160, 120, 60, line_a), (lx, ly_bot), (lx, ly_top), 2)
 
     screen.blit(fx, (0, 0))
 
