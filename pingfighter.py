@@ -57211,8 +57211,8 @@ def update_tunnel_raid():
         if tunnel_raid_spikes:
             tunnel_raid_visual_y = tunnel_raid_spikes[-1]["y"]
 
-        # 모든 가시 스폰 완료 → strike
-        if tunnel_raid_spike_count >= TUNNEL_RAID_MAX_SPIKES and tunnel_raid_timer <= 0:
+        # 모든 가시 스폰 완료 → 즉시 strike (딜레이 없음)
+        if tunnel_raid_spike_count >= TUNNEL_RAID_MAX_SPIKES:
             tunnel_raid_phase = "strike"
             tunnel_raid_timer = TUNNEL_RAID_STRIKE_FRAMES
             tunnel_raid_visual_y = float(PLAYER.centery - 80)
