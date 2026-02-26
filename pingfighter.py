@@ -96979,6 +96979,10 @@ def draw_objects():
             # 세로 160px 스프라이트 → 중심을 아래로 25px 내림 (정수 좌표로 떨림 방지)
             boss_rect = rotated_boss.get_rect(center=(int(BOSS.centerx + screen_shake_offset_x),
                                                       int(BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 25)))
+        elif current_stage == 2 and current_boss_name == "아라크네":
+            # 아라크네 스프라이트 약간 아래로 내림 (패들 위치 보정)
+            boss_rect = rotated_boss.get_rect(center=(int(BOSS.centerx + screen_shake_offset_x),
+                                                      int(BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 15)))
         else:
             boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x + tunnel_raid_offset_x,
                                                       BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y))
