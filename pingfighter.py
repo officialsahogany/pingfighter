@@ -57100,9 +57100,6 @@ def activate_tunnel_raid():
         return False
     if boss_special_gauge < 500:
         return False
-    if serve_grace_period > 0:
-        return False
-
     boss_special_gauge = 0
     tunnel_raid_active = True
     tunnel_raid_phase = "warn"
