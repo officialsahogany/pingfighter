@@ -16636,7 +16636,10 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
         SCREEN.blit(CURRENT_BG, (shake_x, shake_y))
     elif current_stage == 2 and animated_bg_stage2 is not None:
         valthor_perf_start("stage2_bg_update")
-        animated_bg_stage2.update(elapsed_ms, ball_cx, ball_cy, boss_cx, player_cx, r_wins, r_losses)
+        if current_boss_name == "두더지왕":
+            animated_bg_stage2.update(elapsed_ms, ball_cx, ball_cy, boss_cx, player_cx, None, None)
+        else:
+            animated_bg_stage2.update(elapsed_ms, ball_cx, ball_cy, boss_cx, player_cx, r_wins, r_losses)
         valthor_perf_end("stage2_bg_update")
         valthor_perf_start("stage2_bg_draw")
         animated_bg_stage2.draw(SCREEN)
@@ -124147,8 +124150,13 @@ def draw_field():
     elif current_stage == 2 and animated_bg_stage2 is not None:
         # 스테이지2에서는 정글 사이버펑크 애니메이션 배경 사용
         # 공 위치, 패들 위치, 점수를 배경에 전달 (눈동자 추적 + 덤불 흔들림 + 위기 상황용)
-        animated_bg_stage2.update(clock.get_time(), BALL.centerx, BALL.centery,
-                                BOSS.centerx, PLAYER.centerx, round_wins, round_losses)
+        # 두더지왕은 바위 낙석 이벤트 없음 (악어장군 전용) → 점수 전달 안 함
+        if current_boss_name == "두더지왕":
+            animated_bg_stage2.update(clock.get_time(), BALL.centerx, BALL.centery,
+                                    BOSS.centerx, PLAYER.centerx, None, None)
+        else:
+            animated_bg_stage2.update(clock.get_time(), BALL.centerx, BALL.centery,
+                                    BOSS.centerx, PLAYER.centerx, round_wins, round_losses)
         # 직접 SCREEN에 그리기 (메인 루프가 흔들림 처리)
         animated_bg_stage2.draw(SCREEN)
         # Stage 2 물대포 및 파편 렌더링
@@ -127432,8 +127440,8 @@ def reset_round(is_stage_start=False):
     rolling_speed = 0
     rolling_stun_timer = 0
     
-    #  Stage 2에서 보스 분노 애니메이션 시작 체크
-    if current_stage == 2 and animated_bg_stage2:
+    #  Stage 2에서 보스 분노 애니메이션 시작 체크 (악어장군 전용)
+    if current_stage == 2 and animated_bg_stage2 and current_boss_name != "두더지왕":
         if animated_bg_stage2.start_boss_rage_animation():
             animated_bg_stage2.cry_sound = SOUND_CRY  # cry.wav 사운드 전달
             # print(":    !")
