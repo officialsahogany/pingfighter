@@ -1664,7 +1664,7 @@ class AnimatedBackgroundStage2:
                              (int(spx), int(spy)), ss)
 
         # === 9단계: 텍스처 도트 (미세 깊이감) ===
-        dot_count = 6 + base_size // 10
+        dot_count = int(6 + base_size // 10)
         for i in range(dot_count):
             d_seed = hash((base_size, variant, i, 'texdot')) % 10000
             da = (d_seed % 360) * math.pi / 180
