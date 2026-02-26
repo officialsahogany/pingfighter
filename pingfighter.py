@@ -57274,10 +57274,12 @@ def update_tunnel_raid():
                     "vx": speed * math.cos(angle),
                 })
 
-            # 넉백 + 스턴
-            knockback_dir = random.choice([-1, 1])
-            player_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir * 14))
-            try_apply_player_stun(1.8, source="땅굴 습격", knockback_scaled=True)
+            # 넉백 + 스턴 (플레이어가 솟아나는 위치 근처에 있을 때만)
+            hit_dist = abs(PLAYER.centerx - tunnel_raid_target_x)
+            if hit_dist < 60:
+                knockback_dir = 1 if PLAYER.centerx > tunnel_raid_target_x else -1
+                player_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir * 14))
+                try_apply_player_stun(1.8, source="땅굴 습격", knockback_scaled=True)
 
             screen_shake_timer = max(screen_shake_timer, 30)
             screen_shake_intensity = max(screen_shake_intensity, 18)
