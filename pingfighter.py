@@ -58083,23 +58083,65 @@ def draw_web_rescue(screen):
     ball_cy = int(BALL.centery)
 
     if web_rescue_phase == "shoot":
-        # 보스 입 → 공까지 거미줄 실 3줄 (흔들리는 선)
+        # 보스 입 → 공까지 거미줄 발사 (두꺼운 메인 실 + 보조 실 5줄)
         t = min(1.0, web_rescue_timer / float(WEB_RESCUE_SHOOT_FRAMES))
-        for i in range(3):
-            offset = (i - 1) * 6
-            wave = math.sin(web_rescue_timer * 0.8 + i * 1.5) * 8
-            mid_x = boss_cx + (ball_cx - boss_cx) * t * 0.5 + wave + offset
-            mid_y = boss_cy + (ball_cy - boss_cy) * t * 0.5
-            end_x = boss_cx + (ball_cx - boss_cx) * t + offset
-            end_y = boss_cy + (ball_cy - boss_cy) * t
-            alpha = min(200, int(255 * t))
-            pts = [(boss_cx + offset, boss_cy), (int(mid_x), int(mid_y)), (int(end_x), int(end_y))]
-            if len(pts) >= 2:
-                pygame.draw.lines(fx, (220, 220, 220, alpha), False, pts, 2)
-        # 공에 작은 거미줄 원
-        if t > 0.6:
-            wr = int(12 * (t - 0.6) / 0.4)
-            pygame.draw.circle(fx, (255, 255, 255, 120), (ball_cx, ball_cy), max(1, wr), 1)
+        # 선두 위치 (발사체 끝)
+        head_x = boss_cx + (ball_cx - boss_cx) * t
+        head_y = boss_cy + (ball_cy - boss_cy) * t
+
+        # 메인 굵은 실 (중앙, 두께 4)
+        main_alpha = min(255, int(255 * min(1.0, t * 2.0)))
+        pygame.draw.line(fx, (255, 255, 255, main_alpha),
+                         (boss_cx, boss_cy), (int(head_x), int(head_y)), 4)
+
+        # 보조 실 5가닥 (흔들리며 퍼지는 느낌)
+        for i in range(5):
+            spread = (i - 2) * 7
+            wave = math.sin(web_rescue_timer * 1.2 + i * 1.3) * (6 + i * 2)
+            mid_x = boss_cx + (head_x - boss_cx) * 0.5 + wave + spread
+            mid_y = boss_cy + (head_y - boss_cy) * 0.5
+            strand_alpha = min(180, int(200 * t))
+            pts = [(boss_cx + spread // 2, boss_cy),
+                   (int(mid_x), int(mid_y)),
+                   (int(head_x) + spread // 3, int(head_y))]
+            pygame.draw.lines(fx, (220, 220, 220, strand_alpha), False, pts, 2)
+
+        # 발사체 선두 — 빛나는 거미줄 덩어리
+        if t > 0.05:
+            glow_r = int(10 + 6 * math.sin(web_rescue_timer * 0.6))
+            pygame.draw.circle(fx, (255, 255, 255, 200), (int(head_x), int(head_y)), glow_r)
+            pygame.draw.circle(fx, (200, 200, 255, 100), (int(head_x), int(head_y)), glow_r + 5, 2)
+
+        # 발사체 뒤 파티클 트레일
+        for j in range(4):
+            trail_t = max(0.0, t - j * 0.08)
+            tx = boss_cx + (ball_cx - boss_cx) * trail_t + math.sin(web_rescue_timer * 1.5 + j) * 5
+            ty = boss_cy + (ball_cy - boss_cy) * trail_t
+            tr_alpha = max(0, 140 - j * 35)
+            tr_size = max(1, 5 - j)
+            pygame.draw.circle(fx, (230, 230, 255, tr_alpha), (int(tx), int(ty)), tr_size)
+
+        # 보스 입 주변 발사 이펙트 (스파크)
+        if t < 0.5:
+            spark_alpha = int(200 * (1.0 - t * 2))
+            for s in range(6):
+                sa = s * math.pi / 3 + web_rescue_timer * 0.4
+                sr = 8 + 4 * math.sin(web_rescue_timer * 0.8 + s)
+                sx = boss_cx + int(math.cos(sa) * sr)
+                sy = boss_cy + int(math.sin(sa) * sr)
+                pygame.draw.circle(fx, (255, 255, 220, spark_alpha), (sx, sy), 2)
+
+        # 공에 타겟 원 (도착 가까울수록 선명)
+        if t > 0.4:
+            target_alpha = min(200, int(255 * (t - 0.4) / 0.6))
+            target_r = int(18 - 6 * t)
+            pygame.draw.circle(fx, (255, 255, 255, target_alpha), (ball_cx, ball_cy), max(2, target_r), 2)
+            # 십자 표시
+            cr = target_r + 4
+            pygame.draw.line(fx, (255, 255, 255, target_alpha // 2),
+                             (ball_cx - cr, ball_cy), (ball_cx + cr, ball_cy), 1)
+            pygame.draw.line(fx, (255, 255, 255, target_alpha // 2),
+                             (ball_cx, ball_cy - cr), (ball_cx, ball_cy + cr), 1)
 
     elif web_rescue_phase == "hold_wait":
         # 보스 → 공 거미줄 연결 + 공에 거미줄 감싸기 연출
