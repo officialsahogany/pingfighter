@@ -27419,6 +27419,13 @@ web_rescue_ball_x = 0             # 공 잡은 X위치
 web_rescue_ball_y = 0             # 공 잡은 Y위치
 web_rescue_boss_start_x = 0      # 보스 출발 X
 
+# 아라크네 분노 이벤트 (플레이어 4점 획득 시)
+spider_rage_pending = False       # 다음 라운드에서 분노 이벤트 예약
+spider_rage_active = False        # 분노 연출 진행 중
+spider_rage_timer = 0             # 연출 타이머
+spider_rage_triggered = False     # 한 번만 발동
+spider_rage_projectiles = []      # 분노 거미줄 투사체 리스트
+
 horizontal_bounce_count = 0
 boss_trail = []  # [(x, y, alpha)] 형식의 튜플 리스트
 long_boost_growing = False
@@ -57828,7 +57835,9 @@ def update_web_traps():
 
     expired = []
     for i, trap in enumerate(web_traps):
-        trap["timer"] -= 1
+        # 붉은 장판(rage)은 타이머 감소 안 함 (대쉬로만 제거)
+        if not trap.get("rage", False):
+            trap["timer"] -= 1
         trap["phase"] += 0.05
         # 펼쳐짐 타이머 감소
         if trap.get("expand_timer", 0) > 0:
@@ -57920,6 +57929,19 @@ def draw_web_traps(screen):
         r = trap["radius"]
         remaining = trap["timer"]
         phase = trap["phase"]
+        is_rage = trap.get("rage", False)
+
+        # 색상 결정 (일반=흰색, 분노=붉은색)
+        if is_rage:
+            col_base = (200, 50, 50)
+            col_spoke = (255, 80, 80)
+            col_ring = (255, 100, 100)
+            col_center = (255, 120, 120)
+        else:
+            col_base = (220, 220, 220)
+            col_spoke = (240, 240, 240)
+            col_ring = (255, 255, 255)
+            col_center = (255, 255, 255)
 
         # 펼쳐짐 연출: expand_timer 동안 반경이 0→full로 확장
         expand = trap.get("expand_timer", 0)
@@ -57930,8 +57952,8 @@ def draw_web_traps(screen):
             expand_ratio = max(0.05, min(1.0, expand_ratio))
             r = int(r * expand_ratio)
 
-        # 만료 2초 전(120프레임) 깜빡임
-        if remaining < 120 and (remaining // 8) % 2 == 0:
+        # 만료 2초 전(120프레임) 깜빡임 — 분노 장판은 깜빡임 없음
+        if not is_rage and remaining < 120 and (remaining // 8) % 2 == 0:
             continue
 
         # 맥동 효과
@@ -57941,8 +57963,8 @@ def draw_web_traps(screen):
             continue
 
         # 반투명 원형 바탕
-        base_alpha = min(120, int(160 * (remaining / trap["max_timer"])))
-        pygame.draw.circle(fx, (220, 220, 220, base_alpha // 2), (trap_cx, trap_cy), pr)
+        base_alpha = 100 if is_rage else min(120, int(160 * (remaining / trap["max_timer"])))
+        pygame.draw.circle(fx, (*col_base, base_alpha // 2), (trap_cx, trap_cy), pr)
 
         # 방사형 spokes 8줄
         spoke_alpha = min(180, base_alpha + 40)
@@ -57950,7 +57972,7 @@ def draw_web_traps(screen):
             angle = (i / 8) * math.pi * 2 + phase * 0.3
             ex = trap_cx + int(pr * math.cos(angle))
             ey = trap_cy + int(pr * math.sin(angle))
-            pygame.draw.line(fx, (240, 240, 240, spoke_alpha), (trap_cx, trap_cy), (ex, ey), 1)
+            pygame.draw.line(fx, (*col_spoke, spoke_alpha), (trap_cx, trap_cy), (ex, ey), 1)
 
         # 동심원 5겹 (유기적 흔들림)
         for ring in range(1, 6):
@@ -57965,10 +57987,10 @@ def draw_web_traps(screen):
                 ry = trap_cy + int(ring_r * wobble * math.sin(a))
                 ring_pts.append((rx, ry))
             if len(ring_pts) >= 3:
-                pygame.draw.polygon(fx, (255, 255, 255, spoke_alpha // 2), ring_pts, 1)
+                pygame.draw.polygon(fx, (*col_ring, spoke_alpha // 2), ring_pts, 1)
 
         # 중앙 밝은 점
-        pygame.draw.circle(fx, (255, 255, 255, spoke_alpha), (trap_cx, trap_cy), 3)
+        pygame.draw.circle(fx, (*col_center, spoke_alpha), (trap_cx, trap_cy), 3)
 
     screen.blit(fx, (0, 0))
 
@@ -58199,6 +58221,130 @@ def draw_web_rescue(screen):
             pygame.draw.line(fx, (255, 255, 255, 80), (ball_cx, ball_cy), (ex, ey), 1)
         # 보스 → 공 연결선
         pygame.draw.line(fx, (180, 180, 180, 100), (boss_cx, boss_cy), (ball_cx, ball_cy), 1)
+
+    screen.blit(fx, (0, 0))
+
+
+# ============= 아라크네 분노 이벤트 (Spider Rage) =============
+def update_spider_rage():
+    """아라크네 분노 연출 + 붉은 거미줄 3개 순차 발사."""
+    global spider_rage_active, spider_rage_timer, spider_rage_projectiles
+    global screen_shake_offset_x, screen_shake_offset_y
+
+    if not spider_rage_active:
+        return
+
+    spider_rage_timer += 1
+
+    # 0~60프레임: 화면 흔들림 연출
+    if spider_rage_timer <= 60:
+        # 화면 흔들림 점진적 증가
+        intensity = min(8, spider_rage_timer // 5)
+        screen_shake_offset_x = random.randint(-intensity, intensity)
+        screen_shake_offset_y = random.randint(-intensity // 2, intensity // 2)
+
+        # 스프라이트 히트 연출 (20프레임마다)
+        if spider_rage_timer % 20 == 0:
+            try:
+                if spider_boss_sprite and BOSS:
+                    spider_boss_sprite.trigger_hit(BOSS.centerx, BOSS.centerx)
+            except Exception:
+                pass
+            # 사운드
+            try:
+                snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "net.wav")))
+                snd.set_volume(0.4)
+                snd.play()
+            except Exception:
+                pass
+
+    # 60, 70, 80프레임: 붉은 거미줄 투사체 3개 순차 발사
+    elif spider_rage_timer in (60, 70, 80):
+        import random as _rng
+        sx = float(BOSS.centerx if BOSS else WIDTH // 2)
+        sy = float((BOSS.y + BOSS.height + 5) if BOSS else 70)
+        tx = float(_rng.randint(GAME_AREA_OFFSET_X + 30,
+                                GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 30))
+        ty = float(_rng.randint(WEB_TRAP_Y_MIN, WEB_TRAP_Y_MAX))
+        spider_rage_projectiles.append({
+            "sx": sx, "sy": sy, "tx": tx, "ty": ty,
+            "timer": 0, "duration": WEB_TRAP_TRAVEL_FRAMES
+        })
+        # 발사 사운드
+        try:
+            snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "net.wav")))
+            snd.set_volume(0.5)
+            snd.play()
+        except Exception:
+            pass
+
+    # 투사체 업데이트
+    finished = []
+    for proj in spider_rage_projectiles:
+        proj["timer"] += 1
+        if proj["timer"] >= proj["duration"]:
+            # 도착 → 붉은 장판 생성 (rage 플래그, 무한 타이머)
+            web_traps.append({
+                "x": int(proj["tx"]), "y": int(proj["ty"]),
+                "radius": WEB_TRAP_RADIUS,
+                "timer": 999999, "max_timer": 999999,
+                "phase": 0.0,
+                "expand_timer": 12,
+                "rage": True
+            })
+            finished.append(proj)
+            # 착지 사운드
+            try:
+                snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "steambarrior.wav")))
+                snd.set_volume(0.4)
+                snd.play()
+            except Exception:
+                pass
+    for f in finished:
+        spider_rage_projectiles.remove(f)
+
+    # 100프레임 + 투사체 완료: 연출 종료
+    if spider_rage_timer > 100 and len(spider_rage_projectiles) == 0:
+        spider_rage_active = False
+        spider_rage_timer = 0
+        screen_shake_offset_x = 0
+        screen_shake_offset_y = 0
+
+
+def draw_spider_rage_projectiles(screen):
+    """분노 거미줄 투사체 렌더링 (붉은색)."""
+    if not spider_rage_projectiles:
+        return
+
+    fx = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
+    for proj in spider_rage_projectiles:
+        raw_t = min(proj["timer"] / max(1, proj["duration"]), 1.0)
+        t = 1.0 - (1.0 - raw_t) * (1.0 - raw_t)  # easeOutQuad
+
+        sx, sy = proj["sx"], proj["sy"]
+        tx, ty = proj["tx"], proj["ty"]
+        cx = sx + (tx - sx) * t
+        cy = sy + (ty - sy) * t
+
+        # 메인 굵은 실 (붉은색)
+        alpha = min(255, int(255 * min(1.0, raw_t * 2.0)))
+        pygame.draw.line(fx, (255, 80, 80, alpha), (int(sx), int(sy)), (int(cx), int(cy)), 3)
+
+        # 보조 실 3가닥
+        for i in range(3):
+            spread = (i - 1) * 8
+            wave = math.sin(proj["timer"] * 1.0 + i * 1.5) * 6
+            mid_x = sx + (cx - sx) * 0.5 + wave + spread
+            mid_y = sy + (cy - sy) * 0.5
+            pts = [(int(sx) + spread // 2, int(sy)),
+                   (int(mid_x), int(mid_y)),
+                   (int(cx) + spread // 3, int(cy))]
+            pygame.draw.lines(fx, (200, 50, 50, min(200, alpha)), False, pts, 2)
+
+        # 선두 발광
+        if t > 0.05:
+            glow_r = int(8 + 4 * math.sin(proj["timer"] * 0.5))
+            pygame.draw.circle(fx, (255, 100, 100, 200), (int(cx), int(cy)), glow_r)
 
     screen.blit(fx, (0, 0))
 
@@ -127638,6 +127784,7 @@ def reset_round(is_stage_start=False):
     global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
     global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
     global smasher_combo_count, smasher_combo_effect_active, smasher_combo_effect_timer  # ⚡ 스매셔 콤보
+    global spider_rage_pending, spider_rage_active, spider_rage_timer, spider_rage_triggered  # 아라크네 분노
 
     # ⚡ 스매셔 콤보 리셋 (라운드 시작 시)
     smasher_combo_count = 0
@@ -127978,6 +128125,14 @@ def reset_round(is_stage_start=False):
         if animated_bg_stage2.start_boss_rage_animation():
             animated_bg_stage2.cry_sound = SOUND_CRY  # cry.wav 사운드 전달
             # print(":    !")
+
+    # Stage 2 아라크네 분노 이벤트 시작 (4점 달성 후 다음 라운드)
+    if current_stage == 2 and current_boss_name == "아라크네" and spider_rage_pending:
+        spider_rage_pending = False
+        spider_rage_active = True
+        spider_rage_timer = 0
+        spider_rage_triggered = True
+        show_speech("용서 못 해...!", duration=90)
     
     # 공 리셋
     ball_vel = [0, 0]
@@ -133393,6 +133548,11 @@ def handle_ball():
 
             # Stage 4에서 플레이어가 4점 획득 시 플래그 설정 (다음 라운드에서 애니메이션 시작)
             # 애니메이션은 go_to_next_round()에서 실행됨
+
+            # Stage 2 아라크네: 플레이어 4점 획득 시 분노 이벤트 예약
+            if current_stage == 2 and current_boss_name == "아라크네" and round_wins == 4:
+                if not spider_rage_triggered:
+                    spider_rage_pending = True
 
             # Stage 7에서 플레이어가 4점 획득 시 크리스탈 실드 활성화
             if current_stage == 7 and round_wins == 4 and pillar_renderer is not None:
