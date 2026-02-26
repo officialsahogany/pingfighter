@@ -27391,14 +27391,14 @@ web_traps = []          # [{"x":, "y":, "radius":, "timer":, "max_timer":}]
 web_trap_last_used = -9999
 WEB_TRAP_COOLDOWN = 15000       # 15초 쿨다운
 WEB_TRAP_GAUGE_COST = 500       # 게이지 500 소모
-WEB_TRAP_COUNT = 3              # 3개 동시 생성
-WEB_TRAP_DURATION = 480         # 8초 (480프레임)
+WEB_TRAP_COUNT = 1              # 1개 발사
+WEB_TRAP_DURATION = 300         # 5초 (300프레임)
 WEB_TRAP_RADIUS = 50            # 반지름 50px
-WEB_TRAP_BALL_SLOW = 0.70       # 공 감속 ×0.70
-WEB_TRAP_BALL_WARP = 0.15       # 공 방향 왜곡 ±0.15 라디안
-WEB_TRAP_PLAYER_SLOW = 0.60     # 플레이어 감속 ×0.60
-WEB_TRAP_Y_MIN = 375            # Y 범위 하한 (중앙선)
-WEB_TRAP_Y_MAX = 600            # Y 범위 상한 (플레이어 영역 근처)
+WEB_TRAP_BALL_SLOW = 0.70       # 공 감속 ×0.70 (미사용)
+WEB_TRAP_BALL_WARP = 0.15       # 공 방향 왜곡 ±0.15 라디안 (미사용)
+WEB_TRAP_PLAYER_SLOW = 0.40     # 플레이어 감속 ×0.40 (60% 감소)
+WEB_TRAP_Y_MIN = 630            # Y 범위 하한 (플레이어 진영)
+WEB_TRAP_Y_MAX = 700            # Y 범위 상한 (플레이어 진영 하단)
 
 horizontal_bounce_count = 0
 boss_trail = []  # [(x, y, alpha)] 형식의 튜플 리스트
@@ -57774,8 +57774,8 @@ def activate_web_trap():
 
 
 def update_web_traps():
-    """거미줄 장판 타이머 갱신 + 공/플레이어 효과 적용."""
-    global web_traps, ball_vel
+    """거미줄 장판 타이머 갱신 + 플레이어 디버프 + 대쉬 파괴."""
+    global web_traps
     if not web_traps:
         return
 
@@ -57787,25 +57787,26 @@ def update_web_traps():
             expired.append(i)
             continue
 
-        # 공이 거미줄 위에 있으면 감속 + 방향 왜곡
-        if BALL:
-            dx = BALL.centerx - trap["x"]
-            dy = BALL.centery - trap["y"]
-            dist = math.sqrt(dx * dx + dy * dy)
-            if dist < trap["radius"]:
-                ball_vel[0] *= WEB_TRAP_BALL_SLOW
-                ball_vel[1] *= WEB_TRAP_BALL_SLOW
-                # 방향 왜곡
-                angle = math.atan2(ball_vel[1], ball_vel[0])
-                warp = random.uniform(-WEB_TRAP_BALL_WARP, WEB_TRAP_BALL_WARP)
-                speed = math.sqrt(ball_vel[0] ** 2 + ball_vel[1] ** 2)
-                angle += warp
-                ball_vel[0] = speed * math.cos(angle)
-                ball_vel[1] = speed * math.sin(angle)
+        # 대쉬로 거미줄 파괴: 플레이어가 대쉬 중이고 거미줄 범위 안에 있으면 파괴
+        if rolling_active and PLAYER:
+            px, py = PLAYER.centerx, PLAYER.centery
+            dx = px - trap["x"]
+            dy = py - trap["y"]
+            if math.sqrt(dx * dx + dy * dy) < trap["radius"] + 20:
+                expired.append(i)
+                # 파괴 사운드
+                try:
+                    snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "steambarriorbreak.wav")))
+                    snd.set_volume(0.6)
+                    snd.play()
+                except Exception:
+                    pass
+                continue
 
-    # 만료된 거미줄 제거 (역순)
-    for i in reversed(expired):
-        web_traps.pop(i)
+    # 만료/파괴된 거미줄 제거 (역순, 중복 인덱스 방지)
+    for i in reversed(sorted(set(expired))):
+        if i < len(web_traps):
+            web_traps.pop(i)
 
 
 def get_web_trap_player_slow():
