@@ -154979,8 +154979,8 @@ def show_stage_selection(show_character_hint=True):
     """
     global ai_mode
     
-    # 기본 리그 모드 설정 (아이템 관리자 진입 시 신화 난이도 고정)
-    ai_mode = "junior" if show_character_hint else "mythic"
+    # 기본 리그 모드 설정 (아이템 관리자 진입 시 챔피언 난이도 고정)
+    ai_mode = "junior" if show_character_hint else "champion"
     apply_player_paddle_scale(ai_mode)
       
     # 스테이지 정보
