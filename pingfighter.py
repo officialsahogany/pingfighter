@@ -57215,7 +57215,8 @@ def update_tunnel_raid():
         if tunnel_raid_spike_count >= TUNNEL_RAID_MAX_SPIKES:
             tunnel_raid_phase = "strike"
             tunnel_raid_timer = TUNNEL_RAID_STRIKE_FRAMES
-            tunnel_raid_visual_y = float(PLAYER.centery - 80)
+            # 돌출 시작점: 플레이어 발밑 (땅속)
+            tunnel_raid_visual_y = float(PLAYER.centery + 20)
 
             # emerge 애니메이션
             try:
@@ -57295,15 +57296,39 @@ def update_tunnel_raid():
                 pass
 
     elif tunnel_raid_phase == "strike":
+        # 아래에서 위로 다이나믹하게 솟아오르는 애니메이션
+        prog = 1.0 - (tunnel_raid_timer / TUNNEL_RAID_STRIKE_FRAMES)
+        ground_y = PLAYER.centery + 20   # 땅속 시작점
+        peak_y = PLAYER.centery - 130    # 최고점 (높이 솟아오름)
+        settle_y = PLAYER.centery - 80   # 안착점
+
+        if prog < 0.35:
+            # Phase A: 빠르게 솟아오르기 (ease-out)
+            t = prog / 0.35
+            eased = 1.0 - (1.0 - t) ** 3
+            tunnel_raid_visual_y = ground_y + (peak_y - ground_y) * eased
+        elif prog < 0.55:
+            # Phase B: 최고점에서 살짝 떨며 체공
+            t = (prog - 0.35) / 0.20
+            wobble = math.sin(t * math.pi * 4) * (6 * (1.0 - t))
+            tunnel_raid_visual_y = peak_y + wobble
+        else:
+            # Phase C: 안착점으로 내려오기 (바운스)
+            t = (prog - 0.55) / 0.45
+            eased = t * t * (3 - 2 * t)  # smoothstep
+            bounce = math.sin(t * math.pi * 2) * (8 * (1.0 - t))
+            tunnel_raid_visual_y = peak_y + (settle_y - peak_y) * eased + bounce
+
         if tunnel_raid_timer <= 0:
             tunnel_raid_phase = "return"
             tunnel_raid_timer = TUNNEL_RAID_RETURN_FRAMES
+            tunnel_raid_visual_y = settle_y
 
     elif tunnel_raid_phase == "return":
         progress = 1.0 - (tunnel_raid_timer / TUNNEL_RAID_RETURN_FRAMES)
         eased = 1.0 - (1.0 - progress) ** 2
-        strike_y = PLAYER.centery - 30
-        tunnel_raid_visual_y = strike_y + (tunnel_raid_original_boss_y - strike_y) * eased
+        settle_y = PLAYER.centery - 80
+        tunnel_raid_visual_y = settle_y + (tunnel_raid_original_boss_y - settle_y) * eased
 
         if tunnel_raid_timer <= 0:
             tunnel_raid_active = False
