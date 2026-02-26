@@ -57979,6 +57979,9 @@ def activate_web_rescue():
     global web_rescue_active, web_rescue_phase, web_rescue_timer
     global web_rescue_ball_x, web_rescue_ball_y, web_rescue_boss_start_x
     global web_rescue_last_used
+    global power_smashing_parabola_active, power_smashing_rng
+    global power_smashing_direction, power_smashing_original_speed
+    global power_smashing_start_time, power_smashing_arc_strength
 
     web_rescue_active = True
     web_rescue_phase = "shoot"
@@ -57987,6 +57990,14 @@ def activate_web_rescue():
     web_rescue_ball_y = float(BALL.centery)
     web_rescue_boss_start_x = float(BOSS.centerx) if BOSS else 380.0
     web_rescue_last_used = pygame.time.get_ticks()
+
+    # 파워스매싱 포물선 즉시 해제 (거미줄로 공을 잡으면 포물선 효과 소멸)
+    power_smashing_parabola_active = False
+    power_smashing_rng = None
+    power_smashing_direction = None
+    power_smashing_original_speed = 0.0
+    power_smashing_start_time = 0
+    power_smashing_arc_strength = 0.0
 
     # 사운드
     try:
