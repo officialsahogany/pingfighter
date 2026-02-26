@@ -65,14 +65,22 @@ class SpiderBossSprite:
         self.hit_direction = 1
         self.hit_intensity = 0.0
 
-        # 교대 보행 — tetrapod gait
-        # 그룹A(1L,2R,3L,4R) vs 그룹B(1R,2L,3R,4L)
+        # 교대 보행 — tetrapod gait + 순차 파동
+        # 그룹A: L1→R2→L3→R4 (앞에서 뒤로 순차)
+        # 그룹B: R1→L2→R3→L4 (0.5 위상차로 같은 순차)
+        # idx: 0=L1, 1=R1, 2=L2, 3=R2, 4=L3, 5=R3, 6=L4, 7=R4
         self._leg_phase_offsets = [
-            0.0, 0.5, 0.5, 0.0,
-            0.0, 0.5, 0.5, 0.0,
+            0.00,   # idx0: L1 — 그룹A 첫번째
+            0.50,   # idx1: R1 — 그룹B 첫번째
+            0.58,   # idx2: L2 — 그룹B 두번째
+            0.08,   # idx3: R2 — 그룹A 두번째
+            0.16,   # idx4: L3 — 그룹A 세번째
+            0.66,   # idx5: R3 — 그룹B 세번째
+            0.74,   # idx6: L4 — 그룹B 네번째
+            0.24,   # idx7: R4 — 그룹A 네번째
         ]
-        # 쌍별 미세 시차 (자연스러움)
-        self._leg_pair_delay = [0.0, 0.08, 0.16, 0.24]
+        # 순차 지연은 오프셋에 이미 포함됨
+        self._leg_pair_delay = [0.0, 0.0, 0.0, 0.0]
 
         # 미세 떨림
         self._leg_twitch = [0.0] * 8
@@ -111,10 +119,10 @@ class SpiderBossSprite:
 
         if self.direction != 0:
             sp = min(self.velocity / 80.0, 2.0)
-            self.step_phase += dt * 6.5 * max(sp, 0.5)
-            self.body_bob = _sin(self.step_phase * _TAU * 0.5) * 0.03 * sp
-            # 좌우 흔들림 (다리에 맞춰)
-            self.body_sway = _sin(self.step_phase * _TAU * 0.25) * 0.015 * sp
+            self.step_phase += dt * 5.5 * max(sp, 0.5)
+            self.body_bob = _sin(self.step_phase * _TAU * 0.5) * 0.025 * sp
+            # 좌우 흔들림 (다리 짚음에 맞춰 약간 더 크게)
+            self.body_sway = _sin(self.step_phase * _TAU * 0.25) * 0.020 * sp
         else:
             self.step_phase *= 0.95
             self.body_bob = _sin(self.time * 2.5) * 0.006
@@ -496,36 +504,46 @@ class SpiderBossSprite:
         foot_x = bcx + side * int(foot_dx * w)
         foot_y = int(bcy + foot_dy * h)
 
-        # ==== Gait Cycle 기반 걷기 ====
+        # ==== Gait Cycle 기반 걷기 (옆으로 짚는 실제 거미 보행) ====
         if self.direction != 0:
             sp = min(self.velocity / 100.0, 1.0)
             cycle = self._get_leg_cycle(leg_idx, pair_idx)
             SR = self._SWING_RATIO
 
             if cycle < SR:
-                # SWING: 들어올려 앞으로 (0→SR)
+                # SWING: 다리를 들어 옆으로(바깥쪽으로) 뻗기 (0→SR)
                 t = cycle / SR                              # 0 → 1
                 t_smooth = _smoothstep(t)
                 lift = _sin(t * _pi)                        # 포물선 호
 
-                # 발끝: 높이 들기 + 앞으로 뻗기
-                foot_y -= int(lift * h * 0.14 * sp)
-                foot_x += int(self.direction * t_smooth * w * 0.06 * sp)
-                # 무릎: 따라 올라감
-                knee_y -= int(lift * h * 0.08 * sp)
-                knee_x += int(self.direction * t_smooth * w * 0.03 * sp)
+                # 수직: 다리 들어올리기
+                foot_y -= int(lift * h * 0.13 * sp)
+                knee_y -= int(lift * h * 0.07 * sp)
+
+                # 측면(lateral): 바깥쪽으로 뻗기 — 거미가 옆으로 짚는 핵심
+                lateral = _sin(t * _pi) * w * 0.09 * sp
+                foot_x += int(side * lateral)
+                knee_x += int(side * lateral * 0.35)
+
+                # 전후: 약간 앞으로 내딛기
+                foot_x += int(self.direction * t_smooth * w * 0.035 * sp)
+                knee_x += int(self.direction * t_smooth * w * 0.018 * sp)
             else:
-                # STANCE: 바닥에서 뒤로 밀기 (SR→1)
+                # STANCE: 발이 바닥에 고정, 몸이 지나가며 안쪽으로 끌려오는 효과
                 t = (cycle - SR) / (1.0 - SR)               # 0 → 1
                 t_smooth = _smoothstep(t)
 
-                # 발끝: 초기 앞쪽 위치에서 점점 뒤로
-                forward_remain = 1.0 - t_smooth
-                foot_x += int(self.direction * forward_remain * w * 0.06 * sp)
-                foot_x -= int(self.direction * t_smooth * w * 0.035 * sp)
-                # 무릎: 미세 뒤로
-                knee_x += int(self.direction * forward_remain * w * 0.03 * sp)
-                knee_x -= int(self.direction * t_smooth * w * 0.015 * sp)
+                # 측면(lateral): 바깥 위치에서 점점 안쪽으로 (몸이 지나감)
+                lat_remain = (1.0 - t_smooth)
+                foot_x += int(side * lat_remain * w * 0.045 * sp)
+                knee_x += int(side * lat_remain * w * 0.015 * sp)
+
+                # 전후: 앞쪽에서 점점 뒤쪽으로 밀기
+                fwd = 1.0 - t_smooth
+                foot_x += int(self.direction * fwd * w * 0.035 * sp)
+                foot_x -= int(self.direction * t_smooth * w * 0.030 * sp)
+                knee_x += int(self.direction * fwd * w * 0.018 * sp)
+                knee_x -= int(self.direction * t_smooth * w * 0.012 * sp)
 
         # 대기 떨림
         if self.direction == 0:
