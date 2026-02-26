@@ -57614,7 +57614,7 @@ def activate_spinning_claw():
 
     # 사운드
     try:
-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "mooncut.wav")))
+        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "clue.wav")))
         snd.set_volume(0.5)
         snd.play()
     except Exception:
