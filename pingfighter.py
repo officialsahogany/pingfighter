@@ -57128,6 +57128,13 @@ def activate_tunnel_raid():
     tunnel_raid_spike_count = 0
     tunnel_raid_spike_timer = 0
 
+    # 히트 솟아오름 모션 즉시 취소 → 바로 땅속으로
+    if molewang_boss_sprite is not None:
+        molewang_boss_sprite.is_hit = False
+        molewang_boss_sprite.hit_timer = 0.0
+        molewang_boss_sprite.hit_intensity = 0.0
+        molewang_boss_sprite.emerge_amount = 0.0
+
     # 어둠의 늪 사운드 (lurker_attack.wav)
     try:
         sound_path = resource_path(os.path.join("sounds", "lurker_attack.wav"))
@@ -134308,9 +134315,9 @@ def handle_ball():
         # 스테이지 2 악어장군/두더지왕 게이지 충전 (+60)
         elif current_stage == 2:
             boss_special_gauge = min(boss_special_gauge + 60, 500)
-            # 두더지왕 히트 애니메이션 트리거
+            # 두더지왕 히트 애니메이션 트리거 (땅굴습격 중에는 스킵)
             try:
-                if current_boss_name == "두더지왕" and molewang_boss_sprite:
+                if current_boss_name == "두더지왕" and molewang_boss_sprite and not tunnel_raid_active:
                     molewang_boss_sprite.trigger_hit(BALL.centerx, BOSS.centerx)
             except Exception as e:
                 print(f"⚠️ 두더지왕 히트 애니메이션 트리거 실패: {e}")
