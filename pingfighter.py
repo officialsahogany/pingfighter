@@ -57311,6 +57311,10 @@ def update_tunnel_raid():
                 knockback_dir = 1 if PLAYER.centerx > tunnel_raid_target_x else -1
                 player_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir * 14))
                 try_apply_player_stun(1.0, source="땅굴 습격", knockback_scaled=True)
+            elif hit_dist < 160:
+                # 범위 밖이지만 가까운 경우 약한 넉백만 (스턴 없음)
+                knockback_dir = 1 if PLAYER.centerx > tunnel_raid_target_x else -1
+                player_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir * 7))
 
             screen_shake_timer = max(screen_shake_timer, 30)
             screen_shake_intensity = max(screen_shake_intensity, 18)
