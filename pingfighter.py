@@ -57261,18 +57261,48 @@ def update_tunnel_raid():
                 }
                 tunnel_raid_spikes.append(side_spike)
 
-            # 흙 폭발 파티클 (팍 터지는 느낌)
+            # 흙 + 자갈 폭발 파티클
             px, py = tunnel_raid_target_x, PLAYER.centery
-            for _ in range(30):
-                angle = random.uniform(0, math.pi * 2)
-                speed = random.uniform(2.0, 7.0)
+            # 큰 흙 덩어리 (위로 강하게 튀김)
+            for _ in range(12):
+                angle = random.uniform(-math.pi * 0.85, -math.pi * 0.15)  # 위쪽 부채꼴
+                speed = random.uniform(5.0, 11.0)
                 tunnel_raid_trail.append({
-                    "x": px + random.uniform(-10, 10),
-                    "y": py + random.uniform(-5, 10),
-                    "alpha": random.randint(200, 255),
-                    "size": random.uniform(3, 8),
-                    "vy": -abs(speed * math.sin(angle)) - 1.5,
+                    "x": px + random.uniform(-15, 15),
+                    "y": py + random.uniform(-5, 5),
+                    "alpha": 255,
+                    "size": random.uniform(5, 10),
+                    "vy": speed * math.sin(angle),
                     "vx": speed * math.cos(angle),
+                    "type": "dirt",
+                    "rot": random.uniform(0, 360),
+                    "rot_speed": random.uniform(-12, 12),
+                })
+            # 자갈 파편 (작고 빠르게 사방으로)
+            for _ in range(18):
+                angle = random.uniform(0, math.pi * 2)
+                speed = random.uniform(3.0, 9.0)
+                tunnel_raid_trail.append({
+                    "x": px + random.uniform(-8, 8),
+                    "y": py + random.uniform(-3, 8),
+                    "alpha": random.randint(220, 255),
+                    "size": random.uniform(2, 5),
+                    "vy": -abs(speed * math.sin(angle)) - 2.0,
+                    "vx": speed * math.cos(angle),
+                    "type": "gravel",
+                    "rot": random.uniform(0, 360),
+                    "rot_speed": random.uniform(-20, 20),
+                })
+            # 흙 먼지 구름 (느리게 퍼짐)
+            for _ in range(15):
+                tunnel_raid_trail.append({
+                    "x": px + random.uniform(-25, 25),
+                    "y": py + random.uniform(-10, 5),
+                    "alpha": random.randint(120, 180),
+                    "size": random.uniform(6, 14),
+                    "vy": random.uniform(-1.5, -0.3),
+                    "vx": random.uniform(-1.5, 1.5),
+                    "type": "dust",
                 })
 
             # 넉백 + 스턴 (플레이어가 솟아나는 위치 근처에 있을 때만)
@@ -57370,15 +57400,23 @@ def update_tunnel_raid():
     # 파티클 업데이트
     alive = []
     for p in tunnel_raid_trail:
-        p["alpha"] -= 5
+        ptype = p.get("type", "dust")
         p["y"] += p.get("vy", 0)
         p["x"] = p.get("x", 0) + p.get("vx", 0)
-        # 중력
-        if "vy" in p:
-            p["vy"] += 0.15
-        # vx 감쇠
-        if "vx" in p:
-            p["vx"] *= 0.96
+        # 회전
+        if "rot" in p:
+            p["rot"] += p.get("rot_speed", 0)
+        if ptype == "dust":
+            p["alpha"] -= 3           # 먼지는 천천히 사라짐
+            if "vy" in p:
+                p["vy"] *= 0.97       # 부드럽게 감속
+            p["size"] = p.get("size", 6) + 0.12  # 퍼지며 커짐
+        else:
+            p["alpha"] -= 5
+            if "vy" in p:
+                p["vy"] += 0.25       # 흙/자갈은 중력 강하게
+            if "vx" in p:
+                p["vx"] *= 0.97
         if p["alpha"] > 0:
             alive.append(p)
     tunnel_raid_trail = alive
@@ -57411,11 +57449,37 @@ def draw_tunnel_raid_effects(screen):
         pygame.draw.line(fx, (255, 60, 40, int(150 * pulse)),
                         (px + xsz, py - xsz), (px - xsz, py + xsz), 3)
 
-    # --- 2. 흙 파티클 ---
+    # --- 2. 흙/자갈/먼지 파티클 ---
     for p in tunnel_raid_trail:
         alpha = max(0, int(p["alpha"]))
         sz = max(1, int(p["size"]))
-        pygame.draw.circle(fx, (120, 85, 45, alpha), (int(p["x"]), int(p["y"])), sz)
+        ix, iy = int(p["x"]), int(p["y"])
+        ptype = p.get("type", "dust")
+
+        if ptype == "dirt":
+            # 큰 흙 덩어리 — 회전하는 불규칙 다각형
+            rot = p.get("rot", 0)
+            pts = []
+            for i in range(5):
+                a = rot * 0.0175 + i * (math.pi * 2 / 5)
+                r = sz * (0.7 + 0.3 * ((i * 37) % 7) / 6.0)
+                pts.append((ix + int(r * math.cos(a)), iy + int(r * math.sin(a))))
+            pygame.draw.polygon(fx, (110, 75, 35, alpha), pts)
+            pygame.draw.polygon(fx, (80, 55, 25, min(255, alpha)), pts, 1)
+        elif ptype == "gravel":
+            # 작은 자갈 — 회전하는 각진 사각형
+            rot = p.get("rot", 0)
+            hw, hh = sz, int(sz * 0.7)
+            cos_r = math.cos(rot * 0.0175)
+            sin_r = math.sin(rot * 0.0175)
+            corners = [(-hw, -hh), (hw, -hh), (hw, hh), (-hw, hh)]
+            pts = [(ix + int(cx * cos_r - cy * sin_r),
+                    iy + int(cx * sin_r + cy * cos_r)) for cx, cy in corners]
+            pygame.draw.polygon(fx, (140, 110, 65, alpha), pts)
+            pygame.draw.polygon(fx, (100, 75, 40, min(255, alpha)), pts, 1)
+        else:
+            # 먼지 구름 — 반투명 원
+            pygame.draw.circle(fx, (130, 100, 60, min(alpha, 120)), (ix, iy), sz)
 
     # --- 3. 럴커 가시 렌더링 ---
     for spike in tunnel_raid_spikes:
