@@ -142238,14 +142238,6 @@ def main(stage_num, new_boss_mode=False):
         animated_bg_stage2.boss_shake_offset_y = 0
         # print("Stage 2:")
 
-    # Stage 2 아라크네 분노 이벤트 리셋
-    if current_stage == 2 and current_boss_name == "아라크네":
-        spider_rage_pending = False
-        spider_rage_active = False
-        spider_rage_timer = 0
-        spider_rage_triggered = False
-        spider_rage_projectiles.clear()
-
     # Stage 4 배경 초기화 (사원 복구, 달 정상화)
     if animated_bg_stage4:
         animated_bg_stage4.reset()
@@ -142362,6 +142354,15 @@ def main(stage_num, new_boss_mode=False):
     # === 보스 변형 선출 (한 스테이지에 여러 보스가 있을 때) ===
     global current_boss_name, arrest_rope_active, arrest_rope_timer, arrest_rope_phase
     global patrol_guards_active, patrol_guards_timer, patrol_guards, patrol_guards_used_this_round
+
+    # Stage 2 아라크네 분노 이벤트 리셋
+    if current_stage == 2 and current_boss_name == "아라크네":
+        spider_rage_pending = False
+        spider_rage_active = False
+        spider_rage_timer = 0
+        spider_rage_triggered = False
+        spider_rage_projectiles.clear()
+
     arrest_rope_active = False
     arrest_rope_timer = 0
     arrest_rope_phase = "idle"
