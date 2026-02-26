@@ -52,7 +52,7 @@ class BossAISystem:
             reaction_time=0.5,
             prediction_depth=0,
             error_rate=0.3,
-            speed_multiplier=0.85,
+            speed_multiplier=0.95,
             skill_usage_rate=0.2
         ),
         AIDifficulty.PRO: AIConfig(
