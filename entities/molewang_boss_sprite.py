@@ -262,8 +262,8 @@ class MolewangBossSprite:
                                      bob_offset, effective_emerge, p)
         # 3. 땅 표면 (현재 미사용)
         self._draw_ground(surface, cx, ground_y, b, lean_offset, bob_offset, p)
-        # 4. 발톱 스크래치 이펙트 (히트 시)
-        if self.is_hit:
+        # 4. 발톱 스크래치 이펙트 (회전발톱 시에만)
+        if self.spinning_claw_active:
             self._draw_claw_effect(surface, cx, ground_y, b, lean_offset, p)
         # 5. 회전발톱 스와이프 팔 이펙트
         if self.spinning_claw_active and sc_emerge > 0.3:
