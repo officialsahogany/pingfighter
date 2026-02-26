@@ -57602,6 +57602,10 @@ def activate_spinning_claw():
     ball_spin_strength = 0.55
     ball_spin_direction = spinning_claw_direction
 
+    # 공 속도 -20% 감소
+    ball_vel[0] *= 0.8
+    ball_vel[1] *= 0.8
+
     # 이펙트 상태
     spinning_claw_active = True
     spinning_claw_timer = SPINNING_CLAW_EFFECT_DURATION
@@ -134324,8 +134328,8 @@ def handle_ball():
             # 두더지왕 회전발톱 발동 (쿨다운 20초, 게이지 200 소모, 땅굴습격 중 발동 불가)
             if current_boss_name == "두더지왕" and not tunnel_raid_active:
                 time_now_sc = pygame.time.get_ticks()
-                if time_now_sc - spinning_claw_last_used >= SPINNING_CLAW_COOLDOWN and boss_special_gauge >= 200:
-                    boss_special_gauge -= 200
+                if time_now_sc - spinning_claw_last_used >= SPINNING_CLAW_COOLDOWN and boss_special_gauge >= 60:
+                    boss_special_gauge -= 60
                     activate_spinning_claw()
                     spinning_claw_last_used = time_now_sc
                     show_speech("회전발톱!", duration=60)
