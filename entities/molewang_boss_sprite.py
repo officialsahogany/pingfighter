@@ -529,11 +529,6 @@ class MolewangBossSprite:
             self._draw_crown_on(clip_surf, crown_cx_local + crown_tilt,
                                crown_y, b, p)
 
-        # === 팔 + 발톱 ===
-        if self.is_hit and emerge > 0.3:
-            self._draw_striking_arms(clip_surf, clip_cx, clip_body_top,
-                                     body_w, visible_h, b, p, hit_shake_x)
-
         # 회전발톱 모션: 몸 비틀기 (클립서피스 자체를 회전)
         if self.spinning_claw_active:
             sc_prog = self.spinning_claw_timer / self.spinning_claw_duration
