@@ -58094,14 +58094,40 @@ def update_web_rescue():
             BALL.centerx = BOSS.centerx
             BALL.centery = BOSS.y + BOSS.height + 8
         if web_rescue_timer >= WEB_RESCUE_HOLD_FRAMES:
+            web_rescue_phase = "strike"
+            web_rescue_timer = 0
+            # 타격 사운드
+            try:
+                snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "paddle_hit2.wav")))
+                snd.set_volume(0.6)
+                snd.play()
+            except Exception:
+                pass
+            # 스프라이트 히트 연출
+            try:
+                if spider_boss_sprite and BOSS:
+                    spider_boss_sprite.trigger_hit(BALL.centerx, BOSS.centerx)
+            except Exception:
+                pass
+
+    elif web_rescue_phase == "strike":
+        # 타격 모션 — 보스가 공을 내리치는 연출 (8프레임)
+        ball_vel[0] = 0.0
+        ball_vel[1] = 0.0
+        if BOSS:
+            BALL.centerx = BOSS.centerx
+            # 공이 타격으로 아래로 밀려나는 느낌
+            strike_push = min(web_rescue_timer * 3, 20)
+            BALL.centery = BOSS.y + BOSS.height + 8 + strike_push
+        if web_rescue_timer >= 8:
             web_rescue_phase = "release"
             web_rescue_timer = 0
 
     elif web_rescue_phase == "release":
-        # 공 재발사 — 플레이어 방향으로
+        # 공 재발사 — 플레이어 방향으로 강하게
         import random as _rng
-        ball_vel[0] = _rng.uniform(-2.0, 2.0)
-        ball_vel[1] = _rng.uniform(6.0, 8.0)  # 아래(플레이어)방향
+        ball_vel[0] = _rng.uniform(-2.5, 2.5)
+        ball_vel[1] = _rng.uniform(7.0, 9.0)  # 타격 발사
         web_rescue_active = False
         web_rescue_phase = ""
 
@@ -58223,6 +58249,27 @@ def draw_web_rescue(screen):
             pygame.draw.line(fx, (255, 255, 255, 80), (ball_cx, ball_cy), (ex, ey), 1)
         # 보스 → 공 연결선
         pygame.draw.line(fx, (180, 180, 180, 100), (boss_cx, boss_cy), (ball_cx, ball_cy), 1)
+
+    elif web_rescue_phase == "strike":
+        # 타격 이펙트 — 충격파 + 거미줄 파편
+        t = min(1.0, web_rescue_timer / 8.0)
+        # 충격파 원
+        shock_r = int(10 + 30 * t)
+        shock_alpha = max(0, int(200 * (1.0 - t)))
+        pygame.draw.circle(fx, (255, 255, 200, shock_alpha), (ball_cx, ball_cy), shock_r, 3)
+        # 작은 충격파
+        shock_r2 = int(5 + 15 * t)
+        pygame.draw.circle(fx, (255, 255, 255, shock_alpha), (ball_cx, ball_cy), shock_r2, 2)
+        # 거미줄 파편 방사
+        for k in range(8):
+            angle = k * math.pi / 4 + t * 0.5
+            dist = int(8 + 25 * t)
+            frag_alpha = max(0, int(180 * (1.0 - t)))
+            fx_x = ball_cx + int(math.cos(angle) * dist)
+            fx_y = ball_cy + int(math.sin(angle) * dist)
+            pygame.draw.line(fx, (220, 220, 220, frag_alpha),
+                             (ball_cx + int(math.cos(angle) * 5), ball_cy + int(math.sin(angle) * 5)),
+                             (fx_x, fx_y), 2)
 
     screen.blit(fx, (0, 0))
 
