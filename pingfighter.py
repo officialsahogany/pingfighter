@@ -16658,6 +16658,7 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
         draw_spinning_claw_effects(SCREEN)
         # Stage 2 아라크네 거미줄 장판 렌더링
         draw_web_traps(SCREEN)
+        draw_web_rescue(SCREEN)
     elif current_stage == 3 and animated_bg_stage3 is not None:
         animated_bg_stage3.update(elapsed_ms, r_wins + r_losses)
         animated_bg_stage3.draw(SCREEN, ball_pos=(ball_cx, ball_cy))
@@ -27401,6 +27402,21 @@ WEB_TRAP_Y_MIN = 695            # Y 범위 하한 (패들 바로 위)
 WEB_TRAP_Y_MAX = 720            # Y 범위 상한 (패들 높이 근처)
 WEB_TRAP_TRAVEL_FRAMES = 35     # 발사→도착 시간 (~0.58초)
 web_trap_projectile = None      # {"sx","sy","tx","ty","timer","duration"} 또는 None
+
+# 거미줄 구출 스킬 (Web Rescue)
+WEB_RESCUE_COOLDOWN = 30000       # 30초 쿨다운
+WEB_RESCUE_GAUGE_COST = 50        # 게이지 50 소모
+WEB_RESCUE_TRIGGER_Y = 25         # 공 Y위치 이 이하일 때 트리거
+WEB_RESCUE_SHOOT_FRAMES = 15     # 실 발사 연출
+WEB_RESCUE_PULL_FRAMES = 15      # 보스→공 이동
+WEB_RESCUE_HOLD_FRAMES = 60      # 1초 홀드
+web_rescue_active = False
+web_rescue_phase = ""             # "shoot", "pull", "hold", "release"
+web_rescue_timer = 0
+web_rescue_last_used = -99999
+web_rescue_ball_x = 0             # 공 잡은 X위치
+web_rescue_ball_y = 0             # 공 잡은 Y위치
+web_rescue_boss_start_x = 0      # 보스 출발 X
 
 horizontal_bounce_count = 0
 boss_trail = []  # [(x, y, alpha)] 형식의 튜플 리스트
@@ -57952,6 +57968,155 @@ def draw_web_traps(screen):
 
         # 중앙 밝은 점
         pygame.draw.circle(fx, (255, 255, 255, spoke_alpha), (trap_cx, trap_cy), 3)
+
+    screen.blit(fx, (0, 0))
+
+
+# ============= 아라크네 거미줄 구출 스킬 (Web Rescue) =============
+def activate_web_rescue():
+    """공이 상단 벽 뒤로 넘어가기 직전, 거미줄로 공을 잡아 구출."""
+    global web_rescue_active, web_rescue_phase, web_rescue_timer
+    global web_rescue_ball_x, web_rescue_ball_y, web_rescue_boss_start_x
+    global web_rescue_last_used
+
+    web_rescue_active = True
+    web_rescue_phase = "shoot"
+    web_rescue_timer = 0
+    web_rescue_ball_x = float(BALL.centerx)
+    web_rescue_ball_y = float(BALL.centery)
+    web_rescue_boss_start_x = float(BOSS.centerx) if BOSS else 380.0
+    web_rescue_last_used = pygame.time.get_ticks()
+
+    # 사운드
+    try:
+        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "net.wav")))
+        snd.set_volume(0.5)
+        snd.play()
+    except Exception:
+        pass
+
+    # 스프라이트 히트 연출
+    try:
+        if spider_boss_sprite:
+            spider_boss_sprite.trigger_hit(BALL.centerx, BOSS.centerx if BOSS else 380)
+    except Exception:
+        pass
+
+    show_speech("잡았다!", duration=45)
+
+
+def update_web_rescue():
+    """거미줄 구출 스킬 매 프레임 업데이트."""
+    global web_rescue_active, web_rescue_phase, web_rescue_timer
+    global web_rescue_ball_x, web_rescue_ball_y, ball_vel
+
+    if not web_rescue_active:
+        return
+
+    web_rescue_timer += 1
+
+    if web_rescue_phase == "shoot":
+        # 공 정지 + 위치 고정
+        ball_vel[0] = 0.0
+        ball_vel[1] = 0.0
+        BALL.centerx = int(web_rescue_ball_x)
+        BALL.centery = int(web_rescue_ball_y)
+        if web_rescue_timer >= WEB_RESCUE_SHOOT_FRAMES:
+            web_rescue_phase = "pull"
+            web_rescue_timer = 0
+
+    elif web_rescue_phase == "pull":
+        # 보스가 공 위치로 이동 (easeOutQuad)
+        t = min(1.0, web_rescue_timer / float(WEB_RESCUE_PULL_FRAMES))
+        eased = 1.0 - (1.0 - t) * (1.0 - t)  # easeOutQuad
+        if BOSS:
+            BOSS.centerx = int(web_rescue_boss_start_x + (web_rescue_ball_x - web_rescue_boss_start_x) * eased)
+        # 공은 고정
+        ball_vel[0] = 0.0
+        ball_vel[1] = 0.0
+        BALL.centerx = int(web_rescue_ball_x)
+        BALL.centery = int(web_rescue_ball_y)
+        if web_rescue_timer >= WEB_RESCUE_PULL_FRAMES:
+            web_rescue_phase = "hold"
+            web_rescue_timer = 0
+
+    elif web_rescue_phase == "hold":
+        # 보스가 공을 잡고 있음 — 패들 아래에 고정
+        ball_vel[0] = 0.0
+        ball_vel[1] = 0.0
+        if BOSS:
+            BALL.centerx = BOSS.centerx
+            BALL.centery = BOSS.y + BOSS.height + 8
+        if web_rescue_timer >= WEB_RESCUE_HOLD_FRAMES:
+            web_rescue_phase = "release"
+            web_rescue_timer = 0
+
+    elif web_rescue_phase == "release":
+        # 공 재발사 — 플레이어 방향으로
+        import random as _rng
+        ball_vel[0] = _rng.uniform(-2.0, 2.0)
+        ball_vel[1] = _rng.uniform(6.0, 8.0)  # 아래(플레이어)방향
+        web_rescue_active = False
+        web_rescue_phase = ""
+
+
+def draw_web_rescue(screen):
+    """거미줄 구출 스킬 시각 연출."""
+    if not web_rescue_active:
+        return
+
+    fx = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
+    boss_cx = BOSS.centerx if BOSS else 380
+    boss_cy = (BOSS.y + BOSS.height) if BOSS else 65
+    ball_cx = int(BALL.centerx)
+    ball_cy = int(BALL.centery)
+
+    if web_rescue_phase == "shoot":
+        # 보스 입 → 공까지 거미줄 실 3줄 (흔들리는 선)
+        t = min(1.0, web_rescue_timer / float(WEB_RESCUE_SHOOT_FRAMES))
+        for i in range(3):
+            offset = (i - 1) * 6
+            wave = math.sin(web_rescue_timer * 0.8 + i * 1.5) * 8
+            mid_x = boss_cx + (ball_cx - boss_cx) * t * 0.5 + wave + offset
+            mid_y = boss_cy + (ball_cy - boss_cy) * t * 0.5
+            end_x = boss_cx + (ball_cx - boss_cx) * t + offset
+            end_y = boss_cy + (ball_cy - boss_cy) * t
+            alpha = min(200, int(255 * t))
+            pts = [(boss_cx + offset, boss_cy), (int(mid_x), int(mid_y)), (int(end_x), int(end_y))]
+            if len(pts) >= 2:
+                pygame.draw.lines(fx, (220, 220, 220, alpha), False, pts, 2)
+        # 공에 작은 거미줄 원
+        if t > 0.6:
+            wr = int(12 * (t - 0.6) / 0.4)
+            pygame.draw.circle(fx, (255, 255, 255, 120), (ball_cx, ball_cy), max(1, wr), 1)
+
+    elif web_rescue_phase == "pull":
+        # 보스 → 공 연결선 + 보스 잔상
+        for i in range(3):
+            offset = (i - 1) * 4
+            pygame.draw.line(fx, (200, 200, 200, 160), (boss_cx + offset, boss_cy), (ball_cx + offset, ball_cy), 2)
+        # 보스 이동 잔상
+        t = min(1.0, web_rescue_timer / float(WEB_RESCUE_PULL_FRAMES))
+        trail_count = 3
+        for j in range(trail_count):
+            ratio = max(0.0, t - j * 0.1)
+            tx = int(web_rescue_boss_start_x + (web_rescue_ball_x - web_rescue_boss_start_x) * ratio)
+            ta = max(0, 80 - j * 25)
+            pygame.draw.rect(fx, (180, 180, 180, ta), (tx - 25, boss_cy - 5, 50, 10))
+
+    elif web_rescue_phase == "hold":
+        # 공이 거미줄에 감싸여 있는 연출
+        pulse = 1.0 + 0.1 * math.sin(web_rescue_timer * 0.15)
+        wr = int(16 * pulse)
+        pygame.draw.circle(fx, (220, 220, 220, 100), (ball_cx, ball_cy), wr, 2)
+        # 거미줄 무늬 (방사형 선)
+        for k in range(6):
+            angle = k * math.pi / 3 + web_rescue_timer * 0.03
+            ex = ball_cx + int(math.cos(angle) * wr)
+            ey = ball_cy + int(math.sin(angle) * wr)
+            pygame.draw.line(fx, (255, 255, 255, 80), (ball_cx, ball_cy), (ex, ey), 1)
+        # 보스 → 공 연결선
+        pygame.draw.line(fx, (180, 180, 180, 100), (boss_cx, boss_cy), (ball_cx, ball_cy), 1)
 
     screen.blit(fx, (0, 0))
 
@@ -124454,6 +124619,7 @@ def draw_field():
         draw_spinning_claw_effects(SCREEN)
         # Stage 2 아라크네 거미줄 장판 렌더링
         draw_web_traps(SCREEN)
+        draw_web_rescue(SCREEN)
         # 원숭이가 던진 바나나를 인게임 화면에 그리기
         if pillar_renderer is not None:
             pillar_renderer.draw_bananas_ingame(SCREEN)
@@ -132914,7 +133080,7 @@ def handle_ball():
     ball_offscreen_hidden = BALL.centerx < -50 or BALL.centery < -50
     # 👁 오딘의 눈 변신 상태(penalty_active)에서도 플레이어 득점은 정상 처리
     # (변신 상태의 페널티는 이동/대쉬 제한만 적용, 득점 차단은 하지 않음)
-    if BALL.top <= 0 and not ball_in_kuromi and not odins_eye_anim_blocking_score and not ball_offscreen_hidden and not is_waiting_for_serve:
+    if BALL.top <= 0 and not ball_in_kuromi and not odins_eye_anim_blocking_score and not ball_offscreen_hidden and not is_waiting_for_serve and not web_rescue_active:
         # 튜토리얼 모드(스테이지 50)에서는 점수 계산하지 않고 단순히 튕김
         if current_stage == 50:
             ball_vel[1] = abs(ball_vel[1])  # 아래로 향하도록
@@ -146631,6 +146797,14 @@ def main(stage_num, new_boss_mode=False):
                 # Stage 2 아라크네 거미줄 장판 매 프레임 업데이트
                 if current_stage == 2 and current_boss_name == "아라크네":
                     update_web_traps()
+                    update_web_rescue()
+                    # 거미줄 구출 트리거 — 공이 상단 벽 근처에서 올라갈 때
+                    if (not web_rescue_active and BALL and BALL.top < WEB_RESCUE_TRIGGER_Y
+                            and ball_vel[1] < 0 and boss_special_gauge >= WEB_RESCUE_GAUGE_COST):
+                        time_now_wr = pygame.time.get_ticks()
+                        if time_now_wr - web_rescue_last_used >= WEB_RESCUE_COOLDOWN:
+                            boss_special_gauge -= WEB_RESCUE_GAUGE_COST
+                            activate_web_rescue()
                 handle_new_boss_skills_timer()  #  새로운 보스들 스킬 타이머 처리
                 handle_emotional_overdrive()
                 update_neutralize_particles()  # 사이코볼 무효화 파티클 업데이트
