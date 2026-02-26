@@ -225,45 +225,62 @@ class AnimatedBackgroundStage2:
         self.destroyed_rocks = []  # 파괴된 바위 추적
     
     def generate_bush_clusters(self, base_size, variant, area='boss'):
-        """고퀄리티 덤불 클러스터 생성 - 부드러운 곡선 폴리곤"""
+        """실제 덤불 느낌의 클러스터 생성 — 울퉁불퉁 잎뭉치 실루엣"""
         clusters = []
 
         if area == 'player':
-            cluster_count = 9 + (variant % 3)   # 9-11개
-            irregularity = 0.18                  # 부드러운 불규칙
-            density = 0.85                       # 밀집 (겹침 많게)
+            cluster_count = 10 + (variant % 3)
+            density = 0.80
         else:
-            cluster_count = 7 + (variant % 3)   # 7-9개
-            irregularity = 0.14
-            density = 0.75
+            cluster_count = 8 + (variant % 3)
+            density = 0.70
 
+        # 중심부 채움 클러스터 (덤불 속이 빈 것 방지)
+        center_seed = hash((base_size, variant, 'center', area)) % 10000
+        center_size = base_size * 0.7
+        center_pts = []
+        for j in range(20):
+            pa = (j / 20) * 2 * math.pi
+            cn = ((hash((center_seed, j)) % 100) / 100.0 - 0.5) * 0.12
+            cr = center_size * (0.9 + cn + math.sin(pa * 3 + center_seed * 0.01) * 0.05)
+            center_pts.append((math.cos(pa) * cr, math.sin(pa) * cr))
+        clusters.append({
+            'offset_x': 0, 'offset_y': 0,
+            'size': center_size,
+            'darkness': 0.85,
+            'variant_mod': variant,
+            'static_points': center_pts,
+            'area_type': area
+        })
+
+        # 외곽 잎뭉치 클러스터
         for i in range(cluster_count):
             seed = hash((base_size, variant, i, area)) % 10000
-            angle_offset = ((seed % 100) / 100.0 - 0.5) * 0.5
-            dist_factor = ((seed // 100) % 100) / 100.0 * 0.5 + 0.15
-            size_factor = ((seed // 10000) % 100) / 100.0 * 0.35 + 0.55
-            darkness_factor = ((seed // 1000000) % 100) / 100.0 * 0.35 + 0.65
+            angle_offset = ((seed % 100) / 100.0 - 0.5) * 0.45
+            dist_factor = ((seed // 100) % 100) / 100.0 * 0.45 + 0.2
+            size_factor = ((seed // 10000) % 100) / 100.0 * 0.3 + 0.5
+            darkness_factor = ((seed // 1000000) % 100) / 100.0 * 0.3 + 0.65
 
             angle = (i / cluster_count) * 2 * math.pi + angle_offset
             distance = dist_factor * base_size * density
 
-            # 폴리곤 포인트 24개 → 부드러운 원형 곡선
-            num_points = 24
+            # 20포인트 + 다중 하모닉 → 잎뭉치 울퉁불퉁 실루엣
+            num_points = 20
             cluster_points = []
             base_radius = size_factor * base_size
 
             for j in range(num_points):
                 point_seed = hash((seed, j, area)) % 10000
-                point_angle = (j / num_points) * 2 * math.pi
+                pa = (j / num_points) * 2 * math.pi
 
-                # 부드러운 반경 변동 (이웃 포인트와 연속적)
-                noise = ((point_seed % 100) / 100.0 - 0.5) * irregularity
-                # 2차 하모닉으로 유기적 형태
-                harmonic = math.sin(point_angle * 2 + seed * 0.01) * 0.06
-                radius = base_radius * (0.85 + noise + harmonic)
+                # 잎뭉치 질감: 고주파 울퉁불퉁 + 저주파 변형
+                bump = math.sin(pa * 5 + seed * 0.03) * 0.10   # 잎 돌출
+                wave = math.sin(pa * 3 + seed * 0.01) * 0.06   # 유기적 굴곡
+                noise = ((point_seed % 100) / 100.0 - 0.5) * 0.15  # 랜덤 변동
+                radius = base_radius * (0.82 + bump + wave + noise)
 
-                px = math.cos(angle) * distance + math.cos(point_angle) * radius
-                py = math.sin(angle) * distance + math.sin(point_angle) * radius
+                px = math.cos(angle) * distance + math.cos(pa) * radius
+                py = math.sin(angle) * distance + math.sin(pa) * radius
                 cluster_points.append((px, py))
 
             cluster = {
@@ -1513,6 +1530,40 @@ class AnimatedBackgroundStage2:
                    for sp in cluster['static_points']]
             if len(pts) >= 3:
                 pygame.draw.polygon(surface, color, pts)
+
+        # === 클러스터 내부 잎 텍스처 (질감) ===
+        for idx, cluster in enumerate(bush['clusters']):
+            cx = x + cluster['offset_x'] + rustle_x
+            cy = y + cluster['offset_y'] + rustle_y
+            cs = cluster['size']
+            d = cluster['darkness']
+            tex_count = max(3, int(cs * 0.25))
+            for t in range(tex_count):
+                t_seed = hash((idx, t, variant, 'tex')) % 10000
+                ta = (t_seed % 360) * math.pi / 180
+                td = cs * 0.35 * ((t_seed // 360 % 70) / 100.0 + 0.1)
+                tx = cx + math.cos(ta) * td + rustle_x * 0.3
+                ty = cy + math.sin(ta) * td + rustle_y * 0.3
+                tr = max(1, int(1 + (t_seed // 5000) % 2))
+                # 밝거나 어두운 잎 질감 도트
+                if (t_seed // 100) % 3 == 0:
+                    tc = tuple(min(255, int(v * d * 1.1)) for v in pal['bright'][t_seed % 3])
+                else:
+                    tc = tuple(max(0, int(v * d * 0.45)) for v in pal['mid'][t_seed % 3])
+                pygame.draw.circle(surface, tc, (int(tx), int(ty)), tr)
+
+        # === 클러스터 에지 윤곽선 (실루엣 강조) ===
+        for idx, cluster in enumerate(bush['clusters']):
+            if idx == 0:
+                continue  # 중심 클러스터는 스킵
+            cx = x + cluster['offset_x'] + rustle_x
+            cy = y + cluster['offset_y'] + rustle_y
+            d = cluster['darkness']
+            edge_c = tuple(max(0, int(v * d * 0.35)) for v in pal['dark'][idx % 3])
+            pts = [(cx + sp[0] + rustle_x, cy + sp[1] + rustle_y)
+                   for sp in cluster['static_points']]
+            if len(pts) >= 3:
+                pygame.draw.polygon(surface, edge_c, pts, 1)
 
         # === 잎사귀 디테일 ===
         leaf_pal = [
