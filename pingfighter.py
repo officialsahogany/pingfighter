@@ -130942,7 +130942,12 @@ def handle_ball():
                     # 🔧 버그 수정: 센서 대시에서도 키 릴리즈 플래그 설정
                     globals()['dash_key_released_since_last'] = False
                     rolling_active = True
-                    _break_arrest_rope_on_dash()
+                    # 포승줄 포박 중 대쉬 → 즉시 끊어짐 (인라인)
+                    if arrest_rope_phase == "bound":
+                        arrest_rope_phase = "releasing"
+                        arrest_rope_active = False
+                        arrest_rope_timer = 28
+                        show_speech("끊어냈다!", duration=60)
                     # 🌑 오딘의 눈 대쉬 다이브
                     try:
                         from legendary_items import get_legendary_manager as _glm_sd
