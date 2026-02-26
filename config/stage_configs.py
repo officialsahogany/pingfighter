@@ -172,10 +172,10 @@ BOSS_VARIANTS = {
             **BOSS_CONFIGS[2],              # 악어장군 기반
             "name": "아라크네",
             "color": (80, 40, 25),          # 짙은 갈색 (거미 체색)
-            "accel": BOSS_CONFIGS[2]["accel"] * 0.80,        # -20% 이동속도
-            "decel": BOSS_CONFIGS[2]["decel"] * 0.80,
-            "max_speed": BOSS_CONFIGS[2]["max_speed"] * 0.80,
-            "instant_stop": BOSS_CONFIGS[2]["instant_stop"] * 0.80,
+            "accel": BOSS_CONFIGS[2]["accel"] * 0.70,        # -30% 이동속도
+            "decel": BOSS_CONFIGS[2]["decel"] * 0.70,
+            "max_speed": BOSS_CONFIGS[2]["max_speed"] * 0.70,
+            "instant_stop": BOSS_CONFIGS[2]["instant_stop"] * 0.70,
             "special_skill": "web_trap",    # 거미줄 장판
         },
     },
