@@ -69246,8 +69246,8 @@ def handle_player(keys):
                                 if animated_bg_stage30.is_judgment_earthquake_active():
                                     adjusted_acceleration *= 0.5
                                     adjusted_max_speed *= 0.5
-                            # 즉시 속도 제한
-                            if arena_player_slow_mult != 1.0 or arena_player_speed_boost_only > 1.0:
+                            # 즉시 속도 제한 (투기장 둔화/부스트 또는 거미줄 장판)
+                            if arena_player_slow_mult != 1.0 or arena_player_speed_boost_only > 1.0 or web_slow < 1.0:
                                 if current_speed > adjusted_max_speed:
                                     current_speed = adjusted_max_speed
                                 elif current_speed < -adjusted_max_speed:
