@@ -27372,7 +27372,7 @@ TUNNEL_RAID_RETURN_FRAMES = 60      # 귀환 1초
 spinning_claw_active = False
 spinning_claw_timer = 0
 spinning_claw_last_used = -9999
-SPINNING_CLAW_COOLDOWN = 10000       # 10초 쿨다운
+SPINNING_CLAW_COOLDOWN = 20000       # 20초 쿨다운
 spinning_claw_direction = 0           # 스와이프 방향 (-1/1)
 spinning_claw_hit_x = 0
 spinning_claw_hit_y = 0
@@ -134321,10 +134321,11 @@ def handle_ball():
                     molewang_boss_sprite.trigger_hit(BALL.centerx, BOSS.centerx)
             except Exception as e:
                 print(f"⚠️ 두더지왕 히트 애니메이션 트리거 실패: {e}")
-            # 두더지왕 회전발톱 발동 (쿨다운 10초, 땅굴습격 중 발동 불가)
+            # 두더지왕 회전발톱 발동 (쿨다운 20초, 게이지 200 소모, 땅굴습격 중 발동 불가)
             if current_boss_name == "두더지왕" and not tunnel_raid_active:
                 time_now_sc = pygame.time.get_ticks()
-                if time_now_sc - spinning_claw_last_used >= SPINNING_CLAW_COOLDOWN:
+                if time_now_sc - spinning_claw_last_used >= SPINNING_CLAW_COOLDOWN and boss_special_gauge >= 200:
+                    boss_special_gauge -= 200
                     activate_spinning_claw()
                     spinning_claw_last_used = time_now_sc
                     show_speech("회전발톱!", duration=60)
