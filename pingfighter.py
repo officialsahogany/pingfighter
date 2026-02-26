@@ -58260,13 +58260,28 @@ def update_spider_rage():
             except Exception:
                 pass
 
-    # 60, 70, 80프레임: 붉은 거미줄 투사체 3개 순차 발사
-    elif spider_rage_timer in (60, 70, 80):
+    # 60프레임: 3등분 구간별 랜덤 X 사전 계산 (겹침 방지)
+    if spider_rage_timer == 60:
         import random as _rng
+        zone_w = (GAME_PLAY_WIDTH - 60) // 3
+        z_start = GAME_AREA_OFFSET_X + 30
+        _zones = list(range(3))
+        _rng.shuffle(_zones)
+        spider_rage_projectiles_targets = []
+        for z in _zones:
+            spider_rage_projectiles_targets.append(
+                float(_rng.randint(z_start + z * zone_w, z_start + (z + 1) * zone_w)))
+
+    # 60, 70, 80프레임: 붉은 거미줄 투사체 순차 발사
+    if spider_rage_timer in (60, 70, 80):
+        import random as _rng
+        shot_idx = (spider_rage_timer - 60) // 10
         sx = float(BOSS.centerx if BOSS else WIDTH // 2)
         sy = float((BOSS.y + BOSS.height + 5) if BOSS else 70)
-        tx = float(_rng.randint(GAME_AREA_OFFSET_X + 30,
-                                GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 30))
+        try:
+            tx = spider_rage_projectiles_targets[shot_idx]
+        except Exception:
+            tx = float(_rng.randint(GAME_AREA_OFFSET_X + 30, GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 30))
         ty = float(_rng.randint(WEB_TRAP_Y_MIN, WEB_TRAP_Y_MAX))
         spider_rage_projectiles.append({
             "sx": sx, "sy": sy, "tx": tx, "ty": ty,
