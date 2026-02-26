@@ -66408,6 +66408,11 @@ def handle_player(keys):
         # 안전 가드: 어떤 이유로든 참조 실패 시 감속 미적용
         pass
 
+    # 아라크네 거미줄 장판: 이동속도 60% 감소
+    web_slow = get_web_trap_player_slow()
+    if web_slow < 1.0:
+        speed_factor *= web_slow
+
     umbrella_guarding = (
         selected_character_type == "blacksmith"
         and blacksmith_umbrella_open
@@ -146539,10 +146544,6 @@ def main(stage_num, new_boss_mode=False):
                 # Stage 2 아라크네 거미줄 장판 매 프레임 업데이트
                 if current_stage == 2 and current_boss_name == "아라크네":
                     update_web_traps()
-                    # 플레이어가 거미줄 위에 있으면 이동속도 감소
-                    web_slow = get_web_trap_player_slow()
-                    if web_slow < 1.0:
-                        PLAYER_SPEED = max(0.3, PLAYER_SPEED * web_slow)
                 handle_new_boss_skills_timer()  #  새로운 보스들 스킬 타이머 처리
                 handle_emotional_overdrive()
                 update_neutralize_particles()  # 사이코볼 무효화 파티클 업데이트
