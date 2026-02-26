@@ -58070,6 +58070,9 @@ def update_web_rescue():
         if web_rescue_timer >= WEB_RESCUE_HOLD_WAIT_FRAMES:
             web_rescue_phase = "pull"
             web_rescue_timer = 0
+            # 보스가 대기 중 AI로 이동했을 수 있으므로 현재 위치를 시작점으로 갱신
+            if BOSS:
+                web_rescue_boss_start_x = float(BOSS.centerx)
 
     elif web_rescue_phase == "pull":
         # 보스가 공 위치로 천천히 이동 (easeInQuad — 느리게 출발, 점점 가속)
@@ -132999,7 +133002,10 @@ def handle_ball():
                 pass
 
     # --- 벽 충돌 처리 ---
-    if BALL.left <= 0:
+    # 거미줄 구출 중에는 벽 충돌 처리 스킵 (공이 고정 상태)
+    if web_rescue_active:
+        pass
+    elif BALL.left <= 0:
         BALL.left = 0
         ball_vel[0] *= -1
         # 🔧 벽 충돌 시 속도 약간 감속 (포세이돈 회오리 후 너무 빠른 속도 방지)
