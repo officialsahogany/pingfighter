@@ -168,6 +168,12 @@ BOSS_VARIANTS = {
             "color": (139, 90, 43),         # 흙갈색 (두더지 모피)
             "special_skill": "claw_dig",    # 발톱 파기
         },
+        "아라크네": {
+            **BOSS_CONFIGS[2],              # 악어장군과 동일 스탯
+            "name": "아라크네",
+            "color": (80, 40, 25),          # 짙은 갈색 (거미 체색)
+            "special_skill": "web_trap",    # 거미줄 장판
+        },
     },
 }
 

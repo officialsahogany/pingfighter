@@ -16636,7 +16636,7 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
         SCREEN.blit(CURRENT_BG, (shake_x, shake_y))
     elif current_stage == 2 and animated_bg_stage2 is not None:
         valthor_perf_start("stage2_bg_update")
-        if current_boss_name == "두더지왕":
+        if current_boss_name in ("두더지왕", "아라크네"):
             animated_bg_stage2.update(elapsed_ms, ball_cx, ball_cy, boss_cx, player_cx, None, None)
         else:
             animated_bg_stage2.update(elapsed_ms, ball_cx, ball_cy, boss_cx, player_cx, r_wins, r_losses)
@@ -16656,6 +16656,8 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
         # Stage 2 두더지왕 땅굴 습격 이펙트 렌더링
         draw_tunnel_raid_effects(SCREEN)
         draw_spinning_claw_effects(SCREEN)
+        # Stage 2 아라크네 거미줄 장판 렌더링
+        draw_web_traps(SCREEN)
     elif current_stage == 3 and animated_bg_stage3 is not None:
         animated_bg_stage3.update(elapsed_ms, r_wins + r_losses)
         animated_bg_stage3.draw(SCREEN, ball_pos=(ball_cx, ball_cy))
@@ -17745,6 +17747,8 @@ def _swap_boss_in_current_stage():
     elif stage == 2:
         if new_boss == "두더지왕":
             BOSS_COLOR = (139, 90, 43)
+        elif new_boss == "아라크네":
+            BOSS_COLOR = (80, 40, 25)
         else:
             BOSS_COLOR = (0, 255, 0)
 
@@ -27381,6 +27385,20 @@ spinning_claw_direction = 0           # 스와이프 방향 (-1/1)
 spinning_claw_hit_x = 0
 spinning_claw_hit_y = 0
 SPINNING_CLAW_EFFECT_DURATION = 30    # 이펙트 0.5초
+
+# 아라크네 거미줄 장판 스킬
+web_traps = []          # [{"x":, "y":, "radius":, "timer":, "max_timer":}]
+web_trap_last_used = -9999
+WEB_TRAP_COOLDOWN = 15000       # 15초 쿨다운
+WEB_TRAP_GAUGE_COST = 500       # 게이지 500 소모
+WEB_TRAP_COUNT = 3              # 3개 동시 생성
+WEB_TRAP_DURATION = 480         # 8초 (480프레임)
+WEB_TRAP_RADIUS = 50            # 반지름 50px
+WEB_TRAP_BALL_SLOW = 0.70       # 공 감속 ×0.70
+WEB_TRAP_BALL_WARP = 0.15       # 공 방향 왜곡 ±0.15 라디안
+WEB_TRAP_PLAYER_SLOW = 0.60     # 플레이어 감속 ×0.60
+WEB_TRAP_Y_MIN = 375            # Y 범위 하한 (중앙선)
+WEB_TRAP_Y_MAX = 600            # Y 범위 상한 (플레이어 영역 근처)
 
 horizontal_bounce_count = 0
 boss_trail = []  # [(x, y, alpha)] 형식의 튜플 리스트
@@ -42766,6 +42784,9 @@ BOSS_IMG_TALKWANGDAE_HEIGHT = 184
 # 두더지왕 전용 사이즈 (스테이지 2 서브보스)
 BOSS_IMG_MOLEWANG_WIDTH = 96
 BOSS_IMG_MOLEWANG_HEIGHT = 192
+# 아라크네 전용 사이즈 (스테이지 2 서브보스)
+BOSS_IMG_SPIDER_WIDTH = 120
+BOSS_IMG_SPIDER_HEIGHT = 120
 # 스테이지 4, 5 전용 사이즈
 BOSS_IMG_STAGE4_WIDTH = 125  # 10% 증가 (114→125)
 BOSS_IMG_STAGE4_HEIGHT = 68  # 10% 증가 (62→68)
@@ -52231,6 +52252,20 @@ except Exception as e:
     print(f"[WARN] Molewang boss sprite load failed: {e}")
     molewang_boss_sprite = None
     MOLEWANG_BOSS_ANIMATION_AVAILABLE = False
+# Stage 2 보스 (아라크네) 프로시저럴 스프라이트 초기화
+try:
+    from entities.spider_boss_sprite import (
+        get_spider_boss_sprite,
+        init_spider_boss_sprite,
+        reset_spider_boss_sprite,
+        SpiderBossSprite
+    )
+    spider_boss_sprite = init_spider_boss_sprite()
+    SPIDER_BOSS_ANIMATION_AVAILABLE = True
+except Exception as e:
+    print(f"[WARN] Spider boss sprite load failed: {e}")
+    spider_boss_sprite = None
+    SPIDER_BOSS_ANIMATION_AVAILABLE = False
 # Stage 2 보스 (악어장군) 걷기 애니메이션 초기화
 try:
     from entities.stage2_boss_sprite import (
@@ -53412,6 +53447,10 @@ def go_to_next_round():
     spinning_claw_active = False
     spinning_claw_timer = 0
     spinning_claw_last_used = -9999
+    # Stage 2 아라크네 거미줄 장판 초기화
+    global web_traps, web_trap_last_used
+    web_traps.clear()
+    web_trap_last_used = -9999
     #  홍련폭염 상태 초기화
     flame_trail_active = False
     flame_trail_positions.clear()
@@ -57691,6 +57730,145 @@ def draw_spinning_claw_effects(screen):
             trail_sz = max(1, 4 - j)
             pygame.draw.circle(fx, (220, 200, 130, max(0, curve_alpha - j * 40)),
                              (int(trail_x), int(trail_y)), trail_sz)
+
+    screen.blit(fx, (0, 0))
+
+
+# ============= 아라크네 거미줄 장판 스킬 =============
+def activate_web_trap():
+    """거미줄 장판 3개 생성."""
+    global web_traps, web_trap_last_used, boss_special_gauge
+    import random as _rng
+
+    for _ in range(WEB_TRAP_COUNT):
+        wx = _rng.randint(GAME_AREA_OFFSET_X + WEB_TRAP_RADIUS + 10,
+                          GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - WEB_TRAP_RADIUS - 10)
+        wy = _rng.randint(WEB_TRAP_Y_MIN, WEB_TRAP_Y_MAX)
+        web_traps.append({
+            "x": wx, "y": wy,
+            "radius": WEB_TRAP_RADIUS,
+            "timer": WEB_TRAP_DURATION,
+            "max_timer": WEB_TRAP_DURATION,
+            "phase": _rng.uniform(0, math.pi * 2),
+        })
+
+    web_trap_last_used = pygame.time.get_ticks()
+
+    # 사운드
+    try:
+        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "net.wav")))
+        snd.set_volume(0.5)
+        snd.play()
+    except Exception:
+        pass
+
+    # 아라크네 히트 애니메이션
+    try:
+        if spider_boss_sprite is not None:
+            spider_boss_sprite.trigger_hit(BOSS.centerx if BOSS else WIDTH // 2, BOSS.centerx if BOSS else WIDTH // 2)
+    except Exception:
+        pass
+
+    show_speech("거미줄!", duration=60)
+    return True
+
+
+def update_web_traps():
+    """거미줄 장판 타이머 갱신 + 공/플레이어 효과 적용."""
+    global web_traps, ball_vel
+    if not web_traps:
+        return
+
+    expired = []
+    for i, trap in enumerate(web_traps):
+        trap["timer"] -= 1
+        trap["phase"] += 0.05
+        if trap["timer"] <= 0:
+            expired.append(i)
+            continue
+
+        # 공이 거미줄 위에 있으면 감속 + 방향 왜곡
+        if BALL:
+            dx = BALL.centerx - trap["x"]
+            dy = BALL.centery - trap["y"]
+            dist = math.sqrt(dx * dx + dy * dy)
+            if dist < trap["radius"]:
+                ball_vel[0] *= WEB_TRAP_BALL_SLOW
+                ball_vel[1] *= WEB_TRAP_BALL_SLOW
+                # 방향 왜곡
+                angle = math.atan2(ball_vel[1], ball_vel[0])
+                warp = random.uniform(-WEB_TRAP_BALL_WARP, WEB_TRAP_BALL_WARP)
+                speed = math.sqrt(ball_vel[0] ** 2 + ball_vel[1] ** 2)
+                angle += warp
+                ball_vel[0] = speed * math.cos(angle)
+                ball_vel[1] = speed * math.sin(angle)
+
+    # 만료된 거미줄 제거 (역순)
+    for i in reversed(expired):
+        web_traps.pop(i)
+
+
+def get_web_trap_player_slow():
+    """플레이어가 거미줄 위에 있으면 감속 배율 반환 (1.0 = 영향 없음)."""
+    if not web_traps or not PLAYER:
+        return 1.0
+    px, py = PLAYER.centerx, PLAYER.centery
+    for trap in web_traps:
+        dx = px - trap["x"]
+        dy = py - trap["y"]
+        if math.sqrt(dx * dx + dy * dy) < trap["radius"] + 20:
+            return WEB_TRAP_PLAYER_SLOW
+    return 1.0
+
+
+def draw_web_traps(screen):
+    """거미줄 장판 렌더링 — 반투명 원 + 방사형 spokes + 동심원."""
+    if not web_traps:
+        return
+
+    fx = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+
+    for trap in web_traps:
+        cx, cy = trap["x"], trap["y"]
+        r = trap["radius"]
+        remaining = trap["timer"]
+        phase = trap["phase"]
+
+        # 만료 2초 전(120프레임) 깜빡임
+        if remaining < 120 and (remaining // 8) % 2 == 0:
+            continue
+
+        # 맥동 효과
+        pulse = 1.0 + 0.05 * math.sin(phase * 2)
+        pr = int(r * pulse)
+
+        # 반투명 원형 바탕
+        base_alpha = min(120, int(160 * (remaining / trap["max_timer"])))
+        pygame.draw.circle(fx, (220, 220, 220, base_alpha // 2), (cx, cy), pr)
+
+        # 방사형 spokes 8줄
+        spoke_alpha = min(180, base_alpha + 40)
+        for i in range(8):
+            angle = (i / 8) * math.pi * 2 + phase * 0.3
+            ex = cx + int(pr * math.cos(angle))
+            ey = cy + int(pr * math.sin(angle))
+            pygame.draw.line(fx, (240, 240, 240, spoke_alpha), (cx, cy), (ex, ey), 1)
+
+        # 동심원 5겹 (유기적 흔들림)
+        for ring in range(1, 6):
+            ring_r = int(pr * ring / 5)
+            ring_pts = []
+            for seg in range(16):
+                a = (seg / 16) * math.pi * 2
+                wobble = 1.0 + 0.08 * math.sin(a * 3 + phase + ring)
+                rx = cx + int(ring_r * wobble * math.cos(a))
+                ry = cy + int(ring_r * wobble * math.sin(a))
+                ring_pts.append((rx, ry))
+            if len(ring_pts) >= 3:
+                pygame.draw.polygon(fx, (255, 255, 255, spoke_alpha // 2), ring_pts, 1)
+
+        # 중앙 밝은 점
+        pygame.draw.circle(fx, (255, 255, 255, spoke_alpha), (cx, cy), 3)
 
     screen.blit(fx, (0, 0))
 
@@ -96501,10 +96679,19 @@ def draw_objects():
             boss_img = BOSS_IMG_STAGE1
             boss_w, boss_h = BOSS_IMG_STAGE1_WIDTH, BOSS_IMG_STAGE1_HEIGHT
     elif current_stage == 2:
-        # Stage 2 보스 렌더링 (악어장군 / 두더지왕)
+        # Stage 2 보스 렌더링 (악어장군 / 두더지왕 / 아라크네)
         if speed_defense_active:
             boss_img = SPEED_DEFENSE_IMG
             boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
+        elif current_boss_name == "아라크네" and SPIDER_BOSS_ANIMATION_AVAILABLE and spider_boss_sprite is not None:
+            boss_img_prescaled = True
+            boss_x_pos = BOSS.x if BOSS else WIDTH // 2
+            spider_boss_sprite.update(boss_x_pos, 1/60)
+            boss_w, boss_h = BOSS_IMG_SPIDER_WIDTH, BOSS_IMG_SPIDER_HEIGHT
+            boss_img = spider_boss_sprite.get_current_frame((boss_w, boss_h))
+            if boss_img is None:
+                boss_img = BOSS_IMG_STAGE2
+                boss_img_prescaled = False
         elif current_boss_name == "두더지왕" and MOLEWANG_BOSS_ANIMATION_AVAILABLE and molewang_boss_sprite is not None:
             boss_img_prescaled = True
             boss_x_pos = BOSS.x if BOSS else WIDTH // 2
@@ -124154,8 +124341,8 @@ def draw_field():
     elif current_stage == 2 and animated_bg_stage2 is not None:
         # 스테이지2에서는 정글 사이버펑크 애니메이션 배경 사용
         # 공 위치, 패들 위치, 점수를 배경에 전달 (눈동자 추적 + 덤불 흔들림 + 위기 상황용)
-        # 두더지왕은 바위 낙석 이벤트 없음 (악어장군 전용) → 점수 전달 안 함
-        if current_boss_name == "두더지왕":
+        # 두더지왕/아라크네는 바위 낙석 이벤트 없음 (악어장군 전용) → 점수 전달 안 함
+        if current_boss_name in ("두더지왕", "아라크네"):
             animated_bg_stage2.update(clock.get_time(), BALL.centerx, BALL.centery,
                                     BOSS.centerx, PLAYER.centerx, None, None)
         else:
@@ -124173,6 +124360,8 @@ def draw_field():
         # Stage 2 두더지왕 땅굴 습격 이펙트 렌더링
         draw_tunnel_raid_effects(SCREEN)
         draw_spinning_claw_effects(SCREEN)
+        # Stage 2 아라크네 거미줄 장판 렌더링
+        draw_web_traps(SCREEN)
         # 원숭이가 던진 바나나를 인게임 화면에 그리기
         if pillar_renderer is not None:
             pillar_renderer.draw_bananas_ingame(SCREEN)
@@ -127445,7 +127634,7 @@ def reset_round(is_stage_start=False):
     rolling_stun_timer = 0
     
     #  Stage 2에서 보스 분노 애니메이션 시작 체크 (악어장군 전용)
-    if current_stage == 2 and animated_bg_stage2 and current_boss_name != "두더지왕":
+    if current_stage == 2 and animated_bg_stage2 and current_boss_name not in ("두더지왕", "아라크네"):
         if animated_bg_stage2.start_boss_rage_animation():
             animated_bg_stage2.cry_sound = SOUND_CRY  # cry.wav 사운드 전달
             # print(":    !")
@@ -127737,6 +127926,9 @@ def reset_round(is_stage_start=False):
     spinning_claw_active = False
     spinning_claw_timer = 0
     spinning_claw_last_used = -9999
+    # Stage 2 아라크네 거미줄 장판 초기화
+    web_traps.clear()
+    web_trap_last_used = -9999
     speed_defense_active = False
     speed_defense_timer = 0
     horizontal_bounce_count = 0
@@ -129999,6 +130191,8 @@ def handle_ball():
     global arena_perk_comeback_aura_timer
     # 두더지왕 회전발톱
     global spinning_claw_last_used
+    # 아라크네 거미줄 장판
+    global web_trap_last_used
 
     # --- Stage 8 그림자분신: 매 프레임 상태 업데이트 ---
     if current_stage == 8:
@@ -134335,9 +134529,17 @@ def handle_ball():
             try:
                 if current_boss_name == "두더지왕" and molewang_boss_sprite and not tunnel_raid_active:
                     molewang_boss_sprite.trigger_hit(BALL.centerx, BOSS.centerx)
+                elif current_boss_name == "아라크네" and spider_boss_sprite:
+                    spider_boss_sprite.trigger_hit(BALL.centerx, BOSS.centerx)
             except Exception as e:
-                print(f"⚠️ 두더지왕 히트 애니메이션 트리거 실패: {e}")
-            # 두더지왕 회전발톱 발동 (쿨다운 20초, 게이지 200 소모, 땅굴습격 중 발동 불가)
+                print(f"⚠️ 스테이지2 히트 애니메이션 트리거 실패: {e}")
+            # 아라크네 거미줄 장판 발동 (쿨다운 15초, 게이지 500 소모)
+            if current_boss_name == "아라크네":
+                time_now_wt = pygame.time.get_ticks()
+                if time_now_wt - web_trap_last_used >= WEB_TRAP_COOLDOWN and boss_special_gauge >= WEB_TRAP_GAUGE_COST:
+                    boss_special_gauge -= WEB_TRAP_GAUGE_COST
+                    activate_web_trap()
+            # 두더지왕 회전발톱 발동 (쿨다운 20초, 게이지 60 소모, 땅굴습격 중 발동 불가)
             if current_boss_name == "두더지왕" and not tunnel_raid_active:
                 time_now_sc = pygame.time.get_ticks()
                 if time_now_sc - spinning_claw_last_used >= SPINNING_CLAW_COOLDOWN and boss_special_gauge >= 60:
@@ -140837,6 +141039,7 @@ def main(stage_num, new_boss_mode=False):
     global tunnel_raid_target_x, tunnel_raid_original_boss_y, tunnel_raid_visual_y
     global spinning_claw_active, spinning_claw_timer, spinning_claw_last_used, spinning_claw_direction
     global spinning_claw_hit_x, spinning_claw_hit_y
+    global web_traps, web_trap_last_used
     if stage_num != 30 and arena_mode_enabled:
         print(f"[WARNING] 스테이지 {stage_num} 진입 시 arena_mode_enabled=True 감지! 강제 초기화")
         arena_mode_enabled = False
@@ -141741,6 +141944,8 @@ def main(stage_num, new_boss_mode=False):
         CURRENT_BG = STAGE2_BG
         if current_boss_name == "두더지왕":
             BOSS_COLOR = (139, 90, 43)  # 흙갈색 (두더지왕)
+        elif current_boss_name == "아라크네":
+            BOSS_COLOR = (80, 40, 25)   # 짙은 갈색 (아라크네)
         else:
             BOSS_COLOR = (100, 255, 100)
         # Stage 2 BGM 재생
@@ -146317,6 +146522,13 @@ def main(stage_num, new_boss_mode=False):
                                     tunnel_raid_last_used = time_now_tr
                     update_tunnel_raid()
                     update_spinning_claw()
+                # Stage 2 아라크네 거미줄 장판 매 프레임 업데이트
+                if current_stage == 2 and current_boss_name == "아라크네":
+                    update_web_traps()
+                    # 플레이어가 거미줄 위에 있으면 이동속도 감소
+                    web_slow = get_web_trap_player_slow()
+                    if web_slow < 1.0:
+                        PLAYER_SPEED = max(0.3, PLAYER_SPEED * web_slow)
                 handle_new_boss_skills_timer()  #  새로운 보스들 스킬 타이머 처리
                 handle_emotional_overdrive()
                 update_neutralize_particles()  # 사이코볼 무효화 파티클 업데이트
@@ -155642,7 +155854,7 @@ def _create_mp_player(is_top: bool, player_num: int) -> dict:
 
 def _draw_mp_smasher_sprite(screen, player: dict, step_phase: float = 0):
     """멀티플레이어 스매셔 스프라이트 그리기"""
-    try:
+    try: 
         # 기존 스매셔 스프라이트 함수 활용
         is_left = player["facing_left"]
         is_hit = player["hit_pose_timer"] > 0

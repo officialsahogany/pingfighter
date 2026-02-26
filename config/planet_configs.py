@@ -27,7 +27,7 @@ PLANET_CONFIGS = {
         "boss_roster": [
             {"name": "악어장군", "implemented": True},
             {"name": "두더지왕", "implemented": True},
-            {"name": "???", "implemented": False},
+            {"name": "아라크네", "implemented": True},
         ],
     },
     3: {
