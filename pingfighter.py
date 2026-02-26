@@ -57310,7 +57310,7 @@ def update_tunnel_raid():
             if hit_dist < 60:
                 knockback_dir = 1 if PLAYER.centerx > tunnel_raid_target_x else -1
                 player_knockback_vel = apply_knockback_resist(_scale_knockback(knockback_dir * 14))
-                try_apply_player_stun(1.8, source="땅굴 습격", knockback_scaled=True)
+                try_apply_player_stun(1.0, source="땅굴 습격", knockback_scaled=True)
 
             screen_shake_timer = max(screen_shake_timer, 30)
             screen_shake_intensity = max(screen_shake_intensity, 18)
@@ -99643,7 +99643,7 @@ def draw_objects():
         stars_y = PLAYER.y - 40
         # 우선순위: 미사일 스턴 타이머, 없으면 일반 스턴 타이머 사용
         local_timer = player_missile_stunned_timer if player_missile_stunned_timer > 0 else player_stunned_timer
-        rotation_angle = (18 - min(18, local_timer)) * 20  # 회전 각도(느슨)
+        rotation_angle = (pygame.time.get_ticks() * 0.3) % 360  # 시간 기반 즉시 회전
 
         suppress_stars_until = player_stun_star_suppress_until_ms
         show_stars = pygame.time.get_ticks() >= suppress_stars_until
