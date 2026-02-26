@@ -96458,10 +96458,19 @@ def draw_objects():
         float_offset += math.sin(float_time * 0.005) * 1.5
         boss_offset_y = float_offset
 
-    # === 스테이지 2 두더지왕 땅굴 습격 Y축 이동 ===
+    # === 스테이지 2 두더지왕 땅굴 습격 Y축 + X축 이동 ===
+    tunnel_raid_offset_x = 0
     if current_stage == 2 and current_boss_name == "두더지왕" and tunnel_raid_active:
         # 땅굴 습격 중에는 스프라이트를 tunnel_raid_visual_y 위치로 이동
         boss_offset_y = tunnel_raid_visual_y - BOSS.centery
+        full_dx = tunnel_raid_target_x - BOSS.centerx
+        if tunnel_raid_phase == "strike":
+            tunnel_raid_offset_x = full_dx
+        elif tunnel_raid_phase == "return":
+            # return 진행률에 따라 X축도 원래 위치로 복귀
+            ret_prog = 1.0 - (tunnel_raid_timer / max(1, TUNNEL_RAID_RETURN_FRAMES))
+            ret_eased = 1.0 - (1.0 - ret_prog) ** 2
+            tunnel_raid_offset_x = full_dx * (1.0 - ret_eased)
 
     # === 스테이지 6 (네메시스) 공중 부유 모션 ===
     # 항공모함이 천천히 위아래로 흔들리는 효과
@@ -96538,7 +96547,7 @@ def draw_objects():
             boss_rect = rotated_boss.get_rect(center=(int(BOSS.centerx + screen_shake_offset_x),
                                                       int(BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 25)))
         else:
-            boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x,
+            boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x + tunnel_raid_offset_x,
                                                       BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y))
     else:
         # 원래 보스 회전 로직 (화면 흔들림 오프셋 적용)
@@ -96553,7 +96562,7 @@ def draw_objects():
             boss_rect = rotated_boss.get_rect(center=(int(BOSS.centerx + screen_shake_offset_x),
                                                       int(BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 25)))
         else:
-            boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x,
+            boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x + tunnel_raid_offset_x,
                                                       BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y))
     # 초인 오라(배경) + 강렬 펄싱 + 파티클 (최적화됨)
     if current_stage == 7 and stage7_super_active:
