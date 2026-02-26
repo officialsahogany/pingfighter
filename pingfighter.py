@@ -57315,13 +57315,15 @@ def update_tunnel_raid():
             screen_shake_timer = max(screen_shake_timer, 30)
             screen_shake_intensity = max(screen_shake_intensity, 18)
 
-            # 돌출 사운드
+            # 돌출 사운드 + 바위 파괴음
             try:
-                sound_path = resource_path(os.path.join("sounds", "godearthquake.wav"))
-                if os.path.exists(sound_path):
-                    snd = pygame.mixer.Sound(sound_path)
-                    snd.set_volume(0.6)
-                    snd.play()
+                snd1 = pygame.mixer.Sound(resource_path(os.path.join("sounds", "godearthquake.wav")))
+                snd1.set_volume(0.6)
+                snd1.play()
+                sb = random.choice(["stonebreak1.wav", "stonebreak2.wav", "stonebreak3.wav"])
+                snd2 = pygame.mixer.Sound(resource_path(os.path.join("sounds", sb)))
+                snd2.set_volume(0.55)
+                snd2.play()
             except Exception:
                 pass
 
