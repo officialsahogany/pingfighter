@@ -50,6 +50,13 @@ class MolewangBossSprite:
         self._dirt_particles = []
         self._dirt_spawn_timer = 0.0
 
+        # 회전발톱 모션
+        self.spinning_claw_active = False
+        self.spinning_claw_timer = 0.0
+        self.spinning_claw_duration = 0.5     # 0.5초
+        self.spinning_claw_direction = 1      # 스와이프 방향 (-1/1)
+        self.spinning_claw_emerge = 0.0       # 별도 솟아오르기
+
         # 프레임 캐시
         self._surface_cache = {}
 
@@ -124,6 +131,24 @@ class MolewangBossSprite:
             # 히트 끝나면 즉시 숨김 (0.85 감쇠는 0에 도달 못함 → 몸체 잔상 버그)
             self.emerge_amount = 0.0
 
+        # 회전발톱 모션 업데이트
+        if self.spinning_claw_active:
+            self.spinning_claw_timer += dt
+            sc_progress = self.spinning_claw_timer / self.spinning_claw_duration
+            if sc_progress >= 1.0:
+                self.spinning_claw_active = False
+                self.spinning_claw_timer = 0.0
+                self.spinning_claw_emerge = 0.0
+            else:
+                # 솟아오르기: 빠르게 올라와서 유지 후 내려감
+                if sc_progress < 0.12:
+                    self.spinning_claw_emerge = (sc_progress / 0.12) ** 0.4
+                elif sc_progress < 0.75:
+                    self.spinning_claw_emerge = 1.0
+                else:
+                    t = (sc_progress - 0.75) / 0.25
+                    self.spinning_claw_emerge = 1.0 - t * t
+
         self._update_dirt_particles(dt)
         self.prev_x = current_x
 
@@ -174,6 +199,14 @@ class MolewangBossSprite:
         self.hit_intensity = 1.0
         self.hit_direction = 1 if ball_x > boss_x else -1
 
+    def trigger_spinning_claw(self, direction):
+        """회전발톱 모션 시작 — 0.5초간 솟아올라 강하게 후려침"""
+        self.spinning_claw_active = True
+        self.spinning_claw_timer = 0.0
+        self.spinning_claw_direction = direction
+        self.spinning_claw_emerge = 0.0
+        # 히트 애니메이션이 동시에 진행될 수 있으므로 별도 관리
+
     def get_current_frame(self, scale_size=None):
         w, h = scale_size or (96, 192)
         w, h = max(20, int(w)), max(40, int(h))
@@ -212,22 +245,30 @@ class MolewangBossSprite:
         # 솟아오른 양만큼 몸체를 그릴지 결정
         emerge = self.emerge_amount
 
+        # 회전발톱 모션 중이면 별도 emerge 사용
+        sc_emerge = self.spinning_claw_emerge if self.spinning_claw_active else 0.0
+        effective_emerge = max(emerge, sc_emerge)
+
         # 레이어 순서
-        # 0. 지하 흙 융기 (평소 — 히트 아닐 때)
-        if not self.is_hit:
+        # 0. 지하 흙 융기 (평소 — 히트/회전발톱 아닐 때)
+        if not self.is_hit and not self.spinning_claw_active:
             self._draw_underground_ripple(surface, cx, ground_y, b,
                                           lean_offset, bob_offset, w, h)
         # 1. 흙 파편 (땅 위로 튀는 것)
         self._draw_dirt_fx(surface, cx, ground_y, b, lean_offset, bob_offset, p)
-        # 2. 히트 시 몸체 솟아오름 (디그다 스타일)
-        if self.is_hit and emerge > 0.05:
+        # 2. 몸체 솟아오름 (히트 또는 회전발톱)
+        if (self.is_hit or self.spinning_claw_active) and effective_emerge > 0.05:
             self._draw_body_emerging(surface, cx, ground_y, b, lean_offset,
-                                     bob_offset, emerge, p)
+                                     bob_offset, effective_emerge, p)
         # 3. 땅 표면 (현재 미사용)
         self._draw_ground(surface, cx, ground_y, b, lean_offset, bob_offset, p)
         # 4. 발톱 스크래치 이펙트 (히트 시)
         if self.is_hit:
             self._draw_claw_effect(surface, cx, ground_y, b, lean_offset, p)
+        # 5. 회전발톱 스와이프 팔 이펙트
+        if self.spinning_claw_active and sc_emerge > 0.3:
+            self._draw_spinning_claw_arm(surface, cx, ground_y, b,
+                                          lean_offset, bob_offset, sc_emerge, p)
 
     def _get_palette(self, flash=0.0):
         def _f(base):
@@ -493,9 +534,39 @@ class MolewangBossSprite:
             self._draw_striking_arms(clip_surf, clip_cx, clip_body_top,
                                      body_w, visible_h, b, p, hit_shake_x)
 
-        surface.blit(clip_surf,
-                    (gcx - clip_surf.get_width() // 2,
-                     body_top))
+        # 회전발톱 모션: 몸 비틀기 (클립서피스 자체를 회전)
+        if self.spinning_claw_active:
+            sc_prog = self.spinning_claw_timer / self.spinning_claw_duration
+            # 페이즈: 0~0.25 역방향 와인드업, 0.25~0.55 강렬한 스와이프, 0.55~1.0 복귀
+            if sc_prog < 0.25:
+                # 와인드업: 스와이프 반대 방향으로 몸을 비틂
+                t = sc_prog / 0.25
+                twist_deg = -self.spinning_claw_direction * 18 * (t ** 0.6)
+            elif sc_prog < 0.55:
+                # 스와이프: 빠르게 반대 방향으로 회전 (120도 궤적감)
+                t = (sc_prog - 0.25) / 0.30
+                # ease-out-back으로 강렬한 스냅
+                overshoot = 1.0 + 0.3 * _sin(t * 3.14159)
+                twist_deg = self.spinning_claw_direction * (
+                    -18 + (18 + 32) * min(t * overshoot, 1.2))
+            else:
+                # 복귀: 서서히 원래 자세로
+                t = (sc_prog - 0.55) / 0.45
+                twist_deg = self.spinning_claw_direction * 32 * (1.0 - t ** 1.5)
+
+            # 몸 떨림 추가 (스와이프 순간)
+            if 0.25 <= sc_prog < 0.55:
+                shake = _sin(self.time * 80) * 2.5 * (1.0 - (sc_prog - 0.25) / 0.30)
+                twist_deg += shake
+
+            rotated = pygame.transform.rotate(clip_surf, twist_deg)
+            rot_rect = rotated.get_rect(center=(
+                gcx, body_top + clip_surf.get_height() // 2))
+            surface.blit(rotated, rot_rect.topleft)
+        else:
+            surface.blit(clip_surf,
+                        (gcx - clip_surf.get_width() // 2,
+                         body_top))
 
     # ------- 땅에서 직접 솟아나는 팔+발톱 (몸체 없음) -------
     def _draw_arms_from_ground(self, surface, cx, ground_y, b,
@@ -746,6 +817,164 @@ class MolewangBossSprite:
                                  (claw_ex, claw_ey),
                                  max(1, int(0.03 * b)))
 
+    # ------- 회전발톱 스와이프 팔 -------
+    def _draw_spinning_claw_arm(self, surface, cx, ground_y, b,
+                                 lean_offset, bob_offset, sc_emerge, p):
+        """회전발톱 발동 시 거대한 팔이 120도 호를 그리며 후려치는 모션"""
+        sc_prog = self.spinning_claw_timer / self.spinning_claw_duration
+        d = self.spinning_claw_direction
+        gcx = cx + lean_offset
+        gy = ground_y + bob_offset
+
+        # 팔 출현 정도
+        arm_emerge = min(1.0, sc_emerge * 1.5)
+        if arm_emerge < 0.1:
+            return
+
+        # 스와이프 각도 (라디안) — 120도 호 (2π/3)
+        # 와인드업(0~0.25): 시작 각도로 이동
+        # 스와이프(0.25~0.55): 120도 호를 빠르게 이동
+        # 복귀(0.55~1.0): 사라짐
+        arc_120 = math.pi * 2.0 / 3.0  # 120도
+
+        if sc_prog < 0.25:
+            # 와인드업: 팔이 솟아오르며 반대쪽으로 준비
+            t = sc_prog / 0.25
+            arm_angle = -d * (arc_120 * 0.3) * (t ** 0.5)
+            arm_alpha = int(255 * min(t * 2, 1.0))
+        elif sc_prog < 0.55:
+            # 스와이프: 120도 호를 빠르게 횡단
+            t = (sc_prog - 0.25) / 0.30
+            # ease-out-cubic
+            et = 1.0 - (1.0 - t) ** 3
+            start_angle = -d * (arc_120 * 0.3)
+            end_angle = d * (arc_120 * 0.7)
+            arm_angle = start_angle + (end_angle - start_angle) * et
+            arm_alpha = 255
+        else:
+            # 복귀: 팔 사라짐
+            t = (sc_prog - 0.55) / 0.45
+            arm_angle = d * (arc_120 * 0.7) * (1.0 - t)
+            arm_alpha = int(255 * (1.0 - t ** 1.5))
+
+        if arm_alpha < 5:
+            return
+
+        # 이펙트 서피스
+        fx_w = int(10 * b)
+        fx_h = int(8 * b)
+        fx_surf = pygame.Surface((fx_w, fx_h), pygame.SRCALPHA)
+        fx_cx = fx_w // 2
+        fx_cy = int(fx_h * 0.45)
+
+        # 어깨 (몸체 옆)
+        shoulder_x = fx_cx
+        shoulder_y = fx_cy
+
+        # 팔 길이 (거대)
+        arm_len = int(3.5 * b * arm_emerge)
+
+        # 팔꿈치 좌표
+        elbow_x = shoulder_x + int(_sin(arm_angle) * arm_len * 0.55)
+        elbow_y = shoulder_y + int(_cos(arm_angle) * arm_len * 0.35)
+
+        # 손목 좌표
+        wrist_x = shoulder_x + int(_sin(arm_angle) * arm_len)
+        wrist_y = shoulder_y + int(_cos(arm_angle) * arm_len * 0.5)
+
+        # === 팔 렌더링 ===
+        arm_thick = max(3, int(0.45 * b))
+        # 상완 (그림자 + 본체)
+        pygame.draw.line(fx_surf, (*p["body_dark"], arm_alpha),
+                        (shoulder_x, shoulder_y),
+                        (elbow_x, elbow_y), arm_thick + 2)
+        pygame.draw.line(fx_surf, (*p["body"], arm_alpha),
+                        (shoulder_x, shoulder_y),
+                        (elbow_x, elbow_y), arm_thick)
+        # 하완
+        pygame.draw.line(fx_surf, (*p["body_dark"], arm_alpha),
+                        (elbow_x, elbow_y),
+                        (wrist_x, wrist_y), arm_thick + 1)
+        pygame.draw.line(fx_surf, (*p["body_light"], arm_alpha),
+                        (elbow_x, elbow_y),
+                        (wrist_x, wrist_y), arm_thick)
+
+        # === 거대한 손 ===
+        hand_r = max(4, int(0.55 * b))
+        pygame.draw.circle(fx_surf, (*p["body_dark"], arm_alpha),
+                          (wrist_x + 1, wrist_y + 1), hand_r)
+        pygame.draw.circle(fx_surf, (*p["body"], arm_alpha),
+                          (wrist_x, wrist_y), hand_r)
+        pygame.draw.circle(fx_surf, (*p["body_light"], arm_alpha // 2),
+                          (wrist_x - int(0.06 * b),
+                           wrist_y - int(0.06 * b)),
+                          max(1, int(hand_r * 0.35)))
+
+        # === 발톱 5개 (부채꼴, 스와이프 방향으로 펼침) ===
+        num_claws = 5
+        claw_spread = 0.7 * math.pi  # 부채꼴 각도
+        for ci in range(num_claws):
+            ca = arm_angle - claw_spread / 2 + ci * (claw_spread / (num_claws - 1))
+            ca += d * 0.15
+
+            claw_len = int(0.65 * b * (0.85 + 0.15 * (1.0 - abs(ci - 2) * 0.15)))
+            claw_sx = wrist_x + int(_sin(ca) * hand_r * 0.7)
+            claw_sy = wrist_y + int(_cos(ca) * hand_r * 0.5)
+            claw_ex = claw_sx + int(_sin(ca) * claw_len)
+            claw_ey = claw_sy + int(_cos(ca) * claw_len * 0.6) + claw_len // 3
+
+            claw_w = max(2, int(0.12 * b))
+            # 그림자
+            pygame.draw.line(fx_surf, (*p["claw_shadow"], arm_alpha),
+                            (claw_sx + 1, claw_sy + 1),
+                            (claw_ex + 1, claw_ey + 1), claw_w)
+            # 본체
+            pygame.draw.line(fx_surf, (*p["claw"], arm_alpha),
+                            (claw_sx, claw_sy),
+                            (claw_ex, claw_ey), claw_w)
+            # 하이라이트
+            pygame.draw.line(fx_surf, (*p["claw_shine"], arm_alpha),
+                            (claw_sx, claw_sy),
+                            (claw_ex, claw_ey), 1)
+            # 끝 점
+            pygame.draw.circle(fx_surf, (*p["claw_shine"], arm_alpha),
+                              (claw_ex, claw_ey),
+                              max(1, int(0.04 * b)))
+
+        # === 스와이프 궤적 잔상 (스와이프 페이즈에서만) ===
+        if 0.25 <= sc_prog < 0.55:
+            trail_t = (sc_prog - 0.25) / 0.30
+            trail_alpha = int(180 * (1.0 - trail_t))
+            for ti in range(4):
+                trail_angle = arm_angle - d * 0.18 * (ti + 1)
+                trail_ex = shoulder_x + int(_sin(trail_angle) * arm_len * (0.9 - ti * 0.1))
+                trail_ey = shoulder_y + int(_cos(trail_angle) * arm_len * 0.5 * (0.9 - ti * 0.1))
+                ta = max(0, trail_alpha - ti * 40)
+                if ta > 0:
+                    pygame.draw.line(fx_surf, (255, 230, 100, ta),
+                                    (shoulder_x, shoulder_y),
+                                    (trail_ex, trail_ey), max(1, 3 - ti))
+
+        # === 충격파 라인 (스와이프 절정) ===
+        if 0.35 <= sc_prog < 0.50:
+            impact_t = (sc_prog - 0.35) / 0.15
+            impact_alpha = int(200 * (1.0 - impact_t))
+            for si in range(3):
+                s_angle = arm_angle + d * (0.1 + si * 0.08)
+                s_len = int(arm_len * (1.2 + si * 0.15) * impact_t)
+                sx = shoulder_x + int(_sin(s_angle) * s_len)
+                sy = shoulder_y + int(_cos(s_angle) * s_len * 0.4)
+                ia = max(0, impact_alpha - si * 50)
+                if ia > 0:
+                    pygame.draw.line(fx_surf, (255, 255, 240, ia),
+                                    (shoulder_x, shoulder_y),
+                                    (sx, sy), max(1, 2 - si))
+
+        # 서피스를 게임 좌표에 블릿
+        blit_x = gcx - fx_cx
+        blit_y = (gy - int(sc_emerge * 3.0 * b)) - fx_cy
+        surface.blit(fx_surf, (blit_x, blit_y))
+
     # ------- 왕관 -------
     def _draw_crown_on(self, surf, cx, y, b, p):
         """왕관 렌더링 (서피스 위에)"""
@@ -877,4 +1106,7 @@ def reset_molewang_boss_sprite():
         _molewang_instance.lean = 0.0
         _molewang_instance.body_bob = 0.0
         _molewang_instance.emerge_amount = 0.0
+        _molewang_instance.spinning_claw_active = False
+        _molewang_instance.spinning_claw_timer = 0.0
+        _molewang_instance.spinning_claw_emerge = 0.0
         _molewang_instance._dirt_particles = []

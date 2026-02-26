@@ -57601,6 +57601,10 @@ def activate_spinning_claw():
     spinning_claw_hit_x = BALL.centerx
     spinning_claw_hit_y = BALL.centery
 
+    # 보스 스프라이트 회전발톱 모션 트리거
+    if molewang_boss_sprite is not None:
+        molewang_boss_sprite.trigger_spinning_claw(spinning_claw_direction)
+
     # 사운드
     try:
         snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "mooncut.wav")))
