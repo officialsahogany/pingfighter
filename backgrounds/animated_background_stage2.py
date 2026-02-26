@@ -1428,25 +1428,28 @@ class AnimatedBackgroundStage2:
         rustle_x = math.sin(bush['rustle_angle']) * bush['rustle_amount']
         rustle_y = math.cos(bush['rustle_angle'] * 1.5) * bush['rustle_amount'] * 0.3
 
-        # === 색상 팔레트 (3단계 깊이) ===
+        # === 색상 팔레트 (3단계 깊이 + 베리) ===
         _palettes = [
             {  # variant 0: 깊은 정글
                 'dark': [(15, 42, 18), (18, 48, 22), (12, 38, 16)],
                 'mid': [(28, 65, 32), (32, 75, 38), (25, 60, 28)],
                 'bright': [(42, 98, 45), (50, 112, 52), (38, 90, 42)],
                 'accent': (62, 128, 52),
+                'berry': [(165, 32, 38), (140, 25, 55), (180, 45, 30)],
             },
             {  # variant 1: 열대
                 'dark': [(18, 45, 15), (22, 52, 20), (16, 40, 14)],
                 'mid': [(32, 72, 28), (38, 82, 35), (28, 65, 25)],
                 'bright': [(48, 105, 42), (55, 118, 50), (42, 95, 38)],
                 'accent': (68, 135, 45),
+                'berry': [(155, 28, 65), (120, 20, 85), (170, 40, 45)],
             },
             {  # variant 2: 이끼
                 'dark': [(16, 40, 20), (20, 46, 25), (14, 36, 18)],
                 'mid': [(30, 62, 35), (35, 72, 42), (26, 58, 30)],
                 'bright': [(45, 92, 48), (52, 105, 55), (40, 85, 44)],
                 'accent': (58, 122, 58),
+                'berry': [(148, 35, 42), (125, 22, 68), (160, 48, 35)],
             }
         ]
         pal = _palettes[variant % 3]
@@ -1605,6 +1608,83 @@ class AnimatedBackgroundStage2:
                                  (int(spx), int(spy)), ss + 1)
             pygame.draw.circle(surface, bright_c,
                              (int(spx), int(spy)), ss)
+
+        # === 베리(열매) 클러스터 ===
+        berry_colors = pal['berry']
+        berry_count = int(4 + base_size // 15)
+        for i in range(berry_count):
+            br_seed = hash((base_size, variant, i, 'berry')) % 100000
+            br_ang = (br_seed % 360) * math.pi / 180
+            br_dist = base_size * 0.45 * ((br_seed // 360 % 70) / 100.0 + 0.25)
+
+            bx = x + math.cos(br_ang) * br_dist + rustle_x * 0.6
+            by = y + math.sin(br_ang) * br_dist + rustle_y * 0.6
+            br_sz = max(2, int(2 + (br_seed // 36000) % 3))
+            br_c = berry_colors[(br_seed // 1000) % len(berry_colors)]
+
+            br_dk = tuple(max(0, int(c * 0.35)) for c in br_c)
+            pygame.draw.circle(surface, br_dk, (int(bx + 1), int(by + 1)), br_sz + 1)
+            pygame.draw.circle(surface, br_c, (int(bx), int(by)), br_sz)
+            br_mid = tuple(min(255, int(c * 1.15)) for c in br_c)
+            pygame.draw.circle(surface, br_mid,
+                             (int(bx), int(by - 1)), max(1, br_sz - 1))
+            br_hl = tuple(min(255, c + 80) for c in br_c)
+            pygame.draw.circle(surface, br_hl,
+                             (int(bx - 1), int(by - 1)), max(1, br_sz // 2))
+            stm_c = tuple(max(0, int(c * 0.4)) for c in pal['mid'][0])
+            pygame.draw.line(surface, stm_c,
+                            (int(bx), int(by - br_sz)),
+                            (int(bx + 1), int(by - br_sz - 2)), 1)
+
+        # === 가장자리 프린지 ===
+        fringe_count = 8 + variant * 2
+        for i in range(fringe_count):
+            f_seed = hash((base_size, variant, i, 'fringe2')) % 10000
+            fa = (f_seed % 360) * math.pi / 180
+            fd = base_size * 0.78 + (f_seed % 25) * 0.35
+
+            fx = x + math.cos(fa) * fd + rustle_x * 0.5
+            fy = y + math.sin(fa) * fd + rustle_y * 0.5
+            fs = 2 + (f_seed // 360) % 3
+
+            fc = leaf_pal[(f_seed // 100) % len(leaf_pal)]
+            fdk = tuple(max(0, int(c * 0.45)) for c in fc)
+            pygame.draw.circle(surface, fdk, (int(fx + 1), int(fy + 1)), fs)
+            pygame.draw.circle(surface, fc, (int(fx), int(fy)), fs)
+            fhl = tuple(min(255, c + 20) for c in fc)
+            pygame.draw.circle(surface, fhl,
+                             (int(fx - 1), int(fy - 1)), max(1, fs - 1))
+
+        # === 그레인 파티클 (거친 + 미세) ===
+        coarse_count = int(8 + base_size // 8)
+        for i in range(coarse_count):
+            g_seed = hash((base_size, variant, i, 'coarse')) % 10000
+            ga = (g_seed % 360) * math.pi / 180
+            gd = base_size * 0.5 * ((g_seed // 360 % 80) / 100.0 + 0.1)
+            gx = x + math.cos(ga) * gd + rustle_x * 0.4
+            gy = y + math.sin(ga) * gd + rustle_y * 0.4
+
+            if (g_seed // 1000) % 10 < 6:
+                gc = tuple(max(0, int(c * 0.35)) for c in pal['mid'][g_seed % 3])
+            else:
+                gc = tuple(min(255, int(c * 1.2)) for c in pal['bright'][g_seed % 3])
+            pygame.draw.circle(surface, gc,
+                             (int(gx), int(gy)), max(1, 1 + (g_seed // 5000) % 2))
+
+        fine_count = int(12 + base_size // 5)
+        for i in range(fine_count):
+            f_seed = hash((base_size, variant, i, 'fine')) % 10000
+            fa2 = (f_seed % 360) * math.pi / 180
+            fd2 = base_size * 0.6 * ((f_seed // 360 % 90) / 100.0 + 0.05)
+            fx2 = int(x + math.cos(fa2) * fd2 + rustle_x * 0.3)
+            fy2 = int(y + math.sin(fa2) * fd2 + rustle_y * 0.3)
+
+            fc2 = tuple(max(0, int(c * (0.3 + (f_seed // 1000 % 40) / 100.0)))
+                       for c in pal['mid'][f_seed % 3])
+            try:
+                surface.set_at((fx2, fy2), fc2)
+            except IndexError:
+                pass
 
     def _prerender_bush_to_surface(self, bush, scale_x, scale_y):
         """덤불을 개별 Surface에 프리렌더 (캐시용)"""
