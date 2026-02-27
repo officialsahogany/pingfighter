@@ -9,6 +9,7 @@
   "option.language.ko": "한국어",
   "option.language.en": "English",
   "option.language.ja": "日本語",
+  "option.language.zh": "중국어",
   "option.sound.bgm_volume": "BGM 볼륨",
   "option.sound.sfx_volume": "효과음 볼륨",
   "option.screen.windowed": "창모드",

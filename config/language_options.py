@@ -5,7 +5,8 @@ from typing import List, Tuple
 LANGUAGE_OPTIONS: List[Tuple[str, str]] = [
     ("ko", "한국어"),
     ("en", "English"),
-    ("ja", "日本語")
+    ("ja", "日本語"),
+    ("zh", "中文"),
 ]
 
 DEFAULT_LANGUAGE = LANGUAGE_OPTIONS[0][0]

@@ -15,7 +15,10 @@ LEGACY_LANGUAGE_MAP = {
     "english": "en",
     "日本語": "ja",
     "Japanese": "ja",
-    "japanese": "ja"
+    "japanese": "ja",
+    "中文": "zh",
+    "Chinese": "zh",
+    "chinese": "zh"
 }
 LANGUAGE = DEFAULT_LANGUAGE  # 언어 코드는 config.language_options 기준
 BGM_VOLUME = 0.7  # 0.0 ~ 1.0
