@@ -440,216 +440,292 @@ class DowntownRenderer:
             # 건물 자체는 별도 레이어에서 처리
 
     def _draw_ground_tile(self, screen, x, y, tx=None, ty=None):
-        """바닥 타일 - 현실감 잔디/지형 (캐싱 적용, 높은 변이)"""
+        """바닥 타일 - 부드러운 질감의 지형 (고품질)"""
         color = self.theme_data['ground_color']
 
         tile_x = tx if tx is not None else x // TILE_SIZE
         tile_y = ty if ty is not None else y // TILE_SIZE
         tile_hash = ((tile_x * 7919 + tile_y * 6271) ^ (tile_x * 31 + tile_y * 47)) & 0xFFFF
 
-        # 타일별 미세 색상 변주
-        cs = ((tile_hash >> 4) % 5) - 2  # -2 ~ +2 (작은 변동)
+        # 타일별 색상 변주 (넓은 범위로 타일 간 구분감)
+        cs = ((tile_hash >> 4) % 9) - 4  # -4 ~ +4
         base_r = max(0, min(255, color[0] + cs))
-        base_g = max(0, min(255, color[1] + cs + ((tile_hash >> 7) % 3) - 1))
-        base_b = max(0, min(255, color[2] + cs))
+        base_g = max(0, min(255, color[1] + cs + ((tile_hash >> 7) % 5) - 2))
+        base_b = max(0, min(255, color[2] + cs - ((tile_hash >> 9) % 3)))
         tile_color = (base_r, base_g, base_b)
 
-        cache_key = ('ground_v4', color, tile_hash)
+        cache_key = ('ground_v5', color, tile_hash)
         if cache_key in self.tile_surfaces:
             screen.blit(self.tile_surfaces[cache_key], (x, y))
             return
 
-        tile_surf = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
+        TS = TILE_SIZE
+        tile_surf = pygame.Surface((TS, TS), pygame.SRCALPHA)
         tile_surf.fill(tile_color)
         random.seed(tile_hash)
 
-        # --- 1) 부드러운 색상 패치 (반투명 원/타원으로 자연스러운 색 변화) ---
-        patch_overlay = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
-        for _ in range(random.randint(3, 6)):
-            px = random.randint(-4, TILE_SIZE)
-            py = random.randint(-4, TILE_SIZE)
-            pw = random.randint(8, 18)
-            ph = random.randint(6, 14)
-            # 밝거나 어두운 풀색 패치
-            if random.random() < 0.5:
-                pc = (0, random.randint(5, 15), 0, random.randint(10, 25))
+        # --- 1) 큰 색상 패치 (부드러운 지형 변화) ---
+        patch_overlay = pygame.Surface((TS, TS), pygame.SRCALPHA)
+        for _ in range(random.randint(2, 4)):
+            px = random.randint(-8, TS - 5)
+            py = random.randint(-8, TS - 5)
+            pw = random.randint(14, 28)
+            ph = random.randint(12, 24)
+            if random.random() < 0.6:
+                # 밝은 패치
+                pc = (min(255, base_r + random.randint(4, 12)),
+                      min(255, base_g + random.randint(4, 12)),
+                      min(255, base_b + random.randint(2, 8)),
+                      random.randint(30, 60))
             else:
-                pc = (random.randint(5, 12), random.randint(3, 8), 0, random.randint(8, 20))
+                # 어두운 패치
+                pc = (max(0, base_r - random.randint(4, 10)),
+                      max(0, base_g - random.randint(4, 10)),
+                      max(0, base_b - random.randint(2, 8)),
+                      random.randint(25, 50))
             pygame.draw.ellipse(patch_overlay, pc, (px, py, pw, ph))
         tile_surf.blit(patch_overlay, (0, 0))
 
-        # --- 2) 지형 디테일 (일부 타일에만, 확률 기반) ---
-        feat = tile_hash % 8
+        # --- 2) 지형 디테일 (50% 확률) ---
+        feat = tile_hash % 6
         if feat == 0:
-            # 작은 흙 얼룩 (부드러운 타원)
-            dx, dy = random.randint(8, 28), random.randint(8, 28)
-            w, h = random.randint(7, 12), random.randint(5, 8)
-            dirt_c = (min(255, base_r + 12), max(0, base_g - 8), max(0, base_b - 10), 80)
-            ds = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
-            pygame.draw.ellipse(ds, dirt_c, (dx, dy, w, h))
+            # 흙 얼룩 (부드러운 그라데이션)
+            ds = pygame.Surface((TS, TS), pygame.SRCALPHA)
+            dx, dy = random.randint(6, 26), random.randint(6, 26)
+            for r in range(random.randint(5, 8), 1, -1):
+                a = max(10, 60 - r * 8)
+                dirt_c = (min(255, base_r + 15), max(0, base_g - 6), max(0, base_b - 8), a)
+                pygame.draw.circle(ds, dirt_c, (dx, dy), r)
             tile_surf.blit(ds, (0, 0))
         elif feat == 1:
-            # 조약돌 1~2개
-            for _ in range(random.randint(1, 2)):
-                px, py = random.randint(6, 33), random.randint(6, 33)
-                pv = random.randint(15, 25)
-                pc = (min(255, base_r + pv), min(255, base_g + pv - 5), min(255, base_b + pv - 3))
-                pygame.draw.circle(tile_surf, pc, (px, py), random.randint(1, 2))
-                # 조약돌 하이라이트
-                pc_l = (min(255, pc[0] + 10), min(255, pc[1] + 10), min(255, pc[2] + 10))
-                tile_surf.set_at((px - 1, max(0, py - 1)), pc_l)
+            # 조약돌 2~3개 (입체감)
+            for _ in range(random.randint(2, 3)):
+                px, py = random.randint(6, TS - 8), random.randint(6, TS - 8)
+                pr = random.randint(2, 3)
+                pv = random.randint(15, 28)
+                # 그림자
+                pygame.draw.circle(tile_surf,
+                    (max(0, base_r - 10), max(0, base_g - 10), max(0, base_b - 10)),
+                    (px + 1, py + 1), pr)
+                # 돌 본체
+                pc = (min(255, base_r + pv), min(255, base_g + pv - 3), min(255, base_b + pv - 5))
+                pygame.draw.circle(tile_surf, pc, (px, py), pr)
+                # 하이라이트
+                pc_l = (min(255, pc[0] + 15), min(255, pc[1] + 15), min(255, pc[2] + 12))
+                pygame.draw.circle(tile_surf, pc_l, (px - 1, py - 1), max(1, pr - 1))
         elif feat == 2:
-            # 진한 풀 구역 (반투명 오버레이)
-            mx, my = random.randint(4, 26), random.randint(4, 26)
-            mw, mh = random.randint(8, 14), random.randint(6, 10)
-            ms = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
-            pygame.draw.ellipse(ms, (0, 18, 0, 30), (mx, my, mw, mh))
-            tile_surf.blit(ms, (0, 0))
-        # feat 3~7: 깨끗한 잔디 (대부분 타일은 장식 없이 깔끔)
+            # 진한 색상 구역
+            ds = pygame.Surface((TS, TS), pygame.SRCALPHA)
+            mx, my = random.randint(4, 22), random.randint(4, 22)
+            for r in range(random.randint(6, 10), 2, -1):
+                a = max(8, 40 - r * 4)
+                pygame.draw.circle(ds, (0, 12, 0, a), (mx + r // 2, my + r // 2), r)
+            tile_surf.blit(ds, (0, 0))
+        # feat 3~5: 깨끗한 바닥
 
-        # --- 3) 풀 텍스처 (짧고 은은한 점/선 클러스터) ---
-        # 풀 색조 (base보다 약간 진한/밝은 녹색 계열)
-        grass_tones = [
-            (max(0, base_r - 8), max(0, min(255, base_g + 8)), max(0, base_b - 6)),
-            (max(0, base_r - 4), max(0, min(255, base_g + 14)), max(0, base_b - 3)),
-            (min(255, base_r + 3), max(0, min(255, base_g + 5)), max(0, base_b - 2)),
-        ]
+        # --- 3) 미세 질감 (넓은 영역의 부드러운 노이즈) ---
+        texture_overlay = pygame.Surface((TS, TS), pygame.SRCALPHA)
+        for _ in range(random.randint(6, 10)):
+            nx = random.randint(0, TS - 3)
+            ny = random.randint(0, TS - 3)
+            nw = random.randint(2, 5)
+            nh = random.randint(2, 5)
+            v = random.randint(-8, 8)
+            nc = (max(0, min(255, base_r + v)),
+                  max(0, min(255, base_g + v)),
+                  max(0, min(255, base_b + v)),
+                  random.randint(20, 45))
+            pygame.draw.ellipse(texture_overlay, nc, (nx, ny, nw, nh))
+        tile_surf.blit(texture_overlay, (0, 0))
 
-        # 풀 클러스터 3~5곳 (각 클러스터에 짧은 풀 2~4개)
-        num_clusters = random.randint(3, 5)
-        for _ in range(num_clusters):
-            cx = random.randint(3, TILE_SIZE - 4)
-            cy = random.randint(3, TILE_SIZE - 3)
-            cluster_size = random.randint(2, 4)
-            gc = random.choice(grass_tones)
-            for _ in range(cluster_size):
-                bx = cx + random.randint(-3, 3)
-                by = cy + random.randint(-2, 2)
-                bh = random.randint(2, 4)  # 짧은 풀
-                lean = random.randint(-1, 1)
-                if 1 <= bx < TILE_SIZE - 1 and bh < by < TILE_SIZE:
-                    pygame.draw.line(tile_surf, gc, (bx, by), (bx + lean, by - bh), 1)
-
-        # --- 4) 미세 텍스처 점 (부드럽고 적은 수) ---
-        for _ in range(random.randint(4, 8)):
-            nx = random.randint(0, TILE_SIZE - 1)
-            ny = random.randint(0, TILE_SIZE - 1)
-            v = random.randint(-6, 6)
-            dot_c = (max(0, min(255, base_r + v)),
-                     max(0, min(255, base_g + v)),
-                     max(0, min(255, base_b + v)))
-            tile_surf.set_at((nx, ny), dot_c)
+        # --- 4) 미세 비네팅 (타일 가장자리 어둡게 → 그리드 느낌 감소) ---
+        vignette = pygame.Surface((TS, TS), pygame.SRCALPHA)
+        edge_alpha = 18
+        # 상하 가장자리
+        for i in range(3):
+            a = edge_alpha - i * 5
+            if a > 0:
+                pygame.draw.line(vignette, (0, 0, 0, a), (0, i), (TS - 1, i))
+                pygame.draw.line(vignette, (0, 0, 0, a), (0, TS - 1 - i), (TS - 1, TS - 1 - i))
+        # 좌우 가장자리
+        for i in range(3):
+            a = edge_alpha - i * 5
+            if a > 0:
+                pygame.draw.line(vignette, (0, 0, 0, a), (i, 0), (i, TS - 1))
+                pygame.draw.line(vignette, (0, 0, 0, a), (TS - 1 - i, 0), (TS - 1 - i, TS - 1))
+        tile_surf.blit(vignette, (0, 0))
 
         self.tile_surfaces[cache_key] = tile_surf
         screen.blit(tile_surf, (x, y))
 
     def _draw_road_tile(self, screen, x, y, tx=None, ty=None):
-        """도로 타일 - 자연스러운 육각형 돌길 (캐싱 적용, 높은 변이)"""
+        """도로 타일 - 격자 기반 조약돌 패턴 (고품질)"""
         color = self.theme_data['road_color']
 
         tile_x = tx if tx is not None else x // TILE_SIZE
         tile_y = ty if ty is not None else y // TILE_SIZE
         tile_hash = ((tile_x * 4973 + tile_y * 8527) ^ (tile_x * 23 + tile_y * 59)) & 0xFFFF
 
-        # 타일별 미세 색상 변주
-        cs = ((tile_hash >> 3) % 7) - 3
+        # 타일별 색상 변주
+        cs = ((tile_hash >> 3) % 9) - 4
         base_r = max(0, min(255, color[0] + cs))
-        base_g = max(0, min(255, color[1] + cs + ((tile_hash >> 6) % 3) - 1))
+        base_g = max(0, min(255, color[1] + cs + ((tile_hash >> 6) % 5) - 2))
         base_b = max(0, min(255, color[2] + cs - ((tile_hash >> 8) % 3)))
 
-        cache_key = ('road_v3', color, tile_hash)
+        cache_key = ('road_v4', color, tile_hash)
         if cache_key in self.tile_surfaces:
             screen.blit(self.tile_surfaces[cache_key], (x, y))
             return
 
-        tile_surf = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
+        TS = TILE_SIZE
+        tile_surf = pygame.Surface((TS, TS), pygame.SRCALPHA)
 
-        # 모르타르/틈새 배경
-        gap_color = (max(0, base_r - 35), max(0, base_g - 30), max(0, base_b - 25))
+        # 모르타르/틈새 배경 (약간 따뜻한 톤)
+        gap_color = (max(0, base_r - 28), max(0, base_g - 25), max(0, base_b - 22))
         tile_surf.fill(gap_color)
 
         random.seed(tile_hash)
 
-        # 틈새 노이즈
-        for _ in range(18):
-            nx, ny = random.randint(0, TILE_SIZE - 1), random.randint(0, TILE_SIZE - 1)
-            v = random.randint(-10, 10)
-            nc = (max(0, min(255, gap_color[0] + v)),
+        # 모르타르 텍스처 (부드러운 노이즈)
+        mortar_overlay = pygame.Surface((TS, TS), pygame.SRCALPHA)
+        for _ in range(8):
+            mx = random.randint(-2, TS - 2)
+            my = random.randint(-2, TS - 2)
+            mw = random.randint(3, 8)
+            mh = random.randint(3, 8)
+            v = random.randint(-8, 8)
+            mc = (max(0, min(255, gap_color[0] + v)),
                   max(0, min(255, gap_color[1] + v)),
-                  max(0, min(255, gap_color[2] + v)))
-            tile_surf.set_at((nx, ny), nc)
+                  max(0, min(255, gap_color[2] + v)),
+                  random.randint(30, 60))
+            pygame.draw.ellipse(mortar_overlay, mc, (mx, my, mw, mh))
+        tile_surf.blit(mortar_overlay, (0, 0))
 
-        stone_light = (min(255, base_r + 18), min(255, base_g + 15), min(255, base_b + 12))
-        stone_dark = (max(0, base_r - 22), max(0, base_g - 20), max(0, base_b - 18))
-        stone_darker = (max(0, base_r - 38), max(0, base_g - 35), max(0, base_b - 30))
+        stone_light = (min(255, base_r + 20), min(255, base_g + 18), min(255, base_b + 14))
+        stone_dark = (max(0, base_r - 18), max(0, base_g - 16), max(0, base_b - 14))
 
-        # --- 돌 배치 (완전 랜덤 위치 + 개수, 고정 그리드 아님) ---
-        num_stones = random.randint(6, 10)
-        for si in range(num_stones):
-            cx = random.randint(4, TILE_SIZE - 4)
-            cy = random.randint(4, TILE_SIZE - 4)
-            hex_size = random.randint(6, 11)
+        # --- 격자 기반 돌 배치 (3x3 또는 4x4 그리드 + 지터) ---
+        # 타일 좌표 기반 그리드 오프셋으로 타일 간 연속성 확보
+        grid_cols = 4
+        grid_rows = 4
+        cell_w = TS / grid_cols
+        cell_h = TS / grid_rows
+        # 홀수/짝수 행 오프셋 (벽돌 패턴)
+        row_offset_base = (tile_x * 7 + tile_y * 13) % 5
 
-            # 불규칙 육각형
-            hex_points = []
-            angle_offset = random.uniform(0, math.pi / 3)
-            for i in range(6):
-                angle = angle_offset + i * math.pi / 3
-                r_var = hex_size + random.uniform(-1.2, 1.2)
-                px = cx + r_var * math.cos(angle)
-                py = cy + r_var * math.sin(angle)
-                hex_points.append((px, py))
+        for row in range(grid_rows + 1):  # +1로 가장자리 커버
+            for col in range(grid_cols + 1):
+                # 벽돌 패턴: 홀수 행은 반 칸 이동
+                brick_offset = (cell_w * 0.5) if (row + row_offset_base) % 2 == 1 else 0
+                cx = col * cell_w + brick_offset - cell_w * 0.3
+                cy = row * cell_h - cell_h * 0.3
 
-            # 돌 색상 (개별 변형)
-            cv = random.randint(-15, 15)
-            current_stone = (
-                max(0, min(255, base_r + cv)),
-                max(0, min(255, base_g + cv + random.randint(-4, 4))),
-                max(0, min(255, base_b + cv - random.randint(0, 6)))
-            )
+                # 지터 (약간의 랜덤 오프셋)
+                jx = random.uniform(-cell_w * 0.15, cell_w * 0.15)
+                jy = random.uniform(-cell_h * 0.15, cell_h * 0.15)
+                cx += jx
+                cy += jy
 
-            pygame.draw.polygon(tile_surf, current_stone, hex_points)
+                # 돌 크기 (약간 랜덤)
+                sw = cell_w * random.uniform(0.75, 0.92)
+                sh = cell_h * random.uniform(0.75, 0.92)
 
-            # 하이라이트/그림자
-            pygame.draw.lines(tile_surf, stone_light, False,
-                            [hex_points[5], hex_points[0], hex_points[1]], 1)
-            pygame.draw.lines(tile_surf, stone_dark, False,
-                            [hex_points[2], hex_points[3], hex_points[4]], 1)
+                # 돌이 타일 밖이면 건너뜀
+                if cx + sw < -2 or cx > TS + 2 or cy + sh < -2 or cy > TS + 2:
+                    continue
 
-            # 표면 텍스처 점
-            for _ in range(random.randint(1, 4)):
-                tx2 = cx + random.randint(-hex_size + 2, hex_size - 2)
-                ty2 = cy + random.randint(-hex_size + 2, hex_size - 2)
-                if 0 <= tx2 < TILE_SIZE and 0 <= ty2 < TILE_SIZE:
-                    tv = random.randint(-10, 5)
-                    tc = (max(0, min(255, current_stone[0] + tv)),
-                          max(0, min(255, current_stone[1] + tv)),
-                          max(0, min(255, current_stone[2] + tv)))
-                    tile_surf.set_at((int(tx2), int(ty2)), tc)
+                # 돌 색상
+                cv = random.randint(-12, 12)
+                stone_r = max(0, min(255, base_r + cv))
+                stone_g = max(0, min(255, base_g + cv + random.randint(-3, 3)))
+                stone_b = max(0, min(255, base_b + cv - random.randint(0, 4)))
+                stone_color = (stone_r, stone_g, stone_b)
 
-            # 균열 (20%)
-            if random.random() < 0.2:
-                cx2 = cx + random.randint(-3, 3)
-                cy2 = cy + random.randint(-3, 3)
-                pygame.draw.line(tile_surf, stone_darker,
-                                (int(cx2), int(cy2)),
-                                (int(cx2 + random.randint(-5, 5)),
-                                 int(cy2 + random.randint(-5, 5))), 1)
+                # 둥근 모서리 직사각형 (조약돌 느낌)
+                stone_rect = pygame.Rect(int(cx), int(cy), int(sw), int(sh))
+                # 클리핑을 위해 타일 범위 내로 제한
+                draw_rect = stone_rect.clip(pygame.Rect(0, 0, TS, TS))
+                if draw_rect.width < 2 or draw_rect.height < 2:
+                    continue
 
-        # 틈새 이끼 (랜덤 개수)
-        for _ in range(random.randint(0, 3)):
-            mx, my = random.randint(2, TILE_SIZE - 2), random.randint(2, TILE_SIZE - 2)
-            moss_c = (max(0, gap_color[0] + 15), min(255, gap_color[1] + 30), max(0, gap_color[2] - 5))
-            pygame.draw.circle(tile_surf, moss_c, (mx, my), 1)
+                # 돌 본체
+                pygame.draw.rect(tile_surf, stone_color, draw_rect, border_radius=2)
 
-        # 마모 자국 (25%)
-        if random.random() < 0.25:
-            wo = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
-            wx = random.randint(TILE_SIZE // 6, TILE_SIZE // 3)
-            wy = random.randint(TILE_SIZE // 6, TILE_SIZE // 3)
-            pygame.draw.ellipse(wo, (0, 0, 0, 10),
-                               (wx, wy, TILE_SIZE // 2, TILE_SIZE // 2))
-            tile_surf.blit(wo, (0, 0))
+                # 돌 내부 그라데이션 (위쪽 밝게)
+                if draw_rect.height > 4:
+                    highlight_rect = pygame.Rect(draw_rect.x + 1, draw_rect.y + 1,
+                                                  draw_rect.width - 2, draw_rect.height // 3)
+                    hs = pygame.Surface((highlight_rect.width, highlight_rect.height), pygame.SRCALPHA)
+                    hs.fill((min(255, stone_r + 15), min(255, stone_g + 12), min(255, stone_b + 10), 40))
+                    tile_surf.blit(hs, highlight_rect.topleft)
+
+                # 돌 하단 그림자
+                if draw_rect.height > 4:
+                    shadow_rect = pygame.Rect(draw_rect.x + 1, draw_rect.y + draw_rect.height - 2,
+                                              draw_rect.width - 2, 2)
+                    shadow_rect = shadow_rect.clip(pygame.Rect(0, 0, TS, TS))
+                    if shadow_rect.width > 0 and shadow_rect.height > 0:
+                        ss = pygame.Surface((shadow_rect.width, shadow_rect.height), pygame.SRCALPHA)
+                        ss.fill((0, 0, 0, 25))
+                        tile_surf.blit(ss, shadow_rect.topleft)
+
+                # 상단/좌측 하이라이트 라인
+                if draw_rect.width > 3 and draw_rect.height > 3:
+                    pygame.draw.line(tile_surf, stone_light,
+                                    (draw_rect.x + 1, draw_rect.y + 1),
+                                    (draw_rect.right - 2, draw_rect.y + 1), 1)
+                    pygame.draw.line(tile_surf, stone_light,
+                                    (draw_rect.x + 1, draw_rect.y + 1),
+                                    (draw_rect.x + 1, draw_rect.bottom - 2), 1)
+
+                # 하단/우측 그림자 라인
+                if draw_rect.width > 3 and draw_rect.height > 3:
+                    pygame.draw.line(tile_surf, stone_dark,
+                                    (draw_rect.x + 1, draw_rect.bottom - 1),
+                                    (draw_rect.right - 1, draw_rect.bottom - 1), 1)
+                    pygame.draw.line(tile_surf, stone_dark,
+                                    (draw_rect.right - 1, draw_rect.y + 1),
+                                    (draw_rect.right - 1, draw_rect.bottom - 1), 1)
+
+                # 표면 질감 (돌 위 미세한 점)
+                if draw_rect.width > 5 and draw_rect.height > 5:
+                    for _ in range(random.randint(1, 3)):
+                        tx2 = random.randint(draw_rect.x + 2, draw_rect.right - 3)
+                        ty2 = random.randint(draw_rect.y + 2, draw_rect.bottom - 3)
+                        tv = random.randint(-6, 4)
+                        tc = (max(0, min(255, stone_r + tv)),
+                              max(0, min(255, stone_g + tv)),
+                              max(0, min(255, stone_b + tv)))
+                        tile_surf.set_at((tx2, ty2), tc)
+
+        # 균열 (15% 확률, 1~2개)
+        if random.random() < 0.15:
+            crack_x = random.randint(4, TS - 4)
+            crack_y = random.randint(4, TS - 4)
+            crack_darker = (max(0, base_r - 35), max(0, base_g - 32), max(0, base_b - 28))
+            dx = random.randint(-6, 6)
+            dy = random.randint(-6, 6)
+            pygame.draw.line(tile_surf, crack_darker,
+                            (crack_x, crack_y), (crack_x + dx, crack_y + dy), 1)
+
+        # 이끼 (10% 확률)
+        if random.random() < 0.1:
+            for _ in range(random.randint(1, 2)):
+                mx, my = random.randint(3, TS - 3), random.randint(3, TS - 3)
+                moss_c = (max(0, gap_color[0] + 12), min(255, gap_color[1] + 25), max(0, gap_color[2] - 3))
+                pygame.draw.circle(tile_surf, moss_c, (mx, my), random.randint(1, 2))
+
+        # 미세 비네팅 (타일 가장자리)
+        vignette = pygame.Surface((TS, TS), pygame.SRCALPHA)
+        edge_alpha = 12
+        for i in range(2):
+            a = edge_alpha - i * 5
+            if a > 0:
+                pygame.draw.line(vignette, (0, 0, 0, a), (0, i), (TS - 1, i))
+                pygame.draw.line(vignette, (0, 0, 0, a), (0, TS - 1 - i), (TS - 1, TS - 1 - i))
+                pygame.draw.line(vignette, (0, 0, 0, a), (i, 0), (i, TS - 1))
+                pygame.draw.line(vignette, (0, 0, 0, a), (TS - 1 - i, 0), (TS - 1 - i, TS - 1))
+        tile_surf.blit(vignette, (0, 0))
 
         self.tile_surfaces[cache_key] = tile_surf
         screen.blit(tile_surf, (x, y))
@@ -1577,7 +1653,8 @@ class DowntownRenderer:
             screen.blit(ap_num_surf, (key_x + 12, panel_y + 13))
 
             # 설명
-            desc = building_info.get('description', '')
+            from downtown.constants import get_building_display_desc
+            desc = get_building_display_desc(building_info)
             if len(desc) > 25:
                 desc = desc[:25] + "..."
             desc_surf, desc_rect = korean_font.render(desc, Colors.TEXT_GRAY)
