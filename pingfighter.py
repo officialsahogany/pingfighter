@@ -125579,7 +125579,7 @@ def draw_score():
             top_hero_name = arena_top_hero.get("name", "Boss") if arena_top_hero else "Boss"
             draw_ice_crystal_scoreboard(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, current_stage, bottom_hero_name, top_hero_name)
         else:
-            draw_ice_crystal_scoreboard(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, current_stage)
+            draw_ice_crystal_scoreboard(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, current_stage, top_name=current_boss_name)
 
     # 투기장 배속 버튼: _fullscreen_flip / _windowed_flip에서 REAL_SCREEN에 직접 그림
     _update_arena_speed_btn_rects()
