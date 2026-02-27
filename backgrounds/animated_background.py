@@ -454,8 +454,12 @@ class AnimatedBackground:
                 particle['y'] = self.height
                 particle['x'] = random.randint(0, self.width)
 
-    def draw(self, screen):
-        screen.blit(self.base_image, (0, 0))
+    def draw(self, screen, parallax_offset=(0, 0)):
+        px, py = parallax_offset
+        # 후경: base_image (거의 안 움직임)
+        bg_ox = int(px * 0.3)
+        bg_oy = int(py * 0.3)
+        screen.blit(self.base_image, (bg_ox, bg_oy))
 
         self.glow_surface.fill(self._transparent)
         pulse = math.sin(self.time * 0.002) * 0.5 + 0.5
@@ -482,8 +486,11 @@ class AnimatedBackground:
                                (50, 50, 255, spark_alpha),
                                (int(x), int(y)), 3)
 
-        screen.blit(self.glow_surface, (0, 0), special_flags=pygame.BLEND_ADD)
-        screen.blit(self.rotated_surface, (0, 0), special_flags=pygame.BLEND_ADD)
+        # 중경: glow + rotated (중간 움직임)
+        mid_ox = int(px * 0.6)
+        mid_oy = int(py * 0.6)
+        screen.blit(self.glow_surface, (mid_ox, mid_oy), special_flags=pygame.BLEND_ADD)
+        screen.blit(self.rotated_surface, (mid_ox, mid_oy), special_flags=pygame.BLEND_ADD)
 
         self.grid_surface.fill(self._transparent)
         for particle in self.grid_particles:
@@ -494,7 +501,10 @@ class AnimatedBackground:
                                    (int(particle['x']), int(particle['y'])),
                                    particle['size'])
 
-        screen.blit(self.grid_surface, (0, 0), special_flags=pygame.BLEND_ADD)
+        # 전경: grid particles + flash (많이 움직임)
+        fg_ox = int(px * 1.0)
+        fg_oy = int(py * 1.0)
+        screen.blit(self.grid_surface, (fg_ox, fg_oy), special_flags=pygame.BLEND_ADD)
 
         if int(self.time / 1000) % 3 == 0:
             flash_alpha = int(abs(math.sin(self.time * 0.01)) * 20)
@@ -503,4 +513,4 @@ class AnimatedBackground:
                                (10, 10, 10, flash_alpha),
                                (self.center_x, self.center_y),
                                self.taegeuk_radius + 10)
-            screen.blit(self.flash_surface, (0, 0), special_flags=pygame.BLEND_ADD)
+            screen.blit(self.flash_surface, (fg_ox, fg_oy), special_flags=pygame.BLEND_ADD)
