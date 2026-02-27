@@ -19,7 +19,14 @@ from typing import List, Tuple, Optional
 
 
 class QuantumParticle:
-    """양자 에너지 입자"""
+    """양자 에너지 입자 (Ultra Premium HD Edition)
+
+    고해상도 다층 글로우, 크로마틱 헤일로, 서브파티클 시스템,
+    궤도 미세진동, 펄스 코어를 갖춘 초고퀄리티 양자 입자.
+    """
+
+    # 클래스 레벨 캐시 (동일 크기 글로우 서피스 재사용)
+    _glow_cache: dict = {}
 
     def __init__(self, center_x: float, center_y: float, max_radius: float):
         # 시작 위치 (외곽에서 시작)
@@ -30,112 +37,328 @@ class QuantumParticle:
         self.center_x = center_x
         self.center_y = center_y
 
-        # 속성
+        # 속성 (크기 증가 — 더 존재감 있는 입자)
         self.angle = angle
         self.radius = dist
-        self.size = random.uniform(2, 6)
-        self.speed = random.uniform(0.02, 0.05)  # 각속도
+        self.base_size = random.uniform(3, 8)
+        self.size = self.base_size
+        self.speed = random.uniform(0.02, 0.06)  # 각속도 (범위 확대)
 
-        # 색상 (풍부한 6종 팔레트 - 전기/양자/핑크/시안/앰버/화이트)
+        # 궤도 미세진동 (나선 흔들림)
+        self.wobble_amp = random.uniform(2, 8)
+        self.wobble_freq = random.uniform(4, 12)
+        self.wobble_phase = random.uniform(0, math.pi * 2)
+        # 반경 방향 맥동
+        self.radial_pulse_amp = random.uniform(0.02, 0.06)
+        self.radial_pulse_freq = random.uniform(2, 6)
+        self.radial_pulse_phase = random.uniform(0, math.pi * 2)
+
+        # 색상 (풍부한 8종 팔레트)
         color_choice = random.random()
-        if color_choice < 0.25:
+        if color_choice < 0.20:
             # 전기 블루 (밝고 선명)
             self.color = (random.randint(120, 200), random.randint(200, 255), 255)
-        elif color_choice < 0.45:
+            self.halo_color = (80, 160, 255)
+        elif color_choice < 0.35:
             # 양자 퍼플 (깊고 풍부)
             self.color = (random.randint(160, 230), random.randint(80, 160), 255)
-        elif color_choice < 0.6:
+            self.halo_color = (180, 100, 255)
+        elif color_choice < 0.48:
             # 에너지 핑크/화이트
             self.color = (255, random.randint(160, 255), random.randint(210, 255))
-        elif color_choice < 0.75:
+            self.halo_color = (255, 140, 220)
+        elif color_choice < 0.58:
             # 시안/민트 (청록빛)
             self.color = (random.randint(80, 160), 255, random.randint(220, 255))
-        elif color_choice < 0.88:
+            self.halo_color = (60, 230, 255)
+        elif color_choice < 0.68:
             # 골든 앰버 (따뜻한 에너지)
             self.color = (255, random.randint(200, 240), random.randint(100, 160))
+            self.halo_color = (255, 200, 80)
+        elif color_choice < 0.78:
+            # 네온 그린 (생체 에너지)
+            self.color = (random.randint(100, 180), 255, random.randint(120, 200))
+            self.halo_color = (100, 255, 150)
+        elif color_choice < 0.88:
+            # 코랄 레드 (열 에너지)
+            self.color = (255, random.randint(100, 160), random.randint(80, 140))
+            self.halo_color = (255, 120, 100)
         else:
             # 퓨어 화이트 (밝은 코어)
             v = random.randint(230, 255)
             self.color = (v, v, random.randint(240, 255))
+            self.halo_color = (220, 220, 255)
 
-        # 밝기 변화
+        # 크로마틱 시프트용 보조 색상
+        self.color_shift_speed = random.uniform(1.5, 4.0)
+        self.color_shift_phase = random.uniform(0, math.pi * 2)
+
+        # 밝기 변화 (다중 하모닉스)
         self.brightness_phase = random.uniform(0, math.pi * 2)
-        self.brightness_speed = random.uniform(3, 8)
+        self.brightness_speed = random.uniform(4, 10)
+        self.brightness_phase2 = random.uniform(0, math.pi * 2)
+        self.brightness_speed2 = random.uniform(8, 18)  # 고속 미세 깜빡임
 
-        # 궤적 저장 (잔상 효과용)
-        self.trail: List[Tuple[float, float, float]] = []
-        self.trail_length = random.randint(5, 15)
+        # 펄스 코어 (주기적 크기 변화)
+        self.pulse_phase = random.uniform(0, math.pi * 2)
+        self.pulse_speed = random.uniform(3, 7)
+        self.pulse_amp = random.uniform(0.15, 0.35)
+
+        # 궤적 저장 (잔상 효과용 — 더 길고 풍부)
+        self.trail: List[Tuple[float, float, float, float]] = []  # x, y, size, brightness
+        self.trail_length = random.randint(10, 25)
+
+        # 서브파티클 (미세 파편)
+        self.sub_particles: List[List[float]] = []  # [x, y, vx, vy, life, max_life, size]
+        self.sub_spawn_timer = 0.0
+        self.sub_spawn_interval = random.uniform(0.06, 0.15)
+
+        # 렌즈 플레어 (큰 입자만)
+        self.has_flare = self.base_size > 5.5
+        self.flare_angle = random.uniform(0, math.pi)
+        self.flare_rotation_speed = random.uniform(0.3, 1.2)
 
     def update(self, progress: float, dt: float):
         """입자 업데이트 - progress: 0~1 (응축 진행도)"""
-        # 잔상 저장
-        self.trail.append((self.x, self.y, self.size))
+        # 밝기 계산 (트레일에 저장)
+        brightness = 0.5 + 0.5 * math.sin(self.brightness_phase)
+
+        # 잔상 저장 (밝기 포함)
+        self.trail.append((self.x, self.y, self.size, brightness))
         if len(self.trail) > self.trail_length:
             self.trail.pop(0)
 
-        # 소용돌이 회전 + 중심으로 수렴
-        self.angle += self.speed * (1 + progress * 2)  # 진행될수록 빠르게 회전
+        # 소용돌이 회전 + 중심으로 수렴 (가속 곡선 개선)
+        accel = 1 + progress * 3 + progress * progress * 2  # 비선형 가속
+        self.angle += self.speed * accel
 
-        # 반지름 감소 (중심으로 수렴)
-        target_radius = self.radius * (1 - progress * 0.95)  # 최종적으로 5%까지 수렴
+        # 반지름 감소 (중심으로 수렴) + 맥동
+        self.radial_pulse_phase += self.radial_pulse_freq * dt
+        pulse_factor = 1 + math.sin(self.radial_pulse_phase) * self.radial_pulse_amp
+        target_radius = self.radius * (1 - progress * 0.95) * pulse_factor
+
+        # 궤도 미세진동 (접선 방향 흔들림)
+        self.wobble_phase += self.wobble_freq * dt
+        wobble_offset = math.sin(self.wobble_phase) * self.wobble_amp * (1 - progress * 0.7)
 
         # 위치 업데이트
-        self.x = self.center_x + math.cos(self.angle) * target_radius
-        self.y = self.center_y + math.sin(self.angle) * target_radius
+        self.x = self.center_x + math.cos(self.angle) * target_radius + \
+                 math.cos(self.angle + math.pi / 2) * wobble_offset
+        self.y = self.center_y + math.sin(self.angle) * target_radius + \
+                 math.sin(self.angle + math.pi / 2) * wobble_offset
 
-        # 크기 변화 (수렴하면서 약간 커짐)
-        self.size = max(1, self.size * (1 + progress * 0.01))
+        # 펄스 크기 변화
+        self.pulse_phase += self.pulse_speed * dt
+        pulse = 1 + math.sin(self.pulse_phase) * self.pulse_amp
+        self.size = max(1.5, self.base_size * pulse * (1 + progress * 0.15))
 
-        # 밝기 변화
+        # 밝기 변화 (다중 하모닉스)
         self.brightness_phase += self.brightness_speed * dt
+        self.brightness_phase2 += self.brightness_speed2 * dt
+
+        # 크로마틱 시프트
+        self.color_shift_phase += self.color_shift_speed * dt
+
+        # 렌즈 플레어 회전
+        if self.has_flare:
+            self.flare_angle += self.flare_rotation_speed * dt
+
+        # 서브파티클 업데이트 & 스폰
+        self.sub_spawn_timer += dt
+        if self.sub_spawn_timer >= self.sub_spawn_interval and len(self.sub_particles) < 6:
+            self.sub_spawn_timer = 0
+            # 입자 주변에서 작은 파편 방출
+            sa = random.uniform(0, math.pi * 2)
+            sv = random.uniform(8, 25)
+            max_life = random.uniform(0.2, 0.5)
+            self.sub_particles.append([
+                self.x, self.y,
+                math.cos(sa) * sv, math.sin(sa) * sv,
+                max_life, max_life,
+                random.uniform(1.0, 2.5)
+            ])
+
+        # 서브파티클 물리
+        alive_subs = []
+        for sp in self.sub_particles:
+            sp[4] -= dt  # life
+            if sp[4] > 0:
+                sp[0] += sp[2] * dt  # x += vx * dt
+                sp[1] += sp[3] * dt  # y += vy * dt
+                sp[2] *= 0.95  # 감속
+                sp[3] *= 0.95
+                alive_subs.append(sp)
+        self.sub_particles = alive_subs
 
     def draw(self, surface: pygame.Surface, alpha_mult: float = 1.0):
-        """입자와 잔상 그리기 (고해상도 글로우)"""
-        # 밝기 계산
-        brightness = 0.5 + 0.5 * math.sin(self.brightness_phase)
+        """입자와 잔상 그리기 (Ultra Premium HD 렌더링)"""
+        # 복합 밝기 계산 (메인 + 고속 미세 깜빡임)
+        brightness_main = 0.5 + 0.5 * math.sin(self.brightness_phase)
+        brightness_micro = 0.85 + 0.15 * math.sin(self.brightness_phase2)
+        brightness = brightness_main * brightness_micro
 
-        # 잔상 그리기 (그라데이션 컬러 트레일)
-        for i, (tx, ty, ts) in enumerate(self.trail):
-            trail_ratio = i / max(1, len(self.trail))
-            trail_alpha = int(60 * trail_ratio * alpha_mult)
-            if trail_alpha > 0:
-                # 잔상 색상: 꼬리부터 머리까지 그라데이션
-                trail_color = tuple(int(c * (0.35 + 0.45 * trail_ratio)) for c in self.color)
-                trail_surf = pygame.Surface((int(ts * 2), int(ts * 2)), pygame.SRCALPHA)
-                pygame.draw.circle(trail_surf, (*trail_color, trail_alpha),
-                                   (int(ts), int(ts)), int(ts * 0.7))
-                surface.blit(trail_surf, (int(tx - ts), int(ty - ts)))
+        # 크로마틱 시프트 계산 (색상 미세 변화)
+        shift = math.sin(self.color_shift_phase) * 0.15
+        shifted_color = (
+            min(255, max(0, int(self.color[0] * (1 + shift)))),
+            min(255, max(0, int(self.color[1] * (1 - shift * 0.5)))),
+            min(255, max(0, int(self.color[2] * (1 + shift * 0.3))))
+        )
 
-        # 메인 파티클
-        alpha = int(200 * brightness * alpha_mult)
-        glow_color = tuple(min(255, int(c * brightness * 1.2)) for c in self.color)
+        alpha = int(220 * brightness * alpha_mult)
+        if alpha <= 0:
+            return
 
-        # 확장된 글로우 (더 넓고 부드러운 그라데이션)
-        glow_size = int(self.size * 2.5)
-        glow_surf = pygame.Surface((glow_size * 4, glow_size * 4), pygame.SRCALPHA)
-        gc = glow_size * 2  # surface center
+        # ── 서브파티클 그리기 (배경 레이어) ──
+        for sp in self.sub_particles:
+            life_ratio = sp[4] / sp[5]
+            sp_alpha = int(140 * life_ratio * alpha_mult)
+            if sp_alpha > 2:
+                sp_size = max(1, int(sp[6] * life_ratio))
+                sp_surf_size = sp_size * 4
+                if sp_surf_size >= 2:
+                    sp_surf = pygame.Surface((sp_surf_size, sp_surf_size), pygame.SRCALPHA)
+                    sc = sp_surf_size // 2
+                    # 글로우
+                    pygame.draw.circle(sp_surf, (*shifted_color, sp_alpha // 3), (sc, sc), sp_size * 2)
+                    # 코어
+                    pygame.draw.circle(sp_surf, (*shifted_color, sp_alpha), (sc, sc), sp_size)
+                    surface.blit(sp_surf, (int(sp[0] - sc), int(sp[1] - sc)))
 
-        # 부드러운 이차곡선 페이드 글로우
-        for r in range(glow_size * 2, 0, -1):
-            ratio = r / (glow_size * 2)
-            glow_alpha = int(alpha * ratio * ratio * 0.22)
-            if glow_alpha > 0:
-                pygame.draw.circle(glow_surf, (*glow_color, glow_alpha), (gc, gc), r)
+        # ── 잔상 트레일 (그라데이션 컬러 + 글로우 트레일) ──
+        trail_len = len(self.trail)
+        if trail_len > 1:
+            for i, (tx, ty, ts, tb) in enumerate(self.trail):
+                trail_ratio = i / max(1, trail_len - 1)
+                # 비선형 알파 (꼬리는 희미, 머리로 갈수록 선명)
+                trail_alpha = int(100 * (trail_ratio ** 1.5) * alpha_mult * tb)
+                if trail_alpha < 3:
+                    continue
 
-        surface.blit(glow_surf, (int(self.x - gc), int(self.y - gc)))
+                # 색상 그라데이션: 꼬리=헤일로색 → 머리=메인색
+                blend = trail_ratio ** 0.8
+                t_r = int(self.halo_color[0] * (1 - blend) + shifted_color[0] * blend)
+                t_g = int(self.halo_color[1] * (1 - blend) + shifted_color[1] * blend)
+                t_b = int(self.halo_color[2] * (1 - blend) + shifted_color[2] * blend)
+                trail_color = (min(255, t_r), min(255, t_g), min(255, t_b))
 
-        # 중심 코어 (밝은 핵 + 내부 하이라이트)
-        core_surf = pygame.Surface((int(self.size * 4), int(self.size * 4)), pygame.SRCALPHA)
-        cc = int(self.size * 2)
-        # 외곽 코어
-        pygame.draw.circle(core_surf, (*glow_color, min(255, alpha + 55)),
-                           (cc, cc), int(self.size))
-        # 밝은 내부 코어 (하이라이트)
-        inner_color = tuple(min(255, c + 60) for c in glow_color)
-        inner_alpha = min(255, int(alpha * 1.15))
-        pygame.draw.circle(core_surf, (*inner_color, inner_alpha),
-                           (cc, cc), max(1, int(self.size * 0.5)))
-        surface.blit(core_surf, (int(self.x - cc), int(self.y - cc)))
+                draw_size = max(1, int(ts * (0.4 + 0.6 * trail_ratio)))
+                surf_dim = draw_size * 4
+                if surf_dim < 2:
+                    continue
+
+                t_surf = pygame.Surface((surf_dim, surf_dim), pygame.SRCALPHA)
+                tc = surf_dim // 2
+                # 외곽 글로우
+                glow_r = int(draw_size * 1.8)
+                if glow_r > 0:
+                    pygame.draw.circle(t_surf, (*trail_color, trail_alpha // 3), (tc, tc), glow_r)
+                # 코어
+                pygame.draw.circle(t_surf, (*trail_color, trail_alpha), (tc, tc), draw_size)
+                surface.blit(t_surf, (int(tx - tc), int(ty - tc)))
+
+        # ── 메인 파티클 렌더링 ──
+        glow_color = (
+            min(255, int(shifted_color[0] * brightness * 1.2)),
+            min(255, int(shifted_color[1] * brightness * 1.2)),
+            min(255, int(shifted_color[2] * brightness * 1.2))
+        )
+
+        # 다층 글로우 (4단계 소프트 서클 — pixel loop 대신 효율적)
+        glow_base = int(self.size * 3)
+        glow_surf_dim = glow_base * 6
+        if glow_surf_dim >= 4:
+            glow_surf = pygame.Surface((glow_surf_dim, glow_surf_dim), pygame.SRCALPHA)
+            gc = glow_surf_dim // 2
+
+            # Layer 1: 최외곽 크로마틱 헤일로 (미세 색상 분리)
+            halo_r = int(glow_base * 2.8)
+            halo_alpha = int(alpha * 0.08)
+            if halo_r > 0 and halo_alpha > 0:
+                pygame.draw.circle(glow_surf, (*self.halo_color, halo_alpha), (gc, gc), halo_r)
+                # 크로마틱 오프셋 (미세한 RGB 분리)
+                chroma_off = max(1, int(self.size * 0.3))
+                pygame.draw.circle(glow_surf,
+                    (min(255, self.halo_color[0] + 40), self.halo_color[1] // 2, self.halo_color[2] // 2, halo_alpha // 2),
+                    (gc + chroma_off, gc), int(halo_r * 0.7))
+                pygame.draw.circle(glow_surf,
+                    (self.halo_color[0] // 2, self.halo_color[1] // 2, min(255, self.halo_color[2] + 40), halo_alpha // 2),
+                    (gc - chroma_off, gc), int(halo_r * 0.7))
+
+            # Layer 2: 외곽 소프트 글로우
+            outer_r = int(glow_base * 2.0)
+            outer_alpha = int(alpha * 0.15)
+            if outer_r > 0 and outer_alpha > 0:
+                pygame.draw.circle(glow_surf, (*glow_color, outer_alpha), (gc, gc), outer_r)
+
+            # Layer 3: 중간 글로우 (메인 빛)
+            mid_r = int(glow_base * 1.3)
+            mid_alpha = int(alpha * 0.35)
+            if mid_r > 0 and mid_alpha > 0:
+                pygame.draw.circle(glow_surf, (*glow_color, mid_alpha), (gc, gc), mid_r)
+
+            # Layer 4: 내부 밝은 글로우
+            inner_r = int(glow_base * 0.7)
+            inner_alpha = int(alpha * 0.55)
+            if inner_r > 0 and inner_alpha > 0:
+                bright_color = (
+                    min(255, glow_color[0] + 40),
+                    min(255, glow_color[1] + 40),
+                    min(255, glow_color[2] + 40)
+                )
+                pygame.draw.circle(glow_surf, (*bright_color, inner_alpha), (gc, gc), inner_r)
+
+            surface.blit(glow_surf, (int(self.x - gc), int(self.y - gc)))
+
+        # 중심 코어 (3단계 — 외곽/중심/화이트핫)
+        core_surf_dim = int(self.size * 6)
+        if core_surf_dim >= 2:
+            core_surf = pygame.Surface((core_surf_dim, core_surf_dim), pygame.SRCALPHA)
+            cc = core_surf_dim // 2
+
+            # 외곽 코어
+            core_r = int(self.size)
+            core_alpha = min(255, alpha + 55)
+            if core_r > 0:
+                pygame.draw.circle(core_surf, (*glow_color, core_alpha), (cc, cc), core_r)
+
+            # 밝은 중심 코어
+            inner_core_r = max(1, int(self.size * 0.55))
+            inner_color = (
+                min(255, glow_color[0] + 80),
+                min(255, glow_color[1] + 80),
+                min(255, glow_color[2] + 80)
+            )
+            pygame.draw.circle(core_surf, (*inner_color, min(255, int(alpha * 1.2))),
+                               (cc, cc), inner_core_r)
+
+            # 화이트핫 센터 (가장 밝은 중심점)
+            hot_r = max(1, int(self.size * 0.25))
+            hot_alpha = min(255, int(alpha * 1.4))
+            pygame.draw.circle(core_surf, (255, 255, 255, hot_alpha), (cc, cc), hot_r)
+
+            surface.blit(core_surf, (int(self.x - cc), int(self.y - cc)))
+
+        # ── 렌즈 플레어 (큰 입자만) ──
+        if self.has_flare and alpha > 80:
+            flare_len = int(self.size * 2.5)
+            flare_alpha = int(alpha * 0.3)
+            if flare_len > 2 and flare_alpha > 2:
+                fx1 = self.x + math.cos(self.flare_angle) * flare_len
+                fy1 = self.y + math.sin(self.flare_angle) * flare_len
+                fx2 = self.x - math.cos(self.flare_angle) * flare_len
+                fy2 = self.y - math.sin(self.flare_angle) * flare_len
+                # 십자 플레어 (2축)
+                flare_col = (*glow_color, flare_alpha)
+                pygame.draw.line(surface, flare_col,
+                                 (int(fx1), int(fy1)), (int(fx2), int(fy2)), 1)
+                perp = self.flare_angle + math.pi / 2
+                px1 = self.x + math.cos(perp) * flare_len * 0.6
+                py1 = self.y + math.sin(perp) * flare_len * 0.6
+                px2 = self.x - math.cos(perp) * flare_len * 0.6
+                py2 = self.y - math.sin(perp) * flare_len * 0.6
+                pygame.draw.line(surface, flare_col,
+                                 (int(px1), int(py1)), (int(px2), int(py2)), 1)
 
 
 class EnhancedLightningBolt:
