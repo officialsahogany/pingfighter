@@ -130757,6 +130757,8 @@ def handle_ball():
     global spinning_claw_last_used
     # 아라크네 거미줄 장판
     global web_trap_last_used
+    # 포승줄 관련
+    global arrest_rope_phase, arrest_rope_active, arrest_rope_timer
 
     # --- Stage 8 그림자분신: 매 프레임 상태 업데이트 ---
     if current_stage == 8:
