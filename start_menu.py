@@ -23,6 +23,7 @@ from start_menu_config import (
 )
 # baroque frame은 pillar_background.py에서 stage 0으로 처리됨
 from pillar_background import get_pillar_renderer
+from localization.manager import get_localization_manager
 
 BASE_MENU_OPTIONS = ["경기장 입장", "멀티플레이", "개발테스트", "메달샵", "설정", "크레딧"]
 MENU_ICONS = {
@@ -2088,6 +2089,10 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
     )
     from config.settings_system import get_settings_manager
 
+    _loc = get_localization_manager()
+    def _t(key: str, fallback: str) -> str:
+        return _loc.get_text(key, fallback)
+
     clock = pygame.time.Clock()
     bgm_mgr = getattr(_bgm_mod, "bgm_manager", None)
     settings = get_settings_manager()
@@ -2104,6 +2109,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
     control_scheme = settings.get_setting("controls", "control_scheme", "keyboard")
     paddle_hit_sound = int(settings.get_setting("audio", "paddle_hit_sound", 1))
     ball_type = settings.get_setting("gameplay", "ball_type", "energy")
+    current_language = settings.get_setting("language", "language", "ko")
 
     # 패들 타격 사운드 프리로드
     _paddle_sounds = {}
@@ -2138,6 +2144,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
     dragging = False
     hit_pills = []
     ball_pills = []
+    lang_pills = []
 
     running = True
     while running:
@@ -2172,19 +2179,21 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
         screen.blit(panel, (panel_x, panel_y))
 
         # ─── 탭 ───
-        tab_w, tab_h = 100, 36
-        tab_gap = 8
+        tab_w, tab_h = 85, 36
+        tab_gap = 6
         tabs_y = panel_y + 12
         sound_tab_rect = pygame.Rect(panel_x + 16, tabs_y, tab_w, tab_h)
         ctrl_tab_rect = pygame.Rect(panel_x + 16 + (tab_w + tab_gap), tabs_y, tab_w, tab_h)
         disp_tab_rect = pygame.Rect(panel_x + 16 + (tab_w + tab_gap) * 2, tabs_y, tab_w, tab_h)
         play_tab_rect = pygame.Rect(panel_x + 16 + (tab_w + tab_gap) * 3, tabs_y, tab_w, tab_h)
+        lang_tab_rect = pygame.Rect(panel_x + 16 + (tab_w + tab_gap) * 4, tabs_y, tab_w, tab_h)
 
         for tab_rect, label, active in [
-            (sound_tab_rect, "사운드", current_tab == "sound"),
-            (ctrl_tab_rect, "컨트롤", current_tab == "controls"),
-            (disp_tab_rect, "디스플레이", current_tab == "display"),
-            (play_tab_rect, "플레이", current_tab == "play"),
+            (sound_tab_rect, _t("settings.tab.sound", "사운드"), current_tab == "sound"),
+            (ctrl_tab_rect, _t("settings.tab.controls", "컨트롤"), current_tab == "controls"),
+            (disp_tab_rect, _t("settings.tab.display", "디스플레이"), current_tab == "display"),
+            (play_tab_rect, _t("settings.tab.play", "플레이"), current_tab == "play"),
+            (lang_tab_rect, _t("settings.tab.language", "언어"), current_tab == "language"),
         ]:
             base = (70, 100, 140) if active else (50, 60, 80)
             pygame.draw.rect(screen, base, tab_rect, border_radius=8)
@@ -2206,7 +2215,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
         if current_tab == "sound":
             # ── BGM 볼륨 ──
             bgm_y = content_y + 20
-            bgm_label = font_medium.render("BGM 볼륨", True, (255, 255, 255))
+            bgm_label = font_medium.render(_t("settings.sound.bgm", "BGM 볼륨"), True, (255, 255, 255))
             screen.blit(bgm_label, bgm_label.get_rect(left=panel_x + margin_x, centery=bgm_y + slider_height // 2))
 
             # BGM 슬라이더 트랙
@@ -2239,7 +2248,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
 
             # ── 효과음 볼륨 ──
             sfx_y = content_y + 70
-            sfx_label = font_medium.render("효과음 볼륨", True, (255, 255, 255))
+            sfx_label = font_medium.render(_t("settings.sound.sfx", "효과음 볼륨"), True, (255, 255, 255))
             screen.blit(sfx_label, sfx_label.get_rect(left=panel_x + margin_x, centery=sfx_y + slider_height // 2))
 
             pygame.draw.rect(screen, (64, 66, 76), (slider_x, sfx_y, slider_width, slider_height), border_radius=6)
@@ -2268,15 +2277,15 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
 
         elif current_tab == "controls":
             scheme_y = content_y + 20
-            scheme_label = font_medium.render("조작 방식", True, (255, 255, 255))
+            scheme_label = font_medium.render(_t("settings.controls.label", "조작 방식"), True, (255, 255, 255))
             screen.blit(scheme_label, (panel_x + margin_x, scheme_y))
 
             pill_w, pill_h = 160, 36
             kb_rect = pygame.Rect(slider_x, scheme_y - 8, pill_w, pill_h)
             mk_rect = pygame.Rect(slider_x + pill_w + 14, scheme_y - 8, pill_w + 20, pill_h)
             for rect, label, is_sel in [
-                (kb_rect, "키보드만", control_scheme == "keyboard"),
-                (mk_rect, "마우스+키보드", control_scheme == "mouse_keyboard"),
+                (kb_rect, _t("settings.controls.keyboard_only", "키보드만"), control_scheme == "keyboard"),
+                (mk_rect, _t("settings.controls.mouse_keyboard", "마우스+키보드"), control_scheme == "mouse_keyboard"),
             ]:
                 col = (60, 90, 130) if is_sel else (45, 55, 70)
                 pygame.draw.rect(screen, col, rect, border_radius=18)
@@ -2287,10 +2296,10 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
         elif current_tab == "play":
             # ── 공 선택 ──
             ball_sel_y = content_y + 20
-            ball_sel_label = font_medium.render("공 선택", True, (255, 255, 255))
+            ball_sel_label = font_medium.render(_t("settings.play.ball_label", "공 선택"), True, (255, 255, 255))
             screen.blit(ball_sel_label, ball_sel_label.get_rect(left=panel_x + margin_x, centery=ball_sel_y + 16))
 
-            _bt_names = {"energy": "에너지볼", "pingpong": "탁구공"}
+            _bt_names = {"energy": _t("settings.play.ball_energy", "에너지볼"), "pingpong": _t("settings.play.ball_pingpong", "탁구공")}
             pill_w_b, pill_h_b = 110, 32
             pill_gap_b = 10
             ball_pills = []
@@ -2311,8 +2320,8 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
 
             # 공 설명
             _bt_descs = {
-                "energy": "속도에 따라 색상과 이펙트가 변합니다",
-                "pingpong": "탁구공 이미지, 이펙트 없음",
+                "energy": _t("settings.play.ball_energy_desc", "속도에 따라 색상과 이펙트가 변합니다"),
+                "pingpong": _t("settings.play.ball_pingpong_desc", "탁구공 이미지, 이펙트 없음"),
             }
             bt_desc = font_tiny.render(_bt_descs.get(ball_type, ""), True, (150, 180, 200))
             screen.blit(bt_desc, bt_desc.get_rect(centerx=width // 2, top=ball_sel_y + 44))
@@ -2321,10 +2330,10 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
             _hs_disabled = (ball_type == "pingpong")
             hit_y = ball_sel_y + 70
             _hs_label_col = (100, 100, 100) if _hs_disabled else (255, 255, 255)
-            hit_label = font_medium.render("타격 사운드", True, _hs_label_col)
+            hit_label = font_medium.render(_t("settings.play.hitsound_label", "타격 사운드"), True, _hs_label_col)
             screen.blit(hit_label, hit_label.get_rect(left=panel_x + margin_x, centery=hit_y + 18))
 
-            _hs_names = {1: "사운드 1", 2: "사운드 2", 3: "사운드 3"}
+            _hs_names = {1: _t("settings.play.sound_1", "사운드 1"), 2: _t("settings.play.sound_2", "사운드 2"), 3: _t("settings.play.sound_3", "사운드 3")}
             pill_w_h, pill_h_h = 90, 32
             pill_gap_h = 8
             hit_pills = []
@@ -2349,7 +2358,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
 
         elif current_tab == "display":
             disp_y = content_y + 20
-            disp_label = font_medium.render("화면 모드", True, (255, 255, 255))
+            disp_label = font_medium.render(_t("settings.display.label", "화면 모드"), True, (255, 255, 255))
             screen.blit(disp_label, (panel_x + margin_x, disp_y))
 
             dpill_w, dpill_h = 110, 36
@@ -2358,9 +2367,9 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
             cm_rect = pygame.Rect(slider_x + dpill_w + _dpill_gap, disp_y - 8, dpill_w, dpill_h)
             win_rect = pygame.Rect(slider_x + (dpill_w + _dpill_gap) * 2, disp_y - 8, dpill_w, dpill_h)
             for rect, label, is_sel in [
-                (fs_rect, "전체화면", display_mode == "fullscreen"),
-                (cm_rect, "전체화면(저화질)", display_mode == "cinema"),
-                (win_rect, "창모드", display_mode == "windowed"),
+                (fs_rect, _t("settings.display.fullscreen", "전체화면"), display_mode == "fullscreen"),
+                (cm_rect, _t("settings.display.cinema", "전체화면(저화질)"), display_mode == "cinema"),
+                (win_rect, _t("settings.display.windowed", "창모드"), display_mode == "windowed"),
             ]:
                 col = (60, 90, 130) if is_sel else (45, 55, 70)
                 pygame.draw.rect(screen, col, rect, border_radius=18)
@@ -2371,12 +2380,33 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
             # 설명 텍스트
             desc_y = disp_y + 50
             _disp_descs = {
-                "fullscreen": "네이티브 해상도 전체화면 (최고 화질)",
-                "cinema": "해상도를 낮춰 성능을 높이고 화면을 꽉 채웁니다",
-                "windowed": "필러 배경 포함 창모드로 표시합니다",
+                "fullscreen": _t("settings.display.fullscreen_desc", "네이티브 해상도 전체화면 (최고 화질)"),
+                "cinema": _t("settings.display.cinema_desc", "해상도를 낮춰 성능을 높이고 화면을 꽉 채웁니다"),
+                "windowed": _t("settings.display.windowed_desc", "필러 배경 포함 창모드로 표시합니다"),
             }
             desc = font_tiny.render(_disp_descs.get(display_mode, ""), True, (150, 180, 200))
             screen.blit(desc, desc.get_rect(centerx=width // 2, top=desc_y))
+
+        elif current_tab == "language":
+            lang_y = content_y + 20
+            lang_label = font_medium.render(_t("settings.language.label", "언어 선택"), True, (255, 255, 255))
+            screen.blit(lang_label, (panel_x + margin_x, lang_y))
+            _lang_options = [("ko", "한국어"), ("en", "English")]
+            _lpill_w, _lpill_h = 130, 36
+            _lpill_gap = 12
+            lang_pills = []
+            for i, (_lcode, _llabel) in enumerate(_lang_options):
+                px = slider_x + i * (_lpill_w + _lpill_gap)
+                py = lang_y - 8
+                r = pygame.Rect(px, py, _lpill_w, _lpill_h)
+                lang_pills.append((r, _lcode, _llabel))
+                is_sel = (current_language == _lcode)
+                col = (60, 90, 130) if is_sel else (45, 55, 70)
+                pygame.draw.rect(screen, col, r, border_radius=18)
+                border_col = (0, 255, 255) if is_sel else (150, 150, 150)
+                pygame.draw.rect(screen, border_col, r, 2, border_radius=18)
+                s = font_small.render(_llabel, True, (255, 255, 255))
+                screen.blit(s, s.get_rect(center=r.center))
 
         # ─── 뒤로가기 버튼 ───
         back_w, back_h = 144, 45
@@ -2389,11 +2419,11 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
         button_color = (0, 100, 150) if button_hover else (50, 50, 50)
         pygame.draw.rect(screen, button_color, back_rect, border_radius=8)
         pygame.draw.rect(screen, (0, 255, 255), back_rect, 2, border_radius=8)
-        back_text = font_medium.render("뒤로가기", True, (255, 255, 255))
+        back_text = font_medium.render(_t("settings.back", "뒤로가기"), True, (255, 255, 255))
         screen.blit(back_text, back_text.get_rect(center=back_rect.center))
 
         # 힌트
-        hint = font_tiny.render("TAB: 탭 전환  |  ←→: 조절  |  ESC: 뒤로", True, (150, 180, 200))
+        hint = font_tiny.render(_t("settings.hint", "TAB: 탭 전환  |  ←→: 조절  |  ESC: 뒤로"), True, (150, 180, 200))
         screen.blit(hint, hint.get_rect(center=(width // 2, panel_y + panel_height + 20)))
 
         pygame.display.flip()
@@ -2401,14 +2431,14 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
         # ─── 이벤트 처리 ───
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound, ball_type)
+                _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound, ball_type, current_language)
                 pygame.quit()
                 raise SystemExit
 
             if event.type == pygame.KEYDOWN:
                 state.idle_start_time = pygame.time.get_ticks()
                 if event.key == pygame.K_ESCAPE:
-                    _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound, ball_type)
+                    _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound, ball_type, current_language)
                     # 디스플레이 모드 변경 적용
                     try:
                         from pingfighter import switch_display_mode, get_display_mode
@@ -2419,13 +2449,17 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                     return
 
                 if event.key == pygame.K_TAB:
-                    _tab_order = ["sound", "controls", "display", "play"]
+                    _tab_order = ["sound", "controls", "display", "play", "language"]
                     _tab_idx = _tab_order.index(current_tab) if current_tab in _tab_order else 0
                     current_tab = _tab_order[(_tab_idx + 1) % len(_tab_order)]
-                    focus = {"sound": "bgm", "controls": "scheme", "display": "dispmode", "play": "balltype"}.get(current_tab, "bgm")
+                    focus = {"sound": "bgm", "controls": "scheme", "display": "dispmode", "play": "balltype", "language": "lang"}.get(current_tab, "bgm")
 
                 if event.key == pygame.K_LEFT:
-                    if current_tab == "controls" and focus == "scheme":
+                    if current_tab == "language" and focus == "lang":
+                        current_language = "ko"
+                        _loc.set_language(current_language)
+                        settings.set_setting("language", "language", current_language)
+                    elif current_tab == "controls" and focus == "scheme":
                         control_scheme = "keyboard"
                     elif current_tab == "display" and focus == "dispmode":
                         _dm_order = ["fullscreen", "cinema", "windowed"]
@@ -2454,7 +2488,11 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         ball_type = _bt_order[max(0, _bt_idx - 1)]
 
                 elif event.key == pygame.K_RIGHT:
-                    if current_tab == "controls" and focus == "scheme":
+                    if current_tab == "language" and focus == "lang":
+                        current_language = "en"
+                        _loc.set_language(current_language)
+                        settings.set_setting("language", "language", current_language)
+                    elif current_tab == "controls" and focus == "scheme":
                         control_scheme = "mouse_keyboard"
                     elif current_tab == "display" and focus == "dispmode":
                         _dm_order = ["fullscreen", "cinema", "windowed"]
@@ -2483,7 +2521,9 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         ball_type = _bt_order[min(len(_bt_order) - 1, _bt_idx + 1)]
 
                 elif event.key == pygame.K_UP:
-                    if current_tab == "controls":
+                    if current_tab == "language":
+                        order = ["lang", "back"]
+                    elif current_tab == "controls":
                         order = ["scheme", "back"]
                     elif current_tab == "display":
                         order = ["dispmode", "back"]
@@ -2494,7 +2534,9 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                     focus = order[(order.index(focus) - 1) % len(order)] if focus in order else order[0]
 
                 elif event.key == pygame.K_DOWN:
-                    if current_tab == "controls":
+                    if current_tab == "language":
+                        order = ["lang", "back"]
+                    elif current_tab == "controls":
                         order = ["scheme", "back"]
                     elif current_tab == "display":
                         order = ["dispmode", "back"]
@@ -2507,7 +2549,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                 elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
                     if focus == "back":
                         ctx.play_click_sound()
-                        _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound, ball_type)
+                        _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound, ball_type, current_language)
                         # 디스플레이 모드 변경 적용
                         try:
                             from pingfighter import switch_display_mode, get_display_mode
@@ -2516,6 +2558,10 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         except Exception as _e:
                             print(f"[디스플레이 전환 오류] {_e}")
                         return
+                    elif current_tab == "language" and focus == "lang":
+                        current_language = "en" if current_language == "ko" else "ko"
+                        _loc.set_language(current_language)
+                        settings.set_setting("language", "language", current_language)
                     elif current_tab == "display" and focus == "dispmode":
                         _dm_order = ["fullscreen", "cinema", "windowed"]
                         _dm_idx = _dm_order.index(display_mode) if display_mode in _dm_order else 0
@@ -2564,6 +2610,20 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                     current_tab = "play"
                     focus = "balltype"
                     continue
+                if lang_tab_rect.collidepoint(mp):
+                    current_tab = "language"
+                    focus = "lang"
+                    continue
+
+                # 언어 탭 - 언어 pill 클릭
+                if current_tab == "language":
+                    for _lr, _lc, _ll in lang_pills:
+                        if _lr.collidepoint(mp):
+                            current_language = _lc
+                            _loc.set_language(current_language)
+                            settings.set_setting("language", "language", current_language)
+                            focus = "lang"
+                            break
 
                 # 플레이 탭 - 공 선택 및 타격 사운드 클릭
                 if current_tab == "play":
@@ -2587,7 +2647,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                 # 뒤로가기
                 if back_rect.collidepoint(mp):
                     ctx.play_click_sound()
-                    _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound, ball_type)
+                    _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound, ball_type, current_language)
                     # 디스플레이 모드 변경 적용
                     try:
                         from pingfighter import switch_display_mode, get_display_mode
@@ -2687,10 +2747,10 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         if not sfx_muted:
                             set_sfx_volume(current_sfx_volume)
 
-    _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound, ball_type)
+    _save_menu_settings(settings, bgm_mgr, current_bgm_volume, current_sfx_volume, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound, ball_type, current_language)
 
 
-def _save_menu_settings(settings, bgm_mgr, bgm_vol, sfx_vol, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound=1, ball_type="energy"):
+def _save_menu_settings(settings, bgm_mgr, bgm_vol, sfx_vol, bgm_muted, sfx_muted, control_scheme, paddle_hit_sound=1, ball_type="energy", language=None):
     """설정 값 저장"""
     from game_state.audio import set_bgm_volume, set_sfx_volume, set_bgm_muted, set_sfx_muted
     try:
@@ -2707,6 +2767,8 @@ def _save_menu_settings(settings, bgm_mgr, bgm_vol, sfx_vol, bgm_muted, sfx_mute
         settings.set_setting("audio", "paddle_hit_sound", paddle_hit_sound)
         settings.set_setting("gameplay", "ball_type", ball_type)
         settings.set_setting("controls", "control_scheme", control_scheme)
+        if language is not None:
+            settings.set_setting("language", "language", language)
         settings.save_settings()
     except Exception as e:
         print(f"[설정 저장 오류] {e}")

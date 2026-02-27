@@ -26,16 +26,16 @@ class PauseMenu:
     `core.game_engine.GameEngine`에서 쉽게 제어할 수 있도록 한다.
     """
 
-    _OPTIONS: Sequence[Tuple[str, str]] = (
-        ("계속하기", "resume"),
-        ("라운드 재시작", "restart"),
-        ("메인 메뉴", "quit"),
+    _OPTION_KEYS: Sequence[Tuple[str, str, str]] = (
+        ("pause.resume", "계속하기", "resume"),
+        ("pause.restart", "라운드 재시작", "restart"),
+        ("pause.quit", "메인 메뉴", "quit"),
     )
 
     def __init__(self, screen: pygame.Surface):
         self.screen = screen
         self.width, self.height = screen.get_size()
-        self.options: List[Tuple[str, str]] = list(self._OPTIONS)
+        self.options: List[Tuple[str, str]] = self._build_options()
         self.selected_index = 0
         self._pending_action: Optional[str] = None
         self._option_rects: List[pygame.Rect] = []
@@ -45,6 +45,10 @@ class PauseMenu:
         self._font_option = None
         self._font_hint = None
         self._ensure_fonts()
+
+    def _build_options(self) -> List[Tuple[str, str]]:
+        loc = get_localization_manager()
+        return [(loc.get_text(key, fallback), action) for key, fallback, action in self._OPTION_KEYS]
 
     # 공개 API ---------------------------------------------------------------
     def reset(self) -> None:
@@ -64,6 +68,11 @@ class PauseMenu:
     def render(self) -> None:
         """일시정지 오버레이를 그린다."""
 
+        # 언어 변경 시 옵션 라벨 갱신
+        self.options = self._build_options()
+
+        loc = get_localization_manager()
+
         overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 180))
         self.screen.blit(overlay, (0, 0))
@@ -74,11 +83,11 @@ class PauseMenu:
         pygame.draw.rect(self.screen, (25, 25, 35), box_rect, border_radius=12)
         pygame.draw.rect(self.screen, const.CYAN, box_rect, 3, border_radius=12)
 
-        title_surface = self._font_title.render("일시정지", True, const.WHITE)
+        title_surface = self._font_title.render(loc.get_text("pause.title", "일시정지"), True, const.WHITE)
         title_rect = title_surface.get_rect(center=(self.width // 2, box_rect.top + 60))
         self.screen.blit(title_surface, title_rect)
 
-        hint_surface = self._font_hint.render("↑↓ 선택 · Enter/Space 확인 · Esc 취소", True, (170, 170, 180))
+        hint_surface = self._font_hint.render(loc.get_text("pause.hint", "↑↓ 선택 · Enter/Space 확인 · Esc 취소"), True, (170, 170, 180))
         hint_rect = hint_surface.get_rect(center=(self.width // 2, box_rect.bottom - 40))
         self.screen.blit(hint_surface, hint_rect)
 
@@ -184,6 +193,10 @@ class PauseOptionsContext:
 
 def show_pause_options(ctx: PauseOptionsContext) -> None:
     """일시정지 옵션 메뉴 - 볼륨 조절 UI"""
+
+    _loc = get_localization_manager()
+    def _t(key: str, fallback: str) -> str:
+        return _loc.get_text(key, fallback)
 
     font_large = FontStyle.subtitle()
     font_medium = FontStyle.body()
@@ -306,20 +319,20 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
             pygame.draw.rect(ctx.screen, (140, 180, 220), rect, 2, border_radius=8)
             t = font_small.render(label, True, const.WHITE)
             ctx.screen.blit(t, t.get_rect(center=rect.center))
-        _draw_tab(sound_tab_rect, '사운드', current_tab == 'sound')
-        _draw_tab(ctrl_tab_rect, '컨트롤', current_tab == 'controls')
-        _draw_tab(disp_tab_rect, '디스플레이', current_tab == 'display')
-        _draw_tab(play_tab_rect, '플레이', current_tab == 'play')
-        _draw_tab(lang_tab_rect, '언어', current_tab == 'language')
+        _draw_tab(sound_tab_rect, _t("settings.tab.sound", "사운드"), current_tab == 'sound')
+        _draw_tab(ctrl_tab_rect, _t("settings.tab.controls", "컨트롤"), current_tab == 'controls')
+        _draw_tab(disp_tab_rect, _t("settings.tab.display", "디스플레이"), current_tab == 'display')
+        _draw_tab(play_tab_rect, _t("settings.tab.play", "플레이"), current_tab == 'play')
+        _draw_tab(lang_tab_rect, _t("settings.tab.language", "언어"), current_tab == 'language')
 
         # 컨텐츠 렌더링 -------------------------------------------------------
         if current_tab == 'play':
             # ── 공 선택 ──
             ball_sel_y = bgm_slider_y
-            ball_sel_label = font_medium.render("공 선택", True, const.WHITE)
+            ball_sel_label = font_medium.render(_t("settings.play.ball_label", "공 선택"), True, const.WHITE)
             ctx.screen.blit(ball_sel_label, ball_sel_label.get_rect(left=panel_x + margin_x, centery=ball_sel_y + 16))
 
-            _bt_names = {"energy": "에너지볼", "pingpong": "탁구공"}
+            _bt_names = {"energy": _t("settings.play.ball_energy", "에너지볼"), "pingpong": _t("settings.play.ball_pingpong", "탁구공")}
             pill_w_b, pill_h_b = 110, 32
             pill_gap_b = 10
             ball_pills = []
@@ -339,8 +352,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                 ctx.screen.blit(s, s.get_rect(center=r.center))
 
             _bt_descs = {
-                "energy": "속도에 따라 색상과 이펙트가 변합니다",
-                "pingpong": "탁구공 이미지, 이펙트 없음",
+                "energy": _t("settings.play.ball_energy_desc", "속도에 따라 색상과 이펙트가 변합니다"),
+                "pingpong": _t("settings.play.ball_pingpong_desc", "탁구공 이미지, 이펙트 없음"),
             }
             bt_desc = font_small.render(_bt_descs.get(ball_type, ''), True, (150, 180, 200))
             ctx.screen.blit(bt_desc, bt_desc.get_rect(centerx=ctx.width // 2, top=ball_sel_y + 44))
@@ -349,10 +362,10 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
             _hs_disabled = (ball_type == "pingpong")
             hit_y = ball_sel_y + 70
             _hs_label_col = (100, 100, 100) if _hs_disabled else const.WHITE
-            hit_label = font_medium.render("타격 사운드", True, _hs_label_col)
+            hit_label = font_medium.render(_t("settings.play.hitsound_label", "타격 사운드"), True, _hs_label_col)
             ctx.screen.blit(hit_label, hit_label.get_rect(left=panel_x + margin_x, centery=hit_y + 16))
 
-            _hs_names = {1: "사운드 1", 2: "사운드 2", 3: "사운드 3"}
+            _hs_names = {1: _t("settings.play.sound_1", "사운드 1"), 2: _t("settings.play.sound_2", "사운드 2"), 3: _t("settings.play.sound_3", "사운드 3")}
             pill_w_h, pill_h_h = 90, 32
             pill_gap_h = 8
             hit_pills = []
@@ -377,7 +390,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
 
         elif current_tab == 'controls':
             # 조작 방식 선택(키보드만 / 마우스+키보드)
-            label = font_medium.render("조작 방식", True, const.WHITE)
+            label = font_medium.render(_t("settings.controls.label", "조작 방식"), True, const.WHITE)
             ctx.screen.blit(label, (panel_x + margin_x, bgm_slider_y + slider_height // 2 - 10))
             # 두 개의 선택 버튼
             pill_w, pill_h = 180, 36
@@ -389,11 +402,11 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                 pygame.draw.rect(ctx.screen, (140, 180, 220) if focused else const.WHITE, rect, 2, border_radius=18)
                 s = font_small.render(text, True, const.WHITE)
                 ctx.screen.blit(s, s.get_rect(center=rect.center))
-            _draw_pill(kb_rect, '키보드만', control_scheme == 'keyboard', locals().get('focus','bgm') == 'scheme')
-            _draw_pill(mk_rect, '마우스+키보드', control_scheme == 'mouse_keyboard', locals().get('focus','bgm') == 'scheme')
+            _draw_pill(kb_rect, _t("settings.controls.keyboard_only", "키보드만"), control_scheme == 'keyboard', locals().get('focus','bgm') == 'scheme')
+            _draw_pill(mk_rect, _t("settings.controls.mouse_keyboard", "마우스+키보드"), control_scheme == 'mouse_keyboard', locals().get('focus','bgm') == 'scheme')
         elif current_tab == 'display':
             # 화면 모드 선택 (전체화면 / 시네마모드 / 창모드)
-            disp_label = font_medium.render("화면 모드", True, const.WHITE)
+            disp_label = font_medium.render(_t("settings.display.label", "화면 모드"), True, const.WHITE)
             ctx.screen.blit(disp_label, (panel_x + margin_x, bgm_slider_y + slider_height // 2 - 10))
             dpill_w, dpill_h = 110, 36
             _dpill_gap = 8
@@ -401,9 +414,9 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
             cm_rect = pygame.Rect(bgm_slider_x + dpill_w + _dpill_gap, bgm_slider_y - 8, dpill_w, dpill_h)
             win_rect = pygame.Rect(bgm_slider_x + (dpill_w + _dpill_gap) * 2, bgm_slider_y - 8, dpill_w, dpill_h)
             for _drect, _dlabel, _dsel in [
-                (fs_rect, '전체화면', display_mode == 'fullscreen'),
-                (cm_rect, '전체화면(저화질)', display_mode == 'cinema'),
-                (win_rect, '창모드', display_mode == 'windowed'),
+                (fs_rect, _t("settings.display.fullscreen", "전체화면"), display_mode == 'fullscreen'),
+                (cm_rect, _t("settings.display.cinema", "전체화면(저화질)"), display_mode == 'cinema'),
+                (win_rect, _t("settings.display.windowed", "창모드"), display_mode == 'windowed'),
             ]:
                 _dcol = (60, 90, 130) if _dsel else (45, 55, 70)
                 pygame.draw.rect(ctx.screen, _dcol, _drect, border_radius=18)
@@ -413,15 +426,15 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
             # 설명 텍스트
             _desc_y = bgm_slider_y + 45
             _disp_descs = {
-                'fullscreen': "네이티브 해상도 전체화면 (최고 화질)",
-                'cinema': "해상도를 낮춰 성능을 높이고 화면을 꽉 채웁니다",
-                'windowed': "필러 배경 포함 창모드로 표시합니다",
+                'fullscreen': _t("settings.display.fullscreen_desc", "네이티브 해상도 전체화면 (최고 화질)"),
+                'cinema': _t("settings.display.cinema_desc", "해상도를 낮춰 성능을 높이고 화면을 꽉 채웁니다"),
+                'windowed': _t("settings.display.windowed_desc", "필러 배경 포함 창모드로 표시합니다"),
             }
             _desc_t = font_small.render(_disp_descs.get(display_mode, ''), True, (150, 180, 200))
             ctx.screen.blit(_desc_t, _desc_t.get_rect(centerx=ctx.width // 2, top=_desc_y))
         elif current_tab == 'language':
             # -------- 언어 탭 --------
-            lang_label = font_medium.render("언어 선택", True, const.WHITE)
+            lang_label = font_medium.render(_t("settings.language.label", "언어 선택"), True, const.WHITE)
             ctx.screen.blit(lang_label, (panel_x + margin_x, bgm_slider_y + slider_height // 2 - 10))
             _lang_options = [("ko", "한국어"), ("en", "English")]
             _lpill_w, _lpill_h = 130, 36
@@ -441,7 +454,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                 ctx.screen.blit(s, s.get_rect(center=r.center))
         else:
             # -------- 사운드 탭 --------
-            bgm_label = font_medium.render("BGM 볼륨", True, const.WHITE)
+            bgm_label = font_medium.render(_t("settings.sound.bgm", "BGM 볼륨"), True, const.WHITE)
             bgm_label_rect = bgm_label.get_rect(left=panel_x + margin_x, centery=bgm_slider_y + slider_height // 2)
             ctx.screen.blit(bgm_label, bgm_label_rect)
 
@@ -486,7 +499,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
             mute_label = font_small.render("OFF", True, (255, 80, 80) if bgm_muted else (120, 120, 120))
             ctx.screen.blit(mute_label, (bgm_checkbox_x + checkbox_size + 5, bgm_checkbox_y + 2))
 
-            sfx_label = font_medium.render("효과음 볼륨", True, const.WHITE)
+            sfx_label = font_medium.render(_t("settings.sound.sfx", "효과음 볼륨"), True, const.WHITE)
             sfx_label_rect = sfx_label.get_rect(left=panel_x + margin_x, centery=sfx_slider_y + slider_height // 2)
             ctx.screen.blit(sfx_label, sfx_label_rect)
 
@@ -537,7 +550,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
         pygame.draw.rect(ctx.screen, button_color, back_button_rect, border_radius=5)
         pygame.draw.rect(ctx.screen, const.WHITE, back_button_rect, 2, border_radius=5)
 
-        back_text = font_medium.render("뒤로가기", True, const.WHITE)
+        back_text = font_medium.render(_t("settings.back", "뒤로가기"), True, const.WHITE)
         back_text_rect = back_text.get_rect(center=back_button_rect.center)
         ctx.screen.blit(back_text, back_text_rect)
 

@@ -23,5 +23,48 @@
   "settings.category.graphics": "Graphics",
   "settings.category.audio": "Audio",
   "settings.category.gameplay": "Gameplay",
-  "settings.category.network": "Network"
+  "settings.category.network": "Network",
+
+  "settings.tab.sound": "Sound",
+  "settings.tab.controls": "Controls",
+  "settings.tab.display": "Display",
+  "settings.tab.play": "Play",
+  "settings.tab.language": "Language",
+
+  "settings.sound.bgm": "BGM Volume",
+  "settings.sound.sfx": "SFX Volume",
+  "settings.sound.off": "OFF",
+
+  "settings.controls.label": "Control Scheme",
+  "settings.controls.keyboard_only": "Keyboard Only",
+  "settings.controls.mouse_keyboard": "Mouse+Keyboard",
+
+  "settings.display.label": "Display Mode",
+  "settings.display.fullscreen": "Fullscreen",
+  "settings.display.cinema": "Fullscreen(Low)",
+  "settings.display.windowed": "Windowed",
+  "settings.display.fullscreen_desc": "Native resolution fullscreen (best quality)",
+  "settings.display.cinema_desc": "Lower resolution for better performance",
+  "settings.display.windowed_desc": "Windowed mode with pillar backgrounds",
+
+  "settings.play.ball_label": "Ball Type",
+  "settings.play.ball_energy": "Energy Ball",
+  "settings.play.ball_pingpong": "Ping Pong",
+  "settings.play.ball_energy_desc": "Color and effects change with speed",
+  "settings.play.ball_pingpong_desc": "Ping pong ball image, no effects",
+  "settings.play.hitsound_label": "Hit Sound",
+  "settings.play.sound_1": "Sound 1",
+  "settings.play.sound_2": "Sound 2",
+  "settings.play.sound_3": "Sound 3",
+
+  "settings.language.label": "Language",
+
+  "settings.back": "Back",
+  "settings.hint": "TAB: Switch Tab  |  ←→: Adjust  |  ESC: Back",
+
+  "pause.title": "Paused",
+  "pause.resume": "Resume",
+  "pause.restart": "Restart Round",
+  "pause.quit": "Main Menu",
+  "pause.hint": "↑↓ Select · Enter/Space Confirm · Esc Cancel"
 }

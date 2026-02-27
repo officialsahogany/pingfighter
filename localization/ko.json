@@ -23,5 +23,48 @@
   "settings.category.graphics": "그래픽",
   "settings.category.audio": "오디오",
   "settings.category.gameplay": "게임플레이",
-  "settings.category.network": "네트워크"
+  "settings.category.network": "네트워크",
+
+  "settings.tab.sound": "사운드",
+  "settings.tab.controls": "컨트롤",
+  "settings.tab.display": "디스플레이",
+  "settings.tab.play": "플레이",
+  "settings.tab.language": "언어",
+
+  "settings.sound.bgm": "BGM 볼륨",
+  "settings.sound.sfx": "효과음 볼륨",
+  "settings.sound.off": "OFF",
+
+  "settings.controls.label": "조작 방식",
+  "settings.controls.keyboard_only": "키보드만",
+  "settings.controls.mouse_keyboard": "마우스+키보드",
+
+  "settings.display.label": "화면 모드",
+  "settings.display.fullscreen": "전체화면",
+  "settings.display.cinema": "전체화면(저화질)",
+  "settings.display.windowed": "창모드",
+  "settings.display.fullscreen_desc": "네이티브 해상도 전체화면 (최고 화질)",
+  "settings.display.cinema_desc": "해상도를 낮춰 성능을 높이고 화면을 꽉 채웁니다",
+  "settings.display.windowed_desc": "필러 배경 포함 창모드로 표시합니다",
+
+  "settings.play.ball_label": "공 선택",
+  "settings.play.ball_energy": "에너지볼",
+  "settings.play.ball_pingpong": "탁구공",
+  "settings.play.ball_energy_desc": "속도에 따라 색상과 이펙트가 변합니다",
+  "settings.play.ball_pingpong_desc": "탁구공 이미지, 이펙트 없음",
+  "settings.play.hitsound_label": "타격 사운드",
+  "settings.play.sound_1": "사운드 1",
+  "settings.play.sound_2": "사운드 2",
+  "settings.play.sound_3": "사운드 3",
+
+  "settings.language.label": "언어 선택",
+
+  "settings.back": "뒤로가기",
+  "settings.hint": "TAB: 탭 전환  |  ←→: 조절  |  ESC: 뒤로",
+
+  "pause.title": "일시정지",
+  "pause.resume": "계속하기",
+  "pause.restart": "라운드 재시작",
+  "pause.quit": "메인 메뉴",
+  "pause.hint": "↑↓ 선택 · Enter/Space 확인 · Esc 취소"
 }
