@@ -2422,6 +2422,13 @@ class NPC:
         # 텍스트 렌더링 (번역 적용)
         display_text = _translate_npc_dialogue(self.speech_bubble)
         text_surface, text_rect = font.render(display_text, (40, 40, 40))
+        # 텍스트가 최대 너비 초과 시 잘라내기 (CJK 언어 오버플로우 방지)
+        _MAX_BUBBLE_TEXT_W = 380
+        if text_rect.width > _MAX_BUBBLE_TEXT_W and len(display_text) > 2:
+            _avg_cw = text_rect.width / len(display_text)
+            _est = max(1, int(_MAX_BUBBLE_TEXT_W / _avg_cw) - 1)
+            display_text = display_text[:_est] + "…"
+            text_surface, text_rect = font.render(display_text, (40, 40, 40))
         text_w = text_rect.width + 24  # 16에서 50% 증가
         text_h = text_rect.height + 15  # 10에서 50% 증가
 

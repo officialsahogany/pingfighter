@@ -1076,6 +1076,14 @@ class InGameBodyguard:
 
             text_surf, text_rect = font.render(text, (0, 0, 0))
             tw, th = text_surf.get_size()
+            # 텍스트가 최대 너비 초과 시 잘라내기 (CJK 언어 오버플로우 방지)
+            _MAX_TEXT_W = 350
+            if tw > _MAX_TEXT_W and len(text) > 2:
+                _avg_cw = tw / len(text)
+                _est = max(1, int(_MAX_TEXT_W / _avg_cw) - 1)
+                text = text[:_est] + "…"
+                text_surf, text_rect = font.render(text, (0, 0, 0))
+                tw, th = text_surf.get_size()
             padding = 12
 
             # 말풍선 크기

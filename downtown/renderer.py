@@ -1634,9 +1634,16 @@ class DowntownRenderer:
 
         # 건물 정보 (한글 폰트 사용)
         if korean_font:
-            # 이름
+            # 이름 (패널 너비 초과 방지)
             from downtown.constants import get_building_display_name
-            name_surf, name_rect = korean_font.render(get_building_display_name(building_info), Colors.TEXT_WHITE)
+            _name_text = get_building_display_name(building_info)
+            name_surf, name_rect = korean_font.render(_name_text, Colors.TEXT_WHITE)
+            _max_name_w = panel_width - 80
+            if name_rect.width > _max_name_w and len(_name_text) > 2:
+                _avg_cw = name_rect.width / len(_name_text)
+                _est = max(1, int(_max_name_w / _avg_cw) - 1)
+                _name_text = _name_text[:_est] + "…"
+                name_surf, name_rect = korean_font.render(_name_text, Colors.TEXT_WHITE)
             screen.blit(name_surf, (panel_x + 20, panel_y + 15))
 
             # AP 비용 - 열쇠 아이콘 + 숫자
@@ -1648,12 +1655,16 @@ class DowntownRenderer:
             ap_num_surf, ap_num_rect = korean_font.render(f"x{ap_cost}", Colors.UI_ACCENT)
             screen.blit(ap_num_surf, (key_x + 12, panel_y + 13))
 
-            # 설명
+            # 설명 (픽셀 기반 잘라내기 - CJK 문자 폭 대응)
             from downtown.constants import get_building_display_desc
             desc = get_building_display_desc(building_info)
-            if len(desc) > 25:
-                desc = desc[:25] + "..."
             desc_surf, desc_rect = korean_font.render(desc, Colors.TEXT_GRAY)
+            _max_desc_w = panel_width - 40
+            if desc_rect.width > _max_desc_w and len(desc) > 2:
+                _avg_cw = desc_rect.width / len(desc)
+                _est = max(1, int(_max_desc_w / _avg_cw) - 1)
+                desc = desc[:_est] + "…"
+                desc_surf, desc_rect = korean_font.render(desc, Colors.TEXT_GRAY)
             screen.blit(desc_surf, (panel_x + 20, panel_y + 45))
 
             # 조작 힌트 (SPACE로 변경)

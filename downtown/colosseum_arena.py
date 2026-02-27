@@ -6445,6 +6445,15 @@ class GuardWarriorSystem:
             text_surface = font.render(text, True, (255, 255, 255))
             text_w = text_surface.get_width()
             text_h = text_surface.get_height()
+            # 텍스트가 최대 너비 초과 시 잘라내기 (CJK 언어 오버플로우 방지)
+            _MAX_TEXT_W = 300
+            if text_w > _MAX_TEXT_W and len(text) > 2:
+                _avg_cw = text_w / len(text)
+                _est = max(1, int(_MAX_TEXT_W / _avg_cw) - 1)
+                text = text[:_est] + "…"
+                text_surface = font.render(text, True, (255, 255, 255))
+                text_w = text_surface.get_width()
+                text_h = text_surface.get_height()
 
             # 내부 사이즈
             pad_x, pad_y = 22, 14
@@ -6548,6 +6557,15 @@ class GuardWarriorSystem:
             text_surface = font.render(text, True, (40, 40, 40))
             text_w = text_surface.get_width()
             text_h = text_surface.get_height()
+            # 텍스트가 최대 너비 초과 시 잘라내기 (CJK 언어 오버플로우 방지)
+            _MAX_TEXT_W = 350
+            if text_w > _MAX_TEXT_W and len(text) > 2:
+                _avg_cw = text_w / len(text)
+                _est = max(1, int(_MAX_TEXT_W / _avg_cw) - 1)
+                text = text[:_est] + "…"
+                text_surface = font.render(text, True, (40, 40, 40))
+                text_w = text_surface.get_width()
+                text_h = text_surface.get_height()
 
             pad_x, pad_y = 16, 10
             bw = text_w + pad_x * 2
