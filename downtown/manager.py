@@ -653,6 +653,9 @@ class DowntownManager:
                 self.renderer.toggle_minimap_expanded()
 
         elif event.type == pygame.KEYUP:
+            # 다이얼로그가 열려있으면 이동키 해제도 무시 (캐릭터 움직임 방지)
+            if self.save_dialog_active or self.building_confirmation_dialog:
+                return
             if self.player:
                 self.player.handle_movement_key_event(
                     False,
