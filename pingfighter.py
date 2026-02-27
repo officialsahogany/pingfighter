@@ -53476,7 +53476,7 @@ def go_to_next_round():
     spinning_claw_timer = 0
     # Stage 2 아라크네 거미줄 장판 초기화
     global web_traps, web_trap_last_used
-    web_traps.clear()
+    web_traps[:] = [t for t in web_traps if t.get("rage")]  # 붉은 거미줄은 유지
     web_trap_last_used = -9999
     #  홍련폭염 상태 초기화
     flame_trail_active = False
