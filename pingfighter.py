@@ -58129,8 +58129,8 @@ def update_web_rescue():
     elif web_rescue_phase == "release":
         # 공 재발사 — 플레이어 방향으로 강하게
         import random as _rng
-        ball_vel[0] = _rng.uniform(-2.5, 2.5)
-        ball_vel[1] = _rng.uniform(7.0, 9.0)  # 타격 발사
+        ball_vel[0] = _rng.uniform(-7.5, 7.5)
+        ball_vel[1] = _rng.uniform(21.0, 27.0)  # 타격 발사 (3배속)
         web_rescue_active = False
         web_rescue_phase = ""
 
