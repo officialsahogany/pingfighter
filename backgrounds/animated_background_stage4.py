@@ -49,8 +49,9 @@ class AnimatedBackgroundStage4:
                 particle['x'] = random.choice([random.randint(0, 100), 
                                               random.randint(self.width - 100, self.width)])
     
-    def draw(self, screen):
-        screen.blit(self.base_image, (0, 0))
+    def draw(self, screen, parallax_offset=(0, 0)):
+        px, py = parallax_offset
+        screen.blit(self.base_image, (int(px * 0.3), int(py * 0.3)))
 
         self.glow_surface.fill(self._transparent)
         

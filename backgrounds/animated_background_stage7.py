@@ -284,14 +284,16 @@ class AnimatedBackgroundStage7:
             # 폭발은 진동 끝날 때 draw()에서 1회 트리거
 
 
-    def draw(self, surface: pygame.Surface, *, offset: Tuple[int, int] = (0, 0)) -> None:
+    def draw(self, surface: pygame.Surface, *, offset: Tuple[int, int] = (0, 0), parallax_offset=(0, 0)) -> None:
         """애니메이션 레이어를 그린다.
 
         Args:
             surface: 대상 Surface (보통 SCREEN 또는 사본)
             offset: 전체 배경이 이동할 때의 오프셋 (스크린 흔들림 등)
+            parallax_offset: 패럴랙스 스크롤 오프셋 (px, py)
         """
 
+        px, py = parallax_offset
         ox, oy = offset
         # 캐시된 오버레이 Surface 재사용 (매 프레임 새로 생성하지 않음)
         if not hasattr(self, '_overlay_cache') or self._overlay_cache is None:
