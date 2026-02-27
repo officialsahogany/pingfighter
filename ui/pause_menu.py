@@ -14,6 +14,7 @@ from config.settings_system import get_settings_manager
 from managers.sound_manager import get_sound_manager
 from game_state.audio import clamp_volume, get_bgm_muted, set_bgm_muted, get_sfx_muted, set_sfx_muted
 from config import constants as const
+from localization.manager import get_localization_manager
 
 __all__ = ["PauseMenu", "PauseOptionsContext", "show_pause_options"]
 
@@ -201,6 +202,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
     paddle_hit_sound = int(settings.get_setting('audio', 'paddle_hit_sound', 1))
     ball_type = settings.get_setting('gameplay', 'ball_type', 'energy')
     modern_loop_enabled = ctx.get_modern_loop_enabled()
+    # 언어 설정
+    current_language = settings.get_setting('language', 'language', 'ko')
 
     # 패들 타격 사운드 프리로드
     _paddle_sounds = {}
@@ -256,6 +259,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
     dragging = False
     hit_pills = []
     ball_pills = []
+    lang_pills = []
 
     clock = ctx.clock_factory()
     running = True
@@ -284,13 +288,14 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
         current_tab = locals().get('current_tab', 'sound')  # 유지용
         # 탭 영역
         tabs_y = panel_y + 10
-        tab_w = 100
-        tab_gap = 8
+        tab_w = 85
+        tab_gap = 6
         tab_h = 36
         sound_tab_rect = pygame.Rect(panel_x + 16, tabs_y, tab_w, tab_h)
         ctrl_tab_rect = pygame.Rect(panel_x + 16 + (tab_w + tab_gap), tabs_y, tab_w, tab_h)
         disp_tab_rect = pygame.Rect(panel_x + 16 + (tab_w + tab_gap) * 2, tabs_y, tab_w, tab_h)
         play_tab_rect = pygame.Rect(panel_x + 16 + (tab_w + tab_gap) * 3, tabs_y, tab_w, tab_h)
+        lang_tab_rect = pygame.Rect(panel_x + 16 + (tab_w + tab_gap) * 4, tabs_y, tab_w, tab_h)
         # 현재 탭 상태 유지
         if 'current_tab' not in locals():
             current_tab = 'sound'
@@ -305,6 +310,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
         _draw_tab(ctrl_tab_rect, '컨트롤', current_tab == 'controls')
         _draw_tab(disp_tab_rect, '디스플레이', current_tab == 'display')
         _draw_tab(play_tab_rect, '플레이', current_tab == 'play')
+        _draw_tab(lang_tab_rect, '언어', current_tab == 'language')
 
         # 컨텐츠 렌더링 -------------------------------------------------------
         if current_tab == 'play':
@@ -413,6 +419,26 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
             }
             _desc_t = font_small.render(_disp_descs.get(display_mode, ''), True, (150, 180, 200))
             ctx.screen.blit(_desc_t, _desc_t.get_rect(centerx=ctx.width // 2, top=_desc_y))
+        elif current_tab == 'language':
+            # -------- 언어 탭 --------
+            lang_label = font_medium.render("언어 선택", True, const.WHITE)
+            ctx.screen.blit(lang_label, (panel_x + margin_x, bgm_slider_y + slider_height // 2 - 10))
+            _lang_options = [("ko", "한국어"), ("en", "English")]
+            _lpill_w, _lpill_h = 130, 36
+            _lpill_gap = 12
+            lang_pills = []
+            for i, (_lcode, _llabel) in enumerate(_lang_options):
+                px = bgm_slider_x + i * (_lpill_w + _lpill_gap)
+                py = bgm_slider_y - 8
+                r = pygame.Rect(px, py, _lpill_w, _lpill_h)
+                lang_pills.append((r, _lcode, _llabel))
+                is_sel = (current_language == _lcode)
+                col = (60, 90, 130) if is_sel else (45, 55, 70)
+                pygame.draw.rect(ctx.screen, col, r, border_radius=18)
+                border_col = (0, 255, 255) if is_sel else (150, 150, 150)
+                pygame.draw.rect(ctx.screen, border_col, r, 2, border_radius=18)
+                s = font_small.render(_llabel, True, const.WHITE)
+                ctx.screen.blit(s, s.get_rect(center=r.center))
         else:
             # -------- 사운드 탭 --------
             bgm_label = font_medium.render("BGM 볼륨", True, const.WHITE)
@@ -532,6 +558,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     settings.set_setting('controls','control_scheme', control_scheme)
                     settings.set_setting('audio', 'paddle_hit_sound', paddle_hit_sound)
                     settings.set_setting('gameplay', 'ball_type', ball_type)
+                    settings.set_setting('language', 'language', current_language)
                     settings.save_settings()
                     # 디스플레이 모드 변경 적용
                     try:
@@ -542,12 +569,16 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         print(f"[디스플레이 전환 오류] {_e}")
                     return
                 if event.key == pygame.K_TAB:
-                    _tab_order = ['sound', 'controls', 'display', 'play']
+                    _tab_order = ['sound', 'controls', 'display', 'play', 'language']
                     _tidx = _tab_order.index(current_tab) if current_tab in _tab_order else 0
                     current_tab = _tab_order[(_tidx + 1) % len(_tab_order)]
-                    focus = {'sound': 'bgm', 'controls': 'scheme', 'display': 'dispmode', 'play': 'balltype'}.get(current_tab, 'bgm')
+                    focus = {'sound': 'bgm', 'controls': 'scheme', 'display': 'dispmode', 'play': 'balltype', 'language': 'lang'}.get(current_tab, 'bgm')
                 if event.key == pygame.K_LEFT:
-                    if current_tab == 'controls':
+                    if current_tab == 'language' and focus == 'lang':
+                        current_language = 'ko'
+                        get_localization_manager().set_language(current_language)
+                        settings.set_setting('language', 'language', current_language)
+                    elif current_tab == 'controls':
                         if locals().get('focus','bgm') in ('scheme','back'):
                             control_scheme = 'keyboard'
                     elif current_tab == 'display' and focus == 'dispmode':
@@ -576,7 +607,11 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         _bt_idx = _bt_order.index(ball_type) if ball_type in _bt_order else 0
                         ball_type = _bt_order[max(0, _bt_idx - 1)]
                 elif event.key == pygame.K_RIGHT:
-                    if current_tab == 'controls':
+                    if current_tab == 'language' and focus == 'lang':
+                        current_language = 'en'
+                        get_localization_manager().set_language(current_language)
+                        settings.set_setting('language', 'language', current_language)
+                    elif current_tab == 'controls':
                         if locals().get('focus','bgm') in ('scheme','back'):
                             control_scheme = 'mouse_keyboard'
                     elif current_tab == 'display' and focus == 'dispmode':
@@ -605,7 +640,9 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         _bt_idx = _bt_order.index(ball_type) if ball_type in _bt_order else 0
                         ball_type = _bt_order[min(len(_bt_order) - 1, _bt_idx + 1)]
                 elif event.key == pygame.K_UP:
-                    if current_tab == 'controls':
+                    if current_tab == 'language':
+                        order = ["lang", "back"]
+                    elif current_tab == 'controls':
                         order = ["scheme", "back"]
                     elif current_tab == 'display':
                         order = ["dispmode", "back"]
@@ -615,7 +652,9 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         order = ["bgm", "sfx", "back"]
                     focus = order[(order.index(focus) - 1) % len(order)] if focus in order else order[0]
                 elif event.key == pygame.K_DOWN:
-                    if current_tab == 'controls':
+                    if current_tab == 'language':
+                        order = ["lang", "back"]
+                    elif current_tab == 'controls':
                         order = ["scheme", "back"]
                     elif current_tab == 'display':
                         order = ["dispmode", "back"]
@@ -625,7 +664,11 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         order = ["bgm", "sfx", "back"]
                     focus = order[(order.index(focus) + 1) % len(order)] if focus in order else order[0]
                 elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
-                    if current_tab == 'display' and focus == 'dispmode':
+                    if current_tab == 'language' and focus == 'lang':
+                        current_language = 'en' if current_language == 'ko' else 'ko'
+                        get_localization_manager().set_language(current_language)
+                        settings.set_setting('language', 'language', current_language)
+                    elif current_tab == 'display' and focus == 'dispmode':
                         _dm_order = ['fullscreen', 'cinema', 'windowed']
                         _dm_idx = _dm_order.index(display_mode) if display_mode in _dm_order else 0
                         display_mode = _dm_order[(_dm_idx + 1) % len(_dm_order)]
@@ -679,6 +722,10 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         current_tab = 'play'
                         focus = 'balltype'
                         continue
+                    if lang_tab_rect.collidepoint(mouse_pos):
+                        current_tab = 'language'
+                        focus = 'lang'
+                        continue
 
                     if back_button_rect.collidepoint(mouse_pos):
                         ctx.play_button_click_sound()
@@ -704,6 +751,15 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         if 'mk_rect' in locals() and mk_rect.collidepoint(mouse_pos):
                             control_scheme = 'mouse_keyboard'
                             continue
+                    # 언어 탭 처리
+                    if current_tab == 'language':
+                        for _lr, _lc, _ll in lang_pills:
+                            if _lr.collidepoint(mouse_pos):
+                                current_language = _lc
+                                get_localization_manager().set_language(current_language)
+                                settings.set_setting('language', 'language', current_language)
+                                focus = 'lang'
+                                break
                     # 디스플레이 탭 처리
                     if current_tab == 'display':
                         if 'fs_rect' in locals() and fs_rect.collidepoint(mouse_pos):
@@ -820,4 +876,5 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
     ctx.set_sfx_volume(current_sfx_volume)
     settings.set_setting('audio', 'paddle_hit_sound', paddle_hit_sound)
     settings.set_setting('gameplay', 'ball_type', ball_type)
+    settings.set_setting('language', 'language', current_language)
     settings.save_settings()
