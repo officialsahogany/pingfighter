@@ -57903,6 +57903,9 @@ def update_web_traps():
             })
             web_trap_projectile = None
 
+    # 파괴 파티클 업데이트 (장판이 없어도 항상 실행)
+    _update_web_break_effects()
+
     # ─── 장판 업데이트 ───
     if not web_traps:
         return
@@ -57940,9 +57943,6 @@ def update_web_traps():
     for i in reversed(sorted(set(expired))):
         if i < len(web_traps):
             web_traps.pop(i)
-
-    # 파괴 파티클 업데이트
-    _update_web_break_effects()
 
 
 def _spawn_web_break_effect(trap):
