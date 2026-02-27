@@ -157388,4 +157388,4 @@ if __name__ == "__main__":
         try:
             input()
         except:
-            pass     
+            pass
