@@ -70885,7 +70885,7 @@ def handle_player(keys):
         # 🎮 히트 프리즈 + 화면 플래시 (타격감 향상)
         hit_freeze_frames = 3   # 3프레임 게임 로직 정지
         screen_flash_timer = 6  # 6프레임 흰색 플래시
-        screen_flash_alpha = 50 # 약한 흰색 플래시
+        screen_flash_alpha = 20 # 매우 약한 흰색 플래시
 
         # 투기장 모드: 하단 영웅 무기 휘두르기 애니메이션 트리거
         if arena_mode_enabled and arena_bottom_hero and arena_hero_paddle_renderer:
@@ -135538,7 +135538,7 @@ def handle_ball():
         # 🎮 히트 프리즈 + 화면 플래시 (보스 패들 충돌)
         hit_freeze_frames = 2   # 보스 충돌은 2프레임 (플레이어보다 약간 짧게)
         screen_flash_timer = 4
-        screen_flash_alpha = 35
+        screen_flash_alpha = 12
 
         # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
         update_ball_rally("boss")
