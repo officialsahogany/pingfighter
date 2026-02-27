@@ -182,11 +182,13 @@ class DowntownManager:
         self.building_confirmation_dialog = None  # {'building_type': ..., 'building_name': ...}
         self.dialog_yes_rect = None
         self.dialog_no_rect = None
+        self.building_dialog_selection = 0  # 0: 예, 1: 아니오
 
         # 저장 NPC 다이얼로그
         self.save_dialog_active = False
         self.save_dialog_yes_rect = None
         self.save_dialog_no_rect = None
+        self.save_dialog_selection = 0  # 0: 예, 1: 아니오
 
         # 열쇠 애니메이션 (건물 입장 시)
         self.key_animation = None  # {'start_time': ..., 'building_type': ...}
@@ -551,6 +553,39 @@ class DowntownManager:
             return
 
         if event.type == pygame.KEYDOWN:
+            # 저장 다이얼로그 키보드 처리 (다른 입력보다 우선)
+            if self.save_dialog_active:
+                if event.key in (pygame.K_LEFT, pygame.K_a):
+                    self.save_dialog_selection = 0
+                elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                    self.save_dialog_selection = 1
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    if self.save_dialog_selection == 0:
+                        self.save_dialog_active = False
+                        self._do_save_and_exit()
+                    else:
+                        self.save_dialog_active = False
+                elif event.key == pygame.K_ESCAPE:
+                    self.save_dialog_active = False
+                return  # 다이얼로그 열려있으면 다른 입력 차단
+
+            # 건물 입장 확인 다이얼로그 키보드 처리
+            if self.building_confirmation_dialog:
+                if event.key in (pygame.K_LEFT, pygame.K_a):
+                    self.building_dialog_selection = 0
+                elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                    self.building_dialog_selection = 1
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    if self.building_dialog_selection == 0:
+                        building_type = self.building_confirmation_dialog['building_type']
+                        self.building_confirmation_dialog = None
+                        self._enter_building(building_type)
+                    else:
+                        self.building_confirmation_dialog = None
+                elif event.key == pygame.K_ESCAPE:
+                    self.building_confirmation_dialog = None
+                return  # 다이얼로그 열려있으면 다른 입력 차단
+
             # 이동키 입력 처리 (한글/영문 레이아웃 모두 동일 동작)
             if self.player:
                 self.player.handle_movement_key_event(
@@ -896,6 +931,7 @@ class DowntownManager:
         building_name = get_building_display_name(building_info)
         ap_cost = building_info['ap_cost']
 
+        self.building_dialog_selection = 0  # 기본값: 예
         self.building_confirmation_dialog = {
             'building_type': building_type,
             'building_name': building_name,
@@ -919,6 +955,7 @@ class DowntownManager:
 
     def _show_save_dialog(self):
         """저장 NPC 다이얼로그 표시"""
+        self.save_dialog_selection = 0  # 기본값: 예
         self.save_dialog_active = True
 
     def _handle_save_dialog_click(self, mouse_pos):
@@ -1400,9 +1437,13 @@ class DowntownManager:
         yes_hover = _dt_check_hover("bld_yes", pygame.Rect(yes_button_x, buttons_y, button_width, button_height), mouse_pos)
         no_hover = _dt_check_hover("bld_no", pygame.Rect(no_button_x, buttons_y, button_width, button_height), mouse_pos)
 
+        # 키보드 선택 상태
+        yes_selected = self.building_dialog_selection == 0
+        no_selected = self.building_dialog_selection == 1
+
         # 예 버튼
         self.dialog_yes_rect = pygame.Rect(yes_button_x, buttons_y, button_width, button_height)
-        if yes_hover:
+        if yes_hover or yes_selected:
             yes_bg_color = (60, 180, 90)
             yes_border_color = (140, 255, 140)
             yes_text_color = (255, 255, 255)
@@ -1418,12 +1459,12 @@ class DowntownManager:
         yes_text_x = yes_button_x + (button_width - yes_rect.width) // 2
         yes_text_y = buttons_y + (button_height - yes_rect.height) // 2
         self.screen.blit(yes_surface, (yes_text_x, yes_text_y))
-        if yes_hover:
+        if yes_hover or yes_selected:
             _dt_draw_hover_border(self.screen, self.dialog_yes_rect.x, self.dialog_yes_rect.y, self.dialog_yes_rect.w, self.dialog_yes_rect.h, (100, 255, 100))
 
         # 아니오 버튼
         self.dialog_no_rect = pygame.Rect(no_button_x, buttons_y, button_width, button_height)
-        if no_hover:
+        if no_hover or no_selected:
             no_bg_color = (220, 80, 80)
             no_border_color = (255, 140, 140)
             no_text_color = (255, 255, 255)
@@ -1439,8 +1480,15 @@ class DowntownManager:
         no_text_x = no_button_x + (button_width - no_rect.width) // 2
         no_text_y = buttons_y + (button_height - no_rect.height) // 2
         self.screen.blit(no_surface, (no_text_x, no_text_y))
-        if no_hover:
+        if no_hover or no_selected:
             _dt_draw_hover_border(self.screen, self.dialog_no_rect.x, self.dialog_no_rect.y, self.dialog_no_rect.w, self.dialog_no_rect.h, (255, 100, 100))
+
+        # 키보드 힌트 텍스트
+        hint_text = "← → " + _t("downtown.select", "선택") + " | Enter " + _t("downtown.confirm", "확인")
+        hint_surface, hint_rect = self._freetype_fonts['small'].render(hint_text, (140, 140, 160))
+        hint_x = dialog_x + (dialog_width - hint_rect.width) // 2
+        hint_y = buttons_y + button_height + 8
+        self.screen.blit(hint_surface, (hint_x, hint_y))
 
     def _draw_save_dialog(self):
         """저장 NPC 다이얼로그 그리기"""
@@ -1491,9 +1539,13 @@ class DowntownManager:
         yes_hover = _dt_check_hover("save_yes", pygame.Rect(yes_button_x, buttons_y, button_width, button_height), mouse_pos)
         no_hover = _dt_check_hover("save_no", pygame.Rect(no_button_x, buttons_y, button_width, button_height), mouse_pos)
 
+        # 키보드 선택 상태
+        yes_selected = self.save_dialog_selection == 0
+        no_selected = self.save_dialog_selection == 1
+
         # 예 버튼
         self.save_dialog_yes_rect = pygame.Rect(yes_button_x, buttons_y, button_width, button_height)
-        if yes_hover:
+        if yes_hover or yes_selected:
             yes_bg_color = (80, 100, 180)
             yes_border_color = (140, 160, 255)
         else:
@@ -1507,13 +1559,13 @@ class DowntownManager:
         yes_text_x = yes_button_x + (button_width - yes_rect.width) // 2
         yes_text_y = buttons_y + (button_height - yes_rect.height) // 2
         self.screen.blit(yes_surface, (yes_text_x, yes_text_y))
-        if yes_hover:
+        if yes_hover or yes_selected:
             _dt_draw_hover_border(self.screen, self.save_dialog_yes_rect.x, self.save_dialog_yes_rect.y, self.save_dialog_yes_rect.w, self.save_dialog_yes_rect.h, (100, 120, 200))
 
         # 아니오 버튼
         self.save_dialog_no_rect = pygame.Rect(no_button_x, buttons_y, button_width, button_height)
-        if no_hover:
-            no_bg_color = (100, 80, 80)  # 호버 시 밝은 회색빨강
+        if no_hover or no_selected:
+            no_bg_color = (100, 80, 80)
             no_border_color = (180, 140, 140)
         else:
             no_bg_color = (80, 60, 60)
@@ -1526,8 +1578,15 @@ class DowntownManager:
         no_text_x = no_button_x + (button_width - no_rect.width) // 2
         no_text_y = buttons_y + (button_height - no_rect.height) // 2
         self.screen.blit(no_surface, (no_text_x, no_text_y))
-        if no_hover:
+        if no_hover or no_selected:
             _dt_draw_hover_border(self.screen, self.save_dialog_no_rect.x, self.save_dialog_no_rect.y, self.save_dialog_no_rect.w, self.save_dialog_no_rect.h, (140, 100, 100))
+
+        # 키보드 힌트 텍스트
+        hint_text = "← → " + _t("downtown.select", "선택") + " | Enter " + _t("downtown.confirm", "확인")
+        hint_surface, hint_rect = self._freetype_fonts['small'].render(hint_text, (140, 140, 160))
+        hint_x = dialog_x + (dialog_width - hint_rect.width) // 2
+        hint_y = buttons_y + button_height + 8
+        self.screen.blit(hint_surface, (hint_x, hint_y))
 
     def _draw_stage_info(self):
         """스테이지 정보 표시"""

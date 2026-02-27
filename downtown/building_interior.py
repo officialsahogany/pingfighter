@@ -2773,6 +2773,7 @@ class BuildingInterior:
         self._shop_player_visible_rows = 0
         self._shop_shop_visible_rows = 0
         self.shop_confirm_dialog = None  # {"action":..., ...}
+        self.shop_confirm_selection = 0  # 0: 예, 1: 아니오
 
         # 건물별 설정
         self.config = INTERIOR_CONFIGS.get(building_type, DEFAULT_INTERIOR_CONFIG)
@@ -3041,6 +3042,7 @@ class BuildingInterior:
         self.enhancement_menu_open = False  # 강화 메뉴 열림 여부
         self.enhancement_item_select_open = False  # 아이템 선택창 열림
         self.enhancement_confirm_open = False  # 강화 확인창 열림
+        self.enhancement_confirm_selection = 0  # 0: 예, 1: 아니오
         self.enhancement_animation_playing = False  # 강화 애니메이션 재생 중
         self.enhancement_result_open = False  # 강화 결과창 열림
         self.enhancement_selected_item = None  # 선택된 아이템 (dict)
@@ -5206,6 +5208,7 @@ class BuildingInterior:
 
             # 장착 중이면 판매 확인 팝업 띄우기
             if is_equipped:
+                self.shop_confirm_selection = 0  # 기본값: 예
                 self.shop_confirm_dialog = {
                     "action": "sell_equipped",
                     "item": item,
@@ -5643,6 +5646,24 @@ class BuildingInterior:
 
         # 상점 거래창이 열려있을 때
         if self.shop_trade_open:
+            # 장착 아이템 판매 확인 다이얼로그가 열려있으면 키보드 처리
+            if self.shop_confirm_dialog:
+                if event.key in (pygame.K_LEFT, pygame.K_a):
+                    self.shop_confirm_selection = 0
+                elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                    self.shop_confirm_selection = 1
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    if self.shop_confirm_selection == 0:
+                        result = self._execute_shop_confirm()
+                        self.shop_confirm_dialog = None
+                        return result
+                    else:
+                        self.shop_confirm_dialog = None
+                        return ("cancel_confirm", None)
+                elif event.key == pygame.K_ESCAPE:
+                    self.shop_confirm_dialog = None
+                    return ("cancel_confirm", None)
+                return None
             if event.key == pygame.K_ESCAPE:
                 self.shop_trade_open = False
                 return ("shop_close", None)
@@ -5665,7 +5686,38 @@ class BuildingInterior:
 
         # 강화 확인창
         if self.enhancement_confirm_open:
-            if event.key == pygame.K_ESCAPE:
+            if event.key in (pygame.K_LEFT, pygame.K_a):
+                self.enhancement_confirm_selection = 0
+            elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                self.enhancement_confirm_selection = 1
+            elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                if self.enhancement_confirm_selection == 0:
+                    # 예 선택 - 강화 실행 (기존 클릭 핸들러와 동일 로직)
+                    cost = self._get_enhancement_cost(self._get_enhancement_level(self.enhancement_selected_item), self.enhancement_selected_item)
+                    player_gold = self.player_data.get('gold', 0)
+                    if player_gold >= cost:
+                        self._subtract_gold(cost)
+                        try:
+                            import pingfighter
+                            pingfighter.gold = self.player_data['gold']
+                        except:
+                            pass
+                        self._add_gold_float_animation(cost, is_gain=False)
+                        self.enhancement_confirm_open = False
+                        self.enhancement_animation_playing = True
+                        self.enhancement_animation_timer = 0.0
+                        self.enhancement_last_swing = -1
+                        return ("enhancement_start", None)
+                    else:
+                        self.enhancement_confirm_open = False
+                        self.enhancement_selected_item = None
+                        return ("enhancement_no_gold", None)
+                else:
+                    # 아니오 선택
+                    self.enhancement_confirm_open = False
+                    self.enhancement_selected_item = None
+                    return ("enhancement_cancel", None)
+            elif event.key == pygame.K_ESCAPE:
                 self.enhancement_confirm_open = False
                 self.enhancement_selected_item = None
                 return ("enhancement_cancel", None)
@@ -8401,11 +8453,15 @@ class BuildingInterior:
             msg_surf, msg_rect = font_tiny.render(msg, (210, 215, 230))
             screen.blit(msg_surf, (dialog_rect.x + (dialog_rect.width - msg_rect.width) // 2, dialog_rect.y + 54))
 
+        # 키보드 선택 상태
+        yes_selected = self.shop_confirm_selection == 0
+        no_selected = self.shop_confirm_selection == 1
+
         # 버튼
-        def _draw_btn(rect, text, base_fill, base_border, hover_fill, hover_border):
+        def _draw_btn(rect, text, base_fill, base_border, hover_fill, hover_border, is_kb_selected=False):
             is_hover = rect.collidepoint(pygame.mouse.get_pos())
-            fill = hover_fill if is_hover else base_fill
-            border = hover_border if is_hover else base_border
+            fill = hover_fill if (is_hover or is_kb_selected) else base_fill
+            border = hover_border if (is_hover or is_kb_selected) else base_border
             pygame.draw.rect(screen, fill, rect, border_radius=6)
             pygame.draw.rect(screen, border, rect, 2, border_radius=6)
             if font_tiny:
@@ -8417,10 +8473,17 @@ class BuildingInterior:
 
         _draw_btn(yes_rect, "예",
                   (120, 200, 140), (80, 160, 110),
-                  (140, 220, 160), (90, 170, 120))
+                  (140, 220, 160), (90, 170, 120), yes_selected)
         _draw_btn(no_rect, "아니오",
                   (200, 140, 120), (160, 110, 90),
-                  (220, 160, 140), (180, 130, 110))
+                  (220, 160, 140), (180, 130, 110), no_selected)
+
+        # 키보드 힌트
+        if font_tiny:
+            hint = "← → " + _t("downtown.select", "선택") + " | Enter " + _t("downtown.confirm", "확인")
+            hint_surf, hint_rect = font_tiny.render(hint, (130, 140, 170))
+            screen.blit(hint_surf, (dialog_rect.x + (dialog_rect.width - hint_rect.width) // 2,
+                                    dialog_rect.y + dialog_rect.height - 14))
 
     def _draw_academy_dialog(self, screen):
         """학장 아르카나와의 대화창 그리기"""
@@ -16602,6 +16665,7 @@ class BuildingInterior:
                     self.enhancement_selected_item = item
                     self.enhancement_selected_idx = orig_idx
                     self.enhancement_item_select_open = False
+                    self.enhancement_confirm_selection = 0  # 기본값: 예
                     self.enhancement_confirm_open = True
                     return ("enhancement_confirm", item)
 
@@ -17235,33 +17299,46 @@ class BuildingInterior:
         btn_w, btn_h = 90, 35
         btn_y = dialog_y + dialog_h - 55
 
+        # 키보드 선택 상태
+        yes_kb_selected = self.enhancement_confirm_selection == 0
+        no_kb_selected = self.enhancement_confirm_selection == 1
+
         # 예 버튼
         yes_btn = pygame.Rect(dialog_x + dialog_w // 2 - btn_w - 15, btn_y, btn_w, btn_h)
         yes_hover = yes_btn.collidepoint(mouse_pos)
-        yes_color = BTN_YES_HOVER if yes_hover else BTN_YES
+        yes_color = BTN_YES_HOVER if (yes_hover or yes_kb_selected) else BTN_YES
         if player_gold < cost:
             yes_color = (60, 60, 60)
         pygame.draw.rect(screen, yes_color, yes_btn, border_radius=6)
-        pygame.draw.rect(screen, (100, 180, 100), yes_btn, 2, border_radius=6)
+        yes_border = (140, 255, 140) if yes_kb_selected else (100, 180, 100)
+        pygame.draw.rect(screen, yes_border, yes_btn, 2, border_radius=6)
         if font_small:
             yes_surf, _ = font_small.render(_t("downtown.yes", "예"), TEXT_WHITE)
             screen.blit(yes_surf, (yes_btn.centerx - yes_surf.get_width() // 2,
                                    yes_btn.centery - yes_surf.get_height() // 2))
-        if _bi_check_hover("enhc_yes", yes_btn, mouse_pos):
+        if _bi_check_hover("enhc_yes", yes_btn, mouse_pos) or yes_kb_selected:
             _bi_draw_hover_border(screen, yes_btn.x, yes_btn.y, yes_btn.w, yes_btn.h, (100, 255, 100))
 
         # 아니오 버튼
         no_btn = pygame.Rect(dialog_x + dialog_w // 2 + 15, btn_y, btn_w, btn_h)
         no_hover = no_btn.collidepoint(mouse_pos)
-        no_color = BTN_NO_HOVER if no_hover else BTN_NO
+        no_color = BTN_NO_HOVER if (no_hover or no_kb_selected) else BTN_NO
         pygame.draw.rect(screen, no_color, no_btn, border_radius=6)
-        pygame.draw.rect(screen, (180, 100, 100), no_btn, 2, border_radius=6)
+        no_border = (255, 140, 140) if no_kb_selected else (180, 100, 100)
+        pygame.draw.rect(screen, no_border, no_btn, 2, border_radius=6)
         if font_small:
             no_surf, _ = font_small.render(_t("downtown.no", "아니오"), TEXT_WHITE)
             screen.blit(no_surf, (no_btn.centerx - no_surf.get_width() // 2,
                                   no_btn.centery - no_surf.get_height() // 2))
-        if _bi_check_hover("enhc_no", no_btn, mouse_pos):
+        if _bi_check_hover("enhc_no", no_btn, mouse_pos) or no_kb_selected:
             _bi_draw_hover_border(screen, no_btn.x, no_btn.y, no_btn.w, no_btn.h, (255, 100, 100))
+
+        # 키보드 힌트
+        if font_small:
+            hint = "← → " + _t("downtown.select", "선택") + " | Enter " + _t("downtown.confirm", "확인")
+            hint_surf, _ = font_small.render(hint, (120, 120, 140))
+            screen.blit(hint_surf, (dialog_x + (dialog_w - hint_surf.get_width()) // 2,
+                                    dialog_y + dialog_h - 18))
 
     def _draw_enhancement_animation(self, screen):
         """강화 애니메이션 그리기 (고퀄리티 대장간 망치질)"""
