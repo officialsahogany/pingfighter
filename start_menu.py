@@ -24,6 +24,7 @@ from start_menu_config import (
 # baroque frame은 pillar_background.py에서 stage 0으로 처리됨
 from pillar_background import get_pillar_renderer
 from localization.manager import get_localization_manager
+from config.language_options import LANGUAGE_OPTIONS, LANGUAGE_CODES
 
 BASE_MENU_OPTIONS = ["경기장 입장", "멀티플레이", "개발테스트", "메달샵", "설정", "크레딧"]
 MENU_ICONS = {
@@ -2401,9 +2402,9 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
             lang_y = content_y + 20
             lang_label = font_medium.render(_t("settings.language.label", "언어 선택"), True, (255, 255, 255))
             screen.blit(lang_label, (panel_x + margin_x, lang_y))
-            _lang_options = [("ko", "한국어"), ("en", "English")]
-            _lpill_w, _lpill_h = 130, 36
-            _lpill_gap = 12
+            _lang_options = LANGUAGE_OPTIONS
+            _lpill_w, _lpill_h = 100, 36
+            _lpill_gap = 10
             lang_pills = []
             for i, (_lcode, _llabel) in enumerate(_lang_options):
                 px = slider_x + i * (_lpill_w + _lpill_gap)
@@ -2466,7 +2467,8 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
 
                 if event.key == pygame.K_LEFT:
                     if current_tab == "language" and focus == "lang":
-                        current_language = "ko"
+                        _li = LANGUAGE_CODES.index(current_language) if current_language in LANGUAGE_CODES else 0
+                        current_language = LANGUAGE_CODES[max(0, _li - 1)]
                         _loc.set_language(current_language)
                         settings.set_setting("language", "language", current_language)
                     elif current_tab == "controls" and focus == "scheme":
@@ -2499,7 +2501,8 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
 
                 elif event.key == pygame.K_RIGHT:
                     if current_tab == "language" and focus == "lang":
-                        current_language = "en"
+                        _li = LANGUAGE_CODES.index(current_language) if current_language in LANGUAGE_CODES else 0
+                        current_language = LANGUAGE_CODES[min(len(LANGUAGE_CODES) - 1, _li + 1)]
                         _loc.set_language(current_language)
                         settings.set_setting("language", "language", current_language)
                     elif current_tab == "controls" and focus == "scheme":
@@ -2569,7 +2572,8 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                             print(f"[디스플레이 전환 오류] {_e}")
                         return
                     elif current_tab == "language" and focus == "lang":
-                        current_language = "en" if current_language == "ko" else "ko"
+                        _li = LANGUAGE_CODES.index(current_language) if current_language in LANGUAGE_CODES else 0
+                        current_language = LANGUAGE_CODES[(_li + 1) % len(LANGUAGE_CODES)]
                         _loc.set_language(current_language)
                         settings.set_setting("language", "language", current_language)
                     elif current_tab == "display" and focus == "dispmode":

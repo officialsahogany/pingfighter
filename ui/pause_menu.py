@@ -15,6 +15,7 @@ from managers.sound_manager import get_sound_manager
 from game_state.audio import clamp_volume, get_bgm_muted, set_bgm_muted, get_sfx_muted, set_sfx_muted
 from config import constants as const
 from localization.manager import get_localization_manager
+from config.language_options import LANGUAGE_OPTIONS, LANGUAGE_CODES
 
 __all__ = ["PauseMenu", "PauseOptionsContext", "show_pause_options"]
 
@@ -436,9 +437,9 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
             # -------- 언어 탭 --------
             lang_label = font_medium.render(_t("settings.language.label", "언어 선택"), True, const.WHITE)
             ctx.screen.blit(lang_label, (panel_x + margin_x, bgm_slider_y + slider_height // 2 - 10))
-            _lang_options = [("ko", "한국어"), ("en", "English")]
-            _lpill_w, _lpill_h = 130, 36
-            _lpill_gap = 12
+            _lang_options = LANGUAGE_OPTIONS
+            _lpill_w, _lpill_h = 100, 36
+            _lpill_gap = 10
             lang_pills = []
             for i, (_lcode, _llabel) in enumerate(_lang_options):
                 px = bgm_slider_x + i * (_lpill_w + _lpill_gap)
@@ -588,7 +589,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     focus = {'sound': 'bgm', 'controls': 'scheme', 'display': 'dispmode', 'play': 'balltype', 'language': 'lang'}.get(current_tab, 'bgm')
                 if event.key == pygame.K_LEFT:
                     if current_tab == 'language' and focus == 'lang':
-                        current_language = 'ko'
+                        _li = LANGUAGE_CODES.index(current_language) if current_language in LANGUAGE_CODES else 0
+                        current_language = LANGUAGE_CODES[max(0, _li - 1)]
                         get_localization_manager().set_language(current_language)
                         settings.set_setting('language', 'language', current_language)
                     elif current_tab == 'controls':
@@ -621,7 +623,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         ball_type = _bt_order[max(0, _bt_idx - 1)]
                 elif event.key == pygame.K_RIGHT:
                     if current_tab == 'language' and focus == 'lang':
-                        current_language = 'en'
+                        _li = LANGUAGE_CODES.index(current_language) if current_language in LANGUAGE_CODES else 0
+                        current_language = LANGUAGE_CODES[min(len(LANGUAGE_CODES) - 1, _li + 1)]
                         get_localization_manager().set_language(current_language)
                         settings.set_setting('language', 'language', current_language)
                     elif current_tab == 'controls':
@@ -678,7 +681,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                     focus = order[(order.index(focus) + 1) % len(order)] if focus in order else order[0]
                 elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
                     if current_tab == 'language' and focus == 'lang':
-                        current_language = 'en' if current_language == 'ko' else 'ko'
+                        _li = LANGUAGE_CODES.index(current_language) if current_language in LANGUAGE_CODES else 0
+                        current_language = LANGUAGE_CODES[(_li + 1) % len(LANGUAGE_CODES)]
                         get_localization_manager().set_language(current_language)
                         settings.set_setting('language', 'language', current_language)
                     elif current_tab == 'display' and focus == 'dispmode':
