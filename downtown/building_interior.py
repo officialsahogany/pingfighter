@@ -15,6 +15,7 @@ try:
         TILE_SIZE, PLAYER_SPEED, PLAYER_SIZE
     )
     from .pachinko_game import PachinkoGameUI
+    from localization.manager import get_localization_manager
 except ImportError:  # pragma: no cover - fallback for direct execution
     import sys
     from pathlib import Path
@@ -30,6 +31,9 @@ except ImportError:  # pragma: no cover - fallback for direct execution
     )
     from downtown.pachinko_game import PachinkoGameUI  # type: ignore
 
+
+def _t(key, fallback=None):
+    return get_localization_manager().get_text(key, fallback)
 
 # ── 건물 내부 호버 보더 이펙트 시스템 ──
 _bi_hover_timer = 0.0
@@ -5896,7 +5900,7 @@ class BuildingInterior:
                     if result == True:
                         return ("pachinko_start", None)
                     else:
-                        return ("pachinko_fail", "골드가 부족합니다")
+                        return ("pachinko_fail", _t("interior.not_enough_gold2", "골드가 부족합니다"))
                 # 포커 테이블 상호작용
                 if self.nearby_poker_table:
                     result = self._start_poker_game()
@@ -5914,7 +5918,7 @@ class BuildingInterior:
                         return ("poker_fail", "딜러가 파산했습니다. 테이블이 닫혔습니다.")
                     else:
                         # 골드 부족 등의 이유로 시작 실패
-                        return ("poker_fail", "골드가 부족합니다")
+                        return ("poker_fail", _t("interior.not_enough_gold2", "골드가 부족합니다"))
 
             # 가챠 건물에서는 먼저 가챠 머신 상호작용 확인
             if self.building_type == BuildingType.GACHA:
@@ -6113,7 +6117,7 @@ class BuildingInterior:
                 self.exchange_menu_open = False
                 return ("exchange_success", {"type": "star_to_gold", "amount": self.exchange_amount, "gold": gold_gained})
             else:
-                return ("exchange_fail", "스타포인트가 부족합니다")
+                return ("exchange_fail", _t("interior.not_enough_sp", "스타포인트가 부족합니다"))
         else:
             # 골드 → 스타포인트
             gold = self.player_data.get('gold', 0)
@@ -6132,7 +6136,7 @@ class BuildingInterior:
                 self.exchange_menu_open = False
                 return ("exchange_success", {"type": "gold_to_star", "amount": self.exchange_amount, "gold": gold_needed})
             else:
-                return ("exchange_fail", "골드가 부족합니다")
+                return ("exchange_fail", _t("interior.not_enough_gold2", "골드가 부족합니다"))
 
         return None
 
@@ -6281,7 +6285,7 @@ class BuildingInterior:
         # 골드 체크
         current_gold = self.player_data.get('gold', 0)
         if current_gold < price:
-            self.tavern_message = "골드가 부족합니다!"
+            self.tavern_message = _t("interior.not_enough_gold", "골드가 부족합니다!")
             self.tavern_message_timer = 2.0
             return ("not_enough_gold", None)
 
@@ -6739,7 +6743,7 @@ class BuildingInterior:
             if self.deposit_amount <= 0:
                 return ("deposit_error", "예금할 금액을 설정하세요")
             if self.deposit_amount > gold:
-                return ("deposit_error", "골드가 부족합니다")
+                return ("deposit_error", _t("interior.not_enough_gold2", "골드가 부족합니다"))
 
             # 예금 실행
             self._set_gold(gold - self.deposit_amount)  # 필러 HUD 동기화 포함
@@ -6824,7 +6828,7 @@ class BuildingInterior:
 
         # 타이틀
         if font_medium:
-            title_surf, title_rect = font_medium.render("환전", TEXT_WHITE)
+            title_surf, title_rect = font_medium.render(_t("interior.exchange", "환전"), TEXT_WHITE)
             screen.blit(title_surf, (menu_x + menu_w // 2 - title_rect.width // 2, menu_y + 12))
 
         # 닫기 버튼 (X)
@@ -7009,7 +7013,7 @@ class BuildingInterior:
         pygame.draw.rect(screen, btn_bg_color, confirm_btn, border_radius=6)
         pygame.draw.rect(screen, btn_border_color, confirm_btn, 2, border_radius=6)
         if font_medium:
-            btn_surf, btn_rect = font_medium.render("환전하기", btn_text_color)
+            btn_surf, btn_rect = font_medium.render(_t("interior.exchange_btn", "환전하기"), btn_text_color)
             screen.blit(btn_surf, (confirm_btn.centerx - btn_rect.width // 2, confirm_btn.centery - btn_rect.height // 2))
         if _bi_check_hover("exch_confirm", confirm_btn, mouse_pos):
             _bi_draw_hover_border(screen, confirm_btn.x, confirm_btn.y, confirm_btn.w, confirm_btn.h, (100, 255, 150))
@@ -7078,7 +7082,7 @@ class BuildingInterior:
         pygame.draw.rect(screen, tab1_color, tab1_btn, border_radius=6)
         pygame.draw.rect(screen, tab1_border, tab1_btn, 2, border_radius=6)
         if font_small:
-            txt_surf, txt_rect = font_small.render("예금/출금", TEXT_GREEN if self.deposit_tab == 0 else TEXT_WHITE)
+            txt_surf, txt_rect = font_small.render(_t("interior.deposit", "예금") + "/" + _t("interior.withdraw_btn", "출금"), TEXT_GREEN if self.deposit_tab == 0 else TEXT_WHITE)
             screen.blit(txt_surf, (tab1_btn.centerx - txt_rect.width // 2, tab1_btn.centery - txt_rect.height // 2))
         mouse_pos = pygame.mouse.get_pos()
         if _bi_check_hover("dep_tab1", tab1_btn, mouse_pos):
@@ -7122,7 +7126,7 @@ class BuildingInterior:
             pygame.draw.rect(screen, btn_color, deposit_btn, border_radius=6)
             pygame.draw.rect(screen, border_color, deposit_btn, 2, border_radius=6)
             if font_small:
-                txt_surf, txt_rect = font_small.render("예금하기", TEXT_GREEN if not self.withdraw_mode else TEXT_WHITE)
+                txt_surf, txt_rect = font_small.render(_t("interior.deposit_btn", "예금하기"), TEXT_GREEN if not self.withdraw_mode else TEXT_WHITE)
                 screen.blit(txt_surf, (deposit_btn.centerx - txt_rect.width // 2, deposit_btn.centery - txt_rect.height // 2))
             if _bi_check_hover("dep_deposit", deposit_btn, mouse_pos):
                 _bi_draw_hover_border(screen, deposit_btn.x, deposit_btn.y, deposit_btn.w, deposit_btn.h, (100, 255, 150))
@@ -7133,7 +7137,7 @@ class BuildingInterior:
             pygame.draw.rect(screen, btn_color, withdraw_btn, border_radius=6)
             pygame.draw.rect(screen, border_color, withdraw_btn, 2, border_radius=6)
             if font_small:
-                txt_surf, txt_rect = font_small.render("출금하기", TEXT_GOLD if self.withdraw_mode else TEXT_WHITE)
+                txt_surf, txt_rect = font_small.render(_t("interior.withdraw_btn", "출금하기"), TEXT_GOLD if self.withdraw_mode else TEXT_WHITE)
                 screen.blit(txt_surf, (withdraw_btn.centerx - txt_rect.width // 2, withdraw_btn.centery - txt_rect.height // 2))
             if _bi_check_hover("dep_withdraw", withdraw_btn, mouse_pos):
                 _bi_draw_hover_border(screen, withdraw_btn.x, withdraw_btn.y, withdraw_btn.w, withdraw_btn.h, (255, 210, 100))
@@ -7491,7 +7495,7 @@ class BuildingInterior:
 
         # 제목
         if font_small:
-            title_surf, title_rect = font_small.render("내 인벤토리 (판매)", TEXT_WHITE)
+            title_surf, title_rect = font_small.render(_t("interior.my_inventory", "내 인벤토리 (판매)"), TEXT_WHITE)
             screen.blit(title_surf, (left_x + 10, left_y + 8))
 
         # 아이콘 그리드 시작 위치
@@ -7594,7 +7598,7 @@ class BuildingInterior:
 
         # 판매 안내 텍스트
         if font_small:
-            hint_surf, _ = font_small.render("우클릭으로 판매 (30%)", (120, 180, 200))
+            hint_surf, _ = font_small.render(_t("interior.sell_hint", "우클릭으로 판매 (30%)"), (120, 180, 200))
             screen.blit(hint_surf, (left_x + 10, left_y + panel_h - 25))
 
         # === 우측: 상점 인벤토리 (아이콘 그리드) ===
@@ -7607,7 +7611,7 @@ class BuildingInterior:
 
         # 제목
         if font_small:
-            title_surf, title_rect = font_small.render("상점 물품 (구매)", TEXT_WHITE)
+            title_surf, title_rect = font_small.render(_t("interior.shop_items", "상점 물품 (구매)"), TEXT_WHITE)
             screen.blit(title_surf, (right_x + 10, right_y + 8))
 
         # 상점 아이콘 그리드 시작 위치
@@ -7704,7 +7708,7 @@ class BuildingInterior:
 
         # 구매 안내 텍스트
         if font_small:
-            hint_surf, _ = font_small.render("우클릭으로 구매", (200, 180, 120))
+            hint_surf, _ = font_small.render(_t("interior.buy_hint", "우클릭으로 구매"), (200, 180, 120))
             screen.blit(hint_surf, (right_x + 10, right_y + panel_h - 25))
 
         # === 하단: 조작 안내 ===
@@ -8389,11 +8393,11 @@ class BuildingInterior:
         font_small = self.fonts.get('small')
         font_tiny = self.fonts.get('tiny') or font_small
         if font_small:
-            title = "현재 착용중인 아이템입니다"
+            title = _t("interior.equipped_item", "현재 착용중인 아이템입니다")
             title_surf, title_rect = font_small.render(title, (255, 230, 180))
             screen.blit(title_surf, (dialog_rect.x + (dialog_rect.width - title_rect.width) // 2, dialog_rect.y + 18))
         if font_tiny:
-            msg = "판매하시겠습니까?"
+            msg = _t("interior.sell_confirm", "판매하시겠습니까?")
             msg_surf, msg_rect = font_tiny.render(msg, (210, 215, 230))
             screen.blit(msg_surf, (dialog_rect.x + (dialog_rect.width - msg_rect.width) // 2, dialog_rect.y + 54))
 
@@ -8493,7 +8497,7 @@ class BuildingInterior:
         pygame.draw.rect(screen, BUTTON_BORDER if yes_selected else BORDER_GLOW, yes_btn, 2, border_radius=5)
         if font_medium:
             yes_color = TEXT_WHITE if yes_selected else TEXT_PURPLE
-            yes_surf, yes_rect = font_medium.render("예", yes_color)
+            yes_surf, yes_rect = font_medium.render(_t("downtown.yes", "예"), yes_color)
             screen.blit(yes_surf, (yes_btn.centerx - yes_rect.width // 2, yes_btn.centery - yes_rect.height // 2))
         if _bi_check_hover("acad_yes", yes_btn, mouse_pos):
             _bi_draw_hover_border(screen, yes_btn.x, yes_btn.y, yes_btn.w, yes_btn.h, (180, 100, 255))
@@ -8506,7 +8510,7 @@ class BuildingInterior:
         pygame.draw.rect(screen, BUTTON_BORDER if no_selected else BORDER_GLOW, no_btn, 2, border_radius=5)
         if font_medium:
             no_color = TEXT_WHITE if no_selected else TEXT_PURPLE
-            no_surf, no_rect = font_medium.render("아니오", no_color)
+            no_surf, no_rect = font_medium.render(_t("downtown.no", "아니오"), no_color)
             screen.blit(no_surf, (no_btn.centerx - no_rect.width // 2, no_btn.centery - no_rect.height // 2))
         if _bi_check_hover("acad_no", no_btn, mouse_pos):
             _bi_draw_hover_border(screen, no_btn.x, no_btn.y, no_btn.w, no_btn.h, (180, 100, 255))
@@ -8587,11 +8591,11 @@ class BuildingInterior:
 
             # 골드 부족 경고 (부족할 때만)
             if current_gold < self.crane_game_cost:
-                warn_surf, warn_rect = font_small.render("골드가 부족합니다!", (255, 100, 100))
+                warn_surf, warn_rect = font_small.render(_t("interior.not_enough_gold", "골드가 부족합니다!"), (255, 100, 100))
                 screen.blit(warn_surf, (dialog_x + dialog_w // 2 - warn_rect.width // 2, dialog_y + 85))
 
             # 질문
-            question_text = "플레이 하시겠습니까?"
+            question_text = _t("interior.play_confirm", "플레이 하시겠습니까?")
             q_surf, q_rect = font_small.render(question_text, TEXT_WHITE)
             screen.blit(q_surf, (dialog_x + dialog_w // 2 - q_rect.width // 2, dialog_y + 110))
 
@@ -8612,7 +8616,7 @@ class BuildingInterior:
         pygame.draw.rect(screen, BUTTON_BORDER if yes_selected else BORDER_GLOW, yes_btn, 2, border_radius=5)
         if font_medium:
             yes_color = TEXT_WHITE if yes_selected else TEXT_YELLOW
-            yes_surf, yes_rect = font_medium.render("예", yes_color)
+            yes_surf, yes_rect = font_medium.render(_t("downtown.yes", "예"), yes_color)
             screen.blit(yes_surf, (yes_btn.centerx - yes_rect.width // 2, yes_btn.centery - yes_rect.height // 2))
         if _bi_check_hover("crane_yes", yes_btn, mouse_pos):
             _bi_draw_hover_border(screen, yes_btn.x, yes_btn.y, yes_btn.w, yes_btn.h, (255, 220, 100))
@@ -8625,7 +8629,7 @@ class BuildingInterior:
         pygame.draw.rect(screen, BUTTON_BORDER if no_selected else BORDER_GLOW, no_btn, 2, border_radius=5)
         if font_medium:
             no_color = TEXT_WHITE if no_selected else TEXT_YELLOW
-            no_surf, no_rect = font_medium.render("아니오", no_color)
+            no_surf, no_rect = font_medium.render(_t("downtown.no", "아니오"), no_color)
             screen.blit(no_surf, (no_btn.centerx - no_rect.width // 2, no_btn.centery - no_rect.height // 2))
         if _bi_check_hover("crane_no", no_btn, mouse_pos):
             _bi_draw_hover_border(screen, no_btn.x, no_btn.y, no_btn.w, no_btn.h, (255, 220, 100))
@@ -9421,7 +9425,7 @@ class BuildingInterior:
                         pass
             else:
                 if font_medium:
-                    result_text = "아쉽네요... 다시 도전!"
+                    result_text = _t("interior.try_again", "아쉽네요... 다시 도전!")
                     result_surf, _ = font_medium.render(result_text, (255, 150, 150))
                     screen.blit(result_surf, (glass_x + game_w // 2 - result_surf.get_width() // 2,
                                              glass_y + game_h // 2 - 5))
@@ -9616,7 +9620,7 @@ class BuildingInterior:
             pygame.draw.arc(screen, TEXT_GOLD, (mug_x + 14, mug_y + 4, 10, 14), -1.5, 1.5, 2)
             pygame.draw.ellipse(screen, (255, 250, 230), (mug_x + 2, mug_y + 2, 14, 5))
 
-            title_surf, title_rect = font_medium.render("모험가의 선술집", TEXT_WHITE)
+            title_surf, title_rect = font_medium.render(_t("interior.adventurer_tavern", "모험가의 선술집"), TEXT_WHITE)
             screen.blit(title_surf, (menu_x + 60, menu_y + 15))
 
         # 현재 골드 표시
@@ -9812,7 +9816,7 @@ class BuildingInterior:
             pygame.draw.line(screen, (180, 140, 50), (scroll_x + 5, scroll_y + 12), (scroll_x + 15, scroll_y + 12), 1)
             pygame.draw.line(screen, (180, 140, 50), (scroll_x + 5, scroll_y + 16), (scroll_x + 12, scroll_y + 16), 1)
 
-            title_surf, _ = font_medium.render("의뢰 목록", TEXT_WHITE)
+            title_surf, _ = font_medium.render(_t("interior.quest_list", "의뢰 목록"), TEXT_WHITE)
             screen.blit(title_surf, (menu_x + 60, menu_y + 15))
 
         # 퀘스트 목록
@@ -9997,7 +10001,7 @@ class BuildingInterior:
         pygame.draw.rect(screen, (200, 120, 120), cancel_btn_rect, 2, border_radius=5)
 
         if font_small:
-            cancel_surf, cancel_rect = font_small.render("취소", TEXT_WHITE)
+            cancel_surf, cancel_rect = font_small.render(_t("downtown.cancel", "취소"), TEXT_WHITE)
             screen.blit(cancel_surf, (cancel_btn_x + (btn_w - cancel_rect.width) // 2, btn_y + 8))
         if _bi_check_hover("quest_cancel", cancel_btn_rect, mouse_pos):
             _bi_draw_hover_border(screen, cancel_btn_rect.x, cancel_btn_rect.y, cancel_btn_rect.w, cancel_btn_rect.h, (255, 100, 100))
@@ -14638,9 +14642,9 @@ class BuildingInterior:
         # === 하단: 조작 안내 ===
         if font_small:
             hints = [
-                "WASD/방향키: 이동",
-                "마우스 클릭: NPC 대화",
-                "문으로 나가기"
+                "WASD/Arrow: Move" if get_localization_manager().current_language != "ko" else "WASD/방향키: 이동",
+                "Mouse Click: NPC Talk" if get_localization_manager().current_language != "ko" else "마우스 클릭: NPC 대화",
+                _t("interior.exit_door", "문으로 나가기")
             ]
 
             hint_y = SCREEN_HEIGHT - 20 - len(hints) * 18
@@ -16725,7 +16729,7 @@ class BuildingInterior:
         pygame.draw.rect(screen, btn_color, enhance_btn, border_radius=6)
         pygame.draw.rect(screen, BORDER_GOLD, enhance_btn, 2, border_radius=6)
         if font_small:
-            btn_surf, _ = font_small.render("강화하기", TEXT_WHITE)
+            btn_surf, _ = font_small.render(_t("interior.enhance_btn", "강화하기"), TEXT_WHITE)
             screen.blit(btn_surf, (enhance_btn.centerx - btn_surf.get_width() // 2,
                                    enhance_btn.centery - btn_surf.get_height() // 2))
         if _bi_check_hover("enh_enhance", enhance_btn, mouse_pos):
@@ -16737,7 +16741,7 @@ class BuildingInterior:
         pygame.draw.rect(screen, btn_color, exit_btn, border_radius=6)
         pygame.draw.rect(screen, (150, 130, 100), exit_btn, 1, border_radius=6)
         if font_small:
-            btn_surf, _ = font_small.render("나가기", (180, 170, 150))
+            btn_surf, _ = font_small.render(_t("downtown.exit", "나가기"), (180, 170, 150))
             screen.blit(btn_surf, (exit_btn.centerx - btn_surf.get_width() // 2,
                                    exit_btn.centery - btn_surf.get_height() // 2))
         if _bi_check_hover("enh_exit", exit_btn, mouse_pos):
@@ -17199,7 +17203,7 @@ class BuildingInterior:
 
         # 제목
         if font_medium:
-            title_text = f"강화하시겠습니까?"
+            title_text = _t("interior.enhance_confirm", "강화하시겠습니까?")
             title_surf, _ = font_medium.render(title_text, TEXT_GOLD)
             screen.blit(title_surf, (dialog_x + (dialog_w - title_surf.get_width()) // 2, dialog_y + 15))
 
@@ -17240,7 +17244,7 @@ class BuildingInterior:
         pygame.draw.rect(screen, yes_color, yes_btn, border_radius=6)
         pygame.draw.rect(screen, (100, 180, 100), yes_btn, 2, border_radius=6)
         if font_small:
-            yes_surf, _ = font_small.render("예", TEXT_WHITE)
+            yes_surf, _ = font_small.render(_t("downtown.yes", "예"), TEXT_WHITE)
             screen.blit(yes_surf, (yes_btn.centerx - yes_surf.get_width() // 2,
                                    yes_btn.centery - yes_surf.get_height() // 2))
         if _bi_check_hover("enhc_yes", yes_btn, mouse_pos):
@@ -17253,7 +17257,7 @@ class BuildingInterior:
         pygame.draw.rect(screen, no_color, no_btn, border_radius=6)
         pygame.draw.rect(screen, (180, 100, 100), no_btn, 2, border_radius=6)
         if font_small:
-            no_surf, _ = font_small.render("아니오", TEXT_WHITE)
+            no_surf, _ = font_small.render(_t("downtown.no", "아니오"), TEXT_WHITE)
             screen.blit(no_surf, (no_btn.centerx - no_surf.get_width() // 2,
                                   no_btn.centery - no_surf.get_height() // 2))
         if _bi_check_hover("enhc_no", no_btn, mouse_pos):
@@ -17577,10 +17581,10 @@ class BuildingInterior:
         font_medium = self.fonts.get('medium')
         if font_medium:
             # 그림자
-            shadow_surf, _ = font_medium.render("강화 중...", (40, 30, 20))
+            shadow_surf, _ = font_medium.render(_t("interior.enhancing", "강화 중..."), (40, 30, 20))
             screen.blit(shadow_surf, ((SCREEN_WIDTH - shadow_surf.get_width()) // 2 + 2, bar_y - 38))
             # 본문
-            text_surf, _ = font_medium.render("강화 중...", TEXT_GOLD)
+            text_surf, _ = font_medium.render(_t("interior.enhancing", "강화 중..."), TEXT_GOLD)
             screen.blit(text_surf, ((SCREEN_WIDTH - text_surf.get_width()) // 2, bar_y - 40))
 
         # 퍼센트 표시
@@ -17599,20 +17603,20 @@ class BuildingInterior:
             BG_COLOR = (20, 40, 25)
             BORDER_COLOR = (100, 255, 120)
             TEXT_COLOR = (100, 255, 120)
-            TITLE = "강화 성공!"
-            DESC = "아이템이 한 단계 강화되었습니다!"
+            TITLE = _t("interior.enhance_success", "강화 성공!")
+            DESC = _t("interior.enhanced_one", "아이템이 한 단계 강화되었습니다!")
         elif self.enhancement_result == "maintain":
             BG_COLOR = (35, 35, 25)
             BORDER_COLOR = (200, 180, 100)
             TEXT_COLOR = (200, 180, 100)
-            TITLE = "강화 유지"
-            DESC = "강화 수치가 유지되었습니다."
+            TITLE = _t("interior.enhance_maintained", "강화 유지")
+            DESC = _t("interior.enhance_kept", "강화 수치가 유지되었습니다.")
         elif self.enhancement_result == "fail":
             BG_COLOR = (45, 20, 20)
             BORDER_COLOR = (255, 100, 100)
             TEXT_COLOR = (255, 100, 100)
-            TITLE = "강화 실패"
-            DESC = "아이템이 파괴되었습니다..."
+            TITLE = _t("interior.enhance_failed", "강화 실패")
+            DESC = _t("interior.item_destroyed", "아이템이 파괴되었습니다...")
         else:
             return
 

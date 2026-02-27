@@ -5,6 +5,10 @@ import math
 import sys
 from game_state.audio import get_sfx_volume
 from start_menu import is_admin_mode_enabled
+from localization.manager import get_localization_manager
+
+def _t(key, fallback=None):
+    return get_localization_manager().get_text(key, fallback)
 
 ACADEMY_DEBUG = os.getenv("ACADEMY_DEBUG") == "1"
 
@@ -2232,17 +2236,17 @@ class AcademyUI:
         sp_rect = sp_text.get_rect(midleft=(star_x + display_size + 20, star_y))
         self.screen.blit(sp_text, sp_rect)
 
-        total_sp_text = self.font_small.render(f"누적 투자 TP (전체): {self.skill_system.total_invested_points}", True, (150, 200, 255))
+        total_sp_text = self.font_small.render(f"{_t('academy.total_tp', '누적 투자 TP (전체):')} {self.skill_system.total_invested_points}", True, (150, 200, 255))
         total_sp_rect = total_sp_text.get_rect(topright=(self.width - 20, sp_rect.bottom + 5))
         self.screen.blit(total_sp_text, total_sp_rect)
 
-        tree_label = SKILL_TREES.get(self.selected_tree, {}).get("name", self.selected_tree)
+        tree_label = _t(f"skill.tree.{self.selected_tree}", SKILL_TREES.get(self.selected_tree, {}).get("name", self.selected_tree))
         tree_tp_total = self.skill_system.get_tree_total(self.selected_tree)
-        tree_sp_text = self.font_small.render(f"{tree_label} 누적 ★{tree_tp_total}", True, (150, 200, 255))
+        tree_sp_text = self.font_small.render(f"{tree_label} ★{tree_tp_total}", True, (150, 200, 255))
         tree_sp_rect = tree_sp_text.get_rect(topright=(self.width - 20, total_sp_rect.bottom + 5))
         self.screen.blit(tree_sp_text, tree_sp_rect)
         if self.read_only:
-            ro_text = self.font_small.render("캐릭터정보 경로: 보기 전용", True, (255, 200, 140))
+            ro_text = self.font_small.render(_t("academy.readonly", "캐릭터정보 경로: 보기 전용"), True, (255, 200, 140))
             ro_rect = ro_text.get_rect(topright=(self.width - 20, tree_sp_rect.bottom + 5))
             self.screen.blit(ro_text, ro_rect)
         else:
@@ -2251,9 +2255,9 @@ class AcademyUI:
 
         # 조작 안내
         if self.read_only:
-            control_msg = "보기 전용: 업그레이드 불가 | ESC: 닫기"
+            control_msg = _t("academy.readonly_hint", "보기 전용: 업그레이드 불가 | ESC: 닫기")
         else:
-            control_msg = "←→: 탭 전환 | ↑↓: 스킬 선택 | Space: 업그레이드 | ESC: 닫기"
+            control_msg = _t("academy.controls", "←→: 탭 전환 | ↑↓: 스킬 선택 | Space: 업그레이드 | ESC: 닫기")
         control_text = self.font_small.render(control_msg, True, (150, 150, 150))
         control_rect = control_text.get_rect(center=(self.width // 2, self.height - 20))
         self.screen.blit(control_text, control_rect)
@@ -2308,7 +2312,7 @@ class AcademyUI:
                 self.screen.blit(glow_surface, (tab_x - 4, tab_y - 4))
             
             # 탭 텍스트
-            tab_text = self.font_small.render(tree_data["name"], True, (255, 255, 255))
+            tab_text = self.font_small.render(_t(f"skill.tree.{tree_id}", tree_data["name"]), True, (255, 255, 255))
             tab_text_rect = tab_text.get_rect(center=tab_rect.center)
             self.screen.blit(tab_text, tab_text_rect)
             
@@ -2351,7 +2355,7 @@ class AcademyUI:
         self.screen.blit(panel_surface, (panel_x, panel_y))
 
         # 안내 메시지 표시
-        title_text = "광장 스킬"
+        title_text = _t("skill.tree.downtown", "광장 스킬")
         title_surf = self.font_large.render(title_text, True, (255, 200, 100))
         title_rect = title_surf.get_rect(centerx=panel_x + panel_width // 2, y=panel_y + 30)
         self.screen.blit(title_surf, title_rect)
@@ -2378,7 +2382,7 @@ class AcademyUI:
 
     def draw_tree_summary_text(self, tree_id: str):
         """현재 선택된 탭에 대한 요약 문구 표시"""
-        summary = TREE_SUMMARIES.get(tree_id)
+        summary = _t(f"skill.tree.{tree_id}.desc", TREE_SUMMARIES.get(tree_id, ""))
         if not summary:
             return
 
@@ -2613,7 +2617,7 @@ class AcademyUI:
                 else:
                     del self.skill_levelup_animations[skill["id"]]
 
-            name_text = self.font_small.render(skill["name"], True, (255, 255, 255))
+            name_text = self.font_small.render(_t(f"skill.{skill['id']}", skill["name"]), True, (255, 255, 255))
             name_rect = name_text.get_rect(centerx=skill_x + skill_size // 2, top=skill_y + skill_size + 5)
             self.screen.blit(name_text, name_rect)
 
@@ -2631,7 +2635,7 @@ class AcademyUI:
             else:
                 cost_color = (0, 255, 255) if self.skill_system.can_upgrade_skill(skill["id"]) else (255, 120, 120)
                 actual_cost = skill['cost']
-                cost_surface = self.font_small.render(f"비용: ★{actual_cost}", True, cost_color)
+                cost_surface = self.font_small.render(_t("academy.cost", "비용: ★{amount}").format(amount=actual_cost), True, cost_color)
                 cost_rect = cost_surface.get_rect(centerx=skill_x + skill_size // 2, top=label_y)
                 self.screen.blit(cost_surface, cost_rect)
 
@@ -3039,7 +3043,7 @@ class AcademyUI:
                     del self.unlock_animations[skill["id"]]
             
             # 스킬 이름 (아이콘 아래)
-            name_text = self.font_small.render(skill["name"], True, (255, 255, 255))
+            name_text = self.font_small.render(_t(f"skill.{skill['id']}", skill["name"]), True, (255, 255, 255))
             name_rect = name_text.get_rect(centerx=skill_x + skill_size // 2, top=skill_y + skill_size + 5)
             self.screen.blit(name_text, name_rect)
 
@@ -3060,7 +3064,7 @@ class AcademyUI:
             else:
                 cost_color = (0, 255, 150) if self.skill_system.can_upgrade_skill(skill["id"]) else (180, 80, 80)
                 actual_cost = skill['cost']
-                cost_surface = self.font_small.render(f"비용: ★{actual_cost}", True, cost_color)
+                cost_surface = self.font_small.render(_t("academy.cost", "비용: ★{amount}").format(amount=actual_cost), True, cost_color)
                 cost_rect = cost_surface.get_rect(centerx=skill_x + skill_size // 2, top=label_y)
                 self.screen.blit(cost_surface, cost_rect)
             
@@ -3134,7 +3138,17 @@ class AcademyUI:
             "item_cooldown_mastery": "보너스: 추가 -8% 효과 적용",
             "item_gauge_mastery": "보너스: 추가 +7 게이지 효과 적용",
         }
-        return master_bonus_map.get(skill_id)
+        fallback = master_bonus_map.get(skill_id)
+        if fallback is None:
+            return None
+        return _t(f"skill.{skill_id}.master", fallback)
+
+    @staticmethod
+    def _effect_line(prefix: str, stat_key: str, stat_fallback: str, value_str: str) -> str:
+        """번역된 효과 미리보기 라인 생성"""
+        p = _t(f"academy.{prefix}_prefix", f"{prefix}:")
+        s = _t(f"academy.{stat_key}", stat_fallback)
+        return f"{p} {s} {value_str}"
 
     def _collect_current_effect_lines(self, skill_id: str, current_level: int) -> list[str]:
         """현재 레벨 기준 효과 설명 문자열 집계"""
@@ -3144,85 +3158,86 @@ class AcademyUI:
         lines: list[str] = []
         display_level = self._get_display_level_with_master_bonus(skill_id, current_level)
 
+        _el = self._effect_line
         if skill_id == "dash_lightweight":
-            lines.append(f"현재: 충전시간 -{display_level * 7:.0f}%")
+            lines.append(_el("current", "charge_time", "충전시간", f"-{display_level * 7:.0f}%"))
         elif skill_id == "dash_module_control":
-            lines.append(f"현재: 통제불능 -{display_level * 10:.0f}%")
+            lines.append(_el("current", "uncontrol", "통제불능", f"-{display_level * 10:.0f}%"))
         elif skill_id == "dash_jump":
-            lines.append(f"현재: 대쉬 거리 +{display_level * 4:.0f}%")
+            lines.append(_el("current", "dash_distance", "대쉬 거리", f"+{display_level * 4:.0f}%"))
         elif skill_id == "dash_battery_pack":
-            lines.append(f"현재: 게이지 소모 -{display_level * 8:.0f}%")
+            lines.append(_el("current", "gauge_consume", "게이지 소모", f"-{display_level * 8:.0f}%"))
         elif skill_id == "dash_acceleration":
-            lines.append(f"현재: 패들 높이 +{display_level * 60:.0f}%")
+            lines.append(_el("current", "paddle_height", "패들 높이", f"+{display_level * 60:.0f}%"))
         elif skill_id == "dash_amplification":
-            lines.append(f"현재: 대쉬 토큰 +{display_level}")
+            lines.append(_el("current", "dash_token", "대쉬 토큰", f"+{display_level}"))
         elif skill_id == "dash_spirit":
             chance = 35 + max(0, display_level - 1) * 15
-            lines.append(f"현재: 잔상 확률 {chance:.0f}%")
+            lines.append(_el("current", "afterimage_prob", "잔상 확률", f"{chance:.0f}%"))
         elif skill_id == "dash_distance":
-            lines.append(f"현재: 대쉬 거리 +{display_level * 3:.0f}%")
+            lines.append(_el("current", "dash_distance", "대쉬 거리", f"+{display_level * 3:.0f}%"))
         elif skill_id == "dash_cooldown":
-            lines.append(f"현재: 쿨타임 -{display_level * 0.2:.1f}초")
+            lines.append(_el("current", "cooltime", "쿨타임", f"-{display_level * 0.2:.1f}s"))
         elif skill_id == "dash_stun":
-            lines.append(f"현재: 통제불능 -{display_level * 0.05:.2f}초")
+            lines.append(_el("current", "uncontrol", "통제불능", f"-{display_level * 0.05:.2f}s"))
         elif skill_id == "dash_gauge":
-            lines.append(f"현재: 게이지 +{display_level * 10}")
+            lines.append(_el("current", "gauge", "게이지", f"+{display_level * 10}"))
         elif skill_id == "item_luck":
             multiplier = compute_item_spawn_delay_multiplier(current_level)
-            lines.append(f"현재: 딜레이 {multiplier * 100:.1f}%")
+            lines.append(_el("current", "delay", "딜레이", f"{multiplier * 100:.1f}%"))
         elif skill_id == "item_cooldown_mastery":
             multiplier = compute_item_cooldown_multiplier(current_level)
-            lines.append(f"현재: 쿨타임 {multiplier * 100:.1f}%")
+            lines.append(_el("current", "cooltime", "쿨타임", f"{multiplier * 100:.1f}%"))
         elif skill_id == "item_gauge_mastery":
             bonus = compute_item_gauge_bonus(current_level)
-            lines.append(f"현재: 게이지 +{bonus}")
+            lines.append(_el("current", "gauge", "게이지", f"+{bonus}"))
         elif skill_id == "item_bag_expansion":
-            lines.append(f"현재: 슬롯 +{display_level}칸")
+            lines.append(_el("current", "slot", "슬롯", f"+{display_level}{_t('academy.slot_unit', '칸')}"))
         elif skill_id == "item_caffeine":
             caffeine_bonus = 15 * display_level
-            lines.append(f"현재: 지속시간 +{caffeine_bonus}%")
+            lines.append(_el("current", "duration", "지속시간", f"+{caffeine_bonus}%"))
         elif skill_id == "item_polish":
             polish_bonus = 20 + 10 * (display_level - 1) if display_level > 0 else 0
-            lines.append(f"현재: 롤옵션 효율 +{polish_bonus}%")
+            lines.append(_el("current", "roll_efficiency", "롤옵션 효율", f"+{polish_bonus}%"))
         elif skill_id == "item_gamble":
             chance = min(0.95, 0.25 + 0.15 * (display_level - 1))
             max_extra = 1 if display_level < 3 else 2
-            lines.append(f"현재: 추가 가챠 {int(chance * 100)}%")
-            lines.append(f"현재: 최대 {max_extra}회")
+            lines.append(_el("current", "extra_gacha", "추가 가챠", f"{int(chance * 100)}%"))
+            lines.append(_el("current", "max_count", "최대", f"{max_extra}{_t('academy.count_unit', '회')}"))
         elif skill_id == "item_recycle":
             recycle_chance = min(0.9, 0.2 + 0.1 * (display_level - 1))
-            lines.append(f"현재: 연금술 {int(recycle_chance * 100)}%")
+            lines.append(_el("current", "alchemy", "연금술", f"{int(recycle_chance * 100)}%"))
         elif skill_id == "item_treasure_map":
-            lines.append(f"현재: 필드 전설 +{display_level * 350}%")
-            lines.append(f"현재: 가챠 전설 +{display_level * 7}%")
+            lines.append(_el("current", "field_legend", "필드 전설", f"+{display_level * 350}%"))
+            lines.append(_el("current", "gacha_legend", "가챠 전설", f"+{display_level * 7}%"))
         elif skill_id == "item_spawn":
-            lines.append(f"현재: 확률 +{display_level * 10}%")
+            lines.append(_el("current", "delay", "확률", f"+{display_level * 10}%"))
         elif skill_id == "item_cooldown":
-            lines.append(f"현재: 쿨타임 -{display_level * 0.6:.1f}초")
+            lines.append(_el("current", "cooltime", "쿨타임", f"-{display_level * 0.6:.1f}s"))
         elif skill_id == "item_slot":
-            lines.append(f"현재: 슬롯 +{display_level}칸")
+            lines.append(_el("current", "slot", "슬롯", f"+{display_level}{_t('academy.slot_unit', '칸')}"))
         elif skill_id == "item_pachinko":
-            lines.append(f"현재: {display_level * 5}% 확률")
+            lines.append(_el("current", "extra_gacha", "", f"{display_level * 5}%"))
         elif skill_id == "item_legendary":
-            lines.append("현재: 활성화")
+            lines.append(f"{_t('academy.current_prefix', '현재:')} ON")
         elif skill_id == "paddle_gauge":
-            lines.append(f"현재: 게이지 +{display_level * 5}")
+            lines.append(_el("current", "gauge", "게이지", f"+{display_level * 5}"))
         elif skill_id == "paddle_speed":
-            lines.append(f"현재: 속도 +{display_level * 0.5:.1f}")
+            lines.append(_el("current", "delay", "속도", f"+{display_level * 0.5:.1f}"))
         elif skill_id == "paddle_size":
-            lines.append(f"현재: 크기 +{display_level * 2}%")
+            lines.append(_el("current", "delay", "크기", f"+{display_level * 2}%"))
         elif skill_id == "paddle_max_gauge":
-            lines.append(f"현재: 최대치 +{display_level * 30}")
+            lines.append(_el("current", "gauge", "최대치", f"+{display_level * 30}"))
         elif skill_id == "paddle_bio":
-            lines.append("현재: 활성화")
+            lines.append(f"{_t('academy.current_prefix', '현재:')} ON")
         elif skill_id == "downtown_gamble":
             chance = min(0.95, 0.25 + 0.15 * (display_level - 1))
             max_extra = 1 if display_level < 3 else 2
-            lines.append(f"현재: 추가 가챠 {int(chance * 100)}%")
-            lines.append(f"현재: 최대 {max_extra}회")
+            lines.append(_el("current", "extra_gacha", "추가 가챠", f"{int(chance * 100)}%"))
+            lines.append(_el("current", "max_count", "최대", f"{max_extra}{_t('academy.count_unit', '회')}"))
         elif skill_id == "downtown_treasure_map":
-            lines.append(f"현재: 필드 전설 +{display_level * 350}%")
-            lines.append(f"현재: 가챠 전설 +{display_level * 7}%")
+            lines.append(_el("current", "field_legend", "필드 전설", f"+{display_level * 350}%"))
+            lines.append(_el("current", "gacha_legend", "가챠 전설", f"+{display_level * 7}%"))
 
         return lines
 
@@ -3234,85 +3249,86 @@ class AcademyUI:
         lines: list[str] = []
         display_level = self._get_display_level_with_master_bonus(skill_id, next_level)
 
+        _el = self._effect_line
         if skill_id == "dash_lightweight":
-            lines.append(f"다음: 충전시간 -{display_level * 7:.0f}%")
+            lines.append(_el("next", "charge_time", "충전시간", f"-{display_level * 7:.0f}%"))
         elif skill_id == "dash_module_control":
-            lines.append(f"다음: 통제불능 -{display_level * 10:.0f}%")
+            lines.append(_el("next", "uncontrol", "통제불능", f"-{display_level * 10:.0f}%"))
         elif skill_id == "dash_jump":
-            lines.append(f"다음: 대쉬 거리 +{display_level * 4:.0f}%")
+            lines.append(_el("next", "dash_distance", "대쉬 거리", f"+{display_level * 4:.0f}%"))
         elif skill_id == "dash_battery_pack":
-            lines.append(f"다음: 게이지 소모 -{display_level * 8:.0f}%")
+            lines.append(_el("next", "gauge_consume", "게이지 소모", f"-{display_level * 8:.0f}%"))
         elif skill_id == "dash_acceleration":
-            lines.append(f"다음: 패들 높이 +{display_level * 60:.0f}%")
+            lines.append(_el("next", "paddle_height", "패들 높이", f"+{display_level * 60:.0f}%"))
         elif skill_id == "dash_amplification":
-            lines.append(f"다음: 대쉬 토큰 +{display_level}")
+            lines.append(_el("next", "dash_token", "대쉬 토큰", f"+{display_level}"))
         elif skill_id == "dash_spirit":
             chance = 35 + max(0, display_level - 1) * 15
-            lines.append(f"다음: 잔상 확률 {chance:.0f}%")
+            lines.append(_el("next", "afterimage_prob", "잔상 확률", f"{chance:.0f}%"))
         elif skill_id == "dash_distance":
-            lines.append(f"다음: 대쉬 거리 +{display_level * 3:.0f}%")
+            lines.append(_el("next", "dash_distance", "대쉬 거리", f"+{display_level * 3:.0f}%"))
         elif skill_id == "dash_cooldown":
-            lines.append(f"다음: 쿨타임 -{display_level * 0.2:.1f}초")
+            lines.append(_el("next", "cooltime", "쿨타임", f"-{display_level * 0.2:.1f}s"))
         elif skill_id == "dash_stun":
-            lines.append(f"다음: 통제불능 -{display_level * 0.05:.2f}초")
+            lines.append(_el("next", "uncontrol", "통제불능", f"-{display_level * 0.05:.2f}s"))
         elif skill_id == "dash_gauge":
-            lines.append(f"다음: 게이지 +{display_level * 10}")
+            lines.append(_el("next", "gauge", "게이지", f"+{display_level * 10}"))
         elif skill_id == "item_luck":
             multiplier = compute_item_spawn_delay_multiplier(next_level)
-            lines.append(f"다음: 딜레이 {multiplier * 100:.1f}%")
+            lines.append(_el("next", "delay", "딜레이", f"{multiplier * 100:.1f}%"))
         elif skill_id == "item_cooldown_mastery":
             multiplier = compute_item_cooldown_multiplier(next_level)
-            lines.append(f"다음: 쿨타임 {multiplier * 100:.1f}%")
+            lines.append(_el("next", "cooltime", "쿨타임", f"{multiplier * 100:.1f}%"))
         elif skill_id == "item_gauge_mastery":
             bonus = compute_item_gauge_bonus(next_level)
-            lines.append(f"다음: 게이지 +{bonus}")
+            lines.append(_el("next", "gauge", "게이지", f"+{bonus}"))
         elif skill_id == "item_bag_expansion":
-            lines.append(f"다음: 슬롯 +{display_level}칸")
+            lines.append(_el("next", "slot", "슬롯", f"+{display_level}{_t('academy.slot_unit', '칸')}"))
         elif skill_id == "item_caffeine":
             caffeine_bonus = 15 * display_level
-            lines.append(f"다음: 지속시간 +{caffeine_bonus}%")
+            lines.append(_el("next", "duration", "지속시간", f"+{caffeine_bonus}%"))
         elif skill_id == "item_polish":
             polish_bonus = 20 + 10 * (display_level - 1) if display_level > 0 else 0
-            lines.append(f"다음: 롤옵션 효율 +{polish_bonus}%")
+            lines.append(_el("next", "roll_efficiency", "롤옵션 효율", f"+{polish_bonus}%"))
         elif skill_id == "item_gamble":
             chance = min(0.95, 0.25 + 0.15 * (display_level - 1))
             max_extra = 1 if display_level < 3 else 2
-            lines.append(f"다음: 추가 가챠 {int(chance * 100)}%")
-            lines.append(f"다음: 최대 {max_extra}회")
+            lines.append(_el("next", "extra_gacha", "추가 가챠", f"{int(chance * 100)}%"))
+            lines.append(_el("next", "max_count", "최대", f"{max_extra}{_t('academy.count_unit', '회')}"))
         elif skill_id == "item_recycle":
             recycle_chance = min(0.9, 0.2 + 0.1 * (display_level - 1))
-            lines.append(f"다음: 연금술 {int(recycle_chance * 100)}%")
+            lines.append(_el("next", "alchemy", "연금술", f"{int(recycle_chance * 100)}%"))
         elif skill_id == "item_treasure_map":
-            lines.append(f"다음: 필드 전설 +{display_level * 350}%")
-            lines.append(f"다음: 가챠 전설 +{display_level * 7}%")
+            lines.append(_el("next", "field_legend", "필드 전설", f"+{display_level * 350}%"))
+            lines.append(_el("next", "gacha_legend", "가챠 전설", f"+{display_level * 7}%"))
         elif skill_id == "item_spawn":
-            lines.append(f"다음: 확률 +{display_level * 10}%")
+            lines.append(_el("next", "delay", "확률", f"+{display_level * 10}%"))
         elif skill_id == "item_cooldown":
-            lines.append(f"다음: 쿨타임 -{display_level * 0.6:.1f}초")
+            lines.append(_el("next", "cooltime", "쿨타임", f"-{display_level * 0.6:.1f}s"))
         elif skill_id == "item_slot":
-            lines.append(f"다음: 슬롯 +{display_level}칸")
+            lines.append(_el("next", "slot", "슬롯", f"+{display_level}{_t('academy.slot_unit', '칸')}"))
         elif skill_id == "item_pachinko":
-            lines.append(f"다음: {display_level * 5}% 확률")
+            lines.append(_el("next", "extra_gacha", "", f"{display_level * 5}%"))
         elif skill_id == "item_legendary":
-            lines.append("다음: 활성화")
+            lines.append(f"{_t('academy.next_prefix', '다음:')} ON")
         elif skill_id == "paddle_gauge":
-            lines.append(f"다음: 게이지 +{display_level * 5}")
+            lines.append(_el("next", "gauge", "게이지", f"+{display_level * 5}"))
         elif skill_id == "paddle_speed":
-            lines.append(f"다음: 속도 +{display_level * 0.5:.1f}")
+            lines.append(_el("next", "delay", "속도", f"+{display_level * 0.5:.1f}"))
         elif skill_id == "paddle_size":
-            lines.append(f"다음: 크기 +{display_level * 2}%")
+            lines.append(_el("next", "delay", "크기", f"+{display_level * 2}%"))
         elif skill_id == "paddle_max_gauge":
-            lines.append(f"다음: 최대치 +{display_level * 30}")
+            lines.append(_el("next", "gauge", "최대치", f"+{display_level * 30}"))
         elif skill_id == "paddle_bio":
-            lines.append("다음: 활성화")
+            lines.append(f"{_t('academy.next_prefix', '다음:')} ON")
         elif skill_id == "downtown_gamble":
             chance = min(0.95, 0.25 + 0.15 * (display_level - 1))
             max_extra = 1 if display_level < 3 else 2
-            lines.append(f"다음: 추가 가챠 {int(chance * 100)}%")
-            lines.append(f"다음: 최대 {max_extra}회")
+            lines.append(_el("next", "extra_gacha", "추가 가챠", f"{int(chance * 100)}%"))
+            lines.append(_el("next", "max_count", "최대", f"{max_extra}{_t('academy.count_unit', '회')}"))
         elif skill_id == "downtown_treasure_map":
-            lines.append(f"다음: 필드 전설 +{display_level * 350}%")
-            lines.append(f"다음: 가챠 전설 +{display_level * 7}%")
+            lines.append(_el("next", "field_legend", "필드 전설", f"+{display_level * 350}%"))
+            lines.append(_el("next", "gacha_legend", "가챠 전설", f"+{display_level * 7}%"))
 
         return lines
 
@@ -3403,13 +3419,13 @@ class AcademyUI:
         pygame.draw.circle(icon_surface, (255, 255, 255), (center_x, center_y), 2)
         self.screen.blit(icon_surface, (desc_x + 10, desc_y + 10))
 
-        title_text = self.font_small.render("정보", True, (255, 255, 100))
+        title_text = self.font_small.render(_t("academy.info", "정보"), True, (255, 255, 100))
         self.screen.blit(title_text, (desc_x + 34, desc_y + 10))
 
-        skill_name = self.font_small.render(selected_skill["name"], True, (255, 255, 255))
+        skill_name = self.font_small.render(_t(f"skill.{selected_skill['id']}", selected_skill["name"]), True, (255, 255, 255))
         self.screen.blit(skill_name, (desc_x + 10, desc_y + 34))
 
-        desc_text = selected_skill["description"]
+        desc_text = _t(f"skill.{selected_skill['id']}.desc", selected_skill["description"])
         wrapped_lines = self._wrap_text_lines(desc_text, self.font_small, desc_width - 20)
         text_y = desc_y + 60
         for line in wrapped_lines:
@@ -3436,11 +3452,11 @@ class AcademyUI:
         level_y = info_y
 
         if is_master:
-            master_text = self.font_small.render("★ MASTER ★", True, (255, 215, 0))
+            master_text = self.font_small.render(_t("academy.master", "★ MASTER ★"), True, (255, 215, 0))
             self.screen.blit(master_text, (desc_x + 10, level_y))
             bonus_line = self._get_master_bonus_line(selected_skill["id"])
             if bonus_line is None:
-                bonus_line = "보너스: 추가 Lv.1 효과 적용"
+                bonus_line = _t("academy.master_bonus", "보너스: 추가 Lv.1 효과 적용")
             bonus_text = self.font_small.render(bonus_line, True, (255, 200, 120))
             self.screen.blit(bonus_text, (desc_x + 10, level_y + 18))
             level_y += 18
@@ -3465,15 +3481,15 @@ class AcademyUI:
 
             can_upgrade = self.skill_system.can_upgrade_skill(selected_skill["id"])
             cost_color = (100, 255, 100) if can_upgrade else (255, 120, 120)
-            cost_text = f"비용: ★{actual_cost}"
+            cost_text = _t("academy.cost", "비용: ★{amount}").format(amount=actual_cost)
 
             if not can_upgrade:
                 if self.skill_system.skill_points < actual_cost:
-                    cost_text += "\n(포인트 부족)"
+                    cost_text += "\n" + _t("academy.insufficient_points", "(포인트 부족)")
                 elif selected_skill.get("total_tp_required", 0) > tree_tp_total:
-                    cost_text += f"\n(누적 ★{selected_skill['total_tp_required']} 필요)"
+                    cost_text += f"\n(★{selected_skill['total_tp_required']})"
                 elif selected_skill.get("requires") or selected_skill.get("requires_or"):
-                    cost_text += "\n(선행스킬 필요)"
+                    cost_text += "\n" + _t("academy.prerequisite_required", "(선행스킬 필요)")
 
             cost_lines = cost_text.split("\n")
             for index, line in enumerate(cost_lines):
@@ -3770,12 +3786,12 @@ class AcademyUI:
                     del self.unlock_animations[skill["id"]]
             
             # 스킬 이름
-            name_text = self.font_small.render(skill["name"], True, (255, 255, 255))
+            name_text = self.font_small.render(_t(f"skill.{skill['id']}", skill["name"]), True, (255, 255, 255))
             name_rect = name_text.get_rect(left=skill_x + skill_size + 15, top=skill_y + 5)
             self.screen.blit(name_text, name_rect)
-            
+
             # 스킬 설명
-            desc_text = self.font_small.render(skill["description"], True, (230, 230, 230))
+            desc_text = self.font_small.render(_t(f"skill.{skill['id']}.desc", skill["description"]), True, (230, 230, 230))
             desc_rect = desc_text.get_rect(left=skill_x + skill_size + 15, top=skill_y + 22)
             self.screen.blit(desc_text, desc_rect)
             
@@ -3784,7 +3800,7 @@ class AcademyUI:
             if current_level < skill["max_level"]:
                 actual_cost = skill['cost']
                 
-                cost_text = self.font_small.render(f"비용: ★{actual_cost}", True, cost_color)
+                cost_text = self.font_small.render(_t("academy.cost", "비용: ★{amount}").format(amount=actual_cost), True, cost_color)
                 cost_rect = cost_text.get_rect(left=skill_x + skill_size + 15, top=skill_y + 35)
                 self.screen.blit(cost_text, cost_rect)
             

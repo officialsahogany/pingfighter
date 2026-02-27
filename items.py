@@ -17,6 +17,10 @@ def resource_path(relative_path):
 import pygame
 import random
 import math
+
+from localization.manager import get_localization_manager
+def _t(key, fallback=None):
+    return get_localization_manager().get_text(key, fallback)
  
 # pingfighter.py에서 get_item_icon 함수 import
 try:
@@ -2760,7 +2764,7 @@ def draw_active_item(screen, active_item_slot, icon_size, selected_index=0, cool
                     progress = 1.0 - ratio
                     alpha = int(220 * (ratio ** 0.9))
                     y_offset = -12 - progress * 18
-                    text = "연금술!"
+                    text = _t("item.alchemy", "연금술!")
                     text_surface = notice_font.render(text, True, (190, 170, 255))
                     scale = 1.0 + 0.08 * math.sin(progress * math.pi)
                     if abs(scale - 1.0) > 0.01:

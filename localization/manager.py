@@ -40,6 +40,19 @@ class LocalizationManager:
             return fallback
         return key
 
+    def get_list(self, key: str, fallback: list | None = None) -> list:
+        """현재 언어 기준으로 리스트 번역문 반환 (콤마 구분 문자열도 지원)"""
+        for language_code in (self._current_language, self._fallback_language):
+            translations = self._ensure_language_loaded(language_code)
+            if translations and key in translations:
+                val = translations[key]
+                if isinstance(val, list):
+                    return val
+                if isinstance(val, str):
+                    return [s.strip() for s in val.split(",") if s.strip()]
+                return [str(val)]
+        return fallback if fallback is not None else []
+
     def get_language_label(self, language_code: str) -> str:
         """언어 선택용 표시 문자열 반환"""
         label_key = f"option.language.{language_code}"

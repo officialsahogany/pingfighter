@@ -1400,7 +1400,8 @@ class DowntownRenderer:
         else:
             korean_font = self._get_korean_font(12)
             if korean_font:
-                hint_surf, _ = korean_font.render("M키: 닫기", (150, 150, 150))
+                from localization.manager import get_localization_manager
+                hint_surf, _ = korean_font.render(get_localization_manager().get_text("downtown.minimap_close", "M키: 닫기"), (150, 150, 150))
                 screen.blit(hint_surf, (minimap_x + 5, minimap_y + current_size - 18))
 
         # 툴팁 그리기 (확대 상태에서 건물 호버 시)
@@ -1465,8 +1466,9 @@ class DowntownRenderer:
             return
 
         building_info = building.info
-        name = building_info.get('name', '???')
-        description = building_info.get('description', '')
+        from downtown.constants import get_building_display_name, get_building_display_desc
+        name = get_building_display_name(building_info)
+        description = get_building_display_desc(building_info)
         color = building_info.get('color', Colors.NEON_CYAN)
         icon = building_info.get('icon', '')
 
@@ -1561,7 +1563,8 @@ class DowntownRenderer:
         # 건물 정보 (한글 폰트 사용)
         if korean_font:
             # 이름
-            name_surf, name_rect = korean_font.render(building_info.get('name', '???'), Colors.TEXT_WHITE)
+            from downtown.constants import get_building_display_name
+            name_surf, name_rect = korean_font.render(get_building_display_name(building_info), Colors.TEXT_WHITE)
             screen.blit(name_surf, (panel_x + 20, panel_y + 15))
 
             # AP 비용 - 열쇠 아이콘 + 숫자
@@ -1581,7 +1584,8 @@ class DowntownRenderer:
             screen.blit(desc_surf, (panel_x + 20, panel_y + 45))
 
             # 조작 힌트 (SPACE로 변경)
-            hint_surf, hint_rect = korean_font.render("[SPACE] 입장", Colors.NEON_GREEN)
+            from localization.manager import get_localization_manager
+            hint_surf, hint_rect = korean_font.render(get_localization_manager().get_text("downtown.space_enter", "[SPACE] 입장"), Colors.NEON_GREEN)
             screen.blit(hint_surf, (panel_x + panel_width // 2 - hint_rect.width // 2, panel_y + 70))
 
     def _get_korean_font(self, size=18):

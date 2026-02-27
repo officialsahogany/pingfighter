@@ -7,6 +7,10 @@ import os
 import numpy as np
 import academy
 from game_state.audio import get_sfx_volume
+from localization.manager import get_localization_manager
+
+def _t(key, fallback=None):
+    return get_localization_manager().get_text(key, fallback)
 
 # 리소스 경로 헬퍼 (PyInstaller 호환)
 def resource_path(relative_path):
@@ -966,7 +970,7 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     if legendary_bonus > 0:
         bonus_font = draw_gacha._bonus_font
         bonus_percent = int(legendary_bonus * 100)
-        bonus_text = bonus_font.render(f"신화 아이템 확률 +{bonus_percent}%", True, (120, 240, 255))
+        bonus_text = bonus_font.render(_t("gacha.myth_bonus", "신화 아이템 확률 +{bonus}%").format(bonus=bonus_percent), True, (120, 240, 255))
         bonus_rect = bonus_text.get_rect(center=(container_x + container_width // 2, container_y + 115))
         screen.blit(bonus_text, bonus_rect)
 
@@ -1039,7 +1043,7 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     # 안내 텍스트 (더 크고 깔끔하게)
     if gacha_phase == 0:
         guide_font = draw_gacha._guide_font_large
-        guide_text = "클릭 또는 SPACE로 뽑기 시작!"
+        guide_text = _t("gacha.start_guide", "클릭 또는 SPACE로 뽑기 시작!")
         text = guide_font.render(guide_text, True, (255, 255, 255))
         # 텍스트 그림자
         shadow_text = guide_font.render(guide_text, True, (80, 80, 80))
@@ -1052,7 +1056,7 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     
     elif gacha_phase == 1:
         guide_font = draw_gacha._guide_font_mid
-        guide_text = "동전을 투입하고 있습니다..."
+        guide_text = _t("gacha.inserting", "동전을 투입하고 있습니다...")
         text = guide_font.render(guide_text, True, (255, 255, 255))
         shadow_text = guide_font.render(guide_text, True, (80, 80, 80))
         text_rect = text.get_rect(center=(container_x + container_width // 2, container_y + container_height - 80))
@@ -1064,7 +1068,7 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
     
     elif gacha_phase == 2:
         guide_font = draw_gacha._guide_font_mid
-        guide_text = "아이템이 나오고 있습니다..."
+        guide_text = _t("gacha.dropping", "아이템이 나오고 있습니다...")
         text = guide_font.render(guide_text, True, (255, 255, 255))
         shadow_text = guide_font.render(guide_text, True, (80, 80, 80))
         text_rect = text.get_rect(center=(container_x + container_width // 2, container_y + container_height - 80))
@@ -1085,7 +1089,7 @@ def draw_gacha(screen, width, height, get_item_name_korean, get_item_description
                 draw_gacha.extra_notice_font = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 72)
                 draw_gacha.extra_notice_shadow = pygame.font.Font(resource_path("NanumSquareEB.ttf"), 72)
             font = draw_gacha.extra_notice_font
-            text = "한번 더!"
+            text = _t("gacha.bonus", "한번 더!")
             base_surface = font.render(text, True, (255, 240, 200))
             scale = 1.0 + 0.25 * math.sin(progress * math.pi * 1.3)
             if abs(scale - 1.0) > 0.01:
@@ -1558,7 +1562,7 @@ def show_gacha_result_page(
         
         # 축하 메시지 (사이버펑크 스타일)
         congrats_font = fonts["congrats"]
-        congrats_text = "◆ 축하합니다! ◆"
+        congrats_text = _t("gacha.congrats", "◆ 축하합니다! ◆")
         
         # 홀로그램 아이콘 (양쪽에)
         icon_left_x = width // 2 - 340
@@ -1596,7 +1600,7 @@ def show_gacha_result_page(
         if legendary_bonus > 0:
             bonus_font = fonts["bonus"]
             bonus_percent = int(legendary_bonus * 100)
-            bonus_text = bonus_font.render(f"신화 아이템 확률 +{bonus_percent}%", True, (120, 240, 255))
+            bonus_text = bonus_font.render(_t("gacha.myth_bonus", "신화 아이템 확률 +{bonus}%").format(bonus=bonus_percent), True, (120, 240, 255))
             bonus_rect = bonus_text.get_rect(center=(width // 2, container_y + 130))
             screen.blit(bonus_text, bonus_rect)
 
@@ -1758,7 +1762,7 @@ def show_gacha_result_page(
         pygame.draw.rect(screen, (10, 35, 70), continue_area, border_radius=14)
         pygame.draw.rect(screen, (0, 220, 255), continue_area, 3, border_radius=14)
 
-        continue_text = menu_font.render("아이템 받기", True, (255, 255, 255))
+        continue_text = menu_font.render(_t("gacha.receive_item", "아이템 받기"), True, (255, 255, 255))
         continue_rect = continue_text.get_rect(center=continue_area.center)
         screen.blit(continue_text, continue_rect)
 
@@ -2045,7 +2049,7 @@ def show_multi_gacha_result_page(
         pygame.draw.rect(screen, (255, 0, 255), (container_x + 4, container_y + 4, container_width - 8, container_height - 8), 2, border_radius=12)
 
         # 타이틀 (기본 뽑기 횟수만 표시)
-        title_text = f"◆ {base_count}연속 뽑기 결과! ◆"
+        title_text = _t("gacha.multi_result", "◆ {count}연속 뽑기 결과! ◆").format(count=base_count)
         title_surf = fonts["congrats"].render(title_text, True, (255, 255, 255))
         # 글로우 효과
         for i in range(3):
@@ -2275,7 +2279,7 @@ def show_multi_gacha_result_page(
             bonus_start_y = start_y + base_total_rows * row_height + 15
 
             # 도박! 타이틀 그리기
-            gamble_title = "🎲 도박!"
+            gamble_title = _t("gacha.gamble", "🎲 도박!")
             gamble_surf = fonts["count"].render(gamble_title, True, (255, 200, 50))
             # 글로우 효과
             for i in range(2):
@@ -2411,7 +2415,7 @@ def show_multi_gacha_result_page(
                     bonus_item_idx += 1
 
         # 클릭/키 입력 안내 텍스트
-        hint_text = "아이템받기"
+        hint_text = _t("gacha.receive_hint", "아이템받기")
         hint_alpha = int(128 + 80 * math.sin(animation_timer * 0.1))
         hint_surf = fonts["desc"].render(hint_text, True, (200, 200, 200))
         hint_surf.set_alpha(hint_alpha)

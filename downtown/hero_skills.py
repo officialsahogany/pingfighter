@@ -9,6 +9,10 @@ _cos = math.cos
 import random
 from enum import Enum
 from typing import Dict, List, Optional, Tuple, Callable
+from localization.manager import get_localization_manager
+
+def _t(key, fallback=None):
+    return get_localization_manager().get_text(key, fallback)
 
 # 날씨 강풍 이벤트 임포트
 try:
@@ -136,6 +140,14 @@ class HeroSkill:
         self.active_timer = 0.0           # 효과 남은 시간
         self.effect_data = {}             # 효과별 추가 데이터
         self.activation_flash_timer = 0.0 # 발동 이펙트 타이머 (UI 초상화 깜빡임용)
+
+    @property
+    def display_name(self) -> str:
+        return _t(f"hero_skill.{self.skill_id}", self.korean_name)
+
+    @property
+    def display_description(self) -> str:
+        return _t(f"hero_skill.{self.skill_id}.desc", self.description)
 
     def can_use(self) -> bool:
         """스킬 사용 가능 여부"""

@@ -1077,6 +1077,11 @@ if _splash_screen:
     update_splash(0.15, "설정 로딩 중...")
 
 from config.settings_system import get_settings_manager
+from localization.manager import get_localization_manager as _get_loc
+
+def _t(key: str, fallback: str = "") -> str:
+    """번역 헬퍼 — 현재 언어의 텍스트를 반환, 없으면 fallback."""
+    return _get_loc().get_text(key, fallback)
 
 # EXE 패키징 시 게임 루프 첫 프레임 지연 방지:
 # SettingsManager 싱글톤을 스플래시 화면 중에 미리 초기화
@@ -5502,7 +5507,7 @@ def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
                                effect_center_x, effect_center_y, anim_progress)
 
     # 이펙트 라벨
-    effect_label_surface, effect_label_rect = small_font.render("이펙트 미리보기", (150, 150, 150))
+    effect_label_surface, effect_label_rect = small_font.render(_t("ui.effect_preview", "이펙트 미리보기"), (150, 150, 150))
     tooltip_surface.blit(effect_label_surface, (padding + 4, effect_y + 4))
 
     # 툴팁 그리기 (스케일링 적용)
@@ -6061,7 +6066,7 @@ def _draw_odin_swamp_tooltip(surface: pygame.Surface, mouse_pos: tuple, current_
         tooltip_surface.blit(smoke_surf, (smoke_x - smoke_r, smoke_y - smoke_r))
 
     # 이펙트 라벨
-    effect_label_surface, effect_label_rect = small_font.render("이펙트 미리보기", (150, 150, 150))
+    effect_label_surface, effect_label_rect = small_font.render(_t("ui.effect_preview", "이펙트 미리보기"), (150, 150, 150))
     tooltip_surface.blit(effect_label_surface, (padding + 4, effect_y + 4))
 
     # 툴팁 그리기 (스케일링 적용)
@@ -10373,16 +10378,18 @@ CURRENT_BG = STAGE1_BG  # 현재 배경 기본값은 Stage 1
 bgm_volume = get_bgm_volume()  # 오디오 상태 모듈 기본값 반영
 sfx_volume = get_sfx_volume()  # 오디오 상태 모듈 기본값 반영
 
-boss_names = {
-    1: "풍악보이",
-    2: "악어장군",
-    3: "멘헤라걸",
-    4: "퐁크",
-    5: "네메시스",
-    6: "홍련",
-    7: "테트리서",
-    8: "아카무 리고",
-}
+def _build_boss_names():
+    return {
+        1: _t("boss.1", "풍악보이"),
+        2: _t("boss.2", "악어장군"),
+        3: _t("boss.3", "멘헤라걸"),
+        4: _t("boss.4", "퐁크"),
+        5: _t("boss.5", "네메시스"),
+        6: _t("boss.6", "홍련"),
+        7: _t("boss.7", "테트리서"),
+        8: _t("boss.8", "아카무 리고"),
+    }
+boss_names = _build_boss_names()
 
 # 스테이지 5, 6 스왑 맵 (로직 스테이지 → 디스플레이 스테이지)
 _BOSS_NAME_SWAP_MAP = {5: 6, 6: 5}
@@ -17305,7 +17312,7 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         stats_y = 6
 
         # 섹션 타이틀
-        stats_title = panel_title_font.render("◆ 캐릭터 능력치", True, (255, 215, 100))
+        stats_title = panel_title_font.render(_t("ui.char_stats_title", "◆ 캐릭터 능력치"), True, (255, 215, 100))
         bottom_panel_surface.blit(stats_title, (stats_x, stats_y))
 
         # 실제 게임 변수에서 캐릭터 정보 가져오기
@@ -17436,7 +17443,7 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
         skills_y = divider_y + 6
 
         # 섹션 타이틀
-        skills_title = panel_title_font.render("◆ 보유 퍽", True, (255, 215, 100))
+        skills_title = panel_title_font.render(_t("ui.owned_perks_title", "◆ 보유 퍽"), True, (255, 215, 100))
         bottom_panel_surface.blit(skills_title, (skills_x, skills_y))
 
         # 보유 스킬 수집
@@ -18032,7 +18039,7 @@ def show_all_runtime_skills_menu() -> str | None:
         SCREEN.blit(overlay, (0, 0))
 
         # 타이틀
-        title_text = font_title.render("🎯 퍽 선택", True, (255, 215, 0))
+        title_text = font_title.render(f"🎯 {_t('ui.perk_select_title', '퍽 선택')}", True, (255, 215, 0))
         title_rect = title_text.get_rect(center=(WIDTH // 2, 50))
         SCREEN.blit(title_text, title_rect)
 
@@ -19168,7 +19175,7 @@ def show_runtime_skill_status():
             pygame.draw.line(SCREEN, (18, 18, 35), (0, i), (WIDTH, i), 1)
 
         # 제목
-        title_text = font_title.render("퍽 현황", True, (255, 255, 255))
+        title_text = font_title.render(_t("ui.perk_status_title", "퍽 현황"), True, (255, 255, 255))
         title_rect = title_text.get_rect(center=(WIDTH // 2, 45))
         SCREEN.blit(title_text, title_rect)
 
@@ -19186,7 +19193,7 @@ def show_runtime_skill_status():
         acquired_skills = get_acquired_skills()
 
         if not acquired_skills:
-            empty_text = font_tooltip_title.render("획득한 퍽이 없습니다", True, (120, 120, 140))
+            empty_text = font_tooltip_title.render(_t("ui.no_perks_acquired", "획득한 퍽이 없습니다"), True, (120, 120, 140))
             empty_rect = empty_text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
             SCREEN.blit(empty_text, empty_rect)
 
@@ -21509,7 +21516,7 @@ def show_arena_perk_select_menu():
                     pool.append({
                         "id": skill_perk_id,
                         "name": other_skill.korean_name,
-                        "description": "추가 스킬 획득\n(쿨타임 20% 증가)",
+                        "description": _t("ui.extra_skill_perk", "추가 스킬 획득\n(쿨타임 20% 증가)"),
                         "icon_color": hero_color,
                         "effect_type": "add_skill",
                         "value": other_skill_idx,
@@ -24593,6 +24600,10 @@ _BASE_SLOT_LABELS = {
     "shoes": "신발",
     "accessory": "장신구",
 }
+# 한글 라벨 → 영문 키 역매핑 (UI 번역용)
+_BASE_SLOT_REVERSE = {v: k for k, v in _BASE_SLOT_LABELS.items()}
+_BASE_SLOT_REVERSE["등"] = "등"
+_BASE_SLOT_REVERSE["기타"] = "etc"
 
 
 def get_item_slot_label(item_name: str) -> str | None:
@@ -24600,7 +24611,8 @@ def get_item_slot_label(item_name: str) -> str | None:
     base_slot = ITEM_SLOT_BASE_MAP.get(item_name)
     if not base_slot:
         return None
-    return _BASE_SLOT_LABELS.get(base_slot, base_slot)
+    fallback = _BASE_SLOT_LABELS.get(base_slot, base_slot)
+    return _t(f"equip.base.{base_slot}", fallback)
 
 
 def roll_passive_options(item_name: str) -> list[dict]:
@@ -25081,7 +25093,7 @@ def assign_item_prefix(item_data: dict, *, force: bool = False) -> None:
     else:
         tier = "low"
     import random
-    prefix_list = QUALITY_PREFIXES.get(tier, [""])
+    prefix_list = _get_loc().get_list(f"quality.{tier}", QUALITY_PREFIXES.get(tier, [""]))
     prefix = random.choice(prefix_list) if prefix_list else ""
     item_data["name_prefix"] = prefix
     item_data["quality_tier"] = tier
@@ -30506,7 +30518,7 @@ def draw_optimus_arm_skill_ui(surface: pygame.Surface) -> None:
         if not arm_unlocked:
             name_text = skill_font.render("???", True, (100, 100, 100))
         else:
-            name_text = skill_font.render("옵티머스 암", True, (255, 255, 255))
+            name_text = skill_font.render(_t("ui.optimus_arm", "옵티머스 암"), True, (255, 255, 255))
         name_rect = name_text.get_rect(centerx=ui_x + icon_size // 2, top=ui_y + icon_size + 4)
         surface.blit(name_text, name_rect)
         
@@ -30518,7 +30530,7 @@ def draw_optimus_arm_skill_ui(surface: pygame.Surface) -> None:
         
         # 그랩 중일 때 방향키 힌트
         if optimus_arm_state == "grabbing" and optimus_arm_grabbed_boss:
-            grab_hint = skill_font.render("←/→ 던지기!", True, (255, 200, 50))
+            grab_hint = skill_font.render(_t("ui.throw_hint", "←/→ 던지기!"), True, (255, 200, 50))
             grab_rect = grab_hint.get_rect(centerx=ui_x + icon_size // 2, top=hint_rect.bottom + 2)
             surface.blit(grab_hint, grab_rect)
     except:
@@ -30529,7 +30541,7 @@ def draw_optimus_arm_skill_ui(surface: pygame.Surface) -> None:
     if current_gauge < OPTIMUS_ARM_GAUGE_COST and cooldown_ratio <= 0:
         try:
             warn_font = pygame.font.Font(None, 14)
-            warn_text = warn_font.render(f"게이지 {OPTIMUS_ARM_GAUGE_COST} 필요", True, (255, 100, 100))
+            warn_text = warn_font.render(_t("ui.gauge_required", "게이지 {0} 필요").format(OPTIMUS_ARM_GAUGE_COST), True, (255, 100, 100))
             warn_rect = warn_text.get_rect(centerx=ui_x + icon_size // 2, top=ui_y - 16)
             surface.blit(warn_text, warn_rect)
         except:
@@ -38830,13 +38842,13 @@ def draw_blacksmith_overheat_overlay(surface: pygame.Surface) -> None:
     timer_font = FontStyle.medium()
     info_font = FontStyle.tiny()
 
-    title_label = title_font.render("과부하", True, (255, 235, 225))
+    title_label = title_font.render(_t("ui.overload", "과부하"), True, (255, 235, 225))
     surface.blit(title_label, title_label.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 28)))
 
-    timer_label = timer_font.render(f"복구 {remaining_seconds:4.1f}s", True, (255, 210, 195))
+    timer_label = timer_font.render(f"{_t('ui.recovery', '복구')} {remaining_seconds:4.1f}s", True, (255, 210, 195))
     surface.blit(timer_label, timer_label.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 12)))
 
-    info_label = info_font.render("게이지 충전/자동 발사 불가 · 수동 발사만 가능", True, (255, 190, 175))
+    info_label = info_font.render(_t("ui.overload_info", "게이지 충전/자동 발사 불가 · 수동 발사만 가능"), True, (255, 190, 175))
     surface.blit(info_label, info_label.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 36)))
 
 
@@ -50493,14 +50505,14 @@ def draw_pillar_blacksmith_turret(surface: pygame.Surface, orb_center_x: int, or
     try:
         title_font = FontStyle.tiny()
         if overheat_active:
-            title_label = "과부하"
+            title_label = _t("ui.overload", "과부하")
         elif overdrive_display:
             if ui_divine:
-                title_label = "메가드라이브"
+                title_label = _t("ui.megadrive", "메가드라이브")
             else:
-                title_label = "오버드라이브"
+                title_label = _t("ui.overdrive", "오버드라이브")
         else:
-            title_label = "강화 포탑" if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL else "포탑"
+            title_label = _t("ui.enhanced_turret", "강화 포탑") if turret_level >= BLACKSMITH_TURRET_MAX_LEVEL else _t("ui.turret", "포탑")
 
         title_text = title_font.render(title_label, True, accent_color)
         title_rect = title_text.get_rect(midbottom=(icon_rect.centerx, icon_rect.top - 4))
@@ -50771,9 +50783,9 @@ def draw_pillar_blacksmith_divine(surface: pygame.Surface, orb_center_x: int, or
     try:
         title_font = FontStyle.tiny()
         if divine_state.get("reinforced", False):
-            title_label = "강화스톤"
+            title_label = _t("ui.enhance_stone", "강화스톤")
         else:
-            title_label = "디바인스톤"
+            title_label = _t("ui.divine_stone", "디바인스톤")
 
         title_text = title_font.render(title_label, True, accent_color)
         title_rect = title_text.get_rect(midbottom=(icon_rect.centerx, icon_rect.top - 4))
@@ -58789,9 +58801,9 @@ def show_judgment_debug_menu():
         return
 
     menu_options = [
-        {"key": "earthquake", "label": "땅의 분노", "color": (180, 120, 60)},
-        {"key": "lightning",  "label": "번개의 분노", "color": (100, 180, 255)},
-        {"key": "wind",       "label": "바람의 분노", "color": (160, 200, 120)},
+        {"key": "earthquake", "label": _t("judgment.earthquake", "땅의 분노"), "color": (180, 120, 60)},
+        {"key": "lightning",  "label": _t("judgment.lightning", "번개의 분노"), "color": (100, 180, 255)},
+        {"key": "wind",       "label": _t("judgment.wind", "바람의 분노"), "color": (160, 200, 120)},
     ]
     selected = 0
     clock = pygame.time.Clock()
@@ -58824,7 +58836,7 @@ def show_judgment_debug_menu():
 
         cx = WIDTH // 2
         # 타이틀
-        title_surf = font_title.render("신의 심판 발동", True, (255, 220, 150))
+        title_surf = font_title.render(_t("ui.judgment_activate", "신의 심판 발동"), True, (255, 220, 150))
         title_rect = title_surf.get_rect(center=(cx, 260))
         SCREEN.blit(title_surf, title_rect)
         # 밑줄
@@ -58854,7 +58866,7 @@ def show_judgment_debug_menu():
                 SCREEN.blit(marker_surf, (cx - 130, y + 2))
 
         # 하단 힌트
-        hint_surf = font_hint.render("Enter: 발동  /  ESC: 취소", True, (140, 140, 140))
+        hint_surf = font_hint.render(_t("ui.perk_activate_hint", "Enter: 발동  /  ESC: 취소"), True, (140, 140, 140))
         hint_rect = hint_surf.get_rect(center=(cx, 510))
         SCREEN.blit(hint_surf, hint_rect)
 
@@ -97894,7 +97906,7 @@ def draw_objects():
             pygame.draw.rect(SCREEN, (60, 40, 0), pygame.Rect(x, y, bar_w, bar_h), width=2, border_radius=4)
             # 라벨
             label_font = FontStyle.body_small()
-            label = label_font.render("극정호신", True, (255, 230, 80))
+            label = label_font.render(_t("ui.extreme_defense", "극정호신"), True, (255, 230, 80))
             SCREEN.blit(label, (x - label.get_width() - 8, y - 2))
     # === Stage 8 영체탈주 겹치는 잔상들 (5개가 시간차로 빠져나옴) ===
     if current_stage == 8 and stage8_stun_escape_active and stage8_stun_escape_ghosts:
@@ -105330,7 +105342,7 @@ def show_perfect_victory_effect():
         else:
             title_x_offset = 0
 
-        title_text = "완벽한 승리!"
+        title_text = _t("game.perfect_victory", "완벽한 승리!")
         text_alpha = min(255, frame_count * 15)
 
         # 그림자 (오른쪽 아래)
@@ -105590,7 +105602,7 @@ def show_excellent_victory_effect():
         else:
             title_x_offset = 0
 
-        title_text = "우수한 승리!"
+        title_text = _t("game.excellent_victory", "우수한 승리!")
         text_alpha = min(255, frame_count * 15)
 
         # 그림자 (오른쪽 아래)
@@ -105841,7 +105853,7 @@ def show_normal_victory_effect():
             title_x = int(-150 + (WIDTH // 2 + 150) * eased_progress)
             title_y = HEIGHT // 2 - 35
 
-            title_text = "승리!"
+            title_text = _t("game.victory", "승리!")
 
             # 텍스트 쉐도우
             shadow_surface = title_font.render(title_text, True, (0, 0, 0))
@@ -106194,7 +106206,7 @@ def show_victory_screen(stage_cleared, reward):
     # 버튼 위치는 패널 높이 계산 후 동적으로 설정 (아래 참조)
 
     # 정적인 UI 요소는 미리 만들어서 프레임 부하를 줄인다.
-    title_text = f"Stage {display_stage_cleared} 클리어!"
+    title_text = _t("game.stage_clear", "Stage {0} 클리어!").format(display_stage_cleared)
     title_surface = font_title.render(title_text, True, (220, 220, 120))
     title_shadow_surface = font_title.render(title_text, True, (50, 50, 80))
     title_rect = title_surface.get_rect(center=(game_center_x, 120))
@@ -106522,7 +106534,7 @@ def show_victory_screen(stage_cleared, reward):
         # 1. 릴레이 골드
         if 'rally' in animation_states and animation_states['rally']['show']:
             alpha = int(animation_states['rally']['alpha'])
-            rally_label = font_info.render("릴레이", True, (180, 220, 255))
+            rally_label = font_info.render(_t("ui.rally", "릴레이"), True, (180, 220, 255))
             rally_value = font_info.render(f"+{earned_rally_gold}G", True, (255, 215, 100))
             rally_label.set_alpha(alpha)
             rally_value.set_alpha(alpha)
@@ -106533,7 +106545,7 @@ def show_victory_screen(stage_cleared, reward):
         # 2. 대쉬 골드
         if 'dash' in animation_states and animation_states['dash']['show']:
             alpha = int(animation_states['dash']['alpha'])
-            dash_label = font_info.render("대쉬 보너스", True, (255, 180, 100))
+            dash_label = font_info.render(_t("ui.dash_bonus", "대쉬 보너스"), True, (255, 180, 100))
             dash_value = font_info.render(f"+{earned_dash_gold}G", True, (255, 215, 100))
             dash_label.set_alpha(alpha)
             dash_value.set_alpha(alpha)
@@ -106544,7 +106556,7 @@ def show_victory_screen(stage_cleared, reward):
         # 3. 스킬 골드
         if 'skill' in animation_states and animation_states['skill']['show']:
             alpha = int(animation_states['skill']['alpha'])
-            skill_label = font_info.render("스킬 사용", True, (180, 255, 180))
+            skill_label = font_info.render(_t("ui.skill_usage", "스킬 사용"), True, (180, 255, 180))
             skill_value = font_info.render(f"+{earned_skill_gold}G", True, (255, 215, 100))
             skill_label.set_alpha(alpha)
             skill_value.set_alpha(alpha)
@@ -106555,7 +106567,7 @@ def show_victory_screen(stage_cleared, reward):
         # 4. 퍽 골드
         if 'perk' in animation_states and animation_states['perk']['show']:
             alpha = int(animation_states['perk']['alpha'])
-            perk_label = font_info.render("퍽 보너스", True, (255, 200, 255))
+            perk_label = font_info.render(_t("ui.perk_bonus", "퍽 보너스"), True, (255, 200, 255))
             perk_value = font_info.render(f"+{earned_perk_gold}G", True, (255, 215, 100))
             perk_label.set_alpha(alpha)
             perk_value.set_alpha(alpha)
@@ -106566,7 +106578,7 @@ def show_victory_screen(stage_cleared, reward):
         # 5. 퀘스트 골드
         if 'quest' in animation_states and animation_states['quest']['show']:
             alpha = int(animation_states['quest']['alpha'])
-            quest_label = font_info.render("퀘스트 보상", True, (255, 220, 150))
+            quest_label = font_info.render(_t("ui.quest_reward", "퀘스트 보상"), True, (255, 220, 150))
             quest_value = font_info.render(f"+{earned_quest_gold}G", True, (255, 215, 100))
             quest_label.set_alpha(alpha)
             quest_value.set_alpha(alpha)
@@ -106589,7 +106601,7 @@ def show_victory_screen(stage_cleared, reward):
         # Total Gold 표시
         if animation_states.get('total', {}).get('show', False):
             alpha = int(animation_states['total']['alpha'])
-            total_label = font_info.render("획득 골드", True, (255, 255, 255))
+            total_label = font_info.render(_t("ui.earned_gold", "획득 골드"), True, (255, 255, 255))
             total_value = font_subtitle.render(f"{earned_gold}G", True, (255, 215, 0))
             total_label.set_alpha(alpha)
             total_value.set_alpha(alpha)
@@ -111311,7 +111323,7 @@ def show_tutorial_power_demonstration():
             pygame.draw.circle(SCREEN, WHITE, (int(demo_ball_x), int(demo_ball_y)), ball_radius, 2)
         
         # 조교 라벨
-        instructor_label = font_small.render("조교", True, (255, 100, 100))
+        instructor_label = font_small.render(_t("ui.instructor", "조교"), True, (255, 100, 100))
         instructor_rect = instructor_label.get_rect(center=(boss_x, boss_y - 60))
         SCREEN.blit(instructor_label, instructor_rect)
         
@@ -119095,10 +119107,10 @@ def show_item_manager_menu():
                 legendary_items.append({
                     "name": item.name,
                     "type": "legendary",
-                    "icon": legendary_icon,  # get_item_icon으로 아이콘 로드
+                    "icon": legendary_icon,
                     "item_obj": item,
-                    "korean_name": item.korean_name,
-                    "description": item.description
+                    "korean_name": item.display_name,
+                    "description": item.display_description
                 })
 
     
@@ -119369,7 +119381,7 @@ def show_item_manager_menu():
     # 우클릭 컨텍스트 메뉴 상태
     context_menu_mode = False
     context_menu_item: str | None = None
-    context_menu_options = ["롤옵션 편집", "강화 수치 편집"]
+    context_menu_options = [_t("ui.context_roll_edit", "롤옵션 편집"), _t("ui.context_enhance_edit", "강화 수치 편집")]
     context_menu_index = 0
     context_menu_pos = (0, 0)
 
@@ -119444,7 +119456,7 @@ def show_item_manager_menu():
     # 전설 아이템 우클릭 컨텍스트 메뉴 상태
     legendary_context_menu_mode = False
     legendary_context_menu_item: str | None = None
-    legendary_context_menu_options = ["롤옵션 편집", "강화 수치 편집"]
+    legendary_context_menu_options = [_t("ui.context_roll_edit", "롤옵션 편집"), _t("ui.context_enhance_edit", "강화 수치 편집")]
     legendary_context_menu_index = 0
     legendary_context_menu_pos = (0, 0)
 
@@ -119547,7 +119559,7 @@ def show_item_manager_menu():
         # 배경 그리기
         SCREEN.fill((10, 10, 40))
         # 제목
-        title_text = font_large.render("개발자모드", True, WHITE)
+        title_text = font_large.render(_t("ui.dev_mode", "개발자모드"), True, WHITE)
         title_rect = title_text.get_rect(center=(WIDTH // 2, 80))
         SCREEN.blit(title_text, title_rect)
         # 탭 버튼 (4개: 엑티브, 패시브, 화기류, 전설)
@@ -119637,7 +119649,9 @@ def show_item_manager_menu():
 
                     # 부위 라벨 표시
                     slot_color = slot_colors.get(current_slot, (120, 120, 120))
-                    slot_label = font_slot.render(current_slot, True, slot_color)
+                    _slot_key = _BASE_SLOT_REVERSE.get(current_slot, current_slot)
+                    _slot_display = _t(f"equip.base.{_slot_key}", current_slot)
+                    slot_label = font_slot.render(_slot_display, True, slot_color)
                     SCREEN.blit(slot_label, (15, current_y + (passive_item_size - slot_label.get_height()) // 2))
 
                 # 아이템 위치 계산
@@ -119762,7 +119776,9 @@ def show_item_manager_menu():
 
                     # 부위 라벨 표시
                     slot_color = slot_colors.get(current_slot, (180, 180, 180))
-                    slot_label = font_slot.render(current_slot, True, slot_color)
+                    _slot_key = _BASE_SLOT_REVERSE.get(current_slot, current_slot)
+                    _slot_display = _t(f"equip.base.{_slot_key}", current_slot)
+                    slot_label = font_slot.render(_slot_display, True, slot_color)
                     SCREEN.blit(slot_label, (15, current_y + (legendary_item_size - slot_label.get_height()) // 2))
 
                 # 아이템 위치 계산
@@ -120258,10 +120274,10 @@ def show_item_manager_menu():
             pygame.draw.rect(panel_surf, (24, 28, 48, 235), panel_surf.get_rect(), border_radius=18)
             pygame.draw.rect(panel_surf, (120, 190, 255), panel_surf.get_rect(), 3, border_radius=18)
 
-            title = font_medium.render(f"{get_item_name_korean(roll_edit_item)} 롤 편집", True, WHITE)
+            title = font_medium.render(f"{get_item_name_korean(roll_edit_item)} {_t('ui.roll_edit_title_suffix', '롤 편집')}", True, WHITE)
             panel_surf.blit(title, title.get_rect(center=(panel_w // 2, 36)))
 
-            hint = font_small.render("우클릭으로 시작 | 휠/←→ 값 조절 | ↑↓ 옵션 이동 | Space 저장 | Esc 취소", True, (200, 200, 200))
+            hint = font_small.render(_t("ui.roll_edit_hint", "우클릭으로 시작 | 휠/←→ 값 조절 | ↑↓ 옵션 이동 | Space 저장 | Esc 취소"), True, (200, 200, 200))
             panel_surf.blit(hint, hint.get_rect(center=(panel_w // 2, 70)))
 
             start_y = 110
@@ -120272,7 +120288,7 @@ def show_item_manager_menu():
                 y = start_y + idx * line_h
                 is_sel = idx == roll_edit_index
                 label_color = (255, 230, 180) if is_sel else (200, 200, 200)
-                label = font_small.render(f"{opt['label']}", True, label_color)
+                label = font_small.render(_t(f"roll.{opt.get('key','')}", opt['label']), True, label_color)
                 panel_surf.blit(label, (40, y))
 
                 # 바/노브
@@ -120306,10 +120322,10 @@ def show_item_manager_menu():
             pygame.draw.rect(panel_surf, (255, 80, 80), panel_surf.get_rect(), 3, border_radius=18)
 
             # 제목 (전설 색상)
-            title = font_medium.render(f"{get_item_name_korean(legendary_roll_edit_item)} 롤 편집", True, (255, 200, 150))
+            title = font_medium.render(f"{get_item_name_korean(legendary_roll_edit_item)} {_t('ui.roll_edit_title_suffix', '롤 편집')}", True, (255, 200, 150))
             panel_surf.blit(title, title.get_rect(center=(panel_w // 2, 36)))
 
-            hint = font_small.render("우클릭으로 시작 | ←→ 값 조절 | ↑↓ 옵션 이동 | Space 저장 | Esc 취소", True, (200, 180, 180))
+            hint = font_small.render(_t("ui.roll_edit_hint", "우클릭으로 시작 | 휠/←→ 값 조절 | ↑↓ 옵션 이동 | Space 저장 | Esc 취소"), True, (200, 180, 180))
             panel_surf.blit(hint, hint.get_rect(center=(panel_w // 2, 70)))
 
             start_y = 110
@@ -120320,7 +120336,7 @@ def show_item_manager_menu():
                 y = start_y + idx * line_h
                 is_sel = idx == legendary_roll_edit_index
                 label_color = (255, 220, 150) if is_sel else (200, 180, 180)
-                label = font_small.render(f"{opt['label']}", True, label_color)
+                label = font_small.render(_t(f"roll.{opt.get('key','')}", opt['label']), True, label_color)
                 panel_surf.blit(label, (40, y))
 
                 # 바/노브
@@ -120359,15 +120375,15 @@ def show_item_manager_menu():
             pygame.draw.rect(panel_surf, (32, 24, 48, 235), panel_surf.get_rect(), border_radius=18)
             pygame.draw.rect(panel_surf, (255, 180, 100), panel_surf.get_rect(), 3, border_radius=18)
 
-            title = font_medium.render(f"{get_item_name_korean(enhancement_edit_item)} 강화 편집", True, WHITE)
+            title = font_medium.render(f"{get_item_name_korean(enhancement_edit_item)} {_t('ui.enhance_edit_title_suffix', '강화 편집')}", True, WHITE)
             panel_surf.blit(title, title.get_rect(center=(panel_w // 2, 36)))
 
-            hint = font_small.render("←→/휠 레벨 조절 | Space 저장 | Esc 취소", True, (200, 200, 200))
+            hint = font_small.render(_t("ui.enhance_edit_hint", "←→/휠 레벨 조절 | Space 저장 | Esc 취소"), True, (200, 200, 200))
             panel_surf.blit(hint, hint.get_rect(center=(panel_w // 2, 70)))
 
             # 강화 레벨 슬라이더
             level_y = 110
-            level_label = font_small.render("강화 레벨:", True, (255, 230, 180))
+            level_label = font_small.render(_t("ui.enhance_level", "강화 레벨:"), True, (255, 230, 180))
             panel_surf.blit(level_label, (40, level_y))
 
             # 레벨 바
@@ -120387,11 +120403,11 @@ def show_item_manager_menu():
             # 효과 보너스 표시 (대장간 시스템 연동)
             preview_y = 165
             current_bonus = ENHANCEMENT_BONUSES.get(enhancement_edit_level, 0)
-            preview_label = font_small.render(f"효과 보너스: +{current_bonus}%", True, (255, 220, 120))
+            preview_label = font_small.render(_t("ui.effect_bonus_fmt", "효과 보너스: +{0}%").format(current_bonus), True, (255, 220, 120))
             panel_surf.blit(preview_label, preview_label.get_rect(center=(panel_w // 2, preview_y)))
 
             # 대장간 연동 안내
-            system_hint = font_small.render("(광장 대장간 강화 시스템 동일)", True, (150, 150, 150))
+            system_hint = font_small.render(_t("ui.blacksmith_system_hint", "(광장 대장간 강화 시스템 동일)"), True, (150, 150, 150))
             panel_surf.blit(system_hint, system_hint.get_rect(center=(panel_w // 2, preview_y + 25)))
 
             SCREEN.blit(panel_surf, panel_rect.topleft)
@@ -120458,15 +120474,15 @@ def show_item_manager_menu():
 
             # 전설 아이템 한글 이름 가져오기
             legend_korean = get_item_name_korean(legendary_enhancement_edit_item)
-            title = font_medium.render(f"{legend_korean} 강화 편집", True, (255, 220, 100))
+            title = font_medium.render(f"{legend_korean} {_t('ui.enhance_edit_title_suffix', '강화 편집')}", True, (255, 220, 100))
             panel_surf.blit(title, title.get_rect(center=(panel_w // 2, 36)))
 
-            hint = font_small.render("←→/휠 레벨 조절 | Space 저장 | Esc 취소", True, (200, 200, 200))
+            hint = font_small.render(_t("ui.enhance_edit_hint", "←→/휠 레벨 조절 | Space 저장 | Esc 취소"), True, (200, 200, 200))
             panel_surf.blit(hint, hint.get_rect(center=(panel_w // 2, 70)))
 
             # 강화 레벨 슬라이더
             level_y = 110
-            level_label = font_small.render("강화 레벨:", True, (255, 230, 180))
+            level_label = font_small.render(_t("ui.enhance_level", "강화 레벨:"), True, (255, 230, 180))
             panel_surf.blit(level_label, (40, level_y))
 
             # 레벨 바
@@ -120486,11 +120502,11 @@ def show_item_manager_menu():
             # 효과 보너스 표시
             preview_y = 165
             current_bonus = ENHANCEMENT_BONUSES.get(legendary_enhancement_edit_level, 0)
-            preview_label = font_small.render(f"효과 보너스: +{current_bonus}%", True, (255, 220, 120))
+            preview_label = font_small.render(_t("ui.effect_bonus_fmt", "효과 보너스: +{0}%").format(current_bonus), True, (255, 220, 120))
             panel_surf.blit(preview_label, preview_label.get_rect(center=(panel_w // 2, preview_y)))
 
             # 대장간 연동 안내
-            system_hint = font_small.render("(광장 대장간 강화 시스템 동일)", True, (150, 150, 150))
+            system_hint = font_small.render(_t("ui.blacksmith_system_hint", "(광장 대장간 강화 시스템 동일)"), True, (150, 150, 150))
             panel_surf.blit(system_hint, system_hint.get_rect(center=(panel_w // 2, preview_y + 25)))
 
             SCREEN.blit(panel_surf, panel_rect.topleft)
@@ -121347,8 +121363,8 @@ def apply_selected_items(
                     "name": item_name,
                     "icon": get_item_icon(item_name),
                     "type": "legendary",
-                    "korean_name": legendary_item.korean_name,
-                    "description": legendary_item.description
+                    "korean_name": legendary_item.display_name,
+                    "description": legendary_item.display_description
                 }
                 # 전설 아이템 강화 수치 적용 (개발자 모드)
                 if item_name in custom_legendary_enhancements:
@@ -121358,7 +121374,7 @@ def apply_selected_items(
                     item_data["enhancement_level"] = enh_level
                     item_data["enhancement_bonus_pct"] = DT_ENHANCEMENT_BONUSES.get(enh_level, 0)
                 passive_item_list.append(item_data)
-                activated_legendary_items.append(legendary_item.korean_name)
+                activated_legendary_items.append(legendary_item.display_name)
                 # print(f"  [{legendary_item.korean_name}]   !")
 
             # 전설 아이템 활성화
@@ -140444,7 +140460,7 @@ def show_death_evaluation():
                     name_rect = name_surf.get_rect(centerx=bx + boss_thumb_size // 2, top=by + boss_thumb_size + 2)
                     SCREEN.blit(name_surf, name_rect)
             else:
-                no_boss = font_detail.render("클리어한 보스가 없습니다.", True, (150, 150, 150))
+                no_boss = font_detail.render(_t("ui.no_bosses_cleared", "클리어한 보스가 없습니다."), True, (150, 150, 150))
                 SCREEN.blit(no_boss, (content_x + 20, y_cursor + 42))
 
             y_cursor += section2_h + 8
@@ -140507,7 +140523,7 @@ def show_death_evaluation():
             if acquired_active_items:
                 item_y += _draw_item_icons(acquired_active_items, item_y, "액티브", (255, 180, 100))
             if not acquired_passive_items and not acquired_active_items:
-                no_item = font_detail.render("획득한 아이템이 없습니다.", True, (150, 150, 150))
+                no_item = font_detail.render(_t("ui.no_items_acquired", "획득한 아이템이 없습니다."), True, (150, 150, 150))
                 SCREEN.blit(no_item, (content_x + 20, y_cursor + 42))
 
             y_cursor += section3_h + 8
@@ -140565,7 +140581,7 @@ def show_death_evaluation():
                     more_perk = font_detail.render(f"+{overflow_perks}개", True, (180, 180, 180))
                     SCREEN.blit(more_perk, (content_x + content_width - 50, y_cursor + section4_h - 18))
             else:
-                no_perk = font_detail.render("획득한 퍽이 없습니다.", True, (150, 150, 150))
+                no_perk = font_detail.render(_t("ui.no_perks_acquired", "획득한 퍽이 없습니다."), True, (150, 150, 150))
                 SCREEN.blit(no_perk, (content_x + 20, y_cursor + 42))
 
             y_cursor += section4_h + 8
@@ -151261,7 +151277,7 @@ def show_player_info():
                 overlay.fill((0, 0, 0, 180))
                 SCREEN.blit(overlay, (0, 0))
                 # 메시지
-                title_text = font_large.render("플레이어 정보", True, WHITE)
+                title_text = font_large.render(_t("ui.player_info", "플레이어 정보"), True, WHITE)
                 title_rect = title_text.get_rect(center=(WIDTH//2, HEIGHT//2 - LARGE_SIZE))
                 SCREEN.blit(title_text, title_rect)
                 msg_text = font_medium.render("플레이어 분석 시스템을 사용할 수 없습니다.", True, (200, 200, 200))
@@ -151985,7 +152001,7 @@ def show_character_info(background_surface=None):
         hover_info = None
 
         if not items:
-            empty_text = label_font.render("인벤토리가 비어 있습니다.", True, (180, 180, 190))
+            empty_text = label_font.render(_t("ui.inventory_empty", "인벤토리가 비어 있습니다."), True, (180, 180, 190))
             SCREEN.blit(empty_text, empty_text.get_rect(center=area_rect.center))
             return rect_map, hover_info, {
                 "rows": rows,
@@ -152141,7 +152157,7 @@ def show_character_info(background_surface=None):
         hover_info = None
         rect_map = {}
         if not items:
-            empty_text = label_font.render("액티브 아이템이 없습니다.", True, (180, 180, 190))
+            empty_text = label_font.render(_t("ui.no_active_items", "액티브 아이템이 없습니다."), True, (180, 180, 190))
             SCREEN.blit(empty_text, empty_text.get_rect(left=area_rect.x + 14, centery=area_rect.centery))
             return hover_info, rect_map
 
@@ -152294,7 +152310,7 @@ def show_character_info(background_surface=None):
                                (cell_rect.centerx + slot_size // 4, cell_rect.centery - slot_size // 4),
                                (cell_rect.centerx - slot_size // 4, cell_rect.centery + slot_size // 4), 2)
                 # 라벨 어둡게
-                label_surface = slot_label_font.render(definition["label"], True, (100, 100, 110))
+                label_surface = slot_label_font.render(_t(f"equip.{definition['key']}", definition["label"]), True, (100, 100, 110))
                 label_rect = label_surface.get_rect(center=(cell_rect.centerx, cell_rect.bottom + 10))
                 SCREEN.blit(label_surface, label_rect)
             else:
@@ -152321,7 +152337,7 @@ def show_character_info(background_surface=None):
                 else:
                     pygame.draw.circle(SCREEN, (70, 80, 110), cell_rect.center, slot_size // 2 - 6, 1)
 
-                label_surface = slot_label_font.render(definition["label"], True, (210, 210, 220))
+                label_surface = slot_label_font.render(_t(f"equip.{definition['key']}", definition["label"]), True, (210, 210, 220))
                 label_rect = label_surface.get_rect(center=(cell_rect.centerx, cell_rect.bottom + 10))
                 SCREEN.blit(label_surface, label_rect)
 
@@ -152917,7 +152933,7 @@ def show_character_info(background_surface=None):
                 item["icon"] = icon
                 icons.append((icon, item))
         if not icons:
-            text = font_small.render("획득한 패시브 아이템이 없습니다.", True, (200, 200, 200))
+            text = font_small.render(_t("ui.no_passive_items", "획득한 패시브 아이템이 없습니다."), True, (200, 200, 200))
             SCREEN.blit(text, text.get_rect(left=x, top=y + 4))
             return None
         icon_size = 32
@@ -153078,12 +153094,12 @@ def show_character_info(background_surface=None):
         pygame.draw.rect(SCREEN, (90, 130, 200), area_rect, 2, border_radius=8)
 
         # 제목
-        title_surf = stats_tiny_font.render("퍽", True, WHITE)
+        title_surf = stats_tiny_font.render(_t("ui.perk_label", "퍽"), True, WHITE)
         SCREEN.blit(title_surf, (area_rect.x + 8, area_rect.y + 4))
 
         perks = arena_active_hero_perks
         if not perks:
-            empty_text = stats_tiny_font.render("퍽 없음", True, (120, 120, 140))
+            empty_text = stats_tiny_font.render(_t("ui.no_perk", "퍽 없음"), True, (120, 120, 140))
             empty_rect = empty_text.get_rect(center=(area_rect.centerx, area_rect.centery + 10))
             SCREEN.blit(empty_text, empty_rect)
             return None
@@ -153151,7 +153167,7 @@ def show_character_info(background_surface=None):
         pygame.draw.rect(SCREEN, (90, 130, 200), area_rect, 2, border_radius=8)
 
         # 제목
-        title_surf = stats_tiny_font.render("퍽", True, WHITE)
+        title_surf = stats_tiny_font.render(_t("ui.perk_label", "퍽"), True, WHITE)
         SCREEN.blit(title_surf, (area_rect.x + 8, area_rect.y + 4))
 
         # 획득한 스킬 목록
@@ -153199,7 +153215,7 @@ def show_character_info(background_surface=None):
             pass
 
         if not acquired_skills:
-            empty_text = stats_tiny_font.render("획득한 퍽 없음", True, (120, 120, 140))
+            empty_text = stats_tiny_font.render(_t("ui.no_perks_acquired", "획득한 퍽이 없습니다"), True, (120, 120, 140))
             empty_rect = empty_text.get_rect(center=(area_rect.centerx, area_rect.centery + 10))
             SCREEN.blit(empty_text, empty_rect)
             return None, 0, 0
@@ -153478,7 +153494,7 @@ def show_character_info(background_surface=None):
             pygame.draw.rect(SCREEN, (255, 100, 100), dialog_rect, 3, border_radius=12)
 
             # 제목
-            title_text = dialog_font.render("아이템 버리기", True, (255, 200, 200))
+            title_text = dialog_font.render(_t("ui.item_discard_title", "아이템 버리기"), True, (255, 200, 200))
             title_rect = title_text.get_rect(centerx=dialog_rect.centerx, top=dialog_rect.y + 16)
             SCREEN.blit(title_text, title_rect)
 
@@ -153487,7 +153503,7 @@ def show_character_info(background_surface=None):
             msg_rect = msg_text.get_rect(centerx=dialog_rect.centerx, top=title_rect.bottom + 10)
             SCREEN.blit(msg_text, msg_rect)
 
-            confirm_text = dialog_font_small.render("아이템을 버리시겠습니까?", True, WHITE)
+            confirm_text = dialog_font_small.render(_t("ui.item_discard_confirm", "아이템을 버리시겠습니까?"), True, WHITE)
             confirm_rect = confirm_text.get_rect(centerx=dialog_rect.centerx, top=msg_rect.bottom + 6)
             SCREEN.blit(confirm_text, confirm_rect)
 
@@ -154383,7 +154399,7 @@ def show_game_info():
             draw.rect((30, 30, LARGE_SIZE), (panel_x, panel_y, panel_width, panel_height))
             draw.rect((100, 150, 255), (panel_x, panel_y, panel_width, panel_height), 3)
             # 제목
-            title_text = font_large.render("개발자모드", True, WHITE)
+            title_text = font_large.render(_t("ui.dev_mode", "개발자모드"), True, WHITE)
             title_rect = title_text.get_rect(center=(panel_x + panel_width // 2, panel_y + 25))
             SCREEN.blit(title_text, title_rect)
             # 아이템 카테고리 탭
@@ -154816,86 +154832,39 @@ def show_game_info():
 
 
 def get_item_name_korean(item_name):
-    """아이템 이름을 한글로 변환"""
+    """아이템 이름을 현재 언어로 변환"""
     # 무중력벨트 + 스피드기어 시너지 효과 확인
-    korean_names = {
-        "long_boost": "거대화포션",
-        "gauge_charge": "에너지드링크",
-        "life_elixir": "생명수",  #  생명수 추가
-        "aipill": "AI 알약",
-        "wall": "벽돌",
-        "speedboots": "스피드부츠",
-        "gravitybelt": "무중력벨트",
-        "speedgear": "보정벨트",
-        "battery": "배터리팩",
-        "slot_add": "배낭",
-        "revival": "부활",
-    "master": "토르의 망치",
-        "cooltime": "쿨링볼",
-        "chargebag": "충전가방",
-        "spikeboots": "스파이크부츠",
-        "dashgear": "대쉬기어",
-        "bulkup": "벌크업슈트",
-        "sensor": "위험감지벨트",
-        "dashholder": "대쉬홀더",
-        "dowsing_pendulum": "다우징팬들럼",
-        "commando_arm": "코만도암",
-        "molotov": "화염병",
-        "grenade": "수류탄",
-        "spider_mine": "스파이더지뢰",
-        "flare": "조명탄",
-        "smoke_grenade": "연막탄",
-        "pandora_box": "판도라의 상자",
-        "stopwatch": "스탑워치",
-        "repair_kit": "수리키트",
-        "devil_dice": "악마의 주사위",
-        "technical_vest": "테크니컬조끼",
-        "fuel_pouch": "연료파우치",
-        "bluetooth_ring": "블루투스링",
-        "foul_whistle": "반칙호루라기",
-        "star_detector": "별탐지기",
-        "bulletproof_hat": "방탄모자",
-        "spiked_helmet": "가시투구",
-        "smartphone": "스마트폰",
-        "knee_pads": "킥차져",
-        "doping_potion": "도핑물약",
-        "vitamin_pill": "비타민약",
-        "berserk_potion": "광폭물약",
-        "ammo_box": "탄약상자",
-        "fire_support": "화력지원",
-        "bazooka": "바주카포",
-        "ak47": "AK-47",
-        "net_gun": "그물덫총",
-        "suicide_drone": "자폭드론",
-        "bowling_trap": "볼링트랩",
-        "ragnarok_hammer": "라그나로크 해머",
-        "hermes_shoes": "헤르메스의 신발",
-        "poseidon_trident": "포세이돈의 삼지창",
-        "angel_blessing": "천사의 가호",
-        "sacred_laurel": "신성 월계수",
-        "transcendent_crown": "초월자의 관",
-        "odins_eye": "오딘의 눈",
-        "laser_scope": "레이저스코프",
-        "holy_barrier": "홀리베리어",
-        "dash_boost": "대쉬부스트",
-        "weather_capsule": "기상조절캡슐",
-        "dynamite": "다이너마이트",
-        "banana": "바나나",
-        "regeneration_potion": "재생물약",
-        "gold_bar": "금괴",
-        "gold_digger": "골드디거",
-        "hero_seal": "호위무사의 인장",
-        # 전설탭 전용: baby (헤르메스 아이콘과 동일)
-        "baby": "베이비",
-        "empty_legendary": "빈전설",
-        "empty_legendary2": "빈전설2",
-        "empty_legendary3": "빈전설3",
-        "empty_legendary4": "빈전설4",
-        "empty_legendary5": "빈전설5",
-        "empty_legendary6": "빈전설6",
-        "empty2": "빈 전설 슬롯",
+    _fallback = {
+        "long_boost": "거대화포션", "gauge_charge": "에너지드링크", "life_elixir": "생명수",
+        "aipill": "AI 알약", "wall": "벽돌", "speedboots": "스피드부츠", "gravitybelt": "무중력벨트",
+        "speedgear": "보정벨트", "battery": "배터리팩", "slot_add": "배낭", "revival": "부활",
+        "master": "토르의 망치", "cooltime": "쿨링볼", "chargebag": "충전가방",
+        "spikeboots": "스파이크부츠", "dashgear": "대쉬기어", "bulkup": "벌크업슈트",
+        "sensor": "위험감지벨트", "dashholder": "대쉬홀더", "dowsing_pendulum": "다우징팬들럼",
+        "commando_arm": "코만도암", "molotov": "화염병", "grenade": "수류탄",
+        "spider_mine": "스파이더지뢰", "flare": "조명탄", "smoke_grenade": "연막탄",
+        "pandora_box": "판도라의 상자", "stopwatch": "스탑워치", "repair_kit": "수리키트",
+        "devil_dice": "악마의 주사위", "technical_vest": "테크니컬조끼", "fuel_pouch": "연료파우치",
+        "bluetooth_ring": "블루투스링", "foul_whistle": "반칙호루라기", "star_detector": "별탐지기",
+        "bulletproof_hat": "방탄모자", "spiked_helmet": "가시투구", "smartphone": "스마트폰",
+        "knee_pads": "킥차져", "doping_potion": "도핑물약", "vitamin_pill": "비타민약",
+        "berserk_potion": "광폭물약", "ammo_box": "탄약상자", "fire_support": "화력지원",
+        "bazooka": "바주카포", "ak47": "AK-47", "net_gun": "그물덫총",
+        "suicide_drone": "자폭드론", "bowling_trap": "볼링트랩",
+        "ragnarok_hammer": "라그나로크 해머", "hermes_shoes": "헤르메스의 신발",
+        "poseidon_trident": "포세이돈의 삼지창", "angel_blessing": "천사의 가호",
+        "sacred_laurel": "신성 월계수", "transcendent_crown": "초월자의 관",
+        "odins_eye": "오딘의 눈", "laser_scope": "레이저스코프", "holy_barrier": "홀리베리어",
+        "dash_boost": "대쉬부스트", "weather_capsule": "기상조절캡슐", "dynamite": "다이너마이트",
+        "banana": "바나나", "regeneration_potion": "재생물약", "gold_bar": "금괴",
+        "gold_digger": "골드디거", "hero_seal": "호위무사의 인장",
+        "baby": "베이비", "empty_legendary": "빈전설", "empty_legendary2": "빈전설2",
+        "empty_legendary3": "빈전설3", "empty_legendary4": "빈전설4",
+        "empty_legendary5": "빈전설5", "empty_legendary6": "빈전설6", "empty2": "빈 전설 슬롯",
     }
-    return korean_names.get(item_name, item_name)
+    key = f"item.{item_name}"
+    fb = _fallback.get(item_name, item_name)
+    return _t(key, fb)
 
 
 def get_item_display_name(item) -> str:
@@ -154943,83 +154912,32 @@ def get_item_quality_color(item) -> tuple[int, int, int] | None:
         pass
     return None
 def get_item_description(item_name):
-    """아이템 설명 반환"""
-    # 무중력벨트 + 스피드기어 시너지 효과 확인
-    descriptions = {
+    """아이템 설명 반환 (현재 언어)"""
+    key = f"item.{item_name}.desc"
+    _fallback_descs = {
         "long_boost": "거대화포션: 8초 동안 플레이어의 몸집이 매우 커집니다.",
         "gauge_charge": "에너지드링크: 게이지를 220만큼 충전합니다.",
-        "life_elixir": "생명수: 게이지를 500만큼 충전합니다. 무지개빛 신비한 물약입니다.",  #  생명수 추가
+        "life_elixir": "생명수: 게이지를 500만큼 충전합니다. 무지개빛 신비한 물약입니다.",
         "aipill": "AI 알약: 이 알약을 먹으면 신체가 로봇이 되어 거의 모든 공격을 가드하지만 가드할때마다 게이지가 감소하는 부작용이 있습니다. 게이지가 바닥나면 종료됩니다",
-        "wall": "벽돌: 공을 막아주는 방어용 벽돌을 바닥에 설치합니다. ",
+        "wall": "벽돌: 공을 막아주는 방어용 벽돌을 바닥에 설치합니다.",
         "speedboots": "스피드부츠: 플레이어의 이동 속도를 증가시켜줍니다.",
         "gravitybelt": "무중력벨트: 이동 시 즉각적인 방향 전환이 가능한 첨단벨트",
         "speedgear": "보정벨트: 좌,우 방향 전환 속도가 증가합니다.",
         "battery": "배터리팩: 다음 스테이지로 넘어가도 게이지가 유지됩니다.",
         "slot_add": "배낭: 엑티브아이템 슬롯을 1~3칸 추가합니다.",
-        "revival": "부활: 패배 시 한 번의 재경기 기회를 제공합니다. 발동시 해당 아이템은 소모되며 한 게임 당 한번만 스폰되는 귀중한 아이템입니다",
-        "master": "토르의 망치: 벽돌 액티브 아이템 사용시 벽돌의 길이를 늘려주며, 아이템 쿨타임도 조금 줄여주는 고마운 망치.",
+        "revival": "부활: 패배 시 한 번의 재경기 기회를 제공합니다.",
+        "master": "토르의 망치: 벽돌 길이를 늘려주며, 아이템 쿨타임도 줄여줍니다.",
         "cooltime": "쿨링볼: 아이템 재사용 쿨타임을 감소시켜줍니다.",
-        "chargebag": "충전가방: 공이 벽에 닿을 때마다 기본 게이지충전량의 일부를 추가로 얻습니다.",
-        "spikeboots": "스파이크부츠: 대쉬를 조금더 능숙하게 사용할 수 있게 도와주는 하이테크 장비.",
+        "chargebag": "충전가방: 공이 벽에 닿을 때마다 게이지를 추가로 얻습니다.",
+        "spikeboots": "스파이크부츠: 대쉬를 능숙하게 사용할 수 있게 도와줍니다.",
         "dashgear": "대쉬기어: 대쉬의 효율성을 극대화 시켜줍니다.",
-        "bulkup": "벌크업슈트: 티타늄으로 제작된 슈트 , 플레이어의 몸집이 영구적으로 증가합니다.",
-        "sensor": "위험감지벨트: 때때로 위험한 상황에 직면하면 자동으로 대쉬를 시전합니다. 자동대쉬는 게이지를 소모하지 않으며 보라색 전용대쉬토큰이 추가됩니다",
+        "bulkup": "벌크업슈트: 플레이어의 몸집이 영구적으로 증가합니다.",
+        "sensor": "위험감지벨트: 위험 시 자동으로 대쉬를 시전합니다.",
         "dashholder": "대쉬홀더: 대쉬토큰을 추가로 얻습니다.",
-        "dowsing_pendulum": "다우징팬들럼: 강력한 자기장을 발산하여 플레이어 주위 150~250px 범위 내 아이템을 끌어당깁니다.",
-        "molotov": "화염병: 상대방의 이동경로를 차단하는 화염병을 던집니다.",
-        "grenade": "수류탄: 명중 시 폭발 범위내에 상대방이 튕겨나가고 일정기간 스턴 시킵니다.",
-        "spider_mine": "스파이더지뢰: 플레이어 위치 기준 좌·우 바닥과 벽을 타고 보스 진영 모서리에 매설됩니다. 보스가 밟으면 폭발과 동시에 둔화에 걸리게 됩니다.",
-        "flare": "조명탄: 투척 후 잠시 후 해당 위치에 조명이 폭발하며 폭발 범위 내에 명중 시 일정기간 상대방을 혼란 상태로 만듭니다.",
-        "smoke_grenade": "연막탄: 플레이어 근처에 연막을 생성합니다. 연막은 빠른 공의 속도를 감소시켜주며, 각종 보스들의 스킬 공격을 방어해줍니다",
-        "pandora_box": "판도라의 상자: 무지개 블랙홀을 발생시켜 아이템이 쏟아집니다!",
-        "commando_arm": "코만도암: 숙련된 코만도의 유품, 수류탄,화염병 등의 투척류 무기를 던질때 준비동작을 생략하고 즉시 던질 수 있게 해주며, 연막탄같은 방어 아이템도 좀더 신속하고 능숙하게 다룰 수 있게 해줍니다",
-        "stopwatch": "스탑워치: 시간을 왜곡시켜 공의 움직임을 일정시간 정지시킵니다 .",
-        "repair_kit": "수리키트: 발토르의 포탑과 디바인스톤, 설치된 벽돌을 즉시 완전 수리하고 과열을 제거합니다.",
-        "devil_dice": "악마의 주사위: 모든 능력치를 랜덤하게 변화시키는 주사위. 결과는 하늘의 뜻에 달려있습니다",
-        "technical_vest": "테크니컬조끼: 일정확률로 공에 닿을 시 조끼 내부의 연막이 분출됩니다. 연막은 보스의 각종 스킬을 막아줍니다.",
-        "fuel_pouch": "연료파우치: 플레이어의 게이지 최대치가 증가합니다.",
-        "bluetooth_ring": "블루투스링: 플레이어가 공을 칠 때 게이지 획득량이 증가합니다.",
-        "foul_whistle": "반칙호루라기: 라운드 패배시 확률로 심판이 호루라기를 불어 라운드를 무효로 만들고 즉시 재경기를 시작합니다.",
-        "star_detector": "별탐지기: 스타포인트 드랍 시 일정 확률로 추가 별이 등장합니다.",
-        "bulletproof_hat": "방탄모자: 스턴 저항력이 증가해 스턴 지속시간을 줄여줍니다.",
-        "spiked_helmet": "가시투구: 넉백 저항력이 증가해 넉백 거리와 지속시간을 줄여줍니다.",
-        "smartphone": "스마트폰: 사용자의 편의성을 극대화시킨 아이템, 게이지가 낮으면 자동으로 물약을 먹으며 또한 위급한 상황에서 스탑워치 아이템을 자동으로 작동시킵니다.",
-        "knee_pads": "킥차져: 하프대쉬로 공을 맞출 때 기본 게이지 획득량을 기준으로 일정부분이 충전됩니다. 성공 시 황금빛 킥 부스터가 번쩍입니다.",
-        "doping_potion": "도핑물약: 8초 동안 권총 헤드샷/레그샷 확률 2배증가하며 권총 사격의 연사가 비약적으로 빨라집니다.",
-        "vitamin_pill": "비타민약: 10초 동안 이동속도가 대폭 증가합니다.",
-        "berserk_potion": "광폭물약: 발토르 전용 강화 물약. 15초 동안 건설·업그레이드 속도가 3배 빨라지고 기본 게이지 획득량이 대폭 늘어납니다",
-        "ammo_box": "탄약상자: 노후화된 화기류를 제외한 모든 보유 화기류의 탄창을 완전히 재장전합니다.",
-        "fire_support": "화력지원: 무전으로 폭격기를 호출한 뒤 적 진영에 폭격을 5~7회 투하합니다.",
-        "net_gun": "그물덫총: 그물 작살을 발사합니다, 포획에 성공할 시 보스가 그물에 갇혀버리며 좌,우 키를 빠르게 연타하면 그물을 조일 수 있습니다",
-        "ak47": "AK-47: 강력한 자동소총. 90발 탄창으로 연사가 가능하며, 바주카포보다 빠른 발사속도를 자랑합니다. 탄약 소모 후 재장전이 필요합니다.",
-        "suicide_drone": "자폭드론: 보급요청 스킬을 통해 투입되는 코만도 전용 드론 슬롯. 추후 성능이 정의되기 전까지는 장비 슬롯 표시 및 전환만 지원합니다.",
-        "laser_scope": "레이저스코프:보스의 모든 공의 궤적을 레이저 선으로 표시합니다. 공의 최종 도달 지점을 정확히 예측하여 플레이어에게 알려줍니다.",
-        "holy_barrier": "홀리베리어: 플레이어 뒤쪽 화면 하단에 신성한 방벽을 소환합니다.",
-        "dash_boost": "대쉬부스트: 일정시간동안 대쉬토큰 쿨타임과 대쉬후딜시간이 즉시 해제됩니다 !",
-        "weather_capsule": "기상조절캡슐: 현재 진행 중인 날씨 이벤트를 즉시 강제 종료시킵니다.",
-        "dynamite": "다이너마이트: 보스 진영을 향해 투척하는 매우 강력한 폭발물입니다. 7초 카운트다운 후 폭발합니다.",
-        "banana": "바나나: 보스 진영을 향해 투척하는 바나나입니다. 보스가 밟으면 미끄러집니다",
-        "regeneration_potion": "재생물약: 모든 스킬 쿨타임을 초기화 시키고 대쉬토큰을 모두 회복합니다.",
-        "gold_bar": "금괴: 매우 가치가 높은 귀금속으로 상점에 고가에 판매할 수 있습니다. ",
-        "gold_digger": "골드디거: 숙련된 광부의 황금 장갑입니다. 장착 시  골드 획득량이 30%~70% 증가합니다.",
-        "hero_seal": "호위무사의 인장: 투기장에서 우승한 영웅의 인장입니다. 장신구에 장착하면 아케이드 모드에서 해당 호위무사가 등장합니다.",
-        "ragnarok_hammer": "라그나로크 해머: 신들의 황혼을 부르는 전설의 망치! 북유럽 신화 최강의 무기가 깨어났습니다!",
-        "hermes_shoes": "헤르메스의 신발: 신들의 전령이 신던 전설의 날개 신발! 그리스 신화의 가장 빠른 신의 축복을 받으세요!",
-        "poseidon_trident": "포세이돈의 삼지창: 바다의 신이 휘두르는 전설의 삼지창! 바다의 힘이 당신과 함께합니다!",
-        "angel_blessing": "천사의 가호: 스테이지 시작 시 천사의 주사위를 굴려 1~3개의 축복을 랜덤으로 받습니다.",
-        "sacred_laurel": "신성 월계수: 신성한 월계수 잎이 플레이어 주변을 고리 형태로 회전하며 보호합니다.",
-        "transcendent_crown": "초월자의 관: 모든 퍽의 레벨을 증가 시킵니다.",
-        "odins_eye": "오딘의 눈: 라운드 패배 시 일정확률로 오딘의 혼으로 부활합니다.",
-        "baby": "베이비: 아이템관리자 전설탭 표시용. 헤르메스의 신발과 동일한 아이콘/연출을 사용합니다.",
-        "empty_legendary": "빈전설: 향후 전설 장비를 위한 플레이스홀더 슬롯입니다. 테두리와 프리뷰 아이콘만 표시됩니다.",
-        "empty_legendary2": "빈전설2: 향후 전설 장비를 위한 플레이스홀더 슬롯입니다. 테두리와 프리뷰 아이콘만 표시됩니다.",
-        "empty_legendary3": "빈전설3: 향후 전설 장비를 위한 플레이스홀더 슬롯입니다. 테두리와 프리뷰 아이콘만 표시됩니다.",
-        "empty_legendary4": "빈전설4: 향후 전설 장비를 위한 플레이스홀더 슬롯입니다. 테두리와 프리뷰 아이콘만 표시됩니다.",
-        "empty_legendary5": "빈전설5: 향후 전설 장비를 위한 플레이스홀더 슬롯입니다. 테두리와 프리뷰 아이콘만 표시됩니다.",
-        "empty_legendary6": "빈전설6: 향후 전설 장비를 위한 플레이스홀더 슬롯입니다. 테두리와 프리뷰 아이콘만 표시됩니다.",
-        "empty2": "빈 전설 슬롯: 미개방된 전설 아이템 슬롯입니다. 전설의 테두리 효과만 표시됩니다.",
+        "dowsing_pendulum": "다우징팬들럼: 주위 아이템을 끌어당깁니다.",
     }
-    return descriptions.get(item_name, "설명이 없습니다.")
+    fb = _fallback_descs.get(item_name, "설명이 없습니다.")
+    return _t(key, fb)
 
 def show_ragnarok_hammer_animation_viewer():
     """라그나로크 해머 애니메이션 파트별 뷰어"""
@@ -155779,11 +155697,11 @@ def show_character_item_manager():
                     "type": "legendary",
                     "icon": legendary_icon,
                     "item_obj": item,
-                    "korean_name": item.korean_name,
-                    "description": item.description
+                    "korean_name": item.display_name,
+                    "description": item.display_description
                 })
 
-    
+
     # 엑티브/패시브/전설 아이템 분리
     active_items = [item for item in all_items if item["type"] == "active"]
     passive_items = [item for item in all_items if item["type"] == "passive"]
@@ -155808,7 +155726,7 @@ def show_character_item_manager():
         SCREEN.fill((10, 10, 40))
         
         # 제목
-        title_text = font_large.render("캐릭터 & 아이템 관리자", True, WHITE)
+        title_text = font_large.render(_t("ui.char_item_manager", "캐릭터 & 아이템 관리자"), True, WHITE)
         title_rect = title_text.get_rect(center=(WIDTH // 2, 80))
         SCREEN.blit(title_text, title_rect)
         
@@ -156069,7 +155987,7 @@ def show_stage_selection(show_character_hint=True):
         SCREEN.fill((10, 10, 40))
 
         # 제목
-        title_text = font_large.render("스테이지 선택", True, WHITE)
+        title_text = font_large.render(_t("ui.stage_select", "스테이지 선택"), True, WHITE)
         title_rect = title_text.get_rect(center=(WIDTH // 2, 80))
         SCREEN.blit(title_text, title_rect)
 
@@ -156365,7 +156283,7 @@ def show_quick_character_selection():
         SCREEN.fill((10, 10, 40))
 
         # 제목
-        title_surface = font_title.render("캐릭터 선택", True, WHITE)
+        title_surface = font_title.render(_t("ui.char_select", "캐릭터 선택"), True, WHITE)
         title_rect = title_surface.get_rect(center=(WIDTH // 2, 90))
         SCREEN.blit(title_surface, title_rect)
 
@@ -157324,9 +157242,9 @@ def _legacy_main_multiplayer():
         except Exception:
             help_font = pygame.font.Font(None, 16)
 
-        p1_help = help_font.render("P1: ←→ 이동, Shift 대시", True, (150, 150, 150))
-        p2_help = help_font.render("P2: A/D 이동, Space 대시", True, (150, 150, 150))
-        esc_help = help_font.render("ESC: 메뉴로 돌아가기", True, (150, 150, 150))
+        p1_help = help_font.render(_t("ui.p1_controls", "P1: ←→ 이동, Shift 대시"), True, (150, 150, 150))
+        p2_help = help_font.render(_t("ui.p2_controls", "P2: A/D 이동, Space 대시"), True, (150, 150, 150))
+        esc_help = help_font.render(_t("ui.esc_back", "ESC: 메뉴로 돌아가기"), True, (150, 150, 150))
 
         SCREEN.blit(p1_help, (10, HEIGHT - 25))
         SCREEN.blit(p2_help, (10, 5))
@@ -157373,12 +157291,13 @@ def _show_multiplayer_result(winner: str, p1_score: int, p2_score: int):
         # 글로우 효과
         glow_alpha = int(abs(math.sin(animation_timer * 3)) * 100 + 155)
 
-        title_text = title_font.render(f"{winner} 승리!", True, winner_color)
+        _win_text = _t("game.victory_winner", "{0} 승리!").format(winner)
+        title_text = title_font.render(_win_text, True, winner_color)
         title_rect = title_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 80))
 
         # 글로우
         for i in range(3):
-            glow_surf = title_font.render(f"{winner} 승리!", True, (*winner_color[:3], glow_alpha // (i + 1)))
+            glow_surf = title_font.render(_win_text, True, (*winner_color[:3], glow_alpha // (i + 1)))
             glow_rect = glow_surf.get_rect(center=(WIDTH // 2 + i, HEIGHT // 2 - 80 + i))
             SCREEN.blit(glow_surf, glow_rect)
 

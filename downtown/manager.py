@@ -10,8 +10,13 @@ import math
 from .constants import (
     SCREEN_WIDTH, SCREEN_HEIGHT, TILE_SIZE,
     BuildingType, BUILDING_INFO, Colors, PLANET_THEMES, PlanetTheme,
-    resource_path, AP_PER_STAGE_CLEAR, CLOSED_BUILDINGS
+    resource_path, AP_PER_STAGE_CLEAR, CLOSED_BUILDINGS,
+    get_building_display_name, get_building_display_desc
 )
+from localization.manager import get_localization_manager
+
+def _t(key, fallback=None):
+    return get_localization_manager().get_text(key, fallback)
 from start_menu import is_admin_mode_enabled
 from .map_generator import DowntownMap
 from .player import DowntownPlayer
@@ -708,7 +713,7 @@ class DowntownManager:
                     return
                 # 이미 방문한 건물이면 다이얼로그 표시 안 함
                 if building_type in self.visited_buildings_this_session:
-                    self._show_message("이미 방문한 건물입니다!", Colors.UI_DANGER)
+                    self._show_message(_t("downtown.already_visited", "이미 방문한 건물입니다!"), Colors.UI_DANGER)
                     return
                 # 건물 입장 확인 다이얼로그 표시
                 self._show_building_confirmation_dialog(building_type)
@@ -883,12 +888,12 @@ class DowntownManager:
         # 영업정지 건물 체크
         if building_type in CLOSED_BUILDINGS:
             building_info = BUILDING_INFO[building_type]
-            building_name = building_info['name']
+            building_name = get_building_display_name(building_info)
             self._show_closed_building_message(building_name)
             return
 
         building_info = BUILDING_INFO[building_type]
-        building_name = building_info['name']
+        building_name = get_building_display_name(building_info)
         ap_cost = building_info['ap_cost']
 
         self.building_confirmation_dialog = {
@@ -1273,7 +1278,7 @@ class DowntownManager:
 
         # 힌트 텍스트 - NPC 이름 사용
         npc_name = getattr(self.nearby_npc, 'name', '주민')
-        hint_text = f"CLICK - {npc_name}과(와) 대화"
+        hint_text = _t("downtown.talk_to", "CLICK - {name}과(와) 대화").format(name=npc_name)
 
         # 애니메이션 펄스
         pulse = abs(math.sin(self.animation_timer * 4))
@@ -1353,7 +1358,7 @@ class DowntownManager:
         pygame.draw.rect(self.screen, Colors.UI_PRIMARY, dialog_rect, 3, border_radius=15)
 
         # 제목 텍스트 (freetype 사용 - 한글 지원)
-        title_text = f"{building_name}에 입장하시겠습니까?"
+        title_text = _t("downtown.enter_building", "{name}에 입장하시겠습니까?").format(name=building_name)
         title_surface, title_rect = self._freetype_fonts['medium'].render(title_text, Colors.TEXT_WHITE)
         title_x = dialog_x + (dialog_width - title_rect.width) // 2
         title_y = dialog_y + 30
@@ -1369,7 +1374,7 @@ class DowntownManager:
 
         # 소모 개수 표시
         key_gold = (175, 140, 85)  # 앤틱 골드 색상 (광장 열쇠와 동일)
-        ap_text = f"{ap_cost} 소모"
+        ap_text = _t("downtown.ap_cost", "{cost} 소모").format(cost=ap_cost)
         ap_surface, ap_rect = self._freetype_fonts['small'].render(ap_text, key_gold)
         # 열쇠 크기 계산 (앤틱 열쇠는 세로로 긴 비율 - 1.0 x 2.2)
         key_display_width = int(key_size * 1.0)
@@ -1408,7 +1413,7 @@ class DowntownManager:
         pygame.draw.rect(self.screen, yes_bg_color, self.dialog_yes_rect, border_radius=10)
         pygame.draw.rect(self.screen, yes_border_color, self.dialog_yes_rect, 2, border_radius=10)
 
-        yes_text = "예"
+        yes_text = _t("downtown.yes", "예")
         yes_surface, yes_rect = self._freetype_fonts['medium'].render(yes_text, yes_text_color)
         yes_text_x = yes_button_x + (button_width - yes_rect.width) // 2
         yes_text_y = buttons_y + (button_height - yes_rect.height) // 2
@@ -1429,7 +1434,7 @@ class DowntownManager:
         pygame.draw.rect(self.screen, no_bg_color, self.dialog_no_rect, border_radius=10)
         pygame.draw.rect(self.screen, no_border_color, self.dialog_no_rect, 2, border_radius=10)
 
-        no_text = "아니오"
+        no_text = _t("downtown.no", "아니오")
         no_surface, no_rect = self._freetype_fonts['medium'].render(no_text, no_text_color)
         no_text_x = no_button_x + (button_width - no_rect.width) // 2
         no_text_y = buttons_y + (button_height - no_rect.height) // 2
@@ -1456,14 +1461,14 @@ class DowntownManager:
         pygame.draw.rect(self.screen, (150, 120, 200), dialog_rect, 3, border_radius=15)
 
         # 제목 텍스트
-        title_text = "잠깐 저장하고 휴식하시겠습니까?"
+        title_text = _t("downtown.save_rest", "잠깐 저장하고 휴식하시겠습니까?")
         title_surface, title_rect = self._freetype_fonts['medium'].render(title_text, (255, 255, 255))
         title_x = dialog_x + (dialog_width - title_rect.width) // 2
         title_y = dialog_y + 35
         self.screen.blit(title_surface, (title_x, title_y))
 
         # 설명 텍스트
-        desc_text = "저장된 진행상황은 메인메뉴에서 이어할 수 있습니다."
+        desc_text = _t("downtown.save_hint", "저장된 진행상황은 메인메뉴에서 이어할 수 있습니다.")
         desc_surface, desc_rect = self._freetype_fonts['small'].render(desc_text, (180, 180, 200))
         desc_x = dialog_x + (dialog_width - desc_rect.width) // 2
         desc_y = title_y + 45
@@ -1497,7 +1502,7 @@ class DowntownManager:
         pygame.draw.rect(self.screen, yes_bg_color, self.save_dialog_yes_rect, border_radius=10)
         pygame.draw.rect(self.screen, yes_border_color, self.save_dialog_yes_rect, 2, border_radius=10)
 
-        yes_text = "예"
+        yes_text = _t("downtown.yes", "예")
         yes_surface, yes_rect = self._freetype_fonts['medium'].render(yes_text, (255, 255, 255))
         yes_text_x = yes_button_x + (button_width - yes_rect.width) // 2
         yes_text_y = buttons_y + (button_height - yes_rect.height) // 2
@@ -1516,7 +1521,7 @@ class DowntownManager:
         pygame.draw.rect(self.screen, no_bg_color, self.save_dialog_no_rect, border_radius=10)
         pygame.draw.rect(self.screen, no_border_color, self.save_dialog_no_rect, 2, border_radius=10)
 
-        no_text = "아니오"
+        no_text = _t("downtown.no", "아니오")
         no_surface, no_rect = self._freetype_fonts['medium'].render(no_text, (255, 255, 255))
         no_text_x = no_button_x + (button_width - no_rect.width) // 2
         no_text_y = buttons_y + (button_height - no_rect.height) // 2
@@ -1960,21 +1965,21 @@ class DowntownManager:
 
             # 제목
             if font_large:
-                title_surf, title_rect = font_large.render(info['name'], Colors.TEXT_WHITE)
+                title_surf, title_rect = font_large.render(get_building_display_name(info), Colors.TEXT_WHITE)
                 self.screen.blit(title_surf,
                                (panel_x + panel_width // 2 - title_rect.width // 2,
                                 panel_y + 20))
 
             # "개발 중" 메시지
             if font_medium:
-                dev_surf, dev_rect = font_medium.render("🚧 컨텐츠 개발 중...", Colors.TEXT_GRAY)
+                dev_surf, dev_rect = font_medium.render(_t("downtown.content_dev", "🚧 컨텐츠 개발 중..."), Colors.TEXT_GRAY)
                 self.screen.blit(dev_surf,
                                (panel_x + panel_width // 2 - dev_rect.width // 2,
                                 panel_y + panel_height // 2))
 
             # 나가기 힌트
             if font_small:
-                exit_surf, exit_rect = font_small.render("[ESC] 나가기", Colors.TEXT_GRAY)
+                exit_surf, exit_rect = font_small.render(_t("downtown.esc_exit", "[ESC] 나가기"), Colors.TEXT_GRAY)
                 self.screen.blit(exit_surf,
                                (panel_x + panel_width // 2 - exit_rect.width // 2,
                                 panel_y + panel_height - 40))
@@ -2306,20 +2311,20 @@ class DowntownManager:
 
         # 타이틀
         if self._freetype_fonts and "medium" in self._freetype_fonts:
-            title, _ = self._freetype_fonts["medium"].render("고대 투기장", (255, 215, 0))
+            title, _ = self._freetype_fonts["medium"].render(_t("downtown.colosseum", "고대 투기장"), (255, 215, 0))
             self.screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, panel_y + 20))
 
         # 설명
         if self._freetype_fonts and "small" in self._freetype_fonts:
-            desc1, _ = self._freetype_fonts["small"].render("8강 토너먼트에 참가하여 배팅하세요!", (200, 200, 200))
+            desc1, _ = self._freetype_fonts["small"].render(_t("downtown.colosseum_desc", "8강 토너먼트에 참가하여 배팅하세요!"), (200, 200, 200))
             self.screen.blit(desc1, (SCREEN_WIDTH // 2 - desc1.get_width() // 2, panel_y + 60))
 
-            fee_text = f"입장료: {admission_fee} G"
+            fee_text = _t("downtown.admission_fee", "입장료: {fee} G").format(fee=admission_fee)
             fee_color = (100, 255, 100) if player_gold >= admission_fee else (255, 100, 100)
             fee_surf, _ = self._freetype_fonts["small"].render(fee_text, fee_color)
             self.screen.blit(fee_surf, (SCREEN_WIDTH // 2 - fee_surf.get_width() // 2, panel_y + 90))
 
-            gold_text = f"보유 골드: {player_gold} G"
+            gold_text = _t("downtown.gold_held", "보유 골드: {gold} G").format(gold=player_gold)
             gold_surf, _ = self._freetype_fonts["small"].render(gold_text, (255, 215, 0))
             self.screen.blit(gold_surf, (SCREEN_WIDTH // 2 - gold_surf.get_width() // 2, panel_y + 115))
 
@@ -2341,10 +2346,10 @@ class DowntownManager:
 
         if self._freetype_fonts and "medium" in self._freetype_fonts:
             text_color = (255, 255, 255) if can_enter else (100, 100, 100)
-            entry_text, _ = self._freetype_fonts["medium"].render("입장하기", text_color)
+            entry_text, _ = self._freetype_fonts["medium"].render(_t("downtown.enter", "입장하기"), text_color)
             self.screen.blit(entry_text, (entry_btn.centerx - entry_text.get_width() // 2, entry_btn.y + 12))
 
-            cancel_text, _ = self._freetype_fonts["medium"].render("나가기", (255, 255, 255))
+            cancel_text, _ = self._freetype_fonts["medium"].render(_t("downtown.exit", "나가기"), (255, 255, 255))
             self.screen.blit(cancel_text, (cancel_btn.centerx - cancel_text.get_width() // 2, cancel_btn.y + 12))
 
         if entry_hover and can_enter:
@@ -2366,10 +2371,10 @@ class DowntownManager:
         pygame.draw.rect(self.screen, (255, 180, 0), (panel_x, panel_y, panel_w, panel_h), 3, border_radius=10)
 
         if self._freetype_fonts and "small" in self._freetype_fonts:
-            msg, _ = self._freetype_fonts["small"].render("튜토리얼 가이드와 함께 진행하시겠습니까?", (255, 255, 255))
+            msg, _ = self._freetype_fonts["small"].render(_t("downtown.tutorial_ask", "튜토리얼 가이드와 함께 진행하시겠습니까?"), (255, 255, 255))
             self.screen.blit(msg, (SCREEN_WIDTH // 2 - msg.get_width() // 2, panel_y + 50))
 
-            hint, _ = self._freetype_fonts["small"].render("투기장 시스템을 처음 접하시면 추천합니다.", (160, 160, 160))
+            hint, _ = self._freetype_fonts["small"].render(_t("downtown.tutorial_recommend", "투기장 시스템을 처음 접하시면 추천합니다."), (160, 160, 160))
             self.screen.blit(hint, (SCREEN_WIDTH // 2 - hint.get_width() // 2, panel_y + 80))
 
         # 버튼
@@ -2388,10 +2393,10 @@ class DowntownManager:
         pygame.draw.rect(self.screen, no_color, no_btn, border_radius=5)
 
         if self._freetype_fonts and "medium" in self._freetype_fonts:
-            yes_text, _ = self._freetype_fonts["medium"].render("예", (255, 255, 255))
+            yes_text, _ = self._freetype_fonts["medium"].render(_t("downtown.yes", "예"), (255, 255, 255))
             self.screen.blit(yes_text, (yes_btn.centerx - yes_text.get_width() // 2, yes_btn.y + 12))
 
-            no_text, _ = self._freetype_fonts["medium"].render("아니오", (255, 255, 255))
+            no_text, _ = self._freetype_fonts["medium"].render(_t("downtown.no", "아니오"), (255, 255, 255))
             self.screen.blit(no_text, (no_btn.centerx - no_text.get_width() // 2, no_btn.y + 12))
 
         if yes_hover:
@@ -2701,7 +2706,7 @@ class DowntownManager:
 
             # 제목
             if font_large:
-                title_surf, title_rect = font_large.render("가챠 뽑기", (255, 255, 255))
+                title_surf, title_rect = font_large.render(_t("downtown.gacha_pull", "가챠 뽑기"), (255, 255, 255))
                 self.screen.blit(title_surf, (dialog_x + (dialog_width - title_rect.width) // 2, dialog_y + 20))
 
             # 보유 골드는 왼쪽 필러 HUD에서 통합 표시 (중복 방지)
@@ -2709,7 +2714,7 @@ class DowntownManager:
 
             # 남은 횟수 표시
             if font_small:
-                count_text = f"남은 횟수: {remaining_count}/{self.gacha_max_count}"
+                count_text = _t("downtown.remaining_pulls", "남은 횟수: {remaining}/{max}").format(remaining=remaining_count, max=self.gacha_max_count)
                 count_color = (255, 100, 100) if remaining_count <= 0 else (180, 180, 200)
                 count_surf, count_rect = font_small.render(count_text, count_color)
                 self.screen.blit(count_surf, (dialog_x + (dialog_width - count_rect.width) // 2, dialog_y + 78))
@@ -2730,13 +2735,13 @@ class DowntownManager:
             pygame.draw.rect(self.screen, border_color, single_btn, 2, border_radius=10)
 
             if font_medium:
-                single_title = "1회 뽑기"
+                single_title = _t("downtown.single_pull", "1회 뽑기")
                 title_color = (255, 255, 255) if can_single else (100, 100, 100)
                 single_surf, single_rect = font_medium.render(single_title, title_color)
                 self.screen.blit(single_surf, (single_btn.centerx - single_rect.width // 2, single_btn.y + 12))
 
             if font_small:
-                cost_text = f"비용: {self.gacha_cost}"
+                cost_text = _t("downtown.cost", "비용: {cost}").format(cost=self.gacha_cost)
                 cost_color = (255, 220, 100) if can_single else (100, 100, 80)
                 cost_surf, cost_rect = font_small.render(cost_text, cost_color)
                 coin_size = 16
@@ -2765,17 +2770,17 @@ class DowntownManager:
             pygame.draw.rect(self.screen, border_color, multi_btn, 2, border_radius=10)
 
             if font_medium:
-                multi_title = f"{max_multi_count}연속 뽑기" if can_multi else "연속 뽑기"
+                multi_title = _t("downtown.multi_pull", "{count}연속 뽑기").format(count=max_multi_count) if can_multi else _t("downtown.multi_pull_short", "연속 뽑기")
                 title_color = (255, 255, 255) if can_multi else (100, 100, 100)
                 multi_surf, multi_rect = font_medium.render(multi_title, title_color)
                 self.screen.blit(multi_surf, (multi_btn.centerx - multi_rect.width // 2, multi_btn.y + 12))
 
             if font_small:
                 if can_multi:
-                    cost_text = f"비용: {total_multi_cost:,}"
+                    cost_text = _t("downtown.cost", "비용: {cost}").format(cost=f"{total_multi_cost:,}")
                     cost_color = (255, 220, 100)
                 else:
-                    cost_text = "골드 부족 또는 횟수 부족"
+                    cost_text = _t("downtown.insufficient", "골드 부족 또는 횟수 부족")
                     cost_color = (150, 100, 100)
                 cost_surf, cost_rect = font_small.render(cost_text, cost_color)
                 if can_multi:
@@ -2800,7 +2805,7 @@ class DowntownManager:
             pygame.draw.rect(self.screen, cancel_border, cancel_btn, 2, border_radius=8)
 
             if font_medium:
-                cancel_surf, cancel_rect = font_medium.render("취소", (255, 255, 255))
+                cancel_surf, cancel_rect = font_medium.render(_t("downtown.cancel", "취소"), (255, 255, 255))
                 self.screen.blit(cancel_surf, (cancel_btn.centerx - cancel_rect.width // 2, cancel_btn.centery - cancel_rect.height // 2))
 
             # 호버 보더
@@ -2979,12 +2984,12 @@ class DowntownManager:
             font_small = self._freetype_fonts.get('small')
 
             if font_large:
-                title_surf, title_rect = font_large.render("가챠를 하시겠습니까?", (255, 255, 255))
+                title_surf, title_rect = font_large.render(_t("downtown.do_gacha", "가챠를 하시겠습니까?"), (255, 255, 255))
                 self.screen.blit(title_surf, (dialog_x + (dialog_width - title_rect.width) // 2, dialog_y + 25))
 
             # 비용 표시: "비용: 800" + 골드 아이콘
             if font_medium:
-                cost_text = f"비용: {self.gacha_cost}"
+                cost_text = _t("downtown.cost", "비용: {cost}").format(cost=self.gacha_cost)
                 cost_surf, cost_rect = font_medium.render(cost_text, (255, 220, 100))
                 # 골드 아이콘 크기
                 coin_size = 22
@@ -3001,7 +3006,7 @@ class DowntownManager:
 
             # 남은 횟수 표시
             if font_small:
-                count_text = f"남은 횟수: ({remaining_count}/{self.gacha_max_count})"
+                count_text = _t("downtown.remaining_pulls", "남은 횟수: {remaining}/{max}").format(remaining=remaining_count, max=self.gacha_max_count)
                 # 횟수 없으면 빨간색
                 count_color = (255, 100, 100) if remaining_count <= 0 else (180, 180, 200)
                 count_surf, count_rect = font_small.render(count_text, count_color)
@@ -3010,7 +3015,7 @@ class DowntownManager:
             # 골드 부족 경고
             if current_gold < self.gacha_cost:
                 if font_small:
-                    warn_surf, warn_rect = font_small.render("골드가 부족합니다!", (255, 80, 80))
+                    warn_surf, warn_rect = font_small.render(_t("downtown.insufficient_gold", "골드가 부족합니다!"), (255, 80, 80))
                     self.screen.blit(warn_surf, (dialog_x + (dialog_width - warn_rect.width) // 2, dialog_y + 125))
 
             # 버튼: 예
@@ -3024,7 +3029,7 @@ class DowntownManager:
             pygame.draw.rect(self.screen, yes_color, yes_btn, border_radius=8)
             pygame.draw.rect(self.screen, yes_border, yes_btn, 2, border_radius=8)
             if font_medium:
-                yes_surf, yes_rect = font_medium.render("예", (255, 255, 255) if can_gacha else (100, 100, 100))
+                yes_surf, yes_rect = font_medium.render(_t("downtown.yes", "예"), (255, 255, 255) if can_gacha else (100, 100, 100))
                 self.screen.blit(yes_surf, (yes_btn.centerx - yes_rect.width // 2, yes_btn.centery - yes_rect.height // 2))
 
             # 버튼: 아니오
@@ -3033,7 +3038,7 @@ class DowntownManager:
             pygame.draw.rect(self.screen, no_color, no_btn, border_radius=8)
             pygame.draw.rect(self.screen, no_border, no_btn, 2, border_radius=8)
             if font_medium:
-                no_surf, no_rect = font_medium.render("아니오", (255, 255, 255))
+                no_surf, no_rect = font_medium.render(_t("downtown.no", "아니오"), (255, 255, 255))
                 self.screen.blit(no_surf, (no_btn.centerx - no_rect.width // 2, no_btn.centery - no_rect.height // 2))
 
             # 호버 보더
@@ -3184,7 +3189,7 @@ class DowntownManager:
             # 진행 표시
             font_small = self._freetype_fonts.get('small')
             if font_small:
-                hint = f"[{dialogue_idx + 1}/{len(npc.dialogue)}] Space/Enter 또는 클릭"
+                hint = _t("downtown.npc_dialog_hint", "[{idx}/{total}] Space/Enter 또는 클릭").format(idx=dialogue_idx + 1, total=len(npc.dialogue))
                 hint_surf, hint_rect = font_small.render(hint, (150, 150, 160))
                 self.screen.blit(hint_surf, (box_x + box_width - hint_rect.width - 20, box_y + box_height - 30))
 
@@ -3268,8 +3273,8 @@ class DowntownManager:
                 self.screen.blit(title_surf, (title_x, box_y + 25))
 
                 # 영업정지 메시지 (2줄)
-                msg1 = "현재 해당 건물은 아직 개발중이라"
-                msg2 = "영업정지 중입니다. 죄송합니다."
+                msg1 = _t("downtown.closed_building1", "현재 해당 건물은 아직 개발중이라")
+                msg2 = _t("downtown.closed_building2", "영업정지 중입니다. 죄송합니다.")
 
                 msg1_surf, msg1_rect = font_small.render(msg1, (255, 220, 220))
                 msg1_x = SCREEN_WIDTH // 2 - msg1_rect.width // 2
@@ -3286,7 +3291,7 @@ class DowntownManager:
             pygame.draw.rect(self.screen, (200, 150, 150), button_rect, 2, border_radius=8)
 
             if font_small:
-                btn_surf, btn_rect = font_small.render("확인", (255, 255, 255))
+                btn_surf, btn_rect = font_small.render(_t("downtown.ok", "확인"), (255, 255, 255))
                 btn_x = button_x + button_width // 2 - btn_rect.width // 2
                 btn_y = button_y + button_height // 2 - btn_rect.height // 2
                 self.screen.blit(btn_surf, (btn_x, btn_y))
@@ -3314,9 +3319,9 @@ class DowntownManager:
 
         # 간단한 메뉴 구현 (PauseMenu 스타일)
         menu_options = [
-            ("캐릭터 정보", "character"),
-            ("옵션", "options"),
-            ("나가기", "quit")
+            (_t("downtown.char_info", "캐릭터 정보"), "character"),
+            (_t("downtown.options", "옵션"), "options"),
+            (_t("downtown.exit", "나가기"), "quit")
         ]
 
         selected = 0
@@ -3342,7 +3347,7 @@ class DowntownManager:
             # 제목
             font_large = self._freetype_fonts.get('large')
             if font_large:
-                title_surf, title_rect = font_large.render("일시정지", (255, 255, 255))
+                title_surf, title_rect = font_large.render(_t("downtown.pause", "일시정지"), (255, 255, 255))
                 self.screen.blit(title_surf, (SCREEN_WIDTH // 2 - title_rect.width // 2, box_y + 40))
 
             # 옵션들
@@ -3368,7 +3373,7 @@ class DowntownManager:
             # 안내
             font_small = self._freetype_fonts.get('small')
             if font_small:
-                hint_surf, hint_rect = font_small.render("↑↓ 선택 · Enter 확인 · ESC 취소", (170, 170, 180))
+                hint_surf, hint_rect = font_small.render(_t("downtown.pause_hint", "↑↓ 선택 · Enter 확인 · ESC 취소"), (170, 170, 180))
                 self.screen.blit(hint_surf, (SCREEN_WIDTH // 2 - hint_rect.width // 2, box_y + box_height - 40))
 
             pygame.display.flip()
@@ -3613,12 +3618,12 @@ class DowntownManager:
 
             # 제목
             if font_large:
-                title_surf, title_rect = font_large.render("옵션", (255, 255, 255))
+                title_surf, title_rect = font_large.render(_t("downtown.options", "옵션"), (255, 255, 255))
                 self.screen.blit(title_surf, (SCREEN_WIDTH // 2 - title_rect.width // 2, panel_y + 25))
 
             # BGM 볼륨
             if font_medium:
-                label_surf, _ = font_medium.render("BGM", (200, 200, 200) if not bgm_muted else (100, 100, 100))
+                label_surf, _ = font_medium.render(_t("downtown.bgm", "BGM"), (200, 200, 200) if not bgm_muted else (100, 100, 100))
                 self.screen.blit(label_surf, (panel_x + 30, bgm_slider_y - 5))
 
             # BGM 슬라이더
@@ -3648,7 +3653,7 @@ class DowntownManager:
 
             # SFX 볼륨
             if font_medium:
-                label_surf, _ = font_medium.render("효과음", (200, 200, 200) if not sfx_muted else (100, 100, 100))
+                label_surf, _ = font_medium.render(_t("downtown.sfx", "효과음"), (200, 200, 200) if not sfx_muted else (100, 100, 100))
                 self.screen.blit(label_surf, (panel_x + 30, sfx_slider_y - 5))
 
             # SFX 슬라이더
@@ -3683,7 +3688,7 @@ class DowntownManager:
             pygame.draw.rect(self.screen, (0, 200, 255), back_button_rect, 2, border_radius=8)
 
             if font_medium:
-                btn_surf, btn_rect = font_medium.render("뒤로", (255, 255, 255))
+                btn_surf, btn_rect = font_medium.render(_t("downtown.back", "뒤로"), (255, 255, 255))
                 btn_x = back_button_rect.centerx - btn_rect.width // 2
                 btn_y = back_button_rect.centery - btn_rect.height // 2
                 self.screen.blit(btn_surf, (btn_x, btn_y))
@@ -3724,7 +3729,7 @@ class DowntownManager:
         # 제목
         font_large = self._freetype_fonts.get('large')
         if font_large:
-            title_surf, title_rect = font_large.render("건물 소환", (0, 255, 100))
+            title_surf, title_rect = font_large.render(_t("downtown.spawn_building", "건물 소환"), (0, 255, 100))
             self.screen.blit(title_surf, (panel_x + 20, panel_y + 15))
 
         # 건물 리스트
@@ -3782,11 +3787,11 @@ class DowntownManager:
         # 안내 텍스트
         if font_small:
             # 패널 아래 안내
-            hint1_surf, _ = font_small.render("건물 클릭 -> 맵 빈공간 클릭", (180, 180, 180))
+            hint1_surf, _ = font_small.render(_t("downtown.spawn_hint", "건물 클릭 -> 맵 빈공간 클릭"), (180, 180, 180))
             self.screen.blit(hint1_surf, (panel_x + 20, panel_y + panel_height - 55))
 
             # 화면 상단 안내
-            hint2_surf, _ = font_small.render("[0] 닫기  |  마우스 휠: 스크롤", (0, 255, 100))
+            hint2_surf, _ = font_small.render(_t("downtown.spawn_close", "[0] 닫기  |  마우스 휠: 스크롤"), (0, 255, 100))
             self.screen.blit(hint2_surf, (20, 70))
 
         # 선택된 건물이 있으면 마우스 커서에 표시

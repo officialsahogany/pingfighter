@@ -87,7 +87,8 @@ class IntroCutscene:
 
     def _draw_skip_hint(self):
         """우측 하단에 스킵 힌트 표시"""
-        hint_text = "Ctrl - 스킵"
+        from localization.manager import get_localization_manager
+        hint_text = get_localization_manager().get_text("opening.skip_hint", "Ctrl - 스킵")
         hint_surface, hint_rect = self.font_hint.render(hint_text, (120, 120, 140))
         hint_x = self.width - hint_rect.width - 20
         hint_y = self.height - hint_rect.height - 15
@@ -2561,7 +2562,8 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
         except:
             font_medium = pygame.font.Font(None, 32)
         
-        subtitle_text = font_medium.render("핑퐁으로 보스를 물리쳐라!", True, (200, 220, 255))
+        from localization.manager import get_localization_manager
+        subtitle_text = font_medium.render(get_localization_manager().get_text("opening.subtitle", "핑퐁으로 보스를 물리쳐라!"), True, (200, 220, 255))
         subtitle_rect = subtitle_text.get_rect(center=(300, 200))
         logo_surface.blit(subtitle_text, subtitle_rect)
         
@@ -2618,7 +2620,8 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
             
             # 깜빡이는 효과
             if animation_timer % 60 < 30:
-                press_text = font_small.render("아무 키나 누르세요", True, (200, 200, 200))
+                from localization.manager import get_localization_manager
+                press_text = font_small.render(get_localization_manager().get_text("opening.press_any_key", "아무 키나 누르세요"), True, (200, 200, 200))
                 press_surface = pygame.Surface((WIDTH, 50), pygame.SRCALPHA)
                 press_surface.fill((0, 0, 0, press_key_alpha))
                 press_rect = press_text.get_rect(center=(WIDTH // 2, HEIGHT - 80))

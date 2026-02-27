@@ -3,6 +3,23 @@
 
 import os
 import sys
+from localization.manager import get_localization_manager
+
+
+def get_building_display_name(building_info: dict) -> str:
+    """현재 언어에 맞는 건물 이름 반환"""
+    loc = get_localization_manager()
+    if loc.current_language != "ko" and "name_en" in building_info:
+        return building_info["name_en"]
+    return building_info.get("name", "???")
+
+
+def get_building_display_desc(building_info: dict) -> str:
+    """현재 언어에 맞는 건물 설명 반환"""
+    loc = get_localization_manager()
+    if loc.current_language != "ko" and "description_en" in building_info:
+        return building_info["description_en"]
+    return building_info.get("description", "")
 
 def resource_path(relative_path):
     """Get absolute path to resource, works for dev and PyInstaller"""

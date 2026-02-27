@@ -350,26 +350,27 @@ def _render_menu(
         # 아이콘과 텍스트를 세로로 배치 (가로 메뉴이므로)
         icon = MENU_ICONS.get(option, "")
         display_text = option
+        _loc = get_localization_manager()
         if option == "경기장 입장":
-            display_text = "입장"
+            display_text = _loc.get_text("menu.enter_short", "입장")
         elif option == "계속하기":
-            display_text = "계속"
+            display_text = _loc.get_text("menu.continue_short", "계속")
         elif option == "AI 플레이":
             display_text = "AI"
         elif option == "테스트메뉴":
-            display_text = "테스트"
+            display_text = _loc.get_text("menu.test_short", "테스트")
         elif option == "개발테스트":
-            display_text = "개발"
+            display_text = _loc.get_text("menu.dev_short", "개발")
         elif option == "멀티플레이":
-            display_text = "멀티"
+            display_text = _loc.get_text("menu.multi_short", "멀티")
         elif option == "메달샵":
-            display_text = "메달샵"
+            display_text = _loc.get_text("menu.medal_shop", "메달샵")
         elif option == "설정":
-            display_text = "설정"
+            display_text = _loc.get_text("menu.settings", "설정")
         elif option == "크레딧":
-            display_text = "크레딧"
+            display_text = _loc.get_text("menu.credits", "크레딧")
         elif option == "개발자":
-            display_text = "개발자"
+            display_text = _loc.get_text("menu.developer", "개발자")
 
         # 아이콘과 텍스트 세로 배치
         center_x = x + menu_item_width // 2
@@ -388,7 +389,7 @@ def _render_menu(
         # 선택된 메뉴일 때 설명 표시
         if idx == state.selected and option == "개발테스트":
             font_desc = ctx.FontStyle.tiny()
-            desc = font_desc.render("개발용 AI/테스트 모드", True, (200, 200, 255))
+            desc = font_desc.render(get_localization_manager().get_text("menu.dev_ai_test_desc", "개발용 AI/테스트 모드"), True, (200, 200, 255))
             desc_rect = desc.get_rect(center=(width // 2, menu_y + menu_item_height + 35))
             screen.blit(desc, desc_rect)
 
@@ -400,11 +401,11 @@ def _render_menu(
                 save_data = load_game_progress()
                 if save_data:
                     stage_num = save_data.get("stage_number", "?")
-                    desc_text = f"스테이지 {stage_num} 광장에서 이어하기"
+                    desc_text = get_localization_manager().get_text("menu.continue_downtown_desc", "스테이지 {stage_num} 광장에서 이어하기").replace("{stage_num}", str(stage_num))
                 else:
-                    desc_text = "저장된 게임 불러오기"
+                    desc_text = get_localization_manager().get_text("menu.load_save_desc", "저장된 게임 불러오기")
             except Exception:
-                desc_text = "저장된 게임 불러오기"
+                desc_text = get_localization_manager().get_text("menu.load_save_desc", "저장된 게임 불러오기")
             desc = font_desc.render(desc_text, True, (100, 255, 150))
             desc_rect = desc.get_rect(center=(width // 2, menu_y + menu_item_height + 35))
             screen.blit(desc, desc_rect)
@@ -412,7 +413,7 @@ def _render_menu(
         # 설정 선택 시 설명 표시
         if idx == state.selected and option == "설정":
             font_desc = ctx.FontStyle.tiny()
-            desc = font_desc.render("BGM/효과음 볼륨, 조작 방식 설정", True, (200, 220, 255))
+            desc = font_desc.render(get_localization_manager().get_text("menu.settings_desc", "BGM/효과음 볼륨, 조작 방식 설정"), True, (200, 220, 255))
             desc_rect = desc.get_rect(center=(width // 2, menu_y + menu_item_height + 35))
             screen.blit(desc, desc_rect)
 
@@ -431,10 +432,11 @@ def _render_menu(
         pygame.draw.rect(message_bg, (255, 100, 100, 120), (0, 0, message_width, message_height), 2, border_radius=ctx.default_radius)
         screen.blit(message_bg, (message_x, message_y_pos))
         font_message = ctx.FontStyle.body()
-        shadow = font_message.render("모든 보스를 클리어시 해금됩니다", True, (100, 50, 50))
+        _locked_msg = get_localization_manager().get_text("menu.unlock_all_bosses", "모든 보스를 클리어시 해금됩니다")
+        shadow = font_message.render(_locked_msg, True, (100, 50, 50))
         shadow_rect = shadow.get_rect(center=(width // 2 + 1, message_y_pos + message_height // 2 + 1))
         screen.blit(shadow, shadow_rect)
-        text = font_message.render("모든 보스를 클리어시 해금됩니다", True, (255, 150, 150))
+        text = font_message.render(_locked_msg, True, (255, 150, 150))
         text_rect = text.get_rect(center=(width // 2, message_y_pos + message_height // 2))
         screen.blit(text, text_rect)
         state.locked_message_timer -= 1
@@ -445,13 +447,13 @@ def _render_menu(
     screen.blit(version_surface, version_rect)
 
     # F9/F10 단축키 안내 텍스트 (우측 하단)
-    shortcut_text = "F9 전체화면  F10 창모드"
+    shortcut_text = get_localization_manager().get_text("menu.fullscreen_shortcut", "F9 전체화면  F10 창모드")
     shortcut_surface = font_tiny.render(shortcut_text, True, (160, 200, 255))
     shortcut_rect = shortcut_surface.get_rect(bottomright=(width - 10, height - 10))
     screen.blit(shortcut_surface, shortcut_rect)
 
     # BGM 토글 안내 (우측 하단, F9/F10 위) - B 키캡 아이콘 + 텍스트
-    bgm_label_surface = font_tiny.render("BGM 켜기/끄기", True, (160, 200, 255))
+    bgm_label_surface = font_tiny.render(get_localization_manager().get_text("menu.bgm_toggle", "BGM 켜기/끄기"), True, (160, 200, 255))
     bgm_label_h = bgm_label_surface.get_height()
     cap_size = max(bgm_label_h, 16)
     gap = 5  # 키캡과 텍스트 사이 간격
@@ -498,7 +500,7 @@ def _render_menu(
 
         # 텍스트 렌더링
         font_admin = ctx.FontStyle.body()
-        admin_text = font_admin.render("🔓 관리자 모드 시작", True, (255, 220, 100))
+        admin_text = font_admin.render(get_localization_manager().get_text("menu.admin_mode", "🔓 관리자 모드 시작"), True, (255, 220, 100))
         admin_text_rect = admin_text.get_rect(center=(width // 2, admin_msg_y + admin_msg_height // 2))
 
         # 텍스트 알파 적용
@@ -508,10 +510,11 @@ def _render_menu(
 
 def _run_ai_play_flow(ctx: MenuContext) -> bool:
     """AI 플레이 캐릭터 선택 후 게임 시작."""
+    _loc = get_localization_manager()
     ai_chars = [
-        ("smasher", "스매셔"),
-        ("soldier", "코만도"),
-        ("blacksmith", "발토르"),
+        ("smasher", _loc.get_text("char.smasher", "스매셔")),
+        ("soldier", _loc.get_text("char.soldier", "코만도")),
+        ("blacksmith", _loc.get_text("char.blacksmith", "발토르")),
     ]
     selected = 0
     clock = pygame.time.Clock()
@@ -552,7 +555,7 @@ def _run_ai_play_flow(ctx: MenuContext) -> bool:
         screen = ctx.get_screen()
         width, height = ctx.get_dimensions()
         screen.fill((10, 20, 30))
-        title = font_title.render("AI 플레이 캐릭터 선택", True, (200, 230, 255))
+        title = font_title.render(get_localization_manager().get_text("menu.ai_char_select", "AI 플레이 캐릭터 선택"), True, (200, 230, 255))
         screen.blit(title, title.get_rect(center=(width // 2, height // 2 - 100)))
         item_w = 180
         spacing = 30
@@ -632,12 +635,12 @@ def _show_multiplayer_menu(ctx: MenuContext, state: MenuState) -> bool:
         overlay.fill((0, 0, 0, 120))
         screen.blit(overlay, (0, 0))
 
-        title = font_title.render("멀티플레이", True, (200, 230, 255))
+        title = font_title.render(get_localization_manager().get_text("menu.local_play_title", "멀티플레이"), True, (200, 230, 255))
         screen.blit(title, title.get_rect(center=(width // 2, height // 2 - 130)))
 
         # 설명 텍스트
         desc_font = ctx.FontStyle.tiny()
-        desc_text = "같은 PC에서 2명이 대결합니다"
+        desc_text = get_localization_manager().get_text("menu.local_play_desc", "같은 PC에서 2명이 대결합니다")
         desc_surf = desc_font.render(desc_text, True, (180, 200, 220))
         screen.blit(desc_surf, desc_surf.get_rect(center=(width // 2, height // 2 - 90)))
 
@@ -661,11 +664,13 @@ def _show_multiplayer_menu(ctx: MenuContext, state: MenuState) -> bool:
                 icon_rect = icon_surface.get_rect(center=(rect.centerx, rect.centery - 15))
                 screen.blit(icon_surface, icon_rect)
 
-            label_surface = font_item.render(opt, True, (255, 255, 255))
+            _mp_label_map = {"로컬플레이": "menu.local_play", "뒤로": "menu.back"}
+            _opt_display = get_localization_manager().get_text(_mp_label_map.get(opt, ""), opt) if opt in _mp_label_map else opt
+            label_surface = font_item.render(_opt_display, True, (255, 255, 255))
             screen.blit(label_surface, label_surface.get_rect(center=(rect.centerx, rect.centery + 15)))
 
             if is_sel and opt == "로컬플레이":
-                hint = "P1: 방향키/Shift  |  P2: WASD/Space"
+                hint = get_localization_manager().get_text("menu.local_play_controls", "P1: 방향키/Shift  |  P2: WASD/Space")
                 hint_surf = ctx.FontStyle.tiny().render(hint, True, (210, 220, 255))
                 screen.blit(hint_surf, hint_surf.get_rect(center=(width // 2, rect.bottom + 30)))
 
@@ -723,9 +728,10 @@ def _show_dev_test_menu(ctx: MenuContext, state: MenuState) -> bool:
         overlay.fill((0, 0, 0, 120))
         screen.blit(overlay, (0, 0))
 
-        title = font_title.render("개발 테스트", True, (200, 230, 255))
+        title = font_title.render(get_localization_manager().get_text("menu.dev_test_title", "개발 테스트"), True, (200, 230, 255))
         screen.blit(title, title.get_rect(center=(width // 2, height // 2 - 130)))
 
+        _dev_label_map = {"AI 플레이": "menu.ai_play", "뒤로": "menu.back"}
         item_w = 160
         spacing = 16
         total_w = len(options) * item_w + (len(options) - 1) * spacing
@@ -737,10 +743,11 @@ def _show_dev_test_menu(ctx: MenuContext, state: MenuState) -> bool:
             bg_color = (50, 90, 140) if is_sel else (30, 40, 60)
             pygame.draw.rect(screen, bg_color, rect, border_radius=12)
             pygame.draw.rect(screen, (140, 200, 255), rect, 2 if is_sel else 1, border_radius=12)
-            label_surface = font_item.render(opt, True, (255, 255, 255))
+            _dev_display = get_localization_manager().get_text(_dev_label_map.get(opt, ""), opt) if opt in _dev_label_map else opt
+            label_surface = font_item.render(_dev_display, True, (255, 255, 255))
             screen.blit(label_surface, label_surface.get_rect(center=rect.center))
             if is_sel and opt == "AI 플레이":
-                hint_surf = ctx.FontStyle.tiny().render("AI 대전 시작", True, (210, 220, 255))
+                hint_surf = ctx.FontStyle.tiny().render(get_localization_manager().get_text("menu.ai_battle_start", "AI 대전 시작"), True, (210, 220, 255))
                 screen.blit(hint_surf, hint_surf.get_rect(center=(rect.centerx, rect.bottom + 24)))
 
         pygame.display.flip()
@@ -1509,11 +1516,12 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
     arena_preview = _load_mode_preview(
         os.path.join("ui", "arena.jpg"), ctx.resource_path)
 
+    _loc = get_localization_manager()
     cards_info = [
-        {"title": "아케이드", "subtitle": "보스를 쓰러트려라!",
+        {"title": _loc.get_text("mode.arcade", "아케이드"), "subtitle": _loc.get_text("mode.arcade_desc", "보스를 쓰러트려라!"),
          "top": (26, 26, 62), "bot": (58, 26, 94), "accent": (0, 200, 255), "icon": "VS",
          "preview": story_preview},
-        {"title": "투기장", "subtitle": "최강의 영웅은 누구?",
+        {"title": _loc.get_text("mode.colosseum", "투기장"), "subtitle": _loc.get_text("mode.colosseum_desc", "최강의 영웅은 누구?"),
          "top": (62, 26, 26), "bot": (62, 58, 26), "accent": (255, 200, 80), "icon": "PVP",
          "preview": arena_preview},
     ]
@@ -1652,14 +1660,15 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
 
         # 타이틀
         title_font = ctx.FontStyle.title_large()
-        ts = title_font.render("모드 선택", True, (255, 255, 255))
+        _loc = get_localization_manager()
+        ts = title_font.render(_loc.get_text("mode.select", "모드 선택"), True, (255, 255, 255))
         screen.blit(ts, ts.get_rect(center=(width // 2, 110)))
         # 서브타이틀
         sub_font = ctx.FontStyle.tiny()
-        ss = sub_font.render("플레이할 모드를 선택하세요", True, (150, 170, 200))
+        ss = sub_font.render(_loc.get_text("mode.select_desc", "플레이할 모드를 선택하세요"), True, (150, 170, 200))
         screen.blit(ss, ss.get_rect(center=(width // 2, 150)))
         # ESC 힌트
-        esc = sub_font.render("ESC: 뒤로", True, (100, 110, 130))
+        esc = sub_font.render(_loc.get_text("menu.esc_back", "ESC: 뒤로"), True, (100, 110, 130))
         screen.blit(esc, esc.get_rect(center=(width // 2, height - 50)))
 
         pygame.display.flip()
@@ -1678,10 +1687,11 @@ def _show_arena_sub_selection(ctx: "MenuContext", state: "MenuState") -> bool:
     EMBLEM_R = 90
     GAP = 40
 
+    _loc = get_localization_manager()
     emblems_info = [
-        {"label": "토너먼트", "sublabel": "8인 토너먼트 대전",
+        {"label": _loc.get_text("mode.tournament", "토너먼트"), "sublabel": _loc.get_text("mode.tournament_desc", "8인 토너먼트 대전"),
          "color": (80, 60, 20), "accent": (255, 215, 0), "icon": "T", "dimmed": False},
-        {"label": "도장깨기", "sublabel": "끊임없는 1:1 대결",
+        {"label": _loc.get_text("mode.dojo", "도장깨기"), "sublabel": _loc.get_text("mode.dojo_desc", "끊임없는 1:1 대결"),
          "color": (20, 60, 60), "accent": (0, 200, 200), "icon": "D", "dimmed": False},
     ]
 
@@ -1814,17 +1824,17 @@ def _show_arena_sub_selection(ctx: "MenuContext", state: "MenuState") -> bool:
 
         # 타이틀
         title_font = ctx.FontStyle.title_large()
-        ts = title_font.render("투기장", True, (255, 220, 100))
+        ts = title_font.render(_loc.get_text("mode.colosseum", "투기장"), True, (255, 220, 100))
         screen.blit(ts, ts.get_rect(center=(width // 2, 120)))
         sub_font = ctx.FontStyle.tiny()
-        ss = sub_font.render("모드를 선택하세요", True, (180, 170, 140))
+        ss = sub_font.render(_loc.get_text("mode.select_mode", "모드를 선택하세요"), True, (180, 170, 140))
         screen.blit(ss, ss.get_rect(center=(width // 2, 158)))
 
         # "준비 중입니다" 토스트 메시지
         if preparing_timer > 0:
             _toast_alpha = min(255, int(preparing_timer * 255))
             _toast_font = ctx.FontStyle.body()
-            _toast_surf = _toast_font.render("준비 중입니다", True, (255, 200, 100))
+            _toast_surf = _toast_font.render(_loc.get_text("menu.preparing", "준비 중입니다"), True, (255, 200, 100))
             _toast_bg = pygame.Surface((_toast_surf.get_width() + 30, _toast_surf.get_height() + 16), pygame.SRCALPHA)
             pygame.draw.rect(_toast_bg, (30, 30, 30, min(200, _toast_alpha)),
                              (0, 0, _toast_bg.get_width(), _toast_bg.get_height()), border_radius=8)
@@ -1835,7 +1845,7 @@ def _show_arena_sub_selection(ctx: "MenuContext", state: "MenuState") -> bool:
             screen.blit(_toast_bg, (_toast_bg.get_rect(center=(width // 2, height - 100))))
 
         # ESC 힌트
-        esc = sub_font.render("ESC: 뒤로", True, (100, 110, 130))
+        esc = sub_font.render(_loc.get_text("menu.esc_back", "ESC: 뒤로"), True, (100, 110, 130))
         screen.blit(esc, esc.get_rect(center=(width // 2, height - 50)))
 
         pygame.display.flip()
@@ -3194,7 +3204,7 @@ def _draw_titles(ctx: MenuContext, screen: pygame.Surface, width: int, animation
     title_rect = title_text.get_rect(center=(width // 2, title_y))
     screen.blit(title_text, title_rect)
 
-    subtitle_text = "탁구로 보스를 이겨라!"
+    subtitle_text = get_localization_manager().get_text("menu.subtitle", "탁구로 보스를 이겨라!")
     subtitle_color = (0, 255, 200)
     subtitle_surf = font_subtitle.render(subtitle_text, True, subtitle_color)
     subtitle_rect = subtitle_surf.get_rect(center=(width // 2, title_y + 45))

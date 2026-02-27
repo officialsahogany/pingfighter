@@ -12,6 +12,10 @@ import random
 import os
 import sys
 from typing import Dict, List, Optional, Tuple, Callable, NamedTuple
+from localization.manager import get_localization_manager
+
+def _t(key, fallback=None):
+    return get_localization_manager().get_text(key, fallback)
 
 # 리소스 경로 헬퍼 (PyInstaller 호환)
 def resource_path(relative_path):
@@ -563,6 +567,18 @@ class LegendaryItem:
         self.glow_intensity = 0
         self.particle_timer = 0
         
+    @property
+    def display_name(self) -> str:
+        return _t(f"legend.{self.name}", self.korean_name)
+
+    @property
+    def display_description(self) -> str:
+        return _t(f"legend.{self.name}.desc", self.description)
+
+    @property
+    def display_unlock(self) -> str:
+        return _t(f"legend.{self.name}.unlock", self.unlock_condition)
+
     def check_unlock_condition(self, game_stats: Dict) -> bool:
         """해금 조건 체크 - 각 아이템별로 오버라이드"""
         return False
