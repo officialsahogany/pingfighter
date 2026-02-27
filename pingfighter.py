@@ -5233,10 +5233,10 @@ def _draw_arena_skill_tooltip(surface: pygame.Surface, skill, slot_rect, hero_co
     cooldown = getattr(skill, 'cooldown', 0)
     current_cd = getattr(skill, 'current_cooldown', 0)
     if current_cd > 0:
-        cd_text = f"쿨타임: {current_cd:.1f}초"
+        cd_text = _t("ui.cooldown_fmt", "쿨타임: {0}초").format(f"{current_cd:.1f}")
         cd_color = (255, 180, 80)
     else:
-        cd_text = f"쿨타임: {cooldown}초"
+        cd_text = _t("ui.cooldown_fmt", "쿨타임: {0}초").format(cooldown)
         cd_color = (180, 180, 180)
     cd_surface, cd_rect = small_font.render(cd_text, cd_color)
     cd_x = tooltip_width - padding - cd_rect.width
@@ -5347,7 +5347,7 @@ def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
     cost = skill_data["cost"]
     can_use = current_gauge >= cost
     cost_color = (100, 255, 150) if can_use else (255, 100, 100)
-    cost_text = f"게이지 비용: {cost}"
+    cost_text = _t("ui.gauge_cost_fmt", "게이지 비용: {0}").format(cost)
     cost_surface, cost_rect = normal_font.render(cost_text, cost_color)
     tooltip_surface.blit(cost_surface, (padding, y_offset))
 
@@ -5355,10 +5355,10 @@ def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
     cooldown_ratio = get_smasher_skill_cooldown_remaining(skill_data["name"])
     if cooldown_ratio > 0:
         remaining = skill_data["cooldown"] * cooldown_ratio
-        cd_text = f"쿨타임: {remaining:.1f}초"
+        cd_text = _t("ui.cooldown_fmt", "쿨타임: {0}초").format(f"{remaining:.1f}")
         cd_color = (255, 180, 80)
     else:
-        cd_text = f"쿨타임: {skill_data['cooldown']}초"
+        cd_text = _t("ui.cooldown_fmt", "쿨타임: {0}초").format(skill_data['cooldown'])
         cd_color = (180, 180, 180)
     cd_surface, cd_rect = small_font.render(cd_text, cd_color)
     cd_x = tooltip_width - padding - cd_rect.width
@@ -5430,13 +5430,13 @@ def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
             render_x += 20
 
             # 설명 텍스트
-            desc_surface, _ = small_font.render("→ 해당 방향으로 커브샷", (255, 220, 100))
+            desc_surface, _ = small_font.render(_t("ui.curve_shot_desc", "→ 해당 방향으로 커브샷"), (255, 220, 100))
             tooltip_surface.blit(desc_surface, (render_x, render_y + 2))
 
             # 2줄: 타이밍 힌트
             render_x2 = padding + 8
             render_y2 = render_y + 20
-            tip_surface, _ = small_font.render("※ 드라이브 모니터 시 공이 오기 전 미리 입력!", (180, 180, 180))
+            tip_surface, _ = small_font.render(_t("ui.drive_timing_hint", "※ 드라이브 모니터 시 공이 오기 전 미리 입력!"), (180, 180, 180))
             tooltip_surface.blit(tip_surface, (render_x2, render_y2 + 2))
 
         elif how_to_use == "power_smashing":
@@ -5464,13 +5464,13 @@ def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
             render_x += 20
 
             # 홀드 텍스트 + 설명
-            hold_surface, _ = small_font.render("홀드 → 해당 방향으로 발사", (255, 200, 100))
+            hold_surface, _ = small_font.render(_t("ui.hold_direction_fire", "홀드 → 해당 방향으로 발사"), (255, 200, 100))
             tooltip_surface.blit(hold_surface, (render_x, render_y + 2))
 
             # 2줄: 단독 홀드 시 맞은 반대쪽으로 자동 발사
             render_x2 = padding + 8
             render_y2 = render_y + 20
-            tip_prefix, _ = small_font.render("※ 단독 ", (180, 180, 180))
+            tip_prefix, _ = small_font.render(_t("ui.hold_alone_prefix", "※ 단독 "), (180, 180, 180))
             tooltip_surface.blit(tip_prefix, (render_x2, render_y2 + 2))
             render_x2 += tip_prefix.get_width()
 
@@ -5479,7 +5479,7 @@ def _draw_smasher_skill_tooltip(surface: pygame.Surface, skill_data: dict,
             render_x2 += 18
 
             # 홀드 → 설명
-            tip_suffix, _ = small_font.render("홀드 → 맞은 반대쪽으로 자동 발사", (180, 180, 180))
+            tip_suffix, _ = small_font.render(_t("ui.hold_auto_fire", "홀드 → 맞은 반대쪽으로 자동 발사"), (180, 180, 180))
             tooltip_surface.blit(tip_suffix, (render_x2, render_y2 + 2))
 
         else:
@@ -5620,7 +5620,7 @@ def _draw_odin_swamp_tooltip(surface: pygame.Surface, mouse_pos: tuple, current_
     y_offset = padding
 
     # === 스킬명 (헤더 좌측) ===
-    name_surface, name_rect = title_font.render("어둠의 늪", (255, 255, 255))
+    name_surface, name_rect = title_font.render(_t("ui.darkness_swamp", "어둠의 늪"), (255, 255, 255))
     tooltip_surface.blit(name_surface, (padding, y_offset))
 
     # ACTIVE 라벨 (우측 상단)
@@ -5633,17 +5633,17 @@ def _draw_odin_swamp_tooltip(surface: pygame.Surface, mouse_pos: tuple, current_
     # === 게이지 비용 (좌측) + 쿨타임 (우측) - 같은 줄 ===
     can_use = current_gauge >= gauge_cost
     cost_color = (100, 255, 150) if can_use else (255, 100, 100)
-    cost_text = f"게이지 비용: {int(gauge_cost)}"
+    cost_text = _t("ui.gauge_cost_fmt", "게이지 비용: {0}").format(int(gauge_cost))
     cost_surface, cost_rect = normal_font.render(cost_text, cost_color)
     tooltip_surface.blit(cost_surface, (padding, y_offset))
 
     cd_ratio = odins_eye.get_dark_swamp_cooldown_ratio()
     if cd_ratio > 0:
         remaining = cooldown_sec * cd_ratio
-        cd_text = f"쿨타임: {remaining:.1f}초"
+        cd_text = _t("ui.cooldown_fmt", "쿨타임: {0}초").format(f"{remaining:.1f}")
         cd_color = (255, 180, 80)
     else:
-        cd_text = f"쿨타임: {cooldown_sec:.0f}초"
+        cd_text = _t("ui.cooldown_fmt", "쿨타임: {0}초").format(f"{cooldown_sec:.0f}")
         cd_color = (180, 180, 180)
     cd_surface, cd_rect = small_font.render(cd_text, cd_color)
     cd_x = tooltip_width - padding - cd_rect.width
@@ -5652,7 +5652,7 @@ def _draw_odin_swamp_tooltip(surface: pygame.Surface, mouse_pos: tuple, current_
     y_offset += 22
 
     # === 설명 ===
-    description = "가시를 보스 방향으로 발사하여 공을 반사하고 보스를 밀어냅니다!"
+    description = _t("ui.darkness_swamp_desc", "가시를 보스 방향으로 발사하여 공을 반사하고 보스를 밀어냅니다!")
     max_width = tooltip_width - padding * 2
     lines = []
     current_line = ""
@@ -5687,7 +5687,7 @@ def _draw_odin_swamp_tooltip(surface: pygame.Surface, mouse_pos: tuple, current_
     _draw_mouse_left_click_icon(tooltip_surface, render_x, render_y, 16, highlighted=True)
     render_x += 20
 
-    click_surface, _ = small_font.render("마우스 좌클릭으로 가시 발사", (255, 200, 100))
+    click_surface, _ = small_font.render(_t("ui.mouse_thorn_fire", "마우스 좌클릭으로 가시 발사"), (255, 200, 100))
     tooltip_surface.blit(click_surface, (render_x, render_y + 2))
 
     y_offset += how_to_box_height + 8
@@ -7573,29 +7573,29 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
         if _gh_type == "henchman":
             # 하수인: 순찰 없이 자동 발동
             if _gh_phase is not None:
-                _status = "발동 중"
+                _status = _t("ui.activating", "발동 중")
                 _status_color = (120, 255, 170)
             elif _gh_cd > 0:
-                _status = f"쿨타임: {_gh_cd:.1f}초"
+                _status = _t("ui.cooldown_fmt", "쿨타임: {0}초").format(f"{_gh_cd:.1f}")
                 _status_color = (255, 200, 100)
             else:
-                _status = "대기 중 (자동 발동)"
+                _status = _t("ui.standby_auto", "대기 중 (자동 발동)")
                 _status_color = (180, 220, 255)
         elif _gh_phase in ("patrolling", "patrol_entering"):
             if _gh_cd > 0:
-                _status = f"순찰 중 | 스킬: {_gh_cd:.1f}초"
+                _status = _t("ui.patrolling_skill_fmt", "순찰 중 | 스킬: {0}초").format(f"{_gh_cd:.1f}")
                 _status_color = (255, 200, 100)
             else:
-                _status = "순찰 중"
+                _status = _t("ui.patrolling", "순찰 중")
                 _status_color = (120, 255, 170)
         elif _gh_phase is not None:
-            _status = "전투 중"
+            _status = _t("ui.in_combat", "전투 중")
             _status_color = (120, 255, 170)
         elif _gh_cd > 0:
-            _status = f"쿨타임: {_gh_cd:.1f}초"
+            _status = _t("ui.cooldown_fmt", "쿨타임: {0}초").format(f"{_gh_cd:.1f}")
             _status_color = (255, 200, 100)
         else:
-            _status = "대기 중"
+            _status = _t("ui.standby", "대기 중")
             _status_color = (180, 220, 255)
 
         # 스킬 정보 준비 (모든 스킬)
@@ -7651,7 +7651,7 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
         _s_surf = _gh_small.render(_status, True, _status_color)
         _lines = [_s_surf]
         if _gh_next:
-            _nx_surf = _gh_small.render("▶ 다음 출격", True, (255, 200, 50))
+            _nx_surf = _gh_small.render(_t("ui.next_sortie", "▶ 다음 출격"), True, (255, 200, 50))
             _lines.append(_nx_surf)
 
         _tw = max(_name_row_w, max(s.get_width() for s in _lines)) + 20
@@ -7719,7 +7719,7 @@ def _draw_guard_hover_tooltip(target_screen, hover_info):
             _cy += 6
             # 다중 스킬 헤더
             if len(_gh_skills) > 1:
-                _hdr_surf = _gh_tiny.render("보유 스킬", True, (180, 180, 220))
+                _hdr_surf = _gh_tiny.render(_t("ui.owned_skills", "보유 스킬"), True, (180, 180, 220))
                 _tip_surf.blit(_hdr_surf, (12, _cy))
                 _cy += 27
             # 각 스킬 표시
@@ -17662,7 +17662,7 @@ def _swap_boss_in_current_stage():
         REAL_SCREEN.blit(overlay, (0, 0))
 
         # 타이틀
-        title_surf = _font.render(f"보스 교체 (Stage {stage})", True, (255, 255, 255))
+        title_surf = _font.render(_t("ui.boss_switch", "보스 교체 (Stage {0})").format(stage), True, (255, 255, 255))
         title_rect = title_surf.get_rect(centerx=INTERNAL_WIDTH // 2, y=INTERNAL_HEIGHT // 2 - 80)
         REAL_SCREEN.blit(title_surf, title_rect)
 
@@ -19197,7 +19197,7 @@ def show_runtime_skill_status():
             empty_rect = empty_text.get_rect(center=(WIDTH // 2, HEIGHT // 2))
             SCREEN.blit(empty_text, empty_rect)
 
-            hint_text = font_hint.render("스타포인트를 모아 퍽을 획득하세요", True, (80, 80, 100))
+            hint_text = font_hint.render(_t("ui.collect_starpoints", "스타포인트를 모아 퍽을 획득하세요"), True, (80, 80, 100))
             hint_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 35))
             SCREEN.blit(hint_text, hint_rect)
         else:
@@ -19269,11 +19269,11 @@ def show_runtime_skill_status():
                 pygame.draw.rect(SCREEN, (80, 80, 100), (scrollbar_x, handle_y, 8, handle_height), border_radius=4)
 
         # 하단 정보
-        hint_text = font_hint.render("ESC / Enter / 클릭으로 닫기  |  마우스를 올려 상세 정보 확인", True, (80, 80, 100))
+        hint_text = font_hint.render(_t("ui.close_perks_hint", "ESC / Enter / 클릭으로 닫기  |  마우스를 올려 상세 정보 확인"), True, (80, 80, 100))
         hint_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT - 20))
         SCREEN.blit(hint_text, hint_rect)
 
-        skill_count_text = font_hint.render(f"획득 퍽: {len(acquired_skills)}개", True, (100, 100, 120))
+        skill_count_text = font_hint.render(_t("ui.acquired_perks_fmt", "획득 퍽: {0}개").format(len(acquired_skills)), True, (100, 100, 120))
         SCREEN.blit(skill_count_text, (20, HEIGHT - 25))
 
         # 툴팁 그리기 (맨 마지막에 그려서 다른 요소 위에 표시)
@@ -21677,7 +21677,7 @@ def show_arena_perk_select_menu():
         SCREEN.blit(overlay, (0, 0))
 
         # 타이틀
-        title_surf = font_title.render("투기장 퍽 선택", True, (255, 215, 0))
+        title_surf = font_title.render(_t("ui.arena_perk_select", "투기장 퍽 선택"), True, (255, 215, 0))
         title_rect = title_surf.get_rect(center=(WIDTH // 2, 45))
         SCREEN.blit(title_surf, title_rect)
 
@@ -62314,7 +62314,7 @@ def draw_soldier_weapon_ui(screen):
                     # 포획 상태 펄스 애니메이션
                     trap_pulse = (math.sin(current_time * 0.015) + 1) / 2
                     trap_color = (255, int(200 + 55 * trap_pulse), int(100 + 55 * trap_pulse))
-                    trap_surface = font_small.render(f"★ 포획 {trap_time:.1f}s ★", True, trap_color)
+                    trap_surface = font_small.render(_t("ui.capture_fmt", "★ 포획 {0}s ★").format(f"{trap_time:.1f}"), True, trap_color)
                     screen.blit(trap_surface, (weapon_x - 8, weapon_y - 44))
         except Exception:
             pass
@@ -64098,7 +64098,7 @@ def draw_leg_shot_effect(screen):
                 alpha = int(255 * (1.0 - progress) / 0.3)
             
             # 텍스트 렌더링
-            text_surface, text_rect = font.render("레그샷!", (255, 255, 255))
+            text_surface, text_rect = font.render(_t("ui.leg_shot", "레그샷!"), (255, 255, 255))
             
             # 발광 효과를 위한 배경
             glow_surface = pygame.Surface((text_surface.get_width() + 20, text_surface.get_height() + 20), pygame.SRCALPHA)
@@ -64172,7 +64172,7 @@ def draw_head_shot_effect(screen):
                 alpha = int(255 * (1.0 - progress) / 0.3)
             
             # 텍스트 렌더링
-            text_surface, text_rect = font.render("헤드샷!", (255, 255, 255))
+            text_surface, text_rect = font.render(_t("ui.head_shot", "헤드샷!"), (255, 255, 255))
             
             # 발광 효과를 위한 배경
             glow_surface = pygame.Surface((text_surface.get_width() + 20, text_surface.get_height() + 20), pygame.SRCALPHA)
@@ -77212,7 +77212,7 @@ def draw_pachinko():
     # 제목 텍스트
     # 픽셀 폰트 타이틀
     title_font = FontStyle.title()  # 48pt 픽셀 폰트
-    title_text = title_font.render(" 슬롯머신", True, (255, 215, 0))
+    title_text = title_font.render(" " + _t("ui.slot_machine", "슬롯머신"), True, (255, 215, 0))
     title_rect = title_text.get_rect(center=(container_x + container_width // 2, container_y + 70))
     SCREEN.blit(title_text, title_rect)
     # 슬롯 영역
@@ -77567,7 +77567,7 @@ def draw_item_obtained_effect():
     SCREEN.blit(name_text, name_rect)
     # 획득 메시지 - 크기 50% 감소
     obtain_font = FontStyle.item_obtain()  # 11pt 픽셀 폰트
-    obtain_text = obtain_font.render("획득!", True, (255, 215, 0))
+    obtain_text = obtain_font.render(_t("ui.obtained", "획득!"), True, (255, 215, 0))
     obtain_text.set_alpha(item_obtained_effect["alpha"])
     obtain_rect = obtain_text.get_rect(center=(effect_x, effect_y + 65))  # 130 -> 65
     SCREEN.blit(obtain_text, obtain_rect)
@@ -78392,7 +78392,7 @@ def _draw_tutorial_skill_hover_gauge(target_screen, current_time, entrance_progr
     except:
         title_font = pygame.freetype.SysFont("malgun gothic", 13)
 
-    title_surf, title_rect = title_font.render("스킬 정보 확인", (255, 255, 255))
+    title_surf, title_rect = title_font.render(_t("ui.skill_info", "스킬 정보 확인"), (255, 255, 255))
     title_x = (gauge_width - title_rect.width) // 2
     panel_surf.blit(title_surf, (title_x, 8))
 
@@ -78440,7 +78440,7 @@ def _draw_tutorial_skill_hover_gauge(target_screen, current_time, entrance_progr
             name_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 10)
         except:
             name_font = pygame.freetype.SysFont("malgun gothic", 10)
-        name_surf, name_rect = name_font.render("드라이브", drive_data["color"])
+        name_surf, name_rect = name_font.render(_t("ui.drive", "드라이브"), drive_data["color"])
         name_x = left_icon_x + (icon_size - name_rect.width) // 2
         panel_surf.blit(name_surf, (name_x, icon_y + icon_size + 5))
 
@@ -78511,7 +78511,7 @@ def _draw_tutorial_skill_hover_gauge(target_screen, current_time, entrance_progr
             name_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 10)
         except:
             name_font = pygame.freetype.SysFont("malgun gothic", 10)
-        name_surf, name_rect = name_font.render("파워스매싱", power_data["color"])
+        name_surf, name_rect = name_font.render(_t("ui.power_smashing", "파워스매싱"), power_data["color"])
         name_x = right_icon_x + (icon_size - name_rect.width) // 2
         panel_surf.blit(name_surf, (name_x, icon_y + icon_size + 5))
 
@@ -78574,7 +78574,7 @@ def _draw_tutorial_skill_hover_gauge(target_screen, current_time, entrance_progr
             complete_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 16)
         except:
             complete_font = pygame.freetype.SysFont("malgun gothic", 16)
-        complete_surf, complete_rect = complete_font.render("완료!", (255, 215, 0))
+        complete_surf, complete_rect = complete_font.render(_t("ui.complete", "완료!"), (255, 215, 0))
         complete_x = (gauge_width - complete_rect.width) // 2
         panel_surf.blit(complete_surf, (complete_x, status_y))
     else:
@@ -78584,7 +78584,7 @@ def _draw_tutorial_skill_hover_gauge(target_screen, current_time, entrance_progr
         except:
             status_font = pygame.freetype.SysFont("malgun gothic", 14)
         completed_count = (1 if _tutorial_skill_hover_drive else 0) + (1 if _tutorial_skill_hover_power else 0)
-        status_text = f"{completed_count}/2 완료"
+        status_text = _t("ui.progress_fmt", "{0}/2 완료").format(completed_count)
         status_surf, status_rect = status_font.render(status_text, (200, 200, 200))
         status_x = (gauge_width - status_rect.width) // 2
         panel_surf.blit(status_surf, (status_x, status_y))
@@ -78705,7 +78705,7 @@ def _draw_tutorial_skill_use_gauge(target_screen, current_time, entrance_progres
             name_color = (100, 255, 100)
         else:
             name_color = drive_data["color"]
-        name_surf, name_rect = name_font.render("드라이브", name_color)
+        name_surf, name_rect = name_font.render(_t("ui.drive", "드라이브"), name_color)
         name_x = left_icon_x + (icon_size - name_rect.width) // 2
         panel_surf.blit(name_surf, (name_x, icon_y + icon_size + 8))
 
@@ -78716,10 +78716,10 @@ def _draw_tutorial_skill_use_gauge(target_screen, current_time, entrance_progres
             status_small_font = pygame.freetype.SysFont("malgun gothic", 9)
 
         if drive_completed:
-            status_text = "완료!"
+            status_text = _t("ui.complete", "완료!")
             status_color = (100, 255, 100)
         else:
-            status_text = "대기 중"
+            status_text = _t("ui.waiting", "대기 중")
             status_color = (180, 180, 180)
         status_surf, status_rect = status_small_font.render(status_text, status_color)
         status_x = left_icon_x + (icon_size - status_rect.width) // 2
@@ -78759,7 +78759,7 @@ def _draw_tutorial_skill_use_gauge(target_screen, current_time, entrance_progres
             name_color = (100, 255, 100)
         else:
             name_color = power_data["color"]
-        name_surf, name_rect = name_font.render("파워스매싱", name_color)
+        name_surf, name_rect = name_font.render(_t("ui.power_smashing", "파워스매싱"), name_color)
         name_x = right_icon_x + (icon_size - name_rect.width) // 2
         panel_surf.blit(name_surf, (name_x, icon_y + icon_size + 8))
 
@@ -78770,10 +78770,10 @@ def _draw_tutorial_skill_use_gauge(target_screen, current_time, entrance_progres
             status_small_font = pygame.freetype.SysFont("malgun gothic", 9)
 
         if power_completed:
-            status_text = "완료!"
+            status_text = _t("ui.complete", "완료!")
             status_color = (100, 255, 100)
         else:
-            status_text = "대기 중"
+            status_text = _t("ui.waiting", "대기 중")
             status_color = (180, 180, 180)
         status_surf, status_rect = status_small_font.render(status_text, status_color)
         status_x = right_icon_x + (icon_size - status_rect.width) // 2
@@ -78788,7 +78788,7 @@ def _draw_tutorial_skill_use_gauge(target_screen, current_time, entrance_progres
             complete_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 16)
         except:
             complete_font = pygame.freetype.SysFont("malgun gothic", 16)
-        complete_surf, complete_rect = complete_font.render("완료!", (255, 215, 0))
+        complete_surf, complete_rect = complete_font.render(_t("ui.complete", "완료!"), (255, 215, 0))
         complete_x = (gauge_width - complete_rect.width) // 2
         panel_surf.blit(complete_surf, (complete_x, status_y))
     else:
@@ -78798,7 +78798,7 @@ def _draw_tutorial_skill_use_gauge(target_screen, current_time, entrance_progres
         except:
             status_font = pygame.freetype.SysFont("malgun gothic", 14)
         completed_count = (1 if _tutorial_skill_used_drive else 0) + (1 if _tutorial_skill_used_power else 0)
-        status_text = f"{completed_count}/2 완료"
+        status_text = _t("ui.progress_fmt", "{0}/2 완료").format(completed_count)
         status_surf, status_rect = status_font.render(status_text, (200, 200, 200))
         status_x = (gauge_width - status_rect.width) // 2
         panel_surf.blit(status_surf, (status_x, status_y))
@@ -81118,7 +81118,7 @@ def _draw_arena_guard_tutorial() -> None:
                 _bub_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), int(14 * _ui_s))
             except Exception:
                 _bub_font = pygame.freetype.SysFont("malgun gothic", int(14 * _ui_s))
-            _txt_s, _txt_r = _bub_font.render("여기!", _main_color)
+            _txt_s, _txt_r = _bub_font.render(_t("ui.here", "여기!"), _main_color)
             _txt_r.center = (_bub_x, _bub_y - 1)
             target_screen.blit(_txt_s, _txt_r)
 
@@ -81406,7 +81406,7 @@ def _draw_arena_portrait_tutorial() -> None:
             _bub_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), int(14 * _ui_s))
         except Exception:
             _bub_font = pygame.freetype.SysFont("malgun gothic", int(14 * _ui_s))
-        _txt_s, _txt_r = _bub_font.render("여기!", _main_color)
+        _txt_s, _txt_r = _bub_font.render(_t("ui.here", "여기!"), _main_color)
         _txt_r.center = (_bub_x, _bub_y - 1)
         target_screen.blit(_txt_s, _txt_r)
 
@@ -81686,7 +81686,7 @@ def _draw_arena_speed_tutorial() -> None:
             _bub_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), int(14 * _ui_s))
         except Exception:
             _bub_font = pygame.freetype.SysFont("malgun gothic", int(14 * _ui_s))
-        _txt_s, _txt_r = _bub_font.render("여기!", _main_color)
+        _txt_s, _txt_r = _bub_font.render(_t("ui.here", "여기!"), _main_color)
         _txt_r.center = (_bub_x, _bub_y - 1)
         target_screen.blit(_txt_s, _txt_r)
 
@@ -81952,7 +81952,7 @@ def _draw_arena_henchman_tutorial() -> None:
             _bub_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), int(14 * _ui_s))
         except Exception:
             _bub_font = pygame.freetype.SysFont("malgun gothic", int(14 * _ui_s))
-        _txt_s, _txt_r = _bub_font.render("여기!", _main_color)
+        _txt_s, _txt_r = _bub_font.render(_t("ui.here", "여기!"), _main_color)
         _txt_r.center = (_bub_x, _bub_y - 1)
         target_screen.blit(_txt_s, _txt_r)
 
@@ -82971,7 +82971,7 @@ def _draw_ingame_tutorial() -> None:
         except:
             bubble_font = pygame.freetype.SysFont("malgun gothic", 14)
 
-        text_surf, text_rect = bubble_font.render("여기!", main_color)
+        text_surf, text_rect = bubble_font.render(_t("ui.here", "여기!"), main_color)
         text_rect.center = (bubble_x, bubble_y - 1)
         target_screen.blit(text_surf, text_rect)
 
@@ -90972,7 +90972,7 @@ def draw_player_gauge():
             base_x = player_rect.centerx - total_width / 2
             base_y = max(40, player_rect.top - slot_height - 28)
 
-            hint_surface = FontStyle.tiny().render("숫자키로 선택", True, (180, 220, 200))
+            hint_surface = FontStyle.tiny().render(_t("ui.select_by_number", "숫자키로 선택"), True, (180, 220, 200))
             hint_rect = hint_surface.get_rect(center=(player_rect.centerx, base_y - 20))
             SCREEN.blit(hint_surface, hint_rect)
 
@@ -97870,8 +97870,8 @@ def draw_objects():
 # === Stage 8 극정호신 오버레이 + 타이머 게이지 ===
     if current_stage == 8 and (stage8_superspeed_active or (stage8_superspeed_text_end_ms and pygame.time.get_ticks() < stage8_superspeed_text_end_ms)):
         text_font = FontStyle.title()
-        text_surface = text_font.render("극정호신!", True, (255, 230, 80))
-        shadow = text_font.render("극정호신!", True, (20, 10, 0))
+        text_surface = text_font.render(_t("ui.extreme_defense_excl", "극정호신!"), True, (255, 230, 80))
+        shadow = text_font.render(_t("ui.extreme_defense_excl", "극정호신!"), True, (20, 10, 0))
         cx = WIDTH // 2
         cy = HEIGHT // 2 - 40
         SCREEN.blit(shadow, text_surface.get_rect(center=(cx + 4, cy + 4)))
@@ -100021,12 +100021,12 @@ def draw_objects():
                     try:
                         # 강렬한 빨강-노랑 색상
                         text_color = (255, 100 + int(155 * fast_pulse), 0)
-                        text_surf = ui_manager.korean_font.render("연타!", True, text_color)
+                        text_surf = ui_manager.korean_font.render(_t("ui.mash", "연타!"), True, text_color)
                         text_surf.set_alpha(text_alpha)
                         text_rect = text_surf.get_rect(center=(text_x, text_y))
 
                         # 강렬한 그림자
-                        shadow_surf = ui_manager.korean_font.render("연타!", True, (0, 0, 0))
+                        shadow_surf = ui_manager.korean_font.render(_t("ui.mash", "연타!"), True, (0, 0, 0))
                         shadow_surf.set_alpha(int(200 * fade_alpha))
                         shadow_rect = shadow_surf.get_rect(center=(text_x + 3, text_y + 3))
 
@@ -106317,16 +106317,16 @@ def show_victory_screen(stage_cleared, reward):
             pygame.draw.rect(SCREEN, (20, 35, 70), panel_rect, border_radius=18)
             pygame.draw.rect(SCREEN, (0, 220, 255), panel_rect, 3, border_radius=18)
 
-            title_surface = title_font.render("또 뽑기를 진행할까요?", True, (255, 255, 255))
+            title_surface = title_font.render(_t("ui.gacha_retry", "또 뽑기를 진행할까요?"), True, (255, 255, 255))
             title_rect = title_surface.get_rect(center=(panel_rect.centerx, panel_rect.top + 60))
             SCREEN.blit(title_surface, title_rect)
 
-            message_surface = body_font.render("뽑기를 한 번 더 진행하면 2 별포인트가 차감됩니다.", True, (180, 220, 255))
+            message_surface = body_font.render(_t("ui.gacha_cost_notice", "뽑기를 한 번 더 진행하면 2 별포인트가 차감됩니다."), True, (180, 220, 255))
             message_rect = message_surface.get_rect(center=(panel_rect.centerx, panel_rect.top + 110))
             SCREEN.blit(message_surface, message_rect)
 
             if bonus_percent > 0:
-                bonus_surface = info_font.render(f"신화 아이템 확률 +{bonus_percent}% 보너스", True, (255, 210, 120))
+                bonus_surface = info_font.render(_t("ui.gacha_bonus", "신화 아이템 확률 +{0}% 보너스").format(bonus_percent), True, (255, 210, 120))
                 bonus_rect = bonus_surface.get_rect(center=(panel_rect.centerx, panel_rect.top + 150))
                 SCREEN.blit(bonus_surface, bonus_rect)
 
@@ -119567,7 +119567,7 @@ def show_item_manager_menu():
         tab_height = 40
         tab_y = 120
         tab_spacing = 10
-        tab_names = ["엑티브", "패시브", "화기류", "신화"]
+        tab_names = [_t("ui.active_tab", "엑티브"), _t("ui.passive_tab", "패시브"), _t("ui.firearm", "화기류"), _t("equip.mythic", "신화")]
         tab_colors = [
             (100, 150, 255),  # 엑티브 - 파란색
             (100, 255, 150),  # 패시브 - 초록색
@@ -120063,7 +120063,7 @@ def show_item_manager_menu():
                         SCREEN.blit(badge_surface, badge_rect.topleft)
         # 선택된 아이템 정보 표시
         info_y = grid_start_y + (grid_rows * (item_size + item_spacing)) + LARGE_SIZE
-        info_text = font_medium.render("선택된 아이템:", True, WHITE)
+        info_text = font_medium.render(_t("ui.selected_item", "선택된 아이템:"), True, WHITE)
         SCREEN.blit(info_text, (50, info_y))
         selected_items_text = ""
         if selected_category == 0:
@@ -120077,9 +120077,9 @@ def show_item_manager_menu():
                     if count > 1:
                         label = f"{label} x{count}"
                     parts.append(label)
-                selected_items_text = ", ".join(parts) if parts else "없음"
+                selected_items_text = ", ".join(parts) if parts else _t("ui.none", "없음")
             else:
-                selected_items_text = "없음"
+                selected_items_text = _t("ui.none", "없음")
         elif selected_category == 1:
             if selected_passive_items:
                 parts = []
@@ -120093,13 +120093,13 @@ def show_item_manager_menu():
                     if cnt > 1:
                         label = f"{label} x{cnt}"
                     parts.append(label)
-                selected_items_text = ", ".join(parts) if parts else "없음"
+                selected_items_text = ", ".join(parts) if parts else _t("ui.none", "없음")
             else:
-                selected_items_text = "없음"
+                selected_items_text = _t("ui.none", "없음")
         elif selected_category == 2:
-            selected_items_text = ", ".join([get_item_name_korean(name) for name in selected_firearm_items]) if selected_firearm_items else "없음"
+            selected_items_text = ", ".join([get_item_name_korean(name) for name in selected_firearm_items]) if selected_firearm_items else _t("ui.none", "없음")
         else:  # 전설 카테고리
-            selected_items_text = ", ".join([item["korean_name"] for item in legendary_items if item["name"] in selected_legendary_items]) if selected_legendary_items else "없음"
+            selected_items_text = ", ".join([item["korean_name"] for item in legendary_items if item["name"] in selected_legendary_items]) if selected_legendary_items else _t("ui.none", "없음")
         # 시너지 효과가 포함된 경우 보라색으로 표시
         text_color = (200, 200, 200)  # 기본 색상
         if get_passive_count("gravitybelt") > 0:
@@ -120177,7 +120177,7 @@ def show_item_manager_menu():
             pygame.draw.rect(panel_surface, (28, 32, 60, 235), panel_surface.get_rect(), border_radius=18)
             pygame.draw.rect(panel_surface, (255, 220, 120), panel_surface.get_rect(), 3, border_radius=18)
 
-            title_surface = font_medium.render("엑티브 아이템 수량", True, WHITE)
+            title_surface = font_medium.render(_t("ui.active_item_count", "엑티브 아이템 수량"), True, WHITE)
             title_rect = title_surface.get_rect(center=(panel_width // 2, 40))
             panel_surface.blit(title_surface, title_rect)
 
@@ -140519,9 +140519,9 @@ def show_death_evaluation():
                 return 20 + rows_used * (icon_size + icon_gap)
 
             if acquired_passive_items:
-                item_y += _draw_item_icons(acquired_passive_items, item_y, "패시브", (100, 200, 255))
+                item_y += _draw_item_icons(acquired_passive_items, item_y, _t("ui.passive_tab", "패시브"), (100, 200, 255))
             if acquired_active_items:
-                item_y += _draw_item_icons(acquired_active_items, item_y, "액티브", (255, 180, 100))
+                item_y += _draw_item_icons(acquired_active_items, item_y, _t("ui.active_tab", "액티브"), (255, 180, 100))
             if not acquired_passive_items and not acquired_active_items:
                 no_item = font_detail.render(_t("ui.no_items_acquired", "획득한 아이템이 없습니다."), True, (150, 150, 150))
                 SCREEN.blit(no_item, (content_x + 20, y_cursor + 42))

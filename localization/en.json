@@ -1652,5 +1652,15 @@
   "ui.revival_excl": "Revived!",
   "ui.angel_dice_result": "Dice Result: {0}",
   "ui.angel_press_space": "Press Spacebar to continue",
-  "ui.angel_rolling": "Rolling the dice..."
+  "ui.angel_rolling": "Rolling the dice...",
+  "ui.gauge_cost_fmt": "Gauge Cost: {0}",
+  "ui.cooldown_fmt": "Cooldown: {0}s",
+  "ui.darkness_swamp_desc": "Fire thorns towards the boss to reflect the ball and push it back!",
+  "ui.close_perks_hint": "ESC / Enter / Click to close  |  Hover for details",
+  "ui.activating": "Active",
+  "ui.standby_auto": "Standby (Auto)",
+  "ui.patrolling_skill_fmt": "Patrol | Skill: {0}s",
+  "ui.patrolling": "Patrolling",
+  "ui.in_combat": "In Combat",
+  "ui.standby": "Standby"
 }

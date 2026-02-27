@@ -5208,7 +5208,7 @@ class AngelBlessing(LegendaryItem):
 
         # 제목 "천사의 가호"
         if title_font:
-            title_surf, title_rect = title_font.render("천사의 가호", (220, 200, 255))
+            title_surf, title_rect = title_font.render(_t("legend.angel_blessing", "천사의 가호"), (220, 200, 255))
             title_rect.centerx = screen_w // 2
             title_rect.y = panel_y + 20
             screen.blit(title_surf, title_rect)
@@ -5444,7 +5444,7 @@ class AngelBlessing(LegendaryItem):
                 dice_rect.y = dice_number_y
                 screen.blit(dice_surf, dice_rect)
             elif small_font:
-                result_surf, result_rect = small_font.render(f"주사위 결과: {self.roll_face}", (255, 220, 150))
+                result_surf, result_rect = small_font.render(_t("ui.angel_dice_result", "주사위 결과: {0}").format(self.roll_face), (255, 220, 150))
                 result_rect.centerx = screen_w // 2
                 result_rect.y = dice_number_y
                 screen.blit(result_surf, result_rect)
@@ -5500,7 +5500,7 @@ class AngelBlessing(LegendaryItem):
                 if waiting_for_space:
                     # 깜빡이는 효과
                     blink = int(128 + 127 * math.sin(anim_time * 3))
-                    prompt_surf, prompt_rect = small_font.render("스페이스바를 눌러 계속하기", (255, 255, blink))
+                    prompt_surf, prompt_rect = small_font.render(_t("ui.angel_press_space", "스페이스바를 눌러 계속하기"), (255, 255, blink))
                     prompt_rect.centerx = screen_w // 2
                     prompt_rect.y = panel_y + panel_height - 40
                     screen.blit(prompt_surf, prompt_rect)
@@ -5542,7 +5542,7 @@ class AngelBlessing(LegendaryItem):
         else:
             # 굴리는 중 - ??? 표시
             if small_font:
-                rolling_surf, rolling_rect = small_font.render("주사위를 굴리는 중...", (200, 180, 255))
+                rolling_surf, rolling_rect = small_font.render(_t("ui.angel_rolling", "주사위를 굴리는 중..."), (200, 180, 255))
                 rolling_rect.centerx = screen_w // 2
                 rolling_rect.y = results_y
                 screen.blit(rolling_surf, rolling_rect)
@@ -8007,11 +8007,11 @@ class OdinsEye(LegendaryItem):
                         text_alpha = int(255 * min(1.0, (burst_progress - 0.3) * 2))
                         # 글로우 효과
                         glow_font = pygame.freetype.Font(font_path, 26)
-                        glow_surf, glow_rect = glow_font.render("부활!", (120, 60, 140))
+                        glow_surf, glow_rect = glow_font.render(_t("ui.revival_excl", "부활!"), (120, 60, 140))
                         glow_surf.set_alpha(text_alpha // 2)
                         screen.blit(glow_surf, (px - glow_rect.width // 2, silhouette_center_y - 52))
                         # 본 텍스트
-                        text_surf, text_rect = font.render("부활!", (200, 120, 180))
+                        text_surf, text_rect = font.render(_t("ui.revival_excl", "부활!"), (200, 120, 180))
                         text_surf.set_alpha(text_alpha)
                         screen.blit(text_surf, (px - text_rect.width // 2, silhouette_center_y - 50))
                 except Exception:

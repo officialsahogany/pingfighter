@@ -1652,5 +1652,15 @@
   "ui.revival_excl": "부활!",
   "ui.angel_dice_result": "주사위 결과: {0}",
   "ui.angel_press_space": "스페이스바를 눌러 계속하기",
-  "ui.angel_rolling": "주사위를 굴리는 중..."
+  "ui.angel_rolling": "주사위를 굴리는 중...",
+  "ui.gauge_cost_fmt": "게이지 비용: {0}",
+  "ui.cooldown_fmt": "쿨타임: {0}초",
+  "ui.darkness_swamp_desc": "가시를 보스 방향으로 발사하여 공을 반사하고 보스를 밀어냅니다!",
+  "ui.close_perks_hint": "ESC / Enter / 클릭으로 닫기  |  마우스를 올려 상세 정보 확인",
+  "ui.activating": "발동 중",
+  "ui.standby_auto": "대기 중 (자동 발동)",
+  "ui.patrolling_skill_fmt": "순찰 중 | 스킬: {0}초",
+  "ui.patrolling": "순찰 중",
+  "ui.in_combat": "전투 중",
+  "ui.standby": "대기 중"
 }
