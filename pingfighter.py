@@ -58126,10 +58126,11 @@ def update_web_rescue():
             web_rescue_timer = 0
 
     elif web_rescue_phase == "release":
-        # 공 재발사 — 플레이어 방향으로 강하게
+        # 공 재발사 — 속도 8 고정
         import random as _rng
-        ball_vel[0] = _rng.uniform(-7.5, 7.5)
-        ball_vel[1] = _rng.uniform(21.0, 27.0)  # 타격 발사 (3배속)
+        angle = _rng.uniform(-0.3, 0.3)  # 약간의 좌우 각도
+        ball_vel[0] = 8.0 * math.sin(angle)
+        ball_vel[1] = 8.0 * math.cos(angle)
         web_rescue_active = False
         web_rescue_phase = ""
 
