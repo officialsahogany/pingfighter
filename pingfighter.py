@@ -58044,7 +58044,7 @@ def activate_web_rescue():
 def update_web_rescue():
     """거미줄 구출 스킬 매 프레임 업데이트."""
     global web_rescue_active, web_rescue_phase, web_rescue_timer
-    global web_rescue_ball_x, web_rescue_ball_y, ball_vel
+    global web_rescue_ball_x, web_rescue_ball_y, web_rescue_boss_start_x, ball_vel
 
     if not web_rescue_active:
         return
