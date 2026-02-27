@@ -932,6 +932,7 @@ class DowntownManager:
         ap_cost = building_info['ap_cost']
 
         self.building_dialog_selection = 0  # 기본값: 예
+        self._reset_player_input_state()  # 이동 입력 초기화
         self.building_confirmation_dialog = {
             'building_type': building_type,
             'building_name': building_name,
@@ -956,6 +957,7 @@ class DowntownManager:
     def _show_save_dialog(self):
         """저장 NPC 다이얼로그 표시"""
         self.save_dialog_selection = 0  # 기본값: 예
+        self._reset_player_input_state()  # 이동 입력 초기화
         self.save_dialog_active = True
 
     def _handle_save_dialog_click(self, mouse_pos):
@@ -1271,8 +1273,11 @@ class DowntownManager:
                 self.renderer.draw_interaction_hint(self.screen, info, self.font_medium)
             elif target['type'] == 'exit':
                 exit_info = {
+                    'loc_key': 'exit',
                     'name': '다음 스테이지',
+                    'name_en': 'Next Stage',
                     'description': '번화가를 떠나 다음 스테이지로 이동합니다',
+                    'description_en': 'Leave the downtown and proceed to the next stage',
                     'ap_cost': 0,
                     'color': Colors.NEON_ORANGE
                 }
