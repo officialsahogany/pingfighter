@@ -58501,13 +58501,6 @@ def update_spider_rage():
                 "rage": True
             })
             finished.append(proj)
-            # 착지 사운드
-            try:
-                snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "steambarrior.wav")))
-                snd.set_volume(0.4)
-                snd.play()
-            except Exception:
-                pass
     for f in finished:
         spider_rage_projectiles.remove(f)
 
