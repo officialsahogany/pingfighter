@@ -2121,6 +2121,7 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
     paddle_hit_sound = int(settings.get_setting("audio", "paddle_hit_sound", 1))
     ball_type = settings.get_setting("gameplay", "ball_type", "energy")
     current_language = settings.get_setting("language", "language", "ko")
+    _loc.set_language(current_language)  # 폰트 언어 동기화 (ja/zh → CJK 폰트)
 
     # 패들 타격 사운드 프리로드
     _paddle_sounds = {}

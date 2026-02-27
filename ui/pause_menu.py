@@ -218,6 +218,7 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
     modern_loop_enabled = ctx.get_modern_loop_enabled()
     # 언어 설정
     current_language = settings.get_setting('language', 'language', 'ko')
+    _loc.set_language(current_language)  # 폰트 언어 동기화 (ja/zh → CJK 폰트)
 
     # 패들 타격 사운드 프리로드
     _paddle_sounds = {}

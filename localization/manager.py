@@ -29,6 +29,12 @@ class LocalizationManager:
         self._current_language = language_code
         # 미리 로드 실패 대비
         self._ensure_language_loaded(language_code)
+        # 폰트 언어 동기화 (ja/zh → CJK 폰트 전환)
+        try:
+            from pixel_font_manager import set_font_language
+            set_font_language(language_code)
+        except Exception:
+            pass
 
     def get_text(self, key: str, fallback: Optional[str] = None) -> str:
         """현재 언어 기준으로 번역문 반환"""

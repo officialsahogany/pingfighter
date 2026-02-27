@@ -55,8 +55,25 @@ if not os.path.exists(PIXEL_FONT_PATH):
 FALLBACK_FONT_BOLD = _fallback_nanum_bold
 FALLBACK_FONT_REGULAR = _fallback_nanum_regular
 
+# CJK 폰트 (일본어/중국어용) — Pretendard는 한/중/일 모두 지원
+CJK_FONT_BOLD = resource_path("Pretendard-Bold.ttf")
+CJK_FONT_REGULAR = resource_path("Pretendard-Regular.ttf")
+
 # 픽셀 폰트 사용 여부 (항상 True)
 USE_PIXEL_FONT = True
+
+# 현재 폰트 언어 (ko/en은 픽셀폰트, ja/zh는 Pretendard)
+_current_font_language = "ko"
+
+def set_font_language(lang_code):
+    """언어 변경 시 폰트 캐시 초기화 및 언어 설정"""
+    global _current_font_language, _font_cache
+    if lang_code != _current_font_language:
+        _current_font_language = lang_code
+        _font_cache.clear()  # 언어 변경 시 캐시 무효화
+
+def get_font_language():
+    return _current_font_language
 
 # Windows 한글 폰트 폴백 (최후의 수단)
 if sys.platform == "win32":
@@ -189,12 +206,25 @@ def get_font(size, style="regular", force_pixel=None, no_scale=False):
     if not no_scale and _fullscreen_font_scale > 1.0:
         size = int(size * _fullscreen_font_scale)
 
-    # 캐시 키 생성
-    cache_key = (size, style, use_pixel, no_scale)
+    # 일본어/중국어는 CJK 폰트(Pretendard) 사용 (픽셀폰트 미지원)
+    is_cjk = _current_font_language in ("ja", "zh")
+
+    # 캐시 키 생성 (언어별 분리)
+    cache_key = (size, style, use_pixel, no_scale, _current_font_language)
 
     # 캐시에 있으면 반환
     if cache_key in _font_cache:
         return _font_cache[cache_key]
+
+    # ja/zh → Pretendard CJK 폰트 우선 사용
+    if is_cjk:
+        try:
+            cjk_path = CJK_FONT_BOLD if style == "bold" else CJK_FONT_REGULAR
+            font = pygame.font.Font(cjk_path, size)
+            _font_cache[cache_key] = font
+            return font
+        except Exception as e:
+            print(f"⚠️ CJK 폰트 로드 실패: {e}")
 
     # 픽셀 폰트 크기 조정
     adjusted_size = adjust_pixel_size(size) if use_pixel else size
