@@ -133686,7 +133686,7 @@ def handle_ball():
                 show_winner_text("플레이어")
             show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
                        player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
-                       boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else None)
+                       boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else current_boss_name)
             # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
@@ -133874,7 +133874,7 @@ def handle_ball():
                 show_winner_text("플레이어")
             show_score(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
                        player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
-                       boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else None)
+                       boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else current_boss_name)
             # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
@@ -133926,7 +133926,7 @@ def handle_ball():
             # 듀스 시작/재시작 시 점수 표시 업데이트
             show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
                        player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
-                       boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else None)
+                       boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else current_boss_name)
             # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
@@ -134362,7 +134362,7 @@ def handle_ball():
             show_winner_text(boss_name)
             show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
                        player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
-                       boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else None)
+                       boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else current_boss_name)
             # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
@@ -134539,7 +134539,7 @@ def handle_ball():
             show_winner_text(boss_name)
             show_score(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
                        player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
-                       boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else None)
+                       boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else current_boss_name)
             # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
@@ -134574,7 +134574,7 @@ def handle_ball():
             # 듀스 시작/재시작 시 점수 표시 업데이트
             show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
                        player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
-                       boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else None)
+                       boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else current_boss_name)
             # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
@@ -147730,7 +147730,7 @@ def main(stage_num, new_boss_mode=False):
                                     show_winner_text(boss_name)
                                     show_score(SCREEN, deuce_wins, deuce_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
                                                player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
-                                               boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else None)
+                                               boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else current_boss_name)
                                     if selected_character_type == "soldier":
                                         draw_soldier_weapon_ui(SCREEN)
                                     draw_score()
@@ -147764,7 +147764,7 @@ def main(stage_num, new_boss_mode=False):
                                     # 👁 점수 표시 추가 (누락되었던 부분)
                                     show_score(SCREEN, round_wins, round_losses, WIDTH, HEIGHT, draw_field, draw_objects, current_stage,
                                                player_name=arena_bottom_hero.get("name") if arena_mode_enabled and arena_bottom_hero else None,
-                                               boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else None)
+                                               boss_name=arena_top_hero.get("name") if arena_mode_enabled and arena_top_hero else current_boss_name)
                                     if selected_character_type == "soldier":
                                         draw_soldier_weapon_ui(SCREEN)
                                     draw_score()
