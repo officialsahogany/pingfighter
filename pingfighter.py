@@ -53470,11 +53470,10 @@ def go_to_next_round():
     tunnel_raid_spikes.clear()
     tunnel_raid_spike_count = 0
     tunnel_raid_spike_timer = 0
-    # Stage 2 두더지왕 회전발톱 초기화
+    # Stage 2 두더지왕 회전발톱 초기화 (쿨타임은 라운드 간 유지)
     global spinning_claw_active, spinning_claw_timer, spinning_claw_last_used
     spinning_claw_active = False
     spinning_claw_timer = 0
-    spinning_claw_last_used = -9999
     # Stage 2 아라크네 거미줄 장판 초기화
     global web_traps, web_trap_last_used
     web_traps.clear()
