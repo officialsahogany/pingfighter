@@ -52836,23 +52836,12 @@ bazooka_screen_shake_timer = 0  # 바주카포 폭발 화면 흔들림 타이머
 earthquake_offset_x = 0
 earthquake_offset_y = 0
 
-# === 히트 프리즈 + 화면 플래시 시스템 ===
-hit_freeze_frames = 0          # 남은 프리즈 프레임 수 (0이면 비활성)
-screen_flash_timer = 0         # 플래시 남은 프레임
-screen_flash_alpha = 0         # 플래시 알파값
-_screen_flash_surface = None   # 플래시용 캐시 Surface
-
 # === 화면 전환 효과 시스템 ===
 screen_transition_active = False
 screen_transition_progress = 0.0   # 0.0 ~ 1.0
 screen_transition_phase = "out"    # "out" (어두워짐) or "in" (밝아짐)
 screen_transition_speed = 0.04     # 프레임당 진행률 (~0.4초)
 _screen_transition_surface = None  # 전환용 캐시 Surface
-
-# === 보스 HP바 개선 시스템 ===
-boss_hp_damage_delay_timer = 0    # 데미지 프리뷰 딜레이 (프레임)
-boss_hp_glow_timer = 0            # HP 급감 글로우 타이머
-boss_hp_last_health = -1          # 이전 프레임 HP (급감 감지용)
 
 
 def play_fade_transition(fade_out_frames=18, fade_in_frames=18):
@@ -64844,7 +64833,6 @@ def handle_player(keys):
     global boost_charging_effect_timer, boost_charging_effect_x, boost_charging_effect_y
     global current_speed, player_slow_timer, player_slow_timer_max, player_slow_factor
     global wall_bounce_count, last_wall_hit, last_paddle_hit_time  # 무승부 판정 변수
-    global hit_freeze_frames, screen_flash_timer, screen_flash_alpha  # 히트 피드백
     global rolling_consecutive_count, rolling_consecutive_timer  #  연속 대쉬 카운터 및 타이머
     global ball_x, ball_y  # AK-47 연사용 공 위치 공유
     global half_dash_used_flag  #  하프대쉬 사용 플래그
@@ -70881,9 +70869,6 @@ def handle_player(keys):
 
         # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
         update_ball_rally("player")
-
-        # 🎮 히트 프리즈 (타격감 향상) — 화면 플래시 제거
-        hit_freeze_frames = 3   # 3프레임 게임 로직 정지
 
         # 투기장 모드: 하단 영웅 무기 휘두르기 애니메이션 트리거
         if arena_mode_enabled and arena_bottom_hero and arena_hero_paddle_renderer:
@@ -124980,11 +124965,6 @@ def draw_field():
     global psycho_bg_timer, earthquake_offset_x, earthquake_offset_y
     global special_gauge, gauge_charge_animation_timer, gauge_charge_animation_amount, special_ready
 
-    # 🎮 패럴랙스 오프셋 계산 (공 위치 기반)
-    _parallax_x = (BALL.centerx - 380) * 0.02  # 최대 ±6px
-    _parallax_y = (BALL.centery - 375) * 0.015  # 최대 ±5.6px
-    _parallax = (_parallax_x, _parallax_y)
-
     # 필러 배경 타입 설정 (전체화면/창모드 모두, 실제 그리기는 _fullscreen_flip에서)
     if _is_fullscreen_active and pillar_renderer is not None:
         # 스테이지 진입 시 동적 배경으로 전환
@@ -125090,7 +125070,7 @@ def draw_field():
         # 스테이지1에서는 애니메이션 배경 사용
         animated_bg.update(clock.get_time())
         # 배경을 화면에 직접 그리기 (패럴랙스 오프셋 적용)
-        animated_bg.draw(SCREEN, parallax_offset=_parallax)
+        animated_bg.draw(SCREEN)
 
         # Stage 1 필드 중앙 태극문양에 회색 테두리 추가 (백업 이미지와 동일)
         taegeuk_center_x = WIDTH // 2
@@ -125116,7 +125096,7 @@ def draw_field():
             animated_bg_stage2.update(clock.get_time(), BALL.centerx, BALL.centery,
                                     BOSS.centerx, PLAYER.centerx, round_wins, round_losses)
         # 직접 SCREEN에 그리기 (패럴랙스 오프셋 적용)
-        animated_bg_stage2.draw(SCREEN, parallax_offset=_parallax)
+        animated_bg_stage2.draw(SCREEN)
         # Stage 2 물대포 및 파편 렌더링
         draw_water_cannon_target_highlight(SCREEN)
         draw_water_cannon_charging(SCREEN)
@@ -125141,7 +125121,7 @@ def draw_field():
         # 스테이지3에서는 멘헤라 월드 맵 사용 (감정 폭주 시 제외)
         # 라운드 정보 전달 (라운드 승리 + 패배)
         animated_bg_stage3.update(clock.get_time(), round_wins + round_losses)
-        animated_bg_stage3.draw(SCREEN, ball_pos=(BALL.centerx, BALL.centery), parallax_offset=_parallax)
+        animated_bg_stage3.draw(SCREEN, ball_pos=(BALL.centerx, BALL.centery))
 
         # 씹는 이펙트 그리기
         if kuromi_eating_active and animated_bg_stage3:
@@ -125151,15 +125131,15 @@ def draw_field():
         # Calculate dt for performance monitoring
         dt = clock.get_time() / 1000.0 if 'clock' in globals() else 0.016
         animated_bg_stage4.update(dt)  # Pass dt for FPS detection
-        animated_bg_stage4.draw(SCREEN, parallax_offset=_parallax)
+        animated_bg_stage4.draw(SCREEN)
     elif current_stage == 5 and animated_bg_stage5 is not None:
         # 스테이지5에서는 중국 전통시장 화염 맵 사용
         animated_bg_stage5.update(clock.get_time())
-        animated_bg_stage5.draw(SCREEN, parallax_offset=_parallax)
+        animated_bg_stage5.draw(SCREEN)
     elif current_stage == 6 and animated_bg_stage6 is not None:
         # 스테이지6에서는 언더워터 사이버펑크 스타디움 애니메이션 배경 사용
         animated_bg_stage6.update()
-        animated_bg_stage6.draw(SCREEN, parallax_offset=_parallax)
+        animated_bg_stage6.draw(SCREEN)
     elif current_stage == 7 and animated_bg_stage7 is not None:
         valthor_perf_start("stage7_bg_update")
         elapsed_ms = clock.get_time() if 'clock' in globals() else 16
@@ -125193,7 +125173,6 @@ def draw_field():
         animated_bg_stage7.draw(
             SCREEN,
             offset=(screen_shake_offset_x, screen_shake_offset_y),
-            parallax_offset=_parallax,
         )
         valthor_perf_end("stage7_bg_draw")
         # 폭발 요청이 발생한 프레임에 테트로미노 일괄 해체 및 폭발 이펙트 실행
@@ -125210,7 +125189,6 @@ def draw_field():
         animated_bg_stage8.draw(
             SCREEN,
             offset=(screen_shake_offset_x, screen_shake_offset_y),
-            parallax_offset=_parallax,
         )
     elif current_stage == 30 and animated_bg_stage30 is not None:
         # 스테이지30: 투기장 (콜로세움) 애니메이션 배경 - 배속 연동
@@ -127773,35 +127751,20 @@ def draw_arena_speed_buttons(surface):
             pass
 
 def draw_boss_health_bar():
-    """ 메카닉 스타일 보스 체력바 (스무스 애니메이션 + 딜레이 잔상)"""
+    """ 메카닉 스타일 보스 체력바 (스무스 애니메이션)"""
     global boss_displayed_health, boss_damage_preview_health
-    global boss_hp_damage_delay_timer, boss_hp_glow_timer, boss_hp_last_health
     if current_stage not in boss_health_stages:
         return
-    # HP 급감 감지 (글로우 효과 트리거)
-    if boss_hp_last_health < 0:
-        boss_hp_last_health = boss_current_health
-    if boss_hp_last_health > boss_current_health:
-        hp_drop = boss_hp_last_health - boss_current_health
-        if hp_drop >= 1:
-            boss_hp_glow_timer = 45  # 0.75초 글로우
-            boss_hp_damage_delay_timer = 18  # 0.3초 딜레이 후 잔상 감소 시작
-    boss_hp_last_health = boss_current_health
     # 스무스한 체력 감소 애니메이션
     if boss_displayed_health > boss_current_health:
         boss_displayed_health -= 0.3  # 부드럽게 감소
         if boss_displayed_health < boss_current_health:
             boss_displayed_health = boss_current_health
-    # 데미지 프리뷰 감소 (딜레이 후 느리게)
-    if boss_hp_damage_delay_timer > 0:
-        boss_hp_damage_delay_timer -= 1
-    elif boss_damage_preview_health > boss_current_health:
-        boss_damage_preview_health -= 0.08  # 더 느리게 (0.15 → 0.08)
+    # 데미지 프리뷰 감소
+    if boss_damage_preview_health > boss_current_health:
+        boss_damage_preview_health -= 0.15
         if boss_damage_preview_health < boss_current_health:
             boss_damage_preview_health = boss_current_health
-    # 글로우 타이머 감소
-    if boss_hp_glow_timer > 0:
-        boss_hp_glow_timer -= 1
     # 보스 패들 위치에 맞춰 체력바 위치 계산
     health_bar_x = BOSS.centerx - boss_health_bar_width // 2
     health_bar_y = BOSS.bottom + 35
@@ -127890,13 +127853,7 @@ def draw_boss_health_bar():
         pygame.draw.rect(warning_surface, (255, 0, 0, warning_alpha),
                         (0, 0, boss_health_bar_width + 10, boss_health_bar_height + 10), 2)
         SCREEN.blit(warning_surface, (health_bar_x - 5, health_bar_y - 5))
-    # === HP 급감 글로우 효과 ===
-    if boss_hp_glow_timer > 0:
-        glow_alpha = int(60 * (boss_hp_glow_timer / 45.0))
-        if glow_alpha > 0:
-            glow_surf = pygame.Surface((boss_health_bar_width + 16, boss_health_bar_height + 16), pygame.SRCALPHA)
-            glow_surf.fill((255, 80, 40, glow_alpha))
-            SCREEN.blit(glow_surf, (health_bar_x - 8, health_bar_y - 8))
+
 def show_fade_text(message):
     """깔끔하고 미니멀한 인게임 텍스트 애니메이션"""
     # 메시지 타입 분석
@@ -130282,7 +130239,6 @@ def handle_ball():
     global odins_eye_revival_anim_active, odins_eye_revival_anim_pending_reset
     global wall_bounce_count, last_wall_hit, last_paddle_hit_time  # 무승부 판정 변수
     global game_state  # GameState 인스턴스 추가
-    global hit_freeze_frames, screen_flash_timer, screen_flash_alpha  # 히트 피드백
     # 튜토리얼 관련 변수들
     global tutorial_half_dash_pending, tutorial_consecutive_dash_pending
     global tutorial_half_dash_count, tutorial_consecutive_dash_count
@@ -130940,7 +130896,6 @@ def handle_ball():
     global wall_bounce_count, last_wall_hit, last_paddle_hit_time  # 무승부 판정 변수
     global game_state  # GameState 인스턴스 추가
     global last_hit_by  # 마지막으로 공을 친 사람 추적
-    global hit_freeze_frames, screen_flash_timer, screen_flash_alpha  # 히트 피드백
     global nemesis_sub_boss_skill_triggered  # 보조 보스 전기 스킬 발동 예약
     global spider_rage_pending  # 아라크네 분노 이벤트 예약
     # 플레이어 & 보스 게이지/스킬 시스템
@@ -135532,9 +135487,6 @@ def handle_ball():
         # 일반 충돌 처리 (고스트샷도 종료 후 일반 충돌 처리)
         last_hit_by = "boss"  # 보스가 공을 쳤음을 기록
         game_vars.ball.last_hit_by = "boss"  # game_vars에도 업데이트
-
-        # 🎮 히트 프리즈 (보스 패들 충돌) — 화면 플래시 제거
-        hit_freeze_frames = 2   # 보스 충돌은 2프레임
 
         # 🔥 랠리 카운트 업데이트 (인텐시티 이펙트용)
         update_ball_rally("boss")
@@ -141895,12 +141847,9 @@ def main(stage_num, new_boss_mode=False):
     global waiting_start_time  # 서브 대기 타이머 (자동 서브용)
     # 👁 오딘의 눈 부활 애니메이션 상태
     global odins_eye_revival_anim_active, odins_eye_revival_anim_pending_reset
-    # 🎮 히트 프리즈 + 화면 플래시 + 전환 효과
-    global hit_freeze_frames, screen_flash_timer, screen_flash_alpha, _screen_flash_surface
+    # 🎬 화면 전환 효과
     global screen_transition_active, screen_transition_progress, screen_transition_phase
     global screen_transition_speed, _screen_transition_surface
-    # 보스 HP바 개선
-    global boss_hp_damage_delay_timer, boss_hp_glow_timer, boss_hp_last_health
     bgm_manager.set_bgm_volume(bgm_volume)
     _reset_active_item_hover_state()
     _close_discard_menu()  # 버리기 메뉴 리셋
@@ -148100,11 +148049,7 @@ def main(stage_num, new_boss_mode=False):
                 except Exception:
                     pass
             freeze_capture = (arena_mode_enabled and arena_capture_phase is not None)
-            # 🎮 히트 프리즈: 패들 충돌 시 짧은 게임 로직 정지 (타격감)
-            freeze_hit = hit_freeze_frames > 0
-            if freeze_hit:
-                hit_freeze_frames -= 1
-            freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim or freeze_tooltip or freeze_ingame_tutorial or freeze_arena_guard_tutorial or freeze_arena_portrait_tutorial or freeze_arena_speed_tutorial or freeze_arena_henchman_tutorial or freeze_arena_capture_tutorial or freeze_dark_slash or freeze_hell_fire or freeze_capture or freeze_hit
+            freeze_now = freeze_awaken or freeze_superspeed or freeze_spawn_anim or freeze_tooltip or freeze_ingame_tutorial or freeze_arena_guard_tutorial or freeze_arena_portrait_tutorial or freeze_arena_speed_tutorial or freeze_arena_henchman_tutorial or freeze_arena_capture_tutorial or freeze_dark_slash or freeze_hell_fire or freeze_capture
 
             # 투기장 호위무사 튜토리얼 딜레이 카운터 감소
             if arena_mode_enabled and _arena_guard_tutorial_delay_frames > 0 and not freeze_now:
@@ -150738,16 +150683,6 @@ def main(stage_num, new_boss_mode=False):
             _hl_rec = getattr(arena_battle_arena_obj, 'highlight_recorder', None)
             if _hl_rec and _hl_rec.recording:
                 _hl_rec.capture_frame(SCREEN)
-
-        # 🎮 화면 플래시 효과 렌더링 (히트 피드백)
-        if screen_flash_timer > 0:
-            _flash_a = int(screen_flash_alpha * (screen_flash_timer / 6.0))
-            if _flash_a > 0:
-                if _screen_flash_surface is None or _screen_flash_surface.get_size() != (WIDTH, HEIGHT):
-                    _screen_flash_surface = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
-                _screen_flash_surface.fill((255, 255, 255, _flash_a))
-                SCREEN.blit(_screen_flash_surface, (0, 0))
-            screen_flash_timer -= 1
 
         # 🎬 화면 전환 효과 렌더링
         if screen_transition_active:

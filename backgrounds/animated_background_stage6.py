@@ -163,10 +163,9 @@ class AnimatedBackgroundStage6:
         # 불타는 라인 파티클 업데이트
         self._update_fire_lines()
     
-    def draw(self, screen, parallax_offset=(0, 0)):
-        px, py = parallax_offset
+    def draw(self, screen):
         # 하늘 그라데이션 (캐시된 Surface 사용 - 374회 draw.rect → 2회 blit)
-        screen.blit(self._sky_gradient_cache, (int(px * 0.3), int(py * 0.3)))
+        screen.blit(self._sky_gradient_cache, (0, 0))
 
         # 구름 그리기
         self._draw_clouds(screen)

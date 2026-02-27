@@ -442,9 +442,8 @@ class AnimatedBackgroundStage8:
             self.ninja_shadow_x = self.width + 120
             self.ninja_shadow_speed = -random.uniform(350, 550)
 
-    def draw(self, surface: pygame.Surface, *, offset: Tuple[int, int] = (0, 0), parallax_offset=(0, 0)) -> None:
+    def draw(self, surface: pygame.Surface, *, offset: Tuple[int, int] = (0, 0)) -> None:
         """애니메이션 레이어를 그린다."""
-        px, py = parallax_offset
         ox, oy = offset
         # 오버레이 캐시 사용 (매 프레임 Surface 생성 방지)
         if not hasattr(self, '_overlay_cache') or self._overlay_cache.get_size() != (self.width, self.height):

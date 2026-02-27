@@ -76,9 +76,8 @@ class AnimatedBackgroundStage3:
         
         # 글리치 효과 제거됨
     
-    def draw(self, screen, ball_pos=None, parallax_offset=(0, 0)):
-        px, py = parallax_offset
-        screen.blit(self.base_image, (int(px * 0.3), int(py * 0.3)))
+    def draw(self, screen, ball_pos=None):
+        screen.blit(self.base_image, (0, 0))
 
         self.glow_surface.fill(self._transparent)
 

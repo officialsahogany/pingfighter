@@ -2098,8 +2098,7 @@ class AnimatedBackgroundStage2:
         # 원형 이펙트 제거 - 사용자 요청
         pass
     
-    def draw(self, screen, parallax_offset=(0, 0)):
-        px, py = parallax_offset
+    def draw(self, screen):
         # 배경 이미지를 화면 크기에 맞게 스케일 (캐싱 적용)
         screen_w, screen_h = screen.get_size()
         scale_x = screen_w / self.width  # 스케일 비율
@@ -2110,9 +2109,9 @@ class AnimatedBackgroundStage2:
             if self._scaled_bg_cache is None or self._scaled_bg_size != (screen_w, screen_h):
                 self._scaled_bg_cache = pygame.transform.scale(self.base_image, (screen_w, screen_h))
                 self._scaled_bg_size = (screen_w, screen_h)
-            screen.blit(self._scaled_bg_cache, (int(px * 0.3), int(py * 0.3)))
+            screen.blit(self._scaled_bg_cache, (0, 0))
         else:
-            screen.blit(self.base_image, (int(px * 0.3), int(py * 0.3)))
+            screen.blit(self.base_image, (0, 0))
 
         # 덩굴 그리기 (스케일 적용)
         for vine in self.vines:
