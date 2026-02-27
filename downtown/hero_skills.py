@@ -15226,7 +15226,7 @@ class SandPrison(HeroSkill):
             except Exception:
                 pass
 
-        return {'screen_effect': ScreenEffect.SCREEN_SHAKE}
+        return {'screen_effect': ScreenEffect.SHAKE}
 
     def _update_active_effect(self, dt: float, caster_paddle, target_paddle, ball, game_state: dict):
         """감옥 건설/유지/해체 - 페이즈별 업데이트"""
