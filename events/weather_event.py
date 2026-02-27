@@ -5,6 +5,10 @@ import random
 import math
 import pygame
 
+from localization.manager import get_localization_manager
+def _t(key, fallback=None):
+    return get_localization_manager().get_text(key, fallback)
+
 # ============== Configuration ==============
 # 디버그 플래그 (성능 영향으로 비활성화)
 WEATHER_DEBUG_ENABLED = False
@@ -584,32 +588,32 @@ def check_weather_event_on_round_start():
             weather_event_type = "breeze"
             weather_event_direction = random.choice([-1, 1])
             weather_event_remaining_rounds = random.randint(WIND_MIN_DURATION, WIND_MAX_DURATION)
-            weather_warning_text = "미풍이 불어옴!"
+            weather_warning_text = _t("weather.breeze", "미풍이 불어옴!")
         elif event_roll < 0.333:
             weather_event_type = "gust"
             weather_event_direction = random.choice([-1, 1])
             weather_event_remaining_rounds = 1  # 강풍은 딱 1턴만 지속
-            weather_warning_text = "강풍이 불어옴!"
+            weather_warning_text = _t("weather.gust", "강풍이 불어옴!")
         elif event_roll < 0.500:
             weather_event_type = "fire"
             weather_event_direction = 0  # 불은 방향 없음
             weather_event_remaining_rounds = random.randint(FIRE_MIN_DURATION, FIRE_MAX_DURATION)
-            weather_warning_text = "화재 발생!"
+            weather_warning_text = _t("weather.fire", "화재 발생!")
         elif event_roll < 0.667:
             weather_event_type = "ice"
             weather_event_direction = 0  # 얼음은 방향 없음
             weather_event_remaining_rounds = random.randint(ICE_MIN_DURATION, ICE_MAX_DURATION)
-            weather_warning_text = "빙판 발생!"
+            weather_warning_text = _t("weather.ice", "빙판 발생!")
         elif event_roll < 0.833:
             weather_event_type = "rain"
             weather_event_direction = 0  # 소나기는 방향 없음
             weather_event_remaining_rounds = random.randint(RAIN_MIN_DURATION, RAIN_MAX_DURATION)
-            weather_warning_text = "소나기 발생!"
+            weather_warning_text = _t("weather.rain", "소나기 발생!")
         else:
             weather_event_type = "hail"
             weather_event_direction = 0  # 우박은 방향 없음
             weather_event_remaining_rounds = random.randint(HAIL_MIN_DURATION, HAIL_MAX_DURATION)
-            weather_warning_text = "우박 발생!"
+            weather_warning_text = _t("weather.hail", "우박 발생!")
 
         weather_warning_timer = 180  # 3 seconds
 
@@ -2301,17 +2305,17 @@ def draw_weather_warning(screen, screen_width, screen_height, font=None):
         elif weather_warning_timer < 30:
             alpha = int(weather_warning_timer / 30 * 255)
 
-        # 날씨 종류에 따른 색상
-        if "강풍" in weather_warning_text:
+        # 날씨 종류에 따른 색상 (event type 기반)
+        if weather_event_type == "gust":
             text_color = (255, 200, 100)  # 주황색 (강풍)
             border_color = (255, 150, 50)
-        elif "미풍" in weather_warning_text:
+        elif weather_event_type == "breeze":
             text_color = (200, 230, 255)  # 연한 파란색 (미풍)
             border_color = (150, 200, 255)
-        elif "화재" in weather_warning_text:
+        elif weather_event_type == "fire":
             text_color = (255, 100, 50)   # 빨간색 (불)
             border_color = (255, 50, 0)
-        elif "빙판" in weather_warning_text:
+        elif weather_event_type == "ice":
             text_color = (180, 230, 255)  # 하늘색 (얼음)
             border_color = (100, 200, 255)
         else:

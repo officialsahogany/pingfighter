@@ -17571,7 +17571,7 @@ def show_runtime_skill_choices(exclude_instant: bool = False, live_background: b
 
         # Mouse/keyboard hint text - 게임 플레이 영역 중앙에 배치 (튜토리얼 중에는 숨김)
         if phase == "active" and not tutorial_guide_showing:
-            hint_text = "마우스 클릭 또는 ← → 키로 선택"
+            hint_text = _t("ui.hint_mouse_select", "마우스 클릭 또는 ← → 키로 선택")
             hint_surface = desc_font.render(hint_text, True, (160, 170, 200))
             hint_rect = hint_surface.get_rect(center=(GAME_AREA_CENTER_X, bottom_panel_y + bottom_panel_height + 20))
             SCREEN.blit(hint_surface, hint_rect)
@@ -17687,13 +17687,13 @@ def _swap_boss_in_current_stage():
             # 보스 이름
             label = name
             if is_current:
-                label += " (현재)"
+                label += " " + _t("ui.current", "(현재)")
             name_surf = _font_sm.render(label, True, text_color)
             name_rect = name_surf.get_rect(center=(box_x + box_w // 2, box_y + box_h // 2))
             REAL_SCREEN.blit(name_surf, name_rect)
 
         # 안내 텍스트
-        help_surf = _font_sm.render("←→ 선택  Enter 확정  ESC 취소", True, (150, 150, 150))
+        help_surf = _font_sm.render(_t("ui.hint_arrow_enter_esc", "←→ 선택  Enter 확정  ESC 취소"), True, (150, 150, 150))
         help_rect = help_surf.get_rect(centerx=INTERNAL_WIDTH // 2, y=INTERNAL_HEIGHT // 2 + len(boss_names) * 44)
         REAL_SCREEN.blit(help_surf, help_rect)
 
@@ -81189,9 +81189,9 @@ def _draw_arena_guard_tutorial() -> None:
                 target_screen.blit(text_surface, text_rect)
             y_offset += _line_height
 
-        # "클릭 또는 SPACE로 계속" 힌트
+        # _t("ui.click_or_space", "클릭 또는 SPACE로 계속") 힌트
         hint_font = get_font(int(18 * _ui_s))
-        hint_text = hint_font.render("클릭 또는 SPACE로 계속", True, (150, 200, 255))
+        hint_text = hint_font.render(_t("ui.click_or_space", "클릭 또는 SPACE로 계속"), True, (150, 200, 255))
         hint_rect = hint_text.get_rect(center=(box_x + box_width // 2, box_y + box_height + int(25 * _ui_s)))
         target_screen.blit(hint_text, hint_rect)
 
@@ -81473,7 +81473,7 @@ def _draw_arena_portrait_tutorial() -> None:
             y_offset += _line_height
 
         hint_font = get_font(int(18 * _ui_s))
-        hint_text = hint_font.render("클릭 또는 SPACE로 계속", True, (150, 200, 255))
+        hint_text = hint_font.render(_t("ui.click_or_space", "클릭 또는 SPACE로 계속"), True, (150, 200, 255))
         hint_rect = hint_text.get_rect(center=(box_x + box_width // 2, box_y + box_height + int(25 * _ui_s)))
         target_screen.blit(hint_text, hint_rect)
 
@@ -81753,7 +81753,7 @@ def _draw_arena_speed_tutorial() -> None:
             y_offset += _line_height
 
         hint_font = get_font(int(18 * _ui_s))
-        hint_text = hint_font.render("클릭 또는 SPACE로 계속", True, (150, 200, 255))
+        hint_text = hint_font.render(_t("ui.click_or_space", "클릭 또는 SPACE로 계속"), True, (150, 200, 255))
         hint_rect = hint_text.get_rect(center=(box_x + box_width // 2, box_y + box_height + int(25 * _ui_s)))
         target_screen.blit(hint_text, hint_rect)
 
@@ -82019,7 +82019,7 @@ def _draw_arena_henchman_tutorial() -> None:
             y_offset += _line_height
 
         hint_font = get_font(int(18 * _ui_s))
-        hint_text = hint_font.render("클릭 또는 SPACE로 계속", True, (150, 200, 255))
+        hint_text = hint_font.render(_t("ui.click_or_space", "클릭 또는 SPACE로 계속"), True, (150, 200, 255))
         hint_rect = hint_text.get_rect(center=(box_x + box_width // 2, box_y + box_height + int(25 * _ui_s)))
         target_screen.blit(hint_text, hint_rect)
 
@@ -82124,7 +82124,7 @@ def _draw_arena_capture_tutorial() -> None:
         y_offset += _line_height
 
     hint_font = get_font(int(18 * _ui_s))
-    hint_text = hint_font.render("클릭 또는 SPACE로 계속", True, (150, 200, 255))
+    hint_text = hint_font.render(_t("ui.click_or_space", "클릭 또는 SPACE로 계속"), True, (150, 200, 255))
     hint_rect = hint_text.get_rect(center=(box_x + box_width // 2, box_y + box_height + int(25 * _ui_s)))
     target_screen.blit(hint_text, hint_rect)
 
@@ -83066,10 +83066,10 @@ def _draw_ingame_tutorial() -> None:
                 target_screen.blit(text_surface, text_rect)
             y_offset += 35
 
-        # "클릭 또는 SPACE로 계속" 힌트 표시
+        # _t("ui.click_or_space", "클릭 또는 SPACE로 계속") 힌트 표시
         # wait_for가 있어도 아직 waiting_action이 아니면 힌트 표시
         hint_font = get_font(18)
-        hint_text = hint_font.render("클릭 또는 SPACE로 계속", True, (150, 200, 255))
+        hint_text = hint_font.render(_t("ui.click_or_space", "클릭 또는 SPACE로 계속"), True, (150, 200, 255))
         hint_rect = hint_text.get_rect(center=(box_x + box_width // 2, box_y + box_height + 25))
         target_screen.blit(hint_text, hint_rect)
 
@@ -83230,12 +83230,12 @@ def _draw_tutorial_runtime_skill_guide(screen, desc_box_x, desc_box_y, desc_box_
         screen.blit(text_surface, text_rect)
         y_offset += 28
 
-    # "클릭 또는 SPACE로 계속" 힌트 표시
+    # _t("ui.click_or_space", "클릭 또는 SPACE로 계속") 힌트 표시
     try:
         hint_font = get_font(15)
     except:
         hint_font = pygame.font.SysFont("malgun gothic", 15)
-    hint_text = hint_font.render("클릭 또는 SPACE로 계속", True, (100, 200, 255))
+    hint_text = hint_font.render(_t("ui.click_or_space", "클릭 또는 SPACE로 계속"), True, (100, 200, 255))
     hint_rect = hint_text.get_rect(center=(box_x + box_width // 2, box_y + box_height - 12))
     screen.blit(hint_text, hint_rect)
 
@@ -105047,7 +105047,7 @@ def show_stage_clear_choices() -> str | None:
         # 조작 안내
         if phase == "active":
             hint_y = vertical_y + card_height + 55
-            hint_text = "← → 선택  |  SPACE 확정"
+            hint_text = _t("ui.hint_arrow_space", "← → 선택  |  SPACE 확정")
             hint_surface = desc_font.render(hint_text, True, (130, 140, 170))
             hint_rect = hint_surface.get_rect(center=(WIDTH // 2, hint_y))
             SCREEN.blit(hint_surface, hint_rect)
@@ -106345,8 +106345,8 @@ def show_victory_screen(stage_cleared, reward):
             pygame.draw.rect(SCREEN, (255, 255, 255), yes_rect, 2, border_radius=12)
             pygame.draw.rect(SCREEN, (255, 255, 255), no_rect, 2, border_radius=12)
 
-            yes_text = body_font.render("네", True, (0, 0, 20))
-            no_text = body_font.render("아니오", True, (0, 0, 20))
+            yes_text = body_font.render(_t("tutorial.yes", "예"), True, (0, 0, 20))
+            no_text = body_font.render(_t("tutorial.no", "아니오"), True, (0, 0, 20))
             SCREEN.blit(yes_text, yes_text.get_rect(center=yes_rect.center))
             SCREEN.blit(no_text, no_text.get_rect(center=no_rect.center))
 
@@ -107399,8 +107399,8 @@ def confirm_rest(stage_cleared, reward):
         no_color = YELLOW if selected == 1 else (180, 100, 100)
         draw.rect(yes_color, yes_rect)
         draw.rect(no_color, no_rect)
-        yes_text = font_small.render("예", True, BLACK)
-        no_text = font_small.render("아니오", True, BLACK)
+        yes_text = font_small.render(_t("tutorial.yes", "예"), True, BLACK)
+        no_text = font_small.render(_t("tutorial.no", "아니오"), True, BLACK)
         SCREEN.blit(yes_text, (yes_rect.centerx - yes_text.get_width() // 2, yes_rect.centery - yes_text.get_height() // 2))
         SCREEN.blit(no_text, (no_rect.centerx - no_text.get_width() // 2, no_rect.centery - no_text.get_height() // 2))
 
@@ -108228,22 +108228,22 @@ def _show_arena_tutorial_confirm():
 
         # 텍스트
         _tf = get_font(30)
-        _t1 = _tf.render("튜토리얼 가이드", True, (255, 215, 0))
+        _t1 = _tf.render(_t("tutorial.guide_title", "튜토리얼 가이드"), True, (255, 215, 0))
         _ds.blit(_t1, (_t1.get_rect(centerx=dialog_width // 2, y=30)))
 
         _qf = get_font(22)
-        _q1 = _qf.render("튜토리얼 가이드와 함께 진행하시겠습니까?", True, (255, 255, 255))
+        _q1 = _qf.render(_t("tutorial.guide_question", "튜토리얼 가이드와 함께 진행하시겠습니까?"), True, (255, 255, 255))
         _ds.blit(_q1, (_q1.get_rect(centerx=dialog_width // 2, y=80)))
 
         _hf = get_font(16)
-        _h1 = _hf.render("투기장 시스템을 처음 접하시면 추천합니다.", True, (160, 160, 160))
+        _h1 = _hf.render(_t("tutorial.guide_recommend", "투기장 시스템을 처음 접하시면 추천합니다."), True, (160, 160, 160))
         _ds.blit(_h1, (_h1.get_rect(centerx=dialog_width // 2, y=115)))
 
         SCREEN.blit(_ds, (dialog_x, dialog_y))
 
         # 버튼
         update_btn_hover_effects()
-        for btn, text, idx in [(yes_btn, "예", 0), (no_btn, "아니오", 1)]:
+        for btn, text, idx in [(yes_btn, _t("tutorial.yes", "예"), 0), (no_btn, _t("tutorial.no", "아니오"), 1)]:
             if selected == idx:
                 _bc = (80, 180, 80) if idx == 0 else (200, 90, 90)
                 _bdc = (100, 255, 100) if idx == 0 else (255, 120, 120)
@@ -108263,7 +108263,7 @@ def _show_arena_tutorial_confirm():
 
         # 힌트
         _hf2 = get_font(14)
-        _ht = _hf2.render("← → 키로 선택, SPACE/ENTER로 확인", True, (120, 120, 120))
+        _ht = _hf2.render(_t("tutorial.hint", "← → 키로 선택, SPACE/ENTER로 확인"), True, (120, 120, 120))
         SCREEN.blit(_ht, _ht.get_rect(center=(WIDTH // 2, dialog_y + dialog_height + 30)))
 
         pygame.display.flip()
@@ -108699,24 +108699,24 @@ def show_tutorial_dialog():
         
         # 제목
         title_font = get_font(40)  # 40pt 픽셀 폰트
-        title_text = title_font.render("튜토리얼", True, (0, 255, 255))
+        title_text = title_font.render(_t("tutorial.title", "튜토리얼"), True, (0, 255, 255))
         title_rect = title_text.get_rect(centerx=dialog_width // 2, y=40)
         dialog_surface.blit(title_text, title_rect)
         
         # 질문 텍스트
         question_font = get_font(28)  # 28pt 픽셀 폰트
-        question_text = question_font.render("게임의 기본 조작법을 배우는", True, WHITE)
+        question_text = question_font.render(_t("tutorial.question1", "게임의 기본 조작법을 배우는"), True, WHITE)
         question_rect = question_text.get_rect(centerx=dialog_width // 2, y=110)
         dialog_surface.blit(question_text, question_rect)
 
-        question_text2 = question_font.render("튜토리얼을 진행하시겠습니까?", True, WHITE)
+        question_text2 = question_font.render(_t("tutorial.question2", "튜토리얼을 진행하시겠습니까?"), True, WHITE)
         question_rect2 = question_text2.get_rect(centerx=dialog_width // 2, y=145)
         dialog_surface.blit(question_text2, question_rect2)
 
         # 설명 텍스트
         desc_font = get_font(20)  # 20pt 픽셀 폰트
         desc_lines = [
-            "(캐릭터는 스매셔로 진행됩니다)"
+            _t("tutorial.char_note", "(캐릭터는 스매셔로 진행됩니다)")
         ]
         
         y_offset = 185
@@ -108730,8 +108730,8 @@ def show_tutorial_dialog():
         SCREEN.blit(dialog_surface, (dialog_x, dialog_y))
         
         # 버튼 그리기
-        buttons = [(yes_button, "예", 0), (no_button, "아니오", 1)]
-        
+        buttons = [(yes_button, _t("tutorial.yes", "예"), 0), (no_button, _t("tutorial.no", "아니오"), 1)]
+
         update_btn_hover_effects()
         for button_rect, text, index in buttons:
             # 선택된 버튼 강조
@@ -108768,7 +108768,7 @@ def show_tutorial_dialog():
         
         # 힌트 텍스트
         hint_font = get_font(16)  # 16pt 픽셀 폰트
-        hint_text = hint_font.render("← → 키로 선택, SPACE/ENTER로 확인", True, (120, 120, 120))
+        hint_text = hint_font.render(_t("tutorial.hint", "← → 키로 선택, SPACE/ENTER로 확인"), True, (120, 120, 120))
         hint_rect = hint_text.get_rect(center=(WIDTH // 2, dialog_y + dialog_height + 40))
         SCREEN.blit(hint_text, hint_rect)
         
@@ -114380,8 +114380,8 @@ def show_tutorial_serve_helper():
     font_small = FontStyle.small()   # 18pt 안내용
     
     # 알림 내용
-    main_text = "스페이스바를 눌러 서브공을 발사해보세요!"
-    sub_text = "SPACE - 확인"
+    main_text = _t("tutorial.space_serve", "스페이스바를 눌러 서브공을 발사해보세요!")
+    sub_text = _t("tutorial.space_confirm", "SPACE - 확인")
     
     clock = pygame.time.Clock()
     
@@ -115472,11 +115472,11 @@ def show_character_selection():
     characters = [
         {
             "id": "ufo_player",
-            "name": "스매셔",
-            "description": "게이지 폭발로 연속 파워스매시.\n공격 템포를 쥐는 핵심 스트라이커.",
+            "name": _t("char.smasher", "스매셔"),
+            "description": _t("char.smasher.desc", "게이지 폭발로 연속 파워스매시.\n공격 템포를 쥐는 핵심 스트라이커."),
             "image": "ufo_player.png",
-            "stats": {"속도": 4, "파워": 7, "방어": 4},
-            "special": " 스매시 전용 스킬트리 보유",
+            "stats": {_t("stat.speed", "속도"): 4, _t("stat.power", "파워"): 7, _t("stat.defense", "방어"): 4},
+            "special": " " + _t("char.smasher.special", "스매시 전용 스킬트리 보유"),
             "unlocked": True,
             "card_color": CYAN,  # 사이버 청록
             "glow_color": (0, 200, 255),
@@ -115484,11 +115484,11 @@ def show_character_selection():
         },
         {
             "id": "soldier",
-            "name": "코만도",
-            "description": "보급 호출로 전장을 재구성.\n화기 전환으로 템포를 조율.",
+            "name": _t("char.commando", "코만도"),
+            "description": _t("char.commando.desc", "보급 호출로 전장을 재구성.\n화기 전환으로 템포를 조율."),
             "image": "soldier.png",
-            "stats": {"속도": 6, "파워": 6, "방어": 6},
-            "special": " 전투 경험과 전술적 우위",
+            "stats": {_t("stat.speed", "속도"): 6, _t("stat.power", "파워"): 6, _t("stat.defense", "방어"): 6},
+            "special": " " + _t("char.commando.special", "전투 경험과 전술적 우위"),
             "unlocked": True,  # 해금됨
             "card_color": (80, 120, 40),  # 군복 녹색
             "glow_color": (100, 150, 50),
@@ -115496,11 +115496,11 @@ def show_character_selection():
         },
         {
             "id": "blacksmith",
-            "name": "발토르",
-            "description": "토르쉴드로 거리 제어.\n단조 버프로 공수 동시 강화.",
+            "name": _t("char.baltor", "발토르"),
+            "description": _t("char.baltor.desc", "토르쉴드로 거리 제어.\n단조 버프로 공수 동시 강화."),
             "image": "blacksmith.png",
-            "stats": {"속도": 5, "파워": 7, "방어": 5},
-            "special": " 토르쉴드·포탑 시너지 모듈",
+            "stats": {_t("stat.speed", "속도"): 5, _t("stat.power", "파워"): 7, _t("stat.defense", "방어"): 5},
+            "special": " " + _t("char.baltor.special", "토르쉴드·포탑 시너지 모듈"),
             "unlocked": True,
             "card_color": (150, 110, 60),
             "glow_color": (220, 170, 90),
@@ -115508,11 +115508,11 @@ def show_character_selection():
         },
         {
             "id": "optimus",
-            "name": "옵티머스",
-            "description": "배터리가 닳아 위기의 순간,\n기계 강화로 역전을 노린다.",
+            "name": _t("char.optimus", "옵티머스"),
+            "description": _t("char.optimus.desc", "배터리가 닳아 위기의 순간,\n기계 강화로 역전을 노린다."),
             "image": "optimus.png",
-            "stats": {"속도": 5, "파워": 7, "방어": 5},
-            "special": " 스매셔 계열 전용 장비",
+            "stats": {_t("stat.speed", "속도"): 5, _t("stat.power", "파워"): 7, _t("stat.defense", "방어"): 5},
+            "special": " " + _t("char.optimus.special", "스매셔 계열 전용 장비"),
             "unlocked": True,
             "card_color": (120, 200, 255),
             "glow_color": (150, 220, 255),
@@ -115520,23 +115520,23 @@ def show_character_selection():
         },
         {
             "id": "speed_player",
-            "name": "스피드 레이서",
-            "description": "순간 가속과 체공 드리프트.\n스텝 페인트로 빈틈을 찌름.",
+            "name": _t("char.speed_racer", "스피드 레이서"),
+            "description": _t("char.speed_racer.desc", "순간 가속과 체공 드리프트.\n스텝 페인트로 빈틈을 찌름."),
             "image": "speed_player.png",
-            "stats": {"속도": 8, "파워": 3, "방어": 4},
-            "special": " 고속 이동과 빠른 반응",
+            "stats": {_t("stat.speed", "속도"): 8, _t("stat.power", "파워"): 3, _t("stat.defense", "방어"): 4},
+            "special": " " + _t("char.speed_racer.special", "고속 이동과 빠른 반응"),
             "unlocked": False,
             "card_color": (255, 0, 128),  # 네온 핑크
             "glow_color": (255, 50, 150),
             "card_suit": "◆"
         },
         {
-            "id": "power_player", 
-            "name": "파워 스매셔",
-            "description": "초중량 파워샷 한 방 역전.\n충돌 이후에도 압박 지속.",
+            "id": "power_player",
+            "name": _t("char.power_smasher", "파워 스매셔"),
+            "description": _t("char.power_smasher.desc", "초중량 파워샷 한 방 역전.\n충돌 이후에도 압박 지속."),
             "image": "power_player.png",
-            "stats": {"속도": 3, "파워": 8, "방어": 4},
-            "special": " 강력한 스매싱과 파워샷",
+            "stats": {_t("stat.speed", "속도"): 3, _t("stat.power", "파워"): 8, _t("stat.defense", "방어"): 4},
+            "special": " " + _t("char.power_smasher.special", "강력한 스매싱과 파워샷"),
             "unlocked": False,
             "card_color": (255, 128, 0),  # 네온 오렌지
             "glow_color": (255, 150, 50),
@@ -115544,11 +115544,11 @@ def show_character_selection():
         },
         {
             "id": "defense_player",
-            "name": "가디언",
-            "description": "다층 방벽으로 라인 봉쇄.\n정밀 카운터로 역습 완성.",
-            "image": "defense_player.png", 
-            "stats": {"속도": 4, "파워": 3, "방어": 8},
-            "special": "️ 뛰어난 방어력과 카운터",
+            "name": _t("char.guardian", "가디언"),
+            "description": _t("char.guardian.desc", "다층 방벽으로 라인 봉쇄.\n정밀 카운터로 역습 완성."),
+            "image": "defense_player.png",
+            "stats": {_t("stat.speed", "속도"): 4, _t("stat.power", "파워"): 3, _t("stat.defense", "방어"): 8},
+            "special": "️ " + _t("char.guardian.special", "뛰어난 방어력과 카운터"),
             "unlocked": False,
             "card_color": (128, 255, 0),  # 네온 그린
             "glow_color": (150, 255, 50),
@@ -115556,11 +115556,11 @@ def show_character_selection():
         },
         {
             "id": "tech_player",
-            "name": "테크 마스터",
-            "description": "드론·트랩으로 리듬 해킹.\n상황별 버프로 멀티 컨트롤.",
+            "name": _t("char.tech_master", "테크 마스터"),
+            "description": _t("char.tech_master.desc", "드론·트랩으로 리듬 해킹.\n상황별 버프로 멀티 컨트롤."),
             "image": "tech_player.png",
-            "stats": {"속도": 6, "파워": 6, "방어": 3},
-            "special": " 특수 아이템과 기술력",
+            "stats": {_t("stat.speed", "속도"): 6, _t("stat.power", "파워"): 6, _t("stat.defense", "방어"): 3},
+            "special": " " + _t("char.tech_master.special", "특수 아이템과 기술력"),
             "unlocked": False,
             "card_color": (128, 0, 255),  # 네온 퍼플
             "glow_color": (150, 50, 255),
@@ -115568,11 +115568,11 @@ def show_character_selection():
         },
         {
             "id": "mystic_player",
-            "name": "미스틱",
-            "description": "시간 왜곡으로 타이밍 파괴.\n궤도 교란으로 패턴 전복.",
+            "name": _t("char.mystic", "미스틱"),
+            "description": _t("char.mystic.desc", "시간 왜곡으로 타이밍 파괴.\n궤도 교란으로 패턴 전복."),
             "image": "mystic_player.png",
-            "stats": {"속도": 7, "파워": 7, "방어": 1},
-            "special": " 예측 불가능한 특수 능력",
+            "stats": {_t("stat.speed", "속도"): 7, _t("stat.power", "파워"): 7, _t("stat.defense", "방어"): 1},
+            "special": " " + _t("char.mystic.special", "예측 불가능한 특수 능력"),
             "unlocked": False,
             "card_color": YELLOW,  # 네온 옐로우
             "glow_color": (255, 255, 100),
@@ -117820,9 +117820,9 @@ def show_difficulty_selection():
     difficulties = [
         {
             "id": "junior",
-            "name": "주니어리그",
+            "name": _t("league.junior", "주니어리그"),
             "subtitle": "JUNIOR LEAGUE",
-            "description": "초보자 리그",
+            "description": _t("league.junior.desc", "초보자 리그"),
             "ai_mode": "junior",
             "color": (100, 255, 100),
             "bg_color": (20, 60, 30),
@@ -117831,9 +117831,9 @@ def show_difficulty_selection():
         },
         {
             "id": "champion",
-            "name": "챔피언리그",
+            "name": _t("league.champion", "챔피언리그"),
             "subtitle": "CHAMPION LEAGUE",
-            "description": "상급자 리그",
+            "description": _t("league.champion.desc", "상급자 리그"),
             "ai_mode": "champion",
             "color": (255, 150, 255),
             "bg_color": (60, 20, 60),
@@ -117842,9 +117842,9 @@ def show_difficulty_selection():
         },
         {
             "id": "mythic",
-            "name": "신화리그",
+            "name": _t("league.mythic", "신화리그"),
             "subtitle": "MYTHIC LEAGUE",
-            "description": "전설의 리그",
+            "description": _t("league.mythic.desc", "전설의 리그"),
             "ai_mode": "mythic",
             "color": (255, 215, 0),
             "bg_color": (60, 50, 10),
@@ -118775,9 +118775,9 @@ def start_game_with_difficulty(character_id, difficulty_mode):
     cleared_planets = []  # 새 게임 시작 시 초기화
     # 선택한 난이도 정보 표시
     difficulty_names = {
-        "junior": " 주니어리그",
-        "champion": " 챔피언리그",
-        "mythic": " 신화리그"
+        "junior": " " + _t("league.junior", "주니어리그"),
+        "champion": " " + _t("league.champion", "챔피언리그"),
+        "mythic": " " + _t("league.mythic", "신화리그")
     }
     difficulty_name = difficulty_names.get(difficulty_mode, difficulty_mode)
     # 게임 시작 (스테이지 1부터)
@@ -140589,12 +140589,12 @@ def show_death_evaluation():
             # === 섹션 5: 전투 결과 ===
             section5_h = 60
             section5_rect = pygame.Rect(content_x, y_cursor, content_width, section5_h)
-            draw_section_container(SCREEN, section5_rect, "전투 결과", "analysis")
+            draw_section_container(SCREEN, section5_rect, _t("ui.battle_result", "전투 결과"), "analysis")
 
-            score_text = font_body.render(f"최종 스코어: {final_wins} - {final_losses}", True, WHITE)
+            score_text = font_body.render(_t("ui.final_score", "최종 스코어: {wins} - {losses}").format(wins=final_wins, losses=final_losses), True, WHITE)
             SCREEN.blit(score_text, (content_x + 20, y_cursor + 38))
 
-            stage_text = font_body.render(f"스테이지 {display_stage}: {current_boss_name}", True, (200, 200, 255))
+            stage_text = font_body.render(_t("ui.stage_boss", "스테이지 {stage}: {boss}").format(stage=display_stage, boss=current_boss_name), True, (200, 200, 255))
             stage_rect = stage_text.get_rect(right=content_x + content_width - 20, top=y_cursor + 38)
             SCREEN.blit(stage_text, stage_rect)
 
@@ -141788,7 +141788,7 @@ def show_new_boss_selection_screen():
                 desc_rect = desc_text.get_rect(center=(WIDTH//2, y + 25))
                 SCREEN.blit(desc_text, desc_rect)
             # 힌트
-            hint_text = font_hint.render("← → 키로 선택, 스페이스/엔터로 확인", True, (120, 120, 120))
+            hint_text = font_hint.render(_t("ui.hint_arrow_space_back", "← → 키로 선택, 스페이스/엔터로 확인"), True, (120, 120, 120))
             hint_rect = hint_text.get_rect(center=(WIDTH//2, HEIGHT - LARGE_SIZE))
             SCREEN.blit(hint_text, hint_rect)
         elif selection_step == 1:
@@ -141817,7 +141817,7 @@ def show_new_boss_selection_screen():
                 desc_rect = desc_text.get_rect(center=(WIDTH//2, y + 25))
                 SCREEN.blit(desc_text, desc_rect)
             # 힌트
-            hint_text = font_hint.render("← → 키로 선택, 백스페이스로 뒤로, 스페이스/엔터로 확인", True, (120, 120, 120))
+            hint_text = font_hint.render(_t("ui.hint_arrow_back_space", "← → 키로 선택, 백스페이스로 뒤로, 스페이스/엔터로 확인"), True, (120, 120, 120))
             hint_rect = hint_text.get_rect(center=(WIDTH//2, HEIGHT - LARGE_SIZE))
             SCREEN.blit(hint_text, hint_rect)
         pygame.display.flip()
@@ -153514,7 +153514,7 @@ def show_character_info(background_surface=None):
             yes_border = (255, 150, 150) if yes_selected else (180, 100, 100)
             pygame.draw.rect(SCREEN, yes_color, yes_btn, border_radius=8)
             pygame.draw.rect(SCREEN, yes_border, yes_btn, 2, border_radius=8)
-            yes_text = dialog_font.render("예", True, WHITE)
+            yes_text = dialog_font.render(_t("tutorial.yes", "예"), True, WHITE)
             SCREEN.blit(yes_text, yes_text.get_rect(center=yes_btn.center))
 
             # 버튼 (아니오)
@@ -153524,7 +153524,7 @@ def show_character_info(background_surface=None):
             no_border = (150, 180, 255) if no_selected else (100, 130, 180)
             pygame.draw.rect(SCREEN, no_color, no_btn, border_radius=8)
             pygame.draw.rect(SCREEN, no_border, no_btn, 2, border_radius=8)
-            no_text = dialog_font.render("아니오", True, WHITE)
+            no_text = dialog_font.render(_t("tutorial.no", "아니오"), True, WHITE)
             SCREEN.blit(no_text, no_text.get_rect(center=no_btn.center))
 
             pygame.display.flip()
@@ -155586,30 +155586,30 @@ def show_character_item_manager():
     characters = [
         {
             "id": "normal",
-            "name": "일반 플레이어",
-            "description": "균형잡힌 기본 캐릭터\n기본적이고 안정적인 성능",
-            "stats": {"속도": 5, "파워": 5, "방어": 5},
-            "special": "안정적인 기본 성능",
+            "name": _t("char.normal", "일반 플레이어"),
+            "description": _t("char.normal.desc", "균형잡힌 기본 캐릭터\n기본적이고 안정적인 성능"),
+            "stats": {_t("stat.speed", "속도"): 5, _t("stat.power", "파워"): 5, _t("stat.defense", "방어"): 5},
+            "special": _t("char.normal.special", "안정적인 기본 성능"),
             "unlocked": True,
             "card_color": (120, 120, 120),
             "glow_color": (150, 150, 150),
         },
         {
             "id": "smasher",
-            "name": "스매셔",
-            "description": "강력한 스매시 샷을 사용하는 캐릭터\n공격적인 플레이 스타일",
-            "stats": {"속도": 4, "파워": 7, "방어": 4},
-            "special": "스매시 전용 스킬트리 보유",
+            "name": _t("char.smasher", "스매셔"),
+            "description": _t("char.smasher.desc2", "강력한 스매시 샷을 사용하는 캐릭터\n공격적인 플레이 스타일"),
+            "stats": {_t("stat.speed", "속도"): 4, _t("stat.power", "파워"): 7, _t("stat.defense", "방어"): 4},
+            "special": _t("char.smasher.special", "스매시 전용 스킬트리 보유"),
             "unlocked": True,
             "card_color": CYAN,
             "glow_color": (0, 200, 255),
         },
         {
             "id": "soldier",
-            "name": "코만도",
-            "description": "전술적 플레이와 강인한 정신력\n화기류 아이템 전문",
-            "stats": {"속도": 6, "파워": 6, "방어": 6},
-            "special": "전투 경험과 전술적 우위",
+            "name": _t("char.commando", "코만도"),
+            "description": _t("char.commando.desc2", "전술적 플레이와 강인한 정신력\n화기류 아이템 전문"),
+            "stats": {_t("stat.speed", "속도"): 6, _t("stat.power", "파워"): 6, _t("stat.defense", "방어"): 6},
+            "special": _t("char.commando.special", "전투 경험과 전술적 우위"),
             "unlocked": True,
             "card_color": (80, 120, 40),
             "glow_color": (100, 150, 50),
@@ -156184,31 +156184,31 @@ def show_quick_character_selection():
     characters = [
         {
             "id": "smasher",
-            "name": "스매셔",
-            "desc": "강력한 스매시와 공격적인 플레이",
+            "name": _t("char.smasher", "스매셔"),
+            "desc": _t("char.smasher.desc", "강력한 스매시와 공격적인 플레이"),
             "color": CYAN,
-            "stats": "속도 4 | 파워 7 | 방어 4",
+            "stats": f"{_t('stat.speed', '속도')} 4 | {_t('stat.power', '파워')} 7 | {_t('stat.defense', '방어')} 4",
         },
         {
             "id": "soldier",
-            "name": "코만도",
-            "desc": "전술 장비 특화, 균형 잡힌 능력",
+            "name": _t("char.commando", "코만도"),
+            "desc": _t("char.commando.desc", "전술 장비 특화, 균형 잡힌 능력"),
             "color": (100, 140, 60),
-            "stats": "속도 6 | 파워 6 | 방어 6",
+            "stats": f"{_t('stat.speed', '속도')} 6 | {_t('stat.power', '파워')} 6 | {_t('stat.defense', '방어')} 6",
         },
         {
             "id": "blacksmith",
-            "name": "발토르",
-            "desc": "강철 장비로 묵직한 공격",
+            "name": _t("char.baltor", "발토르"),
+            "desc": _t("char.baltor.desc", "강철 장비로 묵직한 공격"),
             "color": (150, 110, 60),
-            "stats": "속도 5 | 파워 7 | 방어 5",
+            "stats": f"{_t('stat.speed', '속도')} 5 | {_t('stat.power', '파워')} 7 | {_t('stat.defense', '방어')} 5",
         },
         {
             "id": "optimus",
-            "name": "옵티머스",
-            "desc": "테슬라 전기 충격과 네온 드라이브",
+            "name": _t("char.optimus", "옵티머스"),
+            "desc": _t("char.optimus.desc", "테슬라 전기 충격과 네온 드라이브"),
             "color": (120, 235, 255),
-            "stats": "속도 5 | 파워 7 | 방어 5",
+            "stats": f"{_t('stat.speed', '속도')} 5 | {_t('stat.power', '파워')} 7 | {_t('stat.defense', '방어')} 5",
         },
     ]
 
@@ -156414,7 +156414,7 @@ def show_quick_character_selection():
         )
 
         # 안내 문구
-        info_text = "방향키 ← → 로 캐릭터 이동 / ENTER·SPACE 로 확정 / ESC 로 돌아가기"
+        info_text = _t("ui.hint_move_confirm_back", "방향키 ← → 로 캐릭터 이동 / ENTER·SPACE 로 확정 / ESC 로 돌아가기")
         info_surface = font_small.render(info_text, True, (220, 220, 240))
         info_rect = info_surface.get_rect(center=(WIDTH // 2, HEIGHT - 60))
         SCREEN.blit(info_surface, info_rect)
@@ -156912,7 +156912,7 @@ def show_multiplayer_character_select() -> tuple:
             SCREEN.blit(p1_surf, (20, HEIGHT - 60))
 
         # 조작 안내
-        hint1 = hint_font.render("← → 선택, Enter 확정, ESC 취소", True, (120, 120, 120))
+        hint1 = hint_font.render(_t("ui.hint_select_enter_esc", "← → 선택, Enter 확정, ESC 취소"), True, (120, 120, 120))
         SCREEN.blit(hint1, (WIDTH // 2 - hint1.get_width() // 2, HEIGHT - 40))
 
         pygame.display.flip()
