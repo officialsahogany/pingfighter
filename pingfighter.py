@@ -27403,6 +27403,7 @@ WEB_TRAP_Y_MIN = 695            # Y 범위 하한 (패들 바로 위)
 WEB_TRAP_Y_MAX = 720            # Y 범위 상한 (패들 높이 근처)
 WEB_TRAP_TRAVEL_FRAMES = 35     # 발사→도착 시간 (~0.58초)
 web_trap_projectile = None      # {"sx","sy","tx","ty","timer","duration"} 또는 None
+web_trap_break_effects = []     # 거미줄 파괴 파티클 리스트
 
 # 거미줄 구출 스킬 (Web Rescue)
 WEB_RESCUE_COOLDOWN = 15000       # 15초 쿨다운
@@ -57853,6 +57854,8 @@ def update_web_traps():
             trap_rect = pygame.Rect(trap["x"] - r, trap["y"] - r, r * 2, r * 2)
             if PLAYER.colliderect(trap_rect):
                 expired.append(i)
+                # 파괴 파티클 생성
+                _spawn_web_break_effect(trap)
                 try:
                     snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "steambarriorbreak.wav")))
                     snd.set_volume(0.6)
@@ -57865,6 +57868,100 @@ def update_web_traps():
     for i in reversed(sorted(set(expired))):
         if i < len(web_traps):
             web_traps.pop(i)
+
+    # 파괴 파티클 업데이트
+    _update_web_break_effects()
+
+
+def _spawn_web_break_effect(trap):
+    """거미줄 파괴 시 해체 파티클 생성."""
+    global web_trap_break_effects
+    cx, cy = trap["x"], trap["y"]
+    r = trap["radius"]
+    is_rage = trap.get("rage", False)
+
+    # 끊어진 거미줄 실 파편 (spoke 조각 8개)
+    for i in range(8):
+        angle = (i / 8) * math.pi * 2 + random.uniform(-0.2, 0.2)
+        length = random.uniform(r * 0.4, r * 0.9)
+        speed = random.uniform(1.5, 4.0)
+        web_trap_break_effects.append({
+            "type": "strand",
+            "x": float(cx), "y": float(cy),
+            "vx": math.cos(angle) * speed,
+            "vy": math.sin(angle) * speed - random.uniform(0.5, 1.5),
+            "angle": angle,
+            "length": length,
+            "timer": 0, "max_timer": random.randint(25, 40),
+            "rage": is_rage,
+            "curl": random.uniform(-0.15, 0.15),  # 말림 효과
+        })
+
+    # 동심원 잔해 (링 파편 5개)
+    for ring in range(1, 6):
+        ring_r = r * ring / 5
+        arc_start = random.uniform(0, math.pi * 2)
+        arc_len = random.uniform(0.8, 1.8)
+        web_trap_break_effects.append({
+            "type": "arc",
+            "cx": float(cx), "cy": float(cy),
+            "ring_r": ring_r,
+            "arc_start": arc_start, "arc_len": arc_len,
+            "expand": 0.0,  # 바깥으로 퍼짐
+            "expand_speed": random.uniform(0.8, 2.0),
+            "timer": 0, "max_timer": random.randint(20, 35),
+            "rage": is_rage,
+            "rot_speed": random.uniform(-0.06, 0.06),
+        })
+
+    # 작은 거미줄 조각 파티클 (12개)
+    for _ in range(12):
+        angle = random.uniform(0, math.pi * 2)
+        dist = random.uniform(0, r * 0.7)
+        speed = random.uniform(0.8, 3.5)
+        web_trap_break_effects.append({
+            "type": "fragment",
+            "x": cx + math.cos(angle) * dist,
+            "y": cy + math.sin(angle) * dist,
+            "vx": math.cos(angle) * speed + random.uniform(-0.5, 0.5),
+            "vy": math.sin(angle) * speed - random.uniform(0.3, 1.0),
+            "size": random.uniform(1.5, 3.5),
+            "timer": 0, "max_timer": random.randint(18, 32),
+            "rage": is_rage,
+            "gravity": 0.08,
+        })
+
+
+def _update_web_break_effects():
+    """파괴 파티클 업데이트."""
+    global web_trap_break_effects
+    if not web_trap_break_effects:
+        return
+    remove = []
+    for i, p in enumerate(web_trap_break_effects):
+        p["timer"] += 1
+        if p["timer"] >= p["max_timer"]:
+            remove.append(i)
+            continue
+        if p["type"] == "strand":
+            p["x"] += p["vx"]
+            p["y"] += p["vy"]
+            p["vy"] += 0.06  # 중력
+            p["angle"] += p["curl"]  # 말려들어감
+            p["vx"] *= 0.96
+            p["vy"] *= 0.96
+        elif p["type"] == "arc":
+            p["expand"] += p["expand_speed"]
+            p["arc_start"] += p["rot_speed"]
+            p["expand_speed"] *= 0.97
+        elif p["type"] == "fragment":
+            p["x"] += p["vx"]
+            p["y"] += p["vy"]
+            p["vy"] += p["gravity"]
+            p["vx"] *= 0.95
+            p["vy"] *= 0.95
+    for i in reversed(remove):
+        web_trap_break_effects.pop(i)
 
 
 def get_web_trap_player_slow():
@@ -57992,6 +58089,50 @@ def draw_web_traps(screen):
 
         # 중앙 밝은 점
         pygame.draw.circle(fx, (*col_center, spoke_alpha), (trap_cx, trap_cy), 3)
+
+    # ─── 파괴 파티클 렌더링 ───
+    for p in web_trap_break_effects:
+        t = p["timer"] / max(1, p["max_timer"])
+        alpha = max(0, int(220 * (1.0 - t * t)))  # 부드러운 페이드아웃
+        if alpha <= 0:
+            continue
+        if p.get("rage"):
+            col_strand = (255, 80, 80)
+            col_frag = (200, 50, 50)
+        else:
+            col_strand = (240, 240, 240)
+            col_frag = (220, 220, 220)
+
+        if p["type"] == "strand":
+            # 끊어진 거미줄 실 — 시작점에서 말려들며 떨어짐
+            sx = int(p["x"])
+            sy = int(p["y"])
+            seg_len = p["length"] * (1.0 - t * 0.5)  # 서서히 수축
+            ex = sx + int(math.cos(p["angle"]) * seg_len)
+            ey = sy + int(math.sin(p["angle"]) * seg_len)
+            # 중간점 (커브 효과)
+            mid_x = (sx + ex) // 2 + int(math.sin(p["angle"] + 1.57) * seg_len * 0.2 * (1.0 - t))
+            mid_y = (sy + ey) // 2 + int(math.cos(p["angle"] + 1.57) * seg_len * 0.2 * (1.0 - t))
+            pygame.draw.line(fx, (*col_strand, alpha), (sx, sy), (mid_x, mid_y), max(1, int(2 * (1.0 - t))))
+            pygame.draw.line(fx, (*col_strand, alpha // 2), (mid_x, mid_y), (ex, ey), 1)
+
+        elif p["type"] == "arc":
+            # 동심원 잔해 — 바깥으로 퍼지면서 소멸
+            ring_r = p["ring_r"] + p["expand"]
+            segs = 10
+            pts = []
+            for s in range(segs + 1):
+                a = p["arc_start"] + p["arc_len"] * (s / segs)
+                px = int(p["cx"] + ring_r * math.cos(a))
+                py = int(p["cy"] + ring_r * math.sin(a))
+                pts.append((px, py))
+            if len(pts) >= 2:
+                pygame.draw.lines(fx, (*col_strand, alpha), False, pts, 1)
+
+        elif p["type"] == "fragment":
+            # 작은 조각 파티클
+            size = max(1, int(p["size"] * (1.0 - t)))
+            pygame.draw.circle(fx, (*col_frag, alpha), (int(p["x"]), int(p["y"])), size)
 
     screen.blit(fx, (0, 0))
 
