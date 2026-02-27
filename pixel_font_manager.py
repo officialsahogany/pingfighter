@@ -55,14 +55,26 @@ if not os.path.exists(PIXEL_FONT_PATH):
 FALLBACK_FONT_BOLD = _fallback_nanum_bold
 FALLBACK_FONT_REGULAR = _fallback_nanum_regular
 
-# CJK 폰트 (일본어/중국어용) — Pretendard는 한/중/일 모두 지원
+# CJK 폰트 (일본어/중국어용)
+# Pretendard는 한국어 전용이라 ja/zh는 시스템 폰트 사용
 CJK_FONT_BOLD = resource_path("Pretendard-Bold.ttf")
 CJK_FONT_REGULAR = resource_path("Pretendard-Regular.ttf")
+
+# 일본어/중국어 시스템 폰트 목록
+if sys.platform == "win32":
+    _JA_SYSTEM_FONTS = ["Yu Gothic", "Meiryo", "MS Gothic", "MS PGothic"]
+    _ZH_SYSTEM_FONTS = ["Microsoft YaHei", "SimHei", "SimSun", "FangSong"]
+elif sys.platform == "darwin":
+    _JA_SYSTEM_FONTS = ["Hiragino Sans", "Hiragino Kaku Gothic Pro"]
+    _ZH_SYSTEM_FONTS = ["PingFang SC", "STHeiti", "Heiti SC"]
+else:
+    _JA_SYSTEM_FONTS = ["Noto Sans CJK JP", "TakaoGothic"]
+    _ZH_SYSTEM_FONTS = ["Noto Sans CJK SC", "WenQuanYi Micro Hei"]
 
 # 픽셀 폰트 사용 여부 (항상 True)
 USE_PIXEL_FONT = True
 
-# 현재 폰트 언어 (ko/en은 픽셀폰트, ja/zh는 Pretendard)
+# 현재 폰트 언어 (ko/en은 픽셀폰트, ja/zh는 시스템 폰트)
 _current_font_language = "ko"
 
 def set_font_language(lang_code):
@@ -74,6 +86,33 @@ def set_font_language(lang_code):
 
 def get_font_language():
     return _current_font_language
+
+def get_cjk_font(size, style="regular"):
+    """CJK 문자 렌더링용 폰트 (언어 설정과 무관하게 항상 CJK 지원 폰트 반환)"""
+    cache_key = ("_cjk_always", size, style)
+    if cache_key in _font_cache:
+        return _font_cache[cache_key]
+    is_bold = (style == "bold")
+    # 일본어 시스템 폰트 우선 (한자+가나+한글+중문 모두 지원하는 경우 많음)
+    for font_name in _JA_SYSTEM_FONTS + _ZH_SYSTEM_FONTS:
+        try:
+            font = pygame.font.SysFont(font_name, size, bold=is_bold)
+            _font_cache[cache_key] = font
+            return font
+        except Exception:
+            continue
+    # 폴백: Pretendard
+    try:
+        cjk_path = CJK_FONT_BOLD if is_bold else CJK_FONT_REGULAR
+        font = pygame.font.Font(cjk_path, size)
+        _font_cache[cache_key] = font
+        return font
+    except Exception:
+        pass
+    # 최종 폴백
+    font = pygame.font.Font(None, size)
+    _font_cache[cache_key] = font
+    return font
 
 # Windows 한글 폰트 폴백 (최후의 수단)
 if sys.platform == "win32":
@@ -216,10 +255,20 @@ def get_font(size, style="regular", force_pixel=None, no_scale=False):
     if cache_key in _font_cache:
         return _font_cache[cache_key]
 
-    # ja/zh → Pretendard CJK 폰트 우선 사용
+    # ja/zh → 시스템 폰트 사용 (PFStardust/Pretendard는 ja/zh 미지원)
     if is_cjk:
+        sys_fonts = _JA_SYSTEM_FONTS if _current_font_language == "ja" else _ZH_SYSTEM_FONTS
+        is_bold = (style == "bold")
+        for font_name in sys_fonts:
+            try:
+                font = pygame.font.SysFont(font_name, size, bold=is_bold)
+                _font_cache[cache_key] = font
+                return font
+            except Exception:
+                continue
+        # 시스템 폰트 실패 시 Pretendard 시도
         try:
-            cjk_path = CJK_FONT_BOLD if style == "bold" else CJK_FONT_REGULAR
+            cjk_path = CJK_FONT_BOLD if is_bold else CJK_FONT_REGULAR
             font = pygame.font.Font(cjk_path, size)
             _font_cache[cache_key] = font
             return font

@@ -2417,7 +2417,13 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                 pygame.draw.rect(screen, col, r, border_radius=18)
                 border_col = (0, 255, 255) if is_sel else (150, 150, 150)
                 pygame.draw.rect(screen, border_col, r, 2, border_radius=18)
-                s = font_small.render(_llabel, True, (255, 255, 255))
+                # ja/zh 라벨은 CJK 폰트 사용 (픽셀폰트 미지원)
+                if _lcode in ("ja", "zh"):
+                    from pixel_font_manager import get_cjk_font
+                    _pill_font = get_cjk_font(18)
+                else:
+                    _pill_font = font_small
+                s = _pill_font.render(_llabel, True, (255, 255, 255))
                 screen.blit(s, s.get_rect(center=r.center))
 
         # ─── 뒤로가기 버튼 ───
@@ -2472,6 +2478,9 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         current_language = LANGUAGE_CODES[max(0, _li - 1)]
                         _loc.set_language(current_language)
                         settings.set_setting("language", "language", current_language)
+                        font_medium = ctx.FontStyle.body()
+                        font_small = ctx.FontStyle.small()
+                        font_tiny = ctx.FontStyle.tiny()
                     elif current_tab == "controls" and focus == "scheme":
                         control_scheme = "keyboard"
                     elif current_tab == "display" and focus == "dispmode":
@@ -2506,6 +2515,9 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         current_language = LANGUAGE_CODES[min(len(LANGUAGE_CODES) - 1, _li + 1)]
                         _loc.set_language(current_language)
                         settings.set_setting("language", "language", current_language)
+                        font_medium = ctx.FontStyle.body()
+                        font_small = ctx.FontStyle.small()
+                        font_tiny = ctx.FontStyle.tiny()
                     elif current_tab == "controls" and focus == "scheme":
                         control_scheme = "mouse_keyboard"
                     elif current_tab == "display" and focus == "dispmode":
@@ -2577,6 +2589,9 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                         current_language = LANGUAGE_CODES[(_li + 1) % len(LANGUAGE_CODES)]
                         _loc.set_language(current_language)
                         settings.set_setting("language", "language", current_language)
+                        font_medium = ctx.FontStyle.body()
+                        font_small = ctx.FontStyle.small()
+                        font_tiny = ctx.FontStyle.tiny()
                     elif current_tab == "display" and focus == "dispmode":
                         _dm_order = ["fullscreen", "cinema", "windowed"]
                         _dm_idx = _dm_order.index(display_mode) if display_mode in _dm_order else 0
@@ -2637,6 +2652,9 @@ def _show_settings_screen(ctx: MenuContext, state: MenuState) -> None:
                             current_language = _lc
                             _loc.set_language(current_language)
                             settings.set_setting("language", "language", current_language)
+                            font_medium = ctx.FontStyle.body()
+                            font_small = ctx.FontStyle.small()
+                            font_tiny = ctx.FontStyle.tiny()
                             focus = "lang"
                             break
 
@@ -3251,6 +3269,14 @@ def run_start_menu(ctx: MenuContext, state: MenuState | None = None) -> MenuStat
     # 메뉴 진입 시 항상 원클릭 그레이스 리셋
     state.first_click_grace_frames = 12
     state.last_mb_left_state = False
+
+    # 언어/폰트 초기화 (저장된 언어 설정에 맞춰 CJK 폰트 전환)
+    try:
+        from config.settings_system import get_settings_manager
+        _saved_lang = get_settings_manager().get_setting("language", "language", "ko")
+        get_localization_manager().set_language(_saved_lang)
+    except Exception:
+        pass
 
     # 바로크 액자 애니메이션 리셋은 pillar_background.py의 set_stage(0)에서 처리됨
 

@@ -452,7 +452,13 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                 pygame.draw.rect(ctx.screen, col, r, border_radius=18)
                 border_col = (0, 255, 255) if is_sel else (150, 150, 150)
                 pygame.draw.rect(ctx.screen, border_col, r, 2, border_radius=18)
-                s = font_small.render(_llabel, True, const.WHITE)
+                # ja/zh 라벨은 CJK 폰트 사용 (픽셀폰트 미지원)
+                if _lcode in ("ja", "zh"):
+                    from pixel_font_manager import get_cjk_font
+                    _pill_font = get_cjk_font(18)
+                else:
+                    _pill_font = font_small
+                s = _pill_font.render(_llabel, True, const.WHITE)
                 ctx.screen.blit(s, s.get_rect(center=r.center))
         else:
             # -------- 사운드 탭 --------
@@ -594,6 +600,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         current_language = LANGUAGE_CODES[max(0, _li - 1)]
                         get_localization_manager().set_language(current_language)
                         settings.set_setting('language', 'language', current_language)
+                        font_medium = FontStyle.body()
+                        font_small = FontStyle.small()
                     elif current_tab == 'controls':
                         if locals().get('focus','bgm') in ('scheme','back'):
                             control_scheme = 'keyboard'
@@ -628,6 +636,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         current_language = LANGUAGE_CODES[min(len(LANGUAGE_CODES) - 1, _li + 1)]
                         get_localization_manager().set_language(current_language)
                         settings.set_setting('language', 'language', current_language)
+                        font_medium = FontStyle.body()
+                        font_small = FontStyle.small()
                     elif current_tab == 'controls':
                         if locals().get('focus','bgm') in ('scheme','back'):
                             control_scheme = 'mouse_keyboard'
@@ -686,6 +696,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                         current_language = LANGUAGE_CODES[(_li + 1) % len(LANGUAGE_CODES)]
                         get_localization_manager().set_language(current_language)
                         settings.set_setting('language', 'language', current_language)
+                        font_medium = FontStyle.body()
+                        font_small = FontStyle.small()
                     elif current_tab == 'display' and focus == 'dispmode':
                         _dm_order = ['fullscreen', 'cinema', 'windowed']
                         _dm_idx = _dm_order.index(display_mode) if display_mode in _dm_order else 0
@@ -776,6 +788,8 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
                                 current_language = _lc
                                 get_localization_manager().set_language(current_language)
                                 settings.set_setting('language', 'language', current_language)
+                                font_medium = FontStyle.body()
+                                font_small = FontStyle.small()
                                 focus = 'lang'
                                 break
                     # 디스플레이 탭 처리
