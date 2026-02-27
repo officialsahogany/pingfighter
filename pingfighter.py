@@ -106960,7 +106960,7 @@ def show_victory_screen(stage_cleared, reward):
         # 마우스 호버 체크 (애니메이션 완료 시만)
         _vic_mouse_pos = pygame.mouse.get_pos()
         if animation_complete and choice_ui_state['ui_shown']:
-            for rect, _t, idx in buttons:
+            for rect, _btn_text, idx in buttons:
                 if check_btn_hover(f"vic_{idx}", rect, _vic_mouse_pos):
                     selected = idx
 
