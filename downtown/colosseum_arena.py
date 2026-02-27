@@ -7399,10 +7399,14 @@ class ColosseumsArena:
         self._cd_overlay_surf = None     # 재사용 오버레이 Surface (glow/dark용)
         self._cd_card_size = (0, 0)      # 현재 캐시된 카드 크기
 
-        # 마우스 호버 상태
+        # 마우스 호버 / 키보드 선택 상태
         self.hover_perk_index = -1               # 퍽 카드 호버 인덱스 (-1 = 없음)
         self.hover_match_index = -1              # 대진표 매치 박스 호버 인덱스 (-1 = 없음)
         self.hover_btn_id = ""                   # 버튼 호버 ID
+        self.kb_betting_index = 0                # 배팅 키보드 선택 (0:hero1, 1:hero2, 2:exit)
+        self.kb_vs_preview_index = 0             # VS프리뷰 키보드 선택 (0:continue, 1:exit)
+        self.kb_round_end_index = 0              # 라운드종료 키보드 선택 (0:continue, 1:exit)
+        self.kb_victory_index = 0                # 승리축하 키보드 선택 (0:gold, 1:recruit)
         self.hover_line_particles = []           # 호버 시 라인 파티클 이펙트
         self.hover_glow_timer = 0.0              # 호버 글로우 펄스 타이머
         self.card_attract_particles = []         # 비공개 카드 테두리 형형색색 파티클
@@ -10236,6 +10240,253 @@ class ColosseumsArena:
                     self.perk_selected_index = min(len(self.current_perk_options) - 1, self.perk_selected_index + 1)
                 elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
                     self._confirm_perk_selection()
+
+            # ========== 난이도 선택 키보드 처리 ==========
+            if self.state == TournamentState.DIFFICULTY_SELECT:
+                num_diff = len(ARENA_DIFFICULTIES)
+                if event.key in (pygame.K_LEFT, pygame.K_a):
+                    if self.hover_difficulty_index < 0:
+                        self.hover_difficulty_index = 0
+                    else:
+                        self.hover_difficulty_index = max(0, self.hover_difficulty_index - 1)
+                elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                    if self.hover_difficulty_index < 0:
+                        self.hover_difficulty_index = 0
+                    else:
+                        self.hover_difficulty_index = min(num_diff - 1, self.hover_difficulty_index + 1)
+                elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                    idx = self.hover_difficulty_index
+                    if 0 <= idx < num_diff:
+                        diff = ARENA_DIFFICULTIES[idx]
+                        if self.player_gold >= diff["entry_fee"]:
+                            _load_button_click_sound()
+                            if _button_click_sound:
+                                _button_click_sound.play()
+                            self._select_difficulty(idx)
+
+            # ========== 영웅 선택 키보드 처리 ==========
+            if self.state == TournamentState.HERO_SELECT:
+                anim_phase_hs = getattr(self, '_hero_select_anim_phase', None)
+                if anim_phase_hs == "skill_selected":
+                    if event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                        self._hero_select_anim_phase = None
+                        self.skill_reveal_phase = "done"
+                        self._prepare_prison_candidates()
+                        self.state = TournamentState.PRISON_SELECT
+                elif not anim_phase_hs:
+                    if event.key in (pygame.K_LEFT, pygame.K_a):
+                        self.hover_hero_index = 0
+                    elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                        self.hover_hero_index = 1
+                    elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                        if self.hover_hero_index == 0 and self.selected_match:
+                            _load_button_click_sound()
+                            if _button_click_sound:
+                                _button_click_sound.play()
+                            self._select_hero(self.selected_match.hero1, self.selected_match.hero2)
+                        elif self.hover_hero_index == 1 and self.selected_match:
+                            _load_button_click_sound()
+                            if _button_click_sound:
+                                _button_click_sound.play()
+                            self._select_hero(self.selected_match.hero2, self.selected_match.hero1)
+
+            # ========== 스킬 연출 키보드 처리 ==========
+            if self.state == TournamentState.SKILL_REVEAL:
+                if self.skill_reveal_phase == "selected":
+                    if event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                        if self.skill_reveal_target == (self.player_hero or {}).get("id"):
+                            self._prepare_prison_candidates()
+                            self.state = TournamentState.PRISON_SELECT
+                        elif self.skill_reveal_target == (self.player_guard or {}).get("id"):
+                            self._finalize_setup_and_start()
+
+            # ========== 감옥 호위무사 선택 키보드 처리 ==========
+            if self.state == TournamentState.PRISON_SELECT:
+                opening_phase = getattr(self, '_prison_opening_phase', None)
+                if opening_phase == "skill_selected":
+                    if event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                        self._prison_opening_phase = None
+                        self.skill_reveal_phase = "done"
+                        self._finalize_setup_and_start()
+                elif not opening_phase:
+                    num_prison = len(self.prison_heroes)
+                    if event.key in (pygame.K_LEFT, pygame.K_a):
+                        if self.hover_prison_index < 0:
+                            self.hover_prison_index = 0
+                        else:
+                            self.hover_prison_index = max(0, self.hover_prison_index - 1)
+                    elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                        if self.hover_prison_index < 0:
+                            self.hover_prison_index = 0
+                        else:
+                            self.hover_prison_index = min(num_prison - 1, self.hover_prison_index + 1)
+                    elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                        idx = self.hover_prison_index
+                        if 0 <= idx < num_prison:
+                            _load_button_click_sound()
+                            if _button_click_sound:
+                                _button_click_sound.play()
+                            self._select_guard(self.prison_heroes[idx], idx)
+
+            # ========== 호위무사 스킬 연출 키보드 처리 ==========
+            if self.state == TournamentState.GUARD_SKILL_REVEAL:
+                if self.skill_reveal_phase == "selected":
+                    if event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                        self.skill_reveal_phase = "done"
+                        if getattr(self, '_guard_skill_reveal_mid_tournament', False):
+                            self._guard_skill_reveal_mid_tournament = False
+                            self._start_perk_select()
+                        else:
+                            self._finalize_setup_and_start()
+
+            # ========== 배팅 키보드 처리 ==========
+            if self.state == TournamentState.BETTING:
+                _betting_ids = ["hero1", "hero2", "exit"]
+                if event.key in (pygame.K_LEFT, pygame.K_a):
+                    self.kb_betting_index = max(0, self.kb_betting_index - 1)
+                    self.hover_btn_id = _betting_ids[self.kb_betting_index]
+                elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                    self.kb_betting_index = min(2, self.kb_betting_index + 1)
+                    self.hover_btn_id = _betting_ids[self.kb_betting_index]
+                elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                    _load_button_click_sound()
+                    if _button_click_sound:
+                        _button_click_sound.play()
+                    if self.kb_betting_index == 0 and self.selected_match:
+                        self.bet_hero = self.selected_match.hero1
+                        self._start_vs_preview()
+                    elif self.kb_betting_index == 1 and self.selected_match:
+                        self.bet_hero = self.selected_match.hero2
+                        self._start_vs_preview()
+                    elif self.kb_betting_index == 2:
+                        self.total_winnings = self.accumulated_prize
+                        self.winnings_collected = True
+                        self.exit_requested = True
+
+            # ========== VS 프리뷰 키보드 처리 ==========
+            if self.state == TournamentState.VS_PREVIEW:
+                if getattr(self, 'vs_preview_show_buttons', False) and self.vs_preview_timer >= 1.5:
+                    _vs_ids = ["continue", "vs_exit"]
+                    if event.key in (pygame.K_LEFT, pygame.K_a):
+                        self.kb_vs_preview_index = 0
+                        self.hover_btn_id = _vs_ids[0]
+                    elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                        self.kb_vs_preview_index = 1
+                        self.hover_btn_id = _vs_ids[1]
+                    elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                        if self.kb_vs_preview_index == 0:
+                            _load_gacha_result_sound()
+                            if _gacha_result_sound:
+                                _gacha_result_sound.play()
+                            if self.selected_match:
+                                self._start_battle_intro()
+                        elif self.kb_vs_preview_index == 1:
+                            _load_button_click_sound()
+                            if _button_click_sound:
+                                _button_click_sound.play()
+                            self.total_winnings = self.accumulated_prize
+                            self.winnings_collected = True
+                            self.exit_requested = True
+
+            # ========== 결과 화면 키보드 처리 ==========
+            if self.state == TournamentState.RESULT:
+                if event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                    self.result_display_timer = 0
+
+            # ========== 라운드 종료 키보드 처리 ==========
+            if self.state == TournamentState.ROUND_END:
+                _round_ids = ["round_continue", "round_exit"]
+                if event.key in (pygame.K_LEFT, pygame.K_a):
+                    self.kb_round_end_index = 0
+                    self.hover_btn_id = _round_ids[0]
+                elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                    self.kb_round_end_index = 1
+                    self.hover_btn_id = _round_ids[1]
+                elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                    _load_button_click_sound()
+                    if _button_click_sound:
+                        _button_click_sound.play()
+                    if self.kb_round_end_index == 0:
+                        self._start_bracket_animation()
+                    elif self.kb_round_end_index == 1:
+                        self.total_winnings = self.accumulated_prize
+                        self.winnings_collected = True
+                        self.exit_requested = True
+
+            # ========== 토너먼트 종료 키보드 처리 ==========
+            if self.state == TournamentState.TOURNAMENT_END:
+                self.hover_btn_id = "end_exit"  # 버튼 하나뿐이므로 항상 하이라이트
+                if event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                    _load_button_click_sound()
+                    if _button_click_sound:
+                        _button_click_sound.play()
+                    self.total_winnings = self.accumulated_prize
+                    self.winnings_collected = True
+                    self.exit_requested = True
+
+            # ========== 승리 축하 키보드 처리 ==========
+            if self.state == TournamentState.VICTORY_CELEBRATION:
+                if getattr(self, 'victory_timer', 0) >= 3.0:
+                    if not getattr(self, '_seal_acquisition_active', False):
+                        _victory_ids = ["gold", "recruit"]
+                        if event.key in (pygame.K_LEFT, pygame.K_a):
+                            self.kb_victory_index = 0
+                            self.hover_btn_id = _victory_ids[0]
+                        elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                            self.kb_victory_index = 1
+                            self.hover_btn_id = _victory_ids[1]
+                        elif event.key in (pygame.K_SPACE, pygame.K_RETURN):
+                            _load_button_click_sound()
+                            if _button_click_sound:
+                                _button_click_sound.play()
+                            if self.kb_victory_index == 0:
+                                prize = self.accumulated_prize
+                                self.total_winnings = prize
+                                self.winnings_collected = True
+                                self.exit_requested = True
+                            elif self.kb_victory_index == 1:
+                                # 호위무사 등용 → 인장 획득 연출
+                                _rh_id = self.bet_hero.get("id", "")
+                                if self.hero_has_both_skills.get(_rh_id, False):
+                                    _skill_idx = -1
+                                else:
+                                    _skill_idx = self.hero_selected_skills.get(_rh_id, 0)
+                                self.seal_item_data = {
+                                    "name": "hero_seal",
+                                    "type": "passive",
+                                    "color": self.bet_hero.get("color", (200, 160, 80)),
+                                    "effect": "hero_seal",
+                                    "hero_id": _rh_id,
+                                    "hero_name": self.bet_hero.get("name", ""),
+                                    "hero_skill_index": _skill_idx,
+                                }
+                                # 양쪽 스킬 모두 보유 시 스킬 정보 추가
+                                if _skill_idx == -1:
+                                    skills = self.bet_hero.get("skills", [])
+                                    if len(skills) >= 2:
+                                        self.seal_item_data["has_both_skills"] = True
+                                        self.seal_item_data["skill_names"] = [s.get("name", "") for s in skills]
+                                        shapes = []
+                                        for s in skills:
+                                            _cshape = s.get("shape", "circle")
+                                            if isinstance(_cshape, list):
+                                                _cshape = _cshape[0] if _cshape else "circle"
+                                            shapes.append(_cshape)
+                                        self.seal_item_data["skill_shapes"] = shapes
+                                else:
+                                    skills = self.bet_hero.get("skills", [])
+                                    if _skill_idx < len(skills):
+                                        _s = skills[_skill_idx]
+                                        self.seal_item_data["skill_name"] = _s.get("name", "")
+                                        _cshape = _s.get("shape", "circle")
+                                        if isinstance(_cshape, list):
+                                            _cshape = _cshape[0] if _cshape else "circle"
+                                        self.seal_item_data["shape"] = _cshape
+                                    else:
+                                        self.seal_item_data["skill_name"] = ""
+                                        self.seal_item_data["shape"] = "circle"
+                                self._seal_animation_timer = 0
+                                self._seal_acquisition_active = True
 
         elif event.type == pygame.MOUSEMOTION:
             self._update_hover(event.pos)
