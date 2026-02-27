@@ -486,8 +486,8 @@ class DowntownRenderer:
             pygame.draw.ellipse(patch_overlay, pc, (px, py, pw, ph))
         tile_surf.blit(patch_overlay, (0, 0))
 
-        # --- 2) 지형 디테일 (50% 확률) ---
-        feat = tile_hash % 6
+        # --- 2) 지형 디테일 (극소수 타일에만, ~5%) ---
+        feat = tile_hash % 60
         if feat == 0:
             # 흙 얼룩 (부드러운 그라데이션)
             ds = pygame.Surface((TS, TS), pygame.SRCALPHA)
@@ -498,21 +498,17 @@ class DowntownRenderer:
                 pygame.draw.circle(ds, dirt_c, (dx, dy), r)
             tile_surf.blit(ds, (0, 0))
         elif feat == 1:
-            # 조약돌 2~3개 (입체감)
-            for _ in range(random.randint(2, 3)):
-                px, py = random.randint(6, TS - 8), random.randint(6, TS - 8)
-                pr = random.randint(2, 3)
-                pv = random.randint(15, 28)
-                # 그림자
-                pygame.draw.circle(tile_surf,
-                    (max(0, base_r - 10), max(0, base_g - 10), max(0, base_b - 10)),
-                    (px + 1, py + 1), pr)
-                # 돌 본체
-                pc = (min(255, base_r + pv), min(255, base_g + pv - 3), min(255, base_b + pv - 5))
-                pygame.draw.circle(tile_surf, pc, (px, py), pr)
-                # 하이라이트
-                pc_l = (min(255, pc[0] + 15), min(255, pc[1] + 15), min(255, pc[2] + 12))
-                pygame.draw.circle(tile_surf, pc_l, (px - 1, py - 1), max(1, pr - 1))
+            # 조약돌 1개 (입체감)
+            px, py = random.randint(8, TS - 10), random.randint(8, TS - 10)
+            pr = random.randint(2, 3)
+            pv = random.randint(15, 28)
+            pygame.draw.circle(tile_surf,
+                (max(0, base_r - 10), max(0, base_g - 10), max(0, base_b - 10)),
+                (px + 1, py + 1), pr)
+            pc = (min(255, base_r + pv), min(255, base_g + pv - 3), min(255, base_b + pv - 5))
+            pygame.draw.circle(tile_surf, pc, (px, py), pr)
+            pc_l = (min(255, pc[0] + 15), min(255, pc[1] + 15), min(255, pc[2] + 12))
+            pygame.draw.circle(tile_surf, pc_l, (px - 1, py - 1), max(1, pr - 1))
         elif feat == 2:
             # 진한 색상 구역
             ds = pygame.Surface((TS, TS), pygame.SRCALPHA)
@@ -521,7 +517,7 @@ class DowntownRenderer:
                 a = max(8, 40 - r * 4)
                 pygame.draw.circle(ds, (0, 12, 0, a), (mx + r // 2, my + r // 2), r)
             tile_surf.blit(ds, (0, 0))
-        # feat 3~5: 깨끗한 바닥
+        # feat 3~59: 깨끗한 바닥 (대다수)
 
         # --- 3) 미세 질감 (넓은 영역의 부드러운 노이즈) ---
         texture_overlay = pygame.Surface((TS, TS), pygame.SRCALPHA)
