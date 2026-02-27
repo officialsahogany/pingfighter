@@ -8,6 +8,11 @@ import math
 import random
 import os
 
+from localization.manager import get_localization_manager
+_loc = get_localization_manager()
+def _t(key, fallback=""):
+    return _loc.get_text(key, fallback)
+
 from .constants import SCREEN_WIDTH, SCREEN_HEIGHT, resource_path
 
 # ------------------------------------------------------------------
@@ -441,7 +446,11 @@ class BodyguardFollower:
             return None
 
         dialogues = HERO_IDLE_DIALOGUES.get(self.hero_id, DEFAULT_DIALOGUES)
-        dialogue = random.choice(dialogues)
+        idx = random.randint(0, len(dialogues) - 1)
+        if self.hero_id in HERO_IDLE_DIALOGUES:
+            dialogue = _t(f"idlg.{self.hero_id}.{idx}", dialogues[idx])
+        else:
+            dialogue = _t(f"idlg.default.{idx}", dialogues[idx])
 
         self.speech_bubble = dialogue
         self.speech_timer = 4.0

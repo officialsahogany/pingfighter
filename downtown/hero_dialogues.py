@@ -6,6 +6,11 @@
 
 import random
 
+from localization.manager import get_localization_manager
+_loc = get_localization_manager()
+def _t(key, fallback=""):
+    return _loc.get_text(key, fallback)
+
 # ── 대사 상황 상수 ──
 BATTLE_START = "battle_start"
 SCORED = "scored"
@@ -1066,7 +1071,8 @@ class HeroDialogueManager:
         if not lines:
             return False
 
-        text = random.choice(lines)
+        idx = random.randint(0, len(lines) - 1)
+        text = _t(f"hdlg.{hero_id}.{situation}.{idx}", lines[idx])
         fn(is_top, text, raw=True)
 
         self._hero_cd[hero_id] = self.HERO_COOLDOWN
@@ -1084,7 +1090,8 @@ class HeroDialogueManager:
         lines = HERO_DIALOGUES.get(hero_id, {}).get(situation, [])
         if not lines:
             return None
-        return random.choice(lines)
+        idx = random.randint(0, len(lines) - 1)
+        return _t(f"hdlg.{hero_id}.{situation}.{idx}", lines[idx])
 
 
 # ── 싱글톤 ──

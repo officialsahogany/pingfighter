@@ -6,6 +6,18 @@
 
 import random
 
+from localization.manager import get_localization_manager
+_loc = get_localization_manager()
+def _t(key, fallback=""):
+    return _loc.get_text(key, fallback)
+
+# 보스 변형 키 매핑 (한글 보스이름 → 영문 키)
+_VARIANT_KEY_MAP = {
+    "포도대장": "podo",
+    "각시탈": "gaksi",
+    "두더지왕": "mole",
+}
+
 # ── 대사 상황 상수 ──
 BATTLE_START = "battle_start"
 SCORED = "scored"          # 보스 득점
@@ -529,7 +541,19 @@ class BossDialogueManager:
         if not lines:
             return False
 
-        text = random.choice(lines)
+        idx = random.randint(0, len(lines) - 1)
+        # 번역 키 구성
+        boss_name = getattr(self, '_boss_name', None)
+        if boss_name and (stage, boss_name) in BOSS_VARIANT_DIALOGUES:
+            vdata = BOSS_VARIANT_DIALOGUES.get((stage, boss_name), {})
+            if situation in vdata and lines == vdata[situation]:
+                vkey = _VARIANT_KEY_MAP.get(boss_name, boss_name)
+                tkey = f"bdlg.{stage}.v_{vkey}.{situation}.{idx}"
+            else:
+                tkey = f"bdlg.{stage}.{situation}.{idx}"
+        else:
+            tkey = f"bdlg.{stage}.{situation}.{idx}"
+        text = _t(tkey, lines[idx])
         fn(text, duration=90)
 
         self._cooldown = self.COOLDOWN
