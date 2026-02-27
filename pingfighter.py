@@ -20790,166 +20790,171 @@ _arena_guard_tutorial_active = False     # 현재 튜토리얼 진행 중
 _arena_guard_tutorial_step = 0           # 현재 단계 (0~3)
 _arena_guard_tutorial_delay_frames = 0   # 게임 시작 후 딜레이 카운터
 _ARENA_GUARD_TUTORIAL_DELAY = 360        # 6초 (60fps 기준)
-_ARENA_GUARD_TUTORIAL_STEPS = [
-    {
-        "highlight": "guard_stance",
-        "expression": "default",
-        "messages": [
-            "이 아이콘을 클릭하거나 {KEY:E}키를 누르면",
-            "호위무사의 포지션을 전환할 수 있습니다.",
-        ],
-    },
-    {
-        "highlight": "guard_stance",
-        "expression": "thinking",
-        "messages": [
-            "기본 설정은 공격 모드입니다.",
-            "공격 모드에서 호위무사는 공 수비보다",
-            "스킬 사용에 집중합니다.",
-        ],
-    },
-    {
-        "highlight": "guard_stance",
-        "expression": "thinking",
-        "messages": [
-            "방어 모드에서는 공을 적극적으로 수비하고",
-            "대쉬도 사용하지만, 스킬 쿨타임이 2배 늘어납니다.",
-        ],
-    },
-    {
-        "highlight": None,
-        "expression": "default",
-        "messages": [
-            "상황에 따라 포지션을 적절히 전환하면",
-            "유리한 경기를 이끌어갈 수 있습니다!",
-        ],
-    },
-]
+def _get_arena_guard_tutorial_steps():
+    return [
+        {
+            "highlight": "guard_stance",
+            "expression": "default",
+            "messages": [
+                _t("tut.guard.1a", "이 아이콘을 클릭하거나 {KEY:E}키를 누르면"),
+                _t("tut.guard.1b", "호위무사의 포지션을 전환할 수 있습니다."),
+            ],
+        },
+        {
+            "highlight": "guard_stance",
+            "expression": "thinking",
+            "messages": [
+                _t("tut.guard.2a", "기본 설정은 공격 모드입니다."),
+                _t("tut.guard.2b", "공격 모드에서 호위무사는 공 수비보다"),
+                _t("tut.guard.2c", "스킬 사용에 집중합니다."),
+            ],
+        },
+        {
+            "highlight": "guard_stance",
+            "expression": "thinking",
+            "messages": [
+                _t("tut.guard.3a", "방어 모드에서는 공을 적극적으로 수비하고"),
+                _t("tut.guard.3b", "대쉬도 사용하지만, 스킬 쿨타임이 2배 늘어납니다."),
+            ],
+        },
+        {
+            "highlight": None,
+            "expression": "default",
+            "messages": [
+                _t("tut.guard.4a", "상황에 따라 포지션을 적절히 전환하면"),
+                _t("tut.guard.4b", "유리한 경기를 이끌어갈 수 있습니다!"),
+            ],
+        },
+    ]
 # 투기장 초상화 튜토리얼 (호위무사 튜토리얼 완료 5초 후 표시)
 _arena_portrait_tutorial_shown = False      # 세션 내 1회만 표시
 _arena_portrait_tutorial_active = False     # 현재 튜토리얼 진행 중
 _arena_portrait_tutorial_step = 0           # 현재 단계 (0~3)
 _arena_portrait_tutorial_delay_frames = 0   # 호위무사 튜토리얼 완료 후 딜레이 카운터
 _ARENA_PORTRAIT_TUTORIAL_DELAY = 720        # 12초 (60fps 기준)
-_ARENA_PORTRAIT_TUTORIAL_STEPS = [
-    {
-        "highlight": "portrait",
-        "expression": "default",
-        "messages": [
-            "이 초상화에 마우스를 갖다 대면",
-            "영웅과 호위무사의 스킬, 쿨타임 정보를 확인할 수 있습니다.",
-        ],
-    },
-    {
-        "highlight": "portrait",
-        "expression": "thinking",
-        "messages": [
-            "스킬을 가장 먼저 사용할 영웅이나 호위무사일수록",
-            "초상화가 상단에 위치합니다.",
-        ],
-    },
-    {
-        "highlight": "portrait",
-        "expression": "thinking",
-        "messages": [
-            "이 순서를 통해 다음에 어떤 스킬이 사용될지",
-            "미리 예측할 수 있습니다.",
-        ],
-    },
-    {
-        "highlight": None,
-        "expression": "default",
-        "messages": [
-            "참고로, 호위무사는 스킬 쿨타임에",
-            "+30% 디버프가 적용되어 있습니다.",
-        ],
-    },
-]
+def _get_arena_portrait_tutorial_steps():
+    return [
+        {
+            "highlight": "portrait",
+            "expression": "default",
+            "messages": [
+                _t("tut.portrait.1a", "이 초상화에 마우스를 갖다 대면"),
+                _t("tut.portrait.1b", "영웅과 호위무사의 스킬, 쿨타임 정보를 확인할 수 있습니다."),
+            ],
+        },
+        {
+            "highlight": "portrait",
+            "expression": "thinking",
+            "messages": [
+                _t("tut.portrait.2a", "스킬을 가장 먼저 사용할 영웅이나 호위무사일수록"),
+                _t("tut.portrait.2b", "초상화가 상단에 위치합니다."),
+            ],
+        },
+        {
+            "highlight": "portrait",
+            "expression": "thinking",
+            "messages": [
+                _t("tut.portrait.3a", "이 순서를 통해 다음에 어떤 스킬이 사용될지"),
+                _t("tut.portrait.3b", "미리 예측할 수 있습니다."),
+            ],
+        },
+        {
+            "highlight": None,
+            "expression": "default",
+            "messages": [
+                _t("tut.portrait.4a", "참고로, 호위무사는 스킬 쿨타임에"),
+                _t("tut.portrait.4b", "+30% 디버프가 적용되어 있습니다."),
+            ],
+        },
+    ]
 # 투기장 배속 튜토리얼 (초상화 튜토리얼 완료 10초 후 표시)
 _arena_speed_tutorial_shown = False
 _arena_speed_tutorial_active = False
 _arena_speed_tutorial_step = 0
 _arena_speed_tutorial_delay_frames = 0
 _ARENA_SPEED_TUTORIAL_DELAY = 600          # 10초 (60fps 기준)
-_ARENA_SPEED_TUTORIAL_STEPS = [
-    {
-        "highlight": "speed_buttons",
-        "expression": "default",
-        "messages": [
-            "이 아이콘으로 게임의 배속을 조절할 수 있습니다.",
-            "마우스로 직접 클릭해 배속을 변경하세요.",
-        ],
-    },
-    {
-        "highlight": "speed_buttons",
-        "expression": "thinking",
-        "messages": [
-            "{KEY:F1}x1 {KEY:F2}x1.5 {KEY:F3}x2 {KEY:F4}x3",
-            "키보드로도 빠르게 배속을 변경할 수 있습니다.",
-        ],
-    },
-]
+def _get_arena_speed_tutorial_steps():
+    return [
+        {
+            "highlight": "speed_buttons",
+            "expression": "default",
+            "messages": [
+                _t("tut.speed.1a", "이 아이콘으로 게임의 배속을 조절할 수 있습니다."),
+                _t("tut.speed.1b", "마우스로 직접 클릭해 배속을 변경하세요."),
+            ],
+        },
+        {
+            "highlight": "speed_buttons",
+            "expression": "thinking",
+            "messages": [
+                _t("tut.speed.2a", "{KEY:F1}x1 {KEY:F2}x1.5 {KEY:F3}x2 {KEY:F4}x3"),
+                _t("tut.speed.2b", "키보드로도 빠르게 배속을 변경할 수 있습니다."),
+            ],
+        },
+    ]
 # 투기장 하수인 튜토리얼 (4강 진출 후 하수인 획득 시 표시)
 _arena_henchman_tutorial_shown = False
 _arena_henchman_tutorial_active = False
 _arena_henchman_tutorial_step = 0
 _arena_henchman_tutorial_delay_frames = 0
 _ARENA_HENCHMAN_TUTORIAL_DELAY = 360     # 6초 (60fps 기준)
-_ARENA_HENCHMAN_TUTORIAL_STEPS = [
-    {
-        "highlight": "henchman_ui",
-        "expression": "default",
-        "messages": [
-            "하수인은 직접 지시하여 스킬을 발동할 수 있습니다.",
-        ],
-    },
-    {
-        "highlight": "henchman_ui",
-        "expression": "thinking",
-        "messages": [
-            "{KEY:1}{KEY:2}{KEY:3}키로 해당 위치의 하수인을 선택하거나",
-            "마우스로 하수인 아이콘을 클릭하면 스킬이 즉시 발동됩니다.",
-        ],
-    },
-    {
-        "highlight": None,
-        "expression": "default",
-        "messages": [
-            "호위무사와 달리 스킬 쿨타임이 매우 길어서",
-            "상황에 맞게 사용하는 것이 좋습니다!",
-        ],
-    },
-]
+def _get_arena_henchman_tutorial_steps():
+    return [
+        {
+            "highlight": "henchman_ui",
+            "expression": "default",
+            "messages": [
+                _t("tut.henchman.1a", "하수인은 직접 지시하여 스킬을 발동할 수 있습니다."),
+            ],
+        },
+        {
+            "highlight": "henchman_ui",
+            "expression": "thinking",
+            "messages": [
+                _t("tut.henchman.2a", "{KEY:1}{KEY:2}{KEY:3}키로 해당 위치의 하수인을 선택하거나"),
+                _t("tut.henchman.2b", "마우스로 하수인 아이콘을 클릭하면 스킬이 즉시 발동됩니다."),
+            ],
+        },
+        {
+            "highlight": None,
+            "expression": "default",
+            "messages": [
+                _t("tut.henchman.3a", "호위무사와 달리 스킬 쿨타임이 매우 길어서"),
+                _t("tut.henchman.3b", "상황에 맞게 사용하는 것이 좋습니다!"),
+            ],
+        },
+    ]
 # 투기장 포획 튜토리얼 (승리 후 포획 이벤트 발생 시 표시)
 _arena_capture_tutorial_shown = False
 _arena_capture_tutorial_active = False
 _arena_capture_tutorial_step = 0
-_ARENA_CAPTURE_TUTORIAL_STEPS = [
-    {
-        "highlight": None,
-        "expression": "default",
-        "messages": [
-            "승리한 상대 영웅을 포획할 수 있습니다.",
-            "포획에 성공하면 하수인이나 호위무사로 등용할 수 있어요!",
-        ],
-    },
-    {
-        "highlight": None,
-        "expression": "thinking",
-        "messages": [
-            "{KEY:A}{KEY:D}키로 이동하며 마우스 왼쪽 클릭 또는 {KEY:SPACE}키로",
-            "그물덫을 발사해 상대를 포획하세요.",
-        ],
-    },
-    {
-        "highlight": None,
-        "expression": "default",
-        "messages": [
-            "제한 시간 5초 동안 총 3번의 그물덫을 발사할 수 있습니다.",
-            "실패하면 도망쳐 버리니 신중하게 조준하세요!",
-        ],
-    },
-]
+def _get_arena_capture_tutorial_steps():
+    return [
+        {
+            "highlight": None,
+            "expression": "default",
+            "messages": [
+                _t("tut.capture.1a", "승리한 상대 영웅을 포획할 수 있습니다."),
+                _t("tut.capture.1b", "포획에 성공하면 하수인이나 호위무사로 등용할 수 있어요!"),
+            ],
+        },
+        {
+            "highlight": None,
+            "expression": "thinking",
+            "messages": [
+                _t("tut.capture.2a", "{KEY:A}{KEY:D}키로 이동하며 마우스 왼쪽 클릭 또는 {KEY:SPACE}키로"),
+                _t("tut.capture.2b", "그물덫을 발사해 상대를 포획하세요."),
+            ],
+        },
+        {
+            "highlight": None,
+            "expression": "default",
+            "messages": [
+                _t("tut.capture.3a", "제한 시간 5초 동안 총 3번의 그물덫을 발사할 수 있습니다."),
+                _t("tut.capture.3b", "실패하면 도망쳐 버리니 신중하게 조준하세요!"),
+            ],
+        },
+    ]
 # 생포된 호위무사 (1회용 소환)
 arena_captured_guard = None              # 생포된 영웅 dict
 arena_captured_guard_used = False        # 사용 여부
@@ -79063,6 +79068,159 @@ def draw_mission_banner():
     banner_rect = banner_surface.get_rect(center=(center_x, center_y))
     target_screen.blit(banner_surface, banner_rect)
 
+# 튜토리얼 메시지 번역 매핑 (한국어 원문 → 로컬라이제이션 키)
+_TUT_MSG_KEYS = {
+    # Part 1: 게이지 시스템
+    "이것은 게이지구슬이에요!": "tut.ig.gauge1",
+    "게이지를 획득하는 방법은": "tut.ig.gauge2",
+    "캐릭터가 공을 때리면 게이지를 획득합니다.": "tut.ig.gauge3",
+    "게이지가 쌓이면": "tut.ig.gauge4",
+    "다양한 스킬을 사용할 수 있어요!": "tut.ig.gauge5",
+    # Part 2: 콤보 시스템
+    "스매셔는 콤보 시스템이 있어서": "tut.ig.combo1",
+    "공을 연속으로 때릴수록 콤보가 쌓이고": "tut.ig.combo2",
+    "콤보가 쌓일때마다 추가 게이지보너스를 얻습니다.": "tut.ig.combo3",
+    "잘했어요!": "tut.ig.welldone",
+    "콤보 도중에 대쉬를 사용하면": "tut.ig.combo4",
+    "콤보가 끊기니 주의하세요!": "tut.ig.combo5",
+    "다음은 대쉬에 대해서 알아볼게요": "tut.ig.next_dash",
+    # Part 3: 대쉬 시스템
+    "이것은 대쉬 토큰구슬입니다!": "tut.ig.dash1",
+    "대쉬를 사용하면 토큰이 소모되고,": "tut.ig.dash2",
+    "시간이 지나면 자동으로 충전됩니다.": "tut.ig.dash3",
+    "{KEY:A} 또는 {KEY:D} 키를 누르고 있는 상태에서": "tut.ig.dash4",
+    "{KEY:S}키 또는 마우스 우클릭을 하면": "tut.ig.dash5",
+    "선택한 방향으로 빠르게 이동합니다!": "tut.ig.dash6",
+    "한 번 사용해보세요!": "tut.ig.dash_try",
+    "대쉬 사용 후에는 토큰 게이지가": "tut.ig.dash7",
+    "다시 충전되어야 대쉬를 사용할 수 있습니다.": "tut.ig.dash8",
+    "충전이 완료되기 전에 대쉬를 사용하면": "tut.ig.dash9",
+    "거리가 짧은 하프대쉬가 발동됩니다.": "tut.ig.dash10",
+    "하프대쉬도 한 번 사용해보세요!": "tut.ig.dash_half_try",
+    "대쉬 이후에는 잠깐 대쉬후딜시간이 있어서": "tut.ig.dash11",
+    "후딜시간동안은 이동이나 행동을 할 수 없어요": "tut.ig.dash12",
+    "하프대쉬가 대쉬보다 조금 더 후딜시간이 길어서": "tut.ig.dash13",
+    "하프대쉬는 정말 위기상황일 때 사용하는게 좋아요": "tut.ig.dash14",
+    "또 대쉬와 하프대쉬로 공을 맞추면": "tut.ig.dash15",
+    "게이지가 충전되지 않기 때문에": "tut.ig.dash16",
+    "게이지 상황에 맞게 적절히 사용하면 돼요": "tut.ig.dash17",
+    # Part 4: 스킬 시스템
+    "자, 이제 게이지를 모아서 쓸 수 있는": "tut.ig.skill1",
+    "스킬에 대해 알아볼게요": "tut.ig.skill2",
+    "스매셔 고유의 스킬들은 여기서 확인할 수 있어요": "tut.ig.skill3",
+    "현재 스매셔는 드라이브, 파워스매싱": "tut.ig.skill4",
+    "2개의 기본 스킬이 있습니다": "tut.ig.skill5",
+    "추후에 퍽을 선택해서": "tut.ig.skill6",
+    "원하는 스킬을 더 추가할 수도 있어요": "tut.ig.skill7",
+    "핑파이터에서는 스킬을 발동하는 방식이": "tut.ig.skill8",
+    "정해진 게 아니라 스킬마다 달라요": "tut.ig.skill9",
+    "스킬 아이콘에 마우스를 갖다대면": "tut.ig.skill10",
+    "해당 스킬에 대한 정보와 사용방법을 알 수 있어요": "tut.ig.skill11",
+    "이제 스킬창 툴팁 설명을 숙지하였으니": "tut.ig.skill12",
+    "드라이브와 파워스매싱을 사용해봅시다!": "tut.ig.skill13",
+    "파워스매싱은 공이 다가올 때": "tut.ig.skill14",
+    "마우스를 꾹 누르고 있으면 발동되지만": "tut.ig.skill15",
+    "드라이브는 플레이어에 공이 가까이 다가왔을 때": "tut.ig.skill16",
+    "타이밍에 맞춰서 방향키 + 마우스좌클릭을": "tut.ig.skill17",
+    "동시에 해야해서 조금 더 난이도가 있어요": "tut.ig.skill18",
+    "아직은 익숙하지 않을수도 있지만": "tut.ig.skill19",
+    "실전에서 연습삼아 계속 익히시다보면": "tut.ig.skill20",
+    "능숙하게 사용할 수 있을 거에요": "tut.ig.skill21",
+    "어느정도 숙달이 되면": "tut.ig.skill22",
+    "대쉬 후 원하는 방향으로 파워스매싱 또는 드라이브": "tut.ig.skill23",
+    "같은 고급 콤보도 구사할 수 있으며": "tut.ig.skill24",
+    "실전에서 많이 유용하게 쓰여요": "tut.ig.skill25",
+    # Part 5: 아이템 시스템
+    "이제 아이템에 대해서 알아볼게요": "tut.ig.item1",
+    "게임을 하다보면 맵 중앙에": "tut.ig.item2",
+    "? 아이템이 생성됩니다": "tut.ig.item3",
+    "아이템은 획득하기 전까진": "tut.ig.item4",
+    "어떤 아이템인지 알 수 없어요": "tut.ig.item5",
+    "떠돌아다니는 ?아이템을": "tut.ig.item6",
+    "직접 캐릭터로 터치하면": "tut.ig.item7",
+    "아이템을 획득할 수 있습니다": "tut.ig.item8",
+    "액티브아이템을 획득시": "tut.ig.item9",
+    "아래있는 액티브아이템슬롯에": "tut.ig.item10",
+    "아이템이 저장돼요": "tut.ig.item11",
+    "해당 아이템에 마우스 커서를": "tut.ig.item12",
+    "갖다대면": "tut.ig.item13",
+    "아이템의 정보를 확인할 수 있어요": "tut.ig.item14",
+    "어떤 아이템인지 확인 해본 후에": "tut.ig.item15",
+    "해당 아이템 아이콘 슬롯의 번호에 맞게": "tut.ig.item16",
+    "숫자키를 입력하거나, 마우스로 클릭하면": "tut.ig.item17",
+    "아이템을 사용할 수 있습니다": "tut.ig.item18",
+    "전투중에 액티브아이템을 적절히 사용하여": "tut.ig.item19",
+    "전세를 역전하거나 유리한 상황으로 이끌어갈 수 있어요": "tut.ig.item20",
+    "아이템은 액티브아이템 뿐만 아니라": "tut.ig.item21",
+    "패시브아이템, 이렇게 크게 두 종류로 나뉘어져요": "tut.ig.item22",
+    # Part 6: 패시브/TAB
+    "획득한 패시브 아이템에 대한 정보는": "tut.ig.tab1",
+    "{KEY:TAB}키를 눌러서 확인 할 수 있어요": "tut.ig.tab2",
+    "마우스 위에 커서를 올리면": "tut.ig.tab3",
+    "해당 아이템의 정보를 확인할 수 있습니다": "tut.ig.tab4",
+    "마우스 오른쪽 버튼을 눌러서": "tut.ig.tab5",
+    "장착, 해제를 할수도 있고": "tut.ig.tab6",
+    "우측 상단에 쓰레기통으로 드래그하면": "tut.ig.tab7",
+    "아이템을 버릴 수도 있어요": "tut.ig.tab8",
+    "스피드부츠를 획득했네요!": "tut.ig.tab9",
+    "장착시 능력치 중 이동속도가": "tut.ig.tab10",
+    "변화하는 것을 확인할 수 있어요": "tut.ig.tab11",
+    # Part 7: 풍선기계
+    "풍선기계가 나타났어요!": "tut.ig.balloon1",
+    "이 풍선을 공을 맞춰 터트리면": "tut.ig.balloon2",
+    "스타포인트를 드랍하는데": "tut.ig.balloon3",
+    "플레이어 캐릭터로 스타포인트에 닿으면": "tut.ig.balloon4",
+    "퍽을 선택할 수 있어요": "tut.ig.balloon5",
+    # Part 8: 골드 HUD
+    "골드는 인게임에서 공을": "tut.ig.gold1",
+    "서로 주고받으면서 획득이 가능하고": "tut.ig.gold2",
+    "공이 점점 빨라질수록": "tut.ig.gold3",
+    "골드보너스를 얻어요": "tut.ig.gold4",
+    "대쉬 혹은 스킬을 사용할 경우": "tut.ig.gold5",
+    "더 많은 골드 보너스를 얻습니다": "tut.ig.gold6",
+    # Part 9: 게임 룰
+    "이제 게임의 기본적인 모든 걸 익혔습니다!": "tut.ig.rule1",
+    "게임의 룰은 간단합니다": "tut.ig.rule2",
+    "이 벽 뒤로 공을 넘기면 플레이어 1점 획득": "tut.ig.rule3",
+    "반대로 플레이어가 공을 막지못하면 보스가 1점획득": "tut.ig.rule4",
+    "먼저 5점 획득시 최종승리, 스테이지를 클리어하게 됩니다": "tut.ig.rule5",
+    "단 4:4 동점이 될 경우 듀스 룰이 적용이 되는데": "tut.ig.rule6",
+    "이경우 2점을 추가로 더 획득하는 쪽이 승리하게 됩니다": "tut.ig.rule7",
+    "4:4의 경우 6:4": "tut.ig.rule8",
+    "듀스는 최대 5:5까지 적용이 되며": "tut.ig.rule9",
+    "최대 7점을 획득시 승리하게되죠": "tut.ig.rule10",
+    "지금까지 배운 내용들을 잘 활용하여": "tut.ig.rule11",
+    "보스와 싸워서 승리하세요": "tut.ig.rule12",
+    # Part 10: 종료
+    "마지막 미션입니다!": "tut.ig.final1",
+    "보스랑 배틀해서 승리하세요!": "tut.ig.final2",
+}
+
+# 미션 배너 번역 매핑
+_TUT_BANNER_KEYS = {
+    "{KEY:A} {KEY:D} 키로 이동하면서 공을 때려 3콤보까지 성공시켜보세요!": "tut.ig.bn.combo3",
+    "{KEY:A} 또는 {KEY:D} 키를 누른 상태에서 {KEY:S} 키를 눌러 대쉬를 발동해보세요!": "tut.ig.bn.dash",
+    "두 스킬 아이콘의 정보를 확인하세요! (각 3초)": "tut.ig.bn.skill_hover",
+    "드라이브와 파워스매싱을 각각 1회 사용해보세요!": "tut.ig.bn.skill_use",
+    "캐릭터를 움직여서 아이템을 획득해보세요!": "tut.ig.bn.item_collect",
+    "획득한 액티브아이템을 사용해보세요!": "tut.ig.bn.item_use",
+    "다음 아이템도 획득해보세요!": "tut.ig.bn.passive_collect",
+    "{KEY:TAB}키를 눌러보세요!": "tut.ig.bn.tab_press",
+    "풍선을 터트린 후 스타포인트를 획득하세요!": "tut.ig.bn.star_collect",
+    "이제 게임의 룰을 배워볼까요?": "tut.ig.bn.learn_rules",
+}
+
+def _tut_translate(msg):
+    """튜토리얼 메시지 번역 (렌더 시점에 호출)"""
+    key = _TUT_MSG_KEYS.get(msg)
+    if key:
+        return _t(key, msg)
+    # 미션 배너도 확인
+    key = _TUT_BANNER_KEYS.get(msg)
+    if key:
+        return _t(key, msg)
+    return msg
+
 # 튜토리얼 단계별 메시지
 _INGAME_TUTORIAL_STEPS = [
     # === 게이지 시스템 튜토리얼 (첫 번째 공 히트 후 시작) ===
@@ -80027,7 +80185,7 @@ def advance_ingame_tutorial():
         # 미션 배너가 있으면 표시
         if current.get("mission_banner"):
             # print(f"[DEBUG] 미션 배너 표시: {current['mission_banner']}")
-            show_mission_banner(current["mission_banner"], 2500)
+            show_mission_banner(_tut_translate(current["mission_banner"]), 2500)
         # 미션 유형에 따라 액션 게이지 표시
         if wait_for == "combo_3":
             # 콤보 미션 시작 시 콤보 카운트 리셋
@@ -80117,7 +80275,7 @@ def advance_ingame_tutorial():
             _ingame_tutorial_delay_start = pygame.time.get_ticks()
         # 미션 배너가 있으면 표시
         if next_step.get("mission_banner"):
-            show_mission_banner(next_step["mission_banner"], 2500)
+            show_mission_banner(_tut_translate(next_step["mission_banner"]), 2500)
         # 미션 유형에 따라 액션 게이지 표시
         if next_wait_for == "combo_3":
             # 콤보 미션 시작 시 콤보 카운트 리셋
@@ -80921,7 +81079,7 @@ def advance_arena_guard_tutorial():
     global _arena_guard_tutorial_step, _arena_guard_tutorial_active, _arena_guard_tutorial_shown
     global _arena_portrait_tutorial_delay_frames, _arena_portrait_tutorial_step
     _arena_guard_tutorial_step += 1
-    if _arena_guard_tutorial_step >= len(_ARENA_GUARD_TUTORIAL_STEPS):
+    if _arena_guard_tutorial_step >= len(_get_arena_guard_tutorial_steps()):
         _arena_guard_tutorial_active = False
         _arena_guard_tutorial_shown = True
         # print("[ArenaTutorial] 호위무사 튜토리얼 완료!")
@@ -80941,10 +81099,10 @@ def _draw_arena_guard_tutorial() -> None:
     if not _arena_guard_tutorial_active:
         return
 
-    if _arena_guard_tutorial_step >= len(_ARENA_GUARD_TUTORIAL_STEPS):
+    if _arena_guard_tutorial_step >= len(_get_arena_guard_tutorial_steps()):
         return
 
-    current = _ARENA_GUARD_TUTORIAL_STEPS[_arena_guard_tutorial_step]
+    current = _get_arena_guard_tutorial_steps()[_arena_guard_tutorial_step]
 
     # REAL_SCREEN 또는 SCREEN 결정
     target_screen = REAL_SCREEN if (_is_fullscreen_active and REAL_SCREEN is not None) else SCREEN
@@ -81206,7 +81364,7 @@ def advance_arena_portrait_tutorial():
     global _arena_portrait_tutorial_step, _arena_portrait_tutorial_active, _arena_portrait_tutorial_shown
     global _arena_speed_tutorial_delay_frames, _arena_speed_tutorial_step
     _arena_portrait_tutorial_step += 1
-    if _arena_portrait_tutorial_step >= len(_ARENA_PORTRAIT_TUTORIAL_STEPS):
+    if _arena_portrait_tutorial_step >= len(_get_arena_portrait_tutorial_steps()):
         _arena_portrait_tutorial_active = False
         _arena_portrait_tutorial_shown = True
         # print("[ArenaTutorial] 초상화 튜토리얼 완료!")
@@ -81226,10 +81384,10 @@ def _draw_arena_portrait_tutorial() -> None:
     if not _arena_portrait_tutorial_active:
         return
 
-    if _arena_portrait_tutorial_step >= len(_ARENA_PORTRAIT_TUTORIAL_STEPS):
+    if _arena_portrait_tutorial_step >= len(_get_arena_portrait_tutorial_steps()):
         return
 
-    current = _ARENA_PORTRAIT_TUTORIAL_STEPS[_arena_portrait_tutorial_step]
+    current = _get_arena_portrait_tutorial_steps()[_arena_portrait_tutorial_step]
 
     # REAL_SCREEN 또는 SCREEN 결정
     target_screen = REAL_SCREEN if (_is_fullscreen_active and REAL_SCREEN is not None) else SCREEN
@@ -81488,7 +81646,7 @@ def advance_arena_speed_tutorial():
     global _arena_speed_tutorial_step, _arena_speed_tutorial_active, _arena_speed_tutorial_shown
     global _arena_henchman_tutorial_delay_frames, _arena_henchman_tutorial_step, _arena_henchman_tutorial_active
     _arena_speed_tutorial_step += 1
-    if _arena_speed_tutorial_step >= len(_ARENA_SPEED_TUTORIAL_STEPS):
+    if _arena_speed_tutorial_step >= len(_get_arena_speed_tutorial_steps()):
         _arena_speed_tutorial_active = False
         _arena_speed_tutorial_shown = True
         # print("[ArenaTutorial] 배속 튜토리얼 완료!")
@@ -81507,10 +81665,10 @@ def _draw_arena_speed_tutorial() -> None:
     """투기장 배속 버튼 튜토리얼 그리기"""
     if not _arena_speed_tutorial_active:
         return
-    if _arena_speed_tutorial_step >= len(_ARENA_SPEED_TUTORIAL_STEPS):
+    if _arena_speed_tutorial_step >= len(_get_arena_speed_tutorial_steps()):
         return
 
-    current = _ARENA_SPEED_TUTORIAL_STEPS[_arena_speed_tutorial_step]
+    current = _get_arena_speed_tutorial_steps()[_arena_speed_tutorial_step]
 
     target_screen = REAL_SCREEN if (_is_fullscreen_active and REAL_SCREEN is not None) else SCREEN
     screen_width = target_screen.get_width()
@@ -81767,7 +81925,7 @@ def advance_arena_henchman_tutorial():
     """투기장 하수인 튜토리얼 다음 단계로 진행"""
     global _arena_henchman_tutorial_step, _arena_henchman_tutorial_active, _arena_henchman_tutorial_shown
     _arena_henchman_tutorial_step += 1
-    if _arena_henchman_tutorial_step >= len(_ARENA_HENCHMAN_TUTORIAL_STEPS):
+    if _arena_henchman_tutorial_step >= len(_get_arena_henchman_tutorial_steps()):
         _arena_henchman_tutorial_active = False
         _arena_henchman_tutorial_shown = True
         # print("[ArenaTutorial] 하수인 튜토리얼 완료!")
@@ -81777,10 +81935,10 @@ def _draw_arena_henchman_tutorial() -> None:
     """투기장 하수인 UI 튜토리얼 그리기 (보라/마젠타 테마)"""
     if not _arena_henchman_tutorial_active:
         return
-    if _arena_henchman_tutorial_step >= len(_ARENA_HENCHMAN_TUTORIAL_STEPS):
+    if _arena_henchman_tutorial_step >= len(_get_arena_henchman_tutorial_steps()):
         return
 
-    current = _ARENA_HENCHMAN_TUTORIAL_STEPS[_arena_henchman_tutorial_step]
+    current = _get_arena_henchman_tutorial_steps()[_arena_henchman_tutorial_step]
 
     target_screen = REAL_SCREEN if (_is_fullscreen_active and REAL_SCREEN is not None) else SCREEN
     screen_width = target_screen.get_width()
@@ -82036,7 +82194,7 @@ def advance_arena_capture_tutorial():
     """투기장 포획 튜토리얼 다음 단계로 진행"""
     global _arena_capture_tutorial_step, _arena_capture_tutorial_active, _arena_capture_tutorial_shown
     _arena_capture_tutorial_step += 1
-    if _arena_capture_tutorial_step >= len(_ARENA_CAPTURE_TUTORIAL_STEPS):
+    if _arena_capture_tutorial_step >= len(_get_arena_capture_tutorial_steps()):
         _arena_capture_tutorial_active = False
         _arena_capture_tutorial_shown = True
         # print("[ArenaTutorial] 포획 튜토리얼 완료!")
@@ -82046,10 +82204,10 @@ def _draw_arena_capture_tutorial() -> None:
     """투기장 포획 튜토리얼 그리기 (주황/금색 테마)"""
     if not _arena_capture_tutorial_active:
         return
-    if _arena_capture_tutorial_step >= len(_ARENA_CAPTURE_TUTORIAL_STEPS):
+    if _arena_capture_tutorial_step >= len(_get_arena_capture_tutorial_steps()):
         return
 
-    current = _ARENA_CAPTURE_TUTORIAL_STEPS[_arena_capture_tutorial_step]
+    current = _get_arena_capture_tutorial_steps()[_arena_capture_tutorial_step]
 
     target_screen = REAL_SCREEN if (_is_fullscreen_active and REAL_SCREEN is not None) else SCREEN
     screen_width = target_screen.get_width()
@@ -83038,7 +83196,8 @@ def _draw_ingame_tutorial() -> None:
         text_center_x = text_start_x + (text_area_width // 2)
         y_offset = box_y + (box_height - len(messages) * 35) // 2
 
-        for msg in messages:
+        for raw_msg in messages:
+            msg = _tut_translate(raw_msg)
             # {KEY:X} 패턴이 있는 경우 키캡 아이콘으로 렌더링
             if "{KEY:" in msg:
                 _render_message_with_keycaps(target_screen, msg, msg_font, text_start_x, text_area_width, y_offset)
