@@ -2105,7 +2105,8 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
     
     # 텍스트 애니메이션
     typing_text = ""
-    full_text = "핑파이터"
+    from localization.manager import get_localization_manager
+    full_text = get_localization_manager().get_text("opening.title", "핑파이터")
     typing_speed = 0.1
     typing_timer = 0
     
@@ -2464,21 +2465,23 @@ def show_opening_animation(SCREEN, WIDTH, HEIGHT):
         except:
             font_large = pygame.font.Font(None, 72)
         
-        # 메인 텍스트 (한글로 변경)
-        full_text = "핑파이터"
+        # 메인 텍스트 (로컬라이즈)
+        from localization.manager import get_localization_manager
+        full_text = get_localization_manager().get_text("opening.title", "핑파이터")
         if len(typing_text) < len(full_text):
             typing_text = full_text[:len(typing_text) + 1]
-        
+
         # 귀여운 글자 애니메이션 - 각 글자가 살짝 튀어오르기
         char_positions = []
-        # 중앙 정렬을 위한 계산 (4글자 기준)
-        total_width = len(typing_text) * 70 - 10  # 글자 4개 * 70픽셀 간격 - 마지막 여백
-        base_x = 300 - (total_width // 2) + 35  # 중앙에서 시작
+        # 중앙 정렬을 위한 계산 (글자 수에 따라 간격 자동 조정)
+        char_spacing = 70 if len(full_text) <= 5 else 40  # 한글 4자=70px, 영문 11자=40px
+        total_width = len(typing_text) * char_spacing - 10
+        base_x = 300 - (total_width // 2) + char_spacing // 2
         for i, char in enumerate(typing_text):
             # 각 글자별로 다른 타이밍으로 위아래 움직임
             bounce_offset = math.sin(animation_timer * 0.1 + i * 0.5) * 3
             wiggle_offset = math.cos(animation_timer * 0.08 + i * 0.7) * 2  # 좌우 흔들림
-            char_positions.append((base_x + i * 70 + wiggle_offset, 150 + bounce_offset))
+            char_positions.append((base_x + i * char_spacing + wiggle_offset, 150 + bounce_offset))
         
         # 귀여운 별 장식 (글자 주변에)
         if animation_timer % 20 == 0:

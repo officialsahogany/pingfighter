@@ -874,5 +874,6 @@
   "ui.current": "(현재)",
   "ui.surrender_title": "항복하시겠습니까?",
   "tutorial.space_serve": "스페이스바를 눌러 서브공을 발사해보세요!",
-  "tutorial.space_confirm": "SPACE - 확인"
+  "tutorial.space_confirm": "SPACE - 확인",
+  "opening.title": "핑파이터"
 }

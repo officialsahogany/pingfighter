@@ -874,5 +874,6 @@
   "ui.current": "(Current)",
   "ui.surrender_title": "Surrender?",
   "tutorial.space_serve": "Press SPACE to serve the ball!",
-  "tutorial.space_confirm": "SPACE - Confirm"
+  "tutorial.space_confirm": "SPACE - Confirm",
+  "opening.title": "PingFighter"
 }
