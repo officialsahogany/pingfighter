@@ -57792,7 +57792,7 @@ def activate_web_trap():
 
     # 사운드
     try:
-        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "spiderwebshoot.wav")))
+        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "net.wav")))
         snd.set_volume(0.5)
         snd.play()
     except Exception:
