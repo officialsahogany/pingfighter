@@ -58126,11 +58126,11 @@ def update_web_rescue():
             web_rescue_timer = 0
 
     elif web_rescue_phase == "release":
-        # 공 재발사 — 속도 8 고정
+        # 공 재발사 — 속도 18 고정
         import random as _rng
         angle = _rng.uniform(-0.3, 0.3)  # 약간의 좌우 각도
-        ball_vel[0] = 8.0 * math.sin(angle)
-        ball_vel[1] = 8.0 * math.cos(angle)
+        ball_vel[0] = 18.0 * math.sin(angle)
+        ball_vel[1] = 18.0 * math.cos(angle)
         web_rescue_active = False
         web_rescue_phase = ""
 
