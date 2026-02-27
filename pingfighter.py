@@ -57857,7 +57857,7 @@ def update_web_traps():
                 # 파괴 파티클 생성
                 _spawn_web_break_effect(trap)
                 try:
-                    snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "steambarriorbreak.wav")))
+                    snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "spiderbite.wav")))
                     snd.set_volume(0.6)
                     snd.play()
                 except Exception:
