@@ -9,6 +9,11 @@ from localization.manager import get_localization_manager
 def get_building_display_name(building_info: dict) -> str:
     """현재 언어에 맞는 건물 이름 반환"""
     loc = get_localization_manager()
+    loc_key = building_info.get("loc_key")
+    if loc_key:
+        translated = loc.get_text(f"bldg.{loc_key}.name", "")
+        if translated:
+            return translated
     if loc.current_language != "ko" and "name_en" in building_info:
         return building_info["name_en"]
     return building_info.get("name", "???")
@@ -17,6 +22,11 @@ def get_building_display_name(building_info: dict) -> str:
 def get_building_display_desc(building_info: dict) -> str:
     """현재 언어에 맞는 건물 설명 반환"""
     loc = get_localization_manager()
+    loc_key = building_info.get("loc_key")
+    if loc_key:
+        translated = loc.get_text(f"bldg.{loc_key}.desc", "")
+        if translated:
+            return translated
     if loc.current_language != "ko" and "description_en" in building_info:
         return building_info["description_en"]
     return building_info.get("description", "")
@@ -87,6 +97,7 @@ DISABLED_BUILDINGS = {
 # 건물 정보 (각 건물별 고유 디자인 및 크기 - 세로형 화면에 맞게 축소)
 BUILDING_INFO = {
     BuildingType.CASINO: {
+        "loc_key": "casino",
         "name": "네온 카지노",
         "name_en": "Neon Casino",
         "icon": "🎰",
@@ -99,6 +110,7 @@ BUILDING_INFO = {
         "style": "cyberpunk",
     },
     BuildingType.COLOSSEUM: {
+        "loc_key": "colosseum",
         "name": "고대 투기장",
         "name_en": "Ancient Colosseum",
         "icon": "⚔️",
@@ -111,6 +123,7 @@ BUILDING_INFO = {
         "style": "ancient_rome",
     },
     BuildingType.BLACKSMITH: {
+        "loc_key": "blacksmith",
         "name": "용광로 대장간",
         "name_en": "Volcanic Forge",
         "icon": "🔨",
@@ -123,6 +136,7 @@ BUILDING_INFO = {
         "style": "volcanic",
     },
     BuildingType.MAGIC_STORE: {
+        "loc_key": "magic_store",
         "name": "마법 성소",
         "name_en": "Lunar Sanctuary",
         "icon": "🌙",
@@ -135,6 +149,7 @@ BUILDING_INFO = {
         "style": "sanctuary",
     },
     BuildingType.PET_SHOP: {
+        "loc_key": "pet_shop",
         "name": "숲의 펫샵",
         "name_en": "Forest Pet Haven",
         "icon": "🐾",
@@ -147,6 +162,7 @@ BUILDING_INFO = {
         "style": "nature",
     },
     BuildingType.ELDER: {
+        "loc_key": "elder",
         "name": "피라미드 현자",
         "name_en": "Pyramid Oracle",
         "icon": "👁️",
@@ -159,6 +175,7 @@ BUILDING_INFO = {
         "style": "egyptian",
     },
     BuildingType.MINIGAME: {
+        "loc_key": "minigame",
         "name": "레트로 아케이드",
         "name_en": "Retro Arcade",
         "icon": "🎮",
@@ -171,6 +188,7 @@ BUILDING_INFO = {
         "style": "retro_cyber",
     },
     BuildingType.TAVERN: {
+        "loc_key": "tavern",
         "name": "모험가의 선술집",
         "name_en": "Adventurer's Tavern",
         "icon": "🍺",
@@ -183,6 +201,7 @@ BUILDING_INFO = {
         "style": "medieval",
     },
     BuildingType.BANK: {
+        "loc_key": "bank",
         "name": "스타뱅크",
         "name_en": "StarBank",
         "icon": "⭐",
@@ -195,6 +214,7 @@ BUILDING_INFO = {
         "style": "star_luxury",
     },
     BuildingType.MYSTERY: {
+        "loc_key": "mystery",
         "name": "???",
         "name_en": "Void Portal",
         "icon": "❓",
@@ -207,6 +227,7 @@ BUILDING_INFO = {
         "style": "void",
     },
     BuildingType.GACHA: {
+        "loc_key": "gacha",
         "name": "스타 가챠샵",
         "name_en": "Star Gacha Shop",
         "icon": "🌟",
@@ -219,6 +240,7 @@ BUILDING_INFO = {
         "style": "gacha",
     },
     BuildingType.ACADEMY: {
+        "loc_key": "academy",
         "name": "아카데미",
         "name_en": "Academy",
         "icon": "📚",
@@ -252,6 +274,7 @@ CLOSED_BUILDINGS = {
 # =============================================================================
 SHOP_DESIGNS = {
     "hero_armory": {
+        "loc_key": "item_shop",
         "name": "상점",
         "name_en": "Shop",
         "icon": "⚔️",
@@ -268,6 +291,7 @@ SHOP_DESIGNS = {
         "shop_theme": "rpg",
     },
     "cyberpunk_shop": {
+        "loc_key": "item_shop",
         "name": "상점",
         "name_en": "Shop",
         "icon": "🛒",
@@ -282,6 +306,7 @@ SHOP_DESIGNS = {
         "shop_theme": "cyberpunk",
     },
     "fantasy_shop": {
+        "loc_key": "item_shop",
         "name": "마법 상점",
         "name_en": "Magic Emporium",
         "icon": "🔮",
@@ -296,6 +321,7 @@ SHOP_DESIGNS = {
         "shop_theme": "fantasy",
     },
     "steampunk_shop": {
+        "loc_key": "item_shop",
         "name": "기어 상회",
         "name_en": "Gear Emporium",
         "icon": "⚙️",
@@ -310,6 +336,7 @@ SHOP_DESIGNS = {
         "shop_theme": "steampunk",
     },
     "nature_shop": {
+        "loc_key": "item_shop",
         "name": "숲속 교역소",
         "name_en": "Forest Trading Post",
         "icon": "🌳",
@@ -324,6 +351,7 @@ SHOP_DESIGNS = {
         "shop_theme": "nature",
     },
     "luxury_shop": {
+        "loc_key": "item_shop",
         "name": "황금 갤러리",
         "name_en": "Golden Gallery",
         "icon": "💎",

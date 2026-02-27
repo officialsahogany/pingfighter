@@ -481,6 +481,34 @@ NPC_DIALOGUES = {
     ],
 }
 
+# ── NPC 대화 번역 키 자동 생성 ──
+_NPC_CATEGORY_SHORT = {
+    "game_tips": "tips",
+    "world_lore": "lore",
+    "daily_life": "daily",
+    "child": "child",
+    "old_man": "elder",
+    "merchant": "merch",
+    "robot": "robot",
+}
+_NPC_DIALOGUE_KEYS = {}
+for _cat, _lines in NPC_DIALOGUES.items():
+    _short = _NPC_CATEGORY_SHORT.get(_cat, _cat)
+    for _i, _line in enumerate(_lines):
+        _NPC_DIALOGUE_KEYS[_line] = f"npc.{_short}.{_i}"
+
+
+def _translate_npc_dialogue(text):
+    """NPC 대화를 현재 언어로 번역"""
+    key = _NPC_DIALOGUE_KEYS.get(text)
+    if key:
+        try:
+            from localization.manager import get_localization_manager
+            return get_localization_manager().get_text(key, text)
+        except Exception:
+            pass
+    return text
+
 
 # NPC 타입별 설정
 NPC_CONFIG = {
@@ -2371,8 +2399,29 @@ class NPC:
             except Exception:
                 font = pygame.freetype.SysFont(None, font_size)
 
-        # 텍스트 렌더링
-        text_surface, text_rect = font.render(self.speech_bubble, (40, 40, 40))
+        # CJK 폰트 지원 (일본어/중국어)
+        try:
+            from localization.manager import get_localization_manager
+            _lang = get_localization_manager().current_language
+            if _lang in ("ja", "zh") and font is not None:
+                _cjk_fonts = {
+                    "ja": ["Yu Gothic", "Meiryo", "MS Gothic"],
+                    "zh": ["Microsoft YaHei", "SimHei"],
+                }
+                for _fn in _cjk_fonts.get(_lang, []):
+                    try:
+                        _cf = pygame.freetype.SysFont(_fn, font_size)
+                        if _cf:
+                            font = _cf
+                            break
+                    except Exception:
+                        continue
+        except Exception:
+            pass
+
+        # 텍스트 렌더링 (번역 적용)
+        display_text = _translate_npc_dialogue(self.speech_bubble)
+        text_surface, text_rect = font.render(display_text, (40, 40, 40))
         text_w = text_rect.width + 24  # 16에서 50% 증가
         text_h = text_rect.height + 15  # 10에서 50% 증가
 

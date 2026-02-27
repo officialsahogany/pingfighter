@@ -237,6 +237,26 @@ GUARD_ENTRANCE_LINES = {
     },
 }
 
+# ── 호위무사 등장 대사 번역 키 자동 생성 ──
+_GUARD_LINE_KEYS = {}
+for _hero_id, _lines_dict in GUARD_ENTRANCE_LINES.items():
+    for _i, _line in enumerate(_lines_dict["hero_lines"]):
+        _GUARD_LINE_KEYS[_line] = f"guard.{_hero_id}.hero.{_i}"
+    for _i, _line in enumerate(_lines_dict["guard_lines"]):
+        _GUARD_LINE_KEYS[_line] = f"guard.{_hero_id}.guard.{_i}"
+
+
+def _translate_guard_line(text):
+    """호위무사 등장 대사를 현재 언어로 번역"""
+    key = _GUARD_LINE_KEYS.get(text)
+    if key:
+        try:
+            from localization.manager import get_localization_manager
+            return get_localization_manager().get_text(key, text)
+        except Exception:
+            pass
+    return text
+
 
 class _MinimalSkillManager:
     """GuardWarriorSystem이 요구하는 최소한의 skill_manager 인터페이스"""
@@ -327,8 +347,8 @@ class InGameBodyguard:
         hero_id = hero_data.get("id", "")
         entrance = GUARD_ENTRANCE_LINES.get(hero_id)
         if entrance:
-            self._entrance_hero_line = random.choice(entrance["hero_lines"])
-            self._entrance_guard_line = random.choice(entrance["guard_lines"])
+            self._entrance_hero_line = _translate_guard_line(random.choice(entrance["hero_lines"]))
+            self._entrance_guard_line = _translate_guard_line(random.choice(entrance["guard_lines"]))
             self._entrance_hero_timer = 3.0  # 3초간 영웅 대사 표시
             self._entrance_hero_color = hero_data.get("color", (255, 255, 255))
             print(f"[Bodyguard] 영웅 등장 대사: {self._entrance_hero_line}")
@@ -1020,15 +1040,33 @@ class InGameBodyguard:
             if not isinstance(color, (tuple, list)) or len(color) < 3:
                 color = (255, 255, 255)
 
-            # 폰트 로드 (루트 또는 fonts/ 폴더에서 탐색)
+            # 폰트 로드 (CJK 언어 지원 포함)
             font = None
             try:
-                _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                for _rel in ("NanumSquareB.ttf", os.path.join("fonts", "NanumSquareB.ttf")):
-                    _fp = os.path.join(_root, _rel)
-                    if os.path.exists(_fp):
-                        font = _ft.Font(_fp, 16)
-                        break
+                from localization.manager import get_localization_manager
+                _cur_lang = get_localization_manager().current_language
+            except Exception:
+                _cur_lang = "ko"
+            try:
+                if _cur_lang == "ja":
+                    for _fn in ["Yu Gothic", "Meiryo", "MS Gothic"]:
+                        try:
+                            font = _ft.SysFont(_fn, 16)
+                            if font: break
+                        except Exception: continue
+                elif _cur_lang == "zh":
+                    for _fn in ["Microsoft YaHei", "SimHei"]:
+                        try:
+                            font = _ft.SysFont(_fn, 16)
+                            if font: break
+                        except Exception: continue
+                if font is None:
+                    _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                    for _rel in ("NanumSquareB.ttf", os.path.join("fonts", "NanumSquareB.ttf")):
+                        _fp = os.path.join(_root, _rel)
+                        if os.path.exists(_fp):
+                            font = _ft.Font(_fp, 16)
+                            break
                 if font is None:
                     font = _ft.SysFont("malgun gothic", 16)
             except Exception:

@@ -1662,8 +1662,13 @@ class DowntownRenderer:
             screen.blit(hint_surf, (panel_x + panel_width // 2 - hint_rect.width // 2, panel_y + 70))
 
     def _get_korean_font(self, size=18):
-        """한글 폰트 로드 (캐싱)"""
-        cache_key = f'korean_font_{size}'
+        """다국어 폰트 로드 (CJK 지원, 캐싱)"""
+        try:
+            from localization.manager import get_localization_manager
+            _cur_lang = get_localization_manager().current_language
+        except Exception:
+            _cur_lang = "ko"
+        cache_key = f'korean_font_{size}_{_cur_lang}'
         if not hasattr(self, '_font_cache'):
             self._font_cache = {}
 
@@ -1672,13 +1677,28 @@ class DowntownRenderer:
 
         font = None
 
+        # CJK 언어별 시스템 폰트 우선
+        if _cur_lang == "ja":
+            for _fn in ["Yu Gothic", "Meiryo", "MS Gothic"]:
+                try:
+                    font = pygame.freetype.SysFont(_fn, size)
+                    if font: break
+                except Exception: continue
+        elif _cur_lang == "zh":
+            for _fn in ["Microsoft YaHei", "SimHei"]:
+                try:
+                    font = pygame.freetype.SysFont(_fn, size)
+                    if font: break
+                except Exception: continue
+
         # 1차 시도: 네오둥근모 프로 픽셀 폰트
-        try:
-            pixel_font_path = resource_path("PFStardust.ttf")
-            if os.path.exists(pixel_font_path):
-                font = pygame.freetype.Font(pixel_font_path, size)
-        except Exception:
-            pass
+        if font is None:
+            try:
+                pixel_font_path = resource_path("PFStardust.ttf")
+                if os.path.exists(pixel_font_path):
+                    font = pygame.freetype.Font(pixel_font_path, size)
+            except Exception:
+                pass
 
         # 2차 시도: NanumSquare 폴백
         if font is None:

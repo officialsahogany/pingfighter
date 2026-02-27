@@ -6647,8 +6647,14 @@ class GuardWarriorSystem:
             pygame.draw.circle(screen, (255, 255, 255), (ix, iy), 18, 2)
 
     def _get_guard_korean_font(self, size=14):
-        """호위무사 UI용 한글 폰트 (캐싱)"""
-        cache_key = f"_guard_font_{size}"
+        """호위무사 UI용 폰트 (CJK 언어 지원, 캐싱)"""
+        # CJK 언어별 캐시 키 분리
+        try:
+            from localization.manager import get_localization_manager
+            _cur_lang = get_localization_manager().current_language
+        except Exception:
+            _cur_lang = "ko"
+        cache_key = f"_guard_font_{size}_{_cur_lang}"
         cached = getattr(self, cache_key, None)
         if cached:
             return cached
@@ -6658,7 +6664,24 @@ class GuardWarriorSystem:
                 base = sys._MEIPASS
             else:
                 base = os.path.dirname(os.path.dirname(__file__))
-            # Pretendard 폰트 우선 시도 (프로젝트에 포함된 한글 폰트)
+            # CJK 언어별 시스템 폰트 우선
+            if _cur_lang == "ja":
+                for _fn in ["Yu Gothic", "Meiryo", "MS Gothic"]:
+                    try:
+                        font = pygame.font.SysFont(_fn, size)
+                        if font:
+                            setattr(self, cache_key, font)
+                            return font
+                    except Exception: continue
+            elif _cur_lang == "zh":
+                for _fn in ["Microsoft YaHei", "SimHei"]:
+                    try:
+                        font = pygame.font.SysFont(_fn, size)
+                        if font:
+                            setattr(self, cache_key, font)
+                            return font
+                    except Exception: continue
+            # 기본 폰트 후보
             font_candidates = [
                 os.path.join(base, "fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"),
                 os.path.join(base, "fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Regular.ttf"),
