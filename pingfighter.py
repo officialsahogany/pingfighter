@@ -57981,7 +57981,7 @@ def get_web_trap_player_slow():
 
 def draw_web_traps(screen):
     """거미줄 투사체 + 장판 렌더링."""
-    if not web_traps and web_trap_projectile is None:
+    if not web_traps and web_trap_projectile is None and not web_trap_break_effects:
         return
 
     fx = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
