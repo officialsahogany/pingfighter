@@ -52370,6 +52370,16 @@ except Exception as e:
     stage8_boss_sprite = None
     STAGE8_BOSS_ANIMATION_AVAILABLE = False
 
+# Stage 3 보스 (테디베어) 프로시저럴 걷기 애니메이션 초기화
+try:
+    from entities.teddybear_boss_sprite import TeddybearBossSprite
+    teddybear_boss_sprite = TeddybearBossSprite(BOSS_IMG_STAGE3_WIDTH, BOSS_IMG_STAGE3_HEIGHT)
+    TEDDYBEAR_ANIMATION_AVAILABLE = True
+except Exception as e:
+    print(f"[WARN] Teddybear boss sprite load failed: {e}")
+    teddybear_boss_sprite = None
+    TEDDYBEAR_ANIMATION_AVAILABLE = False
+
 try:
     BOSS_IMG_STAGE2 = pygame.image.load(resource_path("boss_stage2.png")).convert_alpha()
     BOSS_IMG_STAGE2 = pygame.transform.scale(BOSS_IMG_STAGE2, (BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT))
@@ -52532,9 +52542,16 @@ def _create_stage3_teddybear_image(w=350, h=250):
 
     return surf
 
-# 테디베어 보스 이미지 생성
+# 테디베어 보스 이미지 생성 (폴백용 — 애니메이션 스프라이트 사용 불가 시)
 BOSS_IMG_STAGE3 = _create_stage3_teddybear_image(BOSS_IMG_STAGE3_WIDTH, BOSS_IMG_STAGE3_HEIGHT)
-BOSS_IMG_STAGE3_ORIGINAL = BOSS_IMG_STAGE3.copy()  # 축소 시 스케일링용 원본 보관
+BOSS_IMG_STAGE3_ORIGINAL = BOSS_IMG_STAGE3.copy()
+# 애니메이션 스프라이트가 있으면 정지 프레임으로 원본 교체
+if TEDDYBEAR_ANIMATION_AVAILABLE and teddybear_boss_sprite is not None:
+    try:
+        BOSS_IMG_STAGE3 = teddybear_boss_sprite.get_current_frame((BOSS_IMG_STAGE3_WIDTH, BOSS_IMG_STAGE3_HEIGHT))
+        BOSS_IMG_STAGE3_ORIGINAL = BOSS_IMG_STAGE3.copy()
+    except Exception:
+        pass
 def _create_stage4_boss_image(w=104, h=56):
     """스테이지 4 퐁크 보스 - 가부좌 공중부양 수도승 (v3: 슬림 실루엣)"""
     import math as _m
@@ -98170,12 +98187,16 @@ def draw_objects():
             boss_img = BOSS_IMG_STAGE2
             boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
     elif current_stage == 3:
-        # 테디베어 보스 - 축소 스케일 적용
+        # 테디베어 보스 - 프로시저럴 애니메이션 + 축소 스케일 적용
         _teddy_w = int(BOSS_IMG_STAGE3_WIDTH * teddy_shrink_scale)
         _teddy_h = int(BOSS_IMG_STAGE3_HEIGHT * teddy_shrink_scale)
-        boss_img = pygame.transform.scale(BOSS_IMG_STAGE3_ORIGINAL, (_teddy_w, _teddy_h))
-        boss_w, boss_h = _teddy_w, _teddy_h
         boss_img_prescaled = True
+        if TEDDYBEAR_ANIMATION_AVAILABLE and teddybear_boss_sprite is not None:
+            teddybear_boss_sprite.update(BOSS.x, 1/60)
+            boss_img = teddybear_boss_sprite.get_current_frame((_teddy_w, _teddy_h))
+        else:
+            boss_img = pygame.transform.scale(BOSS_IMG_STAGE3_ORIGINAL, (_teddy_w, _teddy_h))
+        boss_w, boss_h = _teddy_w, _teddy_h
     elif current_stage == 4:
         boss_img = BOSS_IMG_STAGE4
         boss_w, boss_h = BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT
@@ -136142,6 +136163,9 @@ def handle_ball():
                 gain = 50
                 # 테디베어 축소 메카닉: 공에 맞을 때마다 -5% 축소
                 teddy_shrink_scale = max(TEDDY_MIN_SCALE, teddy_shrink_scale - TEDDY_SHRINK_RATE)
+                # 테디베어 히트 애니메이션 트리거
+                if teddybear_boss_sprite is not None:
+                    teddybear_boss_sprite.trigger_hit(BALL.centerx, BOSS.centerx)
             else:
                 gain = 80
             boss_special_gauge = min(boss_special_gauge + gain, 500)
