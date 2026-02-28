@@ -361,14 +361,15 @@ class DowntownManager:
 
         # 픽셀 폰트 경로 (네오둥근모 프로)
         font = None
-        pixel_font_path = get_pixel_font_path()
         fallback_font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
 
         # 픽셀 폰트 우선 로드 (CJK 언어 시 시스템 폰트 자동 전환)
         try:
-            from pixel_font_manager import PIXEL_FONT as _pf_path, get_pixel_font_path
+            from pixel_font_manager import PIXEL_FONT as _pf_path, get_pixel_font_path as _get_pfp
             font = _pf_path  # CJK 언어면 이미 시스템 폰트 경로로 교체됨
+            pixel_font_path = _get_pfp()
         except ImportError:
+            pixel_font_path = resource_path(os.path.join("fonts", "NeoDunggeunmoPro-Regular.ttf"))
             font = pixel_font_path
         if not os.path.exists(font):
             if os.path.exists(pixel_font_path):
