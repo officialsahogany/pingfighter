@@ -58560,17 +58560,40 @@ def update_spider_rage():
             screen_shake_offset_x = int(screen_shake_offset_x * 0.8)
             screen_shake_offset_y = int(screen_shake_offset_y * 0.8)
 
-    # ─── 70프레임: 3등분 구간별 랜덤 X 사전 계산 (겹침 방지) ───
+    # ─── 70프레임: 3등분 구간별 랜덤 X/Y 사전 계산 (겹침 방지) ───
     if spider_rage_timer == 70:
         import random as _rng
+        # X: 3등분 구간에 여유 패딩을 두어 경계 겹침 방지
+        pad = WEB_TRAP_RADIUS  # 구간 경계에서 반지름만큼 안쪽으로
         zone_w = (GAME_PLAY_WIDTH - 60) // 3
         z_start = GAME_AREA_OFFSET_X + 30
         _zones = list(range(3))
         _rng.shuffle(_zones)
         spider_rage_projectiles_targets = []
+        existing_positions = [(w["x"], w["y"]) for w in web_traps]
         for z in _zones:
-            spider_rage_projectiles_targets.append(
-                float(_rng.randint(z_start + z * zone_w, z_start + (z + 1) * zone_w)))
+            z_lo = z_start + z * zone_w + pad
+            z_hi = z_start + (z + 1) * zone_w - pad
+            if z_lo >= z_hi:
+                z_lo = z_start + z * zone_w + 5
+                z_hi = z_start + (z + 1) * zone_w - 5
+            # 기존 거미줄 및 이미 선택된 위치와 겹치지 않는 X 찾기
+            best_x = None
+            best_dist = -1
+            for _attempt in range(20):
+                cx = float(_rng.randint(int(z_lo), int(z_hi)))
+                min_d = float("inf")
+                for ex, ey in existing_positions:
+                    d = abs(cx - ex)
+                    if d < min_d:
+                        min_d = d
+                if min_d > best_dist:
+                    best_dist = min_d
+                    best_x = cx
+            if best_x is None:
+                best_x = float((z_lo + z_hi) / 2)
+            spider_rage_projectiles_targets.append(best_x)
+            existing_positions.append((best_x, float(WEB_TRAP_Y_MIN)))
 
     # ─── 80, 90, 100프레임: 붉은 거미줄 투사체 순차 발사 ───
     if spider_rage_timer in (80, 90, 100):
