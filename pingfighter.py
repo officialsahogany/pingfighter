@@ -10397,7 +10397,7 @@ _BOSS_NAME_SWAP_MAP = {5: 6, 6: 5}
 def get_boss_name(logic_stage: int, default: str = "보스") -> str:
     """로직 스테이지 번호를 디스플레이 스테이지로 변환하여 보스 이름 반환"""
     # 보스 변형이 선출된 경우 해당 이름 반환
-    if current_boss_name and logic_stage in (1, 2, 3):
+    if current_boss_name and logic_stage == 1:
         return current_boss_name
     display_stage = _BOSS_NAME_SWAP_MAP.get(logic_stage, logic_stage)
     return boss_names.get(display_stage, default)
@@ -17762,25 +17762,6 @@ def _swap_boss_in_current_stage():
             BOSS_COLOR = (80, 40, 25)
         else:
             BOSS_COLOR = (0, 255, 0)
-    elif stage == 3:
-        global teddy_shrink_scale
-        if new_boss == "테디베어":
-            BOSS_COLOR = (181, 126, 63)
-            # 테디베어 히트박스로 전환
-            teddy_shrink_scale = 1.0
-            center_x = BOSS.centerx
-            BOSS.width = TEDDY_BASE_HITBOX_W
-            BOSS.height = TEDDY_BASE_HITBOX_H
-            BOSS.centerx = center_x
-            BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
-        else:
-            BOSS_COLOR = (180, 70, 150)  # 멘헤라걸
-            # 기본 패들 히트박스로 복원
-            center_x = BOSS.centerx
-            BOSS.width = 130
-            BOSS.height = 40
-            BOSS.centerx = center_x
-            BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
 
     show_speech(f"{new_boss} 등장!", duration=120)
 
@@ -53483,25 +53464,23 @@ def go_to_next_round():
     global teddy_shrink_scale
     # Stage 3 배경 객체를 통해 쿠로미 각성 처리
     if current_stage == 3:
-        # 쿠로미 궤적은 멘헤라걸 전용이지만 안전하게 항상 초기화
         kuromi_spit_trail_active = False
         kuromi_spit_trail_positions = []
         kuromi_spit_trail_color_phase = 0
-        if current_boss_name == "테디베어":
-            # 테디베어 축소 스케일 초기화 (라운드 리셋)
-            teddy_shrink_scale = 1.0
-            # 테디베어 히트박스 원래 크기로 복원
-            center_x = BOSS.centerx
-            BOSS.width = TEDDY_BASE_HITBOX_W
-            BOSS.height = TEDDY_BASE_HITBOX_H
-            BOSS.centerx = center_x
-            BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
+        # 테디베어 축소 스케일 초기화 (라운드 리셋)
+        teddy_shrink_scale = 1.0
+        # 테디베어 히트박스 원래 크기로 복원
+        center_x = BOSS.centerx
+        BOSS.width = TEDDY_BASE_HITBOX_W
+        BOSS.height = TEDDY_BASE_HITBOX_H
+        BOSS.centerx = center_x
+        BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
         if DEBUG_BOSS:
             print("Stage 3: 쿠로미 궤적 이펙트 초기화 (go_to_next_round)")
         
-        # 플레이어가 2점을 획득했고 아직 각성하지 않았다면 각성 시작 (멘헤라걸 전용)
+        # 플레이어가 2점을 획득했고 아직 각성하지 않았다면 각성 시작
         global animated_bg_stage3, screen_shake_timer, screen_shake_intensity
-        if current_boss_name != "테디베어" and round_wins >= 2 and animated_bg_stage3 and animated_bg_stage3.kuromi_petrified and not animated_bg_stage3.kuromi_awakened:
+        if round_wins >= 2 and animated_bg_stage3 and animated_bg_stage3.kuromi_petrified and not animated_bg_stage3.kuromi_awakened:
             animated_bg_stage3.kuromi_awakening = True
             animated_bg_stage3.kuromi_awakening_timer = 180  # 3초간 각성 애니메이션
             # 화면 지진 효과 시작
@@ -53633,7 +53612,7 @@ def go_to_next_round():
                 PLAYER.height = 40
                 PLAYER.centerx = center
             # 스테이지 3 테디베어는 별도 크기 사용
-            if current_stage == 3 and current_boss_name == "테디베어":
+            if current_stage == 3:
                 _teddy_w = int(TEDDY_BASE_HITBOX_W * teddy_shrink_scale)
                 _teddy_h = int(TEDDY_BASE_HITBOX_H * teddy_shrink_scale)
                 if BOSS.width != _teddy_w or BOSS.height != _teddy_h:
@@ -98208,21 +98187,16 @@ def draw_objects():
             boss_img = BOSS_IMG_STAGE2
             boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
     elif current_stage == 3:
-        if current_boss_name == "테디베어":
-            # 테디베어 보스 - 프로시저럴 애니메이션 + 축소 스케일 적용
-            _teddy_w = int(BOSS_IMG_STAGE3_WIDTH * teddy_shrink_scale)
-            _teddy_h = int(BOSS_IMG_STAGE3_HEIGHT * teddy_shrink_scale)
-            boss_img_prescaled = True
-            if TEDDYBEAR_ANIMATION_AVAILABLE and teddybear_boss_sprite is not None:
-                teddybear_boss_sprite.update(BOSS.x, 1/60)
-                boss_img = teddybear_boss_sprite.get_current_frame((_teddy_w, _teddy_h))
-            else:
-                boss_img = pygame.transform.scale(BOSS_IMG_STAGE3_ORIGINAL, (_teddy_w, _teddy_h))
-            boss_w, boss_h = _teddy_w, _teddy_h
+        # 테디베어 보스 - 프로시저럴 애니메이션 + 축소 스케일 적용
+        _teddy_w = int(BOSS_IMG_STAGE3_WIDTH * teddy_shrink_scale)
+        _teddy_h = int(BOSS_IMG_STAGE3_HEIGHT * teddy_shrink_scale)
+        boss_img_prescaled = True
+        if TEDDYBEAR_ANIMATION_AVAILABLE and teddybear_boss_sprite is not None:
+            teddybear_boss_sprite.update(BOSS.x, 1/60)
+            boss_img = teddybear_boss_sprite.get_current_frame((_teddy_w, _teddy_h))
         else:
-            # 멘헤라걸 보스 - 기본 스테이지 3 이미지
-            boss_img = BOSS_IMG_STAGE3
-            boss_w, boss_h = BOSS_IMG_STAGE3_WIDTH, BOSS_IMG_STAGE3_HEIGHT
+            boss_img = pygame.transform.scale(BOSS_IMG_STAGE3_ORIGINAL, (_teddy_w, _teddy_h))
+        boss_w, boss_h = _teddy_w, _teddy_h
     elif current_stage == 4:
         boss_img = BOSS_IMG_STAGE4
         boss_w, boss_h = BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT
@@ -98326,7 +98300,7 @@ def draw_objects():
         boss_w = int(boss_w * total_visual_scale)
         boss_h = int(boss_h * total_visual_scale)
         # 히트박스 크기도 현재 스케일에 맞춰 유지
-        if current_stage == 3 and current_boss_name == "테디베어":
+        if current_stage == 3:
             expected_width = int(TEDDY_BASE_HITBOX_W * teddy_shrink_scale * total_visual_scale)
         else:
             expected_width = int(130 * total_visual_scale)
@@ -98494,7 +98468,7 @@ def draw_objects():
             # 아라크네 스프라이트 약간 아래로 내림 (패들 위치 보정)
             boss_rect = rotated_boss.get_rect(center=(int(BOSS.centerx + screen_shake_offset_x),
                                                       int(BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 15)))
-        elif current_stage == 3 and current_boss_name == "테디베어":
+        elif current_stage == 3:
             # 테디베어 보스: 하단이 보스 진영 밖으로 넘어가지 않도록 제한
             _teddy_img_h = rotated_boss.get_height()
             _max_bear_bottom = 170  # 보스 진영(~120) + 50px 마진
@@ -98623,8 +98597,8 @@ def draw_objects():
                 trail_img.set_alpha(alpha)
                 trail_rect = trail_img.get_rect(center=(x, y))
                 SCREEN.blit(trail_img, trail_rect.topleft)
-    # === Stage 3 오버드라이브 꼬리 === (멘헤라걸 전용)
-    if current_stage == 3 and current_boss_name != "테디베어" and emotional_overdrive_active:
+    # === Stage 3 오버드라이브 꼬리 ===
+    if current_stage == 3 and emotional_overdrive_active:
         for x, y, alpha in overdrive_trails:
             trail = pygame.transform.scale(BOSS_IMG_STAGE3, (boss_w, boss_h))
             trail.set_alpha(alpha)
@@ -98632,7 +98606,7 @@ def draw_objects():
             SCREEN.blit(trail, trail_rect.topleft)
         if overdrive_flash_timer < 15:
             apply_white_glow(rotated_boss, intensity=80)
-    if current_stage == 3 and current_boss_name != "테디베어" and boss_special_ready and not emotional_overdrive_active:
+    if current_stage == 3 and boss_special_ready and not emotional_overdrive_active:
         time_now = pygame.time.get_ticks()
         if (time_now // 250) % 2 == 0:
             apply_white_glow(rotated_boss, intensity=60)
@@ -104785,8 +104759,8 @@ def draw_objects():
     # 투기장 영웅 말풍선 그리기
     if arena_mode_enabled:
         arena_draw_speech_bubbles()
-    # === Stage 3 멘헤라걸 게이지바 (세일러문 요술봉 스타일) === (멘헤라걸 전용)
-    if current_stage == 3 and current_boss_name != "테디베어":
+    # === Stage 3 멘헤라걸 게이지바 (세일러문 요술봉 스타일) ===
+    if current_stage == 3:
         # 요술봉 위치와 크기
         wand_x = WIDTH - LARGE_SIZE  # 오른쪽에서 50px
         wand_y = 30  # 상단에서 30px
@@ -125840,7 +125814,7 @@ def draw_field():
         draw_tutorial_practice_room()
         return
     
-    if current_stage == 3 and current_boss_name != "테디베어" and emotional_overdrive_active:
+    if current_stage == 3 and emotional_overdrive_active:
         # 깜빡이거나 색 바뀌는 배경
         psycho_bg_timer += 1
         if psycho_bg_timer % 35 < 15:
@@ -129269,7 +129243,7 @@ def reset_round(is_stage_start=False):
                 PLAYER.height = 40
                 PLAYER.centerx = center
             # 스테이지 3 테디베어는 별도 크기 사용
-            if current_stage == 3 and current_boss_name == "테디베어":
+            if current_stage == 3:
                 _teddy_w = int(TEDDY_BASE_HITBOX_W * teddy_shrink_scale)
                 _teddy_h = int(TEDDY_BASE_HITBOX_H * teddy_shrink_scale)
                 if BOSS.width != _teddy_w or BOSS.height != _teddy_h:
@@ -135639,7 +135613,7 @@ def handle_ball():
         if boss_fail_timer > 0:
             tear_chance = min(1.0, tear_chance + 0.3)
         time_now = pygame.time.get_ticks()
-        if current_stage == 3 and current_boss_name != "테디베어":  # Stage 3 눈물 스킬 (멘헤라걸 전용)
+        if current_stage == 3:  # Stage 3 눈물 스킬 (쿠로미 각성 상태는 배경에서 체크)
             if time_now - last_tears_cast_time >= TEARS_COOLDOWN:
                 if random.random() < tear_chance and boss_special_gauge >= 80:  # 80 게이지 필요
                     activate_tears_of_pain()
@@ -136027,7 +136001,7 @@ def handle_ball():
         total_boss_scale *= enraged_boss_current_scale
 
     # 스테이지 3 테디베어: 축소 스케일 적용된 히트박스
-    if current_stage == 3 and current_boss_name == "테디베어":
+    if current_stage == 3:
         expected_boss_width = int(TEDDY_BASE_HITBOX_W * teddy_shrink_scale * total_boss_scale)
         expected_boss_height = int(TEDDY_BASE_HITBOX_H * teddy_shrink_scale * total_boss_scale)
     else:
@@ -136186,13 +136160,13 @@ def handle_ball():
                 else:
                     gain = 80
             elif current_stage == 3:
-                gain = 80 if current_boss_name != "테디베어" else 50
+                # 광폭화 여부와 관계없이 게이지 충전량 50 고정
+                gain = 50
                 # 테디베어 축소 메카닉: 공에 맞을 때마다 -5% 축소
-                if current_boss_name == "테디베어":
-                    teddy_shrink_scale = max(TEDDY_MIN_SCALE, teddy_shrink_scale - TEDDY_SHRINK_RATE)
-                    # 테디베어 히트 애니메이션 트리거
-                    if teddybear_boss_sprite is not None:
-                        teddybear_boss_sprite.trigger_hit(BALL.centerx, BOSS.centerx)
+                teddy_shrink_scale = max(TEDDY_MIN_SCALE, teddy_shrink_scale - TEDDY_SHRINK_RATE)
+                # 테디베어 히트 애니메이션 트리거
+                if teddybear_boss_sprite is not None:
+                    teddybear_boss_sprite.trigger_hit(BALL.centerx, BOSS.centerx)
             else:
                 gain = 80
             boss_special_gauge = min(boss_special_gauge + gain, 500)
@@ -136990,8 +136964,7 @@ def handle_ball():
                         quake_last_used_time = time_now
             # 물대포는 게임 루프에서 매 프레임 체크 (98343줄 참조)
         # 두더지왕 땅굴 습격은 매 프레임 루프에서 발동 체크 (145893줄)
-        elif not new_boss_mode_active and current_stage == 3 and current_boss_name != "테디베어":
-            # 멘헤라걸 전용: 사이코볼 (감정 폭주)
+        elif not new_boss_mode_active and current_stage == 3:
             # 패들 충돌 시 충전된 게이지가 500 이상이 되었을 때만 필살기 준비 상태로 전환
             if not boss_special_ready and boss_special_gauge >= 500:
                 boss_special_gauge = 500
@@ -139890,7 +139863,7 @@ def handle_boss():
                 arena_boss_slow_multiplier *= 0.5
             else:
                 # 축소 효과 해제 시 원래 크기로 복원
-                if current_stage == 3 and current_boss_name == "테디베어":
+                if current_stage == 3:
                     _orig_w = int(TEDDY_BASE_HITBOX_W * teddy_shrink_scale)
                     _orig_h = int(TEDDY_BASE_HITBOX_H * teddy_shrink_scale)
                     if BOSS.width != _orig_w:
@@ -143574,7 +143547,7 @@ def main(stage_num, new_boss_mode=False):
         BOSS_ACCELERATION_DEFAULT = BOSS_ACCELERATION
         # print(f"🔥 [광폭화 보스] 이동속도 30% 증가 적용 (MAX_SPEED: {BOSS_MAX_SPEED})")
         # 패들 크기는 점진적으로 증가 (초기값은 기본 크기)
-        if current_stage == 3 and current_boss_name == "테디베어":
+        if current_stage == 3:
             BOSS.width = int(TEDDY_BASE_HITBOX_W * teddy_shrink_scale)
             BOSS.height = int(TEDDY_BASE_HITBOX_H * teddy_shrink_scale)
         else:
@@ -143584,7 +143557,7 @@ def main(stage_num, new_boss_mode=False):
         # print(f"🔥 [광폭화 보스] 패들 크기 점진적 확대 시작 (1.0 → {enraged_boss_paddle_scale})")
     else:
         # 광폭화가 아닐 때 보스 패들 크기 초기화
-        if current_stage == 3 and current_boss_name == "테디베어":
+        if current_stage == 3:
             BOSS.width = int(TEDDY_BASE_HITBOX_W * teddy_shrink_scale)
             BOSS.height = int(TEDDY_BASE_HITBOX_H * teddy_shrink_scale)
         else:
@@ -143619,20 +143592,13 @@ def main(stage_num, new_boss_mode=False):
         boss_special_waiting = False
     elif stage_num == 3:
         CURRENT_BG = STAGE3_BG
-        if current_boss_name == "테디베어":
-            BOSS_COLOR = (181, 126, 63)  # 테디베어 갈색
-            # 테디베어 보스 초기화
-            teddy_shrink_scale = 1.0
-            BOSS.width = TEDDY_BASE_HITBOX_W
-            BOSS.height = TEDDY_BASE_HITBOX_H
-            BOSS.centerx = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
-            BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
-        else:
-            BOSS_COLOR = (180, 70, 150)  # 멘헤라걸
-            BOSS.width = 130
-            BOSS.height = 40
-            game_center_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
-            BOSS.centerx = game_center_x
+        BOSS_COLOR = (181, 126, 63)  # 테디베어 갈색
+        # 테디베어 보스 초기화
+        teddy_shrink_scale = 1.0
+        BOSS.width = TEDDY_BASE_HITBOX_W
+        BOSS.height = TEDDY_BASE_HITBOX_H
+        BOSS.centerx = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
+        BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
         # Stage 3 BGM 재생
         bgm_manager.play_stage_bgm(3)
     elif stage_num == 4:
@@ -148016,9 +147982,9 @@ def main(stage_num, new_boss_mode=False):
         if current_stage == 4 and animated_bg_stage4 is not None:
             temple_destruction_paused = animated_bg_stage4.is_destruction_animation_active()
         
-        # Stage 3 쿠로미 각성 중 일시정지 체크 (멘헤라걸 전용)
+        # Stage 3 쿠로미 각성 중 일시정지 체크
         kuromi_awakening_paused = False
-        if current_stage == 3 and current_boss_name != "테디베어" and animated_bg_stage3 is not None:
+        if current_stage == 3 and animated_bg_stage3 is not None:
             kuromi_awakening_paused = animated_bg_stage3.kuromi_awakening
         
         #  일시정지 상태가 아닐 때만 게임 로직 업데이트 (악마의 주사위 포함)
@@ -148226,8 +148192,8 @@ def main(stage_num, new_boss_mode=False):
                 handle_tears()
                 check_tear_collisions()
                 
-                #  Stage 3 멘헤라걸 꼬리 채찍 시스템 및 공 먹기 이벤트 (멘헤라걸 전용)
-                if current_stage == 3 and current_boss_name != "테디베어":
+                #  Stage 3 멘헤라걸 꼬리 채찍 시스템 및 공 먹기 이벤트
+                if current_stage == 3:
                     # 쿠로미 공 먹기 이벤트 체크 (공이 쿠로미 안에 없고 쿨타임이 끝났을 때만)
                     # 추가로 쿠로미가 석화화 상태가 아니고 사이코볼이 활성화되지 않았을 때만 체크
                     if not ball_in_kuromi and animated_bg_stage3 and not kuromi_eating_active and kuromi_eating_cooldown <= 0 and not animated_bg_stage3.kuromi_petrified and not emotional_overdrive_active:

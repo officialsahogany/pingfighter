@@ -47,12 +47,12 @@ BOSS_CONFIGS = {
         "dash_max_distance": 300,  # 20% 증가 (250 → 300)
     },
     3: {
-        "name": "멘헤라걸",
-        "color": (180, 70, 150),
-        "accel": 0.866,
-        "decel": 0.866,
-        "max_speed": 6.521,
-        "instant_stop": 0.768,
+        "name": "테디베어",
+        "color": (181, 126, 63),
+        "accel": 0.866 * 0.30,      # -70% 이동속도 (테디베어는 느릿느릿)
+        "decel": 0.866 * 0.30,      # -70% 감속도
+        "max_speed": 6.521 * 0.30,  # -70% 최대속도
+        "instant_stop": 0.768 * 0.30,  # -70% 급정지
         "predict_distance": 150,
         "skill_power": 0.6,
         "fail_error": 260,
@@ -61,7 +61,7 @@ BOSS_CONFIGS = {
         "dash_cooldown_range": (36.0, 51.0),
         "dash_trigger_chance": 0.36,
         "dash_stun_duration": 0.52,
-        "dash_max_distance": 312,
+        "dash_max_distance": 312 * 0.30,  # -70% 대쉬 거리
     },
     4: {
         "name": "퐁크",
@@ -177,20 +177,6 @@ BOSS_VARIANTS = {
             "max_speed": BOSS_CONFIGS[2]["max_speed"] * 0.50,
             "instant_stop": BOSS_CONFIGS[2]["instant_stop"] * 0.50,
             "special_skill": "web_trap",    # 거미줄 장판
-        },
-    },
-    3: {
-        "멘헤라걸": BOSS_CONFIGS[3],
-        "테디베어": {
-            **BOSS_CONFIGS[3],
-            "name": "테디베어",
-            "color": (181, 126, 63),        # 갈색 (곰 털)
-            "accel": BOSS_CONFIGS[3]["accel"] * 0.30,        # -70% 이동속도
-            "decel": BOSS_CONFIGS[3]["decel"] * 0.30,
-            "max_speed": BOSS_CONFIGS[3]["max_speed"] * 0.30,
-            "instant_stop": BOSS_CONFIGS[3]["instant_stop"] * 0.30,
-            "dash_max_distance": BOSS_CONFIGS[3]["dash_max_distance"] * 0.30,
-            "special_skill": None,          # 테디베어는 감정 폭주 없음
         },
     },
 }

@@ -38,7 +38,7 @@ PLANET_CONFIGS = {
         "size": 26,
         "boss_roster": [
             {"name": "멘헤라걸", "implemented": True},
-            {"name": "테디베어", "implemented": True},
+            {"name": "???", "implemented": False},
             {"name": "???", "implemented": False},
         ],
     },
