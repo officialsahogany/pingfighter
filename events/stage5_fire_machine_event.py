@@ -131,7 +131,11 @@ class Stage5FireMachineEvent:
         """폰트 초기화 - PF스타더스트 픽셀 폰트"""
         if not self.font:
             try:
-                self.font = pygame.font.Font("PFStardust.ttf", 20)
+                try:
+                    from pixel_font_manager import get_pixel_font_path
+                    self.font = pygame.font.Font(get_pixel_font_path(), 20)
+                except Exception:
+                    self.font = pygame.font.Font("PFStardust.ttf", 20)
             except:
                 self.font = pygame.font.Font(None, 20)
     

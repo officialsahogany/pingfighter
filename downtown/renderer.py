@@ -2,6 +2,7 @@
 # 번화가 렌더링 시스템
 
 import pygame
+from pixel_font_manager import get_pixel_font_path
 import pygame.freetype
 import math
 import random
@@ -1705,7 +1706,7 @@ class DowntownRenderer:
         # 1차 시도: 네오둥근모 프로 픽셀 폰트
         if font is None:
             try:
-                pixel_font_path = resource_path("PFStardust.ttf")
+                pixel_font_path = get_pixel_font_path()
                 if os.path.exists(pixel_font_path):
                     font = pygame.freetype.Font(pixel_font_path, size)
             except Exception:

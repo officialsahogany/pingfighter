@@ -437,6 +437,7 @@ class PlanetTheme:
 PLANET_THEMES = {
     PlanetTheme.CYBER_CITY: {
         "name": "네온 시티",
+        "loc_key": "cyber_city",
         "bg_color": (15, 15, 35),
         "ground_color": (35, 35, 50),         # 바닥: 어두운 톤
         "road_color": (90, 95, 120),          # 도로: 밝은 돌길 (대비 강화)
@@ -445,6 +446,7 @@ PLANET_THEMES = {
     },
     PlanetTheme.DESERT_TOWN: {
         "name": "사막 마을",
+        "loc_key": "desert_town",
         "bg_color": (150, 135, 100),          # 바닥색과 유사하게 변경 (건물 뒤 갈색 방지)
         "ground_color": (170, 150, 110),      # 바닥: 모래
         "road_color": (210, 195, 165),        # 도로: 밝은 사암 (대비 강화)
@@ -453,6 +455,7 @@ PLANET_THEMES = {
     },
     PlanetTheme.FOREST_VILLAGE: {
         "name": "숲속 마을",
+        "loc_key": "forest_village",
         "bg_color": (20, 40, 20),
         "ground_color": (30, 65, 30),         # 바닥: 어두운 풀밭
         "road_color": (140, 120, 90),         # 도로: 밝은 흙길 (대비 강화)
@@ -461,6 +464,7 @@ PLANET_THEMES = {
     },
     PlanetTheme.ICE_STATION: {
         "name": "얼음 정거장",
+        "loc_key": "ice_station",
         "bg_color": (20, 30, 50),
         "ground_color": (160, 180, 200),      # 바닥: 어두운 얼음
         "road_color": (220, 235, 250),        # 도로: 밝은 눈길 (대비 강화)
@@ -469,6 +473,7 @@ PLANET_THEMES = {
     },
     PlanetTheme.SPACE_STATION: {
         "name": "우주 정거장",
+        "loc_key": "space_station",
         "bg_color": (5, 5, 15),
         "ground_color": (40, 40, 55),         # 바닥: 어두운 금속
         "road_color": (100, 105, 130),        # 도로: 밝은 금속 통로 (대비 강화)

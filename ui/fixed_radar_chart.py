@@ -5,6 +5,7 @@
 """
 
 import pygame
+from pixel_font_manager import get_pixel_font_path
 import math
 import os
 import sys
@@ -21,7 +22,7 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 # 픽셀 폰트 경로
-PIXEL_FONT = resource_path("PFStardust.ttf")
+PIXEL_FONT = get_pixel_font_path()
 
 
 def draw_improved_radar_chart(screen, stats, center_x, center_y, radius=120):

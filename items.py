@@ -15,6 +15,7 @@ def resource_path(relative_path):
 
 # -*- coding: utf-8 -*-
 import pygame
+from pixel_font_manager import get_pixel_font_path
 import random
 import math
 
@@ -2513,7 +2514,7 @@ def _get_countdown_font():
     global _countdown_font_cache
     if _countdown_font_cache is None:
         try:
-            _countdown_font_cache = pygame.font.Font(resource_path("PFStardust.ttf"), 32)
+            _countdown_font_cache = pygame.font.Font(get_pixel_font_path(), 32)
         except:
             _countdown_font_cache = pygame.font.Font(None, 40)
     return _countdown_font_cache

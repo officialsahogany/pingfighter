@@ -2359,5 +2359,10 @@
   "npc.robot.76": "Helping you is my mission.",
   "npc.robot.77": "Call anytime if you need me.",
   "npc.robot.78": "Standing by 24 hours.",
-  "npc.robot.79": "Your AI partner, always here."
+  "npc.robot.79": "Your AI partner, always here.",
+  "planet.cyber_city": "Neon City",
+  "planet.desert_town": "Desert Town",
+  "planet.forest_village": "Forest Village",
+  "planet.ice_station": "Ice Station",
+  "planet.space_station": "Space Station"
 }

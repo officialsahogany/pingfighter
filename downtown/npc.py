@@ -2,6 +2,7 @@
 # 번화가 NPC 시스템 - 주민, 로봇, 강아지, 고양이 등
 
 import pygame
+from pixel_font_manager import get_pixel_font_path
 import pygame.freetype
 import math
 import random
@@ -2365,7 +2366,7 @@ class NPC:
 
         # 1차 시도: 네오둥근모 프로 픽셀 폰트
         try:
-            pixel_font_path = resource_path("PFStardust.ttf")
+            pixel_font_path = get_pixel_font_path()
             if os.path.exists(pixel_font_path):
                 font = pygame.freetype.Font(pixel_font_path, font_size)
         except Exception:

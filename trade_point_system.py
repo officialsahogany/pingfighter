@@ -4,6 +4,7 @@ Star Point Star System Module
 """
 
 import pygame
+from pixel_font_manager import get_pixel_font_path
 import math
 import random
 import os
@@ -87,7 +88,7 @@ class TradePointSystem:
         
         # 폰트 설정
         try:
-            self.font = pygame.font.Font(resource_path("PFStardust.ttf"), 20)
+            self.font = pygame.font.Font(get_pixel_font_path(), 20)
         except:
             self.font = pygame.font.Font(None, 20)
     

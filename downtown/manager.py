@@ -361,19 +361,24 @@ class DowntownManager:
 
         # 픽셀 폰트 경로 (네오둥근모 프로)
         font = None
-        pixel_font_path = resource_path("PFStardust.ttf")
+        pixel_font_path = get_pixel_font_path()
         fallback_font_path = resource_path(os.path.join("fonts", "NanumSquareB.ttf"))
 
-        # 픽셀 폰트 우선 로드
-        if os.path.exists(pixel_font_path):
+        # 픽셀 폰트 우선 로드 (CJK 언어 시 시스템 폰트 자동 전환)
+        try:
+            from pixel_font_manager import PIXEL_FONT as _pf_path, get_pixel_font_path
+            font = _pf_path  # CJK 언어면 이미 시스템 폰트 경로로 교체됨
+        except ImportError:
             font = pixel_font_path
-        elif os.path.exists(fallback_font_path):
-            font = fallback_font_path
-        # 시스템 폰트 fallback
-        elif os.path.exists("/System/Library/Fonts/AppleSDGothicNeo.ttc"):
-            font = "/System/Library/Fonts/AppleSDGothicNeo.ttc"
-        elif os.path.exists("C:/Windows/Fonts/malgun.ttf"):
-            font = "C:/Windows/Fonts/malgun.ttf"
+        if not os.path.exists(font):
+            if os.path.exists(pixel_font_path):
+                font = pixel_font_path
+            elif os.path.exists(fallback_font_path):
+                font = fallback_font_path
+            elif os.path.exists("/System/Library/Fonts/AppleSDGothicNeo.ttc"):
+                font = "/System/Library/Fonts/AppleSDGothicNeo.ttc"
+            elif os.path.exists("C:/Windows/Fonts/malgun.ttf"):
+                font = "C:/Windows/Fonts/malgun.ttf"
 
         # freetype 폰트 생성
         try:
@@ -1598,8 +1603,17 @@ class DowntownManager:
 
     def _draw_stage_info(self):
         """스테이지 정보 표시"""
-        # 행성 이름
+        # 행성 이름 (번역 적용)
         planet_name = self.downtown_map.theme_data.get('name', '???')
+        _loc_key = self.downtown_map.theme_data.get('loc_key', '')
+        if _loc_key:
+            try:
+                from localization.manager import get_localization_manager
+                _translated = get_localization_manager().get_text(f"planet.{_loc_key}", "")
+                if _translated:
+                    planet_name = _translated
+            except Exception:
+                pass
         stage_text = f"Stage {self.stage_number} - {planet_name}"
 
         text_surface = self.font_medium.render(stage_text, True, Colors.TEXT_WHITE)

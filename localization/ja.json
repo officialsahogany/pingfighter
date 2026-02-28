@@ -2359,5 +2359,10 @@
   "npc.robot.76": "あなたを助けることが私の任務です。",
   "npc.robot.77": "必要な時はいつでも呼んでください。",
   "npc.robot.78": "24時間待機中です。",
-  "npc.robot.79": "あなたのAIパートナー、常にここにいます。"
+  "npc.robot.79": "あなたのAIパートナー、常にここにいます。",
+  "planet.cyber_city": "ネオンシティ",
+  "planet.desert_town": "砂漠の町",
+  "planet.forest_village": "森の村",
+  "planet.ice_station": "氷のステーション",
+  "planet.space_station": "宇宙ステーション"
 }

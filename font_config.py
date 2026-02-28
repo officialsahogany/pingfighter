@@ -5,6 +5,7 @@
 """
 
 import pygame
+from pixel_font_manager import get_pixel_font_path
 import os
 import sys
 
@@ -24,7 +25,7 @@ def resource_path(relative_path):
 FONT_STYLE = "pixel"  # 레트로 픽셀 스타일!
 
 # 픽셀 폰트 경로 (PF스타더스트 3.0 - 가독성 좋은 레트로 픽셀 폰트)
-PIXEL_FONT_FILE = resource_path("PFStardust.ttf")
+PIXEL_FONT_FILE = get_pixel_font_path()
 
 # 폰트 파일 경로
 FONTS = {

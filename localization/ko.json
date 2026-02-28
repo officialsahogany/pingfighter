@@ -2359,5 +2359,10 @@
   "npc.robot.76": "당신을 돕는 것이 저의 임무입니다.",
   "npc.robot.77": "필요하시면 언제든 호출하세요.",
   "npc.robot.78": "24시간 대기 중입니다.",
-  "npc.robot.79": "당신의 AI 파트너, 항상 여기 있습니다."
+  "npc.robot.79": "당신의 AI 파트너, 항상 여기 있습니다.",
+  "planet.cyber_city": "네온 시티",
+  "planet.desert_town": "사막 마을",
+  "planet.forest_village": "숲속 마을",
+  "planet.ice_station": "얼음 정거장",
+  "planet.space_station": "우주 정거장"
 }

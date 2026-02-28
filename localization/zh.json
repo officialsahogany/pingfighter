@@ -2359,5 +2359,10 @@
   "npc.robot.76": "帮助你是我的使命。",
   "npc.robot.77": "需要时随时呼叫我。",
   "npc.robot.78": "24小时待命中。",
-  "npc.robot.79": "您的AI伙伴，始终在这里。"
+  "npc.robot.79": "您的AI伙伴，始终在这里。",
+  "planet.cyber_city": "霓虹城市",
+  "planet.desert_town": "沙漠小镇",
+  "planet.forest_village": "森林村庄",
+  "planet.ice_station": "冰雪站",
+  "planet.space_station": "太空站"
 }

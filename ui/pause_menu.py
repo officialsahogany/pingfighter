@@ -303,9 +303,20 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
         current_tab = locals().get('current_tab', 'sound')  # 유지용
         # 탭 영역
         tabs_y = panel_y + 10
-        tab_w = 85
         tab_gap = 6
         tab_h = 36
+        # 동적 탭 너비 (CJK 오버플로우 방지)
+        _tab_labels = [
+            _t("settings.tab.sound", "사운드"),
+            _t("settings.tab.controls", "컨트롤"),
+            _t("settings.tab.display", "디스플레이"),
+            _t("settings.tab.play", "플레이"),
+            _t("settings.tab.language", "언어"),
+        ]
+        _max_tw = max(font_small.size(lbl)[0] for lbl in _tab_labels)
+        tab_w = max(85, _max_tw + 20)
+        if tab_w * 5 + tab_gap * 4 + 32 > panel_width:
+            tab_w = (panel_width - 32 - tab_gap * 4) // 5
         sound_tab_rect = pygame.Rect(panel_x + 16, tabs_y, tab_w, tab_h)
         ctrl_tab_rect = pygame.Rect(panel_x + 16 + (tab_w + tab_gap), tabs_y, tab_w, tab_h)
         disp_tab_rect = pygame.Rect(panel_x + 16 + (tab_w + tab_gap) * 2, tabs_y, tab_w, tab_h)
@@ -335,7 +346,9 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
             ctx.screen.blit(ball_sel_label, ball_sel_label.get_rect(left=panel_x + margin_x, centery=ball_sel_y + 16))
 
             _bt_names = {"energy": _t("settings.play.ball_energy", "에너지볼"), "pingpong": _t("settings.play.ball_pingpong", "탁구공")}
-            pill_w_b, pill_h_b = 110, 32
+            _max_bw = max(font_small.size(lbl)[0] for lbl in _bt_names.values())
+            pill_w_b = max(110, _max_bw + 24)
+            pill_h_b = 32
             pill_gap_b = 10
             ball_pills = []
             for i, (val, lbl) in enumerate(_bt_names.items()):
@@ -368,7 +381,9 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
             ctx.screen.blit(hit_label, hit_label.get_rect(left=panel_x + margin_x, centery=hit_y + 16))
 
             _hs_names = {1: _t("settings.play.sound_1", "사운드 1"), 2: _t("settings.play.sound_2", "사운드 2"), 3: _t("settings.play.sound_3", "사운드 3")}
-            pill_w_h, pill_h_h = 90, 32
+            _max_hw = max(font_small.size(lbl)[0] for lbl in _hs_names.values())
+            pill_w_h = max(90, _max_hw + 24)
+            pill_h_h = 32
             pill_gap_h = 8
             hit_pills = []
             for i, (val, lbl) in enumerate(_hs_names.items()):
@@ -395,7 +410,10 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
             label = font_medium.render(_t("settings.controls.label", "조작 방식"), True, const.WHITE)
             ctx.screen.blit(label, (panel_x + margin_x, bgm_slider_y + slider_height // 2 - 10))
             # 두 개의 선택 버튼
-            pill_w, pill_h = 180, 36
+            _ctrl_labels = [_t("settings.controls.keyboard_only", "키보드만"), _t("settings.controls.mouse_keyboard", "마우스+키보드")]
+            _max_cw = max(font_small.size(lbl)[0] for lbl in _ctrl_labels)
+            pill_w = max(180, _max_cw + 30)
+            pill_h = 36
             kb_rect = pygame.Rect(bgm_slider_x, bgm_slider_y - 8, pill_w, pill_h)
             mk_rect = pygame.Rect(bgm_slider_x + pill_w + 14, bgm_slider_y - 8, pill_w + 20, pill_h)
             def _draw_pill(rect: pygame.Rect, text: str, selected: bool, focused: bool):
@@ -410,7 +428,10 @@ def show_pause_options(ctx: PauseOptionsContext) -> None:
             # 화면 모드 선택 (전체화면 / 시네마모드 / 창모드)
             disp_label = font_medium.render(_t("settings.display.label", "화면 모드"), True, const.WHITE)
             ctx.screen.blit(disp_label, (panel_x + margin_x, bgm_slider_y + slider_height // 2 - 10))
-            dpill_w, dpill_h = 110, 36
+            _disp_labels = [_t("settings.display.fullscreen", "전체화면"), _t("settings.display.cinema", "전체화면(저화질)"), _t("settings.display.windowed", "창모드")]
+            _max_dw = max(font_small.size(lbl)[0] for lbl in _disp_labels)
+            dpill_w = max(110, _max_dw + 24)
+            dpill_h = 36
             _dpill_gap = 8
             fs_rect = pygame.Rect(bgm_slider_x, bgm_slider_y - 8, dpill_w, dpill_h)
             cm_rect = pygame.Rect(bgm_slider_x + dpill_w + _dpill_gap, bgm_slider_y - 8, dpill_w, dpill_h)

@@ -2644,7 +2644,7 @@ from effects.item_acquisition import (
     draw_item_effects
 )
 #  픽셀 폰트 매니저 - 네오둥근모
-from pixel_font_manager import get_font, FontStyle, PixelColors, set_fullscreen_font_scale
+from pixel_font_manager import get_font, FontStyle, PixelColors, set_fullscreen_font_scale, get_pixel_font_path
 #  건물 손상 효과 시스템
 from effects.building_damage_effects import get_damage_manager
 
@@ -49177,7 +49177,7 @@ def draw_smasher_combo_effect(screen):
     # 콤보 텍스트 - 메인
     try:
         font_size = int(36 * scale + combo * 4)
-        combo_font = pygame.font.Font(resource_path("PFStardust.ttf"), font_size)
+        combo_font = pygame.font.Font(get_pixel_font_path(), font_size)
     except:
         combo_font = pygame.font.Font(None, int(36 * scale + combo * 4))
 
@@ -49216,7 +49216,7 @@ def draw_smasher_combo_effect(screen):
 
     # 보너스 퍼센트 표시
     try:
-        bonus_font = pygame.font.Font(resource_path("PFStardust.ttf"), 18)
+        bonus_font = pygame.font.Font(get_pixel_font_path(), 18)
     except:
         bonus_font = pygame.font.Font(None, 18)
 
@@ -54674,7 +54674,7 @@ def draw_stopwatch_effect():
     
     # 시간 표시 (12, 3, 6, 9)
     try:
-        clock_font = pygame.font.Font(resource_path("PFStardust.ttf"), 16)
+        clock_font = pygame.font.Font(get_pixel_font_path(), 16)
     except:
         clock_font = pygame.font.Font(None, 16)
     
@@ -55347,7 +55347,7 @@ def render_throwing_item_cooldown():
     
     # 남은 시간 텍스트
     try:
-        font = pygame.font.Font(resource_path("PFStardust.ttf"), 20)
+        font = pygame.font.Font(get_pixel_font_path(), 20)
     except:
         font = pygame.font.Font(None, 20)
 
@@ -60737,8 +60737,8 @@ def draw_soldier_weapon_ui(screen):
                 import pygame.freetype
 
                 font_paths = [
-                    resource_path("PFStardust.ttf"),
-                    resource_path("PFStardust.ttf"),
+                    get_pixel_font_path(),
+                    get_pixel_font_path(),
                     resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Regular.ttf")),
                     resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "Pretendard-Regular.otf")),
                     resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"))
@@ -64108,7 +64108,7 @@ def draw_leg_shot_effect(screen):
     if leg_shot_text_timer > 0:
         try:
             # 작은 폰트 사용 (20pt)
-            font = pygame.freetype.Font(resource_path("PFStardust.ttf"), 20)
+            font = pygame.freetype.Font(get_pixel_font_path(), 20)
             
             # 애니메이션 진행도 (0.0 ~ 1.0)
             progress = 1.0 - (leg_shot_text_timer / LEG_SHOT_TEXT_DURATION)
@@ -64182,7 +64182,7 @@ def draw_head_shot_effect(screen):
     if head_shot_text_timer > 0:
         try:
             # 작은 폰트 사용 (20pt) - 레그샷과 동일
-            font = pygame.freetype.Font(resource_path("PFStardust.ttf"), 20)
+            font = pygame.freetype.Font(get_pixel_font_path(), 20)
             
             # 애니메이션 진행도 (0.0 ~ 1.0)
             progress = 1.0 - (head_shot_text_timer / HEAD_SHOT_TEXT_DURATION)
@@ -68871,7 +68871,7 @@ def handle_player(keys):
                             message_text = "하프 대쉬!"
                             message_color = (150, 150, 255)
                             try:
-                                message_font = pygame.font.Font(resource_path("PFStardust.ttf"), 32)
+                                message_font = pygame.font.Font(get_pixel_font_path(), 32)
                             except:
                                 message_font = pygame.font.Font(None, 32)
                             
@@ -98872,7 +98872,7 @@ def draw_objects():
         # 둔화 퍼센트 표시 (패들 위에 작게)
         slow_pct = int(boss_plasma_slow_amount * 100)
         try:
-            slow_font = pygame.font.Font(resource_path("PFStardust.ttf"), 10)
+            slow_font = pygame.font.Font(get_pixel_font_path(), 10)
         except:
             slow_font = pygame.font.Font(None, 10)
         slow_text = f"-{slow_pct}%"
@@ -108353,7 +108353,7 @@ def _make_arena_fonts():
     import pygame.freetype
     fonts = {}
     font = None
-    pixel_font_path = resource_path("PFStardust.ttf")
+    pixel_font_path = get_pixel_font_path()
     fallback_font_path = resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"))
     if os.path.exists(pixel_font_path):
         font = pixel_font_path
@@ -124752,7 +124752,7 @@ def draw_trade_point_texts():
     
     # 아래는 기존 코드 (실행되지 않음)
     try:
-        font = pygame.font.Font(resource_path("PFStardust.ttf"), 20)
+        font = pygame.font.Font(get_pixel_font_path(), 20)
     except:
         font = pygame.font.Font(None, 20)
 
@@ -124842,8 +124842,8 @@ def draw_stage3_trade_point_texts():
     """Stage 3 트레이드 포인트 텍스트 효과 그리기 (세련된 미니멀 스타일)"""
     try:
         # 적당한 크기의 폰트
-        font = pygame.font.Font(resource_path("PFStardust.ttf"), 20)
-        font_small = pygame.font.Font(resource_path("PFStardust.ttf"), 18)  # 그림자용
+        font = pygame.font.Font(get_pixel_font_path(), 20)
+        font_small = pygame.font.Font(get_pixel_font_path(), 18)  # 그림자용
     except:
         font = pygame.font.Font(None, 20)
         font_small = pygame.font.Font(None, 18)
@@ -133438,7 +133438,7 @@ def handle_ball():
                     go_to_next_round()
                     # 재대결 메시지 표시
                     try:
-                        draw_font = pygame.font.Font(resource_path("PFStardust.ttf"), 48)
+                        draw_font = pygame.font.Font(get_pixel_font_path(), 48)
                     except:
                         draw_font = pygame.font.Font(None, 48)
                     draw_text = draw_font.render("재대결!", True, YELLOW)
@@ -133590,7 +133590,7 @@ def handle_ball():
                     go_to_next_round()
                     # 재대결 메시지 표시
                     try:
-                        draw_font = pygame.font.Font(resource_path("PFStardust.ttf"), 48)
+                        draw_font = pygame.font.Font(get_pixel_font_path(), 48)
                     except:
                         draw_font = pygame.font.Font(None, 48)
                     draw_text = draw_font.render("재대결!", True, YELLOW)

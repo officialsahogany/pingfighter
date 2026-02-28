@@ -3,6 +3,7 @@
 # 실제 영웅 스프라이트(HeroPaddleRenderer)를 사용하여 렌더링
 
 import pygame
+from pixel_font_manager import get_pixel_font_path
 import pygame.freetype
 import math
 import random
@@ -162,7 +163,7 @@ class BodyguardFollower:
             font_size = 21
             # 1차: 픽셀 폰트
             try:
-                pixel_font_path = resource_path("PFStardust.ttf")
+                pixel_font_path = get_pixel_font_path()
                 if os.path.exists(pixel_font_path):
                     cls._speech_font = pygame.freetype.Font(pixel_font_path, font_size)
             except Exception:

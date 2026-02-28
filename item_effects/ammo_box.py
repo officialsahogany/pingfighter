@@ -365,8 +365,13 @@ class AmmoBox:
             return self._text_font
 
         resource_path = getattr(game_module, 'resource_path', None) if game_module else None
+        try:
+            from pixel_font_manager import get_pixel_font_path as _gpfp
+            _cjk_first = _gpfp()
+        except Exception:
+            _cjk_first = None
         font_candidates = (
-            "PFStardust.ttf",
+            _cjk_first,
             "fonts/NanumSquareB.ttf",
             "fonts/Pretendard-Regular.ttf",
         )

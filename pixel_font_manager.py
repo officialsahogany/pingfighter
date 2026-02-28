@@ -60,7 +60,7 @@ FALLBACK_FONT_REGULAR = _fallback_nanum_regular
 CJK_FONT_BOLD = resource_path("Pretendard-Bold.ttf")
 CJK_FONT_REGULAR = resource_path("Pretendard-Regular.ttf")
 
-# 일본어/중국어 시스템 폰트 목록
+# 일본어/중국어 시스템 폰트 목록 (SysFont 이름)
 if sys.platform == "win32":
     _JA_SYSTEM_FONTS = ["Yu Gothic", "Meiryo", "MS Gothic", "MS PGothic"]
     _ZH_SYSTEM_FONTS = ["Microsoft YaHei", "SimHei", "SimSun", "FangSong"]
@@ -71,6 +71,46 @@ else:
     _JA_SYSTEM_FONTS = ["Noto Sans CJK JP", "TakaoGothic"]
     _ZH_SYSTEM_FONTS = ["Noto Sans CJK SC", "WenQuanYi Micro Hei"]
 
+# CJK 시스템 폰트 파일 경로 (pygame.font.Font에서 직접 로드용)
+_CJK_FONT_FILE_PATHS = {
+    "ja": {
+        "win32": [
+            "C:/Windows/Fonts/YuGothM.ttc",
+            "C:/Windows/Fonts/YuGothR.ttc",
+            "C:/Windows/Fonts/meiryo.ttc",
+            "C:/Windows/Fonts/msgothic.ttc",
+        ],
+        "darwin": [
+            "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc",
+            "/Library/Fonts/Hiragino Sans GB W3.otf",
+        ],
+        "linux": ["/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"],
+    },
+    "zh": {
+        "win32": [
+            "C:/Windows/Fonts/msyh.ttc",
+            "C:/Windows/Fonts/simhei.ttf",
+            "C:/Windows/Fonts/simsun.ttc",
+        ],
+        "darwin": [
+            "/System/Library/Fonts/PingFang.ttc",
+            "/Library/Fonts/Arial Unicode.ttf",
+        ],
+        "linux": ["/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc"],
+    },
+}
+
+def _find_cjk_font_path(lang_code):
+    """CJK 언어용 시스템 폰트 파일 경로 탐색"""
+    platform = sys.platform
+    if platform not in ("win32", "darwin"):
+        platform = "linux"
+    paths = _CJK_FONT_FILE_PATHS.get(lang_code, {}).get(platform, [])
+    for p in paths:
+        if os.path.exists(p):
+            return p
+    return None
+
 # 픽셀 폰트 사용 여부 (항상 True)
 USE_PIXEL_FONT = True
 
@@ -78,14 +118,42 @@ USE_PIXEL_FONT = True
 _current_font_language = "ko"
 
 def set_font_language(lang_code):
-    """언어 변경 시 폰트 캐시 초기화 및 언어 설정"""
+    """언어 변경 시 폰트 경로 교체 + 캐시 초기화
+
+    ja/zh → CJK 시스템 폰트 파일로 PIXEL_FONT 등 전역 경로를 교체.
+    이렇게 하면 게임 전체에서 pygame.font.Font(PIXEL_FONT, size) 로
+    폰트를 생성하는 모든 코드가 자동으로 CJK 폰트를 사용하게 됨.
+    """
     global _current_font_language, _font_cache
+    global PIXEL_FONT, MAIN_FONT_BOLD, MAIN_FONT_REGULAR, MAIN_FONT_EXTRA_BOLD
     if lang_code != _current_font_language:
         _current_font_language = lang_code
         _font_cache.clear()  # 언어 변경 시 캐시 무효화
+        # CJK 언어: 전역 폰트 경로를 시스템 CJK 폰트로 교체
+        if lang_code in ("ja", "zh"):
+            cjk_path = _find_cjk_font_path(lang_code)
+            if cjk_path:
+                PIXEL_FONT = cjk_path
+                MAIN_FONT_BOLD = cjk_path
+                MAIN_FONT_REGULAR = cjk_path
+                MAIN_FONT_EXTRA_BOLD = cjk_path
+        else:
+            # ko/en: 원래 픽셀 폰트로 복원
+            PIXEL_FONT = PIXEL_FONT_PATH
+            MAIN_FONT_BOLD = PIXEL_FONT_PATH
+            MAIN_FONT_REGULAR = PIXEL_FONT_PATH
+            MAIN_FONT_EXTRA_BOLD = PIXEL_FONT_PATH
 
 def get_font_language():
     return _current_font_language
+
+def get_pixel_font_path():
+    """현재 언어에 맞는 폰트 파일 경로 반환 (CJK 자동 전환)
+
+    resource_path("PFStardust.ttf") 대신 사용하면
+    ja/zh에서 자동으로 시스템 CJK 폰트 경로를 반환.
+    """
+    return PIXEL_FONT
 
 def get_cjk_font(size, style="regular"):
     """CJK 문자 렌더링용 폰트 (언어 설정과 무관하게 항상 CJK 지원 폰트 반환)"""

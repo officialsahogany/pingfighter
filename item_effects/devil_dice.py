@@ -69,16 +69,20 @@ class DevilDice:
         self.init_fonts()
         
     def init_fonts(self):
-        """폰트 초기화"""
+        """폰트 초기화 (CJK 언어 자동 전환)"""
+        try:
+            from pixel_font_manager import get_pixel_font_path
+            _pfp = get_pixel_font_path()
+        except Exception:
+            _pfp = resource_path("PFStardust.ttf")
         font_candidates = [
-            "PFStardust.ttf",
-            "NanumSquareB.ttf",
-            "NanumSquareR.ttf",
+            _pfp,
+            resource_path("NanumSquareB.ttf"),
+            resource_path("NanumSquareR.ttf"),
         ]
 
-        for candidate in font_candidates:
+        for path in font_candidates:
             try:
-                path = resource_path(candidate)
                 self.font = pygame.font.Font(path, 24)
                 self.small_font = pygame.font.Font(path, 16)
                 break

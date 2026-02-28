@@ -2,6 +2,7 @@
 레트로 스타일 게임 종료 화면 - 네오 둥근모 프로 픽셀 폰트 사용
 """
 import pygame
+from pixel_font_manager import get_pixel_font_path
 import math
 import random
 import os
@@ -21,7 +22,7 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 # 픽셀 폰트 경로
-PIXEL_FONT = resource_path("PFStardust.ttf")
+PIXEL_FONT = get_pixel_font_path()
 
 class RetroGameOverScreen:
     """레트로 픽셀 스타일 게임 종료 화면"""

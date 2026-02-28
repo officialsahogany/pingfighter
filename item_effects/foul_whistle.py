@@ -140,7 +140,7 @@ class FoulWhistle:
             ("NanumSquareB.ttf", size),
             ("Pretendard-Bold.ttf", size),
             ("NeoDunggeunmoPro.ttf", int(size * 1.05)),
-            ("PFStardust.ttf", int(size * 1.1)),  # 픽셀 느낌 폴백
+            ("PFStardust.ttf", int(size * 1.1)),  # 픽셀 폴백 (CJK는 get_font 사용)
             (None, size),
         ]
 
