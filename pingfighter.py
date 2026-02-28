@@ -105228,8 +105228,9 @@ def run_downtown_hub(next_stage_display: int) -> bool:
 
     except Exception as err:  # 방어적: 광장 모듈 문제 시 다음 스테이지로 바로 이동
         import traceback
-        print(f"[WARN] downtown hub skipped: {err}")
+        print(f"[ERROR] downtown hub skipped due to exception: {err}", flush=True)
         traceback.print_exc()  # 전체 스택 트레이스 출력
+        print(f"[ERROR] 광장이 오류로 인해 건너뛰어졌습니다! 위 트레이스를 확인하세요.", flush=True)
         return True  # 오류 시에도 다음 스테이지 진행
 
 
@@ -108141,18 +108142,21 @@ def show_victory_screen(stage_cleared, reward):
                 reset_orb_animation_state()
 
                 if mode == 'downtown':
-                    # 광장 진입 (AI 플레이 모드일 때만 자동 스킵)
-                    if not player_ai_enabled:
-                        # 스테이지1 클리어 → 스테이지1 광장 (target_stage - 1)
-                        should_continue = run_downtown_hub(target_stage - 1)
-                        # 저장 NPC를 통해 메인메뉴로 복귀하는 경우
-                        if not should_continue:
-                            # Alt+F4로 종료한 경우 게임 완전 종료
-                            if game_should_exit:
-                                pygame.quit()
-                                sys.exit()
-                            show_start_screen()
-                            return
+                    # 안전장치: player_ai_enabled가 True로 남아 있으면 강제 해제
+                    # (투기장/개발자모드에서 미복원된 경우 방지)
+                    if player_ai_enabled:
+                        print(f"[WARN] 광장 진입 시 player_ai_enabled=True 감지! 강제 해제합니다.", flush=True)
+                        player_ai_enabled = False
+                    # 스테이지1 클리어 → 스테이지1 광장 (target_stage - 1)
+                    should_continue = run_downtown_hub(target_stage - 1)
+                    # 저장 NPC를 통해 메인메뉴로 복귀하는 경우
+                    if not should_continue:
+                        # Alt+F4로 종료한 경우 게임 완전 종료
+                        if game_should_exit:
+                            pygame.quit()
+                            sys.exit()
+                        show_start_screen()
+                        return
                 # mode == 'stage'인 경우 광장을 건너뛰고 바로 다음 스테이지로 진행
                 next_stage_display = target_stage
 
