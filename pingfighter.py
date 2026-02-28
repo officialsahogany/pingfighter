@@ -16663,6 +16663,8 @@ def _render_stage_background_for_overlay(draw_entities: bool = True):
         # Stage 2 두더지왕 땅굴 습격 이펙트 렌더링
         draw_tunnel_raid_effects(SCREEN)
         draw_spinning_claw_effects(SCREEN)
+        # Stage 2 두더지왕 친구두더지 렌더링
+        draw_friend_moles(SCREEN)
         # Stage 2 아라크네 거미줄 장판 렌더링
         draw_web_traps(SCREEN)
         draw_web_rescue(SCREEN)
@@ -27446,6 +27448,22 @@ spider_rage_triggered = False     # 한 번만 발동
 spider_rage_projectiles = []      # 분노 거미줄 투사체 리스트
 spider_rage_stomp_offset_y = 0    # 분노 발구르기 Y축 오프셋
 spider_rage_red_tint = 0          # 분노 붉어짐 강도 (0-255)
+
+# 두더지왕 친구두더지 이벤트 (플레이어 4점 획득 시)
+friend_moles_pending = False       # 다음 라운드에서 이벤트 예약
+friend_moles_active = False        # 이벤트 진행 중
+friend_moles_timer = 0             # 이벤트 타이머
+friend_moles_triggered = False     # 한 번만 발동
+friend_moles_list = []             # 솟아난 두더지 리스트
+friend_moles_spawn_timer = 0       # 스폰 간격 타이머
+friend_moles_dirt_particles = []   # 흙먼지 파티클
+FRIEND_MOLE_SPAWN_INTERVAL = 90    # 1.5초 (90프레임)
+FRIEND_MOLE_RADIUS = 18            # 두더지 반지름
+FRIEND_MOLE_COLORS = [
+    ("red", (220, 50, 50)),
+    ("yellow", (230, 200, 40)),
+    ("blue", (50, 80, 220)),
+]
 
 horizontal_bounce_count = 0
 boss_trail = []  # [(x, y, alpha)] 형식의 튜플 리스트
@@ -53186,6 +53204,7 @@ def go_to_next_round():
     global doping_potion_active, doping_potion_timer, doping_potion_use_count, doping_potion_toast_timer
     global hongryun_hit_count, hongryun_ready, HONGRYUN_MAX_HITS
     global spider_rage_pending, spider_rage_active, spider_rage_timer, spider_rage_triggered, spider_rage_stomp_offset_y, spider_rage_red_tint
+    global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered, friend_moles_list, friend_moles_spawn_timer, friend_moles_dirt_particles
 
     preserved_doping_state = None
     # 라운드 시작 카운트 기록
@@ -58643,6 +58662,220 @@ def draw_spider_rage_projectiles(screen):
         if t > 0.05:
             glow_r = int(8 + 4 * math.sin(proj["timer"] * 0.5))
             pygame.draw.circle(fx, (255, 100, 100, 200), (int(cx), int(cy)), glow_r)
+
+    screen.blit(fx, (0, 0))
+
+
+# ============= 두더지왕 친구두더지 이벤트 (Friend Moles) =============
+def update_friend_moles():
+    """친구두더지 스폰 + 생명주기 + 공 충돌 처리."""
+    global friend_moles_active, friend_moles_timer, friend_moles_spawn_timer
+    global friend_moles_list, friend_moles_dirt_particles, ball_vel
+
+    if not friend_moles_active:
+        return
+
+    friend_moles_timer += 1
+
+    # ─── 스폰: 1.5초(90프레임)마다 두더지 1마리 ───
+    friend_moles_spawn_timer += 1
+    if friend_moles_spawn_timer >= FRIEND_MOLE_SPAWN_INTERVAL:
+        friend_moles_spawn_timer = 0
+        # 랜덤 위치 (게임 영역 내, 패들 영역 회피)
+        mx = float(random.randint(GAME_AREA_OFFSET_X + 30,
+                                   GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 30))
+        my = float(random.randint(150, 600))
+        color_name, color_rgb = random.choice(FRIEND_MOLE_COLORS)
+        friend_moles_list.append({
+            "x": mx, "y": my,
+            "color_name": color_name,
+            "color_rgb": color_rgb,
+            "phase": "rising",
+            "phase_timer": 0,
+            "rise_time": 12,
+            "hold_time": 60,
+            "fall_time": 12,
+            "emerge_amount": 0.0,
+            "hit": False,
+            "wobble_phase": random.uniform(0, math.pi * 2),
+        })
+        # 솟아오름 흙먼지 파티클
+        for _ in range(8):
+            angle = random.uniform(0, math.pi * 2)
+            speed = random.uniform(1.0, 3.0)
+            friend_moles_dirt_particles.append({
+                "x": mx, "y": my,
+                "vx": math.cos(angle) * speed,
+                "vy": math.sin(angle) * speed - random.uniform(0.5, 1.5),
+                "size": random.uniform(2, 4),
+                "timer": 0, "max_timer": random.randint(15, 25),
+                "color": (139, 90, 43),
+            })
+        # 사운드
+        try:
+            snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bonemake.wav")))
+            snd.set_volume(0.35)
+            snd.play()
+        except Exception:
+            pass
+
+    # ─── 두더지 생명주기 업데이트 ───
+    expired = []
+    for i, mole in enumerate(friend_moles_list):
+        mole["phase_timer"] += 1
+        mole["wobble_phase"] += 0.12
+
+        if mole["phase"] == "rising":
+            mole["emerge_amount"] = min(1.0, mole["phase_timer"] / mole["rise_time"])
+            if mole["phase_timer"] >= mole["rise_time"]:
+                mole["phase"] = "hold"
+                mole["phase_timer"] = 0
+                mole["emerge_amount"] = 1.0
+
+        elif mole["phase"] == "hold":
+            mole["emerge_amount"] = 1.0
+            if mole["phase_timer"] >= mole["hold_time"]:
+                mole["phase"] = "falling"
+                mole["phase_timer"] = 0
+
+            # ─── 공 충돌 체크 (hold 상태에서만) ───
+            if not mole["hit"] and BALL:
+                R = FRIEND_MOLE_RADIUS
+                mole_rect = pygame.Rect(int(mole["x"] - R), int(mole["y"] - R), R * 2, R * 2)
+                if BALL.colliderect(mole_rect):
+                    mole["hit"] = True
+                    mole["phase"] = "falling"
+                    mole["phase_timer"] = 0
+                    # 공 반사
+                    ball_vel[1] = -ball_vel[1]
+                    ball_vel[0] += random.uniform(-1.5, 1.5)
+                    # 타격 이펙트 파티클
+                    for _ in range(10):
+                        angle = random.uniform(0, math.pi * 2)
+                        speed = random.uniform(2.0, 5.0)
+                        friend_moles_dirt_particles.append({
+                            "x": mole["x"], "y": mole["y"],
+                            "vx": math.cos(angle) * speed,
+                            "vy": math.sin(angle) * speed - 1.5,
+                            "size": random.uniform(2, 5),
+                            "timer": 0, "max_timer": random.randint(15, 30),
+                            "color": mole["color_rgb"],
+                        })
+                    # 별 파티클 (있으면)
+                    try:
+                        effects_manager.spawn_star_particles(
+                            int(mole["x"]), int(mole["y"]), count=6)
+                    except Exception:
+                        pass
+                    # 타격 사운드
+                    try:
+                        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "smallboyhit.wav")))
+                        snd.set_volume(0.5)
+                        snd.play()
+                    except Exception:
+                        pass
+
+        elif mole["phase"] == "falling":
+            mole["emerge_amount"] = max(0.0, 1.0 - mole["phase_timer"] / mole["fall_time"])
+            if mole["phase_timer"] >= mole["fall_time"]:
+                expired.append(i)
+
+    # 만료된 두더지 제거
+    for i in reversed(expired):
+        if i < len(friend_moles_list):
+            friend_moles_list.pop(i)
+
+    # ─── 흙먼지 파티클 업데이트 ───
+    dirt_expired = []
+    for i, p in enumerate(friend_moles_dirt_particles):
+        p["timer"] += 1
+        if p["timer"] >= p["max_timer"]:
+            dirt_expired.append(i)
+            continue
+        p["x"] += p["vx"]
+        p["y"] += p["vy"]
+        p["vy"] += 0.1  # 중력
+        p["vx"] *= 0.95
+        p["vy"] *= 0.95
+    for i in reversed(dirt_expired):
+        friend_moles_dirt_particles.pop(i)
+
+
+def draw_friend_moles(screen):
+    """친구두더지 + 흙먼지 파티클 렌더링."""
+    if not friend_moles_list and not friend_moles_dirt_particles:
+        return
+
+    fx = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+    R = FRIEND_MOLE_RADIUS
+
+    for mole in friend_moles_list:
+        em = mole["emerge_amount"]
+        if em <= 0.01:
+            continue
+
+        mx = int(mole["x"])
+        my = int(mole["y"])
+        col = mole["color_rgb"]
+
+        # 좌우 흔들림 (hold 상태)
+        wobble_x = 0
+        if mole["phase"] == "hold" and not mole["hit"]:
+            wobble_x = int(math.sin(mole["wobble_phase"]) * 3)
+
+        # 솟아남 연출: 아래에서 위로 (em에 비례)
+        draw_y = my + int(R * (1.0 - em))
+        draw_x = mx + wobble_x
+
+        # 클립: emerge_amount가 작으면 아래쪽만 보임
+        visible_h = max(1, int(R * 2 * em))
+
+        # ─── 흙 구멍 (항상 원래 위치에) ───
+        hole_alpha = min(150, int(180 * em))
+        pygame.draw.ellipse(fx, (60, 35, 15, hole_alpha),
+                            (mx - R - 3, my + R - 4, (R + 3) * 2, 10))
+
+        # ─── 두더지 몸통 ───
+        body_alpha = min(255, int(255 * em))
+        # 몸통 (원형)
+        darker_col = (max(0, col[0] - 40), max(0, col[1] - 40), max(0, col[2] - 40))
+        pygame.draw.circle(fx, (*darker_col, body_alpha), (draw_x, draw_y), R)
+        pygame.draw.circle(fx, (*col, body_alpha), (draw_x, draw_y), R - 2)
+
+        # 배 (밝은 원)
+        belly_col = (min(255, col[0] + 60), min(255, col[1] + 60), min(255, col[2] + 60))
+        pygame.draw.circle(fx, (*belly_col, body_alpha), (draw_x, draw_y + 4), R - 7)
+
+        if em > 0.5:
+            # ─── 눈 (두 개) ───
+            eye_y = draw_y - 4
+            pygame.draw.circle(fx, (255, 255, 255, body_alpha), (draw_x - 5, eye_y), 4)
+            pygame.draw.circle(fx, (255, 255, 255, body_alpha), (draw_x + 5, eye_y), 4)
+            pygame.draw.circle(fx, (20, 20, 20, body_alpha), (draw_x - 5, eye_y), 2)
+            pygame.draw.circle(fx, (20, 20, 20, body_alpha), (draw_x + 5, eye_y), 2)
+
+            # ─── 코 (작은 삼각형) ───
+            nose_y = draw_y
+            pygame.draw.polygon(fx, (200, 120, 80, body_alpha), [
+                (draw_x, nose_y + 3),
+                (draw_x - 3, nose_y - 1),
+                (draw_x + 3, nose_y - 1),
+            ])
+
+        # ─── 피격 플래시 ───
+        if mole["hit"] and mole["phase_timer"] < 5:
+            flash_alpha = max(0, 200 - mole["phase_timer"] * 40)
+            pygame.draw.circle(fx, (255, 255, 255, flash_alpha), (draw_x, draw_y), R + 5)
+
+    # ─── 흙먼지 파티클 ───
+    for p in friend_moles_dirt_particles:
+        t = p["timer"] / max(1, p["max_timer"])
+        alpha = max(0, int(200 * (1.0 - t)))
+        if alpha <= 0:
+            continue
+        size = max(1, int(p["size"] * (1.0 - t * 0.5)))
+        pcol = p["color"]
+        pygame.draw.circle(fx, (*pcol, alpha), (int(p["x"]), int(p["y"])), size)
 
     screen.blit(fx, (0, 0))
 
@@ -125314,6 +125547,8 @@ def draw_field():
         # Stage 2 두더지왕 땅굴 습격 이펙트 렌더링
         draw_tunnel_raid_effects(SCREEN)
         draw_spinning_claw_effects(SCREEN)
+        # Stage 2 두더지왕 친구두더지 렌더링
+        draw_friend_moles(SCREEN)
         # Stage 2 아라크네 거미줄 장판 렌더링
         draw_web_traps(SCREEN)
         draw_web_rescue(SCREEN)
@@ -128256,6 +128491,7 @@ def reset_round(is_stage_start=False):
     global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
     global smasher_combo_count, smasher_combo_effect_active, smasher_combo_effect_timer  # ⚡ 스매셔 콤보
     global spider_rage_pending, spider_rage_active, spider_rage_timer, spider_rage_triggered, spider_rage_stomp_offset_y, spider_rage_red_tint  # 아라크네 분노
+    global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered, friend_moles_list, friend_moles_spawn_timer, friend_moles_dirt_particles  # 두더지왕 친구두더지
 
     # ⚡ 스매셔 콤보 리셋 (라운드 시작 시)
     smasher_combo_count = 0
@@ -128604,7 +128840,23 @@ def reset_round(is_stage_start=False):
         spider_rage_timer = 0
         spider_rage_triggered = True
         show_speech("용서 못 해...!", duration=90)
-    
+
+    # Stage 2 두더지왕 친구두더지 이벤트 시작 (4점 달성 후 다음 라운드)
+    if current_stage == 2 and current_boss_name == "두더지왕" and friend_moles_pending:
+        friend_moles_pending = False
+        friend_moles_active = True
+        friend_moles_timer = 0
+        friend_moles_spawn_timer = 0
+        friend_moles_triggered = True
+        show_speech("친구들! 도와줘!", duration=90)
+
+    # 라운드 전환 시 친구두더지 정리 (해당 라운드에서만 활성)
+    if current_stage == 2 and current_boss_name == "두더지왕":
+        friend_moles_list.clear()
+        friend_moles_dirt_particles.clear()
+        if not friend_moles_pending:
+            friend_moles_active = False
+
     # 공 리셋
     ball_vel = [0, 0]
     physics_manager.reset_ball(is_player_serve)
@@ -131105,6 +131357,7 @@ def handle_ball():
     global last_hit_by  # 마지막으로 공을 친 사람 추적
     global nemesis_sub_boss_skill_triggered  # 보조 보스 전기 스킬 발동 예약
     global spider_rage_pending  # 아라크네 분노 이벤트 예약
+    global friend_moles_pending, friend_moles_triggered  # 두더지왕 친구두더지 이벤트 예약
     # 플레이어 & 보스 게이지/스킬 시스템
     global special_gauge, special_ready, special_active
     global boss_special_gauge, boss_special_ready, boss_red_intensity
@@ -134030,6 +134283,11 @@ def handle_ball():
             if current_stage == 2 and current_boss_name == "아라크네" and round_wins == 4:
                 if not spider_rage_triggered:
                     spider_rage_pending = True
+
+            # Stage 2 두더지왕: 플레이어 4점 획득 시 친구두더지 이벤트 예약
+            if current_stage == 2 and current_boss_name == "두더지왕" and round_wins == 4:
+                if not friend_moles_triggered:
+                    friend_moles_pending = True
 
             # Stage 7에서 플레이어가 4점 획득 시 크리스탈 실드 활성화
             if current_stage == 7 and round_wins == 4 and pillar_renderer is not None:
@@ -142587,6 +142845,8 @@ def main(stage_num, new_boss_mode=False):
     global spider_mine_slow_active, smasher_power_recoil_timer
     global spider_rage_pending, spider_rage_active, spider_rage_timer, spider_rage_triggered
     global spider_rage_stomp_offset_y, spider_rage_red_tint
+    global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered
+    global friend_moles_list, friend_moles_spawn_timer, friend_moles_dirt_particles
     global player_burn_timer, player_burn_effect, player_knockback_y
     
     # 플레이어 위치 가운데로 고정
@@ -142847,6 +143107,15 @@ def main(stage_num, new_boss_mode=False):
         spider_rage_projectiles.clear()
         spider_rage_stomp_offset_y = 0
         spider_rage_red_tint = 0
+
+    if current_stage == 2 and current_boss_name == "두더지왕":
+        friend_moles_pending = False
+        friend_moles_active = False
+        friend_moles_timer = 0
+        friend_moles_triggered = False
+        friend_moles_list.clear()
+        friend_moles_spawn_timer = 0
+        friend_moles_dirt_particles.clear()
 
     arrest_rope_active = False
     arrest_rope_timer = 0
@@ -147536,6 +147805,7 @@ def main(stage_num, new_boss_mode=False):
                                     tunnel_raid_last_used = time_now_tr
                     update_tunnel_raid()
                     update_spinning_claw()
+                    update_friend_moles()
                 # Stage 2 아라크네 거미줄 장판 매 프레임 업데이트
                 if current_stage == 2 and current_boss_name == "아라크네":
                     update_web_traps()
