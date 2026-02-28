@@ -97161,7 +97161,6 @@ def draw_objects():
     global boss_trail, long_boost_animating, long_boost_animation_step
     global long_boost_growing, long_boost_shrinking, long_boost_active
     global PADDLE_WIDTH
-    global teddy_shrink_scale
     global stage4_magnetic_active, boss_throwing, boss_throw_timer
     global tear_particles
     global hongryun_hit_count, HONGRYUN_MAX_HITS
@@ -128749,7 +128748,6 @@ def reset_round(is_stage_start=False):
     global quake_active, quake_timer
     global speed_defense_active, speed_defense_timer
     global horizontal_bounce_count, ball_angle, ball_vel
-    global teddy_shrink_scale
     global drive_active, drive_spin_speed
     global rolling_active, rolling_timer, rolling_direction, rolling_speed, rolling_stun_timer, rolling_dash_available_timer, rolling_cooldown, rolling_charges, rolling_charge_timer, rolling_consecutive_count  #  대쉬 관련 변수 추가
     global charging_token_index, max_rolling_charge_time  # 순차 충전 시스템 변수
@@ -139725,7 +139723,6 @@ def handle_boss():
     global boss_fake_move, boss_fake_start_time
     global is_player_serve, is_waiting_for_serve
     global boss_fake_during_player_serve
-    global teddy_shrink_scale
     global speed_defense_active, speed_defense_timer, speed_defense_last_activation, SPEED_DEFENSE_INTERVAL
     global serve_grace_period  # 난이도 하향 - 서브 유예 기간
     global boss_current_speed, boss_fail_timer
@@ -142607,7 +142604,6 @@ def main(stage_num, new_boss_mode=False):
     global spinning_claw_active, spinning_claw_timer, spinning_claw_last_used, spinning_claw_direction
     global spinning_claw_hit_x, spinning_claw_hit_y
     global web_traps, web_trap_last_used
-    global teddy_shrink_scale
     if stage_num != 30 and arena_mode_enabled:
         print(f"[WARNING] 스테이지 {stage_num} 진입 시 arena_mode_enabled=True 감지! 강제 초기화")
         arena_mode_enabled = False
