@@ -149,8 +149,8 @@ class TeddybearBossSprite:
 
     def _draw_teddy(self, w, h):
         """최고 퀄리티 프로시저럴 테디베어 렌더링"""
-        margin = 10
-        internal = pygame.Surface((w + margin * 2, h + margin * 2), pygame.SRCALPHA)
+        margin = 14
+        surf = pygame.Surface((w + margin * 2, h + margin * 2), pygame.SRCALPHA)
         ox, oy = margin, margin
         cx = w // 2 + ox
         _sin = math.sin
@@ -166,8 +166,6 @@ class TeddybearBossSprite:
 
         bx = cx + int(sway) + hit_shake
         by = oy + int(bounce + breath)
-        # 이 아래로 모든 그리기는 internal 서피스에 수행
-        surf = internal
 
         # ══════════════════════════════════════════
         #  색상 팔레트 (프리미엄 봉제인형)
@@ -723,7 +721,4 @@ class TeddybearBossSprite:
                 y2 = min(sy + 4, seam_bot)
                 pygame.draw.line(surf, STITCH_COL, (seam_x, y1), (seam_x + side, y2), 1)
 
-        # 내부 마진 제거 → 정확히 (w, h) 크기로 크롭하여 반환
-        result = pygame.Surface((w, h), pygame.SRCALPHA)
-        result.blit(internal, (0, 0), (margin, margin, w, h))
-        return result
+        return surf
