@@ -179,6 +179,15 @@ BOSS_VARIANTS = {
             "special_skill": "web_trap",    # 거미줄 장판
         },
     },
+    3: {
+        "멘헤라걸": BOSS_CONFIGS[3],
+        "테디베어": {
+            **BOSS_CONFIGS[3],
+            "name": "테디베어",
+            "color": (180, 130, 90),
+            "special_skill": "cotton_throw",
+        },
+    },
 }
 
 

@@ -10397,7 +10397,7 @@ _BOSS_NAME_SWAP_MAP = {5: 6, 6: 5}
 def get_boss_name(logic_stage: int, default: str = "보스") -> str:
     """로직 스테이지 번호를 디스플레이 스테이지로 변환하여 보스 이름 반환"""
     # 보스 변형이 선출된 경우 해당 이름 반환
-    if current_boss_name and logic_stage == 1:
+    if current_boss_name and logic_stage in (1, 2, 3):
         return current_boss_name
     display_stage = _BOSS_NAME_SWAP_MAP.get(logic_stage, logic_stage)
     return boss_names.get(display_stage, default)
@@ -17722,6 +17722,15 @@ def _swap_boss_in_current_stage():
     fan_wind_charging = False
     fan_wind_charge_timer = 0
     fan_wind_growth_scale = 0.0
+    # 테디베어 솜뭉치 투척 초기화
+    cotton_throw_active = False
+    cotton_throw_projectiles.clear()
+    cotton_throw_windup_active = False
+    cotton_throw_windup_timer = 0
+    cotton_throw_cooldown_timer = 0
+    cotton_fog_active = False
+    cotton_fog_timer = 0
+    cotton_fog_zones.clear()
     patrol_guards_active = False
     patrol_guards_timer = 0
     patrol_guards = []
@@ -17762,6 +17771,11 @@ def _swap_boss_in_current_stage():
             BOSS_COLOR = (80, 40, 25)
         else:
             BOSS_COLOR = (0, 255, 0)
+    elif stage == 3:
+        if new_boss == "테디베어":
+            BOSS_COLOR = (180, 130, 90)
+        else:
+            BOSS_COLOR = YELLOW
 
     show_speech(f"{new_boss} 등장!", duration=120)
 
@@ -21777,7 +21791,7 @@ def show_arena_perk_select_menu():
 
             # "보유 중" 라벨
             if is_owned:
-                owned_surf = font_hint.render("보유 중", True, (60, 180, 60))
+                owned_surf = font_hint.render(_t("ui.owned", "보유 중"), True, (60, 180, 60))
                 owned_rect = owned_surf.get_rect(center=(cx + card_w // 2, cy + card_h - 16))
                 SCREEN.blit(owned_surf, owned_rect)
 
@@ -21892,7 +21906,7 @@ def _show_arena_all_perks_owned_message():
         overlay = get_cached_overlay(WIDTH, HEIGHT, 150)
         SCREEN.blit(overlay, (0, 0))
 
-        msg_surf = font.render("보유 가능한 퍽이 없습니다", True, (255, 200, 100))
+        msg_surf = font.render(_t("ui.no_available_perks", "보유 가능한 퍽이 없습니다"), True, (255, 200, 100))
         msg_rect = msg_surf.get_rect(center=(WIDTH // 2, HEIGHT // 2))
         SCREEN.blit(msg_surf, msg_rect)
 
@@ -30549,7 +30563,7 @@ def draw_optimus_arm_skill_ui(surface: pygame.Surface) -> None:
         
         # 키 힌트
         hint_color = (200, 200, 200) if can_use_optimus_arm() else (100, 100, 100)
-        hint_text = skill_font.render("[클릭]", True, hint_color)
+        hint_text = skill_font.render(_t("ui.click", "[클릭]"), True, hint_color)
         hint_rect = hint_text.get_rect(centerx=ui_x + icon_size // 2, top=name_rect.bottom + 2)
         surface.blit(hint_text, hint_rect)
         
@@ -42062,7 +42076,7 @@ def draw_blacksmith_divine_ui(surface):
         pygame.draw.rect(surface, (90, 105, 140), bar_rect, 1, border_radius=3)
         status_text = tiny_font.render(f"{int(progress * 100)}%", True, (210, 220, 240))
         surface.blit(status_text, status_text.get_rect(center=bar_rect.center))
-        level_text = tiny_font.render("건설중", True, (210, 220, 240))
+        level_text = tiny_font.render(_t("ui.constructing", "건설중"), True, (210, 220, 240))
         surface.blit(level_text, level_text.get_rect(midtop=(icon_rect.centerx, bar_rect.bottom + 6)))
     elif divine_state is not None:
         hp = divine_state.get("hp", BLACKSMITH_DIVINE_STONE_MAX_HP)
@@ -42097,7 +42111,7 @@ def draw_blacksmith_divine_ui(surface):
                 # 포탑 강화 UI와 톤을 맞춘 푸른색 게이지
                 pygame.draw.rect(surface, (120, 210, 255), xp_fill_rect, border_radius=3)
             pygame.draw.rect(surface, (90, 105, 140), xp_rect, 1, border_radius=3)
-            xp_text = tiny_font.render(f"강화 {int(xp_ratio * 100)}%", True, (235, 220, 230))
+            xp_text = tiny_font.render(_t("ui.enhance_pct", "강화 {}%").format(int(xp_ratio * 100)), True, (235, 220, 230))
             surface.blit(xp_text, xp_text.get_rect(center=xp_rect.center))
         else:
             # 디바인쉴드 게이지 / 남은 지속시간 / 과부하 (강화디바인스톤 전용)
@@ -42118,7 +42132,7 @@ def draw_blacksmith_divine_ui(surface):
                     pygame.draw.rect(surface, (180, 120, 110), fill_rect, border_radius=3)
                 pygame.draw.rect(surface, (120, 96, 64), xp_rect, 1, border_radius=3)
                 remaining_seconds = shield_overheat / FPS if FPS else float(shield_overheat)
-                xp_text = tiny_font.render(f"⚠ 과부하 {remaining_seconds:4.1f}s", True, (255, 220, 200))
+                xp_text = tiny_font.render(_t("ui.overload_fmt", "⚠ 과부하 {}s").format(f"{remaining_seconds:4.1f}"), True, (255, 220, 200))
                 surface.blit(xp_text, xp_text.get_rect(center=xp_rect.center))
             elif shield_active:
                 # 활성화 중에는 4겹 보호막 잔여 스택을 게이지로 표시
@@ -42150,7 +42164,7 @@ def draw_blacksmith_divine_ui(surface):
                     xp_fill_rect = pygame.Rect(xp_rect.x, xp_rect.y, xp_fill_width, xp_rect.height)
                     pygame.draw.rect(surface, (120, 210, 255), xp_fill_rect, border_radius=3)
                 pygame.draw.rect(surface, (90, 105, 140), xp_rect, 1, border_radius=3)
-                xp_text = tiny_font.render(f"쉴드 {int(xp_ratio * 100)}%", True, (225, 235, 255))
+                xp_text = tiny_font.render(_t("ui.shield_pct", "쉴드 {}%").format(int(xp_ratio * 100)), True, (225, 235, 255))
                 surface.blit(xp_text, xp_text.get_rect(center=xp_rect.center))
 
         if ratio <= 0.33:
@@ -42528,7 +42542,7 @@ def draw_blacksmith_turret_ui(surface):
 
         if turret_level < BLACKSMITH_TURRET_MAX_LEVEL and not overheat_active and not overdrive_display:
             # 강화 게이지 표시 (레벨 1 전용)
-            xp_text = FontStyle.tiny().render(f"강화 {int(xp_ratio * 100)}%", True, (250, 240, 210))
+            xp_text = FontStyle.tiny().render(_t("ui.enhance_pct", "강화 {}%").format(int(xp_ratio * 100)), True, (250, 240, 210))
 
             # 디바인스톤 강화 게이지 표시
             if blacksmith_divine_stone_state is not None:
@@ -42562,10 +42576,10 @@ def draw_blacksmith_turret_ui(surface):
             overlay = pygame.Surface(xp_rect.size, pygame.SRCALPHA)
             glow_alpha = int(120 + 100 * overdrive_ui_pulse)
             if ui_divine:
-                xp_text = FontStyle.tiny().render("💥 메가드라이브", True, (225, 245, 255))
+                xp_text = FontStyle.tiny().render(_t("ui.megadrive", "💥 메가드라이브"), True, (225, 245, 255))
                 pygame.draw.rect(overlay, (110, 210, 255, glow_alpha), overlay.get_rect(), border_radius=3)
             else:
-                xp_text = FontStyle.tiny().render("🔥 오버드라이브", True, (255, 234, 220))
+                xp_text = FontStyle.tiny().render(_t("ui.overdrive", "🔥 오버드라이브"), True, (255, 234, 220))
                 pygame.draw.rect(overlay, (255, 80, 48, glow_alpha), overlay.get_rect(), border_radius=3)
             surface.blit(overlay, xp_rect.topleft, special_flags=pygame.BLEND_ADD)
         else:
@@ -42582,7 +42596,7 @@ def draw_blacksmith_turret_ui(surface):
                 surface.blit(overlay, xp_rect.topleft, special_flags=pygame.BLEND_ADD)
                 # 키캡 힌트는 월드 상 포탑 좌상단에 별도 표시(중복 방지)
             else:
-                xp_text = FontStyle.tiny().render(f"게이지 {int(xp_ratio * 100)}%", True, (250, 240, 210))
+                xp_text = FontStyle.tiny().render(_t("ui.gauge_pct", "게이지 {}%").format(int(xp_ratio * 100)), True, (250, 240, 210))
 
     if status_text:
         status_rect = status_text.get_rect(center=bar_rect.center)
@@ -45896,7 +45910,7 @@ def _render_smasher_genie_preview(
         headline = title_font.render("PERFECT TIMING", True, (224, 236, 255))
         preview.blit(headline, headline.get_rect(midtop=(center[0], center[1] - radius - 58)))
 
-        gauge = body_font.render("게이지 160 이상", True, (214, 230, 255))
+        gauge = body_font.render(_t("ui.gauge_required", "게이지 160 이상"), True, (214, 230, 255))
         preview.blit(gauge, gauge.get_rect(midtop=(center[0], center[1] + radius + 14)))
 
         _draw_genie_keycap(preview, (center[0] - radius - 46, center[1] + 2), "←", active=True)
@@ -45935,7 +45949,7 @@ def _render_smasher_genie_preview(
         preview.blit(gradient, filled.topleft)
         pygame.draw.rect(preview, (255, 214, 168), bar_rect, width=2, border_radius=12)
 
-        gauge = title_font.render("350 / 500 게이지", True, (236, 240, 255))
+        gauge = title_font.render(_t("ui.gauge_amount", "350 / 500 게이지"), True, (236, 240, 255))
         preview.blit(gauge, gauge.get_rect(midtop=(center[0], bar_rect.bottom + 10)))
 
         _draw_genie_keycap(preview, (center[0], bar_rect.top - 54), "SPACE", width=122, active=True)
@@ -46864,6 +46878,26 @@ fan_throw_windup_timer = 0         # 30프레임 = 0.5초
 fan_throw_hit_effect_timer = 0     # 타격 이펙트 잔여 프레임
 fan_throw_hit_effect_x = 0.0
 fan_throw_hit_effect_y = 0.0
+
+# === 테디베어 솜뭉치 투척 스킬 (Stage 3) ===
+cotton_throw_active = False
+cotton_throw_projectiles = []
+cotton_throw_windup_active = False
+cotton_throw_windup_timer = 0
+cotton_throw_cooldown_timer = 0
+COTTON_THROW_COOLDOWN = 600
+COTTON_THROW_COUNT_MIN = 3
+COTTON_THROW_COUNT_MAX = 5
+COTTON_THROW_SPEED = 4.0
+COTTON_THROW_MAX_TIMER = 240
+COTTON_THROW_HIT_RADIUS = 22
+# === 테디베어 솜안개 효과 (시야 차단) ===
+cotton_fog_active = False
+cotton_fog_timer = 0
+COTTON_FOG_DURATION = 180
+cotton_fog_zones = []
+cotton_fog_fade_start = 60
+
 # 각시탈 부채바람 스킬 (소용돌이)
 fan_wind_active = False
 fan_wind_timer = 0
@@ -53540,6 +53574,16 @@ def go_to_next_round():
     fan_wind_charging = False
     fan_wind_charge_timer = 0
     fan_wind_growth_scale = 0.0
+    # 테디베어 솜뭉치 투척 초기화 (라운드 전환)
+    global cotton_throw_active, cotton_throw_projectiles, cotton_throw_windup_active
+    global cotton_throw_windup_timer, cotton_fog_active, cotton_fog_timer, cotton_fog_zones
+    cotton_throw_active = False
+    cotton_throw_projectiles = []
+    cotton_throw_windup_active = False
+    cotton_throw_windup_timer = 0
+    cotton_fog_active = False
+    cotton_fog_timer = 0
+    cotton_fog_zones = []
     if BOSS and hasattr(BOSS, 'whip_sound') and BOSS.whip_sound:
         BOSS.whip_sound.stop()  #  보스 상모돌리기 사운드 중지
     # 정글지진 사운드 정지 (라운드 전환 시 사운드 버그 수정)
@@ -55371,12 +55415,12 @@ def render_throwing_item_cooldown():
         font = pygame.font.Font(None, 20)
 
     if remaining_time > 0:
-        time_text = font.render(f"{remaining_time:.1f}초", True, (255, 200, 100))
+        time_text = font.render(_t("ui.seconds_fmt", "{}초").format(f"{remaining_time:.1f}"), True, (255, 200, 100))
         text_rect = time_text.get_rect(center=(center_x, center_y + radius + 20))
         SCREEN.blit(time_text, text_rect)
         
         # 안내 텍스트
-        info_text = font.render("투척 준비중", True, (200, 200, 200))
+        info_text = font.render(_t("ui.throwing_ready", "투척 준비중"), True, (200, 200, 200))
         info_rect = info_text.get_rect(center=(center_x, center_y - radius - 20))
         SCREEN.blit(info_text, info_rect)
 
@@ -59777,9 +59821,9 @@ def _show_debug_bodyguard_panel(screen):
         screen.blit(overlay, (0, 0))
 
         # 타이틀
-        _t = _title_font.render("[F3 디버그] 호위무사 소환 - 영웅 선택", True, (255, 215, 0))
-        screen.blit(_t, (WIDTH // 2 - _t.get_width() // 2, 15))
-        _esc = _desc_font.render("ESC: 취소", True, (180, 180, 180))
+        _tt = _title_font.render(_t("ui.debug_hero_select", "[F3 디버그] 호위무사 소환 - 영웅 선택"), True, (255, 215, 0))
+        screen.blit(_tt, (WIDTH // 2 - _tt.get_width() // 2, 15))
+        _esc = _desc_font.render(_t("ui.debug_cancel", "ESC: 취소"), True, (180, 180, 180))
         screen.blit(_esc, (WIDTH - _esc.get_width() - 20, 18))
 
         # 영웅 카드 그리기
@@ -59861,15 +59905,15 @@ def _show_debug_bodyguard_panel(screen):
         h_color = selected_hero.get("color", (200, 200, 200))
 
         # 타이틀
-        _t = _title_font.render("[F3 디버그] 스킬 선택", True, (255, 215, 0))
-        screen.blit(_t, (WIDTH // 2 - _t.get_width() // 2, 180))
+        _tt = _title_font.render(_t("ui.debug_skill_select", "[F3 디버그] 스킬 선택"), True, (255, 215, 0))
+        screen.blit(_tt, (WIDTH // 2 - _tt.get_width() // 2, 180))
 
         # 영웅 이름
         hero_label = f"{selected_hero['name']} - {selected_hero.get('title', '')}"
         _hn = _name_font.render(hero_label, True, h_color)
         screen.blit(_hn, (WIDTH // 2 - _hn.get_width() // 2, 220))
 
-        _info = _desc_font.render("스킬을 클릭하면 호위무사가 소환됩니다 (ESC: 취소)", True, (180, 180, 180))
+        _info = _desc_font.render(_t("ui.debug_skill_hint", "스킬을 클릭하면 호위무사가 소환됩니다 (ESC: 취소)"), True, (180, 180, 180))
         screen.blit(_info, (WIDTH // 2 - _info.get_width() // 2, 260))
 
         # 스킬 버튼
@@ -62207,7 +62251,7 @@ def draw_soldier_weapon_ui(screen):
             try:
                 if 'font_tiny' in globals() and font_tiny:
                     call_alpha = int(128 + 127 * calling_pulse)
-                    call_text = font_tiny.render("호출중", True, (255, 230, 150))
+                    call_text = font_tiny.render(_t("ui.calling", "호출중"), True, (255, 230, 150))
                     call_text.set_alpha(call_alpha)
                     call_rect = call_text.get_rect(center=(slot_w // 2, 8))
                     weapon_surface.blit(call_text, call_rect)
@@ -63678,7 +63722,7 @@ def draw_soldier_weapon_ui(screen):
         if selected_character_type == "soldier" and doping_potion_active and doping_potion_timer > 0:
             # 게이지 계산: 실제 시작 타이머 기준으로 계산 (카페인 스킬 적용됨)
             doping_ratio = doping_potion_timer / max(1, doping_potion_initial_timer)
-            buff_text = FontStyle.tiny().render(f"도핑 x2 ({doping_potion_use_count})", True, (190, 255, 210))
+            buff_text = FontStyle.tiny().render(_t("ui.doping_fmt", "도핑 x2 ({})").format(doping_potion_use_count), True, (190, 255, 210))
             buff_rect = buff_text.get_rect(center=(weapon_rect.centerx, weapon_rect.bottom + 12))
             screen.blit(buff_text, buff_rect)
             bar_width = weapon_rect.width
@@ -76395,6 +76439,195 @@ def draw_fan_throw_effect(screen):
             edge_s = pygame.Surface((PLAYER.width + 14, PLAYER.height + 14), pygame.SRCALPHA)
             pygame.draw.rect(edge_s, (255, 80, 80, edge_alpha), edge_s.get_rect(), 3, border_radius=4)
             screen.blit(edge_s, (PLAYER.x - 7, PLAYER.y - 7))
+
+
+
+# === 테디베어 솜뭉치 투척 스킬 (Stage 3) ===
+def activate_cotton_throw():
+    """솜뭉치 투척 발동 -- 0.5초 준비 후 3~5개 솜뭉치 발사"""
+    global cotton_throw_windup_active, cotton_throw_windup_timer
+    cotton_throw_windup_active = True
+    cotton_throw_windup_timer = 30
+
+
+def _launch_cotton_throw():
+    """준비 완료 후 솜뭉치 다수 발사"""
+    global cotton_throw_active, cotton_throw_projectiles
+    cotton_throw_active = True
+    cotton_throw_projectiles.clear()
+    count = random.randint(COTTON_THROW_COUNT_MIN, COTTON_THROW_COUNT_MAX)
+    boss_cx = float(BOSS.centerx if BOSS else WIDTH // 2)
+    boss_cy = float((BOSS.y + BOSS.height) if BOSS else 65)
+    player_cx = float(PLAYER.centerx if PLAYER else WIDTH // 2)
+    player_cy = float(PLAYER.centery if PLAYER else 710)
+    for i in range(count):
+        dx = player_cx - boss_cx
+        dy = player_cy - boss_cy
+        dist = math.sqrt(dx * dx + dy * dy)
+        if dist < 1:
+            dist = 1
+        spread_angle = math.radians(random.uniform(-25, 25))
+        base_angle = math.atan2(dy, dx)
+        angle = base_angle + spread_angle
+        speed = COTTON_THROW_SPEED + random.uniform(-0.5, 0.5)
+        cotton_throw_projectiles.append({
+            "x": boss_cx + random.uniform(-15, 15),
+            "y": boss_cy,
+            "vx": math.cos(angle) * speed,
+            "vy": math.sin(angle) * speed,
+            "timer": COTTON_THROW_MAX_TIMER,
+            "wobble_phase": random.uniform(0, math.pi * 2),
+            "size": random.uniform(18, 28),
+        })
+    try:
+        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "dollcurse.wav")))
+        snd.set_volume(0.35 * sfx_volume)
+        snd.play()
+    except Exception:
+        pass
+
+
+def update_cotton_throw():
+    """솜뭉치 투척 업데이트: 선딜 + 투사체 이동 + 충돌 + 안개"""
+    global cotton_throw_active, cotton_throw_windup_active, cotton_throw_windup_timer
+    global cotton_throw_cooldown_timer
+    global cotton_fog_active, cotton_fog_timer, cotton_fog_zones
+    if cotton_throw_cooldown_timer > 0:
+        cotton_throw_cooldown_timer -= 1
+    if cotton_throw_windup_active:
+        cotton_throw_windup_timer -= 1
+        if cotton_throw_windup_timer <= 0:
+            cotton_throw_windup_active = False
+            _launch_cotton_throw()
+        return
+    if cotton_fog_active:
+        cotton_fog_timer -= 1
+        if cotton_fog_timer <= 0:
+            cotton_fog_active = False
+            cotton_fog_zones.clear()
+        else:
+            for zone in cotton_fog_zones:
+                zone["phase"] += 0.05
+                zone["x"] += math.sin(zone["phase"]) * 0.3
+                zone["y"] += math.cos(zone["phase"] * 0.7) * 0.2
+    if not cotton_throw_active:
+        return
+    to_remove = []
+    for i, proj in enumerate(cotton_throw_projectiles):
+        proj["timer"] -= 1
+        proj["wobble_phase"] += 0.12
+        wobble = math.sin(proj["wobble_phase"]) * 1.5
+        proj["x"] += proj["vx"] + wobble
+        proj["y"] += proj["vy"]
+        proj["vx"] *= 0.998
+        proj["vy"] *= 0.998
+        if (proj["x"] < GAME_AREA_OFFSET_X - 30 or
+            proj["x"] > GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH + 30 or
+                proj["y"] > HEIGHT + 30 or proj["y"] < -30):
+            to_remove.append(i)
+            continue
+        if proj["timer"] <= 0:
+            to_remove.append(i)
+            continue
+        if PLAYER:
+            px_c = PLAYER.centerx
+            py_c = PLAYER.centery
+            ddx = proj["x"] - px_c
+            ddy = proj["y"] - py_c
+            dist_sq = ddx * ddx + ddy * ddy
+            if dist_sq < (COTTON_THROW_HIT_RADIUS + PLAYER.width // 2) ** 2:
+                to_remove.append(i)
+                _trigger_cotton_fog(proj["x"], proj["y"])
+                show_speech("앞이 안 보여~!", duration=60)
+    for i in sorted(to_remove, reverse=True):
+        if i < len(cotton_throw_projectiles):
+            cotton_throw_projectiles.pop(i)
+    if not cotton_throw_projectiles:
+        cotton_throw_active = False
+
+
+def _trigger_cotton_fog(hit_x, hit_y):
+    """솜뭉치 명중 시 시야 차단 안개 생성"""
+    global cotton_fog_active, cotton_fog_timer, cotton_fog_zones
+    cotton_fog_active = True
+    cotton_fog_timer = COTTON_FOG_DURATION
+    cotton_fog_zones.clear()
+    player_area_cx = PLAYER.centerx if PLAYER else (GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2)
+    player_area_cy = 670
+    num_zones = random.randint(5, 7)
+    for _ in range(num_zones):
+        cotton_fog_zones.append({
+            "x": player_area_cx + random.uniform(-140, 140),
+            "y": player_area_cy + random.uniform(-80, 50),
+            "radius": random.uniform(60, 100),
+            "opacity": random.uniform(140, 180),
+            "phase": random.uniform(0, math.pi * 2),
+        })
+
+
+def draw_cotton_throw_effect(screen):
+    """솜뭉치 투척 전체 렌더링 (준비 모션 + 투사체 + 안개)"""
+    # 1) 준비 모션
+    if cotton_throw_windup_active and BOSS:
+        progress = 1.0 - (cotton_throw_windup_timer / 30.0)
+        bcx = BOSS.centerx
+        bcy = BOSS.y + BOSS.height + 5
+        for i in range(4):
+            a = progress * math.pi * 4 + i * (math.pi / 2)
+            d = 25 * (1.0 - progress)
+            ppx = bcx + math.cos(a) * d
+            ppy = bcy + math.sin(a) * d
+            sz = int(6 + 4 * progress)
+            al = int(150 * progress)
+            sf = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+            pygame.draw.circle(sf, (255, 240, 230, al), (sz, sz), sz)
+            screen.blit(sf, (int(ppx) - sz, int(ppy) - sz))
+    # 2) 비행 중인 솜뭉치 투사체
+    for proj in cotton_throw_projectiles:
+        cx, cy = int(proj["x"]), int(proj["y"])
+        sz = int(proj["size"])
+        breath = 1.0 + math.sin(proj["wobble_phase"] * 2) * 0.1
+        draw_sz = int(sz * breath)
+        sf = pygame.Surface((draw_sz * 3, draw_sz * 3), pygame.SRCALPHA)
+        ct = draw_sz * 3 // 2
+        pygame.draw.circle(sf, (255, 200, 220, 120), (ct, ct), draw_sz + 4)
+        pygame.draw.circle(sf, (255, 250, 245, 200), (ct, ct), draw_sz)
+        pygame.draw.circle(sf, (255, 255, 255, 240), (ct - 3, ct - 3), max(1, draw_sz // 2))
+        for j in range(3):
+            fa = proj["wobble_phase"] + j * 2.1
+            fx = ct + int(math.cos(fa) * (draw_sz * 0.7))
+            fy = ct + int(math.sin(fa) * (draw_sz * 0.7))
+            pygame.draw.circle(sf, (255, 235, 240, 160), (fx, fy), max(1, draw_sz // 3))
+        screen.blit(sf, (cx - ct, cy - ct))
+    # 3) 솜안개 시야 차단 효과
+    if cotton_fog_active and cotton_fog_zones:
+        if cotton_fog_timer <= cotton_fog_fade_start:
+            fade = cotton_fog_timer / cotton_fog_fade_start
+        else:
+            fade_in_frames = 30
+            elapsed = COTTON_FOG_DURATION - cotton_fog_timer
+            fade = min(1.0, elapsed / fade_in_frames) if elapsed < fade_in_frames else 1.0
+        for zone in cotton_fog_zones:
+            r = int(zone["radius"])
+            alpha = int(zone["opacity"] * fade)
+            if alpha <= 0:
+                continue
+            ss = r * 2 + 20
+            fog_s = pygame.Surface((ss, ss), pygame.SRCALPHA)
+            fc = ss // 2
+            for layer in range(3):
+                lr = r - layer * 8
+                if lr <= 0:
+                    continue
+                la = alpha // (layer + 1)
+                if layer == 0:
+                    c = (255, 220, 240, la)
+                elif layer == 1:
+                    c = (255, 240, 250, la)
+                else:
+                    c = (255, 255, 255, la)
+                pygame.draw.circle(fog_s, c, (fc, fc), lr)
+            screen.blit(fog_s, (int(zone["x"]) - fc, int(zone["y"]) - fc))
 
 
 # === 각시탈 부채바람 스킬 (소용돌이) ===
@@ -107436,7 +107669,7 @@ def show_victory_screen(stage_cleared, reward):
         if not animation_complete and not animation_states['total']['show']:
             skip_hint_font = FontStyle.tiny()  # 18pt 폰트
             skip_alpha = int(abs(math.sin(frame_count * 0.05)) * 150 + 105)  # 105~255 깜빡임
-            skip_hint = skip_hint_font.render("Space: 다음 정보 보기", True, (200, 200, 200))
+            skip_hint = skip_hint_font.render(_t("ui.space_next", "Space: 다음 정보 보기"), True, (200, 200, 200))
             skip_hint.set_alpha(skip_alpha)
             skip_rect = skip_hint.get_rect(center=(game_center_x, HEIGHT - 100))
             SCREEN.blit(skip_hint, skip_rect)
@@ -120663,7 +120896,7 @@ def show_item_manager_menu():
                 hovered_color = (128, 0, 128)
 
             if hovered_name:
-                hovered_text = font_small.render(f"현재 선택: {hovered_name}", True, hovered_color)
+                hovered_text = font_small.render(_t("ui.current_selection_fmt", "현재 선택: {}").format(hovered_name), True, hovered_color)
                 SCREEN.blit(hovered_text, (50, info_y + 60))
 
         # 조작법 안내
@@ -120687,7 +120920,7 @@ def show_item_manager_menu():
         pygame.draw.rect(SCREEN, button_fill, skill_tree_button_rect, border_radius=12)
         pygame.draw.rect(SCREEN, button_border, skill_tree_button_rect, 3, border_radius=12)
 
-        btn_title = font_small.render("퍽 현황", True, WHITE)
+        btn_title = font_small.render(_t("ui.perk_status", "퍽 현황"), True, WHITE)
         SCREEN.blit(btn_title, btn_title.get_rect(center=skill_tree_button_rect.center))
 
         if quantity_selection_mode and quantity_target_item:
@@ -126315,7 +126548,7 @@ def _draw_captured_guard_ui(surface):
             font_path = resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf"))
             _cg_font = pygame.freetype.Font(font_path, 11)
             _draw_captured_guard_ui._font = _cg_font
-        ts, tr = _cg_font.render("1회용", (255, 215, 50))
+        ts, tr = _cg_font.render(_t("ui.one_time", "1회용"), (255, 215, 50))
         surface.blit(ts, (pil_x + btn_w // 2 - tr.width // 2, pil_y + icon_size + 6))
     except Exception:
         pass
@@ -127339,14 +127572,14 @@ def _update_arena_capture_phase(screen):
                 if _cap_font:
                     title_y_off = max(0, 15 * (1.0 - min(1.0, text_t / 0.3)))
                     glow_surf = pygame.Surface((400, 60), pygame.SRCALPHA)
-                    ts_g, tr_g = _cap_font.render("포획 성공!", (100, 255, 100))
+                    ts_g, tr_g = _cap_font.render(_t("ui.capture_success", "포획 성공!"), (100, 255, 100))
                     glow_surf.blit(ts_g, (200 - tr_g.width // 2, 30 - tr_g.height // 2))
                     glow_surf.set_alpha(int(text_alpha * 0.4))
                     gscaled = pygame.transform.smoothscale(glow_surf, (440, 70))
                     screen.blit(gscaled, (GAME_CENTER_X - 220, int(280 + title_y_off)))
 
                     main_surf = pygame.Surface((400, 60), pygame.SRCALPHA)
-                    ts, tr = _cap_font.render("포획 성공!", (50, 255, 50))
+                    ts, tr = _cap_font.render(_t("ui.capture_success", "포획 성공!"), (50, 255, 50))
                     main_surf.blit(ts, (200 - tr.width // 2, 30 - tr.height // 2))
                     main_surf.set_alpha(text_alpha)
                     screen.blit(main_surf, (GAME_CENTER_X - 200, int(285 + title_y_off)))
@@ -127400,7 +127633,7 @@ def _update_arena_capture_phase(screen):
 
             if _cap_font:
                 fail_surf = pygame.Surface((400, 60), pygame.SRCALPHA)
-                ts, tr = _cap_font.render("포획 실패!", (255, 80, 80))
+                ts, tr = _cap_font.render(_t("ui.capture_fail", "포획 실패!"), (255, 80, 80))
                 fail_surf.blit(ts, (200 - tr.width // 2, 30 - tr.height // 2))
                 alpha = min(255, int(arena_capture_escape_anim / 0.4 * 255))
                 fail_surf.set_alpha(alpha)
@@ -127409,7 +127642,7 @@ def _update_arena_capture_phase(screen):
             if _cap_sub_font and arena_capture_escape_anim >= 0.3:
                 sub_alpha = min(255, int((arena_capture_escape_anim - 0.3) / 0.4 * 255))
                 sub_surf = pygame.Surface((500, 40), pygame.SRCALPHA)
-                ns, nr = _cap_sub_font.render(f"{top_name} 영웅이 도망쳤습니다!", (255, 200, 200))
+                ns, nr = _cap_sub_font.render(_t("ui.hero_escaped_fmt", "{} 영웅이 도망쳤습니다!").format(top_name), (255, 200, 200))
                 sub_surf.blit(ns, (250 - nr.width // 2, 20 - nr.height // 2))
                 sub_surf.set_alpha(sub_alpha)
                 screen.blit(sub_surf, (GAME_CENTER_X - 250, 345))
@@ -136723,24 +136956,39 @@ def handle_ball():
             # 물대포는 게임 루프에서 매 프레임 체크 (98343줄 참조)
         # 두더지왕 땅굴 습격은 매 프레임 루프에서 발동 체크 (145893줄)
         elif not new_boss_mode_active and current_stage == 3:
-            # 패들 충돌 시 충전된 게이지가 500 이상이 되었을 때만 필살기 준비 상태로 전환
-            if not boss_special_ready and boss_special_gauge >= 500:
-                boss_special_gauge = 500
-                boss_special_ready = True
-                boss_special_waiting = True
-                boss_special_timer = pygame.time.get_ticks() + random.randint(700, 1500)
-            target = 220 if boss_special_gauge >= 500 else (boss_special_gauge / 500) * 220
-            if boss_red_intensity < target:
-                boss_red_intensity += (target - boss_red_intensity) * 0.1
+            if current_boss_name == "테디베어":
+                # 테디베어: 솜뭉치 투척 (게이지 200, 15% 확률, 쿨다운 10초)
+                if (boss_special_gauge >= 200
+                    and not cotton_throw_active
+                    and not cotton_throw_windup_active
+                    and cotton_throw_cooldown_timer <= 0
+                    and random.random() <= 0.15):
+                    activate_cotton_throw()
+                    _cotton_shouts = ["솜뭉치 공격!", "뿅뿅~!", "앞이 안 보이지~?"]
+                    show_speech(random.choice(_cotton_shouts), duration=90)
+                    boss_special_gauge -= 200
+                    cotton_throw_cooldown_timer = COTTON_THROW_COOLDOWN
+                    if boss_special_gauge < 0:
+                        boss_special_gauge = 0
             else:
-                boss_red_intensity -= (boss_red_intensity - target) * 0.1
-            boss_red_intensity = min(220, max(0, boss_red_intensity))
-            if boss_special_ready:
-                show_fade_text("사이코볼!")
-                activate_emotional_overdrive()
-                boss_special_ready = False
-                boss_special_gauge = 0
-                boss_red_intensity = 0
+                # 멘헤라걸 (기본): 사이코볼 발동
+                if not boss_special_ready and boss_special_gauge >= 500:
+                    boss_special_gauge = 500
+                    boss_special_ready = True
+                    boss_special_waiting = True
+                    boss_special_timer = pygame.time.get_ticks() + random.randint(700, 1500)
+                target = 220 if boss_special_gauge >= 500 else (boss_special_gauge / 500) * 220
+                if boss_red_intensity < target:
+                    boss_red_intensity += (target - boss_red_intensity) * 0.1
+                else:
+                    boss_red_intensity -= (boss_red_intensity - target) * 0.1
+                boss_red_intensity = min(220, max(0, boss_red_intensity))
+                if boss_special_ready:
+                    show_fade_text("사이코볼!")
+                    activate_emotional_overdrive()
+                    boss_special_ready = False
+                    boss_special_gauge = 0
+                    boss_red_intensity = 0
         elif not new_boss_mode_active and current_stage == 4:
             # 명상 발동 체크 (20% 확률, 자기장과 동시 발동 가능)
             if not meditation_active and not stage4_magnetic_active and boss_special_gauge_stage4 >= 150 and random.random() <= 0.20:
@@ -140968,10 +141216,10 @@ def show_death_evaluation():
             section1_rect = pygame.Rect(content_x, y_cursor, content_width, section1_h)
             draw_section_container(SCREEN, section1_rect, "골드 / 플레이타임", "trophy")
 
-            gold_text = font_body.render(f"누적 골드: {accumulated_gold}G", True, (255, 215, 0))
+            gold_text = font_body.render(_t("ui.accumulated_gold_fmt", "누적 골드: {}G").format(accumulated_gold), True, (255, 215, 0))
             SCREEN.blit(gold_text, (content_x + 20, y_cursor + 40))
 
-            time_text = font_body.render(f"플레이타임: {game_minutes:02d}:{game_seconds:02d}", True, (200, 220, 255))
+            time_text = font_body.render(_t("ui.playtime_fmt", "플레이타임: {}").format(f"{game_minutes:02d}:{game_seconds:02d}"), True, (200, 220, 255))
             time_rect = time_text.get_rect(right=content_x + content_width - 20, top=y_cursor + 40)
             SCREEN.blit(time_text, time_rect)
 
@@ -141127,7 +141375,7 @@ def show_death_evaluation():
                             pass
 
                 if overflow_perks > 0:
-                    more_perk = font_detail.render(f"+{overflow_perks}개", True, (180, 180, 180))
+                    more_perk = font_detail.render(_t("ui.plus_count_fmt", "+{}개").format(overflow_perks), True, (180, 180, 180))
                     SCREEN.blit(more_perk, (content_x + content_width - 50, y_cursor + section4_h - 18))
             else:
                 no_perk = font_detail.render(_t("ui.no_perks_acquired", "획득한 퍽이 없습니다."), True, (150, 150, 150))
@@ -141148,7 +141396,7 @@ def show_death_evaluation():
             SCREEN.blit(stage_text, stage_rect)
 
             # === 하단 안내 ===
-            hint_text = font_hint.render("ESC / SPACE / 클릭: 돌아가기", True, (140, 140, 140))
+            hint_text = font_hint.render(_t("ui.back_hint", "ESC / SPACE / 클릭: 돌아가기"), True, (140, 140, 140))
             hint_rect = hint_text.get_rect(center=(panel_rect.centerx, panel_rect.bottom - 12))
             SCREEN.blit(hint_text, hint_rect)
 
@@ -141158,7 +141406,7 @@ def show_death_evaluation():
             traceback.print_exc()
             try:
                 error_font = FontStyle.body()
-                error_text = error_font.render("요약 정보를 표시할 수 없습니다.", True, (255, 100, 100))
+                error_text = error_font.render(_t("ui.summary_unavailable", "요약 정보를 표시할 수 없습니다."), True, (255, 100, 100))
                 SCREEN.blit(error_text, error_text.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
             except Exception:
                 pass
@@ -141689,6 +141937,15 @@ def show_result(won):
     if psycho_sound_channel:
         psycho_sound_channel.stop()
         psycho_sound_channel = None
+    # 테디베어 솜뭉치 투척 완전 초기화 (스테이지 종료 시)
+    cotton_throw_active = False
+    cotton_throw_projectiles.clear()
+    cotton_throw_windup_active = False
+    cotton_throw_windup_timer = 0
+    cotton_throw_cooldown_timer = 0
+    cotton_fog_active = False
+    cotton_fog_timer = 0
+    cotton_fog_zones.clear()
     #  멘헤라걸 필살기 게이지 초기화 (스테이지 종료 시)
     # 스테이지 1의 경우 게이지 유지, 다른 스테이지는 초기화
     global displayed_boss_gauge
@@ -142096,6 +142353,15 @@ def show_result(won):
         fan_wind_charging = False
         fan_wind_charge_timer = 0
         fan_wind_growth_scale = 0.0
+        # 테디베어 솜뭉치 투척 초기화
+        cotton_throw_active = False
+        cotton_throw_projectiles.clear()
+        cotton_throw_windup_active = False
+        cotton_throw_windup_timer = 0
+        cotton_throw_cooldown_timer = 0
+        cotton_fog_active = False
+        cotton_fog_timer = 0
+        cotton_fog_zones.clear()
         # 호위무사 시스템 초기화 (게임 오버 시, 최대 2명)
         try:
             from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
@@ -142317,7 +142583,7 @@ def show_new_boss_selection_screen():
         SCREEN.blit(title_text, title_rect)
         if selection_step == 0:
             # 상단 보스 선택
-            step_text = font_subtitle.render("1단계: 상단 보스 선택", True, (100, 200, 255))
+            step_text = font_subtitle.render(_t("ui.step1_top_boss", "1단계: 상단 보스 선택"), True, (100, 200, 255))
             step_rect = step_text.get_rect(center=(WIDTH//2, 140))
             SCREEN.blit(step_text, step_rect)
             # 보스 선택지들
@@ -142342,11 +142608,11 @@ def show_new_boss_selection_screen():
             SCREEN.blit(hint_text, hint_rect)
         elif selection_step == 1:
             # 하단 보스 선택
-            step_text = font_subtitle.render("2단계: 하단 보스 선택", True, (255, 100, 100))
+            step_text = font_subtitle.render(_t("ui.step2_bottom_boss", "2단계: 하단 보스 선택"), True, (255, 100, 100))
             step_rect = step_text.get_rect(center=(WIDTH//2, 140))
             SCREEN.blit(step_text, step_rect)
             # 선택된 상단 보스 표시
-            top_boss_text = font_desc.render(f"상단: {top_bosses[top_selection]['name']}", True, (100, 200, 255))
+            top_boss_text = font_desc.render(_t("ui.top_label_fmt", "상단: {}").format(top_bosses[top_selection]['name']), True, (100, 200, 255))
             top_boss_rect = top_boss_text.get_rect(center=(WIDTH//2, 170))
             SCREEN.blit(top_boss_text, top_boss_rect)
             # 보스 선택지들
@@ -143243,6 +143509,15 @@ def main(stage_num, new_boss_mode=False):
     fan_wind_charging = False
     fan_wind_charge_timer = 0
     fan_wind_growth_scale = 0.0
+    # 테디베어 솜뭉치 투척 초기화
+    cotton_throw_active = False
+    cotton_throw_projectiles.clear()
+    cotton_throw_windup_active = False
+    cotton_throw_windup_timer = 0
+    cotton_throw_cooldown_timer = 0
+    cotton_fog_active = False
+    cotton_fog_timer = 0
+    cotton_fog_zones.clear()
     from config.stage_configs import BOSS_VARIANTS, get_boss_config_by_name
     if stage_num in BOSS_VARIANTS and len(BOSS_VARIANTS[stage_num]) > 1:
         # 보스 룰렛 선출
@@ -143330,7 +143605,10 @@ def main(stage_num, new_boss_mode=False):
         boss_special_waiting = False
     elif stage_num == 3:
         CURRENT_BG = STAGE3_BG
-        BOSS_COLOR = YELLOW
+        if current_boss_name == "테디베어":
+            BOSS_COLOR = (180, 130, 90)
+        else:
+            BOSS_COLOR = YELLOW
         # Stage 3 BGM 재생
         bgm_manager.play_stage_bgm(3)
     elif stage_num == 4:
@@ -144268,6 +144546,15 @@ def main(stage_num, new_boss_mode=False):
             fan_wind_charging = False
             fan_wind_charge_timer = 0
             fan_wind_growth_scale = 0.0
+        # 테디베어 솜뭉치 투척 초기화
+        cotton_throw_active = False
+        cotton_throw_projectiles.clear()
+        cotton_throw_windup_active = False
+        cotton_throw_windup_timer = 0
+        cotton_throw_cooldown_timer = 0
+        cotton_fog_active = False
+        cotton_fog_timer = 0
+        cotton_fog_zones.clear()
             # 호위무사 시스템 초기화 (ESC 메뉴 복귀 시, 최대 2명)
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
@@ -146666,6 +146953,15 @@ def main(stage_num, new_boss_mode=False):
                     fan_wind_charging = False
                     fan_wind_charge_timer = 0
                     fan_wind_growth_scale = 0.0
+                    # 테디베어 솜뭉치 투척 초기화
+                    cotton_throw_active = False
+                    cotton_throw_projectiles.clear()
+                    cotton_throw_windup_active = False
+                    cotton_throw_windup_timer = 0
+                    cotton_throw_cooldown_timer = 0
+                    cotton_fog_active = False
+                    cotton_fog_timer = 0
+                    cotton_fog_zones.clear()
                     # 호위무사 시스템 초기화 (강제 종료 시, 최대 2명)
                     try:
                         from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
@@ -147923,6 +148219,9 @@ def main(stage_num, new_boss_mode=False):
                 update_neutralize_particles()  # 사이코볼 무효화 파티클 업데이트
                 handle_tears()
                 check_tear_collisions()
+                # 테디베어 솜뭉치 투척 업데이트
+                if current_stage == 3 and current_boss_name == "테디베어":
+                    update_cotton_throw()
                 
                 #  Stage 3 멘헤라걸 꼬리 채찍 시스템 및 공 먹기 이벤트
                 if current_stage == 3:
@@ -150276,7 +150575,7 @@ def main(stage_num, new_boss_mode=False):
                 # 캐시된 오버레이 사용
                 overlay = get_cached_overlay(WIDTH, HEIGHT, 150)
                 SCREEN.blit(overlay, (0, 0))
-                text = FontStyle.title().render("초각성 준비...", True, (255, 230, 80))
+                text = FontStyle.title().render(_t("ui.awakening_ready", "초각성 준비..."), True, (255, 230, 80))
                 SCREEN.blit(text, text.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
             draw_tutorial_ui()  # 튜토리얼 UI 표시
             draw_tutorial_dash_counter()  # 튜토리얼 대쉬 카운터 표시
@@ -150384,7 +150683,7 @@ def main(stage_num, new_boss_mode=False):
                 # 캐시된 오버레이 사용
                 overlay = get_cached_overlay(WIDTH, HEIGHT, 150)
                 SCREEN.blit(overlay, (0, 0))
-                text = FontStyle.title().render("초각성 준비...", True, (255, 230, 80))
+                text = FontStyle.title().render(_t("ui.awakening_ready", "초각성 준비..."), True, (255, 230, 80))
                 SCREEN.blit(text, text.get_rect(center=(WIDTH // 2, HEIGHT // 2)))
             draw_tutorial_ui()  # 튜토리얼 UI 표시
             draw_tutorial_dash_counter()  # 튜토리얼 대쉬 카운터 표시
@@ -150467,6 +150766,7 @@ def main(stage_num, new_boss_mode=False):
         draw_patrol_guards(SCREEN)  # 포도대장 포졸소환 그리기
         draw_fan_throw_effect(SCREEN)  # 각시탈 부채던지기 이펙트
         draw_fan_wind_effect(SCREEN)  # 각시탈 부채바람 이펙트
+        draw_cotton_throw_effect(SCREEN)  # 테디베어 솜뭉치 투척 이펙트
         draw_spinning_top(SCREEN)  # Stage 1 보스 팽이치기 그리기
         # 풍선 터지는 효과는 effects_manager에서 통합 관리
         draw_item_obtained_effect()  #  아이템 획득 효과 그리기 - 옛날 버전 활성화
@@ -151849,10 +152149,10 @@ def show_player_info():
                 title_text = font_large.render(_t("ui.player_info", "플레이어 정보"), True, WHITE)
                 title_rect = title_text.get_rect(center=(WIDTH//2, HEIGHT//2 - LARGE_SIZE))
                 SCREEN.blit(title_text, title_rect)
-                msg_text = font_medium.render("플레이어 분석 시스템을 사용할 수 없습니다.", True, (200, 200, 200))
+                msg_text = font_medium.render(_t("ui.analysis_unavailable", "플레이어 분석 시스템을 사용할 수 없습니다."), True, (200, 200, 200))
                 msg_rect = msg_text.get_rect(center=(WIDTH//2, HEIGHT//2))
                 SCREEN.blit(msg_text, msg_rect)
-                esc_text = font_medium.render("ESC 또는 SPACE를 눌러 돌아가기", True, (150, 150, 150))
+                esc_text = font_medium.render(_t("ui.esc_space_back", "ESC 또는 SPACE를 눌러 돌아가기"), True, (150, 150, 150))
                 esc_rect = esc_text.get_rect(center=(WIDTH//2, HEIGHT//2 + LARGE_SIZE))
                 SCREEN.blit(esc_text, esc_rect)
                 pygame.display.flip()
@@ -151933,7 +152233,7 @@ def show_player_info():
             rank_rect = rank_surface.get_rect(center=(rank_section_rect.centerx, text_y))
             SCREEN.blit(rank_surface, rank_rect)
             # 점수
-            score_surface = font_small.render(f"점수: {rank_info['score']:,}점", True, WHITE)
+            score_surface = font_small.render(_t("ui.score_label_fmt", "점수: {}점").format(f"{rank_info['score']:,}"), True, WHITE)
             score_rect = score_surface.get_rect(center=(rank_section_rect.centerx, rank_rect.bottom + 18))
             SCREEN.blit(score_surface, score_rect)
             # 등급 설명
@@ -152051,11 +152351,11 @@ def show_player_info():
                             y_pos += 18
                 except Exception as e:
                     # print(f"   : {e}")
-                    error_text = font_small.render(f"피드백 로드 오류: {str(e)[:20]}", True, (255, 100, 100))
+                    error_text = font_small.render(_t("ui.feedback_error_fmt", "피드백 로드 오류: {}").format(str(e)[:20]), True, (255, 100, 100))
                     error_rect = error_text.get_rect(center=(WIDTH//2, HEIGHT//2))
                     SCREEN.blit(error_text, error_rect)
             # 하단 조작 안내
-            control_text = "F: 상세피드백 | ESC/SPACE: 돌아가기" if not show_feedback else "F: 기본보기 | ESC/SPACE: 돌아가기"
+            control_text = _t("ui.control_detail_feedback", "F: 상세피드백 | ESC/SPACE: 돌아가기") if not show_feedback else _t("ui.control_basic_view", "F: 기본보기 | ESC/SPACE: 돌아가기")
             control_surface = font_tiny.render(control_text, True, (180, 180, 180))
             control_rect = control_surface.get_rect(center=(main_panel_rect.centerx, main_panel_rect.bottom - 25))
             SCREEN.blit(control_surface, control_rect)
@@ -152065,11 +152365,11 @@ def show_player_info():
             # print(f"  : {type(e).__name__}")
             import traceback
             traceback.print_exc()
-            error_text = font_medium.render("정보를 불러올 수 없습니다.", True, (255, 100, 100))
+            error_text = font_medium.render(_t("ui.info_load_fail", "정보를 불러올 수 없습니다."), True, (255, 100, 100))
             error_rect = error_text.get_rect(center=(WIDTH//2, HEIGHT//2))
             SCREEN.blit(error_text, error_rect)
             # 상세 오류 정보도 표시
-            detail_text = font_small.render(f"오류: {str(e)[:30]}", True, (200, 100, 100))
+            detail_text = font_small.render(_t("ui.error_fmt", "오류: {}").format(str(e)[:30]), True, (200, 100, 100))
             detail_rect = detail_text.get_rect(center=(WIDTH//2, HEIGHT//2 + 40))
             SCREEN.blit(detail_text, detail_rect)
         pygame.display.flip()
@@ -152150,7 +152450,7 @@ def show_weather_debug_menu():
         pygame.draw.rect(SCREEN, (100, 150, 255), (panel_x, panel_y, panel_width, panel_height), 3)
 
         # 제목
-        title_text = font_title.render("🌤️ 날씨 이벤트 디버그", True, (255, 255, 255))
+        title_text = font_title.render(_t("ui.debug_weather", "🌤️ 날씨 이벤트 디버그"), True, (255, 255, 255))
         title_rect = title_text.get_rect(center=(WIDTH // 2, panel_y + 35))
         SCREEN.blit(title_text, title_rect)
 
@@ -152171,7 +152471,7 @@ def show_weather_debug_menu():
                     dir_text = "←" if direction < 0 else "→"
                     current_weather = f"💨 바람 {dir_text}"
  
-        status_text = font_small.render(f"현재 날씨: {current_weather}", True, (200, 200, 100))
+        status_text = font_small.render(_t("ui.weather_current_fmt", "현재 날씨: {}").format(current_weather), True, (200, 200, 100))
         status_rect = status_text.get_rect(center=(WIDTH // 2, panel_y + 70))
         SCREEN.blit(status_text, status_rect)
 
@@ -152780,7 +153080,7 @@ def show_character_info(background_surface=None):
         """인체형 배치 장비 슬롯 렌더링 (디아블로3 스타일)."""
         pygame.draw.rect(SCREEN, (26, 32, 52), area_rect, border_radius=12)
         pygame.draw.rect(SCREEN, (90, 130, 200), area_rect, 2, border_radius=12)
-        title_surface = font_small.render("장비 슬롯", True, WHITE)
+        title_surface = font_small.render(_t("ui.equip_slot", "장비 슬롯"), True, WHITE)
         SCREEN.blit(title_surface, (area_rect.x + 10, area_rect.y + 8))
 
         slot_size = max(40, int(51 * 0.85))  # 15% 추가 축소해 공간 확보
@@ -155566,7 +155866,7 @@ def show_ragnarok_hammer_animation_viewer():
         draw.rect((100, 150, 255), (window_x, window_y, window_width, window_height), 3)
 
         # 타이틀
-        title_text = font_title.render("라그나로크 해머 - 애니메이션 파트 분석", True, WHITE)
+        title_text = font_title.render(_t("ui.ragnarok_analysis", "라그나로크 해머 - 애니메이션 파트 분석"), True, WHITE)
         title_rect = title_text.get_rect(center=(WIDTH // 2, window_y + 40))
         SCREEN.blit(title_text, title_rect)
 
@@ -155645,12 +155945,12 @@ def show_ragnarok_hammer_animation_viewer():
             SCREEN.blit(label_text, label_rect)
 
         # 프레임 정보
-        frame_info = font_small.render(f"프레임: {current_frame + 1}/8", True, WHITE)
+        frame_info = font_small.render(_t("ui.frame_fmt", "프레임: {}/8").format(current_frame + 1), True, WHITE)
         frame_rect = frame_info.get_rect(center=(WIDTH // 2, window_y + window_height - 40))
         SCREEN.blit(frame_info, frame_rect)
 
         # ESC 안내
-        esc_text = font_small.render("ESC - 닫기", True, (150, 150, 150))
+        esc_text = font_small.render(_t("ui.esc_dash_close", "ESC - 닫기"), True, (150, 150, 150))
         esc_rect = esc_text.get_rect(center=(WIDTH // 2, window_y + window_height - 20))
         SCREEN.blit(esc_text, esc_rect)
 
@@ -155736,7 +156036,7 @@ def show_item_management_menu(item_list, selected_index, item_type):
                     viewer_button_rect = pygame.Rect(panel_x + panel_width - 140, panel_y + 20, 120, 30)
                     draw.rect((100, 100, 200), viewer_button_rect)
                     draw.rect(WHITE, viewer_button_rect, 2)
-                    viewer_text = font_medium.render("애니메이션 보기", True, WHITE)
+                    viewer_text = font_medium.render(_t("ui.view_animation", "애니메이션 보기"), True, WHITE)
                     viewer_text_rect = viewer_text.get_rect(center=viewer_button_rect.center)
                     SCREEN.blit(viewer_text, viewer_text_rect)
             elif item.get("icon"):
@@ -156562,11 +156862,11 @@ def show_stage_selection(show_character_hint=True):
 
         # 현재 캐릭터 표시 또는 안내 텍스트
         if show_character_hint:
-            char_text = font_medium.render(f"선택된 캐릭터: {get_character_name(selected_character_type)}", True, WHITE)
+            char_text = font_medium.render(_t("ui.selected_char_fmt", "선택된 캐릭터: {}").format(get_character_name(selected_character_type)), True, WHITE)
             char_rect = char_text.get_rect(center=(WIDTH // 2, 120))
             SCREEN.blit(char_text, char_rect)
         else:
-            hint_text = font_medium.render("캐릭터는 다음 단계에서 선택합니다", True, WHITE)
+            hint_text = font_medium.render(_t("ui.char_select_next", "캐릭터는 다음 단계에서 선택합니다"), True, WHITE)
             hint_rect = hint_text.get_rect(center=(WIDTH // 2, 120))
             SCREEN.blit(hint_text, hint_rect)
         
@@ -157420,7 +157720,7 @@ def show_multiplayer_character_select() -> tuple:
             pos_text = "상단" if p1_is_top else "하단"
         else:
             pos_text = "하단" if p1_is_top else "상단"
-        pos_surf = sub_font.render(f"위치: {pos_text}", True, (180, 180, 180))
+        pos_surf = sub_font.render(_t("ui.position_fmt", "위치: {}").format(pos_text), True, (180, 180, 180))
         SCREEN.blit(pos_surf, (WIDTH // 2 - pos_surf.get_width() // 2, 120))
 
         # 캐릭터 카드들
@@ -157878,7 +158178,7 @@ def _show_multiplayer_result(winner: str, p1_score: int, p2_score: int):
         SCREEN.blit(score_text, score_rect)
 
         # 안내
-        hint_text = hint_font.render("아무 키나 눌러 메뉴로 돌아가기", True, (150, 150, 150))
+        hint_text = hint_font.render(_t("ui.press_any_key", "아무 키나 눌러 메뉴로 돌아가기"), True, (150, 150, 150))
         hint_rect = hint_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 80))
         SCREEN.blit(hint_text, hint_rect)
 
