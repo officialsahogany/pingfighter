@@ -144546,15 +144546,15 @@ def main(stage_num, new_boss_mode=False):
             fan_wind_charging = False
             fan_wind_charge_timer = 0
             fan_wind_growth_scale = 0.0
-        # 테디베어 솜뭉치 투척 초기화
-        cotton_throw_active = False
-        cotton_throw_projectiles.clear()
-        cotton_throw_windup_active = False
-        cotton_throw_windup_timer = 0
-        cotton_throw_cooldown_timer = 0
-        cotton_fog_active = False
-        cotton_fog_timer = 0
-        cotton_fog_zones.clear()
+            # 테디베어 솜뭉치 투척 초기화
+            cotton_throw_active = False
+            cotton_throw_projectiles.clear()
+            cotton_throw_windup_active = False
+            cotton_throw_windup_timer = 0
+            cotton_throw_cooldown_timer = 0
+            cotton_fog_active = False
+            cotton_fog_timer = 0
+            cotton_fog_zones.clear()
             # 호위무사 시스템 초기화 (ESC 메뉴 복귀 시, 최대 2명)
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
