@@ -361,6 +361,13 @@ class BodyguardFollower:
         if self.idle_timer >= 5.0:
             self._start_idle_action()
 
+    def _get_idle_direction(self):
+        """idle look_around 중 방향 오버라이드 반환. 해당 없으면 None."""
+        if not self.idle_action_active or self.idle_action_type != "look_around":
+            return None
+        # idle_look_direction: 1=좌, 2=우 → direction 코드: 1=좌, 2=우
+        return self.idle_look_direction
+
     def _start_idle_action(self):
         """랜덤 idle 동작 시작."""
         self.idle_action_active = True
