@@ -52407,6 +52407,81 @@ try:
 except:
     BOSS_IMG_STAGE3 = pygame.Surface((BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT), pygame.SRCALPHA)
     BOSS_IMG_STAGE3.fill(MAGENTA)  # 보스 3의 기본 색상 (보라색 예시)
+
+def _create_teddy_bear_boss_image(w=160, h=80):
+    """스테이지 3 테디베어 보스 — 귀여운 곰인형 (멘헤라 테마 핑크 리본)"""
+    surf = pygame.Surface((w, h), pygame.SRCALPHA)
+    cx, cy = w // 2, h // 2
+    fur = (180, 130, 90)
+    fur_light = (210, 170, 130)
+    fur_dark = (140, 95, 60)
+    belly = (230, 210, 190)
+    pink = (255, 130, 170)
+    black = (30, 20, 15)
+    white = (255, 255, 255)
+    # 몸통 (타원)
+    pygame.draw.ellipse(surf, fur, (cx - 32, cy - 10, 64, 50))
+    pygame.draw.ellipse(surf, belly, (cx - 20, cy - 2, 40, 36))
+    # 왼팔
+    pygame.draw.ellipse(surf, fur_dark, (cx - 50, cy + 2, 24, 36))
+    pygame.draw.ellipse(surf, fur, (cx - 48, cy + 4, 20, 32))
+    # 오른팔
+    pygame.draw.ellipse(surf, fur_dark, (cx + 26, cy + 2, 24, 36))
+    pygame.draw.ellipse(surf, fur, (cx + 28, cy + 4, 20, 32))
+    # 머리 (큰 원)
+    head_y = cy - 18
+    pygame.draw.circle(surf, fur, (cx, head_y), 28)
+    # 귀 (왼쪽)
+    pygame.draw.circle(surf, fur_dark, (cx - 22, head_y - 22), 12)
+    pygame.draw.circle(surf, fur, (cx - 22, head_y - 22), 10)
+    pygame.draw.circle(surf, pink, (cx - 22, head_y - 22), 6)
+    # 귀 (오른쪽)
+    pygame.draw.circle(surf, fur_dark, (cx + 22, head_y - 22), 12)
+    pygame.draw.circle(surf, fur, (cx + 22, head_y - 22), 10)
+    pygame.draw.circle(surf, pink, (cx + 22, head_y - 22), 6)
+    # 얼굴 밝은 부분
+    pygame.draw.circle(surf, fur_light, (cx, head_y + 2), 18)
+    # 눈 (반짝이는 버튼 눈)
+    pygame.draw.circle(surf, black, (cx - 9, head_y - 2), 5)
+    pygame.draw.circle(surf, white, (cx - 11, head_y - 4), 2)
+    pygame.draw.circle(surf, black, (cx + 9, head_y - 2), 5)
+    pygame.draw.circle(surf, white, (cx + 7, head_y - 4), 2)
+    # 코
+    pygame.draw.circle(surf, fur_dark, (cx, head_y + 6), 4)
+    pygame.draw.circle(surf, (60, 40, 30), (cx, head_y + 5), 3)
+    # 입 (작은 미소)
+    pygame.draw.arc(surf, fur_dark, (cx - 5, head_y + 6, 10, 6), 3.14, 6.28, 2)
+    # 핑크 리본 (멘헤라 테마)
+    ribbon_x, ribbon_y = cx + 18, head_y - 26
+    pygame.draw.polygon(surf, pink, [
+        (ribbon_x, ribbon_y), (ribbon_x - 8, ribbon_y - 6),
+        (ribbon_x - 4, ribbon_y), (ribbon_x - 8, ribbon_y + 6)])
+    pygame.draw.polygon(surf, pink, [
+        (ribbon_x, ribbon_y), (ribbon_x + 8, ribbon_y - 6),
+        (ribbon_x + 4, ribbon_y), (ribbon_x + 8, ribbon_y + 6)])
+    pygame.draw.circle(surf, (255, 100, 140), (ribbon_x, ribbon_y), 3)
+    # 볼 홍조
+    blush = pygame.Surface((14, 8), pygame.SRCALPHA)
+    pygame.draw.ellipse(blush, (255, 150, 170, 90), (0, 0, 14, 8))
+    surf.blit(blush, (cx - 22, head_y + 2))
+    surf.blit(blush, (cx + 8, head_y + 2))
+    # 배꼽 하트
+    pygame.draw.polygon(surf, pink, [
+        (cx, cy + 22), (cx - 4, cy + 14), (cx - 7, cy + 17)])
+    pygame.draw.polygon(surf, pink, [
+        (cx, cy + 22), (cx + 4, cy + 14), (cx + 7, cy + 17)])
+    # 다리
+    pygame.draw.ellipse(surf, fur_dark, (cx - 22, cy + 30, 20, 16))
+    pygame.draw.ellipse(surf, fur, (cx - 20, cy + 32, 16, 12))
+    pygame.draw.ellipse(surf, fur_dark, (cx + 2, cy + 30, 20, 16))
+    pygame.draw.ellipse(surf, fur, (cx + 4, cy + 32, 16, 12))
+    # 발바닥 패드
+    pygame.draw.ellipse(surf, belly, (cx - 16, cy + 34, 10, 6))
+    pygame.draw.ellipse(surf, belly, (cx + 6, cy + 34, 10, 6))
+    return surf
+
+BOSS_IMG_TEDDY = _create_teddy_bear_boss_image(BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT)
+
 def _create_stage4_boss_image(w=104, h=56):
     """스테이지 4 퐁크 보스 - 가부좌 공중부양 수도승 (v3: 슬림 실루엣)"""
     import math as _m
@@ -98222,7 +98297,10 @@ def draw_objects():
             boss_img = BOSS_IMG_STAGE2
             boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
     elif current_stage == 3:
-        boss_img = BOSS_IMG_STAGE3
+        if current_boss_name == "테디베어":
+            boss_img = BOSS_IMG_TEDDY
+        else:
+            boss_img = BOSS_IMG_STAGE3
         boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
     elif current_stage == 4:
         boss_img = BOSS_IMG_STAGE4
