@@ -10,17 +10,20 @@ import random
 # 애니메이션 프레임 카운터
 _animation_frame = 0
 
-# 보스 이름 매핑 (디스플레이 스테이지 번호 기준)
-BOSS_NAMES = {
-    1: "풍악보이",
-    2: "악어장군",
-    3: "멘헤라걸",
-    4: "퐁크",
-    5: "네메시스",
-    6: "홍련",
-    7: "테트리서",
-    8: "토네이도",
-}
+def _t(key, fallback=""):
+    """로컬라이제이션 헬퍼"""
+    try:
+        from localization.manager import get_localization_manager
+        return get_localization_manager().get(key, fallback)
+    except Exception:
+        return fallback
+
+def _get_boss_name(display_stage):
+    """로컬라이즈된 보스 이름 반환"""
+    return _t(f"boss.{display_stage}", {
+        1: "풍악보이", 2: "악어장군", 3: "멘헤라걸", 4: "퐁크",
+        5: "네메시스", 6: "홍련", 7: "테트리서", 8: "토네이도",
+    }.get(display_stage, "Boss"))
 
 # 스테이지 5, 6 스왑 맵 (로직 스테이지 → 디스플레이 스테이지)
 STAGE_SWAP_MAP = {5: 6, 6: 5}
@@ -121,7 +124,7 @@ def draw_ice_crystal_scoreboard(surface, player_score, boss_score, screen_width,
         boss_name = top_name
     else:
         display_stage = STAGE_SWAP_MAP.get(current_stage, current_stage)
-        boss_name = BOSS_NAMES.get(display_stage, "Boss")
+        boss_name = _get_boss_name(display_stage)
 
     # 하단 이름 (투기장 모드일 때는 영웅 이름, 아니면 "Player")
     bottom_name = player_name if player_name else "Player"
@@ -134,9 +137,10 @@ def draw_metallic_score(surface, p_score, b_score, x, y, w, h, frame, boss_name=
         # 20% 축소: 64 -> 51, 18 -> 14
         font = pygame.font.SysFont("Arial", 51, bold=True)
         small_font = pygame.font.SysFont("Arial", 14, bold=True)
-        # 한글 영웅 이름 렌더링을 위해 NanumSquareB 사용
+        # 영웅/보스 이름 렌더링 — CJK 언어 자동 지원
         try:
-            label_font = pygame.font.Font("NanumSquareB.ttf", 14)
+            from pixel_font_manager import get_font as _pf_get_font
+            label_font = _pf_get_font(14)
         except:
             label_font = pygame.font.SysFont("Arial", 16, bold=True)
     except:

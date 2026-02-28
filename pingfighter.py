@@ -78911,11 +78911,11 @@ def _draw_tutorial_skill_use_gauge(target_screen, current_time, entrance_progres
 
     # 제목
     try:
-        title_font = pygame.freetype.Font(resource_path(os.path.join("fonts", "프리텐다드", "public", "static", "alternative", "Pretendard-Bold.ttf")), 13)
+        title_font = pygame.freetype.Font(get_pixel_font_path(), 13)
     except:
         title_font = pygame.freetype.SysFont("malgun gothic", 13)
 
-    title_surf, title_rect = title_font.render("스킬 사용", (255, 255, 255))
+    title_surf, title_rect = title_font.render(_t("ui.skill_use", "스킬 사용"), (255, 255, 255))
     title_x = (gauge_width - title_rect.width) // 2
     panel_surf.blit(title_surf, (title_x, 8))
 
@@ -133689,11 +133689,8 @@ def handle_ball():
                     # 무승부 처리: 점수는 그대로, 라운드만 재시작
                     go_to_next_round()
                     # 재대결 메시지 표시
-                    try:
-                        draw_font = pygame.font.Font(get_pixel_font_path(), 48)
-                    except:
-                        draw_font = pygame.font.Font(None, 48)
-                    draw_text = draw_font.render("재대결!", True, YELLOW)
+                    draw_font = get_font(48)
+                    draw_text = draw_font.render(_t("game.rematch", "재대결!"), True, YELLOW)
                     SCREEN.blit(draw_text, (WIDTH // 2 - draw_text.get_width() // 2, HEIGHT // 2 - 50))
                     pygame.display.flip()
                     pygame.time.delay(1000)  # 1초 대기
@@ -133841,11 +133838,8 @@ def handle_ball():
                     # 무승부 처리: 점수는 그대로, 라운드만 재시작
                     go_to_next_round()
                     # 재대결 메시지 표시
-                    try:
-                        draw_font = pygame.font.Font(get_pixel_font_path(), 48)
-                    except:
-                        draw_font = pygame.font.Font(None, 48)
-                    draw_text = draw_font.render("재대결!", True, YELLOW)
+                    draw_font = get_font(48)
+                    draw_text = draw_font.render(_t("game.rematch", "재대결!"), True, YELLOW)
                     SCREEN.blit(draw_text, (WIDTH // 2 - draw_text.get_width() // 2, HEIGHT // 2 - 50))
                     pygame.display.flip()
                     pygame.time.delay(1000)  # 1초 대기
@@ -154095,11 +154089,11 @@ def show_character_info(background_surface=None):
                     SCREEN.blit(_sub, (title_rect.right + 10,
                                        title_rect.y + title_rect.height - _sub.get_height()))
             else:
-                title_surface = font_title.render("캐릭터 정보", True, WHITE)
+                title_surface = font_title.render(_t("downtown.char_info", "캐릭터 정보"), True, WHITE)
                 title_rect = title_surface.get_rect(left=panel_rect.x + 28, top=panel_rect.y + 18)
                 SCREEN.blit(title_surface, title_rect)
         else:
-            title_surface = font_title.render("캐릭터 정보", True, WHITE)
+            title_surface = font_title.render(_t("downtown.char_info", "캐릭터 정보"), True, WHITE)
             title_rect = title_surface.get_rect(left=panel_rect.x + 28, top=panel_rect.y + 18)
             SCREEN.blit(title_surface, title_rect)
 
@@ -154196,7 +154190,7 @@ def show_character_info(background_surface=None):
 
         draw.rect((28, 32, 52), stats_area, 0, 10)
         draw.rect((90, 130, 200), stats_area, 2, 10)
-        stats_title = stats_font.render("능력치", True, WHITE)
+        stats_title = stats_font.render(_t("ui.stats", "능력치"), True, WHITE)
         SCREEN.blit(stats_title, (stats_area.x + 12, stats_area.y + 8))
         line_y = stats_area.y + 30
         line_gap = max(20, int(stats_font.get_height() * 1.05))
@@ -154740,7 +154734,7 @@ def show_game_info():
             draw.rect((30, 30, LARGE_SIZE), (info_panel_x, info_panel_y, info_panel_width, info_panel_height))
             draw.rect((100, 150, 255), (info_panel_x, info_panel_y, info_panel_width, info_panel_height), 3)
             # 제목
-            title_text = font_large.render("게임 정보", True, WHITE)
+            title_text = font_large.render(_t("ui.game_info", "게임 정보"), True, WHITE)
             title_rect = title_text.get_rect(center=(info_panel_x + info_panel_width // 2, info_panel_y + 25))
             SCREEN.blit(title_text, title_rect)
         # 기본 정보
@@ -154854,7 +154848,7 @@ def show_game_info():
             next_button_rect = pygame.Rect(info_panel_x + info_panel_width - 130, info_panel_y + info_panel_height - LARGE_SIZE, 100, 35)
             draw.rect((100, 150, 255), next_button_rect)
             draw.rect(WHITE, next_button_rect, 2)
-            next_text = font_medium.render("아이템 →", True, BLACK)
+            next_text = font_medium.render(_t("ui.items_arrow", "아이템 →"), True, BLACK)
             next_text_rect = next_text.get_rect(center=next_button_rect.center)
             SCREEN.blit(next_text, next_text_rect)
         else:  # 아이템관리 페이지
@@ -154893,7 +154887,7 @@ def show_game_info():
                 border_width = 1
             pygame.draw.rect(SCREEN, active_tab_color, (tab_x, tab_y, tab_width, tab_height))
             pygame.draw.rect(SCREEN, border_color, (tab_x, tab_y, tab_width, tab_height), border_width)
-            active_text = font_medium.render("엑티브", True, WHITE)
+            active_text = font_medium.render(_t("ui.active", "엑티브"), True, WHITE)
             active_text_rect = active_text.get_rect(center=(tab_x + tab_width // 2, tab_y + tab_height // 2))
             SCREEN.blit(active_text, active_text_rect)
             # 패시브 탭
@@ -154914,7 +154908,7 @@ def show_game_info():
                 border_width = 1
             pygame.draw.rect(SCREEN, passive_tab_color, (tab_x + tab_width + 15, tab_y, tab_width, tab_height))
             pygame.draw.rect(SCREEN, border_color, (tab_x + tab_width + 15, tab_y, tab_width, tab_height), border_width)
-            passive_text = font_medium.render("패시브", True, WHITE)
+            passive_text = font_medium.render(_t("ui.passive", "패시브"), True, WHITE)
             passive_text_rect = passive_text.get_rect(center=(tab_x + tab_width + 15 + tab_width // 2, tab_y + tab_height // 2))
             SCREEN.blit(passive_text, passive_text_rect)
             # 아이템 목록 (슬롯 형태)
@@ -154929,7 +154923,7 @@ def show_game_info():
                 items_to_show = active_item_slot if active_item_slot else []
                 selected_index = selected_active_item
                 if not items_to_show:
-                    no_item_text = font_medium.render("소지한 엑티브 아이템이 없습니다", True, (150, 150, 150))
+                    no_item_text = font_medium.render(_t("ui.no_active_items_short", "소지한 엑티브 아이템이 없습니다"), True, (150, 150, 150))
                     no_item_rect = no_item_text.get_rect(center=(panel_x + panel_width // 2, item_list_y + 100))
                     SCREEN.blit(no_item_text, no_item_rect)
                 else:
@@ -154978,7 +154972,7 @@ def show_game_info():
                 items_to_show = passive_item_list if passive_item_list else []
                 selected_index = selected_passive_item
                 if not items_to_show:
-                    no_item_text = font_medium.render("소지한 패시브 아이템이 없습니다", True, (150, 150, 150))
+                    no_item_text = font_medium.render(_t("ui.no_passive_items_short", "소지한 패시브 아이템이 없습니다"), True, (150, 150, 150))
                     no_item_rect = no_item_text.get_rect(center=(panel_x + panel_width // 2, item_list_y + 100))
                     SCREEN.blit(no_item_text, no_item_rect)
                 else:
@@ -155713,7 +155707,7 @@ def show_item_management_menu(item_list, selected_index, item_type):
             effect_rect = effect_text.get_rect(left=panel_x + 100, top=panel_y + 60)
             SCREEN.blit(effect_text, effect_rect)
         # 경고 메시지
-        warning_text = font_medium.render("이 아이템을 버리시겠습니까?", True, (255, 200, 200))
+        warning_text = font_medium.render(_t("ui.discard_confirm", "이 아이템을 버리시겠습니까?"), True, (255, 200, 200))
         warning_rect = warning_text.get_rect(center=(center_x, start_y - 30))
         SCREEN.blit(warning_text, warning_rect)
         # 버튼들 그리기
@@ -156296,7 +156290,7 @@ def show_character_item_manager():
                 
                 # 현재 선택된 캐릭터 표시
                 if char["id"] == selected_character_type:
-                    current_text = font_small.render("현재 선택됨", True, (100, 255, 100))
+                    current_text = font_small.render(_t("ui.current_selected", "현재 선택됨"), True, (100, 255, 100))
                     current_rect = current_text.get_rect(center=(card_rect.centerx, card_rect.y + 360))
                     SCREEN.blit(current_text, current_rect)
         
@@ -156342,7 +156336,7 @@ def show_character_item_manager():
             draw.rect(WHITE, start_button_rect, 3)
             
             # 버튼 텍스트
-            button_text = font_medium.render("게임 시작", True, WHITE)
+            button_text = font_medium.render(_t("ui.game_start", "게임 시작"), True, WHITE)
             button_text_rect = button_text.get_rect(center=start_button_rect.center)
             SCREEN.blit(button_text, button_text_rect)
         
