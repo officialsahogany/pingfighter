@@ -27444,6 +27444,8 @@ spider_rage_active = False        # 분노 연출 진행 중
 spider_rage_timer = 0             # 연출 타이머
 spider_rage_triggered = False     # 한 번만 발동
 spider_rage_projectiles = []      # 분노 거미줄 투사체 리스트
+spider_rage_stomp_offset_y = 0    # 분노 발구르기 Y축 오프셋
+spider_rage_red_tint = 0          # 분노 붉어짐 강도 (0-255)
 
 horizontal_bounce_count = 0
 boss_trail = []  # [(x, y, alpha)] 형식의 튜플 리스트
@@ -53183,7 +53185,7 @@ def go_to_next_round():
     global serve_power_smash_lockout
     global doping_potion_active, doping_potion_timer, doping_potion_use_count, doping_potion_toast_timer
     global hongryun_hit_count, hongryun_ready, HONGRYUN_MAX_HITS
-    global spider_rage_pending, spider_rage_active, spider_rage_timer, spider_rage_triggered
+    global spider_rage_pending, spider_rage_active, spider_rage_timer, spider_rage_triggered, spider_rage_stomp_offset_y, spider_rage_red_tint
 
     preserved_doping_state = None
     # 라운드 시작 카운트 기록
@@ -58492,39 +58494,55 @@ def draw_web_rescue(screen):
 
 # ============= 아라크네 분노 이벤트 (Spider Rage) =============
 def update_spider_rage():
-    """아라크네 분노 연출 + 붉은 거미줄 3개 순차 발사."""
+    """아라크네 분노 연출: 발구르기 + 붉어짐 → 붉은 거미줄 3개 순차 발사."""
     global spider_rage_active, spider_rage_timer, spider_rage_projectiles
     global screen_shake_offset_x, screen_shake_offset_y
+    global spider_rage_stomp_offset_y, spider_rage_red_tint
 
     if not spider_rage_active:
         return
 
     spider_rage_timer += 1
 
-    # 0~60프레임: 화면 흔들림 연출
-    if spider_rage_timer <= 60:
-        # 화면 흔들림 점진적 증가
-        intensity = min(8, spider_rage_timer // 5)
-        screen_shake_offset_x = random.randint(-intensity, intensity)
-        screen_shake_offset_y = random.randint(-intensity // 2, intensity // 2)
+    # ─── 0~70프레임: 발구르기 + 붉어짐 연출 (악어장군 패턴) ───
+    if spider_rage_timer <= 70:
+        # 붉어짐 점진적 증가 (60프레임 동안 0→255)
+        spider_rage_red_tint = min(255, spider_rage_timer * 4)
 
-        # 스프라이트 히트 연출 (20프레임마다)
-        if spider_rage_timer % 20 == 0:
+        # 15프레임마다 발구르기 (약 4~5회)
+        phase_in_stomp = spider_rage_timer % 15
+        if phase_in_stomp == 0 and spider_rage_timer > 0:
+            # 뛰어오름
+            spider_rage_stomp_offset_y = -15
+            # 화면 흔들림
+            screen_shake_offset_x = random.randint(-5, 5)
+            screen_shake_offset_y = random.randint(-3, 3)
+            # 스프라이트 히트 연출
             try:
                 if spider_boss_sprite and BOSS:
                     spider_boss_sprite.trigger_hit(BOSS.centerx, BOSS.centerx)
             except Exception:
                 pass
-            # 사운드
+            # 발구르기 사운드
             try:
-                snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "net.wav")))
-                snd.set_volume(0.4)
+                snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "spiderbite.wav")))
+                snd.set_volume(0.5)
                 snd.play()
             except Exception:
                 pass
+        elif phase_in_stomp == 5:
+            # 착지 충격
+            spider_rage_stomp_offset_y = 8
+            screen_shake_offset_x = random.randint(-8, 8)
+            screen_shake_offset_y = random.randint(-6, 6)
+        else:
+            # 서서히 복원
+            spider_rage_stomp_offset_y = int(spider_rage_stomp_offset_y * 0.7)
+            screen_shake_offset_x = int(screen_shake_offset_x * 0.8)
+            screen_shake_offset_y = int(screen_shake_offset_y * 0.8)
 
-    # 60프레임: 3등분 구간별 랜덤 X 사전 계산 (겹침 방지)
-    if spider_rage_timer == 60:
+    # ─── 70프레임: 3등분 구간별 랜덤 X 사전 계산 (겹침 방지) ───
+    if spider_rage_timer == 70:
         import random as _rng
         zone_w = (GAME_PLAY_WIDTH - 60) // 3
         z_start = GAME_AREA_OFFSET_X + 30
@@ -58535,10 +58553,10 @@ def update_spider_rage():
             spider_rage_projectiles_targets.append(
                 float(_rng.randint(z_start + z * zone_w, z_start + (z + 1) * zone_w)))
 
-    # 60, 70, 80프레임: 붉은 거미줄 투사체 순차 발사
-    if spider_rage_timer in (60, 70, 80):
+    # ─── 80, 90, 100프레임: 붉은 거미줄 투사체 순차 발사 ───
+    if spider_rage_timer in (80, 90, 100):
         import random as _rng
-        shot_idx = (spider_rage_timer - 60) // 10
+        shot_idx = (spider_rage_timer - 80) // 10
         sx = float(BOSS.centerx if BOSS else WIDTH // 2)
         sy = float((BOSS.y + BOSS.height + 5) if BOSS else 70)
         try:
@@ -58558,6 +58576,11 @@ def update_spider_rage():
         except Exception:
             pass
 
+    # ─── 100~120프레임: 붉어짐 서서히 사라짐 ───
+    if 100 < spider_rage_timer <= 120:
+        spider_rage_red_tint = max(0, 255 - (spider_rage_timer - 100) * 13)
+        spider_rage_stomp_offset_y = int(spider_rage_stomp_offset_y * 0.8)
+
     # 투사체 업데이트
     finished = []
     for proj in spider_rage_projectiles:
@@ -58576,10 +58599,12 @@ def update_spider_rage():
     for f in finished:
         spider_rage_projectiles.remove(f)
 
-    # 100프레임 + 투사체 완료: 연출 종료
-    if spider_rage_timer > 100 and len(spider_rage_projectiles) == 0:
+    # 120프레임 + 투사체 완료: 연출 종료
+    if spider_rage_timer > 120 and len(spider_rage_projectiles) == 0:
         spider_rage_active = False
         spider_rage_timer = 0
+        spider_rage_stomp_offset_y = 0
+        spider_rage_red_tint = 0
         screen_shake_offset_x = 0
         screen_shake_offset_y = 0
 
@@ -97863,6 +97888,9 @@ def draw_objects():
     boss_rage_offset_y = 0
     if current_stage == 2 and animated_bg_stage2 and animated_bg_stage2.boss_rage_active:
         boss_rage_offset_y = animated_bg_stage2.boss_shake_offset_y
+    # 아라크네 분노 발구르기 Y축 오프셋
+    if current_stage == 2 and current_boss_name == "아라크네" and spider_rage_active:
+        boss_rage_offset_y = spider_rage_stomp_offset_y
     
     # 상모돌리기 중이거나 스피드디펜스 중일 때는 기울기 효과 제거
     if (current_stage == 1 and whip_active) or (current_stage == 2 and speed_defense_active):
@@ -98236,13 +98264,17 @@ def draw_objects():
         _boss_dash_stun_shake_x = random.randint(-2, 2)
         _boss_dash_stun_shake_y = random.randint(-1, 1)
 
-    # === Stage 3 빨간 오버레이 ===
+    # === Stage 3 빨간 오버레이 / 아라크네 분노 붉어짐 ===
     # 투기장 모드일 때는 보스 이미지를 그리지 않음 (영웅 패들로 대체)
     if arena_mode_enabled:
         pass  # 보스 렌더링 스킵 - 영웅 패들이 나중에 그려짐
     elif current_stage == 3 and boss_red_intensity > 0:
         rotated_boss_copy = rotated_boss.copy()
         apply_red_overlay(rotated_boss_copy, boss_red_intensity)
+        SCREEN.blit(rotated_boss_copy, (boss_rect.x + _boss_dash_stun_shake_x, boss_rect.y + _boss_dash_stun_shake_y))
+    elif current_stage == 2 and current_boss_name == "아라크네" and spider_rage_red_tint > 0:
+        rotated_boss_copy = rotated_boss.copy()
+        apply_red_overlay(rotated_boss_copy, spider_rage_red_tint)
         SCREEN.blit(rotated_boss_copy, (boss_rect.x + _boss_dash_stun_shake_x, boss_rect.y + _boss_dash_stun_shake_y))
     else:
         # 상모돌리기 강제 해제 모션 중 회전 효과
@@ -128223,7 +128255,7 @@ def reset_round(is_stage_start=False):
     global stopwatch_active, stopwatch_timer, stopwatch_recovery_timer
     global stopwatch_original_ball_vel, stopwatch_forced_upward, stopwatch_upward_lock_timer
     global smasher_combo_count, smasher_combo_effect_active, smasher_combo_effect_timer  # ⚡ 스매셔 콤보
-    global spider_rage_pending, spider_rage_active, spider_rage_timer, spider_rage_triggered  # 아라크네 분노
+    global spider_rage_pending, spider_rage_active, spider_rage_timer, spider_rage_triggered, spider_rage_stomp_offset_y, spider_rage_red_tint  # 아라크네 분노
 
     # ⚡ 스매셔 콤보 리셋 (라운드 시작 시)
     smasher_combo_count = 0
@@ -142554,6 +142586,7 @@ def main(stage_num, new_boss_mode=False):
     # 클렌즈 관련 추가 전역 변수
     global spider_mine_slow_active, smasher_power_recoil_timer
     global spider_rage_pending, spider_rage_active, spider_rage_timer, spider_rage_triggered
+    global spider_rage_stomp_offset_y, spider_rage_red_tint
     global player_burn_timer, player_burn_effect, player_knockback_y
     
     # 플레이어 위치 가운데로 고정
@@ -142812,6 +142845,8 @@ def main(stage_num, new_boss_mode=False):
         spider_rage_timer = 0
         spider_rage_triggered = False
         spider_rage_projectiles.clear()
+        spider_rage_stomp_offset_y = 0
+        spider_rage_red_tint = 0
 
     arrest_rope_active = False
     arrest_rope_timer = 0
