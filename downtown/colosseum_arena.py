@@ -8525,10 +8525,11 @@ class ColosseumsArena:
                             _top_g = pingfighter._arena_pending_top_guards
                             _bot_g = pingfighter._arena_pending_bottom_guards
                             _recalled = self.recalled_guard_map
+                            _recalled_str = str({rk: rv.get('name','?') for rk,rv in _recalled.items()})
                             print(f"[Guard 승급] 배틀 시작 | 라운드={self.current_round} | "
                                   f"상단={[g.get('name','?') for g in _top_g]}({len(_top_g)}명) | "
                                   f"하단={[g.get('name','?') for g in _bot_g]}({len(_bot_g)}명) | "
-                                  f"recalled_map={{{k: v.get('name','?') for k,v in _recalled.items()}}}")
+                                  f"recalled_map={_recalled_str}")
                         except Exception as e:
                             print(f"[Guard] 디버그 출력 실패: {e}")
                     else:
@@ -9637,6 +9638,10 @@ class ColosseumsArena:
 
     def update(self, dt: float):
         """메인 업데이트"""
+        # 나가기 요청 시 즉시 리턴 (start_battle 재호출 방지)
+        if self.exit_requested:
+            return
+
         # 인장 획득 연출 진행 중
         if self._seal_acquisition_active:
             if self._seal_phase == "chest" and self._seal_effect:

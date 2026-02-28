@@ -2309,7 +2309,12 @@ class DowntownManager:
                         if arena.handle_event(arena_event):
                             arena_active = False
 
-                    arena.update(dt)
+                    # exit_requested 체크 (이벤트 없이도 즉시 반응)
+                    if arena.exit_requested:
+                        arena_active = False
+
+                    if arena_active:
+                        arena.update(dt)
                     arena.draw()
                     pygame.display.flip()
 
