@@ -128841,6 +128841,12 @@ def reset_round(is_stage_start=False):
         spider_rage_triggered = True
         show_speech("용서 못 해...!", duration=90)
 
+    # Stage 2 두더지왕: 라운드 전환 시 기존 두더지 정리 + 비활성화 (해당 라운드만)
+    if current_stage == 2 and current_boss_name == "두더지왕":
+        friend_moles_list.clear()
+        friend_moles_dirt_particles.clear()
+        friend_moles_active = False
+
     # Stage 2 두더지왕 친구두더지 이벤트 시작 (4점 달성 후 다음 라운드)
     if current_stage == 2 and current_boss_name == "두더지왕" and friend_moles_pending:
         friend_moles_pending = False
@@ -128849,13 +128855,6 @@ def reset_round(is_stage_start=False):
         friend_moles_spawn_timer = 0
         friend_moles_triggered = True
         show_speech("친구들! 도와줘!", duration=90)
-
-    # 라운드 전환 시 친구두더지 정리 (해당 라운드에서만 활성)
-    if current_stage == 2 and current_boss_name == "두더지왕":
-        friend_moles_list.clear()
-        friend_moles_dirt_particles.clear()
-        if not friend_moles_pending:
-            friend_moles_active = False
 
     # 공 리셋
     ball_vel = [0, 0]
@@ -151325,15 +151324,20 @@ def draw_pause_overlay():
     overlay = get_cached_overlay(WIDTH, HEIGHT, 120)
     SCREEN.blit(overlay, (0, 0))
 
-    # 정적 텍스트 캐싱 (매 프레임 렌더링 방지)
-    pause_cache_key = ("pause_overlay", WIDTH, HEIGHT)
+    # 정적 텍스트 캐싱 (매 프레임 렌더링 방지) — 언어별로 캐시 분리
+    _cur_lang = ""
+    try:
+        _cur_lang = _get_loc().current_language
+    except Exception:
+        pass
+    pause_cache_key = ("pause_overlay", WIDTH, HEIGHT, _cur_lang)
     if pause_cache_key not in _static_text_cache:
         font_pause = get_font(80)  # 80pt 픽셀 폰트
         font_hint = FontStyle.body()  # 24pt 픽셀 폰트
         _static_text_cache[pause_cache_key] = {
             "pause": font_pause.render("PAUSE", True, WHITE),
             "shadow": font_pause.render("PAUSE", True, (50, 50, 50)),
-            "hint": font_hint.render("P키를 다시 눌러서 게임 재개", True, (200, 200, 200)),
+            "hint": font_hint.render(_t("pause.p_resume_hint", "P키를 다시 눌러서 게임 재개"), True, (200, 200, 200)),
         }
     cached = _static_text_cache[pause_cache_key]
 
@@ -151358,10 +151362,10 @@ def show_pause_menu():
         button_height = 60
         button_spacing = 20
         menu_items = [
-            ("계속", None),
-            ("캐릭터정보", show_character_info),
-            ("설정", show_pause_options),
-            ("나가기", None),
+            (_t("pause.resume", "계속"), None),
+            (_t("pause.char_info", "캐릭터정보"), show_character_info),
+            (_t("menu.settings", "설정"), show_pause_options),
+            (_t("pause.exit", "나가기"), None),
         ]
         # 버튼 위치 계산
         center_x = WIDTH // 2
@@ -151376,9 +151380,9 @@ def show_pause_menu():
         def handle_selection(index: int):
             label, action = menu_items[index]
             play_button_click_sound()  # 클릭 사운드
-            if label == "계속":
+            if index == 0:  # 계속 (Resume)
                 return "continue"
-            if label == "나가기":
+            if index == 3:  # 나가기 (Exit):
                 if show_surrender_confirm():
                     return "surrender"
                 return None
@@ -151399,7 +151403,7 @@ def show_pause_menu():
             overlay = get_cached_overlay(WIDTH, HEIGHT, 128)
             SCREEN.blit(overlay, (0, 0))
             # 메뉴 제목
-            title_text = font_large.render("일시정지", True, WHITE)
+            title_text = font_large.render(_t("pause.title", "일시정지"), True, WHITE)
             title_rect = title_text.get_rect(center=(center_x, start_y - 60))
             SCREEN.blit(title_text, title_rect)
             # 마우스 호버 체크
@@ -155978,16 +155982,16 @@ def show_surrender_confirm():
         overlay = get_cached_overlay(WIDTH, HEIGHT, 180)
         SCREEN.blit(overlay, (0, 0))
         # 기권 메시지
-        message_text = font_large.render("기권하시겠습니까?", True, WHITE)
+        message_text = font_large.render(_t("pause.surrender_question", "기권하시겠습니까?"), True, WHITE)
         message_rect = message_text.get_rect(center=(center_x, start_y - 80))
         SCREEN.blit(message_text, message_rect)
-        warning_text = font_medium.render(f"획득한 메달의 50%만 받을 수 있습니다", True, (255, 200, 200))
+        warning_text = font_medium.render(_t("pause.surrender_warning", "획득한 메달의 50%만 받을 수 있습니다"), True, (255, 200, 200))
         warning_rect = warning_text.get_rect(center=(center_x, start_y - 40))
         SCREEN.blit(warning_text, warning_rect)
         # 마우스 호버 체크
         mouse_pos = pygame.mouse.get_pos()
         buttons = [yes_rect, no_rect]
-        button_texts = ["예", "아니오"]
+        button_texts = [_t("ui.yes", "예"), _t("ui.no", "아니오")]
         for i, rect in enumerate(buttons):
             if check_btn_hover(f"surrender_{i}", rect, mouse_pos):
                 selected = i
