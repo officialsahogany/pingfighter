@@ -131664,8 +131664,6 @@ def handle_ball():
     global nemesis_sub_boss_skill_triggered  # 보조 보스 전기 스킬 발동 예약
     global spider_rage_pending  # 아라크네 분노 이벤트 예약
     global friend_moles_pending, friend_moles_triggered  # 두더지왕 친구두더지 이벤트 예약
-    # 테디베어 축소 스케일
-    global teddy_shrink_scale
     # 플레이어 & 보스 게이지/스킬 시스템
     global special_gauge, special_ready, special_active
     global boss_special_gauge, boss_special_ready, boss_red_intensity
