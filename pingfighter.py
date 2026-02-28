@@ -58802,12 +58802,25 @@ def update_friend_moles():
 
 
 def draw_friend_moles(screen):
-    """친구두더지 + 흙먼지 파티클 렌더링."""
+    """친구두더지 + 흙먼지 파티클 렌더링 (두더지왕 보스 스프라이트 디자인 기반)."""
     if not friend_moles_list and not friend_moles_dirt_particles:
         return
 
     fx = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
     R = FRIEND_MOLE_RADIUS
+
+    # 두더지왕 팔레트 (molewang_boss_sprite.py 기반)
+    BODY_COL = (175, 135, 95)
+    BODY_LIGHT = (200, 165, 120)
+    BODY_DARK = (140, 105, 70)
+    BODY_EDGE = (120, 90, 60)
+    EYE_BLACK = (20, 15, 10)
+    EYE_SHINE = (255, 255, 255)
+    NOSE_COL = (225, 150, 145)
+    NOSE_DARK = (190, 120, 110)
+    NOSE_LIGHT = (245, 180, 170)
+    GROUND_COL = (110, 80, 48)
+    GROUND_DARK = (75, 52, 30)
 
     for mole in friend_moles_list:
         em = mole["emerge_amount"]
@@ -58816,56 +58829,127 @@ def draw_friend_moles(screen):
 
         mx = int(mole["x"])
         my = int(mole["y"])
-        col = mole["color_rgb"]
+        accent = mole["color_rgb"]
 
         # 좌우 흔들림 (hold 상태)
         wobble_x = 0
         if mole["phase"] == "hold" and not mole["hit"]:
             wobble_x = int(math.sin(mole["wobble_phase"]) * 3)
 
-        # 솟아남 연출: 아래에서 위로 (em에 비례)
-        draw_y = my + int(R * (1.0 - em))
         draw_x = mx + wobble_x
 
-        # 클립: emerge_amount가 작으면 아래쪽만 보임
-        visible_h = max(1, int(R * 2 * em))
+        # 몸체 크기 (보스 비율 축소: b=R/1.8 기준)
+        b = R / 1.8
+        body_w = int(2.6 * b)
+        full_body_h = int(4.5 * b)
+        visible_h = max(1, int(full_body_h * em))
+        body_top = my - visible_h
 
-        # ─── 흙 구멍 (항상 원래 위치에) ───
-        hole_alpha = min(150, int(180 * em))
-        pygame.draw.ellipse(fx, (60, 35, 15, hole_alpha),
-                            (mx - R - 3, my + R - 4, (R + 3) * 2, 10))
+        # ─── 흙 구멍 (항상 원래 위치 — 땅 표면) ───
+        hole_alpha = min(170, int(200 * em))
+        hole_w = body_w + 8
+        pygame.draw.ellipse(fx, (*GROUND_DARK, hole_alpha),
+                            (mx - hole_w // 2, my - 4, hole_w, 10))
+        pygame.draw.ellipse(fx, (*GROUND_COL, max(0, hole_alpha - 40)),
+                            (mx - hole_w // 2 + 2, my - 3, hole_w - 4, 8))
 
-        # ─── 두더지 몸통 ───
-        body_alpha = min(255, int(255 * em))
-        # 몸통 (원형)
-        darker_col = (max(0, col[0] - 40), max(0, col[1] - 40), max(0, col[2] - 40))
-        pygame.draw.circle(fx, (*darker_col, body_alpha), (draw_x, draw_y), R)
-        pygame.draw.circle(fx, (*col, body_alpha), (draw_x, draw_y), R - 2)
+        # ─── 클립 서피스 (솟아남 연출) ───
+        clip_w = body_w + 12
+        clip_h = visible_h + 4
+        if clip_h < 2:
+            continue
+        clip = pygame.Surface((clip_w, clip_h), pygame.SRCALPHA)
+        ccx = clip_w // 2 + wobble_x
 
-        # 배 (밝은 원)
-        belly_col = (min(255, col[0] + 60), min(255, col[1] + 60), min(255, col[2] + 60))
-        pygame.draw.circle(fx, (*belly_col, body_alpha), (draw_x, draw_y + 4), R - 7)
+        # === 몸통 (둥근 돔형 — 두더지왕 스타일) ===
+        dome_w = body_w
+        dome_h = int(body_w * 1.1)
+        dome_rect = pygame.Rect(ccx - dome_w // 2, 0, dome_w, dome_h)
+        lower_rect = pygame.Rect(ccx - dome_w // 2, int(dome_h * 0.45),
+                                  dome_w, max(1, visible_h - int(dome_h * 0.45)))
+        # 그림자
+        pygame.draw.ellipse(clip, (*BODY_DARK, 255), dome_rect.move(2, 2))
+        pygame.draw.rect(clip, (*BODY_DARK, 255), lower_rect.move(2, 2))
+        # 본체
+        pygame.draw.ellipse(clip, (*BODY_COL, 255), dome_rect)
+        pygame.draw.rect(clip, (*BODY_COL, 255), lower_rect)
+        # 이음새 부분 매끄럽게
+        seam_rect = pygame.Rect(ccx - dome_w // 2, int(dome_h * 0.35),
+                                 dome_w, int(dome_h * 0.25))
+        pygame.draw.rect(clip, (*BODY_COL, 255), seam_rect)
 
-        if em > 0.5:
-            # ─── 눈 (두 개) ───
-            eye_y = draw_y - 4
-            pygame.draw.circle(fx, (255, 255, 255, body_alpha), (draw_x - 5, eye_y), 4)
-            pygame.draw.circle(fx, (255, 255, 255, body_alpha), (draw_x + 5, eye_y), 4)
-            pygame.draw.circle(fx, (20, 20, 20, body_alpha), (draw_x - 5, eye_y), 2)
-            pygame.draw.circle(fx, (20, 20, 20, body_alpha), (draw_x + 5, eye_y), 2)
+        # 하이라이트
+        hl_w = int(dome_w * 0.35)
+        hl_h = int(dome_h * 0.5)
+        hl_s = pygame.Surface((hl_w, hl_h), pygame.SRCALPHA)
+        pygame.draw.ellipse(hl_s, (*BODY_LIGHT, 90), (0, 0, hl_w, hl_h))
+        clip.blit(hl_s, (ccx - dome_w // 4 - 1, 2))
 
-            # ─── 코 (작은 삼각형) ───
-            nose_y = draw_y
-            pygame.draw.polygon(fx, (200, 120, 80, body_alpha), [
-                (draw_x, nose_y + 3),
-                (draw_x - 3, nose_y - 1),
-                (draw_x + 3, nose_y - 1),
-            ])
+        # === 색상 두건 (빨강/노랑/파랑 — 구분용) ===
+        bandana_h = max(3, int(b * 0.5))
+        bandana_rect = pygame.Rect(ccx - dome_w // 2 + 1, int(dome_h * 0.02),
+                                    dome_w - 2, bandana_h)
+        bandana_s = pygame.Surface((bandana_rect.w, bandana_rect.h), pygame.SRCALPHA)
+        pygame.draw.ellipse(bandana_s, (*accent, 180),
+                            (0, 0, bandana_rect.w, bandana_rect.h))
+        clip.blit(bandana_s, bandana_rect.topleft)
+
+        # === 얼굴 (emerge > 0.4) ===
+        if em > 0.4:
+            face_cy = int(dome_h * 0.42)
+            face_cx = ccx
+
+            # 눈 (큰 동그란 눈 — 두더지왕 스타일)
+            for side in [-1, 1]:
+                eye_x = face_cx + side * int(0.45 * b)
+                eye_y = face_cy - int(0.15 * b)
+                ew = max(3, int(0.22 * b))
+                eh = max(3, int(0.25 * b))
+                # 눈알 (검은색)
+                pygame.draw.ellipse(clip, (*EYE_BLACK, 255),
+                                    (eye_x - ew, eye_y - eh, ew * 2, eh * 2))
+                # 반짝이
+                sh_r = max(1, int(0.08 * b))
+                pygame.draw.circle(clip, (*EYE_SHINE, 255),
+                                   (eye_x - int(0.05 * b), eye_y - int(0.06 * b)), sh_r)
+
+            # 코 (분홍 타원 — 두더지왕 스타일)
+            nose_cx = face_cx
+            nose_cy = face_cy + int(0.35 * b)
+            nose_w = max(4, int(0.45 * b))
+            nose_h = max(3, int(0.3 * b))
+            pygame.draw.ellipse(clip, (*NOSE_DARK, 255),
+                                (nose_cx - nose_w // 2 + 1, nose_cy - nose_h // 2 + 1,
+                                 nose_w, nose_h))
+            pygame.draw.ellipse(clip, (*NOSE_COL, 255),
+                                (nose_cx - nose_w // 2, nose_cy - nose_h // 2,
+                                 nose_w, nose_h))
+            # 코 하이라이트
+            nh_r = max(1, int(0.1 * b))
+            pygame.draw.circle(clip, (*NOSE_LIGHT, 255),
+                               (nose_cx - int(0.08 * b), nose_cy - int(0.06 * b)), nh_r)
+
+            # 이빨 (솟아오를 때 보이는 귀여운 이빨)
+            if em > 0.55:
+                tooth_y = nose_cy + int(0.25 * b)
+                for side in [-1, 1]:
+                    tx = face_cx + side * int(0.1 * b)
+                    tw = max(2, int(0.08 * b))
+                    th = max(2, int(0.12 * b))
+                    pygame.draw.rect(clip, (250, 245, 235, 255),
+                                     (tx - tw, tooth_y, tw * 2, th))
+                    pygame.draw.rect(clip, (210, 200, 185, 255),
+                                     (tx - tw, tooth_y, tw * 2, th), 1)
+
+        # 클립 서피스를 메인에 blit
+        fx.blit(clip, (mx - clip_w // 2, body_top))
 
         # ─── 피격 플래시 ───
         if mole["hit"] and mole["phase_timer"] < 5:
             flash_alpha = max(0, 200 - mole["phase_timer"] * 40)
-            pygame.draw.circle(fx, (255, 255, 255, flash_alpha), (draw_x, draw_y), R + 5)
+            flash_y = my - int(full_body_h * em * 0.5)
+            pygame.draw.circle(fx, (255, 255, 255, flash_alpha),
+                               (mx, flash_y), R + 5)
 
     # ─── 흙먼지 파티클 ───
     for p in friend_moles_dirt_particles:
