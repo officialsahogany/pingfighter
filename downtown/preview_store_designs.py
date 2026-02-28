@@ -13,6 +13,14 @@ import os
 # 프로젝트 루트 경로 추가
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+
+def _t(key, fallback=""):
+    try:
+        from localization.manager import get_localization_manager
+        return get_localization_manager().get(key, fallback)
+    except Exception:
+        return fallback
+
 pygame.init()
 
 # UHD 프리뷰용 화면 크기
@@ -956,10 +964,10 @@ def main():
         screen.fill((15, 15, 30))
 
         # 제목
-        title = font_large.render("STORE 건물 디자인 선택", True, (255, 255, 255))
+        title = font_large.render(_t("ui.store_design_select", "STORE 건물 디자인 선택"), True, (255, 255, 255))
         screen.blit(title, (PREVIEW_WIDTH // 2 - title.get_width() // 2, 20))
 
-        subtitle = font_medium.render("숫자키 1-5 또는 클릭으로 선택 | Enter로 확정 | ESC로 취소", True, (150, 150, 150))
+        subtitle = font_medium.render(_t("ui.design_help", "숫자키 1-5 또는 클릭으로 선택 | Enter로 확정 | ESC로 취소"), True, (150, 150, 150))
         screen.blit(subtitle, (PREVIEW_WIDTH // 2 - subtitle.get_width() // 2, 60))
 
         # 5가지 디자인 그리기

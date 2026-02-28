@@ -12,6 +12,14 @@ from ui.menu_system import MenuSystem
 from game_logic.show_character_selection_module import show_character_selection
 from game_logic.show_difficulty_selection_module import show_difficulty_selection
 
+
+def _t(key, fallback=""):
+    try:
+        from localization.manager import get_localization_manager
+        return get_localization_manager().get(key, fallback)
+    except Exception:
+        return fallback
+
 def show_start_screen():
     global passive_item_list, active_item_slot, selected_item_index, MAX_ITEM_SLOTS  # bosspong.py 내부 전역변수 초기화 선언
     global chargebag_obtained, spikeboots_obtained, dashgear_obtained  # 🆕 패시브 아이템 변수 초기화
@@ -422,11 +430,11 @@ def show_start_screen():
         except:
             font_title = pygame.font.Font(None, 48)
         
-        title_text = font_title.render("메인 메뉴", True, (255, 255, 255))
+        title_text = font_title.render(_t("menu.main_menu", "메인 메뉴"), True, (255, 255, 255))
         title_rect = title_text.get_rect(center=(WIDTH // 2, 120))
         
         # 간단한 텍스트 그림자만
-        shadow_text = font_title.render("메인 메뉴", True, (0, 20, 30))
+        shadow_text = font_title.render(_t("menu.main_menu", "메인 메뉴"), True, (0, 20, 30))
         shadow_rect = shadow_text.get_rect(center=(WIDTH // 2 + 2, 122))
         SCREEN.blit(shadow_text, shadow_rect)
         
@@ -508,7 +516,7 @@ def show_start_screen():
                 except:
                     font_desc = pygame.font.Font(None, 16)
                 
-                desc_text = font_desc.render("⚡🧊🔥💨 4명의 새로운 보스들의 대결!", True, (200, 200, 255))
+                desc_text = font_desc.render(_t("menu.new_bosses_desc", "⚡🧊🔥💨 4명의 새로운 보스들의 대결!"), True, (200, 200, 255))
                 desc_rect = desc_text.get_rect(center=(WIDTH // 2, 245 + i * 60 + 25))
                 SCREEN.blit(desc_text, desc_rect)
 
@@ -540,12 +548,12 @@ def show_start_screen():
                 font_message = pygame.font.Font(None, 24)
             
             # 텍스트 그림자
-            message_shadow = font_message.render("모든 보스를 클리어시 해금됩니다", True, (100, 50, 50))
+            message_shadow = font_message.render(_t("menu.locked_stage", "모든 보스를 클리어시 해금됩니다"), True, (100, 50, 50))
             message_rect = message_shadow.get_rect(center=(WIDTH // 2 + 1, 600 + 1))
             SCREEN.blit(message_shadow, message_rect)
             
             # 메인 텍스트
-            locked_surface = font_message.render("모든 보스를 클리어시 해금됩니다", True, (255, 150, 150))
+            locked_surface = font_message.render(_t("menu.locked_stage", "모든 보스를 클리어시 해금됩니다"), True, (255, 150, 150))
             message_rect = locked_surface.get_rect(center=(WIDTH // 2, 600))
             SCREEN.blit(locked_surface, message_rect)
             

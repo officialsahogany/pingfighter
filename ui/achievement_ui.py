@@ -11,6 +11,14 @@ from core.global_manager import GlobalManager
 from achievement.achievement_system import get_achievement_manager, AchievementCategory, AchievementRarity
 
 
+def _t(key, fallback=""):
+    try:
+        from localization.manager import get_localization_manager
+        return get_localization_manager().get(key, fallback)
+    except Exception:
+        return fallback
+
+
 class AchievementUI:
     """성취 UI 시스템"""
     
@@ -188,7 +196,7 @@ class AchievementUI:
         screen.blit(panel_surface, (panel_x, panel_y))
         
         # 제목
-        title_text = self.font_title.render("도전과제", True, (255, 255, 255))
+        title_text = self.font_title.render(_t("ui.achievements", "도전과제"), True, (255, 255, 255))
         title_rect = title_text.get_rect(center=(panel_x + panel_width // 2, panel_y + 30))
         screen.blit(title_text, title_rect)
         
@@ -326,7 +334,7 @@ class AchievementUI:
         # 내용
         if alpha > 0:
             # "성취 달성!" 텍스트
-            header_text = self.font_category.render("성취 달성!", True, (255, 255, 100))
+            header_text = self.font_category.render(_t("ui.achievement_unlocked", "성취 달성!"), True, (255, 255, 100))
             header_rect = header_text.get_rect(center=(notif_x + notif_width // 2, notif_y + 20))
             header_text.set_alpha(alpha)
             screen.blit(header_text, header_rect)

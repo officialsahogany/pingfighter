@@ -25,6 +25,14 @@ except ImportError:
     PLANET_CONFIGS = {}
 
 
+def _t(key, fallback=""):
+    try:
+        from localization.manager import get_localization_manager
+        return get_localization_manager().get(key, fallback)
+    except Exception:
+        return fallback
+
+
 # ═══════════════════════════════════════════════════════════
 #  유틸리티
 # ═══════════════════════════════════════════════════════════
@@ -11712,13 +11720,13 @@ class SpaceMap:
 
                 if map_a > 100:
                     # 제목 글로우
-                    ts_g = self.font_big.render("은하계 항해", True,
+                    ts_g = self.font_big.render(_t("ui.galaxy_navigation", "은하계 항해"), True,
                                                  (100, 120, 180))
                     ts_g.set_alpha(map_a // 3)
                     for gx, gy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
                         self.screen.blit(ts_g, ts_g.get_rect(
                             center=(self.W // 2 + gx, 35 + gy)))
-                    ts = self.font_big.render("은하계 항해", True,
+                    ts = self.font_big.render(_t("ui.galaxy_navigation", "은하계 항해"), True,
                                               (200, 210, 240))
                     ts.set_alpha(map_a)
                     self.screen.blit(ts, ts.get_rect(
@@ -11742,7 +11750,7 @@ class SpaceMap:
         if skipped:
             self._render_galaxy_map(cleared_planets, to_planet)
             self.screen.blit(self.map_surface, (0, 0))
-            ts = self.font_big.render("은하계 항해", True, (200, 210, 240))
+            ts = self.font_big.render(_t("ui.galaxy_navigation", "은하계 항해"), True, (200, 210, 240))
             self.screen.blit(ts, ts.get_rect(center=(self.W // 2, 35)))
             pygame.display.flip()
             pygame.time.delay(300)

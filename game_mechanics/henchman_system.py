@@ -19,6 +19,14 @@ except ImportError:
     pygame = None
 
 
+def _t(key, fallback=""):
+    try:
+        from localization.manager import get_localization_manager
+        return get_localization_manager().get(key, fallback)
+    except Exception:
+        return fallback
+
+
 # ============================================================================
 # 상수
 # ============================================================================
@@ -1170,7 +1178,7 @@ class HenchmanSystem:
             # "하" 라벨 (하수인 구분용)
             label_font = self._get_font(max(8, int(9 * _s)))
             if label_font:
-                ls, _ = label_font.render("하", (160, 140, 100))
+                ls, _ = label_font.render(_t("ui.henchman_label", "하"), (160, 140, 100))
                 screen.blit(ls, (frame_x + 2, iy + 1))
 
             # 호버 감지
@@ -1313,7 +1321,7 @@ class HenchmanSystem:
             # "하" 라벨 (하수인 구분용)
             label_font = self._get_font(max(8, int(9 * _s)))
             if label_font:
-                ls, _ = label_font.render("하", (160, 140, 100))
+                ls, _ = label_font.render(_t("ui.henchman_label", "하"), (160, 140, 100))
                 screen.blit(ls, (frame_x + 2, iy + 1))
 
             # 호버 감지

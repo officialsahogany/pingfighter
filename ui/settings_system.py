@@ -11,6 +11,14 @@ from core.game_state import GameState
 from core.events import EventType, emit_event
 
 
+def _t(key, fallback=""):
+    try:
+        from localization.manager import get_localization_manager
+        return get_localization_manager().get(key, fallback)
+    except Exception:
+        return fallback
+
+
 class SettingsSystem:
     """설정 시스템 관리자"""
     
@@ -168,7 +176,7 @@ class SettingsSystem:
         self.screen.fill(self.colors['background'])
         
         # 제목
-        title_text = self.font_title.render("⚙️ 설정", True, self.colors['text'])
+        title_text = self.font_title.render(_t("menu.settings", "⚙️ 설정"), True, self.colors['text'])
         title_rect = title_text.get_rect(center=(self.width // 2, 40))
         self.screen.blit(title_text, title_rect)
         
@@ -180,7 +188,7 @@ class SettingsSystem:
         
         # 저장되지 않은 변경사항 표시
         if self.unsaved_changes:
-            warning_text = self.font_small.render("⚠️ 저장되지 않은 변경사항", True, self.colors['warning'])
+            warning_text = self.font_small.render(_t("ui.unsaved_changes", "⚠️ 저장되지 않은 변경사항"), True, self.colors['warning'])
             warning_rect = warning_text.get_rect(topright=(self.width - 20, 10))
             self.screen.blit(warning_text, warning_rect)
             
@@ -299,7 +307,7 @@ class SettingsSystem:
                                button_width, button_height)
         save_color = self.colors['success'] if self.unsaved_changes else self.colors['border']
         pygame.draw.rect(self.screen, save_color, save_rect, 2)
-        save_text = self.font_tab.render("💾 저장", True, save_color)
+        save_text = self.font_tab.render(_t("ui.save", "💾 저장"), True, save_color)
         save_text_rect = save_text.get_rect(center=save_rect.center)
         self.screen.blit(save_text, save_text_rect)
         
@@ -307,7 +315,7 @@ class SettingsSystem:
         reset_rect = pygame.Rect(self.width // 2 + 10, button_y, 
                                 button_width, button_height)
         pygame.draw.rect(self.screen, self.colors['warning'], reset_rect, 2)
-        reset_text = self.font_tab.render("↺ 초기화", True, self.colors['warning'])
+        reset_text = self.font_tab.render(_t("ui.reset_btn", "↺ 초기화"), True, self.colors['warning'])
         reset_text_rect = reset_text.get_rect(center=reset_rect.center)
         self.screen.blit(reset_text, reset_text_rect)
         

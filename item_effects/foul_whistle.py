@@ -12,6 +12,14 @@ import pygame
 from resource_path import resource_path
 
 
+def _t(key, fallback=""):
+    try:
+        from localization.manager import get_localization_manager
+        return get_localization_manager().get(key, fallback)
+    except Exception:
+        return fallback
+
+
 class FoulWhistle:
     """반칙호루라기 패시브 아이템 상태 및 애니메이션."""
 
@@ -29,8 +37,8 @@ class FoulWhistle:
         self.reset_ready = False
 
         self._font = self._load_font(size=72)
-        self._text_surface = self._font.render(" 무 효 ! ", True, (255, 240, 140))
-        self._text_shadow = self._font.render(" 무 효 ! ", True, (80, 40, 0))
+        self._text_surface = self._font.render(_t("ui.invalid", " 무 효 ! "), True, (255, 240, 140))
+        self._text_shadow = self._font.render(_t("ui.invalid", " 무 효 ! "), True, (80, 40, 0))
 
         self._overlay_surface: pygame.Surface | None = None
         self._pulse_cache: List[Tuple[int, int]] = []

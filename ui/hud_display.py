@@ -14,6 +14,14 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from pixel_font_manager import get_font, FontStyle
 
+
+def _t(key, fallback=""):
+    try:
+        from localization.manager import get_localization_manager
+        return get_localization_manager().get(key, fallback)
+    except Exception:
+        return fallback
+
 # 대시 스피릿 레이저 관련 상수
 DASH_SPIRIT_LASER_DURATION = 360  # 6초 (60fps 기준)
 
@@ -512,7 +520,7 @@ class HUDDisplay:
         pygame.draw.rect(board_surface, (10, 25, 55), (footer_x, footer_y, footer_w, footer_h))
         pygame.draw.rect(board_surface, (60, 130, 210), (footer_x, footer_y, footer_w, footer_h), 2)
 
-        info_text = self.font_medium.render("◆ 3점 선취 승리 ◆", True, (100, 180, 255))  # 블루 계열 텍스트
+        info_text = self.font_medium.render(_t("ui.first_to_3", "◆ 3점 선취 승리 ◆"), True, (100, 180, 255))  # 블루 계열 텍스트
         info_rect = info_text.get_rect(center=(20 + board_width // 2, footer_y + footer_h // 2))
         board_surface.blit(info_text, info_rect)
 

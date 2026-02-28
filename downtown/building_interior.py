@@ -7147,7 +7147,7 @@ class BuildingInterior:
         pygame.draw.rect(screen, tab2_color, tab2_btn, border_radius=6)
         pygame.draw.rect(screen, tab2_border, tab2_btn, 2, border_radius=6)
         if font_small:
-            txt_surf, txt_rect = font_small.render("시스템 설명", TEXT_CYAN if self.deposit_tab == 1 else TEXT_WHITE)
+            txt_surf, txt_rect = font_small.render(_t("ui.system_desc", "시스템 설명"), TEXT_CYAN if self.deposit_tab == 1 else TEXT_WHITE)
             screen.blit(txt_surf, (tab2_btn.centerx - txt_rect.width // 2, tab2_btn.centery - txt_rect.height // 2))
         if _bi_check_hover("dep_tab2", tab2_btn, mouse_pos):
             _bi_draw_hover_border(screen, tab2_btn.x, tab2_btn.y, tab2_btn.w, tab2_btn.h, (100, 200, 255))
@@ -7164,7 +7164,7 @@ class BuildingInterior:
             # 통장 잔액 표시 (보유 골드는 필러 HUD에서 통합 표시)
             info_y = menu_y + 58
             if font_small:
-                balance_surf, _ = font_small.render(f"통장 잔액: G {balance:,}", TEXT_GREEN)
+                balance_surf, _ = font_small.render(_t("ui.bank_balance_fmt", "통장 잔액: G {}").format(f"{balance:,}"), TEXT_GREEN)
                 screen.blit(balance_surf, (menu_x + 120, info_y))
 
             # 예금/출금 모드 전환 버튼
@@ -8644,7 +8644,7 @@ class BuildingInterior:
         # 제목 렌더링
         if font_medium:
             # 이모지 제거하고 텍스트만
-            title_surf, title_rect = font_medium.render("인형뽑기 게임", TEXT_WHITE)
+            title_surf, title_rect = font_medium.render(_t("ui.crane_game", "인형뽑기 게임"), TEXT_WHITE)
             screen.blit(title_surf, (dialog_x + 60, dialog_y + 25))
 
         # 비용 정보 (보유 골드는 필러 HUD에서 표시)
@@ -9541,7 +9541,7 @@ class BuildingInterior:
 
         # 타이틀
         if font_medium:
-            title_surf, title_rect = font_medium.render("무엇을 도와드릴까요?", TEXT_WHITE)
+            title_surf, title_rect = font_medium.render(_t("ui.how_can_help", "무엇을 도와드릴까요?"), TEXT_WHITE)
             screen.blit(title_surf, (menu_x + menu_w // 2 - title_rect.width // 2, menu_y + 10))
 
         # 메뉴 아이템
@@ -9935,7 +9935,7 @@ class BuildingInterior:
                     screen.blit(status_surf, (item_rect.right - 70, item_rect.y + 8))
 
                 # 보상 표시
-                reward_text = f"보상: {quest['reward_gold']}G"
+                reward_text = _t("ui.reward_gold_fmt", "보상: {}G").format(quest['reward_gold'])
                 reward_surf, _ = font_small.render(reward_text, TEXT_GOLD)
                 screen.blit(reward_surf, (item_rect.x + 30, item_rect.y + 28))
 
@@ -9995,7 +9995,7 @@ class BuildingInterior:
             # 조건 표시
             cond_y = desc_y + 20
             pygame.draw.line(screen, BORDER_DARK, (menu_x + 20, cond_y - 5), (menu_x + menu_w - 20, cond_y - 5), 1)
-            cond_label, _ = font_small.render("달성 조건:", TEXT_DIM)
+            cond_label, _ = font_small.render(_t("ui.achievement_condition", "달성 조건:"), TEXT_DIM)
             screen.blit(cond_label, (menu_x + 25, cond_y))
             cond_surf, _ = font_small.render(quest["condition_desc"], TEXT_WHITE)
             screen.blit(cond_surf, (menu_x + 100, cond_y))
@@ -10003,7 +10003,7 @@ class BuildingInterior:
             # 보상 표시
             reward_y = cond_y + 40
             pygame.draw.line(screen, BORDER_DARK, (menu_x + 20, reward_y - 5), (menu_x + menu_w - 20, reward_y - 5), 1)
-            reward_label, _ = font_small.render("보상:", TEXT_DIM)
+            reward_label, _ = font_small.render(_t("ui.reward_label", "보상:"), TEXT_DIM)
             screen.blit(reward_label, (menu_x + 25, reward_y))
 
             # 골드 아이콘
@@ -13423,7 +13423,7 @@ class BuildingInterior:
             return
 
         # 화면 하단에 힌트 박스 표시
-        hint_text = "E / CLICK - 인형뽑기"
+        hint_text = _t("ui.crane_interact_hint", "E / CLICK - 인형뽑기")
         pulse = abs(math.sin(self.animation_timer * 4))
 
         # 힌트 박스 크기 (텍스트가 잘리지 않도록 충분히 넓게)

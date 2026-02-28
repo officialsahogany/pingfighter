@@ -14,6 +14,14 @@ import pygame
 
 from config.constants import WIDTH, HEIGHT, TARGET_FPS
 
+
+def _t(key, fallback=""):
+    try:
+        from localization.manager import get_localization_manager
+        return get_localization_manager().get(key, fallback)
+    except Exception:
+        return fallback
+
 # 프레임 상수
 FPS = TARGET_FPS
 
@@ -413,7 +421,7 @@ class BowlingTrap:
                 "NanumSquareB.ttf"
             )
             font = pygame.font.Font(font_path, 14)
-            text = font.render("설치중...", True, (255, 255, 200))
+            text = font.render(_t("ui.installing", "설치중..."), True, (255, 255, 200))
             text_rect = text.get_rect(center=(gauge_x + gauge_width // 2, gauge_y - 10))
             screen.blit(text, text_rect)
         except Exception:

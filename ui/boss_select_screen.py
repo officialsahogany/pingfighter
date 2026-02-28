@@ -21,6 +21,14 @@ except ImportError:
     select_random_boss = None
 
 
+def _t(key, fallback=""):
+    try:
+        from localization.manager import get_localization_manager
+        return get_localization_manager().get(key, fallback)
+    except Exception:
+        return fallback
+
+
 class BossSelectScreen:
     """보스 선출 룰렛 화면"""
 
@@ -215,7 +223,7 @@ class BossSelectScreen:
 
                 # 준비 중 텍스트 (미구현)
                 if not is_implemented:
-                    sub_surf = self.font_sub.render("준비 중", True, (60, 60, 80))
+                    sub_surf = self.font_sub.render(_t("ui.preparing", "준비 중"), True, (60, 60, 80))
                     sub_rect = sub_surf.get_rect(center=(inner_cx, cy + card_h - 25))
                     self.screen.blit(sub_surf, sub_rect)
 
@@ -231,13 +239,13 @@ class BossSelectScreen:
                 # "도전!" 텍스트
                 if phase_timer > 30:
                     challenge_alpha = min(255, (phase_timer - 30) * 8)
-                    ch_surf = self.font_sub.render("도전 시작!", True, (255, 220, 150))
+                    ch_surf = self.font_sub.render(_t("ui.challenge_start", "도전 시작!"), True, (255, 220, 150))
                     ch_surf.set_alpha(challenge_alpha)
                     ch_rect = ch_surf.get_rect(center=(self.width // 2, card_y + card_h + 100))
                     self.screen.blit(ch_surf, ch_rect)
 
             # 하단 안내
-            hint_surf = self.font_sub.render("SPACE / ESC: 건너뛰기", True, (80, 90, 110))
+            hint_surf = self.font_sub.render(_t("ui.skip_hint", "SPACE / ESC: 건너뛰기"), True, (80, 90, 110))
             hint_rect = hint_surf.get_rect(center=(self.width // 2, self.height - 30))
             self.screen.blit(hint_surf, hint_rect)
 

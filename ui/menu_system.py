@@ -11,6 +11,14 @@ from core.events import EventType, emit_event
 from enum import Enum
 
 
+def _t(key, fallback=""):
+    try:
+        from localization.manager import get_localization_manager
+        return get_localization_manager().get(key, fallback)
+    except Exception:
+        return fallback
+
+
 class MenuState(Enum):
     """메뉴 상태"""
     MAIN = "main"
@@ -417,7 +425,7 @@ class MenuSystem:
             
         # ESC 안내
         if self.current_state != MenuState.MAIN:
-            esc_text = self.font_small.render("ESC: 뒤로가기", True, (150, 150, 150))
+            esc_text = self.font_small.render(_t("settings.back", "ESC: 뒤로가기"), True, (150, 150, 150))
             self.screen.blit(esc_text, (self.width - 120, self.height - 30))
             
     def _get_menu_title(self) -> str:

@@ -16,6 +16,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # 게임 상수 임포트
 from config.constants import WIDTH, HEIGHT
 
+
+def _t(key, fallback=""):
+    try:
+        from localization.manager import get_localization_manager
+        return get_localization_manager().get(key, fallback)
+    except Exception:
+        return fallback
+
 # 전역 screen 객체 가져오기
 def get_screen():
     return pygame.display.get_surface() or pygame.display.set_mode((WIDTH, HEIGHT))
@@ -500,23 +508,23 @@ def show_difficulty_selection():
             if selected_diff['id'] == 'champion':
                 pass
                 # 챔피언리그 - 상세 정보 텍스트 (가운데 정렬)
-                champion_text1 = font_subtitle.render(f"{selected_diff['icon']} {selected_diff['name']} - 상세 정보", True, (255, 255, 255))
+                champion_text1 = font_subtitle.render(_t("ui.detail_info_fmt", "{} - 상세 정보").format(f"{selected_diff['icon']} {selected_diff['name']}"), True, (255, 255, 255))
                 champion_rect1 = champion_text1.get_rect(center=(detail_x + detail_width//2, detail_y + 25))
                 SCREEN.blit(champion_text1, champion_rect1)
                 
                 # 공 속도와 AI 실수 텍스트 (가운데 정렬)
-                champion_text2 = font_detail.render("빠른 공 속도", True, (200, 200, 200))
+                champion_text2 = font_detail.render(_t("ui.fast_ball_speed", "빠른 공 속도"), True, (200, 200, 200))
                 champion_rect2 = champion_text2.get_rect(center=(detail_x + detail_width//2, detail_y + 45))
                 SCREEN.blit(champion_text2, champion_rect2)
                 
-                champion_text3 = font_detail.render("AI 소수 실수 (8%)", True, (200, 200, 200))
+                champion_text3 = font_detail.render(_t("ui.ai_mistake_rate", "AI 소수 실수 (8%)"), True, (200, 200, 200))
                 champion_rect3 = champion_text3.get_rect(center=(detail_x + detail_width//2, detail_y + 65))
                 SCREEN.blit(champion_text3, champion_rect3)
             else:
                 pass
                 # 다른 리그들은 기존 설명 표시 (가운데 정렬)
                 # 제목
-                title_text = font_subtitle.render(f"{selected_diff['icon']} {selected_diff['name']} - 상세 정보", True, (255, 255, 255))
+                title_text = font_subtitle.render(_t("ui.detail_info_fmt", "{} - 상세 정보").format(f"{selected_diff['icon']} {selected_diff['name']}"), True, (255, 255, 255))
                 title_rect = title_text.get_rect(center=(detail_x + detail_width//2, detail_y + 25))
                 SCREEN.blit(title_text, title_rect)
                 

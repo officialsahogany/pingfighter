@@ -15,6 +15,14 @@ from modes.academy import get_academy_mode
 ACADEMY_UI_DEBUG = os.getenv("ACADEMY_UI_DEBUG") == "1"
 
 
+def _t(key, fallback=""):
+    try:
+        from localization.manager import get_localization_manager
+        return get_localization_manager().get(key, fallback)
+    except Exception:
+        return fallback
+
+
 class SkillNode:
     """스킬 노드 UI 클래스"""
     
@@ -98,7 +106,7 @@ class SkillNode:
             cost = self.data.get('cost', 0)
             if cost > 0:
                 cost_color = (0, 255, 255) if can_upgrade else (255, 120, 120)
-                cost_surface = font.render(f"비용: ★{cost}", True, cost_color)
+                cost_surface = font.render(_t("ui.cost_star_fmt", "비용: ★{}").format(cost), True, cost_color)
                 cost_rect = cost_surface.get_rect(center=(self.x, label_y))
                 screen.blit(cost_surface, cost_rect)
 
@@ -491,7 +499,7 @@ class AcademyUI:
         self._render_skill_info()
             
         # ESC 안내
-        esc_text = self.font_small.render("ESC: 닫기", True, (150, 150, 150))
+        esc_text = self.font_small.render(_t("ui.esc_close", "ESC: 닫기"), True, (150, 150, 150))
         self.screen.blit(esc_text, (self.width - 100, self.height - 30))
         
     def _render_player_info(self):
@@ -653,10 +661,10 @@ class AcademyUI:
         if current_level >= max_level:
             pass
         elif can_upgrade:
-            upgrade_surface = self.font_small.render("클릭하여 업그레이드", True, (100, 255, 100))
+            upgrade_surface = self.font_small.render(_t("ui.click_to_upgrade", "클릭하여 업그레이드"), True, (100, 255, 100))
             self.screen.blit(upgrade_surface, (info_x + 10, status_pos_y))
         else:
-            upgrade_surface = self.font_small.render("업그레이드 불가", True, (255, 100, 100))
+            upgrade_surface = self.font_small.render(_t("ui.upgrade_unavailable", "업그레이드 불가"), True, (255, 100, 100))
             self.screen.blit(upgrade_surface, (info_x + 10, status_pos_y))
         
     def _wrap_text(self, text: str, max_chars: int) -> List[str]:

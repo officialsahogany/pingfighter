@@ -11,6 +11,14 @@ import math
 import random
 import sys
 
+
+def _t(key, fallback=""):
+    try:
+        from localization.manager import get_localization_manager
+        return get_localization_manager().get(key, fallback)
+    except Exception:
+        return fallback
+
 # 화면 설정
 SCREEN_WIDTH = 1200
 SCREEN_HEIGHT = 800
@@ -1080,10 +1088,10 @@ def main():
         screen.fill((25, 25, 35))
 
         # 제목
-        title = title_font.render("RPG 상점 디자인 선택", True, (255, 215, 0))
+        title = title_font.render(_t("ui.rpg_store_select", "RPG 상점 디자인 선택"), True, (255, 215, 0))
         screen.blit(title, (SCREEN_WIDTH // 2 - title.get_width() // 2, 20))
 
-        subtitle = small_font.render("무기 / 방어구 / 장신구 상점", True, (180, 180, 180))
+        subtitle = small_font.render(_t("ui.rpg_store_subtitle", "무기 / 방어구 / 장신구 상점"), True, (180, 180, 180))
         screen.blit(subtitle, (SCREEN_WIDTH // 2 - subtitle.get_width() // 2, 60))
 
         # 5개 디자인 그리기
@@ -1127,17 +1135,17 @@ def main():
         pygame.draw.rect(screen, (35, 35, 45), (50, info_y, SCREEN_WIDTH - 100, 120), border_radius=10)
         pygame.draw.rect(screen, (100, 100, 120), (50, info_y, SCREEN_WIDTH - 100, 120), 2, border_radius=10)
 
-        info_title = font.render(f"선택: {selected_design['name']}", True, (255, 215, 0))
+        info_title = font.render(_t("ui.selected_fmt", "선택: {}").format(selected_design['name']), True, (255, 215, 0))
         screen.blit(info_title, (70, info_y + 15))
 
         info_desc = small_font.render(selected_design['description'], True, (200, 200, 200))
         screen.blit(info_desc, (70, info_y + 50))
 
-        info_style = small_font.render(f"스타일: {selected_design['style']}", True, (150, 150, 150))
+        info_style = small_font.render(_t("ui.style_fmt", "스타일: {}").format(selected_design['style']), True, (150, 150, 150))
         screen.blit(info_style, (70, info_y + 80))
 
         # 안내 텍스트
-        help_text = small_font.render("1-5: 디자인 선택  |  Enter: 확정  |  ESC: 취소", True, (120, 120, 120))
+        help_text = small_font.render(_t("ui.design_help", "1-5: 디자인 선택  |  Enter: 확정  |  ESC: 취소"), True, (120, 120, 120))
         screen.blit(help_text, (SCREEN_WIDTH // 2 - help_text.get_width() // 2, SCREEN_HEIGHT - 40))
 
         pygame.display.flip()
