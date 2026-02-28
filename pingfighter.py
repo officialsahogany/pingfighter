@@ -98447,6 +98447,12 @@ def draw_objects():
             # 아라크네 스프라이트 약간 아래로 내림 (패들 위치 보정)
             boss_rect = rotated_boss.get_rect(center=(int(BOSS.centerx + screen_shake_offset_x),
                                                       int(BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y + 15)))
+        elif current_stage == 3:
+            # 테디베어 보스: 이미지 상단이 화면 y=0에 맞도록 오프셋 계산
+            _teddy_img_h = rotated_boss.get_height()
+            _teddy_y_offset = max(0, _teddy_img_h // 2 - BOSS.centery)
+            boss_rect = rotated_boss.get_rect(center=(int(BOSS.centerx + screen_shake_offset_x),
+                                                      int(BOSS.centery + boss_offset_y + screen_shake_offset_y + _teddy_y_offset)))
         else:
             boss_rect = rotated_boss.get_rect(center=(BOSS.centerx + screen_shake_offset_x + tunnel_raid_offset_x,
                                                       BOSS.centery + boss_offset_y + screen_shake_offset_y + boss_rage_offset_y))
