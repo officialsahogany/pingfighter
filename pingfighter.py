@@ -106787,6 +106787,7 @@ def show_victory_screen(stage_cleared, reward):
     global final_round_wins, final_round_losses
     global gacha_reroll_stage, gacha_reroll_streak
     global cleared_planets
+    global player_ai_enabled
 
     # 🎬 승리 화면 전환 페이드아웃
     try:
