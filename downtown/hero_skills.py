@@ -3757,7 +3757,7 @@ class HellFire(HeroSkill):
             korean_name="도깨비불",
             description="공이 요사스러운 도깨비불로 변해 종잡을 수 없이 날뛴다",
             trigger=SkillTrigger.ON_COOLDOWN,
-            cooldown=17.0,
+            cooldown=26.0,
             duration=4.0,  # 정지 1초 + 도깨비불 3초
             hero_id="onimaru"
         )
