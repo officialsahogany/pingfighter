@@ -42861,6 +42861,15 @@ BOSS_IMG_STAGE7_WIDTH = 95
 BOSS_IMG_STAGE7_HEIGHT = 76
 BOSS_IMG_STAGE8_WIDTH = 110
 BOSS_IMG_STAGE8_HEIGHT = 96
+# 스테이지 3 테디베어 전용 사이즈
+BOSS_IMG_STAGE3_WIDTH = 350
+BOSS_IMG_STAGE3_HEIGHT = 250
+# 테디베어 축소 메카닉 변수
+teddy_shrink_scale = 1.0  # 현재 축소 비율 (1.0 = 원본, 공에 맞을 때마다 -5%)
+TEDDY_SHRINK_RATE = 0.05  # 한 번 맞을 때마다 5% 축소
+TEDDY_MIN_SCALE = 0.20  # 최소 축소 한계 (20%)
+TEDDY_BASE_HITBOX_W = 350  # 히트박스 기본 너비
+TEDDY_BASE_HITBOX_H = 100  # 히트박스 기본 높이 (패들로서 적당한 높이)
 STAGE8_WALK_BOB_PX = 6
 STAGE8_WALK_SWAY_DEG = 4.5
 STAGE8_WALK_CANVAS_PAD = 10
@@ -52367,12 +52376,165 @@ try:
 except:
     BOSS_IMG_STAGE2 = pygame.Surface((BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT), pygame.SRCALPHA)
     BOSS_IMG_STAGE2.fill(GREEN)
-try:
-    BOSS_IMG_STAGE3 = pygame.image.load(resource_path("boss_stage3.png")).convert_alpha()
-    BOSS_IMG_STAGE3 = pygame.transform.scale(BOSS_IMG_STAGE3, (BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT))
-except:
-    BOSS_IMG_STAGE3 = pygame.Surface((BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT), pygame.SRCALPHA)
-    BOSS_IMG_STAGE3.fill(MAGENTA)  # 보스 3의 기본 색상 (보라색 예시)
+def _create_stage3_teddybear_image(w=350, h=250):
+    """스테이지 3 테디베어 보스 - 귀엽지만 거대한 곰인형"""
+    import math as _m
+    surf = pygame.Surface((w, h), pygame.SRCALPHA)
+    cx, cy = w // 2, h // 2
+
+    # ── 색상 팔레트 ──
+    FUR_DARK = (139, 90, 43)       # 짙은 갈색 (그림자/윤곽)
+    FUR_MAIN = (181, 126, 63)      # 메인 갈색
+    FUR_LIGHT = (210, 160, 90)     # 밝은 갈색 (하이라이트)
+    FUR_BELLY = (235, 210, 170)    # 배/얼굴 안쪽 밝은색
+    NOSE_COL = (60, 40, 25)        # 코
+    EYE_COL = (30, 20, 10)         # 눈
+    EYE_SHINE = (255, 255, 255)    # 눈 하이라이트
+    MOUTH_COL = (100, 60, 30)      # 입
+    CHEEK_COL = (255, 150, 150, 80)  # 볼터치
+    RIBBON_COL = (220, 50, 50)     # 리본
+    RIBBON_DARK = (180, 30, 30)    # 리본 그림자
+
+    # ── 귀 (머리 뒤) ──
+    ear_r = int(w * 0.10)
+    ear_y = int(h * 0.12)
+    ear_lx = cx - int(w * 0.22)
+    ear_rx = cx + int(w * 0.22)
+    # 왼쪽 귀
+    pygame.draw.circle(surf, FUR_DARK, (ear_lx, ear_y), ear_r + 3)
+    pygame.draw.circle(surf, FUR_MAIN, (ear_lx, ear_y), ear_r)
+    pygame.draw.circle(surf, FUR_BELLY, (ear_lx, ear_y), int(ear_r * 0.55))
+    # 오른쪽 귀
+    pygame.draw.circle(surf, FUR_DARK, (ear_rx, ear_y), ear_r + 3)
+    pygame.draw.circle(surf, FUR_MAIN, (ear_rx, ear_y), ear_r)
+    pygame.draw.circle(surf, FUR_BELLY, (ear_rx, ear_y), int(ear_r * 0.55))
+
+    # ── 몸통 (큰 타원) ──
+    body_w = int(w * 0.70)
+    body_h = int(h * 0.52)
+    body_y = int(h * 0.50)
+    body_rect = pygame.Rect(cx - body_w // 2, body_y - body_h // 4, body_w, body_h)
+    # 몸통 그림자
+    shadow_rect = body_rect.inflate(6, 6)
+    pygame.draw.ellipse(surf, FUR_DARK, shadow_rect)
+    pygame.draw.ellipse(surf, FUR_MAIN, body_rect)
+    # 배 (밝은 영역)
+    belly_w = int(body_w * 0.55)
+    belly_h = int(body_h * 0.65)
+    belly_rect = pygame.Rect(cx - belly_w // 2, body_rect.centery - belly_h // 3, belly_w, belly_h)
+    pygame.draw.ellipse(surf, FUR_BELLY, belly_rect)
+
+    # ── 팔 (좌우) ──
+    arm_w = int(w * 0.14)
+    arm_h = int(h * 0.30)
+    arm_y = int(h * 0.42)
+    # 왼팔
+    arm_l_rect = pygame.Rect(cx - body_w // 2 - arm_w // 3, arm_y, arm_w, arm_h)
+    pygame.draw.ellipse(surf, FUR_DARK, arm_l_rect.inflate(4, 4))
+    pygame.draw.ellipse(surf, FUR_MAIN, arm_l_rect)
+    # 발바닥 (왼팔 끝)
+    paw_r = int(arm_w * 0.35)
+    pygame.draw.circle(surf, FUR_BELLY, (arm_l_rect.centerx, arm_l_rect.bottom - paw_r), paw_r)
+    # 오른팔
+    arm_r_rect = pygame.Rect(cx + body_w // 2 - arm_w * 2 // 3, arm_y, arm_w, arm_h)
+    pygame.draw.ellipse(surf, FUR_DARK, arm_r_rect.inflate(4, 4))
+    pygame.draw.ellipse(surf, FUR_MAIN, arm_r_rect)
+    pygame.draw.circle(surf, FUR_BELLY, (arm_r_rect.centerx, arm_r_rect.bottom - paw_r), paw_r)
+
+    # ── 다리 (좌우 - 하단) ──
+    leg_w = int(w * 0.16)
+    leg_h = int(h * 0.18)
+    leg_y = int(h * 0.80)
+    # 왼다리
+    leg_l_rect = pygame.Rect(cx - int(w * 0.18), leg_y, leg_w, leg_h)
+    pygame.draw.ellipse(surf, FUR_DARK, leg_l_rect.inflate(4, 4))
+    pygame.draw.ellipse(surf, FUR_MAIN, leg_l_rect)
+    pygame.draw.ellipse(surf, FUR_BELLY, pygame.Rect(leg_l_rect.x + leg_w // 6, leg_l_rect.y + leg_h // 4, int(leg_w * 0.65), int(leg_h * 0.55)))
+    # 오른다리
+    leg_r_rect = pygame.Rect(cx + int(w * 0.02), leg_y, leg_w, leg_h)
+    pygame.draw.ellipse(surf, FUR_DARK, leg_r_rect.inflate(4, 4))
+    pygame.draw.ellipse(surf, FUR_MAIN, leg_r_rect)
+    pygame.draw.ellipse(surf, FUR_BELLY, pygame.Rect(leg_r_rect.x + leg_w // 6, leg_r_rect.y + leg_h // 4, int(leg_w * 0.65), int(leg_h * 0.55)))
+
+    # ── 머리 (큰 원) ──
+    head_r = int(w * 0.24)
+    head_y = int(h * 0.25)
+    pygame.draw.circle(surf, FUR_DARK, (cx, head_y), head_r + 4)
+    pygame.draw.circle(surf, FUR_MAIN, (cx, head_y), head_r)
+    # 얼굴 안쪽 (밝은 영역)
+    face_r = int(head_r * 0.65)
+    pygame.draw.circle(surf, FUR_LIGHT, (cx, head_y + int(head_r * 0.1)), face_r)
+
+    # ── 눈 ──
+    eye_offset_x = int(head_r * 0.32)
+    eye_y = head_y - int(head_r * 0.08)
+    eye_r = int(head_r * 0.16)
+    # 왼쪽 눈
+    pygame.draw.circle(surf, EYE_COL, (cx - eye_offset_x, eye_y), eye_r)
+    pygame.draw.circle(surf, EYE_SHINE, (cx - eye_offset_x - 2, eye_y - 3), max(2, eye_r // 3))
+    # 오른쪽 눈
+    pygame.draw.circle(surf, EYE_COL, (cx + eye_offset_x, eye_y), eye_r)
+    pygame.draw.circle(surf, EYE_SHINE, (cx + eye_offset_x - 2, eye_y - 3), max(2, eye_r // 3))
+
+    # ── 코 ──
+    nose_w = int(head_r * 0.22)
+    nose_h = int(head_r * 0.15)
+    nose_y = head_y + int(head_r * 0.12)
+    nose_rect = pygame.Rect(cx - nose_w, nose_y - nose_h // 2, nose_w * 2, nose_h)
+    pygame.draw.ellipse(surf, NOSE_COL, nose_rect)
+    # 코 하이라이트
+    pygame.draw.circle(surf, (90, 70, 50), (cx - nose_w // 3, nose_y - nose_h // 4), max(1, nose_w // 5))
+
+    # ── 입 (W 모양 곰 입) ──
+    mouth_y = nose_y + nose_h // 2 + 2
+    mouth_w = int(head_r * 0.20)
+    pygame.draw.line(surf, MOUTH_COL, (cx, mouth_y), (cx - mouth_w, mouth_y + int(head_r * 0.12)), 2)
+    pygame.draw.line(surf, MOUTH_COL, (cx, mouth_y), (cx + mouth_w, mouth_y + int(head_r * 0.12)), 2)
+
+    # ── 볼터치 ──
+    cheek_r = int(head_r * 0.14)
+    cheek_y = head_y + int(head_r * 0.22)
+    cheek_surf = pygame.Surface((cheek_r * 2, cheek_r * 2), pygame.SRCALPHA)
+    pygame.draw.circle(cheek_surf, CHEEK_COL, (cheek_r, cheek_r), cheek_r)
+    surf.blit(cheek_surf, (cx - eye_offset_x - cheek_r - int(head_r * 0.05), cheek_y - cheek_r))
+    surf.blit(cheek_surf, (cx + eye_offset_x - cheek_r + int(head_r * 0.05), cheek_y - cheek_r))
+
+    # ── 리본 (목에) ──
+    ribbon_cx = cx
+    ribbon_cy = int(h * 0.38)
+    rb_w = int(w * 0.08)
+    rb_h = int(h * 0.06)
+    # 왼쪽 리본 날개
+    pygame.draw.polygon(surf, RIBBON_COL, [
+        (ribbon_cx - rb_w * 2, ribbon_cy - rb_h),
+        (ribbon_cx - 4, ribbon_cy),
+        (ribbon_cx - rb_w * 2, ribbon_cy + rb_h)
+    ])
+    pygame.draw.polygon(surf, RIBBON_DARK, [
+        (ribbon_cx - rb_w * 2, ribbon_cy - rb_h),
+        (ribbon_cx - rb_w, ribbon_cy),
+        (ribbon_cx - rb_w * 2, ribbon_cy)
+    ])
+    # 오른쪽 리본 날개
+    pygame.draw.polygon(surf, RIBBON_COL, [
+        (ribbon_cx + rb_w * 2, ribbon_cy - rb_h),
+        (ribbon_cx + 4, ribbon_cy),
+        (ribbon_cx + rb_w * 2, ribbon_cy + rb_h)
+    ])
+    pygame.draw.polygon(surf, RIBBON_DARK, [
+        (ribbon_cx + rb_w * 2, ribbon_cy - rb_h),
+        (ribbon_cx + rb_w, ribbon_cy),
+        (ribbon_cx + rb_w * 2, ribbon_cy)
+    ])
+    # 리본 매듭 (가운데)
+    pygame.draw.circle(surf, RIBBON_COL, (ribbon_cx, ribbon_cy), int(rb_w * 0.6))
+    pygame.draw.circle(surf, RIBBON_DARK, (ribbon_cx, ribbon_cy), int(rb_w * 0.35))
+
+    return surf
+
+# 테디베어 보스 이미지 생성
+BOSS_IMG_STAGE3 = _create_stage3_teddybear_image(BOSS_IMG_STAGE3_WIDTH, BOSS_IMG_STAGE3_HEIGHT)
+BOSS_IMG_STAGE3_ORIGINAL = BOSS_IMG_STAGE3.copy()  # 축소 시 스케일링용 원본 보관
 def _create_stage4_boss_image(w=104, h=56):
     """스테이지 4 퐁크 보스 - 가부좌 공중부양 수도승 (v3: 슬림 실루엣)"""
     import math as _m
@@ -53282,11 +53444,20 @@ def go_to_next_round():
     
     # Stage 3 쿠로미 신비로운 궤적 효과 초기화
     global kuromi_spit_trail_active, kuromi_spit_trail_positions, kuromi_spit_trail_color_phase
+    global teddy_shrink_scale
     # Stage 3 배경 객체를 통해 쿠로미 각성 처리
     if current_stage == 3:
         kuromi_spit_trail_active = False
         kuromi_spit_trail_positions = []
         kuromi_spit_trail_color_phase = 0
+        # 테디베어 축소 스케일 초기화 (라운드 리셋)
+        teddy_shrink_scale = 1.0
+        # 테디베어 히트박스 원래 크기로 복원
+        center_x = BOSS.centerx
+        BOSS.width = TEDDY_BASE_HITBOX_W
+        BOSS.height = TEDDY_BASE_HITBOX_H
+        BOSS.centerx = center_x
+        BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
         if DEBUG_BOSS:
             print("Stage 3: 쿠로미 궤적 이펙트 초기화 (go_to_next_round)")
         
@@ -53423,7 +53594,16 @@ def go_to_next_round():
                 PLAYER.width = 130
                 PLAYER.height = 40
                 PLAYER.centerx = center
-            if BOSS.width != 130 or BOSS.height != 40:
+            # 스테이지 3 테디베어는 별도 크기 사용
+            if current_stage == 3:
+                _teddy_w = int(TEDDY_BASE_HITBOX_W * teddy_shrink_scale)
+                _teddy_h = int(TEDDY_BASE_HITBOX_H * teddy_shrink_scale)
+                if BOSS.width != _teddy_w or BOSS.height != _teddy_h:
+                    center = BOSS.centerx
+                    BOSS.width = _teddy_w
+                    BOSS.height = _teddy_h
+                    BOSS.centerx = center
+            elif BOSS.width != 130 or BOSS.height != 40:
                 center = BOSS.centerx
                 BOSS.width = 130
                 BOSS.height = 40
@@ -97989,8 +98169,12 @@ def draw_objects():
             boss_img = BOSS_IMG_STAGE2
             boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
     elif current_stage == 3:
-        boss_img = BOSS_IMG_STAGE3
-        boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
+        # 테디베어 보스 - 축소 스케일 적용
+        _teddy_w = int(BOSS_IMG_STAGE3_WIDTH * teddy_shrink_scale)
+        _teddy_h = int(BOSS_IMG_STAGE3_HEIGHT * teddy_shrink_scale)
+        boss_img = pygame.transform.scale(BOSS_IMG_STAGE3_ORIGINAL, (_teddy_w, _teddy_h))
+        boss_w, boss_h = _teddy_w, _teddy_h
+        boss_img_prescaled = True
     elif current_stage == 4:
         boss_img = BOSS_IMG_STAGE4
         boss_w, boss_h = BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT
@@ -98093,8 +98277,11 @@ def draw_objects():
     if total_visual_scale > 1.0:
         boss_w = int(boss_w * total_visual_scale)
         boss_h = int(boss_h * total_visual_scale)
-        # 히트박스 크기도 현재 스케일에 맞춰 유지 (130 = 기본 보스 너비)
-        expected_width = int(130 * total_visual_scale)
+        # 히트박스 크기도 현재 스케일에 맞춰 유지
+        if current_stage == 3:
+            expected_width = int(TEDDY_BASE_HITBOX_W * teddy_shrink_scale * total_visual_scale)
+        else:
+            expected_width = int(130 * total_visual_scale)
         if BOSS.width != expected_width:
             old_width = BOSS.width
             width_diff = expected_width - old_width
@@ -129025,7 +129212,16 @@ def reset_round(is_stage_start=False):
                 PLAYER.width = 130
                 PLAYER.height = 40
                 PLAYER.centerx = center
-            if BOSS.width != 130 or BOSS.height != 40:
+            # 스테이지 3 테디베어는 별도 크기 사용
+            if current_stage == 3:
+                _teddy_w = int(TEDDY_BASE_HITBOX_W * teddy_shrink_scale)
+                _teddy_h = int(TEDDY_BASE_HITBOX_H * teddy_shrink_scale)
+                if BOSS.width != _teddy_w or BOSS.height != _teddy_h:
+                    center = BOSS.centerx
+                    BOSS.width = _teddy_w
+                    BOSS.height = _teddy_h
+                    BOSS.centerx = center
+            elif BOSS.width != 130 or BOSS.height != 40:
                 center = BOSS.centerx
                 BOSS.width = 130
                 BOSS.height = 40
@@ -130824,6 +131020,8 @@ def handle_ball():
     global stage8_shuriken_pending, stage8_shuriken_from_pending
     # 충돌 쿨다운
     global player_collision_cooldown, boss_collision_cooldown, player_collision_handled, player_sound_cooldown
+    # 테디베어 축소 스케일
+    global teddy_shrink_scale
     # 공 물리 & 움직임
     global ball_vel, ball_angle, slow_ball_timer, horizontal_bounce_count
     global ball_impact_boost, ball_boost_decay_rate, ball_min_boost
@@ -135770,11 +135968,18 @@ def handle_ball():
     if enraged_boss_active and enraged_boss_current_scale > 1.0:
         total_boss_scale *= enraged_boss_current_scale
 
-    expected_boss_width = int(130 * total_boss_scale)
-    if BOSS.width != expected_boss_width:
+    # 스테이지 3 테디베어: 축소 스케일 적용된 히트박스
+    if current_stage == 3:
+        expected_boss_width = int(TEDDY_BASE_HITBOX_W * teddy_shrink_scale * total_boss_scale)
+        expected_boss_height = int(TEDDY_BASE_HITBOX_H * teddy_shrink_scale * total_boss_scale)
+    else:
+        expected_boss_width = int(130 * total_boss_scale)
+        expected_boss_height = 40
+    if BOSS.width != expected_boss_width or BOSS.height != expected_boss_height:
         old_width = BOSS.width
         width_diff = expected_boss_width - old_width
         BOSS.width = expected_boss_width
+        BOSS.height = expected_boss_height
         BOSS.x = BOSS.x - width_diff // 2
         BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
 
@@ -135925,6 +136130,8 @@ def handle_ball():
             elif current_stage == 3:
                 # 광폭화 여부와 관계없이 게이지 충전량 50 고정
                 gain = 50
+                # 테디베어 축소 메카닉: 공에 맞을 때마다 -5% 축소
+                teddy_shrink_scale = max(TEDDY_MIN_SCALE, teddy_shrink_scale - TEDDY_SHRINK_RATE)
             else:
                 gain = 80
             boss_special_gauge = min(boss_special_gauge + gain, 500)
@@ -139619,8 +139826,18 @@ def handle_boss():
                 # 🔮 이동속도 50% 감소 (축소된 패들 페널티)
                 arena_boss_slow_multiplier *= 0.5
             else:
-                # 축소 효과 해제 시 원래 크기(130x40)로 복원
-                if BOSS.width != 130:
+                # 축소 효과 해제 시 원래 크기로 복원
+                if current_stage == 3:
+                    _orig_w = int(TEDDY_BASE_HITBOX_W * teddy_shrink_scale)
+                    _orig_h = int(TEDDY_BASE_HITBOX_H * teddy_shrink_scale)
+                    if BOSS.width != _orig_w:
+                        center_x = BOSS.centerx
+                        BOSS.width = _orig_w
+                        BOSS.height = _orig_h
+                        BOSS.centerx = center_x
+                        if not arena_top_ghost_step_active:
+                            BOSS.y = 25
+                elif BOSS.width != 130:
                     center_x = BOSS.centerx
                     BOSS.width = 130
                     BOSS.height = 40
@@ -143293,13 +143510,21 @@ def main(stage_num, new_boss_mode=False):
         BOSS_ACCELERATION_DEFAULT = BOSS_ACCELERATION
         # print(f"🔥 [광폭화 보스] 이동속도 30% 증가 적용 (MAX_SPEED: {BOSS_MAX_SPEED})")
         # 패들 크기는 점진적으로 증가 (초기값은 기본 크기)
-        BOSS.width = 130
+        if current_stage == 3:
+            BOSS.width = int(TEDDY_BASE_HITBOX_W * teddy_shrink_scale)
+            BOSS.height = int(TEDDY_BASE_HITBOX_H * teddy_shrink_scale)
+        else:
+            BOSS.width = 130
         game_center_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
         BOSS.x = game_center_x - BOSS.width // 2
         # print(f"🔥 [광폭화 보스] 패들 크기 점진적 확대 시작 (1.0 → {enraged_boss_paddle_scale})")
     else:
-        # 광폭화가 아닐 때 보스 패들 크기 초기화 (기본값 130)
-        BOSS.width = 130
+        # 광폭화가 아닐 때 보스 패들 크기 초기화
+        if current_stage == 3:
+            BOSS.width = int(TEDDY_BASE_HITBOX_W * teddy_shrink_scale)
+            BOSS.height = int(TEDDY_BASE_HITBOX_H * teddy_shrink_scale)
+        else:
+            BOSS.width = 130
         game_center_x = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
         BOSS.x = game_center_x - BOSS.width // 2
 
@@ -143330,7 +143555,13 @@ def main(stage_num, new_boss_mode=False):
         boss_special_waiting = False
     elif stage_num == 3:
         CURRENT_BG = STAGE3_BG
-        BOSS_COLOR = YELLOW
+        BOSS_COLOR = (181, 126, 63)  # 테디베어 갈색
+        # 테디베어 보스 초기화
+        teddy_shrink_scale = 1.0
+        BOSS.width = TEDDY_BASE_HITBOX_W
+        BOSS.height = TEDDY_BASE_HITBOX_H
+        BOSS.centerx = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
+        BOSS.x = max(0, min(WIDTH - BOSS.width, BOSS.x))
         # Stage 3 BGM 재생
         bgm_manager.play_stage_bgm(3)
     elif stage_num == 4:
