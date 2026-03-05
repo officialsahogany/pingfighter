@@ -3309,14 +3309,30 @@ else:
 
         FULLSCREEN_WIDTH = _comp_w
         FULLSCREEN_HEIGHT = _comp_h
-        GAME_SCALE_FACTOR = 1.0       # 소프트웨어 스케일링 없음!
-        GAME_SCALED_WIDTH = WIDTH      # 게임 영역 = 원본 크기 그대로
-        GAME_SCALED_HEIGHT = HEIGHT
-        GAME_OFFSET_X = _comp_pad_x   # 게임 영역은 합성 서피스 중앙
-        GAME_OFFSET_Y = _comp_pad_y
+        if _scale_n >= 2:
+            # GPU 2배 업스케일링: 게임은 1:1로 렌더링, SDL이 2x 업스케일
+            GAME_SCALE_FACTOR = 1.0
+            GAME_SCALED_WIDTH = WIDTH
+            GAME_SCALED_HEIGHT = HEIGHT
+            GAME_OFFSET_X = _comp_pad_x
+            GAME_OFFSET_Y = _comp_pad_y
+        else:
+            # _scale_n == 1: GPU 업스케일링 불가 → 소프트웨어 스케일링 적용
+            _sw_margin = _init_pillar_pad_y
+            _sw_scale_y = (_comp_h - _sw_margin * 2) / HEIGHT
+            _sw_scaled_w_check = int(WIDTH * _sw_scale_y)
+            if _sw_scaled_w_check > _comp_w:
+                GAME_SCALE_FACTOR = _comp_w / WIDTH
+            else:
+                GAME_SCALE_FACTOR = _sw_scale_y
+            GAME_SCALED_WIDTH = int(WIDTH * GAME_SCALE_FACTOR)
+            GAME_SCALED_HEIGHT = int(HEIGHT * GAME_SCALE_FACTOR)
+            GAME_OFFSET_X = (_comp_w - GAME_SCALED_WIDTH) // 2
+            GAME_OFFSET_Y = (_comp_h - GAME_SCALED_HEIGHT) // 2
+            print(f"[디스플레이] 창모드(SCALED x1) 소프트웨어 스케일링: {GAME_SCALE_FACTOR:.2f}x ({WIDTH}x{HEIGHT} → {GAME_SCALED_WIDTH}x{GAME_SCALED_HEIGHT})", flush=True)
 
         from pixel_font_manager import set_fullscreen_font_scale
-        set_fullscreen_font_scale(1.0)
+        set_fullscreen_font_scale(GAME_SCALE_FACTOR)
 
         SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert()
 
@@ -9393,16 +9409,32 @@ def switch_display_mode(mode: str = None, *, to_windowed: bool = None):
                 pygame.mouse.set_visible(False)
             FULLSCREEN_WIDTH = _comp_w
             FULLSCREEN_HEIGHT = _comp_h
-            GAME_SCALE_FACTOR = 1.0
-            GAME_SCALED_WIDTH = WIDTH
-            GAME_SCALED_HEIGHT = HEIGHT
-            GAME_OFFSET_X = _comp_pad_x
-            GAME_OFFSET_Y = _comp_pad_y
-            _set_font_scale(1.0)
+            if _scale_n >= 2:
+                # GPU 2배 업스케일링: 게임은 1:1
+                GAME_SCALE_FACTOR = 1.0
+                GAME_SCALED_WIDTH = WIDTH
+                GAME_SCALED_HEIGHT = HEIGHT
+                GAME_OFFSET_X = _comp_pad_x
+                GAME_OFFSET_Y = _comp_pad_y
+            else:
+                # _scale_n == 1: GPU 업스케일링 불가 → 소프트웨어 스케일링 적용
+                _sw_margin = _init_pillar_pad_y
+                _sw_scale_y = (_comp_h - _sw_margin * 2) / HEIGHT
+                _sw_scaled_w = int(WIDTH * _sw_scale_y)
+                if _sw_scaled_w > _comp_w:
+                    GAME_SCALE_FACTOR = _comp_w / WIDTH
+                else:
+                    GAME_SCALE_FACTOR = _sw_scale_y
+                GAME_SCALED_WIDTH = int(WIDTH * GAME_SCALE_FACTOR)
+                GAME_SCALED_HEIGHT = int(HEIGHT * GAME_SCALE_FACTOR)
+                GAME_OFFSET_X = (_comp_w - GAME_SCALED_WIDTH) // 2
+                GAME_OFFSET_Y = (_comp_h - GAME_SCALED_HEIGHT) // 2
+                print(f"[디스플레이] 창모드(SCALED x1) 소프트웨어 스케일링: {GAME_SCALE_FACTOR:.2f}x", flush=True)
+            _set_font_scale(GAME_SCALE_FACTOR)
             SCREEN = pygame.Surface((WIDTH, HEIGHT)).convert()
             pillar_renderer = init_pillar_background(
-                _comp_w, _comp_h, WIDTH, HEIGHT,
-                offset_x=_comp_pad_x, offset_y=_comp_pad_y,
+                _comp_w, _comp_h, GAME_SCALED_WIDTH, GAME_SCALED_HEIGHT,
+                offset_x=GAME_OFFSET_X, offset_y=GAME_OFFSET_Y,
                 original_game_width=WIDTH, original_game_height=HEIGHT
             )
         else:
@@ -157440,7 +157472,7 @@ def apply_character_selection(character_id):
     else:
         # 옵티머스가 아닌 캐릭터 선택 시 옵티머스 관련 스케일 초기화
         optimus_gauge_scale = 1.0
-        CURRENT_PADDLE_SIZE_SCALE = 1.0
+        CURRENT_PADDLE_SIZE_SCALE = 1.06
         CURRENT_PADDLE_EFFECTIVE_SCALE = 1.0
         PADDLE_BASE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
         PADDLE_WIDTH = DEFAULT_PADDLE_BASE_WIDTH
