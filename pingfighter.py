@@ -134577,7 +134577,10 @@ def handle_ball():
                 # draw_blacksmith_turret_ui(SCREEN)  # 좌측 필러로 이동됨
                 # draw_blacksmith_divine_ui(SCREEN)  # 좌측 필러로 이동됨
                 pass
-            draw_score()  # 3:0 완승 보너스 메시지도 표시
+            # 스테이지 종료 직전에는 draw_score() 생략 (페이드아웃 시 전광판 깜빡임 방지)
+            _ending = (deuce_wins >= deuce_goal or deuce_losses >= deuce_goal) if deuce_mode else (round_wins >= win_goal or round_losses >= win_goal)
+            if not _ending:
+                draw_score()  # 3:0 완승 보너스 메시지도 표시
 
             # 🔥 기사회생 퍽: 듀스 모드에서도 라운드 종료 시 해제
             if arena_mode_enabled:
@@ -134772,7 +134775,10 @@ def handle_ball():
                 pass
 
             # 3:0 완승 보너스 메시지 표시
-            draw_score()
+            # 스테이지 종료 직전에는 draw_score() 생략 (페이드아웃 시 전광판 깜빡임 방지)
+            _ending = (deuce_wins >= deuce_goal or deuce_losses >= deuce_goal) if deuce_mode else (round_wins >= win_goal or round_losses >= win_goal)
+            if not _ending:
+                draw_score()
 
             #  Stage 1 - 타이머 기반으로 변경되어 더 이상 점수 체크하지 않음
             # 기존 코드 주석 처리 (타이머 기반으로 변경)
@@ -135254,7 +135260,10 @@ def handle_ball():
             # 코만도 권총 UI 표시
             if selected_character_type == "soldier":
                 draw_soldier_weapon_ui(SCREEN)
-            draw_score()  # 3:0 완승 보너스 메시지도 표시
+            # 스테이지 종료 직전에는 draw_score() 생략 (페이드아웃 시 전광판 깜빡임 방지)
+            _ending = (deuce_wins >= deuce_goal or deuce_losses >= deuce_goal) if deuce_mode else (round_wins >= win_goal or round_losses >= win_goal)
+            if not _ending:
+                draw_score()  # 3:0 완승 보너스 메시지도 표시
             # 스테이지 2에서 보스가 라운드 이길 때마다 악어 짧은 웃음
             if current_stage == 2 and animated_bg_stage2:
                 animated_bg_stage2.set_expression('happy')
