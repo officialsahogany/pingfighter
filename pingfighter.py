@@ -7469,17 +7469,8 @@ def _get_scaled_screen():
             _scaled_surface_cache = pygame.Surface(target_size).convert()
             _scaled_surface_size = target_size
 
-        if 1.0 < GAME_SCALE_FACTOR < 2.0 and _use_scaled_mode:
-            # 2-pass 슈퍼샘플링: 2x 정수배 업 → smoothscale 다운샘플 (고화질)
-            _2x_size = (WIDTH * 2, HEIGHT * 2)
-            if _ss_2x_cache is None or _ss_2x_size != _2x_size:
-                _ss_2x_cache = pygame.Surface(_2x_size).convert()
-                _ss_2x_size = _2x_size
-            pygame.transform.scale(SCREEN, _2x_size, _ss_2x_cache)        # 2x nearest (깨끗한 정수배)
-            pygame.transform.smoothscale(_ss_2x_cache, target_size, _scaled_surface_cache)  # 다운샘플
-        else:
-            # 직접 smoothscale (2x 이상이거나 SCALED 모드 아닌 경우)
-            pygame.transform.smoothscale(SCREEN, target_size, _scaled_surface_cache)
+        # 직접 smoothscale (2-pass 슈퍼샘플링 제거 → 성능 개선)
+        pygame.transform.smoothscale(SCREEN, target_size, _scaled_surface_cache)
         result = _scaled_surface_cache
 
     if VALTHOR_PERF_DEBUG:
