@@ -7436,7 +7436,7 @@ def invalidate_scale_cache():
 _pillar_bg_cache = None           # 캐시 서피스 (REAL_SCREEN 크기, .convert())
 _pillar_bg_cache_size = None      # (w, h) 크기 검증용
 _pillar_bg_cache_dirty = True     # 다음 기회에 재렌더링 필요
-_pillar_bg_render_interval = 2    # N프레임마다 필러 배경 재렌더링 (2 = 매 프레임 50% 스킵)
+_pillar_bg_render_interval = 4    # N프레임마다 필러 배경 재렌더링 (4 = 75% 스킵, 필러는 거의 안 변함)
 _pillar_bg_frame_counter = 0      # 프레임 카운터
 _pillar_bg_cache_stage = -1       # 캐시된 스테이지 번호 (변경 감지용)
 
@@ -7469,8 +7469,8 @@ def _get_scaled_screen():
             _scaled_surface_cache = pygame.Surface(target_size).convert()
             _scaled_surface_size = target_size
 
-        # 직접 smoothscale (2-pass 슈퍼샘플링 제거 → 성능 개선)
-        pygame.transform.smoothscale(SCREEN, target_size, _scaled_surface_cache)
+        # nearest-neighbor scale (smoothscale 대비 3~4배 빠름, 픽셀아트에 적합)
+        pygame.transform.scale(SCREEN, target_size, _scaled_surface_cache)
         result = _scaled_surface_cache
 
     if VALTHOR_PERF_DEBUG:
