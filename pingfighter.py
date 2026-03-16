@@ -10540,17 +10540,29 @@ cleared_planets = []  # 클리어한 행성 번호 목록 (게임 오버/ESC 복
 def show_space_map_transition(from_planet, to_planet, ingame_frame=None):
     """우주맵 행성 이동 — 지형 하강 + 인게임 화면 줌인"""
     global cleared_planets
+    print(f"[DEBUG TRANSITION] called: from={from_planet}, to={to_planet}, ingame_frame={'YES' if ingame_frame else 'NO'}")
     # 이전 화면에서 남은 입력 이벤트 정리 (잔류 SPACE/클릭으로 즉시 스킵되는 문제 방지)
     pygame.event.pump()
-    pygame.event.clear([pygame.KEYDOWN, pygame.KEYUP, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP])
+    _pending = pygame.event.get()
+    if _pending:
+        print(f"[DEBUG TRANSITION] cleared {len(_pending)} pending events: {[e.type for e in _pending[:10]]}")
+    else:
+        print(f"[DEBUG TRANSITION] no pending events")
     try:
         from ui.space_map import SpaceMap
+        print(f"[DEBUG TRANSITION] SpaceMap imported OK, creating instance...")
         smap = SpaceMap(SCREEN, WIDTH, HEIGHT)
+        print(f"[DEBUG TRANSITION] SpaceMap created, calling show_landing_scene...")
+        _t0 = pygame.time.get_ticks()
         smap.show_landing_scene(
             to_planet=to_planet, duration=3.5, fade_out=False,
             ingame_frame=ingame_frame)
+        _elapsed = pygame.time.get_ticks() - _t0
+        print(f"[DEBUG TRANSITION] show_landing_scene finished in {_elapsed}ms")
     except Exception as e:
         print(f"[WARNING] 하강 연출 실패: {e}")
+        import traceback
+        traceback.print_exc()
 
 # ========== 스테이지 클리어 선택지 시스템 (뱀파이어 서바이벌 스타일) ==========
 # 선택지 UI 상태

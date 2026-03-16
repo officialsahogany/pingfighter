@@ -459,6 +459,13 @@ class SpaceMap:
     # ──────────────────────────────────────────────
     #  착륙 시퀀스: 수직 우주선
     # ──────────────────────────────────────────────
+    _SURFACE_RENDERERS = {
+        1: '_draw_surface_joseon',
+        2: '_draw_surface_jungle',
+        3: '_draw_surface_menhera',
+        4: '_draw_surface_temple',
+    }
+
     def _draw_planet_surface(self, surf, planet_num, t, alpha=255):
         """행성 표면 렌더러 디스패처. t = 0(고공) ~ 1(지표면)."""
         renderer = self._SURFACE_RENDERERS.get(planet_num)
