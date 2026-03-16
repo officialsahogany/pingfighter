@@ -10540,6 +10540,9 @@ cleared_planets = []  # 클리어한 행성 번호 목록 (게임 오버/ESC 복
 def show_space_map_transition(from_planet, to_planet, ingame_frame=None):
     """우주맵 행성 이동 — 지형 하강 + 인게임 화면 줌인"""
     global cleared_planets
+    # 이전 화면에서 남은 입력 이벤트 정리 (잔류 SPACE/클릭으로 즉시 스킵되는 문제 방지)
+    pygame.event.pump()
+    pygame.event.clear([pygame.KEYDOWN, pygame.KEYUP, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP])
     try:
         from ui.space_map import SpaceMap
         smap = SpaceMap(SCREEN, WIDTH, HEIGHT)
