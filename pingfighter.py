@@ -11169,6 +11169,7 @@ _skill_levels_snapshot_at_stage_start = {}  # 스테이지 시작 시 스킬 레
 starpoint_for_skills = 0   # Accumulated starpoints for skill selection (0~2)
 pending_skill_choices = 0  # Pending skill choice count
 runtime_skill_choice_pending = False  # Skill selection pending flag
+perk_leaf_shield = None  # 퍽 월계수잎 시스템 (ArenaLeafShield 인스턴스)
 
 # 초월자의 관 스킬 보너스 (전설 아이템)
 transcendent_crown_skill_bonus = 0  # 모든 투자된 스킬 레벨 +1~+3
@@ -11568,6 +11569,20 @@ RUNTIME_SKILL_POOL = {
         },
         "detail": "패들의 크기가 영구적으로 증가합니다. 볼을 받아치기 더 쉬워집니다.",
         "icon_color": (255, 150, 80),
+        "tree": "common"
+    },
+    "perk_laurel_shield": {
+        "name": "월계수잎",
+        "max_level": 5,
+        "descriptions": {
+            1: "월계수 잎 1개 보호",
+            2: "월계수 잎 2개 보호",
+            3: "월계수 잎 3개 보호",
+            4: "월계수 잎 4개 보호",
+            5: "월계수 잎 5개 보호",
+        },
+        "detail": "신성한 월계수 잎이 패들 주위를 회전하며 보스의 공을 막아줍니다.",
+        "icon_color": (100, 200, 100),
         "tree": "common"
     },
 }
@@ -12917,6 +12932,7 @@ def reset_runtime_skill_system():
     global optimus_arm_available
     global runtime_accessory_slot_bonus, runtime_swiftness_bonus
     global transcendent_crown_skill_bonus
+    global perk_leaf_shield
 
     runtime_skill_levels = {}
     starpoint_for_skills = 0
@@ -12926,6 +12942,10 @@ def reset_runtime_skill_system():
     runtime_accessory_slot_bonus = 0  # 장신구 슬롯 보너스 초기화
     runtime_swiftness_bonus = 0  # 신속 스킬 보너스 초기화
     transcendent_crown_skill_bonus = 0  # 초월자의 관 스킬 보너스 초기화
+    # 퍽 월계수잎 초기화
+    if perk_leaf_shield:
+        perk_leaf_shield.deactivate()
+    perk_leaf_shield = None
 
     # 스매셔 스킬 해금 상태 초기화 (드라이브, 파워스매싱만 기본 해금)
     reset_smasher_skill_unlocks()
@@ -13707,6 +13727,15 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         new_level = runtime_skill_levels.get("common_bulk_up", 0)
         # print(f"[RuntimeSkill] 벌크업 Lv.{new_level} - 패들 크기 +{new_level * 10}%")  # 디버그 비활성화
 
+    # 퍽 월계수잎: ArenaLeafShield 생성/업데이트
+    if choice_id == "perk_laurel_shield":
+        global perk_leaf_shield
+        new_level = runtime_skill_levels.get("perk_laurel_shield", 0)
+        from downtown.colosseum_arena import ArenaLeafShield
+        if perk_leaf_shield is None:
+            perk_leaf_shield = ArenaLeafShield(is_top=False)
+        perk_leaf_shield.activate(new_level)  # 레벨 = 잎 개수
+
     # 탄창개조: 권총 최대 탄환 증가 즉시 적용
     if choice_id == "soldier_magazine_mod":
         apply_soldier_magazine_mod()
@@ -13784,6 +13813,18 @@ def recalculate_skill_effects(skill_id: str):
     elif skill_id == "unlock_cleanse":
         level = runtime_skill_levels.get("unlock_cleanse", 0)
         _smasher_skill_unlocked["cleanse"] = level >= 1
+
+    # 퍽 월계수잎: 잎 개수 재계산
+    elif skill_id == "perk_laurel_shield":
+        global perk_leaf_shield
+        new_level = runtime_skill_levels.get("perk_laurel_shield", 0)
+        if new_level > 0:
+            from downtown.colosseum_arena import ArenaLeafShield
+            if perk_leaf_shield is None:
+                perk_leaf_shield = ArenaLeafShield(is_top=False)
+            perk_leaf_shield.activate(new_level)
+        elif perk_leaf_shield:
+            perk_leaf_shield.deactivate()
 
     # 기타 스킬들은 별도 재계산 불필요 (get_runtime_skill_bonus에서 실시간 조회)
 
@@ -124646,8 +124687,14 @@ def show_stage2_intro():
         pygame.time.delay(25)
 def show_stage3_intro():
     stage_text = "STAGE 3"
-    boss_name = "멘헤라걸"
-    stage_base_color = (255, 180, 255)
+    if current_boss_name == "테디베어":
+        boss_name = "테디베어"
+        stage_base_color = (210, 170, 130)      # 따뜻한 갈색 톤 (곰인형 모피)
+        boss_color_video = (180, 130, 90)        # 테디베어 모피색
+    else:
+        boss_name = "멘헤라걸"
+        stage_base_color = (255, 180, 255)       # 핑크 톤
+        boss_color_video = (200, 110, 210)       # 멘헤라 보라색
 
     preload_stage_intro_resources(STAGE3_INTRO_VIDEO_PATH)
 
@@ -124658,7 +124705,7 @@ def show_stage3_intro():
             stage_text=stage_text,
             boss_text=boss_name,
             stage_color=stage_base_color,
-            boss_color=(200, 110, 210),
+            boss_color=boss_color_video,
             post_hold_ms=0,
         )
 
@@ -124681,9 +124728,12 @@ def show_stage3_intro():
         SCREEN.blit(boss_img, (0, 0))
 
         fade_pulse = alpha / 255.0 * 20
-        red_component = min(255, 120 + int(fade_pulse * 1.5))
-        blue_component = max(80, 200 - int(fade_pulse))
-        boss_fade_color = (red_component, 100, blue_component)
+        bv_r, bv_g, bv_b = boss_color_video
+        boss_fade_color = (
+            min(255, bv_r + int(fade_pulse * 1.5)),
+            min(255, bv_g + int(fade_pulse)),
+            min(255, bv_b + int(fade_pulse)),
+        )
         ui_manager.draw_centered_text(stage_text, 56, -120, stage_base_color, "elegant")
         ui_manager.draw_centered_text(boss_name, 42, -50, boss_fade_color, "glow")
         pygame.display.flip()
@@ -124709,15 +124759,25 @@ def show_stage3_intro():
         SCREEN.blit(boss_img, (0, 0))
 
         pulse = abs(math.sin(frame_count * 0.03)) * 20
-        stage_color = (255, min(255, 180 + int(pulse)), 255)
-        red_component = min(255, 120 + int(pulse * 1.5))
-        blue_component = max(80, 200 - int(pulse))
-        boss_color = (red_component, 100, blue_component)
+        stage_color = (
+            min(255, stage_base_color[0] + int(pulse)),
+            min(255, stage_base_color[1] + int(pulse)),
+            min(255, stage_base_color[2] + int(pulse)),
+        )
+        boss_color = (
+            min(255, boss_color_video[0] + int(pulse * 1.5)),
+            min(255, boss_color_video[1] + int(pulse)),
+            min(255, boss_color_video[2] + int(pulse)),
+        )
         ui_manager.draw_centered_text(stage_text, 56, -120, stage_color, "elegant")
         ui_manager.draw_centered_text(boss_name, 42, -50, boss_color, "glow")
 
         line_intensity = 160 + int(pulse)
-        line_color = (min(255, line_intensity), 100, min(255, line_intensity))
+        line_color = (
+            min(255, line_intensity + (boss_color_video[0] - 150) // 3),
+            min(255, line_intensity + (boss_color_video[1] - 150) // 3),
+            min(255, line_intensity + (boss_color_video[2] - 150) // 3),
+        )
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 80), (WIDTH // 2 + 150, HEIGHT // 2 - 80), 3)
         draw.line(line_color, (WIDTH // 2 - 150, HEIGHT // 2 - 20), (WIDTH // 2 + 150, HEIGHT // 2 - 20), 3)
         pygame.display.flip()
@@ -149699,6 +149759,26 @@ def main(stage_num, new_boss_mode=False):
                     import traceback
                     traceback.print_exc()
                 
+                # 퍽 월계수잎 업데이트 + 충돌 체크 (투기장이 아닌 메인 게임 전용)
+                if not arena_mode_enabled and perk_leaf_shield and perk_leaf_shield.active and not freeze_now:
+                    perk_leaf_shield.set_position(float(PLAYER.centerx), float(PLAYER.centery))
+                    perk_leaf_shield.update(1.0 / 60.0)
+                    # 보스가 친 공(아래로 내려오는 공)만 판정
+                    if ball_vel[1] > 0:
+                        if perk_leaf_shield.check_ball_collision(float(BALL.centerx), float(BALL.centery), float(BALL.width // 2)):
+                            if SOUND_LEAF:
+                                play_sound_with_volume(SOUND_LEAF)
+                            import math as _math_perk_laurel
+                            _pls_speed = _math_perk_laurel.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
+                            if _pls_speed > 0:
+                                _pls_boost = random.uniform(1.2, 1.5)
+                                _pls_new_speed = _pls_speed * _pls_boost
+                                _pls_base_angle = -_math_perk_laurel.pi / 2
+                                _pls_angle_var = random.uniform(-_math_perk_laurel.pi / 3, _math_perk_laurel.pi / 3)
+                                _pls_final_angle = _pls_base_angle + _pls_angle_var
+                                ball_vel[0] = _pls_new_speed * _math_perk_laurel.cos(_pls_final_angle)
+                                ball_vel[1] = _pls_new_speed * _math_perk_laurel.sin(_pls_final_angle)
+
                 # 프레임 입력 스냅샷(게임 로직 진입 직전 한 번 계산)
                 try:
                     pygame.event.pump()
