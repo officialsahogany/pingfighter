@@ -98037,6 +98037,10 @@ def draw_objects():
     except:
         pass
 
+    # 퍽 월계수잎 효과 그리기 (legendary_manager와 독립적으로 동작)
+    if not arena_mode_enabled and perk_leaf_shield and perk_leaf_shield.active:
+        perk_leaf_shield.draw(SCREEN)
+
     # 🏟️ 투기장 영웅 스킬 이펙트 그리기
     if arena_mode_enabled and arena_skill_manager:
         try:
