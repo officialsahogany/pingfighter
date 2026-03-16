@@ -11170,6 +11170,7 @@ starpoint_for_skills = 0   # Accumulated starpoints for skill selection (0~2)
 pending_skill_choices = 0  # Pending skill choice count
 runtime_skill_choice_pending = False  # Skill selection pending flag
 perk_leaf_shield = None  # 퍽 월계수잎 시스템 (ArenaLeafShield 인스턴스)
+sacred_laurel_perk_bonus = 0  # 신성 월계수 장착 시 퍽 레벨 보너스
 
 # 초월자의 관 스킬 보너스 (전설 아이템)
 transcendent_crown_skill_bonus = 0  # 모든 투자된 스킬 레벨 +1~+3
@@ -12932,7 +12933,7 @@ def reset_runtime_skill_system():
     global optimus_arm_available
     global runtime_accessory_slot_bonus, runtime_swiftness_bonus
     global transcendent_crown_skill_bonus
-    global perk_leaf_shield
+    global perk_leaf_shield, sacred_laurel_perk_bonus
 
     runtime_skill_levels = {}
     starpoint_for_skills = 0
@@ -12946,11 +12947,25 @@ def reset_runtime_skill_system():
     if perk_leaf_shield:
         perk_leaf_shield.deactivate()
     perk_leaf_shield = None
+    sacred_laurel_perk_bonus = 0
 
     # 스매셔 스킬 해금 상태 초기화 (드라이브, 파워스매싱만 기본 해금)
     reset_smasher_skill_unlocks()
 
     # print("[RuntimeSkill] 런타임 스킬 시스템 초기화")  # 디버그 비활성화
+
+
+def refresh_perk_leaf_shield():
+    """퍽 월계수잎 ArenaLeafShield를 퍽 레벨 + 신성월계수 보너스로 갱신"""
+    global perk_leaf_shield
+    total_leaves = runtime_skill_levels.get("perk_laurel_shield", 0) + sacred_laurel_perk_bonus
+    if total_leaves > 0:
+        from downtown.colosseum_arena import ArenaLeafShield
+        if perk_leaf_shield is None:
+            perk_leaf_shield = ArenaLeafShield(is_top=False)
+        perk_leaf_shield.activate(total_leaves)
+    elif perk_leaf_shield:
+        perk_leaf_shield.deactivate()
 
 
 def on_starpoint_collected(amount: int = 1):
@@ -13727,14 +13742,9 @@ def apply_runtime_skill_effect(choice_id: str) -> bool:
         new_level = runtime_skill_levels.get("common_bulk_up", 0)
         # print(f"[RuntimeSkill] 벌크업 Lv.{new_level} - 패들 크기 +{new_level * 10}%")  # 디버그 비활성화
 
-    # 퍽 월계수잎: ArenaLeafShield 생성/업데이트
+    # 퍽 월계수잎: ArenaLeafShield 생성/업데이트 (신성월계수 보너스 포함)
     if choice_id == "perk_laurel_shield":
-        global perk_leaf_shield
-        new_level = runtime_skill_levels.get("perk_laurel_shield", 0)
-        from downtown.colosseum_arena import ArenaLeafShield
-        if perk_leaf_shield is None:
-            perk_leaf_shield = ArenaLeafShield(is_top=False)
-        perk_leaf_shield.activate(new_level)  # 레벨 = 잎 개수
+        refresh_perk_leaf_shield()
 
     # 탄창개조: 권총 최대 탄환 증가 즉시 적용
     if choice_id == "soldier_magazine_mod":
@@ -13814,17 +13824,9 @@ def recalculate_skill_effects(skill_id: str):
         level = runtime_skill_levels.get("unlock_cleanse", 0)
         _smasher_skill_unlocked["cleanse"] = level >= 1
 
-    # 퍽 월계수잎: 잎 개수 재계산
+    # 퍽 월계수잎: 잎 개수 재계산 (신성월계수 보너스 포함)
     elif skill_id == "perk_laurel_shield":
-        global perk_leaf_shield
-        new_level = runtime_skill_levels.get("perk_laurel_shield", 0)
-        if new_level > 0:
-            from downtown.colosseum_arena import ArenaLeafShield
-            if perk_leaf_shield is None:
-                perk_leaf_shield = ArenaLeafShield(is_top=False)
-            perk_leaf_shield.activate(new_level)
-        elif perk_leaf_shield:
-            perk_leaf_shield.deactivate()
+        refresh_perk_leaf_shield()
 
     # 기타 스킬들은 별도 재계산 불필요 (get_runtime_skill_bonus에서 실시간 조회)
 
@@ -25846,15 +25848,17 @@ def sync_equipped_passive_effects():
                         hammer = legendary_manager.get_item("ragnarok_hammer")
                         if hammer:
                             hammer.enhancement_bonus_pct = hammer_item.get("enhancement_bonus_pct", 0)
-                # 신성 월계수: 강화 보너스 동기화 + 잎 개수 갱신
+                # 신성 월계수: 강화 보너스 동기화 + 퍽 레벨 보너스로 잎 추가
                 if legend_name == "sacred_laurel":
                     laurel_item = next((item for item in equipped_items if item.get("name") == "sacred_laurel"), None)
                     if laurel_item:
                         laurel = legendary_manager.get_item("sacred_laurel")
                         if laurel:
                             laurel.enhancement_bonus_pct = laurel_item.get("enhancement_bonus_pct", 0)
-                            # 강화 보너스 적용 후 잎 개수 갱신 (이미 활성화된 경우)
-                            laurel.refresh_leaves()
+                            # 신성월계수의 잎 개수를 퍽 보너스로 적용
+                            global sacred_laurel_perk_bonus
+                            sacred_laurel_perk_bonus = laurel.max_leaves
+                            refresh_perk_leaf_shield()
                 # 천사의 가호: 강화 보너스 동기화
                 if legend_name == "angel_blessing":
                     blessing_item = next((item for item in equipped_items if item.get("name") == "angel_blessing"), None)
@@ -25893,6 +25897,10 @@ def sync_equipped_passive_effects():
                     laurel = legendary_manager.get_item("sacred_laurel")
                     if laurel:
                         laurel.enhancement_bonus_pct = 0
+                    # 퍽 보너스 제거
+                    global sacred_laurel_perk_bonus
+                    sacred_laurel_perk_bonus = 0
+                    refresh_perk_leaf_shield()
                 elif legend_name == "angel_blessing":
                     blessing = legendary_manager.get_item("angel_blessing")
                     if blessing:
@@ -98008,10 +98016,7 @@ def draw_objects():
             trident = legendary_manager.get_item("poseidon_trident")
             if trident and trident.active:
                 trident.draw_effects(SCREEN)
-            # 신성 월계수 효과 그리기
-            laurel = legendary_manager.get_item("sacred_laurel")
-            if laurel and laurel.active:
-                laurel.draw_effects(SCREEN)
+            # 신성 월계수: 독립 렌더링 제거됨 - 퍽 월계수잎 시스템으로 통합됨
             # 👁 오딘의 눈 어둠의 기운 효과 그리기
             odins_eye = legendary_manager.get_item("odins_eye")
             if odins_eye and odins_eye.active and odins_eye.dark_energy_active:
@@ -149681,88 +149686,7 @@ def main(stage_num, new_boss_mode=False):
                                 BOSS.x, BOSS.y, BOSS.width, BOSS.height
                             )
                         
-                        # 신성 월계수 업데이트 (플레이어 위치 기반)
-                        laurel = legendary_manager.get_item("sacred_laurel")
-                        if laurel and laurel.active:
-                            laurel.set_player_position(PLAYER.centerx, PLAYER.centery)
-                            laurel.update(0.016)  # 60fps 기준 0.016초
-                            
-                            # 공과 월계수 잎 충돌 체크 (보스가 친 공만 - 아래로 내려오는 공)
-                            # ball_vel[1] > 0 이면 아래로 내려오는 공 (보스가 친 공)
-                            if ball_vel[1] > 0:  # 플레이어가 발사한 공(위로 올라가는)은 무시
-                                ball_cx = BALL.centerx
-                                ball_cy = BALL.centery
-                                ball_radius = BALL.width // 2
-                                if laurel.check_ball_collision(ball_cx, ball_cy, ball_radius):
-                                    # 월계수 잎 충돌 사운드 재생
-                                    if SOUND_LEAF:
-                                        play_sound_with_volume(SOUND_LEAF)
-                                    # 잎이 공에 맞아 제거됨 - 가속 + 괴상한 방향으로 반사
-                                    import math as _math_laurel
-                                    import random as _random_laurel
-                                    _laurel_ball_speed = _math_laurel.sqrt(ball_vel[0]**2 + ball_vel[1]**2)
-                                    if _laurel_ball_speed > 0:
-                                        # 가속 (1.2~1.5배)
-                                        speed_boost = _random_laurel.uniform(1.2, 1.5)
-                                        new_speed = _laurel_ball_speed * speed_boost
-                                        # 괴상한 랜덤 각도 (-60도 ~ 60도 범위, 위쪽 방향 기준)
-                                        # -90도가 완전 위쪽, 여기서 ±60도 범위로 랜덤
-                                        base_angle = -_math_laurel.pi / 2  # -90도 (위쪽)
-                                        angle_variation = _random_laurel.uniform(-_math_laurel.pi / 3, _math_laurel.pi / 3)  # ±60도
-                                        final_angle = base_angle + angle_variation
-                                        ball_vel[0] = new_speed * _math_laurel.cos(final_angle)
-                                        ball_vel[1] = new_speed * _math_laurel.sin(final_angle)
-
-                                        # 월계수 잎 충돌 시 플레이어 게이지 획득량만큼 게이지 획득
-                                        try:
-                                            _laurel_base_gain = 60  # 스매셔/기타 기본 게이지 획득량 60
-                                            # 캐릭터별 게이지 획득량 적용
-                                            if selected_character_type == "optimus":
-                                                _laurel_base_gain = 0  # 옵티머스는 게이지 획득 불가
-                                            elif selected_character_type == "soldier":
-                                                _laurel_base_gain = 50
-                                                if _is_soldier_non_pistol_selected():
-                                                    _laurel_base_gain = 25
-                                            elif selected_character_type == "blacksmith":
-                                                if blacksmith_umbrella_open:
-                                                    _laurel_base_gain = get_blacksmith_umbrella_gauge_gain()
-                                                else:
-                                                    _laurel_base_gain = 30
-
-                                            # 스킬 게이지 부스트 적용
-                                            _laurel_skill_boost = skill.apply_gauge_boost(0) if 'skill' in dir() else 0
-                                            _laurel_total_gain = _laurel_base_gain + _laurel_skill_boost
-
-                                            # 블루투스링 게이지 충전량 증가 적용
-                                            if is_bluetooth_ring_active():
-                                                _bt_bonus = bluetooth_ring_gain_pct
-                                                _laurel_total_gain = int(_laurel_total_gain * (1 + _bt_bonus / 100.0))
-
-                                            # 악마의 주사위 패들 게이지 충전량 배율 적용
-                                            from item_effects.devil_dice import get_devil_dice_multipliers, is_devil_dice_active
-                                            if is_devil_dice_active():
-                                                _dice_multipliers = get_devil_dice_multipliers()
-                                                _paddle_charge_mult = _dice_multipliers.get('paddle_gauge_charge', 1.0)
-                                                _laurel_total_gain = int(_laurel_total_gain * _paddle_charge_mult)
-
-                                            # 버서크 포션 보너스 적용
-                                            _laurel_total_gain = _apply_blacksmith_berserk_gauge_bonus(_laurel_total_gain)
-
-                                            # ⛏️ 골드디거 게이지 충전량 증가 적용
-                                            if is_gold_digger_equipped():
-                                                _laurel_total_gain = apply_gold_digger_gauge_bonus(_laurel_total_gain)
-
-                                            # 게이지 적용
-                                            if _laurel_total_gain > 0 and selected_character_type != "optimus":
-                                                special_gauge += _laurel_total_gain
-                                                _current_max = get_max_gauge()
-                                                if special_gauge > _current_max:
-                                                    special_gauge = _current_max
-                                                if special_gauge >= 350:
-                                                    special_ready = True
-                                                # print(f"🌿 월계수 잎 충돌! 게이지 +{_laurel_total_gain} (현재: {special_gauge})")
-                                        except Exception as _laurel_gauge_err:
-                                            print(f"[WARNING] 월계수 게이지 획득 오류: {_laurel_gauge_err}")
+                        # 신성 월계수: 독립 업데이트 제거됨 - 퍽 월계수잎 시스템으로 통합됨
                 except Exception as e:
                     print(f"[ERROR] LegendaryManager update failed: {e}")
                     import traceback
