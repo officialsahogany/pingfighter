@@ -129899,20 +129899,21 @@ def reset_round(is_stage_start=False):
         spider_rage_triggered = True
         show_speech("용서 못 해...!", duration=90)
 
-    # Stage 2 두더지왕: 라운드 전환 시 기존 두더지 정리 + 비활성화 (해당 라운드만)
+    # Stage 2 두더지왕: 라운드 전환 시 기존 두더지 정리 (발동 후에는 매 라운드 재활성화)
     if current_stage == 2 and current_boss_name == "두더지왕":
         friend_moles_list.clear()
         friend_moles_dirt_particles.clear()
         friend_moles_active = False
 
-    # Stage 2 두더지왕 친구두더지 이벤트 시작 (4점 달성 후 다음 라운드)
-    if current_stage == 2 and current_boss_name == "두더지왕" and friend_moles_pending:
-        friend_moles_pending = False
+    # Stage 2 두더지왕 친구두더지 이벤트 시작 (4점 달성 후 스테이지 끝까지 매 라운드 활성화)
+    if current_stage == 2 and current_boss_name == "두더지왕" and (friend_moles_pending or friend_moles_triggered):
+        if friend_moles_pending:
+            show_speech("친구들! 도와줘!", duration=90)
+            friend_moles_pending = False
+            friend_moles_triggered = True
         friend_moles_active = True
         friend_moles_timer = 0
         friend_moles_spawn_timer = 0
-        friend_moles_triggered = True
-        show_speech("친구들! 도와줘!", duration=90)
 
     # 공 리셋
     ball_vel = [0, 0]
