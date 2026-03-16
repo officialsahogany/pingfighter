@@ -89,6 +89,18 @@ class SpiderBossSprite:
         # 랜덤 시드 (체모/강모 흔들림)
         self._hair_seeds = [random.uniform(0, 10) for _ in range(50)]
 
+        # 독액 파티클 시스템 (히트 시 독아 주변에서 분사)
+        self._venom_particles = []  # [(x, y, vx, vy, life, max_life, size)]
+
+        # 체모 관성 (이동 방향에 따른 지연 효과)
+        self._hair_inertia = 0.0  # -1.0 ~ 1.0, direction 기반 관성값
+
+        # Dirty Flag 캐싱
+        self._cached_frame = None
+        self._cached_size = (0, 0)
+        self._cache_dirty = True
+        self._idle_frame_count = 0  # 정지 상태 프레임 카운터
+
     # ===================================================================
     #  업데이트
     # ===================================================================
@@ -119,7 +131,9 @@ class SpiderBossSprite:
 
         if self.direction != 0:
             sp = min(self.velocity / 80.0, 2.0)
-            self.step_phase += dt * 5.5 * max(sp, 0.5)
+            # 비선형 가속: 저속은 느릿느릿, 고속은 폭발적 (거미 특유의 툭툭 끊기는 보행)
+            acceleration_curve = math.pow(sp, 1.2)
+            self.step_phase += dt * 6.0 * max(acceleration_curve, 0.4)
             self.body_bob = _sin(self.step_phase * _TAU * 0.5) * 0.025 * sp
             # 좌우 흔들림 (다리 짚음에 맞춰 약간 더 크게)
             self.body_sway = _sin(self.step_phase * _TAU * 0.25) * 0.020 * sp
@@ -145,6 +159,29 @@ class SpiderBossSprite:
             else:
                 self._leg_twitch[i] *= 0.88
 
+        # 체모 관성 업데이트 (이동 방향에 부드럽게 추종)
+        target_inertia = self.direction * min(self.velocity / 100.0, 1.0)
+        self._hair_inertia += (target_inertia - self._hair_inertia) * 0.08
+        self._hair_inertia *= 0.95  # 감쇠
+
+        # 독액 파티클 업데이트
+        alive = []
+        for px, py, vx, vy, life, max_life, size in self._venom_particles:
+            life -= dt
+            if life > 0:
+                px += vx * dt
+                py += vy * dt
+                vy += 120.0 * dt  # 중력
+                alive.append((px, py, vx, vy, life, max_life, size))
+        self._venom_particles = alive
+
+        # Dirty Flag: 정지+비히트 상태에서 캐시 카운터 증가
+        if self.direction == 0 and not self.is_hit and len(self._venom_particles) == 0:
+            self._idle_frame_count += 1
+        else:
+            self._idle_frame_count = 0
+            self._cache_dirty = True
+
         self.prev_x = current_x
 
     def trigger_hit(self, ball_x, boss_x):
@@ -152,6 +189,18 @@ class SpiderBossSprite:
         self.hit_timer = 0.0
         self.hit_intensity = 1.0
         self.hit_direction = 1 if ball_x > boss_x else -1
+        # 독액 파티클 분사 (독아 부근에서 6~10개)
+        for _ in range(random.randint(6, 10)):
+            angle = random.uniform(-0.8, 0.8) + _pi * 0.5  # 아래쪽으로
+            speed = random.uniform(40, 120)
+            self._venom_particles.append((
+                0.0, 0.0,                       # x, y (렌더링 시 독아 기준으로 오프셋)
+                _cos(angle) * speed + self.hit_direction * 30,
+                _sin(angle) * speed,
+                random.uniform(0.25, 0.55),     # life
+                0.55,                            # max_life
+                random.uniform(1.2, 2.8),        # size
+            ))
 
     # ===================================================================
     #  프레임 생성
@@ -160,8 +209,22 @@ class SpiderBossSprite:
     def get_current_frame(self, scale_size=None):
         w, h = scale_size or (160, 160)
         w, h = max(20, int(w)), max(20, int(h))
+
+        # Dirty Flag 캐싱: 정지+비히트+파티클 없음 → 4프레임마다만 갱신
+        if (not self._cache_dirty
+                and self._cached_frame is not None
+                and self._cached_size == (w, h)
+                and self._idle_frame_count > 4):
+            return self._cached_frame
+
         surface = pygame.Surface((w, h), pygame.SRCALPHA)
         self._draw_character(surface, w, h)
+
+        # 캐시 저장
+        self._cached_frame = surface
+        self._cached_size = (w, h)
+        self._cache_dirty = False
+
         return surface
 
     def draw(self, surface, x, y, width=None, height=None, center=True):
@@ -185,7 +248,7 @@ class SpiderBossSprite:
         bcx = int(w * 0.50 + sway)
         bcy = int(h * 0.36 + bob)
 
-        # 레이어: 뒷다리 → 복부 → 페디셀 → 두흉부 → 앞다리 → 눈/독아/더듬이 → 체모
+        # 레이어: 뒷다리 → 복부 → 페디셀 → 두흉부 → 앞다리 → 눈/독아/더듬이 → 체모 → 독액
         self._draw_legs(surface, bcx, bcy, w, h, p, back=True)
         self._draw_abdomen(surface, bcx, bcy, w, h, p)
         self._draw_pedicel(surface, bcx, bcy, w, h, p)
@@ -195,6 +258,7 @@ class SpiderBossSprite:
         self._draw_chelicerae(surface, bcx, bcy, w, h, p)
         self._draw_pedipalps(surface, bcx, bcy, w, h, p)
         self._draw_body_hair(surface, bcx, bcy, w, h, p)
+        self._draw_venom_particles(surface, bcx, bcy, w, h)
 
     def _get_palette(self, flash=0.0):
         def _f(base):
@@ -496,6 +560,10 @@ class SpiderBossSprite:
         hip_dx, hip_dy, knee_dx, knee_dy, foot_dx, foot_dy = tmpl
         twitch = self._leg_twitch[leg_idx]
 
+        # 히트 시 다리 경련 (Spasm) — 모든 다리에 무작위 떨림 추가
+        if self.is_hit:
+            twitch += random.uniform(-0.05, 0.05) * self.hit_intensity
+
         # 기본 좌표
         hip_x = bcx + side * int(hip_dx * w)
         hip_y = int(bcy + hip_dy * h)
@@ -544,6 +612,10 @@ class SpiderBossSprite:
                 foot_x -= int(self.direction * t_smooth * w * 0.030 * sp)
                 knee_x += int(self.direction * fwd * w * 0.018 * sp)
                 knee_x -= int(self.direction * t_smooth * w * 0.012 * sp)
+
+                # 지면 고정 (IK 흉내): 발끝 Y를 템플릿 기준 지면 높이에 고정
+                ground_y = int(bcy + foot_dy * h)
+                foot_y = ground_y
 
         # 대기 떨림
         if self.direction == 0:
@@ -645,6 +717,7 @@ class SpiderBossSprite:
         col = p["hair"]
         col_l = p["hair_l"]
 
+        inertia = self._hair_inertia
         # Femur 강모 3개
         for i, t in enumerate([0.25, 0.50, 0.75]):
             sx = int(_lerp(cx, kx, t))
@@ -652,6 +725,7 @@ class SpiderBossSprite:
             si = leg_idx * 5 + i
             seed = self._hair_seeds[si % len(self._hair_seeds)]
             ang = _sin(self.time * 2.2 + seed) * 0.12 + side * 0.75
+            ang -= inertia * 0.20  # 관성에 의한 방향 쏠림
             ln = sl * (0.8 + 0.3 * _sin(seed * 3))
             ex = sx + int(_sin(ang) * ln) * side
             ey = sy - int(abs(_cos(ang)) * ln * 0.6)
@@ -665,6 +739,7 @@ class SpiderBossSprite:
             si = leg_idx * 5 + 3 + i
             seed = self._hair_seeds[si % len(self._hair_seeds)]
             ang = _sin(self.time * 1.9 + seed) * 0.10 + side * 0.65
+            ang -= inertia * 0.18  # 관성에 의한 방향 쏠림
             ln = sl * 0.7
             ex = sx + int(_sin(ang) * ln) * side
             ey = sy - int(abs(_cos(ang)) * ln * 0.5)
@@ -700,15 +775,43 @@ class SpiderBossSprite:
             (bcx + int(w * 0.13), acy - int(h * 0.03), 0.022, -0.18),
         ]
 
+        inertia = self._hair_inertia
         for i, (hx, hy, lr, ang) in enumerate(positions):
             si = i + 25
             seed = self._hair_seeds[si % len(self._hair_seeds)]
             hl = int(lr * w)
             wave = _sin(self.time * 2.5 + seed) * 0.08
+            # 관성: 이동 반대 방향으로 체모가 쏠리는 효과
+            inertia_offset = -inertia * 0.25 * (0.8 + 0.4 * _sin(seed))
             col = p["hair"] if i % 2 == 0 else p["hair_l"]
-            ex = hx + int(_sin(ang + wave) * hl)
+            ex = hx + int(_sin(ang + wave + inertia_offset) * hl)
             ey = hy + int(_cos(ang) * hl)
             pygame.draw.line(surface, col, (hx, hy), (ex, ey), 1)
+
+    # ===================================================================
+    #  독액 파티클 렌더링
+    # ===================================================================
+
+    def _draw_venom_particles(self, surface, bcx, bcy, w, h):
+        if not self._venom_particles:
+            return
+        # 독아 기준점 (chelicerae 하단 부근)
+        fang_base_y = int(bcy - h * 0.04) + int(h * 0.078)
+        for px, py, vx, vy, life, max_life, size in self._venom_particles:
+            alpha = max(0, min(255, int(255 * (life / max_life))))
+            r = max(1, int(size * w * 0.006))
+            sx = int(bcx + px * w * 0.01)
+            sy = int(fang_base_y + py * h * 0.01)
+            if 0 <= sx < w and 0 <= sy < h:
+                # 독액: 연두~초록 반투명 방울
+                venom_col = (80, 200, 50, alpha)
+                ps = pygame.Surface((r * 2 + 2, r * 2 + 2), pygame.SRCALPHA)
+                pygame.draw.circle(ps, venom_col, (r + 1, r + 1), r)
+                # 광택 핀포인트
+                if r > 1:
+                    pygame.draw.circle(ps, (180, 255, 140, alpha // 2),
+                                      (r, r), max(1, r // 2))
+                surface.blit(ps, (sx - r - 1, sy - r - 1))
 
 
 # ===================================================================
@@ -748,3 +851,8 @@ def reset_spider_boss_sprite():
         _spider_instance.step_phase = 0.0
         _spider_instance.body_bob = 0.0
         _spider_instance.body_sway = 0.0
+        _spider_instance._venom_particles = []
+        _spider_instance._hair_inertia = 0.0
+        _spider_instance._cached_frame = None
+        _spider_instance._cache_dirty = True
+        _spider_instance._idle_frame_count = 0
