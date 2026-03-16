@@ -132537,6 +132537,11 @@ def handle_ball():
     global web_trap_last_used
     # 포승줄 관련
     global arrest_rope_phase, arrest_rope_active, arrest_rope_timer
+    # 테디베어 스킬 관련
+    global cotton_throw_active, cotton_throw_windup_active, cotton_throw_cooldown_timer
+    global cotton_bomb_active, cotton_bomb_windup_active, cotton_bomb_cooldown_timer
+    global deadly_hug_active, deadly_hug_rush_active, deadly_hug_cooldown_timer
+    global button_eye_active, button_eye_cooldown_timer
 
     # --- Stage 8 그림자분신: 매 프레임 상태 업데이트 ---
     if current_stage == 8:
