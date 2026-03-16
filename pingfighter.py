@@ -124468,7 +124468,18 @@ def show_stage1_intro():
         pygame.time.delay(25)
 def show_stage2_intro():
     stage_text = "STAGE 2"
-    boss_name = "악어장군"
+    if current_boss_name == "두더지왕":
+        boss_name = "두더지왕"
+        stage_color = (180, 140, 100)       # 흙빛 톤
+        boss_color_video = (139, 90, 43)    # 두더지 모피색
+    elif current_boss_name == "아라크네":
+        boss_name = "아라크네"
+        stage_color = (160, 140, 180)       # 거미줄 보랏빛
+        boss_color_video = (80, 40, 25)     # 거미 체색
+    else:
+        boss_name = "악어장군"
+        stage_color = (240, 220, 180)
+        boss_color_video = (200, 110, 160)
 
     played_video = False
     if STAGE2_INTRO_VIDEO_PATH:
@@ -124476,8 +124487,8 @@ def show_stage2_intro():
             STAGE2_INTRO_VIDEO_PATH,
             stage_text=stage_text,
             boss_text=boss_name,
-            stage_color=(240, 220, 180),
-            boss_color=(200, 110, 160),
+            stage_color=stage_color,
+            boss_color=boss_color_video,
             post_hold_ms=0,
         )
 
@@ -124500,15 +124511,18 @@ def show_stage2_intro():
         SCREEN.blit(boss_img, (0, 0))
 
         fade_pulse = alpha / 255.0 * 20
-        red_component = min(255, 120 + int(fade_pulse * 1.5))
-        blue_component = max(80, 200 - int(fade_pulse))
-        boss_fade_color = (red_component, 100, blue_component)
-        ui_manager.draw_centered_text(stage_text, 56, -120, (240, 220, 180), "elegant")
+        bv_r, bv_g, bv_b = boss_color_video
+        boss_fade_color = (
+            min(255, bv_r + int(fade_pulse * 1.5)),
+            min(255, bv_g + int(fade_pulse)),
+            min(255, bv_b + int(fade_pulse)),
+        )
+        ui_manager.draw_centered_text(stage_text, 56, -120, stage_color, "elegant")
         ui_manager.draw_centered_text(boss_name, 42, -50, boss_fade_color, "glow")
 
         decoration_alpha = min(255, alpha + 50)
         if decoration_alpha > 0:
-            line_color = (180, 160, 120, decoration_alpha)
+            line_color = (stage_color[0] - 60, stage_color[1] - 60, stage_color[2] - 60, decoration_alpha)
             if decoration_alpha < 255:
                 line_surface = pygame.Surface((300, 3), pygame.SRCALPHA)
                 line_surface.fill(line_color)
@@ -124592,13 +124606,19 @@ def show_stage2_intro():
         SCREEN.blit(boss_img, (0, 0))
 
         pulse = abs(math.sin(frame_count * 0.03)) * 20
-        stage_color = (min(255, 240 + int(pulse)), min(255, 220 + int(pulse)), min(255, 180 + int(pulse)))
-        red_component = min(255, 120 + int(pulse * 1.5))
-        blue_component = max(80, 200 - int(pulse))
-        boss_color = (red_component, 100, blue_component)
+        stage_pulse_color = (
+            min(255, stage_color[0] + int(pulse)),
+            min(255, stage_color[1] + int(pulse)),
+            min(255, stage_color[2] + int(pulse)),
+        )
+        boss_pulse_color = (
+            min(255, boss_color_video[0] + int(pulse * 1.5)),
+            min(255, boss_color_video[1] + int(pulse)),
+            min(255, boss_color_video[2] + int(pulse)),
+        )
 
-        ui_manager.draw_centered_text(stage_text, 56, -120, stage_color, "elegant")
-        ui_manager.draw_centered_text(boss_name, 42, -50, boss_color, "glow")
+        ui_manager.draw_centered_text(stage_text, 56, -120, stage_pulse_color, "elegant")
+        ui_manager.draw_centered_text(boss_name, 42, -50, boss_pulse_color, "glow")
 
         line_intensity = 180 + int(pulse)
         line_color = (min(255, line_intensity), max(0, line_intensity - 20), max(0, line_intensity - 60))
