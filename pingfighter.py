@@ -16650,6 +16650,34 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
 
         # 레벨 숫자는 아이콘 내부에 표시하지 않음 (충격파 개수로 레벨 구분)
 
+    elif skill_id == "perk_laurel_shield":
+        # 월계수잎 - 두 잎이 V자로 벌어진 형태
+        leaf_green = (80, 180, 80)
+        leaf_light = (120, 220, 120)
+        leaf_dark = (50, 130, 50)
+        stem_color = (100, 80, 50)
+        # 중앙 줄기
+        pygame.draw.line(surface, stem_color, (icon_cx, icon_cy + int(8*scale)), (icon_cx, icon_cy - int(2*scale)), max(1, int(2*scale)))
+        # 잎 그리기 (타원 + 회전)
+        leaf_w, leaf_h = int(7*scale), int(12*scale)
+        leaf_w = max(2, leaf_w)
+        leaf_h = max(4, leaf_h)
+        leaf_surf = pygame.Surface((leaf_w * 2, leaf_h * 2), pygame.SRCALPHA)
+        pygame.draw.ellipse(leaf_surf, leaf_green, (0, 0, leaf_w * 2, leaf_h * 2))
+        pygame.draw.ellipse(leaf_surf, leaf_light, (int(2*scale), int(2*scale), max(1, leaf_w * 2 - int(4*scale)), max(1, leaf_h * 2 - int(6*scale))))
+        pygame.draw.line(leaf_surf, leaf_dark, (leaf_w, int(2*scale)), (leaf_w, leaf_h * 2 - int(2*scale)), 1)
+        # 왼쪽 잎
+        left_leaf = pygame.transform.rotate(leaf_surf, 25)
+        lr = left_leaf.get_rect(center=(icon_cx - int(5*scale), icon_cy - int(3*scale)))
+        surface.blit(left_leaf, lr)
+        # 오른쪽 잎
+        right_leaf = pygame.transform.rotate(leaf_surf, -25)
+        rr = right_leaf.get_rect(center=(icon_cx + int(5*scale), icon_cy - int(3*scale)))
+        surface.blit(right_leaf, rr)
+        # 하이라이트
+        pygame.draw.circle(surface, (200, 255, 200), (icon_cx - int(4*scale), icon_cy - int(5*scale)), max(1, int(1.5*scale)))
+        pygame.draw.circle(surface, (200, 255, 200), (icon_cx + int(4*scale), icon_cy - int(5*scale)), max(1, int(1.5*scale)))
+
     else:
         # 기본 아이콘: 스킬 이름 첫 글자
         symbol = skill.get("name", "?")[0] if skill.get("name") else "?"
