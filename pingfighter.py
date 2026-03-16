@@ -148915,7 +148915,7 @@ def main(stage_num, new_boss_mode=False):
                     traceback.print_exc()
                 
                 # 퍽 월계수잎 업데이트 + 충돌 체크 (투기장이 아닌 메인 게임 전용)
-                if not arena_mode_enabled and perk_leaf_shield and perk_leaf_shield.active and not freeze_now:
+                if not arena_mode_enabled and perk_leaf_shield and perk_leaf_shield.active and not (freeze_awaken or freeze_superspeed or freeze_spawn_anim):
                     perk_leaf_shield.set_position(float(PLAYER.centerx), float(PLAYER.centery))
                     perk_leaf_shield.update(1.0 / 60.0)
                     # 보스가 친 공(아래로 내려오는 공)만 판정
