@@ -25549,6 +25549,7 @@ def _set_flag_safe(obj, attr: str, value: bool):
 
 def sync_equipped_passive_effects():
     """장착 상태에 맞춰 패시브 효과 플래그/모듈을 동기화한다."""
+    global sacred_laurel_perk_bonus
     state = ensure_equipment_state()
     for key in list(state.keys()):
         state[key] = None
@@ -25856,7 +25857,6 @@ def sync_equipped_passive_effects():
                         if laurel:
                             laurel.enhancement_bonus_pct = laurel_item.get("enhancement_bonus_pct", 0)
                             # 신성월계수의 잎 개수를 퍽 보너스로 적용
-                            global sacred_laurel_perk_bonus
                             sacred_laurel_perk_bonus = laurel.max_leaves
                             refresh_perk_leaf_shield()
                 # 천사의 가호: 강화 보너스 동기화
@@ -25898,7 +25898,6 @@ def sync_equipped_passive_effects():
                     if laurel:
                         laurel.enhancement_bonus_pct = 0
                     # 퍽 보너스 제거
-                    global sacred_laurel_perk_bonus
                     sacred_laurel_perk_bonus = 0
                     refresh_perk_leaf_shield()
                 elif legend_name == "angel_blessing":
@@ -124375,20 +124374,230 @@ def complete_stage_intro_transition(hold_ms: int = INTRO_TRANSITION_HOLD_MS) -> 
         pass
 
 
-def show_stage1_intro():
-    stage_text = "STAGE 1"
-    if current_boss_name == "포도대장":
-        boss_name = "포도대장"
-        stage_color = (200, 180, 140)
-        boss_color_video = (100, 70, 40)
-    elif current_boss_name == "각시탈":
-        boss_name = "각시탈"
-        stage_color = (255, 200, 200)
-        boss_color_video = (200, 50, 50)
+def _get_stage_intro_config(stage_num):
+    """스테이지별 오프닝 줌 설정을 반환한다."""
+    configs = {
+        1: {
+            "defaults": {"boss": "풍악보이", "stage_color": (255, 220, 220), "boss_color": (220, 110, 200), "fallback": (50, 0, 0)},
+            "variants": {
+                "포도대장": {"stage_color": (200, 180, 140), "boss_color": (100, 70, 40)},
+                "각시탈": {"stage_color": (255, 200, 200), "boss_color": (200, 50, 50)},
+            },
+            "image": STAGE1_INTRO_IMAGE_PATH,
+        },
+        2: {
+            "defaults": {"boss": "악어장군", "stage_color": (240, 220, 180), "boss_color": (200, 110, 160), "fallback": (0, 0, 70)},
+            "variants": {
+                "두더지왕": {"stage_color": (180, 140, 100), "boss_color": (139, 90, 43)},
+                "아라크네": {"stage_color": (160, 140, 180), "boss_color": (80, 40, 25)},
+            },
+            "image": STAGE2_INTRO_IMAGE_PATH,
+        },
+        3: {
+            "defaults": {"boss": "멘헤라걸", "stage_color": (255, 180, 255), "boss_color": (200, 110, 210), "fallback": (200, 0, 200)},
+            "variants": {
+                "테디베어": {"stage_color": (210, 170, 130), "boss_color": (180, 130, 90)},
+            },
+            "image": STAGE3_INTRO_IMAGE_PATH,
+        },
+        4: {
+            "defaults": {"boss": "퐁크", "stage_color": (255, 240, 200), "boss_color": (220, 150, 120), "fallback": (180, 120, 80)},
+            "variants": {},
+            "image": STAGE4_INTRO_IMAGE_PATH,
+        },
+        5: {
+            "defaults": {"boss": "네메시스", "stage_color": (0, 255, 255), "boss_color": (150, 200, 255), "fallback": (20, 40, 60)},
+            "variants": {},
+            "image": STAGE5_INTRO_IMAGE_PATH,
+        },
+        6: {
+            "defaults": {"boss": "홍련", "stage_color": (255, 150, 100), "boss_color": (200, 80, 120), "fallback": (180, 40, 0)},
+            "variants": {},
+            "image": STAGE6_INTRO_IMAGE_PATH,
+        },
+        7: {
+            "defaults": {"boss": "테트리서", "stage_color": (120, 180, 255), "boss_color": (90, 210, 255), "fallback": (20, 30, 60)},
+            "variants": {},
+            "image": STAGE7_INTRO_IMAGE_PATH,
+        },
+        8: {
+            "defaults": {"boss": "아카무 리고", "stage_color": (90, 140, 200), "boss_color": (150, 220, 255), "fallback": (15, 20, 35)},
+            "variants": {},
+            "image": STAGE8_INTRO_IMAGE_PATH,
+        },
+    }
+    cfg = configs.get(stage_num, configs[1])
+    d = cfg["defaults"]
+
+    boss_name = current_boss_name if current_boss_name in cfg["variants"] else d["boss"]
+    if boss_name in cfg["variants"]:
+        v = cfg["variants"][boss_name]
+        stage_color = v["stage_color"]
+        boss_color = v["boss_color"]
     else:
-        boss_name = "풍악보이"
-        stage_color = (255, 220, 220)
-        boss_color_video = (220, 110, 200)
+        stage_color = d["stage_color"]
+        boss_color = d["boss_color"]
+
+    return {
+        "stage_text": f"STAGE {stage_num}",
+        "boss_name": boss_name,
+        "stage_color": stage_color,
+        "boss_color": boss_color,
+        "fallback_color": d["fallback"],
+        "image_path": cfg["image"],
+    }
+
+
+def show_stage_opening_zoom(stage_num):
+    """통합 오프닝 줌 — 배경이 작게 시작해 풀스크린으로 확대되며 보스명을 표시한다."""
+    cfg = _get_stage_intro_config(stage_num)
+    stage_text = cfg["stage_text"]
+    boss_name = cfg["boss_name"]
+    stage_color = cfg["stage_color"]
+    boss_color = cfg["boss_color"]
+
+    # 배경 이미지 로드
+    boss_img = pygame.Surface((WIDTH, HEIGHT))
+    boss_img.fill(cfg["fallback_color"])
+    if cfg["image_path"]:
+        try:
+            boss_img = pygame.image.load(cfg["image_path"]).convert()
+            boss_img = pygame.transform.scale(boss_img, (WIDTH, HEIGHT))
+        except Exception:
+            boss_img.fill(cfg["fallback_color"])
+
+    # === 줌 인 단계: 작은 중앙 → 풀스크린 (약 1.2초) ===
+    ZOOM_FRAMES = 40
+    START_SCALE = 0.3       # 시작 배율 (30%)
+    skipped_early = False
+
+    for i in range(ZOOM_FRAMES):
+        t = i / (ZOOM_FRAMES - 1)               # 0.0 → 1.0
+        ease = t * t * (3 - 2 * t)              # smoothstep 이징
+        scale = START_SCALE + (1.0 - START_SCALE) * ease
+        alpha = int(255 * min(1.0, t * 2.0))    # 전반부에서 빠르게 불투명
+
+        sw = int(WIDTH * scale)
+        sh = int(HEIGHT * scale)
+        scaled = pygame.transform.scale(boss_img, (sw, sh))
+        scaled.set_alpha(alpha)
+
+        SCREEN.fill(BLACK)
+        SCREEN.blit(scaled, ((WIDTH - sw) // 2, (HEIGHT - sh) // 2))
+
+        # 텍스트는 줌 50% 이상 진행 후 표시
+        if t > 0.5:
+            text_alpha = int(255 * ((t - 0.5) * 2.0))
+            txt_surf = pygame.Surface((WIDTH, HEIGHT), pygame.SRCALPHA)
+            ui_manager.draw_centered_text(stage_text, 56, -120, stage_color, "elegant", surface=txt_surf)
+            ui_manager.draw_centered_text(boss_name, 42, -50, boss_color, "glow", surface=txt_surf)
+            txt_surf.set_alpha(text_alpha)
+            SCREEN.blit(txt_surf, (0, 0))
+
+        pygame.display.flip()
+        pygame.time.delay(30)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit(); sys.exit()
+            if (event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE) or \
+               (event.type == pygame.MOUSEBUTTONDOWN):
+                skipped_early = True
+        if skipped_early:
+            break
+
+    # === 홀드 단계: 풀스크린 배경 + 텍스트 (자동 종료) ===
+    waiting = not skipped_early
+    frame_count = 0
+    wait_start = pygame.time.get_ticks()
+    while waiting:
+        frame_count += 1
+        SCREEN.fill(BLACK)
+        SCREEN.blit(boss_img, (0, 0))
+
+        pulse = abs(math.sin(frame_count * 0.04)) * 20
+        sc = (
+            min(255, stage_color[0] + int(pulse)),
+            min(255, stage_color[1] + int(pulse)),
+            min(255, stage_color[2] + int(pulse)),
+        )
+        bc = (
+            min(255, boss_color[0] + int(pulse * 1.2)),
+            min(255, boss_color[1] + int(pulse)),
+            min(255, boss_color[2] + int(pulse)),
+        )
+        ui_manager.draw_centered_text(stage_text, 56, -120, sc, "elegant")
+        ui_manager.draw_centered_text(boss_name, 42, -50, bc, "glow")
+
+        pygame.display.flip()
+        pygame.time.delay(16)
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit(); sys.exit()
+            if (event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE) or \
+               (event.type == pygame.MOUSEBUTTONDOWN):
+                waiting = False
+
+        if waiting and pygame.time.get_ticks() - wait_start >= INTRO_AUTO_EXIT_MS:
+            waiting = False
+
+    # === 페이드 아웃 ===
+    for alpha in range(255, -1, -10):
+        boss_img.set_alpha(alpha)
+        SCREEN.fill(BLACK)
+        SCREEN.blit(boss_img, (0, 0))
+        pygame.display.flip()
+        pygame.time.delay(20)
+
+    # 잔류 입력 정리
+    pygame.event.pump()
+    pygame.event.clear([pygame.KEYDOWN, pygame.KEYUP, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP])
+
+
+# === 하위 호환 래퍼 (기존 호출부 유지) ===
+def show_stage1_intro():
+    show_stage_opening_zoom(1)
+
+
+def show_stage2_intro():
+    show_stage_opening_zoom(2)
+
+
+def show_stage3_intro():
+    show_stage_opening_zoom(3)
+
+
+def show_stage4_intro():
+    show_stage_opening_zoom(4)
+
+
+def show_stage5_intro():
+    show_stage_opening_zoom(5)
+
+
+def show_stage6_intro():
+    show_stage_opening_zoom(6)
+
+
+def show_stage7_intro():
+    show_stage_opening_zoom(7)
+
+
+def show_stage8_intro():
+    show_stage_opening_zoom(8)
+
+
+# --- 아래는 제거된 기존 코드의 시작점 (참조용 주석) ---
+# 기존 show_stage1_intro ~ show_stage8_intro 개별 함수들은
+# show_stage_opening_zoom()으로 통합되었음
+def _legacy_show_stage1_intro():
+    """Legacy — 더 이상 사용하지 않음. show_stage_opening_zoom(1)로 대체됨."""
+    pass
+
+
+def _show_stage1_intro_removed():
+    pass
 
     played_video = False
     if STAGE1_INTRO_VIDEO_PATH:
