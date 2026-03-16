@@ -7436,7 +7436,7 @@ def invalidate_scale_cache():
 _pillar_bg_cache = None           # 캐시 서피스 (REAL_SCREEN 크기, .convert())
 _pillar_bg_cache_size = None      # (w, h) 크기 검증용
 _pillar_bg_cache_dirty = True     # 다음 기회에 재렌더링 필요
-_pillar_bg_render_interval = 4    # N프레임마다 필러 배경 재렌더링 (4 = 75% 스킵, 필러는 거의 안 변함)
+_pillar_bg_render_interval = 2    # N프레임마다 필러 배경 재렌더링 (2 = 30FPS, 부드러움과 성능 균형)
 _pillar_bg_frame_counter = 0      # 프레임 카운터
 _pillar_bg_cache_stage = -1       # 캐시된 스테이지 번호 (변경 감지용)
 
@@ -17754,6 +17754,21 @@ def _swap_boss_in_current_stage():
     cotton_fog_active = False
     cotton_fog_timer = 0
     cotton_fog_zones.clear()
+    # 테디베어 새 스킬 초기화
+    cotton_bomb_active = False
+    cotton_bomb_projectiles.clear()
+    cotton_bomb_windup_active = False
+    cotton_bomb_windup_timer = 0
+    cotton_bomb_cooldown_timer = 0
+    cotton_bomb_slow_timer = 0
+    cotton_bomb_fragments.clear()
+    deadly_hug_active = False
+    deadly_hug_rush_active = False
+    deadly_hug_timer = 0
+    deadly_hug_cooldown_timer = 0
+    button_eye_active = False
+    button_eye_timer = 0
+    button_eye_cooldown_timer = 0
     patrol_guards_active = False
     patrol_guards_timer = 0
     patrol_guards = []
@@ -46921,6 +46936,49 @@ COTTON_FOG_DURATION = 180
 cotton_fog_zones = []
 cotton_fog_fade_start = 60
 
+# === 테디베어 솜뭉치 폭탄 스킬 (Cotton Bomb) - Stage 3 ===
+cotton_bomb_active = False
+cotton_bomb_projectiles = []        # 필드에 배치된 솜뭉치 폭탄 목록
+cotton_bomb_windup_active = False
+cotton_bomb_windup_timer = 0
+cotton_bomb_cooldown_timer = 0
+COTTON_BOMB_COOLDOWN = 720          # 12초 쿨다운
+COTTON_BOMB_COUNT_MIN = 3
+COTTON_BOMB_COUNT_MAX = 5
+COTTON_BOMB_LIFETIME = 480          # 8초간 필드에 잔존
+COTTON_BOMB_HIT_RADIUS = 24         # 충돌 판정 반경
+COTTON_BOMB_BALL_SLOW = 0.5         # 공 속도 50% 감소
+COTTON_BOMB_PLAYER_SLOW_DURATION = 120  # 플레이어 둔화 2초
+# 솜뭉치 폭탄 파편 (광폭화 시)
+cotton_bomb_fragments = []
+COTTON_BOMB_FRAGMENT_COUNT = 4      # 폭발 시 파편 수
+COTTON_BOMB_FRAGMENT_SPEED = 3.0
+COTTON_BOMB_FRAGMENT_LIFETIME = 90  # 1.5초
+# 플레이어 둔화 효과
+cotton_bomb_slow_timer = 0          # 남은 둔화 프레임
+COTTON_BOMB_SLOW_MULTIPLIER = 0.5   # 이동속도 50%로 감소
+
+# === 테디베어 죽음의 포옹 스킬 (Deadly Hug) - Stage 3 ===
+deadly_hug_active = False
+deadly_hug_timer = 0
+deadly_hug_cooldown_timer = 0
+DEADLY_HUG_COOLDOWN = 900           # 15초 쿨다운
+DEADLY_HUG_DURATION = 300           # 5초 지속
+DEADLY_HUG_RUSH_SPEED = 6.0        # 돌진 속도
+DEADLY_HUG_ZONE_WIDTH = 200         # 영역 너비 (좌우 100px씩 축소)
+deadly_hug_zone_y = 500.0           # 영역 중심 Y
+deadly_hug_rush_active = False      # 돌진 진행 중
+deadly_hug_rush_y = 0.0             # 돌진 중 현재 Y
+
+# === 테디베어 단추 눈의 저주 스킬 (Button Eye Curse) - Stage 3 ===
+button_eye_active = False
+button_eye_timer = 0
+button_eye_cooldown_timer = 0
+BUTTON_EYE_COOLDOWN = 600           # 10초 쿨다운
+BUTTON_EYE_DURATION = 240           # 4초 지속
+button_eye_noise_seed = 0           # 노이즈 시드 (렌더링용)
+button_eye_laser_y = 0.0            # 레이저 시작 Y
+
 # 각시탈 부채바람 스킬 (소용돌이)
 fan_wind_active = False
 fan_wind_timer = 0
@@ -53682,6 +53740,22 @@ def go_to_next_round():
     cotton_fog_active = False
     cotton_fog_timer = 0
     cotton_fog_zones = []
+    # 테디베어 새 스킬 초기화 (라운드 전환)
+    global cotton_bomb_active, cotton_bomb_projectiles, cotton_bomb_windup_active
+    global cotton_bomb_windup_timer, cotton_bomb_slow_timer, cotton_bomb_fragments
+    global deadly_hug_active, deadly_hug_rush_active, deadly_hug_timer
+    global button_eye_active, button_eye_timer
+    cotton_bomb_active = False
+    cotton_bomb_projectiles = []
+    cotton_bomb_windup_active = False
+    cotton_bomb_windup_timer = 0
+    cotton_bomb_slow_timer = 0
+    cotton_bomb_fragments = []
+    deadly_hug_active = False
+    deadly_hug_rush_active = False
+    deadly_hug_timer = 0
+    button_eye_active = False
+    button_eye_timer = 0
     if BOSS and hasattr(BOSS, 'whip_sound') and BOSS.whip_sound:
         BOSS.whip_sound.stop()  #  보스 상모돌리기 사운드 중지
     # 정글지진 사운드 정지 (라운드 전환 시 사운드 버그 수정)
@@ -66235,6 +66309,10 @@ def handle_player(keys):
         # 🔧 버그 수정: 대시 시작 시 키 릴리즈 플래그 리셋
         # 연속 대시를 막기 위해 키를 뗐다 다시 눌러야 다음 대시가 가능
         dash_key_released_since_last = False
+        # 죽음의 포옹 영역 내 대쉬 차단
+        if is_deadly_hug_dash_blocked():
+            show_speech("대쉬 봉쇄!", duration=30)
+            return 0
         charges = get_roll("rolling_charges")
         if charges <= 0:
             return 0
@@ -76726,6 +76804,520 @@ def draw_cotton_throw_effect(screen):
                     c = (255, 255, 255, la)
                 pygame.draw.circle(fog_s, c, (fc, fc), lr)
             screen.blit(fog_s, (int(zone["x"]) - fc, int(zone["y"]) - fc))
+
+
+# =====================================================================
+# === 테디베어 솜뭉치 폭탄 (Cotton Bomb) - Stage 3 ===
+# =====================================================================
+def activate_cotton_bomb():
+    """솜뭉치 폭탄 발동 — 0.5초 준비 후 3~5개 솜뭉치를 필드에 배치"""
+    global cotton_bomb_windup_active, cotton_bomb_windup_timer
+    cotton_bomb_windup_active = True
+    cotton_bomb_windup_timer = 30  # 0.5초 선딜
+
+
+def _launch_cotton_bombs():
+    """준비 완료 후 솜뭉치 폭탄을 필드에 배치"""
+    global cotton_bomb_active, cotton_bomb_projectiles
+    cotton_bomb_active = True
+    count = random.randint(COTTON_BOMB_COUNT_MIN, COTTON_BOMB_COUNT_MAX)
+    for _ in range(count):
+        # 게임 영역 내 무작위 위치에 배치 (중립 지대 ~ 플레이어 진영)
+        bx = random.uniform(GAME_AREA_OFFSET_X + 40, GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH - 40)
+        by = random.uniform(200, 650)
+        cotton_bomb_projectiles.append({
+            "x": bx,
+            "y": by,
+            "timer": COTTON_BOMB_LIFETIME,
+            "wobble_phase": random.uniform(0, math.pi * 2),
+            "size": random.uniform(20, 30),
+            "pulse": 0.0,
+            "hit": False,
+        })
+    try:
+        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "bonemake.wav")))
+        snd.set_volume(0.3 * sfx_volume)
+        snd.play()
+    except Exception:
+        pass
+
+
+def _explode_cotton_bomb(bomb):
+    """광폭화 시 솜뭉치 폭탄이 파편으로 분산"""
+    global cotton_bomb_fragments
+    for _ in range(COTTON_BOMB_FRAGMENT_COUNT):
+        angle = random.uniform(0, math.pi * 2)
+        speed = COTTON_BOMB_FRAGMENT_SPEED + random.uniform(-0.5, 0.5)
+        cotton_bomb_fragments.append({
+            "x": bomb["x"],
+            "y": bomb["y"],
+            "vx": math.cos(angle) * speed,
+            "vy": math.sin(angle) * speed,
+            "timer": COTTON_BOMB_FRAGMENT_LIFETIME,
+            "size": random.uniform(8, 14),
+            "wobble_phase": random.uniform(0, math.pi * 2),
+        })
+    try:
+        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "weakexplosion.wav")))
+        snd.set_volume(0.25 * sfx_volume)
+        snd.play()
+    except Exception:
+        pass
+
+
+def update_cotton_bomb():
+    """솜뭉치 폭탄 업데이트: 선딜 + 필드 잔존 + 충돌 판정 + 파편"""
+    global cotton_bomb_active, cotton_bomb_windup_active, cotton_bomb_windup_timer
+    global cotton_bomb_cooldown_timer, cotton_bomb_slow_timer
+    global cotton_bomb_projectiles, cotton_bomb_fragments
+
+    # 쿨다운 감소
+    if cotton_bomb_cooldown_timer > 0:
+        cotton_bomb_cooldown_timer -= 1
+
+    # 플레이어 둔화 타이머 감소
+    if cotton_bomb_slow_timer > 0:
+        cotton_bomb_slow_timer -= 1
+
+    # 선딜 처리
+    if cotton_bomb_windup_active:
+        cotton_bomb_windup_timer -= 1
+        if cotton_bomb_windup_timer <= 0:
+            cotton_bomb_windup_active = False
+            _launch_cotton_bombs()
+        return
+
+    # 파편 업데이트
+    frag_remove = []
+    for i, frag in enumerate(cotton_bomb_fragments):
+        frag["timer"] -= 1
+        frag["wobble_phase"] += 0.15
+        frag["x"] += frag["vx"]
+        frag["y"] += frag["vy"]
+        frag["vx"] *= 0.97
+        frag["vy"] *= 0.97
+        if frag["timer"] <= 0:
+            frag_remove.append(i)
+            continue
+        # 파편-공 충돌: 속도 감소
+        if BALL:
+            ddx = frag["x"] - BALL.centerx
+            ddy = frag["y"] - BALL.centery
+            dist_sq = ddx * ddx + ddy * ddy
+            if dist_sq < (frag["size"] + BALL_RADIUS) ** 2:
+                ball_vel[0] *= COTTON_BOMB_BALL_SLOW
+                ball_vel[1] *= COTTON_BOMB_BALL_SLOW
+                # 궤적 굴절 (약간의 랜덤 각도 변경)
+                deflect_angle = random.uniform(-0.4, 0.4)
+                speed = math.hypot(ball_vel[0], ball_vel[1])
+                cur_angle = math.atan2(ball_vel[1], ball_vel[0])
+                new_angle = cur_angle + deflect_angle
+                ball_vel[0] = math.cos(new_angle) * speed
+                ball_vel[1] = math.sin(new_angle) * speed
+                frag_remove.append(i)
+        # 파편-플레이어 충돌: 둔화
+        if PLAYER:
+            ddx = frag["x"] - PLAYER.centerx
+            ddy = frag["y"] - PLAYER.centery
+            dist_sq = ddx * ddx + ddy * ddy
+            if dist_sq < (frag["size"] + PLAYER.width // 2) ** 2:
+                cotton_bomb_slow_timer = COTTON_BOMB_PLAYER_SLOW_DURATION
+                frag_remove.append(i)
+    for i in sorted(set(frag_remove), reverse=True):
+        if i < len(cotton_bomb_fragments):
+            cotton_bomb_fragments.pop(i)
+
+    if not cotton_bomb_active:
+        return
+
+    # 솜뭉치 폭탄 업데이트
+    to_remove = []
+    for i, bomb in enumerate(cotton_bomb_projectiles):
+        bomb["timer"] -= 1
+        bomb["wobble_phase"] += 0.08
+        bomb["pulse"] += 0.05
+        if bomb["timer"] <= 0:
+            to_remove.append(i)
+            continue
+        # 공과 충돌 판정
+        if BALL and not bomb["hit"]:
+            ddx = bomb["x"] - BALL.centerx
+            ddy = bomb["y"] - BALL.centery
+            dist_sq = ddx * ddx + ddy * ddy
+            if dist_sq < (COTTON_BOMB_HIT_RADIUS + BALL_RADIUS) ** 2:
+                # 공 속도 50% 감소 + 궤적 굴절
+                ball_vel[0] *= COTTON_BOMB_BALL_SLOW
+                ball_vel[1] *= COTTON_BOMB_BALL_SLOW
+                deflect_angle = random.uniform(-0.5, 0.5)
+                speed = math.hypot(ball_vel[0], ball_vel[1])
+                cur_angle = math.atan2(ball_vel[1], ball_vel[0])
+                new_angle = cur_angle + deflect_angle
+                ball_vel[0] = math.cos(new_angle) * speed
+                ball_vel[1] = math.sin(new_angle) * speed
+                bomb["hit"] = True
+                # 광폭화 시 파편으로 분산
+                if enraged_boss_active:
+                    _explode_cotton_bomb(bomb)
+                    to_remove.append(i)
+                    show_speech("뻥!", duration=40)
+                else:
+                    to_remove.append(i)
+                    show_speech("끈적~!", duration=40)
+        # 플레이어 패들과 충돌 판정
+        if PLAYER and not bomb["hit"]:
+            ddx = bomb["x"] - PLAYER.centerx
+            ddy = bomb["y"] - PLAYER.centery
+            dist_sq = ddx * ddx + ddy * ddy
+            if dist_sq < (COTTON_BOMB_HIT_RADIUS + PLAYER.width // 2) ** 2:
+                # 2초간 이동 속도 둔화
+                cotton_bomb_slow_timer = COTTON_BOMB_PLAYER_SLOW_DURATION
+                bomb["hit"] = True
+                if enraged_boss_active:
+                    _explode_cotton_bomb(bomb)
+                    to_remove.append(i)
+                    show_speech("걸렸다~!", duration=40)
+                else:
+                    to_remove.append(i)
+                    show_speech("느려져라~!", duration=40)
+    for i in sorted(set(to_remove), reverse=True):
+        if i < len(cotton_bomb_projectiles):
+            cotton_bomb_projectiles.pop(i)
+    if not cotton_bomb_projectiles and not cotton_bomb_fragments:
+        cotton_bomb_active = False
+
+
+def draw_cotton_bomb_effect(screen):
+    """솜뭉치 폭탄 렌더링 (선딜 + 배치된 폭탄 + 파편)"""
+    # 1) 선딜 모션
+    if cotton_bomb_windup_active and BOSS:
+        progress = 1.0 - (cotton_bomb_windup_timer / 30.0)
+        bcx = BOSS.centerx
+        bcy = BOSS.y + BOSS.height + 5
+        for i in range(5):
+            a = progress * math.pi * 6 + i * (math.pi * 2 / 5)
+            d = 30 * (1.0 - progress)
+            ppx = bcx + math.cos(a) * d
+            ppy = bcy + math.sin(a) * d
+            sz = int(8 + 6 * progress)
+            al = int(180 * progress)
+            sf = pygame.Surface((sz * 2, sz * 2), pygame.SRCALPHA)
+            pygame.draw.circle(sf, (255, 180, 200, al), (sz, sz), sz)
+            screen.blit(sf, (int(ppx) - sz, int(ppy) - sz))
+
+    # 2) 필드에 배치된 솜뭉치 폭탄
+    for bomb in cotton_bomb_projectiles:
+        cx, cy = int(bomb["x"]), int(bomb["y"])
+        sz = int(bomb["size"])
+        breath = 1.0 + math.sin(bomb["pulse"] * 3) * 0.15
+        draw_sz = int(sz * breath)
+        # 남은 시간에 따른 깜빡임 (마지막 2초)
+        if bomb["timer"] < 120:
+            blink = abs(math.sin(bomb["timer"] * 0.15))
+            alpha_mult = 0.4 + 0.6 * blink
+        else:
+            alpha_mult = 1.0
+        sf = pygame.Surface((draw_sz * 3, draw_sz * 3), pygame.SRCALPHA)
+        ct = draw_sz * 3 // 2
+        # 위험 표시 원 (빨간 외곽)
+        danger_alpha = int(80 * alpha_mult)
+        pygame.draw.circle(sf, (255, 100, 100, danger_alpha), (ct, ct), draw_sz + 8)
+        # 메인 솜뭉치 (분홍)
+        main_alpha = int(220 * alpha_mult)
+        pygame.draw.circle(sf, (255, 200, 220, main_alpha), (ct, ct), draw_sz)
+        pygame.draw.circle(sf, (255, 240, 245, min(255, int(240 * alpha_mult))), (ct, ct), max(1, draw_sz * 2 // 3))
+        # 하이라이트
+        hl_alpha = int(200 * alpha_mult)
+        pygame.draw.circle(sf, (255, 255, 255, hl_alpha), (ct - 3, ct - 3), max(1, draw_sz // 3))
+        screen.blit(sf, (cx - ct, cy - ct))
+
+    # 3) 파편 렌더링
+    for frag in cotton_bomb_fragments:
+        cx, cy = int(frag["x"]), int(frag["y"])
+        sz = int(frag["size"])
+        alpha = min(255, int(255 * (frag["timer"] / COTTON_BOMB_FRAGMENT_LIFETIME)))
+        wobble = math.sin(frag["wobble_phase"]) * 2
+        sf = pygame.Surface((sz * 2 + 4, sz * 2 + 4), pygame.SRCALPHA)
+        ct = sz + 2
+        pygame.draw.circle(sf, (255, 180, 200, alpha), (ct + int(wobble), ct), sz)
+        pygame.draw.circle(sf, (255, 230, 240, alpha // 2), (ct + int(wobble) - 2, ct - 2), max(1, sz // 2))
+        screen.blit(sf, (cx - ct, cy - ct))
+
+    # 4) 플레이어 둔화 상태 표시
+    if cotton_bomb_slow_timer > 0 and PLAYER:
+        slow_alpha = min(160, int(160 * (cotton_bomb_slow_timer / COTTON_BOMB_PLAYER_SLOW_DURATION)))
+        # 플레이어 주변 끈적한 원 효과
+        slow_sf = pygame.Surface((PLAYER.width + 40, 20), pygame.SRCALPHA)
+        pygame.draw.ellipse(slow_sf, (255, 180, 220, slow_alpha),
+                            (0, 0, PLAYER.width + 40, 20))
+        screen.blit(slow_sf, (PLAYER.centerx - (PLAYER.width + 40) // 2, PLAYER.bottom - 5))
+
+
+# =====================================================================
+# === 테디베어 죽음의 포옹 (Deadly Hug) - Stage 3 ===
+# =====================================================================
+def activate_deadly_hug():
+    """죽음의 포옹 발동 — 보스가 화면 중앙으로 돌진 후 영역 생성"""
+    global deadly_hug_rush_active, deadly_hug_rush_y, deadly_hug_active
+    global deadly_hug_timer
+    deadly_hug_rush_active = True
+    deadly_hug_rush_y = float(BOSS.bottom if BOSS else 65)
+    deadly_hug_active = False
+    deadly_hug_timer = 0
+    try:
+        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "grab.wav")))
+        snd.set_volume(0.4 * sfx_volume)
+        snd.play()
+    except Exception:
+        pass
+
+
+def update_deadly_hug():
+    """죽음의 포옹 업데이트: 돌진 + 영역 지속 + 대쉬 제한"""
+    global deadly_hug_active, deadly_hug_rush_active, deadly_hug_rush_y
+    global deadly_hug_timer, deadly_hug_cooldown_timer, deadly_hug_zone_y
+
+    if deadly_hug_cooldown_timer > 0:
+        deadly_hug_cooldown_timer -= 1
+
+    # 돌진 페이즈
+    if deadly_hug_rush_active:
+        target_y = 400.0  # 중앙보다 약간 아래
+        deadly_hug_rush_y += DEADLY_HUG_RUSH_SPEED
+        if deadly_hug_rush_y >= target_y:
+            deadly_hug_rush_y = target_y
+            deadly_hug_rush_active = False
+            deadly_hug_active = True
+            deadly_hug_timer = DEADLY_HUG_DURATION
+            deadly_hug_zone_y = target_y
+            try:
+                snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "boomstart.wav")))
+                snd.set_volume(0.35 * sfx_volume)
+                snd.play()
+            except Exception:
+                pass
+        return
+
+    if not deadly_hug_active:
+        return
+
+    deadly_hug_timer -= 1
+    if deadly_hug_timer <= 0:
+        deadly_hug_active = False
+
+
+def is_deadly_hug_dash_blocked():
+    """죽음의 포옹 영역 내에서 대쉬 사용 가능 여부 반환"""
+    if not deadly_hug_active or not PLAYER:
+        return False
+    # 영역: 화면 중앙 기준 좌우 DEADLY_HUG_ZONE_WIDTH 폭
+    zone_left = GAME_AREA_OFFSET_X + (GAME_PLAY_WIDTH - DEADLY_HUG_ZONE_WIDTH) // 2
+    zone_right = zone_left + DEADLY_HUG_ZONE_WIDTH
+    zone_top = deadly_hug_zone_y - 100
+    zone_bottom = deadly_hug_zone_y + 200
+    px = PLAYER.centerx
+    py = PLAYER.centery
+    return zone_left <= px <= zone_right and zone_top <= py <= zone_bottom
+
+
+def draw_deadly_hug_effect(screen):
+    """죽음의 포옹 렌더링 (돌진 + 영역 표시)"""
+    # 1) 돌진 모션 — 거대 테디베어 실루엣
+    if deadly_hug_rush_active:
+        rush_cx = GAME_AREA_OFFSET_X + GAME_PLAY_WIDTH // 2
+        rush_cy = int(deadly_hug_rush_y)
+        # 거대 곰 실루엣
+        sf = pygame.Surface((160, 160), pygame.SRCALPHA)
+        ct = 80
+        pygame.draw.circle(sf, (180, 120, 100, 140), (ct, ct), 60)  # 몸통
+        pygame.draw.circle(sf, (200, 140, 120, 160), (ct, ct - 30), 35)  # 머리
+        pygame.draw.circle(sf, (160, 100, 80, 120), (ct - 30, ct - 55), 15)  # 왼귀
+        pygame.draw.circle(sf, (160, 100, 80, 120), (ct + 30, ct - 55), 15)  # 오른귀
+        # 단추 눈
+        pygame.draw.circle(sf, (20, 20, 20, 200), (ct - 12, ct - 35), 5)
+        pygame.draw.circle(sf, (20, 20, 20, 200), (ct + 12, ct - 35), 5)
+        # X 모양 실밥 (입)
+        pygame.draw.line(sf, (60, 30, 30, 180), (ct - 8, ct - 20), (ct + 8, ct - 14), 2)
+        pygame.draw.line(sf, (60, 30, 30, 180), (ct - 8, ct - 14), (ct + 8, ct - 20), 2)
+        screen.blit(sf, (rush_cx - ct, rush_cy - ct))
+
+    # 2) 영역 표시
+    if deadly_hug_active:
+        zone_left = GAME_AREA_OFFSET_X + (GAME_PLAY_WIDTH - DEADLY_HUG_ZONE_WIDTH) // 2
+        zone_top = int(deadly_hug_zone_y) - 100
+        zone_w = DEADLY_HUG_ZONE_WIDTH
+        zone_h = 300
+        # 페이드 효과 (남은 시간 기반)
+        if deadly_hug_timer < 60:
+            fade = deadly_hug_timer / 60.0
+        else:
+            fade_in = min(1.0, (DEADLY_HUG_DURATION - deadly_hug_timer) / 30.0)
+            fade = fade_in
+        base_alpha = int(60 * fade)
+        # 영역 배경 (어두운 갈색)
+        zone_sf = pygame.Surface((zone_w, zone_h), pygame.SRCALPHA)
+        zone_sf.fill((80, 40, 20, base_alpha))
+        # 격자무늬 (봉제선 느낌)
+        stitch_alpha = int(100 * fade)
+        for sy in range(0, zone_h, 30):
+            pygame.draw.line(zone_sf, (120, 80, 60, stitch_alpha),
+                             (0, sy), (zone_w, sy), 1)
+        for sx in range(0, zone_w, 30):
+            pygame.draw.line(zone_sf, (120, 80, 60, stitch_alpha),
+                             (sx, 0), (sx, zone_h), 1)
+        screen.blit(zone_sf, (zone_left, zone_top))
+        # 테두리 (실밥 느낌)
+        border_alpha = int(160 * fade)
+        border_sf = pygame.Surface((zone_w + 4, zone_h + 4), pygame.SRCALPHA)
+        pygame.draw.rect(border_sf, (140, 80, 50, border_alpha),
+                         (0, 0, zone_w + 4, zone_h + 4), 3)
+        screen.blit(border_sf, (zone_left - 2, zone_top - 2))
+        # "DASH BLOCKED" 텍스트 표시
+        if deadly_hug_timer % 60 < 40:
+            try:
+                warn_font = pygame.font.Font(None, 20)
+                warn_text = warn_font.render("NO DASH", True, (255, 100, 80))
+                warn_text.set_alpha(int(200 * fade))
+                screen.blit(warn_text, (zone_left + zone_w // 2 - warn_text.get_width() // 2,
+                                        zone_top + 10))
+            except Exception:
+                pass
+        # 중앙에 곰 팔 실루엣
+        arm_alpha = int(80 * fade)
+        arm_cx = zone_left + zone_w // 2
+        arm_cy = zone_top + zone_h // 2
+        arm_sf = pygame.Surface((zone_w, 80), pygame.SRCALPHA)
+        # 왼팔
+        pygame.draw.ellipse(arm_sf, (160, 110, 80, arm_alpha),
+                            (10, 10, zone_w // 2 - 30, 60))
+        # 오른팔
+        pygame.draw.ellipse(arm_sf, (160, 110, 80, arm_alpha),
+                            (zone_w // 2 + 20, 10, zone_w // 2 - 30, 60))
+        screen.blit(arm_sf, (arm_cx - zone_w // 2, arm_cy - 40))
+
+
+# =====================================================================
+# === 테디베어 단추 눈의 저주 (Button Eye Curse) - Stage 3 ===
+# =====================================================================
+def activate_button_eye():
+    """단추 눈의 저주 발동 — 레이저 발사 후 시야 방해"""
+    global button_eye_active, button_eye_timer, button_eye_noise_seed
+    global button_eye_laser_y
+    button_eye_active = True
+    button_eye_timer = BUTTON_EYE_DURATION
+    button_eye_noise_seed = random.randint(0, 10000)
+    button_eye_laser_y = float(BOSS.bottom if BOSS else 65)
+    try:
+        snd = pygame.mixer.Sound(resource_path(os.path.join("sounds", "electricshock.wav")))
+        snd.set_volume(0.3 * sfx_volume)
+        snd.play()
+    except Exception:
+        pass
+
+
+def update_button_eye():
+    """단추 눈의 저주 업데이트"""
+    global button_eye_active, button_eye_timer, button_eye_cooldown_timer
+    global button_eye_noise_seed
+
+    if button_eye_cooldown_timer > 0:
+        button_eye_cooldown_timer -= 1
+
+    if not button_eye_active:
+        return
+
+    button_eye_timer -= 1
+    button_eye_noise_seed += 1  # 노이즈 패턴 변화
+    if button_eye_timer <= 0:
+        button_eye_active = False
+
+
+def draw_button_eye_effect(screen):
+    """단추 눈의 저주 렌더링 — 플레이어 주변 흑백 + 노이즈"""
+    if not button_eye_active or not PLAYER:
+        return
+
+    # 페이드 인/아웃
+    if button_eye_timer > BUTTON_EYE_DURATION - 20:
+        fade = (BUTTON_EYE_DURATION - button_eye_timer) / 20.0
+    elif button_eye_timer < 40:
+        fade = button_eye_timer / 40.0
+    else:
+        fade = 1.0
+
+    px = PLAYER.centerx
+    py = PLAYER.centery
+    effect_radius = 120
+
+    # 1) 레이저 빔 (보스 눈 → 플레이어 방향)
+    if button_eye_timer > BUTTON_EYE_DURATION - 30 and BOSS:
+        laser_progress = (BUTTON_EYE_DURATION - button_eye_timer) / 30.0
+        boss_eye_lx = BOSS.centerx - 12
+        boss_eye_rx = BOSS.centerx + 12
+        boss_eye_y = BOSS.y + BOSS.height // 2
+        target_y = py
+        current_target_y = boss_eye_y + (target_y - boss_eye_y) * laser_progress
+        laser_alpha = int(200 * fade * (1.0 - laser_progress * 0.5))
+        # 왼쪽 눈 레이저
+        laser_sf = pygame.Surface((INTERNAL_WIDTH, INTERNAL_HEIGHT), pygame.SRCALPHA)
+        pygame.draw.line(laser_sf, (255, 0, 0, laser_alpha),
+                         (boss_eye_lx, boss_eye_y), (px - 20, int(current_target_y)), 3)
+        # 오른쪽 눈 레이저
+        pygame.draw.line(laser_sf, (255, 0, 0, laser_alpha),
+                         (boss_eye_rx, boss_eye_y), (px + 20, int(current_target_y)), 3)
+        screen.blit(laser_sf, (0, 0))
+
+    # 2) 흑백 + 노이즈 영역 (플레이어 주변)
+    noise_alpha = int(120 * fade)
+    noise_w = effect_radius * 2
+    noise_h = effect_radius * 2
+    noise_sf = pygame.Surface((noise_w, noise_h), pygame.SRCALPHA)
+
+    # 어두운 원형 오버레이
+    dark_alpha = int(100 * fade)
+    pygame.draw.circle(noise_sf, (30, 20, 40, dark_alpha),
+                       (effect_radius, effect_radius), effect_radius)
+
+    # 노이즈 줄무늬 (TV 정적 효과)
+    rng = random.Random(button_eye_noise_seed)
+    for ny in range(0, noise_h, 4):
+        if rng.random() < 0.4:
+            stripe_alpha = rng.randint(30, int(80 * fade))
+            gray = rng.randint(100, 200)
+            stripe_w = rng.randint(20, noise_w)
+            stripe_x = rng.randint(0, noise_w - stripe_w)
+            stripe_sf = pygame.Surface((stripe_w, 3), pygame.SRCALPHA)
+            stripe_sf.fill((gray, gray, gray, stripe_alpha))
+            noise_sf.blit(stripe_sf, (stripe_x, ny))
+
+    # 스캔라인 효과
+    for sy in range(0, noise_h, 2):
+        scan_alpha = int(25 * fade)
+        pygame.draw.line(noise_sf, (0, 0, 0, scan_alpha),
+                         (0, sy), (noise_w, sy), 1)
+
+    # 원형 마스킹 (효과 영역 외부 제거)
+    mask_sf = pygame.Surface((noise_w, noise_h), pygame.SRCALPHA)
+    pygame.draw.circle(mask_sf, (255, 255, 255, 255),
+                       (effect_radius, effect_radius), effect_radius)
+    noise_sf.blit(mask_sf, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
+
+    screen.blit(noise_sf, (px - effect_radius, py - effect_radius))
+
+    # 3) 단추 눈 아이콘 (보스 위에 깜빡이는 단추 눈)
+    if BOSS and button_eye_timer % 10 < 7:
+        eye_alpha = int(220 * fade)
+        eye_sf = pygame.Surface((40, 20), pygame.SRCALPHA)
+        # 왼쪽 단추 눈
+        pygame.draw.circle(eye_sf, (20, 20, 20, eye_alpha), (10, 10), 8)
+        pygame.draw.circle(eye_sf, (255, 0, 0, eye_alpha), (10, 10), 4)
+        pygame.draw.line(eye_sf, (20, 20, 20, eye_alpha), (6, 6), (14, 14), 2)
+        pygame.draw.line(eye_sf, (20, 20, 20, eye_alpha), (14, 6), (6, 14), 2)
+        # 오른쪽 단추 눈
+        pygame.draw.circle(eye_sf, (20, 20, 20, eye_alpha), (30, 10), 8)
+        pygame.draw.circle(eye_sf, (255, 0, 0, eye_alpha), (30, 10), 4)
+        pygame.draw.line(eye_sf, (20, 20, 20, eye_alpha), (26, 6), (34, 14), 2)
+        pygame.draw.line(eye_sf, (20, 20, 20, eye_alpha), (34, 6), (26, 14), 2)
+        screen.blit(eye_sf, (BOSS.centerx - 20, BOSS.y + 5))
 
 
 # === 각시탈 부채바람 스킬 (소용돌이) ===
@@ -137085,6 +137677,48 @@ def handle_ball():
                     cotton_throw_cooldown_timer = COTTON_THROW_COOLDOWN
                     if boss_special_gauge < 0:
                         boss_special_gauge = 0
+                # 테디베어: 솜뭉치 폭탄 (게이지 150, 10% 확률, 쿨다운 12초)
+                if (boss_special_gauge >= 150
+                    and not cotton_bomb_active
+                    and not cotton_bomb_windup_active
+                    and cotton_bomb_cooldown_timer <= 0
+                    and not cotton_throw_active
+                    and not cotton_throw_windup_active
+                    and random.random() <= 0.10):
+                    activate_cotton_bomb()
+                    _bomb_shouts = ["솜뭉치 폭탄!", "밟으면 느려져~!", "조심해~!"]
+                    show_speech(random.choice(_bomb_shouts), duration=90)
+                    boss_special_gauge -= 150
+                    cotton_bomb_cooldown_timer = COTTON_BOMB_COOLDOWN
+                    if boss_special_gauge < 0:
+                        boss_special_gauge = 0
+                # 테디베어: 죽음의 포옹 (게이지 300, 5% 확률, 쿨다운 15초)
+                if (boss_special_gauge >= 300
+                    and not deadly_hug_active
+                    and not deadly_hug_rush_active
+                    and deadly_hug_cooldown_timer <= 0
+                    and not cotton_throw_active
+                    and random.random() <= 0.05):
+                    activate_deadly_hug()
+                    _hug_shouts = ["안아줄게~!", "도망칠 수 없어~!", "꼭 껴안아줄게!"]
+                    show_speech(random.choice(_hug_shouts), duration=90)
+                    boss_special_gauge -= 300
+                    deadly_hug_cooldown_timer = DEADLY_HUG_COOLDOWN
+                    if boss_special_gauge < 0:
+                        boss_special_gauge = 0
+                # 테디베어: 단추 눈의 저주 (게이지 200, 8% 확률, 쿨다운 10초)
+                if (boss_special_gauge >= 200
+                    and not button_eye_active
+                    and button_eye_cooldown_timer <= 0
+                    and not deadly_hug_active
+                    and random.random() <= 0.08):
+                    activate_button_eye()
+                    _eye_shouts = ["내 눈을 봐!", "앞이 안 보이지~?", "저주다~!"]
+                    show_speech(random.choice(_eye_shouts), duration=90)
+                    boss_special_gauge -= 200
+                    button_eye_cooldown_timer = BUTTON_EYE_COOLDOWN
+                    if boss_special_gauge < 0:
+                        boss_special_gauge = 0
             else:
                 # 멘헤라걸 (기본): 사이코볼 발동
                 if not boss_special_ready and boss_special_gauge >= 500:
@@ -142061,6 +142695,21 @@ def show_result(won):
     cotton_fog_active = False
     cotton_fog_timer = 0
     cotton_fog_zones.clear()
+    # 테디베어 새 스킬 완전 초기화 (스테이지 종료 시)
+    cotton_bomb_active = False
+    cotton_bomb_projectiles.clear()
+    cotton_bomb_windup_active = False
+    cotton_bomb_windup_timer = 0
+    cotton_bomb_cooldown_timer = 0
+    cotton_bomb_slow_timer = 0
+    cotton_bomb_fragments.clear()
+    deadly_hug_active = False
+    deadly_hug_rush_active = False
+    deadly_hug_timer = 0
+    deadly_hug_cooldown_timer = 0
+    button_eye_active = False
+    button_eye_timer = 0
+    button_eye_cooldown_timer = 0
     #  멘헤라걸 필살기 게이지 초기화 (스테이지 종료 시)
     # 스테이지 1의 경우 게이지 유지, 다른 스테이지는 초기화
     global displayed_boss_gauge
@@ -142477,6 +143126,21 @@ def show_result(won):
         cotton_fog_active = False
         cotton_fog_timer = 0
         cotton_fog_zones.clear()
+        # 테디베어 새 스킬 초기화 (게임 오버 시)
+        cotton_bomb_active = False
+        cotton_bomb_projectiles.clear()
+        cotton_bomb_windup_active = False
+        cotton_bomb_windup_timer = 0
+        cotton_bomb_cooldown_timer = 0
+        cotton_bomb_slow_timer = 0
+        cotton_bomb_fragments.clear()
+        deadly_hug_active = False
+        deadly_hug_rush_active = False
+        deadly_hug_timer = 0
+        deadly_hug_cooldown_timer = 0
+        button_eye_active = False
+        button_eye_timer = 0
+        button_eye_cooldown_timer = 0
         # 호위무사 시스템 초기화 (게임 오버 시, 최대 2명)
         try:
             from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
@@ -143633,6 +144297,21 @@ def main(stage_num, new_boss_mode=False):
     cotton_fog_active = False
     cotton_fog_timer = 0
     cotton_fog_zones.clear()
+    # 테디베어 새 스킬 초기화 (스테이지 전환)
+    cotton_bomb_active = False
+    cotton_bomb_projectiles.clear()
+    cotton_bomb_windup_active = False
+    cotton_bomb_windup_timer = 0
+    cotton_bomb_cooldown_timer = 0
+    cotton_bomb_slow_timer = 0
+    cotton_bomb_fragments.clear()
+    deadly_hug_active = False
+    deadly_hug_rush_active = False
+    deadly_hug_timer = 0
+    deadly_hug_cooldown_timer = 0
+    button_eye_active = False
+    button_eye_timer = 0
+    button_eye_cooldown_timer = 0
     from config.stage_configs import BOSS_VARIANTS, get_boss_config_by_name
     if stage_num in BOSS_VARIANTS and len(BOSS_VARIANTS[stage_num]) > 1:
         # 보스 룰렛 선출
@@ -144670,6 +145349,21 @@ def main(stage_num, new_boss_mode=False):
             cotton_fog_active = False
             cotton_fog_timer = 0
             cotton_fog_zones.clear()
+            # 테디베어 새 스킬 초기화 (ESC 메뉴 복귀 시)
+            cotton_bomb_active = False
+            cotton_bomb_projectiles.clear()
+            cotton_bomb_windup_active = False
+            cotton_bomb_windup_timer = 0
+            cotton_bomb_cooldown_timer = 0
+            cotton_bomb_slow_timer = 0
+            cotton_bomb_fragments.clear()
+            deadly_hug_active = False
+            deadly_hug_rush_active = False
+            deadly_hug_timer = 0
+            deadly_hug_cooldown_timer = 0
+            button_eye_active = False
+            button_eye_timer = 0
+            button_eye_cooldown_timer = 0
             # 호위무사 시스템 초기화 (ESC 메뉴 복귀 시, 최대 2명)
             try:
                 from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
@@ -147077,6 +147771,21 @@ def main(stage_num, new_boss_mode=False):
                     cotton_fog_active = False
                     cotton_fog_timer = 0
                     cotton_fog_zones.clear()
+                    # 테디베어 새 스킬 초기화 (강제 종료 시)
+                    cotton_bomb_active = False
+                    cotton_bomb_projectiles.clear()
+                    cotton_bomb_windup_active = False
+                    cotton_bomb_windup_timer = 0
+                    cotton_bomb_cooldown_timer = 0
+                    cotton_bomb_slow_timer = 0
+                    cotton_bomb_fragments.clear()
+                    deadly_hug_active = False
+                    deadly_hug_rush_active = False
+                    deadly_hug_timer = 0
+                    deadly_hug_cooldown_timer = 0
+                    button_eye_active = False
+                    button_eye_timer = 0
+                    button_eye_cooldown_timer = 0
                     # 호위무사 시스템 초기화 (강제 종료 시, 최대 2명)
                     try:
                         from game_mechanics.ingame_bodyguard import get_bodyguard, get_bodyguard2
@@ -148337,6 +149046,9 @@ def main(stage_num, new_boss_mode=False):
                 # 테디베어 솜뭉치 투척 업데이트
                 if current_stage == 3 and current_boss_name == "테디베어":
                     update_cotton_throw()
+                    update_cotton_bomb()
+                    update_deadly_hug()
+                    update_button_eye()
                 
                 #  Stage 3 멘헤라걸 꼬리 채찍 시스템 및 공 먹기 이벤트
                 if current_stage == 3:
@@ -150882,6 +151594,9 @@ def main(stage_num, new_boss_mode=False):
         draw_fan_throw_effect(SCREEN)  # 각시탈 부채던지기 이펙트
         draw_fan_wind_effect(SCREEN)  # 각시탈 부채바람 이펙트
         draw_cotton_throw_effect(SCREEN)  # 테디베어 솜뭉치 투척 이펙트
+        draw_cotton_bomb_effect(SCREEN)  # 테디베어 솜뭉치 폭탄 이펙트
+        draw_deadly_hug_effect(SCREEN)   # 테디베어 죽음의 포옹 이펙트
+        draw_button_eye_effect(SCREEN)   # 테디베어 단추 눈의 저주 이펙트
         draw_spinning_top(SCREEN)  # Stage 1 보스 팽이치기 그리기
         # 풍선 터지는 효과는 effects_manager에서 통합 관리
         draw_item_obtained_effect()  #  아이템 획득 효과 그리기 - 옛날 버전 활성화
@@ -153495,6 +154210,10 @@ def show_character_info(background_surface=None):
         gold_bar_mult = get_gold_bar_speed_multiplier()
         if gold_bar_mult < 1.0:
             move_speed *= gold_bar_mult
+
+        # 🧸 솜뭉치 폭탄 둔화 효과 반영
+        if cotton_bomb_slow_timer > 0:
+            move_speed *= COTTON_BOMB_SLOW_MULTIPLIER
 
         # 🌧️ 소나기 이벤트 시 이동속도 감소 반영
         if is_rain_active():
