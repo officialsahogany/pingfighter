@@ -144399,21 +144399,7 @@ def main(stage_num, new_boss_mode=False):
     if _pending_ammo_restore:
         apply_pending_ammo_restore()
 
-    # === 하강 줌인 연출 (지형 + 인게임 화면) ===
-    # 튜토리얼(스테이지 50) 제외, 일반 스테이지만 재생
-    if stage_num != 50 and stage_num > 0:
-        # 게임 배경 한 프레임을 렌더링하여 캡처
-        draw_field()
-        _ingame_captured = SCREEN.copy()
-        # 하강 연출 (지형 위에 인게임 화면이 점점 커짐)
-        show_space_map_transition(
-            from_planet=max(0, stage_num - 1), to_planet=stage_num,
-            ingame_frame=_ingame_captured)
-        del _ingame_captured
-        # 타이머 리셋 (애니메이션 중 누적된 시간 무시)
-        clock.tick()
-        pygame.time.delay(1)
-        clock.tick()
+    # === 하강 줌인 연출 제거됨 — 오프닝 줌으로 통합 ===
 
     # === 공 생성 애니메이션 시작 (스테이지 첫 시작 시) ===
     # 디버그: 타이밍 측정 시작 (F4 디버그 모드에서만 출력)
