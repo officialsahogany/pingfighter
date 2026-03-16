@@ -11586,6 +11586,20 @@ RUNTIME_SKILL_POOL = {
         "icon_color": (100, 200, 100),
         "tree": "common"
     },
+    "perk_boost_charge": {
+        "name": "부스트차징",
+        "max_level": 5,
+        "descriptions": {
+            1: "부스트차징 발동확률 +3%",
+            2: "부스트차징 발동확률 +6%",
+            3: "부스트차징 발동확률 +9%",
+            4: "부스트차징 발동확률 +12%",
+            5: "부스트차징 발동확률 +15%",
+        },
+        "detail": "대쉬 후 일정 확률로 토큰이 즉시 충전됩니다. 대쉬기어와 중첩됩니다.",
+        "icon_color": (80, 160, 255),
+        "tree": "common"
+    },
 }
 
 # Smasher exclusive skills
@@ -16677,6 +16691,28 @@ def draw_skill_icon_mini(surface, skill, x, y, size, scale_multiplier=1.0, cente
         # 하이라이트
         pygame.draw.circle(surface, (200, 255, 200), (icon_cx - int(4*scale), icon_cy - int(5*scale)), max(1, int(1.5*scale)))
         pygame.draw.circle(surface, (200, 255, 200), (icon_cx + int(4*scale), icon_cy - int(5*scale)), max(1, int(1.5*scale)))
+
+    elif skill_id == "perk_boost_charge":
+        # 부스트차징 - 번개 + 토큰 충전 아이콘
+        # 토큰 원형 (배경)
+        pygame.draw.circle(surface, (40, 100, 180), (icon_cx, icon_cy), int(10*scale))
+        pygame.draw.circle(surface, (60, 140, 220), (icon_cx, icon_cy), int(8*scale))
+        # 번개 마크 (중앙)
+        bolt_pts = [
+            (icon_cx + int(1*scale), icon_cy - int(7*scale)),
+            (icon_cx - int(3*scale), icon_cy - int(1*scale)),
+            (icon_cx + int(1*scale), icon_cy - int(1*scale)),
+            (icon_cx - int(1*scale), icon_cy + int(7*scale)),
+            (icon_cx + int(3*scale), icon_cy + int(1*scale)),
+            (icon_cx - int(1*scale), icon_cy + int(1*scale)),
+        ]
+        pygame.draw.polygon(surface, (255, 240, 80), bolt_pts)
+        pygame.draw.polygon(surface, (255, 255, 180), bolt_pts, max(1, int(1*scale)))
+        # 외곽 글로우 링
+        pygame.draw.circle(surface, (100, 200, 255), (icon_cx, icon_cy), int(10*scale), max(1, int(2*scale)))
+        # 스파크 점
+        pygame.draw.circle(surface, (255, 255, 220), (icon_cx - int(7*scale), icon_cy - int(5*scale)), max(1, int(1.5*scale)))
+        pygame.draw.circle(surface, (255, 255, 220), (icon_cx + int(7*scale), icon_cy - int(3*scale)), max(1, int(1.5*scale)))
 
     else:
         # 기본 아이콘: 스킬 이름 첫 글자
@@ -25497,6 +25533,17 @@ def apply_dashgear_distance(base_timer: float) -> float:
     if dashgear_obtained:
         return base_timer * (1 + dashgear_distance_bonus_pct / 100.0)
     return float(base_timer)
+
+
+def get_total_boost_charge_pct() -> float:
+    """부스트차징 총 발동확률(%)을 반환한다. 대쉬기어 롤옵션 + 퍽 레벨 합산."""
+    total = 0.0
+    if dashgear_obtained:
+        total += dashgear_boost_charge_pct
+    perk_level = runtime_skill_levels.get("perk_boost_charge", 0)
+    if perk_level > 0:
+        total += perk_level * 3  # 레벨당 3%
+    return total
 
 
 def _get_odin_dash_distance_mult() -> float:
@@ -66684,9 +66731,10 @@ def handle_player(keys):
         if not _was_half_dash:
             on_player_dash_for_tutorial(is_half_dash=False)
 
-        # 부스트차징 발동 체크 (대쉬기어 보유 시) - 즉시 토큰 충전!
-        if dashgear_obtained and _next_charge_idx >= 0:
-            boost_chance = dashgear_boost_charge_pct / 100.0
+        # 부스트차징 발동 체크 (대쉬기어 + 퍽 합산) - 즉시 토큰 충전!
+        _bc_pct = get_total_boost_charge_pct()
+        if _bc_pct > 0 and _next_charge_idx >= 0:
+            boost_chance = _bc_pct / 100.0
             roll_result = random.random()
             if roll_result < boost_chance:
                 # 부스트차징 발동! - 토큰 즉시 충전 (연속대쉬 중 추가 대쉬 가능)
@@ -68564,9 +68612,10 @@ def handle_player(keys):
                         ui_ratio = _UI_CHARGE_MAX / base_timer if base_timer > 0 else 1.0
                         _token_charge_states[_next_charge_idx] = {"timer": _UI_CHARGE_MAX, "max_time": _UI_CHARGE_MAX, "ratio": ui_ratio}
 
-                        # 부스트차징 발동 체크 (대쉬기어 보유 시) - 후딜 왼쪽 연속대쉬 - 즉시 토큰 충전!
-                        if dashgear_obtained:
-                            boost_chance = dashgear_boost_charge_pct / 100.0
+                        # 부스트차징 발동 체크 (대쉬기어 + 퍽 합산) - 후딜 왼쪽 연속대쉬 - 즉시 토큰 충전!
+                        _bc_pct2 = get_total_boost_charge_pct()
+                        if _bc_pct2 > 0:
+                            boost_chance = _bc_pct2 / 100.0
                             if random.random() < boost_chance:
                                 # 부스트차징 발동! - 토큰 즉시 충전 (연속대쉬 중 추가 대쉬 가능)
                                 if _next_charge_idx < len(token_states):
@@ -68828,9 +68877,10 @@ def handle_player(keys):
                         ui_ratio = _UI_CHARGE_MAX / base_timer if base_timer > 0 else 1.0
                         _token_charge_states[_next_charge_idx] = {"timer": _UI_CHARGE_MAX, "max_time": _UI_CHARGE_MAX, "ratio": ui_ratio}
 
-                        # 부스트차징 발동 체크 (대쉬기어 보유 시) - 후딜 오른쪽 연속대쉬 - 즉시 토큰 충전!
-                        if dashgear_obtained:
-                            boost_chance = dashgear_boost_charge_pct / 100.0
+                        # 부스트차징 발동 체크 (대쉬기어 + 퍽 합산) - 후딜 오른쪽 연속대쉬 - 즉시 토큰 충전!
+                        _bc_pct2 = get_total_boost_charge_pct()
+                        if _bc_pct2 > 0:
+                            boost_chance = _bc_pct2 / 100.0
                             if random.random() < boost_chance:
                                 # 부스트차징 발동! - 토큰 즉시 충전 (연속대쉬 중 추가 대쉬 가능)
                                 if _next_charge_idx < len(token_states):
@@ -69723,9 +69773,10 @@ def handle_player(keys):
                         ui_ratio = _UI_CHARGE_MAX / base_timer if base_timer > 0 else 1.0
                         _token_charge_states[_next_charge_idx] = {"timer": _UI_CHARGE_MAX, "max_time": _UI_CHARGE_MAX, "ratio": ui_ratio}
 
-                        # 부스트차징 발동 체크 (대쉬기어 보유 시) - 왼쪽 대쉬
-                        if dashgear_obtained:
-                            boost_chance = dashgear_boost_charge_pct / 100.0
+                        # 부스트차징 발동 체크 (대쉬기어 + 퍽 합산) - 왼쪽 대쉬
+                        _bc_pct2 = get_total_boost_charge_pct()
+                        if _bc_pct2 > 0:
+                            boost_chance = _bc_pct2 / 100.0
                             if random.random() < boost_chance:
                                 # 부스트차징 발동! - 해당 토큰의 쿨타임 90% 할인
                                 boosted_timer = max(6, int(base_timer * 0.1))  # 90% 할인
@@ -69988,9 +70039,10 @@ def handle_player(keys):
                         _token_charge_states[_next_charge_idx] = {"timer": _UI_CHARGE_MAX, "max_time": _UI_CHARGE_MAX, "ratio": ui_ratio}
                         # print(f"[TOKEN-SET-PATH2] idx={_next_charge_idx}, base_cd={base_cooldown}, reduction={cooldown_reduction}, lightweight={lightweight_bonus:.2f}, actual={base_timer}f({base_timer/60:.2f}s), ui={_UI_CHARGE_MAX}, ratio={ui_ratio:.2f}")  # 디버그 비활성화
 
-                        # 부스트차징 발동 체크 (대쉬기어 보유 시) - 오른쪽 대쉬
-                        if dashgear_obtained:
-                            boost_chance = dashgear_boost_charge_pct / 100.0
+                        # 부스트차징 발동 체크 (대쉬기어 + 퍽 합산) - 오른쪽 대쉬
+                        _bc_pct2 = get_total_boost_charge_pct()
+                        if _bc_pct2 > 0:
+                            boost_chance = _bc_pct2 / 100.0
                             if random.random() < boost_chance:
                                 # 부스트차징 발동! - 해당 토큰의 쿨타임 90% 할인
                                 boosted_timer = max(6, int(base_timer * 0.1))  # 90% 할인
