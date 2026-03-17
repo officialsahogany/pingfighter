@@ -656,13 +656,13 @@ class TeddyBearBossSprite:
         pygame.draw.ellipse(screen, p["fur_dark"],
                             (head_cx - head_r, head_cy + int(0.5 * b), head_r * 2, int(2.0 * b)))
 
-        # 머리 밝은 영역
+        # 머리 밝은 영역 (이마~상단만, 눈 영역 침범 방지)
         pygame.draw.circle(screen, p["fur_light"],
-                          (head_cx, head_cy - int(0.3 * b)), int(head_r * 0.78))
+                          (head_cx, head_cy - int(1.0 * b)), int(head_r * 0.55))
 
         # 머리 하이라이트
         pygame.draw.circle(screen, p["fur_lighter"],
-                          (head_cx - int(0.8 * b), head_cy - int(1.0 * b)), int(head_r * 0.4))
+                          (head_cx - int(0.8 * b), head_cy - int(1.3 * b)), int(head_r * 0.3))
 
         # 이마 글로시
         gw = int(2.5 * b)
