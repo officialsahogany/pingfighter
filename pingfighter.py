@@ -117205,9 +117205,9 @@ def show_character_selection():
     # 선택된 카드는 더 크게 (업그레이드)
     selected_card_width = 150
     selected_card_height = 204
-    # 부채꼴 카드들 위치 (하단, 더 넓은 배치)
+    # 부채꼴 카드들 위치 (하단, 더 넓은 배치) — 개선 #3: 155° 확대
     fan_radius = 210
-    fan_angle_range = 120  # 더 넓은 부채꼴
+    FAN_ANGLE_RANGE = 155  # 9장 카드 겹침 최적화 (기존 90°→155°)
     center_x = WIDTH // 2
     center_y = HEIGHT - 100
     # 사이버펑크 배경 효과용 변수들
@@ -117951,6 +117951,8 @@ def show_character_selection():
                             card_pickup_timer = 0
                             card_pickup_result_id = characters[selected]["id"]
         # ======== 업그레이드된 배경 렌더링 ========
+        # 0. 잔상 방지: 매 프레임 검은색으로 클리어 (개선 #5)
+        SCREEN.fill((0, 0, 0))
         # 1. 캐시된 그라데이션 배경 (더 어두운 톤)
         SCREEN.blit(_bg_gradient_cache, (0, 0))
         # 2. 네뷸라 스폿 (깊이감) - 동적 움직임
@@ -118089,6 +118091,14 @@ def show_character_selection():
         pygame.draw.line(SCREEN, (0, 120, 170), (WIDTH - 116, _tech_line_y - 4), (WIDTH - 116, _tech_line_y + 4), 1)
         pygame.draw.line(SCREEN, (0, 120, 170), (WIDTH - 126, _tech_line_y - 4), (WIDTH - 116, _tech_line_y - 4), 1)
 
+        # ======== 가독성 향상: 타이틀 영역 반투명 패널 (개선 #2) ========
+        _title_panel_w = min(WIDTH - 200, 500)
+        _title_panel_h = 52
+        _title_panel = pygame.Surface((_title_panel_w, _title_panel_h), pygame.SRCALPHA)
+        _title_panel.fill((0, 0, 0, 150))
+        pygame.draw.rect(_title_panel, (0, 80, 120, 40), (0, 0, _title_panel_w, _title_panel_h), 1, border_radius=6)
+        SCREEN.blit(_title_panel, ((WIDTH - _title_panel_w) // 2, 10))
+
         # ======== 업그레이드된 타이틀 섹션 ========
         font_title = get_font(48)
         font_subtitle = FontStyle.menu()
@@ -118126,6 +118136,13 @@ def show_character_selection():
         sub_text = font_subtitle.render(title_sub, True, CYAN)
         sub_rect = sub_text.get_rect(center=(WIDTH // 2, title_y + 38))
         SCREEN.blit(sub_text, sub_rect)
+        # ======== 가독성 향상: 중앙 카드 영역 반투명 배경 (개선 #2) ========
+        _center_panel_w = selected_card_width + 140
+        _center_panel_h = selected_card_height + 30
+        _center_bg = pygame.Surface((_center_panel_w, _center_panel_h), pygame.SRCALPHA)
+        _center_bg.fill((0, 0, 0, 100))
+        SCREEN.blit(_center_bg, (_sel_card_x - 70, _sel_card_y - 15))
+
         # 애니메이션 업데이트
         update_card_transition()
         transition_progress = min(transition_progress + 0.1, 1.0)
