@@ -141324,6 +141324,9 @@ def show_death_evaluation():
         pass
 
     # === 메인 루프 ===
+    freeze_awaken = False
+    freeze_superspeed = False
+    freeze_spawn_anim = False
     while True:
         # 구슬 접기 애니메이션 업데이트
         if is_orb_collapse_animation_active():
