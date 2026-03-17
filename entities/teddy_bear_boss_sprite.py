@@ -489,17 +489,32 @@ class TeddyBearBossSprite:
                                 (eye_cx - int(ew * 0.7), eye_cy - int(eh * 0.7),
                                  int(ew * 1.4), int(eh * 0.9)))
 
-            # ★ 큰 하이라이트 (좌상단)
-            hl_r = max(3, int(0.42 * b))
-            hl_x = eye_cx - int(0.28 * b)
-            hl_y = eye_cy - int(0.35 * b)
-            pygame.draw.circle(screen, p["eye_highlight"], (hl_x, hl_y), hl_r)
+            # ★ 얀데레 하트 눈 — 눈동자 중앙 상단에 핑크 하트 글로우
+            hr = max(2, int(0.3 * b))
+            heart_cx = eye_cx
+            heart_cy = eye_cy - int(0.15 * b)
 
-            # ★ 작은 하이라이트 (우하단)
-            hl2_r = max(2, int(0.2 * b))
-            hl2_x = eye_cx + int(0.3 * b)
-            hl2_y = eye_cy + int(0.25 * b)
-            pygame.draw.circle(screen, p["eye_highlight_s"], (hl2_x, hl2_y), hl2_r)
+            # 하트 글로우 (배경 빛남)
+            glow_r = hr * 3
+            glow_surf = self._get_surface(glow_r * 2, glow_r * 2)
+            pulse = (_sin(self.time * 2.5) + 1) * 0.5
+            glow_alpha = int(50 + 30 * pulse)
+            pygame.draw.circle(glow_surf, (*p["pink_glow"][:3], glow_alpha),
+                              (glow_r, glow_r), glow_r)
+            screen.blit(glow_surf, (heart_cx - glow_r, heart_cy - glow_r),
+                       special_flags=pygame.BLEND_ADD)
+
+            # 하트 본체 (원 2개 + 역삼각형 — 배꼽 하트와 동일 방식)
+            pygame.draw.circle(screen, p["pink"], (heart_cx - hr // 2, heart_cy - hr // 3), hr // 2)
+            pygame.draw.circle(screen, p["pink"], (heart_cx + hr // 2, heart_cy - hr // 3), hr // 2)
+            pygame.draw.polygon(screen, p["pink"], [
+                (heart_cx - hr, heart_cy - hr // 4),
+                (heart_cx + hr, heart_cy - hr // 4),
+                (heart_cx, heart_cy + hr)
+            ])
+            # 하트 하이라이트 (좌상단 작은 반짝)
+            pygame.draw.circle(screen, p["pink_light"],
+                              (heart_cx - hr // 3, heart_cy - hr // 2), max(1, hr // 4))
 
         # 코 (오밀조밀)
         nose_cx = face_cx
