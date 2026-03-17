@@ -222,11 +222,12 @@ def _update_background_layers(
     width: int,
     height: int,
 ) -> None:
-    # 게임 화면 안쪽 배경 (기존 그대로)
+    # 게임 화면 안쪽 배경
     simple_bg = ctx.simple_bg
     if simple_bg is not None:
-        simple_bg.update(dt)
-        # 행성과 기본 배경만 그리기 (애니 효과는 나중에)
+        # 마우스 좌표를 넘겨 패럴랙스 & 트레일 활성화
+        mouse_pos = pygame.mouse.get_pos()
+        simple_bg.update(dt, mouse_pos=mouse_pos)
         simple_bg.draw(screen)
 
     state.star_field = draw_star_field(screen, width, height, state.animation_timer, state.star_field)
@@ -243,9 +244,13 @@ def _update_background_layers(
     if ENABLE_SCAN_LINES:
         state.scan_lines = draw_scan_lines(screen, width, height, state.scan_lines)
 
-    # 애니 감성 효과를 맨 마지막에 그리기 (하트, 별, 키라키라 등)
+    # 애니 감성 효과 (하트, 별, 키라키라 등)
     if simple_bg is not None and hasattr(simple_bg, '_draw_anime_effects'):
         simple_bg._draw_anime_effects(screen)
+
+    # [NEW] 비네팅 + UI 다크패널 + 마우스 트레일 (모든 이펙트 위에)
+    if simple_bg is not None and hasattr(simple_bg, 'draw_overlays'):
+        simple_bg.draw_overlays(screen)
 
     # 바로크 스타일 액자는 pillar_background.py의 stage 0에서 처리됨
     # (_fullscreen_flip에서 pillar_renderer.draw()를 통해 그려짐)
