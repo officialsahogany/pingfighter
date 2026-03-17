@@ -146,6 +146,17 @@ def _menu_reset_hover():
     _menu_hover_prev_id = ""
     _menu_hover_particles = []
 
+# ── 모드 선택 화면 강화 비주얼 시스템 ──
+_mode_card_tilt_y = [0.0, 0.0]       # 각 카드 Y축 기울기 (좌우)
+_mode_card_tilt_x = [0.0, 0.0]       # 각 카드 X축 기울기 (상하)
+_mode_shine_offset = [0.0, 0.0]      # 광택 스윕 오프셋
+_mode_entry_timer = 0.0              # 진입 애니메이션 타이머
+_mode_entry_done = False             # 진입 애니메이션 완료 여부
+_mode_bg_glitch_timer = 0.0          # 배경 글리치 타이머
+_mode_mouse_trail: list = []         # 마우스 궤적 파티클
+_mode_bg_energy_particles: list = [] # 배경 에너지 파티클
+_mode_card_flash = [0.0, 0.0]        # 카드 선택 전환 시 플래시
+
 MEDAL_FRAME_DURATION = 0.085
 MEDAL_BASE_SIZE = 40
 
@@ -776,6 +787,233 @@ def _load_mode_preview(path_key: str, resource_path_fn) -> "pygame.Surface | Non
     return None
 
 
+# ── 모드 선택 비주얼 헬퍼 함수들 ──
+
+def _mode_draw_plasma_border(screen, rect, accent, anim_t, intensity=1.0):
+    """불규칙하게 맥동하는 네온 플라즈마 테두리 — 3중 레이어 + 코너 불꽃."""
+    x, y, w, h = rect.x, rect.y, rect.w, rect.h
+    br = 18
+
+    for layer in range(3):
+        thickness = 4 - layer
+        base_alpha = int((200 - layer * 60) * intensity)
+        # 시간에 따라 색상이 미세하게 흐름
+        phase = anim_t * (3.0 + layer * 0.7)
+        shift = int(math.sin(phase) * 35)
+        shift2 = int(math.cos(phase * 0.7) * 25)
+        c = (
+            max(0, min(255, accent[0] + shift)),
+            max(0, min(255, accent[1] - shift2)),
+            max(0, min(255, accent[2] + shift2)),
+        )
+        expand = layer * 3
+        surf = pygame.Surface((w + expand * 2 + 2, h + expand * 2 + 2), pygame.SRCALPHA)
+        pygame.draw.rect(
+            surf, (*c, base_alpha),
+            (0, 0, w + expand * 2 + 2, h + expand * 2 + 2),
+            thickness, border_radius=br + layer * 2,
+        )
+        screen.blit(surf, (x - expand - 1, y - expand - 1))
+
+    # 코너 불꽃 파티클 (4코너에서 불규칙 스파크)
+    corners = [(x, y), (x + w, y), (x, y + h), (x + w, y + h)]
+    for ci, (cx, cy) in enumerate(corners):
+        spark_phase = (anim_t * 6.0 + ci * 1.57) % (math.pi * 2)
+        if math.sin(spark_phase) > 0.3:
+            spark_len = int(6 + 8 * math.sin(spark_phase) * intensity)
+            spark_alpha = int(180 * math.sin(spark_phase) * intensity)
+            # 대각선 방향 스파크
+            dx = -1 if cx == x else 1
+            dy = -1 if cy == y else 1
+            sp = pygame.Surface((spark_len * 2 + 4, spark_len * 2 + 4), pygame.SRCALPHA)
+            pygame.draw.line(sp, (*accent, spark_alpha), (spark_len + 2, spark_len + 2),
+                             (spark_len + 2 + dx * spark_len, spark_len + 2 + dy * spark_len), 2)
+            # 십자 스파크
+            pygame.draw.line(sp, (*accent, spark_alpha // 2), (spark_len + 2 - 3, spark_len + 2),
+                             (spark_len + 2 + 3, spark_len + 2), 1)
+            pygame.draw.line(sp, (*accent, spark_alpha // 2), (spark_len + 2, spark_len + 2 - 3),
+                             (spark_len + 2, spark_len + 2 + 3), 1)
+            screen.blit(sp, (cx - spark_len - 2, cy - spark_len - 2))
+
+
+def _mode_draw_shine_sweep(card_surf, w, h, offset, accent):
+    """카드 표면에 대각선 광택 스윕 효과를 그린다."""
+    sweep_w = 60
+    # offset은 -sweep_w ~ w+sweep_w 범위를 순환
+    pos = int(offset) % (w + sweep_w * 2) - sweep_w
+
+    shine = pygame.Surface((w, h), pygame.SRCALPHA)
+    for col_i in range(sweep_w):
+        draw_x = pos + col_i
+        if draw_x < 0 or draw_x >= w:
+            continue
+        # 가우시안 형태의 밝기
+        t = col_i / sweep_w
+        brightness = math.exp(-((t - 0.5) ** 2) / 0.04)  # 날카로운 피크
+        alpha = int(120 * brightness)
+        if alpha < 2:
+            continue
+        # 대각선 효과를 위해 세로 방향도 오프셋
+        skew = int((col_i - sweep_w // 2) * 0.6)
+        pygame.draw.line(shine, (*accent, alpha),
+                         (draw_x, max(0, -skew)),
+                         (draw_x, min(h - 1, h - 1 - skew)), 1)
+    card_surf.blit(shine, (0, 0), special_flags=pygame.BLEND_ADD)
+
+
+def _mode_update_mouse_trail(dt, width, height):
+    """마우스 궤적 파티클 업데이트."""
+    global _mode_mouse_trail
+    mx, my = pygame.mouse.get_pos()
+
+    # 새 파티클 생성 (마우스 이동 시)
+    if random.random() < 0.4:
+        _mode_mouse_trail.append({
+            "x": mx + random.uniform(-3, 3),
+            "y": my + random.uniform(-3, 3),
+            "vx": random.uniform(-0.8, 0.8),
+            "vy": random.uniform(-2.0, -0.5),
+            "life": random.uniform(0.4, 0.8),
+            "max_life": 0.8,
+            "color": random.choice([(0, 200, 255), (255, 200, 80), (200, 100, 255), (255, 255, 255)]),
+            "size": random.uniform(1.5, 3.5),
+        })
+
+    # 업데이트
+    alive = []
+    for p in _mode_mouse_trail:
+        p["life"] -= dt
+        if p["life"] <= 0:
+            continue
+        p["x"] += p["vx"]
+        p["y"] += p["vy"]
+        p["vy"] -= 0.5 * dt  # 약간 위로 떠오름
+        alive.append(p)
+    _mode_mouse_trail = alive[-80:]  # 최대 80개
+
+
+def _mode_draw_mouse_trail(screen):
+    """마우스 궤적 파티클 렌더링."""
+    for p in _mode_mouse_trail:
+        ratio = max(0, p["life"] / p["max_life"])
+        alpha = int(180 * ratio)
+        size = max(1, int(p["size"] * ratio))
+        if alpha < 3:
+            continue
+        ps = pygame.Surface((size * 2 + 4, size * 2 + 4), pygame.SRCALPHA)
+        # 글로우 헤일로
+        pygame.draw.circle(ps, (*p["color"], alpha // 3), (size + 2, size + 2), size + 2)
+        # 코어
+        pygame.draw.circle(ps, (*p["color"], alpha), (size + 2, size + 2), size)
+        screen.blit(ps, (int(p["x"]) - size - 2, int(p["y"]) - size - 2))
+
+
+def _mode_update_bg_energy(dt, width, height, accents):
+    """배경 에너지 파티클 (카드 테마 색상으로 공간을 채움)."""
+    global _mode_bg_energy_particles
+
+    # 새 파티클 생성
+    if len(_mode_bg_energy_particles) < 60 and random.random() < 0.3:
+        _mode_bg_energy_particles.append({
+            "x": random.uniform(0, width),
+            "y": random.uniform(0, height),
+            "vx": random.uniform(-0.3, 0.3),
+            "vy": random.uniform(-0.5, -0.1),
+            "life": random.uniform(2.0, 5.0),
+            "max_life": 5.0,
+            "color": random.choice(accents),
+            "size": random.uniform(1.0, 2.5),
+            "phase": random.uniform(0, math.pi * 2),
+        })
+
+    alive = []
+    for p in _mode_bg_energy_particles:
+        p["life"] -= dt
+        if p["life"] <= 0:
+            continue
+        p["x"] += p["vx"] + math.sin(p["phase"]) * 0.2
+        p["y"] += p["vy"]
+        p["phase"] += dt * 1.5
+        # 화면 밖으로 나가면 제거
+        if p["y"] < -10 or p["x"] < -10 or p["x"] > width + 10:
+            continue
+        alive.append(p)
+    _mode_bg_energy_particles = alive
+
+
+def _mode_draw_bg_energy(screen):
+    """배경 에너지 파티클 렌더링."""
+    for p in _mode_bg_energy_particles:
+        ratio = max(0, min(1, p["life"] / p["max_life"]))
+        # 페이드인 + 페이드아웃
+        if ratio > 0.8:
+            alpha_f = (1.0 - ratio) / 0.2
+        else:
+            alpha_f = min(1.0, ratio / 0.3)
+        alpha = int(100 * alpha_f)
+        size = max(1, int(p["size"] * (0.5 + 0.5 * alpha_f)))
+        if alpha < 2:
+            continue
+        ps = pygame.Surface((size * 4, size * 4), pygame.SRCALPHA)
+        pygame.draw.circle(ps, (*p["color"], alpha // 2), (size * 2, size * 2), size * 2)
+        pygame.draw.circle(ps, (*p["color"], alpha), (size * 2, size * 2), size)
+        screen.blit(ps, (int(p["x"]) - size * 2, int(p["y"]) - size * 2))
+
+
+def _mode_draw_bg_glitch(screen, width, height, anim_t):
+    """미세한 배경 글리치 라인 (가로 노이즈)."""
+    global _mode_bg_glitch_timer
+    _mode_bg_glitch_timer += 1.0 / 60.0
+
+    # 5% 확률 + 쿨다운
+    if random.random() < 0.04 and _mode_bg_glitch_timer > 0.3:
+        _mode_bg_glitch_timer = 0
+        num_lines = random.randint(1, 3)
+        for _ in range(num_lines):
+            gy = random.randint(0, height)
+            gh = random.randint(1, 4)
+            gw = random.randint(width // 4, width)
+            gx = random.randint(0, width - gw)
+            g_color = random.choice([(0, 200, 255, 25), (255, 200, 80, 20), (255, 255, 255, 15)])
+            gs = pygame.Surface((gw, gh), pygame.SRCALPHA)
+            gs.fill(g_color)
+            screen.blit(gs, (gx, gy))
+
+
+def _mode_draw_title_ghost(screen, font, text, center, anim_t, accent):
+    """타이틀 고스트(잔상) + 네온 효과."""
+    cx, cy = center
+
+    # 잔상 레이어 (뒤에서 앞으로)
+    for i in range(5, 0, -1):
+        ghost_alpha = max(0, 60 - i * 12)
+        scale_add = i * 0.015 + math.sin(anim_t * 2.0 + i * 0.3) * 0.005
+        y_shift = int(math.sin(anim_t * 1.5 + i * 0.7) * (i * 0.8))
+
+        gs = font.render(text, True, (*accent, ghost_alpha))
+        if scale_add > 0.001:
+            new_w = int(gs.get_width() * (1.0 + scale_add))
+            new_h = int(gs.get_height() * (1.0 + scale_add))
+            if new_w > 0 and new_h > 0:
+                gs = pygame.transform.smoothscale(gs, (new_w, new_h))
+        gs.set_alpha(ghost_alpha)
+        screen.blit(gs, gs.get_rect(center=(cx, cy + y_shift)))
+
+    # 메인 타이틀 네온 글로우
+    for offset in range(8, 0, -2):
+        glow_alpha = int(40 * (1 - offset / 8))
+        glow_surf = font.render(text, True, (*accent, glow_alpha))
+        for dx in [-offset, 0, offset]:
+            for dy in [-offset, 0, offset]:
+                if dx == 0 and dy == 0:
+                    continue
+                screen.blit(glow_surf, glow_surf.get_rect(center=(cx + dx, cy + dy)))
+
+    # 메인 텍스트 (밝은 화이트)
+    main = font.render(text, True, (255, 255, 255))
+    screen.blit(main, main.get_rect(center=center))
+
+
 def _draw_mode_card(
     screen: pygame.Surface,
     x: int, y: int, w: int, h: int,
@@ -786,90 +1024,164 @@ def _draw_mode_card(
     y_offset: float, anim_t: float,
     ctx: "MenuContext",
     preview_img: "pygame.Surface | None" = None,
+    card_index: int = 0,
+    flash_intensity: float = 0.0,
 ):
-    """모드 선택 카드 1장을 그린다. preview_img가 있으면 배경에 표시."""
+    """모드 선택 카드 — 3D 기울기, 광택 스윕, 플라즈마 테두리, 대형 아이콘 오버레이."""
+    global _mode_card_tilt_y, _mode_card_tilt_x, _mode_shine_offset
+
     # scale 적용 (중심 기준)
     sw, sh = int(w * scale), int(h * scale)
-    sx = x + (w - sw) // 2
-    sy = int(y + (h - sh) // 2 + y_offset)
+    card_center_x = x + w // 2
+    card_center_y = int(y + h // 2 + y_offset)
+
+    # ── 3D 기울기 계산 (마우스 위치 기반) ──
+    mpos = pygame.mouse.get_pos()
+    if is_selected:
+        dx = (mpos[0] - card_center_x) / max(w // 2, 1)
+        dy = (mpos[1] - card_center_y) / max(h // 2, 1)
+        target_ty = max(-12.0, min(12.0, dx * 12.0))
+        target_tx = max(-8.0, min(8.0, -dy * 8.0))
+    else:
+        target_ty = 0.0
+        target_tx = 0.0
+
+    # 부드러운 보간
+    _mode_card_tilt_y[card_index] += (target_ty - _mode_card_tilt_y[card_index]) * 0.12
+    _mode_card_tilt_x[card_index] += (target_tx - _mode_card_tilt_x[card_index]) * 0.12
+    tilt_y = _mode_card_tilt_y[card_index]
+    tilt_x = _mode_card_tilt_x[card_index]
+
+    # ── 카드 서피스 생성 ──
     card = pygame.Surface((sw, sh), pygame.SRCALPHA)
 
     if preview_img is not None:
-        # 미리보기 이미지 배경 - 호버 시 천천히 패닝
         img_w, img_h = preview_img.get_size()
-        # 카드에 맞게 스케일 (살짝 크게 해서 패닝 여유 확보)
-        img_scale = max(sw / img_w, sh / img_h) * 1.15
+        img_scale = max(sw / img_w, sh / img_h) * 1.20
         scaled_w = int(img_w * img_scale)
         scaled_h = int(img_h * img_scale)
         scaled_img = pygame.transform.smoothscale(preview_img, (scaled_w, scaled_h))
-        # 호버 시 천천히 이동하는 오프셋
+        # 호버 시 패닝 + 기울기 방향으로 미세 시프트
         if is_selected:
-            pan_x = int(math.sin(anim_t * 0.4) * (scaled_w - sw) * 0.35)
-            pan_y = int(math.cos(anim_t * 0.3) * (scaled_h - sh) * 0.35)
+            pan_x = int(math.sin(anim_t * 0.5) * (scaled_w - sw) * 0.3 + tilt_y * 1.5)
+            pan_y = int(math.cos(anim_t * 0.4) * (scaled_h - sh) * 0.3 + tilt_x * 1.2)
         else:
             pan_x = 0
             pan_y = 0
-        # 이미지 중앙 정렬 + 패닝
         blit_x = -(scaled_w - sw) // 2 + pan_x
         blit_y = -(scaled_h - sh) // 2 + pan_y
         card.blit(scaled_img, (blit_x, blit_y))
-        # 하단 그라데이션 오버레이 (텍스트 가독성)
-        grad_h = sh // 2
+
+        # 컬러 그라데이션 오버레이 (선택 시 테마 색상 틴트)
+        grad_h = int(sh * 0.65)
         grad_surf = pygame.Surface((sw, grad_h), pygame.SRCALPHA)
         for row in range(grad_h):
-            a = int(200 * (row / max(grad_h - 1, 1)))
-            pygame.draw.line(grad_surf, (0, 0, 0, a), (0, row), (sw - 1, row))
+            t = row / max(grad_h - 1, 1)
+            if is_selected:
+                a = int(180 * (t ** 1.5))
+                r = int(accent[0] * 0.15 * t)
+                g = int(accent[1] * 0.15 * t)
+                b = int(accent[2] * 0.15 * t)
+            else:
+                a = int(200 * (t ** 1.2))
+                r, g, b = 0, 0, 0
+            pygame.draw.line(grad_surf, (r, g, b, a), (0, row), (sw - 1, row))
         card.blit(grad_surf, (0, sh - grad_h))
-        # 비선택 시 어둡게
+
+        # 비선택 시 어둡게 + 채도 감소 효과
         if not is_selected:
             dim = pygame.Surface((sw, sh), pygame.SRCALPHA)
-            dim.fill((0, 0, 0, 100))
+            dim.fill((0, 0, 0, 120))
             card.blit(dim, (0, 0))
     else:
-        # 폴백: 그라데이션 배경
+        # 폴백: 향상된 그라데이션 배경
         for row in range(sh):
             t = row / max(sh - 1, 1)
             r = int(color_top[0] + (color_bot[0] - color_top[0]) * t)
             g = int(color_top[1] + (color_bot[1] - color_top[1]) * t)
             b = int(color_top[2] + (color_bot[2] - color_top[2]) * t)
             pygame.draw.line(card, (r, g, b, 220), (0, row), (sw - 1, row))
-        icon_font = ctx.FontStyle.title_large()
-        icon_surf = icon_font.render(icon_char, True, (255, 255, 255, 180))
-        icon_rect = icon_surf.get_rect(center=(sw // 2, sh // 2 - 30))
-        card.blit(icon_surf, icon_rect)
 
-    # 둥근 마스크 (모서리 깎기)
+    # ── 대형 배경 아이콘 오버레이 (VS / PVP — 거대하고 투명하게) ──
+    try:
+        icon_font = ctx.get_font(72)
+        icon_alpha = 35 if is_selected else 18
+        icon_text = icon_font.render(icon_char, True, (*accent, icon_alpha))
+        # 선택 시 아이콘이 미세하게 호흡하듯 스케일링
+        if is_selected:
+            icon_scale = 1.0 + math.sin(anim_t * 2.0) * 0.05
+            iw2 = int(icon_text.get_width() * icon_scale)
+            ih2 = int(icon_text.get_height() * icon_scale)
+            if iw2 > 0 and ih2 > 0:
+                icon_text = pygame.transform.smoothscale(icon_text, (iw2, ih2))
+        card.blit(icon_text, icon_text.get_rect(center=(sw // 2, sh // 2 - 30)))
+    except Exception:
+        pass
+
+    # ── 실시간 광택 스윕 (선택 시만) ──
+    if is_selected:
+        _mode_shine_offset[card_index] += 3.5  # 스윕 속도
+        _mode_draw_shine_sweep(card, sw, sh, _mode_shine_offset[card_index], accent)
+    else:
+        # 비선택 시 오프셋 리셋 (다음 선택 시 처음부터)
+        _mode_shine_offset[card_index] *= 0.95
+
+    # ── 둥근 마스크 (모서리 깎기) ──
     mask = pygame.Surface((sw, sh), pygame.SRCALPHA)
     pygame.draw.rect(mask, (255, 255, 255, 255), (0, 0, sw, sh), border_radius=18)
     card.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MIN)
 
-    # 타이틀 (하단에 배치)
+    # ── 타이틀 (하단 — 선택 시 네온 아웃라인) ──
     title_font = ctx.FontStyle.body()
+    if is_selected:
+        # 네온 아웃라인
+        for ox, oy in [(-1, -1), (1, -1), (-1, 1), (1, 1), (0, -1), (0, 1), (-1, 0), (1, 0)]:
+            ts_glow = title_font.render(title, True, accent)
+            card.blit(ts_glow, ts_glow.get_rect(center=(sw // 2 + ox, sh - 55 + oy)))
     ts = title_font.render(title, True, (255, 255, 255))
     card.blit(ts, ts.get_rect(center=(sw // 2, sh - 55)))
+
     # 부제
     sub_font = ctx.FontStyle.tiny()
-    ss = sub_font.render(subtitle, True, (200, 210, 230))
+    sub_color = (220, 230, 240) if is_selected else (170, 180, 195)
+    ss = sub_font.render(subtitle, True, sub_color)
     card.blit(ss, ss.get_rect(center=(sw // 2, sh - 30)))
 
-    screen.blit(card, (sx, sy))
+    # ── 3D 기울기 적용 (수평 스케일링으로 시뮬레이션) ──
+    cos_y = math.cos(math.radians(tilt_y))
+    final_w = max(1, int(sw * abs(cos_y)))
+    if final_w != sw:
+        card = pygame.transform.smoothscale(card, (final_w, sh))
 
-    # 테두리
-    border_alpha = 255 if is_selected else 120
-    border_color = accent if is_selected else (accent[0] // 2, accent[1] // 2, accent[2] // 2)
-    bs = pygame.Surface((sw + 4, sh + 4), pygame.SRCALPHA)
-    pygame.draw.rect(bs, (*border_color, border_alpha), (0, 0, sw + 4, sh + 4), 3, border_radius=20)
-    screen.blit(bs, (sx - 2, sy - 2))
+    # ── 선택 전환 플래시 오버레이 ──
+    if flash_intensity > 0.01:
+        flash_surf = pygame.Surface((card.get_width(), sh), pygame.SRCALPHA)
+        flash_surf.fill((*accent, int(120 * flash_intensity)))
+        card.blit(flash_surf, (0, 0))
 
-    # 선택 글로우
+    # ── 화면에 blit ──
+    final_rect = card.get_rect(center=(card_center_x, card_center_y))
+    screen.blit(card, final_rect)
+
+    # ── 테두리 & 글로우 ──
     if is_selected:
+        # 플라즈마 네온 테두리
+        _mode_draw_plasma_border(screen, final_rect, accent, anim_t)
+        # 외곽 소프트 글로우
         pulse = 0.5 + 0.5 * math.sin(anim_t * 3.0)
-        gs = pygame.Surface((sw + 16, sh + 16), pygame.SRCALPHA)
-        pygame.draw.rect(gs, (*accent, int(40 * pulse)), (0, 0, sw + 16, sh + 16), border_radius=24)
-        screen.blit(gs, (sx - 8, sy - 8))
-        _menu_draw_hover_border(screen, sx, sy, sw, sh, accent)
+        glow_s = pygame.Surface((final_rect.w + 20, final_rect.h + 20), pygame.SRCALPHA)
+        pygame.draw.rect(glow_s, (*accent, int(30 * pulse)), (0, 0, final_rect.w + 20, final_rect.h + 20), border_radius=26)
+        screen.blit(glow_s, (final_rect.x - 10, final_rect.y - 10))
+        # 코너 라인 + 파티클
+        _menu_draw_hover_border(screen, final_rect.x, final_rect.y, final_rect.w, final_rect.h, accent)
+    else:
+        # 비선택: 은은한 테두리
+        border_color = (accent[0] // 2, accent[1] // 2, accent[2] // 2)
+        bs = pygame.Surface((final_rect.w + 4, final_rect.h + 4), pygame.SRCALPHA)
+        pygame.draw.rect(bs, (*border_color, 100), (0, 0, final_rect.w + 4, final_rect.h + 4), 2, border_radius=20)
+        screen.blit(bs, (final_rect.x - 2, final_rect.y - 2))
 
-    return pygame.Rect(sx, sy, sw, sh)
+    return final_rect
 
 
 def _draw_trophy_icon(surf, cx, cy, scale, accent, dim_f, sel_f, anim_t):
@@ -1487,7 +1799,10 @@ def _draw_arena_emblem(
 
 
 def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
-    """모드 선택 화면 - 아케이드 vs 투기장."""
+    """모드 선택 화면 — 3D 카드, 플라즈마 테두리, 광택 스윕, 마우스 파티클, 타이틀 고스트."""
+    global _mode_entry_timer, _mode_entry_done, _mode_card_flash
+    global _mode_mouse_trail, _mode_bg_energy_particles
+
     # 입장 버튼 클릭 사운드 재생
     try:
         import os as _os
@@ -1503,12 +1818,26 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
     _play_rainbow_transition(ctx.get_screen(), 1000)
 
     selected = 0  # 0=아케이드, 1=투기장
+    prev_selected = -1  # 선택 전환 감지
     hover_scales = [1.0, 1.0]
     clock = pygame.time.Clock()
     click_anim = None  # {"card": idx, "timer": 0, "dur": 0.3}
 
-    CARD_W, CARD_H = 250, 320
-    GAP = 24
+    CARD_W, CARD_H = 270, 340  # 약간 크게
+    GAP = 32
+
+    # 진입 애니메이션 초기화
+    _mode_entry_timer = 0.0
+    _mode_entry_done = False
+    _mode_card_flash = [0.0, 0.0]
+    _mode_card_tilt_y[0] = 0.0
+    _mode_card_tilt_y[1] = 0.0
+    _mode_card_tilt_x[0] = 0.0
+    _mode_card_tilt_x[1] = 0.0
+    _mode_shine_offset[0] = 0.0
+    _mode_shine_offset[1] = 0.0
+    _mode_mouse_trail.clear()
+    _mode_bg_energy_particles.clear()
 
     # 미리보기 이미지 로드
     import os
@@ -1527,17 +1856,46 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
          "preview": arena_preview},
     ]
 
+    # 배경 에너지 파티클 테마 색상
+    bg_accents = [(0, 200, 255), (255, 200, 80), (100, 150, 255), (255, 150, 100)]
+
     while True:
         dt = clock.tick(60) / 1000.0
         state.animation_timer += dt
         screen = ctx.get_screen()
         width, height = ctx.get_dimensions()
+
+        # ── 진입 애니메이션 타이머 ──
+        if not _mode_entry_done:
+            _mode_entry_timer += dt
+            if _mode_entry_timer >= 0.6:
+                _mode_entry_done = True
+
+        # ── 선택 전환 플래시 ──
+        if prev_selected != selected:
+            if prev_selected >= 0:
+                _mode_card_flash[selected] = 1.0  # 새로 선택된 카드 플래시
+            prev_selected = selected
+        for fi in range(2):
+            _mode_card_flash[fi] = max(0.0, _mode_card_flash[fi] - dt * 4.0)
+
+        # 기본 배경 렌더링
         _update_background_layers(ctx, state, dt, screen, width, height)
 
-        # 오버레이
+        # 짙은 오버레이 (약간 푸른빛)
         ov = pygame.Surface((width, height), pygame.SRCALPHA)
-        ov.fill((0, 0, 0, 150))
+        ov.fill((8, 12, 25, 190))
         screen.blit(ov, (0, 0))
+
+        # ── 배경 에너지 파티클 ──
+        _mode_update_bg_energy(dt, width, height, bg_accents)
+        _mode_draw_bg_energy(screen)
+
+        # ── 배경 글리치 ──
+        _mode_draw_bg_glitch(screen, width, height, state.animation_timer)
+
+        # ── 마우스 궤적 파티클 ──
+        _mode_update_mouse_trail(dt, width, height)
 
         # 클릭 애니메이션 업데이트
         if click_anim is not None:
@@ -1630,47 +1988,110 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
 
         # 호버 스케일 업데이트
         for i in range(2):
-            target = 1.06 if i == selected else 1.0
+            target = 1.07 if i == selected else 0.97  # 비선택 카드 약간 축소
             if click_anim and click_anim["card"] == i:
                 prog = click_anim["timer"] / click_anim["dur"]
-                target = 1.06 + 0.12 * prog  # 클릭 시 더 확대
+                target = 1.07 + 0.15 * prog  # 클릭 시 더 확대
             hover_scales[i] += (target - hover_scales[i]) * min(1.0, 8.0 * dt)
 
-        # 카드 그리기
+        # ── 카드 그리기 ──
         total_w = CARD_W * 2 + GAP
         start_x = (width - total_w) // 2
-        card_y = (height - CARD_H) // 2 + 20
+        base_card_y = (height - CARD_H) // 2 + 20
         card_rects = []
 
         for i, info in enumerate(cards_info):
             cx = start_x + i * (CARD_W + GAP)
-            y_off = math.sin(state.animation_timer * 1.5 + i * math.pi) * 3
-            # 클릭 애니메이션 - 다른 카드 페이드
-            if click_anim and click_anim["card"] != i:
-                fade_alpha = int(255 * (1.0 - click_anim["timer"] / click_anim["dur"]))
-                fade_surf = pygame.Surface((width, height), pygame.SRCALPHA)
+
+            # 부유 애니메이션
+            y_off = math.sin(state.animation_timer * 1.5 + i * math.pi) * 4
+
+            # 진입 애니메이션: 아래에서 바운스하며 올라옴
+            if not _mode_entry_done:
+                entry_t = min(1.0, _mode_entry_timer / 0.5)
+                # 각 카드에 약간의 딜레이 (i * 0.08초)
+                card_entry_t = max(0.0, min(1.0, (_mode_entry_timer - i * 0.08) / 0.45))
+                # cubic ease-out + 약간의 오버슈트
+                ease = 1.0 - (1.0 - card_entry_t) ** 3
+                if card_entry_t > 0.7:
+                    # 살짝 위로 갔다가 내려오는 바운스
+                    bounce = math.sin((card_entry_t - 0.7) / 0.3 * math.pi) * 8
+                else:
+                    bounce = 0
+                entry_offset = (1.0 - ease) * (height + 50) - bounce
+                y_off += entry_offset
+
+                # 진입 중 초기 스케일 (작게 → 크게)
+                if card_entry_t < 1.0:
+                    hover_scales[i] = 0.85 + 0.15 * card_entry_t
+
             rect = _draw_mode_card(
-                screen, cx, card_y, CARD_W, CARD_H,
+                screen, cx, base_card_y, CARD_W, CARD_H,
                 info["title"], info["subtitle"],
                 info["top"], info["bot"], info["accent"], info["icon"],
                 i == selected, hover_scales[i], y_off,
                 state.animation_timer, ctx,
                 preview_img=info.get("preview"),
+                card_index=i,
+                flash_intensity=_mode_card_flash[i],
             )
             card_rects.append(rect)
 
-        # 타이틀
+        # ── 마우스 궤적 파티클 (카드 위에 그리기) ──
+        _mode_draw_mouse_trail(screen)
+
+        # ── 타이틀 (고스트 잔상 + 네온 글로우) ──
         title_font = ctx.FontStyle.title_large()
         _loc = get_localization_manager()
-        ts = title_font.render(_loc.get_text("mode.select", "모드 선택"), True, (255, 255, 255))
-        screen.blit(ts, ts.get_rect(center=(width // 2, 110)))
-        # 서브타이틀
+        title_text = _loc.get_text("mode.select", "모드 선택")
+
+        # 선택된 카드 테마에 맞춰 타이틀 색상 변화
+        sel_accent = cards_info[selected]["accent"]
+        _mode_draw_title_ghost(screen, title_font, title_text,
+                               (width // 2, 100), state.animation_timer, sel_accent)
+
+        # 서브타이틀 (네온 깜빡임 효과)
         sub_font = ctx.FontStyle.tiny()
-        ss = sub_font.render(_loc.get_text("mode.select_desc", "플레이할 모드를 선택하세요"), True, (150, 170, 200))
-        screen.blit(ss, ss.get_rect(center=(width // 2, 150)))
+        sub_text = _loc.get_text("mode.select_desc", "플레이할 모드를 선택하세요")
+        sub_alpha = int(200 + 55 * math.sin(state.animation_timer * 4.0))
+        sub_color = (
+            max(0, min(255, 100 + int(sel_accent[0] * 0.3))),
+            max(0, min(255, 140 + int(sel_accent[1] * 0.3))),
+            max(0, min(255, 180 + int(sel_accent[2] * 0.2))),
+        )
+        ss = sub_font.render(sub_text, True, sub_color)
+        ss.set_alpha(sub_alpha)
+        screen.blit(ss, ss.get_rect(center=(width // 2, 142)))
+
+        # 구분선 (선택 테마 색상)
+        line_y = 162
+        line_pulse = 0.6 + 0.4 * math.sin(state.animation_timer * 3.0)
+        line_alpha = int(120 * line_pulse)
+        line_surf = pygame.Surface((width, 3), pygame.SRCALPHA)
+        for lx in range(width // 2 - 180, width // 2 + 180):
+            dist = abs(lx - width // 2) / 180.0
+            la = int(line_alpha * (1.0 - dist ** 2))
+            if la > 0:
+                pygame.draw.line(line_surf, (*sel_accent, la), (lx, 1), (lx, 1))
+        screen.blit(line_surf, (0, line_y))
+
+        # ── 선택된 모드 설명 텍스트 (카드 하단) ──
+        desc_font = ctx.FontStyle.tiny()
+        if selected == 0:
+            desc = _loc.get_text("mode.arcade_long_desc", "스테이지별 보스와 1:1 탁구 대결!")
+        else:
+            desc = _loc.get_text("mode.colosseum_long_desc", "영웅들의 토너먼트에 참가하라!")
+        desc_surf = desc_font.render(desc, True, (*sel_accent, 200))
+        desc_rect = desc_surf.get_rect(center=(width // 2, base_card_y + CARD_H + 55))
+        # 네온 글로우 배경
+        desc_glow = pygame.Surface((desc_rect.w + 40, desc_rect.h + 16), pygame.SRCALPHA)
+        pygame.draw.rect(desc_glow, (*sel_accent, 15), (0, 0, desc_glow.get_width(), desc_glow.get_height()), border_radius=10)
+        screen.blit(desc_glow, (desc_rect.x - 20, desc_rect.y - 8))
+        screen.blit(desc_surf, desc_rect)
+
         # ESC 힌트
-        esc = sub_font.render(_loc.get_text("menu.esc_back", "ESC: 뒤로"), True, (100, 110, 130))
-        screen.blit(esc, esc.get_rect(center=(width // 2, height - 50)))
+        esc = sub_font.render(_loc.get_text("menu.esc_back", "ESC: 뒤로"), True, (80, 90, 110))
+        screen.blit(esc, esc.get_rect(center=(width // 2, height - 40)))
 
         pygame.display.flip()
 
