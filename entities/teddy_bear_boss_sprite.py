@@ -143,32 +143,10 @@ class TeddyBearBossSprite:
         self.face_dir = 1.0
         self.face_dir_target = 0.0
 
-        # ── 반격(Counter) 애니메이션 상태 ──
-        self.is_countering = False
-        self.counter_timer = 0.0
-        self.counter_dir = 1        # 타격 방향 (+1: 오른손, -1: 왼손)
-        # 반격 시퀀스에서 구동되는 보간값
-        self._ct_body_lean = 0.0    # 몸통 기울기
-        self._ct_head_lean = 0.0    # 머리 기울기
-        self._ct_arm_angle = 0.0    # 때리는 팔 각도 (라디안)
-        self._ct_arm_stretch = 1.0  # 팔 길이 배율 (Phase2에서 >1)
-
         # 서피스 캐시
         self._surface_cache = {}
         self._ssaa_cache_key = None
         self._ssaa_cache_surf = None
-
-    def trigger_counter(self, ball_x=None, boss_cx=None):
-        """반격 애니메이션 트리거. ball_x로 타격 방향 결정."""
-        if self.is_countering:
-            return
-        self.is_countering = True
-        self.counter_timer = 0.0
-        # 공이 오른쪽에서 왔으면 오른손으로, 왼쪽이면 왼손으로
-        if ball_x is not None and boss_cx is not None:
-            self.counter_dir = 1 if ball_x >= boss_cx else -1
-        else:
-            self.counter_dir = 1 if self.face_dir >= 0 else -1
 
     def _get_surface(self, w, h):
         w = max(4, ((w + 3) // 4) * 4)
@@ -203,9 +181,12 @@ class TeddyBearBossSprite:
             if abs(self.step_phase) < 0.01:
                 self.step_phase = 0.0
 
-        # Lean 비활성화 (추후 히트 애니메이션으로 대체 예정)
-        self.lean = 0.0
-        self.lean_velocity = 0.0
+        # 관성 Lean (진자)
+        accel = self.velocity - (self.lean * 3.0)
+        self.lean_velocity += accel * dt * 6.0
+        self.lean_velocity *= 0.90
+        self.lean += self.lean_velocity
+        self.lean = max(-4.0, min(4.0, self.lean))
 
         # 바디 롤링 — 느린 주기
         if moving:
@@ -225,8 +206,11 @@ class TeddyBearBossSprite:
         else:
             self.arm_swing = _sin(self.time * 0.6) * 0.03
 
-        # 머리 기울기 비활성화
-        self.head_tilt = 0.0
+        # 머리 기울기
+        if moving:
+            self.head_tilt = _sin(self.step_phase * 0.5) * 2.0 * speed_ratio
+        else:
+            self.head_tilt = _sin(self.time * 0.5) * 0.6
 
         # 귀 바운스
         if moving:
@@ -241,57 +225,6 @@ class TeddyBearBossSprite:
         if moving:
             self.face_dir_target = float(self.move_dir)
         self.face_dir += (self.face_dir_target - self.face_dir) * 0.08
-
-        # ── 반격(Counter) 시퀀스 업데이트 ──
-        if self.is_countering:
-            self.counter_timer += dt
-            t = self.counter_timer
-            d = float(self.counter_dir)
-
-            if t < 0.05:
-                # Phase 1: 순간 반동 (0.0~0.05s) — 거의 즉시
-                p1 = t / 0.05
-                ease_in = p1 * p1
-                self._ct_body_lean = -d * 1.2 * ease_in
-                self._ct_head_lean = -d * 0.8 * ease_in
-                self._ct_arm_angle = -d * 0.4 * ease_in
-                self._ct_arm_stretch = 1.0 - 0.08 * ease_in
-                self.arm_swing *= (1.0 - ease_in)
-                self.body_roll *= (1.0 - ease_in)
-
-            elif t < 0.15:
-                # Phase 2: 타격 (0.05~0.15s) — 즉각적 스윙
-                p2 = (t - 0.05) / 0.10
-                strike = p2 * p2 * (3 - 2 * p2)
-                self._ct_body_lean = d * (-1.2 + 4.7 * strike)   # -1.2 → +3.5
-                self._ct_head_lean = d * (-0.8 + 2.8 * strike)   # -0.8 → +2.0
-                self._ct_arm_angle = d * (-0.4 + 1.9 * strike)   # -0.4 → +1.5
-                self._ct_arm_stretch = 0.92 + 0.33 * strike      # 0.92 → 1.25
-                self.arm_swing = 0.0
-                self.body_roll = 0.0
-
-            elif t < 0.50:
-                # Phase 3: 팔로우 스루 + 복귀 (0.15~0.50s)
-                p3 = (t - 0.15) / 0.35
-                ease_out = 1.0 - (1.0 - p3) * (1.0 - p3)
-                self._ct_body_lean = d * 3.5 * (1.0 - ease_out)
-                self._ct_head_lean = d * 2.0 * (1.0 - ease_out)
-                self._ct_arm_angle = d * 1.5 * (1.0 - ease_out)
-                self._ct_arm_stretch = 1.25 - 0.25 * ease_out
-
-            else:
-                # 시퀀스 종료
-                self.is_countering = False
-                self._ct_body_lean = 0.0
-                self._ct_head_lean = 0.0
-                self._ct_arm_angle = 0.0
-                self._ct_arm_stretch = 1.0
-        else:
-            # 반격 중이 아닐 때 보간값 감쇠 (안전장치)
-            self._ct_body_lean *= 0.85
-            self._ct_head_lean *= 0.85
-            self._ct_arm_angle *= 0.85
-            self._ct_arm_stretch += (1.0 - self._ct_arm_stretch) * 0.15
 
     def draw(self, screen, x, y, w, h):
         """2x SSAA 렌더링: 2배 서피스에 그린 후 smoothscale로 축소"""
@@ -318,10 +251,6 @@ class TeddyBearBossSprite:
         cx = x + w // 2
         cy = y + h // 2
         b = min(w, h) / 20.0
-
-        # 반격 몸통/머리 오프셋 반영
-        ct_body_px = int(self._ct_body_lean * b * _SSAA * 0.5)
-        ct_head_px = int(self._ct_head_lean * b * _SSAA * 0.5)
 
         lean_offset = int(self.lean * _SSAA)
         bob_offset = int(self.body_bob * _SSAA)
@@ -357,15 +286,13 @@ class TeddyBearBossSprite:
         }
 
         torso_y = cy + bob_offset
-        body_cx = cx + lean_offset + ct_body_px
-        head_cy_off = torso_y + int(self.head_tilt * 0.3 * _SSAA) + ct_head_px
 
-        self._draw_ground_shadow(screen, body_cx, torso_y, b)
-        self._draw_legs(screen, body_cx, torso_y, b, p, roll_offset)
-        self._draw_body(screen, body_cx, torso_y, b, p, roll_offset)
-        self._draw_arm(screen, body_cx, torso_y, b, p, is_back=True, roll=roll_offset)
-        self._draw_head(screen, body_cx, head_cy_off, b, p, fd, roll_offset)
-        self._draw_arm(screen, body_cx, torso_y, b, p, is_back=False, roll=roll_offset)
+        self._draw_ground_shadow(screen, cx + lean_offset, torso_y, b)
+        self._draw_legs(screen, cx + lean_offset, torso_y, b, p, roll_offset)
+        self._draw_body(screen, cx + lean_offset, torso_y, b, p, roll_offset)
+        self._draw_arm(screen, cx + lean_offset, torso_y, b, p, is_back=True, roll=roll_offset)
+        self._draw_head(screen, cx + lean_offset, torso_y + int(self.head_tilt * 0.3 * _SSAA), b, p, fd, roll_offset)
+        self._draw_arm(screen, cx + lean_offset, torso_y, b, p, is_back=False, roll=roll_offset)
 
     # ──────────────────────── 그림자 ────────────────────────
 
@@ -597,26 +524,12 @@ class TeddyBearBossSprite:
 
         swing_angle = self.arm_swing * (-1 if is_back else 1)
 
-        # ── 반격 애니메이션: 타격 팔 오버라이드 ──
-        # 앞쪽 팔(is_back=False)이 counter_dir 쪽이면 타격 팔
-        is_strike_arm = (not is_back and side == self.counter_dir)
-        if self.is_countering and is_strike_arm:
-            swing_angle = self._ct_arm_angle
-            arm_h = int(4.0 * b * self._ct_arm_stretch)
-            # 어깨를 약간 앞으로 내밀기
-            shoulder_x += int(self._ct_body_lean * b * 0.3)
-
         end_x = shoulder_x + int(_sin(swing_angle) * arm_h)
         end_y = shoulder_y + int(_cos(swing_angle) * arm_h)
 
         # 테이퍼드 폴리곤 — 어깨 좁고 → 손 넓음
         hw_shoulder = int(0.9 * b)   # 어깨 (좁음)
         hw_paw = int(1.5 * b)       # 손바닥 (넓음)
-
-        # 타격 순간: 팔을 길고 얇게 (속도감)
-        if self.is_countering and is_strike_arm and self._ct_arm_stretch > 1.05:
-            hw_shoulder = int(0.7 * b)
-            hw_paw = int(1.2 * b)
 
         # 팔 방향 벡터 계산
         dx = end_x - shoulder_x

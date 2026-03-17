@@ -136467,12 +136467,6 @@ def handle_ball():
             elif current_stage == 3:
                 # 광폭화 여부와 관계없이 게이지 충전량 50 고정
                 gain = 50
-                # 테디베어 반격 애니메이션 트리거
-                try:
-                    if current_boss_name == "테디베어" and teddy_bear_sprite:
-                        teddy_bear_sprite.trigger_counter(BALL.centerx, BOSS.centerx)
-                except Exception:
-                    pass
             else:
                 gain = 80
             boss_special_gauge = min(boss_special_gauge + gain, 500)
