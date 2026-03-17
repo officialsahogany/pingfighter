@@ -117711,6 +117711,159 @@ def show_character_selection():
 
     # ======== END PRE-CACHED SURFACES ========
 
+    # ======== [개선 #4] 애니메이션 상태 딕셔너리 리팩토링 ========
+    # 기존 전역 변수(soldier_swing_active 등)를 캐릭터 ID 키 딕셔너리로 통합 관리.
+    # 기존 draw 함수들이 전역 변수를 읽으므로, _sync_anim_to_globals()로 동기화.
+    _char_anim: dict = {}
+
+    def _get_anim(cid: str) -> dict:
+        """캐릭터별 애니메이션 상태 반환 (없으면 초기화)"""
+        if cid not in _char_anim:
+            _char_anim[cid] = {
+                "swing_active": False, "swing_timer": 0,
+                "right_hook_active": False, "right_hook_timer": 0,
+                "right_hook_phase": 0.0,
+                "walking_active": False, "walking_timer": 0,
+                "shield_swing_timer": 0, "hammer_swing_phase": 0,
+                "walk_direction": 1,
+            }
+        return _char_anim[cid]
+
+    def _sync_anim_to_globals(cid: str):
+        """로컬 딕셔너리 → 전역 변수 동기화 (기존 draw 함수 호환)"""
+        st = _get_anim(cid)
+        try:
+            global soldier_swing_active, soldier_swing_timer
+            global soldier_right_hook_active, soldier_right_hook_timer, soldier_right_hook_phase
+            global soldier_walking_active, soldier_walking_timer
+            global blacksmith_shield_swing_timer, blacksmith_hammer_swing_phase
+            global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
+            if cid == "soldier":
+                soldier_swing_active = st["swing_active"]
+                soldier_swing_timer = st["swing_timer"]
+                soldier_right_hook_active = st["right_hook_active"]
+                soldier_right_hook_timer = st["right_hook_timer"]
+                soldier_right_hook_phase = st["right_hook_phase"]
+                soldier_walking_active = st["walking_active"]
+                soldier_walking_timer = st["walking_timer"]
+            elif cid == "blacksmith":
+                blacksmith_shield_swing_timer = st["shield_swing_timer"]
+                blacksmith_hammer_swing_phase = st["hammer_swing_phase"]
+                blacksmith_walking_active = st["walking_active"]
+                blacksmith_walking_timer = st["walking_timer"]
+                blacksmith_walk_direction = st["walk_direction"]
+        except Exception:
+            pass
+
+    def _reset_all_anim():
+        """모든 캐릭터 애니메이션 상태 초기화 (딕셔너리 + 전역 동기화)"""
+        nonlocal preview_state, preview_timer
+        preview_state = "idle"
+        preview_timer = 0
+        for cid in list(_char_anim.keys()):
+            s = _char_anim[cid]
+            for k in s:
+                if isinstance(s[k], bool):
+                    s[k] = False
+                elif k == "walk_direction":
+                    s[k] = 1
+                else:
+                    s[k] = 0
+        _sync_anim_to_globals("soldier")
+        _sync_anim_to_globals("blacksmith")
+
+    # 기존 reset_preview_state를 딕셔너리 버전으로 교체
+    reset_preview_state = _reset_all_anim
+
+    def _tick_preview_v2(current_char_id: str):
+        """[개선 #4] 딕셔너리 기반 프리뷰 FSM (기존 update_preview_fsm 대체)"""
+        nonlocal preview_state, preview_timer, preview_walk_dir
+
+        if not PREVIEW_ENABLED or (not preview_center_hovered and not PREVIEW_FORCE):
+            _reset_all_anim()
+            return
+
+        st = _get_anim(current_char_id)
+
+        # idle → left 전환
+        if preview_state == "idle":
+            preview_state = "left"
+            preview_timer = 0
+            if current_char_id == "soldier":
+                st["swing_active"] = True
+                st["swing_timer"] = SOLDIER_SWING_DURATION
+            elif current_char_id == "blacksmith":
+                st["shield_swing_timer"] = BLACKSMITH_SHIELD_SWING_DURATION
+            _sync_anim_to_globals(current_char_id)
+            return
+
+        # 틱 업데이트 (캐릭터별 FSM)
+        if current_char_id == "soldier":
+            if preview_state == "left":
+                st["swing_timer"] = max(0, st["swing_timer"] - 1)
+                if st["swing_timer"] <= 0:
+                    st["swing_active"] = False
+                    preview_state = "right"
+                    st["right_hook_active"] = True
+                    st["right_hook_timer"] = SOLDIER_RIGHT_HOOK_DURATION
+            elif preview_state == "right":
+                st["right_hook_timer"] = max(0, st["right_hook_timer"] - 1)
+                if st["right_hook_timer"] <= 0:
+                    st["right_hook_active"] = False
+                    preview_state = "walk"
+                    preview_timer = PREVIEW_WALK_DURATION
+                    st["walking_active"] = True
+                    st["walking_timer"] = 0
+            elif preview_state == "walk":
+                st["walking_timer"] += 1
+                preview_timer -= 1
+                if preview_timer <= 0:
+                    st["walking_active"] = False
+                    preview_state = "left"
+                    preview_walk_dir *= -1
+                    st["swing_active"] = True
+                    st["swing_timer"] = SOLDIER_SWING_DURATION
+        elif current_char_id == "blacksmith":
+            if preview_state == "left":
+                st["shield_swing_timer"] = max(0, st["shield_swing_timer"] - 1)
+                if st["shield_swing_timer"] <= 0:
+                    preview_state = "right"
+                    st["hammer_swing_phase"] = 0
+            elif preview_state == "right":
+                st["hammer_swing_phase"] = min(
+                    BLACKSMITH_HAMMER_SWING_DURATION,
+                    st["hammer_swing_phase"] + 1
+                )
+                if st["hammer_swing_phase"] >= BLACKSMITH_HAMMER_SWING_DURATION:
+                    preview_state = "walk"
+                    preview_timer = PREVIEW_WALK_DURATION
+                    st["walking_active"] = True
+                    st["walking_timer"] = 0
+                    st["walk_direction"] = preview_walk_dir
+            elif preview_state == "walk":
+                st["walking_timer"] += 1
+                preview_timer -= 1
+                if preview_timer <= 0:
+                    st["walking_active"] = False
+                    preview_state = "left"
+                    preview_walk_dir *= -1
+                    st["shield_swing_timer"] = BLACKSMITH_SHIELD_SWING_DURATION
+        else:
+            # 기타 캐릭터: 워킹만 루프
+            if preview_state != "walk":
+                preview_state = "walk"
+                preview_timer = PREVIEW_WALK_DURATION
+            else:
+                preview_timer -= 1
+                if preview_timer <= 0:
+                    preview_timer = PREVIEW_WALK_DURATION
+                    preview_walk_dir *= -1
+
+        _sync_anim_to_globals(current_char_id)
+
+    # 기존 update_preview_fsm을 딕셔너리 버전으로 교체
+    update_preview_fsm = _tick_preview_v2
+
     # 애니메이션 관련 함수들 (while 루프 전에 정의)
     def start_card_transition():
         nonlocal card_transition_active, card_transition_progress
@@ -117727,9 +117880,9 @@ def show_character_selection():
         if len(characters) > 1:
             remaining_cards = len(characters) - 1
             if remaining_cards > 1:
-                angle_step = QUARTER_ROTATION / (remaining_cards - 1)  # fan_angle_range = QUARTER_ROTATION
+                angle_step = FAN_ANGLE_RANGE / (remaining_cards - 1)
                 card_index = selected if selected < previous_selected else selected - 1
-                angle = -45 + card_index * angle_step  # -fan_angle_range/2
+                angle = -FAN_ANGLE_RANGE / 2 + card_index * angle_step
             else:
                 angle = 0
         else:
@@ -117856,7 +118009,7 @@ def show_character_selection():
                     new_hover = -1
                     best_i = -1
                     best_score = 1e9
-                    fan_angle_range = QUARTER_ROTATION
+                    fan_angle_range = FAN_ANGLE_RANGE
                     fan_radius = 210
                     for i, character in enumerate(characters):
                         if i == selected:
@@ -117902,7 +118055,7 @@ def show_character_selection():
                 elif event.button == 1:
                     mx, my = pygame.mouse.get_pos()
                     # 하단 카드 클릭 시 그 카드를 펼치기(선택 전환)
-                    fan_angle_range = QUARTER_ROTATION
+                    fan_angle_range = FAN_ANGLE_RANGE
                     fan_radius = 210
                     clicked_index = -1
                     best_i = -1
@@ -118151,9 +118304,9 @@ def show_character_selection():
         def draw_card_fan():
             # 애니메이션 중인 카드들 추적
             animated_cards = []
-            # 1. 선택되지 않은 카드들을 하단 부채꼴로 그리기
+            # 1. 선택되지 않은 카드들을 하단 부채꼴로 그리기 (개선 #3: 155° + 동적 간격)
             #    요구사항: 맨 왼쪽 카드가 가장 위(맨 앞)에 오도록 그리는 순서를 변경한다.
-            fan_angle_range = QUARTER_ROTATION
+            fan_angle_range = FAN_ANGLE_RANGE  # 155° (기존 90°에서 확대)
             fan_radius = 210
             fan_draw_list = []  # (angle, i, character, card_x, card_y)
             for i, character in enumerate(characters):
@@ -118170,7 +118323,15 @@ def show_character_selection():
                         if remaining_cards > 1:
                             angle_step = fan_angle_range / (remaining_cards - 1)
                             card_index = i if i < selected else i - 1
-                            angle = -fan_angle_range/2 + card_index * angle_step
+                            angle = -fan_angle_range / 2 + card_index * angle_step
+                            # 동적 간격: 이전 선택 카드 슬롯 근처 양쪽 카드를 살짝 벌림
+                            prev_slot = previous_selected if previous_selected < selected else previous_selected - 1
+                            if remaining_cards > 2:
+                                dist_from_prev = abs(card_index - prev_slot)
+                                if dist_from_prev <= 1:
+                                    nudge = (6.0 if dist_from_prev == 0 else 3.0)
+                                    nudge_dir = 1 if card_index > (remaining_cards - 1) / 2 else -1
+                                    angle += nudge * nudge_dir
                         else:
                             angle = 0
                     else:
