@@ -27643,7 +27643,8 @@ spider_rage_red_tint = 0          # 분노 붉어짐 강도 (0-255)
 friend_moles_pending = False       # 다음 라운드에서 이벤트 예약
 friend_moles_active = False        # 이벤트 진행 중
 friend_moles_timer = 0             # 이벤트 타이머
-friend_moles_triggered = False     # 한 번만 발동
+friend_moles_triggered = False     # 발동 여부
+friend_moles_round_count = 0       # 발동 후 활성화된 라운드 수 (최대 2)
 friend_moles_list = []             # 솟아난 두더지 리스트
 friend_moles_spawn_timer = 0       # 스폰 간격 타이머
 friend_moles_dirt_particles = []   # 흙먼지 파티클
@@ -53532,7 +53533,7 @@ def go_to_next_round():
     global doping_potion_active, doping_potion_timer, doping_potion_use_count, doping_potion_toast_timer
     global hongryun_hit_count, hongryun_ready, HONGRYUN_MAX_HITS
     global spider_rage_pending, spider_rage_active, spider_rage_timer, spider_rage_triggered, spider_rage_stomp_offset_y, spider_rage_red_tint
-    global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered, friend_moles_list, friend_moles_spawn_timer, friend_moles_dirt_particles
+    global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered, friend_moles_list, friend_moles_spawn_timer, friend_moles_dirt_particles, friend_moles_round_count
 
     preserved_doping_state = None
     # 라운드 시작 카운트 기록
@@ -129276,15 +129277,18 @@ def reset_round(is_stage_start=False):
         friend_moles_dirt_particles.clear()
         friend_moles_active = False
 
-    # Stage 2 두더지왕 친구두더지 이벤트 시작 (4점 달성 후 스테이지 끝까지 매 라운드 활성화)
+    # Stage 2 두더지왕 친구두더지 이벤트 시작 (4점 달성 후 최대 2라운드 활성화)
     if current_stage == 2 and current_boss_name == "두더지왕" and (friend_moles_pending or friend_moles_triggered):
         if friend_moles_pending:
             show_speech("친구들! 도와줘!", duration=90)
             friend_moles_pending = False
             friend_moles_triggered = True
-        friend_moles_active = True
-        friend_moles_timer = 0
-        friend_moles_spawn_timer = 0
+            friend_moles_round_count = 0
+        if friend_moles_round_count < 2:
+            friend_moles_active = True
+            friend_moles_timer = 0
+            friend_moles_spawn_timer = 0
+            friend_moles_round_count += 1
 
     # 공 리셋
     ball_vel = [0, 0]
@@ -143377,7 +143381,7 @@ def main(stage_num, new_boss_mode=False):
     global spider_mine_slow_active, smasher_power_recoil_timer
     global spider_rage_pending, spider_rage_active, spider_rage_timer, spider_rage_triggered
     global spider_rage_stomp_offset_y, spider_rage_red_tint
-    global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered
+    global friend_moles_pending, friend_moles_active, friend_moles_timer, friend_moles_triggered, friend_moles_round_count
     global friend_moles_list, friend_moles_spawn_timer, friend_moles_dirt_particles
     global player_burn_timer, player_burn_effect, player_knockback_y
     
@@ -143645,6 +143649,7 @@ def main(stage_num, new_boss_mode=False):
         friend_moles_active = False
         friend_moles_timer = 0
         friend_moles_triggered = False
+        friend_moles_round_count = 0
         friend_moles_list.clear()
         friend_moles_spawn_timer = 0
         friend_moles_dirt_particles.clear()
