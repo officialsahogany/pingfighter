@@ -837,27 +837,47 @@ def _mode_draw_plasma_border(screen, rect, accent, anim_t, intensity=1.0):
 
 
 def _mode_draw_shine_sweep(card_surf, w, h, offset, accent):
-    """카드 표면에 대각선 광택 스윕 효과를 그린다."""
-    sweep_w = 60
-    # offset은 -sweep_w ~ w+sweep_w 범위를 순환
-    pos = int(offset) % (w + sweep_w * 2) - sweep_w
+    """카드 표면에 프리미엄 대각선 광택 스윕 — 이중 반사 + 백색 발광."""
+    sweep_w = 180
+    angle_offset = h * 0.8  # 대각선 기울기
+    pos = int(offset * 1.5) % (w + sweep_w * 2) - sweep_w
 
     shine = pygame.Surface((w, h), pygame.SRCALPHA)
     for col_i in range(sweep_w):
         draw_x = pos + col_i
         if draw_x < 0 or draw_x >= w:
             continue
-        # 가우시안 형태의 밝기
         t = col_i / sweep_w
-        brightness = math.exp(-((t - 0.5) ** 2) / 0.04)  # 날카로운 피크
-        alpha = int(120 * brightness)
+
+        # 이중 반사: 메인 빔(t=0.7) + 서브 빔(t=0.4)
+        main_peak = math.exp(-((t - 0.7) ** 2) / 0.02)
+        sub_peak = math.exp(-((t - 0.4) ** 2) / 0.06) * 0.4
+        brightness = min(main_peak + sub_peak, 1.0)
+
+        alpha = int(160 * brightness)
         if alpha < 2:
             continue
-        # 대각선 효과를 위해 세로 방향도 오프셋
-        skew = int((col_i - sweep_w // 2) * 0.6)
-        pygame.draw.line(shine, (*accent, alpha),
-                         (draw_x, max(0, -skew)),
-                         (draw_x, min(h - 1, h - 1 - skew)), 1)
+
+        # 백색 발광: 코어 강도가 높을수록 accent → 순백으로 전이
+        core_intensity = max(0.0, (brightness - 0.6) / 0.4)
+        r = int(accent[0] + (255 - accent[0]) * core_intensity)
+        g = int(accent[1] + (255 - accent[1]) * core_intensity)
+        b = int(accent[2] + (255 - accent[2]) * core_intensity)
+
+        # 대각선 폴리곤 렌더링
+        progress = col_i / sweep_w
+        y_off_top = int(progress * angle_offset)
+        y_off_bot = int(progress * angle_offset + angle_offset * 0.1)
+        x0 = draw_x
+        x1 = min(draw_x + 2, w - 1)
+        pts = [
+            (x0, max(0, y_off_top)),
+            (x1, max(0, y_off_top)),
+            (x1, min(h - 1, h - 1 - y_off_bot)),
+            (x0, min(h - 1, h - 1 - y_off_bot)),
+        ]
+        pygame.draw.polygon(shine, (r, g, b, alpha), pts)
+
     card_surf.blit(shine, (0, 0), special_flags=pygame.BLEND_ADD)
 
 
