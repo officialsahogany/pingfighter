@@ -135,12 +135,11 @@ class SpiderBossSprite:
             acceleration_curve = math.pow(sp, 1.2)
             self.step_phase += dt * 6.0 * max(acceleration_curve, 0.4)
             self.body_bob = _sin(self.step_phase * _TAU * 0.5) * 0.025 * sp
-            # 좌우 흔들림 (다리 짚음에 맞춰 약간 더 크게)
-            self.body_sway = _sin(self.step_phase * _TAU * 0.25) * 0.020 * sp
+            self.body_sway = 0.0  # Sway 비활성화
         else:
             self.step_phase *= 0.95
             self.body_bob = _sin(self.time * 2.5) * 0.006
-            self.body_sway *= 0.92
+            self.body_sway = 0.0
 
         if self.is_hit:
             self.hit_timer += dt

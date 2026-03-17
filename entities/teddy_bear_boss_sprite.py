@@ -181,12 +181,9 @@ class TeddyBearBossSprite:
             if abs(self.step_phase) < 0.01:
                 self.step_phase = 0.0
 
-        # 관성 Lean (진자)
-        accel = self.velocity - (self.lean * 3.0)
-        self.lean_velocity += accel * dt * 6.0
-        self.lean_velocity *= 0.90
-        self.lean += self.lean_velocity
-        self.lean = max(-4.0, min(4.0, self.lean))
+        # Lean 비활성화 (추후 히트 애니메이션으로 대체 예정)
+        self.lean = 0.0
+        self.lean_velocity = 0.0
 
         # 바디 롤링 — 느린 주기
         if moving:
@@ -206,11 +203,8 @@ class TeddyBearBossSprite:
         else:
             self.arm_swing = _sin(self.time * 0.6) * 0.03
 
-        # 머리 기울기 — 느린 주기
-        if moving:
-            self.head_tilt = _sin(self.step_phase * 0.5) * 2.0 * speed_ratio
-        else:
-            self.head_tilt = _sin(self.time * 0.5) * 0.6
+        # 머리 기울기 비활성화
+        self.head_tilt = 0.0
 
         # 귀 바운스
         if moving:

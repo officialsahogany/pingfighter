@@ -98,12 +98,11 @@ class TalkwangdaeBossSprite:
         if self.direction != 0:
             speed_factor = min(self.velocity / 80.0, 2.0)
             self.step_phase += dt * 9.0 * max(speed_factor, 0.5)
-            target_lean = self.direction * 0.18 * min(speed_factor, 1.0)
-            self.lean += (target_lean - self.lean) * min(dt * 7.0, 1.0)
+            self.lean = 0.0  # Lean 비활성화
             self.body_bob = _sin(self.step_phase * 2) * 0.12 * speed_factor
         else:
             self.step_phase *= 0.95
-            self.lean *= 0.92
+            self.lean = 0.0
             self.body_bob = _sin(self.time * 2.0) * 0.03  # 미세한 흔들림
 
         # 히트 애니메이션
