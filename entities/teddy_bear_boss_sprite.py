@@ -727,53 +727,70 @@ class TeddyBearBossSprite:
         face_cx = head_cx + face_shift
         face_cy = head_cy + int(0.3 * b)
 
-        # ★ 눈 — 플러시 인형 스타일 (단색 큰 타원 + 하트 눈)
+        # ★ 눈 — 큰 하트 모양 (얀데레 핑크 하트)
         for side in [-1, 1]:
             eye_cx = face_cx + int(side * 1.3 * b)
             eye_cy = face_cy - int(0.3 * b)
 
-            # 고정 크기 (eye_scale 변형 없음)
-            ew = int(1.2 * b)
-            eh = int(1.4 * b)
-
-            # 눈 소켓 (약간 어두운 후광)
-            pygame.draw.ellipse(screen, p["fur_dark"],
-                                (eye_cx - ew - 2, eye_cy - eh - 2, ew * 2 + 4, eh * 2 + 4))
-
-            # ★ 단색 짙은 초콜릿 타원 (플러시 눈)
-            pygame.draw.ellipse(screen, p["eye_base"],
-                                (eye_cx - ew, eye_cy - eh, ew * 2, eh * 2))
-            # 약간 밝은 상단 그라데이션
-            pygame.draw.ellipse(screen, p["eye_base_light"],
-                                (eye_cx - int(ew * 0.7), eye_cy - int(eh * 0.7),
-                                 int(ew * 1.4), int(eh * 0.9)))
-
-            # ★ 얀데레 하트 눈 — 눈동자 중앙 상단에 핑크 하트 글로우
-            hr = max(2, int(0.3 * b))
-            heart_cx = eye_cx
-            heart_cy = eye_cy - int(0.15 * b)
+            hr = max(3, int(1.1 * b))  # 하트 반지름 (눈 전체 크기)
 
             # 하트 글로우 (배경 빛남)
-            glow_r = hr * 3
+            glow_r = int(hr * 2.2)
             glow_surf = self._get_surface(glow_r * 2, glow_r * 2)
             pulse = (_sin(self.time * 2.5) + 1) * 0.5
-            glow_alpha = int(50 + 30 * pulse)
+            glow_alpha = int(40 + 35 * pulse)
             pygame.draw.circle(glow_surf, (*p["pink_glow"][:3], glow_alpha),
                               (glow_r, glow_r), glow_r)
-            screen.blit(glow_surf, (heart_cx - glow_r, heart_cy - glow_r),
+            screen.blit(glow_surf, (eye_cx - glow_r, eye_cy - glow_r),
                        special_flags=pygame.BLEND_ADD)
 
-            # 하트 본체 (원 2개 + 역삼각형 — 배꼽 하트와 동일 방식)
-            pygame.draw.circle(screen, p["pink"], (heart_cx - hr // 2, heart_cy - hr // 3), hr // 2)
-            pygame.draw.circle(screen, p["pink"], (heart_cx + hr // 2, heart_cy - hr // 3), hr // 2)
-            pygame.draw.polygon(screen, p["pink"], [
-                (heart_cx - hr, heart_cy - hr // 4),
-                (heart_cx + hr, heart_cy - hr // 4),
-                (heart_cx, heart_cy + hr)
+            # 하트 그림자 (약간 오프셋)
+            lobe_r = int(hr * 0.55)
+            sh_off = max(1, int(0.08 * b))
+            pygame.draw.circle(screen, p["fur_shadow"],
+                              (eye_cx - lobe_r + sh_off, eye_cy - int(hr * 0.15) + sh_off), lobe_r + 1)
+            pygame.draw.circle(screen, p["fur_shadow"],
+                              (eye_cx + lobe_r + sh_off, eye_cy - int(hr * 0.15) + sh_off), lobe_r + 1)
+            pygame.draw.polygon(screen, p["fur_shadow"], [
+                (eye_cx - hr + sh_off, eye_cy - int(hr * 0.05) + sh_off),
+                (eye_cx + hr + sh_off, eye_cy - int(hr * 0.05) + sh_off),
+                (eye_cx + sh_off, eye_cy + int(hr * 1.15) + sh_off)
             ])
-            # 하트 하이라이트 (좌상단 작은 반짝)
+
+            # 하트 다크 아웃라인
+            outline = max(1, int(0.1 * b))
+            pygame.draw.circle(screen, p["pink_dark"],
+                              (eye_cx - lobe_r, eye_cy - int(hr * 0.15)), lobe_r + outline)
+            pygame.draw.circle(screen, p["pink_dark"],
+                              (eye_cx + lobe_r, eye_cy - int(hr * 0.15)), lobe_r + outline)
+            pygame.draw.polygon(screen, p["pink_dark"], [
+                (eye_cx - hr - outline, eye_cy - int(hr * 0.05)),
+                (eye_cx + hr + outline, eye_cy - int(hr * 0.05)),
+                (eye_cx, eye_cy + int(hr * 1.15) + outline)
+            ])
+
+            # 하트 본체 (원 2개 + 역삼각형)
+            pygame.draw.circle(screen, p["pink"],
+                              (eye_cx - lobe_r, eye_cy - int(hr * 0.15)), lobe_r)
+            pygame.draw.circle(screen, p["pink"],
+                              (eye_cx + lobe_r, eye_cy - int(hr * 0.15)), lobe_r)
+            pygame.draw.polygon(screen, p["pink"], [
+                (eye_cx - hr, eye_cy - int(hr * 0.05)),
+                (eye_cx + hr, eye_cy - int(hr * 0.05)),
+                (eye_cx, eye_cy + int(hr * 1.15))
+            ])
+
+            # 하트 밝은 레이어 (내부 상단)
+            inner_lobe = int(lobe_r * 0.7)
             pygame.draw.circle(screen, p["pink_light"],
-                              (heart_cx - hr // 3, heart_cy - hr // 2), max(1, hr // 4))
+                              (eye_cx - lobe_r, eye_cy - int(hr * 0.3)), inner_lobe)
+            pygame.draw.circle(screen, p["pink_light"],
+                              (eye_cx + lobe_r, eye_cy - int(hr * 0.3)), inner_lobe)
+
+            # 하이라이트 반짝 (좌상단)
+            hl_r = max(1, int(hr * 0.22))
+            pygame.draw.circle(screen, (255, 230, 240),
+                              (eye_cx - int(hr * 0.4), eye_cy - int(hr * 0.4)), hl_r)
 
         # 코 (오밀조밀)
         nose_cx = face_cx
