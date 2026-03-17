@@ -99073,8 +99073,8 @@ def draw_objects():
             boss_x_pos = float(BOSS.centerx) if BOSS is not None else 380.0
             teddy_bear_sprite.update(boss_x_pos, 1/60)
             # 캔버스를 보스 크기보다 넉넉하게 잡아 팔/귀 잘림 방지
-            teddy_canvas_w = BOSS_IMG_WIDTH + 40
-            teddy_canvas_h = BOSS_IMG_HEIGHT + 30
+            teddy_canvas_w = BOSS_IMG_WIDTH + 50
+            teddy_canvas_h = BOSS_IMG_HEIGHT + 50
             teddy_surf = pygame.Surface((teddy_canvas_w, teddy_canvas_h), pygame.SRCALPHA)
             teddy_bear_sprite.draw(teddy_surf, 0, 0, teddy_canvas_w, teddy_canvas_h)
             boss_img = teddy_surf
