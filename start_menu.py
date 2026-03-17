@@ -837,44 +837,51 @@ def _mode_draw_plasma_border(screen, rect, accent, anim_t, intensity=1.0):
 
 
 def _mode_draw_shine_sweep(card_surf, w, h, offset, accent):
-    """카드 표면에 프리미엄 대각선 광택 스윕 — 이중 반사 + 백색 발광."""
-    sweep_w = 180
-    angle_offset = h * 0.8  # 대각선 기울기
-    pos = int(offset * 1.5) % (w + sweep_w * 2) - sweep_w
+    """카드 표면에 프리미엄 대각선 광택 스윕 — 이중 반사 + 백색 발광 (수정본)."""
+    sweep_w = 180  # 광택 전체 너비
+    skew = int(h * 0.7)  # 기울기 (상단이 우측으로 얼마나 밀릴지 결정)
+
+    # 오프셋 범위 계산 (완전히 화면 밖에서 시작해서 완전히 밖으로 나가도록)
+    total_travel = w + sweep_w + skew
+    pos = int(offset * 2.5) % (total_travel * 2) - (sweep_w + skew)
 
     shine = pygame.Surface((w, h), pygame.SRCALPHA)
-    for col_i in range(sweep_w):
-        draw_x = pos + col_i
-        if draw_x < 0 or draw_x >= w:
-            continue
+
+    # 2픽셀 단위로 렌더링하여 성능과 퀄리티를 동시에 잡음
+    for col_i in range(0, sweep_w, 2):
         t = col_i / sweep_w
 
-        # 이중 반사: 메인 빔(t=0.7) + 서브 빔(t=0.4)
-        main_peak = math.exp(-((t - 0.7) ** 2) / 0.02)
-        sub_peak = math.exp(-((t - 0.4) ** 2) / 0.06) * 0.4
+        # 이중 반사: 0.6 위치에 넓은 메인 빔, 0.3 위치에 얇은 서브 빔
+        main_peak = math.exp(-((t - 0.6) ** 2) / 0.015)
+        sub_peak = math.exp(-((t - 0.3) ** 2) / 0.005) * 0.5
         brightness = min(main_peak + sub_peak, 1.0)
 
-        alpha = int(160 * brightness)
-        if alpha < 2:
+        alpha = int(180 * brightness)
+        if alpha < 3:
             continue
 
-        # 백색 발광: 코어 강도가 높을수록 accent → 순백으로 전이
-        core_intensity = max(0.0, (brightness - 0.6) / 0.4)
-        r = int(accent[0] + (255 - accent[0]) * core_intensity)
-        g = int(accent[1] + (255 - accent[1]) * core_intensity)
-        b = int(accent[2] + (255 - accent[2]) * core_intensity)
+        # 코어 백색 발광 (가장 밝은 부분은 테마색 -> 순백색으로 타오름)
+        core = max(0.0, (brightness - 0.6) / 0.4)
+        r = int(accent[0] + (255 - accent[0]) * core)
+        g = int(accent[1] + (255 - accent[1]) * core)
+        b = int(accent[2] + (255 - accent[2]) * core)
 
-        # 대각선 폴리곤 렌더링
-        progress = col_i / sweep_w
-        y_off_top = int(progress * angle_offset)
-        y_off_bot = int(progress * angle_offset + angle_offset * 0.1)
-        x0 = draw_x
-        x1 = min(draw_x + 2, w - 1)
+        # X축으로 기울기(Shear) 적용 (Y좌표는 고정하고 X를 비틂)
+        bot_x = pos + col_i          # 하단 X좌표
+        top_x = bot_x + skew         # 상단 X좌표 (기울기만큼 우측으로 밀림)
+
+        # 화면 밖 렌더링 최적화
+        if top_x + 3 < 0 and bot_x + 3 < 0:
+            continue
+        if top_x > w and bot_x > w:
+            continue
+
+        # 완벽한 대각선 폴리곤 (빈틈 방지를 위해 너비 3px 평행사변형)
         pts = [
-            (x0, max(0, y_off_top)),
-            (x1, max(0, y_off_top)),
-            (x1, min(h - 1, h - 1 - y_off_bot)),
-            (x0, min(h - 1, h - 1 - y_off_bot)),
+            (top_x, 0),
+            (top_x + 3, 0),
+            (bot_x + 3, h),
+            (bot_x, h),
         ]
         pygame.draw.polygon(shine, (r, g, b, alpha), pts)
 
