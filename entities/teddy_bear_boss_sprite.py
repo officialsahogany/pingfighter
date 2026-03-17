@@ -225,7 +225,7 @@ class TeddyBearBossSprite:
             lx = cx + int(side * 1.8 * b) + int(roll * 0.4 * side) + int(swing_x)
             ly = leg_base_y + roll_y
 
-            lift = abs(_sin(phase)) * speed_factor
+            lift = max(0.0, _sin(phase)) * speed_factor
             ly -= int(lift * 0.8 * b)
 
             bend = lift
@@ -367,7 +367,7 @@ class TeddyBearBossSprite:
         shoulder_x = cx + int(side * 3.8 * b) + int(roll * 0.3 * side)
         shoulder_y = torso_y
 
-        swing_angle = self.arm_swing * (1 if is_back else -1)
+        swing_angle = self.arm_swing * (-1 if is_back else 1)
 
         end_x = shoulder_x + int(_sin(swing_angle) * arm_h)
         end_y = shoulder_y + int(_cos(swing_angle) * arm_h)
