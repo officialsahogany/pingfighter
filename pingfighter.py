@@ -52615,6 +52615,16 @@ except Exception as e:
     stage8_boss_sprite = None
     STAGE8_BOSS_ANIMATION_AVAILABLE = False
 
+# Stage 3 테디베어 보스 고퀄리티 프로시저럴 스프라이트 초기화
+try:
+    from entities.teddy_bear_boss_sprite import get_teddy_bear_sprite, TeddyBearBossSprite
+    teddy_bear_sprite = get_teddy_bear_sprite()
+    TEDDY_BOSS_ANIMATION_AVAILABLE = True
+except Exception as e:
+    print(f"[WARN] Teddy bear boss sprite load failed: {e}")
+    teddy_bear_sprite = None
+    TEDDY_BOSS_ANIMATION_AVAILABLE = False
+
 try:
     BOSS_IMG_STAGE2 = pygame.image.load(resource_path("boss_stage2.png")).convert_alpha()
     BOSS_IMG_STAGE2 = pygame.transform.scale(BOSS_IMG_STAGE2, (BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT))
@@ -99057,11 +99067,24 @@ def draw_objects():
             boss_img = BOSS_IMG_STAGE2
             boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
     elif current_stage == 3:
-        if current_boss_name == "테디베어":
+        if current_boss_name == "테디베어" and TEDDY_BOSS_ANIMATION_AVAILABLE and teddy_bear_sprite is not None:
+            # 고퀄리티 프로시저럴 테디베어 — 직접 화면에 렌더링
+            boss_img_prescaled = True
+            boss_x_pos = float(BOSS.centerx) if BOSS is not None else 380.0
+            teddy_bear_sprite.update(boss_x_pos, 1/60)
+            # 캔버스를 보스 크기보다 넉넉하게 잡아 팔/귀 잘림 방지
+            teddy_canvas_w = BOSS_IMG_WIDTH + 40
+            teddy_canvas_h = BOSS_IMG_HEIGHT + 30
+            teddy_surf = pygame.Surface((teddy_canvas_w, teddy_canvas_h), pygame.SRCALPHA)
+            teddy_bear_sprite.draw(teddy_surf, 0, 0, teddy_canvas_w, teddy_canvas_h)
+            boss_img = teddy_surf
+            boss_w, boss_h = teddy_canvas_w, teddy_canvas_h
+        elif current_boss_name == "테디베어":
             boss_img = BOSS_IMG_TEDDY
+            boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
         else:
             boss_img = BOSS_IMG_STAGE3
-        boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
+            boss_w, boss_h = BOSS_IMG_WIDTH, BOSS_IMG_HEIGHT
     elif current_stage == 4:
         boss_img = BOSS_IMG_STAGE4
         boss_w, boss_h = BOSS_IMG_STAGE4_WIDTH, BOSS_IMG_STAGE4_HEIGHT
