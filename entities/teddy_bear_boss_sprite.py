@@ -248,39 +248,36 @@ class TeddyBearBossSprite:
             t = self.counter_timer
             d = float(self.counter_dir)
 
-            if t < 0.20:
-                # Phase 1: 충격 반동 + 힘 모으기 (0.0~0.2s)
-                p1 = t / 0.20  # 0→1
-                ease_in = p1 * p1  # 가속 이징
-                self._ct_body_lean = -d * 2.5 * ease_in       # 뒤로 젖힘
-                self._ct_head_lean = -d * 1.5 * ease_in       # 머리도 뒤로
-                self._ct_arm_angle = -d * 0.8 * ease_in       # 팔 안쪽으로 굽힘 (코킹)
-                self._ct_arm_stretch = 1.0 - 0.15 * ease_in   # 약간 수축
-                # 걷기 억제
+            if t < 0.05:
+                # Phase 1: 순간 반동 (0.0~0.05s) — 거의 즉시
+                p1 = t / 0.05
+                ease_in = p1 * p1
+                self._ct_body_lean = -d * 1.2 * ease_in
+                self._ct_head_lean = -d * 0.8 * ease_in
+                self._ct_arm_angle = -d * 0.4 * ease_in
+                self._ct_arm_stretch = 1.0 - 0.08 * ease_in
                 self.arm_swing *= (1.0 - ease_in)
                 self.body_roll *= (1.0 - ease_in)
 
-            elif t < 0.30:
-                # Phase 2: 타격 (0.2~0.3s) — 매우 빠름
-                p2 = (t - 0.20) / 0.10  # 0→1
-                # 역방향 급가속 (뒤→앞)
-                strike = p2 * p2 * (3 - 2 * p2)  # smoothstep
-                self._ct_body_lean = d * (-2.5 + 6.0 * strike)  # -2.5 → +3.5
-                self._ct_head_lean = d * (-1.5 + 3.5 * strike)  # -1.5 → +2.0
-                self._ct_arm_angle = d * (-0.8 + 2.3 * strike)  # -0.8 → +1.5 (큰 아크)
-                self._ct_arm_stretch = 0.85 + 0.40 * strike     # 0.85 → 1.25 (스트레치)
+            elif t < 0.15:
+                # Phase 2: 타격 (0.05~0.15s) — 즉각적 스윙
+                p2 = (t - 0.05) / 0.10
+                strike = p2 * p2 * (3 - 2 * p2)
+                self._ct_body_lean = d * (-1.2 + 4.7 * strike)   # -1.2 → +3.5
+                self._ct_head_lean = d * (-0.8 + 2.8 * strike)   # -0.8 → +2.0
+                self._ct_arm_angle = d * (-0.4 + 1.9 * strike)   # -0.4 → +1.5
+                self._ct_arm_stretch = 0.92 + 0.33 * strike      # 0.92 → 1.25
                 self.arm_swing = 0.0
                 self.body_roll = 0.0
 
-            elif t < 0.70:
-                # Phase 3: 팔로우 스루 + 복귀 (0.3~0.7s)
-                p3 = (t - 0.30) / 0.40  # 0→1
-                # 감속 이징 (overshooting 느낌)
+            elif t < 0.50:
+                # Phase 3: 팔로우 스루 + 복귀 (0.15~0.50s)
+                p3 = (t - 0.15) / 0.35
                 ease_out = 1.0 - (1.0 - p3) * (1.0 - p3)
                 self._ct_body_lean = d * 3.5 * (1.0 - ease_out)
                 self._ct_head_lean = d * 2.0 * (1.0 - ease_out)
                 self._ct_arm_angle = d * 1.5 * (1.0 - ease_out)
-                self._ct_arm_stretch = 1.25 - 0.25 * ease_out  # 1.25 → 1.0
+                self._ct_arm_stretch = 1.25 - 0.25 * ease_out
 
             else:
                 # 시퀀스 종료
