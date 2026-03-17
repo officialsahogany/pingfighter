@@ -1102,22 +1102,6 @@ def _draw_mode_card(
             b = int(color_top[2] + (color_bot[2] - color_top[2]) * t)
             pygame.draw.line(card, (r, g, b, 220), (0, row), (sw - 1, row))
 
-    # ── 대형 배경 아이콘 오버레이 (VS / PVP — 거대하고 투명하게) ──
-    try:
-        icon_font = ctx.get_font(72)
-        icon_alpha = 35 if is_selected else 18
-        icon_text = icon_font.render(icon_char, True, (*accent, icon_alpha))
-        # 선택 시 아이콘이 미세하게 호흡하듯 스케일링
-        if is_selected:
-            icon_scale = 1.0 + math.sin(anim_t * 2.0) * 0.05
-            iw2 = int(icon_text.get_width() * icon_scale)
-            ih2 = int(icon_text.get_height() * icon_scale)
-            if iw2 > 0 and ih2 > 0:
-                icon_text = pygame.transform.smoothscale(icon_text, (iw2, ih2))
-        card.blit(icon_text, icon_text.get_rect(center=(sw // 2, sh // 2 - 30)))
-    except Exception:
-        pass
-
     # ── 실시간 광택 스윕 (선택 시만) ──
     if is_selected:
         _mode_shine_offset[card_index] += 3.5  # 스윕 속도
@@ -2041,7 +2025,7 @@ def _show_mode_selection(ctx: "MenuContext", state: "MenuState") -> bool:
         _mode_draw_mouse_trail(screen)
 
         # ── 타이틀 (고스트 잔상 + 네온 글로우) ──
-        title_font = ctx.FontStyle.title_large()
+        title_font = ctx.FontStyle.title()
         _loc = get_localization_manager()
         title_text = _loc.get_text("mode.select", "모드 선택")
 
