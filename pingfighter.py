@@ -20401,8 +20401,9 @@ boss_collision_cooldown = 0    # 보스 패들 충돌 쿨다운
 player_collision_handled = False  # 플레이어 충돌이 이미 처리되었는지 플래그
 player_sound_cooldown = 0  # 플레이어 패들 사운드 재생 쿨다운
 
-# ⚡ 스매셔 콤보 시스템 (대시/스킬 없이 기본 이동으로 연속 반격 시 보너스)
+# ⚡ 스매셔 콤보 시스템 (연속 반격 → 드라이브/파워스매싱 소모형 강화)
 smasher_combo_count = 0              # 현재 콤보 수 (2부터 표시)
+power_smashing_combo_consumed = 0    # 파워스매싱 발동 시 소모한 콤보 수 (발사 시 사용)
 smasher_combo_gauge_bonus = {        # 콤보별 게이지 보너스 퍼센트
     2: 20,   # 2콤보: +20%
     3: 40,   # 3콤보: +40%
@@ -49336,7 +49337,7 @@ def _get_combo_color(combo_count: int) -> tuple:
 
 
 def _reset_smasher_combo(reason="unknown"):
-    """스매셔 콤보 초기화 (대시/스킬 사용 시 호출)"""
+    """스매셔 콤보 초기화 (실점/라운드 종료/스킬 소모 시 호출)"""
     global smasher_combo_count
     smasher_combo_count = 0
     # 튜토리얼 액션 게이지 리셋 애니메이션 트리거
@@ -68325,9 +68326,6 @@ def handle_player(keys):
                         except:
                             pass
 
-                        # 스매셔 콤보 리셋 (스킬 사용)
-                        _reset_smasher_combo("recovery_skill")
-
                         # 스매셔 스킬 쿨타임 적용
                         trigger_smasher_skill_cooldown("recovery")
 
@@ -69372,9 +69370,6 @@ def handle_player(keys):
                             # 디버그: 하프대쉬 발동 경로 기록
                             is_half_dash_active = True  # 하프대쉬 플래그 설정
                             globals()["_current_dash_is_half"] = True  # 통제불능 시간 계산용 (대쉬 종료 시까지 유지)
-                            # ⚡ 스매셔 콤보 리셋 (대시 사용 시)
-                            if selected_character_type == "smasher":
-                                _reset_smasher_combo("하프대쉬")
                             half_dash_effect_timer = 20  # 하프대쉬 효과 지속 시간 (약 0.33초)
                             # 튜토리얼: 대쉬 시작 시 카운팅 플래그 리셋
                             if current_stage == 50 and 'tutorial_dash_already_counted' in globals():
@@ -69638,9 +69633,6 @@ def handle_player(keys):
                                 _ld_oe.start_dash_dive(PLAYER.centerx, PLAYER.centery)
                     except Exception:
                         pass
-                    # ⚡ 스매셔 콤보 리셋 (대시 사용 시)
-                    if selected_character_type == "smasher":
-                        _reset_smasher_combo("왼쪽대쉬")
                     # 🧊 빙판 상태에서 대쉬 시 얼음 파티클 생성
                     if is_ice_active():
                         create_ice_dash_particles(PLAYER.centerx, PLAYER.bottom, -1, is_player=True)
@@ -69904,9 +69896,6 @@ def handle_player(keys):
                                 _rd_oe.start_dash_dive(PLAYER.centerx, PLAYER.centery)
                     except Exception:
                         pass
-                    # ⚡ 스매셔 콤보 리셋 (대시 사용 시)
-                    if selected_character_type == "smasher":
-                        _reset_smasher_combo("오른쪽대쉬")
                     # 🧊 빙판 상태에서 대쉬 시 얼음 파티클 생성
                     if is_ice_active():
                         create_ice_dash_particles(PLAYER.centerx, PLAYER.bottom, 1, is_player=True)
@@ -130478,28 +130467,38 @@ def calculate_bounce(paddle):
                             ball_vel[1] = tutorial_saved_ball_vel[1]
             # ️ 드라이브 스핀 효과 적용 (기본 커브량 + 공속 비례 추가 커브)
             global ball_spin_strength, ball_spin_direction, drive_ball_active, drive_hit_boss, drive_just_activated
+            # ⚡ 콤보 소모형 드라이브 강화: 콤보 2+ 시 소모하여 스핀/속도 보너스
+            _drive_combo_used = 0
+            _drive_combo_spin_bonus = 0.0
+            _drive_combo_speed_mult = 1.015  # 기본 속도 배율
+            _drive_particle_count = 8
+            if selected_character_type == "smasher" and smasher_combo_count >= 2:
+                _drive_combo_used = smasher_combo_count
+                _drive_combo_spin_bonus = min(_drive_combo_used * 0.05, 0.30)  # 콤보당 +0.05, 최대 +0.30
+                _drive_combo_speed_mult = 1.015 + min(_drive_combo_used * 0.005, 0.030)  # 최대 1.045
+                _drive_particle_count = 8 + _drive_combo_used * 3
+                _reset_smasher_combo("consumed_by_drive")
             # 기본 커브량 유지
             base_spin = 0.25  # 기본 커브량 (현재 수준 유지)
             # 공속에 비례한 추가 커브량 계산
             speed_bonus_multiplier = speed * 0.015  # 공속 1당 0.015 추가 커브
-            additional_spin = speed_bonus_multiplier
+            additional_spin = speed_bonus_multiplier + _drive_combo_spin_bonus
             spin_cap = 0.6
             ball_spin_strength = base_spin + additional_spin
             # 최대 커브량 제한 (너무 과도하지 않게)
             ball_spin_strength = min(spin_cap, ball_spin_strength)
             ball_spin_direction = perfect_direction
-            # print(f"   - : {speed:.2f}, : {base_spin:.3f}, : {additional_spin:.3f},  : {ball_spin_strength:.3f}")
             drive_ball_active = True   # 드라이브 공 상태 활성화 (연두색)
             drive_hit_boss = False     # 드라이브 상태 초기화
             #  드라이브 별빛가루 파티클 생성
-            spawn_drive_particles(BALL.centerx, BALL.centery, count=8)
+            spawn_drive_particles(BALL.centerx, BALL.centery, count=_drive_particle_count)
             # 튜토리얼: 드라이브 사용 체크
             on_skill_use_for_tutorial("drive")
             global drive_text_timer
-            drive_text_timer = HALF_SECOND_FRAMES      # DRIVE! 텍스트 0.5초간 표시
-            # 드라이브 성공 시 1.5% 속도 증가
+            drive_text_timer = HALF_SECOND_FRAMES * (2 if _drive_combo_used >= 2 else 1)  # 콤보 소모 시 텍스트 2배 길게
+            # 드라이브 성공 시 속도 증가 (콤보 소모 시 추가 보너스)
             original_speed = speed
-            speed *= 1.015
+            speed *= _drive_combo_speed_mult
             #  드라이브로 증가한 속도량 추적 (보스 충돌 시 90% 감소용)
             drive_speed_increase = speed - original_speed
             # print(f"   : {original_speed:.2f} → {speed:.2f} (: {drive_speed_increase:.2f})")  # 디버그 비활성화
@@ -135714,12 +135713,12 @@ def handle_ball():
             on_player_hit_ball_for_tutorial()
 
         # ⚡ 스매셔 콤보 시스템: handle_ball 충돌 처리 (메인 경로)
-        # handle_player보다 먼저 실행되므로 여기서 콤보 처리
+        # 개편: 모든 패들 타격이 콤보를 쌓음 (대시/드라이브 여부 무관)
+        # 콤보는 드라이브/파워스매싱 발동 시 소모하여 스킬 강화에 사용
         # 주니어리그 튜토리얼에서는 모든 캐릭터가 콤보 시스템 사용
         if selected_character_type == "smasher" or ai_mode == "junior":
-            # 콤보 조건: 대시도 안 쓰고, 드라이브도 안 쓴 순수 반격만 인정
-            if not rolling_active and not drive_ball_active:
-                # 대시/드라이브 없이 반격 → 콤보 증가!
+            # 모든 패들 타격 → 콤보 증가 (파워스매싱 프리즈 중은 제외)
+            if not power_smashing_freeze_active:
                 smasher_combo_count += 1
 
                 # 실전 튜토리얼: 3콤보 달성 체크 (주니어리그)
@@ -135748,9 +135747,6 @@ def handle_ball():
                             "color": _get_combo_color(smasher_combo_count),
                             "size": random.uniform(3, 6 + smasher_combo_count * 0.5)
                         })
-            elif drive_ball_active:
-                # 드라이브 사용 → 콤보 리셋
-                _reset_smasher_combo("드라이브(handle_ball)")
 
         # ⚡ 에너지 폭발 이펙트 (20% 작게 - handle_ball)
         create_energy_explosion(BALL.centerx, BALL.centery, scale=0.8)
@@ -146189,9 +146185,12 @@ def main(stage_num, new_boss_mode=False):
                     # 고스트샷이 아닐 때만 special_active 설정 (고스트샷은 게이지 충전 가능)
                     if not mega_smashing_active:
                         special_active = True
-                    # ⚡ 스매셔 콤보 리셋 (스킬 사용 시)
-                    if selected_character_type == "smasher":
-                        _reset_smasher_combo("파워스매시")
+                    # ⚡ 스매셔 콤보 소모 (파워스매싱 발동 시 저장 → 발사 시 강화 적용)
+                    if selected_character_type == "smasher" and smasher_combo_count >= 2:
+                        power_smashing_combo_consumed = smasher_combo_count
+                        _reset_smasher_combo("consumed_by_power_smash")
+                    else:
+                        power_smashing_combo_consumed = 0
                     special_ready = False
                     special_gauge = max(0, special_gauge - 350)
                     # 고스트샷 보너스: +50 게이지
@@ -147767,8 +147766,6 @@ def main(stage_num, new_boss_mode=False):
                             play_sound_with_volume(SOUND_CLEANSE, volume=0.5)
                         except:
                             pass
-                    # ⚡ 스매셔 콤보 리셋 (클렌즈 사용 시)
-                    _reset_smasher_combo("클렌즈")
                     # 모든 상태이상 해제
                     player_stunned_timer = 0
                     player_missile_stunned_timer = 0
@@ -148252,6 +148249,11 @@ def main(stage_num, new_boss_mode=False):
                     power_smashing_start_time = current_time
                     # 파워스매시 발사 후 special_active를 False로 설정하여 게이지 충전 허용
                     special_active = False
+                    # ⚡ 콤보 소모형 파워스매싱 강화: 발동 시 저장된 콤보로 화면 쉐이크 강화
+                    if power_smashing_combo_consumed >= 2:
+                        globals()['screen_shake_timer'] = max(globals().get('screen_shake_timer', 0), 15 + power_smashing_combo_consumed * 2)
+                        globals()['screen_shake_intensity'] = max(globals().get('screen_shake_intensity', 0), 10 + power_smashing_combo_consumed * 2)
+                        power_smashing_combo_consumed = 0  # 사용 완료
                     # 스매셔 반동 적용 (발사 시점) - 화염 넉백과 유사한 강도
                     if selected_character_type == "smasher":
                         # 발사 시점에서 반동 적용 (대기 방향 우선, 없으면 접촉 오프셋/방향키 기준)
