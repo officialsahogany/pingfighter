@@ -20418,6 +20418,10 @@ smasher_combo_effect_y = 0           # 콤보 이펙트 Y 위치
 smasher_combo_effect_count = 0       # 표시할 콤보 수
 smasher_combo_particles = []         # 콤보 파티클 효과
 
+# 시너지 C: 클렌즈 카운터어택 윈도우
+cleanse_counter_window = 0           # 남은 프레임 (120 = 2초, 0이면 비활성)
+CLEANSE_COUNTER_SPEED_BONUS = 1.015  # 카운터 타격 시 공속 보너스 (+1.5%)
+
 # ⚡ 스매셔 플라즈마 자기장 스킬 (W/상 키 홀드)
 plasma_field_charging = False        # 차징 중 여부
 plasma_field_charge_time = 0         # 차징 시간 (프레임)
@@ -66219,6 +66223,9 @@ def handle_player(keys):
     if selected_character_type == "smasher":
         is_player_moving = abs(current_speed) > 0 or rolling_active
         update_recovery_speed_boost(PLAYER.centerx, PLAYER.centery, is_player_moving)
+        # 시너지 C: 클렌즈 카운터어택 타이머 감소
+        if cleanse_counter_window > 0:
+            cleanse_counter_window -= 1
 
     optimus_drain_locked = optimus_drained
     if optimus_drain_locked:
@@ -130478,8 +130485,10 @@ def calculate_bounce(paddle):
                 _drive_combo_speed_mult = 1.015 + min(_drive_combo_used * 0.005, 0.030)  # 최대 1.045
                 _drive_particle_count = 8 + _drive_combo_used * 3
                 _reset_smasher_combo("consumed_by_drive")
-            # 기본 커브량 유지
-            base_spin = 0.25  # 기본 커브량 (현재 수준 유지)
+            # 시너지 A: 리커버리 이속 버프 중 드라이브 → 스핀 1.3배
+            _recovery_drive_bonus = 1.3 if (selected_character_type == "smasher" and recovery_speed_boost_active) else 1.0
+            # 기본 커브량 (리커버리 시너지 적용)
+            base_spin = 0.25 * _recovery_drive_bonus
             # 공속에 비례한 추가 커브량 계산
             speed_bonus_multiplier = speed * 0.015  # 공속 1당 0.015 추가 커브
             additional_spin = speed_bonus_multiplier + _drive_combo_spin_bonus
@@ -135712,6 +135721,15 @@ def handle_ball():
         if ai_mode == "junior":  # 주니어리그
             on_player_hit_ball_for_tutorial()
 
+        # 시너지 C: 클렌즈 카운터어택 — 윈도우 내 첫 타격 시 공속 보너스
+        if selected_character_type == "smasher" and cleanse_counter_window > 0:
+            _counter_speed = math.hypot(ball_vel[0], ball_vel[1])
+            if _counter_speed > 0:
+                _counter_mult = CLEANSE_COUNTER_SPEED_BONUS
+                ball_vel[0] *= _counter_mult
+                ball_vel[1] *= _counter_mult
+            cleanse_counter_window = 0  # 1회 사용 후 소멸
+
         # ⚡ 스매셔 콤보 시스템: handle_ball 충돌 처리 (메인 경로)
         # 개편: 모든 패들 타격이 콤보를 쌓음 (대시/드라이브 여부 무관)
         # 콤보는 드라이브/파워스매싱 발동 시 소모하여 스킬 강화에 사용
@@ -136761,6 +136779,9 @@ def handle_ball():
             # 파워스매싱 상태 체크
             elif was_power_smashing:
                 damage = boss_damage_values["power"]  # 파워스매싱 데미지 (3)
+                # 시너지 B: 플라즈마 둔화 중 파워스매싱 적중 → +1 추가 데미지
+                if selected_character_type == "smasher" and boss_plasma_slowed:
+                    damage += 1  # 3 → 4 데미지
                 #  스테이지 6에서는 파워스매싱 종료
                 if current_stage == 6:
                     power_smashing_parabola_active = False
@@ -147783,6 +147804,8 @@ def main(stage_num, new_boss_mode=False):
                     player_stunned = False
                     # 스매셔 스킬 쿨타임 적용
                     trigger_smasher_skill_cooldown("cleanse")
+                    # 시너지 C: 클렌즈 카운터어택 윈도우 (2초)
+                    cleanse_counter_window = 120
                     if DEBUG_MODE:
                         pass  # print("✨ [CLEANSE] 클렌즈 발동! 모든 상태이상 해제!")
 
