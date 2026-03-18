@@ -143163,7 +143163,12 @@ def main(stage_num, new_boss_mode=False):
     global boss_confused_timer  # 호위무사 혼란 효과용
     nine_just_pressed = False
     last_nine_state = False
-    
+
+    # freeze 변수 초기화 (퍽 월계수잎 등에서 참조하기 전에 설정 필요)
+    freeze_awaken = False
+    freeze_superspeed = False
+    freeze_spawn_anim = False
+
     # 챕터2 상태 유지 플래그 초기화 (존재하지 않을 경우)
     if 'tutorial_skip_chapter2_init' not in globals():
         tutorial_skip_chapter2_init = False
