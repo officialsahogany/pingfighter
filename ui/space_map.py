@@ -9858,23 +9858,60 @@ class SpaceMap:
     # ──────────────────────────────────────────────
     #  콕핏 HUD 동적 요소
     # ──────────────────────────────────────────────
-    def show_landing_scene(self, to_planet, duration=3.5, fade_out=True,
-                           ingame_frame=None):
+    # ── 스테이지 정보 (테마 줌인 뷰용) ──
+    _STAGE_INFO = {
+        1: {"title": "STAGE 1", "subtitle": "조선 : 풍류의 거리", "color": (255, 220, 220)},
+        2: {"title": "STAGE 2", "subtitle": "정글 : 야생의 늪지", "color": (240, 220, 180)},
+        3: {"title": "STAGE 3", "subtitle": "멘헤라 : 인형의 방", "color": (255, 180, 255)},
+        4: {"title": "STAGE 4", "subtitle": "사원 : 잊혀진 성소", "color": (255, 240, 200)},
+        5: {"title": "STAGE 5", "subtitle": "해상 : 전장의 파도", "color": (0, 255, 255)},
+        6: {"title": "STAGE 6", "subtitle": "화염 : 홍련의 거리", "color": (255, 150, 100)},
+        7: {"title": "STAGE 7", "subtitle": "전자 : 블록의 차원", "color": (120, 180, 255)},
+        8: {"title": "STAGE 8", "subtitle": "심해 : 어둠의 끝", "color": (90, 140, 200)},
+    }
+
+    # ── 탐색 UI 텍스트 시퀀스 ──
+    _SCAN_LINES = [
+        "[ DESCENT INITIATED ]",
+        "[ TERRAIN SCAN... ]",
+        "[ 미확인 생체 신호 탐지 중... ]",
+        "[ TARGET SEARCHING... ]",
+        "[ WARNING : HOSTILE DETECTED ]",
+    ]
+
+    def show_landing_scene(self, to_planet, duration=1.8, fade_out=True,
+                           ingame_frame=None, stage_num=None):
         """하늘에서 하강하며 지형이 드러나고 경기장이 커지는 착륙 장면.
         duration: 전체 시간(초). fade_out: False면 끝에 페이드아웃 없이 유지.
-        ingame_frame: 실제 인게임 화면 Surface (경기장 대신 사용)."""
+        ingame_frame: 실제 인게임 화면 Surface (경기장 대신 사용).
+        stage_num: 스테이지 번호 (텍스트 오버레이용)."""
         clock = pygame.time.Clock()
         total_frames = int(duration * 60)
-        FADE_IN = 20   # 초반 페이드인
-        FADE_OUT = 25  # 끝 페이드아웃
+        FADE_IN = 12   # 초반 페이드인 (빠르게)
+        SHAKE_FRAMES = 14  # 착지 흔들림 프레임 수
+
+        # 스테이지 정보
+        _snum = stage_num if stage_num is not None else to_planet
+        _sinfo = self._STAGE_INFO.get(_snum, {"title": f"STAGE {_snum}", "subtitle": "", "color": (255, 255, 255)})
+
+        # 폰트 준비
+        try:
+            _font_title = get_font(48, style="bold")
+            _font_sub = get_font(22, style="bold")
+            _font_scan = get_font(13, style="bold")
+        except Exception:
+            _font_title = pygame.font.Font(None, 56)
+            _font_sub = pygame.font.Font(None, 28)
+            _font_scan = pygame.font.Font(None, 16)
 
         # 줌 캐시 (표면은 t값이 바뀔 때만 재렌더)
         _surf_cache_key = -1
         _surf_cached = None
 
         def _ease_out(x):
-            return 1.0 - (1.0 - x) ** 2.5
+            return 1.0 - (1.0 - x) ** 3.0
 
+        # ── 메인 하강 루프 ──
         for frame in range(total_frames):
             for ev in pygame.event.get():
                 if ev.type == pygame.QUIT:
@@ -9884,25 +9921,21 @@ class SpaceMap:
                         return
 
             t = frame / total_frames       # 0 → 1
-            et = _ease_out(t)              # ease-out (처음 빠르고 끝에 느리게)
+            et = _ease_out(t)              # ease-out
 
             # ── 하강 파라미터 ──
-            # surface_detail: 0(고공/구름) → 1(지표면)
-            surface_detail = min(1.0, et * 1.3)
-            # 카메라 줌: 1.0(먼 곳) → 2.8(지표 클로즈업)
+            surface_detail = min(1.0, et * 1.5)
             cam_zoom = 1.0 + et * 1.8
-            # 경기장 스케일
+            # 경기장 스케일 — 홀드 비율 단축
             if ingame_frame is not None:
-                # 인게임 프레임: 1초간 작은 경기장 유지 → 이후 확대
-                hold_ratio = 1.0 / duration  # ~0.286 (1초/3.5초)
+                hold_ratio = 0.15  # 짧은 홀드 후 바로 확대
                 if t < hold_ratio:
                     arena_scale = 0.12
                 else:
                     grow_t = (t - hold_ratio) / (1.0 - hold_ratio)
-                    grow_et = 1.0 - (1.0 - grow_t) ** 2.5
+                    grow_et = 1.0 - (1.0 - grow_t) ** 3.0
                     arena_scale = 0.12 + 0.88 * grow_et
             else:
-                # 커스텀 경기장: 15% 지점부터 등장
                 arena_appear = max(0.0, (et - 0.15) / 0.85)
                 arena_scale = arena_appear * 1.0
 
@@ -9928,7 +9961,6 @@ class SpaceMap:
             # ── 경기장 (점점 커지며 등장) ──
             if arena_scale > 0.05:
                 if ingame_frame is not None:
-                    # 실제 인게임 화면을 경기장으로 사용
                     ig_w = int(self.W * arena_scale)
                     ig_h = int(self.H * arena_scale)
                     if ig_w > 4 and ig_h > 4:
@@ -9954,7 +9986,6 @@ class SpaceMap:
                             self._draw_colosseum_arena_border(
                                 self.screen, ix, iy, ig_w, ig_h, arena_scale)
                 else:
-                    # 폴백: 커스텀 경기장 드로잉
                     arena_surf = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
                     self._draw_landing_arena(arena_surf, self.W // 2, self.H // 2,
                                              arena_scale, to_planet)
@@ -9971,6 +10002,67 @@ class SpaceMap:
                     else:
                         self.screen.blit(arena_surf, (0, 0))
 
+            # ── 스테이지 텍스트 오버레이 (40% 진행 후 페이드인) ──
+            if t > 0.4 and _sinfo["subtitle"]:
+                text_t = min(1.0, (t - 0.4) / 0.3)  # 0→1 over 30% of duration
+                text_alpha = int(255 * text_t)
+                sc = _sinfo["color"]
+                # 타이틀 ("STAGE N")
+                try:
+                    ts, tr = _font_title.render(_sinfo["title"], sc)
+                except Exception:
+                    ts = _font_title.render(_sinfo["title"], True, sc)
+                    tr = ts.get_rect()
+                ts.set_alpha(text_alpha)
+                tx = (self.W - tr.width) // 2
+                ty = self.H // 2 - 70
+                # 그림자
+                try:
+                    sh_s, _ = _font_title.render(_sinfo["title"], (0, 0, 0))
+                except Exception:
+                    sh_s = _font_title.render(_sinfo["title"], True, (0, 0, 0))
+                sh_s.set_alpha(max(0, text_alpha - 80))
+                self.screen.blit(sh_s, (tx + 3, ty + 3))
+                self.screen.blit(ts, (tx, ty))
+                # 서브타이틀
+                try:
+                    ss, sr = _font_sub.render(_sinfo["subtitle"], sc)
+                except Exception:
+                    ss = _font_sub.render(_sinfo["subtitle"], True, sc)
+                    sr = ss.get_rect()
+                ss.set_alpha(text_alpha)
+                sx = (self.W - sr.width) // 2
+                sy = ty + 58
+                try:
+                    sh_sub, _ = _font_sub.render(_sinfo["subtitle"], (0, 0, 0))
+                except Exception:
+                    sh_sub = _font_sub.render(_sinfo["subtitle"], True, (0, 0, 0))
+                sh_sub.set_alpha(max(0, text_alpha - 80))
+                self.screen.blit(sh_sub, (sx + 2, sy + 2))
+                self.screen.blit(ss, (sx, sy))
+
+            # ── 탐색 UI (하단 좌측, 깜빡임) ──
+            if t > 0.1:
+                scan_idx = min(int((t - 0.1) / 0.18), len(self._SCAN_LINES) - 1)
+                scan_text = self._SCAN_LINES[scan_idx]
+                # 깜빡임: 3프레임 on / 2프레임 off
+                blink_on = (frame % 5) < 3
+                if blink_on:
+                    scan_alpha = min(255, int(200 * min(1.0, (t - 0.1) * 5)))
+                    scan_color = (0, 255, 180)
+                    try:
+                        sc_s, sc_r = _font_scan.render(scan_text, scan_color)
+                    except Exception:
+                        sc_s = _font_scan.render(scan_text, True, scan_color)
+                        sc_r = sc_s.get_rect()
+                    sc_s.set_alpha(scan_alpha)
+                    self.screen.blit(sc_s, (14, self.H - 30))
+                    # 보조 바 (스캔 진행률)
+                    bar_w = int(120 * min(1.0, t * 1.2))
+                    bar_surf = pygame.Surface((bar_w, 2), pygame.SRCALPHA)
+                    bar_surf.fill((*scan_color, scan_alpha))
+                    self.screen.blit(bar_surf, (14, self.H - 14))
+
             # ── 페이드인 (검은 화면에서) ──
             if frame < FADE_IN:
                 fade_a = int(255 * (1.0 - frame / FADE_IN))
@@ -9979,9 +10071,9 @@ class SpaceMap:
                 fade_s.set_alpha(fade_a)
                 self.screen.blit(fade_s, (0, 0))
 
-            # ── 페이드아웃 (마지막) ──
-            if fade_out and frame > total_frames - FADE_OUT:
-                fade_a = int(255 * (frame - (total_frames - FADE_OUT)) / FADE_OUT)
+            # ── 페이드아웃 (마지막 — fade_out=True일 때만) ──
+            if fade_out and frame > total_frames - 15:
+                fade_a = int(255 * (frame - (total_frames - 15)) / 15)
                 fade_s = pygame.Surface((self.W, self.H))
                 fade_s.fill((0, 0, 0))
                 fade_s.set_alpha(fade_a)
@@ -9989,4 +10081,16 @@ class SpaceMap:
 
             pygame.display.flip()
             clock.tick(60)
+
+        # ── 착지 스크린쉐이크 (줌인 100% 도달 직후) ──
+        if ingame_frame is not None:
+            shake_intensity = 8
+            for sf in range(SHAKE_FRAMES):
+                decay = 1.0 - sf / SHAKE_FRAMES
+                ox = int(random.uniform(-shake_intensity, shake_intensity) * decay)
+                oy = int(random.uniform(-shake_intensity, shake_intensity) * decay)
+                self.screen.fill((0, 0, 0))
+                self.screen.blit(ingame_frame, (ox, oy))
+                pygame.display.flip()
+                clock.tick(60)
 

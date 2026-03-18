@@ -10153,21 +10153,13 @@ STAGE7_BG = stage_backgrounds.stage7
 STAGE8_BG = stage_backgrounds.stage8  # 닌자 저택 배경
 
 STAGE1_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage1.mov")
-STAGE1_INTRO_IMAGE_PATH = resource_path("stage1.png")
 STAGE2_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage2.mov")
-STAGE2_INTRO_IMAGE_PATH = resource_path("stage2.png")
 STAGE3_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage3.mov")
-STAGE3_INTRO_IMAGE_PATH = resource_path("stage3.png")
-STAGE4_INTRO_IMAGE_PATH = resource_path("stage4.png")
 STAGE4_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage4.mov")
 STAGE5_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage5.mp4")
-STAGE5_INTRO_IMAGE_PATH: str | None = None
 STAGE6_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage6.mov")
-STAGE6_INTRO_IMAGE_PATH = resource_path("stage6_field.png")
 STAGE7_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage7.mp4")
-STAGE7_INTRO_IMAGE_PATH = resource_path("stage7_field.png")
 STAGE8_INTRO_VIDEO_PATH: str | None = resource_path("stagevideo/stage8.mp4")
-STAGE8_INTRO_IMAGE_PATH = resource_path("stage8_field.png")
 
 animated_bg = stage_backgrounds.animated_bg
 animated_bg_stage2 = stage_backgrounds.animated_bg_stage2
@@ -10537,28 +10529,18 @@ optimus_arm_trail_particles = []         # 팔 이동 궤적 파티클
 # ========== 우주 행성 맵 시스템 ==========
 cleared_planets = []  # 클리어한 행성 번호 목록 (게임 오버/ESC 복귀 시 리셋)
 
-def show_space_map_transition(from_planet, to_planet, ingame_frame=None):
-    """우주맵 행성 이동 — 지형 하강 + 인게임 화면 줌인"""
+def show_space_map_transition(from_planet, to_planet, ingame_frame=None, stage_num=None):
+    """우주맵 행성 이동 — 지형 하강 + 인게임 화면 줌인 + 스테이지 텍스트"""
     global cleared_planets
-    print(f"[DEBUG TRANSITION] called: from={from_planet}, to={to_planet}, ingame_frame={'YES' if ingame_frame else 'NO'}")
     # 이전 화면에서 남은 입력 이벤트 정리 (잔류 SPACE/클릭으로 즉시 스킵되는 문제 방지)
     pygame.event.pump()
-    _pending = pygame.event.get()
-    if _pending:
-        print(f"[DEBUG TRANSITION] cleared {len(_pending)} pending events: {[e.type for e in _pending[:10]]}")
-    else:
-        print(f"[DEBUG TRANSITION] no pending events")
+    pygame.event.get()
     try:
         from ui.space_map import SpaceMap
-        print(f"[DEBUG TRANSITION] SpaceMap imported OK, creating instance...")
         smap = SpaceMap(SCREEN, WIDTH, HEIGHT)
-        print(f"[DEBUG TRANSITION] SpaceMap created, calling show_landing_scene...")
-        _t0 = pygame.time.get_ticks()
         smap.show_landing_scene(
-            to_planet=to_planet, duration=3.5, fade_out=False,
-            ingame_frame=ingame_frame)
-        _elapsed = pygame.time.get_ticks() - _t0
-        print(f"[DEBUG TRANSITION] show_landing_scene finished in {_elapsed}ms")
+            to_planet=to_planet, duration=1.8, fade_out=False,
+            ingame_frame=ingame_frame, stage_num=stage_num or to_planet)
     except Exception as e:
         print(f"[WARNING] 하강 연출 실패: {e}")
         import traceback
@@ -108947,8 +108929,6 @@ def show_victory_screen(stage_cleared, reward):
                 except Exception:
                     pass
 
-                # 보스 오프닝 줌 제거됨 — 하강 연출(show_space_map_transition)이 main() 내부에서 처리
-
                 if not game_should_exit:
                     # 스테이지 전환 직전 스냅샷(옵션)
                     # 이미 이전 경로에서 캡처한 값이 있으면 덮어쓰지 않는다.
@@ -124591,7 +124571,6 @@ def play_stage_intro_video(
     return played, last_surface
 
 
-INTRO_AUTO_EXIT_MS = 2400  # ms 동안 대기 후 자동으로 인트로 종료
 INTRO_VIDEO_AUDIO_FADE_MS = 700  # 영상 종료 시 오디오 페이드아웃 시간
 INTRO_TRANSITION_HOLD_MS = 220  # 영상 종료 후 블랙 유지 시간
 
@@ -124637,215 +124616,6 @@ def complete_stage_intro_transition(hold_ms: int = INTRO_TRANSITION_HOLD_MS) -> 
         pass
 
 
-def _get_stage_intro_config(stage_num):
-    """스테이지별 오프닝 줌 설정을 반환한다."""
-    configs = {
-        1: {
-            "defaults": {"boss": "풍악보이", "stage_color": (255, 220, 220), "boss_color": (220, 110, 200), "fallback": (50, 0, 0)},
-            "variants": {
-                "포도대장": {"stage_color": (200, 180, 140), "boss_color": (100, 70, 40)},
-                "각시탈": {"stage_color": (255, 200, 200), "boss_color": (200, 50, 50)},
-            },
-            "image": STAGE1_INTRO_IMAGE_PATH,
-        },
-        2: {
-            "defaults": {"boss": "악어장군", "stage_color": (240, 220, 180), "boss_color": (200, 110, 160), "fallback": (0, 0, 70)},
-            "variants": {
-                "두더지왕": {"stage_color": (180, 140, 100), "boss_color": (139, 90, 43)},
-                "아라크네": {"stage_color": (160, 140, 180), "boss_color": (80, 40, 25)},
-            },
-            "image": STAGE2_INTRO_IMAGE_PATH,
-        },
-        3: {
-            "defaults": {"boss": "멘헤라걸", "stage_color": (255, 180, 255), "boss_color": (200, 110, 210), "fallback": (200, 0, 200)},
-            "variants": {
-                "테디베어": {"stage_color": (210, 170, 130), "boss_color": (180, 130, 90)},
-            },
-            "image": STAGE3_INTRO_IMAGE_PATH,
-        },
-        4: {
-            "defaults": {"boss": "퐁크", "stage_color": (255, 240, 200), "boss_color": (220, 150, 120), "fallback": (180, 120, 80)},
-            "variants": {},
-            "image": STAGE4_INTRO_IMAGE_PATH,
-        },
-        5: {
-            "defaults": {"boss": "네메시스", "stage_color": (0, 255, 255), "boss_color": (150, 200, 255), "fallback": (20, 40, 60)},
-            "variants": {},
-            "image": STAGE5_INTRO_IMAGE_PATH,
-        },
-        6: {
-            "defaults": {"boss": "홍련", "stage_color": (255, 150, 100), "boss_color": (200, 80, 120), "fallback": (180, 40, 0)},
-            "variants": {},
-            "image": STAGE6_INTRO_IMAGE_PATH,
-        },
-        7: {
-            "defaults": {"boss": "테트리서", "stage_color": (120, 180, 255), "boss_color": (90, 210, 255), "fallback": (20, 30, 60)},
-            "variants": {},
-            "image": STAGE7_INTRO_IMAGE_PATH,
-        },
-        8: {
-            "defaults": {"boss": "아카무 리고", "stage_color": (90, 140, 200), "boss_color": (150, 220, 255), "fallback": (15, 20, 35)},
-            "variants": {},
-            "image": STAGE8_INTRO_IMAGE_PATH,
-        },
-    }
-    cfg = configs.get(stage_num, configs[1])
-    d = cfg["defaults"]
-
-    boss_name = current_boss_name if current_boss_name in cfg["variants"] else d["boss"]
-    if boss_name in cfg["variants"]:
-        v = cfg["variants"][boss_name]
-        stage_color = v["stage_color"]
-        boss_color = v["boss_color"]
-    else:
-        stage_color = d["stage_color"]
-        boss_color = d["boss_color"]
-
-    return {
-        "stage_text": f"STAGE {stage_num}",
-        "boss_name": boss_name,
-        "stage_color": stage_color,
-        "boss_color": boss_color,
-        "fallback_color": d["fallback"],
-        "image_path": cfg["image"],
-    }
-
-
-def show_stage_opening_zoom(stage_num):
-    """통합 오프닝 줌 — 배경이 작게 시작해 풀스크린으로 확대되며 보스명을 표시한다."""
-    cfg = _get_stage_intro_config(stage_num)
-    stage_text = cfg["stage_text"]
-    boss_name = cfg["boss_name"]
-    stage_color = cfg["stage_color"]
-    boss_color = cfg["boss_color"]
-
-    # 배경 이미지 로드
-    boss_img = pygame.Surface((WIDTH, HEIGHT))
-    boss_img.fill(cfg["fallback_color"])
-    if cfg["image_path"]:
-        try:
-            boss_img = pygame.image.load(cfg["image_path"]).convert()
-            boss_img = pygame.transform.scale(boss_img, (WIDTH, HEIGHT))
-        except Exception:
-            boss_img.fill(cfg["fallback_color"])
-
-    # === 줌 인 단계: 작은 중앙 → 풀스크린 (약 1.2초) ===
-    ZOOM_FRAMES = 40
-    START_SCALE = 0.3       # 시작 배율 (30%)
-    skipped_early = False
-
-    for i in range(ZOOM_FRAMES):
-        t = i / (ZOOM_FRAMES - 1)               # 0.0 → 1.0
-        ease = t * t * (3 - 2 * t)              # smoothstep 이징
-        scale = START_SCALE + (1.0 - START_SCALE) * ease
-        alpha = int(255 * min(1.0, t * 2.0))    # 전반부에서 빠르게 불투명
-
-        sw = int(WIDTH * scale)
-        sh = int(HEIGHT * scale)
-        scaled = pygame.transform.scale(boss_img, (sw, sh))
-        scaled.set_alpha(alpha)
-
-        SCREEN.fill(BLACK)
-        SCREEN.blit(scaled, ((WIDTH - sw) // 2, (HEIGHT - sh) // 2))
-
-        # 텍스트는 줌 50% 이상 진행 후 표시
-        if t > 0.5:
-            text_alpha = int(255 * ((t - 0.5) * 2.0))
-            ui_manager.draw_centered_text(stage_text, 56, -120, stage_color, "elegant", alpha=text_alpha)
-            ui_manager.draw_centered_text(boss_name, 42, -50, boss_color, "glow", alpha=text_alpha)
-
-        pygame.display.flip()
-        pygame.time.delay(30)
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit(); sys.exit()
-            if (event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE) or \
-               (event.type == pygame.MOUSEBUTTONDOWN):
-                skipped_early = True
-        if skipped_early:
-            break
-
-    # === 홀드 단계: 풀스크린 배경 + 텍스트 (자동 종료) ===
-    waiting = not skipped_early
-    frame_count = 0
-    wait_start = pygame.time.get_ticks()
-    while waiting:
-        frame_count += 1
-        SCREEN.fill(BLACK)
-        SCREEN.blit(boss_img, (0, 0))
-
-        pulse = abs(math.sin(frame_count * 0.04)) * 20
-        sc = (
-            min(255, stage_color[0] + int(pulse)),
-            min(255, stage_color[1] + int(pulse)),
-            min(255, stage_color[2] + int(pulse)),
-        )
-        bc = (
-            min(255, boss_color[0] + int(pulse * 1.2)),
-            min(255, boss_color[1] + int(pulse)),
-            min(255, boss_color[2] + int(pulse)),
-        )
-        ui_manager.draw_centered_text(stage_text, 56, -120, sc, "elegant")
-        ui_manager.draw_centered_text(boss_name, 42, -50, bc, "glow")
-
-        pygame.display.flip()
-        pygame.time.delay(16)
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit(); sys.exit()
-            if (event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE) or \
-               (event.type == pygame.MOUSEBUTTONDOWN):
-                waiting = False
-
-        if waiting and pygame.time.get_ticks() - wait_start >= INTRO_AUTO_EXIT_MS:
-            waiting = False
-
-    # === 페이드 아웃 ===
-    for alpha in range(255, -1, -10):
-        boss_img.set_alpha(alpha)
-        SCREEN.fill(BLACK)
-        SCREEN.blit(boss_img, (0, 0))
-        pygame.display.flip()
-        pygame.time.delay(20)
-
-    # 잔류 입력 정리
-    pygame.event.pump()
-    pygame.event.clear([pygame.KEYDOWN, pygame.KEYUP, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP])
-
-
-# === 하위 호환 래퍼 (기존 호출부 유지) ===
-def show_stage1_intro():
-    show_stage_opening_zoom(1)
-
-
-def show_stage2_intro():
-    show_stage_opening_zoom(2)
-
-
-def show_stage3_intro():
-    show_stage_opening_zoom(3)
-
-
-def show_stage4_intro():
-    show_stage_opening_zoom(4)
-
-
-def show_stage5_intro():
-    show_stage_opening_zoom(5)
-
-
-def show_stage6_intro():
-    show_stage_opening_zoom(6)
-
-
-def show_stage7_intro():
-    show_stage_opening_zoom(7)
-
-
-def show_stage8_intro():
-    show_stage_opening_zoom(8)
 
 
 def show_stage8_boss_dialogue():
@@ -144713,7 +144483,7 @@ def main(stage_num, new_boss_mode=False):
         # 하강 연출 (지형 위에 인게임 화면이 점점 커짐)
         show_space_map_transition(
             from_planet=max(0, stage_num - 1), to_planet=stage_num,
-            ingame_frame=_ingame_captured)
+            ingame_frame=_ingame_captured, stage_num=stage_num)
         del _ingame_captured
         # 타이머 리셋 (애니메이션 중 누적된 시간 무시)
         clock.tick()
