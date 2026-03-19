@@ -65585,6 +65585,7 @@ def handle_player(keys):
     global blacksmith_blocking_bonus_ready, blacksmith_blocking_bonus_window_timer
     global fire_support_radio_loop_active
     global _judgment_lightning_stun_bottom_timer, _judgment_wind_stun_bottom_timer
+    global cleanse_counter_window
     global blacksmith_trail_timer
     global blacksmith_hammer_swing_active, blacksmith_hammer_swing_phase
     global blacksmith_walking_active, blacksmith_walking_timer, blacksmith_walk_direction
@@ -142903,6 +142904,7 @@ def main(stage_num, new_boss_mode=False):
     global tutorial_wait_for_first_serve
     global tutorial_needs_dash_practice, tutorial_dash_practice_shown
     global smasher_power_recoil_timer, smasher_power_recoil_vel, smasher_power_recoil_pending_dir
+    global cleanse_counter_window
     global tutorial_needs_drive_practice, tutorial_drive_practice_shown
     global tutorial_player_returned_ball, tutorial_gauge_tutorial_shown
     global tutorial_player_hit_count, tutorial_speed_dialogue_shown, tutorial_displayed_hit_count
