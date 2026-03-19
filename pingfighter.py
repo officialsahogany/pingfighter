@@ -131808,6 +131808,7 @@ def handle_ball():
     # ⚡ 스매셔 콤보 시스템 변수
     global smasher_combo_count, smasher_combo_effect_active, smasher_combo_effect_timer
     global smasher_combo_effect_x, smasher_combo_effect_y, smasher_combo_effect_count, smasher_combo_particles
+    global cleanse_counter_window
     # 블랙스미스 해머쇼크 관련
     global blacksmith_ground_cracks, blacksmith_hammer_shock_particles
     global wall_group_hits
