@@ -129438,6 +129438,8 @@ def reset_round(is_stage_start=False):
     power_smashing_arc_strength = 0.0
     power_smashing_trails.clear()  # 잔상 효과 리셋
     power_smashing_particles.clear()  # 파티클 효과 리셋
+    global power_smashing_combo_consumed
+    power_smashing_combo_consumed = 0  # 콤보 소모 리셋
     # ⚡ 플라즈마 자기장 관련 변수 리셋
     global plasma_field_charging, plasma_field_charge_time, plasma_field_gauge_consumed
     global plasma_field_size, plasma_field_particles
@@ -130480,11 +130482,13 @@ def calculate_bounce(paddle):
             _drive_combo_spin_bonus = 0.0
             _drive_combo_speed_mult = 1.015  # 기본 속도 배율
             _drive_particle_count = 8
+            _drive_combo_spin_cap_bonus = 0.0  # 콤보에 의한 커브 상한 증가
             if selected_character_type == "smasher" and smasher_combo_count >= 2:
                 _drive_combo_used = smasher_combo_count
-                _drive_combo_spin_bonus = min(_drive_combo_used * 0.05, 0.30)  # 콤보당 +0.05, 최대 +0.30
-                _drive_combo_speed_mult = 1.015 + min(_drive_combo_used * 0.005, 0.030)  # 최대 1.045
-                _drive_particle_count = 8 + _drive_combo_used * 3
+                _drive_combo_spin_bonus = min(_drive_combo_used * 0.08, 0.48)  # 콤보당 +0.08, 최대 +0.48 (기존 0.05/0.30)
+                _drive_combo_speed_mult = 1.015 + min(_drive_combo_used * 0.012, 0.072)  # 콤보당 +1.2%, 최대 +7.2% (기존 0.5%/3%)
+                _drive_particle_count = 8 + _drive_combo_used * 4
+                _drive_combo_spin_cap_bonus = min(_drive_combo_used * 0.06, 0.36)  # 콤보당 커브캡 +0.06, 최대 +0.36
                 _reset_smasher_combo("consumed_by_drive")
             # 시너지 A: 리커버리 이속 버프 중 드라이브 → 스핀 1.3배
             _recovery_drive_bonus = 1.3 if (selected_character_type == "smasher" and recovery_speed_boost_active) else 1.0
@@ -130493,9 +130497,9 @@ def calculate_bounce(paddle):
             # 공속에 비례한 추가 커브량 계산
             speed_bonus_multiplier = speed * 0.015  # 공속 1당 0.015 추가 커브
             additional_spin = speed_bonus_multiplier + _drive_combo_spin_bonus
-            spin_cap = 0.6
+            spin_cap = 0.6 + _drive_combo_spin_cap_bonus  # 콤보에 의한 커브 상한 증가
             ball_spin_strength = base_spin + additional_spin
-            # 최대 커브량 제한 (너무 과도하지 않게)
+            # 최대 커브량 제한 (콤보 높을수록 상한 증가)
             ball_spin_strength = min(spin_cap, ball_spin_strength)
             ball_spin_direction = perfect_direction
             drive_ball_active = True   # 드라이브 공 상태 활성화 (연두색)
@@ -131172,7 +131176,7 @@ def handle_ball():
     global power_smashing_original_speed, power_smashing_parabola_active
     global power_smashing_start_time, power_smashing_arc_strength
     global power_smashing_direction, power_smashing_initial_boost, power_smashing_boost_duration
-    global power_smashing_target_speed, power_smashing_rng
+    global power_smashing_target_speed, power_smashing_rng, power_smashing_combo_consumed
     # 보스별 특수 스킬들
     global whip_hit_by_player, whip_active, original_speed, whip_original_ball_speed
     global whip_deactivation_active, whip_deactivation_timer, whip_rotation_speed  # 상모돌리기 강제 해제 모션
@@ -131862,7 +131866,7 @@ def handle_ball():
     global power_smashing_start_time, power_smashing_arc_strength
     global power_smashing_direction, power_smashing_initial_boost, power_smashing_boost_duration
     global power_smashing_target_speed, power_smashing_rng
-    global power_smashing_freeze_active
+    global power_smashing_freeze_active, power_smashing_combo_consumed
     global mega_smashing_active, mega_smashing_bonus_applied, mega_smashing_meteor_trail
     # 보스별 특수 스킬들
     global whip_hit_by_player, whip_active, original_speed, whip_original_ball_speed
@@ -137036,6 +137040,16 @@ def handle_ball():
             quantum_wave_function.clear()
             quantum_entanglement_pairs.clear()
             quantum_collapse_timer = 0
+            # ⚡ 콤보 소모형 파워스매싱: 보스 반격 시 플레이어 넉백 강화
+            if selected_character_type == "smasher" and power_smashing_combo_consumed >= 2:
+                # 콤보당 넉백 +30%, 최대 +150% (2콤보 60% ~ 5콤보 150%)
+                combo_knockback_mult = 1.0 + min(power_smashing_combo_consumed * 0.30, 1.50)
+                # 공 방향 기반 넉백 방향 결정 (보스가 반격한 공의 X방향)
+                kb_dir = -1 if ball_vel[0] > 0 else 1 if ball_vel[0] < 0 else random.choice([-1, 1])
+                base_kb = PADDLE_HIT_KNOCKBACK_BASE * 2.0  # 기본 넉백의 2배 기준
+                raw_kb = kb_dir * base_kb * combo_knockback_mult
+                player_fire_knockback_vel = apply_knockback_resist(_scale_knockback(raw_kb))
+            power_smashing_combo_consumed = 0  # 콤보 소모 완료
             # print(f"   ! ( )")
         # --- 스테이지별 보스 스킬 ---
         #  새로운 보스 모드에서는 기존 보스 스킬 발동 비활성화 (중복 방지)
@@ -143072,6 +143086,7 @@ def main(stage_num, new_boss_mode=False):
     # 파워스매싱 정지 시간 관리
     global power_smashing_freeze_start_time, power_smashing_freeze_active, power_smashing_freeze_duration
     global power_smashing_parabola_active, power_smashing_start_time, power_smashing_rng
+    global power_smashing_combo_consumed
     # 스페셜 게이지 시스템
     global special_gauge, special_gauge_max, displayed_gauge, special_ready, special_active
     # 대쉬 및 아이템 관련 전역 변수
@@ -146303,6 +146318,10 @@ def main(stage_num, new_boss_mode=False):
                         # 파워스매싱은 기존대로 빠르게
                         min_boost = BALL_BASE_SPEED * 0.675  # 최소 증가량 67.5% (기존 75% → 10% 하향)
                         actual_boost = max(ball_current_speed * 0.576, min_boost)  # 57.6% 증가(기존 64% → 10% 하향)
+                        # ⚡ 콤보 소모형 파워스매싱 속도 강화: 콤보당 +8% 추가 속도, 최대 +40%
+                        if power_smashing_combo_consumed >= 2:
+                            combo_speed_bonus = min(power_smashing_combo_consumed * 0.08, 0.40)
+                            actual_boost *= (1.0 + combo_speed_bonus)
                         new_speed = ball_current_speed + actual_boost
                     # 속도 비율 적용으로 방향 유지하면서 속도 증가
                     if ball_current_speed > 0:
@@ -148279,7 +148298,7 @@ def main(stage_num, new_boss_mode=False):
                     if power_smashing_combo_consumed >= 2:
                         globals()['screen_shake_timer'] = max(globals().get('screen_shake_timer', 0), 15 + power_smashing_combo_consumed * 2)
                         globals()['screen_shake_intensity'] = max(globals().get('screen_shake_intensity', 0), 10 + power_smashing_combo_consumed * 2)
-                        power_smashing_combo_consumed = 0  # 사용 완료
+                        # power_smashing_combo_consumed 유지 — 보스 반격 시 넉백 강화에 사용
                     # 스매셔 반동 적용 (발사 시점) - 화염 넉백과 유사한 강도
                     if selected_character_type == "smasher":
                         # 발사 시점에서 반동 적용 (대기 방향 우선, 없으면 접촉 오프셋/방향키 기준)
