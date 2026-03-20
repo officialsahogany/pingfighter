@@ -137204,6 +137204,20 @@ def handle_ball():
                     button_eye_cooldown_timer = BUTTON_EYE_COOLDOWN
                     if boss_special_gauge < 0:
                         boss_special_gauge = 0
+                # 테디베어: 눈물샤워 (게이지 80, 쿨다운 7초)
+                _tear_time_now = pygame.time.get_ticks()
+                _tear_chance = boss_speed_config[current_stage].get("tear_chance", 0.13) if current_stage <= 5 else 0.13
+                if boss_fail_timer > 0:
+                    _tear_chance = min(1.0, _tear_chance + 0.3)
+                if (_tear_time_now - last_tears_cast_time >= TEARS_COOLDOWN
+                    and random.random() < _tear_chance
+                    and boss_special_gauge >= 80):
+                    activate_tears_of_pain()
+                    show_speech("눈물샤워!!", duration=90)
+                    boss_special_gauge -= 80
+                    if boss_special_gauge < 0:
+                        boss_special_gauge = 0
+                    last_tears_cast_time = _tear_time_now
             else:
                 # 멘헤라걸 (기본): 사이코볼 발동
                 if not boss_special_ready and boss_special_gauge >= 500:
