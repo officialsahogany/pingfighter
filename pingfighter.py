@@ -17866,6 +17866,9 @@ def _swap_boss_in_current_stage():
     cotton_bomb_cooldown_timer = 0
     cotton_bomb_slow_timer = 0
     cotton_bomb_fragments.clear()
+    cotton_bomb_ghost_curve_active = False
+    cotton_bomb_ghost_curve_timer = 0
+    cotton_bomb_ghost_curve_phase = 0.0
     deadly_hug_active = False
     deadly_hug_rush_active = False
     deadly_hug_timer = 0
@@ -47073,7 +47076,6 @@ COTTON_BOMB_COUNT_MIN = 3
 COTTON_BOMB_COUNT_MAX = 5
 COTTON_BOMB_LIFETIME = 480          # 8초간 필드에 잔존
 COTTON_BOMB_HIT_RADIUS = 24         # 충돌 판정 반경
-COTTON_BOMB_BALL_SLOW = 0.5         # 공 속도 50% 감소
 COTTON_BOMB_PLAYER_SLOW_DURATION = 120  # 플레이어 둔화 2초
 # 솜뭉치 폭탄 파편 (광폭화 시)
 cotton_bomb_fragments = []
@@ -47083,6 +47085,13 @@ COTTON_BOMB_FRAGMENT_LIFETIME = 90  # 1.5초
 # 플레이어 둔화 효과
 cotton_bomb_slow_timer = 0          # 남은 둔화 프레임
 COTTON_BOMB_SLOW_MULTIPLIER = 0.5   # 이동속도 50%로 감소
+# === 유령 커브 (솜뭉치 폭탄 공 충돌 시 발동) ===
+cotton_bomb_ghost_curve_active = False
+cotton_bomb_ghost_curve_timer = 0
+COTTON_BOMB_GHOST_CURVE_DURATION = 180  # 3초간 유령 커브
+cotton_bomb_ghost_curve_phase = 0.0     # 커브 위상
+cotton_bomb_ghost_curve_seed = 0.0      # 랜덤 시드 (패턴 다양화)
+cotton_bomb_ghost_curve_intensity = 1.0  # 커브 강도
 
 # === 테디베어 죽음의 포옹 스킬 (Deadly Hug) - Stage 3 ===
 deadly_hug_active = False
@@ -53879,6 +53888,7 @@ def go_to_next_round():
     # 테디베어 새 스킬 초기화 (라운드 전환)
     global cotton_bomb_active, cotton_bomb_projectiles, cotton_bomb_windup_active
     global cotton_bomb_windup_timer, cotton_bomb_slow_timer, cotton_bomb_fragments
+    global cotton_bomb_ghost_curve_active, cotton_bomb_ghost_curve_timer, cotton_bomb_ghost_curve_phase
     global deadly_hug_active, deadly_hug_rush_active, deadly_hug_timer
     global button_eye_active, button_eye_timer
     cotton_bomb_active = False
@@ -76998,8 +77008,73 @@ def _explode_cotton_bomb(bomb):
         pass
 
 
+def _activate_ghost_curve():
+    """유령 커브 발동 — 공이 기이하게 휘어지며 꺾이는 저주"""
+    global cotton_bomb_ghost_curve_active, cotton_bomb_ghost_curve_timer
+    global cotton_bomb_ghost_curve_phase, cotton_bomb_ghost_curve_seed
+    global cotton_bomb_ghost_curve_intensity
+    cotton_bomb_ghost_curve_active = True
+    cotton_bomb_ghost_curve_timer = COTTON_BOMB_GHOST_CURVE_DURATION
+    cotton_bomb_ghost_curve_phase = random.uniform(0, math.pi * 2)
+    cotton_bomb_ghost_curve_seed = random.uniform(0.7, 2.5)
+    cotton_bomb_ghost_curve_intensity = 1.0
+
+
+def update_ghost_curve():
+    """유령 커브 매 프레임 업데이트 — ball_vel에 기이한 곡선 힘을 가함"""
+    global cotton_bomb_ghost_curve_active, cotton_bomb_ghost_curve_timer
+    global cotton_bomb_ghost_curve_phase, cotton_bomb_ghost_curve_intensity
+
+    if not cotton_bomb_ghost_curve_active:
+        return
+
+    cotton_bomb_ghost_curve_timer -= 1
+    if cotton_bomb_ghost_curve_timer <= 0:
+        cotton_bomb_ghost_curve_active = False
+        return
+
+    # 남은 시간 비율 (페이드아웃)
+    t_ratio = cotton_bomb_ghost_curve_timer / COTTON_BOMB_GHOST_CURVE_DURATION
+    cotton_bomb_ghost_curve_phase += 0.18 + cotton_bomb_ghost_curve_seed * 0.08
+
+    # === 3중 사인파 합성 → 불규칙한 유령 궤적 ===
+    phase = cotton_bomb_ghost_curve_phase
+    seed = cotton_bomb_ghost_curve_seed
+
+    # 1차: 느린 큰 커브 (유령의 의지)
+    wave1 = math.sin(phase * 0.7 * seed) * 1.8
+    # 2차: 빠른 갑작스런 꺾임 (폴터가이스트)
+    wave2 = math.sin(phase * 2.3 + seed * 5.0) * 1.2
+    # 3차: 초고속 미세 떨림 (기이한 기운)
+    wave3 = math.sin(phase * 5.7 + seed * 11.0) * 0.5
+
+    # 현재 진행방향의 수직 벡터 계산
+    speed = math.hypot(ball_vel[0], ball_vel[1])
+    if speed < 0.5:
+        return
+
+    cur_angle = math.atan2(ball_vel[1], ball_vel[0])
+    # 수직 방향으로 힘 적용 (커브)
+    perp_force = (wave1 + wave2 + wave3) * t_ratio * 0.45
+    # 가끔 진행방향도 살짝 꺾음 (급커브 연출)
+    tangent_force = math.sin(phase * 1.1 + seed * 3.0) * 0.25 * t_ratio
+
+    ball_vel[0] += math.cos(cur_angle + math.pi / 2) * perp_force
+    ball_vel[1] += math.sin(cur_angle + math.pi / 2) * perp_force
+    ball_vel[0] += math.cos(cur_angle) * tangent_force
+    ball_vel[1] += math.sin(cur_angle) * tangent_force
+
+    # 속도 보정: 원래 속도 크기를 크게 벗어나지 않도록 (±20%)
+    new_speed = math.hypot(ball_vel[0], ball_vel[1])
+    if new_speed > 0.1:
+        target_speed = max(speed * 0.85, min(speed * 1.15, new_speed))
+        ratio = target_speed / new_speed
+        ball_vel[0] *= ratio
+        ball_vel[1] *= ratio
+
+
 def update_cotton_bomb():
-    """솜뭉치 폭탄 업데이트: 선딜 + 필드 잔존 + 충돌 판정 + 파편"""
+    """솜뭉치 폭탄 업데이트: 선딜 + 필드 잔존 + 충돌 판정 + 파편 + 유령 커브"""
     global cotton_bomb_active, cotton_bomb_windup_active, cotton_bomb_windup_timer
     global cotton_bomb_cooldown_timer, cotton_bomb_slow_timer
     global cotton_bomb_projectiles, cotton_bomb_fragments
@@ -77011,6 +77086,9 @@ def update_cotton_bomb():
     # 플레이어 둔화 타이머 감소
     if cotton_bomb_slow_timer > 0:
         cotton_bomb_slow_timer -= 1
+
+    # 유령 커브 업데이트
+    update_ghost_curve()
 
     # 선딜 처리
     if cotton_bomb_windup_active:
@@ -77032,21 +77110,13 @@ def update_cotton_bomb():
         if frag["timer"] <= 0:
             frag_remove.append(i)
             continue
-        # 파편-공 충돌: 속도 감소
+        # 파편-공 충돌: 유령 커브 발동
         if BALL:
             ddx = frag["x"] - BALL.centerx
             ddy = frag["y"] - BALL.centery
             dist_sq = ddx * ddx + ddy * ddy
             if dist_sq < (frag["size"] + BALL_RADIUS) ** 2:
-                ball_vel[0] *= COTTON_BOMB_BALL_SLOW
-                ball_vel[1] *= COTTON_BOMB_BALL_SLOW
-                # 궤적 굴절 (약간의 랜덤 각도 변경)
-                deflect_angle = random.uniform(-0.4, 0.4)
-                speed = math.hypot(ball_vel[0], ball_vel[1])
-                cur_angle = math.atan2(ball_vel[1], ball_vel[0])
-                new_angle = cur_angle + deflect_angle
-                ball_vel[0] = math.cos(new_angle) * speed
-                ball_vel[1] = math.sin(new_angle) * speed
+                _activate_ghost_curve()
                 frag_remove.append(i)
         # 파편-플레이어 충돌: 둔화
         if PLAYER:
@@ -77072,37 +77142,27 @@ def update_cotton_bomb():
         if bomb["timer"] <= 0:
             to_remove.append(i)
             continue
-        # 공과 충돌 판정
+        # 공과 충돌 판정 → 유령 커브 발동
         if BALL and not bomb["hit"]:
             ddx = bomb["x"] - BALL.centerx
             ddy = bomb["y"] - BALL.centery
             dist_sq = ddx * ddx + ddy * ddy
             if dist_sq < (COTTON_BOMB_HIT_RADIUS + BALL_RADIUS) ** 2:
-                # 공 속도 50% 감소 + 궤적 굴절
-                ball_vel[0] *= COTTON_BOMB_BALL_SLOW
-                ball_vel[1] *= COTTON_BOMB_BALL_SLOW
-                deflect_angle = random.uniform(-0.5, 0.5)
-                speed = math.hypot(ball_vel[0], ball_vel[1])
-                cur_angle = math.atan2(ball_vel[1], ball_vel[0])
-                new_angle = cur_angle + deflect_angle
-                ball_vel[0] = math.cos(new_angle) * speed
-                ball_vel[1] = math.sin(new_angle) * speed
+                _activate_ghost_curve()
                 bomb["hit"] = True
-                # 광폭화 시 파편으로 분산
                 if enraged_boss_active:
                     _explode_cotton_bomb(bomb)
                     to_remove.append(i)
-                    show_speech("뻥!", duration=40)
+                    show_speech("유령의 저주~!", duration=50)
                 else:
                     to_remove.append(i)
-                    show_speech("끈적~!", duration=40)
+                    show_speech("홀렸다~!", duration=50)
         # 플레이어 패들과 충돌 판정
         if PLAYER and not bomb["hit"]:
             ddx = bomb["x"] - PLAYER.centerx
             ddy = bomb["y"] - PLAYER.centery
             dist_sq = ddx * ddx + ddy * ddy
             if dist_sq < (COTTON_BOMB_HIT_RADIUS + PLAYER.width // 2) ** 2:
-                # 2초간 이동 속도 둔화
                 cotton_bomb_slow_timer = COTTON_BOMB_PLAYER_SLOW_DURATION
                 bomb["hit"] = True
                 if enraged_boss_active:
@@ -142122,6 +142182,9 @@ def show_result(won):
     cotton_bomb_cooldown_timer = 0
     cotton_bomb_slow_timer = 0
     cotton_bomb_fragments.clear()
+    cotton_bomb_ghost_curve_active = False
+    cotton_bomb_ghost_curve_timer = 0
+    cotton_bomb_ghost_curve_phase = 0.0
     deadly_hug_active = False
     deadly_hug_rush_active = False
     deadly_hug_timer = 0
@@ -143719,6 +143782,9 @@ def main(stage_num, new_boss_mode=False):
     cotton_bomb_cooldown_timer = 0
     cotton_bomb_slow_timer = 0
     cotton_bomb_fragments.clear()
+    cotton_bomb_ghost_curve_active = False
+    cotton_bomb_ghost_curve_timer = 0
+    cotton_bomb_ghost_curve_phase = 0.0
     deadly_hug_active = False
     deadly_hug_rush_active = False
     deadly_hug_timer = 0
