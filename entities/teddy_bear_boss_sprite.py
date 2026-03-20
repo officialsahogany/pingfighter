@@ -736,15 +736,6 @@ class TeddyBearBossSprite:
                                    int(hr * 0.65), int(lobe_r * 0.55),
                                    p["pink_light"], 0)
 
-            # 하이라이트 반짝임 (유리 반사)
-            hl_r = max(1, int(hr * 0.2))
-            pygame.draw.circle(screen, (255, 240, 248),
-                               (eye_cx - int(hr * 0.35), eye_cy - int(hr * 0.35)), hl_r)
-            # 작은 서브 하이라이트
-            sub_r = max(1, int(hr * 0.1))
-            pygame.draw.circle(screen, (255, 220, 235),
-                               (eye_cx + int(hr * 0.2), eye_cy + int(hr * 0.15)), sub_r)
-
             # 단추 구멍 (봉제 느낌 — 실 꿰맨 자국)
             hole_r = max(1, int(0.08 * b))
             stitch_col = (*p["pink_deep"], 120)
