@@ -130480,24 +130480,35 @@ def calculate_bounce(paddle):
             # ⚡ 콤보 소모형 드라이브 강화: 콤보 2+ 시 소모하여 스핀/속도 보너스
             _drive_combo_used = 0
             _drive_combo_spin_bonus = 0.0
-            _drive_combo_speed_mult = 1.015  # 기본 속도 배율
+            _drive_combo_speed_mult = 1.015  # 기본 속도 배율 (비스매셔)
             _drive_particle_count = 8
             _drive_combo_spin_cap_bonus = 0.0  # 콤보에 의한 커브 상한 증가
-            if selected_character_type == "smasher" and smasher_combo_count >= 2:
-                _drive_combo_used = smasher_combo_count
-                _drive_combo_spin_bonus = min(_drive_combo_used * 0.08, 0.48)  # 콤보당 +0.08, 최대 +0.48 (기존 0.05/0.30)
-                _drive_combo_speed_mult = 1.015 + min(_drive_combo_used * 0.012, 0.072)  # 콤보당 +1.2%, 최대 +7.2% (기존 0.5%/3%)
-                _drive_particle_count = 8 + _drive_combo_used * 4
-                _drive_combo_spin_cap_bonus = min(_drive_combo_used * 0.06, 0.36)  # 콤보당 커브캡 +0.06, 최대 +0.36
-                _reset_smasher_combo("consumed_by_drive")
+            _drive_base_spin = 0.25  # 기본 커브량 (비스매셔)
+            _drive_base_spin_cap = 0.6  # 기본 커브 상한 (비스매셔)
+            _drive_base_speed_coeff = 0.015  # 공속 비례 커브 계수 (비스매셔)
+            if selected_character_type == "smasher":
+                if smasher_combo_count >= 2:
+                    _drive_combo_used = smasher_combo_count
+                    _drive_combo_spin_bonus = min(_drive_combo_used * 0.08, 0.48)  # 콤보당 +0.08, 최대 +0.48
+                    _drive_combo_speed_mult = 1.015 + min(_drive_combo_used * 0.012, 0.072)  # 콤보당 +1.2%, 최대 +7.2%
+                    _drive_particle_count = 8 + _drive_combo_used * 4
+                    _drive_combo_spin_cap_bonus = min(_drive_combo_used * 0.06, 0.36)  # 콤보당 커브캡 +0.06, 최대 +0.36
+                    _reset_smasher_combo("consumed_by_drive")
+                else:
+                    # 콤보 0~1: 스매셔 기본 드라이브 하향 (콤보 쌓아야 본래 성능 도달)
+                    _drive_combo_speed_mult = 0.985  # 속도 -1.5% 페널티
+                    _drive_base_spin = 0.18  # 기본 커브량 하향 (0.25 → 0.18)
+                    _drive_base_spin_cap = 0.45  # 커브 상한 하향 (0.6 → 0.45)
+                    _drive_base_speed_coeff = 0.010  # 공속 비례 커브 하향 (0.015 → 0.010)
+                    _drive_particle_count = 5  # 파티클 감소
             # 시너지 A: 리커버리 이속 버프 중 드라이브 → 스핀 1.3배
             _recovery_drive_bonus = 1.3 if (selected_character_type == "smasher" and recovery_speed_boost_active) else 1.0
             # 기본 커브량 (리커버리 시너지 적용)
-            base_spin = 0.25 * _recovery_drive_bonus
+            base_spin = _drive_base_spin * _recovery_drive_bonus
             # 공속에 비례한 추가 커브량 계산
-            speed_bonus_multiplier = speed * 0.015  # 공속 1당 0.015 추가 커브
+            speed_bonus_multiplier = speed * _drive_base_speed_coeff
             additional_spin = speed_bonus_multiplier + _drive_combo_spin_bonus
-            spin_cap = 0.6 + _drive_combo_spin_cap_bonus  # 콤보에 의한 커브 상한 증가
+            spin_cap = _drive_base_spin_cap + _drive_combo_spin_cap_bonus  # 콤보에 의한 커브 상한 증가
             ball_spin_strength = base_spin + additional_spin
             # 최대 커브량 제한 (콤보 높을수록 상한 증가)
             ball_spin_strength = min(spin_cap, ball_spin_strength)
@@ -146318,10 +146329,15 @@ def main(stage_num, new_boss_mode=False):
                         # 파워스매싱은 기존대로 빠르게
                         min_boost = BALL_BASE_SPEED * 0.675  # 최소 증가량 67.5% (기존 75% → 10% 하향)
                         actual_boost = max(ball_current_speed * 0.576, min_boost)  # 57.6% 증가(기존 64% → 10% 하향)
-                        # ⚡ 콤보 소모형 파워스매싱 속도 강화: 콤보당 +8% 추가 속도, 최대 +40%
-                        if power_smashing_combo_consumed >= 2:
-                            combo_speed_bonus = min(power_smashing_combo_consumed * 0.08, 0.40)
-                            actual_boost *= (1.0 + combo_speed_bonus)
+                        # ⚡ 스매셔 콤보 소모형 파워스매싱 속도 조정
+                        if selected_character_type == "smasher":
+                            if power_smashing_combo_consumed >= 2:
+                                # 콤보 소모: 콤보당 +8% 추가 속도, 최대 +40%
+                                combo_speed_bonus = min(power_smashing_combo_consumed * 0.08, 0.40)
+                                actual_boost *= (1.0 + combo_speed_bonus)
+                            else:
+                                # 콤보 없음: 속도 부스트 15% 감소 (콤보 쌓아야 본래 성능 도달)
+                                actual_boost *= 0.85
                         new_speed = ball_current_speed + actual_boost
                     # 속도 비율 적용으로 방향 유지하면서 속도 증가
                     if ball_current_speed > 0:
@@ -146387,6 +146403,9 @@ def main(stage_num, new_boss_mode=False):
                         initial_boost_multiplier = 1.72  # 기존 1.8 → 10% 하향(72% 추가)
                     else:  # 좌/우 파워스매싱
                         initial_boost_multiplier = 1.90  # 기존 2.0 → 10% 하향(90% 추가)
+                    # ⚡ 스매셔 콤보 없으면 초기 부스트도 하향
+                    if selected_character_type == "smasher" and power_smashing_combo_consumed < 2:
+                        initial_boost_multiplier *= 0.88  # 12% 감소 (직선 1.51, 좌우 1.67)
                     
                     # 초기 부스트 속도 적용
                     if final_speed > 0:
