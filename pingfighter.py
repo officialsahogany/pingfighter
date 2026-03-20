@@ -77414,7 +77414,7 @@ def draw_button_eye_effect(screen):
     rng = random.Random(button_eye_noise_seed)
     for ny in range(0, noise_h, 4):
         if rng.random() < 0.4:
-            stripe_alpha = rng.randint(30, int(80 * fade))
+            stripe_alpha = rng.randint(30, max(30, int(80 * fade)))
             gray = rng.randint(100, 200)
             stripe_w = rng.randint(20, noise_w)
             stripe_x = rng.randint(0, noise_w - stripe_w)
