@@ -9904,9 +9904,13 @@ class SpaceMap:
             _font_sub = pygame.font.Font(None, 28)
             _font_scan = pygame.font.Font(None, 16)
 
-        # 줌 캐시 (표면은 t값이 바뀔 때만 재렌더)
-        _surf_cache_key = -1
-        _surf_cached = None
+        # 표면을 루프 전에 한 번만 풀 디테일로 프리렌더 (프레임 드랍 방지)
+        _surf_cached = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
+        self._draw_planet_surface(_surf_cached, to_planet, 1.0)
+
+        # ingame_frame 스케일 캐시
+        _ig_cache_size = (-1, -1)
+        _ig_cache_surf = None
 
         def _ease_out(x):
             return 1.0 - (1.0 - x) ** 3.0
@@ -9924,7 +9928,6 @@ class SpaceMap:
             et = _ease_out(t)              # ease-out
 
             # ── 하강 파라미터 ──
-            surface_detail = min(1.0, et * 1.5)
             cam_zoom = 1.0 + et * 1.8
             # 경기장 스케일 — 홀드 비율 단축
             if ingame_frame is not None:
@@ -9939,14 +9942,7 @@ class SpaceMap:
                 arena_appear = max(0.0, (et - 0.15) / 0.85)
                 arena_scale = arena_appear * 1.0
 
-            # ── 표면 렌더 (캐시 — 10단계) ──
-            cache_key = int(surface_detail * 10)
-            if cache_key != _surf_cache_key:
-                _surf_cached = pygame.Surface((self.W, self.H), pygame.SRCALPHA)
-                self._draw_planet_surface(_surf_cached, to_planet, surface_detail)
-                _surf_cache_key = cache_key
-
-            # ── 줌 적용: 표면을 확대해서 중앙 크롭 ──
+            # ── 줌 적용: 프리렌더 표면을 크롭+스케일만 수행 ──
             if cam_zoom > 1.01:
                 zw = int(self.W / cam_zoom)
                 zh = int(self.H / cam_zoom)
@@ -9964,11 +9960,14 @@ class SpaceMap:
                     ig_w = int(self.W * arena_scale)
                     ig_h = int(self.H * arena_scale)
                     if ig_w > 4 and ig_h > 4:
-                        scaled_ig = pygame.transform.smoothscale(
-                            ingame_frame, (ig_w, ig_h))
+                        # 캐시: 같은 사이즈면 재활용
+                        if (ig_w, ig_h) != _ig_cache_size:
+                            _ig_cache_surf = pygame.transform.scale(
+                                ingame_frame, (ig_w, ig_h))
+                            _ig_cache_size = (ig_w, ig_h)
                         ix = (self.W - ig_w) // 2
                         iy = (self.H - ig_h) // 2
-                        self.screen.blit(scaled_ig, (ix, iy))
+                        self.screen.blit(_ig_cache_surf, (ix, iy))
                         # 테마별 경기장 외곽 테두리
                         if to_planet == 1:
                             self._draw_joseon_arena_border(
