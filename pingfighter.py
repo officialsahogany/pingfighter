@@ -77283,7 +77283,7 @@ def update_deadly_hug():
 
     # 돌진 페이즈
     if deadly_hug_rush_active:
-        target_y = 400.0  # 중앙보다 약간 아래
+        target_y = 630.0  # 플레이어 진영 상단 (Y=630~750)
         deadly_hug_rush_y += DEADLY_HUG_RUSH_SPEED
         if deadly_hug_rush_y >= target_y:
             deadly_hug_rush_y = target_y
@@ -77314,8 +77314,8 @@ def is_deadly_hug_dash_blocked():
     # 영역: 화면 중앙 기준 좌우 DEADLY_HUG_ZONE_WIDTH 폭
     zone_left = GAME_AREA_OFFSET_X + (GAME_PLAY_WIDTH - DEADLY_HUG_ZONE_WIDTH) // 2
     zone_right = zone_left + DEADLY_HUG_ZONE_WIDTH
-    zone_top = deadly_hug_zone_y - 100
-    zone_bottom = deadly_hug_zone_y + 200
+    zone_top = int(deadly_hug_zone_y) - 30
+    zone_bottom = 750  # 화면 하단까지
     px = PLAYER.centerx
     py = PLAYER.centery
     return zone_left <= px <= zone_right and zone_top <= py <= zone_bottom
@@ -77345,9 +77345,9 @@ def draw_deadly_hug_effect(screen):
     # 2) 영역 표시
     if deadly_hug_active:
         zone_left = GAME_AREA_OFFSET_X + (GAME_PLAY_WIDTH - DEADLY_HUG_ZONE_WIDTH) // 2
-        zone_top = int(deadly_hug_zone_y) - 100
+        zone_top = int(deadly_hug_zone_y) - 30
         zone_w = DEADLY_HUG_ZONE_WIDTH
-        zone_h = 300
+        zone_h = 750 - zone_top  # 화면 하단까지
         # 페이드 효과 (남은 시간 기반)
         if deadly_hug_timer < 60:
             fade = deadly_hug_timer / 60.0
