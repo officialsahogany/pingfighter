@@ -76861,7 +76861,7 @@ def update_cotton_throw():
         if proj["timer"] <= 0:
             to_remove.append(i)
             continue
-        if PLAYER:
+        if PLAYER and not cotton_blackout_active:
             px_c = PLAYER.centerx
             py_c = PLAYER.centery
             ddx = proj["x"] - px_c
