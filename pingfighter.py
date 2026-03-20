@@ -17878,6 +17878,9 @@ def _swap_boss_in_current_stage():
     button_eye_active = False
     button_eye_timer = 0
     button_eye_cooldown_timer = 0
+    button_eye_slow_active = False
+    button_eye_slow_factor = 1.0
+    button_eye_stun_applied = False
     patrol_guards_active = False
     patrol_guards_timer = 0
     patrol_guards = []
@@ -47118,7 +47121,14 @@ button_eye_active = False
 button_eye_timer = 0
 button_eye_cooldown_timer = 0
 BUTTON_EYE_COOLDOWN = 600           # 10초 쿨다운
-BUTTON_EYE_DURATION = 240           # 4초 지속
+BUTTON_EYE_DURATION = 180           # 3초 지속 (레이저0.5s + 둔화2s + 스턴0.5s)
+# 단추 눈 둔화/스턴 시스템
+button_eye_slow_active = False       # 둔화 활성 여부
+button_eye_slow_factor = 1.0        # 현재 이동속도 배율 (1.0=정상, 0.0=정지)
+BUTTON_EYE_SLOW_START = 30          # 레이저 끝난 후 둔화 시작 (경과 30프레임)
+BUTTON_EYE_SLOW_DURATION = 120      # 둔화 구간 2초 (30~150프레임)
+BUTTON_EYE_STUN_START = 150         # 스턴 시작 (경과 150프레임 = 2.5초)
+button_eye_stun_applied = False     # 스턴 중복 방지
 button_eye_noise_seed = 0           # 노이즈 시드 (렌더링용)
 button_eye_laser_y = 0.0            # 레이저 시작 Y
 
@@ -77400,20 +77410,42 @@ def activate_button_eye():
 
 
 def update_button_eye():
-    """단추 눈의 저주 업데이트"""
+    """단추 눈의 저주 업데이트 — 점진 둔화 + 스턴"""
     global button_eye_active, button_eye_timer, button_eye_cooldown_timer
     global button_eye_noise_seed
+    global button_eye_slow_active, button_eye_slow_factor, button_eye_stun_applied
 
     if button_eye_cooldown_timer > 0:
         button_eye_cooldown_timer -= 1
 
     if not button_eye_active:
+        button_eye_slow_active = False
+        button_eye_slow_factor = 1.0
         return
 
     button_eye_timer -= 1
     button_eye_noise_seed += 1  # 노이즈 패턴 변화
+
+    elapsed = BUTTON_EYE_DURATION - button_eye_timer
+
+    # 둔화 구간 (경과 30~150프레임 = 0.5~2.5초): 속도 100% → 0%
+    if BUTTON_EYE_SLOW_START <= elapsed < BUTTON_EYE_STUN_START:
+        button_eye_slow_active = True
+        slow_progress = (elapsed - BUTTON_EYE_SLOW_START) / BUTTON_EYE_SLOW_DURATION
+        button_eye_slow_factor = max(0.0, 1.0 - slow_progress)
+    elif elapsed >= BUTTON_EYE_STUN_START:
+        # 스턴 구간 (경과 150~180프레임 = 2.5~3.0초)
+        button_eye_slow_active = True
+        button_eye_slow_factor = 0.0
+        if not button_eye_stun_applied:
+            button_eye_stun_applied = True
+            try_apply_player_stun(0.5, source="button_eye_curse", knockback_scaled=False)
+
     if button_eye_timer <= 0:
         button_eye_active = False
+        button_eye_slow_active = False
+        button_eye_slow_factor = 1.0
+        button_eye_stun_applied = False
 
 
 def draw_button_eye_effect(screen):
@@ -142186,6 +142218,9 @@ def show_result(won):
     button_eye_active = False
     button_eye_timer = 0
     button_eye_cooldown_timer = 0
+    button_eye_slow_active = False
+    button_eye_slow_factor = 1.0
+    button_eye_stun_applied = False
     #  멘헤라걸 필살기 게이지 초기화 (스테이지 종료 시)
     # 스테이지 1의 경우 게이지 유지, 다른 스테이지는 초기화
     global displayed_boss_gauge
@@ -143788,6 +143823,9 @@ def main(stage_num, new_boss_mode=False):
     button_eye_active = False
     button_eye_timer = 0
     button_eye_cooldown_timer = 0
+    button_eye_slow_active = False
+    button_eye_slow_factor = 1.0
+    button_eye_stun_applied = False
     from config.stage_configs import BOSS_VARIANTS, get_boss_config_by_name
     if stage_num in BOSS_VARIANTS and len(BOSS_VARIANTS[stage_num]) > 1:
         # 보스 룰렛 선출
@@ -153649,6 +153687,10 @@ def show_character_info(background_surface=None):
         # 🧸 솜뭉치 폭탄 둔화 효과 반영
         if cotton_bomb_slow_timer > 0:
             move_speed *= COTTON_BOMB_SLOW_MULTIPLIER
+
+        # 🧿 단추 눈의 저주 점진 둔화 반영
+        if button_eye_slow_active:
+            move_speed *= button_eye_slow_factor
 
         # 🌧️ 소나기 이벤트 시 이동속도 감소 반영
         if is_rain_active():
